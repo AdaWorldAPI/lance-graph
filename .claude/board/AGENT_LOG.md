@@ -31,6 +31,14 @@
 **Files touched:** `crates/cognitive-shader-driver/src/driver.rs` (+42 lines)
 **cargo check:** `Finished dev` — 0 errors; pre-existing warnings only (causal-edge/p64-bridge/ontology deprecations — none in cognitive-shader-driver). Note: `--features hpc-extras` absent from this crate; check ran with default features.
 **Outcome:** SUCCESS — added `HashMap<MailboxId, MailboxSoA<1024>>` field on `ShaderDriver`, `with_mailbox` builder setter on `CognitiveShaderBuilder`, `mailbox()` read accessor. Singleton `Arc<BindSpace>` untouched. All new items marked `/// work`.
+## [Sonnet agent] D-ODOO-EXT-5 — curated-vs-extracted pairing table
+
+Scanner (stdlib `re`) walked all 15 curated lane modules + 12 extracted TIER-1 addon modules, finding 53 unique curated model_names and 229 extracted, yielding 48 overlap pairings. Top deltas: `account.move` (24f/27m curated → 142f/352m extracted, Δ+118f/+325m), `account.move.line` (+67f/+132m), `sale.order` (+43f/+128m) — confirming curated is a precise savant-relevant subset. 17 private (`const`) lane consts promoted to `pub const` in l3/l5/l7/l13.rs to enable absolute crate-path references. Selection rule: pick curated entry with most inline-counted fields+methods (handles l3.rs indirect-ref pattern); extracted entry with most fields+methods.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `bf42ad2`. `cargo test -p lance-graph-ontology --lib` green (201 tests, +2 new: `pairing_table_is_well_formed`, `pairing_table_has_expected_size`).
+
+---
+
 ## [Sonnet agent] D-ODOO-EXT-4 — l10n_de SKR03/04 chart + UStVA Kennzahlen + GoBD wiring
 
 Emitted three new typed surfaces unreachable by the Python ast extractor: SKR03_CHART (1 274 accounts) + SKR04_CHART (1 192 accounts) from CSV via `OdooAccountTemplate`/`OdooSkrChart`; USTVA_KENNZAHLEN (37 Kennzahlen — full UStVA return, not just the canonic Kz.81..95 subset) from XML via `OdooUstvaKennzahl`/`OdooKennzahlKind`; GOBD_WIRING from `res_company.py` via `OdooGobdWiring`. All carry regulation_iri anchors (UStG §1a/4/13/13b/15/18, HGB §238/266, GoBD, AO §146a). Extractor extended with `data_extractors/{csv_chart,xml_kennzahl,gobd_company}.py` + `data` CLI subcommand (stdlib-only).
