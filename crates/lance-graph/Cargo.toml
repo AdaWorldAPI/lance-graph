@@ -44,7 +44,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 bytes = "1"
 snafu = "0.8"
-deltalake = { version = "0.31", features = ["datafusion", "s3", "azure", "gcs"], optional = true }
+deltalake = { version = "0.32", features = ["datafusion", "s3", "azure", "gcs"], optional = true }
 url = { version = "2", optional = true }
 
 # AdaWorldAPI/ndarray fork with 55 HPC modules (Fingerprint, CAM-PQ, CLAM, BLAS, ZeckF64)
