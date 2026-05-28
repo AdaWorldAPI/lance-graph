@@ -45,6 +45,8 @@ use p64_bridge::cognitive_shader::CognitiveShader;
 
 use crate::auto_style;
 use crate::bindspace::{BindSpace, WORDS_PER_FP};
+use crate::mailbox_soa::MailboxSoA;
+use lance_graph_contract::collapse_gate::MailboxId;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ShaderDriver — holds everything the shader needs to drive
@@ -72,6 +74,14 @@ pub struct ShaderDriver {
     /// Lives in `causal-edge` (zero-dep), so attaching it does NOT pull
     /// the planner into shader-driver.
     pub(crate) nars_tables: Option<Arc<NarsTables>>,
+    /// Transitional per-mailbox routing surface (slice A2).
+    ///
+    /// Consumers can opt into per-mailbox routing by inserting
+    /// `MailboxSoA<1024>` instances here via the builder's
+    /// `with_mailbox` method. The singleton `Arc<BindSpace>` (above)
+    /// is unchanged — this field is purely additive and does not alter
+    /// any existing dispatch semantics. Removed at cutover (plan S3).
+    pub(crate) mailboxes: std::collections::HashMap<MailboxId, MailboxSoA<1024>>,
 }
 
 impl ShaderDriver {
@@ -92,6 +102,7 @@ impl ShaderDriver {
             default_style,
             awareness: RwLock::new(awareness),
             nars_tables: None,
+            mailboxes: std::collections::HashMap::new(),
         }
     }
 
@@ -109,6 +120,17 @@ impl ShaderDriver {
     #[inline]
     pub fn nars_tables(&self) -> Option<&Arc<NarsTables>> {
         self.nars_tables.as_ref()
+    }
+
+    /// Return a read reference to the `MailboxSoA<1024>` registered under
+    /// `id`, or `None` if no mailbox with that id has been inserted via
+    /// the builder's `with_mailbox` method.
+    ///
+    /// The singleton `Arc<BindSpace>` is unchanged by this accessor.
+    /// This is the transitional per-mailbox routing read surface (slice A2).
+    #[inline]
+    pub fn mailbox(&self, id: MailboxId) -> Option<&MailboxSoA<1024>> {
+        self.mailboxes.get(&id)
     }
 
     /// Borrow the underlying BindSpace (read-only).
@@ -596,6 +618,9 @@ pub struct CognitiveShaderBuilder {
     planes: Option<[[u64; 64]; 8]>,
     default_style: u8,
     nars_tables: Option<Arc<NarsTables>>,
+    /// Transitional per-mailbox routing map populated by `with_mailbox`.
+    /// Forwarded into `ShaderDriver::mailboxes` at `build()` time.
+    mailboxes: std::collections::HashMap<MailboxId, MailboxSoA<1024>>,
 }
 
 impl CognitiveShaderBuilder {
@@ -606,6 +631,7 @@ impl CognitiveShaderBuilder {
             planes: None,
             default_style: auto_style::DELIBERATE,
             nars_tables: None,
+            mailboxes: std::collections::HashMap::new(),
         }
     }
 
@@ -635,6 +661,15 @@ impl CognitiveShaderBuilder {
         self
     }
 
+    /// Register a `MailboxSoA<1024>` for transitional per-mailbox routing
+    /// (slice A2). The mailbox is keyed by `id`; a second call with the
+    /// same `id` replaces the previous entry. Multiple mailboxes are
+    /// supported. The singleton `Arc<BindSpace>` is not affected.
+    pub fn with_mailbox(mut self, id: MailboxId, soa: MailboxSoA<1024>) -> Self {
+        self.mailboxes.insert(id, soa);
+        self
+    }
+
     pub fn build(self) -> ShaderDriver {
         let awareness = (0..12)
             .map(|ord| GrammarStyleAwareness::bootstrap(ord_to_thinking_style(ord)))
@@ -646,6 +681,7 @@ impl CognitiveShaderBuilder {
             default_style: self.default_style,
             awareness: RwLock::new(awareness),
             nars_tables: self.nars_tables,
+            mailboxes: self.mailboxes,
         }
     }
 }

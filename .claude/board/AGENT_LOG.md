@@ -1,3 +1,39 @@
+## [Agent-A4 / Sonnet] D-MBX-A4 — append §10 architectural refinements to bindspace→mailbox plan
+
+**D-id:** D-MBX-A4 | **Commit:** 0f448730 (cherry-picked from worktree `worktree-agent-a1961cf1d2ca1db93` f5cdcbe8) | **Branch:** claude/lance-surrealdb-analysis-LXmug
+**Files touched:** `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md` (+36 lines, new §10 at end). 36 insertions, 0 deletions — no existing text modified.
+**Markers:** 9 `<!-- ///work -->` comments placed (7 refinement bullets + 2 OQ entries); orchestrator removed all 9 in review pass.
+**Outcome:** DONE. §10 captures: (1) SoA Lance container ≠ cascade; (2) cascade is NOT index space; (3) 64K-256K envelope; (4) W-slot mailbox-witness table semantics; (5) cascade granularities = CPU/cache boundaries; (6) `simd_soa.rs` introspection framework; (7) SoA invariant spawn→commit. Surviving open questions: OQ-MBX-8 (`persisted_row` vs Lance versioning) + OQ-MBX-15′ (container scoping).
+
+---
+
+## [Agent-A3 / Sonnet] D-MBX-A3 — WitnessTable column-type primitive (W-slot resolver)
+
+**D-id:** D-MBX-A3 | **Commit:** ef848a34 | **Branch:** claude/lance-surrealdb-analysis-LXmug
+**Files touched:** `crates/lance-graph-contract/src/witness_table.rs` (new, +185 lines); `crates/lance-graph-contract/src/lib.rs` (+2 lines, `pub mod witness_table`)
+**Tests:** `cargo test -p lance-graph-contract --lib witness_table` → 3/3 passed; `cargo check -p lance-graph-contract` → `Finished dev` 0 errors 0 warnings
+**Outcome:** DONE. `WitnessEntry` + `WitnessTable<N=64>` declared; zero new dependencies; `/// work` markers on all pub items.
+
+---
+
+## [Agent-A1 / Sonnet] D-MBX-A1 — add thoughtspace columns to MailboxSoA<N>
+
+**D-id:** D-MBX-A1 | **Commit:** 1df12eca | **Branch:** claude/lance-surrealdb-analysis-LXmug
+**Files touched:** `crates/cognitive-shader-driver/src/mailbox_soa.rs` (+103 lines)
+**cargo check:** `Finished dev` — 0 errors; pre-existing warnings only (causal-edge/p64-bridge/ontology — none in mailbox_soa.rs). `--features hpc-extras` absent from this crate; ran with default features.
+**Outcome:** SUCCESS — added 4 SoA fields (edges/qualia/meta/entity_type), 8 getter/setter methods, updated new() + reset_row(). All new items marked `/// work`.
+
+---
+
+## [Agent-A2 / Sonnet] D-MBX-A2 — transitional per-mailbox routing field+builder on ShaderDriver
+
+**D-id:** D-MBX-A2 | **Commit:** 61b641d5 | **Branch:** claude/lance-surrealdb-analysis-LXmug
+**Files touched:** `crates/cognitive-shader-driver/src/driver.rs` (+42 lines)
+**cargo check:** `Finished dev` — 0 errors; pre-existing warnings only (causal-edge/p64-bridge/ontology deprecations — none in cognitive-shader-driver). Note: `--features hpc-extras` absent from this crate; check ran with default features.
+**Outcome:** SUCCESS — added `HashMap<MailboxId, MailboxSoA<1024>>` field on `ShaderDriver`, `with_mailbox` builder setter on `CognitiveShaderBuilder`, `mailbox()` read accessor. Singleton `Arc<BindSpace>` untouched. All new items marked `/// work`.
+
+---
+
 ## [Main-thread] D-ODOO-SAV-4 — odoo-savant Reasoner layer (4 impls, one per ReasoningKind)
 
 Implemented `crates/lance-graph-callcenter/src/savant_reasoners.rs`: `SavantConclusion { savant_id, query_strategy, confidence: NarsTruth, rationale }` (suggestion-only, **no serde** — the one-binary contract; JSON only at the MedCareV2 FFI boundary) + the 4 `Reasoner` impls per the dispatch decision pinned in PR #419: `CustomerCategoryReasoner` / `PostingAnomalyReasoner` / `NextBestActionReasoner` / `OtherReasoner`, covering all 25 savants in `contract::savants::SAVANTS`. Each resolves the concrete savant from `(kind, namespace)`, selects `QueryStrategy` via `InferenceType::default_strategy()`, and fuses evidence-ref coverage into a NARS `(frequency, confidence)`.
