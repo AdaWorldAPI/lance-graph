@@ -20,7 +20,9 @@
 //! gated steps: `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`.
 
 use causal_edge::CausalEdge64;
+use lance_graph_contract::cognitive_shader::MetaWord;
 use lance_graph_contract::collapse_gate::{CollapseGateEmission, MailboxId, MergeMode};
+use lance_graph_contract::qualia::QualiaI4_16D;
 
 /// Spatial-temporal accumulator for per-row baton receipts.
 ///
@@ -56,6 +58,33 @@ pub struct MailboxSoA<const N: usize> {
     /// Guards the "never emit on the same cycle twice" invariant:
     /// if `last_emission_cycle[row] == current_cycle`, emission is suppressed.
     pub last_emission_cycle: [u32; N],
+
+    // ── NEW: migrated thoughtspace columns (per-mailbox owned, D-MBX-A1) ──
+
+    /// work
+    /// Per-row LE baton edge (`CausalEdge64`, 8 B/row).
+    /// Migrated from `BindSpace.edges` (EdgeColumn).
+    /// This IS the LE contract / baton edge for this mailbox row.
+    pub edges: [CausalEdge64; N],
+
+    /// work
+    /// Per-row affective role vector (`QualiaI4_16D`, 8 B/row).
+    /// Migrated from `BindSpace.qualia` (QualiaI4Column).
+    /// 16 signed i4 dimensions (arousal/valence/tension/…); 9× compression vs f32.
+    pub qualia: [QualiaI4_16D; N],
+
+    /// work
+    /// Per-row packed meta word (`MetaWord`, 4 B/row).
+    /// Migrated from `BindSpace.meta` (MetaColumn).
+    /// Layout: `thinking(6) + awareness(4) + nars_f(8) + nars_c(8) + free_e(6)`.
+    pub meta: [MetaWord; N],
+
+    /// work
+    /// Per-row OGIT entity-type index (`u16`, 2 B/row).
+    /// Migrated from `BindSpace.entity_type`.
+    /// 1-based index into the shared (immutable) ontology registry.
+    /// The registry itself stays `Arc<OntologyRegistry>` (cold Zone-2, not owned here).
+    pub entity_type: [u16; N],
 
     /// Monotonic cycle stamp; advanced by `tick()`.
     pub current_cycle: u32,
@@ -97,6 +126,11 @@ impl<const N: usize> MailboxSoA<N> {
             current_cycle: 0,
             w_slot,
             threshold,
+            // ── NEW thoughtspace columns — zero-initialised (D-MBX-A1) ──
+            edges: [CausalEdge64::ZERO; N],
+            qualia: [QualiaI4_16D::ZERO; N],
+            meta: [MetaWord(0); N],
+            entity_type: [0u16; N],
         }
     }
 
@@ -189,6 +223,11 @@ impl<const N: usize> MailboxSoA<N> {
         // Restore the "never emitted" sentinel so the row can emit immediately
         // on the next cycle without triggering the same-cycle guard.
         self.last_emission_cycle[row] = u32::MAX;
+        // ── NEW thoughtspace columns reset (D-MBX-A1) ──
+        self.edges[row] = CausalEdge64::ZERO;
+        self.qualia[row] = QualiaI4_16D::ZERO;
+        self.meta[row] = MetaWord(0);
+        self.entity_type[row] = 0;
     }
 
     // ── Read-only inspectors ──────────────────────────────────────────────────
@@ -226,6 +265,70 @@ impl<const N: usize> MailboxSoA<N> {
             .iter()
             .filter(|&&e| e.abs() >= self.threshold)
             .count()
+    }
+
+    // ── Thoughtspace column accessors (D-MBX-A1) ─────────────────────────────
+
+    /// work
+    /// Return the `CausalEdge64` baton edge for `row`.
+    ///
+    /// Panics (debug) / wraps (release) on out-of-bounds; callers
+    /// should stay within `[0, N)`.
+    #[inline]
+    pub fn edge(&self, row: usize) -> CausalEdge64 {
+        self.edges[row]
+    }
+
+    /// work
+    /// Set the `CausalEdge64` baton edge for `row`.
+    ///
+    /// Panics (debug) / wraps (release) on out-of-bounds; callers
+    /// should stay within `[0, N)`.
+    #[inline]
+    pub fn set_edge(&mut self, row: usize, e: CausalEdge64) {
+        self.edges[row] = e;
+    }
+
+    /// work
+    /// Return the packed `QualiaI4_16D` affective vector for `row`.
+    #[inline]
+    pub fn qualia_at(&self, row: usize) -> QualiaI4_16D {
+        self.qualia[row]
+    }
+
+    /// work
+    /// Set the packed `QualiaI4_16D` affective vector for `row`.
+    #[inline]
+    pub fn set_qualia(&mut self, row: usize, q: QualiaI4_16D) {
+        self.qualia[row] = q;
+    }
+
+    /// work
+    /// Return the packed `MetaWord` for `row`.
+    #[inline]
+    pub fn meta_at(&self, row: usize) -> MetaWord {
+        self.meta[row]
+    }
+
+    /// work
+    /// Set the packed `MetaWord` for `row`.
+    #[inline]
+    pub fn set_meta(&mut self, row: usize, m: MetaWord) {
+        self.meta[row] = m;
+    }
+
+    /// work
+    /// Return the OGIT entity-type index for `row` (1-based, shared ontology).
+    #[inline]
+    pub fn entity_type_at(&self, row: usize) -> u16 {
+        self.entity_type[row]
+    }
+
+    /// work
+    /// Set the OGIT entity-type index for `row`.
+    #[inline]
+    pub fn set_entity_type(&mut self, row: usize, t: u16) {
+        self.entity_type[row] = t;
     }
 }
 
