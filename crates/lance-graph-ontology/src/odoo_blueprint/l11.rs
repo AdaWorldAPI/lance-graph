@@ -27,8 +27,8 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef,
 };
 
 // ─── account.account ─────────────────────────────────────────────────────────
@@ -48,6 +48,7 @@ use super::{
 
 pub const ACCOUNT_ACCOUNT: OdooEntity = OdooEntity {
     model_name: "account.account",
+    kind: OdooEntityKind::Model,
     description: "Chart-of-accounts leaf record.  `account_type` is a 19-value closed enum \
                   that determines `internal_group`, `include_initial_balance` (Bilanz vs GuV \
                   reset), and whether reconciliation is allowed.  `code` is company-scoped via \
@@ -226,6 +227,7 @@ pub const ACCOUNT_ACCOUNT: OdooEntity = OdooEntity {
             line_range: (1, 1642),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -238,6 +240,7 @@ pub const ACCOUNT_ACCOUNT: OdooEntity = OdooEntity {
 
 pub const ACCOUNT_ACCOUNT_TAG: OdooEntity = OdooEntity {
     model_name: "account.account.tag",
+    kind: OdooEntityKind::Model,
     description: "Annotation tag scoped to applicability domain (accounts/taxes/products) \
                   and optional country.  Tax-scoped tags drive report-line buckets in the \
                   Enterprise reporting engine.  Name starting `-` signals `balance_negate` \
@@ -322,6 +325,7 @@ pub const ACCOUNT_ACCOUNT_TAG: OdooEntity = OdooEntity {
             line_range: (1, 140),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -340,6 +344,7 @@ pub const ACCOUNT_ACCOUNT_TAG: OdooEntity = OdooEntity {
 
 pub const ACCOUNT_JOURNAL: OdooEntity = OdooEntity {
     model_name: "account.journal",
+    kind: OdooEntityKind::Model,
     description: "Journal record: type-classified posting book (sale/purchase/cash/bank/ \
                   credit/general).  Drives default account selection, lock-date scope \
                   (general journals exempt from sale/purchase locks per R15), sequence \
@@ -491,6 +496,7 @@ pub const ACCOUNT_JOURNAL: OdooEntity = OdooEntity {
             line_range: (1, 1300),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -521,6 +527,7 @@ pub const ACCOUNT_JOURNAL: OdooEntity = OdooEntity {
 
 pub const RES_COMPANY_LOCK_DATE: OdooEntity = OdooEntity {
     model_name: "res.company",
+    kind: OdooEntityKind::Model,
     description: "Lock-date extension on res.company (L11 scope: fields R11-R19 only). \
                   Five lock-date types control posting windows: fiscalyear (global), \
                   tax (auto-set on tax-close post), sale, purchase, hard (irreversible). \
@@ -673,6 +680,7 @@ pub const RES_COMPANY_LOCK_DATE: OdooEntity = OdooEntity {
             line_range: (50, 749),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

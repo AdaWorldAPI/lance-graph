@@ -19,8 +19,8 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef,
 };
 
 // ─── 1. account.account.tag  (L15 extension: balance_negate sign convention) ─
@@ -158,6 +158,7 @@ const TAG_EXTENSION_CONSTRAINTS: &[OdooConstraint] = &[OdooConstraint {
 /// and the VAT-report aggregation path (K8).
 pub const ACCOUNT_ACCOUNT_TAG_L15: OdooEntity = OdooEntity {
     model_name: "account.account.tag",
+    kind: OdooEntityKind::Model,
     description: "L15 ext: balance_negate + report_expression_id on account.account.tag. \
                   Leading '-' in name → negate GL balance when summing into USt-VA box. \
                   Full account.report is Enterprise; K8 reuses tag->Kz structure.",
@@ -174,6 +175,7 @@ pub const ACCOUNT_ACCOUNT_TAG_L15: OdooEntity = OdooEntity {
             line_range: (1, 141),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -318,6 +320,7 @@ const TAX_EXTENSION_CONSTRAINTS: &[OdooConstraint] = &[
 /// part of the CABA semantic cluster.
 pub const ACCOUNT_TAX_L15: OdooEntity = OdooEntity {
     model_name: "account.tax",
+    kind: OdooEntityKind::Model,
     description: "L15 ext: CABA gate + rounding engine + totals. Core in L3. Adds \
                   hide_tax_exigibility, _round_base_lines_tax_details (round_globally/per_line), \
                   _get_tax_totals_summary (footer subtotals), _prepare_tax_lines (GL diff). \
@@ -353,6 +356,7 @@ pub const ACCOUNT_TAX_L15: OdooEntity = OdooEntity {
             },
         ],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

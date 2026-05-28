@@ -12,8 +12,8 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef,
 };
 
 // ─── account.analytic.plan ────────────────────────────────────────────────────
@@ -25,6 +25,7 @@ use super::{
 
 pub const ANALYTIC_PLAN: OdooEntity = OdooEntity {
     model_name: "account.analytic.plan",
+    kind: OdooEntityKind::Model,
     description: "Analytic plan hierarchy: one orthogonal cost-attribution axis (e.g. \
                   Department, Project). `_column_name()` drives dynamic DB columns on \
                   `account.analytic.line`; `_get_applicability()` resolves mandatory / \
@@ -105,6 +106,7 @@ pub const ANALYTIC_PLAN: OdooEntity = OdooEntity {
             line_range: (1, 82),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -117,6 +119,7 @@ pub const ANALYTIC_PLAN: OdooEntity = OdooEntity {
 
 pub const ANALYTIC_ACCOUNT: OdooEntity = OdooEntity {
     model_name: "account.analytic.account",
+    kind: OdooEntityKind::Model,
     description: "Leaf analytic cost-centre.  Belongs to one analytic plan axis; \
                   `root_plan_id` anchors the plan tree root used in amount allocation \
                   accumulation.  `active=False` blocks posting (R12 archived-account guard).",
@@ -239,6 +242,7 @@ pub const ANALYTIC_ACCOUNT: OdooEntity = OdooEntity {
             line_range: (1, 79),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -251,6 +255,7 @@ pub const ANALYTIC_ACCOUNT: OdooEntity = OdooEntity {
 
 pub const ANALYTIC_APPLICABILITY: OdooEntity = OdooEntity {
     model_name: "account.analytic.applicability",
+    kind: OdooEntityKind::Model,
     description: "Policy rule: for a given (business_domain, product_category, \
                   account_prefix, company) context, declares whether an analytic plan \
                   axis is mandatory / optional / unavailable.  `_get_score()` ranks \
@@ -337,6 +342,7 @@ pub const ANALYTIC_APPLICABILITY: OdooEntity = OdooEntity {
             line_range: (59, 82),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -350,6 +356,7 @@ pub const ANALYTIC_APPLICABILITY: OdooEntity = OdooEntity {
 
 pub const ANALYTIC_LINE: OdooEntity = OdooEntity {
     model_name: "account.analytic.line",
+    kind: OdooEntityKind::Model,
     description: "Analytic posting record created at journal-entry post time. \
                   Amount = -aml.balance (company currency). Bidirectional sync with \
                   `account.move.line.analytic_distribution` via `_update_analytic_distribution` \
@@ -518,6 +525,7 @@ pub const ANALYTIC_LINE: OdooEntity = OdooEntity {
             line_range: (1, 111),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -532,6 +540,7 @@ pub const ANALYTIC_LINE: OdooEntity = OdooEntity {
 
 pub const ANALYTIC_DISTRIBUTION_MODEL: OdooEntity = OdooEntity {
     model_name: "account.analytic.distribution.model",
+    kind: OdooEntityKind::Model,
     description: "Distribution rule record: maps (partner, product_category, \
                   account_prefix, company) to a proposed `analytic_distribution` JSON. \
                   `_get_applicable_models()` filters by account_prefix startswith; \
@@ -657,6 +666,7 @@ pub const ANALYTIC_DISTRIBUTION_MODEL: OdooEntity = OdooEntity {
             line_range: (1, 71),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
