@@ -120,7 +120,7 @@ mod tests {
         // [14_096 .. 16_384) (= 2288 dims) as headroom. We claim 2250 of
         // those 2288 dims; 38 remain.
         assert_eq!(SAVANT_SLICE_END, 16_346);
-        assert!(SAVANT_SLICE_END <= VSA_DIMS);
+        const { assert!(SAVANT_SLICE_END <= VSA_DIMS) };
         assert_eq!(VSA_DIMS - SAVANT_SLICE_END, 38, "headroom remaining");
     }
 
