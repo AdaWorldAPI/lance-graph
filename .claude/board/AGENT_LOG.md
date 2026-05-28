@@ -31,6 +31,14 @@
 **Files touched:** `crates/cognitive-shader-driver/src/driver.rs` (+42 lines)
 **cargo check:** `Finished dev` — 0 errors; pre-existing warnings only (causal-edge/p64-bridge/ontology deprecations — none in cognitive-shader-driver). Note: `--features hpc-extras` absent from this crate; check ran with default features.
 **Outcome:** SUCCESS — added `HashMap<MailboxId, MailboxSoA<1024>>` field on `ShaderDriver`, `with_mailbox` builder setter on `CognitiveShaderBuilder`, `mailbox()` read accessor. Singleton `Arc<BindSpace>` untouched. All new items marked `/// work`.
+## [Sonnet agent] D-ODOO-EXT-2 Wave C — l10n_de/account_peppol/account_edi_ubl_cii extraction (closes EXT-2)
+
+Extracted 3 DE-specific + EU e-invoice TIER-1 addons: l10n_de 8 models (335 LOC, 0% field-fallback — ORM models only; SKR03/04 chart, tax tables, and UStVA Kennzahlen are intentionally absent, scope of D-ODOO-EXT-4), account_peppol 10 models (1 446 LOC, 2.4% field-fallback, 1 Other field), account_edi_ubl_cii 16 models (3 703 LOC, 0% field-fallback). Helper method rates are high (57–94%) as expected for XML-rendering wrappers and partner-extension models — documented in commit body per plan guidance. No extractor fixes required for Wave C; German docstrings were not present in emitted Rust output and caused no UTF-8 issues.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `901c58c`. `cargo test -p lance-graph-ontology --lib` green (192 tests). EXT-2 COMPLETE (12 TIER-1 addons extracted, ~73 534 total extracted/ LOC across all waves).
+
+---
+
 ## [Sonnet agent] D-ODOO-EXT-2 Wave B — account/account_payment/purchase/sale/stock extraction
 
 Extracted 5 value-flow-chain TIER-1 addons into `odoo_blueprint::extracted::{account,account_payment,purchase,sale,stock}` (41 701 insertions, 5 new Rust modules). Model counts: account 66 models (21 340 LOC, 0.8% field-fallback), account_payment 7 models (663 LOC, 0%), purchase 15 models (3 080 LOC, 0%), sale 20 models (4 588 LOC, 1.1%), stock 33 models (12 020 LOC, 1.2%). All five pass the <5% `OdooFieldKind::Other` gate (16 Other hits total: exotic `fields.Json`/`fields.Properties` variants). No extractor fixes required for Wave B — the Wave A `_dedup_by_model_name` + `OdooFieldKind::Other` variant absorbed all edge cases cleanly. `extracted/mod.rs` updated with Wave A/B comment-grouped alphabetical module declarations.
