@@ -1,3 +1,22 @@
+## 2026-05-28 — odoo-savant-reasoners-v2 (reshape: `Reasoner` trait → typed composition over `CausalEdge64` + `Tactic` + `callcenter/role_keys`)
+
+**Status:** PROPOSAL (architectural reshape of v1, shipped PR #420 with a "MED on dispatch shape" caveat). v1 review resolved: the `Reasoner` trait surface is the wrong shape per CLAUDE.md "P-1 The Click" + "P0 AGI-as-glove" litmus tests. v2 deprecates the v1 surface (feature-gated + `#[deprecated]`) and routes the canonical path through the agnostic substrate that already exists (`CausalEdge64` + `Tactic` + 33-TSV atoms + role-key catalogues — all shipped via PR #411 + #418 + #419 + #420).
+**Confidence:** HIGH on the diagnosis (litmus tests in CLAUDE.md name v1's anti-patterns verbatim). HIGH on the right-shape vocabulary (PR #411 ratified the 34-tactic `Tactic` trait as "the Elixir-like recipe layer that later fronts the real fingerprint substrate via cognitive-shader-driver with no change to the 34 call sites"). MED on per-savant typed composition consts (substantial translation pass from savant-doc + L-doc curation).
+**Plan file:** `.claude/plans/odoo-savant-reasoners-v2.md`
+**Predecessors:** PR #420 (v1 ship — the surface to deprecate), PR #411 (33-TSV atoms + 34-tactic `Tactic` + `recipe_kernels`), PR #418 (BindSpace → mailbox-owned SoA; `E-BATON-1`), PR #419 (25 AXIS-B evidence contracts), PR #416 (`contract::savants` roster), PR #414 (D-ODOO-SAV-1/2/3). v1 plan: `odoo-savant-reasoners-v1.md`.
+**Anchored iron rules:** AGI-as-glove (P0), The Click P-1 ("free function on carrier = reject"), `I-VSA-IDENTITIES` (`callcenter/role_keys.rs` named home), `E-BATON-1` (mailbox-owned SoA, CE64 baton as cross-boundary state), `I-LEGACY-API-FEATURE-GATED` (v1 deprecation under feature + migration pointer).
+
+### Scope
+Three deliverable groups: **Group D** — agnostic composition primitives (`SavantPattern` + `TacticInvocation` + `EdgeEmissionSpec` + `AtomTouchMask`) in `lance-graph-contract`, zero-dep, sits next to `atoms`/`recipe_kernels`/`nars`. **Group E** — `crates/lance-graph-callcenter/src/role_keys.rs` with 25 disjoint Vsa16kF32 slices per `I-VSA-IDENTITIES` Layer-2 catalogue (slice manifest coordinated with `grammar/role_keys.rs`). **Group F** — 25 typed `SavantPattern` consts in callcenter drawn from `.claude/odoo/savants/<N>.md` slot 1/4 + `.claude/odoo/L*.md` business semantics. **Group G** — deprecate v1 surface (`Reasoner` trait + 4 impls + `SavantConclusion` + `SavantSuggestion` + `build_conclusion`) under `legacy-reasoner` feature with `#[deprecated]` migration pointers; removal in a follow-up after woa-rs migrates.
+
+### Deliverables
+D-ODOO-SAV-5a (Group D): composition primitives in contract · D-ODOO-SAV-5b (Group E): `callcenter/role_keys.rs` 25 disjoint slices + lookup · D-ODOO-SAV-5c (Group F): 25 `SavantPattern` consts · D-ODOO-SAV-5d (Group G): `#[deprecated]` + `legacy-reasoner` feature gate on v1 surface · D-ODOO-SAV-5e: end-to-end test (FiscalPositionResolver → expected `CausalEdge64` row, SPO + NARS + v2 signed mantissa).
+
+### Execution
+5a + 5b parallel (additive, zero churn) → 5c after both → 5d after 5c (deprecation pointers name a real target) → 5e throughout (per-D-id tests + e2e proof in 5c completion). woa-rs consumer migration OUT OF SCOPE but UNBLOCKED by 5d. Board hygiene: this plan + INTEGRATION_PLANS PREPEND + STATUS_BOARD rows + EPIPHANIES `E-SAVANT-COMPOSITION-1` land in the same commit as 5a.
+
+### Invariants
+AGI-as-glove (new capability = column population, not new trait) · `I-VSA-IDENTITIES` (identity in `role_keys`, content in atoms/tactic/emission/AriGraph, never bundled) · The Click P-1 (no free function on carrier's state) · `I-LEGACY-API-FEATURE-GATED` (v1 deprecation under feature + migration pointer) · suggestion-only never un-guarded write (woa-rs Iron Rule 7).
 ## 2026-05-27 — multi-server-cognition-expansion-v1 (legacy-stack displacement + Raft-log / SoA-state-machine)
 
 **Status:** PROPOSAL — §2 displacement is current-state; §3 multi-server expansion is unbuilt, gated on the §4 determinism probe
