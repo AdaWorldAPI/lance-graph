@@ -35,6 +35,15 @@
 
 ---
 
+## callcenter/audit-fix — fix(callcenter): `with_jsonl_audit` returns `Result<Self, AuditError>` (branch work)
+
+**Status:** On branch `claude/activate-lance-graph-att-k2pHI` (HEAD `ea2a378`, not yet a PR). 1-line `.rs` change + this board record (EPIPHANIES E-AUDIT-1, prepended 2026-05-27).
+
+- **Added** — nothing new; retypes `UnifiedBridge::with_jsonl_audit` return from `std::io::Result<Self>` → `Result<Self, crate::audit_sink::AuditError>` (`unified_bridge.rs:315`). Resolves an E0277 that only the `--features jsonl` build surfaced (the default `cargo check` skips the feature-gated path).
+- **Locked** — audit constructors return the **domain** error (`AuditError`), not `io::Result`. **No** crate-wide `From<AuditError> for std::io::Error` coercion (rejected: lossy across the non-`Io` variants `ChannelFull`/`Serialize`/`SchemaMigration`/`Lance`/`Arrow`). Optional-feature error paths must be CI-checked under their feature, not just default-feature (E-AUDIT-1).
+- **Deferred** — none. MedCare-rs sprint-2 item 5 (first real caller) consumes the `AuditError` signature directly; any caller needing `io::Result` interop adds a local `map_err`, not a crate-wide `From`.
+- **Docs** — EPIPHANIES E-AUDIT-1.
+- **Confidence (2026-05-27):** working — `cargo check/test -p lance-graph-callcenter --features jsonl` clean at commit time (137 tests); tree clean; zero callers depend on the old signature.
 ## PR #411 — Cognitive substrate: locked 33-TSV atom layer + 34-tactic recipes + escalation loop (MERGED 2026-05-27 → main)
 
 **Status:** MERGED. Branch `claude/splat3d-cpu-simd-renderer-MAOO0` → `main`, 39 commits.
