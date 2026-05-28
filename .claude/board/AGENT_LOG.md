@@ -1,3 +1,11 @@
+## [Sonnet agent] D-NEH-1a..g — normalized-entity-holy-grail-v1 Stage 1 contract surface scaffold
+
+Created `cognition::{stages, entity, op, advance, cascade}` + `transaction::{interactive, bulk, periodisch, ctx}` modules in `lance-graph-contract` — the typed consumer pipeline grammar per `.claude/plans/normalized-entity-holy-grail-v1.md`. All advancement verbs past `resolve_ogit` have `todo!()` bodies flagged with `/// work` markers for Stage 2 wiring. Compile-fail tests in `tests/cognition_typestate.rs` plus 7 passing positive tests document the typestate gate.
+
+**Branch:** `claude/normalized-entity-holy-grail-v1`, prior commit `1695a9a` (plan). Commit SHA TBD (pre-push). `cargo check -p lance-graph-contract` clean (0 errors); `cargo test -p lance-graph-contract --lib` green (472 tests); `cargo test -p lance-graph-contract --test cognition_typestate` green (7 tests).
+
+---
+
 ## [Agent-A4 / Sonnet] D-MBX-A4 — append §10 architectural refinements to bindspace→mailbox plan
 
 **D-id:** D-MBX-A4 | **Commit:** 0f448730 (cherry-picked from worktree `worktree-agent-a1961cf1d2ca1db93` f5cdcbe8) | **Branch:** claude/lance-surrealdb-analysis-LXmug

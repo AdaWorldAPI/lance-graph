@@ -32,6 +32,38 @@ Rules:
 
 ---
 
+## normalized-entity-holy-grail-v1 — typed unified normalization + Op chain
+
+Stage 1 contract surface scaffold. Typed consumer pipeline grammar that
+unifies OGIT/OWL/DOLCE/Odoo inheritance + cognitive shader + JIT +
+MailboxSoA into one surface. Plan path:
+`.claude/plans/normalized-entity-holy-grail-v1.md`.
+
+### Stage 1 deliverables (D-NEH-1a..g)
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| **D-NEH-1a** | `cognition::{NormalizedEntity, stages, Op, OpKind, MailboxRow, Output}` typed surface | **In PR** | Branch `claude/normalized-entity-holy-grail-v1` |
+| **D-NEH-1b** | `transaction::{Interactive, Bulk, Periodisch, Context, OgitCtx/OwlCtx/DolceCtx/FibuCtx}` context shapes | **In PR** | Branch `claude/normalized-entity-holy-grail-v1` |
+| **D-NEH-1c** | 5-verb advancement methods on `NormalizedEntity<S>` | **In PR** | Branch `claude/normalized-entity-holy-grail-v1` |
+| **D-NEH-1d** | `CascadeKind` + `TraversalMode` + `CascadeWalker` trait | **In PR** | Branch `claude/normalized-entity-holy-grail-v1` |
+| **D-NEH-1e** | Compile-fail tests + 7 positive typestate tests | **In PR** | Branch `claude/normalized-entity-holy-grail-v1` |
+| **D-NEH-1f** | Crate doc + example chain + `docs/COGNITION_HOLY_GRAIL.md` | **In PR** | Branch `claude/normalized-entity-holy-grail-v1` |
+| **D-NEH-1g** | Board hygiene (AGENT_LOG + STATUS_BOARD) | **In PR** | Branch `claude/normalized-entity-holy-grail-v1` |
+
+### Stage 2..7 deliverables (future plans)
+
+| D-id | Title | Status |
+|---|---|---|
+| D-NEH-2a..z | ~50 Op kernel bodies + shader dispatch wiring | **Backlog** |
+| D-NEH-3a..c | Consumer DSL macros (medcare/woa/smb) | **Backlog** |
+| D-NEH-4a..b | Stream + GenServer integration | **Backlog** |
+| D-NEH-5 | Jahresabrechnung kernel + fiscal-close JIT | **Backlog** |
+| D-NEH-6 | palantir-foundry parity audit | **Backlog** |
+| D-NEH-7 | elixir-OTP parity audit | **Backlog** |
+
+---
+
 ## codec-sweep-via-lab-infra-v1 — JIT-first codec sweep
 
 Active integration plan. 7 Phase 0 deliverables (D0.1–D0.7) + Phases
