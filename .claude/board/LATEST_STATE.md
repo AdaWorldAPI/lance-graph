@@ -436,3 +436,15 @@ PR sequence: #360 → #361 → post-#360 substrate-sweep (this PR).
 ### Relationship to prior art
 
 `lance-graph-callcenter::odoo_alignment` already ships a parallel `dolce_odoo()` + `DolceMarker` + `ODOO_SEED` table. This is the ontology-side counterpart (TTL hydration into `OntologyRegistry`); consistent doctrine (Option B, same pivots), distinct crate + distinct `DolceCategory` enum per task spec. Cross-crate dedup is a possible follow-up, not done here.
+
+---
+
+## 2026-05-28 — Append: PR #422 shipped (post-merge governance for the #418/#419 review handover)
+
+(Per APPEND-ONLY rule: this dated annotation augments the "Recently Shipped PRs" table above. Treat the row below as the new top-of-table entry.)
+
+### Recently Shipped PRs — new top row
+
+| PR | Merged | Title | What it added |
+|---|---|---|---|
+| **#422** | 2026-05-28 | docs(handover): PR #418/#419 review + surreal/mailbox/Baton/SoA-as-BindSpace-surrogate plan map | Read-only synthesis handover. New `.claude/handovers/2026-05-28-1200-pr-418-419-surreal-mailbox-baton-plan-map.md` (~310 LOC, 7 sections): §1 PR #418 review (verdict *sound, merge-ready as a spec* + 3 substantive notes on the bare-columns-vs-hot-thought footprint distinction, `E-RUBICON-RACTOR` as honest post-hoc CONJECTURE, OQ-4 doctrinal gating); §2 the **SurrealDB role correction** (Zone-2 cold store → *view over leading LanceDB*, recorded in `E-RUBICON-RACTOR` + plan §2.7); §3 the plan corpus map (8 plans + 9 epiphanies + `PR-NDARRAY-MIRI-COMPLETE → D-CE64-MB-1-impl → D-MBX-1..6` dep chain + `TD-RESONANCEDTO-DUP-1`); §4 brief #419 review (unrelated to surreal/mailbox; the 14 `NEEDS-INPUT` blockers are the real gate for D-ODOO-SAV-4); §5 navigability meta-finding (the surreal POC docs lack a supersedure pointer); §6 action surface; §7 cross-refs. Board appends: `EPIPHANIES.md` ← `E-SURREAL-POC-UNANNOTATED-SUPERSEDURE` (FINDING / navigability); `AGENT_LOG.md` ← session row. **Zero code change**; 3 files; +310/-0. Branch `claude/lance-graph-ontology-review-Pyry3` → `main`. Merge commit `984512b` on top of `a29946b` (the doc commit, rebased onto post-#421 `main` to resolve the AGENT_LOG append-vs-append conflict by keeping both #421's AXIS-B row and this PR's session row in chronological order). |
