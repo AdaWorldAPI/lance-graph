@@ -31,6 +31,13 @@
 **Files touched:** `crates/cognitive-shader-driver/src/driver.rs` (+42 lines)
 **cargo check:** `Finished dev` — 0 errors; pre-existing warnings only (causal-edge/p64-bridge/ontology deprecations — none in cognitive-shader-driver). Note: `--features hpc-extras` absent from this crate; check ran with default features.
 **Outcome:** SUCCESS — added `HashMap<MailboxId, MailboxSoA<1024>>` field on `ShaderDriver`, `with_mailbox` builder setter on `CognitiveShaderBuilder`, `mailbox()` read accessor. Singleton `Arc<BindSpace>` untouched. All new items marked `/// work`.
+## [Sonnet agent] PR #426 CodeRabbit fixes — 16/17 applied (1 skipped with rationale)
+
+Applied all 16 addressable CodeRabbit findings across Groups A (board/plan governance), B (Rust source), C (Python tooling), and D (nitpicks). Group B included regenerating all 12 TIER-1 addon `.rs` files + l10n_de chart/kennzahlen after stripping `/home/user/` prefix from emitted paths. `cargo test -p lance-graph-ontology --lib` remained green at 203 tests; Python smoke test PASS. Item 13 (l1.rs unit tests for ENTITIES contents) explicitly skipped — static const data tests add no invariant coverage that the existing `extracted::coverage::tests` aggregate gate doesn't already provide.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `e581035`. `cargo test -p lance-graph-ontology --lib` green (203 tests). Python smoke test PASS.
+
+---
 ## [Sonnet agent] D-ODOO-EXT-6 — Stage 1 coverage report + gate test (closes EXT-1..6)
 
 Per-lane eligible coverage analysis confirmed 100% on all 15 lanes after subtracting 5 TIER-2 exemptions (4 `hr.*` entities in L14, 1 `stock.valuation.layer` in L13): L1-L13 and L15 all at 100% eligible backing; L14 wholly-exempt (skip). `extracted/COVERAGE.md` emitted with per-lane table, TIER-2 deferral catalogue, TIER-1 surplus inventory (181 entities across 12 addons), and Stage 2 recommendation (`hr` + `stock_account` first). `extracted/coverage.rs` provides `COVERAGE_EXEMPTIONS` + `COVERAGE_FLOOR = 0.80` + 2 gate tests. Plan and INTEGRATION_PLANS `**Status:**` lines updated to SHIPPED.
