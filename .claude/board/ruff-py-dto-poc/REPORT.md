@@ -134,7 +134,13 @@ Full file: `tools/ruff-py-dto-odoo-bin/sample-output.account_move.ttl`.
 4. **One TTL block per method, no graph edges yet.** Cross-family edges
    (`ogit:invokes`, `ogit:reads_field`, `ogit:delegates_to`) require a
    second pass over the Python AST — these are the `DelegationTuple` rows
-   from D-RPYDTO-2a step 4 in `vendor/ruff-patches/README.md`.
+   from D-RPYDTO-2a step 4 in `.claude/odoo/ruff-patches/README.md`.
+   **(UPDATE 2026-05-28: now done as a POC second pass via
+   `.claude/odoo/extract_delegation.py` — reads the original `.py` files
+   via bundle file+line metadata and walks the AST. 100% parse success
+   on 3555/3555 methods, emitting 831 invoke + 2162 read + 519 write +
+   456 raise + 11 traverse + 697 reads_env edges. Rust path remains the
+   proper home; this POC validates the schema.)**
 
 ## Artifacts (in `/tmp/`, ephemeral)
 
