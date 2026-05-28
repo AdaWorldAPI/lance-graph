@@ -33,7 +33,7 @@ use super::{
 // _get_tax_tags_domain strips the '-' for search (L88-96); sign stays in name.
 
 const TAG_EXTENSION_FIELDS: &[OdooField] = &[
-    // ── Fields present in L3 (included here for provenance completeness) ──────
+    // ── Fields present in L3 (provenance completeness) ───────────────────────
     OdooField {
         name: "name",
         kind: OdooFieldKind::Char,
@@ -158,11 +158,9 @@ const TAG_EXTENSION_CONSTRAINTS: &[OdooConstraint] = &[OdooConstraint {
 /// and the VAT-report aggregation path (K8).
 pub const ACCOUNT_ACCOUNT_TAG_L15: OdooEntity = OdooEntity {
     model_name: "account.account.tag",
-    description: "Tax applicability tag linking repartition lines to USt-VA Kennziffer boxes. \
-                  L15 focus: balance_negate sign convention (leading '-' in name = negate balance \
-                  when summing into report box). Enterprise note: full account.report model absent \
-                  in community; K8 must implement USt-VA aggregation fresh using the tag->Kz \
-                  structure from account_account_tag.py L1-141.",
+    description: "L15 ext: balance_negate + report_expression_id on account.account.tag. \
+                  Leading '-' in name → negate GL balance when summing into USt-VA box. \
+                  Full account.report is Enterprise; K8 reuses tag->Kz structure.",
     fields: TAG_EXTENSION_FIELDS,
     methods: TAG_EXTENSION_METHODS,
     decorators: TAG_EXTENSION_DECORATORS,
@@ -219,10 +217,9 @@ const TAX_EXTENSION_FIELDS: &[OdooField] = &[
         required: false,
         computed: Some("_compute_hide_tax_exigibility"),
         depends: &["company_id.tax_exigibility"],
-        // True when company.tax_exigibility == False (CABA globally disabled for company).
-        // Hides the tax_exigibility selection in the UI.
-        // woa-rs: only offer 'on_payment' option when company.tax_exigibility is enabled.
-        // account_tax.py L163; L15-TAX-REPARTITION.md R11 lines 524-525.
+        // True when company.tax_exigibility==False (CABA globally disabled).
+        // woa-rs: only offer 'on_payment' when company.tax_exigibility is True.
+        // account_tax.py L163; L15 R11 lines 524-525.
         semantic_role: OdooSemanticRole::Policy,
     },
 ];
@@ -321,12 +318,10 @@ const TAX_EXTENSION_CONSTRAINTS: &[OdooConstraint] = &[
 /// part of the CABA semantic cluster.
 pub const ACCOUNT_TAX_L15: OdooEntity = OdooEntity {
     model_name: "account.tax",
-    description: "L15 extension: CABA (Ist-Besteuerung) gate + rounding engine + invoice footer \
-                  totals. Core tax definition is in L3. L15 adds hide_tax_exigibility field, \
-                  _round_base_lines_tax_details (round_globally/per_line), \
-                  _get_tax_totals_summary (footer subtotals with preceding_subtotal grouping), \
-                  and _prepare_tax_lines (GL line diff). AXIS-B: TaxExigibilitySuggestor uses \
-                  hide_tax_exigibility + company.tax_exigibility to gate on_payment recommendation.",
+    description: "L15 ext: CABA gate + rounding engine + totals. Core in L3. Adds \
+                  hide_tax_exigibility, _round_base_lines_tax_details (round_globally/per_line), \
+                  _get_tax_totals_summary (footer subtotals), _prepare_tax_lines (GL diff). \
+                  TaxExigibilitySuggestor: gate on_payment via company.tax_exigibility.",
     fields: TAX_EXTENSION_FIELDS,
     methods: TAX_EXTENSION_METHODS,
     decorators: TAX_EXTENSION_DECORATORS,
