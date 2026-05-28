@@ -110,13 +110,16 @@ The savant IS its `SavantPattern` const. The shader executes the pattern
 over the SoA columns; the existing `Tactic::apply` interface handles
 per-tactic dispatch; the emission spec lands as a row in `EdgeColumn`.
 
-### Group E — `crates/lance-graph-callcenter/src/role_keys.rs`
+### Group E — `lance-graph-contract::callcenter::role_keys` (path corrected from v2 draft — sibling of `contract::grammar::role_keys`, per the per-domain doctrine pattern; `Vsa16kF32` is the deprecated f32 carrier, identity slices live in the `Binary16K` u64-bitpacked `RoleKey` shape)
 
 Per `I-VSA-IDENTITIES` Layer-2 catalogue:
 
-- 25 disjoint `Vsa16kF32` slices (one identity per `OdooSavant` from
-  `contract::savants`), bipolar ±1 in slice, zero elsewhere.
-- Lookup by enum: `pub fn savant_role_key(s: OdooSavant) -> &'static Vsa16kF32`.
+- 25 disjoint `RoleKey` slices (one identity per savant in
+  [`contract::savants::SAVANTS`]), pseudo-random bipolar bits in slice
+  via FNV-64-seeded LCG, zero elsewhere — same shape as
+  `contract::grammar::role_keys`.
+- Lookup: `pub fn savant_role_key(id: u8) -> Option<&'static RoleKey>` +
+  `pub fn savant_role_key_by_name(name: &str) -> Option<&'static RoleKey>`.
 - Slice allocation map MUST NOT overlap with `grammar/role_keys.rs` (or any
   future catalogue) — coordinate via a workspace-level slice manifest
   (probably `.claude/knowledge/role-key-slice-allocation.md` — verify or
