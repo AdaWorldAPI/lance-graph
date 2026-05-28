@@ -2010,3 +2010,69 @@ Removes `crate-ci/typos` spell-check job from `style.yml`; `cargo fmt --check` r
 - `AGENT_LOG.md` session row (appended).
 
 **Confidence (2026-05-28):** working — docs-only; merge clean (rebased onto post-#421 main; `EPIPHANIES.md` auto-merged; `AGENT_LOG.md` conflict resolved by keeping both entries chronologically; force-with-lease push). Merge commit `984512b`. No CI gates relevant.
+
+---
+
+## PR #425 — deps(workspace): clean BLOCKED comments; record 6.0.0→6.0.1 block (lancedb 0.29.0 transitive) (MERGED 2026-05-28 → main)
+
+(Per APPEND-ONLY mechanic: appended at file-end; the rule-#1 PREPEND convention is preserved by the dated framing — treat as new top-of-arc entry.)
+
+**Status:** MERGED. Branch `claude/lance-graph-ontology-review-Pyry3` → `main`. 4 commits (`59ef97e` initial → `2e001a5` codex P2 correction → `8f3913b` patch added → `1444f78` Cargo.lock regen) + merge commit `1a3abfb8`. Cargo.toml + Cargo.lock + TECH_DEBT.md only; no `.rs` / `build.rs` / `data/` touched.
+
+**Added:**
+- `Cargo.toml` deps-comment block rewrite: BLOCKED-(A)/(B)/(D) → dated RESOLVED record pointing at #423 + live crate-level pins. Records the user-authorised follow-on patch `lance 6.0.0 → 6.0.1` as CURRENTLY BLOCKED with named resolution paths.
+- `[patch.crates-io] ndarray = { git = "https://github.com/AdaWorldAPI/ndarray.git", branch = "master" }` (declared intent).
+- `Cargo.lock` regenerated — now includes `[[patch.unused]] ndarray 0.17.2 (git+...?branch=master#0129b5c8)` entry surfacing the semver gap at every build.
+- `TECH_DEBT.md` ← `TD-NDARRAY-PATCH-0_16` tracking the lance-index `=0.16.1` vs fork `0.17.2` gap with three resolution paths.
+
+**Locked:**
+- **The `lance 6.0.1` patch is blocked at the dep-graph level**, not the doctrinal level. `lancedb 0.29.0` (latest 0.29.x on crates.io) transitively pins `lance = "=6.0.0"`. Re-bump when lancedb 0.29.1+ ships.
+- **`[patch.crates-io] ndarray` is declared intent, not effective.** The fork at `0.17.2` cannot semver-satisfy lance-index `0.16.1`. Cargo emits "patch unused" warning at every build — the gap is now actively visible rather than silently misrepresented.
+- **No crate-level pin changed in this PR** — pins stayed at #423's `=6.0.0` / `=0.29.0` / `"53"` / `"58"` state.
+
+**Deferred:**
+- `lance 6.0.1` re-bump (gated on lancedb 0.29.1+ or doctrine change).
+- A `0.16.x`-versioned branch on AdaWorldAPI/ndarray with the fork patches forward-ported (the cleanest way to actually wire the transitive through the fork).
+
+**Docs:**
+- `Cargo.toml` deps-comment block (RESOLVED(A)/(B)/(D) + STILL-OPEN(C) + 6.0.1-block-record + `[patch.crates-io]` doc).
+- `TECH_DEBT.md` `TD-NDARRAY-PATCH-0_16` (full reasoning + resolution paths).
+
+**Confidence (2026-05-28):** working — `cargo check -p lance-graph-ontology` exits 0 in 37s with only pre-existing oxrdf deprecation warnings + the (intended) "patch ndarray unused" warning. Codex P2 on the original commit (`59ef97e`) flagged the false RESOLVED(D) claim; addressed by the three follow-on commits before merge.
+
+---
+
+## PR #427 — feat(mailbox-soa): bindspace→mailbox migration wave A1-A4 (MERGED 2026-05-28 → main)
+
+(Per APPEND-ONLY mechanic: appended at file-end; the rule-#1 PREPEND convention is preserved by the dated framing — treat as new top-of-arc entry. Governance written by a peer session, not the authoring session — fills the LATEST_STATE/PR_ARC gap left by the merge wave.)
+
+**Status:** MERGED. Branch `claude/lance-surrealdb-analysis-LXmug` → `main`. 5 slice commits (A1 `1df12eca` + A2 `61b641d5` + A3 `ef848a34` + A4 `0f448730` + review pass `68328878`) + codex P1 follow-on `f541b280` (widen `mailbox_ref` u16 → u32) + merge commit `84296118`. **457 contract+driver tests green** at merge time.
+
+**Added (the four slices, plus codex fix):**
+- **A1 — thoughtspace columns on `MailboxSoA`**: `edges: [CausalEdge64; N]` + `qualia: [QualiaI4_16D; N]` + `meta: [MetaWord; N]` + `entity_type: [u16; N]`; 8 row accessors (`edge`/`set_edge`/`qualia`/`set_qualia`/`meta`/`set_meta`/`entity_type`/`set_entity_type`); zero-init in `new()`; reset in `reset_row()`. **The migrated thoughtspace columns are now available on each mailbox** — the surface that the singleton dissolution downstream will read/write.
+- **A2 — transitional `ShaderDriver.mailboxes: HashMap<MailboxId, MailboxSoA<N>>`**: sibling-shape (the `Arc<BindSpace>` singleton stays); `with_mailbox()` builder + `mailbox()` read accessor. Additive only.
+- **A3 — `lance-graph-contract::witness_table`**: new `WitnessTable<N>` + `WitnessEntry { mailbox_ref: u32, spo_fact_ref: Option<u64> }` primitive; `const fn new()`; bounds-checked `get`/`set`; 3 unit tests; zero-dep. (Codex P1 `f541b280` widened `mailbox_ref` u16 → u32 and corrected the `Option<u64>` size doc.)
+- **A4 — plan §10 architectural refinements** appended to `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`: 7 ratified findings + 2 surviving OQs (see Locked).
+
+**Locked (architectural rulings ratified in plan §10):**
+1. **SoA Lance container ≠ cascade.** Cascade is resolution-laddered superposition; the SoA Lance container is the materialised data substrate. 1 cascade : N SoA containers via top-k emission.
+2. **Cascade is NOT an index space.** `64² / 256² / 4096² / 16384²` are per-axis granularities (causal / palette / COCA codebook / outcome), superposed and streamed like x265 cascaded prediction levels.
+3. **64k-256k mailbox envelope** (~360 MB - 1.4 GB total). Whole population RAM-resident; no tier split; no eviction policy needed.
+4. **W-slot resolves into a per-cohort witness table** of `(mailbox_ref, spo_fact_ref)` entries — NOT a witness-corpus pointer. AriGraph today is a transcode; the chaining engine is the target shape.
+5. **Cascade granularities are CPU/cache boundaries** — 64 = AVX-512 / cache line; 256 = AMX tile; 4096 = page; 16384 = L1d.
+6. **`ndarray::simd_soa.rs` is the SoA dispatch framework** — introspects per-SoA shape; migration is positional, not structural.
+7. **SoA invariant spawn → commit.** Two egress modes: external (REST / sea-orm SQL, backpressure expected) or internal (SurrealDB → LanceDB | RocksDB, no backpressure). No marshalling at any boundary.
+
+**Deferred (surviving OQs and scope discipline):**
+- **OQ-MBX-8** — `persisted_row` stub vs Lance native versioning (load-bearing; evidence at `REFACTOR_NOTES.md:129` + `driver.rs:458`).
+- **OQ-MBX-15′** — container scoping: per-cognitive-cycle, per-shader-dispatch, or per-mailbox-cohort?
+- **Singleton `Arc<BindSpace>` dissolution** — A2 is a *sibling* surface only; the cutover ships in a later slice (D-MBX-3/4 per the plan).
+- **`WitnessTable` wiring into `CausalEdge64` emission paths** — A3 declares the primitive only; consumer wiring is downstream.
+- **Consumer crate touches** — planner / ontology / surreal_container untouched in this wave.
+
+**Docs:**
+- `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md` §10 appended (7 findings + 2 OQs).
+- AGENT_LOG entries D-MBX-A1..A4 prepended at branch HEAD pre-merge.
+- LATEST_STATE Current Contract Inventory annotated with `WitnessTable` + `MailboxSoA` additions.
+
+**Confidence (2026-05-28):** working — `cargo check -p cognitive-shader-driver -p lance-graph-contract` clean (only pre-existing ontology deprecation warnings); `cargo test -p cognitive-shader-driver -p lance-graph-contract --lib` 457 passed / 0 failed at merge time. Codex P1 (`f541b280`) addressed before merge. No consumer surfaces touched.
