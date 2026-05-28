@@ -802,3 +802,90 @@ verified, AdaWorldAPI/ruff is accessible — public repo, default branch
 working branch only, (b) open a PR against `main`, or (c) split into
 the three upstream-PR-scope commits per
 `.claude/odoo/ruff-patches/README.md`.
+
+---
+
+## 2026-05-28 (auto-attended) — Odoo extraction methodology + knowledge transfer
+
+**Session arc.** Started: ruff-py-dto producing 0 bundles on Odoo (class-body
+recursion gap). Ended: methodology doc + future-shape demo + 13 commits on
+`claude/stage2-plans-spo-nars-elixir`.
+
+**13 commits this session** (in order):
+
+1. `e2c5e32` — epi: empirical zero-bundle proof
+2. `c93d33f` — poc: ruff-py-dto class-body recursion + 3555 bundles
+3. `e958718` — relocate to .claude/odoo + delegation 100% parse
+4. `177389d6` — sample TTL with 296 delegation edges
+5. `9e340c6b` — REPORT update
+6. `cdcbc349` — OWL 2 EL TBox preamble (Keet 2025-11-17 audit pass)
+7. `861e015e` — OGIT meta-DTO alignment audit (canonical namespace identified)
+8. `79e27a15` — QFGEN framework notes (psychometry-ontology bridge reframed)
+9. `66d80bc2` — LineItem extension proposal (account_move_line mining)
+10. `c9bc1669` — high-signal SoC concerns (310 + 2655)
+11. `3076015f` — atom catalogue (1420 atoms, 13 = 50%, 77% singleton collapse)
+12. `74a7554a` — tax grammar-coded (247 → 35 clusters, UStG anchored)
+13. `f80dbdcf` — taxable_item future-shape (Elixir → Rust → recipe → shader)
+14. (this commit) — EXTRACTION-METHODOLOGY.md + AGENT_LOG entry
+
+**Plus history rewrite:** `.claude/transcript/*.jsonl` scrubbed from the
+branch via `git filter-repo --path .claude/transcript/ --invert-paths --force`
++ `git push --force-with-lease`. Branch tip changed; transcripts gone from
+all commits.
+
+**Single source of truth:** `.claude/odoo/EXTRACTION-METHODOLOGY.md`. Read it
+once, run the scripts, pick a domain. Don't re-derive the methodology.
+
+**Key empirical results:**
+
+- D-RPYDTO-2a (class-body recursion): 0 → 3555 bundles, 0 → 388 families.
+- 310 synergistic SoC-concerns + 2655 singletons (cluster_soc.py).
+- 1420 technical atoms, 13 cover 50% of emissions, 77% singleton collapse
+  at atom-set level (atom_decompose.py).
+- 247 tax methods → 35 grammar-coded clusters under (T, tek, men, reg)
+  axes; 22 of 35 explicitly UStG-anchored (tax_grammar.py).
+- TTL emitter passes rdflib audit at OWL 2 EL profile (0 undeclared
+  predicates, 0 blank-node subjects, 0 `owl:Restriction`).
+- `taxable_item-future-shape.rs` demonstrates: Elixir-source (4 lines) →
+  Rust codegen (one `advance()` call) → StyleRecipe registration (data,
+  not compute) → ctor-registered at app load → SurrealQL kanban →
+  400ms ractor mailbox → branch-free PaletteCompose SpMV. Every named
+  type already exists in the workspace.
+
+**Doctrinal corrections accepted this session** (from user during dialogue):
+
+- `Vsa16kF32` is a doc-glitch. Substrate is (4×4)⁴ Kronecker expansion
+  with baseline 64 (CausalEdge64) and per-side factor 4 (square matrices
+  L0=64×64 → L1=256×256 → L3=4096² → L4=16384² → L5=64K² → L6=256K²).
+  Palette256 (u8) = 3σ = 0.9973 the natural unit; Fisher z is the lazy
+  float-materialisation path.
+- i4(-7..+8) × 32D = 128 bits per thinking-style vector. Asymmetric
+  range biased positive (factor-loading semantics: presence = default).
+- Three architectural layers separate: schema (huge, hash-lookup, any
+  size) → ontology cache (per-scope X, semiring resolved) → hot path
+  (branch-free SIMD, 20ns–200μs per op). No switches in the cognitive
+  shader.
+- Heckhausen Rubicon model is the budgeting structure: only the
+  actional phase (400ms ractor mailbox) is budgeted. Pre-actional
+  (planning) and post-actional (evaluation) are separate ractor cycles.
+- One mailbox = one goal set. All recipes available in pool. Mailbox
+  state + SurrealQL kanban co-decide post-actional satisfaction.
+- HHTL is cheap iff compile-time prunes basins. Application target
+  compiles ≤ 16 ontologies; rest of OGIT is SKIP at cascade entry.
+- Switches don't make it into the cognitive shader. The hot path is
+  `foreach range in scope do $item::[op from X]`.
+- Schema entry tax is paid ONCE as a pointer-basin lookup; gain
+  precision + discrimination. ~150 cycles per lookup ÷ 2000 cycles per
+  Think = 7.5% worst case, indistinguishable from noise.
+
+**Open items** (priority order, see EXTRACTION-METHODOLOGY §6):
+
+1. Per-domain grammar scripts (audit/GoBD, payment, journal, HR/ICD)
+2. Depends-graph chain extraction (real Odoo chains live here)
+3. OGIT meta-DTO PR split to AdaWorldAPI/OGIT (PAT verified)
+4. D-ATOM-1 catalogue formalization (top ~200 atoms → Atom enum)
+5. Elixir-frontend prototype on the taxable_item rule
+6. Cross-source psychometric calibration (D1 ⊥ D2 ⊥ D3, 4 metrics)
+
+**Continuation entry point:** `.claude/odoo/EXTRACTION-METHODOLOGY.md` §7
+(continuation checklist with the exact commands to re-run).
