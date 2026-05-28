@@ -5269,3 +5269,20 @@ Cross-ref: W2's sprint-2 deliverable (Tier-0 "what's shipped" index); `.claude/p
 ---
 
 **Append-only governance preserved.** No prior epiphany text was edited by this section. 17 dated entries appended under the single section header `2026-05-07 — Unified OGIT Architecture: 15-pattern synthesis (sprint-2)`. The 16th and 17th entries (PHENOMENOLOGY-16 and RECOGNITION-OVER-DESIGN-17) extend the original 15-pattern brief because they emerged in the same turn-16 synthesis and are structurally inseparable from the rest — the title retains "15-pattern" as the sprint label, with the count of distinct epiphanies being 17.
+
+## 2026-05-28 — E-SURREAL-POC-UNANNOTATED-SUPERSEDURE — the `.claude/surreal/` POC docs read as if SurrealDB is the persistence target; the 2026-05-27 ruling that LanceDB is the *leading* store and SurrealDB is one *view* over it is recorded only in `E-RUBICON-RACTOR` + plan `bindspace-singleton-to-mailbox-soa-v1` §2.7 — readers landing in `.claude/surreal/` first do not see it
+
+**Status:** FINDING / navigability (no architectural decision; no code change). The supersedure itself is the FINDING-grade work of #418 + `E-RUBICON-RACTOR`; this entry records that the older POC surfaces are **unannotated** with that pointer, which is a discoverability gap, not a correctness gap.
+
+**The unannotated surfaces (read-only audit):**
+- `.claude/surreal/RECONCILIATION_with_canonical_plan.md:20` — row *"SurrealDB-on-Lance persistence | Zone 2 `lance-graph-callcenter` + AriGraph SPO-G quads"* still names SurrealDB as the persistence home.
+- `.claude/surreal/cognitive-substrate.md` — substrate framing predates the LanceDB-leading ruling.
+- `.claude/surreal/01_deps_substrate.md` … `12_clean_writer_invariants.md` — the 12-task POC reads as if SurrealDB is the persistence target; `surreal_container` (SurrealDB-on-`kv-lance`) framing.
+
+**The current ruling these surfaces lack a pointer to:** *"LanceDB is the leading store / source of truth (append-only, versioned). SurrealDB is one VIEW over it (the Rubicon kanban), never a store."* — `EPIPHANIES.md` `E-RUBICON-RACTOR` + `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md` §2.7 (on PR #418 head, branch `claude/splat3d-cpu-simd-renderer-MAOO0`).
+
+**Lowest-risk fix (NOT done in this handover):** add a non-mutating pointer file (e.g. `.claude/surreal/SUPERSEDURE_NOTE_2026-05-27.md`) that names `E-RUBICON-RACTOR` + plan §2.7 as the current ruling. The append-only governance leaves the existing lines intact; the pointer file is the discoverability surface.
+
+**Practical consequence (do not let this drift back):** `surreal_container` (BLOCKED A/B/C/D — fork dep + Lance 6 pin) is **optional**, not on the critical path for D-MBX-6. D-MBX-6's hot/cold transparent view uses the LanceDB cold tier directly; the SurrealDB kanban is a *second* view over the same LanceDB rows.
+
+**Cross-ref:** `E-RUBICON-RACTOR` (current ruling), `E-MAILBOX-IS-BINDSPACE` (§2.7 of the plan it gates), `E-BATON-1` (the LE-contract anchor), `.claude/plans/causaledge64-mailbox-rename-soa-v1` (driver plan that subsumes the surreal POC), `.claude/handovers/2026-05-28-1200-pr-418-419-surreal-mailbox-baton-plan-map.md` §5 (the audit source for this entry).
