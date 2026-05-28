@@ -39,7 +39,6 @@
 
 // ── Type declarations ────────────────────────────────────────────────────────
 
-/// work
 /// A single entry in a per-cohort [`WitnessTable`].
 ///
 /// Carries the pair `(mailbox_ref, spo_fact_ref)` that resolves one W-slot index:
@@ -58,14 +57,12 @@
 /// enough to pass by value on any target ABI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub struct WitnessEntry {
-    /// work
     /// Handle to the mailbox that witnessed this belief event.
     ///
     /// Active mailboxes have a live `w_slot` association; tombstoned mailboxes retain
     /// their ref so the arc walk can detect decommissioned cohort members.
     pub mailbox_ref: u16,
 
-    /// work
     /// Optional reference into the AriGraph SPO-G quad store.
     ///
     /// `None`: the belief has not yet crystallised to a committed triple.
@@ -74,7 +71,6 @@ pub struct WitnessEntry {
     pub spo_fact_ref: Option<u64>,
 }
 
-/// work
 /// Per-cohort witness table: a fixed-size array of [`WitnessEntry`] values indexed
 /// by the 6-bit W-slot field from `CausalEdge64 v2`.
 ///
@@ -91,7 +87,6 @@ pub struct WitnessEntry {
 /// [`set`]: WitnessTable::set
 #[derive(Debug, Clone)]
 pub struct WitnessTable<const N: usize = 64> {
-    /// work
     /// Flat array of witness entries, one per addressable W-slot index.
     pub entries: [WitnessEntry; N],
 }
@@ -99,7 +94,6 @@ pub struct WitnessTable<const N: usize = 64> {
 // ── impl WitnessTable ────────────────────────────────────────────────────────
 
 impl<const N: usize> WitnessTable<N> {
-    /// work
     /// Construct a `WitnessTable` with every entry set to its zero-initialised default.
     ///
     /// `mailbox_ref` is 0 (the null mailbox handle) and `spo_fact_ref` is `None`
@@ -116,7 +110,6 @@ impl<const N: usize> WitnessTable<N> {
         }
     }
 
-    /// work
     /// Look up the entry at `w_slot`.
     ///
     /// Returns `None` if `w_slot as usize >= N` (out-of-bounds for this cohort).
@@ -125,7 +118,6 @@ impl<const N: usize> WitnessTable<N> {
         self.entries.get(w_slot as usize)
     }
 
-    /// work
     /// Write `e` into slot `w_slot`.
     ///
     /// Returns `Ok(())` on success.
@@ -144,9 +136,7 @@ impl<const N: usize> WitnessTable<N> {
 
 // ── Default ──────────────────────────────────────────────────────────────────
 
-/// work
 impl<const N: usize> Default for WitnessTable<N> {
-    /// work
     fn default() -> Self {
         Self::new()
     }
@@ -158,7 +148,6 @@ impl<const N: usize> Default for WitnessTable<N> {
 mod tests {
     use super::*;
 
-    /// work
     /// Round-trip: set a slot, then get it back and confirm the value matches.
     #[test]
     fn witness_table_round_trip_set_get() {
@@ -172,7 +161,6 @@ mod tests {
         assert_eq!(*got, entry, "get must return the exact entry written by set");
     }
 
-    /// work
     /// Out-of-bounds set returns Err; out-of-bounds get returns None.
     #[test]
     fn witness_table_out_of_bounds_returns_err() {
@@ -194,7 +182,6 @@ mod tests {
         }
     }
 
-    /// work
     /// A freshly constructed table has all entries at their zero default:
     /// `mailbox_ref = 0`, `spo_fact_ref = None`.
     #[test]
