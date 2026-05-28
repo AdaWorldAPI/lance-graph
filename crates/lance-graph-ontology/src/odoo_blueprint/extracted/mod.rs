@@ -8,7 +8,15 @@
 //! on conflict (per BP-1 plan §"merge ordering"); pairing is wired by
 //! `D-ODOO-EXT-5`.
 
-pub mod base;
-pub mod uom;
-pub mod product;
+// Wave A (foundation)
 pub mod analytic;
+pub mod base;
+pub mod product;
+pub mod uom;
+
+// Wave B (value-flow chain)
+pub mod account;
+pub mod account_payment;
+pub mod purchase;
+pub mod sale;
+pub mod stock;
