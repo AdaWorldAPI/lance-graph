@@ -530,6 +530,20 @@ Plan path: `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`. Epiphany `E
 
 ---
 
+## odoo-savant-reasoners-v2 — reshape: `Reasoner` trait → typed composition over `CausalEdge64` + `Tactic` + `callcenter/role_keys`
+
+Reshape of v1 (shipped PR #420). v1's `Reasoner` trait surface fails CLAUDE.md "P-1 The Click" + "P0 AGI-as-glove" litmus tests; v2 routes the canonical path through the agnostic substrate that already exists (CausalEdge64 + Tactic + 33-TSV atoms + role-key catalogues). v1 stays under `legacy-reasoner` feature with `#[deprecated]` until woa-rs migrates. Plan path: `.claude/plans/odoo-savant-reasoners-v2.md`. Driver epiphany: `E-SAVANT-COMPOSITION-1`.
+
+| D-id | Title | Crate | Lines | Conf | Status | Notes |
+|---|---|---|---|---|---|---|
+| D-ODOO-SAV-5a | `SavantPattern` + `TacticInvocation` + `EdgeEmissionSpec` + `AtomTouchMask` primitives (Group D, zero-dep, in contract) | lance-graph-contract | 200 | HIGH | **Queued** | additive — ships with this plan + INTEGRATION_PLANS prepend + this STATUS_BOARD section + EPIPHANIES entry (board hygiene) |
+| D-ODOO-SAV-5b | `callcenter/role_keys.rs` with 25 disjoint Vsa16kF32 slices + lookup-by-enum + slice-allocation manifest (Group E) | lance-graph-callcenter | 250 | HIGH | **Queued** | parallel with 5a — independent; coordinate disjoint slice range vs `grammar/role_keys.rs` |
+| D-ODOO-SAV-5c | 25 `SavantPattern` consts drawn from `.claude/odoo/savants/<N>.md` slot 1/4 + `.claude/odoo/L*.md` business semantics (Group F) | lance-graph-callcenter | 600 | MED | **Queued** | blocked on 5a + 5b; likely one D-id per savant in a Wave if translation is large; 14 NEEDS-INPUT savants ship pattern + emission spec only |
+| D-ODOO-SAV-5d | `#[deprecated]` + `legacy-reasoner` feature gate + migration pointers on v1 `Reasoner` trait + 4 `*Reasoner` impls + `SavantConclusion` + `SavantSuggestion` + `build_conclusion` (Group G) | lance-graph-contract + lance-graph-callcenter | 120 | HIGH | **Queued** | blocked on 5c (so the migration pointer names a real target); removal in a follow-up after woa-rs migrates |
+| D-ODOO-SAV-5e | End-to-end test: FiscalPositionResolver `SavantPattern` over a synthetic ontology fixture → expected `CausalEdge64` row (SPO + NARS truth + v2 signed mantissa); the proof the reshape works | lance-graph-callcenter tests | 150 | MED | **Queued** | ships with 5c completion as the round-trip proof; uses `CausalEdge64::pack_v2` per `I-LEGACY-API-FEATURE-GATED` |
+
+---
+
 ## Update protocol
 
 When a deliverable ships:
