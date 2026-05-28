@@ -1,3 +1,73 @@
+## 2026-05-28 — odoo-source-extraction-v1 (TIER-1 Odoo source extraction → `OdooConfidence::Extracted` backing for `D-ODOO-BP-1b`; sub-plan unfolding `D-ODOO-BP-1f`)
+
+**Status:** SHIPPED (Stage 1 — EXT-1..6 complete); per-lane gate test in `extracted::coverage`; Stage 2 addresses TIER-2 addons (POS, HR, website, fleet, maintenance, non-DE l10n, payment providers); the 5 known L13/L14 gaps (4 hr.* + stock.valuation.layer) close via hr + stock_account extraction. Unfolds `D-ODOO-BP-1f` of `odoo-business-logic-blueprint-v1` into a tractable Stage 1 over 12 TIER-1 addons (`account`, `account_payment`, `l10n_de`, `product`, `stock`, `uom`, `base`, `analytic`, `purchase`, `sale`, `account_peppol`, `account_edi_ubl_cii`) of the 622 in `/home/user/odoo/addons/`. Validates and adds source-extracted backing to the L-doc-curated `OdooEntity` consts that Wave 1-3 just shipped (commits `9507b36`..`2aca3e3`).
+**Confidence:** HIGH on the substrate decision (extraction is purely additive — cannot regress curated set). HIGH on the tooling substitution (Python stdlib `ast` replaces the absent `tree-sitter` — handles every ORM shape observed in inventory). MED on per-addon yield (~5–8K typed const declarations across TIER-1, ~2–3K condensed Rust LOC). LOW on regulation-IRI density per entity.
+**Plan file:** `.claude/plans/odoo-source-extraction-v1.md`
+**Predecessors:** `D-ODOO-BP-1a` (typed surface, pre-`9507b36`); `D-ODOO-BP-1b` Wave 1–3 (L1–L15 L-doc projection, shipped `9507b36`..`2aca3e3`); 2026-05-28 Odoo source inventory (622 addons, 3 141 ORM classes, 989 K Python LOC; 8/9 German concept anchors located; ELSTER absent — Enterprise-only).
+**Anchored iron rules:** `I-VSA-IDENTITIES` (identity in const data, content in tables — regulation IRIs are codebook handles, not content), `E-CODEBOOK-INHERITS-FROM-OGIT` (regulation rules inherit from OGIT codebook — drives `OdooProvenance.regulation_iri`), "audit-by-construction" (every extracted entity carries `(path, line_range)` + UStG/HGB/GoBD anchor when applicable).
+
+### Scope
+**TIER-1 addons (12)**: `account`, `account_payment`, `l10n_de`, `product`, `stock`, `uom`, `base`, `analytic`, `purchase`, `sale`, `account_peppol`, `account_edi_ubl_cii` — full German accounting flow + ORM roots + value chain + e-invoice. **TIER-2 (POS, HR, website, payment providers, non-DE l10n) explicitly deferred** until Stage 1 EXT-6 reports < 5 % parser-fallback rate. **Tooling**: Python stdlib `ast` module (stale `tree-sitter` reference in `odoo_blueprint/mod.rs:321` corrected by EXT-3). **Output**: `crates/lance-graph-ontology/src/odoo_blueprint/extracted/<addon>.rs`, additive to lane modules `l{1..15}`; consts prefixed `EXT_` to avoid symbol collisions with curated lane consts. **Provenance enhancement**: `OdooProvenance` gains `regulation_iri: &'static [&'static str]` (UStG §15 / HGB §238 / GoBD / AO §146a / EN 16931 IRIs into the OGIT codebook) + `OdooEntityKind::{Model,Transient,Abstract}` variant; back-filled `&[]` / `Model` across the existing Wave 1-3 const set.
+
+### Deliverables
+
+| D-id | Description | Site | LOC | Conf | Status |
+|---|---|---|---:|:--:|:--:|
+| **D-ODOO-EXT-1** | Python `ast` extractor scaffold + smoke test on `uom` (1 model) | `tools/odoo-blueprint-extractor/` | 800 | HIGH | Queued |
+| **D-ODOO-EXT-2** | TIER-1 extraction in 3 waves (foundation / value-flow / DE+e-invoice) → `extracted::*` module tree; `<5%` `OdooFieldKind::Other` fallback rate gate | `odoo_blueprint/extracted/` | 5000–8000 | HIGH | Queued |
+| **D-ODOO-EXT-3** | `OdooProvenance.regulation_iri` slot + `OdooEntityKind` variant + back-fill of Wave 1-3 const set + tree-sitter→`ast` doc-comment correction | `odoo_blueprint/mod.rs` + lane modules | 200 | HIGH | Queued |
+| **D-ODOO-EXT-4** | `l10n_de` specifics: SKR03/04 chart consts (~2 466 accounts) + 17 UStVA Kennzahl consts (Kz.81..95) + GoBD audit-trail flag wiring | `odoo_blueprint/extracted/l10n_de.rs` | 1500 | HIGH | Queued |
+| **D-ODOO-EXT-5** | Curated-vs-extracted pairing table + mismatch audit (`pairing.rs` + `audit/pairings.json`); curated stays canonical on conflict | `odoo_blueprint/extracted/pairing.rs` | 300 | MED | Queued |
+| **D-ODOO-EXT-6** | Honest-coverage report (`COVERAGE.md`) + lane test that fails if any L1..L15 lane drops below 80 % extracted-backing | `odoo_blueprint/extracted/COVERAGE.md` + test | 200 | MED | Queued |
+
+### Execution ordering
+1. EXT-3 first (provenance shape stabilizes before any extracted const lands).
+2. EXT-1 in parallel with EXT-3 (extractor scaffold has no shape dep).
+3. EXT-2 in 3 waves (A: base/uom/product/analytic; B: account/account_payment/purchase/sale/stock; C: l10n_de/account_peppol/account_edi_ubl_cii).
+4. EXT-4 right after Wave C (heaviest extraction — CSV + XML + Python in one addon).
+5. EXT-5 after EXT-2 lands (pairing needs both sides).
+6. EXT-6 closes Stage 1.
+
+---
+
+## 2026-05-28 — odoo-business-logic-blueprint-v1 (typed Odoo entity DTOs as the substrate for the OGIT → OWL → DOLCE → FIBU/FIBO normalization + JITson / recipe codegen)
+
+**Status:** PROPOSAL. **PREREQUISITE for `odoo-savant-reasoners-v2` Group F** (per `E-SAVANT-COMPOSITION-1`): v2's `SavantPattern` consts compose *over normalized typed DTOs*; without this blueprint they would be ad-hoc interpretations of L-doc prose. Establishes the missing layer between the Odoo prose curation (L-docs + savant docs) and the agnostic shader substrate.
+**Confidence:** HIGH on the structure (typed DTOs are the missing inheritance-chain input — today every OGIT/OWL/DOLCE/FIBU layer string-keys against `model_name`). MED on per-lane density (15 lanes × ~5-30 entities ≈ ~150-450 const declarations is an estimate; actual count depends on lane density). HIGH on the JITson wiring path (infrastructure exists at `lance-graph-contract::jit` + `thinking-engine` Cranelift integration, just not yet pointed at recipes/savants).
+**Plan file:** `.claude/plans/odoo-business-logic-blueprint-v1.md`
+**Predecessors:** PR #411 (33-TSV atoms + 34 `Tactic` + `jit` infrastructure), PR #412 (DOLCE classifier + `dolce_odoo`), PR #414 (D-ODOO-SAV-1/2/3 OGIT families + Layer-2 axioms), PR #416 (FIBU/FIBO + `contract::savants` roster), PR #407/408 (bO-* OWL hydrators), PR #418 (mailbox-owned SoA), PR #420 (v1 reasoners — deprecated in v2). Driver epiphany: `E-SAVANT-COMPOSITION-1` (2026-05-28).
+**Anchored iron rules:** `I-VSA-IDENTITIES` (typed Layer-2 catalogues — identity in const data, content in tables), AGI-as-glove (typed DTOs ARE the column the inheritance chain reads from), "consult before guess" (L-doc curation IS the curated surface; project into typed structure, don't re-derive).
+
+### Scope
+**Source**: Both passes — L-docs first as the savant-relevant curated filter; Odoo source extraction (`/home/user/odoo`) follows as the exhaustive backing. **Lane coverage**: All 15 lanes (L1–L15) in v1 — complete typed blueprint of the Odoo domain, not a savant-rich subset. **Typed surface**: `lance-graph-ontology::odoo_blueprint` module with `OdooEntity` + `OdooField` + `OdooMethod` + `OdooDecorator` + `OdooStateMachine` + `OdooConstraint` + `OdooProvenance` (zero-dep, const-only, no serde).
+
+### Deliverables
+D-ODOO-BP-1a: `OdooEntity` + sub-types typed surface in `lance-graph-ontology` · D-ODOO-BP-1b: L-doc projection (one `OdooEntity` const per entity × 15 lanes, provenance=Curated) · D-ODOO-BP-1c: OGIT classifier wired to `&OdooEntity` (replaces string-keyed `resolve_odoo`) · D-ODOO-BP-1d: OWL hydrator wired to `&OdooEntity` (relational → edges, computed → SHACL constraints, decorators → axioms) · D-ODOO-BP-1e: DOLCE + FIBU/FIBO wired to `&OdooEntity` (closes D-ODOO-SAV-2's `None`-class alignment over typed input) · D-ODOO-BP-1f: Odoo source extraction tool (tree-sitter Python AST → candidate consts with Confidence=Extracted; validates 1b) · D-ODOO-BP-1g: JITson → recipes wiring (proof-of-concept: `jit::JitCompiler` compiles a `Tactic` kernel parameterized by `(&OdooEntity, AtomTouchMask)` → DTO-ish NARS in shader-driver).
+
+### Execution
+1a first (typed surface, ships with this plan + board hygiene) → 1b in Waves (per-lane subagent, Sonnet, mechanical projection) → 1c/d/e parallel after 1b (three inheritance hops, independent) → 1f after 1b/c/d/e (extraction validates curated) → 1g closes the loop (JIT compiles `Tactic` over normalized DTO). THEN `odoo-savant-reasoners-v2` Group F unblocks. v2 Groups D/E/G remain unblocked (ship independently; F is the only group blocked on the blueprint).
+
+### Invariants
+Zero-dep const-only no-serde on DTO surface (AGI-as-glove + contract discipline) · provenance on every entity (`I-VSA-IDENTITIES` — content in typed registries, never bundled) · inheritance chain operates on typed DTOs never on string model names · L-doc projection is canonical v1; Odoo source extraction is validation/extension · **PREREQUISITE for v2 Group F**; v2's composition layer composes ON TOP of the normalized DTOs.
+## 2026-05-28 — odoo-savant-reasoners-v2 (reshape: `Reasoner` trait → typed composition over `CausalEdge64` + `Tactic` + `callcenter/role_keys`)
+
+**Status:** PROPOSAL (architectural reshape of v1, shipped PR #420 with a "MED on dispatch shape" caveat). v1 review resolved: the `Reasoner` trait surface is the wrong shape per CLAUDE.md "P-1 The Click" + "P0 AGI-as-glove" litmus tests. v2 deprecates the v1 surface (feature-gated + `#[deprecated]`) and routes the canonical path through the agnostic substrate that already exists (`CausalEdge64` + `Tactic` + 33-TSV atoms + role-key catalogues — all shipped via PR #411 + #418 + #419 + #420).
+**Confidence:** HIGH on the diagnosis (litmus tests in CLAUDE.md name v1's anti-patterns verbatim). HIGH on the right-shape vocabulary (PR #411 ratified the 34-tactic `Tactic` trait as "the Elixir-like recipe layer that later fronts the real fingerprint substrate via cognitive-shader-driver with no change to the 34 call sites"). MED on per-savant typed composition consts (substantial translation pass from savant-doc + L-doc curation).
+**Plan file:** `.claude/plans/odoo-savant-reasoners-v2.md`
+**Predecessors:** PR #420 (v1 ship — the surface to deprecate), PR #411 (33-TSV atoms + 34-tactic `Tactic` + `recipe_kernels`), PR #418 (BindSpace → mailbox-owned SoA; `E-BATON-1`), PR #419 (25 AXIS-B evidence contracts), PR #416 (`contract::savants` roster), PR #414 (D-ODOO-SAV-1/2/3). v1 plan: `odoo-savant-reasoners-v1.md`.
+**Anchored iron rules:** AGI-as-glove (P0), The Click P-1 ("free function on carrier = reject"), `I-VSA-IDENTITIES` (`callcenter/role_keys.rs` named home), `E-BATON-1` (mailbox-owned SoA, CE64 baton as cross-boundary state), `I-LEGACY-API-FEATURE-GATED` (v1 deprecation under feature + migration pointer).
+
+### Scope
+Three deliverable groups: **Group D** — agnostic composition primitives (`SavantPattern` + `TacticInvocation` + `EdgeEmissionSpec` + `AtomTouchMask`) in `lance-graph-contract`, zero-dep, sits next to `atoms`/`recipe_kernels`/`nars`. **Group E** — `crates/lance-graph-callcenter/src/role_keys.rs` with 25 disjoint Vsa16kF32 slices per `I-VSA-IDENTITIES` Layer-2 catalogue (slice manifest coordinated with `grammar/role_keys.rs`). **Group F** — 25 typed `SavantPattern` consts in callcenter drawn from `.claude/odoo/savants/<N>.md` slot 1/4 + `.claude/odoo/L*.md` business semantics. **Group G** — deprecate v1 surface (`Reasoner` trait + 4 impls + `SavantConclusion` + `SavantSuggestion` + `build_conclusion`) under `legacy-reasoner` feature with `#[deprecated]` migration pointers; removal in a follow-up after woa-rs migrates.
+
+### Deliverables
+D-ODOO-SAV-5a (Group D): composition primitives in contract · D-ODOO-SAV-5b (Group E): `callcenter/role_keys.rs` 25 disjoint slices + lookup · D-ODOO-SAV-5c (Group F): 25 `SavantPattern` consts · D-ODOO-SAV-5d (Group G): `#[deprecated]` + `legacy-reasoner` feature gate on v1 surface · D-ODOO-SAV-5e: end-to-end test (FiscalPositionResolver → expected `CausalEdge64` row, SPO + NARS + v2 signed mantissa).
+
+### Execution
+5a + 5b parallel (additive, zero churn) → 5c after both → 5d after 5c (deprecation pointers name a real target) → 5e throughout (per-D-id tests + e2e proof in 5c completion). woa-rs consumer migration OUT OF SCOPE but UNBLOCKED by 5d. Board hygiene: this plan + INTEGRATION_PLANS PREPEND + STATUS_BOARD rows + EPIPHANIES `E-SAVANT-COMPOSITION-1` land in the same commit as 5a.
+
+### Invariants
+AGI-as-glove (new capability = column population, not new trait) · `I-VSA-IDENTITIES` (identity in `role_keys`, content in atoms/tactic/emission/AriGraph, never bundled) · The Click P-1 (no free function on carrier's state) · `I-LEGACY-API-FEATURE-GATED` (v1 deprecation under feature + migration pointer) · suggestion-only never un-guarded write (woa-rs Iron Rule 7).
 ## 2026-05-27 — multi-server-cognition-expansion-v1 (legacy-stack displacement + Raft-log / SoA-state-machine)
 
 **Status:** PROPOSAL — §2 displacement is current-state; §3 multi-server expansion is unbuilt, gated on the §4 determinism probe

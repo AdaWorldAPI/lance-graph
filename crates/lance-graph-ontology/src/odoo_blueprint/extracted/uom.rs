@@ -1,0 +1,235 @@
+//! Auto-generated from /home/user/odoo/addons/uom/ by `tools/odoo-blueprint-extractor`.
+//! Do NOT edit by hand — re-run the extractor.
+//! Plan: `.claude/plans/odoo-source-extraction-v1.md` (D-ODOO-EXT-2).
+
+use crate::odoo_blueprint::*;
+
+pub const EXT_UOM_UOM: OdooEntity = OdooEntity {
+    model_name: "uom.uom",
+    kind: OdooEntityKind::Model,
+    description: "Product Unit of Measure",
+    fields: &[
+        OdooField {
+            name: "name",
+            kind: OdooFieldKind::Char,
+            target: None,
+            required: true,
+            computed: None,
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+        OdooField {
+            name: "sequence",
+            kind: OdooFieldKind::Computed,
+            target: None,
+            required: false,
+            computed: Some("_compute_sequence"),
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+        OdooField {
+            name: "relative_factor",
+            kind: OdooFieldKind::Float,
+            target: None,
+            required: true,
+            computed: None,
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+        OdooField {
+            name: "rounding",
+            kind: OdooFieldKind::Computed,
+            target: None,
+            required: false,
+            computed: Some("_compute_rounding"),
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+        OdooField {
+            name: "active",
+            kind: OdooFieldKind::Boolean,
+            target: None,
+            required: false,
+            computed: None,
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+        OdooField {
+            name: "relative_uom_id",
+            kind: OdooFieldKind::Many2one,
+            target: Some("uom.uom"),
+            required: false,
+            computed: None,
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+        OdooField {
+            name: "related_uom_ids",
+            kind: OdooFieldKind::One2many,
+            target: Some("uom.uom"),
+            required: false,
+            computed: None,
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+        OdooField {
+            name: "factor",
+            kind: OdooFieldKind::Computed,
+            target: None,
+            required: false,
+            computed: Some("_compute_factor"),
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+        OdooField {
+            name: "parent_path",
+            kind: OdooFieldKind::Char,
+            target: None,
+            required: false,
+            computed: None,
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+    ],
+    methods: &[
+        OdooMethod {
+            name: "_unprotected_uom_xml_ids",
+            kind: OdooMethodKind::Helper,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "_compute_sequence",
+            kind: OdooMethodKind::Compute,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "_compute_rounding",
+            kind: OdooMethodKind::Compute,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "_compute_factor",
+            kind: OdooMethodKind::Compute,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "_onchange_critical_fields",
+            kind: OdooMethodKind::Onchange,
+            return_kind: OdooReturnKind::Dict,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "_check_factor",
+            kind: OdooMethodKind::Constrain,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "_unlink_except_master_data",
+            kind: OdooMethodKind::Override,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "round",
+            kind: OdooMethodKind::Helper,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "compare",
+            kind: OdooMethodKind::Helper,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "is_zero",
+            kind: OdooMethodKind::Helper,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "_compute_display_name",
+            kind: OdooMethodKind::Compute,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "_compute_quantity",
+            kind: OdooMethodKind::Compute,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "_check_qty",
+            kind: OdooMethodKind::Constrain,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "_compute_price",
+            kind: OdooMethodKind::Compute,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "_filter_protected_uoms",
+            kind: OdooMethodKind::Helper,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+        OdooMethod {
+            name: "_has_common_reference",
+            kind: OdooMethodKind::Helper,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+    ],
+    decorators: &[
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiDepends,
+            targets: &["relative_factor"],
+        },
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiDepends,
+            targets: &["relative_factor", "relative_uom_id", "relative_uom_id.factor"],
+        },
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiOnchange,
+            targets: &["relative_factor"],
+        },
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiConstrains,
+            targets: &["relative_factor", "relative_uom_id"],
+        },
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiDepends,
+            targets: &["name", "relative_factor", "relative_uom_id"],
+        },
+    ],
+    state_machine: None,
+    constraints: &[
+        OdooConstraint {
+            kind: OdooConstraintKind::Sql,
+            condition: "The conversion ratio for a unit of measure cannot be 0!",
+            source_method: None,
+        },
+        OdooConstraint {
+            kind: OdooConstraintKind::Python,
+            condition: "Python constraint on relative_factor, relative_uom_id",
+            source_method: Some("_check_factor"),
+        },
+    ],
+    provenance: OdooProvenance {
+        l_doc: "",
+        l_doc_lines: (0, 0),
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/uom/models/uom_uom.py", line_range: (17, 230) }],
+        confidence: OdooConfidence::Extracted,
+        regulation_iri: &[],
+    },
+};
+

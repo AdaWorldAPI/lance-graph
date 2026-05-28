@@ -91,9 +91,15 @@ impl RoleKey {
 
     /// Generate a deterministic role key: pseudo-random bits in `[start..end)`,
     /// zeros everywhere else. Seeded from FNV-64 of the label.
-    fn generate(label: &'static str, start: usize, end: usize) -> Self {
-        debug_assert!(start <= end);
-        debug_assert!(end <= VSA_DIMS);
+    ///
+    /// `pub` so per-domain Layer-2 catalogues (sibling modules under this
+    /// crate — `grammar`, `callcenter`, future `persona`) can construct
+    /// their own role keys with disjoint slice allocations. Per
+    /// `I-VSA-IDENTITIES`: identity in the role-key catalogue, content in
+    /// downstream registries.
+    pub fn generate(label: &'static str, start: usize, end: usize) -> Self {
+        assert!(start <= end);
+        assert!(end <= VSA_DIMS);
         let mut words = Box::new([0u64; VSA_WORDS]);
         let seed = fnv64(label);
         for dim in start..end {

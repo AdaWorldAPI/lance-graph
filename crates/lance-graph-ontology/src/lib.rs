@@ -42,6 +42,7 @@ pub mod foundry_map;
 pub mod hydrators;
 pub mod namespace;
 pub mod namespace_registry;
+pub mod odoo_blueprint;
 pub mod proposal;
 pub mod registry;
 pub mod schema_source;

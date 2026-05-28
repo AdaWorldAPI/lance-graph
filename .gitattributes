@@ -1,0 +1,6 @@
+
+# Append/prepend-only governance files use union merge so concurrent
+# prepends from different branches don't conflict (per CCA2A pattern).
+.claude/board/AGENT_LOG.md         merge=union
+.claude/board/EPIPHANIES.md        merge=union
+.claude/board/INTEGRATION_PLANS.md merge=union

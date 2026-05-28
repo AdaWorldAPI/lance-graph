@@ -31,6 +31,73 @@
 **Files touched:** `crates/cognitive-shader-driver/src/driver.rs` (+42 lines)
 **cargo check:** `Finished dev` — 0 errors; pre-existing warnings only (causal-edge/p64-bridge/ontology deprecations — none in cognitive-shader-driver). Note: `--features hpc-extras` absent from this crate; check ran with default features.
 **Outcome:** SUCCESS — added `HashMap<MailboxId, MailboxSoA<1024>>` field on `ShaderDriver`, `with_mailbox` builder setter on `CognitiveShaderBuilder`, `mailbox()` read accessor. Singleton `Arc<BindSpace>` untouched. All new items marked `/// work`.
+## [Sonnet agent] PR #426 CodeRabbit fixes — 16/17 applied (1 skipped with rationale)
+
+Applied all 16 addressable CodeRabbit findings across Groups A (board/plan governance), B (Rust source), C (Python tooling), and D (nitpicks). Group B included regenerating all 12 TIER-1 addon `.rs` files + l10n_de chart/kennzahlen after stripping `/home/user/` prefix from emitted paths. `cargo test -p lance-graph-ontology --lib` remained green at 203 tests; Python smoke test PASS. Item 13 (l1.rs unit tests for ENTITIES contents) explicitly skipped — static const data tests add no invariant coverage that the existing `extracted::coverage::tests` aggregate gate doesn't already provide.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `e581035`. `cargo test -p lance-graph-ontology --lib` green (203 tests). Python smoke test PASS.
+
+---
+## [Sonnet agent] D-ODOO-EXT-6 — Stage 1 coverage report + gate test (closes EXT-1..6)
+
+Per-lane eligible coverage analysis confirmed 100% on all 15 lanes after subtracting 5 TIER-2 exemptions (4 `hr.*` entities in L14, 1 `stock.valuation.layer` in L13): L1-L13 and L15 all at 100% eligible backing; L14 wholly-exempt (skip). `extracted/COVERAGE.md` emitted with per-lane table, TIER-2 deferral catalogue, TIER-1 surplus inventory (181 entities across 12 addons), and Stage 2 recommendation (`hr` + `stock_account` first). `extracted/coverage.rs` provides `COVERAGE_EXEMPTIONS` + `COVERAGE_FLOOR = 0.80` + 2 gate tests. Plan and INTEGRATION_PLANS `**Status:**` lines updated to SHIPPED.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `2937c04`. `cargo test -p lance-graph-ontology --lib` green (203 tests, +2 new: `every_lane_meets_coverage_floor`, `aggregate_coverage_reports_correctly`). **Stage 1 of `odoo-source-extraction-v1` SHIPPED.**
+
+---
+
+## [Sonnet agent] D-ODOO-EXT-5 — curated-vs-extracted pairing table
+
+Scanner (stdlib `re`) walked all 15 curated lane modules + 12 extracted TIER-1 addon modules, finding 53 unique curated model_names and 229 extracted, yielding 48 overlap pairings. Top deltas: `account.move` (24f/27m curated → 142f/352m extracted, Δ+118f/+325m), `account.move.line` (+67f/+132m), `sale.order` (+43f/+128m) — confirming curated is a precise savant-relevant subset. 17 private (`const`) lane consts promoted to `pub const` in l3/l5/l7/l13.rs to enable absolute crate-path references. Selection rule: pick curated entry with most inline-counted fields+methods (handles l3.rs indirect-ref pattern); extracted entry with most fields+methods.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `bf42ad2`. `cargo test -p lance-graph-ontology --lib` green (201 tests, +2 new: `pairing_table_is_well_formed`, `pairing_table_has_expected_size`).
+
+---
+
+## [Sonnet agent] D-ODOO-EXT-4 — l10n_de SKR03/04 chart + UStVA Kennzahlen + GoBD wiring
+
+Emitted three new typed surfaces unreachable by the Python ast extractor: SKR03_CHART (1 274 accounts) + SKR04_CHART (1 192 accounts) from CSV via `OdooAccountTemplate`/`OdooSkrChart`; USTVA_KENNZAHLEN (37 Kennzahlen — full UStVA return, not just the canonic Kz.81..95 subset) from XML via `OdooUstvaKennzahl`/`OdooKennzahlKind`; GOBD_WIRING from `res_company.py` via `OdooGobdWiring`. All carry regulation_iri anchors (UStG §1a/4/13/13b/15/18, HGB §238/266, GoBD, AO §146a). Extractor extended with `data_extractors/{csv_chart,xml_kennzahl,gobd_company}.py` + `data` CLI subcommand (stdlib-only).
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `dd40713`. `cargo test -p lance-graph-ontology --lib` green (199 tests, +7 new sanity tests: skr03/04_chart_has_expected_size, skr03/04_chart_entries_have_codes, ustva_kennzahlen_cover_canonical_boxes, ustva_kennzahlen_non_empty, gobd_wiring_has_correct_trigger).
+
+---
+
+## [Sonnet agent] D-ODOO-EXT-2 Wave C — l10n_de/account_peppol/account_edi_ubl_cii extraction (closes EXT-2)
+
+Extracted 3 DE-specific + EU e-invoice TIER-1 addons: l10n_de 8 models (335 LOC, 0% field-fallback — ORM models only; SKR03/04 chart, tax tables, and UStVA Kennzahlen are intentionally absent, scope of D-ODOO-EXT-4), account_peppol 10 models (1 446 LOC, 2.4% field-fallback, 1 Other field), account_edi_ubl_cii 16 models (3 703 LOC, 0% field-fallback). Helper method rates are high (57–94%) as expected for XML-rendering wrappers and partner-extension models — documented in commit body per plan guidance. No extractor fixes required for Wave C; German docstrings were not present in emitted Rust output and caused no UTF-8 issues.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `901c58c`. `cargo test -p lance-graph-ontology --lib` green (192 tests). EXT-2 COMPLETE (12 TIER-1 addons extracted, ~73 534 total extracted/ LOC across all waves).
+
+---
+
+## [Sonnet agent] D-ODOO-EXT-2 Wave B — account/account_payment/purchase/sale/stock extraction
+
+Extracted 5 value-flow-chain TIER-1 addons into `odoo_blueprint::extracted::{account,account_payment,purchase,sale,stock}` (41 701 insertions, 5 new Rust modules). Model counts: account 66 models (21 340 LOC, 0.8% field-fallback), account_payment 7 models (663 LOC, 0%), purchase 15 models (3 080 LOC, 0%), sale 20 models (4 588 LOC, 1.1%), stock 33 models (12 020 LOC, 1.2%). All five pass the <5% `OdooFieldKind::Other` gate (16 Other hits total: exotic `fields.Json`/`fields.Properties` variants). No extractor fixes required for Wave B — the Wave A `_dedup_by_model_name` + `OdooFieldKind::Other` variant absorbed all edge cases cleanly. `extracted/mod.rs` updated with Wave A/B comment-grouped alphabetical module declarations.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `a214f53`. `cargo test -p lance-graph-ontology --lib` green (192 tests). Wave B aggregate field-fallback: ~0.9% weighted by field count (1860 total fields, 16 Other).
+
+---
+
+## [Sonnet agent] D-ODOO-EXT-2 Wave A — base/uom/product/analytic extraction
+
+Extracted 4 foundation TIER-1 addons into `odoo_blueprint::extracted::{base,uom,product,analytic}` (26 395 insertions, 4 new Rust modules + `extracted/mod.rs`). Model counts: base 114 models (19 563 LOC, 1.6% field fallback), uom 1 model (235 LOC, 0%), product 25 models (5 248 LOC, 4.3%), analytic 9 models (1 286 LOC, 0%). All four pass the <5% `OdooFieldKind::Other` gate. Two extractor fixes shipped: (1) `emitters/module.py` — added `_dedup_by_model_name()` to keep the richest class when `_inherit` causes multiple Python classes to share a model_name (base had 2 duplicates: `base` + `res.users`); (2) `mod.rs` — added `OdooFieldKind::Other` variant for unrecognized field types (`fields.Image` ×8, `fields.Properties` ×1, `fields.PropertiesDefinition` ×1 in product). `pub mod extracted;` wired into `odoo_blueprint/mod.rs`.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `46dcbcc`. `cargo test -p lance-graph-ontology --lib` green (192 tests). Wave A audit: base 1.6%, uom 0%, product 4.3%, analytic 0% (aggregate ~1.7% weighted by field count).
+
+---
+
+## [Sonnet agent] D-ODOO-EXT-1 — Python ast extractor scaffold + uom smoke test
+
+Created `tools/odoo-blueprint-extractor/` — a stdlib-only Python 3 package (1 669 LOC across 19 files) that parses Odoo ORM classes via `ast` and emits `OdooEntity` Rust consts with `OdooConfidence::Extracted` provenance. Covers all seven parsers (`classes`, `fields`, `methods`, `decorators`, `state_machine`, `constraints`, `regulation`), two emitters (`rust`, `module`), and `audit/fallback_log`. Smoke test on `uom` addon passes 6/6: emits `EXT_UOM_UOM` with `model_name: "uom.uom"`, `kind: OdooEntityKind::Model`, `confidence: OdooConfidence::Extracted`, balanced braces, 0% `::Other` field fallback. The `regulation.py` 30-entry anchor table is wired; uom has no regulatory text so `regulation_iri: &[]` as expected. EXT-3's `OdooEntityKind` and `regulation_iri` fields landed before this commit — the emitter already emits them correctly. EXT-2 inherits: 9 fields, 16 methods (10 classified, 6 legitimate helpers), 2 constraints extracted from uom cleanly; `@api.ondelete` decorator correctly mapped to `Override`.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `29e918c`. Smoke test PASS.
+
+---
+## [Sonnet agent] D-ODOO-EXT-3 — OdooEntityKind + regulation_iri provenance slot
+
+Added `OdooEntityKind::{Model,Transient,Abstract}` enum and `OdooEntity.kind` field to `mod.rs`, plus `OdooProvenance.regulation_iri: &'static [&'static str]` slot. Back-filled `kind: OdooEntityKind::Model` and `regulation_iri: &[]` across all 70 `OdooEntity` consts in `l1.rs`–`l15.rs` (3+3+6+6+5+4+6+6+6+5+4+5+5+4+2 = 70 lane consts; 2 more in `mod.rs` tests). The sole blocking issue was a missing `OdooEntityKind` in each lane's `use super::{}` import — the `kind:` and `regulation_iri:` values were already present in the lane files. Fixed all 15 import blocks. Corrected stale `tree-sitter` doc comment in `OdooConfidence::Extracted`.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `7f21133`. `cargo test -p lance-graph-ontology --lib` green (192 tests).
 
 ---
 
