@@ -199,7 +199,7 @@ pub use odoo_alignment::{
 pub mod savant_reasoners;
 pub use savant_reasoners::{
     CustomerCategoryReasoner, NextBestActionReasoner, OtherReasoner, PostingAnomalyReasoner,
-    SavantConclusion, SavantError,
+    SavantConclusion, SavantError, SavantSuggestion,
 };
 
 // PR-F1 — UnifiedBridgeGate<B>: production CognitiveBridgeGate impl.
