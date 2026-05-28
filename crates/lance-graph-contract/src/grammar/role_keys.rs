@@ -98,8 +98,8 @@ impl RoleKey {
     /// `I-VSA-IDENTITIES`: identity in the role-key catalogue, content in
     /// downstream registries.
     pub fn generate(label: &'static str, start: usize, end: usize) -> Self {
-        debug_assert!(start <= end);
-        debug_assert!(end <= VSA_DIMS);
+        assert!(start <= end);
+        assert!(end <= VSA_DIMS);
         let mut words = Box::new([0u64; VSA_WORDS]);
         let seed = fnv64(label);
         for dim in start..end {

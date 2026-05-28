@@ -227,7 +227,7 @@ pub const EXT_UOM_UOM: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/uom/models/uom_uom.py", line_range: (17, 230) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/uom/models/uom_uom.py", line_range: (17, 230) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },

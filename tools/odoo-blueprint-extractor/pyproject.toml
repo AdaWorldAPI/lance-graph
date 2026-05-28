@@ -3,7 +3,11 @@ name = "odoo-blueprint-extractor"
 version = "0.1.0"
 description = "Extract Odoo ORM classes as OdooEntity Rust consts (D-ODOO-EXT-1..6)"
 requires-python = ">=3.10"
-# No runtime deps — stdlib `ast` + `argparse` + `json` only.
+# One runtime dep added (C5/CodeRabbit fix): defusedxml for XXE/billion-laughs hardening
+# on the Odoo-vendored XML files parsed by data_extractors/xml_kennzahl.py.
+dependencies = [
+    "defusedxml >= 0.7",
+]
 
 [build-system]
 requires = ["setuptools"]

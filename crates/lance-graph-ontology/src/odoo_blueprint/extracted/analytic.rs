@@ -208,7 +208,7 @@ pub const EXT_ACCOUNT_ANALYTIC_ACCOUNT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/analytic/models/analytic_account.py", line_range: (11, 243) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_account.py", line_range: (11, 243) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/de/ustg/13"],
     },
@@ -317,7 +317,7 @@ pub const EXT_ACCOUNT_ANALYTIC_DISTRIBUTION_MODEL: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/analytic/models/analytic_distribution_model.py", line_range: (9, 96) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_distribution_model.py", line_range: (9, 96) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -470,7 +470,7 @@ pub const EXT_ANALYTIC_PLAN_FIELDS_MIXIN: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/analytic/models/analytic_line.py", line_range: (11, 160) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_line.py", line_range: (11, 160) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -635,7 +635,7 @@ pub const EXT_ACCOUNT_ANALYTIC_LINE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/analytic/models/analytic_line.py", line_range: (163, 274) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_line.py", line_range: (163, 274) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -799,7 +799,7 @@ pub const EXT_ANALYTIC_MIXIN: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/analytic/models/analytic_mixin.py", line_range: (12, 275) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_mixin.py", line_range: (12, 275) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1147,7 +1147,7 @@ pub const EXT_ACCOUNT_ANALYTIC_PLAN: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/analytic/models/analytic_plan.py", line_range: (14, 390) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_plan.py", line_range: (14, 390) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1213,7 +1213,7 @@ pub const EXT_ACCOUNT_ANALYTIC_APPLICABILITY: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/analytic/models/analytic_plan.py", line_range: (393, 430) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_plan.py", line_range: (393, 430) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1244,7 +1244,7 @@ pub const EXT_IR_CONFIG_PARAMETER: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/analytic/models/ir_config_parameter.py", line_range: (7, 28) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/ir_config_parameter.py", line_range: (7, 28) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1278,7 +1278,7 @@ pub const EXT_RES_CONFIG_SETTINGS: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/analytic/models/res_config_settings.py", line_range: (7, 10) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/res_config_settings.py", line_range: (7, 10) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },

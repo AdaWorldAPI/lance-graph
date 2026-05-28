@@ -146,7 +146,9 @@ def _run_pair_subcommand(args: argparse.Namespace) -> None:
     # Emit audit JSON
     if audit_path:
         audit_json = emit_audit_json(pairings)
-        Path(audit_path).write_text(audit_json, encoding="utf-8")
+        audit_p = Path(audit_path)
+        audit_p.parent.mkdir(parents=True, exist_ok=True)
+        audit_p.write_text(audit_json, encoding="utf-8")
         print(f"Audit written: {audit_path}", file=sys.stderr)
 
 
@@ -251,5 +253,6 @@ def main() -> None:
         )
 
     if audit_path:
+        Path(audit_path).parent.mkdir(parents=True, exist_ok=True)
         log.flush(audit_path)
         print(f"# Fallback log written to: {audit_path}", file=sys.stderr)

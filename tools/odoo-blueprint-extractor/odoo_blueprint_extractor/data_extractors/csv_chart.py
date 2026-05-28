@@ -105,9 +105,11 @@ def parse_csv_chart(csv_path: Path, chart: str) -> Tuple[List[Tuple[str, dict]],
     if chart == "skr03":
         prefix = "EXT_SKR03_"
         chart_variant = "Skr03"
-    else:
+    elif chart == "skr04":
         prefix = "EXT_SKR04_"
         chart_variant = "Skr04"
+    else:
+        raise ValueError(f"Unknown SKR chart variant: {chart!r}; expected 'skr03' or 'skr04'")
 
     rows: List[Tuple[str, dict]] = []
     with open(csv_path, newline="", encoding="utf-8") as f:

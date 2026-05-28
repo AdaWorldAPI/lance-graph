@@ -29,7 +29,10 @@ Regulation IRI mapping:
       → ogit:regulation/de/ustg/18  (§18 Voranmeldung)
 """
 
-import xml.etree.ElementTree as ET
+try:
+    from defusedxml import ElementTree as ET  # XXE/billion-laughs hardening
+except ImportError:  # pragma: no cover — defusedxml listed in pyproject.toml
+    import xml.etree.ElementTree as ET  # type: ignore[no-redef]
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 

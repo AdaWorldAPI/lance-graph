@@ -45,7 +45,7 @@ downstream layer string-keys against `model_name`. There is no shared
 typed representation of "what an Odoo entity *is*" — its fields, methods,
 decorators, state machine, constraints. The user-named pipeline:
 
-```
+```text
 Odoo source (exact = ground truth)
   → typed Odoo entity DTOs        ← THIS PLAN
   → normalize: Odoo → OGIT → OWL → DOLCE → FIBU/FIBO inheritance chain
@@ -126,7 +126,7 @@ string-keyed lookups.
 | **D-ODOO-BP-1c** | Wire OGIT classifier to take `&OdooEntity` (replaces string-keyed `resolve_odoo`); uses field/method semantics for richer dispatch; covers 0x63/0x90 from PR #414 | `lance-graph-ontology` + `lance-graph-callcenter::family_table` | 250 | HIGH | Queued |
 | **D-ODOO-BP-1d** | Wire OWL hydrator to take `&OdooEntity`: relational fields → edges, computed fields → SHACL-equivalent constraints, decorators → axioms | `lance-graph-ontology` | 350 | MED | Queued |
 | **D-ODOO-BP-1e** | Wire DOLCE classifier + FIBU/FIBO alignment to take `&OdooEntity`; close out D-ODOO-SAV-2's `None`-class alignment for `stock.*` / `analytic.distribution.model` / `account.account.tag` over typed input | `lance-graph-ontology` | 200 | HIGH | Queued |
-| **D-ODOO-BP-1f** | Odoo source extraction tool: walk `/home/user/odoo`, parse Python AST for ORM classes via tree-sitter, emit candidate `OdooEntity` consts with `Confidence=Extracted`; merge into 1b's curated set as a follow-up validation pass | `tools/odoo-blueprint-extractor/` | 800 | MED | Queued |
+| **D-ODOO-BP-1f** | Odoo source extraction tool: walk `/home/user/odoo`, parse Python AST for ORM classes via Python stdlib ast module (unfolded into odoo-source-extraction-v1; Stage 1 shipped 2026-05-28), emit candidate `OdooEntity` consts with `Confidence=Extracted`; merge into 1b's curated set as a follow-up validation pass | `tools/odoo-blueprint-extractor/` | 800 | MED | Queued |
 | **D-ODOO-BP-1g** | Wire JITson → recipes: `jit::JitCompiler` compiles `Tactic` kernels parameterized by `(OdooEntity, AtomTouchMask)`; produces the DTO-ish NARS that lands in the shader-driver | `lance-graph-contract::jit` + `thinking-engine` | 400 | MED | Queued |
 
 ## Execution

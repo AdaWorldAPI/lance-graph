@@ -100,7 +100,7 @@ pub const PRODUCT_CATEGORY: OdooEntity = OdooEntity {
 
 // ─── uom.uom ──────────────────────────────────────────────────────────────────
 
-pub const UOM_UUM: OdooEntity = OdooEntity {
+pub const UOM_UOM: OdooEntity = OdooEntity {
     model_name: "uom.uom",
     kind: OdooEntityKind::Model,
     description: "Unit of Measure: factor-based conversion. Reference unit factor=1.0. \
@@ -514,7 +514,7 @@ pub const PRODUCT_PRICELIST_ITEM: OdooEntity = OdooEntity {
 
 pub const ENTITIES: &[OdooEntity] = &[
     PRODUCT_CATEGORY,
-    UOM_UUM,
+    UOM_UOM,
     PRODUCT_TEMPLATE,
     PRODUCT_PRODUCT,
     PRODUCT_PRICELIST,
@@ -541,7 +541,7 @@ mod tests {
 
     #[test]
     fn uom_uom_sql_constraints() {
-        let sql: Vec<_> = UOM_UUM.constraints.iter()
+        let sql: Vec<_> = UOM_UOM.constraints.iter()
             .filter(|c| c.kind == OdooConstraintKind::Sql)
             .collect();
         assert_eq!(sql.len(), 2, "factor!=0 and rounding>0");

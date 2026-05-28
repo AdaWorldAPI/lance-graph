@@ -177,7 +177,7 @@ pub const EXT_ACCOUNT_MOVE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/account_move.py", line_range: (6, 206) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/account_move.py", line_range: (6, 206) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -307,7 +307,7 @@ pub const EXT_ACCOUNT_MOVE_LINE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/account_move_line.py", line_range: (8, 244) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/account_move_line.py", line_range: (8, 244) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -341,7 +341,7 @@ pub const EXT_ACCOUNT_ANALYTIC_LINE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/analytic.py", line_range: (6, 9) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/analytic.py", line_range: (6, 9) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -375,7 +375,7 @@ pub const EXT_ACCOUNT_ANALYTIC_APPLICABILITY: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/analytic.py", line_range: (12, 21) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/analytic.py", line_range: (12, 21) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -406,7 +406,7 @@ pub const EXT_ACCOUNT_CHART_TEMPLATE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/chart_template.py", line_range: (4, 10) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/chart_template.py", line_range: (4, 10) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -499,7 +499,7 @@ pub const EXT_CRM_TEAM: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/crm_team.py", line_range: (8, 84) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/crm_team.py", line_range: (8, 84) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -536,7 +536,7 @@ pub const EXT_IR_ACTIONS_REPORT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/ir_actions_report.py", line_range: (7, 56) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/ir_actions_report.py", line_range: (7, 56) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -594,7 +594,7 @@ pub const EXT_IR_CONFIG_PARAMETER: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/ir_config_parameter.py", line_range: (9, 45) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/ir_config_parameter.py", line_range: (9, 45) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -628,7 +628,7 @@ pub const EXT_PAYMENT_PROVIDER: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/payment_provider.py", line_range: (6, 14) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/payment_provider.py", line_range: (6, 14) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -737,7 +737,7 @@ pub const EXT_PAYMENT_TRANSACTION: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/payment_transaction.py", line_range: (11, 260) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/payment_transaction.py", line_range: (11, 260) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -771,7 +771,7 @@ pub const EXT_PRODUCT_DOCUMENT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/product_document.py", line_range: (6, 25) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/product_document.py", line_range: (6, 25) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -811,7 +811,7 @@ pub const EXT_PRODUCT_PRICELIST_ITEM: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/product_pricelist_item.py", line_range: (4, 16) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/product_pricelist_item.py", line_range: (4, 16) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -916,7 +916,7 @@ pub const EXT_PRODUCT_PRODUCT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/product_product.py", line_range: (10, 123) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/product_product.py", line_range: (10, 123) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -954,7 +954,7 @@ pub const EXT_PRODUCT_ATTRIBUTE_CUSTOM_VALUE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/product_product.py", line_range: (126, 134) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/product_product.py", line_range: (126, 134) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1245,7 +1245,7 @@ pub const EXT_PRODUCT_TEMPLATE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/product_template.py", line_range: (10, 311) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/product_template.py", line_range: (10, 311) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1350,7 +1350,7 @@ pub const EXT_RES_COMPANY: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/res_company.py", line_range: (7, 64) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/res_company.py", line_range: (7, 64) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1446,7 +1446,7 @@ pub const EXT_RES_PARTNER: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/res_partner.py", line_range: (7, 110) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/res_partner.py", line_range: (7, 110) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -3098,7 +3098,7 @@ pub const EXT_SALE_ORDER: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/sale_order.py", line_range: (34, 2301) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/sale_order.py", line_range: (34, 2301) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -4496,7 +4496,7 @@ pub const EXT_SALE_ORDER_LINE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/sale_order_line.py", line_range: (12, 1819) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/sale_order_line.py", line_range: (12, 1819) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -4580,7 +4580,7 @@ pub const EXT_UTM_CAMPAIGN: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/sale/models/utm_campaign.py", line_range: (7, 72) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/sale/models/utm_campaign.py", line_range: (7, 72) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },

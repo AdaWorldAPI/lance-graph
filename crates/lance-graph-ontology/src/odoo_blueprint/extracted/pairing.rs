@@ -353,11 +353,11 @@ pub static CURATED_EXTRACTED_PAIRS: &[OdooEntityPairing] = &[
         curated: &crate::odoo_blueprint::l13::STOCK_WAREHOUSE_ORDERPOINT,
         extracted: &crate::odoo_blueprint::extracted::stock::EXT_STOCK_WAREHOUSE_ORDERPOINT,
     },
-    // uom.uom  (curated: UOM_UUM in l8.rs  |  extracted: EXT_UOM_UOM in uom.rs)
+    // uom.uom  (curated: UOM_UOM in l8.rs  |  extracted: EXT_UOM_UOM in uom.rs)
     // delta: fields=+9, methods=+16
     OdooEntityPairing {
         model_name: "uom.uom",
-        curated: &crate::odoo_blueprint::l8::UOM_UUM,
+        curated: &crate::odoo_blueprint::l8::UOM_UOM,
         extracted: &crate::odoo_blueprint::extracted::uom::EXT_UOM_UOM,
     },
 ];
