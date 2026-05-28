@@ -9598,3 +9598,8 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "ndarray"
+version = "0.17.2"
+source = "git+https://github.com/AdaWorldAPI/ndarray.git?branch=master#0129b5c80cee8d88fdae97be813524328e4d025a"

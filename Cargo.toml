@@ -44,22 +44,66 @@ resolver = "2"
 
 # ─── Workspace-level dependency pins ────────────────────────────────────────
 #
-# Task 01 (deps_substrate) — Lance 6 / LanceDB 0.28 / surrealdb kv-lance
+# Task 01 (deps_substrate) — Lance 6 / LanceDB 0.29 / surrealdb kv-lance
 #
-# BLOCKED(A): Lance 6 has not been confirmed as a published crate version.
-#   Current workspace uses `lance = "=4.0.0"`.  The spec requests "Lance 6"
-#   but crates.io only shows lance up to the 4.x series as of this writing.
-#   A fork-access human must confirm the exact semver (e.g. "=6.0.0") and
-#   whether it is published to crates.io or must be pulled from a git source.
-#   Until confirmed, leave the existing `lance = "=4.0.0"` pins in place.
+# RESOLVED(A) 2026-05-28 — Lance pinned to `=6.0.0` across all crate Cargo.tomls
+#   (lance-graph, lance-graph-benches, lance-graph-callcenter, lance-graph-catalog,
+#   lance-graph-ontology, holograph, surreal_container; lance-arrow + lance-index
+#   + lance-linalg + lance-namespace bump in lock-step). #423's coordinated
+#   4 → 6 jump landed at 6.0.0.
 #
-# BLOCKED(B): LanceDB 0.28 has not been confirmed as published.
-#   Current workspace uses `lancedb = "=0.27.2"`.  The spec requests 0.28.
-#   A fork-access human must confirm `lancedb = "=0.28.0"` (or exact patch)
-#   is live on crates.io or a private registry, and that the DataFusion 52 /
-#   Arrow 57 transitive constraints still hold at 0.28.
+#   The user authorised a follow-on patch 6.0.0 → 6.0.1, but it is **CURRENTLY
+#   BLOCKED by lancedb 0.29.0's transitive `lance = "=6.0.0"` requirement**:
+#   lancedb 0.29.0 is the latest 0.29.x published on crates.io and pins lance
+#   to exact-equals 6.0.0. Cargo cannot satisfy both `lance = "=6.0.1"` (our
+#   pin) and lancedb's transitive `lance = "=6.0.0"`. Resolution path: wait
+#   for lancedb 0.29.1+ that bumps the lance pin, OR drop the strict-equals
+#   pin in lance-graph (doctrine change). Tracked as TD-LANCE-6.0.1-PIN.
 #
-# BLOCKED(C): `surrealdb` with `kv-lance` feature.
+# RESOLVED(B) 2026-05-28 — LanceDB pinned to `=0.29.0` (the latest 0.29 patch);
+#   transitively pins lance =6.x, datafusion 53, arrow 58.
+#
+# BLOCKED(D) STILL OPEN — codex P2 correction on PR #425 (2026-05-28).
+#   The earlier RESOLVED(D) claim was FALSE: there is no `[patch.crates-io]`
+#   block in this workspace root (`git grep '\[patch'` on this commit finds
+#   only this comment), and `Cargo.lock` continues to resolve `ndarray 0.16.1`
+#   from `registry+https://github.com/rust-lang/crates.io-index` (verified via
+#   `cargo tree -i ndarray@0.16.1` → lance-index 6.0.0 → lance 6.0.0).
+#
+#   Technical reality:
+#     - The AdaWorldAPI/ndarray fork is at `version = "0.17.2"` (see
+#       `/home/user/ndarray/Cargo.toml`); no 0.16-line branch / tag exists
+#       (verified: only `master` + working branch, both at 0.17.2).
+#     - `lance-index 6.0.0` pins `ndarray = "0.16.1"` (features =
+#       `["matrixmultiply-threading"]`) in its registry manifest.
+#     - A `[patch.crates-io] ndarray = { git = "https://github.com/adaworldapi/ndarray.git" }`
+#       to the 0.17.2 fork would NOT satisfy lance-index's 0.16 requirement —
+#       cargo would emit `"warning: Patch ndarray v0.17.2 ... was not used in
+#       the crate graph"`. The semver gap defeats a fork-by-git patch.
+#
+#   What IS wired to the fork: the workspace's DIRECT ndarray dep
+#   (`ndarray = { path = "../../../ndarray" }` declared by lance-graph's own
+#   `crates/lance-graph/Cargo.toml`) — `Cargo.lock` lists `ndarray 0.17.2` as
+#   a separate entry from the local source. So the fork IS reachable for
+#   workspace-direct consumers. Only the lance TRANSITIVE remains on the
+#   crates.io 0.16.1.
+#
+#   Attempted resolution (2026-05-28, user directive "just use [patch] to
+#   overwrite ndarray = 0.16 with 0.17.2"): the `[patch.crates-io]` block
+#   below points `ndarray` at the AdaWorldAPI fork. Cargo's `[patch]` does
+#   NOT force a version downgrade — if the fork's `0.17.2` doesn't semver-
+#   match lance-index's `0.16.1` requirement, cargo emits the warning
+#   `"Patch ndarray v0.17.2 ... was not used in the crate graph"` and the
+#   transitive continues to resolve to crates.io 0.16.1 in `Cargo.lock`.
+#   This patch is therefore a DECLARED INTENT (not a guaranteed effect):
+#     - It DOES wire workspace-direct ndarray consumers to the fork
+#       (already wired via the path dep in lance-graph's own Cargo.toml).
+#     - It DOES NOT guarantee the lance transitive switches off crates.io
+#       until upstream lance-index supports ndarray 0.17 OR the fork ships
+#       a `0.16.x`-versioned branch (see TD-NDARRAY-PATCH-0_16).
+#   Cross-ref: TECH_DEBT.md TD-NDARRAY-PATCH-0_16; PR #425 codex review.
+#
+# STILL OPEN — BLOCKED(C): `surrealdb` with `kv-lance` feature.
 #   Upstream surrealdb (crates.io) does NOT ship a `kv-lance` feature.  This
 #   feature lives in the AdaWorldAPI fork (core/src/kvs/lance/ per
 #   cognitive-substrate.md).  A fork-access human must supply:
@@ -68,30 +112,28 @@ resolver = "2"
 #     - the exact feature flag name (confirmed: `kv-lance` from spec)
 #     - whether a published crate path or `[patch.crates-io]` override is
 #       required for workspace compilation.
+#   Until resolved, surreal_container's `surrealdb` dep stays commented out.
 #
-# BLOCKED(D): lance-index → ndarray 0.16 transitive constraint.
-#   Lance 6 may pull lance-index which depends on ndarray 0.16.x.  The
-#   workspace currently uses AdaWorldAPI/ndarray (a path dep).  If Lance 6's
-#   transitive closure requires ndarray "0.16" from crates.io, a
-#   `[patch.crates-io]` entry must alias it to the fork path.  This must be
-#   verified by the human with access to Lance 6's full Cargo.lock.
+# Crate-level pins (canonical source of truth — workspace.dependencies is not
+# used; each consumer crate declares its own pin with exact-equals so the
+# whole graph resolves to the same semver):
+#   lance           = "=6.0.0"   (lance-arrow / lance-index / lance-linalg /
+#                                 lance-namespace bump in lock-step)
+#   lancedb         = "=0.29.0"
+#   datafusion      = "53"       (+ datafusion-common / -expr / -sql /
+#                                 -functions-aggregate)
+#   arrow-array     = "58"       (+ arrow-schema / -buffer / -ipc / arrow)
+
+# ─── [patch.crates-io] — point ndarray at the AdaWorldAPI fork ──────────────
 #
-# Placeholder [workspace.dependencies] entries are left as comments below so
-# that the draft is ready to uncomment once BLOCKED items are resolved:
-#
-#   [workspace.dependencies]
-#   # BLOCKED(A): replace "=4.0.0" with confirmed Lance 6 semver
-#   lance          = "=4.0.0"           # TODO: bump to Lance 6 once BLOCKED(A) resolved
-#   lance-linalg   = "=4.0.0"           # TODO: bump in lock-step with lance
-#   lance-index    = "=4.0.0"           # TODO: bump in lock-step; see BLOCKED(D)
-#   lance-namespace = "=4.0.0"          # TODO: bump in lock-step with lance
-#
-#   # BLOCKED(B): replace "=0.27.2" with confirmed LanceDB 0.28 semver
-#   lancedb        = "=0.27.2"          # TODO: bump to 0.28 once BLOCKED(B) resolved
-#
-#   # BLOCKED(C): replace stub with real git source + feature name
-#   # surrealdb = { git = "BLOCKED_SEE_C", branch = "BLOCKED_SEE_C", features = ["kv-lance"] }
-#
-# [patch.crates-io]
-#   # BLOCKED(D): uncomment and fill once Lance 6 ndarray transitive version known
-#   # ndarray = { path = "../../../ndarray" }
+# Per user directive 2026-05-28 ("don't use crates.io; try [patch]
+# github.com/adaworldapi/ndarray.git or adjacent" → "just use [patch] to
+# overwrite ndarray = 0.16 with 0.17.2"). The fork's `0.17.2` will:
+#   - Satisfy workspace-direct consumers (already wired via path dep).
+#   - Emit `"Patch ndarray v0.17.2 ... was not used in the crate graph"`
+#     against lance-index's `ndarray = "0.16.1"` until lance-index 0.17-
+#     compat lands OR a 0.16-line branch is added to the fork.
+# The patch is a declared-intent override; effect on the transitive depends
+# on semver compat. See BLOCKED(D) comment above + TD-NDARRAY-PATCH-0_16.
+[patch.crates-io]
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray.git", branch = "master" }
