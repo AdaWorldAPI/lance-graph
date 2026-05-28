@@ -75,14 +75,14 @@ pub enum CascadeKind {
     /// `CausalEdge64` tombstones rather than silent row disappearances.
     SqlFkOndelete,
 
-    /// `base.automation` server-action trigger.
-    ///
-    /// Highly configurable in Odoo; encoded as `Other` + tag until
-    /// the specific automation patterns from EXT-2 are enumerated.
-    ///
-    // TODO(Stage 2): Stage 2 audit of `base.automation` records in the
-    // EXT-2 output will surface specific subtypes; promote those
-    // to their own variants at that time.
+    /// `base.automation` server-action trigger. Highly configurable
+    /// in Odoo; Stage 2 will audit specific server-action patterns
+    /// from the EXT-2 output and may add subtypes alongside this
+    /// variant, but the base discriminant stays.
+    //
+    // TODO(Stage 2): audit `base.automation` records in EXT-2 to
+    // surface specific subtypes; promote those to their own variants
+    // while keeping `ServerAction` as the catch-all.
     ServerAction,
 
     /// `_inherits` field-forwarding cascade.
@@ -177,10 +177,14 @@ pub trait CascadeWalker {
     /// - `kind_filter` — restrict traversal to one cascade kind, or
     ///   `None` for all kinds.
     /// - `mode` — traversal discipline set by the transaction context.
+    /// - `on_dependent` — invoked once per dependent `MailboxRow`
+    ///   reached by the walk. The closure can re-enter the chain with
+    ///   each row to fan the cascade out per the Stage 2 wiring.
     fn walk_dependents(
         &self,
         from: MailboxRow,
         kind_filter: Option<CascadeKind>,
         mode: TraversalMode,
+        on_dependent: &mut dyn FnMut(MailboxRow),
     );
 }

@@ -75,7 +75,7 @@ pub mod op;
 pub mod stages;
 
 pub use entity::NormalizedEntity;
-pub use op::{Op, OpKind, Output};
+pub use op::{Op, OpError, OpKind, Output};
 pub use stages::{
     Abducted, Checked, Normalized, Raw, Reported, Reviewed, Stage, WithDolce, WithOgit, WithOwl,
 };

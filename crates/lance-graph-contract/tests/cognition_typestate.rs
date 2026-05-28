@@ -155,10 +155,7 @@ impl Op<Normalized, Normalized> for NoopOp {
     fn kind(&self) -> OpKind {
         OpKind(1)
     }
-
-    fn apply(&self, entity: NormalizedEntity<Normalized>) -> NormalizedEntity<Normalized> {
-        entity
-    }
+    // step uses the default no-op success impl from the Op trait.
 }
 
 /// A minimal Op advancing `Normalized → Checked`.
@@ -169,10 +166,8 @@ impl Op<Normalized, Checked> for FakeChkData {
     fn kind(&self) -> OpKind {
         OpKind(2)
     }
-
-    fn apply(&self, entity: NormalizedEntity<Normalized>) -> NormalizedEntity<Checked> {
-        entity.advance_stage()
-    }
+    // step uses the default no-op success impl; framework performs the
+    // sealed Normalized → Checked transition.
 }
 
 /// A minimal Op advancing `Checked → Reviewed`.
@@ -182,10 +177,6 @@ struct FakeReview;
 impl Op<Checked, Reviewed> for FakeReview {
     fn kind(&self) -> OpKind {
         OpKind(3)
-    }
-
-    fn apply(&self, entity: NormalizedEntity<Checked>) -> NormalizedEntity<Reviewed> {
-        entity.advance_stage()
     }
 }
 
@@ -197,10 +188,6 @@ impl Op<Reviewed, Abducted> for FakeAbduct {
     fn kind(&self) -> OpKind {
         OpKind(4)
     }
-
-    fn apply(&self, entity: NormalizedEntity<Reviewed>) -> NormalizedEntity<Abducted> {
-        entity.advance_stage()
-    }
 }
 
 /// A minimal Op advancing `Abducted → Reported`.
@@ -210,10 +197,6 @@ struct FakeReport;
 impl Op<Abducted, Reported> for FakeReport {
     fn kind(&self) -> OpKind {
         OpKind(5)
-    }
-
-    fn apply(&self, entity: NormalizedEntity<Abducted>) -> NormalizedEntity<Reported> {
-        entity.advance_stage()
     }
 }
 

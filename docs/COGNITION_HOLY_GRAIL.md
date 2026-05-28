@@ -24,7 +24,7 @@ into one surface consumers chain on top of.
 Stage 1 ships the typed surface as a zero-dep scaffold. All
 advancement verbs past `resolve_ogit` are `todo!()` bodies pending
 Stage 2 wiring. The Op trait's `apply_stream` (warm) and `apply_soa`
-(hot) call sites are documented but deferred — see `/// work` markers
+(hot) call sites are documented but deferred — see `// TODO(Stage 2):` markers
 in `op.rs`.
 
 ## What stages 2..7 will add

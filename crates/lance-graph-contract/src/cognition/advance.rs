@@ -50,10 +50,9 @@ impl NormalizedEntity<Raw> {
     // contract (or the write-back goes through a trait adapter).
     pub fn resolve_ogit<C: OgitCtx>(self, ctx: &C) -> NormalizedEntity<WithOgit> {
         let ogit = ctx.resolve_ogit(self.odoo.0);
-        // Use advance_stage to copy the struct without touching _stage directly,
-        // then overwrite the ogit field via a fresh struct built from the advanced base.
-        // We need to set ogit, so we build from scratch using the public fields.
-        let mut advanced = self.advance_stage::<WithOgit>();
+        // Use advance_stage_internal to copy the struct without touching _stage
+        // directly, then overwrite the ogit field.
+        let mut advanced = self.advance_stage_internal::<WithOgit>();
         advanced.ogit = Some(ogit);
         advanced
     }
@@ -118,6 +117,9 @@ impl NormalizedEntity<WithDolce> {
 impl NormalizedEntity<Normalized> {
     /// Apply a Normalized → Normalized Op to the carrier.
     ///
+    /// Calls `op.step(&self)` for validation / side-effects, then
+    /// performs the sealed stage transition via `advance_stage_internal`.
+    ///
     /// Idiomatic usage: chain multiple `.op()` calls for sequential
     /// shader dispatches that leave the stage unchanged:
     ///
@@ -127,30 +129,31 @@ impl NormalizedEntity<Normalized> {
     /// # use lance_graph_contract::cognition::op::*;
     /// # struct KontCheck; impl Op<Normalized, Normalized> for KontCheck {
     /// #     fn kind(&self) -> OpKind { OpKind::UNWIRED }
-    /// #     fn apply(&self, e: NormalizedEntity<Normalized>) -> NormalizedEntity<Normalized> { e }
     /// # }
     /// # struct GobdCheck; impl Op<Normalized, Normalized> for GobdCheck {
     /// #     fn kind(&self) -> OpKind { OpKind::UNWIRED }
-    /// #     fn apply(&self, e: NormalizedEntity<Normalized>) -> NormalizedEntity<Normalized> { e }
     /// # }
     /// # fn demo(entity: NormalizedEntity<Normalized>) {
     /// entity.op(KontCheck).op(GobdCheck);
     /// # }
     /// ```
     pub fn op<O: Op<Normalized, Normalized>>(self, op: O) -> Self {
-        op.apply(self)
+        // Stage 1: ignore step errors (kernel bodies are todo!() anyway).
+        // Stage 2 wires proper error propagation through the chain.
+        let _ = op.step(&self);
+        self.advance_stage_internal::<Normalized>()
     }
 
     /// Data-quality check: `Normalized` → `Checked`.
     ///
-    /// Advances the stage from `Normalized` to `Checked`. Only one
-    /// `chk_data` call is permitted in a chain (it would be a no-op
-    /// to check twice; the type system makes a second call impossible
-    /// without going through `review`).
+    /// Calls `c.step(&self)` then advances the stage to `Checked`. Only
+    /// one `chk_data` call is permitted in a chain (the type system
+    /// makes a second call impossible without going through `review`).
     ///
     /// Typical argument: `SkrAccountInRange::new(8400..=8499)`.
     pub fn chk_data<C: Op<Normalized, Checked>>(self, c: C) -> NormalizedEntity<Checked> {
-        c.apply(self)
+        let _ = c.step(&self);
+        self.advance_stage_internal::<Checked>()
     }
 }
 
@@ -159,10 +162,10 @@ impl NormalizedEntity<Normalized> {
 impl NormalizedEntity<Checked> {
     /// Fiscal-position / savant review: `Checked` → `Reviewed`.
     ///
-    /// Invokes the review savant (e.g. `FiscalPositionResolver`) via
-    /// the shader.
+    /// Calls `r.step(&self)` then advances the stage to `Reviewed`.
     pub fn review<R: Op<Checked, Reviewed>>(self, r: R) -> NormalizedEntity<Reviewed> {
-        r.apply(self)
+        let _ = r.step(&self);
+        self.advance_stage_internal::<Reviewed>()
     }
 }
 
@@ -171,10 +174,10 @@ impl NormalizedEntity<Checked> {
 impl NormalizedEntity<Reviewed> {
     /// NARS abductive inference: `Reviewed` → `Abducted`.
     ///
-    /// Invokes the NARS abduction kernel (e.g. `VatLiability`) via the
-    /// shader.
+    /// Calls `a.step(&self)` then advances the stage to `Abducted`.
     pub fn abduct<A: Op<Reviewed, Abducted>>(self, a: A) -> NormalizedEntity<Abducted> {
-        a.apply(self)
+        let _ = a.step(&self);
+        self.advance_stage_internal::<Abducted>()
     }
 }
 
@@ -183,18 +186,20 @@ impl NormalizedEntity<Reviewed> {
 impl NormalizedEntity<Abducted> {
     /// Apply an Abducted → Abducted Op to the carrier.
     ///
+    /// Calls `op.step(&self)` then performs the sealed stage transition.
     /// Allows additional shader dispatches after abduction and before
     /// reporting (e.g. `GoBdLockCheck`).
     pub fn op<O: Op<Abducted, Abducted>>(self, op: O) -> Self {
-        op.apply(self)
+        let _ = op.step(&self);
+        self.advance_stage_internal::<Abducted>()
     }
 
     /// Aggregation / reporting: `Abducted` → `Reported`.
     ///
-    /// Invokes the reporting aggregator (e.g. `UStvaKennzahlAggregator`)
-    /// via the shader.
+    /// Calls `p.step(&self)` then advances the stage to `Reported`.
     pub fn report<P: Op<Abducted, Reported>>(self, p: P) -> NormalizedEntity<Reported> {
-        p.apply(self)
+        let _ = p.step(&self);
+        self.advance_stage_internal::<Reported>()
     }
 }
 

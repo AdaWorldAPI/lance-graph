@@ -1,4 +1,4 @@
-//! The [`Op<I,O>`] trait — identity + three call sites.
+//! The [`Op<I,O>`] trait — identity + step hook + three call sites.
 //!
 //! Per E-OP-THREE-CALLSITES-1: one trait, three execution speeds,
 //! one set of const data shared across all three. The `kind()` method
@@ -10,12 +10,13 @@
 //!
 //! | Method | Path | Caller |
 //! |---|---|---|
-//! | `apply` | Cold — single carrier, one-shot | `Interactive` context |
-//! | `apply_stream` | Warm — async stream, flow-controlled | `Bulk` context |
-//! | `apply_soa` | Hot — SoA-swept SIMD, JIT-compiled | `Periodisch` context |
+//! | `step` (hook) + framework transition | Cold — single carrier, one-shot | `Interactive` context |
+//! | `apply_stream` | Warm — async stream, flow-controlled (Stage 2) | `Bulk` context |
+//! | `apply_soa` | Hot — SoA-swept SIMD, JIT-compiled (Stage 2) | `Periodisch` context |
 //!
-//! Stage 1 ships `apply` only. `apply_stream` and `apply_soa` are
-//! documented as deferred to Stage 2; see `TODO(Stage 2):` comments below.
+//! Stage 1 ships `step` (with default no-op) + the framework chain methods.
+//! `apply_stream` and `apply_soa` are deferred to Stage 2; see
+//! `TODO(Stage 2):` comments below.
 //!
 //! ## Cross-references
 //! - Plan: `.claude/plans/normalized-entity-holy-grail-v1.md` §"The Op trait"
@@ -80,55 +81,66 @@ pub struct Output {
 
 // ── Op trait ──────────────────────────────────────────────────────────────────
 
-/// The chain-grammar Op. Same const-data identity, three call sites.
+/// The chain-grammar Op. Identity + step-hook; three call sites.
 ///
 /// Implementing an `Op<I,O>` means declaring a typed business kernel:
 /// an `SkrAccountInRange`, a `VatLiability`, a `FiscalPositionResolver`.
-/// The `kind()` discriminant tells the shader WHICH kernel to run; the
-/// `apply` / `apply_stream` / `apply_soa` bodies are the call sites the
-/// transaction context picks between.
+/// The `kind()` discriminant tells the shader WHICH kernel to run.
+/// The `step()` method is the validation + side-effect hook the
+/// framework calls before performing the sealed stage transition.
+///
+/// ## Sealed stage transitions
+///
+/// External Op implementors override ONLY `step` + `kind`. The stage
+/// transition itself (`NormalizedEntity<I>` → `NormalizedEntity<O>`) is
+/// performed by the framework's chain methods (`op` / `chk_data` /
+/// `review` / `abduct` / `report`) after `step` returns `Ok`. Implementors
+/// cannot construct `NormalizedEntity<O>` directly because
+/// `advance_stage_internal` is `pub(crate)`.
 ///
 /// ## Why one trait, not three?
 ///
 /// The Op holds const data (e.g. `SkrAccountInRange(8400..=8499)`) that
 /// must be identical across all three call sites. Splitting into three
 /// traits would force consumers to implement three times and risk
-/// divergence. One trait with three method forms keeps the const data
-/// in one place and lets the context dispatch to the right form.
+/// divergence. One trait keeps the const data in one place.
 ///
 /// ## Stage 1 completeness
 ///
-/// Only `apply` (cold) is required to be non-`todo!()` in Stage 1.
-/// `apply_stream` and `apply_soa` are left as deferred pending the
-/// async + SoA dependencies in Stage 2:
+/// `step` has a default no-op success body — Stage 1 kernels can
+/// implement only `kind()`. `apply_stream` and `apply_soa` are deferred
+/// to Stage 2:
 ///
 /// - `apply_stream` needs a `Stream` type; `futures::Stream` / std
 ///   `async_iter` (unstable) — decision deferred to Stage 2.
 /// - `apply_soa` references `MailboxSoA<N>` from
 ///   `cognitive-shader-driver`, which is not yet a dep of contract.
 ///
-/// Both are documented in the `TODO(Stage 2):` comments below.
-///
 /// ## Cross-references
 /// - Epiphany E-OP-THREE-CALLSITES-1
 /// - I-VSA-IDENTITIES (identity in const data)
 /// - `crate::transaction::{Interactive, Bulk, Periodisch}`
 pub trait Op<I: Stage, O: Stage>: Sized + 'static {
-    /// Const-data identity of this Op — the codebook discriminant the
-    /// shader dispatches against. Per `I-VSA-IDENTITIES`, this is the
-    /// register; kernel logic lives in the shader, not here.
+    /// Identity handle for this Op — the codebook entry the shader
+    /// dispatches against. Per `I-VSA-IDENTITIES` +
+    /// `E-CODEBOOK-INHERITS-FROM-OGIT`.
     fn kind(&self) -> OpKind;
 
-    // ── Cold path ──────────────────────────────────────────────────
-
-    /// Cold path — single carrier, one-shot dispatch.
+    /// Inspect the entity at stage `I` + perform side-effects on the
+    /// owning mailbox's SoA row via `entity.row`. Returns `Ok(())` to
+    /// signal "advance to stage `O`"; `Err(...)` halts the chain.
     ///
-    /// Used by the [`crate::transaction::Interactive`] context: eager,
-    /// synchronous, one entity at a time. Dispatches the shader kernel
-    /// once against the carrier's SoA row, returns the advanced entity.
+    /// Default: no-op success (always advance). Override to add
+    /// validation logic or to write into the SoA columns.
     ///
-    /// Stage 1: implementors MUST provide a body (even `todo!()`).
-    fn apply(&self, entity: NormalizedEntity<I>) -> NormalizedEntity<O>;
+    /// External Op implementors override ONLY `step` + `kind`. The
+    /// stage transition itself is performed by the framework after
+    /// `step` returns `Ok` — implementors cannot construct
+    /// `NormalizedEntity<O>` directly.
+    fn step(&self, entity: &NormalizedEntity<I>) -> Result<(), OpError> {
+        let _ = entity;
+        Ok(())
+    }
 
     // ── Warm path ──────────────────────────────────────────────────
 
@@ -165,4 +177,24 @@ pub trait Op<I: Stage, O: Stage>: Sized + 'static {
     //
     // Used by the [`crate::transaction::Periodisch`] context.
     // fn apply_soa(&self, mb: &mut MailboxSoA<N>, mask: BitMask);
+}
+
+// ── OpError ───────────────────────────────────────────────────────────────────
+
+/// Error returned from an Op's `step` to halt the chain.
+///
+/// Stage 1 carries only a static message; Stage 2 will widen to carry
+/// the failing `OpKind` + a typed reason enum + the row reference for
+/// audit trail purposes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OpError {
+    /// Static description of why the step was rejected.
+    pub message: &'static str,
+}
+
+impl OpError {
+    /// Construct an `OpError` from a static string.
+    pub const fn new(message: &'static str) -> Self {
+        Self { message }
+    }
 }

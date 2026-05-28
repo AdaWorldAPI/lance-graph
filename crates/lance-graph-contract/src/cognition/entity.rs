@@ -23,8 +23,8 @@ use super::stages::{Raw, Stage};
 ///
 /// `u32` for `mailbox_ref` matches PR #427's WitnessTable widening
 /// (was `u16`, promoted to accommodate > 65 K cohorts).
-/// `u16` for `row_idx` matches the per-mailbox envelope (64 K–256 K
-/// rows per mailbox per `D-MBX-A4`).
+/// `u32` for `row_idx` matches the full 256K per-mailbox envelope
+/// (`D-MBX-A4`) and provides a symmetric handle layout with `mailbox_ref`.
 ///
 /// Per E-CE64-MB-4: mailbox-as-owner topology makes Rust ownership
 /// prove no aliasing / no data race at compile time. `MailboxRow` is
@@ -33,8 +33,9 @@ use super::stages::{Raw, Stage};
 pub struct MailboxRow {
     /// Wide enough for PR #427's witness_table widening.
     pub mailbox_ref: u32,
-    /// Row inside the per-mailbox SoA (64 K–256 K envelope).
-    pub row_idx: u16,
+    /// Row inside the per-mailbox SoA (full 256K envelope addressable; u32
+    /// matches PR #427's mailbox_ref widening for symmetric handle layout).
+    pub row_idx: u32,
 }
 
 // ── Zero-dep placeholder handles ─────────────────────────────────────────────
@@ -247,23 +248,15 @@ impl NormalizedEntity<Raw> {
 // ── Internal advancement helper ───────────────────────────────────────────────
 
 impl<S: Stage> NormalizedEntity<S> {
-    /// Internal: transition the phantom stage to `T`, keeping all data
-    /// fields identical. Only called from [`super::advance`].
+    /// Sealed — only callable from within the contract crate's chain
+    /// machinery. External Op implementors cannot advance stages directly;
+    /// they implement `Op::step()` and the framework handles the
+    /// transition.
     ///
-    /// Not `pub` — consumers go through the typed verb methods, never
-    /// raw stage-casts.
-    /// Advance the phantom stage to `T`, copying all data fields.
-    ///
-    /// Used by [`Op<I,O>::apply`](super::op::Op) implementations to
-    /// construct the output entity after applying business logic. The
-    /// type parameter `T` is constrained by the `Op<I,O>` trait bounds
-    /// at the call site, so stage correctness is enforced by the Op
-    /// trait, not by this method's signature.
-    ///
-    /// Not callable on the advancement verbs themselves (those use it
-    /// internally); exposed `pub` so external Op implementors can
-    /// construct stage-transitioned entities in their `apply` bodies.
-    pub fn advance_stage<T: Stage>(self) -> NormalizedEntity<T> {
+    /// Advances the phantom stage to `T`, copying all data fields.
+    /// Called by the chain methods in [`super::advance`] and by
+    /// framework-side verbs (`resolve_ogit` etc.) inside this crate.
+    pub(crate) fn advance_stage_internal<T: Stage>(self) -> NormalizedEntity<T> {
         NormalizedEntity {
             odoo: self.odoo,
             ogit: self.ogit,

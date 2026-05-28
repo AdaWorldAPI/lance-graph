@@ -1,6 +1,56 @@
+## [Sonnet agent + main-thread fixup] PR #431 review wave — 9/11 review findings applied
+
+Addressed Codex P1 + P2 and 6 CodeRabbit findings on the
+normalized-entity-holy-grail-v1 Stage 1 surface. Sonnet agent landed
+the substantive code work (typestate seal + Op trait redesign + row_idx
+widening + CascadeWalker callback + ServerAction doc fix + first
+compile_fail block in src/cognition/mod.rs) but didn't commit before
+hitting an unrelated permissions issue. Main thread audited the work
+tree, updated the 5 fake Op impls in `tests/cognition_typestate.rs` to
+the new `step()`-only shape (removing the now-non-existent `apply()`
+overrides), fixed the remaining 2 stale `/// work` text refs, and
+committed everything as one fix wave.
+
+**Critical refactor (Codex P1):** `Op` trait no longer exposes `apply()`
+as overridable; external implementors override only `step()` (validation
+hook, default no-op success) + `kind()`. The framework's chain methods
+(`op` / `chk_data` / `review` / `abduct` / `report`) call `op.step()`
+then perform the sealed `advance_stage_internal::<O>()` transition.
+`advance_stage` is `pub(crate)` now — external code cannot construct
+any `NormalizedEntity<S>` for `S != Raw`. New `OpError` type carries
+a `&'static str` for Stage 1; Stage 2 widens to typed reasons + row ref
+for audit trail.
+
+**Correctness (Codex P2 + CodeRabbit 5):** `MailboxRow::row_idx: u16 → u32`
+to match the documented 64K-256K per-mailbox envelope. Mirrors PR #427's
+symmetric `mailbox_ref: u32` widening.
+
+**API design (CodeRabbit 4):** `CascadeWalker::walk_dependents` now takes
+`on_dependent: &mut dyn FnMut(MailboxRow)` callback — the walker output
+is now expressible at the type level.
+
+**Doc drift (CodeRabbit 1, 3, 9):** `ServerAction` no longer claims to be
+"encoded as Other + tag" (it IS its own variant); 2 stale `/// work`
+references in `docs/COGNITION_HOLY_GRAIL.md` + this very AGENT_LOG entry
+swept to `// TODO(Stage 2):`.
+
+**Deferred to Stage 2 (CodeRabbit 2, 7):** colocated `#[cfg(test)]`
+tests in `advance.rs` + `interactive.rs`. The methods are `todo!()`-bodied
+today; meaningful tests only become writable once kernels exist.
+
+**Tests:** `cargo clippy -p lance-graph-contract --lib --tests -- -D warnings`
+clean. `cargo test --lib` 472 green. `cargo test --test cognition_typestate`
+7 green. `cargo test --doc` 3 green (incl. new compile_fail block in
+`src/cognition/mod.rs`).
+
+**Branch:** `claude/normalized-entity-holy-grail-v1`, commit `<pending>`
+(this commit). Updates PR #431 with the review-fix wave.
+
+---
+
 ## [Sonnet agent] D-NEH-1a..g — normalized-entity-holy-grail-v1 Stage 1 contract surface scaffold
 
-Created `cognition::{stages, entity, op, advance, cascade}` + `transaction::{interactive, bulk, periodisch, ctx}` modules in `lance-graph-contract` — the typed consumer pipeline grammar per `.claude/plans/normalized-entity-holy-grail-v1.md`. All advancement verbs past `resolve_ogit` have `todo!()` bodies flagged with `/// work` markers for Stage 2 wiring. Compile-fail tests in `tests/cognition_typestate.rs` plus 7 passing positive tests document the typestate gate.
+Created `cognition::{stages, entity, op, advance, cascade}` + `transaction::{interactive, bulk, periodisch, ctx}` modules in `lance-graph-contract` — the typed consumer pipeline grammar per `.claude/plans/normalized-entity-holy-grail-v1.md`. All advancement verbs past `resolve_ogit` have `todo!()` bodies flagged with `// TODO(Stage 2):` markers for Stage 2 wiring (markers were `/// work` in the original scaffold; converted to `// TODO(Stage 2):` in the main-thread review-strip pass that followed). Compile-fail tests in `tests/cognition_typestate.rs` plus 7 passing positive tests document the typestate gate.
 
 **Branch:** `claude/normalized-entity-holy-grail-v1`, prior commit `1695a9a` (plan). commit `b96baf3`. `cargo check -p lance-graph-contract` clean (0 errors); `cargo test -p lance-graph-contract --lib` green (472 tests); `cargo test -p lance-graph-contract --test cognition_typestate` green (7 tests).
 
