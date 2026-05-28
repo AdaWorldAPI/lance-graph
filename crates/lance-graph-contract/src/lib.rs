@@ -37,6 +37,7 @@
 pub mod a2a_blackboard;
 pub mod atoms;
 pub mod auth;
+pub mod callcenter;
 pub mod cam;
 pub mod cognitive_shader;
 pub mod collapse_gate;
