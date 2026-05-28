@@ -250,6 +250,13 @@ For a new regulatory domain, extend `REGULATORY_MARKERS` in
 
 ## 5. The future shape (recipe.rs ladder + 400ms shader)
 
+> **The canonical compressed form lives at
+> `.claude/odoo/images/three-planes-SoA-DTO.png`** — the SoA layout
+> rendered as a single image; each panel is one DTO column
+> `(meaning, runtime_contract, weights, regulatory_anchor,
+> pipeline_step, output_artifact, key_principle, pattern)`. Read the
+> image first. The prose below is supplementary annotation.
+>
 > **Three planes, runtime crosses none of them** — per
 > `EPIPHANIES.md E-THREE-PLANES-1` (ChatGPT external review,
 > 2026-05-28). The compiled artifact has three distinct outputs, each
