@@ -12,7 +12,7 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # workspace has no shared [workspace.dependencies] table today; using
 # explicit versions consistent with the rest of the codebase (arrow 57,
 # thiserror 2). See PR description for the single-line deviation.
-arrow = "57"
+arrow = "58"
 thiserror = "2"
 
 [dev-dependencies]

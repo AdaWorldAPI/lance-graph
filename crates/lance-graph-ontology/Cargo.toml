@@ -43,10 +43,12 @@ sha2 = "0.10"
 # Lance-backed dictionary cache is feature-gated so the crate compiles without
 # protoc (lance-encoding's build-time dep). The default in-memory registry is
 # the canonical surface for tests and consumers that don't need persistence.
-lance = { version = "=4.0.0", optional = true }
-arrow = { version = "57", optional = true }
-arrow-array = { version = "57", optional = true }
-arrow-schema = { version = "57", optional = true }
+lance = { version = "=6.0.0", optional = true }
+# arrow bumped to 58 to match lance 6.0's transitive arrow version.
+# TODO(lance-bump): align rest of workspace on arrow 58 once feasible.
+arrow = { version = "58", optional = true }
+arrow-array = { version = "58", optional = true }
+arrow-schema = { version = "58", optional = true }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "fs"], optional = true }
 futures = { version = "0.3", optional = true }
 
