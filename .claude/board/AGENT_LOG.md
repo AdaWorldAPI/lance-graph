@@ -530,3 +530,20 @@ PROCESS NOTE: subagents cannot use the Write tool or cat>/printf> here (interact
 HAND-BACK: green light for lance-graph to implement the 5 Reasoner impls (CustomerCategory/
 PostingAnomaly/NextBestAction/Other) against the filled contracts. NEEDS-INPUT savants can be
 impl'd with gap columns nullable + structurally-capped confidence until feeds land.
+## 2026-05-28 — [main-thread / Opus] [HANDOVER ONLY — no code, no behavioral change] PR #418/#419 review + surreal/mailbox/Baton plan map
+
+**Branch:** `claude/lance-graph-ontology-review-Pyry3`. **Scope:** read-only PR review pass on lance-graph #418 + #419, synthesis of the in-session plan corpus around the owned little-endian Baton contract / mailbox-as-owner / SoA-as-BindSpace-surrogate / SurrealDB-as-view.
+
+**Deliverables (this commit):**
+- `.claude/handovers/2026-05-28-1200-pr-418-419-surreal-mailbox-baton-plan-map.md` — meticulously mapped handover doc: PR #418 review (verdict + 3 substantive notes), PR #419 review (brief, scope clarification), the SurrealDB role correction (`Zone-2 cold store` → `view over leading LanceDB`), the plan corpus map (8 plans + 9 epiphanies + dep chain), the navigability meta-finding (§5), action surface (§6), cross-refs (§7).
+- `EPIPHANIES.md` ← `E-SURREAL-POC-UNANNOTATED-SUPERSEDURE` (this commit). Navigability FINDING: the `.claude/surreal/` POC docs lack a supersedure pointer to `E-RUBICON-RACTOR` + plan §2.7; lowest-risk fix is a non-mutating pointer file (not done in this commit).
+
+**PRs reviewed:**
+- #418 (`docs: BindSpace-singleton → mailbox-owned SoA migration spec`) — verdict **sound, merge-ready as a spec**. Exemplary CCA2A hygiene (plan + INTEGRATION_PLANS + STATUS_BOARD + 2 EPIPHANIES + TECH_DEBT in one PR, append-only). 3 substantive notes: (a) the bare-columns ~24–50 B vs full-hot-thought ~6 KB distinction is in the plan but conflatable; (b) `E-RUBICON-RACTOR` is honest CONJECTURE — post-hoc psychological framing over already-shipped Σ10 (D-CSV-10 #388), nothing to implement; (c) the OQ-4 doctrinal contradiction (CLAUDE.md "The Click" on `Vsa16kF32`) is correctly *gated*, not silently resolved — S5 (delete cycle plane) blocked until the doctrinal rewrite lands.
+- #419 (`docs(odoo-savants): 25 AXIS-B evidence contracts`) — unrelated to surreal/mailbox; low merge risk; dispatch decision (one `Reasoner` impl per `ReasoningKind`) is reasonable. The real gate for D-ODOO-SAV-4 (impl) is the 14 `NEEDS-INPUT` blockers (woa-rs feeds + lance Layer-2 alignment axioms).
+
+**Tests / build:** none run in this handover (docs only). The reviewed PRs are themselves docs-only.
+
+**No code path changed. No `.rs` / `Cargo.toml` / `build.rs` / `data/` touched. Read-only review + appends + one new handover doc.**
+
+**Cross-ref:** PR #418 (open), PR #419 (open), `EPIPHANIES.md` `E-RUBICON-RACTOR` + `E-MAILBOX-IS-BINDSPACE` + `E-SURREAL-POC-UNANNOTATED-SUPERSEDURE`, plans listed in §3 of the handover doc.
