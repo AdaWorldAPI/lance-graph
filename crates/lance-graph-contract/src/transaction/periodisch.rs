@@ -38,7 +38,7 @@ use crate::cognition::entity::{
 ///
 /// The name is deliberately German to match the workspace's naming
 /// convention (E-ODOO-AS-PRIOR-ART-1: Odoo's `with_env(cr)` wizards
-/// + lock-date global state are the prior art; our re-encoding uses
+/// plus lock-date global state are the prior art; our re-encoding uses
 /// a typed frozen context).
 ///
 // TODO(Stage 2): Stage 2 adds:
