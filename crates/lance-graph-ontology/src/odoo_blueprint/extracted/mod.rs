@@ -1,0 +1,40 @@
+//! Auto-generated source-extracted `OdooEntity` consts from Odoo's Python ORM,
+//! produced by `tools/odoo-blueprint-extractor` (D-ODOO-EXT-1) per
+//! `D-ODOO-EXT-2` of `.claude/plans/odoo-source-extraction-v1.md`.
+//!
+//! These are additive to the curated `l{1..15}` lane modules — they carry
+//! `OdooConfidence::Extracted` and `EXT_*` const prefixes to avoid symbol
+//! collisions with curated lane consts. The curated set stays canonical
+//! on conflict (per BP-1 plan §"merge ordering"); pairing is wired by
+//! `D-ODOO-EXT-5`.
+
+// Wave A (foundation)
+pub mod analytic;
+pub mod base;
+pub mod product;
+pub mod uom;
+
+// Wave B (value-flow chain)
+pub mod account;
+pub mod account_payment;
+pub mod purchase;
+pub mod sale;
+pub mod stock;
+
+// Wave C (DE-specific + e-invoice)
+pub mod account_edi_ubl_cii;
+pub mod account_peppol;
+pub mod l10n_de;
+
+// Wave C — l10n_de data files (D-ODOO-EXT-4)
+// SKR03/SKR04 chart of accounts + UStVA Kennzahlen + GoBD wiring.
+// These are typed-surface consts, NOT OdooEntity consts — they live
+// in separate files to keep the ORM extraction and data extraction
+// orthogonal.
+pub mod l10n_de_chart;
+pub mod l10n_de_kennzahlen;
+
+// Curated-vs-extracted reconciliation (D-ODOO-EXT-5)
+pub mod pairing;
+// Coverage report + gate (D-ODOO-EXT-6 — closes Stage 1)
+pub mod coverage;
