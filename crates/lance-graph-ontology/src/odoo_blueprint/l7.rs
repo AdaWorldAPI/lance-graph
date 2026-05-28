@@ -53,7 +53,7 @@ const STOCK_MOVE_STATE_MACHINE: OdooStateMachine = OdooStateMachine {
 
 // ─── stock.move ───────────────────────────────────────────────────────────────
 
-const STOCK_MOVE: OdooEntity = OdooEntity {
+pub const STOCK_MOVE: OdooEntity = OdooEntity {
     model_name: "stock.move",
     kind: OdooEntityKind::Model,
     description: "One product movement between two stock locations; state machine \
@@ -129,7 +129,7 @@ const STOCK_MOVE: OdooEntity = OdooEntity {
 
 // ─── stock.move.line ──────────────────────────────────────────────────────────
 
-const STOCK_MOVE_LINE: OdooEntity = OdooEntity {
+pub const STOCK_MOVE_LINE: OdooEntity = OdooEntity {
     model_name: "stock.move.line",
     kind: OdooEntityKind::Model,
     description: "One lot/package/owner reservation or done-qty record within a stock move; \
@@ -170,7 +170,7 @@ const STOCK_MOVE_LINE: OdooEntity = OdooEntity {
 
 // ─── stock.quant ──────────────────────────────────────────────────────────────
 
-const STOCK_QUANT: OdooEntity = OdooEntity {
+pub const STOCK_QUANT: OdooEntity = OdooEntity {
     model_name: "stock.quant",
     kind: OdooEntityKind::Model,
     description: "Persistent stock record: qty of one product at one location with \
@@ -270,7 +270,7 @@ const STOCK_PICKING_STATE_MACHINE: OdooStateMachine = OdooStateMachine {
 
 // ─── stock.picking ────────────────────────────────────────────────────────────
 
-const STOCK_PICKING: OdooEntity = OdooEntity {
+pub const STOCK_PICKING: OdooEntity = OdooEntity {
     model_name: "stock.picking",
     kind: OdooEntityKind::Model,
     description: "Group of stock moves for one logistics operation (receipt/delivery/internal); \
@@ -352,7 +352,7 @@ const STOCK_PICKING: OdooEntity = OdooEntity {
 
 // ─── stock.location ───────────────────────────────────────────────────────────
 
-const STOCK_LOCATION: OdooEntity = OdooEntity {
+pub const STOCK_LOCATION: OdooEntity = OdooEntity {
     model_name: "stock.location",
     kind: OdooEntityKind::Model,
     description: "Node in the stock location hierarchy (physical or virtual); \
@@ -418,7 +418,7 @@ const STOCK_LOCATION: OdooEntity = OdooEntity {
 
 // ─── stock.warehouse ──────────────────────────────────────────────────────────
 
-const STOCK_WAREHOUSE: OdooEntity = OdooEntity {
+pub const STOCK_WAREHOUSE: OdooEntity = OdooEntity {
     model_name: "stock.warehouse",
     kind: OdooEntityKind::Model,
     description: "Physical warehouse site with operational config (picking types, routes, \

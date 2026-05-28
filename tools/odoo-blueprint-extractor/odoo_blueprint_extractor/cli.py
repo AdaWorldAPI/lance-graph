@@ -12,6 +12,12 @@ Usage (data extraction — D-ODOO-EXT-4):
         --addon l10n_de \\
         --out crates/lance-graph-ontology/src/odoo_blueprint/extracted/
         [--addons /home/user/odoo/addons]
+
+Usage (curated-vs-extracted pairing — D-ODOO-EXT-5):
+    python -m odoo_blueprint_extractor pair \\
+        --crate crates/lance-graph-ontology \\
+        --out crates/lance-graph-ontology/src/odoo_blueprint/extracted/pairing.rs \\
+        --audit /tmp/pairings.json
 """
 
 import argparse
@@ -29,8 +35,32 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python -m odoo_blueprint_extractor",
         description="Extract Odoo ORM classes as OdooEntity Rust consts (D-ODOO-EXT-1).",
     )
-    # Subparsers — 'data' is new in EXT-4; original args are now the default (no subcommand)
+    # Subparsers — 'data' is EXT-4; 'pair' is EXT-5; original args are the default (no subcommand)
     subparsers = p.add_subparsers(dest="subcommand")
+
+    # ---- 'pair' subcommand (EXT-5) ----
+    pair_p = subparsers.add_parser(
+        "pair",
+        help="Build curated-vs-extracted pairing table (D-ODOO-EXT-5).",
+    )
+    pair_p.add_argument(
+        "--crate",
+        required=True,
+        metavar="DIR",
+        help="Path to the lance-graph-ontology crate root (e.g. crates/lance-graph-ontology).",
+    )
+    pair_p.add_argument(
+        "--out",
+        required=True,
+        metavar="PATH",
+        help="Output path for the generated pairing.rs file.",
+    )
+    pair_p.add_argument(
+        "--audit",
+        metavar="JSON",
+        default=None,
+        help="Write mismatch audit (field/method count deltas) to this JSON file.",
+    )
 
     # ---- 'data' subcommand (EXT-4) ----
     data_p = subparsers.add_parser(
@@ -81,6 +111,45 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _run_pair_subcommand(args: argparse.Namespace) -> None:
+    """Run the 'pair' subcommand — curated-vs-extracted pairing table (EXT-5)."""
+    from .pairing import build_pairings, emit_audit_json, emit_pairing_rs, scan_blueprint_dir
+
+    crate_dir = Path(args.crate)
+    blueprint_dir = crate_dir / "src" / "odoo_blueprint"
+    if not blueprint_dir.is_dir():
+        sys.exit(f"ERROR: odoo_blueprint dir not found: {blueprint_dir}")
+
+    out_path = Path(args.out)
+    audit_path: Optional[str] = args.audit
+
+    # Scan
+    scan = scan_blueprint_dir(blueprint_dir)
+    pairings = build_pairings(scan)
+
+    n = len(pairings)
+    curated_count = len(scan["curated"])
+    extracted_count = len(scan["extracted"])
+    print(
+        f"# Pairing: curated={curated_count} model_names, "
+        f"extracted={extracted_count} model_names, "
+        f"overlap={n} pairings",
+        file=sys.stderr,
+    )
+
+    # Emit Rust
+    rust_src = emit_pairing_rs(pairings)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(rust_src, encoding="utf-8")
+    print(f"Written: {out_path}", file=sys.stderr)
+
+    # Emit audit JSON
+    if audit_path:
+        audit_json = emit_audit_json(pairings)
+        Path(audit_path).write_text(audit_json, encoding="utf-8")
+        print(f"Audit written: {audit_path}", file=sys.stderr)
+
+
 def _run_data_subcommand(args: argparse.Namespace) -> None:
     """Run the 'data' subcommand — CSV/XML extraction for l10n_de (EXT-4)."""
     from .data_extractors.csv_chart import emit_chart_rs
@@ -125,6 +194,11 @@ def _run_data_subcommand(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+
+    # Route to 'pair' subcommand if requested
+    if args.subcommand == "pair":
+        _run_pair_subcommand(args)
+        return
 
     # Route to 'data' subcommand if requested
     if args.subcommand == "data":

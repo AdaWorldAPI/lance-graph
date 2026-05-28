@@ -183,7 +183,7 @@ const STOCK_VALUATION_LAYER: OdooEntity = OdooEntity {
 
 // ─── stock.warehouse.orderpoint ───────────────────────────────────────────────
 
-const STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
+pub const STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
     model_name: "stock.warehouse.orderpoint",
     kind: OdooEntityKind::Model,
     description: "Min/max reorder rule for one product at one location; drives scheduler batch \
@@ -413,7 +413,7 @@ const STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
 
 // ─── stock.rule (procurement-priority extension) ──────────────────────────────
 
-const STOCK_RULE: OdooEntity = OdooEntity {
+pub const STOCK_RULE: OdooEntity = OdooEntity {
     model_name: "stock.rule",
     kind: OdooEntityKind::Model,
     description: "Procurement rule mapping (dest, route) → action (pull/push/transparent); \
@@ -599,7 +599,7 @@ const STOCK_RULE: OdooEntity = OdooEntity {
 
 // ─── stock.lot ────────────────────────────────────────────────────────────────
 
-const STOCK_LOT: OdooEntity = OdooEntity {
+pub const STOCK_LOT: OdooEntity = OdooEntity {
     model_name: "stock.lot",
     kind: OdooEntityKind::Model,
     description: "Lot/serial number master; uniqueness per (product_id, company_id, name) \

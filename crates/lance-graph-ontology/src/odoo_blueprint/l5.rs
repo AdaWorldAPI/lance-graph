@@ -84,7 +84,7 @@ const PAYMENT_STATE_MACHINE: OdooStateMachine = OdooStateMachine {
     ],
 };
 
-const PAYMENT: OdooEntity = OdooEntity {
+pub const PAYMENT: OdooEntity = OdooEntity {
     model_name: "account.payment",
     kind: OdooEntityKind::Model,
     description: "A posted payment event generating double-entry journal lines; \
@@ -389,7 +389,7 @@ const PAYMENT: OdooEntity = OdooEntity {
 
 // ─── account.payment.term ────────────────────────────────────────────────────
 
-const PAYMENT_TERM: OdooEntity = OdooEntity {
+pub const PAYMENT_TERM: OdooEntity = OdooEntity {
     model_name: "account.payment.term",
     kind: OdooEntityKind::Model,
     description: "Structured payment obligation terms (installments, Skonto/early-discount, \
@@ -550,7 +550,7 @@ const PAYMENT_TERM: OdooEntity = OdooEntity {
 
 // ─── account.payment.term.line ───────────────────────────────────────────────
 
-const PAYMENT_TERM_LINE: OdooEntity = OdooEntity {
+pub const PAYMENT_TERM_LINE: OdooEntity = OdooEntity {
     model_name: "account.payment.term.line",
     kind: OdooEntityKind::Model,
     description: "One installment line within a payment term; computes due date via \
@@ -683,7 +683,7 @@ const PAYMENT_TERM_LINE: OdooEntity = OdooEntity {
 // full projection from L5-PAY-TERMS-MATCH.md RULE P5. When L2 is populated,
 // move primary coverage there and leave a cross-reference comment here.
 
-const RECONCILE_MODEL: OdooEntity = OdooEntity {
+pub const RECONCILE_MODEL: OdooEntity = OdooEntity {
     model_name: "account.reconcile.model",
     kind: OdooEntityKind::Model,
     description: "Declarative rule for bank-statement-to-open-item matching \
@@ -892,7 +892,7 @@ const RECONCILE_MODEL: OdooEntity = OdooEntity {
 //
 // NOTE: L2 overlap — same as parent model above.
 
-const RECONCILE_MODEL_LINE: OdooEntity = OdooEntity {
+pub const RECONCILE_MODEL_LINE: OdooEntity = OdooEntity {
     model_name: "account.reconcile.model.line",
     kind: OdooEntityKind::Model,
     description: "Write-off journal line template within a reconcile model; \
