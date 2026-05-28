@@ -1,3 +1,101 @@
+## 2026-05-28 — E-THREE-PLANES-1 — semantic spell / compiled syscall / cognitive checksum: the three planes that runtime never re-crosses (external articulation, ChatGPT review on `taxable_item-future-shape.rs`)
+
+**Status:** FINDING (external review, 2026-05-28). ChatGPT independently
+articulated three names + one rule that sharpen what was implicit in
+`taxable_item-future-shape.rs` (commit `f80dbdcf`) and in the
+schema/cache/shader three-layer separation we'd established in dialogue
+the same session.
+
+**The three planes** (one rule per plane; runtime crosses none of these
+boundaries):
+
+| plane | artifact | role | written by | crossed by runtime? |
+| --- | --- | --- | --- | --- |
+| **Semantic spell** | `law(:UStG) \|> context(item) \|> emits(:tax) \|> apply(rate)` | intent grammar — readable, auditable, ontology-aligned; the *what* and *why* | domain expert (accountant, doctor, lawyer) in Elixir-syntax source file | NEVER (compile-time only) |
+| **Compiled syscall** | `pub fn taxable_item(item, rate, ctx) -> Money { advance(ctx, Op::TaxableItem { ..., recipe }) }` | one Rust call, already-resolved action; the *how* | codegen (tree-sitter-elixir + HM inference over `\|>` pipeline) | yes — but this IS runtime; nothing further to resolve |
+| **Cognitive checksum** | `StyleRecipe { weights: &[(ATOM_LAW_LOOKUP_USTG, 8), (ATOM_PULL_FISCAL_CTX, 6), ...] }` | 16-byte reasoning fingerprint over the I4-32D atom basis; the *meaning* of the operation in cognitive space | codegen emits as `const`; `register_recipe` materialises composition vector once at `ctor` | NEVER (consumed in pre-actional X-cache build, not in the 400ms loop) |
+
+**The rule (iron):**
+
+> **Never execute ontology discovery in the 400ms loop. Compile
+> ontology, law, fiscal context, and D-ATOM weights into recipe IDs
+> before runtime. Runtime only receives typed ops, cached context,
+> and deterministic `advance` calls.**
+
+This subsumes three prior framings into one operational test:
+
+- *"Switches don't make it into the cognitive shader"* (user, this session)
+- *"Schema lookups are O(1) entry tax, paid once per scope"* (user, this session)
+- *"Heckhausen Rubicon shielding — the actional phase is closed to deliberation"* (Heckhausen, accepted this session)
+
+**The metaphor stack** (ChatGPT, verbatim):
+
+> `Op::TaxableItem` is the runtime bone,
+> `law(:UStG) |> context(item) ...` is the semantic skin,
+> and `RECIPE_DE_USTG_TAXABLE` is the compressed soul-print.
+
+Tiny ontology dragon, folded into a Rust match arm. The three planes
+share NO runtime state — they touch only through the compile-time
+codegen pipeline.
+
+**Implementation entailments:**
+
+1. **Codegen has a separate phase for each plane.** Semantic-spell
+   parser (tree-sitter-elixir) emits an AST; recipe-compiler emits the
+   StyleRecipe constants (cognitive checksums); op-compiler emits the
+   typed Op enum variant + the dispatch function. Three separate
+   crates / stages, not one monolithic emitter.
+
+2. **The X cache is the only crossing point.** Pre-actional dispatcher
+   reads the cognitive checksum (StyleRecipe weights), folds them into
+   an I4-32D composition vector, binds the kernel handle, builds X.
+   X then feeds the 400ms loop. Nothing else crosses.
+
+3. **Failure-mode signature.** If the 400ms loop EVER touches the
+   ontology, performs a hashtable lookup against schema, or chases a
+   pointer through OGIT — that's a violation of E-THREE-PLANES-1. The
+   shader inner-loop budget assumes O(1) palette ops over pre-resolved
+   data; ontology touches break the latency model.
+
+4. **The cognitive checksum is auditable.** Because each StyleRecipe's
+   atom weights are concrete constants in source, a code-reviewer can
+   read the recipe and answer: *what is this operation, semantically?*
+   without running it. `(ATOM_MENGENMASS_MONEY, 6) + (ATOM_VERB_TRANSITIVE, 4)`
+   already declares: *this is a money-quantity transitive compute*.
+   The recipe IS the documentation.
+
+**Cross-references:**
+
+- `.claude/odoo/taxable_item-future-shape.rs` (commit `f80dbdcf`) — the
+  worked example. Reads as a three-plane reference implementation.
+- `.claude/odoo/EXTRACTION-METHODOLOGY.md` §5 — the full pipeline
+  shape.
+- `crates/lance-graph-contract/src/recipe.rs` lines 28-35 — Elixir
+  hot-load protocol already encoded in code.
+- `EPIPHANIES.md` E-BUSINESS-LOGIC-IS-GRAMMAR-1 — the 7-tuple grammar
+  the atom weights ladder against.
+- `CLAUDE.md` § "AGI-as-glove" — the SoA columns that the cognitive
+  checksum dispatches against (FingerprintColumns / QualiaColumn /
+  MetaColumn / EdgeColumn).
+
+**Decisive consequence for the wiring plan:** the ruff-py-dto → odoo
+codegen pass becomes a three-output emitter, not one:
+
+```
+   bundles + delegation + grammar coding
+            │
+            ├─► .exs files          (semantic spell, per family/rule)
+            ├─► odoo_blueprint/extracted/<family>.rs  (compiled syscalls)
+            └─► recipes/<domain>.rs (cognitive checksums = StyleRecipe consts)
+```
+
+Each output is a different plane; each serves a different consumer
+(domain expert reads `.exs`; the runtime calls `<family>.rs`; the
+auditor / code-reviewer reads `recipes/<domain>.rs` to verify the
+operation's meaning without running it).
+
+---
+
 ## 2026-05-28 — E-LITERATURE-IS-INGRESS-3-1 — feed business literature (HGB commentaries, GoBD authoritative guidance, Datev manuals, accounting textbooks, ZUGFeRD/EN 16931 specs as PDF, jurisdictional case law) to a 1M-token-context LLM (Gemini 1.5/2 Pro) and ASK it to emit OGIT-conformant TTL — the third ingress direction after Python-source extraction (D1) and OWL ingest (D2)
 
 **Status:** FINDING (user-given doctrine, 2026-05-28; extends `E-OWL-IS-THE-UNIVERSAL-INGRESS-1` with the third direction). Closes the cost-leverage loop: where neither source code (D1) nor OWL (D2) exists, the bulk of domain knowledge sits in PDFs and textbooks; LLM extraction with a 1M-token window is now cheap enough to be the third route to OGIT.

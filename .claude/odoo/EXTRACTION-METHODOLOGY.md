@@ -250,6 +250,22 @@ For a new regulatory domain, extend `REGULATORY_MARKERS` in
 
 ## 5. The future shape (recipe.rs ladder + 400ms shader)
 
+> **Three planes, runtime crosses none of them** — per
+> `EPIPHANIES.md E-THREE-PLANES-1` (ChatGPT external review,
+> 2026-05-28). The compiled artifact has three distinct outputs, each
+> with a different audience:
+>
+> | plane | artifact | audience | role |
+> | --- | --- | --- | --- |
+> | semantic spell | `.exs` Elixir source | domain expert (accountant, doctor) | intent grammar — *what* and *why* |
+> | compiled syscall | `pub fn taxable_item(...) -> Money { advance(...) }` | the runtime | one already-resolved Rust call — *how* |
+> | cognitive checksum | `StyleRecipe { weights: &[(ATOM_..., 8), ...] }` | auditor / code-reviewer | 16-byte reasoning fingerprint — *meaning* |
+>
+> **Iron rule:** *Never execute ontology discovery in the 400ms loop.*
+> Compile ontology, law, fiscal context, and D-ATOM weights into
+> recipe IDs before runtime. The shader receives only typed ops,
+> cached context, and deterministic `advance` calls.
+
 See `.claude/odoo/taxable_item-future-shape.rs` for the worked
 example. Pattern:
 
