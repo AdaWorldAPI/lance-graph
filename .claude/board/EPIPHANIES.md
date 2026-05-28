@@ -1,3 +1,162 @@
+## 2026-05-28 — E-FOUNDRY-LAYER-1 — Foundry Ontologie + ndarray-SIMD-not-CUDA + Energie-as-graph-property + six codegen co-artifacts + request-lose Goalstate Maschine (refinements from a second external diagram + user correction)
+
+**Status:** FINDING (external diagram review + user correction, 2026-05-28).
+Five refinements promoted from a second compressed-form diagram
+(`.claude/odoo/images/foundry-ontologie-soa-DTO.png`) the user shared,
+filtered through one direct user correction that struck CUDA from the
+substrate.
+
+### Refinement 1 — "Foundry Ontologie" is the named layer between Odoo and codegen
+
+Until this entry the typed Rust domain layer (the place
+`crates/lance-graph-ontology/src/odoo_blueprint/extracted/` lives) had
+been called variously *OGIT extraction*, *odoo_blueprint*, *the typed
+Rust domain model*, and *Foundry Ontologie* (German, in the diagram).
+The user-facing name is **Foundry** — Palantir-Foundry-style typed
+domain. Adopt it.
+
+```
+Odoo source                  Foundry Ontologie               Codegen Rust Ops
+(Python ORM)        →        (Rust typed domain model)   →   (CompiledRule SoA + advance())
+   bundles, fields            Entität / Wert / Aktion          per .claude/odoo/codegen-output-soa-layout.rs
+   methods, decorators        + Energie as node property
+```
+
+The Foundry graph has **three canonical node types** + one canonical
+edge-property:
+
+- `Entität` — what (the business object: JournalEntry, SalesOrder, …)
+- `Wert` — values flowing through it (Money, Date, Quantity, Flag)
+- `Aktion` — what can be done (compute, validate, post, lock)
+- `Energie` — free-energy budget attached as a graph property, not a
+  side-channel scalar. Post-actional evaluator reads it as a property.
+
+### Refinement 2 — IRON: CPU SIMD via ndarray, NOT CUDA, for the cognitive shader hot path
+
+The second diagram named **WGPU / CUDA** in the tech stack. **User
+correction (verbatim, this session):** *"cuda is a glitch, ndarray
+Repository Simd using random access 20ns is faster than cuda on
+single ops"*.
+
+The math:
+
+| substrate          | per-op cost | ops/400ms-mailbox | fit for shader workload |
+| ---                | ---:        | ---:              | --- |
+| **ndarray CPU SIMD random-access** | **~20 ns** | **~20,000,000**   | **YES** — matches the 2K-20M op range for one Think |
+| CUDA (single-op launch)             | 5,000–20,000 ns | 20,000-80,000 | NO — kernel-launch overhead dominates |
+| CUDA (batched matmul, ≥ 1K ops)     | amortized ≈ 200 ns | (n/a, wrong shape) | NO — shader does single small ops, not dense matmul |
+
+CUDA only wins on dense batch linalg (large matmul, large reductions).
+The cognitive shader does:
+
+- single SIMD palette lookups
+- per-row PaletteCompose SpMV against pre-resolved matrices
+- vsa_bundle add over ≤32 items
+- vsa_cosine pairwise
+
+…all small, all random-access, all hot in L1d. Kernel-launch overhead
+on CUDA loses by 250-1000× per op. **The substrate is ndarray.**
+
+The `ndarray-vertical-simd-alien-magic.md` knowledge doc in CLAUDE.md
+is the canonical reference: ndarray SIMD primitives, 20 ns
+random-access, no CUDA in the loop.
+
+**Where WGPU might still apply:** the *visualization* layer (splat
+rendering, demo cinematics) — a different consumer that *is*
+batch-friendly. Visualization is not the cognitive shader; they
+share no inner loop.
+
+### Refinement 3 — Energie is a graph property of the Foundry node, not a counter
+
+In the diagram, `Energie` shows up as a flow attribute on `Entität /
+Wert / Aktion` nodes — alongside the other properties. Operationally
+that means:
+
+- Each Foundry node carries its current/expected `Energie` budget as
+  a field, *not* held in a separate counter the post-actional code
+  has to look up.
+- F-evaluation (`F < homeostasis_floor`?) reads from the graph
+  property in the post-actional phase, not from mailbox state alone.
+- The Foundry codegen emits `Energie` as one column of every
+  CompiledRule (it joins the seven columns already declared in
+  `.claude/odoo/codegen-output-soa-layout.rs`).
+
+### Refinement 4 — Codegen ships SIX co-artifacts, not three
+
+E-THREE-PLANES-1 named three audiences (semantic spell / compiled
+syscall / cognitive checksum). The second diagram refines that the
+codegen *emit targets* are six, even though they still serve those
+three audiences:
+
+| audience           | emit target                       | format                                 |
+| ---                | ---                               | ---                                    |
+| domain expert      | `.exs` semantic-spell files       | Elixir source per rule                 |
+| runtime            | **Binary Ops**                    | Op enum discriminants                  |
+| runtime            | **Rust fn signatures**            | `fn taxable_item(...) -> Money`        |
+| auditor            | **Recipes**                       | `StyleRecipe` const tables             |
+| substrate          | **Patches**                       | bit-level patches on shared atom-state |
+| substrate          | **Precomputed Matrizen**          | palette × palette distance tables      |
+| substrate          | **Inverse lookup tables**         | reverse-direction palette mappings     |
+
+The codegen pipeline grows to a six-stage emit fan-out. Each stage
+emits one type of artifact; all derive from the same Foundry SoA
+sweep. The artifacts are then linked together at the
+`register_recipe` ctor step.
+
+### Refinement 5 — "Request-lose Goalstate Maschine"
+
+The diagram crystallizes a doctrine name for the kanban + mailbox
+loop already established this session:
+
+> *"Request-lose Goalstate Maschine"* — request-less goal-state
+> machine. The system does not accept individual RPCs / requests; it
+> advances toward goal-states. The Ractor mailbox runs across
+> multiple 400ms cycles until the goal-state is resolved
+> (*"Ractor Mailbox denkt weiter, bis Goalstate gelöst"*). No
+> request-reply ceremony; the "tick" *is* the machine.
+
+Operational consequences:
+
+- The external API surface is a kanban-card publish, not an RPC.
+  Caller drops a goal-card on the SurrealQL board; the system picks
+  it up at its own pace.
+- Latency model: there is no "response time" — there is
+  goal-resolution time (potentially several 400ms cycles strung
+  together, post-actional → pre-actional → next mailbox).
+- No `Result<T, E>` round-trip from a single call. Goal-resolution
+  emits Δentropy and eventually a card → Done; subscribers read
+  card-state and Δentropy from LanceDB / SurrealQL.
+
+### What the iron rule from this entry collapses to
+
+Already covered by E-THREE-PLANES-1, but tightened by Refinement 2:
+
+> *Never execute ontology discovery in the 400ms loop. Compile
+> ontology, law, fiscal context, and D-ATOM weights into recipe IDs
+> before runtime. Runtime only receives typed ops, cached context,
+> and deterministic `advance` calls.*
+>
+> **And:** runtime executes on ndarray CPU SIMD random-access (~20ns
+> per op). CUDA is the wrong substrate for the hot path; it is not
+> compatible with the per-op budget. GPU only enters the picture for
+> the visualization layer.
+
+**Cross-references:**
+
+- `.claude/odoo/images/three-planes-SoA-DTO.png` — the first diagram
+  (E-THREE-PLANES-1)
+- `.claude/odoo/images/foundry-ontologie-soa-DTO.png` — the second
+  diagram this entry distils
+- `.claude/odoo/codegen-output-soa-layout.rs` — the codegen rendered
+  as SoA layout (now needs an `Energie` column and a six-output
+  pipeline note)
+- `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` — the
+  ndarray SIMD reference
+- `EPIPHANIES.md E-THREE-PLANES-1` — the prior doctrine entry this
+  refines
+
+---
+
 ## 2026-05-28 — E-THREE-PLANES-1 — semantic spell / compiled syscall / cognitive checksum: the three planes that runtime never re-crosses (external articulation, ChatGPT review on `taxable_item-future-shape.rs`)
 
 **Status:** FINDING (external review, 2026-05-28). ChatGPT independently
