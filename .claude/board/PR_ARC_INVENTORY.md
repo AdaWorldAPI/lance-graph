@@ -1979,3 +1979,34 @@ Removes `crate-ci/typos` spell-check job from `style.yml`; `cargo fmt --check` r
 - `.claude/RECON_ONTOLOGY_CRATE.md` (Phase 1 recon, commit `edef321`).
 - `.claude/DECISION_SPO_ARIGRAPH.md` (SPO-1 decision, commit `edef321`).
 - This board update (LATEST_STATE.md table + Inventory; INTEGRATION_PLANS.md status annotation on `sql-spo-ontology-bridge-v1`; EPIPHANIES.md SPO-1 disposition entry; AGENT_LOG.md run entry).
+
+---
+
+## PR #422 — docs(handover): PR #418/#419 review + surreal/mailbox/Baton/SoA-as-BindSpace-surrogate plan map (MERGED 2026-05-28 → main)
+
+(Per APPEND-ONLY mechanic: this entry is appended at file-end; the rule-#1 PREPEND convention is preserved by the dated framing — treat as new top-of-arc entry.)
+
+**Status:** MERGED. Branch `claude/lance-graph-ontology-review-Pyry3` → `main`. 1 doc commit (`a29946b`, rebased to resolve `AGENT_LOG.md` append-vs-append with #421) + merge commit (`984512b`). Read-only handover; zero `.rs` / `Cargo.toml` / `build.rs` / `data/` changes; 3 files; +310/-0.
+
+**Added:**
+- `.claude/handovers/2026-05-28-1200-pr-418-419-surreal-mailbox-baton-plan-map.md` (~310 LOC, 7 sections) — meticulously mapped handover. §1 PR #418 review (verdict + 3 substantive notes) · §2 SurrealDB role correction · §3 plan corpus map (8 plans + 9 epiphanies + dep chain + `TD-RESONANCEDTO-DUP-1`) · §4 PR #419 brief (unrelated to surreal/mailbox) · §5 navigability meta-finding · §6 action surface · §7 cross-refs.
+- `EPIPHANIES.md` ← `E-SURREAL-POC-UNANNOTATED-SUPERSEDURE` (FINDING / navigability) — records that the `.claude/surreal/` POC surfaces (15 docs + `RECONCILIATION_with_canonical_plan.md`) lack a supersedure pointer to the `E-RUBICON-RACTOR` ruling. Names the lowest-risk fix (a `.claude/surreal/SUPERSEDURE_NOTE_2026-05-27.md` pointer file) without performing it.
+- `AGENT_LOG.md` ← session row (post-rebase, sits chronologically after #421's AXIS-B entry).
+
+**Locked:**
+- **The SurrealDB role correction is the in-session ruling.** *"LanceDB is the leading store / source of truth (append-only, versioned). SurrealDB is one VIEW over it (the Rubicon kanban), never a store."* Originates in `E-RUBICON-RACTOR` + `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md` §2.7 (on PR #418 head, branch `claude/splat3d-cpu-simd-renderer-MAOO0`). Supersedes the older Zone-2 cold-store framing in `.claude/surreal/RECONCILIATION_with_canonical_plan.md:20`, the surreal POC, and `causaledge64-mailbox-rename-soa-v1` Zone 2. **Consequence locked:** `surreal_container` (BLOCKED A/B/C/D — fork dep + Lance 6 pin) is **optional**, NOT on the D-MBX-6 critical path; D-MBX-6's hot/cold transparent view uses the LanceDB cold tier directly.
+- **The two-figure footprint distinction is the canonical reading of the mailbox-SoA migration.** Bare migrated SoA columns ≈ 24–50 B/row vs full hot thought ≈ ~6 KB/row (content/topic/angle Hamming planes stay hot). The 64k–256k thought · 300–600 MB hot ceiling derives from the latter.
+- **`E-RUBICON-RACTOR` is honest CONJECTURE / framing-only.** Post-hoc psychological framing (Heckhausen action-phase + Libet "free won't") over the already-shipped Σ10 (D-CSV-10 #388 `SigmaTierRouter`). Nothing to implement from the epiphany itself; it's a naming/mapping.
+- **Read-only review = read-only PR.** A handover synthesising a review does not, by itself, mutate code or perform the navigability fix it identifies. The pointer-file follow-up is explicitly listed as out of scope so the contract holds.
+
+**Deferred:**
+- `.claude/surreal/SUPERSEDURE_NOTE_2026-05-27.md` pointer file (the lowest-risk fix the navigability finding names) — not done here so the read-only contract of #422 holds.
+- A sibling handover persisting the earlier-in-session `lance-graph-ontology` crate review + `UnifiedBridge` migration-status findings — the user chose "findings report only" for those during the session; not persisted unless re-requested.
+- The CLAUDE.md "The Click" doctrinal rewrite off `Vsa16kF32` (OQ-4) — gates D-MBX-5; explicitly not in scope.
+
+**Docs:**
+- `.claude/handovers/2026-05-28-1200-pr-418-419-surreal-mailbox-baton-plan-map.md` (new).
+- `EPIPHANIES.md` `E-SURREAL-POC-UNANNOTATED-SUPERSEDURE` (appended).
+- `AGENT_LOG.md` session row (appended).
+
+**Confidence (2026-05-28):** working — docs-only; merge clean (rebased onto post-#421 main; `EPIPHANIES.md` auto-merged; `AGENT_LOG.md` conflict resolved by keeping both entries chronologically; force-with-lease push). Merge commit `984512b`. No CI gates relevant.
