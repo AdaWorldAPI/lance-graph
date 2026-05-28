@@ -150,6 +150,13 @@ pub use unified_bridge::{
     AuthError, BridgeConfig, BridgeHandle, OgitFamily, OwlIdentity, TenantId, UnifiedBridge,
 };
 
+// Re-export the RBAC `Policy` surface that `UnifiedBridge::new` requires, so
+// consumer crates barred from a direct `lance-graph-rbac` dependency (e.g.
+// woa-rs's BBB-barrier: allow-list is contract / ontology / callcenter only)
+// can still construct a `UnifiedBridge` through the callcenter facade alone.
+// `lance-graph-rbac` is already an internal dependency of this crate.
+pub use lance_graph_rbac::policy::{smb_policy, Policy};
+
 // D-SDR-2 (super-domain-rbac-tenancy-v1 §3.4-§3.7) — SuperDomain layer.
 // Activation root above OGIT basins (1 byte; 8 starter values; 256 cap)
 // plus MetaAnchors (Foundry/OWL/DOLCE/Wikidata cross-walks), ComplianceRegime
@@ -184,6 +191,15 @@ pub use odoo_alignment::{
     dolce_odoo, resolve_odoo, resolve_odoo_entry, resolve_odoo_to_family, seed_family_table,
     OwlPivot, FAMILY_BILLING_CORE, FAMILY_SMB_ACCOUNTING, FAMILY_SMB_FOUNDRY_CUSTOMER,
     FAMILY_SMB_FOUNDRY_INVOICE,
+};
+
+// D-ODOO-SAV-4 — the 25-savant Reasoner layer (one impl per ReasoningKind).
+// woa-rs consumes the suggestion-only `SavantConclusion` as a native shared
+// type (one-binary contract); the ambiguous AXIS-B core reasons here.
+pub mod savant_reasoners;
+pub use savant_reasoners::{
+    CustomerCategoryReasoner, NextBestActionReasoner, OtherReasoner, PostingAnomalyReasoner,
+    SavantConclusion, SavantError, SavantSuggestion,
 };
 
 // PR-F1 — UnifiedBridgeGate<B>: production CognitiveBridgeGate impl.

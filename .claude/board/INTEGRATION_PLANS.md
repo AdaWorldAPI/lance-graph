@@ -1,3 +1,13 @@
+## 2026-05-27 — multi-server-cognition-expansion-v1 (legacy-stack displacement + Raft-log / SoA-state-machine)
+
+**Status:** PROPOSAL — §2 displacement is current-state; §3 multi-server expansion is unbuilt, gated on the §4 determinism probe
+**Confidence:** HIGH vs JanusGraph + Cassandra; Zitadel displaced by Ory (Kratos+Hydra) for authN; HIGH the log-replicated-SoA shape is correct; LOW it is proven (determinism unproven)
+**Plan file:** `.claude/plans/multi-server-cognition-expansion-v1.md`
+**Predecessors:** `cognitive-substrate-convergence-v1` (belief-delta log = the episodic arc); `surrealdb/core/src/kvs/lance` (the LSM-on-lance engine the WAL-as-Raft-log rides)
+
+### Scope
+
+Kills the "for multiple servers we need JanusGraph / Cassandra / Zitadel" argument. (1) Component displacement: distributed graph + CP via SurrealDB-on-TiKV + lance-graph; Cassandra's AP is the wrong consistency model for a belief substrate; **Ory** (Kratos+Hydra) fills the one real gap (authN/IdP), binary stays verification-only. (2) Multi-server path: Raft replicates the **belief-delta / episodic LOG**, the zero-copy SoA is the per-node **state machine**, the Rubikon `commit_gate` is the Raft **append point**; TiKV-the-log sits *under* lance-the-state (not "instead of"). Hard prerequisite: byte-deterministic NARS apply (`reencode_safety` / D-SDR-26) — **unproven**; next deliverable is the determinism probe, not more synthesis. authN (Ory) is orthogonal to the consensus layer.
 ## 2026-05-27 — bindspace-singleton-to-mailbox-soa-v1 (dissolve the shared `Arc<BindSpace>` into per-mailbox `MailboxSoA<N>` ephemeral thoughtspace)
 
 **Status:** PROPOSAL / design (migration spec; NOT yet implemented). **Plan file:** `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`. **Epiphany:** `E-MAILBOX-IS-BINDSPACE`.

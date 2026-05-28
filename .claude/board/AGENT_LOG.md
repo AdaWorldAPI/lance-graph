@@ -1,3 +1,17 @@
+## [Main-thread] D-ODOO-SAV-4 — odoo-savant Reasoner layer (4 impls, one per ReasoningKind)
+
+Implemented `crates/lance-graph-callcenter/src/savant_reasoners.rs`: `SavantConclusion { savant_id, query_strategy, confidence: NarsTruth, rationale }` (suggestion-only, **no serde** — the one-binary contract; JSON only at the MedCareV2 FFI boundary) + the 4 `Reasoner` impls per the dispatch decision pinned in PR #419: `CustomerCategoryReasoner` / `PostingAnomalyReasoner` / `NextBestActionReasoner` / `OtherReasoner`, covering all 25 savants in `contract::savants::SAVANTS`. Each resolves the concrete savant from `(kind, namespace)`, selects `QueryStrategy` via `InferenceType::default_strategy()`, and fuses evidence-ref coverage into a NARS `(frequency, confidence)`.
+
+**Dispatch resolution lives in callcenter** — the contract stays an untouched inheritance vow (no `namespace` field added to `Savant`). `resolve_savant(kind, namespace)` filters the roster by kind; for ambiguous kinds it splits via `DISPATCH_NS` (the `Other(RECONCILE_MATCH)` 19-vs-21 split per #419: `erp.k3.reconcile_match` / `erp.k3.payment_reconcile`) then by `namespace == savant.name`.
+
+**Scope:** all 25 dispatch through the 4 impls; the 14 `NEEDS-INPUT` savants dispatch fine here (they're blocked on woa-rs *evidence feeds*, not the impl). Row-level column fusion is deferred to when woa-rs supplies materialized evidence — v1 fusion is coverage-based + monotone-in-evidence.
+
+**Tests:** 8 new (`savant_reasoners::tests`) — resolution, RECONCILE_MATCH namespace split, single-candidate, strategy↔inference, monotone confidence, async-trait dispatch, kind-mismatch — all green; 137 prior callcenter tests pass; `zone_serialize_check` (no-JSON guard) clean.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, synced to main via merge `20da477` (preserving the `with_jsonl_audit → Result<Self,AuditError>` fix + the `Policy`/`smb_policy` re-export). `cargo test -p lance-graph-callcenter --features jsonl` green. This was the follow-on PR gated on the dispatch-shape review that #419 resolved.
+
+---
+
 ## [Main-thread → woa-rs HANDOFF] Odoo savant AXIS-B evidence-contract scaffold (carve-out request)
 
 Wrote `.claude/odoo/savants/_SCAFFOLD-EVIDENCE-CONTRACT.md` — a self-contained handover asking the **woa-rs session** (roster/evidence-schema owner) to carve out the **4 AXIS-B slots per savant** (Arrow `EvidenceRef` schema · odoo field→signal map · property-level OWL alignment · the decision in evidence terms) so lance-graph can implement the `Reasoner` impls (D-ODOO-2 / D-ODOO-SAV-4) in one pass without cross-session ping-pong. Includes the fixed dispatch tuple for all 25 (priority-tiered) + the target `Reasoner` shape + the open dispatch-shape question (N impls vs savant-config registry). Hand-back: fill per-savant docs + note here. No code; doc only. On branch `splat3d-cpu-simd-renderer-MAOO0` (PR #416).
