@@ -148,6 +148,7 @@ fn ogit_uri_ref_equality() {
 
 /// A minimal no-op Op for the `Normalized → Normalized` transition.
 /// Proves that third-party code can implement `Op<I,O>`.
+#[allow(dead_code)] // used only in compile_fail doctests above
 struct NoopOp;
 
 impl Op<Normalized, Normalized> for NoopOp {
@@ -161,6 +162,7 @@ impl Op<Normalized, Normalized> for NoopOp {
 }
 
 /// A minimal Op advancing `Normalized → Checked`.
+#[allow(dead_code)] // used only in compile_fail doctests above
 struct FakeChkData;
 
 impl Op<Normalized, Checked> for FakeChkData {
@@ -174,6 +176,7 @@ impl Op<Normalized, Checked> for FakeChkData {
 }
 
 /// A minimal Op advancing `Checked → Reviewed`.
+#[allow(dead_code)] // used only in compile_fail doctests above
 struct FakeReview;
 
 impl Op<Checked, Reviewed> for FakeReview {
@@ -187,6 +190,7 @@ impl Op<Checked, Reviewed> for FakeReview {
 }
 
 /// A minimal Op advancing `Reviewed → Abducted`.
+#[allow(dead_code)] // used only in compile_fail doctests above
 struct FakeAbduct;
 
 impl Op<Reviewed, Abducted> for FakeAbduct {
@@ -200,6 +204,7 @@ impl Op<Reviewed, Abducted> for FakeAbduct {
 }
 
 /// A minimal Op advancing `Abducted → Reported`.
+#[allow(dead_code)] // used only in compile_fail doctests above
 struct FakeReport;
 
 impl Op<Abducted, Reported> for FakeReport {
