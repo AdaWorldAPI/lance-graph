@@ -31,6 +31,11 @@
 **Files touched:** `crates/cognitive-shader-driver/src/driver.rs` (+42 lines)
 **cargo check:** `Finished dev` — 0 errors; pre-existing warnings only (causal-edge/p64-bridge/ontology deprecations — none in cognitive-shader-driver). Note: `--features hpc-extras` absent from this crate; check ran with default features.
 **Outcome:** SUCCESS — added `HashMap<MailboxId, MailboxSoA<1024>>` field on `ShaderDriver`, `with_mailbox` builder setter on `CognitiveShaderBuilder`, `mailbox()` read accessor. Singleton `Arc<BindSpace>` untouched. All new items marked `/// work`.
+## [Sonnet agent] D-ODOO-EXT-3 — OdooEntityKind + regulation_iri provenance slot
+
+Added `OdooEntityKind::{Model,Transient,Abstract}` enum and `OdooEntity.kind` field to `mod.rs`, plus `OdooProvenance.regulation_iri: &'static [&'static str]` slot. Back-filled `kind: OdooEntityKind::Model` and `regulation_iri: &[]` across all 70 `OdooEntity` consts in `l1.rs`–`l15.rs` (3+3+6+6+5+4+6+6+6+5+4+5+5+4+2 = 70 lane consts; 2 more in `mod.rs` tests). The sole blocking issue was a missing `OdooEntityKind` in each lane's `use super::{}` import — the `kind:` and `regulation_iri:` values were already present in the lane files. Fixed all 15 import blocks. Corrected stale `tree-sitter` doc comment in `OdooConfidence::Extracted`.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `7f21133`. `cargo test -p lance-graph-ontology --lib` green (192 tests).
 
 ---
 
