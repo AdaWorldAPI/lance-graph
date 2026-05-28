@@ -33,8 +33,8 @@
 
 ### Prerequisites (handled by update script)
 
-The update script installs `protobuf-compiler` and `libssl-dev` via apt and
-clones `AdaWorldAPI/ndarray` to `/ndarray` (the path `crates/*/Cargo.toml`
+The update script installs `protobuf-compiler`, `libssl-dev`, `cmake`, and
+`pkg-config` via apt and clones `AdaWorldAPI/ndarray` to `/ndarray` (the path `crates/*/Cargo.toml`
 resolve `../../../ndarray` to from inside the workspace). No other external
 services or databases are required — all storage uses Lance datasets and
 in-memory Arrow.
@@ -44,8 +44,8 @@ in-memory Arrow.
 Standard build/test/lint commands are documented above and in `CLAUDE.md`.
 Key non-obvious notes:
 
-- **Workspace members vs excluded crates:** `Cargo.toml` lists 10 workspace
-  members and 15 excluded crates. `cargo test` (no args) only runs workspace
+- **Workspace members vs excluded crates:** `Cargo.toml` lists 17 workspace
+  members and 16 excluded crates. `cargo test` (no args) only runs workspace
   member tests. To test excluded crates use `cargo test --manifest-path
   crates/<name>/Cargo.toml`.
 - **CI-gated checks (what must pass before merge):**
