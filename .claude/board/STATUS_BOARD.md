@@ -544,6 +544,22 @@ Reshape of v1 (shipped PR #420). v1's `Reasoner` trait surface fails CLAUDE.md "
 
 ---
 
+## odoo-business-logic-blueprint-v1 — typed Odoo entity DTOs as the substrate for OGIT → OWL → DOLCE → FIBU/FIBO normalization + JITson / recipe codegen
+
+PREREQUISITE for `odoo-savant-reasoners-v2` Group F (per `E-SAVANT-COMPOSITION-1`). Establishes the typed `OdooEntity` + sub-types layer that the inheritance chain operates on — replaces today's ad-hoc string-keyed maps against `model_name`. Both passes (L-docs first as curated filter, Odoo source extraction second as exhaustive backing). All 15 lanes (L1–L15). Plan path: `.claude/plans/odoo-business-logic-blueprint-v1.md`.
+
+| D-id | Title | Crate | Lines | Conf | Status | Notes |
+|---|---|---|---|---|---|---|
+| D-ODOO-BP-1a | `OdooEntity` + sub-types (`OdooField`/`OdooMethod`/`OdooDecorator`/`OdooStateMachine`/`OdooConstraint`/`OdooProvenance`) — zero-dep, const-only, no serde | lance-graph-ontology | 300 | HIGH | **Queued** | ships with plan + INTEGRATION_PLANS prepend + this STATUS_BOARD section (board hygiene); additive — zero churn to existing call sites |
+| D-ODOO-BP-1b | L-doc projection: one `OdooEntity` const per entity, 15 lanes, per-lane module `odoo_blueprint::l{1..15}`, provenance=Curated with line-range citations | lance-graph-ontology | 2500 | HIGH | **Queued** | blocked on 1a; ships in Waves (L1-L5, L6-L10, L11-L15), one subagent per lane (Sonnet, mechanical prose→const projection); ~5 entities/lane average × 15 lanes ≈ 75-200 consts |
+| D-ODOO-BP-1c | Wire OGIT classifier to take `&OdooEntity` (replaces string-keyed `resolve_odoo`); uses field/method semantics for richer dispatch; covers 0x63/0x90 from PR #414 | lance-graph-ontology + lance-graph-callcenter::family_table | 250 | HIGH | **Queued** | blocked on 1b; parallel with 1d/1e |
+| D-ODOO-BP-1d | Wire OWL hydrator to take `&OdooEntity`: relational fields → edges, computed fields → SHACL-equivalent constraints, decorators → axioms | lance-graph-ontology | 350 | MED | **Queued** | blocked on 1b; parallel with 1c/1e |
+| D-ODOO-BP-1e | Wire DOLCE classifier + FIBU/FIBO alignment to take `&OdooEntity`; closes D-ODOO-SAV-2's `None`-class alignment for stock.* / analytic.distribution.model / account.account.tag over typed input | lance-graph-ontology | 200 | HIGH | **Queued** | blocked on 1b; parallel with 1c/1d |
+| D-ODOO-BP-1f | Odoo source extraction tool: tree-sitter Python AST → candidate `OdooEntity` consts with Confidence=Extracted; validates + extends 1b's curated set | tools/odoo-blueprint-extractor/ | 800 | MED | **Queued** | blocked on 1b/c/d/e; conflicts (curated vs extracted) flag for ratification, default to curated |
+| D-ODOO-BP-1g | Wire JITson → recipes: `jit::JitCompiler` compiles `Tactic` kernels parameterized by `(&OdooEntity, AtomTouchMask)`; produces DTO-ish NARS that lands in shader-driver | lance-graph-contract::jit + thinking-engine | 400 | MED | **Queued** | blocked on 1c/d/e; proof-of-concept on FiscalPositionResolver, the rest follow in `odoo-savant-reasoners-v2` Group F |
+
+---
+
 ## Update protocol
 
 When a deliverable ships:
