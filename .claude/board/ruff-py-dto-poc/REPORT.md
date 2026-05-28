@@ -94,6 +94,44 @@ The 87/13 transitive/intransitive split reflects how many methods carry
 `_check_*` / `_validate_*` semantics (raise without return) vs.
 compute/return semantics.
 
+## OWL 2 conformance (per Keet 2025-11-15 / 2025-11-17)
+
+Maria Keet's two blog posts ("No, an ontology isn't 'just RDF'", 2025-11-15;
+"Just Turtle and RDF vs OWL examples: the CPEV and FIBO", 2025-11-17) document
+the typical failure mode: a `.ttl` file that parses as Turtle but drops to
+OWL 2 Full (undecidable) because of undeclared classes/properties, blank-node
+lists, `rdf:langString` as a data property range, or reserved-vocabulary
+misuse (e.g. `owl:minQualifiedCardinality` as an annotation property in FIBO).
+
+`bundles_to_ttl.py` emits a TBox preamble (`OWL_TBOX` in the source) that
+addresses each of those failure modes for the OGIT vocabulary:
+
+| Keet failure mode                                  | OGIT remediation                                                                  |
+| ---                                                | ---                                                                               |
+| Undeclared `owl:Class` instances                   | `ogit:Method`, `axis:Classification`, `verb:Transitivity` declared as `owl:Class` |
+| Undeclared annotation properties                   | Every `ogit:*` / `axis:*` / `verb:*` / `tekamolo:*` predicate has `a owl:AnnotationProperty` |
+| `rdf:langString` as a data property range         | Not used                                                                          |
+| Blank-node lists (`[...]` patterns → anonymous individuals) | Not used — every method gets a direct IRI subject                                 |
+| Reserved-vocabulary-as-annotation misuse           | No `owl:*` predicate is reused as annotation                                       |
+| No explicit OWL profile declaration                | `owl:Ontology` + `owl:versionInfo "OWL 2 EL profile (serialized as Turtle 1.1)"` |
+
+Audit against the per-family TTL (rdflib parser + structural check):
+
+```
+OK: parsed 1379 triples (account_move family)
+owl:Restriction instances (EL forbids most):  0
+OWL types used:  Class, NamedIndividual, AnnotationProperty, Ontology
+undeclared user predicates:  0
+blank-node subjects:  0
+owl:Ontology declarations:  1
+```
+
+Caveat per Keet: rdflib parses RDF, not OWL. The real DL-conformance gate
+is Protégé / OWL API / a DL reasoner running the RDF→OWL mapping spec
+(§3 of the OWL 2 Mapping to RDF Graphs). The audit above only confirms
+the necessary conditions; a full DL classifier run is the sufficient
+condition and remains future work for the engine-integration phase.
+
 ## Sample TTL — `account_move._check_invoice_currency_rate`
 
 ```turtle

@@ -9,9 +9,96 @@
 @prefix tekamolo: <https://ogit.adaworldapi.com/grammar/tekamolo/> .
 @prefix nars:    <https://ogit.adaworldapi.com/nars/> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
 @prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+
+### --- OWL 2 DL TBox: classes, properties, individuals ---
+
+<https://ogit.adaworldapi.com/> a owl:Ontology ;
+    rdfs:label "OGIT — Ontology of Grammar / Inference / Truth" ;
+    rdfs:comment "Method-level vocabulary for porting Odoo and other Python business-logic codebases into the 7-tuple grammar of E-BUSINESS-LOGIC-IS-GRAMMAR-1." ;
+    # Profile declaration per Keet 2025-11-15 ("No, an ontology isn't 'just RDF'"):
+    # an ontology document must signal which OWL profile it conforms to.  We use
+    # only class declarations, named-individual declarations, and annotation
+    # properties (no class expressions, restrictions, cardinality, disjointness,
+    # property characteristics).  That puts us inside the OWL 2 EL profile
+    # (also satisfies OWL 2 QL and OWL 2 RL).  Turtle here is the serialization
+    # syntax, not the structural spec; treat this as an OWL ontology, not an
+    # "RDF ontology".
+    owl:versionInfo "OWL 2 EL profile (serialized as Turtle 1.1)" .
+
+# Method class
+ogit:Method a owl:Class ;
+    rdfs:label "Method" ;
+    rdfs:comment "A decorated Python function / class method harvested from a framework source tree (Odoo @api.*, Flask @route, Django CBV, ...)." .
+
+# Family is the business-object class (account_move, sale_order, ...).
+# Family IRIs are first-class owl:Class instances in the odoo: namespace.
+# Punning across class/individual is permitted in OWL 2 DL.
+
+# Axis classification: three named individuals of a Classification class.
+axis:Classification a owl:Class .
+axis:Deterministic a owl:NamedIndividual, axis:Classification ;
+    rdfs:label "Deterministic (AXIS-A)" ;
+    rdfs:comment "Closed-form, regulation-implementing logic; outputs are functions of inputs without learned parameters." .
+axis:Heuristic a owl:NamedIndividual, axis:Classification ;
+    rdfs:label "Heuristic (AXIS-B)" ;
+    rdfs:comment "Inferential / suggestion logic; ranks alternatives or proposes user actions on ambiguous inputs." .
+axis:Hybrid a owl:NamedIndividual, axis:Classification ;
+    rdfs:label "Hybrid" ;
+    rdfs:comment "Mixed mode: deterministic over one slice + heuristic over another (e.g. @api.depends + @api.onchange on the same field)." .
+
+# Verb transitivity classification.
+verb:Transitivity a owl:Class .
+verb:Transitive a owl:NamedIndividual, verb:Transitivity ;
+    rdfs:comment "Method returns / mutates a recordset; the logic flows outward through assignment or return." .
+verb:Intransitive a owl:NamedIndividual, verb:Transitivity ;
+    rdfs:comment "Method terminates internally — typically @api.constrains validators that raise without returning." .
+
+# Metadata annotation properties.
+ogit:methodName a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:matchId a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:family a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method .
+ogit:decorator a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:signature a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:bodyLines a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:integer .
+axis:classification a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range axis:Classification .
+verb:transitivity a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range verb:Transitivity .
+tekamolo:causal a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method .
+
+# DelegationTuple annotation properties (second-pass AST extractor output).
+ogit:invokes a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range ogit:Method .
+ogit:reads_field a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:writes_field a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:traverses_relation a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:reads_env a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:boolean .
+ogit:raises a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+
+# External vocabulary anchors declared locally so a standalone consumer (no
+# dcterms import) still passes "undeclared annotation property" checks.
+dcterms:source a owl:AnnotationProperty .
+
+### --- end TBox ---
+
+odoo:account_move a owl:Class ;
+    rdfs:label "account_move" .
 
 ### account_move._check_invoice_currency_rate  [Deterministic / Intransitive]
 odoo:account_move._check_invoice_currency_rate a ogit:Method ;
@@ -181,7 +268,7 @@ odoo:account_move._compute_always_tax_exigible a ogit:Method ;
             # set the tags as well, during the encoding. So, if no receivable/payable
             # line has been created yet, the invoice would be detected as always exigible,
             # and set the tags on some lines ; which would be wrong.
-            record.always_tax_exigible = not record.is_invoice(True) \
+            record.always_tax_exigible = not record.is_invoice(True) \\
                                          and not record._collect_tax_cash_basis_values()""" ;
     dcterms:source """models/account_move.py:L998-1006""" .
 ### account_move._compute_amount  [Deterministic / Transitive]
@@ -545,8 +632,8 @@ odoo:account_move._compute_hide_post_button a ogit:Method ;
     ogit:signature """self""" ;
     ogit:bodyLines 6 ;
     rdfs:comment """for record in self:
-            record.hide_post_button = record.state != 'draft' \
-                or record.auto_post != 'no' and \
+            record.hide_post_button = record.state != 'draft' \\
+                or record.auto_post != 'no' and \\
                 record.date and record.date > fields.Date.context_today(record)""" ;
     dcterms:source """models/account_move.py:L870-875""" .
 ### account_move._compute_highest_name  [Deterministic / Transitive]
@@ -983,8 +1070,8 @@ odoo:account_move._compute_partner_credit_warning a ogit:Method ;
     rdfs:comment """for move in self:
             move.with_company(move.company_id)
             move.partner_credit_warning = ''
-            show_warning = move.state == 'draft' and \
-                           move.move_type == 'out_invoice' and \
+            show_warning = move.state == 'draft' and \\
+                           move.move_type == 'out_invoice' and \\
                            move.company_id.account_use_credit_limit
             if show_warning:
                 total_field = 'total_amount_currency' if move.currency_id == move.company_currency_id else 'total_amount'
@@ -1313,7 +1400,7 @@ odoo:account_move._compute_show_reset_to_draft_button a ogit:Method ;
     ogit:bodyLines 8 ;
     rdfs:comment """for move in self:
             move.show_reset_to_draft_button = (
-                not self._is_move_restricted(move) \
+                not self._is_move_restricted(move) \\
                 and not move.inalterable_hash
                 and (move.state == 'cancel' or (move.state == 'posted' and not move.need_cancel_request))
             )""" ;
@@ -1693,14 +1780,14 @@ odoo:account_move._onchange_name_warning a ogit:Method ;
                 reset = self._deduce_sequence_number_reset(self.name)
                 if reset == 'month':
                     detected = _(
-                        "The sequence will restart at 1 at the start of every month.\n"
-                        "The year detected here is '%(year)s' and the month is '%(month)s'.\n"
+                        "The sequence will restart at 1 at the start of every month.\\n"
+                        "The year detected here is '%(year)s' and the month is '%(month)s'.\\n"
                         "The incrementing number in this case is '%(formatted_seq)s'."
                     )
                 elif reset == 'year':
                     detected = _(
-                        "The sequence will restart at 1 at the start of every year.\n"
-                        "The year detected here is '%(year)s'.\n"
+                        "The sequence will restart at 1 at the start of every year.\\n"
+                        "The year detected here is '%(year)s'.\\n"
                         "The incrementing number in this case is '%(formatted_seq)s'."
                     )
                 elif reset == 'year_range':
@@ -1724,7 +1811,7 @@ odoo:account_move._onchange_partner_id a ogit:Method ;
             pay_account = self.partner_id.property_account_payable_id
             if not rec_account and not pay_account:
                 action = self.env.ref('account.action_account_config')
-                msg = _('Cannot find a chart of accounts for this company, You should configure it. \nPlease go to Account Configuration.')
+                msg = _('Cannot find a chart of accounts for this company, You should configure it. \\nPlease go to Account Configuration.')
                 raise RedirectWarning(msg, action.id, _('Go to the configuration panel'))""" ;
     dcterms:source """models/account_move.py:L2655-2665""" .
 ### account_move._onchange_quick_edit_line_ids  [Heuristic / Transitive]
@@ -1854,7 +1941,7 @@ odoo:account_move.compute_move_sent_values a ogit:Method ;
             move.move_sent_values = 'sent' if move.is_move_sent else 'not_sent'""" ;
     dcterms:source """models/account_move.py:L824-827""" .
 
-# === DelegationTuple edges (from extract_delegation.py second pass) ===
+### --- DelegationTuple edges (second-pass AST extractor) ---
 
 odoo:account_move._check_expense_ids ogit:raises "ValidationError" .
 odoo:account_move._check_fapiao ogit:raises "ValidationError" .

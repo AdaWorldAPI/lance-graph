@@ -37,9 +37,110 @@ PREFIXES = f"""@prefix ogit:    <{OGIT}/> .
 @prefix tekamolo: <{OGIT}/grammar/tekamolo/> .
 @prefix nars:    <{OGIT}/nars/> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
 @prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+"""
+
+# OWL 2 DL TBox preamble — addresses the failure mode Maria Keet documents in
+# "Just Turtle and RDF vs OWL examples: the CPEV and FIBO" (keet blog,
+# 2025-11-17): valid Turtle is not valid OWL DL.  Without these declarations,
+# every `ogit:Method` rdf:type drops the ontology to OWL 2 Full (undeclared
+# class), and every `ogit:methodName`/`axis:classification`/etc. is reported
+# as an undeclared property by Protege / OWL Classifier.
+#
+# Design choice: use `owl:AnnotationProperty` for the metadata predicates
+# (methodName, family, decorator, signature, bodyLines, axis:classification,
+# verb:transitivity, tekamolo:causal, the delegation edges).  Annotation
+# properties are exempt from OWL 2 DL global restrictions, so we get DL
+# conformance without forcing logical-property semantics on metadata.  The
+# axis + verb individuals get explicit `owl:NamedIndividual` declarations to
+# avoid Protege's "punning" warnings.  No anonymous individuals (blank-node
+# lists from `[...]` patterns) anywhere — those are the second failure mode
+# Keet flags for CPEV.
+OWL_TBOX = f"""### --- OWL 2 DL TBox: classes, properties, individuals ---
+
+<{OGIT}/> a owl:Ontology ;
+    rdfs:label "OGIT — Ontology of Grammar / Inference / Truth" ;
+    rdfs:comment "Method-level vocabulary for porting Odoo and other Python business-logic codebases into the 7-tuple grammar of E-BUSINESS-LOGIC-IS-GRAMMAR-1." ;
+    # Profile declaration per Keet 2025-11-15 ("No, an ontology isn't 'just RDF'"):
+    # an ontology document must signal which OWL profile it conforms to.  We use
+    # only class declarations, named-individual declarations, and annotation
+    # properties (no class expressions, restrictions, cardinality, disjointness,
+    # property characteristics).  That puts us inside the OWL 2 EL profile
+    # (also satisfies OWL 2 QL and OWL 2 RL).  Turtle here is the serialization
+    # syntax, not the structural spec; treat this as an OWL ontology, not an
+    # "RDF ontology".
+    owl:versionInfo "OWL 2 EL profile (serialized as Turtle 1.1)" .
+
+# Method class
+ogit:Method a owl:Class ;
+    rdfs:label "Method" ;
+    rdfs:comment "A decorated Python function / class method harvested from a framework source tree (Odoo @api.*, Flask @route, Django CBV, ...)." .
+
+# Family is the business-object class (account_move, sale_order, ...).
+# Family IRIs are first-class owl:Class instances in the odoo: namespace.
+# Punning across class/individual is permitted in OWL 2 DL.
+
+# Axis classification: three named individuals of a Classification class.
+axis:Classification a owl:Class .
+axis:Deterministic a owl:NamedIndividual, axis:Classification ;
+    rdfs:label "Deterministic (AXIS-A)" ;
+    rdfs:comment "Closed-form, regulation-implementing logic; outputs are functions of inputs without learned parameters." .
+axis:Heuristic a owl:NamedIndividual, axis:Classification ;
+    rdfs:label "Heuristic (AXIS-B)" ;
+    rdfs:comment "Inferential / suggestion logic; ranks alternatives or proposes user actions on ambiguous inputs." .
+axis:Hybrid a owl:NamedIndividual, axis:Classification ;
+    rdfs:label "Hybrid" ;
+    rdfs:comment "Mixed mode: deterministic over one slice + heuristic over another (e.g. @api.depends + @api.onchange on the same field)." .
+
+# Verb transitivity classification.
+verb:Transitivity a owl:Class .
+verb:Transitive a owl:NamedIndividual, verb:Transitivity ;
+    rdfs:comment "Method returns / mutates a recordset; the logic flows outward through assignment or return." .
+verb:Intransitive a owl:NamedIndividual, verb:Transitivity ;
+    rdfs:comment "Method terminates internally — typically @api.constrains validators that raise without returning." .
+
+# Metadata annotation properties.
+ogit:methodName a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:matchId a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:family a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method .
+ogit:decorator a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:signature a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:bodyLines a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:integer .
+axis:classification a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range axis:Classification .
+verb:transitivity a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range verb:Transitivity .
+tekamolo:causal a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method .
+
+# DelegationTuple annotation properties (second-pass AST extractor output).
+ogit:invokes a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range ogit:Method .
+ogit:reads_field a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:writes_field a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:traverses_relation a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+ogit:reads_env a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:boolean .
+ogit:raises a owl:AnnotationProperty ;
+    rdfs:domain ogit:Method ; rdfs:range xsd:string .
+
+# External vocabulary anchors declared locally so a standalone consumer (no
+# dcterms import) still passes "undeclared annotation property" checks.
+dcterms:source a owl:AnnotationProperty .
+
+### --- end TBox ---
 """
 
 # Heuristic markers for AXIS-B (these names tend to indicate inferential logic
@@ -106,8 +207,11 @@ def quote(s: str) -> str:
     """Turtle-safe triple-quoted string literal."""
     if s is None:
         return '""'
-    # Avoid triple-quote conflicts in body source.
-    safe = s.replace('"""', '\\"\\"\\"')
+    # Backslash MUST be escaped first; otherwise Python line-continuations
+    # `\<newline>` in the harvested body source become invalid Turtle escapes
+    # (rdflib raises "bad escape"). After backslash doubling, triple-quotes
+    # are the only other escape Turtle's `"""..."""` form needs.
+    safe = s.replace("\\", "\\\\").replace('"""', '\\"\\"\\"')
     return f'"""{safe}"""'
 
 
@@ -167,6 +271,11 @@ def emit_family(family: str, ndjson_path: Path, out_path: Path) -> int:
         out.write(f"# Per E-BUSINESS-LOGIC-IS-GRAMMAR-1 + E-OWL-IS-THE-UNIVERSAL-INGRESS-1.\n\n")
         out.write(PREFIXES)
         out.write("\n")
+        out.write(OWL_TBOX)
+        out.write("\n")
+        # Family IRI as owl:Class so `ogit:family odoo:<family>` is well-typed.
+        out.write(f"odoo:{family} a owl:Class ;\n")
+        out.write(f'    rdfs:label "{family}" .\n\n')
         for b in bundles:
             out.write(emit_bundle(b))
     return len(bundles)
