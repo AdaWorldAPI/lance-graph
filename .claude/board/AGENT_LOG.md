@@ -31,6 +31,14 @@
 **Files touched:** `crates/cognitive-shader-driver/src/driver.rs` (+42 lines)
 **cargo check:** `Finished dev` — 0 errors; pre-existing warnings only (causal-edge/p64-bridge/ontology deprecations — none in cognitive-shader-driver). Note: `--features hpc-extras` absent from this crate; check ran with default features.
 **Outcome:** SUCCESS — added `HashMap<MailboxId, MailboxSoA<1024>>` field on `ShaderDriver`, `with_mailbox` builder setter on `CognitiveShaderBuilder`, `mailbox()` read accessor. Singleton `Arc<BindSpace>` untouched. All new items marked `/// work`.
+## [Sonnet agent] D-ODOO-EXT-2 Wave A — base/uom/product/analytic extraction
+
+Extracted 4 foundation TIER-1 addons into `odoo_blueprint::extracted::{base,uom,product,analytic}` (26 395 insertions, 4 new Rust modules + `extracted/mod.rs`). Model counts: base 114 models (19 563 LOC, 1.6% field fallback), uom 1 model (235 LOC, 0%), product 25 models (5 248 LOC, 4.3%), analytic 9 models (1 286 LOC, 0%). All four pass the <5% `OdooFieldKind::Other` gate. Two extractor fixes shipped: (1) `emitters/module.py` — added `_dedup_by_model_name()` to keep the richest class when `_inherit` causes multiple Python classes to share a model_name (base had 2 duplicates: `base` + `res.users`); (2) `mod.rs` — added `OdooFieldKind::Other` variant for unrecognized field types (`fields.Image` ×8, `fields.Properties` ×1, `fields.PropertiesDefinition` ×1 in product). `pub mod extracted;` wired into `odoo_blueprint/mod.rs`.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `46dcbcc`. `cargo test -p lance-graph-ontology --lib` green (192 tests). Wave A audit: base 1.6%, uom 0%, product 4.3%, analytic 0% (aggregate ~1.7% weighted by field count).
+
+---
+
 ## [Sonnet agent] D-ODOO-EXT-1 — Python ast extractor scaffold + uom smoke test
 
 Created `tools/odoo-blueprint-extractor/` — a stdlib-only Python 3 package (1 669 LOC across 19 files) that parses Odoo ORM classes via `ast` and emits `OdooEntity` Rust consts with `OdooConfidence::Extracted` provenance. Covers all seven parsers (`classes`, `fields`, `methods`, `decorators`, `state_machine`, `constraints`, `regulation`), two emitters (`rust`, `module`), and `audit/fallback_log`. Smoke test on `uom` addon passes 6/6: emits `EXT_UOM_UOM` with `model_name: "uom.uom"`, `kind: OdooEntityKind::Model`, `confidence: OdooConfidence::Extracted`, balanced braces, 0% `::Other` field fallback. The `regulation.py` 30-entry anchor table is wired; uom has no regulatory text so `regulation_iri: &[]` as expected. EXT-3's `OdooEntityKind` and `regulation_iri` fields landed before this commit — the emitter already emits them correctly. EXT-2 inherits: 9 fields, 16 methods (10 classified, 6 legitimate helpers), 2 constraints extracted from uom cleanly; `@api.ondelete` decorator correctly mapped to `Override`.
