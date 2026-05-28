@@ -1,3 +1,152 @@
+## 2026-05-28 — E-LITERATURE-IS-INGRESS-3-1 — feed business literature (HGB commentaries, GoBD authoritative guidance, Datev manuals, accounting textbooks, ZUGFeRD/EN 16931 specs as PDF, jurisdictional case law) to a 1M-token-context LLM (Gemini 1.5/2 Pro) and ASK it to emit OGIT-conformant TTL — the third ingress direction after Python-source extraction (D1) and OWL ingest (D2)
+
+**Status:** FINDING (user-given doctrine, 2026-05-28; extends `E-OWL-IS-THE-UNIVERSAL-INGRESS-1` with the third direction). Closes the cost-leverage loop: where neither source code (D1) nor OWL (D2) exists, the bulk of domain knowledge sits in PDFs and textbooks; LLM extraction with a 1M-token window is now cheap enough to be the third route to OGIT.
+
+**Click (user, 2026-05-28):** *"and maybe we can even feed business literature to gemini 1mio token and ask to extract relevant business logic"*. The reason it works NOW: (a) Gemini 1.5/2 Pro's 1M-token window fits an entire commentary volume in one prompt; (b) the OGIT 7-tuple from `E-BUSINESS-LOGIC-IS-GRAMMAR-1` is small + structured enough to be a reliable extraction target; (c) the calibration lints from D-RPYDTO-8 (generalised to cross-source per `E-OWL-IS-THE-UNIVERSAL-INGRESS-1`) catch LLM hallucinations the same way they catch Python extraction gaps.
+
+**The three ingress directions, complete (the canonical form is OGIT TTL):**
+
+| Direction | Source | Engine | Use when |
+|---|---|---|---|
+| **D1 — Source** | Python (Odoo, OpenProject, Django, FastAPI), eventually JS/Ruby/Java | `ruff-py-dto` + per-framework `ExtractionProfile` | source code is the authoritative implementation |
+| **D2 — Ontology** | OWL/RDF (FIBO, GoodRelations, Schema.org, WCO, MIMOSA, BioPortal) | `hydrators/` + alignment axioms | community has already ontologised the domain |
+| **D3 — Literature** | PDFs, books, regulations, commentaries, case law | 1M-token LLM (Gemini 1.5/2 Pro, GPT-5 long-context, Claude variants) + 7-tuple-structured extraction prompt + cross-source validation | only natural-language sources exist; D1+D2 are absent or incomplete |
+
+**Mechanism (the LLM extraction pipeline):**
+
+1. **Chunk + ingest:** the input (commentary volume, regulation PDF, textbook chapter) is loaded into the 1M-token window as-is — no pre-chunking; the whole work is in scope.
+2. **Structured extraction prompt:** the LLM is told to emit one TTL block per business rule, conforming to the OGIT vocabulary, slotting each rule into the 7-tuple (`transitivity`, `temporal`, `causal`, `modal`, `locative`, `directionality`, `quantities`) + the dual-axis tag (AXIS-A/B/HYBRID) + a self-reported NARS truth value (`(frequency, confidence)` where confidence reflects "how unambiguously stated in the source").
+3. **Provenance:** every emitted rule carries `provenance: { source: "HGB §238 (Boorberg Kommentar, 2024 Aufl., S. 234-237)", llm: "gemini-2-pro", extraction_run_id }`.
+4. **Cross-source validation:** the emitted TTL is checked against (a) D1 Odoo-extracted TTL for the same domain — does Odoo's `l10n_de` implement the rule the same way? (b) D2 OWL — does FIBO have an equivalent concept? (c) other LLM extractions of the same source — NARS Revision over multiple passes (Gemini + GPT + Claude all extracted independently). 3-way agreement = HIGH truth; 1-way = LOW + manual-review-flag.
+5. **Calibration lints fire:** the same `unmapped-model` / `dropped-fact` / `extractor-gap` lints from D-RPYDTO-8 now check "every rule the LLM emitted has a target binding in OGIT" — catches hallucinated rules; "every regulation section the source covered has at least one extracted rule" — catches dropped sections.
+
+**Why this isn't a replacement for D1 + D2:**
+
+- **D1 is more precise:** Python source IS the authoritative implementation; the LLM may misread, the parser cannot.
+- **D2 is more compact:** an OWL ontology represents domain consensus in 1/10 the bytes a textbook does; ingest is O(1) per concept.
+- **D3 is the only path for: (a) older regulations** with no machine-readable form (most pre-2010 German tax case law), **(b) cross-jurisdictional comparison** (US GAAP vs IFRS vs HGB — textbooks compare; source code doesn't), **(c) interpretive guidance** that only exists in expert commentary (the "GoBD-Auslegung" by major accounting firms — that's PDF whitepapers, not source code).
+
+**Concrete first uses (cheap wins to validate the pipeline):**
+
+- **GoBD-Auslegung 2024** (BMF guidance + Big-Four commentary PDFs) → extract the audit-trail requirements as `causal` slot entries with regulation IRIs. Cross-validate against Odoo's `restrictive_audit_trail` implementation (D1) and against OGIT's existing `regulation_iri` codebook (today hand-curated). Discrepancies → either Odoo missed something or our codebook missed something.
+- **EN 16931 / ZUGFeRD 2.3 specifications** (PDF + XSD) → extract the invoice-element-to-business-rule mappings into TTL. Cross-validate against `hydrators/zugferd` (D2) and `account_edi_ubl_cii` (D1).
+- **HGB §238-§263 Boorberg Kommentar** (or open equivalent) → extract the bookkeeping-obligation rule set as `transitivity=Intransitive` + `axis=Deterministic` rules with `causal` regulation refs. Cross-validate against Odoo `l10n_de` (D1).
+
+**Cost note:** Gemini 2 Pro at 1M-token-input prices ~$1.25/M-input today; an entire commentary volume + structured-extraction prompt + cross-source validation pass is ~$2-5 per source. For the German fiscal corpus (HGB + GoBD + UStG + AO + EU VAT Directive + EN 16931 — maybe 20 sources), one full ingest pass costs ~$40-100. Cheaper than one hour of human domain-expert curation.
+
+**Implication for the plan stack:** the proposed `owl-business-logic-ingress-v1` sibling plan becomes `business-logic-ingress-v1` with three subcrates: `ingress::source` (D1, ruff-py-dto), `ingress::ontology` (D2, hydrators), `ingress::literature` (D3, LLM-extraction client + 7-tuple-structured prompt template + cross-source validation harness). All three subcrates emit to the same OGIT TTL canonical form; the cross-source validation harness runs over the union and reports SHACL conformance + NARS Revision-derived truth values.
+
+**Cross-ref:** `E-OWL-IS-THE-UNIVERSAL-INGRESS-1` (D2 framing; this adds D3 as the third direction), `E-BUSINESS-LOGIC-IS-GRAMMAR-1` (the 7-tuple makes LLM extraction structured/checkable), `E-UNIFY-CROSS-DOMAIN-CONCERNS-1` (extraction concern unifies across D1/D2/D3 — same engine target, different input parsers), `E-CODEBOOK-IS-THE-COMPILATION-TARGET-1` (LLM emits TO the codebook, not free-form), `audit_floor` NARS confidence (literature confidence becomes the LOW-truth-value source until cross-validated against D1/D2 — auto-escalates to manual review until corroborated).
+
+## 2026-05-28 — E-OWL-IS-THE-UNIVERSAL-INGRESS-1 — if ruff-py-dto can extract Odoo Python into Turtle/OGIT, then ANY other open-source business logic published in OWL (FIBO, GoodRelations, Schema.org Action, WCO, GoBD-reference RDF, MIMOSA, ISO 15926, …) is consumable via the SAME normalised target — OGIT becomes the universal ingress; the extraction path is per-source, but the canonical form is one
+
+**Status:** FINDING (user-given doctrine, 2026-05-28; closes the loop on `E-UNIFY-CROSS-DOMAIN-CONCERNS-1` for the cross-FORMAT axis, not just cross-framework Python).
+
+**Click (user, 2026-05-28):** *"and if you are able to extract odos business logic in turtle odoo we might be able to extract it from any other open source business logic in OWL"*. The point is bidirectional and deeper than it sounds:
+
+- **Direction 1 (Odoo Python → OGIT):** `ruff-py-dto` extracts Python source → `RouteContract` (the 7-tuple from `E-BUSINESS-LOGIC-IS-GRAMMAR-1`) → emits Turtle conformant to OGIT vocabulary. The `D-RPYDTO-6` target-spec emits both typed Rust consts AND a TTL serialisation; the TTL is the OGIT-canonical form.
+- **Direction 2 (Any OWL-published business logic → OGIT):** ANY business logic published as OWL (which serialises losslessly to Turtle) is **already in the canonical form** — the OWL parser + OGIT-alignment axioms (which we already have in `crates/lance-graph-ontology/src/hydrators/`) ingest it. Examples:
+  - **FIBO** (Financial Industry Business Ontology) — already vendored, already aligned (`hydrators/fibo*`). The reverse path: FIBO's notion of `MonetaryAmount` / `LegalEntity` / `Transaction` resolves to the same OGIT entries Odoo's `account.move` / `res.partner.Company` / `account.move.line` resolve to.
+  - **GoodRelations** — product/offer/price vocabulary. Maps to Odoo `product.template` + `product.pricelist` via the same family pivot.
+  - **Schema.org Action** — `Action` type with `agent` / `object` / `result` (literally the transitive-verb shape from `E-BUSINESS-LOGIC-IS-GRAMMAR-1`). Maps to the `Transitivity::Transitive { object_type }` discriminant directly.
+  - **WCO Data Model** (World Customs Organisation) — customs declarations / HS codes. Cross-domain analog to Odoo's invoice + product flow.
+  - **GoBD-reference RDF** (if published — BfArM-style references exist for other German regulations). Direct ingest into the `causal: Vec<RegulationRef>` slot.
+  - **MIMOSA / ISO 15926** — industrial asset management / process plant lifecycle. Maps to maintenance/MRO concerns in Odoo (`maintenance` addon) and beyond.
+
+**The corollary doctrine:** **OGIT is the universal ingress format for business logic.** Every source has its own extraction path (Python via ruff-py-dto; OWL via SPARQL/RDF parser; Schema.org JSON-LD via JSON-LD parser; CSV-codebooks via stdlib csv + a thin mapping config; XML schemas via XSD parser). The canonical NORMALISED form is OGIT TTL. Every TYPED consumer (Rust consts, Python DTOs via `ruff_python_codegen`, Elixir patterns via the elixir-frontend plan, future Java/Go/TypeScript targets) reads from OGIT, not from the original source format. **Source format → OGIT (per-source ingress) → typed target (per-language emission).** N sources × M targets → N + M code paths, not N × M.
+
+**Concrete N (the inputs we already have or can land cheaply):**
+
+| Source | Extraction path | Lands as |
+|---|---|---|
+| Odoo Python (addons/*) | `ruff-py-dto` per `ruff-py-dto-odoo-retarget-v1` | OGIT TTL via `RouteContract`-to-TTL emitter |
+| FIBO OWL (vendored) | existing `hydrators/fibo*` | OGIT TTL (already normalised on ingest) |
+| ZUGFeRD / Factur-X (PDF/A-3 + XML) | XML parser + `hydrators/zugferd` (existing) | OGIT TTL |
+| GoBD / HGB / UStG / AO (German fiscal regulations) | hand-curated TTL today; should be auto-extracted from authoritative HTML/PDF | OGIT TTL with `causal` slot |
+| Schema.org JSON-LD (for `Action` / `Service` / `MonetaryGrant`) | JSON-LD parser → RDF → OGIT-alignment axioms | OGIT TTL |
+| SKR03/04 charts (CSV) | `woa-rs/.claude/tools/odoo-skr-extract.py` today; needs CSV-matcher in `ruff-py-dto` | OGIT TTL (Konto codebook) |
+| GoodRelations / WCO / MIMOSA / ISO 15926 (OWL) | direct OWL ingest (need new hydrators, but the engine is generic) | OGIT TTL |
+| MedCare BioPortal ontologies (22, already harvested) | OWL ingest + OGIT-alignment axioms (existing `hydrators/`) | OGIT TTL |
+| OpenProject / Django / FastAPI / future Python frameworks | `ruff-py-dto` with their `ExtractionProfile` | OGIT TTL via the same `RouteContract`-to-TTL emitter |
+
+**Concrete M (the targets):**
+
+| Target | Emission path | Consumer |
+|---|---|---|
+| Typed Rust consts | OGIT-codebook `build.rs` walker (PR #8 + extensions) | `lance-graph-*`, `woa-rs`, `smb-office-rs`, `MedCare-rs` |
+| Typed Python DTOs | `ruff_python_codegen` (D-RPYDTO-2b) | Odoo addons, MedCare Django, BfArM tooling |
+| Typed Elixir patterns | `lance-graph-elixir-frontend-v1` | future Elixir-syntax consumers |
+| Typed TTL (round-trip) | direct serialisation | other RDF tools, SPARQL endpoints, Lance-Graph SPO ingest |
+| Typed JSON-LD / GraphQL | thin emitters from the codebook | web/UI consumers |
+
+**Implications for the plan stack:**
+
+1. **`ruff-py-dto-odoo-retarget-v1` D-RPYDTO-6** must emit BOTH `EXT_*` Rust consts AND OGIT TTL. The TTL emission is the load-bearing one (becomes the canonical form); the Rust emission is one of M targets. Reframe: the Rust emission is the Rust-side `build.rs` consuming the TTL the harvest just emitted; the Python emission (D-RPYDTO-2b's `ruff_python_codegen`) is a sibling step consuming the same TTL.
+2. **A new sibling plan is needed:** `owl-business-logic-ingress-v1` — generalises the `hydrators/` directory into a uniform `OwlSource → OGIT TTL` ingest engine, lands SHACL/SPARQL validation on the ingested TTL, and documents the OGIT vocabulary (predicates, classes, axioms) that the cross-source ingress must conform to. Predecessor for landing FIBO/GoodRelations/Schema.org Action/WCO/etc. ingest as routine.
+3. **The "audit by construction" gate generalises:** today's 5 calibration lints (D-RPYDTO-8) check the Python-source-to-Rust path; the generalised gate becomes "every ingested TTL conforms to a SHACL shape over OGIT", and the same lints fire on cross-source ingress (a FIBO concept that ingests but doesn't match an OGIT alignment axiom = `unaligned-source` lint).
+
+**Why this is huge (not just "extract more sources"):**
+
+- **The "open source business logic is OWL-published" cost-leverage:** the work of ontologising business semantics has ALREADY been done by communities (FIBO took 15+ years and millions of hours; Schema.org has 10+ years of Google + W3C investment; WCO is decades of customs domain knowledge). Ingesting it directly into the OGIT canonical form means we leverage that body of work, instead of re-ontologising via Odoo source extraction.
+- **Cross-validates the Odoo extraction:** when both `account.move` (Odoo) and `fibo:Transaction` (FIBO) land as TTL pointing at the same OGIT entry, the alignment IS the cross-validation. Discrepancies surface as SHACL violations.
+- **Drives the OGIT vocabulary outward, not inward:** today OGIT grows from the Odoo extraction + our hand-curated regulations. Tomorrow OGIT grows from cross-source consensus — FIBO + GoodRelations + WCO + MIMOSA + Odoo + the regulations all push their concepts onto OGIT, and the alignment axioms encode the equivalences. OGIT becomes the *intersection* of cross-source domain expertise, not just our local interpretation of Odoo.
+- **NARS truth values get real cross-source backing:** today `audit_floor` confidence is hand-tuned; with cross-source ingress, the confidence on an `OGIT_CODEBOOK` entry is derivable from how many independent sources align on it (3 sources agreeing = high truth value; 1 source only = low; 2 sources disagreeing = revision needed). This is `NarsTruth::Revision` mechanised over the source set.
+
+**Lesson:** OWL/Turtle is the **lingua franca** the semantic-web community converged on for exactly this problem — cross-source business-logic normalisation. The fact that AdaWorldAPI's `hydrators/` directory already ingests FIBO/ZUGFeRD/OWL means the engine for direction 2 exists; we were missing the framing that direction 1 (Python → TTL) and direction 2 (OWL → TTL) are the SAME pipeline viewed from two ends. **Iron Rule update: when shipping a new ingress path, ask "is there an OWL ontology for this domain already?" before writing extraction code — direct OWL ingest is N-fold cheaper than re-extracting from source code or hand-curating.**
+
+**Cross-ref:** `E-UNIFY-CROSS-DOMAIN-CONCERNS-1` (the doctrine — cross-format is the third axis after cross-domain and cross-framework), `E-BUSINESS-LOGIC-IS-GRAMMAR-1` (the 7-tuple becomes the OGIT vocabulary the TTL emits), `E-CODEBOOK-IS-THE-COMPILATION-TARGET-1` (OGIT codebook IS the canonical form; everything emits to it and from it), `E-RUFF-PYTHON-DTO-CHECK-IS-THE-PORTING-ENGINE-1` (direction-1 engine), `crates/lance-graph-ontology/src/hydrators/` (direction-2 engine — existing FIBO/ZUGFeRD/OWL ingest; generalise via the proposed `owl-business-logic-ingress-v1`), `.claude/plans/ruff-py-dto-odoo-retarget-v1.md` (D-RPYDTO-6 emits TTL as the load-bearing target; Rust emission is one of M), `.claude/plans/unified-spo-nars-codegen-v1.md` (D-USN-*, the typed target emissions all consume the unified TTL).
+
+## 2026-05-28 — E-BUSINESS-LOGIC-IS-GRAMMAR-1 — business logic is structurally adjacent to natural-language grammar: transitive/intransitive verbs ↔ HandlerKind output side, TeKaMoLo (Temporal/Kausal/Modal/Lokal adverb order) ↔ the natural order of business-rule modifiers, German prepositional case (acc=direction/dat=place) ↔ mutate-vs-observe operations, Mengeneinheiten (units of measure) ↔ typed dimensional analysis over money/stock/time
+
+**Status:** FINDING (user-given doctrine, 2026-05-28; load-bearing for how we shape `ExtractionProfile` rules, kind taxonomy, and the typed `OdooEntity` field-kind enum). Cross-references `E-UNIFY-CROSS-DOMAIN-CONCERNS-1` (concerns unify across domains — including the linguistic-vs-business domain pair) and `E-CAPABILITY-FROM-PREDICATE-CONJUNCTION-1` (capabilities are predicate conjunctions; predicates have the same shape as clauses).
+
+**Click (user, 2026-05-28):** *"i had a mini epiphany that business logic is adjacent to grammar / transitive intransitive verbs / tekamolo / time, cause, modal, local / direction vs place / mengeneinheiten"*. Restated as four isomorphisms:
+
+| Grammar | Business-logic analog | Concrete site |
+|---|---|---|
+| **Transitive verb** (takes direct object) | Operation produces a typed output / mutates state — needs a target | `account.move._post()` → posts the move (object = the move); `inventory.transfer()` → moves stock (object = the qty) |
+| **Intransitive verb** (no direct object) | Terminal side-effect / observation / log — no target | `_check_balanced()` → asserts (raises or passes); `audit_log_event()` → logs and returns |
+| **TeKaMoLo** (German adverb order: **Te**mporal · **Ka**usal · **Mo**dal · **Lo**kal) | Natural order of business-rule modifiers | "After period close [Te], because lock-date applies [Ka], via reverse-and-redraft [Mo], on the journal [Lo], you can re-post." Every business rule decomposes into these four modifier slots. |
+| **Direction vs place** (German Wechselpräpositionen: acc=direction, dat=place; e.g. *in das Haus* "into the house" vs *in dem Haus* "in the house") | Mutate-with-direction vs observe-at-place | Direction (acc-case): `transfer(from, to)`, `post(to journal)`, `book(to account)` — flow. Place (dat-case): `balance_at(account)`, `valuation_in(warehouse)`, `coverage_at(date)` — static. |
+| **Mengeneinheiten** (units of measure) | Typed dimensional analysis layer | `uom.uom` (Odoo) + `MonetaryAmount` (FIBO) + `Quantity`/`Unit` (QUDT) + `xsd:duration` (time) — all the same concern: quantity + dimension as a typed pair, never a bare number. |
+
+**Mechanism (where this lands concretely):**
+
+- **HandlerKind output side becomes verb-typed.** Each `HandlerKind` carries a `Transitivity ∈ { Transitive { object_type }, Intransitive }` discriminant. The transitive kinds (`scoped_list`, `form_post_mutate`, `soft_delete`, ...) bind to a typed object (the model class / DTO type). The intransitive kinds (`compute_with_validation`, `state_machine_transition`, `cron_job`) terminate or side-effect. The 12 Flask kinds reclassify: `list_for_tenant` is transitive (object = `Vec<T>`), `csrf_form_post_engine_call` is transitive (object = the mutated DTO), `template_get` is intransitive (no object, only a render side-effect). This SUBSUMES the dual-axis: AXIS-A intransitive = pure check, AXIS-A transitive = pure mutation; AXIS-B intransitive = inferential observation (e.g. `anomaly_detect`), AXIS-B transitive = inferential mutation (e.g. `fiscal_position_resolve` → applies the resolved position).
+- **TeKaMoLo is the natural decomposition for the `guards` + `provenance` blocks on `RouteContract`.** Today `RouteContract` has `guards: Vec<String>` (auth/tenant predicates). Tightened shape: `modifiers: { temporal: Vec<TemporalGuard>, causal: Vec<RegulationRef>, modal: Vec<MethodOfExec>, locative: Vec<TargetScope> }`. The four arrays are the four adverb slots; each business rule fills the slots it cares about, empty slots default to "any". The lock-date check decomposes: `temporal: ["after FY2024 lock"]`, `causal: ["HGB §239 Festschreibung", "GoBD"]`, `modal: ["reverse-and-redraft only"]`, `locative: ["journal=MISC"]`. This makes the L-doc prose mechanically extractable AND makes regulation IRIs cluster naturally on the `causal` slot.
+- **German prepositional case → directional vs static facts.** Extend `Inputs` / `Data` / `OutputKind` with a `Directionality ∈ { Directional { from: Option<Ref>, to: Ref }, Static { at: Ref } }` axis. `inventory.transfer(from=src, to=dst)` is `Directional`; `coverage_at(account, date)` is `Static`. The acc/dat distinction is the structural difference between flow-affecting operations (every K3 posting, every K7 tax-flow, every L13 stock-move) and observation-only operations (every K8 report, every L9 partner-property read). The four MARS columns (Fingerprint/Qualia/Meta/Edge) split cleanly: `Directional` writes the `Edge` column; `Static` reads the `Fingerprint` + `Qualia` columns.
+- **Mengeneinheiten → typed `Quantity { value, unit, dimension }`.** Replace bare `f64` fields throughout `OdooEntity::fields` and the savant compositions with `Quantity { value: Decimal, unit: UomRef, dimension: DimensionTag }` where `DimensionTag ∈ { Monetary { currency }, Mass { kg|g|... }, Volume { l|m³|... }, Duration { d|h|s|... }, Count }`. The `unit` is an OGIT codebook ref; the `dimension` constrains which units are valid (a Mass quantity can't have currency unit). The Odoo `uom.uom` model becomes the seed data for the codebook; QUDT extends it for scientific dimensions; FIBO's `MonetaryAmount` extends it for currency. **Bare numbers in business code become a compile-error**; arithmetic across mismatched dimensions becomes a type-error.
+
+**Why this matters (the deeper insight):**
+
+Natural language evolved over millennia to compress *exactly* the kinds of distinctions business logic needs to express: who does what to whom (transitivity), in what spatiotemporal-causal frame (TeKaMoLo), with what flow direction (case), in what dimensional unit (countability/measurability). When business logic re-invents these distinctions ad-hoc (one codebase calls it `posted_at`, another `effective_date`, a third `accounting_period`), it's paying a re-invention tax that grammar already solved. **The L-doc prose is grammatical because it's English/German; the typed Rust we're emitting from it should be too** — not in the sense of being natural-language strings, but in the sense of carrying the same load-bearing distinctions in its type system.
+
+The cross-framework `HandlerKind` unification from D-RPYDTO-5 + this grammar lens together yield: every business operation across every framework decomposes as `(Transitivity, TemporalGuard*, CausalRef*, ModalMethod*, LocativeScope*, Directionality, Quantity)` — a 7-tuple that fully types the rule. Flask, Odoo, Django, MedCare all collapse to instances of this 7-tuple shape. **The TeKaMoLo + transitivity + case + uom 7-tuple IS the unified grammar of business logic; ExtractionProfile rules fill it from framework-specific syntax; TargetSpec emits typed code that respects it.**
+
+**Concrete next step (NOT a new D-id today, but seeds D-RPYDTO-5+6 enrichment):**
+
+The 7-tuple becomes the shape `RouteContract` evolves toward in upstream PR D-RPYDTO-2a:
+```
+RouteContract {
+  id, function, family,
+  transitivity: Transitivity,             // verb shape (object type or terminal)
+  temporal: Vec<TemporalGuard>,            // Te
+  causal: Vec<RegulationRef>,              // Ka  (regulation IRIs cluster here)
+  modal: Vec<MethodOfExec>,                // Mo  (how, e.g. "FIFO", "reverse-and-redraft")
+  locative: Vec<TargetScope>,              // Lo  (where, e.g. journal=MISC)
+  directionality: Directionality,          // case (Directional{from,to} vs Static{at})
+  quantities: Vec<Quantity>,               // Mengeneinheit-typed values
+  inputs, data, output,                    // existing
+  axis: Axis,                              // E-BLG dual axis (Deterministic/Heuristic/Hybrid)
+  delegation: Option<DelegationTuple>,     // present iff axis is Heuristic/Hybrid
+  guards, handler_kind, provenance         // existing
+}
+```
+
+**Lesson:** I had been treating the L-doc prose as "lossy informal" and the typed Rust as "lossless formal". Reversed: the L-doc prose carries grammatical distinctions (transitivity, TeKaMoLo, case, uom) that the typed Rust was *flattening* by representing them as untyped strings + bare numbers. The typed surface should carry MORE structure than the prose, not less. Grammar is a compressed type system humans evolved; ignoring it is the same anti-pattern as ignoring the AdaWorldAPI/ruff fork — re-inventing distinctions that already exist.
+
+**Cross-ref:** `E-UNIFY-CROSS-DOMAIN-CONCERNS-1` (concerns unify cross-domain; this extends to the grammatical-domain-pair), `E-CAPABILITY-FROM-PREDICATE-CONJUNCTION-1` (predicates are clauses; the 7-tuple IS the clause shape), `E-CODEBOOK-IS-THE-COMPILATION-TARGET-1` (`unit` is a codebook ref; `dimension` constrains which codebook entries are valid in a slot), `E-RUFF-PYTHON-DTO-CHECK-IS-THE-PORTING-ENGINE-1` (the engine's `RouteContract` evolves toward the 7-tuple via D-RPYDTO-2a), `.claude/odoo/BRIEFING.md` (the dual-axis already encodes "transitivity AXIS-B requires delegation tuple"), `.claude/plans/ruff-py-dto-odoo-retarget-v1.md` D-RPYDTO-5 (the cross-framework unified kind enum that the 7-tuple types).
+
 ## 2026-05-28 — E-UNIFY-CROSS-DOMAIN-CONCERNS-1 — SoC is bidirectional: data is domain-distinct (`Accounting ≠ Medical`) → separate via `TypedProjection`, but the **concern** itself is often cross-domain (compliance check, audit trail, Python-AST harvest, identity resolution) → UNIFY via meta-capability + a single engine with N configs, never N hand-written copies
 
 **Status:** FINDING (counterpart + correction to `E-SHARE-SUBSTRATE-SEPARATE-OPERATIONS-1`, filed same day). Drives the EXT-1 retool (stdlib-`ast` → `ruff_python_dto_check`) and the cross-domain capability codegen in `.claude/plans/unified-spo-nars-codegen-v1.md`.
