@@ -1,3 +1,35 @@
+## 2026-05-28 — odoo-source-extraction-v1 (TIER-1 Odoo source extraction → `OdooConfidence::Extracted` backing for `D-ODOO-BP-1b`; sub-plan unfolding `D-ODOO-BP-1f`)
+
+**Status:** PROPOSAL. Unfolds `D-ODOO-BP-1f` of `odoo-business-logic-blueprint-v1` into a tractable Stage 1 over 12 TIER-1 addons (`account`, `account_payment`, `l10n_de`, `product`, `stock`, `uom`, `base`, `analytic`, `purchase`, `sale`, `account_peppol`, `account_edi_ubl_cii`) of the 622 in `/home/user/odoo/addons/`. Validates and adds source-extracted backing to the L-doc-curated `OdooEntity` consts that Wave 1-3 just shipped (commits `9507b36`..`2aca3e3`).
+**Confidence:** HIGH on the substrate decision (extraction is purely additive — cannot regress curated set). HIGH on the tooling substitution (Python stdlib `ast` replaces the absent `tree-sitter` — handles every ORM shape observed in inventory). MED on per-addon yield (~5–8K typed const declarations across TIER-1, ~2–3K condensed Rust LOC). LOW on regulation-IRI density per entity.
+**Plan file:** `.claude/plans/odoo-source-extraction-v1.md`
+**Predecessors:** `D-ODOO-BP-1a` (typed surface, pre-`9507b36`); `D-ODOO-BP-1b` Wave 1–3 (L1–L15 L-doc projection, shipped `9507b36`..`2aca3e3`); 2026-05-28 Odoo source inventory (622 addons, 3 141 ORM classes, 989 K Python LOC; 8/9 German concept anchors located; ELSTER absent — Enterprise-only).
+**Anchored iron rules:** `I-VSA-IDENTITIES` (identity in const data, content in tables — regulation IRIs are codebook handles, not content), `E-CODEBOOK-INHERITS-FROM-OGIT` (regulation rules inherit from OGIT codebook — drives `OdooProvenance.regulation_iri`), "audit-by-construction" (every extracted entity carries `(path, line_range)` + UStG/HGB/GoBD anchor when applicable).
+
+### Scope
+**TIER-1 addons (12)**: `account`, `account_payment`, `l10n_de`, `product`, `stock`, `uom`, `base`, `analytic`, `purchase`, `sale`, `account_peppol`, `account_edi_ubl_cii` — full German accounting flow + ORM roots + value chain + e-invoice. **TIER-2 (POS, HR, website, payment providers, non-DE l10n) explicitly deferred** until Stage 1 EXT-6 reports < 5 % parser-fallback rate. **Tooling**: Python stdlib `ast` module (stale `tree-sitter` reference in `odoo_blueprint/mod.rs:321` corrected by EXT-3). **Output**: `crates/lance-graph-ontology/src/odoo_blueprint/extracted/<addon>.rs`, additive to lane modules `l{1..15}`; consts prefixed `EXT_` to avoid symbol collisions with curated lane consts. **Provenance enhancement**: `OdooProvenance` gains `regulation_iri: &'static [&'static str]` (UStG §15 / HGB §238 / GoBD / AO §146a / EN 16931 IRIs into the OGIT codebook) + `OdooEntityKind::{Model,Transient,Abstract}` variant; back-filled `&[]` / `Model` across the existing Wave 1-3 const set.
+
+### Deliverables
+
+| D-id | Description | Site | LOC | Conf | Status |
+|---|---|---|---:|:--:|:--:|
+| **D-ODOO-EXT-1** | Python `ast` extractor scaffold + smoke test on `uom` (1 model) | `tools/odoo-blueprint-extractor/` | 800 | HIGH | Queued |
+| **D-ODOO-EXT-2** | TIER-1 extraction in 3 waves (foundation / value-flow / DE+e-invoice) → `extracted::*` module tree; `<5%` `OdooFieldKind::Other` fallback rate gate | `odoo_blueprint/extracted/` | 5000–8000 | HIGH | Queued |
+| **D-ODOO-EXT-3** | `OdooProvenance.regulation_iri` slot + `OdooEntityKind` variant + back-fill of Wave 1-3 const set + tree-sitter→`ast` doc-comment correction | `odoo_blueprint/mod.rs` + lane modules | 200 | HIGH | Queued |
+| **D-ODOO-EXT-4** | `l10n_de` specifics: SKR03/04 chart consts (~2 466 accounts) + 17 UStVA Kennzahl consts (Kz.81..95) + GoBD audit-trail flag wiring | `odoo_blueprint/extracted/l10n_de.rs` | 1500 | HIGH | Queued |
+| **D-ODOO-EXT-5** | Curated-vs-extracted pairing table + mismatch audit (`pairing.rs` + `audit/pairings.json`); curated stays canonical on conflict | `odoo_blueprint/extracted/pairing.rs` | 300 | MED | Queued |
+| **D-ODOO-EXT-6** | Honest-coverage report (`COVERAGE.md`) + lane test that fails if any L1..L15 lane drops below 80 % extracted-backing | `odoo_blueprint/extracted/COVERAGE.md` + test | 200 | MED | Queued |
+
+### Execution ordering
+1. EXT-3 first (provenance shape stabilizes before any extracted const lands).
+2. EXT-1 in parallel with EXT-3 (extractor scaffold has no shape dep).
+3. EXT-2 in 3 waves (A: base/uom/product/analytic; B: account/account_payment/purchase/sale/stock; C: l10n_de/account_peppol/account_edi_ubl_cii).
+4. EXT-4 right after Wave C (heaviest extraction — CSV + XML + Python in one addon).
+5. EXT-5 after EXT-2 lands (pairing needs both sides).
+6. EXT-6 closes Stage 1.
+
+---
+
 ## 2026-05-28 — odoo-business-logic-blueprint-v1 (typed Odoo entity DTOs as the substrate for the OGIT → OWL → DOLCE → FIBU/FIBO normalization + JITson / recipe codegen)
 
 **Status:** PROPOSAL. **PREREQUISITE for `odoo-savant-reasoners-v2` Group F** (per `E-SAVANT-COMPOSITION-1`): v2's `SavantPattern` consts compose *over normalized typed DTOs*; without this blueprint they would be ad-hoc interpretations of L-doc prose. Establishes the missing layer between the Odoo prose curation (L-docs + savant docs) and the agnostic shader substrate.
