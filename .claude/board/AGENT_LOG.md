@@ -31,6 +31,13 @@
 **Files touched:** `crates/cognitive-shader-driver/src/driver.rs` (+42 lines)
 **cargo check:** `Finished dev` — 0 errors; pre-existing warnings only (causal-edge/p64-bridge/ontology deprecations — none in cognitive-shader-driver). Note: `--features hpc-extras` absent from this crate; check ran with default features.
 **Outcome:** SUCCESS — added `HashMap<MailboxId, MailboxSoA<1024>>` field on `ShaderDriver`, `with_mailbox` builder setter on `CognitiveShaderBuilder`, `mailbox()` read accessor. Singleton `Arc<BindSpace>` untouched. All new items marked `/// work`.
+## [Sonnet agent] D-ODOO-EXT-1 — Python ast extractor scaffold + uom smoke test
+
+Created `tools/odoo-blueprint-extractor/` — a stdlib-only Python 3 package (1 669 LOC across 19 files) that parses Odoo ORM classes via `ast` and emits `OdooEntity` Rust consts with `OdooConfidence::Extracted` provenance. Covers all seven parsers (`classes`, `fields`, `methods`, `decorators`, `state_machine`, `constraints`, `regulation`), two emitters (`rust`, `module`), and `audit/fallback_log`. Smoke test on `uom` addon passes 6/6: emits `EXT_UOM_UOM` with `model_name: "uom.uom"`, `kind: OdooEntityKind::Model`, `confidence: OdooConfidence::Extracted`, balanced braces, 0% `::Other` field fallback. The `regulation.py` 30-entry anchor table is wired; uom has no regulatory text so `regulation_iri: &[]` as expected. EXT-3's `OdooEntityKind` and `regulation_iri` fields landed before this commit — the emitter already emits them correctly. EXT-2 inherits: 9 fields, 16 methods (10 classified, 6 legitimate helpers), 2 constraints extracted from uom cleanly; `@api.ondelete` decorator correctly mapped to `Override`.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `29e918c`. Smoke test PASS.
+
+---
 ## [Sonnet agent] D-ODOO-EXT-3 — OdooEntityKind + regulation_iri provenance slot
 
 Added `OdooEntityKind::{Model,Transient,Abstract}` enum and `OdooEntity.kind` field to `mod.rs`, plus `OdooProvenance.regulation_iri: &'static [&'static str]` slot. Back-filled `kind: OdooEntityKind::Model` and `regulation_iri: &[]` across all 70 `OdooEntity` consts in `l1.rs`–`l15.rs` (3+3+6+6+5+4+6+6+6+5+4+5+5+4+2 = 70 lane consts; 2 more in `mod.rs` tests). The sole blocking issue was a missing `OdooEntityKind` in each lane's `use super::{}` import — the `kind:` and `regulation_iri:` values were already present in the lane files. Fixed all 15 import blocks. Corrected stale `tree-sitter` doc comment in `OdooConfidence::Extracted`.
