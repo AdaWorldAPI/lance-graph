@@ -68,6 +68,14 @@ pub mod l13;
 pub mod l14;
 pub mod l15;
 
+// ─── Source-extracted sub-modules (D-ODOO-EXT-2) ─────────────────────────
+//
+// Auto-extracted from Odoo Python ORM via `tools/odoo-blueprint-extractor`.
+// Carries `OdooConfidence::Extracted` and `EXT_*` const prefixes.
+// Curated lane consts stay canonical on merge conflict; pairing lives in
+// D-ODOO-EXT-5's `extracted::pairing`.
+pub mod extracted;
+
 // ─── Top-level entity ─────────────────────────────────────────────────────
 
 /// Which ORM base class the entity inherits from.
@@ -241,6 +249,9 @@ pub enum OdooFieldKind {
     Computed,
     /// Property — partner-scoped Many2one with default.
     Property,
+    /// Unrecognized field type (e.g. `fields.Image`, `fields.Properties`).
+    /// Logged to the fallback audit; does not break extraction.
+    Other,
 }
 
 /// Semantic role beyond field kind — what the field MEANS in business
