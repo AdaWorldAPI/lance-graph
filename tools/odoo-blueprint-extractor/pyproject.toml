@@ -1,0 +1,10 @@
+[project]
+name = "odoo-blueprint-extractor"
+version = "0.1.0"
+description = "Extract Odoo ORM classes as OdooEntity Rust consts (D-ODOO-EXT-1..6)"
+requires-python = ">=3.10"
+# No runtime deps — stdlib `ast` + `argparse` + `json` only.
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
