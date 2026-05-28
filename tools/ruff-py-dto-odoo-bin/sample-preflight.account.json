@@ -1,0 +1,134 @@
+{
+  "add_url_rule_findings": [],
+  "body_string_scan_hits": {},
+  "candidate_misses": {
+    "defs_with_decorators_but_unmatched": 1043,
+    "examples": [
+      {
+        "decorators_raw": [
+          "@route('/product/catalog/get_sections', auth='user', type='jsonrpc', readonly=True)"
+        ],
+        "file": "controllers/catalog.py",
+        "function": "product_catalog_get_sections"
+      },
+      {
+        "decorators_raw": [
+          "@route('/product/catalog/create_section', auth='user', type='jsonrpc')"
+        ],
+        "file": "controllers/catalog.py",
+        "function": "product_catalog_create_section"
+      },
+      {
+        "decorators_raw": [
+          "@route('/product/catalog/resequence_sections', auth='user', type='jsonrpc')"
+        ],
+        "file": "controllers/catalog.py",
+        "function": "product_catalog_resequence_sections"
+      },
+      {
+        "decorators_raw": [
+          "@api.model"
+        ],
+        "file": "wizard/account_payment_register.py",
+        "function": "_get_communication"
+      },
+      {
+        "decorators_raw": [
+          "@api.model"
+        ],
+        "file": "wizard/account_payment_register.py",
+        "function": "_get_batch_available_journals"
+      }
+    ]
+  },
+  "decorator_histogram": {
+    "by_attribute_name": {
+      "classmethod": 130,
+      "constrains": 66,
+      "contextmanager": 22,
+      "depends": 351,
+      "depends_context": 38,
+      "deprecated": 4,
+      "freeze_time": 31,
+      "model": 305,
+      "model_create_multi": 24,
+      "mute_logger": 7,
+      "object": 2,
+      "onchange": 45,
+      "ondelete": 21,
+      "private": 1,
+      "property": 8,
+      "readonly": 2,
+      "route": 12,
+      "setup_country": 2,
+      "standalone": 1,
+      "staticmethod": 4,
+      "template": 10,
+      "users": 7,
+      "warmup": 4
+    },
+    "by_full_pattern": {
+      "AccountTestInvoicingCommon.setup_country": 2,
+      "api.constrains": 66,
+      "api.depends": 351,
+      "api.depends_context": 38,
+      "api.deprecated": 4,
+      "api.model": 305,
+      "api.model_create_multi": 24,
+      "api.onchange": 45,
+      "api.ondelete": 21,
+      "api.private": 1,
+      "api.readonly": 2,
+      "classmethod": 130,
+      "contextlib.contextmanager": 1,
+      "contextmanager": 21,
+      "freeze_time": 19,
+      "freezegun.freeze_time": 12,
+      "http.route": 9,
+      "mute_logger": 7,
+      "patch.object": 2,
+      "property": 8,
+      "route": 3,
+      "standalone": 1,
+      "staticmethod": 4,
+      "template": 10,
+      "users": 7,
+      "warmup": 4
+    }
+  },
+  "filename_convention": {
+    "files_with_matched_routes": 4,
+    "stem_suffix_histogram": {
+      "(none)": 157
+    }
+  },
+  "first_arg_url_test": {
+    "decorator_pattern": "api.depends",
+    "name_reference_count": 0,
+    "starts_with_slash_count": 351,
+    "string_literal_count": 351
+  },
+  "framework_fingerprint": {
+    "imports_seen": {
+      "django.urls": 0,
+      "fastapi": 0,
+      "flask": 0,
+      "pyramid": 0,
+      "starlette": 0
+    }
+  },
+  "register_blueprint_graph": [],
+  "tree_stats": {
+    "py_files_failed_parse": 0,
+    "py_files_parseable": 157,
+    "py_files_scanned": 157,
+    "total_class_defs": 182,
+    "total_function_defs": 3085
+  },
+  "url_template_segments": {
+    "<models(\"account.move\"):invoices>": 1,
+    "<models(\"account.move\"):moves>": 1,
+    "<models(\"ir.attachment\"):attachments>": 1,
+    "<string:filetype>": 1
+  }
+}

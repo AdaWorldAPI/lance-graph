@@ -1,0 +1,9 @@
+{
+  "generated_at": "2026-05-19T00:00:00Z",
+  "ruff_py_dto_version": "0.1.0",
+  "schema_version": 2,
+  "totals": {
+    "bundles": 3555,
+    "families": 388
+  }
+}

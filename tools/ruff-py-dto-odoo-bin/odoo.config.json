@@ -1,0 +1,58 @@
+{
+  "$schema": "../ruff-fork/ruff-main/crates/ruff_python_dto_check/schemas/ruff-py-dto.config.schema.json",
+  "root": "/home/user/odoo/addons",
+  "include": ["**/models/**/*.py", "**/wizards/**/*.py"],
+  "exclude": ["**/tests/**", "**/__pycache__/**", "**/.venv/**", "**/migrations/**", "**/static/**"],
+  "match": [
+    {
+      "id": "odoo_compute",
+      "kind": "function_with_decorator",
+      "decorator": {
+        "attribute": "depends",
+        "min_positional_args": 1
+      },
+      "emit": {
+        "depends_fields": "decorator.args[0]",
+        "method_name":    "def.name",
+        "signature":      "def.params",
+        "body_source":    "def.body.source",
+        "decorators_all": "def.decorators"
+      }
+    },
+    {
+      "id": "odoo_constrains",
+      "kind": "function_with_decorator",
+      "decorator": {
+        "attribute": "constrains",
+        "min_positional_args": 1
+      },
+      "emit": {
+        "constrains_fields": "decorator.args[0]",
+        "method_name":       "def.name",
+        "signature":         "def.params",
+        "body_source":       "def.body.source",
+        "decorators_all":    "def.decorators"
+      }
+    },
+    {
+      "id": "odoo_onchange",
+      "kind": "function_with_decorator",
+      "decorator": {
+        "attribute": "onchange",
+        "min_positional_args": 1
+      },
+      "emit": {
+        "onchange_fields": "decorator.args[0]",
+        "method_name":     "def.name",
+        "signature":       "def.params",
+        "body_source":     "def.body.source",
+        "decorators_all":  "def.decorators"
+      }
+    }
+  ],
+  "group": {
+    "family_from_filename": {
+      "regex": "^(?P<family>[a-z_]+?)\\.py$"
+    }
+  }
+}

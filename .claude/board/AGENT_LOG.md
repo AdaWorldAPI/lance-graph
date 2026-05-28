@@ -650,3 +650,86 @@ impl'd with gap columns nullable + structurally-capped confidence until feeds la
 **No code path changed. No `.rs` / `Cargo.toml` / `build.rs` / `data/` touched. Read-only review + appends + one new handover doc.**
 
 **Cross-ref:** PR #418 (open), PR #419 (open), `EPIPHANIES.md` `E-RUBICON-RACTOR` + `E-MAILBOX-IS-BINDSPACE` + `E-SURREAL-POC-UNANNOTATED-SUPERSEDURE`, plans listed in §3 of the handover doc.
+
+---
+
+## 2026-05-28 (auto-attended) — ruff-py-dto Odoo POC end-to-end
+
+**Session.** User went offline; resumed work auto-attended. Goal: convert the
+in-session-discovered "0 bundles" empirical finding from
+`E-RUFF-PYTHON-DTO-CHECK-IS-THE-PORTING-ENGINE-1` into a working end-to-end
+proof that the dual-axis 7-tuple grammar can flow from Python AST to
+OGIT-conformant TTL.
+
+**Patched.** `harvest_module`, `harvest_module_with_config`, and
+`PreflightScanner::scan_file` in the zipballed ruff fork at
+`/tmp/ruff-fork/ruff-main/crates/ruff_python_dto_check/src/`. Top-level loop →
+recursive walker into class bodies (+ nested function bodies). Roughly ~50
+lines net diff across three files. Rebuilt in 1m29s release-mode; one
+harmless unused-import warning, no errors.
+
+**Validated.** Same input (`/home/user/odoo/addons/account/`), same config,
+same binary; only the class-body recursion differs:
+
+- harvest: **0 → 363** bundles, **0 → 32** families.
+- preflight `decorator_by_attribute`: `depends 0→351, model 0→305,
+  constrains 0→66, onchange 0→45, classmethod 0→130, ...`.
+- preflight `candidate_misses`: 2 → 1043 (this is the diagnostic surfacing
+  decorators the proposed `route` rule doesn't catch — expected and
+  desirable).
+
+**Scaled.** Same binary against the full `odoo/addons/` (622 addons): **3555
+bundles across 388 families** in ~30 s wall-clock. Top families:
+`account_move 264, res_config_settings 106, sale_order 101, sale_order_line
+82, res_partner 80, product_template 75, stock_picking 70, stock_move 67,
+account_move_line 60, ...` — exactly the expected ERP shape.
+
+**TTL prototype.** Wrote `tools/ruff-py-dto-odoo-bin/bundles_to_ttl.py` — reads
+NDJSON, emits one OGIT TTL file per family with the 7-tuple grammar slots
+populated:
+
+- `axis:classification axis:Deterministic|Heuristic|Hybrid` (per
+  `E-BUSINESS-LOGIC-IS-GRAMMAR-1` priority rules, simplified heuristic
+  version pending D-RPYDTO-5).
+- `verb:transitivity verb:Transitive|Intransitive` (per the verb
+  classification — `_check_*`/`_validate_*` and `raise`-without-`return`
+  bodies → intransitive).
+- `tekamolo:causal <regulation:HGB#239|UStG#18|GoBD#Unveraenderbarkeit|...>`
+  (first-pass text-marker matching; D3 LLM literature extraction fills the
+  long tail).
+- `dcterms:source "<file>:L<line_start>-<line_end>"` (full provenance).
+- `rdfs:comment` carrying the Python body source verbatim (truncated at 2KB).
+
+Cross-tree distribution across all 3555 methods:
+**89.1% Deterministic / 10.9% Heuristic**, **86.8% Transitive / 13.2%
+Intransitive**, 9 regulation-marker hits across UStG/GoBD/HGB.
+
+**Committed.**
+
+- `vendor/ruff-patches/` — three patched `.rs` files + README sketching the
+  upstream-PR split (refactor → opt-in flag → `ClassWithBase` matcher →
+  first-class `Axis`/`DelegationTuple`).
+- `tools/ruff-py-dto-odoo-bin/` — `odoo.config.json`, `bundles_to_ttl.py`,
+  README, plus four sample artifacts (preflight, bundles, TTL, manifest).
+- `.claude/board/ruff-py-dto-poc/REPORT.md` — full empirical report with
+  before/after tables, scale numbers, known imperfections, next steps.
+
+**Not committed (regenerable).** 12 MB of NDJSON in `/tmp/odoo-extract/` and
+4.4 MB of TTL in `/tmp/work/ttl-full/`. Both reproduce in ~30 s from
+the committed patch + config + emitter.
+
+**Implication for `E-RUFF-PYTHON-DTO-CHECK-IS-THE-PORTING-ENGINE-1`.** The
+epiphany is now empirically substantiated, not just analytically. The
+critical-path claim ("without D-RPYDTO-2a no bundles flow") is proven by the
+0 → 3555 delta from a 50-line patch. The downstream stages — typed
+`OdooMethod` consts (`E-CONST-IS-CRITICAL-PATH-2`), NARS revision
+(`E-NARS-IS-THE-RECONCILER`), generative DSL (`E-GENERATIVE-DSL-IS-NOT-A-COMPILER`),
+KG ingest (`E-OWL-IS-THE-UNIVERSAL-INGRESS-1`) — all now have a real,
+inspectable substrate to point at instead of vapor.
+
+**Imperfections logged in REPORT.md.** (1) HYBRID under-detection on
+`_compute_abnormal_warnings` (heuristic axis assigner ignores docstring/body
+markers — D-RPYDTO-5 fixes). (2) Low causal-ref recall (text-matching only
+— D3 LLM extraction needed). (3) `tekamolo:quantities` empty (trivial
+follow-up). (4) No cross-family edges yet (needs `DelegationTuple` second
+AST pass — D-RPYDTO-2a step 4 upstream PR).
