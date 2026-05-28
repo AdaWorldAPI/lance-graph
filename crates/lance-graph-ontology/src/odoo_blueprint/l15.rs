@@ -186,7 +186,7 @@ pub const ACCOUNT_ACCOUNT_TAG_L15: OdooEntity = OdooEntity {
 // part of this CABA semantic cluster; see L15-TAX-REPARTITION.md R11.
 
 const TAX_EXTENSION_FIELDS: &[OdooField] = &[
-    // ── Fields present in L3 (key selection for cross-reference) ─────────────
+    // ── Fields from L3 (cross-reference) ─────────────────────────────────────
     OdooField {
         name: "tax_exigibility",
         kind: OdooFieldKind::Selection,
