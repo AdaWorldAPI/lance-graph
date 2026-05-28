@@ -1,11 +1,26 @@
-//! Savant role-key catalogue — 25 disjoint [`RoleKey`] slices, one
-//! identity per Odoo savant in [`crate::savants::SAVANTS`].
+//! Savant role-key catalogue — **desperation-bucket fallback** identity
+//! layer per the 2026-05-28 codebook doctrine (see
+//! `E-CODEBOOK-INHERITS-FROM-OGIT` in `EPIPHANIES.md`).
 //!
-//! Lands in the SMB headroom `[14096..16384)` that
-//! [`crate::grammar::role_keys`] reserves for future SMB keys (per the
-//! LF-2 16K resize). Each savant gets 90 dims of pseudo-random bipolar
-//! identity, FNV-64-seeded from the savant's name; disjoint by
-//! construction.
+//! ## Status: not the canonical identity
+//!
+//! The canonical savant identity is the OGIT URI in [`super::ogit_uris`],
+//! resolved through `lance-graph-ontology::registry::OntologyRegistry`
+//! to a stable codebook row index. LE-byte mailbox SoA columns store
+//! the row index — **never the bitpacked bits here**.
+//!
+//! This module exists as the documented fallback for compute contexts
+//! where codebook lookup is unavailable (e.g. ephemeral in-mailbox
+//! Hamming compare against a pre-bound `RoleKey`). Per the
+//! 2026-05-28 doctrine: *"bitpacked is also only a desperation
+//! bucket."*
+//!
+//! ## What this module ships
+//!
+//! 25 disjoint [`RoleKey`] slices, one per Odoo savant in
+//! [`crate::savants::SAVANTS`], landing in the SMB headroom
+//! `[14096..16346)` (FNV-64-seeded pseudo-random bipolar bits, 90 dims
+//! each, disjoint by construction).
 //!
 //! ## Layout
 //!
@@ -22,7 +37,9 @@
 //! headroom (`grammar::role_keys::VSA_DIMS = 16_384` minus STEUER_KEY's
 //! end at `14_096`).
 //!
-//! `D-ODOO-SAV-5b` of `odoo-savant-reasoners-v2`.
+//! `D-ODOO-SAV-5b` of `odoo-savant-reasoners-v2` (the desperation-bucket
+//! fallback; the canonical OGIT codebook foundation is `D-ODOO-SAV-5b-v2`
+//! in [`super::ogit_uris`]).
 
 use std::sync::LazyLock;
 
