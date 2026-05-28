@@ -48,8 +48,7 @@ def _find_compute_method(source: str, method_name: str) -> Optional[Dict]:
             # Extract source lines for body inspection
             lines = source.splitlines()
             body_lines = lines[node.lineno - 1:end]
-            body_source = "
-".join(body_lines)
+            body_source = "\n".join(body_lines)
             return {
                 "name": method_name,
                 "lineno": node.lineno,
