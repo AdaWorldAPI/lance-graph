@@ -1,3 +1,107 @@
+## 2026-05-28 — E-UNIFY-CROSS-DOMAIN-CONCERNS-1 — SoC is bidirectional: data is domain-distinct (`Accounting ≠ Medical`) → separate via `TypedProjection`, but the **concern** itself is often cross-domain (compliance check, audit trail, Python-AST harvest, identity resolution) → UNIFY via meta-capability + a single engine with N configs, never N hand-written copies
+
+**Status:** FINDING (counterpart + correction to `E-SHARE-SUBSTRATE-SEPARATE-OPERATIONS-1`, filed same day). Drives the EXT-1 retool (stdlib-`ast` → `ruff_python_dto_check`) and the cross-domain capability codegen in `.claude/plans/unified-spo-nars-codegen-v1.md`.
+
+**Click (user, 2026-05-28):** *"but SoC works both ways / same concerns in different domains are unifiable."* Earlier the same session I had filed `E-SHARE-SUBSTRATE-SEPARATE-OPERATIONS-1` — "share substrate, separate operations" — which is *half* the picture. The other half: when the same **concern** (not data shape, but the *operational concern*) shows up across domains, the right move is to **unify the engine**, not to duplicate per-domain hand code. Concrete examples in this workspace:
+
+- **Python-AST harvest** is the same concern in `tools/odoo-blueprint-extractor/data_extractors/*.py` (Odoo → typed Rust consts), in `woa-rs/.claude/tools/odoo-skr-extract.py` (Odoo CSV → SKR03/04 Rust consts), in `woa-rs/.claude/tools/probe-button-route-links.py` (UI route extraction), and in `woa-rs/.claude/tools/odoo-recover-lane-drafts.py`. Four scripts, one concern, four bespoke `ast.walk` loops.
+- **Compliance check** is the same concern in HGB §238/239/257/266/272, UStG §13/14/15/18/19, AO §146a/147/158, GoBD (DE) — and in DACH-medical via SNOMED CT licensing, ICD-10-GM mapping, PRISCUS, AWMF, ABDA. Different regulation IRIs, same predicate shape.
+- **Audit trail** is the same concern in `account.move` (`restrictive_audit_trail`), in `stock.move`, in pharmacy dispense logs (CPIC), in pharma traceability (GS1 DataMatrix → product.barcode). Different domains, same edge.
+
+**The two-axis rule (resolving the SoC bidirectionality):**
+
+| Axis | Move | Mechanism |
+|---|---|---|
+| **Data is domain-distinct** (`Accounting::JournalEntry` ≠ `Medical::Encounter`) | **Separate** | `TypedProjection::Accounting(&'static OdooEntity)` / `TypedProjection::Medical(&'static BioPortalConcept)` — variant enum over the same `LabelDTO` substrate, `as_<domain>()` accessor for typed read. |
+| **Concern is cross-domain** (Python-AST harvest, compliance check, audit trail, identity resolution) | **Unify** | One engine (`ruff_python_dto_check` for the AST case), N config files (one per source family). One `Capability<N>` shape (`audit_witnessed_post`), N domain instantiations via meta-capability propagation. |
+
+**The diagnostic:** before writing a second loop / second extractor / second compliance predicate / second audit edge, ask: *"Is this the same concern in a new domain, or a new concern that happens to look similar?"* If the **predicate shape** is the same (same arity, same NARS truth axes, same input/output types modulo the typed projection), it's the same concern — UNIFY. If the predicate shape genuinely differs (e.g. `JournalEntry.balanced` vs `Encounter.coded` — different arity, different witness chain), it's a new concern — SEPARATE.
+
+**Fix (lands now):**
+
+1. **`E-RUFF-PYTHON-DTO-CHECK-IS-THE-EXTRACTION-ROUTE-1`** (filed below) — replaces the stdlib-`ast` extractor in `tools/odoo-blueprint-extractor/data_extractors/*.py` with a config-driven `ruff_python_dto_check` invocation. ONE engine, N configs (one per addon family).
+2. **`E-RUFF-PYTHON-CODEGEN-IS-THE-EMISSION-ROUTE-1`** (filed below) — wires `ruff_python_codegen`'s `Generator` as the codegen target for the Python-side shim (Odoo addons, BfArM tooling) so the OGIT codebook emits typed Python DTOs the same way it emits typed Rust consts. SAME codebook, two emission targets, cross-language unification.
+3. **`unified-spo-nars-codegen-v1`** D-USN-3 (capability layer) and D-USN-4 (meta-capability layer) are exactly this principle at the predicate level: a `Capability<N>` declared once as "predicate-conjunction → emergent method" is the same concern in every domain; meta-capability propagation (`A:B::C:D`) instantiates per-domain without duplication.
+
+**Lesson:** "share substrate" and "unify concerns" are the same doctrine viewed from two angles — substrate is the *carrier* (one DTO type, N projections), concern is the *operation* (one engine, N configs / one capability shape, N instantiations). Both reject the dual anti-patterns: a global `LabelDTO::content: Vec<u8>` (loses the typed read) and N hand-written extractors / N hand-written compliance predicates (loses the unified concern). Iron Rule: **separate by data-distinctness, unify by concern-distinctness; if you find yourself writing the same `ast.walk` loop twice, stop and reach for the config.**
+
+**Cross-ref:** `E-SHARE-SUBSTRATE-SEPARATE-OPERATIONS-1` (the dual axis — separate operations on shared substrate), `E-LABEL-DTO-IS-THE-SUBSTRATE-1` (one DTO, all shapes), `E-CAPABILITY-FROM-PREDICATE-CONJUNCTION-1` (capabilities ARE the unified-concern primitive at the predicate level), `E-META-CAPABILITY-PATTERN-1` (cross-domain meta-capabilities ARE the unified-concern primitive at the meta level), `E-RUFF-PYTHON-DTO-CHECK-IS-THE-EXTRACTION-ROUTE-1` (concrete extraction unification), `E-RUFF-PYTHON-CODEGEN-IS-THE-EMISSION-ROUTE-1` (concrete emission unification), `unified-spo-nars-codegen-v1` D-USN-3/4, `odoo-source-extraction-v1` EXT-1 retool note, `woa-rs/.claude/tools/` (the swiss-knife the user pointed at — *"above is the swiss knife for extracting"*).
+
+## 2026-05-28 — E-RUFF-PYTHON-DTO-CHECK-IS-THE-PORTING-ENGINE-1 — `AdaWorldAPI/ruff/crates/ruff_python_dto_check` is NOT just an AST extractor: it's a full **Python→typed-target porting engine** with `RouteContract` as the spine, 12 emergent `HandlerKind`s as the capability set, 5 calibration lints as the audit layer, and a pluggable `ExtractionProfile` + `TargetSpec` architecture explicitly designed for Odoo as the next target after Flask
+
+**Status:** FINDING (concrete unification target for `E-UNIFY-CROSS-DOMAIN-CONCERNS-1`; retools `odoo-source-extraction-v1` Stage 2 — the engine is far more than an AST extractor, and the AdaWorldAPI fork is explicitly designed to be retargeted at Odoo as the second framework after Flask).
+
+**Click (user, 2026-05-28):** *"routes can be unified across the patterns / use https://github.com/AdaWorldAPI/ruff / ruff_python_codegen / ruff_python_dto_check"*, then *"just zipball https://github.com/AdaWorldAPI/ruff"*, then *"its THE tool that you need"*. Zipball pulled (16 MB), `CODEGEN-DESIGN.md` + `examples/rust-axum-seaorm.target.toml` + the 12-kind coverage table read. **Revises the prior under-statement** — this is not an AST extractor; it's a **complete Python-source→typed-target porting engine**.
+
+**What it actually is (from `CODEGEN-DESIGN.md` + source read of `ruff_python_dto_check/src/{lib,config,contract,codegen,calibrate}.rs`):**
+
+1. **The contract is the spine.** `RouteContract { id, function, family, methods, path, inputs, data, output, guards, handler_kind, classification_reason, provenance }` is the **shared interface** between AST extraction, target codegen, and the calibration lints. Three sides agree on this one shape; project specifics live in the extraction profile + target spec, NOT the crate.
+
+2. **12 emergent `HandlerKind`s.** Not a hardcoded list — *derived* by a priority classifier over `(output × inputs)` algebra:
+
+   | Kind | Shape | What gets emitted |
+   |---|---|---|
+   | `list_for_tenant` | scoped query → template | tenant-scoped axum handler + askama view with real columns |
+   | `detail_for_tenant` | scoped `find_by_id` + `ensure_tenant` | handler + view, columns iff sub-table |
+   | `template_get` | static render | view skeleton, no model query |
+   | `soft_delete` | scoped fetch → `aktiv=Set(false)` → redirect | `ActiveModel` mutation |
+   | `toggle_bool_field` | scoped fetch → flip `aktiv` → redirect | same shape as soft_delete |
+   | `get_redirect_shortcut` | conditional `Redirect` | `Option<CurrentUser>` flow |
+   | `csrf_form_post_engine_call` | POST → form DTO → redirect | form DTO emission |
+   | `form_get_post` | `_get` render + `_post` handle | two handlers + form DTO |
+   | `ajax_json` | `Json<Response>` | response DTO, jsonify keys → fields |
+   | `download_blob` | `Response` bytes + Disposition | byte-source stub |
+   | `pdf_render` | `Response` `application/pdf` | call-site shape, documented stub (NEVER `todo!()`) |
+   | `sa_admin_view` | superadmin/admin gate + render | `sa_`-prefix detection |
+   | `signed_link_action` | token-`Query` action, no `CurrentUser` | separate auth stack |
+
+   These 12 kinds **are emergent capabilities at the predicate level** — exactly the shape `E-CAPABILITY-FROM-PREDICATE-CONJUNCTION-1` names. A different codebase (Odoo, OpenProject, Django) yields its own kind distribution from the same algebra; the classifier reads neutral facts.
+
+3. **5 calibration lints** (audit-by-construction):
+   - `unmapped-model` — model in AST not resolved by target spec
+   - `dropped-fact` — extracted fact not represented in emitted handler
+   - `template-context-mismatch` — handler/template `context_keys` mismatch
+   - `form-field-gap` — `form_field_read` without a DTO field
+   - `output-kind-mismatch` — return type ≠ output kind
+   - (plus `extractor-gap` — fact the extractor couldn't classify; points at the SOURCE layer to extend, not a downstream patch)
+
+4. **Pluggable architecture, two layers of config:**
+   - **`ExtractionProfile`** (extraction config — `examples/flask.config.json` is the canonical Flask example): match rules + emit fields; framework-specific call-name → fact map lives here.
+   - **`TargetSpec`** (target config — `examples/rust-axum-seaorm.target.toml` ships): model mappings (`module_path` between `models_root` and `::Model`), tenant column, `emit_kinds` whitelist. **Adding a new framework = a new `ExtractionProfile`; adding a new language target = a new `TargetSpec`.** The crate stays unchanged.
+
+5. **The CODEGEN-DESIGN.md states Odoo as the explicit next target** (verbatim: *"The first consumer is a Flask→Rust/axum port, but the same pipeline must run against odoo and openproject next, so no target- or project-specific logic lives in the crate"*). The crate was de-project-ified on purpose for exactly this expansion.
+
+**Current gap to fill for Odoo (the actual retarget work):**
+
+- **`MatchKind` enum** currently has only `FunctionWithDecorator` (`src/config.rs:108-111`). Odoo needs `ClassWithBase` — `class X(models.Model)` is the load-bearing AST shape. README scope explicitly names this as planned future work (*"`class_with_base` and `module_attribute_call` matchers"*).
+- **Odoo `ExtractionProfile`** — Odoo idioms: `_name` / `_inherit` class attrs, `fields.Char/Many2one/...` field assignments, `@api.depends(...)` / `@api.constrains(...)` / `@api.onchange(...)` / `@api.model` / `@api.model_create_multi` decorators, `compute=` / `inverse=` / `search=` field kwargs as cross-refs.
+- **Odoo `TargetSpec`** — maps the extracted `OdooEntity` shape to `lance-graph-ontology::odoo_blueprint::extracted::EXT_*` Rust consts. The target_root is `crates/lance-graph-ontology/src/odoo_blueprint/extracted/`; models map to `OdooEntity { model_name, table_name, fields, computes, constrains, ... }`.
+- **Odoo `HandlerKind` distribution** — emerges from `(output × inputs)` over Odoo's idioms. Plausible kinds (to be validated against Sonnet harvest): `field_compute`, `field_constrain`, `field_depend`, `field_related`, `field_default`, `field_onchange`, `model_action`, `model_button`, `web_route`, `report_render`. Like Flask's 12, these are derived by the classifier — we don't hand-write them.
+
+**What this replaces in THIS workspace (the duplicate routes the user named):**
+
+| Site | Concern | Today | After retarget |
+|---|---|---|---|
+| `tools/odoo-blueprint-extractor/data_extractors/gobd_company.py` + ~5 sibling extractors | Extract Odoo `class X(models.Model)` shapes → typed Rust `EXT_*` consts | hand-written `import ast; for node in ast.walk(tree): ...` per file | one ruff-py-dto config + one TargetSpec emit |
+| `woa-rs/.claude/tools/odoo-skr-extract.py` | SKR03/04 CSV → typed `Konto` consts (the user-pointed "swiss knife") | hand-rolled `csv.DictReader` + regex overlay | not yet covered (CSV is different family); the `ruff_python_dto_check` retarget covers Python; CSV-to-Rust stays in the swiss knife for now |
+| `woa-rs/.claude/tools/probe-button-route-links.py` | Odoo `<button>` XML + Python action handlers | mixed XML + AST walk | Python-side via ruff-py-dto; XML side stays Python until a separate XML matcher lands |
+| `woa-rs/port-drafts/<kind>/` | Sonnet-drafted Rust ports per `HandlerKind` (mentioned in CODEGEN-DESIGN.md) | hand-drafted starter Rust per kind | become the golden tests + emit_kinds entries in `TargetSpec` |
+
+**Vendoring strategy (lands as a new plan, not in-line here):**
+- **Path A (cleanest):** add `[workspace.dependencies]` entry pointing at `https://github.com/AdaWorldAPI/ruff.git` with rev pin; declare `ruff_python_dto_check = { workspace = true }` in `tools/odoo-blueprint-extractor-rs/Cargo.toml` (new Rust crate; the Python tool becomes a thin compat shim). Avoids a vendor copy + tracks upstream.
+- **Path B:** vendor the two crates (`ruff_python_dto_check` + its parser/AST deps) into `vendor/ruff-*/` with rev pin recorded. Heavier, avoids network.
+- Detail (matcher PR vs out-of-crate fork): adding `ClassWithBase` upstream is a real PR to `AdaWorldAPI/ruff` — preferable to forking the crate locally. Plan needs to chart whether we PR-upstream first or vendor-then-PR-back.
+
+**What's NOT being claimed:**
+
+- This is NOT a validator for OGIT codebook compliance (per README: *"validation is outside its scope"*). The OGIT compliance check stays in `lance-graph-ontology`; `ruff-py-dto` produces the typed input to that check.
+- The retool does NOT touch the curated `OdooEntity` consts that BP-1b Wave 1-3 already shipped — those stay canonical. The retool produces `EXT_*`-prefixed companions with `OdooConfidence::Extracted`.
+- It does NOT make `ruff_python_codegen` "the emission route for codebook → Python DTOs" (the speculative third epiphany I started to file). That's a separate, downstream concern — `ruff_python_codegen` is a low-level `Generator` + `Stylist` round-trip primitive; the *real* codegen lives **inside** `ruff_python_dto_check` (`src/codegen/dto.rs`, `src/codegen/pipeline.rs`). The Python-side DTO emission for OGIT codebook consumers is a different problem and gets its own plan if/when needed.
+
+**Lesson:** the rediscovery tax I paid in EXT-1 (Stage 1, stdlib-`ast`) was *exactly* the anti-pattern the user named in `E-UNIFY-CROSS-DOMAIN-CONCERNS-1`. I wrote a Python AST walker because I didn't grep AdaWorldAPI org repos for "Python AST harvest"; the fork's `ruff_python_dto_check` (with `CODEGEN-DESIGN.md` literally saying *"the same pipeline must run against odoo and openproject next"*) would have surfaced. The under-statement in the original version of this epiphany ("config-driven Python-AST harvest engine") was the SECOND-LEVEL version of the same tax: I named the tool but missed that it's a porting *engine* with a full contract/codegen/lint stack, not just an extractor. **Iron Rule update: when a foreign tool surfaces, read its DESIGN doc + a target example + the contract module before describing its role — three files, ~10 min, prevents shipping a half-true epiphany.**
+
+**Cross-ref:** `E-UNIFY-CROSS-DOMAIN-CONCERNS-1` (the doctrine this concretizes), `E-CAPABILITY-FROM-PREDICATE-CONJUNCTION-1` (the 12 HandlerKinds ARE this principle in the wild), `E-CODEBOOK-IS-THE-COMPILATION-TARGET-1` (Odoo TargetSpec emits to the codebook), `.claude/plans/ruff-py-dto-odoo-retarget-v1.md` (the actual retarget plan — lands same commit), `odoo-source-extraction-v1` (Stage 1 SHIPPED on stdlib-`ast`; Stage 2 D-id supersedes via this retarget), `AdaWorldAPI/ruff/crates/ruff_python_dto_check/CODEGEN-DESIGN.md` (the design spec, lines 11-13 name Odoo as the explicit next target), `AdaWorldAPI/ruff/crates/ruff_python_dto_check/examples/rust-axum-seaorm.target.toml` (the existing target spec — template for the Odoo TargetSpec), `woa-rs/port-drafts/<kind>/` (Sonnet drafts referenced in CODEGEN-DESIGN.md §"First vertical slice"), `woa-rs/.claude/tools/` (the user-pointed "swiss knife" — the four Python extractors this retarget unifies on the Rust side).
+
 ## 2026-05-28 — E-CODEBOOK-INHERITS-FROM-OGIT — every identity (entities, savants, atoms, ontology classes, regulation rules, accounts) lives as a codebook entry inherited from OGIT; LE-byte SoA per mailbox stores the codes; bitpacked u64 is a desperation-bucket fallback; the SoA doesn't guess
 
 **Status:** FINDING (architectural correction, supersedes the role-key-as-canonical interpretation of `I-VSA-IDENTITIES`; drives the v2-step codebook foundation in `contract::callcenter::ogit_uris`).

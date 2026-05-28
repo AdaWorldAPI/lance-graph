@@ -1,3 +1,31 @@
+## 2026-05-28 — ruff-py-dto-odoo-retarget-v1 (vendor `AdaWorldAPI/ruff/crates/ruff_python_dto_check` as the Odoo extraction engine; SUPERSEDES `odoo-source-extraction-v1` Stage 2 — same concern across Flask + Odoo + OpenProject unifies on one engine + N configs)
+
+**Status:** PROPOSAL. Concrete unification target for `E-UNIFY-CROSS-DOMAIN-CONCERNS-1` + `E-RUFF-PYTHON-DTO-CHECK-IS-THE-PORTING-ENGINE-1`. Retargets the AdaWorldAPI ruff fork's `ruff_python_dto_check` (a Flask→Rust/axum/SeaORM porting engine — 12 emergent HandlerKinds + 5 calibration lints + pluggable `ExtractionProfile` + `TargetSpec`, explicitly designed for Odoo as the second framework after Flask per its CODEGEN-DESIGN.md) at the Odoo extraction problem. Replaces the stdlib-`ast` extractors shipped in `odoo-source-extraction-v1` Stage 1.
+**Confidence:** HIGH on vendoring (MIT, in-tree at AdaWorldAPI/ruff, parser-only deps). HIGH on design fit (CODEGEN-DESIGN.md literally names Odoo as next target). MED on `ClassWithBase` matcher PR effort (upstream-or-fork decision in D-RPYDTO-2). MED on per-addon target-spec authoring (~3-4h hand-authoring for 12 TIER-1 addons; Sonnet-delegated).
+**Plan file:** `.claude/plans/ruff-py-dto-odoo-retarget-v1.md`
+**Predecessors:** `odoo-source-extraction-v1` Stage 1 SHIPPED (EXT-1..6 baseline); `odoo-business-logic-blueprint-v1` Wave 1-3 SHIPPED (curated `OdooEntity` consts — canonical surface); `E-UNIFY-CROSS-DOMAIN-CONCERNS-1` + `E-RUFF-PYTHON-DTO-CHECK-IS-THE-PORTING-ENGINE-1` (driver epiphanies, same commit); AdaWorldAPI/ruff (the engine).
+**Anchored iron rules:** `I-VSA-IDENTITIES` (EXT consts emit into typed Rust), `E-CODEBOOK-IS-THE-COMPILATION-TARGET-1` (Odoo TargetSpec emits to codebook shape), "audit-by-construction" (5 calibration lints become the build gate), "consult before guess" (the rediscovery tax that filed this plan).
+
+### Deliverables (10 D-ids across 5 waves α/β/γ/δ/ε; full table in plan file)
+D-RPYDTO-1: workspace dep wiring + `tools/odoo-blueprint-extractor-rs/` crate scaffold · D-RPYDTO-2: upstream PR to AdaWorldAPI/ruff adding `MatchKind::ClassWithBase` · D-RPYDTO-3: Odoo `ExtractionProfile` JSON (matches `models.{Model,TransientModel,AbstractModel}`, emits `_name`/`_inherit`/`fields.*`/`@api.depends`/etc.) · D-RPYDTO-4: Odoo `TargetSpec` TOML (model mappings to `lance_graph_ontology::odoo_blueprint::extracted`) · D-RPYDTO-5: Odoo HandlerKind classifier (~12 emergent kinds from `(output × inputs)` algebra: `field_compute`/`field_constrain`/`field_depend`/`model_action`/`web_route`/`report_render`/`cron_job`/...) · D-RPYDTO-6: 12 emitter recipes (one per Odoo kind, data-shaped `format!`) · D-RPYDTO-7: `build.rs` integration in `lance-graph-ontology` (invokes harvest per TIER-1 addon at build time, emits `EXT_*` Rust consts) · D-RPYDTO-8: calibration lints wired to Odoo target (`unmapped-model`/`dropped-fact`/`view-arch-mismatch`/`form-field-gap`/`output-kind-mismatch` fail `cargo build`) · D-RPYDTO-9: delete `tools/odoo-blueprint-extractor/data_extractors/*.py` once parity reached · D-RPYDTO-10: docs + supersede `odoo-source-extraction-v1` Stage 2.
+
+### Wave ordering
+α (parallel): D-RPYDTO-1 + D-RPYDTO-2 · β (parallel after α): D-RPYDTO-3 + D-RPYDTO-4 · γ (sequential): D-RPYDTO-5 → D-RPYDTO-6 · δ (parallel after γ): D-RPYDTO-7 + D-RPYDTO-8 · ε (sequential, last): D-RPYDTO-9 → D-RPYDTO-10.
+
+### Acceptance
+1. Parity gate: `lance-graph-ontology` emits ≥ 95% of Stage 1 stdlib-`ast` consts. 2. Calibration green: zero `unmapped-model`/`dropped-fact`/`extractor-gap` across TIER-1. 3. Per-addon golden tests pass. 4. D-RPYDTO-2 merged upstream OR vendored with pin.
+
+### Risks
+- Upstream PR latency on `ClassWithBase` (mitigation: vendor fork, parallel-back PR).
+- HandlerKind seed list miscalibration (mitigation: `preflight` against `account/` first, then commit enum).
+- EXT vs curated conflict (curated stays canonical per EXT-5).
+- Build-time cost ~30s rebuild floor (mitigation: cache by source mtime in `target/extracted/<addon>/`).
+
+### Invariants
+ONE engine, N configs · curated NEVER overridden · no project-specific Rust in `ruff_python_dto_check` · 5 calibration lints fail the build.
+
+---
+
 ## 2026-05-28 — odoo-source-extraction-v1 (TIER-1 Odoo source extraction → `OdooConfidence::Extracted` backing for `D-ODOO-BP-1b`; sub-plan unfolding `D-ODOO-BP-1f`)
 
 **Status:** SHIPPED (Stage 1 — EXT-1..6 complete); per-lane gate test in `extracted::coverage`; Stage 2 addresses TIER-2 addons (POS, HR, website, fleet, maintenance, non-DE l10n, payment providers); the 5 known L13/L14 gaps (4 hr.* + stock.valuation.layer) close via hr + stock_account extraction. Unfolds `D-ODOO-BP-1f` of `odoo-business-logic-blueprint-v1` into a tractable Stage 1 over 12 TIER-1 addons (`account`, `account_payment`, `l10n_de`, `product`, `stock`, `uom`, `base`, `analytic`, `purchase`, `sale`, `account_peppol`, `account_edi_ubl_cii`) of the 622 in `/home/user/odoo/addons/`. Validates and adds source-extracted backing to the L-doc-curated `OdooEntity` consts that Wave 1-3 just shipped (commits `9507b36`..`2aca3e3`).
