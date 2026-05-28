@@ -20,3 +20,8 @@ pub mod account_payment;
 pub mod purchase;
 pub mod sale;
 pub mod stock;
+
+// Wave C (DE-specific + e-invoice)
+pub mod account_edi_ubl_cii;
+pub mod account_peppol;
+pub mod l10n_de;
