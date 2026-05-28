@@ -2534,3 +2534,16 @@ no in-tree consumer imports a symbol that doesn't exist in `deepnsm`
 W6 entropy-ledger reframe of `DEEPNSM-NSM-1`.
 **Dependencies:** none (verification step is local to lance-graph crate).
 
+
+### TD-NDARRAY-PATCH-0_16 (deps_substrate)
+
+- **Severity:** P2 (correctness-adjacent — risks misleading follow-up dependency work into assuming the AdaWorldAPI/ndarray fork is wired transitively when it isn't).
+- **Surfaced in:** codex P2 review on PR #425 (2026-05-28); user request "don't use crates.io; try `[patch] github.com/adaworldapi/ndarray.git` or adjacent".
+- **What:** `lance-index 6.0.0` (transitive via `lance 6.0.0`) pins `ndarray = "0.16.1"` from crates.io. The AdaWorldAPI/ndarray fork is at `version = "0.17.2"` across `master` and the working branch — no 0.16-line branch / tag exists. A `[patch.crates-io] ndarray = { git = "https://github.com/adaworldapi/ndarray.git" }` would NOT satisfy the 0.16 requirement (cargo would emit `"warning: Patch ndarray v0.17.2 ... was not used in the crate graph"`), so `Cargo.lock` would still resolve the lance transitive to `ndarray 0.16.1` from `registry+https://github.com/rust-lang/crates.io-index`. The workspace's DIRECT ndarray dep (path = `../../../ndarray`) IS wired to the fork (`Cargo.lock` shows `ndarray 0.17.2` as a separate entry); only the lance transitive is unforked.
+- **Owed:** route lance-index's `ndarray = "0.16.1"` transitive through the AdaWorldAPI fork. Three feasible paths:
+    1. Add a `0.16.x`-versioned branch on `AdaWorldAPI/ndarray` (forward-porting the fork's patches onto the 0.16 line) and patch with `[patch.crates-io] ndarray = { git = "https://github.com/adaworldapi/ndarray.git", branch = "0.16-fork" }`.
+    2. Wait for upstream `lance-index` to bump to ndarray 0.17 (releases off our control timeline).
+    3. Fork `lance-index` to use ndarray 0.17 (heavy lift; couples us to lance's release cadence).
+- **Status:** **Open** (2026-05-28). Until resolved, BLOCKED(D) in the workspace root `Cargo.toml` stays open and the transitive uses crates.io ndarray 0.16.1.
+- **Introduced-by-PR:** N/A (latent since #423's lance 4→6 bump; the 0.16-vs-0.17 gap was always there but invisible without an explicit patch attempt).
+- **Payoff-estimate:** small if path 1 is taken (a `0.16-fork` branch + patch line) once the AdaWorldAPI patches' relevance to 0.16 is audited; otherwise gated on upstream.
