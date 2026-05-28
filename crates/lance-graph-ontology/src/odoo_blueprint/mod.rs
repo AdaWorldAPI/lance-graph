@@ -45,6 +45,29 @@
 //!
 //! Plan: `.claude/plans/odoo-business-logic-blueprint-v1.md`.
 
+// ─── Per-lane sub-modules (D-ODOO-BP-1b) ─────────────────────────────────
+//
+// One sub-module per L-doc (`.claude/odoo/L*.md`). Each carries an
+// `ENTITIES: &[OdooEntity]` slice with all entities documented in that
+// lane. Stubs land first (additive, all empty); the projection wave
+// populates each from the L-doc prose.
+
+pub mod l1;
+pub mod l2;
+pub mod l3;
+pub mod l4;
+pub mod l5;
+pub mod l6;
+pub mod l7;
+pub mod l8;
+pub mod l9;
+pub mod l10;
+pub mod l11;
+pub mod l12;
+pub mod l13;
+pub mod l14;
+pub mod l15;
+
 // ─── Top-level entity ─────────────────────────────────────────────────────
 
 /// One Odoo model captured as a typed const declaration.
