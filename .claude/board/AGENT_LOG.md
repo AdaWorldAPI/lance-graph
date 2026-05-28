@@ -31,6 +31,14 @@
 **Files touched:** `crates/cognitive-shader-driver/src/driver.rs` (+42 lines)
 **cargo check:** `Finished dev` — 0 errors; pre-existing warnings only (causal-edge/p64-bridge/ontology deprecations — none in cognitive-shader-driver). Note: `--features hpc-extras` absent from this crate; check ran with default features.
 **Outcome:** SUCCESS — added `HashMap<MailboxId, MailboxSoA<1024>>` field on `ShaderDriver`, `with_mailbox` builder setter on `CognitiveShaderBuilder`, `mailbox()` read accessor. Singleton `Arc<BindSpace>` untouched. All new items marked `/// work`.
+## [Sonnet agent] D-ODOO-EXT-2 Wave B — account/account_payment/purchase/sale/stock extraction
+
+Extracted 5 value-flow-chain TIER-1 addons into `odoo_blueprint::extracted::{account,account_payment,purchase,sale,stock}` (41 701 insertions, 5 new Rust modules). Model counts: account 66 models (21 340 LOC, 0.8% field-fallback), account_payment 7 models (663 LOC, 0%), purchase 15 models (3 080 LOC, 0%), sale 20 models (4 588 LOC, 1.1%), stock 33 models (12 020 LOC, 1.2%). All five pass the <5% `OdooFieldKind::Other` gate (16 Other hits total: exotic `fields.Json`/`fields.Properties` variants). No extractor fixes required for Wave B — the Wave A `_dedup_by_model_name` + `OdooFieldKind::Other` variant absorbed all edge cases cleanly. `extracted/mod.rs` updated with Wave A/B comment-grouped alphabetical module declarations.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `a214f53`. `cargo test -p lance-graph-ontology --lib` green (192 tests). Wave B aggregate field-fallback: ~0.9% weighted by field count (1860 total fields, 16 Other).
+
+---
+
 ## [Sonnet agent] D-ODOO-EXT-2 Wave A — base/uom/product/analytic extraction
 
 Extracted 4 foundation TIER-1 addons into `odoo_blueprint::extracted::{base,uom,product,analytic}` (26 395 insertions, 4 new Rust modules + `extracted/mod.rs`). Model counts: base 114 models (19 563 LOC, 1.6% field fallback), uom 1 model (235 LOC, 0%), product 25 models (5 248 LOC, 4.3%), analytic 9 models (1 286 LOC, 0%). All four pass the <5% `OdooFieldKind::Other` gate. Two extractor fixes shipped: (1) `emitters/module.py` — added `_dedup_by_model_name()` to keep the richest class when `_inherit` causes multiple Python classes to share a model_name (base had 2 duplicates: `base` + `res.users`); (2) `mod.rs` — added `OdooFieldKind::Other` variant for unrecognized field types (`fields.Image` ×8, `fields.Properties` ×1, `fields.PropertiesDefinition` ×1 in product). `pub mod extracted;` wired into `odoo_blueprint/mod.rs`.
