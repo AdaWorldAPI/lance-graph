@@ -102,7 +102,7 @@ def run_tests() -> bool:
         # Test 6 — fallback rate
         total_fields = sum(len(e.fields) for e in entities)
         total_methods = sum(len(e.methods) for e in entities)
-        rate = log.fallback_rate(total_fields, total_methods)
+        rate = log.fallback_rate(total_fields)
         if rate > 0.05:
             failures.append(
                 f"Test 6 FAIL: fallback rate {rate:.1%} > 5% "
@@ -201,7 +201,7 @@ def test_uom_fallback_rate():
     entities = parse_addon(ADDON_DIR, ADDON_NAME, log)
     total_fields = sum(len(e.fields) for e in entities)
     total_methods = sum(len(e.methods) for e in entities)
-    rate = log.fallback_rate(total_fields, total_methods)
+    rate = log.fallback_rate(total_fields)
     assert rate <= 0.05, f"Fallback rate {rate:.1%} > 5%"
 
 

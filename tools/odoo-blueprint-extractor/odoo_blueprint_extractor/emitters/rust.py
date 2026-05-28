@@ -170,9 +170,10 @@ def emit_entity(parsed_class: Any, addon_path: str) -> str:
     sm_str = _emit_state_machine(pc.state_machine, i2)
 
     # Provenance
-    # Normalise file path relative to addon root for portability
+    # Strip /home/user/ prefix to make paths repo-relative (B2/CodeRabbit fix).
     rel_path = pc.source_file
-    # Keep the full path as-is for now; EXT-2 can make it relative
+    if rel_path and rel_path.startswith("/home/user/"):
+        rel_path = rel_path[len("/home/user/"):]
     source_ref = (
         f"OdooSourceRef {{ "
         f"path: {_rust_str(rel_path)}, "

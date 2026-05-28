@@ -55,12 +55,12 @@ mod tests {
     /// Parse lane number from an l_doc filename of the form "L{N}-…".
     ///
     /// "L13-STOCK-VALUATION-PROCUREMENT.md" → 13
-    /// Falls back to 0 on parse failure (should never happen post-EXT-3).
+    /// Panics on parse failure — all l_doc values must follow the L{N}-... format (enforced by EXT-3 backfill).
     fn lane_of(l_doc: &str) -> u8 {
         // Strip the leading 'L', collect ASCII digits until the first '-'
         let stripped = l_doc.trim_start_matches('L');
         let digits: String = stripped.chars().take_while(|c| c.is_ascii_digit()).collect();
-        digits.parse().unwrap_or(0)
+        digits.parse().expect("l_doc must follow 'L{N}-...' format")
     }
 
     /// Hand-coded lane mapping for the 5 TIER-2 exemptions.

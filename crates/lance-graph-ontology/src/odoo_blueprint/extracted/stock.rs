@@ -32,7 +32,7 @@ pub const EXT_BARCODE_RULE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/barcode.py", line_range: (7, 20) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/barcode.py", line_range: (7, 20) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -63,7 +63,7 @@ pub const EXT_IR_ACTIONS_REPORT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/ir_actions_report.py", line_range: (4, 16) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/ir_actions_report.py", line_range: (4, 16) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -560,7 +560,7 @@ pub const EXT_PRODUCT_PRODUCT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/product.py", line_range: (47, 810) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product.py", line_range: (47, 810) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1096,7 +1096,7 @@ pub const EXT_PRODUCT_TEMPLATE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/product.py", line_range: (813, 1271) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product.py", line_range: (813, 1271) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1214,7 +1214,7 @@ pub const EXT_PRODUCT_CATEGORY: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/product.py", line_range: (1274, 1335) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product.py", line_range: (1274, 1335) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1268,7 +1268,7 @@ pub const EXT_UOM_UOM: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/product.py", line_range: (1338, 1389) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product.py", line_range: (1338, 1389) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1305,7 +1305,7 @@ pub const EXT_PRODUCT_CATALOG_MIXIN: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/product_catalog_mixin.py", line_range: (6, 16) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product_catalog_mixin.py", line_range: (6, 16) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1348,7 +1348,7 @@ pub const EXT_PRODUCT_REMOVAL: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/product_strategy.py", line_range: (8, 13) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product_strategy.py", line_range: (8, 13) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1543,7 +1543,7 @@ pub const EXT_STOCK_PUTAWAY_RULE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/product_strategy.py", line_range: (16, 183) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product_strategy.py", line_range: (16, 183) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1780,7 +1780,7 @@ pub const EXT_RES_COMPANY: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/res_company.py", line_range: (6, 215) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/res_company.py", line_range: (6, 215) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2203,7 +2203,7 @@ pub const EXT_RES_CONFIG_SETTINGS: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/res_config_settings.py", line_range: (8, 139) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/res_config_settings.py", line_range: (8, 139) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2260,7 +2260,7 @@ pub const EXT_RES_PARTNER: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/res_partner.py", line_range: (7, 25) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/res_partner.py", line_range: (7, 25) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2291,7 +2291,7 @@ pub const EXT_RES_USERS: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/res_users.py", line_range: (6, 12) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/res_users.py", line_range: (6, 12) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2762,7 +2762,7 @@ pub const EXT_STOCK_LOCATION: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_location.py", line_range: (13, 514) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_location.py", line_range: (13, 514) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2982,7 +2982,7 @@ pub const EXT_STOCK_ROUTE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_location.py", line_range: (517, 595) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_location.py", line_range: (517, 595) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -3323,7 +3323,7 @@ pub const EXT_STOCK_LOT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_lot.py", line_range: (24, 431) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_lot.py", line_range: (24, 431) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -4949,7 +4949,7 @@ pub const EXT_STOCK_MOVE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_move.py", line_range: (18, 2682) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_move.py", line_range: (18, 2682) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/de/ustg/13"],
     },
@@ -5741,7 +5741,7 @@ pub const EXT_STOCK_MOVE_LINE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_move_line.py", line_range: (15, 1239) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_move_line.py", line_range: (15, 1239) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -6458,7 +6458,7 @@ pub const EXT_STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_orderpoint.py", line_range: (21, 817) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_orderpoint.py", line_range: (21, 817) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -6975,7 +6975,7 @@ pub const EXT_STOCK_PACKAGE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_package.py", line_range: (16, 558) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_package.py", line_range: (16, 558) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -7128,7 +7128,7 @@ pub const EXT_STOCK_PACKAGE_HISTORY: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_package_history.py", line_range: (6, 42) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_package_history.py", line_range: (6, 42) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -7396,7 +7396,7 @@ pub const EXT_STOCK_PACKAGE_TYPE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_package_type.py", line_range: (7, 131) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_package_type.py", line_range: (7, 131) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -8124,7 +8124,7 @@ pub const EXT_STOCK_PICKING_TYPE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_picking.py", line_range: (20, 535) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_picking.py", line_range: (20, 535) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -9370,7 +9370,7 @@ pub const EXT_STOCK_PICKING: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_picking.py", line_range: (538, 2148) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_picking.py", line_range: (538, 2148) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/de/ustg/13"],
     },
@@ -10236,7 +10236,7 @@ pub const EXT_STOCK_QUANT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_quant.py", line_range: (19, 1563) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_quant.py", line_range: (19, 1563) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -10293,7 +10293,7 @@ pub const EXT_STOCK_REFERENCE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_reference.py", line_range: (4, 15) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_reference.py", line_range: (4, 15) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -10350,7 +10350,7 @@ pub const EXT_STOCK_REPLENISH_MIXIN: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_replenish_mixin.py", line_range: (7, 40) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_replenish_mixin.py", line_range: (7, 40) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -10837,7 +10837,7 @@ pub const EXT_STOCK_RULE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_rule.py", line_range: (42, 747) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_rule.py", line_range: (42, 747) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -11159,7 +11159,7 @@ pub const EXT_STOCK_SCRAP: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_scrap.py", line_range: (10, 234) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_scrap.py", line_range: (10, 234) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -11215,7 +11215,7 @@ pub const EXT_STOCK_SCRAP_REASON_TAG: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_scrap.py", line_range: (237, 249) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_scrap.py", line_range: (237, 249) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -11351,7 +11351,7 @@ pub const EXT_STOCK_STORAGE_CATEGORY: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_storage_category.py", line_range: (7, 45) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_storage_category.py", line_range: (7, 45) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -11444,7 +11444,7 @@ pub const EXT_STOCK_STORAGE_CATEGORY_CAPACITY: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_storage_category.py", line_range: (48, 75) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_storage_category.py", line_range: (48, 75) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -12012,7 +12012,7 @@ pub const EXT_STOCK_WAREHOUSE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/stock/models/stock_warehouse.py", line_range: (23, 1162) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_warehouse.py", line_range: (23, 1162) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },

@@ -6,4 +6,4 @@ provenance backing for the lance-graph-ontology crate.
 Plan: .claude/plans/odoo-source-extraction-v1.md (D-ODOO-EXT-1).
 """
 
-__version__ = "0.1.0"
+__version__: str = "0.1.0"

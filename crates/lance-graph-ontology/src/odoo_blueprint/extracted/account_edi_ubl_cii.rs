@@ -234,7 +234,7 @@ pub const EXT_ACCOUNT_EDI_COMMON: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_edi_common.py", line_range: (282, 1100) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_common.py", line_range: (282, 1100) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1471,7 +1471,7 @@ pub const EXT_ACCOUNT_EDI_UBL: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_edi_ubl.py", line_range: (18, 3442) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_ubl.py", line_range: (18, 3442) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/eu/en16931"],
     },
@@ -1610,7 +1610,7 @@ pub const EXT_ACCOUNT_EDI_XML_CII: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_edi_xml_cii_facturx.py", line_range: (25, 414) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_cii_facturx.py", line_range: (25, 414) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/eu/en16931"],
     },
@@ -2163,7 +2163,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_20: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_20.py", line_range: (18, 1314) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_20.py", line_range: (18, 1314) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/eu/en16931"],
     },
@@ -2224,7 +2224,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_21: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_21.py", line_range: (4, 75) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_21.py", line_range: (4, 75) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/eu/en16931"],
     },
@@ -2303,7 +2303,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_A_NZ: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_a_nz.py", line_range: (6, 114) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_a_nz.py", line_range: (6, 114) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2775,7 +2775,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_BIS3: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_bis3.py", line_range: (21, 1301) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_bis3.py", line_range: (21, 1301) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/eu/en16931"],
     },
@@ -2806,7 +2806,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_EFFF: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_efff.py", line_range: (8, 20) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_efff.py", line_range: (8, 20) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2891,7 +2891,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_NL: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_nlcius.py", line_range: (6, 121) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_nlcius.py", line_range: (6, 121) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/eu/en16931"],
     },
@@ -2964,7 +2964,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_SG: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_sg.py", line_range: (5, 84) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_sg.py", line_range: (5, 84) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -3055,7 +3055,7 @@ pub const EXT_ACCOUNT_EDI_XML_UBL_DE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_xrechnung.py", line_range: (5, 121) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_edi_xml_ubl_xrechnung.py", line_range: (5, 121) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/eu/en16931"],
     },
@@ -3241,7 +3241,7 @@ pub const EXT_ACCOUNT_MOVE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_move.py", line_range: (14, 402) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_move.py", line_range: (14, 402) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -3351,7 +3351,7 @@ pub const EXT_ACCOUNT_MOVE_SEND: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_move_send.py", line_range: (16, 316) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_move_send.py", line_range: (16, 316) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -3421,7 +3421,7 @@ pub const EXT_ACCOUNT_TAX: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/account_tax.py", line_range: (4, 128) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/account_tax.py", line_range: (4, 128) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/de/ustg/13"],
     },
@@ -3452,7 +3452,7 @@ pub const EXT_IR_ACTIONS_REPORT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/ir_actions_report.py", line_range: (6, 30) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/ir_actions_report.py", line_range: (6, 30) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -3695,7 +3695,7 @@ pub const EXT_RES_PARTNER: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/account_edi_ubl_cii/models/res_partner.py", line_range: (25, 340) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_edi_ubl_cii/models/res_partner.py", line_range: (25, 340) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/de/ustg/13", "ogit:regulation/eu/en16931"],
     },

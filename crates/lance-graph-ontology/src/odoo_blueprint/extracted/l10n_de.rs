@@ -31,7 +31,7 @@ pub const EXT_ACCOUNT_ACCOUNT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/l10n_de/models/account_account.py", line_range: (5, 19) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/account_account.py", line_range: (5, 19) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -65,7 +65,7 @@ pub const EXT_ACCOUNT_JOURNAL: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/l10n_de/models/account_journal.py", line_range: (6, 18) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/account_journal.py", line_range: (6, 18) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -105,7 +105,7 @@ pub const EXT_ACCOUNT_MOVE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/l10n_de/models/account_move.py", line_range: (4, 19) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/account_move.py", line_range: (4, 19) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -154,7 +154,7 @@ pub const EXT_ACCOUNT_CHART_TEMPLATE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/l10n_de/models/template_de_skr03.py", line_range: (6, 149) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/template_de_skr03.py", line_range: (6, 149) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -188,7 +188,7 @@ pub const EXT_ACCOUNT_TAX: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/l10n_de/models/datev.py", line_range: (4, 7) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/datev.py", line_range: (4, 7) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -219,7 +219,7 @@ pub const EXT_PRODUCT_TEMPLATE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/l10n_de/models/datev.py", line_range: (10, 37) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/datev.py", line_range: (10, 37) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -250,7 +250,7 @@ pub const EXT_IR_ACTIONS_REPORT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/l10n_de/models/ir_actions_report.py", line_range: (4, 10) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/ir_actions_report.py", line_range: (4, 10) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -327,7 +327,7 @@ pub const EXT_RES_COMPANY: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "/home/user/odoo/addons/l10n_de/models/res_company.py", line_range: (10, 60) }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/res_company.py", line_range: (10, 60) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },

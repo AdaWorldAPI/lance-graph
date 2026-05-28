@@ -92,13 +92,12 @@ class FallbackLog:
             "total": len(self._entries),
         }
 
-    def fallback_rate(self, total_fields: int, total_methods: int) -> float:
+    def fallback_rate(self, total_fields: int) -> float:
         """Return fallback rate — fraction of fields mapped to OdooFieldKind::Other.
 
-        Helper methods are a valid classification (Odoo models have many utility methods),
-        so they are NOT counted in the fallback numerator.  Only truly unrecognised field
-        kinds (::Other) drive the rate.  The denominator is total fields only, so the
-        rate reflects how well the field parser covers the addon's field declarations.
+        Only truly unrecognised field kinds (::Other) drive the rate. The denominator
+        is total fields, so the rate reflects how well the field parser covers the
+        addon's field declarations.
         """
         if total_fields == 0:
             return 0.0

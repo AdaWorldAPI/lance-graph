@@ -40,12 +40,22 @@ def _find_field_defs(source: str) -> List[Dict]:
 
 
 def _find_compute_method(source: str, method_name: str) -> Optional[Dict]:
-    """Find a method definition and return its line range."""
+    """Find a method definition and return its line range + source text."""
     tree = ast.parse(source)
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == method_name:
             end = getattr(node, "end_lineno", node.lineno)
-            return {"name": method_name, "lineno": node.lineno, "end_lineno": end}
+            # Extract source lines for body inspection
+            lines = source.splitlines()
+            body_lines = lines[node.lineno - 1:end]
+            body_source = "
+".join(body_lines)
+            return {
+                "name": method_name,
+                "lineno": node.lineno,
+                "end_lineno": end,
+                "source": body_source,
+            }
     return None
 
 
@@ -82,7 +92,10 @@ def verify_gobd_wiring(l10n_de_dir: Path, account_dir: Path) -> Dict:
         source = l10n_de_company.read_text(encoding="utf-8")
         method = _find_compute_method(source, "_compute_force_restrictive_audit_trail")
         if method:
-            result["l10n_de_compute_found"] = True
-            result["l10n_de_compute_lineno"] = method["lineno"]
+            body = method.get("source", "")
+            has_trigger = "country_code" in body and "DE" in body
+            result["l10n_de_compute_found"] = has_trigger
+            result["l10n_de_compute_lineno"] = method.get("lineno") if has_trigger else None
+            result["l10n_de_trigger_found"] = has_trigger
 
     return result
