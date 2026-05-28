@@ -108,7 +108,7 @@ const TAX_GROUP_DECORATORS: &[OdooDecorator] = &[OdooDecorator {
     targets: &["company_id"],
 }];
 
-const ACCOUNT_TAX_GROUP: OdooEntity = OdooEntity {
+pub const ACCOUNT_TAX_GROUP: OdooEntity = OdooEntity {
     model_name: "account.tax.group",
     kind: OdooEntityKind::Model,
     description: "Groups taxes for display + closing-entry accounts (USt/VSt/advance); \
@@ -464,7 +464,7 @@ const ACCOUNT_TAX_CONSTRAINTS: &[OdooConstraint] = &[
     },
 ];
 
-const ACCOUNT_TAX: OdooEntity = OdooEntity {
+pub const ACCOUNT_TAX: OdooEntity = OdooEntity {
     model_name: "account.tax",
     kind: OdooEntityKind::Model,
     description: "VAT / USt tax definition with computation type (percent/fixed/division/group), \
@@ -623,7 +623,7 @@ const REPARTITION_LINE_CONSTRAINTS: &[OdooConstraint] = &[OdooConstraint {
     source_method: Some("_validate_repartition_lines"),
 }];
 
-const ACCOUNT_TAX_REPARTITION_LINE: OdooEntity = OdooEntity {
+pub const ACCOUNT_TAX_REPARTITION_LINE: OdooEntity = OdooEntity {
     model_name: "account.tax.repartition.line",
     kind: OdooEntityKind::Model,
     description: "Distribution rule mapping a tax computation result to a GL account and \
@@ -894,7 +894,7 @@ const FISCAL_POSITION_CONSTRAINTS: &[OdooConstraint] = &[
     },
 ];
 
-const ACCOUNT_FISCAL_POSITION: OdooEntity = OdooEntity {
+pub const ACCOUNT_FISCAL_POSITION: OdooEntity = OdooEntity {
     model_name: "account.fiscal.position",
     kind: OdooEntityKind::Model,
     description: "Tax regime mapping rule: translates taxes and GL accounts for a partner. \

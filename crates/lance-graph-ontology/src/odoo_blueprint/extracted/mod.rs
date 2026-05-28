@@ -33,3 +33,6 @@ pub mod l10n_de;
 // orthogonal.
 pub mod l10n_de_chart;
 pub mod l10n_de_kennzahlen;
+
+// Curated-vs-extracted reconciliation (D-ODOO-EXT-5)
+pub mod pairing;
