@@ -1,6 +1,6 @@
 # odoo-source-extraction-v1 — TIER-1 Odoo source extraction → `OdooConfidence::Extracted` backing for `D-ODOO-BP-1b` (sub-plan of `D-ODOO-BP-1f`)
 
-> **Status:** PROPOSAL. **Unfolds `D-ODOO-BP-1f`** from
+> **Status:** SHIPPED (Stage 1 complete 2026-05-28; EXT-1..6 landed; 48/53 entities backed; 5 TIER-2 exemptions documented in `extracted/COVERAGE.md`). **Unfolds `D-ODOO-BP-1f`** from
 > `odoo-business-logic-blueprint-v1.md` into a tractable Stage 1 over a
 > TIER-1 subset (12 addons of the 622 in `/home/user/odoo/addons/`).
 > Validates and backs the L-doc-curated `OdooEntity` consts that
