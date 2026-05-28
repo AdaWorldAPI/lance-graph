@@ -31,6 +31,14 @@
 **Files touched:** `crates/cognitive-shader-driver/src/driver.rs` (+42 lines)
 **cargo check:** `Finished dev` — 0 errors; pre-existing warnings only (causal-edge/p64-bridge/ontology deprecations — none in cognitive-shader-driver). Note: `--features hpc-extras` absent from this crate; check ran with default features.
 **Outcome:** SUCCESS — added `HashMap<MailboxId, MailboxSoA<1024>>` field on `ShaderDriver`, `with_mailbox` builder setter on `CognitiveShaderBuilder`, `mailbox()` read accessor. Singleton `Arc<BindSpace>` untouched. All new items marked `/// work`.
+## [Sonnet agent] D-ODOO-EXT-6 — Stage 1 coverage report + gate test (closes EXT-1..6)
+
+Per-lane eligible coverage analysis confirmed 100% on all 15 lanes after subtracting 5 TIER-2 exemptions (4 `hr.*` entities in L14, 1 `stock.valuation.layer` in L13): L1-L13 and L15 all at 100% eligible backing; L14 wholly-exempt (skip). `extracted/COVERAGE.md` emitted with per-lane table, TIER-2 deferral catalogue, TIER-1 surplus inventory (181 entities across 12 addons), and Stage 2 recommendation (`hr` + `stock_account` first). `extracted/coverage.rs` provides `COVERAGE_EXEMPTIONS` + `COVERAGE_FLOOR = 0.80` + 2 gate tests. Plan and INTEGRATION_PLANS `**Status:**` lines updated to SHIPPED.
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `2937c04`. `cargo test -p lance-graph-ontology --lib` green (203 tests, +2 new: `every_lane_meets_coverage_floor`, `aggregate_coverage_reports_correctly`). **Stage 1 of `odoo-source-extraction-v1` SHIPPED.**
+
+---
+
 ## [Sonnet agent] D-ODOO-EXT-5 — curated-vs-extracted pairing table
 
 Scanner (stdlib `re`) walked all 15 curated lane modules + 12 extracted TIER-1 addon modules, finding 53 unique curated model_names and 229 extracted, yielding 48 overlap pairings. Top deltas: `account.move` (24f/27m curated → 142f/352m extracted, Δ+118f/+325m), `account.move.line` (+67f/+132m), `sale.order` (+43f/+128m) — confirming curated is a precise savant-relevant subset. 17 private (`const`) lane consts promoted to `pub const` in l3/l5/l7/l13.rs to enable absolute crate-path references. Selection rule: pick curated entry with most inline-counted fields+methods (handles l3.rs indirect-ref pattern); extracted entry with most fields+methods.
