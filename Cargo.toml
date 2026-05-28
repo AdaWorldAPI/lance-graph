@@ -88,12 +88,19 @@ resolver = "2"
 #   workspace-direct consumers. Only the lance TRANSITIVE remains on the
 #   crates.io 0.16.1.
 #
-#   Resolution paths (none chosen here — see TD-NDARRAY-PATCH-0_16):
-#     (a) Add a `0.16.x`-versioned branch on AdaWorldAPI/ndarray with the
-#         AdaWorldAPI patches forward-ported to the 0.16 line, then
-#         `[patch.crates-io] ndarray = { git = "https://github.com/adaworldapi/ndarray.git", branch = "0.16-fork" }`.
-#     (b) Wait for upstream lance-index to bump to ndarray 0.17.
-#     (c) Fork lance-index to use ndarray 0.17 (heavy).
+#   Attempted resolution (2026-05-28, user directive "just use [patch] to
+#   overwrite ndarray = 0.16 with 0.17.2"): the `[patch.crates-io]` block
+#   below points `ndarray` at the AdaWorldAPI fork. Cargo's `[patch]` does
+#   NOT force a version downgrade — if the fork's `0.17.2` doesn't semver-
+#   match lance-index's `0.16.1` requirement, cargo emits the warning
+#   `"Patch ndarray v0.17.2 ... was not used in the crate graph"` and the
+#   transitive continues to resolve to crates.io 0.16.1 in `Cargo.lock`.
+#   This patch is therefore a DECLARED INTENT (not a guaranteed effect):
+#     - It DOES wire workspace-direct ndarray consumers to the fork
+#       (already wired via the path dep in lance-graph's own Cargo.toml).
+#     - It DOES NOT guarantee the lance transitive switches off crates.io
+#       until upstream lance-index supports ndarray 0.17 OR the fork ships
+#       a `0.16.x`-versioned branch (see TD-NDARRAY-PATCH-0_16).
 #   Cross-ref: TECH_DEBT.md TD-NDARRAY-PATCH-0_16; PR #425 codex review.
 #
 # STILL OPEN — BLOCKED(C): `surrealdb` with `kv-lance` feature.
@@ -116,3 +123,17 @@ resolver = "2"
 #   datafusion      = "53"       (+ datafusion-common / -expr / -sql /
 #                                 -functions-aggregate)
 #   arrow-array     = "58"       (+ arrow-schema / -buffer / -ipc / arrow)
+
+# ─── [patch.crates-io] — point ndarray at the AdaWorldAPI fork ──────────────
+#
+# Per user directive 2026-05-28 ("don't use crates.io; try [patch]
+# github.com/adaworldapi/ndarray.git or adjacent" → "just use [patch] to
+# overwrite ndarray = 0.16 with 0.17.2"). The fork's `0.17.2` will:
+#   - Satisfy workspace-direct consumers (already wired via path dep).
+#   - Emit `"Patch ndarray v0.17.2 ... was not used in the crate graph"`
+#     against lance-index's `ndarray = "0.16.1"` until lance-index 0.17-
+#     compat lands OR a 0.16-line branch is added to the fork.
+# The patch is a declared-intent override; effect on the transitive depends
+# on semver compat. See BLOCKED(D) comment above + TD-NDARRAY-PATCH-0_16.
+[patch.crates-io]
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray.git", branch = "master" }
