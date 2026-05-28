@@ -1,15 +1,20 @@
 """CLI implementation for odoo-blueprint-extractor.
 
-Usage:
+Usage (ORM extraction — original subcommand):
     python -m odoo_blueprint_extractor \\
         --addons /home/user/odoo/addons \\
         --addon uom \\
         --out -           # stdout
         [--audit /tmp/fallback.json]
+
+Usage (data extraction — D-ODOO-EXT-4):
+    python -m odoo_blueprint_extractor data \\
+        --addon l10n_de \\
+        --out crates/lance-graph-ontology/src/odoo_blueprint/extracted/
+        [--addons /home/user/odoo/addons]
 """
 
 import argparse
-import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -24,21 +29,46 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python -m odoo_blueprint_extractor",
         description="Extract Odoo ORM classes as OdooEntity Rust consts (D-ODOO-EXT-1).",
     )
+    # Subparsers — 'data' is new in EXT-4; original args are now the default (no subcommand)
+    subparsers = p.add_subparsers(dest="subcommand")
+
+    # ---- 'data' subcommand (EXT-4) ----
+    data_p = subparsers.add_parser(
+        "data",
+        help="Extract CSV/XML data files → typed Rust consts (D-ODOO-EXT-4).",
+    )
+    data_p.add_argument(
+        "--addon",
+        required=True,
+        metavar="NAME",
+        help="Addon name whose data files to extract (currently only 'l10n_de').",
+    )
+    data_p.add_argument(
+        "--out",
+        required=True,
+        metavar="DIR",
+        help="Output directory for emitted .rs files.",
+    )
+    data_p.add_argument(
+        "--addons",
+        metavar="DIR",
+        default="/home/user/odoo/addons",
+        help="Path to the Odoo addons root (default: /home/user/odoo/addons).",
+    )
+
+    # ---- original ORM extraction args (no subcommand) ----
     p.add_argument(
         "--addons",
-        required=True,
         metavar="DIR",
         help="Path to the Odoo addons root (e.g. /home/user/odoo/addons).",
     )
     p.add_argument(
         "--addon",
-        required=True,
         metavar="NAME",
         help="Addon name to extract (e.g. uom).",
     )
     p.add_argument(
         "--out",
-        required=True,
         metavar="PATH|-",
         help="Output path: '-' for stdout, or a directory for file output (EXT-2).",
     )
@@ -51,9 +81,60 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _run_data_subcommand(args: argparse.Namespace) -> None:
+    """Run the 'data' subcommand — CSV/XML extraction for l10n_de (EXT-4)."""
+    from .data_extractors.csv_chart import emit_chart_rs
+    from .data_extractors.xml_kennzahl import emit_kennzahlen_rs
+
+    addon_name: str = args.addon
+    addons_root = Path(args.addons)
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    addon_dir = addons_root / addon_name
+    if not addon_dir.is_dir():
+        sys.exit(f"ERROR: addon directory not found: {addon_dir}")
+
+    if addon_name == "l10n_de":
+        # SKR03 + SKR04 chart
+        skr03_csv = addon_dir / "data" / "template" / "account.account-de_skr03.csv"
+        skr04_csv = addon_dir / "data" / "template" / "account.account-de_skr04.csv"
+        if not skr03_csv.exists():
+            sys.exit(f"ERROR: SKR03 CSV not found: {skr03_csv}")
+        if not skr04_csv.exists():
+            sys.exit(f"ERROR: SKR04 CSV not found: {skr04_csv}")
+
+        chart_rs = emit_chart_rs(skr03_csv, skr04_csv)
+        chart_file = out_dir / "l10n_de_chart.rs"
+        chart_file.write_text(chart_rs, encoding="utf-8")
+        print(f"Written: {chart_file}", file=sys.stderr)
+
+        # UStVA Kennzahlen + GoBD wiring
+        xml_path = addon_dir / "data" / "account_account_tags_data.xml"
+        if not xml_path.exists():
+            sys.exit(f"ERROR: XML not found: {xml_path}")
+
+        kennzahlen_rs = emit_kennzahlen_rs(xml_path)
+        kennzahlen_file = out_dir / "l10n_de_kennzahlen.rs"
+        kennzahlen_file.write_text(kennzahlen_rs, encoding="utf-8")
+        print(f"Written: {kennzahlen_file}", file=sys.stderr)
+    else:
+        sys.exit(f"ERROR: 'data' subcommand only supports l10n_de (got: {addon_name!r})")
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+
+    # Route to 'data' subcommand if requested
+    if args.subcommand == "data":
+        _run_data_subcommand(args)
+        return
+
+    # Original ORM extraction path
+    if not args.addons or not args.addon or not args.out:
+        parser.print_help()
+        sys.exit(1)
 
     addons_root = Path(args.addons)
     addon_name: str = args.addon

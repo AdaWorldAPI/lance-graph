@@ -25,3 +25,11 @@ pub mod stock;
 pub mod account_edi_ubl_cii;
 pub mod account_peppol;
 pub mod l10n_de;
+
+// Wave C — l10n_de data files (D-ODOO-EXT-4)
+// SKR03/SKR04 chart of accounts + UStVA Kennzahlen + GoBD wiring.
+// These are typed-surface consts, NOT OdooEntity consts — they live
+// in separate files to keep the ORM extraction and data extraction
+// orthogonal.
+pub mod l10n_de_chart;
+pub mod l10n_de_kennzahlen;
