@@ -6,8 +6,11 @@
 //! that points into a *per-cohort* `WitnessTable<64>`. Each table entry is a
 //! `(mailbox_ref, spo_fact_ref)` tuple:
 //!
-//! - `mailbox_ref`: identifies the mailbox that witnessed the belief — either currently
-//!   active or carrying a tombstone flag (see `contract::collapse_gate::MailboxId`).
+//! - `mailbox_ref`: full canonical [`contract::collapse_gate::MailboxId`] (`u32`) of
+//!   the mailbox that witnessed the belief — either currently active or carrying a
+//!   tombstone flag. The W-slot is the per-cohort *index*; `mailbox_ref` is the
+//!   *identity* at that slot, preserved at full canonical width across the entire
+//!   workspace mailbox envelope (64K-256K, plan §10 refinement (3)).
 //! - `spo_fact_ref`: optional handle into the AriGraph SPO-G quad store. `None` while
 //!   the belief is still accumulating in the mailbox's energy column; `Some(u64)` once
 //!   the belief crystallises and the triple is committed to graph.
@@ -43,25 +46,29 @@
 ///
 /// Carries the pair `(mailbox_ref, spo_fact_ref)` that resolves one W-slot index:
 ///
-/// - `mailbox_ref` is a `u16` handle matching `contract::collapse_gate::MailboxId`
-///   (declared as `pub type MailboxId = u32` there, but the table stores the lower 16
-///   bits since cohort sizes are bounded by the 6-bit W-slot). Callers that need the
-///   full 32-bit id should widen at the call site.
+/// - `mailbox_ref` is the **full canonical** [`contract::collapse_gate::MailboxId`]
+///   (`u32`). The W-slot is the per-cohort *index* (0..=63); `mailbox_ref` is the
+///   globally-unique identity of the mailbox at that slot, so the belief arc can
+///   resolve to the correct originating mailbox even when cohort membership rotates
+///   across the workspace's 64K-256K mailbox envelope (see plan §10 refinement (3)).
 /// - `spo_fact_ref` is `None` while the belief is ephemeral (energy accumulating) and
 ///   `Some(u64)` once the triple is committed to AriGraph (the "crystallisation" event).
 ///
 /// # Size
 ///
-/// `u16` (2 B) + discriminant + `u64` (8 B) = 10–12 B. `Option<u64>` packs as 16 B
-/// via the niche-filling optimisation. `Copy` is intentional: the struct is small
-/// enough to pass by value on any target ABI.
+/// `u32` (4 B) + `Option<u64>` (16 B: 1-byte tag + 7 bytes alignment padding +
+/// 8-byte payload — `u64` has no niche, so the discriminant cannot be folded into
+/// the payload). With `#[repr(Rust)]` field reordering and 8-byte struct alignment
+/// the total is **24 B** per entry; an `N=64` table is therefore 1.5 KiB. `Copy` is
+/// intentional: the struct is small enough to pass by value on any target ABI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub struct WitnessEntry {
     /// Handle to the mailbox that witnessed this belief event.
     ///
-    /// Active mailboxes have a live `w_slot` association; tombstoned mailboxes retain
-    /// their ref so the arc walk can detect decommissioned cohort members.
-    pub mailbox_ref: u16,
+    /// Stores the full [`contract::collapse_gate::MailboxId`] (`u32`). Active
+    /// mailboxes have a live `w_slot` association; tombstoned mailboxes retain their
+    /// ref so the arc walk can detect decommissioned cohort members.
+    pub mailbox_ref: u32,
 
     /// Optional reference into the AriGraph SPO-G quad store.
     ///
