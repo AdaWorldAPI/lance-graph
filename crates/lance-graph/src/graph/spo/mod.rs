@@ -10,7 +10,9 @@
 //! - [`SpoSemiring`] / [`HammingMin`]: Semiring algebra for chain traversal
 //! - [`MerkleRoot`] / [`BindSpace`]: Integrity verification for graph nodes
 
+pub mod action_emitter;
 pub mod builder;
+pub mod link_chain;
 pub mod merkle;
 pub mod nsm_bridge;
 pub mod odoo_ontology;
