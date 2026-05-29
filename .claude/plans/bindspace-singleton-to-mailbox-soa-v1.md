@@ -450,34 +450,36 @@ User-stated rulings layering on top of §2.5/§2.7/§10. Recorded directly (not 
 - **Witness = belief-state arc** (the *sequence* of `CausalEdge64` emissions a row produces over its life — the **`CollapseGateEmission` arc**, not a single edge). The arc *implicitly documents* NARS revision because `CausalEdge64.confidence_u8` and `inference_mantissa` are stamped per emission; reading the arc gives a monotone-or-not trace of `(frequency, confidence)` evolution. **No separate "revision log" column is needed** — the witness arc *is* the revision log.
 - **Iron rule (proposed):** the per-row witness arc IS the row's belief state — never a parallel struct. If you need the row's NARS history, you traverse its `CausalEdge64` arc; if you need its current truth, you read the *last* edge.
 
-### §11.3 — Libet wall-clock: −550 ms ratification; Rubicon kanban in **surrealkv-on-lance**
+### §11.3 — Libet wall-clock: −550 ms ratification; Rubicon **kanban** = ractor-mailbox lifecycle in **surrealkv-on-lance**
 
 > *"Any mailbox lives in Libet's and Heckhausen's Rubicon model aligned: planning phase as counterfactual, committing the goal at −550 ms, and doing a veto / goalstate re-evaluation via ractor mailbox triggering the Rubicon kanban in surrealkv on lance."*
 
-Concretises the timing of `E-RUBICON-RACTOR`:
+The 4-phase kanban (user-stated, supersedes the earlier 4-Heckhausen-phase table):
 
-| Heckhausen phase | Mailbox state | Wall-clock |
-|---|---|---|
-| Pre-decisional (deliberation, **counterfactual**) | energy integrates; no commit; alternatives explored under `InferenceType::Counterfactual` | t < −550 ms before action |
-| **Crossing the Rubicon** (intention forms — irreversible volition) | **Σ10 commit** stamped: `ΔF < threshold ∧ resonance > Rubicon-bar` → ractor START | **t = −550 ms** (Libet readiness-potential anchor) |
-| Pre-actional / actional | ractor running the action; baton emits; mailbox-SoA mutates (the only hot-path activity, §11.1) | −550 ms ≤ t < 0 ms |
-| Post-actional evaluation | ractor STOP; tombstone-witness persists | t > 0 ms |
+| # | Kanban column | What lives there | Ractor | Wall-clock |
+|---|---|---|---|---|
+| 1 | **Planning** | **Ractor mailbox owns the SoA** (counterfactual deliberation; energy integrates; alternatives explored under `InferenceType::Counterfactual`) | mailbox alive, no commit | t < −550 ms |
+| 2 | **Cognitive work** | the Σ10 commit fires (`ΔF < threshold ∧ resonance > Rubicon-bar`); ractor START of the actional phase; baton emits; **mailbox-SoA mutates — the only hot-path activity** (§11.1) | mailbox actional | t = −550 ms → 0 |
+| 3 | **Evaluation of goalstate** | post-actional reflection: did the goalstate succeed? read the witness arc; compute the residual F | mailbox evaluating | t > 0 |
+| 4 | **Commit · Plan · Prune** | **3-way terminal decision** branching from goalstate evaluation: **Commit** → calcify to SPO-G + LanceDB tombstone-witness (ractor STOP, witness persists); **Plan** → re-enter column 1 with the witness folded into next deliberation (ractor RESTART); **Prune** → ghost-tier preempt / drop (Libet veto consummated post-hoc; no persistence) | mailbox terminates / loops / dies | terminal |
 
-- The **−550 ms** anchor names *when* in wall-clock the irreversible commit occurs — derived from Libet's measured readiness-potential lead time (~550 ms before reported conscious decision).
-- **Libet "free won't" / veto** = before −550 ms, the CollapseGate can preempt the mailbox to zero (ghost-tier preempt; `E-LADDER-SERVES-MAILBOX` §5). After −550 ms, the act is committed — only post-actional revision is left.
-- **Goalstate re-evaluation** = the ractor mailbox triggers a re-deliberation cycle (re-enter pre-decisional with the post-actional witness folded in); this triggers the **Rubicon kanban move** in the storage view (next bullet).
-- **The Rubicon kanban lives in `surrealkv` on lance** — `surrealkv` is the SurrealDB on-kv-lance backend (the *view* over leading LanceDB storage, §2.7). The kanban is a SurrealDB query over the LanceDB-stored thoughts, columns = action phases (deliberation | crossed | actional | evaluated). Ractor lifecycle transitions map 1:1 to kanban column moves.
+- The **−550 ms** anchor names *when* in wall-clock the irreversible commit (column 1 → column 2 transition) occurs — Libet's measured readiness-potential lead time.
+- **Libet "free won't" / veto** = before −550 ms (still in *Planning*), the CollapseGate can preempt the mailbox to zero (ghost-tier preempt; `E-LADDER-SERVES-MAILBOX` §5). After −550 ms, the act is committed — only column 4 (Prune) can drop it post-hoc.
+- **The kanban lives in `surrealkv` on lance** — `surrealkv` is the SurrealDB on-kv-lance backend (the *view* over leading LanceDB storage, §2.7). The 4 kanban columns are the SurrealDB projection over LanceDB-stored mailbox rows; ractor lifecycle transitions = kanban column moves. (`D-MBX-8` wires the −550 ms timing anchor; `D-MBX-9` wires the kanban view; `D-MBX-10` aligns the planner DTO overhaul — see §11.6.)
 
 ### §11.4 — SPO-W witness is a *pointer*, not stored data — via the belief-state-arc array
 
-> *"The SPO-W witness is the pointer via the AriGraph episodic / belief-state arc array inside the SoA and/or kanban and/or mailbox index, and the SoA then decides if it commits itself as facts with witness in other mailboxes and/or the cold-path facts."*
+> *"The SPO-W witness is the pointer via the AriGraph episodic / belief-state arc array inside the SoA and/or kanban and/or mailbox index, and the SoA then decides if it commits itself as facts (with witness in [the pointer to] other mailboxes [in the AriGraph episodic Markov chain]) and/or the cold-path facts."* (refined 2026-05-29)
 
 - **SPO-W witness ≠ a fact payload; it is a *pointer*** into the belief-state arc array. The pointer can live in three equivalent locations:
   1. Inside the mailbox **SoA** (an arc-index column / per-row `[u32; W]` arc handle).
   2. Inside the **kanban** (`surrealkv`-on-lance view) row.
   3. Inside the **mailbox index** (the sea-star registry of live mailboxes).
-- **Whose commit?** *The SoA itself decides* whether to commit a belief as a fact-with-witness either (a) into **other mailboxes** (inter-mailbox baton handoff carrying the witness pointer) or (b) into the **cold-path facts** (LanceDB SPO-G calcification with the witness pointer linking back to the arc).
-- This makes SPO-W *resolvable without storage redundancy*: the witness lives where the arc lives (mailbox row), and the SPO-G fact carries only the pointer.
+- **The AriGraph episodic Markov chain IS the index space.** "Witness in other mailboxes" means *a pointer into the AriGraph episodic Markov chain* — the temporal sequence of mailbox states that constitutes episodic memory. Mailboxes are the chain's nodes; a witness is a back-pointer into that chain. No parallel "episodic memory" structure exists; the chain *is* the episodic substrate (CLAUDE.md "The Click": *"AriGraph, episodic memory, SPO, CAM-PQ are thinking tissue — not storage"*).
+- **Whose commit?** *The SoA itself decides* whether to commit a belief as a fact-with-witness — the witness being either:
+  - **(a) a pointer to other mailboxes in the AriGraph episodic Markov chain** (inter-mailbox baton handoff carrying the arc-handle; the receiving mailbox can traverse back to read the witness arc), or
+  - **(b) a cold-path fact** (LanceDB SPO-G calcification with the witness pointer linking back to the AriGraph chain node).
+- **Storage invariant:** the witness lives where the *arc* lives (a mailbox row inside the chain); all other references are *pointers*, never copies. The SPO-G fact carries only the pointer. *Resolvable without storage redundancy.*
 
 ### §11.5 — Counterfactual Staunen and Wisdom = plasticity spreaders
 
@@ -506,3 +508,63 @@ Concretises the timing of `E-RUBICON-RACTOR`:
 - **OQ-11.2** — witness-arc width `W` (how many `CausalEdge64` emissions per row before rotation/eviction).
 - **OQ-11.3** — kanban column states beyond the 4 Heckhausen phases (need a "vetoed" column? a "ghosted" column for preempts?).
 - **OQ-11.4** — `simd_soa.rs` alignment: do we need `#[repr(C, align(64))]` on `MailboxSoA`, or is the `SoaColumns` discipline (already shipped in `ndarray` `547824bc`) enough?
+
+### §11.6 — The "half-baked nine" all consume THE same SoA from A-Z; versioning aligned to the Lance 6.0.1 / LanceDB 0.29 / DataFusion 53 stack
+
+> *"all have to consume the same SoA from A-Z. The SoA can be versioned so that they stay readable after schema upgrade, and for surrealdb the versioning gets aligned with lance 6.0.1 / lancedb 0.29 / datafusion 53 in order to have one transparent container view across the same data. The kanban / ractor needs to be aligned with a new overhaul of lance-graph-planner DTO surface."*
+
+The "one SoA, never transformed" rule (§11.1) is **horizontally scoped**: it binds **nine half-baked components** to the same SoA carrier — they may differ in *what they do with it* (read / mutate / project) but never in *what shape it is*.
+
+#### §11.6.1 — The nine half-baked consumers
+
+| # | Component | Today (half-baked: doing it differently / partially) | Under the rule (consumes THE SoA) |
+|---|---|---|---|
+| 1 | **AriGraph** | parallel `TripletGraph` / `OxigraphAriGraph`; "episodic" is informal | The episodic Markov chain *is* the chain-of-mailboxes; SPO-G quads point into the SoA via §11.4 witness arc handle |
+| 2 | **Markov-grammar `Vsa16kF32` substrate** | the `Vsa16kF32` carrier — *deprecated* (`E-BATON-1`); only intra-Think local bundle compute remains | Local-bundle compute reads the SoA columns to produce ephemeral bundles; bundles never become cross-boundary state |
+| 3 | **`BindSpace`** | the shared singleton `Arc<BindSpace>` (`driver.rs:56`) | **Dissolved onto mailboxes** (§2.5); the mailbox SoA *is* the BindSpace surrogate |
+| 4 | **`crates/lance-graph` cold containers** | "cold-path-adjacent thinking" — accidentally aligned (§11.1) | **Layout = `MailboxSoA` layout = `ndarray::simd_soa.rs` aligned** (D-MBX-7); same SoA hot and cold |
+| 5 | **`crates/lance-graph-planner`** | DTO surface predates this contract; plan/MUL/elevation paths translate | **Overhaul (`D-MBX-A6`)** — the planner DTO surface aligns to the SoA + the 4-phase kanban (§11.3); kanban moves are planner state-transitions |
+| 6 | **`crates/cognitive-shader-driver`** | `MailboxSoA<N>` (D-MBX-A1 columns landed); `engine_bridge` re-encodes via `bind/unbind_busdto` | Drop `engine_bridge` re-encode (D-MBX-2 / `TD-RESONANCEDTO-DUP-1` Deferred); shader operates *on* the SoA only |
+| 7 | **`crates/lance-graph-callcenter`** | Zone-2 persistence path; partial alignment | Consumes the SoA as Zone-2 cold reader/writer; the SoA bytes ARE the callcenter rows |
+| 8 | **`crates/lance-graph-ontology`** | LazyLock + `ontology_dictionary` cache (separate from BindSpace SoA per its own header) | Stays **AS IS** (§4); read-only consumer of the SoA's `entity_type` column to resolve OGIT references; ontology bytes are *not* in the SoA |
+| 9 | **Thinking styles / atoms** | `ThinkingStyle(36)` + `Atoms` partly in contract, partly in shader, partly in planner | Encoded into the SoA's `meta` column (`MetaWord`'s thinking(6) bits) + p64-bridge layer-mask — one canonical home |
+
+**Rule:** every one of these must, at the point it crosses any boundary (mailbox → mailbox, hot → cold, planner → shader, kanban move), do so by handing off **the SoA byte layout**, not a translated DTO. The only allowed operations remain the three from §11.1: cognitive-shader thinking, cold-path read/write, AriGraph Markov-chain context-building.
+
+#### §11.6.2 — SoA versioning: stay readable after schema upgrade
+
+The SoA carries a version byte/short (TBD — `OQ-11.5`) at the layout root so older persisted SoA bytes remain decodable after a column is added/widened/reclaimed. The same field-isolation matrix discipline (`I-LEGACY-API-FEATURE-GATED`) that protected `CausalEdge64` v1↔v2 layout changes governs the SoA version gate: a v(N) reader **must refuse** to decode v(M>N) bytes without an explicit version check.
+
+#### §11.6.3 — SurrealDB transparent-view stack alignment
+
+For the §2.7 transparent SurrealDB view to be a literal zero-copy view (not an Arrow re-encode), the SoA versioning must align with the storage stack version that SurrealDB's `kv-lance` backend reads:
+
+| Layer | Current pin (this workspace) | Target stack (user-ratified 2026-05-29) |
+|---|---|---|
+| Arrow | `arrow = "58"` | `arrow = "58"` (compatible) |
+| DataFusion | `datafusion = "53"` | **`datafusion = "53"`** ✓ already on target |
+| Lance | `lance = "=6.0.0"` | **`lance = "=6.0.1"`** (patch bump) |
+| LanceDB | `lancedb = "=0.29.0"` | **`lancedb = "=0.29.0"`** ✓ already on target |
+| `surrealdb` (kv-lance fork) | commented out (`BLOCKED(C)`) | unblock against Lance 6.0.1 + the SoA version gate |
+
+**One bump pending:** `lance =6.0.0 → =6.0.1` (patch). All other pins already align. Deliverable `D-MBX-11`.
+
+#### §11.6.4 — `lance-graph-planner` DTO surface overhaul
+
+The kanban/ractor lifecycle (§11.3 — Planning / Cognitive work / Evaluation of goalstate / Commit·Plan·Prune) demands a matching shape on the planner DTO surface. The current planner DTOs (`PlanResult` / `QueryFeatures` / `StrategySelector` / cache DTOs) predate this contract and need to be re-expressed as **operations on the SoA** + **kanban state-transitions**, not as standalone payloads. Deliverable `D-MBX-A6` (planner DTO overhaul).
+
+### New deliverables added in §11.6
+
+| D-id | Title | Owner | Status |
+|---|---|---|---|
+| **D-MBX-A6** | `lance-graph-planner` DTO surface overhaul: planner DTOs re-expressed as operations on the SoA + 4-phase kanban transitions | lance-graph-planner | **Queued** |
+| **D-MBX-10** | SoA version byte at layout root + field-isolation matrix tests for every column addition/widening (`I-LEGACY-API-FEATURE-GATED` discipline) | contract + cognitive-shader-driver | **Queued** |
+| **D-MBX-11** | Lance 6.0.0 → 6.0.1 patch bump across the workspace (single-line bump in each Cargo.toml; verifies the SurrealDB transparent-view stack pin) | workspace Cargo.toml | **Queued (mechanical)** |
+| **D-MBX-12** | Each of the nine half-baked consumers (§11.6.1) audited and re-aligned to consume THE SoA — one PR per consumer | per-crate | **Queued (multi-PR sequence)** |
+
+### Open questions added in §11.6
+
+- **OQ-11.5** — SoA version field width (u8? u16?) and where it lives (layout-root header? per-column? both?).
+- **OQ-11.6** — surrealdb fork unblock plan: who provides the fork URL + branch + kv-lance feature flag (the long-standing `BLOCKED(C)`).
+- **OQ-11.7** — `lance-graph-planner` DTO overhaul scope: clean break vs feature-gated v1/v2 coexistence (likely the latter per `I-LEGACY-API-FEATURE-GATED`).
+- **OQ-11.8** — sequencing of D-MBX-12's nine sub-PRs: which consumer first? (Recommended: `lance-graph` cold container = #4, because it unlocks the SurrealDB view; then planner = #5; the rest after.)
