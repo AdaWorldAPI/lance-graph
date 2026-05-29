@@ -546,6 +546,27 @@ hot/cold/feedback loop onto our contract types + SoA floor
 
 ---
 
+## unified-soa-convergence-v1 — ONE LE SoA end-to-end across 9 consumers + version gate + Lance 6.0.1 stack + 4-phase Rubicon kanban
+
+Plan path: `.claude/plans/unified-soa-convergence-v1.md`. Handover `.claude/handovers/2026-05-29-1825-soa-convergence-author-to-impl.md`. Epiphany `E-SOA-IS-THE-ONLY` (+ §11.3/4/6 refinements).
+
+| D-id | Title | Crate(s) | ~LOC | Risk | Status | PR / Evidence |
+|---|---|---|---|---|---|---|
+| D-MBX-A1 | migrated thoughtspace columns landed on `MailboxSoA<N>` (`edges`/`qualia`/`meta`/`entity_type`) | cognitive-shader-driver | 60 | LOW | **Shipped** | between #418 and #433 (verified `mailbox_soa.rs` 2026-05-29) |
+| D-MBX-A2 | close BindSpace expressivity gaps in `MailboxSoA<N>` (`content_ref`, S/P/O role slices, temporal/expert fold per OQ-2) | cognitive-shader-driver + contract | 140 | MED | **Queued** | gates on D-CE64-MB-1-impl + OQ-1/OQ-2 |
+| D-MBX-A3 | `witness_arc: [u32; W]` per-row column (the belief-state arc handle into AriGraph episodic Markov chain) | cognitive-shader-driver | 100 | MED | **Queued** | gates on D-MBX-A2 + OQ-11.2 |
+| D-MBX-A4 | Staunen × Wisdom counterfactual plasticity spreader (Hebbian, hot-path-only, Planning-gated) | cognitive-shader-driver | 80 | LOW | **Queued — design** | gates on D-MBX-A3 + OQ-11.1 + `phase` field |
+| D-MBX-A5 | SPO-W witness pointer dual-residency (SoA / kanban / mailbox index); SoA decides commit modality (chain pointer vs cold fact) | cognitive-shader-driver + AriGraph SPO-G | 150 | HIGH | **Queued** | gates on D-MBX-A3 + D-MBX-4 |
+| D-MBX-A6 | `lance-graph-planner` DTO surface overhaul: DTOs as SoA-row-lenses; planner output = `KanbanMove`s; 5-phase feature-gated cutover (OQ-11.7) | lance-graph-planner + contract | 600 | HIGH | **Queued** | gates on D-MBX-10 + D-MBX-8 + OQ-11.7 |
+| D-MBX-7 | `lance-graph` containers ≡ `MailboxSoA` layout ≡ `ndarray::simd_soa.rs`-aligned (1.4–4.2× SIMD payoff; hard prereq for SurrealDB transparent view) | lance-graph + ndarray | 300 | HIGH | **Queued** | gates on D-MBX-A2 + D-MBX-10 + D-MBX-11 + PR-NDARRAY-MIRI-COMPLETE |
+| D-MBX-8 | Σ10 commit stamps **t = −550 ms** wall-clock (Libet anchor) in `SigmaTierRouter`; downstream ractor START fires | sigma-tier-router + shader-driver | 120 | MED | **Queued** | gates on D-MBX-A4 + D-MBX-A6 Phase 1 |
+| D-MBX-9 | Rubicon kanban view in `surrealkv`-on-lance (4 columns: Planning · Cognitive work · Evaluation · Commit·Plan·Prune); ractor lifecycle hooks = kanban moves | surreal_container + ractor | 250 | HIGH | **Queued** | gates on D-MBX-7 + D-MBX-8 + surreal_container BLOCKED(B/C/D) resolved (OQ-11.6) + D-PERSONA-5 |
+| D-MBX-10 | SoA version byte at layout root (`MailboxSoAHeader`); refuse v(N>M) bytes on v(M) reader; field-isolation matrix tests on every column op (`I-LEGACY-API-FEATURE-GATED` discipline) | lance-graph-contract | 100 | HIGH | **Queued** | foundation — should land early in P2; gates on OQ-11.5 |
+| D-MBX-11 | Lance `=6.0.0 → =6.0.1` patch bump (5 Cargo.toml files identified) | workspace Cargo.toml | 10 | LOW | **Queued (mechanical)** | none — can land in parallel with par-tile prereq |
+| D-MBX-12 | 8-PR workspace-wide consumer alignment: 12.1 AriGraph · 12.2 Vsa16k audit · 12.4 lance-graph · 12.5 planner · 12.6 shader-driver · 12.7 callcenter · 12.8 ontology audit · 12.9 thinking-styles | per-crate | 800 | per-PR | **Queued (multi-PR)** | sequencing per OQ-11.8: 12.4 → 12.5 → 12.6 → 12.7 → 12.1 → 12.9 → 12.2 → 12.8 |
+
+---
+
 ## bindspace-singleton-to-mailbox-soa-v1 — dissolve `Arc<BindSpace>` into per-mailbox `MailboxSoA<N>`
 
 Plan path: `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`. Epiphany `E-MAILBOX-IS-BINDSPACE`. Migration of the shared singleton address space into mailbox-owned ephemeral thoughtspace (LE-contract SoA columns); drops the 64 KB `Vsa16kF32` `cycle` plane.

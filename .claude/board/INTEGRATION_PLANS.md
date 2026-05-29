@@ -1,3 +1,13 @@
+## 2026-05-29 — unified-soa-convergence-v1 (THE single LE SoA end-to-end across the workspace: 9 half-baked consumers + SoA version gate + Lance 6.0.1/LanceDB 0.29/DataFusion 53 alignment + 4-phase Rubicon kanban + lance-graph-planner DTO overhaul + Libet −550 ms anchor + Staunen×Wisdom plasticity spreader + SPO-W pointer via AriGraph episodic Markov chain)
+
+**Status:** PROPOSAL / integration plan. Design-spec only, no code. **Plan file:** `.claude/plans/unified-soa-convergence-v1.md`. **Handover:** `.claude/handovers/2026-05-29-1825-soa-convergence-author-to-impl.md`. **Epiphany:** `E-SOA-IS-THE-ONLY` (+ refinements §11.3/4/6 in PR-this-one).
+**Owns:** the meticulous integration sequence for the 5 layered user rulings ratified this session — one SoA never transformed; mailbox = full BindSpace as LE; Libet −550 ms ratchets the Rubicon kanban; SPO-W = pointer via AriGraph episodic Markov chain; counterfactual Staunen×Wisdom = plasticity spreaders. Adds D-MBX-A2/A3/A4/A5/A6, D-MBX-7/8/9/10/11/12 (12 sub-PRs); 8 open questions OQ-11.1–11.8; risk matrix; phased dependency graph (P0–P7).
+**Anchored iron rules:** I-VSA-IDENTITIES, I-LEGACY-API-FEATURE-GATED (governs the SoA version gate), I-SUBSTRATE-MARKOV (untouched), I-NOISE-FLOOR-JIRAK.
+**Predecessors:** `bindspace-singleton-to-mailbox-soa-v1` (§11 rulings); `causaledge64-mailbox-rename-soa-v1` (canonical 5-crate + 7-PR plan); `cognitive-substrate-convergence-v1/v2/v3` (Σ10 Rubicon shipped #388).
+**Council bypass note:** the underlying §11 epiphanies are author-stated (user) — `epiphany-brainstorm-council` (shipped #433) is bypassed for them; the plan's *spec content* IS open to council review via PR.
+**Workspace stack verified 2026-05-29:** arrow 58 ✓ · datafusion 53 ✓ · lancedb =0.29.0 ✓ · lance =6.0.0 → **=6.0.1** (one patch bump pending, D-MBX-11).
+
+---
 ## 2026-05-28 — normalized-entity-holy-grail-v1 (typed unified normalization + Op chain over OGIT/OWL/DOLCE/Odoo with three-context execution — the trunk that unifies BP-1 + EXT-1..6 + jit + MailboxSoA into one consumer surface)
 
 **Status:** PROPOSAL. The trunk plan that ties together every prior architectural deliverable into ONE typed consumer pipeline grammar. Closes the structural gap that lets consumers re-implement business logic in regex / hand-rolled pseudo-code by making such interpretation a MISSING FUNCTION (per `E-CONSUMER-CANNOT-INTERPRET-1`) rather than a code-review concern. Re-encodes Odoo's three-regime decomposition (interactive / bulk / periodisch) as compile-time typestate, not stringly-typed `env.context` flags.
