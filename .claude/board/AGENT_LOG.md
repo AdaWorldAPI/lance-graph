@@ -1,3 +1,27 @@
+## [Main thread / Opus 4.7] streaming-arm-nars-discovery-v1 — integration plan + handover + #434 corrections (the upstream proposer leg)
+
+**Branch:** claude/activate-lance-graph-att-k2pHI (rebased onto origin/main post PR #434 merge) | **Files:**
+- `.claude/plans/streaming-arm-nars-discovery-v1.md` (+766 LOC new) — 18 sections, 12 deliverables, 10 OQs, 5 risks
+- `.claude/handovers/2026-05-29-2030-arm-discovery-author-to-impl.md` (+225 LOC new)
+- `.claude/board/INTEGRATION_PLANS.md` (prepend new section header)
+- `.claude/board/STATUS_BOARD.md` (new D-ARM-1..D-ARM-12 row section)
+
+**Cargo:** not invoked (per session-stability rule + this is a SPEC PR with no code changes).
+
+**D-ids:** D-ARM-1 through D-ARM-12 (**Queued**)
+
+**Outcome:** DONE. Authored the integration plan for the missing **upstream proposer leg** — ARM rule discovery over streaming runtime tabular data (20K-200K rows/window) → translator to NARS-compatible `TruthValue(f,c)` → SpoStore round-trip hypothesis test (revise / commit contradiction per The Click) → council ratification gate (Stage D = the determinism firewall) → `op_emitter` codegen consumes only ratified candidates. Two corrections proposed to PR #434's unified-SoA plan: separate `discovery_arc: [u32; D]` SoA column (D=8 default; for tracking in-flight candidate rules per row, distinct from the witness-arc that tracks committed revisions) + `discovery_origin: u8` per-row provenance byte (2 bits ProvenanceTier + 2 bits proposer-id + 4 reserved; lets council's prior-art-savant tell ArmDiscovered from Curated/Extracted at lookup time).
+
+**Paper anchors:** Karabulut, Groth, Degeler — *Neurosymbolic Association Rule Mining from Tabular Data* (arxiv 2504.19354v1, Apr 2025; ARM truth definitions in §2 map verbatim to NARS `(f,c)`; Algorithm 1 in §3.3 is the Aerial+ rule extraction the optional `arm-aerial` feature wraps via IPC). Abreu, Cruz, Guerreiro — *Ontology-Driven M2M Transformation of Workflow Specifications* (arxiv 2511.13661v1, Nov 2025; §4 "from code-centric to ontology-driven" ratifies the externalize-interpretation-not-code doctrine). The two papers BRACKET the architecture: discovery upstream, codegen downstream, SPO+NARS middle. Candidate epiphany `E-DISCOVERY-CODEGEN-BRACKET-1` (council-pending).
+
+**Iron-rule respect:** I-NOISE-FLOOR-JIRAK (mandatory Stage A threshold via D-ARM-7), I-SUBSTRATE-MARKOV (NARS revision IS the Markov trajectory; bundle math untouched), I-VSA-IDENTITIES (operates on typed `(s,p,o)` triples, never bundles content). E-SOA-IS-THE-ONLY (writes via SpoBuilder only), E-BATON-1 (Stage C emissions are batons riding existing handoff), E-INTERPRET-NOT-STORE-1 (ARM is one interpretation projection of the lossless substrate).
+
+**Plan-writing pattern:** `tee -a` chunked appends (12 chunks) per user instruction — avoids memory pressure for long-form plan writes; each chunk independently verifiable in `wc -l` post-append. Pattern documented in plan §17 decision log.
+
+**Next session entry:** Council ratification of `E-DISCOVERY-CODEGEN-BRACKET-1` + §7 corrections, then Wave 1 (D-ARM-1 + D-ARM-2 contract additions). Full sequencing in handover.
+
+---
+
 ## [Main thread / Opus 4.8] op_emitter — Phase 2 bucket-dispatch codegen (SoA → Foundry SoC)
 
 **Branch:** claude/activate-lance-graph-att-k2pHI | **Files:**

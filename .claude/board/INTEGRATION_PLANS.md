@@ -1,3 +1,12 @@
+## 2026-05-29 — streaming-arm-nars-discovery-v1 (upstream proposer leg: 20K-200K rows/window pair-stats + optional Aerial+ neural fan-in → NARS-truth translator → SpoStore hypothesis test → epiphany-council ratification → op_emitter codegen)
+
+**Status:** PROPOSAL / integration plan. Design-spec only, no code. **Plan file:** `.claude/plans/streaming-arm-nars-discovery-v1.md`. **Handover:** `.claude/handovers/2026-05-29-2030-arm-discovery-author-to-impl.md`. **Candidate epiphany:** `E-DISCOVERY-CODEGEN-BRACKET-1` (council-pending).
+**Owns:** the missing upstream discovery leg into the SPO substrate. Today's proposers (`D-ODOO-BP-1b` curated, `D-ODOO-EXT-2` AST-extracted) are bounded by literal artifacts; this plan adds runtime-data discovery via streaming pair-stats (deterministic trunk) + optional Aerial+ neural-symbolic fan-in. The two papers (Karabulut 2025 arxiv 2504.19354v1; Abreu 2025 arxiv 2511.13661v1) ratify the architecture: discovery upstream, codegen downstream, SPO+NARS middle. Adds 12 deliverables D-ARM-1…D-ARM-12; one new crate `lance-graph-arm-discovery`; 10 OQs; two corrections proposed to PR #434 (`discovery_arc: [u32; D]` column, `discovery_origin: u8` byte).
+**Anchored iron rules:** I-NOISE-FLOOR-JIRAK (mandatory Stage-A threshold), I-SUBSTRATE-MARKOV (NARS revision IS the Markov trajectory), I-VSA-IDENTITIES (operates on typed triples, never content). **Anchored epiphanies:** E-SOA-IS-THE-ONLY (writes via SpoBuilder only), E-BATON-1 (Stage-C emissions are batons), E-INTERPRET-NOT-STORE-1 (ARM is one interpretation projection).
+**Predecessors:** PR #433 (style_recipe.rs + epiphany-brainstorm-council + 5 savant cards = the ratification gate), PR #434 (unified-soa-convergence-v1.md = the SoA contract this writes against), op_emitter.rs (this branch = Phase 2 codegen target).
+
+---
+
 ## 2026-05-29 — unified-soa-convergence-v1 (THE single LE SoA end-to-end across the workspace: 9 half-baked consumers + SoA version gate + Lance 6.0.1/LanceDB 0.29/DataFusion 53 alignment + 4-phase Rubicon kanban + lance-graph-planner DTO overhaul + Libet −550 ms anchor + Staunen×Wisdom plasticity spreader + SPO-W pointer via AriGraph episodic Markov chain)
 
 **Status:** PROPOSAL / integration plan. Design-spec only, no code. **Plan file:** `.claude/plans/unified-soa-convergence-v1.md`. **Handover:** `.claude/handovers/2026-05-29-1825-soa-convergence-author-to-impl.md`. **Epiphany:** `E-SOA-IS-THE-ONLY` (+ refinements §11.3/4/6 in PR-this-one).

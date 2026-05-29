@@ -615,6 +615,27 @@ PREREQUISITE for `odoo-savant-reasoners-v2` Group F (per `E-SAVANT-COMPOSITION-1
 
 ---
 
+## streaming-arm-nars-discovery-v1 — upstream proposer leg into the SPO substrate (20K-200K rows/window pair-stats + optional Aerial+ → NARS-truth → SpoStore hypothesis test → council ratification → op_emitter codegen)
+
+The missing UPSTREAM discovery leg. Today's proposers (curated L-docs + AST-extracted Odoo source) are bounded by the literal artifact; this plan adds runtime-tabular-data ARM discovery, gated through the epiphany-brainstorm-council before reaching the deterministic codegen path. Plan: `.claude/plans/streaming-arm-nars-discovery-v1.md`. Handover: `.claude/handovers/2026-05-29-2030-arm-discovery-author-to-impl.md`.
+
+| D-id | Title | Crate | Lines | Conf | Status | Notes |
+|---|---|---|---|---|---|---|
+| D-ARM-1 | `ProvenanceTier::{Curated,Extracted,ArmDiscovered,Ratified,Conjecture}` enum + ordering | lance-graph-contract | 50 | HIGH | **Queued** | blocks all other D-ARM-*; additive |
+| D-ARM-2 | `Proposer` trait + `CandidateRule` carrier + `WindowMetadata` | lance-graph-contract | 100 | HIGH | **Queued** | blocks D-ARM-3, D-ARM-9 |
+| D-ARM-3 | Pair-stats proposer (default trunk, deterministic, k² pair counters per window) | lance-graph-arm-discovery::proposer::pair_stats | 400 | HIGH | **Queued** | depends on D-ARM-1/2/7; blocks D-ARM-12 |
+| D-ARM-4 | ARM-truth → NARS-truth translator + Odoo `FeedProjector` impl | lance-graph-arm-discovery::translator | 200 | HIGH | **Queued** | depends on D-ARM-1/2 |
+| D-ARM-5 | Hypothesis test: SpoStore round-trip, NARS revision, contradiction commit per The Click | lance-graph-arm-discovery::hypothesis | 350 | MED | **Queued** | depends on D-ARM-4; verifies `spo::truth::Contradiction` primitive exists |
+| D-ARM-6 | `RatificationQueue` ring buffer + corrections-to-#434 spec PR (`discovery_arc D=8`, `discovery_origin u8`) | lance-graph-arm-discovery::queue + #434 spec follow-up | 200 + spec | MED | **Queued** | depends on PR #434 D-MBX-A3 landing |
+| D-ARM-7 | Jirak-2016 weak-dependence significance thresholds (mandatory Stage A floor) | lance-graph-arm-discovery::jirak | 150 | HIGH | **Queued** | blocks D-ARM-3; cites I-NOISE-FLOOR-JIRAK |
+| D-ARM-8 | `Feed` + `FeedProjector` + window-size config + Odoo `account.move` projector example | lance-graph-arm-discovery::feed | 250 | MED | **Queued** | depends on D-ARM-2 |
+| D-ARM-9 | Aerial+ IPC client (feature-gated `arm-aerial`, NDJSON over Unix socket) | lance-graph-arm-discovery::proposer::aerial_ipc | 200 | MED | **Queued** | optional; depends on D-ARM-2 |
+| D-ARM-10 | `op_emitter::bucket_corpus` ratification filter (`confidence ≥ Ratified`) + 2 tests | lance-graph-ontology::op_emitter | 30 | HIGH | **Queued** | depends on D-ARM-1 |
+| D-ARM-11 | `style_recipe.rs` rule 8 — ArmDiscovered backing adds `DAtom::Compute` weight 2 (provisional) | lance-graph-ontology::style_recipe | 80 | MED | **Queued** | depends on D-ARM-1 |
+| D-ARM-12 | End-to-end pipeline test + bench (synthetic Odoo feed → all 5 stages → council micro-batch) | lance-graph-arm-discovery::tests + benches | 400 | MED | **Queued** | depends on Waves 1-6; informs OQ-ARM-2 + OQ-ARM-7 |
+
+---
+
 ## Update protocol
 
 When a deliverable ships:
