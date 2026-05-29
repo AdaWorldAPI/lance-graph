@@ -1,3 +1,20 @@
+## [SavantPattern / Opus] action_emitter + link_chain — Foundry-shape SPO emitters (deliverables 1+2)
+
+**Branch:** claude/stage2-plans-spo-nars-elixir | **Files:** `crates/lance-graph/src/graph/spo/action_emitter.rs` (+~540 lines new, post-reviewer), `crates/lance-graph/src/graph/spo/link_chain.rs` (+~410 lines new, post-reviewer), `crates/lance-graph/src/graph/spo/mod.rs` (+2 lines, `pub mod action_emitter; pub mod link_chain`)
+**Tests:**
+- `cargo test -p lance-graph --lib graph::spo::action_emitter` → 9/9 passed (compose_account_move_compute_amount, pure_guard_classification, output_is_sorted_deterministic, emit_non_trivial_drops_empties, shipped_ontology_produces_expected_function_count [3328], shipped_ontology_compute_amount_has_real_dependencies, family_of_handles_dotted_iri, empty_triples_produce_empty_specs, function_with_no_emits_has_empty_inputs).
+- `cargo test -p lance-graph --lib graph::spo::link_chain` → 10/10 passed (split_direct_field_reference, split_single_hop, split_five_hop_real_path, split_handles_missing_prefix, split_rejects_malformed, split_all_depends_on_indexes_by_subject, split_all_depends_on_dedups, shipped_ontology_decomposes_cleanly [6309 depends_on, 0 malformed, max_depth ≥ 3], shipped_ontology_amount_total_chains_present, compute_stats_counts_each_category).
+
+**Outcome:** DONE. Two deterministic graph→spec emitters living at the string/codegen layer above the fingerprint `SpoStore`:
+
+1. **action_emitter** — `emit_actions(&[OntologyTriple]) -> Vec<ActionSpec>`. Per-function record composing reverse `emitted_by` (effects), forward `depends_on` of each effect (inputs), forward `raises` (guard signal), forward `reads_field` (body reads), forward `traverses_relation` (relations). Classification helpers: `is_pure_guard()`, `is_pure_compute()`, `is_trivial()`. 3328 ActionSpecs from the shipped ontology.
+
+2. **link_chain** — `split_chain(&str) -> Option<LinkChain>` + `split_all_depends_on` + `compute_stats`. Decomposes flat dotted paths like `odoo:account_move.line_ids.matched_debit_ids.debit_move_id.move_id.line_ids.amount_residual` into `LinkChain { source_family, hops, leaf }`. Intentionally string-only — target ObjectType resolution stays in the consumer crate to keep `lance-graph` acyclic.
+
+**Review pattern:** each module went through `build with /// markers → spawn opus-4.8 reviewer → reviewer applies fixes + removes markers → verify`. Reviewer-1 eliminated 4 `BTreeSet::cloned()` allocations + added 2 edge-case tests; Reviewer-2 collapsed two-pass validation to single-loop + replaced `Vec::remove(0)` with `split_first`/`split_last`.
+
+---
+
 ## [SavantPattern / Opus] codegen_spine — four canonical contracts hardening triplets→codegen→askama→GUI
 
 **Branch:** claude/stage2-plans-spo-nars-elixir | **Files:** `crates/lance-graph-contract/src/codegen_spine.rs` (+565 lines new), `crates/lance-graph-contract/src/lib.rs` (+1 line, `pub mod codegen_spine`)
