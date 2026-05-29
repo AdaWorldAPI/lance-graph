@@ -84,6 +84,14 @@ pub mod extracted;
 // for the cascade rules.
 pub mod style_recipe;
 
+// ─── Bucket-dispatch Op emitter (SoC codegen, Phase 2) ──────────────────────
+//
+// Groups style_recipe output by OdooMethodKind dispatch bucket, then emits
+// compilable Rust: RECIPE_* collapse-key consts + per-kind Op structs +
+// per-kind static Op slices. Output is a Rust source String suitable for
+// build.rs → OUT_DIR → include!(). See op_emitter::emit_op_dispatch.
+pub mod op_emitter;
+
 // ─── Top-level entity ─────────────────────────────────────────────────────
 
 /// Which ORM base class the entity inherits from.
