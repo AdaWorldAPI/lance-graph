@@ -255,7 +255,7 @@ fn compose_spec(fn_id: &str, idx: &TripleIndex) -> ActionSpec {
     ActionSpec {
         id: fn_id.to_string(),
         family,
-        effects: collect_sorted(idx.emits_by_fn.get(fn_id)),
+        effects: effects_set.iter().cloned().collect(),
         inputs: inputs.into_iter().collect(),
         raises: collect_sorted(idx.raises_by_fn.get(fn_id)),
         reads: collect_sorted(idx.reads_by_fn.get(fn_id)),

@@ -52,7 +52,11 @@ use crate::graph::spo::store::SpoStore;
 use crate::graph::spo::truth::TruthValue;
 
 /// One parsed ontology triple line: `{"s","p","o","f","c"}`.
+///
+/// `deny_unknown_fields` so harvester schema drift surfaces as a parse
+/// error instead of silently degrading the truth signal.
 #[derive(Debug, Clone, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OntologyTriple {
     /// Subject IRI (e.g. `odoo:account_move.amount_total`).
     pub s: String,
@@ -166,5 +170,64 @@ mod tests {
                 && t.o == "odoo:account_move._compute_amount"
         });
         assert!(found, "expected emitted_by edge missing from data file");
+    }
+
+    /// Catch silent parse failures: every non-empty line must produce one
+    /// `OntologyTriple`. If a line is corrupt and `filter_map().ok()` drops
+    /// it, this assertion fires — corruption can't sneak through as a
+    /// quiet count mismatch.
+    #[test]
+    fn every_nonempty_line_parses() {
+        let raw_lines = ONTOLOGY.lines().filter(|l| !l.trim().is_empty()).count();
+        let parsed = parse_triples(ONTOLOGY).len();
+        assert_eq!(
+            raw_lines,
+            parsed,
+            "{} of {} ontology lines silently failed to parse",
+            raw_lines - parsed,
+            raw_lines
+        );
+    }
+
+    /// Pin the documented "extractor de-duplicates" assumption: if two
+    /// triples share `(s, p, o)` but differ in truth, the second insert
+    /// overwrites the first (HashMap last-write-wins via `dn_hash`).
+    /// Verifies the silent-overwrite semantics explicitly so a future
+    /// switch to insertion-rejection or merge becomes a test failure
+    /// instead of a silent change.
+    #[test]
+    fn duplicate_spo_keys_are_last_write_wins() {
+        let s = "odoo:test.x";
+        let p = "depends_on";
+        let o = "odoo:test.y";
+        let ndjson = format!(
+            "{{\"s\":\"{s}\",\"p\":\"{p}\",\"o\":\"{o}\",\"f\":0.9,\"c\":0.9}}\n\
+             {{\"s\":\"{s}\",\"p\":\"{p}\",\"o\":\"{o}\",\"f\":0.1,\"c\":0.1}}\n"
+        );
+
+        let store = load_ontology(&ndjson);
+        // Two source triples → one stored record (key collision).
+        assert_eq!(
+            store.len(),
+            1,
+            "duplicate (s,p,o) must collapse to a single store entry"
+        );
+    }
+
+    /// Lock the module-doc claim "3 328 Functions" against drift so the
+    /// downstream `action_emitter::shipped_ontology_produces_expected_function_count`
+    /// (which asserts the same number on its own) can't get out of sync
+    /// with the loader's source-of-truth count.
+    #[test]
+    fn function_count_matches_module_doc() {
+        let triples = parse_triples(ONTOLOGY);
+        let functions = triples
+            .iter()
+            .filter(|t| t.p == "rdf:type" && t.o == "ogit:Function")
+            .count();
+        assert_eq!(
+            functions, 3328,
+            "function count drifted from module-doc claim (3 328)"
+        );
     }
 }

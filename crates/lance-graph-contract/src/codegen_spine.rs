@@ -115,7 +115,9 @@ pub trait TripletProjection {
     }
 
     /// Tolerance for `f`/`c` comparison in `roundtrip_eq`. Default 0.0
-    /// (lossless); override to allow quantised projections.
+    /// (exact equality required); override to allow quantised projections.
+    /// The check is ALWAYS run — `0.0` does NOT skip it; it requires the
+    /// recovered truth value to match the source exactly.
     fn truth_tolerance() -> f32 {
         0.0
     }
@@ -156,24 +158,23 @@ pub fn roundtrip_eq<P: TripletProjection>(input: &[Triple]) -> Result<(), RoundT
         });
     }
 
-    // Truth-value tolerance check.
+    // Truth-value tolerance check — always run; tol = 0.0 means strict
+    // (any difference fails the `abs() > tol` check naturally).
     let tol = P::truth_tolerance();
-    if tol > 0.0 {
-        let in_truth: std::collections::BTreeMap<_, _> =
-            input.iter().map(|t| (t.key(), (t.f, t.c))).collect();
-        for r in &regenerated {
-            if let Some((f0, c0)) = in_truth.get(&r.key()) {
-                if (r.f - f0).abs() > tol || (r.c - c0).abs() > tol {
-                    return Err(RoundTripFailure {
-                        projection: P::name(),
-                        input_count: in_keys.len(),
-                        output_count: out_keys.len(),
-                        missing_count: 0,
-                        extraneous_count: 0,
-                        sample_missing: vec![r.key()],
-                        sample_extraneous: vec![],
-                    });
-                }
+    let in_truth: std::collections::BTreeMap<_, _> =
+        input.iter().map(|t| (t.key(), (t.f, t.c))).collect();
+    for r in &regenerated {
+        if let Some((f0, c0)) = in_truth.get(&r.key()) {
+            if (r.f - f0).abs() > tol || (r.c - c0).abs() > tol {
+                return Err(RoundTripFailure {
+                    projection: P::name(),
+                    input_count: in_keys.len(),
+                    output_count: out_keys.len(),
+                    missing_count: 0,
+                    extraneous_count: 0,
+                    sample_missing: vec![r.key()],
+                    sample_extraneous: vec![],
+                });
             }
         }
     }
@@ -226,6 +227,19 @@ impl fmt::Display for RoundTripFailure {
 /// Static codegen reads it. Askama route SoC reads it. GUI widget templates
 /// read it. Adding a 17th opening = one variant + one `match` arm in every
 /// consumer (compiler-enforced exhaustiveness).
+///
+/// # Classifier wiring is a separate emitter (TBD)
+///
+/// This enum is the *bucket catalogue*. The function that takes a method
+/// body / AST / `ActionSpec` and returns the matching `OdooMethodKind`
+/// lives in a downstream classifier emitter (the Rust port of
+/// `.claude/odoo/openings_hops.py`'s priority cascade). It is intentionally
+/// NOT wired into `lance_graph::graph::spo::action_emitter` yet —
+/// `ActionSpec` carries the structural edges (effects / inputs / raises /
+/// reads / traverses); the kind classification gets bolted on by the
+/// classifier in a follow-up PR. Until then, consumers that need a kind
+/// should resolve it via the priority classifier directly, not by
+/// inspecting `ActionSpec`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum OdooMethodKind {
     /// `pass` body — explicit no-op framework override.
@@ -332,6 +346,13 @@ pub trait RouteBucket {
 
     /// Stable identity of this route (e.g. `account.move._compute_amount`).
     fn id(&self) -> &str;
+
+    /// Owned-id escape hatch for async/iterator pipelines that need to
+    /// outlive a `&dyn RouteBucket` borrow. Defaults to cloning `id()`;
+    /// implementors with a pre-allocated owned string can override.
+    fn id_owned(&self) -> String {
+        self.id().to_string()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -362,6 +383,8 @@ impl fmt::Display for WidgetRenderError {
         f.write_str(&self.message)
     }
 }
+
+impl std::error::Error for WidgetRenderError {}
 
 // ---------------------------------------------------------------------------
 // ④ Genericity — what to codegen vs what to read from the triple store
@@ -488,6 +511,51 @@ mod tests {
                 assert!(failure.projection.contains("LossyDropFrequency"));
             }
             Ok(()) => panic!("LossyDropFrequency should fail truth-tolerance check"),
+        }
+    }
+
+    /// Identity-preserving but truth-mangling projection — every (s,p,o)
+    /// round-trips, but (f, c) come back as (0.0, 0.0). With the default
+    /// `truth_tolerance() = 0.0`, this MUST fail the roundtrip check.
+    struct TruthMangler;
+
+    impl TripletProjection for TruthMangler {
+        type Const = Vec<(String, String, String)>;
+
+        fn project(triples: &[Triple]) -> Self::Const {
+            triples
+                .iter()
+                .map(|t| (t.s.clone(), t.p.clone(), t.o.clone()))
+                .collect()
+        }
+
+        fn decompile(c: &Self::Const) -> Vec<Triple> {
+            c.iter()
+                .map(|(s, p, o)| Triple {
+                    s: s.clone(),
+                    p: p.clone(),
+                    o: o.clone(),
+                    f: 0.0,
+                    c: 0.0,
+                })
+                .collect()
+        }
+        // No truth_tolerance() override — default 0.0.
+    }
+
+    #[test]
+    fn default_tolerance_requires_exact_truth_match() {
+        let input = fixture();
+        let result = roundtrip_eq::<TruthMangler>(&input);
+        // Default tolerance is 0.0 → must reject any truth mismatch
+        // (input has f=1.0 / 0.95, decompiled has f=0.0).
+        match result {
+            Err(failure) => {
+                assert!(failure.projection.contains("TruthMangler"));
+            }
+            Ok(()) => {
+                panic!("TruthMangler must fail with default tolerance 0.0 (truth values differ)");
+            }
         }
     }
 
