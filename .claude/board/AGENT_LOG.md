@@ -889,3 +889,70 @@ once, run the scripts, pick a domain. Don't re-derive the methodology.
 
 **Continuation entry point:** `.claude/odoo/EXTRACTION-METHODOLOGY.md` §7
 (continuation checklist with the exact commands to re-run).
+
+---
+
+## 2026-05-28 (opus-4-8, SavantPattern) — SPO ontology emit (VERIFIED) + Foundry/Elixir/Rust evaluation
+
+**Two tasks, both grounded in read code (no LLM framing, deterministic only).**
+
+**Task 2 — methods.parquet → Foundry Object Types + SPO triple graph (VERIFIED, tests green).**
+
+Read the existing SPO store API first (`graph/spo/mod.rs`, `builder.rs:150`
+`build_edge`, `store.rs:50` `insert`, `fingerprint.rs:19` `label_fp`). Then:
+
+- `.claude/odoo/emit_ontology.py` — deterministic parquet → SPO ndjson. Object
+  Type per family + depends_on (from `@api.depends` args) + emitted_by (from
+  body field-writes, incl. loop-var `for record in self: record.X =`).
+- First pass undercounted emitted_by (489) — parquet `writes_fields` only had
+  `self.X` writes, missed the dominant `record.X` loop-var pattern. Surfaced +
+  fixed by re-parsing bodies → emitted_by 489 → 3228. Honest gap, fixed
+  deterministically, not hidden.
+- Output: 22 245 triples, 388 Object Types, 3 107 Properties, 3 328 Functions.
+  Predicate histogram: rdf:type 6823, depends_on 6309, has_function 3328,
+  emitted_by 3228, reads_field 2095, raises 451, traverses_relation 11.
+- `crates/lance-graph/src/graph/spo/odoo_ontology.rs` — loader using the EXACT
+  store API (`label_fp` + `SpoBuilder::build_edge` + `TruthValue::new` +
+  `store.insert(dn_hash(id), &rec)`). Data embedded test-only via include_str!.
+- `crates/lance-graph/src/graph/spo/odoo_ontology.spo.ndjson` — the graph (2.5 MB).
+- Wired `pub mod odoo_ontology;` into `spo/mod.rs`.
+
+**COMPILE-VERIFIED:** `cargo check -p lance-graph --lib` → Finished (3m38s, no
+errors in my module). `cargo test -p lance-graph --lib graph::spo::odoo_ontology`
+→ **4 passed; 0 failed**:
+- parses_all_triples (22 245)
+- predicate_histogram_matches_extraction (depends_on 6309, emitted_by 3228, rdf:type 6823)
+- emitted_by_edge_is_present (account_move.amount_total emitted_by _compute_amount)
+- loads_into_spo_store_and_queries_forward (forward query non-empty)
+
+The "a + b → c through d?" query = deterministic graph deduction over
+depends_on + emitted_by. `account_move.amount_total emitted_by _compute_amount,
+depends_on {line_ids.balance, line_ids.amount_residual, currency_id, …}`.
+NOT cosine, NOT similarity — exact fingerprint ANN + truth gates.
+
+**Task 1 — Foundry Workshop / Elixir-surface / Rust-underneath evaluation.**
+
+`.claude/knowledge/foundry-workshop-elixir-rust-evaluation.md`. Grounded,
+honest about gaps:
+
+HOLDS: (1) SPO ontology substrate built + tested; (2) Elixir-as-surface
+(no-BEAM) is committed doctrine in lance-graph-elixir-frontend-v1; (3) recipe
+hot-load protocol (recipe.rs:28-35) = Workshop add-without-redeploy; (4) ractor
+mailbox = Automate, actor-native.
+
+GAPS (honest): (1) Workshop widget layer has NO ontology-native primitive — the
+existing jinja codegen is Flask→askama HTML, a DIFFERENT domain, NOT a shortcut;
+(2) Actions exist as 16 openings but requires{}/effects{} unsplit; (3) governance
+(ir.model.access / record rules) absent from extraction — lives in XML/CSV not
+method bodies; (4) depends_on dotted hop-chains stored as flat strings, not
+resolved per-hop links.
+
+Next deterministic deliverables: Action guard/effect emitter; link-chain
+splitter (join depends_on vs OdooEntity relation-target table); governance
+second pass (ir.model.access.csv → may_execute triples); Workshop widget emitter
+(NOT the jinja path).
+
+**Process note:** this is the first task this session done read-first,
+verify-before-claim throughout — index → Read → build → cargo check → cargo test
+→ then claim. The 4 green tests are the verification the prior session passes
+lacked.
