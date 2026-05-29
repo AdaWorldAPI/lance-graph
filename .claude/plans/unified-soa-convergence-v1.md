@@ -683,3 +683,47 @@ The `epiphany-brainstorm-council` pre-merge gate for `EPIPHANIES.md` additions (
 This plan, however, IS open to the council for its *spec content* — the convergence sequencing, the D-MBX deliverable breakdown, the OQ catalogue, and the risk matrix. PR review is the appropriate channel.
 
 ---
+
+## 17. 2026-05-29 amendments — orchestrator review pass on shipped #434
+
+> APPENDED — does not modify any §1–§16 content. Authored 2026-05-29 by orchestrator-Sonnet from main thread after PR #434 merged and prior wave A1-A4 (PR #427) landed. Each amendment is single-claim, file:line-cited, labeled FINDING / CONJECTURE per `bf16-hhtl-terrain.md` discipline.
+
+### 17.1 — FINDING: prior `bindspace-singleton-to-mailbox-soa-v1.md` OQ-MBX-8 is implicitly closed by R1.2 + §3
+
+The prior plan's **OQ-MBX-8** ("`persisted_row` stub vs Lance native versioning"; evidence at `REFACTOR_NOTES.md:129` + `crates/cognitive-shader-driver/src/driver.rs:458`) was load-bearing for the persistence story. R1.2 of this plan ratifies *"`persisted_row: Option<u32>` is a pointer to the same row laid down in Lance, not a serialized copy in another shape"* — that IS the Lance native versioning answer. `persisted_row` and Lance's `_rowid` are the same `u32` once §3's "lance-graph container layout ≡ MailboxSoA<N> layout" lands (D-MBX-7). OQ-MBX-8 is therefore an implementation/wiring task under D-MBX-7, not an open design question. **Action:** the prior plan's §10 OQ list should mark OQ-MBX-8 as *Resolved by v1 §17.1 → wired by D-MBX-7*; no separate ratification needed.
+
+### 17.2 — FINDING: prior OQ-MBX-15′ (container scoping) is implicitly closed by R1 + R4 + `mailbox_ref: u32`
+
+The prior plan's **OQ-MBX-15′** ("container scoping: per-cognitive-cycle, per-shader-dispatch, or per-mailbox-cohort?") was raised as open. Three constraints in this plan plus the wave A1-A4 outcome force the answer:
+
+1. R1 ("ONE SoA, never transformed") — the container *is* the SoA, no per-cycle re-allocation.
+2. R4 ("the AriGraph episodic Markov chain IS the index space") — chain nodes outlive any single cycle.
+3. The Codex P2 fix on PR #427 widened `WitnessEntry::mailbox_ref` from `u16` → `u32` (`crates/lance-graph-contract/src/witness_table.rs:78`) to carry the canonical `MailboxId` across the 64K-256K envelope (§3 ceiling).
+
+A per-cycle container would invalidate every cross-cycle `mailbox_ref u32` the moment the cycle terminated. Tombstones (§5.1 phase 4 / OQ-11.3) would have nothing to anchor. Cohort scoping is therefore the only consistent answer. **Action:** mark prior OQ-MBX-15′ as *Resolved by v1 §17.2 → per-mailbox-cohort, lifetime = cohort lifetime*.
+
+### 17.3 — CONJECTURE: silent gap between R1/D-MBX-A6/D-MBX-7 and current `ndarray::simd_soa`
+
+R1 ("ONE SoA, never transformed") and §10 (D-MBX-A6 "DTO surface overhauled to express operations *on* the SoA" + D-MBX-7 "container layout ≡ `MailboxSoA<N>` ≡ `ndarray::simd_soa.rs` aligned") presuppose a per-SoA shape-introspection surface in `ndarray::simd_soa`. The currently shipped surface (`/home/user/ndarray/src/simd_soa.rs:118-180`) only exposes `MultiLaneColumn` — a flat `Arc<[u8]>` over 64-byte chunks with separate `iter_u8x64 / iter_f32x16 / iter_f64x8 / iter_u64x8` methods. There is **no shape-introspection trait, no const-generic SoA tuple, no per-column-type dispatch**. The new thoughtspace columns shipped in D-MBX-A1 (`edges: [CausalEdge64; N]`, `qualia: [QualiaI4_16D; N]`, `meta: [MetaWord; N]`, `entity_type: [u16; N]`) are heterogeneous fixed-size structs, NOT 64-byte byte lanes — `MultiLaneColumn` alone cannot express them.
+
+Until a `SoaColumns<N>` derive/trait surface lands in `ndarray::simd_soa` that yields one `MultiLaneColumn` per column at the column's natural lane width, R1's "container ≡ SoA ≡ simd_soa-aligned" equivalence is **aspirational**, and D-MBX-A6's "SoA-row-lens" DTO variants have no carrier to back them. **Action:** add new prerequisite **D-MBX-A7 — `ndarray::simd_soa::SoaColumns<N>` framework** as a P1 prereq; gates D-MBX-A6 and D-MBX-7. Estimated scope: ~200 LOC + derive macro + 6 column-type fixtures. Owner: `ndarray::simd_soa` (cross-repo PR). Risk: MED (touches ndarray's SIMD surface).
+
+### 17.4 — CONJECTURE: `WitnessEntry` is a Heckhausen typestate disguised as a runtime `Option`
+
+`crates/lance-graph-contract/src/witness_table.rs:71-78` carries `mailbox_ref: u32` (always) + `spo_fact_ref: Option<u64>` where, per R4, `None` = active belief (chain pointer only), `Some(u64)` = crystallised (cold SPO-G quad committed). This is a textbook two-state typestate (the Σ10 Rubicon commit transition; see `EPIPHANIES.md::E-RUBICON-RACTOR`), currently encoded as runtime-nullable. A `WitnessEntry::Active { mailbox_ref: u32 }` / `WitnessEntry::Crystallised { mailbox_ref: u32, spo_fact_ref: u64 }` enum split would make the Rubicon commit a compile-time event (matches the spirit of `E-CE64-MB-4` ownership-typing where UB becomes a compile error). **Open question OQ-11.9** (new): promote `WitnessEntry` to typestate enum vs leave as `Option<u64>`? Default proposal: typestate enum, lands as part of D-MBX-A5 (SPO-W dual-residency) where the `None → Some` transition is wired anyway; no migration cost since the only consumer today is `lib.rs` re-export. **Action:** add OQ-11.9 to §11 catalogue; D-MBX-A5 LOC estimate bumps from ~150 → ~200 LOC.
+
+### 17.5 — FINDING: D-MBX-12.9 (thinking-styles/atoms unification) inherits `style_recipe` from PR #433
+
+§2.9 / D-MBX-12.9 ("thinking-styles/atoms unified into MetaWord + p64-bridge layer_mask") should cross-reference `style_recipe` (PR #433 commit `acb403de` "feat(odoo): style_recipe — D-Atom interpretation step (typed SoA → cognitive fingerprint)"). `style_recipe` IS the typed-SoA → cognitive-fingerprint pathway that D-MBX-12.9 will compose against; the unification is not from scratch but from the `style_recipe` D-Atom interpretation step shipped in #433. **Action:** §2.9 should append a "Predecessor: PR #433 `style_recipe` (D-Atom interpretation step)" line; D-MBX-12.9 spec should cite `crates/lance-graph-ontology/src/odoo_blueprint/style_recipe*` (or wherever the module landed in #433) as the input surface.
+
+### 17.6 — Summary table
+
+| Amendment | Type | Action | Affects |
+|---|---|---|---|
+| 17.1 | FINDING | Mark prior OQ-MBX-8 Resolved → D-MBX-7 wiring | `bindspace-singleton-to-mailbox-soa-v1.md` §10 |
+| 17.2 | FINDING | Mark prior OQ-MBX-15′ Resolved → per-cohort scoping | `bindspace-singleton-to-mailbox-soa-v1.md` §10 |
+| 17.3 | CONJECTURE | Add D-MBX-A7 (`SoaColumns<N>` framework) as P1 prereq | §9 P1 + §10 + §11 risk |
+| 17.4 | CONJECTURE | Add OQ-11.9 (`WitnessEntry` typestate); fold into D-MBX-A5 | §10 D-MBX-A5 + §11 |
+| 17.5 | FINDING | Cross-ref `style_recipe` (PR #433) in §2.9 + D-MBX-12.9 | §2.9 + §10 D-MBX-12.9 |
+
+**Confidence:** 17.1 + 17.2 + 17.5 are HIGH (direct citations to plan text + shipped code). 17.3 + 17.4 are MED-HIGH (the gap and the typestate are real; the action shape is the default proposal, open to council review).

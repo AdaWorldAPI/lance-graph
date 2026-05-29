@@ -92,6 +92,17 @@ Created `cognition::{stages, entity, op, advance, cascade}` + `transaction::{int
 
 ---
 
+## [Orchestrator-Sonnet] PR #434 review pass — §17 amendments + D-MBX-A7 prereq + OQ-11.9
+
+**D-ids:** D-MBX-A7 (new, Queued); OQ-11.9 (new). **Closes:** prior plan OQs **OQ-MBX-8** + **OQ-MBX-15′** (`bindspace-singleton-to-mailbox-soa-v1.md` §10) — implicit-resolution recorded in `unified-soa-convergence-v1.md` §17.1 + §17.2.
+**Branch:** `claude/lance-surrealdb-analysis-LXmug` (rebased onto `origin/main` post-PR #434 merge).
+**Files touched:** `.claude/plans/unified-soa-convergence-v1.md` (+44 lines, new §17 appended; no §1–§16 mutation per APPEND-ONLY discipline); `.claude/board/STATUS_BOARD.md` (+1 row D-MBX-A7; D-MBX-A6 + D-MBX-7 PR/Evidence cells annotated with the new gate); `.claude/board/AGENT_LOG.md` (this entry).
+**Tests:** docs-only; no source code touched; no `cargo` invoked (per #434's stability constraint discipline carried forward).
+**Findings labels:** §17.1 + §17.2 + §17.5 = FINDING (direct cited evidence). §17.3 + §17.4 = CONJECTURE (gap or action shape is the default proposal, open to council via PR review).
+**Outcome:** review pass complete. Plan §17 captures 4 substantive amendments + 1 cross-ref (`style_recipe` PR #433) and resolves 2 prior-plan OQs implicitly closed by R1+R4+wave-A1-A4 outcomes. No PR opened yet — awaiting user direction on (a) typestate + OQ closures slice, (b) `SoaColumns<N>` (D-MBX-A7) framework wave, (c) Windows CI, or (d) other.
+
+---
+
 ## [Agent-A4 / Sonnet] D-MBX-A4 — append §10 architectural refinements to bindspace→mailbox plan
 
 **D-id:** D-MBX-A4 | **Commit:** 0f448730 (cherry-picked from worktree `worktree-agent-a1961cf1d2ca1db93` f5cdcbe8) | **Branch:** claude/lance-surrealdb-analysis-LXmug
