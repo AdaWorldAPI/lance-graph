@@ -73,6 +73,15 @@ jobs:
       # already-installed toolchain and Swatinem cache from above.
       - name: Run contract unit tests
         run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --lib
+      # Per PR #431 review: the `compile_fail` typestate proofs in
+      # `tests/cognition_typestate.rs` and the integration test bodies
+      # themselves were silently un-gated by `--lib`. Adding `--tests`
+      # picks up the integration crate; `--doc` picks up doctest /
+      # compile_fail blocks in library modules.
+      - name: Run contract integration tests
+        run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --tests
+      - name: Run contract doctests
+        run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --doc
 
   test-with-coverage:
     runs-on: ubuntu-24.04

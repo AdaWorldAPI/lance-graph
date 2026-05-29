@@ -67,6 +67,59 @@
 //! Same chain shape inside `Bulk` (warm path) and `Periodisch` (hot
 //! JIT path) — the context picks the call site per
 //! E-OP-THREE-CALLSITES-1 + E-TRANSACTION-CONTEXT-1.
+//!
+//! ## What the type system forbids (compile-fail proofs)
+//!
+//! These four `compile_fail` doctests live in lib-level rustdoc (not in
+//! `tests/`) so that `cargo test --doc` actually gates them. Per PR #431
+//! review (coderabbit Major): the original copies under
+//! `tests/cognition_typestate.rs` were silently un-gated because the
+//! crate's CI ran with `--lib` only. Keeping the gates here ensures any
+//! future visibility loosening or stage skip surfaces as a test failure.
+//!
+//! ```compile_fail
+//! use lance_graph_contract::cognition::*;
+//! use lance_graph_contract::cognition::entity::{OdooEntityRef, MailboxRow};
+//!
+//! // Cannot call .chk_data() / .review() / .abduct() on a Raw entity —
+//! // those methods only exist on later stages.
+//! let entity = NormalizedEntity::<Raw>::raw(
+//!     OdooEntityRef("account.move"),
+//!     MailboxRow { mailbox_ref: 0, row_idx: 0 },
+//! );
+//! // This must NOT compile: no method `review` on `NormalizedEntity<Raw>`.
+//! entity.review(todo!());
+//! ```
+//!
+//! ```compile_fail
+//! use lance_graph_contract::cognition::*;
+//!
+//! // Cannot pass a Normalized entity where Reviewed is expected — the
+//! // stage param is part of the type, so stage skipping is forbidden.
+//! fn _requires_reviewed(_: NormalizedEntity<Reviewed>) {}
+//!
+//! let entity: NormalizedEntity<Normalized> = panic!("never runs");
+//! _requires_reviewed(entity);
+//! ```
+//!
+//! ```compile_fail
+//! use lance_graph_contract::cognition::*;
+//!
+//! // Cannot call .op() on a Reported entity — the chain is closed after
+//! // .report(). `NormalizedEntity<Reported>` only has `.output()`.
+//! fn _calls_op_on_reported(entity: NormalizedEntity<Reported>) {
+//!     entity.op(todo!());
+//! }
+//! ```
+//!
+//! ```compile_fail
+//! use lance_graph_contract::cognition::stages::Stage;
+//!
+//! // Cannot implement Stage for a consumer-introduced type — the trait
+//! // is sealed via the private `sealed::Sealed` supertrait.
+//! struct MyStage;
+//! impl Stage for MyStage {}
+//! ```
 
 pub mod advance;
 pub mod cascade;
@@ -74,9 +127,9 @@ pub mod entity;
 pub mod op;
 pub mod stages;
 
+pub use cascade::{CascadeKind, CascadeWalker, TraversalMode};
 pub use entity::NormalizedEntity;
 pub use op::{Op, OpError, OpKind, Output};
 pub use stages::{
     Abducted, Checked, Normalized, Raw, Reported, Reviewed, Stage, WithDolce, WithOgit, WithOwl,
 };
-pub use cascade::{CascadeKind, CascadeWalker, TraversalMode};

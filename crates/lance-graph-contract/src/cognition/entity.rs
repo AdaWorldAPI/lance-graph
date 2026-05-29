@@ -10,8 +10,8 @@
 //! - Epiphanies: E-NORMALIZED-ENTITY-1, E-CODEBOOK-INHERITS-FROM-OGIT
 //! - PR #427 (thoughtspace columns, WitnessTable widening)
 
-use core::marker::PhantomData;
 use super::stages::{Raw, Stage};
+use core::marker::PhantomData;
 
 // ── MailboxRow ────────────────────────────────────────────────────────────────
 
@@ -149,37 +149,48 @@ pub struct NormalizedEntity<S: Stage = Raw> {
     // `&'static lance_graph_ontology::OdooEntity` (or moves the
     // type down to contract if the ontology crate can depend on
     // contract without a cycle).
-    pub odoo: OdooEntityRef,
+    //
+    // Field visibility is `pub(crate)` (not `pub`) to forbid external
+    // construction of arbitrary-stage entities — typestate is only safe
+    // if all writes go through the `advance_stage_internal` path. External
+    // read access is via the public getter methods on the impl below.
+    pub(crate) odoo: OdooEntityRef,
 
     /// OGIT URI resolved in the `WithOgit` stage.
     ///
-    /// `None` until `resolve_ogit` is called.
-    pub ogit: Option<OgitUriRef>,
+    /// `None` until `resolve_ogit` is called. `pub(crate)` per the
+    /// typestate-integrity rationale on `odoo` above.
+    pub(crate) ogit: Option<OgitUriRef>,
 
     /// OWL class hydrated in the `WithOwl` stage.
     ///
-    /// `None` until `hydrate_owl` is called.
-    pub owl: Option<OwlClassRef>,
+    /// `None` until `hydrate_owl` is called. `pub(crate)` per the
+    /// typestate-integrity rationale on `odoo` above.
+    pub(crate) owl: Option<OwlClassRef>,
 
     /// DOLCE upper-ontology category classified in the `WithDolce` stage.
     ///
-    /// `None` until `classify_dolce` is called.
-    pub dolce: Option<DolceCategory>,
+    /// `None` until `classify_dolce` is called. `pub(crate)` per the
+    /// typestate-integrity rationale on `odoo` above.
+    pub(crate) dolce: Option<DolceCategory>,
 
     /// FIBU/FIBO alignment frame populated in the `Normalized` stage.
     ///
-    /// `None` until `align_fibu` is called.
-    pub fibu: Option<FibuAlignmentRef>,
+    /// `None` until `align_fibu` is called. `pub(crate)` per the
+    /// typestate-integrity rationale on `odoo` above.
+    pub(crate) fibu: Option<FibuAlignmentRef>,
 
     /// Typed handle into the owning `MailboxSoA` row.
     ///
     /// The mailbox owns the actual SoA columns (edges / qualia / meta /
     /// entity_type); `NormalizedEntity` is a typed lens onto them.
     ///
+    /// `pub(crate)` per the typestate-integrity rationale on `odoo` above.
+    ///
     // TODO(Stage 2): in Stage 2 the advancement verbs also write back into
     // the mailbox's SoA fingerprint column with the resolved OGIT
     // identity, once `cognitive-shader-driver` is a hard dependency.
-    pub row: MailboxRow,
+    pub(crate) row: MailboxRow,
 
     /// Phantom stage marker. Zero size; never stored at runtime.
     _stage: PhantomData<S>,

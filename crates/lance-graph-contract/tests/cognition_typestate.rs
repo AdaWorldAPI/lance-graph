@@ -1,73 +1,23 @@
-//! Compile-fail tests for the cognition typestate (D-NEH-1e).
+//! Integration tests for the cognition typestate (D-NEH-1e).
 //!
-//! These tests document what the type system FORBIDS. The forbidden
-//! forms appear as `compile_fail` doctests in this file's module-level
-//! docs; the positive test functions below confirm that the PERMITTED
-//! forms compile and run correctly.
+//! The compile-fail proofs of what the type system FORBIDS live in
+//! [`crate::cognition`] module-level rustdoc (in `src/cognition/mod.rs`)
+//! so that `cargo test --doc` actually gates them. This file holds only
+//! the positive `#[test]` functions that confirm the PERMITTED forms
+//! compile and run correctly.
 //!
-//! ## What the type system forbids
-//!
-//! ```compile_fail
-//! use lance_graph_contract::cognition::*;
-//! use lance_graph_contract::cognition::entity::{OdooEntityRef, MailboxRow};
-//!
-//! // Cannot call .chk_data() / .review() / .abduct() on a Raw entity —
-//! // those methods only exist on later stages.
-//! let entity = NormalizedEntity::<Raw>::raw(
-//!     OdooEntityRef("account.move"),
-//!     MailboxRow { mailbox_ref: 0, row_idx: 0 },
-//! );
-//! // This line must NOT compile:
-//! // entity.review(todo!());  ← compile error: no method `review` on `NormalizedEntity<Raw>`
-//! ```
-//!
-//! ```compile_fail
-//! use lance_graph_contract::cognition::*;
-//! use lance_graph_contract::cognition::entity::{OdooEntityRef, MailboxRow};
-//!
-//! // Cannot call .abduct() on a Normalized entity —
-//! // must call .chk_data() first, then .review().
-//! // (illustrating that stage skipping is forbidden)
-//! //
-//! // This is enforced because `abduct` is only defined on `NormalizedEntity<Reviewed>`,
-//! // and there is no path from `Normalized` to `Reviewed` that skips `Checked`.
-//!
-//! fn _requires_reviewed(_: lance_graph_contract::cognition::entity::NormalizedEntity<Reviewed>) {}
-//! fn _requires_checked(_: lance_graph_contract::cognition::entity::NormalizedEntity<Checked>) {}
-//!
-//! let entity: NormalizedEntity<Normalized> = panic!("never runs");
-//! // Entity is Normalized, not Reviewed — this must NOT compile:
-//! _requires_reviewed(entity);  // ← compile error: mismatched types
-//! ```
-//!
-//! ```compile_fail
-//! use lance_graph_contract::cognition::*;
-//! use lance_graph_contract::cognition::entity::{OdooEntityRef, MailboxRow};
-//!
-//! // Cannot call .op() on a Reported entity — the chain is closed after .report().
-//! // `NormalizedEntity<Reported>` only has `.output()`.
-//!
-//! fn _requires_op_on_reported(
-//!     entity: lance_graph_contract::cognition::entity::NormalizedEntity<Reported>
-//! ) {
-//!     // This must NOT compile — no .op() method on Reported:
-//!     // entity.op(todo!());  ← compile error: no method `op` on `NormalizedEntity<Reported>`
-//! }
-//! ```
-//!
-//! ```compile_fail
-//! use lance_graph_contract::cognition::stages::{Stage, Raw};
-//!
-//! // Cannot implement Stage for a consumer-introduced type — the trait
-//! // is sealed via the private `sealed::Sealed` supertrait.
-//! struct MyStage;
-//! impl Stage for MyStage {}  // ← compile error: `Sealed` is not satisfied
-//! ```
+//! Per PR #431 review (coderabbit Major finding):
+//! `compile_fail` doctests in module-level `//!` comments of integration
+//! test files (`tests/*.rs`) are NOT picked up by `cargo test --doc` —
+//! `--doc` only runs rustdoc on library/binary targets, not integration
+//! crates. The earlier copies of those doctests in this file were
+//! therefore unenforced. They were moved into `src/cognition/mod.rs`
+//! where rustdoc reliably executes them.
 
 use lance_graph_contract::cognition::entity::{MailboxRow, OdooEntityRef, OgitUriRef};
 use lance_graph_contract::cognition::op::{Op, OpKind, Output};
 use lance_graph_contract::cognition::stages::*;
-use lance_graph_contract::cognition::{NormalizedEntity};
+use lance_graph_contract::cognition::NormalizedEntity;
 
 // ── Positive tests ────────────────────────────────────────────────────────────
 

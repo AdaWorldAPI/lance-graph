@@ -128,15 +128,29 @@ pub trait Op<I: Stage, O: Stage>: Sized + 'static {
 
     /// Inspect the entity at stage `I` + perform side-effects on the
     /// owning mailbox's SoA row via `entity.row`. Returns `Ok(())` to
-    /// signal "advance to stage `O`"; `Err(...)` halts the chain.
+    /// signal "advance to stage `O`"; `Err(...)` is intended to halt
+    /// the chain.
     ///
     /// Default: no-op success (always advance). Override to add
     /// validation logic or to write into the SoA columns.
     ///
     /// External Op implementors override ONLY `step` + `kind`. The
     /// stage transition itself is performed by the framework after
-    /// `step` returns `Ok` — implementors cannot construct
+    /// `step` returns — implementors cannot construct
     /// `NormalizedEntity<O>` directly.
+    ///
+    /// # Stage 1 halt semantics
+    ///
+    /// In Stage 1 the chain methods on `NormalizedEntity` (`op`,
+    /// `chk_data`, `review`, `abduct`, `report`) DISCARD the `Result`
+    /// returned by `step` — the entity advances regardless. This is
+    /// intentional: Stage 1 ships with `todo!()` kernel bodies that
+    /// would always panic before returning `Err`, so propagating
+    /// `Result` through the chain would be premature. Stage 2 wires
+    /// real `Result` propagation through the chain (D-NEH-2). Until
+    /// then, validation Ops that need to short-circuit must do so via
+    /// `panic!` or by returning a stage that has no further chain
+    /// methods (the type system then forbids advancement).
     fn step(&self, entity: &NormalizedEntity<I>) -> Result<(), OpError> {
         let _ = entity;
         Ok(())
