@@ -3,7 +3,7 @@
 
 //! Style-recipe derivation — the **interpretation step** from typed Odoo
 //! SoA (`OdooEntity` / `OdooMethod` / `OdooField` / `OdooDecorator`) into a
-//! cognitive-fingerprint [`StyleRecipe`] suitable for SoC synergy
+//! cognitive-fingerprint [`OdooStyleRecipe`] suitable for SoC synergy
 //! compilation and downstream Op-codegen.
 //!
 //! # Where this fits in the pipeline
@@ -15,7 +15,7 @@
 //!   Typed Rust SoA  ← extracted/{account,sale,…}.rs (OdooEntity[ ])
 //!     │  (THIS MODULE — interpretation, no new triplets stored)
 //!     ▼
-//!   StyleRecipe[ ]  ← cognitive fingerprint per method
+//!   OdooStyleRecipe[ ]  ← cognitive fingerprint per method
 //!     │              (atom weights + regulatory anchors + dispatch hints)
 //!     ▼
 //!   Askama bucket templates (next commit) → Rust Ops + const recipes
@@ -48,15 +48,47 @@
 //!
 //! # Determinism
 //!
-//! Pure function from `(&OdooEntity, &OdooMethod)` to [`StyleRecipe`]. No
+//! Pure function from `(&OdooEntity, &OdooMethod)` to [`OdooStyleRecipe`]. No
 //! allocation beyond the recipe's own `Vec`s. Atom order in the output is
 //! `DAtom` declaration order (the matching is by enum discriminant, not
 //! by hash). `recipe_id` is a content-addressed FNV-1a over the sorted
 //! atom-weight tuples — stable across runs, stable across machines.
+//!
+//! # Naming — NOT the contract `StyleRecipe`
+//!
+//! [`OdooStyleRecipe`] is deliberately named to NOT collide with
+//! `lance_graph_contract::recipe::StyleRecipe`. They are different layers:
+//!
+//! - `contract::recipe::StyleRecipe` — a RUNTIME cognition object over the
+//!   canonical 33-TSV / `I4x32` atom basis; composes into personas;
+//!   dispatches through `cognitive-shader-driver` (reduces to a dot
+//!   product). It is a thinking-style fingerprint.
+//! - `odoo_blueprint::OdooStyleRecipe` (this type) — a CODEGEN-TIME IR over
+//!   a SEPARATE, Odoo-specific 12-`DAtom` basis. Owned `String`/`Vec`,
+//!   never a runtime SoA row.
+//!
+//! The two `DAtom`/`Atom` bases must NEVER be fused: per
+//! `atom-basis-inventory.md`, **business is not a canonical atom** — it
+//! rides as an OGIT/`Marking::Financial` sidecar. The Odoo `DAtom` basis
+//! is a domain codegen basis, not a 13th canonical TSV dimension.
+//!
+//! # `recipe_id` is NOT an OGIT identity (FNV exemption)
+//!
+//! `E-CODEBOOK-INHERITS-FROM-OGIT` (EPIPHANIES.md) bans FNV-seeded /
+//! hashed IDs for **identity** — every row identity must resolve through
+//! `OntologyRegistry` (OGIT URI → stable codebook code). `recipe_id` is
+//! exempt because it is NOT an identity: it is an ephemeral
+//! content-addressed *collapse key* the dispatcher uses to deduplicate
+//! structurally-identical recipes at codegen time. It is never stored in
+//! the graph, never crosses a mailbox boundary, and never names a row.
+//! Two methods sharing a `recipe_id` share a generated Op body — that is
+//! the intended (and only) semantic. If `recipe_id` ever became a stored
+//! or transmitted identity, this exemption would no longer hold and it
+//! would have to route through `OntologyRegistry` instead.
 
 use crate::odoo_blueprint::{
-    OdooDecorator, OdooDecoratorKind, OdooEntity, OdooField, OdooFieldKind, OdooMethod,
-    OdooMethodKind, OdooReturnKind, OdooSemanticRole,
+    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooReturnKind,
+    OdooSemanticRole,
 };
 
 // ---------------------------------------------------------------------------
@@ -65,7 +97,7 @@ use crate::odoo_blueprint::{
 
 /// One basis vector of the cognitive-fingerprint space.
 ///
-/// A method's [`StyleRecipe`] is a sparse weighted vector over these
+/// A method's [`OdooStyleRecipe`] is a sparse weighted vector over these
 /// atoms. The 12 atoms span the Odoo-method dispatch axis; downstream SoC
 /// synergy compilation projects them into the runtime palette.
 ///
@@ -160,7 +192,7 @@ impl DAtom {
 }
 
 // ---------------------------------------------------------------------------
-// StyleRecipe — the cognitive fingerprint
+// OdooStyleRecipe — the cognitive fingerprint
 // ---------------------------------------------------------------------------
 
 /// Per-method cognitive fingerprint — a sparse weighted vector over
@@ -174,7 +206,7 @@ impl DAtom {
 /// to the same atom-weight set share the same recipe (a useful collapse
 /// for the dispatcher).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StyleRecipe {
+pub struct OdooStyleRecipe {
     /// Fully-qualified method id: `"account.move._compute_amount"`.
     pub method_id: String,
     /// Sorted, deduplicated `(atom, weight)` tuples. Sorted by atom enum
@@ -194,7 +226,7 @@ pub struct StyleRecipe {
     pub recipe_id: u32,
 }
 
-impl StyleRecipe {
+impl OdooStyleRecipe {
     /// Whether this recipe carries a regulatory-anchor signal. Codegen
     /// uses this to decide whether to emit the `// per <law>` doc-comment.
     #[must_use]
@@ -207,7 +239,7 @@ impl StyleRecipe {
 // Derivation — the deterministic projection
 // ---------------------------------------------------------------------------
 
-/// Project one method into its [`StyleRecipe`] given its parent entity.
+/// Project one method into its [`OdooStyleRecipe`] given its parent entity.
 ///
 /// # Derivation rules (priority cascade, atoms accumulate)
 ///
@@ -242,7 +274,7 @@ impl StyleRecipe {
 /// All weights are `max`-merged (the strongest signal wins per atom);
 /// zero-weight atoms drop out of the output `Vec`.
 #[must_use]
-pub fn derive_style_recipe(entity: &OdooEntity, method: &OdooMethod) -> StyleRecipe {
+pub fn derive_style_recipe(entity: &OdooEntity, method: &OdooMethod) -> OdooStyleRecipe {
     let mut weights: [u8; 12] = [0; 12];
 
     // 1. Structural anchor
@@ -321,8 +353,7 @@ pub fn derive_style_recipe(entity: &OdooEntity, method: &OdooMethod) -> StyleRec
     // 7. State-machine participation
     if let Some(sm) = entity.state_machine {
         let participates = sm.transitions.iter().any(|t| {
-            t.trigger == method.name
-                || t.guards.iter().any(|g| *g == method.name)
+            t.trigger == method.name || t.guards.contains(&method.name)
         });
         if participates {
             bump(&mut weights, DAtom::FiscalCtx, 6);
@@ -343,7 +374,7 @@ pub fn derive_style_recipe(entity: &OdooEntity, method: &OdooMethod) -> StyleRec
     let method_id = format!("{}.{}", entity.model_name, method.name);
     let recipe_id = fnv1a_recipe(&atoms);
 
-    StyleRecipe {
+    OdooStyleRecipe {
         method_id,
         atoms,
         regulation_iris,
@@ -357,8 +388,8 @@ pub fn derive_style_recipe(entity: &OdooEntity, method: &OdooMethod) -> StyleRec
 /// Output order: stable — sorted by `method_id` ascending. Two runs
 /// produce byte-identical Vecs.
 #[must_use]
-pub fn derive_corpus_recipes(entities: &[&OdooEntity]) -> Vec<StyleRecipe> {
-    let mut recipes: Vec<StyleRecipe> = entities
+pub fn derive_corpus_recipes(entities: &[&OdooEntity]) -> Vec<OdooStyleRecipe> {
+    let mut recipes: Vec<OdooStyleRecipe> = entities
         .iter()
         .flat_map(|e| {
             e.methods
@@ -482,7 +513,7 @@ mod tests {
         }
     }
 
-    fn weight_of(recipe: &StyleRecipe, atom: DAtom) -> u8 {
+    fn weight_of(recipe: &OdooStyleRecipe, atom: DAtom) -> u8 {
         recipe
             .atoms
             .iter()
