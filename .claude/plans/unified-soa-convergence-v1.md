@@ -377,7 +377,7 @@ This is exactly the re-encode boundary R1 forbids: the planner reads its own DTO
 
 ### Phase P0 — design ratification (this plan)
 
-- **Status:** in PR (this one).
+- **Status:** SHIPPED in PR #434 (merged 2026-05-29; see post-merge review addendum at `.claude/plans/unified-soa-convergence-v1-addendum-2026-05-29-review.md`).
 - **Output:** unified-soa-convergence-v1.md (this file) + handover doc + epiphany pointers.
 
 ### Phase P1 — prerequisites
@@ -672,7 +672,7 @@ D-MBX-11 (Lance 6.0.1) ───────────────────
   - PR #417 — `E-CONTRACT-NO-SERIALIZE-2` correction (shipped).
   - PR #418 — bindspace-singleton-to-mailbox-soa migration spec (shipped; this plan extends).
   - PR #433 — `style_recipe` D-Atom + epiphany-brainstorm-council + 5 savant cards (shipped).
-  - PR (this one) — unified-soa-convergence-v1 + handover.
+  - PR #434 — unified-soa-convergence-v1 + handover (shipped 2026-05-29; review addendum at `.claude/plans/unified-soa-convergence-v1-addendum-2026-05-29-review.md`).
 
 ---
 

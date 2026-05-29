@@ -617,7 +617,9 @@ hot/cold/feedback loop onto our contract types + SoA floor
 
 ## unified-soa-convergence-v1 — ONE LE SoA end-to-end across 9 consumers + version gate + Lance 6.0.1 stack + 4-phase Rubicon kanban
 
-Plan path: `.claude/plans/unified-soa-convergence-v1.md`. Handover `.claude/handovers/2026-05-29-1825-soa-convergence-author-to-impl.md`. Epiphany `E-SOA-IS-THE-ONLY` (+ §11.3/4/6 refinements).
+> **Plan P0 status:** SHIPPED in PR #434 (merged 2026-05-29). Deliverable rows below remain Queued; they ship in follow-up PRs per phase sequencing.
+
+Plan path: `.claude/plans/unified-soa-convergence-v1.md`. Handover `.claude/handovers/2026-05-29-1825-soa-convergence-author-to-impl.md`. Review addendum `.claude/plans/unified-soa-convergence-v1-addendum-2026-05-29-review.md`. Epiphany `E-SOA-IS-THE-ONLY` (+ §11.3/4/6 refinements).
 
 | D-id | Title | Crate(s) | ~LOC | Risk | Status | PR / Evidence |
 |---|---|---|---|---|---|---|
