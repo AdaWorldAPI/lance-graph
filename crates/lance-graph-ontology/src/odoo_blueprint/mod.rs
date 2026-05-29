@@ -76,6 +76,14 @@ pub mod l15;
 // D-ODOO-EXT-5's `extracted::pairing`.
 pub mod extracted;
 
+// ─── Cognitive-fingerprint derivation (Odoo-static interpretation) ─────────
+//
+// Reads typed OdooEntity / OdooMethod / OdooField SoA into per-method
+// StyleRecipes (sparse D-Atom weight vectors + regulatory anchors) for
+// downstream SoC synergy compilation. See style_recipe::derive_style_recipe
+// for the cascade rules.
+pub mod style_recipe;
+
 // ─── Top-level entity ─────────────────────────────────────────────────────
 
 /// Which ORM base class the entity inherits from.

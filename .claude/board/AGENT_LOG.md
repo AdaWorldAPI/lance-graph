@@ -1,3 +1,17 @@
+## [SavantPattern / Opus 4.8] style_recipe — D-Atom interpretation step
+
+**Branch:** claude/activate-lance-graph-att-k2pHI | **Files:**
+- `crates/lance-graph-ontology/src/odoo_blueprint/style_recipe.rs` (+~600 LOC, post-review)
+- `crates/lance-graph-ontology/src/odoo_blueprint/mod.rs` (+1 line, `pub mod style_recipe`)
+
+**Tests:** `cargo test -p lance-graph-ontology --lib odoo_blueprint::style_recipe` → 13/13 passed (d_atom_ids_unique_and_stable, all_matches_discriminant_order, every_recipe_carries_entity_anchor, compute_method_gets_compute_atom, constrain_method_gets_validate_atom, money_return_emits_both_money_and_emit_amount, action_return_boosts_action_atom, field_cross_reference_lifts_field_kind_atoms, regulation_iri_lifts_law_atom_and_anchors, recipe_id_is_deterministic_and_collapses_identical_shapes, recipe_id_differs_when_atoms_differ, corpus_derivation_is_sorted_and_deterministic, shipped_corpus_resolves_kind_driven_atoms_today). Type renamed `StyleRecipe` → `OdooStyleRecipe` (PR #433 dto-soa-savant: avoid collision with `contract::recipe::StyleRecipe`).
+
+**Outcome:** DONE. The Odoo-static interpretation layer is in place. 12-variant `DAtom` catalogue + `StyleRecipe { method_id, atoms, regulation_iris, return_kind, recipe_id }` + 7-rule deterministic cascade + content-addressed FNV-1a `recipe_id` for dispatcher collapse. Shipped-corpus test honest-flags the Stage-2 gap: 5 atoms fire today (Entity/Compute/Validate/Onchange/Action), 6 are gated on Stage-2 extractor enrichment (Money/Quantity/ApplyRate/EmitAmount/Event/FiscalCtx).
+
+**Review pattern:** built with `/// work` markers → opus-4.8 reviewer (code-only, no cargo per disk-pressure constraint) → orchestrator-run cargo verify.
+
+---
+
 ## [Sonnet agent + main-thread fixup] PR #431 review wave — 9/11 review findings applied
 
 Addressed Codex P1 + P2 and 6 CodeRabbit findings on the
