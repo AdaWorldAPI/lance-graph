@@ -423,3 +423,86 @@ append-only findings; no prior section has been modified.
 - **OQ-MBX-8** — `persisted_row` stub vs Lance native versioning (load-bearing; evidence at `REFACTOR_NOTES.md:129` + `driver.rs:458`).
 
 - **OQ-MBX-15′** — container scoping: per-cognitive-cycle, per-shader-dispatch, or per-mailbox-cohort?
+
+---
+
+## §11 — 2026-05-29 architectural rulings (post-PR-#433 sync; D-MBX-A1 columns landed)
+
+User-stated rulings layering on top of §2.5/§2.7/§10. Recorded directly (not via `epiphany-brainstorm-council` shipped in PR #433) because they are author-stated, not derived.
+
+### §11.1 — THE one SoA is never *transformed*, only *operated on* (and that's the 1.4–4.2× SIMD payoff)
+
+> *"The same SoA is the one and only SoA consumed and transmitted everywhere, never transformed, only [operated on] through cognitive-shader thinking or cold path or AriGraph Markov chain context building. Any change in any mailbox SoA is the only hot-path activity."*
+
+- **The single mailbox SoA is the universal carrier across the whole stack.** It is *never re-encoded into a different shape.* Three operations are allowed on it — they are *operations*, not transforms:
+  1. **Cognitive-shader thinking** (the hot path: `apply_edges` / `emit` over the per-row columns).
+  2. **Cold path** (LanceDB read/write: same bytes — see §2.5).
+  3. **AriGraph Markov-chain context-building** (read-only consumer of the SoA columns for context windows).
+- **"Any change in any mailbox SoA = the only hot-path activity."** That equivalence is now the definition: if it is not a mutation of mailbox SoA bytes, it is not the hot path. Anything else (DTO, RecordBatch translation, JSON, etc.) is a re-encode boundary that violates §2.5 and must be collapsed or made out-of-scope.
+- **Today's `crates/lance-graph` containers are *cold-path-adjacent thinking*** — only *accidentally* aligned to the SoA shape, not by design. They look in roughly the same direction; they are not the same contract. The realignment work (next bullet) makes that intentional.
+- **SoA-as-lance-graph-containers + `ndarray::simd_soa.rs` alignment = 1.4–4.2× SIMD acceleration.** Today this is a nice-to-have. **It becomes a hard prerequisite** the moment SurrealDB needs a transparent view of LE-contract SoA mailbox content (§2.7 + §11.3): the view is only zero-copy / re-encode-free when the lance-graph container layout *is* the mailbox SoA layout. Filing the prereq as **`D-MBX-7`**.
+
+### §11.2 — Mailbox = the *full* BindSpace, reinvented as LE — witness is the belief-state arc
+
+> *"The mailbox needs to have everything that BindSpace had, reinvented as little-endian contract — so instead of a mushy `Vsa16kF32` it needs to be expressive enough so that, in connection with the witness, the witness is the belief-state arc; while `CausalEdge64` across a belief-state arc would implicitly document if NARS frequency and confidence would increase."*
+
+- **Expressivity target:** the mailbox SoA must carry *everything BindSpace had* — but as **LE-contract types** (`CausalEdge64`, `QualiaI4_16D`, `MetaWord`, i4/u8/u16/u32/u64 columns), never as the mushy `Vsa16kF32` resonance carrier. (D-MBX-A1 already landed `edges` / `qualia` / `meta` / `entity_type` per the current `mailbox_soa.rs`; D-MBX-A2 must close any remaining BindSpace-expressivity gaps — content-ref, temporal/expert fold, S/P/O role slices — see §3 and OQ-1/OQ-2.)
+- **Witness = belief-state arc** (the *sequence* of `CausalEdge64` emissions a row produces over its life — the **`CollapseGateEmission` arc**, not a single edge). The arc *implicitly documents* NARS revision because `CausalEdge64.confidence_u8` and `inference_mantissa` are stamped per emission; reading the arc gives a monotone-or-not trace of `(frequency, confidence)` evolution. **No separate "revision log" column is needed** — the witness arc *is* the revision log.
+- **Iron rule (proposed):** the per-row witness arc IS the row's belief state — never a parallel struct. If you need the row's NARS history, you traverse its `CausalEdge64` arc; if you need its current truth, you read the *last* edge.
+
+### §11.3 — Libet wall-clock: −550 ms ratification; Rubicon kanban in **surrealkv-on-lance**
+
+> *"Any mailbox lives in Libet's and Heckhausen's Rubicon model aligned: planning phase as counterfactual, committing the goal at −550 ms, and doing a veto / goalstate re-evaluation via ractor mailbox triggering the Rubicon kanban in surrealkv on lance."*
+
+Concretises the timing of `E-RUBICON-RACTOR`:
+
+| Heckhausen phase | Mailbox state | Wall-clock |
+|---|---|---|
+| Pre-decisional (deliberation, **counterfactual**) | energy integrates; no commit; alternatives explored under `InferenceType::Counterfactual` | t < −550 ms before action |
+| **Crossing the Rubicon** (intention forms — irreversible volition) | **Σ10 commit** stamped: `ΔF < threshold ∧ resonance > Rubicon-bar` → ractor START | **t = −550 ms** (Libet readiness-potential anchor) |
+| Pre-actional / actional | ractor running the action; baton emits; mailbox-SoA mutates (the only hot-path activity, §11.1) | −550 ms ≤ t < 0 ms |
+| Post-actional evaluation | ractor STOP; tombstone-witness persists | t > 0 ms |
+
+- The **−550 ms** anchor names *when* in wall-clock the irreversible commit occurs — derived from Libet's measured readiness-potential lead time (~550 ms before reported conscious decision).
+- **Libet "free won't" / veto** = before −550 ms, the CollapseGate can preempt the mailbox to zero (ghost-tier preempt; `E-LADDER-SERVES-MAILBOX` §5). After −550 ms, the act is committed — only post-actional revision is left.
+- **Goalstate re-evaluation** = the ractor mailbox triggers a re-deliberation cycle (re-enter pre-decisional with the post-actional witness folded in); this triggers the **Rubicon kanban move** in the storage view (next bullet).
+- **The Rubicon kanban lives in `surrealkv` on lance** — `surrealkv` is the SurrealDB on-kv-lance backend (the *view* over leading LanceDB storage, §2.7). The kanban is a SurrealDB query over the LanceDB-stored thoughts, columns = action phases (deliberation | crossed | actional | evaluated). Ractor lifecycle transitions map 1:1 to kanban column moves.
+
+### §11.4 — SPO-W witness is a *pointer*, not stored data — via the belief-state-arc array
+
+> *"The SPO-W witness is the pointer via the AriGraph episodic / belief-state arc array inside the SoA and/or kanban and/or mailbox index, and the SoA then decides if it commits itself as facts with witness in other mailboxes and/or the cold-path facts."*
+
+- **SPO-W witness ≠ a fact payload; it is a *pointer*** into the belief-state arc array. The pointer can live in three equivalent locations:
+  1. Inside the mailbox **SoA** (an arc-index column / per-row `[u32; W]` arc handle).
+  2. Inside the **kanban** (`surrealkv`-on-lance view) row.
+  3. Inside the **mailbox index** (the sea-star registry of live mailboxes).
+- **Whose commit?** *The SoA itself decides* whether to commit a belief as a fact-with-witness either (a) into **other mailboxes** (inter-mailbox baton handoff carrying the witness pointer) or (b) into the **cold-path facts** (LanceDB SPO-G calcification with the witness pointer linking back to the arc).
+- This makes SPO-W *resolvable without storage redundancy*: the witness lives where the arc lives (mailbox row), and the SPO-G fact carries only the pointer.
+
+### §11.5 — Counterfactual Staunen and Wisdom = plasticity spreaders
+
+> *"Counterfactual Staunen and Wisdom should become helpers of spreading plasticity."*
+
+- `Staunen` and `Wisdom` are already qualia markers (cf. The Click: *"Magnitude = Contradiction depth from Staunen × Wisdom qualia"*; `E-LADDER-SERVES-MAILBOX`).
+- **New role:** when a mailbox is in the counterfactual phase (§11.3 pre-Rubicon), high Staunen × Wisdom *spreads* plasticity beyond the focal row — bumping `plasticity_counter` on adjacent rows (Hebbian spread). Today plasticity increments only on the receiving row (`mailbox_soa.rs:144` `apply_edges`); under this rule, counterfactual-tagged Staunen-or-Wisdom-elevated emissions seed a small spread radius.
+- **Hot-path-only.** Spreading happens in the mailbox SoA mutation (per §11.1); never in a separate side-channel.
+- **Mechanics deferred** to `D-MBX-A4` (Staunen/Wisdom plasticity-spreader) — open question: radius, decay, and whether the spread is column-local (within one mailbox) or routed via baton (inter-mailbox).
+
+### New deliverables from §11
+
+| D-id | Title | Owner | Status |
+|---|---|---|---|
+| **D-MBX-A2** | Close BindSpace-expressivity gaps in `MailboxSoA<N>` (content-ref column; temporal/expert fold per OQ-1/OQ-2; S/P/O role slices); LE only | cognitive-shader-driver + contract | **Queued** (follows D-MBX-A1 columns) |
+| **D-MBX-A3** | Witness-arc column: per-row `[u32; W]` arc handle into the belief-state arc; reading the arc gives the NARS revision trace (no separate log column) | cognitive-shader-driver | **Queued** |
+| **D-MBX-A4** | Counterfactual Staunen/Wisdom plasticity spreader (radius/decay TBD; hot-path-only) | cognitive-shader-driver | **Queued — design** |
+| **D-MBX-7** | `lance-graph` container layout = `MailboxSoA` layout = `ndarray::simd_soa.rs` aligned → enables zero-copy SurrealDB view + the 1.4–4.2× SIMD payoff | lance-graph + ndarray | **Queued — prerequisite for §2.7 D-MBX-6** |
+| **D-MBX-8** | Libet −550 ms timing anchor wired into `SigmaTierRouter` (Rubicon commit stamp) + ractor START/STOP scheduler | sigma-tier-router + ractor outer-swarm | **Queued** |
+| **D-MBX-9** | Rubicon kanban = `surrealkv`-on-lance view (deliberation \| crossed \| actional \| evaluated) backed by ractor lifecycle | surreal_container (view layer) + ractor | **Queued — blocks on `surreal_container` BLOCKED(A/B/C/D)** |
+| **D-MBX-A5** | SPO-W witness pointer column (arc-handle / mailbox-index dual residency); commit decision in SoA, not in a side service | cognitive-shader-driver + AriGraph SPO-G | **Queued** |
+
+### Open questions added in §11
+
+- **OQ-11.1** — radius/decay of the Staunen×Wisdom counterfactual plasticity spread (column-local vs baton-routed).
+- **OQ-11.2** — witness-arc width `W` (how many `CausalEdge64` emissions per row before rotation/eviction).
+- **OQ-11.3** — kanban column states beyond the 4 Heckhausen phases (need a "vetoed" column? a "ghosted" column for preempts?).
+- **OQ-11.4** — `simd_soa.rs` alignment: do we need `#[repr(C, align(64))]` on `MailboxSoA`, or is the `SoaColumns` discipline (already shipped in `ndarray` `547824bc`) enough?
