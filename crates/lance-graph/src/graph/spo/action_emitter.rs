@@ -243,10 +243,7 @@ fn compose_spec(fn_id: &str, idx: &TripleIndex) -> ActionSpec {
 
     // `effects` must materialize as a Vec at the end, but we also iterate it
     // to drive `inputs` below — borrow the source set, then collect once.
-    let effects_set: &BTreeSet<String> = idx
-        .emits_by_fn
-        .get(fn_id)
-        .unwrap_or(&EMPTY_SET);
+    let effects_set: &BTreeSet<String> = idx.emits_by_fn.get(fn_id).unwrap_or(&EMPTY_SET);
 
     let mut inputs: BTreeSet<String> = BTreeSet::new();
     for effect in effects_set {
@@ -270,8 +267,7 @@ fn compose_spec(fn_id: &str, idx: &TripleIndex) -> ActionSpec {
 /// each element once (vs `.cloned().unwrap_or_default()` which clones the
 /// entire tree before re-collecting).
 fn collect_sorted(set: Option<&BTreeSet<String>>) -> Vec<String> {
-    set.map(|s| s.iter().cloned().collect())
-        .unwrap_or_default()
+    set.map(|s| s.iter().cloned().collect()).unwrap_or_default()
 }
 
 /// Singleton empty set so `compose_spec` can borrow a reference for the
@@ -398,12 +394,15 @@ mod tests {
         );
         assert_eq!(cm.raises, vec!["exc:UserError".to_string()]);
         assert_eq!(cm.reads, vec!["odoo:account_move.currency_id".to_string()]);
-        assert_eq!(
-            cm.traverses,
-            vec!["odoo:account_move.line_ids".to_string()]
+        assert_eq!(cm.traverses, vec!["odoo:account_move.line_ids".to_string()]);
+        assert!(
+            !cm.is_pure_compute(),
+            "raises non-empty disqualifies pure compute"
         );
-        assert!(!cm.is_pure_compute(), "raises non-empty disqualifies pure compute");
-        assert!(!cm.is_pure_guard(), "effects non-empty disqualifies pure guard");
+        assert!(
+            !cm.is_pure_guard(),
+            "effects non-empty disqualifies pure guard"
+        );
         assert!(!cm.is_trivial());
     }
 
@@ -435,7 +434,11 @@ mod tests {
     fn emit_non_trivial_drops_empties() {
         let mut t = fixture();
         // Add a function with no edges at all.
-        t.push(triple("odoo:account_move._stub", "rdf:type", "ogit:Function"));
+        t.push(triple(
+            "odoo:account_move._stub",
+            "rdf:type",
+            "ogit:Function",
+        ));
 
         let all = emit_actions(&t);
         let non_trivial = emit_non_trivial_actions(&t);
@@ -445,7 +448,9 @@ mod tests {
             "stub should appear in full output"
         );
         assert!(
-            !non_trivial.iter().any(|s| s.id == "odoo:account_move._stub"),
+            !non_trivial
+                .iter()
+                .any(|s| s.id == "odoo:account_move._stub"),
             "stub should be filtered from non_trivial output"
         );
     }
@@ -493,7 +498,10 @@ mod tests {
 
     #[test]
     fn family_of_handles_dotted_iri() {
-        assert_eq!(family_of("odoo:account_move._compute_amount"), "account_move");
+        assert_eq!(
+            family_of("odoo:account_move._compute_amount"),
+            "account_move"
+        );
         assert_eq!(family_of("odoo:res_partner.name"), "res_partner");
         assert_eq!(family_of("odoo:standalone"), "standalone");
         // No `odoo:` prefix — IRI returned as-is up to the first dot.
@@ -522,7 +530,10 @@ mod tests {
             triple("odoo:m.unrelated", "depends_on", "odoo:m.something"),
         ];
         let specs = emit_actions(&triples);
-        let g = specs.iter().find(|s| s.id == "odoo:m._guard").expect("guard");
+        let g = specs
+            .iter()
+            .find(|s| s.id == "odoo:m._guard")
+            .expect("guard");
         assert!(g.effects.is_empty(), "no emitted_by ⇒ no effects");
         assert!(
             g.inputs.is_empty(),

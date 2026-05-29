@@ -169,9 +169,7 @@ pub fn split_chain(path: &str) -> Option<LinkChain> {
 /// hops, leaf)` and deduplicated. Re-running on the same input produces
 /// byte-identical output.
 #[must_use]
-pub fn split_all_depends_on(
-    triples: &[OntologyTriple],
-) -> BTreeMap<String, Vec<LinkChain>> {
+pub fn split_all_depends_on(triples: &[OntologyTriple]) -> BTreeMap<String, Vec<LinkChain>> {
     let mut by_source: BTreeMap<String, Vec<LinkChain>> = BTreeMap::new();
     for t in triples {
         if t.p != "depends_on" {

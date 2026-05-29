@@ -120,17 +120,18 @@ mod tests {
         use std::collections::BTreeMap;
         let mut hist: BTreeMap<&str, usize> = BTreeMap::new();
         for t in parse_triples(ONTOLOGY) {
-            *hist.entry(match t.p.as_str() {
-                "rdf:type" => "rdf:type",
-                "depends_on" => "depends_on",
-                "has_function" => "has_function",
-                "emitted_by" => "emitted_by",
-                "reads_field" => "reads_field",
-                "raises" => "raises",
-                "traverses_relation" => "traverses_relation",
-                _ => "other",
-            })
-            .or_default() += 1;
+            *hist
+                .entry(match t.p.as_str() {
+                    "rdf:type" => "rdf:type",
+                    "depends_on" => "depends_on",
+                    "has_function" => "has_function",
+                    "emitted_by" => "emitted_by",
+                    "reads_field" => "reads_field",
+                    "raises" => "raises",
+                    "traverses_relation" => "traverses_relation",
+                    _ => "other",
+                })
+                .or_default() += 1;
         }
         // Provenance-authoritative edge classes are present and non-trivial.
         assert_eq!(hist.get("depends_on"), Some(&6309));
