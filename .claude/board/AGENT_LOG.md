@@ -1,3 +1,18 @@
+## [Main thread / Opus 4.8] op_emitter — Phase 2 bucket-dispatch codegen (SoA → Foundry SoC)
+
+**Branch:** claude/activate-lance-graph-att-k2pHI | **Files:**
+- `crates/lance-graph-ontology/src/odoo_blueprint/op_emitter.rs` (+400 LOC new)
+- `crates/lance-graph-ontology/src/odoo_blueprint/mod.rs` (+8 lines, `pub mod op_emitter` + comment block)
+
+**Commit:** `63f3e2ca`
+**Tests:** 12/12 passed (`bucket_corpus_empty_input_produces_empty_vec`, `bucket_corpus_no_methods_entity_produces_empty_vec`, `bucket_corpus_groups_three_methods_into_correct_kinds`, `bucket_corpus_method_id_matches_entity_dot_method`, `emit_op_dispatch_empty_produces_valid_header_only_rust`, `emit_op_dispatch_produces_struct_and_static_for_each_kind`, `emit_op_dispatch_recipe_const_present_for_each_unique_id`, `emit_op_dispatch_deterministic_across_calls`, `emit_op_dispatch_recipe_dedup_collapses_identical_profiles`, `emit_op_dispatch_ops_sorted_by_recipe_id_then_method_id`, `kind_ord_is_injective_over_all_variants`, `kind_ord_roundtrips_via_from_ord`). Total lance-graph-ontology: 230/230 green.
+
+**D-ids:** D-ODOO-OP-1 (**Shipped**)
+
+**Outcome:** DONE. Phase 2 of the Odoo SoA → Foundry SoC pipeline. `bucket_corpus` groups `OdooStyleRecipe` corpus by semantic `OdooMethodKind` (10-variant: Compute/Inverse/Constrain/Onchange/Action/Cron/ApiModel/ApiModelCreateMulti/Override/Helper). `emit_op_dispatch` emits deterministic compilable Rust: per-unique-recipe_id `RECIPE_<HEX8>: u32` consts + per-kind `<Pascal>Op { method_id, recipe_id }` struct + `static <UPPER>_OPS: &[<Pascal>Op]` slice. Recipe dedup: identical DAtom weight vectors collapse to one `RECIPE_*` const (many-to-one method→recipe mapping preserved in the static slice). Output is zero-dep Rust — no imports needed in the emitted file; consumers write it to `OUT_DIR` and `include!()`. Deterministic by construction: buckets in declaration order, within each bucket sorted by recipe_id then method_id.
+
+---
+
 ## [SavantPattern / Opus 4.8] style_recipe — D-Atom interpretation step
 
 **Branch:** claude/activate-lance-graph-att-k2pHI | **Files:**
