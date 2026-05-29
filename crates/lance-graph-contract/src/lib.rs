@@ -39,6 +39,7 @@ pub mod atoms;
 pub mod auth;
 pub mod callcenter;
 pub mod cam;
+pub mod codegen_spine;
 pub mod cognitive_shader;
 pub mod collapse_gate;
 pub mod container;

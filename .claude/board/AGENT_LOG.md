@@ -1,3 +1,16 @@
+## [SavantPattern / Opus] codegen_spine — four canonical contracts hardening triplets→codegen→askama→GUI
+
+**Branch:** claude/stage2-plans-spo-nars-elixir | **Files:** `crates/lance-graph-contract/src/codegen_spine.rs` (+565 lines new), `crates/lance-graph-contract/src/lib.rs` (+1 line, `pub mod codegen_spine`)
+**Tests:** `cargo test -p lance-graph-contract --lib codegen_spine` → 6/6 passed (lossless_projection_passes_roundtrip, lossy_projection_fails_roundtrip, odoo_method_kind_ids_are_unique_and_stable, route_bucket_trait_compiles_with_concrete_impl, widget_render_trait_compiles_with_dummy_impl, genericity_marker_distinguishes_codegen_targets). `cargo check -p lance-graph-contract --lib` → `Finished dev` 0 errors.
+**Outcome:** DONE. Four traits land the user's hardening direction "triplets <> static codegen <> askama route SoC <> askama gui shape":
+  1. `TripletProjection` + `roundtrip_eq` — build-time gate that any const projection round-trips losslessly (set-eq on (s,p,o) + truth tolerance on (f,c)).
+  2. `OdooMethodKind` (16 variants, stable snake_case ids, `ALL` array, `from_id` lookup) + `RouteBucket` trait — one canonical bucket enum, all downstream layers consume it, type-system enforces exhaustiveness when a 17th opening lands.
+  3. `WidgetRender<B: RouteBucket>` — askama widget templates take a typed bucket, never raw triples; re-classification visible at the type surface.
+  4. `Genericity { Agnostic, Domain }` marker — explicit "what NOT to codegen" boundary (Agnostic = read triples at runtime, Domain = emit consts).
+Zero new dependencies (std-only: BTreeMap, BTreeSet, fmt, std::any::type_name); ~565 LOC including 6 tests; preserves the lance-graph-contract "ZERO DEPS" invariant.
+
+---
+
 ## [Agent-A4 / Sonnet] D-MBX-A4 — append §10 architectural refinements to bindspace→mailbox plan
 
 **D-id:** D-MBX-A4 | **Commit:** 0f448730 (cherry-picked from worktree `worktree-agent-a1961cf1d2ca1db93` f5cdcbe8) | **Branch:** claude/lance-surrealdb-analysis-LXmug
