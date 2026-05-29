@@ -53,6 +53,28 @@ clean. `cargo test --lib` 472 green. `cargo test --test cognition_typestate`
 Created `cognition::{stages, entity, op, advance, cascade}` + `transaction::{interactive, bulk, periodisch, ctx}` modules in `lance-graph-contract` — the typed consumer pipeline grammar per `.claude/plans/normalized-entity-holy-grail-v1.md`. All advancement verbs past `resolve_ogit` have `todo!()` bodies flagged with `// TODO(Stage 2):` markers for Stage 2 wiring (markers were `/// work` in the original scaffold; converted to `// TODO(Stage 2):` in the main-thread review-strip pass that followed). Compile-fail tests in `tests/cognition_typestate.rs` plus 7 passing positive tests document the typestate gate.
 
 **Branch:** `claude/normalized-entity-holy-grail-v1`, prior commit `1695a9a` (plan). commit `b96baf3`. `cargo check -p lance-graph-contract` clean (0 errors); `cargo test -p lance-graph-contract --lib` green (472 tests); `cargo test -p lance-graph-contract --test cognition_typestate` green (7 tests).
+## [SavantPattern / Opus 4.8] Foundry-shape SPO emitters + codegen_spine — deliverables 1+2
+
+**Branch:** claude/activate-lance-graph-att-k2pHI | **Files:**
+- `crates/lance-graph-contract/src/codegen_spine.rs` (+565 lines new), `crates/lance-graph-contract/src/lib.rs` (+1 line `pub mod codegen_spine`)
+- `crates/lance-graph/src/graph/spo/odoo_ontology.rs` (+170 lines), `odoo_ontology.spo.ndjson` (+2.5 MB data, 22245 triples)
+- `crates/lance-graph/src/graph/spo/action_emitter.rs` (+540 lines), `link_chain.rs` (+440 lines), `mod.rs` (+3 lines)
+- `.claude/knowledge/foundry-workshop-elixir-rust-evaluation.md`, `semantic-operational-handbook-v0.1.md`
+
+**Tests (orchestrator-verified):**
+- `cargo test -p lance-graph-contract --lib codegen_spine` → 6/6 (lossless/lossy roundtrip, OdooMethodKind id stability, RouteBucket trait, WidgetRender trait, Genericity marker).
+- `cargo test -p lance-graph --lib graph::spo::odoo_ontology` → 4/4 (parse, predicate histogram, store loading, emitted_by edge).
+- `cargo test -p lance-graph --lib graph::spo::action_emitter` → 9/9 (synthetic fixture + shipped ontology 3328 functions).
+- `cargo test -p lance-graph --lib graph::spo::link_chain` → 10/10 (5-hop decomposition + shipped ontology 6309 depends_on, 0 malformed).
+
+**Outcome:** DONE. Three deterministic emitters landing the user's hardening direction "triplets <> static codegen <> askama route SoC <> askama gui shape":
+
+1. **codegen_spine** — four canonical traits (`TripletProjection` + `roundtrip_eq`, `OdooMethodKind` + `RouteBucket`, `WidgetRender<B>`, `Genericity { Agnostic, Domain }`). Zero new dependencies, std-only.
+2. **odoo_ontology** — SPO loader for the 22245-triple Foundry-shape Odoo extraction. NARS truth values, identity-by-name fingerprints.
+3. **action_emitter** — `Vec<ActionSpec>` per function, composing `emitted_by`/`depends_on`/`raises`/`reads_field`/`traverses_relation`. 3328 actions from shipped data.
+4. **link_chain** — `LinkChain { source_family, hops, leaf }` decomposition of flat dotted `depends_on` paths. String-only at this layer (target-ObjectType resolution stays in consumer crate to keep crate graph acyclic).
+
+**Review pattern:** each module went through build (with `/// work` markers) → opus-4.8 reviewer pass (idiomatic Rust, test coverage, marker removal) → orchestrator-run cargo verify. Reviewer-1 eliminated 4 `BTreeSet::cloned()` allocations + 2 edge-case tests; Reviewer-2 collapsed two-pass validation to single-loop + 1 `compute_stats` coverage test + 4 malformed-input assertions.
 
 ---
 
