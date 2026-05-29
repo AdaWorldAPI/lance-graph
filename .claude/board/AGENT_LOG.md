@@ -744,3 +744,28 @@ impl'd with gap columns nullable + structurally-capped confidence until feeds la
 **No code path changed. No `.rs` / `Cargo.toml` / `build.rs` / `data/` touched. Read-only review + appends + one new handover doc.**
 
 **Cross-ref:** PR #418 (open), PR #419 (open), `EPIPHANIES.md` `E-RUBICON-RACTOR` + `E-MAILBOX-IS-BINDSPACE` + `E-SURREAL-POC-UNANNOTATED-SUPERSEDURE`, plans listed in §3 of the handover doc.
+
+## [main / Opus] [REVIEW + REFINE] unified-soa-convergence-v1 post-merge review (2026-05-29)
+PR #434 merged → activate branch fast-forwarded to 1186dfd (absorbing #430-#434).
+Reviewed `.claude/plans/unified-soa-convergence-v1.md` end-to-end + the handover
+`2026-05-29-1825-soa-convergence-author-to-impl.md`. Verdict: sound spec, strong
+five-ruling structure, good gating; landed 6 targeted refinements + 1 flagged-for-
+ratification note as in-plan edits (no new D-id, no behavior change):
+ 1. **§9 P4/P6:** moved D-MBX-A5 to P6 — §10 gates it on D-MBX-4 (P6), so the P4
+    placement contradicted §10. Bug.
+ 2. **§14 graph:** removed A5 from the A4→A5→D-MBX-2 chain; added the A5→D-MBX-4
+    edge consistent with §10. Bug.
+ 3. **§15 PRs:** added PR #419 (savant AXIS-B carve-out) — downstream §2.7 consumer
+    of EvidenceRef-into-SoA, missing cross-ref.
+ 4. **§7.4:** annotated `primary_bump = 1` (today's per-baton increment) so the
+    spread fall-off is unambiguous; clarified the focal-row no-op overlap.
+ 5. **§5.1:** explicit mapping col-4 Commit·Plan·Prune ↔ The Click's
+    Commit/Epiphany/FailureTicket (kanban-side vs free-energy-side names for the
+    same three exits).
+ 6. **Top-of-plan refinement note** flagging the above + one ratification candidate:
+ 7. **OQ-11.4 doctrinal hand-off (flagged, NOT changed):** §6.1's "AriGraph
+    episodic Markov chain IS the index space" unifies the Click's separate
+    `episodic: &EpisodicMemory` and `graph: &TripletGraph` organs in `struct Think`.
+    Should land in the same CLAUDE.md "The Click" doctrinal-update PR as the
+    Vsa16kF32 plane removal (the D-MBX-5 prereq already named in OQ-11.4).
+No code touched. No board files other than this entry. Plan still PROPOSAL-grade.

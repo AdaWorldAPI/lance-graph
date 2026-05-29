@@ -12,6 +12,14 @@
 >
 > **Owns the answer to:** *"all of [the nine half-baked components] have to consume the same SoA from A-Z; the SoA can be versioned so they stay readable after schema upgrade; for SurrealDB the versioning aligns with lance 6.0.1 / lancedb 0.29 / datafusion 53 to have one transparent container view; the kanban/ractor needs to be aligned with a new overhaul of lance-graph-planner DTO surface."*
 
+> **Refinements (2026-05-29, session `016NwUSx`, post-merge review):**
+> - **§9 P4/P6 fixed:** D-MBX-A5 was placed in P4 but §10 gates it on D-MBX-4 (in P6) — moved A5 to P6 after D-MBX-4 to resolve the §9↔§10 contradiction.
+> - **§14 dependency graph:** updated to show the A5 → D-MBX-4 edge consistent with §10 (the A4 → A5 → D-MBX-2 chain was an artefact of the P4 misplacement).
+> - **§15 PRs:** added PR #419 (the odoo savant AXIS-B evidence-contract carve-out — 25 docs; downstream consumer of §2.7's "Reasoner impls consume `ReasoningContext.evidence: &[EvidenceRef]` that points into SoA rows").
+> - **§7.4 sketch:** annotated `primary_bump` (the existing per-baton increment from today's `apply_edges`) so the spread fall-off is unambiguous.
+> - **§5.1:** mapped the col-4 terminal triple (Commit · Plan · Prune) to The Click's (Commit / Epiphany / FailureTicket) so the two vocabularies don't drift.
+> - **Flagged for OQ-11.4 doctrinal pass (not changed unilaterally):** §6.1's *"the AriGraph episodic Markov chain IS the index space"* unifies the Click's separate `episodic: &EpisodicMemory` and `graph: &TripletGraph` organs in `struct Think`. That unification should land in the same `CLAUDE.md` "The Click" doctrinal-update PR as the `Vsa16kF32` plane removal (D-MBX-5 prereq).
+
 ---
 
 ## 0. Executive summary (one screen)
@@ -269,6 +277,8 @@ Once D-MBX-7 (lance-graph containers = MailboxSoA layout) + D-MBX-10 (version ga
 |   | → Plan | re-enter column 1 with witness folded into next deliberation | RESTART | — |
 |   | → Prune | drop without persistence (Libet veto consummated post-hoc) | drop | — |
 
+**Mapping to The Click (`CLAUDE.md`):** the col-4 terminal triple (Commit · Plan · Prune) maps to The Click's resolution triple (`Commit / Epiphany / FailureTicket`): **Commit ≡ Commit** (`F < 0.2`, calcify one triple into AriGraph); **Plan ≡ Epiphany** (`ΔF < 0.05`, "both triples + Contradiction" — re-enter Planning with the contradiction preserved as the new prior); **Prune ≡ FailureTicket** (`F > 0.8`, escalate or drop). The same three exits, named twice (kanban-side vs free-energy-side); the §6.1 chain-as-episodic unification (OQ-11.4) will reconcile this in the doctrinal pass.
+
 ### 5.2 Wiring (D-MBX-8 + D-MBX-9)
 
 - **`D-MBX-8`** (Σ10 timing anchor in `SigmaTierRouter`): the commit decision `ΔF < threshold ∧ resonance > Rubicon-bar` acquires a wall-clock stamp at t = −550 ms. The router's commit emission carries the stamp; downstream the ractor START fires.
@@ -323,7 +333,12 @@ Counterfactual phase = exploration, where alternatives are weighed. Plasticity s
 
 ```rust
 // In apply_edges (mailbox in Planning + Staunen×Wisdom high):
+// `primary_bump` = the existing per-baton increment from today's apply_edges
+// (today: 1; the `else` branch below is the v1 single-row behaviour kept verbatim).
+// The spread branch overlaps offset=0 with the focal row — saturating_div(1) is a no-op,
+// so the focal-row bump is preserved; neighbors get the decayed share.
 if mailbox.phase == Planning && row_qualia.staunen_wisdom_product() > THRESHOLD {
+    let primary_bump: u8 = 1;
     for offset in -RADIUS..=RADIUS {
         if let Some(neighbor) = row.checked_add_signed(offset) {
             if neighbor < N {
@@ -402,7 +417,6 @@ This is exactly the re-encode boundary R1 forbids: the planner reads its own DTO
 ### Phase P4 — singleton dissolution
 
 - **D-MBX-3** — `ShaderDriver` holds sea-star of mailboxes; kill the `BindSpace::zeros(4096)` singleton in `serve.rs`.
-- **D-MBX-A5** — SPO-W witness pointer column (the dual residency: SoA / kanban / mailbox index).
 - **D-MBX-5** — delete `BindSpace` singleton + `Vsa16kF32` `cycle` plane. **Blocked on OQ-11.4** (CLAUDE.md "The Click" doctrinal update — must precede the deletion).
 
 ### Phase P5 — kanban / planner / Rubicon wiring
@@ -415,6 +429,7 @@ This is exactly the re-encode boundary R1 forbids: the planner reads its own DTO
 
 - **D-MBX-7** — `lance-graph` container layout ≡ `MailboxSoA` ≡ `simd_soa.rs`-aligned.
 - **D-MBX-4** — death → SPO-G quad + Lance tombstone-witness (link-integrity back-pointer to AriGraph chain node).
+- **D-MBX-A5** — SPO-W witness pointer column (the dual residency: SoA / kanban / mailbox index). Moved here from P4 per the refinement note — A5 gates on D-MBX-4 (the SPO-G commit infrastructure must exist before A5 writes arc-handle pointers through it).
 - **D-MBX-6** — `ThoughtStruct` transparent hot/cold view over LanceDB (the SurrealDB view).
 
 ### Phase P7 — workspace-wide consumer alignment
@@ -608,17 +623,17 @@ Sub-PRs:
 ```
 PR-NDARRAY-MIRI-COMPLETE ───────────┐
                                     ▼
-D-CE64-MB-1-impl (par-tile) ───┬──► D-MBX-A2 ──► D-MBX-A3 ──► D-MBX-A4 ──► D-MBX-A5
-                               │                                              ▼
-                               │                                          D-MBX-2 ──► D-MBX-3 ──► D-MBX-5*
-                               │                                              ▼
-                               └─► D-MBX-10 (foundation) ─────────────────► D-MBX-A6 ──► D-MBX-12.5
-                                                                                 ▲
-D-MBX-11 (Lance 6.0.1) ────────────────────────────────────────────────────────┘
+D-CE64-MB-1-impl (par-tile) ───┬──► D-MBX-A2 ──► D-MBX-A3 ──► D-MBX-A4
+                               │                                  ▼
+                               │                              D-MBX-2 ──► D-MBX-3 ──► D-MBX-5*
+                               │                                  ▼
+                               └─► D-MBX-10 (foundation) ─────► D-MBX-A6 ──► D-MBX-12.5
+                                                                    ▲
+D-MBX-11 (Lance 6.0.1) ─────────────────────────────────────────────┘
                                                 ▼
                                             D-MBX-7 ──► D-MBX-12.4 ──► D-MBX-6 ──► D-MBX-9 (needs surreal_container)
                                                 ▼                          ▲
-                                            D-MBX-4 ───────────────────────┘
+                                            D-MBX-4 ──► D-MBX-A5 ──────────┘
                                                 ▼
                                             D-MBX-8 ──► D-MBX-9
 
@@ -671,6 +686,7 @@ D-MBX-11 (Lance 6.0.1) ───────────────────
   - PR #416 — recipes + atoms + savants + FIBU re-parent (shipped).
   - PR #417 — `E-CONTRACT-NO-SERIALIZE-2` correction (shipped).
   - PR #418 — bindspace-singleton-to-mailbox-soa migration spec (shipped; this plan extends).
+  - PR #419 — odoo savant AXIS-B evidence-contract carve-out (25 per-savant docs; shipped). Downstream consumer of §2.7 — the `Reasoner` impls (D-ODOO-2 / D-ODOO-SAV-4) consume `ReasoningContext.evidence: &[EvidenceRef]` that points into SoA rows. Each filled doc names its `EvidenceRef` schema + odoo-field map + property alignment + decision-in-evidence-terms. Dispatch is **one impl per `ReasoningKind`** (recorded in `AGENT_LOG.md`).
   - PR #433 — `style_recipe` D-Atom + epiphany-brainstorm-council + 5 savant cards (shipped).
   - PR (this one) — unified-soa-convergence-v1 + handover.
 
