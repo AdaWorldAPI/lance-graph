@@ -1,3 +1,32 @@
+## 2026-05-30 — F-RESONANCEDTO-IS-LAYERED-NOT-DUP — the two ResonanceDto are two abstraction layers (energy-field Ψ vs gestalt-awareness), a name collision masking a MISSING INTEGRATION, not a copy
+
+**Status:** FINDING (both defs read 2026-05-30; reframes `TD-RESONANCEDTO-DUP-1` from "dedup" to "disambiguate + integrate").
+
+- **`thinking-engine/src/dto.rs:59`** = RAW ENERGY FIELD (Ψ interference): `energy: Vec<f32>` (codebook[4096]) + `cycle_count`/`converged`/`top_k[8]`; `from_energy`/`entropy`/`active_count`. Low-level signal in the StreamDto→ResonanceDto→BusDto→ThoughtStruct speed-zone bus.
+- **`thinking-engine/src/awareness_dto.rs:21`** = GESTALT + USER MODEL: `hdr: HdrResonance` (3D S/P/O) + `gestalt_state` (Crystallizing/Contested/Dissolving/Epiphany) + `dissonance`/`n_resonant`/`total_energy` + inferred `user_style: ThinkingStyle`/engagement/valence/depth/confidence; `from_superposition`.
+
+⇒ **NOT a true duplicate** — same name, two layers (raw energy vs gestalt-awareness). machete/`TD-RESONANCEDTO-DUP-1` flagged a NAME COLLISION masking a layering. User's read confirmed: it's "just missing the integration."
+
+**Missing integration (the actionable chain):** energy-field (Ψ) → gestalt-awareness → **+ qualia** (today a SEPARATE `QualiaDto`, integrated only at `MomentDto`) → **selection of i4-32D thinking-styles / atoms / strategies**. The awareness ResonanceDto stops at a COARSE `user_style` (3 variants) and does NOT drive the full i4-32D layer (`contract::atoms::I4x32` 33-atom TSV, `contract::recipe_kernels` 34 tactics, `contract::thinking` 36 styles) nor STRATEGY selection (elixir / jit / JITson-Cranelift templates). "thinking about thinking" = NARS meta-layer (`planner::mul` Meta-Uncertainty / Dunning-Kruger + `user_model_confidence`) above the selection.
+
+**Resolution (reframes the TD):** NOT pick-a-winner-and-delete. (1) Disambiguate names (`ResonanceField` for Ψ energy vs `GestaltResonance` for the awareness model). (2) Wire the integration onto the ONE SoA ("ResonanceDto IS the SoA", PR #353): MailboxSoA columns ALREADY carry the substrate — `qualia:[QualiaI4_16D;N]` + `meta:[MetaWord;N]`(thinking/awareness bits) + `entity_type`(class_id) + `edges`(CausalEdge64). resonance→gestalt→qualia→i4-32D-style→strategy converges onto SoA columns + the contract atom/recipe/thinking surface, NOT a third struct. The "dedup" IS an integration onto the SoA — the "one SoA never transformed" convergence.
+**Cross-ref:** `TD-RESONANCEDTO-DUP-1` (reframed); `F-WIRE-DTO-DUP-MAP`; SoA-DTO ledger (PR #353); `contract::{atoms,recipe_kernels,thinking,qualia,mul}`.
+
+---
+
+## 2026-05-30 — E-AERIAL-FEEDS-EW64-PREFETCH — aerial+'s mined X→Y associations ARE the predictive-prefetch table EW64 consumes; aerial learns "fire together", EW64 "wires together"
+
+**Status:** CONJECTURE / design (user-stated 2026-05-30). Sweet-spot wiring for the EpisodicWitness64 follow-up; closes the "prefetch WHAT, from where" gap in `E-EW64-IS-PREDICTIVE-PREFETCH`.
+
+EW64 = CPU-style predictive prefetch co-issued with CE64 into the shader. Open question was "prefetch what." **Aerial+ (#436) discovers it:**
+- **aerial (discovery / slow / nondeterministic, upstream of firewall):** mines `X→Y` association rules with data-derived `(f,c)` — the Hebbian "when antecedent X fires, consequent Y co-occurs" ("fire together").
+- **EW64 (hot / prefetch):** when CE64(X) activates in the SoA, EW64 prefetches the episodic-witness pointer for the aerial-predicted Y (its witness arc), resident BEFORE the shader needs it ("wires together").
+- aerial's `(f,c)` → EW64's prefetch confidence; un-ratified aerial rules never reach EW64 (firewall). EW64 shares CE64's low-40 SPO bits so antecedent/consequent co-address (superposition).
+⇒ **EW64 type design:** payload = witness-arc pointer to the predicted consequent + confidence/recency lens; populated from the RATIFIED aerial association table; co-issued with CE64.
+**Cross-ref:** `E-EW64-IS-PREDICTIVE-PREFETCH`; `E-AERIAL-IS-THE-DISCOVERY-PROPOSER`; `aerial-arm-ruff-spo-codegen-synergies.md`; pr-ce64-mb-4 `SpoWitness64`.
+
+---
+
 ## 2026-05-30 — E-ARIGRAPH-IS-AN-ISLAND — AriGraph's cross-crate wirings are nominal/orphaned; the hot→cold bridge is dead; machete corroborates
 
 **Status:** FINDING (read-only audit 2026-05-30, file:line-cited, Opus agent). Pre-existing, NOT introduced by PR #437.
