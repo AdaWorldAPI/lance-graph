@@ -1,3 +1,33 @@
+## 2026-05-30 — COUNCIL SYNTHESIS (catalyst, 7 savants): #439 StyleStrategy is PASSTHROUGH THEATER; the real target = thinking-style → PlannerDTO(=KanbanMove) → truth-gated Rubicon scheduling. Honest correction + the wiring map.
+
+**Status:** FINDING (council-catalyzed synthesis 2026-05-30; 7 savants: iron-rule, dto-soa, creative-explorer, cascade-impact, prior-art, brutally-honest-tester, truth-architect). Corrects the overstated D-MBX-A6-P3a commit. The council ENRICHED (not gated) — it surfaced theater I shipped + the real design.
+
+**HONEST CORRECTION (brutally-honest-tester, confirmed by source):** my #439 `StyleStrategy` commit "wires thinking-styles as the planning substrate" OVERSTATED a no-op:
+- `StyleStrategy::plan()` runs `recipe_kernels` then DISCARDS the `Outcome` + mutated `ThoughtCtx`; returns `input` byte-identical (dead-store). Emits NO KanbanMove/Candidate.
+- The test asserts only `out.is_ok()` — green on a no-op = AP6 theater; nothing asserts the plan changed.
+- `resolve_style()` discards `ctx.thinking_style`, always returns DEFAULT_STYLE → recipe selection is CONSTANT for every query.
+- `try_advance_phase` shipped-but-DEAD (only FakeSoa calls it; no real `MailboxSoA: MailboxSoaOwner`). `KanbanMove.exec` write-only (always Native, never read). Libet −550ms only in tests.
+⇒ #439's contract types (KanbanColumn DAG, try_advance_phase) are SOUND in isolation; the StyleStrategy "integration" is two disjoint islands with no connecting edge. Recorded as TECH-DEBT, not silently left.
+
+**DON'T REVIVE recipe.rs (4 savants unanimous):** iron-rule = VIOLATES-I-NOISE-FLOOR-JIRAK (uncited 0.2/0.8/0.1 thresholds) + 32-vs-33 dim hazard; dto-soa = FIFTH-COLUMN-VIOLATION (3rd/4th parallel "style" representation); creative-explorer = DELETE it, the keystone is the argmax decode; cascade = full revive is CROSS-CRATE (jit::StyleRegistry trait ext hits 17 deps + reopens atoms.rs pack/unpack todos + reroutes shipped #439). recipe.rs `StyleRecipe` is dead/`todo!()`/unexported.
+
+**THE KEYSTONE (creative-explorer + prior-art, the real target):** the canonical style→schedule pipeline is ONE arrow, NO StyleRecipe:
+`I4x32 (composition) → argmax → ThinkingStyle (identity, 6-bit, τ) → cluster()→Mechanism (selection) → tau()→KernelHandle (exec)` ; the deferred `I4x32→argmax→ThinkingStyle` decode (style_strategy.rs:95) IS the unifying keystone the session circled. Four altitudes = four existing SoA columns (topic/angle/thinking/planner), not a 5th layer.
+
+**"PlannerDTO" is DRIFT (prior-art):** no canonical type — it's PlanResult / PlanInput / Candidate+KanbanMove unnamed. Do NOT mint a new PlannerDTO. Canonical home = D-MBX-A6 ("planner output = KanbanMove"). The triangle thinking-style→PlannerDTO→Rubicon is A6's STATED PREMISE; 2 of 3 edges shipped (#437/#439), missing edge = `Outcome→KanbanMove` emit (the A6-P3 NEXT node).
+
+**TRUTH-GATED RUBICON (truth-architect, the missing epistemic layer):** `try_advance_phase` gates on DAG legality ONLY, never truth (f,c) — yet the SoA owner exposes `edges_raw()` (CausalEdge64 f/c) at the transition site and ignores it. Deciding predicates exist UNUSED: `TruthGate::passes(expectation)`, `CausalEdge64::counterfactual_ready` (ZERO callers). Evaluation→{Commit|Plan|Prune} = the epistemic 3-way (commit-iff-high-conf / prune-iff-low / plan-iff-contradictory) maps 1:1 onto expectation bands. Style→threshold link exists in the WRONG crate (`learning/cognitive_styles.rs` fp[18] confidence_threshold: Skeptical 0.95). `ThoughtCtx.gate_state()` (FLOW/HOLD/BLOCK) is the natural Planning→{CognitiveWork|Prune} gate but lives on ThoughtCtx, unjoined to edges_raw() f/c — TWO truth registers, unreconciled.
+
+**THE NEXT BUILD (synthesized, replaces P3b):** the real A6-P3 slice = make StyleStrategy ACTUALLY schedule:
+1. Implement `resolve_style`: decode `ctx.thinking_style` i4-32D vec → argmax `ThinkingStyle` (the keystone; kills the constant-DEFAULT_STYLE bug).
+2. `StyleStrategy::plan()` must EMIT — thread the ThoughtCtx outcome into a `KanbanMove` (or `PlanResult` field), and a test asserting the plan CHANGED by style (Skeptical≠Creative output). Kills the passthrough theater.
+3. Truth-gate the transition: thread `expectation()`/`gate_state()` into the Evaluation→terminal choice.
+**PROBE FIRST (both reviewers):** R-GATE — does threading expectation() change ANY column outcome vs DAG-only on a fixed witness trace (Skeptical 0.95 vs Creative 0.6)? Pass = ≥1 differing terminal; Fail = cosmetic. Do NOT add a threshold field until the number exists. Probe → then wire.
+
+**Cross-ref:** #439 (D-MBX-A6-P3a, corrected); D-MBX-A6 (KanbanMove output overhaul, the canonical home); `style_strategy.rs:95,136`; `soa_view::try_advance_phase`; `contract::{thinking(tau/argmax), atoms(I4x32/CANONICAL_ATOMS[33]), recipe_kernels(gate_state), recipes}`; `causal-edge counterfactual_ready`; `spo/truth.rs TruthGate`; `learning/cognitive_styles.rs`; recipe.rs (do-not-revive); E-VERSION-ARC / E-SUBSTRATE-IS-THE-SCHEDULER.
+
+---
+
 ## 2026-05-30 — FINDING (via #433 ref): three recipe modules; `contract::recipe::StyleRecipe` is the CANONICAL i4-32D style↔atom↔JIT home but is STALE+ORPHANED (unblocked yet never migrated/exported). StyleStrategy (#439) correctly built on the LIVE recipes/recipe_kernels — adjacent, not wrong.
 
 **Status:** FINDING (grounded, prompted by user "check 433"). Tech-debt + a scoped follow-up; NOT a #439 defect.
