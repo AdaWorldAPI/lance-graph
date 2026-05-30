@@ -120,15 +120,37 @@ These are NOT resolvable by citing a source — the sources disagree or are sile
 
 ---
 
-## 7. THE SECOND CONTESTED DETAIL — the Jirak noise-floor math (FLAG, re-verify before applying)
+## 7. THE SECOND CONTESTED DETAIL — the Jirak noise-floor math (NOW FULLY VERIFIED against the live file)
 
-This is the other "original wrong / fix suggested / not yet applied / unsure what's correct" item, same epistemic state as the byte layout.
+The other "original wrong / fix suggested / not applied / unsure what's correct" item. As of this pass it is **verified line-by-line against `streaming-arm-nars-discovery-v1.md` on disk** — no longer a hedge.
 
-**What I can state with confidence (from the #434 cross-session review and my own held queue):**
-- The plan's §4 Jirak rate formula was transcribed wrong. The intended Jirak (2016) weak-dependence Berry-Esseen-type rate is `n^{-(p/2 - 1)}`, NOT `n^{-1/(p/2 - 1)}`. The two differ by orders of magnitude for the example n used in the surrounding prose — my own worked examples contradicted my own formula, which is how the bug was caught.
-- At `p = 3.0` (the plan's stated default) the rate collapses to the classical Berry-Esseen `n^{-1/2}`, so the prose claim "stricter than IID" only bites for `p ∈ (2, 3)`. The honest default is `p ≈ 2.5`, not `3.0`.
+### 7.1 The correct formula (settled — three independent confirmations)
 
-**What I could NOT re-verify this session:** the EXACT current notation in the plan file. Repeated reads of `streaming-arm-nars-discovery-v1.md` lines ~388-418 failed because the execution backend was degraded and dropped the output. **Before anyone applies a Jirak fix, re-read §4 of that file when the backend is healthy and confirm the exact on-disk string** — do not patch from this summary alone. The direction of the fix is correct; the precise find-and-replace target must be eyeballed against the live file.
+The Jirak (2016) weak-dependence Berry-Esseen rate is `n^{-(p/2-1)}` for `p ∈ (2, 3]`, saturating at the classical ceiling `n^{-1/2}` for `p ≥ 3`. Confirmed by:
+1. **CLAUDE.md iron rule `I-NOISE-FLOOR-JIRAK`**: *"Rate: `n^(p/2-1)` for `p ∈ (2,3]`, `n^(-1/2)` in L^q for `p ≥ 4`."* (The sign is implied negative — it is a convergence rate.)
+2. **The plan's OWN worked examples** (line 381): *"p=4 → `n^{-1/2}`, p=2.5 → `n^{-0.25}`."* Check: `-(2.5/2-1) = -0.25`. ✓ These examples fit `n^{-(p/2-1)}` exactly.
+3. **The plan's OWN blockquote** (line 375) states the rate correctly as `n^(p/2-1)`.
+
+### 7.2 The bug — `n^{-1/(p/2-1)}` (reciprocal in the exponent), in 2 of the 3 places
+
+- **Line 381 (prose):** writes the rate as `n^{-1/(p/2-1)}`. WRONG. At p=2.5 this is `n^{-1/0.25} = n^{-4}`, which **contradicts the same line's own example `n^{-0.25}`.**
+- **Line 393 (the pseudocode threshold):** `(window_size as f32).powf(-1.0 / (p_moment / 2.0 - 1.0))`. WRONG — same reciprocal bug, in code form. Correct: `.powf(-(p_moment / 2.0 - 1.0))`.
+- **Line 375 (blockquote) is RIGHT.** So the plan contradicts itself internally: 375 correct, 381 + 393 wrong.
+
+**Magnitude of the bug at a real window:** n=100,000, p=2.5. Correct threshold `n^{-0.25} ≈ 0.056`. Buggy threshold `n^{-4} = 1e-20`. The buggy floor is effectively **zero**, so *every* candidate passes Stage A — the noise floor the rule calls "not optional" is silently disabled, producing exactly the substrate calcification `I-NOISE-FLOOR-JIRAK` exists to prevent. This is a real correctness bug, not cosmetic.
+
+### 7.3 The default-p problem (separate from the formula bug)
+
+Line 388: `p_moment: f32, // default 3.0`. With the CORRECT formula, p=3.0 gives `n^{-(3/2-1)} = n^{-1/2}` = classical Berry-Esseen exactly. So at the stated default the weak-dependence machinery yields **the same** bound as IID — the line-381 claim "much stricter than the IID `n^{-1/2}`" is false at p=3. To actually sit in the weak-dependence regime, default to **`p ≈ 2.5`** (`n^{-0.25}`, more conservative than classical). Either change the default to 2.5, or keep 3.0 and delete the "stricter than IID" claim. Recommended: **default 2.5.**
+
+### 7.4 The fix, exactly (for whoever applies it — NOT applied here)
+
+1. Line 381: `n^{-1/(p/2-1)}` -> `n^{-(p/2-1)}`; fix the garbled "p ≈ 3.0 ... giving `n^{-1}` decay" (it matches neither formula) to "p ≈ 2.5 ... giving `n^{-0.25}` decay, more conservative than the IID `n^{-1/2}`."
+2. Line 393: `.powf(-1.0 / (p_moment / 2.0 - 1.0))` -> `.powf(-(p_moment / 2.0 - 1.0))`.
+3. Line 388 + OQ-ARM-2: default `p_moment` 3.0 -> 2.5.
+4. Leave line 375 and line 360 (D-ARM-7 spec) untouched — they are already correct.
+
+Not applied in this pass (instruction: document only). The fix is unambiguous and ready when you greenlight it.
 
 ---
 

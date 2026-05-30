@@ -77,6 +77,29 @@
 **D-ids:** D-ARM-13 (**Shipped on branch**); D-ARM-SYN-1/2/3 (**Queued**, council-gated).
 
 **Outcome:** DONE. Transcoded **Aerial+** (Karabulut 2025, 2504.19354v1) to zero-dep Rust — the autoencoder leg the plan §14 had explicitly deferred to Python; the user's directive ("transcode aerial rule mining to rust") supersedes that deferral. Faithful port: one-hot encoding → under-complete **denoising autoencoder** (per-feature softmax + cross-entropy, hand-written backprop, seeded SplitMix64 for reproducibility) → **Algorithm 1** reconstruction-probe rule extraction (mark antecedent, uniform elsewhere, forward, τ_a antecedent test + τ_c consequent test) → support/confidence confirmed on data → `CandidateRule`. Tests prove the AE learns a cross-feature dependency and Algorithm 1 recovers a planted rule while rejecting an independent feature. Translator `arm_to_nars` maps `(support, confidence, n) → NARS (f, c)` verbatim per paper §2/§3.3; `ndjson` emits the exact `{"s","p","o","f","c"}` line shape the SPO store loader reads. **Synergy finding:** the Aerial leg is the *runtime-data* frontend of a three-frontend/one-substrate/two-codegen bracket whose substrate (`ruff_spo_triplet::Triple`) and codegen (`ruff_python_codegen` ∥ `op_emitter.rs`) legs already exist in the ruff fork; `ruff_python_dto_check` is the *static-AST* sibling frontend. Key gap surfaced: `ruff_spo_triplet::Predicate` is a closed vocabulary with **no implication/association predicate**, so loading ARM rules through that ndjson path needs `Implies` added there first (D-ARM-SYN-1, deliberate ontology change → council-gated). Determinism boundary preserved: the nondeterministic AE stays a seeded *fan-in proposer*, out of the deterministic compile path, output gated by Stage D. PR to follow.
+## [Main thread / Opus 4.7] discovery_origin / ProvenanceTier reconciliation — "what is ACTUALLY correct" (documentation only)
+
+**Branch:** claude/activate-lance-graph-att-k2pHI | **Commits:** `e727e636` (doc) + this board-hygiene commit | **Files:**
+- `.claude/knowledge/discovery-origin-provenance-reconciliation-v1.md` (+~190 LOC) — conflict matrix across code + my 2 committed docs + the 4 uploaded canonical specs; the arithmetic proving they can't all be right; what's correct per canonical; open decisions; §7 Jirak fully verified
+- `.claude/board/EPIPHANIES.md` — prepended E-DISCOVERY-ORIGIN-WIDTH finding
+- `.claude/board/AGENT_LOG.md` — this entry
+
+**Cargo:** not invoked (docs + board only; no code).
+
+**Outcome:** DONE. User: "only document the details ... the original was wrong, codex/coderabbit was wrong, you or the other session suggested to fix it or already fixed it and I don't know what is correct." Delivered a single source-of-truth reconciliation. NO code or plan modified — explicitly held all fixes for user decision.
+
+**Verified ground truth (file:line):**
+- 66 OdooEntity consts reachable from #435 HEAD; "70" was a fuzzy grep; reconciles (53 EXT-6 + 13 Wave-3 = 66).
+- `discovery_origin`/`ProvenanceTier` in ZERO `.rs` — only 7 `.claude/` docs. WAL not hardened; fix window open.
+- `mod.rs:450 OdooConfidence` = {Curated, Extracted, Conjecture} (3) — the only provenance enum that compiles.
+- proposer-id: committed 2 bits (full) < review 3 bits (8) < canonical "widen to 6 bits/64 or u16". Committed = most-wrong.
+- ProvenanceTier: 6 names across corpus vs 2-bit/4-slot field; my plan self-contradicts (§7.2=4, D-ARM-1=5).
+- Jirak: correct `n^{-(p/2-1)}`; plan lines 381+393 have reciprocal bug `n^{-1/(p/2-1)}` (line 375 correct); default p=3.0 == classical, use 2.5. Bug silently disables the noise floor (1e-20 vs 0.056 at n=1e5,p=2.5).
+
+**Held for user (not applied):** OD-1 width (6-bit vs u16); OD-2 Conjecture/Derived; OD-3 code/spec divergence; the 3-line Jirak patch (exact targets given in doc §7.4).
+
+---
+
 ## [Main thread / Opus 4.8] Odoo blueprint survival dossier — inventory + strategies + tools (session-survival; "doesn't get lost")
 
 **Branch:** claude/activate-lance-graph-att-k2pHI | **Files (all new, additive):**

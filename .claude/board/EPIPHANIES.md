@@ -682,6 +682,18 @@ The two-paper bracket (`streaming-arm-nars-discovery-v1.md`: Aerial+ discovery u
 The planner⟷ractor⟷surrealdb wiring (user-requested 2026-05-30) is realized WITHOUT a new DTO family (`lab-vs-canonical-surface.md` §"Decision Procedure"): extend the canonical `OrchestrationBridge`/`UnifiedStep` surface (`StepDomain::Kanban` + `"kanban."` prefix) + add `kanban::{KanbanColumn, KanbanMove}` + a zero-dep borrow trait `soa_view::MailboxSoaView` returning `&[T]` column slices. The borrow trait is the key move: it lets the in-RAM `MailboxSoA<N>` (ractor-owned, in cognitive-shader-driver), a surreal kv-lance view, and the planner all read the SAME bytes through one vocabulary — the dependency-inversion pattern already used by `PlannerContract`/`OrchestrationBridge`, so the contract stays zero-dep (it cannot name `MailboxSoA<N>` from another crate without a dep). The `MailboxSoaView` (read) vs `MailboxSoaOwner` (mutate `advance_phase`) split makes "the view is read-only" a *structural* guarantee (surreal implements only the read half) — honoring R1 by type, not convention.
 
 **Cross-ref:** `E-SOA-IS-THE-ONLY` (R1/R4 origin); `lab-vs-canonical-surface.md` §Decision Procedure; `unified-soa-convergence-v1.md §5+§8.4` (D-MBX-A6); LATEST_STATE Contract Inventory 2026-05-30.
+## 2026-05-30 — E-DISCOVERY-ORIGIN-WIDTH — the discovery_origin byte is over-subscribed in BOTH fields, and the Jirak threshold has a 3-place reciprocal bug
+
+**Status:** FINDING (verified on-disk, file:line cited). Documentation-only; no code/plan changed. Full detail: `.claude/knowledge/discovery-origin-provenance-reconciliation-v1.md`. Author-stated; not council-gated.
+
+Surfaced answering the user's "I don't know what is correct" about discovery_origin / ProvenanceTier, after they supplied the canonical `cognitive-risc-*` specs.
+
+1. **`discovery_origin` exists in ZERO `.rs` files** — only 7 `.claude/` docs. The WAL has not hardened around it; the "ISA-ossification trap" window is OPEN, fix cost = markdown edit, not migration.
+2. **proposer-id width is wrong everywhere, monotonically.** Committed plan §7.2 = 2 bits (4 slots, full); #434 review = 3 bits (8); canonical core spec = 3 bits but declares it insufficient and says widen to **6 bits (64) or u16**. The committed version is the most-wrong.
+3. **ProvenanceTier is ALSO over-subscribed (nobody had flagged this).** Six distinct tier names exist across the corpus — Curated/Extracted/Conjecture/ArmDiscovered/Ratified/Derived — but every layout gives the field 2 bits = 4 slots. My own ARM plan contradicts itself: §7.2 enumerates 4, D-ARM-1 enumerates 5. Code today (`mod.rs:450 OdooConfidence`) has only {Curated, Extracted, Conjecture}. The canonical specs disagree with *themselves* (core: ArmDiscovered/Ratified; wikidata: Derived).
+4. **Jirak threshold reciprocal bug, verified in 2 of 3 places.** Correct rate `n^{-(p/2-1)}` (matches CLAUDE.md `I-NOISE-FLOOR-JIRAK` and the plan's own worked examples + blockquote line 375). Plan line 381 (prose) and line 393 (pseudocode `powf(-1.0/(p/2-1))`) write the reciprocal `n^{-1/(p/2-1)}`. At n=1e5, p=2.5 the bug makes the floor ~1e-20 instead of ~0.056 — i.e. silently disables the noise floor the iron rule calls "not optional." Also: default `p=3.0` sits exactly at the classical Berry-Esseen crossover, so the "stricter than IID" claim is false at the default; use `p≈2.5`.
+
+**Open decisions (user's, not resolvable by citation):** OD-1 6-bit vs u16; OD-2 fate of Conjecture + treat Derived as a separate reasoning-provenance axis; OD-3 code/spec divergence on Conjecture. None applied — held for the user.
 
 ---
 
