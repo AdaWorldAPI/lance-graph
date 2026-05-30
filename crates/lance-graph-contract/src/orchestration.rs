@@ -111,15 +111,18 @@ impl StepDomain {
             // Generic defaults for infrastructure / orchestration domains.
             // These are NOT vertical-facing; they execute the cycle, not
             // the policy. Starter values — tune empirically.
-            Self::Crew | Self::Ladybug | Self::N8n | Self::LanceGraph | Self::Ndarray | Self::Kanban => {
-                DomainProfile {
-                    audit_retention_days: 30,
-                    auto_action_confidence: 0.70,
-                    escalation: Escalation::Llm,
-                    requires_fail_closed: false,
-                    verb_taxonomy: VerbTaxonomyId::Generic,
-                }
-            }
+            Self::Crew
+            | Self::Ladybug
+            | Self::N8n
+            | Self::LanceGraph
+            | Self::Ndarray
+            | Self::Kanban => DomainProfile {
+                audit_retention_days: 30,
+                auto_action_confidence: 0.70,
+                escalation: Escalation::Llm,
+                requires_fail_closed: false,
+                verb_taxonomy: VerbTaxonomyId::Generic,
+            },
         }
     }
 }
