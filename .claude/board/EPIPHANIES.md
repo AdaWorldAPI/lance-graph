@@ -1,6 +1,6 @@
-## 2026-05-30 — DECISION: E-FIREFLY-PACKET-IS-THE-LOCATION-TRANSPARENT-PLAN — backport firefly's packet-executor as the in-mailbox PLANNING SUBSTRATE; the same packet distributes cross-server via ONE gRPC hop (BEAM location transparency)
+## 2026-05-30 — BRAINSTORM: E-FIREFLY-PACKET-IS-THE-LOCATION-TRANSPARENT-PLAN — (adjacent inspiration) backport firefly's packet-executor as the in-mailbox PLANNING SUBSTRATE; the same packet distributes cross-server via ONE gRPC hop (BEAM location transparency)
 
-**Status:** DECISION / design direction (user-proposed 2026-05-30). The planning-substrate answer for D-MBX-A6-P3 + the distribution model. Backport = adopt firefly's PATTERN into lance-graph (authorized repo), citing firefly as reference; firefly itself stays read-only/out-of-scope.
+**Status:** BRAINSTORM / adjacent-inspiration (user framing 2026-05-30: "just brainstorming, you might only find an adjacent inspiration"). NOT a ratified decision — a candidate direction to remember, not a committed build plan. Downgraded from an over-eager "DECISION" label. The forks/slice below are sketch options, not a sequenced commitment.
 
 **The backport:** the mailbox's PLANNING SUBSTRATE = firefly's packet-flows-through-a-node-graph executor. A plan = a graph of plan-nodes; planning/candidate-generation = a packet hopping through it (validate→transform→persist shape), TTL-bounded, accumulating `trace[]`. Replaces a bespoke planner-tick loop with the firefly model. Each hop = a phase transition = a version commit (`E-VERSION-ARC-IS-THE-KANBAN`); the `trace[]` = the witness arc (R4); `ExecTarget` (#439) = how each node executes; transport = orthogonal.
 
