@@ -62,10 +62,23 @@ impl MatrixDistance {
         Self { dim, offsets, table }
     }
 
-    /// The flat code (slot index) of an item.
+    /// The flat code (slot index) of an item. Validates bounds so an invalid
+    /// `(feature, category)` fails fast rather than aliasing another feature's
+    /// block and returning a real-but-wrong distance.
     #[must_use]
     fn code(&self, it: Item) -> usize {
-        self.offsets[it.feature as usize] + it.category as usize
+        let feature = it.feature as usize;
+        let start = *self
+            .offsets
+            .get(feature)
+            .expect("item feature out of range for distance table");
+        let end = self.offsets.get(feature + 1).copied().unwrap_or(self.dim);
+        let category = it.category as usize;
+        assert!(
+            category < end - start,
+            "item category {category} out of range for feature {feature} block"
+        );
+        start + category
     }
 }
 
@@ -126,5 +139,14 @@ mod tests {
         // antecedent {(f0,c0)=slot0, (f0,c1)=slot1} to (f1,c0)=slot2: min(1, 9) = 1
         let ant = [Item::new(0, 0), Item::new(0, 1)];
         assert_eq!(antecedent_distance(&d, &ant, Item::new(1, 0)), 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "out of range")]
+    fn code_rejects_out_of_range_category() {
+        let spec = FeatureSpec::new(vec![2, 2]);
+        let d = MatrixDistance::new(&spec, vec![0u32; 16]);
+        // category 5 ≥ feature-0 block width 2 — must fail, not alias feature 1.
+        let _ = d.distance(Item::new(0, 5), Item::new(1, 0));
     }
 }

@@ -36,16 +36,19 @@ pub struct TruthU8 {
 /// `k` is the NARS personality constant ([`NARS_PERSONALITY_K`] default).
 #[must_use]
 pub fn arm_to_truth_u8(rule: &CandidateRule, k: u32) -> TruthU8 {
+    assert!(
+        k > 0,
+        "NARS personality constant k must be > 0; k=0 makes any cooccur>0 dogmatic (confidence=1.0)"
+    );
     // frequency = P(Y|X) = cooccur / antecedent_count
     let frequency = if rule.antecedent_count == 0 {
         128 // unknown ≈ 0.5
     } else {
         ((rule.cooccur as u64 * 255) / rule.antecedent_count as u64).min(255) as u8
     };
-    // confidence = m / (m + k), m = cooccur (integer evidential mass)
+    // confidence = m / (m + k), m = cooccur (integer evidential mass); k>0 ⇒ denom>0
     let m = rule.cooccur as u64;
-    let denom = (m + k as u64).max(1);
-    let confidence = ((m * 255) / denom) as u8;
+    let confidence = ((m * 255) / (m + k as u64)) as u8;
     TruthU8 {
         frequency,
         confidence,
@@ -228,5 +231,11 @@ mod tests {
         assert_eq!(t.s, "arm:feat0=cat1");
         assert_eq!(t.p, "implies");
         assert_eq!(t.o, "arm:feat1=cat0");
+    }
+
+    #[test]
+    #[should_panic(expected = "k must be > 0")]
+    fn k_zero_is_rejected_not_made_dogmatic() {
+        let _ = arm_to_truth_u8(&rule(5, 10, 100), 0);
     }
 }

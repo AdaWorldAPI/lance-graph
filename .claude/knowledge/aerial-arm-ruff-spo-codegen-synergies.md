@@ -22,7 +22,7 @@ bracket whose substrate and codegen legs **already exist in the `ruff` fork** �
 so Aerial's job is to emit into contracts the ruff crates already define, not
 to invent new ones.
 
-```
+```text
    PROPOSER FRONTENDS                    SUBSTRATE                 CODEGEN LEGS
  ┌───────────────────────┐                                     ┌────────────────────┐
  │ ruff_python_dto_check  │  static AST  ┐                      │ op_emitter.rs       │ Rust

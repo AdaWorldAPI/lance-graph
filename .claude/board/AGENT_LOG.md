@@ -1,3 +1,13 @@
+## [Main thread / Opus] PR #436 review response — 5 CodeRabbit findings (public-API hardening)
+
+**Branch:** claude/jolly-cori-clnf9 | **Files:** `crates/lance-graph-arm-discovery/src/{aerial/codebook.rs, aerial/extract.rs, translator.rs, encode.rs}` + `.claude/knowledge/aerial-arm-ruff-spo-codegen-synergies.md`.
+
+**Cargo:** **37/37** (33 + 4 regression tests) + clippy `-D warnings` clean on BOTH default and `--features ndarray-simd`.
+
+**Outcome:** DONE. PR #436 had 11 CodeRabbit review comments across 2 rounds. Verified each against CURRENT code (post de-float + SIMD); 5 still valid, 6 outdated/resolved. **Fixed (all quick-win public-API guards + a `#[should_panic]`/behavior test each):** (1) `MatrixDistance::code` validates `(feature,category)` bounds so an invalid item fails fast instead of aliasing another feature's block; (2) `extract_rules` honors `max_antecedent==0` (returns no rules) instead of forcing singletons; (3) `arm_to_truth_u8` asserts `k>0` (k=0 made any cooccur>0 dogmatically `confidence=1.0`); (4) `Dataset::new` rejects rows with `category ≥ cardinality` (was silently undercounted); (5) added `text` language tag to a fenced block (MD040). **Skipped (with reason):** autoencoder `forward/mean_loss/train` guards + `mod.rs` hidden_dim invariant + Cargo.toml bgz-tensor comment → all target code DELETED/rewritten by the de-float (8681cdf); STATUS_BOARD "Shipped (branch)" taxonomy nit → established convention used by every D-ARM row (changing one row would be inconsistent). No PR replies posted (frugal); fixes self-document via the commit. PR #436 updated.
+
+---
+
 ## [Main thread / Opus] Splat-codebook ↔ aerial ↔ Wikidata wiring — jc resolves both aerial seams
 
 **Branch:** claude/jolly-cori-clnf9 | **Files:** ADDED `.claude/knowledge/splat-codebook-aerial-wikidata-compression.md`; EPIPHANIES (E-ARM-JC-RESOLVES-BOTH-SEAMS); STATUS_BOARD (D-ARM-7 engine pointer, D-ARM-13 → 33/33 + SIMD clause, new D-ARM-14); `aerial/codebook.rs` oracle doc names jc + the float boundary; AGENT_LOG.

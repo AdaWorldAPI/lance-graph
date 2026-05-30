@@ -95,8 +95,16 @@ impl Dataset {
     /// If any row's length differs from the spec's feature count.
     #[must_use]
     pub fn new(spec: FeatureSpec, rows: Vec<Vec<u32>>) -> Self {
-        for r in &rows {
+        for (row_idx, r) in rows.iter().enumerate() {
             assert_eq!(r.len(), spec.num_features(), "row arity mismatch");
+            for (feature_idx, &category) in r.iter().enumerate() {
+                assert!(
+                    category < spec.cardinality(feature_idx),
+                    "row {row_idx} feature {feature_idx} category {category} out of range \
+                     (cardinality {})",
+                    spec.cardinality(feature_idx)
+                );
+            }
         }
         Self { spec, rows }
     }
@@ -158,5 +166,13 @@ mod tests {
         assert_eq!(data.count_matching(&[Item::new(0, 0), Item::new(1, 0)]), 2);
         assert_eq!(data.count_matching(&[Item::new(0, 5)]), 0); // absent category
         assert_eq!(data.len(), 4);
+    }
+
+    #[test]
+    #[should_panic(expected = "out of range")]
+    fn out_of_range_category_is_rejected_at_construction() {
+        let spec = FeatureSpec::new(vec![2, 2]);
+        // feature 1 category 2 ≥ cardinality 2 — would silently undercount.
+        let _ = Dataset::new(spec, vec![vec![0, 2]]);
     }
 }

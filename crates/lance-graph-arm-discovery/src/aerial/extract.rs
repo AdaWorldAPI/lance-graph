@@ -89,8 +89,10 @@ pub fn extract_rules(
         .collect();
 
     let mut rules: Vec<CandidateRule> = Vec::new();
-    let max_ant = params.max_antecedent.max(1);
-    for size in 1..=max_ant {
+    if params.max_antecedent == 0 {
+        return rules; // caller asked for no antecedents — honor it, don't force singletons
+    }
+    for size in 1..=params.max_antecedent {
         for feature_combo in feature_combinations(&candidate_features, size) {
             for antecedent in item_product(&feature_combo, &frequent_by_feature) {
                 probe(oracle, data, &masks, &antecedent, &feature_combo, params, &mut rules);
@@ -316,5 +318,17 @@ mod tests {
         let data = Dataset::new(spec.clone(), Vec::new());
         let dist = MatrixDistance::new(&spec, vec![0u32; 16]);
         assert!(extract_rules(&dist, &data, &ExtractParams::default()).is_empty());
+    }
+
+    #[test]
+    fn max_antecedent_zero_yields_no_rules() {
+        let (data, dist) = fixture(0);
+        let p = ExtractParams {
+            theta: 2,
+            max_antecedent: 0,
+            min_support_ppm: 0,
+            min_confidence_ppm: 0,
+        };
+        assert!(extract_rules(&dist, &data, &p).is_empty());
     }
 }
