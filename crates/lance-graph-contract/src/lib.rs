@@ -97,5 +97,5 @@ pub mod world_model;
 
 // Re-exports for the most commonly used collapse_gate types.
 pub use collapse_gate::{CollapseGateEmission, GateDecision, MailboxId, MergeMode};
-pub use kanban::{KanbanColumn, KanbanMove};
+pub use kanban::{ExecTarget, KanbanColumn, KanbanMove, RubiconTransitionError};
 pub use soa_view::{MailboxSoaOwner, MailboxSoaView};

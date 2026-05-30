@@ -1,3 +1,531 @@
+## 2026-05-30 — SHIPPED-in-PR: M1 keystone — `Tactic::requires() -> ThoughtMask` (the latent checklist made data; reliability = coverage, extraction not construction)
+
+**Status:** SHIPPED-in-PR #439 (D-MBX-A6-P3-M1). The panel-recalibrated keystone of reliability-checklist-arc-v1, built autonomously.
+
+`contract::recipe_kernels` now has: `ThoughtField` (8-field enum, stable bit positions, append-only per N3) + `ThoughtMask(u8)` (zero-dep bitmask: `of`/`has`/`len`/`is_empty`/`covered_by`) + **`Tactic::requires(&self) -> ThoughtMask` NON-defaulted** — all 34 tactics declare which ThoughtCtx fields their `apply` reads (audited from the bodies: Cr→beliefs, Tcp→candidates+sd, Mcp→confidence+free_energy, Rte→free_energy+rung, …; the 4 algebraic constant-only tactics Are/Zcf/Icr/Hkf legitimately empty). `covered_by` (`required & known == required`) IS the reliability-coverage gate in miniature.
+
+This realizes the creative-explorer M1 insight: reliability is a DECLARED ACCESSOR, not a constructed gate — the checklist was latent in 34 apply() bodies, now reified as data. Makes P1(coverage)/P7(reconcile)/P11(class_id→checklist) DERIVED. Non-defaulted = no silent-empty theater (the council's no-op warning); teeth-test `requires_masks_are_varied_not_a_constant_stub` FAILS on a copy-paste/empty stub (asserts exactly-4-empty + ≥8 distinct masks). 9 recipe_kernels tests + full contract lib green; non-defaulted method safe (the 34 are the only Tactic impls workspace-wide).
+
+**Cross-ref:** reliability-checklist-arc-v1 RECALIBRATION (M1 keystone); E-TEMPLATE-IS-CHECKLIST-IS-DATOMS (requires() = the executable checklist); E-RELIABILITY-IS-CHECKLIST-COVERAGE (covered_by = the gate); E-RELIABILITY-NOT-VALIDITY; `recipe_kernels.rs` ThoughtField/ThoughtMask/Tactic::requires.
+## 2026-05-30 — RECALIBRATION (3-agent panel) of reliability-checklist-arc-v1: keystone is M1 `Tactic::requires()->AtomMask` (extraction not construction); P2 needs a corpus it lacks; P5 is P0-blocked; P3/P4 are AP6 theater; P10 off-arc
+
+**Status:** FINDING / plan recalibration (cascade-impact + brutally-honest-tester + creative-explorer, catalyst mode 2026-05-30). Recalibrates `.claude/plans/reliability-checklist-arc-v1.md`. Convergent across all three.
+
+**THE UNLISTED KEYSTONE (creative-explorer M1 — reframes the menu):** the 34 `recipe_kernels::Tactic` impls EACH already declare a latent checklist — every `apply()` reads a DIFFERENT subset of `ThoughtCtx`'s 8 fields (Cr→beliefs, Tcp→candidates+sd, Mcp→confidence+free_energy) but NONE reifies it as data. So reliability is NOT a gate to construct — it's a missing accessor: **`Tactic::requires(&self) -> AtomMask`** (one default method). Build that, and P1 (coverage) / P7 (reconcile) / P11 (class_id→checklist) become DERIVED, not built. "Reliability is already declared 34 times, just not read back — the work is EXTRACTION, not construction." `Tactic::requires()` and the domain `coverage()` are the SAME op at two altitudes (kernel required-fields ↔ `OdooStyleRecipe.atoms`), one bitmask over one basis.
+
+**CORRECTIONS to my menu (verified by source, file:line):**
+- **P2 (probe) — the witness corpus DOES NOT EXIST** (grep empty in planner/consumer-conformance). P2's first sub-task = BUILD the corpus. It's still rank-1 (it can honestly return "gate is cosmetic, don't build P1") but it's not free.
+- **P5 is P0-BLOCKED, not S-M:** `atoms::I4x32::pack`/`unpack` are BOTH `todo!()` (atoms.rs:83,88); the 32-vs-33 (carrier 32 lanes vs CANONICAL_ATOMS 33) is an unresolved BLOCKED fork (atoms.rs:39-43). argmax-over-I4x32 sits on a panicking carrier + undecided dim. Do NOT build until the dim fork resolves.
+- **P3/P4 = AP6 dead-surface THEATER as scoped:** `try_advance_phase` has ZERO production callers (only FakeSoa); `resolve_style`/`reliability_of` have ZERO production callers; `plan()` returns input unchanged. Emitting from plan() repeats the theater the council just caught. P4 = MailboxSoaOwner impl with no ractor caller = AP6.
+- **P1 DUPLICATES `recipes::Coverage`** (recipes.rs:54, SPO-2³, 3 variants) — minting a 4th Coverage = drift. Reframe P1 as M1's derived accessor, not a new enum.
+- **P6 is COSMETIC:** recipe.rs has no `pub mod recipe` in lib.rs — never compiles in. Deleting already-invisible dead code = wash, not a deliverable. (Downgrades my earlier "delete it" instinct to "leave it / opportunistic.")
+- **P9 lance bump is STILL BLOCKED** (lancedb 0.29.0 transitively pins lance =6.0.0) — NOT free-to-land as the menu claimed.
+- **P10 polyglot = OFF-ARC** (different thread) — DROP from this arc.
+
+**MISSING items the panel adds:**
+- **M1** `Tactic::requires() -> AtomMask` (the keystone above).
+- **M2 — checklist-COMPLETENESS auditor (unknown-unknown finder):** static-scan each Tactic's declared `requires()` (M1) vs the fields its `apply()` actually touches (neural-debug already does static scanning); mismatch = a dark requirement nobody listed. The ONLY item that finds missing checklist ITEMS (not missing evidence) — the hot-path complement to the cold Stockfish validity gate.
+- **M3 — version-arc-as-kanban scheduler wire** (E-SUBSTRATE-IS-THE-SCHEDULER): make the substrate emit the schedule; P3's KanbanMove is the latent hook.
+
+**RECALIBRATED ORDER (replaces the menu's open sequence):**
+1. **M1** — `Tactic::requires() -> AtomMask` default method + a teeth-test (assert distinct Tactics declare distinct masks; fails if all-same/empty). Pure contract, zero-dep, extraction not construction. THE keystone.
+2. **P2 + its corpus** — build a small witness/recipe corpus, then probe: does coverage state (M1-derived) change a Rubicon terminal vs DAG-only? Honest pass/fail; can return "cosmetic, stop."
+3. **M2** — completeness auditor over M1's masks (static, reuses neural-debug). Finds unlisted-requirement gaps.
+- DEFER behind P2-pass: P1-as-derived-coverage, P11 O(1) index. DROP/leave: P5 (P0-blocked), P6 (cosmetic), P10 (off-arc), P9 (still blocked). GATE P8 on P2. P3/P4 only after a real consumer exists (no theater).
+
+**Brutal's non-theater-now set was {P2,P9,P11}; creative's minimal-core was {P5,M1}; cascade's first-3 was {P2,P6,P1}.** Synthesis: **M1 is the keystone all three implicitly point at** (cascade's P1, creative's M1, brutal's "P1 dups Coverage→reframe") — start M1, then P2-with-corpus, then M2. P5 explicitly deferred (P0). 
+
+**Cross-ref:** `.claude/plans/reliability-checklist-arc-v1.md` (the menu, now recalibrated); E-TEMPLATE-IS-CHECKLIST-IS-DATOMS + E-RELIABILITY-IS-CHECKLIST-COVERAGE (M1 is their executable form); `recipe_kernels::{Tactic,ThoughtCtx}` (the latent checklists); `recipes::Coverage` (the dup P1 must not repeat); `atoms.rs:83,88,39-43` (P5 todo!()+32/33 block); neural-debug (M2's static scanner); E-SUBSTRATE-IS-THE-SCHEDULER (M3).
+
+---
+
+## 2026-05-30 — E-TEMPLATE-IS-CHECKLIST-IS-DATOMS — the NARS/elixir reasoning template, the per-domain checklist, and the Odoo D-Atoms are ONE object; reliability = the template's required atoms are LIT (known). #433 already built half of it.
+
+**Status:** FINDING — major unification (user 2026-05-30: "the checklist IS the NARS/elixir reasoning templates; in Odoo terms tax classes, billable hours, account type, etc."). Collapses three things I'd treated as separate, and re-connects #433 (which I'd mis-filed as "unrelated Odoo codegen").
+
+**The unification (one object, three faces):**
+- **NARS/elixir reasoning template** = the EXECUTABLE form (the recipe/`Tactic` that fires; recipe_kernels = "the Elixir-like recipe layer").
+- **Per-domain checklist** = the COVERAGE form (the required items to evaluate) — `E-RELIABILITY-IS-CHECKLIST-COVERAGE`.
+- **Odoo D-Atoms** = the INSTANCE form (the actual domain fields). A template DECLARES its required inputs → those required inputs ARE the checklist → the checklist items ARE the domain's evaluable fields. Not three systems — one.
+
+**#433 ALREADY BUILT HALF OF THIS (grounded, file:line — I mis-filed it as unrelated):**
+`lance-graph-ontology/src/odoo_blueprint/style_recipe.rs`:
+- `enum DAtom` (:116) = the checklist-item catalogue, as REAL variants: `FiscalCtx`, `Money`, `ApplyRate` (VAT/currency rate, `OdooSemanticRole::Tax`), `Quantity`, `EmitAmount`, `Compute`, `Validate`, `Onchange`, `Event`, `Action`, `Entity`, `Law` (`regulation_iri` = UStG §12 / EU VAT). ⇒ EXACTLY the user's "tax classes / billable hours / account type" — domain fields that must be evaluated.
+- `OdooStyleRecipe { method_id, atoms: Vec<(DAtom,u8)>, regulation_iris, return_kind, recipe_id }` (:209) = the TEMPLATE-AS-CHECKLIST: `atoms` = which checklist items this template REQUIRES (+weights). `recipe_id` = FNV-1a content-address over sorted atoms → equivalent templates collapse (CAM dedup).
+- **The 5-lit / 6-dark atom split (#433 honest-flag)** = the knowns/unknowns COVERAGE BITMASK, already present: 5 atoms fire today (Entity/Compute/Validate/Onchange/Action — kind-driven = KNOWN); 6 dark (Money/Quantity/ApplyRate/EmitAmount/Event/FiscalCtx — gated on Stage-2 extractor = UNKNOWN until populated). lit-vs-dark IS the coverage bitmask. "Atoms flip from stage2→must set when Stage-2 lands" = checklist boxes going from unknown→known.
+
+**So reliability = required atoms LIT:** a template's `atoms: Vec<(DAtom,u8)>` are the required checklist; an instance's populated Odoo fields LIGHT them; reliability-to-Commit = `required_atoms ⊆ lit_atoms` (the `required & known == required` AND-test, E-RELIABILITY-IS-CHECKLIST-COVERAGE). Plan = named dark atoms remain (the Stage-2 gap); Prune = required atom unsatisfiable.
+
+**Elixir open/closed maps exactly** (recipe.rs E-LADDER §2): add-FIELD = data (a new checklist box / D-Atom population — no recompile); add-TEMPLATE = structure (a new required atom-set / OdooStyleRecipe — register it). The hot-load split IS the checklist-vs-template-evolution split.
+
+**Consequence / correction:** #433's `OdooStyleRecipe` is NOT "unrelated Odoo codegen" (my earlier filing in the 3-recipe-module finding) — it's the DOMAIN-INSTANCE face of the reasoning-template-as-checklist. The cross-domain generalization: a Rails/medical/chess frontend writes its OWN `style_recipe.rs` (its own D-Atom catalogue = its own checklist) over the same triplet shape (#433 doc: "A Rails frontend writes its own style_recipe.rs"). So D-Atoms are the per-domain checklist; the NARS reasoning template is the domain-agnostic shape; reliability-coverage is uniform across domains.
+
+**Build implication:** the cheap checklist gate (E-RELIABILITY-IS-CHECKLIST-COVERAGE) does NOT need a new checklist type — it READS `OdooStyleRecipe.atoms` (required) vs the instance's lit-atom bitmask (known). First cut: a `coverage(required: &[DAtom], lit: bitmask) -> CoverageState{Covered|Gap(dark)|Unsatisfiable}` over the existing D-Atom catalogue, generalized to any domain's atom enum. Reuses #433 wholesale.
+
+**Cross-ref:** #433 `odoo_blueprint/style_recipe.rs` (DAtom :116 / OdooStyleRecipe :209 / 5-lit-6-dark); E-RELIABILITY-IS-CHECKLIST-COVERAGE (coverage = reliability); E-RELIABILITY-NOT-VALIDITY (Stockfish audits checklist COMPLETENESS = unknown-unknowns); recipe_kernels "Elixir-like layer"; recipe.rs E-LADDER-SERVES-MAILBOX §2 (open/closed); the 3-recipe-module finding (CORRECTED: OdooStyleRecipe = the domain-instance face, not unrelated); cognitive-risc-classes (class_id→checklist, HHTL-inherited).
+
+---
+
+## 2026-05-30 — E-RELIABILITY-IS-CHECKLIST-COVERAGE — the cheap RISC alternative to psychometric calibration: reliability = (required rungs/checklist-items COVERED) over a knowns/unknowns SoA bitmask, AND-tested in one cycle. No float, no corpus.
+
+**Status:** FINDING + BUILD-DIRECTION (user 2026-05-30: "cheap and efficient alternative — 10-layer rungs ladder + a checklist per domain of what needs evaluation; reasoning has a normalized set of info with validation across knowns/unknowns as SoA"). The cheap structural alternative to E-CALIBRATE-RELIABILITY-PSYCHOMETRICALLY — complementary, not competing.
+
+**The reframe:** reliability becomes STRUCTURAL + PRIOR, not a post-hoc statistic. Instead of measuring Cronbach α over a corpus, make it COVERAGE of a normalized evaluation set:
+- **10-rung ladder = the normalized DEPTH axis.** `pearl_rung: u8` (1..=9, +0) ALREADY exists on `ThoughtCtx` (recipe_kernels.rs:36-37), proprioception, world_map, cognitive_shader (0..9), SPO triplet, CausalEdge64; `recipes::Recipe.tier` = Sun et al. reasoning-ladder difficulty. Doctrine: E-LADDER-SERVES-MAILBOX. The ladder is real + threaded; this REUSES it.
+- **Per-domain checklist = the EVALUATION axis (x).** Each domain (class_id) declares WHICH rungs/items must be evaluated. The checklist is `class_id`-keyed and inherited along the HHTL path (like labels/columns/templates — the cognitive-risc-classes triangle), so domains don't hand-roll it.
+- **knowns/unknowns as SoA = a presence bitmask** (= cognitive-risc-classes N3 "stable per-class bitmask, append-only, bit=field-N-populated"). Reliability-to-Commit = `required & present == required` — a SIMD batch-AND popcount over the SoA column, ONE cycle (the 0xFFF/facet-AND efficiency).
+
+**Why it's better-fit than calibration here:** (1) NO float, NO offline corpus, NO calibration pass — just bitmask coverage. (2) DISSOLVES the threshold problem the iron-rule-savant flagged: no 0.2/0.8/0.15/0.35 to calibrate OR Jirak-bound — the Rubicon 3-way maps onto COVERAGE STATE not a magnitude: Commit = required checklist covered; Plan = named known-UNKNOWNS remain (re-deliberate to fill them); Prune = checklist cannot be satisfied. (3) It's the `class_id`→checklist projection — one more payoff off the discriminator the SoA already needs (N1).
+
+**knowns vs unknowns = the enumerable-gap axis (MUL/Dunning-Kruger):** a *known-unknown* = an unchecked box you can NAME (→ Plan); the checklist makes unknowns ENUMERABLE — you can't be confidently-wrong about a box you know is empty. This is reliability-as-coverage doing the epistemic-humility work the φ⁻¹ ceiling did, but structurally + cheaply.
+
+**Honest tension (not glossed):** a checklist only covers known categories — an UNKNOWN-UNKNOWN (a required-but-UNLISTED item) is invisible to coverage. That is EXACTLY the cold-path VALIDITY gate's job (E-RELIABILITY-NOT-VALIDITY): the bring-up test (chess/Stockfish, domain ≥2) FALSIFIES the checklist — finds the box nobody listed. So coverage = cheap HOT reliability gate; Stockfish/oracle = cold validity gate that audits checklist COMPLETENESS. Complementary to the psychometric path: use checklist-coverage for the hot per-cycle gate; reserve Cronbach/ICC for offline auditing whether the checklist items themselves cohere.
+
+**Cheap build (vs the calibration build):** add a `class_id`-keyed per-domain checklist (which rungs/items required) + a `coverage` bitmask column on the SoA (knowns); the Rubicon gate = `required & known == required` AND-test + popcount for the Plan/gap signal. Reuses rung (exists), bitmask (N3 exists), class_id (N1, #439 hook exists). NO new float, NO thinking-engine dep — lighter than the psychometric slice. Sequence: this is the DEFAULT cheap gate; psychometric calibration is the heavier offline audit when a domain's checklist itself is in question.
+
+**Cross-ref:** E-RELIABILITY-NOT-VALIDITY (reliability vs validity split — this is the cheap reliability gate, Stockfish stays the validity gate); E-CALIBRATE-RELIABILITY-PSYCHOMETRICALLY (the heavier alternative this undercuts for the hot path); E-LADDER-SERVES-MAILBOX (the rung doctrine); cognitive-risc-classes N1 (class_id) + N3 (stable per-class presence bitmask) + the HHTL-inherited checklist; `recipe_kernels.rs:36 ThoughtCtx.rung`; `recipes::Recipe.tier`; MUL/Dunning-Kruger (known-unknown enumeration); iron-rule-savant VIOLATES-I-NOISE-FLOOR-JIRAK (dissolved, not calibrated).
+
+---
+
+## 2026-05-30 — E-CALIBRATE-RELIABILITY-PSYCHOMETRICALLY — replace the hand-tuned Rubicon (f,c)/SD thresholds with MEASURED psychometric reliability (Cronbach α / ICC / Spearman / Pearson) — the existing crates, applied brutally to the gate
+
+**Status:** FINDING + BUILD-DIRECTION (user 2026-05-30: "be brutal and use psychometry calibration"). Follows directly from E-RELIABILITY-NOT-VALIDITY: if (f,c) is a RELIABILITY coefficient, calibrate it with real reliability statistics, don't hand-tune it. Resolves the iron-rule-savant's VIOLATES-I-NOISE-FLOOR-JIRAK (uncited 0.2/0.8/0.15/0.35 thresholds).
+
+**The existing psychometric machinery (grounded, file:line):**
+- `thinking-engine/src/cronbach.rs` — `cronbach_alpha(items:&[&[f32]]) -> f32` (TESTED; α-identity=1.0 test) + `CronbachResult`/`cronbach_analysis` with the canonical bands (>0.90 excellent/redundant, 0.70-0.90 acceptable, <0.70 poor, <0.50 unacceptable) + `variance_agreement_scores`. Its OWN doc: "replaces the BF16 ±0.008 heuristic with empirical cross-model test" — i.e. it ALREADY swapped a hand-tuned threshold for a psychometric one. We do the same to the Rubicon gate.
+- `jc/src/probe_p1_gamma_phase.rs::spearman_rho(&[usize],&[usize]) -> f64` (rank correlation; identity=1/reverse=-1 tested).
+- `thinking-engine/examples/codebook_pearson.rs` (Pearson); `calibrate_lenses.rs` (Spearman ρ + ICC); `reencode_safety.rs`/`ground_truth.rs` (the calibration family).
+- bgz-tensor calibration suite: `bin/cam_pq_calibrate.rs`, `quality.rs`, `variance_audit.rs`, `similarity.rs`.
+
+**The brutal move:** the Rubicon RELIABILITY gate (Evaluation→{Commit|Plan|Prune}) thresholds — currently hand-tuned `(f,c)` expectation + CollapseGate SD (FLOW<0.15/HOLD/BLOCK>0.35) + recipe_kernels 0.2/0.8 + the style confidence_thresholds (Skeptical 0.95 in learning/cognitive_styles) — get CALIBRATED, not guessed:
+- **Cronbach α** = internal consistency of the witness arc / multi-recipe / multi-lens measurement. A belief is reliable-enough-to-Commit when the items (recipe outcomes / lens distances / witness emissions) cohere (α above a measured band), not when c>0.8 by fiat. Per-mailbox or per-cohort α over the CausalEdge64 (f,c) emission arc.
+- **ICC** = inter-rater (inter-recipe / inter-mailbox) agreement — the cross-mailbox consensus the a2a_blackboard quorum needs.
+- **Spearman/Pearson** = does the reliability ranking track an external criterion (the validity bridge — Spearman vs Stockfish/oracle ranking; this is where reliability MEETS validity, measured not assumed).
+
+**Float-boundary doctrine preserved (your CAM-PQ rule):** psychometric calibration is OFFLINE FLOAT (Cronbach/ICC/Pearson over a corpus, in thinking-engine — heavy, std), emitting a FROZEN threshold artifact the HOT path reads as an integer/const. Same shape as jc certifies the codebook offline → aerial reads online. So the calibrated reliability bands replace the hand-tuned consts; the hot Rubicon gate stays integer/cheap.
+
+**Dependency boundary (respect):** contract + planner are ZERO-/light-dep and do NOT dep thinking-engine. Calibration lives at the cognitive-shader-driver / thinking-engine layer (the bridge, thinking-engine behind a feature gate). The CONTRACT carries only the calibrated threshold CONSTANT (a number with a citation); the calibration PRODUCES it. So: thinking-engine calibrates (offline) → emits bands → contract const (cited) → planner/Rubicon reads. No new contract dep.
+
+**This makes the R-GATE probe rigorous:** instead of "do Analytical vs Creative differ" (necessary-not-sufficient), the probe becomes "compute Cronbach α / ICC on a real witness-trace corpus per style; does the MEASURED reliability band change the Commit/Plan/Prune outcome?" — a psychometric, citable pass/fail, satisfying I-NOISE-FLOOR-JIRAK (Jirak-bounded where the band needs a significance floor).
+
+**Honest scope:** this is a DIRECTION (the calcs exist + the boundary is clear), not a built slice. First cut would be a thinking-engine `reliability_calibration` that runs cronbach_alpha over a recipe/witness corpus and emits the bands; then cite them in the contract const that replaces 0.2/0.8/0.15/0.35. Sequenced after the R-GATE probe proves the gate is non-cosmetic on a live trace.
+
+**Cross-ref:** E-RELIABILITY-NOT-VALIDITY (why calibrate reliability); iron-rule-savant VIOLATES-I-NOISE-FLOOR-JIRAK (the uncited thresholds this fixes); I-NOISE-FLOOR-JIRAK (Berry-Esseen significance floor for the bands); `thinking-engine/cronbach.rs` (the α impl + "replaces hand-tuned heuristic" precedent); `jc/probe_p1_gamma_phase.rs spearman_rho`; bgz-tensor cam_pq_calibrate/quality; faiss-homology-cam-pq (offline-float→online-integer boundary); R-GATE probe; recipe_kernels SD_FLOW/SD_BLOCK; learning/cognitive_styles confidence_threshold.
+
+---
+
+## 2026-05-30 — FIX (council follow-through): StyleStrategy de-theatred — resolve_style decodes the 23D vector; reliability_of is the R-GATE measurable; plan() honestly labeled pure-passthrough
+
+**Status:** SHIPPED-in-PR #439 (fixes the theater the brutally-honest-tester caught in D-MBX-A6-P3a). Probe-first per reviewers; reliability-not-validity framing per E-RELIABILITY-NOT-VALIDITY.
+
+Three honest fixes to the no-op #439 shipped:
+1. **`resolve_style` now DECODES the 23D style vector** (idx 4=analytical/3=creative/0=depth, the `selector.rs::style_alignment` convention) → dominant-axis ThinkingStyle. Kills the constant-`DEFAULT_STYLE` bug (recipe selection was identical for every query). NOTE: 23D planner vector, NOT the contract i4-32D `style_vector`/`StyleRecipe` surface (separate, deferred).
+2. **`reliability_of(style, ctx) -> f32`** — the R-GATE MEASURABLE: runs style-selected recipe Tactics over a ThoughtCtx, returns accumulated confidence ∈[0,1]. RELIABILITY (settledness), NOT validity (external/post-commit) per E-RELIABILITY-NOT-VALIDITY. Pure: no plan mutation, no commit.
+3. **`plan()` honestly labeled pure-passthrough** — computes reliability, emits NOTHING (no faked KanbanMove the planner can't build pre-A6-overhaul). The dead-store theater is gone; the comment now states the truth.
+
+**Probe-first (reviewers' rule honored):** test `r_gate_reliability_varies_by_style` is the R-GATE probe written BEFORE any Rubicon gate field — asserts Analytical vs Creative select distinct mechanisms (TruthAwareInference vs StructuralDivergence) so a style-conditioned gate is non-cosmetic. test `resolve_style_decodes_the_23d_vector_not_constant_default` proves the bug is fixed. test `plan_is_pure_passthrough_until_emit_edge_lands` asserts plan stays None (no theater). 5 style_strategy tests + full planner lib green; fmt-clean (ran BEFORE commit).
+
+**Still deferred (honestly, NOT shipped):** the emit edge (plan()→KanbanMove) gated on the D-MBX-A6 planner-output overhaul; truth-gating the Rubicon transition (only if R-GATE proves it changes an outcome on a real witness trace — the in-test mechanism-distinctness is necessary-not-sufficient; the full probe needs a live trace); `try_advance_phase` still has no production `MailboxSoaOwner` impl (separate cognitive-shader-driver slice).
+
+**Cross-ref:** E-COUNCIL-SYNTHESIS (the theater this fixes); E-RELIABILITY-NOT-VALIDITY (the measurable's framing); #439 D-MBX-A6-P3a; `style_strategy.rs` (resolve_style/reliability_of); `selector.rs:137` (23D convention); D-MBX-A6 (the emit-edge home).
+
+---
+
+## 2026-05-30 — E-RELIABILITY-NOT-VALIDITY — the substrate's NARS (f,c) "truth" measures RELIABILITY (consistency/settledness/consensus), not VALIDITY (ground-truth correspondence); validity is conferred externally at/after the Rubicon Commit. "Truth" is a wisdom marker in disguise.
+
+**Status:** FINDING (user-stated 2026-05-30, epistemic reframe). Corrects the "truth gate" mislabel propagated by the truth-architect council angle + this session.
+
+**The measurement-theory answer (validity vs reliability):**
+- NARS `(f,c)` is reliability machinery: `confidence c = w/(w+k)` = amount of accumulated agreeing evidence relative to horizon k = a RELIABILITY COEFFICIENT (same family as Cronbach's α — workspace ships `thinking-engine/cronbach.rs` + ICC; both reliability stats; I-NOISE-FLOOR-JIRAK Berry-Esseen = reliable-above-noise = reliability too). `frequency f = w+/w` = consensus value IN EXPERIENCE. `expectation = c·(f−0.5)+0.5` = reliability-weighted consensus.
+- It does NOT measure VALIDITY (correspondence to ground truth). NARS is non-axiomatic / experience-grounded BY CONSTRUCTION — it measures whether the system's own witnessing COHERES (reliability), never whether it's SO (validity). The chess bring-up test is the tell: "ground truth is a Stockfish call away" — the substrate emits high-(f,c) GM-FLAVORED candidates (reliable/consensus-strong); STOCKFISH is the validity oracle. The substrate can be confidently, consistently WRONG.
+- **Reliability is necessary-but-not-sufficient for validity** (classic psychometrics). The substrate cannot tell a reliable-true from a reliable-false belief from the inside. ⇒ "truth hasn't been validated yet" is exact.
+
+**Why "wisdom marker in disguise":** Wisdom (Staunen×Wisdom qualia, The Click) = epistemic SETTLEDNESS + humility ("how well do I hold this", never "is it true"). Confidence with the φ⁻¹ ceiling ("permanent humility", c<1 always) IS a wisdom measure. Labeling it "truth" is a category slip — it's the wisdom/reliability axis wearing truth's name. "Crystallized knowledge committed in the end" = reliability accumulates → Rubicon COMMIT calcifies it into a durable fact → only post-commit/externally is validity assessable. COMMIT ≠ VALIDATION; commit = crystallization of reliability; validation is downstream.
+
+**Design consequence (splits the gate I/truth-architect mislabeled into TWO at two clocks):**
+- RELIABILITY gate (HOT, Evaluation→Commit): `(f,c)` expectation + CollapseGate SD `gate_state()`. Plan/Prune = reliability-too-low/contradictory; Commit = crystallize a reliable belief. Shader-speed.
+- VALIDITY gate (COLD, AFTER commit): external oracle — Stockfish (bring-up) / GoBD audit / reciprocal A→B,B→A (recipe SDD#32) / FailureTicket→LLM (F>0.8). Cold-store-speed. = the two-clock decoupling, epistemically named.
+- So `Evaluation→{Commit|Plan|Prune}` gates on RELIABILITY (settled enough to crystallize), NOT truth. A committed fact's validity is still PENDING the cold/external check.
+
+**Corrects R-GATE probe:** it must probe RELIABILITY thresholding, not "truth": does style-conditioned reliability threshold change the CRYSTALLIZATION outcome (Skeptical demands higher c → more Plan/re-deliberate; Creative crystallizes at lower c)? Pass = ≥1 differing terminal. Validity is OUT of this probe — it's the separate post-commit external gate (the Stockfish bring-up IS the validity gate, already planned).
+
+**Cross-ref:** E-COUNCIL-SYNTHESIS (the truth-architect "truth gate" this corrects); The Click (Staunen×Wisdom, φ⁻¹ ceiling = permanent humility, FailureTicket); cognitive-risc-core bring-up test (Stockfish = validity oracle); `thinking-engine/cronbach.rs` (reliability stat); I-NOISE-FLOOR-JIRAK; `spo/truth.rs TruthValue`; recipe SDD#32 (reciprocal validation); Rubicon Commit = calcify; R-GATE probe.
+
+---
+
+## 2026-05-30 — COUNCIL SYNTHESIS (catalyst, 7 savants): #439 StyleStrategy is PASSTHROUGH THEATER; the real target = thinking-style → PlannerDTO(=KanbanMove) → truth-gated Rubicon scheduling. Honest correction + the wiring map.
+
+**Status:** FINDING (council-catalyzed synthesis 2026-05-30; 7 savants: iron-rule, dto-soa, creative-explorer, cascade-impact, prior-art, brutally-honest-tester, truth-architect). Corrects the overstated D-MBX-A6-P3a commit. The council ENRICHED (not gated) — it surfaced theater I shipped + the real design.
+
+**HONEST CORRECTION (brutally-honest-tester, confirmed by source):** my #439 `StyleStrategy` commit "wires thinking-styles as the planning substrate" OVERSTATED a no-op:
+- `StyleStrategy::plan()` runs `recipe_kernels` then DISCARDS the `Outcome` + mutated `ThoughtCtx`; returns `input` byte-identical (dead-store). Emits NO KanbanMove/Candidate.
+- The test asserts only `out.is_ok()` — green on a no-op = AP6 theater; nothing asserts the plan changed.
+- `resolve_style()` discards `ctx.thinking_style`, always returns DEFAULT_STYLE → recipe selection is CONSTANT for every query.
+- `try_advance_phase` shipped-but-DEAD (only FakeSoa calls it; no real `MailboxSoA: MailboxSoaOwner`). `KanbanMove.exec` write-only (always Native, never read). Libet −550ms only in tests.
+⇒ #439's contract types (KanbanColumn DAG, try_advance_phase) are SOUND in isolation; the StyleStrategy "integration" is two disjoint islands with no connecting edge. Recorded as TECH-DEBT, not silently left.
+
+**DON'T REVIVE recipe.rs (4 savants unanimous):** iron-rule = VIOLATES-I-NOISE-FLOOR-JIRAK (uncited 0.2/0.8/0.1 thresholds) + 32-vs-33 dim hazard; dto-soa = FIFTH-COLUMN-VIOLATION (3rd/4th parallel "style" representation); creative-explorer = DELETE it, the keystone is the argmax decode; cascade = full revive is CROSS-CRATE (jit::StyleRegistry trait ext hits 17 deps + reopens atoms.rs pack/unpack todos + reroutes shipped #439). recipe.rs `StyleRecipe` is dead/`todo!()`/unexported.
+
+**THE KEYSTONE (creative-explorer + prior-art, the real target):** the canonical style→schedule pipeline is ONE arrow, NO StyleRecipe:
+`I4x32 (composition) → argmax → ThinkingStyle (identity, 6-bit, τ) → cluster()→Mechanism (selection) → tau()→KernelHandle (exec)` ; the deferred `I4x32→argmax→ThinkingStyle` decode (style_strategy.rs:95) IS the unifying keystone the session circled. Four altitudes = four existing SoA columns (topic/angle/thinking/planner), not a 5th layer.
+
+**"PlannerDTO" is DRIFT (prior-art):** no canonical type — it's PlanResult / PlanInput / Candidate+KanbanMove unnamed. Do NOT mint a new PlannerDTO. Canonical home = D-MBX-A6 ("planner output = KanbanMove"). The triangle thinking-style→PlannerDTO→Rubicon is A6's STATED PREMISE; 2 of 3 edges shipped (#437/#439), missing edge = `Outcome→KanbanMove` emit (the A6-P3 NEXT node).
+
+**TRUTH-GATED RUBICON (truth-architect, the missing epistemic layer):** `try_advance_phase` gates on DAG legality ONLY, never truth (f,c) — yet the SoA owner exposes `edges_raw()` (CausalEdge64 f/c) at the transition site and ignores it. Deciding predicates exist UNUSED: `TruthGate::passes(expectation)`, `CausalEdge64::counterfactual_ready` (ZERO callers). Evaluation→{Commit|Plan|Prune} = the epistemic 3-way (commit-iff-high-conf / prune-iff-low / plan-iff-contradictory) maps 1:1 onto expectation bands. Style→threshold link exists in the WRONG crate (`learning/cognitive_styles.rs` fp[18] confidence_threshold: Skeptical 0.95). `ThoughtCtx.gate_state()` (FLOW/HOLD/BLOCK) is the natural Planning→{CognitiveWork|Prune} gate but lives on ThoughtCtx, unjoined to edges_raw() f/c — TWO truth registers, unreconciled.
+
+**THE NEXT BUILD (synthesized, replaces P3b):** the real A6-P3 slice = make StyleStrategy ACTUALLY schedule:
+1. Implement `resolve_style`: decode `ctx.thinking_style` i4-32D vec → argmax `ThinkingStyle` (the keystone; kills the constant-DEFAULT_STYLE bug).
+2. `StyleStrategy::plan()` must EMIT — thread the ThoughtCtx outcome into a `KanbanMove` (or `PlanResult` field), and a test asserting the plan CHANGED by style (Skeptical≠Creative output). Kills the passthrough theater.
+3. Truth-gate the transition: thread `expectation()`/`gate_state()` into the Evaluation→terminal choice.
+**PROBE FIRST (both reviewers):** R-GATE — does threading expectation() change ANY column outcome vs DAG-only on a fixed witness trace (Skeptical 0.95 vs Creative 0.6)? Pass = ≥1 differing terminal; Fail = cosmetic. Do NOT add a threshold field until the number exists. Probe → then wire.
+
+**Cross-ref:** #439 (D-MBX-A6-P3a, corrected); D-MBX-A6 (KanbanMove output overhaul, the canonical home); `style_strategy.rs:95,136`; `soa_view::try_advance_phase`; `contract::{thinking(tau/argmax), atoms(I4x32/CANONICAL_ATOMS[33]), recipe_kernels(gate_state), recipes}`; `causal-edge counterfactual_ready`; `spo/truth.rs TruthGate`; `learning/cognitive_styles.rs`; recipe.rs (do-not-revive); E-VERSION-ARC / E-SUBSTRATE-IS-THE-SCHEDULER.
+
+---
+
+## 2026-05-30 — FINDING (via #433 ref): three recipe modules; `contract::recipe::StyleRecipe` is the CANONICAL i4-32D style↔atom↔JIT home but is STALE+ORPHANED (unblocked yet never migrated/exported). StyleStrategy (#439) correctly built on the LIVE recipes/recipe_kernels — adjacent, not wrong.
+
+**Status:** FINDING (grounded, prompted by user "check 433"). Tech-debt + a scoped follow-up; NOT a #439 defect.
+
+**Three distinct recipe modules in contract — disambiguated:**
+1. `contract::recipe.rs` (SINGULAR) — **"Composition layer: thinking-style recipes"**: `StyleRecipe { name, weights:&[(Atom,i8)], composition:Option<I4x32> }` + `PersonaRecipe` (+β/thresholds) → `KernelHandle` (Cranelift). The canonical **atoms(i4-32D) → StyleRecipe → PersonaRecipe → JIT** ladder (E-LADDER-SERVES-MAILBOX §2). "JIT target is the recipe, not the per-atom dot"; "Elixir-style open/closed hot-load split". = EXACTLY the i4-32D-style + Cranelift-template substrate the user named.
+2. `contract::recipes.rs` (PLURAL) — the 34 reasoning-TACTIC catalogue (RTE/HTD/…).
+3. `contract::recipe_kernels.rs` — the 34 executable `Tactic` kernels.
+   (+ a 4th, unrelated: `lance-graph-ontology::odoo_blueprint::OdooStyleRecipe` — #433's Odoo-codegen D-Atom fingerprint, renamed from StyleRecipe to avoid THIS collision.)
+
+**The rot (the real find):** `recipe.rs`'s blocker D-ATOM-1 **HAS LANDED** — `contract::atoms` is real now (`I4x32` struct, `Atom`, `CANONICAL_ATOMS:[Atom;33]`). But `recipe.rs` was NEVER migrated: still uses `I4x32Stub=[i8;32]`/`AtomStub=u8` forward-stubs, AND is **NOT exported in lib.rs** (`pub mod recipe;` absent; only atoms/recipes/recipe_kernels exported). So `StyleRecipe`/`PersonaRecipe` is **dead code**: defined, stub-blocked despite the blocker resolving, unexported, zero consumers. Classic "blocker cleared, dependent never updated" debt — the kind #433's `prior-art-savant`/`dto-soa-savant` gate exists to catch.
+
+**Impact on D-MBX-A6-P3a (#439) — adjacent, not wrong:** `StyleStrategy` wired to the LIVE `recipes`+`recipe_kernels` (reasoning tactics). That was the correct shippable choice (those are exported + tested; `recipe.rs` is not). It is NOT the canonical i4-32D `StyleRecipe` home, and it does not yet use `atoms::I4x32`/`PersonaRecipe`. So #439 stands as-is (correct, green); the canonical-home migration is a SEPARATE slice, not a #439 fix.
+
+**Scoped follow-up (proposed, NOT in #439):** "D-MBX-A6-P3b — revive recipe.rs": migrate `I4x32Stub`→`atoms::I4x32`, `AtomStub`→`atoms::Atom`, export `pub mod recipe;` in lib.rs, then route `StyleStrategy` through `StyleRecipe` (style = i4-32D atom composition) → `PersonaRecipe` → the τ/jit `KernelHandle`. THAT closes the real i4-32D-style → Cranelift-template loop the user named. The epiphany-brainstorm-council (#433) is available here as a CATALYST (not a gate): invoking dto-soa-savant + creative-explorer would ENRICH the i4-32D revive with angles, not authorize it. P3b can proceed without it; the council is an amplifier to reach for, not a checkpoint to clear.
+
+**Also from #433 (process) — CORRECTED 2026-05-30:** the epiphany-brainstorm-council is a CATALYST for new insight (spawn 4-7 Opus savant lenses to GENERATE divergent reframings / cross-impact), NOT a guardian of what may be recorded. Its LAND/REVISE/REJECT is synthesis output, not permission. So this session's tee-prepends are NOT 'pending approval' at any gate — they are deposited priors. The council is something to INVOKE to enrich an idea (esp. the derived ones: E-FIREFLY-*, E-0xFFF, E-POLYGLOT-*), never a checkpoint they must pass. (Supersedes the earlier 'council-gated' framing in this same entry.)
+
+**Cross-ref:** #433 (style_recipe + epiphany-brainstorm-council + 5 savant cards); `contract::recipe.rs` (StyleRecipe/PersonaRecipe, stale); `contract::atoms` (D-ATOM-1 landed, #411); `contract::recipes`/`recipe_kernels` (what #439 uses); `OdooStyleRecipe` (ontology, the renamed-to-avoid-collision sibling); E-LADDER-SERVES-MAILBOX §2; D-MBX-A6-P3a (#439).
+
+---
+
+## 2026-05-30 — SHIPPED-in-PR: D-MBX-A6-P3a — StyleStrategy (thinking-style planning substrate wired into the planner)
+
+**Status:** SHIPPED-in-PR #439 (builds on A6-P1 #437 / A6-P2). First live cut of D-MBX-A6-P3 consumer wiring.
+
+`lance-graph-planner` now CONSUMES the contract cognitive substrate (it referenced none before): new `strategy::style_strategy::StyleStrategy` (#18 in `default_strategies()`) resolves the active `ThinkingStyle` → `cluster()` → `cluster_mechanism()` → selects which of the 34 `recipe_kernels::Tactic` fire over a `ThoughtCtx` built from `PlanContext` markers (`free_will_modifier`→temperature). The **style selects the recipe** (cluster→mechanism), not a hardcoded id list — and carries `style.tau()` (the JIT macro address, grounds `ExecTarget::Jit`). Mirrors `mul::escalation` (thin planner module over zero-dep contract). Planner already deps contract; NO new dep edge; contract stays zero-dep (no circular-dep, the AriGraph trap avoided).
+
+Verified: 3 new tests (analytical→truth-aware selection; every cluster→mechanism total over RECIPES; plan() passes through) + 192 planner lib green; rustfmt-clean; rebased onto main post-#438 (arm-discovery, no collision).
+
+**Deferred (the rest of A6-P3, per the design map):** i4-32D `thinking_style` vec → argmax `ThinkingStyle` decode; `Outcome`→`Candidate`/`KanbanMove` adapter; `tau`→`JitTemplate`→Cranelift `KernelHandle` compile (the real ExecTarget::Jit path); recipe-outcome→membrane commit via `CognitiveOpKind::MetaWordCommit` (OrchestrationBridge, never callcenter→planner); pre-recipe-fire RBAC (today pre-commit only); `class_id`→`recipe_id` resolver (ontology gap).
+
+**Cross-ref:** `planner::strategy::style_strategy`; `contract::{thinking(tau/cluster),recipes,recipe_kernels}`; `mul::escalation` precedent (#411); `ExecTarget::{Jit,Elixir}` (#439); `OntologyRegistry::attach_thinking_style` (registry.rs:311, the existing class→style seam); D-MBX-A6-P3.
+
+---
+
+## 2026-05-30 — RE-CENTER: thinking-styles ARE the planning substrate — i4-32D style → τ address → JITson/Cranelift template → KernelHandle; recipes are what styles SELECT. (corrects the recipe-centric framing of the build target above)
+
+**Status:** BUILD-GRADE correction (user 2026-05-30: "thinking styles are the most important planning substrate… i4-32D thinking styles and jit/JITson cranelift compiler templates"). Re-centers the default-recipe build target one entry up: styles are the dispatcher, recipes are the tactics dispatched. Grounded by grep (file:line).
+
+**The full planning-substrate pipeline — ALL SHIPPED, just unwired into the mailbox planner:**
+- `contract::thinking` — **36 thinking styles / 6 clusters**, `ThinkingStyle::ALL:[_;36]`, each mapped to a **τ (tau) macro address** for JIT (`thinking.rs:19`): Analytical τ0x40-4F, Creative τ0xA0, Empathic τ0x80, Direct τ0x60, Exploratory τ0x20, Meta τ0xC0. Plus `StyleCluster`(6)→`PlannerCluster`(4) via `to_planner_cluster()`, `FieldModulation`, `ScanParams`. The i4-32D form = the compact SIMD selection vector (32×i4 = 16B, same width family as CausalEdge64/QualiaI4_16D — hot-path AND-able).
+- `contract::jit` — closes the loop: `JitTemplate` (JITSON JSON) → `JitCompiler::compile` (ndarray Cranelift engine) → `KernelHandle{fn_ptr:*const u8}` (native code, Send+Sync) → `StyleRegistry` kernel cache (param_hash → cached kernel). n8n-rs implements `CompiledStyleRegistry`; ndarray = the jitson engine; lance-graph produces templates (`jitson_kernel.rs`).
+- `contract::recipes`/`recipe_kernels` — the 34 tactics styles SELECT (the prior build-target entry).
+
+**The pipeline (one line):** `i4-32D thinking style → τ address → JitTemplate(JITSON) → Cranelift compile → KernelHandle(native fn_ptr) → cached by StyleRegistry`; the style ALSO selects which recipe/Tactic runs over ThoughtCtx/SoA.
+
+**This grounds the #439 ExecTarget variants concretely:** `ExecTarget::Jit` = the τ→template→Cranelift→KernelHandle path (compiled). `ExecTarget::Elixir` = the recipe_kernels interpreted "Elixir-like" layer (the un-JITted fallback). The two exec targets I shipped now have their actual machinery identified: JIT = jit.rs, Elixir = recipe_kernels.rs.
+
+**Re-centered build target (corrects the recipe-centric framing):** the mailbox planner's default planning substrate = **thinking-style selection → τ → (cached KernelHandle | recipe Tactic) → over the SoA**. Styles dispatch; τ addresses; JITson compiles; recipes are the tactic catalogue. The minimal first slice should wire STYLE SELECTION first (the planner picks a ThinkingStyle → cluster → ScanParams), then recipe/kernel dispatch — not recipes in isolation. The Opus design map (in flight) was launched recipe-centric; re-center it on thinking+jit at synthesis.
+
+**Gaps to verify in the map:** does the planner already use ThinkingStyle (it had its own 12; contract says it maps via `to_planner_cluster()`)? Is `StyleRegistry`/`JitCompiler` wired to a real Cranelift engine (ndarray) or stub? Is the τ-address→template path built or spec? (jit.rs says lance-graph `jitson_kernel.rs` produces templates — verify it exists.)
+
+**Cross-ref:** `contract::thinking` (36 styles/τ/i4-32D/FieldModulation); `contract::jit` (JitTemplate/JitCompiler/KernelHandle/StyleRegistry); `contract::recipes`+`recipe_kernels`; `ExecTarget::{Jit,Elixir}` (#439); the prior "default recipes" build-target entry (this re-centers it); D-MBX-A6-P3; ndarray jitson/Cranelift engine.
+
+---
+
+## 2026-05-30 — BUILD TARGET: default recipes for the mailbox planner — the DTOs already exist, only the WIRING is missing
+
+**Status:** BUILD-GRADE (user-directed 2026-05-30: "we need default recipes for our mailbox planner… the DTOs are already there to wire"). Graduated from brainstorm to concrete. Grounded by grep (file:line below); Opus design map in flight.
+
+**The finding — everything exists, nothing is wired:**
+- `contract::recipes` — `Recipe` struct + `RECIPES:[Recipe;34]` (RTE/HTD/RCR/… id 1..=34, each with tier/mechanism/bucket/spo2cubed/substrate) + `recipe(id)`/`recipe_by_code`/`by_mechanism`/`causal` lookups. = the DEFAULT RECIPE CATALOGUE, locked.
+- `contract::recipe_kernels` — the `Tactic` trait + `ThoughtCtx` (sd/free_energy/dissonance/temperature/confidence/rung/candidates/beliefs) + `Outcome`; "the Elixir-like recipe layer: 34 hot-dispatchable units, registry-routed by id." = the EXECUTABLE default recipes.
+- **GAP (verified):** `lance-graph-planner` references NEITHER `recipes` nor `recipe_kernels` nor `Tactic` anywhere. The mailbox planner has NO default recipes wired. This is the build.
+- **Consumers ready (DTOs exist):** `callcenter::{OntologyDto/EntityTypeDto/PropertyDto/LinkTypeDto/ActionTypeDto, MembraneRegistry, LanceMembrane, cognitive_bridge_gate, policy, rls}` = the committing membrane; `ontology::{OntologyRegistry, MappingRow, SchemaPtr, enumerate_first_with_entity_type_id}` = OGIT classes on SoA; `rbac::{Policy, Role(can_read/can_write/can_act), Operation, evaluate, AccessDecision}` = the gate.
+
+**The chain to wire:** recipe (contract `Tactic`) → candidate (planner `CandidatePool`) → rbac gate (`rbac::evaluate`) → ontology class resolve (`OntologyRegistry` by entity_type_id) → membrane commit (`callcenter::LanceMembrane`). Recipe substrate + consumer DTOs exist; the SEAMS between them are the gap.
+
+**This is the "Elixir-like template" layer made real** (connects the GEL/ExecTarget::Elixir thread): recipe_kernels is literally documented as "the Elixir-like recipe layer." So the default-recipe wiring IS the planner-strategy/template work, grounded in shipped code — not the speculative PlanPacket. Centered on AST/SoA markers (ThoughtCtx = our substrate markers), per "the mailbox understands AST."
+
+**Maps to D-MBX:** part of / sibling to D-MBX-A6-P3 (planner consumer wiring). Awaiting Opus map for: dependency directions (keep contract zero-dep; circular-dep risk like AriGraph↔planner), the minimal first slice (RecipeStrategy in default_strategies vs default_recipes() selector), and the rbac-gate placement (pre-recipe vs pre-commit).
+
+**Cross-ref:** `contract::recipes`/`recipe_kernels` (recipe catalogue + Tactic); `planner::{traits,api,cache/candidate_pool,strategy/mod}`; `callcenter::{lance_membrane,ontology_dto,cognitive_bridge_gate}`; `ontology::registry`; `rbac::{policy,role,access}`; D-MBX-A6-P3; `ExecTarget::Elixir` (#439); recipe_kernels "Elixir-like" doc.
+
+---
+
+## 2026-05-30 — BRAINSTORM: E-FIREFLY-PACKET-IS-THE-LOCATION-TRANSPARENT-PLAN — (adjacent inspiration) backport firefly's packet-executor as the in-mailbox PLANNING SUBSTRATE; the same packet distributes cross-server via ONE gRPC hop (BEAM location transparency)
+
+**Status:** BRAINSTORM / adjacent-inspiration (user framing 2026-05-30: "just brainstorming, you might only find an adjacent inspiration"). NOT a ratified decision — a candidate direction to remember, not a committed build plan. Downgraded from an over-eager "DECISION" label. The forks/slice below are sketch options, not a sequenced commitment.
+
+**The backport:** the mailbox's PLANNING SUBSTRATE = firefly's packet-flows-through-a-node-graph executor. A plan = a graph of plan-nodes; planning/candidate-generation = a packet hopping through it (validate→transform→persist shape), TTL-bounded, accumulating `trace[]`. Replaces a bespoke planner-tick loop with the firefly model. Each hop = a phase transition = a version commit (`E-VERSION-ARC-IS-THE-KANBAN`); the `trace[]` = the witness arc (R4); `ExecTarget` (#439) = how each node executes; transport = orthogonal.
+
+**The punchline (why it's elegant): distribution = ONE gRPC packet.** Because the planning substrate IS packet-based, the in-mailbox plan state is ALREADY a complete serializable execution context (`FireflyPacket`: 80B LE header + 1250B resonance + ctx + trace + ttl). Cross-server distribution needs NO new abstraction: serialize the packet once → gRPC to another server instance → it deserializes and continues the hop. firefly's `hop(current,next)` is already location-transparent (target = an address; a routing table decides local vs remote). = **BEAM location transparency** (send to a PID; local-or-remote is just transport) — and exactly what ractor embodies (Boxed-local / Serialized-remote).
+
+**Reconciles with `E-RACTOR-WANTS-TOKIO-NOT-GRPC` (NOT a contradiction):**
+- INSIDE hop (local node) = move the struct, zero-serialize (Tokio/in-mem). gRPC-slower-than-Tokio STILL holds; you never pay it locally.
+- OUTSIDE hop (crosses a server) = serialize ONCE → gRPC (or cluster-TCP / Flight). Pay serialization only at the boundary, amortized (two-clock decoupling). The packet is distribute-ready BY CONSTRUCTION; "only a gRPC packet" is true because the planning DTO already speaks packets.
+This realizes the long-standing inside/outside "location-transparency" synergy (the §1.1 candidate) concretely: ONE packet, two transports.
+
+**Honesty / nuance:** "only a gRPC packet" is true at the abstraction level; the resonance is ~1.25KB + ctx, so a cross-server hop has real serialize cost — paid only at the boundary, not per local hop. The win is no NEW distribution layer, not zero cost.
+
+**Design forks to decide BEFORE building (the slice gates on these):**
+1. **DTO:** extend `KanbanMove` into a `PlanPacket` (header + SoA-resonance ref + op + trace + ttl), or a new contract type beside it? (KanbanMove is the per-move record; PlanPacket is the hopping execution context — likely a NEW type that CARRIES a KanbanMove per hop.)
+2. **Address width:** 0xFFF (12-bit, inside, cache-aligned) vs firefly's 256-bit SHA at the durable/cross-server boundary (`E-0xFFF` / firefly divergence). Likely: 0xFFF local, SHA-CAM at the gRPC hop (mirrors witness-materialization-at-commit).
+3. **Payload by-ref vs by-value:** inside, the packet must reference the SoA (R1 "never serialize the SoA") — carry a `MailboxSoaView` handle / row-range, NOT a copied resonance. Only the gRPC hop snapshots. (This is the R1 + R5 hot/cold-snapshot rule applied to the packet.)
+4. **Serialize format for the gRPC hop:** protobuf (tonic) vs firefly's LE-packed header + hex. (gRPC/tonic already in the lab surface; promote at the genuine boundary.)
+5. **Routing table:** where local-vs-remote node resolution lives (the pointer table / mailbox index).
+
+**Minimal first slice (proposed, fork-1/3 dependent):** a zero-dep `contract::plan_packet::PlanPacket` — routing header (src/tgt address, ttl, seq, flags) + an op + a `witness_chain_position` trace + a BORROWED SoA reference (not owned resonance), with `hop()` (local, move) and a `to_wire()`/`from_wire()` boundary (the only serialize point). Carries a `KanbanMove` per phase. Local hop = struct move; `to_wire` only at a remote hop. Unit-tested with a fake routing table (local vs remote). Defers the actual gRPC service (lab/outside) and the node-graph executor (planner crate) to follow-ups.
+
+**Maps to D-MBX:** this IS the A6-P3 planning-substrate design (was "bespoke planner loop") + the distribution story for D-MBX-9's cross-server case. Sequenced after the address-width decision (relates P-B canonical 0xFFF type).
+
+**Cross-ref:** `/home/user/firefly/rust/src/dto/packet.rs` (hop/pack_header — the location-transparent primitive); `E-FIREFLY-IS-GEL-OUTSIDE-PROTOTYPE`; `E-RACTOR-WANTS-TOKIO-NOT-GRPC`; `E-VERSION-ARC-IS-THE-KANBAN`; `ExecTarget`/`KanbanMove`/`MailboxSoaView` (#437/#439); RISC core inv 4/5/7 (hot-cold, snapshot, two-clock); D-MBX-A6-P3 / D-MBX-9.
+
+---
+
+## 2026-05-30 — E-FIREFLY-IS-GEL-OUTSIDE-PROTOTYPE — adaworldapi/firefly is a runnable GEL substrate + the OUTSIDE-transport prototype; its FireflyPacket = the serialized cross-process Baton; transport is Redis-mRNA (NOT gRPC)
+
+**Status:** FINDING (read firefly source 2026-05-30, cloned read-only to /home/user/firefly — PUBLIC repo, NOT in the 16-repo authorized scope; do not push to it). User: "my toy Ballista executing gRPC packets with 0xFFF as transport."
+
+**What firefly IS:** a runnable (Railway-deployed) "Universal Executable Substrate" — `BOOT.md`: "doesn't compile code, it RUNS compiled graphs"; per-language compilers (RUBBERDUCK/Ruby, PYTHONIC, JAVELIN/Java, RUSTLER/Rust) all emit "1.25KB Hamming nodes." **= GEL made concrete** (`E-GEL-IS-THE-GRAPH-SUBSTRATE`): any language → uniform graph node → executable substrate. Firefly is a parallel, smaller, deployed prototype of exactly what the D-MBX arc builds inside lance-graph.
+
+**Transport CORRECTION (honest):** the actual transport is **Redis streams + mRNA** (`docs/MRNA_TRANSPORT.md`, `rust/src/dto/packet.rs`), NOT gRPC. `FireflyPacket` routes via Redis `XADD`/`XREAD` on `firefly:node:{hash}` streams. "gRPC packets" in the user's framing = the intent/analog (RPC-style cross-process packets); the code uses Redis-stream mRNA. Either way it is the OUTSIDE (cross-process, serialized) layer — confirming `E-RACTOR-WANTS-TOKIO-NOT-GRPC`: inside=Tokio-Baton zero-serialize, outside=serialized packet (firefly's choice = Redis-mRNA; ractor's = cluster-TCP; lab = gRPC/Flight).
+
+**Concept-for-concept map (firefly ↔ lance-graph), the striking convergence:**
+- `FireflyPacket` (80B header + 1250B resonance + JSON ctx) = the **serialized cross-process Baton** (`CollapseGateEmission` is the in-process LE tuple; FireflyPacket is its outside-the-process form).
+- **80B LE routing header** (src/tgt = 32B SHA256 node addr, ttl u8, priority, flags u16, sequence u32, CRC32) = the "0xFFF as transport" layer — ADDRESSES route, payload rides. (firefly uses 256-bit SHA addresses, not 12-bit 0xFFF — a divergence: full content-hash vs compact 12-bit; see open Q.)
+- **1250B = 10,000-bit Hamming, 4 zones**: Content[0:3000] / Process[3000:6000] / Qualia[6000:8000] / Context[8000:10000]. = the SAME 4-signature decomposition as BindSpace SoA column families (content/edge/qualia/meta). Independent convergence.
+- `ttl` + `hop()` (decrement, append to `trace[]`) = the **witness arc / belief-state chain** (R4); TTL=0 → dead-letter = absorbing **Prune** terminal.
+- Redis consumer-group scaling rules: **VALIDATE/TRANSFORM parallel (pure), PERSIST single (ordering)** = EXACTLY the hot-path-parallel vs commit-gate-single-writer split (RISC core invariant 4) — independently arrived at.
+- stream-length **backpressure** = RISC core invariant 8.
+- **Storage Trinity** (LanceDB vectors / DuckDB facts / Kuzu graph) = lance-graph's unify-on-Lance (firefly splits 3 engines where lance-graph + surrealdb-kv-lance unifies; a real architecture fork to note).
+
+**Why it matters for the arc:** firefly is the **OUTSIDE-transport reference implementation** + a working GEL executor. It validates (by independent convergence) the hot/cold split, the address-routes-payload-rides packet shape, the 4-zone resonance, and the witness-as-trace. ExecTarget-wise it is a distributed executor (Ballista-shaped): a `KanbanMove{exec=Distributed}` would lower to a FireflyPacket on the outside path.
+
+**Open questions / divergences to reconcile (NOT decided):**
+1. **Address width:** firefly = 256-bit SHA256 node address; lance-graph 0xFFF = 12-bit aligned address. Full content-hash (collision-proof, big) vs compact 12-bit (cache-aligned, codebook-bounded). Which at which layer? (likely 0xFFF inside / SHA-CAM at the durable/cross-process boundary, mirroring the CAM-materialization-at-commit rule.)
+2. **Transport:** Redis-mRNA (firefly) vs ractor-cluster-TCP vs Arrow-Flight-CAM — three OUTSIDE options; pick per deployment.
+3. **Storage:** firefly trinity (3 engines) vs lance-graph unify-on-Lance. Reconcile or keep firefly as the polyglot-frontend ingest tier feeding the unified substrate.
+4. firefly is OUTSIDE authorized scope — keep as read-only reference; do not push.
+
+**Cross-ref:** `/home/user/firefly/{BOOT.md,rust/src/dto/packet.rs,docs/MRNA_TRANSPORT.md,docs/ARCHITECTURE.md}`; `E-GEL-IS-THE-GRAPH-SUBSTRATE`; `E-RACTOR-WANTS-TOKIO-NOT-GRPC`; `E-0xFFF-IS-ONE-ALIGNED-ADDRESS`; CollapseGateEmission Baton; RISC core invariants 4/8; RUBBERDUCK (github.com/AdaWorldAPI/rubberduck, the Ruby→node compiler).
+
+---
+
+## 2026-05-30 — FINDING: E-RACTOR-WANTS-TOKIO-NOT-GRPC — local ractor is a Box<dyn Any> pointer-move over Tokio mpsc (zero serialize); gRPC is strictly slower and is LAB-ONLY. CAM/0xFFF-over-Flight is the cross-PROCESS path only
+
+**Status:** FINDING (grounded in ractor + cognitive-shader-driver source, 2026-05-30). Answers the user's transport question: does ractor want gRPC, or is it slower than Tokio?
+
+**ANSWER: For in-process mailboxes, Tokio mpsc beats gRPC by construction — gRPC is never the local transport.** Proof from ractor source:
+- **Local (default, NO `cluster` feature):** a message is `BoxedMessage { msg: Box<dyn Any + Send> }` (`ractor/src/message.rs:62-63`), moved through a Tokio mpsc and recovered via `m.downcast::<Self>()` (`message.rs:102`). **Zero serialization** — a heap-boxed pointer move + downcast. Blanket `impl<T: Any+Send> Message for T` (ractor CLAUDE.md) = any Rust type rides as-is, zero boilerplate.
+- **Cluster (`cluster` feature):** the SAME enum is replaced by `SerializedMessage { args: Vec<u8> }` (`message.rs:30-57`) → serialize → TCP via `ractor_cluster` NodeServer/NodeSession. Note: ractor's OWN distributed transport is **raw TCP serialization, NOT gRPC.**
+
+**Why gRPC is strictly slower locally:** gRPC = protobuf encode + HTTP/2 framing + socket syscall + decode. The local Tokio path SKIPS all of it (pointer move). gRPC only earns its cost at a **process/node boundary** — and even there ractor's native answer is TCP serialization, not gRPC. So: never gRPC for same-process mailboxes; serialization (TCP or Flight) only when crossing a process.
+
+**The gRPC/Ballista/Flight + CAM/0xFFF occurrences (the user's first point):** these live in `cognitive-shader-driver/src/{grpc.rs,wire.rs}` — **LAB-ONLY** (`lab-vs-canonical-surface.md:52,54`: "Test-transport convenience… NEVER in production binary"), feature-gated (`Cargo.toml`: `grpc.rs` required-features=["grpc"], `tonic optional=true`). CAM-encoded-over-Flight/Ballista = the cross-PROCESS / distributed-DataFusion movement path, exactly where serialization is unavoidable anyway, and where 0xFFF/CAM codes are the COMPACT wire form (12-bit address / 6-byte CAM-PQ code instead of full vectors — Flight/Ballista carry the addresses, not the payloads). So CAM-over-Flight is the RIGHT tool for its layer (inter-process), and Tokio-Baton is the right tool for the hot in-process layer.
+
+**Maps to the inside/outside duality (this session's stance):** INSIDE (in-process, hot) = Tokio mpsc + Baton (`CollapseGateEmission` LE tuple), zero-serialize pointer move — the kanban hot path. OUTSIDE (cross-process, distributable) = ractor `cluster` TCP serialize OR CAM/0xFFF-over-Flight/Ballista for DataFusion-federated movement. gRPC sits with OUTSIDE+LAB, never INSIDE. Decision: keep ractor on local Tokio for the mailbox swarm; reserve serialized transport (prefer ractor_cluster TCP or Flight-CAM) for genuine process boundaries; gRPC stays lab-only.
+
+**Cross-ref:** `ractor/src/message.rs` (Boxed vs Serialized); ractor CLAUDE.md (blanket Message impl, cluster=TCP); `lab-vs-canonical-surface.md:52-54` (grpc/wire LAB-ONLY); `E-VERSION-ARC-IS-THE-KANBAN` (inside/outside); the earlier hot-path Tokio-cost finding; faiss-homology-cam-pq (CAM = compact address, the right Flight payload).
+
+---
+
+## 2026-05-30 — CORRECTION: E-0xFFF-IS-ONE-ALIGNED-ADDRESS — the "4 distinct 4096s" are ONE deliberate 0xFFF (12-bit) address space, aligned for efficiency; not a magic-number coincidence. Corrects E-POLYGLOT-4096-IS-CONJECTURAL
+
+**Status:** CORRECTION (supersedes the "4096 = 4 distinct unrelated magic numbers, no canonical surface" claim in `E-POLYGLOT-4096-IS-CONJECTURAL`) + FINDING (user-stated 2026-05-30).
+
+**The correction (I was wrong):** I labeled the recurring 4096 as four unrelated coincidental magic numbers. It is **ONE deliberate 0xFFF / 12-bit address space**, and the surfaces were **aligned to it for efficiency** — not coincidence. The polyglot path addresses by 0xFFF; 4096 = 2^12 is the address width, so:
+- deepnsm COCA vocab (4096 words = 12-bit rank),
+- AutocompleteCache attention topology (64×64 = 4096 heads),
+- BindSpace addressing (16 prefixes × 256 = 4096 slots),
+- the COCA² distance matrix
+…all land on **the same 12-bit index ON PURPOSE**, so a parsed symbol / vocab rank / attention head / SoA slot **co-index without translation**. The "incidentally also 4096" IS the alignment tell.
+
+**Why aligned (the efficiency):** one 0xFFF address space = no remap between stages (parse → vocab → head → SoA share the index); fits a mask, shift-addressable / AND-testable in a cycle (same "5 facets ≈ one u64, SIMD batch-AND over the SoA column" efficiency as wikidata-hhtl-load). This is the CAM addressing invariant (cognitive-risc-classes): content → fixed-width address → every layer indexes by it. 0xFFF is that fixed width.
+
+**What STILL stands from the prior finding:** the **end-to-end frontend→0xFFF→SoA wiring is still partial** — the IR is string-keyed (`ast.rs label: String`); the planner doesn't yet resolve labels→12-bit rank; the parser→4096 join (`cache/convergence.rs`) is the half-built p64-drift terminus. BUT the alignment means wiring it is CHEAP (shared address, not a translation layer) — the design intent was always one address space; only the resolution call is missing. So: address space = unified-by-design (corrected); resolution path = not-yet-called (stands).
+
+**Consequence for P-A / P-B:** P-B ("unify the 4096 surface") is NOT "merge 4 unrelated things" — it's "**declare the 0xFFF address width as ONE canonical 12-bit type** and have the surfaces name it instead of re-spelling 4096". Lighter than I framed it. And the polyglot conformance loop (P-A) can additionally assert that equivalent queries resolve to the same 0xFFF address (once resolution is wired), not just the same LogicalOp shape.
+
+**Cross-ref:** corrects `E-POLYGLOT-4096-IS-CONJECTURAL` + `E-POLYGLOT-TWO-IR-ROUTES`; cognitive-risc-classes (CAM addressing, fixed-width); wikidata-hhtl-load (facet u64 / SIMD batch-AND efficiency); `cache/convergence.rs` (the 0xFFF join, partial); faiss-homology-cam-pq (exact-address addressing).
+
+---
+
+## 2026-05-30 — FINDING: E-POLYGLOT-TWO-IR-ROUTES — the 4 dialect parsers build IR via TWO different routes (in-strategy vs ArenaIR), converging on one LogicalOp arena that NOTHING asserts they agree on; 4096-in-planner = the AutocompleteCache, joined via convergence.rs
+
+**Status:** FINDING (grounded source read 2026-05-30, per user pointer to planner/datafusion polyglot path). Sharpens `E-POLYGLOT-4096-IS-CONJECTURAL` with the real per-parser reality.
+
+**The 4 polyglot parsers are at two IR-construction routes (arena.push counts verified):**
+- **In-strategy transpilers (push LogicalOp directly):** `gremlin_parse.rs` (37 `arena.push`; full step→IR: ScanNode/IndexNestedLoopJoin/RecursiveExtend/Aggregate…) + `sparql_parse.rs` (31).
+- **Feature-detect → shared ArenaIR route (0 push in strategy):** `cypher_parse.rs` (0; the REAL nom parser lives in `lance-graph/src/parser.rs`, then `strategy/arena_ir.rs` (#2) builds the arena) + `gql_parse.rs` (0; explicitly "delegate to CypherParse for shared syntax… ArenaIR will build the plan from detected features", gql_parse.rs:157-159 — sets only feature flags + `estimated_complexity`).
+
+⇒ Both routes are SUPPOSED to land on the same `ir/logical_op.rs LogicalOp` arena, but **NOTHING asserts the two routes (or the 4 dialects) produce equivalent IR for equivalent queries.** That is exactly where silent divergence hides — and exactly what the polyglot IR-conformance loop (P-A) would catch. Concretely actionable: GQL today only flips feature bits; whether ArenaIR reconstructs the same arena Gremlin emits directly is UNTESTED.
+
+**The 4096↔polyglot join (corrected):** the 4096 in THIS crate = the **AutocompleteCache attention topology** (64×64 = 4096 interdependent heads: `cache/{triple_model,kv_bundle,lane_eval,candidate_pool,mod}.rs`), NOT a query codebook and NOT the deepnsm COCA-4096. The link parser→4096 runs: dialect parser → LogicalOp IR → `cache/convergence.rs` ("AriGraph triplets → 8 predicate layers × 64×64 = 4096 heads → CognitiveShader"). convergence.rs is the JOIN — and it is the same module flagged half-built (p64 drift `#[allow(unused_imports)]`, `E-ARIGRAPH-IS-AN-ISLAND`). So "polyglot 4096 in datafusion/planner" = parsers (wired, 2 routes) → IR (wired) → convergence→4096-heads (PARTIAL/dead terminus).
+
+**Datafusion side:** IR → `lance-graph/src/datafusion_planner/` → Spark-dialect unparser (SQL = backend, confirmed). The DataFusion LogicalPlan is the EXECUTION lowering of the same LogicalOp the dialects converge on (the ExecTarget::Native path).
+
+**Revised P-A (the shippable slice), now precise:** polyglot IR-conformance harness asserting (1) the 4 dialects produce equivalent `LogicalOp` for a hand-written equivalent-query corpus, AND (2) the two routes (in-strategy vs ArenaIR) agree — closing the GQL/Cypher-via-ArenaIR vs Gremlin/SPARQL-direct gap. Attaches to `lance-graph-consumer-conformance`. This is the floor that grounds GEL's query-language slice (`E-GEL-IS-THE-GRAPH-SUBSTRATE`).
+
+**Cross-ref:** `E-POLYGLOT-4096-IS-CONJECTURAL`; `E-GEL-IS-THE-GRAPH-SUBSTRATE`; `E-ARIGRAPH-IS-AN-ISLAND` (convergence.rs p64 drift); `strategy/{gremlin,sparql,cypher,gql}_parse.rs`; `strategy/arena_ir.rs`; `ir/logical_op.rs`; `cache/convergence.rs`; `datafusion_planner/`.
+
+---
+
+## 2026-05-30 — CORRECTION + FINDING: E-GEL-IS-THE-GRAPH-SUBSTRATE — GEL = Graph Execution Language (any-language→graph, BEAM-analogous); NOT a query dialect. Corrects "GEL absent" in E-POLYGLOT-4096-IS-CONJECTURAL
+
+**Status:** CORRECTION (supersedes the "GEL/EdgeQL = absent dialect" line in `E-POLYGLOT-4096-IS-CONJECTURAL`) + FINDING (user-stated 2026-05-30: GEL is the user's own coinage, not EdgeDB's rebrand).
+
+**The correction:** I mislabeled "GEL" as EdgeDB's EdgeQL→GEL rebrand and filed it under "absent query dialect." WRONG. **GEL = Graph Execution Language** — a graph SUBSTRATE for representing ANY language in graph form, analogous to how any code lowers to OTP/BEAM/Erlang. GEL is NOT a frontend dialect (not P-C/P-D); it is the IR/substrate layer that frontends lower INTO, represented as an executable graph.
+
+**The BEAM analogy (exact, and ALREADY partially built here):**
+- BEAM: Erlang/Elixir/Gleam/LFE → BEAM bytecode; BEAM provides actors (processes) + preemptive scheduling + supervision trees + message passing.
+- GEL: any language → graph representation; the graph IS executable.
+- **ractor IS the BEAM actor model ported to Rust** — mailboxes = BEAM processes, `lance-graph-supervisor` = supervision tree, `CollapseGateEmission` batons = message passing. So GEL's execution engine = the ractor-over-SoA path being wired (D-MBX-A6 / kanban lifecycle). Not hypothetical.
+
+**Where GEL sits in the stack (it is the substrate everything converges on):**
+- **Lowering rule = "AST is the hub"** (cognitive-risc-core): any language → one canonical AST → SPO/graph. GEL = the GRAPH FORM of that hub. `logical_plan.rs LogicalOperator` (query IR) is ONE SLICE of GEL (query languages only); full GEL = any language, not just query.
+- **Runtime = `ExecTarget::Elixir`** (shipped #439) literally names "execute on the BEAM-analogous path." The exec-target axis already enumerates GEL's backends.
+- **Execution trace = the version arc** (`E-VERSION-ARC-IS-THE-KANBAN` + `E-SUBSTRATE-IS-THE-SCHEDULER`): graph executes → phase commit → Lance version → scheduler fires next. That IS a graph-execution-language running, with the version arc as its trace.
+- **State = the SoA** (`E-SOA-IS-THE-ONLY`): GEL nodes/edges = SPO + CausalEdge64 over the one MailboxSoA.
+
+**Prior-art / naming collision to reconcile:** `holograph/src/width_32k/schema.rs` uses "GEL" = "global execution layer" — genuinely adjacent (Global/Graph EXECUTION Layer). Reconcile whether that is the seed, a collision, or unrelated before formalizing the GEL name in code.
+
+**Implication for the polyglot sequence:** GEL reframes it. P-A (IR-conformance loop) still grounds the QUERY-language slice of GEL. But the broader GEL goal = "any language → graph" is the SUBSTRATE the whole D-MBX arc already realizes (IR + SPO + MailboxSoA + ractor lifecycle + ExecTarget + version arc). GEL is the NAME for the convergence, not a new component to bolt on. Do NOT build a "GEL parser"; the work is recognizing/consolidating that the existing IR+SoA+ractor IS GEL, then widening the lowering beyond query languages (LE-4 Odoo/OWL, Elixir templates, etc. = other-session lowerings into GEL).
+
+**Cross-ref:** `E-POLYGLOT-4096-IS-CONJECTURAL` (corrected); cognitive-risc-core "AST is the hub"; `ExecTarget::Elixir` (#439); `E-VERSION-ARC-IS-THE-KANBAN`; `E-SUBSTRATE-IS-THE-SCHEDULER`; ractor=BEAM-actor-model; `holograph/.../schema.rs` (GEL prior-art).
+
+---
+
+## 2026-05-30 — E-POLYGLOT-4096-IS-CONJECTURAL — "loop through 4096 0xFFF polyglot mapping" is NOT wired: 4096 is 4 distinct magic numbers, and frontend->4096->SoA does not exist (string-keyed IR end-to-end)
+
+**Status:** FINDING (grounded read 2026-05-30, file:line agent map). Honest correction of the "loop through 4096 polyglot" framing — labels what exists vs what is conjectural.
+
+**What EXISTS (wired):**
+- **Polyglot frontends → ONE IR:** Cypher/GQL/Gremlin/SPARQL all converge on `logical_plan.rs:19 LogicalOperator` (arena IR). Real Cypher parser `lance-graph/src/parser.rs`; the other three are thin Strategy adapters (`planner/src/strategy/{cypher,gql,gremlin,sparql}_parse.rs`) with affinity scoring. Extension shape = Parser + Strategy + affinity arm + 1-line registry (`strategy/mod.rs:51`).
+- **SQL = BACKEND only** (Cypher→DataFusion→Spark unparser, `datafusion_planner/`, `spark_dialect.rs`); NOT a frontend.
+- **NARS = truth/inference only** (`spo/truth.rs` (f,c); planner `cache/nars_engine.rs`; CausalEdge64 mantissa); NO Narsese parser.
+- **GEL/EdgeQL = ABSENT** (the one "GEL" hit = "global execution layer", unrelated).
+- **Conformance harness EXISTS** (`lance-graph-consumer-conformance/src/harness.rs` A1-A10) but tests consumer BRIDGES, not dialect IR-equivalence.
+
+**What is CONJECTURAL (NOT wired) — the honest gaps:**
+1. **"4096 surface" is 4 DISTINCT uses of the magic number, no canonical type:** (a) deepnsm COCA vocab 12-bit `VOCAB_SIZE=4096` (`deepnsm/vocabulary.rs:19`); (b) AutocompleteCache 64×64=4096 attention heads (`planner/cache/triple_model.rs`); (c) BindSpace 16 prefixes×256 slots (`docs/METADATA_SCHEMA_INVENTORY.md`, design only); (d) COCA² distance matrix. (Palette codebook is 256, NOT 4096.) ⇒ "loop through 4096 0xFFF" is NOT a single enumerable surface today — unification is a prerequisite task, not a loop.
+2. **frontend→4096→SoA path DOES NOT EXIST.** The IR is string-keyed end-to-end (`ast.rs:14` `label: String`); the planner never calls `vocabulary.tokenize(label)`; DataFusion scans by string table name; SPO uses FNV-1a hash keys, not 4096 ranks. DeepNSM (the only thing that resolves to 4096) runs PARALLEL to the graph planner, unintegrated.
+
+**The REAL shippable slice (grounded, no conjecture):** the **polyglot IR-conformance loop** — assert the 4 wired dialects produce the SAME `LogicalOperator` for equivalent queries. Attaches to the existing conformance harness; needs only a hand-written equivalent-query corpus + deep-IR-equality. This GROUNDS the polyglot claim (currently untested) and is the prerequisite floor before any 4096 wiring. (`E-SOA-IS-THE-ONLY` / AST-is-the-hub: prove the hub agrees before resolving it to addresses.)
+
+**Sequenced follow-ups (each its own slice, ratification-gated):**
+- P-A: polyglot IR-conformance loop (SHIPPABLE NOW — grounds the hub).
+- P-B: unify the 4096 surface = declare ONE canonical 12-bit address type (contract/ndarray); collapse the 4 uses onto it. (Prereq for any "loop through 4096".)
+- P-C: NARS-as-frontend (Narsese parser → LogicalOperator) — the dialect where query=inference; closes the loop to the (f,c) truth model already present.
+- P-D: frontend→4096→SoA = add `label_rank: Option<u16>` to the IR, wire vocab resolution at plan time, SoA column access by rank (OOV fallback). The conjectural path, last + biggest.
+- (SQL-as-frontend, GEL: lower priority; SQL is already a backend, GEL absent.)
+
+**Cross-ref:** cognitive-risc-core "AST is the hub"; `logical_plan.rs:19`; `deepnsm/vocabulary.rs:19`; `lance-graph-consumer-conformance`; `ExecTarget` (#439, the backend axis this frontend axis pairs with).
+
+---
+
+## 2026-05-30 — E-SUBSTRATE-IS-THE-SCHEDULER — surreal's time-series/LIVE over the version arc is a cheap planner→execution scheduler firing back INTO the mailbox; the substrate↔mailbox loop is bidirectional
+
+**Status:** FINDING (architectural, user-stated 2026-05-30). Return-path complement of `E-VERSION-ARC-IS-THE-KANBAN`. Together they close the loop.
+
+**The loop is bidirectional:**
+- **OUTBOUND (mailbox → surreal), free:** `advance_phase` commit = Lance version = kanban move; surreal LIVE-subscribes (`E-VERSION-ARC-IS-THE-KANBAN`).
+- **INBOUND (surreal → mailbox), this finding:** surreal's time-series + LIVE/scheduled query IS a **scheduler**. A surreal scheduled/LIVE event fires back into the mailbox as the next `advance_phase` trigger. The mailbox does NOT run its own planner-tick loop — **surreal schedules it, cheaply**, off the same `versions()` stream.
+
+**This completes the GitHub homology (never one-way):**
+
+| GitHub | Substrate ↔ mailbox |
+|---|---|
+| push commit → PR | mailbox commit → version arc (outbound, free) |
+| CI / scheduled workflow fires → acts on PR | surreal LIVE/scheduled event fires → drives mailbox's next phase (inbound) |
+| Actions runner = scheduler | surreal time-series = scheduler |
+
+**Architectural wins:**
+1. **planner→execution edge, done cheaply.** Planning precipitates a kanban move (a version); surreal's scheduler watches the arc and fires the execution tick back. `ExecTarget` (#439) = HOW it runs; the surreal event = WHEN. Mailbox stays a pure state machine (`try_advance_phase`, #439); surreal = clock + planner-dispatch.
+2. **Two-clock decoupling (RISC core invariant 7) for free:** hot shader speed (mailbox SoA mutation) vs cold scheduler cadence (surreal time-series) — decoupled by construction, same `versions()` stream read both directions. No separate scheduler infra.
+3. **`ExecTarget::SurrealQl` made literal:** a scheduled SurrealQL query is BOTH the trigger AND a valid execution backend — the planner→execution path can live entirely in the substrate scheduler for that target. (Native/Jit/Elixir targets: surreal fires the trigger, the mailbox runs the backend.)
+
+**Consequence for D-MBX:** the planner→execution wiring (part of D-MBX-A6-P3 + D-MBX-8 Σ10-commit→ractor-START) gains a substrate-native option — surreal-scheduled tick instead of an in-process planner loop. Still gated by surreal_container fork (OQ-11.6) for the surreal side; the contract side (`ExecTarget`, `try_advance_phase`, `MailboxSoaView`) is already shipped/in-PR and backend-agnostic.
+
+**Open (implementation):** surreal scheduled-query vs LIVE-trigger as the fire mechanism; backpressure when the scheduler outruns the hot path (RISC core invariant 8 — shed by ⟨f,c⟩). Architecture is substrate-native; wiring waits on OQ-11.6.
+
+**Cross-ref:** `E-VERSION-ARC-IS-THE-KANBAN`; surrealdb #31 (Timeline over `Dataset::versions()`); `ExecTarget`/`try_advance_phase` (#439); D-MBX-8/9/A6-P3; cognitive-risc-core invariants 7 (two-clock) + 8 (backpressure).
+
+---
+
+## 2026-05-30 — E-VERSION-ARC-IS-THE-KANBAN — the mailbox's Lance version timeline IS the kanban arc, for free; consume it like a GitHub CI/PR subscription (push, not poll)
+
+**Status:** FINDING (architectural simplification, user-stated 2026-05-30). Grounded in surrealdb #31 substrate fact + Lance versioning. Reframes D-MBX-9.
+
+**The insight:** since kv-lance is native (surrealdb #31: one `MergeInsert`/commit = one Lance dataset version), a mailbox's **`Dataset::versions()` timeline IS its kanban arc — it falls out of the substrate for FREE.** Each `MailboxSoaOwner::advance_phase` commit = one new Lance version = one kanban move. No separate kanban update mechanism is built; the version stream IS it.
+
+**The consumption pattern = a GitHub CI/PR subscription (the exact homology this session ran):**
+
+| GitHub PR | Mailbox kanban |
+|---|---|
+| commits pushed to a PR | phase-transition commits to the mailbox's Lance dataset |
+| CI/review events | new Lance versions appear |
+| `subscribe_pr_activity` → pushed to subscriber | surreal LIVE query over `versions()` → kanban updates pushed |
+| react per event, never poll | consumer reacts per version, never rebuilds |
+| append-only PR timeline | append-only version arc (= witness/belief-state arc, R4) |
+
+**Two consequences:**
+1. **Witness pointer (R4 / EW64) = `(mailbox_id, lance_version)`** — a pointer into the substrate's OWN version arc. "Cheap AriGraph witness pointer" is now concrete + free; the AriGraph episodic edge ("happened at the same time") = "happened at version V". The KanbanMove record (incl. `libet_offset_us`, `exec`, `witness_chain_position`) rides as Lance commit/version metadata.
+2. **D-MBX-9 collapses** from "build a kanban view structure" to "**LIVE-subscribe to the mailbox version stream**" — surreal time-series view over `Dataset::versions()` + a LIVE query = the Rubicon kanban. The `Timeline` read surface over `Dataset::versions()` already built in surrealdb #31 IS this. The `MailboxSoaView` borrow trait (#437) is the per-version read lens.
+
+**The "in-mailbox arc" framing:** each mailbox owns its own version arc (the versions of its SoA dataset/fragment). The arc is in-mailbox; the kanban is the cross-mailbox time-series view of those arcs. SurrealDB time-series consumes it.
+
+**Open (implementation, not architecture):** true push (surreal LIVE query) vs cheap-poll of `versions()` — both honor the pattern; LIVE is the goal. Still gated by surreal_container fork (OQ-11.6) for the surreal-side view — but the design is now substrate-free, so D-MBX-9 is a subscription wiring, not a build.
+
+**Cross-ref:** surrealdb #31 (kv-lance native + Timeline over `Dataset::versions()`); `E-SOA-IS-THE-ONLY` R3/R4; D-MBX-9; `KanbanMove`/`MailboxSoaView` (#437); `is_absorbing` (#439, the cycle-end commit = a terminal version); LE-3.
+
+---
+
+## 2026-05-30 — D-MBX-A6-P2 landed (contract): Rubicon lifecycle enforcement + ExecTarget strategy tag
+
+**Status:** SHIPPED-in-PR (contract slice). Builds on `#437` (D-MBX-A6-P1).
+- `KanbanColumn::next_phases()` + `can_transition_to()` — the Rubicon lifecycle DAG (Planning→CognitiveWork→Evaluation→{Commit|Plan|Prune}; Planning→Prune Libet veto; Plan→Planning re-deliberate; Commit/Prune absorbing). Lifecycle enforcement is now a contract-level, testable invariant.
+- `KanbanColumn::is_absorbing()` — distinguishes cycle-END columns (Commit/Prune, tombstone now) from `Plan` (terminal decision but re-deliberates). The ractor driver tombstones iff absorbing; LE-3 cycle-end commit/SLA hooks here.
+- `MailboxSoaOwner::try_advance_phase()` — checked default: validates the edge, returns `KanbanMove` or `RubiconTransitionError` (no mutation on illegal). The ractor lifecycle driver uses this.
+- `ExecTarget` {Native|Jit|SurrealQl|Elixir} — the planner JIT-adjacent execution-target (strategy) tag; now a field on `KanbanMove` (resolves the `#437` deferred NOTE; size still ≤16 B). Distinct from the planner's 16 composable *planning* strategies.
+- Zero-dep preserved; 489 contract lib tests (+4); planner/shader-driver/supervisor cargo-check clean.
+Next: ractor MailboxSoA owner-impl + planner emit (candidate generation) — the consumer side.
+**Cross-ref:** `#437`; D-MBX-A6; `E-DUPLICATION-IS-INTRINSIC-VS-TEMPORAL`; LE-3 (Rubicon commit).
+
+---
+
+## 2026-05-30 — E-DUPLICATION-IS-INTRINSIC-VS-TEMPORAL — the SoA "duplicate" intentionally separates intrinsic awareness from the temporal belief-state arc (= AriGraph semantic/episodic = CE64/EW64 = SoA1:SoA2)
+
+**Status:** FINDING / design ruling (user-confirmed 2026-05-30). Answers "are you duplicating intentionally?" — YES.
+
+The SoA is FIXED (frozen byte-shape) ⇒ the "duplicate" is the SAME shape instantiated twice, which is what makes `SoA1:SoA2` superposition well-defined. The cut it encodes (one separation, four names):
+- **intrinsic awareness** (the *now*): semantic CE64 + gestalt/qualia (`awareness_dto::ResonanceDto`) — atemporal "what resonates now".
+- **temporal belief-state arc** (the *over-time*): episodic EW64 witness arc (`chain_position`) — "how the belief came to be, across observations".
+= AriGraph **Es (semantic) / Ee (episodic)** duality = **CE64 / EW64** = **SoA1 : SoA2** (shader superposes them, Hebbian) = energy-field / gestalt `ResonanceDto` layering. So `TD-RESONANCEDTO-DUP-1` is NOT a dedup target — it's the intrinsic/temporal separation; the fix is to NAME it (e.g. `ResonanceField` vs `GestaltResonance`), not collapse it.
+
+## 2026-05-30 — LOOSE-ENDS (documented per user "don't die token wall"; NOT yet built)
+
+**LE-1 — EW64 as syntactic-coreference witness pointer (DeepNSM > Markov > grammar).** Wire `deepnsm` (PoS FSM → SPO) → Markov VSA context → grammar heuristics so that a **relative pronoun (Relativpronomen) is NOT bundled** into the VSA trajectory but instead gets a **witness pointer** (EW64) to its antecedent. Rationale: I-VSA-IDENTITIES "register laziness" — exact-match coreference is a POINTER, not a bundle (bundling destroys the register). ⇒ EW64 gains a SECOND role beyond aerial-prefetch: a **syntactic-Markovian context** = episodic memory pointing at BOTH hot witness mailboxes AND cold-path SPO. (Consumers of the grammar/Markov path: `contract::grammar::role_keys`, `deepnsm`, the Vsa16k Markov substrate.)
+
+**LE-2 — cold-path SPO + cold-path AriGraph UNIFY.** Now that EW64 is a *cheap AriGraph witness pointer*, the two cold stores belong together: ONE cold store = semantic SPO (Es) + episodic witness arcs (Ee), EW64 as the link. Resolves the parallel-SPO-store debt (`F-WIRE-DTO-DUP-MAP`/`E-ARIGRAPH-IS-AN-ISLAND`) on the cold side. Matches AriGraph paper (one graph G = Vs,Es,Ve,Ee).
+
+**LE-3 — mailbox-cycle-end Rubicon commit decision.** At the END of a mailbox cycle, the LAST Rubicon kanban state (terminal Commit/Plan/Prune, `KanbanColumn`) = a DECISION that: (a) **commits SPO-W (the EW64 witness) to the cold path** (= AriGraph calcify / `witness_tombstone::calcify` — currently dead `todo!()`, D-ATOM-5), AND (b) for business-logic mailboxes, **commits to SLA + goalstate**. This is the commit gate at Rubicon. Wires `MailboxSoaOwner::advance_phase(Commit)` → cold materialization + SLA/goalstate update.
+
+**LE-4 — Odoo + OWL business-logic action substrate = OTHER SESSION.** The SLA/goalstate business-logic commit (LE-3b) + Odoo/OWL as the business-logic *action* substrate is explicitly deferred to a separate session. Documented here so it is not lost; do NOT build it in this arc.
+
+**BindSpace consumers (singleton→per-mailbox migration surface, grep 2026-05-30):** contract `{cognitive_shader,splat,lib}.rs`; planner `{cache/convergence,lib}.rs`; cognitive-shader-driver `{driver,wire,engine_bridge,mailbox_soa,proposal,serve,wire_dto,spo_bridge,cognitive_shader,cognitive_shader_dispatch,spo_witness,cam}.rs`. The singleton still threads through driver/engine_bridge/wire*; `spo_witness.rs` is the existing witness seam to reconcile with EW64. (Ref D-MBX-3/5: kill `BindSpace::zeros(4096)` singleton; migrate consumers to per-mailbox MailboxSoA.)
+
+**Cross-ref:** `E-ARIGRAPH-PAPER-GROUNDS-CE64-EW64`; `E-AERIAL-FEEDS-EW64-PREFETCH`; `E-ARIGRAPH-IS-AN-ISLAND`; `F-RESONANCEDTO-IS-LAYERED-NOT-DUP`; D-MBX-3/5/A5; I-VSA-IDENTITIES.
+
+---
+
 ## 2026-05-30 — E-ARIGRAPH-PAPER-GROUNDS-CE64-EW64 — AriGraph (arXiv 2407.04363v3) IS the source: its semantic-edge/episodic-edge duality grounds CE64/EW64; the episodic edge ("happened at the same time") IS the witness arc
 
 **Status:** FINDING (read the AriGraph paper, Anokhin et al. AIRI, 2026-05-30). User's "first is AriGraph!!!" — this is the canonical design source for the semantic+episodic arc.
@@ -69,7 +597,7 @@ AriGraph (`crates/lance-graph/src/graph/arigraph/`) is almost entirely standalon
 
 #436 shipped `crates/lance-graph-arm-discovery` (Aerial+ ARM transcode). Synergies with this arc + Cognitive-RISC:
 - **Aerial+ = a PROPOSER** in the RISC `discovery_origin` ISA (`ArmDiscovered` tier): a mined association, an AST-walk step, an LLM conjecture = the SAME candidate object differing only by `discovery_origin` (core invariant 9; proposers dumb, Rubicon arbitrates). Aerial is nondeterministic (seeded) → stays UPSTREAM of the ratification council (determinism firewall).
-- **Emits SPO+NARS `Triple{s,p,o,f,c}`** into `ruff_spo_triplet` (mirrors `odoo_ontology::OntologyTriple`). Gap: closed predicate vocab rejects `Implies`/`CoOccursWith` (D-ARM-SYN-1, council-gated). Same SPO substrate the cognitive SoA packs (CausalEdge64 SPO palette + f/c) ⇒ aerial candidates → council → CausalEdge64/SPO → kanban (D-MBX-A6) → shader.
+- **Emits SPO+NARS `Triple{s,p,o,f,c}`** into `ruff_spo_triplet` (mirrors `odoo_ontology::OntologyTriple`). Gap: closed predicate vocab rejects `Implies`/`CoOccursWith` (D-ARM-SYN-1; ratification = the determinism firewall, not the brainstorm-council — see correction at top of file). Same SPO substrate the cognitive SoA packs (CausalEdge64 SPO palette + f/c) ⇒ aerial candidates → ratification firewall → CausalEdge64/SPO → kanban (D-MBX-A6) → shader.
 - **Aerial ALSO discovers CLASSES** (shape-families): cognitive-risc-classes — taxonomy DISCOVERED "via group-by-on-structural-hash or Aerial+"; splat→aerial→Wikidata discovers OWL/DOLCE+ HHTL classes+basins. ⇒ aerial is the discovery engine behind the `class_id` the SoA needs (the "ontology classes wired into the SoA" ask). Float lives OFFLINE in `jc` (Jirak-Cartan certified 256-codebook); aerial addresses it ONLINE with integer codes (CAM-PQ doctrine).
 - **SPO-vocabulary debt (extends F-WIRE-DTO-DUP-MAP):** ≥4 parallel SPO-triple types (AriGraph `TripletGraph`, `ruff_spo_triplet::Triple`, `odoo_ontology::OntologyTriple`, aerial `CandidateTriple`, osint `extractor::Triplet`) — "one SoA never transformed" wants ONE; unification is the convergence work.
 - **class_id landing (shipping now):** the SoA's class discriminator IS the existing `entity_type: [u16; N]` (= OGIT `EntityTypeId`); expose it as `MailboxSoaView::class_id()` (N1 freeze hook). Metadata resolves one layer up via `lance-graph-ontology::OntologyRegistry` (perf gap: add O(1) `by_entity_type_id` index; today O(n) `enumerate_first_with_entity_type_id`).
@@ -108,7 +636,7 @@ The de-float (codebook-probe backend):
 
 ## 2026-05-30 — E-DISCOVERY-CODEGEN-BRACKET-1 (realised) — the Aerial+ transcode is the runtime-data frontend of a bracket whose substrate + codegen legs ALREADY EXIST in the ruff fork; the ruff SPO predicate vocabulary is the only missing seam
 
-**Status:** FINDING (type-level, grounded in source read 2026-05-30) + CONJECTURE (the three D-ARM-SYN wiring deliverables). Author-stated; the three wirings are council-gated.
+**Status:** FINDING (type-level, grounded in source read 2026-05-30) + CONJECTURE (the three D-ARM-SYN wiring deliverables). Author-stated; the three wirings pass the determinism-firewall ratification (nondeterministic stays upstream) — NOT the brainstorm-council, which is a catalyst not a gate (see top-of-file correction).
 
 The two-paper bracket (`streaming-arm-nars-discovery-v1.md`: Aerial+ discovery upstream, Abreu M2M codegen downstream, SPO+NARS middle) is not a future aspiration — **its substrate and both codegen legs are already implemented in `adaworldapi/ruff`** and `lance-graph-ontology`. Transcoding Aerial+ to Rust (D-ARM-13) made this concrete:
 
