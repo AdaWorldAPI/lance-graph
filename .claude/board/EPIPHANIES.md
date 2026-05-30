@@ -1,3 +1,32 @@
+## 2026-05-30 — E-SUBSTRATE-IS-THE-SCHEDULER — surreal's time-series/LIVE over the version arc is a cheap planner→execution scheduler firing back INTO the mailbox; the substrate↔mailbox loop is bidirectional
+
+**Status:** FINDING (architectural, user-stated 2026-05-30). Return-path complement of `E-VERSION-ARC-IS-THE-KANBAN`. Together they close the loop.
+
+**The loop is bidirectional:**
+- **OUTBOUND (mailbox → surreal), free:** `advance_phase` commit = Lance version = kanban move; surreal LIVE-subscribes (`E-VERSION-ARC-IS-THE-KANBAN`).
+- **INBOUND (surreal → mailbox), this finding:** surreal's time-series + LIVE/scheduled query IS a **scheduler**. A surreal scheduled/LIVE event fires back into the mailbox as the next `advance_phase` trigger. The mailbox does NOT run its own planner-tick loop — **surreal schedules it, cheaply**, off the same `versions()` stream.
+
+**This completes the GitHub homology (never one-way):**
+
+| GitHub | Substrate ↔ mailbox |
+|---|---|
+| push commit → PR | mailbox commit → version arc (outbound, free) |
+| CI / scheduled workflow fires → acts on PR | surreal LIVE/scheduled event fires → drives mailbox's next phase (inbound) |
+| Actions runner = scheduler | surreal time-series = scheduler |
+
+**Architectural wins:**
+1. **planner→execution edge, done cheaply.** Planning precipitates a kanban move (a version); surreal's scheduler watches the arc and fires the execution tick back. `ExecTarget` (#439) = HOW it runs; the surreal event = WHEN. Mailbox stays a pure state machine (`try_advance_phase`, #439); surreal = clock + planner-dispatch.
+2. **Two-clock decoupling (RISC core invariant 7) for free:** hot shader speed (mailbox SoA mutation) vs cold scheduler cadence (surreal time-series) — decoupled by construction, same `versions()` stream read both directions. No separate scheduler infra.
+3. **`ExecTarget::SurrealQl` made literal:** a scheduled SurrealQL query is BOTH the trigger AND a valid execution backend — the planner→execution path can live entirely in the substrate scheduler for that target. (Native/Jit/Elixir targets: surreal fires the trigger, the mailbox runs the backend.)
+
+**Consequence for D-MBX:** the planner→execution wiring (part of D-MBX-A6-P3 + D-MBX-8 Σ10-commit→ractor-START) gains a substrate-native option — surreal-scheduled tick instead of an in-process planner loop. Still gated by surreal_container fork (OQ-11.6) for the surreal side; the contract side (`ExecTarget`, `try_advance_phase`, `MailboxSoaView`) is already shipped/in-PR and backend-agnostic.
+
+**Open (implementation):** surreal scheduled-query vs LIVE-trigger as the fire mechanism; backpressure when the scheduler outruns the hot path (RISC core invariant 8 — shed by ⟨f,c⟩). Architecture is substrate-native; wiring waits on OQ-11.6.
+
+**Cross-ref:** `E-VERSION-ARC-IS-THE-KANBAN`; surrealdb #31 (Timeline over `Dataset::versions()`); `ExecTarget`/`try_advance_phase` (#439); D-MBX-8/9/A6-P3; cognitive-risc-core invariants 7 (two-clock) + 8 (backpressure).
+
+---
+
 ## 2026-05-30 — E-VERSION-ARC-IS-THE-KANBAN — the mailbox's Lance version timeline IS the kanban arc, for free; consume it like a GitHub CI/PR subscription (push, not poll)
 
 **Status:** FINDING (architectural simplification, user-stated 2026-05-30). Grounded in surrealdb #31 substrate fact + Lance versioning. Reframes D-MBX-9.
@@ -5,6 +34,7 @@
 **The insight:** since kv-lance is native (surrealdb #31: one `MergeInsert`/commit = one Lance dataset version), a mailbox's **`Dataset::versions()` timeline IS its kanban arc — it falls out of the substrate for FREE.** Each `MailboxSoaOwner::advance_phase` commit = one new Lance version = one kanban move. No separate kanban update mechanism is built; the version stream IS it.
 
 **The consumption pattern = a GitHub CI/PR subscription (the exact homology this session ran):**
+
 | GitHub PR | Mailbox kanban |
 |---|---|
 | commits pushed to a PR | phase-transition commits to the mailbox's Lance dataset |

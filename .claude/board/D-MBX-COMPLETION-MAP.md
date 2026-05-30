@@ -38,9 +38,14 @@
   D-MBX-7   lance-graph containers ≡ MailboxSoA ≡ ndarray::simd_soa (1.4-4.2x;
             HARD PREREQ for the SurrealDB transparent view)  [gates D-MBX-A2 + 10 + 11 + ndarray-miri]
         │
- SUBSTRATE VIEW (the payoff) ──────────────────────────────────────────────────
-  D-MBX-9   Rubicon kanban VIEW in surrealkv-on-lance (4 cols); ractor lifecycle = kanban moves
-            [gates D-MBX-7 + 8 + surreal_container BLOCKED(B/C/D) OQ-11.6 + D-PERSONA-5]
+ SUBSTRATE VIEW (the payoff — now a BIDIRECTIONAL SUBSCRIPTION, not a build) ─────
+  D-MBX-9   Rubicon kanban = the mailbox Lance version arc, BOTH directions (substrate-free):
+            OUT  mailbox advance_phase commit = version = kanban move  (E-VERSION-ARC-IS-THE-KANBAN)
+            IN   surreal LIVE/scheduled event over versions() = planner->execution scheduler
+                 firing the next advance_phase  (E-SUBSTRATE-IS-THE-SCHEDULER)
+            => collapses from "build a view" to "LIVE-subscribe + schedule" (like GitHub CI/PR sub).
+            surreal #31 Timeline over Dataset::versions() IS the surface; MailboxSoaView (#437) = read lens.
+            [still gated by surreal_container BLOCKED(B/C/D) OQ-11.6 for the surreal side; design substrate-free]
         │
  WORKSPACE CONVERGENCE (the "nine consumers" all read ONE SoA) ─────────────────
   D-MBX-12  8-PR alignment, sequenced OQ-11.8:
