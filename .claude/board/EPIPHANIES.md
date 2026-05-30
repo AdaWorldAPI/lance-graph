@@ -1,3 +1,23 @@
+## 2026-05-30 — FINDING: E-POLYGLOT-TWO-IR-ROUTES — the 4 dialect parsers build IR via TWO different routes (in-strategy vs ArenaIR), converging on one LogicalOp arena that NOTHING asserts they agree on; 4096-in-planner = the AutocompleteCache, joined via convergence.rs
+
+**Status:** FINDING (grounded source read 2026-05-30, per user pointer to planner/datafusion polyglot path). Sharpens `E-POLYGLOT-4096-IS-CONJECTURAL` with the real per-parser reality.
+
+**The 4 polyglot parsers are at two IR-construction routes (arena.push counts verified):**
+- **In-strategy transpilers (push LogicalOp directly):** `gremlin_parse.rs` (37 `arena.push`; full step→IR: ScanNode/IndexNestedLoopJoin/RecursiveExtend/Aggregate…) + `sparql_parse.rs` (31).
+- **Feature-detect → shared ArenaIR route (0 push in strategy):** `cypher_parse.rs` (0; the REAL nom parser lives in `lance-graph/src/parser.rs`, then `strategy/arena_ir.rs` (#2) builds the arena) + `gql_parse.rs` (0; explicitly "delegate to CypherParse for shared syntax… ArenaIR will build the plan from detected features", gql_parse.rs:157-159 — sets only feature flags + `estimated_complexity`).
+
+⇒ Both routes are SUPPOSED to land on the same `ir/logical_op.rs LogicalOp` arena, but **NOTHING asserts the two routes (or the 4 dialects) produce equivalent IR for equivalent queries.** That is exactly where silent divergence hides — and exactly what the polyglot IR-conformance loop (P-A) would catch. Concretely actionable: GQL today only flips feature bits; whether ArenaIR reconstructs the same arena Gremlin emits directly is UNTESTED.
+
+**The 4096↔polyglot join (corrected):** the 4096 in THIS crate = the **AutocompleteCache attention topology** (64×64 = 4096 interdependent heads: `cache/{triple_model,kv_bundle,lane_eval,candidate_pool,mod}.rs`), NOT a query codebook and NOT the deepnsm COCA-4096. The link parser→4096 runs: dialect parser → LogicalOp IR → `cache/convergence.rs` ("AriGraph triplets → 8 predicate layers × 64×64 = 4096 heads → CognitiveShader"). convergence.rs is the JOIN — and it is the same module flagged half-built (p64 drift `#[allow(unused_imports)]`, `E-ARIGRAPH-IS-AN-ISLAND`). So "polyglot 4096 in datafusion/planner" = parsers (wired, 2 routes) → IR (wired) → convergence→4096-heads (PARTIAL/dead terminus).
+
+**Datafusion side:** IR → `lance-graph/src/datafusion_planner/` → Spark-dialect unparser (SQL = backend, confirmed). The DataFusion LogicalPlan is the EXECUTION lowering of the same LogicalOp the dialects converge on (the ExecTarget::Native path).
+
+**Revised P-A (the shippable slice), now precise:** polyglot IR-conformance harness asserting (1) the 4 dialects produce equivalent `LogicalOp` for a hand-written equivalent-query corpus, AND (2) the two routes (in-strategy vs ArenaIR) agree — closing the GQL/Cypher-via-ArenaIR vs Gremlin/SPARQL-direct gap. Attaches to `lance-graph-consumer-conformance`. This is the floor that grounds GEL's query-language slice (`E-GEL-IS-THE-GRAPH-SUBSTRATE`).
+
+**Cross-ref:** `E-POLYGLOT-4096-IS-CONJECTURAL`; `E-GEL-IS-THE-GRAPH-SUBSTRATE`; `E-ARIGRAPH-IS-AN-ISLAND` (convergence.rs p64 drift); `strategy/{gremlin,sparql,cypher,gql}_parse.rs`; `strategy/arena_ir.rs`; `ir/logical_op.rs`; `cache/convergence.rs`; `datafusion_planner/`.
+
+---
+
 ## 2026-05-30 — CORRECTION + FINDING: E-GEL-IS-THE-GRAPH-SUBSTRATE — GEL = Graph Execution Language (any-language→graph, BEAM-analogous); NOT a query dialect. Corrects "GEL absent" in E-POLYGLOT-4096-IS-CONJECTURAL
 
 **Status:** CORRECTION (supersedes the "GEL/EdgeQL = absent dialect" line in `E-POLYGLOT-4096-IS-CONJECTURAL`) + FINDING (user-stated 2026-05-30: GEL is the user's own coinage, not EdgeDB's rebrand).
