@@ -35,6 +35,7 @@ pub mod rule_optimizer;
 pub mod sigma_scan;
 pub mod sparql_parse;
 pub mod stream_pipeline;
+pub mod style_strategy;
 pub mod truth_propagation;
 pub mod workflow_dag;
 
@@ -74,5 +75,8 @@ pub fn default_strategies() -> Vec<Box<dyn PlanStrategy>> {
         Box::new(extension::ExtensionPlanner),
         // Chat hot path (AutocompleteCache — full causal cognition engine)
         Box::new(chat_bundle::AutocompleteCacheStrategy),
+        // Cognitive substrate: thinking-style → cluster → recipe selection (the
+        // planning substrate; style also carries the τ JIT address). D-MBX-A6-P3a.
+        Box::new(style_strategy::StyleStrategy),
     ]
 }
