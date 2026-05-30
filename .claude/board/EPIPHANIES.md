@@ -1,3 +1,19 @@
+## 2026-05-30 — E-ARM-PROBE-IS-CODEBOOK-TOPK — Aerial+'s reconstruction probe IS a codebook top-k; the autoencoder was a float approximation of a lookup the substrate already does exactly; de-floating it dissolves the determinism firewall
+
+**Status:** FINDING (de-float shipped on `claude/jolly-cori-clnf9`, 28/28 tests, zero f32 in the discovery path). User-directed: "neither cam_pq nor any other crate uses (or should) float … all is deterministic [a,b] codebook distance, ρ=0.9973 spearman."
+
+The first D-ARM-13 transcode reproduced Aerial+ literally — an `f32` denoising autoencoder. That was a substrate regression: this stack addresses by **exact codebook CAM, never float similarity** (`faiss-homology-cam-pq.md`; `I-VSA-IDENTITIES` — CAM-PQ codes are for *search*, integer, never superposed as float). The autoencoder's reconstruction probe ("mark the antecedent, read off the high-probability consequents") is, mechanically, a **nearest-neighbour query** — and the **palette256 distance table** answers that *exactly and in integers* at ρ=0.9973 vs cosine. So the float net was a slow, seed-dependent approximation of a lookup the substrate already performs.
+
+The de-float (codebook-probe backend):
+- autoencoder (`f32` weights) → injected integer `CodebookDistance` oracle (palette256; zero-dep trait, real impl is `bgz17::PaletteDistanceTable` / BLASGraph splat top-k / HDR-popcount);
+- reconstruction probe → codebook top-k from the antecedent within `θ` (integer);
+- softmax ranking → integer distance ranking; support/confidence → integer counts + ppm cross-multiply gates;
+- `(f,c)` `f32` → `TruthU8` (= CausalEdge64 `confidence_u8` + i4 mantissa); seeded RNG → deleted.
+
+**The payoff is structural, not cosmetic.** Float was the *only* source of nondeterminism, so removing it dissolves three things at once: (1) the "seeded ≠ bitwise-deterministic" caveat closes — the probe is bitwise-identical on every target; (2) Aerial is no longer a *nondeterministic fan-in* that must hide behind the ratification gate / out of the compile path — it joins the **deterministic trunk** beside pair-stats (D-ARM-3); (3) **D-ARM-9** (Python-IPC to isolate nondeterminism) is fully moot — there is no nondeterminism to isolate. The ratification council still governs *promotion to the SPO store*, but the firewall is now about ratification, not float. General rule this crystallises: **a "learned" similarity that the codebook reproduces at ρ≈1.0 should never be reached for as float — the codebook IS the learned-once model, frozen and integer.** Code: `crates/lance-graph-arm-discovery/src/aerial/{codebook,extract,mod}.rs`. Cross-ref: `faiss-homology-cam-pq.md`, `cognitive-risc-classes.md` (CAM-not-ANN), `I-VSA-IDENTITIES`, the prior float transcode's review (`.claude/board/reviews/`).
+
+---
+
 ## 2026-05-30 — E-DISCOVERY-CODEGEN-BRACKET-1 (realised) — the Aerial+ transcode is the runtime-data frontend of a bracket whose substrate + codegen legs ALREADY EXIST in the ruff fork; the ruff SPO predicate vocabulary is the only missing seam
 
 **Status:** FINDING (type-level, grounded in source read 2026-05-30) + CONJECTURE (the three D-ARM-SYN wiring deliverables). Author-stated; the three wirings are council-gated.

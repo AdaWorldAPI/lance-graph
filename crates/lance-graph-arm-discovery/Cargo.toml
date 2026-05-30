@@ -5,29 +5,22 @@
 name = "lance-graph-arm-discovery"
 version = "0.1.0"
 edition = "2021"
-description = "Streaming association-rule discovery (Aerial+ transcode) → NARS-truth SPO candidates"
+description = "Deterministic codebook-probe association-rule discovery (Aerial+ transcode) → NARS-truth SPO candidates"
 license = "Apache-2.0"
 
 # Standalone, zero-dependency crate — EXCLUDED from the workspace (see root
-# Cargo.toml `exclude`), exactly like bgz17 / deepnsm / bgz-tensor. It is
-# verified independently with:
+# Cargo.toml `exclude`), like bgz17 / deepnsm / bgz-tensor. Verified with:
 #
 #   cargo test --manifest-path crates/lance-graph-arm-discovery/Cargo.toml
 #
-# This keeps the nondeterministic Aerial+ autoencoder OUT of the deterministic
-# lance-graph compile path (the determinism-boundary doctrine of
-# `streaming-arm-nars-discovery-v1.md`). When D-ARM-1/D-ARM-2 land the shared
-# `lance-graph-contract` carriers, this crate adopts them by path dep; the
-# local `rule`/`translator` types are the seam until then.
+# The discovery path is float-free and bitwise-deterministic (integer codebook
+# distance, integer evidence counts). The similarity oracle is injected through
+# the zero-dep `aerial::CodebookDistance` trait, so the real distance table
+# (`bgz17::PaletteDistanceTable`, the BLASGraph splat top-k, or an HDR-popcount
+# Hamming primitive) lives on the consumer side and this crate stays standalone.
 
 [dependencies]
-# none — std only (deterministic, offline-buildable, no neural framework).
-
-[features]
-default = ["aerial"]
-# The Aerial+ neurosymbolic proposer. Gated so a deployment can compile the
-# carriers (`rule`, `translator`, `ndjson`) without the autoencoder.
-aerial = []
+# none — std only.
 
 [lib]
 doctest = true

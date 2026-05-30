@@ -1,3 +1,15 @@
+## [Main thread / Opus] D-ARM-13 de-float — autoencoder → deterministic codebook-probe (palette256)
+
+**Branch:** claude/jolly-cori-clnf9 | **Files:**
+- `crates/lance-graph-arm-discovery/` — DELETED `aerial/{autoencoder,rng}.rs`; ADDED `aerial/codebook.rs` (`CodebookDistance` trait + `MatrixDistance`); rewrote `aerial/{extract,mod}.rs` (codebook probe), `rule.rs` (integer counts + ppm gates), `translator.rs` (`TruthU8` + f32 edge), `encode.rs` (integer-only, dropped one-hot/`bin`/f32 helpers), `lib.rs`, `README.md`, `Cargo.toml` (dropped `aerial` feature)
+- `.claude/board/`: EPIPHANIES (E-ARM-PROBE-IS-CODEBOOK-TOPK), STATUS_BOARD (D-ARM-13 row), AGENT_LOG
+
+**Cargo:** `cargo test --manifest-path …` → **28/28**; `cargo clippy … -D warnings` → clean; float audit → **zero f32 in `aerial/` discovery path**.
+
+**Outcome:** DONE. User directive: "neither cam_pq nor any crate uses (or should) float … all is deterministic [a,b] codebook distance, ρ=0.9973 spearman." Conceded — the v1 transcode's `f32` denoising autoencoder was a substrate regression. Replaced it with an integer **codebook-probe** backend: Aerial+'s reconstruction probe is mechanically a nearest-neighbour query, which the **palette256 distance table** answers exactly at ρ=0.9973 vs cosine. The oracle is injected via a zero-dep `CodebookDistance` trait (real impl = `bgz17::PaletteDistanceTable` / BLASGraph splat top-k / HDR-popcount, consumer-side; `MatrixDistance` in tests) so the crate stays standalone. Discovery path is now all integers (codebook distance `u32`, evidence counts `u32`, ppm gates); truth is `TruthU8` (= CausalEdge64 `confidence_u8` + i4 mantissa); the only residual f32 is the `TruthValue`/`Triple` serialization edge (those downstream contracts are themselves f32). Structural payoff: float was the only nondeterminism, so removing it makes the probe bitwise-deterministic ⇒ it joins the deterministic trunk; the nondeterminism firewall and D-ARM-9 (Python-IPC isolation) are moot; the seeded-reproducibility caveat closes. See EPIPHANIES E-ARM-PROBE-IS-CODEBOOK-TOPK. PR #436 updated.
+
+---
+
 ## [Main thread / Opus + 3 savant agents] D-ARM-13 brutal review (council) + honesty revisions
 
 **Branch:** claude/jolly-cori-clnf9 | **Agents:** 3 background Opus savants (brutally-honest-tester, iron-rule-savant, dto-soa-savant) — the Stage-D ratification ensemble applied to the ARM code. **Files:**

@@ -5,71 +5,62 @@
 //! streaming association-rule discovery → NARS revision → ratified SPO →
 //! deterministic codegen pipeline (`streaming-arm-nars-discovery-v1.md`).
 //!
-//! This crate is the Rust transcoding of **Aerial+** (Karabulut, Groth,
-//! Degeler — *Neurosymbolic Association Rule Mining from Tabular Data*,
-//! arXiv 2504.19354v1, Apr 2025), the neurosymbolic association-rule miner.
-//! It mines `(X → Y)` rules from tabular runtime data and lifts each rule
-//! into a NARS-truth-carrying SPO candidate emitted in the **same ndjson
-//! shape** (`{s,p,o,f,c}`) as the static `ruff_spo_triplet` extractor. The
-//! lance-graph `parse_triples` loader consumes it directly; the `ruff`
-//! `from_ndjson` loader will accept it only once its closed predicate
-//! vocabulary gains an implication relation (D-ARM-SYN-1) — see [`ndjson`].
-//!
-//! # Pipeline position
+//! A Rust transcoding of **Aerial+** (Karabulut, Groth, Degeler —
+//! *Neurosymbolic Association Rule Mining from Tabular Data*, arXiv
+//! 2504.19354v1) — with the paper's `f32` autoencoder **replaced by an
+//! integer codebook distance oracle**. Aerial+'s reconstruction probe is a
+//! nearest-neighbour query, and this substrate answers it exactly via the
+//! palette256 distance table (`[a,b] → u32`, ρ=0.9973 vs cosine). So the
+//! discovery path is **float-free and bitwise-deterministic** — no autoencoder,
+//! no SGD, no seed.
 //!
 //! ```text
-//!   tabular rows ─┐
-//!                 ▼  Stage A — Aerial+ proposer  (THIS CRATE, `aerial`)
-//!   one-hot encode → denoising autoencoder (softmax-per-feature, BCE)
-//!                 → Algorithm 1 reconstruction probe → CandidateRule
-//!                 ▼  Stage B — translator        (THIS CRATE, `translator`)
-//!   arm_to_nars: (support, confidence, n) → NARS (frequency, confidence)
-//!                 ▼  emit                        (THIS CRATE, `ndjson`)
-//!   {"s","p","o","f","c"} ndjson  ─►  lance_graph SPO store loader
-//!                 ▼  Stage C/D/E — hypothesis test → council → op_emitter
-//!                                                   (downstream, other crates)
+//!   tabular rows ─► one-hot codebook items
+//!                ─► codebook probe: nearest consequents within θ        (Stage A)
+//!                   (integer CodebookDistance oracle = palette256)
+//!                ─► confirm on data: integer support/confidence counts
+//!                ─► CandidateRule (integer evidence)
+//!                ─► arm_to_truth_u8: (cooccur, antecedent_count) → TruthU8  (Stage B)
+//!                   (= CausalEdge64 confidence_u8 + i4 mantissa)
+//!                ─► {s,p,o,f,c} ndjson  ─► SPO store loader
 //! ```
 //!
-//! # The determinism boundary (read before extending)
+//! # Float discipline (why this exists)
 //!
-//! Aerial+'s autoencoder is **nondeterministic** in the general case (random
-//! init, denoising noise, float reduction order). Per the plan's determinism
-//! firewall it is a **fan-in proposer**, NEVER the deterministic trunk and
-//! NEVER allowed to cross the ratification gate (Stage D) un-vetted. Two
-//! consequences are baked into this crate:
+//! This substrate addresses by exact codebook CAM, never by float similarity
+//! (`faiss-homology-cam-pq.md`: similarity lives in the discovery layer as an
+//! *integer codebook distance*, never as float, never in addressing). The
+//! discovery path here is therefore all integers: codebook distance (`u32`),
+//! evidence counts (`u32`), thresholds in parts-per-million. `f32` appears
+//! only at the [`translator::arm_to_nars`] / [`ndjson`] edge, because the
+//! downstream `spo::truth::TruthValue` and `ruff_spo_triplet::Triple` are
+//! themselves `f32`; the canonical truth is the quantised
+//! [`translator::TruthU8`].
 //!
-//! 1. The autoencoder is **seedable** ([`aerial::Rng`]). Same seed, same data,
-//!    and same hyper-parameters give reproducible weights and identical rules
-//!    *on a given target*. (This is intra-platform reproducibility, not
-//!    bitwise-portable determinism: seeded f32 `tanh`/`exp`/`ln` and FMA
-//!    contraction can differ across targets.) It makes the proposer auditable
-//!    even though it is not the canonical deterministic path.
-//! 2. The output is a plain [`rule::CandidateRule`] — a *proposal*, not a
-//!    committed triple. Promotion to the SPO store is the downstream
-//!    hypothesis-test + council's job, not this crate's.
+//! # No nondeterminism to fence
 //!
-//! # Truth mapping (verbatim from the paper, §2 / §3.3)
-//!
-//! - ARM **confidence** = P(Y|X) → NARS **frequency** `f`
-//! - ARM **support × n** (evidential mass) → NARS **confidence** `c = m/(m+k)`
-//!
-//! See [`translator::arm_to_nars`]. The resulting `(f, c)` is exactly the pair
-//! `lance_graph::graph::spo::TruthValue::new(f, c)` and
-//! `ruff_spo_triplet::Triple { f, c }` carry.
+//! The codebook probe is deterministic by construction (same data + oracle +
+//! `theta` ⇒ identical rules, every target). Unlike the autoencoder it
+//! replaced, it does not need to hide behind the ratification gate or stay out
+//! of the compile path — it can join the deterministic trunk beside
+//! pair-stats (D-ARM-3). The ratification council still governs *promotion to
+//! the SPO store*, but no longer because of any nondeterminism here.
 
 #![forbid(unsafe_code)]
 
+pub mod aerial;
 pub mod encode;
 pub mod ndjson;
 pub mod rule;
 pub mod translator;
 
-#[cfg(feature = "aerial")]
-pub mod aerial;
-
+pub use aerial::{
+    antecedent_distance, extract_rules, AerialParams, AerialProposer, CodebookDistance,
+    ExtractParams, MatrixDistance,
+};
 pub use encode::{Dataset, FeatureSpec};
-pub use rule::{CandidateRule, Item, Proposer};
-pub use translator::{arm_to_nars, CandidateTriple, FeedProjector, NarsTruth};
-
-#[cfg(feature = "aerial")]
-pub use aerial::{AerialAutoencoder, AerialParams, AerialProposer, Rng};
+pub use rule::{CandidateRule, Item, Proposer, PPM};
+pub use translator::{
+    arm_to_nars, arm_to_truth_u8, CandidateTriple, FeedProjector, NarsTruth, TruthU8,
+    NARS_PERSONALITY_K,
+};

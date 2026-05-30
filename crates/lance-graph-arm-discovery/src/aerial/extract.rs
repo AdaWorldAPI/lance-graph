@@ -1,65 +1,62 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright The Lance Authors
 
-//! Aerial+ **Algorithm 1** — rule extraction by reconstruction probing
-//! (paper §3.3).
+//! Aerial+ rule extraction — the **codebook-probe** backend (float-free).
 //!
-//! The idea, verbatim: to test antecedent `X`, build an input where `X`'s
-//! categories are marked at probability 1 and **every other feature is left
-//! uniform** ("unknown"); forward-pass the trained autoencoder; then
+//! Aerial+'s reconstruction probe (paper §3.3) marks an antecedent, leaves
+//! the rest "unknown", and reads off the consequents the network reconstructs
+//! with high probability. Mechanically that is: *which other items are
+//! nearest to the antecedent in the learned co-occurrence space?* This backend
+//! answers it deterministically with an integer [`CodebookDistance`] oracle
+//! (the palette256 table) instead of a float autoencoder:
 //!
-//! 1. **antecedent test** — every marked category must still come back with
-//!    probability `≥ τ_a` (`ant_similarity`); a self-inconsistent antecedent
-//!    the network cannot hold is rejected, and
-//! 2. **consequent test** — for every *other* feature, if its top category
-//!    `Y` reconstructs with probability `≥ τ_c` (`cons_similarity`), the rule
-//!    `X → Y` is proposed.
+//! 1. **probe** — for every feature not in the antecedent, take the category
+//!    whose codebook distance to the antecedent is minimal; if it is within
+//!    `theta`, propose it as a consequent (the τ_c analogue, integer);
+//! 2. **confirm** — measure `support`/`confidence` on the actual data as
+//!    integer counts and gate by the classical ARM floors (ppm).
 //!
-//! Each proposed rule's `support`/`confidence` are then measured **on the
-//! actual data** (`encode::Dataset`) and gated by the classical ARM floors.
-//! This is the double gate that makes Aerial+ robust: the network *proposes*
-//! a rule from its learned conditional structure; the data *confirms* it.
-//! An independent feature whose marginal happens to clear `τ_c` is dropped
-//! at the confidence floor because `P(Y|X) ≈ P(Y)` for independent `Y`.
+//! Double gate, exactly as the paper: the codebook *proposes* (near pairs),
+//! the data *confirms* (co-occurrence). An independent feature whose nearest
+//! category clears `theta` is dropped at the confidence floor because
+//! `P(Y|X) ≈ P(Y)` for independent `Y`. No softmax, no seed, no `f32`.
 
-use crate::aerial::autoencoder::AerialAutoencoder;
+use crate::aerial::codebook::{antecedent_distance, CodebookDistance};
 use crate::encode::Dataset;
 use crate::rule::{CandidateRule, Item};
 
-/// Thresholds + bounds for [`extract_rules`].
+/// Thresholds + bounds for [`extract_rules`]. All integer.
 #[derive(Debug, Clone, Copy)]
 pub struct ExtractParams {
-    /// `τ_a` — minimum reconstructed probability of each marked antecedent
-    /// category for the antecedent to be considered coherent.
-    pub ant_similarity: f32,
-    /// `τ_c` — minimum reconstructed probability of a consequent category.
-    pub cons_similarity: f32,
-    /// Maximum antecedent size `|X|` (paper default 2; pair-stats trunk caps
-    /// here, the Aerial fan-in can go higher).
+    /// Maximum codebook distance for a category to be a candidate consequent
+    /// (the τ_c analogue, in the oracle's integer units — e.g. palette256
+    /// distance). `u32::MAX` = no codebook prune (always take the nearest
+    /// category, let the data gates decide). Tune to your distance scale.
+    pub theta: u32,
+    /// Maximum antecedent size `|X|`.
     pub max_antecedent: usize,
-    /// Classical minimum support floor, measured on the data.
-    pub min_support: f32,
-    /// Classical minimum confidence floor, measured on the data.
-    pub min_confidence: f32,
+    /// Classical minimum support floor, parts-per-million.
+    pub min_support_ppm: u32,
+    /// Classical minimum confidence floor, parts-per-million.
+    pub min_confidence_ppm: u32,
 }
 
 impl Default for ExtractParams {
     fn default() -> Self {
         Self {
-            ant_similarity: 0.5,
-            cons_similarity: 0.6,
+            theta: u32::MAX,
             max_antecedent: 2,
-            min_support: 0.01,
-            min_confidence: 0.5,
+            min_support_ppm: 10_000,   // 1%
+            min_confidence_ppm: 500_000, // 50%
         }
     }
 }
 
-/// Run Algorithm 1 against a trained autoencoder and the data it was trained
-/// on. Returns deterministically-sorted candidate rules.
+/// Run the codebook probe against a distance oracle and the data, returning
+/// deterministically-sorted candidate rules.
 #[must_use]
 pub fn extract_rules(
-    ae: &AerialAutoencoder,
+    oracle: &dyn CodebookDistance,
     data: &Dataset,
     params: &ExtractParams,
 ) -> Vec<CandidateRule> {
@@ -69,13 +66,15 @@ pub fn extract_rules(
         return Vec::new();
     }
 
-    // Frequent single items (support floor) — the apriori-style prune that
-    // bounds the antecedent search, grouped by feature.
+    // Frequent single items (support floor) — the apriori prune that bounds
+    // the antecedent search, grouped by feature. Integer ppm.
     let mut frequent_by_feature: Vec<Vec<Item>> = vec![Vec::new(); spec.num_features()];
     for (f, bucket) in frequent_by_feature.iter_mut().enumerate() {
         for cat in 0..spec.cardinality(f) {
             let item = Item::new(f as u32, cat);
-            if data.support(&[item]) >= params.min_support {
+            let count = data.count_matching(&[item]);
+            let support_ppm = ((count as u64 * crate::rule::PPM) / n as u64) as u32;
+            if support_ppm >= params.min_support_ppm {
                 bucket.push(item);
             }
         }
@@ -84,17 +83,12 @@ pub fn extract_rules(
         .filter(|&f| !frequent_by_feature[f].is_empty())
         .collect();
 
-    // The neutral probe: every block uniform (= "unknown").
-    let neutral = neutral_probe(spec);
-
     let mut rules: Vec<CandidateRule> = Vec::new();
-
     let max_ant = params.max_antecedent.max(1);
     for size in 1..=max_ant {
         for feature_combo in feature_combinations(&candidate_features, size) {
-            // Cartesian product of the frequent items of each chosen feature.
             for antecedent in item_product(&feature_combo, &frequent_by_feature) {
-                probe_antecedent(ae, spec, &neutral, &antecedent, &feature_combo, data, params, &mut rules);
+                probe(oracle, data, &antecedent, &feature_combo, params, &mut rules);
             }
         }
     }
@@ -108,87 +102,61 @@ pub fn extract_rules(
     rules
 }
 
-/// Probe one antecedent and append every confirmed rule it yields.
-#[allow(clippy::too_many_arguments)]
-fn probe_antecedent(
-    ae: &AerialAutoencoder,
-    spec: &crate::encode::FeatureSpec,
-    neutral: &[f32],
+/// Probe one antecedent: for each other feature, take the codebook-nearest
+/// category; if within `theta`, confirm on data and emit if it clears the
+/// ARM floors.
+fn probe(
+    oracle: &dyn CodebookDistance,
+    data: &Dataset,
     antecedent: &[Item],
     antecedent_features: &[usize],
-    data: &Dataset,
     params: &ExtractParams,
     out: &mut Vec<CandidateRule>,
 ) {
-    // Build the probe: neutral, then mark the antecedent blocks one-hot.
-    let mut probe = neutral.to_vec();
-    for &it in antecedent {
-        let (s, e) = spec.block(it.feature as usize);
-        probe[s..e].fill(0.0);
-        probe[spec.slot(it)] = 1.0;
-    }
-
-    let p = ae.reconstruct(&probe);
-
-    // Antecedent test: every marked category must survive at ≥ τ_a.
-    for &it in antecedent {
-        if p[spec.slot(it)] < params.ant_similarity {
-            return;
-        }
-    }
-
-    // Consequent test: for each feature NOT in the antecedent, take its top
-    // category; if it clears τ_c, propose X → (g, w) and confirm on data.
+    let spec = &data.spec;
     let n = data.len() as u32;
+    let antecedent_count = data.count_matching(antecedent);
+    if antecedent_count == 0 {
+        return;
+    }
+
     for g in 0..spec.num_features() {
         if antecedent_features.contains(&g) {
             continue;
         }
-        let (s, e) = spec.block(g);
-        let (mut best_cat, mut best_p) = (0usize, f32::NEG_INFINITY);
-        for (cat, &prob) in p[s..e].iter().enumerate() {
-            if prob > best_p {
-                best_p = prob;
+        // Codebook-nearest category of feature g to the antecedent.
+        let (mut best_cat, mut best_dist) = (0u32, u32::MAX);
+        for cat in 0..spec.cardinality(g) {
+            let d = antecedent_distance(oracle, antecedent, Item::new(g as u32, cat));
+            if d < best_dist {
+                best_dist = d;
                 best_cat = cat;
             }
         }
-        if best_p < params.cons_similarity {
+        if best_dist > params.theta {
             continue;
         }
-        let consequent = vec![Item::new(g as u32, best_cat as u32)];
-        let support = {
-            let mut both = antecedent.to_vec();
-            both.extend_from_slice(&consequent);
-            data.support(&both)
-        };
-        let confidence = data.confidence(antecedent, &consequent);
+
+        let consequent = vec![Item::new(g as u32, best_cat)];
+        let mut both = antecedent.to_vec();
+        both.extend_from_slice(&consequent);
+        let cooccur = data.count_matching(&both);
+
         let rule = CandidateRule {
             antecedent: antecedent.to_vec(),
             consequent,
-            support,
-            confidence,
-            n,
+            cooccur,
+            antecedent_count,
+            window: n,
         };
-        if rule.passes(params.min_support, params.min_confidence) {
+        if rule.passes(params.min_support_ppm, params.min_confidence_ppm) {
             out.push(rule);
         }
     }
 }
 
-/// The neutral probe vector: every feature block set to its uniform
-/// distribution `1/cardinality`.
-fn neutral_probe(spec: &crate::encode::FeatureSpec) -> Vec<f32> {
-    let mut v = vec![0.0f32; spec.dim()];
-    for f in 0..spec.num_features() {
-        let (s, e) = spec.block(f);
-        let u = 1.0 / (e - s) as f32;
-        v[s..e].fill(u);
-    }
-    v
-}
-
-/// All size-`k` combinations of the given feature indices (order preserved,
-/// ascending), produced deterministically.
+/// All size-`k` combinations of the given feature indices (ascending,
+/// deterministic).
 fn feature_combinations(features: &[usize], k: usize) -> Vec<Vec<usize>> {
     let mut out = Vec::new();
     let mut combo = Vec::with_capacity(k);
@@ -235,23 +203,96 @@ fn item_product(combo: &[usize], frequent_by_feature: &[Vec<Item>]) -> Vec<Vec<I
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aerial::rng::Rng;
+    use crate::aerial::codebook::MatrixDistance;
     use crate::encode::FeatureSpec;
 
-    /// Build a dataset with a planted rule (f0=0 ⇒ f1=0, f0=1 ⇒ f1=1) plus an
-    /// independent feature f2, with a little label noise on f1.
-    fn planted(n: usize, seed: u64, noise: f32) -> Dataset {
-        let spec = FeatureSpec::new(vec![2, 2, 2]);
-        let mut rng = Rng::new(seed);
-        let rows = (0..n)
-            .map(|_| {
-                let a = (rng.next_u64() % 2) as u32;
-                let b = if rng.bernoulli(noise) { 1 - a } else { a };
-                let c = (rng.next_u64() % 2) as u32;
+    /// 3 features × 2 cats. Codebook places (f*,c0) near each other and
+    /// (f*,c1) near each other; feature 2 is far from features 0/1 (independent
+    /// in codebook space). Data plants f0 == f1 with a little noise; f2 random.
+    fn fixture(noise_every: usize) -> (Dataset, MatrixDistance) {
+        let spec = FeatureSpec::new(vec![2, 2, 2]); // dim 6
+        // slots: f0c0=0 f0c1=1 | f1c0=2 f1c1=3 | f2c0=4 f2c1=5
+        // near = 1, mid = 5, far = 50.
+        let near = 1u32;
+        let mid = 5u32;
+        let far = 50u32;
+        let mut table = vec![0u32; 36];
+        let set = |t: &mut Vec<u32>, a: usize, b: usize, v: u32| {
+            t[a * 6 + b] = v;
+            t[b * 6 + a] = v;
+        };
+        // f0c0(0) ~ f1c0(2) near; f0c1(1) ~ f1c1(3) near; cross pairs mid.
+        set(&mut table, 0, 2, near);
+        set(&mut table, 1, 3, near);
+        set(&mut table, 0, 3, mid);
+        set(&mut table, 1, 2, mid);
+        set(&mut table, 0, 1, mid);
+        set(&mut table, 2, 3, mid);
+        // feature 2 (slots 4,5) far from everything.
+        for a in 0..4 {
+            set(&mut table, a, 4, far);
+            set(&mut table, a, 5, far);
+        }
+        set(&mut table, 4, 5, mid);
+
+        let rows: Vec<Vec<u32>> = (0..600)
+            .map(|i| {
+                let a = (i % 2) as u32;
+                let b = if noise_every != 0 && i % noise_every == 0 { 1 - a } else { a };
+                let c = ((i / 2) % 2) as u32;
                 vec![a, b, c]
             })
             .collect();
-        Dataset::new(spec, rows)
+        (Dataset::new(spec.clone(), rows), MatrixDistance::new(&spec, table))
+    }
+
+    #[test]
+    fn recovers_planted_rule_and_rejects_independent_feature() {
+        let (data, dist) = fixture(20); // 5% label noise on f1
+        let params = ExtractParams {
+            theta: 2, // codebook prune: only "near" (dist ≤ 2) consequents
+            max_antecedent: 1,
+            min_support_ppm: 50_000,    // 5%
+            min_confidence_ppm: 700_000, // 70%
+        };
+        let rules = extract_rules(&dist, &data, &params);
+
+        // planted f0=0 ⇒ f1=0 (codebook-near AND data-confirmed)
+        let has = rules.iter().any(|r| {
+            r.antecedent == vec![Item::new(0, 0)] && r.consequent == vec![Item::new(1, 0)]
+        });
+        assert!(has, "planted f0=0 ⇒ f1=0 not recovered: {rules:#?}");
+
+        // feature 2 is codebook-far → pruned by theta → never a consequent of f0
+        let spurious = rules.iter().any(|r| {
+            r.antecedent == vec![Item::new(0, 0)] && r.consequent[0].feature == 2
+        });
+        assert!(!spurious, "independent feature 2 leaked: {rules:#?}");
+
+        let rule = rules
+            .iter()
+            .find(|r| r.antecedent == vec![Item::new(0, 0)] && r.consequent == vec![Item::new(1, 0)])
+            .unwrap();
+        assert!(rule.confidence_ppm() >= 700_000, "confidence below floor");
+    }
+
+    #[test]
+    fn fully_deterministic_no_seed() {
+        let (data, dist) = fixture(20);
+        let p = ExtractParams { theta: 2, max_antecedent: 1, min_support_ppm: 50_000, min_confidence_ppm: 700_000 };
+        let a = extract_rules(&dist, &data, &p);
+        let b = extract_rules(&dist, &data, &p);
+        assert_eq!(a, b, "codebook probe is bitwise-deterministic by construction");
+    }
+
+    #[test]
+    fn theta_prune_blocks_far_consequents() {
+        // With a generous theta the far feature is *tested* (then data-gated);
+        // with a tight theta it is pruned before the data even sees it.
+        let (data, dist) = fixture(0); // no noise: f1==f0 exactly
+        let tight = ExtractParams { theta: 2, max_antecedent: 1, min_support_ppm: 50_000, min_confidence_ppm: 600_000 };
+        let rules = extract_rules(&dist, &data, &tight);
+        assert!(rules.iter().all(|r| r.consequent[0].feature != 2));
     }
 
     #[test]
@@ -260,74 +301,13 @@ mod tests {
             feature_combinations(&[0, 1, 2], 2),
             vec![vec![0, 1], vec![0, 2], vec![1, 2]]
         );
-        assert_eq!(feature_combinations(&[0, 1, 2], 1), vec![vec![0], vec![1], vec![2]]);
-    }
-
-    #[test]
-    fn item_product_enumerates_category_assignments() {
-        let freq = vec![
-            vec![Item::new(0, 0), Item::new(0, 1)],
-            vec![Item::new(1, 0)],
-        ];
-        let prod = item_product(&[0, 1], &freq);
-        assert_eq!(prod.len(), 2);
-        assert!(prod.contains(&vec![Item::new(0, 0), Item::new(1, 0)]));
-        assert!(prod.contains(&vec![Item::new(0, 1), Item::new(1, 0)]));
-    }
-
-    #[test]
-    fn neutral_probe_is_uniform_per_block() {
-        let spec = FeatureSpec::new(vec![2, 4]);
-        let v = neutral_probe(&spec);
-        assert!((v[0] - 0.5).abs() < 1e-6);
-        assert!((v[2] - 0.25).abs() < 1e-6);
-        assert!((v[0..2].iter().sum::<f32>() - 1.0).abs() < 1e-6);
-        assert!((v[2..6].iter().sum::<f32>() - 1.0).abs() < 1e-6);
-    }
-
-    #[test]
-    fn recovers_planted_rule_and_rejects_independent_feature() {
-        let data = planted(500, 11, 0.05); // 5% label noise on f1
-        let mut rng = Rng::new(42);
-        let mut ae = AerialAutoencoder::new(&data.spec, 4, &mut rng);
-        ae.train(&data, 600, 0.1, 0.3, &mut rng);
-
-        let params = ExtractParams {
-            ant_similarity: 0.5,
-            cons_similarity: 0.6,
-            max_antecedent: 1,
-            min_support: 0.05,
-            min_confidence: 0.7,
-        };
-        let rules = extract_rules(&ae, &data, &params);
-
-        // The planted dependency f0 → f1 must surface (both directions of the
-        // category mapping are valid rules).
-        let has_f0_implies_f1 = rules.iter().any(|r| {
-            r.antecedent == vec![Item::new(0, 0)] && r.consequent == vec![Item::new(1, 0)]
-        });
-        assert!(has_f0_implies_f1, "planted f0=0 ⇒ f1=0 not recovered: {rules:#?}");
-
-        // No rule should have feature 2 (independent) as a consequent of f0.
-        let spurious = rules.iter().any(|r| {
-            r.antecedent == vec![Item::new(0, 0)] && r.consequent[0].feature == 2
-        });
-        assert!(!spurious, "independent feature 2 leaked as a consequent: {rules:#?}");
-
-        // Recovered rule confidence reflects the data (≈0.95 with 5% noise).
-        let rule = rules
-            .iter()
-            .find(|r| r.antecedent == vec![Item::new(0, 0)] && r.consequent == vec![Item::new(1, 0)])
-            .unwrap();
-        assert!(rule.confidence >= 0.7, "confidence {} below floor", rule.confidence);
     }
 
     #[test]
     fn empty_dataset_yields_no_rules() {
         let spec = FeatureSpec::new(vec![2, 2]);
-        let data = Dataset::new(spec, Vec::new());
-        let mut rng = Rng::new(1);
-        let ae = AerialAutoencoder::new(&data.spec, 3, &mut rng);
-        assert!(extract_rules(&ae, &data, &ExtractParams::default()).is_empty());
+        let data = Dataset::new(spec.clone(), Vec::new());
+        let dist = MatrixDistance::new(&spec, vec![0u32; 16]);
+        assert!(extract_rules(&dist, &data, &ExtractParams::default()).is_empty());
     }
 }

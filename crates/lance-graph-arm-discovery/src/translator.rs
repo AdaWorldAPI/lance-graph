@@ -1,33 +1,59 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright The Lance Authors
 
-//! Stage B — translate an ARM [`CandidateRule`] into NARS truth + an SPO
-//! triple carrier.
+//! Stage B — translate a [`CandidateRule`]'s integer evidence into NARS truth
+//! + an SPO triple carrier.
 //!
-//! The mapping is verbatim from Aerial+ §2 / §3.3 and the plan's FINDING:
+//! The mapping is verbatim from Aerial+ §2/§3.3, computed in **integers**:
 //!
-//! - ARM **confidence** = `P(Y|X)` → NARS **frequency** `f`
-//! - ARM **support × n** (evidential mass `m`) → NARS **confidence**
-//!   `c = m / (m + k)`, NAL-9 personality constant `k` (default `1.0`)
+//! - ARM **confidence** = `cooccur / antecedent_count` → NARS **frequency**
+//! - ARM **evidence** `m = cooccur` → NARS **confidence** `c = m / (m + k)`
 //!
-//! The resulting `(f, c)` is the exact pair consumed by
-//! `lance_graph::graph::spo::TruthValue::new(f, c)` and carried by
-//! `ruff_spo_triplet::Triple { f, c }`. That is the whole point: a rule mined
-//! from runtime data and a triple extracted from static source land in the
-//! SPO store on the *same* truth scale.
+//! The canonical truth is [`TruthU8`] — `frequency`/`confidence` as `u8`,
+//! which is exactly the `CausalEdge64` wire (`confidence_u8` + i4 mantissa),
+//! float-free. [`NarsTruth`] / [`arm_to_nars`] are a thin `f32` **edge** that
+//! exists only because the downstream `spo::truth::TruthValue` and
+//! `ruff_spo_triplet::Triple` are themselves `f32`; nothing in the discovery
+//! path consumes the `f32` form.
 
 use crate::rule::{CandidateRule, Item};
 
-/// NAL-9 default personality constant for the support → confidence mapping.
-/// Larger `k` ⇒ more evidence needed before confidence approaches 1.
-pub const NARS_PERSONALITY_K: f32 = 1.0;
+/// NAL-9 default personality constant (integer). Larger `k` ⇒ more evidence
+/// needed before confidence approaches saturation.
+pub const NARS_PERSONALITY_K: u32 = 1;
 
-/// A NARS truth value `(frequency, confidence)` — the translator's output.
-///
-/// Deliberately *not* a re-implementation of the SPO store's `TruthValue`:
-/// it is the `(f, c)` pair you feed to `TruthValue::new(f, c)`. Keeping it a
-/// distinct, tiny carrier honours `E-SOA-IS-THE-ONLY` (no parallel truth
-/// store) while keeping this crate zero-dep.
+/// Quantised NARS truth — the canonical, float-free wire form (mirrors the
+/// `CausalEdge64` `confidence_u8` + i4 mantissa fields). `255` = 1.0.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TruthU8 {
+    /// NARS frequency, `0..=255` (255 = 1.0).
+    pub frequency: u8,
+    /// NARS confidence, `0..=255`.
+    pub confidence: u8,
+}
+
+/// Translate a candidate rule's integer evidence into quantised NARS truth.
+/// `k` is the NARS personality constant ([`NARS_PERSONALITY_K`] default).
+#[must_use]
+pub fn arm_to_truth_u8(rule: &CandidateRule, k: u32) -> TruthU8 {
+    // frequency = P(Y|X) = cooccur / antecedent_count
+    let frequency = if rule.antecedent_count == 0 {
+        128 // unknown ≈ 0.5
+    } else {
+        ((rule.cooccur as u64 * 255) / rule.antecedent_count as u64).min(255) as u8
+    };
+    // confidence = m / (m + k), m = cooccur (integer evidential mass)
+    let m = rule.cooccur as u64;
+    let denom = (m + k as u64).max(1);
+    let confidence = ((m * 255) / denom) as u8;
+    TruthU8 {
+        frequency,
+        confidence,
+    }
+}
+
+/// An `f32` NARS truth — **edge convenience only** (see module docs). Derived
+/// from [`TruthU8`]; never read inside the discovery path.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct NarsTruth {
     /// NARS frequency `f ∈ [0, 1]`.
@@ -38,35 +64,25 @@ pub struct NarsTruth {
 
 impl NarsTruth {
     /// NARS expectation `e = c·(f − 0.5) + 0.5` — matches
-    /// `lance_graph::graph::spo::TruthValue::expectation` exactly.
+    /// `spo::truth::TruthValue::expectation`.
     #[must_use]
     pub fn expectation(&self) -> f32 {
         self.confidence * (self.frequency - 0.5) + 0.5
     }
 }
 
-/// Translate a candidate rule's ARM statistics into NARS truth.
-///
-/// `k` is the NARS personality constant ([`NARS_PERSONALITY_K`] by default,
-/// per-feed configurable per OQ-ARM-3).
+/// `f32` edge of [`arm_to_truth_u8`], for the downstream `f32` `TruthValue` /
+/// `Triple` contracts.
 #[must_use]
-pub fn arm_to_nars(rule: &CandidateRule, k: f32) -> NarsTruth {
-    // ARM confidence is P(Y|X) — directly the NARS frequency.
-    let frequency = rule.confidence.clamp(0.0, 1.0);
-    // Evidential mass m = support × n; c = m / (m + k) → 1 as evidence grows.
-    let m = rule.evidence().max(0.0);
-    let confidence = m / (m + k);
+pub fn arm_to_nars(rule: &CandidateRule, k: u32) -> NarsTruth {
+    let t = arm_to_truth_u8(rule, k);
     NarsTruth {
-        frequency,
-        confidence,
+        frequency: t.frequency as f32 / 255.0,
+        confidence: t.confidence as f32 / 255.0,
     }
 }
 
 /// Projects rule items into SPO IRIs for a particular feed/domain.
-///
-/// An Odoo feed projects `(model, predicate, value)`; an MedCare feed
-/// projects differently. The projector is the only domain-specific seam in
-/// Stage B — everything else is feed-agnostic.
 pub trait FeedProjector {
     /// IRI for the subject built from the antecedent items.
     fn subject(&self, antecedent: &[Item]) -> String;
@@ -79,12 +95,9 @@ pub trait FeedProjector {
 /// One SPO triple with NARS truth — shape-compatible with
 /// `ruff_spo_triplet::Triple` and the SPO store's ndjson loader (same
 /// `{s,p,o,f,c}` fields; see [`crate::ndjson`] for the predicate-vocabulary
-/// caveat that gates the `ruff` loader on D-ARM-SYN-1).
-///
-/// `(s, p, o)` is the identity; `(f, c)` is the data-derived truth. The
-/// `origin` byte records that this triple came from the ARM-discovery
-/// proposer (bits per `discovery_origin` in the plan §7) — it is metadata,
-/// dropped on the ndjson wire, not part of the triple identity.
+/// caveat that gates the `ruff` loader on D-ARM-SYN-1). The `f`/`c` floats are
+/// the *serialization format* of that downstream contract, derived from the
+/// canonical integer [`TruthU8`] at the wire edge.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CandidateTriple {
     /// Subject IRI.
@@ -93,20 +106,16 @@ pub struct CandidateTriple {
     pub p: String,
     /// Object IRI.
     pub o: String,
-    /// NARS frequency.
+    /// NARS frequency (serialization edge).
     pub f: f32,
-    /// NARS confidence.
+    /// NARS confidence (serialization edge).
     pub c: f32,
 }
 
 impl CandidateTriple {
     /// Build a triple from a candidate rule, a projector, and a NARS `k`.
     #[must_use]
-    pub fn from_rule(
-        rule: &CandidateRule,
-        projector: &dyn FeedProjector,
-        k: f32,
-    ) -> Self {
+    pub fn from_rule(rule: &CandidateRule, projector: &dyn FeedProjector, k: u32) -> Self {
         let truth = arm_to_nars(rule, k);
         Self {
             s: projector.subject(&rule.antecedent),
@@ -118,9 +127,7 @@ impl CandidateTriple {
     }
 }
 
-/// A minimal projector that renders items as `feat<i>=cat<j>` and joins an
-/// antecedent with `&`. Useful for tests and ndjson smoke checks; real feeds
-/// supply a domain projector that emits proper namespaced IRIs.
+/// A minimal projector rendering items as `feat<i>=cat<j>`, joined with `&`.
 #[derive(Debug, Clone)]
 pub struct DebugProjector {
     /// Predicate IRI to stamp on every emitted implication.
@@ -130,9 +137,9 @@ pub struct DebugProjector {
 impl Default for DebugProjector {
     fn default() -> Self {
         Self {
-            // Not in `ruff_spo_triplet`'s *current* closed vocabulary — see the
-            // synergy doc: flowing ARM rules through that loader needs an
-            // `implies` predicate added there first.
+            // Not in `ruff_spo_triplet`'s current closed vocabulary — see the
+            // synergy doc: the `ruff` loader needs an `implies` predicate added
+            // (D-ARM-SYN-1) before ARM rules flow through it.
             predicate: "implies".to_string(),
         }
     }
@@ -164,58 +171,62 @@ impl FeedProjector for DebugProjector {
 mod tests {
     use super::*;
 
-    fn rule(support: f32, confidence: f32, n: u32) -> CandidateRule {
+    fn rule(cooccur: u32, antecedent_count: u32, window: u32) -> CandidateRule {
         CandidateRule {
             antecedent: vec![Item::new(0, 1)],
             consequent: vec![Item::new(1, 0)],
-            support,
-            confidence,
-            n,
+            cooccur,
+            antecedent_count,
+            window,
         }
     }
 
     #[test]
-    fn frequency_is_arm_confidence() {
-        let t = arm_to_nars(&rule(0.2, 0.83, 1000), NARS_PERSONALITY_K);
-        assert!((t.frequency - 0.83).abs() < 1e-6);
+    fn frequency_is_quantised_arm_confidence() {
+        // confidence = 249/300 ≈ 0.83 → 0.83×255 ≈ 211
+        let t = arm_to_truth_u8(&rule(249, 300, 1000), NARS_PERSONALITY_K);
+        assert_eq!(t.frequency, ((249u64 * 255) / 300) as u8);
     }
 
     #[test]
-    fn confidence_grows_with_evidence() {
-        // m = support × n = 0.2 × 1000 = 200; c = 200/201 ≈ 0.995
-        let strong = arm_to_nars(&rule(0.2, 0.83, 1000), NARS_PERSONALITY_K);
-        // m = 0.2 × 10 = 2; c = 2/3 ≈ 0.667
-        let weak = arm_to_nars(&rule(0.2, 0.83, 10), NARS_PERSONALITY_K);
+    fn confidence_grows_with_evidence_integer() {
+        // m=200, k=1 → 200·255/201 = 253
+        let strong = arm_to_truth_u8(&rule(200, 240, 1000), NARS_PERSONALITY_K);
+        // m=2,   k=1 → 2·255/3 = 170
+        let weak = arm_to_truth_u8(&rule(2, 3, 10), NARS_PERSONALITY_K);
         assert!(strong.confidence > weak.confidence);
-        assert!((strong.confidence - 200.0 / 201.0).abs() < 1e-4);
-        assert!((weak.confidence - 2.0 / 3.0).abs() < 1e-4);
+        assert_eq!(strong.confidence, ((200u64 * 255) / 201) as u8);
+        assert_eq!(weak.confidence, ((2u64 * 255) / 3) as u8);
     }
 
     #[test]
-    fn larger_k_demands_more_evidence() {
-        let k1 = arm_to_nars(&rule(0.1, 0.7, 50), 1.0).confidence;
-        let k10 = arm_to_nars(&rule(0.1, 0.7, 50), 10.0).confidence;
-        assert!(k10 < k1, "larger k lowers confidence for the same evidence");
+    fn larger_k_demands_more_evidence_integer() {
+        let k1 = arm_to_truth_u8(&rule(5, 10, 100), 1).confidence;
+        let k10 = arm_to_truth_u8(&rule(5, 10, 100), 10).confidence;
+        assert!(k10 < k1);
     }
 
     #[test]
-    fn expectation_matches_spo_formula() {
-        let t = NarsTruth {
-            frequency: 0.9,
-            confidence: 0.8,
-        };
-        // 0.8 * (0.9 - 0.5) + 0.5 = 0.82
-        assert!((t.expectation() - 0.82).abs() < 1e-6);
+    fn zero_antecedent_is_unknown_frequency() {
+        let t = arm_to_truth_u8(&rule(0, 0, 1000), NARS_PERSONALITY_K);
+        assert_eq!(t.frequency, 128);
+        assert_eq!(t.confidence, 0);
     }
 
     #[test]
-    fn triple_projection_and_truth() {
-        let r = rule(0.25, 0.9, 400); // m = 100; c = 100/101
-        let t = CandidateTriple::from_rule(&r, &DebugProjector::default(), NARS_PERSONALITY_K);
+    fn f32_edge_is_derived_from_u8() {
+        let r = rule(100, 125, 400); // m=100; conf_u8 = 100·255/101 = 252
+        let t8 = arm_to_truth_u8(&r, NARS_PERSONALITY_K);
+        let tf = arm_to_nars(&r, NARS_PERSONALITY_K);
+        assert!((tf.confidence - t8.confidence as f32 / 255.0).abs() < 1e-6);
+        assert!((tf.frequency - t8.frequency as f32 / 255.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn triple_projection() {
+        let t = CandidateTriple::from_rule(&rule(90, 100, 400), &DebugProjector::default(), NARS_PERSONALITY_K);
         assert_eq!(t.s, "arm:feat0=cat1");
         assert_eq!(t.p, "implies");
         assert_eq!(t.o, "arm:feat1=cat0");
-        assert!((t.f - 0.9).abs() < 1e-6);
-        assert!((t.c - 100.0 / 101.0).abs() < 1e-4);
     }
 }

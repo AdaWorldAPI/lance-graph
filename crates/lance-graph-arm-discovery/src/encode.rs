@@ -1,29 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright The Lance Authors
 
-//! One-hot categorical encoding — the input layer of the Aerial+ transcode.
+//! Codebook items + the data window — **integer only**.
 //!
-//! Aerial+ (paper §3.1) one-hot encodes each row into a concatenation of
-//! per-feature blocks: feature `i` with `k_i` categories occupies a block of
-//! `k_i` slots, exactly one of which is `1.0` (the observed category). The
-//! full input vector has dimension `D = Σ k_i`.
-//!
-//! Numerical columns must be discretised into bins *before* they reach this
-//! layer (the paper bins numerics; [`FeatureSpec::bin`] is the helper).
+//! Each row is a list of category indices, one per feature (a tuple of
+//! codebook codes). There is no one-hot float vector and no embedding: the
+//! codebook-probe backend ([`crate::aerial`]) reasons over category indices
+//! and integer co-occurrence counts, and the similarity it needs comes from
+//! the injected [`crate::aerial::CodebookDistance`] oracle. Numeric columns
+//! must be discretised into category indices *before* they reach this layer
+//! (that quantisation belongs to the CAM/palette codebook, not here).
 
 use crate::rule::Item;
 
-/// The schema for a one-hot encoding: the ordered list of features and how
-/// many categories each has.
-///
-/// Block offsets are derived once and cached so encode/decode is a pointer
-/// add, not a scan.
+/// The schema for a window: the ordered features and how many categories each
+/// has. Block offsets are derived once and cached.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FeatureSpec {
-    /// Number of categories per feature, in feature order.
     cardinalities: Vec<u32>,
-    /// Prefix-sum offsets: `offsets[i]` is the first input slot of feature `i`.
-    /// Length is `cardinalities.len() + 1`; the last entry is the total dim.
+    /// Prefix-sum offsets: `offsets[i]` is the first code slot of feature `i`;
+    /// the last entry is the total code space size.
     offsets: Vec<usize>,
 }
 
@@ -31,8 +27,7 @@ impl FeatureSpec {
     /// Build a spec from per-feature cardinalities.
     ///
     /// # Panics
-    /// If any cardinality is zero (a feature with no categories cannot be
-    /// one-hot encoded).
+    /// If any cardinality is zero.
     #[must_use]
     pub fn new(cardinalities: Vec<u32>) -> Self {
         assert!(
@@ -52,7 +47,7 @@ impl FeatureSpec {
         }
     }
 
-    /// Total input dimension `D = Σ k_i`.
+    /// Total code space `Σ kᵢ` (the side length of a per-item distance table).
     #[must_use]
     pub fn dim(&self) -> usize {
         *self.offsets.last().expect("offsets always has ≥1 entry")
@@ -70,50 +65,21 @@ impl FeatureSpec {
         self.cardinalities[feature]
     }
 
-    /// The `[start, end)` input-slot range owned by a feature's block.
+    /// The `[start, end)` code range owned by a feature's block.
     #[must_use]
     pub fn block(&self, feature: usize) -> (usize, usize) {
         (self.offsets[feature], self.offsets[feature + 1])
     }
 
-    /// The absolute input slot for an `(feature, category)` item.
+    /// The absolute code slot for an `(feature, category)` item.
     #[must_use]
     pub fn slot(&self, item: Item) -> usize {
         self.offsets[item.feature as usize] + item.category as usize
     }
-
-    /// One-hot encode a row given as one category index per feature.
-    ///
-    /// `row[i]` is the observed category of feature `i`. Returns a `D`-length
-    /// vector with one `1.0` per block.
-    #[must_use]
-    pub fn encode(&self, row: &[u32]) -> Vec<f32> {
-        assert_eq!(row.len(), self.num_features(), "row arity mismatch");
-        let mut v = vec![0.0f32; self.dim()];
-        for (feature, &cat) in row.iter().enumerate() {
-            debug_assert!(cat < self.cardinalities[feature], "category out of range");
-            v[self.offsets[feature] + cat as usize] = 1.0;
-        }
-        v
-    }
-
-    /// Discretise a numeric value into `[0, bins)` over `[lo, hi]` (uniform
-    /// width). Values at or below `lo` land in bin 0; at or above `hi` in the
-    /// last bin. This is the pre-encoding step for numerical columns.
-    #[must_use]
-    pub fn bin(value: f32, lo: f32, hi: f32, bins: u32) -> u32 {
-        debug_assert!(bins > 0 && hi > lo, "bad binning parameters");
-        let t = ((value - lo) / (hi - lo)).clamp(0.0, 1.0);
-        let idx = (t * bins as f32) as u32;
-        idx.min(bins - 1)
-    }
 }
 
 /// A window of rows in category-index form, sharing one [`FeatureSpec`].
-///
-/// This is the unit Aerial+ trains on and the unit support/confidence are
-/// counted over. `rows.len()` is the `n` that the NARS confidence mapping
-/// uses as evidential mass.
+/// `rows.len()` is the `n` the evidence counts are measured over.
 #[derive(Debug, Clone)]
 pub struct Dataset {
     /// The shared schema.
@@ -148,6 +114,7 @@ impl Dataset {
     }
 
     /// Count of rows containing every item in `items` (an AND over items).
+    /// The one and only evidence primitive — integer, exact.
     #[must_use]
     pub fn count_matching(&self, items: &[Item]) -> u32 {
         self.rows
@@ -158,29 +125,6 @@ impl Dataset {
                     .all(|it| row[it.feature as usize] == it.category)
             })
             .count() as u32
-    }
-
-    /// Classical support of an itemset: `count_matching / n`.
-    #[must_use]
-    pub fn support(&self, items: &[Item]) -> f32 {
-        if self.rows.is_empty() {
-            return 0.0;
-        }
-        self.count_matching(items) as f32 / self.rows.len() as f32
-    }
-
-    /// Classical confidence of `antecedent → consequent`:
-    /// `count(antecedent ∪ consequent) / count(antecedent)`.
-    /// Returns `0.0` when the antecedent never occurs.
-    #[must_use]
-    pub fn confidence(&self, antecedent: &[Item], consequent: &[Item]) -> f32 {
-        let ant = self.count_matching(antecedent);
-        if ant == 0 {
-            return 0.0;
-        }
-        let mut both: Vec<Item> = antecedent.to_vec();
-        both.extend_from_slice(consequent);
-        self.count_matching(&both) as f32 / ant as f32
     }
 }
 
@@ -199,16 +143,6 @@ mod tests {
     }
 
     #[test]
-    fn one_hot_sets_one_per_block() {
-        let spec = FeatureSpec::new(vec![2, 3]);
-        let v = spec.encode(&[1, 2]);
-        assert_eq!(v, vec![0.0, 1.0, 0.0, 0.0, 1.0]);
-        // exactly one 1.0 per block
-        assert_eq!(v[0..2].iter().sum::<f32>(), 1.0);
-        assert_eq!(v[2..5].iter().sum::<f32>(), 1.0);
-    }
-
-    #[test]
     fn slot_addressing() {
         let spec = FeatureSpec::new(vec![2, 3]);
         assert_eq!(spec.slot(Item::new(0, 1)), 1);
@@ -216,31 +150,13 @@ mod tests {
     }
 
     #[test]
-    fn binning_clamps_edges() {
-        assert_eq!(FeatureSpec::bin(-5.0, 0.0, 10.0, 5), 0);
-        assert_eq!(FeatureSpec::bin(0.0, 0.0, 10.0, 5), 0);
-        assert_eq!(FeatureSpec::bin(9.99, 0.0, 10.0, 5), 4);
-        assert_eq!(FeatureSpec::bin(100.0, 0.0, 10.0, 5), 4);
-        assert_eq!(FeatureSpec::bin(5.0, 0.0, 10.0, 5), 2);
-    }
-
-    #[test]
-    fn support_and_confidence_counts() {
+    fn count_matching_is_an_and_over_items() {
         let spec = FeatureSpec::new(vec![2, 2]);
         // rows: (0,0),(0,0),(0,1),(1,1)
-        let data = Dataset::new(
-            spec,
-            vec![vec![0, 0], vec![0, 0], vec![0, 1], vec![1, 1]],
-        );
-        // support of feature0=0 : 3/4
-        assert!((data.support(&[Item::new(0, 0)]) - 0.75).abs() < 1e-6);
-        // confidence (f0=0 -> f1=0): count(0,0)=2 / count(f0=0)=3
-        let c = data.confidence(&[Item::new(0, 0)], &[Item::new(1, 0)]);
-        assert!((c - 2.0 / 3.0).abs() < 1e-6);
-        // confidence on never-seen antecedent is 0
-        assert_eq!(
-            data.confidence(&[Item::new(0, 5)], &[Item::new(1, 0)]),
-            0.0
-        );
+        let data = Dataset::new(spec, vec![vec![0, 0], vec![0, 0], vec![0, 1], vec![1, 1]]);
+        assert_eq!(data.count_matching(&[Item::new(0, 0)]), 3);
+        assert_eq!(data.count_matching(&[Item::new(0, 0), Item::new(1, 0)]), 2);
+        assert_eq!(data.count_matching(&[Item::new(0, 5)]), 0); // absent category
+        assert_eq!(data.len(), 4);
     }
 }
