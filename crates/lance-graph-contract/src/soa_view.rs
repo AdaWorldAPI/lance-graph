@@ -17,7 +17,7 @@
 //! [`crate::plan::PlannerContract`] and [`crate::orchestration::OrchestrationBridge`].
 
 use crate::collapse_gate::MailboxId;
-use crate::kanban::{KanbanColumn, KanbanMove};
+use crate::kanban::{KanbanColumn, KanbanMove, RubiconTransitionError};
 
 /// A transparent, read-only view over one mailbox's SoA columns.
 ///
@@ -94,6 +94,26 @@ pub trait MailboxSoaOwner: MailboxSoaView {
     /// the lifecycle column. The SoA columns themselves are mutated by the owner's
     /// own (crate-private) cognitive ops, never serialized through here (R1).
     fn advance_phase(&mut self, to: KanbanColumn) -> KanbanMove;
+
+    /// Checked phase advance: enforce the Rubicon lifecycle DAG
+    /// ([`KanbanColumn::can_transition_to`]) before mutating.
+    ///
+    /// Returns the emitted [`KanbanMove`] on a legal edge, or
+    /// [`RubiconTransitionError`] on an illegal one (no mutation occurs). The ractor
+    /// lifecycle driver should prefer this over the unchecked
+    /// [`advance_phase`](MailboxSoaOwner::advance_phase) so an illegal transition is a
+    /// typed error, not silent corruption.
+    fn try_advance_phase(
+        &mut self,
+        to: KanbanColumn,
+    ) -> Result<KanbanMove, RubiconTransitionError> {
+        let from = self.phase();
+        if from.can_transition_to(to) {
+            Ok(self.advance_phase(to))
+        } else {
+            Err(RubiconTransitionError { from, to })
+        }
+    }
 }
 
 #[cfg(test)]
@@ -156,6 +176,7 @@ mod tests {
                 } else {
                     0
                 },
+                exec: crate::kanban::ExecTarget::Native,
             }
         }
     }
@@ -196,6 +217,24 @@ mod tests {
         assert_eq!(m.from, KanbanColumn::Planning);
         assert_eq!(m.to, KanbanColumn::CognitiveWork);
         assert_eq!(m.libet_offset_us, -550_000);
+        assert_eq!(soa.phase(), KanbanColumn::CognitiveWork);
+    }
+
+    #[test]
+    fn try_advance_phase_enforces_lifecycle() {
+        let mut soa = sample(); // Planning
+                                // Illegal skip Planning -> Evaluation is rejected, no mutation.
+        let err = soa.try_advance_phase(KanbanColumn::Evaluation).unwrap_err();
+        assert_eq!(err.from, KanbanColumn::Planning);
+        assert_eq!(err.to, KanbanColumn::Evaluation);
+        assert_eq!(
+            soa.phase(),
+            KanbanColumn::Planning,
+            "rejected transition must not mutate"
+        );
+        // Legal Planning -> CognitiveWork succeeds.
+        let m = soa.try_advance_phase(KanbanColumn::CognitiveWork).unwrap();
+        assert_eq!(m.to, KanbanColumn::CognitiveWork);
         assert_eq!(soa.phase(), KanbanColumn::CognitiveWork);
     }
 }

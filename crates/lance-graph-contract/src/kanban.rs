@@ -49,10 +49,58 @@ pub enum KanbanColumn {
 }
 
 impl KanbanColumn {
-    /// Is this a terminal column (no further in-cycle transition from here)?
+    /// Is this a terminal **kanban column** — one of Evaluation's 3-way decision
+    /// outcomes (`Commit` / `Plan` / `Prune`)?
+    ///
+    /// Note `Plan` is terminal *as a decision* but re-enters `Planning`
+    /// (see [`next_phases`](KanbanColumn::next_phases)); use
+    /// [`is_absorbing`](KanbanColumn::is_absorbing) for "the mailbox cycle truly
+    /// ends here, tombstone now".
     #[inline]
     pub fn is_terminal(self) -> bool {
         matches!(self, Self::Commit | Self::Plan | Self::Prune)
+    }
+
+    /// Is this an **absorbing** column — the mailbox cycle ends here with no
+    /// successor (`Commit` = calcify to cold path, `Prune` = drop)?
+    ///
+    /// `Plan` is NOT absorbing (it re-deliberates back to `Planning`). The ractor
+    /// lifecycle driver tombstones the mailbox iff the cycle reaches an absorbing
+    /// column — the LE-3 cycle-end commit/SLA decision hooks here.
+    #[inline]
+    pub fn is_absorbing(self) -> bool {
+        matches!(self, Self::Commit | Self::Prune)
+    }
+
+    /// The valid successor columns from `self` in the Rubicon lifecycle DAG.
+    ///
+    /// ```text
+    /// Planning ─▶ CognitiveWork ─▶ Evaluation ─▶ { Commit | Plan | Prune }
+    ///    │                                            │
+    ///    └─▶ Prune (pre-Rubicon Libet veto)           └ Plan ─▶ Planning (re-deliberate)
+    /// ```
+    /// - `Planning` advances to `CognitiveWork` (the −550 ms Σ-commit / Rubicon
+    ///   crossing) or is vetoed straight to `Prune` (Libet "free won't", pre-Rubicon).
+    /// - `CognitiveWork → Evaluation` (post-actional read-back).
+    /// - `Evaluation` is the terminal 3-way: `Commit` (calcify), `Plan` (re-plan),
+    ///   `Prune` (drop).
+    /// - `Plan → Planning` re-enters the cycle carrying the witness.
+    /// - `Commit` / `Prune` are absorbing (no successor).
+    #[inline]
+    pub fn next_phases(self) -> &'static [KanbanColumn] {
+        match self {
+            Self::Planning => &[Self::CognitiveWork, Self::Prune],
+            Self::CognitiveWork => &[Self::Evaluation],
+            Self::Evaluation => &[Self::Commit, Self::Plan, Self::Prune],
+            Self::Plan => &[Self::Planning],
+            Self::Commit | Self::Prune => &[],
+        }
+    }
+
+    /// Whether `self → to` is a legal Rubicon lifecycle transition.
+    #[inline]
+    pub fn can_transition_to(self, to: KanbanColumn) -> bool {
+        self.next_phases().contains(&to)
     }
 }
 
@@ -75,15 +123,52 @@ pub struct KanbanMove {
     /// Libet commit anchor: signed micros relative to the act. `-550_000` on the
     /// `Planning → CognitiveWork` Σ-commit; `0` otherwise. Structural offset only.
     pub libet_offset_us: i32,
+    /// Which execution backend the planner selected for this move's work — the
+    /// JIT-adjacent strategy target (native planner / JIT / SurrealQL / Elixir).
+    pub exec: ExecTarget,
 }
 
-// NOTE (follow-up, D-MBX-A6 Phase 2-3): the planner execution strategy
-// { lance-graph-planner (native) | JIT | SurrealQL | elixir } is intentionally NOT carried
-// on KanbanMove here — the planner-emit slice reuses the planner's existing strategy enum
-// rather than duplicating it. Revisit whether KanbanMove needs an exec-target tag then.
+/// The execution backend a [`KanbanMove`] is dispatched to — the planner's
+/// JIT-adjacent **strategy target**. Distinct from the planner's 16 composable
+/// *planning* strategies: this names *where the precipitated plan runs*.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[repr(u8)]
+pub enum ExecTarget {
+    /// The lance-graph-planner native engine (default).
+    #[default]
+    Native = 0,
+    /// JIT-compiled kernel (JITson / Cranelift template).
+    Jit = 1,
+    /// Lowered to SurrealQL and run in the substrate.
+    SurrealQl = 2,
+    /// An Elixir-like declarative template.
+    Elixir = 3,
+}
+
+/// Error from [`crate::soa_view::MailboxSoaOwner::try_advance_phase`] when a requested
+/// transition is not a legal Rubicon lifecycle edge ([`KanbanColumn::can_transition_to`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RubiconTransitionError {
+    /// The column the mailbox is currently in.
+    pub from: KanbanColumn,
+    /// The (rejected) requested target column.
+    pub to: KanbanColumn,
+}
+
+impl core::fmt::Display for RubiconTransitionError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "illegal Rubicon transition {:?} -> {:?} (allowed: {:?})",
+            self.from,
+            self.to,
+            self.from.next_phases()
+        )
+    }
+}
 
 // `KanbanMove` must stay a small owned microcopy (airgap discipline, I1):
-// MailboxId(4) + 2×KanbanColumn(1) + u32(4) + i32(4) packs within 16 B.
+// MailboxId(4) + u32(4) + i32(4) + 2×KanbanColumn(1) + ExecTarget(1) packs within 16 B.
 const _: () = assert!(core::mem::size_of::<KanbanMove>() <= 16);
 
 #[cfg(test)]
@@ -124,9 +209,51 @@ mod tests {
             to: KanbanColumn::CognitiveWork,
             witness_chain_position: 7,
             libet_offset_us: -550_000,
+            exec: ExecTarget::Native,
         };
         let n = m; // Copy, not move
         assert_eq!(m, n);
         assert!(core::mem::size_of::<KanbanMove>() <= 16);
+    }
+
+    #[test]
+    fn rubicon_lifecycle_transitions() {
+        // Forward arc.
+        assert!(KanbanColumn::Planning.can_transition_to(KanbanColumn::CognitiveWork));
+        assert!(KanbanColumn::CognitiveWork.can_transition_to(KanbanColumn::Evaluation));
+        assert!(KanbanColumn::Evaluation.can_transition_to(KanbanColumn::Commit));
+        assert!(KanbanColumn::Evaluation.can_transition_to(KanbanColumn::Plan));
+        assert!(KanbanColumn::Evaluation.can_transition_to(KanbanColumn::Prune));
+        // Pre-Rubicon Libet veto + re-deliberation re-entry.
+        assert!(KanbanColumn::Planning.can_transition_to(KanbanColumn::Prune));
+        assert!(KanbanColumn::Plan.can_transition_to(KanbanColumn::Planning));
+        // Illegal skips / reversals.
+        assert!(!KanbanColumn::Planning.can_transition_to(KanbanColumn::Evaluation));
+        assert!(!KanbanColumn::CognitiveWork.can_transition_to(KanbanColumn::Planning));
+        assert!(!KanbanColumn::Evaluation.can_transition_to(KanbanColumn::CognitiveWork));
+        // Absorbing terminals.
+        assert!(KanbanColumn::Commit.next_phases().is_empty());
+        assert!(KanbanColumn::Prune.next_phases().is_empty());
+        assert!(!KanbanColumn::Commit.can_transition_to(KanbanColumn::Planning));
+    }
+
+    #[test]
+    fn absorbing_is_commit_and_prune_only_not_plan() {
+        // Plan is terminal-as-decision but re-deliberates → NOT absorbing.
+        assert!(KanbanColumn::Commit.is_absorbing());
+        assert!(KanbanColumn::Prune.is_absorbing());
+        assert!(!KanbanColumn::Plan.is_absorbing());
+        assert!(KanbanColumn::Plan.is_terminal()); // terminal decision, but...
+        assert!(KanbanColumn::Plan.can_transition_to(KanbanColumn::Planning)); // ...re-enters.
+                                                                               // The ractor driver tombstones iff absorbing.
+        assert!(!KanbanColumn::Planning.is_absorbing());
+        assert!(!KanbanColumn::Evaluation.is_absorbing());
+    }
+
+    #[test]
+    fn exec_target_default_is_native() {
+        assert_eq!(ExecTarget::default(), ExecTarget::Native);
+        assert_eq!(ExecTarget::Native as u8, 0);
+        assert_eq!(ExecTarget::Elixir as u8, 3);
     }
 }

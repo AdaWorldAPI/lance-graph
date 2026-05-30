@@ -1,3 +1,16 @@
+## 2026-05-30 — D-MBX-A6-P2 landed (contract): Rubicon lifecycle enforcement + ExecTarget strategy tag
+
+**Status:** SHIPPED-in-PR (contract slice). Builds on `#437` (D-MBX-A6-P1).
+- `KanbanColumn::next_phases()` + `can_transition_to()` — the Rubicon lifecycle DAG (Planning→CognitiveWork→Evaluation→{Commit|Plan|Prune}; Planning→Prune Libet veto; Plan→Planning re-deliberate; Commit/Prune absorbing). Lifecycle enforcement is now a contract-level, testable invariant.
+- `KanbanColumn::is_absorbing()` — distinguishes cycle-END columns (Commit/Prune, tombstone now) from `Plan` (terminal decision but re-deliberates). The ractor driver tombstones iff absorbing; LE-3 cycle-end commit/SLA hooks here.
+- `MailboxSoaOwner::try_advance_phase()` — checked default: validates the edge, returns `KanbanMove` or `RubiconTransitionError` (no mutation on illegal). The ractor lifecycle driver uses this.
+- `ExecTarget` {Native|Jit|SurrealQl|Elixir} — the planner JIT-adjacent execution-target (strategy) tag; now a field on `KanbanMove` (resolves the `#437` deferred NOTE; size still ≤16 B). Distinct from the planner's 16 composable *planning* strategies.
+- Zero-dep preserved; 489 contract lib tests (+4); planner/shader-driver/supervisor cargo-check clean.
+Next: ractor MailboxSoA owner-impl + planner emit (candidate generation) — the consumer side.
+**Cross-ref:** `#437`; D-MBX-A6; `E-DUPLICATION-IS-INTRINSIC-VS-TEMPORAL`; LE-3 (Rubicon commit).
+
+---
+
 ## 2026-05-30 — E-DUPLICATION-IS-INTRINSIC-VS-TEMPORAL — the SoA "duplicate" intentionally separates intrinsic awareness from the temporal belief-state arc (= AriGraph semantic/episodic = CE64/EW64 = SoA1:SoA2)
 
 **Status:** FINDING / design ruling (user-confirmed 2026-05-30). Answers "are you duplicating intentionally?" — YES.
