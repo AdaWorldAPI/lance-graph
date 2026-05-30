@@ -73,3 +73,6 @@ crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/token_embd_4096x4096.u8
 
 # Test fixtures (public-domain German legal/medical/tax data)
 .test/
+
+# Chat-/Session-Transcripts gehoeren nicht ins Repo
+.claude/transcript/
