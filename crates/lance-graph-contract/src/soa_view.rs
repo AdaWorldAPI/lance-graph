@@ -49,6 +49,25 @@ pub trait MailboxSoaView {
     /// Per-row entity-type id.
     fn entity_type(&self) -> &[u16];
 
+    /// Per-row **class discriminator** — the Cognitive-RISC `class_id` / `shape_id`
+    /// (a.k.a. the OGIT `EntityTypeId`). Aliases
+    /// [`entity_type`](MailboxSoaView::entity_type) today: the existing `u16` slot IS
+    /// the class hook, so no new column is added (honors R1 "one SoA never
+    /// transformed"). Only the `u16` discriminator lives on the SoA; the machinery it
+    /// keys — label inheritance, column projection, jinja templates — resolves ONE
+    /// LAYER UP via the OGIT ontology cache (`lance-graph-ontology`), never in the SoA
+    /// / kv-lance columns. This is the Cognitive-RISC N1 freeze-time hook.
+    #[inline]
+    fn class_id(&self) -> &[u16] {
+        self.entity_type()
+    }
+
+    /// The `class_id` of a single row.
+    #[inline]
+    fn class_id_at(&self, row: usize) -> u16 {
+        self.entity_type()[row]
+    }
+
     // NOTE (follow-up): the qualia column (`QualiaI4_16D`) accessor is intentionally omitted —
     // add `fn qualia(&self) -> &[crate::qualia::QualiaI4_16D]` when the first consumer
     // (planner strategy selection) needs it; keep the read surface minimal until then.
@@ -162,6 +181,9 @@ mod tests {
         assert_eq!(soa.edges_raw(), &[0, 1, 2]);
         assert_eq!(soa.meta_raw(), &[10, 11, 12]);
         assert_eq!(soa.entity_type(), &[100, 101, 102]);
+        // class_id is the Cognitive-RISC N1 hook aliasing the entity_type slot.
+        assert_eq!(soa.class_id(), &[100, 101, 102]);
+        assert_eq!(soa.class_id_at(0), 100);
         assert_eq!(soa.energy_at(1), 0.2);
         assert_eq!(soa.phase(), KanbanColumn::Planning);
         assert_eq!(soa.w_slot(), 7);

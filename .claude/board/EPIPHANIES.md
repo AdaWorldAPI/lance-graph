@@ -1,3 +1,34 @@
+## 2026-05-30 — E-ARIGRAPH-IS-AN-ISLAND — AriGraph's cross-crate wirings are nominal/orphaned; the hot→cold bridge is dead; machete corroborates
+
+**Status:** FINDING (read-only audit 2026-05-30, file:line-cited, Opus agent). Pre-existing, NOT introduced by PR #437.
+
+AriGraph (`crates/lance-graph/src/graph/arigraph/`) is almost entirely standalone:
+- **Nominal wirings (zero impls):** contract `graph_render`/`sensorium`/`persona` declare provider traits AriGraph is "the producer" for — but those traits have NO impl anywhere; AriGraph's own `GraphSensorium` doesn't implement the contract trait.
+- **Dead hot→cold bridge:** `graph/witness_tombstone.rs` (calcify→Tombstone→WitnessLink, the D-ATOM-5 hot→cold snapshot machinery) is ALL `todo!()` AND not declared in `graph/mod.rs` (orphaned/uncompiled). `planner/src/cache/convergence.rs:22-27` p64 drift CONFIRMED dead (`CausalEdge64`/`SpoBase17`/`DistanceMatrix` `#[allow(unused_imports)]`; per-head edge-emission never built; nothing calls `run_convergence`/`update_planes` on a real path). `planner/src/serve.rs` orphaned (`mod serve;` declared nowhere). Contract `counterfactual.rs`/`quorum.rs`/`recipe.rs` exist on disk but NOT in `lib.rs` (the causal-edge→AriGraph `EpisodicEdge` bridge lives in counterfactual.rs, `todo!()` + BLOCKED).
+- **Parallel/bypassed:** `lance-graph-osint` has its `lance-graph`(AriGraph) dep COMMENTED OUT — feeds convergence from its own `extractor::Triplet`, never AriGraph.
+- **machete corroborates:** `lance-graph` flags `lancedb` (cold-path Lance persistence unwired — matches dead witness_tombstone), `bgz17`/`bgz-tensor` (codec cascade unconnected) unused; `cognitive-shader-driver` flags `prost` (gRPC/serve unwired — matches orphaned serve.rs).
+- **Design sound where built:** `spo_bridge::promote_to_spo` is the one LIVE load/store gate; HotWitness/WitnessCorpus/EpisodicMemory snapshot-by-value (no arena pointers) — honor hot→cold-copy by design, just unbuilt. NO live-code violation (bridge is dead, not wrong).
+- **Two parallel witness vocabularies:** AriGraph `WitnessEntry`/`WitnessLink` (u64 mailbox_id placeholder) vs PR #437 R4 `witness_chain_position` (contract `MailboxId`) — not unified.
+
+**Action:** record as tech-debt; reconnection (D-ATOM-5 witness_tombstone, p64 convergence terminus, witness-vocab unification) is large + separate. Do NOT strip the machete-flagged deps blindly — cold/codec/serve wiring is intended-but-unbuilt, not truly dead deps.
+**Cross-ref:** `F-WIRE-DTO-DUP-MAP`; `E-SOA-IS-THE-ONLY`; cognitive-risc-core invariants 4/5.
+
+---
+
+## 2026-05-30 — E-AERIAL-IS-THE-DISCOVERY-PROPOSER — #436 aerial+ is the runtime-data + class-discovery proposer feeding the ONE SPO/class substrate through the ratification firewall; class_id is its SoA landing
+
+**Status:** FINDING (synergy synthesis, post-#436 rebase, 2026-05-30).
+
+#436 shipped `crates/lance-graph-arm-discovery` (Aerial+ ARM transcode). Synergies with this arc + Cognitive-RISC:
+- **Aerial+ = a PROPOSER** in the RISC `discovery_origin` ISA (`ArmDiscovered` tier): a mined association, an AST-walk step, an LLM conjecture = the SAME candidate object differing only by `discovery_origin` (core invariant 9; proposers dumb, Rubicon arbitrates). Aerial is nondeterministic (seeded) → stays UPSTREAM of the ratification council (determinism firewall).
+- **Emits SPO+NARS `Triple{s,p,o,f,c}`** into `ruff_spo_triplet` (mirrors `odoo_ontology::OntologyTriple`). Gap: closed predicate vocab rejects `Implies`/`CoOccursWith` (D-ARM-SYN-1, council-gated). Same SPO substrate the cognitive SoA packs (CausalEdge64 SPO palette + f/c) ⇒ aerial candidates → council → CausalEdge64/SPO → kanban (D-MBX-A6) → shader.
+- **Aerial ALSO discovers CLASSES** (shape-families): cognitive-risc-classes — taxonomy DISCOVERED "via group-by-on-structural-hash or Aerial+"; splat→aerial→Wikidata discovers OWL/DOLCE+ HHTL classes+basins. ⇒ aerial is the discovery engine behind the `class_id` the SoA needs (the "ontology classes wired into the SoA" ask). Float lives OFFLINE in `jc` (Jirak-Cartan certified 256-codebook); aerial addresses it ONLINE with integer codes (CAM-PQ doctrine).
+- **SPO-vocabulary debt (extends F-WIRE-DTO-DUP-MAP):** ≥4 parallel SPO-triple types (AriGraph `TripletGraph`, `ruff_spo_triplet::Triple`, `odoo_ontology::OntologyTriple`, aerial `CandidateTriple`, osint `extractor::Triplet`) — "one SoA never transformed" wants ONE; unification is the convergence work.
+- **class_id landing (shipping now):** the SoA's class discriminator IS the existing `entity_type: [u16; N]` (= OGIT `EntityTypeId`); expose it as `MailboxSoaView::class_id()` (N1 freeze hook). Metadata resolves one layer up via `lance-graph-ontology::OntologyRegistry` (perf gap: add O(1) `by_entity_type_id` index; today O(n) `enumerate_first_with_entity_type_id`).
+**Cross-ref:** `aerial-arm-ruff-spo-codegen-synergies.md`; `splat-codebook-aerial-wikidata-compression.md`; cognitive-risc-{core,classes,faiss-homology}; PR #437 `MailboxSoaView`.
+
+---
+
 ## 2026-05-30 — E-ARM-JC-RESOLVES-BOTH-SEAMS — aerial's two open seams (the distance oracle AND the D-ARM-7 Jirak floor) both resolve to `crates/jc`; jc PROVES the splat codebook, aerial USES it to discover the DOLCE skeleton that compresses Wikidata
 
 **Status:** FINDING (architecture; seams concrete, end-to-end pipeline is CONJECTURE). User framing: "gaussian-splat spatial blasgraph top-k 10000×10000 … for OWL/DOLCE+ SPO HHTL classes and basin via aerial+ to deterministically compress Wikidata … adjacent to JC Jirak[-Cartan] with EWA-sandwich gaussian splat."
