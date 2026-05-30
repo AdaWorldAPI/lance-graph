@@ -68,3 +68,11 @@
 4. Which are DUPLICATES of existing work (build on, don't rebuild)?
 5. What's MISSING from the menu (the reframe/second-order option)?
 6. Cascade size per item — which are S that masquerade as L (or vice versa)?
+
+---
+
+## RECALIBRATED (3-agent panel, 2026-05-30) — see EPIPHANIES "RECALIBRATION"
+**Keystone added: M1 `Tactic::requires() -> AtomMask`** (reliability is a missing accessor, not a gate — extraction not construction; makes P1/P7/P11 derived).
+**Recalibrated order:** 1) M1 (contract, zero-dep, teeth-test). 2) P2 + build its missing witness corpus (honest cosmetic/not pass-fail). 3) M2 completeness auditor (unknown-unknown finder, reuses neural-debug).
+**Deferred/dropped:** P5 P0-blocked (I4x32 pack/unpack todo!() + 32-vs-33 fork); P6 cosmetic (recipe.rs never compiles in); P9 still blocked (lancedb pins lance=6.0.0); P10 off-arc; P3/P4 AP6 theater until a real consumer exists; P1 must reframe as M1-derived (don't dup recipes::Coverage); P8 gated on P2-pass.
+**Added missing:** M2 (completeness auditor), M3 (version-arc scheduler wire).

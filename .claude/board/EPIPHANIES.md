@@ -1,3 +1,35 @@
+## 2026-05-30 — RECALIBRATION (3-agent panel) of reliability-checklist-arc-v1: keystone is M1 `Tactic::requires()->AtomMask` (extraction not construction); P2 needs a corpus it lacks; P5 is P0-blocked; P3/P4 are AP6 theater; P10 off-arc
+
+**Status:** FINDING / plan recalibration (cascade-impact + brutally-honest-tester + creative-explorer, catalyst mode 2026-05-30). Recalibrates `.claude/plans/reliability-checklist-arc-v1.md`. Convergent across all three.
+
+**THE UNLISTED KEYSTONE (creative-explorer M1 — reframes the menu):** the 34 `recipe_kernels::Tactic` impls EACH already declare a latent checklist — every `apply()` reads a DIFFERENT subset of `ThoughtCtx`'s 8 fields (Cr→beliefs, Tcp→candidates+sd, Mcp→confidence+free_energy) but NONE reifies it as data. So reliability is NOT a gate to construct — it's a missing accessor: **`Tactic::requires(&self) -> AtomMask`** (one default method). Build that, and P1 (coverage) / P7 (reconcile) / P11 (class_id→checklist) become DERIVED, not built. "Reliability is already declared 34 times, just not read back — the work is EXTRACTION, not construction." `Tactic::requires()` and the domain `coverage()` are the SAME op at two altitudes (kernel required-fields ↔ `OdooStyleRecipe.atoms`), one bitmask over one basis.
+
+**CORRECTIONS to my menu (verified by source, file:line):**
+- **P2 (probe) — the witness corpus DOES NOT EXIST** (grep empty in planner/consumer-conformance). P2's first sub-task = BUILD the corpus. It's still rank-1 (it can honestly return "gate is cosmetic, don't build P1") but it's not free.
+- **P5 is P0-BLOCKED, not S-M:** `atoms::I4x32::pack`/`unpack` are BOTH `todo!()` (atoms.rs:83,88); the 32-vs-33 (carrier 32 lanes vs CANONICAL_ATOMS 33) is an unresolved BLOCKED fork (atoms.rs:39-43). argmax-over-I4x32 sits on a panicking carrier + undecided dim. Do NOT build until the dim fork resolves.
+- **P3/P4 = AP6 dead-surface THEATER as scoped:** `try_advance_phase` has ZERO production callers (only FakeSoa); `resolve_style`/`reliability_of` have ZERO production callers; `plan()` returns input unchanged. Emitting from plan() repeats the theater the council just caught. P4 = MailboxSoaOwner impl with no ractor caller = AP6.
+- **P1 DUPLICATES `recipes::Coverage`** (recipes.rs:54, SPO-2³, 3 variants) — minting a 4th Coverage = drift. Reframe P1 as M1's derived accessor, not a new enum.
+- **P6 is COSMETIC:** recipe.rs has no `pub mod recipe` in lib.rs — never compiles in. Deleting already-invisible dead code = wash, not a deliverable. (Downgrades my earlier "delete it" instinct to "leave it / opportunistic.")
+- **P9 lance bump is STILL BLOCKED** (lancedb 0.29.0 transitively pins lance =6.0.0) — NOT free-to-land as the menu claimed.
+- **P10 polyglot = OFF-ARC** (different thread) — DROP from this arc.
+
+**MISSING items the panel adds:**
+- **M1** `Tactic::requires() -> AtomMask` (the keystone above).
+- **M2 — checklist-COMPLETENESS auditor (unknown-unknown finder):** static-scan each Tactic's declared `requires()` (M1) vs the fields its `apply()` actually touches (neural-debug already does static scanning); mismatch = a dark requirement nobody listed. The ONLY item that finds missing checklist ITEMS (not missing evidence) — the hot-path complement to the cold Stockfish validity gate.
+- **M3 — version-arc-as-kanban scheduler wire** (E-SUBSTRATE-IS-THE-SCHEDULER): make the substrate emit the schedule; P3's KanbanMove is the latent hook.
+
+**RECALIBRATED ORDER (replaces the menu's open sequence):**
+1. **M1** — `Tactic::requires() -> AtomMask` default method + a teeth-test (assert distinct Tactics declare distinct masks; fails if all-same/empty). Pure contract, zero-dep, extraction not construction. THE keystone.
+2. **P2 + its corpus** — build a small witness/recipe corpus, then probe: does coverage state (M1-derived) change a Rubicon terminal vs DAG-only? Honest pass/fail; can return "cosmetic, stop."
+3. **M2** — completeness auditor over M1's masks (static, reuses neural-debug). Finds unlisted-requirement gaps.
+- DEFER behind P2-pass: P1-as-derived-coverage, P11 O(1) index. DROP/leave: P5 (P0-blocked), P6 (cosmetic), P10 (off-arc), P9 (still blocked). GATE P8 on P2. P3/P4 only after a real consumer exists (no theater).
+
+**Brutal's non-theater-now set was {P2,P9,P11}; creative's minimal-core was {P5,M1}; cascade's first-3 was {P2,P6,P1}.** Synthesis: **M1 is the keystone all three implicitly point at** (cascade's P1, creative's M1, brutal's "P1 dups Coverage→reframe") — start M1, then P2-with-corpus, then M2. P5 explicitly deferred (P0). 
+
+**Cross-ref:** `.claude/plans/reliability-checklist-arc-v1.md` (the menu, now recalibrated); E-TEMPLATE-IS-CHECKLIST-IS-DATOMS + E-RELIABILITY-IS-CHECKLIST-COVERAGE (M1 is their executable form); `recipe_kernels::{Tactic,ThoughtCtx}` (the latent checklists); `recipes::Coverage` (the dup P1 must not repeat); `atoms.rs:83,88,39-43` (P5 todo!()+32/33 block); neural-debug (M2's static scanner); E-SUBSTRATE-IS-THE-SCHEDULER (M3).
+
+---
+
 ## 2026-05-30 — E-TEMPLATE-IS-CHECKLIST-IS-DATOMS — the NARS/elixir reasoning template, the per-domain checklist, and the Odoo D-Atoms are ONE object; reliability = the template's required atoms are LIT (known). #433 already built half of it.
 
 **Status:** FINDING — major unification (user 2026-05-30: "the checklist IS the NARS/elixir reasoning templates; in Odoo terms tax classes, billable hours, account type, etc."). Collapses three things I'd treated as separate, and re-connects #433 (which I'd mis-filed as "unrelated Odoo codegen").
