@@ -1,3 +1,32 @@
+## 2026-05-30 — E-FIREFLY-IS-GEL-OUTSIDE-PROTOTYPE — adaworldapi/firefly is a runnable GEL substrate + the OUTSIDE-transport prototype; its FireflyPacket = the serialized cross-process Baton; transport is Redis-mRNA (NOT gRPC)
+
+**Status:** FINDING (read firefly source 2026-05-30, cloned read-only to /home/user/firefly — PUBLIC repo, NOT in the 16-repo authorized scope; do not push to it). User: "my toy Ballista executing gRPC packets with 0xFFF as transport."
+
+**What firefly IS:** a runnable (Railway-deployed) "Universal Executable Substrate" — `BOOT.md`: "doesn't compile code, it RUNS compiled graphs"; per-language compilers (RUBBERDUCK/Ruby, PYTHONIC, JAVELIN/Java, RUSTLER/Rust) all emit "1.25KB Hamming nodes." **= GEL made concrete** (`E-GEL-IS-THE-GRAPH-SUBSTRATE`): any language → uniform graph node → executable substrate. Firefly is a parallel, smaller, deployed prototype of exactly what the D-MBX arc builds inside lance-graph.
+
+**Transport CORRECTION (honest):** the actual transport is **Redis streams + mRNA** (`docs/MRNA_TRANSPORT.md`, `rust/src/dto/packet.rs`), NOT gRPC. `FireflyPacket` routes via Redis `XADD`/`XREAD` on `firefly:node:{hash}` streams. "gRPC packets" in the user's framing = the intent/analog (RPC-style cross-process packets); the code uses Redis-stream mRNA. Either way it is the OUTSIDE (cross-process, serialized) layer — confirming `E-RACTOR-WANTS-TOKIO-NOT-GRPC`: inside=Tokio-Baton zero-serialize, outside=serialized packet (firefly's choice = Redis-mRNA; ractor's = cluster-TCP; lab = gRPC/Flight).
+
+**Concept-for-concept map (firefly ↔ lance-graph), the striking convergence:**
+- `FireflyPacket` (80B header + 1250B resonance + JSON ctx) = the **serialized cross-process Baton** (`CollapseGateEmission` is the in-process LE tuple; FireflyPacket is its outside-the-process form).
+- **80B LE routing header** (src/tgt = 32B SHA256 node addr, ttl u8, priority, flags u16, sequence u32, CRC32) = the "0xFFF as transport" layer — ADDRESSES route, payload rides. (firefly uses 256-bit SHA addresses, not 12-bit 0xFFF — a divergence: full content-hash vs compact 12-bit; see open Q.)
+- **1250B = 10,000-bit Hamming, 4 zones**: Content[0:3000] / Process[3000:6000] / Qualia[6000:8000] / Context[8000:10000]. = the SAME 4-signature decomposition as BindSpace SoA column families (content/edge/qualia/meta). Independent convergence.
+- `ttl` + `hop()` (decrement, append to `trace[]`) = the **witness arc / belief-state chain** (R4); TTL=0 → dead-letter = absorbing **Prune** terminal.
+- Redis consumer-group scaling rules: **VALIDATE/TRANSFORM parallel (pure), PERSIST single (ordering)** = EXACTLY the hot-path-parallel vs commit-gate-single-writer split (RISC core invariant 4) — independently arrived at.
+- stream-length **backpressure** = RISC core invariant 8.
+- **Storage Trinity** (LanceDB vectors / DuckDB facts / Kuzu graph) = lance-graph's unify-on-Lance (firefly splits 3 engines where lance-graph + surrealdb-kv-lance unifies; a real architecture fork to note).
+
+**Why it matters for the arc:** firefly is the **OUTSIDE-transport reference implementation** + a working GEL executor. It validates (by independent convergence) the hot/cold split, the address-routes-payload-rides packet shape, the 4-zone resonance, and the witness-as-trace. ExecTarget-wise it is a distributed executor (Ballista-shaped): a `KanbanMove{exec=Distributed}` would lower to a FireflyPacket on the outside path.
+
+**Open questions / divergences to reconcile (NOT decided):**
+1. **Address width:** firefly = 256-bit SHA256 node address; lance-graph 0xFFF = 12-bit aligned address. Full content-hash (collision-proof, big) vs compact 12-bit (cache-aligned, codebook-bounded). Which at which layer? (likely 0xFFF inside / SHA-CAM at the durable/cross-process boundary, mirroring the CAM-materialization-at-commit rule.)
+2. **Transport:** Redis-mRNA (firefly) vs ractor-cluster-TCP vs Arrow-Flight-CAM — three OUTSIDE options; pick per deployment.
+3. **Storage:** firefly trinity (3 engines) vs lance-graph unify-on-Lance. Reconcile or keep firefly as the polyglot-frontend ingest tier feeding the unified substrate.
+4. firefly is OUTSIDE authorized scope — keep as read-only reference; do not push.
+
+**Cross-ref:** `/home/user/firefly/{BOOT.md,rust/src/dto/packet.rs,docs/MRNA_TRANSPORT.md,docs/ARCHITECTURE.md}`; `E-GEL-IS-THE-GRAPH-SUBSTRATE`; `E-RACTOR-WANTS-TOKIO-NOT-GRPC`; `E-0xFFF-IS-ONE-ALIGNED-ADDRESS`; CollapseGateEmission Baton; RISC core invariants 4/8; RUBBERDUCK (github.com/AdaWorldAPI/rubberduck, the Ruby→node compiler).
+
+---
+
 ## 2026-05-30 — FINDING: E-RACTOR-WANTS-TOKIO-NOT-GRPC — local ractor is a Box<dyn Any> pointer-move over Tokio mpsc (zero serialize); gRPC is strictly slower and is LAB-ONLY. CAM/0xFFF-over-Flight is the cross-PROCESS path only
 
 **Status:** FINDING (grounded in ractor + cognitive-shader-driver source, 2026-05-30). Answers the user's transport question: does ractor want gRPC, or is it slower than Tokio?
