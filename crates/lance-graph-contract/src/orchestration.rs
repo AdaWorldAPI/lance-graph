@@ -49,6 +49,10 @@ pub enum StepDomain {
     Smb,
     /// Medcare reality-check vertical (clinic data sovereignty).
     Medcare,
+    /// 4-phase Rubicon kanban transition over the per-mailbox SoA — the seam
+    /// where the planner (emits), ractor (owns/drives), and surrealdb (projects)
+    /// meet. `step_type` prefix `"kanban."`. See [`crate::kanban`].
+    Kanban,
 }
 
 impl StepDomain {
@@ -72,6 +76,7 @@ impl StepDomain {
             "nd" => Some(Self::Ndarray),
             "smb" => Some(Self::Smb),
             "medcare" => Some(Self::Medcare),
+            "kanban" => Some(Self::Kanban),
             _ => None,
         }
     }
@@ -106,15 +111,18 @@ impl StepDomain {
             // Generic defaults for infrastructure / orchestration domains.
             // These are NOT vertical-facing; they execute the cycle, not
             // the policy. Starter values — tune empirically.
-            Self::Crew | Self::Ladybug | Self::N8n | Self::LanceGraph | Self::Ndarray => {
-                DomainProfile {
-                    audit_retention_days: 30,
-                    auto_action_confidence: 0.70,
-                    escalation: Escalation::Llm,
-                    requires_fail_closed: false,
-                    verb_taxonomy: VerbTaxonomyId::Generic,
-                }
-            }
+            Self::Crew
+            | Self::Ladybug
+            | Self::N8n
+            | Self::LanceGraph
+            | Self::Ndarray
+            | Self::Kanban => DomainProfile {
+                audit_retention_days: 30,
+                auto_action_confidence: 0.70,
+                escalation: Escalation::Llm,
+                requires_fail_closed: false,
+                verb_taxonomy: VerbTaxonomyId::Generic,
+            },
         }
     }
 }
@@ -131,6 +139,7 @@ impl core::fmt::Display for StepDomain {
             Self::Ndarray => "nd",
             Self::Smb => "smb",
             Self::Medcare => "medcare",
+            Self::Kanban => "kanban",
         };
         f.write_str(s)
     }
@@ -236,6 +245,7 @@ mod tests {
             StepDomain::Ndarray,
             StepDomain::Smb,
             StepDomain::Medcare,
+            StepDomain::Kanban,
         ];
         for domain in all {
             let s = domain.to_string();

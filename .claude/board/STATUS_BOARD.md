@@ -564,6 +564,7 @@ Plan path: `.claude/plans/unified-soa-convergence-v1.md`. Handover `.claude/hand
 | D-MBX-10 | SoA version byte at layout root (`MailboxSoAHeader`); refuse v(N>M) bytes on v(M) reader; field-isolation matrix tests on every column op (`I-LEGACY-API-FEATURE-GATED` discipline) | lance-graph-contract | 100 | HIGH | **Queued** | foundation — should land early in P2; gates on OQ-11.5 |
 | D-MBX-11 | Lance `=6.0.0 → =6.0.1` patch bump (5 Cargo.toml files identified) | workspace Cargo.toml | 10 | LOW | **Queued (mechanical)** | none — can land in parallel with par-tile prereq |
 | D-MBX-12 | 8-PR workspace-wide consumer alignment: 12.1 AriGraph · 12.2 Vsa16k audit · 12.4 lance-graph · 12.5 planner · 12.6 shader-driver · 12.7 callcenter · 12.8 ontology audit · 12.9 thinking-styles | per-crate | 800 | per-PR | **Queued (multi-PR)** | sequencing per OQ-11.8: 12.4 → 12.5 → 12.6 → 12.7 → 12.1 → 12.9 → 12.2 → 12.8 |
+| D-MBX-A6-P1 | contract slice of D-MBX-A6: `kanban::{KanbanColumn, KanbanMove}` + `soa_view::{MailboxSoaView, MailboxSoaOwner}` + `StepDomain::Kanban` — the planner⟷ractor⟷surreal seam, zero-dep, no parallel DTO family | lance-graph-contract | 340 | HIGH | **In PR** | extends §8.4; +6 tests; downstream cargo-check clean; consumer impls (planner emit / `MailboxSoA` owner-impl / ractor arm / surreal read-view) deferred |
 
 ---
 

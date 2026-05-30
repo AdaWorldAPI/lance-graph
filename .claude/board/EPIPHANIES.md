@@ -1,3 +1,82 @@
+## 2026-05-30 — E-ARIGRAPH-PAPER-GROUNDS-CE64-EW64 — AriGraph (arXiv 2407.04363v3) IS the source: its semantic-edge/episodic-edge duality grounds CE64/EW64; the episodic edge ("happened at the same time") IS the witness arc
+
+**Status:** FINDING (read the AriGraph paper, Anokhin et al. AIRI, 2026-05-30). User's "first is AriGraph!!!" — this is the canonical design source for the semantic+episodic arc.
+
+AriGraph world model G = (Vs, Es, Ve, Ee):
+- **Es = semantic edges = SPO triplets** `(v, rel, u)` (semantic memory) ⇒ **CE64 = an AriGraph semantic edge** (SPO palette + NARS f/c, 64-bit packed).
+- **Ee = episodic edges = `(observation-vertex v_e^t, all SPO triplets E_s^t extracted at t)`** — "connect all triplets that happened at the same time" ⇒ **EW64 = an AriGraph episodic edge = the witness arc.** The board's `witness_chain_position` / belief-state arc IS AriGraph's episodic edge. The CE64/EW64 pairing = AriGraph's semantic/episodic duality, EXACTLY. Grounded, not ad-hoc.
+- **"happened at the same time" = Hebbian "fire together".** aerial+ (PR `#436`) GENERALIZES it: offline ARM mines co-occurrence `X→Y` across many observations; AriGraph records per-observation co-occurrence online. Both feed EW64's predictive prefetch (`E-AERIAL-FEEDS-EW64-PREFETCH`).
+- **Retrieval = semantic search (Contriever embedding similarity, depth d/width w BFS, Alg 2) + episodic search (relevance-weighted top-k episodic vertices; rel = n_i/max(N_i,1)·log(max(N_i,1))).** Per iron rules: Contriever FLOAT similarity is discovery-layer-only; CAM exact + HHTL facet-AND are the addressing layer. Episodic search = retrieving witness arcs.
+- **Ariadne loop = cognitive-RISC 5-layer stack:** AriGraph (semantic+episodic content) = Substrate; retrieval→working-memory + planning (sub-goals) = Compilation; the plan = Schedule (kanban); ReAct decision = Execution (shader); goal/agent = Producer.
+
+**lance-graph impl vs paper:** faithful PORT — `arigraph/triplet_graph.rs` (Es semantic), `witness_corpus.rs`/`episodic.rs` (Ee/Ve episodic), `orchestrator.rs` (Ariadne loop), `retrieval.rs` (semantic search), `sensorium.rs`. But it is an ISLAND (`E-ARIGRAPH-IS-AN-ISLAND`): semantic/episodic edges NOT wired to the hot SoA (CE64/EW64 cols) or cold Lance store. **Wiring task = Es→CE64(hot)+TripletGraph/SpoStore(cold); Ee→EW64(hot prefetch)+WitnessCorpus(cold); under load/store + witness-materialization discipline.**
+
+**Wikidata scale (wikidata-hhtl-load.md):** AriGraph semantic memory at 115M-entity scale = HHTL/CAM — P279 subClassOf DAG = the ONE 16^n tree axis; OWL/DOLCE closed ranges = facet bitmasks (SIMD batch-AND over the SoA facet column = the semantic-search accelerator); CAM shape-dedup; en+de cols; Derived reasoning store (transitive closures) orthogonal+CAM-indexed. 120GB→~38GB structural. = how AriGraph's Vs/Es scale to a world KG.
+
+**Cross-ref:** arXiv 2407.04363v3; `E-EW64-IS-PREDICTIVE-PREFETCH`; `E-AERIAL-FEEDS-EW64-PREFETCH`; `E-ARIGRAPH-IS-AN-ISLAND`; wikidata-hhtl-load + faiss-homology-cam-pq + cognitive-risc-{core,classes}; `arigraph/{triplet_graph,witness_corpus,episodic,orchestrator,retrieval}.rs`.
+
+---
+
+## 2026-05-30 — F-RESONANCEDTO-IS-LAYERED-NOT-DUP — the two ResonanceDto are two abstraction layers (energy-field Ψ vs gestalt-awareness), a name collision masking a MISSING INTEGRATION, not a copy
+
+**Status:** FINDING (both defs read 2026-05-30; reframes `TD-RESONANCEDTO-DUP-1` from "dedup" to "disambiguate + integrate").
+
+- **`thinking-engine/src/dto.rs:59`** = RAW ENERGY FIELD (Ψ interference): `energy: Vec<f32>` (codebook[4096]) + `cycle_count`/`converged`/`top_k[8]`; `from_energy`/`entropy`/`active_count`. Low-level signal in the StreamDto→ResonanceDto→BusDto→ThoughtStruct speed-zone bus.
+- **`thinking-engine/src/awareness_dto.rs:21`** = GESTALT + USER MODEL: `hdr: HdrResonance` (3D S/P/O) + `gestalt_state` (Crystallizing/Contested/Dissolving/Epiphany) + `dissonance`/`n_resonant`/`total_energy` + inferred `user_style: ThinkingStyle`/engagement/valence/depth/confidence; `from_superposition`.
+
+⇒ **NOT a true duplicate** — same name, two layers (raw energy vs gestalt-awareness). machete/`TD-RESONANCEDTO-DUP-1` flagged a NAME COLLISION masking a layering. User's read confirmed: it's "just missing the integration."
+
+**Missing integration (the actionable chain):** energy-field (Ψ) → gestalt-awareness → **+ qualia** (today a SEPARATE `QualiaDto`, integrated only at `MomentDto`) → **selection of i4-32D thinking-styles / atoms / strategies**. The awareness ResonanceDto stops at a COARSE `user_style` (3 variants) and does NOT drive the full i4-32D layer (`contract::atoms::I4x32` 33-atom TSV, `contract::recipe_kernels` 34 tactics, `contract::thinking` 36 styles) nor STRATEGY selection (elixir / jit / JITson-Cranelift templates). "thinking about thinking" = NARS meta-layer (`planner::mul` Meta-Uncertainty / Dunning-Kruger + `user_model_confidence`) above the selection.
+
+**Resolution (reframes the TD):** NOT pick-a-winner-and-delete. (1) Disambiguate names (`ResonanceField` for Ψ energy vs `GestaltResonance` for the awareness model). (2) Wire the integration onto the ONE SoA ("ResonanceDto IS the SoA", PR #353): MailboxSoA columns ALREADY carry the substrate — `qualia:[QualiaI4_16D;N]` + `meta:[MetaWord;N]`(thinking/awareness bits) + `entity_type`(class_id) + `edges`(CausalEdge64). resonance→gestalt→qualia→i4-32D-style→strategy converges onto SoA columns + the contract atom/recipe/thinking surface, NOT a third struct. The "dedup" IS an integration onto the SoA — the "one SoA never transformed" convergence.
+**Cross-ref:** `TD-RESONANCEDTO-DUP-1` (reframed); `F-WIRE-DTO-DUP-MAP`; SoA-DTO ledger (PR #353); `contract::{atoms,recipe_kernels,thinking,qualia,mul}`.
+
+---
+
+## 2026-05-30 — E-AERIAL-FEEDS-EW64-PREFETCH — aerial+'s mined X→Y associations ARE the predictive-prefetch table EW64 consumes; aerial learns "fire together", EW64 "wires together"
+
+**Status:** CONJECTURE / design (user-stated 2026-05-30). Sweet-spot wiring for the EpisodicWitness64 follow-up; closes the "prefetch WHAT, from where" gap in `E-EW64-IS-PREDICTIVE-PREFETCH`.
+
+EW64 = CPU-style predictive prefetch co-issued with CE64 into the shader. Open question was "prefetch what." **Aerial+ (#436) discovers it:**
+- **aerial (discovery / slow / nondeterministic, upstream of firewall):** mines `X→Y` association rules with data-derived `(f,c)` — the Hebbian "when antecedent X fires, consequent Y co-occurs" ("fire together").
+- **EW64 (hot / prefetch):** when CE64(X) activates in the SoA, EW64 prefetches the episodic-witness pointer for the aerial-predicted Y (its witness arc), resident BEFORE the shader needs it ("wires together").
+- aerial's `(f,c)` → EW64's prefetch confidence; un-ratified aerial rules never reach EW64 (firewall). EW64 shares CE64's low-40 SPO bits so antecedent/consequent co-address (superposition).
+⇒ **EW64 type design:** payload = witness-arc pointer to the predicted consequent + confidence/recency lens; populated from the RATIFIED aerial association table; co-issued with CE64.
+**Cross-ref:** `E-EW64-IS-PREDICTIVE-PREFETCH`; `E-AERIAL-IS-THE-DISCOVERY-PROPOSER`; `aerial-arm-ruff-spo-codegen-synergies.md`; pr-ce64-mb-4 `SpoWitness64`.
+
+---
+
+## 2026-05-30 — E-ARIGRAPH-IS-AN-ISLAND — AriGraph's cross-crate wirings are nominal/orphaned; the hot→cold bridge is dead; machete corroborates
+
+**Status:** FINDING (read-only audit 2026-05-30, file:line-cited, Opus agent). Pre-existing, NOT introduced by PR #437.
+
+AriGraph (`crates/lance-graph/src/graph/arigraph/`) is almost entirely standalone:
+- **Nominal wirings (zero impls):** contract `graph_render`/`sensorium`/`persona` declare provider traits AriGraph is "the producer" for — but those traits have NO impl anywhere; AriGraph's own `GraphSensorium` doesn't implement the contract trait.
+- **Dead hot→cold bridge:** `graph/witness_tombstone.rs` (calcify→Tombstone→WitnessLink, the D-ATOM-5 hot→cold snapshot machinery) is ALL `todo!()` AND not declared in `graph/mod.rs` (orphaned/uncompiled). `planner/src/cache/convergence.rs:22-27` p64 drift CONFIRMED dead (`CausalEdge64`/`SpoBase17`/`DistanceMatrix` `#[allow(unused_imports)]`; per-head edge-emission never built; nothing calls `run_convergence`/`update_planes` on a real path). `planner/src/serve.rs` orphaned (`mod serve;` declared nowhere). Contract `counterfactual.rs`/`quorum.rs`/`recipe.rs` exist on disk but NOT in `lib.rs` (the causal-edge→AriGraph `EpisodicEdge` bridge lives in counterfactual.rs, `todo!()` + BLOCKED).
+- **Parallel/bypassed:** `lance-graph-osint` has its `lance-graph`(AriGraph) dep COMMENTED OUT — feeds convergence from its own `extractor::Triplet`, never AriGraph.
+- **machete corroborates:** `lance-graph` flags `lancedb` (cold-path Lance persistence unwired — matches dead witness_tombstone), `bgz17`/`bgz-tensor` (codec cascade unconnected) unused; `cognitive-shader-driver` flags `prost` (gRPC/serve unwired — matches orphaned serve.rs).
+- **Design sound where built:** `spo_bridge::promote_to_spo` is the one LIVE load/store gate; HotWitness/WitnessCorpus/EpisodicMemory snapshot-by-value (no arena pointers) — honor hot→cold-copy by design, just unbuilt. NO live-code violation (bridge is dead, not wrong).
+- **Two parallel witness vocabularies:** AriGraph `WitnessEntry`/`WitnessLink` (u64 mailbox_id placeholder) vs PR #437 R4 `witness_chain_position` (contract `MailboxId`) — not unified.
+
+**Action:** record as tech-debt; reconnection (D-ATOM-5 witness_tombstone, p64 convergence terminus, witness-vocab unification) is large + separate. Do NOT strip the machete-flagged deps blindly — cold/codec/serve wiring is intended-but-unbuilt, not truly dead deps.
+**Cross-ref:** `F-WIRE-DTO-DUP-MAP`; `E-SOA-IS-THE-ONLY`; cognitive-risc-core invariants 4/5.
+
+---
+
+## 2026-05-30 — E-AERIAL-IS-THE-DISCOVERY-PROPOSER — #436 aerial+ is the runtime-data + class-discovery proposer feeding the ONE SPO/class substrate through the ratification firewall; class_id is its SoA landing
+
+**Status:** FINDING (synergy synthesis, post-#436 rebase, 2026-05-30).
+
+#436 shipped `crates/lance-graph-arm-discovery` (Aerial+ ARM transcode). Synergies with this arc + Cognitive-RISC:
+- **Aerial+ = a PROPOSER** in the RISC `discovery_origin` ISA (`ArmDiscovered` tier): a mined association, an AST-walk step, an LLM conjecture = the SAME candidate object differing only by `discovery_origin` (core invariant 9; proposers dumb, Rubicon arbitrates). Aerial is nondeterministic (seeded) → stays UPSTREAM of the ratification council (determinism firewall).
+- **Emits SPO+NARS `Triple{s,p,o,f,c}`** into `ruff_spo_triplet` (mirrors `odoo_ontology::OntologyTriple`). Gap: closed predicate vocab rejects `Implies`/`CoOccursWith` (D-ARM-SYN-1, council-gated). Same SPO substrate the cognitive SoA packs (CausalEdge64 SPO palette + f/c) ⇒ aerial candidates → council → CausalEdge64/SPO → kanban (D-MBX-A6) → shader.
+- **Aerial ALSO discovers CLASSES** (shape-families): cognitive-risc-classes — taxonomy DISCOVERED "via group-by-on-structural-hash or Aerial+"; splat→aerial→Wikidata discovers OWL/DOLCE+ HHTL classes+basins. ⇒ aerial is the discovery engine behind the `class_id` the SoA needs (the "ontology classes wired into the SoA" ask). Float lives OFFLINE in `jc` (Jirak-Cartan certified 256-codebook); aerial addresses it ONLINE with integer codes (CAM-PQ doctrine).
+- **SPO-vocabulary debt (extends F-WIRE-DTO-DUP-MAP):** ≥4 parallel SPO-triple types (AriGraph `TripletGraph`, `ruff_spo_triplet::Triple`, `odoo_ontology::OntologyTriple`, aerial `CandidateTriple`, osint `extractor::Triplet`) — "one SoA never transformed" wants ONE; unification is the convergence work.
+- **class_id landing (shipping now):** the SoA's class discriminator IS the existing `entity_type: [u16; N]` (= OGIT `EntityTypeId`); expose it as `MailboxSoaView::class_id()` (N1 freeze hook). Metadata resolves one layer up via `lance-graph-ontology::OntologyRegistry` (perf gap: add O(1) `by_entity_type_id` index; today O(n) `enumerate_first_with_entity_type_id`).
+**Cross-ref:** `aerial-arm-ruff-spo-codegen-synergies.md`; `splat-codebook-aerial-wikidata-compression.md`; cognitive-risc-{core,classes,faiss-homology}; PR #437 `MailboxSoaView`.
+
+---
+
 ## 2026-05-30 — E-ARM-JC-RESOLVES-BOTH-SEAMS — aerial's two open seams (the distance oracle AND the D-ARM-7 Jirak floor) both resolve to `crates/jc`; jc PROVES the splat codebook, aerial USES it to discover the DOLCE skeleton that compresses Wikidata
 
 **Status:** FINDING (architecture; seams concrete, end-to-end pipeline is CONJECTURE). User framing: "gaussian-splat spatial blasgraph top-k 10000×10000 … for OWL/DOLCE+ SPO HHTL classes and basin via aerial+ to deterministically compress Wikidata … adjacent to JC Jirak[-Cartan] with EWA-sandwich gaussian splat."
@@ -42,6 +121,39 @@ The two-paper bracket (`streaming-arm-nars-discovery-v1.md`: Aerial+ discovery u
 4. **The one missing seam (the actionable finding).** `ruff_spo_triplet::Predicate` is a **closed vocabulary** (`rdf:type, has_function, emitted_by, depends_on, reads_field, raises, traverses_relation`) and `from_ndjson` **hard-rejects** anything else — and **none of them is an implication/association relation.** An `X → Y` ARM rule therefore cannot flow through that loader until `Implies`/`CoOccursWith` is added (a *deliberate* ontology change per that crate's own doc). This is D-ARM-SYN-1; it gates SYN-2 (the `CandidateRule → ModelGraph` adapter) and SYN-3 (the `ArmDiscovered` truth calibration below the codegen gate).
 
 **Determinism boundary (unchanged, reaffirmed):** Aerial+ is the only nondeterministic node in the bracket. The transcode keeps it standalone, seeded (`aerial::Rng`), behind the `aerial` feature, and emitting a `CandidateRule` *proposal* — never a committed triple. Promotion is the council's job. Full map: `.claude/knowledge/aerial-arm-ruff-spo-codegen-synergies.md`. Code: `crates/lance-graph-arm-discovery/`. Cross-ref: `E-INTERPRET-NOT-STORE-1`, `E-SOA-IS-THE-ONLY`, `I-NOISE-FLOOR-JIRAK`, Karabulut 2025 §2/§3.3, Abreu 2025 §4.
+## 2026-05-30 — E-EW64-IS-PREDICTIVE-PREFETCH — EpisodicWitness64 is a CPU-style predictive prefetch co-issued with CausalEdge64 into the cognitive shader; (4x4)^4 L1-4 derives from cortex/hippocampus; "fire together wire together" = CE64/EW64 SoA1:SoA2 superposition
+
+**Status:** CONJECTURE / design (user-stated 2026-05-30). Design basis for the queued `EpisodicWitness64` (`SpoWitness64`, pr-ce64-mb-4) follow-up.
+
+- **EW64 = predictive prefetch.** Like a CPU prefetcher pulls a cache line *before* the instruction needs it, `EpisodicWitness64` predictively prefetches the episodic context (the witnessed SPO arc) so that when CE64 + EW64 enter the cognitive shader *together*, the episodic prior is already resident. EW64 anticipates; CE64 is the causal "instruction"; they are co-issued.
+- **"What fires together wires together" = CE64/EW64 SoA1:SoA2 superposition** (Hebbian). Superposing the two SoAs in the cognitive shader (the inside / zero-copy path) IS the wiring step — co-activation of CE64 (causal) + EW64 (episodic) over the same CAM address space strengthens the binding. Grounds the earlier "SoA1:SoA2 superposition inside cognitive-shader-driver" as Hebbian plasticity.
+- **(4x4)^4 (L1-4) derives from cortex + hippocampus.** The shader's 4-level (4x4)^4 block layering (L1-4) is brain/hippocampus-derived (cortical microcircuit / hippocampal indexing), not arbitrary tiling. Ground the exact L1-4 ↔ cortical-layer / hippocampal-subfield mapping when speccing EW64.
+- **Type implication:** EW64 shares CE64's low-40 SPO+NARS bits (co-addressing for superposition) + an episodic/prefetch lens (recency, salience, witness-arc pointer); prefetched ahead of the cycle; CE64+EW64 issued as a pair.
+
+**Cross-ref:** `E-SOA-VIEW-IS-A-BORROW`; pr-ce64-mb-4 `SpoWitness64`; `causal-edge/src/edge.rs` (CE64 layout to mirror); "The Click" (AriGraph/episodic = thinking tissue); D-MBX-A3 (witness-arc handle column).
+
+---
+
+## 2026-05-30 — F-WIRE-DTO-DUP-MAP — ResonanceDto is the duplicated one (2 defs in thinking-engine); StreamDto/BusDto single-def cross-crate Wire DTOs; P64 = convergence crate
+
+**Status:** FINDING (grep audit 2026-05-30, user-requested DTO hunt).
+- **ResonanceDto — DUPLICATED:** two defs, BOTH in thinking-engine — `awareness_dto.rs:21` AND `dto.rs:59` (41 uses thinking-engine + 3 cognitive-shader-driver). = existing `TD-RESONANCEDTO-DUP-1` (Deferred → fold into D-MBX-2). Per the SoA-DTO ledger "ResonanceDto IS the SoA" — dedup converges both onto the one SoA shape, not pick-a-winner.
+- **StreamDto — single def** (`thinking-engine/src/dto.rs:40`; 5 + 3 uses). LAB Wire DTO (input carrier into CognitiveShader).
+- **BusDto — single def** (`thinking-engine/src/dto.rs:120`; 54 + 48 + 1 uses). Heavily cross-crate bus transport DTO.
+- **P64 — convergence crate** (`p64-bridge` 17, bgz-tensor 8, planner 6, shader-driver 5, osint 1); no single `P64` type — it's the convergence point (CLAUDE.md: "p64 = where both repos meet, no circular deps").
+
+**Action:** ResonanceDto dedup stays `TD-RESONANCEDTO-DUP-1` (tied to D-MBX-2 SoA convergence — dedup onto the one SoA per "one SoA never transformed"). StreamDto/BusDto are NOT duplicated; cross-crate spread = expected LAB Wire surface. No new action unless dedup is prioritized now.
+**Cross-ref:** `TD-RESONANCEDTO-DUP-1`; SoA-DTO entropy ledger (PR #353); `lab-vs-canonical-surface.md`.
+
+---
+
+## 2026-05-30 — E-SOA-VIEW-IS-A-BORROW — the transparent SoA view surrealdb needs is a zero-dep contract *borrow trait*, not a DTO; the read/owner split makes "view is read-only" structural
+
+**Status:** FINDING (derived; subject to `epiphany-brainstorm-council` per PR #433). Builds on the author-stated R1 ("one SoA never transformed") + R4 (witness-as-pointer) rulings in `E-SOA-IS-THE-ONLY` — those pre-exist and are not council-gated; this is the contract-shape consequence.
+
+The planner⟷ractor⟷surrealdb wiring (user-requested 2026-05-30) is realized WITHOUT a new DTO family (`lab-vs-canonical-surface.md` §"Decision Procedure"): extend the canonical `OrchestrationBridge`/`UnifiedStep` surface (`StepDomain::Kanban` + `"kanban."` prefix) + add `kanban::{KanbanColumn, KanbanMove}` + a zero-dep borrow trait `soa_view::MailboxSoaView` returning `&[T]` column slices. The borrow trait is the key move: it lets the in-RAM `MailboxSoA<N>` (ractor-owned, in cognitive-shader-driver), a surreal kv-lance view, and the planner all read the SAME bytes through one vocabulary — the dependency-inversion pattern already used by `PlannerContract`/`OrchestrationBridge`, so the contract stays zero-dep (it cannot name `MailboxSoA<N>` from another crate without a dep). The `MailboxSoaView` (read) vs `MailboxSoaOwner` (mutate `advance_phase`) split makes "the view is read-only" a *structural* guarantee (surreal implements only the read half) — honoring R1 by type, not convention.
+
+**Cross-ref:** `E-SOA-IS-THE-ONLY` (R1/R4 origin); `lab-vs-canonical-surface.md` §Decision Procedure; `unified-soa-convergence-v1.md §5+§8.4` (D-MBX-A6); LATEST_STATE Contract Inventory 2026-05-30.
 
 ---
 

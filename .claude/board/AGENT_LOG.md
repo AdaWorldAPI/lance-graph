@@ -106,6 +106,19 @@
 **D-ids:** D-ODOO-OP-1 (**Shipped**)
 
 **Outcome:** DONE. Phase 2 of the Odoo SoA → Foundry SoC pipeline. `bucket_corpus` groups `OdooStyleRecipe` corpus by semantic `OdooMethodKind` (10-variant: Compute/Inverse/Constrain/Onchange/Action/Cron/ApiModel/ApiModelCreateMulti/Override/Helper). `emit_op_dispatch` emits deterministic compilable Rust: per-unique-recipe_id `RECIPE_<HEX8>: u32` consts + per-kind `<Pascal>Op { method_id, recipe_id }` struct + `static <UPPER>_OPS: &[<Pascal>Op]` slice. Recipe dedup: identical DAtom weight vectors collapse to one `RECIPE_*` const (many-to-one method→recipe mapping preserved in the static slice). Output is zero-dep Rust — no imports needed in the emitted file; consumers write it to `OUT_DIR` and `include!()`. Deterministic by construction: buckets in declaration order, within each bucket sorted by recipe_id then method_id.
+## [Autonomous build / Opus 4.8] D-MBX-A6 Phase 1 — planner⟷ractor⟷surreal meta-DTO (contract slice)
+
+**Branch:** claude/sleepy-cori-aRK2x | **Files:**
+- `crates/lance-graph-contract/src/kanban.rs` (NEW) — `KanbanColumn` (6) + `KanbanMove`
+- `crates/lance-graph-contract/src/soa_view.rs` (NEW) — `MailboxSoaView` + `MailboxSoaOwner` borrow traits + fake-impl tests
+- `crates/lance-graph-contract/src/orchestration.rs` (+`StepDomain::Kanban` + 4 arm updates + round-trip test entry)
+- `crates/lance-graph-contract/src/lib.rs` (module decls + re-exports)
+
+**Tests:** `cargo test -p lance-graph-contract` → 485 lib pass (+6 new: 4 kanban, 2 soa_view; orchestration round-trip extended) + integration suites green. `cargo check` clean on `lance-graph-planner`, `cognitive-shader-driver`, `lance-graph-supervisor` (default + `--features supervisor`) — `StepDomain::Kanban` verified additive-safe (all downstream uses are `!=`/`matches!`/`from_step_type`; no exhaustive match without wildcard).
+
+**Outcome:** DONE (contract slice; consumer impls deferred). Realizes the planner⟷ractor⟷surreal wiring as an EXTENSION of the canonical `OrchestrationBridge` surface (lab-vs-canonical ruling — no parallel DTO family) + a zero-dep transparent-SoA-view borrow trait (E-SOA-VIEW-IS-A-BORROW). Honors R1 (view returns `&[T]`, never copies) + R4 (witness = `chain_position` pointer). Deferred: planner-emit (D-MBX-A6 Ph2-3, incl. the {native|JIT|SurrealQL|elixir} strategy set), `impl MailboxSoaView/Owner for MailboxSoA<N>` (cognitive-shader-driver), ractor `ConsumerEnvelope::Kanban` arm, surreal_container read-view (BLOCKED on OQ-11.6 fork).
+
+**Review pattern:** `// ///`-decision-markers → `/code-review` (medium, 1 finding → REFUTED via grep + cargo check) → markers stripped → cargo verify. Design via Opus Plan agent map (LATEST_STATE + lab-vs-canonical + unified-soa-convergence-v1 + orchestration/container/surreal_container/supervisor surfaces).
 
 ---
 
