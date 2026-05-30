@@ -1,3 +1,30 @@
+## 2026-05-30 — E-CALIBRATE-RELIABILITY-PSYCHOMETRICALLY — replace the hand-tuned Rubicon (f,c)/SD thresholds with MEASURED psychometric reliability (Cronbach α / ICC / Spearman / Pearson) — the existing crates, applied brutally to the gate
+
+**Status:** FINDING + BUILD-DIRECTION (user 2026-05-30: "be brutal and use psychometry calibration"). Follows directly from E-RELIABILITY-NOT-VALIDITY: if (f,c) is a RELIABILITY coefficient, calibrate it with real reliability statistics, don't hand-tune it. Resolves the iron-rule-savant's VIOLATES-I-NOISE-FLOOR-JIRAK (uncited 0.2/0.8/0.15/0.35 thresholds).
+
+**The existing psychometric machinery (grounded, file:line):**
+- `thinking-engine/src/cronbach.rs` — `cronbach_alpha(items:&[&[f32]]) -> f32` (TESTED; α-identity=1.0 test) + `CronbachResult`/`cronbach_analysis` with the canonical bands (>0.90 excellent/redundant, 0.70-0.90 acceptable, <0.70 poor, <0.50 unacceptable) + `variance_agreement_scores`. Its OWN doc: "replaces the BF16 ±0.008 heuristic with empirical cross-model test" — i.e. it ALREADY swapped a hand-tuned threshold for a psychometric one. We do the same to the Rubicon gate.
+- `jc/src/probe_p1_gamma_phase.rs::spearman_rho(&[usize],&[usize]) -> f64` (rank correlation; identity=1/reverse=-1 tested).
+- `thinking-engine/examples/codebook_pearson.rs` (Pearson); `calibrate_lenses.rs` (Spearman ρ + ICC); `reencode_safety.rs`/`ground_truth.rs` (the calibration family).
+- bgz-tensor calibration suite: `bin/cam_pq_calibrate.rs`, `quality.rs`, `variance_audit.rs`, `similarity.rs`.
+
+**The brutal move:** the Rubicon RELIABILITY gate (Evaluation→{Commit|Plan|Prune}) thresholds — currently hand-tuned `(f,c)` expectation + CollapseGate SD (FLOW<0.15/HOLD/BLOCK>0.35) + recipe_kernels 0.2/0.8 + the style confidence_thresholds (Skeptical 0.95 in learning/cognitive_styles) — get CALIBRATED, not guessed:
+- **Cronbach α** = internal consistency of the witness arc / multi-recipe / multi-lens measurement. A belief is reliable-enough-to-Commit when the items (recipe outcomes / lens distances / witness emissions) cohere (α above a measured band), not when c>0.8 by fiat. Per-mailbox or per-cohort α over the CausalEdge64 (f,c) emission arc.
+- **ICC** = inter-rater (inter-recipe / inter-mailbox) agreement — the cross-mailbox consensus the a2a_blackboard quorum needs.
+- **Spearman/Pearson** = does the reliability ranking track an external criterion (the validity bridge — Spearman vs Stockfish/oracle ranking; this is where reliability MEETS validity, measured not assumed).
+
+**Float-boundary doctrine preserved (your CAM-PQ rule):** psychometric calibration is OFFLINE FLOAT (Cronbach/ICC/Pearson over a corpus, in thinking-engine — heavy, std), emitting a FROZEN threshold artifact the HOT path reads as an integer/const. Same shape as jc certifies the codebook offline → aerial reads online. So the calibrated reliability bands replace the hand-tuned consts; the hot Rubicon gate stays integer/cheap.
+
+**Dependency boundary (respect):** contract + planner are ZERO-/light-dep and do NOT dep thinking-engine. Calibration lives at the cognitive-shader-driver / thinking-engine layer (the bridge, thinking-engine behind a feature gate). The CONTRACT carries only the calibrated threshold CONSTANT (a number with a citation); the calibration PRODUCES it. So: thinking-engine calibrates (offline) → emits bands → contract const (cited) → planner/Rubicon reads. No new contract dep.
+
+**This makes the R-GATE probe rigorous:** instead of "do Analytical vs Creative differ" (necessary-not-sufficient), the probe becomes "compute Cronbach α / ICC on a real witness-trace corpus per style; does the MEASURED reliability band change the Commit/Plan/Prune outcome?" — a psychometric, citable pass/fail, satisfying I-NOISE-FLOOR-JIRAK (Jirak-bounded where the band needs a significance floor).
+
+**Honest scope:** this is a DIRECTION (the calcs exist + the boundary is clear), not a built slice. First cut would be a thinking-engine `reliability_calibration` that runs cronbach_alpha over a recipe/witness corpus and emits the bands; then cite them in the contract const that replaces 0.2/0.8/0.15/0.35. Sequenced after the R-GATE probe proves the gate is non-cosmetic on a live trace.
+
+**Cross-ref:** E-RELIABILITY-NOT-VALIDITY (why calibrate reliability); iron-rule-savant VIOLATES-I-NOISE-FLOOR-JIRAK (the uncited thresholds this fixes); I-NOISE-FLOOR-JIRAK (Berry-Esseen significance floor for the bands); `thinking-engine/cronbach.rs` (the α impl + "replaces hand-tuned heuristic" precedent); `jc/probe_p1_gamma_phase.rs spearman_rho`; bgz-tensor cam_pq_calibrate/quality; faiss-homology-cam-pq (offline-float→online-integer boundary); R-GATE probe; recipe_kernels SD_FLOW/SD_BLOCK; learning/cognitive_styles confidence_threshold.
+
+---
+
 ## 2026-05-30 — FIX (council follow-through): StyleStrategy de-theatred — resolve_style decodes the 23D vector; reliability_of is the R-GATE measurable; plan() honestly labeled pure-passthrough
 
 **Status:** SHIPPED-in-PR #439 (fixes the theater the brutally-honest-tester caught in D-MBX-A6-P3a). Probe-first per reviewers; reliability-not-validity framing per E-RELIABILITY-NOT-VALIDITY.
