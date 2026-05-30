@@ -1,3 +1,23 @@
+## 2026-05-30 — BUILD TARGET: default recipes for the mailbox planner — the DTOs already exist, only the WIRING is missing
+
+**Status:** BUILD-GRADE (user-directed 2026-05-30: "we need default recipes for our mailbox planner… the DTOs are already there to wire"). Graduated from brainstorm to concrete. Grounded by grep (file:line below); Opus design map in flight.
+
+**The finding — everything exists, nothing is wired:**
+- `contract::recipes` — `Recipe` struct + `RECIPES:[Recipe;34]` (RTE/HTD/RCR/… id 1..=34, each with tier/mechanism/bucket/spo2cubed/substrate) + `recipe(id)`/`recipe_by_code`/`by_mechanism`/`causal` lookups. = the DEFAULT RECIPE CATALOGUE, locked.
+- `contract::recipe_kernels` — the `Tactic` trait + `ThoughtCtx` (sd/free_energy/dissonance/temperature/confidence/rung/candidates/beliefs) + `Outcome`; "the Elixir-like recipe layer: 34 hot-dispatchable units, registry-routed by id." = the EXECUTABLE default recipes.
+- **GAP (verified):** `lance-graph-planner` references NEITHER `recipes` nor `recipe_kernels` nor `Tactic` anywhere. The mailbox planner has NO default recipes wired. This is the build.
+- **Consumers ready (DTOs exist):** `callcenter::{OntologyDto/EntityTypeDto/PropertyDto/LinkTypeDto/ActionTypeDto, MembraneRegistry, LanceMembrane, cognitive_bridge_gate, policy, rls}` = the committing membrane; `ontology::{OntologyRegistry, MappingRow, SchemaPtr, enumerate_first_with_entity_type_id}` = OGIT classes on SoA; `rbac::{Policy, Role(can_read/can_write/can_act), Operation, evaluate, AccessDecision}` = the gate.
+
+**The chain to wire:** recipe (contract `Tactic`) → candidate (planner `CandidatePool`) → rbac gate (`rbac::evaluate`) → ontology class resolve (`OntologyRegistry` by entity_type_id) → membrane commit (`callcenter::LanceMembrane`). Recipe substrate + consumer DTOs exist; the SEAMS between them are the gap.
+
+**This is the "Elixir-like template" layer made real** (connects the GEL/ExecTarget::Elixir thread): recipe_kernels is literally documented as "the Elixir-like recipe layer." So the default-recipe wiring IS the planner-strategy/template work, grounded in shipped code — not the speculative PlanPacket. Centered on AST/SoA markers (ThoughtCtx = our substrate markers), per "the mailbox understands AST."
+
+**Maps to D-MBX:** part of / sibling to D-MBX-A6-P3 (planner consumer wiring). Awaiting Opus map for: dependency directions (keep contract zero-dep; circular-dep risk like AriGraph↔planner), the minimal first slice (RecipeStrategy in default_strategies vs default_recipes() selector), and the rbac-gate placement (pre-recipe vs pre-commit).
+
+**Cross-ref:** `contract::recipes`/`recipe_kernels` (recipe catalogue + Tactic); `planner::{traits,api,cache/candidate_pool,strategy/mod}`; `callcenter::{lance_membrane,ontology_dto,cognitive_bridge_gate}`; `ontology::registry`; `rbac::{policy,role,access}`; D-MBX-A6-P3; `ExecTarget::Elixir` (#439); recipe_kernels "Elixir-like" doc.
+
+---
+
 ## 2026-05-30 — BRAINSTORM: E-FIREFLY-PACKET-IS-THE-LOCATION-TRANSPARENT-PLAN — (adjacent inspiration) backport firefly's packet-executor as the in-mailbox PLANNING SUBSTRATE; the same packet distributes cross-server via ONE gRPC hop (BEAM location transparency)
 
 **Status:** BRAINSTORM / adjacent-inspiration (user framing 2026-05-30: "just brainstorming, you might only find an adjacent inspiration"). NOT a ratified decision — a candidate direction to remember, not a committed build plan. Downgraded from an over-eager "DECISION" label. The forks/slice below are sketch options, not a sequenced commitment.
