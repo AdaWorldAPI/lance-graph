@@ -1,3 +1,28 @@
+## 2026-05-30 — E-DUPLICATION-IS-INTRINSIC-VS-TEMPORAL — the SoA "duplicate" intentionally separates intrinsic awareness from the temporal belief-state arc (= AriGraph semantic/episodic = CE64/EW64 = SoA1:SoA2)
+
+**Status:** FINDING / design ruling (user-confirmed 2026-05-30). Answers "are you duplicating intentionally?" — YES.
+
+The SoA is FIXED (frozen byte-shape) ⇒ the "duplicate" is the SAME shape instantiated twice, which is what makes `SoA1:SoA2` superposition well-defined. The cut it encodes (one separation, four names):
+- **intrinsic awareness** (the *now*): semantic CE64 + gestalt/qualia (`awareness_dto::ResonanceDto`) — atemporal "what resonates now".
+- **temporal belief-state arc** (the *over-time*): episodic EW64 witness arc (`chain_position`) — "how the belief came to be, across observations".
+= AriGraph **Es (semantic) / Ee (episodic)** duality = **CE64 / EW64** = **SoA1 : SoA2** (shader superposes them, Hebbian) = energy-field / gestalt `ResonanceDto` layering. So `TD-RESONANCEDTO-DUP-1` is NOT a dedup target — it's the intrinsic/temporal separation; the fix is to NAME it (e.g. `ResonanceField` vs `GestaltResonance`), not collapse it.
+
+## 2026-05-30 — LOOSE-ENDS (documented per user "don't die token wall"; NOT yet built)
+
+**LE-1 — EW64 as syntactic-coreference witness pointer (DeepNSM > Markov > grammar).** Wire `deepnsm` (PoS FSM → SPO) → Markov VSA context → grammar heuristics so that a **relative pronoun (Relativpronomen) is NOT bundled** into the VSA trajectory but instead gets a **witness pointer** (EW64) to its antecedent. Rationale: I-VSA-IDENTITIES "register laziness" — exact-match coreference is a POINTER, not a bundle (bundling destroys the register). ⇒ EW64 gains a SECOND role beyond aerial-prefetch: a **syntactic-Markovian context** = episodic memory pointing at BOTH hot witness mailboxes AND cold-path SPO. (Consumers of the grammar/Markov path: `contract::grammar::role_keys`, `deepnsm`, the Vsa16k Markov substrate.)
+
+**LE-2 — cold-path SPO + cold-path AriGraph UNIFY.** Now that EW64 is a *cheap AriGraph witness pointer*, the two cold stores belong together: ONE cold store = semantic SPO (Es) + episodic witness arcs (Ee), EW64 as the link. Resolves the parallel-SPO-store debt (`F-WIRE-DTO-DUP-MAP`/`E-ARIGRAPH-IS-AN-ISLAND`) on the cold side. Matches AriGraph paper (one graph G = Vs,Es,Ve,Ee).
+
+**LE-3 — mailbox-cycle-end Rubicon commit decision.** At the END of a mailbox cycle, the LAST Rubicon kanban state (terminal Commit/Plan/Prune, `KanbanColumn`) = a DECISION that: (a) **commits SPO-W (the EW64 witness) to the cold path** (= AriGraph calcify / `witness_tombstone::calcify` — currently dead `todo!()`, D-ATOM-5), AND (b) for business-logic mailboxes, **commits to SLA + goalstate**. This is the commit gate at Rubicon. Wires `MailboxSoaOwner::advance_phase(Commit)` → cold materialization + SLA/goalstate update.
+
+**LE-4 — Odoo + OWL business-logic action substrate = OTHER SESSION.** The SLA/goalstate business-logic commit (LE-3b) + Odoo/OWL as the business-logic *action* substrate is explicitly deferred to a separate session. Documented here so it is not lost; do NOT build it in this arc.
+
+**BindSpace consumers (singleton→per-mailbox migration surface, grep 2026-05-30):** contract `{cognitive_shader,splat,lib}.rs`; planner `{cache/convergence,lib}.rs`; cognitive-shader-driver `{driver,wire,engine_bridge,mailbox_soa,proposal,serve,wire_dto,spo_bridge,cognitive_shader,cognitive_shader_dispatch,spo_witness,cam}.rs`. The singleton still threads through driver/engine_bridge/wire*; `spo_witness.rs` is the existing witness seam to reconcile with EW64. (Ref D-MBX-3/5: kill `BindSpace::zeros(4096)` singleton; migrate consumers to per-mailbox MailboxSoA.)
+
+**Cross-ref:** `E-ARIGRAPH-PAPER-GROUNDS-CE64-EW64`; `E-AERIAL-FEEDS-EW64-PREFETCH`; `E-ARIGRAPH-IS-AN-ISLAND`; `F-RESONANCEDTO-IS-LAYERED-NOT-DUP`; D-MBX-3/5/A5; I-VSA-IDENTITIES.
+
+---
+
 ## 2026-05-30 — E-ARIGRAPH-PAPER-GROUNDS-CE64-EW64 — AriGraph (arXiv 2407.04363v3) IS the source: its semantic-edge/episodic-edge duality grounds CE64/EW64; the episodic edge ("happened at the same time") IS the witness arc
 
 **Status:** FINDING (read the AriGraph paper, Anokhin et al. AIRI, 2026-05-30). User's "first is AriGraph!!!" — this is the canonical design source for the semantic+episodic arc.
