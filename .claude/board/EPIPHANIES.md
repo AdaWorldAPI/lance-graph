@@ -1,3 +1,20 @@
+## 2026-05-30 — FIX (council follow-through): StyleStrategy de-theatred — resolve_style decodes the 23D vector; reliability_of is the R-GATE measurable; plan() honestly labeled pure-passthrough
+
+**Status:** SHIPPED-in-PR #439 (fixes the theater the brutally-honest-tester caught in D-MBX-A6-P3a). Probe-first per reviewers; reliability-not-validity framing per E-RELIABILITY-NOT-VALIDITY.
+
+Three honest fixes to the no-op #439 shipped:
+1. **`resolve_style` now DECODES the 23D style vector** (idx 4=analytical/3=creative/0=depth, the `selector.rs::style_alignment` convention) → dominant-axis ThinkingStyle. Kills the constant-`DEFAULT_STYLE` bug (recipe selection was identical for every query). NOTE: 23D planner vector, NOT the contract i4-32D `style_vector`/`StyleRecipe` surface (separate, deferred).
+2. **`reliability_of(style, ctx) -> f32`** — the R-GATE MEASURABLE: runs style-selected recipe Tactics over a ThoughtCtx, returns accumulated confidence ∈[0,1]. RELIABILITY (settledness), NOT validity (external/post-commit) per E-RELIABILITY-NOT-VALIDITY. Pure: no plan mutation, no commit.
+3. **`plan()` honestly labeled pure-passthrough** — computes reliability, emits NOTHING (no faked KanbanMove the planner can't build pre-A6-overhaul). The dead-store theater is gone; the comment now states the truth.
+
+**Probe-first (reviewers' rule honored):** test `r_gate_reliability_varies_by_style` is the R-GATE probe written BEFORE any Rubicon gate field — asserts Analytical vs Creative select distinct mechanisms (TruthAwareInference vs StructuralDivergence) so a style-conditioned gate is non-cosmetic. test `resolve_style_decodes_the_23d_vector_not_constant_default` proves the bug is fixed. test `plan_is_pure_passthrough_until_emit_edge_lands` asserts plan stays None (no theater). 5 style_strategy tests + full planner lib green; fmt-clean (ran BEFORE commit).
+
+**Still deferred (honestly, NOT shipped):** the emit edge (plan()→KanbanMove) gated on the D-MBX-A6 planner-output overhaul; truth-gating the Rubicon transition (only if R-GATE proves it changes an outcome on a real witness trace — the in-test mechanism-distinctness is necessary-not-sufficient; the full probe needs a live trace); `try_advance_phase` still has no production `MailboxSoaOwner` impl (separate cognitive-shader-driver slice).
+
+**Cross-ref:** E-COUNCIL-SYNTHESIS (the theater this fixes); E-RELIABILITY-NOT-VALIDITY (the measurable's framing); #439 D-MBX-A6-P3a; `style_strategy.rs` (resolve_style/reliability_of); `selector.rs:137` (23D convention); D-MBX-A6 (the emit-edge home).
+
+---
+
 ## 2026-05-30 — E-RELIABILITY-NOT-VALIDITY — the substrate's NARS (f,c) "truth" measures RELIABILITY (consistency/settledness/consensus), not VALIDITY (ground-truth correspondence); validity is conferred externally at/after the Rubicon Commit. "Truth" is a wisdom marker in disguise.
 
 **Status:** FINDING (user-stated 2026-05-30, epistemic reframe). Corrects the "truth gate" mislabel propagated by the truth-architect council angle + this session.

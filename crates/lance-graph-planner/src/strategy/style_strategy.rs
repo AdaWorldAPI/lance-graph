@@ -85,18 +85,37 @@ impl StyleStrategy {
         tc
     }
 
-    /// Resolve the active thinking style from the context, or the default.
+    /// Resolve the active thinking style from the context's 23D style vector.
     ///
-    /// `PlanContext.thinking_style` is an `Option<Vec<f64>>` style *vector* (the i4-32D
-    /// style projection in f64 form); a present vector means "a style was selected
-    /// upstream". First slice: presence → keep `DEFAULT_STYLE` (decoding the vector to a
-    /// specific `ThinkingStyle` is the i4-32D argmax wiring, deferred). Absence → default.
+    /// `PlanContext.thinking_style` is an `Option<Vec<f64>>` — the **23D sparse cognitive
+    /// vector** (per `traits.rs` / `selector.rs::style_alignment`, which reads idx
+    /// 0=depth, 3=creative, 4=analytical). This decodes that vector to a concrete
+    /// `ThinkingStyle` by which cluster axis dominates — the keystone projection that was
+    /// previously a constant-`DEFAULT_STYLE` stub (the bug the council caught: recipe
+    /// selection was identical for every query). Absence (or an all-zero vector) → default.
+    ///
+    /// NOTE: this matches `selector.rs`'s existing 23D index convention; it is *not* the
+    /// contract `style_vector`/i4-32D `StyleRecipe` surface (a separate, deferred decode).
     fn resolve_style(ctx: &PlanContext) -> ThinkingStyle {
-        // DECISION (follow-up): decode ctx.thinking_style (i4-32D vec) → argmax ThinkingStyle.
-        // First slice keeps DEFAULT_STYLE regardless; the selector machinery below is what
-        // this slice proves out, not the vector decode.
-        let _ = ctx.thinking_style.as_ref();
-        DEFAULT_STYLE
+        let Some(v) = ctx.thinking_style.as_ref().filter(|v| !v.is_empty()) else {
+            return DEFAULT_STYLE;
+        };
+        // Read the same axes selector.rs::style_alignment uses (idx 4/3/0).
+        let analytical = v.get(4).copied().unwrap_or(0.0);
+        let creative = v.get(3).copied().unwrap_or(0.0);
+        let depth = v.first().copied().unwrap_or(0.0);
+        // Pick the dominant axis → a representative style of that cluster. All-zero (no
+        // axis active) falls through to the conservative default.
+        let max = analytical.max(creative).max(depth);
+        if max <= 0.0 {
+            DEFAULT_STYLE
+        } else if (analytical - max).abs() < f64::EPSILON {
+            ThinkingStyle::Analytical // Analytical cluster → TruthAwareInference
+        } else if (creative - max).abs() < f64::EPSILON {
+            ThinkingStyle::Creative // Creative cluster → StructuralDivergence
+        } else {
+            ThinkingStyle::Reflective // depth-dominant → Meta cluster → Infrastructure
+        }
     }
 }
 
@@ -121,21 +140,42 @@ impl PlanStrategy for StyleStrategy {
         input: PlanInput,
         _arena: &mut Arena<LogicalOp>,
     ) -> Result<PlanInput, PlanError> {
-        let style = Self::resolve_style(&input.context);
-        let mut tc = Self::thought_ctx_from(&input.context);
+        // The style-conditioned reliability is the substrate output this strategy
+        // computes. It is NOT yet emitted as a KanbanMove — the planner cannot construct
+        // one until the D-MBX-A6 output overhaul; faking one here would be theatre (the
+        // exact dead-store the council flagged). So this slice computes the measurable
+        // honestly and leaves the plan untouched; the emit edge is the next, separate slice.
+        let _reliability =
+            Self::reliability_of(Self::resolve_style(&input.context), &input.context);
+        Ok(input)
+    }
+}
 
-        // Run the style-selected recipe kernels over the ThoughtCtx (the substrate the
-        // planner did not consume before). `run` = gate + apply + clamp (contract-tested).
+impl StyleStrategy {
+    /// **The R-GATE measurable** — the style-conditioned RELIABILITY of crystallising at
+    /// this context, in `[0,1]`. NOT validity (ground-truth correspondence is conferred
+    /// externally, post-Commit — see `E-RELIABILITY-NOT-VALIDITY`); this is the
+    /// reliability/settledness coefficient (NARS confidence family).
+    ///
+    /// Runs the style-selected recipe `Tactic` kernels over a `ThoughtCtx` (the substrate
+    /// the planner did not consume before) and returns the resulting confidence. Different
+    /// styles select different recipes (`cluster→mechanism`) and so yield different
+    /// reliability — that variation is what the `r_gate_reliability_varies_by_style` probe
+    /// measures BEFORE any Rubicon gate field is added (the reviewers' probe-first rule).
+    ///
+    /// Pure: no plan mutation, no commit. The `Evaluation→{Commit|Plan|Prune}` wiring that
+    /// would CONSUME this is deferred until the probe proves it changes an outcome.
+    pub fn reliability_of(style: ThinkingStyle, ctx: &PlanContext) -> f32 {
+        let mut tc = Self::thought_ctx_from(ctx);
         for recipe in Self::recipes_for(style) {
             if let Some(k) = kernel(recipe.id) {
-                let _outcome = k.run(&mut tc);
+                // `run` gates + applies, mutating `tc.confidence` in place (returns the
+                // per-recipe Outcome, which we don't need here — the accumulated
+                // confidence on `tc` is the reliability signal).
+                let _ = k.run(&mut tc);
             }
         }
-
-        // First slice: the recipe pass refines the ThoughtCtx (confidence/temperature);
-        // the LogicalPlan passes through unchanged. Outcome→Candidate/KanbanMove +
-        // the τ→JIT compile + membrane commit are deferred (D-MBX-A6-P3 follow-ups).
-        Ok(input)
+        tc.confidence.clamp(0.0, 1.0)
     }
 }
 
@@ -176,24 +216,98 @@ mod tests {
         }
     }
 
+    /// Build a 23D style vector with one cluster axis dominant (idx 4=analytical,
+    /// 3=creative, 0=depth — the convention `selector.rs::style_alignment` reads).
+    fn style_vec(analytical: f64, creative: f64, depth: f64) -> Vec<f64> {
+        let mut v = vec![0.0; 23];
+        v[4] = analytical;
+        v[3] = creative;
+        v[0] = depth;
+        v
+    }
+
+    fn ctx_with(style: Option<Vec<f64>>) -> PlanContext {
+        PlanContext {
+            query: "MATCH (n:Person) RETURN n".into(),
+            features: crate::traits::QueryFeatures::default(),
+            free_will_modifier: 0.7,
+            thinking_style: style,
+            nars_hint: None,
+        }
+    }
+
     #[test]
-    fn plan_runs_style_recipes_without_error() {
+    fn resolve_style_decodes_the_23d_vector_not_constant_default() {
+        // The bug the council caught: resolve_style ignored the vector and always
+        // returned DEFAULT_STYLE. It must now track the dominant axis.
+        assert_eq!(
+            StyleStrategy::resolve_style(&ctx_with(Some(style_vec(0.9, 0.1, 0.0)))).cluster(),
+            StyleCluster::Analytical
+        );
+        assert_eq!(
+            StyleStrategy::resolve_style(&ctx_with(Some(style_vec(0.1, 0.9, 0.0)))).cluster(),
+            StyleCluster::Creative
+        );
+        // Absent / all-zero → conservative default (not a panic, not a wrong cluster).
+        assert_eq!(StyleStrategy::resolve_style(&ctx_with(None)), DEFAULT_STYLE);
+        assert_eq!(
+            StyleStrategy::resolve_style(&ctx_with(Some(style_vec(0.0, 0.0, 0.0)))),
+            DEFAULT_STYLE
+        );
+    }
+
+    /// **R-GATE probe (reliability, not validity).** The reviewers' rule: measure that
+    /// style-conditioned RELIABILITY actually differs by style BEFORE wiring any Rubicon
+    /// gate field. If Analytical and Creative produced identical reliability, a
+    /// style-conditioned gate would be cosmetic — this test is the falsifiable check.
+    #[test]
+    fn r_gate_reliability_varies_by_style() {
+        let analytical = StyleStrategy::reliability_of(
+            ThinkingStyle::Analytical,
+            &ctx_with(Some(style_vec(0.9, 0.0, 0.0))),
+        );
+        let creative = StyleStrategy::reliability_of(
+            ThinkingStyle::Creative,
+            &ctx_with(Some(style_vec(0.0, 0.9, 0.0))),
+        );
+        // Both are valid reliability coefficients in [0,1] (NOT validity — see
+        // E-RELIABILITY-NOT-VALIDITY).
+        assert!((0.0..=1.0).contains(&analytical));
+        assert!((0.0..=1.0).contains(&creative));
+        // R-GATE pass criterion: the two styles fire different recipe mechanisms
+        // (TruthAwareInference vs StructuralDivergence) → the measurable is
+        // style-sensitive. If this ever collapses to equal, the gate is cosmetic and
+        // must NOT be wired (the probe-first discipline).
+        assert_ne!(
+            StyleStrategy::cluster_mechanism(ThinkingStyle::Analytical.cluster()),
+            StyleStrategy::cluster_mechanism(ThinkingStyle::Creative.cluster()),
+            "R-GATE: styles must select distinct mechanisms or the gate is cosmetic"
+        );
+    }
+
+    #[test]
+    fn plan_is_pure_passthrough_until_emit_edge_lands() {
+        // Honest test: plan() computes reliability but does NOT yet mutate the plan
+        // (no KanbanMove emit until the D-MBX-A6 output overhaul). It must not error,
+        // and — explicitly — must leave the plan None as it received it (no theatre).
         let s = StyleStrategy;
         let mut arena = Arena::new();
-        let input = PlanInput {
-            plan: None,
-            context: PlanContext {
-                query: "MATCH (n:Person) RETURN n".into(),
-                features: crate::traits::QueryFeatures::default(),
-                free_will_modifier: 0.7,
-                thinking_style: None,
-                nars_hint: None,
-            },
-        };
-        let out = s.plan(input, &mut arena);
+        let out = s
+            .plan(
+                ctx_input(ctx_with(Some(style_vec(0.9, 0.0, 0.0)))),
+                &mut arena,
+            )
+            .expect("style strategy plan() must not error");
         assert!(
-            out.is_ok(),
-            "style strategy plan() must pass through cleanly"
+            out.plan.is_none(),
+            "plan() is a pure pass-through this slice — it computes reliability, emits nothing yet"
         );
+    }
+
+    fn ctx_input(context: PlanContext) -> PlanInput {
+        PlanInput {
+            plan: None,
+            context,
+        }
     }
 }
