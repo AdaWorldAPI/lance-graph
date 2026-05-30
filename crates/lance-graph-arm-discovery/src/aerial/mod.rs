@@ -29,9 +29,11 @@
 
 pub mod codebook;
 pub mod extract;
+pub mod ontology;
 
-pub use codebook::{antecedent_distance, CodebookDistance, MatrixDistance};
+pub use codebook::{antecedent_distance, CodebookDistance, MatrixDistance, TopKDistance};
 pub use extract::{extract_rules, ExtractParams};
+pub use ontology::{DolceCategory, OntologyProjector};
 
 use crate::encode::Dataset;
 use crate::rule::{CandidateRule, Proposer};

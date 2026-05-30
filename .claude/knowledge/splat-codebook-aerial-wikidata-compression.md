@@ -94,7 +94,8 @@ codebook offline (float OK), address it online with integer codes.** jc is the
 
 ## Status & open questions
 
-- **CONJECTURE** (architecture): the splat→aerial→Wikidata wiring as a whole. The *seams* are concrete (the `CodebookDistance` trait + `jc::jirak`); the end-to-end pipeline is not yet built.
+- **Phase 1 SHIPPED** (D-ARM-14, branch `claude/jolly-cori-clnf9-darm14`): the two aerial-side seams are concrete code, not just a trait — `aerial::TopKDistance` (the sparse per-node splat-top-k `CodebookDistance` the 10000² splat actually emits — top-k per node, not a dense `dim²` table) and `aerial::ontology::{DolceCategory, OntologyProjector}` (the DOLCE 4-facet skeleton → `rdfs:subClassOf`/`rdf:type` SPO output). An end-to-end test runs splat-top-k → discovery → skeleton projection. Standalone, integer, 41/41.
+- **CONJECTURE** (architecture): the splat→aerial→Wikidata pipeline *as a whole* — the real jc/blasgraph splat producing the neighbour lists, and the Wikidata loader, are not yet built. The seams they plug into now exist.
 - **Hard prerequisite:** D-ARM-7 (the Jirak floor) must land before aerial promotes any rule to a live skeleton — ISSUE ARM-JIRAK-FLOOR. jc::jirak is the engine; the *gate function* (rule → significant?) is the deliverable.
 - **No new aerial dependency needed:** jc emits a frozen integer table; aerial consumes it through the existing `MatrixDistance`/`CodebookDistance` seam. Do NOT make aerial depend on jc — keep the float-free standalone posture; pass the certified table in.
 - **Open (from wikidata-hhtl-load):** P279 fan-out is wildly uneven (2…4000 children) — whether it rebalances onto a clean 16ⁿ tree or forces adaptive fan-out is MEASURABLE; measure on a real P279 subtree before fixing the HHTL base.

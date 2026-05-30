@@ -1,3 +1,13 @@
+## [Main thread / Opus] D-ARM-14 Phase 1 — splat-top-k oracle + DOLCE skeleton projector
+
+**Branch:** claude/jolly-cori-clnf9-darm14 (off post-merge main) | **Files:** `crates/lance-graph-arm-discovery/src/{aerial/codebook.rs (+TopKDistance), aerial/ontology.rs (new), aerial/mod.rs, encode.rs (+checked_slot), lib.rs}` + STATUS_BOARD (D-ARM-14 → In progress).
+
+**Cargo:** **41/41** (37 + 4 new) + clippy `-D warnings` clean on BOTH default and `--features ndarray-simd`. Zero-dep preserved.
+
+**Outcome:** Phase 1 DONE. User chose D-ARM-14 next. Recon (consult-before-guess): `crates/lance-graph-ontology` (DOLCE hydrators) + the blasgraph splat top-k both live in heavy workspace crates; `jc::ewa_sandwich` is a PROOF not a table-builder — none buildable from the zero-dep aerial crate. So Phase 1 = the two **aerial-side seams**, verifiable standalone: (1) `TopKDistance` — a sparse per-node top-k `CodebookDistance` (the real shape the 10000² Gaussian-splat emits; you keep top-k per node, certified by jc EWA-sandwich, not a dense dim² table), symmetric, nearest-on-duplicate, bounds-checked via new `FeatureSpec::checked_slot`; (2) `aerial::ontology` — `DolceCategory` (Endurant/Perdurant/Quality/Abstract + basin nibble + IRI, the HHTL axis template) + `OntologyProjector` (FeedProjector → `rdfs:subClassOf`/`rdf:type` DOLCE skeleton SPO). End-to-end test proves splat-top-k → aerial discovers `occupation→DOLCE-class` → projects `wd:f0_0 rdfs:subClassOf dolce:Endurant`, and an unused facet is never invented. Float stays OFFLINE in jc only; aerial online path integer (CAM-PQ doctrine). Remaining (documented): real jc/blasgraph splat producing the lists, Wikidata loader, D-ARM-7 Jirak floor. NOT pushed yet — awaiting branch confirmation (prior branch merged). See `splat-codebook-aerial-wikidata-compression.md`.
+
+---
+
 ## [Main thread / Opus] PR #436 review response — 5 CodeRabbit findings (public-API hardening)
 
 **Branch:** claude/jolly-cori-clnf9 | **Files:** `crates/lance-graph-arm-discovery/src/{aerial/codebook.rs, aerial/extract.rs, translator.rs, encode.rs}` + `.claude/knowledge/aerial-arm-ruff-spo-codegen-synergies.md`.
