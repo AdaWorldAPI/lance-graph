@@ -76,6 +76,26 @@ impl FeatureSpec {
     pub fn slot(&self, item: Item) -> usize {
         self.offsets[item.feature as usize] + item.category as usize
     }
+
+    /// The absolute code slot, bounds-checked against the schema. Panics with a
+    /// clear message if the feature or category is out of range — so an oracle
+    /// fed an invalid [`Item`] fails fast instead of aliasing another block.
+    #[must_use]
+    pub fn checked_slot(&self, item: Item) -> usize {
+        let feature = item.feature as usize;
+        assert!(
+            feature < self.num_features(),
+            "item feature {feature} out of range ({} features)",
+            self.num_features()
+        );
+        let category = item.category as usize;
+        assert!(
+            category < self.cardinality(feature) as usize,
+            "item category {category} out of range for feature {feature} (cardinality {})",
+            self.cardinality(feature)
+        );
+        self.offsets[feature] + category
+    }
 }
 
 /// A window of rows in category-index form, sharing one [`FeatureSpec`].

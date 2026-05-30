@@ -88,6 +88,64 @@ impl CodebookDistance for MatrixDistance {
     }
 }
 
+/// A [`CodebookDistance`] backed by a **sparse top-k neighbour list per item** —
+/// the shape the BLASGraph Gaussian-splat spatial top-k (10000²) actually
+/// emits. You keep only the `k` nearest neighbours per node (certified by jc's
+/// EWA-sandwich Σ-push-forward), never a dense `dim²` table. `distance(a, b)`
+/// returns the stored splat distance if `b ∈ topk(a)`, else `miss` (far).
+///
+/// This is the production oracle shape for D-ARM-14 (the [`MatrixDistance`]
+/// dense table is the test/reference impl). The splat that *builds* the
+/// neighbour lists is the consumer-side `crates/jc` / blasgraph step; this crate
+/// stays zero-dep and just consumes the frozen integer lists.
+#[derive(Debug, Clone)]
+pub struct TopKDistance {
+    spec: FeatureSpec,
+    miss: u32,
+    /// `neighbours[slot]` = ascending `(neighbour_slot, distance)`, dedup'd to
+    /// the nearest distance per neighbour. Binary-searchable.
+    neighbours: Vec<Vec<(u32, u32)>>,
+}
+
+impl TopKDistance {
+    /// Build from undirected splat edges `(a, b, distance)`. `miss` is the
+    /// distance returned for pairs not in each other's top-k (i.e. "far").
+    #[must_use]
+    pub fn new(spec: FeatureSpec, miss: u32, edges: &[(Item, Item, u32)]) -> Self {
+        let dim = spec.dim();
+        let mut neighbours: Vec<Vec<(u32, u32)>> = vec![Vec::new(); dim];
+        for &(a, b, d) in edges {
+            let (ca, cb) = (spec.checked_slot(a), spec.checked_slot(b));
+            neighbours[ca].push((cb as u32, d));
+            neighbours[cb].push((ca as u32, d)); // splat distance is symmetric
+        }
+        for list in &mut neighbours {
+            // sort by (neighbour, distance) so dedup_by_key keeps the nearest.
+            list.sort_unstable();
+            list.dedup_by_key(|&mut (n, _)| n);
+        }
+        Self {
+            spec,
+            miss,
+            neighbours,
+        }
+    }
+}
+
+impl CodebookDistance for TopKDistance {
+    fn distance(&self, a: Item, b: Item) -> u32 {
+        let ca = self.spec.checked_slot(a);
+        let cb = self.spec.checked_slot(b) as u32;
+        if ca as u32 == cb {
+            return 0;
+        }
+        match self.neighbours[ca].binary_search_by_key(&cb, |&(n, _)| n) {
+            Ok(i) => self.neighbours[ca][i].1,
+            Err(_) => self.miss,
+        }
+    }
+}
+
 /// Aggregate the distance from a (multi-item) antecedent to a candidate
 /// consequent item: the **nearest** antecedent item wins (min). For a
 /// single-item antecedent this is just `distance(a, item)`.
@@ -148,5 +206,28 @@ mod tests {
         let d = MatrixDistance::new(&spec, vec![0u32; 16]);
         // category 5 ≥ feature-0 block width 2 — must fail, not alias feature 1.
         let _ = d.distance(Item::new(0, 5), Item::new(1, 0));
+    }
+
+    #[test]
+    fn topk_distance_is_sparse_and_symmetric() {
+        let spec = FeatureSpec::new(vec![2, 2]);
+        // one splat edge (f0,c0)~(f1,c0) at distance 3; all else "far" (99).
+        let edges = [(Item::new(0, 0), Item::new(1, 0), 3)];
+        let d = TopKDistance::new(spec, 99, &edges);
+        assert_eq!(d.distance(Item::new(0, 0), Item::new(1, 0)), 3);
+        assert_eq!(d.distance(Item::new(1, 0), Item::new(0, 0)), 3, "symmetric");
+        assert_eq!(d.distance(Item::new(0, 0), Item::new(1, 1)), 99, "non-neighbour = far");
+        assert_eq!(d.distance(Item::new(0, 0), Item::new(0, 0)), 0, "self = 0");
+    }
+
+    #[test]
+    fn topk_keeps_the_nearest_on_duplicate_edges() {
+        let spec = FeatureSpec::new(vec![2, 2]);
+        let edges = [
+            (Item::new(0, 0), Item::new(1, 0), 9),
+            (Item::new(0, 0), Item::new(1, 0), 2), // nearer duplicate wins
+        ];
+        let d = TopKDistance::new(spec, 99, &edges);
+        assert_eq!(d.distance(Item::new(0, 0), Item::new(1, 0)), 2);
     }
 }

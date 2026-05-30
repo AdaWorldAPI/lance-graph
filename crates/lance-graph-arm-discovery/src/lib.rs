@@ -69,7 +69,7 @@ pub mod translator;
 
 pub use aerial::{
     antecedent_distance, extract_rules, AerialParams, AerialProposer, CodebookDistance,
-    ExtractParams, MatrixDistance,
+    DolceCategory, ExtractParams, MatrixDistance, OntologyProjector, TopKDistance,
 };
 pub use bitset::RowMasks;
 pub use encode::{Dataset, FeatureSpec};
