@@ -1,3 +1,22 @@
+## 2026-05-30 — E-ARIGRAPH-PAPER-GROUNDS-CE64-EW64 — AriGraph (arXiv 2407.04363v3) IS the source: its semantic-edge/episodic-edge duality grounds CE64/EW64; the episodic edge ("happened at the same time") IS the witness arc
+
+**Status:** FINDING (read the AriGraph paper, Anokhin et al. AIRI, 2026-05-30). User's "first is AriGraph!!!" — this is the canonical design source for the semantic+episodic arc.
+
+AriGraph world model G = (Vs, Es, Ve, Ee):
+- **Es = semantic edges = SPO triplets** `(v, rel, u)` (semantic memory) ⇒ **CE64 = an AriGraph semantic edge** (SPO palette + NARS f/c, 64-bit packed).
+- **Ee = episodic edges = `(observation-vertex v_e^t, all SPO triplets E_s^t extracted at t)`** — "connect all triplets that happened at the same time" ⇒ **EW64 = an AriGraph episodic edge = the witness arc.** The board's `witness_chain_position` / belief-state arc IS AriGraph's episodic edge. The CE64/EW64 pairing = AriGraph's semantic/episodic duality, EXACTLY. Grounded, not ad-hoc.
+- **"happened at the same time" = Hebbian "fire together".** aerial+ (PR `#436`) GENERALIZES it: offline ARM mines co-occurrence `X→Y` across many observations; AriGraph records per-observation co-occurrence online. Both feed EW64's predictive prefetch (`E-AERIAL-FEEDS-EW64-PREFETCH`).
+- **Retrieval = semantic search (Contriever embedding similarity, depth d/width w BFS, Alg 2) + episodic search (relevance-weighted top-k episodic vertices; rel = n_i/max(N_i,1)·log(max(N_i,1))).** Per iron rules: Contriever FLOAT similarity is discovery-layer-only; CAM exact + HHTL facet-AND are the addressing layer. Episodic search = retrieving witness arcs.
+- **Ariadne loop = cognitive-RISC 5-layer stack:** AriGraph (semantic+episodic content) = Substrate; retrieval→working-memory + planning (sub-goals) = Compilation; the plan = Schedule (kanban); ReAct decision = Execution (shader); goal/agent = Producer.
+
+**lance-graph impl vs paper:** faithful PORT — `arigraph/triplet_graph.rs` (Es semantic), `witness_corpus.rs`/`episodic.rs` (Ee/Ve episodic), `orchestrator.rs` (Ariadne loop), `retrieval.rs` (semantic search), `sensorium.rs`. But it is an ISLAND (`E-ARIGRAPH-IS-AN-ISLAND`): semantic/episodic edges NOT wired to the hot SoA (CE64/EW64 cols) or cold Lance store. **Wiring task = Es→CE64(hot)+TripletGraph/SpoStore(cold); Ee→EW64(hot prefetch)+WitnessCorpus(cold); under load/store + witness-materialization discipline.**
+
+**Wikidata scale (wikidata-hhtl-load.md):** AriGraph semantic memory at 115M-entity scale = HHTL/CAM — P279 subClassOf DAG = the ONE 16^n tree axis; OWL/DOLCE closed ranges = facet bitmasks (SIMD batch-AND over the SoA facet column = the semantic-search accelerator); CAM shape-dedup; en+de cols; Derived reasoning store (transitive closures) orthogonal+CAM-indexed. 120GB→~38GB structural. = how AriGraph's Vs/Es scale to a world KG.
+
+**Cross-ref:** arXiv 2407.04363v3; `E-EW64-IS-PREDICTIVE-PREFETCH`; `E-AERIAL-FEEDS-EW64-PREFETCH`; `E-ARIGRAPH-IS-AN-ISLAND`; wikidata-hhtl-load + faiss-homology-cam-pq + cognitive-risc-{core,classes}; `arigraph/{triplet_graph,witness_corpus,episodic,orchestrator,retrieval}.rs`.
+
+---
+
 ## 2026-05-30 — F-RESONANCEDTO-IS-LAYERED-NOT-DUP — the two ResonanceDto are two abstraction layers (energy-field Ψ vs gestalt-awareness), a name collision masking a MISSING INTEGRATION, not a copy
 
 **Status:** FINDING (both defs read 2026-05-30; reframes `TD-RESONANCEDTO-DUP-1` from "dedup" to "disambiguate + integrate").
