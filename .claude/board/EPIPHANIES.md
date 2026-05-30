@@ -42,6 +42,32 @@ The two-paper bracket (`streaming-arm-nars-discovery-v1.md`: Aerial+ discovery u
 4. **The one missing seam (the actionable finding).** `ruff_spo_triplet::Predicate` is a **closed vocabulary** (`rdf:type, has_function, emitted_by, depends_on, reads_field, raises, traverses_relation`) and `from_ndjson` **hard-rejects** anything else — and **none of them is an implication/association relation.** An `X → Y` ARM rule therefore cannot flow through that loader until `Implies`/`CoOccursWith` is added (a *deliberate* ontology change per that crate's own doc). This is D-ARM-SYN-1; it gates SYN-2 (the `CandidateRule → ModelGraph` adapter) and SYN-3 (the `ArmDiscovered` truth calibration below the codegen gate).
 
 **Determinism boundary (unchanged, reaffirmed):** Aerial+ is the only nondeterministic node in the bracket. The transcode keeps it standalone, seeded (`aerial::Rng`), behind the `aerial` feature, and emitting a `CandidateRule` *proposal* — never a committed triple. Promotion is the council's job. Full map: `.claude/knowledge/aerial-arm-ruff-spo-codegen-synergies.md`. Code: `crates/lance-graph-arm-discovery/`. Cross-ref: `E-INTERPRET-NOT-STORE-1`, `E-SOA-IS-THE-ONLY`, `I-NOISE-FLOOR-JIRAK`, Karabulut 2025 §2/§3.3, Abreu 2025 §4.
+## 2026-05-30 — E-EW64-IS-PREDICTIVE-PREFETCH — EpisodicWitness64 is a CPU-style predictive prefetch co-issued with CausalEdge64 into the cognitive shader; (4x4)^4 L1-4 derives from cortex/hippocampus; "fire together wire together" = CE64/EW64 SoA1:SoA2 superposition
+
+**Status:** CONJECTURE / design (user-stated 2026-05-30). Design basis for the queued `EpisodicWitness64` (`SpoWitness64`, pr-ce64-mb-4) follow-up.
+
+- **EW64 = predictive prefetch.** Like a CPU prefetcher pulls a cache line *before* the instruction needs it, `EpisodicWitness64` predictively prefetches the episodic context (the witnessed SPO arc) so that when CE64 + EW64 enter the cognitive shader *together*, the episodic prior is already resident. EW64 anticipates; CE64 is the causal "instruction"; they are co-issued.
+- **"What fires together wires together" = CE64/EW64 SoA1:SoA2 superposition** (Hebbian). Superposing the two SoAs in the cognitive shader (the inside / zero-copy path) IS the wiring step — co-activation of CE64 (causal) + EW64 (episodic) over the same CAM address space strengthens the binding. Grounds the earlier "SoA1:SoA2 superposition inside cognitive-shader-driver" as Hebbian plasticity.
+- **(4x4)^4 (L1-4) derives from cortex + hippocampus.** The shader's 4-level (4x4)^4 block layering (L1-4) is brain/hippocampus-derived (cortical microcircuit / hippocampal indexing), not arbitrary tiling. Ground the exact L1-4 ↔ cortical-layer / hippocampal-subfield mapping when speccing EW64.
+- **Type implication:** EW64 shares CE64's low-40 SPO+NARS bits (co-addressing for superposition) + an episodic/prefetch lens (recency, salience, witness-arc pointer); prefetched ahead of the cycle; CE64+EW64 issued as a pair.
+
+**Cross-ref:** `E-SOA-VIEW-IS-A-BORROW`; pr-ce64-mb-4 `SpoWitness64`; `causal-edge/src/edge.rs` (CE64 layout to mirror); "The Click" (AriGraph/episodic = thinking tissue); D-MBX-A3 (witness-arc handle column).
+
+---
+
+## 2026-05-30 — F-WIRE-DTO-DUP-MAP — ResonanceDto is the duplicated one (2 defs in thinking-engine); StreamDto/BusDto single-def cross-crate Wire DTOs; P64 = convergence crate
+
+**Status:** FINDING (grep audit 2026-05-30, user-requested DTO hunt).
+- **ResonanceDto — DUPLICATED:** two defs, BOTH in thinking-engine — `awareness_dto.rs:21` AND `dto.rs:59` (41 uses thinking-engine + 3 cognitive-shader-driver). = existing `TD-RESONANCEDTO-DUP-1` (Deferred → fold into D-MBX-2). Per the SoA-DTO ledger "ResonanceDto IS the SoA" — dedup converges both onto the one SoA shape, not pick-a-winner.
+- **StreamDto — single def** (`thinking-engine/src/dto.rs:40`; 5 + 3 uses). LAB Wire DTO (input carrier into CognitiveShader).
+- **BusDto — single def** (`thinking-engine/src/dto.rs:120`; 54 + 48 + 1 uses). Heavily cross-crate bus transport DTO.
+- **P64 — convergence crate** (`p64-bridge` 17, bgz-tensor 8, planner 6, shader-driver 5, osint 1); no single `P64` type — it's the convergence point (CLAUDE.md: "p64 = where both repos meet, no circular deps").
+
+**Action:** ResonanceDto dedup stays `TD-RESONANCEDTO-DUP-1` (tied to D-MBX-2 SoA convergence — dedup onto the one SoA per "one SoA never transformed"). StreamDto/BusDto are NOT duplicated; cross-crate spread = expected LAB Wire surface. No new action unless dedup is prioritized now.
+**Cross-ref:** `TD-RESONANCEDTO-DUP-1`; SoA-DTO entropy ledger (PR #353); `lab-vs-canonical-surface.md`.
+
+---
+
 ## 2026-05-30 — E-SOA-VIEW-IS-A-BORROW — the transparent SoA view surrealdb needs is a zero-dep contract *borrow trait*, not a DTO; the read/owner split makes "view is read-only" structural
 
 **Status:** FINDING (derived; subject to `epiphany-brainstorm-council` per PR #433). Builds on the author-stated R1 ("one SoA never transformed") + R4 (witness-as-pointer) rulings in `E-SOA-IS-THE-ONLY` — those pre-exist and are not council-gated; this is the contract-shape consequence.
