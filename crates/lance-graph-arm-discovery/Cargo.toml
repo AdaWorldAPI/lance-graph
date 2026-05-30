@@ -8,19 +8,38 @@ edition = "2021"
 description = "Deterministic codebook-probe association-rule discovery (Aerial+ transcode) → NARS-truth SPO candidates"
 license = "Apache-2.0"
 
-# Standalone, zero-dependency crate — EXCLUDED from the workspace (see root
-# Cargo.toml `exclude`), like bgz17 / deepnsm / bgz-tensor. Verified with:
+# Standalone, zero-dependency crate by default — EXCLUDED from the workspace
+# (see root Cargo.toml `exclude`), like bgz17 / deepnsm / bgz-tensor. Verified
+# with the DEFAULT (scalar, std-only) feature set:
 #
 #   cargo test --manifest-path crates/lance-graph-arm-discovery/Cargo.toml
 #
 # The discovery path is float-free and bitwise-deterministic (integer codebook
-# distance, integer evidence counts). The similarity oracle is injected through
-# the zero-dep `aerial::CodebookDistance` trait, so the real distance table
-# (`bgz17::PaletteDistanceTable`, the BLASGraph splat top-k, or an HDR-popcount
-# Hamming primitive) lives on the consumer side and this crate stays standalone.
+# distance, integer evidence counts, AND+popcount over row bitsets).
 
-[dependencies]
-# none — std only.
+[features]
+default = []
+# Route the bitset AND+popcount primitive (`simd.rs`) through
+# `ndarray::simd::U64x8` per `ndarray-vertical-simd-alien-magic.md`. Verified
+# here: `cargo test/clippy --features ndarray-simd` → 33/33, clippy clean
+# (ndarray builds as a path dep with default-features=false + std; the
+# `ndarray-rand` workspace member is NOT pulled).
+#
+# TARGET-CPU: the U64x8 polyfill is CORRECT on any target but only emits the
+# real vector kernels (AVX-512 VPOPCNTQ for popcnt, AMX for the matmul/VNNI
+# paths) when built for native silicon. Build with
+#   RUSTFLAGS="-C target-cpu=native"   (this machine), or
+#   RUSTFLAGS="-C target-cpu=x86-64-v4"  (AVX-512 baseline)
+# Without it the popcnt path is the scalar fused-loop fallback — same result,
+# no SIMD speedup. The default (scalar) feature does not pull ndarray at all.
+ndarray-simd = ["dep:ndarray"]
+
+[dependencies.ndarray]
+path = "../../../ndarray"
+optional = true
+default-features = false
+# `std` gates `ndarray::simd` (the `U64x8` polyfill); that is all we need.
+features = ["std"]
 
 [lib]
 doctest = true

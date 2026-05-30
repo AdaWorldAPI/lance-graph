@@ -46,18 +46,32 @@
 //! pair-stats (D-ARM-3). The ratification council still governs *promotion to
 //! the SPO store*, but no longer because of any nondeterminism here.
 
+//! # SIMD seam
+//!
+//! The data-confirmation count loop transposes the window into row bitsets
+//! ([`bitset::RowMasks`]) so every candidate's count is an `AND` + popcount
+//! over `&[u64]` ([`simd`]). The default path is scalar (`u64::count_ones`),
+//! keeping the crate std-only and independently verifiable; the optional
+//! `ndarray-simd` feature routes that primitive through `ndarray::simd::U64x8`
+//! per `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` (zero raw
+//! intrinsics in this crate). The palette256 [`aerial::CodebookDistance`]
+//! oracle is similarly SIMD on the consumer side (`bgz17::batch_palette_distance`).
+
 #![forbid(unsafe_code)]
 
 pub mod aerial;
+pub mod bitset;
 pub mod encode;
 pub mod ndjson;
 pub mod rule;
+pub mod simd;
 pub mod translator;
 
 pub use aerial::{
     antecedent_distance, extract_rules, AerialParams, AerialProposer, CodebookDistance,
     ExtractParams, MatrixDistance,
 };
+pub use bitset::RowMasks;
 pub use encode::{Dataset, FeatureSpec};
 pub use rule::{CandidateRule, Item, Proposer, PPM};
 pub use translator::{

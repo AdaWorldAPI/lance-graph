@@ -22,6 +22,7 @@
 //! `P(Y|X) ≈ P(Y)` for independent `Y`. No softmax, no seed, no `f32`.
 
 use crate::aerial::codebook::{antecedent_distance, CodebookDistance};
+use crate::bitset::RowMasks;
 use crate::encode::Dataset;
 use crate::rule::{CandidateRule, Item};
 
@@ -66,13 +67,17 @@ pub fn extract_rules(
         return Vec::new();
     }
 
+    // Transpose the window into row bitsets once; every count below is then an
+    // AND + popcount (the `ndarray::simd` seam), not an AoS rescan.
+    let masks = RowMasks::build(data);
+
     // Frequent single items (support floor) — the apriori prune that bounds
     // the antecedent search, grouped by feature. Integer ppm.
     let mut frequent_by_feature: Vec<Vec<Item>> = vec![Vec::new(); spec.num_features()];
     for (f, bucket) in frequent_by_feature.iter_mut().enumerate() {
         for cat in 0..spec.cardinality(f) {
             let item = Item::new(f as u32, cat);
-            let count = data.count_matching(&[item]);
+            let count = masks.support_count(item);
             let support_ppm = ((count as u64 * crate::rule::PPM) / n as u64) as u32;
             if support_ppm >= params.min_support_ppm {
                 bucket.push(item);
@@ -88,7 +93,7 @@ pub fn extract_rules(
     for size in 1..=max_ant {
         for feature_combo in feature_combinations(&candidate_features, size) {
             for antecedent in item_product(&feature_combo, &frequent_by_feature) {
-                probe(oracle, data, &antecedent, &feature_combo, params, &mut rules);
+                probe(oracle, data, &masks, &antecedent, &feature_combo, params, &mut rules);
             }
         }
     }
@@ -105,9 +110,11 @@ pub fn extract_rules(
 /// Probe one antecedent: for each other feature, take the codebook-nearest
 /// category; if within `theta`, confirm on data and emit if it clears the
 /// ARM floors.
+#[allow(clippy::too_many_arguments)]
 fn probe(
     oracle: &dyn CodebookDistance,
     data: &Dataset,
+    masks: &RowMasks,
     antecedent: &[Item],
     antecedent_features: &[usize],
     params: &ExtractParams,
@@ -115,7 +122,7 @@ fn probe(
 ) {
     let spec = &data.spec;
     let n = data.len() as u32;
-    let antecedent_count = data.count_matching(antecedent);
+    let antecedent_count = masks.and_count(antecedent);
     if antecedent_count == 0 {
         return;
     }
@@ -140,7 +147,7 @@ fn probe(
         let consequent = vec![Item::new(g as u32, best_cat)];
         let mut both = antecedent.to_vec();
         both.extend_from_slice(&consequent);
-        let cooccur = data.count_matching(&both);
+        let cooccur = masks.and_count(&both);
 
         let rule = CandidateRule {
             antecedent: antecedent.to_vec(),

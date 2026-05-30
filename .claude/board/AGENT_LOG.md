@@ -1,3 +1,13 @@
+## [Main thread / Opus] D-ARM-13 SIMD seam — bitset SoA + ndarray::simd::U64x8 (AND+popcount)
+
+**Branch:** claude/jolly-cori-clnf9 | **Files:** `crates/lance-graph-arm-discovery/` — ADDED `bitset.rs` (`RowMasks` row-bitset SoA), `simd.rs` (`popcount`/`and_popcount`, scalar default + `ndarray-simd` feature); rewired `aerial/extract.rs` (probe counts via `RowMasks`, not AoS rescan); `lib.rs`, `Cargo.toml` (`ndarray-simd` feature + optional ndarray path dep, `default-features=false` + `std`), `README.md`.
+
+**Cargo:** DEFAULT (scalar, zero-dep) → **33/33**, clippy `-D warnings` clean. `--features ndarray-simd` → **33/33**, clippy clean (ndarray builds here as a path dep with `std`; `ndarray-rand` NOT pulled).
+
+**Outcome:** DONE. User directive: "use ndarray crate::simd::*". The data-confirmation count loop is the `faiss-homology` "SIMD batch-AND over the SoA facet column" workload. Transposed the window into one `u64` bitset per item (`RowMasks`), so every candidate count is `AND` + popcount over `&[u64]`. Per `ndarray-vertical-simd-alien-magic.md` (MANDATORY), the primitive routes through `ndarray::simd::U64x8` (`from_slice`/`&`/`popcnt`/`to_array`) — zero raw intrinsics, zero `cfg(target_arch)` in this crate; scalar `u64::count_ones` is the default so the crate stays std-only/verifiable. **target-cpu caveat** (per user): the real AVX-512 VPOPCNTQ / AMX kernels need `-C target-cpu=native` or `x86-64-v4`; otherwise it is ndarray's correct-but-scalar polyfill. The palette256 `CodebookDistance` oracle is SIMD on the consumer side (`bgz17::batch_palette_distance` / BLASGraph splat top-k). PR #436 updated.
+
+---
+
 ## [Main thread / Opus] D-ARM-13 de-float — autoencoder → deterministic codebook-probe (palette256)
 
 **Branch:** claude/jolly-cori-clnf9 | **Files:**

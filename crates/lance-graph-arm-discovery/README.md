@@ -71,9 +71,23 @@ The Python-IPC isolation rationale (D-ARM-9) is fully moot.
 ## Build & test
 
 ```bash
+# Default: scalar, std-only, zero-dep (independently verifiable)
 cargo test  --manifest-path crates/lance-graph-arm-discovery/Cargo.toml
 cargo clippy --manifest-path crates/lance-graph-arm-discovery/Cargo.toml --all-targets -- -D warnings
+
+# SIMD: route the bitset AND+popcount through ndarray::simd::U64x8
+cargo test --manifest-path crates/lance-graph-arm-discovery/Cargo.toml --features ndarray-simd
 ```
+
+The count loop transposes the window into row bitsets (`bitset::RowMasks`) so
+every candidate count is an `AND` + popcount over `&[u64]` (`simd.rs`). The
+default path is scalar `u64::count_ones`; the `ndarray-simd` feature swaps in
+`ndarray::simd::U64x8` (zero raw intrinsics here — the polyfill owns dispatch).
+
+**target-cpu:** the `U64x8` path is correct everywhere but only emits the real
+vector kernels (AVX-512 VPOPCNTQ, AMX) when built for native silicon —
+`RUSTFLAGS="-C target-cpu=native"` or `-C target-cpu=x86-64-v4`. Otherwise it is
+ndarray's scalar fused-loop fallback (same result, no speedup).
 
 ## Status
 
