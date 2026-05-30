@@ -1,3 +1,17 @@
+## 2026-05-30 — SHIPPED-in-PR: D-MBX-A6-P3a — StyleStrategy (thinking-style planning substrate wired into the planner)
+
+**Status:** SHIPPED-in-PR #439 (builds on A6-P1 #437 / A6-P2). First live cut of D-MBX-A6-P3 consumer wiring.
+
+`lance-graph-planner` now CONSUMES the contract cognitive substrate (it referenced none before): new `strategy::style_strategy::StyleStrategy` (#18 in `default_strategies()`) resolves the active `ThinkingStyle` → `cluster()` → `cluster_mechanism()` → selects which of the 34 `recipe_kernels::Tactic` fire over a `ThoughtCtx` built from `PlanContext` markers (`free_will_modifier`→temperature). The **style selects the recipe** (cluster→mechanism), not a hardcoded id list — and carries `style.tau()` (the JIT macro address, grounds `ExecTarget::Jit`). Mirrors `mul::escalation` (thin planner module over zero-dep contract). Planner already deps contract; NO new dep edge; contract stays zero-dep (no circular-dep, the AriGraph trap avoided).
+
+Verified: 3 new tests (analytical→truth-aware selection; every cluster→mechanism total over RECIPES; plan() passes through) + 192 planner lib green; rustfmt-clean; rebased onto main post-#438 (arm-discovery, no collision).
+
+**Deferred (the rest of A6-P3, per the design map):** i4-32D `thinking_style` vec → argmax `ThinkingStyle` decode; `Outcome`→`Candidate`/`KanbanMove` adapter; `tau`→`JitTemplate`→Cranelift `KernelHandle` compile (the real ExecTarget::Jit path); recipe-outcome→membrane commit via `CognitiveOpKind::MetaWordCommit` (OrchestrationBridge, never callcenter→planner); pre-recipe-fire RBAC (today pre-commit only); `class_id`→`recipe_id` resolver (ontology gap).
+
+**Cross-ref:** `planner::strategy::style_strategy`; `contract::{thinking(tau/cluster),recipes,recipe_kernels}`; `mul::escalation` precedent (#411); `ExecTarget::{Jit,Elixir}` (#439); `OntologyRegistry::attach_thinking_style` (registry.rs:311, the existing class→style seam); D-MBX-A6-P3.
+
+---
+
 ## 2026-05-30 — RE-CENTER: thinking-styles ARE the planning substrate — i4-32D style → τ address → JITson/Cranelift template → KernelHandle; recipes are what styles SELECT. (corrects the recipe-centric framing of the build target above)
 
 **Status:** BUILD-GRADE correction (user 2026-05-30: "thinking styles are the most important planning substrate… i4-32D thinking styles and jit/JITson cranelift compiler templates"). Re-centers the default-recipe build target one entry up: styles are the dispatcher, recipes are the tactics dispatched. Grounded by grep (file:line).

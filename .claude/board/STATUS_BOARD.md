@@ -566,6 +566,7 @@ Plan path: `.claude/plans/unified-soa-convergence-v1.md`. Handover `.claude/hand
 | D-MBX-12 | 8-PR workspace-wide consumer alignment: 12.1 AriGraph · 12.2 Vsa16k audit · 12.4 lance-graph · 12.5 planner · 12.6 shader-driver · 12.7 callcenter · 12.8 ontology audit · 12.9 thinking-styles | per-crate | 800 | per-PR | **Queued (multi-PR)** | sequencing per OQ-11.8: 12.4 → 12.5 → 12.6 → 12.7 → 12.1 → 12.9 → 12.2 → 12.8 |
 | D-MBX-A6-P1 | contract slice of D-MBX-A6: `kanban::{KanbanColumn, KanbanMove}` + `soa_view::{MailboxSoaView, MailboxSoaOwner}` + `StepDomain::Kanban` — the planner⟷ractor⟷surreal seam, zero-dep, no parallel DTO family | lance-graph-contract | 340 | HIGH | **Shipped** | #437 (merged 9161bd7); + `class_id` N1 hook ride-along |
 | D-MBX-A6-P2 | Rubicon lifecycle enforcement + exec-target tag: `KanbanColumn::{next_phases, can_transition_to, is_absorbing}` (the lifecycle DAG) + `MailboxSoaOwner::try_advance_phase` (checked, `RubiconTransitionError`) + `ExecTarget{Native,Jit,SurrealQl,Elixir}` on `KanbanMove` | lance-graph-contract | 120 | LOW | **In PR** | builds on P1; 489 lib tests (+4); downstream cargo-check clean; gates the ractor owner-impl + planner emit (P3) |
+| D-MBX-A6-P3a | StyleStrategy: thinking-style -> cluster -> mechanism -> recipe_kernels Tactic selection (planning substrate; carries tau JIT addr) | lance-graph-planner | 130 | LOW | **In PR** | #439; first cut of A6-P3 consumer wiring; planner now consumes contract recipes/styles; deferred: i4-32D decode, Outcome->Candidate, tau->JIT, membrane commit |
 
 ---
 
