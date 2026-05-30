@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright The Lance Authors
+
+[package]
+name = "lance-graph-arm-discovery"
+version = "0.1.0"
+edition = "2021"
+description = "Streaming association-rule discovery (Aerial+ transcode) → NARS-truth SPO candidates"
+license = "Apache-2.0"
+
+# Standalone, zero-dependency crate — EXCLUDED from the workspace (see root
+# Cargo.toml `exclude`), exactly like bgz17 / deepnsm / bgz-tensor. It is
+# verified independently with:
+#
+#   cargo test --manifest-path crates/lance-graph-arm-discovery/Cargo.toml
+#
+# This keeps the nondeterministic Aerial+ autoencoder OUT of the deterministic
+# lance-graph compile path (the determinism-boundary doctrine of
+# `streaming-arm-nars-discovery-v1.md`). When D-ARM-1/D-ARM-2 land the shared
+# `lance-graph-contract` carriers, this crate adopts them by path dep; the
+# local `rule`/`translator` types are the seam until then.
+
+[dependencies]
+# none — std only (deterministic, offline-buildable, no neural framework).
+
+[features]
+default = ["aerial"]
+# The Aerial+ neurosymbolic proposer. Gated so a deployment can compile the
+# carriers (`rule`, `translator`, `ndjson`) without the autoencoder.
+aerial = []
+
+[lib]
+doctest = true

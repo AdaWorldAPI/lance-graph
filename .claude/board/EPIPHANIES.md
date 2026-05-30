@@ -1,3 +1,21 @@
+## 2026-05-30 — E-DISCOVERY-CODEGEN-BRACKET-1 (realised) — the Aerial+ transcode is the runtime-data frontend of a bracket whose substrate + codegen legs ALREADY EXIST in the ruff fork; the ruff SPO predicate vocabulary is the only missing seam
+
+**Status:** FINDING (type-level, grounded in source read 2026-05-30) + CONJECTURE (the three D-ARM-SYN wiring deliverables). Author-stated; the three wirings are council-gated.
+
+The two-paper bracket (`streaming-arm-nars-discovery-v1.md`: Aerial+ discovery upstream, Abreu M2M codegen downstream, SPO+NARS middle) is not a future aspiration — **its substrate and both codegen legs are already implemented in `adaworldapi/ruff`** and `lance-graph-ontology`. Transcoding Aerial+ to Rust (D-ARM-13) made this concrete:
+
+1. **One substrate, three frontends.** `ruff_spo_triplet::Triple { s, p, o, f, c }` *"mirrors `lance_graph::graph::spo::odoo_ontology::OntologyTriple` field-for-field"* and its ndjson is *"exactly what `parse_triples` reads."* Three proposer frontends converge on it: `ruff_python_dto_check` (static Python AST → `Extracted`/Authoritative), `ruff_ruby_spo` (Rails scaffold), and **`lance-graph-arm-discovery` (Aerial+, runtime data → `ArmDiscovered`)**. The first two are bounded by the literal artifact; only the ARM leg surfaces co-correlations that exist solely in runtime rows.
+
+2. **Two codegen legs, one thesis.** `op_emitter.rs` (ratified SoA → deterministic Rust dispatch) and `ruff_python_codegen::round_trip` (AST → deterministic Python) are the same externalise-interpretation thesis the Abreu paper validates, in two target languages. Both sit downstream of the ratification firewall.
+
+3. **The truth scale is already shared.** Aerial's `arm_to_nars` produces the exact `(f, c)` that `TruthValue::new` and `ruff_spo_triplet::Provenance::truth()` carry, and `NarsTruth::expectation()` reimplements `TruthValue::expectation` so one `TruthGate` covers mined and extracted facts alike.
+
+4. **The one missing seam (the actionable finding).** `ruff_spo_triplet::Predicate` is a **closed vocabulary** (`rdf:type, has_function, emitted_by, depends_on, reads_field, raises, traverses_relation`) and `from_ndjson` **hard-rejects** anything else — and **none of them is an implication/association relation.** An `X → Y` ARM rule therefore cannot flow through that loader until `Implies`/`CoOccursWith` is added (a *deliberate* ontology change per that crate's own doc). This is D-ARM-SYN-1; it gates SYN-2 (the `CandidateRule → ModelGraph` adapter) and SYN-3 (the `ArmDiscovered` truth calibration below the codegen gate).
+
+**Determinism boundary (unchanged, reaffirmed):** Aerial+ is the only nondeterministic node in the bracket. The transcode keeps it standalone, seeded (`aerial::Rng`), behind the `aerial` feature, and emitting a `CandidateRule` *proposal* — never a committed triple. Promotion is the council's job. Full map: `.claude/knowledge/aerial-arm-ruff-spo-codegen-synergies.md`. Code: `crates/lance-graph-arm-discovery/`. Cross-ref: `E-INTERPRET-NOT-STORE-1`, `E-SOA-IS-THE-ONLY`, `I-NOISE-FLOOR-JIRAK`, Karabulut 2025 §2/§3.3, Abreu 2025 §4.
+
+---
+
 ## 2026-05-29 — E-SOA-IS-THE-ONLY — there is ONE SoA, never transformed; mailbox SoA mutation IS the hot path; Libet −550 ms anchors the Rubicon kanban in surrealkv-on-lance; SPO-W witness is a *pointer* via the belief-state arc
 
 **Status:** CONJECTURE / design (user-stated 2026-05-29, post-PR-#433). Records five layered rulings; details in `bindspace-singleton-to-mailbox-soa-v1.md` §11.1–§11.5. Author-stated; not council-gated.
