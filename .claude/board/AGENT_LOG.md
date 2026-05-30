@@ -1,3 +1,37 @@
+## [Main thread / Opus 4.7] post-#438 integration recalibration — 4-savant council convened, verdicts logged, auto-resolved per protocol
+
+**Branch:** claude/activate-lance-graph-att-k2pHI (rebased onto post-#438 main, HEAD 8d75294b → new head this commit) | **Files:**
+- `.claude/plans/post-438-integration-options-v1.md` (+146 LOC NEW) — the 8-option integration plan the council reviewed
+- `.claude/knowledge/discovery-origin-provenance-reconciliation-v1.md` §8 fixed (specs are on main, not on a separate branch — corrected the stale citation from pre-rebase v1)
+- `.claude/handovers/2026-05-29-2230-odoo-blueprint-survival-dossier.md` §7 fixed (Wave 1 went D-ARM-13/14 via #436/#438, NOT D-ARM-1/2 as originally planned)
+- `.claude/board/ISSUES.md` — 2 new escalations: OD-CANONICAL-SPEC-DISAGREEMENT-TIER-SET + OD-PROPOSER-ID-WIDTH-CHOICE (both flagged as SPEC-OWNER decisions, NOT Claude-session)
+- `.claude/board/EPIPHANIES.md` — prepend E-DISCOVERY-ORIGIN-HOME-IS-ARIGRAPH-BRIDGE (R2's missing-integration finding: the byte's natural home is the AriGraph bridge column, not the mailbox-SoA byte)
+- `.claude/board/STATUS_BOARD.md` — appended D-CHESS-BRINGUP-1 row to the streaming-arm-nars table (the canonical N4 falsifier, now unblocked by #436's Rust Aerial+)
+- This entry
+
+**Cargo:** workspace `cargo check` clean (only pre-existing v1 CausalEdge deprecation warnings); no code touched this session.
+
+**Outcome:** DONE per options-doc §5 auto-resolve protocol. User asked: "create the integration plan as a list of possibilities, then use the council and brutally honest review to recalibrate, then continue autoattended autonomous decision making and auto resolve." Delivered.
+
+**Council convened in parallel (4 reviewers, Opus, single main-thread turn):**
+- R1 (architectural-fit): B+C **conditional on adding N1 `class_id` in same pass + u16 width + treat Conjecture as proposer-local + Derived as orthogonal axis**. Author's u8/6-bit lean called penny-wise given class_id must also widen.
+- R2 (prior-art): **B+H. Rejects C — re-litigates user-owned forks per core spec F4 + reconciliation OD-1.** Names G (chess) as the canonical N4 freeze-blocker per spec, not a peer option. Surfaces the AriGraph hot↔cold bridge as the ACTUAL integration target the options doc missed entirely (`E-ARIGRAPH-IS-AN-ISLAND` + `D-REUNIFY-1/2/3` prior art). Flags #439 may share CSI-1 ratification gate with sprint-11 queue.
+- R3 (integration-coordination): **B+D. Rejects C — in-flight collision with #439** (same `lance-graph-contract` crate, 31 commits, unstable, `KanbanMove` `const _` size assertion ≤16B). Defer C until #439 lands. Names tier-set conflict as "correctness risk laundered as coordination risk."
+- R4 (brutal-critic): **B+G. Rejects C as ego-shipping.** Calls author's §3 bias-confessing-then-doing-it-anyway. Names the two canonical specs disagreeing on tier set as SPEC FREEZE, not a Claude-session decision. Cites session's prior hallucinations (CLAUDE.md pin, "70" entities, plan §7.2 vs §8 contradiction) as pattern → "third strike waiting to happen."
+
+**Auto-resolve verdict (per §5):**
+- **B unanimous (4/4) → EXECUTED** (the 2 stale-citation fixes in this commit).
+- **C: 3/4 reject → NOT EXECUTED.**
+- **OD-1/2/3 → escalated to ISSUES.md as SPEC-OWNER decisions** (R2 + R4 unanimous on this framing).
+- **R2's AriGraph-bridge finding → captured as EPIPHANY** (genuinely new, missed by all prior session work).
+- **G (chess bring-up): 2/4 endorse → NOT executed this branch** (R1 explicit "needs its own branch + freeze-decision authority"); queued to STATUS_BOARD as D-CHESS-BRINGUP-1.
+- **D (#439 help): 1/4 → not executed** (below threshold; R3's lone endorsement).
+- **H (cargo clean, 3.3G free): 1.5/4 (R2 + R3 in combos) → flagged for user; not auto-executed** (touches workflow not architecture).
+
+**What the user has on disk after this commit:** clean rebase onto post-#438 main, fixed stale citations, two new spec-owner decisions logged, one new epiphany surfaced by the council (AriGraph bridge as discovery_origin home), chess bring-up queued as the next canonical falsifier. No code modified. The byte-grammar fight is genuinely paused at the spec-owner gate; the contract crate is untouched.
+
+---
+
 ## [Main thread / Opus] D-ARM-14 Phase 1 — splat-top-k oracle + DOLCE skeleton projector
 
 **Branch:** claude/jolly-cori-clnf9-darm14 (off post-merge main) | **Files:** `crates/lance-graph-arm-discovery/src/{aerial/codebook.rs (+TopKDistance), aerial/ontology.rs (new), aerial/mod.rs, encode.rs (+checked_slot), lib.rs}` + STATUS_BOARD (D-ARM-14 → In progress).

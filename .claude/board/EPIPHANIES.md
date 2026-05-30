@@ -523,6 +523,20 @@ The SoA is FIXED (frozen byte-shape) ⇒ the "duplicate" is the SAME shape insta
 **BindSpace consumers (singleton→per-mailbox migration surface, grep 2026-05-30):** contract `{cognitive_shader,splat,lib}.rs`; planner `{cache/convergence,lib}.rs`; cognitive-shader-driver `{driver,wire,engine_bridge,mailbox_soa,proposal,serve,wire_dto,spo_bridge,cognitive_shader,cognitive_shader_dispatch,spo_witness,cam}.rs`. The singleton still threads through driver/engine_bridge/wire*; `spo_witness.rs` is the existing witness seam to reconcile with EW64. (Ref D-MBX-3/5: kill `BindSpace::zeros(4096)` singleton; migrate consumers to per-mailbox MailboxSoA.)
 
 **Cross-ref:** `E-ARIGRAPH-PAPER-GROUNDS-CE64-EW64`; `E-AERIAL-FEEDS-EW64-PREFETCH`; `E-ARIGRAPH-IS-AN-ISLAND`; `F-RESONANCEDTO-IS-LAYERED-NOT-DUP`; D-MBX-3/5/A5; I-VSA-IDENTITIES.
+## 2026-05-30 — E-DISCOVERY-ORIGIN-HOME-IS-ARIGRAPH-BRIDGE — the `discovery_origin` byte's natural home is the AriGraph hot↔cold bridge column, not the mailbox-SoA byte — surfaced by council prior-art savant 2026-05-30
+
+**Status:** FINDING (R2 council verdict, 2026-05-30, recorded in `AGENT_LOG.md`). Documentation-only; no code or plan modified. Cross-ref: `E-ARIGRAPH-IS-AN-ISLAND` (the prior finding the options doc author missed), `E-ARIGRAPH-PAPER-GROUNDS-CE64-EW64` (CE64 = AriGraph semantic edge; EW64 = AriGraph episodic edge), `.claude/plans/post-438-integration-options-v1.md` §3 (the author's bias the council attacked).
+
+The 2026-05-30 council convening on the post-#438 integration options surfaced an integration target the options-doc author **completely omitted**: the AriGraph hot↔cold bridge. R2 cited `E-ARIGRAPH-IS-AN-ISLAND` + `D-REUNIFY-1/2/3` — the unwired bridge between `arigraph/triplet_graph.rs` (semantic Es) / `arigraph/witness_corpus.rs` (episodic Ee) and the hot SoA (CE64/EW64 cols) / cold Lance store. Per `E-ARIGRAPH-PAPER-GROUNDS-CE64-EW64`, CE64 IS an AriGraph semantic edge; EW64 IS an AriGraph episodic edge; the witness arc IS Ee.
+
+**The reframe:** if `discovery_origin` widens to `u16`, its natural carrier is **a column on the AriGraph bridge**, not the mailbox-SoA byte. Three reasons:
+1. Provenance is a property of WHERE-A-FACT-CAME-FROM = what the AriGraph semantic edge encodes (CE64's `discovery_origin` slot lives natively there).
+2. The mailbox-SoA byte is a hot-path performance compromise that bakes provenance into the row-level layout; the bridge is the architectural seam where hot meets cold and provenance MUST be materialized per witness-materialization invariant (cognitive-risc-core #5).
+3. The wikidata spec's `Derived` tier is *already* declared as living on the reasoning store via `provenance=Derived` column (wikidata-hhtl-load.md:25). The same column home works for the other tiers; the byte is then a hot-path projection of the bridge column, not the source of truth.
+
+**Author's options-doc miss:** all 8 options framed `discovery_origin` as a mailbox-SoA byte question. None considered the bridge-column framing. The kind of architectural drift the prior-art-savant role exists to catch.
+
+**Consequence:** OD-1 (6-bit vs u16) is partially settled by this. If the byte is a projection of a bridge column, the column can be u16 (or any width) without binding the hot-path byte. The byte becomes a cache, not the ISA.
 
 ---
 

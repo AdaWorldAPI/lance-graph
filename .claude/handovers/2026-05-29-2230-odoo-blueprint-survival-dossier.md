@@ -70,7 +70,7 @@ This dossier exists so that **a fresh session reading only this file + the three
 | Run the extractor on a new addon | `odoo-extraction-tools-v1.md` §2 (run procedure) |
 | Light a Stage-2 dark D-Atom | `odoo-extraction-tools-v1.md` §2 (known gaps subsection — extractor enrichment targets) |
 | Add a new ProvenanceTier (4th leg) | `odoo-extraction-strategies-v1.md` §6 (what this doctrine forbids — the rules for any new leg) |
-| Implement ARM-discovery Wave 1 | `.claude/plans/streaming-arm-nars-discovery-v1.md` §9 (execution order) + `.claude/handovers/2026-05-29-2030-arm-discovery-author-to-impl.md` |
+| Implement ARM-discovery Wave 1 | **STALE** — Wave 1 went via PR #436 (D-ARM-13: Aerial+ Rust transcode as standalone crate `lance-graph-arm-discovery`) + PR #438 (D-ARM-14 P1: splat-top-k oracle + DOLCE projector), NOT D-ARM-1/2 as originally planned. The contract carriers (`ProvenanceTier`, `Proposer`, `CandidateRule`) are still NOT in `lance-graph-contract` per #436 PR note ("no contract carriers added yet — `rule`/`translator` are the local seam until D-ARM-1/2 land them"). New entry point: read `crates/lance-graph-arm-discovery/src/` + `.claude/plans/post-438-integration-options-v1.md` for the council recalibration. |
 
 ---
 

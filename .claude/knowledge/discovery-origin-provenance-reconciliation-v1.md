@@ -156,15 +156,15 @@ Not applied in this pass (instruction: document only). The fix is unambiguous an
 
 ## 8. WHERE THE CANONICAL SPECS LIVE (and their own disagreement)
 
-The four uploaded specs are **NOT on this branch** (`claude/activate-lance-graph-att-k2pHI`). `.claude/specs/` does not exist here. They live only on `remotes/origin/claude/cognitive-risc-core-9PMW8`:
-- `cognitive-risc-core.md` (v0.1) — substrate invariants; the discovery_origin layout.
-- `cognitive-risc-classes.md` (v0.2) — class/shape layer; restates proposer-id width as freeze-time move N2.
-- `faiss-homology.md` (v0.1) — CAM/CAM_PQ; homology-is-cheat-sheet warning.
-- `wikidata-hhtl-load.md` (v0.1) — load pipeline; uses the `Derived` tier name.
+The four uploaded specs now live on **this branch** at `.claude/specs/` (verified post-rebase 2026-05-30 onto `origin/main` HEAD `4b00d049`; the specs landed via main commits `d1635dbe`, `93ac0463`, `a16d0f41`, `45276eb3`):
+- `.claude/specs/cognitive-risc-core.md` (v0.1) — substrate invariants; the discovery_origin layout.
+- `.claude/specs/cognitive-risc-classes.md` (v0.2) — class/shape layer; restates proposer-id width as freeze-time move N2; promotes F1 to "frozen identity under live resolution" and adds N1 (`class_id`/`shape_id` column before freeze) as a paired non-deferrable.
+- `.claude/specs/faiss-homology-cam-pq.md` (v0.1) — CAM/CAM_PQ; homology-is-cheat-sheet warning; "Reasoning layer = separate indexed store, Derived tier" line that argues `Derived` is a different axis from `ArmDiscovered/Ratified`.
+- `.claude/specs/wikidata-hhtl-load.md` (v0.1) — load pipeline; uses the `Derived` tier name and explicitly calls reasoning "orthogonal=beside, not mixed in."
 
-**The canonical set disagrees with itself on ONE point:** the core spec's tier set is {Curated, Extracted, ArmDiscovered, Ratified}; the wikidata spec's is {Curated, Extracted, Derived}. `Derived` vs `ArmDiscovered`+`Ratified` is unreconciled IN the canonical corpus. Whoever owns the specs should make one pass to reconcile (see OD-2). Until then, "the canonical specs" is not a single answer on the tier set — it is a single answer on the proposer-id width (widen to 64/u16) and an open question on the tier set.
+**Correction of v1 of this doc:** the first version of this section said the specs lived only on `origin/claude/cognitive-risc-core-9PMW8`. That was true when written (pre-rebase) and became wrong when the specs were merged to main. Fixed 2026-05-30.
 
-**Branch-merge note (not an action, just a fact):** because the specs are on a different branch, this reconciliation doc quotes the relevant lines inline so it is self-contained on THIS branch regardless of whether the spec branch is ever merged here.
+**The canonical set disagrees with itself on ONE point:** the core spec's tier set is `{Curated, Extracted, ArmDiscovered, Ratified}`; the wikidata spec's is `{Curated, Extracted, Derived}`. `Derived` vs `ArmDiscovered`+`Ratified` is unreconciled IN the canonical corpus. **Council reading (2026-05-30, 4 of 4 reviewers): this is a SPEC-OWNER decision, not a Claude-session decision.** Filed to `.claude/board/ISSUES.md` as OD-1/2/3 + the canonical-self-disagreement; do NOT ship `ProvenanceTier` into code until the spec owner reconciles. The reading the faiss-homology + wikidata specs together support — `Derived` is a separate orthogonal "reasoning provenance" axis, not a tier value, so the core's stable-4 holds — is offered as the council's recommendation if the spec owner wants a default to ratify or reject.
 
 ---
 
