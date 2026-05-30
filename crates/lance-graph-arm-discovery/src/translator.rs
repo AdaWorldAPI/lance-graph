@@ -76,8 +76,10 @@ pub trait FeedProjector {
     fn object(&self, consequent: &[Item]) -> String;
 }
 
-/// One SPO triple with NARS truth — byte-compatible with
-/// `ruff_spo_triplet::Triple` and the SPO store's ndjson loader.
+/// One SPO triple with NARS truth — shape-compatible with
+/// `ruff_spo_triplet::Triple` and the SPO store's ndjson loader (same
+/// `{s,p,o,f,c}` fields; see [`crate::ndjson`] for the predicate-vocabulary
+/// caveat that gates the `ruff` loader on D-ARM-SYN-1).
 ///
 /// `(s, p, o)` is the identity; `(f, c)` is the data-derived truth. The
 /// `origin` byte records that this triple came from the ARM-discovery

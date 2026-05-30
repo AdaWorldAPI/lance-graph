@@ -9,9 +9,11 @@ Rust transcode of **Aerial+** — neurosymbolic association-rule mining
 (Karabulut, Groth, Degeler, *Neurosymbolic Association Rule Mining from
 Tabular Data*, arXiv 2504.19354v1). The **upstream proposer leg** of
 `streaming-arm-nars-discovery-v1.md`: it mines `(X → Y)` rules from tabular
-runtime data and lifts each into a NARS-truth SPO candidate that the
-`lance_graph` SPO store consumes through the **same ndjson contract** as the
-static `ruff_spo_triplet` extractor.
+runtime data and lifts each into a NARS-truth SPO candidate emitted in the
+**same ndjson shape** (`{s,p,o,f,c}`) as the static `ruff_spo_triplet`
+extractor. The lance-graph `parse_triples` loader consumes it directly; the
+`ruff` `from_ndjson` loader accepts it only after its closed predicate
+vocabulary gains an implication relation (D-ARM-SYN-1).
 
 ```text
   rows ─► one-hot ─► denoising autoencoder ─► Algorithm 1 probe ─► CandidateRule
@@ -34,8 +36,10 @@ like `bgz17` / `deepnsm`) and depends on `std` only. Two reasons:
    must vet before any codegen leg consumes it.
 2. **Reproducibility.** Every random source draws from one seeded SplitMix64
    stream (`aerial::Rng`), so the same seed + data + hyper-parameters give
-   bit-identical weights and identical mined rules — auditable despite being
-   a neural net.
+   reproducible weights and identical mined rules *on a given target* —
+   auditable despite being a neural net. (Intra-platform reproducibility, not
+   bitwise-portable determinism: float `tanh`/`exp` + FMA can differ across
+   targets.)
 
 ## Layout
 

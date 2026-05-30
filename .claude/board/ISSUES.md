@@ -72,6 +72,10 @@ gets buried.
 
 ## Open Issues
 
+## 2026-05-30 — [ARM-JIRAK-FLOOR] Aerial+ proposer (D-ARM-13) ships without the mandatory Jirak Stage-A floor
+
+**Status: OPEN.** Surfaced by the 3-savant brutal review of D-ARM-13 (iron-rule-savant #1 finding, brutally-honest-tester P1). The transcoded Aerial+ proposer (`crates/lance-graph-arm-discovery`) gates rule emission only on classical `min_support`/`min_confidence` (`extract.rs` → `rule::CandidateRule::passes`). `I-NOISE-FLOOR-JIRAK` and `streaming-arm-nars-discovery-v1.md` §4 (line 395 "This is not optional") + §11.1 declare the Jirak weak-dependence significance floor **mandatory at Stage A** — but `jirak` exists nowhere in the crate and **D-ARM-7 (the Jirak module) is Queued**. Consequence: with `c = m/(m+k)` saturating as `m = support×n` grows, a thin-but-frequent spurious rule at a 200K window becomes a high-confidence candidate → "substrate calcifies on noise." **Hard prerequisite:** D-ARM-7 MUST land before this proposer is wired into D-ARM-5 (the first stage where `(f,c)` meets a live `SpoStore` + `TruthValue::revision`). Documented honestly in `rule.rs::passes` doc + the synergy doc §4. Resolve by: implement D-ARM-7 and route `extract_rules` emission through `jirak_significance_threshold` BEFORE the classical floor.
+
 ## 2026-04-20 — [E-MEMB-1] Python↔Rust slice layouts are incompatible at the 10 kD membrane
 
 **Status:** Open

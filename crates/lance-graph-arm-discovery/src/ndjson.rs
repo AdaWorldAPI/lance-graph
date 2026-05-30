@@ -3,12 +3,19 @@
 
 //! Newline-delimited JSON emit for [`CandidateTriple`].
 //!
-//! The on-the-wire shape is **byte-compatible** with `ruff_spo_triplet::ndjson`
-//! and with what `lance_graph::graph::spo::odoo_ontology::parse_triples`
-//! reads: one `{"s","p","o","f","c"}` object per line, field order
-//! `s, p, o, f, c`, trailing newline. Emitting through this module is what
-//! lets an ARM-discovered rule load into the SPO store through the *same*
-//! loader as the static `ruff` extractor — no transform, no second format.
+//! The on-the-wire shape is **shape-compatible** (same `{"s","p","o","f","c"}`
+//! object per line, field order `s, p, o, f, c`, trailing newline) with
+//! `ruff_spo_triplet::ndjson` and with what
+//! `lance_graph::graph::spo::odoo_ontology::parse_triples` reads.
+//!
+//! **Loader caveat (verified by review):** the lance-graph `parse_triples`
+//! loader does *not* check the predicate and **accepts** the output as-is. But
+//! `ruff_spo_triplet::from_ndjson` enforces a *closed predicate vocabulary*
+//! and **rejects** the `implies` predicate this crate emits — so output flows
+//! into the SPO store via `parse_triples` today, but NOT through the `ruff`
+//! loader until `Implies` is added to that vocabulary (D-ARM-SYN-1). "Same
+//! loader as the static ruff extractor" is the *goal*, gated on SYN-1; it is
+//! not true on this branch.
 //!
 //! This is a zero-dependency hand emitter (no `serde_json`) so the crate
 //! stays std-only and offline-buildable. It produces the same logical shape;

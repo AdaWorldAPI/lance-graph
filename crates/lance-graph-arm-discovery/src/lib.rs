@@ -9,9 +9,11 @@
 //! Degeler — *Neurosymbolic Association Rule Mining from Tabular Data*,
 //! arXiv 2504.19354v1, Apr 2025), the neurosymbolic association-rule miner.
 //! It mines `(X → Y)` rules from tabular runtime data and lifts each rule
-//! into a NARS-truth-carrying SPO candidate that the existing
-//! `lance_graph::graph::spo` store consumes through the **same ndjson
-//! contract** as the static `ruff_spo_triplet` extractor.
+//! into a NARS-truth-carrying SPO candidate emitted in the **same ndjson
+//! shape** (`{s,p,o,f,c}`) as the static `ruff_spo_triplet` extractor. The
+//! lance-graph `parse_triples` loader consumes it directly; the `ruff`
+//! `from_ndjson` loader will accept it only once its closed predicate
+//! vocabulary gains an implication relation (D-ARM-SYN-1) — see [`ndjson`].
 //!
 //! # Pipeline position
 //!
@@ -37,9 +39,11 @@
 //! consequences are baked into this crate:
 //!
 //! 1. The autoencoder is **seedable** ([`aerial::Rng`]). Same seed, same data,
-//!    and same hyper-parameters give bit-identical weights and identical
-//!    rules. This makes the proposer reproducible for tests and audits even
-//!    though it is not the canonical deterministic path.
+//!    and same hyper-parameters give reproducible weights and identical rules
+//!    *on a given target*. (This is intra-platform reproducibility, not
+//!    bitwise-portable determinism: seeded f32 `tanh`/`exp`/`ln` and FMA
+//!    contraction can differ across targets.) It makes the proposer auditable
+//!    even though it is not the canonical deterministic path.
 //! 2. The output is a plain [`rule::CandidateRule`] — a *proposal*, not a
 //!    committed triple. Promotion to the SPO store is the downstream
 //!    hypothesis-test + council's job, not this crate's.

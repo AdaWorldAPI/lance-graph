@@ -1,3 +1,18 @@
+## [Main thread / Opus + 3 savant agents] D-ARM-13 brutal review (council) + honesty revisions
+
+**Branch:** claude/jolly-cori-clnf9 | **Agents:** 3 background Opus savants (brutally-honest-tester, iron-rule-savant, dto-soa-savant) — the Stage-D ratification ensemble applied to the ARM code. **Files:**
+- `.claude/board/reviews/aerial-d-arm-13-{council-verdict,iron-rule-savant}.md` (council consolidation + 1 persisted review; the other 2 agents were write-denied and returned inline, captured in the consolidation)
+- `crates/lance-graph-arm-discovery/src/{rule,ndjson,translator,lib}.rs` + `README.md` — honesty revisions
+- `.claude/board/ISSUES.md` (ARM-JIRAK-FLOOR), `.claude/board/TECH_DEBT.md` (TD-ARM-CARRIER-FORK)
+
+**Cargo:** tester independently re-ran `cargo test` (35/35) + `--no-default-features` (17/17) + clippy `-D warnings` (clean); main thread re-verified 35/35 + clippy clean after the doc edits.
+
+**Verdict:** **LAND-with-revision** (2 LAND-with-revision + 1 HOLD-on-P1; zero P0). Code sound; all revisions are prose/honesty/tech-debt, no logic change.
+
+**Outcome:** DONE. Convened a 3-savant brutal review (the same family as the plan's ratification gate). Converged findings, all addressed: (1) the "loads through the *same* loader / byte-compatible" claim was split-true — `lance_graph::parse_triples` accepts `implies`, but `ruff_spo_triplet::from_ndjson` rejects it (closed vocab) until D-ARM-SYN-1 — downgraded to "shape-compatible" with the precise caveat across `ndjson`/`translator`/`lib`/`README`; (2) the `rule::passes` doc claimed a Jirak floor that doesn't exist (D-ARM-7 Queued, `jirak` appears 0×) — made honest + filed ISSUE ARM-JIRAK-FLOOR (hard prerequisite before wiring to a live SpoStore / D-ARM-5); (3) contract-homing drift — local `CandidateRule` (`n:u32`) disagrees with planned D-ARM-2 (`WindowMetadata`), "shape identical" promise was already false — corrected docs + filed TD-ARM-CARRIER-FORK with the `pub use`-when-D-ARM-2-lands path (firewall forbids depending on `lance-graph`, NOT on zero-dep `lance-graph-contract`); (4) "bit-identical weights" → intra-platform reproducibility footnote. The tester **refuted** the suspected `fmt_f32` drift (0 mismatches vs serde_json across [0,1]). Iron-rule confirmed `arm_to_nars` is a single-observation constructor that round-trips into `TruthValue::revision` (w=m) with no rival kernel, and `expectation` is byte-identical to `spo::truth` — I-SUBSTRATE-MARKOV/I-VSA-IDENTITIES/I-LEGACY-API all yield. Determinism firewall structurally intact. PR #436 updated.
+
+---
+
 ## [Main thread / Opus] Aerial+ Rust transcode (D-ARM-13) + ruff DTO/SPO/codegen synergy map
 
 **Branch:** claude/jolly-cori-clnf9 | **Files:**

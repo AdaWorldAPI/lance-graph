@@ -4,9 +4,14 @@
 //! The proposer output carrier — `CandidateRule` and the `Proposer` trait.
 //!
 //! This is the shape every Stage-A proposer (Aerial+, the pair-stats trunk,
-//! the Python IPC fan-in) emits. It is the local mirror of the planned
-//! `lance-graph-contract::CandidateRule` (D-ARM-2); when that contract type
-//! lands, this re-exports it and the field shape stays identical.
+//! the Python IPC fan-in) emits. It is the **local mirror** of the planned
+//! `lance-graph-contract::CandidateRule` (D-ARM-2) — *not yet field-frozen*:
+//! the planned carrier pairs the rule with a `WindowMetadata`, whereas this
+//! local one carries a bare `n: u32`. When D-ARM-2 lands, adopt it by
+//! `pub use` re-export — the determinism firewall forbids depending on
+//! `lance-graph`, NOT on the zero-dep `lance-graph-contract`, so this crate
+//! can path-dep the contract and stay zero-dep-from-the-spine. Until then
+//! treat this as the migration seam, not the canonical type (TD-ARM-CARRIER-FORK).
 
 /// One `(feature, category)` atom — the unit an antecedent / consequent is
 /// built from.
@@ -32,9 +37,11 @@ impl Item {
 
 /// A mined association rule `antecedent → consequent` with ARM statistics.
 ///
-/// Field-for-field the planned `lance-graph-contract::CandidateRule`
-/// (D-ARM-2). `support` and `confidence` are the classical ARM quantities
-/// (paper §2):
+/// The local proposer carrier — mirrors the planned
+/// `lance-graph-contract::CandidateRule` (D-ARM-2) but does **not** yet match
+/// it field-for-field (D-ARM-2 pairs the rule with `WindowMetadata`; this
+/// carries a bare `n`). `support` and `confidence` are the classical ARM
+/// quantities (paper §2):
 ///
 /// - `support`     = |{rows ⊇ antecedent ∪ consequent}| / n
 /// - `confidence`  = |{rows ⊇ antecedent ∪ consequent}| / |{rows ⊇ antecedent}|
@@ -66,9 +73,16 @@ impl CandidateRule {
     }
 
     /// A rule survives the classical ARM gate iff it clears both the minimum
-    /// support and minimum confidence floors. The Jirak-bound significance
-    /// floor (`I-NOISE-FLOOR-JIRAK`) is a *separate*, stricter gate applied
-    /// upstream of this one — see the module-level docs of the proposer.
+    /// support and minimum confidence floors.
+    ///
+    /// **Not implemented yet:** the Jirak-bound significance floor
+    /// (`I-NOISE-FLOOR-JIRAK`, deliverable D-ARM-7) is the *mandatory* Stage-A
+    /// gate per the plan, but it does **not** exist in this crate today
+    /// (`jirak` appears nowhere; D-ARM-7 is Queued). Until it lands, `passes()`
+    /// is the ONLY gate, and this proposer MUST NOT be wired to a live
+    /// `SpoStore`: the classical floor alone leaks thin-but-frequent rules past
+    /// the substrate noise floor (plan §11.1 — "the substrate calcifies on
+    /// noise"). Tracked as ISSUE ARM-JIRAK-FLOOR.
     #[must_use]
     pub fn passes(&self, min_support: f32, min_confidence: f32) -> bool {
         self.support >= min_support && self.confidence >= min_confidence

@@ -13,6 +13,30 @@
 ---
 
 
+### TD-ARM-CARRIER-FORK (D-ARM-13 / streaming-arm-nars-discovery-v1)
+
+**Status: Open.** Surfaced by the 3-savant brutal review of D-ARM-13
+(dto-soa-savant Finding 3, the load-bearing one). `crates/lance-graph-arm-discovery`
+defines **local** `rule::{CandidateRule, Proposer, Item}` + `translator::NarsTruth`
+because the planned contract homes — `lance-graph-contract::{CandidateRule,
+Proposer, ProvenanceTier}` (D-ARM-1/D-ARM-2) — are still **Queued** and do not
+exist yet (verified: empty grep in the contract crate). Two debts: (a) the local
+`CandidateRule` carries a bare `n: u32` while D-ARM-2 specs `WindowMetadata` —
+the field sets already disagree, so the "re-export, shape identical" promise is
+not yet true (doc now states this honestly, `rule.rs` module + struct docs);
+(b) `rule`/`translator` are re-exported at `lib.rs` top level, so if D-ARM-2
+stays Queued, downstream may import the excluded crate's types and make them the
+de-facto canonical — the ThinkingStyle "contract exists to unify, nobody depends
+on it" CRITICAL pattern (`TYPE_DUPLICATION_MAP.md`). **Pay by:** when D-ARM-1/2
+land, `path`-dep the zero-dep `lance-graph-contract` (the determinism firewall
+forbids depending on `lance-graph`, NOT on the contract crate) and convert the
+locals to `pub use` re-exports; freeze the D-ARM-2 field set (recommend bare
+`n: u32`, not `WindowMetadata`) so the shape genuinely matches. Secondary P2
+test debt (brutally-honest-tester): the `max_antecedent ≥ 2` recovery path is
+enumerated but untested; reproducibility tests assert bit-exact f32 (intra-target
+only). Both non-blocking; add coverage when D-ARM-3 (pair-stats) lands the
+multi-antecedent path for real.
+
 ### TD-RESONANCEDTO-DUP-1 (bindspace-singleton-to-mailbox-soa-v1)
 
 - **Severity:** P3 (name collision; two distinct `ResonanceDto` structs under the same name)
