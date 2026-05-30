@@ -1,3 +1,75 @@
+## [Main thread / Opus] PR #436 review response — 5 CodeRabbit findings (public-API hardening)
+
+**Branch:** claude/jolly-cori-clnf9 | **Files:** `crates/lance-graph-arm-discovery/src/{aerial/codebook.rs, aerial/extract.rs, translator.rs, encode.rs}` + `.claude/knowledge/aerial-arm-ruff-spo-codegen-synergies.md`.
+
+**Cargo:** **37/37** (33 + 4 regression tests) + clippy `-D warnings` clean on BOTH default and `--features ndarray-simd`.
+
+**Outcome:** DONE. PR #436 had 11 CodeRabbit review comments across 2 rounds. Verified each against CURRENT code (post de-float + SIMD); 5 still valid, 6 outdated/resolved. **Fixed (all quick-win public-API guards + a `#[should_panic]`/behavior test each):** (1) `MatrixDistance::code` validates `(feature,category)` bounds so an invalid item fails fast instead of aliasing another feature's block; (2) `extract_rules` honors `max_antecedent==0` (returns no rules) instead of forcing singletons; (3) `arm_to_truth_u8` asserts `k>0` (k=0 made any cooccur>0 dogmatically `confidence=1.0`); (4) `Dataset::new` rejects rows with `category ≥ cardinality` (was silently undercounted); (5) added `text` language tag to a fenced block (MD040). **Skipped (with reason):** autoencoder `forward/mean_loss/train` guards + `mod.rs` hidden_dim invariant + Cargo.toml bgz-tensor comment → all target code DELETED/rewritten by the de-float (8681cdf); STATUS_BOARD "Shipped (branch)" taxonomy nit → established convention used by every D-ARM row (changing one row would be inconsistent). No PR replies posted (frugal); fixes self-document via the commit. PR #436 updated.
+
+---
+
+## [Main thread / Opus] Splat-codebook ↔ aerial ↔ Wikidata wiring — jc resolves both aerial seams
+
+**Branch:** claude/jolly-cori-clnf9 | **Files:** ADDED `.claude/knowledge/splat-codebook-aerial-wikidata-compression.md`; EPIPHANIES (E-ARM-JC-RESOLVES-BOTH-SEAMS); STATUS_BOARD (D-ARM-7 engine pointer, D-ARM-13 → 33/33 + SIMD clause, new D-ARM-14); `aerial/codebook.rs` oracle doc names jc + the float boundary; AGENT_LOG.
+
+**Outcome:** ANALYSIS + doc (no new code — the seam already exists). User direction: wire the 10000² Gaussian-splat BLASGraph top-k as the aerial oracle for OWL/DOLCE+ SPO HHTL class/basin discovery → deterministic Wikidata compression, adjacent to jc (Jirak-Cartan) EWA-sandwich splat. Grounded it against real workspace artifacts (consult-before-guess): `crates/jc` is "Jirak-Cartan" ("candar"≈Cartan), holding `ewa_sandwich{,_3d}` (Pillars 9/9b: splat Σ-push-forward for `ndarray::hpc::splat3d`), `sigma_codebook_probe` (**the ρ=0.9973 source** — 256-codebook R²≥0.99 viability), `pflug` (Pillar 10: CAM-PQ/HHTL Lε-faithful), `jirak` (Pillar 5: weak-dep Berry-Esseen). FINDING (E-ARM-JC-RESOLVES-BOTH-SEAMS): aerial's two open seams — the production `CodebookDistance` oracle AND the D-ARM-7 Jirak floor — **both resolve to jc**. jc PROVES the codebook (builds + certifies the frozen `[u32;dim²]` table offline, float OK); aerial USES it online (integer) to discover the `wikidata-hhtl-load.md` skeleton (P279/P31 DAG + basins, DOLCE as axis template). Float boundary = CAM-PQ doctrine end-to-end: build offline (float), address online (integer); the runtime stays float-free. No new aerial dependency — pass the table through the existing `MatrixDistance` seam. Confirmed user's target-cpu point (AVX-512/AMX need native/x86-64-v4) — already in the SIMD commit. PR #436 updated.
+
+---
+
+## [Main thread / Opus] D-ARM-13 SIMD seam — bitset SoA + ndarray::simd::U64x8 (AND+popcount)
+
+**Branch:** claude/jolly-cori-clnf9 | **Files:** `crates/lance-graph-arm-discovery/` — ADDED `bitset.rs` (`RowMasks` row-bitset SoA), `simd.rs` (`popcount`/`and_popcount`, scalar default + `ndarray-simd` feature); rewired `aerial/extract.rs` (probe counts via `RowMasks`, not AoS rescan); `lib.rs`, `Cargo.toml` (`ndarray-simd` feature + optional ndarray path dep, `default-features=false` + `std`), `README.md`.
+
+**Cargo:** DEFAULT (scalar, zero-dep) → **33/33**, clippy `-D warnings` clean. `--features ndarray-simd` → **33/33**, clippy clean (ndarray builds here as a path dep with `std`; `ndarray-rand` NOT pulled).
+
+**Outcome:** DONE. User directive: "use ndarray crate::simd::*". The data-confirmation count loop is the `faiss-homology` "SIMD batch-AND over the SoA facet column" workload. Transposed the window into one `u64` bitset per item (`RowMasks`), so every candidate count is `AND` + popcount over `&[u64]`. Per `ndarray-vertical-simd-alien-magic.md` (MANDATORY), the primitive routes through `ndarray::simd::U64x8` (`from_slice`/`&`/`popcnt`/`to_array`) — zero raw intrinsics, zero `cfg(target_arch)` in this crate; scalar `u64::count_ones` is the default so the crate stays std-only/verifiable. **target-cpu caveat** (per user): the real AVX-512 VPOPCNTQ / AMX kernels need `-C target-cpu=native` or `x86-64-v4`; otherwise it is ndarray's correct-but-scalar polyfill. The palette256 `CodebookDistance` oracle is SIMD on the consumer side (`bgz17::batch_palette_distance` / BLASGraph splat top-k). PR #436 updated.
+
+---
+
+## [Main thread / Opus] D-ARM-13 de-float — autoencoder → deterministic codebook-probe (palette256)
+
+**Branch:** claude/jolly-cori-clnf9 | **Files:**
+- `crates/lance-graph-arm-discovery/` — DELETED `aerial/{autoencoder,rng}.rs`; ADDED `aerial/codebook.rs` (`CodebookDistance` trait + `MatrixDistance`); rewrote `aerial/{extract,mod}.rs` (codebook probe), `rule.rs` (integer counts + ppm gates), `translator.rs` (`TruthU8` + f32 edge), `encode.rs` (integer-only, dropped one-hot/`bin`/f32 helpers), `lib.rs`, `README.md`, `Cargo.toml` (dropped `aerial` feature)
+- `.claude/board/`: EPIPHANIES (E-ARM-PROBE-IS-CODEBOOK-TOPK), STATUS_BOARD (D-ARM-13 row), AGENT_LOG
+
+**Cargo:** `cargo test --manifest-path …` → **28/28**; `cargo clippy … -D warnings` → clean; float audit → **zero f32 in `aerial/` discovery path**.
+
+**Outcome:** DONE. User directive: "neither cam_pq nor any crate uses (or should) float … all is deterministic [a,b] codebook distance, ρ=0.9973 spearman." Conceded — the v1 transcode's `f32` denoising autoencoder was a substrate regression. Replaced it with an integer **codebook-probe** backend: Aerial+'s reconstruction probe is mechanically a nearest-neighbour query, which the **palette256 distance table** answers exactly at ρ=0.9973 vs cosine. The oracle is injected via a zero-dep `CodebookDistance` trait (real impl = `bgz17::PaletteDistanceTable` / BLASGraph splat top-k / HDR-popcount, consumer-side; `MatrixDistance` in tests) so the crate stays standalone. Discovery path is now all integers (codebook distance `u32`, evidence counts `u32`, ppm gates); truth is `TruthU8` (= CausalEdge64 `confidence_u8` + i4 mantissa); the only residual f32 is the `TruthValue`/`Triple` serialization edge (those downstream contracts are themselves f32). Structural payoff: float was the only nondeterminism, so removing it makes the probe bitwise-deterministic ⇒ it joins the deterministic trunk; the nondeterminism firewall and D-ARM-9 (Python-IPC isolation) are moot; the seeded-reproducibility caveat closes. See EPIPHANIES E-ARM-PROBE-IS-CODEBOOK-TOPK. PR #436 updated.
+
+---
+
+## [Main thread / Opus + 3 savant agents] D-ARM-13 brutal review (council) + honesty revisions
+
+**Branch:** claude/jolly-cori-clnf9 | **Agents:** 3 background Opus savants (brutally-honest-tester, iron-rule-savant, dto-soa-savant) — the Stage-D ratification ensemble applied to the ARM code. **Files:**
+- `.claude/board/reviews/aerial-d-arm-13-{council-verdict,iron-rule-savant}.md` (council consolidation + 1 persisted review; the other 2 agents were write-denied and returned inline, captured in the consolidation)
+- `crates/lance-graph-arm-discovery/src/{rule,ndjson,translator,lib}.rs` + `README.md` — honesty revisions
+- `.claude/board/ISSUES.md` (ARM-JIRAK-FLOOR), `.claude/board/TECH_DEBT.md` (TD-ARM-CARRIER-FORK)
+
+**Cargo:** tester independently re-ran `cargo test` (35/35) + `--no-default-features` (17/17) + clippy `-D warnings` (clean); main thread re-verified 35/35 + clippy clean after the doc edits.
+
+**Verdict:** **LAND-with-revision** (2 LAND-with-revision + 1 HOLD-on-P1; zero P0). Code sound; all revisions are prose/honesty/tech-debt, no logic change.
+
+**Outcome:** DONE. Convened a 3-savant brutal review (the same family as the plan's ratification gate). Converged findings, all addressed: (1) the "loads through the *same* loader / byte-compatible" claim was split-true — `lance_graph::parse_triples` accepts `implies`, but `ruff_spo_triplet::from_ndjson` rejects it (closed vocab) until D-ARM-SYN-1 — downgraded to "shape-compatible" with the precise caveat across `ndjson`/`translator`/`lib`/`README`; (2) the `rule::passes` doc claimed a Jirak floor that doesn't exist (D-ARM-7 Queued, `jirak` appears 0×) — made honest + filed ISSUE ARM-JIRAK-FLOOR (hard prerequisite before wiring to a live SpoStore / D-ARM-5); (3) contract-homing drift — local `CandidateRule` (`n:u32`) disagrees with planned D-ARM-2 (`WindowMetadata`), "shape identical" promise was already false — corrected docs + filed TD-ARM-CARRIER-FORK with the `pub use`-when-D-ARM-2-lands path (firewall forbids depending on `lance-graph`, NOT on zero-dep `lance-graph-contract`); (4) "bit-identical weights" → intra-platform reproducibility footnote. The tester **refuted** the suspected `fmt_f32` drift (0 mismatches vs serde_json across [0,1]). Iron-rule confirmed `arm_to_nars` is a single-observation constructor that round-trips into `TruthValue::revision` (w=m) with no rival kernel, and `expectation` is byte-identical to `spo::truth` — I-SUBSTRATE-MARKOV/I-VSA-IDENTITIES/I-LEGACY-API all yield. Determinism firewall structurally intact. PR #436 updated.
+
+---
+
+## [Main thread / Opus] Aerial+ Rust transcode (D-ARM-13) + ruff DTO/SPO/codegen synergy map
+
+**Branch:** claude/jolly-cori-clnf9 | **Files:**
+- `crates/lance-graph-arm-discovery/` (NEW standalone crate, ~1.2K LOC + tests) — `aerial::{rng, autoencoder, extract}`, `translator`, `ndjson`, `rule`, `encode`, `lib`, `README`
+- `Cargo.toml` (root) — added crate to `exclude` (standalone pattern, like bgz17/deepnsm)
+- `.claude/knowledge/aerial-arm-ruff-spo-codegen-synergies.md` (NEW) — the synergy map
+- `.claude/board/STATUS_BOARD.md` — D-ARM-13 + D-ARM-SYN-1/2/3 rows
+- `.claude/board/EPIPHANIES.md` — predicate-vocabulary-gap finding (prepend)
+
+**Cargo:** `cargo test --manifest-path crates/lance-graph-arm-discovery/Cargo.toml` → **35/35 pass**; `cargo clippy … -- -D warnings` → clean. Main-thread only (no agents spawned, per session-stability rule). Big workspace NOT built (crate is excluded/zero-dep, verified independently).
+
+**D-ids:** D-ARM-13 (**Shipped on branch**); D-ARM-SYN-1/2/3 (**Queued**, council-gated).
+
+**Outcome:** DONE. Transcoded **Aerial+** (Karabulut 2025, 2504.19354v1) to zero-dep Rust — the autoencoder leg the plan §14 had explicitly deferred to Python; the user's directive ("transcode aerial rule mining to rust") supersedes that deferral. Faithful port: one-hot encoding → under-complete **denoising autoencoder** (per-feature softmax + cross-entropy, hand-written backprop, seeded SplitMix64 for reproducibility) → **Algorithm 1** reconstruction-probe rule extraction (mark antecedent, uniform elsewhere, forward, τ_a antecedent test + τ_c consequent test) → support/confidence confirmed on data → `CandidateRule`. Tests prove the AE learns a cross-feature dependency and Algorithm 1 recovers a planted rule while rejecting an independent feature. Translator `arm_to_nars` maps `(support, confidence, n) → NARS (f, c)` verbatim per paper §2/§3.3; `ndjson` emits the exact `{"s","p","o","f","c"}` line shape the SPO store loader reads. **Synergy finding:** the Aerial leg is the *runtime-data* frontend of a three-frontend/one-substrate/two-codegen bracket whose substrate (`ruff_spo_triplet::Triple`) and codegen (`ruff_python_codegen` ∥ `op_emitter.rs`) legs already exist in the ruff fork; `ruff_python_dto_check` is the *static-AST* sibling frontend. Key gap surfaced: `ruff_spo_triplet::Predicate` is a closed vocabulary with **no implication/association predicate**, so loading ARM rules through that ndjson path needs `Implies` added there first (D-ARM-SYN-1, deliberate ontology change → council-gated). Determinism boundary preserved: the nondeterministic AE stays a seeded *fan-in proposer*, out of the deterministic compile path, output gated by Stage D. PR to follow.
+
+---
+
 ## [Main thread / Opus 4.7] streaming-arm-nars-discovery-v1 — integration plan + handover + #434 corrections (the upstream proposer leg)
 
 **Branch:** claude/activate-lance-graph-att-k2pHI (rebased onto origin/main post PR #434 merge) | **Files:**

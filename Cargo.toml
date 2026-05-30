@@ -39,6 +39,11 @@ exclude = [
     "crates/learning",
     "crates/jc",
     "crates/sigker",
+    # Aerial+ ARM-discovery transcode — standalone zero-dep proposer crate,
+    # verified via `cargo test --manifest-path crates/lance-graph-arm-discovery/Cargo.toml`.
+    # Kept out of the workspace so the nondeterministic autoencoder never
+    # enters the deterministic lance-graph compile path (determinism boundary).
+    "crates/lance-graph-arm-discovery",
 ]
 resolver = "2"
 

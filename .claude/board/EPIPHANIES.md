@@ -1,3 +1,50 @@
+## 2026-05-30 — E-ARM-JC-RESOLVES-BOTH-SEAMS — aerial's two open seams (the distance oracle AND the D-ARM-7 Jirak floor) both resolve to `crates/jc`; jc PROVES the splat codebook, aerial USES it to discover the DOLCE skeleton that compresses Wikidata
+
+**Status:** FINDING (architecture; seams concrete, end-to-end pipeline is CONJECTURE). User framing: "gaussian-splat spatial blasgraph top-k 10000×10000 … for OWL/DOLCE+ SPO HHTL classes and basin via aerial+ to deterministically compress Wikidata … adjacent to JC Jirak[-Cartan] with EWA-sandwich gaussian splat."
+
+The de-float (E-ARM-PROBE-IS-CODEBOOK-TOPK) left aerial with two open seams: a production `CodebookDistance` oracle, and the unimplemented D-ARM-7 Jirak significance floor (ISSUE ARM-JIRAK-FLOOR). **Both resolve to the same crate — `crates/jc` (Jirak-Cartan)** — and the grounding is already in the workspace, not invented:
+
+- **Oracle ← jc.** `jc::ewa_sandwich{,_3d}` (Pillars 9/9b) certify the Gaussian-splat Σ-push-forward `J·W·Σ·Wᵀ·Jᵀ` for `ndarray::hpc::splat3d` — i.e. the 10000² BLASGraph spatial top-k that *builds* the codebook is correct. `jc::sigma_codebook_probe` is **literally where ρ=0.9973 comes from**: it measures a 256-codebook capturing the Σ-distribution at R²≥0.99 in log-Euclidean space. `jc::pflug` (Pillar 10) certifies the CAM-PQ/HHTL tree quantization is Lε-faithful (compression is faithful, not lossy-by-surprise). The frozen `[u32; dim²]` table feeds aerial's existing `MatrixDistance`/`CodebookDistance` seam — no new aerial dependency.
+- **Jirak floor ← jc.** `jc::jirak` (Pillar 5) is the weak-dependence Berry-Esseen engine: classical IID is wrong here (I-NOISE-FLOOR-JIRAK), the correct rate is `n^(p/2-1)`. D-ARM-7's significance gate derives its threshold from it.
+
+**The float boundary is the punchline.** float lives ONLY in jc's offline build+certify (k-means, SPD/EWA math, Berry-Esseen sup-error); it runs once, emits a frozen integer artifact, and is never on aerial's online path. That is the CAM-PQ doctrine end-to-end — *build the codebook offline (float OK), address it online with integer codes* — and it makes the whole "deterministically compress Wikidata" claim float-free at runtime. Downstream: aerial discovers the OWL/DOLCE+ SPO HHTL classes + basins (the `specs/wikidata-hhtl-load.md` skeleton: P279/P31 DAG + basin assignment, DOLCE as the axis template), the Jirak floor decides which rules are significant enough to persist, and codebook-HHTL is the 16ⁿ bucket router. Full map: `.claude/knowledge/splat-codebook-aerial-wikidata-compression.md`. Cross-ref: jc pillars 5/9/9b/10, `wikidata-hhtl-load.md`, `ogit-owl-dolce-ontology-compartments.md`, `3DGS-HHTL-datalake-traversal-plan.md`, E-ARM-PROBE-IS-CODEBOOK-TOPK.
+
+---
+
+## 2026-05-30 — E-ARM-PROBE-IS-CODEBOOK-TOPK — Aerial+'s reconstruction probe IS a codebook top-k; the autoencoder was a float approximation of a lookup the substrate already does exactly; de-floating it dissolves the determinism firewall
+
+**Status:** FINDING (de-float shipped on `claude/jolly-cori-clnf9`, 28/28 tests, zero f32 in the discovery path). User-directed: "neither cam_pq nor any other crate uses (or should) float … all is deterministic [a,b] codebook distance, ρ=0.9973 spearman."
+
+The first D-ARM-13 transcode reproduced Aerial+ literally — an `f32` denoising autoencoder. That was a substrate regression: this stack addresses by **exact codebook CAM, never float similarity** (`faiss-homology-cam-pq.md`; `I-VSA-IDENTITIES` — CAM-PQ codes are for *search*, integer, never superposed as float). The autoencoder's reconstruction probe ("mark the antecedent, read off the high-probability consequents") is, mechanically, a **nearest-neighbour query** — and the **palette256 distance table** answers that *exactly and in integers* at ρ=0.9973 vs cosine. So the float net was a slow, seed-dependent approximation of a lookup the substrate already performs.
+
+The de-float (codebook-probe backend):
+- autoencoder (`f32` weights) → injected integer `CodebookDistance` oracle (palette256; zero-dep trait, real impl is `bgz17::PaletteDistanceTable` / BLASGraph splat top-k / HDR-popcount);
+- reconstruction probe → codebook top-k from the antecedent within `θ` (integer);
+- softmax ranking → integer distance ranking; support/confidence → integer counts + ppm cross-multiply gates;
+- `(f,c)` `f32` → `TruthU8` (= CausalEdge64 `confidence_u8` + i4 mantissa); seeded RNG → deleted.
+
+**The payoff is structural, not cosmetic.** Float was the *only* source of nondeterminism, so removing it dissolves three things at once: (1) the "seeded ≠ bitwise-deterministic" caveat closes — the probe is bitwise-identical on every target; (2) Aerial is no longer a *nondeterministic fan-in* that must hide behind the ratification gate / out of the compile path — it joins the **deterministic trunk** beside pair-stats (D-ARM-3); (3) **D-ARM-9** (Python-IPC to isolate nondeterminism) is fully moot — there is no nondeterminism to isolate. The ratification council still governs *promotion to the SPO store*, but the firewall is now about ratification, not float. General rule this crystallises: **a "learned" similarity that the codebook reproduces at ρ≈1.0 should never be reached for as float — the codebook IS the learned-once model, frozen and integer.** Code: `crates/lance-graph-arm-discovery/src/aerial/{codebook,extract,mod}.rs`. Cross-ref: `faiss-homology-cam-pq.md`, `cognitive-risc-classes.md` (CAM-not-ANN), `I-VSA-IDENTITIES`, the prior float transcode's review (`.claude/board/reviews/`).
+
+---
+
+## 2026-05-30 — E-DISCOVERY-CODEGEN-BRACKET-1 (realised) — the Aerial+ transcode is the runtime-data frontend of a bracket whose substrate + codegen legs ALREADY EXIST in the ruff fork; the ruff SPO predicate vocabulary is the only missing seam
+
+**Status:** FINDING (type-level, grounded in source read 2026-05-30) + CONJECTURE (the three D-ARM-SYN wiring deliverables). Author-stated; the three wirings are council-gated.
+
+The two-paper bracket (`streaming-arm-nars-discovery-v1.md`: Aerial+ discovery upstream, Abreu M2M codegen downstream, SPO+NARS middle) is not a future aspiration — **its substrate and both codegen legs are already implemented in `adaworldapi/ruff`** and `lance-graph-ontology`. Transcoding Aerial+ to Rust (D-ARM-13) made this concrete:
+
+1. **One substrate, three frontends.** `ruff_spo_triplet::Triple { s, p, o, f, c }` *"mirrors `lance_graph::graph::spo::odoo_ontology::OntologyTriple` field-for-field"* and its ndjson is *"exactly what `parse_triples` reads."* Three proposer frontends converge on it: `ruff_python_dto_check` (static Python AST → `Extracted`/Authoritative), `ruff_ruby_spo` (Rails scaffold), and **`lance-graph-arm-discovery` (Aerial+, runtime data → `ArmDiscovered`)**. The first two are bounded by the literal artifact; only the ARM leg surfaces co-correlations that exist solely in runtime rows.
+
+2. **Two codegen legs, one thesis.** `op_emitter.rs` (ratified SoA → deterministic Rust dispatch) and `ruff_python_codegen::round_trip` (AST → deterministic Python) are the same externalise-interpretation thesis the Abreu paper validates, in two target languages. Both sit downstream of the ratification firewall.
+
+3. **The truth scale is already shared.** Aerial's `arm_to_nars` produces the exact `(f, c)` that `TruthValue::new` and `ruff_spo_triplet::Provenance::truth()` carry, and `NarsTruth::expectation()` reimplements `TruthValue::expectation` so one `TruthGate` covers mined and extracted facts alike.
+
+4. **The one missing seam (the actionable finding).** `ruff_spo_triplet::Predicate` is a **closed vocabulary** (`rdf:type, has_function, emitted_by, depends_on, reads_field, raises, traverses_relation`) and `from_ndjson` **hard-rejects** anything else — and **none of them is an implication/association relation.** An `X → Y` ARM rule therefore cannot flow through that loader until `Implies`/`CoOccursWith` is added (a *deliberate* ontology change per that crate's own doc). This is D-ARM-SYN-1; it gates SYN-2 (the `CandidateRule → ModelGraph` adapter) and SYN-3 (the `ArmDiscovered` truth calibration below the codegen gate).
+
+**Determinism boundary (unchanged, reaffirmed):** Aerial+ is the only nondeterministic node in the bracket. The transcode keeps it standalone, seeded (`aerial::Rng`), behind the `aerial` feature, and emitting a `CandidateRule` *proposal* — never a committed triple. Promotion is the council's job. Full map: `.claude/knowledge/aerial-arm-ruff-spo-codegen-synergies.md`. Code: `crates/lance-graph-arm-discovery/`. Cross-ref: `E-INTERPRET-NOT-STORE-1`, `E-SOA-IS-THE-ONLY`, `I-NOISE-FLOOR-JIRAK`, Karabulut 2025 §2/§3.3, Abreu 2025 §4.
+
+---
+
 ## 2026-05-29 — E-SOA-IS-THE-ONLY — there is ONE SoA, never transformed; mailbox SoA mutation IS the hot path; Libet −550 ms anchors the Rubicon kanban in surrealkv-on-lance; SPO-W witness is a *pointer* via the belief-state arc
 
 **Status:** CONJECTURE / design (user-stated 2026-05-29, post-PR-#433). Records five layered rulings; details in `bindspace-singleton-to-mailbox-soa-v1.md` §11.1–§11.5. Author-stated; not council-gated.
