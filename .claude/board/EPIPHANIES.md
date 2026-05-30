@@ -1,3 +1,24 @@
+## 2026-05-30 — RE-CENTER: thinking-styles ARE the planning substrate — i4-32D style → τ address → JITson/Cranelift template → KernelHandle; recipes are what styles SELECT. (corrects the recipe-centric framing of the build target above)
+
+**Status:** BUILD-GRADE correction (user 2026-05-30: "thinking styles are the most important planning substrate… i4-32D thinking styles and jit/JITson cranelift compiler templates"). Re-centers the default-recipe build target one entry up: styles are the dispatcher, recipes are the tactics dispatched. Grounded by grep (file:line).
+
+**The full planning-substrate pipeline — ALL SHIPPED, just unwired into the mailbox planner:**
+- `contract::thinking` — **36 thinking styles / 6 clusters**, `ThinkingStyle::ALL:[_;36]`, each mapped to a **τ (tau) macro address** for JIT (`thinking.rs:19`): Analytical τ0x40-4F, Creative τ0xA0, Empathic τ0x80, Direct τ0x60, Exploratory τ0x20, Meta τ0xC0. Plus `StyleCluster`(6)→`PlannerCluster`(4) via `to_planner_cluster()`, `FieldModulation`, `ScanParams`. The i4-32D form = the compact SIMD selection vector (32×i4 = 16B, same width family as CausalEdge64/QualiaI4_16D — hot-path AND-able).
+- `contract::jit` — closes the loop: `JitTemplate` (JITSON JSON) → `JitCompiler::compile` (ndarray Cranelift engine) → `KernelHandle{fn_ptr:*const u8}` (native code, Send+Sync) → `StyleRegistry` kernel cache (param_hash → cached kernel). n8n-rs implements `CompiledStyleRegistry`; ndarray = the jitson engine; lance-graph produces templates (`jitson_kernel.rs`).
+- `contract::recipes`/`recipe_kernels` — the 34 tactics styles SELECT (the prior build-target entry).
+
+**The pipeline (one line):** `i4-32D thinking style → τ address → JitTemplate(JITSON) → Cranelift compile → KernelHandle(native fn_ptr) → cached by StyleRegistry`; the style ALSO selects which recipe/Tactic runs over ThoughtCtx/SoA.
+
+**This grounds the #439 ExecTarget variants concretely:** `ExecTarget::Jit` = the τ→template→Cranelift→KernelHandle path (compiled). `ExecTarget::Elixir` = the recipe_kernels interpreted "Elixir-like" layer (the un-JITted fallback). The two exec targets I shipped now have their actual machinery identified: JIT = jit.rs, Elixir = recipe_kernels.rs.
+
+**Re-centered build target (corrects the recipe-centric framing):** the mailbox planner's default planning substrate = **thinking-style selection → τ → (cached KernelHandle | recipe Tactic) → over the SoA**. Styles dispatch; τ addresses; JITson compiles; recipes are the tactic catalogue. The minimal first slice should wire STYLE SELECTION first (the planner picks a ThinkingStyle → cluster → ScanParams), then recipe/kernel dispatch — not recipes in isolation. The Opus design map (in flight) was launched recipe-centric; re-center it on thinking+jit at synthesis.
+
+**Gaps to verify in the map:** does the planner already use ThinkingStyle (it had its own 12; contract says it maps via `to_planner_cluster()`)? Is `StyleRegistry`/`JitCompiler` wired to a real Cranelift engine (ndarray) or stub? Is the τ-address→template path built or spec? (jit.rs says lance-graph `jitson_kernel.rs` produces templates — verify it exists.)
+
+**Cross-ref:** `contract::thinking` (36 styles/τ/i4-32D/FieldModulation); `contract::jit` (JitTemplate/JitCompiler/KernelHandle/StyleRegistry); `contract::recipes`+`recipe_kernels`; `ExecTarget::{Jit,Elixir}` (#439); the prior "default recipes" build-target entry (this re-centers it); D-MBX-A6-P3; ndarray jitson/Cranelift engine.
+
+---
+
 ## 2026-05-30 — BUILD TARGET: default recipes for the mailbox planner — the DTOs already exist, only the WIRING is missing
 
 **Status:** BUILD-GRADE (user-directed 2026-05-30: "we need default recipes for our mailbox planner… the DTOs are already there to wire"). Graduated from brainstorm to concrete. Grounded by grep (file:line below); Opus design map in flight.
