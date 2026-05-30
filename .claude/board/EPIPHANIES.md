@@ -1,3 +1,25 @@
+## 2026-05-30 — E-RELIABILITY-NOT-VALIDITY — the substrate's NARS (f,c) "truth" measures RELIABILITY (consistency/settledness/consensus), not VALIDITY (ground-truth correspondence); validity is conferred externally at/after the Rubicon Commit. "Truth" is a wisdom marker in disguise.
+
+**Status:** FINDING (user-stated 2026-05-30, epistemic reframe). Corrects the "truth gate" mislabel propagated by the truth-architect council angle + this session.
+
+**The measurement-theory answer (validity vs reliability):**
+- NARS `(f,c)` is reliability machinery: `confidence c = w/(w+k)` = amount of accumulated agreeing evidence relative to horizon k = a RELIABILITY COEFFICIENT (same family as Cronbach's α — workspace ships `thinking-engine/cronbach.rs` + ICC; both reliability stats; I-NOISE-FLOOR-JIRAK Berry-Esseen = reliable-above-noise = reliability too). `frequency f = w+/w` = consensus value IN EXPERIENCE. `expectation = c·(f−0.5)+0.5` = reliability-weighted consensus.
+- It does NOT measure VALIDITY (correspondence to ground truth). NARS is non-axiomatic / experience-grounded BY CONSTRUCTION — it measures whether the system's own witnessing COHERES (reliability), never whether it's SO (validity). The chess bring-up test is the tell: "ground truth is a Stockfish call away" — the substrate emits high-(f,c) GM-FLAVORED candidates (reliable/consensus-strong); STOCKFISH is the validity oracle. The substrate can be confidently, consistently WRONG.
+- **Reliability is necessary-but-not-sufficient for validity** (classic psychometrics). The substrate cannot tell a reliable-true from a reliable-false belief from the inside. ⇒ "truth hasn't been validated yet" is exact.
+
+**Why "wisdom marker in disguise":** Wisdom (Staunen×Wisdom qualia, The Click) = epistemic SETTLEDNESS + humility ("how well do I hold this", never "is it true"). Confidence with the φ⁻¹ ceiling ("permanent humility", c<1 always) IS a wisdom measure. Labeling it "truth" is a category slip — it's the wisdom/reliability axis wearing truth's name. "Crystallized knowledge committed in the end" = reliability accumulates → Rubicon COMMIT calcifies it into a durable fact → only post-commit/externally is validity assessable. COMMIT ≠ VALIDATION; commit = crystallization of reliability; validation is downstream.
+
+**Design consequence (splits the gate I/truth-architect mislabeled into TWO at two clocks):**
+- RELIABILITY gate (HOT, Evaluation→Commit): `(f,c)` expectation + CollapseGate SD `gate_state()`. Plan/Prune = reliability-too-low/contradictory; Commit = crystallize a reliable belief. Shader-speed.
+- VALIDITY gate (COLD, AFTER commit): external oracle — Stockfish (bring-up) / GoBD audit / reciprocal A→B,B→A (recipe SDD#32) / FailureTicket→LLM (F>0.8). Cold-store-speed. = the two-clock decoupling, epistemically named.
+- So `Evaluation→{Commit|Plan|Prune}` gates on RELIABILITY (settled enough to crystallize), NOT truth. A committed fact's validity is still PENDING the cold/external check.
+
+**Corrects R-GATE probe:** it must probe RELIABILITY thresholding, not "truth": does style-conditioned reliability threshold change the CRYSTALLIZATION outcome (Skeptical demands higher c → more Plan/re-deliberate; Creative crystallizes at lower c)? Pass = ≥1 differing terminal. Validity is OUT of this probe — it's the separate post-commit external gate (the Stockfish bring-up IS the validity gate, already planned).
+
+**Cross-ref:** E-COUNCIL-SYNTHESIS (the truth-architect "truth gate" this corrects); The Click (Staunen×Wisdom, φ⁻¹ ceiling = permanent humility, FailureTicket); cognitive-risc-core bring-up test (Stockfish = validity oracle); `thinking-engine/cronbach.rs` (reliability stat); I-NOISE-FLOOR-JIRAK; `spo/truth.rs TruthValue`; recipe SDD#32 (reciprocal validation); Rubicon Commit = calcify; R-GATE probe.
+
+---
+
 ## 2026-05-30 — COUNCIL SYNTHESIS (catalyst, 7 savants): #439 StyleStrategy is PASSTHROUGH THEATER; the real target = thinking-style → PlannerDTO(=KanbanMove) → truth-gated Rubicon scheduling. Honest correction + the wiring map.
 
 **Status:** FINDING (council-catalyzed synthesis 2026-05-30; 7 savants: iron-rule, dto-soa, creative-explorer, cascade-impact, prior-art, brutally-honest-tester, truth-architect). Corrects the overstated D-MBX-A6-P3a commit. The council ENRICHED (not gated) — it surfaced theater I shipped + the real design.
