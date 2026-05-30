@@ -1,3 +1,30 @@
+## 2026-05-30 — E-TEMPLATE-IS-CHECKLIST-IS-DATOMS — the NARS/elixir reasoning template, the per-domain checklist, and the Odoo D-Atoms are ONE object; reliability = the template's required atoms are LIT (known). #433 already built half of it.
+
+**Status:** FINDING — major unification (user 2026-05-30: "the checklist IS the NARS/elixir reasoning templates; in Odoo terms tax classes, billable hours, account type, etc."). Collapses three things I'd treated as separate, and re-connects #433 (which I'd mis-filed as "unrelated Odoo codegen").
+
+**The unification (one object, three faces):**
+- **NARS/elixir reasoning template** = the EXECUTABLE form (the recipe/`Tactic` that fires; recipe_kernels = "the Elixir-like recipe layer").
+- **Per-domain checklist** = the COVERAGE form (the required items to evaluate) — `E-RELIABILITY-IS-CHECKLIST-COVERAGE`.
+- **Odoo D-Atoms** = the INSTANCE form (the actual domain fields). A template DECLARES its required inputs → those required inputs ARE the checklist → the checklist items ARE the domain's evaluable fields. Not three systems — one.
+
+**#433 ALREADY BUILT HALF OF THIS (grounded, file:line — I mis-filed it as unrelated):**
+`lance-graph-ontology/src/odoo_blueprint/style_recipe.rs`:
+- `enum DAtom` (:116) = the checklist-item catalogue, as REAL variants: `FiscalCtx`, `Money`, `ApplyRate` (VAT/currency rate, `OdooSemanticRole::Tax`), `Quantity`, `EmitAmount`, `Compute`, `Validate`, `Onchange`, `Event`, `Action`, `Entity`, `Law` (`regulation_iri` = UStG §12 / EU VAT). ⇒ EXACTLY the user's "tax classes / billable hours / account type" — domain fields that must be evaluated.
+- `OdooStyleRecipe { method_id, atoms: Vec<(DAtom,u8)>, regulation_iris, return_kind, recipe_id }` (:209) = the TEMPLATE-AS-CHECKLIST: `atoms` = which checklist items this template REQUIRES (+weights). `recipe_id` = FNV-1a content-address over sorted atoms → equivalent templates collapse (CAM dedup).
+- **The 5-lit / 6-dark atom split (#433 honest-flag)** = the knowns/unknowns COVERAGE BITMASK, already present: 5 atoms fire today (Entity/Compute/Validate/Onchange/Action — kind-driven = KNOWN); 6 dark (Money/Quantity/ApplyRate/EmitAmount/Event/FiscalCtx — gated on Stage-2 extractor = UNKNOWN until populated). lit-vs-dark IS the coverage bitmask. "Atoms flip from stage2→must set when Stage-2 lands" = checklist boxes going from unknown→known.
+
+**So reliability = required atoms LIT:** a template's `atoms: Vec<(DAtom,u8)>` are the required checklist; an instance's populated Odoo fields LIGHT them; reliability-to-Commit = `required_atoms ⊆ lit_atoms` (the `required & known == required` AND-test, E-RELIABILITY-IS-CHECKLIST-COVERAGE). Plan = named dark atoms remain (the Stage-2 gap); Prune = required atom unsatisfiable.
+
+**Elixir open/closed maps exactly** (recipe.rs E-LADDER §2): add-FIELD = data (a new checklist box / D-Atom population — no recompile); add-TEMPLATE = structure (a new required atom-set / OdooStyleRecipe — register it). The hot-load split IS the checklist-vs-template-evolution split.
+
+**Consequence / correction:** #433's `OdooStyleRecipe` is NOT "unrelated Odoo codegen" (my earlier filing in the 3-recipe-module finding) — it's the DOMAIN-INSTANCE face of the reasoning-template-as-checklist. The cross-domain generalization: a Rails/medical/chess frontend writes its OWN `style_recipe.rs` (its own D-Atom catalogue = its own checklist) over the same triplet shape (#433 doc: "A Rails frontend writes its own style_recipe.rs"). So D-Atoms are the per-domain checklist; the NARS reasoning template is the domain-agnostic shape; reliability-coverage is uniform across domains.
+
+**Build implication:** the cheap checklist gate (E-RELIABILITY-IS-CHECKLIST-COVERAGE) does NOT need a new checklist type — it READS `OdooStyleRecipe.atoms` (required) vs the instance's lit-atom bitmask (known). First cut: a `coverage(required: &[DAtom], lit: bitmask) -> CoverageState{Covered|Gap(dark)|Unsatisfiable}` over the existing D-Atom catalogue, generalized to any domain's atom enum. Reuses #433 wholesale.
+
+**Cross-ref:** #433 `odoo_blueprint/style_recipe.rs` (DAtom :116 / OdooStyleRecipe :209 / 5-lit-6-dark); E-RELIABILITY-IS-CHECKLIST-COVERAGE (coverage = reliability); E-RELIABILITY-NOT-VALIDITY (Stockfish audits checklist COMPLETENESS = unknown-unknowns); recipe_kernels "Elixir-like layer"; recipe.rs E-LADDER-SERVES-MAILBOX §2 (open/closed); the 3-recipe-module finding (CORRECTED: OdooStyleRecipe = the domain-instance face, not unrelated); cognitive-risc-classes (class_id→checklist, HHTL-inherited).
+
+---
+
 ## 2026-05-30 — E-RELIABILITY-IS-CHECKLIST-COVERAGE — the cheap RISC alternative to psychometric calibration: reliability = (required rungs/checklist-items COVERED) over a knowns/unknowns SoA bitmask, AND-tested in one cycle. No float, no corpus.
 
 **Status:** FINDING + BUILD-DIRECTION (user 2026-05-30: "cheap and efficient alternative — 10-layer rungs ladder + a checklist per domain of what needs evaluation; reasoning has a normalized set of info with validation across knowns/unknowns as SoA"). The cheap structural alternative to E-CALIBRATE-RELIABILITY-PSYCHOMETRICALLY — complementary, not competing.
