@@ -87,10 +87,93 @@ pub struct Outcome {
 
 impl Outcome {
     fn skipped() -> Self {
-        Self { fired: false, note: "gated off", delta_conf: 0.0 }
+        Self {
+            fired: false,
+            note: "gated off",
+            delta_conf: 0.0,
+        }
     }
     fn done(note: &'static str, delta_conf: f32) -> Self {
-        Self { fired: true, note, delta_conf }
+        Self {
+            fired: true,
+            note,
+            delta_conf,
+        }
+    }
+}
+
+/// The eight fields of a [`ThoughtCtx`] — the basis of a tactic's input checklist.
+///
+/// One bit per field; the bit positions are stable (do not reorder — this is an
+/// append-only basis per the per-class-bitmask discipline, cognitive-risc-classes N3).
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThoughtField {
+    /// `ctx.sd` — CollapseGate dispersion / entropy gate.
+    Sd = 0,
+    /// `ctx.free_energy` — surprise.
+    FreeEnergy = 1,
+    /// `ctx.dissonance` — quorum split magnitude.
+    Dissonance = 2,
+    /// `ctx.temperature` — Staunen↔Wisdom explore/exploit knob.
+    Temperature = 3,
+    /// `ctx.confidence` — NARS confidence (the reliability coefficient).
+    Confidence = 4,
+    /// `ctx.rung` — meaning-depth rung 1..=9 (the ladder).
+    Rung = 5,
+    /// `ctx.candidates` — candidate scores.
+    Candidates = 6,
+    /// `ctx.beliefs` — `(topic, frequency, confidence)` belief set.
+    Beliefs = 7,
+}
+
+/// A tactic's **input checklist** as a bitmask over [`ThoughtField`] — the latent
+/// "what this tactic reads" made explicit data (reliability-checklist-arc M1).
+///
+/// This is the executable form of `E-TEMPLATE-IS-CHECKLIST-IS-DATOMS`: a tactic's
+/// `requires()` mask is its checklist; coverage = `required & known == required`
+/// (`E-RELIABILITY-IS-CHECKLIST-COVERAGE`). Zero-dep (a plain `u8`, no `bitflags`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ThoughtMask(pub u8);
+
+impl ThoughtMask {
+    /// The empty mask (a tactic that reads nothing — should never occur for a real tactic).
+    pub const EMPTY: Self = Self(0);
+
+    /// Build a mask from a slice of fields.
+    pub const fn of(fields: &[ThoughtField]) -> Self {
+        let mut bits = 0u8;
+        let mut i = 0;
+        while i < fields.len() {
+            bits |= 1 << (fields[i] as u8);
+            i += 1;
+        }
+        Self(bits)
+    }
+
+    /// Does this mask contain `field`?
+    #[inline]
+    pub const fn has(self, field: ThoughtField) -> bool {
+        self.0 & (1 << (field as u8)) != 0
+    }
+
+    /// Number of required fields (the checklist length).
+    #[inline]
+    pub const fn len(self) -> u32 {
+        self.0.count_ones()
+    }
+
+    /// Is the checklist empty?
+    #[inline]
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    /// Coverage test: are all of `self`'s required fields present in `known`?
+    /// (`required & known == required`) — the reliability-as-coverage gate.
+    #[inline]
+    pub const fn covered_by(self, known: ThoughtMask) -> bool {
+        self.0 & known.0 == self.0
     }
 }
 
@@ -98,6 +181,16 @@ impl Outcome {
 pub trait Tactic: Sync {
     /// The catalogue metadata for this tactic.
     fn meta(&self) -> &'static Recipe;
+
+    /// The tactic's **input checklist**: which [`ThoughtField`]s its [`apply`] reads.
+    ///
+    /// NON-defaulted on purpose — every tactic MUST declare what it consumes, so the
+    /// checklist is real data, not a silent empty default (the reliability-checklist-arc
+    /// M1 keystone: reliability is a *declared accessor*, not a constructed gate). The
+    /// mask must match the fields the tactic's `apply` body actually reads.
+    ///
+    /// [`apply`]: Tactic::apply
+    fn requires(&self) -> ThoughtMask;
     /// Implicit gate — should this recipe fire given the markers? Default: Gate-bucket
     /// recipes fire only when not in FLOW (there is surprise to act on); others always.
     fn gate(&self, ctx: &ThoughtCtx) -> bool {
@@ -121,10 +214,16 @@ pub trait Tactic: Sync {
 
 // Small numeric helpers (deterministic; no rng — tests must be reproducible).
 fn mean(xs: &[f32]) -> f32 {
-    if xs.is_empty() { 0.0 } else { xs.iter().sum::<f32>() / xs.len() as f32 }
+    if xs.is_empty() {
+        0.0
+    } else {
+        xs.iter().sum::<f32>() / xs.len() as f32
+    }
 }
 fn max_idx(xs: &[f32]) -> usize {
-    xs.iter().enumerate().fold(0usize, |b, (i, &v)| if v > xs[b] { i } else { b })
+    xs.iter()
+        .enumerate()
+        .fold(0usize, |b, (i, &v)| if v > xs[b] { i } else { b })
 }
 
 macro_rules! tactic {
@@ -133,7 +232,9 @@ macro_rules! tactic {
         pub struct $name;
         impl $name {
             #[inline]
-            fn rec() -> &'static Recipe { recipe($id).expect("recipe id present") }
+            fn rec() -> &'static Recipe {
+                recipe($id).expect("recipe id present")
+            }
         }
     };
 }
@@ -142,7 +243,12 @@ macro_rules! tactic {
 
 tactic!(Rte, 1);
 impl Tactic for Rte {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::FreeEnergy, ThoughtField::Rung])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Recursive expansion: deepen the rung while there's surprise; Berry-Esseen-style stop.
         let mut depth = 0;
@@ -159,7 +265,12 @@ impl Tactic for Rte {
 
 tactic!(Htd, 2);
 impl Tactic for Htd {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Hierarchical decompose: bipolar split around the mean (CLAM-style).
         let m = mean(&ctx.candidates);
@@ -171,14 +282,23 @@ impl Tactic for Htd {
 
 tactic!(Smad, 3);
 impl Tactic for Smad {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // 3-agent vote: agreement (low spread) revises confidence up.
         let spread = ctx.candidates.iter().cloned().fold(0.0f32, f32::max)
             - ctx.candidates.iter().cloned().fold(1.0f32, f32::min);
         let agree = spread < 0.3;
         Outcome::done(
-            if agree { "council converged" } else { "council split" },
+            if agree {
+                "council converged"
+            } else {
+                "council split"
+            },
             if agree { 0.1 } else { -0.05 },
         )
     }
@@ -186,7 +306,12 @@ impl Tactic for Smad {
 
 tactic!(Rcr, 4);
 impl Tactic for Rcr {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Reverse-causality: walk backward (effect→cause) = reverse the chain.
         ctx.candidates.reverse();
@@ -196,7 +321,12 @@ impl Tactic for Rcr {
 
 tactic!(Tcp, 5);
 impl Tactic for Tcp {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates, ThoughtField::Sd])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Prune low-confidence branches: keep candidates above an SD-derived floor.
         let floor = mean(&ctx.candidates) * (1.0 - ctx.sd);
@@ -209,7 +339,12 @@ impl Tactic for Tcp {
 
 tactic!(Tr, 6);
 impl Tactic for Tr {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates, ThoughtField::Temperature])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Thought randomization: deterministic temperature-scaled perturbation above noise floor.
         let amp = (ctx.temperature * 0.1).max(NOISE_FLOOR);
@@ -223,12 +358,21 @@ impl Tactic for Tr {
 
 tactic!(Asc, 7);
 impl Tactic for Asc {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Confidence])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Adversarial self-critique: negate the top belief; survival = strength, else weaken.
         let survives = ctx.confidence > 0.6;
         Outcome::done(
-            if survives { "belief survived negation challenge" } else { "belief failed challenge" },
+            if survives {
+                "belief survived negation challenge"
+            } else {
+                "belief failed challenge"
+            },
             if survives { 0.05 } else { -0.15 },
         )
     }
@@ -236,17 +380,32 @@ impl Tactic for Asc {
 
 tactic!(Cas, 8);
 impl Tactic for Cas {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Rung])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Conditional abstraction scaling: pick HDR resolution from rung (coarse→fine).
-        let _level = match ctx.rung { 0..=2 => 1, 3..=5 => 4, 6..=7 => 8, _ => 32 };
+        let _level = match ctx.rung {
+            0..=2 => 1,
+            3..=5 => 4,
+            6..=7 => 8,
+            _ => 32,
+        };
         Outcome::done("scaled abstraction to rung-appropriate HDR level", 0.0)
     }
 }
 
 tactic!(Irs, 9);
 impl Tactic for Irs {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates, ThoughtField::Temperature])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Iterative roleplay: a persona modulation (structurally distinct search kernel).
         for c in ctx.candidates.iter_mut() {
@@ -258,12 +417,21 @@ impl Tactic for Irs {
 
 tactic!(Mcp, 10);
 impl Tactic for Mcp {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Confidence, ThoughtField::FreeEnergy])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Meta-cognition: if confident but high free-energy (poorly calibrated), pull confidence down.
         let miscalibrated = ctx.confidence > 0.7 && ctx.free_energy > 0.5;
         Outcome::done(
-            if miscalibrated { "lowered overconfident estimate (Brier)" } else { "calibration ok" },
+            if miscalibrated {
+                "lowered overconfident estimate (Brier)"
+            } else {
+                "calibration ok"
+            },
             if miscalibrated { -0.2 } else { 0.0 },
         )
     }
@@ -271,7 +439,12 @@ impl Tactic for Mcp {
 
 tactic!(Cr, 11);
 impl Tactic for Cr {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Beliefs])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Contradiction: same topic, opposing frequency (one true, one false).
         let mut found = false;
@@ -285,7 +458,11 @@ impl Tactic for Cr {
         }
         // Contradiction preserved, not resolved → coherence (confidence) drops.
         Outcome::done(
-            if found { "contradiction detected (preserved)" } else { "coherent" },
+            if found {
+                "contradiction detected (preserved)"
+            } else {
+                "coherent"
+            },
             if found { -0.2 } else { 0.0 },
         )
     }
@@ -293,7 +470,12 @@ impl Tactic for Cr {
 
 tactic!(Tca, 12);
 impl Tactic for Tca {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Temporal augmentation: lag-shift the series (Granger-style precedence).
         if !ctx.candidates.is_empty() {
@@ -305,7 +487,12 @@ impl Tactic for Tca {
 
 tactic!(Cdt, 13);
 impl Tactic for Cdt {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates, ThoughtField::Temperature])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Convergent↔divergent by temperature: hot spreads, cold collapses to the best.
         if ctx.temperature > 0.5 {
@@ -324,18 +511,31 @@ impl Tactic for Cdt {
 
 tactic!(Mct, 14);
 impl Tactic for Mct {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Multimodal: unify modalities into one fingerprint (mean as the unified score).
         let unified = mean(&ctx.candidates);
         ctx.candidates = vec![unified];
-        Outcome::done("unified modalities → one fingerprint (GrammarTriangle)", 0.0)
+        Outcome::done(
+            "unified modalities → one fingerprint (GrammarTriangle)",
+            0.0,
+        )
     }
 }
 
 tactic!(Lsi, 15);
 impl Tactic for Lsi {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates, ThoughtField::Sd])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Latent introspection: read the distribution (mean/sd) and write sd back.
         let m = mean(&ctx.candidates);
@@ -348,17 +548,28 @@ impl Tactic for Lsi {
 
 tactic!(Pso, 16);
 impl Tactic for Pso {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Scaffold: pre-organize (sort) the reasoning candidates descending.
-        ctx.candidates.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+        ctx.candidates
+            .sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
         Outcome::done("scaffolded (ordered) the reasoning steps", 0.0)
     }
 }
 
 tactic!(Cdi, 17);
 impl Tactic for Cdi {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Beliefs, ThoughtField::Dissonance])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Induce dissonance: inject a conflicting belief to force deeper investigation.
         let topic = ctx.beliefs.first().map(|b| b.0).unwrap_or(0);
@@ -370,7 +581,16 @@ impl Tactic for Cdi {
 
 tactic!(Cws, 18);
 impl Tactic for Cws {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[
+            ThoughtField::Candidates,
+            ThoughtField::Confidence,
+            ThoughtField::Beliefs,
+        ])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Context persistence: checkpoint the current best into the (persistent) belief set.
         if let Some(&best) = ctx.candidates.get(max_idx(&ctx.candidates)) {
@@ -382,7 +602,12 @@ impl Tactic for Cws {
 
 tactic!(Are, 19);
 impl Tactic for Are {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::EMPTY
+    }
     fn apply(&self, _ctx: &mut ThoughtCtx) -> Outcome {
         // Reverse-engineer via exact algebraic inverse: A⊗B⊗B = A (XOR self-inverse).
         let (a, b) = (0xDEADBEEFu32, 0xCAFEBABEu32);
@@ -394,7 +619,12 @@ impl Tactic for Are {
 
 tactic!(Tcf, 20);
 impl Tactic for Tcf {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Cascade filter: N strategies = N perturbed views; keep the agreement (median).
         let mut v = ctx.candidates.clone();
@@ -408,7 +638,12 @@ impl Tactic for Tcf {
 
 tactic!(Ssr, 21);
 impl Tactic for Ssr {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Confidence, ThoughtField::FreeEnergy])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Self-skepticism: challenge intensity scales with (confidence − evidence).
         let intensity = (ctx.confidence - ctx.free_energy.min(1.0)).max(0.0);
@@ -418,7 +653,12 @@ impl Tactic for Ssr {
 
 tactic!(Etd, 22);
 impl Tactic for Etd {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Emergent decomposition: split at the largest gap (natural cluster boundary).
         let mut v = ctx.candidates.clone();
@@ -429,7 +669,12 @@ impl Tactic for Etd {
 
 tactic!(Amp, 23);
 impl Tactic for Amp {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::FreeEnergy, ThoughtField::Rung])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Adaptive meta: TD-style — raise the rung when free-energy stays high.
         if ctx.free_energy > 0.5 {
@@ -441,7 +686,12 @@ impl Tactic for Amp {
 
 tactic!(Zcf, 24);
 impl Tactic for Zcf {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::EMPTY
+    }
     fn apply(&self, _ctx: &mut ThoughtCtx) -> Outcome {
         // Zero-shot fusion: bind(A,B) — valid in both, recoverable.
         let (a, b) = (0x0Au32, 0xB0u32);
@@ -453,7 +703,12 @@ impl Tactic for Zcf {
 
 tactic!(Hpm, 25);
 impl Tactic for Hpm {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Pattern match: nearest candidate to a query target (the substrate sweep).
         let target = 0.5f32;
@@ -471,14 +726,23 @@ impl Tactic for Hpm {
 
 tactic!(Cur, 26);
 impl Tactic for Cur {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Cascading uncertainty reduction: coarse→fine prune ~half per pass; raise confidence.
         while ctx.candidates.len() > 1 {
             let m = mean(&ctx.candidates);
             ctx.candidates.retain(|&v| v >= m);
-            if ctx.candidates.len() == 1 { break; }
-            if ctx.candidates.iter().all(|&v| (v - m).abs() < NOISE_FLOOR) { break; }
+            if ctx.candidates.len() == 1 {
+                break;
+            }
+            if ctx.candidates.iter().all(|&v| (v - m).abs() < NOISE_FLOOR) {
+                break;
+            }
         }
         Outcome::done("reduced uncertainty coarse→fine", 0.1)
     }
@@ -486,7 +750,12 @@ impl Tactic for Cur {
 
 tactic!(Mpc, 27);
 impl Tactic for Mpc {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Multi-perspective compression: bundle = consensus (mean per the bundle op).
         let consensus = mean(&ctx.candidates);
@@ -497,7 +766,12 @@ impl Tactic for Mpc {
 
 tactic!(Ssam, 28);
 impl Tactic for Ssam {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Sd])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Analogy A→B, C≈A ⊢ C→B: confidence ∝ source similarity.
         let sim = 1.0 - ctx.sd; // closer cluster ⇒ stronger analogy
@@ -507,7 +781,12 @@ impl Tactic for Ssam {
 
 tactic!(Idr, 29);
 impl Tactic for Idr {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Intent reframe: pick the dominant interpretation (max candidate).
         let i = max_idx(&ctx.candidates);
@@ -520,7 +799,12 @@ impl Tactic for Idr {
 
 tactic!(Spp, 30);
 impl Tactic for Spp {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Shadow-parallel: two independent paths; agreement = structural verification.
         let path_a = mean(&ctx.candidates);
@@ -528,7 +812,11 @@ impl Tactic for Spp {
             + ctx.candidates.iter().cloned().fold(1.0f32, f32::min) * 0.5;
         let agree = (path_a - path_b).abs() < 0.1;
         Outcome::done(
-            if agree { "shadow paths agree (verified)" } else { "shadow paths diverge (HOLD)" },
+            if agree {
+                "shadow paths agree (verified)"
+            } else {
+                "shadow paths diverge (HOLD)"
+            },
             if agree { 0.1 } else { -0.05 },
         )
     }
@@ -536,7 +824,12 @@ impl Tactic for Spp {
 
 tactic!(Icr, 31);
 impl Tactic for Icr {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::EMPTY
+    }
     fn apply(&self, _ctx: &mut ThoughtCtx) -> Outcome {
         // Counterfactual: world' = world ⊗ factual ⊗ counterfactual; divergence = popcount.
         let world = 0xF0F0_F0F0u32;
@@ -552,13 +845,22 @@ impl Tactic for Icr {
 
 tactic!(Sdd, 32);
 impl Tactic for Sdd {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Semantic distortion: deviation above the Berry-Esseen noise floor = real distortion.
         let dev = (mean(&ctx.candidates) - 0.5).abs();
         let distorted = dev > NOISE_FLOOR;
         Outcome::done(
-            if distorted { "distortion above noise floor flagged" } else { "within noise floor" },
+            if distorted {
+                "distortion above noise floor flagged"
+            } else {
+                "within noise floor"
+            },
             0.0,
         )
     }
@@ -566,20 +868,37 @@ impl Tactic for Sdd {
 
 tactic!(Dtmf, 33);
 impl Tactic for Dtmf {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Sd, ThoughtField::Temperature])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Meta-frame switch when the current frame is BLOCKed.
         let switched = ctx.gate_state() == GateState::Block;
         if switched {
             ctx.temperature = (ctx.temperature + 0.3).min(1.0); // shift all modulation: try differently
         }
-        Outcome::done(if switched { "switched frame (was BLOCK)" } else { "frame held" }, 0.0)
+        Outcome::done(
+            if switched {
+                "switched frame (was BLOCK)"
+            } else {
+                "frame held"
+            },
+            0.0,
+        )
     }
 }
 
 tactic!(Hkf, 34);
 impl Tactic for Hkf {
-    fn meta(&self) -> &'static Recipe { Self::rec() }
+    fn meta(&self) -> &'static Recipe {
+        Self::rec()
+    }
+    fn requires(&self) -> ThoughtMask {
+        ThoughtMask::EMPTY
+    }
     fn apply(&self, _ctx: &mut ThoughtCtx) -> Outcome {
         // Cross-domain fusion: bind(domain_A, relation, domain_B); reversible/auditable.
         let (da, rel, db) = (0x11u32, 0x22u32, 0x44u32);
@@ -645,7 +964,10 @@ mod tests {
         c.sd = 0.2;
         let out = Tcp.run(&mut c);
         assert!(out.fired);
-        assert!(c.candidates.iter().all(|&v| v >= 0.1), "low branches pruned");
+        assert!(
+            c.candidates.iter().all(|&v| v >= 0.1),
+            "low branches pruned"
+        );
     }
 
     #[test]
@@ -668,9 +990,107 @@ mod tests {
     fn gate_bucket_recipes_skip_in_flow() {
         let mut c = ThoughtCtx::new(vec![0.5, 0.5]);
         c.sd = 0.05; // FLOW
-        // TCP is a Gate-bucket recipe → should not fire in FLOW.
+                     // TCP is a Gate-bucket recipe → should not fire in FLOW.
         assert!(!Tcp.run(&mut c).fired);
         c.sd = 0.5; // BLOCK
         assert!(Tcp.run(&mut c).fired);
+    }
+
+    // ── M1: Tactic::requires() — the checklist-as-data tests (with teeth) ──
+
+    #[test]
+    fn thought_mask_ops() {
+        let m = ThoughtMask::of(&[ThoughtField::Candidates, ThoughtField::Sd]);
+        assert!(m.has(ThoughtField::Candidates) && m.has(ThoughtField::Sd));
+        assert!(!m.has(ThoughtField::Beliefs));
+        assert_eq!(m.len(), 2);
+        assert!(!m.is_empty() && ThoughtMask::EMPTY.is_empty());
+        // coverage: required ⊆ known
+        let known = ThoughtMask::of(&[
+            ThoughtField::Candidates,
+            ThoughtField::Sd,
+            ThoughtField::Rung,
+        ]);
+        assert!(m.covered_by(known), "required ⊆ known → covered");
+        let partial = ThoughtMask::of(&[ThoughtField::Candidates]); // missing Sd
+        assert!(
+            !m.covered_by(partial),
+            "missing a required field → not covered"
+        );
+    }
+
+    /// TEETH: every tactic's `requires()` mask must match the fields its `apply`
+    /// actually reads — spot-checked on representatives so a wrong/empty mask fails.
+    #[test]
+    fn requires_matches_apply_reads() {
+        // Cr reads beliefs (same-topic contradiction scan).
+        assert!(Cr.requires().has(ThoughtField::Beliefs));
+        assert!(!Cr.requires().has(ThoughtField::Candidates));
+        // Tcp reads candidates + sd (SD-derived prune floor).
+        assert!(
+            Tcp.requires().has(ThoughtField::Candidates) && Tcp.requires().has(ThoughtField::Sd)
+        );
+        // Mcp reads confidence + free_energy (Brier miscalibration).
+        assert!(
+            Mcp.requires().has(ThoughtField::Confidence)
+                && Mcp.requires().has(ThoughtField::FreeEnergy)
+        );
+        // Rte reads free_energy + rung (recursive expansion stop).
+        assert!(
+            Rte.requires().has(ThoughtField::FreeEnergy) && Rte.requires().has(ThoughtField::Rung)
+        );
+        // Are/Zcf/Icr/Hkf are constant-only (algebraic) → empty checklist is correct,
+        // not a forgotten declaration.
+        assert!(Are.requires().is_empty() && Zcf.requires().is_empty());
+        assert!(Icr.requires().is_empty() && Hkf.requires().is_empty());
+    }
+
+    /// TEETH (anti-theater): the 34 masks must be NON-TRIVIAL and VARIED — this fails
+    /// if `requires()` were a silent empty default or lazy copy-paste (all-same). The
+    /// council's no-op-test warning, made into a real guard.
+    #[test]
+    fn requires_masks_are_varied_not_a_constant_stub() {
+        let masks: Vec<ThoughtMask> = all_kernels().iter().map(|k| k.requires()).collect();
+        assert_eq!(masks.len(), 34);
+
+        // Not all-empty: the vast majority declare real inputs (only the 4 algebraic
+        // constant-only tactics are legitimately empty).
+        let empty = masks.iter().filter(|m| m.is_empty()).count();
+        assert_eq!(
+            empty, 4,
+            "exactly the 4 constant-only tactics (Are/Zcf/Icr/Hkf) are empty"
+        );
+
+        // Varied: many distinct masks (fails the copy-paste/all-same stub).
+        let distinct: std::collections::BTreeSet<u8> = masks.iter().map(|m| m.0).collect();
+        assert!(
+            distinct.len() >= 8,
+            "checklists must vary across tactics (got {} distinct masks)",
+            distinct.len()
+        );
+
+        // Every non-empty mask is within the 8-field basis (no stray high bits).
+        for m in &masks {
+            assert_eq!(m.0 & !0xFF, 0);
+            assert!(m.len() <= 8);
+        }
+    }
+
+    /// The reliability-as-coverage gate in miniature: a tactic is "evaluable" iff its
+    /// required checklist is covered by the known fields (the AND-test that will drive
+    /// the Rubicon Evaluation→Commit decision once wired). Pure, no plan/commit here.
+    #[test]
+    fn coverage_gate_required_subset_of_known() {
+        // A context where only candidates + sd are "known".
+        let known = ThoughtMask::of(&[ThoughtField::Candidates, ThoughtField::Sd]);
+        // Tcp(candidates,sd) is covered; Cr(beliefs) is NOT (a known-unknown → Plan).
+        assert!(
+            Tcp.requires().covered_by(known),
+            "Tcp evaluable: required ⊆ known"
+        );
+        assert!(
+            !Cr.requires().covered_by(known),
+            "Cr blocked: beliefs is a dark/required-unknown field"
+        );
     }
 }

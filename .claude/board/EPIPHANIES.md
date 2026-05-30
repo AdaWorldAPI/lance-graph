@@ -1,3 +1,12 @@
+## 2026-05-30 — SHIPPED-in-PR: M1 keystone — `Tactic::requires() -> ThoughtMask` (the latent checklist made data; reliability = coverage, extraction not construction)
+
+**Status:** SHIPPED-in-PR #439 (D-MBX-A6-P3-M1). The panel-recalibrated keystone of reliability-checklist-arc-v1, built autonomously.
+
+`contract::recipe_kernels` now has: `ThoughtField` (8-field enum, stable bit positions, append-only per N3) + `ThoughtMask(u8)` (zero-dep bitmask: `of`/`has`/`len`/`is_empty`/`covered_by`) + **`Tactic::requires(&self) -> ThoughtMask` NON-defaulted** — all 34 tactics declare which ThoughtCtx fields their `apply` reads (audited from the bodies: Cr→beliefs, Tcp→candidates+sd, Mcp→confidence+free_energy, Rte→free_energy+rung, …; the 4 algebraic constant-only tactics Are/Zcf/Icr/Hkf legitimately empty). `covered_by` (`required & known == required`) IS the reliability-coverage gate in miniature.
+
+This realizes the creative-explorer M1 insight: reliability is a DECLARED ACCESSOR, not a constructed gate — the checklist was latent in 34 apply() bodies, now reified as data. Makes P1(coverage)/P7(reconcile)/P11(class_id→checklist) DERIVED. Non-defaulted = no silent-empty theater (the council's no-op warning); teeth-test `requires_masks_are_varied_not_a_constant_stub` FAILS on a copy-paste/empty stub (asserts exactly-4-empty + ≥8 distinct masks). 9 recipe_kernels tests + full contract lib green; non-defaulted method safe (the 34 are the only Tactic impls workspace-wide).
+
+**Cross-ref:** reliability-checklist-arc-v1 RECALIBRATION (M1 keystone); E-TEMPLATE-IS-CHECKLIST-IS-DATOMS (requires() = the executable checklist); E-RELIABILITY-IS-CHECKLIST-COVERAGE (covered_by = the gate); E-RELIABILITY-NOT-VALIDITY; `recipe_kernels.rs` ThoughtField/ThoughtMask/Tactic::requires.
 ## 2026-05-30 — RECALIBRATION (3-agent panel) of reliability-checklist-arc-v1: keystone is M1 `Tactic::requires()->AtomMask` (extraction not construction); P2 needs a corpus it lacks; P5 is P0-blocked; P3/P4 are AP6 theater; P10 off-arc
 
 **Status:** FINDING / plan recalibration (cascade-impact + brutally-honest-tester + creative-explorer, catalyst mode 2026-05-30). Recalibrates `.claude/plans/reliability-checklist-arc-v1.md`. Convergent across all three.
