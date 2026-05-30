@@ -58,6 +58,7 @@ pub mod graph_render;
 pub mod hash;
 pub mod high_heel;
 pub mod jit;
+pub mod kanban;
 pub mod literal_graph;
 pub mod mail;
 pub mod manifest;
@@ -85,6 +86,7 @@ pub mod scenario;
 pub mod sensorium;
 pub mod sigma_propagation;
 pub mod sla;
+pub mod soa_view;
 pub mod splat;
 pub mod tax;
 pub mod thinking;
@@ -95,3 +97,5 @@ pub mod world_model;
 
 // Re-exports for the most commonly used collapse_gate types.
 pub use collapse_gate::{CollapseGateEmission, GateDecision, MailboxId, MergeMode};
+pub use kanban::{KanbanColumn, KanbanMove};
+pub use soa_view::{MailboxSoaOwner, MailboxSoaView};
