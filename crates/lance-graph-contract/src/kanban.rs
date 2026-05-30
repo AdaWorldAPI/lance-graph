@@ -167,6 +167,11 @@ impl core::fmt::Display for RubiconTransitionError {
     }
 }
 
+// Matches the crate convention for error types (cf. `cam::CodecParamsError`):
+// a `Display` impl + an empty `core::error::Error` impl so the error composes
+// with `?` / `Box<dyn Error>`.
+impl core::error::Error for RubiconTransitionError {}
+
 // `KanbanMove` must stay a small owned microcopy (airgap discipline, I1):
 // MailboxId(4) + u32(4) + i32(4) + 2×KanbanColumn(1) + ExecTarget(1) packs within 16 B.
 const _: () = assert!(core::mem::size_of::<KanbanMove>() <= 16);

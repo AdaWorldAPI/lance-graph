@@ -12,7 +12,7 @@
 - Everything else below: **Queued**, gated as shown.
 
 ## The completion DAG (what blocks what)
-```
+```text
  SHIPPED ───────────────────────────────────────────────────────────────────
   A1 (SoA columns)        A6-P1 (#437 contract seam)    A6-P2 (#439 lifecycle+ExecTarget)
         │                        │                              │

@@ -1,3 +1,30 @@
+## 2026-05-30 — E-VERSION-ARC-IS-THE-KANBAN — the mailbox's Lance version timeline IS the kanban arc, for free; consume it like a GitHub CI/PR subscription (push, not poll)
+
+**Status:** FINDING (architectural simplification, user-stated 2026-05-30). Grounded in surrealdb #31 substrate fact + Lance versioning. Reframes D-MBX-9.
+
+**The insight:** since kv-lance is native (surrealdb #31: one `MergeInsert`/commit = one Lance dataset version), a mailbox's **`Dataset::versions()` timeline IS its kanban arc — it falls out of the substrate for FREE.** Each `MailboxSoaOwner::advance_phase` commit = one new Lance version = one kanban move. No separate kanban update mechanism is built; the version stream IS it.
+
+**The consumption pattern = a GitHub CI/PR subscription (the exact homology this session ran):**
+| GitHub PR | Mailbox kanban |
+|---|---|
+| commits pushed to a PR | phase-transition commits to the mailbox's Lance dataset |
+| CI/review events | new Lance versions appear |
+| `subscribe_pr_activity` → pushed to subscriber | surreal LIVE query over `versions()` → kanban updates pushed |
+| react per event, never poll | consumer reacts per version, never rebuilds |
+| append-only PR timeline | append-only version arc (= witness/belief-state arc, R4) |
+
+**Two consequences:**
+1. **Witness pointer (R4 / EW64) = `(mailbox_id, lance_version)`** — a pointer into the substrate's OWN version arc. "Cheap AriGraph witness pointer" is now concrete + free; the AriGraph episodic edge ("happened at the same time") = "happened at version V". The KanbanMove record (incl. `libet_offset_us`, `exec`, `witness_chain_position`) rides as Lance commit/version metadata.
+2. **D-MBX-9 collapses** from "build a kanban view structure" to "**LIVE-subscribe to the mailbox version stream**" — surreal time-series view over `Dataset::versions()` + a LIVE query = the Rubicon kanban. The `Timeline` read surface over `Dataset::versions()` already built in surrealdb #31 IS this. The `MailboxSoaView` borrow trait (#437) is the per-version read lens.
+
+**The "in-mailbox arc" framing:** each mailbox owns its own version arc (the versions of its SoA dataset/fragment). The arc is in-mailbox; the kanban is the cross-mailbox time-series view of those arcs. SurrealDB time-series consumes it.
+
+**Open (implementation, not architecture):** true push (surreal LIVE query) vs cheap-poll of `versions()` — both honor the pattern; LIVE is the goal. Still gated by surreal_container fork (OQ-11.6) for the surreal-side view — but the design is now substrate-free, so D-MBX-9 is a subscription wiring, not a build.
+
+**Cross-ref:** surrealdb #31 (kv-lance native + Timeline over `Dataset::versions()`); `E-SOA-IS-THE-ONLY` R3/R4; D-MBX-9; `KanbanMove`/`MailboxSoaView` (#437); `is_absorbing` (#439, the cycle-end commit = a terminal version); LE-3.
+
+---
+
 ## 2026-05-30 — D-MBX-A6-P2 landed (contract): Rubicon lifecycle enforcement + ExecTarget strategy tag
 
 **Status:** SHIPPED-in-PR (contract slice). Builds on `#437` (D-MBX-A6-P1).
