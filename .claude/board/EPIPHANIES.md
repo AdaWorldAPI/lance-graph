@@ -1,3 +1,33 @@
+## 2026-05-30 — DECISION: E-FIREFLY-PACKET-IS-THE-LOCATION-TRANSPARENT-PLAN — backport firefly's packet-executor as the in-mailbox PLANNING SUBSTRATE; the same packet distributes cross-server via ONE gRPC hop (BEAM location transparency)
+
+**Status:** DECISION / design direction (user-proposed 2026-05-30). The planning-substrate answer for D-MBX-A6-P3 + the distribution model. Backport = adopt firefly's PATTERN into lance-graph (authorized repo), citing firefly as reference; firefly itself stays read-only/out-of-scope.
+
+**The backport:** the mailbox's PLANNING SUBSTRATE = firefly's packet-flows-through-a-node-graph executor. A plan = a graph of plan-nodes; planning/candidate-generation = a packet hopping through it (validate→transform→persist shape), TTL-bounded, accumulating `trace[]`. Replaces a bespoke planner-tick loop with the firefly model. Each hop = a phase transition = a version commit (`E-VERSION-ARC-IS-THE-KANBAN`); the `trace[]` = the witness arc (R4); `ExecTarget` (#439) = how each node executes; transport = orthogonal.
+
+**The punchline (why it's elegant): distribution = ONE gRPC packet.** Because the planning substrate IS packet-based, the in-mailbox plan state is ALREADY a complete serializable execution context (`FireflyPacket`: 80B LE header + 1250B resonance + ctx + trace + ttl). Cross-server distribution needs NO new abstraction: serialize the packet once → gRPC to another server instance → it deserializes and continues the hop. firefly's `hop(current,next)` is already location-transparent (target = an address; a routing table decides local vs remote). = **BEAM location transparency** (send to a PID; local-or-remote is just transport) — and exactly what ractor embodies (Boxed-local / Serialized-remote).
+
+**Reconciles with `E-RACTOR-WANTS-TOKIO-NOT-GRPC` (NOT a contradiction):**
+- INSIDE hop (local node) = move the struct, zero-serialize (Tokio/in-mem). gRPC-slower-than-Tokio STILL holds; you never pay it locally.
+- OUTSIDE hop (crosses a server) = serialize ONCE → gRPC (or cluster-TCP / Flight). Pay serialization only at the boundary, amortized (two-clock decoupling). The packet is distribute-ready BY CONSTRUCTION; "only a gRPC packet" is true because the planning DTO already speaks packets.
+This realizes the long-standing inside/outside "location-transparency" synergy (the §1.1 candidate) concretely: ONE packet, two transports.
+
+**Honesty / nuance:** "only a gRPC packet" is true at the abstraction level; the resonance is ~1.25KB + ctx, so a cross-server hop has real serialize cost — paid only at the boundary, not per local hop. The win is no NEW distribution layer, not zero cost.
+
+**Design forks to decide BEFORE building (the slice gates on these):**
+1. **DTO:** extend `KanbanMove` into a `PlanPacket` (header + SoA-resonance ref + op + trace + ttl), or a new contract type beside it? (KanbanMove is the per-move record; PlanPacket is the hopping execution context — likely a NEW type that CARRIES a KanbanMove per hop.)
+2. **Address width:** 0xFFF (12-bit, inside, cache-aligned) vs firefly's 256-bit SHA at the durable/cross-server boundary (`E-0xFFF` / firefly divergence). Likely: 0xFFF local, SHA-CAM at the gRPC hop (mirrors witness-materialization-at-commit).
+3. **Payload by-ref vs by-value:** inside, the packet must reference the SoA (R1 "never serialize the SoA") — carry a `MailboxSoaView` handle / row-range, NOT a copied resonance. Only the gRPC hop snapshots. (This is the R1 + R5 hot/cold-snapshot rule applied to the packet.)
+4. **Serialize format for the gRPC hop:** protobuf (tonic) vs firefly's LE-packed header + hex. (gRPC/tonic already in the lab surface; promote at the genuine boundary.)
+5. **Routing table:** where local-vs-remote node resolution lives (the pointer table / mailbox index).
+
+**Minimal first slice (proposed, fork-1/3 dependent):** a zero-dep `contract::plan_packet::PlanPacket` — routing header (src/tgt address, ttl, seq, flags) + an op + a `witness_chain_position` trace + a BORROWED SoA reference (not owned resonance), with `hop()` (local, move) and a `to_wire()`/`from_wire()` boundary (the only serialize point). Carries a `KanbanMove` per phase. Local hop = struct move; `to_wire` only at a remote hop. Unit-tested with a fake routing table (local vs remote). Defers the actual gRPC service (lab/outside) and the node-graph executor (planner crate) to follow-ups.
+
+**Maps to D-MBX:** this IS the A6-P3 planning-substrate design (was "bespoke planner loop") + the distribution story for D-MBX-9's cross-server case. Sequenced after the address-width decision (relates P-B canonical 0xFFF type).
+
+**Cross-ref:** `/home/user/firefly/rust/src/dto/packet.rs` (hop/pack_header — the location-transparent primitive); `E-FIREFLY-IS-GEL-OUTSIDE-PROTOTYPE`; `E-RACTOR-WANTS-TOKIO-NOT-GRPC`; `E-VERSION-ARC-IS-THE-KANBAN`; `ExecTarget`/`KanbanMove`/`MailboxSoaView` (#437/#439); RISC core inv 4/5/7 (hot-cold, snapshot, two-clock); D-MBX-A6-P3 / D-MBX-9.
+
+---
+
 ## 2026-05-30 — E-FIREFLY-IS-GEL-OUTSIDE-PROTOTYPE — adaworldapi/firefly is a runnable GEL substrate + the OUTSIDE-transport prototype; its FireflyPacket = the serialized cross-process Baton; transport is Redis-mRNA (NOT gRPC)
 
 **Status:** FINDING (read firefly source 2026-05-30, cloned read-only to /home/user/firefly — PUBLIC repo, NOT in the 16-repo authorized scope; do not push to it). User: "my toy Ballista executing gRPC packets with 0xFFF as transport."
