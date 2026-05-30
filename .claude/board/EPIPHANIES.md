@@ -1,3 +1,28 @@
+## 2026-05-30 — CORRECTION + FINDING: E-GEL-IS-THE-GRAPH-SUBSTRATE — GEL = Graph Execution Language (any-language→graph, BEAM-analogous); NOT a query dialect. Corrects "GEL absent" in E-POLYGLOT-4096-IS-CONJECTURAL
+
+**Status:** CORRECTION (supersedes the "GEL/EdgeQL = absent dialect" line in `E-POLYGLOT-4096-IS-CONJECTURAL`) + FINDING (user-stated 2026-05-30: GEL is the user's own coinage, not EdgeDB's rebrand).
+
+**The correction:** I mislabeled "GEL" as EdgeDB's EdgeQL→GEL rebrand and filed it under "absent query dialect." WRONG. **GEL = Graph Execution Language** — a graph SUBSTRATE for representing ANY language in graph form, analogous to how any code lowers to OTP/BEAM/Erlang. GEL is NOT a frontend dialect (not P-C/P-D); it is the IR/substrate layer that frontends lower INTO, represented as an executable graph.
+
+**The BEAM analogy (exact, and ALREADY partially built here):**
+- BEAM: Erlang/Elixir/Gleam/LFE → BEAM bytecode; BEAM provides actors (processes) + preemptive scheduling + supervision trees + message passing.
+- GEL: any language → graph representation; the graph IS executable.
+- **ractor IS the BEAM actor model ported to Rust** — mailboxes = BEAM processes, `lance-graph-supervisor` = supervision tree, `CollapseGateEmission` batons = message passing. So GEL's execution engine = the ractor-over-SoA path being wired (D-MBX-A6 / kanban lifecycle). Not hypothetical.
+
+**Where GEL sits in the stack (it is the substrate everything converges on):**
+- **Lowering rule = "AST is the hub"** (cognitive-risc-core): any language → one canonical AST → SPO/graph. GEL = the GRAPH FORM of that hub. `logical_plan.rs LogicalOperator` (query IR) is ONE SLICE of GEL (query languages only); full GEL = any language, not just query.
+- **Runtime = `ExecTarget::Elixir`** (shipped #439) literally names "execute on the BEAM-analogous path." The exec-target axis already enumerates GEL's backends.
+- **Execution trace = the version arc** (`E-VERSION-ARC-IS-THE-KANBAN` + `E-SUBSTRATE-IS-THE-SCHEDULER`): graph executes → phase commit → Lance version → scheduler fires next. That IS a graph-execution-language running, with the version arc as its trace.
+- **State = the SoA** (`E-SOA-IS-THE-ONLY`): GEL nodes/edges = SPO + CausalEdge64 over the one MailboxSoA.
+
+**Prior-art / naming collision to reconcile:** `holograph/src/width_32k/schema.rs` uses "GEL" = "global execution layer" — genuinely adjacent (Global/Graph EXECUTION Layer). Reconcile whether that is the seed, a collision, or unrelated before formalizing the GEL name in code.
+
+**Implication for the polyglot sequence:** GEL reframes it. P-A (IR-conformance loop) still grounds the QUERY-language slice of GEL. But the broader GEL goal = "any language → graph" is the SUBSTRATE the whole D-MBX arc already realizes (IR + SPO + MailboxSoA + ractor lifecycle + ExecTarget + version arc). GEL is the NAME for the convergence, not a new component to bolt on. Do NOT build a "GEL parser"; the work is recognizing/consolidating that the existing IR+SoA+ractor IS GEL, then widening the lowering beyond query languages (LE-4 Odoo/OWL, Elixir templates, etc. = other-session lowerings into GEL).
+
+**Cross-ref:** `E-POLYGLOT-4096-IS-CONJECTURAL` (corrected); cognitive-risc-core "AST is the hub"; `ExecTarget::Elixir` (#439); `E-VERSION-ARC-IS-THE-KANBAN`; `E-SUBSTRATE-IS-THE-SCHEDULER`; ractor=BEAM-actor-model; `holograph/.../schema.rs` (GEL prior-art).
+
+---
+
 ## 2026-05-30 — E-POLYGLOT-4096-IS-CONJECTURAL — "loop through 4096 0xFFF polyglot mapping" is NOT wired: 4096 is 4 distinct magic numbers, and frontend->4096->SoA does not exist (string-keyed IR end-to-end)
 
 **Status:** FINDING (grounded read 2026-05-30, file:line agent map). Honest correction of the "loop through 4096 polyglot" framing — labels what exists vs what is conjectural.
