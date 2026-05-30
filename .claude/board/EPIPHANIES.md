@@ -1,3 +1,24 @@
+## 2026-05-30 — CORRECTION: E-0xFFF-IS-ONE-ALIGNED-ADDRESS — the "4 distinct 4096s" are ONE deliberate 0xFFF (12-bit) address space, aligned for efficiency; not a magic-number coincidence. Corrects E-POLYGLOT-4096-IS-CONJECTURAL
+
+**Status:** CORRECTION (supersedes the "4096 = 4 distinct unrelated magic numbers, no canonical surface" claim in `E-POLYGLOT-4096-IS-CONJECTURAL`) + FINDING (user-stated 2026-05-30).
+
+**The correction (I was wrong):** I labeled the recurring 4096 as four unrelated coincidental magic numbers. It is **ONE deliberate 0xFFF / 12-bit address space**, and the surfaces were **aligned to it for efficiency** — not coincidence. The polyglot path addresses by 0xFFF; 4096 = 2^12 is the address width, so:
+- deepnsm COCA vocab (4096 words = 12-bit rank),
+- AutocompleteCache attention topology (64×64 = 4096 heads),
+- BindSpace addressing (16 prefixes × 256 = 4096 slots),
+- the COCA² distance matrix
+…all land on **the same 12-bit index ON PURPOSE**, so a parsed symbol / vocab rank / attention head / SoA slot **co-index without translation**. The "incidentally also 4096" IS the alignment tell.
+
+**Why aligned (the efficiency):** one 0xFFF address space = no remap between stages (parse → vocab → head → SoA share the index); fits a mask, shift-addressable / AND-testable in a cycle (same "5 facets ≈ one u64, SIMD batch-AND over the SoA column" efficiency as wikidata-hhtl-load). This is the CAM addressing invariant (cognitive-risc-classes): content → fixed-width address → every layer indexes by it. 0xFFF is that fixed width.
+
+**What STILL stands from the prior finding:** the **end-to-end frontend→0xFFF→SoA wiring is still partial** — the IR is string-keyed (`ast.rs label: String`); the planner doesn't yet resolve labels→12-bit rank; the parser→4096 join (`cache/convergence.rs`) is the half-built p64-drift terminus. BUT the alignment means wiring it is CHEAP (shared address, not a translation layer) — the design intent was always one address space; only the resolution call is missing. So: address space = unified-by-design (corrected); resolution path = not-yet-called (stands).
+
+**Consequence for P-A / P-B:** P-B ("unify the 4096 surface") is NOT "merge 4 unrelated things" — it's "**declare the 0xFFF address width as ONE canonical 12-bit type** and have the surfaces name it instead of re-spelling 4096". Lighter than I framed it. And the polyglot conformance loop (P-A) can additionally assert that equivalent queries resolve to the same 0xFFF address (once resolution is wired), not just the same LogicalOp shape.
+
+**Cross-ref:** corrects `E-POLYGLOT-4096-IS-CONJECTURAL` + `E-POLYGLOT-TWO-IR-ROUTES`; cognitive-risc-classes (CAM addressing, fixed-width); wikidata-hhtl-load (facet u64 / SIMD batch-AND efficiency); `cache/convergence.rs` (the 0xFFF join, partial); faiss-homology-cam-pq (exact-address addressing).
+
+---
+
 ## 2026-05-30 — FINDING: E-POLYGLOT-TWO-IR-ROUTES — the 4 dialect parsers build IR via TWO different routes (in-strategy vs ArenaIR), converging on one LogicalOp arena that NOTHING asserts they agree on; 4096-in-planner = the AutocompleteCache, joined via convergence.rs
 
 **Status:** FINDING (grounded source read 2026-05-30, per user pointer to planner/datafusion polyglot path). Sharpens `E-POLYGLOT-4096-IS-CONJECTURAL` with the real per-parser reality.
