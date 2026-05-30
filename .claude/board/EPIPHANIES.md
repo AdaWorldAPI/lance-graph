@@ -1,3 +1,31 @@
+## 2026-05-30 — E-POLYGLOT-4096-IS-CONJECTURAL — "loop through 4096 0xFFF polyglot mapping" is NOT wired: 4096 is 4 distinct magic numbers, and frontend->4096->SoA does not exist (string-keyed IR end-to-end)
+
+**Status:** FINDING (grounded read 2026-05-30, file:line agent map). Honest correction of the "loop through 4096 polyglot" framing — labels what exists vs what is conjectural.
+
+**What EXISTS (wired):**
+- **Polyglot frontends → ONE IR:** Cypher/GQL/Gremlin/SPARQL all converge on `logical_plan.rs:19 LogicalOperator` (arena IR). Real Cypher parser `lance-graph/src/parser.rs`; the other three are thin Strategy adapters (`planner/src/strategy/{cypher,gql,gremlin,sparql}_parse.rs`) with affinity scoring. Extension shape = Parser + Strategy + affinity arm + 1-line registry (`strategy/mod.rs:51`).
+- **SQL = BACKEND only** (Cypher→DataFusion→Spark unparser, `datafusion_planner/`, `spark_dialect.rs`); NOT a frontend.
+- **NARS = truth/inference only** (`spo/truth.rs` (f,c); planner `cache/nars_engine.rs`; CausalEdge64 mantissa); NO Narsese parser.
+- **GEL/EdgeQL = ABSENT** (the one "GEL" hit = "global execution layer", unrelated).
+- **Conformance harness EXISTS** (`lance-graph-consumer-conformance/src/harness.rs` A1-A10) but tests consumer BRIDGES, not dialect IR-equivalence.
+
+**What is CONJECTURAL (NOT wired) — the honest gaps:**
+1. **"4096 surface" is 4 DISTINCT uses of the magic number, no canonical type:** (a) deepnsm COCA vocab 12-bit `VOCAB_SIZE=4096` (`deepnsm/vocabulary.rs:19`); (b) AutocompleteCache 64×64=4096 attention heads (`planner/cache/triple_model.rs`); (c) BindSpace 16 prefixes×256 slots (`docs/METADATA_SCHEMA_INVENTORY.md`, design only); (d) COCA² distance matrix. (Palette codebook is 256, NOT 4096.) ⇒ "loop through 4096 0xFFF" is NOT a single enumerable surface today — unification is a prerequisite task, not a loop.
+2. **frontend→4096→SoA path DOES NOT EXIST.** The IR is string-keyed end-to-end (`ast.rs:14` `label: String`); the planner never calls `vocabulary.tokenize(label)`; DataFusion scans by string table name; SPO uses FNV-1a hash keys, not 4096 ranks. DeepNSM (the only thing that resolves to 4096) runs PARALLEL to the graph planner, unintegrated.
+
+**The REAL shippable slice (grounded, no conjecture):** the **polyglot IR-conformance loop** — assert the 4 wired dialects produce the SAME `LogicalOperator` for equivalent queries. Attaches to the existing conformance harness; needs only a hand-written equivalent-query corpus + deep-IR-equality. This GROUNDS the polyglot claim (currently untested) and is the prerequisite floor before any 4096 wiring. (`E-SOA-IS-THE-ONLY` / AST-is-the-hub: prove the hub agrees before resolving it to addresses.)
+
+**Sequenced follow-ups (each its own slice, ratification-gated):**
+- P-A: polyglot IR-conformance loop (SHIPPABLE NOW — grounds the hub).
+- P-B: unify the 4096 surface = declare ONE canonical 12-bit address type (contract/ndarray); collapse the 4 uses onto it. (Prereq for any "loop through 4096".)
+- P-C: NARS-as-frontend (Narsese parser → LogicalOperator) — the dialect where query=inference; closes the loop to the (f,c) truth model already present.
+- P-D: frontend→4096→SoA = add `label_rank: Option<u16>` to the IR, wire vocab resolution at plan time, SoA column access by rank (OOV fallback). The conjectural path, last + biggest.
+- (SQL-as-frontend, GEL: lower priority; SQL is already a backend, GEL absent.)
+
+**Cross-ref:** cognitive-risc-core "AST is the hub"; `logical_plan.rs:19`; `deepnsm/vocabulary.rs:19`; `lance-graph-consumer-conformance`; `ExecTarget` (#439, the backend axis this frontend axis pairs with).
+
+---
+
 ## 2026-05-30 — E-SUBSTRATE-IS-THE-SCHEDULER — surreal's time-series/LIVE over the version arc is a cheap planner→execution scheduler firing back INTO the mailbox; the substrate↔mailbox loop is bidirectional
 
 **Status:** FINDING (architectural, user-stated 2026-05-30). Return-path complement of `E-VERSION-ARC-IS-THE-KANBAN`. Together they close the loop.
