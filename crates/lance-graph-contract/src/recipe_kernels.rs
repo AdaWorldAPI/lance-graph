@@ -1069,10 +1069,10 @@ mod tests {
             distinct.len()
         );
 
-        // Every non-empty mask is within the 8-field basis (no stray high bits).
+        // Every mask is within the 8-field basis. (`u8` is structurally 8 bits, so
+        // the bound is on the populated-field count, not stray high bits.)
         for m in &masks {
-            assert_eq!(m.0 & !0xFF, 0);
-            assert!(m.len() <= 8);
+            assert!(m.len() <= 8, "mask exceeds the 8-field ThoughtField basis");
         }
     }
 
