@@ -77,6 +77,38 @@
 **D-ids:** D-ARM-13 (**Shipped on branch**); D-ARM-SYN-1/2/3 (**Queued**, council-gated).
 
 **Outcome:** DONE. Transcoded **Aerial+** (Karabulut 2025, 2504.19354v1) to zero-dep Rust — the autoencoder leg the plan §14 had explicitly deferred to Python; the user's directive ("transcode aerial rule mining to rust") supersedes that deferral. Faithful port: one-hot encoding → under-complete **denoising autoencoder** (per-feature softmax + cross-entropy, hand-written backprop, seeded SplitMix64 for reproducibility) → **Algorithm 1** reconstruction-probe rule extraction (mark antecedent, uniform elsewhere, forward, τ_a antecedent test + τ_c consequent test) → support/confidence confirmed on data → `CandidateRule`. Tests prove the AE learns a cross-feature dependency and Algorithm 1 recovers a planted rule while rejecting an independent feature. Translator `arm_to_nars` maps `(support, confidence, n) → NARS (f, c)` verbatim per paper §2/§3.3; `ndjson` emits the exact `{"s","p","o","f","c"}` line shape the SPO store loader reads. **Synergy finding:** the Aerial leg is the *runtime-data* frontend of a three-frontend/one-substrate/two-codegen bracket whose substrate (`ruff_spo_triplet::Triple`) and codegen (`ruff_python_codegen` ∥ `op_emitter.rs`) legs already exist in the ruff fork; `ruff_python_dto_check` is the *static-AST* sibling frontend. Key gap surfaced: `ruff_spo_triplet::Predicate` is a closed vocabulary with **no implication/association predicate**, so loading ARM rules through that ndjson path needs `Implies` added there first (D-ARM-SYN-1, deliberate ontology change → council-gated). Determinism boundary preserved: the nondeterministic AE stays a seeded *fan-in proposer*, out of the deterministic compile path, output gated by Stage D. PR to follow.
+## [Main thread / Opus 4.8] Odoo blueprint survival dossier — inventory + strategies + tools (session-survival; "doesn't get lost")
+
+**Branch:** claude/activate-lance-graph-att-k2pHI | **Files (all new, additive):**
+- `.claude/knowledge/odoo-blueprint-inventory-v1.md` (+204 LOC) — index of all 66 `pub const OdooEntity` declarations across 15 lanes; per-lane summary; wave provenance; field/method density audit; EXT-2 coverage matrix; what's NOT in the corpus
+- `.claude/knowledge/odoo-extraction-strategies-v1.md` (+~240 LOC) — the three proposer legs (Curated/Extracted/ArmDiscovered): what each sees, what each emits, throughput, confidence, council posture, convergence diagram, ProvenanceTier ordering, what the doctrine forbids
+- `.claude/knowledge/odoo-extraction-tools-v1.md` (+~210 LOC) — tool stacks: Sonnet-agent fan-out, `tools/odoo-blueprint-extractor/` Python (654 LOC entry + 950 LOC parsers), planned `lance-graph-arm-discovery` Rust crate, `ruff_spo_triplet` cross-language SPO IR; run procedures; where each tool lives if the session dies
+- `.claude/handovers/2026-05-29-2230-odoo-blueprint-survival-dossier.md` (+~140 LOC) — survival pointer + verified numbers + next-move priority list
+
+**Cargo:** not invoked (knowledge docs + handover; no code).
+
+**Outcome:** DONE. User asked: "create a PR with all 70, strategies for extraction and tools for extraction so it doesn't get lost and if the session dies the other session has EVERYTHING." Delivered.
+
+**Verified numbers (on-disk grep, 2026-05-29):**
+- **66 pub const OdooEntity** (canonical count via `^pub const [A-Z_0-9]+: OdooEntity` — the "70" was a fuzzy match including nested struct refs)
+- 11,563 LOC across 15 lane files; 130 lane tests
+- 99,209 LOC of EXT-2 extracted backing in 11 addon files
+- 48/53 = 90.6% TIER-1 coverage per EXT-6
+- Wave 1 (commit `f5702675`) = 21 entities, L1-L5, **5 Sonnet agents** (the user's "5 agents" question)
+- Wave 2 dedicated (`d30186e5`) + Wave 2/3 (`333a1ff2`) + EXT-3 back-fill (`c04adf10`) = remaining 45 entities
+
+**Discovery during inventory pass:**
+- The L1 const block has 52 field-kind hits + 41 method-kind hits + 8 decorator-kind hits — densest lane in the corpus alongside L5 (55 fields / 26 methods / 11 decorators) and L10 (36/16/2)
+- State-machine presence audit needs a follow-up: multi-line `OdooStateMachine` formatting evades the indented-grep; manual verification needed for L1/L2/L5/L6/L7/L11
+- L12-L15 (Wave-3 curated additions) are POST-EXT-6 and need a fresh extractor pass to bring into `CURATED_EXTRACTED_PAIRS`; flagged as Stage-2 work
+- 6 dark D-Atoms (Money/Quantity/ApplyRate/EmitAmount/Event/FiscalCtx) don't fire today because `return_kind` defaults to `Unit` and `semantic_role` defaults to `Other` across most extracted entries — extractor `parsers/methods.py` + `parsers/fields.py` are the enrichment targets
+
+**Cross-refs added (knowledge → plan / handover / paper):**
+- `streaming-arm-nars-discovery-v1.md` (Leg 3 plan, this PR #435)
+- `odoo-business-logic-blueprint-v1.md` (Leg 1 plan)
+- `odoo-source-extraction-v1.md` (Leg 2 plan)
+- `epiphany-brainstorm-council` (PR #433 ratification gate)
+- Karabulut 2025 (arxiv 2504.19354v1) Leg-3 anchor; Abreu 2025 (arxiv 2511.13661v1) externalize-interpretation doctrine
 
 ---
 
