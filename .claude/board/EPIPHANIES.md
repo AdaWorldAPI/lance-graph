@@ -1,3 +1,25 @@
+## 2026-05-30 — FINDING (via #433 ref): three recipe modules; `contract::recipe::StyleRecipe` is the CANONICAL i4-32D style↔atom↔JIT home but is STALE+ORPHANED (unblocked yet never migrated/exported). StyleStrategy (#439) correctly built on the LIVE recipes/recipe_kernels — adjacent, not wrong.
+
+**Status:** FINDING (grounded, prompted by user "check 433"). Tech-debt + a scoped follow-up; NOT a #439 defect.
+
+**Three distinct recipe modules in contract — disambiguated:**
+1. `contract::recipe.rs` (SINGULAR) — **"Composition layer: thinking-style recipes"**: `StyleRecipe { name, weights:&[(Atom,i8)], composition:Option<I4x32> }` + `PersonaRecipe` (+β/thresholds) → `KernelHandle` (Cranelift). The canonical **atoms(i4-32D) → StyleRecipe → PersonaRecipe → JIT** ladder (E-LADDER-SERVES-MAILBOX §2). "JIT target is the recipe, not the per-atom dot"; "Elixir-style open/closed hot-load split". = EXACTLY the i4-32D-style + Cranelift-template substrate the user named.
+2. `contract::recipes.rs` (PLURAL) — the 34 reasoning-TACTIC catalogue (RTE/HTD/…).
+3. `contract::recipe_kernels.rs` — the 34 executable `Tactic` kernels.
+   (+ a 4th, unrelated: `lance-graph-ontology::odoo_blueprint::OdooStyleRecipe` — #433's Odoo-codegen D-Atom fingerprint, renamed from StyleRecipe to avoid THIS collision.)
+
+**The rot (the real find):** `recipe.rs`'s blocker D-ATOM-1 **HAS LANDED** — `contract::atoms` is real now (`I4x32` struct, `Atom`, `CANONICAL_ATOMS:[Atom;33]`). But `recipe.rs` was NEVER migrated: still uses `I4x32Stub=[i8;32]`/`AtomStub=u8` forward-stubs, AND is **NOT exported in lib.rs** (`pub mod recipe;` absent; only atoms/recipes/recipe_kernels exported). So `StyleRecipe`/`PersonaRecipe` is **dead code**: defined, stub-blocked despite the blocker resolving, unexported, zero consumers. Classic "blocker cleared, dependent never updated" debt — the kind #433's `prior-art-savant`/`dto-soa-savant` gate exists to catch.
+
+**Impact on D-MBX-A6-P3a (#439) — adjacent, not wrong:** `StyleStrategy` wired to the LIVE `recipes`+`recipe_kernels` (reasoning tactics). That was the correct shippable choice (those are exported + tested; `recipe.rs` is not). It is NOT the canonical i4-32D `StyleRecipe` home, and it does not yet use `atoms::I4x32`/`PersonaRecipe`. So #439 stands as-is (correct, green); the canonical-home migration is a SEPARATE slice, not a #439 fix.
+
+**Scoped follow-up (proposed, NOT in #439):** "D-MBX-A6-P3b — revive recipe.rs": migrate `I4x32Stub`→`atoms::I4x32`, `AtomStub`→`atoms::Atom`, export `pub mod recipe;` in lib.rs, then route `StyleStrategy` through `StyleRecipe` (style = i4-32D atom composition) → `PersonaRecipe` → the τ/jit `KernelHandle`. THAT closes the real i4-32D-style → Cranelift-template loop the user named. Gate it through the epiphany-brainstorm-council (#433) since it touches the atom/SoA layer (dto-soa-savant).
+
+**Also from #433 (process):** EPIPHANIES additions are council-gated (4-7 Opus savants → LAND/REVISE/REJECT) because the corpus is an append-only permanent prior. My rapid-fire tee-prepends this session are NOT council-gated — most are user-stated findings/brainstorm (exempt), but the derived architectural ones (E-FIREFLY-*, E-0xFFF, E-POLYGLOT-*) should be flagged as council-pending if promoted from FINDING to canon.
+
+**Cross-ref:** #433 (style_recipe + epiphany-brainstorm-council + 5 savant cards); `contract::recipe.rs` (StyleRecipe/PersonaRecipe, stale); `contract::atoms` (D-ATOM-1 landed, #411); `contract::recipes`/`recipe_kernels` (what #439 uses); `OdooStyleRecipe` (ontology, the renamed-to-avoid-collision sibling); E-LADDER-SERVES-MAILBOX §2; D-MBX-A6-P3a (#439).
+
+---
+
 ## 2026-05-30 — SHIPPED-in-PR: D-MBX-A6-P3a — StyleStrategy (thinking-style planning substrate wired into the planner)
 
 **Status:** SHIPPED-in-PR #439 (builds on A6-P1 #437 / A6-P2). First live cut of D-MBX-A6-P3 consumer wiring.
