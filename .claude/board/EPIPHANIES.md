@@ -1,3 +1,21 @@
+## 2026-05-30 — FINDING: E-RACTOR-WANTS-TOKIO-NOT-GRPC — local ractor is a Box<dyn Any> pointer-move over Tokio mpsc (zero serialize); gRPC is strictly slower and is LAB-ONLY. CAM/0xFFF-over-Flight is the cross-PROCESS path only
+
+**Status:** FINDING (grounded in ractor + cognitive-shader-driver source, 2026-05-30). Answers the user's transport question: does ractor want gRPC, or is it slower than Tokio?
+
+**ANSWER: For in-process mailboxes, Tokio mpsc beats gRPC by construction — gRPC is never the local transport.** Proof from ractor source:
+- **Local (default, NO `cluster` feature):** a message is `BoxedMessage { msg: Box<dyn Any + Send> }` (`ractor/src/message.rs:62-63`), moved through a Tokio mpsc and recovered via `m.downcast::<Self>()` (`message.rs:102`). **Zero serialization** — a heap-boxed pointer move + downcast. Blanket `impl<T: Any+Send> Message for T` (ractor CLAUDE.md) = any Rust type rides as-is, zero boilerplate.
+- **Cluster (`cluster` feature):** the SAME enum is replaced by `SerializedMessage { args: Vec<u8> }` (`message.rs:30-57`) → serialize → TCP via `ractor_cluster` NodeServer/NodeSession. Note: ractor's OWN distributed transport is **raw TCP serialization, NOT gRPC.**
+
+**Why gRPC is strictly slower locally:** gRPC = protobuf encode + HTTP/2 framing + socket syscall + decode. The local Tokio path SKIPS all of it (pointer move). gRPC only earns its cost at a **process/node boundary** — and even there ractor's native answer is TCP serialization, not gRPC. So: never gRPC for same-process mailboxes; serialization (TCP or Flight) only when crossing a process.
+
+**The gRPC/Ballista/Flight + CAM/0xFFF occurrences (the user's first point):** these live in `cognitive-shader-driver/src/{grpc.rs,wire.rs}` — **LAB-ONLY** (`lab-vs-canonical-surface.md:52,54`: "Test-transport convenience… NEVER in production binary"), feature-gated (`Cargo.toml`: `grpc.rs` required-features=["grpc"], `tonic optional=true`). CAM-encoded-over-Flight/Ballista = the cross-PROCESS / distributed-DataFusion movement path, exactly where serialization is unavoidable anyway, and where 0xFFF/CAM codes are the COMPACT wire form (12-bit address / 6-byte CAM-PQ code instead of full vectors — Flight/Ballista carry the addresses, not the payloads). So CAM-over-Flight is the RIGHT tool for its layer (inter-process), and Tokio-Baton is the right tool for the hot in-process layer.
+
+**Maps to the inside/outside duality (this session's stance):** INSIDE (in-process, hot) = Tokio mpsc + Baton (`CollapseGateEmission` LE tuple), zero-serialize pointer move — the kanban hot path. OUTSIDE (cross-process, distributable) = ractor `cluster` TCP serialize OR CAM/0xFFF-over-Flight/Ballista for DataFusion-federated movement. gRPC sits with OUTSIDE+LAB, never INSIDE. Decision: keep ractor on local Tokio for the mailbox swarm; reserve serialized transport (prefer ractor_cluster TCP or Flight-CAM) for genuine process boundaries; gRPC stays lab-only.
+
+**Cross-ref:** `ractor/src/message.rs` (Boxed vs Serialized); ractor CLAUDE.md (blanket Message impl, cluster=TCP); `lab-vs-canonical-surface.md:52-54` (grpc/wire LAB-ONLY); `E-VERSION-ARC-IS-THE-KANBAN` (inside/outside); the earlier hot-path Tokio-cost finding; faiss-homology-cam-pq (CAM = compact address, the right Flight payload).
+
+---
+
 ## 2026-05-30 — CORRECTION: E-0xFFF-IS-ONE-ALIGNED-ADDRESS — the "4 distinct 4096s" are ONE deliberate 0xFFF (12-bit) address space, aligned for efficiency; not a magic-number coincidence. Corrects E-POLYGLOT-4096-IS-CONJECTURAL
 
 **Status:** CORRECTION (supersedes the "4096 = 4 distinct unrelated magic numbers, no canonical surface" claim in `E-POLYGLOT-4096-IS-CONJECTURAL`) + FINDING (user-stated 2026-05-30).
