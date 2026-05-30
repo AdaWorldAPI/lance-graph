@@ -12,10 +12,15 @@
 //! never by a softmax over float weights.
 //!
 //! The oracle is a **trait**, not a concrete table, so this crate stays
-//! zero-dep and standalone: the real implementation is
-//! `bgz17::PaletteDistanceTable` (or the BLASGraph Gaussian-splat top-k, or an
-//! HDR-popcount Hamming primitive) wired in by the consumer. [`MatrixDistance`]
-//! is the in-crate reference impl used by tests.
+//! zero-dep and standalone. The production table is **built and certified
+//! offline by `crates/jc` (Jirak-Cartan)** — `ewa_sandwich` certifies the
+//! Gaussian-splat Σ-push-forward (the 10000² BLASGraph spatial top-k that
+//! constructs it), and `sigma_codebook_probe` measures the 256-codebook viable
+//! at ρ=0.9973. That offline build may use float (k-means, SPD math); the
+//! frozen `[u32; dim²]` table it emits is consumed here as integer through
+//! [`MatrixDistance`]. Float to BUILD the codebook, integer to USE it — the
+//! CAM-PQ doctrine. See `.claude/knowledge/splat-codebook-aerial-wikidata-compression.md`.
+//! [`MatrixDistance`] is also the in-crate reference impl used by tests.
 //!
 //! Invariant (per `faiss-homology-cam-pq.md`): this distance is **discovery /
 //! shape-family only**, never identity addressing. Identity is the exact CAM

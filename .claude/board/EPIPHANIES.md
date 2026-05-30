@@ -1,3 +1,16 @@
+## 2026-05-30 — E-ARM-JC-RESOLVES-BOTH-SEAMS — aerial's two open seams (the distance oracle AND the D-ARM-7 Jirak floor) both resolve to `crates/jc`; jc PROVES the splat codebook, aerial USES it to discover the DOLCE skeleton that compresses Wikidata
+
+**Status:** FINDING (architecture; seams concrete, end-to-end pipeline is CONJECTURE). User framing: "gaussian-splat spatial blasgraph top-k 10000×10000 … for OWL/DOLCE+ SPO HHTL classes and basin via aerial+ to deterministically compress Wikidata … adjacent to JC Jirak[-Cartan] with EWA-sandwich gaussian splat."
+
+The de-float (E-ARM-PROBE-IS-CODEBOOK-TOPK) left aerial with two open seams: a production `CodebookDistance` oracle, and the unimplemented D-ARM-7 Jirak significance floor (ISSUE ARM-JIRAK-FLOOR). **Both resolve to the same crate — `crates/jc` (Jirak-Cartan)** — and the grounding is already in the workspace, not invented:
+
+- **Oracle ← jc.** `jc::ewa_sandwich{,_3d}` (Pillars 9/9b) certify the Gaussian-splat Σ-push-forward `J·W·Σ·Wᵀ·Jᵀ` for `ndarray::hpc::splat3d` — i.e. the 10000² BLASGraph spatial top-k that *builds* the codebook is correct. `jc::sigma_codebook_probe` is **literally where ρ=0.9973 comes from**: it measures a 256-codebook capturing the Σ-distribution at R²≥0.99 in log-Euclidean space. `jc::pflug` (Pillar 10) certifies the CAM-PQ/HHTL tree quantization is Lε-faithful (compression is faithful, not lossy-by-surprise). The frozen `[u32; dim²]` table feeds aerial's existing `MatrixDistance`/`CodebookDistance` seam — no new aerial dependency.
+- **Jirak floor ← jc.** `jc::jirak` (Pillar 5) is the weak-dependence Berry-Esseen engine: classical IID is wrong here (I-NOISE-FLOOR-JIRAK), the correct rate is `n^(p/2-1)`. D-ARM-7's significance gate derives its threshold from it.
+
+**The float boundary is the punchline.** float lives ONLY in jc's offline build+certify (k-means, SPD/EWA math, Berry-Esseen sup-error); it runs once, emits a frozen integer artifact, and is never on aerial's online path. That is the CAM-PQ doctrine end-to-end — *build the codebook offline (float OK), address it online with integer codes* — and it makes the whole "deterministically compress Wikidata" claim float-free at runtime. Downstream: aerial discovers the OWL/DOLCE+ SPO HHTL classes + basins (the `specs/wikidata-hhtl-load.md` skeleton: P279/P31 DAG + basin assignment, DOLCE as the axis template), the Jirak floor decides which rules are significant enough to persist, and codebook-HHTL is the 16ⁿ bucket router. Full map: `.claude/knowledge/splat-codebook-aerial-wikidata-compression.md`. Cross-ref: jc pillars 5/9/9b/10, `wikidata-hhtl-load.md`, `ogit-owl-dolce-ontology-compartments.md`, `3DGS-HHTL-datalake-traversal-plan.md`, E-ARM-PROBE-IS-CODEBOOK-TOPK.
+
+---
+
 ## 2026-05-30 — E-ARM-PROBE-IS-CODEBOOK-TOPK — Aerial+'s reconstruction probe IS a codebook top-k; the autoencoder was a float approximation of a lookup the substrate already does exactly; de-floating it dissolves the determinism firewall
 
 **Status:** FINDING (de-float shipped on `claude/jolly-cori-clnf9`, 28/28 tests, zero f32 in the discovery path). User-directed: "neither cam_pq nor any other crate uses (or should) float … all is deterministic [a,b] codebook distance, ρ=0.9973 spearman."

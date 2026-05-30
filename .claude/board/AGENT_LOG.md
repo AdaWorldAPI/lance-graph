@@ -1,3 +1,11 @@
+## [Main thread / Opus] Splat-codebook ↔ aerial ↔ Wikidata wiring — jc resolves both aerial seams
+
+**Branch:** claude/jolly-cori-clnf9 | **Files:** ADDED `.claude/knowledge/splat-codebook-aerial-wikidata-compression.md`; EPIPHANIES (E-ARM-JC-RESOLVES-BOTH-SEAMS); STATUS_BOARD (D-ARM-7 engine pointer, D-ARM-13 → 33/33 + SIMD clause, new D-ARM-14); `aerial/codebook.rs` oracle doc names jc + the float boundary; AGENT_LOG.
+
+**Outcome:** ANALYSIS + doc (no new code — the seam already exists). User direction: wire the 10000² Gaussian-splat BLASGraph top-k as the aerial oracle for OWL/DOLCE+ SPO HHTL class/basin discovery → deterministic Wikidata compression, adjacent to jc (Jirak-Cartan) EWA-sandwich splat. Grounded it against real workspace artifacts (consult-before-guess): `crates/jc` is "Jirak-Cartan" ("candar"≈Cartan), holding `ewa_sandwich{,_3d}` (Pillars 9/9b: splat Σ-push-forward for `ndarray::hpc::splat3d`), `sigma_codebook_probe` (**the ρ=0.9973 source** — 256-codebook R²≥0.99 viability), `pflug` (Pillar 10: CAM-PQ/HHTL Lε-faithful), `jirak` (Pillar 5: weak-dep Berry-Esseen). FINDING (E-ARM-JC-RESOLVES-BOTH-SEAMS): aerial's two open seams — the production `CodebookDistance` oracle AND the D-ARM-7 Jirak floor — **both resolve to jc**. jc PROVES the codebook (builds + certifies the frozen `[u32;dim²]` table offline, float OK); aerial USES it online (integer) to discover the `wikidata-hhtl-load.md` skeleton (P279/P31 DAG + basins, DOLCE as axis template). Float boundary = CAM-PQ doctrine end-to-end: build offline (float), address online (integer); the runtime stays float-free. No new aerial dependency — pass the table through the existing `MatrixDistance` seam. Confirmed user's target-cpu point (AVX-512/AMX need native/x86-64-v4) — already in the SIMD commit. PR #436 updated.
+
+---
+
 ## [Main thread / Opus] D-ARM-13 SIMD seam — bitset SoA + ndarray::simd::U64x8 (AND+popcount)
 
 **Branch:** claude/jolly-cori-clnf9 | **Files:** `crates/lance-graph-arm-discovery/` — ADDED `bitset.rs` (`RowMasks` row-bitset SoA), `simd.rs` (`popcount`/`and_popcount`, scalar default + `ndarray-simd` feature); rewired `aerial/extract.rs` (probe counts via `RowMasks`, not AoS rescan); `lib.rs`, `Cargo.toml` (`ndarray-simd` feature + optional ndarray path dep, `default-features=false` + `std`), `README.md`.
