@@ -92,6 +92,12 @@ impl WikidataClass {
     /// family (classes.md:42, now on Wikidata). Reuses the canonical
     /// [`fnv1a`](lance_graph_contract::hash::fnv1a); truncated to the
     /// [`StructuralSignature`] `u32`.
+    ///
+    /// **Scale freeze (TD-WIKI-SCALE):** `StructuralSignature` is `u32` — ~50%
+    /// birthday-collision near ~77k distinct shape-families. Safe for the curated
+    /// corpus + Odoo; at full Wikidata load scale, widening to `u64` is a #441
+    /// contract decision (flagged by the D-ARM-14 review of #442), to land WITH the
+    /// deferred loader, not unilaterally here.
     #[must_use]
     pub fn signature(&self) -> StructuralSignature {
         let mut props: Vec<&str> = self.properties.to_vec();

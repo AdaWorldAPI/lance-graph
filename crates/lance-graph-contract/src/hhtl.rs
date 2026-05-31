@@ -80,10 +80,15 @@ impl NiblePath {
         }
     }
 
-    /// Route one level deeper to child `nibble`. Returns `self` UNCHANGED once
-    /// [`MAX_DEPTH`] is reached (the path is full — deeper addressing needs a ref)
-    /// or `nibble >= FAN_OUT` (out of range — never folded onto a valid child,
-    /// mirroring [`FieldMask`](crate::class_view::FieldMask)'s out-of-range discipline).
+    /// Route one level deeper to child `nibble`. **Saturating:** returns `self`
+    /// UNCHANGED once [`MAX_DEPTH`] is reached or `nibble >= FAN_OUT` (out of range —
+    /// never folded onto a valid child, mirroring
+    /// [`FieldMask`](crate::class_view::FieldMask)'s out-of-range discipline).
+    ///
+    /// At [`MAX_DEPTH`] the silent saturation means two *distinct* deeper paths would
+    /// collide on this address — so a real-scale caller MUST gate on
+    /// [`is_full`](NiblePath::is_full) or use [`try_child`](NiblePath::try_child),
+    /// which signal the ceiling instead of colliding (D-ARM-14 review of #442).
     #[must_use]
     pub const fn child(self, nibble: u8) -> Self {
         if self.depth >= MAX_DEPTH || nibble >= FAN_OUT {
@@ -93,6 +98,33 @@ impl NiblePath {
                 path: (self.path << 4) | (nibble as u64),
                 depth: self.depth + 1,
             }
+        }
+    }
+
+    /// Has this path reached [`MAX_DEPTH`] — i.e. [`child`](NiblePath::child) can no
+    /// longer descend within the `u64`? When `true`, the bit-budget discipline
+    /// (`wikidata-hhtl-load.md`:71 "grows unbounded → path/ref") says switch to a
+    /// ref for deeper addressing: descending anyway via [`child`] is a SILENT no-op,
+    /// so two distinct deeper classes would collide on this same path. The deferred
+    /// 115M loader gates each descent on this (D-ARM-14 review of #442).
+    #[must_use]
+    pub const fn is_full(self) -> bool {
+        self.depth >= MAX_DEPTH
+    }
+
+    /// Route one level deeper, returning `None` instead of silently saturating when
+    /// the path [`is_full`](NiblePath::is_full) or `nibble >= FAN_OUT`. The explicit
+    /// counterpart to [`child`](NiblePath::child) for callers that must NOT collide
+    /// distinct deep paths (the real-scale loader).
+    #[must_use]
+    pub const fn try_child(self, nibble: u8) -> Option<Self> {
+        if self.depth >= MAX_DEPTH || nibble >= FAN_OUT {
+            None
+        } else {
+            Some(Self {
+                path: (self.path << 4) | (nibble as u64),
+                depth: self.depth + 1,
+            })
         }
     }
 
@@ -261,5 +293,34 @@ mod tests {
             "carries the flight facet bit in the same mask"
         );
         assert_eq!(bat_mask.count(), 4);
+    }
+
+    #[test]
+    fn is_full_and_try_child_signal_depth_exhaustion() {
+        // child() saturates silently at MAX_DEPTH; is_full()/try_child() expose the
+        // ceiling so the deferred loader switches to a ref instead of colliding two
+        // distinct deep paths (D-ARM-14 review of #442).
+        let mut p = NiblePath::root(0x1);
+        assert!(!p.is_full());
+        while !p.is_full() {
+            p = p.try_child(0xF).expect("descends while not full");
+        }
+        assert_eq!(p.depth(), MAX_DEPTH);
+        assert!(p.is_full());
+        assert_eq!(
+            p.try_child(0x2),
+            None,
+            "try_child signals exhaustion, not a silent collision"
+        );
+        assert_eq!(
+            p.child(0x2),
+            p,
+            "child() still saturates (the convenience path)"
+        );
+        assert_eq!(
+            NiblePath::root(0x1).try_child(16),
+            None,
+            "out-of-range nibble is None too"
+        );
     }
 }
