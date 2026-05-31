@@ -1,3 +1,19 @@
+## [Main thread / Opus + W1/W2 wave] world-spine vision + probe wave + markov_soa SoC + EW64-as-AriGraph
+
+**Branch:** claude/jolly-cori-clnf9-worldspine (local, 21 commits ahead of origin/main) | **Spans:** the agnostic-lazy-world-spine + delta-card integration map vision docs; the W1+W2 autoattended wave; the markov_soa SoC re-home; the EW64-as-AriGraph note; the locality probe RUN.
+
+**Cargo:** locality probe RUN on real ontologies → **PASS** (locality 98.6%, max fan-out 3 ≤16, Q=0.325); jc 60/60 tests green, probe clippy-clean (pre-existing jc lints elsewhere untouched); deepnsm 89/4/8/1 green after markov_soa removal; contract soa_view 3/3 green. AriGraph `markov_soa` = **unverified-offline** (lance-graph core's lance/datafusion/arrow don't fetch in the sandbox).
+
+**Outcome (autoattended, auto-resolved):**
+- **Vision docs** (knowledge/): `agnostic-lazy-world-spine.md` + `delta-card-addressing-integration-map.md` + `owl-dolce-hhtl-compartments-aerial-fed.md` + `splat-codebook-aerial-wikidata-compression.md` — the converged "inherited nothingness" addressing design (partition-as-address, 27-bit floor, sparse radix, I/P/B-over-Lance, RISC compose-not-materialize, frozen-ISA).
+- **W1 (Plan wave worker):** `.claude/plans/wikidata-lazy-spine-hydration-v1.md` (9 D-LWS D-ids); flagged R1 (EW64 not a code symbol), R2 (Lance versioning is dataset-level VersionedGraph not fragment), R3 (CLAM is a probe not a clusterer) — all reconciled in the findings.
+- **W2 (probe wave worker):** `jc/examples/ontology_locality_probe.rs` (941 LOC, hand-rolled TTL scan, reuses splat_louvain machinery) — harvested + RUN: **the addressing-locality CONJECTURE → FINDING on real ontologies** (DOLCE-Ultralite/schema.org/Odoo/PROV-O/QUDT/OWL-Time; ~10³ classes, NOT Wikidata).
+- **markov_soa SoC arc:** authored in deepnsm (e0a5049), then **moved to AriGraph** (`lance-graph::graph::arigraph::markov_soa`, 9a5f54c) + made **vocabulary-agnostic** (opaque `SpoRanks{u16}`, injected `Fn(u16,u16)->u8` = AriGraph's own cam_pq) + corrected framing (cc24f02: markov_soa IS AriGraph cold→hot; language/COCA stays UPSTREAM in deepnsm, never reaches the hot graph — the GoBD-with-Rumi error). deepnsm copy deleted.
+- **EW64 note** (679e61e): `MailboxSoaView` doc — EpisodicWitness64 = AriGraph in the mailbox SoA view (the particle, cold→hot); deferred accessor, EW64 still 0 code symbols.
+- **3 governing findings** on the board: the three-Markovs taxonomy (#1 chain / #2 hybrid-dark-horse / #3 pray) + P1→P2→P3 ordering; the VSA substrate decision (32k SPO-W = substrate, VSA = fuzzy proposer/priming); the EW64 reactive-seam (Lance-update=witness-pointer=Surreal-kanban-subscription). NOT pushed — awaiting push/PR decision (autoattended consolidation done).
+
+---
+
 ## [Main thread / Opus] D-ARM-14 Phase 2 — rebased onto post-#442 main + swapped inline nibble → real contract::hhtl::NiblePath
 
 **Branch:** claude/jolly-cori-clnf9-darm14-p2 (rebased onto main 415971a, #442 merged) | **Files:** `tests/wikidata_landing.rs` (inline `np_*` helpers + inline FieldMask union → real `NiblePath::{root,child,basin,is_ancestor_of,depth,packed}` + `FieldMask::inherit`), STATUS_BOARD (D-ARM-14 row: swap done).
