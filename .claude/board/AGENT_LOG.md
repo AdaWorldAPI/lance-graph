@@ -1,3 +1,13 @@
+## [Main thread / Opus] D-ARM-14 Phase 2 — rebased onto post-#442 main + swapped inline nibble → real contract::hhtl::NiblePath
+
+**Branch:** claude/jolly-cori-clnf9-darm14-p2 (rebased onto main 415971a, #442 merged) | **Files:** `tests/wikidata_landing.rs` (inline `np_*` helpers + inline FieldMask union → real `NiblePath::{root,child,basin,is_ancestor_of,depth,packed}` + `FieldMask::inherit`), STATUS_BOARD (D-ARM-14 row: swap done).
+
+**Cargo:** rebase clean (no conflicts); default **42/42** + clippy clean; `--features landing` `wikidata_landing` green + clippy clean — now landing on the REAL merged `contract::hhtl::NiblePath`. Output shows real depths (person 0x1 d2 → human 0x12 d3), 6→5 collapse holds.
+
+**Outcome:** DONE. User: "442 merged please rebase." #442 put `contract::hhtl::NiblePath` + `FieldMask::inherit` + `ontology::wikidata_hhtl` on main, so the rebase also unlocked the promised inline→real swap (the "swap on #442 merge" remaining item). The worked example now lands on the canonical 16ⁿ router, not a stand-in. Force-push follows (rebase rewrote the 3 P2 commits onto new main). PR #443 updated.
+
+---
+
 ## [Main thread / Opus] D-ARM-14 Phase 2 — proposer→hub landing (dolce_id emit + worked Wikidata example)
 
 **Branch:** claude/jolly-cori-clnf9-darm14-p2 (off main a77e119) | **Files:** `crates/lance-graph-arm-discovery/src/aerial/ontology.rs` (+`OntologyProjector::dolce_id`, `DolceCategory::from_index`, `is_dolce`), `Cargo.toml` (+`landing` feature + optional `lance-graph-contract` dev-dep), `tests/wikidata_landing.rs` (NEW, gated) + STATUS_BOARD (D-ARM-14 Phase 2).
