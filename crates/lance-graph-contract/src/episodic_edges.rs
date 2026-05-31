@@ -24,7 +24,10 @@
 
 // The slot pack/unpack does intentional nibble extraction (slot>>12 ∈ 0..=15) and
 // low-16-bit reads (u64 -> u16); both are provably-bounded narrowings.
-#![allow(clippy::cast_possible_truncation)]
+// cast_possible_truncation: intentional bounded narrowings (nibble slot>>12 ∈ 0..=15;
+// low-16-bit slot reads). doc_markdown: domain acronyms (AriGraph/OGIT/CAM_PQ/SoC) read
+// better unbackticked in this module's prose.
+#![allow(clippy::cast_possible_truncation, clippy::doc_markdown)]
 
 /// One episodic edge: a `(family, local)` reference in the episodic basin space.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -75,7 +78,7 @@ impl EdgeRef {
         self.family != 0
     }
 
-    const fn to_slot(self) -> u16 {
+    fn to_slot(self) -> u16 {
         (u16::from(self.family) << 12) | (self.local & Self::MAX_LOCAL)
     }
 
