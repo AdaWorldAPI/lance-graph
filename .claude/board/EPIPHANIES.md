@@ -1,3 +1,16 @@
+## 2026-05-31 — FINDING (PROBE RESULT, measured): ontology partition-locality SURVIVES on real ontologies — locality 98.6%, max fan-out 3 (<=16), Q=0.325 ⇒ 16-bit local refs + <=16 family frontier are REAL (on real data, NOT yet Wikidata)
+
+**Status:** FINDING (measured, not asserted). Probe `crates/jc/examples/ontology_locality_probe.rs` run on the on-disk ontologies (DOLCE-Ultralite, schema.org, Odoo, PROV-O, QUDT, OWL-Time) — the falsifier for the delta-card/inherited-nothingness addressing claim (probe #1 of `delta-card-addressing-integration-map.md`). PASS.
+
+**Measured numbers (1170 classes, 1224 subClassOf edges, 33 top-basins):**
+- **LOCALITY = 98.61%** (1207/1224 edges intra-basin) — the map's "~90% local" claim survives and EXCEEDS it.
+- **FAN-OUT max = 3** (≤16 ✓); histogram: 1121 classes have exactly 1 parent-basin, 15 have 2, 1 has 3, 33 are roots. ⇒ no class needs more than 3 distinct family pointers; the ≤16 frontier has huge headroom.
+- **MODULARITY Q = 0.3246** (>0.3 = clear community structure; Newman modularity of the basin partition).
+
+**What it proves / doesn't:** on REAL frozen-ISA ontology structure, the 16-bit LOCAL reference + the ≤16 family-cohort frontier are real — most subClassOf references stay inside one top-basin, partition locality is genuine. HONEST CAVEAT (in the probe's own verdict): measured on real ontologies (~10³ classes), **NOT Wikidata** (~10⁸); same KIND of structure, smaller scale. The Wikidata P279 run remains the open probe (gated on a real dump, not on disk). Promotes the addressing-locality CONJECTURE to FINDING *on real ontologies*; the Wikidata-scale claim stays CONJECTURE.
+
+**Falsifies a worry:** had locality been low or fan-out high, the cheap-local-reference + inherited-nothingness scheme would degrade to mostly-far pointers (the scheme's main risk, flagged in the #442 review + the integration map). It didn't — the partition is real. Cross-ref: `delta-card-addressing-integration-map.md` (probe #1), `agnostic-lazy-world-spine.md`, `jc/examples/splat_louvain_modularity.rs` (the modularity machinery reused), `wikidata-lazy-spine-hydration-v1.md` (D-LWS-8 probe harness).
+
 ## 2026-05-31 — FINDING (SoC correction): markov_soa IS AriGraph (the cold-path Markov chain promoted to the hot-path SoA); AriGraph is agnostic & NOT necessarily English — the language layer (DeepNSM/COCA) stays UPSTREAM and never reaches into the hot graph
 
 **Status:** FINDING + done (move shipped; AriGraph version unverified-offline — core does not build in the sandbox). Corrects the premature `deepnsm::markov_soa` placement (`e0a5049`, now deleted) AND its own first framing (the "inject a COCA distance as an alternative" error — that would be the GoBD-with-Rumi mistake).

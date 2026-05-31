@@ -57,3 +57,6 @@ name = "splat_jaccard_adamic_adar"
 
 [[example]]
 name = "splat_perturbationslernen"
+
+[[example]]
+name = "ontology_locality_probe"
