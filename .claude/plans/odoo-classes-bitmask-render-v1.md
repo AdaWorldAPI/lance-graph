@@ -26,19 +26,23 @@
 - **C5** — Class taxonomy is DISCOVERED, not hand-assigned (classes.md:41-44). Shape-families come from Aerial+ on structural signature, not human selection.
 - **C6** — All deliverables are additive. No rename of existing types. No deletion. The 4-way `DolceCategory` consolidation collapses by adding ONE canonical type + thin re-exports; legacy aliases stay for one release cycle.
 - **C7** — Per CLAUDE.md mandatory board-hygiene rule: every PR landing a D-CLS-* row updates STATUS_BOARD + AGENT_LOG in the SAME commit.
+- **C8** (NEW, council F7 from R1) — No `class_id` field, `ClassId` table, or per-class registry may occupy a byte position reserved for `discovery_origin` widening (per core.md:55-62 N2). The classes-spec hook lands WITHOUT burning byte real estate the proposer-id widening still needs. Specifically: `ClassId(u16)` lives in its own column on the SoA, NOT packed into the same byte as `discovery_origin`.
 
 ## 2. Spec-owner pre-conditions (blocking; user must answer before code)
 
-These are decisions only the spec owner / project lead can make. **No agent should start D-CLS-1+ until all four are answered.**
+These are decisions only the spec owner / project lead can make. **No agent should start D-CLS-1+ until all FIVE are answered.**
 
-| OD | Question | Default lean (from spec, for ratify/reject) |
-|---|---|---|
-| **OD-DOLCE-CANONICAL** | Which of the 4 `DolceCategory` definitions becomes canonical? The four divergences: `lance-graph-contract::cognition::entity` (no AbstractEntity? confirm at impl), `lance-graph-ontology::hydrators::dolce_odoo` (uses `AbstractEntity`), `lance-graph-arm-discovery::aerial::ontology` (uses `Abstract`), `lance-graph-callcenter::super_domain::DolceMarker` (adds `Unknown`). | **`lance-graph-contract::cognition::entity::DolceCategory`** — zero-dep, already in the cognition pipeline, naming aligns with DOLCE-Lite-Plus. Others become re-exports. The `Unknown` variant in callcenter is real-world necessary; add it to the canonical with explicit doc. |
-| **OD-CLASSID-WIDTH** | `class_id: u8` (≤256 classes), `u16` (≤65,535), or `ShapeHash(u128)` (CAM-style)? | **`ClassId(u16)`** — the spec says ~40 shape-families today, but Odoo TIER-2 + Wikidata + chess push toward thousands. u16 (≤65,535) covers all known domains without overflowing a hot-path field. CAM-style u128 is overkill for the discriminator role; CAM hashing applies at the *content* layer, not the *class* layer. |
-| **OD-CLASSID-VS-ENTITYKIND** | Does `class_id` *replace* the existing `OdooEntity.kind: OdooEntityKind` ({Model, Transient, Abstract})? Or coexist? | **Coexist.** `OdooEntityKind` is the ORM-base axis (storage shape: Model = real table, Transient = wizard scratch, Abstract = inherit-only). `ClassId` is the semantic shape-family axis (which `_compute_*` patterns + emits + depends). Orthogonal axes. Both stay. |
-| **OD-TEMPLATE-ENGINE** | F3 from classes.md still open. Askama (compile-time typed) vs minijinja (runtime). | **Askama**, per classes.md:72 lean: "Since meaning is late-bound through OGIT but identity/shape is frozen, templates likely compile per-class (askama) with OGIT resolving the late-bound labels at render." |
+> **2026-05-31 honesty pass** (8-savant council fact-finding, B1 + R2 + R3 catches): the v1-as-authored §2 presented 3 of 4 "default leans" as spec-citations when only one was real. The table below states honestly, per OD, whether the lean is from the spec or from the author. Author-leans are still useful as a starting point for ratify/reject; they are NOT to be cited as "the spec says X."
 
-Until these four are answered, every agent below has `Status: Blocked-on-OD`.
+| OD | Question | Lean source | Lean (for ratify/reject) |
+|---|---|---|---|
+| **OD-DOLCE-VARIANT-SET** (NEW, council F2) | Which canonical variant SET wins? The 4 sites have **different variant counts AND name conflicts**: `contract::cognition::entity` = 6 variants; `ontology::hydrators::dolce_odoo` = 4 with `AbstractEntity`; `arm-discovery::aerial::ontology` = 4 with `Abstract`; `callcenter::super_domain::DolceMarker` = 5 with `Unknown`. Picking a canonical CRATE alone (OD-DOLCE-CANONICAL below) is not enough — `AbstractEntity ≠ AbstractObject ≠ Abstract` so re-export fails to compile. Spec owner must declare the canonical variant set. | **NO SPEC LEAN** — author suggestion only | Author suggestion: 5-variant set `{Endurant, Perdurant, Quality, Abstract, Unknown}` (DOLCE-Lite-Plus four + the real-world-necessary Unknown from callcenter). Other naming (`AbstractObject`/`AbstractEntity`) becomes deprecated aliases pointing at `Abstract`. Reject if you prefer DUL naming (`Object`/`Event` instead of `Endurant`/`Perdurant`). |
+| **OD-DOLCE-CANONICAL** | Which crate owns the canonical `DolceCategory` definition? | **NO SPEC LEAN** — author taste | Author suggestion: `lance-graph-contract::cognition::entity::DolceCategory` (zero-dep, already in cognition pipeline). Spec names no crate; treat this as author preference. |
+| **OD-CLASSID-WIDTH** | `class_id: u8` (≤256 classes), `u16` (≤65,535), or `ShapeHash(u128)` (CAM-style)? | **NO SPEC LEAN** — author cross-fielded from N2 | Author suggestion: `ClassId(u16)`. **Honesty correction (council B1):** spec line 64's `u16` reference is about **proposer-id width (N2)**, not class_id (N1). The spec is **silent** on class_id width. R2's reviewer recommended `u8` ("≤40 shape-families today; bounded-weekend defers thousands-class scale to a follow-up"). Spec owner: pick u8 or u16 on merits, NOT by misciting the spec. |
+| **OD-CLASSID-VS-ENTITYKIND** | Does `class_id` *replace* `OdooEntity.kind: OdooEntityKind` ({Model, Transient, Abstract})? Or coexist? | **NO SPEC LEAN** — `OdooEntityKind` not in spec | **Honesty correction (council B1):** `OdooEntityKind` appears **nowhere** in cognitive-risc-classes.md. The question is author-invented; the spec has no opinion. Author suggestion: coexist (orthogonal axes — ORM-base vs semantic-shape). Reject if you'd rather collapse them. |
+| **OD-TEMPLATE-ENGINE** | F3 from classes.md. Askama (compile-time typed) vs minijinja (runtime). | **REAL spec lean** (weakly worded) | Spec line 72 verbatim: *"templates likely compile per-class (askama) with OGIT resolving the late-bound labels at render."* "Likely" is the spec's word — not "must." Author concurs with askama; spec owner can flip to minijinja with a stated reason. |
+
+Until these **five** are answered, every agent below has `Status: Blocked-on-OD`. F1-F7 council corrections (above + below) apply to plan structure regardless.
 
 ## 3. The pipeline (visual + textual)
 
@@ -192,20 +196,25 @@ Emit: `.claude/knowledge/odoo-66-shape-family-candidates.md` with per-cluster:
 
 ---
 
-### D-CLS-5 — `ClassId(u16)` newtype in `lance-graph-contract`
+### D-CLS-5 — `ClassId(u16)` newtype in `lance-graph-contract` (coordinates with PR #437's existing `MailboxSoaView::class_id()`)
 
-**What.** Add `pub struct ClassId(pub u16);` to `lance-graph-contract::cognition::entity` (next to `OgitUriRef`). Implement `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Hash`, `Default` (= 0 = "unclassified"). Add `pub const UNCLASSIFIED: ClassId = ClassId(0);` so `Default::default()` is meaningful. Add a doc-comment quoting classes.md:63 N1 verbatim.
+**What.** Add `pub struct ClassId(pub u16);` to `lance-graph-contract::cognition::entity` (next to `OgitUriRef`), **with `#[repr(transparent)]`** so it's transmute-safe over `u16`. Implement `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Hash`, `Default` (= 0 = "unclassified"). Add `pub const UNCLASSIFIED: ClassId = ClassId(0);` so `Default::default()` is meaningful. Add a doc-comment quoting classes.md:63 N1 verbatim.
+
+**Honesty correction (council F3 from R3):** PR #437 (merged) already shipped `MailboxSoaView::class_id() -> &[u16]` at `crates/lance-graph-contract/src/soa_view.rs:46-58`, aliasing `entity_type`. This deliverable does NOT parallel-add; it WRAPS that existing slot. Update `MailboxSoaView::class_id()` signature to return `&[ClassId]` via the transmute-safe `#[repr(transparent)]` reinterpretation. Per F3, this brings the typed newtype and the existing `u16` slice borrow into ONE answer to "where is class_id," not two divergent ones.
+
+**Honesty correction (council F1 from B1):** OD-CLASSID-WIDTH default lean is the author's, NOT the spec's. If spec owner picks `u8`, the entire deliverable trivially scales down (`pub struct ClassId(pub u8);`) and PR #437's `&[u16]` slice becomes `&[u8]` — a wider blast radius requiring a `soa_view.rs` API revision, not an additive `#[repr(transparent)]` reinterpretation. Flag for spec owner: u16 has the cheaper migration here because PR #437 already chose u16.
 
 **Why.** Cognitive-RISC N1 (classes.md:63). The single hook the entire triangle hangs off. Spec is emphatic: "Add it even before full inheritance exists — it's the hook."
 
 **Files.**
-- `crates/lance-graph-contract/src/cognition/entity.rs` — add `ClassId` struct + `UNCLASSIFIED` const + doc.
-- **TESTS:** `crates/lance-graph-contract/src/cognition/entity.rs` (existing test module): assert `ClassId::UNCLASSIFIED == ClassId(0)`; assert `Default::default() == ClassId::UNCLASSIFIED`; assert `ClassId(u16::MAX)` constructs.
+- `crates/lance-graph-contract/src/cognition/entity.rs` — add `ClassId` struct + `UNCLASSIFIED` const + doc + `#[repr(transparent)]`.
+- `crates/lance-graph-contract/src/soa_view.rs` — update `MailboxSoaView::class_id()` return type to `&[ClassId]` via transmute (safe per `#[repr(transparent)]`). **THIS FILE WAS OMITTED from v1 §6 ownership matrix; council F3 caught it.**
+- **TESTS:** assert `ClassId::UNCLASSIFIED == ClassId(0)`; `Default::default() == ClassId::UNCLASSIFIED`; `ClassId(u16::MAX)` constructs; transmute round-trip `&[u16] -> &[ClassId] -> &[u16]` is bitwise-identical.
 
-**Depends.** OD-CLASSID-WIDTH ratified.
-**Blocks.** D-CLS-6, D-CLS-9.
-**LOC.** ~40.
-**Blast radius.** Contract crate (consumers see new symbol, no API change).
+**Depends.** OD-CLASSID-WIDTH ratified, OD-DOLCE-VARIANT-SET ratified (so the canonical class enum is decidable too).
+**Blocks.** D-CLS-6, D-CLS-9, D-CLS-10.
+**LOC.** ~60 (was 40; +20 for the soa_view.rs transmute migration).
+**Blast radius.** Contract crate (consumers see new symbol + soa_view return-type tightening; existing call sites that bound the result to `&[u16]` need a one-liner `.iter().map(|c| c.0)` adapter — flagged in code review).
 **Agent.** Wave 3A, Sonnet.
 
 ---
@@ -276,6 +285,8 @@ Audit: per-class field count ≤ 64. If any class exceeds, FLAG to spec owner (d
 
 ### D-CLS-8 — `render(entity_const, mask) -> String` + per-class askama templates
 
+> **Council-flagged-as-deferrable (F5 from B2 + R4).** B2's scope-creep audit: this deliverable IS the "shape-compiler-to-grid" the spec defers (classes.md:57). The author rebranded "compile per-class grids from the universal column ISA" (classes.md:38) as "compile per-class templates from FieldPositionTable" and called it render — same machinery, same dispatch-on-class_id, same per-shape-family projection. R4 + R1's N4 catch: the 66 snapshots in D-CLS-9 freeze positions on Odoo data before chess (the N4 falsifier). **Spec owner decides whether this ships in this plan or pushes to a follow-up plan. NOT auto-promoted to In-Progress when OD gates close; requires separate ratification.**
+
 **What.** In the new `lance-graph-ontology-render` crate:
 
 1. Per shape-family in `CANONICAL_CLASS_TABLE`, write ONE askama template `templates/<shape_family>.html.j2` (or `.txt.j2` — see note). The template references only the fields in that class's `FieldPositionTable`; each field is wrapped in `{% if mask.has(POS_N) %} ... {% endif %}` (presence-only gate).
@@ -307,6 +318,8 @@ Note on template extension: per F3 spec is silent on output format. Default to `
 ---
 
 ### D-CLS-9 — Integration test: 66 entities × ratified classes × render
+
+> **Council-flagged-as-deferrable (F5 from R4 + R1).** R4's doctrine catch: shipping 66 golden snapshots over the Odoo-only universe before chess has touched the column-ISA *is* the N4 freeze classes.md:73 F4 warns against — just spelled as test fixtures instead of WAL bytes. The "we're only touching the const catalogue" alibi (§0 line 17) does not survive: positions live in code, snapshots lock the rendered shape. **Same gate as D-CLS-8: ratify shipping-here vs follow-up before promoting to In-Progress.** R1's amendment: if it does ship, mark the snapshot test ADVISORY (not a blocking gate) and keep only the round-trip + C2 mutant test as the floor.
 
 **What.** Single end-to-end test:
 1. Iterate the 66 OdooEntity consts.

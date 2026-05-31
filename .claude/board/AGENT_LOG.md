@@ -264,6 +264,43 @@ Opus review agent: **LAND** — no P0/P1 (exhaustively verified: coldest == evic
 **Cargo:** DEFAULT (zero-dep) → **42/42** + clippy `-D warnings` clean. `--features landing` → the `wikidata_landing` worked example green + clippy clean (lands on REAL `lance-graph-contract` types).
 
 **Outcome:** Phase 2 DONE. User: "how to use aerial + the 10000² splat + add the ontology to land on Wikidata-shaped HHTL?" → built the answer. **(a) The OD-DOLCE alignment #442 deferred to my lane:** `OntologyProjector::dolce_id()` emits the stable `dolce_id` u8 (= basin nibble, already matching `dolce_id::{ENDURANT=0,..}`) — the proposer hands the hub the enum-free routing key, the IRI becomes a late-resolvable label (resolve-through-cache). **(b) The worked end-to-end example** (`tests/wikidata_landing.rs`, `--features landing`, opt-in `dev-dep lance-graph-contract` exactly like jc's bridge examples — lib stays zero-dep): splat top-k → `extract_rules` recovers all 6 DOLCE basins → lands each on the REAL `contract::class_view::FieldMask` (presence) + `hash::fnv1a_str` (StructuralSignature value); `NiblePath` 16ⁿ routing inlined (annotated, swap on #442 merge since contract::hhtl isn't on main yet). CONFIRMED on data: corpus collapses 6→5 families (film Q11424 ≡ tv Q5398426, sig 0xad7fade7), human⊂person inherits path + mask-as-delta, basin preserved down the subclass path. Respects the firewall (lib never imports the hub; the test bridges both to prove the `(ClassId, signature, FieldMask)` triple + `dolce_id` u8 seam). NOT pushed yet — awaiting confirm (prior branch merged). Map: `splat-codebook-aerial-wikidata-compression.md`.
+## [Main thread / Opus 4.7] odoo-classes-bitmask-render-v1 — 8-savant council (5 + 3 brutal); partial auto-resolve; plan SUPERSEDED by user reframe mid-commit
+
+**Branch:** claude/activate-lance-graph-att-k2pHI | **Files:**
+- `.claude/board/reviews/odoo-classes-bitmask-render-v1-council-verdict.md` (NEW, +97 LOC) — full verdict record (8 reviewers, vote distribution, F1-F7 corrections proposed, strategic dissent for spec owner)
+- `.claude/plans/odoo-classes-bitmask-render-v1.md` — 4 surgical edits applying PART of F1-F7 (see "Actually landed" below)
+- `.claude/board/AGENT_LOG.md` — this entry
+
+**Cargo:** not invoked (plan + verdict-record only; no code modified).
+
+**Outcome:** PARTIAL. User: "5x council and 3x brutally honest review." Delivered all 8 verdicts. Council surfaced 7 fact-corrections (F1-F7) before strategic ship/retire. I started auto-executing F1-F7 to the plan but the user reframed mid-commit (the entire plan is wrongly framed — see next section). **Stopped editing the plan; committed partial F1-F7 work as audit trail; plan v1 is now SUPERSEDED pending user choice (a) v2 rewrite from PSCustomObject-from-XML framing / (b) v1+F1-F7 audit + v2 / (c) skip plan, ~470 LOC single PR.**
+
+**Council vote distribution (8 reviewers, all Opus, parallel):**
+- R1 (architectural-fit): ship-with-3-amendments
+- R2 (prior-art): REJECT — collapse D-CLS-7 into generalization of #439's ThoughtMask; DolceCategory 4-way variant sets are NAME-INCOMPATIBLE (6 vs 4 vs 4 vs 5 variants)
+- R3 (integration-coordination): amend — add OD-DOLCE-VARIANT-SET; coordinate with PR #437's `MailboxSoaView::class_id()` (which §6 ownership matrix omitted)
+- R4 (doctrine-strict, NEW lens): violates 3 spec lines (classes.md:41-44 rename invites hand-assign; :50 C2 is docstring promise; :73 F4 positions persist on Odoo before chess)
+- R5 (test-strategy, NEW lens): tests verify mechanics not C2 invariant; need template grep-gate + const-assert width audit + Aerial+ determinism + noise falsifier
+- B1 (ego/bias hunter): RETIRE — 3 of 4 OD default-leans VERIFIED-FABRICATED (CLASSID-WIDTH u16 is proposer-id N2 line not N1; CLASSID-VS-ENTITYKIND OdooEntityKind not in spec; DOLCE-CANONICAL spec names no crate). Third hallucination strike of the week.
+- B2 (scope-creep hunter): REJECT — keep ~340 LOC (D-CLS-5 + scope-reduced 6 + contract-side 7 + NEW parent-walker); cut ~3,900 LOC. Plan OMITS the parent-walker = 1/3 of classes.md:57 bounded-weekend triple
+- B3 ("stop doing things"): RETIRE — 5th plan this week ungated on 4 ODs; spawn D-CHESS-BRINGUP-1 instead
+
+**Actually landed in this commit (the partial F1-F7):**
+- ✓ **F1** §2 OD default-lean honesty pass — 3 of 4 leans relabelled as author-not-spec (B1's catch)
+- ✓ **F2** OD-DOLCE-VARIANT-SET added as 5th pre-condition (R2 + R3's catch — D-CLS-1 fails to compile across name-incompatible variant sets)
+- ✓ **F3** D-CLS-5 amended to coordinate with PR #437's `MailboxSoaView::class_id() -> &[u16]` (R3's catch); soa_view.rs added to ownership matrix
+- ✗ **F4** NEW D-CLS-10 parent-walker — NOT WRITTEN (B2's catch; classes.md:57 bounded-weekend triple still missing 1/3 in plan-as-on-disk)
+- ✓ **F5** D-CLS-8 + D-CLS-9 council-flagged as `Council-flagged-as-deferrable` (B2 + R4's catches)
+- ✗ **F6** R5's test-strategy strengthenings — NOT WRITTEN (template grep-gate + const-assert + Aerial+ determinism)
+- ✓ **F7** C8 hard constraint added to §1 — no class_id in discovery_origin byte real estate (R1's catch)
+
+**Why F4 + F6 stopped:** the user reframed the entire plan mid-edit-session as fundamentally wrong (started-from-scratch instead of starting-from-the-existing-OGIT-hashtables). Continuing to apply F1-F7 fact-fixes to a wrongly-framed plan is polishing-the-mis-frame. Stopped.
+
+**User reframe (the catch I missed pre-council):** "OGIT has hashtables for Labels and we want classes — every label emits FAISS-like lists of labels that with a bitmask can become a class — frame it like building a PSCustomObject from an XML." Reading `crates/lance-graph-ontology/src/registry.rs` post-reframe confirms: `OntologyRegistry::enumerate(namespace) -> Vec<MappingRow>` IS the FAISS-IVF inverted list per namespace label. `bundles: HashMap<u32, ContextBundle>` IS the per-G class-context (IRI interning + edge_types whitelist). **Classes derive from a group-by over namespace-bitmask across the existing rows — not designed, not discovered, just walked.** The whole 10-agent / 4,230-LOC fan-out was the wrong shape for what is structurally a ~470-LOC traversal + group-by + render path.
+
+**STRATEGIC DISSENT (still held for spec owner):** 4-of-8 retire / 3-of-8 amend / 1-of-8 restructure on the strategic ship-vs-rewrite call. With the user's reframe, the strategic question is now CHANGED: it's not "ship v1 or retire v1," it's "rewrite as v2 from PSCustomObject-from-XML framing, or skip plan entirely for single Sonnet PR." Surfaced in chat for user decision.
+
+**Session self-awareness (the council named, the user confirmed):** this IS the 5th plan this week without execution. B1 caught the same hallucination pattern (mis-citing spec) for the third time. The user's "your agents hallucinate because of your bad plan" is the same diagnosis from a different angle: bad plan → reviewer noise. The fault is plan-quality, not reviewer-quality.
 
 ---
 
