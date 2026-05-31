@@ -213,9 +213,14 @@ Everything lands on the same powers of two:
                                      both books resident + a Wikidata window
   32-bit world       = 4.3 B        the COLD spine (Wikidata ~115M, lazy)     [in code: mailbox_ref]
 ```
-- **Reasoning = traversing the `CausalEdge64` W-slot → `WitnessTable`/
-  `EpisodicWitness64` arc + SPO** — NOT bundling the 16384 VSA fingerprint
-  (retired legacy; survives only as the discovery-layer similarity carrier).
+- **Reasoning = traversing the `CausalEdge64` W-slot → `EpisodicWitness64` arc +
+  SPO** — a native graph walk, no fingerprint bundling (there is **no VSA** in
+  this design). `EpisodicWitness64` is **the new AriGraph, migrated INTO the SoA
+  per-ractor-mailbox** (cohort-local episodic memory as a SoA column, not an
+  external graph) — it generalises the shipped 6-bit-W-slot `WitnessTable<64>` /
+  `WitnessEntry`. **[NEW build target — `EpisodicWitness64` is not yet a code
+  symbol; the shipped seed is `WitnessTable<64>`+`WitnessEntry`. The arc is
+  W-slot → witness entry → SPO.]**
 - **Reading a text = accumulating SPO mailboxes + their CE64/EW64 arc** (no
   embedding, no forward pass); ambiguity resolved by counterfactual testing
   (`recipe_kernels`: `world ⊗ factual ⊗ counterfactual`, divergence = popcount,
@@ -251,7 +256,8 @@ the leaf code (the card's compressed value row).
 ## What's built vs new vs conjecture
 
 - **SHIPPED primitives:** `NiblePath` (#442), `FieldMask`/`ClassView` (#441),
-  `CausalEdge64` + `WitnessTable`/`EpisodicWitness64`, `ComposeTable` + blasgraph
+  `CausalEdge64` + `WitnessTable<64>`/`WitnessEntry` (the shipped seed of the NEW
+  `EpisodicWitness64` = AriGraph-in-SoA), `ComposeTable` + blasgraph
   `mxm`, `CLAM` tree, Lance fragment-versioning, `aerial` proposer (#438/#443),
   OGIT/DOLCE cache + DOLCE-from-cache.
 - **NEW (the synthesis / design surface):** the sparse radix range-delegation

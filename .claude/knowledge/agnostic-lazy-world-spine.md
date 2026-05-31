@@ -65,17 +65,21 @@ DataFusion joins      ◄── (16ⁿ, the one key)──► (MailboxSoaView, &
 2. **DOLCE = a 1-bit permanent/temporary residence policy.** Endurant (continuant — wholly present at each moment, persists) vs Perdurant (occurrent — temporal parts, happens-then-ends). The ontology's own top split *is* the cache policy: permanent ⇒ cold-persist/resident; temporary ⇒ ephemeral/evictable (the Baton/event traffic, `KanbanMove` Libet-temporal #437). `dolce_id 0..3` stays cache-resolvable; eviction keys on the derived 1 bit.
 3. **AriGraph SPO + labels → agnostic SoA + late labels (C2 wholesale).** The SoA holds only structure + address; labels/classes/DOLCE resolve late from the cache. AriGraph becomes a *view*: structure hot + agnostic, semantics a cache overlay. ⇒ representation compartmentalized (basins), cheap (resolve-not-store + lazy), agnostic (register is meaning-free).
 
-## Bit budget — the agnostic row shrinks 16384 → ~4096 bits
+## Bit budget — the agnostic row is ~4096 bits (NO VSA)
 
-**The Markov is NOT the 16384-bit VSA bundle (retired legacy).** The actual
-Markov is the **`CausalEdge64` W-slot → `WitnessTable`/`EpisodicWitness64` arc**
-(`witness_table.rs`: "the chain of W-references across edges forms a Markov-style
-belief-update arc through episodic-reference vectors"). Traversal walks the
-W-references backward (most-recent → oldest witness) **without dereferencing the
-full SPO store per hop** — native, integer, exact, cheap. So the resident row
-carries the **CE64 + EW64 arc + the address**, not a 16384 fingerprint. The HHTL
-address does class + label inheritance for free (the path IS the class; labels
-resolve late). A plausible ~4096-bit budget (64-bit lanes):
+**There is NO VSA in this design — no 16384-bit bundle, no fingerprint
+superposition.** The Markov is the **`CausalEdge64` W-slot → `EpisodicWitness64`
+arc** (`witness_table.rs`: "the chain of W-references across edges forms a
+Markov-style belief-update arc through episodic-reference vectors"). Traversal
+walks the W-references backward (most-recent → oldest witness) **without
+dereferencing the full SPO store per hop** — a native graph walk: integer, exact,
+cheap. `EpisodicWitness64` is **the new AriGraph, migrated INTO the SoA per
+ractor-mailbox** — cohort-local episodic memory as a SoA column, not an external
+graph; it generalises the shipped 6-bit-W-slot `WitnessTable<64>`/`WitnessEntry`
+(**NEW build target — see status**). The resident row carries the **CE64 + the
+EpisodicWitness arc + the address**. The HHTL address does class + label
+inheritance for free (the path IS the class; labels resolve late). A plausible
+~4096-bit budget (64-bit lanes):
 
 | field | bits | role |
 |---|---|---|
@@ -83,16 +87,16 @@ resolve late). A plausible ~4096-bit budget (64-bit lanes):
 | i4-16D qualia | 64 | angle (packed `mul::i4`) |
 | i4-32D thinking | 128 | style/`MetaWord` |
 | `CausalEdge64` | 64 | the planner edge **+ W-slot = the Markov arc pointer** |
-| `EpisodicWitness64` | 64 | the episodic witness the W-slot resolves to |
+| `EpisodicWitness64` (AriGraph-in-SoA) | 64 | the episodic witness the W-slot resolves to |
 | presence `FieldMask` + `class_id` + perm/temp | ~96 | structure |
 | headroom | rest | append-only spare |
 
-…all fitting comfortably in 4096 bits. **Reasoning = traversing the CE64→EW64
-arc + SPO**, not bundling a fingerprint — the row carries everything a hop needs.
-The 16384-bit VSA carrier survives ONLY as the **discovery-layer** similarity
-carrier (aerial/splat), hydrated transiently for a `palette256`/CAM-PQ distance
-if at all, then dropped — never on the reasoning hot path. (CONJECTURE — settle
-the exact budget before the loader.)
+…all fitting comfortably in 4096 bits. **Reasoning = traversing the
+CE64→EpisodicWitness arc + SPO** — a native graph walk, the row carries
+everything a hop needs. The discovery layer (aerial/splat) uses a `palette256`/
+CAM-PQ distance hydrated transiently if at all, then dropped — never on the
+reasoning hot path, and not a bundle. (CONJECTURE — settle the exact budget +
+the `EpisodicWitness64`/SoA column layout before the loader.)
 
 ## Reading a text = holding SPO + CE64 + EW64 in context
 
@@ -173,7 +177,7 @@ The HHTL address can be far coarser/cheaper than the 16-way `NiblePath`. For
 |---|---|---|---|---|
 | **256⁴** | 4 × 8-bit (byte) | 2³² ≈ 4.3 B | 32 b / **4 B** | **palette256 + CAM-PQ code IS the address**; byte-aligned; OGIT byte-basins |
 | 64K² | 2 × 16-bit | 2³² ≈ 4.3 B | 32 b (2 hops) | shallowest (2 hops); `n×16-bit` cache levels |
-| 4096³ | 3 × 12-bit | 2³⁶ ≈ 69 B | 36 b | 4096-VSA-codebook / 4096-COCA native; big headroom |
+| 4096³ | 3 × 12-bit | 2³⁶ ≈ 69 B | 36 b | 4096-codebook / 4096-COCA native; big headroom |
 | 16¹⁶ (current `NiblePath`) | 16 × 4-bit | 2⁶⁴ | ≤64 b | deep/fine, but up to 16 hops |
 
 **Recommendation: byte-aligned 256⁴.** The 4-byte address *is* a CAM-PQ code, so
@@ -197,6 +201,7 @@ Nothing semantic is stored hot (resolve-not-store); structurally-identical class
 ## Status & next
 - **Built:** address (`NiblePath`), cold floor (Lance/DataFusion/GraphRouter), hot carrier (mailbox SoA), semantic overlay (OGIT/DOLCE cache, C2), discovery feed (aerial).
 - **The one missing runtime piece:** the `NiblePath`-keyed tiered **hydration manager** (foveated, perm/temp-evicting, late-label). Everything else is a seam it plugs into.
+- **NEW build target:** `EpisodicWitness64` = **AriGraph migrated into the SoA per ractor-mailbox** (cohort-local episodic memory as a SoA column). Shipped seed = `WitnessTable<64>` + `WitnessEntry` (6-bit W-slot); `EpisodicWitness64` itself is not yet a code symbol — its 64-bit sub-field layout (the 16-bit book tier) is the design surface to settle.
 - **CONJECTURE to probe:** the Poincaré φ-spiral leaf encoding (does φ-spiral placement preserve nearest-neighbour fidelity vs the splat distance?).
 - **Gate:** D-ARM-7 (Jirak floor, `jc::jirak`) before any hydrated rule writes a live store.
 
