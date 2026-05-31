@@ -1,3 +1,24 @@
+## 2026-05-31 — E-ENGLISH-BIFURCATES — English deconstructs into BOTH fact-landings and story-arcs; the temporal marker is the router, the splat is the literal→basin resolver, ±5..500 is the missing wire
+
+**Status:** CONJECTURE (architecture synthesis; assembles shipped parts + names the missing wires — end-to-end unbuilt/unmeasured). User keystone 2026-05-31 ("English can become both landing as facts and/or as story arc … enough moving parts to create the holy Grail"). Capstone that ties the four world-spine threads into one engine. Doc: `english-fact-story-bifurcation-grail-v1.md`.
+
+**The keystone — English SPO bifurcates by temporality:**
+- **atemporal SPO → FACT-LANDING** → aerial 10000² splat resonance proposes the OWL/DOLCE class → CAM confirms → **frozen identity** (DOLCE/OGIT, never moves). "a dog is a mammal."
+- **temporal SPO → STORY-ARC** → ±5 coreference (`context_chain`) threads it → `EpisodicEdges64` basin (`family==0`) → `WitnessTable` accumulate-then-prune. "the dog ran to the park."
+- **The router already exists in the sensor:** DeepNSM emits `SentenceStructure{triples, modifiers, negations, TEMPORALS}` (`parser.rs:57-66`). The `temporals` field IS the fact/story switch — WIRED today, read by nothing. Smallest net-new piece.
+
+**The splat IS the literal→basin resolver (the piece the basin/literal duality was missing).** literal-arc = many COCA pointers (surface, redundant); basin-arc = the one DOLCE class (declared, exact). The 10000² gaussian splat lands a literal cluster on its basin: similarity PROPOSES (float, offline, jc-certified ρ=0.9973 → frozen integer codebook), CAM CONFIRMS. = the **semantic-landing** resolver, distinct from ±5 coreference (local) and head2head (angle). Corrects OQ-RESOLUTION-TREE: the "resolution tree" is THREE resolvers at three scales, not one mechanism.
+
+**It IS E-EPISODIC-CLOSURE's three lifecycle structures, routed by temporality:** FACT → frozen identity (DOLCE/CAM, never moves); STORY-recent → within-session CLAM (±5, the only mover); STORY-old → cross-session append-index (±500 tail). The bifurcation is not a new structure — it is the rule that picks WHICH of the three an English SPO lands in. So "±5..500" = hot CLAM aging into the cold append-index, the two episodic structures already named.
+
+**The "missing wire" (user-named): ±5.** DeepNSM emits SPO but its own markov does NOT connect to the contract-side `context_chain` ±5 replay-resolver. Latent defect surfaced: DeepNSM has TWO disconnected, dimensionally-incompatible mechanisms — a 512-bit `ContextWindow` (LIVE, `pipeline.rs:199`) and a 16384-dim `MarkovBundler` (DEAD — no producer; `content_fp` test-only). Three wires open: (1) DeepNSM SPO → `context_chain` ±5; (2) the temporal router (read `temporals`, route, net-new); (3) ±5→±500 tier (hot CLAM → cold append-index, net-new). Already free: `WitnessTable` ships the accumulate→prune lifecycle verbatim; `context_chain` ships the ±5 replay.
+
+**Firewall HELD (GoBD-with-Rumi guard, end-to-end):** language/COCA stays UPSTREAM in DeepNSM (core has 0 deepnsm dep); both destinations AGNOSTIC (DOLCE class, episodic basin = opaque handles, never `rank:u16`); float lives only offline in jc, online is integer; similarity proposes, identity addresses, never swapped. The ~4096 story-basins ≠ COCA-4096 (independent 12-bit `local`; OQ-BASIN-COUNT confirmed distinct).
+
+**Honest state:** DeepNSM SPO+temporals WIRED (102 tests); aerial splat→DOLCE SHAPE wired (42 tests; producer in ndarray; end-to-end CONJECTURE); ±5 `context_chain` WIRED contract-side; `EpisodicEdges64`+`WitnessTable` WIRED (#446); routing + 3 wires = net-new. ~5 tested shapes, 3 missing wires, 1 net-new router. **First buildable slice (firewall-safe):** `Trajectory::split_arcs → (BasinArc, LiteralArc)` in deepnsm (names the duality at the `disambiguator_glue` seam; gives the dead `MarkovBundler` a producer; English-side only). **Promoting probe:** does temporal-routed, English-sourced SPO landing reproduce #444 locality (98.6% intra-basin) on the fact path? PASS ⇒ CONJECTURE→FINDING. Cross-ref: `E-EPISODIC-CLOSURE`, `E-ARM-JC-RESOLVES-BOTH-SEAMS`, three-Markovs taxonomy, `splat-codebook-aerial-wikidata-compression.md`, `owl-dolce-hhtl-compartments-aerial-fed.md`.
+
+---
+
 ## 2026-05-31 — E-EPISODIC-CLOSURE — the episodic spine closes on three lifecycle-separated structures; compression IS the bounded horizon (not a codec)
 
 **Status:** FINDING (architecture; converged 2026-05-31, grounded in cognitive-risc/faiss-homology/wikidata-hhtl docs + AriGraph 2407.04363 + #444 probe).

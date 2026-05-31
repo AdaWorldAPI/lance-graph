@@ -1,3 +1,19 @@
+## [Main thread / Opus] world-spine capstone — the English-bifurcation grail (fact-landing vs story-arc) synthesized + captured
+
+**Branch:** claude/jolly-cori-clnf9. **Design-only** (no code; net-new routing is CONJECTURE per user "needs more research"). **Spans:** the basin/literal duality thread → DeepNSM grounding (background agent, 5-point surface map, deepnsm 102 tests green) → the splat-as-literal→basin-resolver reconnection → the user's keystone ("English can become both fact-landings and story-arcs … enough moving parts to create the holy Grail").
+
+**Shipped (docs + board, no code):** `.claude/knowledge/english-fact-story-bifurcation-grail-v1.md` (capstone assembly map — 4 moving parts + the temporal router + 3 resolver scales + the E-EPISODIC-CLOSURE three-lifecycle reconciliation + firewall + 3 missing wires + first slice + promoting probe); EPIPHANIES `E-ENGLISH-BIFURCATES` (prepend); this entry.
+
+**The synthesis:** English SPO bifurcates by `SentenceStructure.temporals` (WIRED, `parser.rs:57-66`, unread) → atemporal=FACT (aerial 10000² splat → DOLCE frozen identity) / temporal=STORY (±5 `context_chain` → `EpisodicEdges64` → `WitnessTable` prune). The splat is the literal→basin resolver (similarity proposes / CAM confirms; jc ρ=0.9973 offline). Maps onto `E-EPISODIC-CLOSURE`'s three structures: FACT→frozen, story-recent→CLAM ±5, story-old→append-index ±500. Firewall held (language upstream, basins agnostic, float offline, 4096-basins≠COCA-4096).
+
+**DeepNSM grounding (background agent, HIGH conf, file:line-cited):** grammar templates ABSENT (one hardcoded 5-state FSM, not a 200–500 registry); SPO emission WIRED (`SpoTriple{packed:u64}`, 3×12-bit COCA); Markov arc = TWO disconnected mechanisms (512-bit `ContextWindow` LIVE `pipeline.rs:199` / 16384-dim `MarkovBundler` DEAD, `content_fp` test-only); COCA literal/meaning FUSED (one `u16` rank); story-arc/basin ABSENT in deepnsm (contract-side only). The accumulate→prune lifecycle already ships in `WitnessTable` (`spo_fact_ref None→Some→tombstone`); ±5 replay already ships in `context_chain`.
+
+**OQ slate:** OQ-ARC-PRODUCER (dead-16384-MarkovBundler vs live-512-ContextWindow — which is canonical; blocks wire #1), OQ-WINDOW-500 (tiered vs grown), OQ-ROUTER-SIGNAL (temporals alone, or also FSM tense/aspect — a clause may be fact AND story = fork not switch), OQ-BASIN-COUNT (4096≠COCA, confirmed distinct), OQ-GRAMMAR-TEMPLATES (200–500 net-new, orthogonal).
+
+**Next (offered, not built):** first wire = `Trajectory::split_arcs → (BasinArc, LiteralArc)` in deepnsm (firewall-safe; gives dead `MarkovBundler` a producer); OR resolve OQ-ARC-PRODUCER first. Probe to promote CONJECTURE→FINDING: temporal-routed English-SPO landing reproduces #444 locality (98.6%) on the fact path.
+
+---
+
 ## [Main thread / Opus] episodic-RISC-spine wave — EpisodicEdges64 + ViewAngle (D-EW64-1, D-VIEW-1)
 
 **Branch:** claude/jolly-cori-clnf9. Autonomous (full authorization, self-resolved). **Cargo:** cargo test -p lance-graph-contract -> 527 green; both files clippy pedantic+nursery clean.
