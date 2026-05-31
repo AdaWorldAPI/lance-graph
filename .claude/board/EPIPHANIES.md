@@ -1,3 +1,14 @@
+## 2026-05-31 — SHIPPED-in-PR: D-CLS-AUDIT — curated-corpus shape-family audit (classes.md:42 CONFIRMED on real data, falsifiably) + clippy fix
+
+**Status:** SHIPPED-in-PR (#440 D-CLS Wave-2 input). Extends D-CLS-SIG from one lane to the full curated corpus.
+
+`class_signature` gains: `curated_entities()` (concat all 15 l1..l15 ENTITIES = 64 curated consts), `corpus_summary() -> FamilySummary{entity_count, family_count, largest_family}`, and the FALSIFIABLE teeth-test `discovered_taxonomy_collapses_entities_to_fewer_families` — over the REAL 64 curated entities, asserts `family_count < entity_count` (classes.md:42 "entities are ~dozens of shape-families" — CONFIRMED on actual data, not asserted on a fixture; the test would FAIL/surface if the signature were too fine or the claim false for this corpus) + largest-family >=2 members. This is the Wave-2 discovery input: run it, get the named shape-families table (the human/spec-owner naming step).
+
+**Review->fix (the ///-pipeline working again):** clippy `-D warnings` flagged an unused `FieldMask` import at `class_resolver.rs:32` (from D-CLS-RES — it was only used in the test module via super::*). Fixed: moved the import into `#[cfg(test)] mod tests`. This would have FAILED the CI clippy gate (the same gate that bit M1) — caught + fixed pre-push. 6 class_signature + 240 ontology lib green; my files clippy-clean (remaining warnings are pre-existing oxrdf/cargo-toml/ndarray, not mine).
+
+**The D-CLS arc, end-to-end now:** D-CLS-FM (contract FieldMask+ClassView) -> D-CLS-RES (resolver over live cache) -> D-CLS-SIG (signature + object_view bit-basis) -> D-CLS-AUDIT (the corpus discovery, falsifiable). Remaining: name the ~N families (Wave-2 human step over corpus_summary output); the askama render crate (project() -> off-bits-skipped HTML); the registry by_entity_type_id O(1) index.
+
+**Cross-ref:** D-CLS-SIG (extended); #440 plan Wave-2; classes.md:42-44 (discovered taxonomy, now falsifiably confirmed); the M1 clippy-erasing-op lesson (CI -D warnings gate — caught the unused import the same way).
 ## 2026-05-31 — SHIPPED-in-PR: D-CLS-SIG — class_signature (the HONEST discovered-taxonomy; structural-hash group-by, not aerial-cluster vaporware)
 
 **Status:** SHIPPED-in-PR (#440 D-CLS). The corrected D-CLS-2 + D-CLS-3 — replaces the brutal-review-killed "Aerial+ clusters entities" vaporware with the deterministic group-by classes.md:43 actually prescribes ("group-by-on-structural-hash OR Aerial+").

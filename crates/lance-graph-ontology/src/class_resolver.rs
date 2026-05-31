@@ -29,7 +29,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use lance_graph_contract::class_view::{ClassId, ClassView, FieldMask};
+use lance_graph_contract::class_view::{ClassId, ClassView};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef, ObjectView};
 
 use crate::hydrators::dolce_odoo::{classify_odoo, DolceCategory};
@@ -136,6 +136,7 @@ impl ClassView for RegistryClassView<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lance_graph_contract::class_view::FieldMask;
     use lance_graph_contract::ontology::DisplayTemplate;
 
     fn invoice_view() -> ObjectView {

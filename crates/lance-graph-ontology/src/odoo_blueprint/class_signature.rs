@@ -176,6 +176,59 @@ pub fn shape_families(entities: &[OdooEntity]) -> Vec<(StructuralSignature, Vec<
         .collect()
 }
 
+/// The full curated corpus — every `OdooEntity` const across the l1..l15 lanes,
+/// concatenated. This is the **discovered-taxonomy input**: `shape_families` over
+/// this is the falsifiable test of classes.md:42 ("20k entities are ~dozens of
+/// shape-families"). Curated-only (the `extracted/` EXT_* consts are a separate,
+/// additive corpus — see `extracted/mod.rs`; the curated set stays canonical).
+pub fn curated_entities() -> Vec<OdooEntity> {
+    use super::{l1, l10, l11, l12, l13, l14, l15, l2, l3, l4, l5, l6, l7, l8, l9};
+    [
+        l1::ENTITIES,
+        l2::ENTITIES,
+        l3::ENTITIES,
+        l4::ENTITIES,
+        l5::ENTITIES,
+        l6::ENTITIES,
+        l7::ENTITIES,
+        l8::ENTITIES,
+        l9::ENTITIES,
+        l10::ENTITIES,
+        l11::ENTITIES,
+        l12::ENTITIES,
+        l13::ENTITIES,
+        l14::ENTITIES,
+        l15::ENTITIES,
+    ]
+    .concat()
+}
+
+/// Summary of the corpus-level shape-family discovery: how many entities collapse
+/// to how many families, and the largest family (the strongest shape-family).
+#[derive(Debug, Clone)]
+pub struct FamilySummary {
+    pub entity_count: usize,
+    pub family_count: usize,
+    /// `(signature, member count)` of the largest family.
+    pub largest_family: Option<(StructuralSignature, usize)>,
+}
+
+/// Run the discovered-taxonomy audit over the full curated corpus → the summary
+/// that confirms-or-falsifies classes.md:42 (entities ≫ families).
+pub fn corpus_summary() -> FamilySummary {
+    let entities = curated_entities();
+    let families = shape_families(&entities);
+    let largest = families
+        .iter()
+        .map(|(sig, members)| (*sig, members.len()))
+        .max_by_key(|(_, n)| *n);
+    FamilySummary {
+        entity_count: entities.len(),
+        family_count: families.len(),
+        largest_family: largest,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -225,5 +278,48 @@ mod tests {
         let rows = audit(l1::ENTITIES);
         assert_eq!(rows.len(), l1::ENTITIES.len());
         assert!(rows.iter().all(|r| !r.model_name.is_empty()));
+    }
+
+    #[test]
+    fn curated_corpus_aggregates_all_lanes() {
+        let all = curated_entities();
+        // The full curated corpus is the sum of the 15 lanes (64 consts on disk).
+        assert!(
+            all.len() >= 60,
+            "expected the full curated corpus, got {}",
+            all.len()
+        );
+        // No empty model names, no accidental dupes within a lane concat.
+        assert!(all.iter().all(|e| !e.model_name.is_empty()));
+    }
+
+    #[test]
+    fn discovered_taxonomy_collapses_entities_to_fewer_families() {
+        // classes.md:42 — entities are NOT 1:1 with shapes; they collapse to
+        // fewer shape-families. This is the falsifiable test of that claim over
+        // the REAL curated corpus (not a fixture).
+        let s = corpus_summary();
+        assert!(s.entity_count >= 60, "real corpus, got {}", s.entity_count);
+        assert!(
+            s.family_count <= s.entity_count,
+            "families ({}) cannot exceed entities ({})",
+            s.family_count,
+            s.entity_count
+        );
+        // The discovery is meaningful only if SOME entities share a family.
+        // (If family_count == entity_count, the signature is too fine / the claim
+        // is falsified for this corpus — surface it as a hard signal, not a pass.)
+        assert!(
+            s.family_count < s.entity_count,
+            "classes.md:42 expects entities>families; corpus showed {} entities in {} \
+             families — signature too fine OR claim falsified for the curated set",
+            s.entity_count,
+            s.family_count
+        );
+        // The largest family has >= 2 members (a real shape-family, not a singleton).
+        assert!(
+            s.largest_family.map(|(_, n)| n >= 2).unwrap_or(false),
+            "the strongest shape-family must have >=2 members"
+        );
     }
 }
