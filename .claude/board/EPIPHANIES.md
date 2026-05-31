@@ -1,3 +1,66 @@
+## 2026-05-31 — E-ARCUATE-CONDUCTION — the stack has conduction aphasia: Broca+Wernicke intact, the arcuate cable (disambiguator_glue) carries no signal (the producer gap) — closing it IS the next wire
+
+**Status:** FINDING (diagnosis, grounded in source). Extends `E-BROCA-WERNICKE-HIPPO` to the full distributed language network (doc § "the full language network"). Names the single highest-value wire.
+
+**The diagnosis:** `disambiguator_glue` IS the **arcuate fasciculus** — the Broca↔Wernicke cable (`Trajectory` → contract `context_chain`, `disambiguator_glue.rs:65`). It is *shipped*. But `MarkovBundler::push` is never called by `pipeline.rs`, so no `Trajectory` is produced → the cable carries no signal. Broca (projection: `parser`→SPO + `markov_bundle`) and Wernicke (comprehension: `comprehension.rs` + COCA similarity) each work in isolation; only the connection between them is dead. **Clinical signature matches conduction aphasia exactly:** production + comprehension intact, *repetition* (routing production through to comprehension) fails. This is not a missing organ — it is a severed-but-present cable.
+
+**The fix (next wire):** `pipeline → MarkovBundler::push → Trajectory → disambiguator_glue → context_chain (±5 replay) → comprehension router`. Closes the producer gap (`OQ-ARC-PRODUCER` already resolved the substrate = 16384-dim role-indexed `Trajectory`) AND the ±5 ambiguity-resolution wire in one flow.
+
+**Other landmarks placed (full map in doc):** PFC = MUL + free-energy gate + global_context (WIRED planner-side, **not connected to the language faculty**); temporal-lobe semantic = COCA 4096² distance + DOLCE; angular gyrus = `vocabulary` + `nsm_primes` (word↔concept; metaphor = aerial cross-cohort). **Modality boundary (honest N/A):** auditory cortex / motor cortex / supramarginal phonology have no counterpart — DeepNSM is text+COCA, not audio. Do NOT build phonology. Cross-ref: `E-BROCA-WERNICKE-HIPPO`, `E-ENGLISH-BIFURCATES`, `disambiguator_glue.rs`, `context_chain.rs`, three-Markovs (#2 = the MarkovBundler wave).
+
+---
+
+## 2026-05-31 — E-BROCA-WERNICKE-HIPPO — the language stack is THREE separable faculties (projection ≠ comprehension ≠ memory); the witness lifecycle IS consolidation (a story aging into a fact)
+
+**Status:** FINDING (architecture SoC; the faculty separation is enforced in code as of this commit). The consolidation arc (story→fact) within it is CONJECTURE (unbuilt/unmeasured). User-stated 2026-05-31 ("Markov bundler should be separate as the projection, while the sentence resolution is literal text comprehension with ambiguity resolution without tokens … we're sitting on a Broca and Wernicke and hippocampus"). Refines `E-ENGLISH-BIFURCATES`; doc § "the three faculties".
+
+**Three faculties, never fused:**
+- **Broca = projection / syntax:** PoS-FSM → SPO (`parser.rs`) + the role-superposed MarkovBundler **wave** (`markov_bundle.rs`→`Trajectory`); the basin/literal split (`arcs.rs::split_arcs`). *Assembles + projects structure.*
+- **Wernicke = comprehension / resolution:** literal text comprehension over the **tokenless** COCA distributional space (4096 ranks + 4096² distance, NOT BPE); ambiguity resolution (±5 = contract `context_chain`); the fact/story router (`comprehension.rs`, reads `SentenceStructure` per-triple). *Resolves meaning.*
+- **Hippocampus = episodic memory + consolidation:** the story-arc (`EpisodicEdges64`, ±5→±500) + crystallisation into semantic (neocortex = DOLCE). *Remembers + consolidates.*
+
+**The spaghetti this corrects (concrete):** the first slice (`9af7f15`) put the fact/story router as a method on `Trajectory` — fusing the Wernicke decision onto the Broca projection carrier. Corrected here: the router moved to `comprehension.rs` reading the **comprehended** `SentenceStructure` (tokenless, per-triple); `Trajectory` keeps only `split_arcs`. Projection and resolution never share a carrier. deepnsm lib 95 green (arcs 2 + comprehension 4), default-clippy-clean.
+
+**The consolidation insight (genuinely new — refines the bifurcation):** `WitnessTable`'s `spo_fact_ref None→Some→tombstone` IS hippocampal→neocortical **systems consolidation**. A story-arc witness accumulates in episodic memory, crystallises (`Some` = committed fact), then the episodic witness prunes (tombstone). **An aged story becomes a fact.** So fact-landing has TWO sources: the input fork (atemporal SPO → DOLCE) AND consolidation (a temporal story aged over ±500 → DOLCE). The bifurcation is not only an input switch — it is also a maturation path. `OQ-CONSOLIDATION`: is ±500 the trigger and `None→Some` the crystallisation? (net-new, unbuilt).
+
+**Firewall:** Broca+Wernicke = deepnsm (English, upstream); Hippocampus+neocortex = downstream/agnostic. Only the `Landing{fact,story}` bit crosses — a boolean, not COCA. Cross-ref: `E-ENGLISH-BIFURCATES`, `E-EPISODIC-CLOSURE` (the three lifecycle structures the hippocampus owns), three-Markovs (#2 hybrid = the MarkovBundler projection wave).
+
+---
+
+## 2026-05-31 — E-ENGLISH-BIFURCATES — English deconstructs into BOTH fact-landings and story-arcs; the temporal marker is the router, the splat is the literal→basin resolver, ±5..500 is the missing wire
+
+**Status:** CONJECTURE (architecture synthesis; assembles shipped parts + names the missing wires — end-to-end unbuilt/unmeasured). User keystone 2026-05-31 ("English can become both landing as facts and/or as story arc … enough moving parts to create the holy Grail"). Capstone that ties the four world-spine threads into one engine. Doc: `english-fact-story-bifurcation-grail-v1.md`.
+
+**The keystone — English SPO bifurcates by temporality:**
+- **atemporal SPO → FACT-LANDING** → aerial 10000² splat resonance proposes the OWL/DOLCE class → CAM confirms → **frozen identity** (DOLCE/OGIT, never moves). "a dog is a mammal."
+- **temporal SPO → STORY-ARC** → ±5 coreference (`context_chain`) threads it → `EpisodicEdges64` basin (`family==0`) → `WitnessTable` accumulate-then-prune. "the dog ran to the park."
+- **The router already exists in the sensor:** DeepNSM emits `SentenceStructure{triples, modifiers, negations, TEMPORALS}` (`parser.rs:57-66`). The `temporals` field IS the fact/story switch — WIRED today, read by nothing. Smallest net-new piece.
+
+**The splat IS the literal→basin resolver (the piece the basin/literal duality was missing).** literal-arc = many COCA pointers (surface, redundant); basin-arc = the one DOLCE class (declared, exact). The 10000² gaussian splat lands a literal cluster on its basin: similarity PROPOSES (float, offline, jc-certified ρ=0.9973 → frozen integer codebook), CAM CONFIRMS. = the **semantic-landing** resolver, distinct from ±5 coreference (local) and head2head (angle). Corrects OQ-RESOLUTION-TREE: the "resolution tree" is THREE resolvers at three scales, not one mechanism.
+
+**It IS E-EPISODIC-CLOSURE's three lifecycle structures, routed by temporality:** FACT → frozen identity (DOLCE/CAM, never moves); STORY-recent → within-session CLAM (±5, the only mover); STORY-old → cross-session append-index (±500 tail). The bifurcation is not a new structure — it is the rule that picks WHICH of the three an English SPO lands in. So "±5..500" = hot CLAM aging into the cold append-index, the two episodic structures already named.
+
+**The "missing wire" (user-named): ±5.** DeepNSM emits SPO but its own markov does NOT connect to the contract-side `context_chain` ±5 replay-resolver. Latent defect surfaced: DeepNSM has TWO disconnected, dimensionally-incompatible mechanisms — a 512-bit `ContextWindow` (LIVE, `pipeline.rs:199`) and a 16384-dim `MarkovBundler` (DEAD — no producer; `content_fp` test-only). Three wires open: (1) DeepNSM SPO → `context_chain` ±5; (2) the temporal router (read `temporals`, route, net-new); (3) ±5→±500 tier (hot CLAM → cold append-index, net-new). Already free: `WitnessTable` ships the accumulate→prune lifecycle verbatim; `context_chain` ships the ±5 replay.
+
+**Firewall HELD (GoBD-with-Rumi guard, end-to-end):** language/COCA stays UPSTREAM in DeepNSM (core has 0 deepnsm dep); both destinations AGNOSTIC (DOLCE class, episodic basin = opaque handles, never `rank:u16`); float lives only offline in jc, online is integer; similarity proposes, identity addresses, never swapped. The ~4096 story-basins ≠ COCA-4096 (independent 12-bit `local`; OQ-BASIN-COUNT confirmed distinct).
+
+**Honest state:** DeepNSM SPO+temporals WIRED (102 tests); aerial splat→DOLCE SHAPE wired (42 tests; producer in ndarray; end-to-end CONJECTURE); ±5 `context_chain` WIRED contract-side; `EpisodicEdges64`+`WitnessTable` WIRED (#446); routing + 3 wires = net-new. ~5 tested shapes, 3 missing wires, 1 net-new router. **First buildable slice (firewall-safe):** `Trajectory::split_arcs → (BasinArc, LiteralArc)` in deepnsm (names the duality at the `disambiguator_glue` seam; gives the dead `MarkovBundler` a producer; English-side only). **Promoting probe:** does temporal-routed, English-sourced SPO landing reproduce #444 locality (98.6% intra-basin) on the fact path? PASS ⇒ CONJECTURE→FINDING. Cross-ref: `E-EPISODIC-CLOSURE`, `E-ARM-JC-RESOLVES-BOTH-SEAMS`, three-Markovs taxonomy, `splat-codebook-aerial-wikidata-compression.md`, `owl-dolce-hhtl-compartments-aerial-fed.md`.
+
+---
+
+## 2026-05-31 — E-EPISODIC-CLOSURE — the episodic spine closes on three lifecycle-separated structures; compression IS the bounded horizon (not a codec)
+
+**Status:** FINDING (architecture; converged 2026-05-31, grounded in cognitive-risc/faiss-homology/wikidata-hhtl docs + AriGraph 2407.04363 + #444 probe).
+
+1. **Three structures by lifecycle:** frozen identity = OGIT palette + CAM (never moves); cross-session index = Lance append-only version log = pseudo-radix (append + immutable pointer => stable addressing, no rebalance); within-session = CLAM over an ephemeral KV (the only thing that moves).
+2. **EW64 = AriGraph episodic edges** (not a CE64 lens): basin + multiple edges; intra-basin (~98.6%) inherited ~0 bits; cross-family (~1.4%) = 4-bit nibble into the OGIT-class palette (identities inherited, never on the edge). Shipped: EpisodicEdges64 (D-EW64-1).
+3. **Compression IS the bounded horizon:** a research = a free-energy descent resting at the homeostasis floor; awareness (MUL residual-F) = the stop; 256 inputs -> <32 clusters; 4096-64k/KV = shock-absorber headroom. Lever = horizon-shortening (arbiter quality), not a codec. Bitmask doubles as attention mask; ViewAngle (D-VIEW-1) selects the inherited view-schema.
+
+Firewall held: identity exact (CAM/OGIT), stories flexible (CLAM/discovery), never swapped. Plan: episodic-risc-spine-v1.md.
+
+---
+
+
 ## 2026-05-31 — FINDING (PROBE RESULT, measured): ontology partition-locality SURVIVES on real ontologies — locality 98.6%, max fan-out 3 (<=16), Q=0.325 ⇒ 16-bit local refs + <=16 family frontier are REAL (on real data, NOT yet Wikidata)
 
 **Status:** FINDING (measured, not asserted). Probe `crates/jc/examples/ontology_locality_probe.rs` run on the on-disk ontologies (DOLCE-Ultralite, schema.org, Odoo, PROV-O, QUDT, OWL-Time) — the falsifier for the delta-card/inherited-nothingness addressing claim (probe #1 of `delta-card-addressing-integration-map.md`). PASS.

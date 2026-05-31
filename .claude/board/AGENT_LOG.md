@@ -1,3 +1,106 @@
+## [Main thread / Opus] arcuate connector — the Broca↔Wernicke cable carries signal (E-ARCUATE-CONDUCTION, first fix)
+
+**Branch:** claude/jolly-cori-clnf9. **Cargo:** deepnsm lib 99 green (+4 `arcuate`) + 4+8+1; `arcuate.rs` default-clippy-clean. User: "okay" → build the connector seam.
+
+**Shipped:** NEW `crates/deepnsm/src/arcuate.rs` + `lib.rs` mod decl. `Arcuate{MarkovBundler + ContextChain}`: `feed(WindowedSentence)→Option<Trajectory>` pushes to the bundler and, on emit, sign-binarizes the projection and **slides** it into the ±5 ring (`fingerprints.remove(0)+push`); `chain()` exposes the ring; `disambiguate(candidates)` delegates to `ContextChain::disambiguate_with` at the focal index.
+
+**Why:** closes the conduction-aphasia diagnosis IN ISOLATION — `MarkovBundler::push` now has a caller, and the projection flows into the evidence ring. The contract `ContextChain` provides fill + coherence + replay but NO streaming advance — the connector owns the ring-slide (deepnsm-side, via the chain's pub `fingerprints`).
+
+**Scope/firewall (anti-spaghetti):** separate seam, **NOT** wired into `pipeline.rs`'s live 512-bit `ContextWindow` (coexistence = a distinct decision, deferred). Only `Binary16K` crosses into the contract; no COCA; no new dep (deepnsm already deps contract via `disambiguator_glue`).
+
+**OQ-ARC-WINDOW (new):** double-windowing — bundler ±radius + chain ±5 → the ring holds windowed-projection fps; per-sentence (radius-0) fps may be preferable. **Next:** the pipeline-coexistence decision; then feed per-sentence projections.
+
+---
+
+## [Main thread / Opus] full language-network map + conduction-aphasia diagnosis (E-ARCUATE-CONDUCTION)
+
+**Branch:** claude/jolly-cori-clnf9. Design-only (map + diagnosis; no code). User extended Broca/Wernicke/Hippocampus to the full distributed language network (10 landmarks).
+
+**Captured:** grail doc § "full language network" (region→component table + mapped diagram + honest N/A modality boundary) + EPIPHANIES `E-ARCUATE-CONDUCTION`.
+
+**Diagnosis (the payoff):** the stack has CONDUCTION APHASIA — `disambiguator_glue` IS the arcuate fasciculus (`Trajectory`→`context_chain`, shipped) but `MarkovBundler::push` is never called by `pipeline.rs` → the cable carries no signal. Production + comprehension intact in isolation; repetition (connecting them) fails. Fix = the next wire: pipeline→push→`Trajectory`→glue→`context_chain`(±5)→comprehension router.
+
+**Grounded `context_chain` (arcuate target):** `ContextChain{fingerprints: 11-slot ±5 ring, focal@5}`; `disambiguate_with(i, candidates, DisambiguateOpts{kernel, sentinel_fp})` → `DisambiguationResult{winner,margin,escalate_to_llm}`; replay re-scans with each candidate pinned, NARS-coherent branch wins; `sentinel_fp` = the existing deepnsm injection point.
+
+**Other placements:** PFC = MUL + free-energy + global_context (WIRED planner-side, NOT connected to the language faculty); temporal-semantic = COCA 4096² + DOLCE; angular = `vocabulary` + `nsm_primes`; metaphor = aerial cross-cohort. **N/A (text-only modality boundary, do NOT build):** auditory / motor / supramarginal-phonology.
+
+**Next:** build the arcuate connector as its OWN seam (owns the `ContextChain` ±5 ring + feeds `MarkovBundler`), offline-testable + firewall-clean — WITHOUT rewriting `pipeline.rs`'s live 512-bit `ContextWindow` (that coexistence is a separate decision; conflating them = spaghetti).
+
+---
+
+## [Main thread / Opus] E-BROCA-WERNICKE-HIPPO — separate projection (Broca) from resolution (Wernicke); router moved off the projection carrier
+
+**Branch:** claude/jolly-cori-clnf9. **Cargo:** `cargo test --manifest-path crates/deepnsm/Cargo.toml` → lib 95 green (arcs 2 + comprehension 4) + 4+8+1; both files default-clippy-clean (crate bar; pedantic `doc_markdown` doc-prose deferred, consistent with the crate). Autonomous (user: drive it, no pop-ups).
+
+**User correction (anti-spaghetti):** "Markov bundler should be separate as the projection, while the sentence resolution is literal text comprehension with ambiguity resolution without tokens … Broca/Wernicke/hippocampus." The first slice (`9af7f15`) fused the fact/story router onto `Trajectory` (the projection carrier). Corrected.
+
+**Refactor:** `arcs.rs` → projection-only (`split_arcs` + `BasinArc`/`LiteralArc`; removed `temporal_energy`/`threads_story`/`landing`). NEW `comprehension.rs` (Wernicke) → `Landing{fact,story}` + `SentenceStructure::{is_temporal,triple_landing,landings}`, reading the **comprehended, tokenless** structure (`temporals: Vec<(usize,u16)>`, per-triple) — NOT the VSA band. `lib.rs` declares both faculties with the boundary in the comment.
+
+**Capture:** EPIPHANIES `E-BROCA-WERNICKE-HIPPO` (prepend) + grail doc § three faculties. The genuinely-new piece: the `WitnessTable` lifecycle (`spo_fact_ref None→Some→tombstone`) IS hippocampal→neocortical **consolidation** — an aged story crystallises into a DOLCE fact. So fact-landing has two sources: the input fork AND consolidation (±500 story → fact). `OQ-CONSOLIDATION` net-new.
+
+**Firewall:** Broca+Wernicke = deepnsm (English); Hippocampus+neocortex = downstream/agnostic; only the `Landing{fact,story}` bit crosses (boolean, not COCA).
+
+---
+
+## [Main thread / Opus] E-ENGLISH-BIFURCATES first wire — split_arcs + temporal fact/story router (deepnsm)
+
+**Branch:** claude/jolly-cori-clnf9. **Commit:** 9af7f15. **Cargo:** `cargo test --manifest-path crates/deepnsm/Cargo.toml` → 94+4+8+1 green (+5 new `arcs`); `arcs.rs` clippy-clean at pedantic+nursery (crate-wide pedantic has pre-existing debt → TD-DEEPNSM-CLIPPY-195). Autonomous (user: "drive it, no pop-ups"; both gating OQs resolved from source, not asked).
+
+**Shipped:** `crates/deepnsm/src/arcs.rs` + `lib.rs` mod decl. `Trajectory::split_arcs(&[u16]) -> (BasinArc, LiteralArc)` (the language↔meaning duality as typed Rust at the `disambiguator_glue` seam) + `temporal_energy()`/`threads_story(threshold)`/`landing(threshold) -> Landing{fact,story}` (the fact/story router reading the TEMPORAL band [9000..9200)).
+
+**Two OQs auto-resolved from source (grounded, not deferential):**
+- **OQ-ARC-PRODUCER → 16384-dim role-indexed `Trajectory` is canonical** (not the 512-bit `ContextWindow`): it carries the TEMPORAL router band + already bridges to contract `context_chain` (`disambiguator_glue.rs:65`). "Dead" = producer gap (`MarkovBundler::push` uncalled), not wrong-substrate.
+- **OQ-ROUTER-SIGNAL → FORK not switch**: fact universal, story additive when temporal. `Landing{fact:true, story:temporal>τ}`.
+
+**Firewall held:** both arcs English-side; f32 upstream-only (sign-binarized/opaque before the agnostic graph); literals stay as prunable witnesses (prune lifecycle is contract `WitnessTable`, not here).
+
+**Remaining wires (net-new, not built):** pipeline→`MarkovBundler::push`→`Trajectory` (close the producer gap); ±5→±500 tier; commit routed landings into `EpisodicEdges64`/DOLCE. Promoting probe (English-SPO locality vs #444 98.6%) unrun. Doc: `english-fact-story-bifurcation-grail-v1.md` (§ Session update).
+
+---
+
+## [Main thread / Opus] world-spine capstone — the English-bifurcation grail (fact-landing vs story-arc) synthesized + captured
+
+**Branch:** claude/jolly-cori-clnf9. **Design-only** (no code; net-new routing is CONJECTURE per user "needs more research"). **Spans:** the basin/literal duality thread → DeepNSM grounding (background agent, 5-point surface map, deepnsm 102 tests green) → the splat-as-literal→basin-resolver reconnection → the user's keystone ("English can become both fact-landings and story-arcs … enough moving parts to create the holy Grail").
+
+**Shipped (docs + board, no code):** `.claude/knowledge/english-fact-story-bifurcation-grail-v1.md` (capstone assembly map — 4 moving parts + the temporal router + 3 resolver scales + the E-EPISODIC-CLOSURE three-lifecycle reconciliation + firewall + 3 missing wires + first slice + promoting probe); EPIPHANIES `E-ENGLISH-BIFURCATES` (prepend); this entry.
+
+**The synthesis:** English SPO bifurcates by `SentenceStructure.temporals` (WIRED, `parser.rs:57-66`, unread) → atemporal=FACT (aerial 10000² splat → DOLCE frozen identity) / temporal=STORY (±5 `context_chain` → `EpisodicEdges64` → `WitnessTable` prune). The splat is the literal→basin resolver (similarity proposes / CAM confirms; jc ρ=0.9973 offline). Maps onto `E-EPISODIC-CLOSURE`'s three structures: FACT→frozen, story-recent→CLAM ±5, story-old→append-index ±500. Firewall held (language upstream, basins agnostic, float offline, 4096-basins≠COCA-4096).
+
+**DeepNSM grounding (background agent, HIGH conf, file:line-cited):** grammar templates ABSENT (one hardcoded 5-state FSM, not a 200–500 registry); SPO emission WIRED (`SpoTriple{packed:u64}`, 3×12-bit COCA); Markov arc = TWO disconnected mechanisms (512-bit `ContextWindow` LIVE `pipeline.rs:199` / 16384-dim `MarkovBundler` DEAD, `content_fp` test-only); COCA literal/meaning FUSED (one `u16` rank); story-arc/basin ABSENT in deepnsm (contract-side only). The accumulate→prune lifecycle already ships in `WitnessTable` (`spo_fact_ref None→Some→tombstone`); ±5 replay already ships in `context_chain`.
+
+**OQ slate:** OQ-ARC-PRODUCER (dead-16384-MarkovBundler vs live-512-ContextWindow — which is canonical; blocks wire #1), OQ-WINDOW-500 (tiered vs grown), OQ-ROUTER-SIGNAL (temporals alone, or also FSM tense/aspect — a clause may be fact AND story = fork not switch), OQ-BASIN-COUNT (4096≠COCA, confirmed distinct), OQ-GRAMMAR-TEMPLATES (200–500 net-new, orthogonal).
+
+**Next (offered, not built):** first wire = `Trajectory::split_arcs → (BasinArc, LiteralArc)` in deepnsm (firewall-safe; gives dead `MarkovBundler` a producer); OR resolve OQ-ARC-PRODUCER first. Probe to promote CONJECTURE→FINDING: temporal-routed English-SPO landing reproduces #444 locality (98.6%) on the fact path.
+
+---
+
+## [Main thread / Opus] episodic-RISC-spine wave — EpisodicEdges64 + ViewAngle (D-EW64-1, D-VIEW-1)
+
+**Branch:** claude/jolly-cori-clnf9. Autonomous (full authorization, self-resolved). **Cargo:** cargo test -p lance-graph-contract -> 527 green; both files clippy pedantic+nursery clean.
+
+**Shipped (contract, zero-dep):** D-EW64-1 episodic_edges::{EpisodicEdges64(u64), EdgeRef} (AriGraph episodic edges; 4x[4-bit family|12-bit local]; intra inherited / cross = 4-bit nibble->OGIT palette; identities inherited). D-VIEW-1 view_angle::ViewAngle (4-bit view-schema selector; presence-bitmask-as-attention). Plan: episodic-risc-spine-v1.md. Finding: EPIPHANIES E-EPISODIC-CLOSURE. **Incident (self-resolved):** initial episodic commits (bc6a29f/ac2d9cd) pushed broken (E0432 + E0658 + a garbled-edit duplication cascade); repaired via clean restore+rewrite, gated on 527-green. **CI-gated next:** D-EW64-2 SoA columns, D-STORY-1 CLAM clusterer, D-STORY-2 session index, D-STORY-3 archetypes, D-HORIZON-1 stopping rule.
+
+---
+
+
+## [Main thread / Opus] grounding wave (4 agents) → VersionScheduler slice (D-MBX-9-IN)
+
+**Branch:** claude/jolly-cori-clnf9 (reset onto merged main `b6e3cc6` = #444+#445/lance7). **Spans:** the "wire all loose ends" agent wave — 4 read-only grounding agents → synthesis → first verifiable slice. **Firewall KEPT (user ratified):** EW64+markov_soa is the particle→wave; the old `Vsa16kF32` singleton is hunted, never re-materialized.
+
+**Cargo:** `cargo test -p lance-graph-contract` → **509 green** (+6 scheduler); `scheduler.rs` clippy-clean (pedantic+nursery). Core/world-spine slices stay CI-gated (no protoc offline).
+
+**Grounding map (board-vs-code, HIGH confidence):**
+- *Reactive seam:* contract-traits-only; no concrete `MailboxSoaOwner` impl; `MailboxSoA<N>` lacks a `phase` column AND still carries the deprecated `cycle` carrier (retire together); OUT/IN halves real but unjoined (`VersionedGraph::versions()`, callcenter `LanceVersionWatcher`); planner `KanbanMove` emit = honest dead-store (`style_strategy.rs:148`).
+- *Thinking/JIT:* StyleStrategy L1-3 WIRED, L4 emit deferred (P3b/OQ-11.7); `ExecTarget` = inert tag (no router); JIT cache real, `JitEngine` adapter (D1.1b) Queued; head2head = `a2a_blackboard` has `support[4]`+`dissonance`, no executor.
+- *World-spine:* DeepNSM emits SPO English-by-construction (no mode switch — correct); aerial codebook/ontology WIRED standalone; markov_soa WIRED-unverified-offline, NOT code-connected to aerial; keyframe(radix)+delta(CLAM) = design-only (`radix_register`/`DeltaCard` 0 hits); #444 locality PASSED.
+- *Hot-path:* `WitnessTable<64>`/`WitnessEntry` shipped; EW64 = 0 code symbols; Hebbian spreader = design (OQ-11.1); A3 `witness_arc` MISSING. **Bindspace hunt: 0 singletons, 12 LEGIT ephemeral bundles, exactly 1 RETIRE (`FingerprintColumns::cycle`, 4 sites).**
+
+**Shipped — D-MBX-9-IN:** `contract::scheduler::{DatasetVersion, VersionScheduler, NextPhaseScheduler}` (IN-direction dual of `MailboxSoaOwner`; Lance `versions()` tick → next legal `KanbanMove`; read-only, zero-dep, 6 tests).
+
+**OQ slate raised:** OQ-EW64-LAYOUT, OQ-11.1 (plasticity radius/decay), OQ-11.2 (witness-arc W), OQ-MARKOV-AERIAL, OQ-FANOUT-FREEZE, OQ-HEAD2HEAD-CRIT. OQ-11.6 partly resolved by surreal #32. **Debt:** stale lance pins in board text (cited 4.0.0/6.0.0; now lance 7 via #445) — sweep owed.
+
+---
+
 ## [Main thread / Opus + W1/W2 wave] world-spine vision + probe wave + markov_soa SoC + EW64-as-AriGraph
 
 **Branch:** claude/jolly-cori-clnf9-worldspine (local, 21 commits ahead of origin/main) | **Spans:** the agnostic-lazy-world-spine + delta-card integration map vision docs; the W1+W2 autoattended wave; the markov_soa SoC re-home; the EW64-as-AriGraph note; the locality probe RUN.

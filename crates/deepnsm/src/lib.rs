@@ -65,6 +65,21 @@ pub mod trajectory;
 pub mod markov_bundle;
 pub mod nsm_primes;
 
+// E-ENGLISH-BIFURCATES — two SEPARATE faculties (don't fuse them):
+//   arcs (Broca/projection): basin/literal decomposition of the MarkovBundler wave.
+//   comprehension (Wernicke): literal sentence resolution + fact/story router,
+//     tokenless, reading SentenceStructure — NOT the projection band.
+// Hippocampus (episodic story-arc + consolidation) is downstream/agnostic.
+// See .claude/knowledge/english-fact-story-bifurcation-grail-v1.md.
+pub mod arcs;
+pub mod comprehension;
+
+// E-ARCUATE-CONDUCTION: the arcuate fasciculus — owns the MarkovBundler
+// producer + the ±5 ContextChain ring and slides the projection into it, so
+// the Broca↔Wernicke cable carries signal. Separate seam; NOT wired into
+// pipeline.rs's live ContextWindow (that coexistence is a distinct decision).
+pub mod arcuate;
+
 // Loose-end-#2 closer (PR-G3): glue from MarkovBundler::role_bundle()
 // → ContextChain::disambiguate_with(.., DisambiguateOpts {
 // sentinel_fp }). Closes the "real fp" honesty gap by giving the

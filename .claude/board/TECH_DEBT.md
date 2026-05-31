@@ -2619,3 +2619,7 @@ W6 entropy-ledger reframe of `DEEPNSM-NSM-1`.
 - **Status:** **Open** (2026-05-28). Until resolved, BLOCKED(D) in the workspace root `Cargo.toml` stays open and the transitive uses crates.io ndarray 0.16.1.
 - **Introduced-by-PR:** N/A (latent since #423's lance 4→6 bump; the 0.16-vs-0.17 gap was always there but invisible without an explicit patch attempt).
 - **Payoff-estimate:** small if path 1 is taken (a `0.16-fork` branch + patch line) once the AdaWorldAPI patches' relevance to 0.16 is audited; otherwise gated on upstream.
+
+## TD-DEEPNSM-CLIPPY-195 — 12 pre-existing default-clippy lints in deepnsm (clippy 1.95 bump)
+
+`cargo clippy --manifest-path crates/deepnsm/Cargo.toml --all-targets -- -D warnings` reports 12 errors across 7 files (codebook 2, encoder 4, similarity 2, disambiguator_glue/nsm_primes/parser/quantum_mode 1 each) — newer lints (`manual_repeat_n`, `uninlined_format_args`, …) that were clean when written and fire only under clippy 1.95.0. Pre-existing (not from the E-ENGLISH-BIFURCATES slice; `arcs.rs` is clean at pedantic+nursery). Tests unaffected (94+4+8+1 green). Fix = a separate mechanical sweep across the 7 files; deliberately NOT bundled into the feature slice (7-file scope creep). Surfaced 2026-05-31.
