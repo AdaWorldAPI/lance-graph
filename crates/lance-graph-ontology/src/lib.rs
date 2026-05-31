@@ -37,6 +37,7 @@
 
 pub mod bridge;
 pub mod bridges;
+pub mod class_resolver;
 pub mod error;
 pub mod foundry_map;
 pub mod hydrators;
