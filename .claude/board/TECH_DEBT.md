@@ -41,6 +41,26 @@ ships; they bite only at the deferred 115M streaming load:
 Cross-ref: #442, #441 (StructuralSignature/ClassView), the D-ARM-14 review, `wikidata-hhtl-load.md`,
 FINDING D-CLS↔D-ARM-14 (EPIPHANIES).
 
+---
+
+### TD-SURREALDB-KVLANCE-LANCE7 (deps — surrealdb-core still pins lance =6.0.0)
+
+**Status: Open.** The 2026-05-31 lance `6.0.0 → =7.0.0` / lancedb `0.29.0 →
+=0.30.0` bump (lance-graph, `claude/jolly-cori-clnf9` → PR #445) moved this
+workspace's `object_store` transitive `0.12 → 0.13.2`. The AdaWorldAPI/surrealdb
+fork's `surrealdb-core` already runs `object_store = "0.13.0"`, but its
+`kv-lance` feature STILL pins `lance = "=6.0.0"`, `lance-index = "=6.0.0"`,
+`lancedb = "=0.29.0"` — which require object_store 0.12, a latent contradiction
+with the fork's own 0.13. Until those three pins move to 7.0.0/0.30.0 the
+`kv-lance` storage engine cannot resolve against this workspace (`=6.0.0` vs
+`=7.0.0` exact-equals). **Paid by** the companion PR on adaworldapi/surrealdb
+(branch `claude/jolly-cori-clnf9`) bumping `surrealdb/core/Cargo.toml`. Cross-ref:
+EPIPHANIES E-LANCE7-OBJECTSTORE-SURREALDB; root `Cargo.toml` RESOLVED(A2/B2).
+(The earlier `TD-LANCE-6.0.1-PIN` — only ever a root Cargo.toml comment, never a
+row here — is moot: no lancedb pinned lance `=6.0.1`; `0.30.0 → 7.0.0` superseded it.)
+
+---
+
 ### TD-ARM-CARRIER-FORK (D-ARM-13 / streaming-arm-nars-discovery-v1)
 
 **Status: Open.** Surfaced by the 3-savant brutal review of D-ARM-13
