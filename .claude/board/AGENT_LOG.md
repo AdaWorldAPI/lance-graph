@@ -1,3 +1,17 @@
+## [Main thread / Opus] E-BROCA-WERNICKE-HIPPO — separate projection (Broca) from resolution (Wernicke); router moved off the projection carrier
+
+**Branch:** claude/jolly-cori-clnf9. **Cargo:** `cargo test --manifest-path crates/deepnsm/Cargo.toml` → lib 95 green (arcs 2 + comprehension 4) + 4+8+1; both files default-clippy-clean (crate bar; pedantic `doc_markdown` doc-prose deferred, consistent with the crate). Autonomous (user: drive it, no pop-ups).
+
+**User correction (anti-spaghetti):** "Markov bundler should be separate as the projection, while the sentence resolution is literal text comprehension with ambiguity resolution without tokens … Broca/Wernicke/hippocampus." The first slice (`9af7f15`) fused the fact/story router onto `Trajectory` (the projection carrier). Corrected.
+
+**Refactor:** `arcs.rs` → projection-only (`split_arcs` + `BasinArc`/`LiteralArc`; removed `temporal_energy`/`threads_story`/`landing`). NEW `comprehension.rs` (Wernicke) → `Landing{fact,story}` + `SentenceStructure::{is_temporal,triple_landing,landings}`, reading the **comprehended, tokenless** structure (`temporals: Vec<(usize,u16)>`, per-triple) — NOT the VSA band. `lib.rs` declares both faculties with the boundary in the comment.
+
+**Capture:** EPIPHANIES `E-BROCA-WERNICKE-HIPPO` (prepend) + grail doc § three faculties. The genuinely-new piece: the `WitnessTable` lifecycle (`spo_fact_ref None→Some→tombstone`) IS hippocampal→neocortical **consolidation** — an aged story crystallises into a DOLCE fact. So fact-landing has two sources: the input fork AND consolidation (±500 story → fact). `OQ-CONSOLIDATION` net-new.
+
+**Firewall:** Broca+Wernicke = deepnsm (English); Hippocampus+neocortex = downstream/agnostic; only the `Landing{fact,story}` bit crosses (boolean, not COCA).
+
+---
+
 ## [Main thread / Opus] E-ENGLISH-BIFURCATES first wire — split_arcs + temporal fact/story router (deepnsm)
 
 **Branch:** claude/jolly-cori-clnf9. **Commit:** 9af7f15. **Cargo:** `cargo test --manifest-path crates/deepnsm/Cargo.toml` → 94+4+8+1 green (+5 new `arcs`); `arcs.rs` clippy-clean at pedantic+nursery (crate-wide pedantic has pre-existing debt → TD-DEEPNSM-CLIPPY-195). Autonomous (user: "drive it, no pop-ups"; both gating OQs resolved from source, not asked).

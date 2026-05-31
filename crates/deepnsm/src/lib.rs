@@ -65,10 +65,14 @@ pub mod trajectory;
 pub mod markov_bundle;
 pub mod nsm_primes;
 
-// E-ENGLISH-BIFURCATES (first slice): the basin/literal arc split + the
-// fact/story temporal router on the role-indexed Trajectory carrier.
+// E-ENGLISH-BIFURCATES — two SEPARATE faculties (don't fuse them):
+//   arcs (Broca/projection): basin/literal decomposition of the MarkovBundler wave.
+//   comprehension (Wernicke): literal sentence resolution + fact/story router,
+//     tokenless, reading SentenceStructure — NOT the projection band.
+// Hippocampus (episodic story-arc + consolidation) is downstream/agnostic.
 // See .claude/knowledge/english-fact-story-bifurcation-grail-v1.md.
 pub mod arcs;
+pub mod comprehension;
 
 // Loose-end-#2 closer (PR-G3): glue from MarkovBundler::role_bundle()
 // → ContextChain::disambiguate_with(.., DisambiguateOpts {

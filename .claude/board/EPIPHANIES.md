@@ -1,3 +1,20 @@
+## 2026-05-31 — E-BROCA-WERNICKE-HIPPO — the language stack is THREE separable faculties (projection ≠ comprehension ≠ memory); the witness lifecycle IS consolidation (a story aging into a fact)
+
+**Status:** FINDING (architecture SoC; the faculty separation is enforced in code as of this commit). The consolidation arc (story→fact) within it is CONJECTURE (unbuilt/unmeasured). User-stated 2026-05-31 ("Markov bundler should be separate as the projection, while the sentence resolution is literal text comprehension with ambiguity resolution without tokens … we're sitting on a Broca and Wernicke and hippocampus"). Refines `E-ENGLISH-BIFURCATES`; doc § "the three faculties".
+
+**Three faculties, never fused:**
+- **Broca = projection / syntax:** PoS-FSM → SPO (`parser.rs`) + the role-superposed MarkovBundler **wave** (`markov_bundle.rs`→`Trajectory`); the basin/literal split (`arcs.rs::split_arcs`). *Assembles + projects structure.*
+- **Wernicke = comprehension / resolution:** literal text comprehension over the **tokenless** COCA distributional space (4096 ranks + 4096² distance, NOT BPE); ambiguity resolution (±5 = contract `context_chain`); the fact/story router (`comprehension.rs`, reads `SentenceStructure` per-triple). *Resolves meaning.*
+- **Hippocampus = episodic memory + consolidation:** the story-arc (`EpisodicEdges64`, ±5→±500) + crystallisation into semantic (neocortex = DOLCE). *Remembers + consolidates.*
+
+**The spaghetti this corrects (concrete):** the first slice (`9af7f15`) put the fact/story router as a method on `Trajectory` — fusing the Wernicke decision onto the Broca projection carrier. Corrected here: the router moved to `comprehension.rs` reading the **comprehended** `SentenceStructure` (tokenless, per-triple); `Trajectory` keeps only `split_arcs`. Projection and resolution never share a carrier. deepnsm lib 95 green (arcs 2 + comprehension 4), default-clippy-clean.
+
+**The consolidation insight (genuinely new — refines the bifurcation):** `WitnessTable`'s `spo_fact_ref None→Some→tombstone` IS hippocampal→neocortical **systems consolidation**. A story-arc witness accumulates in episodic memory, crystallises (`Some` = committed fact), then the episodic witness prunes (tombstone). **An aged story becomes a fact.** So fact-landing has TWO sources: the input fork (atemporal SPO → DOLCE) AND consolidation (a temporal story aged over ±500 → DOLCE). The bifurcation is not only an input switch — it is also a maturation path. `OQ-CONSOLIDATION`: is ±500 the trigger and `None→Some` the crystallisation? (net-new, unbuilt).
+
+**Firewall:** Broca+Wernicke = deepnsm (English, upstream); Hippocampus+neocortex = downstream/agnostic. Only the `Landing{fact,story}` bit crosses — a boolean, not COCA. Cross-ref: `E-ENGLISH-BIFURCATES`, `E-EPISODIC-CLOSURE` (the three lifecycle structures the hippocampus owns), three-Markovs (#2 hybrid = the MarkovBundler projection wave).
+
+---
+
 ## 2026-05-31 — E-ENGLISH-BIFURCATES — English deconstructs into BOTH fact-landings and story-arcs; the temporal marker is the router, the splat is the literal→basin resolver, ±5..500 is the missing wire
 
 **Status:** CONJECTURE (architecture synthesis; assembles shipped parts + names the missing wires — end-to-end unbuilt/unmeasured). User keystone 2026-05-31 ("English can become both landing as facts and/or as story arc … enough moving parts to create the holy Grail"). Capstone that ties the four world-spine threads into one engine. Doc: `english-fact-story-bifurcation-grail-v1.md`.

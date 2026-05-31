@@ -217,3 +217,21 @@ Both gating OQs auto-resolved from source; the first slice is built, tested, pus
 - **Shipped:** `crates/deepnsm/src/arcs.rs` — `Trajectory::{split_arcs, temporal_energy, threads_story, landing}` + `BasinArc`/`LiteralArc`/`Landing`. 5 tests; deepnsm 94+4+8+1 green; `arcs.rs` clippy-clean (pedantic+nursery). Firewall-safe (English-side, f32 upstream-only, no COCA rank reaches the agnostic graph).
 - **Remaining wires (still net-new):** (1) `pipeline.rs` actually producing `Trajectory` (calling `MarkovBundler::push`); (2) the ±5→±500 tier; (3) committing routed landings into contract `EpisodicEdges64` (story) / DOLCE (fact). The promoting probe (English-SPO locality vs #444's 98.6%) is unrun.
 - **New debt:** `TD-DEEPNSM-CLIPPY-195`.
+
+---
+
+## Session update — 2026-05-31 (the three faculties: Broca / Wernicke / Hippocampus)
+
+User correction (anti-spaghetti): *"Markov bundler should be separate as the projection, while the sentence resolution is literal text comprehension with ambiguity resolution without tokens … we're sitting on a Broca and Wernicke and hippocampus."* This is the organizing frame that keeps the parts SEPARATE — each is its own faculty with a clean boundary, and the data flows between them.
+
+| faculty | brain region | does | home | status |
+|---|---|---|---|---|
+| **projection / syntax** | **Broca** | PoS-FSM → SPO, then the role-superposed MarkovBundler **wave**; basin/literal split | `parser.rs`, `markov_bundle.rs`, `arcs.rs` (`split_arcs`) | WIRED (split shipped) |
+| **comprehension / resolution** | **Wernicke** | literal text comprehension (COCA ranks, **tokenless**); ambiguity resolution (±5); fact/story router, per-triple | `comprehension.rs` (`SentenceStructure::{is_temporal,triple_landing,landings}`); ±5 = contract `context_chain` (unwired) | router WIRED; ±5 ambiguity-resolution wire OPEN |
+| **episodic memory + consolidation** | **Hippocampus** | story-arc (±5→±500); aged story **consolidates** into a semantic fact | contract `EpisodicEdges64`, `WitnessTable`; DOLCE = neocortex | WIRED shapes; consolidation arc CONJECTURE |
+
+**Separation enforced in code (anti-spaghetti):** the fact/story router was initially (commit `9af7f15`) a method on `Trajectory` (the projection carrier) — that fused Wernicke onto Broca. Corrected: routing now reads `SentenceStructure` (the *comprehended*, tokenless structure) in `comprehension.rs`; `Trajectory` keeps only `split_arcs` (projection). Projection ≠ resolution; never the same carrier.
+
+**The consolidation insight (refines the bifurcation — it's not only an input fork):** the `WitnessTable` lifecycle `spo_fact_ref None→Some→tombstone` IS hippocampal→neocortical **systems consolidation** — a story-arc witness accumulates in episodic memory (hippocampus), crystallises (`Some` = committed), then the episodic witness prunes (tombstone). An **aged story becomes a fact**. So the fact-leg has TWO sources: (1) the input fork (atemporal SPO → DOLCE directly), and (2) consolidation (a temporal story-arc, repeated/aged over ±500, crystallising into a DOLCE fact). `OQ-CONSOLIDATION` (net-new): is the ±500 tail the consolidation trigger, and is crystallisation the `spo_fact_ref None→Some` transition?
+
+**Tokenless, concretely:** DeepNSM is COCA-word distributional (4096 ranks + the 4096² distance matrix), not BPE/subword. Wernicke comprehension + ambiguity resolution operate over that literal whole-word semantic space — "without tokens" = without a learned subword tokenizer. The firewall is unchanged: Broca+Wernicke live in deepnsm (English); Hippocampus+neocortex are downstream/agnostic; only the `Landing{fact,story}` bit crosses (a boolean, not COCA).
