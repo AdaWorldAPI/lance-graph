@@ -1,3 +1,21 @@
+## [Main thread / Opus] grounding wave (4 agents) → VersionScheduler slice (D-MBX-9-IN)
+
+**Branch:** claude/jolly-cori-clnf9 (reset onto merged main `b6e3cc6` = #444+#445/lance7). **Spans:** the "wire all loose ends" agent wave — 4 read-only grounding agents → synthesis → first verifiable slice. **Firewall KEPT (user ratified):** EW64+markov_soa is the particle→wave; the old `Vsa16kF32` singleton is hunted, never re-materialized.
+
+**Cargo:** `cargo test -p lance-graph-contract` → **509 green** (+6 scheduler); `scheduler.rs` clippy-clean (pedantic+nursery). Core/world-spine slices stay CI-gated (no protoc offline).
+
+**Grounding map (board-vs-code, HIGH confidence):**
+- *Reactive seam:* contract-traits-only; no concrete `MailboxSoaOwner` impl; `MailboxSoA<N>` lacks a `phase` column AND still carries the deprecated `cycle` carrier (retire together); OUT/IN halves real but unjoined (`VersionedGraph::versions()`, callcenter `LanceVersionWatcher`); planner `KanbanMove` emit = honest dead-store (`style_strategy.rs:148`).
+- *Thinking/JIT:* StyleStrategy L1-3 WIRED, L4 emit deferred (P3b/OQ-11.7); `ExecTarget` = inert tag (no router); JIT cache real, `JitEngine` adapter (D1.1b) Queued; head2head = `a2a_blackboard` has `support[4]`+`dissonance`, no executor.
+- *World-spine:* DeepNSM emits SPO English-by-construction (no mode switch — correct); aerial codebook/ontology WIRED standalone; markov_soa WIRED-unverified-offline, NOT code-connected to aerial; keyframe(radix)+delta(CLAM) = design-only (`radix_register`/`DeltaCard` 0 hits); #444 locality PASSED.
+- *Hot-path:* `WitnessTable<64>`/`WitnessEntry` shipped; EW64 = 0 code symbols; Hebbian spreader = design (OQ-11.1); A3 `witness_arc` MISSING. **Bindspace hunt: 0 singletons, 12 LEGIT ephemeral bundles, exactly 1 RETIRE (`FingerprintColumns::cycle`, 4 sites).**
+
+**Shipped — D-MBX-9-IN:** `contract::scheduler::{DatasetVersion, VersionScheduler, NextPhaseScheduler}` (IN-direction dual of `MailboxSoaOwner`; Lance `versions()` tick → next legal `KanbanMove`; read-only, zero-dep, 6 tests).
+
+**OQ slate raised:** OQ-EW64-LAYOUT, OQ-11.1 (plasticity radius/decay), OQ-11.2 (witness-arc W), OQ-MARKOV-AERIAL, OQ-FANOUT-FREEZE, OQ-HEAD2HEAD-CRIT. OQ-11.6 partly resolved by surreal #32. **Debt:** stale lance pins in board text (cited 4.0.0/6.0.0; now lance 7 via #445) — sweep owed.
+
+---
+
 ## [Main thread / Opus + W1/W2 wave] world-spine vision + probe wave + markov_soa SoC + EW64-as-AriGraph
 
 **Branch:** claude/jolly-cori-clnf9-worldspine (local, 21 commits ahead of origin/main) | **Spans:** the agnostic-lazy-world-spine + delta-card integration map vision docs; the W1+W2 autoattended wave; the markov_soa SoC re-home; the EW64-as-AriGraph note; the locality probe RUN.
