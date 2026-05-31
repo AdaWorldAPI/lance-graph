@@ -32,6 +32,28 @@ the delta is the prediction error, and the bit-width IS the residual surprise.**
 It applies to **both halves of a row**: the **key** (address) and the **value**
 (content) compress by the *same* delta-over-archetype move.
 
+### The endgame — inherited nothingness
+
+The radix trie + the Quartettkarten OGIT-inherited classes drive the per-entity
+cost to its floor by splitting two things normally conflated:
+
+- **Identity** (*which one*) = **27 bits, irreducible** — owned by the radix
+  trie, which path-compresses away every single-child chain (no branch = no
+  information = nothing stored).
+- **Description** (*what it is*) = **~0 bits for the modal member of a class** —
+  inherited whole from the frozen deck. A typical human is *just* `class:human`;
+  it adds nothing; it **is** its archetype. Only the *surprising* entity
+  (Einstein, not a generic person) pays description-bits.
+
+So a typical entity **stores nothing** — it inherits everything. The price of
+the entire spine is paid **once, by the frozen ontology** (DOLCE/FIBO/GoBD/OGIT),
+shared by all 113M leaves, and amortizes to nothing per entity. At the margin
+each entity pays only its *surprise*, and the surprise of the typical is zero —
+the mode of the distribution encodes to the **empty card**, which is the common
+case. **Absence is not missing data; absence IS the inheritance.** The deck
+carries the weight; the leaf is empty; the emptiness is the compression. That is
+the endgame: the world-spine *at the price of inherited nothingness.*
+
 ---
 
 ## The on-ramp: a cookbook (the value side)
