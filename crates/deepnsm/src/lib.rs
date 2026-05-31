@@ -65,6 +65,11 @@ pub mod trajectory;
 pub mod markov_bundle;
 pub mod nsm_primes;
 
+// E-ENGLISH-BIFURCATES (first slice): the basin/literal arc split + the
+// fact/story temporal router on the role-indexed Trajectory carrier.
+// See .claude/knowledge/english-fact-story-bifurcation-grail-v1.md.
+pub mod arcs;
+
 // Loose-end-#2 closer (PR-G3): glue from MarkovBundler::role_bundle()
 // → ContextChain::disambiguate_with(.., DisambiguateOpts {
 // sentinel_fp }). Closes the "real fp" honesty gap by giving the
