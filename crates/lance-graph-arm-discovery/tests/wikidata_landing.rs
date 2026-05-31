@@ -114,11 +114,18 @@ fn discover_dolce_ids(classes: &[WClass]) -> HashMap<u32, u8> {
     out
 }
 
-#[test]
-fn end_to_end_splat_to_wikidata_hhtl() {
-    let classes = corpus();
+// Focused scenarios (one invariant each, sharing `corpus()` + the helpers) —
+// the full splat→discovery→landing flow factored into pinpoint tests so a
+// failure names the invariant that regressed (repo guideline: prefer focused
+// scenarios over broad integration tests). `find_qid` is the shared lookup.
+fn find_qid<'a>(classes: &'a [WClass], qid: &str) -> &'a WClass {
+    classes.iter().find(|c| c.qid == qid).expect("qid in corpus")
+}
 
-    // ── Stage A+B: aerial discovers the basin (dolce_id) from splat + data ──
+#[test]
+fn basin_recovery_from_splat() {
+    // Stage A/B: aerial recovers every class's DOLCE basin from the splat + data.
+    let classes = corpus();
     let discovered = discover_dolce_ids(&classes);
     for c in &classes {
         assert_eq!(
@@ -128,39 +135,52 @@ fn end_to_end_splat_to_wikidata_hhtl() {
             c.qid
         );
     }
-    eprintln!("✓ Stage A/B: aerial recovered all {} DOLCE basins from the splat", classes.len());
+}
 
-    // ── Stage C: land each discovered class on the canonical hub types ──
-    let mut sigs = HashSet::new();
+#[test]
+fn landing_preserves_basin_and_mask() {
+    // Stage C: each discovered class lands on NiblePath + FieldMask; the basin
+    // survives the nibble descent and presence is one bit per property.
+    let classes = corpus();
+    let discovered = discover_dolce_ids(&classes);
     for c in &classes {
         let basin = discovered[&c.etype]; // from DISCOVERY, not hardcoded
         let path = nibble_path(basin, c.path); // contract::hhtl::NiblePath
-        let mask = presence(c.props); // contract::class_view::FieldMask
-        let sig = signature(basin, c.props); // StructuralSignature value
-        let _triple: (ClassId, u32, FieldMask) = (c.id, sig, mask); // the D-CLS triple
-        sigs.insert(sig);
+        let triple: (ClassId, u32, FieldMask) = (c.id, signature(basin, c.props), presence(c.props));
         assert_eq!(path.basin(), Some(basin), "basin survives down the nibble path");
-        assert_eq!(mask.count(), c.props.len() as u32, "one present bit per property");
+        assert_eq!(triple.0, c.id);
+        assert_eq!(triple.2.count(), c.props.len() as u32, "one present bit per property");
         eprintln!(
-            "  landed {:>9} → basin {basin} path {:#x} (depth {}) sig {sig:#010x} mask {:#06b}",
+            "  landed {:>9} → basin {basin} path {:#x} (depth {}) sig {:#010x} mask {:#06b}",
             c.qid,
             path.packed().0,
             path.depth(),
-            mask.0
+            triple.1,
+            triple.2 .0
         );
     }
+}
 
-    // N4 falsification #1 — the corpus COLLAPSES to fewer shape-families.
-    assert!(sigs.len() < classes.len(), "shapes must collapse (6 classes → {} families)", sigs.len());
+#[test]
+fn shape_family_collapse() {
+    // N4 #1: structurally-identical classes collapse to one StructuralSignature.
+    let classes = corpus();
+    let sigs: HashSet<u32> = classes.iter().map(|c| signature(c.dolce, c.props)).collect();
+    assert!(sigs.len() < classes.len(), "shapes must collapse (6 → {})", sigs.len());
     assert_eq!(sigs.len(), 5, "film ≡ tv-series is the one twin");
-    let film = classes.iter().find(|c| c.qid == "Q11424").unwrap();
-    let tv = classes.iter().find(|c| c.qid == "Q5398426").unwrap();
-    assert_eq!(signature(1, film.props), signature(1, tv.props), "film and tv-series share one signature");
-    let person = classes.iter().find(|c| c.qid == "Q215627").unwrap();
+    let film = find_qid(&classes, "Q11424");
+    let tv = find_qid(&classes, "Q5398426");
+    assert_eq!(signature(1, film.props), signature(1, tv.props), "film ≡ tv-series share one signature");
+    let person = find_qid(&classes, "Q215627");
     assert_ne!(signature(0, person.props), signature(1, film.props), "person ≠ film");
+}
 
-    // N4 falsification #2 — subclass inherits PATH + MASK-as-delta, basin preserved.
-    let human = classes.iter().find(|c| c.qid == "Q5").unwrap();
+#[test]
+fn subclass_inherits_path_and_mask() {
+    // N4 #2: human ⊂ person — path extends, basin preserved, mask inherits-as-delta.
+    let classes = corpus();
+    let person = find_qid(&classes, "Q215627");
+    let human = find_qid(&classes, "Q5");
     let person_path = nibble_path(0, person.path);
     let human_path = nibble_path(0, human.path);
     assert!(person_path.is_ancestor_of(human_path), "person ⊃ human in the nibble tree");
@@ -171,8 +191,13 @@ fn end_to_end_splat_to_wikidata_hhtl() {
         presence(human.props),
         "human mask = person mask ⊕ P106"
     );
+}
 
-    // ── the ndjson the hub reads (the firewall-crossing wire) ──
+#[test]
+fn ndjson_seam_contains_predicate() {
+    // The firewall-crossing wire: aerial emits the {s,p,o,f,c} the hub reads.
+    let classes = corpus();
+    let person = find_qid(&classes, "Q215627");
     let proj = OntologyProjector::dolce_subclass("wd:");
     let rule = CandidateRule {
         antecedent: vec![Item::new(0, person.etype)],
@@ -184,5 +209,4 @@ fn end_to_end_splat_to_wikidata_hhtl() {
     let triples = vec![CandidateTriple::from_rule(&rule, &proj, NARS_PERSONALITY_K)];
     let nd = to_ndjson(&triples);
     assert!(nd.contains("\"p\":\"rdfs:subClassOf\""));
-    eprintln!("✓ Stage C: corpus collapsed 6 → {} families; ndjson seam:\n{nd}", sigs.len());
 }

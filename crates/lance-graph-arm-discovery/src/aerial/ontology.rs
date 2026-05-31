@@ -63,11 +63,18 @@ impl DolceCategory {
     }
 
     /// The facet for a consequent **category index** (`0..3`) — the
-    /// discovery-side view of the cache `dolce_id`. Alias of [`Self::from_basin`]
-    /// with intent: a DOLCE projector's consequent category IS the `dolce_id`.
+    /// discovery-side view of the cache `dolce_id`. `None` for any index outside
+    /// `0..ALL.len()` (a DOLCE projector's consequent category IS the `dolce_id`).
     #[must_use]
     pub fn from_index(category: u32) -> Option<DolceCategory> {
-        Self::from_basin(category as u8)
+        // Range-check the u32 BEFORE narrowing: `category as u8` wraps
+        // (e.g. 256 → 0) and would silently route an invalid index to a wrong
+        // basin (codex P2). Compare in u32, then the cast is provably in range.
+        if category < Self::ALL.len() as u32 {
+            Self::from_basin(category as u8)
+        } else {
+            None
+        }
     }
 }
 
@@ -193,6 +200,10 @@ mod tests {
         assert_eq!(DolceCategory::from_basin(4), None);
         assert_eq!(DolceCategory::Quality.iri(), "dolce:Quality");
         assert_eq!(DolceCategory::from_index(1), Some(DolceCategory::Perdurant));
+        assert_eq!(DolceCategory::from_index(4), None);
+        // u32→u8 must NOT wrap 256→0 (codex P2): an oversized index is None.
+        assert_eq!(DolceCategory::from_index(256), None);
+        assert_eq!(DolceCategory::from_index(u32::MAX), None);
     }
 
     #[test]
