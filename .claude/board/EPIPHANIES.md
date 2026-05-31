@@ -1,3 +1,24 @@
+## 2026-05-31 — FINDING (taxonomy, standing definition): the THREE Markovs — one word, three ranked uses; the deterministic CE64→EW64 chain is the line between grounded and praying
+
+**Status:** FINDING (standing definition, user-stated 2026-05-31). The canonical disambiguation of "Markov" in this stack. Anchors `markov_soa` (#2), the EW64 reactive-seam (#1 plumbing), and the deprecated VSA-substrate (#3). Ranked by epistemic grounding.
+
+**The three Markovs:**
+
+1. **Context-chain building (THE substrate, deterministic).** Mailbox chaining through the `CausalEdge64` W-slot → `EpisodicWitness64` arc — walk the witness references. Fully deterministic, exact, addressable; the arc IS the chain, no bundle. This is *the* Markov — reasoning traverses it; it is truth. (= the EW64 reactive seam; P1+P2 plumbing below.)
+
+2. **Hybrid+ autocomplete (deterministic spine + leashed fuzz).** #1's deterministic chain PLUS a fuzzy accumulated witness-bundle as **speculative autocomplete** — the bundle *proposes* the next mailbox, the chain *confirms or refutes*. Deterministic spine + fuzzy proposer on top; a wrong guess is cheap (cheap reprioritization, never a wrong answer). (= `deepnsm::markov_soa`, shipped `e0a5049`, + the grail-fold experiment, P3 below.) **Invariant: #2 is only ever #2 while its fuzz stays leashed to #1's chain — an UNLEASHED bundle degrades into #3 by definition.**
+
+3. **"Sink in and pray" (the error).** Old VSA bundle-as-Markov: ceiling-bound superposition, opaque vector, hope-based readout — **NOT deterministically grounded** like #1. The black box the whole thread rejected; deprecated for reasoning (the "every GGUF would already be VSA-fp32" disproof: 30 years, planetary compute, nobody adopted it as a substrate ⇒ it lost). If materialized at all, signed base-5 packed, never fp32, and never as #3.
+
+**The line (one sentence):** **#1 is the chain. #2 is the chain PLUS a guess it must confirm. #3 is the guess WITHOUT a chain to confirm it.** The presence/absence of the deterministic CE64→EW64 chain underneath is the entire distinction. The firewall is NOT fuzzy-vs-exact — it is **"fuzz a chain confirms (#2, legit) vs fuzz nothing confirms (#3, error)."**
+
+**Dependency ordering (gate before grail — wire first, then experiment):**
+- **P1 — AriGraph → SoA.** Implement the `HotWitness` `todo!()` scaffold (`witness_tombstone.rs`, D-ATOM-5: calcify/from_hot/tombstone-persist/WitnessLink-verify); episodic/semantic edges become SoA-resident. (`E-ARIGRAPH-IS-AN-ISLAND`: "Ee→EW64(hot)+WitnessCorpus(cold)").
+- **P2 — EW64 in `MailboxSoaView`.** Define `EpisodicWitness64` + add `fn episodic_witness(&self) -> &[EpisodicWitness64]` to the view — following the EXISTING deferred-accessor pattern (`soa_view.rs:71` "add `fn qualia()` when the first consumer needs it"). The CE64→EW64 arc becomes a readable, addressable SoA column.
+- **P3 — the grail experiment (CONJECTURE, gated, Jirak-baselined).** ONLY after P1+P2: fold CE64 or EW64 **deterministically** into a VSA projection; **measure** recoverable best-guess signal vs the black-box baseline (Jirak floor, `I-NOISE-FLOOR-JIRAK`). PASS ⇒ "deterministic-arc-fold autocomplete" (the grail) — promote; FAIL ⇒ stays a #2 proposer. You cannot fold what isn't wired (P1+P2), and you cannot tell signal from prayer without the baseline. P3 is a NEW deliverable DOWNSTREAM of the EW64 seam spec — not part of it (no scope creep).
+
+**Cross-ref:** `markov_soa.rs` (#2, COCA+CAM-PQ, no cosine), EW64-reactive-seam FINDING (#1 plumbing), substrate-decision FINDING (#3 deprecation + signed-base-5 carrier note), `witness_tombstone.rs::HotWitness` (D-ATOM-5), `soa_view.rs:71` (the accessor pattern), `I-VSA-IDENTITIES`, `I-NOISE-FLOOR-JIRAK`.
+
 ## 2026-05-31 — FINDING (substrate decision, CONVERGED): explicit 32k SPO-W IS the substrate; VSA16k is a strictly-fuzzy PROPOSER (cognitive priming) via COCA+CAM-PQ — never cosine, never truth
 
 **Status:** FINDING (user-stated + judged 2026-05-31, decisive). Reasoning-substrate decision FIRM; the proposer role is the legitimate home (CONJECTURE on whether it carries signal above noise). This entry CONVERGED across several refinements this session — it supersedes two earlier framings of mine: (a) "VSA = per-cycle experience/soul-print vector" (wrong scope), (b) "keep DeepNSM as a parallel universe" (DeepNSM migrates too). Shipped artifact: `crates/deepnsm/src/markov_soa.rs` (commit e0a5049).
