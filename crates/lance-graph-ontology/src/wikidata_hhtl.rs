@@ -76,7 +76,11 @@ impl WikidataClass {
     #[must_use]
     pub fn presence_mask(&self) -> FieldMask {
         let mut m = FieldMask::EMPTY;
-        for (i, _) in self.properties.iter().enumerate() {
+        // Cap at MAX_FIELDS: positions beyond 64 are not addressable by the `u64`
+        // mask (the bit-budget escape is a ref, deferred). `i < 64` here, so the
+        // `i as u8` can never wrap (Codex P2 #442 — no aliasing onto low bits).
+        let cap = (FieldMask::MAX_FIELDS as usize).min(self.properties.len());
+        for i in 0..cap {
             m = m.with(i as u8);
         }
         m
@@ -113,8 +117,13 @@ impl WikidataClass {
     /// The class's fields as contract [`FieldRef`]s (property-id = `predicate_iri`;
     /// label defaults to the property-id, resolved late from the cache).
     fn field_refs(&self) -> Vec<FieldRef> {
+        // Cap at MAX_FIELDS so `field_count() <= FieldMask::MAX_FIELDS` (the
+        // ClassView contract) and `render_rows` never iterates past the
+        // addressable mask — the same discipline as the Odoo `object_view()` path
+        // (Codex P2 #442).
         self.properties
             .iter()
+            .take(FieldMask::MAX_FIELDS as usize)
             .map(|p| FieldRef::new(*p, *p))
             .collect()
     }
@@ -347,5 +356,38 @@ mod tests {
             human.nibble_path().basin(),
             "subclassing never changes the DOLCE basin"
         );
+    }
+
+    #[test]
+    fn oversized_class_caps_to_fieldmask_width() {
+        // A class with > MAX_FIELDS properties must cap — no `usize`→`u8` wraparound
+        // aliasing, field_count within the ClassView contract (Codex P2 #442), the
+        // same discipline as Odoo's `object_view()`.
+        let many: Vec<&'static str> = (0..70)
+            .map(|i| &*Box::leak(format!("P{i}").into_boxed_str()))
+            .collect();
+        let props: &'static [&'static str] = Box::leak(many.into_boxed_slice());
+        let big = WikidataClass {
+            class_id: 99,
+            qid: "Qbig",
+            label: "big",
+            dolce_id: dolce_id::ENDURANT,
+            subclass_path: &[],
+            properties: props,
+        };
+        assert_eq!(
+            big.presence_mask().count(),
+            FieldMask::MAX_FIELDS,
+            "presence mask caps at MAX_FIELDS — property 64+ never wraps onto a low bit"
+        );
+        let view = WikidataClassView::new(std::slice::from_ref(&big));
+        assert_eq!(
+            view.field_count(99),
+            FieldMask::MAX_FIELDS as usize,
+            "field_count <= MAX_FIELDS (the ClassView contract)"
+        );
+        // Rendering the full mask yields exactly MAX_FIELDS rows, not 70.
+        let rows = view.render_rows(99, big.presence_mask());
+        assert_eq!(rows.len(), FieldMask::MAX_FIELDS as usize);
     }
 }
