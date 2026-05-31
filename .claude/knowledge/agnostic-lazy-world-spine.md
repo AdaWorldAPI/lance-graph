@@ -14,6 +14,12 @@ SPDX-FileCopyrightText: Copyright The Lance Authors
 > late-resolution* primitives are built; the *runtime tiered-hydration* layer is
 > not. CONJECTURE items are labelled. This is the goal the D-ARM-13/14 + D-CLS +
 > Wikidata-HHTL arc serves — not a shipped system.
+>
+> **➤ The addressing design has since converged — see the consolidated
+> `delta-card-addressing-integration-map.md` (card=surprise/deck=expectation;
+> partition-as-address; 27-bit floor; sparse radix; x264 I/P/B frames over Lance;
+> RISC compose-not-materialize). That doc supersedes the scattered "Bit budget /
+> Address space / fan-out" sections below.**
 
 ---
 
