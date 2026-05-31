@@ -69,69 +69,74 @@ fn method_kind_bucket(k: OdooMethodKind) -> usize {
     }
 }
 
-/// Compute the [`StructuralSignature`] of an entity (deterministic, name-independent).
-pub fn signature(entity: &OdooEntity) -> StructuralSignature {
-    // Canonical tuple: [kind_disc, field_hist x6, method_hist x5, has_state_machine].
-    // Counts are saturated to u8 so the byte layout is stable + the hash deterministic.
-    let mut buf = [0u8; 1 + 6 + 5 + 1];
-    buf[0] = entity.kind as u8;
+/// Structural-derivation methods on the [`OdooEntity`] carrier (the carrier owns
+/// the state these read — `entity.signature()` / `entity.object_view()`, not free
+/// functions over it; CLAUDE.md "The Click" litmus: method-on-the-carrier).
+impl OdooEntity {
+    /// Compute this entity's [`StructuralSignature`] (deterministic, name-independent).
+    pub fn signature(&self) -> StructuralSignature {
+        // Canonical tuple: [kind_disc, field_hist x6, method_hist x5, has_state_machine].
+        // Counts are saturated to u8 so the byte layout is stable + the hash deterministic.
+        let mut buf = [0u8; 1 + 6 + 5 + 1];
+        buf[0] = self.kind as u8;
 
-    let mut field_hist = [0u32; 6];
-    for f in entity.fields {
-        field_hist[field_kind_bucket(f.kind)] += 1;
+        let mut field_hist = [0u32; 6];
+        for f in self.fields {
+            field_hist[field_kind_bucket(f.kind)] += 1;
+        }
+        for (i, c) in field_hist.iter().enumerate() {
+            buf[1 + i] = (*c).min(255) as u8;
+        }
+
+        let mut method_hist = [0u32; 5];
+        for m in self.methods {
+            method_hist[method_kind_bucket(m.kind)] += 1;
+        }
+        for (i, c) in method_hist.iter().enumerate() {
+            buf[7 + i] = (*c).min(255) as u8;
+        }
+
+        buf[12] = u8::from(self.state_machine.is_some());
+
+        StructuralSignature(fnv1a(&buf))
     }
-    for (i, c) in field_hist.iter().enumerate() {
-        buf[1 + i] = (*c).min(255) as u8;
+
+    /// Derive this entity's per-class [`ObjectView`] **field-set** — the real
+    /// bit-basis. Field position `i` here is the stable
+    /// [`FieldMask`](lance_graph_contract::class_view::FieldMask) bit `i` (N3).
+    ///
+    /// Field order = declaration order (append-only stability: new fields append at
+    /// higher positions, existing positions never move). The first textual/`Char`
+    /// field becomes the `primary_label`; the `DisplayTemplate` is chosen by size
+    /// (`<= 4` fields → `Card`, else `Detail`). Capped at
+    /// [`FieldMask::MAX_FIELDS`](lance_graph_contract::class_view::FieldMask::MAX_FIELDS)
+    /// (64) — the mask cannot address beyond a `u64`.
+    pub fn object_view(&self) -> ObjectView {
+        use lance_graph_contract::class_view::FieldMask;
+
+        let cap = FieldMask::MAX_FIELDS as usize;
+        let fields: Vec<FieldRef> = self
+            .fields
+            .iter()
+            .take(cap)
+            .map(|f| FieldRef::new(f.name, f.name)) // label defaults to name; OGIT resolves the display label late
+            .collect();
+
+        let template = if fields.len() <= 4 {
+            DisplayTemplate::Card
+        } else {
+            DisplayTemplate::Detail
+        };
+
+        let mut view = ObjectView::new(template, fields);
+        // primary_label = the first textual field (the headline), if any.
+        view.primary_label = self
+            .fields
+            .iter()
+            .find(|f| field_kind_bucket(f.kind) == 0)
+            .map(|f| f.name.to_string());
+        view
     }
-
-    let mut method_hist = [0u32; 5];
-    for m in entity.methods {
-        method_hist[method_kind_bucket(m.kind)] += 1;
-    }
-    for (i, c) in method_hist.iter().enumerate() {
-        buf[7 + i] = (*c).min(255) as u8;
-    }
-
-    buf[12] = u8::from(entity.state_machine.is_some());
-
-    StructuralSignature(fnv1a(&buf))
-}
-
-/// Derive the per-class [`ObjectView`] **field-set** from an entity's declared
-/// fields — the real bit-basis. Field position `i` here is the stable
-/// [`FieldMask`](lance_graph_contract::class_view::FieldMask) bit `i` (N3).
-///
-/// Field order = declaration order (append-only stability: new fields append at
-/// higher positions, existing positions never move). The first textual/`Char`
-/// field becomes the `primary_label`; the `DisplayTemplate` is chosen by size
-/// (`<= 4` fields → `Card`, else `Detail`). Capped at
-/// [`FieldMask::MAX_FIELDS`](lance_graph_contract::class_view::FieldMask::MAX_FIELDS)
-/// (64) — the mask cannot address beyond a `u64`.
-pub fn object_view(entity: &OdooEntity) -> ObjectView {
-    use lance_graph_contract::class_view::FieldMask;
-
-    let cap = FieldMask::MAX_FIELDS as usize;
-    let fields: Vec<FieldRef> = entity
-        .fields
-        .iter()
-        .take(cap)
-        .map(|f| FieldRef::new(f.name, f.name)) // label defaults to name; OGIT resolves the display label late
-        .collect();
-
-    let template = if fields.len() <= 4 {
-        DisplayTemplate::Card
-    } else {
-        DisplayTemplate::Detail
-    };
-
-    let mut view = ObjectView::new(template, fields);
-    // primary_label = the first textual field (the headline), if any.
-    view.primary_label = entity
-        .fields
-        .iter()
-        .find(|f| field_kind_bucket(f.kind) == 0)
-        .map(|f| f.name.to_string());
-    view
 }
 
 /// One audited entity row: its name, ORM kind, derived signature, field count.
@@ -150,7 +155,7 @@ pub fn audit(entities: &[OdooEntity]) -> Vec<AuditRow> {
         .iter()
         .map(|e| AuditRow {
             model_name: e.model_name,
-            signature: signature(e),
+            signature: e.signature(),
             field_count: e.fields.len(),
             method_count: e.methods.len(),
             has_state_machine: e.state_machine.is_some(),
@@ -166,7 +171,7 @@ pub fn shape_families(entities: &[OdooEntity]) -> Vec<(StructuralSignature, Vec<
     let mut families: BTreeMap<u32, Vec<&'static str>> = BTreeMap::new();
     for e in entities {
         families
-            .entry(signature(e).0)
+            .entry(e.signature().0)
             .or_default()
             .push(e.model_name);
     }
@@ -237,21 +242,21 @@ mod tests {
     #[test]
     fn signature_is_deterministic_and_name_independent() {
         // Same entity → same signature on repeat (deterministic).
-        let a = signature(&l1::ACCOUNT_MOVE);
-        let b = signature(&l1::ACCOUNT_MOVE);
+        let a = l1::ACCOUNT_MOVE.signature();
+        let b = l1::ACCOUNT_MOVE.signature();
         assert_eq!(a, b, "signature must be deterministic");
         // account.move and account.move.line have DIFFERENT structure (one is a
         // stateful header, the other a line) → different signatures.
         assert_ne!(
-            signature(&l1::ACCOUNT_MOVE),
-            signature(&l1::ACCOUNT_MOVE_LINE),
+            l1::ACCOUNT_MOVE.signature(),
+            l1::ACCOUNT_MOVE_LINE.signature(),
             "structurally different entities must not collide"
         );
     }
 
     #[test]
     fn object_view_derives_the_bit_basis_from_fields() {
-        let v = object_view(&l1::ACCOUNT_MOVE);
+        let v = l1::ACCOUNT_MOVE.object_view();
         // Field count = the entity's declared fields (capped at 64), in order.
         assert_eq!(v.fields.len(), l1::ACCOUNT_MOVE.fields.len().min(64));
         // Position 0 is the first declared field (stable bit 0).
