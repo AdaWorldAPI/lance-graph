@@ -1,3 +1,35 @@
+## [Main thread / Opus 4.7] odoo-classes-bitmask-render-v1 — authored bounded-weekend plan + 10-agent A2A wave split (pre-council)
+
+**Branch:** claude/activate-lance-graph-att-k2pHI | **Files (additive only):**
+- `.claude/plans/odoo-classes-bitmask-render-v1.md` (+513 LOC NEW) — 9 deliverables D-CLS-1..9 across 5 waves, 10 agent runs (2 Opus + 9 Sonnet), full per-agent + per-file ownership matrix, A2A coordination protocol, risk register, 4 spec-owner pre-conditions
+- `.claude/board/INTEGRATION_PLANS.md` — prepended new plan entry
+- `.claude/board/STATUS_BOARD.md` — appended new section with 9 D-CLS-* rows (all `Blocked-on-OD`)
+- `.claude/board/AGENT_LOG.md` — this entry
+
+**Cargo:** not invoked (plan-only; no code).
+
+**Outcome:** DONE. User asked: "create a meticulously detailed integration plan and provide a clean per agent and file split for Multiagent A2A." Delivered, then user immediately asked for "5x council and 3x brutally honest review" — 8 reviewers spawning in parallel after this commit.
+
+**Anchored doctrine line (classes.md:56-57 verbatim):** "The fix is bounded (a weekend, not a subsystem): discriminator + parent-pointer + parent-walking resolution against the existing cache. Full machinery (shape-compiler-to-grid, behavior/traits, SIMD kernels) is explicitly DEFERRED." Plan honours this.
+
+**Plan structure:**
+- **9 non-goals** declared explicitly (no SoA hot-path wiring, no chess slice, no shape-compiler, no SIMD kernels, no Wikidata loader, no discovery_origin byte)
+- **7 hard constraints C1-C7** (WAL open, presence-not-semantics, shape inherits not behaviour, frozen ISA, discovered taxonomy, additive only, board hygiene)
+- **4 spec-owner gates** OD-DOLCE-CANONICAL/CLASSID-WIDTH/CLASSID-VS-ENTITYKIND/TEMPLATE-ENGINE — all Blocked until ratified
+- **5 waves** with per-wave gates + DAG diagram
+- **File-level ownership matrix** ensuring no two parallel agents touch the same file
+- **A2A coordination protocol** quoting the agent-prompt preamble verbatim (mandatory reads, blackboard contract per CLAUDE.md Layer 2)
+- **Risk register** with 11 risks + mitigations
+- **3 sections** explicitly NOT in scope (OD-1/2/3 byte work, F4 universal ISA design, chess bring-up D-CHESS-BRINGUP-1)
+
+**LOC profile:** ~1,800 working LOC + ~2,400 LOC generated (66 snapshots + 15 askama templates). Across 1 NEW crate (`lance-graph-ontology-render` standalone like bgz17/deepnsm) + 3 modified crates (contract, ontology, arm-discovery local newtype + callcenter From impl).
+
+**Risk acknowledged ahead of council:** Wave-2 Aerial+ on N=66 input may be noisy (wikidata-hhtl-load.md:85 explicitly warned "not measurable on 10"). Plan has fallback: deterministic group-by on structural-hash if Aerial+ unstable.
+
+**Next:** spawning 5-savant council + 3 brutal critics (8 parallel Opus reviewers) per user instruction.
+
+---
+
 ## [Main thread / Opus 4.7] post-#438 integration recalibration — 4-savant council convened, verdicts logged, auto-resolved per protocol
 
 **Branch:** claude/activate-lance-graph-att-k2pHI (rebased onto post-#438 main, HEAD 8d75294b → new head this commit) | **Files:**
