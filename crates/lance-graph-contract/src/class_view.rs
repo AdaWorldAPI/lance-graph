@@ -5,9 +5,9 @@
 //! Today OGIT (`lance-graph-ontology::OntologyRegistry`) is a **hashtable doing
 //! single lookups**: `uri → row`, `entity_type_id → row` — one key, one value,
 //! O(1), leaf. That is the *single* lookup. What a class needs is a **meta
-//! lookup**: `class_id → the whole shape` (ordered field set + labels + template
-//! + the presence-bit basis). The class composes many leaf lookups into one
-//! shape — the way an XSD schema composes element declarations.
+//! lookup**: `class_id → the whole shape` — the ordered field set, labels,
+//! template, and the presence-bit basis. The class composes many leaf lookups
+//! into one shape — the way an XSD schema composes element declarations.
 //!
 //! ```text
 //!   SoA row          =  the XML document   (agnostic bytes, no meaning)
@@ -159,6 +159,35 @@ pub trait ClassView {
             pos: 0,
         }
     }
+
+    /// The **render rows** for an instance: only the populated `(label, predicate)`
+    /// pairs, off-bits skipped (`cognitive-risc-classes.md`:49). This is the
+    /// template-agnostic render surface — an askama/jinja per-class template iterates
+    /// these rows; the engine choice (F3, askama) lives in the deferred render crate.
+    ///
+    /// Presence-only (C2): a row appears iff its bit is set; the mask NEVER changes a
+    /// row's meaning, only its presence. The labels are the meta-DTO's late resolution
+    /// (above the SoA), the mask is the SoA's structural delta.
+    fn render_rows<'a>(&'a self, class: ClassId, mask: FieldMask) -> Vec<RenderRow<'a>> {
+        self.project(class, mask)
+            .filter(|(_, present)| *present)
+            .map(|(f, _)| RenderRow {
+                label: f.label.as_str(),
+                predicate: f.predicate_iri.as_str(),
+            })
+            .collect()
+    }
+}
+
+/// One populated field to render — the late-resolved `label` + its `predicate` key.
+/// Produced only for set bits (off-bits are skipped), so a template never branches
+/// on presence (C2): it just iterates the rows it is given.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RenderRow<'a> {
+    /// The display label, resolved late from the OGIT cache (above the SoA).
+    pub label: &'a str,
+    /// The field's predicate IRI (the stable key behind the label).
+    pub predicate: &'a str,
 }
 
 /// An iterator over a class's fields paired with their presence bit — the
@@ -264,5 +293,35 @@ mod tests {
         assert_eq!(classes.field_label(7, 9), None); // out of range
         assert_eq!(classes.field_count(7), 3);
         assert_eq!(classes.field_count(999), 0); // unknown class
+    }
+
+    #[test]
+    fn render_rows_skips_off_bits_presence_only() {
+        let classes = FakeClasses::new();
+        // Tax (pos 1) is off → it must NOT produce a render row (C2: off-bits skipped).
+        let rows = classes.render_rows(7, FieldMask::from_positions(&[0, 2]));
+        assert_eq!(rows.len(), 2, "only the 2 populated fields render");
+        assert_eq!(
+            rows[0],
+            RenderRow {
+                label: "Total",
+                predicate: "amount_total"
+            }
+        );
+        assert_eq!(
+            rows[1],
+            RenderRow {
+                label: "Partner",
+                predicate: "partner_id"
+            }
+        );
+        // Empty mask → zero rows (no template branch needed, just an empty iteration).
+        assert!(classes.render_rows(7, FieldMask::EMPTY).is_empty());
+        // Full mask → all 3 rows, in class order (the bit basis).
+        let all = classes.render_rows(7, FieldMask::from_positions(&[0, 1, 2]));
+        assert_eq!(
+            all.iter().map(|r| r.label).collect::<Vec<_>>(),
+            vec!["Total", "Tax", "Partner"]
+        );
     }
 }
