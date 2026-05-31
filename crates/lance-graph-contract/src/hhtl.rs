@@ -63,13 +63,20 @@ impl NiblePath {
     pub const EMPTY: Self = Self { path: 0, depth: 0 };
 
     /// Start a path at a `basin` nibble — the DOLCE top facet, resolved UPSTREAM
-    /// through the ontology cache (not decided here). The low nibble is taken
-    /// (`basin & 0x0F`); callers pass `0x0..=0xF`.
+    /// through the ontology cache (not decided here). An out-of-range
+    /// `basin >= FAN_OUT` (16) returns [`EMPTY`](NiblePath::EMPTY), the "no route"
+    /// sentinel — NOT a silent fold onto a valid basin (which would misroute
+    /// ancestry — CodeRabbit #442). Mirrors [`child`](NiblePath::child)'s
+    /// out-of-range no-op and `FieldMask`'s ignore-don't-fold discipline.
     #[must_use]
     pub const fn root(basin: u8) -> Self {
-        Self {
-            path: (basin & 0x0F) as u64,
-            depth: 1,
+        if basin >= FAN_OUT {
+            Self::EMPTY
+        } else {
+            Self {
+                path: basin as u64,
+                depth: 1,
+            }
         }
     }
 
@@ -191,6 +198,15 @@ mod tests {
         // Out-of-range nibble (>= FAN_OUT) is ignored, NOT folded onto a valid child.
         assert_eq!(NiblePath::root(0x1).child(16), NiblePath::root(0x1));
         assert_eq!(NiblePath::root(0x1).child(99), NiblePath::root(0x1));
+        // root() rejects an out-of-range basin to EMPTY — never folds 16 → basin 0
+        // (which would misroute ancestry; CodeRabbit #442).
+        assert_eq!(NiblePath::root(16), NiblePath::EMPTY);
+        assert_eq!(NiblePath::root(99), NiblePath::EMPTY);
+        assert_eq!(
+            NiblePath::root(16).basin(),
+            None,
+            "bad basin must not alias to basin 0"
+        );
     }
 
     #[test]

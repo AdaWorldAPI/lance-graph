@@ -313,6 +313,33 @@ mod tests {
     }
 
     #[test]
+    fn field_mask_inherit_is_nondestructive_union() {
+        // inherit = bitwise OR — a child IS-A its parent: it carries the parent's
+        // present fields PLUS its own delta (focused cover, CodeRabbit #442).
+        let parent = FieldMask::from_positions(&[0, 2]);
+        let delta = FieldMask::from_positions(&[1, 2]); // bit 2 overlaps
+        let child = parent.inherit(delta);
+        assert_eq!(
+            child,
+            FieldMask(parent.0 | delta.0),
+            "inherit is the bitwise union"
+        );
+        assert!(child.has(0) && child.has(1) && child.has(2));
+        assert_eq!(
+            child.count(),
+            3,
+            "the overlapping bit is not double-counted"
+        );
+        // EMPTY is the identity, both directions; the union is commutative.
+        assert_eq!(parent.inherit(FieldMask::EMPTY), parent);
+        assert_eq!(FieldMask::EMPTY.inherit(parent), parent);
+        assert_eq!(parent.inherit(delta), delta.inherit(parent), "commutative");
+        // FieldMask is Copy — neither operand is mutated by inherit.
+        assert_eq!(parent, FieldMask::from_positions(&[0, 2]));
+        assert_eq!(delta, FieldMask::from_positions(&[1, 2]));
+    }
+
+    #[test]
     fn meta_dto_projects_above_agnostic_class_mask() {
         let classes = FakeClasses::new();
         // The SoA supplied ONLY (class_id=7, mask) — no labels. The meta-DTO
