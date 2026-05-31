@@ -1,30 +1,11 @@
-## [Main thread / Opus] episodic-RISC-spine wave — EpisodicEdges64 + ViewAngle (D-EW64-1, D-VIEW-1) + plan v1
+## [Main thread / Opus] episodic-RISC-spine wave — EpisodicEdges64 + ViewAngle (D-EW64-1, D-VIEW-1)
 
-**Branch:** claude/jolly-cori-clnf9. **Autonomous (full authorization, self-resolved).** **Spans:** the 2026-05-31 episodic-addressing design dialogue → detailed plan + two verifiable contract slices.
+**Branch:** claude/jolly-cori-clnf9. Autonomous (full authorization, self-resolved). **Cargo:** cargo test -p lance-graph-contract -> 527 green; both files clippy pedantic+nursery clean.
 
-**Cargo:** `cargo test -p lance-graph-contract` → **527 green** (+11: 8 episodic_edges, 3 view_angle); both files clippy pedantic+nursery clean.
-
-**Shipped (contract, zero-dep, offline-verified):**
-- **D-EW64-1** `episodic_edges::{EpisodicEdges64(u64), EdgeRef}` — AriGraph episodic edges: 4×[4-bit family | 12-bit local]; `family 0` = intra-basin (inherited, ~98.6% per #444), `1..=15` = cross-family index into the OGIT-class-inherited palette (~1.4%); identities inherited not stored (`I-VSA-IDENTITIES`). Corrects the earlier "EW64 = CE64 lens" + "16-bit pointer" framings.
-- **D-VIEW-1** `view_angle::ViewAngle` — 4-bit view-schema selector; presence-bitmask-doubles-as-attention-mask doctrine (inherited view-schema, never per-instance semantics).
-
-**Plan:** `.claude/plans/episodic-risc-spine-v1.md` (3-structure closure; verifiable-now vs CI-gated split). **Finding:** EPIPHANIES `E-EPISODIC-CLOSURE`. **CI-gated next (named, not built — no protoc offline):** D-EW64-2 (SoA columns), D-STORY-1 (CLAM clusterer), D-STORY-2 (session index), D-STORY-3 (palette256/4096 archetypes), D-HORIZON-1 (MUL stopping rule).
+**Shipped (contract, zero-dep):** D-EW64-1 episodic_edges::{EpisodicEdges64(u64), EdgeRef} (AriGraph episodic edges; 4x[4-bit family|12-bit local]; intra inherited / cross = 4-bit nibble->OGIT palette; identities inherited). D-VIEW-1 view_angle::ViewAngle (4-bit view-schema selector; presence-bitmask-as-attention). Plan: episodic-risc-spine-v1.md. Finding: EPIPHANIES E-EPISODIC-CLOSURE. **Incident (self-resolved):** initial episodic commits (bc6a29f/ac2d9cd) pushed broken (E0432 + E0658 + a garbled-edit duplication cascade); repaired via clean restore+rewrite, gated on 527-green. **CI-gated next:** D-EW64-2 SoA columns, D-STORY-1 CLAM clusterer, D-STORY-2 session index, D-STORY-3 archetypes, D-HORIZON-1 stopping rule.
 
 ---
 
-## [Main thread / Opus] episodic-RISC-spine wave — EpisodicEdges64 + ViewAngle (D-EW64-1, D-VIEW-1) + plan v1
-
-**Branch:** claude/jolly-cori-clnf9. **Autonomous (full authorization, self-resolved).** **Spans:** the 2026-05-31 episodic-addressing design dialogue → detailed plan + two verifiable contract slices.
-
-**Cargo:** `cargo test -p lance-graph-contract` → **527 green** (+11: 8 episodic_edges, 3 view_angle); both files clippy pedantic+nursery clean.
-
-**Shipped (contract, zero-dep, offline-verified):**
-- **D-EW64-1** `episodic_edges::{EpisodicEdges64(u64), EdgeRef}` — AriGraph episodic edges: 4×[4-bit family | 12-bit local]; `family 0` = intra-basin (inherited, ~98.6% per #444), `1..=15` = cross-family index into the OGIT-class-inherited palette (~1.4%); identities inherited not stored (`I-VSA-IDENTITIES`). Corrects the earlier "EW64 = CE64 lens" + "16-bit pointer" framings.
-- **D-VIEW-1** `view_angle::ViewAngle` — 4-bit view-schema selector; presence-bitmask-doubles-as-attention-mask doctrine (inherited view-schema, never per-instance semantics).
-
-**Plan:** `.claude/plans/episodic-risc-spine-v1.md` (3-structure closure; verifiable-now vs CI-gated split). **Finding:** EPIPHANIES `E-EPISODIC-CLOSURE`. **CI-gated next (named, not built — no protoc offline):** D-EW64-2 (SoA columns), D-STORY-1 (CLAM clusterer), D-STORY-2 (session index), D-STORY-3 (palette256/4096 archetypes), D-HORIZON-1 (MUL stopping rule).
-
----
 
 ## [Main thread / Opus] grounding wave (4 agents) → VersionScheduler slice (D-MBX-9-IN)
 

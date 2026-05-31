@@ -1,3 +1,16 @@
+## 2026-05-31 — E-EPISODIC-CLOSURE — the episodic spine closes on three lifecycle-separated structures; compression IS the bounded horizon (not a codec)
+
+**Status:** FINDING (architecture; converged 2026-05-31, grounded in cognitive-risc/faiss-homology/wikidata-hhtl docs + AriGraph 2407.04363 + #444 probe).
+
+1. **Three structures by lifecycle:** frozen identity = OGIT palette + CAM (never moves); cross-session index = Lance append-only version log = pseudo-radix (append + immutable pointer => stable addressing, no rebalance); within-session = CLAM over an ephemeral KV (the only thing that moves).
+2. **EW64 = AriGraph episodic edges** (not a CE64 lens): basin + multiple edges; intra-basin (~98.6%) inherited ~0 bits; cross-family (~1.4%) = 4-bit nibble into the OGIT-class palette (identities inherited, never on the edge). Shipped: EpisodicEdges64 (D-EW64-1).
+3. **Compression IS the bounded horizon:** a research = a free-energy descent resting at the homeostasis floor; awareness (MUL residual-F) = the stop; 256 inputs -> <32 clusters; 4096-64k/KV = shock-absorber headroom. Lever = horizon-shortening (arbiter quality), not a codec. Bitmask doubles as attention mask; ViewAngle (D-VIEW-1) selects the inherited view-schema.
+
+Firewall held: identity exact (CAM/OGIT), stories flexible (CLAM/discovery), never swapped. Plan: episodic-risc-spine-v1.md.
+
+---
+
+
 ## 2026-05-31 — FINDING (PROBE RESULT, measured): ontology partition-locality SURVIVES on real ontologies — locality 98.6%, max fan-out 3 (<=16), Q=0.325 ⇒ 16-bit local refs + <=16 family frontier are REAL (on real data, NOT yet Wikidata)
 
 **Status:** FINDING (measured, not asserted). Probe `crates/jc/examples/ontology_locality_probe.rs` run on the on-disk ontologies (DOLCE-Ultralite, schema.org, Odoo, PROV-O, QUDT, OWL-Time) — the falsifier for the delta-card/inherited-nothingness addressing claim (probe #1 of `delta-card-addressing-integration-map.md`). PASS.
@@ -864,30 +877,6 @@ AriGraph (`crates/lance-graph/src/graph/arigraph/`) is almost entirely standalon
 - **SPO-vocabulary debt (extends F-WIRE-DTO-DUP-MAP):** ≥4 parallel SPO-triple types (AriGraph `TripletGraph`, `ruff_spo_triplet::Triple`, `odoo_ontology::OntologyTriple`, aerial `CandidateTriple`, osint `extractor::Triplet`) — "one SoA never transformed" wants ONE; unification is the convergence work.
 - **class_id landing (shipping now):** the SoA's class discriminator IS the existing `entity_type: [u16; N]` (= OGIT `EntityTypeId`); expose it as `MailboxSoaView::class_id()` (N1 freeze hook). Metadata resolves one layer up via `lance-graph-ontology::OntologyRegistry` (perf gap: add O(1) `by_entity_type_id` index; today O(n) `enumerate_first_with_entity_type_id`).
 **Cross-ref:** `aerial-arm-ruff-spo-codegen-synergies.md`; `splat-codebook-aerial-wikidata-compression.md`; cognitive-risc-{core,classes,faiss-homology}; PR #437 `MailboxSoaView`.
-## 2026-05-31 — E-EPISODIC-CLOSURE — the episodic spine closes on three lifecycle-separated structures, and the compression IS the bounded horizon (not a codec)
-
-**Status:** FINDING (architecture; converged in the 2026-05-31 design dialogue, grounded in user-supplied cognitive-risc-{core,classes}/faiss-homology/wikidata-hhtl docs + AriGraph arXiv 2407.04363 + the #444 probe).
-
-1. **Three structures by lifecycle, zero overlap:** frozen identity = OGIT palette + CAM (never moves); cross-session index = Lance append-only version log = a **pseudo-radix** (append + immutable pointer ⇒ stable addressing, no rebalance — you don't *build* a radix, append-never-renumber *gives* one); within-session = **CLAM** over an ephemeral KV (the only thing that moves). Append-ness, clustering, freezing — three jobs, three structures.
-2. **EW64 = AriGraph episodic edges, NOT a CausalEdge64 lens.** A mailbox(=episode) is a basin with multiple edges; the temporal arc is a basin one HHTL level up (not a scalar prev). Intra-basin (~98.6%, #444) = inherited, ~0 bits; cross-family (~1.4%) = a **4-bit nibble** (16 families; fan-out ≤3 ⇒ headroom) into the **OGIT-class-inherited palette** (CAM_PQ facet code; identities inherited, never on the edge). NOT 16-bit pointers — 4-bit + inherited palette (Quartettkarten "lookup in OGIT, not in the data"). Shipped: `EpisodicEdges64`+`EdgeRef` (D-EW64-1).
-3. **Compression IS the bounded solution horizon.** A research = a free-energy descent that rests at the homeostasis floor ("call it a day"); awareness (MUL/`MetaWord` residual-F) = the stopping rule; 256 inputs → <32 clusters (locality); 4096-64k/KV = shock-absorber headroom, not a target. Lever = horizon-shortening (proposer/arbiter quality), NOT a codec. The presence bitmask doubles as the attention mask; a 4-bit `ViewAngle` (D-VIEW-1) selects the inherited view-schema (never per-instance semantics); `head2head` competes angles.
-
-Shipped this wave (contract, verifiable): `VersionScheduler` (D-MBX-9-IN, pseudo-radix reader), `head2head` (D-H2H-1, story-meta), `EpisodicEdges64`/`EdgeRef` (D-EW64-1), `ViewAngle` (D-VIEW-1). Plan: `.claude/plans/episodic-risc-spine-v1.md`. Firewall held: identity exact (CAM/OGIT), stories flexible (CLAM/discovery), never swapped.
-
----
-
-## 2026-05-31 — E-EPISODIC-CLOSURE — the episodic spine closes on three lifecycle-separated structures, and the compression IS the bounded horizon (not a codec)
-
-**Status:** FINDING (architecture; converged in the 2026-05-31 design dialogue, grounded in user-supplied cognitive-risc-{core,classes}/faiss-homology/wikidata-hhtl docs + AriGraph arXiv 2407.04363 + the #444 probe).
-
-1. **Three structures by lifecycle, zero overlap:** frozen identity = OGIT palette + CAM (never moves); cross-session index = Lance append-only version log = a **pseudo-radix** (append + immutable pointer ⇒ stable addressing, no rebalance — you don't *build* a radix, append-never-renumber *gives* one); within-session = **CLAM** over an ephemeral KV (the only thing that moves). Append-ness, clustering, freezing — three jobs, three structures.
-2. **EW64 = AriGraph episodic edges, NOT a CausalEdge64 lens.** A mailbox(=episode) is a basin with multiple edges; the temporal arc is a basin one HHTL level up (not a scalar prev). Intra-basin (~98.6%, #444) = inherited, ~0 bits; cross-family (~1.4%) = a **4-bit nibble** (16 families; fan-out ≤3 ⇒ headroom) into the **OGIT-class-inherited palette** (CAM_PQ facet code; identities inherited, never on the edge). NOT 16-bit pointers — 4-bit + inherited palette (Quartettkarten "lookup in OGIT, not in the data"). Shipped: `EpisodicEdges64`+`EdgeRef` (D-EW64-1).
-3. **Compression IS the bounded solution horizon.** A research = a free-energy descent that rests at the homeostasis floor ("call it a day"); awareness (MUL/`MetaWord` residual-F) = the stopping rule; 256 inputs → <32 clusters (locality); 4096-64k/KV = shock-absorber headroom, not a target. Lever = horizon-shortening (proposer/arbiter quality), NOT a codec. The presence bitmask doubles as the attention mask; a 4-bit `ViewAngle` (D-VIEW-1) selects the inherited view-schema (never per-instance semantics); `head2head` competes angles.
-
-Shipped this wave (contract, verifiable): `VersionScheduler` (D-MBX-9-IN, pseudo-radix reader), `head2head` (D-H2H-1, story-meta), `EpisodicEdges64`/`EdgeRef` (D-EW64-1), `ViewAngle` (D-VIEW-1). Plan: `.claude/plans/episodic-risc-spine-v1.md`. Firewall held: identity exact (CAM/OGIT), stories flexible (CLAM/discovery), never swapped.
-
----
-
 ## 2026-05-31 — E-LANCE7-OBJECTSTORE-SURREALDB — the lance 6→7 bump is what *aligns* object_store with the surrealdb fork; the fork's `kv-lance` `=6.0.0` pins were already self-contradictory against its own object_store 0.13
 
 **Status:** FINDING (deps; verified against crates.io dep graphs + a lock-only `cargo update`, no compile). User directive: "let's do 7 + 0.3 but we need to test surrealdb."

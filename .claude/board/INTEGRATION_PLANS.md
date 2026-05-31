@@ -1,3 +1,10 @@
+## 2026-05-31 — episodic-risc-spine-v1 (the converged episodic addressing spine: 3 lifecycle-separated structures — CAM/OGIT identity, Lance-version pseudo-radix index, CLAM ephemeral KV; EW64 episodic edges with a 4-bit inherited palette; bounded-horizon compression)
+
+**Status:** ACTIVE — contract slices shipped (D-EW64-1, D-VIEW-1; + VersionScheduler D-MBX-9-IN, head2head D-H2H-1); core/cold CI-gated. **Plan file:** `.claude/plans/episodic-risc-spine-v1.md`. **Finding:** EPIPHANIES E-EPISODIC-CLOSURE.
+
+---
+
+
 ## 2026-05-31 — odoo-classes-bitmask-render-v1 (the bounded-weekend classes.md fix: `ClassId` discriminator + per-class `FieldPositionTable` + `FieldMask(u64)` + per-class askama templates + Aerial+ shape-family discovery over the 66 OdooEntities)
 
 **Status:** PROPOSAL / integration plan, pre-council. Design-spec only, no code. **Plan file:** `.claude/plans/odoo-classes-bitmask-render-v1.md`. **Anchored spec:** `cognitive-risc-classes.md` v0.2 §"Jinja = classes + presence bitmask" + §"NON-DEFERRABLE freeze-time moves" (N1, N3) — bounded-weekend doctrine (line 56-57): *"discriminator + parent-pointer + parent-walking resolution against the existing cache. Full machinery (shape-compiler-to-grid, behavior/traits, SIMD kernels) is explicitly DEFERRED."*
