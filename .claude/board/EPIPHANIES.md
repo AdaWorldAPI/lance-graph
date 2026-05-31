@@ -1,3 +1,16 @@
+## 2026-05-31 — SHIPPED-in-PR: D-CLS-FM — class_view (FieldMask + ClassView meta-DTO; the class flies ABOVE the agnostic SoA)
+
+**Status:** SHIPPED-in-PR (#440 D-CLS contract foundation). The XML-parse framing made real, OD-gates ratified.
+
+`contract::class_view` (zero-dep): `ClassId(u16)` (reuses soa_view::class_id width, OD-CLASSID-WIDTH) + `FieldMask(u64)` presence bitmask (of/with/has/count, C2 presence-NEVER-semantics, N3 stable append-only positions) + **`ClassView` resolver TRAIT** (`fields`/`template`/`dolce_category_id`/`field_label`/`project`) + `ClassProjection` iterator. EXTENDS the existing `ontology::ObjectView`/`FieldRef`/`DisplayTemplate` (the per-class ordered field set = the bit basis), does NOT duplicate.
+
+**The architecture (user's framing):** OGIT today = hashtable single lookups (uri→row); the class = a META lookup (class_id→shape: ordered fields+labels+template+bit-basis), composing many leaf lookups. XML map: SoA row=XML doc (agnostic bytes), ObjectView=XSD, ClassView=parser+schema, FieldMask=which optional elements present, askama=XSLT. **Classes fly as a meta-DTO ABOVE the SoA so the SoA stays agnostic — zero labels in the bytes; labels/template/DOLCE resolved LATE from the OGIT cache at projection** (classes.md:39 resolve-not-store; core inv #1 nothing-semantic-in-register). C2 falls out free: bit=presence (on SoA, structural); bit→field→label=resolution (above SoA, semantic).
+
+**Layering (dep-inversion like MailboxSoaView):** contract=agnostic surface (FieldMask + ClassView trait, zero-dep); ontology=implements ClassView (the parser, resolves labels from OGIT hashmap — DOLCE-from-cache per OD ratification); render=consumes project()+template, skips off-bits. 3 teeth-tests: presence-bits, meta-DTO-projects-above-agnostic-(class,mask), late-label-resolution. 496 contract lib green; clippy+fmt clean.
+
+**Next (deferred, the D-CLS waves, P0-corrected):** ontology-side `impl ClassView` over OntologyRegistry (the resolver/parser); D-CLS-2 structural-signature audit (scope: 64 curated consts, NOT the false-66/real-381 — brutal P0-1); D-CLS-3 deterministic group-by-on-structural-hash (NOT aerial-cluster vaporware); FieldPositionTable freeze-append-only-on-first-emit (AP2); the render crate (askama). class_id stays a discriminator OUTSIDE the CAM content layer.
+
+**Cross-ref:** #440 plan; OD-gate ratifications (2026-05-31); REVIEW VERDICT P0/AP2; `ontology::ObjectView` (extended); `soa_view::class_id` (#437, reused); classes.md:39/48/49 (resolve / delta-bitmask / off-bits-skip); MailboxSoaView (the dep-inversion precedent #437).
 ## 2026-05-31 — OD-GATES RATIFIED (spec owner) for odoo-classes-bitmask-render-v1 (#440): DOLCE-from-cache (dissolves the 6-vs-4), ClassId u16 reuse-existing, kind+class_id both DTO-views, askama
 
 **Status:** RATIFICATION (spec owner = user, 2026-05-31). Unblocks the plan's Wave-0 pre-conditions, WITH the review-verdict P0 corrections folded in. Two answers reframe the plan, not just answer it.

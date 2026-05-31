@@ -42,6 +42,7 @@ pub mod atoms;
 pub mod auth;
 pub mod callcenter;
 pub mod cam;
+pub mod class_view;
 pub mod codegen_spine;
 pub mod cognitive_shader;
 pub mod collapse_gate;
@@ -96,6 +97,7 @@ pub mod world_map;
 pub mod world_model;
 
 // Re-exports for the most commonly used collapse_gate types.
+pub use class_view::{ClassId, ClassProjection, ClassView, FieldMask};
 pub use collapse_gate::{CollapseGateEmission, GateDecision, MailboxId, MergeMode};
 pub use kanban::{ExecTarget, KanbanColumn, KanbanMove, RubiconTransitionError};
 pub use soa_view::{MailboxSoaOwner, MailboxSoaView};
