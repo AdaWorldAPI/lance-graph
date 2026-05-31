@@ -5,13 +5,12 @@
 //! relational concern, SoC'd from both the temporal arc (a basin one HHTL level up)
 //! and frozen identity (CAM/OGIT).
 //!
-//! ## The cost model (grounded by the #444 locality probe)
+//! ## Cost model (grounded by the #444 locality probe)
 //! - **~98.6% intra-basin** (probe): an edge stays in the row's own family, which is
-//!   **inherited** from the HHTL/`class_id` path → ~0 extra bits. Encoded as
-//!   [`EdgeRef::family`]` == 0`.
+//!   **inherited** from the HHTL/`class_id` path → ~0 extra bits. `EdgeRef::family == 0`.
 //! - **~1.4% cross-family** (the crossover): a **4-bit nibble** (16 families,
-//!   `family ∈ 1..=15`) indexes the **OGIT-class-inherited cross-family palette** —
-//!   a CAM_PQ facet code whose codebook is the class's declared closed range
+//!   `family ∈ 1..=15`) indexes the **OGIT-class-inherited cross-family palette** — a
+//!   CAM_PQ facet code whose codebook is the class's declared closed range
 //!   (`owl:disjointWith` ⇒ collision-free). The 16 *identities* live in the class,
 //!   **never on the edge** (`I-VSA-IDENTITIES`: point, don't copy). Probe fan-out
 //!   ≤ 3 ⇒ 4 bits (16) has headroom.
@@ -20,11 +19,8 @@
 //! Each slot: `0x0000` = empty; else `[bits 12-15: family nibble][bits 0-11: local]`.
 //! `local` is a **1-based within-family index** (`1..=4095`); the resolved family is
 //! the row's own basin (`family == 0`, inherited) or `class.cross_family_palette[family]`
-//! (`1..=15`). Cross-session reach is a *separate* 16-bit episode-store column
-//! (64k/session, a Lance-column pointer), not this word.
-//!
-//! Identity resolution flies ABOVE the row (the OGIT class), exactly as
-//! `class_view::ClassView` does — this type holds only the agnostic nibble + index.
+//! (`1..=15`). Cross-session reach is a *separate* 16-bit episode-store column, not this
+//! word. Identity resolution flies ABOVE the row (the OGIT class), as `class_view` does.
 
 // The slot pack/unpack does intentional nibble extraction (slot>>12 ∈ 0..=15) and
 // low-16-bit reads (u64 -> u16); both are provably-bounded narrowings.
@@ -164,13 +160,13 @@ mod tests {
 
     #[test]
     fn edgeref_new_validates_family_and_local() {
-        assert!(EdgeRef::new(0, 1).is_some()); // intra, min local
-        assert!(EdgeRef::new(15, 4095).is_some()); // max family, max local
-        assert!(EdgeRef::new(16, 1).is_none()); // family out of 4-bit range
-        assert!(EdgeRef::new(0, 0).is_none()); // local 0 is the empty sentinel
-        assert!(EdgeRef::new(0, 4096).is_none()); // local out of 12-bit range
-        assert!(EdgeRef::cross(0, 5).is_none()); // cross requires family != 0
-        assert!(EdgeRef::intra(5).unwrap().family == 0);
+        assert!(EdgeRef::new(0, 1).is_some());
+        assert!(EdgeRef::new(15, 4095).is_some());
+        assert!(EdgeRef::new(16, 1).is_none());
+        assert!(EdgeRef::new(0, 0).is_none());
+        assert!(EdgeRef::new(0, 4096).is_none());
+        assert!(EdgeRef::cross(0, 5).is_none());
+        assert_eq!(EdgeRef::intra(5).unwrap().family, 0);
     }
 
     #[test]
@@ -178,11 +174,10 @@ mod tests {
         for family in 0..16u8 {
             for &local in &[1u16, 2, 100, 4095] {
                 let e = EdgeRef::new(family, local).unwrap();
-                let back = EdgeRef::from_slot(e.to_slot()).unwrap();
-                assert_eq!(e, back, "roundtrip family={family} local={local}");
+                assert_eq!(EdgeRef::from_slot(e.to_slot()).unwrap(), e);
             }
         }
-        assert_eq!(EdgeRef::from_slot(0), None); // 0 = empty, never a real edge
+        assert_eq!(EdgeRef::from_slot(0), None);
     }
 
     #[test]
@@ -194,7 +189,7 @@ mod tests {
         }
         assert_eq!(w.count(), 4);
         assert!(w.is_full());
-        assert!(w.push(EdgeRef::intra(5).unwrap()).is_none()); // 5th overflows
+        assert!(w.push(EdgeRef::intra(5).unwrap()).is_none());
     }
 
     #[test]
@@ -202,12 +197,11 @@ mod tests {
         let w = EpisodicEdges64::empty().push(EdgeRef::intra(7).unwrap()).unwrap();
         assert_eq!(w.edge(0), EdgeRef::intra(7));
         assert_eq!(w.edge(1), None);
-        assert_eq!(w.edge(EpisodicEdges64::CAPACITY), None); // out of range
+        assert_eq!(w.edge(EpisodicEdges64::CAPACITY), None);
     }
 
     #[test]
     fn intra_is_cheap_default_cross_is_the_nibble() {
-        // 3 intra (family 0, inherited) + 1 cross (family 3 → class palette).
         let w = EpisodicEdges64::empty()
             .push(EdgeRef::intra(10).unwrap())
             .unwrap()
@@ -218,7 +212,7 @@ mod tests {
             .push(EdgeRef::cross(3, 7).unwrap())
             .unwrap();
         assert_eq!(w.count(), 4);
-        assert_eq!(w.cross_count(), 1); // only the ~1.4% crossover costs the nibble
+        assert_eq!(w.cross_count(), 1);
         assert!(!w.edge(0).unwrap().is_cross());
         assert!(w.edge(3).unwrap().is_cross());
         assert_eq!(w.edge(3).unwrap().family, 3);

@@ -16,8 +16,7 @@
 //! ```
 //!
 //! **The line that keeps it RISC:** an angle selects an *inherited* attention
-//! pattern; it must NEVER mean something different per row. The instant "angle 3"
-//! carries instance-private meaning, it's the CISC slide (`class_view` C2).
+//! pattern; it must NEVER mean something different per row (`class_view` C2).
 //!
 //! `head2head` ([`crate::head2head`]) competes angles — `DissonanceMin` ≈ infight,
 //! `SupportSpread` ≈ Raumgewinn — picking which lens wins for a story.
@@ -62,7 +61,7 @@ mod tests {
     fn new_bounds_to_four_bits() {
         assert!(ViewAngle::new(0).is_some());
         assert!(ViewAngle::new(15).is_some());
-        assert!(ViewAngle::new(16).is_none()); // 4-bit ceiling
+        assert!(ViewAngle::new(16).is_none());
     }
 
     #[test]
