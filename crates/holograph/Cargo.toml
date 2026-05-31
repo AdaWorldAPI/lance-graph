@@ -35,7 +35,7 @@ arrow-buffer = "58"
 datafusion = { version = "53", optional = true }
 
 # Lance columnar format — 100x faster random access than Parquet
-lance = { version = "=6.0.0", optional = true, default-features = false }
+lance = { version = "=7.0.0", optional = true, default-features = false }
 
 # Async runtime
 tokio = { version = "1.49", features = ["rt-multi-thread", "macros"], optional = true }

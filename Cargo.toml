@@ -68,6 +68,23 @@ resolver = "2"
 # RESOLVED(B) 2026-05-28 — LanceDB pinned to `=0.29.0` (the latest 0.29 patch);
 #   transitively pins lance =6.x, datafusion 53, arrow 58.
 #
+# RESOLVED(A2/B2) 2026-05-31 — bumped Lance 6.0.0 → `=7.0.0` and LanceDB
+#   0.29.0 → `=0.30.0` (lockstep across lance-graph, -benches, -callcenter,
+#   -catalog, -ontology, holograph, surreal_container; lance-arrow / -index /
+#   -linalg / -namespace move together). lancedb 0.30.0 transitively pins lance
+#   `=7.0.0`, so the strict-equals lockstep is satisfied. This SUPERSEDES the
+#   6.0.1 BLOCKED note above — that path was always dead: no lancedb release ever
+#   pinned lance =6.0.1 (0.29.0 → 6.0.0, then 0.30.0 → 7.0.0, skipping 6.0.1).
+#   arrow stays 58, datafusion stays 53 (lance 7 + lancedb 0.30 keep ^58 / ^53).
+#   The one transitive move is object_store 0.12 → 0.13, which ALIGNS with the
+#   AdaWorldAPI/surrealdb fork (its workspace `object_store = "0.13.0"`): lance
+#   6's object_store 0.12 conflicted with surrealdb's 0.13; lance 7's 0.13 does
+#   not. CAVEAT: surrealdb-core's `kv-lance` feature STILL pins lance/lance-index
+#   `=6.0.0` + lancedb `=0.29.0` — that fork needs the SAME 7.0.0/0.30.0 bump
+#   before kv-lance can wire against this workspace (see BLOCKED(C) below).
+#   API-level compile against the lance-7 Rust surface is UNVERIFIED here
+#   (disk-limited sandbox); CI in a disk-ample env is the gate.
+#
 # BLOCKED(D) STILL OPEN — codex P2 correction on PR #425 (2026-05-28).
 #   The earlier RESOLVED(D) claim was FALSE: there is no `[patch.crates-io]`
 #   block in this workspace root (`git grep '\[patch'` on this commit finds
@@ -122,9 +139,9 @@ resolver = "2"
 # Crate-level pins (canonical source of truth — workspace.dependencies is not
 # used; each consumer crate declares its own pin with exact-equals so the
 # whole graph resolves to the same semver):
-#   lance           = "=6.0.0"   (lance-arrow / lance-index / lance-linalg /
+#   lance           = "=7.0.0"   (lance-arrow / lance-index / lance-linalg /
 #                                 lance-namespace bump in lock-step)
-#   lancedb         = "=0.29.0"
+#   lancedb         = "=0.30.0"
 #   datafusion      = "53"       (+ datafusion-common / -expr / -sql /
 #                                 -functions-aggregate)
 #   arrow-array     = "58"       (+ arrow-schema / -buffer / -ipc / arrow)
