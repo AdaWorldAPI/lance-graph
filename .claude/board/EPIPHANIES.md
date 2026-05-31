@@ -1,3 +1,16 @@
+## 2026-05-31 — SHIPPED-in-PR: D-CLS-RES — class_resolver (ontology-side impl ClassView; the meta-DTO flies over the LIVE OGIT cache)
+
+**Status:** SHIPPED-in-PR (#440 D-CLS). Makes the contract `ClassView` trait LIVE — the "OGIT hashtable single-lookup → class meta-lookup" upgrade, done.
+
+`lance-graph-ontology::class_resolver::RegistryClassView<'a>` impls `contract::class_view::ClassView` over a borrowed live `OntologyRegistry`: `class_id → shape`. DOLCE resolved LATE from the cache (`enumerate_first_with_entity_type_id(class) → MappingRow → ogit_uri → classify_odoo`), never stored on the row (OD-DOLCE "use the ontology cache" ratified). `dolce_id::{ENDURANT,PERDURANT,QUALITY,ABSTRACT}` = the stable u8 ids the contract trait returns (contract has no DOLCE enum; consumer maps back). Dep-inversion: contract owns vocabulary, ontology owns answers (ontology already deps contract).
+
+**Honest scope (no fabrication):** resolves class existence + DOLCE + template from the live cache; the per-class field-SET (ObjectView, the bit-basis) is SUPPLIED, not enumerated — a MappingRow is a single entity's leaf row with no field-list. Field enumeration = the deferred D-CLS structural-signature audit (scope: 64 curated consts). No field-set fabricated.
+
+**Review→fix caught a real perf gap (the ///-review-fix pipeline working):** `registry::enumerate_first_with_entity_type_id` is an O(n) row-scan + FULL MappingRow clone — called per dolce_category_id would be O(n)-with-heavy-clone per render. Fixed at MY layer: per-class `RefCell<HashMap>` memo (DOLCE is stable per class → scan once, not per call) + documented the underlying registry `by_entity_type_id` index as a deferred registry slice. No registry edit (collision avoidance). 4 teeth-tests (incl memo-stability) + 234 ontology lib green; clippy+fmt clean.
+
+**Next (deferred D-CLS):** the structural-signature audit (64 curated OdooEntity → ObjectView field-sets + shape-family group-by-on-structural-hash, NOT aerial-cluster); the registry `by_entity_type_id` O(1) index; the askama render crate consuming `project()`.
+
+**Cross-ref:** D-CLS-FM (the contract trait this implements); #440 plan; OD-DOLCE ratification (cache-resolves); `registry::enumerate_first_with_entity_type_id` (the O(n) gap, memoized); `hydrators::dolce_odoo::classify_odoo` (the live DOLCE resolution); classes.md:39 (resolve-not-store).
 ## 2026-05-31 — SHIPPED-in-PR: D-CLS-FM — class_view (FieldMask + ClassView meta-DTO; the class flies ABOVE the agnostic SoA)
 
 **Status:** SHIPPED-in-PR (#440 D-CLS contract foundation). The XML-parse framing made real, OD-gates ratified.
