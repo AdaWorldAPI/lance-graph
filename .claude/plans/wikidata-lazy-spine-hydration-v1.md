@@ -122,3 +122,129 @@ continuant/occurrent bit.
                                             ▲
                                    D-ARM-7 (Jirak floor) ─── hard prereq for any WRITE
 ```
+
+---
+
+## 3. Hard prerequisites — the gates (state these before any D-id ships behavior)
+
+Three falsifier probes and one statistical floor gate this whole arc. They are
+not optional decoration; they are **kill-switches**. A D-id may be *built*
+(types compile, fixtures pass) without its gate, but it MUST NOT graduate from
+fixture to behavior-on-real-data until its gate is green.
+
+### Gate P1 — Partition locality (CONJECTURE → must measure)
+- **Driver:** `jc/examples/splat_louvain_modularity.rs` (Louvain modularity =
+  popcount-AND over `contract::splat::AwarenessPlane16K` planes) +
+  `neighborhood::clam::measure_cluster_radii` on the real P279/subClassOf +
+  edge graph derived from `data/ontologies/*.ttl` (e.g. the FIBO or
+  schema.org subtree; biology subtree once Wikidata lands).
+- **Pass:** high modularity ⇒ ≥~90% of edges are intra-cohort ⇒ 16-bit
+  intra-cohort references + the family frontier are real, and the natural
+  fan-out (the 4/12/16 split) is observed, not assumed.
+- **Gates:** D-LWS-1 fan-out choice; D-LWS-4 GOP P-frame placement; D-LWS-5
+  cohort residency.
+- **Honest status:** `clam.rs` header literally says the radii-coincide-with-
+  ontology-boundaries claim "is a TEST, not a fact." Treat as **CONJECTURE**.
+
+### Gate P2 — Delta-card truthfulness (CONJECTURE → must measure)
+- **Driver:** D-LWS-8 reconstructs content from N delta bits
+  (`FieldMask`/value delta over the inherited `WikidataClass` archetype) vs
+  ground truth; histograms the residual per cohort.
+- **Pass:** low residual ⇒ the cohort is real and 8–16 delta bits suffice;
+  high residual ⇒ wrong cohort or genuinely novel entity (needs a wider delta
+  or a fork — never a 2-bit axis).
+- **Gates:** D-LWS-2 (the value model only ships its bit-width claim once the
+  residual histogram backs it).
+
+### Gate P3 — Compose vs materialize (CONJECTURE → must measure)
+- **Driver:** D-LWS-8 measures the ≤7-hop reachability hit-rate +
+  compose-cache eviction churn (via `ComposeTable::compose_chain` / blasgraph
+  `mxm`) against a stored-edge baseline.
+- **Pass:** the N²-avoidance holds (closure is ≤7 cached hops, not a stored
+  edge), and the churn sets the GOP/compaction cadence.
+- **Gates:** D-LWS-3 (compose-cache); D-LWS-4 (GOP cadence); D-LWS-6 (prefetch
+  cascade Compose arm).
+
+### Gate D-ARM-7 — the Jirak floor (HARD PREREQUISITE for any live write)
+- **Status (grepped):** `STATUS_BOARD.md` D-ARM-7 row = **"Queued — HARD
+  PREREQUISITE"**; ISSUE `ARM-JIRAK-FLOOR` = **OPEN**. The engine
+  `jc::jirak::prove` exists (Jirak-Cartan Pillar 5, weak-dependence
+  Berry-Esseen rate `n^(p/2-1)`); the *gate function* (rule → significant?)
+  that derives a threshold from it does NOT yet exist.
+- **Rule:** **No hydrated rule, discovered edge, or proposed reclassification
+  may be written to a live store (`SpoStore`, `VersionedGraph`, or any P-frame
+  delta that persists) until D-ARM-7 lands and the candidate passes the Jirak
+  weak-dependence significance floor BEFORE the classical `min_support`/
+  `min_confidence` gate.** This binds D-LWS-5 (any persist), D-LWS-3 (any
+  derived edge promoted to a generator), and D-LWS-9 (the full load). Cites
+  `I-NOISE-FLOOR-JIRAK`.
+- **Read-only is exempt:** hydrating cold rows into the hot SoA for *reading*
+  is not a write and is not gated by D-ARM-7. Only mutation of the persistent
+  substrate is.
+
+---
+
+## D-LWS-1 — Sparse radix range-delegation register
+
+**Status: Queued. Label: NEW (composes shipped `NiblePath`).**
+
+### Scope
+A **path-compressed radix/Patricia trie over the frozen ontology**, holding
+**occupied branch points only** — the "range register" of the integration map
+§3. Each entry is `nibble-range → {Empty | Leaf(file_or_arena) | Delegate(sub-table)}`:
+- a sparse DOLCE branch collapses to one `Leaf`;
+- a dense branch (the future 40M scholarly-articles cohort) becomes a
+  `Delegate` → sub-table → many leaves;
+- single-child chains collapse (no branch = no information = nothing stored).
+
+The register's size ≈ the occupied branch count (≈ the OWL/DOLCE class count,
+KB–MB), **never** the 256⁴ = 4.3B virtual address space.
+
+**It reuses `NiblePath` as the address — it does NOT invent a new key.** A
+register lookup walks `NiblePath` nibble by nibble (`child`/`try_child`),
+matching compressed ranges; `is_ancestor_of` decides delegation containment;
+`basin()` extracts the DOLCE root nibble; `packed()` yields the `(u64, u8)` the
+directory stores.
+
+### The shipped primitive it builds on
+- `contract::hhtl::NiblePath` — the entire address algebra (`root`, `child`,
+  `try_child`, `basin`, `parent`, `depth`, `is_ancestor_of`, `packed`,
+  `FAN_OUT=16`, `MAX_DEPTH=16`). **The register stores ranges of NiblePaths;
+  it never re-encodes identity.**
+- `ontology::wikidata_hhtl::WikidataClass::nibble_path()` — the seed: every
+  curated class already emits its `NiblePath` from `dolce_id` + subclass path.
+  D-LWS-1's register is the inverse index over exactly these paths.
+- `ontology::ttl_parse::{parse_ttl_directory, parse_into_proposals}` — the
+  occupied branch points for the *first* register are the classes parsed from
+  `data/ontologies/*.ttl` (FIBO/DUL/schema.org/QUDT), NOT a Wikidata dump.
+
+### Firewall / honesty
+- Lives in the **hub** (`lance-graph-contract` for the type if zero-dep clean,
+  else `lance-graph-ontology`). Proposed home: `contract::hhtl` sibling module
+  `contract::radix_register` (zero-dep: it is pure `NiblePath` + ranges + a
+  `Vec`-backed trie; no Lance, no Arrow). **Verify zero-dep before placing in
+  contract;** if it needs ontology types, place in `lance-graph-ontology`.
+- `aerial` is NOT touched. The register is an addressing structure the hub
+  owns; the proposer never sees it.
+- **Honest substrate:** built and tested on the on-disk TTL classes + the 6
+  `curated_wikidata_classes()` fixtures. The 38× headroom / 2.6%-full /
+  4.3B-virtual numbers are **DESIGN TARGETS**, asserted on fixtures, not
+  measured on 115M (that is D-LWS-9).
+
+### Which probe / gate
+- **Gate P1** sizes the fan-out: the register's branching factor (4/12/16
+  split, or the frozen 16-way `NiblePath` default) is a frozen-ISA choice that
+  P1's Louvain/CLAM measurement must back before it is frozen append-only. Until
+  P1 is green, D-LWS-1 ships the **16-way `NiblePath`-native** register (the
+  conservative, already-frozen choice) and leaves the re-parameterization
+  (256⁴ byte-aligned) as a documented CONJECTURE.
+
+### Acceptance (fixture-level)
+- Round-trip: every `curated_wikidata_classes()` path inserts, looks up, and
+  the register reconstructs the exact `NiblePath` (CAM-exact, no similarity).
+- Path compression: a single-child chain (person → human) stores ONE branch
+  point, not two (assert occupied-branch count < path count).
+- Delegation: a synthetic dense cohort (≥2 leaves under one nibble range)
+  produces a `Delegate`, a sparse one a `Leaf`.
+- Empty-space proof: the 97% unoccupied virtual space materializes zero
+  entries (assert register size ≈ occupied count, not fan-out^depth).
