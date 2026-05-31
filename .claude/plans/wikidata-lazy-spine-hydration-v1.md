@@ -540,3 +540,218 @@ D-LWS-2/D-LWS-4, and adjacency to D-LWS-3/D-LWS-6.
 - **Write-refusal:** attempting to persist a discovered rule without a passed
   Jirak gate returns an error (the D-ARM-7 prerequisite is enforced in code, not
   just documented).
+
+---
+
+## D-LWS-6 — Foveated prefetch cascade (RouteAction-driven)
+
+**Status: Queued. Label: NEW (composes shipped `HhtlCache::route` + `ComposeTable`).**
+
+### Scope
+Like Google-Maps tile prefetch: the adjacent area streams into the hot context
+before reasoning pans to it. When the foveal `NiblePath` is hydrated (D-LWS-5),
+the manager prefetches adjacency via the **`RouteAction` cascade**: for each
+candidate neighbor archetype pair `(a, b)`, the route decides
+`Skip | Attend | Compose | Escalate`. Only `Attend`/`Compose` neighbors are
+prefetched; `Skip` (the ~60% majority) costs nothing.
+
+### The shipped primitive it builds on
+- `bgz-tensor::hhtl_cache::RouteAction` (verified @ `hhtl_cache.rs:37`) +
+  `HhtlCache::route(a, b) -> RouteAction` (verified @ `:200`; `HipCache` alias
+  @ `:510`). The doc literally calls `route` "the prefetch decision." The
+  cascade's documented distribution (Skip ~60% / Attend ~35% / Compose rare /
+  Escalate ~5%) is exactly the foveated-periphery economics.
+- `bgz-tensor::attention::ComposeTable` — the `Compose` arm resolves a
+  multi-hop neighbor via `compose_chain` (shared with D-LWS-3).
+
+### Firewall / honesty
+- `RouteAction`/`HhtlCache`/`ComposeTable` all live in `bgz-tensor` (standalone,
+  zero-dep). The prefetch driver lives in the hub (D-LWS-5's manager). `aerial`
+  untouched.
+- **Honest substrate:** the cascade is tested on the fixture adjacency derived
+  from on-disk TTL relations. The Skip/Attend percentages are bgz-tensor's
+  documented design figures, asserted as a sanity range on fixtures, not
+  measured on 115M.
+
+### Which probe / gate
+- **Gate P3:** the prefetch hit-rate (did the prefetched periphery get used?) is
+  part of the compose-vs-materialize measurement; low hit-rate ⇒ the cascade is
+  over-fetching (re-tune the route thresholds).
+
+### Acceptance (fixture-level)
+- A `Skip` pair is never hydrated; an `Attend` pair is; a `Compose` pair
+  resolves via `compose_chain` without a stored edge.
+- Prefetch is bounded by the 256K envelope (prefetch yields to eviction).
+
+---
+
+## D-LWS-7 — Eviction on the DOLCE continuant/occurrent 1-bit
+
+**Status: Queued. Label: NEW (composes shipped `dolce_id`).**
+
+### Scope
+The ontology's own top split IS the cache policy. **DOLCE = a 1-bit
+permanent/temporary residence policy:**
+- **continuant** (Endurant / Quality / Abstract — wholly present, persists) ⇒
+  **permanent / cold-persist / resident-priority**;
+- **occurrent** (Perdurant — temporal parts, happens-then-ends) ⇒
+  **ephemeral / evictable** (the Baton/event traffic; the B-frame compose-cache).
+
+One eviction policy, derived from the ontology. The manager evicts occurrent
+arenas first under envelope pressure; continuant generators are sticky.
+
+### The shipped primitive it builds on
+- `ontology::class_resolver::dolce_id` (verified @ `class_resolver.rs:45`):
+  `ENDURANT=0`, `PERDURANT=1`, `QUALITY=2`, `ABSTRACT=3`. **The derived 1-bit =
+  `dolce_id == PERDURANT` ⇒ occurrent ⇒ evictable; else continuant ⇒
+  permanent.** The 4-facet `dolce_id 0..3` stays cache-resolvable (do NOT drop
+  the axis — the residence bit is *derived*, per the invariant guard); eviction
+  keys on the derived bit.
+- `WikidataClass::dolce_id` field — every fixture class already carries it.
+
+### Firewall / honesty
+- Lives in the hub (D-LWS-5's manager + the `dolce_id` resolver). `aerial`
+  untouched.
+- **Invariant guard (verbatim):** keep `dolce_id 0..3` in the cache; the
+  residence bit is *derived*, not a replacement — never collapse the 4-facet
+  axis to 1 bit at rest.
+
+### Which probe / gate
+- No probe gates eviction correctness directly; P3's eviction-churn measurement
+  informs the GOP cadence (D-LWS-4), and the occurrent/B-frame eviction is the
+  same policy as the compose-cache (D-LWS-3).
+
+### Acceptance (fixture-level)
+- Under simulated envelope pressure, an occurrent (`PERDURANT`) arena evicts
+  before a continuant one.
+- A continuant generator survives eviction (sticky).
+- The 4-facet `dolce_id` is still resolvable post-eviction (the axis is not
+  destroyed).
+
+---
+
+## D-LWS-8 — Probe harness (the 3 falsifiers, on real TTL + fixtures)
+
+**Status: Queued. Label: NEW (composes shipped `splat_louvain_modularity` + `clam` + `FieldMask`).**
+
+### Scope
+This D-id PRODUCES the three gates. It is the falsifier harness, runnable on the
+**real on-disk ontologies** (`data/ontologies/*.ttl`) + curated fixtures — NOT
+on a Wikidata dump. Three probes:
+1. **Partition locality (P1):** run `jc/examples/splat_louvain_modularity.rs`
+   (Louvain = popcount-AND over `AwarenessPlane16K`) + `clam::measure_cluster_radii`
+   on the FIBO/schema.org/DUL subtree; report modularity + whether CLAM radii
+   coincide with cohort boundaries.
+2. **Delta-card residual (P2):** reconstruct each fixture entity from its
+   `FieldMask` delta over its archetype; histogram the residual per cohort.
+3. **Compose hit-rate (P3):** measure ≤7-hop reachability + compose-cache churn
+   via `ComposeTable::compose_chain` / blasgraph `mxm` vs a stored-edge baseline.
+
+### The shipped primitives it builds on
+- `jc/examples/splat_louvain_modularity.rs` (verified; Louvain-CLAM locality).
+- `lance-graph::graph::neighborhood::clam::{measure_cluster_radii,
+  analyze_pareto_convergence, ParetoAnalysis}` (verified; the radius probe).
+- `contract::class_view::FieldMask::inherit` (verified; the residual measurement).
+- `ontology::ttl_parse::parse_ttl_directory` (verified; the real-data loader).
+
+### Firewall / honesty
+- The harness lives where the examples live (`crates/jc/examples/` for the
+  Louvain driver; a hub-side test/bench for P2/P3). `jc` is the cert crate; the
+  hub owns the residual + compose measurements. `aerial` untouched.
+- **This is the honesty backbone of the whole plan:** every CONJECTURE label in
+  D-LWS-1..7 is discharged (promoted to FINDING or corrected) by a D-LWS-8 probe
+  result recorded in the companion knowledge docs, per the CLAUDE.md insight
+  update cycle (Claim → Probe → Result → promote/correct).
+
+### Which probe / gate
+- D-LWS-8 IS the gates. It does not consume a gate; it produces P1/P2/P3.
+
+### Acceptance
+- Each probe runs to completion on real TTL + fixtures and emits a pass/fail
+  against its documented threshold (§3). Results recorded in
+  `delta-card-addressing-integration-map.md` Probes section + `EPIPHANIES.md`.
+
+---
+
+## D-LWS-9 — DEFERRED: full Wikidata load (115M) into the spine
+
+**Status: Queued — DEFERRED (terminal). Label: NEW + CONJECTURE (no dump on disk).**
+
+### Scope
+The full 115M-entity Wikidata load into the spine: the ndjson→`WikidataClass`
+loader (named as "Remaining" in the D-ARM-14 STATUS_BOARD row), the dense-cohort
+`Delegate` sub-tables (40M scholarly articles), the 12k-predicate composability
+table, the full I/P/B GOP over the real corpus.
+
+### Hard prerequisites (ALL must be green)
+- **Every probe (P1, P2, P3) PASSED** on the real TTL + fixtures (D-LWS-8). If
+  any probe fails, the design is wrong at the fixture scale and the 115M load is
+  premature.
+- **D-ARM-7 landed** and wired: no hydrated rule / discovered edge /
+  reclassification writes the live store without passing the Jirak floor.
+- D-LWS-1..7 shipped and behavior-validated on fixtures.
+
+### Honest substrate
+- **There is NO 115M Wikidata dump on disk** (grepped). This D-id cannot start
+  until a dump is provisioned AND the gates are green. It is the only D-id that
+  touches real Wikidata scale; everything before it is validatable today on
+  `data/ontologies/*.ttl` + 6 curated classes.
+- Labelled **CONJECTURE** end-to-end until the gates discharge the design.
+
+---
+
+## 4. Firewall summary (the one-line contract per crate)
+
+| Crate | Role | This plan's rule |
+|---|---|---|
+| `lance-graph-arm-discovery` (`aerial`) | zero-dep PROPOSER | **untouched.** Never gains a heavy dep. Feeds discovery offline (splat → cohort proposals); never does runtime residency. |
+| `lance-graph-contract` | zero-dep CONTRACT | gains zero-dep types only (`DeltaCard`, radix-register type, residency-policy enum) IF verified zero-dep; else they go to the hub. |
+| `lance-graph-ontology` | ONTOLOGY (hub) | owns the radix register seed, composability flag table, `reconstruct`, `dolce_id` residence. |
+| `lance-graph` | SPINE (hub) | owns the hydration manager, the I/P/B overlay over `VersionedGraph`, the blasgraph `mxm` driver, the prefetch cascade. |
+| `bgz-tensor` | standalone codec | provides `ComposeTable` + `RouteAction`/`HhtlCache` (consumed, not modified). |
+| `jc` | standalone cert | provides `jirak::prove` (D-ARM-7 engine) + the Louvain probe example. |
+
+**The firewall holds:** aerial stays the zero-dep proposer; the hub owns
+contract/ontology and the entire runtime hydration layer. No D-id in this plan
+proposes making aerial depend on heavy crates.
+
+---
+
+## 5. Risk register
+
+| # | Risk | Mitigation |
+|---|---|---|
+| R1 | **`EpisodicWitness64` does not exist** (cited in both companion docs). | Plan cites only `WitnessTable<64>`/`WitnessEntry` (verified). The 16-bit "book" witness tier is CONJECTURE. Flag to integration-lead: the companion docs should be corrected or `EpisodicWitness64` shipped. |
+| R2 | **Lance *fragment*-versioning not wired** (only dataset-level `VersionedGraph`). | D-LWS-4 ships option (a) dataset-versioning now; option (b) fragment APIs is a NEW spike, CONJECTURE until the `lance =6.0.0` fragment surface is confirmed reachable from this crate. |
+| R3 | **CLAM is a probe, not a clusterer.** | Every "CLAM-clustered" claim builds on `measure_cluster_radii` (offline placement decision); the clusterer that acts on radii is NEW. P1 gates whether radii coincide with cohorts at all. |
+| R4 | **All three probes are CONJECTURE.** A failing probe invalidates the design at fixture scale. | D-LWS-8 runs them on real TTL + fixtures BEFORE D-LWS-9; gates are kill-switches, not decoration. |
+| R5 | **D-ARM-7 (Jirak floor) is Queued, not shipped.** | Hard prerequisite enforced in code (D-LWS-5 write-refusal acceptance test), not just documented. No live write without it. |
+| R6 | **Fan-out freeze is one-shot** (frozen ISA, append-only). | D-LWS-1 ships the conservative 16-way `NiblePath`-native register; the 256⁴ re-parameterization is CONJECTURE, frozen only after P1. |
+| R7 | **Zero-dep placement of new contract types unverified.** | Each new type's home is decided by a `cargo check`/`cargo tree` zero-dep verification at implementation time; the plan names both candidate homes. |
+
+---
+
+## 6. Board hygiene (for the implementing session, NOT this planning agent)
+
+Per CLAUDE.md Mandatory Board-Hygiene Rule, the session that IMPLEMENTS any
+D-LWS-* must, in the same commit:
+- prepend `.claude/board/INTEGRATION_PLANS.md` (this plan's index entry);
+- add the D-LWS-1..9 rows to `.claude/board/STATUS_BOARD.md` (Queued → … → Shipped);
+- prepend `.claude/board/AGENT_LOG.md` on completion.
+
+**This planning agent (W1) does NOT touch any `.claude/board/*` file** — the
+orchestrator owns those (per the wave iron rules). This plan file is the only
+artifact W1 writes.
+
+---
+
+## 7. Cross-references
+- THE design: `.claude/knowledge/delta-card-addressing-integration-map.md`.
+- Framing: `.claude/knowledge/agnostic-lazy-world-spine.md`.
+- Probe-1 driver: `crates/jc/examples/splat_louvain_modularity.rs`.
+- Jirak floor: `crates/jc/src/jirak.rs`; ISSUE `ARM-JIRAK-FLOOR`; STATUS_BOARD D-ARM-7.
+- Related plans: `.claude/plans/streaming-arm-nars-discovery-v1.md` (D-ARM arc),
+  `.claude/specs/wikidata-hhtl-load.md` (120→38GB structural compression).
+- Iron rules: `I-VSA-IDENTITIES`, `I-NOISE-FLOOR-JIRAK`,
+  `I-LEGACY-API-FEATURE-GATED`; `CLAUDE.md` The Click (free-energy = prior +
+  prediction-error).
