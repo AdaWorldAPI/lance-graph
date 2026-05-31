@@ -1,3 +1,18 @@
+## 2026-05-31 — FINDING (research): arm-discovery is a PROPOSER that FEEDS the SPO-AST, not the SPO-AST itself — using it AS the AST would conflate proposer↔hub + push similarity into addressing
+
+**Status:** FINDING (read-only research, answering "can lance-graph-arm-discovery be the SPO-AST?"). No code; prevents a layering mistake.
+
+**Core-doc SPO-AST = the HUB** (cognitive-risc-core "AST is the hub"): one canonical AST; Elixir + OWL/DOLCE/OGIT/Odoo all lower INTO it; a move/rule/inference = a **guarded rewrite over SPO state**, same node shape across domains; lowers OUT to SurrealQL + planner candidates.
+
+**arm-discovery = the upstream PROPOSER leg** (verified, lib.rs:4 "the upstream proposer"): emits flat `CandidateRule`s (antecedent→consequent associations via codebook-probe; rule.rs `Proposer` trait), tagged `ArmDiscovered`. NO AST node type exists in the crate (grep: encode/codebook are distance/probe, not trees). Predicates are skeleton-only (`rdf:type`/`subClassOf`, ontology.rs); `Implies`/`CoOccursWith` NOT in vocab yet (D-ARM-SYN-1 deferred, ndjson.rs:16).
+
+**Verdict — NO, not as the SPO-AST; YES as a feeder:**
+- **Why not the AST:** (1) it's a proposer, not the hub — core-doc: "business logic is just one proposer's candidates… same candidate object, differing only by discovery_origin." AstWalker (OWL/Odoo) is a DIFFERENT proposer; both feed the hub. Using arm-discovery AS the AST conflates the proposer layer with the hub layer. (2) its codebook-probe is SIMILARITY/lossy (ANN-shaped); the faiss-homology iron rule: "similarity lives ONLY in the proposer/discovery layer, never in addressing/structure." An AST node is structure → must be exact (CAM), not similarity. (3) it emits flat rules, not a guarded-rewrite TREE.
+- **What it legitimately does (the synergy, already mapped in aerial-arm-ruff-spo-codegen-synergies.md):** `CandidateRule` → `ruff_spo_triplet::Triple{s,p,o,f,c}` (needs `Implies`, D-ARM-SYN-1) = ONE input stream to the hub, the `ArmDiscovered`-provenance candidates. arm-discovery is the runtime-data proposer; ruff_spo_triplet is the triple contract it emits into; the AST hub consumes that + AstWalker + the existing `lance-graph LogicalOperator` polyglot IR.
+
+**The actual SPO-AST gap:** the guarded-rewrite AST node type does NOT exist yet. It would live in contract (or a new IR module), be CAM-addressable (exact identity, zero-float — classes.md CAM invariant), and CONSUME candidates from {arm-discovery (ArmDiscovered), AstWalker (Extracted), LLM (conjecture), the polyglot LogicalOperator}. The `discovery_origin` u8 (core-doc, ISA-width-at-risk) is exactly the proposer-tag that lets them coexist as one candidate object.
+
+**Cross-ref:** cognitive-risc-core "AST is the hub" + "business logic is just one proposer's candidates" + discovery_origin u8; faiss-homology-cam-pq "similarity proposer-only, never addressing"; `arm-discovery/src/{lib.rs:4,rule.rs}` (proposer); `aerial-arm-ruff-spo-codegen-synergies.md` (the feed mapping + D-ARM-SYN-1 Implies); `ruff_spo_triplet::Triple` (the emit contract); lance-graph `LogicalOperator` (the polyglot IR, a sibling hub-input).
 ## 2026-05-31 — SHIPPED D-CLS-RENDER + PLANNED Wikidata-HHTL (the N4 second-domain falsifier)
 
 **Status:** D-CLS-RENDER SHIPPED-in-PR; Wikidata-HHTL = PLANNED (next arc, the classes.md:N4 falsifier).
