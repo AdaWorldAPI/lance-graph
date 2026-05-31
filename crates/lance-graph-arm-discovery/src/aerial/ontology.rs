@@ -61,6 +61,14 @@ impl DolceCategory {
     pub fn from_basin(n: u8) -> Option<DolceCategory> {
         Self::ALL.get(n as usize).copied()
     }
+
+    /// The facet for a consequent **category index** (`0..3`) — the
+    /// discovery-side view of the cache `dolce_id`. Alias of [`Self::from_basin`]
+    /// with intent: a DOLCE projector's consequent category IS the `dolce_id`.
+    #[must_use]
+    pub fn from_index(category: u32) -> Option<DolceCategory> {
+        Self::from_basin(category as u8)
+    }
 }
 
 /// A [`FeedProjector`] that renders discovered rules as OWL/DOLCE skeleton SPO.
@@ -76,6 +84,9 @@ pub struct OntologyProjector {
     pub predicate: String,
     /// Class IRI per consequent category (the skeleton classes).
     pub class_iris: Vec<String>,
+    /// Whether the consequent class axis is the DOLCE facet set — enables
+    /// [`Self::dolce_id`] to emit the stable `dolce_id` u8 the hub routes by.
+    pub is_dolce: bool,
 }
 
 impl OntologyProjector {
@@ -86,6 +97,7 @@ impl OntologyProjector {
             namespace: namespace.into(),
             predicate: "rdfs:subClassOf".to_string(),
             class_iris,
+            is_dolce: false,
         }
     }
 
@@ -96,6 +108,7 @@ impl OntologyProjector {
             namespace: namespace.into(),
             predicate: "rdf:type".to_string(),
             class_iris,
+            is_dolce: false,
         }
     }
 
@@ -103,10 +116,34 @@ impl OntologyProjector {
     /// [`DolceCategory`] facets — the DOLCE axis-template skeleton.
     #[must_use]
     pub fn dolce_subclass(namespace: impl Into<String>) -> Self {
-        Self::subclass_of(
-            namespace,
-            DolceCategory::ALL.iter().map(|c| c.iri().to_string()).collect(),
-        )
+        Self {
+            is_dolce: true,
+            ..Self::subclass_of(
+                namespace,
+                DolceCategory::ALL.iter().map(|c| c.iri().to_string()).collect(),
+            )
+        }
+    }
+
+    /// The stable `dolce_id` u8 (= basin nibble, `0..3`) for a DOLCE consequent —
+    /// the canonical, enum-free routing key the hub feeds to
+    /// `contract::hhtl::NiblePath::root` (#442). `None` for a non-DOLCE projector
+    /// or an out-of-range category.
+    ///
+    /// This is the **emit-`dolce_id`** half of the OD-DOLCE resolution: the
+    /// ndjson object IRI ([`FeedProjector::object`]) is a convenience LABEL the
+    /// hub may re-resolve from the OGIT cache, while this u8 is what both sides of
+    /// the firewall agree on as the basin — neither embeds the DOLCE enum.
+    #[must_use]
+    pub fn dolce_id(&self, consequent: &[Item]) -> Option<u8> {
+        if !self.is_dolce {
+            return None;
+        }
+        consequent
+            .first()
+            .map(|it| it.category)
+            .filter(|&c| (c as usize) < DolceCategory::ALL.len())
+            .map(|c| c as u8)
     }
 }
 
@@ -155,6 +192,19 @@ mod tests {
         }
         assert_eq!(DolceCategory::from_basin(4), None);
         assert_eq!(DolceCategory::Quality.iri(), "dolce:Quality");
+        assert_eq!(DolceCategory::from_index(1), Some(DolceCategory::Perdurant));
+    }
+
+    #[test]
+    fn dolce_projector_emits_the_stable_dolce_id() {
+        let proj = OntologyProjector::dolce_subclass("wd:");
+        // consequent category == dolce_id == basin (the hub routing key)
+        assert_eq!(proj.dolce_id(&[Item::new(1, 0)]), Some(0)); // Endurant
+        assert_eq!(proj.dolce_id(&[Item::new(1, 1)]), Some(1)); // Perdurant
+        assert_eq!(proj.dolce_id(&[Item::new(1, 9)]), None, "out-of-range facet");
+        // a non-DOLCE projector has no dolce_id to emit
+        let plain = OntologyProjector::subclass_of("wd:", vec!["wd:Q5".into()]);
+        assert_eq!(plain.dolce_id(&[Item::new(1, 0)]), None);
     }
 
     /// End-to-end: a splat codebook makes each occupation near its DOLCE class;

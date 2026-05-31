@@ -1,3 +1,13 @@
+## [Main thread / Opus] D-ARM-14 Phase 2 — proposer→hub landing (dolce_id emit + worked Wikidata example)
+
+**Branch:** claude/jolly-cori-clnf9-darm14-p2 (off main a77e119) | **Files:** `crates/lance-graph-arm-discovery/src/aerial/ontology.rs` (+`OntologyProjector::dolce_id`, `DolceCategory::from_index`, `is_dolce`), `Cargo.toml` (+`landing` feature + optional `lance-graph-contract` dev-dep), `tests/wikidata_landing.rs` (NEW, gated) + STATUS_BOARD (D-ARM-14 Phase 2).
+
+**Cargo:** DEFAULT (zero-dep) → **42/42** + clippy `-D warnings` clean. `--features landing` → the `wikidata_landing` worked example green + clippy clean (lands on REAL `lance-graph-contract` types).
+
+**Outcome:** Phase 2 DONE. User: "how to use aerial + the 10000² splat + add the ontology to land on Wikidata-shaped HHTL?" → built the answer. **(a) The OD-DOLCE alignment #442 deferred to my lane:** `OntologyProjector::dolce_id()` emits the stable `dolce_id` u8 (= basin nibble, already matching `dolce_id::{ENDURANT=0,..}`) — the proposer hands the hub the enum-free routing key, the IRI becomes a late-resolvable label (resolve-through-cache). **(b) The worked end-to-end example** (`tests/wikidata_landing.rs`, `--features landing`, opt-in `dev-dep lance-graph-contract` exactly like jc's bridge examples — lib stays zero-dep): splat top-k → `extract_rules` recovers all 6 DOLCE basins → lands each on the REAL `contract::class_view::FieldMask` (presence) + `hash::fnv1a_str` (StructuralSignature value); `NiblePath` 16ⁿ routing inlined (annotated, swap on #442 merge since contract::hhtl isn't on main yet). CONFIRMED on data: corpus collapses 6→5 families (film Q11424 ≡ tv Q5398426, sig 0xad7fade7), human⊂person inherits path + mask-as-delta, basin preserved down the subclass path. Respects the firewall (lib never imports the hub; the test bridges both to prove the `(ClassId, signature, FieldMask)` triple + `dolce_id` u8 seam). NOT pushed yet — awaiting confirm (prior branch merged). Map: `splat-codebook-aerial-wikidata-compression.md`.
+
+---
+
 ## [Main thread / Opus 4.7] odoo-classes-bitmask-render-v1 — authored bounded-weekend plan + 10-agent A2A wave split (pre-council)
 
 **Branch:** claude/activate-lance-graph-att-k2pHI | **Files (additive only):**
