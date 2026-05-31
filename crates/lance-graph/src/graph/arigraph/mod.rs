@@ -7,6 +7,7 @@
 
 pub mod episodic;
 pub mod language;
+pub mod markov_soa;
 pub mod orchestrator;
 pub mod retrieval;
 pub mod sensorium;

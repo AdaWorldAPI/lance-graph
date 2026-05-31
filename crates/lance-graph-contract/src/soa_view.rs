@@ -72,6 +72,28 @@ pub trait MailboxSoaView {
     // add `fn qualia(&self) -> &[crate::qualia::QualiaI4_16D]` when the first consumer
     // (planner strategy selection) needs it; keep the read surface minimal until then.
 
+    // NOTE (follow-up, P2 of the three-Markovs / EW64 reactive-seam ordering):
+    // the EpisodicWitness64 column accessor is intentionally omitted for now —
+    // add `fn episodic_witness(&self) -> &[EpisodicWitness64]` (same deferred-
+    // accessor pattern as `qualia` above) when the first consumer needs it.
+    //
+    // WHAT EpisodicWitness64 IS: it is **AriGraph living in the mailbox SoA view**.
+    // AriGraph is a Markov chain in the cold path (`lance-graph::graph::arigraph`:
+    // `episodic` / `witness_corpus` / `triplet_graph`); this column is that same
+    // episodic graph **promoted to the hot path** as a per-row SoA column — the
+    // `CausalEdge64` W-slot → witness arc (the deterministic "Markov #1" chain;
+    // see `witness_table.rs`: "the chain of W-references across edges forms a
+    // Markov-style belief-update arc through episodic-reference vectors"). EW64 is
+    // the *particle* (discrete, addressable, exact witness pointer); the windowed
+    // projection `arigraph::markov_soa` is the *wave*. Both ARE AriGraph.
+    //
+    // STATUS: `EpisodicWitness64` is NOT YET a code symbol (a queued design — see
+    // EPIPHANIES `E-EW64-IS-PREDICTIVE-PREFETCH`; the shipped seeds are the 6-bit
+    // W-slot `causal-edge::CausalEdge64` + `WitnessTable<64>`/`WitnessEntry` +
+    // `arigraph::{episodic,witness_corpus}`). Like every column the contract holds
+    // it stays AGNOSTIC: the witness arc carries SPO from ANY source — the
+    // *language* layer (DeepNSM/COCA) stays strictly upstream and never reaches in.
+
     // ── per-row scalar read (mirrors `MailboxSoA::energy_at`) ──
 
     /// Energy at `row`. Default indexes [`energy`](MailboxSoaView::energy); override

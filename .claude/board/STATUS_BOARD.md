@@ -671,6 +671,31 @@ The bounded-weekend fix `cognitive-risc-classes.md:56-57` prescribes (discrimina
 
 ---
 
+## wikidata-lazy-spine-hydration-v1 — the NiblePath-keyed tiered hydration manager + addressing (the "agnostic lazy world-spine" runtime)
+
+The one missing runtime piece behind the converged delta-card / world-spine vision (`delta-card-addressing-integration-map.md`, `agnostic-lazy-world-spine.md`). Plan: `.claude/plans/wikidata-lazy-spine-hydration-v1.md` (9 D-ids, authored by the W1 wave worker). All gated on D-ARM-7 (Jirak floor) before any hydrated rule writes a live store; firewall (aerial = zero-dep proposer, hub owns contract/ontology) preserved.
+
+| D-id | Deliverable | Crate(s) | LOC | Conf | Status | Notes |
+|---|---|---|---|---|---|---|
+| D-LWS-1 | Sparse radix range-delegation register (path-compressed trie over the frozen ontology; occupied branch points only; reuses `NiblePath` as the address — never re-encodes identity) | lance-graph-contract / -ontology | ~? | MED | **Queued** | partition-as-address; 27-bit floor with ~0-bit row |
+| D-LWS-2 | Delta-card value model (`reconstruct = deck ⊗ delta`; per-entity surprise as a `FieldMask` delta over the inherited archetype; modal member = empty card) | lance-graph-contract | ~? | MED | **Queued** | built on `FieldMask::inherit` |
+| D-LWS-3 | RISC compose-cache + per-predicate composability flag (store generators, compose ≤7-hop closure via `ComposeTable`/`mxm`; dissolves the hub problem) | lance-graph + bgz-tensor | ~? | MED | **Queued** | generators=continuant/cold, composed=occurrent/evictable |
+| D-LWS-4 | I/P/B frame model over Lance versioning (I=frozen radix+base, P=append, B=compose-cache, GOP=compaction) | lance-graph | ~? | MED | **Queued (spike)** | R2: repo wires dataset-level `VersionedGraph`, not fragment-level — fragment GOP is a NEW spike |
+| D-LWS-5 | **The `NiblePath`-keyed tiered hydration manager** (THE missing piece): hot `MailboxSoaView` ↔ cold `VersionedGraph`, address-not-join, agnostic SoA, carries CE64+witness arc; write-refusal until D-ARM-7 | lance-graph | ~? | MED | **Queued** | centerpiece; D-ARM-7 write-refusal acceptance test |
+| D-LWS-6 | Foveated prefetch cascade (`HhtlCache::route` Skip/Attend/Compose/Escalate decides periphery prefetch into the 256K envelope) | lance-graph + bgz-tensor | ~? | MED | **Queued** | the Google-Maps tile prefetch |
+| D-LWS-7 | Eviction on the DOLCE continuant/occurrent 1-bit (`dolce_id==PERDURANT` ⇒ occurrent ⇒ evictable; 4-facet axis preserved, residence bit derived) | lance-graph | ~? | MED | **Queued** | the perm/temp residence policy |
+| D-LWS-8 | Probe harness — runs the 3 falsifiers (Louvain-CLAM locality, delta-card residual, compose hit-rate) on real `data/ontologies/*.ttl` + fixtures; PRODUCES the gates | crates/jc + lance-graph | ~941 | HIGH | **Probe-1 SHIPPED** | `jc/examples/ontology_locality_probe.rs` RUN: **locality 98.6%, max fan-out 3 (≤16), Q=0.325 → PASS** on real ontologies (not yet Wikidata). Probes 2-3 queued. |
+| D-LWS-9 | DEFERRED full Wikidata 115M load (skeleton+basins+CAM-dedup+thin rows) | wikidata loader | ~? | LOW | **Deferred** | gated on all 3 probes PASSED + D-ARM-7; CONJECTURE (no dump on disk) |
+
+## Markov substrate clarification (markov_soa / EW64) — three-Markovs taxonomy
+
+| D-id | Deliverable | Crate(s) | LOC | Conf | Status | Notes |
+|---|---|---|---|---|---|---|
+| D-MKV-SOA | `arigraph::markov_soa` — the Markov *wave* (AriGraph cold-path chain promoted to hot-path SoA); vocabulary-agnostic `SpoRanks{u16}` + `SoaWavePrimer` + `WaveProjection::best_guess_match(injected dist)`; the "hybrid+ autocomplete" #2 proposer (dark-horse) | lance-graph::graph::arigraph | ~230 | MED | **Shipped (branch, unverified-offline)** | moved out of deepnsm (SoC fix); match = AriGraph's own cam_pq, language stays upstream; 4 tests written, core doesn't build in sandbox → verify on full checkout. Findings: three-Markovs, markov_soa-IS-AriGraph |
+| D-EW64-NOTE | `MailboxSoaView` doc note: `EpisodicWitness64` = AriGraph in the mailbox SoA view (the particle; cold→hot); deferred accessor (qualia-pattern) | lance-graph-contract::soa_view | ~20 | HIGH | **Shipped (branch)** | verified (contract builds, 3/3 soa_view tests); EW64 not yet a code symbol — P2 of three-Markovs ordering |
+
+---
+
 ## Update protocol
 
 When a deliverable ships:
