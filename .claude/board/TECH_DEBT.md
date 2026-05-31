@@ -13,6 +13,8 @@
 ---
 
 
+## Open Debt
+
 ### TD-WIKI-SCALE (D-WIKI-HHTL / #442) — three scale-freezes the N4 falsifier inherits
 
 **Status: Open.** Surfaced by the D-ARM-14 session's review of #442 (the hub-side
