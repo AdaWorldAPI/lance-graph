@@ -75,27 +75,40 @@ impl FieldMask {
     /// Maximum addressable field positions in one `u64` mask.
     pub const MAX_FIELDS: u32 = 64;
 
-    /// Build a mask from the populated field positions.
+    /// Build a mask from the populated field positions. Positions `>= MAX_FIELDS`
+    /// (64) are **ignored** — NOT folded onto a valid bit. Folding (`& 63`) would
+    /// alias position 64 onto bit 0 and silently corrupt the presence contract for
+    /// an oversized class shape (Codex P2 on #441); ignoring keeps the no-panic
+    /// property without misrepresenting which fields are present.
     pub const fn from_positions(positions: &[u8]) -> Self {
         let mut bits = 0u64;
         let mut i = 0;
         while i < positions.len() {
-            bits |= 1u64 << (positions[i] as u64 & 63);
+            if (positions[i] as u32) < Self::MAX_FIELDS {
+                bits |= 1u64 << positions[i];
+            }
             i += 1;
         }
         Self(bits)
     }
 
-    /// Set field position `n` as populated.
+    /// Set field position `n` as populated. `n >= MAX_FIELDS` (64) is a no-op
+    /// (NOT folded — see [`from_positions`](FieldMask::from_positions)).
     #[inline]
     pub const fn with(self, n: u8) -> Self {
-        Self(self.0 | (1u64 << (n as u64 & 63)))
+        if (n as u32) < Self::MAX_FIELDS {
+            Self(self.0 | (1u64 << n))
+        } else {
+            self
+        }
     }
 
-    /// Is field position `n` populated? (presence — C2)
+    /// Is field position `n` populated? (presence — C2). `n >= MAX_FIELDS` (64) is
+    /// always `false` — an out-of-range field is never "present" (NOT folded onto
+    /// a valid bit).
     #[inline]
     pub const fn has(self, n: u8) -> bool {
-        self.0 & (1u64 << (n as u64 & 63)) != 0
+        (n as u32) < Self::MAX_FIELDS && self.0 & (1u64 << n) != 0
     }
 
     /// Number of populated fields.
@@ -259,6 +272,29 @@ mod tests {
         assert_eq!(
             FieldMask::EMPTY.with(1).with(1),
             FieldMask::from_positions(&[1])
+        );
+
+        // Out-of-range positions are IGNORED, never folded onto a valid bit
+        // (Codex P2 #441): position 64 must NOT alias to bit 0.
+        assert_eq!(
+            FieldMask::from_positions(&[64]),
+            FieldMask::EMPTY,
+            "position 64 must be ignored, not aliased to bit 0"
+        );
+        assert!(
+            !FieldMask::EMPTY.with(64).has(0),
+            "with(64) must not set bit 0"
+        );
+        assert!(
+            !FieldMask::from_positions(&[0]).has(64),
+            "has(64) must be false, not bit-0 aliased"
+        );
+        // In-range bit 0 unaffected by the out-of-range guard.
+        assert!(FieldMask::from_positions(&[0, 64]).has(0));
+        assert_eq!(
+            FieldMask::from_positions(&[0, 64]).count(),
+            1,
+            "only the in-range bit 0 is set"
         );
     }
 
