@@ -56,6 +56,7 @@ pub mod external_membrane;
 pub mod faculty;
 pub mod grammar;
 pub mod graph_render;
+pub mod head2head;
 pub mod hash;
 pub mod hhtl;
 pub mod high_heel;
@@ -101,6 +102,7 @@ pub mod world_model;
 // Re-exports for the most commonly used collapse_gate types.
 pub use class_view::{ClassId, ClassProjection, ClassView, FieldMask, RenderRow};
 pub use collapse_gate::{CollapseGateEmission, GateDecision, MailboxId, MergeMode};
+pub use head2head::{CompetitionOutcome, Head2Head, WinnerCriterion};
 pub use kanban::{ExecTarget, KanbanColumn, KanbanMove, RubiconTransitionError};
 pub use scheduler::{DatasetVersion, NextPhaseScheduler, VersionScheduler};
 pub use soa_view::{MailboxSoaOwner, MailboxSoaView};
