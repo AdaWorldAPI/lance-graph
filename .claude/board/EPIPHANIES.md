@@ -1,3 +1,23 @@
+## 2026-05-31 — E-PLANNING-IS-WHITE-MATTER — the 64k mailboxes are GREY matter (compute); planning lives in the WHITE matter (the CE64/EW64 plasticity connectome), not in OTP/BEAM scheduling
+
+**Status:** FINDING (architecture reframe; unifies existing Hebbian/plasticity findings under the grey/white lens — the *mechanisms* are already on the board, the *framing* of planning is the new part). User-stated 2026-05-31 ("it doesn't make sense to have 64k OTP BEAM Erlang multithreading when you don't recognize the potential as grey vs white matter and BNN what fires together wires together"). Extends the language-network map (`E-ARCUATE-CONDUCTION`) into the cognitive substrate. Answers: "what can the mailbox SoA do about planning."
+
+**Grey vs white:**
+- **Grey matter (compute / neurons)** = the 64k mailboxes (per-mailbox SoA: Fingerprint/Qualia/Meta columns + the `Think` compute) AND the PFC executive (`lance-graph-planner`: MUL / elevation / strategies — goal-setting + suppression).
+- **White matter (connectome / axonal tracts)** = the CE64 (causal) + EW64 (episodic) EDGE columns + **plasticity** (`high_heel` W15 u8 `0=frozen..3=hot`; v2 `CausalEdge64` plasticity[2]; `sensorium.plasticity_flux`). `arcuate.rs` is the first explicit *named* tract.
+
+**Planning is a white-matter phenomenon, not OTP scheduling:**
+- A plan = a trajectory through the mailbox population. The white matter encodes which trajectories are **myelinated** (high plasticity = well-worn = automatic).
+- "Fire together → wire together" (already on board: `E-EW64-IS-PREDICTIVE-PREFETCH`, `plasticity_counters`, the prefetch spine): executing a path increments edge plasticity → consolidates it into **procedural memory** (a habit/skill).
+- Planning = bias toward myelinated paths (exploitation) + the **spreader** recruiting adjacent low-plasticity edges when the goal isn't reached (exploration, OQ-11.1/§11.5) + **prefetch** making the next step resident before it's asked. NOT a DAG computed by `KanbanMove`/`VersionScheduler`.
+- **Reframe:** `KanbanMove` / `VersionScheduler` / ractor = grey-matter process COORDINATION (necessary plumbing), **not the planner**. The planner IS the plasticity-weighted EW64/CE64 connectome, under PFC (MUL) bias + `head2head::SupportSpread` action-selection.
+
+**Why "64k OTP/BEAM concurrency" misses it:** Erlang treats processes as isolated units with explicit message passing (supervision trees). A BNN treats them as a connected population where the CONNECTIONS carry the computation. The brain is mostly white matter; a 64k-grey-node system with a thin connectome can compute in parallel but can't PLAN — planning lives in the wiring. The lever is the connectome (EW64/plasticity), not more grey-matter concurrency.
+
+**Honest state (the mechanism is DESIGN, not built):** A3 `witness_arc` MISSING; the Hebbian spreader radius/decay TBD (OQ-11.1, D-MBX-A4); `plasticity_counters` described not built; the prefetch spine = the unbuilt EW64 reactive seam ("every link shipped, the chain open at the joints"). The grey/white lens UNIFIES these and reframes the planner; the **buildable seam = the plasticity update + spread on the SoA EdgeColumn** (white-matter growth). Cross-ref: `E-EW64-IS-PREDICTIVE-PREFETCH`, `E-ARCUATE-CONDUCTION` (first tract), §11.5 plasticity-spreaders, OQ-11.1/11.2, `head2head`, `sensorium.plasticity_flux`, `high_heel` W15.
+
+---
+
 ## 2026-05-31 — E-ARCUATE-CONDUCTION — the stack has conduction aphasia: Broca+Wernicke intact, the arcuate cable (disambiguator_glue) carries no signal (the producer gap) — closing it IS the next wire
 
 **Status:** FINDING (diagnosis, grounded in source). Extends `E-BROCA-WERNICKE-HIPPO` to the full distributed language network (doc § "the full language network"). Names the single highest-value wire.

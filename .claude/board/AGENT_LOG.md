@@ -1,3 +1,13 @@
+## [Main thread / Opus] check (a): planning is white matter — grey mailboxes vs white connectome (E-PLANNING-IS-WHITE-MATTER)
+
+**Branch:** claude/jolly-cori-clnf9. Design-only check (no code) per user "check about (a)". **coexist** confirmed (512-bit ContextWindow internal + arcuate cross-boundary; wiring queued behind this check). #446 merged (LATEST_STATE/PR_ARC sweep + the few CodeRabbit comments deferred per "stay on track" — can sweep on request).
+
+**Finding:** the 64k mailboxes = GREY matter (compute) + PFC=MUL/planner; the CE64/EW64 plasticity connectome = WHITE matter (planning). Planning = Hebbian-wired path (fire→wire) + prefetch + spreader, under PFC/MUL bias + head2head selection — NOT OTP/`KanbanMove` scheduling. Unifies existing Hebbian findings (`E-EW64-IS-PREDICTIVE-PREFETCH`, `plasticity_counters`, §11.5 spreaders, `high_heel` W15 plasticity) under the grey/white lens and reframes the planner.
+
+**Honest:** the white-matter mechanism is DESIGN — A3 `witness_arc` MISSING, OQ-11.1 spreader radius/decay TBD, prefetch spine = the unbuilt EW64 reactive seam. **Seam:** plasticity update + spread on the SoA EdgeColumn. `arcuate.rs` is the first explicit white-matter tract.
+
+---
+
 ## [Main thread / Opus] arcuate connector — the Broca↔Wernicke cable carries signal (E-ARCUATE-CONDUCTION, first fix)
 
 **Branch:** claude/jolly-cori-clnf9. **Cargo:** deepnsm lib 99 green (+4 `arcuate`) + 4+8+1; `arcuate.rs` default-clippy-clean. User: "okay" → build the connector seam.
