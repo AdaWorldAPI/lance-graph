@@ -1,3 +1,69 @@
+## [Main thread / Opus 4.7] odoo-classes-bitmask-render-v1 — authored bounded-weekend plan + 10-agent A2A wave split (pre-council)
+
+**Branch:** claude/activate-lance-graph-att-k2pHI | **Files (additive only):**
+- `.claude/plans/odoo-classes-bitmask-render-v1.md` (+513 LOC NEW) — 9 deliverables D-CLS-1..9 across 5 waves, 10 agent runs (2 Opus + 9 Sonnet), full per-agent + per-file ownership matrix, A2A coordination protocol, risk register, 4 spec-owner pre-conditions
+- `.claude/board/INTEGRATION_PLANS.md` — prepended new plan entry
+- `.claude/board/STATUS_BOARD.md` — appended new section with 9 D-CLS-* rows (all `Blocked-on-OD`)
+- `.claude/board/AGENT_LOG.md` — this entry
+
+**Cargo:** not invoked (plan-only; no code).
+
+**Outcome:** DONE. User asked: "create a meticulously detailed integration plan and provide a clean per agent and file split for Multiagent A2A." Delivered, then user immediately asked for "5x council and 3x brutally honest review" — 8 reviewers spawning in parallel after this commit.
+
+**Anchored doctrine line (classes.md:56-57 verbatim):** "The fix is bounded (a weekend, not a subsystem): discriminator + parent-pointer + parent-walking resolution against the existing cache. Full machinery (shape-compiler-to-grid, behavior/traits, SIMD kernels) is explicitly DEFERRED." Plan honours this.
+
+**Plan structure:**
+- **9 non-goals** declared explicitly (no SoA hot-path wiring, no chess slice, no shape-compiler, no SIMD kernels, no Wikidata loader, no discovery_origin byte)
+- **7 hard constraints C1-C7** (WAL open, presence-not-semantics, shape inherits not behaviour, frozen ISA, discovered taxonomy, additive only, board hygiene)
+- **4 spec-owner gates** OD-DOLCE-CANONICAL/CLASSID-WIDTH/CLASSID-VS-ENTITYKIND/TEMPLATE-ENGINE — all Blocked until ratified
+- **5 waves** with per-wave gates + DAG diagram
+- **File-level ownership matrix** ensuring no two parallel agents touch the same file
+- **A2A coordination protocol** quoting the agent-prompt preamble verbatim (mandatory reads, blackboard contract per CLAUDE.md Layer 2)
+- **Risk register** with 11 risks + mitigations
+- **3 sections** explicitly NOT in scope (OD-1/2/3 byte work, F4 universal ISA design, chess bring-up D-CHESS-BRINGUP-1)
+
+**LOC profile:** ~1,800 working LOC + ~2,400 LOC generated (66 snapshots + 15 askama templates). Across 1 NEW crate (`lance-graph-ontology-render` standalone like bgz17/deepnsm) + 3 modified crates (contract, ontology, arm-discovery local newtype + callcenter From impl).
+
+**Risk acknowledged ahead of council:** Wave-2 Aerial+ on N=66 input may be noisy (wikidata-hhtl-load.md:85 explicitly warned "not measurable on 10"). Plan has fallback: deterministic group-by on structural-hash if Aerial+ unstable.
+
+**Next:** spawning 5-savant council + 3 brutal critics (8 parallel Opus reviewers) per user instruction.
+
+---
+
+## [Main thread / Opus 4.7] post-#438 integration recalibration — 4-savant council convened, verdicts logged, auto-resolved per protocol
+
+**Branch:** claude/activate-lance-graph-att-k2pHI (rebased onto post-#438 main, HEAD 8d75294b → new head this commit) | **Files:**
+- `.claude/plans/post-438-integration-options-v1.md` (+146 LOC NEW) — the 8-option integration plan the council reviewed
+- `.claude/knowledge/discovery-origin-provenance-reconciliation-v1.md` §8 fixed (specs are on main, not on a separate branch — corrected the stale citation from pre-rebase v1)
+- `.claude/handovers/2026-05-29-2230-odoo-blueprint-survival-dossier.md` §7 fixed (Wave 1 went D-ARM-13/14 via #436/#438, NOT D-ARM-1/2 as originally planned)
+- `.claude/board/ISSUES.md` — 2 new escalations: OD-CANONICAL-SPEC-DISAGREEMENT-TIER-SET + OD-PROPOSER-ID-WIDTH-CHOICE (both flagged as SPEC-OWNER decisions, NOT Claude-session)
+- `.claude/board/EPIPHANIES.md` — prepend E-DISCOVERY-ORIGIN-HOME-IS-ARIGRAPH-BRIDGE (R2's missing-integration finding: the byte's natural home is the AriGraph bridge column, not the mailbox-SoA byte)
+- `.claude/board/STATUS_BOARD.md` — appended D-CHESS-BRINGUP-1 row to the streaming-arm-nars table (the canonical N4 falsifier, now unblocked by #436's Rust Aerial+)
+- This entry
+
+**Cargo:** workspace `cargo check` clean (only pre-existing v1 CausalEdge deprecation warnings); no code touched this session.
+
+**Outcome:** DONE per options-doc §5 auto-resolve protocol. User asked: "create the integration plan as a list of possibilities, then use the council and brutally honest review to recalibrate, then continue autoattended autonomous decision making and auto resolve." Delivered.
+
+**Council convened in parallel (4 reviewers, Opus, single main-thread turn):**
+- R1 (architectural-fit): B+C **conditional on adding N1 `class_id` in same pass + u16 width + treat Conjecture as proposer-local + Derived as orthogonal axis**. Author's u8/6-bit lean called penny-wise given class_id must also widen.
+- R2 (prior-art): **B+H. Rejects C — re-litigates user-owned forks per core spec F4 + reconciliation OD-1.** Names G (chess) as the canonical N4 freeze-blocker per spec, not a peer option. Surfaces the AriGraph hot↔cold bridge as the ACTUAL integration target the options doc missed entirely (`E-ARIGRAPH-IS-AN-ISLAND` + `D-REUNIFY-1/2/3` prior art). Flags #439 may share CSI-1 ratification gate with sprint-11 queue.
+- R3 (integration-coordination): **B+D. Rejects C — in-flight collision with #439** (same `lance-graph-contract` crate, 31 commits, unstable, `KanbanMove` `const _` size assertion ≤16B). Defer C until #439 lands. Names tier-set conflict as "correctness risk laundered as coordination risk."
+- R4 (brutal-critic): **B+G. Rejects C as ego-shipping.** Calls author's §3 bias-confessing-then-doing-it-anyway. Names the two canonical specs disagreeing on tier set as SPEC FREEZE, not a Claude-session decision. Cites session's prior hallucinations (CLAUDE.md pin, "70" entities, plan §7.2 vs §8 contradiction) as pattern → "third strike waiting to happen."
+
+**Auto-resolve verdict (per §5):**
+- **B unanimous (4/4) → EXECUTED** (the 2 stale-citation fixes in this commit).
+- **C: 3/4 reject → NOT EXECUTED.**
+- **OD-1/2/3 → escalated to ISSUES.md as SPEC-OWNER decisions** (R2 + R4 unanimous on this framing).
+- **R2's AriGraph-bridge finding → captured as EPIPHANY** (genuinely new, missed by all prior session work).
+- **G (chess bring-up): 2/4 endorse → NOT executed this branch** (R1 explicit "needs its own branch + freeze-decision authority"); queued to STATUS_BOARD as D-CHESS-BRINGUP-1.
+- **D (#439 help): 1/4 → not executed** (below threshold; R3's lone endorsement).
+- **H (cargo clean, 3.3G free): 1.5/4 (R2 + R3 in combos) → flagged for user; not auto-executed** (touches workflow not architecture).
+
+**What the user has on disk after this commit:** clean rebase onto post-#438 main, fixed stale citations, two new spec-owner decisions logged, one new epiphany surfaced by the council (AriGraph bridge as discovery_origin home), chess bring-up queued as the next canonical falsifier. No code modified. The byte-grammar fight is genuinely paused at the spec-owner gate; the contract crate is untouched.
+
+---
+
 ## [Main thread / Opus] D-ARM-14 Phase 1 — splat-top-k oracle + DOLCE skeleton projector
 
 **Branch:** claude/jolly-cori-clnf9-darm14 (off post-merge main) | **Files:** `crates/lance-graph-arm-discovery/src/{aerial/codebook.rs (+TopKDistance), aerial/ontology.rs (new), aerial/mod.rs, encode.rs (+checked_slot), lib.rs}` + STATUS_BOARD (D-ARM-14 → In progress).
@@ -77,6 +143,61 @@
 **D-ids:** D-ARM-13 (**Shipped on branch**); D-ARM-SYN-1/2/3 (**Queued**, council-gated).
 
 **Outcome:** DONE. Transcoded **Aerial+** (Karabulut 2025, 2504.19354v1) to zero-dep Rust — the autoencoder leg the plan §14 had explicitly deferred to Python; the user's directive ("transcode aerial rule mining to rust") supersedes that deferral. Faithful port: one-hot encoding → under-complete **denoising autoencoder** (per-feature softmax + cross-entropy, hand-written backprop, seeded SplitMix64 for reproducibility) → **Algorithm 1** reconstruction-probe rule extraction (mark antecedent, uniform elsewhere, forward, τ_a antecedent test + τ_c consequent test) → support/confidence confirmed on data → `CandidateRule`. Tests prove the AE learns a cross-feature dependency and Algorithm 1 recovers a planted rule while rejecting an independent feature. Translator `arm_to_nars` maps `(support, confidence, n) → NARS (f, c)` verbatim per paper §2/§3.3; `ndjson` emits the exact `{"s","p","o","f","c"}` line shape the SPO store loader reads. **Synergy finding:** the Aerial leg is the *runtime-data* frontend of a three-frontend/one-substrate/two-codegen bracket whose substrate (`ruff_spo_triplet::Triple`) and codegen (`ruff_python_codegen` ∥ `op_emitter.rs`) legs already exist in the ruff fork; `ruff_python_dto_check` is the *static-AST* sibling frontend. Key gap surfaced: `ruff_spo_triplet::Predicate` is a closed vocabulary with **no implication/association predicate**, so loading ARM rules through that ndjson path needs `Implies` added there first (D-ARM-SYN-1, deliberate ontology change → council-gated). Determinism boundary preserved: the nondeterministic AE stays a seeded *fan-in proposer*, out of the deterministic compile path, output gated by Stage D. PR to follow.
+## [Main thread / Opus 4.7] discovery_origin / ProvenanceTier reconciliation — "what is ACTUALLY correct" (documentation only)
+
+**Branch:** claude/activate-lance-graph-att-k2pHI | **Commits:** `e727e636` (doc) + this board-hygiene commit | **Files:**
+- `.claude/knowledge/discovery-origin-provenance-reconciliation-v1.md` (+~190 LOC) — conflict matrix across code + my 2 committed docs + the 4 uploaded canonical specs; the arithmetic proving they can't all be right; what's correct per canonical; open decisions; §7 Jirak fully verified
+- `.claude/board/EPIPHANIES.md` — prepended E-DISCOVERY-ORIGIN-WIDTH finding
+- `.claude/board/AGENT_LOG.md` — this entry
+
+**Cargo:** not invoked (docs + board only; no code).
+
+**Outcome:** DONE. User: "only document the details ... the original was wrong, codex/coderabbit was wrong, you or the other session suggested to fix it or already fixed it and I don't know what is correct." Delivered a single source-of-truth reconciliation. NO code or plan modified — explicitly held all fixes for user decision.
+
+**Verified ground truth (file:line):**
+- 66 OdooEntity consts reachable from #435 HEAD; "70" was a fuzzy grep; reconciles (53 EXT-6 + 13 Wave-3 = 66).
+- `discovery_origin`/`ProvenanceTier` in ZERO `.rs` — only 7 `.claude/` docs. WAL not hardened; fix window open.
+- `mod.rs:450 OdooConfidence` = {Curated, Extracted, Conjecture} (3) — the only provenance enum that compiles.
+- proposer-id: committed 2 bits (full) < review 3 bits (8) < canonical "widen to 6 bits/64 or u16". Committed = most-wrong.
+- ProvenanceTier: 6 names across corpus vs 2-bit/4-slot field; my plan self-contradicts (§7.2=4, D-ARM-1=5).
+- Jirak: correct `n^{-(p/2-1)}`; plan lines 381+393 have reciprocal bug `n^{-1/(p/2-1)}` (line 375 correct); default p=3.0 == classical, use 2.5. Bug silently disables the noise floor (1e-20 vs 0.056 at n=1e5,p=2.5).
+
+**Held for user (not applied):** OD-1 width (6-bit vs u16); OD-2 Conjecture/Derived; OD-3 code/spec divergence; the 3-line Jirak patch (exact targets given in doc §7.4).
+
+---
+
+## [Main thread / Opus 4.8] Odoo blueprint survival dossier — inventory + strategies + tools (session-survival; "doesn't get lost")
+
+**Branch:** claude/activate-lance-graph-att-k2pHI | **Files (all new, additive):**
+- `.claude/knowledge/odoo-blueprint-inventory-v1.md` (+204 LOC) — index of all 66 `pub const OdooEntity` declarations across 15 lanes; per-lane summary; wave provenance; field/method density audit; EXT-2 coverage matrix; what's NOT in the corpus
+- `.claude/knowledge/odoo-extraction-strategies-v1.md` (+~240 LOC) — the three proposer legs (Curated/Extracted/ArmDiscovered): what each sees, what each emits, throughput, confidence, council posture, convergence diagram, ProvenanceTier ordering, what the doctrine forbids
+- `.claude/knowledge/odoo-extraction-tools-v1.md` (+~210 LOC) — tool stacks: Sonnet-agent fan-out, `tools/odoo-blueprint-extractor/` Python (654 LOC entry + 950 LOC parsers), planned `lance-graph-arm-discovery` Rust crate, `ruff_spo_triplet` cross-language SPO IR; run procedures; where each tool lives if the session dies
+- `.claude/handovers/2026-05-29-2230-odoo-blueprint-survival-dossier.md` (+~140 LOC) — survival pointer + verified numbers + next-move priority list
+
+**Cargo:** not invoked (knowledge docs + handover; no code).
+
+**Outcome:** DONE. User asked: "create a PR with all 70, strategies for extraction and tools for extraction so it doesn't get lost and if the session dies the other session has EVERYTHING." Delivered.
+
+**Verified numbers (on-disk grep, 2026-05-29):**
+- **66 pub const OdooEntity** (canonical count via `^pub const [A-Z_0-9]+: OdooEntity` — the "70" was a fuzzy match including nested struct refs)
+- 11,563 LOC across 15 lane files; 130 lane tests
+- 99,209 LOC of EXT-2 extracted backing in 11 addon files
+- 48/53 = 90.6% TIER-1 coverage per EXT-6
+- Wave 1 (commit `f5702675`) = 21 entities, L1-L5, **5 Sonnet agents** (the user's "5 agents" question)
+- Wave 2 dedicated (`d30186e5`) + Wave 2/3 (`333a1ff2`) + EXT-3 back-fill (`c04adf10`) = remaining 45 entities
+
+**Discovery during inventory pass:**
+- The L1 const block has 52 field-kind hits + 41 method-kind hits + 8 decorator-kind hits — densest lane in the corpus alongside L5 (55 fields / 26 methods / 11 decorators) and L10 (36/16/2)
+- State-machine presence audit needs a follow-up: multi-line `OdooStateMachine` formatting evades the indented-grep; manual verification needed for L1/L2/L5/L6/L7/L11
+- L12-L15 (Wave-3 curated additions) are POST-EXT-6 and need a fresh extractor pass to bring into `CURATED_EXTRACTED_PAIRS`; flagged as Stage-2 work
+- 6 dark D-Atoms (Money/Quantity/ApplyRate/EmitAmount/Event/FiscalCtx) don't fire today because `return_kind` defaults to `Unit` and `semantic_role` defaults to `Other` across most extracted entries — extractor `parsers/methods.py` + `parsers/fields.py` are the enrichment targets
+
+**Cross-refs added (knowledge → plan / handover / paper):**
+- `streaming-arm-nars-discovery-v1.md` (Leg 3 plan, this PR #435)
+- `odoo-business-logic-blueprint-v1.md` (Leg 1 plan)
+- `odoo-source-extraction-v1.md` (Leg 2 plan)
+- `epiphany-brainstorm-council` (PR #433 ratification gate)
+- Karabulut 2025 (arxiv 2504.19354v1) Leg-3 anchor; Abreu 2025 (arxiv 2511.13661v1) externalize-interpretation doctrine
 
 ---
 

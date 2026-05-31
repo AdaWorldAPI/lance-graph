@@ -523,6 +523,20 @@ The SoA is FIXED (frozen byte-shape) ⇒ the "duplicate" is the SAME shape insta
 **BindSpace consumers (singleton→per-mailbox migration surface, grep 2026-05-30):** contract `{cognitive_shader,splat,lib}.rs`; planner `{cache/convergence,lib}.rs`; cognitive-shader-driver `{driver,wire,engine_bridge,mailbox_soa,proposal,serve,wire_dto,spo_bridge,cognitive_shader,cognitive_shader_dispatch,spo_witness,cam}.rs`. The singleton still threads through driver/engine_bridge/wire*; `spo_witness.rs` is the existing witness seam to reconcile with EW64. (Ref D-MBX-3/5: kill `BindSpace::zeros(4096)` singleton; migrate consumers to per-mailbox MailboxSoA.)
 
 **Cross-ref:** `E-ARIGRAPH-PAPER-GROUNDS-CE64-EW64`; `E-AERIAL-FEEDS-EW64-PREFETCH`; `E-ARIGRAPH-IS-AN-ISLAND`; `F-RESONANCEDTO-IS-LAYERED-NOT-DUP`; D-MBX-3/5/A5; I-VSA-IDENTITIES.
+## 2026-05-30 — E-DISCOVERY-ORIGIN-HOME-IS-ARIGRAPH-BRIDGE — the `discovery_origin` byte's natural home is the AriGraph hot↔cold bridge column, not the mailbox-SoA byte — surfaced by council prior-art savant 2026-05-30
+
+**Status:** FINDING (R2 council verdict, 2026-05-30, recorded in `AGENT_LOG.md`). Documentation-only; no code or plan modified. Cross-ref: `E-ARIGRAPH-IS-AN-ISLAND` (the prior finding the options doc author missed), `E-ARIGRAPH-PAPER-GROUNDS-CE64-EW64` (CE64 = AriGraph semantic edge; EW64 = AriGraph episodic edge), `.claude/plans/post-438-integration-options-v1.md` §3 (the author's bias the council attacked).
+
+The 2026-05-30 council convening on the post-#438 integration options surfaced an integration target the options-doc author **completely omitted**: the AriGraph hot↔cold bridge. R2 cited `E-ARIGRAPH-IS-AN-ISLAND` + `D-REUNIFY-1/2/3` — the unwired bridge between `arigraph/triplet_graph.rs` (semantic Es) / `arigraph/witness_corpus.rs` (episodic Ee) and the hot SoA (CE64/EW64 cols) / cold Lance store. Per `E-ARIGRAPH-PAPER-GROUNDS-CE64-EW64`, CE64 IS an AriGraph semantic edge; EW64 IS an AriGraph episodic edge; the witness arc IS Ee.
+
+**The reframe:** if `discovery_origin` widens to `u16`, its natural carrier is **a column on the AriGraph bridge**, not the mailbox-SoA byte. Three reasons:
+1. Provenance is a property of WHERE-A-FACT-CAME-FROM = what the AriGraph semantic edge encodes (CE64's `discovery_origin` slot lives natively there).
+2. The mailbox-SoA byte is a hot-path performance compromise that bakes provenance into the row-level layout; the bridge is the architectural seam where hot meets cold and provenance MUST be materialized per witness-materialization invariant (cognitive-risc-core #5).
+3. The wikidata spec's `Derived` tier is *already* declared as living on the reasoning store via `provenance=Derived` column (wikidata-hhtl-load.md:25). The same column home works for the other tiers; the byte is then a hot-path projection of the bridge column, not the source of truth.
+
+**Author's options-doc miss:** all 8 options framed `discovery_origin` as a mailbox-SoA byte question. None considered the bridge-column framing. The kind of architectural drift the prior-art-savant role exists to catch.
+
+**Consequence:** OD-1 (6-bit vs u16) is partially settled by this. If the byte is a projection of a bridge column, the column can be u16 (or any width) without binding the hot-path byte. The byte becomes a cache, not the ISA.
 
 ---
 
@@ -682,6 +696,18 @@ The two-paper bracket (`streaming-arm-nars-discovery-v1.md`: Aerial+ discovery u
 The planner⟷ractor⟷surrealdb wiring (user-requested 2026-05-30) is realized WITHOUT a new DTO family (`lab-vs-canonical-surface.md` §"Decision Procedure"): extend the canonical `OrchestrationBridge`/`UnifiedStep` surface (`StepDomain::Kanban` + `"kanban."` prefix) + add `kanban::{KanbanColumn, KanbanMove}` + a zero-dep borrow trait `soa_view::MailboxSoaView` returning `&[T]` column slices. The borrow trait is the key move: it lets the in-RAM `MailboxSoA<N>` (ractor-owned, in cognitive-shader-driver), a surreal kv-lance view, and the planner all read the SAME bytes through one vocabulary — the dependency-inversion pattern already used by `PlannerContract`/`OrchestrationBridge`, so the contract stays zero-dep (it cannot name `MailboxSoA<N>` from another crate without a dep). The `MailboxSoaView` (read) vs `MailboxSoaOwner` (mutate `advance_phase`) split makes "the view is read-only" a *structural* guarantee (surreal implements only the read half) — honoring R1 by type, not convention.
 
 **Cross-ref:** `E-SOA-IS-THE-ONLY` (R1/R4 origin); `lab-vs-canonical-surface.md` §Decision Procedure; `unified-soa-convergence-v1.md §5+§8.4` (D-MBX-A6); LATEST_STATE Contract Inventory 2026-05-30.
+## 2026-05-30 — E-DISCOVERY-ORIGIN-WIDTH — the discovery_origin byte is over-subscribed in BOTH fields, and the Jirak threshold has a 3-place reciprocal bug
+
+**Status:** FINDING (verified on-disk, file:line cited). Documentation-only; no code/plan changed. Full detail: `.claude/knowledge/discovery-origin-provenance-reconciliation-v1.md`. Author-stated; not council-gated.
+
+Surfaced answering the user's "I don't know what is correct" about discovery_origin / ProvenanceTier, after they supplied the canonical `cognitive-risc-*` specs.
+
+1. **`discovery_origin` exists in ZERO `.rs` files** — only 7 `.claude/` docs. The WAL has not hardened around it; the "ISA-ossification trap" window is OPEN, fix cost = markdown edit, not migration.
+2. **proposer-id width is wrong everywhere, monotonically.** Committed plan §7.2 = 2 bits (4 slots, full); #434 review = 3 bits (8); canonical core spec = 3 bits but declares it insufficient and says widen to **6 bits (64) or u16**. The committed version is the most-wrong.
+3. **ProvenanceTier is ALSO over-subscribed (nobody had flagged this).** Six distinct tier names exist across the corpus — Curated/Extracted/Conjecture/ArmDiscovered/Ratified/Derived — but every layout gives the field 2 bits = 4 slots. My own ARM plan contradicts itself: §7.2 enumerates 4, D-ARM-1 enumerates 5. Code today (`mod.rs:450 OdooConfidence`) has only {Curated, Extracted, Conjecture}. The canonical specs disagree with *themselves* (core: ArmDiscovered/Ratified; wikidata: Derived).
+4. **Jirak threshold reciprocal bug, verified in 2 of 3 places.** Correct rate `n^{-(p/2-1)}` (matches CLAUDE.md `I-NOISE-FLOOR-JIRAK` and the plan's own worked examples + blockquote line 375). Plan line 381 (prose) and line 393 (pseudocode `powf(-1.0/(p/2-1))`) write the reciprocal `n^{-1/(p/2-1)}`. At n=1e5, p=2.5 the bug makes the floor ~1e-20 instead of ~0.056 — i.e. silently disables the noise floor the iron rule calls "not optional." Also: default `p=3.0` sits exactly at the classical Berry-Esseen crossover, so the "stricter than IID" claim is false at the default; use `p≈2.5`.
+
+**Open decisions (user's, not resolvable by citation):** OD-1 6-bit vs u16; OD-2 fate of Conjecture + treat Derived as a separate reasoning-provenance axis; OD-3 code/spec divergence on Conjecture. None applied — held for the user.
 
 ---
 

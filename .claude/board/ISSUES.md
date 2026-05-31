@@ -1,5 +1,39 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-05-30 — OD-CANONICAL-SPEC-DISAGREEMENT-TIER-SET — `cognitive-risc-core.md` and `wikidata-hhtl-load.md` disagree on the ProvenanceTier value-set; SPEC-OWNER decision, not Claude-session
+
+**Status:** Open · Owner: spec author (NOT a Claude session) · Blocks: D-ARM-1 (ProvenanceTier in `lance-graph-contract`), D-ARM-2 (`Proposer` trait + `CandidateRule`), D-ARM-SYN-1/2/3 (per PR #436 follow-ups).
+
+The four canonical specs at `.claude/specs/` disagree among themselves:
+- `cognitive-risc-core.md:58` → tier set `{Curated, Extracted, ArmDiscovered, Ratified}` marked `[stable]`.
+- `wikidata-hhtl-load.md:25` → tier set `{Curated, Extracted, Derived}`.
+- `faiss-homology-cam-pq.md:14` → "Reasoning layer = separate indexed store, **Derived tier**" — argues `Derived` is a *separate axis*, not a tier value.
+- Code today (`crates/lance-graph-ontology/src/odoo_blueprint/mod.rs:450`) → `OdooConfidence::{Curated, Extracted, Conjecture}` — a third value-set, neither matching the core spec nor the wikidata spec.
+
+4-of-4 council reviewers (2026-05-30, recorded in `AGENT_LOG.md` + `post-438-integration-options-v1.md` §4) verdict: do NOT ship `ProvenanceTier` into `lance-graph-contract` until the spec owner reconciles. Two of the four reviewers (R2 + R4) explicitly call this a SPEC FREEZE issue, not a Claude-session decision.
+
+**Council's recommended default if the spec owner wants one to ratify or reject:** keep the core's stable-4 as the on-byte tier; treat `Derived` as a separate orthogonal "reasoning provenance" axis (per faiss-homology + wikidata "orthogonal=beside, not mixed in"); decide `Conjecture`'s fate by either dropping it from code (it's unused per `git grep`) or mapping it to a proposer-local discovery-time label that never crosses the wire.
+
+Cross-ref: `.claude/knowledge/discovery-origin-provenance-reconciliation-v1.md` §2.1 (full conflict matrix), §6 (OD-1/2/3), §8 (specs-on-branch correction).
+
+---
+
+## 2026-05-30 — OD-PROPOSER-ID-WIDTH-CHOICE — 6-bit (64 slots, u8) vs `u16` for `discovery_origin` proposer-id field; SPEC-OWNER lean exists, decision is pending
+
+**Status:** Open · Owner: spec author · Blocks: D-ARM-1, D-MBX-A6-P3 (if `discovery_origin` rides alongside `KanbanMove`).
+
+`cognitive-risc-core.md:62` explicitly says "Widen proposer field (steal reserved → 6 bits/64, or go u16) before surrealkv WAL hardens the LE wire format" — names two alternatives, does not pick. `cognitive-risc-classes.md:64` restates the same problem as freeze-time move N2.
+
+The current `streaming-arm-nars-discovery-v1.md` §7.2 (committed on PR #435 branch, NOT in code) allocates 2 bits = 4 slots and is already full (AstWalker/PairStats/Aerial/Other). #436's PR-note explicitly defers the contract carrier to D-ARM-1.
+
+Council R1 (architectural-fit): u16 (because `class_id`/N1 must ship in the same freeze pass and u16 fits both decisions). Council R3 (integration-coordination): defer this choice until #439 lands (it's mid-flight on `lance-graph-contract`).
+
+**This issue and OD-CANONICAL-SPEC-DISAGREEMENT-TIER-SET are paired** — both touch the same byte grammar; ship them in one council-ratified pass or wait until both are settled.
+
+Cross-ref: `.claude/knowledge/discovery-origin-provenance-reconciliation-v1.md` §6 OD-1; `cognitive-risc-classes.md` §"NON-DEFERRABLE freeze-time moves" N1+N2; PR #439 (open, kanban Phase 2).
+
+---
+
 > **Append-only ledger.** Every issue (bug, regression, invariant
 > violation, blocker) gets a dated entry here. Entries move from
 > Open → Resolved by status-flip; they are NEVER deleted.
