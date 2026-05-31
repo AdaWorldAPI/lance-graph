@@ -1,3 +1,21 @@
+## 2026-05-31 — FINDING: D-CLS (#441) ↔ D-ARM-14 (#438) converge on Wikidata-HHTL — the second-domain falsifier reuses the class-meta-DTO 1:1 (cross-session synthesis)
+
+**Status:** FINDING (cross-session reconciliation, confirmed by the D-ARM-14 session). Anchors the Wikidata-HHTL arc on the merged D-CLS machinery; no parallel layer grows.
+
+**The convergence:** 439/440/441 (D-CLS) and 436/438 (D-ARM-13/14) are convergent, not conflicting. The Wikidata "D-CLS triple" `(class_id, shape_hash, presence_bitmask)` = `(ClassId(u16), StructuralSignature, FieldMask)` — ALL #441 types. wikidata facet-bitmask = `FieldMask`; shape = `signature()`'s structural-hash (generalised from `OdooEntity` to any entity); presence = `FieldMask`.
+
+**The firewall split (clean territory, no collision):**
+- **Proposer side (the D-ARM-14 session's lane):** `arm-discovery::aerial` stays the zero-dep PROPOSER — similarity in discovery only, skeleton-only predicates, emits `(s,p,o,f,c)`. Validated by the proposer-layering FINDING (67903a8): aerial FEEDS the AST hub, is not the hub.
+- **Hub side (this/D-CLS session's lane):** `contract`/`ontology` own `FieldMask`/`signature`/`ClassView` + the new `contract::hhtl::NiblePath` router. "The hub side owns contract/ontology."
+
+**This slice (D-WIKI-HHTL-1):** `contract::hhtl::NiblePath` — the 16ⁿ Abstammung bucket router #438's wiring doc names as "downstream." DOLCE-agnostic (`basin: u8`). basin `0..3` = `dolce_id::{ENDURANT=0,PERDURANT=1,QUALITY=2,ABSTRACT=3}` (#441 cache u8), which ALSO matches arm-discovery's discovery-side `DolceCategory::basin()` ordering (#438) — both sides agree on the nibble WITHOUT either embedding the enum (OD-DOLCE: resolve through the cache, b31464d). + `FieldMask::inherit` (mask-inherits-as-delta; multi-parent = facet bit in the same mask, NOT a 2nd path). 4 teeth-tests; 501 contract lib green; zero-dep preserved.
+
+**One proposer-side alignment — NOT this session (the D-ARM-14 session owns it, its own branch):** `aerial::ontology::DolceCategory` currently hardcodes `dolce:…` IRIs; ratified pattern = emit `dolce_id` u8, resolve the IRI late from cache (proposer stores no semantics). `basin()` already matches `dolce_id` ordering → alignment, not rework. Recorded here for cross-session visibility only.
+
+**#438 council verdict (4f381a8):** no code action items — it reviewed a `discovery_origin` byte-grammar plan, not the crate; fixed a stale Wave-1 citation, escalated 2 spec decisions (tier-set + proposer-id width) to ISSUES, queued D-CHESS-BRINGUP-1.
+
+**Cross-ref:** #441 (D-CLS), #438 (D-ARM-14 P1), 67903a8 (proposer-layering), b31464d (OD-DOLCE), `splat-codebook-aerial-wikidata-compression.md`, `wikidata-hhtl-load.md`, `contract::hhtl`.
+
 ## 2026-05-31 — FINDING (research): arm-discovery is a PROPOSER that FEEDS the SPO-AST, not the SPO-AST itself — using it AS the AST would conflate proposer↔hub + push similarity into addressing
 
 **Status:** FINDING (read-only research, answering "can lance-graph-arm-discovery be the SPO-AST?"). No code; prevents a layering mistake.

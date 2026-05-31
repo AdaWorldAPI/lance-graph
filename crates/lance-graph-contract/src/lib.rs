@@ -57,6 +57,7 @@ pub mod faculty;
 pub mod grammar;
 pub mod graph_render;
 pub mod hash;
+pub mod hhtl;
 pub mod high_heel;
 pub mod jit;
 pub mod kanban;

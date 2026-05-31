@@ -49,6 +49,7 @@ pub mod registry;
 pub mod schema_source;
 pub mod semantic_types;
 pub mod ttl_parse;
+pub mod wikidata_hhtl;
 
 #[cfg(feature = "lance-cache")]
 pub mod lance_cache;

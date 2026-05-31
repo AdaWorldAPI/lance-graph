@@ -122,6 +122,20 @@ impl FieldMask {
     pub const fn is_empty(self) -> bool {
         self.0 == 0
     }
+
+    /// Inherit a parent class's presence into this mask — the **mask-inherits-as-
+    /// delta** of the HHTL `subClassOf` walk (`wikidata-hhtl-load.md`). A child
+    /// IS-A its parent, so its mask carries every field the parent declares
+    /// present PLUS its own `delta`: a bitwise union. N3 stable positions mean the
+    /// parent's bits never move — the child only adds (multi-parent
+    /// "flying-family" facets are orthogonal bits in this same mask, never a
+    /// second path). Read `parent.inherit(own_delta)` → the child's full mask;
+    /// the union is commutative, so the direction is documentation, not a
+    /// constraint. See [`crate::hhtl`].
+    #[inline]
+    pub const fn inherit(self, delta: FieldMask) -> FieldMask {
+        FieldMask(self.0 | delta.0)
+    }
 }
 
 /// The class as a **meta lookup that flies above the SoA** — the resolver trait.
@@ -296,6 +310,33 @@ mod tests {
             1,
             "only the in-range bit 0 is set"
         );
+    }
+
+    #[test]
+    fn field_mask_inherit_is_nondestructive_union() {
+        // inherit = bitwise OR — a child IS-A its parent: it carries the parent's
+        // present fields PLUS its own delta (focused cover, CodeRabbit #442).
+        let parent = FieldMask::from_positions(&[0, 2]);
+        let delta = FieldMask::from_positions(&[1, 2]); // bit 2 overlaps
+        let child = parent.inherit(delta);
+        assert_eq!(
+            child,
+            FieldMask(parent.0 | delta.0),
+            "inherit is the bitwise union"
+        );
+        assert!(child.has(0) && child.has(1) && child.has(2));
+        assert_eq!(
+            child.count(),
+            3,
+            "the overlapping bit is not double-counted"
+        );
+        // EMPTY is the identity, both directions; the union is commutative.
+        assert_eq!(parent.inherit(FieldMask::EMPTY), parent);
+        assert_eq!(FieldMask::EMPTY.inherit(parent), parent);
+        assert_eq!(parent.inherit(delta), delta.inherit(parent), "commutative");
+        // FieldMask is Copy — neither operand is mutated by inherit.
+        assert_eq!(parent, FieldMask::from_positions(&[0, 2]));
+        assert_eq!(delta, FieldMask::from_positions(&[1, 2]));
     }
 
     #[test]

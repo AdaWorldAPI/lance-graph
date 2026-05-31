@@ -13,6 +13,34 @@
 ---
 
 
+## Open Debt
+
+### TD-WIKI-SCALE (D-WIKI-HHTL / #442) — three scale-freezes the N4 falsifier inherits
+
+**Status: Open.** Surfaced by the D-ARM-14 session's review of #442 (the hub-side
+Wikidata-HHTL arc). All three are FINE at the curated-corpus + Odoo scale this PR
+ships; they bite only at the deferred 115M streaming load:
+
+1. **`StructuralSignature` u32 birthday ceiling (~77k).** `wikidata_hhtl::WikidataClass::signature()`
+   and Odoo's `class_signature` both return `StructuralSignature(u32)` (#441's type). ~50% collision
+   probability near ~77k distinct shape-families → two genuinely different shapes alias to one family
+   (a correctness MERGE, not a perf nit) at Wikidata scale. **Pay by:** widen `StructuralSignature`
+   to `u64` — a #441 contract decision (touches the Odoo signature path too); land it WITH the
+   deferred load slice, not unilaterally in #442.
+2. **`NiblePath` MAX_DEPTH=16 ceiling — now SIGNALED, not silent.** `child()` saturates silently past
+   depth 16; real P279 chains run deeper, so two distinct deep classes truncated at 16 would collide on
+   one path. #442 adds `is_full()` + `try_child() -> Option` so the deferred loader DETECTS the ceiling
+   and switches to a ref (the bit-budget escape) instead of colliding. **Pay by:** the deferred loader
+   gates every descent on `is_full()`/`try_child()`; the ref-escape store is its own slice.
+3. **`signature()` allocates+sorts a `Vec` per call; `dolce_category_id()` defaults `ENDURANT` on
+   unknown class_id** (silent default vs signaling absence — mirrors `RegistryClassView`). Both fine
+   for the fixture. **Pay by:** at load scale hash the property-set without a per-call alloc
+   (pre-sorted columnar input); decide whether unknown-class DOLCE should be `Option`-signaled (a #441
+   `ClassView` trait decision).
+
+Cross-ref: #442, #441 (StructuralSignature/ClassView), the D-ARM-14 review, `wikidata-hhtl-load.md`,
+FINDING D-CLS↔D-ARM-14 (EPIPHANIES).
+
 ### TD-ARM-CARRIER-FORK (D-ARM-13 / streaming-arm-nars-discovery-v1)
 
 **Status: Open.** Surfaced by the 3-savant brutal review of D-ARM-13
