@@ -248,3 +248,133 @@ directory stores.
   produces a `Delegate`, a sparse one a `Leaf`.
 - Empty-space proof: the 97% unoccupied virtual space materializes zero
   entries (assert register size ≈ occupied count, not fan-out^depth).
+
+---
+
+## D-LWS-2 — Delta-card value model (`reconstruct = deck ⊗ delta`)
+
+**Status: Queued. Label: NEW (composes shipped `FieldMask::inherit` + `ClassView`).**
+
+### Scope
+The VALUE side of the one idea: **a card stores the surprise; the deck stores
+the expectation.** An entity's stored content is a **small delta over the
+inherited frozen archetype** (its class deck). Reconstruct = `deck ⊗ delta`.
+This D-id ships:
+1. A `DeltaCard` type = `{ class_path: NiblePath, presence_delta: FieldMask,
+   value_bits: <small> }` — the per-entity surprise, nothing else. The modal
+   member of a class is the **empty card** (`FieldMask::EMPTY` delta, zero value
+   bits): it *is* its archetype, stores nothing.
+2. A `reconstruct(deck: &ClassView, card: &DeltaCard) -> ResolvedEntity` that
+   overlays the card onto the deck.
+
+### The shipped primitive it builds on
+- `contract::class_view::FieldMask::inherit(delta)` (verified @ `class_view.rs:136`)
+  — **this IS the `deck ⊗ delta` operator for the presence half.** The archetype's
+  mask `inherit`s the card's delta mask. The KEY-side (#442 `wikidata_landing`
+  already proved "human ⊂ person inherits path + mask-as-delta"); D-LWS-2
+  generalizes it to the VALUE side.
+- `contract::class_view::ClassView` (trait) + `ClassId = u16` +
+  `StructuralSignature` — the deck. Resolve-not-store: the deck holds
+  fields/labels/DOLCE; the card holds neither (zero schema bits, zero label bits).
+- `ontology::wikidata_hhtl::WikidataClass::{presence_mask, signature, dcls_triple}`
+  — the fixture decks. `dcls_triple()` already returns the
+  `(ClassId, StructuralSignature, FieldMask)` triple a card resolves against.
+
+### The honest boundary (carry this verbatim from the integration map)
+The delta carries the **compressible profile** (the inherited-archetype
+deviation), NOT irreducible specifics. Non-composable, irreducible facts
+(`birth_date`, `population`, a novel signature step) are **stored values**, never
+a 2-bit axis — this is the **generator-vs-derivable split** (shared with
+D-LWS-3). A fusion entity outside any cohort = a wider delta or a fork.
+
+### Firewall / honesty
+- Lives in the hub. The `DeltaCard` type is a candidate for
+  `lance-graph-contract` (zero-dep: `NiblePath` + `FieldMask` + a small value
+  payload). **Verify zero-dep;** the `reconstruct` against a live `ClassView`
+  may belong in `lance-graph-ontology`.
+- `aerial` untouched. (`aerial` *proposes* which cohort a row joins via splat,
+  offline — D-LWS-2 only *reconstructs* given a chosen deck. The proposer's
+  similarity never enters the value model.)
+
+### Which probe / gate
+- **Gate P2 (delta-card truthfulness)** is THIS D-id's falsifier. The bit-width
+  claim ("8–16 delta bits suffice") ships only once D-LWS-8's per-cohort
+  residual histogram is low on the real fixtures. Until then D-LWS-2 ships the
+  *mechanism* (`reconstruct`) with the bit-width left as a measured parameter,
+  NOT a hardcoded constant.
+- **Free-energy framing (CLAUDE.md The Click):** the card's bit-width IS the
+  residual surprise `F = (1−likelihood) + kl`; the archetype is the prior, the
+  delta is the prediction error. Stated as design rationale, not a code claim.
+
+### Acceptance (fixture-level)
+- The modal member of each `curated_wikidata_classes()` cohort reconstructs from
+  an EMPTY card (zero delta bits) — "absence IS the inheritance."
+- A surprising member (e.g. a class with an extra presence bit vs its parent)
+  reconstructs from a card carrying exactly that one `FieldMask` bit, verified
+  via `FieldMask::inherit`.
+- Round-trip exactness: `reconstruct(deck, encode(entity)) == entity` for the
+  presence half (CAM-exact; the value-bit half is exact up to the P2-measured
+  width).
+
+---
+
+## D-LWS-3 — RISC compose-cache + per-predicate composability flag
+
+**Status: Queued. Label: NEW (composes shipped `ComposeTable` + blasgraph `mxm`).**
+
+### Scope
+**Store the generators, compute the closure.** Storing "every entity related to
+every other" = 113M² ≈ 10¹⁶ edges (catastrophe). Instead store
+parent/child/spouse generators (~N) and **derive** "related to Y in ≤7 hops" on
+demand. This D-id ships:
+1. A **per-predicate composability flag** (~12k Wikidata predicates, but
+   seeded on the on-disk ontology predicates first): each predicate is
+   `Generator(store)` or `Derivable(compose)`. Non-composable facts
+   (`birth_date`, `population`) are `Generator` always (irreducible values).
+2. A **compose-cache**: derived multi-hop edges computed via
+   `ComposeTable::compose_chain` (each hop = a u8 table lookup) / blasgraph
+   `mxm` matrix-power, cached as evictable B-frame entries (≤7 hops).
+
+### The shipped primitive it builds on
+- `bgz-tensor::attention::ComposeTable` (verified @ `attention.rs:49`):
+  `compose(a, b) -> u8` (one hop), `compose_chain(a, b, c) -> u8` (two hops),
+  `build(palette)`. **The closure is a fold of `compose` over the path — the
+  N²-avoidance is literally this table.**
+- blasgraph `mxm` (matrix-power semiring multiply in
+  `lance-graph/src/graph/blasgraph/`) — the bulk alternative for dense
+  reachability fronts.
+- The DOLCE 1-bit (`class_resolver::dolce_id`): **generators = `continuant` =
+  permanent/cold**; **composed multi-hop paths = `occurrent` = temporary/
+  evictable** (shared eviction policy with D-LWS-7).
+
+### The hub problem dissolves
+*United States*, *human*, *Earth* never store their millions of inbound
+back-edges — they are **reached** by composing forward generators. Hubs were
+only a problem if you imagined materializing them. Stated as design rationale.
+
+### Firewall / honesty
+- `ComposeTable` lives in `bgz-tensor` (standalone, excluded crate, zero-dep).
+  The compose-cache + composability flag live in the hub
+  (`lance-graph-ontology` for the predicate flag table; `lance-graph` for the
+  blasgraph `mxm` driver). `aerial` untouched.
+- **Honest substrate:** the predicate flag table is seeded and tested on the
+  on-disk ontology predicates (FIBO/schema.org/QUDT relations), NOT the 12k
+  Wikidata predicates. The 12k figure is a DESIGN TARGET for D-LWS-9.
+
+### Which probe / gate
+- **Gate P3 (compose vs materialize)** is THIS D-id's falsifier: the ≤7-hop
+  hit-rate + eviction churn vs a stored-edge baseline. If the hit-rate is low
+  (closure NOT reachable in ≤7 hops) the composability flags are wrong, or the
+  generator set is too sparse — D-LWS-3 does not graduate from fixture to
+  behavior until P3 is green.
+- **D-ARM-7:** if a *derived* edge is ever promoted to a stored generator (a
+  reclassification of the composability flag), that write passes the Jirak floor
+  first. Read-time composition is exempt.
+
+### Acceptance (fixture-level)
+- A 3-hop derivable relation over the fixture graph reconstructs via
+  `compose_chain` and equals the stored-edge ground truth.
+- A `Generator` predicate (e.g. a fixture `birth_date`) is never composed — the
+  flag forces a stored lookup.
+- Eviction: a composed B-frame entry under an `occurrent` predicate evicts; a
+  `continuant` generator does not.
