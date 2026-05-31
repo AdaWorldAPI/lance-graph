@@ -1,3 +1,17 @@
+## [Main thread / Opus] arcuate connector — the Broca↔Wernicke cable carries signal (E-ARCUATE-CONDUCTION, first fix)
+
+**Branch:** claude/jolly-cori-clnf9. **Cargo:** deepnsm lib 99 green (+4 `arcuate`) + 4+8+1; `arcuate.rs` default-clippy-clean. User: "okay" → build the connector seam.
+
+**Shipped:** NEW `crates/deepnsm/src/arcuate.rs` + `lib.rs` mod decl. `Arcuate{MarkovBundler + ContextChain}`: `feed(WindowedSentence)→Option<Trajectory>` pushes to the bundler and, on emit, sign-binarizes the projection and **slides** it into the ±5 ring (`fingerprints.remove(0)+push`); `chain()` exposes the ring; `disambiguate(candidates)` delegates to `ContextChain::disambiguate_with` at the focal index.
+
+**Why:** closes the conduction-aphasia diagnosis IN ISOLATION — `MarkovBundler::push` now has a caller, and the projection flows into the evidence ring. The contract `ContextChain` provides fill + coherence + replay but NO streaming advance — the connector owns the ring-slide (deepnsm-side, via the chain's pub `fingerprints`).
+
+**Scope/firewall (anti-spaghetti):** separate seam, **NOT** wired into `pipeline.rs`'s live 512-bit `ContextWindow` (coexistence = a distinct decision, deferred). Only `Binary16K` crosses into the contract; no COCA; no new dep (deepnsm already deps contract via `disambiguator_glue`).
+
+**OQ-ARC-WINDOW (new):** double-windowing — bundler ±radius + chain ±5 → the ring holds windowed-projection fps; per-sentence (radius-0) fps may be preferable. **Next:** the pipeline-coexistence decision; then feed per-sentence projections.
+
+---
+
 ## [Main thread / Opus] full language-network map + conduction-aphasia diagnosis (E-ARCUATE-CONDUCTION)
 
 **Branch:** claude/jolly-cori-clnf9. Design-only (map + diagnosis; no code). User extended Broca/Wernicke/Hippocampus to the full distributed language network (10 landmarks).

@@ -273,3 +273,11 @@ Broca ───────────┼──── Arcuate Fasciculus ──
 **Diagnosis — the stack has CONDUCTION APHASIA.** Broca (projection) and Wernicke (comprehension) each work in isolation, but the arcuate cable carries no signal: `disambiguator_glue` IS the arcuate fasciculus (`Trajectory`→`context_chain`) and is shipped, yet `MarkovBundler::push` is never called by `pipeline.rs` → no `Trajectory` is produced → nothing threads the cable into comprehension. Clinical signature matches exactly: comprehension + production intact, **repetition (connecting them) fails.** The fix names the next wire: `pipeline → MarkovBundler::push → Trajectory → disambiguator_glue → context_chain (±5) → comprehension router`.
 
 **Honest modality boundary:** auditory cortex / motor cortex / supramarginal (phonology) have NO counterpart — DeepNSM is text + COCA, not audio/speech. Correctly absent; **do not build phonology** (it would be scope creep across a modality the sensor doesn't have).
+
+---
+
+## Session update — 2026-05-31 (arcuate connector shipped — the cable carries signal)
+
+First increment of the conduction-aphasia fix (`E-ARCUATE-CONDUCTION`): `crates/deepnsm/src/arcuate.rs`. `Arcuate` owns the `MarkovBundler` producer + the ±5 `ContextChain` ring; `feed(sentence)` pushes to the bundler and, on each emitted `Trajectory`, sign-binarizes it and **slides** it into the ring's newest slot; `disambiguate(candidates)` delegates to the now-populated chain. The connector owns the ring-slide the contract leaves to the language side (`ContextChain` has fill + coherence + replay but **no streaming advance**), and gives `MarkovBundler::push` its first caller — so the projection now flows from Broca into Wernicke's window. deepnsm lib 99 green (+4); `arcuate.rs` default-clippy-clean; firewall-clean (only `Binary16K` crosses to the contract; no COCA; no new dep).
+
+**Still open (deliberately):** (1) wiring `Arcuate` into `pipeline.rs` — coexistence with the live 512-bit `ContextWindow` is a distinct decision, deferred to avoid spaghetti; (2) feeding **per-sentence** fingerprints rather than the bundler's windowed bundle (`OQ-ARC-WINDOW` — double-windowing: bundler ±radius + chain ±5).
