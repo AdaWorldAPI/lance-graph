@@ -155,6 +155,49 @@ impl EpisodicEdges64 {
     pub fn cross_count(self) -> usize {
         self.iter().filter(|e| e.is_cross()).count()
     }
+
+    // ── Little-endian byte contract (mirrors `causal-edge::CausalEdge64`) ──
+    // The frozen LE byte grammar every AriGraph consumer reads: surrealkv WAL, the
+    // baton wire (`CollapseGateEmission`), Lance columns. Canonical little-endian,
+    // platform-independent — changing the layout is a WAL/wire migration, never silent.
+
+    /// The raw packed `u64` (host value; serialize via [`to_le_bytes`](Self::to_le_bytes)).
+    #[must_use]
+    pub const fn to_u64(self) -> u64 {
+        self.0
+    }
+
+    /// Reconstruct from a raw packed `u64`.
+    #[must_use]
+    pub const fn from_u64(raw: u64) -> Self {
+        Self(raw)
+    }
+
+    /// Canonical **little-endian** wire bytes — the AriGraph-reference contract.
+    #[must_use]
+    pub const fn to_le_bytes(self) -> [u8; 8] {
+        self.0.to_le_bytes()
+    }
+
+    /// Reconstruct from canonical little-endian wire bytes.
+    #[must_use]
+    pub const fn from_le_bytes(bytes: [u8; 8]) -> Self {
+        Self(u64::from_le_bytes(bytes))
+    }
+
+    /// Append the canonical LE bytes to a wire buffer (baton / WAL line).
+    pub fn write_le(self, buf: &mut Vec<u8>) {
+        buf.extend_from_slice(&self.to_le_bytes());
+    }
+
+    /// Read one word from `buf` at `offset` (LE), or `None` if fewer than 8 bytes remain.
+    #[must_use]
+    pub fn read_le(buf: &[u8], offset: usize) -> Option<Self> {
+        let end = offset.checked_add(8)?;
+        let mut b = [0u8; 8];
+        b.copy_from_slice(buf.get(offset..end)?);
+        Some(Self::from_le_bytes(b))
+    }
 }
 
 #[cfg(test)]
@@ -235,5 +278,29 @@ mod tests {
     #[test]
     fn word_is_exactly_64_bits() {
         assert_eq!(core::mem::size_of::<EpisodicEdges64>(), 8);
+    }
+
+    #[test]
+    fn le_byte_contract_roundtrips() {
+        let w = EpisodicEdges64::empty()
+            .push(EdgeRef::intra(7).unwrap())
+            .unwrap()
+            .push(EdgeRef::cross(5, 42).unwrap())
+            .unwrap();
+        assert_eq!(EpisodicEdges64::from_u64(w.to_u64()), w);
+        assert_eq!(EpisodicEdges64::from_le_bytes(w.to_le_bytes()), w);
+        let mut buf = Vec::new();
+        w.write_le(&mut buf);
+        assert_eq!(buf.len(), 8);
+        assert_eq!(EpisodicEdges64::read_le(&buf, 0), Some(w));
+        assert_eq!(EpisodicEdges64::read_le(&buf, 1), None); // only 7 bytes remain
+    }
+
+    #[test]
+    fn le_bytes_are_canonical_little_endian() {
+        // slot 0 = intra local 1 => 0x0001 in the low 16 bits; LE => byte[0] = 0x01.
+        let w = EpisodicEdges64::empty().push(EdgeRef::intra(1).unwrap()).unwrap();
+        assert_eq!(w.to_le_bytes()[0], 0x01);
+        assert_eq!(w.to_le_bytes()[1], 0x00);
     }
 }
