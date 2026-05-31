@@ -193,7 +193,10 @@ impl SoaWavePrimer {
         }
         WaveProjection {
             triples,
-            provenance: BundleProvenance { mailbox_id: soa.mailbox_id(), contributions },
+            provenance: BundleProvenance {
+                mailbox_id: soa.mailbox_id(),
+                contributions,
+            },
         }
     }
 }
@@ -238,10 +241,16 @@ mod tests {
     }
 
     fn row_triple(row: usize) -> Option<SpoRanks> {
-        Some(SpoRanks { s: row as u16, p: (row + 1) as u16, o: (row + 2) as u16 })
+        Some(SpoRanks {
+            s: row as u16,
+            p: (row + 1) as u16,
+            o: (row + 2) as u16,
+        })
     }
     fn soa(n: usize) -> FakeSoa {
-        FakeSoa { entity_type: (0..n as u16).collect() }
+        FakeSoa {
+            entity_type: (0..n as u16).collect(),
+        }
     }
 
     #[test]
@@ -259,15 +268,37 @@ mod tests {
         let s = soa(20);
         let proj = SoaWavePrimer::new(5).project(&s, 1, row_triple);
         assert_eq!(proj.provenance.row_count(), 7); // rows 0..=6
-        assert_eq!(proj.provenance.contributions.iter().find(|c| c.row == 1).unwrap().proximity, 0);
-        assert_eq!(proj.provenance.contributions.iter().find(|c| c.row == 6).unwrap().proximity, 5);
+        assert_eq!(
+            proj.provenance
+                .contributions
+                .iter()
+                .find(|c| c.row == 1)
+                .unwrap()
+                .proximity,
+            0
+        );
+        assert_eq!(
+            proj.provenance
+                .contributions
+                .iter()
+                .find(|c| c.row == 6)
+                .unwrap()
+                .proximity,
+            5
+        );
         assert_eq!(proj.provenance.mailbox_id, 42);
     }
 
     #[test]
     fn match_uses_injected_distance_no_vocabulary_named() {
         // identity distance: equal ranks → near (0), else far (max).
-        let dist = |x: u16, y: u16| -> u8 { if x == y { 0 } else { u8::MAX } };
+        let dist = |x: u16, y: u16| -> u8 {
+            if x == y {
+                0
+            } else {
+                u8::MAX
+            }
+        };
         let s = soa(20);
         let p = SoaWavePrimer::new(2);
         let here = p.project(&s, 10, row_triple);
@@ -275,7 +306,10 @@ mod tests {
         let far = p.project(&s, 2, row_triple);
         let self_m = here.best_guess_match(&same, dist);
         let far_m = here.best_guess_match(&far, dist);
-        assert!(self_m > far_m, "identical window must out-resemble a distant one");
+        assert!(
+            self_m > far_m,
+            "identical window must out-resemble a distant one"
+        );
         assert!((self_m - 1.0).abs() < 1e-6, "exact-twin match = 1.0");
     }
 
