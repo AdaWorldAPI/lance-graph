@@ -63,6 +63,7 @@ pub mod vocabulary;
 
 pub mod trajectory;
 pub mod markov_bundle;
+pub mod markov_soa;
 pub mod nsm_primes;
 
 // Loose-end-#2 closer (PR-G3): glue from MarkovBundler::role_bundle()
