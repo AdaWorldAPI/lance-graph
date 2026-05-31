@@ -1,3 +1,17 @@
+## 2026-05-31 — SHIPPED-in-PR: D-CLS-SIG — class_signature (the HONEST discovered-taxonomy; structural-hash group-by, not aerial-cluster vaporware)
+
+**Status:** SHIPPED-in-PR (#440 D-CLS). The corrected D-CLS-2 + D-CLS-3 — replaces the brutal-review-killed "Aerial+ clusters entities" vaporware with the deterministic group-by classes.md:43 actually prescribes ("group-by-on-structural-hash OR Aerial+").
+
+`lance-graph-ontology::odoo_blueprint::class_signature` (pure const analysis, no hot path):
+- **`signature(&OdooEntity) -> StructuralSignature(u32)`** — FNV-1a (mirrors the workspace `style_recipe::fnv1a_recipe` idiom) over the canonicalized structural tuple: `[kind_disc, field-kind-histogram x6, method-kind-histogram x5, has_state_machine]`. Deterministic + NAME-INDEPENDENT (groups by structure, not model name). Two entities with the same signature ARE the same shape-family (classes.md:43 discovered taxonomy).
+- **`object_view(&OdooEntity) -> ObjectView`** — derives the per-class field-SET (the real FieldMask bit-basis): field position i = declared-field i = stable bit i (N3 append-only); primary_label = first textual field; template by size (<=4 Card else Detail); capped at FieldMask::MAX_FIELDS(64). **This FILLS the supplied-placeholder the class_resolver (D-CLS-RES) took** — the two slices now compose: signature→family, object_view→the bit-basis RegistryClassView consumes.
+- **`shape_families(&[OdooEntity]) -> Vec<(sig, members)>`** (BTreeMap-sorted deterministic) + **`audit(...)`** rows.
+
+**Honesty (brutal-review corrections folded in):** deterministic group-by, NOT aerial-cluster (aerial mines RULES not entity-clusters — confirmed no clustering entry point); scoped to the curated l-lane consts (not the false-66); FNV collisions are intentional (same structure→same family). 4 teeth-tests over REAL l1::ENTITIES (determinism, name-independence, bit-basis derivation, group-completeness). 238 ontology lib green; clippy+fmt clean.
+
+**Composes the D-CLS arc:** D-CLS-FM (contract FieldMask+ClassView) ← D-CLS-RES (ontology resolver over the cache) ← D-CLS-SIG (the field-set + shape-families the resolver needs). Next: run the audit over all curated l-lanes → name ~10-15 families (human/spec-owner step); the askama render crate consuming project(); the registry by_entity_type_id O(1) index.
+
+**Cross-ref:** D-CLS-FM/D-CLS-RES (the arc this completes the input for); #440 plan §D-CLS-2/3; brutal-review verdict (aerial-cluster→group-by correction); classes.md:41-44 (discovered taxonomy) + :48 (delta bitmask); `style_recipe::fnv1a_recipe` (the hash idiom reused).
 ## 2026-05-31 — SHIPPED-in-PR: D-CLS-RES — class_resolver (ontology-side impl ClassView; the meta-DTO flies over the LIVE OGIT cache)
 
 **Status:** SHIPPED-in-PR (#440 D-CLS). Makes the contract `ClassView` trait LIVE — the "OGIT hashtable single-lookup → class meta-lookup" upgrade, done.

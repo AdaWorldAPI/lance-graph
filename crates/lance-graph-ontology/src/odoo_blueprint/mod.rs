@@ -52,6 +52,7 @@
 // lane. Stubs land first (additive, all empty); the projection wave
 // populates each from the L-doc prose.
 
+pub mod class_signature;
 pub mod l1;
 pub mod l2;
 pub mod l3;
