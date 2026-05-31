@@ -1,3 +1,19 @@
+## [Main thread / Opus] full language-network map + conduction-aphasia diagnosis (E-ARCUATE-CONDUCTION)
+
+**Branch:** claude/jolly-cori-clnf9. Design-only (map + diagnosis; no code). User extended Broca/Wernicke/Hippocampus to the full distributed language network (10 landmarks).
+
+**Captured:** grail doc § "full language network" (region→component table + mapped diagram + honest N/A modality boundary) + EPIPHANIES `E-ARCUATE-CONDUCTION`.
+
+**Diagnosis (the payoff):** the stack has CONDUCTION APHASIA — `disambiguator_glue` IS the arcuate fasciculus (`Trajectory`→`context_chain`, shipped) but `MarkovBundler::push` is never called by `pipeline.rs` → the cable carries no signal. Production + comprehension intact in isolation; repetition (connecting them) fails. Fix = the next wire: pipeline→push→`Trajectory`→glue→`context_chain`(±5)→comprehension router.
+
+**Grounded `context_chain` (arcuate target):** `ContextChain{fingerprints: 11-slot ±5 ring, focal@5}`; `disambiguate_with(i, candidates, DisambiguateOpts{kernel, sentinel_fp})` → `DisambiguationResult{winner,margin,escalate_to_llm}`; replay re-scans with each candidate pinned, NARS-coherent branch wins; `sentinel_fp` = the existing deepnsm injection point.
+
+**Other placements:** PFC = MUL + free-energy + global_context (WIRED planner-side, NOT connected to the language faculty); temporal-semantic = COCA 4096² + DOLCE; angular = `vocabulary` + `nsm_primes`; metaphor = aerial cross-cohort. **N/A (text-only modality boundary, do NOT build):** auditory / motor / supramarginal-phonology.
+
+**Next:** build the arcuate connector as its OWN seam (owns the `ContextChain` ±5 ring + feeds `MarkovBundler`), offline-testable + firewall-clean — WITHOUT rewriting `pipeline.rs`'s live 512-bit `ContextWindow` (that coexistence is a separate decision; conflating them = spaghetti).
+
+---
+
 ## [Main thread / Opus] E-BROCA-WERNICKE-HIPPO — separate projection (Broca) from resolution (Wernicke); router moved off the projection carrier
 
 **Branch:** claude/jolly-cori-clnf9. **Cargo:** `cargo test --manifest-path crates/deepnsm/Cargo.toml` → lib 95 green (arcs 2 + comprehension 4) + 4+8+1; both files default-clippy-clean (crate bar; pedantic `doc_markdown` doc-prose deferred, consistent with the crate). Autonomous (user: drive it, no pop-ups).

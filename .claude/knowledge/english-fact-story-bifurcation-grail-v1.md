@@ -235,3 +235,41 @@ User correction (anti-spaghetti): *"Markov bundler should be separate as the pro
 **The consolidation insight (refines the bifurcation — it's not only an input fork):** the `WitnessTable` lifecycle `spo_fact_ref None→Some→tombstone` IS hippocampal→neocortical **systems consolidation** — a story-arc witness accumulates in episodic memory (hippocampus), crystallises (`Some` = committed), then the episodic witness prunes (tombstone). An **aged story becomes a fact**. So the fact-leg has TWO sources: (1) the input fork (atemporal SPO → DOLCE directly), and (2) consolidation (a temporal story-arc, repeated/aged over ±500, crystallising into a DOLCE fact). `OQ-CONSOLIDATION` (net-new): is the ±500 tail the consolidation trigger, and is crystallisation the `spo_fact_ref None→Some` transition?
 
 **Tokenless, concretely:** DeepNSM is COCA-word distributional (4096 ranks + the 4096² distance matrix), not BPE/subword. Wernicke comprehension + ambiguity resolution operate over that literal whole-word semantic space — "without tokens" = without a learned subword tokenizer. The firewall is unchanged: Broca+Wernicke live in deepnsm (English); Hippocampus+neocortex are downstream/agnostic; only the `Landing{fact,story}` bit crosses (a boolean, not COCA).
+
+---
+
+## Session update — 2026-05-31 (the full language network, not just three regions)
+
+User extended the frame from Broca/Wernicke/Hippocampus to the distributed language network. Mapped to the workspace — honest status; **N/A = a real modality boundary, not a gap to fill**:
+
+| region | function | workspace component | status |
+|---|---|---|---|
+| **Broca** | speech production, grammar, sentence construction | PoS-FSM→SPO (`parser.rs`) + MarkovBundler wave (`markov_bundle.rs`→`Trajectory`, `arcs.rs`) | WIRED; **producer gap** (`push` uncalled) |
+| **Wernicke** | comprehension (spoken+written) | `comprehension.rs` (per-triple resolution) + COCA distributional similarity | router WIRED; **±5 ambiguity wire OPEN** |
+| **Hippocampus** | short→long memory; learning facts/events | `EpisodicEdges64` + `WitnessTable` (episodic ±5→±500 + consolidation) | WIRED shapes; consolidation CONJECTURE |
+| **Temporal lobe (semantic)** | word meanings; pattern recognition | COCA 4096² distance (`similarity.rs`, lexical) + DOLCE store (consolidated facts = neocortex) | WIRED |
+| **Angular gyrus** | reading/writing; words↔concepts; metaphor | `vocabulary.rs` (rank↔concept) + `nsm_primes.rs` (universal primes); metaphor = aerial cross-cohort X→Y | WIRED (vocab/NSM); metaphor CONJECTURE |
+| **Prefrontal cortex** | organize thoughts; hold context; select words; suppress irrelevant | MUL (`planner/mul/`: DK/trust/homeostasis/gate) + global_context + free-energy descent + planner orchestration | WIRED planner-side; **not yet connected to the language faculty** |
+| **Arcuate fasciculus** | Broca↔Wernicke cable; damage = conduction aphasia | `disambiguator_glue` (`Trajectory`→`context_chain`) | cable SHIPPED; **no signal (producer gap)** |
+| **Supramarginal gyrus** | phonology; sound↔language | — | **N/A (text-only; modality boundary)** |
+| **Primary auditory cortex** | sound processing | — | **N/A** |
+| **Motor cortex** | articulators (speech output) | — | **N/A** |
+
+```
+        Prefrontal Cortex = MUL + free-energy gate + global_context (planner-side, unconnected)
+                 │
+Broca ───────────┼──── Arcuate Fasciculus ────── Wernicke
+(parser +        │     (disambiguator_glue:        (comprehension.rs +
+ MarkovBundler   │      CONDUCTION APHASIA —        COCA similarity)
+ → Trajectory)   │      cable shipped, no signal)
+                 │
+        Angular Gyrus = vocabulary + nsm_primes (word↔concept)
+                 │
+        Temporal Semantic = COCA 4096² distance + DOLCE
+                 │
+        Hippocampus = EpisodicEdges64 + WitnessTable (episodic + consolidation)
+```
+
+**Diagnosis — the stack has CONDUCTION APHASIA.** Broca (projection) and Wernicke (comprehension) each work in isolation, but the arcuate cable carries no signal: `disambiguator_glue` IS the arcuate fasciculus (`Trajectory`→`context_chain`) and is shipped, yet `MarkovBundler::push` is never called by `pipeline.rs` → no `Trajectory` is produced → nothing threads the cable into comprehension. Clinical signature matches exactly: comprehension + production intact, **repetition (connecting them) fails.** The fix names the next wire: `pipeline → MarkovBundler::push → Trajectory → disambiguator_glue → context_chain (±5) → comprehension router`.
+
+**Honest modality boundary:** auditory cortex / motor cortex / supramarginal (phonology) have NO counterpart — DeepNSM is text + COCA, not audio/speech. Correctly absent; **do not build phonology** (it would be scope creep across a modality the sensor doesn't have).

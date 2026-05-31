@@ -1,3 +1,15 @@
+## 2026-05-31 — E-ARCUATE-CONDUCTION — the stack has conduction aphasia: Broca+Wernicke intact, the arcuate cable (disambiguator_glue) carries no signal (the producer gap) — closing it IS the next wire
+
+**Status:** FINDING (diagnosis, grounded in source). Extends `E-BROCA-WERNICKE-HIPPO` to the full distributed language network (doc § "the full language network"). Names the single highest-value wire.
+
+**The diagnosis:** `disambiguator_glue` IS the **arcuate fasciculus** — the Broca↔Wernicke cable (`Trajectory` → contract `context_chain`, `disambiguator_glue.rs:65`). It is *shipped*. But `MarkovBundler::push` is never called by `pipeline.rs`, so no `Trajectory` is produced → the cable carries no signal. Broca (projection: `parser`→SPO + `markov_bundle`) and Wernicke (comprehension: `comprehension.rs` + COCA similarity) each work in isolation; only the connection between them is dead. **Clinical signature matches conduction aphasia exactly:** production + comprehension intact, *repetition* (routing production through to comprehension) fails. This is not a missing organ — it is a severed-but-present cable.
+
+**The fix (next wire):** `pipeline → MarkovBundler::push → Trajectory → disambiguator_glue → context_chain (±5 replay) → comprehension router`. Closes the producer gap (`OQ-ARC-PRODUCER` already resolved the substrate = 16384-dim role-indexed `Trajectory`) AND the ±5 ambiguity-resolution wire in one flow.
+
+**Other landmarks placed (full map in doc):** PFC = MUL + free-energy gate + global_context (WIRED planner-side, **not connected to the language faculty**); temporal-lobe semantic = COCA 4096² distance + DOLCE; angular gyrus = `vocabulary` + `nsm_primes` (word↔concept; metaphor = aerial cross-cohort). **Modality boundary (honest N/A):** auditory cortex / motor cortex / supramarginal phonology have no counterpart — DeepNSM is text+COCA, not audio. Do NOT build phonology. Cross-ref: `E-BROCA-WERNICKE-HIPPO`, `E-ENGLISH-BIFURCATES`, `disambiguator_glue.rs`, `context_chain.rs`, three-Markovs (#2 = the MarkovBundler wave).
+
+---
+
 ## 2026-05-31 — E-BROCA-WERNICKE-HIPPO — the language stack is THREE separable faculties (projection ≠ comprehension ≠ memory); the witness lifecycle IS consolidation (a story aging into a fact)
 
 **Status:** FINDING (architecture SoC; the faculty separation is enforced in code as of this commit). The consolidation arc (story→fact) within it is CONJECTURE (unbuilt/unmeasured). User-stated 2026-05-31 ("Markov bundler should be separate as the projection, while the sentence resolution is literal text comprehension with ambiguity resolution without tokens … we're sitting on a Broca and Wernicke and hippocampus"). Refines `E-ENGLISH-BIFURCATES`; doc § "the three faculties".
