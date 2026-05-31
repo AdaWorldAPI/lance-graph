@@ -35,6 +35,32 @@
 
 ---
 
+## #441 odoo-classes-bitmask-render (D-CLS arc) — classes as a SoA-view with presence bitmask
+
+**Status:** MERGED 2026-05-31 (merge commit `a77e119`), branch `claude/sleepy-cori-aRK2x`. 5 feature slices + 4 review-round fixes; 973 insertions, purely additive (0 deletions). Built AFTER a council + brutal-honest review of the #440 *plan* caught 3 P0 factual errors — these slices sidestep them by construction.
+
+**Added:**
+- `lance-graph-contract::class_view` (NEW module, zero-dep): `FieldMask(u64)` presence bitmask + `ClassView` resolver **trait** + `ClassProjection` + `RenderRow` + `ClassView::render_rows` (off-bits-skipped). `ClassId = u16` (reuses the existing `soa_view::class_id` width). Extends `ontology::{ObjectView, FieldRef, DisplayTemplate}`; does not duplicate. (D-CLS-FM + D-CLS-RENDER)
+- `lance-graph-ontology::class_resolver` (NEW module): `RegistryClassView` impls `ClassView` over the live `OntologyRegistry`; DOLCE resolved LATE via `classify_odoo(ogit_uri)`; per-class memo over the O(n) registry scan. (D-CLS-RES)
+- `lance-graph-ontology::odoo_blueprint::class_signature` (NEW module): `StructuralSignature` + `OdooEntity::signature()`/`object_view()` (carrier methods) + `audit`/`shape_families`/`curated_entities`/`corpus_summary`. Deterministic FNV-1a over kind+field/method-kind histograms + state-machine. (D-CLS-SIG + D-CLS-AUDIT)
+
+**Locked:**
+- **The class flies ABOVE the agnostic SoA** (classes.md "the meta-DTO resolves; it does not store"): SoA row = agnostic bytes (class_id + presence bits only); `ClassView` = the late-bound parser+schema; `FieldMask` = which optional fields are present. Nothing semantic in the row.
+- **C2 — `FieldMask` is presence, NEVER semantics.** `render_rows` yields a row iff its bit is set; never branches on meaning.
+- **N3 — stable append-only bit positions** (field position `i` = declared-field `i`). Out-of-range positions (≥ `MAX_FIELDS`=64) are **IGNORED, not folded** (Codex P2 fix `250b66f`) — `& 63` folding would alias pos 64→bit 0 and silently corrupt the presence contract.
+- **Structural-signature = deterministic group-by-on-hash, NOT Aerial+ clustering** (that entry point does not exist — confirmed in review). Name-independent.
+- **DOLCE resolved from the OGIT cache** (OD-DOLCE ratification); **reuse the existing `class_id`** (no colliding newtype). These two sidestep the canonical-enum contest + 6-vs-4 DOLCE dispute caught in the #440-plan review.
+- **`signature`/`object_view` are carrier methods on `OdooEntity`**, not free functions (CodeRabbit `21c37eb`, CLAUDE.md "The Click" litmus).
+- Zero-dep contract preserved; dependency-inversion (contract owns the trait, ontology owns the answers — like `MailboxSoaView`).
+
+**Deferred:** the askama render-**engine** crate (`render_rows` is the LOGIC, not the engine); the registry `by_entity_type_id` O(1) index (RegistryClassView memoizes over the O(n) scan today); naming the discovered shape-families (Wave-2 human step); **Wikidata-HHTL** (the classes.md-N4 second-domain falsifier reusing `FieldMask`/`signature`/`ClassView`).
+
+**Docs:** EPIPHANIES (the #440-plan REVIEW VERDICT, the OD ratifications, each of the 5 slices, the FieldMask-no-fold fix, and the arm-discovery-is-a-proposer-not-the-SPO-AST finding); STATUS_BOARD D-CLS-* rows → Shipped; this PR_ARC entry; LATEST_STATE Contract-Inventory blockquote.
+
+**Confidence (2026-05-31):** working — 497 contract + 240 ontology lib tests green; clippy `-D warnings` + rustfmt clean; merged clean after Codex P2 + 2 CodeRabbit findings (all real, all resolved in the babysit loop before merge).
+
+---
+
 ## callcenter/audit-fix — fix(callcenter): `with_jsonl_audit` returns `Result<Self, AuditError>` (branch work)
 
 **Status:** On branch `claude/activate-lance-graph-att-k2pHI` (HEAD `ea2a378`, not yet a PR). 1-line `.rs` change + this board record (EPIPHANIES E-AUDIT-1, prepended 2026-05-27).
