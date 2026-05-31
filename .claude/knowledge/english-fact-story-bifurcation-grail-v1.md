@@ -205,3 +205,15 @@ pointers and the fact-leg needs rework before wiring.
 splat/aerial/DOLCE (facts), DeepNSM (English), context_chain (±5), EpisodicEdges64
 (stories) — each have their own doc above. The new claim is only the bifurcation
 and its routing onto the three lifecycle structures.*
+
+---
+
+## Session update — 2026-05-31 (first wire shipped, commit 9af7f15)
+
+Both gating OQs auto-resolved from source; the first slice is built, tested, pushed.
+
+- **OQ-ARC-PRODUCER → RESOLVED: the 16384-dim role-indexed `Trajectory` is canonical** for the grail seam (not the 512-bit `ContextWindow`). It carries the `TEMPORAL` band `[9000..9200)` that IS the router, and already bridges to contract `context_chain` via `disambiguator_glue.rs:65`. The "dead" status is a *producer* gap (`MarkovBundler::push` uncalled by `pipeline.rs`), not wrong-substrate. The 512-bit ring stays DeepNSM's internal disambiguator.
+- **OQ-ROUTER-SIGNAL → RESOLVED: FORK, not switch.** Every SPO relation is a fact-candidate; temporal content *adds* a story-arc ("the dog, which is a mammal, ran" → both). The temporal band is the discriminating signal; the fact leg is universal (commit-policy is downstream).
+- **Shipped:** `crates/deepnsm/src/arcs.rs` — `Trajectory::{split_arcs, temporal_energy, threads_story, landing}` + `BasinArc`/`LiteralArc`/`Landing`. 5 tests; deepnsm 94+4+8+1 green; `arcs.rs` clippy-clean (pedantic+nursery). Firewall-safe (English-side, f32 upstream-only, no COCA rank reaches the agnostic graph).
+- **Remaining wires (still net-new):** (1) `pipeline.rs` actually producing `Trajectory` (calling `MarkovBundler::push`); (2) the ±5→±500 tier; (3) committing routed landings into contract `EpisodicEdges64` (story) / DOLCE (fact). The promoting probe (English-SPO locality vs #444's 98.6%) is unrun.
+- **New debt:** `TD-DEEPNSM-CLIPPY-195`.

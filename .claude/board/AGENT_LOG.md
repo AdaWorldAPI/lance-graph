@@ -1,3 +1,19 @@
+## [Main thread / Opus] E-ENGLISH-BIFURCATES first wire — split_arcs + temporal fact/story router (deepnsm)
+
+**Branch:** claude/jolly-cori-clnf9. **Commit:** 9af7f15. **Cargo:** `cargo test --manifest-path crates/deepnsm/Cargo.toml` → 94+4+8+1 green (+5 new `arcs`); `arcs.rs` clippy-clean at pedantic+nursery (crate-wide pedantic has pre-existing debt → TD-DEEPNSM-CLIPPY-195). Autonomous (user: "drive it, no pop-ups"; both gating OQs resolved from source, not asked).
+
+**Shipped:** `crates/deepnsm/src/arcs.rs` + `lib.rs` mod decl. `Trajectory::split_arcs(&[u16]) -> (BasinArc, LiteralArc)` (the language↔meaning duality as typed Rust at the `disambiguator_glue` seam) + `temporal_energy()`/`threads_story(threshold)`/`landing(threshold) -> Landing{fact,story}` (the fact/story router reading the TEMPORAL band [9000..9200)).
+
+**Two OQs auto-resolved from source (grounded, not deferential):**
+- **OQ-ARC-PRODUCER → 16384-dim role-indexed `Trajectory` is canonical** (not the 512-bit `ContextWindow`): it carries the TEMPORAL router band + already bridges to contract `context_chain` (`disambiguator_glue.rs:65`). "Dead" = producer gap (`MarkovBundler::push` uncalled), not wrong-substrate.
+- **OQ-ROUTER-SIGNAL → FORK not switch**: fact universal, story additive when temporal. `Landing{fact:true, story:temporal>τ}`.
+
+**Firewall held:** both arcs English-side; f32 upstream-only (sign-binarized/opaque before the agnostic graph); literals stay as prunable witnesses (prune lifecycle is contract `WitnessTable`, not here).
+
+**Remaining wires (net-new, not built):** pipeline→`MarkovBundler::push`→`Trajectory` (close the producer gap); ±5→±500 tier; commit routed landings into `EpisodicEdges64`/DOLCE. Promoting probe (English-SPO locality vs #444 98.6%) unrun. Doc: `english-fact-story-bifurcation-grail-v1.md` (§ Session update).
+
+---
+
 ## [Main thread / Opus] world-spine capstone — the English-bifurcation grail (fact-landing vs story-arc) synthesized + captured
 
 **Branch:** claude/jolly-cori-clnf9. **Design-only** (no code; net-new routing is CONJECTURE per user "needs more research"). **Spans:** the basin/literal duality thread → DeepNSM grounding (background agent, 5-point surface map, deepnsm 102 tests green) → the splat-as-literal→basin-resolver reconnection → the user's keystone ("English can become both fact-landings and story-arcs … enough moving parts to create the holy Grail").
