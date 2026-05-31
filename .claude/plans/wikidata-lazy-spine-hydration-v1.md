@@ -378,3 +378,165 @@ only a problem if you imagined materializing them. Stated as design rationale.
   flag forces a stored lookup.
 - Eviction: a composed B-frame entry under an `occurrent` predicate evicts; a
   `continuant` generator does not.
+
+---
+
+## D-LWS-4 — I/P/B frame model over Lance versioning
+
+**Status: Queued. Label: NEW (rides shipped `VersionedGraph`; the fragment-level GOP is CONJECTURE — see RISK).**
+
+### Scope
+The cold floor IS a keyframe/delta store (the x264/265 capstone). Map:
+
+| video | spine | shipped seam |
+|---|---|---|
+| **I-frame** | frozen radix trie (D-LWS-1) + compacted base (self-decodable, exact, rare) | `VersionedGraph` base version + D-LWS-1 register |
+| **P-frame** | appended entities + CLAM-clustered new arrivals + corrections (cheap, references the keyframe) | a new `VersionedGraph` version (append-only write) |
+| **B-frame** | the RISC compose-cache (D-LWS-3) — multi-hop derived, references multiple bases, evictable | in-memory compose-cache, never persisted |
+| **GOP** | keyframe + accumulated deltas, periodically re-baselined by **compaction** | a deliberate version-gated re-emit |
+
+This D-id ships the **frame-classification + overlay-resolve logic**: given a
+`NiblePath` + a version, resolve = base I-frame + N P-frame deltas overlaid
+(the LSM/video-seek read-amplification, bounded by GOP length).
+
+### The shipped primitive it builds on
+- `lance-graph::graph::versioned::VersionedGraph` (verified @ `versioned.rs:98`):
+  `at_version(n)` (time-travel = seek to a frame), `version()` (current frame
+  number), `GraphDiff {from_version, to_version}` (the P-frame delta between two
+  versions), Merkle seals (`graph_seal_check` — the keyframe integrity check).
+  **Each write already creates a new Lance version → that IS a P-frame append.**
+- `neighborhood::clam::measure_cluster_radii` — CLAM is adaptive *inside the
+  delta*: it **proposes** placement of new arrivals as a P-frame (offline,
+  similarity), the keyframe never moves. (Probe only — the clusterer that acts
+  on the radii is NEW; see §note on CLAM.)
+- D-LWS-1 (the frozen radix) is the I-frame's address half; D-LWS-3 (compose-
+  cache) is the B-frame.
+
+### The frozen-vs-adaptive tension resolves here
+CLAM is adaptive inside the delta (proposes); the keyframe never moves;
+**compaction = re-emit a fresh keyframe = the amortized schema upgrade** (the
+one deliberate version-gated moment, carrying the ontology-version byte per
+`I-LEGACY-API-FEATURE-GATED`). Adaptive proposes (in the delta); frozen ships
+(the keyframe). Deltas are *exact* (a P-frame is lossless); CLAM similarity
+*decides* the delta, is never stored *as* the address (the two-trees iron-rule
+guard: addressing = exact CAM; similarity = discovery-only,
+`faiss-homology`/`I-VSA-IDENTITIES`).
+
+### Firewall / honesty / RISK
+- **RISK (carried from §1):** the integration map says "Lance fragment-
+  versioning." Grep shows this repo wires **dataset-level** `VersionedGraph`,
+  NOT Lance **fragment** APIs (`add_columns`/`compact`/`FragmentMetadata` —
+  zero usage in `crates/lance-graph/src/`). Two honest options, both
+  documented, decision deferred to the integration-lead:
+  - **(a) Ride dataset versioning (built seam, ships now):** I=base version,
+    P=append version, GOP-compaction = re-emit a baseline dataset. Coarser
+    granularity (whole-dataset, not fragment).
+  - **(b) Wire Lance fragment APIs (NEW, finer GOP):** use Lance's native
+    `Fragment` + `compact` so a P-frame is a fragment append and GOP-compaction
+    is fragment compaction (the integration map's literal intent). This is a
+    NEW Lance-binding task, not a shipped seam — labelled CONJECTURE until a
+    spike proves the Lance version on `Cargo.lock` (`lance =6.0.0`) exposes the
+    needed fragment surface to this crate.
+- `aerial` untouched. The frame model is a hub-side cold-floor concern.
+
+### Which probe / gate
+- **Gate P1** backs P-frame placement (CLAM radii must coincide with cohort
+  boundaries for "CLAM clusters new arrivals" to be real).
+- **Gate P3** sets the **GOP/compaction cadence** (eviction churn → how often to
+  re-baseline).
+- **D-ARM-7:** a P-frame that persists a *discovered* rule/edge passes the Jirak
+  floor first (a P-frame append is a live write).
+
+### Acceptance (fixture-level)
+- Resolve-by-overlay: an entity whose value lives in a P-frame delta resolves to
+  `base ⊗ delta` and equals ground truth (riding `at_version` / `GraphDiff` on a
+  fixture `VersionedGraph`).
+- Read-amplification bound: resolving across K P-frames touches exactly K+1
+  versions (assert the seek cost = GOP length).
+- Compaction: re-emitting a keyframe collapses K P-frames into one base; a
+  subsequent resolve touches 1 version (assert amplification reset).
+
+---
+
+## D-LWS-5 — The `NiblePath`-keyed tiered hydration manager (THE missing runtime piece)
+
+**Status: Queued. Label: NEW (the synthesis — composes ALL of D-LWS-1..4 + shipped `MailboxSoaView`/`RouteAction`/`dolce_id`/`WitnessTable`).**
+
+### Scope
+The one missing runtime piece named in both companion docs. It is the
+**hot mailbox-SoA ↔ cold Lance** manager, keyed by `NiblePath`:
+- **lazy-load** a basin's cold rows on first touch (cold `VersionedGraph` read →
+  hot `MailboxSoaView` SoA), addressed by `NiblePath`, **NOT** by DataFusion
+  join (address, not join — the cold path splits in two; the join serves only
+  business-SQL ground truth, off the HHTL hot path);
+- **foveated adjacency prefetch** via the `RouteAction` cascade (D-LWS-6);
+- **evict** cold/occurrent arenas on the DOLCE 1-bit (D-LWS-7).
+
+It is a **manager/coordinator**, not a store: it owns the residency decision
+(what is hot), delegates addressing to D-LWS-1, value reconstruction to
+D-LWS-2/D-LWS-4, and adjacency to D-LWS-3/D-LWS-6.
+
+### The shipped primitives it builds on
+- `contract::hhtl::NiblePath` — the single allocation key. One O(1) address =
+  ontology position = memory arena = spatial coord.
+- `contract::soa_view::MailboxSoaView` / `MailboxSoaOwner` (verified
+  `soa_view.rs:28/90`) — the hot resident carrier. The manager hydrates INTO a
+  `MailboxSoaOwner` and hands out read-only `&[T]` views (E-SOA-VIEW-IS-A-BORROW;
+  never copies, never caches a label — the SoA stays agnostic forever, core
+  inv #1 / C2).
+- `lance-graph::graph::versioned::VersionedGraph` — the cold floor read
+  (`at_version`), via D-LWS-4's overlay-resolve.
+- `contract::witness_table::WitnessTable<64>` + `WitnessEntry` — the per-cohort
+  (6-bit) Markov W-slot arc the resident row carries; traversal walks W-refs
+  backward without dereferencing the full SPO store per hop. **(NOT a 16384-bit
+  VSA bundle — that is retired legacy, survives only as the discovery carrier.)**
+- `causal-edge::CausalEdge64` — the resident-row planner edge whose W-slot
+  points into the `WitnessTable`.
+- `ontology::class_resolver::dolce_id` — the residence policy key (D-LWS-7).
+
+### The bounded-hot / unbounded-cold invariant
+- Wikidata is **32-bit-addressed (cold), never resident**; the hot envelope is
+  the documented **64K–256K** concurrent mailbox window
+  (`MailboxSoaView`/`witness_table.rs` envelope). You **foveate** the spine:
+  256K holds whole corpora + a hydrated Wikidata slice at once. The manager's
+  job is to keep the foveal region hot and let the periphery stay cold.
+- The widths nest: 6-bit cohort ⊂ 16-bit book ⊂ 18-bit hot envelope (256K) ⊂
+  32-bit world. (The 16-bit book tier is CONJECTURE — see RISK on
+  `EpisodicWitness64`; the 6-bit cohort `WitnessTable` and 32-bit `mailbox_ref`
+  ends are in code.)
+
+### Firewall / honesty
+- The manager lives in the **hub** — proposed home `lance-graph` (it needs
+  `VersionedGraph` + blasgraph, which are hub-only) with the residency policy
+  types in `lance-graph-contract` if zero-dep. **`aerial` is NOT a dependency
+  and is NOT depended upon by this manager.** The proposer feeds *discovery*
+  (what lands where, offline); the manager does *runtime residency*. Distinct
+  layers.
+- **Honest substrate:** D-LWS-5 is built and tested hydrating the 6
+  `curated_wikidata_classes()` fixtures + the on-disk TTL classes from a fixture
+  `VersionedGraph`. **No 115M load** — that is D-LWS-9, gated on all probes +
+  D-ARM-7.
+
+### Which probe / gate
+- **All three probes** gate the manager's behavior-on-real-data:
+  P1 (cohort residency is local), P2 (hydrated cards reconstruct truthfully),
+  P3 (adjacency composes, doesn't materialize).
+- **D-ARM-7 is a HARD PREREQUISITE for any WRITE the manager performs** (any
+  P-frame persist, any reclassification, any hydrated rule). Read-only
+  hydration is exempt. The manager MUST refuse to persist a discovered artifact
+  until D-ARM-7's gate function is wired and passed.
+
+### Acceptance (fixture-level)
+- First-touch hydration: addressing a cold `NiblePath` loads exactly that
+  basin's rows into the `MailboxSoaOwner`, and a second touch is a hot hit (no
+  re-read).
+- Address-not-join: the hydration path issues a `VersionedGraph` columnar read
+  keyed by `NiblePath`, NOT a DataFusion join (assert no join on the hot path).
+- Agnostic SoA: the hot view exposes only structure + address + the
+  `CausalEdge64`/`WitnessTable` arc; NO label is ever stored hot (assert the
+  SoA carries no string).
+- Bounded envelope: hydrating > the 256K envelope triggers eviction (D-LWS-7),
+  never unbounded growth.
+- **Write-refusal:** attempting to persist a discovered rule without a passed
+  Jirak gate returns an error (the D-ARM-7 prerequisite is enforced in code, not
+  just documented).
