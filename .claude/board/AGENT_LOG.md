@@ -1,3 +1,23 @@
+## [Main thread / Opus] D-ARM-14 Phase 2 — rebased onto post-#442 main + swapped inline nibble → real contract::hhtl::NiblePath
+
+**Branch:** claude/jolly-cori-clnf9-darm14-p2 (rebased onto main 415971a, #442 merged) | **Files:** `tests/wikidata_landing.rs` (inline `np_*` helpers + inline FieldMask union → real `NiblePath::{root,child,basin,is_ancestor_of,depth,packed}` + `FieldMask::inherit`), STATUS_BOARD (D-ARM-14 row: swap done).
+
+**Cargo:** rebase clean (no conflicts); default **42/42** + clippy clean; `--features landing` `wikidata_landing` green + clippy clean — now landing on the REAL merged `contract::hhtl::NiblePath`. Output shows real depths (person 0x1 d2 → human 0x12 d3), 6→5 collapse holds.
+
+**Outcome:** DONE. User: "442 merged please rebase." #442 put `contract::hhtl::NiblePath` + `FieldMask::inherit` + `ontology::wikidata_hhtl` on main, so the rebase also unlocked the promised inline→real swap (the "swap on #442 merge" remaining item). The worked example now lands on the canonical 16ⁿ router, not a stand-in. Force-push follows (rebase rewrote the 3 P2 commits onto new main). PR #443 updated.
+
+---
+
+## [Main thread / Opus] D-ARM-14 Phase 2 — proposer→hub landing (dolce_id emit + worked Wikidata example)
+
+**Branch:** claude/jolly-cori-clnf9-darm14-p2 (off main a77e119) | **Files:** `crates/lance-graph-arm-discovery/src/aerial/ontology.rs` (+`OntologyProjector::dolce_id`, `DolceCategory::from_index`, `is_dolce`), `Cargo.toml` (+`landing` feature + optional `lance-graph-contract` dev-dep), `tests/wikidata_landing.rs` (NEW, gated) + STATUS_BOARD (D-ARM-14 Phase 2).
+
+**Cargo:** DEFAULT (zero-dep) → **42/42** + clippy `-D warnings` clean. `--features landing` → the `wikidata_landing` worked example green + clippy clean (lands on REAL `lance-graph-contract` types).
+
+**Outcome:** Phase 2 DONE. User: "how to use aerial + the 10000² splat + add the ontology to land on Wikidata-shaped HHTL?" → built the answer. **(a) The OD-DOLCE alignment #442 deferred to my lane:** `OntologyProjector::dolce_id()` emits the stable `dolce_id` u8 (= basin nibble, already matching `dolce_id::{ENDURANT=0,..}`) — the proposer hands the hub the enum-free routing key, the IRI becomes a late-resolvable label (resolve-through-cache). **(b) The worked end-to-end example** (`tests/wikidata_landing.rs`, `--features landing`, opt-in `dev-dep lance-graph-contract` exactly like jc's bridge examples — lib stays zero-dep): splat top-k → `extract_rules` recovers all 6 DOLCE basins → lands each on the REAL `contract::class_view::FieldMask` (presence) + `hash::fnv1a_str` (StructuralSignature value); `NiblePath` 16ⁿ routing inlined (annotated, swap on #442 merge since contract::hhtl isn't on main yet). CONFIRMED on data: corpus collapses 6→5 families (film Q11424 ≡ tv Q5398426, sig 0xad7fade7), human⊂person inherits path + mask-as-delta, basin preserved down the subclass path. Respects the firewall (lib never imports the hub; the test bridges both to prove the `(ClassId, signature, FieldMask)` triple + `dolce_id` u8 seam). NOT pushed yet — awaiting confirm (prior branch merged). Map: `splat-codebook-aerial-wikidata-compression.md`.
+
+---
+
 ## [Main thread / Opus 4.7] odoo-classes-bitmask-render-v1 — authored bounded-weekend plan + 10-agent A2A wave split (pre-council)
 
 **Branch:** claude/activate-lance-graph-att-k2pHI | **Files (additive only):**

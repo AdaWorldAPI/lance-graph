@@ -34,12 +34,24 @@ default = []
 # no SIMD speedup. The default (scalar) feature does not pull ndarray at all.
 ndarray-simd = ["dep:ndarray"]
 
+# D-ARM-14 Phase 2 worked example: the proposer→hub landing (splat → discovery →
+# `dolce_id` + ndjson → land on the canonical hub types). Pulls the zero-dep
+# `lance-graph-contract` (the exact `[dev-dependencies]` pattern `jc` uses for
+# bridge examples) so `tests/wikidata_landing.rs` lands on the REAL
+# `class_view::FieldMask` + `hash::fnv1a_str`. The lib stays zero-dep; this is
+# off by default. Run: `cargo test --features landing --test wikidata_landing`.
+landing = ["dep:lance-graph-contract"]
+
 [dependencies.ndarray]
 path = "../../../ndarray"
 optional = true
 default-features = false
 # `std` gates `ndarray::simd` (the `U64x8` polyfill); that is all we need.
 features = ["std"]
+
+[dependencies.lance-graph-contract]
+path = "../lance-graph-contract"
+optional = true
 
 [lib]
 doctest = true
