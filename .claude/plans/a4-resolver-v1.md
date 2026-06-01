@@ -1,5 +1,17 @@
 # A4 — the resolver: texture → thinking style (~4-cycle integer CAM) (plan v1, 2026-06-01)
 
+> ⛔ **DEFERRED / DO NOT BUILD (recalibration 2026-06-01).** Superseded by a ground-truth
+> inventory (5+3 council). **No consumer reads this resolver.** The only live thinking-style
+> dispatcher — `lance-graph-planner::strategy::style_strategy::resolve_style` — reads a 23-D
+> `Vec<f64>` and argmaxes; it needs none of the A4 machinery. `proposal.thinking_style` is
+> written only by a test-only setter and read by nothing; `recipe.rs` is an uncompiled orphan.
+> The §INVESTIGATION claim that the resolver is "already a field in the code, not a new
+> invention" is **false** — only disconnected fields exist. The "A4a" contract surface
+> (`AtomLane`/`LaneMask`/`is_signed`/`StyleResolver`) was **make-work over the hardcoded
+> `CANONICAL_ATOMS` catalogue** and was reverted unmerged (jan: "atom lane is complete bullshit
+> because Atoms are hardcoded"). **Do not build A4 until a real driver holds an `I4x32` texture
+> and demands a `ThinkingStyle` on a path that matters.** Text below retained as history.
+
 > Slice **A4** of the north-star run, on merged `main` (A3 carrier shipped, PR #451).
 > Branch `claude/jolly-cori-clnf9`. Doctrine: **plan → 5 savant-dev review → split →
 > per-file sprint (commented-out) → 3 brutal-tester review → fix → uncomment → PR.**
