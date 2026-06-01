@@ -1,0 +1,204 @@
+# Spec — EpisodicWitness64 ↔ CausalEdge64 prefetch seam (the white-matter connectome)
+
+**READ BY:** integration-lead, truth-architect; anyone wiring the EW64↔CE64
+"fire together → wire together" prefetch loop.
+**Status:** SPEC (2026-06-01). **Phase A SHIPPED** (#446/#447/#448 merged);
+Phases B–E are GATED / needs-design. This doc consolidates the shipped hot tier,
+the remaining phases with their gates, and the **three decisions** that unblock
+the next code.
+**Grounds:** `E-PLANNING-IS-WHITE-MATTER`, `E-EW64-STRENGTH-IS-CE64-PLASTICITY`
+(+ its 2026-06-01 correction), `E-EW64-IS-PREDICTIVE-PREFETCH`,
+`E-SUBSTRATE-IS-THE-SCHEDULER`, `E-ARIGRAPH-IS-AN-ISLAND`. Authored from the
+2026-06-01 Plan-agent roadmap (all file:lines verified against source there).
+
+---
+
+## 0. Purpose
+
+The episodic connectome is the system's **white matter**: the CE64 (causal) +
+EW64 (episodic) edges between the 64k mailboxes (the **grey matter** = compute).
+**Planning lives here** — a plan is the Hebbian-strengthened path through the
+connectome (recency + plasticity), retrieved by prefetch — **not** an OTP/BEAM
+scheduler over isolated processes (`KanbanMove`/`VersionScheduler` are grey-matter
+*coordination*, not the planner). This spec covers the hot tier (shipped) and the
+loop that grows + prunes the wiring.
+
+```text
+GREY (compute)                WHITE (connectome / planning)              COLD (persist + re-prefetch)
+64k mailbox SoA      ──fire──►  EpisodicEdges64 hot 4-slot MRU   ──demote──►  DemotionSink impl
+(Fingerprint/Qualia/Meta)      (slot order = strength; promote)            (surreal/LanceDB-LIVE "wingman")
+                                        ▲                                          │
+                                        └───────────── prefetch (re-promote) ──────┘
+```
+
+---
+
+## 1. Phase A — SHIPPED (the hot tier), `contract::episodic_edges`
+
+Zero-dep, offline-tested, firewall-clean. The hot 4-slot MRU word + its read/write
+surface + the cold-tier exit seam.
+
+| D-id | symbol | what | PR |
+|---|---|---|---|
+| D-EW64-1 | `EpisodicEdges64(u64)` = 4×`EdgeRef{family:u8, local:u16}` | AriGraph episodic edges; `family==0` intra-basin (~98.6%, #444), `1..=15` cross-family nibble | #446 |
+| D-EW64-2 | `promote(e) -> (Self, Option<EdgeRef>)`, `strongest()` | MRU: fire→slot 0, survivors shift down, full+fresh evicts coldest (returned); slot order = strength | #447 |
+| D-EW64-3 | `coldest()`, `contains(e)` | the eviction victim (= the next demotion); family-discriminating membership | #448 |
+| D-EW64-4 | `trait DemotionSink { fn demote(&mut self, EdgeRef); }`, `promote_into(e, sink)` | the hot→cold exit seam; impls deferred (dependency-inversion, like `MailboxSoaOwner`) | #448 |
+
+**Invariant established (review-verified, exhaustive):** `coldest()` == the edge
+`promote` evicts on full+fresh; `promote` never creates a hole; `promote_into`
+word == `promote().0` with the sink receiving exactly the eviction.
+
+**What "strength" is here:** *recency only* — the slot index. No per-edge weight
+is stored in the 64-bit word. The Hebbian *weight* (Phase B) is the co-addressed
+CE64's plasticity; this spec keeps them separate (register-laziness).
+
+---
+
+## 2. The phased plan (B–E) — each GATED or needs-design
+
+### Phase B — Hebbian co-fire (the "wire together" weight-bump) — **GATED**
+Goal: when an edge fires, bump the co-addressed `CausalEdge64`'s plasticity toward
+hot, so repeated co-firing consolidates a path (procedural memory).
+**Gate (3 counts):** (1) `causal-edge` does NOT build offline (anstream uncached);
+(2) **plasticity-model mismatch** (Decision 1 below); (3) `I-LEGACY-API-FEATURE-GATED`
+— the v1 `PLAST_SHIFT=49` vs v2 `=50` boundary, codex-caught 5× in sprint-11.
+A correctly-v2-gated getter/setter exists (`causal-edge::edge.rs:471/483`); driving
+it from a co-fire op is the gated work.
+
+### Phase C — cold connectome `DemotionSink` impl (the "wingman") — **GATED on OQ-11.6**
+Goal: persist demoted edges + re-prefetch them into the hot tier when their basin
+re-activates (`E-SUBSTRATE-IS-THE-SCHEDULER`: surreal-LIVE over the version arc is
+the inbound scheduler). The contract seam (`DemotionSink`) is shipped; the impl
+(surreal-LIVE or the LanceDB-LIVE fallback) is gated on the `surreal_container`
+fork + Lance-6 pin (OQ-11.6) and lancedb-offline. A zero-dep **in-memory
+ring** `DemotionSink` reference impl is buildable now if a testable cold tier is
+wanted before the substrate lands (optional, low-priority).
+
+### Phase D — `EpisodicWitness64` SoA column — **GATED (offline)**
+Goal: make the hot word a real SoA column the cognitive shader borrows
+(`soa_view.rs:77` `episodic_witness()` is a deferred accessor). Gate: needs
+`cognitive-shader-driver`'s `MailboxSoA<N>` (workspace crate, doesn't build
+offline).
+
+### Phase E — comprehension ↔ arcuate ±5 ambiguity wire — **NEEDS-DESIGN**
+Goal: the Wernicke faculty (`deepnsm::comprehension`) resolves coreference via the
+arcuate ±5 chain before routing fact/story. Blocker: `SentenceStructure`
+(`parser.rs:57-66`) carries no ambiguity/candidate signal — only
+triples/modifiers/negations/temporals. The sense-candidate source is net-new and
+firewall-sensitive (Decision 3).
+
+---
+
+## 3. THREE DECISIONS for @jan (each unblocks a phase)
+
+1. **Plasticity model (unblocks Phase B).** "Co-addressed CE64 plasticity" is
+   ambiguous — two models exist: `high_heel::Heel` (`high_heel.rs:168`, W15 byte-3
+   **scalar 0=frozen..3=hot**, a 128-byte container field) vs
+   `causal-edge::PlasticityState` (`plasticity.rs`, **3 bits, one per S/P/O plane**).
+   The hot-tier MRU (Phase A) is unaffected either way. **Which model is the Hebbian
+   weight the co-fire bumps?** (Recommendation: the per-plane `PlasticityState` is
+   the 64-bit-edge-native one; `Heel` is the container roll-up.)
+
+2. **`RawEdge` / `EpisodicEdge` impl-location, mantissa-only? (unblocks D-EW64-5).**
+   `counterfactual.rs:175 EpisodicEdge` is a trait BLOCKED on where its impl lands.
+   A zero-dep `RawEdge(u64)` newtype could resolve it **scoped to the inference
+   mantissa nibble only — NO plasticity write** (which would re-enter Phase B's
+   minefield). **Confirm: build `RawEdge` mantissa-only?**
+
+3. **Sense-candidate source for the comprehension wire (unblocks Phase E).** Where
+   do the ±5 disambiguation candidates originate — `vocabulary.rs` neighbors,
+   `similarity.rs` top-k, or net-new? They are language-side and must sign-binarize
+   to `Binary16K` before crossing (as `arcuate.rs` already does). **Which source?**
+
+---
+
+## 4. Firewall invariants (hold across all phases)
+
+- EW64/CE64 store **opaque handles** (`EdgeRef{family,local}`, `spo_fact_ref:u64`,
+  mantissa) — never COCA `rank:u16`. Language stays upstream in DeepNSM.
+- `DemotionSink` and any cold-tier impl carry opaque `EdgeRef` only.
+- Float (the splat/VSA) stays offline/upstream; the connectome is integer.
+- The ~4096 story basins (`local` 12-bit) ≠ COCA-4096 (`OQ-BASIN-COUNT`).
+
+---
+
+## 5. Test plan per phase
+
+- **A (done):** MRU promote/evict/dedup/idempotence; `coldest`==eviction-victim
+  invariant; `promote_into` sink routing; family discrimination. 26 tests, green.
+- **B:** field-isolation matrix tests across the v1/v2 PLAST_SHIFT boundary
+  (MANDATORY per I-LEGACY); co-fire idempotence; plasticity monotonic toward hot.
+- **C:** fake-substrate `DemotionSink` round-trip (demote→persist→re-prefetch);
+  the in-memory ring as the offline reference.
+- **D:** SoA borrow round-trip via `MailboxSoaView` (gated).
+- **E:** coreference resolution over a ±5 fixture; firewall (no COCA crosses; only
+  `Binary16K` + the resolved referent).
+
+---
+
+*Cross-ref:* `episodic_edges.rs` (Phase A), `causal-edge::{edge.rs:471/483,
+plasticity.rs}` + `high_heel.rs:168` (Phase B), `soa_view.rs:77` (Phase D),
+`deepnsm::{comprehension.rs, arcuate.rs}` + `parser.rs:57-66` (Phase E),
+`I-LEGACY-API-FEATURE-GATED`, OQ-11.6.
+
+---
+
+## 6. Decision resolutions — grounded recommendations (other-session feedback #1 + verified `causal-edge/src/layout.rs`, 2026-06-01; **PENDING @jan ratification** — the decisions remain @jan's)
+
+**Verified locked layout** (corrects §2's imprecise "PLAST_SHIFT 49 vs 50"): per-plane **plasticity = 3 bits (S/P/O) at bits 50–52**; **mantissa = signed i4 at bits 46–49**; **`Heel` = the 128-byte `high_heel` container** (a roll-up, not the 64-bit edge).
+
+**① Plasticity model → per-plane, and DON'T store a graded field.** Reject the `Heel` scalar `0..3` — a CISC collapse: a single scalar throws away SPO directionality (S×P co-fire ≠ P×O co-fire, which the signed mantissa already encodes per-edge). Pick the **per-plane 3-bit (50–52)** — but **binary hot/cold, not graded**: gradedness already lives in three *shipped* signals — **MRU slot-order (#447) × signed mantissa (direction/magnitude) × per-plane hot/cold** — so **compose** "strength" from those dumb signals rather than storing a weight (a stored graded scalar duplicates it and can drift out of sync with slot-order — the RISC answer). Only a *proven* need for a graded-per-plane weight flips this → then 3 graded values in `Heel`, never one collapsed scalar. **Reshapes Phase B:** the co-fire sets the per-plane binary bit; "strength" = a **zero-dep `compose(slot_order, mantissa, per_plane)`** function — NOT a stored weight.
+
+**② `RawEdge` mantissa-only → make it STRUCTURAL, not conventional.** Yes mantissa-only; the addition: `RawEdge` is a newtype that **structurally cannot read/write plasticity/W/truth/temporal** (exposes only the i4 at 46–49) — a *type guarantee*, the way the `MailboxSoaView`/`Owner` split made "read-only" structural. One-writer-per-field, enforced by the type, so "mantissa-only" can't rot into "mantissa-mostly."
+
+**③ Sense-candidate source → reuse the proposer layer; lowest priority.** `vocabulary` neighbors / `similarity` top-k is the right source AND already legal: sense-disambiguation is a **proposal, not an addressing act** (CAM-vs-ANN firewall — similarity lives in the proposer layer). So **don't build net-new** — reuse the proposer machinery (VSA16k role-candidates / aerial `TopKDistance`), emit sense-candidates as proposals carrying ⟨f,c⟩. Firewall: top-k runs upstream in comprehension; the substrate only ever sees the resolved opaque `(family, local)` edge, never the COCA/sense vectors. **Rank last** — least load-bearing for closing the loop.
+
+**Net for the build queue (pending @jan's pick):** ② `RawEdge` mantissa-only **type** and the ①-**compose** `strength` fn are both **buildable now** (contract, zero-dep, offline). The plasticity **WRITE** stays gated (causal-edge offline + I-LEGACY field-isolation tests). ③ is proposer-layer *reuse*, lowest priority. Decisions remain @jan's — these are grounded recommendations, not a resolution.
+
+---
+
+## 7. ① plasticity — GROUND TRUTH (read directly from `high_heel.rs`, correcting §3/§6) + feedback #2
+
+**Owned meta-flag:** ① was narrated from the board across three turns; now grounded by reading `high_heel.rs:135–187` directly. Confirmed:
+- `Heel::plasticity()` (`high_heel.rs:169`) = **W15 byte-3 u8 (`0=frozen..3=hot`) — ONE per-basin scalar** on the 128-byte `Heel`, governing a `HighHeelBGZ` container of **up to 240 edges** (`MAX_EDGES=240`). **Already shipped in the contract** (offline); `new()` defaults it to 3/hot.
+- `CausalEdge64 PlasticityState` = **per-edge, 3-bit per S/P/O plane**, in `causal-edge` (offline-gated + I-LEGACY minefield).
+
+**So it was never "Heel-scalar vs PlasticityState" (different objects) — ① is a GRANULARITY choice** for the Hebbian weight's home:
+
+| | granularity | where | status |
+|---|---|---|---|
+| **coarse** | per-**basin** u8 (1 weight / ≤240 edges) | `Heel.plasticity` | **shipped, offline, zero new freeze** |
+| **fine** | per-**edge per-plane** 3-bit | `CE64 PlasticityState` | offline-gated + v1/v2 minefield |
+
+**Synthesis (reconciles #1 + #2):** the weight need NOT be a new field — **two hardening signals already exist, both shipped + offline:** per-basin `Heel.plasticity` (coarse) × `EpisodicEdges64` MRU slot-order (#447, per-edge recency). **Compose** those — which *satisfies* #1's "don't store, compose" precisely *by reusing* #2's already-bought per-basin u8 + the shipped MRU. **Default coarse;** drop to per-edge-plane `PlasticityState` ONLY if S/P/O planes must harden **independently per edge** — the "frozen planes = clinical patterns" hint (`lib.rs`, flagged by #2; **unverified here** — the one thing to confirm before going fine). Going fine unprovenly = over-engineering + the minefield.
+
+**Sense-candidate (#2 sharpening of decision 3):** don't pick from the menu — the load-bearing question is **firewall placement** (prove the producer stays UPSTREAM of language→substrate, like `markov_soa`'s opaque-u16-ranks + injected distance), not which top-k. If forced: similarity-top-k computed **in DeepNSM** emitting already-resolved **opaque ranks** is the only obviously-leak-proof shape — but a design slice to ratify, not an overnight default.
+
+**RawEdge (decision 2):** both sessions agree — mantissa-only (i4, 46–49), structural one-writer-per-field. The **consensus item**; buildable on @jan's go.
+
+---
+
+## 8. ① RESOLVED-IN-PRINCIPLE — per-plane clinical model is REAL (verified in `causal-edge/src`); coarse-first → per-plane-later
+
+Grep of `causal-edge/src` (reading, not building) settles #2's "confirm before going fine":
+- **Per-plane independence is real + already implemented:** `plasticity.rs` `freeze_s()`/`heat_s()` per-plane ops, `hot_count()`, `ALL_FROZEN` = "Established clinical pattern" (`:16`); `edge.rs:713` freezes the S-plane at a live call site; `edge.rs:750` "Clinical concern level: count of pathological planes"; `lib.rs:46/52` "3 bits per-plane … Frozen planes are established clinical patterns." **S/P/O DO harden independently.**
+- **Layout confirmed:** plasticity bits **50–52** (`layout.rs:37 PLAST_SHIFT=50`), mantissa i4 **46–49** (`v2_layout_tests.rs:185`); v1/v2 minefield LIVE (`edge.rs:129` v1=49 vs `:146` v2=50).
+
+**Resolution (reconciles #1 + #2 — not either/or; two granularities, two phases):**
+1. **Coarse, NOW (offline):** per-basin `Heel.plasticity` u8 × `EpisodicEdges64` MRU slot-order (#447) — both shipped + offline + zero new freeze; sufficient for the EW64 prefetch "wire together." (= #2's coarse-first, achieved via #1's compose-don't-store-a-new-field.)
+2. **Per-plane `PlasticityState` = the real, already-built, finer clinical layer (GATED):** NOT over-engineering (it's used), but *writing* it is the gated work (causal-edge offline + the v1/v2 PLAST_SHIFT minefield ⇒ mandatory field-isolation tests). The co-fire drives it in **phase 2**.
+
+**Bottom line for @jan:** ① is a build **order**, not an either/or — coarse-first (offline, now) → per-plane-clinical (gated, later). RawEdge (decision 2) stays the consensus first-build; sense-candidate (decision 3) stays a firewall-placement design slice.
+
+---
+
+## 9. COUNCIL VERDICT (5-agent dev council, 2026-06-01) — supersedes §8's Heel-compose
+
+R1 architectural / R2 iron-rule / R3 type-accuracy / R4 critic / R5 build-order, all read-only; orchestrator-adjudicated against full-file source reads.
+- **① DROP the Heel-compose** (`E-BASIN-NOT-EDGE-PLASTICITY`): `Heel.plasticity` is a per-basin NARS-confidence COOLING knob, **not** on the EW64 SoA hot path, on the wrong edge encoding — "compose Heel × MRU" is a phantom join. **RESOLVED:** coarse strength = MRU slot-order (#447, shipped); per-edge Hebbian = per-plane `PlasticityState` (gated phase B). No Heel, no new field. (R1/R3 endorsed the compose-not-store *pattern* + types; R4 + source killed the specific Heel *join*; R5's own `edge_strength(heel,edges)` signature exposed the no-valid-caller problem.)
+- **② BUILD RawEdge — SHIPPED** (D-ATOM-4/RawEdge): wired the orphaned `counterfactual` module into `lib.rs` (R5 P0: it wasn't compiled); `RawEdge(i8)` not u64 (R5 P0: i8 ⇒ mantissa-only structurally unforgeable, `size_of==1`); impl the existing `EpisodicEdge` WRITE trait; filled `deposit_counterfactual` v2 (writes −6 on split). Closes the **counterfactual** seam (not the prefetch loop — R4 honesty). 5 tests + 3 latent scaffold fixes; 550 contract green, clippy clean.
+- **③ DEFER** (unanimous) — sense-candidate = firewall-placement design slice.
+- **Citation fix (R3):** §8's `edge.rs:750 concern_level` reads `direction()` (pathological-dim0), not `PlasticityState`; the per-plane claim stands via `plasticity.rs freeze_s/heat_s` + `lib.rs:46/52`.
+
+**Build order now:** [coarse = MRU shipped] → **D-ATOM-4/RawEdge (DONE)** → per-plane `PlasticityState` co-fire (GATED phase B).

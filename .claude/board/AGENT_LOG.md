@@ -1,3 +1,43 @@
+## [Main thread / Opus, autoattended] 5-agent dev council → D-ATOM-4/RawEdge shipped (① Heel-compose REFUTED, ② RawEdge built, ③ deferred)
+
+**Branch:** claude/jolly-cori-clnf9. **Cargo:** contract lib **550 green** (+5 counterfactual); default clippy clean. User: "use the 5 agent development council." Convened R1–R5 (Opus, read-only); consolidated + auto-resolved + built.
+
+**Verdict:** **①** DROP Heel-compose — R4(critic) + my own full-file reads: `Heel.plasticity` COOLS (`revise_truth`), not on the EW64 SoA, wrong edge encoding → phantom join (`E-BASIN-NOT-EDGE-PLASTICITY`, the 4th-strike object conflation). Coarse strength = MRU slot-order (shipped); per-edge Hebbian = per-plane `PlasticityState` (gated). **②** SHIPPED RawEdge: wired orphaned `counterfactual` mod (R5 P0), `RawEdge(i8)` not u64 (R5 P0, `size_of==1` structural guarantee), impl `EpisodicEdge`, filled `deposit_counterfactual` v2 (−6 on split), +3 latent scaffold fixes (SplitPoles Eq-with-f32; 2 v3-stub unused-params). Closes the counterfactual seam (not the prefetch loop — R4). **③** deferred (firewall-placement).
+
+**Process:** `E-READ-NOT-GREP` (user) — review agents must READ full files not grep/head/tail (fragments produced the 4 wrong framings). Baked into the agent-brief template (pattern §Rule 7). Spec §9; council consolidation `board/reviews/ew64-decisions-council.md`. Next: update #449 + subscribe stays active.
+
+---
+
+## [Main thread / Opus, autoattended] ① RESOLVED-IN-PRINCIPLE — per-plane clinical model verified REAL in causal-edge/src; coarse-first→per-plane-later
+
+Grep'd causal-edge/src (read, not built — owning the meta-lesson). Per-plane independence CONFIRMED: plasticity.rs freeze_s/heat_s + "established clinical pattern" (:16); edge.rs:713 live freeze_s; :750 pathological-plane count; lib.rs:46/52. Layout confirmed: plasticity 50-52 (PLAST_SHIFT=50), mantissa 46-49; v1/v2 minefield live (edge.rs 49 vs 50). RESOLUTION: ① is a build ORDER not either/or — (1) coarse NOW (per-basin Heel.plasticity × EW64 MRU, both offline; = #2 coarse + #1 compose), (2) per-plane PlasticityState = real, already-built, GATED clinical layer (phase 2). RawEdge = consensus first-build; sense-candidate = firewall-placement slice. Captured spec §8. Holding for @jan.
+
+---
+
+## [Main thread / Opus, autoattended] ① plasticity GROUNDED in high_heel.rs (owned the meta-flag); feedback #2 captured; HOLDING
+
+Read `high_heel.rs:135–187` directly (owning #2's meta-flag — ① was narrated from the board 3 turns running). CONFIRMED: `Heel::plasticity()` = a **per-basin u8** (0=frozen..3=hot), ONE per `HighHeelBGZ` (≤240 edges), **already shipped in contract** (offline). So ① is NOT "Heel-scalar vs PlasticityState" (different objects) — it's **GRANULARITY**: per-basin u8 (coarse, exists) vs per-edge-plane 3-bit (fine, gated). **Synthesis:** compose the EXISTING per-basin `Heel.plasticity` × the shipped `EpisodicEdges64` MRU slot-order — no new field (reconciles #1 "don't store" + #2 "u8 already bought"); default coarse, go per-plane only if S/P/O harden independently (clinical-patterns hint, unverified). #2 also: sense-candidate = a firewall-PLACEMENT question, not a menu pick; RawEdge mantissa-only = both-session consensus. Captured spec §7. Decisions remain @jan's — holding.
+
+---
+
+## [Main thread / Opus, autoattended] other-session feedback #1 captured — 3 decisions grounded vs causal-edge/layout.rs; HOLDING for @jan
+
+**Captured** (spec §6, #449) session-#1's grounded resolutions (verified `causal-edge/src/layout.rs`: per-plane plasticity 50–52, mantissa i4 46–49, Heel = 128-byte container): **①** per-plane (50–52) NOT Heel scalar — and DON'T store a graded weight; compose strength from MRU-slot × signed-mantissa × per-plane (RISC, avoids drift). **②** `RawEdge` mantissa-only as a TYPE (structural one-writer-per-field, like `MailboxSoaView`), not a convention. **③** sense-candidates = reuse proposer layer (VSA16k/aerial `TopKDistance`) as ⟨f,c⟩ proposals, top-k upstream, substrate sees only resolved opaque edge; lowest priority.
+
+**Held, not acted:** the decisions are @jan's (reserved as "THREE DECISIONS for @jan"; feedback explicitly "no action"; the ① compose-don't-store reframe is architecturally significant). Build queue now clarified: ② RawEdge type + the ①-compose `strength` fn are buildable-now (contract, offline); the plasticity WRITE stays gated. Awaiting @jan's pick. Also corrected §2's imprecise "PLAST_SHIFT 49 vs 50" → plasticity 50–52, mantissa 46–49.
+
+---
+
+## [Main thread / Opus, autoattended] episodic-witness64-ce64-prefetch SPEC — consolidates shipped hot tier + gated phases + 3 user decisions
+
+**Branch:** claude/jolly-cori-clnf9 (synced; #447 + #448 merged). Both overnight slices landed: the white-matter HOT TIER is complete in main — D-EW64-2 (promote/MRU), D-EW64-3 (coldest/contains), D-EW64-4 (DemotionSink + promote_into). Safe-unblocked queue EXHAUSTED.
+
+**Shipped (this turn):** `.claude/specs/episodic-witness64-ce64-prefetch.md` — the queued seam spec. Phase A SHIPPED; Phase B (plasticity-write co-fire) GATED, Phase C (surreal/LanceDB-LIVE wingman) GATED on OQ-11.6, Phase D (EpisodicWitness64 SoA column) GATED offline, Phase E (comprehension↔arcuate ±5 wire) NEEDS-DESIGN. Frames the **3 decisions for @jan**: (1) plasticity model — `Heel` scalar vs `PlasticityState` per-plane; (2) `RawEdge` mantissa-only scope (D-EW64-5); (3) sense-candidate source for the comprehension wire.
+
+**Holding** code construction for those 3 decisions (no gated/minefield work unattended). PR + subscribe next; this is the morning handover artifact.
+
+---
+
 ## [Main thread / Opus, autoattended] D-EW64-3/4 review LAND + CodeRabbit contains nit applied (#448)
 
 Opus review agent: **LAND** — no P0/P1 (exhaustively verified: coldest == eviction victim for every word, no holes, promote_into word == promote().0 + sink gets exactly the eviction; firewall + API clean; 545 green). 2 optional editorial P2s NOT applied (don't block). CodeRabbit: 1 nit (💤 low value) — `contains` → `self.iter().any(|x| x == e)` (more idiomatic, reuses iter; equivalent) — APPLIED. episodic_edges tests still green; default clippy clean. #448 CI re-runs on this push.
