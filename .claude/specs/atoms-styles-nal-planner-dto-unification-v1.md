@@ -82,3 +82,20 @@ The "32k reasoning-chained mailboxes with little-endian contract" is *literally 
 Figure detection = integer palette equality (PROPOSE); truth-function = deterministic (ADDRESS); style-bias = try-order only, never truth math. vart keys on integer LE bytes — no float, no language, on the hot path. The LE byte contract is the single shared grammar (ractor batons, vart radix keys, planner emissions, surreal WAL).
 
 Cross-ref: `E-NARS-FIGURE-CAPSTONE`, `E-EPISODIC-CLOSURE`, `E-SUBSTRATE-IS-THE-SCHEDULER`, `E-PLANNING-IS-WHITE-MATTER`, `E-EW64-IS-PREDICTIVE-PREFETCH`, the PROPOSE/ADDRESS firewall.
+
+## 7. vart — vendored + concrete API (added after the zipball grab)
+
+**Vendored now** at `/home/user/vart` (AdaWorldAPI/vart fork, `main`, v0.9.2; surrealdb pins crates.io `0.9.3`). "zipball now, Cargo path-dep vendor-import later, same as `/home/user/ndarray`." Cargo wiring is deferred to the gated surreal/vart slice (action C7).
+
+Concrete API (`vart/src/lib.rs`; the `Tree` + insert/get/snapshot lives in `art.rs`):
+- **`Key` trait + `FixedSizeKey<const SIZE>`** with `From<u64>/u16/u8` (via `to_be_bytes`) and `From<&[u8]>`. ⇒ a connectome word is a vart key *directly*: `FixedSizeKey::<8>::from(edge.0)` or `from_slice(&edge_key_bytes)`.
+- **`KeyTrait = Key + Clone + Ord + Debug + From<&[u8]>`** — the trie is byte-ordered (lexicographic).
+- **`TrieError::{VersionIsOld, SnapshotOlderThanRoot, RootIsNotUniquelyOwned}`** — versioned MVCC with monotonic version ordering + snapshot generations.
+- **"immutable versioned"** = persistent / copy-on-write / structural-sharing.
+
+How it lands the architecture concretely:
+- **Key = the addressing prefix (BE), value/WAL = LE.** vart orders lexicographically, so encode the *radix key* big-endian over the addressing fields (CausalEdge64 S→P→O, or EW64 family→local) so edges sharing a Subject/family **share a trie prefix** (range-scannable basins). Keep the connectome's frozen `to_le_bytes` as the stored **value**/WAL format. The BE-key vs LE-wire split is a deliberate, citable choice — decide the exact key projection when wiring C7.
+- **vart version = DatasetVersion tick.** Each transaction commit = a monotonic vart version (`VersionIsOld` guards forward-only). The surreal `LIVE`/`LanceVersionWatcher` reads the new version → `VersionScheduler::on_version(snapshot_view, DatasetVersion(n), exec)` → next `KanbanMove`. `E-SUBSTRATE-IS-THE-SCHEDULER` is *literally* vart's version counter.
+- **Immutable snapshot = lock-free grey-matter read.** A ractor mailbox actor reads a vart snapshot of the connectome with zero locking (structural sharing); the single white-matter writer commits a new version. This satisfies the data-flow rule ("no `&mut self` during compute; caches built once / interior-mutable") for free.
+- **`DemotionSink` → `vart.insert(key, edge)`.** A demoted EW64 `EdgeRef` resolves to its connectome word and inserts into the vart cold tier under a new version; re-prefetch = a prefix/range scan of the basin (`E-EW64-IS-PREDICTIVE-PREFETCH`).
+- Under surrealdb this rides the existing `kv-mem`/`kvs/lance` path (vart memtable over a Lance append-only WAL) — so C7 unblocks the BLOCKED(C) skeleton by adopting the surreal-native store rather than inventing one.
