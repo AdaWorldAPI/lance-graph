@@ -1,3 +1,11 @@
+## [Main thread / Opus, autoattended] D-EW64-2 review (LAND) + 2 coverage tests added
+
+**Branch:** claude/jolly-cori-clnf9 | **PR #447.** Opus review agent verdict: **LAND** — no P0/P1. It re-implemented `promote` and brute-forced all 0-4-edge words × every promote target: zero invariant violations (strongest==e, no dups, eviction only on full+new, coldest==slot 3, idempotence, order preserved); packing/shift correct; firewall clean; API consistent. Applied its 2 recommended P2 coverage tests: `promote_cross_family_local_collision_is_not_deduped` (dedup discriminates on family) + `promote_chains_mru_aging_and_appends_fresh_on_non_full` (multi-promote MRU aging + fresh-on-non-full append). Left the 3rd P2 (pre-existing `to_slot` masking on contract-violating `EdgeRef` input) as out-of-scope (module-wide decision; only triggers on invalid input).
+
+**Cargo:** episodic_edges 16/16 (+2); contract lib green; default clippy `-D warnings` clean. CI on #447 was in_progress at push; re-runs on this commit. Awaiting CI green + CodeRabbit.
+
+---
+
 ## [Main thread / Opus, autoattended] D-EW64-2 — EpisodicEdges64 MRU promote (Hebbian hot-tier "stronger immediate edges")
 
 **Branch:** claude/jolly-cori-clnf9 (synced onto merged main; #446 merged the bifurcation+faculties+arcuate wave). **Cargo:** `cargo test -p lance-graph-contract --lib` → 533 green (+5 promote); default clippy `-D warnings` CLEAN; episodic_edges.rs clean at pedantic+nursery (the 3 pedantic errors are pre-existing in free_energy/escalation/thinking/sigma_propagation/scenario, NOT mine). Autoattended (user asleep: "draft, review, fix, PR, subscribe, repeat").

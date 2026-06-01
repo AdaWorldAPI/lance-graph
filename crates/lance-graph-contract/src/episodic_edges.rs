@@ -435,4 +435,66 @@ mod tests {
             assert!(w2.iter().any(|e| e == EdgeRef::intra(k).unwrap()));
         }
     }
+
+    #[test]
+    fn promote_cross_family_local_collision_is_not_deduped() {
+        // Dedup compares `family` too: cross(3,3) and intra(3) share `local`
+        // but differ in family → distinct edges, both present, no dedup.
+        let w = EpisodicEdges64::empty()
+            .push(EdgeRef::intra(1).unwrap())
+            .unwrap()
+            .push(EdgeRef::intra(3).unwrap())
+            .unwrap();
+        let (w2, evicted) = w.promote(EdgeRef::cross(3, 3).unwrap());
+        assert_eq!(evicted, None);
+        assert_eq!(w2.count(), 3, "cross(3,3) is distinct from intra(3)");
+        assert_eq!(w2.strongest(), EdgeRef::cross(3, 3));
+        assert!(w2.iter().any(|e| e == EdgeRef::intra(3).unwrap()));
+    }
+
+    #[test]
+    fn promote_chains_mru_aging_and_appends_fresh_on_non_full() {
+        // A fresh edge on a non-full word appends to the front (no eviction).
+        let (w, evicted) = EpisodicEdges64::empty()
+            .push(EdgeRef::intra(1).unwrap())
+            .unwrap()
+            .push(EdgeRef::intra(2).unwrap())
+            .unwrap()
+            .promote(EdgeRef::intra(5).unwrap());
+        assert_eq!(evicted, None);
+        assert_eq!(
+            w.iter().collect::<Vec<_>>(),
+            vec![
+                EdgeRef::intra(5).unwrap(),
+                EdgeRef::intra(1).unwrap(),
+                EdgeRef::intra(2).unwrap(),
+            ]
+        );
+        // Chain 4 fresh promotes → newest-first [4,3,2,1]; then re-fire the
+        // coldest (1) → it jumps to the front: [1,4,3,2], no eviction.
+        let mut m = EpisodicEdges64::empty();
+        for k in 1..=4u16 {
+            m = m.promote(EdgeRef::intra(k).unwrap()).0;
+        }
+        assert_eq!(
+            m.iter().collect::<Vec<_>>(),
+            vec![
+                EdgeRef::intra(4).unwrap(),
+                EdgeRef::intra(3).unwrap(),
+                EdgeRef::intra(2).unwrap(),
+                EdgeRef::intra(1).unwrap(),
+            ]
+        );
+        let (m2, evicted2) = m.promote(EdgeRef::intra(1).unwrap());
+        assert_eq!(evicted2, None, "re-firing a present edge never evicts");
+        assert_eq!(
+            m2.iter().collect::<Vec<_>>(),
+            vec![
+                EdgeRef::intra(1).unwrap(),
+                EdgeRef::intra(4).unwrap(),
+                EdgeRef::intra(3).unwrap(),
+                EdgeRef::intra(2).unwrap(),
+            ]
+        );
+    }
 }
