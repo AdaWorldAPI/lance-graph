@@ -1,3 +1,11 @@
+## [Main thread / Opus, autoattended] other-session feedback #1 captured — 3 decisions grounded vs causal-edge/layout.rs; HOLDING for @jan
+
+**Captured** (spec §6, #449) session-#1's grounded resolutions (verified `causal-edge/src/layout.rs`: per-plane plasticity 50–52, mantissa i4 46–49, Heel = 128-byte container): **①** per-plane (50–52) NOT Heel scalar — and DON'T store a graded weight; compose strength from MRU-slot × signed-mantissa × per-plane (RISC, avoids drift). **②** `RawEdge` mantissa-only as a TYPE (structural one-writer-per-field, like `MailboxSoaView`), not a convention. **③** sense-candidates = reuse proposer layer (VSA16k/aerial `TopKDistance`) as ⟨f,c⟩ proposals, top-k upstream, substrate sees only resolved opaque edge; lowest priority.
+
+**Held, not acted:** the decisions are @jan's (reserved as "THREE DECISIONS for @jan"; feedback explicitly "no action"; the ① compose-don't-store reframe is architecturally significant). Build queue now clarified: ② RawEdge type + the ①-compose `strength` fn are buildable-now (contract, offline); the plasticity WRITE stays gated. Awaiting @jan's pick. Also corrected §2's imprecise "PLAST_SHIFT 49 vs 50" → plasticity 50–52, mantissa 46–49.
+
+---
+
 ## [Main thread / Opus, autoattended] episodic-witness64-ce64-prefetch SPEC — consolidates shipped hot tier + gated phases + 3 user decisions
 
 **Branch:** claude/jolly-cori-clnf9 (synced; #447 + #448 merged). Both overnight slices landed: the white-matter HOT TIER is complete in main — D-EW64-2 (promote/MRU), D-EW64-3 (coldest/contains), D-EW64-4 (DemotionSink + promote_into). Safe-unblocked queue EXHAUSTED.

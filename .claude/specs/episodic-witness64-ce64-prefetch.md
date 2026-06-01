@@ -141,3 +141,17 @@ firewall-sensitive (Decision 3).
 plasticity.rs}` + `high_heel.rs:168` (Phase B), `soa_view.rs:77` (Phase D),
 `deepnsm::{comprehension.rs, arcuate.rs}` + `parser.rs:57-66` (Phase E),
 `I-LEGACY-API-FEATURE-GATED`, OQ-11.6.
+
+---
+
+## 6. Decision resolutions — grounded recommendations (other-session feedback #1 + verified `causal-edge/src/layout.rs`, 2026-06-01; **PENDING @jan ratification** — the decisions remain @jan's)
+
+**Verified locked layout** (corrects §2's imprecise "PLAST_SHIFT 49 vs 50"): per-plane **plasticity = 3 bits (S/P/O) at bits 50–52**; **mantissa = signed i4 at bits 46–49**; **`Heel` = the 128-byte `high_heel` container** (a roll-up, not the 64-bit edge).
+
+**① Plasticity model → per-plane, and DON'T store a graded field.** Reject the `Heel` scalar `0..3` — a CISC collapse: a single scalar throws away SPO directionality (S×P co-fire ≠ P×O co-fire, which the signed mantissa already encodes per-edge). Pick the **per-plane 3-bit (50–52)** — but **binary hot/cold, not graded**: gradedness already lives in three *shipped* signals — **MRU slot-order (#447) × signed mantissa (direction/magnitude) × per-plane hot/cold** — so **compose** "strength" from those dumb signals rather than storing a weight (a stored graded scalar duplicates it and can drift out of sync with slot-order — the RISC answer). Only a *proven* need for a graded-per-plane weight flips this → then 3 graded values in `Heel`, never one collapsed scalar. **Reshapes Phase B:** the co-fire sets the per-plane binary bit; "strength" = a **zero-dep `compose(slot_order, mantissa, per_plane)`** function — NOT a stored weight.
+
+**② `RawEdge` mantissa-only → make it STRUCTURAL, not conventional.** Yes mantissa-only; the addition: `RawEdge` is a newtype that **structurally cannot read/write plasticity/W/truth/temporal** (exposes only the i4 at 46–49) — a *type guarantee*, the way the `MailboxSoaView`/`Owner` split made "read-only" structural. One-writer-per-field, enforced by the type, so "mantissa-only" can't rot into "mantissa-mostly."
+
+**③ Sense-candidate source → reuse the proposer layer; lowest priority.** `vocabulary` neighbors / `similarity` top-k is the right source AND already legal: sense-disambiguation is a **proposal, not an addressing act** (CAM-vs-ANN firewall — similarity lives in the proposer layer). So **don't build net-new** — reuse the proposer machinery (VSA16k role-candidates / aerial `TopKDistance`), emit sense-candidates as proposals carrying ⟨f,c⟩. Firewall: top-k runs upstream in comprehension; the substrate only ever sees the resolved opaque `(family, local)` edge, never the COCA/sense vectors. **Rank last** — least load-bearing for closing the loop.
+
+**Net for the build queue (pending @jan's pick):** ② `RawEdge` mantissa-only **type** and the ①-**compose** `strength` fn are both **buildable now** (contract, zero-dep, offline). The plasticity **WRITE** stays gated (causal-edge offline + I-LEGACY field-isolation tests). ③ is proposer-layer *reuse*, lowest priority. Decisions remain @jan's — these are grounded recommendations, not a resolution.
