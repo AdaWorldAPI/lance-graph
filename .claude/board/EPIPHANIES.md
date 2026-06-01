@@ -1,3 +1,21 @@
+## 2026-06-01 — E-NARS-FIGURE-CAPSTONE — NAL syllogism resolution hardwired on CausalEdge64 like Pearl 2³: the figure = which SPO palette term two edges share → rule → conclusion edge
+
+**Status:** SHIPPED (`causal-edge::syllogism`, branch claude/jolly-cori-clnf9; 14 tests v2 / 13 v1, the new file clippy- + fmt-clean). User: "the syllogism resolution needs to be hardwired similar to SPO 2^3 rung decomposition … using causaledge64 and wiring EW64" + "NAL syllogism notation is the missing capstone for glueing all 3 reasoning methods with the 10-rung ladder and the JITson cranelift templates vs elixir."
+
+**The capstone:** `CausalEdge64::forward()` composes two edges POSITIONALLY with a *pre-set* inference type — it never asks WHICH TERM they share. NAL syllogism IS that question. `figure(other)` resolves it by integer SPO-palette equality — the hardwired analogue of the Pearl 2³ mask (O(1), branch-minimal, no float on the structural path):
+- `o1==s2` → Chain → **Deduction** ⊢ s1→o2
+- `s1==o2` → ChainRev → **Deduction** ⊢ s2→o1
+- `s1==s2` → SharedSubject → **Induction** ⊢ o1→o2
+- `o1==o2` → SharedObject → **Abduction** ⊢ s1→s2
+- same statement (`s1==s2 ∧ o1==o2`) → None (that is Revision, not a syllogism).
+`syllogize(other)` emits the conclusion `CausalEdge64` (outer terms + canonical NARS truth + signed v2 mantissa Ded +1 / Ind +2 / Abd −1 + AND-ed Pearl mask). Firewall: integer term-match PROPOSES the figure; the deterministic NARS truth-function ADDRESSES. Truth math is byte-identical to `ndarray::hpc::nars` (hardware) + `forward()` (protocol) — NOT a new truth type.
+
+**The "don't reinvent" catch (E-READ-NOT-GREP in action):** user flagged "we have 34+ opennars vocabulary, it just needs to be wired." Reading-first found it all already present — vocabulary (`cognitive_codebook::{NarsInference 10, NarsCopula 12}` with the `{M-->P,S-->M}` notation in comments + `CognitiveAddress` + fingerprints), the tested engine (`planner::nars_engine::nars_infer`, 9 rules / 17 tests), the canonical truth (`ndarray::hpc::nars::NarsTruth` + 7 truth-fns), the atoms (`atoms.rs` Operation lane: abduct/deduce/induce/synthesize), the wire (`causal_edge::InferenceType` signed mantissa). The speculative deduction/induction/abduction I had started adding to `contract::exploration::NarsTruth` were a 3rd copy AND mislabeled (induction⇄abduction swapped vs the canonical engine) — **REVERTED.** The gap was never the truth math; it was the FIGURE decomposition. Next (gated): wire EW64 `EdgeRef`→`CausalEdge64`→`syllogize` across the ≤4 hot edges in cognitive-shader-driver; cranelift/elixir dual-compile of the figure table.
+
+Cross-ref: `E-READ-NOT-GREP`, the firewall doctrine, CausalEdge64 v2 mantissa, `episodic_edges` (EW64), `atoms` Operation family, the Pearl 2³ mask.
+
+---
+
 ## 2026-06-01 — E-RESEARCH-COUNCIL-PROPOSE-VALIDATE — 8 LLM/float semantics papers, council-firewall-filtered: the "PROPOSE (float, offline) / ADDRESS (integer, hot)" doctrine independently re-derived from 7 of 8; 1 ADOPT-NOW, 3 integer validators, 1 adversarial foundation-probe
 
 **Status:** FINDING (5-agent research council, 2026-06-01; ALL papers READ IN FULL per `E-READ-NOT-GREP` — A1 read 1311 lines / A5 read 1517+1695, via Read not grep). Doc: `research-council-semantics-papers-2026-06.md`.

@@ -1,3 +1,11 @@
+## [Main thread / Opus, autoattended] NAL syllogism FIGURE resolution hardwired on CausalEdge64 (the capstone)
+
+**Branch:** claude/jolly-cori-clnf9. **Tests:** `causal-edge` syllogism 14 green (v2 default) / 13 (v1, the mantissa test gated); new file clippy- + fmt-clean (the 15 pre-existing `edge.rs` -D-warnings + fmt diffs are the documented v1/v2 mantissa minefield — untouched). User steered: "hardwire syllogism resolution like SPO 2³ … using causaledge64, wiring EW64"; "NAL notation = missing capstone glueing 3 reasoning methods + 10-rung ladder + JITson/cranelift vs elixir"; "34+ opennars vocabulary just needs wiring."
+
+**Did:** new `causal-edge::syllogism` — `Figure{Chain,ChainRev,SharedSubject,SharedObject}` resolved by integer SPO-palette term-sharing (the Pearl-2³ analogue); `CausalEdge64::figure()`/`syllogize()` emit the conclusion edge (outer terms + canonical NARS truth + signed mantissa + AND mask). Grounded by full reads (E-READ-NOT-GREP): nars_engine, cognitive_codebook, ndarray::hpc::nars, atoms, cognitive_shader, episodic_edges, causal-edge edge/tables. **Reverted** the speculative 3rd-copy syllogisms in `contract::exploration::NarsTruth` (mislabeled ind⇄abd vs canonical). Next: PR + 5-agent council review; then (gated) EW64→CE64 wiring in the driver.
+
+---
+
 ## [Main thread / Opus] 5-agent RESEARCH council — 8 semantics/embedding papers, firewall-filtered
 
 User: "use research council 5 agents [on 8 PDFs]; grep/sed/tail/head fragments forbidden; test the reading tools first." **Test caught a blocker:** the Read tool's PDF path needs poppler (absent) — every agent would have failed. Fixed: extracted PDFs→full-text `.txt` via pymupdf (pip), recovered an 8th that was a saved MHTML web page; verified Read works on `.txt`. THEN dispatched A1–A5 (Opus, read-only, **READ full text, never grep/head/tail**). All 5 returned full-read verdicts.
