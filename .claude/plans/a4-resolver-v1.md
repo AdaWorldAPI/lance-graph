@@ -10,7 +10,15 @@
 > (`AtomLane`/`LaneMask`/`is_signed`/`StyleResolver`) was **make-work over the hardcoded
 > `CANONICAL_ATOMS` catalogue** and was reverted unmerged (jan: "atom lane is complete bullshit
 > because Atoms are hardcoded"). **Do not build A4 until a real driver holds an `I4x32` texture
-> and demands a `ThinkingStyle` on a path that matters.** Text below retained as history.
+> and demands a `ThinkingStyle` on a path that matters.**
+>
+> **If a driver ever appears, build the *OGIT-class-amortized* shape, NOT texture/resonance:** the
+> class HAS its style as a register lookup by class id (`proposal.thinking_style: Option<ThinkingStyle>`,
+> already in code) + the composed style written back onto the class (`registry::attach_thinking_style`
+> → persisted = the amortization). Per `I-VSA-IDENTITIES` Test 0, a class id IS the register key;
+> reaching for i4-distance "resonance" when an exact key exists is *register laziness* — the
+> magic-thinking part. **OGIT-amortized lookup is sound; the texture→style resonance route is what to
+> drop.** Text below retained as history.
 
 > Slice **A4** of the north-star run, on merged `main` (A3 carrier shipped, PR #451).
 > Branch `claude/jolly-cori-clnf9`. Doctrine: **plan → 5 savant-dev review → split →
