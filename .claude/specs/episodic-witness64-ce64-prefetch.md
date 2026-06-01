@@ -176,3 +176,17 @@ plasticity.rs}` + `high_heel.rs:168` (Phase B), `soa_view.rs:77` (Phase D),
 **Sense-candidate (#2 sharpening of decision 3):** don't pick from the menu — the load-bearing question is **firewall placement** (prove the producer stays UPSTREAM of language→substrate, like `markov_soa`'s opaque-u16-ranks + injected distance), not which top-k. If forced: similarity-top-k computed **in DeepNSM** emitting already-resolved **opaque ranks** is the only obviously-leak-proof shape — but a design slice to ratify, not an overnight default.
 
 **RawEdge (decision 2):** both sessions agree — mantissa-only (i4, 46–49), structural one-writer-per-field. The **consensus item**; buildable on @jan's go.
+
+---
+
+## 8. ① RESOLVED-IN-PRINCIPLE — per-plane clinical model is REAL (verified in `causal-edge/src`); coarse-first → per-plane-later
+
+Grep of `causal-edge/src` (reading, not building) settles #2's "confirm before going fine":
+- **Per-plane independence is real + already implemented:** `plasticity.rs` `freeze_s()`/`heat_s()` per-plane ops, `hot_count()`, `ALL_FROZEN` = "Established clinical pattern" (`:16`); `edge.rs:713` freezes the S-plane at a live call site; `edge.rs:750` "Clinical concern level: count of pathological planes"; `lib.rs:46/52` "3 bits per-plane … Frozen planes are established clinical patterns." **S/P/O DO harden independently.**
+- **Layout confirmed:** plasticity bits **50–52** (`layout.rs:37 PLAST_SHIFT=50`), mantissa i4 **46–49** (`v2_layout_tests.rs:185`); v1/v2 minefield LIVE (`edge.rs:129` v1=49 vs `:146` v2=50).
+
+**Resolution (reconciles #1 + #2 — not either/or; two granularities, two phases):**
+1. **Coarse, NOW (offline):** per-basin `Heel.plasticity` u8 × `EpisodicEdges64` MRU slot-order (#447) — both shipped + offline + zero new freeze; sufficient for the EW64 prefetch "wire together." (= #2's coarse-first, achieved via #1's compose-don't-store-a-new-field.)
+2. **Per-plane `PlasticityState` = the real, already-built, finer clinical layer (GATED):** NOT over-engineering (it's used), but *writing* it is the gated work (causal-edge offline + the v1/v2 PLAST_SHIFT minefield ⇒ mandatory field-isolation tests). The co-fire drives it in **phase 2**.
+
+**Bottom line for @jan:** ① is a build **order**, not an either/or — coarse-first (offline, now) → per-plane-clinical (gated, later). RawEdge (decision 2) stays the consensus first-build; sense-candidate (decision 3) stays a firewall-placement design slice.

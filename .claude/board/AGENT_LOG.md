@@ -1,3 +1,9 @@
+## [Main thread / Opus, autoattended] ① RESOLVED-IN-PRINCIPLE — per-plane clinical model verified REAL in causal-edge/src; coarse-first→per-plane-later
+
+Grep'd causal-edge/src (read, not built — owning the meta-lesson). Per-plane independence CONFIRMED: plasticity.rs freeze_s/heat_s + "established clinical pattern" (:16); edge.rs:713 live freeze_s; :750 pathological-plane count; lib.rs:46/52. Layout confirmed: plasticity 50-52 (PLAST_SHIFT=50), mantissa 46-49; v1/v2 minefield live (edge.rs 49 vs 50). RESOLUTION: ① is a build ORDER not either/or — (1) coarse NOW (per-basin Heel.plasticity × EW64 MRU, both offline; = #2 coarse + #1 compose), (2) per-plane PlasticityState = real, already-built, GATED clinical layer (phase 2). RawEdge = consensus first-build; sense-candidate = firewall-placement slice. Captured spec §8. Holding for @jan.
+
+---
+
 ## [Main thread / Opus, autoattended] ① plasticity GROUNDED in high_heel.rs (owned the meta-flag); feedback #2 captured; HOLDING
 
 Read `high_heel.rs:135–187` directly (owning #2's meta-flag — ① was narrated from the board 3 turns running). CONFIRMED: `Heel::plasticity()` = a **per-basin u8** (0=frozen..3=hot), ONE per `HighHeelBGZ` (≤240 edges), **already shipped in contract** (offline). So ① is NOT "Heel-scalar vs PlasticityState" (different objects) — it's **GRANULARITY**: per-basin u8 (coarse, exists) vs per-edge-plane 3-bit (fine, gated). **Synthesis:** compose the EXISTING per-basin `Heel.plasticity` × the shipped `EpisodicEdges64` MRU slot-order — no new field (reconciles #1 "don't store" + #2 "u8 already bought"); default coarse, go per-plane only if S/P/O harden independently (clinical-patterns hint, unverified). #2 also: sense-candidate = a firewall-PLACEMENT question, not a menu pick; RawEdge mantissa-only = both-session consensus. Captured spec §7. Decisions remain @jan's — holding.
