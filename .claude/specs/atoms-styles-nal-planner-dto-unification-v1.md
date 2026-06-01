@@ -27,7 +27,7 @@ So: **atom = one i4 lane; style = an i4×33 weighting over atoms (the molecule, 
 
 ## 2. The unified step word (the planner DTO field-set)
 
-```
+```text
 style : ThinkingStyle   6 bits  → MetaWord.thinking ; resolves to I4x32 over 33 atoms
 rung  : RungLevel       4 bits  (0..9)               [Rung atom family]
 rule  : InferenceType   i4 mantissa (signed)         [Operation atom family; = Figure::rule()]
@@ -37,7 +37,7 @@ rule  : InferenceType   i4 mantissa (signed)         [Operation atom family; = F
 
 ## 3. The three-system unification (one artifact, the LE-byte key)
 
-```
+```text
  lance-graph-planner (WHITE: thinking)            ractor (GREY: compute)                 surrealdb/vart (WHITE: memory)
  ───────────────────────────────────             ──────────────────────                 ──────────────────────────────
  emit UnifiedStep{style,rung,rule}        ──►   ConsumerEnvelope::Plan(step)      ──►   persist edge → vart versioned ART
