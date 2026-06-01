@@ -1,3 +1,11 @@
+## [Main thread / Opus] 5-agent RESEARCH council — 8 semantics/embedding papers, firewall-filtered
+
+User: "use research council 5 agents [on 8 PDFs]; grep/sed/tail/head fragments forbidden; test the reading tools first." **Test caught a blocker:** the Read tool's PDF path needs poppler (absent) — every agent would have failed. Fixed: extracted PDFs→full-text `.txt` via pymupdf (pip), recovered an 8th that was a saved MHTML web page; verified Read works on `.txt`. THEN dispatched A1–A5 (Opus, read-only, **READ full text, never grep/head/tail**). All 5 returned full-read verdicts.
+
+**Result** (doc `research-council-semantics-papers-2026-06.md`, `E-RESEARCH-COUNCIL-PROPOSE-VALIDATE`): firewall cleanly filtered 8 LLM/float papers → 1 ADOPT-NOW (SemDiD→`head2head::WinnerCriterion::Repulsion`, cosine→Hamming), 3 integer validators (Legality / `⟨u,v⟩` / footprint), 1 shared novelty-gated-selection operator (head2head + EW64), 1 adversarial foundation-probe (Kozlowski: does hard-basin CAM-PQ discard entangled low-rank semantics?), 1 SKIP (segmentation = trap). The "PROPOSE/ADDRESS" doctrine was independently re-derived by 4/5 reviewers from 7 papers. Next: @jan picks the first build (SemDiD-adopt vs Kozlowski-probe vs Legality-validator).
+
+---
+
 ## [Main thread / Opus, autoattended] 5-agent dev council → D-ATOM-4/RawEdge shipped (① Heel-compose REFUTED, ② RawEdge built, ③ deferred)
 
 **Branch:** claude/jolly-cori-clnf9. **Cargo:** contract lib **550 green** (+5 counterfactual); default clippy clean. User: "use the 5 agent development council." Convened R1–R5 (Opus, read-only); consolidated + auto-resolved + built.

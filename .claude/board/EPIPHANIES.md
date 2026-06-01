@@ -1,3 +1,20 @@
+## 2026-06-01 — E-RESEARCH-COUNCIL-PROPOSE-VALIDATE — 8 LLM/float semantics papers, council-firewall-filtered: the "PROPOSE (float, offline) / ADDRESS (integer, hot)" doctrine independently re-derived from 7 of 8; 1 ADOPT-NOW, 3 integer validators, 1 adversarial foundation-probe
+
+**Status:** FINDING (5-agent research council, 2026-06-01; ALL papers READ IN FULL per `E-READ-NOT-GREP` — A1 read 1311 lines / A5 read 1517+1695, via Read not grep). Doc: `research-council-semantics-papers-2026-06.md`.
+
+**The corroboration:** all 8 papers are LLM/float-based; the council extracted only the deterministic/integer/offline kernel from 7 and cleanly SKIP'd the 1 with no quarantine seam (segmentation = unconditional firewall trap, float-all-the-way-down). **The workspace's "similarity PROPOSES (float, offline, upstream) / CAM ADDRESSES (integer, hot, deterministic)" doctrine was independently re-derived by 4 of 5 reviewers from 7 different papers** — strong external evidence the core architecture is right.
+
+**The slate (firewall-filtered):**
+- **ADOPT-NOW (offline-buildable):** SemDiD (2506.23601) → a `head2head::WinnerCriterion::Repulsion` — repulsion-from-nearest-rival (VSA-overlap, cosine→Hamming) + ε-quality-floor + harmonic combiner; training-free, integer, self-contained in `contract::head2head`. *(A4)*
+- **Shared operator (A4):** "retain a candidate iff its hypervector is far from incumbents under a quality floor" — mount on head2head (arbitration, SemDiD) AND EW64 admission (LaMAR's "novelty beats volume" — refines the just-merged `promote`/`coldest`).
+- **3 integer VALIDATORS:** Legality Score (A1, prime-reduction purity, deepnsm-side, offline) · `⟨u,v⟩` cognitive-load (A2, CAM-PQ similarity self-explanation) · footprint `{→,←,∥,#}` (A5, aerial→DOLCE ordering validator).
+- **ADVERSARIAL PROBE (highest-value foundation test):** Kozlowski (2508.10003) — non-orthogonality is *signal*; the hard 4096-basin + ρ=0.9973 CAM-PQ partition **may discard the entangled low-rank semantics**. Distinction (A3): role-disjointness (binding) is fine; *content* orthogonality is the challenge. Runnable test: antonym-direction interference vs CAM-PQ mis-addressing; pair with SAFARI's Weyl Semantic-Shift auditor over OGIT/DOLCE (tests #444 98.6%).
+- **SKIP:** segmentation (2412.08671) — firewall trap.
+
+**Process:** the council read full text (no grep/head/tail) per `E-READ-NOT-GREP`; the reading-path TEST caught a missing-poppler blocker before dispatch (extracted PDFs→.txt via pymupdf). Cross-ref: `E-READ-NOT-GREP`, the firewall doctrine, `head2head`, `episodic_edges`, DeepNSM.
+
+---
+
 ## 2026-06-01 — E-READ-NOT-GREP — judgment-critical review agents must READ full files, not grep/sed/head/tail; fragments invalidate judgment
 
 **Status:** IRON RULE (process; user-stated 2026-06-01). Across the EW64 council + the 3 prior relayed sessions, every wrong framing came from narrating off grep/head fragments rather than reading the type. The council's R3 even found a grep-induced mis-citation (`edge.rs:750 concern_level` reads `direction()`, not `PlasticityState`). **RULE:** when a review/council/grounding agent's VERDICT depends on a type's semantics, its brief MUST instruct it to READ the relevant files in full (the Read tool), NOT grep/sed/head/tail. A fragment seen out of context produces a confident-but-wrong judgment — **grep is for LOCATING, reading is for JUDGING.** Baked into the agent-brief template (`autoattended-multiagent-pattern.md` §Rule 7). Cross-ref: `E-BASIN-NOT-EDGE-PLASTICITY` (the conflation grep-fragments produced).
