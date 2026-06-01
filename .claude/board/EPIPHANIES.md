@@ -1,3 +1,11 @@
+## 2026-06-01 — E-EW64-STRENGTH CORRECTION — "W15 0..3 plasticity" is `high_heel::Heel` (128-byte container field), NOT the 64-bit `CausalEdge64`; the 64-bit edge's plasticity is the 3-bit-per-plane `PlasticityState`
+
+**Status:** CORRECTION (factual, Plan-agent-grounded against source 2026-06-01). Refines `E-EW64-STRENGTH-IS-CE64-PLASTICITY`'s mechanism claim; does NOT change D-EW64-2 (MRU slot-order strength stores NO plasticity — it stands regardless).
+
+The original said "strength = co-addressed `CausalEdge64` plasticity (W15 0=frozen..3=hot)." Source check: the W15 byte-3 scalar 0..3 is `high_heel::Heel` (`high_heel.rs:168`, a **128-byte container field**), NOT the 64-bit `CausalEdge64`. The 64-bit edge's plasticity is `causal-edge::PlasticityState` (`plasticity.rs`) = **3 bits, one per S/P/O plane** (heat/freeze/hot_count), not a 0..3 scalar. "Co-addressed CE64 plasticity" must pick ONE model — a **USER decision**. Consequence: the **plasticity-WRITE co-fire op is GATED** on 3 counts — (1) `causal-edge` doesn't build offline (anstream uncached); (2) the Heel-scalar-vs-PlasticityState-per-plane mismatch needs user design; (3) it hits `I-LEGACY-API-FEATURE-GATED` (the v1 PLAST_SHIFT=49 vs v2=50 boundary codex caught 5× in sprint-11). D-EW64-2's MRU (slot-order = recency, no stored weight) is unaffected. The Hebbian "wire together" weight-bump waits on the user's plasticity-model decision. Cross-ref: D-EW64-2/3/4, `causal-edge::edge.rs:471/483` (v2-gated getter/setter), `I-LEGACY-API-FEATURE-GATED`.
+
+---
+
 ## 2026-05-31 — E-EW64-STRENGTH-IS-CE64-PLASTICITY — EW64's "stronger immediate edges" need no new field (strength = co-addressed CE64 plasticity + MRU slot-order); the surreal LIVE wingman is the designed orchestrator but GATED + optional
 
 **Status:** FINDING (design resolution, register-lazy). User-stated 2026-05-31 ("episodicwitness64 needs the stronger immediate edges; wingman orchestration in surrealdb in same substrate is an option"). Resolves the strength gap in `EpisodicEdges64`; weighs the surreal-same-substrate option. Feeds the queued spec `episodic-witness64-ce64-prefetch.md`.

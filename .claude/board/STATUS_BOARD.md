@@ -729,3 +729,10 @@ When a new deliverable is added to a plan:
 When a deliverable is abandoned:
 1. Edit Status → **Abandoned**. Don't remove the row.
 2. Cite the replacement in Notes.
+
+## D-EW64-3 / D-EW64-4 (2026-06-01, autoattended)
+
+| D-id | deliverable | status | evidence |
+|---|---|---|---|
+| D-EW64-3 | `EpisodicEdges64::{coldest, contains}` — MRU cold-tier read surface | In PR | contract lib 545 green; clippy clean |
+| D-EW64-4 | `DemotionSink` trait + `promote_into` — hot→cold exit seam (impls gated OQ-11.6) | In PR | contract lib 545 green; clippy clean |

@@ -1,3 +1,27 @@
+## [Main thread / Opus, autoattended] D-EW64-3/4 review LAND + CodeRabbit contains nit applied (#448)
+
+Opus review agent: **LAND** — no P0/P1 (exhaustively verified: coldest == eviction victim for every word, no holes, promote_into word == promote().0 + sink gets exactly the eviction; firewall + API clean; 545 green). 2 optional editorial P2s NOT applied (don't block). CodeRabbit: 1 nit (💤 low value) — `contains` → `self.iter().any(|x| x == e)` (more idiomatic, reuses iter; equivalent) — APPLIED. episodic_edges tests still green; default clippy clean. #448 CI re-runs on this push.
+
+---
+
+## [Main thread / Opus, autoattended] D-EW64-3 + D-EW64-4 — EpisodicEdges64 cold-tier read surface + DemotionSink seam
+
+**Branch:** claude/jolly-cori-clnf9. **Cargo:** contract lib **545 green** (+10 episodic_edges: 6 coldest/contains + 4 promote_into); default clippy `-D warnings` clean; `episodic_edges.rs` clean at pedantic+nursery. Plan-agent-sequenced (the 2 unblocked slices of 3; slice 3 + plasticity-write + comprehension↔arcuate are GATED/needs-design — flagged for user).
+
+**Shipped:** `EpisodicEdges64::coldest()` (the eviction victim, symmetric to `strongest`) + `contains()` (family-discriminating membership); `DemotionSink` trait + `promote_into()` (the hot→cold exit seam — promote routing the evicted edge to the cold connectome; surreal/LanceDB-LIVE impls deferred + GATED on OQ-11.6, same dependency-inversion idiom as `MailboxSoaOwner`). Prepended the `Heel`-vs-`PlasticityState` correction (Plan agent caught my E-EW64-STRENGTH imprecision).
+
+**Loop:** drafted → next: Opus review agent on the diff → PR (claude/jolly-cori-clnf9 → main) → subscribe. Accumulating for morning merge.
+
+---
+
+## [Main thread / Opus, autoattended] PR #447 MERGED — D-EW64-2 + white-matter findings landed
+
+**#447 merged → main** (EpisodicEdges64::{promote, strongest} MRU hot-tier + E-PLANNING-IS-WHITE-MATTER + E-EW64-STRENGTH-IS-CE64-PLASTICITY + MD001 fix). Loop iteration complete: drafted → Opus review (LAND, +2 coverage tests) → CodeRabbit (1 MD001, fixed) → CI green → merged. Session auto-unsubscribed. Branch synced onto main.
+
+**Loop continues:** spawned a Plan agent to sequence the next UNBLOCKED, offline-testable, firewall-clean slices toward the EW64↔CE64 white-matter prefetch seam. Surreal-side stays GATED (OQ-11.6); no live-pipeline rewrites unattended. Next: execute slice 1 from the plan → review → PR.
+
+---
+
 ## [Main thread / Opus, autoattended] D-EW64-2 review (LAND) + 2 coverage tests added
 
 **Branch:** claude/jolly-cori-clnf9 | **PR #447.** Opus review agent verdict: **LAND** — no P0/P1. It re-implemented `promote` and brute-forced all 0-4-edge words × every promote target: zero invariant violations (strongest==e, no dups, eviction only on full+new, coldest==slot 3, idempotence, order preserved); packing/shift correct; firewall clean; API consistent. Applied its 2 recommended P2 coverage tests: `promote_cross_family_local_collision_is_not_deduped` (dedup discriminates on family) + `promote_chains_mru_aging_and_appends_fresh_on_non_full` (multi-promote MRU aging + fresh-on-non-full append). Left the 3rd P2 (pre-existing `to_slot` masking on contract-violating `EdgeRef` input) as out-of-scope (module-wide decision; only triggers on invalid input).

@@ -190,11 +190,52 @@ impl EpisodicEdges64 {
         (Self(raw), evicted)
     }
 
+    /// [`promote`](Self::promote) `e`, routing any eviction to `sink` (the cold
+    /// connectome). Returns the new word. When a fresh edge displaces a full
+    /// word the sink receives exactly the coldest edge (= [`coldest`](Self::coldest));
+    /// no eviction (non-full word, or re-firing a present edge) → sink untouched.
+    /// This is the hot tier's defined exit into the cold tier — the contract-side
+    /// half of `E-SUBSTRATE-IS-THE-SCHEDULER` (the surreal/LanceDB-LIVE wingman
+    /// implements [`DemotionSink`], gated on OQ-11.6).
+    #[must_use]
+    pub fn promote_into(self, e: EdgeRef, sink: &mut impl DemotionSink) -> Self {
+        let (next, evicted) = self.promote(e);
+        if let Some(victim) = evicted {
+            sink.demote(victim);
+        }
+        next
+    }
+
     /// The strongest / most-immediate edge (slot 0 under the MRU invariant), or
     /// `None` if the word is empty.
     #[must_use]
     pub const fn strongest(self) -> Option<EdgeRef> {
         self.edge(0)
+    }
+
+    /// The coldest / least-immediate present edge — the **last** occupied slot
+    /// under the MRU invariant, i.e. exactly the edge [`promote`](Self::promote)
+    /// will evict when a fresh edge displaces a full word. `None` if empty.
+    /// Symmetric to [`strongest`](Self::strongest); the cold tier peeks the
+    /// victim here before it falls out.
+    #[must_use]
+    pub const fn coldest(self) -> Option<EdgeRef> {
+        let mut last = None;
+        let mut i = 0;
+        while i < Self::CAPACITY {
+            if let Some(e) = self.edge(i) {
+                last = Some(e);
+            }
+            i += 1;
+        }
+        last
+    }
+
+    /// Is `e` present in any slot? Membership discriminates `family` (so
+    /// `cross(3, 3)` ≠ `intra(3)`), matching [`promote`](Self::promote)'s dedup.
+    #[must_use]
+    pub fn contains(self, e: EdgeRef) -> bool {
+        self.iter().any(|x| x == e)
     }
 
     /// Iterate the present edges in slot order.
@@ -250,6 +291,19 @@ impl EpisodicEdges64 {
         b.copy_from_slice(buf.get(offset..end)?);
         Some(Self::from_le_bytes(b))
     }
+}
+
+/// Receives an edge demoted out of the hot 4-slot tier — the **cold connectome**
+/// (`E-EW64-STRENGTH-IS-CE64-PLASTICITY`, `E-SUBSTRATE-IS-THE-SCHEDULER`).
+///
+/// This is the stable **zero-dep seam** between the hot tier (the `EpisodicEdges64`
+/// MRU word, in the SoA) and the cold tier (the full connectome). Impls — the
+/// surreal-LIVE / LanceDB-LIVE "wingman" that persists and re-prefetches demoted
+/// edges — are deferred and GATED on OQ-11.6; the contract owns only the seam,
+/// the same dependency-inversion idiom as [`crate::soa_view::MailboxSoaOwner`].
+pub trait DemotionSink {
+    /// An edge aged out of the hot tier; route it to the cold connectome.
+    fn demote(&mut self, evicted: EdgeRef);
 }
 
 #[cfg(test)]
@@ -496,5 +550,126 @@ mod tests {
                 EdgeRef::intra(2).unwrap(),
             ]
         );
+    }
+
+    #[test]
+    fn coldest_of_empty_is_none() {
+        assert_eq!(EpisodicEdges64::empty().coldest(), None);
+    }
+
+    #[test]
+    fn coldest_of_single_equals_strongest() {
+        let w = EpisodicEdges64::empty()
+            .push(EdgeRef::intra(7).unwrap())
+            .unwrap();
+        assert_eq!(w.coldest(), w.strongest());
+        assert_eq!(w.coldest(), EdgeRef::intra(7));
+    }
+
+    #[test]
+    fn coldest_of_full_word_is_last_slot() {
+        let mut w = EpisodicEdges64::empty();
+        for k in 1..=4u16 {
+            w = w.push(EdgeRef::intra(k).unwrap()).unwrap();
+        }
+        assert_eq!(w.coldest(), EdgeRef::intra(4)); // slot 3
+    }
+
+    #[test]
+    fn coldest_equals_promote_eviction_victim() {
+        // The edge coldest() names is exactly the one promote evicts when a
+        // fresh edge displaces a full word — ties the read + write APIs.
+        let mut w = EpisodicEdges64::empty();
+        for k in 1..=4u16 {
+            w = w.push(EdgeRef::intra(k).unwrap()).unwrap();
+        }
+        let victim = w.coldest();
+        let (_w2, evicted) = w.promote(EdgeRef::intra(9).unwrap());
+        assert_eq!(evicted, victim);
+    }
+
+    #[test]
+    fn contains_present_and_absent() {
+        let w = EpisodicEdges64::empty()
+            .push(EdgeRef::intra(1).unwrap())
+            .unwrap()
+            .push(EdgeRef::cross(2, 5).unwrap())
+            .unwrap();
+        assert!(w.contains(EdgeRef::intra(1).unwrap()));
+        assert!(w.contains(EdgeRef::cross(2, 5).unwrap()));
+        assert!(!w.contains(EdgeRef::intra(2).unwrap()));
+    }
+
+    #[test]
+    fn contains_discriminates_family() {
+        let w = EpisodicEdges64::empty()
+            .push(EdgeRef::intra(3).unwrap())
+            .unwrap();
+        assert!(w.contains(EdgeRef::intra(3).unwrap()));
+        assert!(
+            !w.contains(EdgeRef::cross(3, 3).unwrap()),
+            "family is discriminated"
+        );
+    }
+
+    /// Test sink that records demoted edges in arrival order.
+    struct VecSink(Vec<EdgeRef>);
+    impl DemotionSink for VecSink {
+        fn demote(&mut self, evicted: EdgeRef) {
+            self.0.push(evicted);
+        }
+    }
+
+    #[test]
+    fn promote_into_non_full_leaves_sink_empty() {
+        let mut sink = VecSink(Vec::new());
+        let w = EpisodicEdges64::empty()
+            .push(EdgeRef::intra(1).unwrap())
+            .unwrap()
+            .promote_into(EdgeRef::intra(2).unwrap(), &mut sink);
+        assert!(sink.0.is_empty(), "no eviction on a non-full word");
+        assert_eq!(w.strongest(), EdgeRef::intra(2));
+    }
+
+    #[test]
+    fn promote_into_full_routes_coldest_to_sink() {
+        let mut w = EpisodicEdges64::empty();
+        for k in 1..=4u16 {
+            w = w.push(EdgeRef::intra(k).unwrap()).unwrap();
+        }
+        let victim = w.coldest().unwrap();
+        let mut sink = VecSink(Vec::new());
+        let w2 = w.promote_into(EdgeRef::intra(9).unwrap(), &mut sink);
+        assert_eq!(sink.0, vec![victim], "exactly the coldest is demoted");
+        assert_eq!(
+            w2,
+            w.promote(EdgeRef::intra(9).unwrap()).0,
+            "word equals promote().0; the sink only adds routing"
+        );
+    }
+
+    #[test]
+    fn promote_into_chain_accumulates_evictees_in_age_order() {
+        let mut sink = VecSink(Vec::new());
+        let mut w = EpisodicEdges64::empty();
+        // 1..=4 fill [4,3,2,1]; 5 evicts 1; 6 evicts 2.
+        for k in 1..=6u16 {
+            w = w.promote_into(EdgeRef::intra(k).unwrap(), &mut sink);
+        }
+        assert_eq!(
+            sink.0,
+            vec![EdgeRef::intra(1).unwrap(), EdgeRef::intra(2).unwrap()]
+        );
+    }
+
+    #[test]
+    fn promote_into_refire_present_leaves_sink_untouched() {
+        let mut w = EpisodicEdges64::empty();
+        for k in 1..=4u16 {
+            w = w.push(EdgeRef::intra(k).unwrap()).unwrap();
+        }
+        let mut sink = VecSink(Vec::new());
+        let _ = w.promote_into(EdgeRef::intra(2).unwrap(), &mut sink);
+        assert!(sink.0.is_empty(), "re-firing a present edge never demotes");
     }
 }
