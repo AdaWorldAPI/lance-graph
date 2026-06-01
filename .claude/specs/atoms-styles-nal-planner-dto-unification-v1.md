@@ -168,3 +168,15 @@ facts proposer (DeepNSM grammar, §12.1)
   - **epiphanies** = the highest-signal meta-insights the loop crystallizes — the substrate **writing its own `EPIPHANIES`** (the board this session maintains), closing the loop: a substrate that produces epiphanies about itself.
 
 **The path to the dream IS the slice sequence:** A (the `(style,rung,rule)`+edge artifact) → C6 (ractor dispatch of it) → C7 (surreal/vart active Rubicon kanban + the meta-level signal separation). The head2head/novelty-gate (research council) is the signal-separation operator; the awareness-chain rung is the meta level. No rewrite — these slices close the loop.
+
+## 14. Grammar vs business-grammar — DUAL-VIEW resolution (jan)
+
+The same input resolves under TWO grammar views at once, both OGIT-class-inherited (§10, "the class grants the view for free"):
+1. **Semantic grammar** (DeepNSM, §12.1): English → SPO + NSM primes + NARS intent → the reasoning pipeline. The **MEANING**.
+2. **Business grammar** (the OGIT-business sidecar, `E-OGIT-STAKES-LINCHPIN`): request class → `MappingRow` → `Marking::Financial` → the bookkeeping/FIBU savant. The **STAKES / domain**.
+
+**"Business is not here" (`atoms.rs`) holds:** business is NEVER an atom/lane — it is the *second grammar view*, a sidecar resolved through the OGIT class, never a weight in `I4x32D`. The atom basis stays purely semantic; the business grammar rides OGIT inheritance as a parallel `ViewAngle`.
+
+The dual = **two `ViewAngle`s over one OGIT class** (`D-VIEW-1`: the class-presence bitmask is the attention mask; head2head competes angles). The same `(style, rung, rule)` + connectome edge carries BOTH resolutions — semantic reasoning AND business interpretation — together. **head2head between the semantic angle and the business angle IS the dual-view resolution**, and it is the §13 "high-signal separation" operator: the winner is the high-signal interpretation.
+
+Firewall: the semantic grammar PROPOSES meaning (DeepNSM, upstream, float-OK); the business grammar ADDRESSES stakes (OGIT class → `MappingRow` → bookkeeping, deterministic, integer). Two views, one resolution, OGIT-inherited — never an atom.
