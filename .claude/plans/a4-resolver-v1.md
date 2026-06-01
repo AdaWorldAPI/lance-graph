@@ -7,12 +7,24 @@
 > SHIPPED carrier (`atoms::I4x32`/`I4x64`). **This is the DRAFT for the 5 savant
 > developers to red-pen before any code.**
 
-## The one-line job
+## The one-line job (CORRECTED per jan — two-tier resolver + amortization)
 
-**Resolve a texture to a thinking style as the fastest integer route — `texture → StyleId`
-in ~4 CPU cycles, deterministic CAM addressing, NO f32, NO vector search.** The only fuzzy
-step in the whole stack is a coarse upstream *"this smells like odoo → financial OGIT"*
-route; everything here is integer below the membrane.
+**The OGIT class HAS the thinking styles of its category (inherited down the class tree).** The
+resolver is a DIRECT lookup, not a search:
+
+1. **Address the OGIT class** — deterministic (the coarse "smells like odoo → financial OGIT"
+   route hands you the class).
+2. **Read the class's inherited thinking styles** — **O(1), done.** The hot/common path. No search.
+3. **Only if the class has NONE → COMPOSE:** ~4 CPU cycles to pull the relevant best-practices
+   (recipe templates) **+ a nearest-neighbor test** ("how did *similar* situations compose?") →
+   enter **compound thinking** (compose the styles).
+4. **AMORTIZE:** the composed style **sediments back onto the OGIT class** → next time the same
+   situation is the DIRECT path (step 2). Composition is rare; the ~4-cycle cost amortizes to ~O(1).
+
+**Amortization IS the warm→cold sediment** (the doctrine): the rare composition (warm,
+nearest-neighbor / **similarity PROPOSES**) calcifies onto the class (cold, O(1) locus / **CAM
+ADDRESSES**). Similarity stays off the hot path *by construction* — the NN fires only on a
+cold-class miss, then caches itself away. NO f32 below the membrane; the hot path is class-lookup.
 
 ## Scope — A4a (offline, contract-only) vs A4b (cross-crate, deferred)
 
@@ -84,3 +96,24 @@ the warm Louvain, `ractor`, `counterfactual.rs`. The 36-style `ThinkingStyle` en
 
 `cargo test -p lance-graph-contract --offline` (562 green on merged main). A4a = integer
 nibble/mask arithmetic, zero new deps. Gate: 562 + the new A4a tests, all green.
+
+---
+
+## INVESTIGATION — the grounded wiring (2026-06-01, "investigate thoroughly, amortize")
+
+The corrected two-tier resolver is **already a field in the code**, not a new invention:
+
+| Piece | Where | Role |
+|---|---|---|
+| **Class HAS the style** | `lance-graph-ontology/src/proposal.rs:101` — `thinking_style: Option<ThinkingStyle>` | `Some` ⇒ direct lookup (hot, O(1)); `None` ⇒ compose. *Exactly "the class has the styles; only if none → composition."* |
+| **Amortization store** | `lance-graph-ontology/src/lance_cache.rs:300` — nullable `thinking_style` column | composed style written back → persisted → next lookup is direct. Amortize = the warm→cold sediment in the lance cache. |
+| **Nearest-neighbor (similar situations)** | `proposal.rs:116` — `cam_pq_code: [u8;6]`; `recipe.rs`/`recipe_kernels.rs:713` "nearest candidate" | CAM-PQ NN over the 6-byte code — "how did similar situations compose?" Fires only on a `None` miss. |
+| **Composition / compound thinking** | `lance-graph-contract/src/recipe.rs` (`StyleRecipe`→`PersonaRecipe`) + `recipes.rs` (22 best-practices: HTD/ETD/…) | `StyleRecipe.composition: Option<I4x32Stub>` **IS the A3 `I4x32`** — composition is an I4-32D blend over the A3 atoms. A4 = the direct continuation of A3. |
+
+**Resolver:** `thinking_style.is_some()` → return it (hot) · else → CAM-PQ NN(`cam_pq_code`) → best-practices(`recipes.rs`) → blend `StyleRecipe`s over A3 atoms(`recipe.rs`) → compound `PersonaRecipe` → write back (amortize). Firewall: hot path is the `Option` read (deterministic); NN/composition (similarity PROPOSES) fires only on a cold miss and **caches itself away** (CAM ADDRESSES).
+
+**Re-scoped slices:**
+- **A4a (offline, contract):** `AtomLane`/`LaneMask`/`is_signed` (unchanged) **+** `StyleRecipe::compose()` — the I4-32D blend over A3 atoms (un-orphan `recipe.rs` or a fresh composer; pure integer over `I4x32`, offline) **+** the `Option<ThinkingStyle>` direct-lookup contract surface.
+- **A4b (cross-crate, gated):** the CAM-PQ NN (ndarray, `cam_pq_code`), the `lance_cache` amortization write-back (lance), the OGIT `class_resolver` class→style read (ontology). These need ndarray/lance/ontology — off the contract floor.
+
+**The 5 savant-developers are mid-flight on the pre-correction framing** — their `AtomLane`/`LaneMask`/API/firewall/determinism findings (A4a) stand; the resolver-mechanism is superseded by this grounded wiring. I'll fold both at synthesis.
