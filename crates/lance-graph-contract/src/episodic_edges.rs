@@ -145,6 +145,58 @@ impl EpisodicEdges64 {
         None
     }
 
+    /// MRU **promote** — strengthen `e` by moving it to slot 0, the *strongest /
+    /// most-immediate* position (`E-EW64-STRENGTH-IS-CE64-PLASTICITY`).
+    ///
+    /// If `e` is already present it moves to the front; otherwise it is inserted
+    /// at the front and the survivors shift down by one. When 4 *distinct* edges
+    /// are already present and `e` is new, the **coldest** (slot 3) is evicted —
+    /// demoted to the cold connectome (returned as the second tuple element).
+    ///
+    /// This is the Hebbian "fire together → wire together" at the hot tier: a
+    /// fired edge becomes the strongest; un-refired edges age toward slot 3 and
+    /// out. **Slot order is the strength ranking** (slot 0 = hottest); no per-edge
+    /// weight is stored here — the co-addressed `CausalEdge64` plasticity carries
+    /// the Hebbian weight, recency is the slot index. Idempotent on the already-
+    /// hottest edge (re-firing slot 0 of a full word changes nothing).
+    #[must_use]
+    pub fn promote(self, e: EdgeRef) -> (Self, Option<EdgeRef>) {
+        let mut slots = [0u16; Self::CAPACITY];
+        slots[0] = e.to_slot();
+        let mut filled = 1usize;
+        let mut evicted = None;
+        let mut i = 0;
+        while i < Self::CAPACITY {
+            if let Some(x) = self.edge(i) {
+                if x != e {
+                    if filled < Self::CAPACITY {
+                        slots[filled] = x.to_slot();
+                        filled += 1;
+                    } else {
+                        // Word was full of distinct edges and `e` is new: the
+                        // coldest survivor (encountered last, slot 3) is evicted.
+                        evicted = Some(x);
+                    }
+                }
+            }
+            i += 1;
+        }
+        let mut raw = 0u64;
+        let mut s = 0;
+        while s < Self::CAPACITY {
+            raw |= u64::from(slots[s]) << (s * 16);
+            s += 1;
+        }
+        (Self(raw), evicted)
+    }
+
+    /// The strongest / most-immediate edge (slot 0 under the MRU invariant), or
+    /// `None` if the word is empty.
+    #[must_use]
+    pub const fn strongest(self) -> Option<EdgeRef> {
+        self.edge(0)
+    }
+
     /// Iterate the present edges in slot order.
     pub fn iter(self) -> impl Iterator<Item = EdgeRef> {
         (0..Self::CAPACITY).filter_map(move |i| self.edge(i))
@@ -302,5 +354,85 @@ mod tests {
         let w = EpisodicEdges64::empty().push(EdgeRef::intra(1).unwrap()).unwrap();
         assert_eq!(w.to_le_bytes()[0], 0x01);
         assert_eq!(w.to_le_bytes()[1], 0x00);
+    }
+
+    #[test]
+    fn promote_into_empty_sets_strongest() {
+        let (w, evicted) = EpisodicEdges64::empty().promote(EdgeRef::intra(7).unwrap());
+        assert_eq!(w.strongest(), EdgeRef::intra(7));
+        assert_eq!(w.count(), 1);
+        assert_eq!(evicted, None);
+    }
+
+    #[test]
+    fn promote_existing_moves_to_front_no_evict() {
+        let w = EpisodicEdges64::empty()
+            .push(EdgeRef::intra(1).unwrap())
+            .unwrap()
+            .push(EdgeRef::intra(2).unwrap())
+            .unwrap()
+            .push(EdgeRef::intra(3).unwrap())
+            .unwrap();
+        // Promote the middle edge → moves to slot 0, survivors preserved in order.
+        let (w2, evicted) = w.promote(EdgeRef::intra(2).unwrap());
+        assert_eq!(evicted, None);
+        assert_eq!(w2.strongest(), EdgeRef::intra(2));
+        assert_eq!(
+            w2.iter().collect::<Vec<_>>(),
+            vec![
+                EdgeRef::intra(2).unwrap(),
+                EdgeRef::intra(1).unwrap(),
+                EdgeRef::intra(3).unwrap(),
+            ]
+        );
+    }
+
+    #[test]
+    fn promote_new_on_full_evicts_coldest() {
+        // Fill 1,2,3,4 (slot 3 = intra 4 = coldest); promote a new edge → evict it.
+        let mut w = EpisodicEdges64::empty();
+        for k in 1..=4u16 {
+            w = w.push(EdgeRef::intra(k).unwrap()).unwrap();
+        }
+        let (w2, evicted) = w.promote(EdgeRef::intra(9).unwrap());
+        assert_eq!(evicted, EdgeRef::intra(4), "coldest (slot 3) is evicted");
+        assert_eq!(w2.strongest(), EdgeRef::intra(9));
+        assert_eq!(
+            w2.iter().collect::<Vec<_>>(),
+            vec![
+                EdgeRef::intra(9).unwrap(),
+                EdgeRef::intra(1).unwrap(),
+                EdgeRef::intra(2).unwrap(),
+                EdgeRef::intra(3).unwrap(),
+            ]
+        );
+    }
+
+    #[test]
+    fn promote_refire_hottest_is_idempotent() {
+        let w = EpisodicEdges64::empty()
+            .push(EdgeRef::intra(1).unwrap())
+            .unwrap()
+            .push(EdgeRef::intra(2).unwrap())
+            .unwrap();
+        let (w2, evicted) = w.promote(EdgeRef::intra(1).unwrap());
+        assert_eq!(evicted, None);
+        assert_eq!(w2, w, "re-firing the already-strongest edge is a no-op");
+    }
+
+    #[test]
+    fn promote_dedups_when_present_on_full_word() {
+        let mut w = EpisodicEdges64::empty();
+        for k in 1..=4u16 {
+            w = w.push(EdgeRef::intra(k).unwrap()).unwrap();
+        }
+        // Promote an edge already present → no eviction, no duplicate slot.
+        let (w2, evicted) = w.promote(EdgeRef::intra(3).unwrap());
+        assert_eq!(evicted, None);
+        assert_eq!(w2.count(), 4, "no duplicate slot created");
+        assert_eq!(w2.strongest(), EdgeRef::intra(3));
+        for k in 1..=4u16 {
+            assert!(w2.iter().any(|e| e == EdgeRef::intra(k).unwrap()));
+        }
     }
 }

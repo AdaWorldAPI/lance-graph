@@ -1,3 +1,15 @@
+## [Main thread / Opus, autoattended] D-EW64-2 — EpisodicEdges64 MRU promote (Hebbian hot-tier "stronger immediate edges")
+
+**Branch:** claude/jolly-cori-clnf9 (synced onto merged main; #446 merged the bifurcation+faculties+arcuate wave). **Cargo:** `cargo test -p lance-graph-contract --lib` → 533 green (+5 promote); default clippy `-D warnings` CLEAN; episodic_edges.rs clean at pedantic+nursery (the 3 pedantic errors are pre-existing in free_energy/escalation/thinking/sigma_propagation/scenario, NOT mine). Autoattended (user asleep: "draft, review, fix, PR, subscribe, repeat").
+
+**Shipped:** `EpisodicEdges64::promote(self, EdgeRef) -> (Self, Option<EdgeRef>)` + `strongest()`. MRU: a fired edge moves to slot 0 (strongest/most-immediate); survivors shift down; a new edge on a full word evicts the coldest (slot 3, returned for demotion to the cold connectome); idempotent on the already-hottest edge. **Slot order IS strength** — no per-edge weight stored (co-addressed CausalEdge64 plasticity carries the Hebbian weight; recency = slot index). Realizes `E-EW64-STRENGTH-IS-CE64-PLASTICITY`.
+
+**Firewall:** opaque (family,local) only; no COCA; zero-dep; the surreal-LIVE wingman that will drive promote stays gated on OQ-11.6 (LanceDB-LIVE fallback) — this is the substrate-agnostic hot-tier mechanism.
+
+**Loop state:** drafted+committed; next = review agent (Opus) on the diff → fix → open PR (claude/jolly-cori-clnf9 → main) → subscribe. Board: STATUS_BOARD D-EW64-2 row + LATEST_STATE PR-in-flight note.
+
+---
+
 ## [Main thread / Opus] EW64 stronger-immediate-edges resolution + surreal-wingman weigh-in (E-EW64-STRENGTH-IS-CE64-PLASTICITY)
 
 **Branch:** claude/jolly-cori-clnf9. Design-only check (no code) per user floating the surreal-substrate option + "EW64 needs stronger immediate edges."
