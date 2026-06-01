@@ -104,3 +104,12 @@ How it lands the architecture concretely:
 
 - **32-vs-33 carrier → RIDE TWO i4×32 HALVES (64 lanes).** The `I4x32` carrier becomes two 16-byte words (64 i4 lanes); the 33 atoms occupy lanes 0..33 with 31 spare for future families. No trimming, no out-of-band lane, room to grow. This UNBLOCKS `I4x32::pack/unpack` and all of `recipe.rs`. (Action B5 is now unblocked; the carrier type is a 2-word struct — name TBD by the plan, e.g. `I4x64`/`StyleVec64`.)
 - **Drive ALL THREE threads** through the standard pipeline: specs → agents → review-plan → run (/// draft → review → fix → PR → subscribe → fix → repeat). Dependency order: **A (offline streamline foundation) → C6 (ractor seam) → C7 (vart/surreal seam)**; A unblocks both seams.
+
+## 9. I4x32D — the OGIT-inherited adjacent-best-practice RESOLVER (jan refinement)
+
+The two-i4×32-halves carrier is **`I4x32D`** (D = dual; 2 planes × 32 atoms). It is **not** merely a packed style weighting — it is a **resolver**. The i4 atom-vector is an *address* into the space of thinking templates: one i4×32 plane = 32 nibbles = 128 bits = exactly **2¹²⁸** distinct templates. A thinking step's atom-vector **resolves to the *adjacent* (nearest, by i4 distance) best-practice template *inherited from its OGIT class*** — CAM addressing into the ontology, never a per-instance copy (`I-VSA-IDENTITIES`: point, don't copy; `E-CODEBOOK-INHERITS-FROM-OGIT`). The dual planes are the instance/context weighting vs the OGIT-class-inherited best-practice reference; **adjacency between the two planes is the resolution**.
+
+Consequences for the plan (sharpens A3/A4):
+- **A3 (carrier):** `I4x32D = 2 × I4x32` (64 i4 lanes). The 33 atoms occupy lanes; the dual structure is the *address space* + the *inherited reference plane*. pack/unpack operate per plane.
+- **A4 (resolver):** `ThinkingStyle → I4x32D` is **not** a flat map — it RESOLVES to the nearest OGIT-inherited best-practice template. `recipe.rs::PersonaRecipe` IS a template = an inherited OGIT identity; the class supplies it by inheritance, the resolver snaps the instance to the *adjacent* one. This is the ADDRESS side of the firewall (integer i4 distance PROPOSES the neighborhood; the OGIT class ADDRESSES the identity). No similarity float on the hot path beyond the integer i4 distance; the template is pointed-to, not stored.
+- This makes `recipe.rs` (PersonaRecipe = best-practice template) the OGIT-inherited codebook the resolver addresses into — closing atoms ↔ styles ↔ OGIT ontology with one CAM resolver.
