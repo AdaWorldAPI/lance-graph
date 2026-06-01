@@ -67,3 +67,14 @@ Each returns: per-WD **decision + rationale + concrete wiring (files/types) + ri
 
 ### UNBLOCKED RUN ORDER (all offline unless noted)
 **A3** (I4x32D carrier) → **A4** (resolver bridge + FieldMask attention) → **A5** (figure-bias + mood_tag) → **WD-9** (palette projection + `WinnerCriterion::Repulsion`) → **C6** (`ConsumerEnvelope::Plan` + forward) → **WD-4** (`observed_version()` + `drive_in_loop`) → **WD-3** (vart 4-tree store) → **WD-8** (G1/G2/G3 audit surfaces). Gated tail: **A3.5** (JIT codebook + elixir emitter), **surreal LIVE** (BLOCKED(C) fork-coords).
+
+### WD-6 refinement (jan) — the optional cold codegen is JITSon (cranelift fork), in lance-graph-planner
+
+The §13 dual-compile's *compilation* lowering is **JITSon** — the JIT template format (`contract::jit::JitTemplate`, "JITSON"), compiled by the **cranelift fork** (AdaWorldAPI, same fork-everything pattern as ndarray/vart/elixir/surrealdb/ruff), living in **`lance-graph-planner`** (the `JitCompile` strategy + `jitson_kernel`; `StyleRegistry::warm_cache`/`register_recipe`). This is the **"optional cold codegen"**: style/figure kernels are compiled **COLD** (at style-registration / warm-cache time) into a cached `KernelHandle`, then the hot path calls the compiled fn-pointer — `ExecTarget::Jit`.
+
+It is DISTINCT from `ExecTarget::Elixir` (the even-colder external `.ex` source emitter for a customer's *external* BEAM). So one `FIGURE_RULES` table lowers three ways:
+- **`Native`** — interpreted, in-process (no compile).
+- **`Jit`** — **JITSon → cranelift-fork** cold-compile → `KernelHandle`, hot-exec, in-process. **The primary optimization** ("optional cold codegen").
+- **`Elixir`** — emit `.ex` source, external cold-path, optional (never executes in the north-star runtime).
+
+The hot reasoning path stays integer/deterministic regardless of which lowering backs it — the cold compile is a *performance* substitution, not a semantic one (replay-safe: same table → same kernel → same `CausalEdge64`). This refines, not changes, WD-6: ractor is still the only runtime; JITSon/cranelift is the cold-compile *of* the in-process kernels, gated with the rest of the JIT codebook in **A3.5**.
