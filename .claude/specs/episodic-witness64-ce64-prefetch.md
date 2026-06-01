@@ -23,7 +23,7 @@ scheduler over isolated processes (`KanbanMove`/`VersionScheduler` are grey-matt
 *coordination*, not the planner). This spec covers the hot tier (shipped) and the
 loop that grows + prunes the wiring.
 
-```
+```text
 GREY (compute)                WHITE (connectome / planning)              COLD (persist + re-prefetch)
 64k mailbox SoA      ──fire──►  EpisodicEdges64 hot 4-slot MRU   ──demote──►  DemotionSink impl
 (Fingerprint/Qualia/Meta)      (slot order = strength; promote)            (surreal/LanceDB-LIVE "wingman")
