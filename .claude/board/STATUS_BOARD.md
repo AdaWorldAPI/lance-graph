@@ -10,6 +10,12 @@
 
 ---
 
+## D-EW64-2 — EpisodicEdges64 MRU promote (Hebbian hot-tier "stronger immediate edges")
+
+| D-id | deliverable | status | PR / evidence |
+|---|---|---|---|
+| D-EW64-2 | `EpisodicEdges64::{promote, strongest}` — MRU slot-order = strength; fire→slot 0, evict coldest (`E-EW64-STRENGTH-IS-CE64-PLASTICITY`) | In PR (claude/jolly-cori-clnf9) | contract lib 533 green (+5); default clippy clean |
+
 ## Status Legend
 
 | Status | Meaning |

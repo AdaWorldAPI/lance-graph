@@ -1,3 +1,41 @@
+## 2026-05-31 — E-EW64-STRENGTH-IS-CE64-PLASTICITY — EW64's "stronger immediate edges" need no new field (strength = co-addressed CE64 plasticity + MRU slot-order); the surreal LIVE wingman is the designed orchestrator but GATED + optional
+
+**Status:** FINDING (design resolution, register-lazy). User-stated 2026-05-31 ("episodicwitness64 needs the stronger immediate edges; wingman orchestration in surrealdb in same substrate is an option"). Resolves the strength gap in `EpisodicEdges64`; weighs the surreal-same-substrate option. Feeds the queued spec `episodic-witness64-ce64-prefetch.md`.
+
+**The gap (grounded):** `EpisodicEdges64` = 4×`EdgeRef{family:u8, local:u16}` (`episodic_edges.rs`) — NO strength / weight / recency field. "Stronger immediate edges" has no home today.
+
+**The register-lazy resolution (no 16-bit EdgeRef change):** EW64 already **shares CE64 low-40 bits (co-address)** — each EW64 edge co-addresses a `CausalEdge64` whose **plasticity** (`high_heel` W15 `0=frozen..3=hot`; v2 plasticity[2]) IS the edge strength. Two complementary orderings, both free:
+- **strength = co-addressed CE64 plasticity** — the Hebbian weight is already there; EW64 inherits it by co-address.
+- **the 4 slots = an MRU hot set** — slot 0 = strongest/most-immediate; fire → promote to slot 0 (strengthen); age → demote → evict slot 3 to the cold connectome. Slot ORDER is the ranking. No new field.
+
+**The wingman = the surreal LIVE scheduler (already `E-SUBSTRATE-IS-THE-SCHEDULER`):** witness fires → Lance append → surreal LIVE → promote the EW64 edge + prefetch the next into the SoA; the mailbox runs no planner loop. "Same substrate" = SurrealDB holds the **cold connectome** (all edges as graph RELATE + strength/recency) AND orchestrates the hot EW64 refresh (LIVE). The **hot 4-edge EW64 stays in the SoA** (resident, deterministic, zero-copy); SurrealDB is the cold+reactive tier, never the hot compute.
+
+**The option, weighed:** surreal-same-substrate is the DESIGNED goal and the right fit for cold+wingman — but GATED on `surreal_container` (OQ-11.6: fork dep + Lance 6 pin) and OPTIONAL: the design is substrate-free, so a **LanceDB-LIVE trigger is the fallback** (surreal is the goal, not a dependency). Adopting surreal is a free upgrade when OQ-11.6 clears, not a blocker.
+
+**Honest state + the unblocked next:** this is the `E-ARIGRAPH-IS-AN-ISLAND` gap — EW64/`SpoWitness64` = 0 code symbols; the Lance→surreal→kanban subscription unbuilt; `HotWitness` = `todo!()`. The surreal side is blocked (OQ-11.6). The UNBLOCKED, firewall-clean, offline-testable next = the **contract-side EW64 strength/ordering atom**: the hot-4 MRU semantics + CE64-plasticity-mirror strength on `EpisodicEdges64` (no fork), deferring the surreal wingman to wire when OQ-11.6 clears. **Firewall:** EW64 stores opaque `(family,local)` + co-addressed CE64; surreal would store opaque handles + strength — never COCA. Cross-ref: `E-SUBSTRATE-IS-THE-SCHEDULER`, `E-EW64-IS-PREDICTIVE-PREFETCH`, `E-PLANNING-IS-WHITE-MATTER`, `E-ARIGRAPH-IS-AN-ISLAND`, `episodic-witness64-ce64-prefetch.md` (queued spec), OQ-11.6.
+
+---
+
+## 2026-05-31 — E-PLANNING-IS-WHITE-MATTER — the 64k mailboxes are GREY matter (compute); planning lives in the WHITE matter (the CE64/EW64 plasticity connectome), not in OTP/BEAM scheduling
+
+**Status:** FINDING (architecture reframe; unifies existing Hebbian/plasticity findings under the grey/white lens — the *mechanisms* are already on the board, the *framing* of planning is the new part). User-stated 2026-05-31 ("it doesn't make sense to have 64k OTP BEAM Erlang multithreading when you don't recognize the potential as grey vs white matter and BNN what fires together wires together"). Extends the language-network map (`E-ARCUATE-CONDUCTION`) into the cognitive substrate. Answers: "what can the mailbox SoA do about planning."
+
+**Grey vs white:**
+- **Grey matter (compute / neurons)** = the 64k mailboxes (per-mailbox SoA: Fingerprint/Qualia/Meta columns + the `Think` compute) AND the PFC executive (`lance-graph-planner`: MUL / elevation / strategies — goal-setting + suppression).
+- **White matter (connectome / axonal tracts)** = the CE64 (causal) + EW64 (episodic) EDGE columns + **plasticity** (`high_heel` W15 u8 `0=frozen..3=hot`; v2 `CausalEdge64` plasticity[2]; `sensorium.plasticity_flux`). `arcuate.rs` is the first explicit *named* tract.
+
+**Planning is a white-matter phenomenon, not OTP scheduling:**
+- A plan = a trajectory through the mailbox population. The white matter encodes which trajectories are **myelinated** (high plasticity = well-worn = automatic).
+- "Fire together → wire together" (already on board: `E-EW64-IS-PREDICTIVE-PREFETCH`, `plasticity_counters`, the prefetch spine): executing a path increments edge plasticity → consolidates it into **procedural memory** (a habit/skill).
+- Planning = bias toward myelinated paths (exploitation) + the **spreader** recruiting adjacent low-plasticity edges when the goal isn't reached (exploration, OQ-11.1/§11.5) + **prefetch** making the next step resident before it's asked. NOT a DAG computed by `KanbanMove`/`VersionScheduler`.
+- **Reframe:** `KanbanMove` / `VersionScheduler` / ractor = grey-matter process COORDINATION (necessary plumbing), **not the planner**. The planner IS the plasticity-weighted EW64/CE64 connectome, under PFC (MUL) bias + `head2head::SupportSpread` action-selection.
+
+**Why "64k OTP/BEAM concurrency" misses it:** Erlang treats processes as isolated units with explicit message passing (supervision trees). A BNN treats them as a connected population where the CONNECTIONS carry the computation. The brain is mostly white matter; a 64k-grey-node system with a thin connectome can compute in parallel but can't PLAN — planning lives in the wiring. The lever is the connectome (EW64/plasticity), not more grey-matter concurrency.
+
+**Honest state (the mechanism is DESIGN, not built):** A3 `witness_arc` MISSING; the Hebbian spreader radius/decay TBD (OQ-11.1, D-MBX-A4); `plasticity_counters` described not built; the prefetch spine = the unbuilt EW64 reactive seam ("every link shipped, the chain open at the joints"). The grey/white lens UNIFIES these and reframes the planner; the **buildable seam = the plasticity update + spread on the SoA EdgeColumn** (white-matter growth). Cross-ref: `E-EW64-IS-PREDICTIVE-PREFETCH`, `E-ARCUATE-CONDUCTION` (first tract), §11.5 plasticity-spreaders, OQ-11.1/11.2, `head2head`, `sensorium.plasticity_flux`, `high_heel` W15.
+
+---
+
 ## 2026-05-31 — E-ARCUATE-CONDUCTION — the stack has conduction aphasia: Broca+Wernicke intact, the arcuate cable (disambiguator_glue) carries no signal (the producer gap) — closing it IS the next wire
 
 **Status:** FINDING (diagnosis, grounded in source). Extends `E-BROCA-WERNICKE-HIPPO` to the full distributed language network (doc § "the full language network"). Names the single highest-value wire.

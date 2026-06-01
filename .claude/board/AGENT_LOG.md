@@ -1,3 +1,45 @@
+## [Main thread / Opus, autoattended] D-EW64-2 review (LAND) + 2 coverage tests added
+
+**Branch:** claude/jolly-cori-clnf9 | **PR #447.** Opus review agent verdict: **LAND** — no P0/P1. It re-implemented `promote` and brute-forced all 0-4-edge words × every promote target: zero invariant violations (strongest==e, no dups, eviction only on full+new, coldest==slot 3, idempotence, order preserved); packing/shift correct; firewall clean; API consistent. Applied its 2 recommended P2 coverage tests: `promote_cross_family_local_collision_is_not_deduped` (dedup discriminates on family) + `promote_chains_mru_aging_and_appends_fresh_on_non_full` (multi-promote MRU aging + fresh-on-non-full append). Left the 3rd P2 (pre-existing `to_slot` masking on contract-violating `EdgeRef` input) as out-of-scope (module-wide decision; only triggers on invalid input).
+
+**Cargo:** episodic_edges 16/16 (+2); contract lib green; default clippy `-D warnings` clean. CI on #447 was in_progress at push; re-runs on this commit. Awaiting CI green + CodeRabbit.
+
+---
+
+## [Main thread / Opus, autoattended] D-EW64-2 — EpisodicEdges64 MRU promote (Hebbian hot-tier "stronger immediate edges")
+
+**Branch:** claude/jolly-cori-clnf9 (synced onto merged main; #446 merged the bifurcation+faculties+arcuate wave). **Cargo:** `cargo test -p lance-graph-contract --lib` → 533 green (+5 promote); default clippy `-D warnings` CLEAN; episodic_edges.rs clean at pedantic+nursery (the 3 pedantic errors are pre-existing in free_energy/escalation/thinking/sigma_propagation/scenario, NOT mine). Autoattended (user asleep: "draft, review, fix, PR, subscribe, repeat").
+
+**Shipped:** `EpisodicEdges64::promote(self, EdgeRef) -> (Self, Option<EdgeRef>)` + `strongest()`. MRU: a fired edge moves to slot 0 (strongest/most-immediate); survivors shift down; a new edge on a full word evicts the coldest (slot 3, returned for demotion to the cold connectome); idempotent on the already-hottest edge. **Slot order IS strength** — no per-edge weight stored (co-addressed CausalEdge64 plasticity carries the Hebbian weight; recency = slot index). Realizes `E-EW64-STRENGTH-IS-CE64-PLASTICITY`.
+
+**Firewall:** opaque (family,local) only; no COCA; zero-dep; the surreal-LIVE wingman that will drive promote stays gated on OQ-11.6 (LanceDB-LIVE fallback) — this is the substrate-agnostic hot-tier mechanism.
+
+**Loop state:** drafted+committed; next = review agent (Opus) on the diff → fix → open PR (claude/jolly-cori-clnf9 → main) → subscribe. Board: STATUS_BOARD D-EW64-2 row + LATEST_STATE PR-in-flight note.
+
+---
+
+## [Main thread / Opus] EW64 stronger-immediate-edges resolution + surreal-wingman weigh-in (E-EW64-STRENGTH-IS-CE64-PLASTICITY)
+
+**Branch:** claude/jolly-cori-clnf9. Design-only check (no code) per user floating the surreal-substrate option + "EW64 needs stronger immediate edges."
+
+**Resolution:** EW64 `EdgeRef{family,local}` has NO strength field — but needs none. Strength = the co-addressed `CausalEdge64` plasticity (W15 0=frozen..3=hot; EW64 shares CE64 low-40 bits); the 4 slots = an MRU hot set (slot 0 strongest, fire→promote, age→evict to cold). Register-lazy, no 16-bit change.
+
+**Surreal wingman:** = the EXISTING `E-SUBSTRATE-IS-THE-SCHEDULER` (surreal LIVE over the version arc fires the promote/prefetch back into the mailbox; same substrate holds the cold connectome + orchestration). GATED on OQ-11.6 (surreal_container fork) but OPTIONAL — LanceDB-LIVE is the substrate-free fallback. Hot 4-edge EW64 stays in the SoA (deterministic); surreal is cold+reactive only.
+
+**Honest:** E-ARIGRAPH-IS-AN-ISLAND gap — EW64 = 0 code symbols, Lance→surreal→kanban unbuilt, HotWitness = todo!(). Unblocked next = contract-side EW64 strength/MRU atom (no fork, offline, firewall-clean); surreal wingman deferred to OQ-11.6. Feeds queued spec episodic-witness64-ce64-prefetch.md.
+
+---
+
+## [Main thread / Opus] check (a): planning is white matter — grey mailboxes vs white connectome (E-PLANNING-IS-WHITE-MATTER)
+
+**Branch:** claude/jolly-cori-clnf9. Design-only check (no code) per user "check about (a)". **coexist** confirmed (512-bit ContextWindow internal + arcuate cross-boundary; wiring queued behind this check). #446 merged (LATEST_STATE/PR_ARC sweep + the few CodeRabbit comments deferred per "stay on track" — can sweep on request).
+
+**Finding:** the 64k mailboxes = GREY matter (compute) + PFC=MUL/planner; the CE64/EW64 plasticity connectome = WHITE matter (planning). Planning = Hebbian-wired path (fire→wire) + prefetch + spreader, under PFC/MUL bias + head2head selection — NOT OTP/`KanbanMove` scheduling. Unifies existing Hebbian findings (`E-EW64-IS-PREDICTIVE-PREFETCH`, `plasticity_counters`, §11.5 spreaders, `high_heel` W15 plasticity) under the grey/white lens and reframes the planner.
+
+**Honest:** the white-matter mechanism is DESIGN — A3 `witness_arc` MISSING, OQ-11.1 spreader radius/decay TBD, prefetch spine = the unbuilt EW64 reactive seam. **Seam:** plasticity update + spread on the SoA EdgeColumn. `arcuate.rs` is the first explicit white-matter tract.
+
+---
+
 ## [Main thread / Opus] arcuate connector — the Broca↔Wernicke cable carries signal (E-ARCUATE-CONDUCTION, first fix)
 
 **Branch:** claude/jolly-cori-clnf9. **Cargo:** deepnsm lib 99 green (+4 `arcuate`) + 4+8+1; `arcuate.rs` default-clippy-clean. User: "okay" → build the connector seam.

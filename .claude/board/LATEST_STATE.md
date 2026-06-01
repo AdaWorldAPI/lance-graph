@@ -10,6 +10,10 @@
 
 ---
 
+> **2026-06-01 — PR-in-flight (autoattended)** (D-EW64-2): `lance_graph_contract::episodic_edges::EpisodicEdges64::{promote, strongest}` — MRU "promote" strengthens an edge to slot 0 (the hot / most-immediate position); fire→front, un-refired ages toward slot 3 and evicts to the cold connectome; **slot order IS the strength ranking** (no per-edge weight stored — the co-addressed `CausalEdge64` plasticity carries the Hebbian weight, recency is the slot index). Realizes `E-EW64-STRENGTH-IS-CE64-PLASTICITY` (the user's "stronger immediate edges"). Zero-dep; contract lib 533 green (+5), default clippy clean, episodic_edges.rs pedantic+nursery clean. The surreal-LIVE "wingman" that drives `promote` stays GATED on OQ-11.6 (LanceDB-LIVE fallback exists) — this is the substrate-agnostic hot-tier mechanism it calls.
+
+---
+
 ## Recently Shipped PRs (reverse chronological)
 
 | PR | Merged | Title | What it added |
