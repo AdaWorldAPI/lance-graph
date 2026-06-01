@@ -18,7 +18,13 @@
 > → persisted = the amortization). Per `I-VSA-IDENTITIES` Test 0, a class id IS the register key;
 > reaching for i4-distance "resonance" when an exact key exists is *register laziness* — the
 > magic-thinking part. **OGIT-amortized lookup is sound; the texture→style resonance route is what to
-> drop.** Text below retained as history.
+> drop.** **Ephemeral / per-persona styles → a `vart` radix-trie COW snapshot** (`Tree::clone()`,
+> O(1) — the WD-3 by-style index): a persona branches the style trie cheaply, composes on its private
+> snapshot, then discards it (truly ephemeral, no cleanup) **or amortizes** = sediment the stable style
+> back into the base + onto the OGIT class register (`proposal.thinking_style`) = the warm→cold step.
+> One MVCC trie serves both tiers (snapshot = ephemeral, base = persisted); both ends are exact-key
+> lookups (class id / trie path), never resonance. This is the ephemeral→warm→cold doctrine applied to
+> styles, not new invention. Text below retained as history.
 
 > Slice **A4** of the north-star run, on merged `main` (A3 carrier shipped, PR #451).
 > Branch `claude/jolly-cori-clnf9`. Doctrine: **plan → 5 savant-dev review → split →
