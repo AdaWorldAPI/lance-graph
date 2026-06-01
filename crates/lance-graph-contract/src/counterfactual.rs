@@ -73,7 +73,7 @@ pub const SPAWN_DISSONANCE_THRESHOLD: f32 = 0.55;
 /// The exact type for pole positions (`i8` vs a newtype from D-ATOM-1's `I4x32`)
 /// is **BLOCKED** on D-ATOM-1 (the I4-32D atom basis). Using `i8` here as a
 /// conservative placeholder — the range `[-8, +7]` is i4-compatible.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)] // not Eq: `dissonance` is f32
 pub struct SplitPoles {
     /// The axis index (0-31 in the I4-32D basis, per D-ATOM-1).
     ///
@@ -148,10 +148,13 @@ pub fn deposit_counterfactual(
     // For now the interface is expressed via the `EpisodicEdge` trait below.
     edge: &mut dyn EpisodicEdge,
 ) -> bool {
-    todo!(
-        "v2 deposit: if split.split, call edge.set_inference_mantissa(-6) \
-         (InferenceType::Counterfactual.to_mantissa()); return whether deposit was made"
-    )
+    if split.split {
+        // `InferenceType::Counterfactual.to_mantissa() == -6` — the road-not-taken nibble.
+        edge.set_inference_mantissa(-6);
+        true
+    } else {
+        false
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -248,6 +251,7 @@ impl CounterfactualMailbox {
     ///
     /// Only call when `dissonance > SPAWN_DISSONANCE_THRESHOLD` (the spawn
     /// gate in [`should_spawn_mailbox`]).
+    #[allow(unused_variables)] // scaffold stub — BLOCKED on D-PERSONA-5 (ractor outer-swarm)
     pub fn new(poles: SplitPoles, committed_free_energy: f32) -> Result<Self, CounterfactualError> {
         todo!(
             "v3 spawn: register with D-PERSONA-5 ractor outer-swarm; \
@@ -339,6 +343,7 @@ impl FreeEnergyComparison {
 ///   is cleared after successful revision.
 /// - `awareness`: opaque handle to the NARS revision surface.
 ///   **BLOCKED: type unknown** — placeholder `&mut dyn AwarenessRevise` below.
+#[allow(unused_variables)] // scaffold stub — BLOCKED on D-PERSONA-5 (awareness.revise signature)
 pub fn revise_if_minority_wins(
     mailbox: CounterfactualMailbox,
     edge: &mut dyn EpisodicEdge,
@@ -430,4 +435,108 @@ pub enum RevisionOutcome {
     Revised,
     /// The majority pole held; no revision was performed.
     MajorityHolds,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RawEdge — the zero-dep, mantissa-only structural impl of EpisodicEdge
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A **mantissa-only** episodic edge: holds ONLY the signed i4 inference nibble
+/// (the bits 46–49 of a `CausalEdge64`), and **structurally nothing else**.
+///
+/// It wraps an `i8`, not a `u64`: a `u64` newtype could *read* the plasticity
+/// bits 50–52, so "mantissa-only" would be a convention, not a guarantee. Wrapping
+/// the i4 alone makes it unforgeable — `size_of::<RawEdge>() == 1`, with no room
+/// for plasticity / W / truth / temporal. Same one-writer-per-field structural
+/// split as `MailboxSoaView`/`MailboxSoaOwner`, applied to the inference nibble.
+/// It is the zero-dep stand-in that unblocks the `EpisodicEdge` impl-location;
+/// a real `impl EpisodicEdge for CausalEdge64` stays deferred to the
+/// `causal-edge-v2-layout` crate (which `lance-graph-contract` does not depend on).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RawEdge(i8);
+
+impl RawEdge {
+    /// New `RawEdge`, clamping `m` into the signed-i4 range `[-8, 7]`.
+    #[must_use]
+    pub const fn new(m: i8) -> Self {
+        Self(clamp_i4(m))
+    }
+
+    /// The held i4 mantissa.
+    #[must_use]
+    pub const fn mantissa(self) -> i8 {
+        self.0
+    }
+}
+
+impl EpisodicEdge for RawEdge {
+    fn set_inference_mantissa(&mut self, m: i8) {
+        self.0 = clamp_i4(m);
+    }
+    fn inference_mantissa(&self) -> i8 {
+        self.0
+    }
+}
+
+/// Clamp to the signed 4-bit range `[-8, 7]` (the inference-nibble domain).
+const fn clamp_i4(m: i8) -> i8 {
+    if m < -8 {
+        -8
+    } else if m > 7 {
+        7
+    } else {
+        m
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::escalation::{CollapseHint, CouncilVerdict};
+
+    fn verdict(split: bool) -> CouncilVerdict {
+        CouncilVerdict { hint: CollapseHint::Flow, confidence: 0.9, split }
+    }
+
+    #[test]
+    fn raw_edge_is_one_byte_mantissa_only() {
+        // The structural guarantee: no room for plasticity/W/truth/temporal bits.
+        assert_eq!(core::mem::size_of::<RawEdge>(), 1);
+    }
+
+    #[test]
+    fn raw_edge_clamps_to_i4_range() {
+        assert_eq!(RawEdge::new(-6).mantissa(), -6);
+        assert_eq!(RawEdge::new(7).mantissa(), 7);
+        assert_eq!(RawEdge::new(8).mantissa(), 7); // saturates high
+        assert_eq!(RawEdge::new(-9).mantissa(), -8); // saturates low
+        assert_eq!(RawEdge::new(127).mantissa(), 7);
+        assert_eq!(RawEdge::new(-128).mantissa(), -8);
+    }
+
+    #[test]
+    fn raw_edge_roundtrips_through_trait_object() {
+        let mut e = RawEdge::default();
+        let dyn_e: &mut dyn EpisodicEdge = &mut e;
+        dyn_e.set_inference_mantissa(-6);
+        assert_eq!(dyn_e.inference_mantissa(), -6);
+        dyn_e.set_inference_mantissa(99); // clamps
+        assert_eq!(dyn_e.inference_mantissa(), 7);
+    }
+
+    #[test]
+    fn deposit_counterfactual_writes_minus_six_on_split() {
+        let mut e = RawEdge::default();
+        let made = deposit_counterfactual(&verdict(true), &mut e);
+        assert!(made, "split verdict deposits");
+        assert_eq!(e.mantissa(), -6, "Counterfactual nibble = -6");
+    }
+
+    #[test]
+    fn deposit_counterfactual_noops_on_non_split() {
+        let mut e = RawEdge::new(3);
+        let made = deposit_counterfactual(&verdict(false), &mut e);
+        assert!(!made, "non-split is a no-op");
+        assert_eq!(e.mantissa(), 3, "edge untouched");
+    }
 }

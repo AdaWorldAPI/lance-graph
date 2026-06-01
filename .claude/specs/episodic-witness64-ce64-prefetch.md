@@ -190,3 +190,15 @@ Grep of `causal-edge/src` (reading, not building) settles #2's "confirm before g
 2. **Per-plane `PlasticityState` = the real, already-built, finer clinical layer (GATED):** NOT over-engineering (it's used), but *writing* it is the gated work (causal-edge offline + the v1/v2 PLAST_SHIFT minefield ⇒ mandatory field-isolation tests). The co-fire drives it in **phase 2**.
 
 **Bottom line for @jan:** ① is a build **order**, not an either/or — coarse-first (offline, now) → per-plane-clinical (gated, later). RawEdge (decision 2) stays the consensus first-build; sense-candidate (decision 3) stays a firewall-placement design slice.
+
+---
+
+## 9. COUNCIL VERDICT (5-agent dev council, 2026-06-01) — supersedes §8's Heel-compose
+
+R1 architectural / R2 iron-rule / R3 type-accuracy / R4 critic / R5 build-order, all read-only; orchestrator-adjudicated against full-file source reads.
+- **① DROP the Heel-compose** (`E-BASIN-NOT-EDGE-PLASTICITY`): `Heel.plasticity` is a per-basin NARS-confidence COOLING knob, **not** on the EW64 SoA hot path, on the wrong edge encoding — "compose Heel × MRU" is a phantom join. **RESOLVED:** coarse strength = MRU slot-order (#447, shipped); per-edge Hebbian = per-plane `PlasticityState` (gated phase B). No Heel, no new field. (R1/R3 endorsed the compose-not-store *pattern* + types; R4 + source killed the specific Heel *join*; R5's own `edge_strength(heel,edges)` signature exposed the no-valid-caller problem.)
+- **② BUILD RawEdge — SHIPPED** (D-ATOM-4/RawEdge): wired the orphaned `counterfactual` module into `lib.rs` (R5 P0: it wasn't compiled); `RawEdge(i8)` not u64 (R5 P0: i8 ⇒ mantissa-only structurally unforgeable, `size_of==1`); impl the existing `EpisodicEdge` WRITE trait; filled `deposit_counterfactual` v2 (writes −6 on split). Closes the **counterfactual** seam (not the prefetch loop — R4 honesty). 5 tests + 3 latent scaffold fixes; 550 contract green, clippy clean.
+- **③ DEFER** (unanimous) — sense-candidate = firewall-placement design slice.
+- **Citation fix (R3):** §8's `edge.rs:750 concern_level` reads `direction()` (pathological-dim0), not `PlasticityState`; the per-plane claim stands via `plasticity.rs freeze_s/heat_s` + `lib.rs:46/52`.
+
+**Build order now:** [coarse = MRU shipped] → **D-ATOM-4/RawEdge (DONE)** → per-plane `PlasticityState` co-fire (GATED phase B).

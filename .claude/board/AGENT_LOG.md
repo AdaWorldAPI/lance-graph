@@ -1,3 +1,13 @@
+## [Main thread / Opus, autoattended] 5-agent dev council → D-ATOM-4/RawEdge shipped (① Heel-compose REFUTED, ② RawEdge built, ③ deferred)
+
+**Branch:** claude/jolly-cori-clnf9. **Cargo:** contract lib **550 green** (+5 counterfactual); default clippy clean. User: "use the 5 agent development council." Convened R1–R5 (Opus, read-only); consolidated + auto-resolved + built.
+
+**Verdict:** **①** DROP Heel-compose — R4(critic) + my own full-file reads: `Heel.plasticity` COOLS (`revise_truth`), not on the EW64 SoA, wrong edge encoding → phantom join (`E-BASIN-NOT-EDGE-PLASTICITY`, the 4th-strike object conflation). Coarse strength = MRU slot-order (shipped); per-edge Hebbian = per-plane `PlasticityState` (gated). **②** SHIPPED RawEdge: wired orphaned `counterfactual` mod (R5 P0), `RawEdge(i8)` not u64 (R5 P0, `size_of==1` structural guarantee), impl `EpisodicEdge`, filled `deposit_counterfactual` v2 (−6 on split), +3 latent scaffold fixes (SplitPoles Eq-with-f32; 2 v3-stub unused-params). Closes the counterfactual seam (not the prefetch loop — R4). **③** deferred (firewall-placement).
+
+**Process:** `E-READ-NOT-GREP` (user) — review agents must READ full files not grep/head/tail (fragments produced the 4 wrong framings). Baked into the agent-brief template (pattern §Rule 7). Spec §9; council consolidation `board/reviews/ew64-decisions-council.md`. Next: update #449 + subscribe stays active.
+
+---
+
 ## [Main thread / Opus, autoattended] ① RESOLVED-IN-PRINCIPLE — per-plane clinical model verified REAL in causal-edge/src; coarse-first→per-plane-later
 
 Grep'd causal-edge/src (read, not built — owning the meta-lesson). Per-plane independence CONFIRMED: plasticity.rs freeze_s/heat_s + "established clinical pattern" (:16); edge.rs:713 live freeze_s; :750 pathological-plane count; lib.rs:46/52. Layout confirmed: plasticity 50-52 (PLAST_SHIFT=50), mantissa 46-49; v1/v2 minefield live (edge.rs 49 vs 50). RESOLUTION: ① is a build ORDER not either/or — (1) coarse NOW (per-basin Heel.plasticity × EW64 MRU, both offline; = #2 coarse + #1 compose), (2) per-plane PlasticityState = real, already-built, GATED clinical layer (phase 2). RawEdge = consensus first-build; sense-candidate = firewall-placement slice. Captured spec §8. Holding for @jan.

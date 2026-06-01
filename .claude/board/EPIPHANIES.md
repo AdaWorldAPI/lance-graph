@@ -1,3 +1,15 @@
+## 2026-06-01 — E-READ-NOT-GREP — judgment-critical review agents must READ full files, not grep/sed/head/tail; fragments invalidate judgment
+
+**Status:** IRON RULE (process; user-stated 2026-06-01). Across the EW64 council + the 3 prior relayed sessions, every wrong framing came from narrating off grep/head fragments rather than reading the type. The council's R3 even found a grep-induced mis-citation (`edge.rs:750 concern_level` reads `direction()`, not `PlasticityState`). **RULE:** when a review/council/grounding agent's VERDICT depends on a type's semantics, its brief MUST instruct it to READ the relevant files in full (the Read tool), NOT grep/sed/head/tail. A fragment seen out of context produces a confident-but-wrong judgment — **grep is for LOCATING, reading is for JUDGING.** Baked into the agent-brief template (`autoattended-multiagent-pattern.md` §Rule 7). Cross-ref: `E-BASIN-NOT-EDGE-PLASTICITY` (the conflation grep-fragments produced).
+
+---
+
+## 2026-06-01 — E-BASIN-NOT-EDGE-PLASTICITY — the 4th-strike object conflation: per-basin `Heel.plasticity` (a NARS-confidence COOLING knob, not on the EW64 hot path) is NOT coarse edge-plasticity; the Hebbian edge weight is per-plane `PlasticityState` (gated) or the MRU slot-order (shipped)
+
+**Status:** FINDING (5-agent council-resolved + orchestrator source-verified, 2026-06-01). R4(critic) + my own full-file reads killed the "compose `Heel.plasticity` × MRU" resolution that spec §6/§8 (relayed from 2 prior sessions) walked into. **Verified by reading the source:** (a) `MailboxSoaView` (the EW64 hot path) has **NO** Heel/plasticity column (only `energy`/`edges_raw`/`meta_raw`/`entity_type`) — Heel is unreachable from the EW64 edges; (b) `Heel.plasticity`'s only writer is `revise_truth()`, which **COOLS** as NARS confidence rises (`high_heel.rs:252` "Cool plasticity as confidence rises"; `is_frozen = plasticity==0 && conf>0.8`) — **opposite polarity** to Hebbian fire→hot; (c) `HighHeelBGZ.edges` are `CausalEdge64` u64s, EW64 slots are `EdgeRef` — different encodings, no index map. So "compose Heel × MRU" is a **phantom join of anti-correlated signals on the wrong edge set.** **RESOLUTION:** coarse strength = the MRU slot-order (#447, shipped); the real per-edge Hebbian weight = per-plane `PlasticityState` co-fire (GATED, phase B); no Heel, no new field. **The 4th strike** (after CausalEdge64-lens / per-plane-axis / Heel-vs-PlasticityState): same-word-different-**OBJECT** — "plasticity" names BOTH a cold-path basin cooling knob AND a hot-path per-edge Hebbian state; they don't compose. Cross-ref: D-ATOM-4/RawEdge (shipped), spec §9, `E-READ-NOT-GREP`.
+
+---
+
 ## 2026-06-01 — E-EW64-STRENGTH CORRECTION — "W15 0..3 plasticity" is `high_heel::Heel` (128-byte container field), NOT the 64-bit `CausalEdge64`; the 64-bit edge's plasticity is the 3-bit-per-plane `PlasticityState`
 
 **Status:** CORRECTION (factual, Plan-agent-grounded against source 2026-06-01). Refines `E-EW64-STRENGTH-IS-CE64-PLASTICITY`'s mechanism claim; does NOT change D-EW64-2 (MRU slot-order strength stores NO plasticity — it stands regardless).
