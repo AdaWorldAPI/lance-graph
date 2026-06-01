@@ -51,6 +51,73 @@ impl InferenceType {
             Self::Synthesis => QueryStrategy::BundleAcross,
         }
     }
+
+    /// Signed v2 inference mantissa (i4, −8..+7) — the cross-crate rule key.
+    ///
+    /// This is the SAME rule space as `causal_edge::edge::InferenceType`,
+    /// bridged by VALUE — the contract stays **zero-dep** (no `causal-edge`
+    /// import). The mantissa is the shared little-endian grammar every
+    /// `CausalEdge64` consumer reads: forward-chain positive, backward-chain
+    /// negative. Mapping matches causal-edge `to_mantissa`:
+    /// Deduction `+1`, Induction `+2`, Abduction `−1`, Revision `+4`,
+    /// Synthesis `+5`.
+    pub const fn to_mantissa(self) -> i8 {
+        match self {
+            Self::Deduction => 1,
+            Self::Induction => 2,
+            Self::Abduction => -1,
+            Self::Revision => 4,
+            Self::Synthesis => 5,
+        }
+    }
+
+    /// Inverse of [`to_mantissa`](Self::to_mantissa): the closest core rule for a
+    /// signed mantissa. Round-trips all 5 variants; negative magnitude is the
+    /// backward-chain Abduction direction; `0` = neutral → Deduction. Mantissas
+    /// `6`/`7` (causal-edge Intervention/Counterfactual/extension) collapse to
+    /// the nearest core rule (Synthesis), since the contract models only the 5.
+    pub fn from_mantissa(m: i8) -> Self {
+        let mag = m.unsigned_abs() & 0x7;
+        let forward = m >= 0;
+        match mag {
+            0 => Self::Deduction,
+            1 => {
+                if forward {
+                    Self::Deduction
+                } else {
+                    Self::Abduction
+                }
+            }
+            2 => {
+                if forward {
+                    Self::Induction
+                } else {
+                    Self::Abduction
+                }
+            }
+            3 => {
+                if forward {
+                    Self::Synthesis
+                } else {
+                    Self::Abduction
+                }
+            }
+            4 => Self::Revision,
+            5 => Self::Synthesis,
+            _ => Self::Synthesis,
+        }
+    }
+}
+
+/// Bridge the grammar's extended inference set (`grammar::inference::NarsInference`,
+/// 7 variants incl. Extrapolation / CounterfactualSynthesis) into the canonical
+/// core 5, via the grammar enum's own `.core()`. Lets the DeepNSM grammar
+/// proposer (§12.1) hand its inference *intent* to the reasoning pipeline with
+/// an ergonomic `.into()`.
+impl From<crate::grammar::inference::NarsInference> for InferenceType {
+    fn from(g: crate::grammar::inference::NarsInference) -> Self {
+        g.core()
+    }
 }
 
 /// Semiring choice — how to combine evidence across paths.
@@ -66,4 +133,46 @@ pub enum SemiringChoice {
     XorBundle,
     /// CAM-PQ ADC distance (compressed vector search).
     CamPqAdc,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mantissa_round_trips_all_five() {
+        for t in [
+            InferenceType::Deduction,
+            InferenceType::Induction,
+            InferenceType::Abduction,
+            InferenceType::Revision,
+            InferenceType::Synthesis,
+        ] {
+            assert_eq!(InferenceType::from_mantissa(t.to_mantissa()), t, "{t:?}");
+        }
+    }
+
+    #[test]
+    fn mantissa_signs_match_causal_edge() {
+        // Forward-chain positive, backward-chain negative (the causal-edge scheme).
+        assert_eq!(InferenceType::Deduction.to_mantissa(), 1);
+        assert_eq!(InferenceType::Induction.to_mantissa(), 2);
+        assert_eq!(InferenceType::Abduction.to_mantissa(), -1);
+        assert_eq!(InferenceType::Revision.to_mantissa(), 4);
+        assert_eq!(InferenceType::Synthesis.to_mantissa(), 5);
+        // Neutral / extension mantissas fall back to a core rule.
+        assert_eq!(InferenceType::from_mantissa(0), InferenceType::Deduction);
+        assert_eq!(InferenceType::from_mantissa(6), InferenceType::Synthesis);
+    }
+
+    #[test]
+    fn grammar_inference_bridges_via_core() {
+        use crate::grammar::inference::NarsInference as G;
+        assert_eq!(InferenceType::from(G::Deduction), InferenceType::Deduction);
+        assert_eq!(InferenceType::from(G::Extrapolation), InferenceType::Induction);
+        assert_eq!(
+            InferenceType::from(G::CounterfactualSynthesis),
+            InferenceType::Synthesis
+        );
+    }
 }
