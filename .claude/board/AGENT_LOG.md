@@ -1,3 +1,13 @@
+## [Main thread / Opus, autoattended] episodic-witness64-ce64-prefetch SPEC — consolidates shipped hot tier + gated phases + 3 user decisions
+
+**Branch:** claude/jolly-cori-clnf9 (synced; #447 + #448 merged). Both overnight slices landed: the white-matter HOT TIER is complete in main — D-EW64-2 (promote/MRU), D-EW64-3 (coldest/contains), D-EW64-4 (DemotionSink + promote_into). Safe-unblocked queue EXHAUSTED.
+
+**Shipped (this turn):** `.claude/specs/episodic-witness64-ce64-prefetch.md` — the queued seam spec. Phase A SHIPPED; Phase B (plasticity-write co-fire) GATED, Phase C (surreal/LanceDB-LIVE wingman) GATED on OQ-11.6, Phase D (EpisodicWitness64 SoA column) GATED offline, Phase E (comprehension↔arcuate ±5 wire) NEEDS-DESIGN. Frames the **3 decisions for @jan**: (1) plasticity model — `Heel` scalar vs `PlasticityState` per-plane; (2) `RawEdge` mantissa-only scope (D-EW64-5); (3) sense-candidate source for the comprehension wire.
+
+**Holding** code construction for those 3 decisions (no gated/minefield work unattended). PR + subscribe next; this is the morning handover artifact.
+
+---
+
 ## [Main thread / Opus, autoattended] D-EW64-3/4 review LAND + CodeRabbit contains nit applied (#448)
 
 Opus review agent: **LAND** — no P0/P1 (exhaustively verified: coldest == eviction victim for every word, no holes, promote_into word == promote().0 + sink gets exactly the eviction; firewall + API clean; 545 green). 2 optional editorial P2s NOT applied (don't block). CodeRabbit: 1 nit (💤 low value) — `contains` → `self.iter().any(|x| x == e)` (more idiomatic, reuses iter; equivalent) — APPLIED. episodic_edges tests still green; default clippy clean. #448 CI re-runs on this push.
