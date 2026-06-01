@@ -86,8 +86,10 @@ impl I4x32 {
     /// Each dim is a signed bipolar axis (sign = pole, e.g. −introspection..+exploration).
     /// Two's-complement nibble: dim `2k` → low nibble of byte `k`, `2k+1` → high nibble
     /// (byte-compatible with `QualiaI4_16D` and the `CausalEdge64` mantissa). `pack` is
-    /// **sign-agnostic** and only saturates — pre-scaling (f32 → i4, incl. any asymmetric
-    /// pole mapping) is the caller's job. No float, no SIMD here.
+    /// **sign-agnostic** and only saturates. There is **NO f32 round-trip** — the i4 texture
+    /// arrives as signed bytes (the "smell") and stays integer; texture → thinking style is
+    /// the fastest route (~4 CPU cycles), a branchless integer transform, never a float
+    /// compute. The asymmetric bipolar pole lives in the i4 encoding itself. No SIMD here.
     pub fn pack(values: &[i8; 32]) -> Self {
         let mut bytes = [0u8; 16];
         let mut k = 0;
@@ -126,8 +128,8 @@ const fn sext4(nibble: u8) -> i8 {
 /// at double the width: a sparse, deterministic 64×CAM address whose non-zero dims are the
 /// intensity "smell". Each dim is a signed bipolar axis (sign = pole). The 33 locked atoms
 /// occupy dims 0..32; dims 33..63 are spare. Resolution is CAM addressing, **not** vector
-/// search — no float, no `{instance, reference}` dual. `pack`/`unpack` are sign-agnostic
-/// (the caller pre-scales).
+/// search — no float, no `{instance, reference}` dual. `pack`/`unpack` are sign-agnostic;
+/// **no f32 round-trip** — the i4 texture stays integer end to end (texture → style ~4 cycles).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(C, align(16))]
 pub struct I4x64 {

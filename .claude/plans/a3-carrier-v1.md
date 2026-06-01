@@ -108,3 +108,7 @@ touches the address side. Clean.
 **Range:** two's-complement `[−8,7]` (byte-compatible with `QualiaI4_16D` / the `CausalEdge64` mantissa). jan's `−7(introspection)..+8(exploration)` asymmetric mapping rides the **caller's pre-scale** (A4) — codec is sign-agnostic.
 
 **Deferred to A4** (B3 + jan): the CAM-address resolver (no vector search), `AtomGroup::is_signed()`, the `AtomLane`/`LaneMask` newtypes (firewall guard — must NOT be bare `u64`), the bipolar catalogue reframe. NOT touched: `counterfactual.rs` (B3 SERIOUS-3), `recipe.rs` (orphan).
+
+### Correction (jan, 2026-06-01) — no f32 round-trip; texture → style in ~4 CPU cycles
+
+The carrier path is **integer end to end** — **no f32 round-trip** (not even a caller-side f32→i4 pre-scale on the hot path). The i4 texture arrives as signed bytes (the "smell") and stays integer; **texture → thinking style is the fastest route, ~4 CPU cycles** — a branchless integer transform (CAM address → style), never a float compute, never a vector search. The asymmetric bipolar pole (`−introspection..+exploration`) lives in the **i4 encoding itself** (sign + magnitude), not an f32 mapping. **This supersedes the earlier "caller pre-scales f32→i4" phrasing.** A4's resolver inherits the 4-cycle integer budget (CAM address → style), no f32.

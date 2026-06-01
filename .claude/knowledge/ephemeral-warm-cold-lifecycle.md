@@ -177,3 +177,7 @@ addressing layer. The SPO term-palette is shared per-family, so cold archetype-l
 **Range:** the carrier stores signed i4 `[−8,7]` (two's-complement, byte-compatible with the i4 substrate). Any asymmetric bipolar mapping (`−7..+8` style) is the **caller's pre-scale**, never the carrier's storage.
 
 A3 shipped this carrier (`I4x32`/`I4x64`); see `.claude/plans/a3-carrier-v1.md` § SHIPPED.
+
+## Correction (jan, 2026-06-01) — no f32 round-trip; texture → style in ~4 CPU cycles
+
+The carrier→style path is **integer end to end**: **no f32 round-trip** anywhere (no caller-side f32→i4 pre-scale on the hot path). The i4 texture arrives as signed bytes and stays integer; **texture → thinking style is the fastest route, ~4 CPU cycles** (a branchless integer transform / CAM address → style), never a float compute or vector search. Any asymmetric bipolar pole mapping lives in the i4 encoding (sign + magnitude), not f32. **This supersedes the earlier "caller pre-scales f32→i4" phrasing** (§2/§9): f32 is not on the texture→style route at all.
