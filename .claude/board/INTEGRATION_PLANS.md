@@ -67,6 +67,12 @@
 **5 open questions:** OQ-SPLAT-1 first probe SDK (default: Telemed ArtUs — RF directly, USB, lowest regulatory friction); OQ-SPLAT-2 SH degree budget (default: ℓ=3, 16 coeffs); OQ-SPLAT-3 beamformer scope (default: consume probe's BF where available, fall back DAS); OQ-SPLAT-4 AR splat egress (default: no — stays on HoloLens); OQ-SPLAT-5 plan home (resolved: lance-graph canonical + per-repo companions).
 
 ---
+## 2026-06-01 — a4-resolver-v1 (the resolver: texture → thinking style in ~4-cycle integer CAM addressing; firewall newtypes AtomLane(0..64)/LaneMask + AtomGroup::is_signed; A4a offline-contract, A4b cross-crate gated)
+
+**Status:** DRAFT / pre-savant-review. **Plan file:** `.claude/plans/a4-resolver-v1.md`. Follows A3 (PR #451 merged). NO f32, NO vector search — deterministic CAM addressing; the only fuzzy step is the coarse upstream "smells like odoo → financial OGIT" route. Doctrine: plan → 5 savant-dev review → split → per-file sprint (commented) → 3 brutal-tester → fix → uncomment → PR.
+
+---
+
 
 ## 2026-06-01 — north-star-integration-v1 (the two-ViewAngle destination: business "Odoo-in-Rust × OGIT+DOLCE+GoBD" ∥ semantic cognitive-substrate §9–14; maps current→target + the 9 wiring decisions WD-1..WD-9 for the 5-dev council)
 
