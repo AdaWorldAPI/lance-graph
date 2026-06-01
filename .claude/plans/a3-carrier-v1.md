@@ -94,3 +94,17 @@ new deps. Regression gate: 553 + the new A3 tests, all green.
 the membrane. `is_signed()` documents the caller's pre-scale (the propose side). `AtomLane` makes the
 width-coincidence cross-wire a compile error. Nothing in A3 leaks float/language onto the hot path or
 touches the address side. Clean.
+
+---
+
+## SHIPPED (2026-06-01) — revised per jan's clarification
+
+**The dual is dropped.** jan: "I4-32D = 32 signed dimensions = 64 poles; focus/fan-out are opposite poles; I4-64D is also fine (256 bit)." `D` = signed **Dimensions**, not Dual; "64" was 64 **poles**, not lanes. So B3's BLOCKER-1/2 (dual semantics, per-plane vs whole-carrier, `I4x64` naming) **dissolve** — the carrier is ONE signed-dim vector.
+
+**No vector search.** jan: the carrier is a deterministic **32×CAM address** + sparse-intensity "smell"; the only fuzzy step is a coarse "this smells like odoo → financial OGIT" route. A4 = CAM addressing, NOT i4-distance nearest-template search. No float anywhere.
+
+**What shipped (`atoms.rs`, contract lib 562 green, offline):** `I4x32::pack`/`unpack` (two's-complement signed-i4 nibble, even→low/odd→high, `sext4`, saturate `[−8,7]`, sign-agnostic) · `I4x64` (256-bit / 64 signed dims, same codec; 33 atoms → dims 0..32, 31 spare) · `sext4` (private) · 3 BLOCKED notes → resolution-pointers · 9 hardened tests incl. the absolute-bit offset-binary catch (B1 WATCH-1).
+
+**Range:** two's-complement `[−8,7]` (byte-compatible with `QualiaI4_16D` / the `CausalEdge64` mantissa). jan's `−7(introspection)..+8(exploration)` asymmetric mapping rides the **caller's pre-scale** (A4) — codec is sign-agnostic.
+
+**Deferred to A4** (B3 + jan): the CAM-address resolver (no vector search), `AtomGroup::is_signed()`, the `AtomLane`/`LaneMask` newtypes (firewall guard — must NOT be bare `u64`), the bipolar catalogue reframe. NOT touched: `counterfactual.rs` (B3 SERIOUS-3), `recipe.rs` (orphan).

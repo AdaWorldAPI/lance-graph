@@ -33,23 +33,28 @@
 //! request class → `MappingRow` → `Marking::Financial` → bookkeeping savant. Never an atom.
 
 // ---------------------------------------------------------------------------
-// Open layout questions (genuinely unresolved — do NOT guess)
+// Layout — RESOLVED (A3, 2026-06-01)
+// See `.claude/knowledge/ephemeral-warm-cold-lifecycle.md` + spec §8 + jan's clarification.
 // ---------------------------------------------------------------------------
 
-// BLOCKED: 32-vs-33 reconciliation. The TSV is 33 dims (3+9+5+8+4+4); the shipped
-// carrier floor is i4-32 (32 lanes). E-AGICHAT-DIMENSION-CONTRACT says "i4 × 33 (or
-// 32 + 1)". Decide: does the carrier hold 32 lanes with the 33rd folded into a spare,
-// ride two halves, or is one family trimmed by one? Until decided, the carrier below
-// is `I4x32` (32 lanes) and the catalogue lists 33 logical atoms with `dim` 0..33.
+// RESOLVED — carrier shape. The carrier is N **signed** i4 dimensions; the SIGN is the
+// bipolar pole (e.g. focus +/fan-out −, love +/hate −), so a "± pair" is conceptually ONE
+// signed dim. `I4x32` = 32 signed dims (64 poles, 16 B); `I4x64` = 64 signed dims
+// (128 poles, 256 bit / 32 B). There is NO `{instance, reference}` dual — the resolver
+// (A4) compares two such vectors by INTEGER i4 distance (no float). ("64" in spec §8 was
+// 64 poles, not 64 lanes.)
 
-// BLOCKED: "8 spare" vs "4 Presence + 4 Meta". STYLE_ENCODING.md describes the last 8
-// dims as "8 spare"; the dimension-contract body names them 4 Presence + 4 Meta. The
-// catalogue below uses Presence+Meta; confirm which is canonical before wiring.
+// RESOLVED — 32-vs-33. The 33 logical atoms occupy dims 0..32 of the 64-dim `I4x64`
+// carrier (dims 33..63 spare). No trim, no out-of-band lane; the catalogue stays locked
+// at 33. (Collapsing the ± pairs into single signed dims is a later catalogue reframe — A4.)
 
-// BLOCKED: per-group i4 sign/scale. The ordinal ladders (Pearl/Rung/Σ) want unsigned
-// magnitude (level along the ladder); the few ± lanes (deduce↔induce in Ops, exploration
-// in Meta, authentic↔performance in Presence) want signed. Cite FormatBestPractices.md;
-// confirm the per-group convention before implementing pack/unpack scaling.
+// RESOLVED — "8 spare" vs "4 Presence + 4 Meta": Presence+Meta (4+4) is canonical
+// (`group_counts_match_the_contract` hard-asserts it). "8 spare" was stale STYLE_ENCODING.md.
+
+// RESOLVED — sign/scale: the carrier stores signed i4 `[−8, 7]` (two's-complement)
+// UNIFORMLY; `pack`/`unpack` are sign-agnostic (the caller pre-scales). Unsigned ordinal
+// groups (Pearl/Rung/Σ) use `[0, 7]`; bipolar dims use the full `[−8, 7]`.
+// (`AtomGroup::is_signed` + the integer-distance resolver are A4.)
 
 // ---------------------------------------------------------------------------
 // Bare-metal carrier (no SIMD here — dispatch through cognitive-shader-driver)
@@ -74,18 +79,91 @@ impl I4x32 {
     /// The all-zero style vector (every lane neutral).
     pub const ZERO: Self = Self { bytes: [0u8; 16] };
 
-    /// Pack 32 signed bytes (one per lane) into the i4 carrier, saturating to [−8, 7].
+    /// Pack 32 signed dims into the i4 CAM carrier, saturating to `[−8, 7]`.
     ///
-    /// Pre-scaling (f32 → i8) is the caller's job per the group convention — see the
-    /// `// BLOCKED: per-group i4 sign/scale` note above and `FormatBestPractices.md`.
+    /// The carrier is a **sparse, deterministic 32×CAM address** (128-bit) — the non-zero
+    /// dims are the intensity "smell". Resolution is CAM addressing, **not** vector search.
+    /// Each dim is a signed bipolar axis (sign = pole, e.g. −introspection..+exploration).
+    /// Two's-complement nibble: dim `2k` → low nibble of byte `k`, `2k+1` → high nibble
+    /// (byte-compatible with `QualiaI4_16D` and the `CausalEdge64` mantissa). `pack` is
+    /// **sign-agnostic** and only saturates — pre-scaling (f32 → i4, incl. any asymmetric
+    /// pole mapping) is the caller's job. No float, no SIMD here.
     pub fn pack(values: &[i8; 32]) -> Self {
-        let _ = values;
-        todo!("I4x32::pack — bare-metal nibble pack; implement after the sign/scale convention is fixed")
+        let mut bytes = [0u8; 16];
+        let mut k = 0;
+        while k < 16 {
+            let lo = (values[2 * k].clamp(-8, 7) as u8) & 0x0F;
+            let hi = (values[2 * k + 1].clamp(-8, 7) as u8) & 0x0F;
+            bytes[k] = lo | (hi << 4);
+            k += 1;
+        }
+        Self { bytes }
     }
 
-    /// Unpack the 32 lanes to signed bytes (sign-extended i4, range [−8, 7]).
+    /// Unpack the 32 dims to signed bytes (sign-extended i4, range `[−8, 7]`).
     pub fn unpack(&self) -> [i8; 32] {
-        todo!("I4x32::unpack — bare-metal nibble unpack")
+        let mut out = [0i8; 32];
+        let mut k = 0;
+        while k < 16 {
+            let b = self.bytes[k];
+            out[2 * k] = sext4(b & 0x0F);
+            out[2 * k + 1] = sext4(b >> 4);
+            k += 1;
+        }
+        out
+    }
+}
+
+/// Sign-extend a 4-bit two's-complement nibble to `i8` in `[−8, 7]`.
+#[inline]
+const fn sext4(nibble: u8) -> i8 {
+    (((nibble & 0x0F) << 4) as i8) >> 4
+}
+
+/// Packed 64-dim signed-i4 vector — the wide CAM carrier (`I4-64D`, 256 bit).
+///
+/// 64 signed i4 **dimensions** in 32 bytes (two nibbles per byte). Same role as [`I4x32`]
+/// at double the width: a sparse, deterministic 64×CAM address whose non-zero dims are the
+/// intensity "smell". Each dim is a signed bipolar axis (sign = pole). The 33 locked atoms
+/// occupy dims 0..32; dims 33..63 are spare. Resolution is CAM addressing, **not** vector
+/// search — no float, no `{instance, reference}` dual. `pack`/`unpack` are sign-agnostic
+/// (the caller pre-scales).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(C, align(16))]
+pub struct I4x64 {
+    bytes: [u8; 32],
+}
+
+impl I4x64 {
+    /// The all-zero vector (every dim neutral).
+    pub const ZERO: Self = Self { bytes: [0u8; 32] };
+
+    /// Pack 64 signed dims into the i4 carrier, saturating to `[−8, 7]`.
+    ///
+    /// Two's-complement nibble (dim `2k` → low, `2k+1` → high); sign-agnostic.
+    pub fn pack(values: &[i8; 64]) -> Self {
+        let mut bytes = [0u8; 32];
+        let mut k = 0;
+        while k < 32 {
+            let lo = (values[2 * k].clamp(-8, 7) as u8) & 0x0F;
+            let hi = (values[2 * k + 1].clamp(-8, 7) as u8) & 0x0F;
+            bytes[k] = lo | (hi << 4);
+            k += 1;
+        }
+        Self { bytes }
+    }
+
+    /// Unpack the 64 dims to signed bytes (sign-extended i4, range `[−8, 7]`).
+    pub fn unpack(&self) -> [i8; 64] {
+        let mut out = [0i8; 64];
+        let mut k = 0;
+        while k < 32 {
+            let b = self.bytes[k];
+            out[2 * k] = sext4(b & 0x0F);
+            out[2 * k + 1] = sext4(b >> 4);
+            k += 1;
+        }
+        out
     }
 }
 
@@ -208,5 +286,94 @@ mod tests {
         assert_eq!(count(Operation), 8);
         assert_eq!(count(Presence), 4);
         assert_eq!(count(Meta), 4);
+    }
+
+    // ---- A3: the signed-i4 CAM codec (I4x32 / I4x64) ----
+
+    #[test]
+    fn pack_unpack_round_trips_every_dim() {
+        let mut v = [0i8; 32];
+        for (d, slot) in v.iter_mut().enumerate() {
+            *slot = ((d as i8) % 15) - 7; // distinct, in [−7, 7]
+        }
+        assert_eq!(I4x32::pack(&v).unpack(), v);
+    }
+
+    #[test]
+    fn pack_unpack_full_signed_range() {
+        for val in -8..=7i8 {
+            let v = [val; 32];
+            assert_eq!(I4x32::pack(&v).unpack(), v, "value {val} must round-trip");
+        }
+    }
+
+    #[test]
+    fn pack_saturates_out_of_range() {
+        assert_eq!(I4x32::pack(&[100i8; 32]).unpack(), [7i8; 32]);
+        assert_eq!(I4x32::pack(&[-100i8; 32]).unpack(), [-8i8; 32]);
+        assert_eq!(I4x32::pack(&[8i8; 32]).unpack(), [7i8; 32]); // just outside +
+        assert_eq!(I4x32::pack(&[-9i8; 32]).unpack(), [-8i8; 32]); // just outside −
+    }
+
+    #[test]
+    fn encoding_is_twos_complement_not_offset_binary() {
+        // Absolute-bit assertions — the ONLY guard that catches an offset-binary codec
+        // (pack∘unpack round-trips under either). Two's-complement: −8→0x8, −1→0xF,
+        // +7→0x7, 0→0x0. Offset-binary would give −8→0x0, 0→0x8 — caught here.
+        let mut v = [0i8; 32];
+        v[0] = -8;
+        assert_eq!(I4x32::pack(&v).bytes[0] & 0x0F, 0x8);
+        v[0] = -1;
+        assert_eq!(I4x32::pack(&v).bytes[0] & 0x0F, 0xF);
+        v[0] = 7;
+        assert_eq!(I4x32::pack(&v).bytes[0] & 0x0F, 0x7);
+        v[0] = 0;
+        assert_eq!(I4x32::pack(&v).bytes[0] & 0x0F, 0x0);
+    }
+
+    #[test]
+    fn dim_order_even_low_odd_high() {
+        let mut v = [0i8; 32];
+        v[0] = 1; // even dim → low nibble
+        v[1] = 2; // odd dim  → high nibble
+        assert_eq!(I4x32::pack(&v).bytes[0], 0x21);
+    }
+
+    #[test]
+    fn adjacent_dims_are_isolated() {
+        // Setting dim 2k must not perturb dim 2k+1 (shared byte) — the bit-boundary
+        // discipline (I-LEGACY-API-FEATURE-GATED).
+        let mut v = [0i8; 32];
+        v[4] = -8;
+        let out = I4x32::pack(&v).unpack();
+        for (d, &x) in out.iter().enumerate() {
+            let want = if d == 4 { -8 } else { 0 };
+            assert_eq!(x, want, "dim {d} must be {want}");
+        }
+    }
+
+    #[test]
+    fn zero_is_all_neutral() {
+        assert_eq!(I4x32::ZERO.unpack(), [0i8; 32]);
+        assert_eq!(I4x32::pack(&[0i8; 32]), I4x32::ZERO);
+    }
+
+    #[test]
+    fn extremes_round_trip_all_dims() {
+        assert_eq!(I4x32::pack(&[-8i8; 32]).unpack(), [-8i8; 32]);
+        assert_eq!(I4x32::pack(&[7i8; 32]).unpack(), [7i8; 32]);
+    }
+
+    #[test]
+    fn i4x64_layout_and_round_trip() {
+        assert_eq!(core::mem::size_of::<I4x64>(), 32);
+        assert_eq!(core::mem::align_of::<I4x64>(), 16);
+        let mut v = [0i8; 64];
+        for (d, slot) in v.iter_mut().enumerate() {
+            *slot = ((d as i8) % 15) - 7;
+        }
+        assert_eq!(I4x64::pack(&v).unpack(), v);
+        assert_eq!(I4x64::pack(&[100i8; 64]).unpack(), [7i8; 64]);
+        assert_eq!(I4x64::ZERO.unpack(), [0i8; 64]);
     }
 }

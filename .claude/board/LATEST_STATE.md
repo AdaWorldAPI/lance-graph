@@ -10,6 +10,8 @@
 
 ---
 
+> **2026-06-01 — shipped (autoattended)** (D-A3): `lance_graph_contract::atoms` — `I4x32::pack`/`unpack` implemented (the 2 `todo!()`s gone) + new `I4x64` (256-bit / 64 signed-i4 dims, `repr(C, align(16))`, 32 B) + private `sext4`. Two's-complement signed-i4 nibble codec (byte-compatible with `QualiaI4_16D` + the `CausalEdge64` mantissa), sign-agnostic (caller pre-scales). The carrier is a deterministic **CAM address** + sparse-intensity "smell" — NO vector search, no float; the `{instance,reference}` dual is rejected ("64" = 64 poles). Contract lib **562 green** (+9), offline, zero new deps. The bipolar `−introspection..+exploration` pole semantics + asymmetric scaling ride the caller's pre-scale (A4). Plan `.claude/plans/a3-carrier-v1.md`; doctrine `.claude/knowledge/ephemeral-warm-cold-lifecycle.md`.
+>
 > **2026-06-01 — PR-in-flight (autoattended)** (D-EW64-2): `lance_graph_contract::episodic_edges::EpisodicEdges64::{promote, strongest}` — MRU "promote" strengthens an edge to slot 0 (the hot / most-immediate position); fire→front, un-refired ages toward slot 3 and evicts to the cold connectome; **slot order IS the strength ranking** (no per-edge weight stored — the co-addressed `CausalEdge64` plasticity carries the Hebbian weight, recency is the slot index). Realizes `E-EW64-STRENGTH-IS-CE64-PLASTICITY` (the user's "stronger immediate edges"). Zero-dep; contract lib 533 green (+5), default clippy clean, episodic_edges.rs pedantic+nursery clean. The surreal-LIVE "wingman" that drives `promote` stays GATED on OQ-11.6 (LanceDB-LIVE fallback exists) — this is the substrate-agnostic hot-tier mechanism it calls.
 
 ---

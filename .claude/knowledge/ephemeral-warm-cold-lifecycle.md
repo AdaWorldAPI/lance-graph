@@ -167,3 +167,13 @@ addressing layer. The SPO term-palette is shared per-family, so cold archetype-l
   cache (C6 is "offline after one fetch" or `[patch]` to `/home/user/ractor`);
   `PlanStep`→`CollapseGateEmission` (the real baton type); the replay **timestamp** leak (the
   audit merkle root hashes `SystemTime::now()` — make it a captured input).
+
+---
+
+## Clarification (jan, 2026-06-01) — the carrier is a CAM address, not a similarity vector
+
+**No vector search.** `I4-32D`/`I4-64D` is a deterministic **N×CAM address** (128/256-bit) whose sparse non-zero **signed** dims are the intensity "smell". `D` = signed **Dimensions** (32 → 64 poles; 64 → 128 poles); each dim is a bipolar axis (sign = pole, e.g. −introspection..+exploration). There is **no `{instance, reference}` dual** ("64" was 64 poles, not lanes). The ONLY fuzzy step in the whole stack is a coarse "this smells like odoo → financial OGIT" route; everything else — including the A4 resolver — is **CAM addressing**, not i4-distance nearest-template search. The hot path is integer CAM addressing end to end; float/similarity is the coarse upstream smell only.
+
+**Range:** the carrier stores signed i4 `[−8,7]` (two's-complement, byte-compatible with the i4 substrate). Any asymmetric bipolar mapping (`−7..+8` style) is the **caller's pre-scale**, never the carrier's storage.
+
+A3 shipped this carrier (`I4x32`/`I4x64`); see `.claude/plans/a3-carrier-v1.md` § SHIPPED.
