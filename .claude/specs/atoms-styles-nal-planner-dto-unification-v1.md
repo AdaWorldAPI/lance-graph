@@ -142,3 +142,29 @@ The unification sits inside a 4-layer stack the DeepNSM grammar templates trigge
 4. **Meta-aware thinking — the awareness chain.** The recursive meta layer that chains meta-reasoning over the **episodic basins (EW64)** + the proposed facts. It is **addressable via the rung A2 just wired**: `RungLevel::{Meta=7, Recursive=8, Transcendent=9}` are the meta-aware rungs; `MetaWord.awareness(4b)` + `MetaSummary{meta_confidence, brier, should_admit_ignorance}` (cognitive_shader) track the per-step meta-cognitive state; the atoms' **Meta** family + the `transcend`/`model_other` Operation lanes carry it. The awareness chain reads the episodic basin, meta-reasons over the facts, and feeds back down to bias the reasoning — **`reasoning ↔ representation ↔ meta-aware` is bidirectional.**
 
 **Consequence:** the `(style, rung, rule)` triple spans the whole stack — `style`+`rule` proposed by the grammar (layer 1), `rung` running from `Surface` (grammar object-level) up to `Transcendent` (meta-aware, layer 4). **A2's `rung` is the meta-aware handle**; the grammar sets the initial intent, the awareness chain elevates the rung as it reflects. This is why `rung` belongs on the planner DTO, not only the shader dispatch.
+
+## 13. THE DREAM — the closed self-driving loop (jan's north star)
+
+> nars resolution → syllogism resolution → mailbox orchestration in surrealdb kanban; AND surrealdb → active dispatch + kanban + Rubicon resolve on a meta level; producing **epiphanies, facts, and high signal separation**.
+
+```text
+facts proposer (DeepNSM grammar, §12.1)
+  → NARS resolution (micro-truth)
+  → syllogism resolution (Figure::syllogize, the capstone)        [reasoning]
+  → representation: CausalEdge64/EW64 → vart radix                [the LE-byte connectome]
+  → mailbox orchestration (ractor) driven by the surreal/vart Rubicon KANBAN
+       ▲                                                            │
+       └── surrealdb ACTIVE: LIVE dispatch + VersionScheduler →     ▼
+           KanbanMove + Rubicon phase-resolve, ON A META LEVEL  ────┘   (E-SUBSTRATE-IS-THE-SCHEDULER)
+  ⇒ PRODUCES:  epiphanies · facts · high-signal separation  ──(feed back as new facts/episodic basins)──┐
+       └─────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **"mailbox orchestration in surrealdb kanban"** = **C6** (ractor mailboxes) dispatched by **C7** (the surreal/vart `VersionScheduler` → `KanbanMove`; the Rubicon `NextPhaseScheduler`: Planning→CognitiveWork→Evaluation→Commit, Libet anchor −550 ms). **vart's version-ticks ARE the kanban clock.**
+- **"surrealdb → active dispatch … on a meta level"** = surreal is the ACTIVE pilot, not passive storage: LIVE queries over vart versions fire the next dispatch; the Rubicon resolve runs at the awareness/meta level (rung `Meta/Recursive/Transcendent` + the §12.4 awareness chain). "Propose, don't dispose" — surreal proposes the move, the ractor owner commits it.
+- **"epiphanies · facts · high-signal separation"** = the meta-aware output:
+  - **facts** = validated SPO (the English-fact landing that survives resolution).
+  - **high-signal separation** = the meta discriminator — `MetaSummary{meta_confidence, brier, should_admit_ignorance}` + the research-council ADOPT items (SemDiD → `head2head::WinnerCriterion::Repulsion`; EW64 novelty-gated admission; head2head winner-select) separating high-signal arcs from noise.
+  - **epiphanies** = the highest-signal meta-insights the loop crystallizes — the substrate **writing its own `EPIPHANIES`** (the board this session maintains), closing the loop: a substrate that produces epiphanies about itself.
+
+**The path to the dream IS the slice sequence:** A (the `(style,rung,rule)`+edge artifact) → C6 (ractor dispatch of it) → C7 (surreal/vart active Rubicon kanban + the meta-level signal separation). The head2head/novelty-gate (research council) is the signal-separation operator; the awareness-chain rung is the meta level. No rewrite — these slices close the loop.
