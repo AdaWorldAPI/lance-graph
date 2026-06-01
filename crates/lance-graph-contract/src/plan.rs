@@ -38,6 +38,10 @@ pub struct PlanResult {
     pub free_will_modifier: f64,
     /// Compass score (if assessed).
     pub compass_score: Option<f64>,
+    /// Emitted connectome edges — little-endian `u64` words
+    /// (`CausalEdge64` / `EpisodicEdges64`), the radix key the vart/surreal
+    /// seam persists. Empty until the collapse gate populates it.
+    pub emitted_edges: Vec<u64>,
 }
 
 /// Query features detected during parsing.

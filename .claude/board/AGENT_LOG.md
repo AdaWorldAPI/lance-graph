@@ -1,3 +1,9 @@
+## [Main thread / Opus, autoattended] A6 — PlanResult.emitted_edges (the vart-seam persist surface); #450 MERGED
+
+**Branch:** claude/jolly-cori-clnf9 (synced to merged main 91e9ec7). **#450 MERGED** → main (syllogism capstone + spec §0–14 + vart + A1 + A2 + the bridge rung-fix). **A6:** added `pub emitted_edges: Vec<u64>` (LE `CausalEdge64`/`EpisodicEdges64` words — the radix key C7 persists) to BOTH `PlanResult` structs (planner `lib.rs:99` + contract `plan.rs:30`); swept ALL construction sites workspace-wide first (the A2 lesson) → 4 planner sites (api.rs:183, lib.rs:197/234/291) populated `Vec::new()`; contract PlanResult unconstructed (0 sites). Planner+contract build offline; contract 553 tests green (+3 A1). Empty-by-default; the collapse gate populates it (later wire). Board: LATEST_STATE #450 row + this entry; PR_ARC #450 entry owed. Next: A3 (I4x64 carrier).
+
+---
+
 ## [Main thread / Opus, autoattended] 5-agent council reviewed the NAL syllogism capstone → SOUND kernel, integration roadmap spec'd
 
 **Branch:** claude/jolly-cori-clnf9. Council R1–R5 (Opus, full-file reads, E-READ-NOT-GREP). **R1** NAL-correct (figures/rules/premise-orders byte-match canonical OpenNARS; omitted Comparison/Analogy intentional — need `<->` copula CE64 can't carry). **R2** firewall+layer SOUND; the 3 truth-fns verified byte-identical to BOTH ndarray::hpc::nars AND forward(). **R3** SOUND + applied doc fix (predicate is a *typed placeholder*; compose_p won't synthesize the induced/abduced relation). **R4** SOUND + applied doc fix (EW64 fold must be **slot-0-anchored**, not a blind left-fold that None-cascades; EdgeRef→CE64 must honor family via OGIT class + 1-based local). **R5** FIX-NEEDED *at integration only* — kernel sound, but zero callers; the capstone (3-path glue / rung elevation / cranelift↔elixir) is unwired.

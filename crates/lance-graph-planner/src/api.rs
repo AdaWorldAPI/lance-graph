@@ -187,6 +187,7 @@ impl Planner {
             strategies_used: strategy_names,
             free_will_modifier: 1.0,
             compass_score: None,
+            emitted_edges: Vec::new(),
         })
     }
 
