@@ -133,6 +133,7 @@ impl OrchestrationBridge for CypherBridge {
             inference_type: InferenceType::Deduction,
             strategy: lance_graph_contract::nars::QueryStrategy::CamExact,
             semiring: lance_graph_contract::nars::SemiringChoice::HammingMin,
+            rung: lance_graph_contract::cognitive_shader::RungLevel::Surface,
             free_will_modifier: 1.0,
             exploratory: false,
         }
