@@ -78,3 +78,18 @@ It is DISTINCT from `ExecTarget::Elixir` (the even-colder external `.ex` source 
 - **`Elixir`** — emit `.ex` source, external cold-path, optional (never executes in the north-star runtime).
 
 The hot reasoning path stays integer/deterministic regardless of which lowering backs it — the cold compile is a *performance* substitution, not a semantic one (replay-safe: same table → same kernel → same `CausalEdge64`). This refines, not changes, WD-6: ractor is still the only runtime; JITSon/cranelift is the cold-compile *of* the in-process kernels, gated with the rest of the JIT codebook in **A3.5**.
+
+---
+
+## GATE RATIFICATION (jan, 2026-06-01) + the process doctrine
+
+**Gates confirmed:**
+- **G-CODEBOOK ✅** — the single shared 256-entry palette codebook is ratified: the WD-9 proposer projection (4096→256) and the WD-2 OGIT resolver address into the **same** codebook. The proposer and resolver must not fork.
+- **A3.5 ✅ deferred** — `StyleRegistry::register_recipe` + the JITSon/`elixir_clause` emitters are their own later slice (reopens the Cranelift fork surface). The A3→A4 attention/resolution path does NOT wait on it.
+- **surreal BLOCKED(C) — coordinate supplied:** fork = **https://github.com/AdaWorldAPI/surrealdb** (`features=["kv-lance"]`). Records the BLOCKED(C) coordinate; full offline-build unblock still needs the branch/rev (+ likely vendoring like vart). Per R3, the WD-4 loop ships **now** against `LanceVersionWatcher` regardless — surreal LIVE is the later swap.
+- **GoBD hash — deferred (future idea):** keep FNV-1a (tamper-evident, cross-platform deterministic). Revisit BLAKE3/SHA-256-behind-a-flag only if a regulator demands crypto non-repudiation.
+
+**PROCESS DOCTRINE (standing, per jan):** every plan is sandwiched —
+1. **5-agent RESEARCH council BEFORE planning** (fan-out exploration → informs the plan; the R1–R5 council served this).
+2. **3× BRUTALLY-HONEST council AFTER planning** (adversarial red-team → must clear before execution).
+This is now the default rigor for any non-trivial slice. "Keeps it airtight."
