@@ -1,3 +1,21 @@
+## 2026-05-31 — E-EW64-STRENGTH-IS-CE64-PLASTICITY — EW64's "stronger immediate edges" need no new field (strength = co-addressed CE64 plasticity + MRU slot-order); the surreal LIVE wingman is the designed orchestrator but GATED + optional
+
+**Status:** FINDING (design resolution, register-lazy). User-stated 2026-05-31 ("episodicwitness64 needs the stronger immediate edges; wingman orchestration in surrealdb in same substrate is an option"). Resolves the strength gap in `EpisodicEdges64`; weighs the surreal-same-substrate option. Feeds the queued spec `episodic-witness64-ce64-prefetch.md`.
+
+**The gap (grounded):** `EpisodicEdges64` = 4×`EdgeRef{family:u8, local:u16}` (`episodic_edges.rs`) — NO strength / weight / recency field. "Stronger immediate edges" has no home today.
+
+**The register-lazy resolution (no 16-bit EdgeRef change):** EW64 already **shares CE64 low-40 bits (co-address)** — each EW64 edge co-addresses a `CausalEdge64` whose **plasticity** (`high_heel` W15 `0=frozen..3=hot`; v2 plasticity[2]) IS the edge strength. Two complementary orderings, both free:
+- **strength = co-addressed CE64 plasticity** — the Hebbian weight is already there; EW64 inherits it by co-address.
+- **the 4 slots = an MRU hot set** — slot 0 = strongest/most-immediate; fire → promote to slot 0 (strengthen); age → demote → evict slot 3 to the cold connectome. Slot ORDER is the ranking. No new field.
+
+**The wingman = the surreal LIVE scheduler (already `E-SUBSTRATE-IS-THE-SCHEDULER`):** witness fires → Lance append → surreal LIVE → promote the EW64 edge + prefetch the next into the SoA; the mailbox runs no planner loop. "Same substrate" = SurrealDB holds the **cold connectome** (all edges as graph RELATE + strength/recency) AND orchestrates the hot EW64 refresh (LIVE). The **hot 4-edge EW64 stays in the SoA** (resident, deterministic, zero-copy); SurrealDB is the cold+reactive tier, never the hot compute.
+
+**The option, weighed:** surreal-same-substrate is the DESIGNED goal and the right fit for cold+wingman — but GATED on `surreal_container` (OQ-11.6: fork dep + Lance 6 pin) and OPTIONAL: the design is substrate-free, so a **LanceDB-LIVE trigger is the fallback** (surreal is the goal, not a dependency). Adopting surreal is a free upgrade when OQ-11.6 clears, not a blocker.
+
+**Honest state + the unblocked next:** this is the `E-ARIGRAPH-IS-AN-ISLAND` gap — EW64/`SpoWitness64` = 0 code symbols; the Lance→surreal→kanban subscription unbuilt; `HotWitness` = `todo!()`. The surreal side is blocked (OQ-11.6). The UNBLOCKED, firewall-clean, offline-testable next = the **contract-side EW64 strength/ordering atom**: the hot-4 MRU semantics + CE64-plasticity-mirror strength on `EpisodicEdges64` (no fork), deferring the surreal wingman to wire when OQ-11.6 clears. **Firewall:** EW64 stores opaque `(family,local)` + co-addressed CE64; surreal would store opaque handles + strength — never COCA. Cross-ref: `E-SUBSTRATE-IS-THE-SCHEDULER`, `E-EW64-IS-PREDICTIVE-PREFETCH`, `E-PLANNING-IS-WHITE-MATTER`, `E-ARIGRAPH-IS-AN-ISLAND`, `episodic-witness64-ce64-prefetch.md` (queued spec), OQ-11.6.
+
+---
+
 ## 2026-05-31 — E-PLANNING-IS-WHITE-MATTER — the 64k mailboxes are GREY matter (compute); planning lives in the WHITE matter (the CE64/EW64 plasticity connectome), not in OTP/BEAM scheduling
 
 **Status:** FINDING (architecture reframe; unifies existing Hebbian/plasticity findings under the grey/white lens — the *mechanisms* are already on the board, the *framing* of planning is the new part). User-stated 2026-05-31 ("it doesn't make sense to have 64k OTP BEAM Erlang multithreading when you don't recognize the potential as grey vs white matter and BNN what fires together wires together"). Extends the language-network map (`E-ARCUATE-CONDUCTION`) into the cognitive substrate. Answers: "what can the mailbox SoA do about planning."

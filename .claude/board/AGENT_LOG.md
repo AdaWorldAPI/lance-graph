@@ -1,3 +1,15 @@
+## [Main thread / Opus] EW64 stronger-immediate-edges resolution + surreal-wingman weigh-in (E-EW64-STRENGTH-IS-CE64-PLASTICITY)
+
+**Branch:** claude/jolly-cori-clnf9. Design-only check (no code) per user floating the surreal-substrate option + "EW64 needs stronger immediate edges."
+
+**Resolution:** EW64 `EdgeRef{family,local}` has NO strength field — but needs none. Strength = the co-addressed `CausalEdge64` plasticity (W15 0=frozen..3=hot; EW64 shares CE64 low-40 bits); the 4 slots = an MRU hot set (slot 0 strongest, fire→promote, age→evict to cold). Register-lazy, no 16-bit change.
+
+**Surreal wingman:** = the EXISTING `E-SUBSTRATE-IS-THE-SCHEDULER` (surreal LIVE over the version arc fires the promote/prefetch back into the mailbox; same substrate holds the cold connectome + orchestration). GATED on OQ-11.6 (surreal_container fork) but OPTIONAL — LanceDB-LIVE is the substrate-free fallback. Hot 4-edge EW64 stays in the SoA (deterministic); surreal is cold+reactive only.
+
+**Honest:** E-ARIGRAPH-IS-AN-ISLAND gap — EW64 = 0 code symbols, Lance→surreal→kanban unbuilt, HotWitness = todo!(). Unblocked next = contract-side EW64 strength/MRU atom (no fork, offline, firewall-clean); surreal wingman deferred to OQ-11.6. Feeds queued spec episodic-witness64-ce64-prefetch.md.
+
+---
+
 ## [Main thread / Opus] check (a): planning is white matter — grey mailboxes vs white connectome (E-PLANNING-IS-WHITE-MATTER)
 
 **Branch:** claude/jolly-cori-clnf9. Design-only check (no code) per user "check about (a)". **coexist** confirmed (512-bit ContextWindow internal + arcuate cross-boundary; wiring queued behind this check). #446 merged (LATEST_STATE/PR_ARC sweep + the few CodeRabbit comments deferred per "stay on track" — can sweep on request).
