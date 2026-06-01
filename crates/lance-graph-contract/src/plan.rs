@@ -4,6 +4,7 @@
 //! consumers (ladybug-rs, n8n-rs) call.
 
 use crate::mul::{GateDecision, MulAssessment, SituationInput};
+use crate::cognitive_shader::RungLevel;
 use crate::nars::{InferenceType, SemiringChoice};
 use crate::thinking::{FieldModulation, ThinkingStyle};
 
@@ -18,6 +19,8 @@ pub struct ThinkingContext {
     pub inference_type: InferenceType,
     pub strategy: crate::nars::QueryStrategy,
     pub semiring: SemiringChoice,
+    /// Semantic rung — depth of causation (0..9); the Rung atom family.
+    pub rung: RungLevel,
     pub free_will_modifier: f64,
     pub exploratory: bool,
 }

@@ -23,6 +23,7 @@ pub use style::{FieldModulation, ThinkingCluster, ThinkingStyle};
 
 use crate::mul::MulAssessment;
 use crate::plan::PlannerConfig;
+use lance_graph_contract::cognitive_shader::RungLevel;
 
 /// Complete thinking context produced by orchestration.
 /// This is what the query planner receives as input alongside the query.
@@ -40,6 +41,8 @@ pub struct ThinkingContext {
     pub semiring: SemiringChoice,
     /// Current sigma chain stage.
     pub sigma_stage: SigmaStage,
+    /// Semantic rung — depth of causation (0..9); the Rung atom family.
+    pub rung: RungLevel,
     /// Free will modifier (passed from MUL).
     pub free_will_modifier: f64,
     /// Whether we're in exploratory mode (from compass).
@@ -80,6 +83,7 @@ pub fn orchestrate(query: &str, mul: &MulAssessment, _config: &PlannerConfig) ->
         strategy,
         semiring,
         sigma_stage,
+        rung: RungLevel::Surface,
         free_will_modifier: mul.free_will_modifier,
         exploratory: false,
     }

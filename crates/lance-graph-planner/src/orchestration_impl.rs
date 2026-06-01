@@ -148,6 +148,7 @@ fn resolve_thinking_minimal(
             InferenceType::Revision | InferenceType::Synthesis => SemiringChoice::NarsTruth,
             _ => SemiringChoice::Boolean,
         },
+        rung: lance_graph_contract::cognitive_shader::RungLevel::Surface,
         free_will_modifier: 1.0,
         exploratory: false,
     }
@@ -175,6 +176,7 @@ fn thinking_to_contract(p: &crate::thinking::ThinkingContext) -> ContractThinkin
             _ => QueryStrategy::CamExact,
         },
         semiring: SemiringChoice::HammingMin,
+        rung: p.rung,
         free_will_modifier: p.free_will_modifier,
         exploratory: p.exploratory,
     }
