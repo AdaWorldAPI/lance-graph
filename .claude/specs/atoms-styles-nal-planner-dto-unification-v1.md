@@ -99,3 +99,8 @@ How it lands the architecture concretely:
 - **Immutable snapshot = lock-free grey-matter read.** A ractor mailbox actor reads a vart snapshot of the connectome with zero locking (structural sharing); the single white-matter writer commits a new version. This satisfies the data-flow rule ("no `&mut self` during compute; caches built once / interior-mutable") for free.
 - **`DemotionSink` → `vart.insert(key, edge)`.** A demoted EW64 `EdgeRef` resolves to its connectome word and inserts into the vart cold tier under a new version; re-prefetch = a prefix/range scan of the basin (`E-EW64-IS-PREDICTIVE-PREFETCH`).
 - Under surrealdb this rides the existing `kv-mem`/`kvs/lance` path (vart memtable over a Lance append-only WAL) — so C7 unblocks the BLOCKED(C) skeleton by adopting the surreal-native store rather than inventing one.
+
+## 8. DECISION LOG (jan, 2026-06-01)
+
+- **32-vs-33 carrier → RIDE TWO i4×32 HALVES (64 lanes).** The `I4x32` carrier becomes two 16-byte words (64 i4 lanes); the 33 atoms occupy lanes 0..33 with 31 spare for future families. No trimming, no out-of-band lane, room to grow. This UNBLOCKS `I4x32::pack/unpack` and all of `recipe.rs`. (Action B5 is now unblocked; the carrier type is a 2-word struct — name TBD by the plan, e.g. `I4x64`/`StyleVec64`.)
+- **Drive ALL THREE threads** through the standard pipeline: specs → agents → review-plan → run (/// draft → review → fix → PR → subscribe → fix → repeat). Dependency order: **A (offline streamline foundation) → C6 (ractor seam) → C7 (vart/surreal seam)**; A unblocks both seams.
