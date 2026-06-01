@@ -1,3 +1,11 @@
+## [Main thread / Opus, autoattended] PR #447 MERGED — D-EW64-2 + white-matter findings landed
+
+**#447 merged → main** (EpisodicEdges64::{promote, strongest} MRU hot-tier + E-PLANNING-IS-WHITE-MATTER + E-EW64-STRENGTH-IS-CE64-PLASTICITY + MD001 fix). Loop iteration complete: drafted → Opus review (LAND, +2 coverage tests) → CodeRabbit (1 MD001, fixed) → CI green → merged. Session auto-unsubscribed. Branch synced onto main.
+
+**Loop continues:** spawned a Plan agent to sequence the next UNBLOCKED, offline-testable, firewall-clean slices toward the EW64↔CE64 white-matter prefetch seam. Surreal-side stays GATED (OQ-11.6); no live-pipeline rewrites unattended. Next: execute slice 1 from the plan → review → PR.
+
+---
+
 ## [Main thread / Opus, autoattended] D-EW64-2 review (LAND) + 2 coverage tests added
 
 **Branch:** claude/jolly-cori-clnf9 | **PR #447.** Opus review agent verdict: **LAND** — no P0/P1. It re-implemented `promote` and brute-forced all 0-4-edge words × every promote target: zero invariant violations (strongest==e, no dups, eviction only on full+new, coldest==slot 3, idempotence, order preserved); packing/shift correct; firewall clean; API consistent. Applied its 2 recommended P2 coverage tests: `promote_cross_family_local_collision_is_not_deduped` (dedup discriminates on family) + `promote_chains_mru_aging_and_appends_fresh_on_non_full` (multi-promote MRU aging + fresh-on-non-full append). Left the 3rd P2 (pre-existing `to_slot` masking on contract-violating `EdgeRef` input) as out-of-scope (module-wide decision; only triggers on invalid input).
