@@ -113,3 +113,21 @@ Consequences for the plan (sharpens A3/A4):
 - **A3 (carrier):** `I4x32D = 2 × I4x32` (64 i4 lanes). The 33 atoms occupy lanes; the dual structure is the *address space* + the *inherited reference plane*. pack/unpack operate per plane.
 - **A4 (resolver):** `ThinkingStyle → I4x32D` is **not** a flat map — it RESOLVES to the nearest OGIT-inherited best-practice template. `recipe.rs::PersonaRecipe` IS a template = an inherited OGIT identity; the class supplies it by inheritance, the resolver snaps the instance to the *adjacent* one. This is the ADDRESS side of the firewall (integer i4 distance PROPOSES the neighborhood; the OGIT class ADDRESSES the identity). No similarity float on the hot path beyond the integer i4 distance; the template is pointed-to, not stored.
 - This makes `recipe.rs` (PersonaRecipe = best-practice template) the OGIT-inherited codebook the resolver addresses into — closing atoms ↔ styles ↔ OGIT ontology with one CAM resolver.
+
+## 10. OGIT class grants Class + bitmask-attention FOR FREE (jan refinement)
+
+When `I4x32D` resolves a step to its OGIT class, the class grants **two inherited things at zero compute cost**:
+1. **Class** = the best-practice thinking template (the i4×64 persona the resolver snaps to — §9).
+2. **presence bitmask = the attention mask** — `view_angle::ViewAngle`'s class-presence bitmask *doubles as* the attention mask (`D-VIEW-1`: "the class presence bitmask doubles as the attention mask"), i.e. `ShaderDispatch.layer_mask` / `MetaFilter.thinking_mask` over the 8 Pearl planes + the active atom lanes — **inherited from the class, never computed per-instance** (`I-VSA-IDENTITIES`).
+
+So resolving the OGIT class = **template + attention in one inherited lookup**. "Attention for free" = the class IS the attention, by inheritance. Sharpens **A4**: the resolver returns `(I4x64 template, attention bitmask)`; the bitmask gates which atom lanes / Pearl planes the step attends to (it is the same `layer_mask` the shader already dispatches on). No per-step attention computation — the ontology grants it.
+
+## 11. PLAN ACCEPTED + flag decisions (Slice A, offline-verified)
+
+Plan agent verified all 6 sub-slices build offline (contract 6.9s / causal-edge 0.77s / planner 5.09s). Corrections folded: 5 inference enums (planner `nars_engine::Inference` is the live one); `recipe.rs` is an orphan (blocks nothing); the InferenceType collapse bridges by **mantissa value** (`to_mantissa`/`from_mantissa`), NOT by a contract→causal-edge type dep (zero-dep preserved). Run order: **A2 → A1 → A6 → A3 → A4 → A5**, then C6, then C7.
+
+Flag decisions (jan's pipeline = "run plan"; adopt the plan's defensible proposals, document prominently for veto):
+- **A3 sign/scale:** ADOPT — carrier saturates only; per-group sign via `AtomGroup::is_signed` (ordinals unsigned; the 3 ± pairs deduce↔induce / authentic↔performance / exploration signed). Documented in the PR for sign-off.
+- **A1 `nars_engine::Inference` (9-variant):** keep as-is; only swap its causal-edge cast to the mantissa path (kills deprecation warnings). No information-losing collapse of Analogy/Resemblance.
+- **A5 single-match-invariance test:** HARD merge gate; `syllogize`/`syllogize_biased` share one private `conclude()` so truth math cannot drift.
+- **A3.5 (wire `recipe.rs` + `StyleRegistry::register_recipe`):** DEFERRED (reopens the Cranelift JIT surface — its own slice).
