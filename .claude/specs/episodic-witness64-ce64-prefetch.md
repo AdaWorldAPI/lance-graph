@@ -155,3 +155,24 @@ plasticity.rs}` + `high_heel.rs:168` (Phase B), `soa_view.rs:77` (Phase D),
 **③ Sense-candidate source → reuse the proposer layer; lowest priority.** `vocabulary` neighbors / `similarity` top-k is the right source AND already legal: sense-disambiguation is a **proposal, not an addressing act** (CAM-vs-ANN firewall — similarity lives in the proposer layer). So **don't build net-new** — reuse the proposer machinery (VSA16k role-candidates / aerial `TopKDistance`), emit sense-candidates as proposals carrying ⟨f,c⟩. Firewall: top-k runs upstream in comprehension; the substrate only ever sees the resolved opaque `(family, local)` edge, never the COCA/sense vectors. **Rank last** — least load-bearing for closing the loop.
 
 **Net for the build queue (pending @jan's pick):** ② `RawEdge` mantissa-only **type** and the ①-**compose** `strength` fn are both **buildable now** (contract, zero-dep, offline). The plasticity **WRITE** stays gated (causal-edge offline + I-LEGACY field-isolation tests). ③ is proposer-layer *reuse*, lowest priority. Decisions remain @jan's — these are grounded recommendations, not a resolution.
+
+---
+
+## 7. ① plasticity — GROUND TRUTH (read directly from `high_heel.rs`, correcting §3/§6) + feedback #2
+
+**Owned meta-flag:** ① was narrated from the board across three turns; now grounded by reading `high_heel.rs:135–187` directly. Confirmed:
+- `Heel::plasticity()` (`high_heel.rs:169`) = **W15 byte-3 u8 (`0=frozen..3=hot`) — ONE per-basin scalar** on the 128-byte `Heel`, governing a `HighHeelBGZ` container of **up to 240 edges** (`MAX_EDGES=240`). **Already shipped in the contract** (offline); `new()` defaults it to 3/hot.
+- `CausalEdge64 PlasticityState` = **per-edge, 3-bit per S/P/O plane**, in `causal-edge` (offline-gated + I-LEGACY minefield).
+
+**So it was never "Heel-scalar vs PlasticityState" (different objects) — ① is a GRANULARITY choice** for the Hebbian weight's home:
+
+| | granularity | where | status |
+|---|---|---|---|
+| **coarse** | per-**basin** u8 (1 weight / ≤240 edges) | `Heel.plasticity` | **shipped, offline, zero new freeze** |
+| **fine** | per-**edge per-plane** 3-bit | `CE64 PlasticityState` | offline-gated + v1/v2 minefield |
+
+**Synthesis (reconciles #1 + #2):** the weight need NOT be a new field — **two hardening signals already exist, both shipped + offline:** per-basin `Heel.plasticity` (coarse) × `EpisodicEdges64` MRU slot-order (#447, per-edge recency). **Compose** those — which *satisfies* #1's "don't store, compose" precisely *by reusing* #2's already-bought per-basin u8 + the shipped MRU. **Default coarse;** drop to per-edge-plane `PlasticityState` ONLY if S/P/O planes must harden **independently per edge** — the "frozen planes = clinical patterns" hint (`lib.rs`, flagged by #2; **unverified here** — the one thing to confirm before going fine). Going fine unprovenly = over-engineering + the minefield.
+
+**Sense-candidate (#2 sharpening of decision 3):** don't pick from the menu — the load-bearing question is **firewall placement** (prove the producer stays UPSTREAM of language→substrate, like `markov_soa`'s opaque-u16-ranks + injected distance), not which top-k. If forced: similarity-top-k computed **in DeepNSM** emitting already-resolved **opaque ranks** is the only obviously-leak-proof shape — but a design slice to ratify, not an overnight default.
+
+**RawEdge (decision 2):** both sessions agree — mantissa-only (i4, 46–49), structural one-writer-per-field. The **consensus item**; buildable on @jan's go.

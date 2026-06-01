@@ -1,3 +1,9 @@
+## [Main thread / Opus, autoattended] ① plasticity GROUNDED in high_heel.rs (owned the meta-flag); feedback #2 captured; HOLDING
+
+Read `high_heel.rs:135–187` directly (owning #2's meta-flag — ① was narrated from the board 3 turns running). CONFIRMED: `Heel::plasticity()` = a **per-basin u8** (0=frozen..3=hot), ONE per `HighHeelBGZ` (≤240 edges), **already shipped in contract** (offline). So ① is NOT "Heel-scalar vs PlasticityState" (different objects) — it's **GRANULARITY**: per-basin u8 (coarse, exists) vs per-edge-plane 3-bit (fine, gated). **Synthesis:** compose the EXISTING per-basin `Heel.plasticity` × the shipped `EpisodicEdges64` MRU slot-order — no new field (reconciles #1 "don't store" + #2 "u8 already bought"); default coarse, go per-plane only if S/P/O harden independently (clinical-patterns hint, unverified). #2 also: sense-candidate = a firewall-PLACEMENT question, not a menu pick; RawEdge mantissa-only = both-session consensus. Captured spec §7. Decisions remain @jan's — holding.
+
+---
+
 ## [Main thread / Opus, autoattended] other-session feedback #1 captured — 3 decisions grounded vs causal-edge/layout.rs; HOLDING for @jan
 
 **Captured** (spec §6, #449) session-#1's grounded resolutions (verified `causal-edge/src/layout.rs`: per-plane plasticity 50–52, mantissa i4 46–49, Heel = 128-byte container): **①** per-plane (50–52) NOT Heel scalar — and DON'T store a graded weight; compose strength from MRU-slot × signed-mantissa × per-plane (RISC, avoids drift). **②** `RawEdge` mantissa-only as a TYPE (structural one-writer-per-field, like `MailboxSoaView`), not a convention. **③** sense-candidates = reuse proposer layer (VSA16k/aerial `TopKDistance`) as ⟨f,c⟩ proposals, top-k upstream, substrate sees only resolved opaque edge; lowest priority.
