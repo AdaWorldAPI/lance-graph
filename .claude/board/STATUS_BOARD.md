@@ -10,7 +10,7 @@
 
 ---
 
-### D-EW64-2 — EpisodicEdges64 MRU promote (Hebbian hot-tier "stronger immediate edges")
+## D-EW64-2 — EpisodicEdges64 MRU promote (Hebbian hot-tier "stronger immediate edges")
 
 | D-id | deliverable | status | PR / evidence |
 |---|---|---|---|
