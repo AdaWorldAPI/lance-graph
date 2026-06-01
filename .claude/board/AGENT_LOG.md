@@ -1,3 +1,11 @@
+## [Main thread / Opus, autoattended] 5-agent council reviewed the NAL syllogism capstone → SOUND kernel, integration roadmap spec'd
+
+**Branch:** claude/jolly-cori-clnf9. Council R1–R5 (Opus, full-file reads, E-READ-NOT-GREP). **R1** NAL-correct (figures/rules/premise-orders byte-match canonical OpenNARS; omitted Comparison/Analogy intentional — need `<->` copula CE64 can't carry). **R2** firewall+layer SOUND; the 3 truth-fns verified byte-identical to BOTH ndarray::hpc::nars AND forward(). **R3** SOUND + applied doc fix (predicate is a *typed placeholder*; compose_p won't synthesize the induced/abduced relation). **R4** SOUND + applied doc fix (EW64 fold must be **slot-0-anchored**, not a blind left-fold that None-cascades; EdgeRef→CE64 must honor family via OGIT class + 1-based local). **R5** FIX-NEEDED *at integration only* — kernel sound, but zero callers; the capstone (3-path glue / rung elevation / cranelift↔elixir) is unwired.
+
+**Applied:** R3+R4 doc tightenings + 1 redundant-link + fmt of test code (syllogism.rs now 14 tests / clippy / fmt / rustdoc all clean). **Spec'd** the roadmap → `.claude/specs/nal-syllogism-capstone-v1.md`. Highest-leverage next step (R5 #3): promote `notation()` → `const FIGURE_RULES` table + dual `jit_template()` / `elixir_clause()` emitters — the literal "NAL notation and Elixir complete each other" (one table, two backends, offline codegen). Next: PR + subscribe.
+
+---
+
 ## [Main thread / Opus, autoattended] NAL syllogism FIGURE resolution hardwired on CausalEdge64 (the capstone)
 
 **Branch:** claude/jolly-cori-clnf9. **Tests:** `causal-edge` syllogism 14 green (v2 default) / 13 (v1, the mantissa test gated); new file clippy- + fmt-clean (the 15 pre-existing `edge.rs` -D-warnings + fmt diffs are the documented v1/v2 mantissa minefield — untouched). User steered: "hardwire syllogism resolution like SPO 2³ … using causaledge64, wiring EW64"; "NAL notation = missing capstone glueing 3 reasoning methods + 10-rung ladder + JITson/cranelift vs elixir"; "34+ opennars vocabulary just needs wiring."

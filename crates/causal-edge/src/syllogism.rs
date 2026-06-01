@@ -45,11 +45,24 @@
 //! # Wiring EW64
 //!
 //! The premises arrive as `EpisodicEdges64` (`EdgeRef` slots) from the hot
-//! episodic tier; the driver resolves each `EdgeRef` to its co-addressed
-//! `CausalEdge64` (basin row) and folds [`CausalEdge64::syllogize`] across the
-//! ≤4 hot edges — the relational/witness reasoning step. That resolution rides
-//! the driver (it needs the basin store); this module owns only the pure,
-//! zero-dep figure kernel.
+//! episodic tier. The driver (not this zero-dep kernel) resolves each
+//! `EdgeRef` to its co-addressed `CausalEdge64` basin row — a **two-stage**
+//! lookup that must honor the `EdgeRef` grammar: `family == 0` ⇒ the row's own
+//! (inherited) basin; `family ∈ 1..=15` ⇒ `class.cross_family_palette[family]`
+//! via the OGIT class (a naive `basin[local]` would conflate `cross(3,3)` with
+//! `intra(3)`); and `local` is **1-based** (`basin[local - 1]`). Resolution
+//! rides the driver because it needs the basin store + the OGIT class.
+//!
+//! **Pairing rule** (the relational/witness step): [`syllogize`] is *not*
+//! symmetric — `a.syllogize(b) ≠ b.syllogize(a)` (figure order plus the
+//! non-symmetric induction/abduction truth), so the fold is **slot-0-anchored**:
+//! the strongest / most-recently-fired edge (slot 0, the MRU head) is `self`,
+//! syllogized against each other hot edge — `hot[0].syllogize(hot[k])` for
+//! `k = 1..n` (≤3 conclusions). A blind left-fold is wrong: a conclusion's
+//! outer terms need not share a term with the next edge, so it would
+//! `None`-cascade and silently drop most reasoning.
+//!
+//! [`syllogize`]: CausalEdge64::syllogize
 
 use crate::edge::{CausalEdge64, InferenceType};
 use crate::pearl::CausalMask;
@@ -57,7 +70,7 @@ use crate::plasticity::PlasticityState;
 
 /// The NAL syllogistic figure — which term two SPO edges share.
 ///
-/// The hardwired analogue of [`CausalMask`](crate::pearl::CausalMask): a
+/// The hardwired analogue of [`CausalMask`]: a
 /// structural decomposition resolved by integer palette-index equality. Each
 /// figure pins one NARS rule (see [`Figure::rule`]) and one conclusion shape
 /// (see [`CausalEdge64::syllogize`]).
@@ -148,10 +161,15 @@ impl CausalEdge64 {
     ///
     /// The conclusion carries:
     /// - **SPO**: the two outer terms (the middle term `M` is consumed), per the
-    ///   figure table in the module docs. The predicate is carried from the
-    ///   premise that contributes the conclusion's subject; *relational*
-    ///   composition of the predicate palette is the complementary concern of
-    ///   [`CausalEdge64::forward`]'s `compose_p` table.
+    ///   figure table in the module docs. The predicate is a **typed placeholder**
+    ///   carried from the premise contributing the conclusion's subject — it is
+    ///   *not* the resolved relation. For the chain figures (Deduction) the true
+    ///   relation is the composition `p1∘p2`, supplied by
+    ///   [`CausalEdge64::forward`]'s `compose_p` table. For the shared-term
+    ///   figures (Induction / Abduction) the conclusion relation is a *newly
+    ///   induced / abduced* link that no current table composes — the carried
+    ///   predicate is provisional there, and a downstream consumer must treat it
+    ///   as unresolved (relation synthesis is a separate, later concern).
     /// - **truth**: the canonical NARS rule for the figure (Deduction /
     ///   Induction / Abduction), identical to `ndarray::hpc::nars` and to
     ///   `forward`'s inline math.
@@ -293,7 +311,7 @@ mod tests {
     fn figure_chain_rev_when_s1_eq_o2() {
         let a = edge(20, 1, 30, 200, 200); // M=20 -> 30
         let b = edge(10, 2, 20, 200, 200); // 10 -> M=20
-        // o1(30)!=s2(10); s1(20)==o2(20) ⇒ ChainRev.
+                                           // o1(30)!=s2(10); s1(20)==o2(20) ⇒ ChainRev.
         assert_eq!(a.figure(b), Some(Figure::ChainRev));
         assert_eq!(Figure::ChainRev.rule(), InferenceType::Deduction);
     }
@@ -369,8 +387,14 @@ mod tests {
         let a = edge(10, 1, 20, 230, 230);
         let ind = a.syllogize(edge(10, 2, 30, 230, 230)).unwrap();
         let abd = a.syllogize(edge(40, 2, 20, 230, 230)).unwrap();
-        assert!(ind.conclusion.confidence() < a.confidence(), "induction weak");
-        assert!(abd.conclusion.confidence() < a.confidence(), "abduction weak");
+        assert!(
+            ind.conclusion.confidence() < a.confidence(),
+            "induction weak"
+        );
+        assert!(
+            abd.conclusion.confidence() < a.confidence(),
+            "abduction weak"
+        );
     }
 
     #[test]
@@ -378,13 +402,29 @@ mod tests {
         // SPO premise ∧ PO premise ⇒ PO conclusion.
         #[allow(deprecated)]
         let a = CausalEdge64::pack(
-            10, 1, 20, 200, 200, CausalMask::SPO, 0,
-            InferenceType::Deduction, PlasticityState::ALL_HOT, 0,
+            10,
+            1,
+            20,
+            200,
+            200,
+            CausalMask::SPO,
+            0,
+            InferenceType::Deduction,
+            PlasticityState::ALL_HOT,
+            0,
         );
         #[allow(deprecated)]
         let b = CausalEdge64::pack(
-            20, 2, 30, 200, 200, CausalMask::PO, 0,
-            InferenceType::Deduction, PlasticityState::ALL_HOT, 0,
+            20,
+            2,
+            30,
+            200,
+            200,
+            CausalMask::PO,
+            0,
+            InferenceType::Deduction,
+            PlasticityState::ALL_HOT,
+            0,
         );
         let syl = a.syllogize(b).unwrap();
         assert_eq!(syl.conclusion.causal_mask(), CausalMask::PO);
