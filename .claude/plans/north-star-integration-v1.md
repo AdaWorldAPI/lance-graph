@@ -39,3 +39,31 @@ Reusable assets already present: `vart` (vendored `/home/user/vart`), `LanceVers
 - **R5 — Reasoning & grammar facts-proposer:** WD-9, plus the §3 mood/firewall sanity for WD-7.
 
 Each returns: per-WD **decision + rationale + concrete wiring (files/types) + risk/firewall note + offline-buildability**. Iron rules apply: read full files (`E-READ-NOT-GREP`), firewall (similarity proposes / CAM addresses), zero-dep contract, no Delta Lake on the subscription path.
+
+---
+
+## COUNCIL RESOLUTION (5-dev, 2026-06-01) — all 9 WD ironed out
+
+| WD | DECISION | The one new wire | Offline? |
+|---|---|---|---|
+| **WD-1** (R1) | **`I4x32D` = DUAL** `{instance: I4x32, reference: I4x32}` (64 lanes). 4-view **REJECTED** — O/G/I/T is the *business ViewAngle's* stakes question, never a carrier axis (firewall: "business is not an atom"). Confirms jan's §8. | `I4x32::pack/unpack` (un-`todo!()`) + `I4x32D`; unblocks `recipe.rs`. | ✅ |
+| **WD-2** (R1) | OGIT resolver = 2-stage CAM: i4 distance **PROPOSES** → OGIT `ClassView` **ADDRESSES**. `recipe.rs::PersonaRecipe` = the inherited template codebook (fills plane 1). **Attention bitmask = `class_view::FieldMask`, NOT `ViewAngle`** (ViewAngle is the 4-bit *selector*; `attention = class.view_schema(angle) & row.presence_bitmask`). | `ThinkingStyle→I4x32` bridge (A4). Gated tail: `StyleRegistry::register_recipe` (A3.5, reopens Cranelift). | ✅ (attention path shipped) |
+| **WD-3** (R2) | **4 vart trees** keyed by BE projection `[S,P,O,…tail]` (NOT `from(edge.0)`), value = frozen `to_le_bytes()`. Indexes: by-concept (primary) · by-rung · by-style·rule; **by-time is intrinsic MVCC**. Snapshot = **`Tree::clone()`** (no `Snapshot` type in the fork). | `project_be(edge)→FixedSizeKey<8>` + the 4-tree wrapper (vendored vart). | ✅ |
+| **WD-4** (R3) | The IN-loop adapter `drive_in_loop` owned by the supervisor: `WatchReceiver→DatasetVersion→on_version→KanbanMove→try_advance_phase`. **Delta Lake redundant** (vart clock + Lance `versions()` + SurrealDB LIVE). surreal BLOCKED(C) = fork-coords only; loop ships **now** against `LanceVersionWatcher`. | **`pub observed_version(&self)->u64`** on `WatchReceiver` — the single load-bearing edit. | ✅ (gated: real surreal LIVE) |
+| **WD-5** (R4) | ractor seam = one `ConsumerEnvelope::Plan(PlanStep)` arm + the `supervisor.rs:191` forward. **Belief = connectome/NARS-truth + EW64 column; Goal = `KanbanColumn` target** — BDI is a *reading* of the substrate, no new ractor state; batons = `CollapseGateEmission`. | the `Plan` arm + the forward (replace the `DispatchNotImplemented` stub). | ✅ |
+| **WD-6** (R4) | **`ractor` (Rust) IS the runtime** — mesh **and** OTP supervision/fault-tolerance/hot-load. **No BEAM/NIF/port/gRPC.** "Elixir" = the gen_server *idiom* (shipped: `ExecTarget::Elixir=3` tag + `recipe.rs` open/closed) + an **optional build-time `elixir_clause()` source-emitter** (emit, never execute, off the hot path). §13 dual-compile = one `FIGURE_RULES` table → 2 pure lowerings. A live BEAM would break replay/GoBD + offline. | (decision only — no runtime change). `elixir_clause()` rides A3.5. | ✅ |
+| **WD-7** (R2+R5) | **Keep the 4 `Figure` variants.** 64 moods = `figure(2b) × copula(2b) × temporal(2b)` **derived `u8` tag**, never truth math. **Literal 64-branch enum = firewall breach (R5).** Temporal source = structural chain-position. | `mood_tag(figure, copula, temporal)` (post-`syllogize`, reads existing fields). | ✅ |
+| **WD-8** (R3) | GoBD **4-of-6 already shipped** (`UnifiedAuditEvent` merkle chain + `verify_chain`/`audit-verify` + `LanceAuditSink` + vart/Lance immutability). **Determinism = replay = the firewall = the compliance moat** (validated; LLM tools structurally can't). | Missing *Aufbewahrung*: **G1** retention WORM-seal · **G2** `audit-export` GoBD-Z3 bundle · **G3** Verfahrens-hook. All additive. | ✅ |
+| **WD-9** (R5) | Wire the 3-stage relay (3-of-4 hops shipped via A1). Dual-view selector = `head2head` + a **new `WinnerCriterion::Repulsion`** (SemDiD, additive zero-dep); `margin` = the §14 tension → escalate. | **the 4096→256 palette projection** (driver fn: SpoTriple 12-bit rank → CausalEdge64 8-bit palette idx). | ✅ |
+
+### CROSS-CUTTING INVARIANT (R5 ↔ R1) — ratify
+**The 256-entry palette codebook is ONE.** The 4096→256 projection the DeepNSM proposer uses (WD-9) MUST be the *same* codebook the `I4x32D` OGIT resolver addresses (WD-2) — else the proposer and resolver fork. The WD-9 palette projection is lossy (4096→256): collisions are semantically-near (CAM nearest-centroid) and `syllogize` output is a *proposal* confirmed downstream (small `margin` → escalate), so the hazard is bounded — but the shared-codebook invariant is the guard.
+
+### RATIFICATION GATES (jan)
+- **G-CODEBOOK** — confirm the single shared 256-entry palette codebook (proposer projection == resolver codebook).
+- **A3.5 deferred** — `StyleRegistry::register_recipe` + `elixir_clause()` emitter (reopens the Cranelift JIT surface) is its own later slice; confirm.
+- **surreal BLOCKED(C)** — needs a human with fork access to supply the `surrealdb { git, branch, features=["kv-lance"] }` dep; not a design block.
+- **GoBD hash** — FNV-1a is tamper-*evident*, cross-platform-deterministic (by design); if a regulator demands crypto non-repudiation, swap `AuditMerkleRoot::chain` → BLAKE3/SHA-256 behind a feature flag (`canonical_bytes()` stays frozen).
+
+### UNBLOCKED RUN ORDER (all offline unless noted)
+**A3** (I4x32D carrier) → **A4** (resolver bridge + FieldMask attention) → **A5** (figure-bias + mood_tag) → **WD-9** (palette projection + `WinnerCriterion::Repulsion`) → **C6** (`ConsumerEnvelope::Plan` + forward) → **WD-4** (`observed_version()` + `drive_in_loop`) → **WD-3** (vart 4-tree store) → **WD-8** (G1/G2/G3 audit surfaces). Gated tail: **A3.5** (JIT codebook + elixir emitter), **surreal LIVE** (BLOCKED(C) fork-coords).
