@@ -120,6 +120,15 @@ impl NarsTruth {
     pub fn expectation(&self) -> f32 {
         self.confidence * (self.frequency - 0.5) + 0.5
     }
+
+    // NOTE: the syllogism truth-functions (deduction/induction/abduction/
+    // exemplification/comparison/analogy/resemblance) are NOT redefined here.
+    // The canonical, tested implementation is `nars_engine::nars_infer`
+    // (crate lance-graph-planner). This `NarsTruth` is the *proposer-side*
+    // (offline, float) frequency/confidence carrier; it intentionally exposes
+    // only revision (evidence fusion) + expectation. Wiring the named
+    // OpenNARS vocabulary (`cognitive_codebook::NarsInference`) into executable
+    // truth-functions happens in the engine — see EPIPHANIES `E-NARS-ONE-ENGINE`.
 }
 
 /// An edge in the exploration frontier.

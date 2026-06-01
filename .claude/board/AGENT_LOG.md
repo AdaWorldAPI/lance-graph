@@ -1,3 +1,27 @@
+## [Main thread / Opus, autoattended] 5-agent council reviewed the NAL syllogism capstone → SOUND kernel, integration roadmap spec'd
+
+**Branch:** claude/jolly-cori-clnf9. Council R1–R5 (Opus, full-file reads, E-READ-NOT-GREP). **R1** NAL-correct (figures/rules/premise-orders byte-match canonical OpenNARS; omitted Comparison/Analogy intentional — need `<->` copula CE64 can't carry). **R2** firewall+layer SOUND; the 3 truth-fns verified byte-identical to BOTH ndarray::hpc::nars AND forward(). **R3** SOUND + applied doc fix (predicate is a *typed placeholder*; compose_p won't synthesize the induced/abduced relation). **R4** SOUND + applied doc fix (EW64 fold must be **slot-0-anchored**, not a blind left-fold that None-cascades; EdgeRef→CE64 must honor family via OGIT class + 1-based local). **R5** FIX-NEEDED *at integration only* — kernel sound, but zero callers; the capstone (3-path glue / rung elevation / cranelift↔elixir) is unwired.
+
+**Applied:** R3+R4 doc tightenings + 1 redundant-link + fmt of test code (syllogism.rs now 14 tests / clippy / fmt / rustdoc all clean). **Spec'd** the roadmap → `.claude/specs/nal-syllogism-capstone-v1.md`. Highest-leverage next step (R5 #3): promote `notation()` → `const FIGURE_RULES` table + dual `jit_template()` / `elixir_clause()` emitters — the literal "NAL notation and Elixir complete each other" (one table, two backends, offline codegen). Next: PR + subscribe.
+
+---
+
+## [Main thread / Opus, autoattended] NAL syllogism FIGURE resolution hardwired on CausalEdge64 (the capstone)
+
+**Branch:** claude/jolly-cori-clnf9. **Tests:** `causal-edge` syllogism 14 green (v2 default) / 13 (v1, the mantissa test gated); new file clippy- + fmt-clean (the 15 pre-existing `edge.rs` -D-warnings + fmt diffs are the documented v1/v2 mantissa minefield — untouched). User steered: "hardwire syllogism resolution like SPO 2³ … using causaledge64, wiring EW64"; "NAL notation = missing capstone glueing 3 reasoning methods + 10-rung ladder + JITson/cranelift vs elixir"; "34+ opennars vocabulary just needs wiring."
+
+**Did:** new `causal-edge::syllogism` — `Figure{Chain,ChainRev,SharedSubject,SharedObject}` resolved by integer SPO-palette term-sharing (the Pearl-2³ analogue); `CausalEdge64::figure()`/`syllogize()` emit the conclusion edge (outer terms + canonical NARS truth + signed mantissa + AND mask). Grounded by full reads (E-READ-NOT-GREP): nars_engine, cognitive_codebook, ndarray::hpc::nars, atoms, cognitive_shader, episodic_edges, causal-edge edge/tables. **Reverted** the speculative 3rd-copy syllogisms in `contract::exploration::NarsTruth` (mislabeled ind⇄abd vs canonical). Next: PR + 5-agent council review; then (gated) EW64→CE64 wiring in the driver.
+
+---
+
+## [Main thread / Opus] 5-agent RESEARCH council — 8 semantics/embedding papers, firewall-filtered
+
+User: "use research council 5 agents [on 8 PDFs]; grep/sed/tail/head fragments forbidden; test the reading tools first." **Test caught a blocker:** the Read tool's PDF path needs poppler (absent) — every agent would have failed. Fixed: extracted PDFs→full-text `.txt` via pymupdf (pip), recovered an 8th that was a saved MHTML web page; verified Read works on `.txt`. THEN dispatched A1–A5 (Opus, read-only, **READ full text, never grep/head/tail**). All 5 returned full-read verdicts.
+
+**Result** (doc `research-council-semantics-papers-2026-06.md`, `E-RESEARCH-COUNCIL-PROPOSE-VALIDATE`): firewall cleanly filtered 8 LLM/float papers → 1 ADOPT-NOW (SemDiD→`head2head::WinnerCriterion::Repulsion`, cosine→Hamming), 3 integer validators (Legality / `⟨u,v⟩` / footprint), 1 shared novelty-gated-selection operator (head2head + EW64), 1 adversarial foundation-probe (Kozlowski: does hard-basin CAM-PQ discard entangled low-rank semantics?), 1 SKIP (segmentation = trap). The "PROPOSE/ADDRESS" doctrine was independently re-derived by 4/5 reviewers from 7 papers. Next: @jan picks the first build (SemDiD-adopt vs Kozlowski-probe vs Legality-validator).
+
+---
+
 ## [Main thread / Opus, autoattended] 5-agent dev council → D-ATOM-4/RawEdge shipped (① Heel-compose REFUTED, ② RawEdge built, ③ deferred)
 
 **Branch:** claude/jolly-cori-clnf9. **Cargo:** contract lib **550 green** (+5 counterfactual); default clippy clean. User: "use the 5 agent development council." Convened R1–R5 (Opus, read-only); consolidated + auto-resolved + built.

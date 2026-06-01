@@ -175,6 +175,7 @@ impl Planner {
                 &crate::thinking::NarsInferenceType::Deduction,
             ),
             sigma_stage: crate::thinking::sigma_chain::SigmaStage::Omega,
+            rung: lance_graph_contract::cognitive_shader::RungLevel::Surface,
             free_will_modifier: 1.0,
             exploratory: matches!(style.cluster(), ThinkingCluster::Divergent),
         };

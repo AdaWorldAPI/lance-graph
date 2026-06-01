@@ -590,6 +590,7 @@ mod tests {
                     inference_type,
                     strategy: QueryStrategy::CamExact,
                     semiring: SemiringChoice::Boolean,
+                    rung: lance_graph_contract::cognitive_shader::RungLevel::Surface,
                     free_will_modifier: 1.0,
                     exploratory: false,
                 }
