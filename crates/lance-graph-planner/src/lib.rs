@@ -109,6 +109,10 @@ pub struct PlanResult {
     pub free_will_modifier: f64,
     /// Compass score (if navigating unknown territory).
     pub compass_score: Option<f64>,
+    /// Emitted connectome edges — little-endian `u64` words
+    /// (`CausalEdge64` / `EpisodicEdges64`), the radix key the vart/surreal
+    /// seam (C7) persists. Empty until the collapse gate populates it.
+    pub emitted_edges: Vec<u64>,
 }
 
 impl PlannerAwareness {
@@ -201,6 +205,7 @@ impl PlannerAwareness {
                     strategies_used: strategy_names,
                     free_will_modifier,
                     compass_score: None,
+                    emitted_edges: Vec::new(),
                 })
             }
             GateDecision::Sandbox { reason } => Err(PlanError::GateBlocked { reason }),
@@ -238,6 +243,7 @@ impl PlannerAwareness {
                             strategies_used: strategy_names,
                             free_will_modifier: compass.modified_score,
                             compass_score: Some(compass.score),
+                            emitted_edges: Vec::new(),
                         })
                     }
                 }
@@ -295,6 +301,7 @@ impl PlannerAwareness {
             strategies_used: strategy_names,
             free_will_modifier: 1.0,
             compass_score: None,
+            emitted_edges: Vec::new(),
         })
     }
 }

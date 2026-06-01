@@ -1,3 +1,10 @@
+## 2026-06-01 — north-star-integration-v1 (the two-ViewAngle destination: business "Odoo-in-Rust × OGIT+DOLCE+GoBD" ∥ semantic cognitive-substrate §9–14; maps current→target + the 9 wiring decisions WD-1..WD-9 for the 5-dev council)
+
+**Status:** PROPOSAL / pre-council. **Plan file:** `.claude/plans/north-star-integration-v1.md`. **North star:** `.claude/north-star/README.md` (the 2 reference diagrams, textual capture; PNG slots open). Shipped: §3 capstone + A1 rule + A2 rung (#450), A6 emission surface (branch). The council irons WD-1 (I4x32D 2-halves vs 4-view OGIT O/G/I/T) · WD-2 (OGIT resolver) · WD-3 (vart key + indexes) · WD-4 (version subscription — **no Delta Lake**: vart+Lance-native+SurrealDB-LIVE) · WD-5 (ractor + Belief/Goal BDI) · WD-6 (**Rust core vs Elixir OTP/BEAM split** — the big one) · WD-7 (Figure 4→64 moods) · WD-8 (GoBD audit) · WD-9 (DeepNSM dual-view head2head). The determinism→GoBD thesis: the firewall IS the compliance guarantee.
+
+---
+
+
 ## 2026-05-31 — episodic-risc-spine-v1 (the converged episodic addressing spine: 3 lifecycle-separated structures — CAM/OGIT identity, Lance-version pseudo-radix index, CLAM ephemeral KV; EW64 episodic edges with a 4-bit inherited palette; bounded-horizon compression)
 
 **Status:** ACTIVE — contract slices shipped (D-EW64-1, D-VIEW-1; + VersionScheduler D-MBX-9-IN, head2head D-H2H-1); core/cold CI-gated. **Plan file:** `.claude/plans/episodic-risc-spine-v1.md`. **Finding:** EPIPHANIES E-EPISODIC-CLOSURE.

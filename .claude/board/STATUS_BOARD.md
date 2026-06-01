@@ -10,6 +10,10 @@
 
 ---
 
+## D-A3 — I4x32/I4x64 signed-i4 CAM codec (carrier `pack`/`unpack` + the 256-bit wide carrier)
+
+**Status:** Shipped (branch `claude/jolly-cori-clnf9`; contract lib **562 green**, offline). `I4x32::pack`/`unpack` (two's-complement signed-i4 nibble; even→low/odd→high; saturate `[−8,7]`; sign-agnostic) + new `I4x64` (256-bit / 64 signed dims) + private `sext4`. The carrier is a deterministic 32×/64× **CAM address** + sparse-intensity "smell" — NOT a similarity vector (no vector search, no float; the `{instance,reference}` dual REJECTED, "64" = 64 poles). 33 atoms → dims 0..32. Resolved the 3 stale BLOCKED notes. Plan `.claude/plans/a3-carrier-v1.md` (5-research + 3-brutal sandwich). Next: A4 (CAM-address resolver + `is_signed` + `AtomLane`/`LaneMask` newtypes).
+
 ## D-EW64-2 — EpisodicEdges64 MRU promote (Hebbian hot-tier "stronger immediate edges")
 
 | D-id | deliverable | status | PR / evidence |
