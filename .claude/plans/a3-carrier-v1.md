@@ -5,7 +5,9 @@
 > `.claude/knowledge/ephemeral-warm-cold-lifecycle.md`, spec §8–11. Branch
 > `claude/jolly-cori-clnf9`. **Next:** 3× brutally-honest red-team → fix → execute.
 
-## Scope (one line)
+> ⚠️ **§ SHIPPED (bottom) is the source of truth.** The Scope / Research-synthesis / Deliverables sections below are the *original pre-clarification plan* (dual `I4x32D`, `AtomLane`, `is_signed`, the `counterfactual.rs` flip). They were **superseded** by jan's clarification: the carrier is ONE signed-dim vector (`I4x32`/`I4x64`), the newtypes + flip are deferred to A4, `counterfactual.rs` is untouched.
+
+## Scope (one line) — HISTORICAL (pre-clarification)
 
 Implement `I4x32::pack`/`unpack` (the two `todo!()`s) **+** add `I4x32D` (dual carrier)
 **+** `AtomGroup::is_signed()` **+** the `AtomLane(u8)` newtype **+** delete the 4 stale

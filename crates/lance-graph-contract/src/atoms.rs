@@ -108,18 +108,21 @@ impl I4x32 {
         let mut k = 0;
         while k < 16 {
             let b = self.bytes[k];
-            out[2 * k] = sext4(b & 0x0F);
-            out[2 * k + 1] = sext4(b >> 4);
+            out[2 * k] = Self::sext4(b & 0x0F);
+            out[2 * k + 1] = Self::sext4(b >> 4);
             k += 1;
         }
         out
     }
-}
 
-/// Sign-extend a 4-bit two's-complement nibble to `i8` in `[−8, 7]`.
-#[inline]
-const fn sext4(nibble: u8) -> i8 {
-    (((nibble & 0x0F) << 4) as i8) >> 4
+    /// Sign-extend a 4-bit two's-complement nibble to `i8` in `[−8, 7]`.
+    ///
+    /// Carrier-owned (the nibble codec belongs to the carrier, not a free fn);
+    /// `I4x64` reuses it via `I4x32::sext4`.
+    #[inline]
+    const fn sext4(nibble: u8) -> i8 {
+        (((nibble & 0x0F) << 4) as i8) >> 4
+    }
 }
 
 /// Packed 64-dim signed-i4 vector — the wide CAM carrier (`I4-64D`, 256 bit).
@@ -161,8 +164,8 @@ impl I4x64 {
         let mut k = 0;
         while k < 32 {
             let b = self.bytes[k];
-            out[2 * k] = sext4(b & 0x0F);
-            out[2 * k + 1] = sext4(b >> 4);
+            out[2 * k] = I4x32::sext4(b & 0x0F);
+            out[2 * k + 1] = I4x32::sext4(b >> 4);
             k += 1;
         }
         out

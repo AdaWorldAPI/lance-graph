@@ -1,6 +1,6 @@
 # North-Star Integration — current state → the two-ViewAngle destination (v1)
 
-**Status:** PROPOSAL / pre-council. North star: `.claude/north-star/README.md` (the two reference diagrams). Design: `.claude/specs/atoms-styles-nal-planner-dto-unification-v1.md` §0–14. **This plan enumerates the open WIRING DECISIONS for the 5-developer council to iron out** before the A3→C7 + business-layer run.
+**Status:** RATIFIED (council resolved + gates ratified 2026-06-01; the open-WD framing below is kept for traceability — final calls are in § COUNCIL RESOLUTION). North star: `.claude/north-star/README.md` (the two reference diagrams). Design: `.claude/specs/atoms-styles-nal-planner-dto-unification-v1.md` §0–14. **This plan enumerates the open WIRING DECISIONS for the 5-developer council to iron out** before the A3→C7 + business-layer run.
 
 ## Current state (shipped + in-flight)
 
