@@ -1,3 +1,13 @@
+## [Main thread / Opus, autoattended] D-EW64-3 + D-EW64-4 — EpisodicEdges64 cold-tier read surface + DemotionSink seam
+
+**Branch:** claude/jolly-cori-clnf9. **Cargo:** contract lib **545 green** (+10 episodic_edges: 6 coldest/contains + 4 promote_into); default clippy `-D warnings` clean; `episodic_edges.rs` clean at pedantic+nursery. Plan-agent-sequenced (the 2 unblocked slices of 3; slice 3 + plasticity-write + comprehension↔arcuate are GATED/needs-design — flagged for user).
+
+**Shipped:** `EpisodicEdges64::coldest()` (the eviction victim, symmetric to `strongest`) + `contains()` (family-discriminating membership); `DemotionSink` trait + `promote_into()` (the hot→cold exit seam — promote routing the evicted edge to the cold connectome; surreal/LanceDB-LIVE impls deferred + GATED on OQ-11.6, same dependency-inversion idiom as `MailboxSoaOwner`). Prepended the `Heel`-vs-`PlasticityState` correction (Plan agent caught my E-EW64-STRENGTH imprecision).
+
+**Loop:** drafted → next: Opus review agent on the diff → PR (claude/jolly-cori-clnf9 → main) → subscribe. Accumulating for morning merge.
+
+---
+
 ## [Main thread / Opus, autoattended] PR #447 MERGED — D-EW64-2 + white-matter findings landed
 
 **#447 merged → main** (EpisodicEdges64::{promote, strongest} MRU hot-tier + E-PLANNING-IS-WHITE-MATTER + E-EW64-STRENGTH-IS-CE64-PLASTICITY + MD001 fix). Loop iteration complete: drafted → Opus review (LAND, +2 coverage tests) → CodeRabbit (1 MD001, fixed) → CI green → merged. Session auto-unsubscribed. Branch synced onto main.
