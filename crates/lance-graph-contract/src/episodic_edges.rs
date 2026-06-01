@@ -235,14 +235,7 @@ impl EpisodicEdges64 {
     /// `cross(3, 3)` ≠ `intra(3)`), matching [`promote`](Self::promote)'s dedup.
     #[must_use]
     pub fn contains(self, e: EdgeRef) -> bool {
-        let mut i = 0;
-        while i < Self::CAPACITY {
-            if self.edge(i) == Some(e) {
-                return true;
-            }
-            i += 1;
-        }
-        false
+        self.iter().any(|x| x == e)
     }
 
     /// Iterate the present edges in slot order.

@@ -1,3 +1,9 @@
+## [Main thread / Opus, autoattended] D-EW64-3/4 review LAND + CodeRabbit contains nit applied (#448)
+
+Opus review agent: **LAND** — no P0/P1 (exhaustively verified: coldest == eviction victim for every word, no holes, promote_into word == promote().0 + sink gets exactly the eviction; firewall + API clean; 545 green). 2 optional editorial P2s NOT applied (don't block). CodeRabbit: 1 nit (💤 low value) — `contains` → `self.iter().any(|x| x == e)` (more idiomatic, reuses iter; equivalent) — APPLIED. episodic_edges tests still green; default clippy clean. #448 CI re-runs on this push.
+
+---
+
 ## [Main thread / Opus, autoattended] D-EW64-3 + D-EW64-4 — EpisodicEdges64 cold-tier read surface + DemotionSink seam
 
 **Branch:** claude/jolly-cori-clnf9. **Cargo:** contract lib **545 green** (+10 episodic_edges: 6 coldest/contains + 4 promote_into); default clippy `-D warnings` clean; `episodic_edges.rs` clean at pedantic+nursery. Plan-agent-sequenced (the 2 unblocked slices of 3; slice 3 + plasticity-write + comprehension↔arcuate are GATED/needs-design — flagged for user).
