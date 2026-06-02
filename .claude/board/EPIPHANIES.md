@@ -1,3 +1,52 @@
+## 2026-06-02 — F-DIAGRAMS-450-CLOSES-THE-LOOP — the two architecture diagrams (ODoo-in-Rust × OGIT+DOLCE+GoBD → Elixir/OTP; Dual Grammar §14) are now backed by shipped code via #450; the board IS the loop's seeding tissue
+
+**Status:** FINDING (user-posted diagrams 2026-06-02; cross-referenced against #441/#442/#443/#444/#445/#446/#447/#448/#449/#450 merge train). User context: 9 PRs in ~24h ship the full Dual Grammar pipeline + class-meta-DTO + episodic-RISC spine + lance 7 + Wikidata-HHTL + figure-syllogism capstone + atoms/styles/NAL unification.
+
+**The diagrams, as code:**
+
+Diagram 1 (`ODoo in Rust × OGIT + DOLCE + GoBD → Deterministische Business-Logik in Elixir (OTP/BEAM)`) — the full GoBD-compliant deterministic business engine: Grammatik/Semantik/Business → OGIT vererbte Klassen (Schema + Maskierung Bitmask + Reasoning) → DOLCE Ontologie (Endurants/Perdurants/Qualitäten/Relationen) → GoBD compliance checklist (Nachvollziehbarkeit/Vollständigkeit/Richtigkeit/Zeitgerechte Erfassung/Unveränderbarkeit/Ordnung & Aufbewahrung) → 32k+ parallel RActor mailboxes → OGIT reasoning pipeline (Pattern Matching → Regel-Ableitung → Constraint Solving → Prozess-Ableitung 100% → Aktion/Transition) → Selbstorchestrierung Kanban (Backlog→Next→Doing→Verify→Done) → SurrealDB live event store + Lance versioning (immutable snapshots + delta logs + time travel + branching scenarios) → Rust core + Elixir BEAM hot-code-upgrade → Audit & Compliance. **ODoo-in-Rust on Elixir/BEAM with GoBD is the deliverable; the rest is substrate.**
+
+Diagram 2 (`Dual Grammar §14`) — the §14 pipeline shipped via #450, panel by panel:
+1. **Dual Grammar** — semantic (DeepNSM) vs business (OGIT stakes O/G/I/T), **head2head-resolved** (#446 `Head2Head` + #450 grammar-vs-business commit `e8332813`)
+2. **Resolver** — I4x32D → OGIT class → best-practice template + attention bitmask **for free** (#450 commits `ef7b86d0`, `568de448`)
+3. **Reasoning** — NARS micro-truth → `Figure::syllogize` (64 moods) → (style, rung, rule) + LE edge — **CAPSTONE** ✓ (#450 `f4995465 feat(causal-edge): hardwire NAL syllogism figure resolution on CausalEdge64`)
+4. **Representation** — vart radix base-16 surreal address (α.β.γ.δ.ε.ζ.η.θ) → connectome hypergraph indexed by concept/rung/time/style (#450 `5068882c vendor vart locally`)
+5. **Orchestration** — ractor mailboxes ↔ surreal/vart ACTIVE Rubicon kanban; **vart versions = the clock** (#450 `b720f99d unify atoms+styles+NAL` + #446 `VersionScheduler`)
+6. **Meta-aware** — awareness chain over episodic basins, **addressable by `rung`** (#450 `e0ab1328 feat(planner): A2 — wire rung: RungLevel into ThinkingContext`)
+7. **Output** — epiphanies + facts + high-signal separation → feedback to episodic basins (#450 `b6d889e4 docs(spec): THE DREAM — the closed self-driving loop (epiphanies/facts/signal-separation)`)
+
+**The seeding insight:** the board hygiene (EPIPHANIES entries, FINDINGs, corrections, council verdicts, AGENT_LOG runs) is NOT human-only documentation — it is **training/seeding data for the loop in panel 7**. The system outputs epiphanies and facts as its terminal signal; we journal them as the bootstrap corpus until the loop generates its own at depth. This session's reconciliation work + survival dossier + council verdict serve as cold-start input to the same machinery that, once warmed, produces these entries autonomously. **The board is the loop's tissue, not its log.**
+
+Cross-ref: `STATUS_BOARD` D-CLS-* rows (now Superseded-by-#441); #441 (D-CLS arc 5 slices), #442 (Wikidata-HHTL N4 falsifier), #443 (D-ARM-14 Phase 2 aerial→hub + OWL/DOLCE generalization), #444 (world-spine + 98.61% locality probe PASS), #445 (lance 7 + object_store 0.13), #446 (episodic-RISC spine: VersionScheduler + Head2Head + EpisodicEdges64 + ViewAngle), #447/#448 (EW64 promote + cold-tier read), #449 (RawEdge mantissa + counterfactual), #450 (the unification: dual grammar + I4x32D + figure-syllogize + rung-wired ThinkingContext + THE DREAM doc).
+
+---
+
+## 2026-06-02 — E-CHESS-IS-NOT-RETIREABLE-PLURAL-FALSIFIERS — proposing to retire D-CHESS-BRINGUP-1 was a category error; plural falsifiers is the doctrine, not substitution; each domain stresses a different structural shape
+
+**Status:** CORRECTION (user: "retiring chess is incompetence / it's like retiring odoo"). D-CHESS-BRINGUP-1 stays `Queued` per `STATUS_BOARD`; my retire-proposal was a chat statement only, **never committed**, and is hereby fully retracted.
+
+**The error.** Earlier this session, after reading PRs #441/#442 (Wikidata-HHTL N4 falsifier), I wrote: *"D-CHESS-BRINGUP-1 with explicit reason... Wikidata-HHTL (#442) serves the N4 second-domain falsifier role with broader test surface than chess; chess remains valid as a future tertiary domain for stress-test but not as the blocking falsifier."* This is wrong on doctrine, wrong on engineering, and wrong on what each domain tests.
+
+**Why chess is not a substitute for Wikidata (and Wikidata is not a substitute for chess):** Chess has properties no other domain has:
+- **Frozen column-ISA**: 8×8 board, 6 piece types, side-to-move + castle rights + en-passant target + halfmove clock + fullmove number. Closed, finite, complete. The tightest possible test of "domain enters only as content, never structure" (classes.md N4).
+- **Clean content/structure split**: position layout IS structure; gameplay history IS content. Odoo can't isolate this (business rules bleed into schema); Wikidata is too open-ended (the open-world assumption blurs the boundary). Chess is the only domain where the boundary is mathematically exact.
+- **Minimal-ISA stress test**: if the `FieldPositionTable` / `FieldMask(u64)` doctrine can't handle 64 squares + piece-type bitmask + castle/en-passant flags, no scale-up to 115M Wikidata entities saves it. Chess is the floor; if the floor breaks, nothing above stands.
+- **GM-flavored legality as falsifier output**: aerial+ over chess opening positions must produce LEGAL move-candidates with positional sense, or the proposer→hub seam doesn't work for the case where the rule-set is fully known a priori. (Wikidata has no rule-set; medicine SNOMED has thousands of rules; chess has ~15.)
+
+**The doctrine: plural falsifiers, never substitutes.** Each domain hits the machinery from a different angle:
+- **Odoo** — business richness, 15 ERP lanes, 66 entities, real-world ERP shape-families
+- **Wikidata** — open-world QID/property graph, P279 descent, 16ⁿ NiblePath router stress
+- **Chess** — minimal-ISA closure, frozen state space, content-vs-structure mathematical boundary
+- **(future)** medicine SNOMED/FMA (1000-rule density), finance FIBO (typed-money invariants), geography (spatial-relation predicates), law (deontic modal logic) — each per #443's `owl-dolce-hhtl-compartments-aerial-fed.md`
+
+**Substitution is the anti-pattern.** Calling Wikidata a "broader test surface" so chess can be retired is exactly the kind of "we're only touching the const catalogue" alibi classes.md F4 warned against — shrinking the falsifier roster looks like progress, IS regression. The append-only doctrine applies to D-row retirements too: status-flip allowed, retire-proposal is not. Plural falsifiers + N4 freeze-time non-negotiable + bring-up before broad-up.
+
+**The pattern-name to remember**: F4 — "we're only touching X, so the second-domain test doesn't apply" — is always wrong. Every "we're only" is the diagnostic signature. If I catch myself writing it again, stop and reread this entry.
+
+Cross-ref: `STATUS_BOARD` D-CHESS-BRINGUP-1 (unchanged, `Queued`); `cognitive-risc-core.md §"The bring-up test"`; `cognitive-risc-classes.md:66` N4; `post-438-integration-options-v1.md §1 Option G`; this session's chat correction.
+
+---
+
 ## 2026-06-01 — E-NARS-FIGURE-CAPSTONE — NAL syllogism resolution hardwired on CausalEdge64 like Pearl 2³: the figure = which SPO palette term two edges share → rule → conclusion edge
 
 **Status:** SHIPPED (`causal-edge::syllogism`, branch claude/jolly-cori-clnf9; 14 tests v2 / 13 v1, the new file clippy- + fmt-clean). User: "the syllogism resolution needs to be hardwired similar to SPO 2^3 rung decomposition … using causaledge64 and wiring EW64" + "NAL syllogism notation is the missing capstone for glueing all 3 reasoning methods with the 10-rung ladder and the JITson cranelift templates vs elixir."
