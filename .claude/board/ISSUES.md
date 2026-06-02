@@ -1,5 +1,15 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-06-02 — MERGEMODE-BUNDLE-SPLIT-BRAIN — `MergeMode::Bundle` enum doc says "majority vote" but the only receiver does additive superpose and ignores the tag; jan's truth-call, not a Claude-session guess
+
+**Status:** Open · Owner: jan (architect decision) · Surfaced by: baton/collapse de-reification council (5+3, 2026-06-02), reviewers R2/B1.
+
+`MergeMode::Bundle` (`crates/lance-graph-contract/src/collapse_gate.rs:24`) documents itself as **"majority vote across all pending deltas."** But the only receiver, `MailboxSoA::apply_edges` (`crates/cognitive-shader-driver/src/mailbox_soa.rs:144-164`), does **additive superpose** (`energy[row] += mantissa/8·confidence`) and **never reads `merge_mode()`** — no code dispatches on the tag to choose bundle/xor/superpose, so the tag is inert.
+
+Decision needed (jan): either (a) correct the enum doc to "associative additive superposition (Markov-respecting)" — matching the field-doc at `collapse_gate.rs:199` and the actual receiver — OR (b) wire a merge-dispatcher that honors the tag. `I-SUBSTRATE-MARKOV` is anchored on the additive-superpose algebra regardless, so Markov-safety is not at risk either way; this is a doc-vs-code truth reconciliation, not a hot-path correctness bug.
+
+---
+
 ## 2026-05-30 — OD-CANONICAL-SPEC-DISAGREEMENT-TIER-SET — `cognitive-risc-core.md` and `wikidata-hhtl-load.md` disagree on the ProvenanceTier value-set; SPEC-OWNER decision, not Claude-session
 
 **Status:** Open · Owner: spec author (NOT a Claude session) · Blocks: D-ARM-1 (ProvenanceTier in `lance-graph-contract`), D-ARM-2 (`Proposer` trait + `CandidateRule`), D-ARM-SYN-1/2/3 (per PR #436 follow-ups).

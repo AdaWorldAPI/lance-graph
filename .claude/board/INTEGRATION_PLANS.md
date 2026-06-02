@@ -67,6 +67,12 @@
 **5 open questions:** OQ-SPLAT-1 first probe SDK (default: Telemed ArtUs — RF directly, USB, lowest regulatory friction); OQ-SPLAT-2 SH degree budget (default: ℓ=3, 16 coeffs); OQ-SPLAT-3 beamformer scope (default: consume probe's BF where available, fall back DAS); OQ-SPLAT-4 AR splat egress (default: no — stays on HoloLens); OQ-SPLAT-5 plan home (resolved: lance-graph canonical + per-repo companions).
 
 ---
+## 2026-06-02 — baton-collapse-dereification-v1 (de-reify the "baton"/"collapse gate emission" doctrine: a folk metaphor that ossified into canonical types/doctrine; 2 doc edits, ZERO code, no new ticket)
+
+**Status:** APPLIED. **Plan file:** `.claude/plans/baton-collapse-dereification-v1.md`. Corrects a doctrine reification jan flagged ("there is no collapse; baton was a figure of speech; the write is the witness; mailboxes own their SoA and write safe in the hot path"). 5-research + 3-brutal council (all SHIP-WITH-FIXES). Scope: CLAUDE.md P-1 `2026-05-26` blockquote rewritten (kills "inter-mailbox state IS the Baton"; states live-vs-scaffold honestly) + north-star WD-5 terminology (L27 direct, L53 ratified-cell annotated). The type rename (`CollapseGateEmission`→`WireWrite` etc.) is DEFERRED with NO ticket minted (B3: don't mint ceremony for a rename that may never run). One ISSUE filed: `MergeMode::Bundle` doc-vs-code split-brain.
+
+---
+
 ## 2026-06-01 — a4-resolver-v1 (the resolver: texture → thinking style in ~4-cycle integer CAM addressing; firewall newtypes AtomLane(0..64)/LaneMask + AtomGroup::is_signed; A4a offline-contract, A4b cross-crate gated)
 
 **Status:** DRAFT / pre-savant-review. **Plan file:** `.claude/plans/a4-resolver-v1.md`. Follows A3 (PR #451 merged). NO f32, NO vector search — deterministic CAM addressing; the only fuzzy step is the coarse upstream "smells like odoo → financial OGIT" route. Doctrine: plan → 5 savant-dev review → split → per-file sprint (commented) → 3 brutal-tester → fix → uncomment → PR.
