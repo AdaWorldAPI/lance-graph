@@ -48,7 +48,7 @@ boundary; wiring is a separate, explicit decision.
 |---|---|---|---|
 | `Notification → KanbanMove` adapter | trigger → kanban | contract-side or a consumer crate (NOT surreal — it stays generic) | **absent** (`EPIPHANIES.md:225`) |
 | surreal *consumes* the contract | kanban spec ↔ the trigger | surreal | **scaffold**: declares dep + `pub use … as lance_graph` (`core/src/lib.rs:105`), **0 import sites**, feature off by default (`core/Cargo.toml:18`) |
-| real `MailboxSoaOwner` on `MailboxSoa` | resolver verdict → `try_advance_phase` | lance-graph (own type + own contract trait) | **scaffold**: only test fakes; `route_against` not wired |
+| real `MailboxSoaOwner` on `MailboxSoa` | scheduler proposal → `try_advance_phase` | lance-graph (own type + own contract trait) | **BUILT in-RAM (2026-06-02)**: `impl MailboxSoaView + MailboxSoaOwner for MailboxSoA<N>`; the in-process loop runs (`NextPhaseScheduler::on_version` → `try_advance_phase`, driving test green). Remaining: a resolver-aware scheduler policy (route_against picks the Evaluation fork) + the surreal *external* trigger (fork-blocked) |
 | `surreal_container : MailboxSoaView` (the kv-lance "view") | store → mailbox view | surreal-consumer | **BLOCKED(C)** — kv-lance fork dep not wired (`lib.rs:124`) |
 
 > **Caveat the table must carry:** a ractor actor crate already lives *inside* this workspace —
@@ -62,10 +62,13 @@ boundary; wiring is a separate, explicit decision.
 > built.** So the surreal-side seam-rows above (contract consumption, the `Notification→KanbanMove`
 > adapter, the `surreal_container` view) are **orphaned, not in-flight**: no owner, OQ-11.6 unresolved.
 > Now a workspace decision (adopt the surreal-side wiring here / leave documented-as-orphan /
-> reassign) — tracked in `ISSUES.md` `ORCH-SURREAL-INBOUND-ORPHANED`. lance-graph's own half (a real
-> `MailboxSoaOwner` impl) stays lance-graph's to wire if/when the driver is adopted, but has no live
-> driver until the surreal INBOUND is owned (building it now = a consumer-less slice, the `d5f5aa6`
-> trap). The vertical probe (`a26c58b`) validates the path offline in the meantime.
+> reassign) — tracked in `ISSUES.md` `ORCH-SURREAL-INBOUND-ORPHANED`. lance-graph's own half is now
+> **BUILT** (2026-06-02, jan authorized "adopt"): `MailboxSoA` implements `MailboxSoaView +
+> MailboxSoaOwner`, and the loop runs **in-RAM** via `NextPhaseScheduler` (in-process version tick, no
+> surreal needed) — the in-process driver IS the consumer, so this is *not* the consumer-less
+> `d5f5aa6` trap. **Only the surreal EXTERNAL trigger remains orphaned/fork-blocked** (`Notification →
+> on_version` + the `surreal_container` view, OQ-11.6). The vertical probe (`a26c58b`) + the in-RAM
+> driving test hold the path validated.
 
 ## What DRIVES the loop — the "surrealdb hot route," not a tokio/ractor message loop
 

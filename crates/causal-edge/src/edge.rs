@@ -114,7 +114,13 @@ impl InferenceType {
 /// [49:51] Plasticity flags (3 bits, hot/cold per S,P,O)
 /// [52:63] Temporal index (12 bits, 4096 time slots)
 /// ```
+// `#[repr(transparent)]`: a single-`u64` newtype whose layout is GUARANTEED
+// identical to `u64`, so `&[CausalEdge64]` can be soundly reinterpreted as
+// `&[u64]` (the zero-copy `MailboxSoaView::edges_raw` borrow). Layout-neutral —
+// the in-memory representation was already a bare `u64`; this only documents and
+// guarantees it for the reinterpret.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct CausalEdge64(pub u64);
 
 // Bit field positions and masks

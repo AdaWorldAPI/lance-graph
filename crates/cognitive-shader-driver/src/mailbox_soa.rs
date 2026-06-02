@@ -29,7 +29,9 @@
 use causal_edge::CausalEdge64;
 use lance_graph_contract::cognitive_shader::MetaWord;
 use lance_graph_contract::collapse_gate::MailboxId;
+use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
 use lance_graph_contract::qualia::QualiaI4_16D;
+use lance_graph_contract::soa_view::{MailboxSoaOwner, MailboxSoaView};
 
 /// Spatial-temporal accumulator for per-row edge receipts.
 ///
@@ -105,6 +107,14 @@ pub struct MailboxSoA<const N: usize> {
     /// A row is firing when `energy[row].abs() >= threshold`
     /// (see [`Self::pending_count`]).
     pub threshold: f32,
+
+    /// The Rubicon lifecycle column this mailbox currently occupies — the
+    /// **cognitive** FSM state (distinct from ractor's process-lifecycle
+    /// `ActorStatus`; see `.claude/knowledge/orchestration-boundary-v1.md`).
+    /// Mutated only via [`MailboxSoaOwner::advance_phase`] /
+    /// [`try_advance_phase`](MailboxSoaOwner::try_advance_phase); starts at
+    /// [`KanbanColumn::Planning`].
+    pub phase: KanbanColumn,
 }
 
 /// Default capacity: 1024 rows (4× current BindSpace row count).
@@ -139,6 +149,8 @@ impl<const N: usize> MailboxSoA<N> {
             qualia: [QualiaI4_16D::ZERO; N],
             meta: [MetaWord(0); N],
             entity_type: [0u16; N],
+            // Pre-Rubicon: every mailbox starts in deliberation.
+            phase: KanbanColumn::Planning,
         }
     }
 
@@ -321,6 +333,92 @@ impl<const N: usize> MailboxSoA<N> {
     #[inline]
     pub fn set_entity_type(&mut self, row: usize, t: u16) {
         self.entity_type[row] = t;
+    }
+}
+
+// ── Contract trait impls: MailboxSoA IS the in-RAM Rubicon owner ──────────────
+//
+// `MailboxSoaView` (read) + `MailboxSoaOwner` (write) make `MailboxSoA<N>` the
+// in-RAM owner the contract names (`soa_view.rs` doc: "implements
+// MailboxSoaOwner"). With these, a real `MailboxSoA` is BOTH the `view` a
+// `VersionScheduler::on_version` reads AND the `owner` whose `try_advance_phase`
+// applies the proposed `KanbanMove` — the in-process driving loop, no surreal /
+// ractor message bus needed. The surreal-side external trigger (`surreal_container`
+// view + `Notification → on_version`) is the fork-blocked follow-on (OQ-11.6).
+
+impl<const N: usize> MailboxSoaView for MailboxSoA<N> {
+    #[inline]
+    fn mailbox_id(&self) -> MailboxId {
+        self.mailbox_id
+    }
+    #[inline]
+    fn n_rows(&self) -> usize {
+        N
+    }
+    #[inline]
+    fn w_slot(&self) -> u8 {
+        self.w_slot
+    }
+    #[inline]
+    fn current_cycle(&self) -> u32 {
+        self.current_cycle
+    }
+    #[inline]
+    fn phase(&self) -> KanbanColumn {
+        self.phase
+    }
+    #[inline]
+    fn energy(&self) -> &[f32] {
+        &self.energy
+    }
+    #[inline]
+    fn edges_raw(&self) -> &[u64] {
+        // SAFETY: `CausalEdge64` is `#[repr(transparent)]` over `u64` (causal-edge
+        // `edge.rs`), so `[CausalEdge64; N]` has identical size/alignment/layout to
+        // `[u64; N]`. The pointer is non-null, aligned, and valid for `N` `u64`
+        // reads; the returned slice borrows `&self`, so it cannot outlive the
+        // backing array. Zero-copy — never clones the store (R1).
+        unsafe { core::slice::from_raw_parts(self.edges.as_ptr() as *const u64, N) }
+    }
+    #[inline]
+    fn meta_raw(&self) -> &[u32] {
+        // SAFETY: `MetaWord` is `#[repr(transparent)]` over `u32`
+        // (lance-graph-contract `cognitive_shader.rs`), so `[MetaWord; N]` has
+        // identical layout to `[u32; N]`. Same validity/lifetime reasoning as
+        // `edges_raw`. Zero-copy.
+        unsafe { core::slice::from_raw_parts(self.meta.as_ptr() as *const u32, N) }
+    }
+    #[inline]
+    fn entity_type(&self) -> &[u16] {
+        &self.entity_type
+    }
+}
+
+impl<const N: usize> MailboxSoaOwner for MailboxSoA<N> {
+    /// Advance the Rubicon column and emit the move. Prefer the trait's checked
+    /// [`try_advance_phase`](MailboxSoaOwner::try_advance_phase) (it enforces the
+    /// lifecycle DAG); this unchecked primitive is what it calls after the
+    /// legality check passes.
+    fn advance_phase(&mut self, to: KanbanColumn) -> KanbanMove {
+        let from = self.phase;
+        self.phase = to;
+        KanbanMove {
+            mailbox: self.mailbox_id,
+            from,
+            to,
+            // Structural witness position (R4): the monotonic cycle stamp stands in
+            // for the chain index until the witness_arc column lands — matching
+            // `NextPhaseScheduler`'s convention.
+            witness_chain_position: self.current_cycle,
+            libet_offset_us: if from == KanbanColumn::Planning
+                && to == KanbanColumn::CognitiveWork
+            {
+                -550_000
+            } else {
+                0
+            },
+            exec: ExecTarget::Native,
+        }
     }
 }
 
@@ -537,5 +635,56 @@ mod tests {
         let mut mb: MailboxSoA<8> = MailboxSoA::new(1, 0, 1.0);
         assert!(!mb.consume_firing(8), "row == N must be rejected");
         assert!(!mb.consume_firing(100), "row > N must be rejected");
+    }
+
+    // ── test 11: the in-RAM driving loop (OUT+IN over a REAL MailboxSoA) ──────
+
+    /// `VersionScheduler::on_version` proposes → `MailboxSoaOwner::try_advance_phase`
+    /// applies, on a real `MailboxSoA` (not the contract's `FakeView`/`FakeSoa`).
+    /// Drives the Rubicon forward arc Planning → CognitiveWork → Evaluation →
+    /// Commit and halts at the absorbing column. This is the unblocked in-RAM
+    /// loop — surreal's external version trigger is the fork-blocked follow-on.
+    #[test]
+    fn test_in_ram_driving_loop_walks_rubicon_to_commit() {
+        use lance_graph_contract::kanban::ExecTarget;
+        use lance_graph_contract::scheduler::{
+            DatasetVersion, NextPhaseScheduler, VersionScheduler,
+        };
+
+        let mut mb: MailboxSoA<8> = MailboxSoA::new(42, 5, 1.0);
+        assert_eq!(mb.phase(), KanbanColumn::Planning, "starts pre-Rubicon");
+
+        let sched = NextPhaseScheduler;
+        let mut steps = 0u32;
+        let mut first_libet = 0i32;
+        for v in 1..=10u64 {
+            // IN-direction: the scheduler lowers a version tick to the next move…
+            let Some(mv) = sched.on_version(&mb, DatasetVersion(v), ExecTarget::Native) else {
+                break; // absorbing column reached — the cycle ended
+            };
+            // …proposed from the mailbox's CURRENT phase…
+            assert_eq!(mv.from, mb.phase());
+            // …and OUT-direction: the owner applies it through the checked airgap.
+            let applied = mb
+                .try_advance_phase(mv.to)
+                .expect("the scheduler proposes only legal Rubicon edges");
+            assert_eq!(applied.to, mv.to);
+            if steps == 0 {
+                first_libet = applied.libet_offset_us;
+            }
+            steps += 1;
+        }
+
+        assert_eq!(
+            mb.phase(),
+            KanbanColumn::Commit,
+            "the forward arc calcifies at Commit"
+        );
+        assert!(mb.phase().is_absorbing());
+        assert_eq!(steps, 3, "Planning→CognitiveWork→Evaluation→Commit = 3 advances");
+        assert_eq!(
+            first_libet, -550_000,
+            "the Planning→CognitiveWork crossing carries the Libet −550 ms anchor"
+        );
     }
 }
