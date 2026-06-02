@@ -86,6 +86,46 @@ Consequence for the seam-rows: the version→tick INBOUND wiring is **surreal-si
 lance-graph's own-type/own-trait wiring. **Neither is a tokio/ractor message route** — so R3's "the
 seam = an `impl Actor` holding `MailboxSoA` as State" overstates ractor's role in the *driving* loop.
 
+## What the loop MEANS — FSM → Rubicon → free-will gate (MUL)
+
+The FSM is the *mechanism*; the **Rubicon** is *which* FSM; the **MUL** (Meta-Uncertainty Layer) is what
+gates its one irreversible edge. The whole vertical is already typed — not metaphor.
+
+- **Rubicon (Heckhausen).** `KanbanColumn{Planning → CognitiveWork → Evaluation → {Commit | Plan | Prune}}`
+  IS the Rubicon model of action phases: pre-decisional deliberation (Planning), the crossing
+  (Evaluation), post-decisional volition (Commit) — with the Libet **−550 ms** anchor stamped on the
+  move (`KanbanMove.libet_offset_us`). `Evaluation.next_phases() = [Commit, Plan, Prune]` is the fork;
+  `Commit`/`Prune` absorb, `Plan` re-deliberates.
+- **Free will = the veto at the crossing, not the initiation.** The object-level NARS resolver
+  (`route_against → DominoStep`) already *pushed* toward an action — it fires from the (f,c) diff before
+  the meta-layer is consulted (the readiness potential). Free will enters as the MUL's power to
+  **override** that push: `MulAssessment.free_will_modifier: f64` (`mul.rs:59` — "0.0 = fully
+  constrained, 1.0 = fully autonomous") + `is_unskilled_overconfident()` (`mul.rs:384` — "used by the
+  gate as a **veto hint**"). That veto is Libet's "free won't" — the Evaluation→Prune edge.
+- **The gate arbitrates TWO confidences (the crux).**
+  - *Object-level — NARS reasoning confidence:* the conclusion's **(f, c)**. *Am I confident IN this
+    inference?* `route_against` routes on the pairwise (f,c) diff.
+  - *Meta-level — Dunning-Kruger self-competence:* `DkPosition{MountStupid, ValleyOfDespair,
+    SlopeOfEnlightenment, Plateau}` from `felt_competence` vs `demonstrated_competence` (`mul.rs:403`).
+    *Am I confident in my COMPETENCE — and is that calibrated?*
+  - *Trust = the calibration between them:* `TrustTexture{Calibrated, Overconfident, Uncertain,
+    Underconfident}` (the gap felt − demonstrated; Overconfident = felt ≫ demonstrated).
+  The gate (`MulProvider::gate_check → GateDecision{Flow, Hold, Block}`) fires the Rubicon transition
+  from BOTH: `Flow → Commit` (cross — confident AND calibrated), `Hold → Plan` (re-deliberate —
+  reduced autonomy), `Block → Prune` (veto — `Uncertain` trust, or `MountStupid`/`Overconfident`).
+  The decisive case: **high NARS-c but DK-overconfident-and-miscalibrated → NOT Commit.** Acting on
+  confident-but-incompetent reasoning is exactly what the veto blocks.
+- **The humility chain makes it φ-bounded.** `free_will_modifier = dk_factor × trust × complexity × flow`
+  (`mul.rs:343`), `dk_factor` = 0.3 (MountStupid) … 1.0 (Plateau). Full autonomy (1.0) is reachable
+  *only* by a calibrated expert; overconfidence multiplicatively shrinks it — the CLAUDE.md "φ-1 =
+  permanent humility" ceiling, so the veto is always reachable. `MulThresholdProfile` tightens the gate
+  by context (`MEDICAL` trust ≥ 0.85 vs `CALLCENTER` ≥ 0.55) — same gate, stricter where stakes are.
+
+**So determinism and freedom coexist.** The FSM is deterministic (replay = audit = the moat); free will
+is the deterministic-but-meta **veto**: the loop can always decline to cross its own Rubicon when it
+detects, about itself, that it doesn't actually know. Object-level says "go"; the meta-level keeps the
+right to say "not yet."
+
 ## The two "elegance" claims — corrected (both were wishful)
 
 1. **"Transparent view = SurrealDB *is* Lance, no transcode" — FALSE on no-transcode.** Values are

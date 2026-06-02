@@ -339,6 +339,25 @@ Cross-ref: PR_ARC #459 Correction; codex P2 #460; `crates/helix/Cargo.toml`; `jc
 **Two corrections folded in:** (1) `KNOWLEDGE.md` referenced `const::simd::{GOLDEN_RATIO,EULER_GAMMA,E}` — that path does NOT exist; canonical is `std::f64::consts` (ndarray does not wrap them). helix defines local consts (`E` from `std` since it is stable; `GOLDEN_RATIO`/`EULER_GAMMA` as literals since not stable on every toolchain, mirroring `jc::weyl`'s local `PHI_INV`). (2) The name `helix` collides with a planner plan-doc "Helix" (Foundry time-series histogram) that leaned *away* from a crate — `crates/helix` is free, but flagged. **Iron rule respected:** stride-4-over-17 is coprime → full permutation; the banned Fibonacci-mod-17 (misses {6,7,10,11}) is NOT used. **Open (CONJECTURE, probe NOT RUN):** helix int8 endpoint fidelity vs the naive-u8 floor gate (≥0.9980 Pearson) — a fidelity-vs-ground-truth probe is owed before promotion past clean-room status.
 
 Cross-ref: `crates/helix/KNOWLEDGE.md` (§ Overlap & Consolidation), `encoding-ecosystem.md`, `jc::weyl`, `bgz-tensor::{projection,fisher_z}`, TD-HELIX-OVERLAP-1, the `E-READ-NOT-GREP` consult-before-guess doctrine.
+## 2026-06-02 — E-FREE-WILL-IS-THE-META-VETO — the loop's vertical FSM → Rubicon → MUL is fully typed: free will = the MUL's meta-veto at the Rubicon crossing, arbitrating object-level NARS (f,c) vs meta-level Dunning-Kruger self-competence
+
+**Status:** FINDING (grounded in `lance-graph-contract::mul` read in full, 2026-06-02; jan's chain "fsm > Rubicon > free will/MUL = Dunning-Kruger overconfidence vs trust/NARS reasoning confidence"). Folded into `.claude/knowledge/orchestration-boundary-v1.md` § "What the loop MEANS."
+
+**The vertical is typed, not metaphor:**
+- **FSM** = the event-sourced guarded machine (states = `KanbanColumn`, guard = `try_advance_phase`, tape = Lance `versions()` arc, clock = surreal LIVE).
+- **Rubicon** (Heckhausen) = `KanbanColumn{Planning → CognitiveWork → Evaluation → {Commit|Plan|Prune}}`; the Libet **−550 ms** is `KanbanMove.libet_offset_us`; `Evaluation.next_phases()=[Commit,Plan,Prune]` is the fork.
+- **Free will = the veto, not the initiation.** The object-level resolver `route_against → DominoStep` already PUSHED toward action (the readiness potential, fires from the (f,c) diff). Free will is the MUL's power to OVERRIDE it: `MulAssessment.free_will_modifier: f64` (`mul.rs:59`, 0=constrained..1=autonomous) + `is_unskilled_overconfident()` (`mul.rs:384`, "VETO hint"). The veto = Libet's "free won't" = the Evaluation→Prune edge.
+
+**The crux — the gate arbitrates TWO confidences (jan's exact framing):**
+- *object-level NARS reasoning confidence* = the conclusion's **(f, c)** (`route_against` routes on the pairwise (f,c) diff). "Am I confident IN this inference?"
+- *meta-level Dunning-Kruger* = `DkPosition{MountStupid..Plateau}` from `felt_competence` vs `demonstrated_competence` (`mul.rs:403`). "Am I confident in my COMPETENCE — and is it calibrated?"
+- *trust = the calibration* = `TrustTexture{Calibrated, Overconfident, Uncertain, Underconfident}` (gap felt−demonstrated).
+The gate `gate_check → GateDecision{Flow,Hold,Block}` fires the Rubicon transition: `Flow→Commit`, `Hold→Plan`, `Block→Prune`. **Decisive case: high NARS-c but DK-overconfident-and-miscalibrated → NOT Commit** — the veto blocks acting on confident-but-incompetent reasoning. φ-bounded: `free_will_modifier = dk_factor(0.3 MountStupid..1.0 Plateau) × trust × complexity × flow` (`mul.rs:343`) — full autonomy only for a calibrated expert (the CLAUDE.md "φ-1 = permanent humility" ceiling, so the veto is always reachable). `MulThresholdProfile` makes it context-strict (MEDICAL trust ≥0.85 vs CALLCENTER ≥0.55).
+
+**Determinism + freedom coexist:** the FSM is deterministic (replay = audit = the GoBD moat); free will is the deterministic-but-meta veto — the loop can decline to cross its own Rubicon when it detects, about itself, that it doesn't actually know. Cross-ref: `E-BOUNDARY-PRIMITIVE-VS-SEAM` (the FSM/driver framing), `route_against`/`DominoStep` (`syllogism.rs:254`), `KanbanColumn` Rubicon DAG, CLAUDE.md P-1 (φ-1 humility).
+
+---
+
 ## 2026-06-02 — E-BOUNDARY-PRIMITIVE-VS-SEAM — the orchestration loop's PRIMITIVES stand (don't rebuild) but its SEAMS are unbuilt (the "SHOCK"); "exists next door" ≠ "wired"
 
 **Status:** FINDING (full-surface 5-research + 3-brutal council, 2026-06-02; every agent read the OWNING repo, not lance-graph alone — the fix for the d5f5aa6 scope error). Doc: `.claude/knowledge/orchestration-boundary-v1.md`.
