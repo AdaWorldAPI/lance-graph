@@ -67,6 +67,12 @@
 **5 open questions:** OQ-SPLAT-1 first probe SDK (default: Telemed ArtUs — RF directly, USB, lowest regulatory friction); OQ-SPLAT-2 SH degree budget (default: ℓ=3, 16 coeffs); OQ-SPLAT-3 beamformer scope (default: consume probe's BF where available, fall back DAS); OQ-SPLAT-4 AR splat egress (default: no — stays on HoloLens); OQ-SPLAT-5 plan home (resolved: lance-graph canonical + per-repo companions).
 
 ---
+## 2026-06-02 — le-domino-cognition-v1 (the converged cognitive-substrate north-star + the shared kanban-door contract: one mailbox substrate, SPO-2³ `syllogize` on the full edge, (f,c)-diff driver, LE-domino cascade, escalation tiers; DESIGN over scaffold)
+
+**Status:** DESIGN (north-star + coordination contract). **Plan file:** `.claude/plans/le-domino-cognition-v1.md`. Capstone of the 2026-06-02 co-design session (jan + Opus), grounded by two 3-way fan-outs. Thesis: most-expressive substrate × most-efficient ops, grounded (never wishful) by construction. Also the **shared contract** where this work meets a parallel session's SurrealDB DDL-AST `actions`→kanban push — both produce `KanbanMove`/`ConsumerEnvelope::Plan` through `Scheduler::on_version`, meeting at the contract not a private path. Honest seam-map (everything/nothing): the operators (`syllogize`/`CausalMask`/`NarsTables`) exist as types+tests with 0 live callers; the wiring is the build. Ordered seams: 1 backward domino (collision-free) → 2 escalation emit (shared door) → 3 forward link → 4 cold/calcify (blocked on D-PERSONA-5).
+
+---
+
 ## 2026-06-02 — baton-collapse-dereification-v1 (de-reify the "baton"/"collapse gate emission" doctrine: a folk metaphor that ossified into canonical types/doctrine; 2 doc edits, ZERO code, no new ticket)
 
 **Status:** APPLIED. **Plan file:** `.claude/plans/baton-collapse-dereification-v1.md`. Corrects a doctrine reification jan flagged ("there is no collapse; baton was a figure of speech; the write is the witness; mailboxes own their SoA and write safe in the hot path"). 5-research + 3-brutal council (all SHIP-WITH-FIXES). Scope: CLAUDE.md P-1 `2026-05-26` blockquote rewritten (kills "inter-mailbox state IS the Baton"; states live-vs-scaffold honestly) + north-star WD-5 terminology (L27 direct, L53 ratified-cell annotated). The type rename (`CollapseGateEmission`→`WireWrite` etc.) is DEFERRED with NO ticket minted (B3: don't mint ceremony for a rename that may never run). One ISSUE filed: `MergeMode::Bundle` doc-vs-code split-brain.
