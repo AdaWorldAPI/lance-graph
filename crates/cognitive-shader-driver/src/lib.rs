@@ -98,6 +98,7 @@ pub mod auto_style;
 pub mod engine_bridge;
 pub mod sigma_rosetta;
 pub mod mailbox_soa;
+pub mod rubicon;
 
 // ──────────────────────────────────────────────────────────────────────
 // LAB-ONLY modules — compiled only into the shader-lab binary. Never
