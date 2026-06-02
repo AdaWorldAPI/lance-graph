@@ -39,7 +39,7 @@ boundary; wiring is a separate, explicit decision.
 | store + native MVCC versioning | **Lance** via surreal `kvs/lance` | `surrealdb/surrealdb/core/src/kvs/lance/` (12 files, ~6.2K LOC); `impl Transactable for Transaction` (`mod.rs:532`); version via `Dataset::checkout_version` (`mod.rs:688`); merged PR #29; 59 unit + 8 integ tests | **LIVE** |
 | trigger (record-write event) | **SurrealDB LIVE** | generic `Notification{action,record,result}` (`types/src/notification.rs:58`); fired inline from all 8 mutation paths via `process_table_lives` (`core/src/doc/lives.rs:29→:317`); tested (`core/tests/live.rs`) | **LIVE** |
 | kanban: types + transition DAG | **`lance-graph-contract`** (NOT surreal) | `KanbanColumn` + Rubicon DAG `next_phases`/`can_transition_to` (`kanban.rs:32,90,102`); `KanbanMove` ≤16 B (`kanban.rs:112,177`); `VersionScheduler::on_version` (`scheduler.rs:46`); `MailboxSoaView`/`MailboxSoaOwner::try_advance_phase` (`soa_view.rs:28,118`); 13 own tests | **LIVE in lance-graph** |
-| actor + mailbox + lifecycle | **ractor** (upstream framework) | `Actor` trait + `pre_start`/`post_start`/`post_stop`/`handle` (`ractor/src/actor.rs:124…`); loop `processing_loop`/`process_message` (`actor.rs:792,858`); 4-port mpsc mailbox (`actor_properties.rs:81`); FSM `ActorStatus{Unstarted..Stopped}` (`actor_cell.rs:40`); **0 cognitive/lance coupling** in either ractor repo | **LIVE** |
+| actor + mailbox + lifecycle | **ractor** (upstream framework) | `Actor` trait + `pre_start`/`post_start`/`post_stop`/`handle` (`ractor/src/actor.rs:124…`); loop `processing_loop`/`process_message` (`actor.rs:792,858`); 4-port mpsc mailbox (`actor_properties.rs:81`); FSM `ActorStatus{Unstarted..Stopped}` (`actor_cell.rs:40`); **0 cognitive/lance coupling** in either ractor repo | **LIVE** (framework only — NOT the loop's driver; see § What DRIVES the loop) |
 | the NARS resolver | **lance-graph** (`route_against`) | `causal-edge/src/syllogism.rs:254`; `DominoStep{Settle,Fork,Escalate,Terminal}` (`:287`); thresholds `0.25`/`0.60`/`0.50` (`:304`); first live caller of `figure`/`syllogize`; **UNIQUE** (≠ `thinking-engine/domino.rs` cascade, ≠ the `layered.rs:46` edge-type shadow) | **ATOM** — 6 router tests, **0 production callers** |
 
 ### The seams between those owners — UNBUILT (this is "the SHOCK")
@@ -56,6 +56,35 @@ boundary; wiring is a separate, explicit decision.
 > callcenter fan-out supervisor (does **not** call `route_against`/`advance_phase`), so "the actor
 > layer is purely external ractor" is false: the *integration* is vendored here, the *framework* is
 > upstream ractor.
+
+## What DRIVES the loop — the "surrealdb hot route," not a tokio/ractor message loop
+
+The cognitive phase-transition driver is **substrate-native**, not a dedicated actor message route.
+A `SurrealQL→ractor` message route was evaluated and is **not built** (grep: the only `SurrealQl` is
+`ExecTarget::SurrealQl`, a routing *tag* on `KanbanMove` — `kanban.rs:143`, `scheduler.rs:203`). The
+decision is already recorded in `EPIPHANIES.md` (`E-VERSION-ARC-IS-THE-KANBAN`,
+`E-RACTOR-WANTS-TOKIO-NOT-GRPC`, the INBOUND-scheduler finding):
+
+- **OUTBOUND (free):** `MailboxSoaOwner::advance_phase` commit = one Lance version = one `KanbanMove`.
+  No separate kanban mechanism — the `Dataset::versions()` arc IS the kanban.
+- **INBOUND (the driver):** surreal's LIVE/scheduled query over that version arc fires the next
+  `try_advance_phase` tick (push, not poll — the GitHub-CI-subscription homology). **The mailbox does
+  not run its own tick loop; surreal = clock + planner-dispatch.** The planner emits `KanbanMove`s; the
+  mailbox is a pure state machine. `ExecTarget::SurrealQl` makes it literal: a scheduled SurrealQL query
+  is BOTH the trigger AND a valid execution backend.
+- **Rejected as more expensive:** a dedicated in-process **tokio/ractor message loop** to drive each
+  transition (the D-MBX-8 "Σ10-commit→ractor-START" in-process planner loop). The version-arc route
+  gets the same coordination for free off the commit + LIVE subscription that already fire — so no
+  per-transition dispatch infra is built.
+- **ractor-on-tokio is NOT thereby abandoned:** local ractor is a `Box<dyn Any>` pointer-move over
+  Tokio mpsc (zero-serialize — the *cheap* in-process transport; gRPC is the expensive lab-only one).
+  It stays the right tool where genuine in-process message-passing happens (`lance-graph-supervisor` /
+  osint / ontology already use it) — it is just **not the phase-transition driver.**
+
+Consequence for the seam-rows: the version→tick INBOUND wiring is **surreal-side** (gated on the
+`surreal_container` fork, OQ-11.6 / BLOCKED(C)); the `MailboxSoaOwner` impl the tick advances is
+lance-graph's own-type/own-trait wiring. **Neither is a tokio/ractor message route** — so R3's "the
+seam = an `impl Actor` holding `MailboxSoA` as State" overstates ractor's role in the *driving* loop.
 
 ## The two "elegance" claims — corrected (both were wishful)
 
