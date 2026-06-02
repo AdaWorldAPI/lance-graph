@@ -65,7 +65,7 @@ mod v2_layout_tests;
 pub use edge::CausalEdge64;
 pub use pearl::CausalMask;
 pub use plasticity::PlasticityState;
-pub use syllogism::{Figure, Syllogism};
+pub use syllogism::{DominoStep, Figure, Syllogism};
 
 // Re-export v2 layout types under cfg for downstream consumers
 #[cfg(feature = "causal-edge-v2-layout")]

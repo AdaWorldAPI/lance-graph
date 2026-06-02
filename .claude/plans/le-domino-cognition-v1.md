@@ -66,7 +66,9 @@ The kanban is a **multi-producer door**; producers meet at the **contract**, nev
 | ephemeral radix trie | vart `Tree::clone()` COW | **not a dependency** (doc-prose only) |
 
 ## Ordered seams (build path)
-1. **Backward domino** *(collision-free, internal)*: on edge write, populate the W-slot, walk the W-chain, `syllogize`, compute the pairwise (f,c) diff per hop, route on drop/gain. **Activates the dormant `syllogize` + W-chain; no new types.** First place doctrine becomes running, grounded behavior.
+1. **Backward domino** *(collision-free, internal)*: on edge write, populate the W-slot, walk the W-chain, `syllogize`, compute the pairwise (f,c) diff per hop, route on drop/gain. First place doctrine becomes running, grounded behavior.
+   - **ATOM SHIPPED (2026-06-02):** `CausalEdge64::route_against(self, prior) -> DominoStep{Settle,Fork,Escalate,Terminal}` (`causal-edge/src/syllogism.rs`) — the one-hop NARS-grounded router on the pairwise (f,c) diff; 6 tests green offline; the **first live caller of `syllogize`** (needed one new type, `DominoStep`, the decision sink).
+   - **Remainder:** the multi-hop W-chain walk + the cross-mailbox resolver (`mailbox_ref` → witnessed edge) + acting on the decision (write conclusion / `deposit_counterfactual` / emit `KanbanMove`) + populating the W-slot on emit. The live driving loop awaits the ractor seam.
 2. **Escalation emit** *(shared door — coordinate with the surreal session)*: on won't-settle, emit `KanbanMove` via `on_version` / `ConsumerEnvelope::Plan`.
 3. **Forward link** on `WitnessEntry` (the one new field) → forward propagation.
 4. **Cold / calcify + radix-trie** *(big; blocked on D-PERSONA-5 / ractor)*: compile the orphan, amortize to Fact, vart COW for ephemeral forks.

@@ -1,5 +1,15 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-06-02 — CAUSAL-EDGE-NARSTABLES-BYTE-SIZE — `tables::tests::test_build_fast` fails: `NarsTables::byte_size() >= 256 KiB` (pre-existing, surfaced during seam-1 build)
+
+**Status:** Open · Owner: causal-edge / tables author · Surfaced by: LE-domino seam-1 build (2026-06-02), `cargo test -p causal-edge`.
+
+`crates/causal-edge/src/tables.rs:144` asserts `tables.byte_size() < 256 * 1024`; the assertion **fails** today (the precomputed `NarsTables` exceeds the 256 KiB budget). Confirmed **pre-existing and unrelated** to seam-1: `git stash`-ing the seam-1 changes and running `cargo test -p causal-edge --lib tables::tests::test_build_fast` on clean HEAD reproduces it (`0 passed; 1 failed`). Not previously recorded on the board.
+
+Decision needed: either (a) raise the byte-size budget if the table genuinely needs to be larger (say why), or (b) shrink the table (the 256² u16 deduction/induction/abduction tables may have grown). Out of scope for the seam-1 atom (which is green); flagged so future `cargo test -p causal-edge` runs aren't mistaken for a seam-1 regression.
+
+---
+
 ## 2026-06-02 — MERGEMODE-BUNDLE-SPLIT-BRAIN — `MergeMode::Bundle` enum doc says "majority vote" but the only receiver does additive superpose and ignores the tag; jan's truth-call, not a Claude-session guess
 
 **Status:** Open · Owner: jan (architect decision) · Surfaced by: baton/collapse de-reification council (5+3, 2026-06-02), reviewers R2/B1.

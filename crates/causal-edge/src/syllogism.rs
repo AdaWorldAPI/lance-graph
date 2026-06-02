@@ -229,7 +229,83 @@ impl CausalEdge64 {
 
         Some(Syllogism { figure, conclusion })
     }
+
+    /// One backward-domino hop (`le-domino-cognition-v1.md` seam 1): route on the
+    /// NARS `(frequency, confidence)` diff between this edge and the `prior`
+    /// (witnessed) edge it was built on. **Grounded-not-wishful by construction** —
+    /// a contradiction is never quietly *settled*, a decision is never made without
+    /// evidence, and a missing bridge ends the chain instead of inventing one.
+    ///
+    /// - **same statement** (`s==s && o==o`) → NARS revision regime: agreement
+    ///   consolidates confidence (the diff *drops*) → [`DominoStep::Settle`].
+    /// - **no shared term** → [`DominoStep::Terminal`] (the chain ends here).
+    /// - a real syllogism figure, routed on the diff:
+    ///   - `min(c) < `[`DOMINO_UNCERTAIN`] → [`DominoStep::Escalate`] (too little
+    ///     evidence to decide locally — trigger revision / style / kanban).
+    ///   - frequency divergence ≥ [`DOMINO_FORK_FREQ_DIVERGENCE`] = a contradiction:
+    ///     `min(c) ≥ `[`DOMINO_CONFIDENT`] → [`DominoStep::Fork`] (sure → counterfactual);
+    ///     else → [`DominoStep::Escalate`] (a contradiction is **never settled**).
+    ///   - else → [`DominoStep::Settle`] (consistent and confident → toward commit).
+    ///
+    /// Thresholds are hand-tuned (firewall σ-rule; a later pass may derive them per
+    /// `I-NOISE-FLOOR-JIRAK`). `self` is the more-recent edge; the pairing is
+    /// slot-0-anchored and **not** symmetric (`a.route_against(b) ≠ b.route_against(a)`).
+    #[inline]
+    pub fn route_against(self, prior: Self) -> DominoStep {
+        // Same (s,o) statement → NARS revision, not a syllogism: agreement gains
+        // confidence (the diff drops) → settle toward a committed Fact.
+        if self.s_idx() == prior.s_idx() && self.o_idx() == prior.o_idx() {
+            return DominoStep::Settle;
+        }
+        // No bridging middle term → no inference to propagate; the chain ends.
+        if self.figure(prior).is_none() {
+            return DominoStep::Terminal;
+        }
+        let cmin = self.confidence().min(prior.confidence());
+        let fdiff = (self.frequency() - prior.frequency()).abs();
+        if cmin < DOMINO_UNCERTAIN {
+            // Not enough evidence to decide here — escalate to something that can.
+            DominoStep::Escalate
+        } else if fdiff >= DOMINO_FORK_FREQ_DIVERGENCE {
+            // A genuine contradiction. Fork only when both premises are confident;
+            // otherwise escalate — a contradiction is never quietly settled.
+            if cmin >= DOMINO_CONFIDENT {
+                DominoStep::Fork
+            } else {
+                DominoStep::Escalate
+            }
+        } else {
+            // Consistent and confident enough → settle toward commit.
+            DominoStep::Settle
+        }
+    }
 }
+
+/// The grounded routing decision for one backward-domino hop — the sink the
+/// pairwise NARS `(f,c)` diff drives the cascade into. See [`CausalEdge64::route_against`]
+/// and `.claude/plans/le-domino-cognition-v1.md`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DominoStep {
+    /// The `(f,c)` diff is dropping — consistent and confident (or a revision that
+    /// gained confidence). Damp toward commit / calcify → Fact.
+    Settle,
+    /// Frequency diverging under high confidence — a genuine contradiction. Fork
+    /// into a counterfactual lane (preserve both, never collapse to a winner).
+    Fork,
+    /// Too little evidence to decide locally — trigger a heavier tier (NARS
+    /// revision · thinking-style · kanban-ractor · mailbox). Never fabricate.
+    Escalate,
+    /// No bridging middle term between the two edges — the chain ends here.
+    Terminal,
+}
+
+/// Below this min-confidence a hop cannot be decided locally → [`DominoStep::Escalate`].
+/// Hand-tuned (firewall σ-rule); calibration target per `I-NOISE-FLOOR-JIRAK`.
+pub const DOMINO_UNCERTAIN: f32 = 0.25;
+/// At/above this min-confidence a detected contradiction may [`DominoStep::Fork`].
+pub const DOMINO_CONFIDENT: f32 = 0.60;
+/// Frequency gap at/above which two edges are treated as contradicting.
+pub const DOMINO_FORK_FREQ_DIVERGENCE: f32 = 0.50;
 
 // ─── Truth-functions (mirror `ndarray::hpc::nars` + `CausalEdge64::forward`) ──
 //
@@ -280,6 +356,59 @@ mod tests {
             PlasticityState::ALL_HOT,
             0,
         )
+    }
+
+    // ── seam 1: route_against — the one-hop NARS-grounded domino router ──
+
+    #[test]
+    fn route_same_statement_settles_via_revision() {
+        // Same (s,o), differing relation + frequency → revision regime → Settle,
+        // regardless of the frequency gap (agreement consolidates confidence).
+        let a = edge(10, 1, 20, 230, 200);
+        let b = edge(10, 2, 20, 20, 200); // same s=10, o=20
+        assert_eq!(a.route_against(b), DominoStep::Settle);
+    }
+
+    #[test]
+    fn route_no_shared_term_is_terminal() {
+        let a = edge(10, 1, 20, 200, 200);
+        let b = edge(30, 2, 40, 200, 200); // no shared s/o term
+        assert_eq!(a.route_against(b), DominoStep::Terminal);
+    }
+
+    #[test]
+    fn route_consistent_confident_settles() {
+        // Chain (o1==s2==20), frequencies agree, both confident → Settle.
+        let a = edge(10, 1, 20, 200, 200);
+        let b = edge(20, 2, 30, 200, 200);
+        assert_eq!(a.route_against(b), DominoStep::Settle);
+    }
+
+    #[test]
+    fn route_confident_contradiction_forks() {
+        // Chain, frequencies far apart (≈0.82), both confident (≈0.78) → Fork.
+        let a = edge(10, 1, 20, 230, 200);
+        let b = edge(20, 2, 30, 20, 200);
+        assert_eq!(a.route_against(b), DominoStep::Fork);
+    }
+
+    #[test]
+    fn route_low_confidence_escalates() {
+        // Chain, contradiction present but `self` barely evidenced (c≈0.12) → Escalate.
+        let a = edge(10, 1, 20, 230, 30);
+        let b = edge(20, 2, 30, 20, 200);
+        assert_eq!(a.route_against(b), DominoStep::Escalate);
+    }
+
+    #[test]
+    fn route_unsure_contradiction_escalates_never_settles() {
+        // Anti-wishful guard: a contradiction at medium confidence (≈0.51, between
+        // UNCERTAIN and CONFIDENT) is escalated for evidence — never quietly Settled.
+        let a = edge(10, 1, 20, 230, 130);
+        let b = edge(20, 2, 30, 20, 140);
+        let step = a.route_against(b);
+        assert_eq!(step, DominoStep::Escalate);
+        assert_ne!(step, DominoStep::Settle); // the load-bearing anti-wishful assertion
     }
 
     #[test]
