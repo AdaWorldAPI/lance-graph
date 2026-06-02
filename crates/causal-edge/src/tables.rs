@@ -52,7 +52,8 @@ impl NarsTables {
     /// Build all lookup tables.
     ///
     /// `c_levels`: number of confidence quantiles for revision tables.
-    /// Use 16 for full precision (32 MB), 1 for fast path (128 KB).
+    /// Use 16 for full precision (~32 MB), 1 for fast path (256 KiB: 128 KB
+    /// deduction + 128 KB single revision table — `byte_size()` counts both).
     pub fn build(c_levels: usize) -> Self {
         let c_levels = c_levels.clamp(1, 16);
 
@@ -141,7 +142,12 @@ mod tests {
     fn test_build_fast() {
         let tables = NarsTables::build(1); // fast path: single c-level
         assert_eq!(tables.revision.len(), 1);
-        assert!(tables.byte_size() < 256 * 1024); // < 256 KB
+        // Fast path = 128 KB deduction + 128 KB single revision table = 256 KiB
+        // exactly (vs the ~32 MB full c_levels=16 build). `byte_size()` counts
+        // BOTH tables, so the fast build hits 256 KiB on the nose; pin it to
+        // catch any layout drift either way (the old strict `< 256*1024` bound
+        // was off by the boundary and failed on every build).
+        assert_eq!(tables.byte_size(), 256 * 1024);
     }
 
     #[test]

@@ -2,7 +2,7 @@
 
 ## 2026-06-02 — CAUSAL-EDGE-NARSTABLES-BYTE-SIZE — `tables::tests::test_build_fast` fails: `NarsTables::byte_size() >= 256 KiB` (pre-existing, surfaced during seam-1 build)
 
-**Status:** Open · Owner: causal-edge / tables author · Surfaced by: LE-domino seam-1 build (2026-06-02), `cargo test -p causal-edge`.
+**Status:** RESOLVED 2026-06-02 · Neither (a) nor (b): the fast build is **correctly 256 KiB exactly** (128 KB deduction + 128 KB single revision table; `byte_size()` counts both, as it should). The strict `< 256*1024` bound was **off by the boundary**, not a real over-budget — it failed on every build. Fixed by pinning the real footprint (`assert_eq!(tables.byte_size(), 256 * 1024)`) + correcting the misleading "fast path (128 KB)" doc comment at `tables.rs:55` (it's 256 KiB total). `cargo test -p causal-edge --lib` → 54 passed. · Owner: causal-edge / tables author · Surfaced by: LE-domino seam-1 build (2026-06-02).
 
 `crates/causal-edge/src/tables.rs:144` asserts `tables.byte_size() < 256 * 1024`; the assertion **fails** today (the precomputed `NarsTables` exceeds the 256 KiB budget). Confirmed **pre-existing and unrelated** to seam-1: `git stash`-ing the seam-1 changes and running `cargo test -p causal-edge --lib tables::tests::test_build_fast` on clean HEAD reproduces it (`0 passed; 1 failed`). Not previously recorded on the board.
 
