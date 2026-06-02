@@ -57,6 +57,16 @@ boundary; wiring is a separate, explicit decision.
 > layer is purely external ractor" is false: the *integration* is vendored here, the *framework* is
 > upstream ractor.
 
+> **Orphaned (2026-06-02):** jan reports the parallel surreal session that owned the INBOUND seams
+> (per § Shared door of `le-domino-cognition-v1.md`, "Producer B") is **dead — the wiring was never
+> built.** So the surreal-side seam-rows above (contract consumption, the `Notification→KanbanMove`
+> adapter, the `surreal_container` view) are **orphaned, not in-flight**: no owner, OQ-11.6 unresolved.
+> Now a workspace decision (adopt the surreal-side wiring here / leave documented-as-orphan /
+> reassign) — tracked in `ISSUES.md` `ORCH-SURREAL-INBOUND-ORPHANED`. lance-graph's own half (a real
+> `MailboxSoaOwner` impl) stays lance-graph's to wire if/when the driver is adopted, but has no live
+> driver until the surreal INBOUND is owned (building it now = a consumer-less slice, the `d5f5aa6`
+> trap). The vertical probe (`a26c58b`) validates the path offline in the meantime.
+
 ## What DRIVES the loop — the "surrealdb hot route," not a tokio/ractor message loop
 
 The cognitive phase-transition driver is **substrate-native**, not a dedicated actor message route.

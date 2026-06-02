@@ -1,5 +1,15 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-06-02 — ORCH-SURREAL-INBOUND-ORPHANED — the surreal-side INBOUND wiring (version-arc → kanban trigger) has no owner; the parallel session is dead and the wiring was never built
+
+**Status:** Open (decision for jan) · Owner: NONE (parallel surreal session presumed dead, jan 2026-06-02) · Surfaced by: full-surface council + jan, `orchestration-boundary-v1.md`.
+
+The orchestration loop's INBOUND seams — surreal **consuming** `lance-graph-contract` (`KanbanColumn`/`VersionScheduler`, currently declared-but-0-call-sites, feature off by default), the `Notification→KanbanMove` adapter (absent — "the SHOCK", `EPIPHANIES.md:225`), and `surreal_container : MailboxSoaView` (the kv-lance transparent view, BLOCKED(C) on the kv-lance fork, OQ-11.6) — were assigned to a **parallel surreal session** per the § Shared door contract in `le-domino-cognition-v1.md` (Producer B). jan (2026-06-02): that session is **probably dead and the wiring here was never built.** So these seams are **orphaned, not in-flight.**
+
+Decision needed (jan's): (a) **adopt** the surreal-side wiring into this workspace's scope (`VersionScheduler`→LIVE + the `Notification→KanbanMove` adapter + unblock the kv-lance view), (b) leave **documented-as-orphan** (the loop stays spec-complete / wiring-incomplete; the version-arc driver dormant), or (c) **reassign** to a fresh surreal session. Note: lance-graph's OWN half — a real `MailboxSoaOwner` impl on `MailboxSoa` so the resolver verdict reaches `try_advance_phase` — is lance-graph's to wire and is independent of (a)/(c), BUT has no live driver until the surreal INBOUND is owned, so building it now is a consumer-less slice (the `d5f5aa6` trap). The vertical probe (`a26c58b`) validates the path offline in the meantime.
+
+---
+
 ## 2026-06-02 — CAUSAL-EDGE-NARSTABLES-BYTE-SIZE — `tables::tests::test_build_fast` fails: `NarsTables::byte_size() >= 256 KiB` (pre-existing, surfaced during seam-1 build)
 
 **Status:** RESOLVED 2026-06-02 · Neither (a) nor (b): the fast build is **correctly 256 KiB exactly** (128 KB deduction + 128 KB single revision table; `byte_size()` counts both, as it should). The strict `< 256*1024` bound was **off by the boundary**, not a real over-budget — it failed on every build. Fixed by pinning the real footprint (`assert_eq!(tables.byte_size(), 256 * 1024)`) + correcting the misleading "fast path (128 KB)" doc comment at `tables.rs:55` (it's 256 KiB total). `cargo test -p causal-edge --lib` → 54 passed. · Owner: causal-edge / tables author · Surfaced by: LE-domino seam-1 build (2026-06-02).

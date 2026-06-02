@@ -7,6 +7,22 @@
 > This doc is also the **shared contract** where this work meets a parallel session's
 > SurrealDB-actions→kanban push (see § Shared door).
 
+> **2026-06-02 corrections (council-verified; see `.claude/knowledge/orchestration-boundary-v1.md`):**
+> 1. **The driver is substrate-native — NOT "awaits the ractor seam."** The INBOUND driver fires
+>    `try_advance_phase` via SurrealDB LIVE over the Lance version arc (`E-VERSION-ARC-IS-THE-KANBAN`);
+>    the tokio/ractor message loop ("Σ10-commit→ractor-START") was **rejected** as more expensive
+>    (`E-RACTOR-WANTS-TOKIO-NOT-GRPC`). The "awaits the ractor seam" notes in § seam-1 and § Ordered
+>    seams are superseded by this — ractor is the in-process transport, not the phase driver.
+> 2. **§ Shared door Producer B is DEAD.** The "parallel session building SurrealDB DDL-AST actions"
+>    never built the wiring and is presumed dead (jan, 2026-06-02). The surreal-side INBOUND seam is
+>    **orphaned, not in-flight** — tracked as `ISSUES.md` `ORCH-SURREAL-INBOUND-ORPHANED`.
+> 3. **Name fix:** the contract trait is `VersionScheduler::on_version` (impl `NextPhaseScheduler`),
+>    not `Scheduler::on_version`.
+> 4. **route_against now has a caller:** the offline vertical probe (`a26c58b`,
+>    `cognitive-shader-driver/tests/rubicon_vertical_probe.rs`) exercises seam-1 end to end
+>    (route_against → MUL veto → Rubicon transition); the *live driving loop* still awaits the
+>    surreal INBOUND (orphaned, per #2), not a ractor wire.
+
 ## The one-paragraph architecture
 **One substrate** — the mailbox SoA (`MailboxSoA`), owned by Rust: hot = `&mut` (write), witness =
 `&` (read-only reference to another mailbox), cold = permanent → **Fact** (a calcified `SpoRecord`).

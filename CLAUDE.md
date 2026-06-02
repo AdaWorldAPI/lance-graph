@@ -75,6 +75,17 @@ VSA carrier).
 > mailbox-as-owner compile-time safety argument (E-CE64-MB-4), and the bundle
 > math — all untouched.
 
+> **2026-06-02 driver correction (`.claude/knowledge/orchestration-boundary-v1.md`,
+> council-verified):** "the driver→owner write seam **awaits the ractor wire**" (above)
+> is superseded. The driver is **substrate-native, not a ractor message loop**:
+> `MailboxSoaOwner::try_advance_phase` is fired by SurrealDB LIVE over the Lance
+> **version arc** (`E-VERSION-ARC-IS-THE-KANBAN`); a dedicated tokio/ractor message
+> route ("Σ10-commit→ractor-START") was evaluated and **rejected** as more expensive
+> (`E-RACTOR-WANTS-TOKIO-NOT-GRPC`). ractor stays the in-process transport, not the
+> phase-transition driver. The `MailboxSoaOwner` impl is lance-graph's own-type/own-trait
+> wiring; the INBOUND trigger is surreal-side and currently **orphaned** (the parallel
+> session that owned it is dead — see `ISSUES.md` `ORCH-SURREAL-INBOUND-ORPHANED`).
+
 ```
   Sentence → FSM → RoleKey_fp × content_fp   → vsa_bundle (Σ) with ρ^d braiding
                          │                         │
