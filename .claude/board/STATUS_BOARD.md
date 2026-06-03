@@ -10,6 +10,10 @@
 
 ---
 
+## D-HELIX-1 — `crates/helix` golden-spiral Place/Residue codec (zero-dep + optional ndarray-hpc)
+
+**Status:** Shipped (branch `claude/gallant-rubin-Y9pQd`; **61 unit + 6 doctests green** on the default zero-dep build AND under `--features ndarray-hpc`; clippy -D warnings + fmt clean). New standalone crate (empty `[workspace]`, root `exclude`) realising the user's `KNOWLEDGE.md`: `HemispherePoint` (√u equal-area placement) → `CurveRuler` (stride-4-over-17) → `Similarity` (Fisher-Z/arctanh) → `RollingFloor` (256-palette; occupancy-drift + version stamp) → `ResidueEdge` (3-byte endpoint pair) + `DistanceLut` (metric-safe 256×256 L1; `distance_adaptive` vs non-metric `distance_heuristic`) + `prove()` (2-D discrepancy companion to `jc::weyl`). Optional `ndarray-hpc` = batch Fisher-Z via `simd_ln_f32`. ~80% clean-room overlap with CERTIFIED primitives (E-HELIX-OVERLAP / TD-HELIX-OVERLAP-1); consolidation path in `KNOWLEDGE.md`. Process: autoattended — 5 research agents + 4 parallel Sonnet leaf workers + central consolidation. Next (owed): fidelity-vs-ground-truth probe (naive-u8 floor gate ≥0.9980 Pearson, CONJECTURE).
+
 ## D-A3 — I4x32/I4x64 signed-i4 CAM codec (carrier `pack`/`unpack` + the 256-bit wide carrier)
 
 **Status:** Shipped (branch `claude/jolly-cori-clnf9`; contract lib **562 green**, offline). `I4x32::pack`/`unpack` (two's-complement signed-i4 nibble; even→low/odd→high; saturate `[−8,7]`; sign-agnostic) + new `I4x64` (256-bit / 64 signed dims) + private `sext4`. The carrier is a deterministic 32×/64× **CAM address** + sparse-intensity "smell" — NOT a similarity vector (no vector search, no float; the `{instance,reference}` dual REJECTED, "64" = 64 poles). 33 atoms → dims 0..32. Resolved the 3 stale BLOCKED notes. Plan `.claude/plans/a3-carrier-v1.md` (5-research + 3-brutal sandwich). Next: A4 (CAM-address resolver + `is_signed` + `AtomLane`/`LaneMask` newtypes).

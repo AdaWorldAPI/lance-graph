@@ -15,6 +15,10 @@
 
 ## Open Debt
 
+### TD-HELIX-OVERLAP-1 (D-HELIX-1) — `helix` re-derives existing CERTIFIED primitives (clean-room by directive)
+
+**Open.** `crates/helix` ships as a zero-dep clean-room codec per the user directive "scoped only to crate." ~80% of its pipeline duplicates existing, in-places-CERTIFIED workspace code: Fisher-Z/arctanh→i8 (`bgz-tensor::projection::Base17Fz`, `bgz-tensor::fisher_z::FamilyGamma` ρ≥0.999), golden-spiral azimuth (`jc::weyl`), stride-4 coupling (`thinking-engine::reencode_safety`, `highheelbgz`), EULER_GAMMA hand-off (`jc::precond`, `bgz-tensor::euler_fold`), 256-palette/L1 (`bgz17::palette`). Genuinely new = the `√u` equal-area hemisphere placement + the PLACE/RESIDUE doctrine. **Paid by** (when it graduates from clean-room): the consolidation path in `crates/helix/KNOWLEDGE.md` § Overlap & Consolidation — re-export `FamilyGamma` behind a feature; route coupling through the canonical `(i·11)%17`/stride-4 zipper; feed `ResidueEdge` into the existing HIP/TWIG CAKES tier. **Also owed:** a fidelity-vs-ground-truth probe (the naive-u8 floor gate ≥0.9980 Pearson is currently CONJECTURE — NOT RUN) before promotion. Cross-ref: E-HELIX-OVERLAP, `encoding-ecosystem.md`.
+
 ### TD-WIKI-SCALE (D-WIKI-HHTL / #442) — three scale-freezes the N4 falsifier inherits
 
 **Status: Open.** Surfaced by the D-ARM-14 session's review of #442 (the hub-side
