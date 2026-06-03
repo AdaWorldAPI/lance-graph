@@ -99,6 +99,81 @@ impl PearlJunction {
             Self::Unrelated => None,
         }
     }
+
+    /// **Deprecated** — use [`Self::inference_type`] instead.
+    ///
+    /// Back-compat shim preserved for downstream consumers that imported
+    /// PR #456's `nars_rule() -> Option<NarsRule>` surface (per codex P1
+    /// review on PR #457 — removing the method outright is a breaking
+    /// change even one commit after introduction). New code should call
+    /// `inference_type()`, which returns the canonical
+    /// [`crate::nars::InferenceType`].
+    ///
+    /// The mapping is identical (Chain / ChainRev → Deduction; Fork →
+    /// Induction; Collider → Abduction); the returned [`NarsRule`] is a
+    /// deprecated subset enum that `From`-converts into `InferenceType`.
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use `inference_type()` which returns the canonical `crate::nars::InferenceType`.                 `NarsRule` is preserved as a deprecated alias for back-compat with PR #456."
+    )]
+    #[allow(deprecated)]
+    pub const fn nars_rule(self) -> Option<NarsRule> {
+        // Route the deprecated v1 surface through inference_type() so the
+        // junction → rule mapping lives in ONE place (per CodeRabbit on
+        // PR #458 — avoid the same duplication-map drift class that
+        // motivated the inference_type() introduction in #457).
+        //
+        // The full InferenceType taxonomy includes Revision + Synthesis
+        // which are NOT junction-derivable (no Pearl junction maps to
+        // either), so those arms return None defensively even though
+        // they are unreachable in practice.
+        match self.inference_type() {
+            Some(InferenceType::Deduction) => Some(NarsRule::Deduction),
+            Some(InferenceType::Induction) => Some(NarsRule::Induction),
+            Some(InferenceType::Abduction) => Some(NarsRule::Abduction),
+            Some(InferenceType::Revision) | Some(InferenceType::Synthesis) | None => None,
+        }
+    }
+}
+
+/// **Deprecated** — use [`crate::nars::InferenceType`] instead.
+///
+/// Back-compat alias for PR #456's original three-variant NARS-rule
+/// enum. `NarsRule` always corresponds 1:1 to a subset of
+/// [`InferenceType`] (Deduction / Induction / Abduction); the full
+/// `InferenceType` taxonomy also includes Revision + Synthesis which
+/// are not junction-derivable. `From<NarsRule>` lifts to the canonical
+/// type for migration.
+///
+/// Removed in a future major bump; new code should not introduce
+/// references to this enum.
+#[deprecated(
+    since = "0.2.0",
+    note = "Use `crate::nars::InferenceType` instead. `NarsRule` is preserved as a             back-compat alias for PR #456's original surface; `From<NarsRule>` lifts             to the canonical type."
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum NarsRule {
+    /// Chain figure: `M -> P`, `S -> M` ⊢ `S -> P` (or the reverse).
+    Deduction,
+    /// Fork figure (common cause): `M -> P`, `M -> S` ⊢ `S -> P` (with
+    /// confidence calibrated by Pearl's induction discounting).
+    Induction,
+    /// Collider figure (explaining-away): `P -> M`, `S -> M` ⊢ `S -> P`
+    /// (with confidence calibrated by Pearl's abduction discounting).
+    Abduction,
+}
+
+#[allow(deprecated)]
+impl From<NarsRule> for InferenceType {
+    /// Lift a deprecated [`NarsRule`] to the canonical
+    /// [`InferenceType`]. The mapping is 1:1.
+    fn from(r: NarsRule) -> Self {
+        match r {
+            NarsRule::Deduction => InferenceType::Deduction,
+            NarsRule::Induction => InferenceType::Induction,
+            NarsRule::Abduction => InferenceType::Abduction,
+        }
+    }
 }
 
 /// A pair of SPO edges expressed as their four `NiblePath` endpoints.
@@ -345,4 +420,49 @@ mod tests {
         // Both edges' subjects are out-of-range → EMPTY.
         assert_eq!(EdgePair::new(bad1, real, bad2, real).classify(), PearlJunction::Unrelated);
     }
+
+
+    // ===== Back-compat shim (codex P1 on PR #457) =====
+
+    /// The deprecated nars_rule() method must continue to work for
+    /// downstream consumers that imported PR #456's surface. Verifies the
+    /// 1:1 correspondence with inference_type().
+    #[test]
+    #[allow(deprecated)]
+    fn deprecated_nars_rule_matches_inference_type() {
+        let dog = NiblePath::root(0x1).child(0x1);
+        let cat = NiblePath::root(0x1).child(0x2);
+        let mammal = NiblePath::root(0x1);
+
+        let collider = EdgePair::new(dog, mammal, cat, mammal).classify();
+        assert_eq!(collider.nars_rule(), Some(NarsRule::Abduction));
+        assert_eq!(collider.inference_type(), Some(InferenceType::Abduction));
+
+        // Round-trip via From<NarsRule>
+        let canonical: InferenceType = collider.nars_rule().unwrap().into();
+        assert_eq!(canonical, collider.inference_type().unwrap());
+    }
+
+    /// Unrelated returns None on both methods.
+    #[test]
+    #[allow(deprecated)]
+    fn deprecated_nars_rule_none_when_unrelated() {
+        let a = NiblePath::root(0x1);
+        let b = NiblePath::root(0x2);
+        let c = NiblePath::root(0x3);
+        let d = NiblePath::root(0x4);
+        let j = EdgePair::new(a, b, c, d).classify();
+        assert_eq!(j.nars_rule(), None);
+        assert_eq!(j.inference_type(), None);
+    }
+
+    /// From<NarsRule> for InferenceType covers the three deprecated variants.
+    #[test]
+    #[allow(deprecated)]
+    fn from_nars_rule_lifts_to_inference_type() {
+        assert_eq!(InferenceType::from(NarsRule::Deduction), InferenceType::Deduction);
+        assert_eq!(InferenceType::from(NarsRule::Induction), InferenceType::Induction);
+        assert_eq!(InferenceType::from(NarsRule::Abduction), InferenceType::Abduction);
+    }
+
 }
