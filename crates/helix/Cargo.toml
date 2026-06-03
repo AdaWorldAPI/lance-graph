@@ -1,0 +1,43 @@
+[package]
+name = "helix"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Place/Residue encoding: golden-spiral hemisphere placement, Fisher-Z aligned, into L1-metric-safe 256-palette endpoint pairs — the orthogonal RESIDUE companion to the HHTL PLACE"
+
+# Standalone codec constitution (matches bgz17 / jc / deepnsm): the default build
+# is ZERO production dependencies. The φ-spiral residue is the residue regardless
+# of SIMD path — the math is identical with or without hardware acceleration, so
+# ndarray is an OPTIONAL accelerator, never a correctness dependency.
+[dependencies]
+# Optional ndarray hardware acceleration (AdaWorldAPI fork): batch Fisher-Z via
+# simd_ln_f32 and batch endpoint-L1 via U8x64. Feature-gated so the default build
+# stays zero-dep and standalone-verifiable via `cargo test --manifest-path`.
+# `std` enables `ndarray::simd` (simd_ln_f32 / F32x16 / U8x64); the module is
+# gated behind it. Kept minimal (no extra HPC features) to limit build surface.
+ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std"] }
+
+[features]
+default = []
+# Activate the ndarray-accelerated hot path (simd_ln_f32 / U8x64 batch kernels).
+# The always-present scalar path is used when this is disabled.
+#
+# NOTE: this feature resolves `ndarray` to the AdaWorldAPI fork at the sibling
+# path `../../../ndarray` (NOT crates.io `ndarray`, which has no `::simd` module).
+# It therefore requires that sibling repo to be checked out — the same convention
+# `lance-graph` core uses. The default build is zero-dep and needs none of this.
+ndarray-hpc = ["dep:ndarray"]
+
+[dev-dependencies]
+
+# The example IS the probe (workspace convention): runs the 2-D discrepancy
+# proof + a demo encode/distance round-trip.
+[[example]]
+name = "prove_residue"
+
+# Empty [workspace] so cargo treats this crate as standalone when invoked via
+# --manifest-path (matches deepnsm); helix is also listed under the root
+# Cargo.toml `exclude` so workspace-wide commands never pull it into the
+# deterministic main compile graph.
+[workspace]
