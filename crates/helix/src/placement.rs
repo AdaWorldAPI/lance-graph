@@ -60,8 +60,8 @@ impl HemispherePoint {
     /// # Arguments
     ///
     /// * `n` — zero-based residue index (0 ≤ n < total is the intended range;
-    ///   larger values are accepted and produce `r > 1`, which the Fisher-Z step
-    ///   will clip or reject).
+    ///   `n ≥ total` saturates to the rim — `u` is clamped to 1.0, giving
+    ///   `r = 1`, `y = 0` (a finite point, never NaN)).
     /// * `total` — the total number of residue slots N. Clamped to 1 if zero.
     ///
     /// # Examples
@@ -75,7 +75,7 @@ impl HemispherePoint {
     /// ```
     pub fn lift(n: usize, total: usize) -> Self {
         let total = total.max(1);
-        let u = (n as f64 + 0.5) / total as f64;
+        let u = ((n as f64 + 0.5) / total as f64).min(1.0);
         let r = u.sqrt();
         let y = (1.0 - u).sqrt();
         let azimuth = n as f64 * GOLDEN_RATIO;
@@ -250,6 +250,27 @@ mod tests {
         // sanity: unit-sphere identity still holds
         let sum = p.r * p.r + p.y * p.y;
         assert!((sum - 1.0).abs() < 1e-12, "r²+y² should be 1, got {sum}");
+    }
+
+    // ── out-of-range n saturates to the rim (no NaN) ─────────────────────────
+
+    #[test]
+    fn lift_out_of_range_n_saturates_to_rim() {
+        // n ≥ total clamps u to 1.0 → r = 1, y = 0 (a finite rim point, not NaN).
+        let p = HemispherePoint::lift(10, 4);
+        assert!(
+            p.r.is_finite() && p.y.is_finite(),
+            "rim point must be finite"
+        );
+        assert!(
+            (p.r - 1.0).abs() < 1e-12,
+            "r should saturate to 1, got {}",
+            p.r
+        );
+        assert!(p.y.abs() < 1e-12, "y should saturate to 0, got {}", p.y);
+        // n == total is the boundary and must also be safe
+        let q = HemispherePoint::lift(4, 4);
+        assert!(q.r.is_finite() && q.y.is_finite());
     }
 
     // ── cartesian: x² + z² = r² and overall unit sphere ────────────────────

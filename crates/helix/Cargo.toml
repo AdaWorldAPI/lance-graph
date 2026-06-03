@@ -22,6 +22,11 @@ ndarray = { path = "../../../ndarray", optional = true, default-features = false
 default = []
 # Activate the ndarray-accelerated hot path (simd_ln_f32 / U8x64 batch kernels).
 # The always-present scalar path is used when this is disabled.
+#
+# NOTE: this feature resolves `ndarray` to the AdaWorldAPI fork at the sibling
+# path `../../../ndarray` (NOT crates.io `ndarray`, which has no `::simd` module).
+# It therefore requires that sibling repo to be checked out — the same convention
+# `lance-graph` core uses. The default build is zero-dep and needs none of this.
 ndarray-hpc = ["dep:ndarray"]
 
 [dev-dependencies]

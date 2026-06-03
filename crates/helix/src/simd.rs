@@ -12,10 +12,13 @@
 //! Both functions are correctness-equivalent across the two builds — the feature
 //! is a pure accelerator, never a behaviour change.
 
-const EPS: f32 = 1e-9;
+// f32 clamp guard. Must exceed the f32 ULP near 1.0 (≈1.19e-7) so that
+// `1.0 - EPS` is strictly < 1.0 in f32 — otherwise `ln(1 - s) = ln(0) = -inf`
+// leaks through for `s = ±1`. (The f64 `Similarity::fisher_z` can use 1e-9.)
+const EPS: f32 = 1e-6;
 
 /// Batch Fisher-Z `z = ½·(ln(1+s) − ln(1−s))` over `similarities` into `out`
-/// (each input clamped to `±(1 − 1e-9)`). `out.len()` must equal
+/// (each input clamped to `±(1 − 1e-6)`). `out.len()` must equal
 /// `similarities.len()`. (ndarray `simd_ln_f32` path.)
 #[cfg(feature = "ndarray-hpc")]
 pub fn batch_fisher_z(similarities: &[f32], out: &mut [f32]) {
@@ -114,6 +117,18 @@ mod tests {
                 out[i],
                 want
             );
+        }
+    }
+
+    #[test]
+    fn batch_fisher_z_boundary_inputs_are_finite() {
+        // ±1 and out-of-range inputs must clamp to a finite result — the f32 EPS
+        // must exceed the f32 ULP near 1.0, else ln(0) = -inf leaks through.
+        let s = [1.0f32, -1.0, 2.0, -2.0, 0.999_999, -0.999_999];
+        let mut out = vec![0f32; s.len()];
+        batch_fisher_z(&s, &mut out);
+        for (i, o) in out.iter().enumerate() {
+            assert!(o.is_finite(), "out[{i}] = {o} must be finite");
         }
     }
 
