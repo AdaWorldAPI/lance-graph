@@ -73,6 +73,7 @@ pub mod ocr;
 pub mod ontology;
 pub mod orchestration;
 pub mod orchestration_mode;
+pub mod pearl_junction;
 pub mod persona;
 pub mod plan;
 pub mod property;

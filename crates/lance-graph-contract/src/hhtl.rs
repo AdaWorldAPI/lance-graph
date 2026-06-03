@@ -187,6 +187,93 @@ impl NiblePath {
     pub const fn packed(self) -> (u64, u8) {
         (self.path, self.depth)
     }
+
+    /// Is this path a descendant-or-equal of `other`? — the symmetric form of
+    /// [`is_ancestor_of`]. `self.is_descendant_of(other)` is equivalent to
+    /// `other.is_ancestor_of(self)` BUT the form is sometimes more natural at
+    /// the call site (e.g. iterating over candidate ancestors).
+    ///
+    /// Like [`is_ancestor_of`], the empty path is never a descendant of
+    /// anything.
+    #[must_use]
+    pub const fn is_descendant_of(self, other: Self) -> bool {
+        other.is_ancestor_of(self)
+    }
+
+    /// Are `self` and `other` siblings — distinct paths that share the SAME
+    /// parent (and thus the same depth)? Returns `false` if either is the
+    /// basin (depth 1 — basins have no parent in this tree), if the depths
+    /// differ, or if the paths are equal.
+    ///
+    /// Together with [`is_ancestor_of`] / [`is_descendant_of`] this exposes
+    /// the three structural relations the Pearl-junction classifier
+    /// (`crate::pearl_junction`) needs without forcing the caller to do its
+    /// own bit-shift arithmetic.
+    #[must_use]
+    pub const fn is_sibling_of(self, other: Self) -> bool {
+        if self.depth != other.depth || self.depth <= 1 || self.path == other.path {
+            return false;
+        }
+        // Same depth + same parent ⇔ matching top (depth−1) nibbles ⇔
+        // matching all bits except the low 4 (the leaf nibble).
+        const LEAF_MASK: u64 = !0x0F_u64;
+        (self.path & LEAF_MASK) == (other.path & LEAF_MASK)
+    }
+
+    /// The longest common ancestor path — the longest prefix shared by
+    /// `self` and `other`. `None` if the two paths share no basin (they
+    /// live in disjoint DOLCE-facet subtrees, OR either is the empty path).
+    ///
+    /// Symmetric in its arguments: `a.common_ancestor(b) == b.common_ancestor(a)`.
+    ///
+    /// O(depth) — at most `MAX_DEPTH` nibble-shifts in the worst case.
+    #[must_use]
+    pub const fn common_ancestor(self, other: Self) -> Option<Self> {
+        if self.depth == 0 || other.depth == 0 {
+            return None;
+        }
+        // Align both paths to the shallower depth, then walk up until the
+        // packed prefixes agree. Once we reach depth 0 without a match,
+        // the two paths share no basin.
+        let mut a_path = self.path;
+        let mut a_depth = self.depth;
+        let mut b_path = other.path;
+        let mut b_depth = other.depth;
+        while a_depth > b_depth {
+            a_path >>= 4;
+            a_depth -= 1;
+        }
+        while b_depth > a_depth {
+            b_path >>= 4;
+            b_depth -= 1;
+        }
+        // Same depth now. Walk up until the bits match.
+        while a_path != b_path {
+            if a_depth <= 1 {
+                // Reaching depth 0 means the paths share no basin; reaching
+                // depth 1 with no match means the basins themselves differ.
+                if a_depth == 1 {
+                    return None;
+                }
+                a_path >>= 4;
+                b_path >>= 4;
+                a_depth -= 1;
+                continue;
+            }
+            a_path >>= 4;
+            b_path >>= 4;
+            a_depth -= 1;
+        }
+        if a_depth == 0 {
+            None
+        } else {
+            Some(Self {
+                path: a_path,
+                depth: a_depth,
+            })
+        }
+    }
+
 }
 
 #[cfg(test)]
@@ -322,5 +409,77 @@ mod tests {
             None,
             "out-of-range nibble is None too"
         );
+    }
+
+    #[test]
+    fn is_descendant_of_inverse_of_is_ancestor_of() {
+        let mammal = NiblePath::root(0x1);
+        let dog = NiblePath::root(0x1).child(0x1);
+        let cat = NiblePath::root(0x2);
+        assert!(dog.is_descendant_of(mammal));
+        assert!(!mammal.is_descendant_of(dog));
+        assert!(!dog.is_descendant_of(cat));
+        // empty path is never a descendant of anything
+        assert!(!NiblePath::EMPTY.is_descendant_of(mammal));
+    }
+
+    #[test]
+    fn is_sibling_of_requires_same_parent_distinct_paths() {
+        let dog = NiblePath::root(0x1).child(0x1);
+        let cat = NiblePath::root(0x1).child(0x2);
+        let lance = NiblePath::root(0x1).child(0x1);
+        // siblings: same parent (mammal), distinct leaf nibbles
+        assert!(dog.is_sibling_of(cat));
+        assert!(cat.is_sibling_of(dog));
+        // not siblings: equal paths
+        assert!(!dog.is_sibling_of(lance));
+        // not siblings: different depth
+        let mammal = NiblePath::root(0x1);
+        assert!(!dog.is_sibling_of(mammal));
+        // not siblings: different parent
+        let plant = NiblePath::root(0x2).child(0x1);
+        assert!(!dog.is_sibling_of(plant));
+        // basins themselves are not siblings (depth 1, no parent)
+        let b1 = NiblePath::root(0x1);
+        let b2 = NiblePath::root(0x2);
+        assert!(!b1.is_sibling_of(b2));
+    }
+
+    #[test]
+    fn common_ancestor_returns_longest_shared_prefix() {
+        // (1)(2)(3)(4) and (1)(2)(5)(6) share (1)(2)
+        let a = NiblePath::root(0x1).child(0x2).child(0x3).child(0x4);
+        let b = NiblePath::root(0x1).child(0x2).child(0x5).child(0x6);
+        let lca = a.common_ancestor(b).unwrap();
+        assert_eq!(lca.depth(), 2);
+        assert_eq!(lca.basin(), Some(0x1));
+        assert_eq!(lca.leaf(), Some(0x2));
+        // symmetric
+        assert_eq!(b.common_ancestor(a), Some(lca));
+    }
+
+    #[test]
+    fn common_ancestor_handles_different_depths() {
+        // (1)(2) is an ancestor of (1)(2)(3); LCA should be (1)(2)
+        let shallow = NiblePath::root(0x1).child(0x2);
+        let deep = NiblePath::root(0x1).child(0x2).child(0x3);
+        assert_eq!(shallow.common_ancestor(deep), Some(shallow));
+        assert_eq!(deep.common_ancestor(shallow), Some(shallow));
+    }
+
+    #[test]
+    fn common_ancestor_disjoint_basins_returns_none() {
+        // different basins → no common ancestor in this tree
+        let a = NiblePath::root(0x1).child(0x2);
+        let b = NiblePath::root(0x3).child(0x4);
+        assert_eq!(a.common_ancestor(b), None);
+        assert_eq!(b.common_ancestor(a), None);
+    }
+
+    #[test]
+    fn common_ancestor_empty_path_returns_none() {
+        let a = NiblePath::root(0x1);
+        assert_eq!(a.common_ancestor(NiblePath::EMPTY), None);
+        assert_eq!(NiblePath::EMPTY.common_ancestor(a), None);
     }
 }
