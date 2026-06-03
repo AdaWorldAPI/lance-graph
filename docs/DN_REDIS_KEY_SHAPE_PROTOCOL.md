@@ -47,12 +47,17 @@ A consumer can implement an executor that takes the same `RedisCommand` shape an
 
 What the consumer writes (per codex P2 #3 — there is no shipped trait to implement; this IS new consumer code):
 
-```rust
-// Consumer code, NOT lance-graph code
+```rust,ignore
+// Consumer code, NOT lance-graph code. Pseudocode shape only — adopters
+// implement the actual executor; types like `RedisValue` / `Error` /
+// `self.lance` are illustrative.
 struct LanceBackend { /* ... */ }
 
 impl LanceBackend {
-    fn execute(&self, cmd: RedisCommand) -> Result<RedisValue, Error> {
+    // async fn because read_by_dn / DataFusion queries are awaitable;
+    // earlier draft elided `async` which would have failed to compile
+    // (CodeRabbit critical on PR #455).
+    async fn execute(&self, cmd: RedisCommand) -> Result<RedisValue, Error> {
         match cmd {
             RedisCommand::Get(key) => {
                 let dn = self.parse_dn_from_key(&key)?;

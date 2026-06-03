@@ -22,16 +22,27 @@
 //! the induction⇄abduction chirality; this module's tests use the
 //! `dog/cat/mammal` example as the canonical anti-swap guard).
 //!
+//! ## Empty-path sentinel handling (per codex P2 + CodeRabbit review on PR #456)
+//!
+//! `NiblePath::EMPTY` is the crate's "no route" sentinel — used for
+//! out-of-range `root()` calls and uninitialised handles. The classifier
+//! treats any edge whose endpoints include `EMPTY` as **unresolved**, and
+//! the classifier returns `Unrelated` rather than allowing `EMPTY == EMPTY`
+//! to register as a shared term. This is necessary because matching on
+//! the no-route sentinel would otherwise produce spurious Chain / Fork /
+//! Collider classifications between two unresolved edges.
+//!
 //! ## Why this is in the contract crate
 //!
 //! The classifier is pure-function — it does NOT touch storage, indexes,
 //! or any planner state. It IS the bridge between SPO grammar (figure
 //! rules) and HHTL identity addressing. Per the Morris semiotic trichotomy
-//! mapped to lance-graph code (see `EPIPHANIES.md`), this is **syntax**
-//! (figure rules) operating over **semantics** (HHTL nodes); pragmatics
-//! (the cascade fold) consumes the classification at runtime.
+//! mapped to lance-graph code (see bardioc EPIPHANIES.md), this is
+//! **syntax** (figure rules) operating over **semantics** (HHTL nodes);
+//! pragmatics (the cascade fold) consumes the classification at runtime.
 
 use crate::hhtl::NiblePath;
+use crate::nars::InferenceType;
 
 /// Pearl's causal-junction taxonomy applied to a pair of SPO edges.
 ///
@@ -53,7 +64,9 @@ pub enum PearlJunction {
     /// **parent**; `s1` and `s2` are siblings under one common ancestor.
     /// Conclusion `s1 -> s2` is Abduction.
     Collider,
-    /// No shared term between the two edges.
+    /// No shared term between the two edges — including the case where any
+    /// endpoint is `NiblePath::EMPTY` (the crate's "no route" sentinel,
+    /// treated as unresolved per codex P2 + CodeRabbit review on PR #456).
     Unrelated,
 }
 
@@ -69,75 +82,123 @@ impl PearlJunction {
         }
     }
 
-    /// The NARS-style inference rule the junction selects. `None` for
-    /// `Unrelated`. (Chain / ChainRev select Deduction; Fork selects
-    /// Induction; Collider selects Abduction.)
-    pub const fn nars_rule(self) -> Option<NarsRule> {
+    /// The canonical NARS [`InferenceType`] the junction selects. `None` for
+    /// `Unrelated`. (Chain / ChainRev → Deduction; Fork → Induction;
+    /// Collider → Abduction.) The full NARS taxonomy includes Revision and
+    /// Synthesis which are NOT junction-derivable and are surfaced through
+    /// other dispatch paths.
+    ///
+    /// Sources the canonical [`crate::nars::InferenceType`] enum rather than
+    /// introducing a parallel taxonomy (per CodeRabbit review on PR #456
+    /// — avoid the duplication-map drift class).
+    pub const fn inference_type(self) -> Option<InferenceType> {
         match self {
-            Self::Chain | Self::ChainRev => Some(NarsRule::Deduction),
-            Self::Fork => Some(NarsRule::Induction),
-            Self::Collider => Some(NarsRule::Abduction),
+            Self::Chain | Self::ChainRev => Some(InferenceType::Deduction),
+            Self::Fork => Some(InferenceType::Induction),
+            Self::Collider => Some(InferenceType::Abduction),
             Self::Unrelated => None,
         }
     }
 }
 
-/// The NARS-style inference rule a Pearl junction selects.
+/// A pair of SPO edges expressed as their four `NiblePath` endpoints.
 ///
-/// Mirrors the canonical NARS rule taxonomy (Deduction / Induction /
-/// Abduction). The `lance-graph-contract::nars` module owns the full
-/// `InferenceType` enum (5 variants); this enum names only the three
-/// rules that arise from Pearl-junction classification.
+/// Used as the carrier for Pearl-junction classification via
+/// [`EdgePair::classify`]. The carrier struct keeps the classifier's API
+/// idiomatic (method-on-type rather than 4-argument free function) and
+/// makes downstream code reading more natural at call sites:
+///
+/// ```
+/// # use lance_graph_contract::hhtl::NiblePath;
+/// # use lance_graph_contract::pearl_junction::{EdgePair, PearlJunction};
+/// let dog = NiblePath::root(0x1).child(0x1);
+/// let cat = NiblePath::root(0x1).child(0x2);
+/// let mammal = NiblePath::root(0x1);
+/// let junction = EdgePair::new(dog, mammal, cat, mammal).classify();
+/// assert_eq!(junction, PearlJunction::Collider);
+/// ```
+///
+/// `EdgePair` is `Copy` (four `NiblePath`s are 4×(`u64` + `u8`) =
+/// 4×16 bytes packed; trivially copyable).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum NarsRule {
-    /// Chain figure: `M -> P`, `S -> M` ⊢ `S -> P` (or the reverse).
-    Deduction,
-    /// Fork figure (common cause): `M -> P`, `M -> S` ⊢ `S -> P` (with
-    /// confidence calibrated by Pearl's induction discounting).
-    Induction,
-    /// Collider figure (explaining-away): `P -> M`, `S -> M` ⊢ `S -> P`
-    /// (with confidence calibrated by Pearl's abduction discounting).
-    Abduction,
+pub struct EdgePair {
+    /// Subject of the first edge (`s1 -> o1`).
+    pub s1: NiblePath,
+    /// Object of the first edge.
+    pub o1: NiblePath,
+    /// Subject of the second edge (`s2 -> o2`).
+    pub s2: NiblePath,
+    /// Object of the second edge.
+    pub o2: NiblePath,
+}
+
+impl EdgePair {
+    /// Construct an [`EdgePair`] from four endpoints.
+    pub const fn new(s1: NiblePath, o1: NiblePath, s2: NiblePath, o2: NiblePath) -> Self {
+        Self { s1, o1, s2, o2 }
+    }
+
+    /// Classify this pair of edges into a Pearl junction.
+    ///
+    /// Empty-path guard: if ANY of the four endpoints is `NiblePath::EMPTY`
+    /// (the crate's "no route" sentinel), the classifier returns
+    /// `Unrelated`. This prevents matching the `EMPTY == EMPTY` sentinel as
+    /// a shared graph term — the unresolved-endpoint case must NOT register
+    /// as Chain / Fork / Collider (per codex P2 + CodeRabbit review on
+    /// PR #456).
+    ///
+    /// The classifier checks for shared identity in this order:
+    /// 1. `Chain` (`o1 == s2`)
+    /// 2. `ChainRev` (`s1 == o2`)
+    /// 3. `Fork` (`s1 == s2`)
+    /// 4. `Collider` (`o1 == o2`)
+    /// 5. otherwise `Unrelated`
+    ///
+    /// When two edges share BOTH endpoints (e.g. `s1 == s2` AND `o1 == o2`),
+    /// the classifier returns `Chain` only if the chain check fires first;
+    /// otherwise it follows the order above. Duplicate edges should be
+    /// deduplicated by the caller before classification.
+    pub const fn classify(self) -> PearlJunction {
+        // Empty-path guard: any unresolved endpoint forces Unrelated.
+        if has_empty(self.s1) || has_empty(self.o1) || has_empty(self.s2) || has_empty(self.o2) {
+            return PearlJunction::Unrelated;
+        }
+        if niblepath_eq(self.o1, self.s2) {
+            return PearlJunction::Chain;
+        }
+        if niblepath_eq(self.s1, self.o2) {
+            return PearlJunction::ChainRev;
+        }
+        if niblepath_eq(self.s1, self.s2) {
+            return PearlJunction::Fork;
+        }
+        if niblepath_eq(self.o1, self.o2) {
+            return PearlJunction::Collider;
+        }
+        PearlJunction::Unrelated
+    }
 }
 
 /// Classify a pair of SPO edges by Pearl-junction taxonomy.
 ///
-/// The four arguments are the subject and object identities of each edge.
-/// The predicate is intentionally not in the classifier — the junction
-/// type is determined by the topology of identity equality, not by which
-/// relation each edge represents. Consumers that need predicate-aware
-/// dispatch (e.g. weighting predicates differently) layer that on top.
-///
-/// The classifier checks for shared identity in this order:
-/// 1. `Chain` (`o1 == s2`)
-/// 2. `ChainRev` (`s1 == o2`)
-/// 3. `Fork` (`s1 == s2`)
-/// 4. `Collider` (`o1 == o2`)
-/// 5. otherwise `Unrelated`
-///
-/// When two edges share BOTH endpoints (e.g. `s1 == s2` AND `o1 == o2`),
-/// the classifier returns `Chain` only if the chain check fires first;
-/// otherwise it follows the order above. Duplicate edges should be
-/// deduplicated by the caller before classification.
+/// Thin free-function wrapper around [`EdgePair::classify`] preserved for
+/// back-compat with PR #456 callers. New code should prefer the carrier-
+/// struct method (`EdgePair::new(s1, o1, s2, o2).classify()`).
 pub const fn classify_junction(
     s1: NiblePath,
     o1: NiblePath,
     s2: NiblePath,
     o2: NiblePath,
 ) -> PearlJunction {
-    if niblepath_eq(o1, s2) {
-        return PearlJunction::Chain;
-    }
-    if niblepath_eq(s1, o2) {
-        return PearlJunction::ChainRev;
-    }
-    if niblepath_eq(s1, s2) {
-        return PearlJunction::Fork;
-    }
-    if niblepath_eq(o1, o2) {
-        return PearlJunction::Collider;
-    }
-    PearlJunction::Unrelated
+    EdgePair::new(s1, o1, s2, o2).classify()
+}
+
+/// Returns `true` if the path has `depth == 0` (the `NiblePath::EMPTY`
+/// "no route" sentinel). Used by the classifier to guard against treating
+/// matching empty sentinels as real graph terms.
+const fn has_empty(p: NiblePath) -> bool {
+    let (_path, depth) = p.packed();
+    depth == 0
 }
 
 /// `const fn` equality for [`NiblePath`] — needed because `PartialEq` for
@@ -168,27 +229,25 @@ mod tests {
 
         // dog -> mammal, cat -> mammal: shared object (mammal = parent),
         // distinct subjects (dog, cat = siblings).
-        let j = classify_junction(dog, mammal, cat, mammal);
+        let j = EdgePair::new(dog, mammal, cat, mammal).classify();
         assert_eq!(j, PearlJunction::Collider);
-        assert_eq!(j.nars_rule(), Some(NarsRule::Abduction));
+        assert_eq!(j.inference_type(), Some(InferenceType::Abduction));
         assert_eq!(j.label(), "collider");
+
+        // Free-function wrapper produces identical result (back-compat).
+        assert_eq!(j, classify_junction(dog, mammal, cat, mammal));
     }
 
     /// The dog->mammal / dog->pet example — the Fork canonical.
-    ///
-    /// Two edges share the same SUBJECT (`dog`). The shared term is the
-    /// child; the two objects (`mammal`, `pet`) are co-parents
-    /// reachable via the common descendant; the conclusion `mammal -> pet`
-    /// is Induction.
     #[test]
     fn fork_is_dog_mammal_pet_with_shared_subject() {
         let dog = NiblePath::root(0x1).child(0x1);
         let mammal = NiblePath::root(0x1);
         let pet = NiblePath::root(0x2);
 
-        let j = classify_junction(dog, mammal, dog, pet);
+        let j = EdgePair::new(dog, mammal, dog, pet).classify();
         assert_eq!(j, PearlJunction::Fork);
-        assert_eq!(j.nars_rule(), Some(NarsRule::Induction));
+        assert_eq!(j.inference_type(), Some(InferenceType::Induction));
         assert_eq!(j.label(), "fork");
     }
 
@@ -198,10 +257,9 @@ mod tests {
         let dog = NiblePath::root(0x1).child(0x1);
         let mammal = NiblePath::root(0x1);
         let animal = NiblePath::root(0x0);
-        // dog -> mammal, mammal -> animal: o1 (mammal) == s2 (mammal)
-        let j = classify_junction(dog, mammal, mammal, animal);
+        let j = EdgePair::new(dog, mammal, mammal, animal).classify();
         assert_eq!(j, PearlJunction::Chain);
-        assert_eq!(j.nars_rule(), Some(NarsRule::Deduction));
+        assert_eq!(j.inference_type(), Some(InferenceType::Deduction));
     }
 
     /// ChainRev: `s1 == o2`.
@@ -210,10 +268,9 @@ mod tests {
         let a = NiblePath::root(0x1);
         let b = NiblePath::root(0x2);
         let c = NiblePath::root(0x3);
-        // a -> b, c -> a: s1 (a) == o2 (a)
-        let j = classify_junction(a, b, c, a);
+        let j = EdgePair::new(a, b, c, a).classify();
         assert_eq!(j, PearlJunction::ChainRev);
-        assert_eq!(j.nars_rule(), Some(NarsRule::Deduction));
+        assert_eq!(j.inference_type(), Some(InferenceType::Deduction));
     }
 
     /// Unrelated: no shared term.
@@ -223,31 +280,69 @@ mod tests {
         let b = NiblePath::root(0x2);
         let c = NiblePath::root(0x3);
         let d = NiblePath::root(0x4);
-        let j = classify_junction(a, b, c, d);
+        let j = EdgePair::new(a, b, c, d).classify();
         assert_eq!(j, PearlJunction::Unrelated);
-        assert_eq!(j.nars_rule(), None);
+        assert_eq!(j.inference_type(), None);
     }
 
-    /// Order-of-checks: when multiple endpoints match, Chain wins first.
-    /// Documents the deterministic behavior for callers.
+    /// Order-of-checks: Chain wins when both Chain and ChainRev would match.
     #[test]
     fn chain_check_fires_before_other_matches() {
         let x = NiblePath::root(0x1);
         let y = NiblePath::root(0x2);
-        // edges x->y and y->x: o1 (y) == s2 (y) → Chain
-        // (also s1 == o2 → would-be ChainRev; Chain check fires first)
-        let j = classify_junction(x, y, y, x);
+        let j = EdgePair::new(x, y, y, x).classify();
         assert_eq!(j, PearlJunction::Chain);
     }
 
     #[test]
-    fn const_eq_works_in_classify() {
-        // const-context test for the classifier (proves const fn nature)
+    fn const_classify_works_in_const_context() {
         const A: NiblePath = NiblePath::root(0x1);
         const B: NiblePath = NiblePath::root(0x2);
         const C: NiblePath = NiblePath::root(0x3);
-        // a->b, b->c (Chain)
-        const J: PearlJunction = classify_junction(A, B, B, C);
+        const J: PearlJunction = EdgePair::new(A, B, B, C).classify();
         assert_eq!(J, PearlJunction::Chain);
+    }
+
+    // ===== Empty-path sentinel guard (codex P2 + CodeRabbit on PR #456) =====
+
+    /// Two unresolved edges (both endpoints EMPTY) must NOT classify as
+    /// Chain / Fork / Collider just because the no-route sentinels match.
+    /// They are Unrelated by construction (no real graph terms to compare).
+    #[test]
+    fn two_fully_empty_edges_are_unrelated() {
+        let e = NiblePath::EMPTY;
+        let j = EdgePair::new(e, e, e, e).classify();
+        assert_eq!(j, PearlJunction::Unrelated);
+        assert_eq!(j.inference_type(), None);
+    }
+
+    /// One resolved endpoint + one EMPTY sentinel: Unrelated (the resolved
+    /// endpoint has no real partner to compare against).
+    #[test]
+    fn edge_with_one_empty_endpoint_is_unrelated() {
+        let real = NiblePath::root(0x1);
+        let e = NiblePath::EMPTY;
+        // s1=EMPTY, o1=real, s2=real, o2=EMPTY — would naively match Chain
+        // (o1 == s2) but EMPTY-guard returns Unrelated.
+        let j = EdgePair::new(e, real, real, e).classify();
+        assert_eq!(j, PearlJunction::Unrelated);
+
+        // Any EMPTY in any position → Unrelated.
+        assert_eq!(EdgePair::new(e, real, real, real).classify(), PearlJunction::Unrelated);
+        assert_eq!(EdgePair::new(real, e, real, real).classify(), PearlJunction::Unrelated);
+        assert_eq!(EdgePair::new(real, real, e, real).classify(), PearlJunction::Unrelated);
+        assert_eq!(EdgePair::new(real, real, real, e).classify(), PearlJunction::Unrelated);
+    }
+
+    /// `NiblePath::root` with an out-of-range basin returns `EMPTY` (the
+    /// crate's no-route sentinel). The classifier must NOT treat two
+    /// out-of-range-derived empties as a real shared term.
+    #[test]
+    fn out_of_range_basin_produces_empty_and_classifies_as_unrelated() {
+        let bad1 = NiblePath::root(0xFF); // out of FAN_OUT
+        let bad2 = NiblePath::root(0xEE); // out of FAN_OUT
+        let real = NiblePath::root(0x1);
+        // Both edges' subjects are out-of-range → EMPTY.
+        assert_eq!(EdgePair::new(bad1, real, bad2, real).classify(), PearlJunction::Unrelated);
     }
 }
