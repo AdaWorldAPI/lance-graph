@@ -103,13 +103,21 @@ by 1-3 orders of magnitude vs LSM-tree wide-column representations:
   nibbles common across many entities can be stored once per path
   segment via consumer-side structures (O(k) lookup, prefix-sharing).
   **The dedup-by-prefix data structure itself is consumer code, not
-  a built-in lance-graph crate.** Lance's own `versions()` log is the
-  time-axis (cross-session index of which identity positions changed
-  when). An earlier version of this doc cited `vort/vart` as if it
-  were a shipped crate; corrected per peer review — the radix-shaped
-  trie at the cognitive layer is a proposed pattern (no shipped crate
-  name) and the identity primitive + the time-axis are the two
-  shipped surfaces this bullet should have cited from the start.
+  a built-in lance-graph crate.** Lance's `versions()` returns
+  `Vec<lance::dataset::Version>` — the time-axis is the
+  version-snapshot LOG (each version is a tagged snapshot of the
+  dataset; the log is append-only, ordered, and queryable). It does
+  NOT itself identify which identities changed in each snapshot;
+  adopters who need a change-set derive it by comparing snapshots
+  (or by maintaining a separate change-index per their workload's
+  needs). Codex P2 review on PR #454 caught the prior overclaim
+  that `versions()` was a 'changed-position index'; corrected:
+  it's the snapshot LOG, and the change-set derivation is consumer
+  code. An earlier version of this doc cited `vort/vart` as if it
+  were a shipped crate (a separate fix). The two shipped surfaces
+  for the bullet are `NiblePath` (identity) and `versions()`
+  (snapshot log); the radix-shaped consumer trie and the
+  change-set index are both consumer code.
 
 Concrete example: Wikidata (~115M entities). In Cassandra+JG, the
 indexed graph form is multi-TB with replication factor 3 → multi-TB

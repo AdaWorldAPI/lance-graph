@@ -53,7 +53,7 @@ Compare this with the conventional alternatives:
 |---|---|---|
 | **LSM-tree (Cassandra)** | Paxos-light / gossip | Storage AND consensus both have their own append-then-mutate cycles. Compaction in storage interacts with hinted handoff in consensus. Coordination headaches. |
 | **B-tree (PostgreSQL)** | 2PC (citus-like) | Storage in-place updates fight with 2PC's append-log. Vacuum interacts with commit-log replay. More headaches. |
-| **Append-only Lance** | Append-only Raft | One write shape. Storage commit = consensus log entry. No interaction problems. (Lance does have its own file-layout compaction via `DatasetOptimizer.compact_files`, but it runs INDEPENDENTLY of consensus — see Operational consequence #1.) |
+| **Append-only Lance** | Append-only Raft | One write shape. Storage commit = consensus log entry. (`DatasetOptimizer.compact_files` produces a new manifest version — that output replicates through the same Raft log as a normal write. The operation runs in one place; the result replicates. Per codex P2 PR #454 — see Operational consequence #1 for the honest framing.) |
 
 ## Operational consequences
 
@@ -78,28 +78,51 @@ significant operational burden.
 Lance has compaction TOO, but of a qualitatively different shape:
 `DatasetOptimizer.compact_files` merges small fragments into larger
 ones to optimize query layout (many small appends produce many small
-fragments which slow scans). It is NOT a tombstone-reclaim cycle —
-Lance is append-only at the version level, so there are no tombstones
-to reclaim in the LSM sense. File compaction takes existing
-append-only fragments and produces new append-only fragments at a
-better layout.
+fragments which slow scans). For datasets that use deletes, updates,
+or dropped columns, the SAME compaction also performs reclamation —
+deletion vectors get materialized away (removing rows logically
+marked for delete) and dropped columns are physically removed by
+default. So there IS a reclamation role on those datasets; it is
+just NOT the LSM tombstone-reclaim mechanism (Lance has no
+tombstones at the version level — deletions are tracked by
+deletion-vectors against append-only fragments). For append-only
+write workloads with no deletes/updates/drops, the layout-only
+framing applies; for mixed-write workloads, the reclamation
+component is also present. Either way the operation produces new
+append-only fragments at a better layout.
 
 Operationally:
 
-- Compaction runs INDEPENDENTLY of consensus replication — file
-  compaction does not block writes, does not affect Raft log shipping,
-  does not coordinate across nodes
-- Per-node compaction is local-only; each node compacts its own
-  Lance dataset on its own schedule without affecting peers
-- The failure modes are smaller (a partial compaction is recoverable;
-  no in-flight tombstones to lose; correctness is unaffected)
+- The compaction OPERATION runs locally on whichever node has the
+  current leader role (or on a node permitted to run a maintenance
+  task in the chosen deployment shape); it does not block normal
+  write flow at the application layer
+- The OUTPUT of compaction — the new manifest version + the new
+  set of fragments — flows through the Raft log like any other
+  Lance commit. Peers see the new manifest version after consensus
+  commits, and anti-entropy converges replicas to the post-compaction
+  state. So the result REPLICATES; the work that produced the result
+  is what runs in one place
+- Per-node SCHEDULING choices do not stack into coordination
+  headaches the way Cassandra LSM scheduling does, because each
+  compaction's product is a single committed version (not a
+  per-replica concurrent rewrite that has to be reconciled). At most
+  one node should run a given compaction at a time to avoid wasted
+  work; this is a coordination choice (lock or leader-only), not a
+  coordination headache
+- The failure modes are smaller: a partial compaction is recoverable
+  via Raft's standard log replay; no in-flight LSM tombstones to
+  lose; correctness is unaffected
 
 A peer-Raft + Lance deployment therefore has uniform per-node
-behavior under both consensus and compaction. Operators still plan
-for file compaction (it consumes CPU + IO when it runs), but the
-cluster-wide coordination burden is significantly lower than
-Cassandra's LSM compaction scheduling. (Per post-merge correction
-on PR #452.)
+behavior under consensus. Compaction is a maintenance operation
+that produces a normal commit; operators plan for it (it consumes
+CPU + IO when it runs) but the cluster-wide coordination model is
+simpler than Cassandra's per-node-independent LSM compaction
+scheduling. (Per post-merge correction on PR #452; sharpened per
+codex P2 review on PR #454 — the prior framing said 'independent
+of consensus' which overclaimed; the operation is local but the
+output replicates.)
 
 ### 2. Anti-entropy is a hash compare, not a Merkle-tree walk
 
@@ -157,12 +180,17 @@ state).
 With Lance + Raft, the consensus tax and the storage-COMMIT tax are
 the SAME tax — the append IS both the consensus log entry and the
 storage commit; you pay it once. Lance does have its own file-
-compaction cycle (`DatasetOptimizer.compact_files`), but it runs
-INDEPENDENTLY of consensus — file compaction takes existing
-append-only fragments and rewrites them into bigger append-only
-fragments without tombstones to reclaim and without coordinating
-with replication. So the LAYOUT-OPTIMIZATION cycle exists but does
-not interact with the consensus tax.
+compaction cycle (`DatasetOptimizer.compact_files`), which produces
+a NEW manifest version — and that new version flows through the
+same Raft log as any other write, replicating to peers via the
+normal consensus + anti-entropy path. So compaction's OUTPUT
+counts as a consensus event (one more append). What it does NOT
+add is a SECOND tax of the LSM-tree kind (per-node tombstone-
+reclaim + run-merge bookkeeping that runs on every replica
+independently and creates coordination headaches with replication).
+The LAYOUT-OPTIMIZATION cycle exists; it pays the SAME consensus
+tax as a regular write (one commit), and does NOT layer a separate
+per-replica storage tax on top.
 
 ## What this implies for deployment shape
 
