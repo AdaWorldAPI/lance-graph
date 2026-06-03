@@ -95,12 +95,21 @@ by 1-3 orders of magnitude vs LSM-tree wide-column representations:
   reduces ANN scan space by ~16× under empirical intra-family
   locality (98.6% per the `lance-graph` PR #444 probe).
 
-- **vort/vart adaptive radix trie**: structural deduplication of
-  shared HHTL prefixes. The heel + hip nibbles common across many
-  entities are stored ONCE per path segment, not N times. Adaptive
-  Radix Tree shape: O(k) lookup, prefix-sharing storage. The same
-  structure also serves as the time-axis index over Lance
-  `versions()` for cold-path queries.
+- **`lance-graph-contract::hhtl::NiblePath` (shipped) + Lance
+  `versions()` (shipped)**: HHTL identity is a 16ⁿ nibble path packed
+  into a `u64` (`FAN_OUT = 16`, `MAX_DEPTH = 16`). Adopters who want
+  to dedupe shared HHTL prefixes in memory typically derive an
+  adaptive radix-trie index over `NiblePath` addresses — heel + hip
+  nibbles common across many entities can be stored once per path
+  segment via consumer-side structures (O(k) lookup, prefix-sharing).
+  **The dedup-by-prefix data structure itself is consumer code, not
+  a built-in lance-graph crate.** Lance's own `versions()` log is the
+  time-axis (cross-session index of which identity positions changed
+  when). An earlier version of this doc cited `vort/vart` as if it
+  were a shipped crate; corrected per peer review — the radix-shaped
+  trie at the cognitive layer is a proposed pattern (no shipped crate
+  name) and the identity primitive + the time-axis are the two
+  shipped surfaces this bullet should have cited from the start.
 
 Concrete example: Wikidata (~115M entities). In Cassandra+JG, the
 indexed graph form is multi-TB with replication factor 3 → multi-TB
