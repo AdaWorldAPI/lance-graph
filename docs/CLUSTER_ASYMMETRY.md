@@ -52,7 +52,7 @@ the budgeting assumptions are all qualitatively different.
 | Hot-path reads | Coordinator pattern; fan-out to shard owners | Local; no cross-node hop |
 | Replication factor + storage amplification | R=3-5 per replica; total cluster storage = N_shards × R (sharding COMPOUNDS replication amplification) | R=3 per replica; total cluster storage = R × dataset_size (same per-replica amplification; no sharding compound) |
 | Effective node count | 3N to 5N where N is shards needed for capacity | 3 (or more if geo distribution is required) |
-| Compaction | Yes (each node compacts SSTables on its own schedule; replication lag spikes during) | None (Lance is append-only; version log IS the truth) |
+| Compaction shape | LSM SSTable: tombstone-reclaim + run-merge; coordinates with replication; lag spikes during | Lance file (`DatasetOptimizer.compact_files`): merge small fragments for layout; independent of consensus; no replication-lag interaction |
 | Cross-shard transactions | Hard; needs 2PC or careful avoidance | Not applicable (no shards) |
 | Anti-entropy | Merkle-tree comparison; expensive | Manifest hash compare; O(1) decision |
 | Read latency | Depends on coordinator + slowest shard | Local-replica latency; predictable |
