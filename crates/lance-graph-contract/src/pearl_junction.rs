@@ -118,11 +118,20 @@ impl PearlJunction {
     )]
     #[allow(deprecated)]
     pub const fn nars_rule(self) -> Option<NarsRule> {
-        match self {
-            Self::Chain | Self::ChainRev => Some(NarsRule::Deduction),
-            Self::Fork => Some(NarsRule::Induction),
-            Self::Collider => Some(NarsRule::Abduction),
-            Self::Unrelated => None,
+        // Route the deprecated v1 surface through inference_type() so the
+        // junction → rule mapping lives in ONE place (per CodeRabbit on
+        // PR #458 — avoid the same duplication-map drift class that
+        // motivated the inference_type() introduction in #457).
+        //
+        // The full InferenceType taxonomy includes Revision + Synthesis
+        // which are NOT junction-derivable (no Pearl junction maps to
+        // either), so those arms return None defensively even though
+        // they are unreachable in practice.
+        match self.inference_type() {
+            Some(InferenceType::Deduction) => Some(NarsRule::Deduction),
+            Some(InferenceType::Induction) => Some(NarsRule::Induction),
+            Some(InferenceType::Abduction) => Some(NarsRule::Abduction),
+            Some(InferenceType::Revision) | Some(InferenceType::Synthesis) | None => None,
         }
     }
 }
