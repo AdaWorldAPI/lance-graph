@@ -22,6 +22,27 @@ Don't import the Cassandra cluster operations playbook into a
 lance-graph deployment. The failure modes, the operational rhythms,
 the budgeting assumptions are all qualitatively different.
 
+> ### Scope: external architecture pattern, not a built-in lance-graph feature
+>
+> Per codex P1 review on PR #453: the deployment shapes described
+> below — particularly "peer-Raft + Lance-local-per-node" — describe
+> an EXTERNAL ARCHITECTURE PATTERN that adopters can build on top of
+> lance-graph, NOT a built-in lance-graph capability. Lance-graph
+> itself provides the columnar storage, the DataFusion query path,
+> the encoding crates, and the Rust API surface. The Raft layer, the
+> substrate binary, and the consensus-replication path are
+> downstream consumer code. Adopters implementing this pattern reach
+> for `openraft` (or `surreal-cluster` if their stack is
+> surrealdb-shaped) to provide the Raft layer; they would NOT
+> inherit one from lance-graph.
+>
+> The doc documents WHY this pattern works well WHEN built on
+> lance-graph (the append-only storage model, cheap anti-entropy,
+> per-node fit), not a feature lance-graph itself ships. Adopters
+> who only consume lance-graph's columnar + DataFusion path should
+> NOT assume their data is automatically replicated.
+
+
 ## The two cluster shapes, side by side
 
 | Concern | Capacity-forced (Cassandra+JG) | Availability-chosen (peer-Raft Lance) |
@@ -29,13 +50,24 @@ the budgeting assumptions are all qualitatively different.
 | Reason to cluster | Data does not fit on one node | Data fits on one node; replicate for HA + geo |
 | Each node holds | 1/N of the data (consistent-hash shards) | 100% of the data |
 | Hot-path reads | Coordinator pattern; fan-out to shard owners | Local; no cross-node hop |
-| Replication factor | 3-5 (storage AMPLIFICATION on top of sharding) | 3 (just for HA; no amplification) |
+| Replication factor + storage amplification | R=3-5 per replica; total cluster storage = N_shards × R (sharding COMPOUNDS replication amplification) | R=3 per replica; total cluster storage = R × dataset_size (same per-replica amplification; no sharding compound) |
 | Effective node count | 3N to 5N where N is shards needed for capacity | 3 (or more if geo distribution is required) |
 | Compaction | Yes (each node compacts SSTables on its own schedule; replication lag spikes during) | None (Lance is append-only; version log IS the truth) |
 | Cross-shard transactions | Hard; needs 2PC or careful avoidance | Not applicable (no shards) |
 | Anti-entropy | Merkle-tree comparison; expensive | Manifest hash compare; O(1) decision |
 | Read latency | Depends on coordinator + slowest shard | Local-replica latency; predictable |
 | Operator burden | High (capacity planning, compaction scheduling, rebalancing) | Low (HA discipline only; no shard management) |
+
+
+**Storage amplification honesty (per codex P2 review on PR #453):**
+Both shapes have replication storage amplification — three replicas
+of a 5GB dataset is 15GB of total cluster disk regardless of
+distribution shape. The architectural advantage of availability-chosen
+clustering is NOT that amplification disappears (it doesn't); it's
+that amplification does NOT compound with shard count. Cassandra at
+RF=3 with 10 capacity shards consumes ~30× the single-replica
+storage; peer-Raft at R=3 consumes exactly 3×. Same per-replica
+amplification, no shard multiplier on top.
 
 ## Why lance-graph consumers fit on one node
 
@@ -110,16 +142,38 @@ peers (for eventually-consistent reads) or with a single Raft read-index
 round (for linearizable reads). No fan-out, no aggregation, no
 slowest-shard lag.
 
-### 3. No compaction scheduling
+### 3. Compaction is qualitatively different (lighter coordination)
 
-Cassandra clusters need their compaction schedule managed across nodes.
-Compaction is CPU + IO heavy and creates replication lag spikes; if
-too many nodes compact simultaneously, the cluster's effective
-replication factor temporarily drops.
+Cassandra-style LSM compaction rewrites SSTables to reclaim tombstones
+and merge sorted runs. It is CPU + IO heavy and creates replication
+lag spikes; if too many nodes compact simultaneously, the cluster's
+effective replication factor temporarily drops. Operators schedule
+compactions across nodes to avoid that.
 
-Lance has no compaction. The version log IS the truth. Garbage collection
-of old versions is local-only, doesn't interact with replication, doesn't
-require cluster-wide scheduling.
+Lance has compaction too, but of a different shape:
+`DatasetOptimizer.compact_files` merges small fragments into larger
+ones for query layout optimization (many small appends produce many
+small fragments which slow scans; periodic file compaction restores
+good layout). It is NOT a tombstone-reclaim cycle — Lance is
+append-only at the version level, so there are no tombstones to
+reclaim in the LSM sense.
+
+The qualitative difference:
+
+- **LSM compaction** is a CORRECTNESS + SPACE concern (tombstones must
+  be reclaimed to bound storage; runs must merge for read performance);
+  coordination with replication is unavoidable.
+- **Lance file compaction** is a LAYOUT OPTIMIZATION concern (queries
+  get faster when fragments are larger; correctness is unaffected);
+  it can be scheduled independently per node, produces new fragments
+  that are themselves append-only, and does NOT block or interact
+  with consensus replication.
+
+So Lance compaction exists and operators should plan for it (Lance's
+table-maintenance docs describe `DatasetOptimizer.compact_files`).
+The operational burden is lower than Cassandra LSM compaction because
+the coordination requirements are weaker — but it is not zero. (Per
+codex P2 review on PR #453.)
 
 ### 4. Anti-entropy is cheap
 
@@ -204,11 +258,19 @@ partitioning; each underlying cluster remains availability-chosen.
 
 ## Recommended deployment pattern (reference)
 
+> **Reminder (per codex P1):** This pattern is the bardioc B1
+> substrate-b reference architecture, NOT a built-in lance-graph
+> feature. Adopters provide the Raft layer themselves (openraft /
+> surreal-cluster / external TiKV). Lance-graph contributes the
+> columnar storage + DataFusion + encoding crates that MAKE this
+> pattern cheap, not the pattern itself.
+
 See [reference consumer implementation in bardioc B1 substrate-b]
 (separate proposed doc) for a worked example. Briefly:
 
 - Three substrate-b instances, one per availability zone within a region
-- Each substrate-b is one Rust binary AND one Raft node
+- Each substrate-b is one Rust binary AND one Raft node (Raft impl
+  from openraft or surreal-cluster — NOT inherited from lance-graph)
 - Lance dataset local to each instance (full dataset, not a shard)
 - Reads serve from local Lance with no cross-node coordination
   (eventually-consistent) or from a Raft read-index round (linearizable)
