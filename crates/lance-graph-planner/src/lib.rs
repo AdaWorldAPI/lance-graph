@@ -75,6 +75,14 @@ pub mod cache;
 // === Internal API (same-binary, zero-serde) ===
 pub mod api;
 
+// === Temporal epistemology + deinterlacing (query-time) ===
+// The deinterlace engine: merges the four asynchronous frames (lance versions,
+// SurrealQL `knowable_from`, ractor `V_ref`, cognitive trajectory) into one
+// causally-coherent SoA via the HLC clock, and owns the epistemic-mode policy +
+// per-row classify. Both deferred axes (cross-server HLC, SPO depends-closure)
+// are type-visible with trivial single-server bodies. See module docs.
+pub mod temporal;
+
 // === Canonical OrchestrationBridge impl (dedup per contract) ===
 // Implements `lance_graph_contract::orchestration::OrchestrationBridge`
 // for `PlannerAwareness`. Replaces per-consumer bridge modules. See
