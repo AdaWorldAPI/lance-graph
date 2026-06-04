@@ -1,3 +1,23 @@
+## 2026-06-04 — E-SUBSTRATE-B-CAPABILITY-ROADMAP — three load-bearing NEW-stack primitives codified; consumer integration shape documented
+
+**Status:** FINDING (substrate-b consumer integration pattern, codified after the OGAR / surrealdb / ractor / lance-graph correspondence work converged on three structural primitives, 2026-06-04).
+
+**Three NEW-stack primitives substrate-b consumers must internalise** (now codified in `.claude/knowledge/old-stack-capability-parity.md`):
+
+1. **Lance versions are a multi-purpose primitive.** One primitive serves three capabilities a substrate-b consumer would otherwise build separately: `checkout_version(V)` = point-in-time query (Historisation); the version log = time-series; append-only immutability = signed audit. Consumers should NOT introduce separate stores for these three.
+
+2. **Per-element auth = palette256 + Hamming popcount on `Binary16K`.** The hot-path auth primitive is bit-op-per-element via the per-vertex `_effectiveReaders` / `_effectiveDevices` bitmap. Materialised on write; checked on read via Hamming popcount / bit-intersection; uncached / immediate-effect by construction. ACL changes at version V are in effect at every read at version >= V; consumers should NOT introduce an auth cache.
+
+3. **ractor Actor + Lance-version-as-state-machine = the Rubicon phase machine.** A substrate-b actor models its lifecycle as a typed state enum on a ractor `Actor`; state-enter side-effect fires the Lance commit at the Decision state; events arriving before Decision are deferred; per-state timeouts route through `MessagingErr::Saturated`. The actor's state history IS the Lance version log on its dataset; no separate state-machine event store needed.
+
+**Two consumer-side patterns** that fall out of these primitives:
+- The `LanceVersionWatcher` (in-proc event bus) uses `std::sync` per the I-2 invariant — tokio is reserved for Layer-3 outbound sinks. A consumer that wires tokio for in-process subscription violates I-2 and reproduces the bug `version_watcher.rs`'s 2026-05-06 plan correction note already records as fixed upstream. This is a `hollow-wire-failure-modes.md` failure-mode magnet.
+- The migration endpoint contract (`POST /v1/{entity,edge,traverse,query,graphql,audit}` + `WS /v1/stream` + `POST /v1/dispatch`) is the substrate-b dual-stack ground-truth surface — same workload replayed against substrate-b AND the system being replaced; §14 acceptance gate produces a per-endpoint verdict.
+
+**Cross-ref:** `.claude/knowledge/old-stack-capability-parity.md` (new); `.claude/knowledge/lab-vs-canonical-surface.md` (companion); `.claude/knowledge/hollow-wire-failure-modes.md` (companion); `AdaWorldAPI/lance-graph#452/#453/#454/#455/#456/#457/#458` (merged contributions); `AdaWorldAPI/surrealdb#35/#36` (kv-lance feature + Lance backend struct); `AdaWorldAPI/ractor#1` (`MessagingErr::Saturated`); `AdaWorldAPI/OGAR#5/#6/#7/#8` (carrier shipping).
+
+---
+
 ## 2026-06-03 — E-HELIX-NDARRAY-MANDATORY — `helix` ndarray wiring: optional `path` → mandatory `git` (codex P2 + "ndarray is mandatory") — an optional path dep is a clean-checkout trap
 
 **Status:** FINDING (codex P2 on #460 + user directive, 2026-06-03; fix verified — 63 unit + 6 doctests green with mandatory ndarray, clippy -D warnings + fmt clean; the git source was patched to the local `master` checkout for the in-sandbox build, github fetch deferred to CI).
