@@ -422,7 +422,7 @@ impl ArtNode {
     fn set_leaf(&mut self, value: Option<u32>) {
         match self {
             Self::Node4 { leaf, .. } | Self::Node16 { leaf, .. } | Self::Node256 { leaf, .. } => {
-                *leaf = value
+                *leaf = value;
             }
         }
     }

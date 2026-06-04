@@ -71,6 +71,7 @@
 #![allow(clippy::single_match_else)] // explicit match reads cleaner here
 #![allow(clippy::only_used_in_recursion)] // self-recursive insert keeps trie context
 
+pub mod arith_coder;
 pub mod codebook;
 pub mod constants;
 pub mod hierarchy;
@@ -80,6 +81,10 @@ pub mod tok;
 pub mod types;
 
 // Re-exports of the most common entry points.
+pub use arith_coder::{
+    ac_dec_sym, ac_dec_v, ac_enc_sym, ac_enc_v, Decoder, Encoder, Model256, VModel, AC_FULL,
+    AC_HALF, AC_MAX_FREQ, AC_PREC, AC_QTR,
+};
 pub use codebook::{Codebook, CodebookSizes, CowArt, CowRadixCodebook, FlatCodebook, NG_LENS};
 pub use constants::{tiling_descs, HIER_WORD_LENS, INV_PHI, MAX_HIER, N_TILINGS, PHI};
 pub use hierarchy::{build_hierarchy, deep_counts, detect_deep_positions, hier_context};
