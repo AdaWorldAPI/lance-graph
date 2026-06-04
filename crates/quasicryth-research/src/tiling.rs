@@ -13,9 +13,18 @@
 //! 6. `sanddrift_tiling` — `L → LSSL`, `S → SLS`. `freq(L) = √2 − 1`,
 //!    `freq(S) = 2 − √2`. Novel quasi-Sturmian; LL forbidden, SSS forbidden.
 //!
-//! All generators return tiles satisfying the workspace's no-adjacent-S
-//! invariant by post-processing (any SS pair is merged into an L). See
-//! `verify_no_adjacent_s`.
+//! All cut-and-project + substitution-rule generators **except**
+//! [`sanddrift_tiling`] return tiles satisfying the workspace's
+//! no-adjacent-S invariant via post-processing (any SS pair is merged
+//! into an L; see [`verify_no_adjacent_s`]).
+//!
+//! **Sanddrift is the documented exception** (matching the upstream
+//! `gen_sanddrift_tiles` in `fib.c`): its substitution `L → LSSL`
+//! makes `LL` forbidden rather than `SS`. The C reference deliberately
+//! bypasses the SS→L merge so the substitution structure remains
+//! intact; this transcode preserves that behaviour for fidelity.
+//! Callers that require the no-adjacent-S invariant should use one of
+//! the other generators or filter sanddrift output explicitly.
 
 use crate::constants::INV_PHI;
 use crate::types::{Tile, TilingDesc};
@@ -364,9 +373,21 @@ mod tests {
     }
 
     #[test]
-    fn sanddrift_generates_nonempty() {
-        let tiles = sanddrift_tiling(100);
+    fn sanddrift_generates_nonempty_and_ll_is_forbidden() {
+        // Sanddrift's defining invariant (per upstream gen_sanddrift_tiles):
+        // LL is forbidden by construction; SS is ALLOWED (substitution
+        // L → LSSL emits SS pairs deliberately). This is the documented
+        // exception to the workspace's no-adjacent-S invariant.
+        let tiles = sanddrift_tiling(1_000);
         assert!(!tiles.is_empty());
+        // LL forbidden: no two consecutive L tiles.
+        for w in tiles.windows(2) {
+            assert!(
+                !(w[0].is_l && w[1].is_l),
+                "sanddrift produced an LL pair at wpos {}, violating substitution invariant",
+                w[0].wpos
+            );
+        }
     }
 
     #[test]

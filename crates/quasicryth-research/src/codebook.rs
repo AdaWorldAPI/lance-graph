@@ -369,252 +369,57 @@ fn build_ngrams(cb: &mut FlatCodebook, level: usize, ng_len: usize, word_ids: &[
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// COW Adaptive Radix Trie codebook variant
+// COW Sparse Radix Trie codebook variant
 // ──────────────────────────────────────────────────────────────────────
 
-/// Adaptive Radix Tree node variants (Leis et al, 2013).
+/// One node of the COW radix trie.
 ///
-/// Three node types instead of the full four (Node4 / Node16 / Node48 /
-/// Node256). Node48 is an optimization for 17..48-child density; this
-/// implementation skips it and grows Node16 → Node256 directly. Less
-/// dense but simpler; sufficient for the codebook role.
-#[derive(Debug, Clone)]
-enum ArtNode {
-    /// 4-key direct array — for low-fan-out internal nodes.
-    Node4 {
-        keys: [u32; 4],
-        children: [Option<Arc<ArtNode>>; 4],
-        count: u8,
-        leaf: Option<u32>,
-    },
-    /// 16-key direct array — for medium-fan-out internal nodes.
-    Node16 {
-        keys: Box<[u32; 16]>,
-        children: Box<[Option<Arc<ArtNode>>; 16]>,
-        count: u8,
-        leaf: Option<u32>,
-    },
-    /// 256-key direct array — for high-fan-out internal nodes.
-    Node256 {
-        children: Box<[Option<Arc<ArtNode>>; 256]>,
-        leaf: Option<u32>,
-    },
+/// Each node carries an optional leaf value (the codebook index, present
+/// iff the key terminating at this node was inserted) and a sparse
+/// children map keyed by `u32`. The map is a `BTreeMap` (not `HashMap`)
+/// so iteration order is deterministic — useful for any future
+/// serialization or cross-implementation comparison.
+///
+/// ## Note on the ART simplification
+///
+/// The canonical Adaptive Radix Tree (Leis et al, 2013) uses byte-keyed
+/// adaptive node sizes (Node4 / Node16 / Node48 / Node256). That layout
+/// optimises for byte-aligned keys — `[u8]`-keyed tries — by trading
+/// memory for branch-free `O(1)` child lookup. Our keys are `&[u32]`
+/// (word IDs from the codebook), which don't naturally fit a 256-slot
+/// byte-keyed leaf node without per-byte key decomposition.
+///
+/// This implementation uses a single sparse-children node type backed
+/// by `BTreeMap<u32, Arc<ArtNode>>`. It loses the byte-keyed Node256
+/// branch-free lookup, but gains correctness for arbitrary `u32` keys
+/// (including word IDs ≥ 256, which the original three-variant
+/// implementation silently dropped — caught by codex/coderabbit on
+/// PR #461). The **COW property** — every insert returns a new root
+/// via path-copy, prior roots stay valid — is preserved; that's the
+/// architectural point of this variant.
+#[derive(Debug, Clone, Default)]
+struct ArtNode {
+    children: std::collections::BTreeMap<u32, Arc<ArtNode>>,
+    leaf: Option<u32>,
 }
 
 impl ArtNode {
     fn new_empty() -> Self {
-        Self::Node4 {
-            keys: [0; 4],
-            children: [const { None }; 4],
-            count: 0,
-            leaf: None,
-        }
-    }
-
-    fn leaf(&self) -> Option<u32> {
-        match self {
-            Self::Node4 { leaf, .. } | Self::Node16 { leaf, .. } | Self::Node256 { leaf, .. } => {
-                *leaf
-            }
-        }
-    }
-
-    fn set_leaf(&mut self, value: Option<u32>) {
-        match self {
-            Self::Node4 { leaf, .. } | Self::Node16 { leaf, .. } | Self::Node256 { leaf, .. } => {
-                *leaf = value;
-            }
-        }
+        Self::default()
     }
 
     fn child(&self, key: u32) -> Option<&Arc<ArtNode>> {
-        match self {
-            Self::Node4 {
-                keys,
-                children,
-                count,
-                ..
-            } => {
-                for i in 0..*count as usize {
-                    if keys[i] == key {
-                        return children[i].as_ref();
-                    }
-                }
-                None
-            }
-            Self::Node16 {
-                keys,
-                children,
-                count,
-                ..
-            } => {
-                for i in 0..*count as usize {
-                    if keys[i] == key {
-                        return children[i].as_ref();
-                    }
-                }
-                None
-            }
-            Self::Node256 { children, .. } => {
-                if key < 256 {
-                    children[key as usize].as_ref()
-                } else {
-                    None
-                }
-            }
-        }
+        self.children.get(&key)
     }
 
-    /// Insert/replace a child for `key`. Returns the new node if the variant
-    /// had to grow.
     fn with_child(&self, key: u32, child: Arc<ArtNode>) -> Self {
         let mut new = self.clone();
-        new.put_child(key, child);
+        new.children.insert(key, child);
         new
-    }
-
-    fn put_child(&mut self, key: u32, child: Arc<ArtNode>) {
-        // Try to replace existing.
-        if self.replace_child(key, child.clone()) {
-            return;
-        }
-        // Need to insert; grow if necessary.
-        loop {
-            match self {
-                Self::Node4 {
-                    keys,
-                    children,
-                    count,
-                    ..
-                } => {
-                    if (*count as usize) < 4 {
-                        keys[*count as usize] = key;
-                        children[*count as usize] = Some(child);
-                        *count += 1;
-                        return;
-                    }
-                    self.grow_to_16();
-                }
-                Self::Node16 {
-                    keys,
-                    children,
-                    count,
-                    ..
-                } => {
-                    if (*count as usize) < 16 && key < 256 {
-                        keys[*count as usize] = key;
-                        children[*count as usize] = Some(child);
-                        *count += 1;
-                        return;
-                    }
-                    self.grow_to_256();
-                }
-                Self::Node256 { children, .. } => {
-                    if key < 256 {
-                        children[key as usize] = Some(child);
-                    }
-                    return;
-                }
-            }
-        }
-    }
-
-    fn replace_child(&mut self, key: u32, child: Arc<ArtNode>) -> bool {
-        match self {
-            Self::Node4 {
-                keys,
-                children,
-                count,
-                ..
-            } => {
-                for i in 0..*count as usize {
-                    if keys[i] == key {
-                        children[i] = Some(child);
-                        return true;
-                    }
-                }
-                false
-            }
-            Self::Node16 {
-                keys,
-                children,
-                count,
-                ..
-            } => {
-                for i in 0..*count as usize {
-                    if keys[i] == key {
-                        children[i] = Some(child);
-                        return true;
-                    }
-                }
-                false
-            }
-            Self::Node256 { children, .. } => {
-                if key < 256 && children[key as usize].is_some() {
-                    children[key as usize] = Some(child);
-                    true
-                } else {
-                    false
-                }
-            }
-        }
-    }
-
-    fn grow_to_16(&mut self) {
-        let (old_keys, old_children, old_count, old_leaf) = match self {
-            Self::Node4 {
-                keys,
-                children,
-                count,
-                leaf,
-            } => (*keys, std::mem::take(children), *count, *leaf),
-            _ => return,
-        };
-        let mut new_keys = Box::new([0u32; 16]);
-        let mut new_children: Box<[Option<Arc<ArtNode>>; 16]> =
-            Box::new(std::array::from_fn(|_| None));
-        for i in 0..old_count as usize {
-            new_keys[i] = old_keys[i];
-            new_children[i] = old_children[i].clone();
-        }
-        *self = Self::Node16 {
-            keys: new_keys,
-            children: new_children,
-            count: old_count,
-            leaf: old_leaf,
-        };
-    }
-
-    fn grow_to_256(&mut self) {
-        let (old_keys, old_children, old_count, old_leaf) = match self {
-            Self::Node16 {
-                keys,
-                children,
-                count,
-                leaf,
-            } => {
-                let keys = **keys;
-                let children = std::mem::replace(children, Box::new(std::array::from_fn(|_| None)));
-                (keys, children, *count, *leaf)
-            }
-            _ => return,
-        };
-        let mut new_children: Box<[Option<Arc<ArtNode>>; 256]> =
-            Box::new(std::array::from_fn(|_| None));
-        for i in 0..old_count as usize {
-            let k = old_keys[i] as usize;
-            if k < 256 {
-                new_children[k] = old_children[i].clone();
-            }
-        }
-        *self = Self::Node256 {
-            children: new_children,
-            leaf: old_leaf,
-        };
     }
 }
 
-/// COW Adaptive Radix Trie keyed by `&[u32]`, valued by `u32` codebook index.
+/// COW Sparse Radix Trie keyed by `&[u32]`, valued by `u32` codebook index.
 ///
 /// Insertion produces a new root via path-copy; the previous root remains
 /// valid for prior consumers. Reads are `&self` and share structure across
@@ -662,7 +467,7 @@ impl CowArt {
         for &k in key {
             node = node.child(k)?.as_ref();
         }
-        node.leaf()
+        node.leaf
     }
 
     /// Insert `key → value`. Returns a new trie sharing structure with
@@ -680,8 +485,8 @@ impl CowArt {
 fn insert_rec(node: &Arc<ArtNode>, key: &[u32], value: u32) -> (ArtNode, bool) {
     if key.is_empty() {
         let mut new_node = node.as_ref().clone();
-        let was_present = new_node.leaf().is_some();
-        new_node.set_leaf(Some(value));
+        let was_present = new_node.leaf.is_some();
+        new_node.leaf = Some(value);
         return (new_node, !was_present);
     }
     let head = key[0];
@@ -914,15 +719,45 @@ mod tests {
     }
 
     #[test]
-    fn cow_art_grows_node_variants() {
-        // Force Node4 → Node16 → Node256 growth on a single root.
+    fn cow_art_handles_arbitrary_u32_keys() {
+        // The original three-variant ART implementation silently dropped
+        // children whose key was ≥ 256 once a node grew to Node256
+        // (caught by codex/coderabbit on PR #461). The current
+        // sparse-children implementation must accept arbitrary u32 keys.
+        //
+        // This test inserts 300 keys spanning < 256 AND ≥ 256, then
+        // verifies every one round-trips.
         let mut art = CowArt::new();
-        for k in 0..200u32 {
+        let keys: Vec<u32> = (0..300u32).chain([1_000_000u32, u32::MAX]).collect();
+        for &k in &keys {
             art = art.insert(&[k], k);
         }
-        assert_eq!(art.len(), 200);
-        for k in 0..200u32 {
-            assert_eq!(art.get(&[k]), Some(k));
+        assert_eq!(art.len() as usize, keys.len());
+        for &k in &keys {
+            assert_eq!(art.get(&[k]), Some(k), "key {k} dropped");
+        }
+    }
+
+    #[test]
+    fn cow_radix_codebook_handles_large_vocabulary() {
+        // Regression for codex P2 "Store COW trie keys above 255": a corpus
+        // with ≥ 257 unique alphabetic tokens would silently drop word_id
+        // ≥ 256 from the unigram trie in the original implementation,
+        // causing Variant::CowRadix to report OutOfVocabulary even though
+        // the flat variant round-tripped the same input.
+        let n_unique: u32 = 300;
+        let word_ids: Vec<u32> = (0..n_unique).chain(0..n_unique).collect();
+        let sizes = CodebookSizes {
+            uni: n_unique,
+            ..CodebookSizes::auto(word_ids.len() as u32)
+        };
+        let cb = CowRadixCodebook::build(&word_ids, n_unique, sizes);
+        // Every unique word ID — including IDs ≥ 256 — must be findable.
+        for w in 0..n_unique {
+            let idx = cb
+                .unigram_index(w)
+                .unwrap_or_else(|| panic!("word_id {w} not in COW codebook"));
+            assert_eq!(cb.unigram_word(idx), Some(w));
         }
     }
 }

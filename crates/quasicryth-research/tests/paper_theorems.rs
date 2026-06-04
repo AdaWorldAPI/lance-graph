@@ -166,11 +166,17 @@ fn sturmian_factor_complexity_is_n_plus_1() {
         for window in stream.windows(n) {
             factors.insert(window.to_vec());
         }
-        // Paper §4.10: Sturmian gives exactly n+1; verify within tolerance for
-        // the finite prefix we sampled.
-        assert!(
-            factors.len() <= n + 1,
-            "n={n}: {} distinct factors, Sturmian bound is {}",
+        // Paper §4.10: Sturmian sequences have EXACTLY n+1 distinct length-n
+        // factors (minimal-complexity property; Thm 7 corollary). For the
+        // 20,000-symbol golden-tiling prefix sampled above, n ∈ [1, 8] is
+        // well within the regime where the exact equality holds — assert
+        // it rather than the looser `≤` bound to catch any drift toward
+        // degenerate (< n+1, e.g. periodic) or super-Sturmian (> n+1)
+        // streams.
+        assert_eq!(
+            factors.len(),
+            n + 1,
+            "n={n}: {} distinct factors, Sturmian minimality requires exactly {}",
             factors.len(),
             n + 1
         );
