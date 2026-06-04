@@ -1,0 +1,32 @@
+[package]
+name = "quasicryth-research"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Direct Rust transcode of Quasicryth (Tacconelli 2026, arxiv 2603.14999) — Fibonacci quasicrystal tilings + substitution hierarchy + deep n-gram position detection + arithmetic coding + tokenization + codebook construction (FlatCodebook + CowRadixCodebook variants) + end-to-end compress/decompress pipeline. Research/testing crate, NOT byte-compatible with the upstream .qm56 production format."
+
+# Standalone codec constitution (matches helix / bgz17 / deepnsm): the default
+# build is ZERO dependencies. Covers the algebraic core (fib.c) PLUS the
+# compression layers (ac.c arithmetic coder, tok.c tokenization, cb.c codebook
+# construction, md5.c) PLUS an end-to-end pipeline that round-trips under both
+# the original FlatCodebook AND the COW radix trie variant.
+#
+# Pipeline simplifications vs. the upstream v5.6 compressor are deliberate
+# and documented in the crate README: single-tier unigram encoding (no
+# multi-level n-grams), no LZMA escape stream (OOV → error), no word-level
+# LZ77, no per-level context models. The Rust pipeline round-trips with
+# itself; it is NOT byte-identical to the upstream .qm56 format.
+#
+# Upstream: https://github.com/robtacconelli/quasicryth (v5.6.0).
+# Paper proves five theorems (non-collapse, PV-property, Sturmian minimality,
+# Golden Compensation, bounded overhead) — all five verified on synthetic
+# data in tests/paper_theorems.rs.
+[dependencies]
+
+[dev-dependencies]
+
+# Empty [workspace] so cargo treats this crate as standalone when invoked via
+# --manifest-path. Listed under the root Cargo.toml `exclude` so workspace-wide
+# commands never pull it into the deterministic main compile graph.
+[workspace]
