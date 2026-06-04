@@ -1,3 +1,18 @@
+## [Main thread / Opus, autoattended] D-SUBSTRATE-B-CONSUMER-DOC-FIX — codex P1 correction on PR #465 (audit retention caveat)
+
+**Branch:** doc/knowledge-old-stack-capability-parity-fix. Follow-up to merged PR #465; addresses codex P1 finding that §2.1 + §5.1 overclaimed Lance-versions-as-immutable-audit.
+
+**The overclaim corrected:** §2.1 said "versions never disappear"; §5.1 said "consumers should NOT introduce separate stores." Lance 7.0+ supports `Dataset::cleanup_old_versions` + `lance.auto_cleanup.*` — the version log is retention-policy-gated, not by-construction-immutable. Following the original guidance could make historical audit reads disappear after cleanup.
+
+**Corrections applied:**
+- §2.1 audit bullet renamed from "Immutable audit" to "Audit (retention-policy-gated)"; explicit guidance: disable auto-cleanup OR tag versions OR route audit-class events to a separate append-only sink; regulatory-grade audit requires the external sink — Lance alone is NOT a substitute.
+- §5.1 renamed from "Three OLD components collapse to one" to "Two-and-a-half OLD components collapse to one"; non-regulatory audit (with retention configured) shares Lance versions; regulatory audit remains a separate concern.
+- The three-primitives codification (E-SUBSTRATE-B-CAPABILITY-ROADMAP) survives — the multi-purpose-Lance-versions claim is still load-bearing; only the audit guarantee + the consumer default change.
+
+**Outcome:** doc + EPIPHANIES + AGENT_LOG only, no code changes. Spot-check: the overclaim and the corrected text are both in §2.1/§5.1 of the diff.
+
+---
+
 ## [Main thread / Opus, autoattended] D-SUBSTRATE-B-CONSUMER-DOC — `.claude/knowledge/old-stack-capability-parity.md` SHIPPED (companion to lab-vs-canonical-surface + hollow-wire-failure-modes)
 
 **Branch:** doc/knowledge-old-stack-capability-parity (this PR). New `.claude/knowledge/` doc capturing the substrate-b consumer integration shape: the seven-capability composition (`lance-graph` storage + `surrealdb kv-lance` KV + Tantivy search + DataFusion OLAP + ractor actors + `LanceVersionWatcher` in-proc bus + external Zitadel IAM), the three load-bearing primitives (Lance versions as multi-purpose temporal; palette256+Hamming per-element auth; ractor-Actor + Lance-version-as-state-machine = Rubicon), and the capability roadmap (built / partial / not-yet) honest accounting.
