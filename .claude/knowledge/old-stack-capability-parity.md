@@ -30,9 +30,9 @@ A single primitive — Lance versions — serves three distinct capabilities a s
 
 - **Point-in-time query** = `dataset.checkout_version(V_ref)` — pin an immutable snapshot at any version
 - **Time-series** = the version log itself — every commit is a versioned event with a timestamp
-- **Immutable audit** = append-only by construction — versions never disappear; the log IS the audit trail
+- **Audit (retention-policy-gated)** = append-only **at write time**, but Lance supports version cleanup (`Dataset::cleanup_old_versions` + the `lance.auto_cleanup.*` settings, Lance 7.0+). The version log is therefore **not guaranteed immutable without explicit retention policy**. For audit-class workloads, consumers MUST configure retention — either by disabling auto-cleanup on the dataset, tagging versions for retention, OR routing audit-class events to a separate append-only sink (signed write-once object store, regulator-grade audit ledger). For regulatory-grade *"cannot be deleted, cannot be manipulated"* guarantees, the external signed sink is **mandatory** — Lance versions alone are NOT a substitute.
 
-This is the substrate-b efficiency claim: three capabilities, one primitive, no separate storage. The implications are captured in `STANDING_WAVE_ARCHITECTURE.md` §1 (in substrate-b consumer repos).
+This is the substrate-b efficiency claim, with the audit caveat: three capabilities, one primitive — for non-regulatory audit, Lance versions + a retention policy serve. For regulatory audit, the external signed sink remains a separate concern (no claim made). The implications are captured in `STANDING_WAVE_ARCHITECTURE.md` §1 (in substrate-b consumer repos).
 
 ### 2.2 Per-element auth = palette256 + Hamming popcount on Binary16K
 
@@ -108,9 +108,14 @@ Substrate-b consumers run dual-stack workload replay against this contract; the 
 
 ## 5. Integration patterns that fall out of this shape
 
-### 5.1 Three OLD components collapse to one when substrate-b is the target
+### 5.1 Two-and-a-half OLD components collapse to one when substrate-b is the target
 
-A consumer migrating from a separate Historisation layer + a separate time-series database + a separate signed-audit-log service replaces all three with Lance versions. This is the design-pattern claim; it follows from §2.1. Substrate-b consumers should NOT introduce separate stores for these three capabilities.
+A consumer migrating from a separate Historisation layer + a separate time-series database replaces both with Lance versions outright — that part of the design-pattern claim follows from §2.1. **The audit case is conditional:**
+
+- For **non-regulatory** audit (operational logging, compliance-as-best-effort), Lance versions serve IF the retention policy is configured to preserve the audit window (auto-cleanup disabled, versions tagged for retention, or `cleanup_old_versions` not invoked on the audit dataset). Substrate-b consumers SHOULD make this policy explicit in their deployment config.
+- For **regulatory-grade** audit ("cannot be deleted, cannot be manipulated" — the kind of guarantee required for compliance frameworks that mandate immutable audit trails), Lance versions alone are NOT a substitute. A separate signed write-once sink (object-storage with object-lock + signature, or a regulator-grade audit ledger) remains a separate concern; substrate-b doesn't claim to replace it.
+
+The honest framing: substrate-b collapses Historisation + TSDB into one primitive (Lance versions) and **shares storage with non-regulatory audit when retention is configured**, but does not displace a regulatory-grade audit sink. Treat regulatory audit as orthogonal.
 
 ### 5.2 ACL changes take effect immediately, by construction
 

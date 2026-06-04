@@ -1,3 +1,22 @@
+## 2026-06-04 — E-AUDIT-RETENTION-CAVEAT — substrate-b consumer doc Lance-versions-as-audit claim was overstated; corrected to retention-policy-gated (codex P1 on #465)
+
+**Status:** CORRECTION (codex P1 on PR #465, 2026-06-04; merged + immediate follow-up correction per the no-silent-edit discipline — the FIX appends; the original epiphany E-SUBSTRATE-B-CAPABILITY-ROADMAP stands as the corrected reference now reads).
+
+**The overclaim (now corrected in `.claude/knowledge/old-stack-capability-parity.md`):** §2.1 said *"Immutable audit = append-only by construction — versions never disappear; the log IS the audit trail."* §5.1 followed up with *"Three OLD components collapse to one ... consumers should NOT introduce separate stores."*
+
+**The reality codex caught:** Lance 7.0+ exposes `Dataset::cleanup_old_versions` and `lance.auto_cleanup.*` settings. Old versions CAN be removed for storage management — the version log is therefore **not guaranteed immutable without explicit retention policy**. Consumers following the doc's guidance to drop their separate audit store could see historical audit reads disappear after cleanup.
+
+**The corrected framing:**
+1. **Audit is retention-policy-gated**, not by-construction-immutable. For audit-class workloads, retention must be configured (disable auto-cleanup, tag versions, OR route to a separate append-only sink).
+2. **Regulatory-grade audit** ("cannot be deleted, cannot be manipulated") requires a separate signed write-once sink — substrate-b doesn't claim to replace it.
+3. **The collapse is two-and-a-half, not three.** Historisation + TSDB collapse outright; audit is conditional on retention policy + workload class (non-regulatory: yes with retention; regulatory: no, external sink still required).
+
+**Why this matters for the substrate-b shape:** the three-primitives codification (E-SUBSTRATE-B-CAPABILITY-ROADMAP) survives — the multi-purpose-Lance-versions claim is still load-bearing. What changes is the audit guarantee + the consumer-guidance default ("introduce no separate store"): now reads "introduce no separate store *for non-regulatory audit, with retention configured*; regulatory audit remains a separate concern."
+
+**Cross-ref:** PR #465 (merged) + the follow-up correction PR; `.claude/knowledge/old-stack-capability-parity.md` §2.1 + §5.1 (corrected); codex P1 finding (audit retention outside prunable Lance versions).
+
+---
+
 ## 2026-06-04 — E-SUBSTRATE-B-CAPABILITY-ROADMAP — three load-bearing NEW-stack primitives codified; consumer integration shape documented
 
 **Status:** FINDING (substrate-b consumer integration pattern, codified after the OGAR / surrealdb / ractor / lance-graph correspondence work converged on three structural primitives, 2026-06-04).
