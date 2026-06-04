@@ -70,12 +70,14 @@
 #![allow(clippy::assigning_clones)] // clone-into would obscure ownership intent
 #![allow(clippy::single_match_else)] // explicit match reads cleaner here
 #![allow(clippy::only_used_in_recursion)] // self-recursive insert keeps trie context
+#![allow(clippy::doc_lazy_continuation)] // module-level docs use multi-line list items
 
 pub mod arith_coder;
 pub mod codebook;
 pub mod constants;
 pub mod hierarchy;
 pub mod md5;
+pub mod pipeline;
 pub mod tiling;
 pub mod tok;
 pub mod types;
@@ -89,6 +91,7 @@ pub use codebook::{Codebook, CodebookSizes, CowArt, CowRadixCodebook, FlatCodebo
 pub use constants::{tiling_descs, HIER_WORD_LENS, INV_PHI, MAX_HIER, N_TILINGS, PHI};
 pub use hierarchy::{build_hierarchy, deep_counts, detect_deep_positions, hier_context};
 pub use md5::{md5, Md5};
+pub use pipeline::{compress, decompress, PipelineError, Variant};
 pub use tiling::{
     gen_from_desc, period5_tiling, period_doubling_tiling, qc_word_tiling, qc_word_tiling_alpha,
     rudin_shapiro_tiling, sanddrift_tiling, thue_morse_tiling, verify_no_adjacent_s,
