@@ -63,17 +63,27 @@
 #![allow(clippy::needless_range_loop)] // index-based loops match the C layout
 #![allow(clippy::manual_midpoint)] // recomputing φ algebraically, not midpointing
 #![allow(clippy::module_name_repetitions)] // matches upstream naming
+#![allow(clippy::many_single_char_names)] // a/b/c/d are RFC 1321's own names
+#![allow(clippy::too_many_lines)] // upstream C functions transcode 1:1
+#![allow(clippy::format_push_string)] // hex formatting test helper, not hot path
+#![allow(clippy::bool_to_int_with_if)] // explicit `is_l ? 2 : 1` matches the C
 
 pub mod constants;
 pub mod hierarchy;
+pub mod md5;
 pub mod tiling;
+pub mod tok;
 pub mod types;
 
 // Re-exports of the most common entry points.
 pub use constants::{tiling_descs, HIER_WORD_LENS, INV_PHI, MAX_HIER, N_TILINGS, PHI};
 pub use hierarchy::{build_hierarchy, deep_counts, detect_deep_positions, hier_context};
+pub use md5::{md5, Md5};
 pub use tiling::{
     gen_from_desc, period5_tiling, period_doubling_tiling, qc_word_tiling, qc_word_tiling_alpha,
     rudin_shapiro_tiling, sanddrift_tiling, thue_morse_tiling, verify_no_adjacent_s,
+};
+pub use tok::{
+    apply_case, is_alpha_or_hi, is_ws, tokenize, word_split, Token, TokenSpan, TokenStream,
 };
 pub use types::{DeepPositions, HLevel, Hierarchy, ParentMap, Tile, TilingDesc};
