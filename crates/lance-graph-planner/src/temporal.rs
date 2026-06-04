@@ -183,7 +183,7 @@ pub struct DepEdge {
 /// A subject's data-dependency closure at a reference, plus whether it is
 /// satisfied. The `DependsClosure` impl owns the satisfaction logic; this module
 /// only consumes [`satisfied`](Self::satisfied).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct DepClosure {
     /// The edges that must hold for the subject to be data-causally ready.
     pub edges: Vec<DepEdge>,
@@ -198,6 +198,16 @@ impl DepClosure {
     #[must_use]
     pub fn ready() -> Self {
         Self { edges: Vec::new(), satisfied: true }
+    }
+}
+
+/// The trivial/empty closure IS the ready case — `Default` matches
+/// [`DepClosure::ready`] so `..Default::default()` and the `derive(Default)`
+/// reflex don't silently produce `satisfied: false` (which would make
+/// [`deinterlace`] drop every otherwise-contemporary row). Codex P2 on #468.
+impl Default for DepClosure {
+    fn default() -> Self {
+        Self::ready()
     }
 }
 
@@ -301,7 +311,11 @@ where
         })
         .cloned()
         .collect();
-    out.sort_by_key(|r| (r.hlc_tick().unwrap_or(0), r.lance_version()));
+    // Falls back to the row's own lance_version when no HLC tick is present
+    // (single-server / legacy rows) — NOT to 0, which would force every
+    // missing-HLC row ahead of all HLC rows regardless of its version (Codex
+    // P2 on #468; honors the documented "fallback to lance_version").
+    out.sort_by_key(|r| (r.hlc_tick().unwrap_or_else(|| r.lance_version()), r.lance_version()));
     out
 }
 
@@ -442,5 +456,35 @@ mod tests {
         assert_eq!(q.ref_version, u64::MAX);
         assert_eq!(q.hlc_tick, None);
         assert_eq!(q.mode, EpistemicMode::Strict);
+    }
+
+    /// Codex P2 on #468: `DepClosure::default()` must be ready (matching
+    /// [`DepClosure::ready`] + [`NoDeps`]), not `satisfied: false` — otherwise
+    /// any consumer using `..Default::default()` silently blocks every row.
+    #[test]
+    fn dep_closure_default_is_ready_not_blocking() {
+        let d = DepClosure::default();
+        assert!(d.satisfied, "Default DepClosure must be ready (satisfied: true)");
+        assert!(d.edges.is_empty());
+    }
+
+    /// Codex P2 on #468: a row without an HLC tick must fall back to its own
+    /// `lance_version` as the deinterlace key — NOT to 0 (which would force
+    /// legacy rows ahead of all HLC rows during partial cross-server rollout).
+    #[test]
+    fn deinterlace_mixed_hlc_falls_back_to_lance_version() {
+        let v_ref = QueryReference { ref_version: 1000, ..QueryReference::default() };
+        // Two HLC-bearing rows + one legacy row (no HLC, lance_version 750).
+        // With the old `unwrap_or(0)` the legacy row would sort first; with
+        // the fallback to lance_version it sorts between HLCs 500 and 900.
+        let rows = vec![
+            Row::new(100, 1, Some(500)),
+            Row::new(750, 1, None),
+            Row::new(900, 1, Some(900)),
+        ];
+        let out = deinterlace(&rows, &v_ref, &NoDeps);
+        let order: Vec<u64> =
+            out.iter().map(|r| r.hlc.unwrap_or(r.v)).collect();
+        assert_eq!(order, vec![500, 750, 900], "legacy row must sort by its lance_version, not 0");
     }
 }
