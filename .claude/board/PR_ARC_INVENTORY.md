@@ -35,6 +35,29 @@
 
 ---
 
+## #463 helix-ndarray-mandatory — ndarray promoted to a mandatory git dependency (codex P2 #460 follow-up)
+
+**Status:** In PR (branch `claude/gallant-rubin-Y9pQd`, head `5758926`). Follow-up to #459/#460 correcting the helix ndarray dependency model; no new types/modules. All 5 CI checks green (format, clippy, test stable, test-with-coverage, linux-build).
+
+**Added:**
+- `crates/helix/Cargo.toml`: ndarray changed from an **optional `../../../ndarray` path dep behind `ndarray-hpc`** to a **mandatory, non-optional git dep** — `ndarray = { git = "https://github.com/AdaWorldAPI/ndarray.git", branch = "master", default-features = false, features = ["std"] }`.
+- `crates/helix/src/simd.rs`: `batch_fisher_z` + `batch_l1_u8` are now the single unconditional impls (the `#[cfg(feature = "ndarray-hpc")]` gate and the scalar-fallback twins are gone). Docs in `lib.rs` / `constants.rs` / `KNOWLEDGE.md` drop the "zero-dep" language.
+
+**Locked:**
+- **ndarray is mandatory for helix** (directive "ndarray is mandatory for lance-graph"); helix is no longer "zero-dep". `ndarray::simd` (`simd_ln_f32` / `F32x16` / `U8x64`) does its own AVX-512 / AVX2 / scalar dispatch internally → portable without a hand-written fallback.
+- **Source = git `branch="master"` (user decision 2026-06-04).** An optional *path* dep is still read at resolution (codex P2 #460: a clean checkout without the sibling failed before feature selection); a git source resolves remotely. The fork is self-contained (internal subcrates only, no lance-graph back-dep) → no import cycle.
+
+**Deferred (accepted trade-offs — both wontfix by user decision 2026-06-04):**
+- **Reproducibility:** `branch="master"` is not pinned to a `rev` (CodeRabbit) — a future master push silently re-resolves helix's lock. Pin to `rev` if/when a frozen helix build is needed.
+- **Offline / no-egress:** the git dep needs network egress (Codex P2) even where the `/ndarray` sibling exists locally; accepted because the documented CI has egress (master HEAD resolved to `0129b5c`). The path-dep alternative (offline-buildable, workspace-canonical) was considered and declined to keep helix sibling-independent.
+- Carries forward #459 deferrals (TD-HELIX-OVERLAP-1; naive-u8 ≥0.9980 fidelity probe NOT RUN).
+
+**Docs:** board — this entry; STATUS_BOARD D-HELIX-1 status line refreshed to git-mandatory reality; EPIPHANIES E-HELIX-NDARRAY-MANDATORY; LATEST_STATE "hardened" blockquote; #459 Confidence pointer. CodeRabbit's "carrier-method, not free function" note on `simd.rs` **rejected** — SIMD batch kernels over `&[f32]` / `&[u8]` are free/closure batch primitives per the ndarray vertical-SIMD consumer contract, not cognitive-carrier methods (the carrier rule governs `Think` / `trajectory` state).
+
+**Confidence (2026-06-04):** working — CI fully green; git dep resolves in CI. Two bot-review threads resolved **wontfix per user decision** (Codex P2 "git breaks offline" + CodeRabbit "pin to rev"): `branch=master` retained deliberately.
+
+---
+
 ## #459 helix-place-residue-codec — golden-spiral Place/Residue codec (zero-dep + optional ndarray-hpc)
 
 **Status:** MERGED 2026-06-03 (merge commit `ef35ff1`), branch `claude/gallant-rubin-Y9pQd`. New standalone crate; autoattended wave (5 read-only research agents + 4 parallel Sonnet leaf workers + central consolidation). 63 unit + 6 doctests green on both feature configs; clippy -D warnings + fmt clean. One CodeRabbit review round resolved pre-merge.
@@ -58,7 +81,7 @@
 
 **Confidence (2026-06-03):** working — both feature configs green, clippy/fmt clean; 2 CodeRabbit findings (public-API NaN guard in `lift`, f32 clamp-epsilon no-op in `batch_fisher_z`) fixed pre-merge with boundary tests.
 
-**Correction (2026-06-03, follow-up PR after #460):** the `../../../ndarray` **path** dep + `ndarray-hpc` feature in the Added block above were wrong twice — (1) codex P2: an optional *path* dep still forces Cargo to read the local sibling manifest at resolution, so the "default build needs none of it" claim was false (a clean checkout failed before feature selection); (2) per the directive **"ndarray is mandatory for lance-graph,"** ndarray is not optional. Both fixed: ndarray is now a **mandatory, non-optional git dependency** (`git = AdaWorldAPI/ndarray @ master`, `ndarray-hpc` feature removed). `simd.rs` always uses `ndarray::simd` (no scalar-fallback variant). The fork is self-contained (internal subcrates only, no lance-graph back-dep) → no import cycle. See E-HELIX-NDARRAY-MANDATORY.
+**Confidence (2026-06-04):** the Added-block ndarray design (optional `../../../ndarray` **path** dep + `ndarray-hpc` feature) is **superseded by #463** — ndarray is now a mandatory, non-optional git dep and the feature is removed. The original Added/Locked lines are retained as immutable history; the full correction is recorded in the prepended **#463** entry at the top of this arc (per the rule-5 "reversal = its own PR entry" convention). See E-HELIX-NDARRAY-MANDATORY.
 
 ---
 
