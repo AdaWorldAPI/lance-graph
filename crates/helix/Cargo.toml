@@ -6,28 +6,19 @@ license = "Apache-2.0"
 publish = false
 description = "Place/Residue encoding: golden-spiral hemisphere placement, Fisher-Z aligned, into L1-metric-safe 256-palette endpoint pairs — the orthogonal RESIDUE companion to the HHTL PLACE"
 
-# Standalone codec constitution (matches bgz17 / jc / deepnsm): the default build
-# is ZERO production dependencies. The φ-spiral residue is the residue regardless
-# of SIMD path — the math is identical with or without hardware acceleration, so
-# ndarray is an OPTIONAL accelerator, never a correctness dependency.
+# Standalone crate (own [workspace] + root `exclude`) but NOT dependency-free:
+# ndarray (the AdaWorldAPI fork = "The Foundation") is a MANDATORY dependency.
+# helix's batch hot path (src/simd.rs) runs on `ndarray::simd`, and per the stack
+# rule "ndarray is mandatory for lance-graph" it is a hard dep, not an opt-in.
 [dependencies]
-# Optional ndarray hardware acceleration (AdaWorldAPI fork): batch Fisher-Z via
-# simd_ln_f32 and batch endpoint-L1 via U8x64. Feature-gated so the default build
-# stays zero-dep and standalone-verifiable via `cargo test --manifest-path`.
-# `std` enables `ndarray::simd` (simd_ln_f32 / F32x16 / U8x64); the module is
-# gated behind it. Kept minimal (no extra HPC features) to limit build surface.
-ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std"] }
-
-[features]
-default = []
-# Activate the ndarray-accelerated hot path (simd_ln_f32 / U8x64 batch kernels).
-# The always-present scalar path is used when this is disabled.
-#
-# NOTE: this feature resolves `ndarray` to the AdaWorldAPI fork at the sibling
-# path `../../../ndarray` (NOT crates.io `ndarray`, which has no `::simd` module).
-# It therefore requires that sibling repo to be checked out — the same convention
-# `lance-graph` core uses. The default build is zero-dep and needs none of this.
-ndarray-hpc = ["dep:ndarray"]
+# MANDATORY ndarray (the AdaWorldAPI fork). Sourced by GIT, not a local path: a
+# local *path* dep forces Cargo to read the sibling manifest during resolution,
+# so a clean checkout without the sibling fails (codex P2 on #460); a git source
+# resolves the manifest remotely. `master` is the commit helix was tested against.
+# The fork is self-contained (internal subcrates only — no external path dep, no
+# back-dependency on lance-graph → no import cycle). `std` enables `ndarray::simd`
+# (simd_ln_f32 / F32x16 / U8x64).
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray.git", branch = "master", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 

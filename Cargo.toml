@@ -39,8 +39,9 @@ exclude = [
     "crates/learning",
     "crates/jc",
     "crates/sigker",
-    # Place/Residue golden-spiral codec — standalone zero-dep (default), optional
-    # ndarray-hpc accelerator. Verified via `cargo test --manifest-path crates/helix/Cargo.toml`.
+    # Place/Residue golden-spiral codec — standalone, with a MANDATORY git dep on
+    # the AdaWorldAPI ndarray fork (the SIMD foundation). Verified via
+    # `cargo test --manifest-path crates/helix/Cargo.toml`.
     "crates/helix",
     # Aerial+ ARM-discovery transcode — standalone zero-dep proposer crate,
     # verified via `cargo test --manifest-path crates/lance-graph-arm-discovery/Cargo.toml`.

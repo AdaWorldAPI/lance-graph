@@ -18,8 +18,9 @@
 //! `const::simd::GOLDEN_RATIO` etc. That path does **not** exist — the canonical
 //! source is `std::f64::consts::{GOLDEN_RATIO, EULER_GAMMA, E}` (Rust ≥ 1.94) and
 //! the `ndarray` fork does not wrap them. helix defines local consts (mirroring
-//! `std`, exactly as `jc::weyl` defines its own `PHI_INV`) to stay zero-dep and
-//! robust across toolchains that have not yet stabilised those float constants.
+//! `std`, exactly as `jc::weyl` defines its own `PHI_INV`) to stay robust across
+//! toolchains that have not yet stabilised those float constants — independent of
+//! whether `ndarray` is linked.
 
 /// φ — the golden ratio `(1 + √5) / 2`. The PLACES constant.
 pub const GOLDEN_RATIO: f64 = 1.618_033_988_749_895;

@@ -1,16 +1,17 @@
-//! Optional ndarray-accelerated hot path.
+//! ndarray-accelerated batch hot path.
 //!
 //! The transcendental in the residue pipeline is the Fisher-Z `arctanh` (an `ln`
-//! pair); that is where SIMD pays. With `--features ndarray-hpc`,
-//! [`batch_fisher_z`] runs the `ln` pair through `ndarray::simd::simd_ln_f32`
-//! (16-wide `F32x16` lanes); without it, an **identical-result** scalar path is
-//! used. Endpoint L1 ([`batch_l1_u8`]) is memory-bound and trivially
-//! auto-vectorised, so its math stays scalar (the `U8x64`-aligned 256-stride
-//! layout lives in [`crate::DistanceLut`]); under the feature it still issues a
-//! 64-wide `U8x64` load to keep the alignment contract visible.
+//! pair); that is where SIMD pays. [`batch_fisher_z`] runs the `ln` pair through
+//! `ndarray::simd::simd_ln_f32` (16-wide `F32x16` lanes); [`batch_l1_u8`] issues
+//! 64-wide `U8x64` loads for endpoint-L1.
 //!
-//! Both functions are correctness-equivalent across the two builds — the feature
-//! is a pure accelerator, never a behaviour change.
+//! **ndarray is a mandatory dependency of this crate** (the AdaWorldAPI fork =
+//! "The Foundation" of the stack). These are therefore the *single*
+//! implementations — there is no feature gate and no scalar-fallback variant to
+//! keep in sync. `ndarray::simd` performs its own AVX-512 / AVX2 / scalar target
+//! dispatch internally, so these functions remain portable across targets.
+
+use ndarray::simd::{simd_ln_f32, F32x16, U8x64};
 
 // f32 clamp guard. Must exceed the f32 ULP near 1.0 (≈1.19e-7) so that
 // `1.0 - EPS` is strictly < 1.0 in f32 — otherwise `ln(1 - s) = ln(0) = -inf`
@@ -19,10 +20,8 @@ const EPS: f32 = 1e-6;
 
 /// Batch Fisher-Z `z = ½·(ln(1+s) − ln(1−s))` over `similarities` into `out`
 /// (each input clamped to `±(1 − 1e-6)`). `out.len()` must equal
-/// `similarities.len()`. (ndarray `simd_ln_f32` path.)
-#[cfg(feature = "ndarray-hpc")]
+/// `similarities.len()`. Uses `ndarray::simd::simd_ln_f32` (16-wide lanes).
 pub fn batch_fisher_z(similarities: &[f32], out: &mut [f32]) {
-    use ndarray::simd::{simd_ln_f32, F32x16};
     assert_eq!(
         similarities.len(),
         out.len(),
@@ -52,25 +51,9 @@ pub fn batch_fisher_z(similarities: &[f32], out: &mut [f32]) {
     }
 }
 
-/// Batch Fisher-Z (scalar fallback — identical results to the ndarray path).
-#[cfg(not(feature = "ndarray-hpc"))]
-pub fn batch_fisher_z(similarities: &[f32], out: &mut [f32]) {
-    assert_eq!(
-        similarities.len(),
-        out.len(),
-        "batch_fisher_z: length mismatch"
-    );
-    for (o, &s) in out.iter_mut().zip(similarities) {
-        let s = s.clamp(-1.0 + EPS, 1.0 - EPS);
-        *o = 0.5 * ((1.0 + s).ln() - (1.0 - s).ln());
-    }
-}
-
-/// Batch L1 distance `|a − b|` over equal-length u8 endpoint slices into `out`.
-/// (ndarray `U8x64` 64-wide load path.)
-#[cfg(feature = "ndarray-hpc")]
+/// Batch L1 distance `|a − b|` over equal-length u8 endpoint slices into `out`,
+/// issuing 64-wide `U8x64` loads.
 pub fn batch_l1_u8(a: &[u8], b: &[u8], out: &mut [u16]) {
-    use ndarray::simd::U8x64;
     assert_eq!(a.len(), b.len(), "batch_l1_u8: length mismatch");
     assert_eq!(a.len(), out.len(), "batch_l1_u8: length mismatch");
     let n = a.len();
@@ -86,16 +69,6 @@ pub fn batch_l1_u8(a: &[u8], b: &[u8], out: &mut [u16]) {
     while i < n {
         out[i] = (a[i] as i32 - b[i] as i32).unsigned_abs() as u16;
         i += 1;
-    }
-}
-
-/// Batch L1 distance (scalar fallback).
-#[cfg(not(feature = "ndarray-hpc"))]
-pub fn batch_l1_u8(a: &[u8], b: &[u8], out: &mut [u16]) {
-    assert_eq!(a.len(), b.len(), "batch_l1_u8: length mismatch");
-    assert_eq!(a.len(), out.len(), "batch_l1_u8: length mismatch");
-    for ((o, &x), &y) in out.iter_mut().zip(a).zip(b) {
-        *o = (x as i32 - y as i32).unsigned_abs() as u16;
     }
 }
 

@@ -266,7 +266,7 @@ How the code realises the spec above. Modules → pipeline stages:
 | out | `residue.rs` | `ResidueEncoder::encode → ResidueEdge` | 3-byte endpoint pair `(start_idx, end_idx, floor_version)` |
 | distance | `distance.rs` | `DistanceLut::{linear, from_floor}` | 256×256 L1, metric-safe |
 | proof | `prove.rs` | `prove() → ProofResult` | the 2-D discrepancy companion (Open Item #1) |
-| accel | `simd.rs` | `batch_fisher_z`, `batch_l1_u8` | scalar always; ndarray `simd_ln_f32`/`U8x64` under `--features ndarray-hpc` |
+| accel | `simd.rs` | `batch_fisher_z`, `batch_l1_u8` | always ndarray `simd_ln_f32` / `U8x64` (mandatory dep; ndarray does its own AVX-512/AVX2/scalar dispatch) |
 
 **Pipeline decisions (the latitude the spec grants — "code is downstream"):**
 
@@ -289,7 +289,14 @@ How the code realises the spec above. Modules → pipeline stages:
   `const::simd::{GOLDEN_RATIO, EULER_GAMMA, E}`; that path does not exist. The
   canonical source is `std::f64::consts` (Rust ≥1.94); ndarray does not wrap
   them. `constants.rs` defines local consts (mirroring `std`, like `jc::weyl`'s
-  `PHI_INV`) to stay zero-dep and toolchain-robust.
+  `PHI_INV`) to stay toolchain-robust (independent of the mandatory `ndarray` link).
+- **ndarray is a MANDATORY git dependency (FINDING — codex P2 #460 + directive
+  "ndarray is mandatory for lance-graph"):** the `simd.rs` batch path runs on
+  `ndarray::simd`. ndarray is sourced by `git` (`AdaWorldAPI/ndarray @ master`),
+  NOT a local path — an optional/local *path* dep forces Cargo to read the sibling
+  manifest at resolution, failing a clean checkout; a non-optional git dep resolves
+  remotely and is a hard dep (no feature gate). The fork is self-contained
+  (internal subcrates only, no lance-graph back-dependency) → no import cycle.
 
 **Metric-safety (enforced):** `ResidueEdge::distance_adaptive` = L1 over the
 256×256 LUT — a metric, safe for CAKES/CLAM bounds (regression-tested:
@@ -300,8 +307,9 @@ How the code realises the spec above. Modules → pipeline stages:
 # Overlap & Consolidation (placement check, 2026-06-03)
 
 **FINDING (placement check).** ~80% of this pipeline already exists in the
-workspace; some of it is certified. helix is a deliberate **zero-dep clean-room
-re-derivation** (per the directive "scoped only to crate, self-resolving" and
+workspace; some of it is certified. helix is a deliberate **clean-room
+re-derivation** — it re-derives the math rather than reusing those primitives (per
+the directive "scoped only to crate, self-resolving" and
 the curve-ruler "regenerable from template" ethos). The genuinely novel pieces
 are the equal-area `√u` hemisphere placement and the PLACE/RESIDUE doctrine.
 
@@ -315,8 +323,8 @@ are the equal-area `√u` hemisphere placement and the PLACE/RESIDUE doctrine.
 
 **Consolidation path (when helix graduates from clean-room to integrated):**
 1. Replace `fisher_z.rs` with a thin re-export of `bgz-tensor::fisher_z::FamilyGamma`
-   (the CERTIFIED i8 table) behind a feature; keep the scalar `Similarity` as the
-   zero-dep fallback.
+   (the CERTIFIED i8 table); keep the scalar `Similarity` as the per-element path
+   (the batch SIMD path already requires the now-mandatory `ndarray` dep).
 2. Route the stride coupling through the established `(i·11)%17` golden-step or
    the stride-4 family-zipper rather than a second implementation.
 3. Feed `ResidueEdge` endpoints into the existing HIP/TWIG CAKES path

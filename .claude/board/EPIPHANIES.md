@@ -1,3 +1,17 @@
+## 2026-06-03 — E-HELIX-NDARRAY-MANDATORY — `helix` ndarray wiring: optional `path` → mandatory `git` (codex P2 + "ndarray is mandatory") — an optional path dep is a clean-checkout trap
+
+**Status:** FINDING (codex P2 on #460 + user directive, 2026-06-03; fix verified — 63 unit + 6 doctests green with mandatory ndarray, clippy -D warnings + fmt clean; the git source was patched to the local `master` checkout for the in-sandbox build, github fetch deferred to CI).
+
+**The trap (codex P2):** an *optional* `path` dependency does NOT make the default build self-contained. Cargo reads every dependency manifest (including optional ones) during resolution to build the lockfile, so `ndarray = { path = "../../../ndarray", optional = true }` makes a clean checkout WITHOUT the sibling fail (`failed to read .../ndarray/Cargo.toml`) *before* feature selection. The "default build needs no ndarray checkout" claim was therefore false.
+
+**The fix (two directives converge):** (1) codex wants the wiring clean; (2) the user — "ndarray is mandatory for lance-graph" (it is "The Foundation"). So helix now takes ndarray as a **mandatory, non-optional git dependency**: `ndarray = { git = "https://github.com/AdaWorldAPI/ndarray.git", branch = "master", default-features = false, features = ["std"] }`. A git source resolves the manifest remotely (no sibling-checkout needed); non-optional drops the `ndarray-hpc` feature entirely; `simd.rs` is now single-impl (always `ndarray::simd`, no scalar fallback — ndarray does its own AVX-512/AVX2/scalar dispatch internally).
+
+**Why git, not `[patch]`, and no cycle:** helix is standalone (own `[workspace]`, root `exclude`), so it resolves ndarray independently of the lance-graph workspace's path-based ndarray — no source-unification needed (the workspace's `[patch.crates-io] ndarray` is separately known-ineffective: the fork's 0.17.2 can't semver-satisfy the lance-index crates.io 0.16.1; PR_ARC ~line 2081). The fork is self-contained — only internal subcrate path deps (`crates/p64`, `crates/fractal`, `ndarray-rand`, `crates/ndarray-gen`) which travel with the clone — and has **no back-dependency on lance-graph**, so the git dep introduces **no import cycle**.
+
+Cross-ref: PR_ARC #459 Correction; codex P2 #460; `crates/helix/Cargo.toml`; `jc::weyl` (local-const precedent).
+
+---
+
 ## 2026-06-03 — E-HELIX-OVERLAP — the `helix` Place/Residue codec is ~80% re-derivation of existing (in places CERTIFIED) primitives; shipped standalone by user directive, overlap documented not hidden
 
 **Status:** FINDING (placement check via `encoding-ecosystem.md` + repo grep, 2026-06-03; crate shipped on claude/gallant-rubin-Y9pQd — 61 unit + 6 doctests green on the default zero-dep build AND under `--features ndarray-hpc`). User directive: "create crate crates/helix … scoped only to crate, self resolving" → after the overlap was surfaced via `AskUserQuestion`, the user ratified **Standalone helix** (vs compose-existing vs rename).
