@@ -47,10 +47,12 @@
 //! Per the placement check recorded in `KNOWLEDGE.md` § "Overlap & Consolidation",
 //! the Fisher-Z/arctanh→int8 quantiser, the golden-spiral azimuth proof, the
 //! stride-4 coupling, and the EULER_GAMMA hand-off already exist elsewhere in the
-//! workspace (in places certified to ρ ≥ 0.999). helix is a deliberate, zero-dep
-//! **clean-room re-derivation** that keeps the whole substrate self-contained and
-//! regenerable-from-template; the genuinely new pieces are the equal-area `√u`
-//! hemisphere placement and the PLACE/RESIDUE doctrine. See `KNOWLEDGE.md` for the
+//! workspace (in places certified to ρ ≥ 0.999). helix is a deliberate
+//! **clean-room re-derivation** — it re-derives the math rather than reusing those
+//! primitives, keeping the cognitive substrate regenerable-from-template; the
+//! genuinely new pieces are the equal-area `√u` hemisphere placement and the
+//! PLACE/RESIDUE doctrine. Its one dependency is the **mandatory** `ndarray` fork
+//! (the SIMD foundation — see `src/simd.rs`). See `KNOWLEDGE.md` for the
 //! consolidation path back to the certified primitives.
 
 #![forbid(unsafe_code)]

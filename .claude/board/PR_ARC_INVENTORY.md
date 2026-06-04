@@ -58,6 +58,8 @@
 
 **Confidence (2026-06-03):** working — both feature configs green, clippy/fmt clean; 2 CodeRabbit findings (public-API NaN guard in `lift`, f32 clamp-epsilon no-op in `batch_fisher_z`) fixed pre-merge with boundary tests.
 
+**Correction (2026-06-03, follow-up PR after #460):** the `../../../ndarray` **path** dep + `ndarray-hpc` feature in the Added block above were wrong twice — (1) codex P2: an optional *path* dep still forces Cargo to read the local sibling manifest at resolution, so the "default build needs none of it" claim was false (a clean checkout failed before feature selection); (2) per the directive **"ndarray is mandatory for lance-graph,"** ndarray is not optional. Both fixed: ndarray is now a **mandatory, non-optional git dependency** (`git = AdaWorldAPI/ndarray @ master`, `ndarray-hpc` feature removed). `simd.rs` always uses `ndarray::simd` (no scalar-fallback variant). The fork is self-contained (internal subcrates only, no lance-graph back-dep) → no import cycle. See E-HELIX-NDARRAY-MANDATORY.
+
 ---
 
 ## #441 odoo-classes-bitmask-render (D-CLS arc) — classes as a SoA-view with presence bitmask
