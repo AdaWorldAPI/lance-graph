@@ -292,6 +292,35 @@ impl LanceMembrane {
         self.version.load(Ordering::Acquire)
     }
 
+    /// Append an externally-built commit row — the **action-commit** sole-writer
+    /// sibling of [`ExternalMembrane::project`].
+    ///
+    /// Where `project()` projects a cognitive cycle (`ShaderBus` + `MetaWord`),
+    /// `commit_event` takes a caller-built [`CognitiveEventRow`] directly. It is
+    /// the seam the Rubicon `CommitHook` lowers onto: on entering the `Committed`
+    /// lifecycle state, the binding builds the row from the OGAR
+    /// `ActionInvocation` and calls this. (See `ractor_actors::state_machine`
+    /// `CommitHook::on_commit` + `CROSS_SESSION_COORDINATION.md` grill #10.)
+    ///
+    /// Unlike `project()`, the action commit is the authoritative **audit** event
+    /// (the Rubicon crossing / rubberstamp), so it ALWAYS ticks the version and
+    /// fans out — the server filter / gate throttle cognitive-cycle fan-out, not
+    /// an explicit committed action.
+    ///
+    /// Returns the new monotonic Lance version (the same counter
+    /// [`version`](Self::version) reports; Phase D wires it to the Lance dataset
+    /// version). Kept on the concrete `LanceMembrane`, NOT on the zero-dep
+    /// `ExternalMembrane` trait, so the contract crate stays zero-dep and the
+    /// action-commit path never forces the cognitive-cycle `ShaderBus` shape.
+    pub fn commit_event(&self, row: CognitiveEventRow) -> u64 {
+        let version = self.version.fetch_add(1, Ordering::AcqRel) + 1;
+        #[cfg(feature = "realtime")]
+        self.watcher.bump(row);
+        #[cfg(not(feature = "realtime"))]
+        let _ = row; // without realtime there are no subscribers to fan out to
+        version
+    }
+
     /// Set the faculty context for the current cycle.
     ///
     /// Called by the orchestration layer (not by `ingest`) when
@@ -517,6 +546,21 @@ mod tests {
             m.current_actor.read().unwrap().role,
             ExternalRole::CrewaiAgent as u8
         );
+    }
+
+    #[test]
+    fn commit_event_ticks_version_and_returns_new() {
+        // The action-commit sole-writer sibling: each call ticks the monotonic
+        // Lance version and returns the new value (the Rubicon crossing's audit
+        // version). Mirrors the OGAR `CommitHook::on_commit` lowering.
+        let m = LanceMembrane::new();
+        assert_eq!(m.version(), 0);
+        let v1 = m.commit_event(crate::external_intent::CognitiveEventRow::default());
+        assert_eq!(v1, 1);
+        assert_eq!(m.version(), 1);
+        let v2 = m.commit_event(crate::external_intent::CognitiveEventRow::default());
+        assert_eq!(v2, 2);
+        assert_eq!(m.version(), 2);
     }
 
     #[test]
