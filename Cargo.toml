@@ -47,6 +47,14 @@ exclude = [
     # Kept out of the workspace so the nondeterministic autoencoder never
     # enters the deterministic lance-graph compile path (determinism boundary).
     "crates/lance-graph-arm-discovery",
+    # Quasicryth algebraic-core transcode (Tacconelli 2026, arxiv 2603.14999) —
+    # standalone zero-dep research/testing crate. Verifies the workspace's
+    # φ-substrate decisions (bgz17 17φ/11, helix golden-spiral, jc::weyl) against
+    # the reference algebra. NOT a production compressor: covers only the
+    # algebraic core (tilings + hierarchy + deep-position detection), not the
+    # arithmetic-coding / LZMA-escape / tokenizer pipeline.
+    # Verified via `cargo test --manifest-path crates/quasicryth-research/Cargo.toml`.
+    "crates/quasicryth-research",
 ]
 resolver = "2"
 

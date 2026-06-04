@@ -1,0 +1,26 @@
+[package]
+name = "quasicryth-research"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Direct Rust transcode of the algebraic core of Quasicryth (Tacconelli 2026, arxiv 2603.14999) — Fibonacci quasicrystal tilings, substitution hierarchy, deep n-gram position detection. Research/testing crate, NOT a production compressor."
+
+# Standalone codec constitution (matches helix / bgz17 / deepnsm): the default
+# build is ZERO dependencies. Algebraic core only — no arithmetic coding, no
+# LZMA escape, no tokenization, no codebook construction (those live in the
+# upstream C reference implementation and are out of scope for this transcode).
+#
+# Upstream: https://github.com/robtacconelli/quasicryth (MIT/Apache, v5.6.0).
+# This transcode covers fib.h / fib.c (598 LOC) + the algebraic types from
+# qtc.h. Paper proves five theorems (non-collapse, PV-property, Sturmian
+# minimality, Golden Compensation, bounded overhead) — the included tests
+# verify all five on synthetic data.
+[dependencies]
+
+[dev-dependencies]
+
+# Empty [workspace] so cargo treats this crate as standalone when invoked via
+# --manifest-path. Listed under the root Cargo.toml `exclude` so workspace-wide
+# commands never pull it into the deterministic main compile graph.
+[workspace]
