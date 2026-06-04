@@ -1,3 +1,21 @@
+## 2026-06-04 — E-OLD-STACK-CONFIRMED — Almato's own published OSS manifest confirms the OLD HIRO/Bardioc stack shape; three OLD components collapse to one NEW primitive
+
+**Status:** FINDING (ground-truth from `bitbucket.org/almatoag/opensource` — the manifest Almato r7.1 Product Description §5.5 explicitly cites — + the OGIT closed-PR harvest, 2026-06-04; confirmed against `BARDIOC_PRODUCT_CANONICAL.md` and `BARDIOC_DEPENDENCY_MANIFEST_CONFIRMED.md` in substrate-b consumers).
+
+**Three structural findings** that any lance-graph + ractor + surrealdb consumer replacing a HIRO-shaped OLD stack must internalize:
+
+1. **Three OLD components collapse to one NEW primitive.** OLD Historisation (JG temporal query) + OLD TSDB (InfluxDB via exometer_influxdb) + OLD signed audit log all become **Lance versions** in substrate-b. `dataset.checkout_version(V_ref)` = point-in-time; the version log itself = time-series; append-only immutability = audit. One primitive, three OLD capabilities. Concrete efficiency win, not a slogan.
+
+2. **Security Mesh bit-ops = palette256 + Hamming popcount (shape-exact).** The OLD-stack 4-axis bit-op per-element auth (Subject(n) × Object(n) × Implicit(4) × Explicit(x), uncached, immediate) IS the substrate-b hot-path primitive. Materialised `_effectiveReaders` / `_effectiveDevices` (per `almatoai/OGIT#773` BGFS platform-reserved attributes) compute via these primitives. The OLD-stack security model survives migration unchanged.
+
+3. **gen_statem is the confirmed OLD-stack precedent for the Rubicon model.** `ericentin/gen_state_machine 2.0.1` is in the HIRO manifest; `rafted_value`'s Raft consensus runs on it (follower/candidate/leader = `:gen_statem` states). Its feature set — `state_functions`, `handle_event_function`, `postpone` (defer-until-next-state), `state_enter` callbacks, per-state timeouts, internal self-events — IS the Rubicon phase machine. `state_enter` fires the Lance commit on entering the Decision state; `postpone` holds events arriving before Rubicon; timeouts bound SLA waits. The substrate-b actor-state-machine is the faithful translation of an OTP behavior HIRO already runs.
+
+**Why this matters here (lance-graph):** any consumer mapping the OLD-stack thinking layer onto lance-graph + ractor needs these correspondences to avoid reinventing primitives that already exist. The new knowledge doc `.claude/knowledge/old-stack-capability-parity.md` is the reference; this entry records the three load-bearing structural findings as a single FINDING-level epiphany.
+
+**Cross-ref:** `.claude/knowledge/old-stack-capability-parity.md` (new); `.claude/knowledge/lab-vs-canonical-surface.md` (companion); `.claude/knowledge/hollow-wire-failure-modes.md` (companion); `AdaWorldAPI/lance-graph#452/#453/#454/#455/#456/#457/#458` (the merged contributions from this correspondence work); `AdaWorldAPI/surrealdb#35/#36` (kv-lance feature + Lance backend struct); `AdaWorldAPI/ractor#1` (`MessagingErr::Saturated` for the backpressure invariant).
+
+---
+
 ## 2026-06-03 — E-HELIX-NDARRAY-MANDATORY — `helix` ndarray wiring: optional `path` → mandatory `git` (codex P2 + "ndarray is mandatory") — an optional path dep is a clean-checkout trap
 
 **Status:** FINDING (codex P2 on #460 + user directive, 2026-06-03; fix verified — 63 unit + 6 doctests green with mandatory ndarray, clippy -D warnings + fmt clean; the git source was patched to the local `master` checkout for the in-sandbox build, github fetch deferred to CI).
