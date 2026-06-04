@@ -35,6 +35,31 @@
 
 ---
 
+## #459 helix-place-residue-codec — golden-spiral Place/Residue codec (zero-dep + optional ndarray-hpc)
+
+**Status:** MERGED 2026-06-03 (merge commit `ef35ff1`), branch `claude/gallant-rubin-Y9pQd`. New standalone crate; autoattended wave (5 read-only research agents + 4 parallel Sonnet leaf workers + central consolidation). 63 unit + 6 doctests green on both feature configs; clippy -D warnings + fmt clean. One CodeRabbit review round resolved pre-merge.
+
+**Added:**
+- `crates/helix` (NEW standalone crate, zero-dep default, `edition 2021`, empty `[workspace]`, root `Cargo.toml` `exclude`) — the Place/Residue codec from `crates/helix/KNOWLEDGE.md`. Modules: `constants` (φ/γ/e + M=17/stride=4/ln 17), `placement` (`HemispherePoint::lift` — √u equal-area hemisphere), `curve_ruler` (`CurveRuler` — stride-4-over-17 arc from the HHTL place offset), `fisher_z` (`Similarity::{fisher_z,hyperbolic_depth}` — arctanh), `quantize` (`RollingFloor` — 256-palette, occupancy-drift + floor-version stamp), `distance` (`DistanceLut` — metric-safe 256×256 L1), `residue` (`ResidueEncoder::encode → ResidueEdge` 3-byte endpoint pair; `distance_adaptive` metric-safe / `distance_heuristic` non-metric), `prove` (2-D discrepancy companion to `jc::weyl`), `simd` (optional `ndarray-hpc` batch Fisher-Z via `ndarray::simd::simd_ln_f32`).
+- `ndarray-hpc` feature (optional `dep:ndarray` → the AdaWorldAPI fork at `../../../ndarray`; the default build needs none of it).
+
+**Locked:**
+- **HHTL = deterministic PLACE; helix = orthogonal RESIDUE** (new doctrine, zero prior hits). The genuinely-new contributions are this split + the `r=√u`, `Y=√(1−r²)` equal-area hemisphere placement.
+- **γ hand-off operation order is fixed bit-for-bit:** `aligned = (z × STRIDE) + γ·(rank/N − ln 17)` then quantise (resolves `KNOWLEDGE.md` Open Item #2).
+- **Metric-safety layer discipline** (inherited from bgz17): `distance_adaptive` = L1 on the linear endpoint index order (a metric, CAKES-safe, triangle-inequality regression-tested); `distance_heuristic` = non-metric byte-Hamming pre-filter only.
+- **Stride-4-over-17 is coprime → full permutation;** the banned Fibonacci-mod-17 (misses {6,7,10,11}) is NOT used.
+- **Local float consts:** `const::simd::{GOLDEN_RATIO,EULER_GAMMA,E}` does not exist (canonical is `std::f64::consts`); helix uses local literals (`E` from `std`, the others literal for toolchain-robustness, mirroring `jc::weyl`'s `PHI_INV`).
+
+**Deferred:**
+- **TD-HELIX-OVERLAP-1** — ~80% of the pipeline re-derives existing (in places CERTIFIED ρ≥0.999) primitives (`bgz-tensor::{projection::Base17Fz, fisher_z::FamilyGamma}`, `jc::weyl`, `thinking-engine::reencode_safety`, `bgz17::palette`); shipped as a user-directed zero-dep clean-room substrate. Consolidation path in `KNOWLEDGE.md` § Overlap & Consolidation.
+- **Fidelity probe owed:** the naive-u8 floor gate (≥0.9980 Pearson vs ground truth) is CONJECTURE — NOT RUN; required before promotion past clean-room status.
+
+**Docs:** `crates/helix/KNOWLEDGE.md` (concept-preservation spec + Implementation Map + Overlap & Consolidation); board — LATEST_STATE (blockquote + table row), STATUS_BOARD D-HELIX-1, EPIPHANIES E-HELIX-OVERLAP, TECH_DEBT TD-HELIX-OVERLAP-1, AGENT_LOG.
+
+**Confidence (2026-06-03):** working — both feature configs green, clippy/fmt clean; 2 CodeRabbit findings (public-API NaN guard in `lift`, f32 clamp-epsilon no-op in `batch_fisher_z`) fixed pre-merge with boundary tests.
+
+---
+
 ## #441 odoo-classes-bitmask-render (D-CLS arc) — classes as a SoA-view with presence bitmask
 
 **Status:** MERGED 2026-05-31 (merge commit `a77e119`), branch `claude/sleepy-cori-aRK2x`. 5 feature slices + 4 review-round fixes; 973 insertions, purely additive (0 deletions). Built AFTER a council + brutal-honest review of the #440 *plan* caught 3 P0 factual errors — these slices sidestep them by construction.
