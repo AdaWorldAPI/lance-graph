@@ -67,7 +67,11 @@
 #![allow(clippy::too_many_lines)] // upstream C functions transcode 1:1
 #![allow(clippy::format_push_string)] // hex formatting test helper, not hot path
 #![allow(clippy::bool_to_int_with_if)] // explicit `is_l ? 2 : 1` matches the C
+#![allow(clippy::assigning_clones)] // clone-into would obscure ownership intent
+#![allow(clippy::single_match_else)] // explicit match reads cleaner here
+#![allow(clippy::only_used_in_recursion)] // self-recursive insert keeps trie context
 
+pub mod codebook;
 pub mod constants;
 pub mod hierarchy;
 pub mod md5;
@@ -76,6 +80,7 @@ pub mod tok;
 pub mod types;
 
 // Re-exports of the most common entry points.
+pub use codebook::{Codebook, CodebookSizes, CowArt, CowRadixCodebook, FlatCodebook, NG_LENS};
 pub use constants::{tiling_descs, HIER_WORD_LENS, INV_PHI, MAX_HIER, N_TILINGS, PHI};
 pub use hierarchy::{build_hierarchy, deep_counts, detect_deep_positions, hier_context};
 pub use md5::{md5, Md5};
