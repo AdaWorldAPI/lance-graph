@@ -1,3 +1,15 @@
+## [Opus 4.8, main thread] cesium-osm-substrate-v1 review fix — D-OSM-2 crate boundary (codex P2 on merged #473)
+
+**Branch:** `claude/osm-pbf-consumer-boundary-fix` (off `main`). **New follow-up PR** (merged #473 review-fix, surfaced for visibility per user request; the other session owns the OGAR-side fixes).
+
+**Fix:** `.claude/plans/cesium-osm-substrate-v1.md` D-OSM-2 (line 91). Codex P2 (`chatgpt-codex-connector`, `#473#discussion_r3362274315`) flagged the plan wiring `osmpbf` v0.4 into the **ndarray** `crates/cesium/src/osm_pbf.rs` file — which D-OSM-1 explicitly declares dependency-free — putting the ingest dep in the wrong repo/crate boundary and leaving the lance-graph Arrow/Lance emitter underspecified. Re-pointed the real `osmpbf` consumer + Arrow/Lance emitter to a **lance-graph-side** module (`crates/lance-graph/src/ingest/osm_pbf.rs`, new), reusing the D-OSM-1 carrier shapes + XYZ→TMS Y-flip helper; the ndarray cesium file stays the dep-free D-OSM-1 stub. STATUS_BOARD D-OSM-2 row already attributed the deliverable to `lance-graph` (no change needed).
+
+**Scope:** lance-graph only. `ndarray#214` (D-OSM-1 stub) had no actionable review comments (CodeRabbit was rate-limited; no review threads). `OGAR#38/#39` are outside this session's repo scope → other session.
+
+**Tests:** none (docs/board only; `cargo` not invoked).
+
+---
+
 ## [Opus 4.7 / 1M ctx, main thread] cesium-osm-substrate-v1 — OSM as 6th Cesium ingest source class (cross-session coordination with OGAR)
 
 **Branch:** `claude/cesium-osm-substrate-v1` (new branch off `main`). **Files (this commit, lance-graph side):**
