@@ -1,3 +1,42 @@
+## [Opus 4.7 / 1M ctx, main thread] cesium-osm-substrate-v1 — OSM as 6th Cesium ingest source class (cross-session coordination with OGAR)
+
+**Branch:** `claude/cesium-osm-substrate-v1` (new branch off `main`). **Files (this commit, lance-graph side):**
+- `.claude/plans/cesium-osm-substrate-v1.md` (new, ~430 lines) — companion to `3DGS-ArcGIS-Cesium-ingestion-plan.md` (parent) and `splat-native-ultrasound-v1.md` (substrate-sibling); 7 D-OSM-* deliverables; OGAR Q1/Q2/Q3 rulings locked.
+- `.claude/board/INTEGRATION_PLANS.md` — PREPEND cesium-osm-substrate-v1 entry.
+- `.claude/board/STATUS_BOARD.md` — new section with 7 D-OSM-* deliverable rows.
+- `.claude/board/AGENT_LOG.md` — this entry.
+
+**Companion PR (separate, runtime-side stub):**
+- `ndarray/crates/cesium/src/osm_pbf.rs` — D-OSM-1 stub (mirrors `arcgis_pbf.rs` 428 LOC shape; OsmNode/OsmWay/OsmRelation/OsmPbfBlock stub types + OSM-XYZ → TMS Y-flip boundary helper); registered in `lib.rs` as `pub mod osm_pbf;`.
+
+**Companion PR (queued behind this one):**
+- OGAR-side docs PR (`DOMAIN-INSTANCES.md §2.6` + `RDF-OWL-ALIGNMENT.md §10 Phase 2c`) — citation-only; cites D-OSM-1..7 by ID; signed off as "wait for runtime side first" coordination discipline.
+
+**Tests:** none (docs/board only; `cargo` not invoked per the docs-PR pattern). Source code lands per phase P1-P4 sprint-window as user ratifies OQ-OSM-1..5.
+
+**Architecture summary** (full detail in plan §0-§10):
+- 7 deliverables across ndarray + lance-graph + lance-graph-ontology + 1-2 new crates.
+- Phases P1-P4: substrate (sprint 1-2) → SPO contract (sprint 3) → splat-fit + 3D Tiles writer (sprint 4-5) → UX-edge (sprint 6+ optional).
+- Critical-path edges: D-OSM-1 (ndarray foundation) → D-OSM-2 (lance-graph ingest) → D-OSM-5 (splat-fit-geo) → D-OSM-6 (3D Tiles writer — the genuine Rust gap, first-of-its-kind).
+- 5 open questions OQ-OSM-1..5 with default proposals.
+- Inherits (no new build): osmpbf v0.4 (b-r-u, only production-grade Rust OSM crate); gltf Rust crate (D-OSM-6 building block); georaster + srtm_reader (D-OSM-4 reference); cesium SSE/HLOD/implicit_tiling already shipped in ndarray.
+
+**Cross-arc substrate reuse (explicit; same as splat-native arc payoff):**
+- D-SPLAT-1 `Gaussian3D` carrier — reused verbatim in D-OSM-5.
+- D-SPLAT-2 SIMD ops — all five (cholesky/mahalanobis/opacity_blend/sh_eval_l3/se3_transform) reused; D-OSM-4 adds `batched_sample_height` as a W1c sibling primitive.
+- D-SPLAT-3 `SplatBatch<N>` SoA — reused verbatim in D-OSM-5 emit + D-OSM-6 writer input.
+- D-SPLAT-12 `splat-render` — same renderer; OSM + ultrasound become two scene backends behind the same render surface.
+
+**OGAR cross-session coordination (locked 2026-06-05):**
+- Q1 (tags → IR): Tag-as-Class (c) end-state; `tags: List<Struct<key,value>>` Arrow column (b) v1 fallback.
+- Q2 (NiblePath): Cesium TMS quadkey `osm/qk:<level>/<x>/<y>/<type>/<id>`.
+- Q3 (Y-axis): OSM-XYZ → TMS flip at ingest boundary per I-LEGACY-API-FEATURE-GATED.
+- OGAR session "going quiet" with green light; queued action = docs PR after this lands so they cite D-OSM-* by ID.
+
+**Outcome:** plan + 7 deliverable rows + governance ledger entries + OGAR coordination rulings preserved; substrate-reuse claim captured before it dilutes across sessions; the §6 FMA litmus from splat-native-ultrasound-v1 gets a geographic litmus complement (Marienplatz is_in Munich in sub-microsecond, same HHTL primitive as Femur is_a LongBone).
+
+---
+
 ## [Opus 4.7 / 1M ctx, main thread] splat-native-ultrasound-v1 — cross-workspace integration plan + per-repo work-division + interconnect map
 
 **Branch:** `claude/splat-native-ultrasound-v1` (new branch off `main` at `38627e9c5a`). **Files (this commit, lance-graph side):**
