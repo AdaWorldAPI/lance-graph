@@ -30,9 +30,21 @@
   64 / 256 / 4096 / 16384 = AVX-512 register / AMX tile row / 4 KiB page /
   L1d cache). The LE contract isn't *adding* a lossless invariant — it's
   naming a property the columns already have.
-- **MailboxSoA D-MBX-A1 inherits 4 of 5 BindSpace columns at byte-identical
-  LE types** (`edges` / `qualia` / `meta` / `entity_type`). So G5 + G6 in
-  the engine_bridge function matrix are **1-line retargets**, not rewrites.
+- **MailboxSoA D-MBX-A1 inherits 4 of 5 BindSpace columns as the same
+  LE-contract types** (`edges` / `qualia` / `meta` / `entity_type` —
+  same `CausalEdge64` / `QualiaI4_16D` / `MetaWord` / `u16`). G5 + G6
+  in the engine_bridge function matrix are **1-line retargets through
+  typed accessors**, not rewrites. **The migration is value-preserving
+  (no conversion), NOT layout-guaranteed byte-identical** —
+  `CausalEdge64` is `pub struct CausalEdge64(pub u64)` *without*
+  `#[repr(transparent)]` in `crates/causal-edge/src/edge.rs:117`, so a
+  slice-reinterpretation pattern (`&[u64] as &[CausalEdge64]` via
+  `transmute`) is **NOT** supported. Use typed accessors throughout
+  (`mb.set_edge(row, e)`, `mb.set_qualia(row, q)`, etc.); the function
+  matrix in the canonical doc §5 already does this. Adding
+  `#[repr(transparent)]` to `CausalEdge64` is a separate concern in
+  `crates/causal-edge/` and would unlock zero-copy slice patterns if
+  ever wanted later.
 - **The 2026-05-27 plan is still authoritative.** Its §3 column map and §6
   gated steps are correct; this delta narrows scope and adds context.
 
