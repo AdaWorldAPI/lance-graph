@@ -88,7 +88,7 @@ Mirror the shape of `crates/cesium/src/arcgis_pbf.rs` (428 LOC, already shipped)
 
 ### D-OSM-2 — `osmpbf` consumer + Arrow RecordBatch emitter (lance-graph)
 
-Wire `osmpbf` v0.4 (b-r-u) into `crates/cesium/src/osm_pbf.rs`. Lazy-decoded parallelized PBF reader → per-element-type Arrow RecordBatch:
+Wire `osmpbf` v0.4 (b-r-u) into a **lance-graph-side** module — e.g. `crates/lance-graph/src/ingest/osm_pbf.rs` (new) — **not** the ndarray `crates/cesium/src/osm_pbf.rs` file, which stays the dependency-free D-OSM-1 stub. The `osmpbf` dependency and the Arrow/Lance emitter live entirely on the lance-graph side; this module consumes the D-OSM-1 carrier shapes (`OsmNode` / `OsmWay` / `OsmRelation` / `OsmTagList`) and the XYZ→TMS Y-flip helper, mapping each lazily-decoded, parallelized PBF element into a per-element-type Arrow RecordBatch:
 
 - `osm_nodes` table — `(id u64, lat f64, lon f64, qk_tms_path FixedSizeBinary(24), tags List<Struct<key,value>>)`
 - `osm_ways` table — `(id u64, ref_node_ids List<u64>, qk_tms_path FixedSizeBinary(24), tags List<Struct<key,value>>)`
