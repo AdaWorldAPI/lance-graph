@@ -259,13 +259,13 @@ New SoA mapping entry per the existing pattern in `soa_mapping.rs`. Columns:
 - `patient_ref: FixedSizeBinary(8)` — anonymized patient ID (per `column_mask_bridge` Hash mode for unauthorized roles)
 - `frame_idx: u32` — monotonic frame counter
 - `acquisition_ts: TimestampMicros` — frame acquisition time
-- `pose_se3: FixedSizeBinary(16)` — packed SE(3) pose (3 translation + 9 rotation matrix, both `f16`)
+- `pose_se3: FixedSizeBinary(24)` — packed SE(3) pose (3 translation + 9 rotation matrix, both `f16`; 12 × 2 = 24 B)
 - `splat_batch_handle: Binary` — pointer into the splat-volume storage (NOT the splats themselves; those live in `ultrasound_splat.lance` to keep this table queryable)
 - `splat_count: u32`
 - `mean_amplitude: f32`
 - `quality_score: f32` — ICP residual after registration; below threshold ⇒ frame is pruned (kanban col 4)
 
-**Raw RF/IQ stays out of MedCare-rs entirely** — only fitted splats land. PHI is in the splat coordinates + atlas-aligned annotations, not in the raw signal. The `column_mask_bridge` extension adds:
+**Raw RF/IQ stays out of MedCare-rs entirely** — only fitted splats land. Per **NR-SPLAT-PHI** (normative rule, see below): scanner-frame splat geometry is non-identifying on its own; the link `patient_ref ↔ splat_volume` in `memory.ultrasound_frame.lance` IS PHI; atlas-aligned anatomical annotations carrying patient-specific landmarks ARE PHI. The `column_mask_bridge` extension adds:
 
 ```rust
 pub enum SensitivityReason {
@@ -282,6 +282,8 @@ pub enum SensitivityReason {
 ### D-SPLAT-11 — `commit_event` audit for splat ingest
 
 **Owner:** `MedCare-rs` (`crates/medcare-analytics`). **~100 LOC + tests.** **Risk: LOW.**
+
+**NR-SPLAT-PHI (normative rule, single source of truth):** *Scanner-frame splat geometry (the `mu`/`sigma_packed` columns; `pose_se3` in scanner frame) is non-identifying on its own. The link between `patient_ref` and a splat volume — i.e. the row in `memory.ultrasound_frame.lance` — IS PHI. Atlas-aligned annotations that name patient-specific landmarks (e.g. `class_id` resolving to "this patient's left biceps brachii at scanner-pose P") are PHI. Raw RF/IQ is PHI by default and is never persisted (it does not enter the MedCare wire). All §3.10 (`column_mask_bridge`) and §7 (risk-matrix HIPAA row) policy decisions cite this rule.*
 
 Every splat ingest writes one `CognitiveEventRow` via `LanceMembrane::commit_event` (callcenter PR #467, the sole-writer membrane). Carries: `actor` (the `SplatFitActor`), `action: "ultrasound_ingest"`, `target_class: "memory.ultrasound_frame"`, `target_row_id`, `version` (the Lance row-version from `KnowableFromStore::register`), `subject` (clinician identity), `consent_evidence` (the patient consent chain). Inner-side; no JSONL audit sink (per MedCare CLAUDE.md Iron Rule 7).
 
@@ -400,7 +402,7 @@ Three docs:
 
 ## 5. Dependencies graph (textual)
 
-```
+```text
 OGAR #30 Phase 8 (FMA hydrate prep) ─────────┐
                                              ▼
 ndarray D-SPLAT-2 (SIMD splat ops) ──► D-SPLAT-8 (FMA atlas) ──┐
@@ -440,7 +442,7 @@ D-SPLAT-4 (SH palette) ───────────────────
 | FMA atlas splat pre-computation too large (~5 GB) | MED | Region-on-demand loading (per OQ-SPLAT-X); only the regions matching `class_id` of fitted live splats need to be paged in. Lance versioning + `KnowableFromStore` registry handles the on-demand path. |
 | Registration convergence basin too narrow (live ≠ atlas anatomy) | HIGH | Coarse-to-fine multi-resolution ICP (lower SH degree first); patient-specific atlas pre-registration during clinical-study phase. |
 | HoloLens OpenXR compute budget exhausted | MED | Render-at-IMU-rate (200 Hz) is not required; render-at-frame-rate (30 Hz) is. Backpressure via the renderer mailbox. |
-| HIPAA PHI leak via splat coordinates | HIGH | Splat coordinates are in *scanner frame*, not patient-identifying frame. Patient identity stays in `patient_ref` (Hashed for non-clinical roles per `column_mask_bridge`). |
+| HIPAA PHI leak via splat coordinates | MEDIUM | Per **NR-SPLAT-PHI** (§3.10): scanner-frame splat coordinates are non-identifying on their own; PHI lives in the `patient_ref ↔ splat_volume` link and in atlas-aligned annotations carrying patient-specific landmarks. Default `column_mask_bridge` mode for `patient_ref` is `Hash` for non-clinical roles; splat coordinate columns require no masking. |
 | SaMD Class IIa technical-file gap | MED | Build the audit-controls evidence chain during P5 (HIPAA wire); the chain IS the certification evidence base. |
 
 ---
@@ -600,7 +602,7 @@ This plan touches **seven repositories**. Each owns a piece of the splat-native 
 **Critical interconnect:**
 - **Raw RF/IQ NEVER enters MedCare storage** — verified by `grep` audit. This is a hard invariant (Iron Rule 7 + Iron Rule from MedCare CLAUDE.md): audit witness stays inner; raw signal stays at the splat-fit boundary; only fitted Gaussians cross into MedCare.
 - The MedCare ultrasound dataset is **append-only from the SplatFitActor's perspective** — the actor is the sole writer; MedCare only reads + redacts on query. This preserves the sole-writer membrane discipline from PR #467.
-- The patient-identity boundary is `patient_ref` only; splat coordinates are in *scanner frame*, not patient-identifying frame. No PHI in the geometry itself.
+- Per **NR-SPLAT-PHI** (§3.10): the patient-identity boundary is the `patient_ref ↔ splat_volume` LINK (Hashed for non-clinical roles); splat coordinates are in *scanner frame* and are not patient-identifying on their own; atlas-aligned annotations carrying patient-specific landmarks ARE PHI and inherit `patient_ref`'s sensitivity class via foreign-key join.
 
 **Sprint commitment:** sprint 9-10 (P5, after FMA atlas + registration land upstream). 1 PR (D-SPLAT-10 + D-SPLAT-11 bundled).
 
@@ -656,7 +658,7 @@ This plan touches **seven repositories**. Each owns a piece of the splat-native 
 
 ## 10.8 The interconnect map (visual)
 
-```
+```text
                     ┌──────────────────────────────────────────┐
                     │  ndarray (D-SPLAT-2)                     │
                     │  SIMD substrate: Cholesky, Mahalanobis,  │
@@ -750,11 +752,11 @@ This plan touches **seven repositories**. Each owns a piece of the splat-native 
 
 Per the workspace's standing autoattend pattern + lance-graph's two-layer A2A discipline:
 
-**Layer-1 (runtime / code-level):** the `OrchestrationBridge` + `StepDomain` taxonomy already handles cross-domain dispatch. Splat-native adds two `StepDomain` variants:
+**Layer-1 (runtime / code-level):** the `OrchestrationBridge` + `StepDomain` taxonomy already handles cross-domain dispatch. The shipped contract (`crates/lance-graph-contract/src/orchestration.rs:37`) defines exactly eight variants: `Crew, Ladybug, N8n, LanceGraph, Ndarray, Smb, Medcare, Kanban`. Splat-native lands as **two new `StepDomain` variants ADDED to that shipped enum** (extending the single-source-of-truth taxonomy, not parallel to it):
 - `StepDomain::SplatFit` (the engine consumes RF/IQ → emits SoA)
 - `StepDomain::SplatRender` (the renderer consumes SoA → emits pixels)
 
-These compose with existing `StepDomain::{Codec, Thinking, Query, Semantic, Persistence, Inference, Learning}` per OrchestrationBridge contract.
+These compose with the existing variants per the `from_step_type` dispatch — splat ingest routes `SplatFit → Ndarray → LanceGraph → Medcare` (fit → SIMD → registration → HIPAA wire); splat render routes `SplatRender ← LanceGraph` (read-only consumer). The two new variants land in the same PR as D-SPLAT-1 (`Gaussian3D` carrier) so the contract stays single source of truth. **Step-type prefixes** for `from_step_type`: `splat_fit.*` → `SplatFit`, `splat_render.*` → `SplatRender`.
 
 **Layer-2 (session / Claude-code-level):** each per-repo doc has a `READ BY:` header naming which session-tier agents bootload it:
 
