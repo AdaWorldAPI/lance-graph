@@ -1,3 +1,14 @@
+## 2026-06-05 — cesium-osm-substrate-v1 (OpenStreetMap as 6th source class for the 3DGS-ArcGIS-Cesium ingestion plan; OSM PBF → Arrow → Lance → SPO → cesium tileset → splat renderer; substrate-reuse with splat-native-ultrasound-v1)
+
+**Status:** PROPOSAL. Design-spec only, no code. **Plan file:** `.claude/plans/cesium-osm-substrate-v1.md` (~430 LOC). **Trigger:** user feasibility question on OSM × Cesium × Gaussian-splat coupling; cross-session coordination with OGAR.
+**Owns:** 7 deliverables D-OSM-1..7. ndarray D-OSM-1 (cesium stub), D-OSM-4 (SIMD `batched_sample_height`), D-OSM-6 (`cesium-3dtiles-writer` — the genuine Rust gap, no existing crate produces b3dm/i3dm/cmpt); lance-graph D-OSM-2 (osmpbf → Arrow → Lance), D-OSM-7 (Nominatim sidecar; optional); lance-graph-ontology D-OSM-3 (OSM tag → SPO triple lift; **OGAR-crossing contract**); new `crates/splat-fit-geo` or `splat-fit` `geo` feature D-OSM-5 (OSM footprint × DEM → extruded Gaussian3D).
+**OGAR coordination (locked 2026-06-05):** Q1 ruling = Tag-as-Class (c) end-state with `tags: List<Struct<key,value>>` Arrow column (b) as v1 fallback. Q2 ruling = Cesium TMS quadkey NiblePath `osm/qk:<level>/<x>/<y>/<type>/<id>`. Q3 ruling = OSM-XYZ → TMS Y-flip at ingest boundary (per `I-LEGACY-API-FEATURE-GATED`). OGAR-side docs PR (`DOMAIN-INSTANCES.md §2.6` + `RDF-OWL-ALIGNMENT.md §10 Phase 2c`) queued behind this PR to cite D-OSM-* by ID.
+**Anchored:** E-SOA-IS-THE-ONLY (one substrate, three operations — fit/accumulate/render — shared across ultrasound + geospatial; D-SPLAT-1/2/3/12 reused verbatim in D-OSM-5/6), I-VSA-IDENTITIES (Tag identity fingerprints not content bundling), I-LEGACY-API-FEATURE-GATED (Y-axis Q3 boundary), I-NOISE-FLOOR-JIRAK (geocode significance under weak dependence).
+**Companion plans:** `3DGS-ArcGIS-Cesium-ingestion-plan.md` (parent / structural; 5 source classes — this adds 6th), `splat-native-ultrasound-v1.md` (substrate-sibling; Gaussian3D carrier reuse anchor).
+**5 open questions:** OQ-OSM-1 Tag canonicalization rules · OQ-OSM-2 DEM source (default: SRTM 1-arcsec) · OQ-OSM-3 writer scope (MVP: b3dm + cmpt + tileset.json; full: + i3dm/pnts/subtree) · OQ-OSM-4 ingest discipline (per-country PBF v1; planet-scale sharded) · OQ-OSM-5 coordinate-policy compliance for DEM CRS declaration.
+
+---
+
 ## 2026-06-05 — splat-native-ultrasound-v1 (CPU-only Gaussian-splat ultrasound SaMD: probe RF/IQ → splat-fit → Mailbox<Gaussian3D> → 4-phase Rubicon kanban → FMA-atlas Σ-sandwich registration → AR rendering; the explicit customer of OGAR PR #30 §6 FMA litmus + ADR-022 firewall as SaMD Class IIa evidence base)
 
 **Status:** PROPOSAL. Design-spec only, no code. **Plan file:** `.claude/plans/splat-native-ultrasound-v1.md` (~930 LOC, 12 sections incl. §10 per-repo work-division + interconnect map). **Trigger:** user-supplied architecture diagrams (English 6-stage + German business-facing).

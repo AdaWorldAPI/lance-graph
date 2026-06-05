@@ -1,3 +1,19 @@
+## cesium-osm-substrate-v1 — OpenStreetMap as 6th Cesium ingest source class (7 deliverables; substrate-reuse with splat-native)
+
+Plan path: `.claude/plans/cesium-osm-substrate-v1.md`. Parent: `3DGS-ArcGIS-Cesium-ingestion-plan.md` (structural). Sibling: `splat-native-ultrasound-v1.md` (Gaussian3D carrier reuse). OGAR coordination 2026-06-05 locked Q1/Q2/Q3 rulings. OGAR-side docs PR (DOMAIN-INSTANCES §2.6 + RDF-OWL-ALIGNMENT §10 Phase 2c) queued behind this PR.
+
+| D-id | Title | Crate(s) / repo | ~LOC | Risk | Sprint | Status | PR / Evidence |
+|---|---|---|---|---|---|---|---|
+| D-OSM-1 | `crates/cesium/src/osm_pbf.rs` stub (mirrors `arcgis_pbf.rs` shape; OsmNode/OsmWay/OsmRelation/OsmPbfBlock + OSM-XYZ → TMS Y-flip helper; no osmpbf dep yet) | `ndarray` | 400 | LOW | P1 sprint 1 | **Queued** | foundation; gates nothing upstream |
+| D-OSM-2 | osmpbf v0.4 consumer + Arrow RecordBatch emitter → Lance datasets `osm_nodes` / `osm_ways` / `osm_relations` (tags as Q1 v1 fallback `List<Struct<key,value>>`; qk_tms_path per Q2) | `lance-graph` | 600 | MED | P1 sprint 1-2 | **Queued** | gates on D-OSM-1 |
+| D-OSM-3 | OSM tag → SPO triple lift (`(Way#123, ogar:hasTag, "building=yes")`); **OGAR-crossing contract** that `ogar-from-osm-pbf` Phase 2c consumes | `lance-graph-ontology` | 200 | LOW | P2 sprint 3 | **Queued** | gates on D-OSM-2 + OGAR readiness signal |
+| D-OSM-4 | `ndarray::simd::dem::batched_sample_height` W1c primitive (bilinear interp; all three backends AVX-512/NEON/scalar) | `ndarray` | 300 | MED | P2 sprint 3 | **Queued** | foundation; sibling to D-SPLAT-2 |
+| D-OSM-5 | Geospatial splat-fit: OSM footprint × DEM → extruded `Gaussian3D` batch (consumes D-SPLAT-1 carrier + D-SPLAT-3 SoA verbatim — substrate-reuse payoff) | new `crates/splat-fit-geo` OR `splat-fit` `geo` feature | 800 | MED-HIGH | P3 sprint 4-5 | **Queued** | gates on D-OSM-1 + D-OSM-2 + D-OSM-4 + D-SPLAT-1 + D-SPLAT-3 |
+| D-OSM-6 | `cesium-3dtiles-writer` crate — b3dm/cmpt/tileset.json emitter (**the genuine Rust gap; first-of-its-kind**); MVP scope, gltf-crate-based | `ndarray` (new `crates/cesium-3dtiles-writer` or `writer` feature on existing `cesium` crate) | 500 | HIGH | P3 sprint 4-5 | **Queued** | gates on D-OSM-5 + D-SPLAT-3 |
+| D-OSM-7 | Nominatim sidecar HTTP adapter (UX-edge optional; geocoding/reverse-geocoding via reqwest); response → D-OSM-2 primary path | `lance-graph` or new `crates/nominatim-client` | 150 | LOW | P4 sprint 6+ (optional; ship on UX-edge demand only) | **Queued** | independent path |
+
+---
+
 ## splat-native-ultrasound-v1 — CPU-only Gaussian-splat ultrasound SaMD (14 deliverables across ndarray/lance-graph/MedCare-rs/OGAR + new standalone crates)
 
 Plan path: `.claude/plans/splat-native-ultrasound-v1.md`. Companions: ndarray `.claude/plans/splat-native-ultrasound-simd-substrate-v1.md`; OGAR `docs/SPLAT-NATIVE-CUSTOMER.md`; MedCare-rs `.claude/handovers/2026-06-05-splat-native-medcare-hipaa-wire.md`. Customer of OGAR PR #30 §6 FMA bones-rendering litmus + ADR-022 SaMD audit-controls evidence base.
