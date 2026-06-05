@@ -154,8 +154,8 @@ The palette codec is currently `(centroid_palette: u8, edge_weight: u8, scent: u
 
 **ADR-024 adoption (palette256 + HHTL codec, OGAR #39).** D-SPLAT-4 is named in `OGAR/docs/ARCHITECTURAL-DECISIONS-2026-06-04.md § ADR-024 Consequences` as one of the two queued ADR-024 adopters (paired with D-OSM-2 — see `cesium-osm-substrate-v1.md §11` for the geographic-side adoption note). Mapping ADR-024's four-step adoption checklist onto D-SPLAT-4:
 
-1. **Prefix.** FMA NiblePath + SH basis-id — the per-region spatial frame (FMA class identity within the atlas + ℓ=3 SH basis index).
-2. **Palette domain.** Quantized SH coefficients (16 coeffs at ℓ=3) clustered per FMA region. Per-region palette captures dominant tissue echo signatures (planar fascia / spherical organ surfaces / Doppler-flow vascular).
+1. **Prefix.** FMA NiblePath + SH basis-id — the per-region spatial frame (FMA class identity within the atlas + SH basis index spanning the ℓ≤3 carrier).
+2. **Palette domain.** Quantized SH coefficients (16 coefficients spanning ℓ≤3 — degree 0: 1, degree 1: 3, degree 2: 5, degree 3: 7 — totaling 16, matching the §3 D-SPLAT-1 carrier shape) clustered per FMA region. Per-region palette captures dominant tissue echo signatures (planar fascia / spherical organ surfaces / Doppler-flow vascular).
 3. **ρ-vs-reference target ≥ 0.99**, matching the `lance-graph-arm-discovery` aerial-codebook empirical anchor (ρ = 0.9973 vs cosine). Reference: analytic SH evaluation at the same view direction (the same reference used in the D-SPLAT-4 test plan below). Report empirical ρ on the **first FMA-region palette build** (default region: femur cortical bone — smallest tractable corpus; cf. OGAR PR #30 §6 FMA-bones litmus).
 4. **Decode = const-table lookup.** Per-region SH palette is runtime const-table; decode path is zero-allocation. Compile-time HHTL where the palette is shared across regions (e.g. global basis-ID lookup for the 256 SH signatures).
 
