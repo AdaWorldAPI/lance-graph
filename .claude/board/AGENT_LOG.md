@@ -1,3 +1,34 @@
+## [Opus 4.7 / 1M ctx, main thread] splat-native-ultrasound-v1 — cross-workspace integration plan + per-repo work-division + interconnect map
+
+**Branch:** `claude/splat-native-ultrasound-v1` (new branch off `main` at `38627e9c5a`). **Files (this commit, lance-graph side):**
+- `.claude/plans/splat-native-ultrasound-v1.md` (new, ~930 lines) — canonical cross-workspace plan; §10 per-repo work-division matrix + interconnect map + sprint cadence table.
+- `.claude/board/INTEGRATION_PLANS.md` — PREPEND splat-native-ultrasound-v1 entry.
+- `.claude/board/STATUS_BOARD.md` — new section with 14 D-SPLAT-* deliverable rows (D-SPLAT-1..14).
+- `.claude/board/AGENT_LOG.md` — this entry.
+
+**Companion docs (separate PRs in sibling repos):**
+- `ndarray/.claude/plans/splat-native-ultrasound-simd-substrate-v1.md` (~~250 LOC; D-SPLAT-2 SIMD substrate perspective)
+- `MedCare-rs/.claude/handovers/2026-06-05-splat-native-medcare-hipaa-wire.md` (~250 LOC; D-SPLAT-10/11 HIPAA wire perspective)
+- `OGAR/docs/SPLAT-NATIVE-CUSTOMER.md` (~250 LOC; §6 FMA-litmus customer narrative; via pygithub branch + PR)
+
+**Tests:** none (docs/board only; `cargo` not invoked per the docs-PR pattern). No source code in any of the four PRs.
+
+**Architecture summary** (full detail in plan §0-§10):
+- 14 deliverables across 4 repos + 3 new standalone crates (`splat-fit`, `splat-actors`, `splat-render`).
+- Phases P1-P7: substrate (sprint 1-2) → engine (sprint 3) → actors + multi-frame (sprint 4-5) → FMA atlas + registration (sprint 6-8) → HIPAA wire (sprint 9-10) → AR surface (sprint 11-13) → SaMD docs (sprint 14+, parallel).
+- 4 critical-path edges identified: ndarray D-SPLAT-2 → all SIMD consumers; contract D-SPLAT-1/3 → all carrier consumers; OGAR Phase 8 → lance-graph D-SPLAT-8 FMA atlas; D-SPLAT-12 → AR consumers.
+- 5 open questions OQ-SPLAT-1..5 with default proposals (Telemed ArtUs first probe; ℓ=3 SH degree; consume probe BF where available; AR stays on-device; canonical lance-graph + per-repo companions).
+- Inherits (no new build): bardioc PR #17 Rubicon kanban for frame ratification gate; callcenter PR #467 `LanceMembrane::commit_event` for HIPAA audit; OGAR PR #25/#31 `KnowableFromStore` for splat-ingest registration; lance-graph PR #434 unified-SoA carrier doctrine.
+
+**Inherits the §11.2 work-division principles:**
+1. Math primitives live in ndarray; carriers live in `lance-graph-contract`; engines live in standalone crates.
+2. OGAR owns the upstream ontology; lance-graph owns the runtime atlas; MedCare-rs owns the PHI wire.
+3. Inherits, never invents — no new orchestration layer, no new mailbox primitive, no new audit sink.
+
+**Outcome:** canonical plan + 14 deliverable rows + governance ledger entries; cross-workspace coordination protocol declared in §10.10 (Layer-1 `OrchestrationBridge` + Layer-2 `READ BY` knowledge-doc activation); the §6 FMA bones-rendering litmus from OGAR PR #30 transitions from "demo target" to "load path" — splat-native is the explicit customer that proves the litmus.
+
+---
+
 ## [Main thread / Opus, autoattended] D-SUBSTRATE-B-CONSUMER-DOC-FIX — codex P1 correction on PR #465 (audit retention caveat)
 
 **Branch:** doc/knowledge-old-stack-capability-parity-fix. Follow-up to merged PR #465; addresses codex P1 finding that §2.1 + §5.1 overclaimed Lance-versions-as-immutable-audit.
