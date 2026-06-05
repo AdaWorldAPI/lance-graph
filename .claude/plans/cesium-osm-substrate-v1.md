@@ -306,4 +306,50 @@ b-r-u/osmpbf v0.4 ────────┐
 
 ---
 
+## 11. ADR-024 adoption — palette256 + HHTL codec contract
+
+> **Pinned 2026-06-05 after ADR-024 landed in OGAR #39.** This section closes the runtime-side follow-up commitment that ADR-024 § Consequences names by reference ("Reports ρ-vs-reference on first per-country PBF run per the runtime session's §11 follow-up commitment").
+
+The cesium-osm arc adopts **ADR-024** (Palette256 + HHTL codec — universal compression primitive) as the canonical compression contract for D-OSM-2 (OSM tag palette + tile-local coordinate quantization) and any future per-tile palette in this family.
+
+### What ADR-024 requires
+
+Per `OGAR/docs/ARCHITECTURAL-DECISIONS-2026-06-04.md § ADR-024` adoption checklist:
+
+1. **Identify the prefix.** For D-OSM-2: the **tile-frame quadkey prefix** `qk:<level>/<x>/<y_tms>` — this is the per-tile spatial-frame portion derived from the **full identity path** `osm/qk:<level>/<x>/<y_tms>/<type>/<id>` declared in §2 Q2. (Note: `<y_tms>` is the Q3-converted Y coordinate after the OSM-XYZ → TMS boundary flip; §2 Q2 uses bare `<y>` to mean `<y_tms>` since the ingest boundary normalizes to TMS. The forms are not two competing prefixes — the §11 form is the §2 Q2 form truncated to the spatial-frame portion, which is what ADR-024 calls "the prefix" for palette purposes.)
+2. **Identify the palette domain.** For D-OSM-2: OSM tag-values clustered per tile (~95% body covered by ≤256 distinct values at zoom 21 per ADR-024 § 256-ceiling escape hatches) **and** tile-local 16-bit quantized coordinates (tile bounds ~4 m at zoom 21; 16-bit quantization gives ~0.06 mm per-axis resolution — sub-mm at this zoom).
+3. **Build the palette + measure ρ-vs-reference.** For D-OSM-2: the reference is exact-match tag equality; ρ for the per-tile tag palette is the proportion of correctly-decoded tag values vs ground truth. Per ADR-024 target: **ρ ≥ 0.99** matching the `lance-graph-arm-discovery` aerial-codebook anchor (ρ = 0.9973 vs cosine).
+4. **Decode = const-table lookup.** Per-tile palette is runtime const-table; decode path is zero-allocation. Compile-time HHTL where the palette is shared across tiles (e.g. the global ~100 most-common OSM keys: `highway`, `building`, `name`, `addr:*`).
+
+### Falsifiable adoption contract for D-OSM-2
+
+**D-OSM-2 implementation MUST report (two metrics — tag fidelity AND coordinate fidelity; both falsifiable):**
+
+- **Tag fidelity** — empirical ρ-vs-reference on the **first per-country PBF run** (default candidate: Liechtenstein PBF — smallest tractable corpus; per §6 OQ-OSM-4). Target: **ρ ≥ 0.99**.
+- **Coordinate fidelity** — empirical per-tile coordinate decode-error budget on the same first-per-country run, in meters: **max ≤ 5 cm and p95 ≤ 1 cm at zoom 21** (tile bounds ~4 m; 16-bit quantization theoretical resolution ~0.06 mm per axis — the 5 cm / 1 cm thresholds are ~3 orders of magnitude above the theoretical floor, leaving headroom for projection round-trip error). Report max + p95 + p99 over all decoded coordinates. If max exceeds the budget, the 16-bit quantization regime is undersized for the target use case and must escalate to 24-bit-per-axis OR per-tile floating-point fallback (the latter is a per-tile escape hatch analogous to per-tile palettes).
+- **Per-tile palette cardinality distribution** (mean / p95 / p99). The 256-ceiling escape hatch (per-tile, hierarchical, or palette-64K) is selected on the basis of measured cardinality, not speculation.
+- **Decode bandwidth** — target ≥ 10⁸ palette-decodes/sec on AVX-512 (gather + table-lookup), matching the bgz-tensor `AttentionTable` throughput regime.
+
+If the ρ-vs-reference falls below 0.99 OR the coordinate-decode max/p95 budget is breached on the first per-country run, **D-OSM-2 must document the gap before proceeding** to multi-country ingest — either by (a) escalating to per-tile palettes if the global palette undercovers, (b) escalating to palette-64K if cardinality genuinely exceeds 256, (c) escalating to 24-bit-per-axis quantization if the coordinate budget is breached, or (d) accepting the gap with rationale (e.g. ρ = 0.96 may be acceptable for navigation-style queries where exact tag equality is not load-bearing).
+
+### Cross-arc ADR-024 adopters (the codec spreads)
+
+| Adopter | Domain | Prefix | Palette domain | ρ-vs-reference |
+|---|---|---|---|---|
+| `arm-discovery` aerial codebook (anchor; **shipped**) | Distance | class identity | quantized cosine | **ρ = 0.9973** (the empirical floor) |
+| `Binary16K` `_effectiveReaders` (anchor; **shipped**) | Security | row identity | 256 role-bit subsets | binary exact-match (popcount intersect) |
+| `bgz-tensor` `WeightPalette` (anchor; **shipped**) | Attention | layer / head index | quantized dense weights | cosine (matches ADR-024 reference) |
+| **D-OSM-2** (this plan, queued) | Geographic | Cesium TMS quadkey | tag-values + tile-local coords | **ρ ≥ 0.99** target (this section) |
+| **D-SPLAT-4** (splat-native arc, queued) | Anatomical / volumetric | FMA NiblePath + SH basis-id | SH coefficients (ℓ=3) | **ρ ≥ 0.99** target (per splat-native plan amendment, separate PR) |
+
+The two queued adopters (D-OSM-2 + D-SPLAT-4) are explicitly named in ADR-024 § Consequences. This section is the runtime-side acknowledgment that the codec contract binds at adoption time, not after the fact.
+
+### Why this section is §11, not §3
+
+Adding ADR-024 as a deliverable specification on D-OSM-2 (in §3) would conflate the carrier-shape contract (Q1 v1 fallback) with the compression contract (palette256 codec). They are independent — the Arrow `List<Struct<key, value>>` shape (Q1 v1) holds *whether or not* the tag value is palette-encoded; the palette is a transparent codec underneath the column. Keeping the ADR-024 callout at §11 preserves §3's "carrier shape" framing while pinning the codec contract separately.
+
+When D-OSM-2 ships, the implementation PR cites both §3 (carrier) and §11 (codec) as its contract surface.
+
+---
+
 _End of plan v1._
