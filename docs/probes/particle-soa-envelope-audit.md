@@ -40,8 +40,10 @@ biggest structural finding.**
   `plasticity_counter [u8;N]`, `last_emission_cycle [u32;N]`,
   `edges [CausalEdge64;N]`, `qualia [QualiaI4_16D;N]`, `meta [MetaWord;N]`,
   `entity_type [u16;N]`; scalars `mailbox_id`, `current_cycle`, `w_slot`,
-  `threshold`. It emits a baton via `emit(MailboxId) -> CollapseGateEmission`.
-  **This is the particle envelope the intended model describes.**
+  `threshold`. **This is the particle envelope the intended model describes.**
+  ⚠ The source contains `emit(MailboxId) -> CollapseGateEmission` — this method
+  contradicts the zero-copy model (creation to Lance tombstone, no emission,
+  no baton). It is a code artifact to be removed, not the intended design.
 - `BindSpace` columns (`bindspace.rs`): `FingerprintColumns { content [u64×256],
   cycle [f32×16_384], topic, angle, sigma }`, `EdgeColumn`, `QualiaI4Column`
   (+ deprecated `QualiaColumn` f32×18), `MetaColumn`, `temporal`, `expert`,
@@ -294,20 +296,22 @@ SPO decomposition is explicit as three palette indices + the
 
 ### Phase 7 — Little-endian contract audit
 
-**There IS a single canonical LE baton contract — but it is fragmented by the
-two `CausalEdge64` types and by a `&[u64]` reinterpret seam in the SoA view.**
+**The SoA envelope is zero-copy in-place (creation → Lance tombstone). There is
+no baton, no emission, no serialization. The LE contract describes where columns
+sit in the in-place backing store, not a transmitted packet. Two fragmentation
+risks remain.**
 
-- Canonical baton: `CollapseGateEmission` = `(u16 target, CausalEdge64)`, wire
-  cost `13 + 10·baton_count` bytes (per CLAUDE.md E-BATON-1). `CausalEdge64` and
-  `EpisodicEdges64` both expose `to_le_bytes / from_le_bytes / write_le / read_le`
-  — a shared LE convention. (Confirmed — one envelope contract intent.)
+- The SoA is owned in-place by the mailbox. A Lance version IS the backing store
+  at cycle N — not a serialized snapshot, not a transmitted packet.
+  `CausalEdge64` and `EpisodicEdges64` both expose `to_le_bytes / from_le_bytes`
+  for Lance's columnar write path (Lance reads/writes LE bytes from/into the store).
+  These are Lance I/O seams, not cross-mailbox serialization. (Confirmed — correct design.)
 - p64-bridge (`p64-bridge/src/lib.rs`): `edges_to_layered_rows(&[CausalEdge64])
   -> [[u64;64];8]`, `edge_to_block(&CausalEdge64) -> (usize,usize)`. **This is a
   projection / derivation, not a layout-preserving transport.** It reads SPO +
   mask bits and *computes* palette addresses; it does not round-trip the edge.
-  So p64 does **not** "preserve layout" — by design it derives a different
-  geometry (palette planes) from the edge. (Inferred — acceptable, but it is a
-  one-way lens, not a serializer.)
+  p64 derives a different geometry (palette planes) from the edge — one-way lens,
+  not a serializer. (Inferred — acceptable by design.)
 - SoA view reinterpret seam: `MailboxSoaView::edges_raw() -> &[u64]` (NOT
   `&[CausalEdge64]`) — the contract crate stays zero-dep on `causal-edge` by
   handing back raw `u64` that callers reconstruct via `CausalEdge64(raw)`. This
@@ -319,23 +323,25 @@ two `CausalEdge64` types and by a `&[u64]` reinterpret seam in the SoA view.**
 **Contract map:**
 
 ```
-   ENVELOPE LE CONTRACT (canonical)
-   ├─ Baton:  CollapseGateEmission (u16 target, CausalEdge64)  wire = 13 + 10·n
-   ├─ CausalEdge64::{to,from}_le_bytes          (causal-edge crate, v1/v2 feature-gated)
+   ENVELOPE LE CONTRACT (in-place backing store)
+   ├─ CausalEdge64::{to,from}_le_bytes          (causal-edge crate, v1/v2 feature-gated — Lance I/O seam)
    ├─ EpisodicEdges64::{to,from}_le_bytes        (matches CE64 convention)
    │
    FRAGMENTATION RISKS
    ├─ ⚠ TWO CausalEdge64 layouts (causal-edge SPO-palette  vs  thinking-engine 8-channel)
    │      bridged only by layered.rs::to_spo()/from_spo()  — name collision, lossy
-   ├─ ⚠ soa_view::edges_raw() -> &[u64]  (reinterpret seam; layout agreement is implicit)
-   └─ ⚠ p64-bridge = one-way projection CE64 → [[u64;64];8]  (derives, does NOT preserve/round-trip)
+   └─ ⚠ soa_view::edges_raw() -> &[u64]  (reinterpret seam; v1/v2 layout agreement is implicit)
+
+   NOTE: CollapseGateEmission / "baton" DO NOT exist in the correct design.
+   MailboxSoA::emit() in source is a code artifact to be removed. Every SoA is
+   zero-copy from creation to tombstone; there is no cross-mailbox handoff type.
 ```
 
 | Question | Answer |
 |---|---|
-| Single canonical LE contract? | **Yes** for the baton + CE64/EpisodicEdges64 byte methods (Confirmed). |
+| Single canonical LE contract? | **Yes** — CE64/EpisodicEdges64 byte methods are the Lance I/O seam. (Confirmed.) |
 | Hidden conversion? | **Yes** — `edges_raw() -> &[u64]` reinterpret; v1/v2 layout agreement is implicit (Contradiction risk). |
-| Serialization tax? | Low on the hot path (baton is 8-byte words). p64 projection recomputes per dispatch — derive cost, not serialize cost. |
+| Serialization tax? | **None** — the backing store is in-place. Lance writes LE columns directly. p64 derives palette geometry, does not serialize. |
 | Contract fragmentation? | **Yes** — two `CausalEdge64` types is the principal fragmentation. |
 
 #### Phase 7 follow-up — the envelope must know the LE contract, not just the columns (RESOLVED 2026-06-06)
@@ -359,22 +365,23 @@ with a cycle stamp. The parts knew the LE contract; the envelope did not.
   (`ColumnDescriptor[]` — ordering + offset + LE `ColumnKind` + elems/row),
   `row_stride()`, `cycle(): u32`, `LAYOUT_VERSION`, `as_le_bytes()`, plus
   `row_le` / `column_le` zero-copy views and a `verify_layout()` gate (catches
-  stride mismatch, column overlap, packet-size tear, and version skew at the
-  Lance read boundary — closing the `edges_raw() -> &[u64]` implicit-agreement
-  hazard).
+  stride mismatch, column overlap, backing-store size mismatch, and version
+  skew at the Lance read boundary — closing the `edges_raw() -> &[u64]`
+  implicit-agreement hazard). The envelope describes the in-place backing
+  store; nothing is packaged or transmitted.
 - **Composition = `lance-graph`** (the one crate that always has both deps):
   carve each envelope column per its descriptor, wrap in `MultiLaneColumn`.
 
 **Why NOT a shared `simd-soa-contract` crate, and why NOT pull ndarray into
-the contract:** `lance-graph-contract` is consumed by `crewai-rust` and
-`n8n-rs` precisely because it is zero-dep. ndarray is the heavy HPC foundation
+the contract:** `lance-graph-contract` is consumed by OGAR classes and ractor
+actors precisely because it is zero-dep. ndarray is the heavy HPC foundation
 (BLAS L1/L2/L3, MKL/OpenBLAS FFI). Pulling ndarray into the contract would
 force that build onto every contract consumer AND force a pure-SIMD ndarray
 consumer to transitively pull a graph contract crate. The two-level split
 above keeps **both** crates clean: ndarray standalone for SIMD-only consumers,
-contract featherweight for crewai/n8n. The levels are complementary
-(column = "how to sweep one typed column"; envelope = "where columns sit, what
-cycle"), never restated, and neither crate depends on the other.
+contract featherweight for class/actor consumers. The levels are complementary
+(column = "how to sweep one typed column"; envelope = "where columns sit in the
+backing store, what cycle"), never restated, and neither crate depends on the other.
 
 **Iron rule that falls out:** *ndarray owns the column contract; lance-graph
 owns the envelope contract; neither restates the other; lance-graph binds them.*
@@ -481,7 +488,14 @@ execution geometry explicit.
 7. **Retire the deprecated qualia/cycle columns** once (1) lands —
    `QualiaColumn` f32×18 and the `Vsa16kF32` cycle plane are pure footprint
    (65.5 KB/row) on the legacy envelope. (Resolves redundancy 3, 4.)
-8. **Demote the `ndarray-hpc` fallback wording in CLAUDE.md.** In practice
+9. **Remove `MailboxSoA::emit()` and `CollapseGateEmission`.** The zero-copy
+   model (creation → Lance tombstone, no emission, no baton) means `emit()` and
+   the `CollapseGateEmission(u16 target, CausalEdge64)` type are code artifacts
+   from a superseded design. The KanbanColumn/`VersionScheduler`/ractor
+   orchestration is the only secondary path; there is no inter-mailbox handoff
+   type. Remove `emit()` from `MailboxSoA`, remove or gate `CollapseGateEmission`
+   behind `#[deprecated]`, and update `ShaderDriver` accordingly.
+10. **Demote the `ndarray-hpc` fallback wording in CLAUDE.md.** In practice
    **no shipped consumer uses lance-graph without ndarray** — every consumer
    uses both. The `ndarray-hpc` feature / `blasgraph/ndarray_bridge.rs`
    fallback is a **CI-compile-check only** path, not a real deployment mode.
@@ -502,7 +516,7 @@ execution geometry explicit.
 |---|---|---|
 | `MailboxSoA.mailbox_id` | **KEEP** | Envelope identity, correct. |
 | `MailboxSoA.entity_type` | **KEEP (fix resolver)** | Correct as class pointer; resolver should match its O(1) doc. |
-| `MailboxSoA.energy / plasticity / last_emission_cycle` | **KEEP** | Local pragmatics, correctly owned. |
+| `MailboxSoA.energy / plasticity / last_emission_cycle` | **KEEP (rename)** | Local pragmatics, correctly owned. `last_emission_cycle` is a same-cycle idempotency guard; rename to `last_active_cycle` to remove the emission framing. |
 | `MailboxSoA.edges (CausalEdge64)` | **KEEP** | Payload, correctly owned by the mailbox. |
 | `MailboxSoA.qualia (QualiaI4_16D)` | **KEEP** | Canonical local pragmatic vector. |
 | `MailboxSoA.meta (MetaWord)` | **KEEP** | Thinking-style/awareness bits belong here, not on the edge. |
@@ -528,11 +542,12 @@ execution geometry explicit.
 
 **Does the struct geometry measure what it claims?**
 
-- **Payload, references, versioning, execution split: YES.** `CausalEdge64` is
-  a clean payload, references are explicit `Copy` handles with no ownership
+- **Payload, references, versioning, zero-copy lifecycle: YES.** `CausalEdge64`
+  is a clean payload, references are explicit `Copy` handles with no ownership
   cycles, Lance versioning gives self-through-time without row-level history
-  duplication, and the read-only-scheduler / single-owner-mutator split is
-  correct.
+  duplication, the read-only-scheduler / single-owner-mutator split is correct,
+  and the SoA envelope is zero-copy in-place from creation to Lance tombstone
+  (no emission, no baton, no serialization).
 - **Identity, inheritance, single-envelope: NOT YET.** The intended
   `OGAR::classes::from(address)` does not exist (forward-only in OGAR; a linear
   scan in lance-graph); two SoA envelopes co-exist with a live deprecated f32

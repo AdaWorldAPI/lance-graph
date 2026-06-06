@@ -10,28 +10,29 @@
 //! decodes — has no contract describing how those columns *assemble* into one
 //! row-strided packet. The parts know the LE contract; the envelope did not.
 //!
-//! [`SoaEnvelope`] is that missing contract. It makes one SoA snapshot a
-//! **self-describing little-endian packet per cycle**: a stable column
-//! ordering, a fixed row byte stride, a `cycle` version stamp, and a
+//! [`SoaEnvelope`] is that missing contract. It makes the in-place SoA
+//! backing store **self-describing at each cycle**: a stable column ordering,
+//! a fixed row byte stride, a `cycle` version stamp, and a
 //! [`ENVELOPE_LAYOUT_VERSION`]. With it, a Lance version IS a coherent LE
-//! packet at cycle N — not a loose collection of independently-correct
-//! columns.
+//! in-place layout at cycle N — not a loose collection of independently-
+//! correct columns. Nothing is serialized or transmitted; the backing bytes
+//! are resident in-place, zero-copy from creation to Lance tombstone.
 //!
 //! # Layering (read before adding an ndarray dependency here)
 //!
 //! This module is **zero-dep, byte-geometry only**. It describes *where*
-//! columns sit in a row packet and *what* LE element each holds — as data
-//! ([`ColumnDescriptor`]), never as ndarray generic bounds. That keeps
-//! `lance-graph-contract` featherweight for its non-HPC consumers
-//! (`crewai-rust`, `n8n-rs`), and it keeps ndarray usable standalone by any
-//! pure-SIMD consumer.
+//! columns sit in the backing store's row stride and *what* LE element each
+//! holds — as data ([`ColumnDescriptor`]), never as ndarray generic bounds.
+//! That keeps `lance-graph-contract` featherweight for its non-HPC consumers
+//! (OGAR classes, ractor actors), and it keeps ndarray usable standalone by
+//! any pure-SIMD consumer.
 //!
 //! The split is deliberate and complementary, not duplicated:
 //!
 //! | Level | Home | Answers |
 //! |-------|------|---------|
 //! | Column LE contract | `ndarray::simd::MultiLaneColumn` | "how do I sweep one typed column" |
-//! | Envelope LE contract | this module | "where do columns sit in the row packet, what cycle is this" |
+//! | Envelope LE contract | this module | "where do columns sit in the row stride, what cycle is this" |
 //! | Composition | `lance-graph` (always has both deps) | carve envelope columns → wrap each in `MultiLaneColumn` |
 //!
 //! ndarray never learns the envelope exists; this crate never learns ndarray
@@ -75,7 +76,7 @@ impl ColumnKind {
     }
 }
 
-/// One column's placement within a single row packet.
+/// One column's placement within a single row of the backing store.
 ///
 /// `Copy` and `repr(C)` so a descriptor table is itself a stable LE artifact.
 /// `name_id` is a stable column ordinal (an enum discriminant on the consumer
@@ -117,17 +118,20 @@ pub enum EnvelopeError {
     StrideMismatch { declared: usize, summed: usize },
     /// Two columns overlap, or a gap/ordering violation was found.
     ColumnOverlap { col_a: u16, col_b: u16 },
-    /// `as_le_bytes().len()` is not `row_stride * n_rows`.
+    /// `as_le_bytes().len()` is not `row_stride * n_rows` (backing store size mismatch).
     PacketSizeMismatch { expected: usize, found: usize },
     /// A requested row or column index is out of bounds.
     OutOfBounds,
 }
 
-/// A self-describing little-endian SoA packet for one cycle.
+/// The little-endian geometry contract for one SoA envelope cycle.
 ///
-/// Implemented by the owner of the backing store (e.g. the mailbox SoA). The
-/// envelope is read-only here; mutation lives on the owner type, never on this
-/// view (mirrors `MailboxSoaView` vs `MailboxSoaOwner`).
+/// Implemented by the owner of the in-place backing store (e.g. the mailbox
+/// SoA). The envelope is zero-copy from creation to Lance tombstone — nothing
+/// is serialized or transmitted; this trait describes *where columns sit* in
+/// the already-resident backing bytes and *what cycle stamp* the store carries.
+/// The read-only view here mirrors `MailboxSoaView` vs `MailboxSoaOwner`:
+/// mutation lives on the owner type, never on this trait.
 pub trait SoaEnvelope {
     /// Layout version this implementor's geometry conforms to.
     const LAYOUT_VERSION: u8 = ENVELOPE_LAYOUT_VERSION;
