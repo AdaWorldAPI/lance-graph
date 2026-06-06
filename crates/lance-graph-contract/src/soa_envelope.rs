@@ -182,12 +182,23 @@ pub trait SoaEnvelope {
                 found: Self::LAYOUT_VERSION,
             });
         }
-        // 2. Columns are non-overlapping and their widths sum to the stride.
+        // 2. Columns are non-overlapping, each fits within [0, stride), and
+        //    their widths sum to the stride.
+        //    Checking only the width sum is insufficient: two columns whose
+        //    widths sum to the stride can still have one column whose end
+        //    offset exceeds the stride (e.g. offsets 4+8 with stride 8).
         let cols = self.columns();
         let mut summed = 0usize;
+        let stride = self.row_stride();
         for (i, a) in cols.iter().enumerate() {
             let (a_start, a_end) = a.row_byte_range();
             summed += a.col_bytes_per_row();
+            if a_end > stride {
+                return Err(EnvelopeError::StrideMismatch {
+                    declared: stride,
+                    summed: a_end,
+                });
+            }
             for b in &cols[i + 1..] {
                 let (b_start, b_end) = b.row_byte_range();
                 let overlap = a_start < b_end && b_start < a_end;
@@ -199,7 +210,6 @@ pub trait SoaEnvelope {
                 }
             }
         }
-        let stride = self.row_stride();
         if summed != stride {
             return Err(EnvelopeError::StrideMismatch {
                 declared: stride,
@@ -322,6 +332,21 @@ mod tests {
         assert!(matches!(
             env.verify_layout(),
             Err(EnvelopeError::ColumnOverlap { .. })
+        ));
+    }
+
+    #[test]
+    fn column_past_stride_caught() {
+        // Two 4-byte columns at offsets 4 and 8 with stride 8.
+        // Width sum = 8 = stride, but column B's end (12) > stride (8).
+        let cols = vec![
+            ColumnDescriptor { name_id: 0, kind: ColumnKind::F32, elems_per_row: 1, row_offset: 4 },
+            ColumnDescriptor { name_id: 1, kind: ColumnKind::F32, elems_per_row: 1, row_offset: 8 },
+        ];
+        let env = TestEnvelope { cols, stride: 8, rows: 1, bytes: vec![0u8; 8], cycle: 0 };
+        assert!(matches!(
+            env.verify_layout(),
+            Err(EnvelopeError::StrideMismatch { .. })
         ));
     }
 

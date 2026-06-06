@@ -3,11 +3,11 @@
 > **Branch:** `claude/stoic-turing-M0Eiq`
 > **Date:** 2026-06-06
 > **Files read:** `crystal/fingerprint.rs`, `cognitive_shader.rs`, `collapse_gate.rs`,
->   `cycle_accumulator.rs`, `crystal/cycle.rs`, `recipe_kernels.rs`, `atoms.rs`,
->   `planner/src/cache/kv_bundle.rs`, `ndarray/src/hpc/vsa.rs`
+> `cycle_accumulator.rs`, `crystal/cycle.rs`, `recipe_kernels.rs`, `atoms.rs`,
+> `planner/src/cache/kv_bundle.rs`, `ndarray/src/hpc/vsa.rs`
 > **Method:** Read all VSA, braid, permutation, bundle, and cognitive-shader source in
->   lance-graph-contract + lance-graph-planner. Answer 7 questions with source citations.
->   No narrative — executable code only.
+> lance-graph-contract + lance-graph-planner. Answer 7 questions with source citations.
+> No narrative — executable code only.
 
 ---
 
@@ -249,7 +249,7 @@ The standing-wave framing incorrectly assumed that temporal persistence had to b
 implemented as a recurrence within the compute graph. It does not. Lance provides it
 structurally:
 
-```
+```text
 current compute (per-mailbox, feed-forward, ephemeral)
          │ commit
          ▼

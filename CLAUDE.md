@@ -14,9 +14,11 @@ workspace is local — prefer the local/fork source over the registry, always.
 - If a fork's coordinates (git URL, branch/tag, feature flag) are unknown,
   **STOP and ask**. Do NOT fall back to crates.io as a convenience or to make a
   build pass.
-- `"warning: Patch <crate> ... was not used in the crate graph"` means the fork
-  is NOT actually wired — treat it as a build error to fix, never a warning to
-  ignore.
+- `"warning: Patch <crate> ... was not used in the crate graph"` is a policy
+  alert. It can indicate missing fork wiring OR a transitive semver mismatch
+  that prevents the patch from applying. Do not ignore it: verify direct
+  `Cargo.toml` patch entries and `Cargo.lock` wiring, then track/resolve any
+  transitive blocker explicitly before closing the issue.
 - crates.io is permitted ONLY for crates that have no AdaWorldAPI fork / no local
   source.
 

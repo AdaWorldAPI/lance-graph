@@ -1,3 +1,19 @@
+## 2026-06-06 — cycle-coherent-soa-snapshot-v1 (Arc-swap COW at column granularity; byte-scale deinterlace; no-cross-cycle-lag guarantee)
+
+**Status:** QUEUED. Design-spec only, no code. **Plan file:** `.claude/plans/cycle-coherent-soa-snapshot-v1.md`.
+**Owns:** 6 deliverables D-SOA-SNAP-1..6.
+- D-SOA-SNAP-1: `MailboxSoaSnapshot` type in lance-graph-contract
+- D-SOA-SNAP-2: `SnapshotProvider` trait in lance-graph-contract
+- D-SOA-SNAP-3: Arc-swap write path in `MailboxSoa::advance_phase`
+- D-SOA-SNAP-4: `snapshot()` impl on `MailboxSoa`
+- D-SOA-SNAP-5: No-cross-cycle-lag falsification test (writer thread + 8 reader threads)
+- D-SOA-SNAP-6: Wire `snapshot.cycle` into `QueryReference` (close row-scale / byte-scale clock loop)
+**Epiphany:** E-DEINTERLACE-TWO-SCALES (prepended 2026-06-06).
+**Companion:** PR #468 (`temporal.rs`, row-scale, SHIPPED); PR #477 (`soa_envelope.rs`, IN REVIEW).
+**Boundary:** ndarray stays layout-only (`MultiLaneColumn`); Arc-swap policy in lance-graph only.
+
+---
+
 ## 2026-06-05 — cesium-osm-substrate-v1 (OpenStreetMap as 6th source class for the 3DGS-ArcGIS-Cesium ingestion plan; OSM PBF → Arrow → Lance → SPO → cesium tileset → splat renderer; substrate-reuse with splat-native-ultrasound-v1)
 
 **Status:** PROPOSAL. Design-spec only, no code. **Plan file:** `.claude/plans/cesium-osm-substrate-v1.md` (~430 LOC). **Trigger:** user feasibility question on OSM × Cesium × Gaussian-splat coupling; cross-session coordination with OGAR.

@@ -10,10 +10,14 @@
 
 **Every SoA envelope is zero-copy from creation to Lance tombstone.**
 
-There is no baton. There is no emission. There is no inter-mailbox handoff type.
-No bytes leave the backing store until Lance's own columnar I/O writes them to
-disk — and even then the in-memory store is unchanged, not serialized and
-freed.
+**Target state:** there is no baton, no emission, and no inter-mailbox handoff
+type. No bytes leave the backing store until Lance's own columnar I/O writes
+them to disk — and even then the in-memory store is unchanged, not serialized
+and freed.
+
+**Current state:** legacy `MailboxSoA::emit()` and `CollapseGateEmission`
+artifacts still exist in source and are scheduled for removal (see Tier 1
+below). Treat them as migration-only; do not call or extend them.
 
 ---
 
@@ -47,9 +51,10 @@ Lance soft-delete (tombstone)  ← sole lifecycle event that ends the store
 last written. It is a same-cycle guard, not a history column. (Rename from
 `last_emission_cycle` in source — the emission framing is wrong.)
 
-**`MailboxSoA::emit()` and `CollapseGateEmission` in source are code artifacts
-from a superseded design and must be removed.** There is no inter-mailbox
-handoff type.
+**`MailboxSoA::emit()` and `CollapseGateEmission` are legacy artifacts from a
+superseded design and are scheduled for removal.** Until that lands, treat them
+as migration-only and non-canonical. There is no intended inter-mailbox handoff
+type.
 
 ---
 
@@ -142,8 +147,8 @@ out pending resolution. **Do not fall back to crates.io surrealdb.**
 
 | Concept | Status |
 |---|---|
-| `CollapseGateEmission` as cross-mailbox carrier | **WRONG** — remove from source |
-| `MailboxSoA::emit()` | **WRONG** — remove from source |
+| `CollapseGateEmission` as cross-mailbox carrier | **WRONG** — scheduled for removal |
+| `MailboxSoA::emit()` | **WRONG** — scheduled for removal |
 | "Baton" as inter-mailbox handoff | **WRONG** — superseded |
 | `wire_cost_bytes() = 13 + 10·baton_count` | **WRONG** — from CLAUDE.md E-BATON-1, now superseded |
 | `Vsa16kF32` as a cross-mailbox carrier | **WRONG** — deprecated, lives only as legacy `cycle` column in `BindSpace` |

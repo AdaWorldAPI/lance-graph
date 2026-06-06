@@ -3,9 +3,9 @@
 > **Branch:** `claude/stoic-turing-M0Eiq`
 > **Date:** 2026-06-06
 > **Files audited:** `crates/lance-graph-contract/src/hhtl.rs` (19 KB, ~470 lines),
->   `crates/lance-graph-contract/src/high_heel.rs` (42 KB, ~900 lines)
+> `crates/lance-graph-contract/src/high_heel.rs` (42 KB, ~900 lines)
 > **Method:** Read both files completely. Classify every struct/enum/function
->   into exactly one of five categories. No narrative — code citations.
+> into exactly one of five categories. No narrative — code citations.
 
 ---
 
