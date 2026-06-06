@@ -154,3 +154,120 @@ out pending resolution. **Do not fall back to crates.io surrealdb.**
    the O(1) lookup is the sole path.
 6. surrealdb requires the AdaWorldAPI fork with `kv-lance`. Never fall back to
    crates.io. BLOCKED(C) until fork coordinates are provided.
+
+---
+
+## Register-file model — SoA as LE bytecode registers, OGAR class as instruction-set descriptor
+
+This is the load-bearing mental model. Read it before touching the SoA layout,
+the class hierarchy, or any codegen template.
+
+### SoA columns = LE registers
+
+The `MailboxSoA<N>` columns are CPU-style registers: fixed width, fixed byte
+offset, little-endian, indexed by position. There is no schema in the row.
+The row is a register bank.
+
+```
+  Byte offset   Width    Column              LE kind
+  ──────────    ─────    ──────              ───────
+  0             4·N      energy[N]           f32 × N
+  4N            N        plasticity[N]       u8  × N
+  5N            4·N      last_active_cycle[N] u32 × N
+  9N            8·N      edges[N]            u64 × N   (CausalEdge64 LE)
+  17N           N        qualia[N]           u8  × N   (QualiaI4_16D packed)
+  18N           2·N      meta[N]             u16 × N   (MetaWord LE)
+  20N           2·N      entity_type[N]      u16 × N
+  22N           4        mailbox_id          u32
+  22N+4         4        current_cycle       u32
+  ...           ...      (scalars follow)
+```
+
+The `SoaEnvelope` trait is the register-file descriptor: it names each
+register's byte offset, width, and LE element kind — exactly what a CPU ABI
+document does. `ColumnDescriptor` is one register descriptor. `verify_layout()`
+is the ABI conformance check.
+
+`MultiLaneColumn` in ndarray is the load/store unit: it iterates the LE bytes
+of one typed register into SIMD lanes. Nothing above this level cares about
+byte order — it is resolved at the `from_le_bytes` boundary inside the lane
+iterator.
+
+### OGAR class = instruction-set descriptor + DTO store for active record
+
+The OGAR class does NOT live in the register. It describes what the register
+means. A class is:
+
+- **Label** — the OGIT identity string (`"ogit-op/WorkPackage"`), the
+  human-readable name, and the full label-inheritance chain up the HHTL trie.
+- **Schema** — the field set: which fields exist, what types they are, which
+  are required vs optional. Stored once per class in `OntologyRegistry`
+  (`MappingRow`); never duplicated into SoA rows.
+- **Tools** — the methods / adapters that operate on the register. These are
+  inherited from the class hierarchy (HHTL prefix ancestry = class ancestry).
+  A subclass inherits all parent tools without restating them.
+- **Codegen templates** — Askama/Jinja `Class<Template>` views (see below).
+- **Active record** — the class instance wraps a slice of the register bank
+  and provides the domain API. Methods come from the class hierarchy; data
+  comes from the register slice. The active record is the class speaking about
+  one register bank row, not a separate struct.
+
+```
+  mailbox address  ──HHTL O(1)──►  OGAR Class
+                                       │
+                              ┌────────┼────────────┐
+                              ▼        ▼             ▼
+                           label    schema         tools
+                          (string) (fields)  (inherited methods)
+                              │        │             │
+                              └────────┼─────────────┘
+                                       ▼
+                             active record instance
+                          (class + register bank slice)
+                          no new fields; register IS the data
+```
+
+### Askama/Jinja codegen = masked selection from the class DTO
+
+A `Class<Template>` is not a new type. It is a **masked selection** over the
+class DTO: the template declares which fields it reads, the codegen emits only
+those fields as strongly-typed Rust from the class schema, and the result is a
+zero-overhead view — one `select` mask over one class, compiled to a concrete
+struct by the Askama/Jinja template engine.
+
+```
+  OGAR Class { field_a, field_b, field_c, tool_x, tool_y, template_T }
+                     │
+                     ▼  Class<TemplateFoo> mask = { field_a, tool_x }
+                     │
+              codegen (Askama/Jinja)
+                     │
+                     ▼
+  struct FooDto { field_a: TypeA }   // only selected fields
+  impl FooTool for FooDto { ... }    // only selected tools
+```
+
+The template is a compile-time projection. No runtime dispatch. No new
+inheritance hierarchy. The mask is the whole mechanism — the class already
+owns the full schema; the template carves the slice it needs.
+
+This makes every DTO in the system a **derived view of an OGAR class**, never
+an independent schema. A session that proposes a new DTO struct without a
+corresponding OGAR class entry is creating schema drift.
+
+### Why this is the correct mental model
+
+| CPU register file | SoA mailbox |
+|---|---|
+| Register bank | `MailboxSoA<N>` columns |
+| Register descriptor (ABI doc) | `SoaEnvelope` + `ColumnDescriptor` |
+| Load/store unit (MOV instruction) | `MultiLaneColumn` SIMD iterator |
+| Instruction-set definition | OGAR class (label + schema + tools) |
+| Subroutine calling convention | HHTL inheritance (prefix = class ancestry) |
+| Object code (compiled binary) | Askama/Jinja codegen from `Class<Template>` |
+| Active register state | register bank slice wrapped by active record |
+
+The SoA is dumb. It holds bytes. The class makes the bytes meaningful.
+The template makes the class usable without the full schema in scope.
+Nothing in the register knows about the class; nothing in the class knows
+about which register it describes at runtime — the address is the link.
