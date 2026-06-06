@@ -101,11 +101,19 @@ OGIT radix-trie codebook  (O(1) for known classes at compile time)
         │
         ├─ class identity string  ("ogit-op/WorkPackage")
         ├─ schema (fields, assoc, enums, attributes)  — stored ONCE per class in OntologyRegistry
-        ├─ label inheritance  (parent, mixins, STI)
-        └─ thinking style  (MappingRow.thinking_style — stored, currently unused at dispatch ⚠)
+        └─ label inheritance  (parent, mixins, STI)
 
 For new/runtime classes: JIT via lance-graph-planner (JITson / Cranelift)
 ```
+
+**Thinking style is owned by the Kanban (Tier 2), not the class.** The class
+does not dispatch a thinking style — the Kanban column does. Thinking styles
+are an **O(1) lookup over an I4-32D address space** (32 nibbles × 4 bits =
+128 bits = 2^128 distinct style addresses). The Rubicon phase the Kanban
+assigns selects the style; the OGAR class supplies schema + tools, not the
+style. (`MappingRow.thinking_style` as a per-class field is therefore the wrong
+home — the style belongs to the Kanban lifecycle state, addressed O(1) in the
+I4-32D space, not stored per ontology class.)
 
 **MailboxId IS the NiblePath.** The `u32 mailbox_id` field in `MailboxSoA` is not
 a handle into a separate lookup — it IS the NiblePath key that the HHTL radix trie
@@ -209,12 +217,18 @@ means. A class is:
   (`MappingRow`); never duplicated into SoA rows.
 - **Tools** — the methods / adapters that operate on the register. These are
   inherited from the class hierarchy (HHTL prefix ancestry = class ancestry).
-  A subclass inherits all parent tools without restating them. The dispatch
+  A subclass inherits all parent tools without restating them. The default
   mechanism is **compile-time Rust trait impls**: one `impl Tool for ClassFoo`
   per class, monomorphized at build time from the HHTL inheritance chain.
   Zero-cost — no vtable, no `dyn`, no runtime dispatch. "Cheap inherited
   registers" in the architecture doc is literal: the trait impl IS the register,
   and the compiler erases it to a direct call.
+
+  **Dispatch escape hatch.** Runtime dispatch is *not* the default and is not
+  baked into the substrate. If a class genuinely needs runtime dispatch, it adds
+  a **dispatcher class** as an escape hatch attached to a register — an opt-in,
+  per-class override. The base case stays monomorphized and zero-cost; only the
+  classes that ask for dispatch pay for it.
 - **Codegen templates** — Askama/Jinja `Class<Template>` views (see below).
 - **Active record** — the class instance wraps a slice of the register bank
   and provides the domain API. Methods come from the class hierarchy; data
@@ -252,6 +266,14 @@ struct by the Askama/Jinja template engine.
 - **Runtime-discovered / new classes**: `JITson` path in `lance-graph-planner`
   (Cranelift backend). The template is instantiated at first encounter and
   compiled to native code. Same masked-selection semantics, deferred to first use.
+
+**The template engine is not the only codegen front-end.** The SurrealDB AST can
+resolve the same masked selection as **Elixir-syntax templates**, but it is
+compiled through the *same* runtime split — known classes compiled at build time,
+new classes via JIT Cranelift / JITson in `lance-graph-planner`. Askama/Jinja and
+the SurrealQL/Elixir-template path are two surface syntaxes over one codegen
+backend; both bottom out at the build-known vs JIT-new split, never at runtime
+interpretation.
 
 ```
   OGAR Class { field_a, field_b, field_c, tool_x, tool_y, template_T }
