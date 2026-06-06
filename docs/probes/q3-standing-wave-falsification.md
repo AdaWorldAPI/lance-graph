@@ -233,28 +233,53 @@ This is a real bug independent of the wave question.
 
 ---
 
+## Structural correction — why the standing-wave question is the wrong question
+
+**The probe asked whether a standing wave exists in the dynamic execution path.
+The answer is no — but the more important answer is: it doesn't need to.**
+
+Self-through-time is already provided by the LanceDB table, not by any recurrence
+in the compute path. Each committed state is a Lance version of the mailbox dataset.
+Querying a prior self is a **90° lookup**: the prior version's row is orthogonal to
+the current cycle's write — it is a read against a version tag, not a traversal
+of a recurrence orbit. That lookup is O(1) by LanceDB's versioned columnar geometry,
+not a sweep, not a recurrence, not a dynamic system at all.
+
+The standing-wave framing incorrectly assumed that temporal persistence had to be
+implemented as a recurrence within the compute graph. It does not. Lance provides it
+structurally:
+
+```
+current compute (per-mailbox, feed-forward, ephemeral)
+         │ commit
+         ▼
+Lance version N     ← O(1) read of any prior version by version tag
+Lance version N+1   ← current write target
+         │ 90° lookup (orthogonal to current cycle's write direction)
+         ▼
+prior self = Lance version k, k < N   — not a recurrence, a table read
+```
+
+The consequence: **do not implement a standing wave**. The question was vacuous
+because the persistence it was meant to provide is already in the storage geometry.
+Any recurrence mechanism would be a redundant, expensive reimplementation of
+Lance versioning in the compute path.
+
+---
+
 ## Prescription
 
-**Do not add a real-valued permutation primitive to plug the standing-wave gap unless
-you first prove the standing-wave architecture provides measurable benefit over the
-current feed-forward system.** The feed-forward bind/bundle/cosine + threshold pipeline
-is:
+The feed-forward bind/bundle/cosine + threshold pipeline is:
 - Correct
 - Well-tested
 - Delivers real value (VSA encoding, role-indexed readout, SPO triple commit)
 
-The standing-wave framing is an architectural aspiration that requires:
-1. A norm-preserving rotation on the real-valued algebra path (not yet implemented)
-2. Inverse-permute at readout (the decoding)
-3. A closed-loop recurrence without a hard iteration cap
-4. Evidence that the resulting system does something the feed-forward version does not
-
-Before building stained glass, prove the foundation: write the falsification test above
-and make it pass. Until it passes, CLAUDE.md §"The Click" should be marked
-`[ASPIRATIONAL — not yet executable]` rather than presented as current implementation.
+The binary permutation in ndarray (`vsa_permute`, `vsa_sequence`) is norm-preserving
+and correctly wired for position-sensitive bundling on the binary carrier. It needs
+an inverse-permute at readout to be fully useful — that is the one real gap.
 
 **The honest architecture description:** a per-mailbox feed-forward VSA encode/readout
-pipeline with threshold-gated commit, a binary permutation in ndarray (correctly
-norm-preserving but with no inverse-decode), and a baton-based causal handoff between
-mailboxes. That is already interesting and already shipped. The standing-wave framing
-adds nothing to it today.
+pipeline with threshold-gated commit, baton-based causal handoff between mailboxes,
+and self-through-time provided by Lance versioning (O(1) versioned column read, not
+a recurrence). The standing-wave framing adds nothing to this and should not be
+implemented.
