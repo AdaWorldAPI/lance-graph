@@ -90,9 +90,9 @@ ontology schema. This is Tier 3 because it is *inherited*, not stored per-row.
 **Resolution chain:**
 
 ```
-mailbox address (MailboxId + family prefix)
+mailbox address  =  u32 mailbox_id  =  NiblePath  (MailboxId IS the NiblePath)
         │
-        ▼  HHTL / NiblePath prefix lookup
+        ▼  HHTL radix-trie prefix walk — the u32 itself is the trie key
         │  NiblePath::is_ancestor_of:
         │    (other.path >> (4*(other.depth-self.depth))) == self.path
         │  = prefix ancestry = class ancestry (Confirmed)
@@ -107,11 +107,15 @@ OGIT radix-trie codebook  (O(1) for known classes at compile time)
 For new/runtime classes: JIT via lance-graph-planner (JITson / Cranelift)
 ```
 
-**`entity_type: u16` in SoA may be redundant.** If the ontology resolves O(1)
-from address, hardcoding a handle in every row violates SoC and defeats
-radix-trie cheapness. The current linear scan in `OntologyRegistry::
-enumerate_first_with_entity_type_id` is a defect — it should be an O(1)
-`Vec` index keyed by the 1-based ordinal.
+**MailboxId IS the NiblePath.** The `u32 mailbox_id` field in `MailboxSoA` is not
+a handle into a separate lookup — it IS the NiblePath key that the HHTL radix trie
+walks. No separate prefix field survives. This makes `entity_type: u16` in every
+SoA row entirely redundant: if the ontology resolves O(1) from the address, the
+per-row handle violates SoC and defeats radix-trie cheapness. **`entity_type: u16`
+removal from SoA rows is total** once O(1) lookup is the sole path. The current
+linear scan in `OntologyRegistry::enumerate_first_with_entity_type_id` is a defect
+— it should be an O(1) `Vec` index keyed by the 1-based ordinal, or removed entirely
+once the per-row handle is gone.
 
 **OGAR active record / DLL AST adapter:** OGAR classes get pragmatic mapping
 to inherited tools at compile time. These are cheap inherited registers, not
@@ -205,7 +209,12 @@ means. A class is:
   (`MappingRow`); never duplicated into SoA rows.
 - **Tools** — the methods / adapters that operate on the register. These are
   inherited from the class hierarchy (HHTL prefix ancestry = class ancestry).
-  A subclass inherits all parent tools without restating them.
+  A subclass inherits all parent tools without restating them. The dispatch
+  mechanism is **compile-time Rust trait impls**: one `impl Tool for ClassFoo`
+  per class, monomorphized at build time from the HHTL inheritance chain.
+  Zero-cost — no vtable, no `dyn`, no runtime dispatch. "Cheap inherited
+  registers" in the architecture doc is literal: the trait impl IS the register,
+  and the compiler erases it to a direct call.
 - **Codegen templates** — Askama/Jinja `Class<Template>` views (see below).
 - **Active record** — the class instance wraps a slice of the register bank
   and provides the domain API. Methods come from the class hierarchy; data
@@ -227,13 +236,22 @@ means. A class is:
                           no new fields; register IS the data
 ```
 
-### Askama/Jinja codegen = masked selection from the class DTO
+### Askama/Jinja codegen = masked selection from the class DTO — split by known vs JIT
 
 A `Class<Template>` is not a new type. It is a **masked selection** over the
 class DTO: the template declares which fields it reads, the codegen emits only
 those fields as strongly-typed Rust from the class schema, and the result is a
 zero-overhead view — one `select` mask over one class, compiled to a concrete
 struct by the Askama/Jinja template engine.
+
+**When does this codegen happen? Both — split by known vs JIT:**
+
+- **Known OGAR classes** (those in the codebook at compile time): `build.rs` /
+  proc-macro emits concrete Rust structs at build time. Zero runtime cost;
+  the compiler sees the full type.
+- **Runtime-discovered / new classes**: `JITson` path in `lance-graph-planner`
+  (Cranelift backend). The template is instantiated at first encounter and
+  compiled to native code. Same masked-selection semantics, deferred to first use.
 
 ```
   OGAR Class { field_a, field_b, field_c, tool_x, tool_y, template_T }
