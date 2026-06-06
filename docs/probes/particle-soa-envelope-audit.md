@@ -338,6 +338,47 @@ two `CausalEdge64` types and by a `&[u64]` reinterpret seam in the SoA view.**
 | Serialization tax? | Low on the hot path (baton is 8-byte words). p64 projection recomputes per dispatch — derive cost, not serialize cost. |
 | Contract fragmentation? | **Yes** — two `CausalEdge64` types is the principal fragmentation. |
 
+#### Phase 7 follow-up — the envelope must know the LE contract, not just the columns (RESOLVED 2026-06-06)
+
+The original Phase 7 finding ("single canonical LE contract: yes for the
+column byte methods") was **incomplete**. Column-level LE knowledge is
+necessary but not sufficient: `CausalEdge64`, `EpisodicEdges64`, and ndarray's
+`MultiLaneColumn` each decode their own bytes correctly, but the **SoA envelope
+as a whole** — what a Lance version snapshots and what `simd_soa` sweeps — had
+no contract describing how those columns *assemble* into one row-strided packet
+with a cycle stamp. The parts knew the LE contract; the envelope did not.
+
+**Resolution (shipped this branch):**
+
+- **Column LE contract = `ndarray::simd::MultiLaneColumn`** (`ndarray/src/simd_soa.rs`).
+  Already exists, already LE-correct per column (`iter_f32x16` / `iter_u64x8`
+  via `from_le_bytes`), already standalone — any pure-SIMD consumer uses it
+  with zero lance coupling. **No change needed.**
+- **Envelope LE contract = `lance_graph_contract::soa_envelope::SoaEnvelope`**
+  (new module, this commit). Zero-dep, byte-geometry only: `columns()`
+  (`ColumnDescriptor[]` — ordering + offset + LE `ColumnKind` + elems/row),
+  `row_stride()`, `cycle(): u32`, `LAYOUT_VERSION`, `as_le_bytes()`, plus
+  `row_le` / `column_le` zero-copy views and a `verify_layout()` gate (catches
+  stride mismatch, column overlap, packet-size tear, and version skew at the
+  Lance read boundary — closing the `edges_raw() -> &[u64]` implicit-agreement
+  hazard).
+- **Composition = `lance-graph`** (the one crate that always has both deps):
+  carve each envelope column per its descriptor, wrap in `MultiLaneColumn`.
+
+**Why NOT a shared `simd-soa-contract` crate, and why NOT pull ndarray into
+the contract:** `lance-graph-contract` is consumed by `crewai-rust` and
+`n8n-rs` precisely because it is zero-dep. ndarray is the heavy HPC foundation
+(BLAS L1/L2/L3, MKL/OpenBLAS FFI). Pulling ndarray into the contract would
+force that build onto every contract consumer AND force a pure-SIMD ndarray
+consumer to transitively pull a graph contract crate. The two-level split
+above keeps **both** crates clean: ndarray standalone for SIMD-only consumers,
+contract featherweight for crewai/n8n. The levels are complementary
+(column = "how to sweep one typed column"; envelope = "where columns sit, what
+cycle"), never restated, and neither crate depends on the other.
+
+**Iron rule that falls out:** *ndarray owns the column contract; lance-graph
+owns the envelope contract; neither restates the other; lance-graph binds them.*
+
 ---
 
 ### Phase 8 — OGAR inheritance audit
@@ -440,6 +481,18 @@ execution geometry explicit.
 7. **Retire the deprecated qualia/cycle columns** once (1) lands —
    `QualiaColumn` f32×18 and the `Vsa16kF32` cycle plane are pure footprint
    (65.5 KB/row) on the legacy envelope. (Resolves redundancy 3, 4.)
+8. **Demote the `ndarray-hpc` fallback wording in CLAUDE.md.** In practice
+   **no shipped consumer uses lance-graph without ndarray** — every consumer
+   uses both. The `ndarray-hpc` feature / `blasgraph/ndarray_bridge.rs`
+   fallback is a **CI-compile-check only** path, not a real deployment mode.
+   CLAUDE.md currently presents it as a parallel architecture ("Fallback
+   without ndarray ... for minimal builds / downstream consumers who don't need
+   HPC"), which is exactly what makes sessions re-derive the wrong dependency
+   boundary (e.g. "keep ndarray ignorant of the envelope to preserve the
+   fallback"). Reword to: *ndarray is mandatory for every shipped consumer; the
+   no-ndarray path is a CI compile gate, nothing ships on it.* This is the
+   load-bearing correction behind recommendation-set context for the SIMD_SOA
+   contract split (Phase 7 follow-up).
 
 ---
 
