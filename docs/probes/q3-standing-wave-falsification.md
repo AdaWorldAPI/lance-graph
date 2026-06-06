@@ -70,23 +70,24 @@ All three coexist, segregated by stage:
 
 ### Q3 — Which part is unitary/permutation-like (norm-preserving)?
 
-**`vsa_permute` does not exist on the f32 carrier.**
+**`vsa_permute` does not exist on the real-valued (f32) VSA algebra path.**
 
 The cyclic bit rotation lives in `ndarray/src/hpc/vsa.rs:326–349`, operating on the
 **binary `VsaVector`** (`words: [u64]`, 16384 *bits*). It is a genuine cyclic permutation
 — `dst_bit = (src_bit + shift) % 16384` — norm-preserving in Hamming space, with a
 correct round-trip test at `vsa.rs:322–324`.
 
-The `Vsa16kF32` f32 carrier — the one CLAUDE.md calls the "Click carrier" — has
-**no permutation primitive**. `fingerprint.rs:163` and `fingerprint.rs:295` have
-doc-comments pointing at the ndarray binary primitive; the f32 sandwich never calls it.
+The real-valued path (`vsa16k_bind` / `vsa16k_bundle` / `vsa16k_cosine` in
+`fingerprint.rs`) has **no permutation primitive**. `fingerprint.rs:163` and
+`fingerprint.rs:295` have doc-comments pointing at the ndarray binary primitive; the
+real-valued algebra never calls it.
 
 The `vsa_sequence` binary path (`vsa.rs:371–378`) permutes-by-index then bundles —
 but there is **no inverse-permute readout anywhere**: `vsa_clean` (`vsa.rs:394`) does a
 flat Hamming scan with no de-braiding. Position is written once and never decoded back.
 
 **The ρ^d braid is norm-preserving on the binary carrier it actually lives on.
-It is structurally absent from the f32 carrier the "Click" architecture rests on.**
+It is absent from the real-valued algebra path.**
 
 ---
 
@@ -117,9 +118,9 @@ Five independent sinks:
   no `step`/`evolve` method.
 - `CycleAccumulator` (`cycle_accumulator.rs`) — a `Vec<C>` batch buffer; `drain()`
   empties it, no carry-over.
-- `CollapseGateEmission` (`collapse_gate.rs:177`) — a baton-list DTO. CLAUDE.md itself
-  states `Vsa16kF32` does NOT cross mailbox boundaries; the bundle is "an ephemeral
-  computation, never persisted."
+- `CollapseGateEmission` (`collapse_gate.rs:177`) — a baton-list DTO. The bundle is
+  an ephemeral per-mailbox computation, never persisted or transmitted across boundaries
+  (CLAUDE.md E-BATON-1).
 - `gestalt` in `kv_bundle.rs` — persists across `set()` calls but is a running mean
   updated by external writes only; remove the writer and it is static.
 - `global_context += fact → reshapes NEXT cycle` — prose in CLAUDE.md.
@@ -129,15 +130,15 @@ Five independent sinks:
 
 ### Q6 — Is phase preserved, quantized, or merely implied?
 
-**Merely implied, and on the f32 carrier, absent.**
+**Merely implied in the binary path; absent in the real-valued algebra path.**
 
 Real VSA phase-coding requires permute-at-encode AND permute-aware-unbind.
 In the binary path (`ndarray/vsa.rs:371–378`), `vsa_sequence` permutes-by-index then
 bundles. But there is no inverse-permute at readout — `vsa_clean` does a flat Hamming
 scan with no de-braiding. **Phase is written once and never distinguished at readout.**
 
-On the `Vsa16kF32` carrier — the actual "Click" substrate — no permute is applied at all.
-Phase is structurally absent, not quantized.
+In the real-valued algebra path (`vsa16k_bind` / `vsa16k_bundle`), no permute is applied
+at any stage. Phase is structurally absent, not quantized.
 
 ---
 
@@ -148,8 +149,8 @@ Phase is structurally absent, not quantized.
 ```rust
 #[test]
 fn standing_wave_or_damped_relaxation() {
-    // Build initial state
-    let role_key = vsa16k_role_key(RoleSlice::SUBJECT);
+    // Build initial state using the real-valued VSA algebra primitives
+    let role_key = vsa16k_role_key(RoleSlice::SUBJECT);  // fingerprint.rs
     let content  = vsa16k_content_fp(b"hello");
     let s0 = vsa16k_bind(&role_key, &content);
 
@@ -174,16 +175,16 @@ fn standing_wave_or_damped_relaxation() {
     // Should oscillate if wave; instead it's a fixed point:
     assert!((last - 1.0_f32).abs() < 0.01, "fixed point, not wave: norm = {last}");
 
-    // What would prove a standing wave: inserting vsa16k_permute(n) in the loop
+    // What would prove a standing wave: a norm-preserving rotation applied each step
     // so s_{n+1} = permute(normalize(s_n)) would produce a periodic orbit.
-    // vsa16k_permute does not exist. That is the gap.
+    // No such rotation exists on the real-valued algebra path. That is the gap.
 }
 ```
 
-**What would falsify the (B) verdict:** A function `f(s: Vsa16kF32) -> Vsa16kF32` that
-(a) applies a norm-preserving rotation on the f32 carrier, and (b) is iterated without
-a hard depth cap and without per-step external input, producing bounded non-zero energy
-at n=∞. No such `f` exists in the codebase.
+**What would falsify the (B) verdict:** A function `f(s) -> s` that (a) applies a
+norm-preserving rotation on the real-valued algebra, and (b) is iterated without a hard
+depth cap and without per-step external input, producing bounded non-zero energy at n=∞.
+No such `f` exists in the codebase.
 
 ---
 
@@ -204,7 +205,7 @@ at n=∞. No such `f` exists in the codebase.
 
 | Claim | Status | Gap |
 |-------|--------|-----|
-| ρ^d braiding on `Vsa16kF32` | ❌ Missing | `vsa_permute` exists only on binary carrier |
+| ρ^d braiding on real-valued algebra path | ❌ Missing | `vsa_permute` exists only on binary carrier (`ndarray/vsa.rs`) |
 | Phase decode / unbind recovers position | ❌ Missing | No inverse-permute at readout |
 | `global_context += fact` reshapes next cycle | ❌ Missing | `grep global_context`: 0 hits in src |
 | "Shader can't resist thinking" active-inference loop | ❌ Not a loop | `fe *= 0.5`, depth < 9, then stops |
@@ -234,15 +235,16 @@ This is a real bug independent of the wave question.
 
 ## Prescription
 
-**Do not add `vsa16k_permute` to plug the standing-wave gap unless you first prove the
-standing-wave architecture provides measurable benefit over the current feed-forward
-system.** The feed-forward bind/bundle/cosine + threshold pipeline is:
+**Do not add a real-valued permutation primitive to plug the standing-wave gap unless
+you first prove the standing-wave architecture provides measurable benefit over the
+current feed-forward system.** The feed-forward bind/bundle/cosine + threshold pipeline
+is:
 - Correct
 - Well-tested
 - Delivers real value (VSA encoding, role-indexed readout, SPO triple commit)
 
 The standing-wave framing is an architectural aspiration that requires:
-1. `vsa16k_permute` on the f32 carrier (the rotation)
+1. A norm-preserving rotation on the real-valued algebra path (not yet implemented)
 2. Inverse-permute at readout (the decoding)
 3. A closed-loop recurrence without a hard iteration cap
 4. Evidence that the resulting system does something the feed-forward version does not
@@ -251,7 +253,8 @@ Before building stained glass, prove the foundation: write the falsification tes
 and make it pass. Until it passes, CLAUDE.md §"The Click" should be marked
 `[ASPIRATIONAL — not yet executable]` rather than presented as current implementation.
 
-**The honest architecture description:** a feed-forward VSA encode/readout pipeline with
-threshold-gated commit, a binary permutation in ndarray (correctly norm-preserving but
-with no inverse-decode), and a baton-based causal handoff. That is already interesting
-and already shipped. The standing-wave framing adds nothing to it today.
+**The honest architecture description:** a per-mailbox feed-forward VSA encode/readout
+pipeline with threshold-gated commit, a binary permutation in ndarray (correctly
+norm-preserving but with no inverse-decode), and a baton-based causal handoff between
+mailboxes. That is already interesting and already shipped. The standing-wave framing
+adds nothing to it today.
