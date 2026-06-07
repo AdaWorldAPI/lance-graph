@@ -127,3 +127,8 @@ pub mod reader_state;    // ReadingState + step() — the left-corner transition
 // Bridge from DeepNSM grammar reader → holograph bitpacked resonance substrate.
 // Integer-only hot path; floats remain only in EpisodicSpoFrame quality fields.
 pub mod signed_crystal;
+// SentenceTransformer64 — deterministic state-transition transformer.
+// Maps grammar/NSM/discourse → P64 native meaning field → Cam4096 codebook address.
+// "Transformer" = state-transition automaton, NOT neural self-attention.
+// P64 is the native address space; Cam4096 is its deterministic 12-bit locality key.
+pub mod sentence_transformer64;
