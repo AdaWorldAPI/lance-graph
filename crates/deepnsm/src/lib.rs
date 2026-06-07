@@ -118,8 +118,12 @@ pub mod fingerprint16k;
 // ── DeepNSM reader — sentence-level AriGraph reader ──────────────────────
 // Left-corner state machine: expectation + evidence → episodic SPO + next state.
 // Five modules; writer order is dependency order.
-pub mod morphology;    // MorphFlags — heuristic tense/voice/clause flags
-pub mod cam64;         // Cam64 — 8-lane reading-state locality key (NOT the truth)
-pub mod episodic_spo;  // EpisodicSpoFrame — the auditable witness rows
-pub mod window;        // SentenceWindow — ±5 exact entity tracking for coreference
-pub mod reader_state;  // ReadingState + step() — the left-corner transition
+pub mod morphology;      // MorphFlags — heuristic tense/voice/clause flags
+pub mod cam64;           // Cam64 — 8-lane reading-state locality key (NOT the truth)
+pub mod episodic_spo;    // EpisodicSpoFrame — the auditable witness rows
+pub mod window;          // SentenceWindow — ±5 exact entity tracking for coreference
+pub mod reader_state;    // ReadingState + step() — the left-corner transition
+// Signed discrete reading-crystal: P64 meaning field + Crystal4096 coordinate.
+// Bridge from DeepNSM grammar reader → holograph bitpacked resonance substrate.
+// Integer-only hot path; floats remain only in EpisodicSpoFrame quality fields.
+pub mod signed_crystal;
