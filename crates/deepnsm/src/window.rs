@@ -170,10 +170,16 @@ impl SentenceWindow {
         }
     }
 
-    /// Drain the expected slots, returning them in FIFO order.
+    /// Clear all expectation slots.
     ///
-    /// Called implicitly by `resolve_pronoun`. After a clause closes, the
-    /// caller should clear expectations that were consumed.
+    /// `ReadingState::step` calls this at the start of each sentence: v1 treats
+    /// every expectation as a **single-step** left-corner prediction, so the
+    /// buffer can never accumulate stale slots toward `MAX_EXPECTED`.
+    ///
+    /// Future (v2, bidirectional / Pika right-context passes): this policy
+    /// splits — clear one-step expectations as now, but **retain** multi-step
+    /// `HorizonPolarity::InferredRight` slots with a TTL so right-context memo
+    /// entries survive across sentences until their window elapses.
     pub fn clear_expected(&mut self) {
         self.expected_count = 0;
     }
