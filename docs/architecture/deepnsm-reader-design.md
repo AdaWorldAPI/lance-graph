@@ -259,12 +259,12 @@ FORBIDDEN INTERNAL PATH (absent by omission):
 | `cam64` | 13 (5 new: basin continuation) |
 | `episodic_spo` | 8 |
 | `window` | 11 (6 new: expectation slots) |
-| `reader_state` | 12 (2 new: trigger wiring) |
-| `signed_crystal` | 18 |
+| `reader_state` | 14 (4 new: trigger wiring + coref-keyed cam64 + no expectation accumulation) |
+| `signed_crystal` | 18 (`P64MeaningField` is now an alias of the canonical `P64`) |
 | `sentence_transformer64` | 26 |
 | `crystal_neighborhood` | 16 |
 | **Existing deepnsm tests** | 104 (unchanged) |
-| **Total** | **215** |
+| **Total** | **217** |
 
 ---
 

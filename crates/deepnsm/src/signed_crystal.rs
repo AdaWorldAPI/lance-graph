@@ -58,7 +58,6 @@
 //! fused without an explicit projection step.
 
 use crate::cam64::Cam64;
-use crate::spo::NO_ROLE;
 
 // ── HorizonPolarity (v2 stub) ─────────────────────────────────────────────────
 
@@ -282,84 +281,22 @@ impl Crystal4096 {
     }
 }
 
-// ── P64MeaningField ───────────────────────────────────────────────────────────
+// ── P64MeaningField (alias of the canonical P64) ───────────────────────────────
 
 /// 8-lane grammar/semantic/discourse meaning field.
 ///
-/// Derived from `Cam64` + NSM prime mask, this is the *meaning-field projection*
-/// — the composite signal that summarises what this sentence is *about*, in the
-/// grammar of the reading state machine.
+/// **This is an alias of [`crate::sentence_transformer64::P64`]** — the single
+/// canonical meaning-field type. The two were introduced separately but are
+/// byte-identical (8-lane `u64`, `from_cam64_and_nsm` / `lane` / `bind` /
+/// `agreement` / `popcount` / `raw`); consolidating removes the drift risk of
+/// maintaining two copies.
 ///
-/// **`P64MeaningField` is NOT `Cam64`.** `Cam64` is a reading-state locality key
-/// (fast index, not truth). `P64MeaningField` is the output of the DeepNSM
-/// grammar lens onto the P64 meaning lattice — a different interpretive layer.
-///
-/// Lane layout (same physical encoding as Cam64 but different semantic contract):
-/// ```text
-/// byte 0 — primary entity bucket  (vocabulary rank >> 5)
-/// byte 1 — predicate bucket
-/// byte 2 — object bucket (0 if absent)
-/// byte 3 — morphology / NSM prime composite (low byte)
-/// byte 4 — NSM prime composite (high byte, top-16 primes)
-/// byte 5 — discourse / coreference marker
-/// byte 6 — causal / temporal / episodic marker
-/// byte 7 — basin / novelty / wisdom / epiphany marker
-/// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[repr(transparent)]
-pub struct P64MeaningField {
-    pub bits: u64,
-}
-
-impl P64MeaningField {
-    /// Construct from a `Cam64` locality code and the NSM prime mask.
-    ///
-    /// The NSM prime mask (64-bit, up to 63 primes) is folded into lanes 3-4
-    /// via XOR — this makes the meaning field sensitive to semantic prime
-    /// coverage without losing the grammar-lane signals.
-    #[inline]
-    pub fn from_cam64_and_nsm(cam: Cam64, nsm_prime_mask: u64) -> Self {
-        // Fold low 16 bits of NSM mask into lanes 3-4 (the morphology lanes).
-        let nsm_low  = (nsm_prime_mask & 0xFF) as u64;
-        let nsm_high = ((nsm_prime_mask >> 8) & 0xFF) as u64;
-        let nsm_xor  = nsm_low | (nsm_high << 8); // into bits 24-39
-
-        Self {
-            bits: cam.raw() ^ (nsm_xor << 24),
-        }
-    }
-
-    /// Extract one meaning-field lane (0-7).
-    #[inline]
-    pub fn lane(self, i: usize) -> u8 {
-        debug_assert!(i < 8);
-        (self.bits >> (i * 8)) as u8
-    }
-
-    /// XOR bind with another meaning field (VSA binding).
-    #[inline]
-    pub fn bind(self, other: P64MeaningField) -> P64MeaningField {
-        P64MeaningField { bits: self.bits ^ other.bits }
-    }
-
-    /// Popcount — number of active bits in the meaning field.
-    #[inline]
-    pub fn popcount(self) -> u32 {
-        self.bits.count_ones()
-    }
-
-    /// Shared bits with another field (XNOR popcount = agreement measure).
-    #[inline]
-    pub fn agreement(self, other: P64MeaningField) -> u32 {
-        64 - (self.bits ^ other.bits).count_ones()
-    }
-
-    /// Raw u64.
-    #[inline]
-    pub fn raw(self) -> u64 {
-        self.bits
-    }
-}
+/// The name `P64MeaningField` is retained here because the holograph-bridge
+/// framing in this module reads more clearly with the longer name: it is the
+/// *meaning-field projection* (what the sentence is *about*), distinct from
+/// `Cam64` (a reading-state locality key, not truth). Same bits, different
+/// interpretive contract.
+pub use crate::sentence_transformer64::P64 as P64MeaningField;
 
 // ── SignedSentenceCrystal ─────────────────────────────────────────────────────
 

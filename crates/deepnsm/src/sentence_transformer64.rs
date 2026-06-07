@@ -80,8 +80,7 @@
 
 use crate::cam64::Cam64;
 use crate::episodic_spo::{DependencyRole, EpisodicSpoFrame};
-use crate::morphology::MorphFlags;
-use crate::spo::{SpoTriple, NO_ROLE};
+use crate::spo::NO_ROLE;
 
 // ── P64 ──────────────────────────────────────────────────────────────────────
 

@@ -39,6 +39,7 @@ use crate::episodic_spo::{
 use crate::morphology::MorphFlags;
 use crate::parser::SentenceStructure;
 use crate::pos::PoS;
+use crate::spo::SpoTriple;
 use crate::window::{ExpectedReason, SentenceWindow, WindowEntry};
 
 // ── Left-corner trigger ───────────────────────────────────────────────────
@@ -226,6 +227,12 @@ impl ReadingState {
             return (frames, next);
         }
 
+        // Forward expectations are single-step predictions: each `step` rebuilds
+        // them fresh. Clearing here bounds the expectation buffer (it can never
+        // accumulate stale slots across sentences until `MAX_EXPECTED` fills and
+        // `push_expected` silently drops newer antecedents).
+        next.window.clear_expected();
+
         // Left-corner trigger from the first triple's features sets the frame.
         let first_feat = features.get(0);
         next.active_trigger = first_feat.left_corner_trigger;
@@ -286,11 +293,17 @@ impl ReadingState {
             };
 
             // ── Build Cam64 locality code ────────────────────────────────
-            // Use the effective triple (post-coref) for the entity bucket.
-            // The basin lane incorporates the left-corner trigger.
+            // Build from the EFFECTIVE triple (subject replaced by the resolved
+            // antecedent) so the locality key, P64, and CAM4096 are keyed to the
+            // real entity. Otherwise "John … He …" emits a frame whose truth
+            // fields point at John but whose cam64 is bucketed on the pronoun.
+            // When there is no coreference, effective_subject == triple.subject()
+            // so this is a no-op.
+            let effective_triple =
+                SpoTriple::new(effective_subject, triple.predicate(), triple.object());
             let stack_depth = next.entity_stack_len.min(127) as u8;
             let base_cam64 = Cam64::from_triple(
-                triple,
+                &effective_triple,
                 morph,
                 stack_depth,
                 coref_resolved,
@@ -423,7 +436,6 @@ impl ReadingState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::spo::SpoTriple;
 
     fn sentence_one_triple(s: u16, p: u16, o: u16) -> SentenceStructure {
         SentenceStructure {
@@ -627,5 +639,56 @@ mod tests {
         // With the expectation, resolve_pronoun should return 50.
         assert_eq!(frames[0].refers_to_candidate_id, 50);
         assert_eq!(frames[0].subject_candidate_id, 50);
+    }
+
+    #[test]
+    fn cam64_keyed_to_resolved_antecedent_not_pronoun() {
+        // "John(70) ... He(5) ...": the frame's cam64 entity lane must bucket
+        // the resolved antecedent (70), NOT the pronoun rank (5).
+        let rs = ReadingState::new(0);
+        let s1 = sentence_one_triple(50, 60, 70); // most-recent head = 70
+        let (_, rs2) = rs.step(&s1, &plain_features());
+
+        let s2 = sentence_one_triple(5, 80, 90); // subject is a pronoun
+        let feat = SentenceFeatures {
+            per_triple: vec![TripleFeatures {
+                subject_is_pronoun: true,
+                ..Default::default()
+            }],
+        };
+        let (frames, _) = rs2.step(&s2, &feat);
+        // Resolved antecedent is 70 (most recent prior head).
+        assert_eq!(frames[0].subject_candidate_id, 70);
+        // Entity lane must be bucketed on 70, not on the pronoun rank 5.
+        assert_eq!(frames[0].cam64.entity_state(), (70u16 >> 5) as u8);
+        assert_ne!(frames[0].cam64.entity_state(), (5u16 >> 5) as u8);
+    }
+
+    #[test]
+    fn expectations_do_not_accumulate_across_sentences() {
+        // Many consecutive Relative-trigger sentences must NOT fill the
+        // expectation buffer and silently drop newer antecedents: each step
+        // clears stale slots first, so the most recent antecedent always wins.
+        let mut rs = ReadingState::new(0);
+        // Prime an initial subject.
+        let (_, next) = rs.step(&sentence_one_triple(1000, 1, 2), &plain_features());
+        rs = next;
+
+        // Run 8 relative-trigger sentences (> MAX_EXPECTED = 4).
+        for i in 0..8u16 {
+            let subj = 2000 + i * 10;
+            let s = sentence_one_triple(subj, 1, 2);
+            let feat = SentenceFeatures {
+                per_triple: vec![TripleFeatures {
+                    left_corner_trigger: LeftCornerTrigger::Relative,
+                    ..Default::default()
+                }],
+            };
+            let (_, next) = rs.step(&s, &feat);
+            rs = next;
+            // After each step the buffer holds exactly this step's single
+            // expectation — never accumulating toward the MAX_EXPECTED drop point.
+            assert_eq!(rs.window.iter_expected().len(), 1);
+        }
     }
 }
