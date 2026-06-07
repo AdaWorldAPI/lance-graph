@@ -187,7 +187,7 @@ The row is a register bank.
 
 **Current / transitional layout** (target state removes `entity_type[N]` — see §3.2):
 
-```
+```text
   Byte offset   Width    Column               LE kind
   ──────────    ─────    ──────               ───────
   0             4·N      energy[N]            f32 × N

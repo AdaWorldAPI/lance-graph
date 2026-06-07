@@ -194,8 +194,23 @@ pub trait SoaEnvelope {
         let cols = self.columns();
         let mut summed = 0usize;
         let stride = self.row_stride();
+        // `row_offset as usize + col_bytes` can wrap on 32-bit targets (wasm32):
+        // row_offset is u32 (≤ 4.29e9) and col_bytes can reach 8 × 65535, so the
+        // sum can exceed usize::MAX on a 32-bit usize and wrap to a small value
+        // that would slip past the `a_end > stride` check. Compute every end with
+        // checked_add and reject overflow as ColumnOutOfBounds.
+        let checked_end = |c: &ColumnDescriptor| -> Result<usize, EnvelopeError> {
+            (c.row_offset as usize)
+                .checked_add(c.col_bytes_per_row())
+                .ok_or(EnvelopeError::ColumnOutOfBounds {
+                    col: c.name_id,
+                    col_end: usize::MAX,
+                    stride,
+                })
+        };
         for (i, a) in cols.iter().enumerate() {
-            let (a_start, a_end) = a.row_byte_range();
+            let a_start = a.row_offset as usize;
+            let a_end = checked_end(a)?;
             summed += a.col_bytes_per_row();
             if a_end > stride {
                 return Err(EnvelopeError::ColumnOutOfBounds {
@@ -205,7 +220,8 @@ pub trait SoaEnvelope {
                 });
             }
             for b in &cols[i + 1..] {
-                let (b_start, b_end) = b.row_byte_range();
+                let b_start = b.row_offset as usize;
+                let b_end = checked_end(b)?;
                 let overlap = a_start < b_end && b_start < a_end;
                 if overlap {
                     return Err(EnvelopeError::ColumnOverlap {
