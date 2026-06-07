@@ -39,7 +39,7 @@ use crate::episodic_spo::{
 use crate::morphology::MorphFlags;
 use crate::parser::SentenceStructure;
 use crate::pos::PoS;
-use crate::window::{SentenceWindow, WindowEntry};
+use crate::window::{ExpectedReason, SentenceWindow, WindowEntry};
 
 // ── Left-corner trigger ───────────────────────────────────────────────────
 
@@ -237,13 +237,23 @@ impl ReadingState {
         match next.active_trigger {
             LeftCornerTrigger::Causal | LeftCornerTrigger::Temporal => {
                 // Expectation: predicate will be a temporal/causal verb.
-                // We don't know the exact rank yet, so keep as NO_ROLE
-                // but leave the trigger set so cam64 lane 7 carries the signal.
+                // Keep as NO_ROLE but trigger bit propagates via cam64 lane 7.
             }
-            LeftCornerTrigger::Anaphora | LeftCornerTrigger::Relative => {
-                // Expectation: subject is a pronoun, resolve from entity stack.
-                // This is set per-triple by features.subject_is_pronoun; the
-                // trigger here is the sentence-level pre-selection.
+            LeftCornerTrigger::Relative => {
+                // Left-corner: relative pronoun ("who", "which") → the active
+                // subject from the PRIOR sentence is expected to be the antecedent.
+                // Pre-push it into the window's expectation buffer so that
+                // resolve_pronoun() finds it first (Pika chart-arc slot pre-population).
+                if next.active_subject != NO_ROLE {
+                    next.window.push_expected(next.active_subject, ExpectedReason::RelativeClause);
+                }
+            }
+            LeftCornerTrigger::Anaphora => {
+                // Left-corner: personal pronoun subject → prior active subject is
+                // the most likely referent. Pre-push as anaphora expectation.
+                if next.active_subject != NO_ROLE {
+                    next.window.push_expected(next.active_subject, ExpectedReason::Anaphora);
+                }
             }
             _ => {}
         }
@@ -568,5 +578,54 @@ mod tests {
         };
         let (frames, _) = rs.step(&s, &plain_features());
         assert!(frames[0].morph_flags.is_past());
+    }
+
+    #[test]
+    fn relative_trigger_pushes_expected_subject() {
+        let rs = ReadingState::new(0);
+        // Sentence 1: establish active_subject = 100.
+        let s1 = sentence_one_triple(100, 200, 300);
+        let (_, rs2) = rs.step(&s1, &plain_features());
+        assert_eq!(rs2.active_subject, 100);
+
+        // Sentence 2 has a Relative trigger → should pre-push 100 as expected slot.
+        let s2 = sentence_one_triple(10, 20, 30);
+        let feat = SentenceFeatures {
+            per_triple: vec![TripleFeatures {
+                left_corner_trigger: LeftCornerTrigger::Relative,
+                ..Default::default()
+            }],
+        };
+        let (_, rs3) = rs2.step(&s2, &feat);
+        // The expected slot was pushed during step and is visible via iter_expected().
+        // (The count is consumed only if resolve_pronoun drains it; here
+        // subject_is_pronoun=false so the slot remains.)
+        assert_eq!(rs3.window.iter_expected().len(), 1);
+        assert_eq!(rs3.window.iter_expected()[0].rank, 100);
+    }
+
+    #[test]
+    fn pronoun_prefers_expected_relative_subject() {
+        let rs = ReadingState::new(0);
+        // Sentence 1: introduce entities 50 (subj) and 70 (obj).
+        let s1 = sentence_one_triple(50, 60, 70);
+        let (_, rs2) = rs.step(&s1, &plain_features());
+
+        // Sentence 2: Relative trigger fires → expects 50 (prior active_subject).
+        // Subject of sentence 2 is a pronoun.
+        let s2 = sentence_one_triple(5, 80, 90);
+        let feat = SentenceFeatures {
+            per_triple: vec![TripleFeatures {
+                left_corner_trigger: LeftCornerTrigger::Relative,
+                subject_is_pronoun: true,
+                confidence: 0.9,
+                ..Default::default()
+            }],
+        };
+        let (frames, _) = rs2.step(&s2, &feat);
+        // Expected slot has rank=50; recency heuristic without it would give 70.
+        // With the expectation, resolve_pronoun should return 50.
+        assert_eq!(frames[0].refers_to_candidate_id, 50);
+        assert_eq!(frames[0].subject_candidate_id, 50);
     }
 }

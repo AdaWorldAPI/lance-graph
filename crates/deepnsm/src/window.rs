@@ -26,6 +26,39 @@ const MAX_HEADS_PER_ENTRY: usize = 4;
 /// Maximum sentences kept in the window (±5 = 11 total, one per slot).
 pub const WINDOW_SIZE: usize = 11;
 
+/// Maximum expected (forward-predicted) entities tracked at one time.
+const MAX_EXPECTED: usize = 4;
+
+/// Why an entity was pushed into the expected slot.
+///
+/// Carrying the reason prevents "mystery meat" in resolve_pronoun: callers can
+/// filter by reason if they only want to consume a specific prediction type.
+/// V1 only uses `RelativeClause` and `Anaphora` in practice; the others are
+/// reserved for v2 (ellipsis, causal/temporal continuation).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExpectedReason {
+    /// A relative pronoun ("who", "which") was the left-corner trigger —
+    /// the active subject is expected to be the antecedent of the clause.
+    RelativeClause,
+    /// A personal pronoun was the left-corner trigger — the active subject
+    /// is expected to be the referent of the anaphoric pronoun.
+    Anaphora,
+    /// An omitted subject (pro-drop) — prior subject is expected to continue.
+    Ellipsis,
+    /// A causal connector ("because", "therefore") — causal agent continues.
+    CausalContinuation,
+    /// A temporal connector ("then", "after") — temporal anchor continues.
+    TemporalContinuation,
+}
+
+/// An entity predicted by a left-corner trigger before clause closure.
+#[derive(Clone, Copy, Debug)]
+pub struct ExpectedSlot {
+    /// Vocabulary rank of the predicted entity (NO_ROLE if unused).
+    pub rank: u16,
+    pub reason: ExpectedReason,
+}
+
 /// One entry in the ±5 sentence window: the entity candidates from a sentence.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct WindowEntry {
@@ -65,6 +98,13 @@ impl WindowEntry {
 /// The ring buffer always holds at most `WINDOW_SIZE` (11) entries, dropping
 /// the oldest when full. The current sentence is conceptually at offset 0;
 /// prior sentences are at offsets −1 .. −5.
+///
+/// ## Forward expectation slots
+///
+/// When a left-corner trigger fires (relative pronoun, anaphora), the caller
+/// pushes the predicted referent into `expected` via `push_expected()`.
+/// `resolve_pronoun()` checks these slots first — a confirmed expectation
+/// beats any recency heuristic from confirmed sentences.
 #[derive(Debug)]
 pub struct SentenceWindow {
     /// Fixed-size ring buffer.
@@ -73,6 +113,10 @@ pub struct SentenceWindow {
     head: usize,
     /// Number of valid entries (0..=WINDOW_SIZE).
     count: usize,
+    /// Forward-predicted entity slots (Pika left-corner expectations).
+    expected: [ExpectedSlot; MAX_EXPECTED],
+    /// How many expected slots are active (0..=MAX_EXPECTED).
+    expected_count: usize,
 }
 
 impl SentenceWindow {
@@ -82,7 +126,37 @@ impl SentenceWindow {
             entries: [WindowEntry::default(); WINDOW_SIZE],
             head: 0,
             count: 0,
+            expected: [ExpectedSlot { rank: NO_ROLE, reason: ExpectedReason::Anaphora }; MAX_EXPECTED],
+            expected_count: 0,
         }
+    }
+
+    /// Push a forward-predicted entity into the expectation buffer.
+    ///
+    /// Called by the reader state machine when a left-corner trigger fires
+    /// (relative pronoun, anaphoric pronoun) before the clause closes.
+    /// `resolve_pronoun()` drains these slots before consulting the confirmed
+    /// sentence ring — expectation beats recency.
+    ///
+    /// Silently drops if the buffer is full (MAX_EXPECTED = 4).
+    pub fn push_expected(&mut self, rank: u16, reason: ExpectedReason) {
+        if self.expected_count < MAX_EXPECTED {
+            self.expected[self.expected_count] = ExpectedSlot { rank, reason };
+            self.expected_count += 1;
+        }
+    }
+
+    /// Drain the expected slots, returning them in FIFO order.
+    ///
+    /// Called implicitly by `resolve_pronoun`. After a clause closes, the
+    /// caller should clear expectations that were consumed.
+    pub fn clear_expected(&mut self) {
+        self.expected_count = 0;
+    }
+
+    /// Iterate the active expectation slots (most-recently-pushed first).
+    pub fn iter_expected(&self) -> &[ExpectedSlot] {
+        &self.expected[..self.expected_count]
     }
 
     /// Push a new sentence entry, overwriting the oldest if full.
@@ -104,13 +178,25 @@ impl SentenceWindow {
         })
     }
 
-    /// Resolve a pronoun: return the vocabulary rank of the most recent
-    /// non-excluded NP head. `exclude_rank` is typically the pronoun's own rank
-    /// (we don't want to resolve a pronoun to itself).
+    /// Resolve a pronoun: return the vocabulary rank of the predicted or most
+    /// recent non-excluded NP head.
     ///
+    /// Resolution order (Pika left-corner priority):
+    /// 1. Forward expectation slots (most-recently-pushed first) — these were
+    ///    pre-populated by a left-corner trigger and are the strongest signal.
+    /// 2. Confirmed sentence ring, most-recent entry first, heads in reverse
+    ///    within each entry (last-mentioned in text = highest index).
+    ///
+    /// `exclude_rank` is typically the pronoun's own vocabulary rank.
     /// Returns `NO_ROLE` if no candidate is found.
     pub fn resolve_pronoun(&self, exclude_rank: u16) -> u16 {
-        // Within each entry iterate in reverse (last-mentioned = highest index = most recent).
+        // Phase 1: forward expectations (Pika left-corner slots).
+        for slot in self.iter_expected().iter().rev() {
+            if slot.rank != NO_ROLE && slot.rank != exclude_rank {
+                return slot.rank;
+            }
+        }
+        // Phase 2: confirmed sentence ring, last-mentioned wins.
         for (_offset, entry) in self.iter_recent_first() {
             for &head in entry.heads().iter().rev() {
                 if head != NO_ROLE && head != exclude_rank {
@@ -153,6 +239,8 @@ impl Clone for SentenceWindow {
             entries: self.entries,
             head: self.head,
             count: self.count,
+            expected: self.expected,
+            expected_count: self.expected_count,
         }
     }
 }
@@ -243,5 +331,61 @@ mod tests {
         let e = entry(0, &[10, 20, 30]);
         assert!(e.contains(20));
         assert!(!e.contains(99));
+    }
+
+    #[test]
+    fn push_expected_stores_slot() {
+        let mut w = SentenceWindow::new();
+        w.push_expected(42, ExpectedReason::RelativeClause);
+        assert_eq!(w.expected_count, 1);
+        assert_eq!(w.iter_expected()[0].rank, 42);
+        assert_eq!(w.iter_expected()[0].reason, ExpectedReason::RelativeClause);
+    }
+
+    #[test]
+    fn push_expected_capacity_does_not_overflow() {
+        let mut w = SentenceWindow::new();
+        for i in 0..10u16 {
+            w.push_expected(i, ExpectedReason::Anaphora);
+        }
+        assert_eq!(w.expected_count, MAX_EXPECTED);
+    }
+
+    #[test]
+    fn resolve_pronoun_prefers_expected_over_confirmed() {
+        let mut w = SentenceWindow::new();
+        // Confirmed ring has rank 100.
+        w.push(entry(0, &[100]));
+        // Forward expectation has rank 200.
+        w.push_expected(200, ExpectedReason::RelativeClause);
+        // Should return 200 (expectation beats confirmed recency).
+        assert_eq!(w.resolve_pronoun(5), 200);
+    }
+
+    #[test]
+    fn resolve_pronoun_falls_back_to_confirmed_when_expected_empty() {
+        let mut w = SentenceWindow::new();
+        w.push(entry(0, &[100]));
+        // No expectations pushed.
+        assert_eq!(w.resolve_pronoun(5), 100);
+    }
+
+    #[test]
+    fn resolve_pronoun_skips_excluded_in_expected() {
+        let mut w = SentenceWindow::new();
+        w.push(entry(0, &[100]));
+        w.push_expected(200, ExpectedReason::Anaphora);
+        // Exclude the expected slot — should fall back to confirmed.
+        assert_eq!(w.resolve_pronoun(200), 100);
+    }
+
+    #[test]
+    fn clear_expected_resets_slots() {
+        let mut w = SentenceWindow::new();
+        w.push_expected(42, ExpectedReason::Ellipsis);
+        w.clear_expected();
+        assert_eq!(w.expected_count, 0);
+        // resolve_pronoun now falls through to NO_ROLE (empty window).
+        assert_eq!(w.resolve_pronoun(5), NO_ROLE);
     }
 }

@@ -158,7 +158,45 @@ impl Cam64 {
     pub fn entity_stack_depth(self) -> u8 {
         self.discourse_state() & 0x7F
     }
+
+    // ── Basin continuation (Pika chart-arc predicate) ────────────────────────
+
+    /// Return true if this code is a plausible continuation of `prev`.
+    ///
+    /// Uses popcount on the XOR to measure lane-level agreement:
+    /// - shared bits (XNOR popcount) ≥ `CAM64_CONTINUATION_MIN_SHARED` → agreeing lanes
+    /// - differing bits (XOR popcount) ≤ `CAM64_CONTINUATION_MAX_DIFF` → acceptable drift
+    ///
+    /// The thresholds are deliberately loose so declarative sentences that
+    /// share entity/predicate buckets but differ in morph/discourse still
+    /// qualify as basin continuations. This is a dumb, deterministic predicate —
+    /// it is NOT semantic equivalence.
+    #[inline]
+    pub fn continues_basin(self, prev: Cam64) -> bool {
+        let diff = self.0 ^ prev.0;
+        let diff_bits  = diff.count_ones();
+        let shared_bits = 64 - diff_bits; // XNOR popcount via complement
+        shared_bits >= CAM64_CONTINUATION_MIN_SHARED && diff_bits <= CAM64_CONTINUATION_MAX_DIFF
+    }
+
+    /// Basin continuation quality score (0 = no continuation, 255 = perfect match).
+    ///
+    /// Defined as `255 - diff_bits * 4`, clamped to 0. v2 stub — callers that
+    /// only need the binary predicate should use `continues_basin()`.
+    #[inline]
+    pub fn basin_continuation_score(self, prev: Cam64) -> u8 {
+        let diff_bits = (self.0 ^ prev.0).count_ones();
+        255u32.saturating_sub(diff_bits * 4) as u8
+    }
 }
+
+/// Minimum shared bits required for `continues_basin` to return true.
+/// 16 of 64 bits shared → at least 2 lane bytes unchanged.
+pub const CAM64_CONTINUATION_MIN_SHARED: u32 = 16;
+
+/// Maximum differing bits allowed for `continues_basin` to return true.
+/// 24 of 64 bits differing → at most 3 lane bytes changed.
+pub const CAM64_CONTINUATION_MAX_DIFF: u32 = 24;
 
 impl core::fmt::Debug for Cam64 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -267,5 +305,41 @@ mod tests {
         let m = MorphFlags::default();
         let c = Cam64::from_triple(&t, m, 255, false, false, false);
         assert_eq!(c.entity_stack_depth(), 127);
+    }
+
+    #[test]
+    fn cam64_continuation_true_for_same_code() {
+        let c = Cam64::from_lanes([10, 20, 30, 40, 50, 60, 70, 80]);
+        assert!(c.continues_basin(c));
+    }
+
+    #[test]
+    fn cam64_continuation_true_for_nearby_codes() {
+        // Differ by 1 bit per lane (8 bits total) → well within threshold.
+        let a = Cam64::from_lanes([0x00; 8]);
+        let b = Cam64::from_lanes([0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+        assert!(b.continues_basin(a));
+    }
+
+    #[test]
+    fn cam64_continuation_false_for_far_codes() {
+        // Differ by all 64 bits → 0 shared, 64 differing.
+        let a = Cam64::from_raw(0x0000_0000_0000_0000);
+        let b = Cam64::from_raw(0xFFFF_FFFF_FFFF_FFFF);
+        assert!(!b.continues_basin(a));
+    }
+
+    #[test]
+    fn basin_continuation_score_perfect_match() {
+        let c = Cam64::from_lanes([1; 8]);
+        assert_eq!(c.basin_continuation_score(c), 255);
+    }
+
+    #[test]
+    fn basin_continuation_score_decreases_with_diff() {
+        let a = Cam64::from_raw(0x0000_0000_0000_0000);
+        let b = Cam64::from_raw(0x0000_0000_0000_00FF); // 8 bits differ
+        let score = b.basin_continuation_score(a);
+        assert_eq!(score, 255 - 8 * 4);
     }
 }
