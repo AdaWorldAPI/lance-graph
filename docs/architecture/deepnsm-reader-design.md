@@ -7,6 +7,21 @@
 
 ---
 
+## Glossary (one-liners for reviewers)
+
+| Term | Definition |
+|------|-----------|
+| **P64** | 8×8-bit native reading-state address space; NOT a quantised float embedding |
+| **CAM4096** | 12-bit deterministic address selected from P64 lanes; NOT a quantised embedding vector |
+| **Crystal4096** | 3-axis signed reading coordinate (12 bits, 4096 cells); P4096 palette codebook key |
+| **Cam64** | 64-bit fast reading-locality index (NOT semantic truth); used for prefetch and basin heuristics |
+| **EpisodicSpoFrame** | The auditable SPO truth witness; `cam64` inside it is the index, not the truth |
+| **SentenceWindow** | Wernicke faculty: exact NP head ranks for coreference; distinct from `ContextWindow` (Broca/VSA) |
+| **splat_p64** | Discrete palette splat into a Hamming neighbourhood; NOT a Gaussian in f32 space |
+| **SentenceTransformer64** | State-transition automaton (Manning & Carpenter sense); NOT neural self-attention |
+
+---
+
 ## What this is
 
 DeepNSM is a distributional semantic engine that replaces transformer inference
