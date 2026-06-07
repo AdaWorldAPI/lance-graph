@@ -114,3 +114,12 @@ pub use similarity::SimilarityTable;
 pub use encoder::{VsaVec, RoleVectors};
 pub use context::ContextWindow;
 pub mod fingerprint16k;
+
+// ── DeepNSM reader — sentence-level AriGraph reader ──────────────────────
+// Left-corner state machine: expectation + evidence → episodic SPO + next state.
+// Five modules; writer order is dependency order.
+pub mod morphology;    // MorphFlags — heuristic tense/voice/clause flags
+pub mod cam64;         // Cam64 — 8-lane reading-state locality key (NOT the truth)
+pub mod episodic_spo;  // EpisodicSpoFrame — the auditable witness rows
+pub mod window;        // SentenceWindow — ±5 exact entity tracking for coreference
+pub mod reader_state;  // ReadingState + step() — the left-corner transition
