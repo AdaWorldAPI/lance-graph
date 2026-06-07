@@ -171,13 +171,16 @@ fn build_distance_matrix_from_cam(
         return WordDistanceMatrix::new(0);
     }
 
-    // Parse codebook: 6 subspaces x 256 centroids x subspace_dim floats
-    // We interpret codebook_bytes as f32 array
-    let codebook_floats: &[f32] = unsafe {
-        let ptr = codebook_bytes.as_ptr() as *const f32;
-        let len = codebook_bytes.len() / 4;
-        std::slice::from_raw_parts(ptr, len)
-    };
+    // Parse codebook: 6 subspaces x 256 centroids x subspace_dim floats.
+    // Decode the bytes as a little-endian f32 array. A `&[u8]` carries no
+    // alignment guarantee, so a `*const f32` reinterpret would be UB on an
+    // unaligned buffer (mmap'd file, sub-slice). `from_le_bytes` over 4-byte
+    // chunks is alignment-free and endian-correct (matches the workspace LE
+    // contract). The codebook is only read below, so owning a Vec is fine.
+    let codebook_floats: Vec<f32> = codebook_bytes
+        .chunks_exact(4)
+        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect();
 
     // Determine subspace_dim: total_floats / (6 * 256)
     let total_floats = codebook_floats.len();
