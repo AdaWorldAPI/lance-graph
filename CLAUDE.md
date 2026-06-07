@@ -1,5 +1,27 @@
 # CLAUDE.md — lance-graph
 
+## P0 — AdaWorldAPI forks ONLY, NEVER crates.io upstream
+
+**Always depend on the AdaWorldAPI fork of any crate that has one. NEVER use the
+upstream crates.io version of a forked crate.** Non-negotiable; applies to every
+`Cargo.toml` and every dependency decision in this repo. Every repo in this
+workspace is local — prefer the local/fork source over the registry, always.
+
+- Crates with an `AdaWorldAPI/<name>` fork — e.g. `ndarray`, `lance` /
+  `lancedb` / `lance-index` / `lance-linalg` / `lance-namespace`, `surrealdb`,
+  and any other — MUST be wired via the fork (`path` / `git` / `[patch.crates-io]`),
+  never the registry version.
+- If a fork's coordinates (git URL, branch/tag, feature flag) are unknown,
+  **STOP and ask**. Do NOT fall back to crates.io as a convenience or to make a
+  build pass.
+- `"warning: Patch <crate> ... was not used in the crate graph"` is a policy
+  alert. It can indicate missing fork wiring OR a transitive semver mismatch
+  that prevents the patch from applying. Do not ignore it: verify direct
+  `Cargo.toml` patch entries and `Cargo.lock` wiring, then track/resolve any
+  transitive blocker explicitly before closing the issue.
+- crates.io is permitted ONLY for crates that have no AdaWorldAPI fork / no local
+  source.
+
 > **Updated**: 2026-04-21 (categorical-algebraic inference click)
 > **Role**: The obligatory spine — query engine, codec stack, semantic transformer, and orchestration contract
 > **Status**: 22 crates, 7 in workspace, 15 excluded (standalone/DTO), Phases 1-2 DONE, Phases 6-7 DONE (grammar + governance), Phase 3 IN PROGRESS

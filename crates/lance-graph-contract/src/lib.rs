@@ -93,6 +93,7 @@ pub mod scheduler;
 pub mod sensorium;
 pub mod sigma_propagation;
 pub mod sla;
+pub mod soa_envelope;
 pub mod soa_view;
 pub mod splat;
 pub mod tax;

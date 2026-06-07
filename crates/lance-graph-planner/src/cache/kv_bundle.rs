@@ -26,6 +26,32 @@ pub fn bundle_into(source: &HeadPrint, target: &mut HeadPrint, weight_self: f32,
 }
 
 /// Unbundle: subtract out (XOR analog for i16).
+///
+/// # Correctness warning — this is NOT the inverse of [`bundle_into`]
+///
+/// [`bundle_into`] performs a **weighted average**: `(old * w_self + new * w_new) / total`.
+/// Subtraction is the inverse of XOR-bundle or simple add-bundle, NOT of weighted-average
+/// bundle. Calling this after `bundle_into` silently corrupts the gestalt: the gestalt
+/// drifts every epoch because the removed value is the rounded average representation,
+/// not the original addend. After ~100 epochs the corruption is measurable.
+///
+/// The correct approach for an updateable gestalt is one of:
+/// 1. **Re-accumulate**: on update, rebuild the gestalt from scratch by iterating all heads.
+/// 2. **Track raw sum + count**: store `sum: [i32; BASE_DIM]` and `count: u32` separately
+///    so exact subtraction is possible without rounding loss.
+/// 3. **Accept approximate unbundle only when weight_self = weight_new = 1.0**: then
+///    `bundle_into` reduces to `(old + new) / 2` and there is still no exact inverse.
+///
+/// Tracked as tech-debt in `.claude/board/TECH_DEBT.md` (unbundle_from correctness).
+///
+/// # Panics
+/// Never panics — wrapping arithmetic.
+#[deprecated(
+    since = "0.0.0",
+    note = "NOT the inverse of bundle_into (weighted-average). \
+            See function doc for the correct unbundle strategies. \
+            Tracked: .claude/board/TECH_DEBT.md — unbundle_from correctness."
+)]
 pub fn unbundle_from(source: &HeadPrint, target: &mut HeadPrint) {
     for d in 0..BASE_DIM {
         target.dims[d] = target.dims[d].wrapping_sub(source.dims[d]);
@@ -72,10 +98,16 @@ impl AttentionMatrix {
     }
 
     /// Set attention head and update gestalt.
+    ///
+    /// Note: the gestalt update uses the deprecated `unbundle_from` which is NOT the
+    /// exact inverse of `bundle_into` (weighted-average). The gestalt drifts slowly
+    /// over many epochs. FIXME: rebuild gestalt from scratch or switch to raw-sum
+    /// tracking — tracked in `.claude/board/TECH_DEBT.md`.
     pub fn set(&mut self, row: usize, col: usize, head: HeadPrint) {
         let idx = row * self.resolution + col;
-        // Unbundle old from gestalt
+        // Unbundle old from gestalt (approximate — see method doc).
         let old = self.heads[idx].clone();
+        #[allow(deprecated)]
         unbundle_from(&old, &mut self.gestalt);
         // Bundle new into gestalt
         bundle_into(&head, &mut self.gestalt, self.epoch as f32, 1.0);
@@ -129,8 +161,11 @@ mod tests {
             assert_eq!(target.dims[d], expected, "dim {d} mismatch");
         }
 
-        // Unbundle b from target: should shift back toward a
+        // Unbundle b from target: documents the approximate (not exact) behaviour.
+        // This test verifies the arithmetic, NOT that round-trip fidelity holds
+        // (it doesn't — unbundle_from is not the inverse of bundle_into).
         let before_unbundle = target.clone();
+        #[allow(deprecated)]
         unbundle_from(&b, &mut target);
         // After unbundle, each dim should be before - b
         for d in 0..BASE_DIM {
