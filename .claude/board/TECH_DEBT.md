@@ -15,6 +15,17 @@
 
 ## Open Debt
 
+### TD-UNBUNDLE-FROM-1 — `unbundle_from` is NOT the inverse of `bundle_into` (2026-06-07)
+
+**Open.** `crates/lance-graph-planner/src/cache/kv_bundle.rs` — `unbundle_from`
+uses `wrapping_sub` as the "undo" of `bundle_into`. But `bundle_into` is a
+weighted average: `(old * w_self + new * w_new) / total`. Subtraction is not the
+inverse. `AttentionMatrix::set` calls both in sequence, silently corrupting the
+gestalt ~1 bit per epoch. Measurable after ~100 epochs. Function is marked
+`#[deprecated]` with a doc warning; callers use `#[allow(deprecated)]` + FIXME.
+**Paid by:** switch to raw-sum + count tracking so exact integer subtraction is
+possible. Cross-ref: `kv_bundle.rs:28-33`.
+
 ### TD-HELIX-OVERLAP-1 (D-HELIX-1) — `helix` re-derives existing CERTIFIED primitives (clean-room by directive)
 
 **Open.** `crates/helix` ships as a zero-dep clean-room codec per the user directive "scoped only to crate." ~80% of its pipeline duplicates existing, in-places-CERTIFIED workspace code: Fisher-Z/arctanh→i8 (`bgz-tensor::projection::Base17Fz`, `bgz-tensor::fisher_z::FamilyGamma` ρ≥0.999), golden-spiral azimuth (`jc::weyl`), stride-4 coupling (`thinking-engine::reencode_safety`, `highheelbgz`), EULER_GAMMA hand-off (`jc::precond`, `bgz-tensor::euler_fold`), 256-palette/L1 (`bgz17::palette`). Genuinely new = the `√u` equal-area hemisphere placement + the PLACE/RESIDUE doctrine. **Paid by** (when it graduates from clean-room): the consolidation path in `crates/helix/KNOWLEDGE.md` § Overlap & Consolidation — re-export `FamilyGamma` behind a feature; route coupling through the canonical `(i·11)%17`/stride-4 zipper; feed `ResidueEdge` into the existing HIP/TWIG CAKES tier. **Also owed:** a fidelity-vs-ground-truth probe (the naive-u8 floor gate ≥0.9980 Pearson is currently CONJECTURE — NOT RUN) before promotion. Cross-ref: E-HELIX-OVERLAP, `encoding-ecosystem.md`.

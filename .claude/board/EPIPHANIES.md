@@ -1,3 +1,59 @@
+## 2026-06-06 — E-DEINTERLACE-TWO-SCALES — deinterlace is one operation at two scales; no-cross-cycle-lag = byte-scale deinterlace
+
+**Status:** FINDING (source-grounded; `temporal.rs` PR #468 confirms row-scale; byte-scale is a documented gap)
+**Confidence:** High
+
+**The synthesis:** temporal causality in the SoA system must be enforced at two
+independent scales that share the same monotonic clock:
+
+```text
+Row/query scale  →  HLC tick + DependsClosure  →  temporal.rs::deinterlace()  (SHIPPED, PR #468)
+Byte/column scale → SoaEnvelope::cycle() stamp → MailboxSoA Arc-swap COW      (GAP — plan written)
+```
+
+Both are the SAME operation — "sort by the causal clock and project the result
+into the reader's reference frame" — but at different granularities.
+
+**Row scale (PR #468 confirms):**
+`temporal.rs:18-20` defines the standing wave correctly: "merge-sort by HLC
+tick and every field's row lands on one timeline. The result IS the standing
+wave / kanban SoA." The `deinterlace()` function + `EpistemicMode` (Strict /
+Aware / Retro) + `DependsClosure` implement this. 8 tests pass.
+
+**Byte scale (current gap):**
+Nothing in the codebase prevents a reader from holding column data from SoA
+cycle N and cycle N+1 in the same SIMD sweep. The `SoaEnvelope::cycle()` stamp
+exists but is not enforced as a snapshot barrier.
+
+**The fix (plan: `cycle-coherent-soa-snapshot-v1.md`):**
+Arc-swap COW at column granularity in `MailboxSoa::advance_phase`:
+1. Writer increments `cycle`, then swaps the `Arc<[u8]>` of each mutated column.
+2. Reader snapshots all column Arcs under one cycle stamp (lock-free retry).
+3. The resulting `MailboxSoaSnapshot { cycle, cols }` is structurally coherent.
+
+**The boundary:**
+`MultiLaneColumn` in ndarray stays layout-only. The Arc-swap policy lives in
+lance-graph's `MailboxSoa`. ndarray does not learn that cycles exist.
+
+**The clock is one clock:**
+`SoaEnvelope::cycle()` (byte scale) and `QueryReference::ref_version` (row
+scale) are the same monotonic sequence. Threading `snapshot.cycle` into
+`QueryReference` closes the loop: row-scale and byte-scale deinterlace use
+the same clock.
+
+**Standing wave clarification (Q3 probe result):**
+The "standing wave" is NOT a compute recurrence. It is the deinterlaced
+projection over Lance versions — provided by Lance versioning itself (O(1)
+90° lookup). Do not implement a standing wave in compute.
+
+**Cross-ref:**
+- PR #468 (`temporal.rs`) — row-scale (SHIPPED)
+- PR #477 (`soa_envelope.rs`) — envelope contract (IN REVIEW)
+- `.claude/plans/cycle-coherent-soa-snapshot-v1.md` — byte-scale fix plan
+- `docs/probes/q3-standing-wave-falsification.md` — probe confirming no wave in compute
+
+---
+
 ## 2026-06-04 — E-AUDIT-RETENTION-CAVEAT — substrate-b consumer doc Lance-versions-as-audit claim was overstated; corrected to retention-policy-gated (codex P1 on #465)
 
 **Status:** CORRECTION (codex P1 on PR #465, 2026-06-04; merged + immediate follow-up correction per the no-silent-edit discipline — the FIX appends; the original epiphany E-SUBSTRATE-B-CAPABILITY-ROADMAP stands as the corrected reference now reads).
