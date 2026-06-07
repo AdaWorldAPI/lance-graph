@@ -68,7 +68,8 @@ singletons the architecture dissolves into per-owner SoA + snapshot.
 | Construct | Home | Nudge | Owning plan |
 |---|---|---|---|
 | `ShaderDriver.bindspace: Arc<BindSpace>` | cognitive-shader-driver | Dissolve into per-mailbox `MailboxSoA<N>`; driver holds a sea-star of mailboxes | `bindspace-singleton-to-mailbox-soa-v1` (D-MBX-3/5) |
-| `BindSpace::zeros(4096)` in `bin/serve.rs` | cognitive-shader-driver | Delete; mailboxes allocate their own SoA | `bindspace-singleton-to-mailbox-soa-v1` (D-MBX-5) |
+| `Arc::new(BindSpace::zeros(4096))` in `bin/serve.rs:29` (REST debug server) | cognitive-shader-driver | Delete; mailboxes allocate their own SoA | `bindspace-singleton-to-mailbox-soa-v1` (D-MBX-5) |
+| `Arc::new(BindSpace::zeros(4096))` in `bin/grpc.rs:29` (gRPC debug server) | cognitive-shader-driver | Delete; same nudge as `serve.rs` — both debug-server entry points must move together or one singleton is left behind | `bindspace-singleton-to-mailbox-soa-v1` (D-MBX-5) |
 | `AttentionMatrix.gestalt` (shared mutable summary, drifting via `unbundle_from`) | `lance-graph-planner::cache::kv_bundle` | Either rebuild-from-scratch or raw-sum+count; the gestalt is a snapshot read, not an incrementally-mutated singleton | THIS PLAN (D-SNGL-3) + TD-UNBUNDLE-FROM-1 |
 | `ATTENTION_CACHE` / `LINEAR_CACHE` `LazyLock<RwLock<…>>` | `ndarray/crates/burn::ops::matmul` | Audit: is this a JIT-kernel cache (keep, like UDFs) or runtime belief state (nudge)? | THIS PLAN (D-SNGL-4) |
 | any `Arc<RwLock<…>>` / `Arc<Mutex<…>>` runtime caches surfaced by the audit | workspace-wide | Classify codebook-vs-singleton; nudge only the latter | THIS PLAN (D-SNGL-2) |
