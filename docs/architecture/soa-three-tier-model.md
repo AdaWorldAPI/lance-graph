@@ -185,18 +185,22 @@ The `MailboxSoA<N>` columns are CPU-style registers: fixed width, fixed byte
 offset, little-endian, indexed by position. There is no schema in the row.
 The row is a register bank.
 
+**Current / transitional layout** (target state removes `entity_type[N]` — see §3.2):
+
 ```
-  Byte offset   Width    Column              LE kind
-  ──────────    ─────    ──────              ───────
-  0             4·N      energy[N]           f32 × N
-  4N            N        plasticity[N]       u8  × N
+  Byte offset   Width    Column               LE kind
+  ──────────    ─────    ──────               ───────
+  0             4·N      energy[N]            f32 × N
+  4N            N        plasticity[N]        u8  × N
   5N            4·N      last_active_cycle[N] u32 × N
-  9N            8·N      edges[N]            u64 × N   (CausalEdge64 LE)
-  17N           N        qualia[N]           u8  × N   (QualiaI4_16D packed)
-  18N           2·N      meta[N]             u16 × N   (MetaWord LE)
-  20N           2·N      entity_type[N]      u16 × N
-  22N           4        mailbox_id          u32
-  22N+4         4        current_cycle       u32
+  9N            8·N      edges[N]             u64 × N   (CausalEdge64 LE)
+  17N           N        qualia[N]            u8  × N   (QualiaI4_16D packed)
+  18N           2·N      meta[N]              u16 × N   (MetaWord LE)
+  20N           2·N      entity_type[N]       u16 × N   ← TRANSITIONAL: scheduled
+                                                          for removal once O(1)
+                                                          HHTL lookup is the sole path
+  22N           4        mailbox_id           u32
+  22N+4         4        current_cycle        u32
   ...           ...      (scalars follow)
 ```
 

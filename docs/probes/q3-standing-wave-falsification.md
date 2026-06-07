@@ -196,7 +196,7 @@ No such `f` exists in the codebase.
 |-------|--------|--------|
 | Binary `vsa_permute` is norm-preserving cyclic rotation | ✅ Correct | `ndarray/vsa.rs:326–349` |
 | Role-key orthogonality via disjoint slices | ✅ Correct-by-construction | `vsa/roles.rs`, `grammar/role_keys.rs` |
-| Baton carries `(u16 target, CausalEdge64)` across mailbox boundaries | ✅ Correct | `collapse_gate.rs:177` |
+| Baton carries `(u16 target, CausalEdge64)` across mailbox boundaries | ⚠️ Superseded | `collapse_gate.rs:177` — the write-side push carrier (baton) existed; but per `soa-three-tier-model.md` §target-state (2026-06-07) it is scheduled for removal. The SoA snapshot (read-side pull) replaces the inter-mailbox handoff. Marking ✅ here conflicts with the arch doc; this entry is a correction note, not a reversal of the probe finding. |
 | CAM-PQ codec is separate from VSA (I-VSA-IDENTITIES) | ✅ Correct | enforced architecturally |
 | `vsa16k_bind` = elementwise multiply (Hadamard product) | ✅ Correct | `fingerprint.rs:468` |
 | `vsa16k_bundle` = elementwise sum, no normalization | ✅ Correct | `fingerprint.rs:479` |
