@@ -262,8 +262,9 @@ FORBIDDEN INTERNAL PATH (absent by omission):
 | `reader_state` | 12 (2 new: trigger wiring) |
 | `signed_crystal` | 18 |
 | `sentence_transformer64` | 26 |
+| `crystal_neighborhood` | 16 |
 | **Existing deepnsm tests** | 104 (unchanged) |
-| **Total** | **200** |
+| **Total** | **215** |
 
 ---
 
@@ -291,5 +292,46 @@ Flow:
 
 The holograph `sentence_crystal.rs` (integer-first, char n-gram hashing,
 bit rotation, majority bundling) is the correct large-field ancestor.
+
+---
+
+## Deliberately out of scope (follow-up PRs)
+
+This PR is the **reading substrate**. Two natural extensions are intentionally
+deferred so #479 stays a clean review unit:
+
+### v1.5 — Tekamolo/Anaphora64 coreference provenance
+
+v1 records *what* resolved (exact NP-head ranks + expected slots). It does not
+record *why* — was the resolution confirmed-backward, expected-forward, or
+inferred-right? Was gender/number/type agreement used? The `HorizonPolarity`
+enum (in `signed_crystal.rs`) and `ExpectedReason` (in `window.rs`) are the
+v1 hooks. A future `anaphora64.rs` sidecar should pack provenance (antecedent
+bucket, sentence offset, source polarity, expected reason, agreement flags,
+role/salience scores, confidence q8) into a `u64`, stored as a provenance field
+on `EpisodicSpoFrame`. **Not in Cam64** (locality key, stays lean) and **not in
+P64** (native address space). Boundary law: *SentenceWindow resolves,
+EpisodicSpoFrame witnesses, Cam64 indexes, Anaphora64 explains.* Belongs to the
+coreference-ranking PR, after agreement/ranking is implemented.
+
+### v2 — OGAR/SurrealDB AST adapter (separate crate)
+
+The same three-layer split (semantics / syntax / pragmatics) carries into the
+OGAR → SurrealQL/DLL/AST adapter, with a domain role rather than a linguistic
+one:
+
+```
+OGAR semantics    = what business/domain thing is this?   (ClassId/PredicateId/ActionId)
+SurrealQL/DLL/AST = how is it represented/executed?        (AstNodeId/DllSymbolId/TemplateId)
+planner pragmatics= what may this actor do with it now?    (ActorId/V_ref/HorizonPolarity/PolicyId)
+```
+
+Adapter law (mirrors the DeepNSM truth/index/context split):
+*Semantics can exist without syntax. Syntax must resolve to semantics before
+execution. Pragmatics decides whether resolved syntax may run.* SemanticFrame is
+truth; AST node, SurrealQL text, and DLL symbol are execution vehicles, not
+truth. SurrealDB is a syntax/runtime view, never the ontology master — class
+truth stays in OGAR. This is its own PR (`crates/ogar-surreal-adapter/` or split
+across `ogar` / `surreal-adapter` / `lance-graph-planner`), not part of #479.
 The ladybug-rs `sentence_crystal.rs` (f32 random projection → 5D coords)
 is a float-projection prototype and is NOT the reference here.

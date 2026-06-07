@@ -17,6 +17,30 @@
 //! sentence backward and returns the first matching entity. In v1 "matching"
 //! means "any non-pronoun NP head from a prior sentence" — a pure recency
 //! heuristic. Richer disambiguation (gender, number, semantic type) is v2.
+//!
+//! ## Future (v1.5) — Tekamolo/Anaphora64 provenance sidecar
+//!
+//! v1 records *what* resolved (exact NP-head ranks + expected slots) but not
+//! *why* it resolved that way. A future `Anaphora64` sidecar (its own module,
+//! NOT folded into `Cam64` or `P64`) should encode coreference provenance:
+//!
+//! ```text
+//! bits  0..11  antecedent_rank_bucket / local entity id
+//! bits 12..15  sentence_offset_signed4
+//! bits 16..19  source_polarity      (HorizonPolarity: confirmed/expected/inferred_right/basin)
+//! bits 20..23  expected_reason      (ExpectedReason: relative/anaphora/ellipsis/causal/temporal)
+//! bits 24..31  agreement flags      (number/gender/person/semantic-type/role)
+//! bits 32..39  grammatical role score
+//! bits 40..47  salience score
+//! bits 48..55  confidence q8
+//! bits 56..63  reserved / version
+//! ```
+//!
+//! It belongs to the **next** PR (coreference ranking/provenance), not the
+//! reader-substrate PR. Add it only once agreement/ranking is implemented, and
+//! store it as a provenance field on `EpisodicSpoFrame` (`anaphora_tag: Anaphora64`).
+//! The boundary stays clean: SentenceWindow resolves, EpisodicSpoFrame witnesses,
+//! Cam64 indexes, Anaphora64 (later) *explains* the resolution.
 
 use crate::spo::NO_ROLE;
 
