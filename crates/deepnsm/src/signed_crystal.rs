@@ -60,12 +60,94 @@
 use crate::cam64::Cam64;
 use crate::spo::NO_ROLE;
 
+// ── HorizonPolarity (v2 stub) ─────────────────────────────────────────────────
+
+/// Epistemic provenance of a reading horizon offset.
+///
+/// `SignedOffset4` encodes **where** (signed local distance −7..+7 + overflow).
+/// `HorizonPolarity` encodes **why/how known** — the epistemic status of that
+/// position. The two are orthogonal:
+///
+/// ```text
+/// +1 could mean:
+///   next sentence physically          (ConfirmedBackward after a step)
+///   expected referent not yet seen    (ExpectedForward from left-corner trigger)
+///   right-context memo already known  (InferredRight from inverse/Pika pass)
+///   basin continuation projected      (Basin)
+/// ```
+///
+/// In v1, the expectation information lives in `SentenceWindow` via
+/// `ExpectedReason` and `push_expected()`. `HorizonPolarity` is the v2 type
+/// that generalises this to all three reading directions (backward confirmed,
+/// forward expected, inverse/right inferred) so they can be tracked uniformly
+/// in `Crystal4096` metadata or a P64 lane without stealing nibble values from
+/// `SignedOffset4`.
+///
+/// **Do NOT fold polarity into the 4-bit offset.** The clean split is:
+/// - `SignedOffset4` = compact ABI, always means signed distance, nothing else.
+/// - `HorizonPolarity` = caller-side metadata attached to the coordinate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+#[repr(u8)]
+pub enum HorizonPolarity {
+    /// Ordinary prior context: backward from the current sentence. Confirmed by
+    /// the sentence ring.
+    #[default]
+    ConfirmedBackward = 0,
+    /// Left-corner forward prediction: antecedent/subject expected but not yet
+    /// confirmed. Created by `push_expected()` on `SentenceWindow`.
+    ExpectedForward = 1,
+    /// Pika-style right-context / inverse pass: memo available from later clause
+    /// material (right-to-left prepopulation). V2 — not yet wired in v1.
+    InferredRight = 2,
+    /// Offset is outside the local ±7 window; use basin/archetype lookup instead.
+    BasinOverflow = 3,
+}
+
+impl HorizonPolarity {
+    /// Pack into 2 bits (fits in any spare lane bits or metadata field).
+    #[inline]
+    pub fn to_bits(self) -> u8 { self as u8 }
+
+    /// Unpack from 2 bits. Values > 3 map to `BasinOverflow`.
+    #[inline]
+    pub fn from_bits(b: u8) -> Self {
+        match b & 0x3 {
+            0 => Self::ConfirmedBackward,
+            1 => Self::ExpectedForward,
+            2 => Self::InferredRight,
+            _ => Self::BasinOverflow,
+        }
+    }
+
+    /// True if this position is known from evidence (not a prediction).
+    #[inline]
+    pub fn is_confirmed(self) -> bool {
+        matches!(self, Self::ConfirmedBackward)
+    }
+
+    /// True if this position is a forward prediction that may not materialise.
+    #[inline]
+    pub fn is_prediction(self) -> bool {
+        matches!(self, Self::ExpectedForward | Self::InferredRight)
+    }
+}
+
 // ── SignedOffset4 ─────────────────────────────────────────────────────────────
 
 /// A signed 4-bit reading offset: values 0..=14 encode −7..=+7; 15 = overflow.
 ///
 /// Encoding: `raw = offset + 7` for offset in −7..=+7.
 /// `raw = 15` is the overflow/basin-change sentinel.
+///
+/// ## Epistemic polarity is NOT encoded here
+///
+/// `SignedOffset4` encodes **signed local distance only**. It intentionally
+/// does not encode epistemic provenance (confirmed backward context vs
+/// left-corner forward expectation vs inverse/right-context prepopulation).
+/// Those distinctions are carried by `HorizonPolarity` (v2) or by
+/// `ExpectedReason` + `SentenceWindow::push_expected()` (v1). Callers that
+/// need to distinguish "physically +1 sentence ahead" from "predicted +1
+/// referent not yet seen" must track `HorizonPolarity` separately.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct SignedOffset4(pub u8);

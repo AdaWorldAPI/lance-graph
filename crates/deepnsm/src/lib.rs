@@ -132,3 +132,7 @@ pub mod signed_crystal;
 // "Transformer" = state-transition automaton, NOT neural self-attention.
 // P64 is the native address space; Cam4096 is its deterministic 12-bit locality key.
 pub mod sentence_transformer64;
+// L1 local geometry for Crystal4096: neighbors_4096(), chebyshev/manhattan distance,
+// NeighborhoodMetric (Manhattan / Chebyshev / LaneCompatible). No floats.
+// blasgraph (L2) will consume these for frontier propagation in v2.
+pub mod crystal_neighborhood;
