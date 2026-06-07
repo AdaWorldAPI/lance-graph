@@ -1,3 +1,20 @@
+## 2026-06-07 — singleton-to-snapshot-nudge-v1 (workspace-wide audit: every shared-mutable singleton → per-owner MailboxSoA + Arc-swap COW snapshot; read-only codebooks explicitly left as-is)
+
+**Status:** PROPOSAL. Design-spec + audit only, no code beyond the AttentionMatrix correctness fix. **Plan file:** `.claude/plans/singleton-to-snapshot-nudge-v1.md`.
+**Owns:** 7 deliverables D-SNGL-1..7.
+- D-SNGL-1: workspace-wide singleton census (codebook vs shared-mutable classification)
+- D-SNGL-2: classification gate — the mechanical "mutated-after-init?" decision procedure
+- D-SNGL-3: `AttentionMatrix.gestalt` correctness (TD-UNBUNDLE-FROM-1) → raw-sum+count or rebuild-on-read
+- D-SNGL-4: `ndarray/crates/burn` ATTENTION_CACHE / LINEAR_CACHE audit (JIT-kernel cache = keep; runtime belief = nudge)
+- D-SNGL-5: `SnapshotProvider` adoption checklist per nudged crate (reuses cycle-coherent-soa-snapshot-v1 trait)
+- D-SNGL-6: no-cross-cycle-lag falsification per nudged crate (reuses D-SOA-SNAP-5 test shape)
+- D-SNGL-7: board hygiene + candidate epiphany E-SINGLETON-IS-CODEBOOK-OR-SOA
+**Key distinction:** read-only `LazyLock` codebooks (role keys, UDFs, simd_caps) are NOT targets — only shared-mutable runtime state is. The test is mechanical: mutated-after-init → nudge; never-mutated → codebook, keep.
+**Companion plans:** `bindspace-singleton-to-mailbox-soa-v1` (BindSpace singleton dissolution — referenced, not duplicated), `cycle-coherent-soa-snapshot-v1` (the snapshot mechanism reused here).
+**Anchored epiphanies:** E-MAILBOX-IS-BINDSPACE, E-BATON-1, E-DEINTERLACE-TWO-SCALES. **Anchored debt:** TD-UNBUNDLE-FROM-1.
+
+---
+
 ## 2026-06-06 — cycle-coherent-soa-snapshot-v1 (Arc-swap COW at column granularity; byte-scale deinterlace; no-cross-cycle-lag guarantee)
 
 **Status:** QUEUED. Design-spec only, no code. **Plan file:** `.claude/plans/cycle-coherent-soa-snapshot-v1.md`.

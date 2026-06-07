@@ -1,3 +1,19 @@
+## singleton-to-snapshot-nudge-v1 — every shared-mutable singleton → per-owner MailboxSoA + Arc-swap snapshot (7 deliverables; codebooks left as-is)
+
+Plan path: `.claude/plans/singleton-to-snapshot-nudge-v1.md`. Companions: `bindspace-singleton-to-mailbox-soa-v1` (BindSpace dissolution), `cycle-coherent-soa-snapshot-v1` (snapshot mechanism). Debt: TD-UNBUNDLE-FROM-1.
+
+| D-id | Title | Crate(s) / repo | Risk | Status | PR / Evidence |
+|---|---|---|---|---|---|
+| D-SNGL-1 | Workspace-wide singleton census (codebook vs shared-mutable) | docs/architecture | LOW | **Queued** | audit only; gates classification |
+| D-SNGL-2 | Classification gate — "mutated-after-init?" decision procedure | docs/architecture | LOW | **Queued** | gates on D-SNGL-1 |
+| D-SNGL-3 | `AttentionMatrix.gestalt` correctness (raw-sum+count or rebuild) | `lance-graph-planner::cache::kv_bundle` | MED | **In progress** | `unbundle_from` deprecated this session (branch `claude/stoic-turing-M0Eiq`); full fix pending |
+| D-SNGL-4 | `ndarray/crates/burn` ATTENTION_CACHE / LINEAR_CACHE audit | `ndarray` | LOW | **Queued** | classify JIT-cache vs runtime-belief |
+| D-SNGL-5 | `SnapshotProvider` adoption checklist per nudged crate | workspace | LOW | **Queued** | gates on D-SOA-SNAP-1/2 |
+| D-SNGL-6 | No-cross-cycle-lag falsification per nudged crate | workspace | MED | **Queued** | reuses D-SOA-SNAP-5 shape |
+| D-SNGL-7 | Board hygiene + E-SINGLETON-IS-CODEBOOK-OR-SOA | `.claude/board` | LOW | **In progress** | this entry + INTEGRATION_PLANS prepend |
+
+---
+
 ## cesium-osm-substrate-v1 — OpenStreetMap as 6th Cesium ingest source class (7 deliverables; substrate-reuse with splat-native)
 
 Plan path: `.claude/plans/cesium-osm-substrate-v1.md`. Parent: `3DGS-ArcGIS-Cesium-ingestion-plan.md` (structural). Sibling: `splat-native-ultrasound-v1.md` (Gaussian3D carrier reuse). OGAR coordination 2026-06-05 locked Q1/Q2/Q3 rulings. OGAR-side docs PR (DOMAIN-INSTANCES §2.6 + RDF-OWL-ALIGNMENT §10 Phase 2c) queued behind this PR.
