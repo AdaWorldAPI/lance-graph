@@ -188,6 +188,28 @@ impl NiblePath {
         (self.path, self.depth)
     }
 
+    /// Reconstruct a path from its raw packed `(path, depth)` — the inverse of
+    /// [`packed`](NiblePath::packed). Used by `identity::NodeGuid` to round-trip
+    /// the routing-prefix it stores.
+    ///
+    /// Returns `None` if `depth > MAX_DEPTH`, or if `path` has bits set above the
+    /// `depth` nibbles (an inconsistent pack — leading nibbles must be the route,
+    /// trailing high bits must be zero). `from_packed(0, 0)` is [`EMPTY`](NiblePath::EMPTY).
+    #[must_use]
+    pub const fn from_packed(path: u64, depth: u8) -> Option<Self> {
+        if depth > MAX_DEPTH {
+            return None;
+        }
+        // `path` must fit in `depth` nibbles (4·depth bits); higher bits must be 0.
+        // At MAX_DEPTH (16 nibbles = 64 bits) the whole u64 is usable — skip the
+        // shift (a `>> 64` would be UB).
+        let used_bits = 4 * depth as u32;
+        if used_bits < 64 && (path >> used_bits) != 0 {
+            return None;
+        }
+        Some(Self { path, depth })
+    }
+
     /// Is this path a descendant-or-equal of `other`? — the symmetric form of
     /// [`is_ancestor_of`]. `self.is_descendant_of(other)` is equivalent to
     /// `other.is_ancestor_of(self)` BUT the form is sometimes more natural at
@@ -273,7 +295,6 @@ impl NiblePath {
             })
         }
     }
-
 }
 
 #[cfg(test)]

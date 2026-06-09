@@ -403,10 +403,22 @@ mod tests {
         assert_eq!(j, PearlJunction::Unrelated);
 
         // Any EMPTY in any position → Unrelated.
-        assert_eq!(EdgePair::new(e, real, real, real).classify(), PearlJunction::Unrelated);
-        assert_eq!(EdgePair::new(real, e, real, real).classify(), PearlJunction::Unrelated);
-        assert_eq!(EdgePair::new(real, real, e, real).classify(), PearlJunction::Unrelated);
-        assert_eq!(EdgePair::new(real, real, real, e).classify(), PearlJunction::Unrelated);
+        assert_eq!(
+            EdgePair::new(e, real, real, real).classify(),
+            PearlJunction::Unrelated
+        );
+        assert_eq!(
+            EdgePair::new(real, e, real, real).classify(),
+            PearlJunction::Unrelated
+        );
+        assert_eq!(
+            EdgePair::new(real, real, e, real).classify(),
+            PearlJunction::Unrelated
+        );
+        assert_eq!(
+            EdgePair::new(real, real, real, e).classify(),
+            PearlJunction::Unrelated
+        );
     }
 
     /// `NiblePath::root` with an out-of-range basin returns `EMPTY` (the
@@ -418,9 +430,11 @@ mod tests {
         let bad2 = NiblePath::root(0xEE); // out of FAN_OUT
         let real = NiblePath::root(0x1);
         // Both edges' subjects are out-of-range → EMPTY.
-        assert_eq!(EdgePair::new(bad1, real, bad2, real).classify(), PearlJunction::Unrelated);
+        assert_eq!(
+            EdgePair::new(bad1, real, bad2, real).classify(),
+            PearlJunction::Unrelated
+        );
     }
-
 
     // ===== Back-compat shim (codex P1 on PR #457) =====
 
@@ -460,9 +474,17 @@ mod tests {
     #[test]
     #[allow(deprecated)]
     fn from_nars_rule_lifts_to_inference_type() {
-        assert_eq!(InferenceType::from(NarsRule::Deduction), InferenceType::Deduction);
-        assert_eq!(InferenceType::from(NarsRule::Induction), InferenceType::Induction);
-        assert_eq!(InferenceType::from(NarsRule::Abduction), InferenceType::Abduction);
+        assert_eq!(
+            InferenceType::from(NarsRule::Deduction),
+            InferenceType::Deduction
+        );
+        assert_eq!(
+            InferenceType::from(NarsRule::Induction),
+            InferenceType::Induction
+        );
+        assert_eq!(
+            InferenceType::from(NarsRule::Abduction),
+            InferenceType::Abduction
+        );
     }
-
 }

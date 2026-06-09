@@ -3,8 +3,8 @@
 //! Defines the traits that lance-graph-planner implements and
 //! consumers (ladybug-rs, n8n-rs) call.
 
-use crate::mul::{GateDecision, MulAssessment, SituationInput};
 use crate::cognitive_shader::RungLevel;
+use crate::mul::{GateDecision, MulAssessment, SituationInput};
 use crate::nars::{InferenceType, SemiringChoice};
 use crate::thinking::{FieldModulation, ThinkingStyle};
 

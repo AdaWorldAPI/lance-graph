@@ -111,6 +111,9 @@ pub trait DolceCtx: Context {
 // on (DolceCategory, OdooEntityRef).
 pub trait FibuCtx: Context {
     /// Align a (DOLCE category, Odoo entity) pair to a FIBU/FIBO frame.
-    fn align_fibu(&self, dolce: DolceCategory, odoo: crate::cognition::entity::OdooEntityRef)
-        -> FibuAlignmentRef;
+    fn align_fibu(
+        &self,
+        dolce: DolceCategory,
+        odoo: crate::cognition::entity::OdooEntityRef,
+    ) -> FibuAlignmentRef;
 }

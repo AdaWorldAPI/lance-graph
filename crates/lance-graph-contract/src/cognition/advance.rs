@@ -30,7 +30,7 @@
 use super::entity::NormalizedEntity;
 use super::op::{Op, Output};
 use super::stages::*;
-use crate::transaction::{OgitCtx, OwlCtx, DolceCtx, FibuCtx};
+use crate::transaction::{DolceCtx, FibuCtx, OgitCtx, OwlCtx};
 
 // ── Verb 1: resolve_ogit ──────────────────────────────────────────────────────
 

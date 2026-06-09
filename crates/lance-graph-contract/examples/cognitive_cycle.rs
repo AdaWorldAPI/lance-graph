@@ -22,7 +22,13 @@ use lance_graph_contract::recipes::recipe_by_code;
 const DEEP_THINK: [&str; 8] = ["RTE", "HTD", "TCP", "CR", "CDT", "MCP", "TCF", "CUR"];
 
 fn gate_state(sd: f32) -> GateState {
-    if sd < SD_FLOW { GateState::Flow } else if sd <= 0.35 { GateState::Hold } else { GateState::Block }
+    if sd < SD_FLOW {
+        GateState::Flow
+    } else if sd <= 0.35 {
+        GateState::Hold
+    } else {
+        GateState::Block
+    }
 }
 
 fn main() {
@@ -35,14 +41,23 @@ fn main() {
     ctx.beliefs = vec![(7, 0.90, 0.8), (7, 0.10, 0.7)]; // topic 7 asserted true AND false
 
     println!("== cognitive cycle: one Think, run to rest ==\n");
-    println!("start: gate={:?} F={:.2} conf={:.2} candidates={} beliefs={}\n",
-        gate_state(ctx.sd), ctx.free_energy, ctx.confidence, ctx.candidates.len(), ctx.beliefs.len());
+    println!(
+        "start: gate={:?} F={:.2} conf={:.2} candidates={} beliefs={}\n",
+        gate_state(ctx.sd),
+        ctx.free_energy,
+        ctx.confidence,
+        ctx.candidates.len(),
+        ctx.beliefs.len()
+    );
 
     // The active-inference loop: keep thinking while there is surprise (gate != FLOW).
     let mut round = 0;
     while gate_state(ctx.sd) != GateState::Flow && round < 5 {
         round += 1;
-        println!("── round {round} (gate {:?}) ───────────────────────", gate_state(ctx.sd));
+        println!(
+            "── round {round} (gate {:?}) ───────────────────────",
+            gate_state(ctx.sd)
+        );
 
         // Pipe the context through the recipe. Each step is `ctx |> tactic`.
         for code in DEEP_THINK {
@@ -54,7 +69,11 @@ fn main() {
                 code,
                 format!("{:?}", rec.bucket),
                 rec.name,
-                if out.fired { out.note } else { "· gated off (FLOW)" },
+                if out.fired {
+                    out.note
+                } else {
+                    "· gated off (FLOW)"
+                },
                 out.delta_conf,
             );
         }
@@ -63,18 +82,35 @@ fn main() {
         // (In the wired system this falls out of the codec sweep; here we make it explicit.)
         ctx.sd *= 0.55;
         ctx.free_energy *= 0.5;
-        println!("  → after round: gate={:?} SD={:.3} F={:.3} conf={:.2}\n",
-            gate_state(ctx.sd), ctx.sd, ctx.free_energy, ctx.confidence);
+        println!(
+            "  → after round: gate={:?} SD={:.3} F={:.3} conf={:.2}\n",
+            gate_state(ctx.sd),
+            ctx.sd,
+            ctx.free_energy,
+            ctx.confidence
+        );
     }
 
     if gate_state(ctx.sd) == GateState::Flow {
-        println!("== rest ==  the shader stopped because gate reached Flow (SD={:.3} < FLOW {SD_FLOW}).", ctx.sd);
+        println!(
+            "== rest ==  the shader stopped because gate reached Flow (SD={:.3} < FLOW {SD_FLOW}).",
+            ctx.sd
+        );
     } else {
-        println!("== rest ==  round cap reached ({round} rounds) before FLOW; gate={:?}, SD={:.3}.",
-            gate_state(ctx.sd), ctx.sd);
+        println!(
+            "== rest ==  round cap reached ({round} rounds) before FLOW; gate={:?}, SD={:.3}.",
+            gate_state(ctx.sd),
+            ctx.sd
+        );
     }
-    println!("final: conf={:.2}, {} candidate(s) survived pruning, {} beliefs.",
-        ctx.confidence, ctx.candidates.len(), ctx.beliefs.len());
+    println!(
+        "final: conf={:.2}, {} candidate(s) survived pruning, {} beliefs.",
+        ctx.confidence,
+        ctx.candidates.len(),
+        ctx.beliefs.len()
+    );
     println!("\nKey: Gate-bucket tactics (TCP/CDT/TCF/CUR) skip while in FLOW — the markers,");
-    println!("not a scheduler, decide what fires. Same `Tactic` behaviour, 34 hot-swappable units.");
+    println!(
+        "not a scheduler, decide what fires. Same `Tactic` behaviour, 34 hot-swappable units."
+    );
 }

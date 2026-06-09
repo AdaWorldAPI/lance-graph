@@ -86,7 +86,10 @@ impl EdgeRef {
         if slot == 0 {
             None
         } else {
-            Some(Self { family: (slot >> 12) as u8, local: slot & Self::MAX_LOCAL })
+            Some(Self {
+                family: (slot >> 12) as u8,
+                local: slot & Self::MAX_LOCAL,
+            })
         }
     }
 }
@@ -121,7 +124,9 @@ impl EpisodicEdges64 {
     /// How many slots carry an edge.
     #[must_use]
     pub fn count(self) -> usize {
-        (0..Self::CAPACITY).filter(|&i| self.edge(i).is_some()).count()
+        (0..Self::CAPACITY)
+            .filter(|&i| self.edge(i).is_some())
+            .count()
     }
 
     /// All 4 slots full?
@@ -346,7 +351,9 @@ mod tests {
 
     #[test]
     fn edge_index_out_of_range_is_none() {
-        let w = EpisodicEdges64::empty().push(EdgeRef::intra(7).unwrap()).unwrap();
+        let w = EpisodicEdges64::empty()
+            .push(EdgeRef::intra(7).unwrap())
+            .unwrap();
         assert_eq!(w.edge(0), EdgeRef::intra(7));
         assert_eq!(w.edge(1), None);
         assert_eq!(w.edge(EpisodicEdges64::CAPACITY), None);
@@ -378,7 +385,10 @@ mod tests {
             .push(EdgeRef::cross(2, 9).unwrap())
             .unwrap();
         let got: Vec<_> = w.iter().collect();
-        assert_eq!(got, vec![EdgeRef::intra(1).unwrap(), EdgeRef::cross(2, 9).unwrap()]);
+        assert_eq!(
+            got,
+            vec![EdgeRef::intra(1).unwrap(), EdgeRef::cross(2, 9).unwrap()]
+        );
     }
 
     #[test]
@@ -405,7 +415,9 @@ mod tests {
     #[test]
     fn le_bytes_are_canonical_little_endian() {
         // slot 0 = intra local 1 => 0x0001 in the low 16 bits; LE => byte[0] = 0x01.
-        let w = EpisodicEdges64::empty().push(EdgeRef::intra(1).unwrap()).unwrap();
+        let w = EpisodicEdges64::empty()
+            .push(EdgeRef::intra(1).unwrap())
+            .unwrap();
         assert_eq!(w.to_le_bytes()[0], 0x01);
         assert_eq!(w.to_le_bytes()[1], 0x00);
     }

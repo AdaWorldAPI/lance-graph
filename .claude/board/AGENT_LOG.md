@@ -1,3 +1,12 @@
+## 2026-06-09 — D-IDENTITY-1 (Phase A) + 2 cross-repo sweeps — identity-architecture
+
+**Orchestrator:** Opus main thread (autoattended). **Outcome:** Shipped Phase A.
+- **Sweep A** (Opus general-purpose): lance-graph + ndarray identity-type inventory → the 128-bit identity space is EMPTY (only `[u8;16]` is `atoms::I4x32`, a style vector); every GUID field already exists as a committed scalar → compose-don't-reinvent.
+- **Sweep B** (Opus general-purpose): MedCare-rs + smb-office-rs store keys → `EntityKey(&[u8])` already carries any-length keys (smb-bridge `key_to_filter` length-branches on Mongo+Lance); transport solved. MedCare needs one `external_ref` (or reuse DMS `sha256`); smb maps directly.
+- **Phase A:** `lance_graph_contract::identity::NodeGuid` (UUIDv8, composed from SchemaPtr⊕NiblePath⊕StructuralSignature⊕local) + `NiblePath::from_packed`. 599 contract lib tests (+15), clippy `-D` clean, fmt clean.
+
+Plans: `identity-architecture-exists-vs-needs-v1.md`, `cognitive-write-roundtrip-substrate-v1.md`. Epiphany: E-IDENTITY-WHITEBOX-1.
+
 ## [Opus 4.8, main thread] cesium-osm-substrate-v1 review fix — D-OSM-2 crate boundary (codex P2 on merged #473)
 
 **Branch:** `claude/osm-pbf-consumer-boundary-fix` (off `main`). **New follow-up PR** (merged #473 review-fix, surfaced for visibility per user request; the other session owns the OGAR-side fixes).
