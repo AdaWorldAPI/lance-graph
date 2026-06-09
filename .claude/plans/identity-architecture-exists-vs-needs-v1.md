@@ -47,6 +47,7 @@ against what must be built, and phases the integration.
 ## WHAT EXISTS — grounded inventory (6 layers, file:line)
 
 ### Layer 0 — address / discriminator scalars (the GUID's fields)
+
 | Type | Width | Role | Status | Evidence |
 |---|---|---|---|---|
 | `NiblePath{path:u64,depth:u8}` | 72 | HHTL tree address (basin/child/is_ancestor_of, 16ⁿ) | **[G]** | hhtl.rs |
@@ -59,6 +60,7 @@ against what must be built, and phases the integration.
 | `EdgeRef{family:u8,local:u16}` | 24 | episodic HHTL family+local address | **[G]** | episodic_edges.rs:34 |
 
 ### Layer 1 — edge / handoff carriers (the LE "sound members")
+
 | Type | Width | Role | Status |
 |---|---|---|---|
 | `EpisodicEdges64(u64)` = 4×EdgeRef, MRU promote/evict, `to_le_bytes` | 64 | AriGraph episodic edges | **[G]** episodic_edges.rs |
@@ -67,6 +69,7 @@ against what must be built, and phases the integration.
 | `MailboxId=u32`, `MailboxRow{mailbox_ref:u32,row_idx:u32}` | 32/64 | mailbox + row address | **[G]** |
 
 ### Layer 2 — cold-path stores (TODAY: thin + inconsistent)
+
 | Store | Key | Status |
 |---|---|---|
 | `MetadataStore`: `NodeRecord{node_id:u32, label:String, properties:HashMap<String,String>}`, `EdgeRecord{source:u32,target:u32,edge_type:String}` | u32 + **STRING label/props (legacy Cypher)** | **[G]** metadata.rs:60,86 |
@@ -75,12 +78,14 @@ against what must be built, and phases the integration.
 | `WitnessId(u64)` (arigraph witness) | 64 opaque handle | **[G]** witness_corpus.rs:63 |
 
 ### Layer 3 — resolution (class-from-address)
+
 | Surface | Status |
 |---|---|
 | `RegistryClassView: ClassView` (fields/template/dolce_category_id) | **[G] resolve / [H] field-enum deferred** class_resolver.rs |
 | `OntologyRegistry`: `resolve_uri`, `enumerate_first_with_entity_type_id(u16)`, `resolve_iri_in` | **[G]** registry.rs |
 
 ### Layer 4 — commit + witness (the membrane)
+
 | Surface | Status |
 |---|---|
 | `SoaEnvelope` trait + `ColumnDescriptor` (container-LE geometry) | **[G] trait / [H] ZERO impls** soa_envelope.rs |
@@ -91,6 +96,7 @@ against what must be built, and phases the integration.
 | `SlaPolicy`, `TenantScope` | **[G] types** sla.rs |
 
 ### Layer 5 — cross-store transport (the consumer boundary)
+
 | Surface | Status |
 |---|---|
 | `EntityKey<'a>(pub &'a [u8])` — opaque length-agnostic key | **[G]** repository.rs:12 |
@@ -100,6 +106,7 @@ against what must be built, and phases the integration.
 | smb-office-rs: Mongo `ObjectId`(12B) + `String` refs; actively impls repository | **[G]** base.rs:92 |
 
 ### Layer 6 — round-trip / substrate-hardening
+
 | Surface | Status |
 |---|---|
 | `TripletProjection` trait + `roundtrip_eq` → `RoundTripFailure` | **[G]** codegen_spine.rs:107 |
@@ -190,14 +197,25 @@ content), never VSA-bundled.
   green-field invention. The largest is N6 (cold-path string→identity migration).
 - **[BLOCKED(C)]:** N8 only (surrealdb fork coords — human gate; lance-graph P0
   "STOP and ask").
-- **One open [DECISION]:** D1 vs D2 (SchemaPtr-entity_type vs NiblePath-prefix as
-  the class carrier) — recommendation: both (exact + routing prefix).
+- **[DECISION] RESOLVED (Phase A):** carry BOTH — `entity_type:u16` is the exact
+  canonical class; the `NiblePath` prefix is the bijective *derived* routing view
+  (full statement in the "DECISION — RESOLVED" block above). Landed in `NodeGuid`.
 
 ## Guards (iron rules this plan must not violate)
 
 - **I-VSA-IDENTITIES:** the GUID is a register key that POINTS TO content; never
   VSA-bundle it, never intern open content (only the closed vocabulary). Identities
   intern; scanned papers / free text stay in consumer stores (Layer 5).
+- **No content-drift for existing entities — ontology-cache provenance is the ONLY
+  drift surface.** An existing entity's identity is a *derived function* of its
+  ontology-mapped class (`entity_type` / `NiblePath` / `shape_hash` all fall out of
+  the registry mapping), so a mapped entity **cannot** drift from its content. The
+  one residual drift surface is an **ontology cache that was not mapped from the
+  authoritative source** (hand-filled / stale / regenerated out-of-band) — that,
+  not per-instance divergence, is exactly what the `shape_hash` witness reading of
+  `NodeGuid` guards. ⇒ the registry MUST treat the authoritative ontology as its
+  mapped source (the Phase B bijection is *seeded from* that source, never from a
+  hand-filled cache).
 - **Compose, don't parallel (Agent A #2):** N1 MUST subsume `SchemaPtr` +
   `EdgeRef`, not re-pack ns/class/family beside them.
 - **I-LEGACY-API-FEATURE-GATED:** N6's string→identity layout reclaim needs a

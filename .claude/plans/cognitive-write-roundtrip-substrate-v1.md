@@ -41,7 +41,7 @@ u16 ⊕ `MetaWord` u32) and deliberately EXCLUDES the lossy CAM-PQ fingerprint
 
 ### MAP 1 — the round-trip (the whole point)
 
-```
+```text
    WRITE  (project = encode)                 READ-BACK (decompile = decode)
    Vec<Triple>                               Vec<Triple>
       │  intern (s,p,o) → ids (dict)            ▲  dict reverse: ids → (s,p,o)
@@ -87,7 +87,7 @@ u16 ⊕ `MetaWord` u32) and deliberately EXCLUDES the lossy CAM-PQ fingerprint
 
 ### MAP 5 — THINK/DO (Semantik/Pragmatik) both round-trip as triples
 
-```
+```text
   Class (shape, subClassOf)      ──► triples: (subj rdf:type ogit:ObjectType), (field depends_on …)   THINK
   ActionDef (DO, object_class→Class, OdooMethodKind, KausalSpec) ──► triples: (amount_total emitted_by _compute_amount)   DO
         │                                                                          │

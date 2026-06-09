@@ -1,6 +1,10 @@
+## 2026-06-09 — D-IDENTITY-1 review-fix (#480 CodeRabbit) + CI badges
+
+**Follow-up PR** off merged `main`. Addressed CodeRabbit #480: `from_packed` edge-case test (depth>MAX, high-bit reject, `(0,0)` sentinel, MAX_DEPTH `>>64`-guard boundary, `packed∘from_packed` identity); stale "open DECISION" line → RESOLVED; AGENT_LOG SHA (`947c1e4`); MD040/MD058 in the two plan docs. **Skipped** MD028 (LATEST_STATE) — the blank-between-entries IS the append-only style. Added the **no-content-drift-for-existing** invariant to the plan (sole drift surface = ontology cache not mapped from its authoritative source). Native CI badges (rust-test/style/build) → README. 600 contract lib tests (+1), clippy/fmt clean.
+
 ## 2026-06-09 — D-IDENTITY-1 (Phase A) + 2 cross-repo sweeps — identity-architecture
 
-**Orchestrator:** Opus main thread (autoattended). **Outcome:** Shipped Phase A.
+**Orchestrator:** Opus main thread (autoattended). **Outcome:** Shipped Phase A — commit `947c1e4`, PR #480 (merged `62bca5e`).
 - **Sweep A** (Opus general-purpose): lance-graph + ndarray identity-type inventory → the 128-bit identity space is EMPTY (only `[u8;16]` is `atoms::I4x32`, a style vector); every GUID field already exists as a committed scalar → compose-don't-reinvent.
 - **Sweep B** (Opus general-purpose): MedCare-rs + smb-office-rs store keys → `EntityKey(&[u8])` already carries any-length keys (smb-bridge `key_to_filter` length-branches on Mongo+Lance); transport solved. MedCare needs one `external_ref` (or reuse DMS `sha256`); smb maps directly.
 - **Phase A:** `lance_graph_contract::identity::NodeGuid` (UUIDv8, composed from SchemaPtr⊕NiblePath⊕StructuralSignature⊕local) + `NiblePath::from_packed`. 599 contract lib tests (+15), clippy `-D` clean, fmt clean.
