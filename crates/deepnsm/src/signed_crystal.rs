@@ -169,7 +169,7 @@ impl SignedOffset4 {
     /// Encode a signed offset. Clamps to −7..=+7; values outside produce OVERFLOW.
     #[inline]
     pub fn from_offset(offset: i8) -> Self {
-        if offset < -7 || offset > 7 {
+        if !(-7..=7).contains(&offset) {
             Self::OVERFLOW
         } else {
             Self((offset + 7) as u8)

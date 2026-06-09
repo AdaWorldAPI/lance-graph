@@ -35,7 +35,7 @@ impl PhaseTag {
         // Use the low 64 bits (the high 64 are reserved for future precision).
         let low = (self.0 & u64::MAX as u128) as u64;
         let normalized = (low as f64) / (u64::MAX as f64);
-        (normalized * std::f64::consts::TAU as f64) as f32
+        (normalized * std::f64::consts::TAU) as f32
     }
 
     pub fn distance(self, other: Self) -> u32 {

@@ -216,8 +216,8 @@ impl P64 {
     ///
     /// This is the canonical construction path: grammar → Cam64 → P64.
     pub fn from_cam64_and_nsm(cam: Cam64, nsm_prime_mask: u64) -> Self {
-        let nsm_low = (nsm_prime_mask & 0xFF) as u64;
-        let nsm_high = ((nsm_prime_mask >> 8) & 0xFF) as u64;
+        let nsm_low = nsm_prime_mask & 0xFF;
+        let nsm_high = (nsm_prime_mask >> 8) & 0xFF;
         let nsm_xor = nsm_low | (nsm_high << 8); // into bits 24-39
         Self(cam.raw() ^ (nsm_xor << 24))
     }

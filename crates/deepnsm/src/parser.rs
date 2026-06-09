@@ -533,7 +533,7 @@ impl Parser {
                     resolved.push(r);
                     // Use the curated NSM-prime ID set rather than the
                     // earlier `r < 64` heuristic. See nsm_primes.rs.
-                    if crate::nsm_primes::is_nsm_prime(r as u16) {
+                    if crate::nsm_primes::is_nsm_prime(r) {
                         primes = primes.saturating_add(1);
                     }
                 }

@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn count_primes_saturates_at_255() {
-        let many = std::iter::repeat(*NSM_PRIME_IDS.iter().next().unwrap()).take(1000);
+        let many = std::iter::repeat_n(*NSM_PRIME_IDS.iter().next().unwrap(), 1000);
         assert_eq!(count_primes(many), 255);
     }
 

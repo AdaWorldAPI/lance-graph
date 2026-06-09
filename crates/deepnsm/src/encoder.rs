@@ -61,11 +61,9 @@ impl VsaVec {
     /// XOR bind: `self ⊕ other`. Reversible: `(a ⊕ b) ⊕ b = a`.
     #[inline]
     pub fn bind(&self, other: &VsaVec) -> VsaVec {
-        let mut result = [0u64; VSA_WORDS];
-        for i in 0..VSA_WORDS {
-            result[i] = self.data[i] ^ other.data[i];
+        VsaVec {
+            data: std::array::from_fn(|i| self.data[i] ^ other.data[i]),
         }
-        VsaVec { data: result }
     }
 
     /// Hamming distance (number of differing bits).
@@ -94,11 +92,9 @@ impl VsaVec {
 
     /// Bitwise NOT (complement).
     pub fn complement(&self) -> VsaVec {
-        let mut result = [0u64; VSA_WORDS];
-        for i in 0..VSA_WORDS {
-            result[i] = !self.data[i];
+        VsaVec {
+            data: std::array::from_fn(|i| !self.data[i]),
         }
-        VsaVec { data: result }
     }
 
     /// Access raw data.
@@ -177,7 +173,7 @@ pub fn bundle(vectors: &[VsaVec]) -> VsaVec {
     let threshold = vectors.len() / 2;
     let mut result = [0u64; VSA_WORDS];
 
-    for bit_word in 0..VSA_WORDS {
+    for (bit_word, result_slot) in result.iter_mut().enumerate() {
         let mut result_word = 0u64;
         for bit_pos in 0..64 {
             let mask = 1u64 << bit_pos;
@@ -187,7 +183,7 @@ pub fn bundle(vectors: &[VsaVec]) -> VsaVec {
                 .count();
             if count > threshold {
                 result_word |= mask;
-            } else if count == threshold && vectors.len() % 2 == 0 {
+            } else if count == threshold && vectors.len().is_multiple_of(2) {
                 // Tie-breaking for even count: use deterministic rule
                 // (use bit position parity)
                 if bit_pos % 2 == 0 {
@@ -195,7 +191,7 @@ pub fn bundle(vectors: &[VsaVec]) -> VsaVec {
                 }
             }
         }
-        result[bit_word] = result_word;
+        *result_slot = result_word;
     }
 
     VsaVec { data: result }

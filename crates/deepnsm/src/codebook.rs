@@ -83,7 +83,7 @@ impl Codebook {
 
         Ok(Codebook {
             centroids,
-            mean: mean,
+            mean,
             std: std_vals,
         })
     }
@@ -153,6 +153,11 @@ impl Codebook {
     /// Number of centroids loaded.
     pub fn len(&self) -> usize {
         self.centroids.len() / SUB_DIM
+    }
+
+    /// True if no centroids are loaded.
+    pub fn is_empty(&self) -> bool {
+        self.centroids.is_empty()
     }
 }
 

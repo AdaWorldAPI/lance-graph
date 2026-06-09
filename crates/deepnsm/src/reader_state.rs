@@ -247,23 +247,19 @@ impl ReadingState {
                 // Expectation: predicate will be a temporal/causal verb.
                 // Keep as NO_ROLE but trigger bit propagates via cam64 lane 7.
             }
-            LeftCornerTrigger::Relative => {
-                // Left-corner: relative pronoun ("who", "which") → the active
-                // subject from the PRIOR sentence is expected to be the antecedent.
-                // Pre-push it into the window's expectation buffer so that
-                // resolve_pronoun() finds it first (Pika chart-arc slot pre-population).
-                if next.active_subject != NO_ROLE {
-                    next.window
-                        .push_expected(next.active_subject, ExpectedReason::RelativeClause);
-                }
+            // Left-corner: relative pronoun ("who", "which") → the active subject
+            // from the PRIOR sentence is expected to be the antecedent. Pre-push it
+            // into the window's expectation buffer so resolve_pronoun() finds it
+            // first (Pika chart-arc slot pre-population).
+            LeftCornerTrigger::Relative if next.active_subject != NO_ROLE => {
+                next.window
+                    .push_expected(next.active_subject, ExpectedReason::RelativeClause);
             }
-            LeftCornerTrigger::Anaphora => {
-                // Left-corner: personal pronoun subject → prior active subject is
-                // the most likely referent. Pre-push as anaphora expectation.
-                if next.active_subject != NO_ROLE {
-                    next.window
-                        .push_expected(next.active_subject, ExpectedReason::Anaphora);
-                }
+            // Left-corner: personal pronoun subject → prior active subject is the
+            // most likely referent. Pre-push as anaphora expectation.
+            LeftCornerTrigger::Anaphora if next.active_subject != NO_ROLE => {
+                next.window
+                    .push_expected(next.active_subject, ExpectedReason::Anaphora);
             }
             _ => {}
         }
@@ -281,8 +277,7 @@ impl ReadingState {
             // ── Coreference resolution ───────────────────────────────────
             let refers_to = if feat.subject_is_pronoun {
                 // Left-corner anaphora: resolve from window entity stack.
-                let candidate = next.window.resolve_pronoun(triple.subject());
-                candidate
+                next.window.resolve_pronoun(triple.subject())
             } else {
                 NO_ROLE
             };

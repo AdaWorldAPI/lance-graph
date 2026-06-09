@@ -7,7 +7,7 @@
 //!   - off-diag cosine mean 0.64
 //!   - effective rank (participation ratio) 1.82 out of 256
 //!   - 43.76% of pairs with cos > 0.9
-//!   → degenerate null-context artifact, not a real semantic manifold
+//!     → degenerate null-context artifact, not a real semantic manifold
 //!
 //! The DeepNSM matrix is a completely different source: 96-dimensional
 //! distributional vectors from COCA subgenre frequencies (1-billion-word

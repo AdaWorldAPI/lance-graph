@@ -100,6 +100,13 @@ impl Crystal4096Neighbourhood {
         self.len
     }
 
+    /// True if the neighbourhood holds no cells. A query always includes the
+    /// centre, so this is `false` there; provided for the `len_without_is_empty`
+    /// contract.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// True if only the center is present.
     pub fn is_singleton(&self) -> bool {
         self.len == 1
@@ -312,7 +319,7 @@ mod tests {
         let nb = neighbors_4096(zero(), 2, NeighborhoodMetric::LaneCompatible);
         for cell in nb.iter() {
             let x_off = cell.x().to_offset().unwrap_or(99);
-            assert!(x_off >= -1 && x_off <= 1, "X offset {x_off} exceeds ±1");
+            assert!((-1..=1).contains(&x_off), "X offset {x_off} exceeds ±1");
         }
     }
 

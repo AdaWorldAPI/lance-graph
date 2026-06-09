@@ -113,7 +113,7 @@ impl WindowEntry {
 
     /// Does this entry contain the given vocabulary rank?
     pub fn contains(&self, rank: u16) -> bool {
-        self.heads().iter().any(|&h| h == rank)
+        self.heads().contains(&rank)
     }
 }
 

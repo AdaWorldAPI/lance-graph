@@ -4,18 +4,18 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 publish = false
-
-# Empty `[workspace]` so cargo treats this crate as standalone when invoked
-# via `--manifest-path` (deepnsm is `exclude`d from the parent workspace,
-# but in nested git-worktree directories cargo's auto-discovery would
-# otherwise walk further up and pick up the outer workspace root).
-[workspace]
 description = """
 DeepNSM: Distributional semantic transformer replacement.
 4,096 words × 12 bits × 8MB distance matrix = complete semantic engine.
 O(1) per word, O(n) per sentence, deterministic, bit-reproducible.
 No GPU. No learned weights. Same decision boundaries as cosine.
 """
+
+# Empty `[workspace]` so cargo treats this crate as standalone when invoked
+# via `--manifest-path` (deepnsm is `exclude`d from the parent workspace,
+# but in nested git-worktree directories cargo's auto-discovery would
+# otherwise walk further up and pick up the outer workspace root).
+[workspace]
 
 # Zero EXTERNAL (crates.io) dependencies — for supply-chain cleanness.
 # AdaWorldAPI path deps are mandatory and compile into the same binary.
