@@ -827,3 +827,4 @@ Plan path: `.claude/plans/polyglot-container-query-membrane-v1.md`. Research gro
 | D-PG-4 | `SurrealqlParse` strategy → ArenaIR (SELECT point/range) + selector rule | `lance-graph-planner` | ~300 | MED | **Queued** | slot proven by sparql_parse |
 | D-PG-5 | DDL ⇄ registry bridge (DEFINE walker → mint; reverse via C16b `ToSql`) | `lance-graph-ontology` | ~250 | MED | **Queued** | gated on fork C16c |
 | D-PG-6 | (optional) `surreal_container` unblock → kanban view over LanceDB | `surreal_container` | ~200 | LOW | **Queued** | ruling-compliant; OQ-PG1 open |
+| D-PG-7 | Deterministic foveated tree-builder (CLAM-style 16-way bootstrap + append-stable insertion → `register_class_path`) | `lance-graph-ontology` + ndarray CLAM | ~300 | MED | **Queued** | plan §8 addendum; gated on D-PG-1; determinism + append-stability property tests mandatory |

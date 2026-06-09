@@ -208,3 +208,49 @@ Identity plan (addresses; N3→D-PG-2), #418 mailbox plan + D-MBX-6, handover
 2026-05-28 §2 (ruling), `.claude/surreal/` POC (fold-in pending), fork
 `op-codegen-bridge` C16b/C16c, `SUBSTRATE-ENDGAME-RUNTIME-VIEW.md` §1.1,
 `docs/CLUSTER_ASYMMETRY.md` (surreal-cluster as Raft provider — unrelated leg).
+
+## 8. Addendum 2026-06-09 — left-prefix parsing + deterministic foveated tree construction (user direction)
+
+**User framing, confirmed against `identity.rs:68-81`:** the GUID reads as
+`classid-HHHH-HHHH-TTTT-LLLLLLIDENTI` — octets 0-3 class (`namespace|entity_type|kind`),
+4-7 tree address (NiblePath prefix + depth), 8-9 shape, 10-15 local identity.
+**The left half is plain order-preserving bytes** ⇒ Neo4j/Cypher label + subtree
+patterns compile to byte-prefix/range predicates on a `FixedSizeBinary(16)` GUID
+column — Lance zone-maps/scalar indexes serve them directly; quantized-vector
+indexes (RaBitQ-style 1-bit codes / CAM-PQ / Binary16K Hamming) serve the
+similarity leg on the SAME row. Structural predicate + similarity predicate =
+two indexes, one container. Caveats (both already in §3 M1): namespace sorts
+first (cross-namespace template scans = ≤256 ranges or one registry hop);
+GUID carries ≤4 path nibbles (deeper scans resolve via registry / addr64).
+
+**M6 — deterministic foveated tree construction [CONJECTURE until D-PG-7 test].**
+NiblePath assignments need not be purely editorial (E-OGAR named curation the
+only real cost): they can be COMPUTED by a deterministic hierarchical
+partitioner over class fingerprints/co-occurrence — "deterministic Louvain" in
+the user's phrase, with three mandatory properties:
+
+1. **Deterministic** — canonical input ordering + stable tie-breaks (Leiden-with-
+   canonical-order, or the already-in-tree deterministic divisive splitter:
+   **ndarray CLAM**, 46 tests — preferred starting point over Louvain proper,
+   which is node-order dependent in its classic form).
+2. **16-way capacity-bounded** — one nibble per level; a basin subdivides only
+   when it exceeds capacity/density θ ⇒ **foveation falls out**: depth grows
+   where data is dense, stays shallow where sparse.
+3. **Append-stable (the identity-stability requirement)** — clustering runs ONCE
+   as bootstrap; thereafter new classes insert greedily under the nearest
+   existing basin and **minted paths never move** (protobuf-field-number
+   discipline, same as the entity_type mint). Full re-clustering on rebuild
+   would re-address every GUID — forbidden. Tree layout changes version through
+   `layout_version` (octet 13) per I-LEGACY-API-FEATURE-GATED.
+
+Query-time twin: the ndarray cascade (Belichtungsmesser bands, early exit) and
+bgz-tensor's HHTL cache (95% of pairs skipped) are the SAME foveation principle
+applied at read time — build-time depth where dense, query-time attention where
+relevant. One principle, both sides of the store.
+
+**D-PG-7 (Queued):** deterministic tree-builder bootstrap — partition class
+fingerprints (CLAM-style pole-split, 16-way, capacity θ) → NiblePath
+assignments → `register_class_path` batch; property tests: (a) two runs over
+permuted input yield byte-identical trees, (b) append of M new classes leaves
+all prior paths unchanged, (c) depth distribution tracks density (foveation
+witness). Gated on D-PG-1 (the codec the paths feed).
