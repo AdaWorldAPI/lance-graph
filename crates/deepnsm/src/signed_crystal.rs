@@ -396,9 +396,10 @@ pub fn crystal_from_frame_context(
 
 /// Derive the basin hop delta from two consecutive `Cam64` locality codes.
 ///
-/// Uses the `continues_basin` predicate: if the transition continues the
-/// prior basin, delta = 0; otherwise delta = +1 (or overflow if repeated
-/// basin-breaks exceed the signed range).
+/// Returns a single-transition delta: `0` if `curr.continues_basin(prev)`,
+/// else `1`. It does **not** accumulate or detect overflow — the caller sums
+/// deltas across a sentence chain and maps the running total onto
+/// `SignedOffset4`, which saturates to `OVERFLOW` outside −7..=+7.
 pub fn basin_delta_from_cam(prev: Cam64, curr: Cam64) -> i8 {
     if curr.continues_basin(prev) { 0 } else { 1 }
 }

@@ -78,10 +78,14 @@ impl MorphFlags {
     /// Derive heuristic morph flags from a parsed sentence and triple index.
     ///
     /// V1 heuristics (deterministic, no learned parameters):
-    /// - negation list → NEGATED
-    /// - temporal marker → PAST (most temporal clauses are past events)
-    /// - modal present (no temporal) → FUTURE
-    /// - neither → PRESENT + THIRD_PERSON + SINGULAR (English default)
+    /// - negation list → `NEGATED`
+    /// - temporal marker → `PAST` + `THIRD_PERSON` + `SINGULAR`
+    /// - neither → `PRESENT` + `THIRD_PERSON` + `SINGULAR` (English default)
+    ///
+    /// This v1 pass only ever sets the flags above. `FUTURE`, `PLURAL`,
+    /// `FIRST_PERSON`, `SECOND_PERSON`, `PASSIVE`, `INTERROGATIVE`,
+    /// `RELATIVE_CLAUSE`, `INFINITIVE`, and `SUBORDINATE` are never derived here;
+    /// they require a dedicated morphology pass or an explicit `set()` by the caller.
     pub fn from_sentence_structure(s: &SentenceStructure, triple_idx: usize) -> Self {
         let mut flags = Self::default();
 

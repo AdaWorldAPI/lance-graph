@@ -27,8 +27,11 @@ use crate::morphology::MorphFlags;
 use crate::pos::PoS;
 
 /// Sentinel: "no role / unresolved" for 12-bit vocabulary ranks.
-/// Mirrors `spo::NO_ROLE`.
-pub const NO_ROLE: u16 = 0xFFF;
+///
+/// Re-exported from `crate::spo` so there is a single canonical `0xFFF`
+/// definition — removes the drift risk of two independent constants. Existing
+/// `use crate::episodic_spo::NO_ROLE` imports keep working unchanged.
+pub use crate::spo::NO_ROLE;
 
 // ── Role classification enums ─────────────────────────────────────────────
 
@@ -171,12 +174,17 @@ impl EpisodicSpoFrame {
 
     /// Classification relative to an existing basin.
     ///
-    /// V1 heuristic based on novelty and entropy values:
+    /// V1 heuristic over novelty, entropy, confidence, and wisdom:
     /// - high novelty + low entropy → `Epiphany`
-    /// - high novelty + high entropy → `NoveltyDelta`
-    /// - low novelty, frame matches basin topic → `Reinforcement`
-    /// - low novelty, but frame contradicts → `Contradiction`
-    /// - otherwise → `Extension`
+    /// - high novelty (high entropy) → `NoveltyDelta`
+    /// - low confidence → `Contradiction`
+    /// - high wisdom → `WisdomDelta`
+    /// - otherwise → `Reinforcement`
+    ///
+    /// `BasinClassification::Branch` is intentionally never produced here: a
+    /// per-frame heuristic cannot see the parallel narrative line that defines a
+    /// branch. It is reserved for the cross-frame basin tracker, which assigns it
+    /// when a frame opens a divergent story arc.
     pub fn basin_classification(&self) -> BasinClassification {
         let high_novelty = self.novelty > 0.7;
         let low_entropy  = self.entropy  < 0.3;

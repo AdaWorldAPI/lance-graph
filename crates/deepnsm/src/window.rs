@@ -184,7 +184,9 @@ impl SentenceWindow {
         self.expected_count = 0;
     }
 
-    /// Iterate the active expectation slots (most-recently-pushed first).
+    /// Return the active expectation slots as a slice, in push order (FIFO —
+    /// oldest first). `resolve_pronoun` iterates this in reverse so the
+    /// most-recently-pushed expectation wins.
     pub fn iter_expected(&self) -> &[ExpectedSlot] {
         &self.expected[..self.expected_count]
     }

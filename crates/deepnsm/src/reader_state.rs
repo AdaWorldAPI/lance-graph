@@ -65,7 +65,10 @@ pub enum LeftCornerTrigger {
     /// First-person subject ("I", "we") → agent-perspective frame.
     FirstPerson,
     /// Domain-specific trigger from caller (e.g. "invoice" → business-document frame).
-    Domain(u8), // caller-supplied domain tag (0-255)
+    /// Note: `basin_byte()` reserves bit 7 as the domain marker and keeps only the
+    /// low 7 bits of the tag (`0x80 | tag & 0x7F`), so distinct tags must differ in
+    /// bits 0-6 (0..=127) to map to distinct basin bytes.
+    Domain(u8),
 }
 
 impl LeftCornerTrigger {

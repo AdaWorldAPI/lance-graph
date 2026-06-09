@@ -41,7 +41,7 @@ The one-line description:
 
 ## Architecture: five distinct responsibilities
 
-```
+```text
 SentenceStructure (from parser)
   + SentenceFeatures (caller-supplied annotations)
         │
@@ -235,7 +235,7 @@ path from an `EpisodicSpoFrame`. The name is honest in its own docs:
 
 ## Float boundary policy
 
-```
+```text
 HOT PATH — zero floats:
   P64, Cam4096, Crystal4096, SignedOffset4
   MorphFlags, Cam64, SentenceWindow
@@ -270,7 +270,7 @@ FORBIDDEN INTERNAL PATH (absent by omission):
 
 ## Relationship to holograph
 
-```
+```text
 DeepNSM (this PR):
   local 64-bit reading-state code
   P64 / CAM4096 / Crystal4096 discrete palette
@@ -320,7 +320,7 @@ The same three-layer split (semantics / syntax / pragmatics) carries into the
 OGAR → SurrealQL/DLL/AST adapter, with a domain role rather than a linguistic
 one:
 
-```
+```text
 OGAR semantics    = what business/domain thing is this?   (ClassId/PredicateId/ActionId)
 SurrealQL/DLL/AST = how is it represented/executed?        (AstNodeId/DllSymbolId/TemplateId)
 planner pragmatics= what may this actor do with it now?    (ActorId/V_ref/HorizonPolarity/PolicyId)

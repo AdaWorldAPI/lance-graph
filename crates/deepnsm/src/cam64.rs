@@ -119,6 +119,10 @@ impl Cam64 {
 
         // Lanes 3-4: split MorphFlags across two bytes.
         let morph_bits    = morph.bits();
+        // MorphFlags is defined over bits 0-13 (bits 14-15 spare; see morphology.rs).
+        // clause_lane below carries bits 8-15, so a future flag at bit 14/15 would
+        // land there with no defined meaning — guard the invariant in debug builds.
+        debug_assert!(morph_bits <= 0x3FFF, "MorphFlags bit 14/15 set — cam64 clause lane has no slot for it");
         let morph_lane    = (morph_bits & 0xFF) as u8;
         let clause_lane   = ((morph_bits >> 8) & 0xFF) as u8;
 
@@ -126,7 +130,8 @@ impl Cam64 {
         let depth_clamped = entity_stack_depth.min(127);
         let discourse_lane = depth_clamped | if coreference_resolved { 0x80 } else { 0 };
 
-        // Lane 6: causal/temporal — bit 0 = temporal marker present.
+        // Lane 6: causal/temporal — bit 0 = temporal marker present (v1;
+        // causal/conditional markers in bits 1-7 reserved for v2).
         let causal_lane   = if has_temporal { 0x01u8 } else { 0x00 };
 
         // Lane 7: basin — bit 0 = novelty_high (v1 placeholder; epiphany/wisdom baked in v2).

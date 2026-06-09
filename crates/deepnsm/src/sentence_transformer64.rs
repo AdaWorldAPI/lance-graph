@@ -441,6 +441,11 @@ impl SmallNeighbourhood {
     /// Number of neighbours (including centre).
     pub fn len(&self) -> usize { self.len }
 
+    /// True if the neighbourhood holds no cells. After `splat_p64` the centre is
+    /// always present (so this is `false` there); provided to satisfy the
+    /// `len_without_is_empty` contract for general callers.
+    pub fn is_empty(&self) -> bool { self.len == 0 }
+
     /// True if only the centre is present.
     pub fn is_singleton(&self) -> bool { self.len == 1 }
 }
