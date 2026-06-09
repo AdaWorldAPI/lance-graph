@@ -1,3 +1,19 @@
+## 2026-06-09 — polyglot-container-query-membrane-v1 (Node Container answers Cypher + SurrealQL AST + DataFusion UDF over one HHTL address space; mailbox = a normal cold path)
+
+**Status:** RESEARCH MAP + PLAN. Grounded by two parallel sweeps (lance-graph + surrealdb fork) with main-thread spot-verification; one agent claim caught false (SoaEnvelope has ZERO real impls — identity N3 stands live). **Plan file:** `.claude/plans/polyglot-container-query-membrane-v1.md`.
+**Owns:** 6 deliverables D-PG-1..6.
+- D-PG-1: `addr64 = path << 4·(16−depth)` codec + order-preservation property test (subtree ⇔ contiguous range ⇔ `is_ancestor_of`) — the falsifiable first brick
+- D-PG-2: `SoaEnvelope` impl for `MailboxSoA<N>` (= identity-plan N3) + LE parity test
+- D-PG-3: read-only mailbox `Transactable` adapter (get/keys/keysr/scan/scanr over phase-pinned snapshot) + hot==cold differential test
+- D-PG-4: `SurrealqlParse` strategy → ArenaIR (frontend #5, same slot as sparql_parse)
+- D-PG-5: DDL ⇄ registry bridge (DEFINE TABLE/FIELD ⇄ dedup-by-URI mint + MappingRow/FieldMask; C16b builders as exchange format)
+- D-PG-6 (optional): `surreal_container` unblock → Rubicon kanban VIEW over leading LanceDB (ruling-compliant; off critical path)
+**Key findings:** surrealdb fork keys are storekey-encoded (order-preserving, arrays included) and record-ranges lower to native KV byte-range scans (`stream_keys_vals`, pipeline.rs:223); kv-lance is FULLY implemented in-tree (18/19 Transactable methods + MVCC/timeline) — `surreal_container` BLOCKED(C/D) is stale; the fork's typed `surrealdb-ast` crate + C16b DDL builders (`new_for_ddl` → `ToSql`, database-free) are the AST-adapter surface.
+**Ruling respected:** LanceDB leads; SurrealDB is a view/dialect (handover 2026-05-28 §2, E-RUBICON-RACTOR).
+**Companion plans:** `identity-architecture-exists-vs-needs-v1` (addresses), `bindspace-singleton-to-mailbox-soa-v1` (mailbox, #418).
+
+---
+
 ## 2026-06-07 — singleton-to-snapshot-nudge-v1 (workspace-wide audit: every shared-mutable singleton → per-owner MailboxSoA + Arc-swap COW snapshot; read-only codebooks explicitly left as-is)
 
 **Status:** PROPOSAL. Design-spec + audit only, no code beyond the AttentionMatrix correctness fix. **Plan file:** `.claude/plans/singleton-to-snapshot-nudge-v1.md`.
