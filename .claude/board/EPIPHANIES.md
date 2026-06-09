@@ -1,3 +1,21 @@
+## 2026-06-09 — E-ANCESTRY-TRINITY-1 — NiblePath::is_ancestor_of is ONE bit-shift read three ways: subClassOf = supervision-edge = north-star template specialization
+
+**Status:** FINDING (cross-session convergence — OGAR/SurrealDB session + identity-contract session, independently)
+**Confidence:** High
+
+**The convergence.** A parallel CCA2A session (OGAR / nexgen op-surreal-ast / SurrealDB RecordId) pulled #480 and independently re-derived the OGAR↔lance-graph membrane as **"the registry mint of `(entity_type, NiblePath)` per class"** — exactly DECISION-2 (OGAR mirror) committed from this side in #481. Two sessions, opposite directions, same membrane.
+
+**The new synthesis it surfaces:** `NiblePath::is_ancestor_of` (a single HHTL bit-shift on the GUID routing prefix) is simultaneously THREE relations:
+- **OWL `subClassOf`** (ontology inheritance) — OGAR-AST-CONTRACT §1.
+- **OTP supervision edge** (ractor parent-routing / delegation through `OrchestrationBridge`) — the other session's "supervisor-edge is now [G] mechanical" finding.
+- **North-star template specialization** (a domain class descends from its shared template) — E-OGAR-NORTHSTAR-1.
+
+They are the SAME relation: the north-star template hierarchy IS the routing/supervision hierarchy IS the subClass hierarchy — one bit-shift, three names. Consequence: reusing a template (inherit + switch namespace), being-supervised-by, and being-a-subclass-of are the same arithmetic; there is no separate routing structure to maintain.
+
+**Coordination:** the OGAR session is on #480 (Phase A); #481 carries the OGAR-side answer it needs — OGAR = OGIT mirror, immutable ClassIds, north-star spine, `namespace`=domain. Its proposed `D-IDENT` paired-note + `D-IDENTITY-PIN` should absorb the `namespace`=domain + north-star framing on next pull.
+
+**Cross-ref:** E-OGAR-NORTHSTAR-1; E-IDENTITY-WHITEBOX-1; identity-architecture DECISION-2 + north-star guard; `hhtl.rs::is_ancestor_of`.
+
 ## 2026-06-09 — E-OGAR-NORTHSTAR-1 — ontology cache = OGAR mirror with a reusable north-star template spine (namespace specializes, entity_type is shared)
 
 **Status:** DECISION (OGAR mirror RATIFIED via decision-gate; north-star template model = recommended organizing principle, realized by existing substrate)
