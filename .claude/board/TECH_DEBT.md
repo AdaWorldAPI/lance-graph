@@ -2649,3 +2649,16 @@ files; 217 tests green. Fixes are hand-applied (NOT `clippy --fix`, which mangle
 `reader_state.rs` into stranded-comment match guards). The CI clippy step for
 deepnsm was promoted Tier-B advisory → Tier-A gating in
 `.github/workflows/style.yml`.
+
+## TD-PAIRTABLE-1 — entity_type↔NiblePath pair table is in-memory only
+**Status:** Open (2026-06-09, D-IDENTITY-2)
+
+The `path_by_type` / `type_by_path` bijection tables on `RegistryState`
+(registry.rs) are NOT persisted to the Lance cache. `absorb_row` (the
+`OntologyRegistry::open` replay path) reconstructs `rows` + the by-name/by-uri
+indices but leaves the pair tables empty; callers must re-`register_class_path`
+after hydration (the OGAR/hydrator seed step does this). Persisting the pairs
+(two extra Lance columns, or derive from a NiblePath column on MappingRow) is
+the Paid state. Low risk: dedup itself survives replay (the deduped
+`entity_type` is baked into each persisted `schema_ptr`); only the path
+bijection needs re-seeding. Pair: D-IDENTITY-4.

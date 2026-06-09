@@ -9,7 +9,10 @@
 //! ```text
 //! SchemaPtr (u32):
 //!   bits 31..24 : namespace_id  (u8)
-//!   bits 23..8  : entity_type_id (u16, dense within the namespace)
+//!   bits 23..8  : entity_type_id (u16, GLOBAL template id — DECISION-3:
+//!                 append-order minted across ALL namespaces, shared by
+//!                 every mapping of the same canonical class; monotone,
+//!                 never renumbered, gaps allowed)
 //!   bits  7..0  : kind discriminant (u8)  — Entity / Edge / Attribute
 //! ```
 //!
@@ -103,7 +106,10 @@ impl std::fmt::Display for OgitUri {
 /// Packed schema pointer. Returned from
 /// [`crate::OntologyRegistry::resolve`]. The hot path consumer pattern is
 /// to compare the `namespace_id()` against the bridge's lock and then use
-/// the `entity_type_id()` as the dense local index.
+/// the `entity_type_id()` as the GLOBAL template id (DECISION-3: one id
+/// per canonical class, shared across namespaces — `(namespace_id,
+/// entity_type_id)` = (domain, shared shape); cross-domain alignment is a
+/// u16 compare).
 ///
 /// Carries an `ontology_context_id: u32` (the named-graph context per
 /// `lance-graph-rdf-fma-snomed-v1.md` §Core types and the
