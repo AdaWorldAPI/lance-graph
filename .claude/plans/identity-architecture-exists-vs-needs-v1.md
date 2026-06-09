@@ -175,7 +175,7 @@ content), never VSA-bundled.
 | Phase | Gap | Crate | Deliverable | DoD | Dep |
 |---|---|---|---|---|---|
 | **A** | N1 | contract | `NodeGuid`/`EdgeGuid` as composition of existing fields + layout version | byte-decompose round-trips to `SchemaPtr`/`NiblePath`/`StructuralSignature`/`local`; UUIDv8 validates; zero-dep; clippy/fmt | — |
-| **B** | N2 | ontology | wire `StructuralSignature` → `RegistryClassView` (enumerate field-set from `MappingRow`) | `shape_hash(class_id)` returns a stable signature; the deferred D-CLS field-enum closed | A |
+| **B** | N2 | ontology (OGAR) | OGAR = one-way OGIT mirror; mint **immutable append-only ClassIds** over a shared **north-star template spine** (DOLCE-rooted shapes reused across domains via `namespace` + `FieldMask` inherit/delta); seed `entity_type ↔ NiblePath` from it; wire `StructuralSignature` → `RegistryClassView` | bijection round-trips at build time; `shape_hash(class_id)` stable; ClassId never renumbers (protobuf-field-number discipline); D-CLS field-enum closed | A |
 | **C** | N3 | shader-driver | `impl SoaEnvelope for MailboxSoA<N>` (zero-copy) | `as_le_bytes().as_ptr()==backing`; `verify_layout()` green | — |
 | **D** | N4 | lance-graph | cognitive-write `TripletProjection` + `roundtrip_eq` over the identity graph | passes the `account.move` fixture; corrupt-pack fails; (f,c) within 1/1023 | A, C |
 | **E** | N5 | callcenter | `project_graph` (node/edge emitter) through `commit_event`+gate | committed cycle queryable as `NodeGuid` nodes + `EdgeGuid` edges; version ticks; RBAC applies | A, D |
@@ -200,6 +200,18 @@ content), never VSA-bundled.
 - **[DECISION] RESOLVED (Phase A):** carry BOTH — `entity_type:u16` is the exact
   canonical class; the `NiblePath` prefix is the bijective *derived* routing view
   (full statement in the "DECISION — RESOLVED" block above). Landed in `NodeGuid`.
+- **[DECISION-2] RATIFIED (2026-06-09):** the ontology cache's home is **OGAR**,
+  a *one-way mirror of OGIT* (+ OWL / Wikidata class-backbone / HHTL) with an
+  **append-only immutable ClassId** space — chosen for **ownership + dissolving
+  the upstream dependency**, NOT as a drift fix (drift is already contained by
+  map-as-source; see the guard below). The ClassId space is organized as a
+  **shared north-star template spine**: `entity_type`/`NiblePath` is the DOLCE-
+  rooted *shape* (small, reused across every domain); `namespace:u8` selects the
+  domain (healthcare / Odoo / WoA-rs / OpenProject-nexgen-rs / OWL / Wikidata).
+  Domains REUSE a template by default (switch `namespace`, inherit the field-set);
+  specialize only via `NiblePath` descent + `FieldMask` delta; mint a new ClassId
+  only for a genuinely novel shape. The surrealdb-coords blocker (N8/Phase H) is
+  unrelated and remains.
 
 ## Guards (iron rules this plan must not violate)
 
@@ -216,6 +228,19 @@ content), never VSA-bundled.
   `NodeGuid` guards. ⇒ the registry MUST treat the authoritative ontology as its
   mapped source (the Phase B bijection is *seeded from* that source, never from a
   hand-filled cache).
+- **North-star templates — reuse is the default, mint-new is the exception.**
+  `entity_type`/`NiblePath` is a *shared* DOLCE-rooted shape spine: the same
+  template ClassId is reused across domains, disambiguated by `namespace:u8`.
+  Reuse via `FieldMask` inherit (parent-OR-delta) where a domain shape aligns;
+  `NiblePath`-descent + delta where it specializes; a new template ClassId ONLY
+  for a genuinely novel shape. DRY-frugal (the shape codebook / `shape_hash` is
+  encoded once, reused 256 ways; cross-domain alignment is free — same
+  `entity_type` ⇒ same shape) AND composes with immutability — reusable templates
+  ARE the immutable spine, not a relaxation of it. Reuse ≠ drift: sharing a
+  template across domains is intended, not the cache-provenance drift surface.
+  NB: the *mechanism* (octet split + inherit/delta + ancestry + `dolce_category_id`)
+  exists today; the *content* (the curated template ontology + domain→template
+  mappings) is the OGAR / Phase B build.
 - **Compose, don't parallel (Agent A #2):** N1 MUST subsume `SchemaPtr` +
   `EdgeRef`, not re-pack ns/class/family beside them.
 - **I-LEGACY-API-FEATURE-GATED:** N6's string→identity layout reclaim needs a

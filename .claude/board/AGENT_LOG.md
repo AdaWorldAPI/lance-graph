@@ -1,3 +1,7 @@
+## 2026-06-09 — D-IDENTITY decisions: OGAR mirror (ratified) + north-star template model
+
+**Main thread (Opus).** Recorded two architecture decisions for the identity arc (no code; plan + epiphany): (1) ontology cache = OGAR one-way OGIT mirror, append-only immutable ClassIds (ratified via decision-gate) — ownership, not drift-prevention; (2) ClassId space organized as a shared north-star template spine (`entity_type`/`NiblePath` = DOLCE-rooted shape reused across domains; `namespace` = domain), realized by the existing octet split + FieldMask inherit/delta + NiblePath ancestry. Plan: identity-architecture DECISION-2 + north-star guard + Phase B refinement. Epiphany: E-OGAR-NORTHSTAR-1. Rides in PR #481.
+
 ## 2026-06-09 — D-IDENTITY-1 review-fix (#480 CodeRabbit) + CI badges
 
 **Follow-up PR** off merged `main`. Addressed CodeRabbit #480: `from_packed` edge-case test (depth>MAX, high-bit reject, `(0,0)` sentinel, MAX_DEPTH `>>64`-guard boundary, `packed∘from_packed` identity); stale "open DECISION" line → RESOLVED; AGENT_LOG SHA (`947c1e4`); MD040/MD058 in the two plan docs. **Skipped** MD028 (LATEST_STATE) — the blank-between-entries IS the append-only style. Added the **no-content-drift-for-existing** invariant to the plan (sole drift surface = ontology cache not mapped from its authoritative source). Native CI badges (rust-test/style/build) → README. 600 contract lib tests (+1), clippy/fmt clean.

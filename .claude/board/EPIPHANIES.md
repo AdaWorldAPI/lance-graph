@@ -1,3 +1,22 @@
+## 2026-06-09 — E-OGAR-NORTHSTAR-1 — ontology cache = OGAR mirror with a reusable north-star template spine (namespace specializes, entity_type is shared)
+
+**Status:** DECISION (OGAR mirror RATIFIED via decision-gate; north-star template model = recommended organizing principle, realized by existing substrate)
+**Confidence:** High (OGAR mirror) / Medium-High (north-star model — strongly aligned, pending first OGAR build)
+
+**Two decisions, one architecture.**
+
+(1) **OGAR mirror (ratified).** The ontology cache's source of truth is OGAR — a one-way mirror of OGIT (+ OWL / Wikidata class-backbone / HHTL) with an append-only immutable ClassId space (protobuf-field-number discipline: mint once, never renumber, tombstone deprecations). Chosen for OWNERSHIP + dissolving the upstream dependency — and, pre-production, immutable ClassIds upgrade NodeGuid from "stable within an OGIT version" to "stable forever." Explicitly NOT a drift fix: content-drift for existing entities does not exist once the cache is mapped from a source (Stefan's correction, twice). The mirror buys ownership, not drift-immunity.
+
+(2) **North-star template spine (recommended model).** The ClassId space is NOT a flat domain×shape explosion. `entity_type`/`NiblePath` is a SHARED, DOLCE-rooted SHAPE template (small spine, reused across domains); `namespace:u8` selects the domain (healthcare / Odoo / WoA-rs / OpenProject-nexgen-rs / OWL / Wikidata). A domain reuses a template by default (switch namespace, inherit the field-set), specializes via NiblePath-descent + FieldMask delta, and mints a new ClassId only for a genuinely novel shape.
+
+**It's the intended reading of the NodeGuid octet split, not new machinery.** `namespace:u8 | entity_type:u16 | kind:u8` already separates domain from shape; `FieldMask + inherit` (parent-OR-delta, class_view.rs) already IS template-reuse-with-delta; `NiblePath::is_ancestor_of` already IS template→specialization ancestry; `dolce_category_id` already roots the spine. The mechanism exists; the curated template ontology + domain→template mappings are the OGAR / Phase B content.
+
+**Frugality is double:** (a) the ClassId space is shape-sized (templates), not domain×shape-sized — fits u16 with room; (b) the shape codebook / palette / shape_hash is encoded ONCE per template and shared 256 ways, and cross-domain alignment is free (same entity_type ⇒ same shape). Reusable templates compose WITH immutability (they ARE the immutable spine) — frugality and stability reinforce, they don't trade off. Per-domain precision is preserved by the FieldMask delta, so "lazy" here is DRY, not sloppy; the only real cost is curation (the template boundaries), which is OGAR's editorial job.
+
+**Phase B becomes:** stand up OGAR as the OGIT mirror + north-star template registry; seed entity_type↔NiblePath from it; the build-time round-trip proves the bijection. The surrealdb-coords blocker (N8 / Phase H) is unrelated and remains.
+
+**Cross-ref:** identity-architecture plan DECISION-2 + the north-star guard; E-IDENTITY-WHITEBOX-1 (NodeGuid composition); I-VSA-IDENTITIES (closed template vocabulary interns; Wikidata's open instance mass stays content, never a ClassId).
+
 ## 2026-06-09 — E-IDENTITY-WHITEBOX-1 — structured identity + round-trip converts the substrate from black-box to CI-falsifiable
 
 **Status:** FINDING (Phase A landed: `identity::NodeGuid` composed, 15 tests green)
