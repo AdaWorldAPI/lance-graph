@@ -18,6 +18,10 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-C debuginfo=1 -C target-cpu=x86-64-v3"
 
+# Least-privilege: these jobs only read the repo (checkout + build + lint).
+permissions:
+  contents: read
+
 jobs:
   # Clippy runs FIRST and is mandatory — logical soundness before syntax.
   # Discipline:
