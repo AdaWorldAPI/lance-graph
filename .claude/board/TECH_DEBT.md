@@ -15,6 +15,51 @@
 
 ## Open Debt
 
+### TD-UNUSED-DEPS-MACHETE-2026-06 — member crates declare unused dependencies (2026-06-09)
+
+**Open.** `cargo-machete` sweep (debt-review session, branch
+`claude/quirky-volta-m2r6ak`, on the post-#479 main) found
+declared-but-unimported deps across workspace **members**. Highest-value:
+`crates/lance-graph` (core) declares `bgz17`, `bgz-tensor`, `lancedb`,
+`datafusion-expr` — the first three verified at **0 source references** in
+`crates/lance-graph/src/`. Also: `lance-graph-planner` (`bgz17`, `p64`,
+`p64-bridge`, `serde`, `serde_yml`), `surreal_container` (`futures`, `lance`,
+`lancedb`, `snafu`, `tokio`), `lance-graph-callcenter` (`axum`,
+`tokio-tungstenite`, `tower-http`), `lance-graph-ontology` (`arrow-array`,
+`once_cell`), `lance-graph-catalog` (`snafu`), `lance-graph-archetype` +
+`lance-graph-supervisor` (`lance-graph-contract`). **Verified FALSE POSITIVE —
+do NOT remove:** `cognitive-shader-driver` → `prost` is `optional = true` behind
+the lab-only `grpc` feature (`cognitive-shader-driver/Cargo.toml:61,82`); machete
+can't resolve feature-gated deps without `--with-metadata`. **Triage rule:** every
+hit needs a per-entry check — optional/feature-gated deps and `-src` linker
+crates are false positives. **Paid by:** remove the verified-unused deps from
+each member's `Cargo.toml` after a feature-gate check (do the core
+`bgz17`/`bgz-tensor`/`lancedb` first). Note P0 fork-policy: removing `lancedb`
+from core must not break the AdaWorldAPI-fork wiring for other crates. Cross-ref:
+`.claude/board/DEBT_REVIEW_2026-06-09.md` §3a.
+
+### TD-CLIPPY-ONTOLOGY-12 — `lance-graph-ontology` carries 12 lib clippy warnings (2026-06-09)
+
+**Open.** With `protoc` present, `cargo clippy --workspace --all-targets` is
+GREEN (exit 0) but emits 53 warnings (~38 unique). The single biggest member
+cluster is `crates/lance-graph-ontology` (12 lib + 12 dup in lib-test). The rest
+is either intentional v2-layout deprecation churn (~17, the
+`I-LEGACY-API-FEATURE-GATED` migration — leave it) or already logged
+(`TD-CLIPPY-SHADER-DRIVER`; `TD-DEEPNSM-CLIPPY-195` now **resolved** in PR #479;
+`TD-BGZ-TENSOR-5-FAILURES-330`). **Paid by:** a mechanical clippy sweep of
+`lance-graph-ontology` (no behavioral change expected). Cross-ref:
+`.claude/board/DEBT_REVIEW_2026-06-09.md` §1.
+
+### TD-ENV-PROTOC-MISSING — `cargo clippy --workspace` needs `protobuf-compiler` (2026-06-09)
+
+**Open.** From a clean environment, `cargo clippy --workspace` (and `cargo
+build`) fails with *"Could not find `protoc`"* — a transitive build dep
+(prost/tonic under the `lance` stack + the lab `grpc` feature) requires the
+protobuf compiler, which is not present by default. The debt-review session
+installed `protoc 3.21.12` to proceed. **Paid by:** ensure the CI image / dev
+bootstrap installs `protobuf-compiler` (and document it in the build prereqs).
+Cross-ref: `.claude/board/DEBT_REVIEW_2026-06-09.md` §0.
+
 ### TD-UNBUNDLE-FROM-1 — `unbundle_from` is NOT the inverse of `bundle_into` (2026-06-07)
 
 **Open.** `crates/lance-graph-planner/src/cache/kv_bundle.rs` — `unbundle_from`
