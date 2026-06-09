@@ -86,9 +86,9 @@ impl SimilarityTable {
         let mut table = [0.0f32; 256];
         let sigma = sigma.max(1.0);
 
-        for d in 0..256 {
+        for (d, slot) in table.iter_mut().enumerate() {
             let z = (d as f32 - mu) / sigma;
-            table[d] = 1.0 / (1.0 + z.exp());
+            *slot = 1.0 / (1.0 + z.exp());
         }
 
         Self { table }
@@ -144,15 +144,14 @@ impl SimilarityTable {
             return None;
         }
         let mut table = [0.0f32; 256];
-        for i in 0..256 {
+        for (i, slot) in table.iter_mut().enumerate() {
             let offset = i * 4;
-            let val = f32::from_le_bytes([
+            *slot = f32::from_le_bytes([
                 bytes[offset],
                 bytes[offset + 1],
                 bytes[offset + 2],
                 bytes[offset + 3],
             ]);
-            table[i] = val;
         }
         Some(Self { table })
     }

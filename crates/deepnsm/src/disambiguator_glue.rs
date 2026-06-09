@@ -235,7 +235,7 @@ mod tests {
     #[test]
     fn sign_binarize_truncates_oversized_bundle() {
         let mut bundle = vec![1.0_f32; BINARY16K_BITS];
-        bundle.extend(std::iter::repeat(-1.0_f32).take(100));
+        bundle.extend(std::iter::repeat_n(-1.0_f32, 100));
         let bits = sign_binarize_to_binary16k(&bundle);
         // First 16,384 bits → all-positive → all-ones.
         for &w in bits.iter() {

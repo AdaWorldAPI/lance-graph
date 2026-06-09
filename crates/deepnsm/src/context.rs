@@ -11,7 +11,7 @@
 //!
 //! O(1) per sentence update, no recomputation of previous sentences.
 
-use crate::encoder::{self, VsaVec, RoleVectors, bundle};
+use crate::encoder::{self, bundle, RoleVectors, VsaVec};
 
 /// Default context window size: ±5 sentences = 11 total.
 pub const DEFAULT_WINDOW_SIZE: usize = 11;
@@ -120,11 +120,7 @@ impl ContextWindow {
         }
 
         if self.cached_bundle.is_none() {
-            let active: Vec<VsaVec> = self
-                .buffer
-                .iter()
-                .filter_map(|slot| slot.clone())
-                .collect();
+            let active: Vec<VsaVec> = self.buffer.iter().filter_map(|slot| slot.clone()).collect();
 
             if active.is_empty() {
                 return None;
@@ -234,9 +230,9 @@ mod tests {
         let mut ctx = ContextWindow::new(5);
 
         // Add some "financial" context
-        ctx.push(VsaVec::from_rank(500));  // "money"
-        ctx.push(VsaVec::from_rank(600));  // "account"
-        ctx.push(VsaVec::from_rank(700));  // "invest"
+        ctx.push(VsaVec::from_rank(500)); // "money"
+        ctx.push(VsaVec::from_rank(600)); // "account"
+        ctx.push(VsaVec::from_rank(700)); // "invest"
 
         let plain = VsaVec::from_rank(100); // "bank"
         let disambiguated = ctx.disambiguate(100);

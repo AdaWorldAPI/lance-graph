@@ -24,8 +24,7 @@
 #![cfg(feature = "contract-ticket")]
 
 use lance_graph_contract::grammar::{
-    CausalAmbiguity, FailureTicket, NarsInference, PartialParse, TekamoloSlots,
-    WechselAmbiguity,
+    CausalAmbiguity, FailureTicket, NarsInference, PartialParse, TekamoloSlots, WechselAmbiguity,
 };
 
 /// Threshold above which `classification_distance` flags a novel domain.

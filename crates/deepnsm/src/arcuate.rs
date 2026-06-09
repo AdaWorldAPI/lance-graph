@@ -166,6 +166,9 @@ mod tests {
         }
         let result = arc.disambiguate([fp(1.0), fp(-1.0)]);
         assert_eq!(result.candidate_count, 2, "both candidates evaluated");
-        assert!(result.winner_index < 2, "a real winner over the ±5 evidence");
+        assert!(
+            result.winner_index < 2,
+            "a real winner over the ±5 evidence"
+        );
     }
 }

@@ -75,16 +75,15 @@ impl Codebook {
             .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
 
         // Simple JSON parsing for the arrays we need
-        let mean = extract_f32_array(&content, "\"mean\"")
-            .ok_or("Failed to extract mean array")?;
-        let std_vals = extract_f32_array(&content, "\"std\"")
-            .ok_or("Failed to extract std array")?;
-        let centroids = extract_codebook_array(&content)
-            .ok_or("Failed to extract codebook array")?;
+        let mean = extract_f32_array(&content, "\"mean\"").ok_or("Failed to extract mean array")?;
+        let std_vals =
+            extract_f32_array(&content, "\"std\"").ok_or("Failed to extract std array")?;
+        let centroids =
+            extract_codebook_array(&content).ok_or("Failed to extract codebook array")?;
 
         Ok(Codebook {
             centroids,
-            mean: mean,
+            mean,
             std: std_vals,
         })
     }
@@ -154,6 +153,11 @@ impl Codebook {
     /// Number of centroids loaded.
     pub fn len(&self) -> usize {
         self.centroids.len() / SUB_DIM
+    }
+
+    /// True if no centroids are loaded.
+    pub fn is_empty(&self) -> bool {
+        self.centroids.is_empty()
     }
 }
 

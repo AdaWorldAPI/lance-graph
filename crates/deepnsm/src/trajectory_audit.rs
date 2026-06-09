@@ -43,7 +43,10 @@ impl Trajectory {
 /// Hamming distance between two trajectory hashes — how grammatically
 /// similar two queries / sentences are.
 pub fn trajectory_distance(a: &TrajectoryHash, b: &TrajectoryHash) -> u32 {
-    a.iter().zip(b.iter()).map(|(x, y)| (x ^ y).count_ones()).sum()
+    a.iter()
+        .zip(b.iter())
+        .map(|(x, y)| (x ^ y).count_ones())
+        .sum()
 }
 
 /// Threshold for "grammatically similar" — used by the audit log to flag

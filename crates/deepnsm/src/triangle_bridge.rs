@@ -14,9 +14,7 @@ use crate::parser::SentenceStructure;
 use crate::spo::{SpoTriple, NO_ROLE};
 
 #[cfg(feature = "grammar-triangle")]
-use lance_graph_cognitive::grammar::{
-    CausalityFlow, GrammarTriangle, NSMField, QualiaField,
-};
+use lance_graph_cognitive::grammar::{CausalityFlow, GrammarTriangle, NSMField, QualiaField};
 
 /// Merged output: DeepNSM SPO triples + Triangle's three lenses.
 ///
@@ -78,8 +76,16 @@ pub struct SpoWithGrammar {
 /// so downstream consumers can cast directly.
 #[inline]
 pub fn compute_pearl_mask(triple: &SpoTriple) -> u8 {
-    let s_bit = if triple.subject() != NO_ROLE { 0b100 } else { 0 };
-    let p_bit = if triple.predicate() != NO_ROLE { 0b010 } else { 0 };
+    let s_bit = if triple.subject() != NO_ROLE {
+        0b100
+    } else {
+        0
+    };
+    let p_bit = if triple.predicate() != NO_ROLE {
+        0b010
+    } else {
+        0
+    };
     let o_bit = if triple.object() != NO_ROLE { 0b001 } else { 0 };
     s_bit | p_bit | o_bit
 }
@@ -213,9 +219,15 @@ fn expected_qualia_footprint(structure: &SentenceStructure) -> Vec<u64> {
     // Map Pearl mask bits (S=bit2, P=bit1, O=bit0) to qualia dimension
     // bits (dim0=Agency<-S, dim1=Activity<-P, dim2=Affection<-O).
     let mut packed: u64 = 0;
-    if pearl & 0b100 != 0 { packed |= 1u64 << 0; } // S -> dim 0 (Agency)
-    if pearl & 0b010 != 0 { packed |= 1u64 << 1; } // P -> dim 1 (Activity)
-    if pearl & 0b001 != 0 { packed |= 1u64 << 2; } // O -> dim 2 (Affection)
+    if pearl & 0b100 != 0 {
+        packed |= 1u64 << 0;
+    } // S -> dim 0 (Agency)
+    if pearl & 0b010 != 0 {
+        packed |= 1u64 << 1;
+    } // P -> dim 1 (Activity)
+    if pearl & 0b001 != 0 {
+        packed |= 1u64 << 2;
+    } // O -> dim 2 (Affection)
     vec![packed]
 }
 
@@ -351,8 +363,8 @@ mod tests {
     #[test]
     fn same_subject_same_mask_different_predicates_distinguishable() {
         // "dog bites man" vs "dog loves man" -- same mask (0b111), different predicate
-        let s_a = fixture_structure_with(671, 2943, 95);  // bites
-        let s_b = fixture_structure_with(671, 500, 95);    // loves
+        let s_a = fixture_structure_with(671, 2943, 95); // bites
+        let s_b = fixture_structure_with(671, 500, 95); // loves
 
         let out_a = analyze_without_triangle(s_a);
         let out_b = analyze_without_triangle(s_b);

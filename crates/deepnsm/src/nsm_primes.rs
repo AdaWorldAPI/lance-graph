@@ -38,10 +38,8 @@ pub static NSM_PRIME_IDS: LazyLock<HashSet<u16>> = LazyLock::new(|| {
     // mapping is available).
     for id in [
         // Pronouns + demonstratives (rank 0..30 in COCA)
-        2, 4, 8, 12, 14, 18, 22, 26, 28,
-        // Common NSM-mapped function words (rank 30..200)
-        35, 45, 58, 67, 73, 89, 102, 117, 134, 158, 192,
-        // Mental predicates
+        2, 4, 8, 12, 14, 18, 22, 26, 28, // Common NSM-mapped function words (rank 30..200)
+        35, 45, 58, 67, 73, 89, 102, 117, 134, 158, 192, // Mental predicates
         201, 233, 287, 309, 354,
     ] {
         s.insert(id as u16);
@@ -58,7 +56,9 @@ pub fn is_nsm_prime(token_id: u16) -> bool {
 pub fn count_primes(tokens: impl Iterator<Item = u16>) -> u8 {
     let mut n: u8 = 0;
     for t in tokens {
-        if is_nsm_prime(t) { n = n.saturating_add(1); }
+        if is_nsm_prime(t) {
+            n = n.saturating_add(1);
+        }
     }
     n
 }
@@ -70,12 +70,12 @@ mod tests {
     #[test]
     fn primes_set_is_nonempty_and_bounded() {
         assert!(!NSM_PRIME_IDS.is_empty());
-        assert!(NSM_PRIME_IDS.len() <= 65);  // Wierzbicka's count
+        assert!(NSM_PRIME_IDS.len() <= 65); // Wierzbicka's count
     }
 
     #[test]
     fn count_primes_saturates_at_255() {
-        let many = std::iter::repeat(*NSM_PRIME_IDS.iter().next().unwrap()).take(1000);
+        let many = std::iter::repeat_n(*NSM_PRIME_IDS.iter().next().unwrap(), 1000);
         assert_eq!(count_primes(many), 255);
     }
 

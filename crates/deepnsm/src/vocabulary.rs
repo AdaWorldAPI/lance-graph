@@ -350,7 +350,9 @@ fn split_words(text: &str) -> Vec<String> {
                 let rest: String = chars[i..].iter().take(4).collect();
                 let rest_lower = rest.to_lowercase();
 
-                if current.ends_with('n') && (rest_lower.starts_with("'t") || rest_lower.starts_with("\u{2019}t")) {
+                if current.ends_with('n')
+                    && (rest_lower.starts_with("'t") || rest_lower.starts_with("\u{2019}t"))
+                {
                     // "don't" → push "do", then "n't"
                     // Pop the 'n' from current before pushing
                     current.pop();
@@ -379,8 +381,10 @@ fn split_words(text: &str) -> Vec<String> {
                     while end < len && chars[end].is_alphabetic() {
                         end += 1;
                     }
-                    let contraction: String =
-                        chars[i..end].iter().map(|c| c.to_lowercase().next().unwrap_or(*c)).collect();
+                    let contraction: String = chars[i..end]
+                        .iter()
+                        .map(|c| c.to_lowercase().next().unwrap_or(*c))
+                        .collect();
                     words.push(contraction);
                     i = end;
                 } else {
@@ -416,7 +420,10 @@ fn split_words(text: &str) -> Vec<String> {
 /// Strip common English suffixes for fallback resolution.
 fn strip_suffix(word: &str) -> &str {
     // Order matters: try longest suffixes first
-    for suffix in &["ing", "tion", "sion", "ness", "ment", "ous", "ive", "ful", "less", "ly", "ed", "er", "est", "es", "s"] {
+    for suffix in &[
+        "ing", "tion", "sion", "ness", "ment", "ous", "ive", "ful", "less", "ly", "ed", "er",
+        "est", "es", "s",
+    ] {
         if word.len() > suffix.len() + 2 && word.ends_with(suffix) {
             return &word[..word.len() - suffix.len()];
         }
