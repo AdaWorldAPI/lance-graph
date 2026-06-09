@@ -186,6 +186,38 @@ content), never VSA-bundled.
 **Critical path:** A → (B, C) → D → E → F. G hangs off A (parallel). H is gated.
 **Smallest unblocked first brick:** Phase A (the `NodeGuid` composition, zero-dep contract) OR Phase C (the `SoaEnvelope` impl) — both leaf, both needed by D.
 
+### Phase B — grounded mint seam (2026-06-09, frugal north-star)
+
+Reading the live surfaces confirmed the frugal model *finishes what's there*, not a rewrite:
+
+- **Two `entity_type` worlds today.** `contract/ontology.rs:85 entity_type_id()` is a
+  **1-based positional index** into `Ontology.schemas` (`Customer→1, Invoice→2 …`; test
+  `entity_type_id_returns_1_based_index`) — **mutable**: insert/reorder a schema and every
+  id renumbers. The legacy anti-pattern, in our own code. The **`OntologyRegistry`**
+  (`lance-graph-ontology/registry.rs`) is **append-only** (`RegistryState::append`,
+  "no rebuild per append") — the correct immutable home and the OGAR-mirror foundation.
+- **The registry already leans frugal.** `enumerate_first_with_entity_type_id(u16)` returns
+  the *first* row with that id ⇒ **N `MappingRow`s → 1 `entity_type`** is already legal:
+  one template, reused across namespaces/URIs. North-star is half-built.
+
+**Four frugal moves (each a landable brick):**
+1. **Mint in the append-only registry, deduped by template.** `entity_type` is assigned by
+   append order (immutable; OGAR seeds it one-way from OGIT → ids frozen, protobuf-field-
+   number discipline), and a shape mints ONCE — domains reuse it by appending a row with a
+   new `namespace`, same `entity_type`. That IS the frugality (one shape codebook, 256-way
+   `namespace` reuse; cross-domain alignment is a u16 compare).
+2. **Pair `entity_type ↔ NiblePath` at mint.** The registry mints the bijective pair;
+   `niblepath_of(entity_type)` stable.
+3. **Build-time round-trip test.** `entity_type_of(niblepath_of(et)) == et` both ways over
+   the seeded spine ⇒ eineindeutigkeit becomes CI-falsifiable (closes DECISION-2 enforcement
+   (a)+(b)).
+4. **Feature-gate the legacy positional `ontology.rs::entity_type_id`** per
+   I-LEGACY-API-FEATURE-GATED — route through the registry or gate to a documented
+   non-canonical path; no-renumber / field-isolation test mandatory.
+
+**First brick:** moves 1+2+3 together (mint + pairing + round-trip); the legacy-gate (4)
+follows once nothing canonical reads the positional helper.
+
 ## Honest ledger
 
 - **[G] (exists, reuse):** all 6 layers above — `NiblePath`, `SchemaPtr`, `ClassId`,
