@@ -1,3 +1,18 @@
+## 2026-06-09 — E-MINT-TRACE-1 — the live mint is already global (registry.rs:476); the "namespace-local" doc is stale; dedup is net-new; the bijection IS the dedup
+
+**Status:** FINDING (traced, ratified: `entity_type` = global shared template id)
+**Confidence:** High (read the mint, not the doc comment)
+
+**Trace before change paid twice.** (1) `namespace.rs:12` documents `entity_type_id` as "dense **within the namespace**" — but the actual mint is `registry.rs:476 entity_type_id = (rows.len()+1)`: **global append-order across all namespaces**. The doc comment is stale; the GLOBAL semantics DECISION-2/3 want are already the live behavior. (2) It corrected this session's own claim, minutes old: the registry is **not** template-deduped — every append mints a fresh id (`enumerate_first_with_entity_type_id` is defensive, not reuse evidence). Frugal dedup + the `entity_type↔NiblePath` pairing are net-new.
+
+**Blast radius traced benign:** ~16 `entity_type_id()` readers store-as-column-value or compare; none dense-index an array BY entity_type. Global/sparse ids break nothing. Dedup consequence: per-id row lookup becomes namespace-ambiguous ⇒ resolve by `(namespace, entity_type)`.
+
+**The synthesis that shrinks Phase B:** the bijection IS the dedup. One pair table `NiblePath ↔ entity_type` in the registry: path present ⇒ reuse the template id (new row, new namespace); absent ⇒ mint fresh (monotone, never reused) + record the pair. The pair table is simultaneously the template registry, the dedup index, and the bijection witness the round-trip test proves. Moves 1+2 of the Phase B seam are one mechanism.
+
+**Process lesson (generalizes):** doc comments describe intent at write-time; the mint line is the contract. For any "is this id local or global / dense or sparse" question, read the assignment site and grep for dense-indexing consumers before believing prose.
+
+**Cross-ref:** identity-architecture plan DECISION-3 + Phase B grounded seam (CORRECTION block); E-OGAR-NORTHSTAR-1 (Status updated); I-LEGACY-API-FEATURE-GATED (the positional `contract/ontology.rs:85` helper is the v1 path to gate).
+
 ## 2026-06-09 — E-ANCESTRY-TRINITY-1 — NiblePath::is_ancestor_of is ONE bit-shift read three ways: subClassOf = supervision-edge = north-star template specialization
 
 **Status:** FINDING (cross-session convergence — OGAR/SurrealDB session + identity-contract session, independently)
@@ -18,8 +33,8 @@ They are the SAME relation: the north-star template hierarchy IS the routing/sup
 
 ## 2026-06-09 — E-OGAR-NORTHSTAR-1 — ontology cache = OGAR mirror with a reusable north-star template spine (namespace specializes, entity_type is shared)
 
-**Status:** DECISION (OGAR mirror RATIFIED via decision-gate; north-star template model = recommended organizing principle, realized by existing substrate)
-**Confidence:** High (OGAR mirror) / Medium-High (north-star model — strongly aligned, pending first OGAR build)
+**Status:** DECISION (OGAR mirror RATIFIED via decision-gate; north-star template model RATIFIED 2026-06-09 "frugal it is"; `entity_type` = GLOBAL shared template id RATIFIED via decision-gate — see E-MINT-TRACE-1)
+**Confidence:** High (both halves ratified; mint trace confirms global append-order is already the live mint)
 
 **Two decisions, one architecture.**
 

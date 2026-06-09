@@ -196,9 +196,35 @@ Reading the live surfaces confirmed the frugal model *finishes what's there*, no
   id renumbers. The legacy anti-pattern, in our own code. The **`OntologyRegistry`**
   (`lance-graph-ontology/registry.rs`) is **append-only** (`RegistryState::append`,
   "no rebuild per append") — the correct immutable home and the OGAR-mirror foundation.
-- **The registry already leans frugal.** `enumerate_first_with_entity_type_id(u16)` returns
-  the *first* row with that id ⇒ **N `MappingRow`s → 1 `entity_type`** is already legal:
-  one template, reused across namespaces/URIs. North-star is half-built.
+- **CORRECTION (traced 2026-06-09 — doc comments are not the mint).** The live mint is
+  `registry.rs:476 entity_type_id = (self.rows.len()+1)` — **global append-order,
+  append-only-immutable** (good: the *global* axis DECISION-2 + the bijection want is
+  ALREADY the mint reality; `namespace.rs:12` "dense within the namespace" is **stale**).
+  BUT it is **unique per row, NOT template-deduped** — every append gets a fresh id, so
+  "N rows → 1 entity_type" is *not* today's behavior (`enumerate_first_*` is defensive, not
+  reuse). ⇒ frugal dedup + the `entity_type↔NiblePath` pairing are **net-new**, not
+  half-built. Two mints also disagree: `registry.rs:476` (global append) vs
+  `contract/ontology.rs:85` (per-Ontology positional) — canonicalize on the registry,
+  gate the helper.
+- **Blast radius is benign for the global switch.** The ~16 `entity_type_id()` readers
+  *store* it as a column value (`bindspace.entity_type[row]`) or *compare* it; **none**
+  dense-index an array BY `entity_type`. Global/sparse ids break nothing. The one dedup
+  consequence: `enumerate_first_with_entity_type_id` becomes namespace-ambiguous (multiple
+  rows per id) ⇒ the resolver wants `(namespace, entity_type) → row`.
+
+**[DECISION-3] RATIFIED (2026-06-09, decision-gate):** `entity_type` is **GLOBAL**
+(the shared north-star template id), NOT namespace-local. The stale
+`namespace.rs:12` "dense within the namespace" comment is superseded — and the
+traced mint (`registry.rs:476`, global append-order) already agrees. `namespace`
+is the domain axis; alignment across domains is a u16 compare.
+
+**Refinement — the bijection IS the dedup (moves 1+2 are one mechanism):** the
+registry keeps a pair table `NiblePath ↔ entity_type`. On append: proposal's
+path already in the table ⇒ **reuse** that `entity_type` (new row, new
+`namespace`, same template id); path absent ⇒ mint fresh (monotone, never
+reused; gaps fine) + record the pair. The pair table is simultaneously the
+template registry, the dedup index, and the bijection witness the round-trip
+test proves.
 
 **Four frugal moves (each a landable brick):**
 1. **Mint in the append-only registry, deduped by template.** `entity_type` is assigned by
