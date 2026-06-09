@@ -323,6 +323,40 @@ mod tests {
     }
 
     #[test]
+    fn from_packed_validates_depth_high_bits_and_roundtrips() {
+        // (0, 0) is the EMPTY sentinel.
+        assert_eq!(NiblePath::from_packed(0, 0), Some(NiblePath::EMPTY));
+
+        // A well-formed (path, depth) reconstructs exactly what `child` builds.
+        assert_eq!(
+            NiblePath::from_packed(0x12, 2),
+            Some(NiblePath::root(0x1).child(0x2)),
+        );
+
+        // depth > MAX_DEPTH is rejected.
+        assert_eq!(NiblePath::from_packed(0, MAX_DEPTH + 1), None);
+
+        // Bits set above the 4·depth route nibbles are an inconsistent pack.
+        // depth = 2 ⇒ only the low 8 bits may be set; 0x112 has a 9th.
+        assert_eq!(NiblePath::from_packed(0x112, 2), None);
+
+        // Boundary: at MAX_DEPTH the whole u64 is usable (the `used_bits < 64`
+        // guard skips a `>> 64` UB), so even all-ones round-trips.
+        let max = NiblePath::from_packed(u64::MAX, MAX_DEPTH);
+        assert_eq!(max.map(NiblePath::packed), Some((u64::MAX, MAX_DEPTH)));
+
+        // packed ∘ from_packed is identity on every valid path.
+        for p in [
+            NiblePath::EMPTY,
+            NiblePath::root(0x3),
+            NiblePath::root(0x3).child(0x5).child(0xA),
+        ] {
+            let (path, depth) = p.packed();
+            assert_eq!(NiblePath::from_packed(path, depth), Some(p));
+        }
+    }
+
+    #[test]
     fn depth_caps_at_max_and_rejects_out_of_range_nibble() {
         // Fill to MAX_DEPTH, then one more child is a no-op (not a wrap/overflow).
         let mut p = NiblePath::root(0x1);

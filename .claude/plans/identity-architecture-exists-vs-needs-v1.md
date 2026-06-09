@@ -47,6 +47,7 @@ against what must be built, and phases the integration.
 ## WHAT EXISTS — grounded inventory (6 layers, file:line)
 
 ### Layer 0 — address / discriminator scalars (the GUID's fields)
+
 | Type | Width | Role | Status | Evidence |
 |---|---|---|---|---|
 | `NiblePath{path:u64,depth:u8}` | 72 | HHTL tree address (basin/child/is_ancestor_of, 16ⁿ) | **[G]** | hhtl.rs |
@@ -59,6 +60,7 @@ against what must be built, and phases the integration.
 | `EdgeRef{family:u8,local:u16}` | 24 | episodic HHTL family+local address | **[G]** | episodic_edges.rs:34 |
 
 ### Layer 1 — edge / handoff carriers (the LE "sound members")
+
 | Type | Width | Role | Status |
 |---|---|---|---|
 | `EpisodicEdges64(u64)` = 4×EdgeRef, MRU promote/evict, `to_le_bytes` | 64 | AriGraph episodic edges | **[G]** episodic_edges.rs |
@@ -67,6 +69,7 @@ against what must be built, and phases the integration.
 | `MailboxId=u32`, `MailboxRow{mailbox_ref:u32,row_idx:u32}` | 32/64 | mailbox + row address | **[G]** |
 
 ### Layer 2 — cold-path stores (TODAY: thin + inconsistent)
+
 | Store | Key | Status |
 |---|---|---|
 | `MetadataStore`: `NodeRecord{node_id:u32, label:String, properties:HashMap<String,String>}`, `EdgeRecord{source:u32,target:u32,edge_type:String}` | u32 + **STRING label/props (legacy Cypher)** | **[G]** metadata.rs:60,86 |
@@ -75,12 +78,14 @@ against what must be built, and phases the integration.
 | `WitnessId(u64)` (arigraph witness) | 64 opaque handle | **[G]** witness_corpus.rs:63 |
 
 ### Layer 3 — resolution (class-from-address)
+
 | Surface | Status |
 |---|---|
 | `RegistryClassView: ClassView` (fields/template/dolce_category_id) | **[G] resolve / [H] field-enum deferred** class_resolver.rs |
 | `OntologyRegistry`: `resolve_uri`, `enumerate_first_with_entity_type_id(u16)`, `resolve_iri_in` | **[G]** registry.rs |
 
 ### Layer 4 — commit + witness (the membrane)
+
 | Surface | Status |
 |---|---|
 | `SoaEnvelope` trait + `ColumnDescriptor` (container-LE geometry) | **[G] trait / [H] ZERO impls** soa_envelope.rs |
@@ -91,6 +96,7 @@ against what must be built, and phases the integration.
 | `SlaPolicy`, `TenantScope` | **[G] types** sla.rs |
 
 ### Layer 5 — cross-store transport (the consumer boundary)
+
 | Surface | Status |
 |---|---|
 | `EntityKey<'a>(pub &'a [u8])` — opaque length-agnostic key | **[G]** repository.rs:12 |
@@ -100,6 +106,7 @@ against what must be built, and phases the integration.
 | smb-office-rs: Mongo `ObjectId`(12B) + `String` refs; actively impls repository | **[G]** base.rs:92 |
 
 ### Layer 6 — round-trip / substrate-hardening
+
 | Surface | Status |
 |---|---|
 | `TripletProjection` trait + `roundtrip_eq` → `RoundTripFailure` | **[G]** codegen_spine.rs:107 |
@@ -168,7 +175,7 @@ content), never VSA-bundled.
 | Phase | Gap | Crate | Deliverable | DoD | Dep |
 |---|---|---|---|---|---|
 | **A** | N1 | contract | `NodeGuid`/`EdgeGuid` as composition of existing fields + layout version | byte-decompose round-trips to `SchemaPtr`/`NiblePath`/`StructuralSignature`/`local`; UUIDv8 validates; zero-dep; clippy/fmt | — |
-| **B** | N2 | ontology | wire `StructuralSignature` → `RegistryClassView` (enumerate field-set from `MappingRow`) | `shape_hash(class_id)` returns a stable signature; the deferred D-CLS field-enum closed | A |
+| **B** | N2 | ontology (OGAR) | OGAR = one-way OGIT mirror; mint **immutable append-only ClassIds** over a shared **north-star template spine** (DOLCE-rooted shapes reused across domains via `namespace` + `FieldMask` inherit/delta); seed `entity_type ↔ NiblePath` from it; wire `StructuralSignature` → `RegistryClassView` | bijection round-trips at build time; `shape_hash(class_id)` stable; ClassId never renumbers (protobuf-field-number discipline); D-CLS field-enum closed | A |
 | **C** | N3 | shader-driver | `impl SoaEnvelope for MailboxSoA<N>` (zero-copy) | `as_le_bytes().as_ptr()==backing`; `verify_layout()` green | — |
 | **D** | N4 | lance-graph | cognitive-write `TripletProjection` + `roundtrip_eq` over the identity graph | passes the `account.move` fixture; corrupt-pack fails; (f,c) within 1/1023 | A, C |
 | **E** | N5 | callcenter | `project_graph` (node/edge emitter) through `commit_event`+gate | committed cycle queryable as `NodeGuid` nodes + `EdgeGuid` edges; version ticks; RBAC applies | A, D |
@@ -178,6 +185,64 @@ content), never VSA-bundled.
 
 **Critical path:** A → (B, C) → D → E → F. G hangs off A (parallel). H is gated.
 **Smallest unblocked first brick:** Phase A (the `NodeGuid` composition, zero-dep contract) OR Phase C (the `SoaEnvelope` impl) — both leaf, both needed by D.
+
+### Phase B — grounded mint seam (2026-06-09, frugal north-star)
+
+Reading the live surfaces confirmed the frugal model *finishes what's there*, not a rewrite:
+
+- **Two `entity_type` worlds today.** `contract/ontology.rs:85 entity_type_id()` is a
+  **1-based positional index** into `Ontology.schemas` (`Customer→1, Invoice→2 …`; test
+  `entity_type_id_returns_1_based_index`) — **mutable**: insert/reorder a schema and every
+  id renumbers. The legacy anti-pattern, in our own code. The **`OntologyRegistry`**
+  (`lance-graph-ontology/registry.rs`) is **append-only** (`RegistryState::append`,
+  "no rebuild per append") — the correct immutable home and the OGAR-mirror foundation.
+- **CORRECTION (traced 2026-06-09 — doc comments are not the mint).** The live mint is
+  `registry.rs:476 entity_type_id = (self.rows.len()+1)` — **global append-order,
+  append-only-immutable** (good: the *global* axis DECISION-2 + the bijection want is
+  ALREADY the mint reality; `namespace.rs:12` "dense within the namespace" is **stale**).
+  BUT it is **unique per row, NOT template-deduped** — every append gets a fresh id, so
+  "N rows → 1 entity_type" is *not* today's behavior (`enumerate_first_*` is defensive, not
+  reuse). ⇒ frugal dedup + the `entity_type↔NiblePath` pairing are **net-new**, not
+  half-built. Two mints also disagree: `registry.rs:476` (global append) vs
+  `contract/ontology.rs:85` (per-Ontology positional) — canonicalize on the registry,
+  gate the helper.
+- **Blast radius is benign for the global switch.** The ~16 `entity_type_id()` readers
+  *store* it as a column value (`bindspace.entity_type[row]`) or *compare* it; **none**
+  dense-index an array BY `entity_type`. Global/sparse ids break nothing. The one dedup
+  consequence: `enumerate_first_with_entity_type_id` becomes namespace-ambiguous (multiple
+  rows per id) ⇒ the resolver wants `(namespace, entity_type) → row`.
+
+**[DECISION-3] RATIFIED (2026-06-09, decision-gate):** `entity_type` is **GLOBAL**
+(the shared north-star template id), NOT namespace-local. The stale
+`namespace.rs:12` "dense within the namespace" comment is superseded — and the
+traced mint (`registry.rs:476`, global append-order) already agrees. `namespace`
+is the domain axis; alignment across domains is a u16 compare.
+
+**Refinement — the bijection IS the dedup (moves 1+2 are one mechanism):** the
+registry keeps a pair table `NiblePath ↔ entity_type`. On append: proposal's
+path already in the table ⇒ **reuse** that `entity_type` (new row, new
+`namespace`, same template id); path absent ⇒ mint fresh (monotone, never
+reused; gaps fine) + record the pair. The pair table is simultaneously the
+template registry, the dedup index, and the bijection witness the round-trip
+test proves.
+
+**Four frugal moves (each a landable brick):**
+1. **Mint in the append-only registry, deduped by template.** `entity_type` is assigned by
+   append order (immutable; OGAR seeds it one-way from OGIT → ids frozen, protobuf-field-
+   number discipline), and a shape mints ONCE — domains reuse it by appending a row with a
+   new `namespace`, same `entity_type`. That IS the frugality (one shape codebook, 256-way
+   `namespace` reuse; cross-domain alignment is a u16 compare).
+2. **Pair `entity_type ↔ NiblePath` at mint.** The registry mints the bijective pair;
+   `niblepath_of(entity_type)` stable.
+3. **Build-time round-trip test.** `entity_type_of(niblepath_of(et)) == et` both ways over
+   the seeded spine ⇒ eineindeutigkeit becomes CI-falsifiable (closes DECISION-2 enforcement
+   (a)+(b)).
+4. **Feature-gate the legacy positional `ontology.rs::entity_type_id`** per
+   I-LEGACY-API-FEATURE-GATED — route through the registry or gate to a documented
+   non-canonical path; no-renumber / field-isolation test mandatory.
+
+**First brick:** moves 1+2+3 together (mint + pairing + round-trip); the legacy-gate (4)
+follows once nothing canonical reads the positional helper.
 
 ## Honest ledger
 
@@ -190,14 +255,50 @@ content), never VSA-bundled.
   green-field invention. The largest is N6 (cold-path string→identity migration).
 - **[BLOCKED(C)]:** N8 only (surrealdb fork coords — human gate; lance-graph P0
   "STOP and ask").
-- **One open [DECISION]:** D1 vs D2 (SchemaPtr-entity_type vs NiblePath-prefix as
-  the class carrier) — recommendation: both (exact + routing prefix).
+- **[DECISION] RESOLVED (Phase A):** carry BOTH — `entity_type:u16` is the exact
+  canonical class; the `NiblePath` prefix is the bijective *derived* routing view
+  (full statement in the "DECISION — RESOLVED" block above). Landed in `NodeGuid`.
+- **[DECISION-2] RATIFIED (2026-06-09):** the ontology cache's home is **OGAR**,
+  a *one-way mirror of OGIT* (+ OWL / Wikidata class-backbone / HHTL) with an
+  **append-only immutable ClassId** space — chosen for **ownership + dissolving
+  the upstream dependency**, NOT as a drift fix (drift is already contained by
+  map-as-source; see the guard below). The ClassId space is organized as a
+  **shared north-star template spine**: `entity_type`/`NiblePath` is the DOLCE-
+  rooted *shape* (small, reused across every domain); `namespace:u8` selects the
+  domain (healthcare / Odoo / WoA-rs / OpenProject-nexgen-rs / OWL / Wikidata).
+  Domains REUSE a template by default (switch `namespace`, inherit the field-set);
+  specialize only via `NiblePath` descent + `FieldMask` delta; mint a new ClassId
+  only for a genuinely novel shape. The surrealdb-coords blocker (N8/Phase H) is
+  unrelated and remains.
 
 ## Guards (iron rules this plan must not violate)
 
 - **I-VSA-IDENTITIES:** the GUID is a register key that POINTS TO content; never
   VSA-bundle it, never intern open content (only the closed vocabulary). Identities
   intern; scanned papers / free text stay in consumer stores (Layer 5).
+- **No content-drift for existing entities — ontology-cache provenance is the ONLY
+  drift surface.** An existing entity's identity is a *derived function* of its
+  ontology-mapped class (`entity_type` / `NiblePath` / `shape_hash` all fall out of
+  the registry mapping), so a mapped entity **cannot** drift from its content. The
+  one residual drift surface is an **ontology cache that was not mapped from the
+  authoritative source** (hand-filled / stale / regenerated out-of-band) — that,
+  not per-instance divergence, is exactly what the `shape_hash` witness reading of
+  `NodeGuid` guards. ⇒ the registry MUST treat the authoritative ontology as its
+  mapped source (the Phase B bijection is *seeded from* that source, never from a
+  hand-filled cache).
+- **North-star templates — reuse is the default, mint-new is the exception.**
+  `entity_type`/`NiblePath` is a *shared* DOLCE-rooted shape spine: the same
+  template ClassId is reused across domains, disambiguated by `namespace:u8`.
+  Reuse via `FieldMask` inherit (parent-OR-delta) where a domain shape aligns;
+  `NiblePath`-descent + delta where it specializes; a new template ClassId ONLY
+  for a genuinely novel shape. DRY-frugal (the shape codebook / `shape_hash` is
+  encoded once, reused 256 ways; cross-domain alignment is free — same
+  `entity_type` ⇒ same shape) AND composes with immutability — reusable templates
+  ARE the immutable spine, not a relaxation of it. Reuse ≠ drift: sharing a
+  template across domains is intended, not the cache-provenance drift surface.
+  NB: the *mechanism* (octet split + inherit/delta + ancestry + `dolce_category_id`)
+  exists today; the *content* (the curated template ontology + domain→template
+  mappings) is the OGAR / Phase B build.
 - **Compose, don't parallel (Agent A #2):** N1 MUST subsume `SchemaPtr` +
   `EdgeRef`, not re-pack ns/class/family beside them.
 - **I-LEGACY-API-FEATURE-GATED:** N6's string→identity layout reclaim needs a

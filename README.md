@@ -1,5 +1,7 @@
 # Lance Graph
 
+[![Rust Tests](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/rust-test.yml/badge.svg)](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/rust-test.yml) [![Style Check](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/style.yml/badge.svg)](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/style.yml) [![Build](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/build.yml/badge.svg)](https://github.com/AdaWorldAPI/lance-graph/actions/workflows/build.yml)
+
 Lance Graph is a Cypher-capable graph query engine built in Rust with Python bindings for building high-performance, scalable, and serverless multimodal knowledge graphs.
 
 This repository contains:

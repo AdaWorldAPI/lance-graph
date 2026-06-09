@@ -1,6 +1,18 @@
+## 2026-06-09 — D-IDENTITY Phase B: global entity_type ratified + mint trace correction
+
+**Main thread (Opus→Fable mid-session).** Decision-gate ratified `entity_type` = GLOBAL shared template id (DECISION-3). Pre-change trace overturned two beliefs: (a) `namespace.rs:12` "dense within the namespace" is STALE — live mint `registry.rs:476` is already global append-order; (b) registry is NOT template-deduped (own claim, corrected in-place in the plan). Blast radius of global/sparse ids traced benign (~16 readers, none dense-index). Synthesis: bijection IS the dedup — one `NiblePath ↔ entity_type` pair table = template registry + dedup index + bijection witness. Plan: DECISION-3 + CORRECTION + refinement. Epiphany: E-MINT-TRACE-1; E-OGAR-NORTHSTAR-1 Status updated. Rides in #481. Next: implement first brick (pair-table mint + round-trip test) in lance-graph-ontology.
+
+## 2026-06-09 — D-IDENTITY decisions: OGAR mirror (ratified) + north-star template model
+
+**Main thread (Opus).** Recorded two architecture decisions for the identity arc (no code; plan + epiphany): (1) ontology cache = OGAR one-way OGIT mirror, append-only immutable ClassIds (ratified via decision-gate) — ownership, not drift-prevention; (2) ClassId space organized as a shared north-star template spine (`entity_type`/`NiblePath` = DOLCE-rooted shape reused across domains; `namespace` = domain), realized by the existing octet split + FieldMask inherit/delta + NiblePath ancestry. Plan: identity-architecture DECISION-2 + north-star guard + Phase B refinement. Epiphany: E-OGAR-NORTHSTAR-1. Rides in PR #481.
+
+## 2026-06-09 — D-IDENTITY-1 review-fix (#480 CodeRabbit) + CI badges
+
+**Follow-up PR** off merged `main`. Addressed CodeRabbit #480: `from_packed` edge-case test (depth>MAX, high-bit reject, `(0,0)` sentinel, MAX_DEPTH `>>64`-guard boundary, `packed∘from_packed` identity); stale "open DECISION" line → RESOLVED; AGENT_LOG SHA (`947c1e4`); MD040/MD058 in the two plan docs. **Skipped** MD028 (LATEST_STATE) — the blank-between-entries IS the append-only style. Added the **no-content-drift-for-existing** invariant to the plan (sole drift surface = ontology cache not mapped from its authoritative source). Native CI badges (rust-test/style/build) → README. 600 contract lib tests (+1), clippy/fmt clean.
+
 ## 2026-06-09 — D-IDENTITY-1 (Phase A) + 2 cross-repo sweeps — identity-architecture
 
-**Orchestrator:** Opus main thread (autoattended). **Outcome:** Shipped Phase A.
+**Orchestrator:** Opus main thread (autoattended). **Outcome:** Shipped Phase A — commit `947c1e4`, PR #480 (merged `62bca5e`).
 - **Sweep A** (Opus general-purpose): lance-graph + ndarray identity-type inventory → the 128-bit identity space is EMPTY (only `[u8;16]` is `atoms::I4x32`, a style vector); every GUID field already exists as a committed scalar → compose-don't-reinvent.
 - **Sweep B** (Opus general-purpose): MedCare-rs + smb-office-rs store keys → `EntityKey(&[u8])` already carries any-length keys (smb-bridge `key_to_filter` length-branches on Mongo+Lance); transport solved. MedCare needs one `external_ref` (or reuse DMS `sha256`); smb maps directly.
 - **Phase A:** `lance_graph_contract::identity::NodeGuid` (UUIDv8, composed from SchemaPtr⊕NiblePath⊕StructuralSignature⊕local) + `NiblePath::from_packed`. 599 contract lib tests (+15), clippy `-D` clean, fmt clean.
