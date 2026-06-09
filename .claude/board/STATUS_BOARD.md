@@ -804,7 +804,7 @@ When a deliverable is abandoned:
 
 ## identity-architecture-exists-vs-needs-v1 — structured NodeGuid + frugal north-star OGAR mint
 
-Plan path: `.claude/plans/identity-architecture-exists-vs-needs-v1.md`. Epiphanies: E-IDENTITY-WHITEBOX-1, E-OGAR-NORTHSTAR-1, E-ANCESTRY-TRINITY-1, E-MINT-TRACE-1. Rides in the open identity PR on `claude/nice-edison-g4rhhl`.
+Plan path: `.claude/plans/identity-architecture-exists-vs-needs-v1.md`. Epiphanies: E-IDENTITY-WHITEBOX-1, E-OGAR-NORTHSTAR-1. Rides in the open identity PR on `claude/nice-edison-g4rhhl`.
 
 | D-id | Title | Crate(s) / repo | ~LOC | Risk | Status | PR / Evidence |
 |---|---|---|---|---|---|---|

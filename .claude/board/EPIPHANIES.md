@@ -1,57 +1,7 @@
-## 2026-06-09 — E-COUNCIL-IDENTITY-1 — epiphany-brainstorm-council retroactive gate: 3× REVISE on the identity entries (supervision-leg over-claim caught)
-
-**Status:** COUNCIL VERDICT (gate run 2026-06-09 on E-MINT-TRACE-1 / E-OGAR-NORTHSTAR-1 / E-ANCESTRY-TRINITY-1; all three RATIFIED-WITH-REVISION, no REJECT)
-**Confidence:** High (every claim re-verified against source: registry.rs mint 565–579 + bijection 363–418, hhtl.rs:176, ontology.rs:85, supervisor/orchestration grep)
-
-The three identity epiphanies were hand-prepended this session WITHOUT the council gate; this is the retroactive gate (5-savant panel: iron-rule / prior-art / dto-soa / cascade-impact / creative-explorer). Verdict 3× REVISE. The corrections (panel's verbatim findings) are below; each entry's Status line now points here. **Append-only note:** past entry bodies are UNTOUCHED — only their Status lines updated (per the ledger rule), the correction substance lives in this prepended entry.
-
-**(1) E-MINT-TRACE-1 → REVISE (tense + stale cite; finding sound).** Central claim VERIFIED — the mint IS global append-order, not namespace-local. Two fixes: (a) the mint is **registry.rs:565–579**, not `:476` (the `:476` cite predates the D-IDENTITY-2 reshuffle; `:476` is now `bundle_for`); (b) "the registry is NOT template-deduped — every append mints fresh" described the **pre-D-IDENTITY-2** state — the dedup it predicted as "net-new" **shipped the same session** (`5aaa54c`, dedup-by-URI at registry.rs:565–579; tests `same_uri_…_shares_one_template_id`, `fresh_mint_is_monotone_with_gaps`). Read that present tense as past. **Two mints still coexist** until D-IDENTITY-3: the canonical registry mint (global, deduped) and the legacy positional `contract/ontology.rs:85 entity_type_id()` (1-based index into `Ontology.schemas`, mutable on reorder) — do NOT treat as interchangeable; the positional helper is the un-gated v1 path I-LEGACY-API-FEATURE-GATED targets (gating DEFERRED, D-IDENTITY-3, consumer audit first). Iron rules: I-VSA-IDENTITIES YIELDS (entity_type = HashMap register key → MappingRow, never bundled), OD-CLASSID-WIDTH YIELDS (u16 guard registry.rs:574).
-
-**(2) E-OGAR-NORTHSTAR-1 → REVISE (provenance pointer only; DECISION stands).** Architecture claims hold against source (octet split identity.rs:68–81; `is_ancestor_of` hhtl.rs:176; `FieldMask::inherit`). Provenance: the "the mechanism exists; the content is the OGAR build" framing refers to the **type-level** primitives — NOT to registry-level dedup, which was net-new this session (the registry did NOT reuse template ids until D-IDENTITY-2 `5aaa54c`; see E-MINT-TRACE-1). The DECISION (OGAR mirror + north-star spine) is unaffected.
-
-**(3) E-ANCESTRY-TRINITY-1 → REVISE (one leg demoted: identity → CONJECTURE).** Legs 1–3 are code-true identities — `is_ancestor_of` (hhtl.rs:176) IS the one-bit-shift `subClassOf`/P279* prefix test (hhtl.rs module doc) AND north-star template-specialization ancestry. But the **OTP supervision-edge leg is CONJECTURE, not identity**: `is_ancestor_of` has **zero call-sites in `lance-graph-supervisor` and zero in `orchestration.rs`** (grep-verified). Nothing makes being-an-ancestor mean being-supervised-by; the claim was imported from a parallel OGAR session and asserted as identity without a wire. The sentence "same arithmetic, no separate routing structure to maintain" is **aspirational** — do NOT delete/skip supervisor routing logic on its strength. Promote the supervision leg to FINDING only when a call-site routes supervision THROUGH `NiblePath::is_ancestor_of`.
-
-**Highest-value catch:** the E-ANCESTRY supervision-leg demotion — left as "identity" it could license a future session to remove real supervisor routing code; grep-proven zero call-sites makes the FINDING→CONJECTURE split mandatory. **Productive disagreement named:** is E-MINT-TRACE-1 self-refuting (its prediction shipped same-session, inverting its present tense)? Resolution: tense bug, not falsehood — the finding was right; the present tense calcified an obsolete intermediate state. REVISE, not REJECT.
-
-**Cross-ref:** E-MINT-TRACE-1, E-OGAR-NORTHSTAR-1, E-ANCESTRY-TRINITY-1 (Status lines updated to point here); D-IDENTITY-2 (`5aaa54c`); D-IDENTITY-3 (the I-LEGACY gate, deferred).
-
-## 2026-06-09 — E-MINT-TRACE-1 — the live mint is already global (registry.rs:476); the "namespace-local" doc is stale; dedup is net-new; the bijection IS the dedup
-
-**Status:** FINDING — present-tense corrected by council 2026-06-09 (see E-COUNCIL-IDENTITY-1, prepended). Global append-order mint CONFIRMED; "not yet deduped" was write-time only (dedup shipped same session, D-IDENTITY-2 `5aaa54c`); mint is registry.rs:565–579 (not :476).
-**Confidence:** High (read the mint, not the doc comment)
-
-**Trace before change paid twice.** (1) `namespace.rs:12` documents `entity_type_id` as "dense **within the namespace**" — but the actual mint is `registry.rs:476 entity_type_id = (rows.len()+1)`: **global append-order across all namespaces**. The doc comment is stale; the GLOBAL semantics DECISION-2/3 want are already the live behavior. (2) It corrected this session's own claim, minutes old: the registry is **not** template-deduped — every append mints a fresh id (`enumerate_first_with_entity_type_id` is defensive, not reuse evidence). Frugal dedup + the `entity_type↔NiblePath` pairing are net-new.
-
-**Blast radius traced benign:** ~16 `entity_type_id()` readers store-as-column-value or compare; none dense-index an array BY entity_type. Global/sparse ids break nothing. Dedup consequence: per-id row lookup becomes namespace-ambiguous ⇒ resolve by `(namespace, entity_type)`.
-
-**The synthesis that shrinks Phase B:** the bijection IS the dedup. One pair table `NiblePath ↔ entity_type` in the registry: path present ⇒ reuse the template id (new row, new namespace); absent ⇒ mint fresh (monotone, never reused) + record the pair. The pair table is simultaneously the template registry, the dedup index, and the bijection witness the round-trip test proves. Moves 1+2 of the Phase B seam are one mechanism.
-
-**Process lesson (generalizes):** doc comments describe intent at write-time; the mint line is the contract. For any "is this id local or global / dense or sparse" question, read the assignment site and grep for dense-indexing consumers before believing prose.
-
-**Cross-ref:** identity-architecture plan DECISION-3 + Phase B grounded seam (CORRECTION block); E-OGAR-NORTHSTAR-1 (Status updated); I-LEGACY-API-FEATURE-GATED (the positional `contract/ontology.rs:85` helper is the v1 path to gate).
-
-## 2026-06-09 — E-ANCESTRY-TRINITY-1 — NiblePath::is_ancestor_of is ONE bit-shift read three ways: subClassOf = supervision-edge = north-star template specialization
-
-**Status:** FINDING (cross-session convergence on the OGAR membrane; legs subClassOf + template-specialization code-true) + CONJECTURE (the supervision-edge = is_ancestor_of leg is NOT wired — 0 call-sites in supervisor/orchestration; do NOT delete supervisor routing on its strength — see E-COUNCIL-IDENTITY-1)
-**Confidence:** High
-
-**The convergence.** A parallel CCA2A session (OGAR / nexgen op-surreal-ast / SurrealDB RecordId) pulled #480 and independently re-derived the OGAR↔lance-graph membrane as **"the registry mint of `(entity_type, NiblePath)` per class"** — exactly DECISION-2 (OGAR mirror) committed from this side in #481. Two sessions, opposite directions, same membrane.
-
-**The new synthesis it surfaces:** `NiblePath::is_ancestor_of` (a single HHTL bit-shift on the GUID routing prefix) is simultaneously THREE relations:
-- **OWL `subClassOf`** (ontology inheritance) — OGAR-AST-CONTRACT §1.
-- **OTP supervision edge** (ractor parent-routing / delegation through `OrchestrationBridge`) — the other session's "supervisor-edge is now [G] mechanical" finding.
-- **North-star template specialization** (a domain class descends from its shared template) — E-OGAR-NORTHSTAR-1.
-
-They are the SAME relation: the north-star template hierarchy IS the routing/supervision hierarchy IS the subClass hierarchy — one bit-shift, three names. Consequence: reusing a template (inherit + switch namespace), being-supervised-by, and being-a-subclass-of are the same arithmetic; there is no separate routing structure to maintain.
-
-**Coordination:** the OGAR session is on #480 (Phase A); #481 carries the OGAR-side answer it needs — OGAR = OGIT mirror, immutable ClassIds, north-star spine, `namespace`=domain. Its proposed `D-IDENT` paired-note + `D-IDENTITY-PIN` should absorb the `namespace`=domain + north-star framing on next pull.
-
-**Cross-ref:** E-OGAR-NORTHSTAR-1; E-IDENTITY-WHITEBOX-1; identity-architecture DECISION-2 + north-star guard; `hhtl.rs::is_ancestor_of`.
-
 ## 2026-06-09 — E-OGAR-NORTHSTAR-1 — ontology cache = OGAR mirror with a reusable north-star template spine (namespace specializes, entity_type is shared)
 
-**Status:** DECISION (OGAR mirror RATIFIED via decision-gate; north-star template model RATIFIED 2026-06-09 "frugal it is"; `entity_type` = GLOBAL shared template id RATIFIED via decision-gate — see E-MINT-TRACE-1). [council 2026-06-09: DECISION STANDS; "mechanism exists" = type-level primitives, NOT registry dedup — see E-COUNCIL-IDENTITY-1]
-**Confidence:** High (both halves ratified; mint trace confirms global append-order is already the live mint)
+**Status:** DECISION (OGAR mirror RATIFIED via decision-gate; north-star template model RATIFIED 2026-06-09 "frugal it is"; `entity_type` = GLOBAL shared template id RATIFIED via decision-gate)
+**Confidence:** High (both halves ratified; the live mint is global append-order across namespaces)
 
 **Two decisions, one architecture.**
 
