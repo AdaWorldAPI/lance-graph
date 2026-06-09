@@ -2638,3 +2638,14 @@ W6 entropy-ledger reframe of `DEEPNSM-NSM-1`.
 ## TD-DEEPNSM-CLIPPY-195 — 12 pre-existing default-clippy lints in deepnsm (clippy 1.95 bump)
 
 `cargo clippy --manifest-path crates/deepnsm/Cargo.toml --all-targets -- -D warnings` reports 12 errors across 7 files (codebook 2, encoder 4, similarity 2, disambiguator_glue/nsm_primes/parser/quantum_mode 1 each) — newer lints (`manual_repeat_n`, `uninlined_format_args`, …) that were clean when written and fire only under clippy 1.95.0. Pre-existing (not from the E-ENGLISH-BIFURCATES slice; `arcs.rs` is clean at pedantic+nursery). Tests unaffected (94+4+8+1 green). Fix = a separate mechanical sweep across the 7 files; deliberately NOT bundled into the feature slice (7-file scope creep). Surfaced 2026-05-31.
+
+**Resolved 2026-06-09** (PR #479, branch `claude/stoic-turing-M0Eiq`, commit `bf95caa`):
+hand-reviewed clippy sweep landed. `cargo clippy --manifest-path
+crates/deepnsm/Cargo.toml --all-targets -- -D warnings` is now clean (exit 0).
+Cleared the original 7-file set plus the lints in PR #479's new reader modules
+(window / reader_state / crystal_neighborhood / sentence_transformer64 /
+signed_crystal / codebook) surfaced by `--all-targets` — 22 lints across 13
+files; 217 tests green. Fixes are hand-applied (NOT `clippy --fix`, which mangled
+`reader_state.rs` into stranded-comment match guards). The CI clippy step for
+deepnsm was promoted Tier-B advisory → Tier-A gating in
+`.github/workflows/style.yml`.
