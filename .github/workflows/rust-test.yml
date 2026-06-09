@@ -87,6 +87,11 @@ jobs:
         run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --tests
       - name: Run contract doctests
         run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --doc
+      # deepnsm: standalone 0-dep codec crate, workspace-excluded, so the
+      # lance-graph test steps above never reached it. ~217 lib + integration +
+      # doctests, fast (no lance/datafusion/ndarray deps). Gating.
+      - name: Run deepnsm tests
+        run: cargo test --manifest-path crates/deepnsm/Cargo.toml
 
   test-with-coverage:
     runs-on: ubuntu-24.04
