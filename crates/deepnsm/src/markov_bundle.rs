@@ -11,9 +11,8 @@
 use crate::trajectory::Trajectory;
 
 use lance_graph_contract::grammar::role_keys::{
-    CONTEXT_SLICE, INSTRUMENT_SLICE, KAUSAL_SLICE, LOKAL_SLICE, MODAL_SLICE,
-    MODIFIER_SLICE, OBJECT_SLICE, PREDICATE_SLICE, RoleKeySlice, SUBJECT_SLICE,
-    TEMPORAL_SLICE, VSA_DIMS,
+    RoleKeySlice, CONTEXT_SLICE, INSTRUMENT_SLICE, KAUSAL_SLICE, LOKAL_SLICE, MODAL_SLICE,
+    MODIFIER_SLICE, OBJECT_SLICE, PREDICATE_SLICE, SUBJECT_SLICE, TEMPORAL_SLICE, VSA_DIMS,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -189,9 +188,7 @@ mod tests {
     }
     #[test]
     fn kernel_mexican_symmetric() {
-        assert!(
-            (Kernel::MexicanHat.weight(-2, 5) - Kernel::MexicanHat.weight(2, 5)).abs() < 1e-6
-        );
+        assert!((Kernel::MexicanHat.weight(-2, 5) - Kernel::MexicanHat.weight(2, 5)).abs() < 1e-6);
     }
     #[test]
     fn role_slices_disjoint() {
@@ -206,24 +203,20 @@ mod tests {
     fn role_slice_widths_match_role_keys_canonical() {
         // Spot-check that `GrammaticalRole::slice` returns the role_keys-canonical
         // widths (NOT the old equal-partition 16384/5 = 3277 layout).
-        assert_eq!(GrammaticalRole::Subject.slice().len(),    2000);
-        assert_eq!(GrammaticalRole::Predicate.slice().len(),  2000);
-        assert_eq!(GrammaticalRole::Object.slice().len(),     2000);
-        assert_eq!(GrammaticalRole::Modifier.slice().len(),   1500);
-        assert_eq!(GrammaticalRole::Context.slice().len(),    1500);
-        assert_eq!(GrammaticalRole::Temporal.slice().len(),    200);
-        assert_eq!(GrammaticalRole::Kausal.slice().len(),      200);
-        assert_eq!(GrammaticalRole::Modal.slice().len(),       100);
-        assert_eq!(GrammaticalRole::Lokal.slice().len(),       150);
-        assert_eq!(GrammaticalRole::Instrument.slice().len(),  100);
+        assert_eq!(GrammaticalRole::Subject.slice().len(), 2000);
+        assert_eq!(GrammaticalRole::Predicate.slice().len(), 2000);
+        assert_eq!(GrammaticalRole::Object.slice().len(), 2000);
+        assert_eq!(GrammaticalRole::Modifier.slice().len(), 1500);
+        assert_eq!(GrammaticalRole::Context.slice().len(), 1500);
+        assert_eq!(GrammaticalRole::Temporal.slice().len(), 200);
+        assert_eq!(GrammaticalRole::Kausal.slice().len(), 200);
+        assert_eq!(GrammaticalRole::Modal.slice().len(), 100);
+        assert_eq!(GrammaticalRole::Lokal.slice().len(), 150);
+        assert_eq!(GrammaticalRole::Instrument.slice().len(), 100);
     }
 
     /// Helper: fill a bundler's window so a single push triggers `bundle_current`.
-    fn fill_and_bundle(
-        kernel: Kernel,
-        radius: u32,
-        sent: WindowedSentence,
-    ) -> Trajectory {
+    fn fill_and_bundle(kernel: Kernel, radius: u32, sent: WindowedSentence) -> Trajectory {
         let mut b = MarkovBundler::new(radius, kernel);
         let cap = (2 * radius + 1) as usize;
         let mut last: Option<Trajectory> = None;
@@ -243,7 +236,11 @@ mod tests {
     ) -> Trajectory {
         let mut b = MarkovBundler::new(radius, kernel);
         let cap = (2 * radius + 1) as usize;
-        assert_eq!(sentences.len(), cap, "sequence must fill exactly one window");
+        assert_eq!(
+            sentences.len(),
+            cap,
+            "sequence must fill exactly one window"
+        );
         let mut last: Option<Trajectory> = None;
         for s in sentences {
             last = b.push(s);
@@ -259,8 +256,8 @@ mod tests {
     fn bundle_does_not_rotate_subject_dims_outside_subject_slice() {
         // SUBJECT-only window: every sentence has a single SUBJECT token
         // whose content_fp is all 1.0 across the SUBJECT slice.
-        let subject_len = GrammaticalRole::Subject.slice().stop
-            - GrammaticalRole::Subject.slice().start;
+        let subject_len =
+            GrammaticalRole::Subject.slice().stop - GrammaticalRole::Subject.slice().start;
         let sent = WindowedSentence {
             tokens: vec![TokenWithRole {
                 content_fp: vec![1.0; subject_len],
@@ -273,8 +270,7 @@ mod tests {
         let s_start = _slice.start;
         let s_stop = _slice.stop;
         // SUBJECT slice should be non-zero (positive after normalization).
-        let subject_sum: f32 =
-            traj.fingerprint[s_start..s_stop].iter().sum();
+        let subject_sum: f32 = traj.fingerprint[s_start..s_stop].iter().sum();
         assert!(
             subject_sum > 1.0,
             "expected non-trivial SUBJECT content, got sum={subject_sum}"
@@ -298,8 +294,8 @@ mod tests {
     /// way symmetric kernels can't equalize.
     #[test]
     fn mexican_hat_bundle_differs_from_uniform_bundle() {
-        let subject_len = GrammaticalRole::Subject.slice().stop
-            - GrammaticalRole::Subject.slice().start;
+        let subject_len =
+            GrammaticalRole::Subject.slice().stop - GrammaticalRole::Subject.slice().start;
         let radius = 5u32;
         let cap = (2 * radius + 1) as usize;
         // Single outlier at position 1 (delta = -4). Uniform weights this
@@ -311,10 +307,7 @@ mod tests {
         let sentences: Vec<WindowedSentence> = (0..cap)
             .map(|i| WindowedSentence {
                 tokens: vec![TokenWithRole {
-                    content_fp: vec![
-                        if i == outlier_pos { 1.0 } else { 0.0 };
-                        subject_len
-                    ],
+                    content_fp: vec![if i == outlier_pos { 1.0 } else { 0.0 }; subject_len],
                     role: GrammaticalRole::Subject,
                 }],
             })
@@ -340,8 +333,8 @@ mod tests {
     /// land in a loose [0.5, 1.5] band on a controlled SUBJECT-only window.
     #[test]
     fn bundle_l2_norm_invariant_to_kernel() {
-        let subject_len = GrammaticalRole::Subject.slice().stop
-            - GrammaticalRole::Subject.slice().start;
+        let subject_len =
+            GrammaticalRole::Subject.slice().stop - GrammaticalRole::Subject.slice().start;
         let sent = WindowedSentence {
             tokens: vec![TokenWithRole {
                 content_fp: vec![1.0; subject_len],
@@ -351,12 +344,7 @@ mod tests {
         for k in [Kernel::Uniform, Kernel::MexicanHat, Kernel::Gaussian] {
             let traj = fill_and_bundle(k, 5, sent.clone());
             // Per-dim mean of |v| × sqrt(N_subj) ≈ L2 norm; we test L2 directly.
-            let l2: f32 = traj
-                .fingerprint
-                .iter()
-                .map(|v| v * v)
-                .sum::<f32>()
-                .sqrt();
+            let l2: f32 = traj.fingerprint.iter().map(|v| v * v).sum::<f32>().sqrt();
             // Each SUBJECT dim sums to (Σ_i w_i) / (Σ_i |w_i|). For Uniform
             // and Gaussian (all-positive weights) this is exactly 1.0 per dim,
             // so L2 = sqrt(subject_len) ≈ 57.2. For Mexican-hat the negative

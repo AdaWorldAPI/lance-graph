@@ -105,7 +105,9 @@ pub enum HorizonPolarity {
 impl HorizonPolarity {
     /// Pack into 2 bits (fits in any spare lane bits or metadata field).
     #[inline]
-    pub fn to_bits(self) -> u8 { self as u8 }
+    pub fn to_bits(self) -> u8 {
+        self as u8
+    }
 
     /// Unpack from 2 bits. Values > 3 map to `BasinOverflow`.
     #[inline]
@@ -268,9 +270,7 @@ impl Crystal4096 {
     #[inline]
     pub fn nibble_distance(self, other: Crystal4096) -> u8 {
         let xor = self.0 ^ other.0;
-        ((xor & 0x00F != 0) as u8)
-            + ((xor & 0x0F0 != 0) as u8)
-            + ((xor & 0xF00 != 0) as u8)
+        ((xor & 0x00F != 0) as u8) + ((xor & 0x0F0 != 0) as u8) + ((xor & 0xF00 != 0) as u8)
     }
 
     /// True if both coordinates are in the same basin (no axis overflows and
@@ -401,7 +401,11 @@ pub fn crystal_from_frame_context(
 /// deltas across a sentence chain and maps the running total onto
 /// `SignedOffset4`, which saturates to `OVERFLOW` outside −7..=+7.
 pub fn basin_delta_from_cam(prev: Cam64, curr: Cam64) -> i8 {
-    if curr.continues_basin(prev) { 0 } else { 1 }
+    if curr.continues_basin(prev) {
+        0
+    } else {
+        1
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -423,7 +427,7 @@ mod tests {
     #[test]
     fn signed_offset4_overflow_outside_range() {
         assert_eq!(SignedOffset4::from_offset(-8), SignedOffset4::OVERFLOW);
-        assert_eq!(SignedOffset4::from_offset(8),  SignedOffset4::OVERFLOW);
+        assert_eq!(SignedOffset4::from_offset(8), SignedOffset4::OVERFLOW);
         assert!(SignedOffset4::OVERFLOW.is_overflow());
         assert_eq!(SignedOffset4::OVERFLOW.to_offset(), None);
     }
@@ -467,29 +471,61 @@ mod tests {
 
     #[test]
     fn crystal4096_nibble_distance_one_axis_differs() {
-        let a = Crystal4096::new(SignedOffset4::from_offset(0), SignedOffset4::from_offset(0), SignedOffset4::from_offset(0));
-        let b = Crystal4096::new(SignedOffset4::from_offset(1), SignedOffset4::from_offset(0), SignedOffset4::from_offset(0));
+        let a = Crystal4096::new(
+            SignedOffset4::from_offset(0),
+            SignedOffset4::from_offset(0),
+            SignedOffset4::from_offset(0),
+        );
+        let b = Crystal4096::new(
+            SignedOffset4::from_offset(1),
+            SignedOffset4::from_offset(0),
+            SignedOffset4::from_offset(0),
+        );
         assert_eq!(a.nibble_distance(b), 1);
     }
 
     #[test]
     fn crystal4096_same_basin_adjacent_coords() {
-        let a = Crystal4096::new(SignedOffset4::ZERO, SignedOffset4::ZERO, SignedOffset4::ZERO);
-        let b = Crystal4096::new(SignedOffset4::from_offset(1), SignedOffset4::ZERO, SignedOffset4::ZERO);
+        let a = Crystal4096::new(
+            SignedOffset4::ZERO,
+            SignedOffset4::ZERO,
+            SignedOffset4::ZERO,
+        );
+        let b = Crystal4096::new(
+            SignedOffset4::from_offset(1),
+            SignedOffset4::ZERO,
+            SignedOffset4::ZERO,
+        );
         assert!(a.same_basin(b));
     }
 
     #[test]
     fn crystal4096_different_basin_two_axes_differ() {
-        let a = Crystal4096::new(SignedOffset4::ZERO, SignedOffset4::ZERO, SignedOffset4::ZERO);
-        let b = Crystal4096::new(SignedOffset4::from_offset(3), SignedOffset4::from_offset(2), SignedOffset4::ZERO);
+        let a = Crystal4096::new(
+            SignedOffset4::ZERO,
+            SignedOffset4::ZERO,
+            SignedOffset4::ZERO,
+        );
+        let b = Crystal4096::new(
+            SignedOffset4::from_offset(3),
+            SignedOffset4::from_offset(2),
+            SignedOffset4::ZERO,
+        );
         assert!(!a.same_basin(b));
     }
 
     #[test]
     fn crystal4096_overflow_axis_is_not_same_basin() {
-        let a = Crystal4096::new(SignedOffset4::ZERO, SignedOffset4::ZERO, SignedOffset4::ZERO);
-        let b = Crystal4096::new(SignedOffset4::OVERFLOW, SignedOffset4::ZERO, SignedOffset4::ZERO);
+        let a = Crystal4096::new(
+            SignedOffset4::ZERO,
+            SignedOffset4::ZERO,
+            SignedOffset4::ZERO,
+        );
+        let b = Crystal4096::new(
+            SignedOffset4::OVERFLOW,
+            SignedOffset4::ZERO,
+            SignedOffset4::ZERO,
+        );
         assert!(!a.same_basin(b));
     }
 

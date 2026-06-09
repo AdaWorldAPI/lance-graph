@@ -120,7 +120,9 @@ mod tests {
 
     #[test]
     fn roundtrip_tags() {
-        for tag in &["a", "v", "j", "r", "i", "p", "c", "d", "n", "u", "t", "x", "e"] {
+        for tag in &[
+            "a", "v", "j", "r", "i", "p", "c", "d", "n", "u", "t", "x", "e",
+        ] {
             let pos = PoS::from_tag(tag).unwrap();
             assert_eq!(pos.as_tag(), *tag);
         }

@@ -51,7 +51,11 @@ impl VsaVec {
     /// Deterministic: same rank always produces the same vector.
     pub fn from_rank(rank: u16) -> Self {
         // Use rank as seed with a large prime multiplier for spread
-        Self::random((rank as u64).wrapping_mul(0x9E3779B97F4A7C15).wrapping_add(0xBF58476D1CE4E5B9))
+        Self::random(
+            (rank as u64)
+                .wrapping_mul(0x9E3779B97F4A7C15)
+                .wrapping_add(0xBF58476D1CE4E5B9),
+        )
     }
 
     /// XOR bind: `self ⊕ other`. Reversible: `(a ⊕ b) ⊕ b = a`.
@@ -135,12 +139,12 @@ impl RoleVectors {
     /// These never change — they're architectural constants.
     pub fn new() -> Self {
         RoleVectors {
-            subject: VsaVec::random(0x5375626A65637400),   // "Subject\0"
+            subject: VsaVec::random(0x5375626A65637400), // "Subject\0"
             predicate: VsaVec::random(0x5072656469636174), // "Predicat"
-            object: VsaVec::random(0x4F626A6563740000),    // "Object\0\0"
-            modifier: VsaVec::random(0x4D6F646966696572),  // "Modifier"
-            temporal: VsaVec::random(0x54656D706F72616C),  // "Temporal"
-            negation: VsaVec::random(0x4E65676174696F6E),  // "Negation"
+            object: VsaVec::random(0x4F626A6563740000),  // "Object\0\0"
+            modifier: VsaVec::random(0x4D6F646966696572), // "Modifier"
+            temporal: VsaVec::random(0x54656D706F72616C), // "Temporal"
+            negation: VsaVec::random(0x4E65676174696F6E), // "Negation"
         }
     }
 }
@@ -282,7 +286,9 @@ mod tests {
         let tolerance = (VSA_BITS as f32).sqrt() as u32 * 3; // 3σ
         assert!(
             popcount.abs_diff(expected) < tolerance,
-            "popcount={}, expected≈{}", popcount, expected
+            "popcount={}, expected≈{}",
+            popcount,
+            expected
         );
     }
 
@@ -344,7 +350,11 @@ mod tests {
 
         // Negated should be different
         let sim = positive.similarity(&negated);
-        assert!(sim < 0.8, "sim = {} — negation should change the vector!", sim);
+        assert!(
+            sim < 0.8,
+            "sim = {} — negation should change the vector!",
+            sim
+        );
     }
 
     #[test]

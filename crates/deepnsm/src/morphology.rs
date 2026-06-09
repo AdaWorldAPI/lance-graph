@@ -37,43 +37,81 @@ use crate::parser::SentenceStructure;
 pub struct MorphFlags(u16);
 
 impl MorphFlags {
-    pub const PAST: u16          = 1 << 0;
-    pub const PRESENT: u16       = 1 << 1;
-    pub const FUTURE: u16        = 1 << 2;
-    pub const SINGULAR: u16      = 1 << 3;
-    pub const PLURAL: u16        = 1 << 4;
-    pub const FIRST_PERSON: u16  = 1 << 5;
+    pub const PAST: u16 = 1 << 0;
+    pub const PRESENT: u16 = 1 << 1;
+    pub const FUTURE: u16 = 1 << 2;
+    pub const SINGULAR: u16 = 1 << 3;
+    pub const PLURAL: u16 = 1 << 4;
+    pub const FIRST_PERSON: u16 = 1 << 5;
     pub const SECOND_PERSON: u16 = 1 << 6;
-    pub const THIRD_PERSON: u16  = 1 << 7;
-    pub const PASSIVE: u16       = 1 << 8;
-    pub const NEGATED: u16       = 1 << 9;
+    pub const THIRD_PERSON: u16 = 1 << 7;
+    pub const PASSIVE: u16 = 1 << 8;
+    pub const NEGATED: u16 = 1 << 9;
     pub const INTERROGATIVE: u16 = 1 << 10;
     pub const RELATIVE_CLAUSE: u16 = 1 << 11;
-    pub const INFINITIVE: u16    = 1 << 12;
-    pub const SUBORDINATE: u16   = 1 << 13;
+    pub const INFINITIVE: u16 = 1 << 12;
+    pub const SUBORDINATE: u16 = 1 << 13;
 
-    pub fn new(bits: u16) -> Self { Self(bits) }
+    pub fn new(bits: u16) -> Self {
+        Self(bits)
+    }
 
-    pub fn bits(self) -> u16 { self.0 }
+    pub fn bits(self) -> u16 {
+        self.0
+    }
 
-    pub fn has(self, flag: u16) -> bool { self.0 & flag != 0 }
-    pub fn set(self, flag: u16) -> Self { Self(self.0 | flag) }
-    pub fn clear(self, flag: u16) -> Self { Self(self.0 & !flag) }
+    pub fn has(self, flag: u16) -> bool {
+        self.0 & flag != 0
+    }
+    pub fn set(self, flag: u16) -> Self {
+        Self(self.0 | flag)
+    }
+    pub fn clear(self, flag: u16) -> Self {
+        Self(self.0 & !flag)
+    }
 
-    pub fn is_past(self) -> bool         { self.has(Self::PAST) }
-    pub fn is_present(self) -> bool      { self.has(Self::PRESENT) }
-    pub fn is_future(self) -> bool       { self.has(Self::FUTURE) }
-    pub fn is_singular(self) -> bool     { self.has(Self::SINGULAR) }
-    pub fn is_plural(self) -> bool       { self.has(Self::PLURAL) }
-    pub fn is_first_person(self) -> bool { self.has(Self::FIRST_PERSON) }
-    pub fn is_second_person(self) -> bool{ self.has(Self::SECOND_PERSON) }
-    pub fn is_third_person(self) -> bool { self.has(Self::THIRD_PERSON) }
-    pub fn is_passive(self) -> bool      { self.has(Self::PASSIVE) }
-    pub fn is_negated(self) -> bool      { self.has(Self::NEGATED) }
-    pub fn is_interrogative(self) -> bool{ self.has(Self::INTERROGATIVE) }
-    pub fn is_relative_clause(self) -> bool { self.has(Self::RELATIVE_CLAUSE) }
-    pub fn is_infinitive(self) -> bool   { self.has(Self::INFINITIVE) }
-    pub fn is_subordinate(self) -> bool  { self.has(Self::SUBORDINATE) }
+    pub fn is_past(self) -> bool {
+        self.has(Self::PAST)
+    }
+    pub fn is_present(self) -> bool {
+        self.has(Self::PRESENT)
+    }
+    pub fn is_future(self) -> bool {
+        self.has(Self::FUTURE)
+    }
+    pub fn is_singular(self) -> bool {
+        self.has(Self::SINGULAR)
+    }
+    pub fn is_plural(self) -> bool {
+        self.has(Self::PLURAL)
+    }
+    pub fn is_first_person(self) -> bool {
+        self.has(Self::FIRST_PERSON)
+    }
+    pub fn is_second_person(self) -> bool {
+        self.has(Self::SECOND_PERSON)
+    }
+    pub fn is_third_person(self) -> bool {
+        self.has(Self::THIRD_PERSON)
+    }
+    pub fn is_passive(self) -> bool {
+        self.has(Self::PASSIVE)
+    }
+    pub fn is_negated(self) -> bool {
+        self.has(Self::NEGATED)
+    }
+    pub fn is_interrogative(self) -> bool {
+        self.has(Self::INTERROGATIVE)
+    }
+    pub fn is_relative_clause(self) -> bool {
+        self.has(Self::RELATIVE_CLAUSE)
+    }
+    pub fn is_infinitive(self) -> bool {
+        self.has(Self::INFINITIVE)
+    }
+    pub fn is_subordinate(self) -> bool {
+        self.has(Self::SUBORDINATE)
+    }
 
     /// Derive heuristic morph flags from a parsed sentence and triple index.
     ///
@@ -97,10 +135,16 @@ impl MorphFlags {
 
         if has_temporal {
             // V1: temporal marker → treat as past event
-            flags = flags.set(Self::PAST).set(Self::THIRD_PERSON).set(Self::SINGULAR);
+            flags = flags
+                .set(Self::PAST)
+                .set(Self::THIRD_PERSON)
+                .set(Self::SINGULAR);
         } else {
             // Default: present atemporal statement
-            flags = flags.set(Self::PRESENT).set(Self::THIRD_PERSON).set(Self::SINGULAR);
+            flags = flags
+                .set(Self::PRESENT)
+                .set(Self::THIRD_PERSON)
+                .set(Self::SINGULAR);
         }
 
         flags
@@ -110,20 +154,48 @@ impl MorphFlags {
 impl core::fmt::Debug for MorphFlags {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let mut names = Vec::new();
-        if self.is_past()           { names.push("PAST"); }
-        if self.is_present()        { names.push("PRESENT"); }
-        if self.is_future()         { names.push("FUTURE"); }
-        if self.is_singular()       { names.push("SINGULAR"); }
-        if self.is_plural()         { names.push("PLURAL"); }
-        if self.is_first_person()   { names.push("1P"); }
-        if self.is_second_person()  { names.push("2P"); }
-        if self.is_third_person()   { names.push("3P"); }
-        if self.is_passive()        { names.push("PASSIVE"); }
-        if self.is_negated()        { names.push("NEG"); }
-        if self.is_interrogative()  { names.push("?"); }
-        if self.is_relative_clause(){ names.push("REL"); }
-        if self.is_infinitive()     { names.push("INF"); }
-        if self.is_subordinate()    { names.push("SUB"); }
+        if self.is_past() {
+            names.push("PAST");
+        }
+        if self.is_present() {
+            names.push("PRESENT");
+        }
+        if self.is_future() {
+            names.push("FUTURE");
+        }
+        if self.is_singular() {
+            names.push("SINGULAR");
+        }
+        if self.is_plural() {
+            names.push("PLURAL");
+        }
+        if self.is_first_person() {
+            names.push("1P");
+        }
+        if self.is_second_person() {
+            names.push("2P");
+        }
+        if self.is_third_person() {
+            names.push("3P");
+        }
+        if self.is_passive() {
+            names.push("PASSIVE");
+        }
+        if self.is_negated() {
+            names.push("NEG");
+        }
+        if self.is_interrogative() {
+            names.push("?");
+        }
+        if self.is_relative_clause() {
+            names.push("REL");
+        }
+        if self.is_infinitive() {
+            names.push("INF");
+        }
+        if self.is_subordinate() {
+            names.push("SUB");
+        }
         write!(f, "MorphFlags({:?})", names)
     }
 }
@@ -180,11 +252,20 @@ mod tests {
     #[test]
     fn bits_are_distinct() {
         let flags = [
-            MorphFlags::PAST, MorphFlags::PRESENT, MorphFlags::FUTURE,
-            MorphFlags::SINGULAR, MorphFlags::PLURAL,
-            MorphFlags::FIRST_PERSON, MorphFlags::SECOND_PERSON, MorphFlags::THIRD_PERSON,
-            MorphFlags::PASSIVE, MorphFlags::NEGATED, MorphFlags::INTERROGATIVE,
-            MorphFlags::RELATIVE_CLAUSE, MorphFlags::INFINITIVE, MorphFlags::SUBORDINATE,
+            MorphFlags::PAST,
+            MorphFlags::PRESENT,
+            MorphFlags::FUTURE,
+            MorphFlags::SINGULAR,
+            MorphFlags::PLURAL,
+            MorphFlags::FIRST_PERSON,
+            MorphFlags::SECOND_PERSON,
+            MorphFlags::THIRD_PERSON,
+            MorphFlags::PASSIVE,
+            MorphFlags::NEGATED,
+            MorphFlags::INTERROGATIVE,
+            MorphFlags::RELATIVE_CLAUSE,
+            MorphFlags::INFINITIVE,
+            MorphFlags::SUBORDINATE,
         ];
         for i in 0..flags.len() {
             for j in (i + 1)..flags.len() {

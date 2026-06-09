@@ -61,9 +61,9 @@ pub mod similarity;
 pub mod spo;
 pub mod vocabulary;
 
-pub mod trajectory;
 pub mod markov_bundle;
 pub mod nsm_primes;
+pub mod trajectory;
 
 // E-ENGLISH-BIFURCATES — two SEPARATE faculties (don't fuse them):
 //   arcs (Broca/projection): basin/literal decomposition of the MarkovBundler wave.
@@ -106,26 +106,26 @@ pub mod triangle_bridge;
 
 // ─── Re-exports ──────────────────────────────────────────────────────────────
 
+pub use context::ContextWindow;
+pub use encoder::{RoleVectors, VsaVec};
 pub use pipeline::DeepNsmEngine;
 pub use pos::PoS;
+pub use similarity::SimilarityTable;
 pub use spo::SpoTriple;
 pub use vocabulary::Vocabulary;
-pub use similarity::SimilarityTable;
-pub use encoder::{VsaVec, RoleVectors};
-pub use context::ContextWindow;
 pub mod fingerprint16k;
 
 // ── DeepNSM reader — sentence-level AriGraph reader ──────────────────────
 // Left-corner state machine: expectation + evidence → episodic SPO + next state.
 // Five modules; writer order is dependency order.
-pub mod morphology;      // MorphFlags — heuristic tense/voice/clause flags
-pub mod cam64;           // Cam64 — 8-lane reading-state locality key (NOT the truth)
-pub mod episodic_spo;    // EpisodicSpoFrame — the auditable witness rows
-pub mod window;          // SentenceWindow — ±5 exact entity tracking for coreference
-pub mod reader_state;    // ReadingState + step() — the left-corner transition
-// Signed discrete reading-crystal: P64 meaning field + Crystal4096 coordinate.
-// Bridge from DeepNSM grammar reader → holograph bitpacked resonance substrate.
-// Integer-only hot path; floats remain only in EpisodicSpoFrame quality fields.
+pub mod cam64; // Cam64 — 8-lane reading-state locality key (NOT the truth)
+pub mod episodic_spo; // EpisodicSpoFrame — the auditable witness rows
+pub mod morphology; // MorphFlags — heuristic tense/voice/clause flags
+pub mod reader_state;
+pub mod window; // SentenceWindow — ±5 exact entity tracking for coreference // ReadingState + step() — the left-corner transition
+                // Signed discrete reading-crystal: P64 meaning field + Crystal4096 coordinate.
+                // Bridge from DeepNSM grammar reader → holograph bitpacked resonance substrate.
+                // Integer-only hot path; floats remain only in EpisodicSpoFrame quality fields.
 pub mod signed_crystal;
 // SentenceTransformer64 — deterministic state-transition transformer.
 // Maps grammar/NSM/discourse → P64 native meaning field → Cam4096 codebook address.

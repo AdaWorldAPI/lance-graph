@@ -49,8 +49,8 @@
 use std::fs;
 use std::path::PathBuf;
 
-use deepnsm::DeepNsmEngine;
 use deepnsm::spo::WordDistanceMatrix;
+use deepnsm::DeepNsmEngine;
 
 fn main() {
     println!("# Probe: DeepNSM Semantic Layer Sanity");
@@ -86,7 +86,11 @@ fn main() {
         let nonzero_diagonals: Vec<(usize, u8)> = (0..k)
             .filter_map(|i| {
                 let d = dm.get(i as u16, i as u16);
-                if d != 0 { Some((i, d)) } else { None }
+                if d != 0 {
+                    Some((i, d))
+                } else {
+                    None
+                }
             })
             .take(5)
             .collect();
@@ -113,10 +117,14 @@ fn main() {
     // Convert to f64 for stats
     let n = off.len() as f64;
     let mean: f64 = off.iter().map(|&v| v as f64).sum::<f64>() / n;
-    let var: f64 = off.iter().map(|&v| {
-        let diff = v as f64 - mean;
-        diff * diff
-    }).sum::<f64>() / n;
+    let var: f64 = off
+        .iter()
+        .map(|&v| {
+            let diff = v as f64 - mean;
+            diff * diff
+        })
+        .sum::<f64>()
+        / n;
     let std_dev = var.sqrt();
 
     // Percentiles via sort
@@ -165,12 +173,20 @@ fn main() {
     //    has no per-row distinguishing structure → degenerate.
     let row_sum_f64: Vec<f64> = row_sum.iter().map(|&s| s as f64).collect();
     let mean_rs = row_sum_f64.iter().sum::<f64>() / k as f64;
-    let var_rs = row_sum_f64.iter().map(|&s| {
-        let diff = s - mean_rs;
-        diff * diff
-    }).sum::<f64>() / k as f64;
+    let var_rs = row_sum_f64
+        .iter()
+        .map(|&s| {
+            let diff = s - mean_rs;
+            diff * diff
+        })
+        .sum::<f64>()
+        / k as f64;
     let std_rs = var_rs.sqrt();
-    let cv = if mean_rs.abs() > 1e-9 { std_rs / mean_rs } else { 0.0 };
+    let cv = if mean_rs.abs() > 1e-9 {
+        std_rs / mean_rs
+    } else {
+        0.0
+    };
     println!("## Row-sum constancy (matrix isotropy proxy)");
     println!("- mean row sum: {:.2}", mean_rs);
     println!("- std  row sum: {:.2}", std_rs);
@@ -186,17 +202,25 @@ fn main() {
     for i in 0..k {
         let mut best = u32::MAX;
         for j in 0..k {
-            if i == j { continue; }
+            if i == j {
+                continue;
+            }
             let d = dm.get(i as u16, j as u16) as u32;
-            if d < best { best = d; }
+            if d < best {
+                best = d;
+            }
         }
         nn_dist.push(best);
     }
     let nn_mean: f64 = nn_dist.iter().map(|&v| v as f64).sum::<f64>() / k as f64;
-    let nn_var: f64 = nn_dist.iter().map(|&v| {
-        let diff = v as f64 - nn_mean;
-        diff * diff
-    }).sum::<f64>() / k as f64;
+    let nn_var: f64 = nn_dist
+        .iter()
+        .map(|&v| {
+            let diff = v as f64 - nn_mean;
+            diff * diff
+        })
+        .sum::<f64>()
+        / k as f64;
     let nn_std = nn_var.sqrt();
     println!("## Nearest-neighbor distance (excluding self)");
     println!("- mean: {:.2}", nn_mean);
@@ -232,8 +256,10 @@ fn main() {
     println!("| matrix size | 256×256 | {}×{} |", k, k);
     println!("| off-diag mean | 0.640 (cos) | {:.2} (u8 dist) |", mean);
     println!("| effective rank | 1.82 | see Python follow-up |");
-    println!("| frac > 0.9 (cos) / high u8 | 43.76% | {:.2}% (top 10 bins) |",
-             top10 as f64 / n * 100.0);
+    println!(
+        "| frac > 0.9 (cos) / high u8 | 43.76% | {:.2}% (top 10 bins) |",
+        top10 as f64 / n * 100.0
+    );
     println!("| nearest-neighbor similarity | 0.9407 (cos) | see std above |");
     println!();
 
@@ -242,7 +268,10 @@ fn main() {
     println!();
     println!("```python");
     println!("import numpy as np");
-    println!("d = np.fromfile('{}', dtype=np.uint8).reshape(4096, 4096).astype(np.float64)", dump_path);
+    println!(
+        "d = np.fromfile('{}', dtype=np.uint8).reshape(4096, 4096).astype(np.float64)",
+        dump_path
+    );
     println!("# Convert distance to similarity: normalize [0,255] → [0,1], invert");
     println!("max_d = d.max()");
     println!("sim = 1.0 - d / max(max_d, 1)");

@@ -153,16 +153,15 @@ pub fn neighbors_4096(
     for dx in -r..=r {
         for dy in -r..=r {
             for dz in -r..=r {
-                if dx == 0 && dy == 0 && dz == 0 { continue; } // already pushed
+                if dx == 0 && dy == 0 && dz == 0 {
+                    continue;
+                } // already pushed
 
                 // Metric filter.
                 let in_metric = match metric {
-                    NeighborhoodMetric::Manhattan =>
-                        dx.abs() + dy.abs() + dz.abs() <= r,
-                    NeighborhoodMetric::Chebyshev =>
-                        dx.abs().max(dy.abs()).max(dz.abs()) <= r,
-                    NeighborhoodMetric::LaneCompatible =>
-                        dx.abs().max(dy.abs()).max(dz.abs()) <= r,
+                    NeighborhoodMetric::Manhattan => dx.abs() + dy.abs() + dz.abs() <= r,
+                    NeighborhoodMetric::Chebyshev => dx.abs().max(dy.abs()).max(dz.abs()) <= r,
+                    NeighborhoodMetric::LaneCompatible => dx.abs().max(dy.abs()).max(dz.abs()) <= r,
                 };
                 if !in_metric {
                     continue;
@@ -200,8 +199,12 @@ pub fn neighbors_4096(
 pub fn chebyshev_distance(a: Crystal4096, b: Crystal4096) -> Option<u8> {
     let (ax, ay, az) = (a.x(), a.y(), a.z());
     let (bx, by, bz) = (b.x(), b.y(), b.z());
-    if ax.is_overflow() || ay.is_overflow() || az.is_overflow()
-        || bx.is_overflow() || by.is_overflow() || bz.is_overflow()
+    if ax.is_overflow()
+        || ay.is_overflow()
+        || az.is_overflow()
+        || bx.is_overflow()
+        || by.is_overflow()
+        || bz.is_overflow()
     {
         return None;
     }
@@ -217,8 +220,12 @@ pub fn chebyshev_distance(a: Crystal4096, b: Crystal4096) -> Option<u8> {
 pub fn manhattan_distance(a: Crystal4096, b: Crystal4096) -> Option<u8> {
     let (ax, ay, az) = (a.x(), a.y(), a.z());
     let (bx, by, bz) = (b.x(), b.y(), b.z());
-    if ax.is_overflow() || ay.is_overflow() || az.is_overflow()
-        || bx.is_overflow() || by.is_overflow() || bz.is_overflow()
+    if ax.is_overflow()
+        || ay.is_overflow()
+        || az.is_overflow()
+        || bx.is_overflow()
+        || by.is_overflow()
+        || bz.is_overflow()
     {
         return None;
     }
@@ -250,7 +257,11 @@ mod tests {
     use crate::signed_crystal::{Crystal4096, SignedOffset4};
 
     fn zero() -> Crystal4096 {
-        Crystal4096::new(SignedOffset4::ZERO, SignedOffset4::ZERO, SignedOffset4::ZERO)
+        Crystal4096::new(
+            SignedOffset4::ZERO,
+            SignedOffset4::ZERO,
+            SignedOffset4::ZERO,
+        )
     }
 
     fn at(x: i8, y: i8, z: i8) -> Crystal4096 {
@@ -308,7 +319,9 @@ mod tests {
     #[test]
     fn overflow_center_returns_singleton() {
         let overflow = Crystal4096::new(
-            SignedOffset4::OVERFLOW, SignedOffset4::ZERO, SignedOffset4::ZERO,
+            SignedOffset4::OVERFLOW,
+            SignedOffset4::ZERO,
+            SignedOffset4::ZERO,
         );
         let nb = neighbors_4096(overflow, 1, NeighborhoodMetric::Chebyshev);
         assert_eq!(nb.len(), 1);
@@ -352,7 +365,9 @@ mod tests {
     fn overflow_distance_returns_none() {
         let a = at(0, 0, 0);
         let b = Crystal4096::new(
-            SignedOffset4::OVERFLOW, SignedOffset4::ZERO, SignedOffset4::ZERO,
+            SignedOffset4::OVERFLOW,
+            SignedOffset4::ZERO,
+            SignedOffset4::ZERO,
         );
         assert_eq!(chebyshev_distance(a, b), None);
         assert_eq!(manhattan_distance(a, b), None);

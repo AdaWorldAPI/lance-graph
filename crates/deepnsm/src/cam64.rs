@@ -65,31 +65,51 @@ impl Cam64 {
 
     /// Raw u64 value.
     #[inline]
-    pub fn raw(self) -> u64 { self.0 }
+    pub fn raw(self) -> u64 {
+        self.0
+    }
 
     /// Construct from raw u64.
     #[inline]
-    pub fn from_raw(v: u64) -> Self { Self(v) }
+    pub fn from_raw(v: u64) -> Self {
+        Self(v)
+    }
 
     // ── Named lane accessors ─────────────────────────────────────────────────
 
     /// Vocabulary bucket of the active subject (lane 0).
     /// Bucket = rank >> 5 → 128 buckets of 32 adjacent vocabulary items each.
-    pub fn entity_state(self)    -> u8 { self.lane(0) }
+    pub fn entity_state(self) -> u8 {
+        self.lane(0)
+    }
     /// Vocabulary bucket of the active predicate (lane 1).
-    pub fn predicate_state(self) -> u8 { self.lane(1) }
+    pub fn predicate_state(self) -> u8 {
+        self.lane(1)
+    }
     /// Vocabulary bucket of the active object, or 0 if absent (lane 2).
-    pub fn object_state(self)    -> u8 { self.lane(2) }
+    pub fn object_state(self) -> u8 {
+        self.lane(2)
+    }
     /// `MorphFlags` bits 0-7: tense, number, person, passive, negated (lane 3).
-    pub fn morph_state(self)     -> u8 { self.lane(3) }
+    pub fn morph_state(self) -> u8 {
+        self.lane(3)
+    }
     /// `MorphFlags` bits 8-13: clause structure flags (lane 4).
-    pub fn clause_state(self)    -> u8 { self.lane(4) }
+    pub fn clause_state(self) -> u8 {
+        self.lane(4)
+    }
     /// Discourse / anaphora: entity-stack depth (bits 0-6) + coreference flag (bit 7) (lane 5).
-    pub fn discourse_state(self) -> u8 { self.lane(5) }
+    pub fn discourse_state(self) -> u8 {
+        self.lane(5)
+    }
     /// Causal / temporal / conditional markers (lane 6).
-    pub fn causal_state(self)    -> u8 { self.lane(6) }
+    pub fn causal_state(self) -> u8 {
+        self.lane(6)
+    }
     /// Episodic basin markers: novelty/entropy/epiphany flags (lane 7).
-    pub fn basin_state(self)     -> u8 { self.lane(7) }
+    pub fn basin_state(self) -> u8 {
+        self.lane(7)
+    }
 
     // ── Construction helpers ─────────────────────────────────────────────────
 
@@ -109,22 +129,25 @@ impl Cam64 {
     ) -> Self {
         // Lanes 0-2: vocabulary-bucket of each role (128 buckets of 32 ranks).
         // Adjacent vocabulary items share a bucket → helps basin-matching.
-        let entity_lane   = (triple.subject() >> 5) as u8;
-        let pred_lane     = (triple.predicate() >> 5) as u8;
-        let obj_lane      = if triple.object() != NO_ROLE {
+        let entity_lane = (triple.subject() >> 5) as u8;
+        let pred_lane = (triple.predicate() >> 5) as u8;
+        let obj_lane = if triple.object() != NO_ROLE {
             (triple.object() >> 5) as u8
         } else {
             0
         };
 
         // Lanes 3-4: split MorphFlags across two bytes.
-        let morph_bits    = morph.bits();
+        let morph_bits = morph.bits();
         // MorphFlags is defined over bits 0-13 (bits 14-15 spare; see morphology.rs).
         // clause_lane below carries bits 8-15, so a future flag at bit 14/15 would
         // land there with no defined meaning — guard the invariant in debug builds.
-        debug_assert!(morph_bits <= 0x3FFF, "MorphFlags bit 14/15 set — cam64 clause lane has no slot for it");
-        let morph_lane    = (morph_bits & 0xFF) as u8;
-        let clause_lane   = ((morph_bits >> 8) & 0xFF) as u8;
+        debug_assert!(
+            morph_bits <= 0x3FFF,
+            "MorphFlags bit 14/15 set — cam64 clause lane has no slot for it"
+        );
+        let morph_lane = (morph_bits & 0xFF) as u8;
+        let clause_lane = ((morph_bits >> 8) & 0xFF) as u8;
 
         // Lane 5: discourse — stack depth (bits 0-6) + coreference flag (bit 7).
         let depth_clamped = entity_stack_depth.min(127);
@@ -132,15 +155,20 @@ impl Cam64 {
 
         // Lane 6: causal/temporal — bit 0 = temporal marker present (v1;
         // causal/conditional markers in bits 1-7 reserved for v2).
-        let causal_lane   = if has_temporal { 0x01u8 } else { 0x00 };
+        let causal_lane = if has_temporal { 0x01u8 } else { 0x00 };
 
         // Lane 7: basin — bit 0 = novelty_high (v1 placeholder; epiphany/wisdom baked in v2).
-        let basin_lane    = if novelty_high { 0x01u8 } else { 0x00 };
+        let basin_lane = if novelty_high { 0x01u8 } else { 0x00 };
 
         Self::from_lanes([
-            entity_lane, pred_lane, obj_lane,
-            morph_lane, clause_lane,
-            discourse_lane, causal_lane, basin_lane,
+            entity_lane,
+            pred_lane,
+            obj_lane,
+            morph_lane,
+            clause_lane,
+            discourse_lane,
+            causal_lane,
+            basin_lane,
         ])
     }
 
@@ -179,7 +207,7 @@ impl Cam64 {
     #[inline]
     pub fn continues_basin(self, prev: Cam64) -> bool {
         let diff = self.0 ^ prev.0;
-        let diff_bits  = diff.count_ones();
+        let diff_bits = diff.count_ones();
         let shared_bits = 64 - diff_bits; // XNOR popcount via complement
         shared_bits >= CAM64_CONTINUATION_MIN_SHARED && diff_bits <= CAM64_CONTINUATION_MAX_DIFF
     }
@@ -209,9 +237,14 @@ impl core::fmt::Debug for Cam64 {
             f,
             "Cam64(entity={:#04x} pred={:#04x} obj={:#04x} morph={:#04x} \
              clause={:#04x} discourse={:#04x} causal={:#04x} basin={:#04x})",
-            self.entity_state(), self.predicate_state(), self.object_state(),
-            self.morph_state(), self.clause_state(), self.discourse_state(),
-            self.causal_state(), self.basin_state(),
+            self.entity_state(),
+            self.predicate_state(),
+            self.object_state(),
+            self.morph_state(),
+            self.clause_state(),
+            self.discourse_state(),
+            self.causal_state(),
+            self.basin_state(),
         )
     }
 }
@@ -256,7 +289,7 @@ mod tests {
         let t = SpoTriple::new(1, 2, 3);
         // Set a flag that lands in the high byte (RELATIVE_CLAUSE = bit 11)
         let m = MorphFlags::default()
-            .set(MorphFlags::NEGATED)          // bit 9 → high byte bit 1
+            .set(MorphFlags::NEGATED) // bit 9 → high byte bit 1
             .set(MorphFlags::RELATIVE_CLAUSE); // bit 11 → high byte bit 3
         let c = Cam64::from_triple(&t, m, 0, false, false, false);
         // morph_lane = low byte of flags
@@ -270,7 +303,7 @@ mod tests {
         let t = SpoTriple::new(1, 2, 3);
         let m = MorphFlags::default();
         let c_yes = Cam64::from_triple(&t, m, 5, true, false, false);
-        let c_no  = Cam64::from_triple(&t, m, 5, false, false, false);
+        let c_no = Cam64::from_triple(&t, m, 5, false, false, false);
         assert!(c_yes.has_coreference());
         assert!(!c_no.has_coreference());
         assert_eq!(c_yes.entity_stack_depth(), 5);

@@ -79,7 +79,11 @@ mod tests {
         // f64 intermediate gives sub-1e-3 round-trip; f32 final cast caps
         // precision around 1e-6 of TAU (~6e-6 absolute).
         let diff = (recovered - theta).abs();
-        assert!(diff < 0.001, "round-trip diff {} exceeds tolerance 0.001", diff);
+        assert!(
+            diff < 0.001,
+            "round-trip diff {} exceeds tolerance 0.001",
+            diff
+        );
     }
 
     #[test]

@@ -755,8 +755,8 @@ mod parser_coverage_tests {
         let prime = nsm_prime_rank();
         let tokens = vec![
             tok(Some(prime), PoS::Pronoun, "i"),
-            tok(Some(100),   PoS::Verb,    "see"),
-            tok(Some(200),   PoS::Noun,    "thing"),
+            tok(Some(100), PoS::Verb, "see"),
+            tok(Some(200), PoS::Noun, "thing"),
         ];
         let parser = Parser::new();
         let result = parser.parse_with_coverage(&tokens);
@@ -772,9 +772,9 @@ mod parser_coverage_tests {
     fn parse_with_coverage_below_threshold_emits_ticket() {
         // Mostly OOV (rank: None) → coverage drops far below 0.85.
         let tokens = vec![
-            tok(None,       PoS::Noun, "xyzzy"),
-            tok(None,       PoS::Noun, "plugh"),
-            tok(None,       PoS::Verb, "fnord"),
+            tok(None, PoS::Noun, "xyzzy"),
+            tok(None, PoS::Noun, "plugh"),
+            tok(None, PoS::Verb, "fnord"),
             tok(Some(2943), PoS::Verb, "bites"),
         ];
         let parser = Parser::new();
@@ -801,9 +801,9 @@ mod parser_coverage_tests {
     fn unresolved_tokens_preserve_position_identity() {
         // Mixed resolved/unresolved: positions of OOV tokens are 0 and 2.
         let tokens = vec![
-            tok(None,        PoS::Noun, "blarf"),
-            tok(Some(100),   PoS::Verb, "is"),
-            tok(None,        PoS::Noun, "wibble"),
+            tok(None, PoS::Noun, "blarf"),
+            tok(Some(100), PoS::Verb, "is"),
+            tok(None, PoS::Noun, "wibble"),
         ];
         let parser = Parser::new();
         let result = parser.parse_with_coverage(&tokens);

@@ -66,7 +66,10 @@ mod tests {
         let ranks = [12_u16, 670, 2942];
         let (basin, literal) = t.split_arcs(&ranks);
         assert_eq!(basin.0, t.fingerprint, "basin arc IS the spine bundle");
-        assert_eq!(literal.0, ranks, "literal arc carries the COCA ranks verbatim");
+        assert_eq!(
+            literal.0, ranks,
+            "literal arc carries the COCA ranks verbatim"
+        );
     }
 
     #[test]

@@ -40,14 +40,14 @@ pub use crate::spo::NO_ROLE;
 #[repr(u8)]
 pub enum DependencyRole {
     #[default]
-    Unknown    = 0,
-    Subject    = 1,
-    Predicate  = 2,
-    Object     = 3,
-    Modifier   = 4,
+    Unknown = 0,
+    Subject = 1,
+    Predicate = 2,
+    Object = 3,
+    Modifier = 4,
     Complement = 5,
-    Adjunct    = 6,
-    Specifier  = 7,
+    Adjunct = 6,
+    Specifier = 7,
 }
 
 /// Clause-level structural role.
@@ -55,12 +55,12 @@ pub enum DependencyRole {
 #[repr(u8)]
 pub enum ClauseRole {
     #[default]
-    Main        = 0,
-    Relative    = 1,
+    Main = 0,
+    Relative = 1,
     Subordinate = 2,
     Infinitival = 3,
     Participial = 4,
-    Coordinate  = 5,
+    Coordinate = 5,
 }
 
 /// Discourse-level role of the frame.
@@ -69,17 +69,17 @@ pub enum ClauseRole {
 pub enum DiscourseRole {
     /// Topic of the current discourse segment.
     #[default]
-    Topic       = 0,
+    Topic = 0,
     /// Comment / new information about the topic.
-    Comment     = 1,
+    Comment = 1,
     /// Opening of a new discourse segment / basin.
-    Opener      = 2,
+    Opener = 2,
     /// Closing / summary of an existing basin.
-    Closer      = 3,
+    Closer = 3,
     /// Bridge: connects prior and new discourse segments.
-    Bridge      = 4,
+    Bridge = 4,
     /// Background / presupposition.
-    Background  = 5,
+    Background = 5,
 }
 
 // ── EpisodicSpoFrame ─────────────────────────────────────────────────────
@@ -90,29 +90,29 @@ pub enum DiscourseRole {
 #[derive(Clone, Copy, Debug)]
 pub struct EpisodicSpoFrame {
     // ── Position ────────────────────────────────────────────────────────────
-    pub doc_id:           u32,
-    pub sentence_id:      u32,
+    pub doc_id: u32,
+    pub sentence_id: u32,
     pub token_span_start: u16, // inclusive byte/token offset of the head term
-    pub token_span_end:   u16, // exclusive
+    pub token_span_end: u16,   // exclusive
 
     // ── Lexical ─────────────────────────────────────────────────────────────
     /// Vocabulary rank of the head term (lemma_id in the NSM / COCA vocabulary).
-    pub term_id:          u16,
-    pub pos_tag:          PoS,
-    pub morph_flags:      MorphFlags,
+    pub term_id: u16,
+    pub pos_tag: PoS,
+    pub morph_flags: MorphFlags,
 
     // ── Syntactic ───────────────────────────────────────────────────────────
-    pub dependency_role:  DependencyRole,
-    pub clause_role:      ClauseRole,
-    pub discourse_role:   DiscourseRole,
+    pub dependency_role: DependencyRole,
+    pub clause_role: ClauseRole,
+    pub discourse_role: DiscourseRole,
 
     // ── SPO candidates ──────────────────────────────────────────────────────
     /// Vocabulary rank of the resolved subject (NO_ROLE if absent).
-    pub subject_candidate_id:   u16,
+    pub subject_candidate_id: u16,
     /// Vocabulary rank of the resolved predicate.
     pub predicate_candidate_id: u16,
     /// Vocabulary rank of the resolved object (NO_ROLE if intransitive).
-    pub object_candidate_id:    u16,
+    pub object_candidate_id: u16,
     /// Resolved coreference target (NO_ROLE if not a pronoun or unresolvable).
     pub refers_to_candidate_id: u16,
 
@@ -123,22 +123,22 @@ pub struct EpisodicSpoFrame {
 
     // ── NSM semantic masks ──────────────────────────────────────────────────
     /// Bitmask of NSM semantic primes active in this frame (63 primes → 64 bits).
-    pub nsm_prime_mask:    u64,
+    pub nsm_prime_mask: u64,
     /// Bitmask of NSM semantic molecules (composite concepts).
     pub nsm_molecule_mask: u64,
 
     // ── CAM locality ────────────────────────────────────────────────────────
     /// CAM-PQ 6-subspace code for the subject head (6 centroid indices, one per subspace).
     /// Used for fast palette-distance lookups against the codebook.
-    pub cam_code:          [u8; 6],
+    pub cam_code: [u8; 6],
 
     // ── Episodic quality ────────────────────────────────────────────────────
-    pub confidence:        f32,
-    pub frequency:         f32,
-    pub novelty:           f32,
-    pub wisdom:            f32,
-    pub staunen:           f32,   // aesthetic/cognitive surprise (German: astonishment)
-    pub entropy:           f32,
+    pub confidence: f32,
+    pub frequency: f32,
+    pub novelty: f32,
+    pub wisdom: f32,
+    pub staunen: f32, // aesthetic/cognitive surprise (German: astonishment)
+    pub entropy: f32,
     pub free_energy_delta: f32,
 
     // ── Reading-state locality code (NOT the truth) ──────────────────────
@@ -187,7 +187,7 @@ impl EpisodicSpoFrame {
     /// when a frame opens a divergent story arc.
     pub fn basin_classification(&self) -> BasinClassification {
         let high_novelty = self.novelty > 0.7;
-        let low_entropy  = self.entropy  < 0.3;
+        let low_entropy = self.entropy < 0.3;
 
         if high_novelty && low_entropy {
             BasinClassification::Epiphany
@@ -231,9 +231,12 @@ mod tests {
 
     fn blank_frame() -> EpisodicSpoFrame {
         EpisodicSpoFrame {
-            doc_id: 1, sentence_id: 0,
-            token_span_start: 0, token_span_end: 5,
-            term_id: 42, pos_tag: PoS::Noun,
+            doc_id: 1,
+            sentence_id: 0,
+            token_span_start: 0,
+            token_span_end: 5,
+            term_id: 42,
+            pos_tag: PoS::Noun,
             morph_flags: MorphFlags::default(),
             dependency_role: DependencyRole::Subject,
             clause_role: ClauseRole::Main,
@@ -246,8 +249,13 @@ mod tests {
             nsm_prime_mask: 0,
             nsm_molecule_mask: 0,
             cam_code: [0; 6],
-            confidence: 0.9, frequency: 0.5, novelty: 0.1,
-            wisdom: 0.3, staunen: 0.0, entropy: 0.5, free_energy_delta: 0.0,
+            confidence: 0.9,
+            frequency: 0.5,
+            novelty: 0.1,
+            wisdom: 0.3,
+            staunen: 0.0,
+            entropy: 0.5,
+            free_energy_delta: 0.0,
             cam64: Cam64::default(),
         }
     }
@@ -314,6 +322,9 @@ mod tests {
         // Frame should be small enough to stack efficiently.
         // Current layout: ~80 bytes is acceptable; alert if it balloons.
         let size = core::mem::size_of::<EpisodicSpoFrame>();
-        assert!(size <= 128, "EpisodicSpoFrame grew to {size} bytes — check alignment/padding");
+        assert!(
+            size <= 128,
+            "EpisodicSpoFrame grew to {size} bytes — check alignment/padding"
+        );
     }
 }

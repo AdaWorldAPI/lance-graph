@@ -150,7 +150,10 @@ impl SentenceWindow {
             entries: [WindowEntry::default(); WINDOW_SIZE],
             head: 0,
             count: 0,
-            expected: [ExpectedSlot { rank: NO_ROLE, reason: ExpectedReason::Anaphora }; MAX_EXPECTED],
+            expected: [ExpectedSlot {
+                rank: NO_ROLE,
+                reason: ExpectedReason::Anaphora,
+            }; MAX_EXPECTED],
             expected_count: 0,
         }
     }
@@ -203,7 +206,7 @@ impl SentenceWindow {
     /// Iterate entries from most recent to oldest (offset 0 = most recent).
     pub fn iter_recent_first(&self) -> impl Iterator<Item = (i8, &WindowEntry)> {
         let count = self.count;
-        let head  = self.head;
+        let head = self.head;
         (0..count).map(move |i| {
             let slot = (head + WINDOW_SIZE - 1 - i) % WINDOW_SIZE;
             (-(i as i8), &self.entries[slot])
@@ -282,7 +285,10 @@ mod tests {
     use super::*;
 
     fn entry(sentence_id: u32, heads: &[u16]) -> WindowEntry {
-        let mut e = WindowEntry { sentence_id, ..Default::default() };
+        let mut e = WindowEntry {
+            sentence_id,
+            ..Default::default()
+        };
         for &h in heads {
             e.push_head(h);
         }
@@ -328,8 +334,8 @@ mod tests {
     fn resolve_pronoun_returns_most_recent() {
         let mut w = SentenceWindow::new();
         w.push(entry(0, &[100, 200])); // older
-        w.push(entry(1, &[300]));      // newer
-        // pronoun rank=5 (not in window), exclude it, expect 300 (most recent)
+        w.push(entry(1, &[300])); // newer
+                                  // pronoun rank=5 (not in window), exclude it, expect 300 (most recent)
         assert_eq!(w.resolve_pronoun(5), 300);
     }
 
@@ -338,7 +344,7 @@ mod tests {
         let mut w = SentenceWindow::new();
         w.push(entry(0, &[100]));
         w.push(entry(1, &[200])); // most recent has 200
-        // If pronoun rank is 200, it should skip 200 and return 100
+                                  // If pronoun rank is 200, it should skip 200 and return 100
         assert_eq!(w.resolve_pronoun(200), 100);
     }
 

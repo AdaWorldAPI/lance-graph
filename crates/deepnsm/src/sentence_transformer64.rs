@@ -136,21 +136,45 @@ impl P64 {
     }
 
     /// Named lanes — entity/subject bucket (lane 0).
-    #[inline] pub fn entity(self)    -> u8 { self.lane(0) }
+    #[inline]
+    pub fn entity(self) -> u8 {
+        self.lane(0)
+    }
     /// Named lanes — predicate/action bucket (lane 1).
-    #[inline] pub fn predicate(self) -> u8 { self.lane(1) }
+    #[inline]
+    pub fn predicate(self) -> u8 {
+        self.lane(1)
+    }
     /// Named lanes — object/complement bucket (lane 2).
-    #[inline] pub fn object(self)    -> u8 { self.lane(2) }
+    #[inline]
+    pub fn object(self) -> u8 {
+        self.lane(2)
+    }
     /// Named lanes — morphology low byte (lane 3).
-    #[inline] pub fn morph(self)     -> u8 { self.lane(3) }
+    #[inline]
+    pub fn morph(self) -> u8 {
+        self.lane(3)
+    }
     /// Named lanes — clause structure / MorphFlags high byte (lane 4).
-    #[inline] pub fn clause(self)    -> u8 { self.lane(4) }
+    #[inline]
+    pub fn clause(self) -> u8 {
+        self.lane(4)
+    }
     /// Named lanes — discourse / coreference (lane 5).
-    #[inline] pub fn discourse(self) -> u8 { self.lane(5) }
+    #[inline]
+    pub fn discourse(self) -> u8 {
+        self.lane(5)
+    }
     /// Named lanes — causal/temporal/conditional (lane 6).
-    #[inline] pub fn causal(self)    -> u8 { self.lane(6) }
+    #[inline]
+    pub fn causal(self) -> u8 {
+        self.lane(6)
+    }
     /// Named lanes — basin/novelty/epiphany (lane 7).
-    #[inline] pub fn basin(self)     -> u8 { self.lane(7) }
+    #[inline]
+    pub fn basin(self) -> u8 {
+        self.lane(7)
+    }
 
     /// XOR bind with another P64 (VSA binding — recovers either component when
     /// the other is known).
@@ -192,15 +216,17 @@ impl P64 {
     ///
     /// This is the canonical construction path: grammar → Cam64 → P64.
     pub fn from_cam64_and_nsm(cam: Cam64, nsm_prime_mask: u64) -> Self {
-        let nsm_low  = (nsm_prime_mask & 0xFF) as u64;
+        let nsm_low = (nsm_prime_mask & 0xFF) as u64;
         let nsm_high = ((nsm_prime_mask >> 8) & 0xFF) as u64;
-        let nsm_xor  = nsm_low | (nsm_high << 8); // into bits 24-39
+        let nsm_xor = nsm_low | (nsm_high << 8); // into bits 24-39
         Self(cam.raw() ^ (nsm_xor << 24))
     }
 
     /// Raw u64.
     #[inline]
-    pub fn raw(self) -> u64 { self.0 }
+    pub fn raw(self) -> u64 {
+        self.0
+    }
 }
 
 impl From<Cam64> for P64 {
@@ -243,27 +269,35 @@ impl Cam4096 {
     /// involved — it is a bit-selection + pack.
     #[inline]
     pub fn from_p64(p: P64) -> Self {
-        let e = (p.entity()    >> 4) as u16; // top nibble of entity lane
+        let e = (p.entity() >> 4) as u16; // top nibble of entity lane
         let r = (p.predicate() >> 4) as u16; // top nibble of predicate lane
-        let b = (p.basin()     >> 4) as u16; // top nibble of basin lane
+        let b = (p.basin() >> 4) as u16; // top nibble of basin lane
         Self(e | (r << 4) | (b << 8))
     }
 
     /// Raw 12-bit codebook address (bits 12-15 always zero).
     #[inline]
-    pub fn raw(self) -> u16 { self.0 & 0x0FFF }
+    pub fn raw(self) -> u16 {
+        self.0 & 0x0FFF
+    }
 
     /// Nibble at position 0 (entity cluster).
     #[inline]
-    pub fn entity_nibble(self) -> u8 { (self.0 & 0xF) as u8 }
+    pub fn entity_nibble(self) -> u8 {
+        (self.0 & 0xF) as u8
+    }
 
     /// Nibble at position 1 (predicate cluster).
     #[inline]
-    pub fn predicate_nibble(self) -> u8 { ((self.0 >> 4) & 0xF) as u8 }
+    pub fn predicate_nibble(self) -> u8 {
+        ((self.0 >> 4) & 0xF) as u8
+    }
 
     /// Nibble at position 2 (basin class).
     #[inline]
-    pub fn basin_nibble(self) -> u8 { ((self.0 >> 8) & 0xF) as u8 }
+    pub fn basin_nibble(self) -> u8 {
+        ((self.0 >> 8) & 0xF) as u8
+    }
 
     /// Nibble distance (0-3): count of differing nibble positions.
     #[inline]
@@ -317,7 +351,7 @@ impl Perturbation4x4 {
     /// Encode a cell from signed (semantic, syntactic) deltas (-8..+7).
     #[inline]
     pub fn encode_cell(semantic: i8, syntactic: i8) -> u8 {
-        let s = (semantic  as u8) & 0xF; // two's complement nibble
+        let s = (semantic as u8) & 0xF; // two's complement nibble
         let y = (syntactic as u8) & 0xF;
         s | (y << 4)
     }
@@ -326,14 +360,22 @@ impl Perturbation4x4 {
     #[inline]
     pub fn semantic_delta(cell: u8) -> i8 {
         let nibble = cell & 0xF;
-        if nibble < 8 { nibble as i8 } else { nibble as i8 - 16 }
+        if nibble < 8 {
+            nibble as i8
+        } else {
+            nibble as i8 - 16
+        }
     }
 
     /// Decode a cell's syntactic delta.
     #[inline]
     pub fn syntactic_delta(cell: u8) -> i8 {
         let nibble = (cell >> 4) & 0xF;
-        if nibble < 8 { nibble as i8 } else { nibble as i8 - 16 }
+        if nibble < 8 {
+            nibble as i8
+        } else {
+            nibble as i8 - 16
+        }
     }
 
     /// Apply cell `idx` (0-15) to a `P64` field, perturbing lanes 0 and 4.
@@ -379,27 +421,35 @@ pub struct SplatNeighbour {
 ///
 /// `tile` provides the pre-defined perturbation alternatives. Pass
 /// `Perturbation4x4::IDENTITY` for the trivial one-cell splat.
-pub fn splat_p64(
-    centre: P64,
-    tile: &Perturbation4x4,
-    radius_bits: u8,
-) -> SmallNeighbourhood {
+pub fn splat_p64(centre: P64, tile: &Perturbation4x4, radius_bits: u8) -> SmallNeighbourhood {
     let centre_cam = Cam4096::from_p64(centre);
     let mut out = SmallNeighbourhood::new();
 
     // Centre is always included (hamming = 0).
-    out.push(SplatNeighbour { p64: centre, cam: centre_cam, hamming: 0 });
+    out.push(SplatNeighbour {
+        p64: centre,
+        cam: centre_cam,
+        hamming: 0,
+    });
 
     // Apply each tile cell, keep those that actually perturb the centre.
     for (i, _cell) in tile.cells.iter().enumerate() {
-        if i == 0 { continue; } // centre already emitted
+        if i == 0 {
+            continue;
+        } // centre already emitted
         let perturbed = tile.apply(centre, i);
-        if perturbed == centre { continue; } // no-op cell (e.g. all-zero identity)
+        if perturbed == centre {
+            continue;
+        } // no-op cell (e.g. all-zero identity)
         let h = hamming_p64(centre, perturbed);
         if h <= radius_bits {
             let cam = Cam4096::from_p64(perturbed);
             if cam.near_match(centre_cam) {
-                out.push(SplatNeighbour { p64: perturbed, cam, hamming: h });
+                out.push(SplatNeighbour {
+                    p64: perturbed,
+                    cam,
+                    hamming: h,
+                });
             }
         }
     }
@@ -421,7 +471,11 @@ pub struct SmallNeighbourhood {
 impl SmallNeighbourhood {
     fn new() -> Self {
         Self {
-            buf: [SplatNeighbour { p64: P64(0), cam: Cam4096(0), hamming: 0 }; 16],
+            buf: [SplatNeighbour {
+                p64: P64(0),
+                cam: Cam4096(0),
+                hamming: 0,
+            }; 16],
             len: 0,
         }
     }
@@ -439,15 +493,21 @@ impl SmallNeighbourhood {
     }
 
     /// Number of neighbours (including centre).
-    pub fn len(&self) -> usize { self.len }
+    pub fn len(&self) -> usize {
+        self.len
+    }
 
     /// True if the neighbourhood holds no cells. After `splat_p64` the centre is
     /// always present (so this is `false` there); provided to satisfy the
     /// `len_without_is_empty` contract for general callers.
-    pub fn is_empty(&self) -> bool { self.len == 0 }
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 
     /// True if only the centre is present.
-    pub fn is_singleton(&self) -> bool { self.len == 1 }
+    pub fn is_singleton(&self) -> bool {
+        self.len == 1
+    }
 }
 
 // ── EpisodicSpoHint ───────────────────────────────────────────────────────────
@@ -460,10 +520,10 @@ impl SmallNeighbourhood {
 /// use it to reconstruct the full frame.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct EpisodicSpoHint {
-    pub subject:   u16,
+    pub subject: u16,
     pub predicate: u16,
-    pub object:    u16,
-    pub role:      DependencyRole,
+    pub object: u16,
+    pub role: DependencyRole,
 }
 
 impl EpisodicSpoHint {
@@ -471,16 +531,16 @@ impl EpisodicSpoHint {
     pub fn from_primary_frame(frames: &[EpisodicSpoFrame]) -> Self {
         match frames.first() {
             None => Self {
-                subject:   NO_ROLE,
+                subject: NO_ROLE,
                 predicate: NO_ROLE,
-                object:    NO_ROLE,
-                role:      DependencyRole::Unknown,
+                object: NO_ROLE,
+                role: DependencyRole::Unknown,
             },
             Some(f) => Self {
-                subject:   f.subject_candidate_id,
+                subject: f.subject_candidate_id,
                 predicate: f.predicate_candidate_id,
-                object:    f.object_candidate_id,
-                role:      f.dependency_role,
+                object: f.object_candidate_id,
+                role: f.dependency_role,
             },
         }
     }
@@ -499,15 +559,19 @@ impl EpisodicSpoHint {
 /// companion `EpisodicSpoFrame`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Sentence64 {
-    pub p64:      P64,
-    pub cam:      Cam4096,
+    pub p64: P64,
+    pub cam: Cam4096,
     pub spo_hint: EpisodicSpoHint,
 }
 
 impl Sentence64 {
     /// Construct from parts (e.g. when `EpisodicSpoFrame` frames are already computed).
     pub fn new(p64: P64, spo_hint: EpisodicSpoHint) -> Self {
-        Self { p64, cam: Cam4096::from_p64(p64), spo_hint }
+        Self {
+            p64,
+            cam: Cam4096::from_p64(p64),
+            spo_hint,
+        }
     }
 
     /// True if this sentence is in the same reading basin as `other`.
@@ -554,15 +618,20 @@ impl SentenceTransformer64 {
     pub fn project(
         cam: Cam64,
         nsm_prime_mask: u64,
-        subject:   u16,
+        subject: u16,
         predicate: u16,
-        object:    u16,
-        role:      DependencyRole,
+        object: u16,
+        role: DependencyRole,
     ) -> Sentence64 {
         let p64 = P64::from_cam64_and_nsm(cam, nsm_prime_mask);
         Sentence64::new(
             p64,
-            EpisodicSpoHint { subject, predicate, object, role },
+            EpisodicSpoHint {
+                subject,
+                predicate,
+                object,
+                role,
+            },
         )
     }
 
@@ -606,8 +675,7 @@ impl SentenceTransformer64 {
             for col in 0i8..4 {
                 let sem = row * entity_step as i8;
                 let syn = col * clause_step as i8;
-                cells[(row * 4 + col) as usize] =
-                    Perturbation4x4::encode_cell(sem, syn);
+                cells[(row * 4 + col) as usize] = Perturbation4x4::encode_cell(sem, syn);
             }
         }
         // Verify the tile is non-trivial when steps > 0.
@@ -811,9 +879,7 @@ mod tests {
     #[test]
     fn sentence64_cam_derived_from_p64() {
         let cam = Cam64::from_lanes([0xAB, 0xCD, 0, 0, 0, 0, 0, 0xEF]);
-        let s = SentenceTransformer64::project(
-            cam, 0, 10, 20, 30, DependencyRole::Subject
-        );
+        let s = SentenceTransformer64::project(cam, 0, 10, 20, 30, DependencyRole::Subject);
         // CAM4096 should be deterministic from P64.
         assert_eq!(s.cam, Cam4096::from_p64(s.p64));
     }

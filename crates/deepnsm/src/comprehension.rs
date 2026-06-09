@@ -93,7 +93,10 @@ mod tests {
         let s = two_triples_first_temporal();
         assert!(s.is_temporal(0));
         let l = s.triple_landing(0);
-        assert!(l.fact && l.story, "temporal triple → BOTH fact and story (fork)");
+        assert!(
+            l.fact && l.story,
+            "temporal triple → BOTH fact and story (fork)"
+        );
     }
 
     #[test]
@@ -110,8 +113,20 @@ mod tests {
         let s = two_triples_first_temporal();
         let ls = s.landings();
         assert_eq!(ls.len(), 2);
-        assert_eq!(ls[0], Landing { fact: true, story: true });
-        assert_eq!(ls[1], Landing { fact: true, story: false });
+        assert_eq!(
+            ls[0],
+            Landing {
+                fact: true,
+                story: true
+            }
+        );
+        assert_eq!(
+            ls[1],
+            Landing {
+                fact: true,
+                story: false
+            }
+        );
     }
 
     #[test]
@@ -124,6 +139,12 @@ mod tests {
         };
         assert!(s.landings().is_empty());
         // Out-of-range index is fact-only (no temporal marker can match).
-        assert_eq!(s.triple_landing(7), Landing { fact: true, story: false });
+        assert_eq!(
+            s.triple_landing(7),
+            Landing {
+                fact: true,
+                story: false
+            }
+        );
     }
 }

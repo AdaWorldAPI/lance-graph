@@ -33,9 +33,7 @@
 //! is a v2 concern.
 
 use crate::cam64::Cam64;
-use crate::episodic_spo::{
-    ClauseRole, DependencyRole, DiscourseRole, EpisodicSpoFrame, NO_ROLE,
-};
+use crate::episodic_spo::{ClauseRole, DependencyRole, DiscourseRole, EpisodicSpoFrame, NO_ROLE};
 use crate::morphology::MorphFlags;
 use crate::parser::SentenceStructure;
 use crate::pos::PoS;
@@ -75,13 +73,13 @@ impl LeftCornerTrigger {
     /// Lane-7 basin byte for this trigger (feeds into Cam64 basin lane).
     pub fn basin_byte(self) -> u8 {
         match self {
-            Self::Declarative  => 0x00,
-            Self::Causal       => 0x01,
-            Self::Temporal     => 0x02,
-            Self::Relative     => 0x04,
-            Self::Anaphora     => 0x08,
-            Self::FirstPerson  => 0x10,
-            Self::Domain(tag)  => 0x80 | (tag & 0x7F),
+            Self::Declarative => 0x00,
+            Self::Causal => 0x01,
+            Self::Temporal => 0x02,
+            Self::Relative => 0x04,
+            Self::Anaphora => 0x08,
+            Self::FirstPerson => 0x10,
+            Self::Domain(tag) => 0x80 | (tag & 0x7F),
         }
     }
 }
@@ -164,7 +162,7 @@ static DEFAULT_TRIPLE_FEATURES: TripleFeatures = TripleFeatures {
 /// `(frames_t, ReadingState_t+1)`. Pure function; `self` is not mutated.
 #[derive(Clone, Debug)]
 pub struct ReadingState {
-    pub doc_id:      u32,
+    pub doc_id: u32,
     pub sentence_id: u32,
 
     // ── Top-down expectation (left-corner "I expected something") ────────
@@ -176,9 +174,9 @@ pub struct ReadingState {
     pub active_trigger: LeftCornerTrigger,
 
     // ── Bottom-up evidence (last resolved triple) ────────────────────────
-    pub active_subject:   u16,
+    pub active_subject: u16,
     pub active_predicate: u16,
-    pub active_object:    u16,
+    pub active_object: u16,
 
     // ── Entity / coreference stack ───────────────────────────────────────
     entity_stack: [u16; 8],
@@ -255,14 +253,16 @@ impl ReadingState {
                 // Pre-push it into the window's expectation buffer so that
                 // resolve_pronoun() finds it first (Pika chart-arc slot pre-population).
                 if next.active_subject != NO_ROLE {
-                    next.window.push_expected(next.active_subject, ExpectedReason::RelativeClause);
+                    next.window
+                        .push_expected(next.active_subject, ExpectedReason::RelativeClause);
                 }
             }
             LeftCornerTrigger::Anaphora => {
                 // Left-corner: personal pronoun subject → prior active subject is
                 // the most likely referent. Pre-push as anaphora expectation.
                 if next.active_subject != NO_ROLE {
-                    next.window.push_expected(next.active_subject, ExpectedReason::Anaphora);
+                    next.window
+                        .push_expected(next.active_subject, ExpectedReason::Anaphora);
                 }
             }
             _ => {}
@@ -314,17 +314,20 @@ impl ReadingState {
                 feat.novelty > 0.7,
             );
             // Overlay basin lane with the left-corner trigger signal.
-            let cam64 = base_cam64.with_lane(7,
-                base_cam64.basin_state() | next.active_trigger.basin_byte());
+            let cam64 = base_cam64.with_lane(
+                7,
+                base_cam64.basin_state() | next.active_trigger.basin_byte(),
+            );
 
             // ── Discourse role ──────────────────────────────────────────
             let discourse_role = if triple_idx == 0 {
                 match next.active_trigger {
-                    LeftCornerTrigger::Causal   => DiscourseRole::Comment,
+                    LeftCornerTrigger::Causal => DiscourseRole::Comment,
                     LeftCornerTrigger::Temporal => DiscourseRole::Bridge,
-                    LeftCornerTrigger::Anaphora |
-                    LeftCornerTrigger::Relative => DiscourseRole::Background,
-                    _                           => DiscourseRole::Topic,
+                    LeftCornerTrigger::Anaphora | LeftCornerTrigger::Relative => {
+                        DiscourseRole::Background
+                    }
+                    _ => DiscourseRole::Topic,
                 }
             } else {
                 DiscourseRole::Comment
@@ -343,30 +346,30 @@ impl ReadingState {
 
             // ── Emit frame ───────────────────────────────────────────────
             let frame = EpisodicSpoFrame {
-                doc_id:           next.doc_id,
-                sentence_id:      next.sentence_id,
+                doc_id: next.doc_id,
+                sentence_id: next.sentence_id,
                 token_span_start: feat.token_span_start,
-                token_span_end:   feat.token_span_end,
-                term_id:          effective_subject,
-                pos_tag:          feat.pos_tag.unwrap_or(PoS::Noun),
-                morph_flags:      morph,
-                dependency_role:  DependencyRole::Subject,
+                token_span_end: feat.token_span_end,
+                term_id: effective_subject,
+                pos_tag: feat.pos_tag.unwrap_or(PoS::Noun),
+                morph_flags: morph,
+                dependency_role: DependencyRole::Subject,
                 clause_role,
                 discourse_role,
-                subject_candidate_id:   effective_subject,
+                subject_candidate_id: effective_subject,
                 predicate_candidate_id: triple.predicate(),
-                object_candidate_id:    triple.object(),
+                object_candidate_id: triple.object(),
                 refers_to_candidate_id: refers_to,
                 sentence_window_offset: 0,
-                nsm_prime_mask:    feat.nsm_prime_mask,
+                nsm_prime_mask: feat.nsm_prime_mask,
                 nsm_molecule_mask: feat.nsm_molecule_mask,
-                cam_code:          feat.cam_code,
-                confidence:        feat.confidence,
-                frequency:         feat.frequency,
-                novelty:           feat.novelty,
-                wisdom:            feat.wisdom,
-                staunen:           feat.staunen,
-                entropy:           feat.entropy,
+                cam_code: feat.cam_code,
+                confidence: feat.confidence,
+                frequency: feat.frequency,
+                novelty: feat.novelty,
+                wisdom: feat.wisdom,
+                staunen: feat.staunen,
+                entropy: feat.entropy,
                 free_energy_delta: feat.free_energy_delta,
                 cam64,
             };
@@ -386,13 +389,13 @@ impl ReadingState {
 
             // Track the primary (first) triple as the active bottom-up evidence.
             if triple_idx == 0 {
-                next.active_subject   = effective_subject;
+                next.active_subject = effective_subject;
                 next.active_predicate = triple.predicate();
-                next.active_object    = triple.object();
-                next.cam64            = cam64;
+                next.active_object = triple.object();
+                next.cam64 = cam64;
 
                 // Update top-down expectation buckets from what we just saw.
-                next.expected_subject_bucket   = (effective_subject >> 5) & 0x7F;
+                next.expected_subject_bucket = (effective_subject >> 5) & 0x7F;
                 next.expected_predicate_bucket = (triple.predicate() >> 5) & 0x7F;
             }
         }
@@ -427,7 +430,10 @@ impl ReadingState {
 
     /// Iterate entity stack from most recent to oldest.
     pub fn entities_recent_first(&self) -> impl Iterator<Item = u16> + '_ {
-        self.entity_stack[..self.entity_stack_len].iter().rev().copied()
+        self.entity_stack[..self.entity_stack_len]
+            .iter()
+            .rev()
+            .copied()
     }
 
     /// Number of entities currently in the stack.
@@ -567,7 +573,10 @@ mod tests {
         // Stack is bounded at 8; oldest entry (0) should be gone.
         let entities: Vec<u16> = rs.entities_recent_first().collect();
         assert_eq!(entities.len(), 8);
-        assert!(!entities.contains(&0), "oldest entity should have been evicted");
+        assert!(
+            !entities.contains(&0),
+            "oldest entity should have been evicted"
+        );
         assert!(entities.contains(&80), "newest entity should be present");
     }
 

@@ -13,7 +13,7 @@
 /// 16Kbit = 2048 bytes = 256 u64 words.
 pub const DIM_BITS: usize = 16384;
 pub const DIM_BYTES: usize = DIM_BITS / 8; // 2048
-pub const DIM_U64: usize = DIM_BITS / 64;  // 256
+pub const DIM_U64: usize = DIM_BITS / 64; // 256
 
 /// A 16Kbit binary fingerprint. Stack-allocated, Copy, SIMD-friendly.
 #[derive(Clone, Copy)]
@@ -24,7 +24,9 @@ pub struct Fingerprint16K {
 
 impl Fingerprint16K {
     /// Zero fingerprint.
-    pub const ZERO: Self = Self { words: [0u64; DIM_U64] };
+    pub const ZERO: Self = Self {
+        words: [0u64; DIM_U64],
+    };
 
     /// Generate deterministic fingerprint for a centroid.
     /// Uses golden-ratio hashing for uniform bit distribution.
@@ -83,12 +85,7 @@ impl Fingerprint16K {
 
     /// As byte slice for SIMD paths.
     pub fn as_bytes(&self) -> &[u8] {
-        unsafe {
-            std::slice::from_raw_parts(
-                self.words.as_ptr() as *const u8,
-                DIM_BYTES,
-            )
-        }
+        unsafe { std::slice::from_raw_parts(self.words.as_ptr() as *const u8, DIM_BYTES) }
     }
 
     /// Belichtungsmesser early exit: are two fingerprints in the same σ-band?
@@ -145,7 +142,8 @@ pub fn bundle(fingerprints: &[Fingerprint16K]) -> Fingerprint16K {
         let mut out = 0u64;
         for bit in 0..64 {
             let mask = 1u64 << bit;
-            let count = fingerprints.iter()
+            let count = fingerprints
+                .iter()
                 .filter(|fp| fp.words[word_idx] & mask != 0)
                 .count();
             if count > threshold {
@@ -170,7 +168,8 @@ pub fn bundle_weighted(fingerprints: &[(Fingerprint16K, f32)]) -> Fingerprint16K
         let mut out = 0u64;
         for bit in 0..64 {
             let mask = 1u64 << bit;
-            let weight_sum: f32 = fingerprints.iter()
+            let weight_sum: f32 = fingerprints
+                .iter()
                 .filter(|(fp, _)| fp.words[word_idx] & mask != 0)
                 .map(|(_, w)| w)
                 .sum();
@@ -185,7 +184,12 @@ pub fn bundle_weighted(fingerprints: &[(Fingerprint16K, f32)]) -> Fingerprint16K
 
 impl std::fmt::Debug for Fingerprint16K {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "FP16K(pop={}, w0={:#018x})", self.popcount(), self.words[0])
+        write!(
+            f,
+            "FP16K(pop={}, w0={:#018x})",
+            self.popcount(),
+            self.words[0]
+        )
     }
 }
 
@@ -228,9 +232,12 @@ mod tests {
         let sim_distant = fp_base.similarity(&fp_distant);
 
         // Neighbor should be more similar than distant
-        assert!(sim_neighbor > sim_distant,
+        assert!(
+            sim_neighbor > sim_distant,
             "neighbor sim {:.3} should be > distant sim {:.3}",
-            sim_neighbor, sim_distant);
+            sim_neighbor,
+            sim_distant
+        );
     }
 
     #[test]

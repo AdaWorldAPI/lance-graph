@@ -119,7 +119,10 @@ impl DeepNsmEngine {
 
         // 4. Build similarity table from exact distribution
         let similarity_table = SimilarityTable::from_distance_matrix(&distance_matrix);
-        eprintln!("[deepnsm] Similarity table calibrated: {:?}", similarity_table);
+        eprintln!(
+            "[deepnsm] Similarity table calibrated: {:?}",
+            similarity_table
+        );
 
         // 5. Create role vectors and context window
         let roles = RoleVectors::new();
@@ -135,10 +138,7 @@ impl DeepNsmEngine {
     }
 
     /// Load with a precomputed distance matrix (skip CAM-PQ computation).
-    pub fn load_with_matrix(
-        data_dir: &Path,
-        matrix_data: Vec<u8>,
-    ) -> Result<Self, String> {
+    pub fn load_with_matrix(data_dir: &Path, matrix_data: Vec<u8>) -> Result<Self, String> {
         let vocab = Vocabulary::load(data_dir)?;
         let distance_matrix = WordDistanceMatrix::from_flat(matrix_data);
         let similarity_table = SimilarityTable::from_distance_matrix(&distance_matrix);
@@ -173,14 +173,22 @@ impl DeepNsmEngine {
                 encoder::encode_triple_negated(
                     triple.subject(),
                     triple.predicate(),
-                    if triple.has_object() { Some(triple.object()) } else { None },
+                    if triple.has_object() {
+                        Some(triple.object())
+                    } else {
+                        None
+                    },
                     &self.roles,
                 )
             } else {
                 encoder::encode_triple(
                     triple.subject(),
                     triple.predicate(),
-                    if triple.has_object() { Some(triple.object()) } else { None },
+                    if triple.has_object() {
+                        Some(triple.object())
+                    } else {
+                        None
+                    },
                     &self.roles,
                 )
             };
@@ -209,7 +217,11 @@ impl DeepNsmEngine {
     }
 
     /// Compute similarity between two sentences.
-    pub fn sentence_similarity(&self, a: &ProcessedSentence, b: &ProcessedSentence) -> SentenceSimilarity {
+    pub fn sentence_similarity(
+        &self,
+        a: &ProcessedSentence,
+        b: &ProcessedSentence,
+    ) -> SentenceSimilarity {
         // VSA similarity
         let vsa_sim = a.sentence_vec.similarity(&b.sentence_vec);
 
