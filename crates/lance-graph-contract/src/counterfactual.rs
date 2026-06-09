@@ -495,7 +495,11 @@ mod tests {
     use crate::escalation::{CollapseHint, CouncilVerdict};
 
     fn verdict(split: bool) -> CouncilVerdict {
-        CouncilVerdict { hint: CollapseHint::Flow, confidence: 0.9, split }
+        CouncilVerdict {
+            hint: CollapseHint::Flow,
+            confidence: 0.9,
+            split,
+        }
     }
 
     #[test]

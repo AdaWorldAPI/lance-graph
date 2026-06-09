@@ -142,7 +142,11 @@ impl InnerCouncil {
     /// wins; a split ([`is_split`] at `0.7 / 0.5`) amplifies the winning
     /// confidence ×1.2 (clamped to 1.0).
     pub fn deliberate(scores: [f32; 3]) -> CouncilVerdict {
-        let archetypes = [Archetype::Guardian, Archetype::Catalyst, Archetype::Balanced];
+        let archetypes = [
+            Archetype::Guardian,
+            Archetype::Catalyst,
+            Archetype::Balanced,
+        ];
         let (idx, &best) = scores
             .iter()
             .enumerate()
@@ -509,7 +513,7 @@ mod tests {
         assert!(d.observe(0.2).is_none());
         assert!(d.observe(0.2).is_none());
         assert!(d.observe(0.2).is_none()); // now 4 samples in window
-        // baseline ≈ 0.2; 0.2 * 1.5 = 0.3 → a 0.5 spike fires.
+                                           // baseline ≈ 0.2; 0.2 * 1.5 = 0.3 → a 0.5 spike fires.
         let e = d.observe(0.5).expect("epiphany should fire");
         assert_eq!(e.samples, 4);
         assert!(e.similarity > e.baseline * 1.5);
@@ -550,7 +554,9 @@ mod tests {
         assert!(cl.step("contracts", &flow, None).is_none());
         assert!(!cl.boot_ready());
         // Flow WITH epiphany green-flips and mints an Epiphany ghost.
-        let marker = cl.step("contracts", &flow, Some(epiphany)).expect("green-flip");
+        let marker = cl
+            .step("contracts", &flow, Some(epiphany))
+            .expect("green-flip");
         assert_eq!(marker.ghost, GhostEcho::Epiphany);
         assert!(cl.boot_ready()); // only HARD item needs to be green
         assert!(cl.degraded()); // SOFT "caps" still red → degrade, route around
@@ -565,7 +571,11 @@ mod tests {
             confidence: 1.0,
             split: false,
         };
-        let e = Epiphany { similarity: 0.6, baseline: 0.3, samples: 5 };
+        let e = Epiphany {
+            similarity: 0.6,
+            baseline: 0.3,
+            samples: 5,
+        };
         cl.step("store", &flow, Some(e));
         assert!(cl.boot_ready());
         // Runtime crash: the green item goes red → re-escalate to Fanout.

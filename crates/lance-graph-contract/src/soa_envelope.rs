@@ -121,7 +121,11 @@ pub enum EnvelopeError {
     /// A column's byte range ends past the declared row stride. Distinct from
     /// [`StrideMismatch`]: the widths can sum to the stride while a column is
     /// still positioned (via its `row_offset`) so its end exceeds the stride.
-    ColumnOutOfBounds { col: u16, col_end: usize, stride: usize },
+    ColumnOutOfBounds {
+        col: u16,
+        col_end: usize,
+        stride: usize,
+    },
     /// `as_le_bytes().len()` is not `row_stride * n_rows` (backing store size mismatch).
     PacketSizeMismatch { expected: usize, found: usize },
     /// A requested row or column index is out of bounds.
@@ -361,13 +365,33 @@ mod tests {
         // Two 4-byte columns at offsets 4 and 8 with stride 8.
         // Width sum = 8 = stride, but column B's end (12) > stride (8).
         let cols = vec![
-            ColumnDescriptor { name_id: 0, kind: ColumnKind::F32, elems_per_row: 1, row_offset: 4 },
-            ColumnDescriptor { name_id: 1, kind: ColumnKind::F32, elems_per_row: 1, row_offset: 8 },
+            ColumnDescriptor {
+                name_id: 0,
+                kind: ColumnKind::F32,
+                elems_per_row: 1,
+                row_offset: 4,
+            },
+            ColumnDescriptor {
+                name_id: 1,
+                kind: ColumnKind::F32,
+                elems_per_row: 1,
+                row_offset: 8,
+            },
         ];
-        let env = TestEnvelope { cols, stride: 8, rows: 1, bytes: vec![0u8; 8], cycle: 0 };
+        let env = TestEnvelope {
+            cols,
+            stride: 8,
+            rows: 1,
+            bytes: vec![0u8; 8],
+            cycle: 0,
+        };
         assert!(matches!(
             env.verify_layout(),
-            Err(EnvelopeError::ColumnOutOfBounds { col: 1, col_end: 12, stride: 8 })
+            Err(EnvelopeError::ColumnOutOfBounds {
+                col: 1,
+                col_end: 12,
+                stride: 8
+            })
         ));
     }
 

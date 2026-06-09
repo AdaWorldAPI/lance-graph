@@ -66,9 +66,8 @@ pub const SAVANT_OGIT_BASE: &str = "https://ogit.adaworldapi.com/callcenter/sava
 /// intentionally absent per `SAVANTS.md`). Use the lookup helpers
 /// [`savant_ogit_uri`] / [`savant_ogit_uri_by_name`] rather than
 /// indexing this array directly.
-pub static SAVANT_OGIT_URIS: LazyLock<[String; 25]> = LazyLock::new(|| {
-    core::array::from_fn(|i| format!("{}{}", SAVANT_OGIT_BASE, SAVANTS[i].name))
-});
+pub static SAVANT_OGIT_URIS: LazyLock<[String; 25]> =
+    LazyLock::new(|| core::array::from_fn(|i| format!("{}{}", SAVANT_OGIT_BASE, SAVANTS[i].name)));
 
 /// Look up a savant's canonical OGIT URI by roster id.
 ///
@@ -124,7 +123,10 @@ mod tests {
 
     #[test]
     fn id_16_is_absent() {
-        assert!(savant_ogit_uri(16).is_none(), "roster id 16 intentionally absent");
+        assert!(
+            savant_ogit_uri(16).is_none(),
+            "roster id 16 intentionally absent"
+        );
     }
 
     #[test]
@@ -139,8 +141,7 @@ mod tests {
     #[test]
     fn id_lookup_matches_name_lookup() {
         let by_id = savant_ogit_uri(1).expect("id 1");
-        let by_name =
-            savant_ogit_uri_by_name("FiscalPositionResolver").expect("name lookup");
+        let by_name = savant_ogit_uri_by_name("FiscalPositionResolver").expect("name lookup");
         assert_eq!(by_id, by_name);
     }
 
@@ -153,7 +154,11 @@ mod tests {
     fn every_savant_in_roster_has_a_uri() {
         for s in SAVANTS.iter() {
             let uri = savant_ogit_uri(s.id).expect("every roster savant has a uri");
-            assert!(uri.ends_with(s.name), "uri ends with savant name: {uri} vs {}", s.name);
+            assert!(
+                uri.ends_with(s.name),
+                "uri ends with savant name: {uri} vs {}",
+                s.name
+            );
         }
     }
 }

@@ -27,7 +27,11 @@
 // positives): cast_precision_loss — the support count n ∈ 0..=4 is exact as f32;
 // float_cmp — tests compare exact integer-valued scores; missing_const_for_fn —
 // `score` transitively calls the non-const `slice::contains`.
-#![allow(clippy::cast_precision_loss, clippy::float_cmp, clippy::missing_const_for_fn)]
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::float_cmp,
+    clippy::missing_const_for_fn
+)]
 
 use crate::a2a_blackboard::{Blackboard, BlackboardEntry, ExpertId};
 
@@ -157,17 +161,17 @@ mod tests {
     }
 
     fn board(es: Vec<BlackboardEntry>) -> Blackboard {
-        Blackboard { entries: es, round: 0 }
+        Blackboard {
+            entries: es,
+            round: 0,
+        }
     }
 
     #[test]
     fn tempered_default_rewards_certainty_without_contradiction() {
         // A: high confidence but high dissonance (0.9 * 0.4 = 0.36).
         // B: lower confidence but clean         (0.7 * 0.9 = 0.63 wins).
-        let bb = board(vec![
-            entry(1, 0.9, 0.6, [0; 4]),
-            entry(2, 0.7, 0.1, [0; 4]),
-        ]);
+        let bb = board(vec![entry(1, 0.9, 0.6, [0; 4]), entry(2, 0.7, 0.1, [0; 4])]);
         let out = Head2Head::default().select(&bb).unwrap();
         assert_eq!(out.criterion, WinnerCriterion::Tempered);
         assert_eq!(out.winner, 2);
@@ -178,11 +182,10 @@ mod tests {
     #[test]
     fn dissonance_min_is_the_infight_pick() {
         // Same confidence; the tighter (lower-dissonance) expert wins the infight.
-        let bb = board(vec![
-            entry(1, 0.8, 0.5, [0; 4]),
-            entry(2, 0.8, 0.2, [0; 4]),
-        ]);
-        let out = Head2Head::new(WinnerCriterion::DissonanceMin).select(&bb).unwrap();
+        let bb = board(vec![entry(1, 0.8, 0.5, [0; 4]), entry(2, 0.8, 0.2, [0; 4])]);
+        let out = Head2Head::new(WinnerCriterion::DissonanceMin)
+            .select(&bb)
+            .unwrap();
         assert_eq!(out.winner, 2);
     }
 
@@ -190,10 +193,12 @@ mod tests {
     fn support_spread_is_the_raumgewinn_pick() {
         // Same confidence/dissonance; the expert covering more distinct ground wins.
         let bb = board(vec![
-            entry(1, 0.8, 0.1, [42, 42, 0, 0]),   // 1 distinct atom
-            entry(2, 0.8, 0.1, [7, 9, 13, 21]),   // 4 distinct atoms (territory)
+            entry(1, 0.8, 0.1, [42, 42, 0, 0]), // 1 distinct atom
+            entry(2, 0.8, 0.1, [7, 9, 13, 21]), // 4 distinct atoms (territory)
         ]);
-        let out = Head2Head::new(WinnerCriterion::SupportSpread).select(&bb).unwrap();
+        let out = Head2Head::new(WinnerCriterion::SupportSpread)
+            .select(&bb)
+            .unwrap();
         assert_eq!(out.winner, 2);
         assert_eq!(out.winner_score, 4.0);
         assert_eq!(out.margin, 3.0); // 4 distinct vs 1 distinct
@@ -205,7 +210,9 @@ mod tests {
             entry(1, 0.95, 0.9, [0; 4]), // noisy but loud → wins on raw confidence
             entry(2, 0.6, 0.0, [0; 4]),
         ]);
-        let out = Head2Head::new(WinnerCriterion::ConfidenceMax).select(&bb).unwrap();
+        let out = Head2Head::new(WinnerCriterion::ConfidenceMax)
+            .select(&bb)
+            .unwrap();
         assert_eq!(out.winner, 1);
     }
 
@@ -226,7 +233,9 @@ mod tests {
             entry(1, 0.9, 0.0, [0; 4]), // expert 1's best
             entry(2, 0.5, 0.0, [0; 4]),
         ]);
-        let out = Head2Head::new(WinnerCriterion::ConfidenceMax).select(&bb).unwrap();
+        let out = Head2Head::new(WinnerCriterion::ConfidenceMax)
+            .select(&bb)
+            .unwrap();
         assert_eq!(out.winner, 1);
         assert_eq!(out.runner_up, Some(2));
     }

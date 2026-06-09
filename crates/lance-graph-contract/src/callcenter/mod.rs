@@ -26,9 +26,7 @@
 pub mod ogit_uris;
 pub mod role_keys;
 
-pub use ogit_uris::{
-    savant_ogit_uri, savant_ogit_uri_by_name, SAVANT_OGIT_BASE, SAVANT_OGIT_URIS,
-};
+pub use ogit_uris::{savant_ogit_uri, savant_ogit_uri_by_name, SAVANT_OGIT_BASE, SAVANT_OGIT_URIS};
 pub use role_keys::{
     savant_role_key, savant_role_key_by_name, SAVANT_ROLE_KEYS, SAVANT_SLICE_END,
     SAVANT_SLICE_START, SAVANT_SLICE_WIDTH,

@@ -146,7 +146,10 @@ mod tests {
         // (the 25th and final savant).
         let key = savant_role_key(26).expect("id 26");
         assert_eq!(key.label, "BackorderJudge");
-        assert_eq!(key.slice_start, SAVANT_SLICE_START + 24 * SAVANT_SLICE_WIDTH);
+        assert_eq!(
+            key.slice_start,
+            SAVANT_SLICE_START + 24 * SAVANT_SLICE_WIDTH
+        );
         assert_eq!(key.slice_end, SAVANT_SLICE_END);
     }
 
@@ -158,7 +161,10 @@ mod tests {
         let key = savant_role_key_by_name("FiscalPositionResolver").unwrap();
         let total_set: u32 = key.words.iter().map(|w| w.count_ones()).sum();
         assert!(total_set > 20, "some bits set in 90-dim slice: {total_set}");
-        assert!(total_set < 80, "some bits clear in 90-dim slice: {total_set}");
+        assert!(
+            total_set < 80,
+            "some bits clear in 90-dim slice: {total_set}"
+        );
     }
 
     #[test]

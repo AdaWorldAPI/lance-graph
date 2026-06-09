@@ -169,7 +169,10 @@ mod tests {
     fn grammar_inference_bridges_via_core() {
         use crate::grammar::inference::NarsInference as G;
         assert_eq!(InferenceType::from(G::Deduction), InferenceType::Deduction);
-        assert_eq!(InferenceType::from(G::Extrapolation), InferenceType::Induction);
+        assert_eq!(
+            InferenceType::from(G::Extrapolation),
+            InferenceType::Induction
+        );
         assert_eq!(
             InferenceType::from(G::CounterfactualSynthesis),
             InferenceType::Synthesis

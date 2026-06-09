@@ -1,3 +1,39 @@
+## 2026-06-09 — E-IDENTITY-WHITEBOX-1 — structured identity + round-trip converts the substrate from black-box to CI-falsifiable
+
+**Status:** FINDING (Phase A landed: `identity::NodeGuid` composed, 15 tests green)
+**Confidence:** High
+
+**The synthesis:** a structured 128-bit immutable identity (UUIDv8 = the HHTL
+nibble-address formalized + namespaced) PLUS the `roundtrip_eq` guarantee turn the
+substrate from a black box into a CI-falsifiable surface. Two structural witnesses:
+the **bijection** (`entity_type ↔ NiblePath`, proven eineindeutig at build time)
+and **`roundtrip_eq`** (a lossy projection fails CI, not code review). The
+round-trip whitens the PLUMBING (identity / LE byte-contract / member-vs-container)
+— the darkest, most-expensive-bug layer; it does NOT whiten semantics (needs
+ground-truth corpora) or the lossy codec (needs ρ-certification). Those keep their
+own witnesses; the trade is "vigilance over the substrate" → "a test over the substrate".
+
+**Compose, don't re-invent (Agent A sweep):** the 128-bit identity space is empty
+(no committed `u128`/`Uuid`/`[u8;16]`-as-id), but every GUID field already exists as
+a committed scalar — `SchemaPtr.packed` (ns8|entity_type16|kind8) ⊕ `NiblePath`
+prefix ⊕ truncated `StructuralSignature` ⊕ local. `NodeGuid` is their composition.
+
+**Eineindeutigkeit (ratified):** `entity_type:u16` is the canonical exact class
+identity; `NiblePath` is the bijective DERIVED view (a *truncated* prefix can't be
+the identity — deep classes collide past it, `hhtl.rs`). The registry mints the
+pair 1:1; a build-time bijection round-trip proves it; the GUID prefix-consistency
+invariant (`prefix == niblepath_of(entity_type)[..N]`) catches drift.
+
+**Free side-effects:** the structured GUID is also (a) a KV key via the existing
+`EntityKey(&[u8])` (smb-bridge already length-branches it), and (b) a **quadkey** —
+Lance ORDER BY the NiblePath gives subtree range-scans = zone-map-pruned byte
+ranges, no index (ADR-024 "HHTL prefix establishes a frame").
+
+**Landed:** `lance_graph_contract::identity::NodeGuid` (D-IDENTITY-1 / Phase A) +
+`NiblePath::from_packed`. 599 contract lib tests (+15), clippy `-D` clean, fmt clean.
+Plans: `identity-architecture-exists-vs-needs-v1.md` (exists-vs-needs map),
+`cognitive-write-roundtrip-substrate-v1.md` (the round-trip mechanism).
+
 ## 2026-06-06 — E-DEINTERLACE-TWO-SCALES — deinterlace is one operation at two scales; no-cross-cycle-lag = byte-scale deinterlace
 
 **Status:** FINDING (source-grounded; `temporal.rs` PR #468 confirms row-scale; byte-scale is a documented gap)

@@ -26,7 +26,9 @@ struct Situation {
 /// Pattern-match the kind → the reasoning approach (the Elixir multi-clause `case`).
 fn approach(kind: ReasoningKind) -> &'static str {
     match kind {
-        ReasoningKind::CustomerCategory => "classify against the family codebook (deductive lookup)",
+        ReasoningKind::CustomerCategory => {
+            "classify against the family codebook (deductive lookup)"
+        }
         ReasoningKind::PostingAnomaly => "abduce the most likely cause from the evidence trail",
         ReasoningKind::NextBestAction => "induce the action with the highest expected value",
         ReasoningKind::InvoiceCompleteness => "check required-field coverage, score the gaps",
@@ -40,10 +42,21 @@ fn approach(kind: ReasoningKind) -> &'static str {
 
 fn dispatch(s: &Savant) {
     println!("  savant     {} (#{}, lane {})", s.name, s.id, s.lane);
-    println!("  family     {}", s.family.map(|f| format!("0x{f:02X}")).unwrap_or_else(|| "None (needs alignment axiom)".into()));
-    println!("  tuple      kind={:?} · infer={:?} · semiring={:?} · style={:?}", s.kind, s.inference, s.semiring, s.style);
+    println!(
+        "  family     {}",
+        s.family
+            .map(|f| format!("0x{f:02X}"))
+            .unwrap_or_else(|| "None (needs alignment axiom)".into())
+    );
+    println!(
+        "  tuple      kind={:?} · infer={:?} · semiring={:?} · style={:?}",
+        s.kind, s.inference, s.semiring, s.style
+    );
     // The InferenceType resolves O(1) to the runtime query strategy.
-    println!("  → strategy {:?}   (InferenceType::default_strategy)", s.query_strategy());
+    println!(
+        "  → strategy {:?}   (InferenceType::default_strategy)",
+        s.query_strategy()
+    );
     println!("  → approach {}", approach(s.kind));
     println!("  → output   NARS (frequency, confidence) suggestion — woa-rs applies it behind its AXIS-A guard\n");
 }
@@ -52,11 +65,32 @@ fn main() {
     println!("== Odoo savant delegation: AXIS-A guard (woa-rs) → AXIS-B reason (lance-graph) ==\n");
 
     let inbox = [
-        Situation { headline: "€1,200 payment arrived — does it fully reconcile the partner's open invoices?", ambiguous: true, savant: "PaymentToInvoiceMatcher" },
-        Situation { headline: "3rd identical bill from this vendor, unmodified — auto-post it?",              ambiguous: true, savant: "AutopostRecommender" },
-        Situation { headline: "new B2B partner in AT — which fiscal position (tax mapping)?",                 ambiguous: true, savant: "FiscalPositionResolver" },
-        Situation { headline: "journal sequence jumps 1042 → 1044 — is 1043 a deleted posted entry?",         ambiguous: true, savant: "SequenceGapAnomalyDetector" },
-        Situation { headline: "invoice with a perfectly matching single open item",                           ambiguous: false, savant: "ReconcileMatchSelector" },
+        Situation {
+            headline:
+                "€1,200 payment arrived — does it fully reconcile the partner's open invoices?",
+            ambiguous: true,
+            savant: "PaymentToInvoiceMatcher",
+        },
+        Situation {
+            headline: "3rd identical bill from this vendor, unmodified — auto-post it?",
+            ambiguous: true,
+            savant: "AutopostRecommender",
+        },
+        Situation {
+            headline: "new B2B partner in AT — which fiscal position (tax mapping)?",
+            ambiguous: true,
+            savant: "FiscalPositionResolver",
+        },
+        Situation {
+            headline: "journal sequence jumps 1042 → 1044 — is 1043 a deleted posted entry?",
+            ambiguous: true,
+            savant: "SequenceGapAnomalyDetector",
+        },
+        Situation {
+            headline: "invoice with a perfectly matching single open item",
+            ambiguous: false,
+            savant: "ReconcileMatchSelector",
+        },
     ];
 
     for s in &inbox {
@@ -70,5 +104,7 @@ fn main() {
     }
 
     println!("Same delegation tuple for all 25 savants; dispatch is data, not branches.");
-    println!("Pattern-match on ReasoningKind picks the approach; the family's StyleCluster colours it.");
+    println!(
+        "Pattern-match on ReasoningKind picks the approach; the family's StyleCluster colours it."
+    );
 }

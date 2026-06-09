@@ -155,11 +155,13 @@ lineage id, re-resolved from the address for free; the GUID is write-once; drift
 mutation. `I-VSA-IDENTITIES` Test 0: the GUID is a register key (points to
 content), never VSA-bundled.
 
-### ⚠ One open DECISION (yours to pin — both grounded, bijective)
-The class can be carried two ways; pick the **stored** form, resolve the other:
-- **(D1) `SchemaPtr.entity_type:u16`** — reuse the existing dense pointer (Agent A "compose existing"). Compact, exact.
-- **(D2) `NiblePath` prefix** — identity-IS-address (ADR-1374, your "nibble = the GUID class"). O(1) ancestry-routing without a cache hit.
-- **Recommendation:** store **SchemaPtr (exact) + a truncated NiblePath prefix (for routing)** — SchemaPtr resolves deep paths exactly; the prefix gives branchless `is_ancestor_of`. Costs ~42 bits for the prefix; worth it for probe-free routing.
+### ✅ DECISION — RESOLVED (eineindeutig / bijective, ratified 2026-06-09; Phase A landed)
+**Carry BOTH, bound by an enforced bijection** (`entity_type ↔ NiblePath`), pre-production so it's baked in with zero migration debt:
+- **Canonical, exact, in the GUID:** `entity_type:u16` — fixed-width, no truncation. A *truncated* NiblePath prefix CANNOT be bijective (two distinct deep paths collide past the prefix, `hhtl.rs`), so the exact identity MUST be the dense `entity_type`.
+- **Derived view:** `NiblePath` — the bijective radix encoding of the SAME class; full depth resolves from the registry; the GUID carries a coarse prefix (`PREFIX_NIBBLES = 4`) as a *derived routing cache* = `niblepath_of(entity_type)` truncated (the prefix `is_ancestor_of` the full path — tested).
+- **identity-IS-address holds:** `entity_type` IS the dense encoding of the address; bijective with `NiblePath` (ADR-1374 satisfied).
+- **Eineindeutigkeit enforced 3 ways:** (a) the registry mints `(entity_type, NiblePath)` as a unique pair [Phase B]; (b) a build-time bijection round-trip test proves it [Phase B]; (c) the GUID prefix-consistency invariant. (c) + the byte-layout field-isolation matrix landed in Phase A (`identity.rs`, 15 tests); (a)/(b) are Phase B (ontology, needs the registry).
+- **Landed (Phase A, D-IDENTITY-1):** `lance_graph_contract::identity::NodeGuid` + `NiblePath::from_packed`. Byte layout, UUIDv8 version/variant gates, field-isolation matrix, `prefix is_ancestor_of full` invariant — all green (599 contract tests, +15; clippy -D clean).
 
 ## Phased integration plan (A→H; each phase = one landable PR)
 

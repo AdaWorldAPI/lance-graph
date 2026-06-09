@@ -165,7 +165,10 @@ mod tests {
         };
         table.set(7, entry).expect("slot 7 is in range");
         let got = table.get(7).expect("slot 7 must be present");
-        assert_eq!(*got, entry, "get must return the exact entry written by set");
+        assert_eq!(
+            *got, entry,
+            "get must return the exact entry written by set"
+        );
     }
 
     /// Out-of-bounds set returns Err; out-of-bounds get returns None.

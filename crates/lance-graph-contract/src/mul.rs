@@ -426,7 +426,6 @@ fn flow_state_from(challenge: f64, skill: f64) -> FlowState {
     }
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // i4 scalar evaluation path — D-CSV-8 (sprint-11)
 //
@@ -447,14 +446,16 @@ fn flow_state_from(challenge: f64, skill: f64) -> FlowState {
 /// (from `causal_edge::InferenceType::to_mantissa()`), and return the
 /// existing MUL contract types unchanged.
 pub mod i4_eval {
-    use super::{DkPosition, FlowState, GateDecision, Homeostasis, MulAssessment, TrustQualia, TrustTexture};
+    use super::{
+        DkPosition, FlowState, GateDecision, Homeostasis, MulAssessment, TrustQualia, TrustTexture,
+    };
     use crate::qualia::QualiaI4_16D;
 
     // ── dim indices (aligned with QUALIA_I4_LABELS) ─────────────────────────
-    const DIM_VALENCE: usize = 1;      // signed valence (polarity)
-    const DIM_TENSION: usize = 2;      // tension / conflict load
-    const DIM_WARMTH: usize = 3;       // warmth / affiliation
-    const DIM_COHERENCE: usize = 9;    // coherence (story holds / breaks)
+    const DIM_VALENCE: usize = 1; // signed valence (polarity)
+    const DIM_TENSION: usize = 2; // tension / conflict load
+    const DIM_WARMTH: usize = 3; // warmth / affiliation
+    const DIM_COHERENCE: usize = 9; // coherence (story holds / breaks)
     const DIM_GROUNDEDNESS: usize = 14; // groundedness / stability
 
     /// On-demand intensity helper: `magnitude()` from the qualia struct.
@@ -576,24 +577,25 @@ pub mod i4_eval {
         let flow = flow_state_i4(qualia, signed_mantissa);
 
         match (texture, flow) {
-            (TrustTexture::Uncertain, _) => {
-                GateDecision::Block { reason: "uncertain trust: coherence low, tension high".to_string() }
-            }
-            (TrustTexture::Underconfident, FlowState::Anxiety) => {
-                GateDecision::Block { reason: "underconfident + anxiety: execution blocked".to_string() }
-            }
-            (TrustTexture::Overconfident, _) => {
-                GateDecision::Hold { reason: "overconfident trust: caution required".to_string() }
-            }
-            (_, FlowState::Anxiety) => {
-                GateDecision::Hold { reason: "anxiety flow state: reduced autonomy".to_string() }
-            }
-            (TrustTexture::Calibrated | TrustTexture::Underconfident, FlowState::Flow | FlowState::Transition) => {
-                GateDecision::Flow
-            }
-            _ => {
-                GateDecision::Hold { reason: "boredom or moderate state: hold for re-evaluation".to_string() }
-            }
+            (TrustTexture::Uncertain, _) => GateDecision::Block {
+                reason: "uncertain trust: coherence low, tension high".to_string(),
+            },
+            (TrustTexture::Underconfident, FlowState::Anxiety) => GateDecision::Block {
+                reason: "underconfident + anxiety: execution blocked".to_string(),
+            },
+            (TrustTexture::Overconfident, _) => GateDecision::Hold {
+                reason: "overconfident trust: caution required".to_string(),
+            },
+            (_, FlowState::Anxiety) => GateDecision::Hold {
+                reason: "anxiety flow state: reduced autonomy".to_string(),
+            },
+            (
+                TrustTexture::Calibrated | TrustTexture::Underconfident,
+                FlowState::Flow | FlowState::Transition,
+            ) => GateDecision::Flow,
+            _ => GateDecision::Hold {
+                reason: "boredom or moderate state: hold for re-evaluation".to_string(),
+            },
         }
     }
 
@@ -618,13 +620,16 @@ pub mod i4_eval {
         // TrustQualia.value: map texture + intensity to 0.0–1.0
         let intensity = intensity_i4(qualia); // i8 saturating product
         let trust_value: f64 = match texture {
-            TrustTexture::Calibrated     => 0.75 + (intensity.clamp(0, 7) as f64 / 7.0) * 0.25,
-            TrustTexture::Overconfident  => 0.45,
+            TrustTexture::Calibrated => 0.75 + (intensity.clamp(0, 7) as f64 / 7.0) * 0.25,
+            TrustTexture::Overconfident => 0.45,
             TrustTexture::Underconfident => 0.40,
-            TrustTexture::Uncertain      => 0.20,
+            TrustTexture::Uncertain => 0.20,
         };
 
-        let trust = TrustQualia { value: trust_value, texture };
+        let trust = TrustQualia {
+            value: trust_value,
+            texture,
+        };
 
         // complexity_mapped: coherence signal ≥ +2 implies the system can map complexity
         let coherence = qualia.get(DIM_COHERENCE);
@@ -634,20 +639,23 @@ pub mod i4_eval {
         let tension = qualia.get(DIM_TENSION);
         let allostatic_load: f64 = ((tension as i16 + 8) as f64 / 15.0).clamp(0.0, 1.0);
 
-        let homeostasis = Homeostasis { flow_state: flow, allostatic_load };
+        let homeostasis = Homeostasis {
+            flow_state: flow,
+            allostatic_load,
+        };
 
         // free_will_modifier: DK factor × trust_value × flow_factor
         let dk_factor: f64 = match dk {
-            DkPosition::MountStupid          => 0.3,
-            DkPosition::ValleyOfDespair      => 0.7,
+            DkPosition::MountStupid => 0.3,
+            DkPosition::ValleyOfDespair => 0.7,
             DkPosition::SlopeOfEnlightenment => 0.85,
-            DkPosition::Plateau              => 1.0,
+            DkPosition::Plateau => 1.0,
         };
         let flow_factor: f64 = match flow {
-            FlowState::Flow       => 1.0,
+            FlowState::Flow => 1.0,
             FlowState::Transition => 0.7,
-            FlowState::Boredom    => 0.8,
-            FlowState::Anxiety    => 0.5,
+            FlowState::Boredom => 0.8,
+            FlowState::Anxiety => 0.5,
         };
         let free_will_modifier = (dk_factor * trust_value * flow_factor).clamp(0.0, 1.0);
 
@@ -659,7 +667,6 @@ pub mod i4_eval {
             free_will_modifier,
         }
     }
-
 
     // ═══════════════════════════════════════════════════════════════════════
     // Batch evaluation API — D-CSV-13b (sprint-13) — SIMD runtime dispatch
@@ -725,7 +732,11 @@ pub mod i4_eval {
 
             let bits: u8 = (avx512f as u8) | ((avx512bw as u8) << 1) | ((neon as u8) << 2);
             CAPS_CACHE.store(bits, Ordering::Relaxed);
-            SimdCapsShim { avx512f, avx512bw, neon }
+            SimdCapsShim {
+                avx512f,
+                avx512bw,
+                neon,
+            }
         }
 
         #[inline]
@@ -735,9 +746,9 @@ pub mod i4_eval {
                 return probe_caps();
             }
             SimdCapsShim {
-                avx512f:  bits & 1 != 0,
+                avx512f: bits & 1 != 0,
                 avx512bw: bits & 2 != 0,
-                neon:     bits & 4 != 0,
+                neon: bits & 4 != 0,
             }
         }
 
@@ -879,10 +890,14 @@ pub mod i4_eval {
 
                     let m_ptr = mantissas.as_ptr().add(i);
                     let man_vec = _mm512_set_epi64(
-                        *m_ptr.add(7) as i64, *m_ptr.add(6) as i64,
-                        *m_ptr.add(5) as i64, *m_ptr.add(4) as i64,
-                        *m_ptr.add(3) as i64, *m_ptr.add(2) as i64,
-                        *m_ptr.add(1) as i64, *m_ptr.add(0) as i64,
+                        *m_ptr.add(7) as i64,
+                        *m_ptr.add(6) as i64,
+                        *m_ptr.add(5) as i64,
+                        *m_ptr.add(4) as i64,
+                        *m_ptr.add(3) as i64,
+                        *m_ptr.add(2) as i64,
+                        *m_ptr.add(1) as i64,
+                        *m_ptr.add(0) as i64,
                     );
                     let zero = _mm512_setzero_si512();
                     let neg_man = _mm512_sub_epi64(zero, man_vec);
@@ -894,15 +909,15 @@ pub mod i4_eval {
                     let mut disc = _mm512_setzero_si512();
                     // ValleyOfDespair (1): coherence <= -3 OR abs_man <= 1
                     let vod = _mm512_cmple_epi64_mask(coh, _mm512_set1_epi64(-3))
-                            | _mm512_cmple_epi64_mask(abs_man, _mm512_set1_epi64(1));
+                        | _mm512_cmple_epi64_mask(abs_man, _mm512_set1_epi64(1));
                     disc = _mm512_mask_blend_epi64(vod, disc, _mm512_set1_epi64(1));
                     // SlopeOfEnlightenment (2): coh >= 2 AND abs_man >= 2
                     let soe = _mm512_cmpge_epi64_mask(coh, _mm512_set1_epi64(2))
-                            & _mm512_cmpge_epi64_mask(abs_man, _mm512_set1_epi64(2));
+                        & _mm512_cmpge_epi64_mask(abs_man, _mm512_set1_epi64(2));
                     disc = _mm512_mask_blend_epi64(soe, disc, _mm512_set1_epi64(2));
                     // Plateau (3): coh >= 5 AND abs_man >= 4 (overrides all)
                     let plat = _mm512_cmpge_epi64_mask(coh, _mm512_set1_epi64(5))
-                             & _mm512_cmpge_epi64_mask(abs_man, _mm512_set1_epi64(4));
+                        & _mm512_cmpge_epi64_mask(abs_man, _mm512_set1_epi64(4));
                     disc = _mm512_mask_blend_epi64(plat, disc, _mm512_set1_epi64(3));
 
                     let out_ptr = out.as_mut_ptr().add(i) as *mut u8;
@@ -929,8 +944,8 @@ pub mod i4_eval {
                     let q_ptr = qualia[i..].as_ptr() as *const __m512i;
                     let q_vec = _mm512_loadu_si512(q_ptr);
                     let coh = extract_dim_i8::<36>(q_vec); // DIM_COHERENCE=9
-                    let val = extract_dim_i8::<4>(q_vec);  // DIM_VALENCE=1
-                    let ten = extract_dim_i8::<8>(q_vec);  // DIM_TENSION=2
+                    let val = extract_dim_i8::<4>(q_vec); // DIM_VALENCE=1
+                    let ten = extract_dim_i8::<8>(q_vec); // DIM_TENSION=2
 
                     // Default = Calibrated (0)
                     let mut disc = _mm512_setzero_si512();
@@ -939,11 +954,11 @@ pub mod i4_eval {
                     disc = _mm512_mask_blend_epi64(und, disc, _mm512_set1_epi64(3));
                     // Overconfident (1): valence >= 4 AND coherence < 5
                     let ovc = _mm512_cmpge_epi64_mask(val, _mm512_set1_epi64(4))
-                            & _mm512_cmplt_epi64_mask(coh, _mm512_set1_epi64(5));
+                        & _mm512_cmplt_epi64_mask(coh, _mm512_set1_epi64(5));
                     disc = _mm512_mask_blend_epi64(ovc, disc, _mm512_set1_epi64(1));
                     // Uncertain (2): coherence <= -3 AND tension >= 3 (highest priority)
                     let unc = _mm512_cmple_epi64_mask(coh, _mm512_set1_epi64(-3))
-                            & _mm512_cmpge_epi64_mask(ten, _mm512_set1_epi64(3));
+                        & _mm512_cmpge_epi64_mask(ten, _mm512_set1_epi64(3));
                     disc = _mm512_mask_blend_epi64(unc, disc, _mm512_set1_epi64(2));
 
                     let out_ptr = out.as_mut_ptr().add(i) as *mut u8;
@@ -975,7 +990,7 @@ pub mod i4_eval {
                     let q_vec = _mm512_loadu_si512(q_ptr);
                     let war = extract_dim_i8::<12>(q_vec); // DIM_WARMTH=3
                     let grd = extract_dim_i8::<56>(q_vec); // DIM_GROUNDEDNESS=14
-                    let ten = extract_dim_i8::<8>(q_vec);  // DIM_TENSION=2
+                    let ten = extract_dim_i8::<8>(q_vec); // DIM_TENSION=2
                     let coh = extract_dim_i8::<36>(q_vec); // DIM_COHERENCE=9
 
                     // flow_proxy = warmth + groundedness - tension.
@@ -988,27 +1003,31 @@ pub mod i4_eval {
 
                     let m_ptr = mantissas.as_ptr().add(i);
                     let man_vec = _mm512_set_epi64(
-                        *m_ptr.add(7) as i64, *m_ptr.add(6) as i64,
-                        *m_ptr.add(5) as i64, *m_ptr.add(4) as i64,
-                        *m_ptr.add(3) as i64, *m_ptr.add(2) as i64,
-                        *m_ptr.add(1) as i64, *m_ptr.add(0) as i64,
+                        *m_ptr.add(7) as i64,
+                        *m_ptr.add(6) as i64,
+                        *m_ptr.add(5) as i64,
+                        *m_ptr.add(4) as i64,
+                        *m_ptr.add(3) as i64,
+                        *m_ptr.add(2) as i64,
+                        *m_ptr.add(1) as i64,
+                        *m_ptr.add(0) as i64,
                     );
                     let zero = _mm512_setzero_si512();
 
                     // Pre-compute Anxiety condition (applied last for highest priority).
                     let anx = _mm512_cmple_epi64_mask(fp, _mm512_set1_epi64(-2))
-                            | (_mm512_cmplt_epi64_mask(man_vec, zero)
-                               & _mm512_cmple_epi64_mask(coh, _mm512_set1_epi64(-1)));
+                        | (_mm512_cmplt_epi64_mask(man_vec, zero)
+                            & _mm512_cmple_epi64_mask(coh, _mm512_set1_epi64(-1)));
 
                     // Default = Boredom (1)
                     let mut disc = _mm512_set1_epi64(1);
                     // Transition (2): fp >= 2 AND man > 0
                     let tra = _mm512_cmpge_epi64_mask(fp, _mm512_set1_epi64(2))
-                            & _mm512_cmpgt_epi64_mask(man_vec, zero);
+                        & _mm512_cmpgt_epi64_mask(man_vec, zero);
                     disc = _mm512_mask_blend_epi64(tra, disc, _mm512_set1_epi64(2));
                     // Flow (0): fp >= 4 AND man > 0
                     let flow = _mm512_cmpge_epi64_mask(fp, _mm512_set1_epi64(4))
-                             & _mm512_cmpgt_epi64_mask(man_vec, zero);
+                        & _mm512_cmpgt_epi64_mask(man_vec, zero);
                     disc = _mm512_mask_blend_epi64(flow, disc, _mm512_set1_epi64(0));
                     // Anxiety (3): always overrides (highest priority)
                     disc = _mm512_mask_blend_epi64(anx, disc, _mm512_set1_epi64(3));
@@ -1058,11 +1077,13 @@ pub mod i4_eval {
                     // SAFETY: TrustTexture/FlowState are repr(u8); pointers derived from
                     // properly-allocated arrays of the right size.
                     let tex_slice = core::slice::from_raw_parts_mut(
-                        tex_disc.as_mut_ptr() as *mut TrustTexture, 8,
+                        tex_disc.as_mut_ptr() as *mut TrustTexture,
+                        8,
                     );
                     trust_texture_batch(&qualia[i..i + 8], tex_slice);
                     let flow_slice = core::slice::from_raw_parts_mut(
-                        flow_disc.as_mut_ptr() as *mut FlowState, 8,
+                        flow_disc.as_mut_ptr() as *mut FlowState,
+                        8,
                     );
                     flow_state_batch(&qualia[i..i + 8], &mantissas[i..i + 8], flow_slice);
                     for j in 0..8usize {
@@ -1097,7 +1118,8 @@ pub mod i4_eval {
                 // SAFETY: DkPosition/TrustTexture/FlowState are repr(u8) with discriminants 0..3;
                 // vec storage is properly aligned and has length n.
                 dk_position_batch(
-                    qualia, mantissas,
+                    qualia,
+                    mantissas,
                     core::slice::from_raw_parts_mut(dk_disc.as_mut_ptr() as *mut DkPosition, n),
                 );
                 trust_texture_batch(
@@ -1105,7 +1127,8 @@ pub mod i4_eval {
                     core::slice::from_raw_parts_mut(tex_disc.as_mut_ptr() as *mut TrustTexture, n),
                 );
                 flow_state_batch(
-                    qualia, mantissas,
+                    qualia,
+                    mantissas,
                     core::slice::from_raw_parts_mut(flow_disc.as_mut_ptr() as *mut FlowState, n),
                 );
 
@@ -1125,13 +1148,18 @@ pub mod i4_eval {
                         TrustTexture::Underconfident => 0.40,
                         TrustTexture::Uncertain => 0.20,
                     };
-                    let trust = TrustQualia { value: trust_value, texture };
+                    let trust = TrustQualia {
+                        value: trust_value,
+                        texture,
+                    };
                     let coherence = qualia[i].get(9); // DIM_COHERENCE
                     let complexity_mapped = coherence >= 2;
                     let tension = qualia[i].get(2); // DIM_TENSION
-                    let allostatic_load =
-                        ((tension as i16 + 8) as f64 / 15.0).clamp(0.0, 1.0);
-                    let homeostasis = Homeostasis { flow_state: flow, allostatic_load };
+                    let allostatic_load = ((tension as i16 + 8) as f64 / 15.0).clamp(0.0, 1.0);
+                    let homeostasis = Homeostasis {
+                        flow_state: flow,
+                        allostatic_load,
+                    };
                     let dk_factor: f64 = match dk {
                         DkPosition::MountStupid => 0.3,
                         DkPosition::ValleyOfDespair => 0.7,
@@ -1181,7 +1209,10 @@ pub mod i4_eval {
                 let n1 = vandq_u64(vshrq_n_u64(q1, shift), mask);
                 let i0 = vreinterpretq_s8_u64(n0);
                 let i1 = vreinterpretq_s8_u64(n1);
-                (vshrq_n_s8(vshlq_n_s8(i0, 4), 4), vshrq_n_s8(vshlq_n_s8(i1, 4), 4))
+                (
+                    vshrq_n_s8(vshlq_n_s8(i0, 4), 4),
+                    vshrq_n_s8(vshlq_n_s8(i1, 4), 4),
+                )
             }
 
             /// Batch DK position — NEON path (2 elements per iteration).
@@ -1285,7 +1316,8 @@ pub mod i4_eval {
                     let coh = [vgetq_lane_s8(c0, 0), vgetq_lane_s8(c1, 0)];
                     for j in 0..2 {
                         let fp = (war[j] as i16 + grd[j] as i16 - ten[j] as i16)
-                            .clamp(i8::MIN as i16, i8::MAX as i16) as i8;
+                            .clamp(i8::MIN as i16, i8::MAX as i16)
+                            as i8;
                         let man = mantissas[i + j];
                         out[i + j] = if fp >= 4 && man > 0 {
                             FlowState::Flow
@@ -1347,7 +1379,11 @@ pub mod i4_eval {
             mantissas: &[i8],
             out: &mut [DkPosition],
         ) {
-            assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
+            assert_eq!(
+                qualia.len(),
+                mantissas.len(),
+                "qualia/mantissas length mismatch"
+            );
             assert_eq!(qualia.len(), out.len(), "input/output length mismatch");
             let caps = simd_caps();
             #[cfg(target_arch = "x86_64")]
@@ -1386,7 +1422,11 @@ pub mod i4_eval {
 
         /// Batch FlowState. Dispatches to AVX-512/NEON if available at runtime.
         pub fn flow_state_batch(qualia: &[QualiaI4_16D], mantissas: &[i8], out: &mut [FlowState]) {
-            assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
+            assert_eq!(
+                qualia.len(),
+                mantissas.len(),
+                "qualia/mantissas length mismatch"
+            );
             assert_eq!(qualia.len(), out.len(), "input/output length mismatch");
             let caps = simd_caps();
             #[cfg(target_arch = "x86_64")]
@@ -1408,12 +1448,12 @@ pub mod i4_eval {
         ///
         /// SIMD-fast alternative to `gate_decision_batch`. Use when reason strings
         /// are not needed. Dispatches to AVX-512/NEON if available at runtime.
-        pub fn gate_decision_disc_batch(
-            qualia: &[QualiaI4_16D],
-            mantissas: &[i8],
-            out: &mut [u8],
-        ) {
-            assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
+        pub fn gate_decision_disc_batch(qualia: &[QualiaI4_16D], mantissas: &[i8], out: &mut [u8]) {
+            assert_eq!(
+                qualia.len(),
+                mantissas.len(),
+                "qualia/mantissas length mismatch"
+            );
             assert_eq!(qualia.len(), out.len(), "input/output length mismatch");
             let caps = simd_caps();
             #[cfg(target_arch = "x86_64")]
@@ -1437,7 +1477,11 @@ pub mod i4_eval {
             mantissas: &[i8],
             out: &mut [GateDecision],
         ) {
-            assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
+            assert_eq!(
+                qualia.len(),
+                mantissas.len(),
+                "qualia/mantissas length mismatch"
+            );
             assert_eq!(qualia.len(), out.len(), "input/output length mismatch");
             for i in 0..qualia.len() {
                 out[i] = gate_decision_i4(&qualia[i], mantissas[i]);
@@ -1450,7 +1494,11 @@ pub mod i4_eval {
             mantissas: &[i8],
             out: &mut [MulAssessment],
         ) {
-            assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
+            assert_eq!(
+                qualia.len(),
+                mantissas.len(),
+                "qualia/mantissas length mismatch"
+            );
             assert_eq!(qualia.len(), out.len(), "input/output length mismatch");
             let caps = simd_caps();
             #[cfg(target_arch = "x86_64")]
@@ -1470,10 +1518,17 @@ pub mod i4_eval {
 
         /// Convenience: allocate the output Vec and return it (for non-hot-path callers).
         pub fn mul_assess_vec(qualia: &[QualiaI4_16D], mantissas: &[i8]) -> Vec<MulAssessment> {
-            assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
+            assert_eq!(
+                qualia.len(),
+                mantissas.len(),
+                "qualia/mantissas length mismatch"
+            );
             let mut out = vec![
                 MulAssessment {
-                    trust: TrustQualia { value: 0.0, texture: TrustTexture::Calibrated },
+                    trust: TrustQualia {
+                        value: 0.0,
+                        texture: TrustTexture::Calibrated
+                    },
                     dk_position: DkPosition::MountStupid,
                     homeostasis: Homeostasis {
                         flow_state: FlowState::Boredom,
@@ -1617,8 +1672,14 @@ pub mod i4_eval {
             assert_eq!(mul.dk_position, DkPosition::Plateau);
             assert_eq!(mul.trust.texture, TrustTexture::Calibrated);
             assert_eq!(mul.homeostasis.flow_state, FlowState::Flow);
-            assert!(mul.free_will_modifier > 0.5, "expert+flow should give high autonomy");
-            assert!(mul.complexity_mapped, "high coherence should map complexity");
+            assert!(
+                mul.free_will_modifier > 0.5,
+                "expert+flow should give high autonomy"
+            );
+            assert!(
+                mul.complexity_mapped,
+                "high coherence should map complexity"
+            );
         }
 
         #[test]
@@ -1704,16 +1765,19 @@ pub mod i4_eval {
                 assert!(
                     matches_gate_discriminant(&out[i], &scalar),
                     "gate decision discriminant mismatch at index {}: batch={:?} scalar={:?}",
-                    i, out[i], scalar
+                    i,
+                    out[i],
+                    scalar
                 );
             }
         }
 
         fn matches_gate_discriminant(a: &GateDecision, b: &GateDecision) -> bool {
-            matches!((a, b),
+            matches!(
+                (a, b),
                 (GateDecision::Flow, GateDecision::Flow)
-                | (GateDecision::Hold { .. }, GateDecision::Hold { .. })
-                | (GateDecision::Block { .. }, GateDecision::Block { .. })
+                    | (GateDecision::Hold { .. }, GateDecision::Hold { .. })
+                    | (GateDecision::Block { .. }, GateDecision::Block { .. })
             )
         }
 
@@ -1726,11 +1790,26 @@ pub mod i4_eval {
             batch::mul_assess_batch(&qualia, &mantissas, &mut out);
             for (i, (q, &m)) in qualia.iter().zip(mantissas.iter()).enumerate() {
                 let scalar = mul_assess_i4(q, m);
-                assert_eq!(out[i].dk_position, scalar.dk_position, "dk_position mismatch at {}", i);
-                assert_eq!(out[i].trust.texture, scalar.trust.texture, "trust.texture mismatch at {}", i);
-                assert_eq!(out[i].homeostasis.flow_state, scalar.homeostasis.flow_state, "flow_state mismatch at {}", i);
-                assert!((out[i].free_will_modifier - scalar.free_will_modifier).abs() < 1e-10,
-                    "free_will_modifier mismatch at {}", i);
+                assert_eq!(
+                    out[i].dk_position, scalar.dk_position,
+                    "dk_position mismatch at {}",
+                    i
+                );
+                assert_eq!(
+                    out[i].trust.texture, scalar.trust.texture,
+                    "trust.texture mismatch at {}",
+                    i
+                );
+                assert_eq!(
+                    out[i].homeostasis.flow_state, scalar.homeostasis.flow_state,
+                    "flow_state mismatch at {}",
+                    i
+                );
+                assert!(
+                    (out[i].free_will_modifier - scalar.free_will_modifier).abs() < 1e-10,
+                    "free_will_modifier mismatch at {}",
+                    i
+                );
             }
         }
 
@@ -1738,12 +1817,28 @@ pub mod i4_eval {
         fn test_mul_assess_vec_allocates_correctly() {
             let (qualia, mantissas) = make_batch(10);
             let result = batch::mul_assess_vec(&qualia, &mantissas);
-            assert_eq!(result.len(), qualia.len(), "output length must equal input length");
+            assert_eq!(
+                result.len(),
+                qualia.len(),
+                "output length must equal input length"
+            );
             for (i, (q, &m)) in qualia.iter().zip(mantissas.iter()).enumerate() {
                 let scalar = mul_assess_i4(q, m);
-                assert_eq!(result[i].dk_position, scalar.dk_position, "dk_position mismatch at {}", i);
-                assert_eq!(result[i].trust.texture, scalar.trust.texture, "trust.texture mismatch at {}", i);
-                assert_eq!(result[i].homeostasis.flow_state, scalar.homeostasis.flow_state, "flow_state mismatch at {}", i);
+                assert_eq!(
+                    result[i].dk_position, scalar.dk_position,
+                    "dk_position mismatch at {}",
+                    i
+                );
+                assert_eq!(
+                    result[i].trust.texture, scalar.trust.texture,
+                    "trust.texture mismatch at {}",
+                    i
+                );
+                assert_eq!(
+                    result[i].homeostasis.flow_state, scalar.homeostasis.flow_state,
+                    "flow_state mismatch at {}",
+                    i
+                );
             }
         }
 
@@ -1755,7 +1850,10 @@ pub mod i4_eval {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 batch::dk_position_batch(&qualia, &mantissas, &mut out);
             }));
-            assert!(result.is_err(), "must panic on qualia/mantissas length mismatch");
+            assert!(
+                result.is_err(),
+                "must panic on qualia/mantissas length mismatch"
+            );
         }
 
         #[test]
@@ -1817,10 +1915,10 @@ pub mod i4_eval {
             for _ in 0..n {
                 let r = xorshift64(&mut s);
                 let mut q = QualiaI4_16D::ZERO;
-                q.set(1,  i4((r        & 0xF) as u8)); // valence
-                q.set(2,  i4(((r >> 4)  & 0xF) as u8)); // tension
-                q.set(3,  i4(((r >> 8)  & 0xF) as u8)); // warmth
-                q.set(9,  i4(((r >> 12) & 0xF) as u8)); // coherence
+                q.set(1, i4((r & 0xF) as u8)); // valence
+                q.set(2, i4(((r >> 4) & 0xF) as u8)); // tension
+                q.set(3, i4(((r >> 8) & 0xF) as u8)); // warmth
+                q.set(9, i4(((r >> 12) & 0xF) as u8)); // coherence
                 q.set(14, i4(((r >> 16) & 0xF) as u8)); // groundedness
                 qualia.push(q);
                 let mant = i4(((r >> 20) & 0xF) as u8);
@@ -1840,7 +1938,7 @@ pub mod i4_eval {
             for &n in PARITY_SIZES {
                 let (qualia, mantissas) = make_random_batch(n, 0xD15C_5E7D_C0DE_0001);
                 let mut out_dispatch = vec![DkPosition::MountStupid; n];
-                let mut out_scalar   = vec![DkPosition::MountStupid; n];
+                let mut out_scalar = vec![DkPosition::MountStupid; n];
                 batch::dk_position_batch(&qualia, &mantissas, &mut out_dispatch);
                 batch::scalar_impl::dk_position_batch(&qualia, &mantissas, &mut out_scalar);
                 for i in 0..n {
@@ -1858,7 +1956,7 @@ pub mod i4_eval {
             for &n in PARITY_SIZES {
                 let (qualia, _) = make_random_batch(n, 0xD15C_5E7D_C0DE_0002);
                 let mut out_dispatch = vec![TrustTexture::Uncertain; n];
-                let mut out_scalar   = vec![TrustTexture::Uncertain; n];
+                let mut out_scalar = vec![TrustTexture::Uncertain; n];
                 batch::trust_texture_batch(&qualia, &mut out_dispatch);
                 batch::scalar_impl::trust_texture_batch(&qualia, &mut out_scalar);
                 for i in 0..n {
@@ -1876,7 +1974,7 @@ pub mod i4_eval {
             for &n in PARITY_SIZES {
                 let (qualia, mantissas) = make_random_batch(n, 0xD15C_5E7D_C0DE_0003);
                 let mut out_dispatch = vec![FlowState::Boredom; n];
-                let mut out_scalar   = vec![FlowState::Boredom; n];
+                let mut out_scalar = vec![FlowState::Boredom; n];
                 batch::flow_state_batch(&qualia, &mantissas, &mut out_dispatch);
                 batch::scalar_impl::flow_state_batch(&qualia, &mantissas, &mut out_scalar);
                 for i in 0..n {
@@ -1894,7 +1992,7 @@ pub mod i4_eval {
             for &n in PARITY_SIZES {
                 let (qualia, mantissas) = make_random_batch(n, 0xD15C_5E7D_C0DE_0004);
                 let mut out_dispatch = vec![0u8; n];
-                let mut out_scalar   = vec![0u8; n];
+                let mut out_scalar = vec![0u8; n];
                 batch::gate_decision_disc_batch(&qualia, &mantissas, &mut out_dispatch);
                 batch::scalar_impl::gate_decision_disc_batch(&qualia, &mantissas, &mut out_scalar);
                 for i in 0..n {
@@ -1906,7 +2004,12 @@ pub mod i4_eval {
                 }
                 // Discriminants must be in the locked range 0=Flow, 1=Hold, 2=Block.
                 for (i, &b) in out_dispatch.iter().enumerate() {
-                    assert!(b <= 2, "out-of-range gate discriminant {} at index {}", b, i);
+                    assert!(
+                        b <= 2,
+                        "out-of-range gate discriminant {} at index {}",
+                        b,
+                        i
+                    );
                 }
             }
         }
@@ -1914,41 +2017,59 @@ pub mod i4_eval {
         #[test]
         fn test_mul_assess_batch_parity_simd_vs_scalar() {
             let zero_assess = || MulAssessment {
-                trust: TrustQualia { value: 0.0, texture: TrustTexture::Calibrated },
+                trust: TrustQualia {
+                    value: 0.0,
+                    texture: TrustTexture::Calibrated,
+                },
                 dk_position: DkPosition::MountStupid,
-                homeostasis: Homeostasis { flow_state: FlowState::Boredom, allostatic_load: 0.0 },
+                homeostasis: Homeostasis {
+                    flow_state: FlowState::Boredom,
+                    allostatic_load: 0.0,
+                },
                 complexity_mapped: false,
                 free_will_modifier: 0.0,
             };
             for &n in PARITY_SIZES {
                 let (qualia, mantissas) = make_random_batch(n, 0xD15C_5E7D_C0DE_0005);
                 let mut out_dispatch: Vec<MulAssessment> = (0..n).map(|_| zero_assess()).collect();
-                let mut out_scalar:   Vec<MulAssessment> = (0..n).map(|_| zero_assess()).collect();
+                let mut out_scalar: Vec<MulAssessment> = (0..n).map(|_| zero_assess()).collect();
                 batch::mul_assess_batch(&qualia, &mantissas, &mut out_dispatch);
                 batch::scalar_impl::mul_assess_batch(&qualia, &mantissas, &mut out_scalar);
                 for i in 0..n {
                     assert_eq!(
                         out_dispatch[i].dk_position, out_scalar[i].dk_position,
-                        "mul_assess_batch dk_position mismatch at size={} i={}", n, i,
+                        "mul_assess_batch dk_position mismatch at size={} i={}",
+                        n, i,
                     );
                     assert_eq!(
                         out_dispatch[i].trust.texture, out_scalar[i].trust.texture,
-                        "mul_assess_batch trust.texture mismatch at size={} i={}", n, i,
+                        "mul_assess_batch trust.texture mismatch at size={} i={}",
+                        n, i,
                     );
                     assert_eq!(
-                        out_dispatch[i].homeostasis.flow_state, out_scalar[i].homeostasis.flow_state,
-                        "mul_assess_batch flow_state mismatch at size={} i={}", n, i,
+                        out_dispatch[i].homeostasis.flow_state,
+                        out_scalar[i].homeostasis.flow_state,
+                        "mul_assess_batch flow_state mismatch at size={} i={}",
+                        n,
+                        i,
                     );
                     // f64 fields: bit-identical because both paths compute the same
                     // scalar finalize sequence with identical inputs.
                     assert!(
                         (out_dispatch[i].trust.value - out_scalar[i].trust.value).abs() < 1e-12,
                         "mul_assess_batch trust.value drift at size={} i={}: dispatch={} scalar={}",
-                        n, i, out_dispatch[i].trust.value, out_scalar[i].trust.value,
+                        n,
+                        i,
+                        out_dispatch[i].trust.value,
+                        out_scalar[i].trust.value,
                     );
                     assert!(
-                        (out_dispatch[i].free_will_modifier - out_scalar[i].free_will_modifier).abs() < 1e-12,
-                        "mul_assess_batch free_will_modifier drift at size={} i={}", n, i,
+                        (out_dispatch[i].free_will_modifier - out_scalar[i].free_will_modifier)
+                            .abs()
+                            < 1e-12,
+                        "mul_assess_batch free_will_modifier drift at size={} i={}",
+                        n,
+                        i,
                     );
                 }
             }

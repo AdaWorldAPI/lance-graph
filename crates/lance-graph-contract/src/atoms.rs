@@ -277,7 +277,10 @@ mod tests {
     fn catalogue_is_locked_33_in_order() {
         assert_eq!(CANONICAL_ATOMS.len(), 33);
         for (i, a) in CANONICAL_ATOMS.iter().enumerate() {
-            assert_eq!(a.dim as usize, i, "lane dim must equal its index (locked order)");
+            assert_eq!(
+                a.dim as usize, i,
+                "lane dim must equal its index (locked order)"
+            );
             assert!(!a.name.is_empty());
         }
     }
