@@ -87,5 +87,36 @@ phase is convention, not data; the analysis remainder escalates to
 full-residual per the quorum certificate, never silently. Added
 probes: **PROBE-PHASE-1** (bit-exact cross-backend regeneration;
 integer walk only per D-QUANTGATE) · **PROBE-PERT-RHO** (magnitude-only
-meets ρ anchors; escalation rate reported). Full treatment: ndarray
+meets ρ anchors; escalation rate reported). Bipolar sharpening (§7
+below). Full treatment: ndarray
 `guid-prefix-shape-routing.md` §4; canon: `OGAR/CLAUDE.md`.
+
+## 7. Bipolar-phase pyramid = Walsh-Hadamard on VSA (operator, 2026-06-10)
+
+Sharper form of §6: when the deterministic phase is **signed (±1)**,
+the cascade IS the Walsh-Hadamard transform of the address tree,
+carried on the workspace's existing `Vsa16kF32` bipolar algebra.
+**Signs compose by XOR (= `vsa_bind`)**; **magnitudes compose by
+`vsa_bundle`** (Markov-respecting per `I-SUBSTRATE-MARKOV`). Each cell
+is a Walsh-resonance superposition recoverable by role-key unbind;
+the Heisenberg-shaped capacity bound is `I-VSA-IDENTITIES` Test 1
+(N ≤ √d/4 ≈ 32) — the classical uncertainty principle of the substrate
+made explicit. Roundtrip bit-exact because phase is generated, not
+stored.
+
+**Two-algebra rule (load-bearing):** sign = XOR; magnitude = bundle,
+NEVER `MergeMode::Xor` (breaks Markov; the named anti-pattern is PP-13
+P1-1, "raw-XOR ordering as 'nearest'"). Receipts already exist:
+`vsa_bind` / `vsa_bundle` (iron-rule algebra), `Vsa16kF32` (bipolar
+carrier in `crystal/fingerprint.rs`), helix `CurveRuler` (bit-exact
+integer phase walk, D-QUANTGATE-compliant). Honest fences:
+"quantum-like" is the bundling algebra, NOT measurement randomness;
+bipolar = 1-bit phase; Parseval preservation requires the bundle (sum),
+not just XOR.
+
+**Probes added:** **WHP-1** (Parseval: `Σ|cell|² = Σ|M_L|²` within
+Jirak noise floor) · **WHP-2** (encode→decode→encode byte-identical
+cross-backend) · **WHP-3** (bind/unbind margin holds for N ≤ √d/4;
+fails cleanly past it) · **WHP-4** (explicit two-algebra guard:
+raw-XOR on magnitudes fails Chapman-Kolmogorov consistency). Full
+treatment: ndarray `guid-prefix-shape-routing.md` §4b.
