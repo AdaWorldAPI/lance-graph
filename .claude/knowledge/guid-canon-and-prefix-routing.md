@@ -74,3 +74,18 @@ gates F10–F14) · ndarray `guid-prefix-shape-routing.md` (mechanism) ·
 `EPIPHANIES.md` E-IDENTITY-WHITEBOX-1 (the bijection + roundtrip_eq
 whitening) · iron rules I-NOISE-FLOOR-JIRAK, I-VSA-IDENTITIES,
 I-LEGACY-API-FEATURE-GATED.
+
+## 6. Perturbation = deterministic phase (operator pin, 2026-06-10)
+
+The pyramid perturbation decomposes as **(exponent, location, phase,
+magnitude)**; exponent/location/phase derive from the KEY (level
+nibbles `>>2`, implied mantissa, coprime phase walk — helix
+`CurveRuler` stride-4-over-17 is the shipped, bit-exact integer
+generator) and only the **magnitude envelope is stored**
+(palette-quantized, coarse). Lossless for synthesis by construction —
+phase is convention, not data; the analysis remainder escalates to
+full-residual per the quorum certificate, never silently. Added
+probes: **PROBE-PHASE-1** (bit-exact cross-backend regeneration;
+integer walk only per D-QUANTGATE) · **PROBE-PERT-RHO** (magnitude-only
+meets ρ anchors; escalation rate reported). Full treatment: ndarray
+`guid-prefix-shape-routing.md` §4; canon: `OGAR/CLAUDE.md`.
