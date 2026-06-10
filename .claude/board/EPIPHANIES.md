@@ -49,6 +49,27 @@ They are the SAME relation: the north-star template hierarchy IS the routing/sup
 **Phase B becomes:** stand up OGAR as the OGIT mirror + north-star template registry; seed entity_type↔NiblePath from it; the build-time round-trip proves the bijection. The surrealdb-coords blocker (N8 / Phase H) is unrelated and remains.
 
 **Cross-ref:** identity-architecture plan DECISION-2 + the north-star guard; E-IDENTITY-WHITEBOX-1 (NodeGuid composition); I-VSA-IDENTITIES (closed template vocabulary interns; Wikidata's open instance mass stays content, never a ClassId).
+## 2026-06-10 — E-CANON-GUID-1 — the canonical GUID's dash-groups are the cascade; routing/quorum crystallized before dilution
+
+**Status:** FINDING (canon operator-pinned in `OGAR/CLAUDE.md`; crystallization docs landed both sides)
+**Confidence:** High on the canon + receipts; CONJECTURE (probes named) on the new surfaces
+
+The operator-pinned canonical identity is HEX-counted — it IS the GUID:
+`classid(8)-HEEL(4)-HIP(4)-TWIG(4)-[basin·leaf(6)+identity(6)]`; the UUID
+dash-groups ARE the cascade delimiters. Key-of-key-value: node = key(128) +
+value(3968) = 4096 bits — the key routes/resolves/compares/scopes/names with
+zero value decode; Lance compresses the value freely (compression never costs
+addressability). 3×4 uniform tiers (`tier = nibble >> 2`); RFC 9562 = wrapper
+concern (wrappers adapt to canon, never the reverse). Centroid-tile reading
+[H]: path = 6 bytes = CAM-PQ 6×256; per-class codebooks scoped by class
+routing prefix (longest-prefix wins), 4⁴-hierarchical so nibble prefixes =
+centroid ancestry. Crystallized: this repo's policy side at
+`.claude/knowledge/guid-canon-and-prefix-routing.md`; ndarray's mechanism
+side at `ndarray/.claude/knowledge/guid-prefix-shape-routing.md` (the
+`PrefixShapeTable` + φ-quorum anti-eigenvalue-theater contract, with the
+PP-13 casebook as the named failure catalog). `contract::quorum` (#411
+scaffold) is the named landing spot for the quorum certificate. Probes:
+ROUTE-1, QUORUM-1, PHI-1, PYR-1, CODEBOOK-44, HILBERT-L4 (blocker).
 
 ## 2026-06-09 — E-IDENTITY-WHITEBOX-1 — structured identity + round-trip converts the substrate from black-box to CI-falsifiable
 
