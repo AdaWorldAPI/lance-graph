@@ -107,7 +107,7 @@ pub mod world_model;
 
 // Re-exports for the most commonly used collapse_gate types.
 pub use class_view::{ClassId, ClassProjection, ClassView, FieldMask, RenderRow};
-pub use collapse_gate::{CollapseGateEmission, GateDecision, MailboxId, MergeMode};
+pub use collapse_gate::{GateDecision, MailboxId, MergeMode};
 pub use episodic_edges::{EdgeRef, EpisodicEdges64};
 pub use head2head::{CompetitionOutcome, Head2Head, WinnerCriterion};
 pub use identity::{NodeGuid, IDENTITY_LAYOUT_VERSION};

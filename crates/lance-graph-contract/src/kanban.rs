@@ -16,9 +16,9 @@
 //! - **R1 "one SoA never transformed":** a [`KanbanMove`] is a *transition record*,
 //!   not SoA data — it carries only `Copy` scalars + a pointer, never the SoA.
 //! - **R4 witness-as-pointer:** the witness is a `chain_position` index into the
-//!   source mailbox's witness arc (mirrors
-//!   [`crate::collapse_gate::CollapseGateEmission`]'s `chain_position`), never the
-//!   witnessed data.
+//!   source mailbox's witness arc — structural time, never the witnessed data.
+//!   (The retired `CollapseGateEmission` carrier used the same convention; the
+//!   convention survives the carrier's removal per PR #477.)
 
 use crate::collapse_gate::MailboxId;
 
@@ -116,9 +116,9 @@ pub struct KanbanMove {
     pub from: KanbanColumn,
     /// Column the mailbox is entering.
     pub to: KanbanColumn,
-    /// Witness pointer: position in the source mailbox's witness chain. Mirrors
-    /// [`crate::collapse_gate::CollapseGateEmission`]'s `chain_position` —
-    /// structural time, not a wall-clock stamp (R4).
+    /// Witness pointer: position in the source mailbox's witness chain —
+    /// structural time, not a wall-clock stamp (R4). (Same convention the
+    /// retired `CollapseGateEmission` carrier used, kept after its removal.)
     pub witness_chain_position: u32,
     /// Libet commit anchor: signed micros relative to the act. `-550_000` on the
     /// `Planning → CognitiveWork` Σ-commit; `0` otherwise. Structural offset only.

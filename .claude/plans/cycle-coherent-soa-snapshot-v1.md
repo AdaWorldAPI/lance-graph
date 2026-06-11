@@ -86,21 +86,46 @@ row-scale and byte-scale deinterlace use the same clock.
 
 ## Deliverables
 
-### D-SOA-SNAP-1 — `MailboxSoaSnapshot` type in lance-graph-contract
+### D-SOA-SNAP-1 — `MailboxSoaSnapshot<C>` type in lance-graph-contract
 
-A `MailboxSoaSnapshot` struct: `cycle: u32`, `cols: Vec<Arc<MultiLaneColumn>>`.
-Snapshot is `Send + Sync`. No reference to the originating `MailboxSoa`.
-This is a point-in-time read — immutable after creation.
+> **REVISED 2026-06-11 (PR #477 CodeRabbit Critical):** the original sketch
+> (`cols: Vec<Arc<MultiLaneColumn>>` directly in contract) would create a
+> `lance-graph-contract → ndarray` dependency — `MultiLaneColumn` is an
+> ndarray type, and the contract crate is zero-dep by iron invariant. The
+> snapshot type is therefore **generic over the column type**; the concrete
+> binding happens in lance-graph, never in contract.
+
+A `MailboxSoaSnapshot<C>` struct: `cycle: u32`, `cols: Vec<Arc<C>>`.
+Snapshot is `Send + Sync` (when `C: Send + Sync`). No reference to the
+originating `MailboxSoa`. This is a point-in-time read — immutable after
+creation. Contract never names `MultiLaneColumn`; it only carries the
+generic parameter.
 
 ### D-SOA-SNAP-2 — `SnapshotProvider` trait in lance-graph-contract
 
 ```rust
-pub trait SnapshotProvider {
-    fn snapshot(&self) -> MailboxSoaSnapshot;
+// In lance-graph-contract (zero-dep — no ndarray import):
+pub struct MailboxSoaSnapshot<C> {
+    pub cycle: u32,
+    pub cols: Vec<Arc<C>>,
 }
+
+pub trait SnapshotProvider {
+    type Column;
+    fn snapshot(&self) -> MailboxSoaSnapshot<Self::Column>;
+}
+
+// In lance-graph (the binding side):
+//   impl SnapshotProvider for MailboxSoa {
+//       type Column = ndarray::simd::MultiLaneColumn;
+//       fn snapshot(&self) -> MailboxSoaSnapshot<MultiLaneColumn> { … }
+//   }
 ```
 
-Zero deps in contract. `MailboxSoa` in lance-graph implements it.
+Zero deps in contract — the associated type defers the column choice to the
+implementor. `MailboxSoa` in lance-graph binds `Column = MultiLaneColumn`;
+ndarray never learns the snapshot exists, contract never learns ndarray
+exists, lance-graph binds them (same triangulation as `SoaEnvelope`).
 
 ### D-SOA-SNAP-3 — Arc-swap write path in `MailboxSoa::advance_phase`
 

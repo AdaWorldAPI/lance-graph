@@ -47,14 +47,16 @@
 /// The ephemeral, in-mailbox episodic working record of a single AriGraph fact
 /// before it stabilises and calcifies into the cold SPO ontology.
 ///
-/// # NOT a persisted singleton (E-BATON-1)
+/// # NOT a persisted singleton (E-BATON-1, scoped by PR #477)
 ///
 /// `HotWitness` exists **only inside the owning mailbox** for the duration of
 /// its sea-star lifecycle (spawn → work → die → merge).  It is **never**
-/// transmitted across mailbox boundaries as a carrier — the Baton
-/// (`CollapseGateEmission`) is the inter-mailbox handoff; `HotWitness` stays
-/// local and ephemeral.  See `EPIPHANIES.md` E-BATON-1 and the Baton-scoping
-/// section of `CLAUDE.md` §"The Click" for the canonical rationale.
+/// transmitted across mailbox boundaries as a carrier — per the PR #477
+/// three-tier model there is no inter-mailbox handoff type at all (the former
+/// Baton/`CollapseGateEmission` framing is superseded); the SoA is zero-copy
+/// from creation to Lance tombstone and `HotWitness` stays local and
+/// ephemeral.  See `docs/architecture/soa-three-tier-model.md` and
+/// `EPIPHANIES.md` E-BATON-1 for the lineage.
 ///
 /// When the mailbox dies the [`HotWitness`] is either:
 /// - **calcified** (fact stabilised) → [`calcify`] produces an SPO cold record
