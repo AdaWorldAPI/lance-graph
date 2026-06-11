@@ -47,7 +47,7 @@ impl Default for ExtractParams {
         Self {
             theta: u32::MAX,
             max_antecedent: 2,
-            min_support_ppm: 10_000,   // 1%
+            min_support_ppm: 10_000,     // 1%
             min_confidence_ppm: 500_000, // 50%
         }
     }
@@ -95,7 +95,15 @@ pub fn extract_rules(
     for size in 1..=params.max_antecedent {
         for feature_combo in feature_combinations(&candidate_features, size) {
             for antecedent in item_product(&feature_combo, &frequent_by_feature) {
-                probe(oracle, data, &masks, &antecedent, &feature_combo, params, &mut rules);
+                probe(
+                    oracle,
+                    data,
+                    &masks,
+                    &antecedent,
+                    &feature_combo,
+                    params,
+                    &mut rules,
+                );
             }
         }
     }
@@ -106,6 +114,35 @@ pub fn extract_rules(
             .then_with(|| a.consequent.cmp(&b.consequent))
     });
     rules.dedup_by(|a, b| a.antecedent == b.antecedent && a.consequent == b.consequent);
+    rules
+}
+
+/// [`extract_rules`] plus the **mandatory Stage-A Jirak significance floor**
+/// (D-ARM-7, `I-NOISE-FLOOR-JIRAK`): a rule survives only if its observed
+/// support also clears `jirak_floor_ppm(window, p_moment, confidence_alpha)`
+/// — the weak-dependence noise floor the classical ppm thresholds know
+/// nothing about (ISSUE `ARM-JIRAK-FLOOR`).
+///
+/// **This is the SpoStore-bound entry point.** Anything that feeds discovered
+/// rules toward a live `SpoStore` (D-ARM-5) MUST route through this function
+/// (or apply [`crate::jirak::jirak_floor_ppm`] itself), never through bare
+/// [`extract_rules`] — otherwise the substrate calcifies on thin-but-frequent
+/// noise faster than NARS revision can down-weight it (plan §4).
+///
+/// The floor is derived once per window at the `f32` edge; the per-rule
+/// comparison stays integer ppm (the crate's float-free decision path).
+/// Defaults: [`crate::jirak::DEFAULT_P_MOMENT`] / [`crate::jirak::DEFAULT_ALPHA`].
+#[must_use]
+pub fn extract_rules_stage_a(
+    oracle: &dyn CodebookDistance,
+    data: &Dataset,
+    params: &ExtractParams,
+    p_moment: f32,
+    confidence_alpha: f32,
+) -> Vec<CandidateRule> {
+    let floor_ppm = crate::jirak::jirak_floor_ppm(data.len() as u32, p_moment, confidence_alpha);
+    let mut rules = extract_rules(oracle, data, params);
+    rules.retain(|r| r.support_ppm() >= floor_ppm);
     rules
 }
 
@@ -220,8 +257,8 @@ mod tests {
     /// in codebook space). Data plants f0 == f1 with a little noise; f2 random.
     fn fixture(noise_every: usize) -> (Dataset, MatrixDistance) {
         let spec = FeatureSpec::new(vec![2, 2, 2]); // dim 6
-        // slots: f0c0=0 f0c1=1 | f1c0=2 f1c1=3 | f2c0=4 f2c1=5
-        // near = 1, mid = 5, far = 50.
+                                                    // slots: f0c0=0 f0c1=1 | f1c0=2 f1c1=3 | f2c0=4 f2c1=5
+                                                    // near = 1, mid = 5, far = 50.
         let near = 1u32;
         let mid = 5u32;
         let far = 50u32;
@@ -247,12 +284,19 @@ mod tests {
         let rows: Vec<Vec<u32>> = (0..600)
             .map(|i| {
                 let a = (i % 2) as u32;
-                let b = if noise_every != 0 && i % noise_every == 0 { 1 - a } else { a };
+                let b = if noise_every != 0 && i % noise_every == 0 {
+                    1 - a
+                } else {
+                    a
+                };
                 let c = ((i / 2) % 2) as u32;
                 vec![a, b, c]
             })
             .collect();
-        (Dataset::new(spec.clone(), rows), MatrixDistance::new(&spec, table))
+        (
+            Dataset::new(spec.clone(), rows),
+            MatrixDistance::new(&spec, table),
+        )
     }
 
     #[test]
@@ -261,7 +305,7 @@ mod tests {
         let params = ExtractParams {
             theta: 2, // codebook prune: only "near" (dist ≤ 2) consequents
             max_antecedent: 1,
-            min_support_ppm: 50_000,    // 5%
+            min_support_ppm: 50_000,     // 5%
             min_confidence_ppm: 700_000, // 70%
         };
         let rules = extract_rules(&dist, &data, &params);
@@ -273,14 +317,16 @@ mod tests {
         assert!(has, "planted f0=0 ⇒ f1=0 not recovered: {rules:#?}");
 
         // feature 2 is codebook-far → pruned by theta → never a consequent of f0
-        let spurious = rules.iter().any(|r| {
-            r.antecedent == vec![Item::new(0, 0)] && r.consequent[0].feature == 2
-        });
+        let spurious = rules
+            .iter()
+            .any(|r| r.antecedent == vec![Item::new(0, 0)] && r.consequent[0].feature == 2);
         assert!(!spurious, "independent feature 2 leaked: {rules:#?}");
 
         let rule = rules
             .iter()
-            .find(|r| r.antecedent == vec![Item::new(0, 0)] && r.consequent == vec![Item::new(1, 0)])
+            .find(|r| {
+                r.antecedent == vec![Item::new(0, 0)] && r.consequent == vec![Item::new(1, 0)]
+            })
             .unwrap();
         assert!(rule.confidence_ppm() >= 700_000, "confidence below floor");
     }
@@ -288,10 +334,18 @@ mod tests {
     #[test]
     fn fully_deterministic_no_seed() {
         let (data, dist) = fixture(20);
-        let p = ExtractParams { theta: 2, max_antecedent: 1, min_support_ppm: 50_000, min_confidence_ppm: 700_000 };
+        let p = ExtractParams {
+            theta: 2,
+            max_antecedent: 1,
+            min_support_ppm: 50_000,
+            min_confidence_ppm: 700_000,
+        };
         let a = extract_rules(&dist, &data, &p);
         let b = extract_rules(&dist, &data, &p);
-        assert_eq!(a, b, "codebook probe is bitwise-deterministic by construction");
+        assert_eq!(
+            a, b,
+            "codebook probe is bitwise-deterministic by construction"
+        );
     }
 
     #[test]
@@ -299,7 +353,12 @@ mod tests {
         // With a generous theta the far feature is *tested* (then data-gated);
         // with a tight theta it is pruned before the data even sees it.
         let (data, dist) = fixture(0); // no noise: f1==f0 exactly
-        let tight = ExtractParams { theta: 2, max_antecedent: 1, min_support_ppm: 50_000, min_confidence_ppm: 600_000 };
+        let tight = ExtractParams {
+            theta: 2,
+            max_antecedent: 1,
+            min_support_ppm: 50_000,
+            min_confidence_ppm: 600_000,
+        };
         let rules = extract_rules(&dist, &data, &tight);
         assert!(rules.iter().all(|r| r.consequent[0].feature != 2));
     }
@@ -330,5 +389,106 @@ mod tests {
             min_confidence_ppm: 0,
         };
         assert!(extract_rules(&dist, &data, &p).is_empty());
+    }
+
+    // ── Stage-A Jirak floor (D-ARM-7) ────────────────────────────────────────
+
+    /// 2 features × 2 cats over 600 rows with a deliberately WEAK planted
+    /// rule: f0=1 ⇒ f1=1 holds in 36 rows (support 6%, confidence 90%) —
+    /// above the classical 5% floor but below the n=600 Jirak floor
+    /// (z(0.05)/√600 ≈ 6.72%). The bulk f0=0 ⇒ f1=0 (support ≈ 93%) is
+    /// strong under both gates.
+    fn weak_fixture() -> (Dataset, MatrixDistance) {
+        let spec = FeatureSpec::new(vec![2, 2]); // slots: f0c0=0 f0c1=1 | f1c0=2 f1c1=3
+        let near = 1u32;
+        let mid = 5u32;
+        let mut table = vec![0u32; 16];
+        let set = |t: &mut Vec<u32>, a: usize, b: usize, v: u32| {
+            t[a * 4 + b] = v;
+            t[b * 4 + a] = v;
+        };
+        set(&mut table, 0, 2, near);
+        set(&mut table, 1, 3, near);
+        set(&mut table, 0, 1, mid);
+        set(&mut table, 0, 3, mid);
+        set(&mut table, 1, 2, mid);
+        set(&mut table, 2, 3, mid);
+
+        let mut rows: Vec<Vec<u32>> = Vec::with_capacity(600);
+        rows.extend((0..36).map(|_| vec![1, 1])); // the weak planted rule
+        rows.extend((0..4).map(|_| vec![1, 0])); // confidence 36/40 = 90%
+        rows.extend((0..560).map(|_| vec![0, 0])); // the strong bulk
+        (
+            Dataset::new(spec.clone(), rows),
+            MatrixDistance::new(&spec, table),
+        )
+    }
+
+    #[test]
+    fn stage_a_prunes_the_weak_rule_the_classical_gate_admits() {
+        let (data, dist) = weak_fixture();
+        let params = ExtractParams {
+            theta: 2,
+            max_antecedent: 1,
+            min_support_ppm: 50_000,     // 5%
+            min_confidence_ppm: 700_000, // 70%
+        };
+        let weak = |r: &CandidateRule| {
+            r.antecedent == vec![Item::new(0, 1)] && r.consequent == vec![Item::new(1, 1)]
+        };
+        let strong = |r: &CandidateRule| {
+            r.antecedent == vec![Item::new(0, 0)] && r.consequent == vec![Item::new(1, 0)]
+        };
+
+        let classical = extract_rules(&dist, &data, &params);
+        assert!(
+            classical.iter().any(weak),
+            "the 6%-support rule must clear the classical 5% floor: {classical:#?}"
+        );
+
+        let stage_a = extract_rules_stage_a(&dist, &data, &params, 3.0, 0.05);
+        assert!(
+            !stage_a.iter().any(weak),
+            "6% support at n=600 is below the ≈6.72% Jirak floor — must be pruned"
+        );
+        assert!(
+            stage_a.iter().any(strong),
+            "the ≈93%-support rule must survive Stage A: {stage_a:#?}"
+        );
+    }
+
+    #[test]
+    fn stage_a_is_a_subset_of_classical() {
+        for (data, dist) in [fixture(20), weak_fixture()] {
+            let params = ExtractParams {
+                theta: 2,
+                max_antecedent: 1,
+                min_support_ppm: 50_000,
+                min_confidence_ppm: 700_000,
+            };
+            let classical = extract_rules(&dist, &data, &params);
+            let stage_a = extract_rules_stage_a(&dist, &data, &params, 3.0, 0.05);
+            assert!(
+                stage_a.iter().all(|r| classical.contains(r)),
+                "the Jirak floor only ever prunes — never admits"
+            );
+        }
+    }
+
+    #[test]
+    fn stage_a_passes_strong_fixtures_unchanged() {
+        // The strong fixture's planted support (≈47%) is far above the n=600
+        // floor (≈6.72%): Stage A and classical must agree exactly.
+        let (data, dist) = fixture(20);
+        let params = ExtractParams {
+            theta: 2,
+            max_antecedent: 1,
+            min_support_ppm: 50_000,
+            min_confidence_ppm: 700_000,
+        };
+        assert_eq!(
+            extract_rules_stage_a(&dist, &data, &params, 3.0, 0.05),
+            extract_rules(&dist, &data, &params)
+        );
     }
 }

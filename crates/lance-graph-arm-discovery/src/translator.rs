@@ -227,7 +227,11 @@ mod tests {
 
     #[test]
     fn triple_projection() {
-        let t = CandidateTriple::from_rule(&rule(90, 100, 400), &DebugProjector::default(), NARS_PERSONALITY_K);
+        let t = CandidateTriple::from_rule(
+            &rule(90, 100, 400),
+            &DebugProjector::default(),
+            NARS_PERSONALITY_K,
+        );
         assert_eq!(t.s, "arm:feat0=cat1");
         assert_eq!(t.p, "implies");
         assert_eq!(t.o, "arm:feat1=cat0");

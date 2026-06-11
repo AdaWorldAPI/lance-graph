@@ -98,13 +98,40 @@ impl CandidateRule {
     }
 
     /// The classical ARM gate, compared entirely in integers (ppm).
-    /// The Jirak-bound significance floor (`I-NOISE-FLOOR-JIRAK`, D-ARM-7) is a
-    /// separate, stricter, still-unimplemented gate — see ISSUE
-    /// ARM-JIRAK-FLOOR; do not wire this proposer to a live `SpoStore` until
-    /// D-ARM-7 lands.
+    /// This alone is NOT sufficient for a SpoStore-bound rule: the Jirak-bound
+    /// significance floor (`I-NOISE-FLOOR-JIRAK`, D-ARM-7) is the stricter
+    /// Stage-A gate — see [`Self::passes_stage_a`] /
+    /// [`crate::jirak::jirak_floor_ppm`]. D-ARM-5 MUST route through the
+    /// Stage-A gate, never through this classical gate alone (ISSUE
+    /// ARM-JIRAK-FLOOR, resolved by D-ARM-7).
     #[must_use]
     pub fn passes(&self, min_support_ppm: u32, min_confidence_ppm: u32) -> bool {
         self.support_ppm() >= min_support_ppm && self.confidence_ppm() >= min_confidence_ppm
+    }
+
+    /// The Stage-A gate: the classical floors AND the Jirak-bound significance
+    /// floor derived from this rule's own `window` (D-ARM-7,
+    /// `I-NOISE-FLOOR-JIRAK`). A rule survives Stage A only if its observed
+    /// support also clears `jirak_floor_ppm(window, p_moment, alpha)` — the
+    /// weak-dependence noise floor the classical thresholds know nothing
+    /// about. Defaults: [`crate::jirak::DEFAULT_P_MOMENT`] /
+    /// [`crate::jirak::DEFAULT_ALPHA`].
+    ///
+    /// `f32` appears only in the one-time floor derivation (the crate's float
+    /// edge); the comparison itself is integer ppm. For batch filtering,
+    /// derive the floor once per window instead
+    /// ([`crate::aerial::extract_rules_stage_a`]).
+    #[must_use]
+    pub fn passes_stage_a(
+        &self,
+        min_support_ppm: u32,
+        min_confidence_ppm: u32,
+        p_moment: f32,
+        confidence_alpha: f32,
+    ) -> bool {
+        self.passes(min_support_ppm, min_confidence_ppm)
+            && self.support_ppm()
+                >= crate::jirak::jirak_floor_ppm(self.window, p_moment, confidence_alpha)
     }
 
     /// `f32` support — **edge convenience only**, for the downstream `f32`
@@ -171,9 +198,42 @@ mod tests {
     }
 
     #[test]
+    fn stage_a_prunes_classically_passing_but_insignificant_support() {
+        // 6% support at n = 600: clears the classical 5% floor, but the
+        // Jirak floor at n = 600 (p = 3, α = 0.05) is ≈ 6.72% — pruned.
+        let weak = rule(36, 40, 600); // support 60_000 ppm, confidence 90%
+        assert!(weak.passes(50_000, 700_000), "classical gate admits it");
+        assert!(
+            !weak.passes_stage_a(50_000, 700_000, 3.0, 0.05),
+            "Stage A must prune support below the Jirak floor"
+        );
+
+        // The SAME proportions at n = 10_000 (floor ≈ 1.64%) are significant.
+        let strong = rule(600, 660, 10_000); // support 60_000 ppm, confidence ≈ 90.9%
+        assert!(strong.passes_stage_a(50_000, 700_000, 3.0, 0.05));
+    }
+
+    #[test]
+    fn stage_a_never_admits_what_the_classical_gate_rejects() {
+        // Stage A = classical AND jirak: a classical rejection stays rejected.
+        let r = rule(600, 660, 10_000);
+        assert!(
+            !r.passes_stage_a(100_000, 700_000, 3.0, 0.05),
+            "support floor"
+        );
+        assert!(
+            !r.passes_stage_a(50_000, 950_000, 3.0, 0.05),
+            "confidence floor"
+        );
+    }
+
+    #[test]
     fn item_ordering_is_feature_then_category() {
         let mut items = vec![Item::new(1, 0), Item::new(0, 2), Item::new(0, 1)];
         items.sort();
-        assert_eq!(items, vec![Item::new(0, 1), Item::new(0, 2), Item::new(1, 0)]);
+        assert_eq!(
+            items,
+            vec![Item::new(0, 1), Item::new(0, 2), Item::new(1, 0)]
+        );
     }
 }

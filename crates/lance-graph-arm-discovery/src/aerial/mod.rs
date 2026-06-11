@@ -32,7 +32,7 @@ pub mod extract;
 pub mod ontology;
 
 pub use codebook::{antecedent_distance, CodebookDistance, MatrixDistance, TopKDistance};
-pub use extract::{extract_rules, ExtractParams};
+pub use extract::{extract_rules, extract_rules_stage_a, ExtractParams};
 pub use ontology::{DolceCategory, OntologyProjector};
 
 use crate::encode::Dataset;
@@ -111,7 +111,10 @@ mod tests {
                 vec![a, a, c]
             })
             .collect();
-        (Dataset::new(spec.clone(), rows), MatrixDistance::new(&spec, table))
+        (
+            Dataset::new(spec.clone(), rows),
+            MatrixDistance::new(&spec, table),
+        )
     }
 
     #[test]
@@ -131,7 +134,12 @@ mod tests {
     #[test]
     fn mined_rules_serialise_to_spo_ndjson() {
         let (data, dist) = fixture();
-        let params = AerialParams { theta: 2, max_antecedent: 1, min_support_ppm: 50_000, min_confidence_ppm: 700_000 };
+        let params = AerialParams {
+            theta: 2,
+            max_antecedent: 1,
+            min_support_ppm: 50_000,
+            min_confidence_ppm: 700_000,
+        };
         let p = AerialProposer::new(data, dist, params);
         let rules = p.mine();
         assert!(!rules.is_empty());
@@ -151,7 +159,12 @@ mod tests {
     fn reproducible_no_seed_needed() {
         let (d1, dist1) = fixture();
         let (d2, dist2) = fixture();
-        let p = AerialParams { theta: 2, max_antecedent: 1, min_support_ppm: 50_000, min_confidence_ppm: 700_000 };
+        let p = AerialParams {
+            theta: 2,
+            max_antecedent: 1,
+            min_support_ppm: 50_000,
+            min_confidence_ppm: 700_000,
+        };
         let r1 = AerialProposer::new(d1, dist1, p).mine();
         let r2 = AerialProposer::new(d2, dist2, p).mine();
         assert_eq!(r1, r2);

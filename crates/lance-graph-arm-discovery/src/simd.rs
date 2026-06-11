@@ -85,7 +85,7 @@ mod tests {
         assert_eq!(popcount(&[0u64]), 0);
         assert_eq!(popcount(&[u64::MAX]), 64);
         assert_eq!(popcount(&[0b1011, 0b11]), 5); // 3 + 2 set bits
-        // exercise the 8-word vector chunk + tail
+                                                  // exercise the 8-word vector chunk + tail
         assert_eq!(popcount(&[u64::MAX; 9]), 64 * 9);
     }
 

@@ -62,17 +62,20 @@
 pub mod aerial;
 pub mod bitset;
 pub mod encode;
+pub mod jirak;
 pub mod ndjson;
 pub mod rule;
 pub mod simd;
 pub mod translator;
 
 pub use aerial::{
-    antecedent_distance, extract_rules, AerialParams, AerialProposer, CodebookDistance,
-    DolceCategory, ExtractParams, MatrixDistance, OntologyProjector, TopKDistance,
+    antecedent_distance, extract_rules, extract_rules_stage_a, AerialParams, AerialProposer,
+    CodebookDistance, DolceCategory, ExtractParams, MatrixDistance, OntologyProjector,
+    TopKDistance,
 };
 pub use bitset::RowMasks;
 pub use encode::{Dataset, FeatureSpec};
+pub use jirak::{jirak_floor_ppm, jirak_significance_threshold, DEFAULT_ALPHA, DEFAULT_P_MOMENT};
 pub use rule::{CandidateRule, Item, Proposer, PPM};
 pub use translator::{
     arm_to_nars, arm_to_truth_u8, CandidateTriple, FeedProjector, NarsTruth, TruthU8,

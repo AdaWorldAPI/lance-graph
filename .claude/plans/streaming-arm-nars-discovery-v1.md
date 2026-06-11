@@ -370,6 +370,19 @@ Total: ~2,400 LOC. About one-third of `lance-graph-ontology`'s `odoo_blueprint` 
 
 ## 4. Thresholds — the Jirak grounding (I-NOISE-FLOOR-JIRAK)
 
+> **2026-06-11 correction + SHIPPED (D-ARM-7, branch `claude/jolly-cori-clnf9`):** this
+> section's literal default formula `n^{-1/(p/2-1)}` and the prose "p ≈ 3.0 … giving n^{-1}
+> decay" are **internally inconsistent** with this section's own examples (`p=2.5 → n^{-0.25}`,
+> `p=4 → n^{-1/2}`), with `I-NOISE-FLOOR-JIRAK`'s stated rate, and with `jc::jirak`'s
+> empirical measurement (`n^{-0.25}` at `p=2.5`). The shipped module
+> (`lance-graph-arm-discovery::jirak`) implements the rate all three agree on:
+> `threshold(n, p, α) = z(α) · n^{-min(p/2-1, 1/2)}` — at the `p=3` default this is the
+> one-sided classical `1.645/√n` boundary; lower `p` (stronger dependence) is strictly
+> stricter. Surface: `jirak_significance_threshold` (the signature below, kept),
+> `jirak_floor_ppm` (integer edge), `CandidateRule::passes_stage_a`, and
+> `extract_rules_stage_a` (the mandatory SpoStore-bound entry point). ISSUE
+> `ARM-JIRAK-FLOOR` resolved; D-ARM-5 must route through the Stage-A entry.
+
 CLAUDE.md's iron rule on weakly-dependent fingerprint bits applies here directly:
 
 > **Classical IID Berry-Esseen is WRONG for this system.** Use **Jirak 2016** (arxiv 1606.01617, Annals of Probability 44(3) 2024–2063, "Berry-Esseen theorems under weak dependence") for any noise-floor or statistical-significance claim. Rate: `n^(p/2-1)` for `p ∈ (2,3]`, `n^(-1/2)` in L^q for `p ≥ 4`.

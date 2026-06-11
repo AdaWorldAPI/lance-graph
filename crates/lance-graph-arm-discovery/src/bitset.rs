@@ -118,7 +118,10 @@ mod tests {
         let m = RowMasks::build(&d);
         // single-item: feature0=0 in 3 rows
         assert_eq!(m.support_count(Item::new(0, 0)), 3);
-        assert_eq!(m.support_count(Item::new(0, 0)), d.count_matching(&[Item::new(0, 0)]));
+        assert_eq!(
+            m.support_count(Item::new(0, 0)),
+            d.count_matching(&[Item::new(0, 0)])
+        );
         // conjunction f0=0 ∧ f1=0 → 2 rows
         let both = [Item::new(0, 0), Item::new(1, 0)];
         assert_eq!(m.and_count(&both), 2);
