@@ -8,10 +8,16 @@
 > cited, never forked). **Counterpart:** ndarray
 > `.claude/knowledge/guid-prefix-shape-routing.md` (the mechanism side).
 > Conjectures are labeled; probes named (no unmarked conjectures).
+> **P0 pre-read honored:** `.claude/knowledge/encoding-ecosystem.md`
+> (codec/distance/representation context for the CAM-PQ and LUT claims
+> below).
 
 ## 1. The canon (cited)
 
-```
+**FINDING** (operator-pinned canon, `OGAR/CLAUDE.md` 2026-06-10 — the
+layout below is recorded design authority, not a derivation):
+
+```text
 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx     32 hex = 128 bit = the GUID
 classid    HEEL   HIP    TWIG   basin·leaf(6)+identity(6)
 ```
@@ -32,11 +38,11 @@ classid    HEEL   HIP    TWIG   basin·leaf(6)+identity(6)
 
 | Concern | Where it lands | Status |
 |---|---|---|
-| `(entity_type ↔ NiblePath)` bijection mint | ontology registry — Phase B | [H], planned (identity plan) |
+| `(entity_type ↔ NiblePath)` bijection mint | ontology registry — Phase B | CONJECTURE until Phase B lands ([H], identity plan) |
 | Per-class centroid codebooks (4⁴-hierarchical, prefix-scoped) | registry shelf, next to `ClassView`/`StructuralSignature` — minted with the class, trained once (amortized) | CONJECTURE → PROBE-CODEBOOK-44 (ndarray doc §6) |
 | `PrefixShapeTable` registration (classid/prefix → `ShapeId`) | lance-graph builds the table from the registry; ndarray routes by it, never knowing semantics | CONJECTURE → PROBE-ROUTE-1 |
-| Quorum certificate type | `contract::quorum` — the #411 scaffold (`todo!()`) is the named landing spot; `HighHeelBGZ`'s basin-merge L1-threshold consensus is the existing mechanism to generalize | CONJECTURE → PROBE-QUORUM-1 |
-| Escalation on quorum fail | HHTL tier escalation (`bgz-tensor::hhtl_cache::RouteAction::Escalate` is the shipped precedent) | [G] mechanism / [H] wiring |
+| Quorum certificate type | the **currently-UNEXPORTED `src/quorum.rs` scaffold** (#411, `todo!()`) — `lance-graph-contract/src/lib.rs` declares **no `pub mod quorum`** (Codex-verified on #482), so **step 1 of the implementation is the export itself**; do NOT import `lance_graph_contract::quorum` until then. `HighHeelBGZ`'s basin-merge L1-threshold consensus is the existing mechanism to generalize | CONJECTURE → export + PROBE-QUORUM-1 |
+| Escalation on quorum fail | HHTL tier escalation (`bgz-tensor::hhtl_cache::RouteAction::Escalate` is the shipped precedent) | FINDING: [G] mechanism / CONJECTURE: [H] wiring |
 
 ## 3. The anti-theater rules, contract side
 
@@ -65,7 +71,11 @@ PROBE-ROUTE-1 (batch parity + ≥4× bench) · PROBE-QUORUM-1 (accept ⇒ ρ ≥
 anchor; reject ⇒ escalate) · PROBE-PHI-1 (φ-stride discrepancy beats
 uniform) · PROBE-PYR-1 (perturbation pyramid byte-exact) ·
 PROBE-CODEBOOK-44 (4⁴ vs flat-256 within Pflug band) · PROBE-HILBERT-L4
-(ndarray P0-4 — blocks any L4 cascade-addressing claim until green).
+(**VERIFIED GREEN 2026-06-10, run first-hand**: 13/13 hilbert tests pass
+incl. `level4_all_indices_unique` — bijective onto [0,4096), exactly what
+cascade addressing needs — and `level4_curve_is_connected`; PP-13 P0-4's
+"expected 4095" was an orientation assumption, not the contract; the
+suite stays as the standing gate).
 
 ## 5. Cross-references
 
