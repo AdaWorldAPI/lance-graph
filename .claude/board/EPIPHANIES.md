@@ -1,3 +1,63 @@
+## 2026-06-10 — E-PROBE-MANTISSA-1 — golden-mantissa centroid placement measured: beats uniform-random on coverage AND pile-up; PHASE-1 bit-exactness green
+
+**Status:** FINDING (probes run first-hand: `crates/helix/tests/probe_mantissa_fill.rs`, 4/4 green)
+**Confidence:** High — three independent baseline seeds, golden wins all, both metrics, both sample counts.
+
+Wave-0 receipts (per `OGAR/docs/INTEGRATION-TEST-PLAN.md` §1; the
+volumetric-field-edge proposal's first gate):
+
+- **PROBE-MANTISSA-FILL GREEN.** Shipped `HemispherePoint::lift` (azimuth
+  `n·φ`, equal-area `r=√u`) placing k implicit centroids over a 256×256
+  tile (16×16 in-disk bins) vs seeded uniform-random on the same disk
+  support: k=256 → golden occupied **192** vs random 141–150, max-bin
+  **3** vs 5–6 (≈half the pile-up); k=1024 → occupied **208** vs 205–206,
+  max-bin **7** vs **11**; zero empty interior bins (r ≤ 0.9) at k=1024.
+  The "golden mantissa places implicit centroids pairwise-uniformly" leg
+  of the volumetric/field-edge proposal is now measured, not asserted.
+- **PROBE-PHASE-1 GREEN.** `CurveRuler` regeneration is bit-exact across
+  independent constructions (20 (path,depth) pairs incl. `u64::MAX`), and
+  the stride-4-over-17 arc is a full permutation from every one of the 17
+  offsets — the D-QUANTGATE-mandated integer phase walk holds.
+
+Remaining gates before the VolumetricField edge-layout leaves `[H]`:
+PROBE-ATTN-EDGE (LUT weight ↔ edge-strength ρ vs Pflug anchors),
+PROBE-SPLAT-PSD (EWA Σ composition), PROBE-CASCADE-SPARSITY (HHTL
+skip-ratio ≥90% on the volumetric workload). Canon pin: `OGAR/CLAUDE.md`
+schema-driven block (PR #51).
+
+## 2026-06-09 — E-MINT-TRACE-1 — the live mint is already global (registry.rs:476); the "namespace-local" doc is stale; dedup is net-new; the bijection IS the dedup
+
+**Status:** FINDING (traced, ratified: `entity_type` = global shared template id)
+**Confidence:** High (read the mint, not the doc comment)
+
+**Trace before change paid twice.** (1) `namespace.rs:12` documents `entity_type_id` as "dense **within the namespace**" — but the actual mint is `registry.rs:476 entity_type_id = (rows.len()+1)`: **global append-order across all namespaces**. The doc comment is stale; the GLOBAL semantics DECISION-2/3 want are already the live behavior. (2) It corrected this session's own claim, minutes old: the registry is **not** template-deduped — every append mints a fresh id (`enumerate_first_with_entity_type_id` is defensive, not reuse evidence). Frugal dedup + the `entity_type↔NiblePath` pairing are net-new.
+
+**Blast radius traced benign:** ~16 `entity_type_id()` readers store-as-column-value or compare; none dense-index an array BY entity_type. Global/sparse ids break nothing. Dedup consequence: per-id row lookup becomes namespace-ambiguous ⇒ resolve by `(namespace, entity_type)`.
+
+**The synthesis that shrinks Phase B:** the bijection IS the dedup. One pair table `NiblePath ↔ entity_type` in the registry: path present ⇒ reuse the template id (new row, new namespace); absent ⇒ mint fresh (monotone, never reused) + record the pair. The pair table is simultaneously the template registry, the dedup index, and the bijection witness the round-trip test proves. Moves 1+2 of the Phase B seam are one mechanism.
+
+**Process lesson (generalizes):** doc comments describe intent at write-time; the mint line is the contract. For any "is this id local or global / dense or sparse" question, read the assignment site and grep for dense-indexing consumers before believing prose.
+
+**Cross-ref:** identity-architecture plan DECISION-3 + Phase B grounded seam (CORRECTION block); E-OGAR-NORTHSTAR-1 (Status updated); I-LEGACY-API-FEATURE-GATED (the positional `contract/ontology.rs:85` helper is the v1 path to gate).
+
+## 2026-06-09 — E-ANCESTRY-TRINITY-1 — NiblePath::is_ancestor_of is ONE bit-shift read three ways: subClassOf = supervision-edge = north-star template specialization
+
+**Status:** FINDING (cross-session convergence — OGAR/SurrealDB session + identity-contract session, independently)
+**Confidence:** High
+
+**The convergence.** A parallel CCA2A session (OGAR / nexgen op-surreal-ast / SurrealDB RecordId) pulled #480 and independently re-derived the OGAR↔lance-graph membrane as **"the registry mint of `(entity_type, NiblePath)` per class"** — exactly DECISION-2 (OGAR mirror) committed from this side in #481. Two sessions, opposite directions, same membrane.
+
+**The new synthesis it surfaces:** `NiblePath::is_ancestor_of` (a single HHTL bit-shift on the GUID routing prefix) is simultaneously THREE relations:
+- **OWL `subClassOf`** (ontology inheritance) — OGAR-AST-CONTRACT §1.
+- **OTP supervision edge** (ractor parent-routing / delegation through `OrchestrationBridge`) — the other session's "supervisor-edge is now [G] mechanical" finding.
+- **North-star template specialization** (a domain class descends from its shared template) — E-OGAR-NORTHSTAR-1.
+
+They are the SAME relation: the north-star template hierarchy IS the routing/supervision hierarchy IS the subClass hierarchy — one bit-shift, three names. Consequence: reusing a template (inherit + switch namespace), being-supervised-by, and being-a-subclass-of are the same arithmetic; there is no separate routing structure to maintain.
+
+**Coordination:** the OGAR session is on #480 (Phase A); #481 carries the OGAR-side answer it needs — OGAR = OGIT mirror, immutable ClassIds, north-star spine, `namespace`=domain. Its proposed `D-IDENT` paired-note + `D-IDENTITY-PIN` should absorb the `namespace`=domain + north-star framing on next pull.
+
+**Cross-ref:** E-OGAR-NORTHSTAR-1; E-IDENTITY-WHITEBOX-1; identity-architecture DECISION-2 + north-star guard; `hhtl.rs::is_ancestor_of`.
+
 ## 2026-06-09 — E-OGAR-NORTHSTAR-1 — ontology cache = OGAR mirror with a reusable north-star template spine (namespace specializes, entity_type is shared)
 
 **Status:** DECISION (OGAR mirror RATIFIED via decision-gate; north-star template model RATIFIED 2026-06-09 "frugal it is"; `entity_type` = GLOBAL shared template id RATIFIED via decision-gate)
