@@ -53,6 +53,17 @@ Third session proposed three P0 substrate-of-substrate deliverables:
 
 I committed to file the consolidating `substrate-addressing-v1.md` plan **after** D-HELIX-1 and D-JC-1 owners bless their pieces. Greenlit but not yet filed. **Trigger:** ping from helix or jc owner.
 
+**Update 2026-06-05 (post-handover-doc-write, after surveying #471-#487):** D-HELIX-1 substantially unblocked. PR **#485** (`claude/probe-mantissa-fill`, **still OPEN**) lands **PROBE-MANTISSA-FILL + PROBE-PHASE-1, both GREEN** against the SHIPPED helix code:
+- Golden-mantissa placement beats seeded uniform-random by ~30% at k=256 (192/3 vs 141-150/5-6) and at k=1024 with half the worst-case pile-up. The "golden mantissa places implicit centroids" leg of the substrate-addressing claim is now **measured, not asserted**.
+- `CurveRuler` regeneration is **bit-exact** across independent constructions over 20 `(path, depth)` pairs incl. `u64::MAX`; stride-4-over-17 arc is full permutation from every one of 17 start offsets. Same address ⟹ same sequence is the deterministic-phase pin's empirical proof.
+
+PR **#482** (`docs(knowledge): GUID canon + prefix routing`, **merged**) lands two architectural pins that bind any future `substrate-addressing-v1.md`:
+- **TWO-ALGEBRA RULE** (load-bearing): sign = XOR (`vsa_bind`); magnitude = `vsa_bundle`, **NEVER `MergeMode::Xor`** (breaks Markov per `I-SUBSTRATE-MARKOV`). Cited as PP-13 P1-1 — permanent CI guard.
+- **Helix `CurveRuler` stride-4-over-17** is the canonical bit-exact integer phase generator; analysis remainder escalates per the quorum certificate.
+- Probe ledger: HILBERT-L4 (ndarray #215) · PHASE-1 (#485) · MANTISSA-FILL (#485) all GREEN; remaining: ROUTE-1 · QUORUM-1 · PHI-1 · PYR-1 · PERT-RHO · CODEBOOK-44 · WHP-1..4 · PROBE-ATTN-EDGE · PROBE-SPLAT-PSD · PROBE-CASCADE-SPARSITY.
+
+**New trigger for substrate-addressing-v1.md filing:** after #485 merges. The two-algebra rule + bit-exact phase generator + measured golden-mantissa placement are now load-bearing receipts the plan can cite verbatim. The D-CESIUM-1 (mine — extend `implicit_tiling.rs` to consume `helix::bounds`) becomes the file-soonest deliverable; D-JC-1 still needs per-scene-class `p` calibration timeline from jc-crate owner.
+
 ### Decision 2 — Tier-1 cross-session asks (status table)
 
 From my coordination message earlier this session. Status as of session close:
@@ -60,7 +71,7 @@ From my coordination message earlier this session. Status as of session close:
 | Ask | From | Status |
 |---|---|---|
 | FMA Phase 8 implementation opens (TTL → FmaEntity SoA emitter on top of OGAR #37's parser) | OGAR | NOT YET — TTL parser exists (#37), FMA-specific lift not yet written |
-| NiblePath identity-prefix scheme for FMA classes | OGAR | NOT YET — affects sub-ms §6 traversal claim |
+| NiblePath identity-prefix scheme for FMA classes | OGAR | **RESOLVED (post-handover survey).** lance-graph #484 ships `D-IDENTITY-2: entity_type↔NiblePath bijection` in `lance-graph-ontology` registry — `register_class_path` is bijective + dedup-by-URI + conflict-rejecting + u16-overflow-guarded; +5 tests; 14 registry tests green. OGAR Phase 8 calls `register_class_path("fma/Class/<name>", entity_type)` per FMA class. The `NodeGuid` layout change (groups 3-4 reclaim for HIP/TWIG) is the version-gated Phase-B follow-up; not blocking for FMA registration. |
 | FMA region partitioning scheme for Lance row-groups | OGAR | NOT YET |
 | MailboxSoAHeader format frozen? | lance-graph contract owner | UNCLEAR — D-SPLAT-1/3 carriers inherit this |
 | bgz17 SH palette extension blessing (D-SPLAT-4 + ADR-024) | bgz17 owner | NOT YET — needed before D-SPLAT-4 implementation |
