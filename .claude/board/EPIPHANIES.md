@@ -49,6 +49,58 @@ They are the SAME relation: the north-star template hierarchy IS the routing/sup
 **Phase B becomes:** stand up OGAR as the OGIT mirror + north-star template registry; seed entity_type↔NiblePath from it; the build-time round-trip proves the bijection. The surrealdb-coords blocker (N8 / Phase H) is unrelated and remains.
 
 **Cross-ref:** identity-architecture plan DECISION-2 + the north-star guard; E-IDENTITY-WHITEBOX-1 (NodeGuid composition); I-VSA-IDENTITIES (closed template vocabulary interns; Wikidata's open instance mass stays content, never a ClassId).
+## 2026-06-10 — E-WHP-BIPOLAR-1 — bipolar phase makes the perturbation pyramid a Walsh-Hadamard transform on VSA (deterministic, quantum-shaped, classical)
+
+**Status:** FINDING (operator-pinned in `OGAR/CLAUDE.md`; crystallized both sides).
+**Confidence:** High that receipts already exist (VSA bind/bundle is the iron-rule
+algebra; `Vsa16kF32` is bipolar; helix `CurveRuler` is the bit-exact integer phase
+generator); CONJECTURE on synthesis-as-Walsh-pyramid until WHP-1..4 land.
+
+When the deterministic phase from the §6 perturbation pin is made **signed (±1)** —
+one bit per (addr, level) — the cascade IS the Walsh-Hadamard transform of the
+address tree, carried on the workspace's existing VSA-bipolar algebra: signs compose
+by XOR (= `vsa_bind`), magnitudes compose by `vsa_bundle` (Chapman-Kolmogorov-
+respecting per `I-SUBSTRATE-MARKOV`). Each cell is a Walsh-resonance superposition
+recoverable by role-key unbind; `I-VSA-IDENTITIES` Test 1 (N ≤ √d/4 ≈ 32) IS the
+substrate's uncertainty principle. **Roundtrip bit-exact** because phase is
+generated from the address, not stored — Walsh-Hadamard is self-inverse up to
+scale. "Schrödinger's cat in a glass box": superposition is real, identity
+recoverable by key, no measurement randomness.
+
+**TWO-ALGEBRA RULE (load-bearing):** sign = XOR; magnitude = bundle, NEVER
+`MergeMode::Xor` (breaks Markov; the named anti-pattern is PP-13 P1-1 "raw-XOR
+ordering as 'nearest'"). Sign side preserves the write-back data-flow rule
+(single-target gated XOR is allowed); magnitude side preserves Parseval
+(L2 conservation → "top gaussian preserved", not Kombinatorik-style selection).
+
+Honest fences: "quantum-like" is the bundling algebra, not measurement randomness
+(no headline drift); bipolar = 1-bit phase (multi-bit stacks above when measured to
+be needed); Parseval requires the bundle, not just XOR. Probes WHP-1..4 land before
+any L2-conservation claim ships. Full treatment: ndarray
+`guid-prefix-shape-routing.md` §4b; policy mirror:
+`guid-canon-and-prefix-routing.md` §7; canon: `OGAR/CLAUDE.md`.
+
+## 2026-06-10 — E-CANON-GUID-1 — the canonical GUID's dash-groups are the cascade; routing/quorum crystallized before dilution
+
+**Status:** FINDING (canon operator-pinned in `OGAR/CLAUDE.md`; crystallization docs landed both sides)
+**Confidence:** High on the canon + receipts; CONJECTURE (probes named) on the new surfaces
+
+The operator-pinned canonical identity is HEX-counted — it IS the GUID:
+`classid(8)-HEEL(4)-HIP(4)-TWIG(4)-[basin·leaf(6)+identity(6)]`; the UUID
+dash-groups ARE the cascade delimiters. Key-of-key-value: node = key(128) +
+value(3968) = 4096 bits — the key routes/resolves/compares/scopes/names with
+zero value decode; Lance compresses the value freely (compression never costs
+addressability). 3×4 uniform tiers (`tier = nibble >> 2`); RFC 9562 = wrapper
+concern (wrappers adapt to canon, never the reverse). Centroid-tile reading
+[H]: path = 6 bytes = CAM-PQ 6×256; per-class codebooks scoped by class
+routing prefix (longest-prefix wins), 4⁴-hierarchical so nibble prefixes =
+centroid ancestry. Crystallized: this repo's policy side at
+`.claude/knowledge/guid-canon-and-prefix-routing.md`; ndarray's mechanism
+side at `ndarray/.claude/knowledge/guid-prefix-shape-routing.md` (the
+`PrefixShapeTable` + φ-quorum anti-eigenvalue-theater contract, with the
+PP-13 casebook as the named failure catalog). `contract::quorum` (#411
+scaffold) is the named landing spot for the quorum certificate. Probes:
+ROUTE-1, QUORUM-1, PHI-1, PYR-1, CODEBOOK-44, HILBERT-L4 (blocker).
 
 ## 2026-06-09 — E-IDENTITY-WHITEBOX-1 — structured identity + round-trip converts the substrate from black-box to CI-falsifiable
 
