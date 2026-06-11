@@ -244,6 +244,24 @@ test proves.
 **First brick:** moves 1+2+3 together (mint + pairing + round-trip); the legacy-gate (4)
 follows once nothing canonical reads the positional helper.
 
+> **LANDED (2026-06-09, D-IDENTITY-2).** Moves 1+2+3 shipped in
+> `lance-graph-ontology` (registry.rs + namespace.rs + bridge.rs):
+> dedup-by-URI mint (one global template id, reused across bridges /
+> namespaces; monotone-with-gaps, never renumbered), the
+> `entity_type ↔ NiblePath` bijection pair table (`register_class_path` /
+> `niblepath_of` / `entity_type_of`, both-way conflict-rejecting +
+> EMPTY-sentinel guard), `rows_with_entity_type` for the multi-row
+> reading, and the three stale-doc corrections. 5 new tests
+> (`same_uri_…_shares_one_template_id`, `fresh_mint_is_monotone_with_gaps`,
+> `changed_checksum_reappend_keeps_the_template_id`,
+> `class_path_bijection_round_trips_both_ways`,
+> `class_path_bijection_conflicts_are_rejected`); 14 registry tests green,
+> crate suites green, my 3 files clippy/fmt-clean (pre-existing crate-wide
+> `-D warnings` + fmt drift in untouched files left as-is). **Deferred:**
+> move 4 (gate `contract/ontology.rs:85` positional helper — needs the
+> consumer audit first); pair-table Lance persistence (TECH_DEBT — in-memory
+> only, re-registered on hydration).
+
 ## Honest ledger
 
 - **[G] (exists, reuse):** all 6 layers above — `NiblePath`, `SchemaPtr`, `ClassId`,

@@ -136,8 +136,11 @@ pub trait NamespaceBridge: Send + Sync {
     }
 }
 
-/// Pointer to an entity in the dictionary. The hot-path consumer uses
-/// `schema_ptr.entity_type_id()` as a dense index into per-namespace data.
+/// Pointer to an entity in the dictionary. The hot-path consumer compares
+/// `schema_ptr.entity_type_id()` — the GLOBAL template id (DECISION-3),
+/// shared across namespaces for the same canonical class. Ids are sparse
+/// (monotone with gaps), so compare/lookup by id; never dense-index an
+/// array with it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct EntityRef {
     pub schema_ptr: SchemaPtr,

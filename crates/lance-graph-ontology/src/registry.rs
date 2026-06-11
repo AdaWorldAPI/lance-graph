@@ -25,6 +25,7 @@ use crate::proposal::{
 };
 use crate::semantic_types::SemanticTypeMap;
 use crate::ttl_parse::{parse_ttl_directory_with_provenance, ttl_root_checksum};
+use lance_graph_contract::hhtl::NiblePath;
 use lance_graph_contract::property::{Marking, SemanticType};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -60,6 +61,14 @@ struct RegistryState {
     /// whitelist registered via `register_edge_types`. Populated by the
     /// per-ontology hydrators in `crate::hydrators` (e.g. `hydrate_dolce`).
     bundles: HashMap<u32, ContextBundle>,
+    /// DECISION-3 (frugal north-star): the bijective class-pair table
+    /// `entity_type ↔ NiblePath`. One structure, three readings — the
+    /// template registry (same canonical class ⇒ same template id), the
+    /// dedup index, and the Eineindeutigkeit witness the round-trip test
+    /// proves. In-memory only: hydration / replay re-registers pairs
+    /// (lance-cache persistence of the pair table is tracked in TECH_DEBT).
+    path_by_type: HashMap<u16, NiblePath>,
+    type_by_path: HashMap<NiblePath, u16>,
 }
 
 impl OntologyRegistry {
@@ -324,12 +333,88 @@ impl OntologyRegistry {
     }
 
     /// Resolve a `BindSpace.entity_type` index to its row (D-CASCADE-V1-7).
+    ///
+    /// Post-DECISION-3 dedup one template id can own N rows (one per
+    /// bridge / namespace mapping of the same canonical class); this
+    /// returns the FIRST — the mint row, stable in registration order.
+    /// All rows with one id share the canonical URI, so URI-derived
+    /// readings (DOLCE classification, shape) are unambiguous. For the
+    /// full set use [`OntologyRegistry::rows_with_entity_type`].
     pub fn enumerate_first_with_entity_type_id(&self, entity_type_id: u16) -> Option<MappingRow> {
         let s = self.inner.read().unwrap();
         s.rows
             .iter()
             .find(|r| r.schema_ptr.entity_type_id() == entity_type_id)
             .cloned()
+    }
+
+    /// All rows sharing a template `entity_type` — the multi-row reading
+    /// after DECISION-3 dedup (one template id, N bridge/namespace rows).
+    /// The first element is the mint row.
+    pub fn rows_with_entity_type(&self, entity_type_id: u16) -> Vec<MappingRow> {
+        let s = self.inner.read().unwrap();
+        s.rows
+            .iter()
+            .filter(|r| r.schema_ptr.entity_type_id() == entity_type_id)
+            .cloned()
+            .collect()
+    }
+
+    /// Pair a minted template `entity_type` with its [`NiblePath`] (the
+    /// Abstammung-tree address). Enforces Eineindeutigkeit both ways
+    /// (DECISION-2 enforcement (a)): one type ↔ one path; re-registering
+    /// the SAME pair is idempotent-`Ok`; a conflicting pair, an unminted
+    /// type, or the EMPTY no-route sentinel is an error. Failed
+    /// registrations leave no residue.
+    pub fn register_class_path(&self, entity_type_id: u16, path: NiblePath) -> Result<()> {
+        if path == NiblePath::EMPTY {
+            return Err(Error::other(
+                "NiblePath::EMPTY is the no-route sentinel, not a class address",
+            ));
+        }
+        let mut state = self.inner.write().unwrap();
+        if !state
+            .rows
+            .iter()
+            .any(|r| r.schema_ptr.entity_type_id() == entity_type_id)
+        {
+            return Err(Error::other(format!(
+                "entity_type {entity_type_id} was never minted"
+            )));
+        }
+        match (
+            state.path_by_type.get(&entity_type_id).copied(),
+            state.type_by_path.get(&path).copied(),
+        ) {
+            (Some(p), _) if p == path => Ok(()),
+            (Some(p), _) => Err(Error::other(format!(
+                "bijection conflict: entity_type {entity_type_id} is paired with {p:?}, refusing {path:?}"
+            ))),
+            (None, Some(t)) => Err(Error::other(format!(
+                "bijection conflict: {path:?} is paired with entity_type {t}, refusing {entity_type_id}"
+            ))),
+            (None, None) => {
+                state.path_by_type.insert(entity_type_id, path);
+                state.type_by_path.insert(path, entity_type_id);
+                Ok(())
+            }
+        }
+    }
+
+    /// The bijective derived view: `entity_type → NiblePath`
+    /// (`niblepath_of(entity_type)` in the identity plan / `NodeGuid` docs).
+    pub fn niblepath_of(&self, entity_type_id: u16) -> Option<NiblePath> {
+        self.inner
+            .read()
+            .unwrap()
+            .path_by_type
+            .get(&entity_type_id)
+            .copied()
+    }
+
+    /// The bijective reverse: `NiblePath → entity_type`.
+    pub fn entity_type_of(&self, path: NiblePath) -> Option<u16> {
+        self.inner.read().unwrap().type_by_path.get(&path).copied()
     }
 
     /// Export the registry to an OGIT-shaped TTL fragment for the named
@@ -402,11 +487,7 @@ impl OntologyRegistry {
     /// no bundle is registered yet at `g` — register the bundle first
     /// (typically via a `hydrate_*` glue function) and then declare the
     /// edge whitelist.
-    pub fn register_edge_types(
-        &self,
-        g: u32,
-        edges: &[&str],
-    ) -> std::result::Result<(), String> {
+    pub fn register_edge_types(&self, g: u32, edges: &[&str]) -> std::result::Result<(), String> {
         let mut state = self.inner.write().unwrap();
         let bundle = state
             .bundles
@@ -473,7 +554,29 @@ impl RegistryState {
         };
 
         let kind = proposal.schema_kind();
-        let entity_type_id = (self.rows.len() + 1) as u16;
+        // DECISION-3 mint discipline (frugal north-star): the canonical class
+        // URI is the template identity — a URI already in the dictionary
+        // REUSES its entity_type (new row for another bridge / namespace,
+        // SAME template id; `(namespace, entity_type)` = (domain, shared
+        // shape)). Fresh mints stay global append-order and monotone: a
+        // deduped row still grows `rows`, so `rows.len()+1` strictly exceeds
+        // every previously minted id — never renumbered, never reused, gaps
+        // allowed (protobuf-field-number discipline).
+        let entity_type_id = match self
+            .by_uri
+            .get(proposal.ogit_uri.as_str())
+            .map(|idx| self.rows[*idx as usize].schema_ptr.entity_type_id())
+        {
+            Some(existing) => existing,
+            None => {
+                // Id 0 is the "unknown" sentinel; u16 is the ratified ClassId
+                // width (OD-CLASSID-WIDTH) — refuse to wrap, never alias.
+                if self.rows.len() >= u16::MAX as usize {
+                    return AppendOutcome::Failed("entity_type overflow (u16)".to_string());
+                }
+                (self.rows.len() + 1) as u16
+            }
+        };
         // Codex P1 fix (2026-05-07): the previous code constructed
         // SchemaPtr::new(...) with the default ontology_context_id = 0,
         // which left every registry-created row with ctx_id 0 — making
@@ -669,5 +772,132 @@ mod tests {
         assert_ne!(reg.namespace_id("A"), reg.namespace_id("B"));
         assert_eq!(reg.namespace_id("A").unwrap().raw(), 1);
         assert_eq!(reg.namespace_id("B").unwrap().raw(), 2);
+    }
+
+    // ── DECISION-3: frugal north-star mint (dedup + bijection) ──────────────
+
+    fn proposal_from(uri: &str, bridge: &str, namespace: &str) -> MappingProposal {
+        let mut p = proposal(uri);
+        p.bridge_id = bridge.to_string();
+        p.namespace = namespace.to_string();
+        p.checksum = format!("checksum-{uri}-{bridge}");
+        p
+    }
+
+    #[test]
+    fn same_uri_across_bridges_and_namespaces_shares_one_template_id() {
+        // The north-star model in one test: three domains map the SAME
+        // canonical class → three rows, three namespaces, ONE entity_type.
+        // `(namespace, entity_type)` = (domain, shared template).
+        let reg = OntologyRegistry::new_in_memory();
+        let a = reg.append_mapping(proposal("ogit.Person:Person")).unwrap();
+        let b = reg
+            .append_mapping(proposal_from("ogit.Person:Person", "medcare", "Health"))
+            .unwrap();
+        let c = reg
+            .append_mapping(proposal_from("ogit.Person:Person", "odoo", "Odoo"))
+            .unwrap();
+        assert_eq!(reg.len(), 3, "one row per bridge");
+        assert_eq!(
+            a.schema_ptr.entity_type_id(),
+            b.schema_ptr.entity_type_id(),
+            "same canonical class ⇒ same template id"
+        );
+        assert_eq!(b.schema_ptr.entity_type_id(), c.schema_ptr.entity_type_id());
+        assert_ne!(
+            a.schema_ptr.namespace_id(),
+            b.schema_ptr.namespace_id(),
+            "domains stay distinct on the namespace axis"
+        );
+        assert_ne!(b.schema_ptr.namespace_id(), c.schema_ptr.namespace_id());
+        assert_eq!(
+            reg.rows_with_entity_type(a.schema_ptr.entity_type_id())
+                .len(),
+            3
+        );
+    }
+
+    #[test]
+    fn fresh_mint_is_monotone_with_gaps() {
+        let reg = OntologyRegistry::new_in_memory();
+        let a = reg.append_mapping(proposal("ogit.A:X")).unwrap(); // mint: 1
+        let _dup = reg
+            .append_mapping(proposal_from("ogit.A:X", "woa", "Woa"))
+            .unwrap(); // dedup: 1 (row 2)
+        let c = reg.append_mapping(proposal("ogit.B:Y")).unwrap(); // mint: 3
+        assert_eq!(a.schema_ptr.entity_type_id(), 1);
+        assert_eq!(
+            c.schema_ptr.entity_type_id(),
+            3,
+            "gap at 2: ids are monotone and never reused, gaps allowed"
+        );
+    }
+
+    #[test]
+    fn changed_checksum_reappend_keeps_the_template_id() {
+        // Re-proposing the same class with new content adds a row but NEVER
+        // re-mints the class id (pre-dedup this minted a fresh id and
+        // orphaned the old one — the anti-frugal latent bug).
+        let reg = OntologyRegistry::new_in_memory();
+        let a = reg.append_mapping(proposal("ogit.Net:Ip")).unwrap();
+        let mut p2 = proposal("ogit.Net:Ip");
+        p2.checksum = "checksum-v2".to_string();
+        let b = reg.append_mapping(p2).unwrap();
+        assert_eq!(reg.len(), 2);
+        assert_eq!(a.schema_ptr.entity_type_id(), b.schema_ptr.entity_type_id());
+    }
+
+    #[test]
+    fn class_path_bijection_round_trips_both_ways() {
+        let reg = OntologyRegistry::new_in_memory();
+        let a = reg.append_mapping(proposal("ogit.A:X")).unwrap();
+        let b = reg.append_mapping(proposal("ogit.B:Y")).unwrap();
+        let (ta, tb) = (a.schema_ptr.entity_type_id(), b.schema_ptr.entity_type_id());
+        let pa = NiblePath::root(0x0).child(0x3);
+        let pb = NiblePath::root(0x1);
+        reg.register_class_path(ta, pa).unwrap();
+        reg.register_class_path(tb, pb).unwrap();
+        for (t, p) in [(ta, pa), (tb, pb)] {
+            assert_eq!(reg.niblepath_of(t), Some(p));
+            assert_eq!(reg.entity_type_of(p), Some(t));
+            assert_eq!(
+                reg.entity_type_of(reg.niblepath_of(t).unwrap()),
+                Some(t),
+                "entity_type_of ∘ niblepath_of = identity (Eineindeutigkeit)"
+            );
+        }
+        reg.register_class_path(ta, pa)
+            .expect("re-registering the same pair is idempotent");
+    }
+
+    #[test]
+    fn class_path_bijection_conflicts_are_rejected() {
+        let reg = OntologyRegistry::new_in_memory();
+        let a = reg.append_mapping(proposal("ogit.A:X")).unwrap();
+        let b = reg.append_mapping(proposal("ogit.B:Y")).unwrap();
+        let (ta, tb) = (a.schema_ptr.entity_type_id(), b.schema_ptr.entity_type_id());
+        let pa = NiblePath::root(0x0).child(0x3);
+        reg.register_class_path(ta, pa).unwrap();
+        assert!(
+            reg.register_class_path(ta, NiblePath::root(0x2)).is_err(),
+            "one type, one path"
+        );
+        assert!(
+            reg.register_class_path(tb, pa).is_err(),
+            "one path, one type"
+        );
+        assert!(
+            reg.register_class_path(999, NiblePath::root(0x4)).is_err(),
+            "unminted type cannot pair"
+        );
+        assert!(
+            reg.register_class_path(tb, NiblePath::EMPTY).is_err(),
+            "EMPTY is the no-route sentinel"
+        );
+        assert_eq!(
+            reg.niblepath_of(tb),
+            None,
+            "failed registrations leave no residue"
+        );
     }
 }

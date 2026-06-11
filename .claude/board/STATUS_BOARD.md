@@ -799,3 +799,32 @@ When a deliverable is abandoned:
 |---|---|---|---|
 | D-EW64-3 | `EpisodicEdges64::{coldest, contains}` — MRU cold-tier read surface | In PR | contract lib 545 green; clippy clean |
 | D-EW64-4 | `DemotionSink` trait + `promote_into` — hot→cold exit seam (impls gated OQ-11.6) | In PR | contract lib 545 green; clippy clean |
+
+---
+
+## identity-architecture-exists-vs-needs-v1 — structured NodeGuid + frugal north-star OGAR mint
+
+Plan path: `.claude/plans/identity-architecture-exists-vs-needs-v1.md`. Epiphanies: E-IDENTITY-WHITEBOX-1, E-OGAR-NORTHSTAR-1. Rides in the open identity PR on `claude/nice-edison-g4rhhl`.
+
+| D-id | Title | Crate(s) / repo | ~LOC | Risk | Status | PR / Evidence |
+|---|---|---|---|---|---|---|
+| D-IDENTITY-1 | `identity::NodeGuid` (UUIDv8) + `NiblePath::from_packed` — byte layout, version/variant gates, field-isolation matrix | `lance-graph-contract` | ~250 | LOW | **Shipped** | Phase A; +15 contract tests, clippy-D clean |
+| D-IDENTITY-2 | Frugal north-star mint: dedup-by-URI global template id + `entity_type↔NiblePath` bijection pair table + round-trip tests (moves 1+2+3) | `lance-graph-ontology` | ~250 | LOW | **In PR** | dedup + `register_class_path`/`niblepath_of`/`entity_type_of`/`rows_with_entity_type`; +5 tests, 14 registry green |
+| D-IDENTITY-3 | Gate legacy positional `contract/ontology.rs:85 entity_type_id` per I-LEGACY-API-FEATURE-GATED (move 4) | `lance-graph-contract` / -ontology | ~80 | MED | **Queued** | needs consumer audit first |
+| D-IDENTITY-4 | Pair-table Lance persistence (re-register-on-hydration → persisted) | `lance-graph-ontology` | ~60 | LOW | **Queued** | TECH_DEBT TD-PAIRTABLE-1 |
+
+---
+
+## polyglot-container-query-membrane-v1 — three dialects, one HHTL address space, mailbox as cold path
+
+Plan path: `.claude/plans/polyglot-container-query-membrane-v1.md`. Research grounded 2026-06-09; rides on `claude/nice-edison-g4rhhl`.
+
+| D-id | Title | Crate(s) / repo | ~LOC | Risk | Status | PR / Evidence |
+|---|---|---|---|---|---|---|
+| D-PG-1 | `addr64` left-aligned HHTL codec + order-preservation property test (subtree ⇔ contiguous range) | `lance-graph-contract` | ~120 | LOW | **Queued** | first brick; everything stands on it |
+| D-PG-2 | `SoaEnvelope` impl for `MailboxSoA<N>` (= identity N3, confirmed live) + LE parity test | `cognitive-shader-driver` | ~150 | LOW | **Queued** | gap re-verified 2026-06-09 (§2.4 of plan) |
+| D-PG-3 | Read-only mailbox `Transactable` adapter (5 methods, phase-pinned) + hot==cold differential test | shader-driver + fork contract | ~250 | MED | **Queued** | gated on D-PG-1,2 |
+| D-PG-4 | `SurrealqlParse` strategy → ArenaIR (SELECT point/range) + selector rule | `lance-graph-planner` | ~300 | MED | **Queued** | slot proven by sparql_parse |
+| D-PG-5 | DDL ⇄ registry bridge (DEFINE walker → mint; reverse via C16b `ToSql`) | `lance-graph-ontology` | ~250 | MED | **Queued** | gated on fork C16c |
+| D-PG-6 | (optional) `surreal_container` unblock → kanban view over LanceDB | `surreal_container` | ~200 | LOW | **Queued** | ruling-compliant; OQ-PG1 open |
+| D-PG-7 | Deterministic foveated tree-builder (CLAM-style 16-way bootstrap + append-stable insertion → `register_class_path`) | `lance-graph-ontology` + ndarray CLAM | ~300 | MED | **Queued** | plan §8 addendum; gated on D-PG-1; determinism + append-stability property tests mandatory |
