@@ -900,4 +900,135 @@ mod tests {
             "failed registrations leave no residue"
         );
     }
+
+    // ── identity-scalar census (T3/T5/T7/T8) ────────────────────────────────
+    // Re-ported from branch claude/jolly-cori-clnf9 onto this crate's canonical
+    // D-IDENTITY-2 surface (two-phase append_mapping → register_class_path).
+    // These extend the five DECISION-3 tests above with the NodeGuid-composition
+    // assertions the identity plan's census flagged as "writable now".
+
+    #[test]
+    fn guid_basin_equals_resolver_dolce_id() {
+        // Census T3: the GUID's routing basin (first nibble of the paired
+        // path) is the same u8 the DOLCE resolver speaks — the cache-resolved
+        // `dolce_id`, never an enum (OD-DOLCE, #441).
+        use crate::class_resolver::dolce_id;
+        use lance_graph_contract::identity::NodeGuid;
+
+        let reg = OntologyRegistry::new_in_memory();
+        let path = NiblePath::root(dolce_id::PERDURANT).child(0x2);
+        let h = reg.append_mapping(proposal("ogit.Health:Visit")).unwrap();
+        let et = h.schema_ptr.entity_type_id();
+        reg.register_class_path(et, path).unwrap();
+        let guid = NodeGuid::new(1, et, 0, reg.niblepath_of(et).unwrap(), 0, 0);
+        assert_eq!(
+            guid.niblepath().unwrap().basin(),
+            Some(dolce_id::PERDURANT),
+            "GUID basin nibble == the resolver's dolce_id"
+        );
+    }
+
+    #[test]
+    fn guid_shape_hash_is_the_declared_truncation_of_structural_signature() {
+        // Census T5: pins the (previously unnamed) StructuralSignature →
+        // 22-bit shape_hash truncation, converting the compose-claim from
+        // doc-convention to test-pinned. (No registry mint — pure NodeGuid.)
+        use crate::odoo_blueprint::class_signature::StructuralSignature;
+        use lance_graph_contract::identity::{NodeGuid, SHAPE_HASH_BITS};
+
+        let sig = StructuralSignature(0xDEAD_BEEF);
+        let guid = NodeGuid::new(1, 7, 0, NiblePath::root(0x0), sig.0, 0);
+        let mask: u32 = (1u32 << SHAPE_HASH_BITS) - 1;
+        assert_eq!(
+            guid.shape_hash(),
+            sig.0 & mask,
+            "shape_hash must be the low-{SHAPE_HASH_BITS}-bit truncation of the signature"
+        );
+    }
+
+    #[test]
+    fn guid_prefix_consistent_with_registry_path() {
+        // Council T7: a NodeGuid built from the REGISTRY's own pairing carries
+        // an exact entity_type and a ≤4-nibble prefix that is an ancestor of
+        // the registry's full minted path.
+        use lance_graph_contract::identity::NodeGuid;
+
+        let reg = OntologyRegistry::new_in_memory();
+        let path = NiblePath::root(0x0)
+            .child(0x1)
+            .child(0x3)
+            .child(0x2)
+            .child(0x5); // depth 5 — deeper than the 4-nibble GUID prefix
+        let h = reg
+            .append_mapping(proposal("ogit.Health:Organism"))
+            .unwrap();
+        let et = h.schema_ptr.entity_type_id();
+        reg.register_class_path(et, path).unwrap();
+
+        let registry_path = reg.niblepath_of(et).unwrap();
+        let guid = NodeGuid::new(
+            h.schema_ptr.namespace_id().raw(),
+            et,
+            0,
+            registry_path,
+            0xDEAD_BEEF,
+            42,
+        );
+        assert_eq!(guid.entity_type(), et, "entity_type is exact in the GUID");
+        let prefix = guid.niblepath().expect("routed path ⇒ Some prefix");
+        assert!(
+            prefix.is_ancestor_of(registry_path),
+            "the GUID's ≤4-nibble prefix must be an ancestor of the registry's full path"
+        );
+        assert_eq!(reg.entity_type_of(registry_path), Some(et));
+    }
+
+    #[test]
+    fn positional_helper_and_registry_mint_are_different_functions() {
+        // Census T8 (the divergence pin, until Phase-B move 4 gates the
+        // helper): `contract::ontology::entity_type_id` is a 1-based POSITIONAL
+        // index that renumbers on reorder; the registry mint is a GLOBAL
+        // append-order counter with URI dedup (DECISION-3, monotone-with-gaps).
+        // NOT the same function. Under URI dedup a same-URI reappend grows
+        // `rows` without minting, so the next fresh class mints with a GAP:
+        // registry Visit = 3 (gap at 2) while the positional helper calls it 2.
+        use lance_graph_contract::ontology::{entity_type_id, Label, Locale, Ontology};
+
+        let person = Schema::builder("Person").required("id").build();
+        let visit = Schema::builder("Visit").required("id").build();
+        let positional = Ontology {
+            name: "test",
+            label: Label {
+                key: "t",
+                en: "t",
+                de: "t",
+            },
+            locale: Locale::En,
+            schemas: vec![person, visit],
+            links: Vec::new(),
+            actions: Vec::new(),
+        };
+        // Positional: Visit = 2 (its position), and it RENUMBERS on reorder.
+        assert_eq!(entity_type_id(&positional, "Visit"), 2);
+
+        // Registry (URI dedup): Person mints 1 (row 1); the SAME canonical URI
+        // via another bridge dedups to id 1 (row 2, no mint); Visit then mints
+        // a FRESH id = rows.len()+1 = 3 — a gap at 2.
+        let reg = OntologyRegistry::new_in_memory();
+        reg.append_mapping(proposal("ogit.Person:Person")).unwrap(); // mint 1, row 1
+        reg.append_mapping(proposal_from("ogit.Person:Person", "odoo", "Odoo"))
+            .unwrap(); // dedup → id 1, row 2
+        let visit_handle = reg.append_mapping(proposal("ogit.Health:Visit")).unwrap();
+        assert_eq!(reg.len(), 3, "three rows appended");
+        let visit_id = visit_handle.schema_ptr.entity_type_id();
+        assert_eq!(
+            visit_id, 3,
+            "registry mint is monotone-with-gaps: row 2 deduped to id 1, so Visit mints 3"
+        );
+        assert_ne!(
+            visit_id,
+            entity_type_id(&positional, "Visit"),
+            "registry mint (3) diverges from the positional helper (2) — the move-4 gate witness"
+        );
+    }
 }

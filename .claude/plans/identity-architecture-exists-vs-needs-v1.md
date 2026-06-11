@@ -261,6 +261,23 @@ follows once nothing canonical reads the positional helper.
 > move 4 (gate `contract/ontology.rs:85` positional helper — needs the
 > consumer audit first); pair-table Lance persistence (TECH_DEBT — in-memory
 > only, re-registered on hydration).
+>
+> **Convergence note (2026-06-13, rebase of `claude/jolly-cori-clnf9` onto main).**
+> A parallel Phase-B mint shipped on this branch (`append_mapping_with_path`,
+> NiblePath-keyed dedup, a `minted_entity_types` counter) — the **same brick** as
+> D-IDENTITY-2 above, a genuine duplication from two sessions racing the same plan,
+> caught at rebase. The designs diverged on the dedup key: **main keys on the
+> canonical class URI** (template identity = the URI, matching the literal DECISION-3
+> wording); the branch keyed on the routed `NiblePath`. Main's URI-keyed version is
+> **canonical**; the branch's duplicate registry code (struct fields, paired mint,
+> dup `niblepath_of`/`entity_type_of`) was **dropped on rebase** — composing on the
+> shipped surface, not re-inventing it. Re-ported as *additive* coverage against
+> main's `register_class_path` two-phase API where it extends main's 5 tests: the
+> identity-census assertions T3 (GUID basin == resolver dolce_id), T5 (shape_hash =
+> declared truncation of `StructuralSignature`), T7 (a `NodeGuid` from the registry
+> pairing carries a prefix that `is_ancestor_of` the minted path), and T8 (positional
+> `ontology.rs:85` helper vs registry mint divergence — the move-4 gate witness).
+> See `AGENT_LOG.md` for the convergence entry.
 
 ## Honest ledger
 
