@@ -15,6 +15,35 @@
 
 ## Open Debt
 
+### TD-CI-COVERAGE-MOLD-1 — `test-with-coverage` job lacks the mold linker the `test` job has (2026-06-12)
+
+**Open — fix applied this PR, CONFIRM on next green run.** The `Rust Tests`
+workflow's `test` job sets up the `mold` linker (`rui314/setup-mold@v1`) with the
+comment *"Heavy lance+datafusion integration-test binaries OOM the default GNU
+`ld` at the link step (intermittent)."* The sibling `test-with-coverage` job did
+**not** set up mold, and links the **even larger llvm-cov-instrumented** binaries
+with the default linker — so the OOM is *more* likely there. Symptom: across the
+last 50 `rust-test.yml` runs, exactly 2 hit `test=success / cov=failure`
+(`claude/probe-mantissa-fill` a32cb177 and `claude/nice-edison-g4rhhl` 12c5ea35);
+the plain `test` job stayed green in both. **This is NOT a logic/test failure and
+NOT a side-effect of the SoA-singleton migration** (`bindspace-singleton-to-mailbox-soa-v1`
+et al.): a migration bug would fail the plain `test` job too — it doesn't, and the
+two SoA debts (TD-RESONANCEDTO-DUP-1 P3/deferred, TD-UNBUNDLE-FROM-1 ~1-bit/100-epoch
+drift) crash nothing. Confidence: HIGH on the infra cause; the workflow's own
+comment names this exact OOM, mold is missing only on the coverage job, and the
+failure is intermittent (= memory pressure, not a deterministic bug).
+**Residual (honest):** the codecov upload step already sets `fail_ci_if_error:
+false`, so the noise is a job-level ❌ that does NOT block merge (`mergeable=True`);
+and without the CI log (token 403) a timing-sensitive race surfacing only under
+instrumentation's slower execution cannot be *100%* excluded — but the migration's
+concurrency tests (D-SNGL-6 writer+reader threads) are PROPOSAL, not shipped, so
+there is no concurrent SoA test to race yet. **Paid by:** this PR adds the mold
+step to the coverage job (parity with `test`). **Confirm** by a green
+`test-with-coverage` run; if it still fails after mold, escalate to the
+timing-race hypothesis (read the actual `cargo llvm-cov` log with a scoped token).
+Cross-ref: `.github/workflows/rust-test.yml` (test job mold step vs coverage job);
+`bindspace-singleton-to-mailbox-soa-v1` (the migration this is NOT).
+
 ### TD-UNBUNDLE-FROM-1 — `unbundle_from` is NOT the inverse of `bundle_into` (2026-06-07)
 
 **Open.** `crates/lance-graph-planner/src/cache/kv_bundle.rs` — `unbundle_from`
