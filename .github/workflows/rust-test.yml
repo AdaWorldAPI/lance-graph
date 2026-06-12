@@ -101,6 +101,20 @@ jobs:
   test-with-coverage:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      # Override the workflow-level debuginfo=1 for this job only. llvm-cov
+      # coverage lives in __llvm_covmap/__llvm_prf_* ELF sections, NOT in
+      # DWARF (verified locally: 600/600 contract tests pass under
+      # `-C instrument-coverage -C debuginfo=0`, covmap sections present,
+      # .profraw emitted). At debuginfo=1 each of the 17 instrumented
+      # integration-test binaries links to ~930 MB (measured; ~252 MB at
+      # debuginfo=0, -73%) — the full set + deps tree sits exactly at the
+      # hosted runner's disk/RSS cliff, which is the 2/50 intermittent
+      # exit-101 (TD-CI-COVERAGE-MOLD-1). Dropping debuginfo relieves BOTH
+      # ceilings (GNU-ld/mold RSS at link, and disk). Note: a job-level
+      # RUSTFLAGS gives this job its own Swatinem cache key — the first run
+      # after this change repopulates the coverage cache.
+      RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
     defaults:
       run:
         working-directory: lance-graph

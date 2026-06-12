@@ -17,6 +17,43 @@
 
 ### TD-CI-COVERAGE-MOLD-1 — `test-with-coverage` job lacks the mold linker the `test` job has (2026-06-12)
 
+**2026-06-12 local-repro addendum (same PR, later commit) — diagnosis CONFIRMED
+and sharpened; fix extended to `debuginfo=0`.** Reproduced the failure mode
+locally with CI's exact env (`RUSTFLAGS="-C debuginfo=1 -C target-cpu=x86-64-v3"`,
+`CARGO_INCREMENTAL=0`, stable toolchain):
+
+- `cargo test --manifest-path crates/lance-graph/Cargo.toml --tests --no-run`
+  died **3×** at the link step with the exact opaque signature CI shows:
+  `rustc-LLVM ERROR: IO failure on output stream: No space left on device`,
+  `collect2: fatal error: ld terminated with signal 7 [Bus error]` (SIGBUS =
+  mmap'd output on a full filesystem), `error: could not compile … (exit
+  status: 101)`. Resource exhaustion, not a compile error.
+- **Measured weight:** each of the 17 integration-test binaries links to
+  ~930 MB at `debuginfo=1`; ~252 MB stripped of debuginfo (−73 %). Set total
+  ≈ 16 GB + ~13 GB deps tree + instrumentation growth + `.profraw` ≈ the
+  hosted runner's disk/RSS budget — a cliff edge, which is exactly what a
+  2/50 intermittent looks like. So there are TWO ceilings, not one: GNU-ld
+  RSS (mold fixes) AND disk (mold does NOT fix).
+- **No test bug exists:** every integration-test binary that linked was
+  executed — **98/98 tests pass** against lance 7.0.0 (test_sql_query 14,
+  test_datafusion_varlength_complex 19, test_to_sql 12, neighborhood_cascade
+  10, test_explain_output 8, test_lance_vector_search 7, test_to_spark_sql 7,
+  spo_ground_truth 7, spo_promotion 4, test_case_insensitivity 4,
+  test_complex_return_clauses 3, hdr_proof 3). The SoA-migration exoneration
+  above is now empirical, not inferential.
+- **`debuginfo=0` is coverage-safe (verified, not assumed):** 600/600
+  lance-graph-contract lib tests pass under
+  `-C instrument-coverage -C debuginfo=0`; the test binary embeds
+  `__llvm_covmap` / `__llvm_prf_{names,cnts,data}` sections and emits
+  `.profraw`. LLVM coverage mapping is independent of DWARF.
+- **Paid-by (extended):** this PR now also sets job-level
+  `RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"` on
+  `test-with-coverage` (workflow-level stays `debuginfo=1` for the `test`
+  job). Relieves both ceilings; mold stays as parity + link-speed insurance.
+  Side effect: the coverage job gets its own Swatinem cache key (first run
+  repopulates). The "escalate to timing-race hypothesis" path below is
+  retired unless coverage still flakes after BOTH fixes.
+
 **Open — fix applied this PR, CONFIRM on next green run.** The `Rust Tests`
 workflow's `test` job sets up the `mold` linker (`rui314/setup-mold@v1`) with the
 comment *"Heavy lance+datafusion integration-test binaries OOM the default GNU
