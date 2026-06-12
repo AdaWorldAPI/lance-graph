@@ -130,15 +130,22 @@ fn probe_mantissa_fill_golden_beats_uniform_random() {
         let (g_occ, g_max) = fill_metrics(golden_points(k).into_iter());
         for &seed in &SEEDS {
             let (r_occ, r_max) = fill_metrics(random_disk_points(k, seed).into_iter());
+            // STRICT inequalities — Codex P2 on #485 caught the wording mismatch:
+            // the doc says golden BEATS every seed, but `>=`/`<=` silently
+            // admit ties; a future regression that merely ties would still
+            // pass under the loose form and be reported as a win. Strict
+            // gate matches the prose. (The measured numbers strictly
+            // satisfy this form, so tightening loses no data — see receipts
+            // in EPIPHANIES E-PROBE-MANTISSA-1.)
             assert!(
-                g_occ >= r_occ,
-                "k={k} seed={seed:#x}: golden occupied {g_occ} < random {r_occ} — \
-                 MANTISSA-FILL RED: golden mantissa does not out-cover uniform random"
+                g_occ > r_occ,
+                "k={k} seed={seed:#x}: golden occupied {g_occ} did not STRICTLY beat random {r_occ} — \
+                 MANTISSA-FILL RED: golden mantissa does not strictly out-cover uniform random"
             );
             assert!(
-                g_max <= r_max,
-                "k={k} seed={seed:#x}: golden max-bin {g_max} > random {r_max} — \
-                 MANTISSA-FILL RED: golden mantissa piles up worse than uniform random"
+                g_max < r_max,
+                "k={k} seed={seed:#x}: golden max-bin {g_max} did not STRICTLY beat random {r_max} — \
+                 MANTISSA-FILL RED: golden mantissa does not strictly out-spread uniform random"
             );
         }
         // Print the receipt numbers so the probe run is quotable.
