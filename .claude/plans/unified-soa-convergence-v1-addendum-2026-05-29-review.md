@@ -49,10 +49,10 @@ I re-checked the §4.2 claims against the workspace `Cargo.toml`s in this branch
 
 | Pin claim | File:line | Verified | Notes |
 |---|---|---|---|
-| `arrow = "58"` | `crates/lance-graph/Cargo.toml:16` | ✓ | also at callcenter:29, ontology:49, holograph:29 |
-| `datafusion = "53"` | `crates/lance-graph/Cargo.toml:21` | ✓ | also at callcenter:37, holograph:35 |
-| `lance = "=6.0.0"` | `crates/lance-graph/Cargo.toml:38` | ✓ | also at benches:10, callcenter:30, ontology:46, holograph:38 — **5 files, matches §4.2 D-MBX-11 scope** |
-| `lancedb = "=0.29.0"` | `crates/lance-graph/Cargo.toml:41` | ✓ | only declared in `lance-graph` |
+| `arrow = "58"` | `crates/lance-graph/Cargo.toml:16` | ✓ | unchanged since author-time |
+| `datafusion = "53"` | `crates/lance-graph/Cargo.toml:21` | ✓ | unchanged since author-time |
+| `lance = "=7.0.0"` | `crates/lance-graph/Cargo.toml:38` | ✓ post-rebase | **updated since author-time** — original addendum cited `=6.0.0`; main bumped to `=7.0.0` (and lance-linalg to `=7.0.0`) between PR #434 merge and this PR opening. `D-MBX-11`'s "mechanical patch bump pending across 5 Cargo.toml files" is now superseded — main has already moved past `=6.0.1` to `=7.0.0` |
+| `lancedb = "=0.30.0"` | `crates/lance-graph/Cargo.toml:41` | ✓ post-rebase | **updated since author-time** — original cited `=0.29.0`; main bumped to `=0.30.0` |
 
 **D-MBX-11 readiness:** confirmed mechanical 5-file edit (`=6.0.0` → `=6.0.1`). When cargo prohibition lifts, one `cargo check` per crate gates the bump.
 
