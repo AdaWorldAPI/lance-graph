@@ -1,3 +1,60 @@
+## 2026-06-12 — E-OUTER-BOUNDARY-IS-ORM-1 — there is only one boundary, and it is ontology-mediated
+
+**Status:** FINDING (PR #487 tombstone commit makes this source-true; OGAR class + `SoaEnvelope` + Lance columnar I/O is the realized triangle).
+**Confidence:** High — every prior candidate inner boundary has now been removed or recast as ownership transfer; no surviving call-site asserts otherwise.
+
+**The reframing.** `CollapseGateEmission` looked like a wire format for an
+inter-mailbox seam. It was, in fact, the workspace's last hand-written DTO
+asserting an **inner** boundary that does not exist. Between mailboxes there is
+only ownership transfer (Rust move semantics — `E-CE64-MB-4` makes UB a compile
+error); within a mailbox there are only in-place bytes (`SoaEnvelope` geometry).
+The only real boundary is the **outer** one — where the SoA meets persistence
+and meaning — and that boundary is **ontology-mediated, not DTO-mediated**.
+
+**This is exactly the ORM pattern.**
+
+| ORM | This substrate |
+|---|---|
+| Table schema | OGAR class (label, fields, tools, templates) |
+| Column mapping | `SoaEnvelope` + `ColumnDescriptor` (byte geometry) |
+| Active record | register-bank slice wrapped by the class view |
+| SQL writer | Lance columnar I/O (writes LE bytes from the in-place store) |
+| Hand-rolled row DTO | `CollapseGateEmission` — **the anti-pattern** |
+
+In an ORM you don't write a bespoke struct per table-crossing; the mapping
+derives the persisted shape from the schema. Here likewise: the OGAR class
+supplies the semantics, the envelope supplies the geometry, Lance does the
+writing — and any independent carrier struct at that seam is **schema drift by
+definition** (per #477's "every DTO is a derived view of an OGAR class"). The
+emission type was not just unused; it was a second, ontology-bypassing
+description of data the class layer already described.
+
+**Why `MailboxId` / `MergeMode` / `GateDecision` survive.** They are vocabulary
+*of* the ontology side — addressing (which register bank), merge policy (how
+overlapping writes compose), gate decision (apply / block / hold). They are
+not parallel descriptions of row data; they are the operational verbs the
+ontology binds.
+
+**Consequences (the test for any future PR):**
+
+- **Inner seams are ownership transfers**, never carrier types. If a proposed
+  type looks like "DTO crossing from mailbox A to mailbox B", it is wrong by
+  construction — the SoA is the DTO; the move is the crossing.
+- **The outer seam has exactly one description.** OGAR class on one side,
+  `SoaEnvelope` on the other, Lance in between. A new "wire format" at this
+  seam is the same anti-pattern by a different name — propose a new column or
+  a class-template specialization instead.
+- **Hand-rolled active-record structs are ORM-bypass.** If you find yourself
+  serializing-then-deserializing fields the class already names, the class
+  template + `ClassView` + `FieldMask` is the right reach.
+
+**Cross-ref:** PR #477 (three-tier model + "what does NOT exist" table); PR
+#487 (tombstone commit — emission artifacts removed; `consume_firing` is the
+in-place ownership successor); `docs/architecture/soa-three-tier-model.md`
+(register-file analogy + ORM mapping); `E-OGAR-NORTHSTAR-1` (the class spine
+this boundary binds to); `I-LEGACY-API-FEATURE-GATED` (legacy carrier paths
+must route to the canonical mapping or be removed — the tombstone is removal).
+
 ## 2026-06-09 — E-OGAR-NORTHSTAR-1 — ontology cache = OGAR mirror with a reusable north-star template spine (namespace specializes, entity_type is shared)
 
 **Status:** DECISION (OGAR mirror RATIFIED via decision-gate; north-star template model RATIFIED 2026-06-09 "frugal it is"; `entity_type` = GLOBAL shared template id RATIFIED via decision-gate)
