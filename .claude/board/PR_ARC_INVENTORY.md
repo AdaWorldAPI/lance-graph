@@ -86,6 +86,46 @@
 
 **Confidence (2026-05-31):** working — 497 contract + 240 ontology lib tests green; clippy `-D warnings` + rustfmt clean; merged clean after Codex P2 + 2 CodeRabbit findings (all real, all resolved in the babysit loop before merge).
 
+## #434 — docs(unified-soa): meticulous integration plan + handover for ONE-SoA-end-to-end convergence (merged 2026-05-29)
+
+**Status:** MERGED. Branch `claude/splat3d-cpu-simd-renderer-MAOO0` → `main` at `1186dfd3`. 3 commits, +1004 lines, 6 files, **zero source code** (docs / board only). `cargo` prohibited per session-stability constraint; no build/test ran.
+
+**Added** (immutable)
+- `.claude/plans/unified-soa-convergence-v1.md` (685 lines) — the meticulous integration plan: §1 five layered user rulings (`E-SOA-IS-THE-ONLY`), §2 the nine half-baked consumers' current-state → target-state, §3 column-by-column SoA layout + `MailboxSoAHeader` version gate + identity planes + shared-cold resources, §4 stack alignment (arrow 58 / datafusion 53 / lancedb =0.29.0 / lance =6.0.0 → =6.0.1 patch pending) + SurrealDB transparent-view enablement, §5–7 4-phase Rubicon kanban wiring + AriGraph episodic chain witness + Staunen × Wisdom plasticity spreader, §8 `lance-graph-planner` DTO surface overhaul (D-MBX-A6, 5-phase feature-gated cutover), §9 phased migration P0–P7, §10 per-deliverable specs for D-MBX-A2/A3/A4/A5/A6/7/8/9/10/11/12 (each with owner, LOC, risk, tests, gates), §11 eight open questions OQ-11.1…OQ-11.8 with default proposals + ratification gates, §12 risk matrix, §13 success criteria, §14 dependency graph, §15 cross-references, §16 council-bypass note.
+- `.claude/handovers/2026-05-29-1825-soa-convergence-author-to-impl.md` (119 lines) — handover per CLAUDE.md format: What-I-did chronology · FINDING · CONJECTURE · Blockers · 8 OQs for the user · recommended next-session entry sequence · code anchors · provenance (rulings verbatim).
+- Board hygiene committed in the same merge: `INTEGRATION_PLANS.md` prepend, `STATUS_BOARD.md` new plan section (D-MBX-A1 Shipped + A2/A3/A4/A5/A6/7/8/9/10/11/12 Queued), `EPIPHANIES.md` already carrying `E-SOA-IS-THE-ONLY` (commit `eb5c4a5`).
+
+**Locked** (immutable)
+- **ONE SoA, never transformed** is the carrier doctrine (`E-SOA-IS-THE-ONLY` R1): only three operations allowed on it — cognitive-shader thinking, cold-path read/write to LanceDB, AriGraph Markov context. Any mailbox SoA mutation IS the only hot-path activity.
+- **Mailbox = full BindSpace reinvented as LE; witness = the per-row arc of `CausalEdge64` emissions** (R2): the arc implicitly documents NARS revision; no separate revision log column.
+- **Libet −550 ms** anchors the Σ10 Rubicon commit (R3); 4-phase kanban (Planning → Cognitive work → Evaluation → Commit · Plan · Prune) lives in `surrealkv`-on-lance (SurrealDB is a view, LanceDB stays leading storage).
+- **SPO-W witness is a pointer into the AriGraph episodic Markov chain** (R4); the chain IS the index space; no parallel episodic structure.
+- **Counterfactual Staunen × Wisdom = plasticity spreaders** (R5): Hebbian, Planning-gated, hot-path-only.
+- **SoA version byte at the layout root** (`MailboxSoAHeader`, D-MBX-10); governed by `I-LEGACY-API-FEATURE-GATED`; v(M) reader MUST refuse v(N>M) bytes without explicit handshake; field-isolation matrix tests mandatory on every column op (Sprint-11 5-instance catalogue).
+- **Stack pin target** verified 2026-05-29: arrow 58 ✓ / datafusion 53 ✓ / lancedb =0.29.0 ✓ / lance =6.0.0 → =6.0.1 (one mechanical patch bump pending across 5 Cargo.toml files; D-MBX-11).
+- **lance-graph-planner DTO surface overhaul** (D-MBX-A6): planner output = `KanbanMove`s; DTOs become SoA-row-lenses; 5-phase feature-gated cutover behind `planner-soa-v2`; v1 deleted at end (OQ-11.7 default).
+- **Council bypass for the §11 rulings** is explicit (§16): `epiphany-brainstorm-council` (shipped #433) is bypassed for author-stated user rulings; the plan's *spec content* remains open to council review via PR.
+
+**Deferred** (immutable)
+- **Cargo prohibition** still in force (session-stability constraint): all `cargo check`/`test` invocations and the actual `=6.0.1` patch bump (D-MBX-11) defer until the prohibition lifts.
+- **OQ-11.1 … OQ-11.8** await user ratification (default proposals recorded in §11):
+  - OQ-11.1 Staunen × Wisdom spread radius / decay / column-local vs baton-routed.
+  - OQ-11.2 `witness_arc` width `W`.
+  - OQ-11.3 distinct "vetoed/ghosted" kanban column vs Prune.
+  - OQ-11.4 CLAUDE.md "The Click" / `Vsa16kF32` doctrinal update timing.
+  - OQ-11.5 SoA version field width + per-column version stamps.
+  - OQ-11.6 surrealdb fork URL + branch + `kv-lance` feature flag (BLOCKED(C) — needs fork-access human).
+  - OQ-11.7 planner DTO overhaul scope (clean break vs feature-gated coexistence; default = feature-gated).
+  - OQ-11.8 D-MBX-12 sub-PR sequencing.
+- **D-MBX-9** (Rubicon kanban view in `surrealkv`-on-lance) blocked on `surreal_container` BLOCKED(B/C/D); the rest of the plan ships without the SurrealDB view (it's a view, not the store).
+
+**Docs** (immutable)
+- `.claude/plans/unified-soa-convergence-v1.md` (the plan itself)
+- `.claude/handovers/2026-05-29-1825-soa-convergence-author-to-impl.md` (the handover)
+- `.claude/plans/unified-soa-convergence-v1-addendum-2026-05-29-review.md` (post-merge review addendum, this PR)
+
+**Confidence (2026-05-29):** HIGH on the integration spec (the five rulings are author-stated and verbatim-recorded; §10 per-deliverable specs are consistent with `mailbox_soa.rs` and the Cargo pins as of HEAD `1186dfd3`). MED on the per-deliverable LOC estimates (will refine as each D-MBX-* lands). LOW on D-MBX-9 timing (gated on the long-standing `surreal_container` BLOCKED(B/C/D)).
+
 ---
 
 ## callcenter/audit-fix — fix(callcenter): `with_jsonl_audit` returns `Result<Self, AuditError>` (branch work)

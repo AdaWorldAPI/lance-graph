@@ -689,6 +689,31 @@ Opus review agent: **LAND** — no P0/P1 (exhaustively verified: coldest == evic
 **Outcome:** DONE (contract slice; consumer impls deferred). Realizes the planner⟷ractor⟷surreal wiring as an EXTENSION of the canonical `OrchestrationBridge` surface (lab-vs-canonical ruling — no parallel DTO family) + a zero-dep transparent-SoA-view borrow trait (E-SOA-VIEW-IS-A-BORROW). Honors R1 (view returns `&[T]`, never copies) + R4 (witness = `chain_position` pointer). Deferred: planner-emit (D-MBX-A6 Ph2-3, incl. the {native|JIT|SurrealQL|elixir} strategy set), `impl MailboxSoaView/Owner for MailboxSoA<N>` (cognitive-shader-driver), ractor `ConsumerEnvelope::Kanban` arm, surreal_container read-view (BLOCKED on OQ-11.6 fork).
 
 **Review pattern:** `// ///`-decision-markers → `/code-review` (medium, 1 finding → REFUTED via grep + cargo check) → markers stripped → cargo verify. Design via Opus Plan agent map (LATEST_STATE + lab-vs-canonical + unified-soa-convergence-v1 + orchestration/container/surreal_container/supervisor surfaces).
+## [Opus 4.7 / 1M ctx, main thread] PR #434 post-merge review + governance flip + addendum (lance-graph)
+
+**Branch:** `claude/lance-graph-ontology-review-Pyry3` (rebased onto `main` `1186dfd3`, 0 ahead → fast-forwarded 27 commits). | **Files (this commit):**
+- `.claude/plans/unified-soa-convergence-v1-addendum-2026-05-29-review.md` (new, 156 lines) — post-merge review addendum.
+- `.claude/plans/unified-soa-convergence-v1.md` — §9 P0 + §15 PRs: flip "in PR (this one)" → "SHIPPED in PR #434" (2 edits).
+- `.claude/board/INTEGRATION_PLANS.md` — flip 2026-05-29 unified-soa entry `**Status:** PROPOSAL` → `**Status:** SHIPPED (PR #434 merged 2026-05-29, `1186dfd3`)` + add review-addendum cross-ref.
+- `.claude/board/STATUS_BOARD.md` — add `> **Plan P0 status:** SHIPPED in PR #434 (merged 2026-05-29).` under the unified-soa section header + review-addendum cross-ref.
+- `.claude/board/PR_ARC_INVENTORY.md` — PREPEND new `## #434` section with Added / Locked / Deferred / Docs / Confidence (`2026-05-29`).
+- `.claude/board/LATEST_STATE.md` — refresh the "Last updated" header line to lead with PR #434 (was 2026-05-14 / PR #372 — two weeks stale).
+- `.claude/board/TECH_DEBT.md` — PREPEND `TD-CLAUDE-MD-DEPS-DRIFT` (P3) flagging `CLAUDE.md` "Key Dependencies" stale pins (arrow `"57"` / datafusion `"51"` / lance `"2"` vs reality arrow 58 / datafusion 53 / lance `=6.0.0`).
+
+**Tests:** none (docs/board only; `cargo` prohibited per session-stability constraint, same as PR #434).
+
+**Review findings recorded in the addendum** (does not edit ruling text; the §1 / §11 rulings are council-bypassed author-stated content per §16):
+1. **§3.2 per-row total math** — the `~30 B` figure counts only the **shipped-today** subset (D-MBX-A1); after A2/A3 land at `W=16` (OQ-11.2 default) the per-row bare total grows to ≈101 B. The ~6 KB/thought hot ceiling is dominated by the 3 × `[u64; 256]` identity planes either way, so the §3.2 ceiling math (64k–256k thoughts at 300–600 MB / 1.2–2.4 GB) stands. Clarification recommended for a future v2.
+2. **§4.2 stack table gap** — the table covers arrow/datafusion/lance/lancedb/ndarray but omits **surrealdb** even though §4.3 + D-MBX-9 + OQ-11.6 hinge on a SurrealDB fork pin (`kv-lance` backend feature). Addendum proposes one extra row marked BLOCKED — OQ-11.6.
+3. **§4.2 verification re-checked** — independently confirmed `arrow = "58"` (4 files), `datafusion = "53"` (3 files), `lance = "=6.0.0"` (5 files: lance-graph:38, lance-graph-benches:10, lance-graph-callcenter:30, lance-graph-ontology:46, holograph:38), `lancedb = "=0.29.0"` (1 file). D-MBX-11 is mechanical.
+4. **CLAUDE.md drift** — discovered while validating #4: `CLAUDE.md` "Key Dependencies" still says `arrow = "57"` / `datafusion = "51"` / `lance = "2"` (drift from 2026-04-21 inference-click update). NOT fixed in this PR (wrong altitude — workspace-wide doctrine deserves a focused PR); tracked as `TD-CLAUDE-MD-DEPS-DRIFT`.
+
+**Verifications run this session (read-only):**
+- `git rebase origin/main` on `claude/lance-graph-ontology-review-Pyry3` → fast-forward, 27 commits absorbed, pushed (`98bec7b8..1186dfd3`).
+- `grep -nE '^(lance|lancedb|arrow|datafusion)' crates/*/Cargo.toml` confirmed §4.2 stack pins.
+- `mcp__github__pull_request_read get` confirmed #434 merged 2026-05-29T18:38:43Z, merge SHA `1186dfd3`, 1 004 insertions, 6 files, 3 commits.
+
+**Outcome:** Plan P0 marked SHIPPED with PR ref; addendum captures the three clarification-grade findings; gov boards (`INTEGRATION_PLANS`, `STATUS_BOARD`, `PR_ARC_INVENTORY`, `LATEST_STATE`, `TECH_DEBT`) all caught up to the post-merge state. **§1 / §11 user-stated rulings untouched** (council-bypass discipline). **CLAUDE.md drift flagged not fixed** — tracked as separate TD entry for a focused follow-up PR.
 
 ---
 
