@@ -1,5 +1,7 @@
 # Identity Architecture — What Exists vs What Needs Building (v1)
 
+> **ERRATA (2026-06-13, post-#490):** §N1's proposed UUIDv8 layout (`namespace + entity_type + kind + niblepath_prefix + shape_hash + local + RFC version/variant + layout_version`) is **fully superseded by the operator-pinned canon** (OGAR/CLAUDE.md P0). Canon's `classid · HEEL · HIP · TWIG · family · identity` (8·4·4·4·6·6 hex; 3×4 uniform; RFC-WAIVED; no shape_hash, no layout_version) shipped in `canonical_node.rs` (PR #489) and was canonicalised via lib.rs re-export switch in PR #490; the Phase-A wrapper `identity.rs` was deleted in the same PR (zero in-tree consumers per #480's own body). §N5 `entity_type ↔ NiblePath` bijection: **shipped** in PR #484 (`lance-graph-ontology::registry`). §N3 `SoaEnvelope` impls: still queued. Full diff resolution: `soa-migration-diff-resolution-2026-06-13.md`.
+
 > **Status:** INTEGRATION MAP + PLAN. Grounded by first-hand reads + two parallel
 > cross-repo sweeps (2026-06-09). Companion to
 > `cognitive-write-roundtrip-substrate-v1.md` (the round-trip mechanism).
