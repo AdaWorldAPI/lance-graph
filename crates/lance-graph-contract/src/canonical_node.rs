@@ -133,6 +133,30 @@ impl NodeGuid {
     }
 }
 
+/// Canonical self-describing print: `classid-HEEL-HIP-TWIG-family·identity`.
+///
+/// The dash-groups ARE the semantic delimiters — every printed GUID is
+/// self-describing at sight (OGAR canon, P0). `{:08x}-{:04x}-{:04x}-{:04x}-{:06x}{:06x}`
+/// renders the canonical 8-4-4-4-12 hex layout regardless of in-memory byte
+/// order (the field accessors fold LE bytes into u32/u16/u24 first).
+impl core::fmt::Display for NodeGuid {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let h = u16::from_le_bytes([self.0[4], self.0[5]]);
+        let p = u16::from_le_bytes([self.0[6], self.0[7]]);
+        let t = u16::from_le_bytes([self.0[8], self.0[9]]);
+        write!(
+            f,
+            "{:08x}-{:04x}-{:04x}-{:04x}-{:06x}{:06x}",
+            self.classid(),
+            h,
+            p,
+            t,
+            self.family(),
+            self.identity(),
+        )
+    }
+}
+
 /// 16-byte canonical edge block: 12 in-family + 4 out-of-family.
 ///
 /// Canonical, not mandatory: the 16 bytes are ALWAYS reserved (zeroed when unused).
@@ -232,5 +256,26 @@ mod tests {
     #[should_panic(expected = "identity must fit in 24 bits")]
     fn new_panics_on_identity_overflow() {
         let _ = NodeGuid::new(0, 0, 0, 0, 0, 0x0100_0000);
+    }
+
+    #[test]
+    fn display_is_canonical_self_describing() {
+        // Canon (OGAR P0): xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (8-4-4-4-12 hex);
+        // groups = classid · HEEL · HIP · TWIG · family·identity.
+        let g = NodeGuid::new(0xDEAD_BEEF, 0x1111, 0x2222, 0x3333, 0x00_00AB, 0x00_00CD);
+        let s = g.to_string();
+        assert_eq!(s, "deadbeef-1111-2222-3333-0000ab0000cd");
+        assert_eq!(s.len(), 36, "8-4-4-4-12 + 4 hyphens");
+        for i in [8usize, 13, 18, 23] {
+            assert_eq!(s.as_bytes()[i], b'-', "hyphen at {i}");
+        }
+    }
+
+    #[test]
+    fn display_zero_default_is_all_zeros() {
+        // Zero-fallback ladder visible at sight: classid + family == 0 prints
+        // as ...0...-...0... with identity-only discrimination.
+        let g = NodeGuid::local(0x00_00CD);
+        assert_eq!(g.to_string(), "00000000-0000-0000-0000-0000000000cd");
     }
 }
