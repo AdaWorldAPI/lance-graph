@@ -41,7 +41,13 @@ impl NodeGuid {
     pub const FAMILY_DEFAULT: u32 = 0x00_0000;
 
     /// Construct from the six canonical groups. `family`/`identity` use their low 3 bytes.
+    ///
+    /// Panics (incl. const-eval) when `family` or `identity` exceed 24 bits — the
+    /// silent-truncation footgun: distinct u32 inputs would otherwise collapse
+    /// to the same stored key.
     pub const fn new(classid: u32, heel: u16, hip: u16, twig: u16, family: u32, identity: u32) -> Self {
+        assert!(family <= 0x00FF_FFFF, "family must fit in 24 bits");
+        assert!(identity <= 0x00FF_FFFF, "identity must fit in 24 bits");
         let c = classid.to_le_bytes();
         let h = heel.to_le_bytes();
         let p = hip.to_le_bytes();
@@ -110,6 +116,21 @@ impl NodeGuid {
     pub const fn as_bytes(&self) -> &[u8; 16] {
         &self.0
     }
+
+    /// Mint-path guard: while in the default basin, `identity` (24 bits) is the
+    /// ONLY discriminator, so the mint path MUST guarantee its uniqueness. Call
+    /// on insert with whatever set/bitmap the mint path keeps; this centralises
+    /// the invariant so it can't be forgotten while family is still a no-op.
+    #[inline]
+    pub fn debug_assert_identity_unique(&self, already_present: bool) {
+        if self.is_bootstrap_address() {
+            debug_assert!(
+                !already_present,
+                "identity collision in default basin: 24-bit identity space exhausted \
+                 or reused — mint a non-zero family to expand before this fires in prod"
+            );
+        }
+    }
 }
 
 /// 16-byte canonical edge block: 12 in-family + 4 out-of-family.
@@ -137,21 +158,6 @@ pub struct NodeRow {
     pub key: NodeGuid,    //  0..16
     pub edges: EdgeBlock, // 16..32
     pub value: [u8; 480], // 32..512  (reserved — comes after)
-}
-
-/// Mint-path guard: while in the default basin, `identity` (24 bits) is the ONLY
-/// discriminator, so the mint path MUST guarantee its uniqueness. Call on insert.
-/// `seen` is whatever set/bitmap the mint path keeps; this just centralises the
-/// invariant so it can't be forgotten when family is still a no-op.
-#[inline]
-pub fn debug_assert_identity_unique(guid: &NodeGuid, already_present: bool) {
-    if guid.is_bootstrap_address() {
-        debug_assert!(
-            !already_present,
-            "identity collision in default basin: 24-bit identity space exhausted \
-             or reused — mint a non-zero family to expand before this fires in prod"
-        );
-    }
 }
 
 // Sizes are part of the lock.
@@ -198,5 +204,33 @@ mod tests {
         assert_eq!(e.in_family.len(), 12);
         assert_eq!(e.out_family.len(), 4);
         assert_eq!(core::mem::size_of_val(&e), 16);
+    }
+
+    #[test]
+    fn uniqueness_guard_is_noop_outside_bootstrap() {
+        // family != 0 ⇒ no longer the bootstrap address: the guard is a no-op
+        // even when `already_present` is true.
+        let g = NodeGuid::new(0, 0, 0, 0, 0x00_0001, 0x00_0001);
+        g.debug_assert_identity_unique(true);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "identity collision in default basin")]
+    fn uniqueness_guard_panics_on_bootstrap_collision() {
+        let g = NodeGuid::local(1);
+        g.debug_assert_identity_unique(true);
+    }
+
+    #[test]
+    #[should_panic(expected = "family must fit in 24 bits")]
+    fn new_panics_on_family_overflow() {
+        let _ = NodeGuid::new(0, 0, 0, 0, 0x0100_0000, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "identity must fit in 24 bits")]
+    fn new_panics_on_identity_overflow() {
+        let _ = NodeGuid::new(0, 0, 0, 0, 0, 0x0100_0000);
     }
 }
