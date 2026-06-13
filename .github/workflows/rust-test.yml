@@ -56,7 +56,7 @@ jobs:
         # Heavy lance+datafusion integration-test binaries OOM the default GNU `ld`
         # at the `cargo test --no-run` link step (intermittent). mold links them
         # fast + low-memory (already used by release.yml / rust-publish.yml).
-        uses: rui314/setup-mold@v1
+        uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "lance-graph-deps"
@@ -101,6 +101,20 @@ jobs:
   test-with-coverage:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      # Override the workflow-level debuginfo=1 for this job only. llvm-cov
+      # coverage lives in __llvm_covmap/__llvm_prf_* ELF sections, NOT in
+      # DWARF (verified locally: 600/600 contract tests pass under
+      # `-C instrument-coverage -C debuginfo=0`, covmap sections present,
+      # .profraw emitted). At debuginfo=1 each of the 17 instrumented
+      # integration-test binaries links to ~930 MB (measured; ~252 MB at
+      # debuginfo=0, -73%) — the full set + deps tree sits exactly at the
+      # hosted runner's disk/RSS cliff, which is the 2/50 intermittent
+      # exit-101 (TD-CI-COVERAGE-MOLD-1). Dropping debuginfo relieves BOTH
+      # ceilings (GNU-ld/mold RSS at link, and disk). Note: a job-level
+      # RUSTFLAGS gives this job its own Swatinem cache key — the first run
+      # after this change repopulates the coverage cache.
+      RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
     defaults:
       run:
         working-directory: lance-graph
@@ -120,6 +134,14 @@ jobs:
         run: |
           rustup toolchain install stable
           rustup default stable
+      - name: Setup mold linker
+        # Parity with the `test` job above (TD-CI-COVERAGE-MOLD-1): the heavy
+        # lance+datafusion test binaries OOM the default GNU `ld` at link
+        # (intermittent) — and llvm-cov INSTRUMENTED binaries are larger, so
+        # the OOM is MORE likely here than in the plain `test` job that already
+        # has mold. Without this step the coverage job flaked while `test`
+        # stayed green (2/50 runs). mold links them fast + low-memory.
+        uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "lance-graph-deps"
