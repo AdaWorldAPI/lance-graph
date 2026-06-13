@@ -122,45 +122,48 @@ Per bardioc handover §9 zero-copy audit, "bytes don't translate at any boundary
 
 ---
 
-## 6. The Staunen/Wisdom-as-integration-ladder-position correction
+## 6. The Staunen/Wisdom-as-DIKW-climb-position correction
 
-**Source:** bardioc handover §8 (2026-06-05) + operator image relay (2026-06-13, the 8-rung integration pyramid).
+**Source:** bardioc handover §8 (2026-06-05) + operator image relays (2026-06-13: the 8-rung extended pyramid and the KM Cognitive Pyramid) + the [DIKW pyramid](https://en.wikipedia.org/wiki/DIKW_pyramid) canonical lineage.
 
-**The framing the canon actually wants:** `Staunen` and `Wisdom` are **positions on the integration-ladder discipline↔entropy axis**, NOT qualia archetypes. The 8-rung pyramid is:
+**Canonical DIKW (the lineage to anchor against):** four vertically-stacked layers — `Data → Information → Knowledge → Wisdom` — bridged by three integration arrows:
 
-```
-                        Transcendence            ↑
-                  Universal Knowledge            │ increasing
-                   Self-Actualization            │ discipline
-            Expertise & Discrimination           │ ↑
-                          Knowledge              │
-                        Information              │ increasing
-                              Data               │ entropy ↓
-                          Stimuli                ↓
-```
+| Arrow | Lifts | Operation |
+|---|---|---|
+| **Processing** | Data → Information | organize, label, transform |
+| **Cognition** | Information → Knowledge | interpret, contextualise, find relevance |
+| **Judgment** | Knowledge → Wisdom | visualise, analyse, apply, anticipate |
 
-- **Staunen** (the moment of wonder / fresh discrimination) = a firing whose dynamics signal *high entropy at a low-discipline rung* — the substrate registers a step-up where the integration ladder hasn't yet stabilised. *"This is novel here."*
-- **Wisdom** = a firing whose dynamics signal *low entropy at a high-discipline rung* — the substrate registers settled discrimination where the ladder has consolidated. *"This is well-rehearsed here."*
+The KM Cognitive Pyramid variant adds rung-specific markers (PIRs at Knowledge, CCIRs at Wisdom, EEI/EEFI at Information) and two orthogonal axes that run *along* the climb: **Reactionary↑Anticipatory** (decision behaviour — Data-level reactions are reactionary, Wisdom-level decisions are anticipatory) and **high↓low decision risk** (raw data drives risky decisions, wisdom drives safer ones). Extensions above Wisdom — `Self-Actualization → Universal Knowledge → Transcendence` (8-rung extended) or `Shared Understanding` (KM variant) — are post-DIKW; classical DIKW tops out at Wisdom.
 
-They are **two ends of one axis** (a single signed scalar — discipline minus entropy, or equivalently the bipolar phase of the integration step), not two independent qualia. The 2026-06-13 image is the operator's relay of this framing.
+**Where `Staunen` and `Wisdom` actually sit:**
 
-**Substrate implication:** Staunen and Wisdom are derivatives over `plasticity_counter` + `last_active_cycle` + classid-prefix-resolved codebook hit-rate — i.e., they're computed from the SoA's lifecycle columns, never stored as their own column. They are **orthogonal** to the qualia codebook (which names the archetype the firing snaps to). They correlate with codebook miss-rate on genuinely-novel input but neither implies the other:
+- **Wisdom IS a DIKW rung** — the canonical apex of the four-layer pyramid. Not a marker on a horizontal axis. Anticipatory; Know Why; low decision risk; the result of Judgment applied to Knowledge.
+- **Staunen is not a DIKW rung** — it's the *phenomenological encounter* at or below the Data layer, where stimulus overflows current frameworks and Processing hasn't yet integrated it. Reactionary; Know What (or not yet); high decision risk; pre-integration wonder.
 
-- Familiar state (Wisdom side: low Staunen, high discipline) can still miss the codebook — composite or atypical archetype shape, no integration-step implication.
-- Novel firing (Staunen side: high entropy, low discipline) can land cleanly on a known archetype — Staunen without trie-miss, because the pattern is recognisable but unprecedented *at this rung*.
-- The codebook-miss IS the Staunen signal **for free** — a side effect of the lookup with structural context (which classid-prefix you missed at) that flat hash collision-sets can't give.
+So `Staunen` and `Wisdom` are **vertical endpoints of the DIKW climb axis** — the climb itself IS the discipline↔entropy gradient. Up the climb: discipline accumulates, entropy decreases. Down the climb: stimulus arrives, entropy is high, discipline is yet-to-accumulate. They are *not* two qualia archetypes (which is what `lance-graph/CLAUDE.md` line ~120 currently treats them as) and not horizontal opposites of one axis (which is how my prior framing of this section read).
 
-**Bipolar / two-algebra connection:** the canon's TWO-ALGEBRA RULE — *"sign = XOR (`vsa_bind`); magnitude = `vsa_bundle`, NEVER raw-XOR-on-magnitudes"* (OGAR/CLAUDE.md P0) — applies here. The Staunen↔Wisdom *axis* is the **signed** side (one bit per address × level of the integration ladder, XOR-composed for sign across rungs). The *intensity* of the firing is the magnitude side (bundled, Markov-respecting). The Walsh-Hadamard cascade pyramid on the address tree IS the substrate for this — top-gaussian preserved level-to-level per Parseval.
+**Substrate mapping** (the canon-aligned implementation):
+
+- The DIKW climb counter IS `plasticity_counter: [u8; N]` on `MailboxSoA<N>` (saturating u8 per W6 §4.4, incremented on every accepted edge). High saturation = rehearsed climb = Wisdom-positioned firings. Low saturation + recent `last_active_cycle` recency = encounter without rehearsal = Staunen-positioned firings.
+- Staunen and Wisdom are **derivatives** over `plasticity_counter` + `last_active_cycle` + classid-prefix-resolved codebook hit-rate, never their own column. The substrate computes them on demand from the lifecycle columns it already owns.
+- They are **orthogonal** to the qualia codebook (which names the *archetype* the firing snaps to — what the affective state IS, independent of where the firing sits on the DIKW climb). A Wisdom-positioned firing can have any qualia archetype; a Staunen-positioned firing can too. The two layers correlate only in the special case of genuinely-novel input (Staunen + codebook trie-miss tend to co-occur), but neither implies the other.
+
+**Bipolar / two-algebra connection:** the canon's **TWO-ALGEBRA RULE** — *"sign = XOR (`vsa_bind`); magnitude = `vsa_bundle`, NEVER raw-XOR-on-magnitudes"* (OGAR/CLAUDE.md P0) — applies to the climb axis. The DIKW climb direction (up = Judgment composing Knowledge into Wisdom; down = Processing decomposing Information back to Data) is the **signed** side (one bit per rung-transition, XOR-composed across rungs to give the cumulative direction of the climb step). The *intensity* of the firing at any given rung is the magnitude side (`vsa_bundle`, Markov-respecting). The Walsh-Hadamard cascade pyramid on the address tree IS the substrate that carries this — top-gaussian preserved rung-to-rung per Parseval, anti-moiré via the helix `CurveRuler` stride-4-over-17 walk.
+
+**Cascade-tier connection:** the canon's three tiers (HEEL · HIP · TWIG, each u16 = 4 nibbles = 4 climb steps) match the three DIKW transitions (Processing / Cognition / Judgment). The classid prefix (8 hex = 32 bits) carries the codebook scope; the HEEL/HIP/TWIG tiers carry the rung-position; family/identity carry the basin-local content. This is a clean substrate decomposition of the DIKW climb — *not coincidentally,* the canon's 3×4 uniform tiers are the same shape as DIKW's 3 transitions + 4 layers.
 
 **Status in lance-graph:** **NOT YET CORRECTED.**
 
-- `lance-graph/CLAUDE.md` line ~120 still reads: *"Magnitude = Contradiction depth from Staunen × Wisdom qualia."* Treats them as qualia archetypes; misses the integration-ladder axis framing.
-- The §11.5 *"high Staunen × Wisdom spreads plasticity to adjacent rows"* mechanism reads correctly only when those markers come from the integration-ladder lifecycle layer, not the qualia codebook.
+- `lance-graph/CLAUDE.md` line ~120 still reads: *"Magnitude = Contradiction depth from Staunen × Wisdom qualia."* Treats them as qualia archetypes; misses the DIKW-climb framing entirely.
+- The §11.5 *"high Staunen × Wisdom spreads plasticity to adjacent rows"* mechanism reads correctly only when those markers come from the climb-position lifecycle layer (derived from `plasticity_counter` + `last_active_cycle` + codebook hit-rate), not the qualia codebook.
 - No PR has landed to fix the framing.
 
-**Action:** flagged here as `TD-CLAUDE-MD-STAUNEN-MISNAME`; pending CLAUDE.md maintenance pass. Two specific edits:
-1. *"Magnitude = Contradiction depth from Staunen × Wisdom qualia"* → *"Magnitude = Contradiction depth from the Staunen↔Wisdom integration-ladder axis (signed plasticity-lifecycle marker, NOT a qualia archetype)."*
-2. §11.5 rephrasing of "Staunen × Wisdom" to clarify the markers are derivatives over `plasticity_counter` + `last_active_cycle` + classid-prefix codebook hit-rate, not qualia.
+**Action:** flagged here as `TD-CLAUDE-MD-STAUNEN-MISNAME`; pending CLAUDE.md maintenance pass. Three specific edits:
+
+1. *"Magnitude = Contradiction depth from Staunen × Wisdom qualia"* → *"Magnitude = Contradiction depth across the DIKW climb axis (Data → Information → Knowledge → Wisdom). Staunen marks pre-integration encounter at/below the Data rung; Wisdom marks the apex. Both are derived from `plasticity_counter` + `last_active_cycle` + codebook hit-rate, NOT qualia archetypes."*
+2. §11.5 rephrasing of "Staunen × Wisdom" → "DIKW-climb dynamics" or equivalent, with the substrate derivation made explicit.
+3. Add a short DIKW-anchor sub-section to "The Click" that names the canonical four-layer lineage + the three bridging operations (Processing / Cognition / Judgment) and maps them onto the cascade tiers (HEEL → Processing-class, HIP → Cognition-class, TWIG → Judgment-class) so the cascade's purpose is self-describing.
 
 Not in scope of this resolution doc (which is plan-side, not CLAUDE.md-side); flagged on the punchlist.
 
