@@ -255,9 +255,11 @@ impl EpisodicEdges64 {
     }
 
     // ── Little-endian byte contract (mirrors `causal-edge::CausalEdge64`) ──
-    // The frozen LE byte grammar every AriGraph consumer reads: surrealkv WAL, the
-    // baton wire (`CollapseGateEmission`), Lance columns. Canonical little-endian,
-    // platform-independent — changing the layout is a WAL/wire migration, never silent.
+    // The frozen LE byte grammar every AriGraph consumer reads: surrealkv WAL and
+    // Lance columns (the baton-wire consumer was retired with `CollapseGateEmission`
+    // per PR #477 — zero-copy in-place store, no inter-mailbox carrier). Canonical
+    // little-endian, platform-independent — changing the layout is a WAL migration,
+    // never silent.
 
     /// The raw packed `u64` (host value; serialize via [`to_le_bytes`](Self::to_le_bytes)).
     #[must_use]

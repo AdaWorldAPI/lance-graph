@@ -1,39 +1,47 @@
-//! MailboxSoA<N>: spatial-temporal accumulator for per-row baton receipts.
+//! MailboxSoA<N>: spatial-temporal accumulator for per-row edge receipts.
 //!
 //! Per plan §9 — mailboxes are NOT message queues. Each row is a
-//! single neuron with many incoming synapses; multi-source batons land
-//! via `apply_edges`; the row's energy integrates; when threshold crosses,
-//! the row emits via the receiving CollapseGate.
+//! single neuron with many incoming synapses; multi-source `CausalEdge64`
+//! deliveries land via `apply_edges`; the row's energy integrates; rows at or
+//! above `threshold` are "firing" (see `pending_count`) and are consumed by
+//! the owner during its phase advance.
 //!
 //! D-CSV-7 scope (sprint-11 Phase B): core types + W-slot referencing +
-//! per-row plasticity accumulator + apply_edges baton receipt. NO ractor
+//! per-row plasticity accumulator + apply_edges edge receipt. NO ractor
 //! wrap, NO AttentionMask/LRU, NO cross-cycle rollup — those are W6's
 //! orthogonal concerns / sprint-12 SigmaTierRouter integration.
 //!
-//! Migration target (design, NOT yet wired): this type is the per-mailbox,
-//! mailbox-owned, *ephemeral* "thoughtspace" — the BindSpace surrogate. The
-//! shared singleton `Arc<BindSpace>` dissolves *onto* mailboxes (each owns its
-//! own LE-contract SoA columns: edges/qualia/meta/entity_type — minus the
-//! deprecated `Vsa16kF32` plane), it is NOT copied per mailbox. The only
-//! cross-boundary state stays the LE baton `(u16, CausalEdge64)` (E-BATON-1);
-//! ownership makes no-alias/no-race a compile error (E-CE64-MB-4). Column map +
-//! gated steps: `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`.
+//! ## Zero-copy lifecycle (PR #477 three-tier model)
+//!
+//! This type is the per-mailbox, mailbox-owned Tier-1 SoA — the BindSpace
+//! surrogate. The shared singleton `Arc<BindSpace>` dissolves *onto*
+//! mailboxes (each owns its own LE-contract SoA columns:
+//! edges/qualia/meta/entity_type — minus the deprecated `Vsa16kF32` plane),
+//! it is NOT copied per mailbox. **There is no emission and no inter-mailbox
+//! handoff type** — the SoA is zero-copy from creation to Lance tombstone;
+//! Lance's columnar I/O writes LE bytes from this in-place store
+//! (`SoaEnvelope` describes the geometry). The former `emit()` /
+//! `CollapseGateEmission` path was removed per the ratified model
+//! (`docs/architecture/soa-three-tier-model.md`). Ownership makes
+//! no-alias/no-race a compile error (E-CE64-MB-4). Column map + gated steps:
+//! `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`.
 
 use causal_edge::CausalEdge64;
 use lance_graph_contract::cognitive_shader::MetaWord;
-use lance_graph_contract::collapse_gate::{CollapseGateEmission, MailboxId, MergeMode};
+use lance_graph_contract::collapse_gate::MailboxId;
 use lance_graph_contract::qualia::QualiaI4_16D;
 
-/// Spatial-temporal accumulator for per-row baton receipts.
+/// Spatial-temporal accumulator for per-row edge receipts.
 ///
 /// `N` is the maximum number of neuron rows this mailbox can serve.
-/// Each row accumulates `energy` from incoming `CausalEdge64` batons
-/// (via `apply_edges`) and emits when the magnitude crosses `threshold`.
+/// Each row accumulates `energy` from incoming `CausalEdge64` deliveries
+/// (via `apply_edges`); rows whose magnitude crosses `threshold` are
+/// "firing" and are consumed in place by the owner (no emission).
 ///
 /// # W-slot invariant
 ///
-/// All accepted batons must have `edge.w_slot() == self.w_slot`.
-/// Mismatched batons are silently dropped in `apply_edges`.
+/// All accepted edges must have `edge.w_slot() == self.w_slot`.
+/// Mismatched edges are silently dropped in `apply_edges`.
 /// `w_slot` must be < 64 (6-bit limit per plan §6 L-6); the constructor
 /// panics with a clear message if this is violated.
 ///
@@ -51,13 +59,16 @@ pub struct MailboxSoA<const N: usize> {
     pub energy: [f32; N],
 
     /// Per-row Hebbian integration counter (saturating u8 per W6 §4.4).
-    /// Incremented once per accepted baton, never decremented within a cycle.
+    /// Incremented once per accepted edge, never decremented within a cycle.
     pub plasticity_counter: [u8; N],
 
-    /// Per-row last-emission cycle stamp.
-    /// Guards the "never emit on the same cycle twice" invariant:
-    /// if `last_emission_cycle[row] == current_cycle`, emission is suppressed.
-    pub last_emission_cycle: [u32; N],
+    /// Per-row last-active cycle stamp (renamed from `last_emission_cycle`
+    /// per PR #477 — there is no emission; the stamp marks in-place
+    /// consumption). Guards the "never consume the same firing row twice in
+    /// one cycle" invariant: the owner stamps `last_active_cycle[row] =
+    /// current_cycle` when it consumes a firing row during phase advance;
+    /// rows already stamped this cycle are skipped.
+    pub last_active_cycle: [u32; N],
 
     // ── NEW: migrated thoughtspace columns (per-mailbox owned, D-MBX-A1) ──
 
@@ -86,12 +97,13 @@ pub struct MailboxSoA<const N: usize> {
     pub current_cycle: u32,
 
     /// 6-bit W-slot value this mailbox represents.
-    /// Incoming batons with `edge.w_slot() != self.w_slot` are rejected.
+    /// Incoming edges with `edge.w_slot() != self.w_slot` are rejected.
     /// Must be < 64 (plan §6 L-6).
     pub w_slot: u8,
 
-    /// Emission threshold (default 1.0; tunable).
-    /// A row emits when `energy[row].abs() >= threshold`.
+    /// Firing threshold (default 1.0; tunable).
+    /// A row is firing when `energy[row].abs() >= threshold`
+    /// (see [`Self::pending_count`]).
     pub threshold: f32,
 }
 
@@ -114,11 +126,11 @@ impl<const N: usize> MailboxSoA<N> {
             mailbox_id,
             energy: [0.0f32; N],
             plasticity_counter: [0u8; N],
-            // u32::MAX is the "never emitted" sentinel. current_cycle starts at 0
+            // u32::MAX is the "never consumed" sentinel. current_cycle starts at 0
             // and advances via wrapping_add(1); in practice it never reaches
-            // u32::MAX during a session, so the first emit on any cycle is always
-            // permitted (u32::MAX != any valid cycle stamp).
-            last_emission_cycle: [u32::MAX; N],
+            // u32::MAX during a session, so first consumption on any cycle is
+            // always permitted (u32::MAX != any valid cycle stamp).
+            last_active_cycle: [u32::MAX; N],
             current_cycle: 0,
             w_slot,
             threshold,
@@ -130,20 +142,20 @@ impl<const N: usize> MailboxSoA<N> {
         }
     }
 
-    /// Accept a batch of `(target_row, CausalEdge64)` batons.
+    /// Accept a batch of `(target_row, CausalEdge64)` deliveries.
     ///
-    /// For each baton:
+    /// For each delivery:
     /// - Rows out of `[0, N)` are silently dropped.
-    /// - Batons whose `edge.w_slot()` differs from `self.w_slot` are silently
+    /// - Edges whose `edge.w_slot()` differs from `self.w_slot` are silently
     ///   dropped (wrong corpus). Downstream telemetry can count rejections by
-    ///   comparing the return value against `batons.len()`.
-    /// - Accepted batons: `energy[row] += mantissa/8.0 * confidence`;
+    ///   comparing the return value against `deliveries.len()`.
+    /// - Accepted edges: `energy[row] += mantissa/8.0 * confidence`;
     ///   `plasticity_counter[row]` is incremented (saturating).
     ///
-    /// Returns the count of accepted (non-dropped) batons.
-    pub fn apply_edges(&mut self, batons: &[(u16, CausalEdge64)]) -> usize {
+    /// Returns the count of accepted (non-dropped) deliveries.
+    pub fn apply_edges(&mut self, deliveries: &[(u16, CausalEdge64)]) -> usize {
         let mut accepted = 0;
-        for &(target, edge) in batons {
+        for &(target, edge) in deliveries {
             let row = target as usize;
             if row >= N {
                 continue;
@@ -163,38 +175,30 @@ impl<const N: usize> MailboxSoA<N> {
         accepted
     }
 
-    /// Scan all rows and emit batons for those whose `|energy|` meets or
-    /// exceeds `threshold`, subject to the same-cycle idempotency guard.
+    /// Consume one firing row in place: stamp `last_active_cycle[row]` to the
+    /// current cycle and reset its energy, subject to the same-cycle
+    /// idempotency guard.
     ///
-    /// For each emitting row:
-    /// - A baton is appended to `emission` with `target = row`.
-    /// - The edge carries the clamped mantissa and the mailbox's `w_slot`.
-    /// - `last_emission_cycle[row]` is stamped to `current_cycle`.
-    /// - `energy[row]` is reset to `0.0` (single-shot per cycle).
+    /// This is the zero-copy successor of the removed `emit()` path (PR #477
+    /// three-tier model): nothing is packaged or transmitted — the owner
+    /// reads the row's columns in place (edge/qualia/meta/entity_type) and
+    /// then calls this to mark the row consumed for this cycle.
     ///
-    /// Rows that already emitted this cycle (`last_emission_cycle[row] == current_cycle`)
-    /// are skipped regardless of current energy.
-    pub fn emit(&mut self, source: MailboxId) -> CollapseGateEmission {
-        let mut emission =
-            CollapseGateEmission::new(source, self.current_cycle, MergeMode::Bundle);
-        for row in 0..N {
-            if self.energy[row].abs() < self.threshold {
-                continue;
-            }
-            if self.last_emission_cycle[row] == self.current_cycle {
-                continue; // already emitted this cycle
-            }
-            // Encode accumulated energy as a signed 4-bit mantissa (-8..+7).
-            let mantissa =
-                (self.energy[row].clamp(-1.0, 1.0) * 7.0).round() as i8;
-            let edge = CausalEdge64::ZERO
-                .with_inference_mantissa(mantissa)
-                .with_w_slot(self.w_slot);
-            emission.push_baton(row as u16, edge.0);
-            self.last_emission_cycle[row] = self.current_cycle;
-            self.energy[row] = 0.0; // reset on emission (single-shot per cycle)
+    /// Returns `true` if the row was consumed; `false` if the row is out of
+    /// range, below threshold, or already consumed this cycle.
+    pub fn consume_firing(&mut self, row: usize) -> bool {
+        if row >= N {
+            return false;
         }
-        emission
+        if self.energy[row].abs() < self.threshold {
+            return false;
+        }
+        if self.last_active_cycle[row] == self.current_cycle {
+            return false; // already consumed this cycle
+        }
+        self.last_active_cycle[row] = self.current_cycle;
+        self.energy[row] = 0.0; // reset on consumption (single-shot per cycle)
+        true
     }
 
     /// Advance to the next cycle.
@@ -207,7 +211,7 @@ impl<const N: usize> MailboxSoA<N> {
 
     /// Reset one row to its zero-initialised state.
     ///
-    /// Clears `energy`, `plasticity_counter`, and `last_emission_cycle`
+    /// Clears `energy`, `plasticity_counter`, and `last_active_cycle`
     /// for `row`. Out-of-range `row` values are silently ignored.
     /// Cross-cycle plasticity rollup is outside this scope (W6 §4.4 Zone 2).
     pub fn reset_row(&mut self, row: usize) {
@@ -216,9 +220,9 @@ impl<const N: usize> MailboxSoA<N> {
         }
         self.energy[row] = 0.0;
         self.plasticity_counter[row] = 0;
-        // Restore the "never emitted" sentinel so the row can emit immediately
+        // Restore the "never consumed" sentinel so the row can fire immediately
         // on the next cycle without triggering the same-cycle guard.
-        self.last_emission_cycle[row] = u32::MAX;
+        self.last_active_cycle[row] = u32::MAX;
         // ── NEW thoughtspace columns reset (D-MBX-A1) ──
         self.edges[row] = CausalEdge64::ZERO;
         self.qualia[row] = QualiaI4_16D::ZERO;
@@ -340,8 +344,8 @@ mod tests {
 
     /// New mailbox must have all per-row state initialised correctly.
     ///
-    /// energy and plasticity_counter are zero; last_emission_cycle is u32::MAX
-    /// (the "never emitted" sentinel so cycle 0 can emit without false guard).
+    /// energy and plasticity_counter are zero; last_active_cycle is u32::MAX
+    /// (the "never consumed" sentinel so cycle 0 can consume without false guard).
     #[test]
     fn test_mailbox_soa_new_zero() {
         let mb: MailboxSoA<8> = MailboxSoA::new(7, 5, 1.0);
@@ -357,9 +361,9 @@ mod tests {
                 "plasticity_counter[{row}] should be 0"
             );
             assert_eq!(
-                mb.last_emission_cycle[row],
+                mb.last_active_cycle[row],
                 u32::MAX,
-                "last_emission_cycle[{row}] should be u32::MAX (never-emitted sentinel)"
+                "last_active_cycle[{row}] should be u32::MAX (never-consumed sentinel)"
             );
         }
     }
@@ -439,83 +443,72 @@ mod tests {
         }
     }
 
-    // ── test 6: emit above threshold ────────────────────────────────────────
+    // ── test 6: consume firing row above threshold ────────────────────────────
 
-    /// A row above threshold must emit one baton; energy resets; cycle stamp set.
+    /// A row above threshold must be consumable in place: energy resets and
+    /// the cycle stamp is set. No emission object exists (PR #477).
     #[test]
-    fn test_mailbox_soa_emit_above_threshold() {
+    fn test_mailbox_soa_consume_firing_above_threshold() {
         let mut mb: MailboxSoA<8> = MailboxSoA::new(10, 1, 1.0);
         // Directly set energy[3] to 1.5 (above 1.0 threshold)
         mb.energy[3] = 1.5;
 
-        let emission = mb.emit(10);
-
-        assert_eq!(emission.baton_count(), 1, "should emit exactly 1 baton");
-        let batons = emission.batons();
-        assert_eq!(batons[0].0, 3u16, "baton target must be row 3");
-        // mantissa = (1.5.clamp(-1,1) * 7.0).round() as i8 = (7.0).round() = 7
-        let emitted_edge = CausalEdge64(batons[0].1);
-        assert_ne!(
-            emitted_edge.inference_mantissa(),
-            0,
-            "emitted edge mantissa must be non-zero"
-        );
-        assert_eq!(mb.energy_at(3), 0.0, "energy[3] must reset to 0 after emit");
+        assert_eq!(mb.pending_count(), 1, "exactly one row should be firing");
+        assert!(mb.consume_firing(3), "firing row must be consumable");
         assert_eq!(
-            mb.last_emission_cycle[3],
+            mb.energy_at(3),
+            0.0,
+            "energy[3] must reset to 0 after consumption"
+        );
+        assert_eq!(
+            mb.last_active_cycle[3],
             mb.current_cycle,
-            "last_emission_cycle[3] must equal current_cycle"
+            "last_active_cycle[3] must equal current_cycle"
         );
     }
 
-    // ── test 7: emit below threshold — no baton ──────────────────────────────
+    // ── test 7: below threshold — not consumable ─────────────────────────────
 
-    /// Row energy below threshold must NOT produce a baton.
+    /// Row energy below threshold must NOT be consumable.
     #[test]
-    fn test_mailbox_soa_emit_below_threshold_no_baton() {
+    fn test_mailbox_soa_consume_below_threshold_rejected() {
         let mut mb: MailboxSoA<8> = MailboxSoA::new(5, 2, 1.0);
         mb.energy[3] = 0.5; // below 1.0 threshold
 
-        let emission = mb.emit(5);
-
-        assert_eq!(emission.baton_count(), 0, "below-threshold row must not emit");
+        assert!(!mb.consume_firing(3), "below-threshold row must not consume");
         assert_eq!(mb.energy_at(3), 0.5, "energy[3] must be unchanged");
     }
 
-    // ── test 8: double emit same cycle is idempotent ─────────────────────────
+    // ── test 8: double consume same cycle is idempotent ──────────────────────
 
-    /// Second emit() on the same cycle (no tick) must produce 0 batons for
-    /// rows that already emitted.
+    /// Second consume_firing() on the same cycle (no tick) must be blocked
+    /// for rows already consumed, even if energy re-accumulated.
     #[test]
-    fn test_mailbox_soa_emit_double_call_same_cycle_idempotent() {
+    fn test_mailbox_soa_consume_double_call_same_cycle_idempotent() {
         let mut mb: MailboxSoA<8> = MailboxSoA::new(7, 0, 1.0);
         mb.energy[1] = 2.0;
 
-        let first = mb.emit(7);
-        assert_eq!(first.baton_count(), 1, "first emit must produce 1 baton");
+        assert!(mb.consume_firing(1), "first consume must succeed");
 
         // Re-accumulate energy so energy[1] is above threshold again —
-        // but last_emission_cycle guard must block re-emission.
+        // but the last_active_cycle guard must block re-consumption.
         mb.energy[1] = 2.0;
-        let second = mb.emit(7);
-        assert_eq!(
-            second.baton_count(),
-            0,
-            "second emit same cycle must be blocked by last_emission_cycle guard"
+        assert!(
+            !mb.consume_firing(1),
+            "second consume same cycle must be blocked by last_active_cycle guard"
         );
     }
 
-    // ── test 9: tick then re-accumulate then emit ────────────────────────────
+    // ── test 9: tick then re-accumulate then consume ──────────────────────────
 
-    /// After tick(), a row can re-emit in the new cycle.
+    /// After tick(), a row can be consumed again in the new cycle.
     #[test]
-    fn test_mailbox_soa_tick_then_emit_after_re_accumulation() {
+    fn test_mailbox_soa_tick_then_consume_after_re_accumulation() {
         let mut mb: MailboxSoA<8> = MailboxSoA::new(3, 1, 1.0);
         mb.energy[4] = 1.5;
 
-        // First emission
-        let first = mb.emit(3);
-        assert_eq!(first.baton_count(), 1);
+        // First consumption
+        assert!(mb.consume_firing(4));
         assert_eq!(mb.energy_at(4), 0.0);
 
         // Advance cycle
@@ -523,18 +516,26 @@ mod tests {
 
         // Re-accumulate enough energy
         let edge = make_edge(1, 7, 255); // w_slot=1 matches mb.w_slot=1
-        let batons = vec![(4u16, edge)];
-        mb.apply_edges(&batons);
+        let deliveries = vec![(4u16, edge)];
+        mb.apply_edges(&deliveries);
         // energy[4] = (7/8.0) * (255/255.0) ≈ 0.875 — below 1.0 threshold.
         // Let's set it directly to be safe.
         mb.energy[4] = 1.2;
 
-        // Second emission must succeed in the new cycle
-        let second = mb.emit(3);
-        assert_eq!(
-            second.baton_count(),
-            1,
-            "after tick, row 4 must be able to emit again"
+        // Second consumption must succeed in the new cycle
+        assert!(
+            mb.consume_firing(4),
+            "after tick, row 4 must be consumable again"
         );
+    }
+
+    // ── test 10: out-of-range row not consumable ──────────────────────────────
+
+    /// consume_firing on a row >= N must return false and not panic.
+    #[test]
+    fn test_mailbox_soa_consume_out_of_range_rejected() {
+        let mut mb: MailboxSoA<8> = MailboxSoA::new(1, 0, 1.0);
+        assert!(!mb.consume_firing(8), "row == N must be rejected");
+        assert!(!mb.consume_firing(100), "row > N must be rejected");
     }
 }

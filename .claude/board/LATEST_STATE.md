@@ -131,7 +131,7 @@ Types live in `crates/cognitive-shader-driver/src/wire.rs` behind `--features se
 
 **Sprint-11/12 D-CSV substrate types (2026-05-16, PRs #383-#389)**:
 - `lance-graph-contract::qualia`: `QualiaI4_16D` (16-dim signed-i4, 9× compression vs `[f32; 18]`), `QualiaI4Column` (sibling SoA column in cognitive-shader-driver).
-- `lance-graph-contract::collapse_gate`: `CollapseGateEmission` (Vec-of-`(u16 target, CausalEdge64)` wire format; zero-dep — SmallVec optimization deferred as TD-COLLAPSE-GATE-SMALLVEC-1).
+- `lance-graph-contract::collapse_gate`: ~~`CollapseGateEmission`~~ **REMOVED 2026-06-11** (PR #477 three-tier model tombstone commit — zero-copy SoA, no inter-mailbox handoff type; TD-COLLAPSE-GATE-SMALLVEC-1 closed as moot). `MailboxId` / `MergeMode` / `GateDecision` remain.
 - `lance-graph-contract::mailbox` / `attention_mask`: `MailboxId` (canonical id type), `MailboxSoA<N>` (SoA mailbox with W-slot + plasticity accumulator + `apply_edges`), `AttentionMaskSoA`, `AttentionMaskActor`, `AttentionMaskBackend` trait.
 - `lance-graph-contract::sigma_tier`: `SigmaTierBands`, `SigmaTierRouter` (Rubicon-resonance ΔF + threshold dispatch), `DispatchOutcome`, `RestReason` (Σ-tier crate surface).
 - `lance-graph-contract::witness`: `WitnessCorpus` (CAM-PQ-indexed; D-CSV-6a partial in PR #386, full 6b sprint-12), `WitnessEntry`, `WitnessId`, `WitnessIndexHashMap` (anchor + chain invariant).
@@ -212,7 +212,7 @@ Types live in `crates/cognitive-shader-driver/src/wire.rs` behind `--features se
 
 **Sprint-12/13 explicit deferrals (2026-05-16):**
 
-- **TD-COLLAPSE-GATE-SMALLVEC-1** — SmallVec optimization for `CollapseGateEmission` (currently Vec to preserve contract zero-dep invariant). Revisit only if profiling shows the heap allocation is hot.
+- **TD-COLLAPSE-GATE-SMALLVEC-1** — CLOSED 2026-06-11 as moot: `CollapseGateEmission` removed entirely (PR #477 tombstone commit), nothing left to optimize.
 - **TD-SIGMA-TIER-THRESHOLDS-1** — Σ10 VAMPE-coupled Jirak-derived threshold refinement (D-CSV-15). Hand-tuned acceptable through sprint-12 per `I-NOISE-FLOOR-JIRAK`; principled Jirak 2016 derivation forwarded to sprint-13+ VAMPE coupled-revival track.
 - **ndarray `parallel`-feature `par_*` rayon variants** — productized substrate ships sequentially in PR #147; rayon work-stealing wraps deferred to sprint-14+ behind an opt-in feature gate.
 

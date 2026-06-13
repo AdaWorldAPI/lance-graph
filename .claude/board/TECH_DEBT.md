@@ -936,6 +936,8 @@ Cross-ref: `docs/TYPE_DUPLICATION_MAP.md`; `crates/lance-graph-contract/src/mul.
 
 ## 2026-05-16 — TD-COLLAPSE-GATE-SMALLVEC-1: `CollapseGateEmission` uses `Vec` instead of `SmallVec`; zero-dep constraint was the tradeoff
 
+**Status: CLOSED 2026-06-11 (moot)** — `CollapseGateEmission` was removed entirely per the PR #477 three-tier model (zero-copy SoA, no inter-mailbox handoff type; tombstone commit). No carrier, no Vec, nothing to optimize.
+
 **Status:** Open
 **Priority:** P3
 **Scope:** crate:lance-graph-contract domain:perf

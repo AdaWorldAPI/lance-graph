@@ -60,6 +60,20 @@ VSA carrier).
 > emissions + AriGraph SPO-G quads + BindSpace SoA columns. The bundle MATH
 > here (§I-SUBSTRATE-MARKOV Chapman-Kolmogorov, §I-VSA-IDENTITIES) is
 > **untouched** — only the cross-boundary carrier is scoped out.
+>
+> **2026-06-11 supersession (PR #477 three-tier model + tombstone commit):**
+> the Baton/emission framing above is itself now SUPERSEDED. There is **no
+> inter-mailbox handoff type at all** — `CollapseGateEmission`,
+> `MailboxSoA::emit()`, and `wire_cost_bytes() = 13 + 10·baton_count` were
+> removed from source (the tombstone commit). The ratified invariant: every
+> SoA envelope is **zero-copy from creation to Lance tombstone**; Lance's own
+> columnar I/O writes LE bytes from the in-place backing store described by
+> `SoaEnvelope`; nothing is serialized or transmitted between mailboxes.
+> `last_emission_cycle` was renamed `last_active_cycle` (in-place consumption
+> stamp). Canonical reference: `docs/architecture/soa-three-tier-model.md`.
+> What survives from this block: Vsa16kF32-never-crosses-boundaries, the
+> mailbox-as-owner compile-time safety argument (E-CE64-MB-4), and the bundle
+> math — all untouched.
 
 ```
   Sentence → FSM → RoleKey_fp × content_fp   → vsa_bundle (Σ) with ρ^d braiding
