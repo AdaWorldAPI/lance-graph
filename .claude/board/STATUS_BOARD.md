@@ -1,6 +1,6 @@
-## surrealdb-kv-lance-hardening-v1 — VIEW-path durability for the polyglot SurrealQL surface (8 deliverables; LanceDB-leads ruling kept; pinned to lance =7.0.0 / lancedb =0.30.0)
+## surrealdb-kv-lance-hardening-v1 — kv-lance hardening for the SurrealQL consumer surface (8 deliverables; pinned to lance =7.0.0 / lancedb =0.30.0)
 
-Plan path: `.claude/plans/surrealdb-kv-lance-hardening-v1.md`. Companions: `polyglot-container-query-membrane-v1` (D-PG-6 surreal_container unblock = our D-KVL-7), `bindspace-singleton-to-mailbox-soa-v1` (§7 two-egress-mode rule), the `.claude/surreal/` POC corpus (partially superseded per RECONCILIATION). Proposed debt anchor: `TD-KVLANCE-LWW-RELIC` (Gap #2 → D-KVL-2). Proposed epiphany: `E-KVLANCE-VIEW-NOT-WRITER` (D-KVL-8 — extends #487's `E-OUTER-BOUNDARY-IS-ORM-1` over the four-tier map).
+Plan path: `.claude/plans/surrealdb-kv-lance-hardening-v1.md`. Companions: `polyglot-container-query-membrane-v1` (D-PG-6 surreal_container unblock = our D-KVL-7), `bindspace-singleton-to-mailbox-soa-v1`, the `.claude/surreal/` POC corpus (see RECONCILIATION). Proposed debt anchor: `TD-KVLANCE-LWW-RELIC` (Gap #2 → D-KVL-2). No new EPIPHANIES.
 
 | D-id | Title | Crate(s) / repo | Risk | Status | PR / Evidence |
 |---|---|---|---|---|---|
@@ -10,8 +10,8 @@ Plan path: `.claude/plans/surrealdb-kv-lance-hardening-v1.md`. Companions: `poly
 | D-KVL-4 | Crash-recovery suite (consumer-side) — WAL-fsync / memtable-flush / Lance-commit / Lance-GC kill phases | `surreal_container` tests + lance-graph integration | MED | **Queued** | depends on D-KVL-3 WAL format |
 | D-KVL-5 | 1-hour multi-writer + multi-reader soak; failure budget < 0.01 % | `surreal_container` tests | MED | **Queued** | parallel after D-KVL-2/3 |
 | D-KVL-6 | Schema-evolution boundary under lance =7.0.0 pin; doc + boundary tests | `surreal_container` + docs | LOW | **Queued** | parallel after D-KVL-2/3 |
-| D-KVL-7 | surreal_container unblock (= polyglot D-PG-6); minimal kanban VIEW smoke test against Tier-A direct-Lance writer | `crates/surreal_container/{Cargo.toml,src/lib.rs}` | LOW-MED | **Queued** | last; off critical path per polyglot D-PG-6 |
-| D-KVL-8 | Doctrine record: EPIPHANIES `E-KVLANCE-VIEW-NOT-WRITER` + TECH_DEBT `TD-KVLANCE-LWW-RELIC` + INTEGRATION_PLANS / STATUS_BOARD prepends | `.claude/board` + `.claude/EPIPHANIES.md` | LOW | **In progress** | this commit (INTEGRATION_PLANS + STATUS_BOARD entries land here; EPIPHANIES + TECH_DEBT pending user-review of wording) |
+| D-KVL-7 | surreal_container unblock (= polyglot D-PG-6); minimal kanban VIEW smoke test against the lance-graph direct writer | `crates/surreal_container/{Cargo.toml,src/lib.rs}` | LOW-MED | **Queued** | last; off critical path per polyglot D-PG-6 |
+| D-KVL-8 | Board hygiene: TECH_DEBT `TD-KVLANCE-LWW-RELIC` (Gap #2 → D-KVL-2) + INTEGRATION_PLANS + STATUS_BOARD entries | `.claude/board` | LOW | **In progress** | INTEGRATION_PLANS + STATUS_BOARD land this commit; TECH_DEBT pending user-review of wording |
 
 ---
 

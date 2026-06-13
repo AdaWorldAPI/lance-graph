@@ -2,15 +2,8 @@
 
 > **Status:** PROPOSAL (2026-06-13). Branch: `claude/kv-lance-hardening-plan-v1`.
 >
-> **Scope clarification up front:** this is hardening for the **VIEW** path, not
-> the writer. The 2026-05-28 ruling (handover §2, `E-RUBICON-RACTOR`) and the
-> 2026-06-09 `polyglot-container-query-membrane-v1` plan both pin:
-> **LanceDB leads as the in-binary production durability store; SurrealDB is a
-> view/dialect**. Production cognitive-state commits go via lance-graph direct,
-> not through the SurrealQL hop. This plan hardens the **kv-lance backend** so
-> the view path is production-grade for external/SurrealQL surfaces — and
-> deliberately refuses to chase lance/lancedb capabilities past the
-> `lance =7.0.0` / `lancedb =0.30.0` surface we already validate against.
+> **Scope:** kv-lance hardening for the SurrealQL consumer surface, pinned to
+> `lance =7.0.0` / `lancedb =0.30.0`. See §2 for canonical references.
 
 ## 1. Why this plan exists
 
@@ -34,25 +27,19 @@ Two findings from the inventory motivate it:
      (`schema.rs build_write_batch.collect()`). Honest term + a path to actual
      zero-serialization with raw `#[repr(C)]`-LE + checksum.
 
-## 2. Where kv-lance fits — the four-tier write/commit map
+## 2. Scope
 
-This plan supersedes my own earlier two-tier framing of the conversation
-(Lance-only vs SurrealDB-on-RocksDB as peers). The corrected mapping is
-**four tiers**, scoped by use case:
+kv-lance hardening for the SurrealQL consumer surface. Substrate, in-binary
+surrealdb mechanics, LanceDB-leads ruling, kv-lance current status — all
+canonical:
 
-| Tier | Use case | Commit path | Status |
-|---|---|---|---|
-| **A** — In-binary production cognitive-state | hot path, same process | **lance-graph direct** (SoaEnvelope → Lance writers, this is what #487's ORM doctrine actually targets) | shipping per `witness_tombstone.rs` scaffold + lance-graph direct paths |
-| **B-view** — External / multi-tenant / SurrealQL surface | view + dialect over leading Lance dataset | **SurrealDB on `kv-lance`** (hardened per **this plan**) | partial — 18/19 + 6 k tests internal; hardening below |
-| **B-HA** — Distributed scale-out / Raft | HA cluster | **SurrealDB on `kv-tikv`** (Raft + RocksDB) | available; separate plan when HA enters scope |
-| **B-fallback** — Operational-guarantees fallback | if kv-lance hardening hits an irreducible blocker | **SurrealDB on `kv-rocksdb`** (production-tested SurrealDB-native) | always available |
+- `.claude/handovers/2026-05-28-1200-pr-418-419-surreal-mailbox-baton-plan-map.md` §2
+- `.claude/plans/polyglot-container-query-membrane-v1.md` (esp. §2.2, D-PG-6)
+- `.claude/surreal/cognitive-substrate.md` (Gap #2 LWW relic; serialisation note)
 
-**Key invariant:** Tier A is the writer. Tier B is the view. They share the
-underlying Lance dataset format (same `SoaEnvelope` geometry, same column
-layout); the SurrealDB layer reads through the same Lance versions Tier A
-writes. The "different carrier on purpose for clean separation" intent
-articulated in `bindspace-singleton-to-mailbox-soa-v1.md` §7 is preserved by
-the *tier scoping*, not by re-routing the production writer through SurrealDB.
+This plan addresses the named gaps from `cognitive-substrate.md` plus
+consumer-side test coverage for kv-lance under the `lance =7.0.0` /
+`lancedb =0.30.0` pin.
 
 ## 3. Deliverables
 
@@ -144,36 +131,18 @@ coordinates + `kv-lance` feature flag, wire a minimal kanban-view smoke test.
 
 **Acceptance:** `surreal_container` compiles against the pinned versions;
 smoke test opens a SurrealStore over an existing Lance dataset and reads back
-a row written by the Tier-A direct-Lance path. *This is the integration test
-that proves the Tier-A writer ↔ Tier-B view contract holds.*
+a row written by the lance-graph direct writer.
 
-### D-KVL-8 — Doctrine record: tier-scoped ORM, kv-lance is the view [boards, P0]
+### D-KVL-8 — Board hygiene [boards]
 
-Per `Mandatory Board-Hygiene Rule`, prepend:
+Per Mandatory Board-Hygiene Rule:
 
-- **`EPIPHANIES.md`** new entry `E-KVLANCE-VIEW-NOT-WRITER` (proposed name):
-
-  > Outer boundary is ORM. Schema = OGAR. Storage choice is tier-scoped:
-  > Tier A in-binary cognitive-state commit = lance-graph direct;
-  > Tier B-view external/SurrealQL surface = SurrealDB on kv-lance
-  > (hardened per `surrealdb-kv-lance-hardening-v1`, pinned to lance =7.0.0 /
-  > lancedb =0.30.0); Tier B-HA = SurrealDB on kv-tikv; Tier B-fallback =
-  > SurrealDB on kv-rocksdb. The #487 ORM doctrine
-  > (`E-OUTER-BOUNDARY-IS-ORM-1`) is scoped to Tier A; this entry extends it
-  > over the full tier map. Hand-rolled SoA→Lance is fine **as the Tier-A
-  > writer** because it is in-process and we control the version surface; it
-  > is **not** a substitute for a real database at any external surface, where
-  > a production-tested SurrealDB-native backend (kv-rocksdb / kv-tikv /
-  > hardened kv-lance) carries the durability guarantees.
-
-- **`TECH_DEBT.md`** new debt entry pointing Gap #2 (`flusher.rs:251` LWW
-  relic) → D-KVL-2 as the paid-by deliverable.
+- **`TECH_DEBT.md`** new entry `TD-KVLANCE-LWW-RELIC` pointing Gap #2
+  (`flusher.rs:251` LWW relic) → D-KVL-2 as paid-by deliverable.
 - **`INTEGRATION_PLANS.md`** prepend entry pointing here (this commit).
-- **`STATUS_BOARD.md`** D-KVL-{1..8} rows.
+- **`STATUS_BOARD.md`** D-KVL-{1..8} rows (this commit).
 
-**Acceptance:** four board files updated in the same commit as this plan (per
-Board-Hygiene Rule). The EPIPHANIES wording lands only after user review of
-the exact phrasing (the rest of the entries are mechanical).
+**Acceptance:** three board files updated in the same commit as this plan.
 
 ## 4. Out of scope
 
@@ -210,7 +179,7 @@ the exact phrasing (the rest of the entries are mechanical).
 - **R3.** Lance 7.0.0 schema-evolution surface (D-KVL-6) may be more limited
   than expected. *Mitigation:* discovery phase before D-KVL-6 implementation;
   doc the actual surface, then test at the boundary.
-- **R4.** A future external Tier-B-view consumer might want write access (not
+- **R4.** A future external SurrealQL consumer might want write access (not
   only read). *Mitigation:* D-KVL-2 option (b) keeps the superposition merge
   available; the partitioning proof option (a) does NOT, so prefer (b) unless
   partitioning is provably hard.
@@ -232,4 +201,4 @@ the exact phrasing (the rest of the entries are mechanical).
 - `crates/surreal_container/{Cargo.toml,src/lib.rs}` (BLOCKED markers; stale
   per polyglot §2.3, refreshed by D-KVL-7)
 - PR #477 (three-tier model, merged 2026-06-07) and PR #487 (tombstone
-  commit, open) — establish `E-OUTER-BOUNDARY-IS-ORM-1` that D-KVL-8 extends.
+  commit, open).
