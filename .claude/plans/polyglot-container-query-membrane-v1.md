@@ -1,5 +1,7 @@
 # Polyglot Container Query Membrane — SurrealQL AST + DataFusion UDF + Cypher over one HHTL address space (v1)
 
+> **ERRATA (2026-06-13, post-#490):** Ratified as **research-only / superseded in spirit**. The "membrane / strategy-registry" framing was superseded in discussion by the self-describing-key convergence (class-in-key makes the cold path already a graph; no membrane needed) and by the GUID-canon PR #482 that crystallised the operator's canon. The verified file:line surface of lance-graph + the surrealdb fork's AST/RecordId/kv-lance remains useful as a grounded inventory but is not a committed direction. Full diff resolution: `soa-migration-diff-resolution-2026-06-13.md`.
+
 > **Status:** RESEARCH MAP + INTEGRATION PLAN. Grounded 2026-06-09 by two parallel
 > repo sweeps (lance-graph + the surrealdb fork) with main-thread spot-verification
 > of every load-bearing claim (one agent claim caught false and corrected, §2.4).
