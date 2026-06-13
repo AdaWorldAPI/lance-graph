@@ -136,20 +136,52 @@ Per bardioc handover §9 zero-copy audit, "bytes don't translate at any boundary
 
 The KM Cognitive Pyramid variant adds rung-specific markers (PIRs at Knowledge, CCIRs at Wisdom, EEI/EEFI at Information) and two orthogonal axes that run *along* the climb: **Reactionary↑Anticipatory** (decision behaviour — Data-level reactions are reactionary, Wisdom-level decisions are anticipatory) and **high↓low decision risk** (raw data drives risky decisions, wisdom drives safer ones). Extensions above Wisdom — `Self-Actualization → Universal Knowledge → Transcendence` (8-rung extended) or `Shared Understanding` (KM variant) — are post-DIKW; classical DIKW tops out at Wisdom.
 
-**Where `Staunen` and `Wisdom` actually sit:**
+**The substrate markers (operator framing, 2026-06-13):**
 
-- **Wisdom IS a DIKW rung** — the canonical apex of the four-layer pyramid. Not a marker on a horizontal axis. Anticipatory; Know Why; low decision risk; the result of Judgment applied to Knowledge.
-- **Staunen is not a DIKW rung** — it's the *phenomenological encounter* at or below the Data layer, where stimulus overflows current frameworks and Processing hasn't yet integrated it. Reactionary; Know What (or not yet); high decision risk; pre-integration wonder.
+| State | Entropy | Energy | The marker signals |
+|---|---|---|---|
+| **Staunen** | high | low | *"needs entropy work"* — cognitive pressure, an insight is emerging but not yet crystallised. The substrate detects raw stimulus that hasn't yet been integrated and flags the work still owed. |
+| **Wisdom** | low | high | *"crystalline knowledge"* — plasticity has saturated, supporting insights are locked in, the substrate has invested heavily and that investment is integrated and stable. |
 
-So `Staunen` and `Wisdom` are **vertical endpoints of the DIKW climb axis** — the climb itself IS the discipline↔entropy gradient. Up the climb: discipline accumulates, entropy decreases. Down the climb: stimulus arrives, entropy is high, discipline is yet-to-accumulate. They are *not* two qualia archetypes (which is what `lance-graph/CLAUDE.md` line ~120 currently treats them as) and not horizontal opposites of one axis (which is how my prior framing of this section read).
+Staunen and Wisdom are **diagonal opposites on the entropy × energy plane** — two complementary dimensions, not a single axis. The DIKW climb is the trajectory `(high entropy, low energy) → (low entropy, high energy)`:
+
+```
+                  high energy
+                       │
+   Confusion / Chaos   │   Wisdom (crystalline)
+   (the in-progress    │   the integrated apex
+    climb state)       │
+   ───────────────────┼───────────────────
+   Staunen            │   Boredom / Inert
+   (cognitive         │   (ordered but
+    pressure)         │    not energised)
+                       │
+                  low energy
+
+   high entropy   ←──────────→   low entropy
+```
+
+So:
+- **Wisdom IS a DIKW rung** (the canonical apex of the four-layer pyramid) AND a substrate marker (low entropy × high energy). Both readings are correct — the rung is where Wisdom-marked firings cluster.
+- **Staunen is not a DIKW rung** — it's the substrate marker (high entropy × low energy) for firings at or below Data, where stimulus overflows current frameworks and Processing hasn't yet been done. The phenomenological "wonder" *is* this marker.
+- They are *not* two qualia archetypes (which is what `lance-graph/CLAUDE.md` line ~120 currently treats them as) and *not* two ends of one axis. They are diagonal corners of the entropy × energy plane; the DIKW climb traverses the plane from the Staunen corner to the Wisdom corner.
 
 **Substrate mapping** (the canon-aligned implementation):
 
-- The DIKW climb counter IS `plasticity_counter: [u8; N]` on `MailboxSoA<N>` (saturating u8 per W6 §4.4, incremented on every accepted edge). High saturation = rehearsed climb = Wisdom-positioned firings. Low saturation + recent `last_active_cycle` recency = encounter without rehearsal = Staunen-positioned firings.
-- Staunen and Wisdom are **derivatives** over `plasticity_counter` + `last_active_cycle` + classid-prefix-resolved codebook hit-rate, never their own column. The substrate computes them on demand from the lifecycle columns it already owns.
-- They are **orthogonal** to the qualia codebook (which names the *archetype* the firing snaps to — what the affective state IS, independent of where the firing sits on the DIKW climb). A Wisdom-positioned firing can have any qualia archetype; a Staunen-positioned firing can too. The two layers correlate only in the special case of genuinely-novel input (Staunen + codebook trie-miss tend to co-occur), but neither implies the other.
+The two markers map cleanly onto columns the substrate already owns:
 
-**Bipolar / two-algebra connection:** the canon's **TWO-ALGEBRA RULE** — *"sign = XOR (`vsa_bind`); magnitude = `vsa_bundle`, NEVER raw-XOR-on-magnitudes"* (OGAR/CLAUDE.md P0) — applies to the climb axis. The DIKW climb direction (up = Judgment composing Knowledge into Wisdom; down = Processing decomposing Information back to Data) is the **signed** side (one bit per rung-transition, XOR-composed across rungs to give the cumulative direction of the climb step). The *intensity* of the firing at any given rung is the magnitude side (`vsa_bundle`, Markov-respecting). The Walsh-Hadamard cascade pyramid on the address tree IS the substrate that carries this — top-gaussian preserved rung-to-rung per Parseval, anti-moiré via the helix `CurveRuler` stride-4-over-17 walk.
+| Marker dimension | Substrate column | Sign convention |
+|---|---|---|
+| **Energy** | `MailboxSoA.energy: [f32; N]` (the spatio-temporal accumulator) | high `|energy[row]|` = high energy; near-zero = low energy |
+| **Plasticity / accumulated investment** | `MailboxSoA.plasticity_counter: [u8; N]` (saturating Hebbian counter) | high saturation = long-term investment locked in = supporting Wisdom; low + cold `last_active_cycle` = no investment yet = Staunen side |
+| **Entropy proxy** | classid-prefix-resolved codebook hit-rate over a window + local edge-neighbourhood density (derived from the `edges: [CausalEdge64; N]` column) | high miss-rate + sparse neighbourhood = high entropy = Staunen-side; low miss-rate + dense neighbourhood = low entropy = Wisdom-side |
+
+- **Staunen marker fires** when: high entropy proxy AND low `energy[row]` AND low `plasticity_counter[row]`. The substrate is detecting incoming cognitive pressure with no investment yet.
+- **Wisdom marker fires** when: low entropy proxy AND high `energy[row]` AND high `plasticity_counter[row]`. The substrate is detecting integrated, well-supported, energetically-maintained knowledge.
+
+Both markers are **derivatives** over the SoA's lifecycle columns; neither is its own column. The substrate computes them on demand. They are **orthogonal** to the qualia codebook (which names the *archetype* the firing snaps to — what the affective state IS, independent of where on the DIKW climb the firing sits). A Wisdom-marked firing can have any qualia archetype; a Staunen-marked firing can too. The layers correlate on genuinely-novel input (Staunen + codebook trie-miss tend to co-occur, because trie-miss IS one of the high-entropy proxy signals) but neither implies the other.
+
+**Bipolar / two-algebra connection:** the canon's **TWO-ALGEBRA RULE** — *"sign = XOR (`vsa_bind`); magnitude = `vsa_bundle`, NEVER raw-XOR-on-magnitudes"* (OGAR/CLAUDE.md P0) — maps cleanly onto the entropy × energy plane. The **entropy axis is the signed side** (Staunen → Wisdom is the direction of entropy-reducing work; one bit per rung-transition, XOR-composed across rungs via `vsa_bind` to give the cumulative direction of the climb). The **energy axis is the magnitude side** (`vsa_bundle`, Markov-respecting — energy bundles in place, never raw-XORs across boundaries). The Walsh-Hadamard cascade pyramid on the address tree IS the substrate that carries this — top-gaussian preserved rung-to-rung per Parseval, anti-moiré via the helix `CurveRuler` stride-4-over-17 walk. The **Confusion / Chaos** quadrant (high entropy × high energy) is the *in-progress* climb state: the substrate has invested energy but the entropy hasn't yet collapsed into Wisdom — analogous to the WH cascade mid-traversal before Parseval-preservation locks the top-gaussian in.
 
 **Cascade-tier connection:** the canon's three tiers (HEEL · HIP · TWIG, each u16 = 4 nibbles = 4 climb steps) match the three DIKW transitions (Processing / Cognition / Judgment). The classid prefix (8 hex = 32 bits) carries the codebook scope; the HEEL/HIP/TWIG tiers carry the rung-position; family/identity carry the basin-local content. This is a clean substrate decomposition of the DIKW climb — *not coincidentally,* the canon's 3×4 uniform tiers are the same shape as DIKW's 3 transitions + 4 layers.
 
@@ -161,9 +193,9 @@ So `Staunen` and `Wisdom` are **vertical endpoints of the DIKW climb axis** — 
 
 **Action:** flagged here as `TD-CLAUDE-MD-STAUNEN-MISNAME`; pending CLAUDE.md maintenance pass. Three specific edits:
 
-1. *"Magnitude = Contradiction depth from Staunen × Wisdom qualia"* → *"Magnitude = Contradiction depth across the DIKW climb axis (Data → Information → Knowledge → Wisdom). Staunen marks pre-integration encounter at/below the Data rung; Wisdom marks the apex. Both are derived from `plasticity_counter` + `last_active_cycle` + codebook hit-rate, NOT qualia archetypes."*
-2. §11.5 rephrasing of "Staunen × Wisdom" → "DIKW-climb dynamics" or equivalent, with the substrate derivation made explicit.
-3. Add a short DIKW-anchor sub-section to "The Click" that names the canonical four-layer lineage + the three bridging operations (Processing / Cognition / Judgment) and maps them onto the cascade tiers (HEEL → Processing-class, HIP → Cognition-class, TWIG → Judgment-class) so the cascade's purpose is self-describing.
+1. *"Magnitude = Contradiction depth from Staunen × Wisdom qualia"* → *"Magnitude = Contradiction depth across the entropy × energy substrate-state plane (Staunen = high entropy × low energy = cognitive pressure / emerging insight; Wisdom = low entropy × high energy = crystalline knowledge with supporting plasticity). Both are derivatives over `MailboxSoA.energy` + `plasticity_counter` + `last_active_cycle` + classid-prefix codebook hit-rate, NOT qualia archetypes."*
+2. §11.5 rephrasing of "Staunen × Wisdom" → "entropy×energy substrate-state markers" or equivalent, with the column-derivation table made explicit.
+3. Add a short DIKW-anchor sub-section to "The Click" that names the canonical four-layer lineage + the three bridging operations (Processing / Cognition / Judgment) and maps them onto the cascade tiers (HEEL → Processing-class, HIP → Cognition-class, TWIG → Judgment-class) so the cascade's purpose is self-describing. Include the entropy×energy quadrant diagram so the Confusion / Chaos quadrant (in-progress climb) is named explicitly alongside Staunen and Wisdom.
 
 Not in scope of this resolution doc (which is plan-side, not CLAUDE.md-side); flagged on the punchlist.
 
