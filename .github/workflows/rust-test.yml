@@ -56,7 +56,7 @@ jobs:
         # Heavy lance+datafusion integration-test binaries OOM the default GNU `ld`
         # at the `cargo test --no-run` link step (intermittent). mold links them
         # fast + low-memory (already used by release.yml / rust-publish.yml).
-        uses: rui314/setup-mold@v1
+        uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "lance-graph-deps"
@@ -141,7 +141,7 @@ jobs:
         # the OOM is MORE likely here than in the plain `test` job that already
         # has mold. Without this step the coverage job flaked while `test`
         # stayed green (2/50 runs). mold links them fast + low-memory.
-        uses: rui314/setup-mold@v1
+        uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "lance-graph-deps"
