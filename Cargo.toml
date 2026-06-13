@@ -60,6 +60,13 @@ exclude = [
     # machinery to a single-tier unigram pipeline (see crate README).
     # Verified via `cargo test --manifest-path crates/quasicryth-research/Cargo.toml`.
     "crates/quasicryth-research",
+    # TurboQuant ANN index (Google arXiv 2504.19874) bridged onto the spine —
+    # standalone, path-deps the AdaWorldAPI turbovec + ndarray forks. Kept out
+    # of the main graph so turbovec's faer/statrs tree never enters the
+    # deterministic lance-graph compile path. Both scoring kernels (native
+    # nibble-LUT ADC + ndarray::simd::matmul_i8_to_i32 polyfill GEMM) compiled.
+    # Verify via `cargo test --manifest-path crates/lance-graph-turbovec/Cargo.toml`.
+    "crates/lance-graph-turbovec",
 ]
 resolver = "2"
 

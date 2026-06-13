@@ -1,3 +1,47 @@
+## 2026-06-13 — E-TURBOVEC-AMX-WRONG-TOOL-1 — AMX accelerates the operation TurboQuant deliberately removed
+
+**Status:** FINDING (benchmarked; AVX-512+VNNI host, `amx_available=false`).
+**Confidence:** High — measured, with a mechanistic explanation that holds across the tier ladder.
+
+**The finding.** turbovec (Google TurboQuant, arXiv 2504.19874) was brought
+onto the spine as `crates/lance-graph-turbovec` (excluded standalone, path-deps
+the AdaWorldAPI turbovec + ndarray forks). Its scan was *also* expressed as a
+batched int8 GEMM through `ndarray::simd::matmul_i8_to_i32` (the polyfill that
+ships AMX `TDPBUSD` → AVX-512 VPDPBUSD → AVX-VNNI → scalar). Measured
+(`n=20 000, dim=512, k=10, 4-bit`):
+
+| kernel | ns/query | recall@10 |
+|---|---|---|
+| native nibble-LUT ADC (AVX-512BW) | 76 073 | 0.785 |
+| polyfill int8 GEMM (VPDPBUSD-zmm) | 866 899 | 0.764 |
+| scalar reference | 6 267 279 | — |
+
+The polyfill GEMM is **11.4× slower** than the native LUT, and native is 82×
+faster than scalar. **Mechanism:** TurboQuant's design *trades the matmul away*
+— LUT-ADC is an O(1) table gather per coordinate; the GEMM does the full
+`dim`-length dot per (query,vector) pair. AMX is a tile *matrix-multiply* unit,
+so it accelerates exactly the operation TurboQuant removed. The AMX tile (256
+MAC/instr, ~4× VNNI) would bring the polyfill from 11.4× → ~3× slower — still a
+loss. **A gather is not a matmul; no tile engine makes it one.**
+
+**Consequences.**
+- Keep the native LUT kernel as turbovec's production path. The polyfill is
+  retained only as (a) proof the index is `ndarray::simd`-clean / AMX-ready and
+  (b) a measured baseline. AMX is the right tool only where the workload is
+  genuinely matmul-shaped (e.g. an exact-rerank LEAF over a tiny survivor set).
+- Generalises the I-VSA-IDENTITIES register lesson to *kernels*: match the SIMD
+  primitive to the algorithm's operation, not to peak MAC/instr. "Ship AMX via
+  dispatch" is correct *plumbing* (the polyfill does ship it), but plumbing
+  doesn't make the wrong-shaped op fast.
+- The genuinely promising turbovec⇄bgz-tensor wiring is NOT AMX: it is a
+  Belichtungsmesser σ-gated block reject on the LUT scan (turbovec has only a
+  heap-min prune, no statistical threshold). See
+  `crates/lance-graph-turbovec/KNOWLEDGE.md` §3B.
+
+Cross-ref: `crates/lance-graph-turbovec/KNOWLEDGE.md` (full synergy map +
+reproduce); `ndarray::hpc::amx_matmul::matmul_i8_to_i32` (the 4-tier ladder);
+I-NOISE-FLOOR-JIRAK (the σ-threshold path inherits the Jirak obligation).
+
 ## 2026-06-12 — E-OUTER-BOUNDARY-IS-ORM-1 — there is only one boundary, and it is ontology-mediated
 
 **Status:** FINDING (PR #487 tombstone commit makes this source-true; OGAR class + `SoaEnvelope` + Lance columnar I/O is the realized triangle).
