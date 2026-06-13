@@ -189,6 +189,129 @@ const _: () = assert!(core::mem::size_of::<NodeGuid>() == 16);
 const _: () = assert!(core::mem::size_of::<EdgeBlock>() == 16);
 const _: () = assert!(core::mem::size_of::<NodeRow>() == 512);
 
+// ── SoaEnvelope binding for [NodeRow] ────────────────────────────────────────
+
+use crate::soa_envelope::{ColumnDescriptor, ColumnKind, SoaEnvelope};
+
+/// Stable column-id ordinals for [`NodeRow`]'s three top-level slots.
+/// `name_id` in the [`ColumnDescriptor`] table; the registry-resolved value
+/// carve-out (per `classid → ClassView`) lives *inside* `Value` and is not
+/// surfaced as its own envelope column — the canon contract is at this level.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u16)]
+pub enum NodeRowColumn {
+    Key = 0,
+    Edges = 1,
+    Value = 2,
+}
+
+/// Canonical [`ColumnDescriptor`] table for [`NodeRow`].
+///
+/// Three columns, all `ColumnKind::U8` byte-arrays (their internal structure
+/// is canon-described elsewhere — `NodeGuid` decomposes the key, `EdgeBlock`
+/// the edges, registry `ClassView` carves the value side). The envelope
+/// contract is at the row-stride level: bytes 0..16 are the key, 16..32 are
+/// the edges, 32..512 are the class-resolved value slab. Sum = 512 = stride.
+pub const NODE_ROW_COLUMNS: &[ColumnDescriptor] = &[
+    ColumnDescriptor {
+        name_id: NodeRowColumn::Key as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 16,
+        row_offset: 0,
+    },
+    ColumnDescriptor {
+        name_id: NodeRowColumn::Edges as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 16,
+        row_offset: 16,
+    },
+    ColumnDescriptor {
+        name_id: NodeRowColumn::Value as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 480,
+        row_offset: 32,
+    },
+];
+
+/// Row stride for [`NodeRow`] in bytes — equal to `size_of::<NodeRow>()`.
+pub const NODE_ROW_STRIDE: usize = 512;
+
+/// Zero-copy [`SoaEnvelope`] wrapper over a contiguous slice of [`NodeRow`].
+///
+/// `NodeRow` is `#[repr(C, align(64))]` with the locked 16/16/480 byte
+/// layout, so a `&[NodeRow]` IS already a row-strided LE packet at stride
+/// 512 — no allocation, no copy. This wrapper just attaches the cycle stamp
+/// and exposes the slice through the [`SoaEnvelope`] trait so Lance's
+/// columnar I/O reads it directly.
+///
+/// The envelope's column table ([`NODE_ROW_COLUMNS`]) names the three
+/// top-level slots (key / edges / value). Internal structure within each
+/// slot is the canon's concern (`NodeGuid` for the key, `EdgeBlock` for the
+/// edges, registry `ClassView` for the value carve-out).
+#[derive(Clone, Copy)]
+pub struct NodeRowPacket<'a> {
+    rows: &'a [NodeRow],
+    cycle: u32,
+}
+
+impl<'a> core::fmt::Debug for NodeRowPacket<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("NodeRowPacket")
+            .field("n_rows", &self.rows.len())
+            .field("cycle", &self.cycle)
+            .field("row_stride", &NODE_ROW_STRIDE)
+            .finish()
+    }
+}
+
+impl<'a> NodeRowPacket<'a> {
+    /// Wrap a contiguous slice of [`NodeRow`] with a cycle stamp.
+    #[inline]
+    pub const fn new(rows: &'a [NodeRow], cycle: u32) -> Self {
+        Self { rows, cycle }
+    }
+
+    /// The underlying rows.
+    #[inline]
+    pub const fn rows(&self) -> &'a [NodeRow] {
+        self.rows
+    }
+}
+
+impl<'a> SoaEnvelope for NodeRowPacket<'a> {
+    fn columns(&self) -> &[ColumnDescriptor] {
+        NODE_ROW_COLUMNS
+    }
+    fn row_stride(&self) -> usize {
+        NODE_ROW_STRIDE
+    }
+    fn n_rows(&self) -> usize {
+        self.rows.len()
+    }
+    fn cycle(&self) -> u32 {
+        self.cycle
+    }
+    fn as_le_bytes(&self) -> &[u8] {
+        // SAFETY: NodeRow is #[repr(C, align(64))] with size_of::<NodeRow>() ==
+        // 512 (checked by the const _: () asserts above). A &[NodeRow] is a
+        // contiguous array of #[repr(C)] structs; viewing it as &[u8] of
+        // length len * 512 is a standard column-store packing operation, and
+        // every byte position is valid for reads (no padding past size_of,
+        // alignment of NodeRow (64) ⊇ alignment of u8 (1)).
+        //
+        // The NodeGuid and EdgeBlock fields hold their bytes in canon-LE
+        // order (NodeGuid::new uses to_le_bytes; EdgeBlock is plain [u8;_]),
+        // so the resulting byte slice IS the envelope's LE packet — no
+        // translation needed at the boundary.
+        unsafe {
+            core::slice::from_raw_parts(
+                self.rows.as_ptr().cast::<u8>(),
+                self.rows.len() * NODE_ROW_STRIDE,
+            )
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,5 +400,168 @@ mod tests {
         // as ...0...-...0... with identity-only discrimination.
         let g = NodeGuid::local(0x00_00CD);
         assert_eq!(g.to_string(), "00000000-0000-0000-0000-0000000000cd");
+    }
+
+    // ── SoaEnvelope binding for NodeRowPacket ────────────────────────────────
+
+    fn sample_row(classid: u32, identity: u32) -> NodeRow {
+        NodeRow {
+            key: NodeGuid::new(classid, 0x1111, 0x2222, 0x3333, 0x00_00AB, identity),
+            edges: EdgeBlock::default(),
+            value: [0u8; 480],
+        }
+    }
+
+    #[test]
+    fn node_row_column_table_sums_to_row_stride() {
+        let total: usize = NODE_ROW_COLUMNS
+            .iter()
+            .map(|c| c.col_bytes_per_row())
+            .sum();
+        assert_eq!(total, NODE_ROW_STRIDE);
+        assert_eq!(NODE_ROW_STRIDE, core::mem::size_of::<NodeRow>());
+    }
+
+    #[test]
+    fn node_row_column_table_is_in_offset_order_without_gaps() {
+        // The contract: columns are contiguous (key 0..16, edges 16..32,
+        // value 32..512) — no gaps, no overlap, in offset order.
+        let mut prev_end = 0usize;
+        for c in NODE_ROW_COLUMNS {
+            assert_eq!(c.row_offset as usize, prev_end, "no gap before {c:?}");
+            prev_end = c.row_offset as usize + c.col_bytes_per_row();
+        }
+        assert_eq!(prev_end, NODE_ROW_STRIDE);
+    }
+
+    #[test]
+    fn empty_packet_verifies() {
+        let rows: &[NodeRow] = &[];
+        let pkt = NodeRowPacket::new(rows, 0);
+        assert_eq!(pkt.n_rows(), 0);
+        assert_eq!(pkt.as_le_bytes().len(), 0);
+        assert!(pkt.verify_layout().is_ok(), "empty packet must verify");
+    }
+
+    #[test]
+    fn single_row_packet_verifies_and_byte_view_is_zero_copy() {
+        let rows = [sample_row(0xDEAD_BEEF, 0x00_00CD)];
+        let pkt = NodeRowPacket::new(&rows, 7);
+        assert_eq!(pkt.n_rows(), 1);
+        assert_eq!(pkt.cycle(), 7);
+        assert_eq!(pkt.row_stride(), 512);
+        assert_eq!(pkt.as_le_bytes().len(), 512);
+        // Zero-copy: the byte view's pointer is the slice's pointer.
+        assert_eq!(
+            pkt.as_le_bytes().as_ptr() as usize,
+            rows.as_ptr() as usize,
+            "as_le_bytes must be zero-copy"
+        );
+        assert!(pkt.verify_layout().is_ok());
+    }
+
+    #[test]
+    fn multi_row_packet_byte_length_is_stride_times_rows() {
+        let rows = [
+            sample_row(0xDEAD_BEEF, 0x00_00CD),
+            sample_row(0xCAFE_BABE, 0x00_0001),
+            sample_row(0x0000_0000, 0x00_0042),
+        ];
+        let pkt = NodeRowPacket::new(&rows, 42);
+        assert_eq!(pkt.n_rows(), 3);
+        assert_eq!(pkt.as_le_bytes().len(), 3 * 512);
+        assert!(pkt.verify_layout().is_ok());
+    }
+
+    #[test]
+    fn row_le_view_returns_one_full_row() {
+        let rows = [sample_row(1, 2), sample_row(3, 4), sample_row(5, 6)];
+        let pkt = NodeRowPacket::new(&rows, 0);
+        for (i, row) in rows.iter().enumerate() {
+            let row_bytes = pkt.row_le(i).expect("row in range");
+            assert_eq!(row_bytes.len(), 512);
+            // First 4 bytes are the classid in canon-LE order.
+            assert_eq!(
+                u32::from_le_bytes(row_bytes[..4].try_into().unwrap()),
+                row.key.classid()
+            );
+        }
+        assert!(pkt.row_le(3).is_none(), "out of range");
+    }
+
+    #[test]
+    fn column_le_view_returns_the_named_slot() {
+        // Place a recognisable byte pattern in the value side; verify the
+        // value column-view picks it up at the right offset.
+        let mut row = sample_row(0xDEAD_BEEF, 0x00_00CD);
+        row.value[0] = 0xAB;
+        row.value[479] = 0xCD;
+        let rows = [row];
+        let pkt = NodeRowPacket::new(&rows, 0);
+        let value_col = pkt
+            .column_le(0, &NODE_ROW_COLUMNS[NodeRowColumn::Value as usize])
+            .expect("value column in range");
+        assert_eq!(value_col.len(), 480);
+        assert_eq!(value_col[0], 0xAB);
+        assert_eq!(value_col[479], 0xCD);
+        // Key column is at offset 0, length 16 — first byte = LE byte 0 of
+        // classid = 0xEF (low byte of 0xDEAD_BEEF).
+        let key_col = pkt
+            .column_le(0, &NODE_ROW_COLUMNS[NodeRowColumn::Key as usize])
+            .expect("key column in range");
+        assert_eq!(key_col.len(), 16);
+        assert_eq!(key_col[0], 0xEF);
+        assert_eq!(key_col[3], 0xDE);
+    }
+
+    #[test]
+    fn key_bytes_in_canon_le_order() {
+        // Round-trip: pack a NodeRow with known fields, read the bytes back
+        // through the envelope, parse each canon group by its LE byte range,
+        // confirm values match. Proves the SoA envelope view stays canon-LE
+        // end-to-end without any field-accessor intermediation.
+        let row = sample_row(0xDEAD_BEEF, 0x00_00CD);
+        let rows = [row];
+        let pkt = NodeRowPacket::new(&rows, 0);
+        let bytes = pkt.as_le_bytes();
+        // Per OGAR/CLAUDE.md P0: classid · HEEL · HIP · TWIG · family · identity.
+        assert_eq!(
+            u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]),
+            0xDEAD_BEEF,
+            "classid at [0..4]"
+        );
+        assert_eq!(
+            u16::from_le_bytes([bytes[4], bytes[5]]),
+            0x1111,
+            "HEEL at [4..6]"
+        );
+        assert_eq!(
+            u16::from_le_bytes([bytes[6], bytes[7]]),
+            0x2222,
+            "HIP at [6..8]"
+        );
+        assert_eq!(
+            u16::from_le_bytes([bytes[8], bytes[9]]),
+            0x3333,
+            "TWIG at [8..10]"
+        );
+        // family is u24 LE in bytes [10..13]: 0xAB, 0x00, 0x00.
+        assert_eq!(&bytes[10..13], &[0xAB, 0x00, 0x00], "family at [10..13]");
+        // identity is u24 LE in bytes [13..16]: 0xCD, 0x00, 0x00.
+        assert_eq!(&bytes[13..16], &[0xCD, 0x00, 0x00], "identity at [13..16]");
+    }
+
+    #[test]
+    fn envelope_layout_version_matches_envelope_default() {
+        // The wrapper does not override LAYOUT_VERSION, so verify_layout
+        // checks against the envelope-crate default (ENVELOPE_LAYOUT_VERSION).
+        let rows = [sample_row(0, 1)];
+        let pkt = NodeRowPacket::new(&rows, 0);
+        assert_eq!(
+            <NodeRowPacket<'_> as SoaEnvelope>::LAYOUT_VERSION,
+            crate::soa_envelope::ENVELOPE_LAYOUT_VERSION
+        );
+        // verify_layout exercises that gate.
+        assert!(pkt.verify_layout().is_ok());
     }
 }
