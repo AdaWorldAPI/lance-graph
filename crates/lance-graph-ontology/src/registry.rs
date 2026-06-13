@@ -401,8 +401,11 @@ impl OntologyRegistry {
         }
     }
 
-    /// The bijective derived view: `entity_type → NiblePath`
-    /// (`niblepath_of(entity_type)` in the identity plan / `NodeGuid` docs).
+    /// The bijective derived view: `entity_type → NiblePath`.
+    /// The exact class identity is `entity_type:u16`; the path is the canonical
+    /// HHTL tree address (the canon's `classid·HEEL·HIP·TWIG` prefix is resolved
+    /// from the class registry, not stored as a key field beyond what the
+    /// `NodeGuid` carries).
     pub fn niblepath_of(&self, entity_type_id: u16) -> Option<NiblePath> {
         self.inner
             .read()
