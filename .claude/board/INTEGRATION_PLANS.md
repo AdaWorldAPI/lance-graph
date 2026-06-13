@@ -1,3 +1,23 @@
+## 2026-06-13 — surrealdb-kv-lance-hardening-v1 (production-hardening the SurrealDB kv-lance backend for the VIEW path; LanceDB-leads ruling kept; lance =7.0.0 / lancedb =0.30.0 pin held; Tier-scoped ORM doctrine extends `E-OUTER-BOUNDARY-IS-ORM-1` from #487)
+
+**Status:** PROPOSAL. **Plan file:** `.claude/plans/surrealdb-kv-lance-hardening-v1.md`. **Branch:** `claude/kv-lance-hardening-plan-v1`.
+**Owns:** 8 deliverables D-KVL-1..8.
+- D-KVL-1: lance =7.0.0 / lancedb =0.30.0 pin discipline across lance-graph, surreal_container, surrealdb-fork; CI assertion that committed Cargo.toml strings match the pin
+- D-KVL-2: Gap #2 fix — replace the `MergeInsertBuilder.when_matched(WhenMatched::UpdateAll)` LWW relic in `flusher.rs:251` with either hard-partitioning proof (a) or MergeMode-tagged dispatch (b, recommended); regression test for the silent-drop scenario
+- D-KVL-3: WAL format — replace ciborium CBOR (`wal.rs:133`) with raw `#[repr(C)]`-LE + CRC32C + WAL-version byte (v0 explicitly rejected; per `I-LEGACY-API-FEATURE-GATED`)
+- D-KVL-4: Crash-recovery suite (consumer-side; the fork's 6 k tests are SurrealDB-internal) covering WAL-fsync / memtable-flush / Lance-commit / Lance-GC kill phases
+- D-KVL-5: 1-hour multi-writer + multi-reader soak; failure budget < 0.01 %
+- D-KVL-6: Schema-evolution boundary under the lance =7.0.0 pin (add-column supported; drop-column NOT supported under append-only; rename via versioned swap)
+- D-KVL-7: surreal_container unblock (= polyglot D-PG-6); minimal kanban VIEW smoke test that reads back a row written by the Tier-A direct-Lance writer — the Tier-A↔Tier-B contract test
+- D-KVL-8: Doctrine record (board hygiene): EPIPHANIES `E-KVLANCE-VIEW-NOT-WRITER` extends `E-OUTER-BOUNDARY-IS-ORM-1` over the four-tier map (Tier A in-binary cognitive-state = lance-graph direct; Tier B-view = SurrealDB on hardened kv-lance; Tier B-HA = SurrealDB on kv-tikv; Tier B-fallback = SurrealDB on kv-rocksdb); TECH_DEBT row pointing Gap #2 → D-KVL-2 as paid-by
+**Scope clarification:** **this is hardening for the VIEW path, NOT the writer.** Per the 2026-05-28 ruling (handover §2, `E-RUBICON-RACTOR`) and the 2026-06-09 polyglot plan: LanceDB leads as the in-binary production durability store; SurrealDB is a view/dialect. Production cognitive-state commits go via lance-graph direct, not through the SurrealQL hop. kv-lance hardens so the external SurrealQL surface is production-grade.
+**Key inventory finding (from polyglot §2.2):** kv-lance is **18/19 implemented in-tree** (get/keys/keysr/scan/scanr/writes/savepoints + MVCC + Timeline + background optimizer; ~6 k internal tests). `surreal_container` BLOCKED(C/D) is **stale**. So the work is NOT "build kv-lance" — it's "harden it + close named gaps".
+**Companion plans:** `polyglot-container-query-membrane-v1` (2026-06-09; D-PG-6 surreal_container unblock = our D-KVL-7), `bindspace-singleton-to-mailbox-soa-v1` (§7 two-egress-mode rule), the `.claude/surreal/` POC corpus (partially superseded; honesty notes in RECONCILIATION).
+**Anchored epiphanies (proposed):** `E-KVLANCE-VIEW-NOT-WRITER` (D-KVL-8 — extends #487's `E-OUTER-BOUNDARY-IS-ORM-1` to a four-tier-scoped doctrine). **Anchored debt (proposed):** `TD-KVLANCE-LWW-RELIC` pointing Gap #2 → D-KVL-2.
+**Out of scope:** kv-rocksdb hardening (SurrealDB upstream tested); kv-tikv HA path (separate plan when HA enters scope); lance-graph Tier-A writer improvements; chasing lance/lancedb upstream past the pin.
+
+---
+
 ## 2026-06-09 — polyglot-container-query-membrane-v1 (Node Container answers Cypher + SurrealQL AST + DataFusion UDF over one HHTL address space; mailbox = a normal cold path)
 
 **Status:** RESEARCH MAP + PLAN. Grounded by two parallel sweeps (lance-graph + surrealdb fork) with main-thread spot-verification; one agent claim caught false (SoaEnvelope has ZERO real impls — identity N3 stands live). **Plan file:** `.claude/plans/polyglot-container-query-membrane-v1.md`.

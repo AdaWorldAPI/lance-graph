@@ -1,3 +1,20 @@
+## surrealdb-kv-lance-hardening-v1 — VIEW-path durability for the polyglot SurrealQL surface (8 deliverables; LanceDB-leads ruling kept; pinned to lance =7.0.0 / lancedb =0.30.0)
+
+Plan path: `.claude/plans/surrealdb-kv-lance-hardening-v1.md`. Companions: `polyglot-container-query-membrane-v1` (D-PG-6 surreal_container unblock = our D-KVL-7), `bindspace-singleton-to-mailbox-soa-v1` (§7 two-egress-mode rule), the `.claude/surreal/` POC corpus (partially superseded per RECONCILIATION). Proposed debt anchor: `TD-KVLANCE-LWW-RELIC` (Gap #2 → D-KVL-2). Proposed epiphany: `E-KVLANCE-VIEW-NOT-WRITER` (D-KVL-8 — extends #487's `E-OUTER-BOUNDARY-IS-ORM-1` over the four-tier map).
+
+| D-id | Title | Crate(s) / repo | Risk | Status | PR / Evidence |
+|---|---|---|---|---|---|
+| D-KVL-1 | Lance/lancedb version pin discipline (=7.0.0 / =0.30.0) across lance-graph, surreal_container, surrealdb fork; CI assertion | `lance-graph`, `surreal_container`, `surrealdb` (AdaWorldAPI fork) | LOW | **Queued** | process gate; gates nothing upstream |
+| D-KVL-2 | Gap #2 fix — replace `MergeInsertBuilder.when_matched(WhenMatched::UpdateAll)` LWW relic in `flusher.rs:251` with hard-partitioning proof (a) or MergeMode-tagged dispatch (b, recommended) | `surrealdb` (AdaWorldAPI fork) `core/src/kvs/lance/flusher.rs` | MED-HIGH | **Queued** | P0 correctness; named in `cognitive-substrate.md` Gap #2 |
+| D-KVL-3 | WAL format — replace ciborium CBOR in `wal.rs:133` with raw `#[repr(C)]`-LE + CRC32C + WAL-version byte | `surrealdb` (AdaWorldAPI fork) `core/src/kvs/lance/wal.rs` | MED | **Queued** | gates D-KVL-4 |
+| D-KVL-4 | Crash-recovery suite (consumer-side) — WAL-fsync / memtable-flush / Lance-commit / Lance-GC kill phases | `surreal_container` tests + lance-graph integration | MED | **Queued** | depends on D-KVL-3 WAL format |
+| D-KVL-5 | 1-hour multi-writer + multi-reader soak; failure budget < 0.01 % | `surreal_container` tests | MED | **Queued** | parallel after D-KVL-2/3 |
+| D-KVL-6 | Schema-evolution boundary under lance =7.0.0 pin; doc + boundary tests | `surreal_container` + docs | LOW | **Queued** | parallel after D-KVL-2/3 |
+| D-KVL-7 | surreal_container unblock (= polyglot D-PG-6); minimal kanban VIEW smoke test against Tier-A direct-Lance writer | `crates/surreal_container/{Cargo.toml,src/lib.rs}` | LOW-MED | **Queued** | last; off critical path per polyglot D-PG-6 |
+| D-KVL-8 | Doctrine record: EPIPHANIES `E-KVLANCE-VIEW-NOT-WRITER` + TECH_DEBT `TD-KVLANCE-LWW-RELIC` + INTEGRATION_PLANS / STATUS_BOARD prepends | `.claude/board` + `.claude/EPIPHANIES.md` | LOW | **In progress** | this commit (INTEGRATION_PLANS + STATUS_BOARD entries land here; EPIPHANIES + TECH_DEBT pending user-review of wording) |
+
+---
+
 ## singleton-to-snapshot-nudge-v1 — every shared-mutable singleton → per-owner MailboxSoA + Arc-swap snapshot (7 deliverables; codebooks left as-is)
 
 Plan path: `.claude/plans/singleton-to-snapshot-nudge-v1.md`. Companions: `bindspace-singleton-to-mailbox-soa-v1` (BindSpace dissolution), `cycle-coherent-soa-snapshot-v1` (snapshot mechanism). Debt: TD-UNBUNDLE-FROM-1.
