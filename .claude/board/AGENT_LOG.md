@@ -1,3 +1,14 @@
+## 2026-06-14 — capacity claim VALIDATED on real prose: Animal Farm + 1984 → 9.2k SPO / 4.71 MB
+
+**Main thread (Opus 4.8 1M).** Operator offered a real corpus (Orwell, Animal Farm + 1984, 336pp PDF) to test the "a book's meaning ≈ 32k SPO nodes / ~16 MB resident" claim with a measured number instead of an estimate. Also corrected my P0 reflex: **never ask for fork coordinates — the convention IS `AdaWorldAPI/<name>`** (SurrealDB fork = `AdaWorldAPI/surrealdb`; "stop and ask" was wrong, derive from convention, never crates.io). Lo/Tesseract-4th-face now unblocked.
+
+**Measured (faithful replica of `lance-graph-osint::extractor::extract_triplets` — same COMMON_VERBS / verb-position parse / clean / split_sentences; replica used instead of a cold `--manifest-path` build because osint is EXCLUDED and would cold-compile ndarray+planner into a fresh ~7 GB target right after the disk cleanup):**
+- text: 0.79 MB UTF-8, 336 pages, 15,930 sentences.
+- **9,245 triplets** (1 per matched sentence; ~58% parse), **9,194 unique SPO nodes → 4.71 MB** (× 512 B canonical node).
+- 6,118 unique subjects (RAW PHRASES — the extractor has no coreference), 2,148 relations.
+
+**Reading:** two whole novels → 9.2k naive SPO / 4.71 MB, comfortably INSIDE the 32k / 16 MB envelope (the naive 1-triple/sentence floor; full meaning with multi-triple sentences + cognitive overhead climbs toward 32k). The 6,118 raw-phrase subjects are exactly what the **witness-as-pointer + TEKAMOLO resolver collapse into ~4096 entity basins (2.10 MB)** — the compression IS the coreference/witness architecture built this session, not the raw extraction. Validates the capacity claim on real text (a step against codec-soa-facet-map white-patch #6 "every probe is synthetic"). No code shipped (replica ephemeral; copyrighted source extracted for structural counts only, then deleted — not retained/reproduced). Disk untouched (no build).
+
 ## 2026-06-14 — TEKAMOLO resolver CAPSTONE: the verb-AST resolver IS the Σ-tier Rubicon front-end
 
 **Main thread (Opus 4.8 1M), branch `claude/wonderful-hawking-lodtql`.** Operator: *"following your lead."* Built the "verb layer" (the agreed post-probe deliverable), reframed per the 4D reconciliation: the resolver is NOT a standalone gate — it lands as the **front-end of `sigma-tier-router`'s Σ-tier Rubicon-resonance dispatch**. Composes every measured result this session into one resolve path.
