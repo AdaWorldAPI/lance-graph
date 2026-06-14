@@ -1,3 +1,15 @@
+## 2026-06-14 — edge-codec flavors: all three implemented, class-selectable, measured (ICC/Pearson/Cronbach/Spearman)
+
+**Main thread (Opus 4.8 1M), branch `claude/wonderful-hawking-lodtql` (ndarray + lance-graph).** Operator (relaying a second session's 32×4-bit edge proposal + the key insight *"you could literally combine deterministic↔residue"*): *"implement all and allow the class>schema inheritance mapping to choose which flavor … measure all options and validate/invalidate ICC Pearson Cronbach alpha … using the JC crate and ndarray/crates/hpc/pillars."* Resolved the second session's false dichotomy: the deterministic part (nearest-centroid palette index, recomputed via AMX `matmul_i8_to_i32`) is the EdgeBlock byte unchanged; the residue is a value-slab 4-bit plane — so all flavors are *interpretations* of the locked 16-byte block, none changes `NODE_ROW_STRIDE`.
+
+**Shipped:**
+- **ndarray** (`d3b608f`): `hpc::reliability` (Pearson/Spearman/Cronbach α/ICC(2,1) + `FidelityReport`; the JC-consumable measurement layer — jc/pillar had only private Spearman, missing the other three) and `hpc::edge_codec` (Codebook k-means, `CoarseResidueCodec`, `ProductQuantizer`, `reconstruct_coarse`). Harness `examples/edge_codec_compare`. 16 unit + 9 doctests; lib clippy `-D warnings` clean.
+- **lance-graph contract**: `EdgeCodecFlavor` enum (`CoarseOnly`/`CoarseResidue`/`Pq32x4`) + defaulted `ClassView::edge_codec_flavor` selector (non-breaking). +3 tests, 609 lib green, clippy clean. LATEST_STATE contract inventory updated (same commit).
+
+**Measured (AMX host):** CoarseResidue dominates agreement (ICC 0.97–0.99, ρ 0.98, α 0.99 across blob+continuous); Pq32x4 preserves rank (ρ 0.60–0.67) but not absolute distance (ICC 0.11–0.29 — the Pearson-vs-ICC contrast working as designed); CoarseOnly collapses on continuous (ICC 0.003). AMX assign 100% vs scalar, 24–28 GMAC/s.
+
+**Deferred/flagged:** turbovec PQ4 *throughput* path blocked on #493 P2 (turbovec `ndarray-simd` feature removed in `7fa217c`; polyfill fns gone). Fidelity is kernel-independent, so throughput-only follow-up. Per-class flavor STORAGE (override `edge_codec_flavor` from a class config) = follow-up in `lance-graph-ontology`. Also fixed bgz17 SIMD gather OOB (P1 from #493, commit `6d48ced`).
+
 ## 2026-06-13 — turbovec ⇄ ndarray integration: fork-wired + ndarray::simd polyfill GEMM + measured AMX-vs-LUT
 
 **Main thread (Opus 4.8 1M) + 1 Opus general-purpose agent (bgz-tensor synergy map).** User: "create a crate in lance-graph for turbovec and check synergies; route SIMD through ndarray::simd (simd.rs→simd_amx/avx512/ops/soa); the polyfill does the work, ndarray ships AMX via byte-asm dispatch; pin rust 1.95." Cross-repo, branch `claude/wonderful-hawking-lodtql` in all three repos.

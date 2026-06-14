@@ -45,29 +45,43 @@ impl NodeGuid {
     /// Panics (incl. const-eval) when `family` or `identity` exceed 24 bits — the
     /// silent-truncation footgun: distinct u32 inputs would otherwise collapse
     /// to the same stored key.
-    pub const fn new(classid: u32, heel: u16, hip: u16, twig: u16, family: u32, identity: u32) -> Self {
+    pub const fn new(
+        classid: u32,
+        heel: u16,
+        hip: u16,
+        twig: u16,
+        family: u32,
+        identity: u32,
+    ) -> Self {
         assert!(family <= 0x00FF_FFFF, "family must fit in 24 bits");
         assert!(identity <= 0x00FF_FFFF, "identity must fit in 24 bits");
         let c = classid.to_le_bytes();
         let h = heel.to_le_bytes();
         let p = hip.to_le_bytes();
         let t = twig.to_le_bytes();
-        let f = family.to_le_bytes();   // low 3 bytes
+        let f = family.to_le_bytes(); // low 3 bytes
         let i = identity.to_le_bytes(); // low 3 bytes
         Self([
             c[0], c[1], c[2], c[3], //  0..4  classid
-            h[0], h[1],             //  4..6  HEEL
-            p[0], p[1],             //  6..8  HIP
-            t[0], t[1],             //  8..10 TWIG
-            f[0], f[1], f[2],       // 10..13 family
-            i[0], i[1], i[2],       // 13..16 identity
+            h[0], h[1], //  4..6  HEEL
+            p[0], p[1], //  6..8  HIP
+            t[0], t[1], //  8..10 TWIG
+            f[0], f[1], f[2], // 10..13 family
+            i[0], i[1], i[2], // 13..16 identity
         ])
     }
 
     /// Default-class, default-basin node: only `identity` discriminates.
     /// This is the bootstrap address while classid and family are zero.
     pub const fn local(identity: u32) -> Self {
-        Self::new(Self::CLASSID_DEFAULT, 0, 0, 0, Self::FAMILY_DEFAULT, identity)
+        Self::new(
+            Self::CLASSID_DEFAULT,
+            0,
+            0,
+            0,
+            Self::FAMILY_DEFAULT,
+            identity,
+        )
     }
 
     #[inline]
@@ -169,6 +183,60 @@ pub struct EdgeBlock {
     pub in_family: [u8; 12],
     /// 4 inherited adapter slots (out-of-family interfaces), one byte each.
     pub out_family: [u8; 4],
+}
+
+/// Which edge-codec flavor a class uses to *read* its node's edge block.
+///
+/// The flavor is an INTERPRETATION of the canonical 16-byte [`EdgeBlock`] (plus
+/// an optional value-slab residue), selected per class via
+/// [`ClassView::edge_codec_flavor`](crate::class_view::ClassView::edge_codec_flavor)
+/// — never a change to [`NodeRow`]'s 512-byte layout. Every variant leaves
+/// [`NODE_ROW_STRIDE`] untouched (the canon "registry-resolved via
+/// `classid → ClassView`" rule), so adopting a flavor needs NO
+/// `ENVELOPE_LAYOUT_VERSION` bump.
+///
+/// Encode/reconstruct kernels live in `ndarray::hpc::edge_codec`; per-flavor
+/// fidelity is measured by `ndarray::hpc::reliability` (see the
+/// `edge_codec_compare` example — CoarseResidue dominates on agreement, Pq32x4
+/// preserves rank but not absolute distance). Default is [`CoarseOnly`], the
+/// zero-fallback reading that matches the canon all-zero bootstrap default.
+///
+/// [`CoarseOnly`]: EdgeCodecFlavor::CoarseOnly
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[repr(u8)]
+pub enum EdgeCodecFlavor {
+    /// 1 byte/vector: each edge byte is a palette/centroid index — the
+    /// [`EdgeBlock`] read literally. The canon zero-fallback default.
+    #[default]
+    CoarseOnly = 0,
+    /// 1 + ⌈D/2⌉ bytes: coarse index + a per-dimension signed-4-bit residue
+    /// carried in the reserved value slab. Highest fidelity / agreement.
+    CoarseResidue = 1,
+    /// 16 bytes: the edge block read as 32 × 4-bit product-quantizer codes (the
+    /// turbovec PQ model). Preserves neighbour *rank* better than absolute
+    /// distance (low ICC, decent Spearman).
+    Pq32x4 = 2,
+}
+
+impl EdgeCodecFlavor {
+    /// Per-vector byte cost for dimensionality `dim` (D even for the residue's
+    /// nibble packing; `⌈D/2⌉` is used so odd D rounds up).
+    #[inline]
+    pub const fn bytes_per_vector(self, dim: usize) -> usize {
+        match self {
+            EdgeCodecFlavor::CoarseOnly => 1,
+            EdgeCodecFlavor::CoarseResidue => 1 + dim.div_ceil(2),
+            EdgeCodecFlavor::Pq32x4 => 16,
+        }
+    }
+
+    /// Every flavor re-interprets the SAME 512-byte node row — none changes
+    /// [`NODE_ROW_STRIDE`], so no flavor requires a layout-version bump. This is
+    /// the canon invariant, encoded so a regression test can assert it.
+    #[inline]
+    pub const fn is_layout_preserving(self) -> bool {
+        true
+    }
 }
 
 /// One node = 4096 bit = 512 byte: key(16) | edges(16) | value(480).
@@ -354,6 +422,37 @@ mod tests {
     }
 
     #[test]
+    fn edge_codec_flavor_default_is_coarse_only() {
+        // Zero-fallback default: the all-zero reading is the canon bootstrap.
+        assert_eq!(EdgeCodecFlavor::default(), EdgeCodecFlavor::CoarseOnly);
+        assert_eq!(EdgeCodecFlavor::CoarseOnly as u8, 0);
+    }
+
+    #[test]
+    fn edge_codec_flavor_byte_costs() {
+        // D = 128: coarse 1 B, residue 1 + 64 = 65 B, PQ fixed 16 B.
+        assert_eq!(EdgeCodecFlavor::CoarseOnly.bytes_per_vector(128), 1);
+        assert_eq!(EdgeCodecFlavor::CoarseResidue.bytes_per_vector(128), 65);
+        assert_eq!(EdgeCodecFlavor::Pq32x4.bytes_per_vector(128), 16);
+        // Odd D rounds the residue nibble count up.
+        assert_eq!(EdgeCodecFlavor::CoarseResidue.bytes_per_vector(7), 1 + 4);
+    }
+
+    #[test]
+    fn every_flavor_preserves_node_layout() {
+        // The canon invariant: a flavor is an interpretation, never a stride
+        // change — so no flavor forces an ENVELOPE_LAYOUT_VERSION bump.
+        for f in [
+            EdgeCodecFlavor::CoarseOnly,
+            EdgeCodecFlavor::CoarseResidue,
+            EdgeCodecFlavor::Pq32x4,
+        ] {
+            assert!(f.is_layout_preserving());
+        }
+        assert_eq!(NODE_ROW_STRIDE, core::mem::size_of::<NodeRow>());
+    }
+
+    #[test]
     fn uniqueness_guard_is_noop_outside_bootstrap() {
         // family != 0 ⇒ no longer the bootstrap address: the guard is a no-op
         // even when `already_present` is true.
@@ -414,10 +513,7 @@ mod tests {
 
     #[test]
     fn node_row_column_table_sums_to_row_stride() {
-        let total: usize = NODE_ROW_COLUMNS
-            .iter()
-            .map(|c| c.col_bytes_per_row())
-            .sum();
+        let total: usize = NODE_ROW_COLUMNS.iter().map(|c| c.col_bytes_per_row()).sum();
         assert_eq!(total, NODE_ROW_STRIDE);
         assert_eq!(NODE_ROW_STRIDE, core::mem::size_of::<NodeRow>());
     }
