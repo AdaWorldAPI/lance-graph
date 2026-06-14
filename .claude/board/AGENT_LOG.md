@@ -1,3 +1,19 @@
+## 2026-06-14 — TEKAMOLO resolver CAPSTONE: the verb-AST resolver IS the Σ-tier Rubicon front-end
+
+**Main thread (Opus 4.8 1M), branch `claude/wonderful-hawking-lodtql`.** Operator: *"following your lead."* Built the "verb layer" (the agreed post-probe deliverable), reframed per the 4D reconciliation: the resolver is NOT a standalone gate — it lands as the **front-end of `sigma-tier-router`'s Σ-tier Rubicon-resonance dispatch**. Composes every measured result this session into one resolve path.
+
+**Shipped:** `crates/sigma-tier-router/examples/tekamolo_resolver.rs` (workspace member → builds in the shared target, no new `target/`). `resolve_relative(discourse, verb_table) → Resolution`:
+- grammar from the REAL `verb_table` cell (Semantik=VerbFamily, Syntax=Tense);
+- **Modal = `bind(qualia manner, instrument means)`** — the compound, multiply carrier, identity(1)-for-absent (per `modal_compound_probe`); qualia (i4-16D) tints the modal slot via its lucency K-modifier; means absent ~half the time → never annihilates;
+- Pragmatik = recency tie-break; composed via the table's combine (NOT flattened — `coreference_rung_probe`);
+- the **Rubicon decides** via `tick(F)` + `dispatch(qualia, mantissa)`: F engages to Σ10 then the margin sets the slope — **F falling → `Commit`** (witness slot pointer bound), **F rising → `Rest{Sigma10Saturated}`** (escalate the low-margin <25% tail = the Click's LLM tail), **gate `Block` → `Rest{GateBlocked}`** (qualia perspective veto).
+
+**Measured (5000 bindings, Jirak-derived `SigmaTierBands::default()`):** COMMIT 56.7% (witness bound) / ESCALATE 21.0% (≈ the <25% tail, as the Click predicts) / VETO 22.4% (qualia gate). Committed witness-slot distribution modal-dominated (2183) — qualia⊗means boosts the modal slot, the operator's "Modal=Qualia×Means" made operational.
+
+**Seams left open (per the standing constraints):** Lo / Tesseract 4th face = SurrealDB(fork)+ractor topology — the witness pointer is RETURNED, not persisted (pending the SurrealDB fork coordinates, P0). Hamming matching is direct here; the real scan-path routes through the HDR cascade σ-floor (the Σ-tier bands ARE that floor).
+
+**Hygiene:** my example warning-clean (rustfmt file-scoped, no repo churn; fixed 2 own lints — uneven hex seed + deprecated `default_bands()`→`default()`). **FLAGGED (pre-existing, not mine):** `cargo clippy --example … -D warnings` exits 101 on **`causal-edge` dep warnings** — it uses its OWN deprecated `CausalEdge64::temporal()`/`inference_type()` internally (edge.rs:639 combine, :1016 Debug) + 2 unused items (the v2-layout I-LEGACY-API pattern, self-inflicted in the dep). The resolver example itself is clean; the gate failure is the dep's v2-migration state, owed by the causal-edge owner (route the internal self-use through `inference_mantissa()`/`from_mantissa()`).
+
 ## 2026-06-14 — Modal operator settled (bind not bundle) + THREE standing constraints for the resolver/endgame
 
 **Main thread (Opus 4.8 1M), branch `claude/wonderful-hawking-lodtql`.** Operator: *"I leave the decisions to the math, I'm following your lead."* Settled the last unverified piece of the Modal compound, then operator added forward-looking constraints (*"land clean so AST/aerial+grammar+qualia+pyramid-perturbation shader cascade resolve first; endgame is to land Tessaract; Hamming is always HDR popcount stacking, early-exit, Belichtungsmesser, CI thresholds, preheating"*).
