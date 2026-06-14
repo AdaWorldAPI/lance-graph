@@ -420,10 +420,19 @@ pub enum SelectOp {
 
 // ─── SIMD-dispatched Hamming distance ─────────────────────────────────
 //
-// Dispatch chain: AVX-512 VPOPCNTDQ → AVX2 → scalar.
-// Uses `std::arch` intrinsics only, no external crate.
+// Per the "all SIMD from ndarray" doctrine, the SIMD dispatch lives in
+// `ndarray::hpc::bitwise` (VPOPCNTDQ → AVX-512BW → AVX2 → scalar) and is
+// routed in under the `ndarray-hpc` feature. The hand-rolled scalar path
+// below is the `#[cfg(not(feature = "ndarray-hpc"))]` fallback so minimal /
+// non-x86 builds (CI, wasm, embedded) keep working without the dep.
 
 /// Scalar fallback: portable popcount via `count_ones()`.
+///
+/// Used as the `#[cfg(not(feature = "ndarray-hpc"))]` Hamming path and by the
+/// in-crate parity tests. Under `ndarray-hpc` (the default) the dispatch routes
+/// through `ndarray::hpc::bitwise`, so this is reachable only from `#[cfg(test)]`
+/// then — `allow(dead_code)` keeps the non-test lib build warning-free.
+#[cfg_attr(feature = "ndarray-hpc", allow(dead_code))]
 fn hamming_distance_scalar(a: &[u64; VECTOR_WORDS], b: &[u64; VECTOR_WORDS]) -> u32 {
     let mut dist = 0u32;
     for i in 0..VECTOR_WORDS {
@@ -432,85 +441,31 @@ fn hamming_distance_scalar(a: &[u64; VECTOR_WORDS], b: &[u64; VECTOR_WORDS]) -> 
     dist
 }
 
-/// AVX2 implementation: processes 4 × u64 = 256 bits per iteration.
-/// Uses the Harley-Seal popcount algorithm on 256-bit XOR results.
-#[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "avx2")]
-unsafe fn hamming_distance_avx2(a: &[u64; VECTOR_WORDS], b: &[u64; VECTOR_WORDS]) -> u32 {
-    use std::arch::x86_64::*;
-
-    // Lookup table for 4-bit popcount
-    let lookup = _mm256_setr_epi8(
-        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
-        3, 4,
-    );
-    let low_mask = _mm256_set1_epi8(0x0f);
-    let mut total = _mm256_setzero_si256();
-
-    let a_ptr = a.as_ptr() as *const __m256i;
-    let b_ptr = b.as_ptr() as *const __m256i;
-    let n_vecs = VECTOR_WORDS / 4; // 256 / 4 = 64 iterations
-
-    for i in 0..n_vecs {
-        let va = _mm256_loadu_si256(a_ptr.add(i));
-        let vb = _mm256_loadu_si256(b_ptr.add(i));
-        let xor = _mm256_xor_si256(va, vb);
-
-        // Popcount via lookup table (Mula et al.)
-        let lo = _mm256_and_si256(xor, low_mask);
-        let hi = _mm256_and_si256(_mm256_srli_epi16(xor, 4), low_mask);
-        let popcnt_lo = _mm256_shuffle_epi8(lookup, lo);
-        let popcnt_hi = _mm256_shuffle_epi8(lookup, hi);
-        let popcnt = _mm256_add_epi8(popcnt_lo, popcnt_hi);
-
-        // Horizontal sum within bytes → u64 sums via sad
-        let sad = _mm256_sad_epu8(popcnt, _mm256_setzero_si256());
-        total = _mm256_add_epi64(total, sad);
-    }
-
-    // Extract and sum the 4 u64 lanes
-    let lo128 = _mm256_castsi256_si128(total);
-    let hi128 = _mm256_extracti128_si256(total, 1);
-    let sum128 = _mm_add_epi64(lo128, hi128);
-    let upper = _mm_unpackhi_epi64(sum128, sum128);
-    let final_sum = _mm_add_epi64(sum128, upper);
-    _mm_cvtsi128_si64(final_sum) as u32
-}
-
-/// AVX-512 VPOPCNTDQ implementation: processes 8 × u64 = 512 bits per iteration.
-#[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "avx512f,avx512vpopcntdq")]
-unsafe fn hamming_distance_avx512(a: &[u64; VECTOR_WORDS], b: &[u64; VECTOR_WORDS]) -> u32 {
-    use std::arch::x86_64::*;
-
-    let mut total = _mm512_setzero_si512();
-    let a_ptr = a.as_ptr() as *const __m512i;
-    let b_ptr = b.as_ptr() as *const __m512i;
-    let n_vecs = VECTOR_WORDS / 8; // 256 / 8 = 32 iterations
-
-    for i in 0..n_vecs {
-        let va = _mm512_loadu_si512(a_ptr.add(i));
-        let vb = _mm512_loadu_si512(b_ptr.add(i));
-        let xor = _mm512_xor_si512(va, vb);
-        let popcnt = _mm512_popcnt_epi64(xor);
-        total = _mm512_add_epi64(total, popcnt);
-    }
-
-    _mm512_reduce_add_epi64(total) as u32
-}
-
-/// Runtime-dispatched Hamming distance using best available SIMD.
+/// Runtime-dispatched Hamming distance.
+///
+/// Under `ndarray-hpc` this routes through `ndarray::hpc::bitwise::
+/// hamming_distance_raw` (the canonical SIMD dispatch shared with the rest of
+/// the Ada stack). Without the feature it falls back to the in-crate scalar
+/// path. Both views reinterpret the same `[u64; VECTOR_WORDS]` backing store
+/// as native-endian bytes; Hamming distance is a bit count and is therefore
+/// invariant under the (consistent) byte layout on both operands.
 fn hamming_distance_dispatch(a: &[u64; VECTOR_WORDS], b: &[u64; VECTOR_WORDS]) -> u32 {
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(feature = "ndarray-hpc")]
     {
-        if is_x86_feature_detected!("avx512f") && is_x86_feature_detected!("avx512vpopcntdq") {
-            return unsafe { hamming_distance_avx512(a, b) };
-        }
-        if is_x86_feature_detected!("avx2") {
-            return unsafe { hamming_distance_avx2(a, b) };
-        }
+        const BYTE_LEN: usize = VECTOR_WORDS * 8;
+        // SAFETY: `[u64; VECTOR_WORDS]` is plain-old-data with no padding; a
+        // `&[u8]` view of the same `BYTE_LEN` bytes is always valid (u8 has
+        // alignment 1). Same layout on both operands → bit count is exact.
+        let a_bytes = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const u8, BYTE_LEN) };
+        let b_bytes = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const u8, BYTE_LEN) };
+        // Max distance is VECTOR_BITS (16384), well within u32.
+        ndarray::hpc::bitwise::hamming_distance_raw(a_bytes, b_bytes) as u32
     }
-    hamming_distance_scalar(a, b)
+
+    #[cfg(not(feature = "ndarray-hpc"))]
+    {
+        hamming_distance_scalar(a, b)
+    }
 }
 
 #[cfg(test)]

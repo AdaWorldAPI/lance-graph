@@ -1,0 +1,37 @@
+[package]
+name = "lance-graph-turbovec"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = """
+lance-graph-turbovec: the TurboQuant data-oblivious scalar-quantization ANN
+index (Google Research, arXiv 2504.19874) wired into the lance-graph spine.
+
+A thin bridge over the AdaWorldAPI `turbovec` fork that (1) pins turbovec to
+the AdaWorldAPI `ndarray` fork (P0: forks only) so its scan can reach
+`ndarray::simd`, and (2) exposes BOTH scoring kernels side by side — the
+native nibble-LUT ADC and the `ndarray::simd::matmul_i8_to_i32` polyfill GEMM
+(AMX TDPBUSD tile -> AVX-512 VPDPBUSD -> AVX-VNNI -> scalar, dispatched
+inside ndarray) — so the lance-graph layer can A/B them. See KNOWLEDGE.md for
+the synergy map (HDR popcount stacking early-exit, Belichtungsmesser sigma
+thresholds, preheating vs palette256 ranking) and the measured speed delta.
+"""
+
+# Both deps are LOCAL PATHS (not git): this crate must build against the
+# in-tree branch changes to BOTH siblings — the turbovec ndarray-fork wiring
+# and the `ndarray::simd::matmul_i8_to_i32` re-export that the polyfill needs.
+# Standalone (own [workspace] + root `exclude`), so turbovec's faer/statrs
+# tree never enters the deterministic lance-graph main compile graph; verify
+# via `cargo test --manifest-path crates/lance-graph-turbovec/Cargo.toml`.
+[dependencies]
+# turbovec with the `ndarray-simd` polyfill path compiled in (the native
+# kernel is always present); turbovec itself path-deps the ndarray fork.
+turbovec = { path = "../../../turbovec/turbovec", default-features = false, features = ["ndarray-simd"] }
+# The fork, for `ndarray::simd::amx_available()` in the backend report. Same
+# canonical path turbovec resolves, so cargo unifies to one ndarray package.
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+
+[workspace]

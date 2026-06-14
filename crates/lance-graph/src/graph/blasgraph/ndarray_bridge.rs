@@ -128,60 +128,80 @@ impl From<&ndarray::hpc::fingerprint::Fingerprint<256>> for BitVec {
 }
 
 // ---------------------------------------------------------------------------
-// SIMD dispatch — 4-tier fallback matching ndarray's bitwise.rs pattern
+// SIMD dispatch — routed through ndarray under `ndarray-hpc`, else 4-tier
+// in-crate fallback. Per the "all SIMD from ndarray" doctrine the canonical
+// SIMD dispatch lives in `ndarray::hpc::bitwise`; the hand-rolled intrinsics
+// below survive only as the `#[cfg(not(feature = "ndarray-hpc"))]` fallback
+// for minimal / non-x86 builds (CI, wasm, embedded).
 // ---------------------------------------------------------------------------
 
 /// SIMD-dispatched Hamming distance between two byte slices.
 ///
-/// Computes `popcount(a XOR b)` using the best available instruction set:
-///
-/// 1. **VPOPCNTDQ** (AVX-512 VPOPCNTDQ) — 512-bit popcount in one instruction
-/// 2. **AVX-512BW** — 512-bit XOR + byte-level popcount via shuffle LUT
-/// 3. **AVX2** — 256-bit XOR + byte-level popcount via shuffle LUT
-/// 4. **Scalar** — word-by-word `count_ones()`
+/// Computes `popcount(a XOR b)`. Under `ndarray-hpc` this routes through
+/// `ndarray::hpc::bitwise::hamming_distance_raw` (VPOPCNTDQ → AVX-512BW →
+/// AVX2 → scalar). Without the feature it uses the in-crate 4-tier fallback
+/// (VPOPCNTDQ → AVX-512BW → AVX2 → scalar).
 ///
 /// Both slices must have the same length. Panics otherwise.
 pub fn dispatch_hamming(a: &[u8], b: &[u8]) -> u64 {
     assert_eq!(a.len(), b.len(), "hamming: slices must have equal length");
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(feature = "ndarray-hpc")]
     {
-        if is_x86_feature_detected!("avx512vpopcntdq") && is_x86_feature_detected!("avx512f") {
-            // SAFETY: feature detection guarantees VPOPCNTDQ is available.
-            return unsafe { hamming_avx512_vpopcntdq(a, b) };
-        }
-        if is_x86_feature_detected!("avx512bw") && is_x86_feature_detected!("avx512f") {
-            // SAFETY: feature detection guarantees AVX-512BW is available.
-            return unsafe { hamming_avx512bw(a, b) };
-        }
-        if is_x86_feature_detected!("avx2") {
-            // SAFETY: feature detection guarantees AVX2 is available.
-            return unsafe { hamming_avx2(a, b) };
-        }
+        // Lengths are equal (asserted above), so ndarray's `min(len)` is exact.
+        ndarray::hpc::bitwise::hamming_distance_raw(a, b)
     }
 
-    hamming_scalar(a, b)
+    #[cfg(not(feature = "ndarray-hpc"))]
+    {
+        #[cfg(target_arch = "x86_64")]
+        {
+            if is_x86_feature_detected!("avx512vpopcntdq") && is_x86_feature_detected!("avx512f") {
+                // SAFETY: feature detection guarantees VPOPCNTDQ is available.
+                return unsafe { hamming_avx512_vpopcntdq(a, b) };
+            }
+            if is_x86_feature_detected!("avx512bw") && is_x86_feature_detected!("avx512f") {
+                // SAFETY: feature detection guarantees AVX-512BW is available.
+                return unsafe { hamming_avx512bw(a, b) };
+            }
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: feature detection guarantees AVX2 is available.
+                return unsafe { hamming_avx2(a, b) };
+            }
+        }
+
+        hamming_scalar(a, b)
+    }
 }
 
 /// SIMD-dispatched population count over a byte slice.
 ///
-/// Uses the same 4-tier fallback as `dispatch_hamming`:
-/// VPOPCNTDQ -> AVX-512BW -> AVX2 -> scalar.
+/// Under `ndarray-hpc` this routes through `ndarray::hpc::bitwise::
+/// popcount_raw`. Without the feature it uses the same in-crate 4-tier
+/// fallback as `dispatch_hamming` (VPOPCNTDQ → AVX-512BW → AVX2 → scalar).
 pub fn dispatch_popcount(a: &[u8]) -> u64 {
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(feature = "ndarray-hpc")]
     {
-        if is_x86_feature_detected!("avx512vpopcntdq") && is_x86_feature_detected!("avx512f") {
-            return unsafe { popcount_avx512_vpopcntdq(a) };
-        }
-        if is_x86_feature_detected!("avx512bw") && is_x86_feature_detected!("avx512f") {
-            return unsafe { popcount_avx512bw(a) };
-        }
-        if is_x86_feature_detected!("avx2") {
-            return unsafe { popcount_avx2(a) };
-        }
+        ndarray::hpc::bitwise::popcount_raw(a)
     }
 
-    popcount_scalar(a)
+    #[cfg(not(feature = "ndarray-hpc"))]
+    {
+        #[cfg(target_arch = "x86_64")]
+        {
+            if is_x86_feature_detected!("avx512vpopcntdq") && is_x86_feature_detected!("avx512f") {
+                return unsafe { popcount_avx512_vpopcntdq(a) };
+            }
+            if is_x86_feature_detected!("avx512bw") && is_x86_feature_detected!("avx512f") {
+                return unsafe { popcount_avx512bw(a) };
+            }
+            if is_x86_feature_detected!("avx2") {
+                return unsafe { popcount_avx2(a) };
+            }
+        }
+
+        popcount_scalar(a)
+    }
 }
 
 // ---------------------------------------------------------------------------
