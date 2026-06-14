@@ -93,6 +93,19 @@ unsafe fn avx2_batch(dm_data: &[u16], k: usize, query: u8, candidates: &[u8], ou
     use core::arch::x86_64::*;
 
     let row_offset = query as usize * k;
+
+    // The i32 gather (scale=2 on the u16 base) loads the target u16 AND the
+    // following u16 into each lane's high half (masked off below). For the last
+    // valid index of `dm_data` that high half is out of bounds, so when the
+    // row's worst-case over-read (`row_offset + k`, candidate k-1's high half)
+    // is not strictly inside the backing slice, route the whole batch through
+    // the scalar path — which only ever touches `row_offset + c`. This affects
+    // at most the final row of a tight k×k matrix (≤1/k of queries).
+    if row_offset + k >= dm_data.len() {
+        scalar_batch(dm_data, k, query, candidates, out);
+        return;
+    }
+
     let row_ptr = dm_data.as_ptr().add(row_offset);
     let n = candidates.len();
 
@@ -160,6 +173,19 @@ unsafe fn avx512_batch(dm_data: &[u16], k: usize, query: u8, candidates: &[u8], 
     use core::arch::x86_64::*;
 
     let row_offset = query as usize * k;
+
+    // The i32 gather (scale=2 on the u16 base) loads the target u16 AND the
+    // following u16 into each lane's high half (masked off below). For the last
+    // valid index of `dm_data` that high half is out of bounds, so when the
+    // row's worst-case over-read (`row_offset + k`, candidate k-1's high half)
+    // is not strictly inside the backing slice, route the whole batch through
+    // the scalar path — which only ever touches `row_offset + c`. This affects
+    // at most the final row of a tight k×k matrix (≤1/k of queries).
+    if row_offset + k >= dm_data.len() {
+        scalar_batch(dm_data, k, query, candidates, out);
+        return;
+    }
+
     let row_ptr = dm_data.as_ptr().add(row_offset);
     let n = candidates.len();
 
@@ -364,6 +390,39 @@ mod tests {
 
         batch_spo_distance(&dm, 5, 5, 5, &cand_s, &cand_p, &cand_o, &mut out);
         assert_eq!(out[0], 0);
+    }
+
+    #[test]
+    fn test_batch_last_row_full_width() {
+        // Regression: the SIMD gather (i32 gather, scale=2 over the u16 matrix)
+        // over-reads the u16 following each lane's target. On the very last row
+        // (query == k-1) with the last candidate (k-1), that over-read lands one
+        // u16 past `dm.data` — a memory-safety bug. k=64 makes 64 candidates an
+        // exact multiple of both the AVX-512 (16) and AVX2 (8) widths, so the
+        // last candidate is processed by the gather path, not the scalar tail.
+        // The boundary guard must route this row to scalar and still be correct.
+        let pal = make_palette(64);
+        let dm = DistanceMatrix::build(&pal);
+        assert_eq!(
+            dm.data.len(),
+            dm.k * dm.k,
+            "tight k×k matrix (no trailing slack)"
+        );
+
+        let query = (dm.k - 1) as u8; // last row
+        let candidates: Vec<u8> = (0..dm.k as u8).collect(); // includes k-1
+        let mut batch_out = vec![0u16; dm.k];
+
+        batch_palette_distance(&dm.data, dm.k, query, &candidates, &mut batch_out);
+
+        for (i, &cand) in candidates.iter().enumerate() {
+            let expected = dm.distance(query, cand);
+            assert_eq!(
+                batch_out[i], expected,
+                "last-row mismatch at candidate {}: batch={} scalar={}",
+                cand, batch_out[i], expected
+            );
+        }
     }
 
     #[test]
