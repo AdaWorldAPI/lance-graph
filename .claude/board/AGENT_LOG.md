@@ -1,3 +1,15 @@
+## 2026-06-14 — Lo design LOCKED: mailbox=delegate, surreal_container=Lo (SurrealQL kanban + Lance-timeline trigger), ractor parked
+
+**Main thread (Opus 4.8 1M).** Operator locked the Lo/Tesseract-4th-face architecture across this session's convergence. **Supersedes the earlier "Lo = surrealdb + ractor" framing** (ractor was never the trigger):
+
+- **Mailbox = headless owned-copies delegate** — its only job is Rust move/ownership (compile-time no-aliasing), the canon's "mailbox-as-owner". Nothing runs inside it.
+- **Lo face = `surreal_container`** (SurrealDB-on-Lance, the `AdaWorldAPI/surrealdb` kv-lance backend): **SurrealQL = the kanban time-series**; **Lance timeline/WAL (`surrealdb/core/src/kvs/lance/timeline.rs`) = the update trigger** — data-driven, zero message-passing. Tokio/ractor messages are explicitly OUT (slow, unwanted).
+- **ractor's "head" (messaging / supervision / `Saturated` SLA) = deferred until never** — only justified for a 16k-instance openclaw bot swarm (madness-showoff). ractor stays a dummy owner; its error-handling is its own internal concern, reached only if the head is ever wanted.
+
+**Disposition of the ractor work:** the P0 fork re-point (`cc0effa`) stays as committed (fork pin + BLOCKED note; P0-correct; `--features supervisor` parked, harmless — opt-in, default build green). The rebase + 3 `MessagingErr::Saturated` arms is **staged locally** (`/tmp/ractor-rebase`, `cargo check -p ractor --no-default-features --features tokio_runtime` clean) — NO PR (force-push to the fork's `main` was correctly denied by the safety gate; off the books until "never"). 
+
+**REAL Lo gate (the only thing that matters): the lance version reconcile.** `surreal_container` pins **lance =7.0.0 / lancedb =0.30.0**; the `AdaWorldAPI/surrealdb` fork's lock is **lance 6.0.0 / lancedb 0.29.0** (lancedb 0.29 transitively pins lance =6). Align the lance family on ONE line across the workspace → `surreal_container` builds → Lance-timeline triggers + SurrealQL kanban go live. That, not ractor, is the Lo unblock.
+
 ## 2026-06-14 — Own-the-fix: lance-graph-supervisor ractor P0 re-pointed to the fork (blocked on fork↔upstream sync)
 
 **Main thread (Opus 4.8 1M).** Operator nudge: *"if you find wrong, you own it to correct."* Found + owned: `lance-graph-supervisor` depended on **crates.io `ractor = "0.14"`** — a P0 violation (forked crate on the registry). Re-pointed to **`AdaWorldAPI/ractor`** (git, fork is ractor 0.15.13) per the AdaWorldAPI/<name> convention. github.com is git-reachable anonymously (the scoped proxy denied it; real github + GH_TOKEN works — same lesson as the surrealdb entry below).
