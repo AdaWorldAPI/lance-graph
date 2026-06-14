@@ -218,6 +218,21 @@ pub trait ClassView {
     fn edge_codec_flavor(&self, _class: ClassId) -> crate::canonical_node::EdgeCodecFlavor {
         crate::canonical_node::EdgeCodecFlavor::CoarseOnly
     }
+
+    /// Which value-slab schema preset this class materialises in
+    /// [`NodeRow::value`](crate::canonical_node::NodeRow::value).
+    ///
+    /// Default is
+    /// [`ValueSchema::Bootstrap`](crate::canonical_node::ValueSchema::Bootstrap)
+    /// — the canon zero-fallback (value all zero; only key + edges meaningful). An
+    /// implementor overrides this to declare a denser preset (`Cognitive` /
+    /// `Compressed` / `Full`). Selection only: every preset carves within the
+    /// reserved 480-byte value slab, so the choice never changes `NODE_ROW_STRIDE`
+    /// (canon "registry-resolved via `classid → ClassView`", never a stride change).
+    #[inline]
+    fn value_schema(&self, _class: ClassId) -> crate::canonical_node::ValueSchema {
+        crate::canonical_node::ValueSchema::Bootstrap
+    }
 }
 
 /// One populated field to render — the late-resolved `label` + its `predicate` key.

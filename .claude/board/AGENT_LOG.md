@@ -1,3 +1,11 @@
+## 2026-06-14 — `ValueSchema` value-slab presets (Full + Cognitive/Compressed/Bootstrap) — closes the helix-48 dilution gap
+
+**Main thread.** Operator: *"create different Schema presets, the 'full' is one of the options."* Context: after confirming the SoA-extension ((12+4) edges + turbovec residue + signed) was already locked as `EdgeCodecFlavor` (commit `920671d`) on #489's `EdgeBlock`, **helix-48** was the one element still only a TODO-comment in the `value(480)` slab — the dilution risk the operator flagged.
+
+**Shipped (contract, additive, build-verified):** `canonical_node::{ValueSchema, ValueTenant, VALUE_TENANTS}` — the value-side analog of `EdgeCodecFlavor`. 9 stable append-only `ValueTenant`s (discriminant == `FieldMask` bit == `VALUE_TENANTS` index) carving the value slab contiguously `[32,186)` (154 of 480 B; reserve-don't-reclaim). Four presets via `FieldMask`: `Bootstrap` (EMPTY default), `Cognitive` (58 B), `Compressed` (98 B), `Full` (154 B = all tenants). `ClassView::value_schema()` defaulted to `Bootstrap` (non-breaking, mirrors `edge_codec_flavor`). Layout-preserving (no stride change, no `ENVELOPE_LAYOUT_VERSION` bump). **helix-48 + turbovec-`Pq32x4` + signed-`CoarseResidue` are now all first-class tenants — the dilution gap is closed.**
+
+**Reused, not duplicated** (operator's "refactor into what exists"): `class_view::FieldMask` (presence) + `soa_envelope::ColumnDescriptor` (carve) — no new presence type. +6 tests + 3 compile-time canon asserts; `cargo fmt` / `clippy -D warnings` / `test -p lance-graph-contract` all green (611 lib tests). Pushed to #495 (safe fallback intact). `EdgeCodecFlavor` (operator's earlier idea, `920671d`) untouched.
+
 ## 2026-06-14 — Doc-sweep: stale `lance 6.0.0 / lancedb 0.29.0` → canonical `7.0.0 / 0.30.0` across CLAUDE.md + plans + boards
 
 **Main thread.** Operator: *"it's 7.0.0 + 0.30, please update all plans boards accordingly"* + *"update the .claude/board ledgers epiphany technical debt implemented plans phases etc"*. Swept every stale `lance =6.0.0 / lancedb =0.29.0` reference to the canonical stack the workspace already runs.

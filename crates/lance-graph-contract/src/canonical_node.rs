@@ -259,6 +259,7 @@ const _: () = assert!(core::mem::size_of::<NodeRow>() == 512);
 
 // ── SoaEnvelope binding for [NodeRow] ────────────────────────────────────────
 
+use crate::class_view::FieldMask;
 use crate::soa_envelope::{ColumnDescriptor, ColumnKind, SoaEnvelope};
 
 /// Stable column-id ordinals for [`NodeRow`]'s three top-level slots.
@@ -303,6 +304,230 @@ pub const NODE_ROW_COLUMNS: &[ColumnDescriptor] = &[
 
 /// Row stride for [`NodeRow`] in bytes — equal to `size_of::<NodeRow>()`.
 pub const NODE_ROW_STRIDE: usize = 512;
+
+// ── Value-slab schema presets: which tenants a class materialises ─────────────
+
+/// Full-row byte offset of the value slab (key 16 + edges 16).
+pub const VALUE_SLAB_ROW_OFFSET: usize = 32;
+/// Bytes available in the [`NodeRow::value`] slab.
+pub const VALUE_SLAB_LEN: usize = 480;
+
+/// A named tenant of the 480-byte [`NodeRow::value`] slab.
+///
+/// Stable, append-only positions — the canon "reserve, don't reclaim" rule and
+/// the [`FieldMask`] N3 contract: a tenant's presence bit and its byte offset in
+/// [`VALUE_TENANTS`] never move once instances persist, and retired tenants are
+/// never reused. **The discriminant IS the [`FieldMask`] bit position** and the
+/// index into [`VALUE_TENANTS`] (asserted at compile time below).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum ValueTenant {
+    /// `MetaWord` — thinking / awareness / NARS / free-energy bits.
+    Meta = 0,
+    /// `QualiaI4_16D` — 16 signed-4-bit chroma channels.
+    Qualia = 1,
+    /// The 4 out-of-family edges materialised as full `CausalEdge64`.
+    MaterializedEdges = 2,
+    /// `Fingerprint<256>` — 32-byte identity print.
+    Fingerprint = 3,
+    /// helix golden-spiral Place/Residue (48 B).
+    HelixResidue = 4,
+    /// turbovec PQ residue ([`EdgeCodecFlavor::Pq32x4`], 16 B).
+    TurbovecResidue = 5,
+    /// Spatio-temporal accumulator (`f32`).
+    Energy = 6,
+    /// Hebbian plasticity counter + last-active stamp.
+    Plasticity = 7,
+    /// OGIT entity-type / class discriminator (`u16`).
+    EntityType = 8,
+}
+
+/// Stable byte carve of the value slab. Offsets are **row-relative** (within one
+/// row packet, in the value region `[32, 512)`) — consistent with
+/// [`NODE_ROW_COLUMNS`], one level finer. Contiguous, in [`ValueTenant`]
+/// discriminant order, no gaps; the Full set fits the slab (all asserted at
+/// compile time below). This is the per-class carve the canon defers to
+/// `ClassView`; it is NOT surfaced as its own top-level envelope column.
+pub const VALUE_TENANTS: &[ColumnDescriptor] = &[
+    ColumnDescriptor {
+        name_id: ValueTenant::Meta as u16,
+        kind: ColumnKind::U64,
+        elems_per_row: 1,
+        row_offset: 32,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::Qualia as u16,
+        kind: ColumnKind::U64,
+        elems_per_row: 1,
+        row_offset: 40,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::MaterializedEdges as u16,
+        kind: ColumnKind::U64,
+        elems_per_row: 4,
+        row_offset: 48,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::Fingerprint as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 32,
+        row_offset: 80,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::HelixResidue as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 48,
+        row_offset: 112,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::TurbovecResidue as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 16,
+        row_offset: 160,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::Energy as u16,
+        kind: ColumnKind::F32,
+        elems_per_row: 1,
+        row_offset: 176,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::Plasticity as u16,
+        kind: ColumnKind::U32,
+        elems_per_row: 1,
+        row_offset: 180,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::EntityType as u16,
+        kind: ColumnKind::U16,
+        elems_per_row: 1,
+        row_offset: 184,
+    },
+];
+
+// Compile-time canon: VALUE_TENANTS is discriminant-ordered, contiguous within the
+// value slab, and the Full carve fits the 480-byte slab.
+const _: () = {
+    let mut i = 0usize;
+    let mut prev_end = VALUE_SLAB_ROW_OFFSET;
+    while i < VALUE_TENANTS.len() {
+        let c = &VALUE_TENANTS[i];
+        assert!(
+            c.name_id as usize == i,
+            "ValueTenant discriminant must equal its VALUE_TENANTS index"
+        );
+        assert!(
+            c.row_offset as usize == prev_end,
+            "VALUE_TENANTS must be contiguous within the value slab (no gaps/overlap)"
+        );
+        prev_end = c.row_offset as usize + c.col_bytes_per_row();
+        i += 1;
+    }
+    assert!(
+        prev_end <= NODE_ROW_STRIDE,
+        "value tenants must fit within the 512-byte row"
+    );
+    assert!(
+        prev_end - VALUE_SLAB_ROW_OFFSET <= VALUE_SLAB_LEN,
+        "value tenants must fit the 480-byte slab"
+    );
+};
+
+/// Which value-slab schema a class materialises — the value-side analog of
+/// [`EdgeCodecFlavor`]. A preset is a presence [`FieldMask`] over [`ValueTenant`]
+/// positions; a class selects it via
+/// [`ClassView::value_schema`](crate::class_view::ClassView::value_schema).
+///
+/// **Layout-preserving:** every preset carves WITHIN the reserved 480-byte value
+/// slab, so the choice never changes [`NODE_ROW_STRIDE`] (no
+/// `ENVELOPE_LAYOUT_VERSION` bump — canon "registry-resolved via
+/// `classid → ClassView`", never a stride change). [`Bootstrap`] is the
+/// zero-fallback default: value all zero, only key + edges meaningful.
+///
+/// [`Bootstrap`]: ValueSchema::Bootstrap
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[repr(u8)]
+pub enum ValueSchema {
+    /// Empty value slab — the canon zero-fallback (key + edges only).
+    #[default]
+    Bootstrap = 0,
+    /// Hot self-thinking set: Meta + Qualia + Fingerprint + Energy + Plasticity +
+    /// EntityType. No materialised edges, no codec residues.
+    Cognitive = 1,
+    /// Cold / compressed codec stack: Fingerprint + Helix-48 + turbovec residue +
+    /// EntityType. No hot lifecycle columns.
+    Compressed = 2,
+    /// Every [`ValueTenant`] materialised — the densest node.
+    Full = 3,
+}
+
+impl ValueSchema {
+    /// The presence [`FieldMask`] over [`ValueTenant`] positions for this preset.
+    pub const fn field_mask(self) -> FieldMask {
+        match self {
+            ValueSchema::Bootstrap => FieldMask::EMPTY,
+            ValueSchema::Cognitive => FieldMask::from_positions(&[
+                ValueTenant::Meta as u8,
+                ValueTenant::Qualia as u8,
+                ValueTenant::Fingerprint as u8,
+                ValueTenant::Energy as u8,
+                ValueTenant::Plasticity as u8,
+                ValueTenant::EntityType as u8,
+            ]),
+            ValueSchema::Compressed => FieldMask::from_positions(&[
+                ValueTenant::Fingerprint as u8,
+                ValueTenant::HelixResidue as u8,
+                ValueTenant::TurbovecResidue as u8,
+                ValueTenant::EntityType as u8,
+            ]),
+            ValueSchema::Full => FieldMask::from_positions(&[
+                ValueTenant::Meta as u8,
+                ValueTenant::Qualia as u8,
+                ValueTenant::MaterializedEdges as u8,
+                ValueTenant::Fingerprint as u8,
+                ValueTenant::HelixResidue as u8,
+                ValueTenant::TurbovecResidue as u8,
+                ValueTenant::Energy as u8,
+                ValueTenant::Plasticity as u8,
+                ValueTenant::EntityType as u8,
+            ]),
+        }
+    }
+
+    /// Does this preset materialise `tenant`?
+    #[inline]
+    pub const fn has(self, tenant: ValueTenant) -> bool {
+        self.field_mask().has(tenant as u8)
+    }
+
+    /// Total bytes this preset occupies in the value slab (Σ present tenants).
+    pub const fn tenant_bytes(self) -> usize {
+        let mask = self.field_mask();
+        let mut total = 0usize;
+        let mut i = 0usize;
+        while i < VALUE_TENANTS.len() {
+            let c = &VALUE_TENANTS[i];
+            if mask.has(c.name_id as u8) {
+                total += c.col_bytes_per_row();
+            }
+            i += 1;
+        }
+        total
+    }
+
+    /// Every preset carves within the reserved 480-byte slab — none changes
+    /// [`NODE_ROW_STRIDE`], so none forces an `ENVELOPE_LAYOUT_VERSION` bump.
+    #[inline]
+    pub const fn is_layout_preserving(self) -> bool {
+        true
+    }
+}
+
+// Compile-time canon: the densest preset fits the slab; Full covers every tenant;
+// Bootstrap is empty.
+const _: () = assert!(ValueSchema::Full.tenant_bytes() <= VALUE_SLAB_LEN);
+const _: () = assert!(ValueSchema::Full.field_mask().count() as usize == VALUE_TENANTS.len());
+const _: () = assert!(ValueSchema::Bootstrap.field_mask().is_empty());
 
 /// Zero-copy [`SoaEnvelope`] wrapper over a contiguous slice of [`NodeRow`].
 ///
@@ -659,5 +884,91 @@ mod tests {
         );
         // verify_layout exercises that gate.
         assert!(pkt.verify_layout().is_ok());
+    }
+
+    // ── Value-slab schema presets ────────────────────────────────────────────
+
+    #[test]
+    fn value_tenants_contiguous_within_slab() {
+        let mut prev_end = VALUE_SLAB_ROW_OFFSET;
+        for (i, c) in VALUE_TENANTS.iter().enumerate() {
+            assert_eq!(c.name_id as usize, i, "discriminant == index");
+            assert_eq!(c.row_offset as usize, prev_end, "no gap before {c:?}");
+            prev_end = c.row_offset as usize + c.col_bytes_per_row();
+        }
+        assert!(prev_end <= NODE_ROW_STRIDE);
+        assert_eq!(
+            prev_end - VALUE_SLAB_ROW_OFFSET,
+            154,
+            "current Full carve uses 154 of 480 B"
+        );
+        assert!(prev_end - VALUE_SLAB_ROW_OFFSET <= VALUE_SLAB_LEN);
+    }
+
+    #[test]
+    fn value_schema_default_is_bootstrap_empty() {
+        assert_eq!(ValueSchema::default(), ValueSchema::Bootstrap);
+        assert!(ValueSchema::Bootstrap.field_mask().is_empty());
+        assert_eq!(ValueSchema::Bootstrap.tenant_bytes(), 0);
+    }
+
+    #[test]
+    fn value_schema_full_covers_every_tenant() {
+        let full = ValueSchema::Full;
+        assert_eq!(full.field_mask().count() as usize, VALUE_TENANTS.len());
+        for t in [
+            ValueTenant::Meta,
+            ValueTenant::Qualia,
+            ValueTenant::MaterializedEdges,
+            ValueTenant::Fingerprint,
+            ValueTenant::HelixResidue,
+            ValueTenant::TurbovecResidue,
+            ValueTenant::Energy,
+            ValueTenant::Plasticity,
+            ValueTenant::EntityType,
+        ] {
+            assert!(full.has(t), "Full must materialise {t:?}");
+        }
+    }
+
+    #[test]
+    fn value_schema_byte_budgets_are_locked() {
+        assert_eq!(ValueSchema::Bootstrap.tenant_bytes(), 0);
+        assert_eq!(ValueSchema::Cognitive.tenant_bytes(), 58);
+        assert_eq!(ValueSchema::Compressed.tenant_bytes(), 98);
+        assert_eq!(ValueSchema::Full.tenant_bytes(), 154);
+        for s in [
+            ValueSchema::Bootstrap,
+            ValueSchema::Cognitive,
+            ValueSchema::Compressed,
+            ValueSchema::Full,
+        ] {
+            assert!(s.tenant_bytes() <= VALUE_SLAB_LEN);
+            assert!(s.is_layout_preserving());
+        }
+    }
+
+    #[test]
+    fn value_schema_presets_carry_expected_tenants() {
+        // Cognitive: hot columns, no codec residues, no materialised edges.
+        let c = ValueSchema::Cognitive;
+        assert!(c.has(ValueTenant::Meta) && c.has(ValueTenant::Qualia));
+        assert!(c.has(ValueTenant::Energy) && c.has(ValueTenant::EntityType));
+        assert!(!c.has(ValueTenant::HelixResidue));
+        assert!(!c.has(ValueTenant::TurbovecResidue));
+        assert!(!c.has(ValueTenant::MaterializedEdges));
+        // Compressed: codec residues, no hot lifecycle.
+        let z = ValueSchema::Compressed;
+        assert!(z.has(ValueTenant::HelixResidue) && z.has(ValueTenant::TurbovecResidue));
+        assert!(z.has(ValueTenant::Fingerprint));
+        assert!(!z.has(ValueTenant::Energy) && !z.has(ValueTenant::Meta));
+    }
+
+    #[test]
+    fn value_schema_preserves_node_stride() {
+        // A preset is an interpretation of the reserved value slab, never a
+        // stride change — same canon invariant as EdgeCodecFlavor.
+        assert_eq!(NODE_ROW_STRIDE, core::mem::size_of::<NodeRow>());
+        assert_eq!(VALUE_SLAB_ROW_OFFSET + VALUE_SLAB_LEN, NODE_ROW_STRIDE);
     }
 }
