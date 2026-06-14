@@ -3,8 +3,10 @@
 ## READ BY: truth-architect, savant-research, family-codec-smith,
 ##          palette-engineer, integration-lead, container-architect
 
-## STATUS: 5 corrections absorbed, 0 probes run. All claims are CONJECTURES
-##         until the probe queue drains.
+## STATUS: 6 corrections absorbed, 0 probes run. All claims are CONJECTURES
+##         until the probe queue drains. Correction 6 (2026-06-14) reclassifies
+##         the whole float-reconstruction framing as a category error for
+##         byte-encoded models — see the Correction Chain.
 
 ---
 
@@ -42,6 +44,28 @@ Iteration 5: Slot D = CLAM tree path (bucketing > resolution)
   → Correct: Slot D is PRIMARY (bucket address), Slot V is REFINEMENT (exact value)
   → Correct: 3-level 16-way CLAM = 12 bits → 16 → 256 → 4096 alignment
   → UNVERIFIED: requires Probe M1 (CLAM tree fit on 256 Jina centroids)
+
+Iteration 6 (operator, 2026-06-14): float codec on byte-encoded model = CATEGORY ERROR
+  → Measured: bgz-hhtl-d certified on real Qwen3-TTS-1.7B FAILS reconstruction on
+    all 16 roles (palette/hhtld cos ~0.05–0.32, Base17 cos ~0.01–0.37 at the first
+    fold, matvec rel-err ~1.0, fisher-z ρ 0.03–0.68) — cert at
+    .claude/knowledge/certification/hhtld_qwen3tts17b.json. The scalar Slot V (BF16
+    residual) adds ≈0 over palette-only (palette_cos ≈ hhtld_cos).
+  → Root insight: this is NOT just a weak residual. It is a category error. Qwen's
+    information lives in a BYTE-QUANTIZED REGISTER (GGUF / byte-BPE / bgz7), not a
+    continuous float field. Scoring float-RECONSTRUCTION fidelity (Base17 fold +
+    cosine/L2) on a discrete/byte representation measures the wrong category. Same
+    failure mode as I-VSA-IDENTITIES, one layer down: decoding a quantized register
+    back to f32 to score cosine IS the register-loss the iron rule forbids.
+  → Correction: for byte-encoded models the success metric is discrete CODE-AGREEMENT
+    / bucket-ROUTING (the rolling floor), NOT reconstruction. The codec should never
+    decode to f32 to score cosine. Reconstruction is the wrong question.
+  → Evidence the right-category path works (ndarray PR #218 probe family):
+    rolling_floor_probe (coarse code routed via a self-calibrating μ+3σ floor,
+    ρ=1.0 tracking, reject stable ~0.1% under SD drift), helix_bitdepth_probe
+    (direction as a discrete golden index, 24-bit lossless vs ≤f16), and
+    morton_perturbation_probe (discrete frame drives a field on-demand). None
+    decode-to-f32-to-score-cosine.
 ```
 
 ## The Five Hard Constraints
