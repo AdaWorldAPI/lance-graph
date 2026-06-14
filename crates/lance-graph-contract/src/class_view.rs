@@ -204,6 +204,20 @@ pub trait ClassView {
             })
             .collect()
     }
+
+    /// Which edge-codec flavor this class reads its node edge block with.
+    ///
+    /// Default is
+    /// [`EdgeCodecFlavor::CoarseOnly`](crate::canonical_node::EdgeCodecFlavor::CoarseOnly)
+    /// — the canon zero-fallback reading (each edge byte is a palette index). An
+    /// implementor overrides this to let a class opt into residue or PQ fidelity.
+    /// This is *selection only*: every flavor shares the SAME byte layout, so the
+    /// choice never changes `NODE_ROW_STRIDE` (canon "registry-resolved via
+    /// `classid → ClassView`", never a stride change).
+    #[inline]
+    fn edge_codec_flavor(&self, _class: ClassId) -> crate::canonical_node::EdgeCodecFlavor {
+        crate::canonical_node::EdgeCodecFlavor::CoarseOnly
+    }
 }
 
 /// One populated field to render — the late-resolved `label` + its `predicate` key.

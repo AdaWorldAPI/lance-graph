@@ -1,3 +1,19 @@
+## entropy-ladder-spo-rung-v1 — Staunen↔Wisdom entropy coordinate unifies SPO rungs + NARS reliability (R1 shipped; R2–R6 roadmap)
+
+Plan path: `.claude/plans/entropy-ladder-spo-rung-v1.md`. Foundation: `ndarray::hpc::{reliability, edge_codec, entropy_ladder}`. Selector: `lance-graph-contract::EdgeCodecFlavor`.
+
+| D-id | Title | Crate(s) / repo | Risk | Status | PR / Evidence |
+|---|---|---|---|---|---|
+| D-EL-1 | Entropy-ladder foundation (reliability + edge_codec + entropy_ladder + EdgeCodecFlavor + bgz17 fix) | ndarray + lance-graph-contract + bgz17 | LOW | **In PR** | `d3b608f`,`83be7c3`,`920671d`,`6d48ced`; ρ=−0.78; ICC 0.97–0.99 |
+| D-EL-2 | `entropy_class` → CausalEdge64 spare bits [63:61] | `causal-edge` | MED | **Queued** | version-gated + field-isolation (I-LEGACY-API-FEATURE-GATED) |
+| D-EL-3 | CAM-PQ AMX centroid assignment (GEMM + 2×2/4×4 grid) | `ndarray` | MED | **Queued** | bit-exact + GMAC/s probe |
+| D-EL-4 | HHTL+helix basin attraction | `lance-graph` + `helix` | MED | **Probe queued** | +15% recall vs HHTL-alone gate |
+| D-EL-5 | Markov SPO rung-ladder → episodic context | `deepnsm` / `lance-graph` | MED | **Probe queued** | prune-without-recall-loss gate |
+| D-EL-6 | Energy axis / particle↔wave | `lance-graph` MailboxSoA | MED | **Blocked** | gated on Mailbox-SoA map |
+| D-EL-COCA | Superposition 2/3 pruning (cluster-identity layer) | `deepnsm` | HIGH | **Design** | I-VSA-IDENTITIES design-gate |
+
+---
+
 ## singleton-to-snapshot-nudge-v1 — every shared-mutable singleton → per-owner MailboxSoA + Arc-swap snapshot (7 deliverables; codebooks left as-is)
 
 Plan path: `.claude/plans/singleton-to-snapshot-nudge-v1.md`. Companions: `bindspace-singleton-to-mailbox-soa-v1` (BindSpace dissolution), `cycle-coherent-soa-snapshot-v1` (snapshot mechanism). Debt: TD-UNBUNDLE-FROM-1.
