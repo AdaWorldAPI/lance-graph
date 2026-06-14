@@ -1,5 +1,7 @@
 # bindspace-singleton-to-mailbox-soa-v1 — dissolve the shared `Arc<BindSpace>` into per-mailbox `MailboxSoA<N>` thoughtspace
 
+> **ERRATA (2026-06-13, post-#490):** D-MBX-A1 columns are shipped (PR #386, mailbox_soa.rs); `last_emission_cycle` is renamed to `last_active_cycle` (PR #477); `CollapseGateEmission` + `MailboxSoA::emit()` are deleted (PR #487); §2.6 DTO inventory predates the TD-RESONANCEDTO-DUP-1 deferral. §5 sequencing (D-MBX-A2 → S1 → S2 → S3 → S4) is still directionally correct; D-MBX-A2 is the current gating gap. Full diff resolution: `soa-migration-diff-resolution-2026-06-13.md`.
+
 > **Status:** CONJECTURE / design (migration spec). NOT yet implemented.
 > **Date:** 2026-05-27.
 > **Owns the answer to:** *"make MailboxSoA the individual, mailbox-owned, ephemeral

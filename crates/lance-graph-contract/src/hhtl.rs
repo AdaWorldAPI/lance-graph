@@ -189,8 +189,8 @@ impl NiblePath {
     }
 
     /// Reconstruct a path from its raw packed `(path, depth)` — the inverse of
-    /// [`packed`](NiblePath::packed). Used by `identity::NodeGuid` to round-trip
-    /// the routing-prefix it stores.
+    /// [`packed`](NiblePath::packed). General HHTL utility for round-tripping
+    /// a routing path through its packed `(u64, depth)` form.
     ///
     /// Returns `None` if `depth > MAX_DEPTH`, or if `path` has bits set above the
     /// `depth` nibbles (an inconsistent pack — leading nibbles must be the route,

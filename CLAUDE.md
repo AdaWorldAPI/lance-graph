@@ -1237,3 +1237,46 @@ All findings in `.claude/knowledge/session_autocomplete_cache.md`.
 
 ### Benchmark
 611M SPO lookups/sec. 17K tokens/sec. 388 KB RAM. 100% information preservation.
+
+
+## CANON — Minimal SoA node + zero-fallback ladder (locked 2026-06-13)
+
+> Operator-locked this session. Append-only. Wrapper `NodeGuid` (#480) is audited
+> against THIS, never the reverse. No RFC-9562 ceremony in the hot key.
+
+**Node = 4096 bit = 512 byte:** `key(16) | edges(16) | value(480)`.
+
+**Key (16 byte, little-endian):**
+```
+ 0..4   classid   (u32)   8 hex — prefix-routable; default 0x0000_0000
+ 4..6   HEEL      (u16)   ┐
+ 6..8   HIP       (u16)   ├ 3 cascade tiers (HHTL path)
+ 8..10  TWIG      (u16)   ┘
+10..13  family    (u24)   ┐ trailing 6 bytes = basin-local key
+13..16  identity  (u24)   ┘ (masked load after the trie binds the prefix)
+```
+`local_key()` = bytes 10..16 (family ++ identity), the only discriminator once
+the prefix is resolved.
+
+**Edge block (16 byte):** 12 in-family + 4 out-of-family, one byte per slot.
+Canonical, NOT mandatory — always reserved (zeroed when unused), never shrunk; a
+class opting out of edges is resolved via `classid → ClassView`, never by a stride
+change.
+
+**Zero-fallback ladder (monotonic — zero = fall through to the broader default):**
+- `classid == 0x0000_0000` → default class, no prefix routing (dormant)
+- `family  == 0x00_0000`    → default basin, no neighborhood grouping (dormant)
+- ⇒ while both are zero, `identity` (24 bit) ALONE discriminates — the bootstrap
+  address. 16.7M identities per default basin; mint a non-zero family to expand.
+
+**RESERVE, DON'T RECLAIM:** a zero tier means *not consulted*, never *compacted
+away*. classid(4B) and family(3B) keep fixed offsets so a non-zero mint later
+wakes routing/basin binding with ZERO `ENVELOPE_LAYOUT_VERSION` change. Mint path
+must `debug_assert` identity uniqueness while in the default basin.
+
+**No UUID ceremony:** no version nibble, no variant bits, no namespace/kind. The
+dash-groups are the only semantics; the tail is plain `family|identity`.
+
+Reference impl: `canonical_node.rs` (`NodeGuid` / `EdgeBlock` / `NodeRow`, with
+`const _` size asserts at 16/16/512 and `is_default_class` / `is_unbasined` /
+`is_bootstrap_address` guards).

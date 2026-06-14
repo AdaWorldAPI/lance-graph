@@ -42,6 +42,7 @@ pub mod atoms;
 pub mod auth;
 pub mod callcenter;
 pub mod cam;
+pub mod canonical_node;
 pub mod class_view;
 pub mod codegen_spine;
 pub mod cognitive_shader;
@@ -62,7 +63,6 @@ pub mod hash;
 pub mod head2head;
 pub mod hhtl;
 pub mod high_heel;
-pub mod identity;
 pub mod jit;
 pub mod kanban;
 pub mod literal_graph;
@@ -106,11 +106,11 @@ pub mod world_map;
 pub mod world_model;
 
 // Re-exports for the most commonly used collapse_gate types.
+pub use canonical_node::{EdgeBlock, NodeGuid, NodeRow};
 pub use class_view::{ClassId, ClassProjection, ClassView, FieldMask, RenderRow};
 pub use collapse_gate::{GateDecision, MailboxId, MergeMode};
 pub use episodic_edges::{EdgeRef, EpisodicEdges64};
 pub use head2head::{CompetitionOutcome, Head2Head, WinnerCriterion};
-pub use identity::{NodeGuid, IDENTITY_LAYOUT_VERSION};
 pub use kanban::{ExecTarget, KanbanColumn, KanbanMove, RubiconTransitionError};
 pub use scheduler::{DatasetVersion, NextPhaseScheduler, VersionScheduler};
 pub use soa_view::{MailboxSoaOwner, MailboxSoaView};

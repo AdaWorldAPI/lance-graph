@@ -1,0 +1,567 @@
+//! Canonical SoA node — LOCKED minimal layout + zero-fallback ladder.
+//!
+//! Decisions pinned here (everything else comes after):
+//!   * key byte/print order: classid · HEEL · HIP · TWIG · family · identity (LE)
+//!   * family + identity are the CONTIGUOUS TRAILING 6 BYTES → the basin-local
+//!     key you can use alone after an HHTL radix walk (skip the prefix).
+//!   * edge block = 12 in-family + 4 out-of-family, one byte per slot (canonical,
+//!     not mandatory — always reserved, never shrunk; opt-out is registry-resolved).
+//!   * node = 4096 bit = 512 byte = key(16) | edges(16) | value(480).
+//!
+//! ## Zero-fallback ladder (monotonic: zero = fall through to the broader default)
+//!   * classid  == 0x0000_0000  → default class,  no prefix routing   (dormant)
+//!   * family   == 0x00_0000     → default basin,  no neighborhood grouping (dormant)
+//!   * ⇒ while both are zero, `identity` (3 bytes / 24 bits) ALONE discriminates.
+//!
+//! RESERVE, DON'T RECLAIM: a zero tier means "not consulted", never "compacted
+//! away". classid(4B) and family(3B) keep their fixed offsets so a non-zero mint
+//! later wakes routing/basin binding with ZERO layout change.
+//!
+//! No UUID ceremony: no version nibble, no variant bits, no namespace/kind framing.
+//! Little-endian throughout so the trailing-6-byte local key is a single masked load.
+
+/// 16-byte canonical instance key.
+///
+/// ```text
+///   0..4   classid   (u32)   ← 8 hex, prefix-routable; default 0x0000_0000
+///   4..6   HEEL      (u16)   ┐
+///   6..8   HIP       (u16)   ├ 3 cascade tiers (HHTL path)
+///   8..10  TWIG      (u16)   ┘
+///  10..13  family    (u24)   ┐ trailing 6 bytes = basin-local key
+///  13..16  identity  (u24)   ┘ (usable alone once the prefix is trie-resolved)
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(C, align(16))]
+pub struct NodeGuid([u8; 16]);
+
+impl NodeGuid {
+    /// Reserved canonical default class (implicit fallback; no prefix routing).
+    pub const CLASSID_DEFAULT: u32 = 0x0000_0000;
+    /// Reserved canonical default basin (implicit fallback; no neighborhood grouping).
+    pub const FAMILY_DEFAULT: u32 = 0x00_0000;
+
+    /// Construct from the six canonical groups. `family`/`identity` use their low 3 bytes.
+    ///
+    /// Panics (incl. const-eval) when `family` or `identity` exceed 24 bits — the
+    /// silent-truncation footgun: distinct u32 inputs would otherwise collapse
+    /// to the same stored key.
+    pub const fn new(classid: u32, heel: u16, hip: u16, twig: u16, family: u32, identity: u32) -> Self {
+        assert!(family <= 0x00FF_FFFF, "family must fit in 24 bits");
+        assert!(identity <= 0x00FF_FFFF, "identity must fit in 24 bits");
+        let c = classid.to_le_bytes();
+        let h = heel.to_le_bytes();
+        let p = hip.to_le_bytes();
+        let t = twig.to_le_bytes();
+        let f = family.to_le_bytes();   // low 3 bytes
+        let i = identity.to_le_bytes(); // low 3 bytes
+        Self([
+            c[0], c[1], c[2], c[3], //  0..4  classid
+            h[0], h[1],             //  4..6  HEEL
+            p[0], p[1],             //  6..8  HIP
+            t[0], t[1],             //  8..10 TWIG
+            f[0], f[1], f[2],       // 10..13 family
+            i[0], i[1], i[2],       // 13..16 identity
+        ])
+    }
+
+    /// Default-class, default-basin node: only `identity` discriminates.
+    /// This is the bootstrap address while classid and family are zero.
+    pub const fn local(identity: u32) -> Self {
+        Self::new(Self::CLASSID_DEFAULT, 0, 0, 0, Self::FAMILY_DEFAULT, identity)
+    }
+
+    #[inline]
+    pub const fn classid(&self) -> u32 {
+        u32::from_le_bytes([self.0[0], self.0[1], self.0[2], self.0[3]])
+    }
+
+    #[inline]
+    pub const fn family(&self) -> u32 {
+        u32::from_le_bytes([self.0[10], self.0[11], self.0[12], 0])
+    }
+
+    #[inline]
+    pub const fn identity(&self) -> u32 {
+        u32::from_le_bytes([self.0[13], self.0[14], self.0[15], 0])
+    }
+
+    /// Basin-local key: trailing 6 bytes (family ++ identity), zero-padded to u64.
+    /// After an HHTL radix walk has bound classid+HEEL+HIP+TWIG, this is the only
+    /// part that still discriminates — a single masked load, no gather.
+    #[inline]
+    pub const fn local_key(&self) -> u64 {
+        u64::from_le_bytes([
+            self.0[10], self.0[11], self.0[12], self.0[13], self.0[14], self.0[15], 0, 0,
+        ])
+    }
+
+    // ── fallback-ladder dispatch guards ─────────────────────────────────────
+    /// `true` while the classid is the implicit default (no prefix routing).
+    #[inline]
+    pub const fn is_default_class(&self) -> bool {
+        self.classid() == Self::CLASSID_DEFAULT
+    }
+    /// `true` while the family is the implicit default basin (no grouping).
+    #[inline]
+    pub const fn is_unbasined(&self) -> bool {
+        self.family() == Self::FAMILY_DEFAULT
+    }
+    /// `true` when both tiers fall through and only `identity` discriminates.
+    #[inline]
+    pub const fn is_bootstrap_address(&self) -> bool {
+        self.is_default_class() && self.is_unbasined()
+    }
+
+    #[inline]
+    pub const fn as_bytes(&self) -> &[u8; 16] {
+        &self.0
+    }
+
+    /// Mint-path guard: while in the default basin, `identity` (24 bits) is the
+    /// ONLY discriminator, so the mint path MUST guarantee its uniqueness. Call
+    /// on insert with whatever set/bitmap the mint path keeps; this centralises
+    /// the invariant so it can't be forgotten while family is still a no-op.
+    #[inline]
+    pub fn debug_assert_identity_unique(&self, already_present: bool) {
+        if self.is_bootstrap_address() {
+            debug_assert!(
+                !already_present,
+                "identity collision in default basin: 24-bit identity space exhausted \
+                 or reused — mint a non-zero family to expand before this fires in prod"
+            );
+        }
+    }
+}
+
+/// Canonical self-describing print: `classid-HEEL-HIP-TWIG-family·identity`.
+///
+/// The dash-groups ARE the semantic delimiters — every printed GUID is
+/// self-describing at sight (OGAR canon, P0). `{:08x}-{:04x}-{:04x}-{:04x}-{:06x}{:06x}`
+/// renders the canonical 8-4-4-4-12 hex layout regardless of in-memory byte
+/// order (the field accessors fold LE bytes into u32/u16/u24 first).
+impl core::fmt::Display for NodeGuid {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let h = u16::from_le_bytes([self.0[4], self.0[5]]);
+        let p = u16::from_le_bytes([self.0[6], self.0[7]]);
+        let t = u16::from_le_bytes([self.0[8], self.0[9]]);
+        write!(
+            f,
+            "{:08x}-{:04x}-{:04x}-{:04x}-{:06x}{:06x}",
+            self.classid(),
+            h,
+            p,
+            t,
+            self.family(),
+            self.identity(),
+        )
+    }
+}
+
+/// 16-byte canonical edge block: 12 in-family + 4 out-of-family.
+///
+/// Canonical, not mandatory: the 16 bytes are ALWAYS reserved (zeroed when unused).
+/// A class never shrinks this block — opting out of edges is resolved via
+/// classid → ClassView in the registry, never by changing the row stride.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[repr(C, align(16))]
+pub struct EdgeBlock {
+    /// 12 local adjacency slots (basin-local), one byte each.
+    pub in_family: [u8; 12],
+    /// 4 inherited adapter slots (out-of-family interfaces), one byte each.
+    pub out_family: [u8; 4],
+}
+
+/// One node = 4096 bit = 512 byte: key(16) | edges(16) | value(480).
+///
+/// The 480-byte value is deferred — energy/meta/qualia/entity_type, materialized
+/// CausalEdge64, helix residue, fingerprint, class extensions all land here later,
+/// Lance-compressible. This is the row the MailboxSoA owns and the MailboxSoaView reads.
+#[derive(Clone, Copy)]
+#[repr(C, align(64))]
+pub struct NodeRow {
+    pub key: NodeGuid,    //  0..16
+    pub edges: EdgeBlock, // 16..32
+    pub value: [u8; 480], // 32..512  (reserved — comes after)
+}
+
+// Sizes are part of the lock.
+const _: () = assert!(core::mem::size_of::<NodeGuid>() == 16);
+const _: () = assert!(core::mem::size_of::<EdgeBlock>() == 16);
+const _: () = assert!(core::mem::size_of::<NodeRow>() == 512);
+
+// ── SoaEnvelope binding for [NodeRow] ────────────────────────────────────────
+
+use crate::soa_envelope::{ColumnDescriptor, ColumnKind, SoaEnvelope};
+
+/// Stable column-id ordinals for [`NodeRow`]'s three top-level slots.
+/// `name_id` in the [`ColumnDescriptor`] table; the registry-resolved value
+/// carve-out (per `classid → ClassView`) lives *inside* `Value` and is not
+/// surfaced as its own envelope column — the canon contract is at this level.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u16)]
+pub enum NodeRowColumn {
+    Key = 0,
+    Edges = 1,
+    Value = 2,
+}
+
+/// Canonical [`ColumnDescriptor`] table for [`NodeRow`].
+///
+/// Three columns, all `ColumnKind::U8` byte-arrays (their internal structure
+/// is canon-described elsewhere — `NodeGuid` decomposes the key, `EdgeBlock`
+/// the edges, registry `ClassView` carves the value side). The envelope
+/// contract is at the row-stride level: bytes 0..16 are the key, 16..32 are
+/// the edges, 32..512 are the class-resolved value slab. Sum = 512 = stride.
+pub const NODE_ROW_COLUMNS: &[ColumnDescriptor] = &[
+    ColumnDescriptor {
+        name_id: NodeRowColumn::Key as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 16,
+        row_offset: 0,
+    },
+    ColumnDescriptor {
+        name_id: NodeRowColumn::Edges as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 16,
+        row_offset: 16,
+    },
+    ColumnDescriptor {
+        name_id: NodeRowColumn::Value as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 480,
+        row_offset: 32,
+    },
+];
+
+/// Row stride for [`NodeRow`] in bytes — equal to `size_of::<NodeRow>()`.
+pub const NODE_ROW_STRIDE: usize = 512;
+
+/// Zero-copy [`SoaEnvelope`] wrapper over a contiguous slice of [`NodeRow`].
+///
+/// `NodeRow` is `#[repr(C, align(64))]` with the locked 16/16/480 byte
+/// layout, so a `&[NodeRow]` IS already a row-strided LE packet at stride
+/// 512 — no allocation, no copy. This wrapper just attaches the cycle stamp
+/// and exposes the slice through the [`SoaEnvelope`] trait so Lance's
+/// columnar I/O reads it directly.
+///
+/// The envelope's column table ([`NODE_ROW_COLUMNS`]) names the three
+/// top-level slots (key / edges / value). Internal structure within each
+/// slot is the canon's concern (`NodeGuid` for the key, `EdgeBlock` for the
+/// edges, registry `ClassView` for the value carve-out).
+#[derive(Clone, Copy)]
+pub struct NodeRowPacket<'a> {
+    rows: &'a [NodeRow],
+    cycle: u32,
+}
+
+impl<'a> core::fmt::Debug for NodeRowPacket<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("NodeRowPacket")
+            .field("n_rows", &self.rows.len())
+            .field("cycle", &self.cycle)
+            .field("row_stride", &NODE_ROW_STRIDE)
+            .finish()
+    }
+}
+
+impl<'a> NodeRowPacket<'a> {
+    /// Wrap a contiguous slice of [`NodeRow`] with a cycle stamp.
+    #[inline]
+    pub const fn new(rows: &'a [NodeRow], cycle: u32) -> Self {
+        Self { rows, cycle }
+    }
+
+    /// The underlying rows.
+    #[inline]
+    pub const fn rows(&self) -> &'a [NodeRow] {
+        self.rows
+    }
+}
+
+impl<'a> SoaEnvelope for NodeRowPacket<'a> {
+    fn columns(&self) -> &[ColumnDescriptor] {
+        NODE_ROW_COLUMNS
+    }
+    fn row_stride(&self) -> usize {
+        NODE_ROW_STRIDE
+    }
+    fn n_rows(&self) -> usize {
+        self.rows.len()
+    }
+    fn cycle(&self) -> u32 {
+        self.cycle
+    }
+    fn as_le_bytes(&self) -> &[u8] {
+        // SAFETY: NodeRow is #[repr(C, align(64))] with size_of::<NodeRow>() ==
+        // 512 (checked by the const _: () asserts above). A &[NodeRow] is a
+        // contiguous array of #[repr(C)] structs; viewing it as &[u8] of
+        // length len * 512 is a standard column-store packing operation, and
+        // every byte position is valid for reads (no padding past size_of,
+        // alignment of NodeRow (64) ⊇ alignment of u8 (1)).
+        //
+        // The NodeGuid and EdgeBlock fields hold their bytes in canon-LE
+        // order (NodeGuid::new uses to_le_bytes; EdgeBlock is plain [u8;_]),
+        // so the resulting byte slice IS the envelope's LE packet — no
+        // translation needed at the boundary.
+        unsafe {
+            core::slice::from_raw_parts(
+                self.rows.as_ptr().cast::<u8>(),
+                self.rows.len() * NODE_ROW_STRIDE,
+            )
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_are_zero_and_bootstrap() {
+        let g = NodeGuid::local(0x00_00CD);
+        assert_eq!(g.classid(), 0x0000_0000);
+        assert_eq!(g.family(), 0x00_0000);
+        assert!(g.is_default_class());
+        assert!(g.is_unbasined());
+        assert!(g.is_bootstrap_address());
+    }
+
+    #[test]
+    fn nonzero_family_wakes_basin_binding() {
+        let g = NodeGuid::new(0, 0, 0, 0, 0x00_00AB, 0x00_00CD);
+        assert!(g.is_default_class());
+        assert!(!g.is_unbasined()); // family != 0 ⇒ basin binding active
+        assert!(!g.is_bootstrap_address());
+    }
+
+    #[test]
+    fn family_identity_are_the_trailing_six_bytes() {
+        let g = NodeGuid::new(0xDEAD_BEEF, 0x1111, 0x2222, 0x3333, 0x00_00AB, 0x00_00CD);
+        assert_eq!(g.family(), 0x00_00AB);
+        assert_eq!(g.identity(), 0x00_00CD);
+        let lk = g.local_key();
+        assert_eq!(lk & 0xFF_FFFF, 0x00_00AB);
+        assert_eq!((lk >> 24) & 0xFF_FFFF, 0x00_00CD);
+        assert_eq!(&g.as_bytes()[10..16], &[0xAB, 0x00, 0x00, 0xCD, 0x00, 0x00]);
+    }
+
+    #[test]
+    fn edge_block_is_twelve_plus_four() {
+        let e = EdgeBlock::default();
+        assert_eq!(e.in_family.len(), 12);
+        assert_eq!(e.out_family.len(), 4);
+        assert_eq!(core::mem::size_of_val(&e), 16);
+    }
+
+    #[test]
+    fn uniqueness_guard_is_noop_outside_bootstrap() {
+        // family != 0 ⇒ no longer the bootstrap address: the guard is a no-op
+        // even when `already_present` is true.
+        let g = NodeGuid::new(0, 0, 0, 0, 0x00_0001, 0x00_0001);
+        g.debug_assert_identity_unique(true);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "identity collision in default basin")]
+    fn uniqueness_guard_panics_on_bootstrap_collision() {
+        let g = NodeGuid::local(1);
+        g.debug_assert_identity_unique(true);
+    }
+
+    #[test]
+    #[should_panic(expected = "family must fit in 24 bits")]
+    fn new_panics_on_family_overflow() {
+        let _ = NodeGuid::new(0, 0, 0, 0, 0x0100_0000, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "identity must fit in 24 bits")]
+    fn new_panics_on_identity_overflow() {
+        let _ = NodeGuid::new(0, 0, 0, 0, 0, 0x0100_0000);
+    }
+
+    #[test]
+    fn display_is_canonical_self_describing() {
+        // Canon (OGAR P0): xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (8-4-4-4-12 hex);
+        // groups = classid · HEEL · HIP · TWIG · family·identity.
+        let g = NodeGuid::new(0xDEAD_BEEF, 0x1111, 0x2222, 0x3333, 0x00_00AB, 0x00_00CD);
+        let s = g.to_string();
+        assert_eq!(s, "deadbeef-1111-2222-3333-0000ab0000cd");
+        assert_eq!(s.len(), 36, "8-4-4-4-12 + 4 hyphens");
+        for i in [8usize, 13, 18, 23] {
+            assert_eq!(s.as_bytes()[i], b'-', "hyphen at {i}");
+        }
+    }
+
+    #[test]
+    fn display_zero_default_is_all_zeros() {
+        // Zero-fallback ladder visible at sight: classid + family == 0 prints
+        // as ...0...-...0... with identity-only discrimination.
+        let g = NodeGuid::local(0x00_00CD);
+        assert_eq!(g.to_string(), "00000000-0000-0000-0000-0000000000cd");
+    }
+
+    // ── SoaEnvelope binding for NodeRowPacket ────────────────────────────────
+
+    fn sample_row(classid: u32, identity: u32) -> NodeRow {
+        NodeRow {
+            key: NodeGuid::new(classid, 0x1111, 0x2222, 0x3333, 0x00_00AB, identity),
+            edges: EdgeBlock::default(),
+            value: [0u8; 480],
+        }
+    }
+
+    #[test]
+    fn node_row_column_table_sums_to_row_stride() {
+        let total: usize = NODE_ROW_COLUMNS
+            .iter()
+            .map(|c| c.col_bytes_per_row())
+            .sum();
+        assert_eq!(total, NODE_ROW_STRIDE);
+        assert_eq!(NODE_ROW_STRIDE, core::mem::size_of::<NodeRow>());
+    }
+
+    #[test]
+    fn node_row_column_table_is_in_offset_order_without_gaps() {
+        // The contract: columns are contiguous (key 0..16, edges 16..32,
+        // value 32..512) — no gaps, no overlap, in offset order.
+        let mut prev_end = 0usize;
+        for c in NODE_ROW_COLUMNS {
+            assert_eq!(c.row_offset as usize, prev_end, "no gap before {c:?}");
+            prev_end = c.row_offset as usize + c.col_bytes_per_row();
+        }
+        assert_eq!(prev_end, NODE_ROW_STRIDE);
+    }
+
+    #[test]
+    fn empty_packet_verifies() {
+        let rows: &[NodeRow] = &[];
+        let pkt = NodeRowPacket::new(rows, 0);
+        assert_eq!(pkt.n_rows(), 0);
+        assert_eq!(pkt.as_le_bytes().len(), 0);
+        assert!(pkt.verify_layout().is_ok(), "empty packet must verify");
+    }
+
+    #[test]
+    fn single_row_packet_verifies_and_byte_view_is_zero_copy() {
+        let rows = [sample_row(0xDEAD_BEEF, 0x00_00CD)];
+        let pkt = NodeRowPacket::new(&rows, 7);
+        assert_eq!(pkt.n_rows(), 1);
+        assert_eq!(pkt.cycle(), 7);
+        assert_eq!(pkt.row_stride(), 512);
+        assert_eq!(pkt.as_le_bytes().len(), 512);
+        // Zero-copy: the byte view's pointer is the slice's pointer.
+        assert_eq!(
+            pkt.as_le_bytes().as_ptr() as usize,
+            rows.as_ptr() as usize,
+            "as_le_bytes must be zero-copy"
+        );
+        assert!(pkt.verify_layout().is_ok());
+    }
+
+    #[test]
+    fn multi_row_packet_byte_length_is_stride_times_rows() {
+        let rows = [
+            sample_row(0xDEAD_BEEF, 0x00_00CD),
+            sample_row(0xCAFE_BABE, 0x00_0001),
+            sample_row(0x0000_0000, 0x00_0042),
+        ];
+        let pkt = NodeRowPacket::new(&rows, 42);
+        assert_eq!(pkt.n_rows(), 3);
+        assert_eq!(pkt.as_le_bytes().len(), 3 * 512);
+        assert!(pkt.verify_layout().is_ok());
+    }
+
+    #[test]
+    fn row_le_view_returns_one_full_row() {
+        let rows = [sample_row(1, 2), sample_row(3, 4), sample_row(5, 6)];
+        let pkt = NodeRowPacket::new(&rows, 0);
+        for (i, row) in rows.iter().enumerate() {
+            let row_bytes = pkt.row_le(i).expect("row in range");
+            assert_eq!(row_bytes.len(), 512);
+            // First 4 bytes are the classid in canon-LE order.
+            assert_eq!(
+                u32::from_le_bytes(row_bytes[..4].try_into().unwrap()),
+                row.key.classid()
+            );
+        }
+        assert!(pkt.row_le(3).is_none(), "out of range");
+    }
+
+    #[test]
+    fn column_le_view_returns_the_named_slot() {
+        // Place a recognisable byte pattern in the value side; verify the
+        // value column-view picks it up at the right offset.
+        let mut row = sample_row(0xDEAD_BEEF, 0x00_00CD);
+        row.value[0] = 0xAB;
+        row.value[479] = 0xCD;
+        let rows = [row];
+        let pkt = NodeRowPacket::new(&rows, 0);
+        let value_col = pkt
+            .column_le(0, &NODE_ROW_COLUMNS[NodeRowColumn::Value as usize])
+            .expect("value column in range");
+        assert_eq!(value_col.len(), 480);
+        assert_eq!(value_col[0], 0xAB);
+        assert_eq!(value_col[479], 0xCD);
+        // Key column is at offset 0, length 16 — first byte = LE byte 0 of
+        // classid = 0xEF (low byte of 0xDEAD_BEEF).
+        let key_col = pkt
+            .column_le(0, &NODE_ROW_COLUMNS[NodeRowColumn::Key as usize])
+            .expect("key column in range");
+        assert_eq!(key_col.len(), 16);
+        assert_eq!(key_col[0], 0xEF);
+        assert_eq!(key_col[3], 0xDE);
+    }
+
+    #[test]
+    fn key_bytes_in_canon_le_order() {
+        // Round-trip: pack a NodeRow with known fields, read the bytes back
+        // through the envelope, parse each canon group by its LE byte range,
+        // confirm values match. Proves the SoA envelope view stays canon-LE
+        // end-to-end without any field-accessor intermediation.
+        let row = sample_row(0xDEAD_BEEF, 0x00_00CD);
+        let rows = [row];
+        let pkt = NodeRowPacket::new(&rows, 0);
+        let bytes = pkt.as_le_bytes();
+        // Per OGAR/CLAUDE.md P0: classid · HEEL · HIP · TWIG · family · identity.
+        assert_eq!(
+            u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]),
+            0xDEAD_BEEF,
+            "classid at [0..4]"
+        );
+        assert_eq!(
+            u16::from_le_bytes([bytes[4], bytes[5]]),
+            0x1111,
+            "HEEL at [4..6]"
+        );
+        assert_eq!(
+            u16::from_le_bytes([bytes[6], bytes[7]]),
+            0x2222,
+            "HIP at [6..8]"
+        );
+        assert_eq!(
+            u16::from_le_bytes([bytes[8], bytes[9]]),
+            0x3333,
+            "TWIG at [8..10]"
+        );
+        // family is u24 LE in bytes [10..13]: 0xAB, 0x00, 0x00.
+        assert_eq!(&bytes[10..13], &[0xAB, 0x00, 0x00], "family at [10..13]");
+        // identity is u24 LE in bytes [13..16]: 0xCD, 0x00, 0x00.
+        assert_eq!(&bytes[13..16], &[0xCD, 0x00, 0x00], "identity at [13..16]");
+    }
+
+    #[test]
+    fn envelope_layout_version_matches_envelope_default() {
+        // The wrapper does not override LAYOUT_VERSION, so verify_layout
+        // checks against the envelope-crate default (ENVELOPE_LAYOUT_VERSION).
+        let rows = [sample_row(0, 1)];
+        let pkt = NodeRowPacket::new(&rows, 0);
+        assert_eq!(
+            <NodeRowPacket<'_> as SoaEnvelope>::LAYOUT_VERSION,
+            crate::soa_envelope::ENVELOPE_LAYOUT_VERSION
+        );
+        // verify_layout exercises that gate.
+        assert!(pkt.verify_layout().is_ok());
+    }
+}

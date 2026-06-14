@@ -1,5 +1,7 @@
 # unified-soa-convergence-v1 — THE single little-endian SoA, end-to-end across the workspace
 
+> **ERRATA (2026-06-13, post-#490):** §1 "five layered rulings" remain authoritative (anchor for `E-SOA-IS-THE-ONLY`). §4.2 stack-pin table is stale — `lance` bumped to `=7.0.0` and `lancedb` to `=0.30.0` since this plan; the 2026-05-29 review addendum partially addressed but its own pins drifted too. The three-tier model in PR #477 (`docs/architecture/soa-three-tier-model.md`) ratifies "no emission, no inter-mailbox handoff" — supersedes any plan language implying a Baton carrier type. Full diff resolution: `soa-migration-diff-resolution-2026-06-13.md`.
+
 > **Status:** PROPOSAL / integration plan. Design-spec only; **no code in this plan**.
 > **Authored:** 2026-05-29 (session `017GFLBn`, branch `claude/splat3d-cpu-simd-renderer-MAOO0`).
 > **Supersedes nothing; integrates / sequences:**
