@@ -1,3 +1,19 @@
+## 2026-06-14 — entropy-ladder-spo-rung-v1 (Staunen↔Wisdom entropy coordinate unifies SPO rungs + NARS reliability + edge-codec; R1 shipped, R2–R6 roadmap)
+
+**Status:** PLATEAU — R1 (foundation) SHIPPED; R2–R6 planned (probe-gated where marked). **Plan file:** `.claude/plans/entropy-ladder-spo-rung-v1.md`.
+**Owns:** 7 deliverables D-EL-1..6 + D-EL-COCA.
+- D-EL-1: entropy-ladder foundation — `ndarray::hpc::{reliability, edge_codec, entropy_ladder}` + `EdgeCodecFlavor` selector + bgz17 OOB fix (SHIPPED; ρ=−0.78 reliability proxy; ICC/Pearson/Cronbach/Spearman; edge-codec fidelity table)
+- D-EL-2: `entropy_class` → CausalEdge64 spare bits [63:61] (version-gated, field-isolation tests) — next
+- D-EL-3: CAM-PQ AMX centroid assignment (assignment-as-GEMM + 2×2/4×4 tiled grid) — queued
+- D-EL-4: HHTL+helix basin attraction (probe-gated, +15% recall vs HHTL-alone)
+- D-EL-5: Markov SPO rung-ladder → episodic context/basins/supporting edges (probe-gated)
+- D-EL-6: energy axis / particle↔wave (gated on Mailbox-SoA map)
+- D-EL-COCA: superposition 2/3 pruning (needs cluster-identity layer; I-VSA-IDENTITIES design-gate)
+**Key decisions:** read the 3×palette256 SPO already in CausalEdge64 (NO re-quant); Pearl 2³ mask = the 8 SPO iterations; flavors/classes are interpretation not layout (no NODE_ROW_STRIDE / no ENVELOPE_LAYOUT_VERSION bump); COCA pruning must bundle identities not PQ codes (I-VSA-IDENTITIES).
+**Repos:** ndarray (`d3b608f`, `83be7c3`) + lance-graph (`6d48ced`, `920671d`), branch `claude/wonderful-hawking-lodtql`. PRs: this plateau pair.
+
+---
+
 ## 2026-06-09 — polyglot-container-query-membrane-v1 (Node Container answers Cypher + SurrealQL AST + DataFusion UDF over one HHTL address space; mailbox = a normal cold path)
 
 **Status:** RESEARCH MAP + PLAN. Grounded by two parallel sweeps (lance-graph + surrealdb fork) with main-thread spot-verification; one agent claim caught false (SoaEnvelope has ZERO real impls — identity N3 stands live). **Plan file:** `.claude/plans/polyglot-container-query-membrane-v1.md`.
