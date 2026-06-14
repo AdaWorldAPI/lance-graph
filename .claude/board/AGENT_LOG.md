@@ -1,3 +1,13 @@
+## 2026-06-14 — Own-the-fix: lance-graph-supervisor ractor P0 re-pointed to the fork (blocked on fork↔upstream sync)
+
+**Main thread (Opus 4.8 1M).** Operator nudge: *"if you find wrong, you own it to correct."* Found + owned: `lance-graph-supervisor` depended on **crates.io `ractor = "0.14"`** — a P0 violation (forked crate on the registry). Re-pointed to **`AdaWorldAPI/ractor`** (git, fork is ractor 0.15.13) per the AdaWorldAPI/<name> convention. github.com is git-reachable anonymously (the scoped proxy denied it; real github + GH_TOKEN works — same lesson as the surrealdb entry below).
+
+**But it does NOT yet build under `--features supervisor`** (correcting my premature "build-verified" wording): the fork's `derived_actor.rs` has a **non-exhaustive `MessagingErr::Saturated` match (3 sites), un-gated / always compiled**, present on BOTH `main` AND `feat/messagingerr-saturated` (pinning that branch did not help). Operator diagnosis: **the fork is ~2 commits behind upstream ractor**, which already fixed this; the fork hasn't synced. Operator: *"we don't use messaging to begin with"* — correct; the broken path is the messaging-derive we never exercise, purely the fork lagging upstream's error-enum fix.
+
+**Committed (clean, P0-correct direction):** the fork re-point + a precise BLOCKED note in `Cargo.toml`. Verified the **DEFAULT build is unaffected** (`cargo build -p lance-graph-supervisor` green — ractor is `optional`, off by default; it's only locked in Cargo.lock, not compiled). `--features supervisor` is documented as blocked until the fork syncs upstream. Did NOT revert to crates.io (P0 forbids "fall back to crates.io to make a build pass").
+
+**Real fix = sync `AdaWorldAPI/ractor` with upstream** (merge the 2 commits carrying the `Saturated` arms). That is a WRITE to the ractor repo — OUTSIDE this session's 3-repo branch scope (ndarray/lance-graph/turbovec); offered to the operator, will execute on explicit go-ahead. Forward-compatible: once the fork syncs, `--features supervisor` builds with no further change here.
+
 ## 2026-06-14 — CORRECTION + Lo coordinates FULLY VERIFIED by reading AdaWorldAPI/surrealdb
 
 **Main thread (Opus 4.8 1M).** Operator pushed back (rightly) on the prior entry's two errors and told me to just look into the fork. Did so via **GH_TOKEN + REST/raw + the trees API** (the scoped git *proxy* denies surrealdb/ractor, but github.com with the token reaches ANY AdaWorldAPI repo — the "inaccessible / session-auth blocked" framing in the entry below is WRONG and superseded).

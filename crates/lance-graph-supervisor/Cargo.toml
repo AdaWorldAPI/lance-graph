@@ -15,8 +15,15 @@ lance-graph-contract   = { path = "../lance-graph-contract" }
 thiserror = "1"
 tracing   = "0.1"
 
-# Supervisor feature: ractor actor tree (one-for-one, per-G slot)
-ractor            = { version = "0.14", optional = true, default-features = false, features = ["tokio_runtime"] }
+# Supervisor feature: ractor actor tree (one-for-one, per-G slot).
+# P0: AdaWorldAPI fork (NOT crates.io). Fork is ractor 0.15.x, default branch `main`.
+# BLOCKED (2026-06-14): the fork is ~2 commits behind upstream ractor — `derived_actor.rs`
+# has a non-exhaustive `MessagingErr::Saturated` match (un-gated, always compiled; present on
+# BOTH `main` and `feat/messagingerr-saturated`) that upstream already fixed. Until the fork
+# syncs those upstream commits, `--features supervisor` will NOT compile. The DEFAULT build is
+# UNAFFECTED (ractor is optional, off by default). We don't use ractor messaging — this is
+# purely the fork lagging upstream's error-enum fix. Fix = merge upstream into AdaWorldAPI/ractor.
+ractor            = { git = "https://github.com/AdaWorldAPI/ractor", optional = true, default-features = false, features = ["tokio_runtime"] }
 static_assertions = { version = "1", optional = true }
 # tokio is needed at the outbound boundary for spawn/sleep in the respawn backoff path.
 # Per I-2: tokio::spawn is ONLY at the supervisor's outbound boundary; consumer handler
