@@ -16,23 +16,29 @@ build on.
 Depends on task 01 (deps_substrate) being resolved before compiling.
 """
 
-# ── BLOCKED(C): surrealdb git source not confirmed ───────────────────────────
+# ── BLOCKED(C): PARTIALLY RESOLVED 2026-06-14 — repo + feature known; branch + session-auth pending ──
 #
 # The `kv-lance` feature is NOT in upstream surrealdb on crates.io.
 # It lives in the AdaWorldAPI fork (core/src/kvs/lance/{wal,memtable,flusher,mod}.rs).
 #
-# A fork-access human must supply:
-#   1. The git URL  (e.g. https://github.com/AdaWorldAPI/surrealdb)
-#   2. The branch or tag to pin (e.g. branch = "kv-lance-v2")
-#   3. Confirmation that `features = ["kv-lance"]` is the correct flag name.
+# Operator-supplied (2026-06-14), per the AdaWorldAPI/<name> fork convention:
+#   1. git URL  = https://github.com/AdaWorldAPI/surrealdb   ✅ RESOLVED
+#   2. branch/tag holding `kv-lance`                          ⛳ STILL UNKNOWN (the note's
+#      earlier `kv-lance-v2` was a guess; confirm via the fork's branch list).
+#   3. feature flag = `kv-lance`                              ✅ confirmed (the fork feature name).
 #
-# Until resolved, the surrealdb dependency below is commented out.  The
-# `[features]` section preserves the intent; the crate will not compile until
-# the BLOCKED item is filled in.
+# REMAINING BLOCKER (new, session-level): the `AdaWorldAPI/surrealdb` repo is NOT in
+# THIS session's git scope (proxy → 502 "repository not authorized"; ndarray/lance-graph/
+# turbovec only), and no `add_repo`/`list_repos` tool is available here to widen it. So
+# the dep cannot be fetched / built / verified from this session. Wire + build it in a
+# session where the repo IS authorized (and mind the cold-build disk cost — SurrealDB is
+# one of the largest Rust dep trees). NOTE the eventual line uses NO `branch=` only if the
+# default branch carries `kv-lance`; otherwise pin item 2.
 
 [dependencies]
-# ── BLOCKED(C): uncomment and fill once fork coordinates are known ────────────
-# surrealdb = { git = "BLOCKED_SEE_C", branch = "BLOCKED_SEE_C", default-features = false, features = ["kv-lance"] }
+# ── BLOCKED(C): repo+feature known (above); uncomment once the branch is confirmed AND
+#    the AdaWorldAPI/surrealdb repo is authorized in the build session ──────────
+# surrealdb = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "<confirm: kv-lance branch>", default-features = false, features = ["kv-lance"] }
 
 lance    = "=7.0.0"
 lancedb  = { version = "=0.30.0", optional = true, default-features = false }
