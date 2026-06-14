@@ -55,3 +55,10 @@ optional = true
 
 [lib]
 doctest = true
+
+# Meta-awareness probe: real Aerial+ extraction → entropy ladder + Granger meta,
+# witness-as-pointer (meta derived, never stored). Needs the ndarray meta surface,
+# so it rides the `ndarray-simd` feature (the only path that pulls ndarray here).
+[[example]]
+name = "meta_awareness_probe"
+required-features = ["ndarray-simd"]
