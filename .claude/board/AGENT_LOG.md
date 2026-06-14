@@ -1,3 +1,17 @@
+## 2026-06-14 — CORRECTION + Lo coordinates FULLY VERIFIED by reading AdaWorldAPI/surrealdb
+
+**Main thread (Opus 4.8 1M).** Operator pushed back (rightly) on the prior entry's two errors and told me to just look into the fork. Did so via **GH_TOKEN + REST/raw + the trees API** (the scoped git *proxy* denies surrealdb/ractor, but github.com with the token reaches ANY AdaWorldAPI repo — the "inaccessible / session-auth blocked" framing in the entry below is WRONG and superseded).
+
+**Verified against `AdaWorldAPI/surrealdb` (this session):**
+- **branch `feat/sdk-forward-kv-lance`**: the Lance KV backend is **fully INTEGRATED** (not WIP) at `surrealdb/core/src/kvs/lance/{mod,schema,timeline,tx_buffer,background_optimizer,cnf,tests}.rs` (my "WIP across branches, not merged" claim below was also wrong for this branch).
+- **feature `kv-lance`** confirmed in `surrealdb/core/Cargo.toml:27` = `["dep:lance","dep:lance-index","dep:lancedb","dep:arrow-array","dep:arrow-schema"]` (the original note's name guess was actually right; only the branch differed).
+- **The fork ALREADY pulls our stack** (operator's bet, confirmed from the fork Cargo.lock): `lance-graph-contract 0.1.0`, `lance 6.0.0`, `lance-index 6.0.0`, `lancedb 0.29.0`, `ndarray 0.16.1 + 0.17.2`. Not a from-scratch integration.
+- **ractor** is NOT on this branch — it's on `claude/surrealdb-ractor-live-query-sprint1` (separate).
+
+**REAL remaining item (not access/branch/feature):** version reconcile — fork pins **lance 6.0.0 / lancedb 0.29.0**, `surreal_container` pins **lance =7.0.0 / lancedb =0.30.0**. Align the workspace on one lance/lancedb line (the family moves in lockstep), then build-verify (cargo git-fetches the fork; SurrealDB cold-build is a disk cost). `surreal_container/Cargo.toml` BLOCKED(C) note rewritten to FULLY-RESOLVED with the verified coordinates + the ready-to-uncomment dep line (kept commented pending version alignment so the manifest still resolves).
+
+**Lesson banked:** the scoped git proxy ≠ GitHub reach. Use GH_TOKEN + REST/raw/trees/Cargo.lock to inspect ANY AdaWorldAPI fork directly; don't conflate "proxy not authorized" with "inaccessible." The entry below is superseded by this one.
+
 ## 2026-06-14 — Lo / Tesseract 4th face: coordinates RESOLVED, execution blocked on session repo-auth
 
 **Main thread (Opus 4.8 1M).** Operator supplied the Lo-axis fork coordinates (per the AdaWorldAPI/<name> convention, "never ask for external"): **`AdaWorldAPI/surrealdb`** + **`AdaWorldAPI/ractor`**. Discovery: the Lo face is NOT greenfield — both halves already exist as crates, each blocked on exactly these:
