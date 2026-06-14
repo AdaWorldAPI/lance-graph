@@ -241,11 +241,11 @@ Current pins (verified 2026-05-29):
 |---|---|---|---|
 | arrow | `"58"` | `"58"` | ✓ |
 | datafusion | `"53"` | `"53"` | ✓ |
-| lance | `"=6.0.0"` | `"=6.0.1"` | **patch bump** |
-| lancedb | `"=0.29.0"` | `"=0.29.0"` | ✓ |
+| lance | `"=7.0.0"` | `"=7.0.0"` | ✓ **SHIPPED #445** (jumped past the planned `=6.0.1`) |
+| lancedb | `"=0.30.0"` | `"=0.30.0"` | ✓ **SHIPPED #445** (was `=0.29.0` at author-time) |
 | ndarray | path-dep | path-dep | ✓ (governed by `PR-NDARRAY-MIRI-COMPLETE`) |
 
-**Only one bump pending: `lance =6.0.0 → =6.0.1`** across the workspace Cargo.toml files. Mechanical; one-line per crate. Files identified: `crates/lance-graph/Cargo.toml:38`, `crates/lance-graph-benches/Cargo.toml:10`, `crates/lance-graph-callcenter/Cargo.toml:30`, `crates/lance-graph-ontology/Cargo.toml:46`, `crates/holograph/Cargo.toml:38`.
+**[2026-06-14 SUPERSEDED]** No bump pending — main shipped `lance =6.0.0 → =7.0.0` + `lancedb =0.29.0 → =0.30.0` (lockstep, 7 crates, PR #445), jumping past the planned `=6.0.1` (which never existed on the lancedb path; lancedb 0.30 is the first release pinning lance =7). D-MBX-11 is closed by #445; the only residual is the surrealdb-fork pin (`TD-SURREALDB-KVLANCE-LANCE7`). Files that carried the pins: `crates/lance-graph/Cargo.toml:38`, `crates/lance-graph-benches/Cargo.toml:10`, `crates/lance-graph-callcenter/Cargo.toml:30`, `crates/lance-graph-ontology/Cargo.toml:46`, `crates/holograph/Cargo.toml:38`.
 
 ### 4.3 SurrealDB transparent-view enablement
 
@@ -386,7 +386,7 @@ This is exactly the re-encode boundary R1 forbids: the planner reads its own DTO
 
 - **D-CE64-MB-1-impl** (par-tile crate apex + `Mailbox<T>` + 3 backings + AttentionMask SoA + `BindSpaceView`). Already specced (Sprint-11 W1). Blocking gate.
 - **`PR-NDARRAY-MIRI-COMPLETE`** — close `U16x32 / U32x16 / U64x8` SIMD method gaps. Cross-repo (ndarray PR). Blocking gate.
-- **D-MBX-11** — Lance 6.0.0 → 6.0.1 patch bump (mechanical, can land in parallel with par-tile).
+- **D-MBX-11** — ~~Lance 6.0.0 → 6.0.1 patch bump~~ **SUPERSEDED by #445** (main shipped `=6.0.0 → =7.0.0` / lancedb `=0.30.0`; no `=6.0.1` step).
 
 ### Phase P2 — SoA version gate + stack alignment
 
@@ -521,9 +521,9 @@ This is exactly the re-encode boundary R1 forbids: the planner reads its own DTO
 
 **Gates on:** none (foundation work); should land early in P2.
 
-### D-MBX-11 — Lance 6.0.0 → 6.0.1 patch bump
+### D-MBX-11 — Lance 6.0.0 → 6.0.1 patch bump · **[2026-06-14 SUPERSEDED by PR #445 — shipped `=6.0.0 → =7.0.0` / lancedb `=0.30.0`, not `=6.0.1`]**
 
-**Owner:** workspace Cargo.toml. **~10 LOC (mechanical).** **Risk: LOW.**
+**Owner:** workspace Cargo.toml. **~10 LOC (mechanical).** **Risk: LOW.** **(Closed by #445; detail below is the original as-authored spec.)**
 
 **Adds:** patch bump in `crates/lance-graph/Cargo.toml:38`, `crates/lance-graph-benches/Cargo.toml:10`, `crates/lance-graph-callcenter/Cargo.toml:30`, `crates/lance-graph-ontology/Cargo.toml:46`, `crates/holograph/Cargo.toml:38`.
 
@@ -587,7 +587,7 @@ Sub-PRs:
 
 ### Per-phase acceptance
 
-- **P1 (prereqs):** par-tile crate exists; ndarray SIMD primitives complete; `lance =6.0.1` workspace-wide.
+- **P1 (prereqs):** par-tile crate exists; ndarray SIMD primitives complete; `lance =7.0.0` workspace-wide (shipped #445; was specced as `=6.0.1`).
 - **P2 (version gate):** `MailboxSoAHeader` carries version; round-trip read/write green; refusal-on-mismatch path tested.
 - **P3 (shader columns):** all new columns present; field-isolation matrix green; existing tests still pass.
 - **P4 (singleton dissolution):** `BindSpace::zeros(4096)` removed; `serve.rs` builds a sea-star of `MailboxSoA`s; integration test passes a full think-cycle through the new path.

@@ -545,11 +545,11 @@ For the §2.7 transparent SurrealDB view to be a literal zero-copy view (not an 
 |---|---|---|
 | Arrow | `arrow = "58"` | `arrow = "58"` (compatible) |
 | DataFusion | `datafusion = "53"` | **`datafusion = "53"`** ✓ already on target |
-| Lance | `lance = "=6.0.0"` | **`lance = "=6.0.1"`** (patch bump) |
-| LanceDB | `lancedb = "=0.29.0"` | **`lancedb = "=0.29.0"`** ✓ already on target |
-| `surrealdb` (kv-lance fork) | commented out (`BLOCKED(C)`) | unblock against Lance 6.0.1 + the SoA version gate |
+| Lance | `lance = "=7.0.0"` | **`lance = "=7.0.0"`** ✓ SHIPPED #445 (jumped past `=6.0.1`) |
+| LanceDB | `lancedb = "=0.30.0"` | **`lancedb = "=0.30.0"`** ✓ SHIPPED #445 (was `=0.29.0` at author-time) |
+| `surrealdb` (kv-lance fork) | commented out (`BLOCKED(C)`) | unblock against Lance **7.0.0** + the SoA version gate (fork still pins `=6.0.0` → `TD-SURREALDB-KVLANCE-LANCE7`) |
 
-**One bump pending:** `lance =6.0.0 → =6.0.1` (patch). All other pins already align. Deliverable `D-MBX-11`.
+**[2026-06-14 SUPERSEDED]** No bump pending — main shipped `lance =6.0.0 → =7.0.0` + `lancedb =0.29.0 → =0.30.0` (PR #445), past the planned `=6.0.1`. `D-MBX-11` is closed by #445; residual = surrealdb-fork pin (`TD-SURREALDB-KVLANCE-LANCE7`).
 
 #### §11.6.4 — `lance-graph-planner` DTO surface overhaul
 
@@ -561,7 +561,7 @@ The kanban/ractor lifecycle (§11.3 — Planning / Cognitive work / Evaluation o
 |---|---|---|---|
 | **D-MBX-A6** | `lance-graph-planner` DTO surface overhaul: planner DTOs re-expressed as operations on the SoA + 4-phase kanban transitions | lance-graph-planner | **Queued** |
 | **D-MBX-10** | SoA version byte at layout root + field-isolation matrix tests for every column addition/widening (`I-LEGACY-API-FEATURE-GATED` discipline) | contract + cognitive-shader-driver | **Queued** |
-| **D-MBX-11** | Lance 6.0.0 → 6.0.1 patch bump across the workspace (single-line bump in each Cargo.toml; verifies the SurrealDB transparent-view stack pin) | workspace Cargo.toml | **Queued (mechanical)** |
+| **D-MBX-11** | ~~Lance 6.0.0 → 6.0.1 patch bump~~ → **shipped as `=6.0.0 → =7.0.0` / lancedb `=0.30.0`** (PR #445; verifies the SurrealDB transparent-view stack pin) | workspace Cargo.toml | **Superseded (#445, 2026-06-14)** |
 | **D-MBX-12** | Each of the nine half-baked consumers (§11.6.1) audited and re-aligned to consume THE SoA — one PR per consumer | per-crate | **Queued (multi-PR sequence)** |
 
 ### Open questions added in §11.6

@@ -18,7 +18,7 @@
         │                        │                              │
  FOUNDATIONS (should land EARLY — everything downstream needs them) ─────────
   D-MBX-10  SoA version byte (MailboxSoAHeader; I-LEGACY-API-FEATURE-GATED)   [gates OQ-11.5]
-  D-MBX-11  lance =6.0.0 -> =6.0.1 bump (mechanical, 5 Cargo.toml)            [no gate — DO NOW]
+  D-MBX-11  lance bump DONE via #445 (=6.0.0 -> =7.0.0, NOT =6.0.1)          [SUPERSEDED]
         │
  HOT-PATH SoA EXPRESSIVITY ──────────────────────────────────────────────────
   D-MBX-A2  close BindSpace gaps (content_ref, S/P/O role slices, fold)  [gates OQ-1/OQ-2]

@@ -124,6 +124,7 @@
 **Predecessors:** `bindspace-singleton-to-mailbox-soa-v1` (§11 rulings); `causaledge64-mailbox-rename-soa-v1` (canonical 5-crate + 7-PR plan); `cognitive-substrate-convergence-v1/v2/v3` (Σ10 Rubicon shipped #388).
 **Council bypass note:** the underlying §11 epiphanies are author-stated (user) — `epiphany-brainstorm-council` (shipped #433) is bypassed for them; the plan's *spec content* IS open to council review via PR.
 **Workspace stack verified 2026-05-29:** arrow 58 ✓ · datafusion 53 ✓ · lancedb =0.29.0 ✓ · lance =6.0.0 → **=6.0.1** (one patch bump pending, D-MBX-11).
+**[2026-06-14 UPDATE — SUPERSEDED]** Stack shipped past the planned `=6.0.1`: main is now **lance/lance-linalg `=7.0.0` · lancedb `=0.30.0` · object_store 0.13.2** (arrow 58 / datafusion 53 unchanged) via PR #445. `D-MBX-11` closed; residual = surrealdb-fork pin (`TD-SURREALDB-KVLANCE-LANCE7`). See `EPIPHANIES` `E-LANCE7-OBJECTSTORE-SURREALDB`.
 
 ---
 ## 2026-05-28 — normalized-entity-holy-grail-v1 (typed unified normalization + Op chain over OGIT/OWL/DOLCE/Odoo with three-context execution — the trunk that unifies BP-1 + EXT-1..6 + jit + MailboxSoA into one consumer surface)

@@ -1,3 +1,19 @@
+## 2026-06-14 — Doc-sweep: stale `lance 6.0.0 / lancedb 0.29.0` → canonical `7.0.0 / 0.30.0` across CLAUDE.md + plans + boards
+
+**Main thread.** Operator: *"it's 7.0.0 + 0.30, please update all plans boards accordingly"* + *"update the .claude/board ledgers epiphany technical debt implemented plans phases etc"*. Swept every stale `lance =6.0.0 / lancedb =0.29.0` reference to the canonical stack the workspace already runs.
+
+**Canonical stack (locked, this entry is the pointer):** `lance =7.0.0` · `lance-linalg =7.0.0` · `lancedb =0.30.0` · `object_store 0.13.2` · `arrow 58` · `datafusion 53`. The lance family moves in lockstep at `=7.0.0`. Shipped to main by **PR #445** (`claude/jolly-cori-clnf9`); the algebra is in `EPIPHANIES` **E-LANCE7-OBJECTSTORE-SURREALDB** (the 6→7 bump is the *coherence fix* that aligns object_store 0.13 — lancedb 0.29→lance 6→object_store 0.12; lancedb 0.30→lance 7→object_store 0.13.2).
+
+**D-MBX-11 is SUPERSEDED, not done-as-specced:** main jumped `=6.0.0 → =7.0.0` directly, skipping the planned `=6.0.1` patch (which never existed on the lancedb dep path — lancedb 0.30 is the first release pinning lance =7). Marked Superseded in STATUS_BOARD, D-MBX-COMPLETION-MAP, and the three plans that carried it.
+
+**Edited (direct — canonical docs + live dashboards + working plans):** `CLAUDE.md` Key Dependencies block; `STATUS_BOARD.md` (D-MBX-11 row → Superseded); `D-MBX-COMPLETION-MAP.md` (DAG line → Superseded); `INTEGRATION_PLANS.md` (dated inline correction); plans `unified-soa-convergence-v1` (stack table + 3 D-MBX-11 refs), `bindspace-singleton-to-mailbox-soa-v1` (stack table + note + deliverable row), `reliability-checklist-arc-v1` (P9 + deferred note), `wikidata-lazy-spine-hydration-v1` (2 Cargo.lock factual refs).
+
+**Left intact (append-only history — already superseded by the newer E-LANCE7 entry):** `EPIPHANIES.md` 814 (P9-blocked note) + 1531 (E-SOA refinement "6.0.1 pending"); `PR_ARC_INVENTORY.md` (#425 history); `LATEST_STATE.md` #425 PR-row; `unified-soa-convergence-v1-addendum-…-review.md` (already self-corrected to 7.0.0 at author-time); the 2026-05-29 handover. Corrected via this prepend + the inline dated notes above rather than rewriting dated records.
+
+**`TD-SURREALDB-KVLANCE-LANCE7` stays Open** — the real residual: the `AdaWorldAPI/surrealdb` fork's `kv-lance` feature still pins `lance/lance-index =6.0.0` + `lancedb =0.29.0` (self-contradictory against its own object_store 0.13). Paid by the companion surrealdb-fork bump, not by this sweep.
+
+**Self-correction banked:** my earlier in-session "lance 6 vs 7 reconcile, lean 6" framing was a rediscovery of an already-settled fact — the workspace was on 7 since #445, recorded in E-LANCE7 + TD-SURREALDB. Reading CLAUDE.md + the board as mandatory (per the operator) short-circuits that tax; the stale CLAUDE.md "Key Dependencies =6.0.0" block (months stale, dated 2026-04-21) was the thing that made the rediscovery easy to fall into — now fixed.
+
 ## 2026-06-14 — Lo design LOCKED: mailbox=delegate, surreal_container=Lo (SurrealQL kanban + Lance-timeline trigger), ractor parked
 
 **Main thread (Opus 4.8 1M).** Operator locked the Lo/Tesseract-4th-face architecture across this session's convergence. **Supersedes the earlier "Lo = surrealdb + ractor" framing** (ractor was never the trigger):
