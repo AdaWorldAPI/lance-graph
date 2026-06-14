@@ -68,3 +68,10 @@ required-features = ["ndarray-simd"]
 [[example]]
 name = "invariance_witness_probe"
 required-features = ["ndarray-simd"]
+
+# Coreference rung-separation probe: relative-pronoun resolution over the REAL 144-cell
+# verb_table (VerbFamily × Tense → SlotPrior) as a syntax/Semantik/pragmatic split.
+# Needs the contract (verb_table, via `landing`) AND ndarray (reliability, via `ndarray-simd`).
+[[example]]
+name = "coreference_rung_probe"
+required-features = ["ndarray-simd", "landing"]
