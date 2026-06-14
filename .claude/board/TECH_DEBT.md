@@ -15,6 +15,34 @@
 
 ## Open Debt
 
+### TD-NDARRAY-SIMD-POPCNT-NATIVE — `extract_rules` SIGILLs under `-C target-cpu=native` on larger RowMasks (2026-06-14)
+
+**Surfaced by** the `invariance_witness_probe` (lance-graph-arm-discovery, `--features ndarray-simd`).
+Reproducible: `RUSTFLAGS="-C target-cpu=native"` → the probe prints its header, then dies with
+**signal 4 (SIGILL, exit 132), no Rust panic**, inside `extract_rules` (the per-candidate count loop,
+which under `ndarray-simd` routes RowMasks AND+popcount through `ndarray::simd::U64x8`).
+
+**Characterized:**
+- Crashes at n = 24 000 rows (375 popcount-words) AND n = 24 576 (384 words, no 8-word tail) → **not**
+  a tail-remainder bug; it scales with mask size.
+- The `meta_awareness_probe` at n = 4 096 rows (64 words) runs FINE under the same `native` flags →
+  the faulting kernel is only reached for larger masks.
+- The **default codegen path (no `target-cpu`) and CI's `x86-64-v3` (AVX2, no AVX-512) are unaffected**;
+  the probe result is bit-identical there (INV1 ρ=+0.894 etc.). Both probes are documented to run
+  WITHOUT `native`.
+
+**Most likely cause (unconfirmed):** compile-time `native` on this sandbox enables an AVX-512 feature
+(suspect VPOPCNTQ / AVX-512-VPOPCNTDQ from the U64x8 popcount, possibly AMX) that the **virtualized
+runtime CPU does not actually implement** → illegal instruction. A build-config × sandbox-CPU mismatch,
+not necessarily a logic bug. NOTE: `lance-graph-arm-discovery/Cargo.toml` *recommends* `target-cpu=native`
+/ `x86-64-v4` in a comment — that is the trap a consumer would copy.
+
+**Owed:** simd-savant / sentinel-qa triage to (a) pin the exact faulting instruction (objdump the
+U64x8 popcount kernel + the AMX re-exports), (b) decide whether ndarray's `U64x8` should runtime-detect
+VPOPCNTDQ/AMX rather than trust compile-time `target_feature`, and (c) correct the Cargo.toml comment to
+warn that `native` can SIGILL on virtualized hosts lacking the detected AVX-512 subset. Until then:
+run the `ndarray-simd` probes on the default path. **Status: Open.**
+
 ### TD-CI-COVERAGE-MOLD-1 — `test-with-coverage` job lacks the mold linker the `test` job has (2026-06-12)
 
 **2026-06-12 local-repro addendum (same PR, later commit) — diagnosis CONFIRMED

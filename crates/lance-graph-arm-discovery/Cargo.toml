@@ -62,3 +62,9 @@ doctest = true
 [[example]]
 name = "meta_awareness_probe"
 required-features = ["ndarray-simd"]
+
+# Invariance-witness probe: basins as ICP environments — a confounded pair that entropy
+# trusts (low H) but cross-basin invariance refutes (the MIT causal-discovery third axis).
+[[example]]
+name = "invariance_witness_probe"
+required-features = ["ndarray-simd"]

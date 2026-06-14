@@ -1,3 +1,20 @@
+## 2026-06-14 — invariance-witness probe: the THIRD meta axis (ICP across basins) + ndarray native-SIGILL finding
+
+**Main thread (Opus 4.8 1M), branch `claude/wonderful-hawking-lodtql`.** Operator relayed two deep-research reports on the MIT causal-discovery arc (Uhler / Sontag / Chernozhukov) mapped to AriGraph + SPO witness arcs. Reconciled against what's shipped: the reports independently re-derive the witness-as-pointer / derived-meta / preserve-uncertainty design. The reports' single strongest reusable idea — Peters-Bühlmann **Invariant Causal Prediction** (basins as environments; a causal mechanism is stable across environments, a confounded one shifts) — was the next measurable step, so I built it. Also honored the reports' load-bearing caution: **basins are SUPPORT, not cause** (partitioned on a CONTEXT feature, never the outcome — outcome-grouping = collider bias).
+
+**Shipped (one commit on the branch):**
+- **lance-graph** `crates/lance-graph-arm-discovery/examples/invariance_witness_probe.rs` (+ `[[example]]`, `required-features=["ndarray-simd"]`). Plants a DIRECT edge X1→Y1 (stable mechanism) and a CONFOUNDED pair X2←Z→Y2 (no edge; hidden Z's rate varies by basin/Region). Runs REAL Aerial+ `extract_rules`, computes per-basin confidence `P(Y|X)` and its cross-basin σ, plus REAL `ndarray::hpc::entropy_ladder::nars_entropy` + `reliability::spearman`.
+- **board:** TECH_DEBT `TD-NDARRAY-SIMD-POPCNT-NATIVE` (below) + this entry.
+
+**Measured (24k-row corpus, 4 context-basins, scalar/default path):**
+- INV1 **Spearman(cross-basin σ, true confoundedness) = +0.894**; mean σ **DIRECT 0.0032 vs CONFOUNDED 0.1264 (40× wider)** — invariance cleanly separates causal from confounded.
+- INV2 the confounded pair reads **H=0.18** (LOWER entropy than the true causal edge's 0.20 — looks like "Wisdom") yet σ=0.082: ΔH≈0.02 but Δσ≈0.08. **Entropy is fooled; only invariance refuses it** → a genuine THIRD meta axis (reliability ⊥ causality ⊥ invariance). This is the MIT line's thesis ("predictive success ≠ causal validity") made measurable.
+- Witness-arc upshot: an INVARIANCE witness (σ<floor ⇒ supports the edge; σ>floor ⇒ REFUTES it) joins precedence (Granger) + reliability (entropy) — three independent meta coordinates, none stored, all derived on resolve.
+
+**Finding (TECH_DEBT TD-NDARRAY-SIMD-POPCNT-NATIVE):** the probe SIGILLs (signal 4, no panic) under `-C target-cpu=native` inside `extract_rules`' `ndarray::simd::U64x8` popcount for larger RowMasks (≥24k rows / 375+ words); the meta probe at 4k rows (64 words) and the default/`x86-64-v3` codegen paths are unaffected (result identical). Suspected compile-time-`native`-detects-AVX-512 × virtualized-runtime-CPU mismatch (VPOPCNTQ/AMX). Filed for simd-savant/sentinel-qa; arm-discovery Cargo.toml's `native` recommendation is the trap.
+
+**Hygiene:** documented-path run clean; fmt + `clippy --features ndarray-simd -- -D warnings` clean; reverted incidental crate-wide fmt churn (diff = example + Cargo.toml + board only).
+
 ## 2026-06-14 — meta-awareness probe: witness=pointer, meta DERIVED, on the REAL Aerial+ extractor
 
 **Main thread (Opus 4.8 1M), branch `claude/wonderful-hawking-lodtql`.** Operator: *"focus on the hot path and make the AriGraph-derived properties most expressive while keeping the witness as pointer and meta so the pointer resolves via temporal.rs without duplication and at the same time allowing together with basins and MIT-proposed causality trajectories to open the door for meta awareness"* → *"yes [build the probe] before you do check the aerial+ derived crate (spot triplet extraction from text)."* Checked Aerial+ (`lance-graph-arm-discovery`, the float-free ARM→NARS triplet extractor; `CandidateTriple{s,p,o,f,c}` with `f`=cooccur/antecedent_count, `c`=m/(m+k)), then built the probe ON it — closing the temporal/EpisodicWitness64 white patch (#1, the "biggest gap") on `ndarray .claude/knowledge/codec-soa-facet-map.md`.
