@@ -429,7 +429,10 @@ pub enum SelectOp {
 /// Scalar fallback: portable popcount via `count_ones()`.
 ///
 /// Used as the `#[cfg(not(feature = "ndarray-hpc"))]` Hamming path and by the
-/// in-crate parity tests.
+/// in-crate parity tests. Under `ndarray-hpc` (the default) the dispatch routes
+/// through `ndarray::hpc::bitwise`, so this is reachable only from `#[cfg(test)]`
+/// then — `allow(dead_code)` keeps the non-test lib build warning-free.
+#[cfg_attr(feature = "ndarray-hpc", allow(dead_code))]
 fn hamming_distance_scalar(a: &[u64; VECTOR_WORDS], b: &[u64; VECTOR_WORDS]) -> u32 {
     let mut dist = 0u32;
     for i in 0..VECTOR_WORDS {
