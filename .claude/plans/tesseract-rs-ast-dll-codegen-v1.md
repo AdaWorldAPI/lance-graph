@@ -1,10 +1,10 @@
 # tesseract-rs — AST-DLL C++→Rust Codegen Harness v1
 
 > **Type:** plan (sub-plan). Deliverables D-OCR-40/41/42. The transcode *mechanism*.
-> **Status:** PLANTED 2026-06-15 — design only.
+> **Status:** PLANTED 2026-06-15 v2 — layout IS in scope (1:1 raw-pointer), not skipped.
 > **Front:** post-#496. Uses `AdaWorldAPI/ruff` AST/codegen crates as the Rust-emission engine.
 > **Canon anchors:** master §4. Deterministic + diff-gated (bit-reproducibility doctrine).
-> **Skip-by-rule:** only leaf/mechanical modules are codegen targets; ownership-heavy code is hand-ported or replaced.
+> **Skip-by-rule:** only leaf/mechanical modules are codegen targets; ownership-heavy code is transcribed faithfully as raw-pointer Rust (1:1), with safe-refactor deferred to a later oracle-gated pass.
 
 ---
 
@@ -69,7 +69,8 @@ the harness is re-runnable to prove the commit equals the generator output.
 |---|---|
 | `tessdatamanager`, `unicharset`, `unicharcompress` (recoder), `dawg`/`trie` node arrays, `weightmatrix` struct/quant walks | **CODEGEN (D-OCR-41)** |
 | `recodebeam` (beam + dawg interaction), int8 GEMV rounding | **HAND-PORT** (numeric/behavioral subtlety) |
-| `textord`/`ccstruct` layout, Leptonica | **REPLACE** (ocrs / minimal imageproc) — never enters the harness |
+| `textord`/`ccstruct` layout | **CODEGEN → faithful raw-pointer Rust (D-OCR-30)** — intrusive ELIST/CLIST transcribed 1:1, NOT replaced |
+| Leptonica (~dozen ops only) | hand-port to image/imageproc (D-OCR-31) |
 
 ## 6. Deliverables
 
