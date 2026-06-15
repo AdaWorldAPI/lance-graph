@@ -15,6 +15,14 @@
 
 ## Open Debt
 
+### TD-VALUESCHEMA-FULL-POC-DEFAULT — `ClassView::value_schema` blanket default flipped Bootstrap→Full for the consumer-POC phase (2026-06-15)
+
+**Surfaced by** operator decision (a): *"flip the blanket default to Full (all unconfigured classes → Full) / any consumer that needs to save memory can create [its] smaller settings / any consumer that needs more data and more efficiency can afford a separate class."* Enables the downstream consumers (tesseract-rs / woa-rs / medcare-rs / q2) to transcode against a fully-materialised `NodeRow` while the POC is built.
+
+**The debt:** `ClassView::value_schema` (`class_view.rs:233`) returns `ValueSchema::Full` instead of the canon zero-fallback `ValueSchema::Bootstrap`. This INVERTS the zero-fallback ladder for the value-slab *resolution* (specialisation is now opt-IN: mint a class to go smaller/denser). It is layout-preserving (no `NODE_ROW_STRIDE` / `ENVELOPE_LAYOUT_VERSION` change — Full carves within the reserved 480 B) and a one-line revert. The TYPE-level `ValueSchema::default()` stays `Bootstrap`, so the substrate zero-fallback semantics are intact — only the class→schema resolution default flipped. **No invention** (honours the operator's anti-skew guardrail): `Full` activates the already-existing, already-tested 9 `ValueTenant`s; it adds no new property.
+
+**Pay it by:** reverting `class_view.rs:233` to `ValueSchema::Bootstrap` once the consumer POCs settle on their real per-class presets, AND flipping the guard test `value_schema_default_is_full_temporary_poc` (`class_view.rs`) back to assert Bootstrap. The edge-codec axis (`edge_codec_flavor` → `CoarseOnly`) is a separate knob, untouched; flip it to a residue/PQ flavor only if a consumer POC needs full edge fidelity too. Tests: 613 lib green.
+
 ### TD-NDARRAY-SIMD-POPCNT-NATIVE — `extract_rules` SIGILLs under `-C target-cpu=native` on larger RowMasks (2026-06-14)
 
 **Surfaced by** the `invariance_witness_probe` (lance-graph-arm-discovery, `--features ndarray-simd`).

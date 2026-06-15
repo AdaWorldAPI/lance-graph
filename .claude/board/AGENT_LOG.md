@@ -1,3 +1,11 @@
+## 2026-06-15 — ValueSchema POC default: `ClassView::value_schema` flipped Bootstrap→Full (operator decision (a))
+
+**Main thread (Opus 4.8 1M).** Operator: *"(a) flip the blanket default to Full (all unconfigured classes → Full) / any consumer that needs to save memory can create [its] smaller settings / any consumer that needs more data and more efficiency can afford a separate class"* + *"prevent any agents telling us to invent additional skewed properties in the SoA when we already have a lot of good and well tested ideas"* + consumers *woa-rs / medcare-rs / q2 / tesseract-rs (favourite) — transcode that creates a testable POC*.
+
+**Shipped (contract, 1-line behavior flip + guard test):** `ClassView::value_schema` (class_view.rs:233) `Bootstrap → Full`. Layout-preserving (no stride / `ENVELOPE_LAYOUT_VERSION` change). TYPE-level `ValueSchema::default()` stays `Bootstrap` (substrate zero-fallback intact) — only the class→schema *resolution* default flipped, so specialisation is opt-IN (mint a class to go smaller/denser). **Zero invention** (honours the anti-skew guardrail): `Full` activates the already-existing, already-tested 9 `ValueTenant`s (helix-48 = `HelixResidue` tenant already in Full+Compressed — NOT added). Guard test `value_schema_default_is_full_temporary_poc` added (asserts the POC default + that the type default + edge-codec axis are untouched). `cargo test -p lance-graph-contract` → **613 lib green**. Tracked as **TD-VALUESCHEMA-FULL-POC-DEFAULT** (revert-before-merge obligation).
+
+**Next:** fold the 3-hardener findings + a §0 ANTI-INVENTION GUARDRAIL into the plan; scope the tesseract-rs transcode POC (first consumer, against the now-Full slab); #496 carries it all.
+
 ## 2026-06-15 — integrated-cognitive-planner-v1: 5-savant EXPANSION pass folded (3 doc errors corrected + §2.1/§3.1/§4.1/§8 added)
 
 **Main thread (Opus 4.8 1M) + 5 Opus expansion savants** (convergence-architect / bus-compiler / truth-architect / scenario-world / trajectory-cartographer), all pinned to `integrated-cognitive-planner-v1.md` by `file:line` (per "always have reference documentation that the agents can target, otherwise they will hallucinate"). Each returned a brief; main thread folded them into the doc (no agent edited the doc — collision-free).
