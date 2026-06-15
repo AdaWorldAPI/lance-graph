@@ -87,6 +87,24 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-06-15 — Research synergy: CLAM residue ladder ⋂ knee/hip attractor basins (HHTL cascade in REVERSE, fine→coarse ascent)
+
+`[P3 @cascade-architect @savant-research domain:codec]`
+
+**Genesis:** investigating "sync HHT across NodeGuid / bgz-hhtl-d / OGAR" (2026-06-15). The bgz-hhtl-d ↔ NodeGuid **address** sync is **POSTPONED — different domain**: bgz HHT addresses *weight rows* (256-centroid palette), NodeGuid HHT addresses *graph nodes*. Forcing an address-space unification is a frankenstein blur. The live thread is the SHARED substrate underneath both.
+
+**Grounded observation:** bgz-hhtl-d builds its palette via **CLAM furthest-point sampling** and its HIP families via **farthest-pair recursion (4 levels → 16 groups)** (`bgz-tensor/BGZ_HHTL_D.md:112-116`; `hhtl_d.rs:8-11` Slot D = HEEL 2b / HIP 4b / TWIG 8b). The graph HHTL cascade (HEEL→HIP→TWIG→LEAF, `canonical_node.rs`) is the same clustering shape. So both domains sit on a **CLAM clustering ladder with a residue at each level** — the ndarray CLAM tree (46 tests, build+search+rho_nn) is the common substrate.
+
+**The idea (operator's, reframed):** forward HHTL is *descent* (coarse→fine routing: heel→hip→twig→leaf). Research whether the CLAM **residue ladder** defines **attractor basins** at the mid-tiers (knee/hip) that support **reverse** traversal — LEAF→TWIG→HIP→HEEL *ascent*, where a fine residue is "attracted" up into a coarser basin (a *settling* dynamic, not a routing one). If real, this is a **domain-AGNOSTIC** cascade synergy (weight rows AND graph nodes, at the CLAM level) WITHOUT the postponed address-space unification — the synergy lives at the substrate, not the key.
+
+**Synergy candidates to map (research scope):**
+- ndarray CLAM tree residue (canonical substrate) ↔ bgz-hhtl-d HIP farthest-pair ladder (same algo, different payload).
+- `.claude/knowledge/two-basin-routing.md` (existing attractor-basin doctrine) — does it already describe the reverse-ascent?
+- helix-48 golden-spiral residue (the `HelixResidue` value tenant) — is the spiral the residue ladder's geometry?
+- Staunen↔Wisdom entropy ladder (`ndarray/src/hpc/entropy_ladder.rs`) — is entropy *descent* the same coordinate as residue *ascent* (high-entropy leaf → low-entropy heel)?
+
+**Status:** RESEARCH / speculation, **PROBE-GATED** (measure-first). Falsifier before any build, e.g.: *"does a leaf residue's nearest coarser-tier centroid form a stable basin under repeated ascent (fixed point), or does it wander?"* NOT scheduled. The bgz-hhtl-d address lift/lower stays **Deferred (different domain)** — reactivate only if this CLAM-substrate synergy proves out.
+
 ## 2026-05-13 — CORRECTION-OF previous same-day splat row: split into two distinct ideas (arch + render)
 
 Earlier this session conflated EWA-Sandwich with a Gaussian-splat anatomical renderer. Per user 2026-05-13 follow-up + source confirmation: EWA-Sandwich is **Pillar 6** of the JC pillars framework — Σ push-forward `M·Σ·Mᵀ` for multi-hop edge propagation in the SPD cone. Already implemented at `crates/jc/src/ewa_sandwich.rs` (450 LOC) + `crates/lance-graph-contract/src/sigma_propagation.rs` (488 LOC) + `crates/jc/examples/osint_edge_traversal.rs` + `crates/jc/examples/splat_perturbationslernen.rs`. Not a new idea — an existing certified pillar. See EPIPHANIES 2026-05-13 CORRECTION-OF entry.
