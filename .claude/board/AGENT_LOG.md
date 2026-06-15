@@ -1,3 +1,13 @@
+## 2026-06-15 — integrated-cognitive-planner-v1: 5-savant EXPANSION pass folded (3 doc errors corrected + §2.1/§3.1/§4.1/§8 added)
+
+**Main thread (Opus 4.8 1M) + 5 Opus expansion savants** (convergence-architect / bus-compiler / truth-architect / scenario-world / trajectory-cartographer), all pinned to `integrated-cognitive-planner-v1.md` by `file:line` (per "always have reference documentation that the agents can target, otherwise they will hallucinate"). Each returned a brief; main thread folded them into the doc (no agent edited the doc — collision-free).
+
+**3 doc errors CORRECTED (the reference-doc discipline working — agents bit the doc, not the void):** (1) `cache/convergence.rs` is wired+tested (8 tests), NOT stubbed — only 3 unused imports unwired (seam #5); (2) emit cutover is 5 sites incl. the contract twin `plan.rs:44`, NOT 4 — and the planner has NO mailbox so `KanbanMove.mailbox` must come from `PlanContext` (seam #1); (3) the temporal dep-wall fold is **A-then-B both-required**, NOT A-vs-B (seam #2); plus `documentid`=`dn_hash` NOT `local_key` and the `NiblePath`↔prefix bijection overflows 16-nibble `MAX_DEPTH` → must be tier-structured (§3).
+
+**EXPANDED:** §2 seam FOLDs rewritten with settle()/5-sites/mailbox (S2), A-then-B/one-`as_of`-field (S4), `RungLevel` constructors + `PlannerContract::rung_for` + entropy→rung bridge (S3), third-crate `lance-graph-cognitive-cycle` vs cycle-as-method (S2/S1). NEW: §2.1 ExecTarget routing (Jit/Elixir/SurrealQl/Native + `can_drive` invariant), §3.1 causal-arc persistence (promote/DemotionSink/unbundle@0.8), §4.1 0-friction strategy↔step table, §8 cross-savant synthesis (T1 cycle-home fork, T2 `&mut`-vs-`&self`, C1 Think-carrier resonance [DEFERRED per #372], C2 rung 1:1, C3 carriers-provisioned-before-consumers, + the 7-item additive new-code ledger). 5 new probes (P-RUNG-FROM-ENTROPY-VARIES, P-RUNG-ROUNDTRIP, P-ARC-PROMOTE-IS-REVISION, P-GRANGER-VERSION-LAG) + 6 new OQs.
+
+**Next:** 3 brutally-honest hardeners bite §8 first → fold → open #496. Branch `4e3496a`→ (this commit), ValueSchema intact.
+
 ## 2026-06-15 — integrated-cognitive-planner-v1 reference map written (capture-before-dilution; pre 5-savant/3-brutal sweep)
 
 **Main thread (Opus 4.8 1M).** Operator: *"schreibe alle ideen meticulously mapped before any thing dillutes / then open 5 savents for expansion then harden with 3 brutally honest agents / allways have reference documentation that the agents can target, otherwise they will hallucinate / dann öffne 496."* + *"ohne 495 kannst du schlecht einschätzen was dupliziert wurde"* (keep `ValueSchema`, do NOT reset).
