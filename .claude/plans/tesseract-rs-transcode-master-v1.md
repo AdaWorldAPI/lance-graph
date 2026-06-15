@@ -71,7 +71,7 @@ the only change the OCR use forces on the shared interface. Narrow, additive.
 | D-OCR-42 | oracle diff-gate (every module vs libtesseract FFI) | D-OCR-21,30 |
 | D-OCR-50 | OCR token → canonical NodeRow (OGAR class, HHTL, ValueSchema, edges) | canon |
 | D-OCR-52 | DeepNSM + char-confusion + CAM/PQ token repair | D-OCR-50 |
-| D-OCR-53 | bit-reproducibility harness (crop→text→NodeRow golden diff) | D-OCR-21,30 |
+| D-OCR-53 | bit-reproducibility harness (crop→text→NodeRow golden diff) | D-OCR-21,30,**50,51** |
 
 Critical path: **40 → {10,30} → 16 → 21 → 42 → 53**. D-OCR-15 parallel (tiny). The
 layout transcode (30) and the recognizer host (16) are independent until decode.
