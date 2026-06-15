@@ -25,6 +25,23 @@
 - D-EL-COCA: superposition 2/3 pruning (needs cluster-identity layer; I-VSA-IDENTITIES design-gate)
 **Key decisions:** read the 3×palette256 SPO already in CausalEdge64 (NO re-quant); Pearl 2³ mask = the 8 SPO iterations; flavors/classes are interpretation not layout (no NODE_ROW_STRIDE / no ENVELOPE_LAYOUT_VERSION bump); COCA pruning must bundle identities not PQ codes (I-VSA-IDENTITIES).
 **Repos:** ndarray (`d3b608f`, `83be7c3`) + lance-graph (`6d48ced`, `920671d`), branch `claude/wonderful-hawking-lodtql`. PRs: this plateau pair.
+## 2026-06-13 — surrealdb-kv-lance-hardening-v1 (kv-lance hardening for the SurrealQL consumer surface; pinned to lance =7.0.0 / lancedb =0.30.0)
+
+**Status:** PROPOSAL. **Plan file:** `.claude/plans/surrealdb-kv-lance-hardening-v1.md`. **Branch:** `claude/kv-lance-hardening-plan-v1`.
+**Scope:** kv-lance hardening for the SurrealQL consumer surface. Substrate, in-binary surrealdb mechanics, LanceDB-leads ruling, kv-lance current status — all canonical (see plan §2 refs).
+**Owns:** 8 deliverables D-KVL-1..8.
+- D-KVL-1: lance =7.0.0 / lancedb =0.30.0 pin discipline across lance-graph, surreal_container, surrealdb-fork; CI assertion that committed Cargo.toml strings match the pin
+- D-KVL-2: Gap #2 fix — replace the `MergeInsertBuilder.when_matched(WhenMatched::UpdateAll)` LWW relic in `flusher.rs:251` with either hard-partitioning proof (a) or MergeMode-tagged dispatch (b, recommended); regression test for the silent-drop scenario
+- D-KVL-3: WAL format — replace ciborium CBOR (`wal.rs:133`) with raw `#[repr(C)]`-LE + CRC32C + WAL-version byte (v0 explicitly rejected; per `I-LEGACY-API-FEATURE-GATED`)
+- D-KVL-4: Crash-recovery suite (consumer-side; the fork's 6 k tests are SurrealDB-internal) covering WAL-fsync / memtable-flush / Lance-commit / Lance-GC kill phases
+- D-KVL-5: 1-hour multi-writer + multi-reader soak; failure budget < 0.01 %
+- D-KVL-6: Schema-evolution boundary under the lance =7.0.0 pin (add-column supported; drop-column NOT supported under append-only; rename via versioned swap)
+- D-KVL-7: surreal_container unblock (= polyglot D-PG-6); minimal kanban VIEW smoke test that reads back a row written by the lance-graph direct writer
+- D-KVL-8: Board hygiene — `TECH_DEBT.md` row `TD-KVLANCE-LWW-RELIC` pointing Gap #2 (`flusher.rs:251`) → D-KVL-2 as paid-by; INTEGRATION_PLANS + STATUS_BOARD entries this commit
+**Key inventory finding (from polyglot §2.2):** kv-lance is **18/19 implemented in-tree** (get/keys/keysr/scan/scanr/writes/savepoints + MVCC + Timeline + background optimizer; ~6 k internal tests). `surreal_container` BLOCKED(C/D) is **stale**. So the work is NOT "build kv-lance" — it's "harden it + close named gaps".
+**Companion plans:** `polyglot-container-query-membrane-v1` (2026-06-09; D-PG-6 surreal_container unblock = our D-KVL-7), `bindspace-singleton-to-mailbox-soa-v1`, the `.claude/surreal/` POC corpus (see RECONCILIATION).
+**Anchored debt (proposed):** `TD-KVLANCE-LWW-RELIC` pointing Gap #2 → D-KVL-2. **No new EPIPHANIES.**
+**Out of scope:** kv-rocksdb hardening (SurrealDB upstream tested); kv-tikv HA path (separate plan when HA enters scope); chasing lance/lancedb upstream past the pin.
 
 ---
 
