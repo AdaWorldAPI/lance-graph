@@ -1,3 +1,11 @@
+## 2026-06-15 — integrated-cognitive-planner-v1: 3-hardener verdicts folded (§9) + §0 anti-invention guardrail
+
+**Main thread (Opus 4.8 1M) + 3 Opus brutal hardeners** (PP-13 brutally-honest-tester / PP-15 baton-handoff-auditor / PP-16 preflight-drift-auditor), all pinned to the plan by `file:line`. Verdicts: **HOLD / CATCH-LATENT / READY-TO-DISPATCH** — all fixes spec-text, no architectural rewrite; all three confirmed the grounding + dependency-wall claims + measure-first ratio.
+
+**Folded into the plan:** new **§9 hardening ledger** (5 LOCKED decisions + latent boundary fixes + P2s + sub-line drift) and new **§0 ANTI-INVENTION GUARDRAIL** (operator msg: *"prevent any agents telling us to invent additional skewed properties in the SoA when we already have a lot of good and well tested ideas"*) — read-first, enforced by dto-soa/iron-rule savants + the 3 hardeners. Inline fixes: emit channels are SEPARATE-not-derived (was the I-LEGACY trap); §4 "closes seam #2" → closure-injected (planner can't reach async `at_version`). **Biggest catches:** (1) `cycle()` must stay INHERENT not a trait method (object-safety, would break n8n-rs/crewai-rust `Box<dyn>`); (2) DUAL `RungLevel` — contract bare enum vs thinking_engine `cognitive_stack::RungLevel` which already has `from_u8`+`should_elevate`, MIRROR don't duplicate (PP-16 top catch = the §0 guardrail in action); (3) THREE `PlanResult` (incl arigraph/language.rs:34); (4) `MailboxId` has no safe sentinel; (5) "#495 rides #496" mis-attributed — ValueSchema is branch-only post-#495.
+
+**Next:** scope the tesseract-rs transcode POC (first consumer against the now-Full slab) → open #496 carrying plan + ValueSchema + FULL-default + guardrail + hardening.
+
 ## 2026-06-15 — ValueSchema POC default: `ClassView::value_schema` flipped Bootstrap→Full (operator decision (a))
 
 **Main thread (Opus 4.8 1M).** Operator: *"(a) flip the blanket default to Full (all unconfigured classes → Full) / any consumer that needs to save memory can create [its] smaller settings / any consumer that needs more data and more efficiency can afford a separate class"* + *"prevent any agents telling us to invent additional skewed properties in the SoA when we already have a lot of good and well tested ideas"* + consumers *woa-rs / medcare-rs / q2 / tesseract-rs (favourite) — transcode that creates a testable POC*.
