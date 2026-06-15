@@ -48,14 +48,14 @@ reconstructed exactly like every other node. Text = codebook index + residue.
 
 | Tenant (existing) | OCR role |
 |---|---|
-| helix residue (real `helix` crate, probe-backed #495 `helix_bitdepth_probe`) | direction as a **discrete golden index — 24-bit lossless** (φ-spiral, vs ≤f16). This is THE helix residue. The 48-**byte** `ValueTenant::HelixResidue` is the diluted placeholder #496 named the *"helix-48 dilution gap"* (PROBE-GATED research, not real φ-geometry) — **do NOT use it**. HHTL = PLACE, helix 24-bit golden index = RESIDUE. |
+| helix residue = **centroid attention field** (NOT a stored code) | The 24-bit golden index is the **query↔centroid alignment** (φ-spiral direction = how this point attends to its place-centroid); the Morton-tile stacked-pyramid perturbation-shader is **multi-scale attention** (coarse centroid → fine perturbation = HHTL cascade in residue space). The field is **evaluated from the φ-template, never stored** ("8K resolution at Super-8 cost" — only the index is kept). Place=HHTL centroid; residue=perturbation off it. The 48-byte `ValueTenant::HelixResidue` is category-wrong (stores a field that must be computed) — do NOT use it. |
 | `TurbovecResidue` (16 B, PQ) | PQ edge residue → CAKES nearest-valid-token search over the codebook |
 | `Meta` (u64) | codebook index/anchor + confidence + char-confusion/NSM-repair flags + recoder-code fallback for true-OOV |
 | `EntityType` (u16) | token subtype (Word/Number/Date/Glyph/TableCell) |
 | `Plasticity` (u32) | correction history / last-repair stamp |
 
 **Reconstruction (this is the round-trip, and it answers Codex P1):**
-`text  ⇄  codebook_index(Meta) + residue(helix 24-bit golden index ⊕ TurbovecResidue PQ)`. Decode =
+`text  ⇄  codebook_index(Meta) + field-eval(helix 24-bit golden-index attention ⊕ TurbovecResidue PQ)`. Decode =
 the DeepNSM Morton-tile **stacked-pyramid perturbation-shader cascade** applied to
 the residue → CAKES nearest-valid-token over the codebook (DeepNSM `vocabulary` /
 coca `word_frequency`) → the word. No `Fingerprint` hash, no string column. The
