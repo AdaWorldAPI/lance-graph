@@ -976,12 +976,12 @@ cd crates/lance-graph-python && maturin develop
 ## Key Dependencies
 
 ```toml
-# Verified against Cargo.lock 2026-05-30. The lance family moves in lockstep at =6.0.0.
+# Verified against Cargo.lock 2026-06-14. The lance family moves in lockstep at =7.0.0 (PR #445).
 arrow = "58"
 datafusion = "53"
-lance = "=6.0.0"          # exact-pinned: lancedb 0.29.0 transitively requires lance =6.0.0
-lance-linalg = "=6.0.0"
-lancedb = "=0.29.0"
+lance = "=7.0.0"          # exact-pinned: lancedb 0.30.0 transitively requires lance =7.0.0
+lance-linalg = "=7.0.0"
+lancedb = "=0.30.0"       # 0.30 → lance 7 → object_store 0.13.2 (0.29 → lance 6 → object_store 0.12)
 ndarray = { path = "../../../ndarray" }  # AdaWorldAPI fork, default, optional fallback
 nom = "7.1"
 snafu = "0.8"

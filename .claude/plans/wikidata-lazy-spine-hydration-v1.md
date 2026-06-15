@@ -435,7 +435,7 @@ guard: addressing = exact CAM; similarity = discovery-only,
     `Fragment` + `compact` so a P-frame is a fragment append and GOP-compaction
     is fragment compaction (the integration map's literal intent). This is a
     NEW Lance-binding task, not a shipped seam — labelled CONJECTURE until a
-    spike proves the Lance version on `Cargo.lock` (`lance =6.0.0`) exposes the
+    spike proves the Lance version on `Cargo.lock` (`lance =7.0.0`, per #445) exposes the
     needed fragment surface to this crate.
 - `aerial` untouched. The frame model is a hub-side cold-floor concern.
 
@@ -722,7 +722,7 @@ proposes making aerial depend on heavy crates.
 | # | Risk | Mitigation |
 |---|---|---|
 | R1 | **`EpisodicWitness64` does not exist** (cited in both companion docs). | Plan cites only `WitnessTable<64>`/`WitnessEntry` (verified). The 16-bit "book" witness tier is CONJECTURE. Flag to integration-lead: the companion docs should be corrected or `EpisodicWitness64` shipped. |
-| R2 | **Lance *fragment*-versioning not wired** (only dataset-level `VersionedGraph`). | D-LWS-4 ships option (a) dataset-versioning now; option (b) fragment APIs is a NEW spike, CONJECTURE until the `lance =6.0.0` fragment surface is confirmed reachable from this crate. |
+| R2 | **Lance *fragment*-versioning not wired** (only dataset-level `VersionedGraph`). | D-LWS-4 ships option (a) dataset-versioning now; option (b) fragment APIs is a NEW spike, CONJECTURE until the `lance =7.0.0` fragment surface is confirmed reachable from this crate. |
 | R3 | **CLAM is a probe, not a clusterer.** | Every "CLAM-clustered" claim builds on `measure_cluster_radii` (offline placement decision); the clusterer that acts on radii is NEW. P1 gates whether radii coincide with cohorts at all. |
 | R4 | **All three probes are CONJECTURE.** A failing probe invalidates the design at fixture scale. | D-LWS-8 runs them on real TTL + fixtures BEFORE D-LWS-9; gates are kill-switches, not decoration. |
 | R5 | **D-ARM-7 (Jirak floor) is Queued, not shipped.** | Hard prerequisite enforced in code (D-LWS-5 write-refusal acceptance test), not just documented. No live write without it. |

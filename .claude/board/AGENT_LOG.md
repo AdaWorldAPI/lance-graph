@@ -1,3 +1,61 @@
+## 2026-06-15 — integrated-cognitive-planner-v1: 3-hardener verdicts folded (§9) + §0 anti-invention guardrail
+
+**Main thread (Opus 4.8 1M) + 3 Opus brutal hardeners** (PP-13 brutally-honest-tester / PP-15 baton-handoff-auditor / PP-16 preflight-drift-auditor), all pinned to the plan by `file:line`. Verdicts: **HOLD / CATCH-LATENT / READY-TO-DISPATCH** — all fixes spec-text, no architectural rewrite; all three confirmed the grounding + dependency-wall claims + measure-first ratio.
+
+**Folded into the plan:** new **§9 hardening ledger** (5 LOCKED decisions + latent boundary fixes + P2s + sub-line drift) and new **§0 ANTI-INVENTION GUARDRAIL** (operator msg: *"prevent any agents telling us to invent additional skewed properties in the SoA when we already have a lot of good and well tested ideas"*) — read-first, enforced by dto-soa/iron-rule savants + the 3 hardeners. Inline fixes: emit channels are SEPARATE-not-derived (was the I-LEGACY trap); §4 "closes seam #2" → closure-injected (planner can't reach async `at_version`). **Biggest catches:** (1) `cycle()` must stay INHERENT not a trait method (object-safety, would break n8n-rs/crewai-rust `Box<dyn>`); (2) DUAL `RungLevel` — contract bare enum vs thinking_engine `cognitive_stack::RungLevel` which already has `from_u8`+`should_elevate`, MIRROR don't duplicate (PP-16 top catch = the §0 guardrail in action); (3) THREE `PlanResult` (incl arigraph/language.rs:34); (4) `MailboxId` has no safe sentinel; (5) "#495 rides #496" mis-attributed — ValueSchema is branch-only post-#495.
+
+**Next:** scope the tesseract-rs transcode POC (first consumer against the now-Full slab) → open #496 carrying plan + ValueSchema + FULL-default + guardrail + hardening.
+
+## 2026-06-15 — ValueSchema POC default: `ClassView::value_schema` flipped Bootstrap→Full (operator decision (a))
+
+**Main thread (Opus 4.8 1M).** Operator: *"(a) flip the blanket default to Full (all unconfigured classes → Full) / any consumer that needs to save memory can create [its] smaller settings / any consumer that needs more data and more efficiency can afford a separate class"* + *"prevent any agents telling us to invent additional skewed properties in the SoA when we already have a lot of good and well tested ideas"* + consumers *woa-rs / medcare-rs / q2 / tesseract-rs (favourite) — transcode that creates a testable POC*.
+
+**Shipped (contract, 1-line behavior flip + guard test):** `ClassView::value_schema` (class_view.rs:233) `Bootstrap → Full`. Layout-preserving (no stride / `ENVELOPE_LAYOUT_VERSION` change). TYPE-level `ValueSchema::default()` stays `Bootstrap` (substrate zero-fallback intact) — only the class→schema *resolution* default flipped, so specialisation is opt-IN (mint a class to go smaller/denser). **Zero invention** (honours the anti-skew guardrail): `Full` activates the already-existing, already-tested 9 `ValueTenant`s (helix-48 = `HelixResidue` tenant already in Full+Compressed — NOT added). Guard test `value_schema_default_is_full_temporary_poc` added (asserts the POC default + that the type default + edge-codec axis are untouched). `cargo test -p lance-graph-contract` → **613 lib green**. Tracked as **TD-VALUESCHEMA-FULL-POC-DEFAULT** (revert-before-merge obligation).
+
+**Next:** fold the 3-hardener findings + a §0 ANTI-INVENTION GUARDRAIL into the plan; scope the tesseract-rs transcode POC (first consumer, against the now-Full slab); #496 carries it all.
+
+## 2026-06-15 — integrated-cognitive-planner-v1: 5-savant EXPANSION pass folded (3 doc errors corrected + §2.1/§3.1/§4.1/§8 added)
+
+**Main thread (Opus 4.8 1M) + 5 Opus expansion savants** (convergence-architect / bus-compiler / truth-architect / scenario-world / trajectory-cartographer), all pinned to `integrated-cognitive-planner-v1.md` by `file:line` (per "always have reference documentation that the agents can target, otherwise they will hallucinate"). Each returned a brief; main thread folded them into the doc (no agent edited the doc — collision-free).
+
+**3 doc errors CORRECTED (the reference-doc discipline working — agents bit the doc, not the void):** (1) `cache/convergence.rs` is wired+tested (8 tests), NOT stubbed — only 3 unused imports unwired (seam #5); (2) emit cutover is 5 sites incl. the contract twin `plan.rs:44`, NOT 4 — and the planner has NO mailbox so `KanbanMove.mailbox` must come from `PlanContext` (seam #1); (3) the temporal dep-wall fold is **A-then-B both-required**, NOT A-vs-B (seam #2); plus `documentid`=`dn_hash` NOT `local_key` and the `NiblePath`↔prefix bijection overflows 16-nibble `MAX_DEPTH` → must be tier-structured (§3).
+
+**EXPANDED:** §2 seam FOLDs rewritten with settle()/5-sites/mailbox (S2), A-then-B/one-`as_of`-field (S4), `RungLevel` constructors + `PlannerContract::rung_for` + entropy→rung bridge (S3), third-crate `lance-graph-cognitive-cycle` vs cycle-as-method (S2/S1). NEW: §2.1 ExecTarget routing (Jit/Elixir/SurrealQl/Native + `can_drive` invariant), §3.1 causal-arc persistence (promote/DemotionSink/unbundle@0.8), §4.1 0-friction strategy↔step table, §8 cross-savant synthesis (T1 cycle-home fork, T2 `&mut`-vs-`&self`, C1 Think-carrier resonance [DEFERRED per #372], C2 rung 1:1, C3 carriers-provisioned-before-consumers, + the 7-item additive new-code ledger). 5 new probes (P-RUNG-FROM-ENTROPY-VARIES, P-RUNG-ROUNDTRIP, P-ARC-PROMOTE-IS-REVISION, P-GRANGER-VERSION-LAG) + 6 new OQs.
+
+**Next:** 3 brutally-honest hardeners bite §8 first → fold → open #496. Branch `4e3496a`→ (this commit), ValueSchema intact.
+
+## 2026-06-15 — integrated-cognitive-planner-v1 reference map written (capture-before-dilution; pre 5-savant/3-brutal sweep)
+
+**Main thread (Opus 4.8 1M).** Operator: *"schreibe alle ideen meticulously mapped before any thing dillutes / then open 5 savents for expansion then harden with 3 brutally honest agents / allways have reference documentation that the agents can target, otherwise they will hallucinate / dann öffne 496."* + *"ohne 495 kannst du schlecht einschätzen was dupliziert wurde"* (keep `ValueSchema`, do NOT reset).
+
+**Written (this commit):** `.claude/plans/integrated-cognitive-planner-v1.md` — the file:line-grounded reference map the expansion/hardening agents MUST target (so they don't hallucinate). 4-layer P0 architecture (FORGET LADYBUG: thinking-engine>P64>cognitive-shader-driver), §1 grounded current state, §2 the 6 seams with FOLDs, §3 `(hhtl-guid):path:documentid`/`ScopedReference` addressing + Pinpoint/TiKV lessons, §4 the 8-step cognitive cycle → Rubicon phases, §5 measure-first probes, §6 open questions, §7 reference index. Grounded by a prior 5-agent integrated-planner research sweep + a 3-agent Pinpoint/TiKV/addressing sweep. Board hygiene: prepended `INTEGRATION_PLANS.md`.
+
+**Verdict captured:** the integrated cognitive planner ~90% EXISTS (#437–#492 + unmerged `jolly-cori-clnf9`); remaining = 6 additive seams + addressing + a `CognitiveCycle` sequencer. NOT a new build. Branch held at `4e3496a` (ValueSchema intact). **Next:** 5 savant (expansion) agents → 3 brutally-honest (hardening) agents, both targeting this doc by file:line → incorporate → open #496.
+
+## 2026-06-14 — `ValueSchema` value-slab presets (Full + Cognitive/Compressed/Bootstrap) — closes the helix-48 dilution gap
+
+**Main thread.** Operator: *"create different Schema presets, the 'full' is one of the options."* Context: after confirming the SoA-extension ((12+4) edges + turbovec residue + signed) was already locked as `EdgeCodecFlavor` (commit `920671d`) on #489's `EdgeBlock`, **helix-48** was the one element still only a TODO-comment in the `value(480)` slab — the dilution risk the operator flagged.
+
+**Shipped (contract, additive, build-verified):** `canonical_node::{ValueSchema, ValueTenant, VALUE_TENANTS}` — the value-side analog of `EdgeCodecFlavor`. 9 stable append-only `ValueTenant`s (discriminant == `FieldMask` bit == `VALUE_TENANTS` index) carving the value slab contiguously `[32,186)` (154 of 480 B; reserve-don't-reclaim). Four presets via `FieldMask`: `Bootstrap` (EMPTY default), `Cognitive` (58 B), `Compressed` (98 B), `Full` (154 B = all tenants). `ClassView::value_schema()` defaulted to `Bootstrap` (non-breaking, mirrors `edge_codec_flavor`). Layout-preserving (no stride change, no `ENVELOPE_LAYOUT_VERSION` bump). **helix-48 + turbovec-`Pq32x4` + signed-`CoarseResidue` are now all first-class tenants — the dilution gap is closed.**
+
+**Reused, not duplicated** (operator's "refactor into what exists"): `class_view::FieldMask` (presence) + `soa_envelope::ColumnDescriptor` (carve) — no new presence type. +6 tests + 3 compile-time canon asserts; `cargo fmt` / `clippy -D warnings` / `test -p lance-graph-contract` all green (611 lib tests). Pushed to #495 (safe fallback intact). `EdgeCodecFlavor` (operator's earlier idea, `920671d`) untouched.
+
+## 2026-06-14 — Doc-sweep: stale `lance 6.0.0 / lancedb 0.29.0` → canonical `7.0.0 / 0.30.0` across CLAUDE.md + plans + boards
+
+**Main thread.** Operator: *"it's 7.0.0 + 0.30, please update all plans boards accordingly"* + *"update the .claude/board ledgers epiphany technical debt implemented plans phases etc"*. Swept every stale `lance =6.0.0 / lancedb =0.29.0` reference to the canonical stack the workspace already runs.
+
+**Canonical stack (locked, this entry is the pointer):** `lance =7.0.0` · `lance-linalg =7.0.0` · `lancedb =0.30.0` · `object_store 0.13.2` · `arrow 58` · `datafusion 53`. The lance family moves in lockstep at `=7.0.0`. Shipped to main by **PR #445** (`claude/jolly-cori-clnf9`); the algebra is in `EPIPHANIES` **E-LANCE7-OBJECTSTORE-SURREALDB** (the 6→7 bump is the *coherence fix* that aligns object_store 0.13 — lancedb 0.29→lance 6→object_store 0.12; lancedb 0.30→lance 7→object_store 0.13.2).
+
+**D-MBX-11 is SUPERSEDED, not done-as-specced:** main jumped `=6.0.0 → =7.0.0` directly, skipping the planned `=6.0.1` patch (which never existed on the lancedb dep path — lancedb 0.30 is the first release pinning lance =7). Marked Superseded in STATUS_BOARD, D-MBX-COMPLETION-MAP, and the three plans that carried it.
+
+**Edited (direct — canonical docs + live dashboards + working plans):** `CLAUDE.md` Key Dependencies block; `STATUS_BOARD.md` (D-MBX-11 row → Superseded); `D-MBX-COMPLETION-MAP.md` (DAG line → Superseded); `INTEGRATION_PLANS.md` (dated inline correction); plans `unified-soa-convergence-v1` (stack table + 3 D-MBX-11 refs), `bindspace-singleton-to-mailbox-soa-v1` (stack table + note + deliverable row), `reliability-checklist-arc-v1` (P9 + deferred note), `wikidata-lazy-spine-hydration-v1` (2 Cargo.lock factual refs).
+
+**Left intact (append-only history — already superseded by the newer E-LANCE7 entry):** `EPIPHANIES.md` 814 (P9-blocked note) + 1531 (E-SOA refinement "6.0.1 pending"); `PR_ARC_INVENTORY.md` (#425 history); `LATEST_STATE.md` #425 PR-row; `unified-soa-convergence-v1-addendum-…-review.md` (already self-corrected to 7.0.0 at author-time); the 2026-05-29 handover. Corrected via this prepend + the inline dated notes above rather than rewriting dated records.
+
+**`TD-SURREALDB-KVLANCE-LANCE7` stays Open** — the real residual: the `AdaWorldAPI/surrealdb` fork's `kv-lance` feature still pins `lance/lance-index =6.0.0` + `lancedb =0.29.0` (self-contradictory against its own object_store 0.13). Paid by the companion surrealdb-fork bump, not by this sweep.
+
+**Self-correction banked:** my earlier in-session "lance 6 vs 7 reconcile, lean 6" framing was a rediscovery of an already-settled fact — the workspace was on 7 since #445, recorded in E-LANCE7 + TD-SURREALDB. Reading CLAUDE.md + the board as mandatory (per the operator) short-circuits that tax; the stale CLAUDE.md "Key Dependencies =6.0.0" block (months stale, dated 2026-04-21) was the thing that made the rediscovery easy to fall into — now fixed.
+
 ## 2026-06-14 — Lo design LOCKED: mailbox=delegate, surreal_container=Lo (SurrealQL kanban + Lance-timeline trigger), ractor parked
 
 **Main thread (Opus 4.8 1M).** Operator locked the Lo/Tesseract-4th-face architecture across this session's convergence. **Supersedes the earlier "Lo = surrealdb + ractor" framing** (ractor was never the trigger):

@@ -49,8 +49,8 @@
 - **Realizes:** E-CALIBRATE-RELIABILITY-PSYCHOMETRICALLY. Complementary to P1 (audits the checklist, doesn't gate the hot path).
 - **Size:** M-L. **Deps:** thinking-engine cronbach.rs (exists). **Risk:** heavier; only worth it if P2 shows the gate matters AND checklist completeness is in question.
 
-### P9 — D-MBX-11 lance 6.0.0→6.0.1 bump (mechanical)
-- **What:** the version bump (5 Cargo.tomls). **Size:** XS. **Risk:** none (off critical path). Quick unblock for stack alignment.
+### P9 — D-MBX-11 lance bump (mechanical) · **[2026-06-14 SUPERSEDED by #445: shipped `=6.0.0 → =7.0.0`, not `=6.0.1`]**
+- **What:** the version bump (5 Cargo.tomls). **Size:** XS. **Risk:** none (off critical path). **Done by PR #445** (lance/lance-linalg `=7.0.0`, lancedb `=0.30.0`, object_store 0.13.2); residual surrealdb-fork pin = `TD-SURREALDB-KVLANCE-LANCE7`.
 
 ### P10 — Polyglot IR-conformance loop (the GEL hub floor)
 - **What:** assert the 4 dialects + 2 IR-routes (in-strategy vs ArenaIR) produce equivalent LogicalOp for equivalent queries; attach to consumer-conformance harness.
@@ -74,5 +74,5 @@
 ## RECALIBRATED (3-agent panel, 2026-05-30) — see EPIPHANIES "RECALIBRATION"
 **Keystone added: M1 `Tactic::requires() -> AtomMask`** (reliability is a missing accessor, not a gate — extraction not construction; makes P1/P7/P11 derived).
 **Recalibrated order:** 1) M1 (contract, zero-dep, teeth-test). 2) P2 + build its missing witness corpus (honest cosmetic/not pass-fail). 3) M2 completeness auditor (unknown-unknown finder, reuses neural-debug).
-**Deferred/dropped:** P5 P0-blocked (I4x32 pack/unpack todo!() + 32-vs-33 fork); P6 cosmetic (recipe.rs never compiles in); P9 still blocked (lancedb pins lance=6.0.0); P10 off-arc; P3/P4 AP6 theater until a real consumer exists; P1 must reframe as M1-derived (don't dup recipes::Coverage); P8 gated on P2-pass.
+**Deferred/dropped:** P5 P0-blocked (I4x32 pack/unpack todo!() + 32-vs-33 fork); P6 cosmetic (recipe.rs never compiles in); P9 SUPERSEDED (shipped `=7.0.0`/`=0.30.0` via #445 — lancedb 0.30 resolves the old "0.29 pins lance=6.0.0" block); P10 off-arc; P3/P4 AP6 theater until a real consumer exists; P1 must reframe as M1-derived (don't dup recipes::Coverage); P8 gated on P2-pass.
 **Added missing:** M2 (completeness auditor), M3 (version-arc scheduler wire).

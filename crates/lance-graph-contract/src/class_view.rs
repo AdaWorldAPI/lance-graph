@@ -218,6 +218,34 @@ pub trait ClassView {
     fn edge_codec_flavor(&self, _class: ClassId) -> crate::canonical_node::EdgeCodecFlavor {
         crate::canonical_node::EdgeCodecFlavor::CoarseOnly
     }
+
+    /// Which value-slab schema preset this class materialises in
+    /// [`NodeRow::value`](crate::canonical_node::NodeRow::value).
+    ///
+    /// **TEMPORARY (POC default, 2026-06-15):** returns
+    /// [`ValueSchema::Full`](crate::canonical_node::ValueSchema::Full) — every
+    /// *unconfigured* class (incl. the default `classid 0x0000_0000`) materialises
+    /// the whole value slab so downstream consumers (tesseract-rs / woa-rs /
+    /// medcare-rs / q2) can transcode against a fully-populated `NodeRow` POC.
+    /// Specialisation is **opt-IN, not opt-out**: a consumer that needs to save
+    /// memory mints a class that overrides this to a smaller preset (`Cognitive` /
+    /// `Compressed` / `Bootstrap`); a consumer that needs denser/specialised data
+    /// mints a *separate* class. Selection only: every preset carves within the
+    /// reserved 480-byte value slab, so the choice never changes `NODE_ROW_STRIDE`
+    /// (canon "registry-resolved via `classid → ClassView`", never a stride change)
+    /// — flipping the default is layout-preserving and a one-line revert to
+    /// `Bootstrap` (the canon zero-fallback) before merge. The type-level
+    /// [`ValueSchema::default()`](crate::canonical_node::ValueSchema) stays
+    /// `Bootstrap`, so the substrate zero-fallback semantics are untouched; only
+    /// the class→schema *resolution* default is Full.
+    #[inline]
+    fn value_schema(&self, _class: ClassId) -> crate::canonical_node::ValueSchema {
+        // TEMPORARY POC default — see doc above. Revert to `ValueSchema::Bootstrap`
+        // (canon zero-fallback) before merge. No invention: `Full` activates the
+        // already-existing, already-tested 9 ValueTenants (helix-48 / turbovec /
+        // signed / fingerprint / …), it adds no new property.
+        crate::canonical_node::ValueSchema::Full
+    }
 }
 
 /// One populated field to render — the late-resolved `label` + its `predicate` key.
@@ -414,5 +442,25 @@ mod tests {
             all.iter().map(|r| r.label).collect::<Vec<_>>(),
             vec!["Total", "Tax", "Partner"]
         );
+    }
+
+    #[test]
+    fn value_schema_default_is_full_temporary_poc() {
+        // TEMPORARY (2026-06-15 POC): the blanket ClassView default materialises the
+        // FULL value slab so consumers (tesseract-rs / woa-rs / medcare-rs / q2)
+        // transcode against a populated NodeRow. Specialisation is opt-IN (override
+        // to a smaller preset). When the POC phase ends, revert the default to
+        // `ValueSchema::Bootstrap` AND this test together.
+        use crate::canonical_node::{EdgeCodecFlavor, ValueSchema};
+        let classes = FakeClasses::new();
+        // The default class (classid 0x0000_0000) and any unconfigured class both
+        // resolve to Full while the POC default is active.
+        assert_eq!(classes.value_schema(0), ValueSchema::Full);
+        assert_eq!(classes.value_schema(7), ValueSchema::Full);
+        // The edge-codec axis is SEPARATE and untouched (still the CoarseOnly
+        // zero-fallback) — only the value slab flipped to Full.
+        assert_eq!(classes.edge_codec_flavor(0), EdgeCodecFlavor::CoarseOnly);
+        // The TYPE-level default is unchanged: substrate zero-fallback stays Bootstrap.
+        assert_eq!(ValueSchema::default(), ValueSchema::Bootstrap);
     }
 }
