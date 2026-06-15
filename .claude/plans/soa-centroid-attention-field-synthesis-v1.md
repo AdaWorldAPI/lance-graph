@@ -25,7 +25,8 @@ a different scale** — not separate engines bolted together.
 | **Quorum + NARS reasoning** | `causal-edge::{pearl,nars,syllogism}` | centroid **coupling** = edge read; quorum = agreement of multiple field reads; NARS truth = coupling strength |
 | **Grammar heuristics** | `deepnsm::{parser,pos,morphology,spo,syllogism}` | syntactic **field masks** = structured attention over the field |
 | **Relative-pronoun / syntax order** | TEKAMOLO resolver (#495) | resolves adverbial/relative-pronoun binding = constrained attention path |
-| **Episodic / coref** | AriGraph (`EpisodicWitness64`) *(name "aerial" — confirm)* | temporal chain read = the field over witness-time |
+| **Rule learning (the real "aerial")** | `lance-graph-arm-discovery::aerial` — Aerial+ transcode (arXiv 2504.19354), **autoencoder replaced by integer codebook-distance oracle** (palette256, ρ=0.9973 vs cosine) | mines SPO association rules **float-free / bitwise-deterministic** → `arm_to_truth_u8` → `CausalEdge64` confidence_u8 + i4 mantissa. This IS "learning edges" — the field's codebook distance replaces the f32 autoencoder. |
+| **Episodic / coref** | AriGraph (`EpisodicWitness64`) | temporal chain read = the field over witness-time |
 | **Nearest-valid-token** | `crystal_neighborhood`, `cam64`, CAKES + `turbovec` | field-alignment argmax = read-off to codebook word |
 
 ## 2. Why this is one object, not a pipeline
@@ -36,7 +37,10 @@ alignment (`DistanceLut`). So DeepNSM's markov_bundle is the *symbolic readout* 
 the field; NARS/quorum is the *edge coupling*; grammar/TEKAMOLO are *attention
 masks*. No separate learning machine is needed — the attention field already does
 binding/bundling/attention in one structure (Frady/Kleyko 1707.01429: trained-RNN
-⊁ VSA for symbol sequences). What's missing is only **plasticity**.
+⊁ VSA for symbol sequences). **`aerial` is the proof in-tree:** Aerial+'s f32
+autoencoder is replaced by the integer codebook-distance oracle (the field) and
+still mines rules — neurosymbolic learning with NO autoencoder, NO SGD, NO seed.
+What's missing is only **plasticity** (centroid drift), not a learner.
 
 ## 3. Phase-2: make the field plastic (the "learning edges")
 
@@ -60,6 +64,6 @@ the field = everything symbolic/sequential/relational. One substrate, two scales
 Two modes, explicitly separated, or the bit-repro guarantee is lost.
 
 ## 6. Open
-- **OD-A:** confirm "aerial" = AriGraph (`EpisodicWitness64`) vs a distinct AST crate.
+- **OD-A:** RESOLVED — "aerial" = `lance-graph-arm-discovery::aerial` (Aerial+ rule-mining, codebook-distance oracle, not AriGraph).
 - **OD-B:** centroid drift rule — Hebbian on `Plasticity`, or NARS-revision on `CausalEdge64`? (probe-gate, measure first.)
 - **OD-C:** operator sign-off required for any new tenant (anti-invention guardrail) — phase-2 should need NONE (field is evaluated, not stored).
