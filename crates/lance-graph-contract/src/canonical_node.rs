@@ -414,6 +414,24 @@ pub enum ValueTenant {
     EntityType = 8,
 }
 
+impl ValueTenant {
+    /// This tenant's byte offset **within the 480-byte value slab** (its row
+    /// offset minus [`VALUE_SLAB_ROW_OFFSET`]). The companion to its
+    /// [`VALUE_TENANTS`] descriptor — lets a transcode write into
+    /// [`NodeRow::value`] without hardcoding the carve. Not a new property: a
+    /// derived accessor over the already-locked, compile-asserted carve.
+    #[inline]
+    pub const fn value_offset(self) -> usize {
+        VALUE_TENANTS[self as usize].row_offset as usize - VALUE_SLAB_ROW_OFFSET
+    }
+
+    /// This tenant's byte length in the slab (from its [`VALUE_TENANTS`] descriptor).
+    #[inline]
+    pub const fn byte_len(self) -> usize {
+        VALUE_TENANTS[self as usize].col_bytes_per_row()
+    }
+}
+
 /// Stable byte carve of the value slab. Offsets are **row-relative** (within one
 /// row packet, in the value region `[32, 512)`) — consistent with
 /// [`NODE_ROW_COLUMNS`], one level finer. Contiguous, in [`ValueTenant`]
