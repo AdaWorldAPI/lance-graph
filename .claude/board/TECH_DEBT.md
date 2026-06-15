@@ -15,6 +15,14 @@
 
 ## Open Debt
 
+### TD-COARSERESIDUE-NO-VALUE-TENANT — `EdgeCodecFlavor::CoarseResidue` residue has no dedicated value-slab tenant (codex #496, 2026-06-15)
+
+**Surfaced by** codex P2 on PR #496 (`canonical_node.rs:336`). `EdgeCodecFlavor::CoarseResidue` (`canonical_node.rs:213`) declares its per-dimension signed-4-bit residue is "carried in the reserved value slab" (cost `1 + ⌈D/2⌉`, `bytes_per_vector` :228), but the `ValueTenant` catalogue (`canonical_node.rs:324-343`) has a slot only for `Pq32x4` (`TurbovecResidue = 5`, 16 B at offset 160) — **none for `CoarseResidue`**. So `Full`/`Compressed` presets report all codec tenants present while a class pairing `CoarseResidue` with those schemas has no addressable column for its residue (it would collide with another tenant).
+
+**Pre-existing, not introduced by #496:** the `EdgeCodecFlavor` enum rode #495 / `920671d` (entropy-ladder D-EL-1); #496 only adds the `ValueSchema`/FULL-default on top. The #495 AGENT_LOG claim that "signed-`CoarseResidue` is a first-class tenant" was aspirational — no such tenant exists in `VALUE_TENANTS`.
+
+**Pay it by** (operator sign-off REQUIRED per §0 anti-invention guardrail — adding a tenant is "inventing a property"): either (a) mint a `CoarseResidue` `ValueTenant` (append-only, after `EntityType=8`, carving the remaining value slab — needs sign-off), or (b) document that `CoarseResidue` reuses the `TurbovecResidue` slab region (both are "edge residue in the value slab"; the flavor disambiguates the read mode) — zero new tenant, the guardrail-preferred path. Decide before any class actually selects `CoarseResidue` with a dense preset. Cross-ref: `EdgeCodecFlavor` (920671d), entropy-ladder-spo-rung-v1 D-EL-1.
+
 ### TD-VALUESCHEMA-FULL-POC-DEFAULT — `ClassView::value_schema` blanket default flipped Bootstrap→Full for the consumer-POC phase (2026-06-15)
 
 **Surfaced by** operator decision (a): *"flip the blanket default to Full (all unconfigured classes → Full) / any consumer that needs to save memory can create [its] smaller settings / any consumer that needs more data and more efficiency can afford a separate class."* Enables the downstream consumers (tesseract-rs / woa-rs / medcare-rs / q2) to transcode against a fully-materialised `NodeRow` while the POC is built.
