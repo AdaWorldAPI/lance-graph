@@ -15,6 +15,12 @@
 
 ## Open Debt
 
+### TD-CAUSAL-EDGE-LINT — `causal-edge` crate-wide pre-existing clippy (15) + fmt drift (2026-06-15)
+
+**Surfaced by** fixing the long-standing `test_build_fast` red (2026-06-15, this commit: `tables.rs:144` `<`→`<=`, the `c_levels=1` 256 KB floor — test now **48/48 green**). With the test green, `cargo clippy --manifest-path crates/causal-edge/Cargo.toml --lib -- -D warnings` still fails with **15 errors** (edge.rs `to_mantissa`/`from_mantissa`/`plasticity` — match-arm + needless-block lints) and `cargo fmt --check` shows **crate-wide drift** (edge.rs, v2_layout_tests.rs — arm spacing, long `assert_eq!` lines, nested if/else). **Pre-existing, NOT from the test-bound fix** (one line, tables.rs, fmt-clean). **CI-invisible** — `causal-edge` is not a lance-graph workspace member, so the workspace gate never clippy/fmt-checks it (same class as helix `probe_mantissa_fill`).
+
+**Pay it by** `cargo fmt --manifest-path crates/causal-edge/Cargo.toml` + `cargo clippy --fix` + manual residual-lint resolution. Mechanical (~30 min); deferred to keep the test-red fix scoped. The 15 lints are quality (formatting / needless blocks), not correctness — the crate's logic is tested (48 lib green).
+
 ### TD-HELIX-PROBE-CLIPPY — `helix` `tests/probe_mantissa_fill.rs` pre-existing clippy + fmt drift (2026-06-15)
 
 **Surfaced by** the helix `Signed360` work (2026-06-15): `cargo clippy --manifest-path crates/helix/Cargo.toml --all-targets -- -D warnings` fails on `tests/probe_mantissa_fill.rs:170` — `clippy::needless_range_loop` (`for b in 0..BINS*BINS` indexing `counts`), under clippy 1.95.0. The same file has pre-existing `cargo fmt` drift (the `SEEDS` const + several `assert_eq!`/`assert!` calls exceed the width, unwrapped). **Pre-existing, NOT caused by the `Signed360` addition** (that's all in `src/`, additive; this integration test was never touched). **CI-invisible** because `helix` is a root-`exclude`d crate — the lance-graph workspace gate never builds it. Same class as the standing `causal-edge` 47/1 red (`test_build_fast`) on main.
