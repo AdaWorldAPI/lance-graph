@@ -1,3 +1,17 @@
+## 2026-06-15 — integrated-cognitive-planner-v1 (ONE Rubicon/kanban/ractor/thinking-style/AST↔Elixir planner; ~90% EXISTS, 6 additive seams + addressing + cognitive-cycle sequencer)
+
+**Status:** RESEARCH MAP + REFERENCE DOC (capture-before-dilution; pre-expansion). **Plan file:** `.claude/plans/integrated-cognitive-planner-v1.md`.
+**Owns:** the 6 integrated-planner seams + the `(hhtl-guid):path:documentid` / `ScopedReference` addressing model + the 8-step cognitive-cycle sequencer.
+- 4-layer P0 architecture (FORGET LADYBUG): SurrealDB (orchestrates META AST/Elixir, never thinks/writes, projects read-view) → `lance-graph-planner::PlannerAwareness` (coordination; emits `KanbanMove(ExecTarget)`, Rubicon DAG) → **thinking-engine > P64 > cognitive-shader-driver** (the cognition: Φ StreamDto → Ψ ResonanceDto → B BusDto) → ractor (`lance-graph-supervisor`) drives `try_advance_phase` → `lance-graph-callcenter` WRITES (outer boundary). temporal-aware via Lance-version-as-of + temporal.rs deinterlace (HLC).
+- **§2 the 6 seams** (file:line FOLDs): (1) planner emits no `KanbanMove` [D-MBX-A6-P3]; (2) temporal.rs unconsumed + dep-wall; (3) loop only on jolly (unmerged `463d71bd`); (4) rung inert; (5) think-delegation inverted/lab-only (NOT Ladybug); (6) plan.rs:42 write mis-framing.
+- **§3 addressing:** `(hhtl-guid):path:documentid` = `NodeGuid`-prefix : value-tenant : `local_key`; `ScopedReference` = (NiblePath scope, QueryReference as-of) = TiKV-TSO snapshot-handle scoped to a key-range. ADOPT TiKV prefix-route + snapshot-handle + coprocessor-pushdown↔DependsClosure; Pinpoint entity-MID=identity + cross-doc entities=EdgeBlock + content-addressed documentid + as-of-T-first-class.
+- **§4 the cognitive cycle:** fanout→consolidate→induction→synthesize→think→deduction→meta-awareness→abduction mapped onto Rubicon phases; a `CognitiveCycle` sequencer (method on the integrated Planner) is the only new code — closes seams #1/#2/#4/#5.
+- **§5 probes:** P-DEDUP-ASOF, P-TICKET-SNAPSHOT, P-SCOPE-CLASSIFY, P-RUNG-VARIES (exists), P-CYCLE-SPIRAL.
+**Key decisions:** the integrated planner ~90% EXISTS across #437–#492 + unmerged `jolly-cori-clnf9`; remaining work is additive seams, NOT a new build. This doc is THE reference target for the 5-savant expansion + 3-brutal-hardening sweep (agents MUST cite by file:line; un-grounded claims = hypotheses). Rides #496 with #495's `ValueSchema`/`EdgeCodecFlavor`.
+**Repos:** lance-graph, branch `claude/wonderful-hawking-lodtql`. Grounded by a 5-agent integrated-planner research sweep + a 3-agent Pinpoint/TiKV/addressing sweep (2026-06-15).
+
+---
+
 ## 2026-06-14 — entropy-ladder-spo-rung-v1 (Staunen↔Wisdom entropy coordinate unifies SPO rungs + NARS reliability + edge-codec; R1 shipped, R2–R6 roadmap)
 
 **Status:** PLATEAU — R1 (foundation) SHIPPED; R2–R6 planned (probe-gated where marked). **Plan file:** `.claude/plans/entropy-ladder-spo-rung-v1.md`.

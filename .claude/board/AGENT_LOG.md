@@ -1,3 +1,11 @@
+## 2026-06-15 — integrated-cognitive-planner-v1 reference map written (capture-before-dilution; pre 5-savant/3-brutal sweep)
+
+**Main thread (Opus 4.8 1M).** Operator: *"schreibe alle ideen meticulously mapped before any thing dillutes / then open 5 savents for expansion then harden with 3 brutally honest agents / allways have reference documentation that the agents can target, otherwise they will hallucinate / dann öffne 496."* + *"ohne 495 kannst du schlecht einschätzen was dupliziert wurde"* (keep `ValueSchema`, do NOT reset).
+
+**Written (this commit):** `.claude/plans/integrated-cognitive-planner-v1.md` — the file:line-grounded reference map the expansion/hardening agents MUST target (so they don't hallucinate). 4-layer P0 architecture (FORGET LADYBUG: thinking-engine>P64>cognitive-shader-driver), §1 grounded current state, §2 the 6 seams with FOLDs, §3 `(hhtl-guid):path:documentid`/`ScopedReference` addressing + Pinpoint/TiKV lessons, §4 the 8-step cognitive cycle → Rubicon phases, §5 measure-first probes, §6 open questions, §7 reference index. Grounded by a prior 5-agent integrated-planner research sweep + a 3-agent Pinpoint/TiKV/addressing sweep. Board hygiene: prepended `INTEGRATION_PLANS.md`.
+
+**Verdict captured:** the integrated cognitive planner ~90% EXISTS (#437–#492 + unmerged `jolly-cori-clnf9`); remaining = 6 additive seams + addressing + a `CognitiveCycle` sequencer. NOT a new build. Branch held at `4e3496a` (ValueSchema intact). **Next:** 5 savant (expansion) agents → 3 brutally-honest (hardening) agents, both targeting this doc by file:line → incorporate → open #496.
+
 ## 2026-06-14 — `ValueSchema` value-slab presets (Full + Cognitive/Compressed/Bootstrap) — closes the helix-48 dilution gap
 
 **Main thread.** Operator: *"create different Schema presets, the 'full' is one of the options."* Context: after confirming the SoA-extension ((12+4) edges + turbovec residue + signed) was already locked as `EdgeCodecFlavor` (commit `920671d`) on #489's `EdgeBlock`, **helix-48** was the one element still only a TODO-comment in the `value(480)` slab — the dilution risk the operator flagged.
