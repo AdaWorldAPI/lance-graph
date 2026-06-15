@@ -330,7 +330,9 @@ pub enum ValueTenant {
     MaterializedEdges = 2,
     /// `Fingerprint<256>` — 32-byte identity print.
     Fingerprint = 3,
-    /// helix golden-spiral Place/Residue (48 B).
+    /// helix golden-spiral Place/Residue — signed full-sphere `Signed360`,
+    /// 48-bit = 6 B (2× the 24-bit equal-area hemisphere; produced by the `helix`
+    /// crate's `Signed360`, written here zero-copy).
     HelixResidue = 4,
     /// turbovec PQ residue ([`EdgeCodecFlavor::Pq32x4`], 16 B).
     TurbovecResidue = 5,
@@ -376,32 +378,34 @@ pub const VALUE_TENANTS: &[ColumnDescriptor] = &[
     ColumnDescriptor {
         name_id: ValueTenant::HelixResidue as u16,
         kind: ColumnKind::U8,
-        elems_per_row: 48,
+        // 6 B = 48 bit = 2× the 24-bit equal-area hemisphere (helix `Signed360`,
+        // signed full sphere). Was 48 B — a bits→bytes slip; right-sized 2026-06-15.
+        elems_per_row: 6,
         row_offset: 112,
     },
     ColumnDescriptor {
         name_id: ValueTenant::TurbovecResidue as u16,
         kind: ColumnKind::U8,
         elems_per_row: 16,
-        row_offset: 160,
+        row_offset: 118,
     },
     ColumnDescriptor {
         name_id: ValueTenant::Energy as u16,
         kind: ColumnKind::F32,
         elems_per_row: 1,
-        row_offset: 176,
+        row_offset: 134,
     },
     ColumnDescriptor {
         name_id: ValueTenant::Plasticity as u16,
         kind: ColumnKind::U32,
         elems_per_row: 1,
-        row_offset: 180,
+        row_offset: 138,
     },
     ColumnDescriptor {
         name_id: ValueTenant::EntityType as u16,
         kind: ColumnKind::U16,
         elems_per_row: 1,
-        row_offset: 184,
+        row_offset: 142,
     },
 ];
 
@@ -454,8 +458,8 @@ pub enum ValueSchema {
     /// Hot self-thinking set: Meta + Qualia + Fingerprint + Energy + Plasticity +
     /// EntityType. No materialised edges, no codec residues.
     Cognitive = 1,
-    /// Cold / compressed codec stack: Fingerprint + Helix-48 + turbovec residue +
-    /// EntityType. No hot lifecycle columns.
+    /// Cold / compressed codec stack: Fingerprint + Helix `Signed360` (6 B) +
+    /// turbovec residue + EntityType. No hot lifecycle columns.
     Compressed = 2,
     /// Every [`ValueTenant`] materialised — the densest node.
     Full = 3,
@@ -899,8 +903,8 @@ mod tests {
         assert!(prev_end <= NODE_ROW_STRIDE);
         assert_eq!(
             prev_end - VALUE_SLAB_ROW_OFFSET,
-            154,
-            "current Full carve uses 154 of 480 B"
+            112,
+            "current Full carve uses 112 of 480 B (helix right-sized 48→6)"
         );
         assert!(prev_end - VALUE_SLAB_ROW_OFFSET <= VALUE_SLAB_LEN);
     }
@@ -935,8 +939,8 @@ mod tests {
     fn value_schema_byte_budgets_are_locked() {
         assert_eq!(ValueSchema::Bootstrap.tenant_bytes(), 0);
         assert_eq!(ValueSchema::Cognitive.tenant_bytes(), 58);
-        assert_eq!(ValueSchema::Compressed.tenant_bytes(), 98);
-        assert_eq!(ValueSchema::Full.tenant_bytes(), 154);
+        assert_eq!(ValueSchema::Compressed.tenant_bytes(), 56);
+        assert_eq!(ValueSchema::Full.tenant_bytes(), 112);
         for s in [
             ValueSchema::Bootstrap,
             ValueSchema::Cognitive,

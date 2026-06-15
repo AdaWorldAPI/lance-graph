@@ -15,6 +15,12 @@
 
 ## Open Debt
 
+### TD-HELIX-PROBE-CLIPPY — `helix` `tests/probe_mantissa_fill.rs` pre-existing clippy + fmt drift (2026-06-15)
+
+**Surfaced by** the helix `Signed360` work (2026-06-15): `cargo clippy --manifest-path crates/helix/Cargo.toml --all-targets -- -D warnings` fails on `tests/probe_mantissa_fill.rs:170` — `clippy::needless_range_loop` (`for b in 0..BINS*BINS` indexing `counts`), under clippy 1.95.0. The same file has pre-existing `cargo fmt` drift (the `SEEDS` const + several `assert_eq!`/`assert!` calls exceed the width, unwrapped). **Pre-existing, NOT caused by the `Signed360` addition** (that's all in `src/`, additive; this integration test was never touched). **CI-invisible** because `helix` is a root-`exclude`d crate — the lance-graph workspace gate never builds it. Same class as the standing `causal-edge` 47/1 red (`test_build_fast`) on main.
+
+**Pay it by** rewriting the `for b in 0..BINS*BINS` loop as `counts.iter().enumerate()` (or `iter_mut`) + `cargo fmt --manifest-path crates/helix/Cargo.toml`. Trivial; deferred ONLY to keep the `Signed360` commit scoped. `cargo test` on helix is green (the probe passes as a test; only `clippy --all-targets -D warnings` flags the lint). Cross-ref: the helix `Signed360` branch commit.
+
 ### TD-LAZY-IMPORT-VERSION-PIN — lazy OGIT/ontology imports MUST be version-pinned + reserve-don't-reclaim sibling nibbles (2026-06-15)
 
 **Surfaced by** operator design dialogue (2026-06-15: "OGIT as a lazy import in Rust-based OGAR — could DOLCE / Odoo etc. drift?"). The drift-control architecture is layered + sound; two disciplines must be LOCKED before the OGAR-identity migration runs a real (non-fixture) lazy import.

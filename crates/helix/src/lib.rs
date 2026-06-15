@@ -74,7 +74,7 @@ pub use constants::{
 pub use curve_ruler::CurveRuler;
 pub use distance::DistanceLut;
 pub use fisher_z::Similarity;
-pub use placement::HemispherePoint;
+pub use placement::{HemispherePoint, Sign};
 pub use prove::{prove, ProofResult};
 pub use quantize::RollingFloor;
-pub use residue::{ResidueEdge, ResidueEncoder};
+pub use residue::{ResidueEdge, ResidueEncoder, Signed360};
