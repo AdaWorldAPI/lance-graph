@@ -107,7 +107,8 @@ pub mod world_model;
 
 // Re-exports for the most commonly used collapse_gate types.
 pub use canonical_node::{
-    EdgeBlock, EdgeCodecFlavor, NodeGuid, NodeRow, ValueSchema, ValueTenant, VALUE_TENANTS,
+    classid_read_mode, EdgeBlock, EdgeCodecFlavor, GuidParts, NodeGuid, NodeRow, ReadMode,
+    ValueSchema, ValueTenant, VALUE_TENANTS,
 };
 pub use class_view::{ClassId, ClassProjection, ClassView, FieldMask, RenderRow};
 pub use collapse_gate::{GateDecision, MailboxId, MergeMode};

@@ -99,6 +99,53 @@ impl NodeGuid {
         u32::from_le_bytes([self.0[13], self.0[14], self.0[15], 0])
     }
 
+    /// HEEL — HHT cascade tier 1 (bytes 4..6, LE `u16`).
+    #[inline]
+    pub const fn heel(&self) -> u16 {
+        u16::from_le_bytes([self.0[4], self.0[5]])
+    }
+
+    /// HIP — HHT cascade tier 2 (bytes 6..8, LE `u16`).
+    #[inline]
+    pub const fn hip(&self) -> u16 {
+        u16::from_le_bytes([self.0[6], self.0[7]])
+    }
+
+    /// TWIG — HHT cascade tier 3 (bytes 8..10, LE `u16`).
+    #[inline]
+    pub const fn twig(&self) -> u16 {
+        u16::from_le_bytes([self.0[8], self.0[9]])
+    }
+
+    /// Decode the whole key in one read — every canon group as its native
+    /// LE-decoded integer. This is the "read the GUID as a GUID" surface: a
+    /// consumer or OGAR gets `classid + HHT (HEEL/HIP/TWIG) + family + identity`
+    /// from one call instead of re-deriving each group from raw bytes. The six
+    /// fields ARE the canon print order — nothing invented, nothing dropped (cf.
+    /// [`Display`](NodeGuid#impl-Display-for-NodeGuid), which renders the same six).
+    #[inline]
+    pub const fn decode(&self) -> GuidParts {
+        GuidParts {
+            classid: self.classid(),
+            heel: self.heel(),
+            hip: self.hip(),
+            twig: self.twig(),
+            family: self.family(),
+            identity: self.identity(),
+        }
+    }
+
+    /// The [`ReadMode`] this node's `classid` resolves to — which value tenants
+    /// to materialise + how to read the edge block. The carrier-method form (the
+    /// object speaks for itself): a consumer reads `guid.read_mode()`, OGAR reads
+    /// [`classid_read_mode`]`(guid.classid())`; both inherit the SAME answer from
+    /// the one [`LazyLock`] registry, so the LE interpretation of the node's bytes
+    /// is single-sourced. Not `const` — it consults the runtime registry.
+    #[inline]
+    pub fn read_mode(&self) -> ReadMode {
+        classid_read_mode(self.classid())
+    }
+
     /// Basin-local key: trailing 6 bytes (family ++ identity), zero-padded to u64.
     /// After an HHTL radix walk has bound classid+HEEL+HIP+TWIG, this is the only
     /// part that still discriminates — a single masked load, no gather.
@@ -147,6 +194,30 @@ impl NodeGuid {
     }
 }
 
+/// The whole canonical key decoded in one shot — `classid · HEEL · HIP · TWIG ·
+/// family · identity`, each as its native LE-decoded integer.
+///
+/// This is the "read the GUID as a GUID and return classid + HHT + Leaf +
+/// identity" contract: one decode, six fields, in canon print order. It invents
+/// nothing — it is exactly [`NodeGuid::decode`] of the existing 16-byte key, the
+/// same six groups [`NodeGuid`]'s `Display` renders. `family` is the basin
+/// "Leaf" and `family ++ identity` is the trailing-6-byte [`NodeGuid::local_key`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct GuidParts {
+    /// 0..4 — prefix-routable class id (default `0x0000_0000`).
+    pub classid: u32,
+    /// 4..6 — HEEL (HHT cascade tier 1).
+    pub heel: u16,
+    /// 6..8 — HIP (HHT cascade tier 2).
+    pub hip: u16,
+    /// 8..10 — TWIG (HHT cascade tier 3).
+    pub twig: u16,
+    /// 10..13 — family (u24, the basin "Leaf").
+    pub family: u32,
+    /// 13..16 — identity (u24).
+    pub identity: u32,
+}
+
 /// Canonical self-describing print: `classid-HEEL-HIP-TWIG-family·identity`.
 ///
 /// The dash-groups ARE the semantic delimiters — every printed GUID is
@@ -155,16 +226,13 @@ impl NodeGuid {
 /// order (the field accessors fold LE bytes into u32/u16/u24 first).
 impl core::fmt::Display for NodeGuid {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let h = u16::from_le_bytes([self.0[4], self.0[5]]);
-        let p = u16::from_le_bytes([self.0[6], self.0[7]]);
-        let t = u16::from_le_bytes([self.0[8], self.0[9]]);
         write!(
             f,
             "{:08x}-{:04x}-{:04x}-{:04x}-{:06x}{:06x}",
             self.classid(),
-            h,
-            p,
-            t,
+            self.heel(),
+            self.hip(),
+            self.twig(),
             self.family(),
             self.identity(),
         )
@@ -261,6 +329,8 @@ const _: () = assert!(core::mem::size_of::<NodeRow>() == 512);
 
 use crate::class_view::FieldMask;
 use crate::soa_envelope::{ColumnDescriptor, ColumnKind, SoaEnvelope};
+use std::collections::HashMap;
+use std::sync::LazyLock;
 
 /// Stable column-id ordinals for [`NodeRow`]'s three top-level slots.
 /// `name_id` in the [`ColumnDescriptor`] table; the registry-resolved value
@@ -532,6 +602,80 @@ impl ValueSchema {
 const _: () = assert!(ValueSchema::Full.tenant_bytes() <= VALUE_SLAB_LEN);
 const _: () = assert!(ValueSchema::Full.field_mask().count() as usize == VALUE_TENANTS.len());
 const _: () = assert!(ValueSchema::Bootstrap.field_mask().is_empty());
+
+// ── classid → read-mode: the LE contract both the consumer and OGAR inherit ────
+
+/// The **read mode** a `classid` resolves to: the pair of *already-existing*
+/// read-mode axes — [`ValueSchema`] (which value tenants to materialise) and
+/// [`EdgeCodecFlavor`] (how to read the 16-byte edge block).
+///
+/// It is NOT a new node property and NOT a SoA column — nothing is stored on the
+/// row. This is the *resolution result* (the lens): the value-side analog of
+/// "which XSD parses this document". §0 anti-invention — it bundles the two
+/// read-mode enums that already exist, adding zero new fields to the node.
+///
+/// Both consumers and OGAR resolve `classid → ReadMode` through the one
+/// [`LazyLock`] registry ([`classid_read_mode`]), so the LE interpretation of a
+/// node's bytes is single-sourced: a consumer transcoding a [`NodeRow`] and OGAR
+/// minting/projecting the same class read the identical schema.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ReadMode {
+    /// Which value-slab tenants this class materialises.
+    pub value_schema: ValueSchema,
+    /// How this class reads its 16-byte edge block.
+    pub edge_codec: EdgeCodecFlavor,
+}
+
+impl ReadMode {
+    /// The zero-fallback / POC default an *unconfigured* classid resolves to.
+    ///
+    /// **TEMPORARY (2026-06-15 POC):** `value_schema = Full` mirrors the
+    /// [`ClassView::value_schema`](crate::class_view::ClassView::value_schema)
+    /// POC default so an unconfigured class materialises the whole slab for
+    /// transcode; `edge_codec = CoarseOnly` is the canon zero-fallback edge
+    /// reading. When the POC ends, flip `value_schema` back to
+    /// [`ValueSchema::Bootstrap`] HERE and in `ClassView` together (one revert,
+    /// two sites — the test `read_mode_default_is_full_poc` guards the pairing).
+    pub const DEFAULT: ReadMode = ReadMode {
+        value_schema: ValueSchema::Full,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
+    /// Both axes are layout-preserving (a preset/flavor re-interprets reserved
+    /// bytes, never a stride change), so adopting any read-mode needs no
+    /// `ENVELOPE_LAYOUT_VERSION` bump.
+    #[inline]
+    pub const fn is_layout_preserving(self) -> bool {
+        self.value_schema.is_layout_preserving() && self.edge_codec.is_layout_preserving()
+    }
+}
+
+/// Builtin `classid → ReadMode` registry, built once on first use.
+///
+/// Immutable after init — the canon "already-immutable ontology registry" shape,
+/// the same [`LazyLock`] pattern `lance-graph-ontology` uses for its seed
+/// namespace registry. Holds only the canon builtins; a minted class's read-mode
+/// is layered in by OGAR one level up. Any classid NOT in the map falls through
+/// to [`ReadMode::DEFAULT`] — the same zero-fallback ladder as the key itself
+/// (`classid 0 ⇒ default class`).
+static BUILTIN_READ_MODES: LazyLock<HashMap<u32, ReadMode>> = LazyLock::new(|| {
+    let mut m = HashMap::new();
+    // The canon default class materialises the POC-Full slab (see ReadMode::DEFAULT).
+    m.insert(NodeGuid::CLASSID_DEFAULT, ReadMode::DEFAULT);
+    m
+});
+
+/// Resolve a `classid` to its [`ReadMode`] — the single source both consumers
+/// and OGAR inherit. Reads the [`BUILTIN_READ_MODES`] registry, falling through
+/// to [`ReadMode::DEFAULT`] for any unconfigured classid (the key's own
+/// zero-fallback ladder). [`NodeGuid::read_mode`] is the carrier-method form.
+#[inline]
+pub fn classid_read_mode(classid: u32) -> ReadMode {
+    BUILTIN_READ_MODES
+        .get(&classid)
+        .copied()
+        .unwrap_or(ReadMode::DEFAULT)
+}
 
 /// Zero-copy [`SoaEnvelope`] wrapper over a contiguous slice of [`NodeRow`].
 ///
@@ -974,5 +1118,92 @@ mod tests {
         // stride change — same canon invariant as EdgeCodecFlavor.
         assert_eq!(NODE_ROW_STRIDE, core::mem::size_of::<NodeRow>());
         assert_eq!(VALUE_SLAB_ROW_OFFSET + VALUE_SLAB_LEN, NODE_ROW_STRIDE);
+    }
+
+    // ── GUID decode + classid → read-mode (the keystone) ─────────────────────
+
+    #[test]
+    fn decode_returns_all_six_canon_groups() {
+        // One read yields classid + HHT (HEEL/HIP/TWIG) + family + identity, in
+        // canon print order — the "read the GUID as a GUID" contract.
+        let g = NodeGuid::new(0xDEAD_BEEF, 0x1111, 0x2222, 0x3333, 0x00_00AB, 0x00_00CD);
+        let p = g.decode();
+        assert_eq!(p.classid, 0xDEAD_BEEF);
+        assert_eq!(p.heel, 0x1111);
+        assert_eq!(p.hip, 0x2222);
+        assert_eq!(p.twig, 0x3333);
+        assert_eq!(p.family, 0x00_00AB);
+        assert_eq!(p.identity, 0x00_00CD);
+        // decode() is exactly the field accessors, no field invented/dropped.
+        assert_eq!(p.classid, g.classid());
+        assert_eq!(p.family, g.family());
+        assert_eq!(p.identity, g.identity());
+    }
+
+    #[test]
+    fn hht_accessors_match_display_groups() {
+        // The new HEEL/HIP/TWIG accessors fold the same LE bytes Display renders.
+        let g = NodeGuid::new(0xDEAD_BEEF, 0xA1B2, 0xC3D4, 0xE5F6, 0x12_3456, 0x78_9ABC);
+        assert_eq!(g.heel(), 0xA1B2);
+        assert_eq!(g.hip(), 0xC3D4);
+        assert_eq!(g.twig(), 0xE5F6);
+        // Display's middle three groups are exactly heel-hip-twig in hex.
+        let s = g.to_string();
+        let groups: Vec<&str> = s.split('-').collect();
+        assert_eq!(groups[1], format!("{:04x}", g.heel()));
+        assert_eq!(groups[2], format!("{:04x}", g.hip()));
+        assert_eq!(groups[3], format!("{:04x}", g.twig()));
+    }
+
+    #[test]
+    fn read_mode_default_is_full_poc() {
+        // The default classid resolves to the POC read-mode: Full value slab +
+        // CoarseOnly edges. This GUARDS the ClassView pairing — ReadMode::DEFAULT
+        // .value_schema MUST equal the ClassView POC default (Full). When the POC
+        // ends, both flip to Bootstrap together and this test flips with them.
+        let rm = classid_read_mode(NodeGuid::CLASSID_DEFAULT);
+        assert_eq!(rm, ReadMode::DEFAULT);
+        assert_eq!(rm.value_schema, ValueSchema::Full);
+        assert_eq!(rm.edge_codec, EdgeCodecFlavor::CoarseOnly);
+        assert!(rm.is_layout_preserving());
+    }
+
+    #[test]
+    fn read_mode_zero_fallback_for_unconfigured_classid() {
+        // Any classid NOT in the builtin registry falls through to DEFAULT — the
+        // key's own zero-fallback ladder (classid 0 ⇒ default class), extended to
+        // read-mode resolution.
+        assert_eq!(classid_read_mode(0xDEAD_BEEF), ReadMode::DEFAULT);
+        assert_eq!(classid_read_mode(0x0000_0001), ReadMode::DEFAULT);
+        assert_eq!(classid_read_mode(u32::MAX), ReadMode::DEFAULT);
+    }
+
+    #[test]
+    fn guid_read_mode_method_delegates_to_registry() {
+        // The carrier method (guid.read_mode()) and the free resolver
+        // (classid_read_mode(classid)) are the SAME answer — consumer and OGAR
+        // inherit one source.
+        let g = NodeGuid::new(0xCAFE_BABE, 1, 2, 3, 0x00_0001, 0x00_0002);
+        assert_eq!(g.read_mode(), classid_read_mode(g.classid()));
+        // A default-class node reads the Full POC slab.
+        assert_eq!(NodeGuid::local(0x00_00CD).read_mode(), ReadMode::DEFAULT);
+    }
+
+    #[test]
+    fn default_class_node_materialises_full_slab() {
+        // End-to-end connect: a bootstrap NodeRow → its classid resolves to Full →
+        // the Full preset covers every tenant and uses the locked 112-byte carve.
+        let row = sample_row(NodeGuid::CLASSID_DEFAULT, 0x00_00CD);
+        let rm = row.key.read_mode();
+        assert_eq!(rm.value_schema, ValueSchema::Full);
+        assert_eq!(
+            rm.value_schema.field_mask().count() as usize,
+            VALUE_TENANTS.len(),
+            "Full read-mode materialises every value tenant"
+        );
+        assert_eq!(rm.value_schema.tenant_bytes(), 112);
+        // The slab has room (112 ≤ 480) and the choice never grows the stride.
+        assert!(rm.value_schema.tenant_bytes() <= VALUE_SLAB_LEN);
+        assert!(rm.is_layout_preserving());
     }
 }
