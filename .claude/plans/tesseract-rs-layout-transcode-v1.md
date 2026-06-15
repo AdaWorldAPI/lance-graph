@@ -37,3 +37,8 @@ libtesseract on a fixed page set; per-op image results bit-equal on fixtures.
 
 ## 5. Open
 - **OD-30a:** one intrusive-list helper crate (`tess_elist`) shared across modules, or inline per-module? (Shared reduces unsafe surface.)
+
+## 6. Front-end constraint (carried from retired neural-layout plan)
+The PDF/image front-end MUST be pure-Rust to honor the zero-C posture: image inputs
+via `image`/`imageproc`; PDF via a pure-Rust path (`ferrules`), **not** `pdfium-render`
+(it wraps native PDFium = C). The zero-C acceptance gate is otherwise unsatisfiable.
