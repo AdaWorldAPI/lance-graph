@@ -42,27 +42,34 @@ point of the splat-native / "one representation, many views" doctrine, applied t
 
 ## 3. OCR `ValueSchema` preset over EXISTING tenants (D-OCR-51)
 
-The 480-byte value slab already carves into `VALUE_TENANTS`. OCR **rides existing
-tenants** — no new tenant for the POC:
+The 480-byte value slab already carves into `VALUE_TENANTS`. An OCR token is **not
+a stored string and not a hash** — it is the *terminal of the perturbation cascade*,
+reconstructed exactly like every other node. Text = codebook index + residue.
 
-| Tenant (existing) | OCR use |
+| Tenant (existing) | OCR role |
 |---|---|
-| `Fingerprint` (32 B / 256-bit) | glyph/line identity print (DeepNSM `encoder` XOR-bind/bundle of the crop) |
-| `TurbovecResidue` (16 B, PQ) | glyph embedding → CAKES nearest-valid-token search |
-| `HelixResidue` (48 B) | orthogonal residue: per-token deviation from class centroid (confidence-as-residue) |
-| `Meta` (u64) | packed confidence + NSM-repair flags + token-subtype bits |
-| `EntityType` (u16) | OCR token class discriminator (Word/Number/Date/Glyph/TableCell) |
+| `HelixResidue` (48 B) | golden-spiral place/perturbation residue — how THIS token deviates from its codebook centroid (the recognizer/DeepNSM output IS this residue) |
+| `TurbovecResidue` (16 B, PQ) | PQ edge residue → CAKES nearest-valid-token search over the codebook |
+| `Meta` (u64) | codebook index/anchor + confidence + char-confusion/NSM-repair flags + recoder-code fallback for true-OOV |
+| `EntityType` (u16) | token subtype (Word/Number/Date/Glyph/TableCell) |
 | `Plasticity` (u32) | correction history / last-repair stamp |
 
-→ define `ValueSchema::Ocr` (or select `Cognitive` if its mask already covers the
-above) as a `FieldMask` over those `ValueTenant` positions. Selection only — it
-carves *within* the slab, moves nothing (canon: tenants never move/reuse).
+**Reconstruction (this is the round-trip, and it answers Codex P1):**
+`text  ⇄  codebook_index(Meta) + residue(HelixResidue ⊕ TurbovecResidue)`. Decode =
+the DeepNSM Morton-tile **stacked-pyramid perturbation-shader cascade** applied to
+the residue → CAKES nearest-valid-token over the codebook (DeepNSM `vocabulary` /
+coca `word_frequency`) → the word. No `Fingerprint` hash, no string column. The
+reversibility lives in residue + codebook, which is the architecture's whole point.
 
-**OD-1 (deferred):** a dedicated `ValueTenant::OcrEvidence` (bbox `[f16;4]` +
-per-char confidence + top-k recodebeam candidates) is the clean home for
-recognizer evidence. Adding a tenant is canon-significant, so the POC packs a
-compressed form into `Meta`+`HelixResidue` and defers the dedicated tenant to a
-follow-up once the evidence shape is stable (needs D-OCR-21 `lstm_choice_mode`).
+**True-OOV (no codebook neighbor — a raw code like `69B8`):** falls back to the
+**recoder-code residue** — `recodebeam` already emits recoder codes, not pixels, so
+the codes themselves are the reversible payload in `Meta`, repaired by the
+char-confusion grammar (D-OCR-52). Still a residue, never a hash.
+
+**ValueSchema:** `Cognitive` does NOT include `HelixResidue`/`TurbovecResidue`, so
+OCR needs a dedicated **`ValueSchema::Ocr`** = `FieldMask` over
+{`HelixResidue`,`TurbovecResidue`,`Meta`,`EntityType`,`Plasticity`}. Selection only;
+moves no tenant (canon: tenants never move/reuse).
 
 ## 4. Repair: DeepNSM + CAM/PQ nearest-valid-token (D-OCR-52)
 
@@ -75,7 +82,7 @@ The recognizer emits candidates+confidence; repair is the brainstem we already h
 - **Word layer = `deepnsm`:** `vocabulary` → `codebook` → `parser`/`pos` → `encoder`
   → `similarity`/`cam64`/`crystal_neighborhood`. Word-level plausibility + disambiguation.
 - **Nearest-valid-token = helix / CAM-PQ / CAKES:** the glyph `TurbovecResidue`
-  (PQ) + `HelixResidue` feed CAKES nearest-valid-token; CHAODA flags anomalous
+  (PQ) + `HelixResidue` feed CAKES nearest-valid-token; CHAODA (clustered-hierarchical outlier detection) flags anomalous
   tokens (likely-misrecognized). This is `bgz-tensor` CAM-PQ + `crates/helix`.
 
 Repaired token writes back: corrected text → `Fingerprint`/`EntityType`, repair
@@ -108,7 +115,8 @@ SIMD numeric exactness. OCR is the best external oracle the substrate has.
 - **D-OCR-52:** DeepNSM + character-confusion layer + CAM/PQ repair wired; a known
   OCR-garbage fixture (`69B8`, `rn`→`m`) is repaired by plausibility.
 - **D-OCR-53:** golden-file (crop → NodeRow bytes) regression green, shared with the
-  SoA migration suite.
+  SoA migration suite. **Prereq: D-OCR-50 + D-OCR-51** (class/HHTL/ValueSchema must
+  define the row layout before bytes can be golden-diffed).
 
 ## 8. Open decisions
 
