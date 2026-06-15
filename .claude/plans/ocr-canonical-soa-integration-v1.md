@@ -48,14 +48,14 @@ reconstructed exactly like every other node. Text = codebook index + residue.
 
 | Tenant (existing) | OCR role |
 |---|---|
-| `HelixResidue` | the token's **48-bit** perturbation = 2× `ResidueEdge` (each 24-bit: `start_idx`,`end_idx`,`floor_version`), how THIS token deviates from its codebook centroid; stored within the 48-**byte** HelixResidue tenant (≤16 edges = the Morton-tile stacked-pyramid cascade levels) |
+| `HelixResidue` | helix residue = the orthogonal φ-spiral **endpoint-pair edge** at the token's place (curve-ruler MODULUS 17 / STRIDE 4, regenerated from template — "8K resolution at Super-8 cost", only the endpoint pair stored at **3 B / 24-bit per edge**). The token's perturbation = **2 edges = 48-bit**; stored within the 48-**byte** tenant (16 edges = the Morton-tile stacked-pyramid cascade levels). HHTL is PLACE, helix is the RESIDUE. |
 | `TurbovecResidue` (16 B, PQ) | PQ edge residue → CAKES nearest-valid-token search over the codebook |
 | `Meta` (u64) | codebook index/anchor + confidence + char-confusion/NSM-repair flags + recoder-code fallback for true-OOV |
 | `EntityType` (u16) | token subtype (Word/Number/Date/Glyph/TableCell) |
 | `Plasticity` (u32) | correction history / last-repair stamp |
 
 **Reconstruction (this is the round-trip, and it answers Codex P1):**
-`text  ⇄  codebook_index(Meta) + residue(helix 48-bit / 2×ResidueEdge ⊕ TurbovecResidue PQ)`. Decode =
+`text  ⇄  codebook_index(Meta) + residue(helix 48-bit = 2 endpoint-pair edges ⊕ TurbovecResidue PQ)`. Decode =
 the DeepNSM Morton-tile **stacked-pyramid perturbation-shader cascade** applied to
 the residue → CAKES nearest-valid-token over the codebook (DeepNSM `vocabulary` /
 coca `word_frequency`) → the word. No `Fingerprint` hash, no string column. The
