@@ -124,7 +124,11 @@ fn random_disk_points(k: usize, seed: u64) -> Vec<(f64, f64)> {
 fn probe_mantissa_fill_golden_beats_uniform_random() {
     // Three independent baseline seeds — golden must beat ALL of them on
     // BOTH metrics at BOTH sample counts; no cherry-picking.
-    const SEEDS: [u64; 3] = [0x9E37_79B9_7F4A_7C15, 0xD1B5_4A32_D192_ED03, 0x2545_F491_4F6C_DD1D];
+    const SEEDS: [u64; 3] = [
+        0x9E37_79B9_7F4A_7C15,
+        0xD1B5_4A32_D192_ED03,
+        0x2545_F491_4F6C_DD1D,
+    ];
 
     for &k in &[256usize, 1024] {
         let (g_occ, g_max) = fill_metrics(golden_points(k).into_iter());
@@ -189,7 +193,11 @@ fn probe_phase1_curve_ruler_regeneration_is_bit_exact() {
         for depth in [0u8, 1, 7, 16] {
             let a = CurveRuler::from_hhtl(path, depth);
             let b = CurveRuler::from_hhtl(path, depth);
-            assert_eq!(a.arc(), b.arc(), "regeneration drift at ({path:#x},{depth})");
+            assert_eq!(
+                a.arc(),
+                b.arc(),
+                "regeneration drift at ({path:#x},{depth})"
+            );
         }
     }
 }
@@ -207,6 +215,9 @@ fn probe_phase1_full_permutation_for_every_offset() {
             assert!(!seen[v as usize], "residue {v} repeated at place {place}");
             seen[v as usize] = true;
         }
-        assert!(seen.iter().all(|&s| s), "incomplete permutation at place {place}");
+        assert!(
+            seen.iter().all(|&s| s),
+            "incomplete permutation at place {place}"
+        );
     }
 }

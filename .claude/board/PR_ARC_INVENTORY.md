@@ -35,6 +35,20 @@
 
 ---
 
+## #498 GUID decode→read-mode keystone + helix Signed360 right-size + OCR→NodeRow transcode
+
+**Status:** OPEN 2026-06-15 (branch `claude/wonderful-hawking-lodtql`, 8 commits post-#496). In review (CodeRabbit + codex). **NOTE:** this entry documents the helix / keystone / OCR / causal-edge work that CodeRabbit on PR #498 mis-attributed to #496 — those changes are **#498's, not #496's**. #496 shipped only ValueSchema presets + the reference plan (its immutable entry below correctly shows the pre-right-size 154/98 B budgets).
+
+**Added:** (1) **Keystone** `canonical_node::{GuidParts, ReadMode, classid_read_mode}` + `NodeGuid::{heel/hip/twig, decode()→GuidParts, read_mode()}` — read-the-GUID-as-a-GUID decode + a `LazyLock<HashMap>` classid→read-mode registry (the single source consumer + OGAR inherit); `ReadMode` bundles the two existing axes (`ValueSchema` + `EdgeCodecFlavor`), no new property. (2) `helix::{Sign, Signed360}` + `HemispherePoint::signed_lift` + `ResidueEncoder::encode_signed` — signed full-sphere codec; **`HelixResidue` value-tenant right-sized 48 B → 6 B** (bits→bytes slip fix) → downstream offsets shifted (Turbovec 160→118, Energy 176→134, …), budgets re-locked (Full 154→112, Compressed 98→56), value carve now `[32,144)`. (3) `ocr::{BlockKind::entity_type, LayoutBlock::to_node_row}` + `ValueTenant::{value_offset, byte_len}` — OCR-engine-agnostic transcode. (4) causal-edge `test_build_fast` boundary `<`→`<=` (standing red on main fixed). (5) **`ENVELOPE_LAYOUT_VERSION` 1→2** — gates the value-slab offset shift (codex P2). Tests: contract 623 lib, helix 73 lib + 7 doc, causal-edge green.
+
+**Locked:** (1) **one `NodeGuid` only** — the #490-retired `identity::NodeGuid` (UUIDv8) stays retired; the keystone extends the canon `canonical_node::NodeGuid`. (2) `ReadMode::DEFAULT = {Full, CoarseOnly}` mirrors the ClassView POC default; both flip back to Bootstrap together (guard `read_mode_default_is_full_poc`). (3) **`Signed360` sign-partition** — `|y|`-in-7-bits + sign in the partition (Pos ⇒ polar [128,255], Neg ⇒ [0,127]); sign is exact at `|y|≈0` at the rim (codex P2 fix, regression test `signed360_neg_sign_survives_near_rim_at_high_total`). (4) text/bbox never bundled into the node — content store keyed by identity (I-VSA-IDENTITIES). (5) a value-slab offset shift is **version-gated, not reserved-gap** — safe pre-persistence (FULL is POC-only; codex P2 disposition).
+
+**Deferred:** ontology-side `NiblePath::from_guid_prefix` (the keystone's other half); pure-Rust OCR via `ocrs`/`rten` (the tesseract-rs C-wrapper POC was reverted — wrong direction). `TD-VALUESCHEMA-FULL-POC-DEFAULT` paired-revert note updated (ReadMode::DEFAULT pairs with ClassView).
+
+**Docs:** board `LATEST_STATE` + `TECH_DEBT` updated; this entry.
+
+**Confidence (2026-06-15):** open — both codex P2s dispositioned (ENVELOPE_LAYOUT_VERSION bump for the offset shift; Signed360 sign-partition fix + regression test); CodeRabbit's #496-vs-#498 misattribution corrected here.
+
 ## #496 integrated-cognitive-planner reference map + ValueSchema presets + FULL POC default
 
 **Status:** MERGED 2026-06-15 (merge commit `2e58e034`), branch `claude/wonderful-hawking-lodtql`. CI 5/5 green (format/clippy/linux-build/test/test-with-coverage). CodeRabbit 2 threads resolved; codex 2×P2 dispositioned (FULL-default intentional; CoarseResidue tracked as TD).
