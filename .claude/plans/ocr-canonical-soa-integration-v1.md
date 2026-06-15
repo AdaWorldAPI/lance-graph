@@ -48,14 +48,14 @@ reconstructed exactly like every other node. Text = codebook index + residue.
 
 | Tenant (existing) | OCR role |
 |---|---|
-| helix residue (real `helix` crate, NOT the bogus value-tenant) | the orthogonal φ-spiral **endpoint-pair edge** at the token's place (`ResidueEncoder::encode`, curve-ruler MODULUS 17 / STRIDE 4, regenerated from template — "8K resolution at Super-8 cost"). One edge = **24 bits**; the token's perturbation = **2 edges = 48 bits**. HHTL is PLACE, helix is the RESIDUE. **Do NOT use the `ValueTenant::HelixResidue` slab — it is a mislabeled placeholder that does no φ/golden math and is slated for removal.** |
+| helix residue (real `helix` crate, probe-backed #495 `helix_bitdepth_probe`) | direction as a **discrete golden index — 24-bit lossless** (φ-spiral, vs ≤f16). This is THE helix residue. The 48-**byte** `ValueTenant::HelixResidue` is the diluted placeholder #496 named the *"helix-48 dilution gap"* (PROBE-GATED research, not real φ-geometry) — **do NOT use it**. HHTL = PLACE, helix 24-bit golden index = RESIDUE. |
 | `TurbovecResidue` (16 B, PQ) | PQ edge residue → CAKES nearest-valid-token search over the codebook |
 | `Meta` (u64) | codebook index/anchor + confidence + char-confusion/NSM-repair flags + recoder-code fallback for true-OOV |
 | `EntityType` (u16) | token subtype (Word/Number/Date/Glyph/TableCell) |
 | `Plasticity` (u32) | correction history / last-repair stamp |
 
 **Reconstruction (this is the round-trip, and it answers Codex P1):**
-`text  ⇄  codebook_index(Meta) + residue(helix 48-bit = 2 endpoint-pair edges ⊕ TurbovecResidue PQ)`. Decode =
+`text  ⇄  codebook_index(Meta) + residue(helix 24-bit golden index ⊕ TurbovecResidue PQ)`. Decode =
 the DeepNSM Morton-tile **stacked-pyramid perturbation-shader cascade** applied to
 the residue → CAKES nearest-valid-token over the codebook (DeepNSM `vocabulary` /
 coca `word_frequency`) → the word. No `Fingerprint` hash, no string column. The
