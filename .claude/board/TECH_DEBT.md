@@ -15,6 +15,16 @@
 
 ## Open Debt
 
+### TD-LAZY-IMPORT-VERSION-PIN — lazy OGIT/ontology imports MUST be version-pinned + reserve-don't-reclaim sibling nibbles (2026-06-15)
+
+**Surfaced by** operator design dialogue (2026-06-15: "OGIT as a lazy import in Rust-based OGAR — could DOLCE / Odoo etc. drift?"). The drift-control architecture is layered + sound; two disciplines must be LOCKED before the OGAR-identity migration runs a real (non-fixture) lazy import.
+
+**Drift-control that already EXISTS (recorded so it's not re-derived):** (1) `entity_type↔NiblePath` address bijection is IMMUTABLE / conflict-refusing (`registry.rs:385-401`) — drift surfaces as a LOUD registration error, never silent corruption; (2) DOLCE basin = static enum (4 frozen upper categories, collision-free) — no drift; (3) shape/metadata evolves via `ContextBundle` overwrite on same `G` (`register_bundle` :466), a version bump = new `(g, version)` slot, old preserved — Odoo field changes are absorbed as bundle updates, NOT address drift; (4) `StructuralSignature` (class_signature.rs:31) is the shape-drift DETECTOR.
+
+**The debt (disciplines to enforce):** (a) **every lazy import MUST declare a version** so a drifted upstream → a NEW `(g, version)` namespace, never a conflicting re-mint into the old slot (an I-LEGACY-API-style version-gate on the hydrator/import path). (b) the **sibling-nibble assignment MUST be deterministic + reserve-don't-reclaim** — a new sibling class gets a NEW nibble, never reassigns an existing sibling's; >16 fan-out per level needs the CLAM 16-way sub-tiering (IDEAS.md 2026-06-15 CLAM-residue-ladder).
+
+**Pay it by** adding the version-pin gate + the deterministic sibling rule when the OGAR-identity migration (`soa-migration-diff-resolution-2026-06-13.md`) executes a real load. Until then imports are curated/fixture (deterministic by hand). Cross-ref: `guid-canon-and-prefix-routing.md` (OGAR canon, cited never forked), `registry.rs:385-466`, IDEAS CLAM-ladder. **EPIPHANY candidate (council-gated):** "lazy-import drift control = immutable-address + evolvable-shape + versioned-namespace + StructuralSignature-detector; identity immutable, shape evolvable, versions side-by-side."
+
 ### TD-COARSERESIDUE-NO-VALUE-TENANT — `EdgeCodecFlavor::CoarseResidue` residue has no dedicated value-slab tenant (codex #496, 2026-06-15)
 
 **Surfaced by** codex P2 on PR #496 (`canonical_node.rs:336`). `EdgeCodecFlavor::CoarseResidue` (`canonical_node.rs:213`) declares its per-dimension signed-4-bit residue is "carried in the reserved value slab" (cost `1 + ⌈D/2⌉`, `bytes_per_vector` :228), but the `ValueTenant` catalogue (`canonical_node.rs:324-343`) has a slot only for `Pq32x4` (`TurbovecResidue = 5`, 16 B at offset 160) — **none for `CoarseResidue`**. So `Full`/`Compressed` presets report all codec tenants present while a class pairing `CoarseResidue` with those schemas has no addressable column for its residue (it would collide with another tenant).
