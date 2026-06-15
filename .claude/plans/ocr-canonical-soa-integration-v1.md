@@ -48,14 +48,14 @@ reconstructed exactly like every other node. Text = codebook index + residue.
 
 | Tenant (existing) | OCR role |
 |---|---|
-| `HelixResidue` (48 B) | golden-spiral place/perturbation residue — how THIS token deviates from its codebook centroid (the recognizer/DeepNSM output IS this residue) |
+| `HelixResidue` | the token's **48-bit** perturbation = 2× `ResidueEdge` (each 24-bit: `start_idx`,`end_idx`,`floor_version`), how THIS token deviates from its codebook centroid; stored within the 48-**byte** HelixResidue tenant (≤16 edges = the Morton-tile stacked-pyramid cascade levels) |
 | `TurbovecResidue` (16 B, PQ) | PQ edge residue → CAKES nearest-valid-token search over the codebook |
 | `Meta` (u64) | codebook index/anchor + confidence + char-confusion/NSM-repair flags + recoder-code fallback for true-OOV |
 | `EntityType` (u16) | token subtype (Word/Number/Date/Glyph/TableCell) |
 | `Plasticity` (u32) | correction history / last-repair stamp |
 
 **Reconstruction (this is the round-trip, and it answers Codex P1):**
-`text  ⇄  codebook_index(Meta) + residue(HelixResidue ⊕ TurbovecResidue)`. Decode =
+`text  ⇄  codebook_index(Meta) + residue(helix 48-bit / 2×ResidueEdge ⊕ TurbovecResidue PQ)`. Decode =
 the DeepNSM Morton-tile **stacked-pyramid perturbation-shader cascade** applied to
 the residue → CAKES nearest-valid-token over the codebook (DeepNSM `vocabulary` /
 coca `word_frequency`) → the word. No `Fingerprint` hash, no string column. The
