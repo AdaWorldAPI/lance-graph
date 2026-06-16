@@ -82,7 +82,7 @@ fn main() {
     struct_rank.sort_by(|x, y| y.1.partial_cmp(&x.1).unwrap());
 
     println!("== 1. Structural weakest links (first-order Fiedler sensitivity ∂λ₂/∂wₑ) ==");
-    println!("   base λ₂ = {lam2:.6}");
+    println!("   base λ₂ = {lam2:.3e}");
     let mut bridges = 0usize;
     for (e, sens) in struct_rank.iter().take(10) {
         // Exact recompute for the top lines only.
@@ -99,7 +99,7 @@ fn main() {
             bridges += 1;
         }
         println!(
-            "  line {e:>4}  {:<16}  sens {:>8.5}  exact λ₂-loss {:>6.2}%{}",
+            "  line {e:>4}  {:<16}  sens {:>10.3e}  exact λ₂-loss {:>6.2}%{}",
             lbl(*e),
             sens,
             100.0 * loss,
