@@ -21,15 +21,20 @@
 
 | Phase | Probe | Cost | Status | Gates |
 |---|---|---|---|---|
-| **P0** | PROBE-CHAODA-1000G | ~3 days (after D-GEN-1+2) | ⚠ **spike RUN — AUC 0.624, BELOW bar** (ndarray #219) | The "CHAODA-as-novelty-detector" line of the entire plan |
+| **P0a** | D-GEN-CHAODA-ENSEMBLE (synthetic) | ~done | ✅ **ensemble RUN — AUC 0.991, CLEARS bar** (ndarray #220) | The CHAODA kernel's isolation capability |
+| **P0b** | PROBE-CHAODA-1000G (genomic) | ~3 days (after D-GEN-1+2) | ⏳ unblocked at kernel level; gated on real corpora | The "CHAODA-as-novelty-detector" line of the entire plan |
 | **P1** | PROBE-KRAS-COUNTERFACTUAL-DET | ~2 days (included in D-GEN-7) | queued | D-GEN-7 flagship dynamics-axis claim |
 | **P2** | PROBE-CAM-PQ-VS-BLAST | ~1 week | queued | D-GEN-3 sequence-fingerprint claim |
 
-**⚠ Blocker surfaced 2026-06-16:** the P0 spike (ndarray #219) shows the shipped
-single-method leaf-LFD `anomaly_scores` reaches only AUC 0.624 on ideal synthetic
-data. Porting the multi-method CHAODA ensemble (Ishaq et al. 2021) is now a
-**prerequisite for PROBE-CHAODA-1000G**, ahead of any genomic-fixture work. See
-the ⚠ FINDING under PROBE-CHAODA-1000G below.
+**⚠→✅ Blocker surfaced AND resolved at kernel level 2026-06-16:** the P0 spike
+(ndarray #219) showed the shipped single-method leaf-LFD `anomaly_scores` reaching
+only AUC 0.624 on ideal synthetic data. The multi-method CHAODA ensemble has now
+been built (ndarray #220, `ClamTree::ensemble_anomaly_scores`) and measured at
+**AUC 0.991** on the same synthetic fixture — clearing the 0.85 bar with a +0.367
+lift. **This resolves the kernel-level blocker** (the ensemble *approach* captures
+isolation where single-LFD did not). It does NOT yet prove genomic novelty
+detection: `PROBE-CHAODA-1000G` on real corpora remains gated on D-GEN-1 + D-GEN-2.
+See the FINDING under PROBE-CHAODA-1000G below.
 
 **Critical-path note:** PROBE-CHAODA-1000G is the single highest-leverage probe.
 If it fails (AUC < 0.85 on novel-variant detection against ClinVar Pathogenic
@@ -53,6 +58,30 @@ probe is a regression gate, not a discovery gate).
 > `:1517` (`anomaly_scores` method) separates known-Pathogenic novel
 > singletons from common population variants at ROC-AUC ≥ 0.85 on a
 > held-out test fold drawn from 1000-Genomes Phase 3 + ClinVar.
+
+### ✅ FOLLOW-UP (ensemble RUN 2026-06-16) — multi-method ensemble CLEARS the bar (synthetic)
+
+The blocker below has been resolved at the kernel level. The multi-method CHAODA
+ensemble is built (ndarray PR #220, `ClamTree::ensemble_anomaly_scores`) and
+measured on the *same* synthetic fixture:
+
+| signal | ROC-AUC |
+|---|---|
+| single-method leaf-LFD (baseline) | 0.6240 |
+| **multi-method ensemble** | **0.9906** |
+| lift | **+0.3667** |
+
+The dominant signal is the **parent-child path-minority ratio** — walking a leaf
+up to the root, the minimum `child/parent` cardinality ratio is tiny for a point
+that split off as a minority (an isolated outlier) and moderate for a dense-cluster
+member that always stayed in the majority. This is *immune to the leaf-fragmentation*
+that defeated the naïve first attempt (raw leaf cardinality + degree + component
+size → AUC 0.621, no lift). Averaged with connected-component cardinality.
+
+**This proves the ensemble approach, on synthetic data only.** It does NOT prove
+genomic novelty detection — `PROBE-CHAODA-1000G` on real corpora is still gated on
+D-GEN-1 + D-GEN-2. Random-walk stationary distribution remains deferred to a later
+ensemble increment.
 
 ### ⚠ FINDING (spike substitute RUN 2026-06-16) — single-method LFD is BELOW the bar
 
@@ -353,21 +382,26 @@ the pattern match is sound, the single shipped signal is not yet sufficient,
 and the honest path is "port the ensemble, then re-run the spike, then build
 the fixture." A new candidate deliverable falls out of this:
 
-> **D-GEN-CHAODA-ENSEMBLE (new, prerequisite to PROBE-CHAODA-1000G):** add the
+> **D-GEN-CHAODA-ENSEMBLE (prerequisite to PROBE-CHAODA-1000G):** add the
 > multi-method CHAODA anomaly ensemble to `ndarray::hpc::clam` as a **new
-> scoring entry point** (e.g. `ensemble_anomaly_scores(...) -> Vec<AnomalyScore>`,
-> name TBD at implementation), combining the graph-based signals of Ishaq et
-> al. 2021. The existing single-method `anomaly_scores` is **kept unchanged as
-> the documented baseline / regression** (the ndarray #219 spike's `auc < 0.85`
-> tripwire stays green on it). **`PROBE-CHAODA-1000G` Step 3 must call the new
-> ensemble entry point, not `anomaly_scores`** — that wiring is part of this
+> scoring entry point**, combining the graph-based signals of Ishaq et al.
+> 2021. The existing single-method `anomaly_scores` is **kept unchanged as the
+> documented baseline / regression**. **`PROBE-CHAODA-1000G` Step 3 must call the
+> new ensemble entry point, not `anomaly_scores`** — that wiring is part of this
 > deliverable, otherwise the genomic probe would re-measure the known-bad
-> AUC-0.624 path. Re-run the ndarray #219 spike against the ensemble; gate at
-> AUC ≥ 0.85 on the synthetic mixture *before* genomic fixtures are built.
-> Lift: ~1 week (the graph-construction primitives — cluster cardinality,
-> neighbourhood, random-walk — are mostly present in the CLAM tree already;
-> the ensemble combination + per-method scoring + the probe-API wiring is the
-> new code).
+> AUC-0.624 path.
+>
+> **✅ INCREMENT 1 DONE 2026-06-16 — ndarray PR #220.** Shipped
+> `ClamTree::ensemble_anomaly_scores` = parent-child path-minority ratio ⊕
+> connected-component cardinality. Re-ran the ndarray #219 synthetic fixture:
+> **ensemble AUC 0.9906 vs single-LFD 0.6240 (+0.367), clears the 0.85 gate.**
+> Deterministic; built from shipped tree fields + public `dist()`; no new tree
+> state. **Remaining for a later increment:** (a) random-walk stationary
+> distribution method (deferred — needs power-iteration on the cluster graph);
+> (b) the actual `PROBE-CHAODA-1000G` Step 3 wiring lands with D-GEN-1+2 when the
+> VCF→feature-vector pipeline exists. Increment-1 lift came in at ~half-day, well
+> under the ~1-week estimate, because the path-minority signal needed only a
+> parent-map walk — no random-walk solver.
 
 **PROBE-CHAODA-1000G fires first, even though chronologically D-GEN-1..2 must
 ship first.** That ordering is a substrate-economic decision (cheaper to
