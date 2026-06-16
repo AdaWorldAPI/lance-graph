@@ -29,6 +29,22 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      # Override the workflow-level debuginfo=1 for this job too (parity with
+      # test-with-coverage, TD-CI-COVERAGE-MOLD-1). The `test` job links the
+      # full lance+datafusion integration-test set at the SAME disk/RSS cliff
+      # the coverage job hit — and #507 (+4055 lines across causal-edge +
+      # cognitive-shader-driver: ce64-v2 layout + MailboxSoaOwner/
+      # SurrealMailboxView) grew that link footprint enough to tip the
+      # previously-marginal link into a hard `ld` SIGBUS (signal 7 = object
+      # file truncated when the runner partition fills mid-link). debuginfo=1
+      # carried no value here (CI never opens a debugger); dropping it cut the
+      # coverage job's per-binary link from ~930 MB to ~252 MB (-73%, measured
+      # in b56bb2cd) and relieves BOTH ceilings (mold/GNU-ld RSS + disk). mold
+      # is already installed below. Note: a job-level RUSTFLAGS gives this job
+      # its own Swatinem cache key — the first run after this change
+      # repopulates the test cache.
+      RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
     defaults:
       run:
         working-directory: lance-graph
