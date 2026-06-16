@@ -1,3 +1,27 @@
+## 2026-06-16 — E-TRANSCODE-EXEC-LADDER-1 — the Core-First transcode has a 3-rung execution ladder (codegen → two-tier compile → elixir-tissue over surreal/kanban/odoo), and rungs 2–3 land on already-shipped substrate
+
+**Status:** CONJECTURE (operator forward-design). v1 is the shipped doctrine; v2/v3 are gated on `PROBE-COMPILE-TWO-TIER` + `PROBE-SURREAL-TISSUE-SWAP` (both in `core-first-transcode-doctrine.md`), themselves floored by the v1 `PROBE-OGAR-ADAPTER-UNICHARSET`.
+**Confidence:** Medium — the substrate each rung lands on is shipped and cited (`contract::kanban`, `contract::jit`, `surreal_container`, `E-SUBSTRATE-IS-THE-SCHEDULER`); the two NEW edges (Odoo→kanban ingest, AST-DLL tissue hot-swap) are unbuilt.
+
+**Context.** The Core-First Transcode Doctrine (knowledge doc, captured this session) framed transcode v1: thin classid-keyed adapters target the OGAR Core, bodies codegen'd at build. The operator then extended it along the *execution model* — how a body is compiled and where it lives — across two more rungs.
+
+**The ladder.**
+- **v1 — Core-first codegen.** Bodies generated once at build, targeting `canonical_node` / `classid → ClassView` (#498).
+- **v2 — two-tier compile.** ONE Elixir-shaped adapter source, TWO backends: **existing → compile-time** (Askama→Jinja analogy: a `defadapter!` proc-macro monomorphises to Rust, zero runtime cost), **new → JIT** (jitson/Cranelift). Not greenfield: `contract::jit` already defines `JitCompiler::compile(JitTemplate) → KernelHandle`, compiled by ndarray jitson/Cranelift, cached by n8n-rs `CompiledStyleRegistry`.
+- **v3 — elixir-tissue over a fixed Core.** Core stays immutable; the DO-shaped business logic is **replaceable tissue** (BEAM hot-swap heritage — the deep reason Elixir is the right syntax to steal, not mere ergonomics) living in the **AST-DLL**, persisted + served + hot-swapped via SurrealDB's API; a **Kanban orchestration** reacts to **Odoo shapes** and dispatches the tissue. `contract::kanban`'s header already *names this seam verbatim*: planner emits `KanbanMove` → ractor drives the `KanbanColumn` → `surreal_container` projects the columns as the kanban view, carried as `UnifiedStep{step_type:"kanban.*"}` (`StepDomain::Kanban`). `E-SUBSTRATE-IS-THE-SCHEDULER` already has the substrate emit the schedule via surreal LIVE.
+
+**Why this matters.** The transcode's "holy grail" (Core-first thin adapters) was framed as a build-time codegen story. The execution-model ladder shows the SAME invariant survives JIT and hot-swap: whether a body is macro-monomorphised, Cranelift-JIT'd, or swapped from the SurrealDB AST-DLL, it is STILL a thin adapter targeting the OGAR Core, and a tissue adapter needing state the Core can't hold is STILL a Core gap → EXTEND-CORE. The execution model changes; the iron guard does not. And the two ambitious rungs are ~85% shipped substrate (kanban contract, jit contract, surreal_container, scheduler epiphany) + exactly two unbuilt edges.
+
+**The two unbuilt edges (the honest scope).**
+1. **Odoo→kanban ingest** — map Odoo model records / stage transitions / automated-action triggers into `UnifiedStep{step_type:"kanban.*"}` / `KanbanMove`. No bridge exists today (`AdaWorldAPI/odoo` is the Python ERP, local at `/home/user/odoo`).
+2. **AST-DLL tissue store + hot-swap over SurrealDB** — persist codegen'd/JIT'd DO adapter bodies in `surreal_container`, serve + hot-swap via the surreal API, gated by `kanban.rs`'s read-only-projection / commit ruling. Conceptually supported by the crate's `view`/`read`/`write` split; the swap-without-Core-rebuild parity is unprobed.
+
+**Lesson.** When an operator's forward vision arrives as "vN is X + Y + Z", the high-value move is to *locate each clause on shipped substrate before treating it as new work* — here three of the four load-bearing pieces (kanban seam, JIT tier, surreal projection) already existed and only needed naming + two ingest edges. Capturing the ladder (vs. only v1) prevents the v2/v3 framing from being re-derived next session, and the cited symbols make the "already shipped" claim checkable.
+
+**Cross-ref.** `core-first-transcode-doctrine.md` § "The execution-model ladder (v1 → v2 → v3)" (the canonical statement + the two new probes); `E-SUBSTRATE-IS-THE-SCHEDULER` (the v3 reactive tier this extends); `contract::kanban` / `contract::jit` / `surreal_container` (the shipped substrate); `tesseract-rs-ast-dll-codegen-v1` (the v1 codegen plan whose bodies become the v2/v3 tissue).
+
+---
+
 ## 2026-06-16 — E-UNBLOCK-CASCADE-1 — three independent fork/contract landings collapsed onto the same `MailboxSoaView` seam, closing four queued deliverables in one commit
 
 **Status:** FINDING.
