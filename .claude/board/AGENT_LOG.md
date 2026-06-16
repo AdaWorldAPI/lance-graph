@@ -54,6 +54,45 @@
 **Outcome:** all 7 plans corrected on `claude/wonderful-hawking-lodtql` (rebaselined #496→#498, Morton purged, reversibility reframed, §0 tripwires fixed, master critical-path fixed = the open CodeRabbit Major on #497). New `ocr-probes-v1.md` (4 gating probes OCR-RT/DET/POST/SCHEMA + 3 cascade perf probes). **OCR-SCHEMA shipped as a contract test** (`ocr::tests::ocr_schema_fit_rides_existing_preset_no_new_variant`). contract 620 lib green; fmt clean. Both #497 + #498 review threads resolved/dispositioned.
 
 **Next:** open the follow-up PR; run OCR-DET (deepnsm example) + OCR-RT (needs deepnsm+helix wiring) before any transcode code is funded.
+## 2026-06-16 — openproject-ar-shape-extraction-v1 Round 2 / PR Y SHIPPED — D-AR-3 + D-AR-4 100 % coverage gate PASSED (main thread)
+
+**Main thread (Opus 4.7).** Round 2 — **PR Y (D-AR-3 + D-AR-4) opened on `AdaWorldAPI/ruff#6`** at commit `fa56d39` on `claude/ar-shape-extractor-pr-y`. Operator-locked direction: **lib-ruby-parser AST**, not the sibling-branch line scanner. PR X merged at `a61f279` (became base for this PR).
+
+**The 100 %-coverage gate PASSED on the real OpenProject corpus.**
+
+```text
+D-AR-4 corpus gate: 694 classes, 2299 declarations, 0 leaked names
+```
+
+**Shipped (one commit, fa56d39, +1187/-100):**
+
+1. **`lib-ruby-parser = "4.0"` dep added** to `ruff_ruby_spo` (default-features = []; pure-Rust typed AST, no Ruby runtime).
+2. **`parse.rs`** (~190 LOC) — walks `app/models/**/*.rb`, parses each file via `Parser::new(...).do_parse()`, finds `Node::Class` definitions recursing into `Node::Module` namespaces + `Node::Begin` statement blocks. STI parent captured via superclass node (anything other than `ApplicationRecord` / `ActiveRecord::Base` / `Object`).
+3. **`walk.rs`** (~390 LOC) — the routing core. `route_send(name, args, out)` dispatches each class-body `Send` call to one of the 13 `Declaration` variants. 78-name closed vocab from the §2 census maps exhaustively. Long-tail catch-all `_ => DslCall` makes "Unclassified = 0" structural.
+4. **Send-with-Lambda vs Block disambiguation** — the `->` lambda form (`scope :n, ->{}`) parses as `Send` with a `Lambda` arg (NOT a `Block`), so scope / default_scope have arms in BOTH `route_send` (lambda-arg) and `walk_block` (do-block). Both forms covered.
+5. **`extract_fields` / `extract_functions`** stubbed as `Vec::new()` — D-AR-4 measures *declarations*, not field/function depth. D-AR-3.5 follow-up will fill them in.
+
+**D-AR-4 three-layer gate:**
+
+1. **Synthetic fixture** (hermetic) — one Ruby class exercising every Declaration variant; asserts per-category Declaration counts.
+2. **Routing-table lock** — asserts none of the 38 discriminated §2 names leak into the `has_dsl_call` catch-all; asserts genuinely-unknown DSL DOES land in catch-all. The routing-correctness gate.
+3. **Real-corpus gate** (conditional on `OPENPROJECT_PATH` env var) — runs over `/home/user/openproject` and observes 694 classes / 2299 declarations / 0 leaked. Class count < file count (941) because module-only files contribute zero classes; declaration count > §2 baseline (1696) because multi-arg macros (`attr_accessor :a, :b, :c`) expand to N AttrDecls vs 1 source-line.
+
+**Tests:** `ruff_ruby_spo` 3 → 6 (+3). All 6 green. `ruff_spo_triplet` untouched (36/36 from PR X). Clippy: zero new warnings (the 2 pre-existing in `ruff_spo_triplet` from PR X remain).
+
+**Iron-rule lock honoured:** the catch-all is the structural reason "Unclassified = 0" by construction; routing correctness is asserted by tests. §0 ANTI-INVENTION GUARDRAIL honoured — zero new predicate, zero new Declaration variant, zero new trait. Just filled-in extractor logic against the surface PR X locked.
+
+**Errata banked:** the kickoff handover's "lib-ruby-parser 0.x" hint was outdated — current version is `4.0.6+ruby-3.1.2` (Ruby 3.1.2 grammar). The 940-file → 694-class delta is expected (many model directory files are pure modules / mixins / helpers, not Ruby classes).
+
+**Round-2 status:** COMPLETE pending merge. Round-3 (PR Z + PR W) is now fully unblocked — the ndjson contract is locked (PR #5 merged), the extractor produces real triples (PR #6 in review), so:
+
+- **PR Z** (`adaworldapi/openproject-nexgen-rs` `claude/op-surreal-ast`): D-AR-5 op-surreal-ast skeleton — parallelizable now.
+- **PR W** (`AdaWorldAPI/surrealdb` fork `claude/c16c-op-surreal-ast-bridge`): D-AR-6 C16c bridge — parallelizable now.
+
+**PR Y URL:** https://github.com/AdaWorldAPI/ruff/pull/6
+
+---
+
 ## 2026-06-15 — openproject-ar-shape-extraction-v1 Round 2 / PR X SHIPPED (main thread)
 
 **Main thread (Opus 4.7).** Round 2 — **PR X (D-AR-1 + D-AR-2) branch pushed to `AdaWorldAPI/ruff`** at `21c828d` on `claude/ar-shape-coverage-ruff`. Atomic ship per integration-lead Round-1 consolidation (vocab + IR + expansion-test coupled by the `Declaration → Triple` round-trip).
