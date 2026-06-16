@@ -35,6 +35,25 @@
 
 ---
 
+## #511 perturbation-sim: substrate calibration (study as ground truth) + calibrated SoA member spec
+
+**Status:** MERGED 2026-06-16 19:01 UTC (merge commit `c3dddfc9`), branch `claude/perturbation-sim-calibrate-soa`. **Additive: +886/-0 across 9 files** — `examples/calibrate.rs` (new, 318 LOC), `src/columns.rs` (new, 177 LOC, spec only), `src/hhtl.rs` (new, 175 LOC), `examples/hhtl_grid.rs` (new, 81 LOC), `CLAM_CHAODA_FRAMING.md` (new, 75 LOC), small wires in `Cargo.toml`/`src/lib.rs`, plus `.claude/board/TECH_DEBT.md` (+32) and `.github/workflows/rust-test.yml` (+16). Does **NOT** touch the operator-locked `canonical_node`.
+
+**Added:** the substrate-calibration loop — use perturbation-sim's deterministic study as ground truth, encode its factor matrix through the SoA value tenants, certify with the `certification-officer` battery (**ICC(2,1)** = abs agreement source↔encoded · **Spearman** = rank · **Pearson** = linear readout · **Cronbach α** = *reproduce* the source α — NOT maximize; the study's α is low by design and "improving" it corrupts the construct). Significance at the **Jirak `n^(p/2−1)`** rate (per `I-NOISE-FLOOR-JIRAK`).
+
+**Findings (real ES core, members stored normalized):**
+- All 5 contingency factors **certify by VALUE at 2-bit linear** (ICC ≥ 0.96) — the existing palette/turbovec tenants already suffice per value. The §10 "the statistics survive the encoding" claim is **confirmed**.
+- **α preserved within Δ ≤ 0.02 at ≥4-bit**; the discriminant ρ wobbles ±0.15 at N=24 under coarse bins → read the cross-axis orthogonality at **≥6-bit** (store budget < read budget).
+- **Self-correction (the run falsified two of my own guesses):** `d_lambda2`'s initial ICC=0 was **not** heavy-tail and **not** near-constant — it was a tiny-magnitude (~1e-7) underflow of ICC's variance guard; storing the member **normalized** fixes it (1.00 at 2-bit). Both wrong hypotheses retracted in the example headline.
+
+**Locked:** (1) the **5 factors map to existing tenants** (2-bit linear, normalized, read ≥6-bit) — no new SoA columns for the contingency axes; (2) the **one genuinely additive member is `inertia_buffer`** — the axis the resilience study (PR #509) measured *orthogonal* to topology (`Spearman(λ₂, buffer) ≈ 0`), which no existing connectivity column can carry. **Spec only** (`src/columns.rs`); promoting `inertia_buffer` into `lance-graph-contract` is a separate gated step (§0 anti-invention guardrail honoured).
+
+**Deferred:** (1) the `inertia_buffer` promotion into the contract crate (gated by §0 guardrail review). (2) helix's exact curve-placement — this calibration tests the shared value-quantization principle via a generic min-max/rank quantizer mapping the tenants' bit budgets; not helix-curve verbatim. (3) cross-axis orthogonality probe at ≥6-bit (the read-budget recommendation).
+
+**Docs:** `crates/perturbation-sim/CLAM_CHAODA_FRAMING.md` (new) + `.claude/board/TECH_DEBT.md` updated (+32 lines). This entry. **AGENT_LOG + LATEST_STATE updates owed** to this commit per board-hygiene rule (this is the retroactive cleanup window, not the same-commit landing).
+
+**Confidence (2026-06-16):** working — calibration battery green, 71 lib tests + clippy `-D warnings` + fmt clean on the perturbation-sim crate.
+
 ## #510 surreal_container seam falsifier — SurrealMailboxView → VersionScheduler → KanbanMove (IN-direction only)
 
 **Status:** MERGED 2026-06-16 16:36 UTC (merge commit `0e6452c8`), branch `claude/sleepy-cori-aRK2x`. Additive: +125/-0, one new file (`crates/surreal_container/tests/scheduler_seam.rs`); zero source change; first integration-test file in the `surreal_container` crate.
