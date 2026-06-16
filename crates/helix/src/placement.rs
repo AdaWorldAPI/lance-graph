@@ -22,6 +22,42 @@
 
 use crate::constants::GOLDEN_RATIO;
 
+/// Hemisphere sign for the signed full-sphere lift
+/// ([`HemispherePoint::signed_lift`], the 48-bit
+/// [`Signed360`](crate::residue::Signed360) residue). `Pos` = upper hemisphere
+/// (`y ≥ 0`, the base [`lift`](HemispherePoint::lift)); `Neg` = the
+/// equator-mirrored lower hemisphere (`y ≤ 0`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sign {
+    /// Upper hemisphere (`y ≥ 0`). Reproduces [`HemispherePoint::lift`] exactly.
+    Pos,
+    /// Lower hemisphere (`y ≤ 0`) — the base lift mirrored across the equator.
+    Neg,
+}
+
+impl Sign {
+    /// `+1.0` for [`Pos`](Sign::Pos), `−1.0` for [`Neg`](Sign::Neg).
+    #[inline]
+    #[must_use]
+    pub fn as_f64(self) -> f64 {
+        match self {
+            Sign::Pos => 1.0,
+            Sign::Neg => -1.0,
+        }
+    }
+
+    /// The sign of a value: [`Neg`](Sign::Neg) iff `v < 0` (zero ⇒ [`Pos`](Sign::Pos)).
+    #[inline]
+    #[must_use]
+    pub fn of(v: f64) -> Self {
+        if v < 0.0 {
+            Sign::Neg
+        } else {
+            Sign::Pos
+        }
+    }
+}
+
 /// A single residue index lifted onto the equal-area hemisphere.
 ///
 /// All three fields are computed in one call to [`HemispherePoint::lift`]; they
@@ -124,6 +160,32 @@ impl HemispherePoint {
     /// ```
     pub fn rim(&self) -> f64 {
         self.r
+    }
+
+    /// Signed full-sphere lift — the equal-area hemisphere [`lift`](Self::lift)
+    /// mirrored across the equator by `sign`, so `y = sign·√(1 − u)` ranges over
+    /// the FULL sphere (`y ∈ [−1, 1]`) instead of one hemisphere (`y ∈ (0, 1]`).
+    /// The unit-sphere identity `r² + y² = 1` still holds (`r` is unchanged).
+    /// [`Sign::Pos`] reproduces [`lift`](Self::lift) exactly; [`Sign::Neg`] is the
+    /// lower hemisphere. The two 24-bit hemispheres = the 48-bit
+    /// [`Signed360`](crate::residue::Signed360) residue.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use helix::placement::{HemispherePoint, Sign};
+    ///
+    /// let up = HemispherePoint::lift(3, 10);
+    /// let dn = HemispherePoint::signed_lift(3, 10, Sign::Neg);
+    /// assert_eq!(dn.r, up.r);   // same rim radius
+    /// assert_eq!(dn.y, -up.y);  // mirrored lift
+    /// assert!((dn.r * dn.r + dn.y * dn.y - 1.0).abs() < 1e-12); // still on the sphere
+    /// ```
+    #[must_use]
+    pub fn signed_lift(n: usize, total: usize, sign: Sign) -> Self {
+        let mut p = Self::lift(n, total);
+        p.y *= sign.as_f64();
+        p
     }
 }
 
@@ -327,5 +389,49 @@ mod tests {
             "equal-area: expected ~50% inside r≤√0.5, got {:.1}%",
             frac_500 * 100.0
         );
+    }
+
+    // ── signed full-sphere lift (Signed360) ──────────────────────────────────
+
+    #[test]
+    fn signed_lift_pos_equals_lift() {
+        for &(n, total) in &[(0usize, 10usize), (3, 10), (7, 17), (500, 1000)] {
+            let up = HemispherePoint::lift(n, total);
+            let s = HemispherePoint::signed_lift(n, total, Sign::Pos);
+            assert_eq!(s, up, "Sign::Pos must reproduce lift exactly");
+        }
+    }
+
+    #[test]
+    fn signed_lift_neg_mirrors_y_keeps_r() {
+        for &(n, total) in &[(0usize, 10usize), (3, 10), (9, 10), (499, 1000)] {
+            let up = HemispherePoint::lift(n, total);
+            let dn = HemispherePoint::signed_lift(n, total, Sign::Neg);
+            assert_eq!(dn.r, up.r, "Neg must keep the rim radius");
+            assert_eq!(dn.y, -up.y, "Neg must mirror the lift across the equator");
+        }
+    }
+
+    #[test]
+    fn signed_lift_stays_on_unit_sphere_both_signs() {
+        for &(n, total) in &[(0usize, 1usize), (5, 10), (999, 1000), (7, 17)] {
+            for sign in [Sign::Pos, Sign::Neg] {
+                let p = HemispherePoint::signed_lift(n, total, sign);
+                let sum = p.r * p.r + p.y * p.y;
+                assert!(
+                    (sum - 1.0).abs() < 1e-12,
+                    "r²+y² must be 1 for ({n},{total},{sign:?}), got {sum}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn sign_helpers() {
+        assert_eq!(Sign::Pos.as_f64(), 1.0);
+        assert_eq!(Sign::Neg.as_f64(), -1.0);
+        assert_eq!(Sign::of(-0.5), Sign::Neg);
+        assert_eq!(Sign::of(0.0), Sign::Pos);
+        assert_eq!(Sign::of(2.0), Sign::Pos);
     }
 }

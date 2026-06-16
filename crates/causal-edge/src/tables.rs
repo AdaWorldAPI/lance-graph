@@ -141,7 +141,11 @@ mod tests {
     fn test_build_fast() {
         let tables = NarsTables::build(1); // fast path: single c-level
         assert_eq!(tables.revision.len(), 1);
-        assert!(tables.byte_size() < 256 * 1024); // < 256 KB
+        // 256 KB is the c_levels=1 FLOOR: 1 revision table + 1 deduction table,
+        // 256·256·2 = 128 KB each. The bound is ≤, not < (the prior `<` was
+        // impossible to satisfy — a boundary-by-one bug, red on main since the
+        // deduction table landed).
+        assert!(tables.byte_size() <= 256 * 1024);
     }
 
     #[test]

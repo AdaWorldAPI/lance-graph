@@ -44,7 +44,14 @@
 /// changes. A reader MUST refuse to decode a packet whose stamped version it
 /// does not understand (per `I-LEGACY-API-FEATURE-GATED`: layout reclaim is
 /// paired with a version gate on the serialization path).
-pub const ENVELOPE_LAYOUT_VERSION: u8 = 1;
+///
+/// - **v1** — initial canonical `NodeRow` value carve.
+/// - **v2** — `HelixResidue` value-tenant right-sized 48 B → 6 B (a bits→bytes
+///   slip fix), which shifted every downstream tenant offset (`TurbovecResidue`
+///   160→118, `Energy` 176→134, …). The offsets moved, so the version gates it:
+///   a v1 blob now refuses to decode rather than read tenants from the wrong
+///   bytes. Safe because nothing persisted under v1 (FULL is POC-only).
+pub const ENVELOPE_LAYOUT_VERSION: u8 = 2;
 
 /// The little-endian element type of one column.
 ///

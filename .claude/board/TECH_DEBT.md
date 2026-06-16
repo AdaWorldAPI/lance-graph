@@ -15,6 +15,28 @@
 
 ## Open Debt
 
+### TD-CAUSAL-EDGE-LINT — `causal-edge` crate-wide pre-existing clippy (15) + fmt drift (2026-06-15)
+
+**Surfaced by** fixing the long-standing `test_build_fast` red (2026-06-15, this commit: `tables.rs:144` `<`→`<=`, the `c_levels=1` 256 KB floor — test now **48/48 green**). With the test green, `cargo clippy --manifest-path crates/causal-edge/Cargo.toml --lib -- -D warnings` still fails with **15 errors** (edge.rs `to_mantissa`/`from_mantissa`/`plasticity` — match-arm + needless-block lints) and `cargo fmt --check` shows **crate-wide drift** (edge.rs, v2_layout_tests.rs — arm spacing, long `assert_eq!` lines, nested if/else). **Pre-existing, NOT from the test-bound fix** (one line, tables.rs, fmt-clean). **CI-invisible** — `causal-edge` is not a lance-graph workspace member, so the workspace gate never clippy/fmt-checks it (same class as helix `probe_mantissa_fill`).
+
+**Pay it by** `cargo fmt --manifest-path crates/causal-edge/Cargo.toml` + `cargo clippy --fix` + manual residual-lint resolution. Mechanical (~30 min); deferred to keep the test-red fix scoped. The 15 lints are quality (formatting / needless blocks), not correctness — the crate's logic is tested (48 lib green).
+
+### TD-HELIX-PROBE-CLIPPY — `helix` `tests/probe_mantissa_fill.rs` pre-existing clippy + fmt drift (2026-06-15)
+
+**Surfaced by** the helix `Signed360` work (2026-06-15): `cargo clippy --manifest-path crates/helix/Cargo.toml --all-targets -- -D warnings` fails on `tests/probe_mantissa_fill.rs:170` — `clippy::needless_range_loop` (`for b in 0..BINS*BINS` indexing `counts`), under clippy 1.95.0. The same file has pre-existing `cargo fmt` drift (the `SEEDS` const + several `assert_eq!`/`assert!` calls exceed the width, unwrapped). **Pre-existing, NOT caused by the `Signed360` addition** (that's all in `src/`, additive; this integration test was never touched). **CI-invisible** because `helix` is a root-`exclude`d crate — the lance-graph workspace gate never builds it. Same class as the standing `causal-edge` 47/1 red (`test_build_fast`) on main.
+
+**Pay it by** rewriting the `for b in 0..BINS*BINS` loop as `counts.iter().enumerate()` (or `iter_mut`) + `cargo fmt --manifest-path crates/helix/Cargo.toml`. Trivial; deferred ONLY to keep the `Signed360` commit scoped. `cargo test` on helix is green (the probe passes as a test; only `clippy --all-targets -D warnings` flags the lint). Cross-ref: the helix `Signed360` branch commit.
+
+### TD-LAZY-IMPORT-VERSION-PIN — lazy OGIT/ontology imports MUST be version-pinned + reserve-don't-reclaim sibling nibbles (2026-06-15)
+
+**Surfaced by** operator design dialogue (2026-06-15: "OGIT as a lazy import in Rust-based OGAR — could DOLCE / Odoo etc. drift?"). The drift-control architecture is layered + sound; two disciplines must be LOCKED before the OGAR-identity migration runs a real (non-fixture) lazy import.
+
+**Drift-control that already EXISTS (recorded so it's not re-derived):** (1) `entity_type↔NiblePath` address bijection is IMMUTABLE / conflict-refusing (`registry.rs:385-401`) — drift surfaces as a LOUD registration error, never silent corruption; (2) DOLCE basin = static enum (4 frozen upper categories, collision-free) — no drift; (3) shape/metadata evolves via `ContextBundle` overwrite on same `G` (`register_bundle` :466), a version bump = new `(g, version)` slot, old preserved — Odoo field changes are absorbed as bundle updates, NOT address drift; (4) `StructuralSignature` (class_signature.rs:31) is the shape-drift DETECTOR.
+
+**The debt (disciplines to enforce):** (a) **every lazy import MUST declare a version** so a drifted upstream → a NEW `(g, version)` namespace, never a conflicting re-mint into the old slot (an I-LEGACY-API-style version-gate on the hydrator/import path). (b) the **sibling-nibble assignment MUST be deterministic + reserve-don't-reclaim** — a new sibling class gets a NEW nibble, never reassigns an existing sibling's; >16 fan-out per level needs the CLAM 16-way sub-tiering (IDEAS.md 2026-06-15 CLAM-residue-ladder).
+
+**Pay it by** adding the version-pin gate + the deterministic sibling rule when the OGAR-identity migration (`soa-migration-diff-resolution-2026-06-13.md`) executes a real load. Until then imports are curated/fixture (deterministic by hand). Cross-ref: `guid-canon-and-prefix-routing.md` (OGAR canon, cited never forked), `registry.rs:385-466`, IDEAS CLAM-ladder. **EPIPHANY candidate (council-gated):** "lazy-import drift control = immutable-address + evolvable-shape + versioned-namespace + StructuralSignature-detector; identity immutable, shape evolvable, versions side-by-side."
+
 ### TD-COARSERESIDUE-NO-VALUE-TENANT — `EdgeCodecFlavor::CoarseResidue` residue has no dedicated value-slab tenant (codex #496, 2026-06-15)
 
 **Surfaced by** codex P2 on PR #496 (`canonical_node.rs:336`). `EdgeCodecFlavor::CoarseResidue` (`canonical_node.rs:213`) declares its per-dimension signed-4-bit residue is "carried in the reserved value slab" (cost `1 + ⌈D/2⌉`, `bytes_per_vector` :228), but the `ValueTenant` catalogue (`canonical_node.rs:324-343`) has a slot only for `Pq32x4` (`TurbovecResidue = 5`, 16 B at offset 160) — **none for `CoarseResidue`**. So `Full`/`Compressed` presets report all codec tenants present while a class pairing `CoarseResidue` with those schemas has no addressable column for its residue (it would collide with another tenant).
@@ -29,7 +51,7 @@
 
 **The debt:** `ClassView::value_schema` (`class_view.rs:233`) returns `ValueSchema::Full` instead of the canon zero-fallback `ValueSchema::Bootstrap`. This INVERTS the zero-fallback ladder for the value-slab *resolution* (specialisation is now opt-IN: mint a class to go smaller/denser). It is layout-preserving (no `NODE_ROW_STRIDE` / `ENVELOPE_LAYOUT_VERSION` change — Full carves within the reserved 480 B) and a one-line revert. The TYPE-level `ValueSchema::default()` stays `Bootstrap`, so the substrate zero-fallback semantics are intact — only the class→schema resolution default flipped. **No invention** (honours the operator's anti-skew guardrail): `Full` activates the already-existing, already-tested 9 `ValueTenant`s; it adds no new property.
 
-**Pay it by:** reverting `class_view.rs:233` to `ValueSchema::Bootstrap` once the consumer POCs settle on their real per-class presets, AND flipping the guard test `value_schema_default_is_full_temporary_poc` (`class_view.rs`) back to assert Bootstrap. The edge-codec axis (`edge_codec_flavor` → `CoarseOnly`) is a separate knob, untouched; flip it to a residue/PQ flavor only if a consumer POC needs full edge fidelity too. Tests: 613 lib green.
+**Pay it by:** reverting `class_view.rs:233` to `ValueSchema::Bootstrap` once the consumer POCs settle on their real per-class presets, AND flipping the guard test `value_schema_default_is_full_temporary_poc` (`class_view.rs`) back to assert Bootstrap. The edge-codec axis (`edge_codec_flavor` → `CoarseOnly`) is a separate knob, untouched; flip it to a residue/PQ flavor only if a consumer POC needs full edge fidelity too. **PAIRED SITE (2026-06-15):** `ReadMode::DEFAULT` (`canonical_node.rs`) also POC-defaults `value_schema = Full` so the `classid → read-mode` resolver (`classid_read_mode`) agrees with `ClassView` — revert BOTH `value_schema` fields to `Bootstrap` together; the test `read_mode_default_is_full_poc` (`canonical_node.rs`) guards the pairing and flips with them. Tests: 619 lib green.
 
 ### TD-NDARRAY-SIMD-POPCNT-NATIVE — `extract_rules` SIGILLs under `-C target-cpu=native` on larger RowMasks (2026-06-14)
 
@@ -170,7 +192,7 @@ FINDING D-CLS↔D-ARM-14 (EPIPHANIES).
 
 ### TD-SURREALDB-KVLANCE-LANCE7 (deps — surrealdb-core still pins lance =6.0.0)
 
-**Status: Open.** The 2026-05-31 lance `6.0.0 → =7.0.0` / lancedb `0.29.0 →
+**Status: Open — blocker CONFIRMED SHALLOW (operator 2026-06-15: "surrealdb just needed 7.0.0 / lancedb 0.30 pin").** The kv-lance backend is already implemented in-tree; the ONLY remaining blocker is the version pin (no deep architectural work). The 2026-05-31 lance `6.0.0 → =7.0.0` / lancedb `0.29.0 →
 =0.30.0` bump (lance-graph, `claude/jolly-cori-clnf9` → PR #445) moved this
 workspace's `object_store` transitive `0.12 → 0.13.2`. The AdaWorldAPI/surrealdb
 fork's `surrealdb-core` already runs `object_store = "0.13.0"`, but its
@@ -183,6 +205,8 @@ with the fork's own 0.13. Until those three pins move to 7.0.0/0.30.0 the
 EPIPHANIES E-LANCE7-OBJECTSTORE-SURREALDB; root `Cargo.toml` RESOLVED(A2/B2).
 (The earlier `TD-LANCE-6.0.1-PIN` — only ever a root Cargo.toml comment, never a
 row here — is moot: no lancedb pinned lance `=6.0.1`; `0.30.0 → 7.0.0` superseded it.)
+
+**2026-06-15 update (operator ground truth):** the fix is exactly the 3-pin bump (`lance` / `lance-index` `=7.0.0`, `lancedb` `=0.30.0`) in `AdaWorldAPI/surrealdb` `surrealdb/core/Cargo.toml` — a write to the surrealdb FORK, **outside this session's 3-repo scope** (ndarray / lance-graph / turbovec; `add_repo` unavailable this session, so it can't be pushed from here). Once it lands, `surreal_container` resolves → unblocks **D-PG-6** (Rubicon kanban VIEW), **D-MBX-9 OUT** (`LanceVersionScheduler` over `versions()`), **identity-architecture Phase H** (SurrealQL read glove). **Companion (ractor):** the `--features supervisor` blocker is the `AdaWorldAPI/ractor` fork's `MessagingErr::Saturated` non-exhaustive match (fork ~2 commits behind upstream's error-enum fix) — sync the fork with upstream; also a fork write, also out of this session's scope. We don't use the messaging path; default builds are unaffected (ractor is `optional`, off by default).
 
 ---
 

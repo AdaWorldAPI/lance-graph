@@ -35,6 +35,34 @@
 
 ---
 
+## #498 GUID decode→read-mode keystone + helix Signed360 right-size + OCR→NodeRow transcode
+
+**Status:** OPEN 2026-06-15 (branch `claude/wonderful-hawking-lodtql`, 8 commits post-#496). In review (CodeRabbit + codex). **NOTE:** this entry documents the helix / keystone / OCR / causal-edge work that CodeRabbit on PR #498 mis-attributed to #496 — those changes are **#498's, not #496's**. #496 shipped only ValueSchema presets + the reference plan (its immutable entry below correctly shows the pre-right-size 154/98 B budgets).
+
+**Added:** (1) **Keystone** `canonical_node::{GuidParts, ReadMode, classid_read_mode}` + `NodeGuid::{heel/hip/twig, decode()→GuidParts, read_mode()}` — read-the-GUID-as-a-GUID decode + a `LazyLock<HashMap>` classid→read-mode registry (the single source consumer + OGAR inherit); `ReadMode` bundles the two existing axes (`ValueSchema` + `EdgeCodecFlavor`), no new property. (2) `helix::{Sign, Signed360}` + `HemispherePoint::signed_lift` + `ResidueEncoder::encode_signed` — signed full-sphere codec; **`HelixResidue` value-tenant right-sized 48 B → 6 B** (bits→bytes slip fix) → downstream offsets shifted (Turbovec 160→118, Energy 176→134, …), budgets re-locked (Full 154→112, Compressed 98→56), value carve now `[32,144)`. (3) `ocr::{BlockKind::entity_type, LayoutBlock::to_node_row}` + `ValueTenant::{value_offset, byte_len}` — OCR-engine-agnostic transcode. (4) causal-edge `test_build_fast` boundary `<`→`<=` (standing red on main fixed). (5) **`ENVELOPE_LAYOUT_VERSION` 1→2** — gates the value-slab offset shift (codex P2). Tests: contract 623 lib, helix 73 lib + 7 doc, causal-edge green.
+
+**Locked:** (1) **one `NodeGuid` only** — the #490-retired `identity::NodeGuid` (UUIDv8) stays retired; the keystone extends the canon `canonical_node::NodeGuid`. (2) `ReadMode::DEFAULT = {Full, CoarseOnly}` mirrors the ClassView POC default; both flip back to Bootstrap together (guard `read_mode_default_is_full_poc`). (3) **`Signed360` sign-partition** — `|y|`-in-7-bits + sign in the partition (Pos ⇒ polar [128,255], Neg ⇒ [0,127]); sign is exact at `|y|≈0` at the rim (codex P2 fix, regression test `signed360_neg_sign_survives_near_rim_at_high_total`). (4) text/bbox never bundled into the node — content store keyed by identity (I-VSA-IDENTITIES). (5) a value-slab offset shift is **version-gated, not reserved-gap** — safe pre-persistence (FULL is POC-only; codex P2 disposition).
+
+**Deferred:** ontology-side `NiblePath::from_guid_prefix` (the keystone's other half); pure-Rust OCR via `ocrs`/`rten` (the tesseract-rs C-wrapper POC was reverted — wrong direction). `TD-VALUESCHEMA-FULL-POC-DEFAULT` paired-revert note updated (ReadMode::DEFAULT pairs with ClassView).
+
+**Docs:** board `LATEST_STATE` + `TECH_DEBT` updated; this entry.
+
+**Confidence (2026-06-15):** open — both codex P2s dispositioned (ENVELOPE_LAYOUT_VERSION bump for the offset shift; Signed360 sign-partition fix + regression test); CodeRabbit's #496-vs-#498 misattribution corrected here.
+
+## #496 integrated-cognitive-planner reference map + ValueSchema presets + FULL POC default
+
+**Status:** MERGED 2026-06-15 (merge commit `2e58e034`), branch `claude/wonderful-hawking-lodtql`. CI 5/5 green (format/clippy/linux-build/test/test-with-coverage). CodeRabbit 2 threads resolved; codex 2×P2 dispositioned (FULL-default intentional; CoarseResidue tracked as TD).
+
+**Added:** `lance_graph_contract::canonical_node::{ValueSchema, ValueTenant, VALUE_TENANTS}` — value-side analog of `EdgeCodecFlavor`; 9 append-only tenants carve `[32,186)`; 4 presets (Bootstrap EMPTY / Cognitive 58 B / Compressed 98 B / Full 154 B). `ClassView::value_schema()` default flipped **Bootstrap→Full (TEMPORARY POC)** + guard test `value_schema_default_is_full_temporary_poc`. New `.claude/plans/integrated-cognitive-planner-v1.md` (file:line reference map). Lance pin doc-sweep 6→7 / 0.29→0.30 across CLAUDE.md + boards + plans. Contract 613 lib tests.
+
+**Locked:** (1) **§0 ANTI-INVENTION GUARDRAIL** — no new skewed SoA properties; the 9 ValueTenants + 4 BindSpace columns are closed; new capability = new column/class, never a new layer; specialisation is opt-IN (mint a class). (2) FULL POC default is class→schema *resolution* only; type-level `ValueSchema::default()` stays Bootstrap (substrate zero-fallback intact). (3) emit channels `emitted_edges`(CausalEdge64 words) vs `emitted_moves`(KanbanMove) are SEPARATE — no `KanbanMove→u64` cast. (4) `cycle()` stays inherent (object-safety, keeps `Box<dyn>` consumers). (5) seam #2 as-of read is closure-injected (planner ⊥ async `at_version`). (6) dual `RungLevel` — mirror thinking-engine's `should_elevate`, don't duplicate.
+
+**Deferred:** the §8 7-item additive ledger (CognitiveCycle sequencer / RungLevel constructors / temporal.rs A→contract + B core temporal_read / ScopedReference / MarkingRow / NiblePath `from_guid_prefix` / ExecTarget::can_drive) — gated on D-MBX-A6-P3 + the keystone. `TD-VALUESCHEMA-FULL-POC-DEFAULT` (revert FULL→Bootstrap when POC concludes), `TD-COARSERESIDUE-NO-VALUE-TENANT`, `TD-LAZY-IMPORT-VERSION-PIN`.
+
+**Docs:** `integrated-cognitive-planner-v1.md` (§0 guardrail, §1–§7 grounded map, §2.1 ExecTarget, §3.1 causal-arc, §4.1 0-friction, §8 cross-savant synthesis, §9 hardening verdicts). 5-savant expansion + 3-hardener (PP-13/15/16) folded.
+
+**Confidence (2026-06-15):** working — merged clean, CI green, 613 contract lib tests. The plan is the SPEC for the integrated-planner refactor; the keystone (`from_guid_prefix` + classid→ClassView read-mode on `registry.rs`) is the single next unblock for refactor + tesseract + OGAR-identity migration.
+
 ## #459 helix-place-residue-codec — golden-spiral Place/Residue codec (zero-dep + optional ndarray-hpc)
 
 **Status:** MERGED 2026-06-03 (merge commit `ef35ff1`), branch `claude/gallant-rubin-Y9pQd`. New standalone crate; autoattended wave (5 read-only research agents + 4 parallel Sonnet leaf workers + central consolidation). 63 unit + 6 doctests green on both feature configs; clippy -D warnings + fmt clean. One CodeRabbit review round resolved pre-merge.

@@ -6,11 +6,11 @@
 //! *is* the residue. `encode` is the compute path (`&self`, read-only); `observe`
 //! / `roll` are the calibration paths (`&mut self`) — honouring "no `&mut self`
 //! during computation".
-use crate::constants::{EULER_GAMMA, LN_17, MODULUS, STRIDE};
+use crate::constants::{EULER_GAMMA, GOLDEN_RATIO, LN_17, MODULUS, STRIDE};
 use crate::curve_ruler::CurveRuler;
 use crate::distance::DistanceLut;
 use crate::fisher_z::Similarity;
-use crate::placement::HemispherePoint;
+use crate::placement::{HemispherePoint, Sign};
 use crate::quantize::RollingFloor;
 
 /// A residue edge: the `(start, end)` endpoint pair on the φ-spiral curve-ruler,
@@ -57,6 +57,61 @@ impl ResidueEdge {
         let d = (self.start_idx ^ other.start_idx).count_ones()
             + (self.end_idx ^ other.end_idx).count_ones();
         (d, d <= 3)
+    }
+}
+
+/// Signed full-sphere residue — the 24-bit hemisphere [`ResidueEdge`] **doubled
+/// to 48 bit (6 bytes)**. Maps a signed magnitude to the FULL sphere: the
+/// unsigned hemisphere `rim` edge (rim radius + place anchor via the existing
+/// pipeline), the signed `polar` byte (the equal-area lift `y = sign·√(1 − u)`
+/// quantised as `|y|`-in-7-bits with the sign in the partition — `≥ 128` upper
+/// hemisphere, `< 128` lower, so the hemisphere sign is recoverable even at the
+/// rim where `|y| ≈ 0`), and the 16-bit `azimuth` (`n·φ` wrapped to
+/// `[0, 2π)` over the full **360°**). Wire layout (LE):
+/// `[rim.start, rim.end, rim.floor_version, polar, azimuth_lo, azimuth_hi]`.
+///
+/// This is the codec the contract `HelixResidue` value-tenant reserves 6 bytes
+/// for; the producer writes [`to_bytes`](Signed360::to_bytes). The contract
+/// itself is zero-dep and only reserves the bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Signed360 {
+    /// Unsigned hemisphere edge (rim radius + place anchor). 3 bytes.
+    pub rim: ResidueEdge,
+    /// Signed equal-area lift `y` quantised: `|y|` in 7 bits, sign in the
+    /// partition — `[128, 255]` = upper hemisphere ([`Sign::Pos`]), `[0, 127]` =
+    /// lower ([`Sign::Neg`]). The partition (not a centred-at-128 round) keeps
+    /// the sign exact even when `|y| ≈ 0` at the rim. 1 byte.
+    pub polar: u8,
+    /// Golden azimuth `n·φ mod 2π` mapped to `[0, 65536)` over the full 360°. 2 bytes.
+    pub azimuth: u16,
+}
+
+impl Signed360 {
+    /// Serialise to 6 bytes (LE):
+    /// `[rim.start, rim.end, rim.floor_version, polar, azimuth_lo, azimuth_hi]`.
+    pub fn to_bytes(self) -> [u8; 6] {
+        let r = self.rim.to_bytes();
+        let a = self.azimuth.to_le_bytes();
+        [r[0], r[1], r[2], self.polar, a[0], a[1]]
+    }
+
+    /// Deserialise from 6 bytes.
+    pub fn from_bytes(b: [u8; 6]) -> Self {
+        Self {
+            rim: ResidueEdge::from_bytes([b[0], b[1], b[2]]),
+            polar: b[3],
+            azimuth: u16::from_le_bytes([b[4], b[5]]),
+        }
+    }
+
+    /// Which hemisphere this residue sits in — recovered from the `polar` byte
+    /// (`>= 128` ⇒ upper [`Sign::Pos`], `< 128` ⇒ lower [`Sign::Neg`]).
+    pub fn sign(&self) -> Sign {
+        if self.polar >= 128 {
+            Sign::Pos
+        } else {
+            Sign::Neg
+        }
     }
 }
 
@@ -114,6 +169,37 @@ impl ResidueEncoder {
                 .floor
                 .quantize(Self::aligned_for_residue(n, self.total)),
             floor_version: self.floor.version(),
+        }
+    }
+
+    /// Encode `(place, n, sign)` into a 6-byte [`Signed360`] — the signed
+    /// full-sphere residue (the doubled-hemisphere companion to
+    /// [`encode`](Self::encode)). The `rim` reuses the unsigned hemisphere
+    /// pipeline; `polar` carries the signed equal-area lift `y = sign·√(1 − u)`
+    /// (`|y|`-in-7-bits + sign-partition, so the hemisphere sign is recoverable
+    /// via [`Signed360::sign`] even at the rim); `azimuth` is the golden angle
+    /// `n·φ` over the full 360°.
+    pub fn encode_signed(&self, place: u64, n: usize, sign: Sign) -> Signed360 {
+        let n = n.min(self.total - 1);
+        let rim = self.encode(place, n);
+        // Signed equal-area lift y ∈ [−1, 1]. Encode |y| in 7 bits and the sign
+        // in the PARTITION (Pos ⇒ [128, 255], Neg ⇒ [0, 127]) so the hemisphere
+        // sign survives even when |y| ≈ 0 near the rim. A naive `128 + y·127`
+        // rounds a tiny negative lift up to 128, which `sign()` reads as Pos
+        // (codex P2 on #498). The partition makes the sign exact at every magnitude.
+        let p = HemispherePoint::signed_lift(n, self.total, sign);
+        let mag = (p.y.abs() * 127.0).round().clamp(0.0, 127.0) as u8;
+        let polar = match sign {
+            Sign::Pos => 128 + mag,
+            Sign::Neg => 127 - mag,
+        };
+        // Golden azimuth n·φ wrapped to [0, 2π) → u16 over the full 360°.
+        let az = (n as f64 * GOLDEN_RATIO).rem_euclid(core::f64::consts::TAU);
+        let azimuth = ((az / core::f64::consts::TAU) * 65536.0) as u16;
+        Signed360 {
+            rim,
+            polar,
+            azimuth,
         }
     }
 
@@ -212,5 +298,87 @@ mod tests {
         let a = enc.encode(1, 10);
         let (_d, _below) = a.distance_heuristic(&a);
         assert_eq!(a.distance_heuristic(&a).0, 0);
+    }
+
+    // ── Signed360 (signed full-sphere, 48-bit) ───────────────────────────────
+
+    #[test]
+    fn signed360_byte_roundtrip_is_6_bytes() {
+        let enc = ResidueEncoder::new(4096);
+        let s = enc.encode_signed(0x1234, 1700, Sign::Neg);
+        assert_eq!(Signed360::from_bytes(s.to_bytes()), s);
+        assert_eq!(
+            s.to_bytes().len(),
+            6,
+            "Signed360 is exactly 6 bytes (48 bit)"
+        );
+    }
+
+    #[test]
+    fn signed360_rim_matches_unsigned_encode() {
+        let enc = ResidueEncoder::new(4096);
+        // The rim edge is the existing unsigned hemisphere encode (sign-independent).
+        let rim = enc.encode(0x1234, 1700);
+        assert_eq!(enc.encode_signed(0x1234, 1700, Sign::Pos).rim, rim);
+        assert_eq!(enc.encode_signed(0x1234, 1700, Sign::Neg).rim, rim);
+    }
+
+    #[test]
+    fn signed360_sign_recoverable_from_polar() {
+        let enc = ResidueEncoder::new(4096);
+        for n in [1usize, 100, 1700, 4000] {
+            let pos = enc.encode_signed(7, n, Sign::Pos);
+            let neg = enc.encode_signed(7, n, Sign::Neg);
+            assert_eq!(
+                pos.sign(),
+                Sign::Pos,
+                "Pos ⇒ upper hemisphere (polar ≥ 128)"
+            );
+            assert_eq!(
+                neg.sign(),
+                Sign::Neg,
+                "Neg ⇒ lower hemisphere (polar < 128)"
+            );
+            assert!(pos.polar >= 128 && neg.polar < 128);
+        }
+    }
+
+    #[test]
+    fn signed360_azimuth_varies_with_n() {
+        let enc = ResidueEncoder::new(4096);
+        let a = enc.encode_signed(7, 100, Sign::Pos).azimuth;
+        let b = enc.encode_signed(7, 101, Sign::Pos).azimuth;
+        assert_ne!(a, b, "consecutive residues get distinct golden azimuths");
+    }
+
+    #[test]
+    fn signed360_is_deterministic() {
+        let enc = ResidueEncoder::new(4096);
+        assert_eq!(
+            enc.encode_signed(0x99, 2000, Sign::Neg),
+            enc.encode_signed(0x99, 2000, Sign::Neg)
+        );
+    }
+
+    #[test]
+    fn signed360_neg_sign_survives_near_rim_at_high_total() {
+        // Regression for codex P2 (#498): near the rim √(1−u) → 0, so |y| ≈ 0.
+        // A centred-at-128 round mapped a negative lift to polar 128, which
+        // `sign()` reads as Pos — losing the sign. The |y|-in-7-bits + partition
+        // encoding makes Neg ⇒ polar ∈ [0, 127] for EVERY magnitude, so the sign
+        // is exact even when the lift vanishes. Large total ⇒ rim n has tiny |y|.
+        let enc = ResidueEncoder::new(65_536);
+        for n in [65_530usize, 65_534, 65_535] {
+            let neg = enc.encode_signed(0x55, n, Sign::Neg);
+            assert_eq!(
+                neg.sign(),
+                Sign::Neg,
+                "Neg must survive at the rim (n={n}, polar={})",
+                neg.polar
+            );
+            assert!(neg.polar < 128, "Neg ⇒ polar < 128 even at |y| ≈ 0");
+            // And the Pos companion stays in the upper partition.
+            assert!(enc.encode_signed(0x55, n, Sign::Pos).polar >= 128);
+        }
     }
 }
