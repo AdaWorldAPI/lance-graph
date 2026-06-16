@@ -35,6 +35,25 @@
 
 ---
 
+## #510 surreal_container seam falsifier — SurrealMailboxView → VersionScheduler → KanbanMove (IN-direction only)
+
+**Status:** MERGED 2026-06-16 16:36 UTC (merge commit `0e6452c8`), branch `claude/sleepy-cori-aRK2x`. Additive: +125/-0, one new file (`crates/surreal_container/tests/scheduler_seam.rs`); zero source change; first integration-test file in the `surreal_container` crate.
+
+**Added:** five kill-condition-first tests pinning the doc-comment contract of the **IN-direction** of the surreal↔kanban↔scheduler wiring (`SurrealMailboxView → NextPhaseScheduler::on_version → KanbanMove`):
+1. `full_rubicon_arc_lowers_to_legal_successors` — walks Planning→CognitiveWork→Evaluation→Commit + Plan→Planning; asserts every forward tick lands on a `can_transition_to == true` edge.
+2. `absorbing_columns_schedule_no_move` — `Commit`/`Prune` MUST schedule no advance (closes the non-terminating-lifecycle bug).
+3. `libet_anchor_only_on_sigma_commit_crossing` — the `-550_000µs` readiness anchor MUST appear at the Planning→CognitiveWork Σ-commit crossing and nowhere else.
+4. `lowering_is_deterministic` — same `(view, version, exec)` → identical `KanbanMove` (no hidden state).
+5. `exec_target_rides_onto_the_move` — `ExecTarget` backend selector survives lowering.
+
+**Locked:** the IN-direction contract is now testable end-to-end against the real `SurrealMailboxView` (not just the in-crate `FakeView`). The kill-condition framing is the **template** the planner-emit half (OUT-direction, D-MBX-A6-P3) will be verified against once it lands.
+
+**Deferred (explicit in PR body):** the **OUT-direction = planner-emit `KanbanMove`** (the `CognitiveCycle` sequencer + §9 LOCKED decisions from #496). PR body: *"this does not touch the contested planner-emit half … which is the planner-owning session's lane."* → D-MBX-A6-P3 remains **the next unblock** for closing the loop. This PR proves the loop's downstream half; the upstream half is still hand-rolled.
+
+**Docs:** AGENT_LOG + LATEST_STATE updated (this commit). No new knowledge doc.
+
+**Confidence (2026-06-16):** working — IN-direction now has 5 contract-pinning tests; OUT-direction unchanged.
+
 ## #498 GUID decode→read-mode keystone + helix Signed360 right-size + OCR→NodeRow transcode
 
 **Status:** OPEN 2026-06-15 (branch `claude/wonderful-hawking-lodtql`, 8 commits post-#496). In review (CodeRabbit + codex). **NOTE:** this entry documents the helix / keystone / OCR / causal-edge work that CodeRabbit on PR #498 mis-attributed to #496 — those changes are **#498's, not #496's**. #496 shipped only ValueSchema presets + the reference plan (its immutable entry below correctly shows the pre-right-size 154/98 B budgets).
