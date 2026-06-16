@@ -104,3 +104,7 @@ path = "examples/hhtl_grid.rs"
 [[example]]
 name = "chaoda"
 path = "examples/chaoda.rs"
+
+[[example]]
+name = "witness"
+path = "examples/witness.rs"

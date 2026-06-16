@@ -68,6 +68,7 @@ pub mod sketch;
 pub mod splat;
 pub mod stats;
 pub mod timing;
+pub mod witness;
 
 pub use acflow::{AcBus, AcLine, AcSystem, BusKind, PowerFlowResult};
 pub use basin::{
@@ -101,4 +102,7 @@ pub use stats::{cronbach_alpha, icc_a1, pearson, spearman, zscore};
 pub use timing::{
     cascade_wall_time, collapse_number, implied_dt_per_hop, mechanism_from_timescale, meta_cascade,
     meta_cascade_phase, per_hop_time, rocof_hz_per_s, tier_composite, MetaHop, HHTL_WEIGHTS,
+};
+pub use witness::{
+    field_spectrum, particle_equals_wave, witness_from_spectrum, witness_particle, witness_wave,
 };
