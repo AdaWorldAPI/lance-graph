@@ -14,7 +14,7 @@
 Per the substrate's §0 anti-invention guardrail (lance-graph #496) and the no-new-variant contract test (#500):
 
 1. **No new `ValueSchema` enum variant.** Genetic-research rows ride `Full` or `Compressed` presets; specialisation is via `classid → ClassView` mint.
-2. **No new `EdgeCodecFlavor` enum variant.** Use `CoarseResidue` for genomic edges (the 1-byte palette + signed-4-bit residue is sufficient for sequence-similarity edges; ICC 0.97–0.99 measured on ndarray #218).
+2. **No new `EdgeCodecFlavor` enum variant.** Genomic edges ride **`Pq32x4`** (`TurbovecResidue` tenant has shipped storage) or **`CoarseOnly`** (1-byte palette, no separate residue slab). `CoarseResidue` is **BLOCKED** until the operator mints its dedicated `ValueTenant` (`TD-COARSERESIDUE-NO-VALUE-TENANT`, `.claude/board/TECH_DEBT.md:40`) — pairing it with `Full` or `Compressed` today leaves the signed-4-bit residue unaddressable.
 3. **No C++ source vendored into any `-rs` adapter crate.** htslib / bcftools / etc. stay upstream; harvested via the `ruff_cpp_spo` pattern (cross-repo handover at `AdaWorldAPI/ruff/.claude/handovers/2026-06-16-ruff-cpp-spo-handover.md`) when the harvester ships.
 4. **Counterfactuals stay in their own lane.** `InferenceType::Counterfactual` mantissa = -6 is the mechanical enforcement. **NEVER written as observed SPO.**
 5. **No new substrate primitives.** Every deliverable in this plan is **wiring** of existing primitives. If a deliverable feels like it needs a new substrate type, it's the wrong shape — escalate to the 5-specialist drift-catching pass before writing code.
@@ -74,18 +74,19 @@ Per the substrate's §0 anti-invention guardrail (lance-graph #496) and the no-n
 
 **Test gate:** `genomic_classids_ride_existing_presets_no_new_variant` (mirrors lance-graph #500's `ocr_schema_fit_rides_existing_preset_no_new_variant`).
 
-### D-GEN-5: GO / Reactome / ClinVar `TtlHydrator`s
+### D-GEN-5: GO / Reactome / ClinVar Pattern D hydrate_*() glue
 
-**What:** add three `TtlHydrator` implementations to `lance-graph-ontology::OntologyRegistry`:
-- Gene Ontology (GO) OBO/OWL → ontology nodes.
-- Reactome pathway hierarchy (~2500 pathways) → SPO triples.
-- ClinVar clinical-significance annotations → variant SPO edges with `Provenance::ClinicalCurated = (0.98, 0.95)` calibration.
+**What:** add three `hydrate_*()` glue functions over the shipped `OwlHydrator` / `MetaStructureHydrator` (Pattern D — Meta-Structure Hydration, `crates/lance-graph-ontology/src/hydrators/mod.rs:1-57`). **No new trait** — the substrate already ships `hydrate_dolce` / `hydrate_owltime` / `hydrate_provo` / `hydrate_qudt` / `hydrate_schemaorg` / `hydrate_skos` / `hydrate_fibo_fnd` / `hydrate_fibo_be` / `hydrate_odoo` / `hydrate_zugferd` / `hydrate_skr03` / `hydrate_skr04` as the proven pattern. Per `mod.rs` line 19: *"Each per-ontology hydrator is data + ~50 LOC of glue, never a bespoke crate."*
 
-**Where:** `crates/lance-graph-ontology/src/hydrators/go.rs` + `reactome.rs` + `clinvar.rs`. Pattern mirrors the existing `owl.rs` and `ttl_parse.rs`.
+- `hydrate_go(reg, source)` → Gene Ontology OBO/OWL via `OwlHydrator` with the `G` slot keyed for biological process / molecular function / cellular component.
+- `hydrate_reactome(reg, source)` → Reactome pathway hierarchy (~2500 pathways) via `MetaStructureHydrator` declaring `inherits_from` for pathway-subpathway containment.
+- `hydrate_clinvar(reg, source)` → ClinVar clinical-significance annotations as variant SPO edges with `Provenance::ClinicalCurated = (0.98, 0.95)` calibration.
+
+**Where:** `crates/lance-graph-ontology/src/hydrators/go.rs` + `reactome.rs` + `clinvar.rs`. Each file is *data + glue*: pick the parser, declare the `G` slot, name the parent, whitelist the cascade edge IRIs — mirrors the shipped `dolce.rs` / `provo.rs` / `skos.rs` shape.
 
 **Lift:** ~1 week (GO + Reactome are large; ClinVar is straightforward).
 
-**Test gate:** `go_term_count_matches_reference_release` + `reactome_pathway_hierarchy_round_trips`.
+**Test gate:** `go_term_count_matches_reference_release` + `reactome_pathway_hierarchy_round_trips` + `clinvar_provenance_calibration_matches_curated_pair`.
 
 ### D-GEN-6: §14 oracle adapter for variant caller comparison
 

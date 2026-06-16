@@ -170,7 +170,7 @@ queryable, falsifiable, counterfactual-preserving variant/cohort/pathway graph
 | `CounterfactualMailbox` + `SplitPoles` + `revise_if_minority_wins` | **shipped** (`counterfactual.rs`) |
 | Pearl-2³ mask in `CausalEdge64` + `pearl_junction` classifier + `PEARL_SUBSETS` | **shipped** |
 | Entropy × energy substrate-state plane + `EntropyRung` + `Quadrant` + `nars_entropy` | **shipped** (#491, #494, #495) |
-| `OntologyRegistry` + TTL hydrators (SKOS / FIBO / Odoo / ZUGFeRD) + 47 KB Lance dictionary cache | **shipped** (`lance-graph-ontology`) |
+| `OntologyRegistry` + Pattern D hydrators (`hydrate_dolce` / `hydrate_owltime` / `hydrate_provo` / `hydrate_qudt` / `hydrate_schemaorg` / `hydrate_skos` / `hydrate_fibo_fnd` / `hydrate_fibo_be` / `hydrate_odoo` / `hydrate_zugferd` / `hydrate_skr03/04`) over shipped `OwlHydrator` + `MetaStructureHydrator` + 47 KB Lance dictionary cache | **shipped** (`lance-graph-ontology/src/hydrators/mod.rs:1-57`) |
 | §14 oracle (`rubicon::oracle::compare_normalised`) | **shipped** (`bardioc/rubicon`) |
 | DeepNSM sentence-level AriGraph reader | **shipped** (lance-graph #479; 200 tests) |
 | ndarray AMX int8 GEMM (197 GMAC/s on Emerald Rapids) | **shipped** (ndarray #217) |
@@ -179,7 +179,7 @@ queryable, falsifiable, counterfactual-preserving variant/cohort/pathway graph
 | `crates/adapter-genetics-experimental` scaffold | **proposed** (plan D-GEN-1) |
 | FASTA / VCF / BAM parsers (host `noodles-*`) | **proposed** (plan D-GEN-2) |
 | k-mer → CAM-PQ fingerprint function | **proposed** (plan D-GEN-3) |
-| GO / Reactome / ClinVar `TtlHydrator`s into `OntologyRegistry` | **proposed** (plan D-GEN-5) |
+| GO / Reactome / ClinVar Pattern D `hydrate_*()` glue (over shipped `OwlHydrator` / `MetaStructureHydrator` — no new trait) | **proposed** (plan D-GEN-5) |
 | KRAS G12D 1024-cell counterfactual fan-out simulation | **proposed** (plan D-GEN-7) |
 | §14 oracle benchmark against GIAB truth set | **proposed** (plan D-GEN-10) |
 

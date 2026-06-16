@@ -12,7 +12,7 @@ upstream domain corpora (FASTA / VCF / BAM / GFF / 1000-Genomes / ClinVar / GO /
   ndarray::hpc::amx_matmul       (197 GMAC/s int8 GEMM on Emerald Rapids)
   bgz17                          (11/17 X-Trans stride for anti-moiré k-mer sampling)
   lance-graph-contract           (canonical NodeGuid · EdgeBlock · NodeRow; HHTL nibble-trie; MailboxSoA<N>; CounterfactualMailbox)
-  lance-graph-ontology           (OntologyRegistry + TtlHydrators + 47 KB Lance dictionary cache + wikidata_hhtl)
+  lance-graph-ontology           (OntologyRegistry + Pattern D OwlHydrator/MetaStructureHydrator + hydrate_*() glue (dolce/owltime/provo/qudt/schemaorg/skos/fibo_fnd/fibo_be/odoo/zugferd/skr03/skr04) + 47 KB Lance dictionary cache + wikidata_hhtl)
   lance-graph-arm-discovery      (reliability suite: Pearson / Spearman / Cronbach α / ICC(2,1))
   deepnsm                        (sentence-level AriGraph reader; P64 / Cam4096 / Crystal4096)
   rubicon                        (§14 oracle: compare_normalised with provenance fields)
@@ -70,7 +70,7 @@ FASTA / FASTQ / VCF / BAM / GFF / annotation databases. They live at their canon
 - GO / Reactome / Sequence Ontology at OBO Foundry.
 - Reference genome assemblies at UCSC / Ensembl / NCBI.
 
-The adapter `TtlHydrator`s point at canonical releases and pin a version; the corpora do not move into the substrate.
+The adapter `hydrate_*()` glue (Pattern D — Meta-Structure Hydration, `crates/lance-graph-ontology/src/hydrators/mod.rs:1-57`) points at canonical releases and pins a version; the corpora do not move into the substrate. **No new hydrator trait** — `hydrate_go` / `hydrate_reactome` / `hydrate_clinvar` are *data + ~50 LOC of glue each* over the shipped `OwlHydrator` / `MetaStructureHydrator`, mirroring the proven shape of `hydrate_dolce` / `hydrate_provo` / `hydrate_skos`.
 
 This layer answers:
 
@@ -164,7 +164,7 @@ You'd reach for the shipped substrate even if you started from scratch, because:
 - The reliability stats (Pearson / Spearman / Cronbach α / ICC) are shipped (ndarray PR #218).
 - The CounterfactualMailbox is shipped with its iron invariant mechanically enforced.
 - The §14 oracle is in production use for OCR caller comparison (post-#498).
-- The OntologyRegistry has TTL hydrators for SKOS / FIBO / Odoo / ZUGFeRD as proven patterns.
+- The OntologyRegistry has Pattern D hydrators (`hydrate_dolce` / `hydrate_owltime` / `hydrate_provo` / `hydrate_qudt` / `hydrate_schemaorg` / `hydrate_skos` / `hydrate_fibo_fnd` / `hydrate_fibo_be` / `hydrate_odoo` / `hydrate_zugferd` / `hydrate_skr03/04`) over shipped `OwlHydrator` + `MetaStructureHydrator` as the proven pattern.
 
 Building these from scratch is N person-years of work. The lift to genetic-research-via-substrate is the **domain wiring** — measured in days to weeks per deliverable in `genetic-research-substrate-integration-v1.md`.
 
@@ -194,7 +194,7 @@ The headstone is reached when:
 3. **CHAODA on 1000-Genomes feature vectors** produces ROC-AUC ≥ 0.85 on the held-out novel-singleton test (PROBE-CHAODA-1000G green).
 4. **CAM-PQ-vs-BLAST agreement** measured: Spearman ρ ≥ 0.7 on top-100 RefSeq similarity rankings (PROBE-CAM-PQ-VS-BLAST green).
 5. **KRAS G12D 1024-cell counterfactual fan-out** simulation runs deterministically (PROBE-KRAS-COUNTERFACTUAL-DET bit-exact across runs), and the observed-lane oncogenic-transformation rate matches published outcomes within tolerance.
-6. **GO / Reactome / ClinVar TTL hydrators** load into `OntologyRegistry` and ontology cache invalidation works on Lance version bump.
+6. **GO / Reactome / ClinVar Pattern D hydrate_*() glue** (`hydrate_go` / `hydrate_reactome` / `hydrate_clinvar`, each data + ~50 LOC over shipped `OwlHydrator` / `MetaStructureHydrator`) load into `OntologyRegistry` and ontology cache invalidation works on Lance version bump.
 7. **§14 oracle benchmarks GATK vs. DeepVariant** against GIAB HG002 truth set with F1 meeting published minima.
 8. **DeepNSM genetic-language reader probe** demonstrates `P64` projection consistency on protein-coding sequences (versus structured-noise on non-coding).
 9. **Histology splat extension** carries per-splat genomic profile via `Full` ValueSchema with `Fingerprint` + `HelixResidue` tenants populated.
