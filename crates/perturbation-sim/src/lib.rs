@@ -53,6 +53,7 @@ pub mod acflow;
 pub mod basin;
 pub mod buffer;
 pub mod cascade;
+pub mod chaoda;
 pub mod columns;
 pub mod eigen;
 pub mod flow;
@@ -75,6 +76,9 @@ pub use basin::{
 };
 pub use buffer::{compartment_buffer, impulse_buffer, inertia_buffer_column, ketchup_yield, Yield};
 pub use cascade::{simulate_outage, CascadeConfig, CascadeResult, PerturbationShape};
+pub use chaoda::{
+    anomaly_ranking, cakes_neighbors, chaoda_scores, resilience_basin_features, CHAODA_FLAG,
+};
 pub use columns::{
     study_member_specs, study_slot_assignments, Encoding, GuardrailVerdict, InertiaPromotion,
     SoaMemberSpec, INERTIA, INERTIA_PROMOTION, INERTIA_SLOT,
