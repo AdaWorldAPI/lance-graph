@@ -92,3 +92,7 @@ path = "examples/explore.rs"
 [[example]]
 name = "scorecard"
 path = "examples/scorecard.rs"
+
+[[example]]
+name = "calibrate"
+path = "examples/calibrate.rs"

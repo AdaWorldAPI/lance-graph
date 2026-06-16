@@ -53,6 +53,7 @@ pub mod acflow;
 pub mod basin;
 pub mod buffer;
 pub mod cascade;
+pub mod columns;
 pub mod eigen;
 pub mod flow;
 pub mod graph;
@@ -73,6 +74,7 @@ pub use basin::{
 };
 pub use buffer::{compartment_buffer, impulse_buffer, ketchup_yield, Yield};
 pub use cascade::{simulate_outage, CascadeConfig, CascadeResult, PerturbationShape};
+pub use columns::{study_member_specs, Encoding, SoaMemberSpec, INERTIA};
 pub use eigen::{symmetric_eigen, Eigen};
 pub use flow::{dc_flows, lodf};
 pub use graph::{Edge, Grid};
