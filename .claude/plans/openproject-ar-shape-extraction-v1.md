@@ -55,18 +55,18 @@ class-body DSL declarations). Full census saved at
 
 | Category | Names (frequency) | Predicate emitted |
 |---|---|---|
-| **Associations (5)** | `belongs_to`(143) `has_many`(125) `has_one`(20) `has_and_belongs_to_many`(12) `accepts_nested_attributes_for`(4) | `traverses_relation` *(existing)* + **option-level**: `class_name` `dependent` `optional` `inverse_of` `through` `polymorphic` `foreign_key` `as` `source` `touch` |
-| **Validations (5)** | `validates`(159) `validate`(52) `normalizes`(5) `validates_associated`(2) `validates_each`(1) | **`has_constraint`** + **`normalizes_attribute`** |
+| **Associations (5)** | `belongs_to`(143) `has_many`(125) `has_one`(20) `has_and_belongs_to_many`(12) `accepts_nested_attributes_for`(4) | **`declares_association`** *(NEW — Round 1 fix; existing `traverses_relation` is `Inferred`/body-walk, subject = fn; class-level declaration needs a separate `Authoritative` predicate, subject = class)* + **option-level**: `class_name` `dependent` `optional` `inverse_of` `through` `polymorphic` `foreign_key` `as` `source` `touch` |
+| **Validations (5)** | `validates`(159) `validate`(52) `normalizes`(5) `validates_associated`(2) `validates_each`(1) | **`validates_constraint`** *(Round 1 rename — verb form, disambiguates from declarative `has_*` predicates)* + **`normalizes_attribute`** |
 | **Callbacks (12)** | `before_save`(10) `before_destroy`(10) `after_create`(8) `after_destroy`(6) `before_create`(5) `before_validation`(4) `after_save`(4) `after_commit`(2) `after_update`(1) `after_validation`(1) `after_initialize`(1) `after_destroy_commit`(1) `around_destroy`(1) | **`has_callback{phase, target}`** |
 | **Concerns / module composition (6)** | `include`(311) `extend`(59) `class_methods`(22) `included`(35) `prepend`(4) `prepended`(1) | **`includes_module`** **`extends_module`** **`prepends_module`** **`concern_class_methods`** **`concern_included_block`** |
 | **Attributes — DB + virtual + visibility (13)** | `attribute`(18) `attr_accessor`(24) `attr_reader`(15) `attr_readonly`(2) `alias_attribute`(4) `alias_method`(4) `alias`(17) `undef_method`(1) `serialize`(10) `enum`(10) `store_attribute`(13) `store_accessor`(1) `define_attribute_method`(1) | **`has_attribute`** **`aliases_attribute`** **`aliases_method`** **`column_override`** |
 | **Delegation (1)** | `delegate`(38) | **`delegates_to`** |
 | **Scope / query DSL (3)** | `scope`(95) `default_scope`(11) `scopes`(26 — OpenProject plural) | **`has_scope`** **`has_default_scope`** |
 | **Ruby visibility / class structure (8)** | `private`(183) `protected`(33) `private_class_method`(16) `private_constant`(2) `class_attribute`(3) `module_function`(1) `self`(89) `class`(176) `module`(205) | *non-fact scope markers — consumed by the parser, not emitted* |
-| **OpenProject `acts_as_*` family (10)** | `acts_as_list`(10) `acts_as_attachable`(9) `acts_as_watchable`(6) `acts_as_searchable`(6) `acts_as_journalized`(6) `acts_as_event`(6) `acts_as_customizable`(5) `acts_as_tree`(3) `acts_as_favoritable`(3) `acts_as_url`(1) | **`mixes_in_acts_as{name, options}`** (one fact per variant) |
-| **OpenProject custom registrations (6)** | `register_journal_formatter`(27) `register_journal_formatted_fields`(13) `register_query`(1) `activity_provider_for`(6) `deprecated_alias`(6) `associated_to_ask_before_destruction`(1) `has_details_table`(1) | **`has_dsl_call{name, args}`** (catch-all — preserves queryability via the name slot) |
+| **OpenProject `acts_as_*` family (10)** | `acts_as_list`(10) `acts_as_attachable`(9) `acts_as_watchable`(6) `acts_as_searchable`(6) `acts_as_journalized`(6) `acts_as_event`(6) `acts_as_customizable`(5) `acts_as_tree`(3) `acts_as_favoritable`(3) `acts_as_url`(1) | **`acts_as{name, options}`** *(Round 1 rename — was `mixes_in_acts_as`; the `acts_as_*` family is its own idiom and the prefix duplicated `includes_module` semantics)* (one fact per variant) |
+| **OpenProject custom registrations (6) — Round 1 SPLIT** | `register_journal_formatter`(27 — own predicate) · `register_journal_formatted_fields`(13 — own predicate) · `register_query`(1) `activity_provider_for`(6) `deprecated_alias`(6) `associated_to_ask_before_destruction`(1) `has_details_table`(1) — catch-all | **`registers_journal_formatter`** + **`registers_journal_formatted_fields`** *(promoted — 27+13 = 40/54 = 74 % of mass; restores iron-rule type-safety on bulk)* + **`has_dsl_call{name, args}`** (long-tail only — 5 names ≤ 6 each) |
 | **Third-party gem DSL (5)** | `mount_uploader`(12 *carrierwave*) `has_paper_trail`(4) `has_closure_tree`(2) `counter_culture`(1) `auto_strip_attributes`(2) | **`mounts_uploader`** **`has_paper_trail`** **`has_closure_tree`** **`counter_cultures`** **`auto_strips`** |
-| **Metaprogramming (1)** | `define_method`(24) | **`defines_method_dynamically{name, body_source}`** — body kept verbatim (per `scope` precedent) |
+| **Metaprogramming (1)** | `define_method`(24) | **`defines_method{name, body_source}`** *(Round 1 rename — body_source slot already signals dynamism)* — body kept verbatim (per `scope` precedent); per-edge `Provenance::Inferred(0.85, 0.75)` override on these 24 sites (not `OpenProjectExtracted`; 1.4 % of declarations) |
 | **Refinements (1)** | `using`(2) | **`uses_refinement`** |
 
 Total: **78 names → 67 emit + 11 scope markers**. Coverage proof in §5
@@ -75,32 +75,31 @@ above, or test fails.
 
 ## 3. Deliverables
 
-### D-AR-1 — `ruff_spo_triplet::Predicate` vocab + `Provenance::OpenProjectExtracted` (target: `AdaWorldAPI/ruff`)
+### D-AR-1 — `ruff_spo_triplet::Predicate` vocab + `Provenance::OpenProjectExtracted` (target: `AdaWorldAPI/ruff`) *— Round 1 LOCKED via savant consolidation*
 
-Add the 22 new predicates above to the closed-vocab enum (`Predicate::*`,
-`as_str`, `from_str`, `default_provenance`). Add
+Add **23 new predicates** *(Round 1 final count, with the §2 fixes)* to the closed-vocab enum (`Predicate::*`, `as_str`, `from_str`, `default_provenance`). Add
 `Provenance::OpenProjectExtracted{file: PathBuf, line: u32}` variant
-distinct from `Extracted` (Odoo Python source) and `Aerial+::Mined`. Calibrate
-default `(f, c)` truth values per `truth-architect` savant output (Round 1).
+distinct from existing `Provenance::Authoritative(0.95, 0.90)` *(the actual existing tier name — corrected from the original handover's "Extracted")*, `Provenance::Inferred(0.85, 0.75)`, and `Provenance::Structural(1.0, 1.0)`.
+
+**Locked (f, c) — hand-tuned per `I-NOISE-FLOOR-JIRAK`:** `OpenProjectExtracted` = **`(0.95, 0.88)`**. Frequency tracks `Authoritative` (Python `@api.depends` is as truth-functionally certain as Ruby `belongs_to :project`); confidence drops 0.90 → 0.88 (two NARS revision-counts) to encode the Ruby metaprogramming surface delta (`class_methods do`, `included do`, `define_method`, `class << self`, dynamic constants) — small fraction of declarations unresolvable at static-AST time. Single tier (NOT split into `Static`/`DynamicallyResolved`) — the 24 `define_method` sites (1.4 %) use per-edge `Provenance::Inferred(0.85, 0.75)` override instead. Annotation comment text drafted by truth-architect (see `AGENT_LOG.md`).
 
 **Council gate:** dto-soa-savant + truth-architect must both ACK before merge,
-per `aerial-arm-ruff-spo-codegen-synergies.md` D-ARM-SYN-1.
+per `aerial-arm-ruff-spo-codegen-synergies.md` D-ARM-SYN-1. **Round 1 status: ACK from both.**
 
-**Acceptance:** `ndjson::from_ndjson` round-trips all 22 new predicate names;
+**Acceptance:** `ndjson::from_ndjson` round-trips all 23 new predicate names;
 the existing `mined_rules_serialise_to_spo_ndjson` test stays green.
 
-### D-AR-2 — `ruff_ruby_spo::RubyClass` IR expansion (target: `AdaWorldAPI/ruff`)
+**PR shape: lands with D-AR-2 in ONE ruff PR** per integration-lead consolidation (the predicate enum + the `Declaration → Triple` expansion test are coupled; council reviews vocab+expansion atomically).
 
-Replace `RubyClass.associations: Vec<String>` with structured `Vec<Declaration>`
-where `Declaration` is the discriminated union over the 67 emit categories.
-Per-association `AssocOptions` carries the 10 nested options
-(`class_name`, `dependent`, `optional`, `inverse_of`, `through`, `polymorphic`,
-`foreign_key`, `as`, `source`, `touch`). STI parent chain via
-`inherits_from: Option<String>` + `abstract_class: bool` + `inheritance_column: Option<String>`.
+### D-AR-2 — `ruff_ruby_spo::RubyClass` + `ruff_spo_triplet::Model` IR expansion (target: `AdaWorldAPI/ruff`) *— Round 1 LOCKED*
 
-**Acceptance:** unit tests cover each of the 67 categories with a hand-built
-`Declaration` → `Triple` expansion; the locked-shape test (already in
-ruff_ruby_spo) still passes.
+**Frontend IR** (`ruff_ruby_spo::RubyClass`): replace `associations: Vec<String>` with structured `declarations: Vec<Declaration>` discriminated union over the 67 emit categories. Per-association `AssocOptions` carries the 10 nested options (`class_name`, `dependent`, `optional`, `inverse_of`, `through`, `polymorphic`, `foreign_key`, `as`, `source`, `touch`). STI parent chain via `inherits_from: Option<String>` + `abstract_class: bool` + `inheritance_column: Option<String>`.
+
+**Shared IR** (`ruff_spo_triplet::Model`, per prior-art-savant Round 1): `ModelGraph` itself adds **zero new fields** (still `{namespace, models: Vec<Model>}`); growth lands on `Model` as 13 sibling-shape `Vec<…>` fields: `associations: Vec<AssocDecl>`, `validations: Vec<Validation>`, `callbacks: Vec<Callback>`, `concerns: Vec<ConcernRef>`, `attributes: Vec<AttrDecl>`, `delegations: Vec<Delegation>`, `scopes: Vec<ScopeDecl>`, `acts_as: Vec<ActsAs>`, `dsl_calls: Vec<DslCall>`, `gem_dsl: Vec<GemDsl>`, `dynamic_methods: Vec<DynMethod>`, `refinements: Vec<UsingRef>`, `sti: Option<StiInfo>`. `expand()` extends with new match arms only — **no new trait**, the crate has no trait surface and `expand` stays a free fn over IR structs (prior-art-savant verdict: ADDITIONS-ONLY, zero drift).
+
+**Acceptance:** unit tests cover each of the 67 categories with a hand-built `Declaration` → `Triple` expansion; the locked-shape test (already in ruff_ruby_spo) still passes.
+
+**PR shape: lands with D-AR-1 in ONE ruff PR** per integration-lead consolidation.
 
 ### D-AR-3 — `ruff_ruby_spo` extractor implementation — the `todo!()` replacement (target: `AdaWorldAPI/ruff`)
 
@@ -140,7 +139,7 @@ class + `DEFINE FIELD` per `has_attribute` + `DEFINE INDEX` per
 **Acceptance:** generated SurrealQL parses via `surrealdb-ast::parse_query`;
 the count of `DEFINE TABLE` ≈ 1696 class declarations minus abstract bases.
 
-### D-AR-6 — C16c bridge — `From<op_surreal_ast::*> for catalog::*` (target: `adaworldapi/openproject-nexgen-rs` *or* the surrealdb fork — TBD by integration-lead)
+### D-AR-6 — C16c bridge — `From<op_surreal_ast::*> for catalog::*` (target: **`AdaWorldAPI/surrealdb`** fork — LOCKED by integration-lead Round 1: Rust orphan rule + C16b builders live at fork `core/src/catalog/{table.rs, schema/field.rs, schema/index.rs}` per polyglot plan §2.2 line 64; the `From` impls must sit beside the `catalog::*` target types, not in `openproject-nexgen-rs` where only `op_surreal_ast::*` lives)
 
 Plumb the `op_surreal_ast::{TableDef, FieldDef, IndexDef}` into the surrealdb
 fork's `catalog::{TableDefinition, FieldDefinition, IndexDefinition}` so the
@@ -173,14 +172,15 @@ return. Main thread does the atomic-consolidation pass.
 | **truth-architect** | NARS (f, c) calibration grounded per `I-NOISE-FLOOR-JIRAK`; hand-tuned must say so | propose (f, c) defaults for `Provenance::OpenProjectExtracted` (separate from `Extracted` Python and `Aerial+::Mined`); justify against Jirak rate |
 | **integration-lead** | cross-repo PR set must land in dependency order; no consumer ahead of producer | sequence: D-AR-1 (predicates) → D-AR-2 (IR) → D-AR-3 (extractor) → D-AR-4 (coverage proof) → D-AR-5/6 (consumer). Stage gates per repo (ruff PR, lance-graph-contract validation, op-nexgen PR). |
 
-## 5. Sequencing
+## 5. Sequencing *(Round 1 LOCKED — integration-lead amendment applied)*
 
-- **Round 1 (parallel, this turn):** 4 savants research → main consolidates.
-- **Round 2 (sequential, post-consolidation):** D-AR-1 lands in `AdaWorldAPI/ruff`
-  (predicate vocab + Provenance variant) → D-AR-2 (IR expansion) → D-AR-3
-  (extractor real implementation) → D-AR-4 (coverage proof — the 100 % gate).
-- **Round 3 (parallel, after D-AR-4):** D-AR-5 (op-surreal-ast skeleton) and
-  D-AR-6 (C16c bridge) on `openproject-nexgen-rs`.
+- **Round 1 (parallel, complete 2026-06-15 ~20:55 UTC):** 4 savants research → main consolidates. **Status: DONE.** All 4 ACK + 4 amendments applied above.
+- **Round 2 (sequential, post-consolidation):**
+  - **PR X (`AdaWorldAPI/ruff`, branch `claude/ar-shape-coverage-ruff`):** D-AR-1 + D-AR-2 in ONE PR — predicate vocab (23 new) + `Provenance::OpenProjectExtracted(0.95, 0.88)` + `RubyClass.declarations: Vec<Declaration>` + `Model` IR expansion (13 new Vec fields) + Declaration→Triple unit tests. Gate: D-ARM-SYN-1 council ACK + ndjson 23-predicate round-trip.
+  - **PR Y (`AdaWorldAPI/ruff`, same branch, stacked or fast-followed on PR X):** D-AR-3 + D-AR-4 — `lib-ruby-parser` dep + real extractor over `app/models/` + **the 100 %-coverage proof test**. Gate: D-AR-4 green = THE 100 % GATE.
+- **Round 3 (parallel, can start any time after PR X merges):**
+  - **PR Z (`adaworldapi/openproject-nexgen-rs`, branch `claude/op-surreal-ast`):** D-AR-5 skeleton — parallelizes with PR Y per integration-lead (ndjson contract = firewall; consumer match-arm-extensibly against existing 7 predicates, new vocab grows handled cases never breaks contract). Gate: SurrealQL parses + `DEFINE TABLE` count matches.
+  - **PR W (`AdaWorldAPI/surrealdb` fork, branch `claude/c16c-op-surreal-ast-bridge` against `op-codegen-bridge` initiative):** D-AR-6 — `impl From<op_surreal_ast::{TableDef, FieldDef, IndexDef}> for catalog::{TableDefinition, FieldDefinition, IndexDefinition}`. Gate: D-PG-5 DDL ⇄ registry round-trip via dedup-by-URI mint.
 
 ## 6. Out of scope
 

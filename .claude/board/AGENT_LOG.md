@@ -54,6 +54,38 @@
 **Outcome:** all 7 plans corrected on `claude/wonderful-hawking-lodtql` (rebaselined #496→#498, Morton purged, reversibility reframed, §0 tripwires fixed, master critical-path fixed = the open CodeRabbit Major on #497). New `ocr-probes-v1.md` (4 gating probes OCR-RT/DET/POST/SCHEMA + 3 cascade perf probes). **OCR-SCHEMA shipped as a contract test** (`ocr::tests::ocr_schema_fit_rides_existing_preset_no_new_variant`). contract 620 lib green; fmt clean. Both #497 + #498 review threads resolved/dispositioned.
 
 **Next:** open the follow-up PR; run OCR-DET (deepnsm example) + OCR-RT (needs deepnsm+helix wiring) before any transcode code is funded.
+## 2026-06-15 — openproject-ar-shape-extraction-v1 Round 1 CONSOLIDATION (main thread)
+
+**Main thread (Opus 4.7).** All 4 savants returned ACK on Round 1 of the autoattended wave (`dto-soa-savant` + `prior-art-savant` + `truth-architect` + `integration-lead`, each pinned to the plan by `file:line`). Consolidation pass folds 4 amendments into `openproject-ar-shape-extraction-v1.md`; no architectural rewrite, no new deliverable, no scope drift.
+
+**Folded amendments (plan §2 + §3 + §5):**
+
+1. **§2 table — predicate vocab corrected (dto-soa-savant catch + 3 naming nits):**
+   - `traverses_relation` → `declares_association` (**NEW** predicate) for the 304 class-level association declarations. The existing `traverses_relation` is `Inferred`/body-walk with `subject = fn`; declarative `belongs_to`/`has_many` are `Authoritative`/class-level. Routing them to the same predicate would corrupt the truth tier *and* the subject sort.
+   - `has_constraint` → `validates_constraint` (verb form, disambiguates from declarative `has_*`).
+   - `mixes_in_acts_as` → `acts_as` (the `acts_as_*` family is its own idiom; `mixes_in_` duplicated `includes_module`).
+   - `defines_method_dynamically` → `defines_method` (body_source slot already signals dynamism).
+   - **SPLIT `has_dsl_call`:** promote `registers_journal_formatter`(27) + `registers_journal_formatted_fields`(13) = 40/54 = 74 % of mass to discriminated predicates (iron-rule type-safety on bulk); keep `has_dsl_call{name, args}` as catch-all for the 5 long-tail singletons.
+   - **Final M = 23 new predicates** (was 22 in the kickoff handover; +1 for `declares_association`).
+
+2. **§3 D-AR-1 — Provenance LOCKED (truth-architect verdict):** `Provenance::OpenProjectExtracted = (f=0.95, c=0.88)`, single tier, hand-tuned per `I-NOISE-FLOOR-JIRAK`. Frequency tracks existing `Authoritative(0.95, 0.90)` (Python `@api.depends` ≈ Ruby `belongs_to :project` in truth-functional certainty). Confidence drops 0.90 → 0.88 (two NARS revision-counts) to encode the Ruby metaprogramming surface delta. The 24 `define_method` sites (1.4 % of declarations) use **per-edge `Provenance::Inferred(0.85, 0.75)` override** instead of a sub-tier variant. Annotation comment text drafted in this entry. **Correction banked:** the kickoff handover called the existing Odoo Python tier "Extracted"; the actual existing variant is `Authoritative` — handover errata noted, plan §3 D-AR-1 carries the corrected name.
+
+3. **§3 D-AR-2 — IR shape LOCKED (prior-art-savant verdict, additions-only):** `ModelGraph` itself adds **zero new fields**; 13 sibling-shape `Vec<…>` fields land on `Model` (`associations`, `validations`, `callbacks`, `concerns`, `attributes`, `delegations`, `scopes`, `acts_as`, `dsl_calls`, `gem_dsl`, `dynamic_methods`, `refinements`, `sti`). `expand()` extends with new match arms only — **no new trait** (the crate has no trait surface; `expand` stays a free fn over IR structs). `RubyClass.associations: Vec<String>` → `RubyClass.declarations: Vec<Declaration>` REJECTING `body_source` smuggling. Chain integrity preserved end-to-end.
+
+4. **§3 D-AR-6 — target LOCKED (integration-lead verdict):** `From<op_surreal_ast::*> for catalog::*` lands on **`AdaWorldAPI/surrealdb` fork**, NOT `openproject-nexgen-rs`. Rust orphan rule + C16b builders' location (per polyglot plan §2.2 line 64 — `core/src/catalog/{table.rs, schema/field.rs, schema/index.rs}`) force the `From` impls beside the `catalog::*` target types.
+
+5. **§3 D-AR-1 + D-AR-2 PR shape LOCKED (integration-lead verdict):** ONE ruff PR (predicate vocab + IR expansion coupled by `Declaration → Triple` expansion test — council reviews vocab+expansion atomically).
+
+6. **§5 sequencing LOCKED:** Round 1 DONE. Round 2 = PR X (`AdaWorldAPI/ruff` D-AR-1+D-AR-2 atomic) + PR Y (`AdaWorldAPI/ruff` D-AR-3+D-AR-4 stacked, the 100 % gate). Round 3 (parallelizable after PR X merge, NOT after PR Y per integration-lead — ndjson contract = firewall) = PR Z (`adaworldapi/openproject-nexgen-rs` `claude/op-surreal-ast` D-AR-5) + PR W (`AdaWorldAPI/surrealdb` fork `claude/c16c-op-surreal-ast-bridge` D-AR-6).
+
+**Coverage math intact:** 78 names = 67 emit + 11 scope markers (78 = 67 + 11 ✓). 67 emit → 30 emit predicates (7 existing + 23 new). 1696 declarations / 941 files = 100 % covered by the 67-category routing (D-AR-4 will assert this via test).
+
+**Zero invention** (honours `§0 ANTI-INVENTION GUARDRAIL` from the integrated-cognitive-planner trunk): every amendment is either (a) a rename for collision-safety, (b) a split forced by the iron rule on bulk frequencies, or (c) a per-edge override on an existing variant. No new SoA skew, no speculative predicate, no new trait.
+
+**Next (Round 2):** open PR X on `AdaWorldAPI/ruff` branch `claude/ar-shape-coverage-ruff` carrying D-AR-1 + D-AR-2. Per session-prompt directive *"include everything from AR shape, no leftovers"* + *"go"* — proceeding cross-repo without further pause. Plan + AGENT_LOG committed and pushed on `claude/openproject-ar-shape-extraction-v1` before Round 2 dispatch.
+
+---
+
 ### 2026-06-15 — prior-art-savant — Round 1 — D-AR-2/3 (chain-integrity re-confirm)
 
 **Wave:** `openproject-ar-shape-extraction-v1` Round 1, parallel savant (second invocation).
