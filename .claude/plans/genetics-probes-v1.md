@@ -19,11 +19,17 @@
 
 ## Sequencing
 
-| Phase | Probe | Cost | Gates |
-|---|---|---|---|
-| **P0** | PROBE-CHAODA-1000G | ~3 days (after D-GEN-1+2) | The "CHAODA-as-novelty-detector" line of the entire plan |
-| **P1** | PROBE-KRAS-COUNTERFACTUAL-DET | ~2 days (included in D-GEN-7) | D-GEN-7 flagship dynamics-axis claim |
-| **P2** | PROBE-CAM-PQ-VS-BLAST | ~1 week | D-GEN-3 sequence-fingerprint claim |
+| Phase | Probe | Cost | Status | Gates |
+|---|---|---|---|---|
+| **P0** | PROBE-CHAODA-1000G | ~3 days (after D-GEN-1+2) | ⚠ **spike RUN — AUC 0.624, BELOW bar** (ndarray #219) | The "CHAODA-as-novelty-detector" line of the entire plan |
+| **P1** | PROBE-KRAS-COUNTERFACTUAL-DET | ~2 days (included in D-GEN-7) | queued | D-GEN-7 flagship dynamics-axis claim |
+| **P2** | PROBE-CAM-PQ-VS-BLAST | ~1 week | queued | D-GEN-3 sequence-fingerprint claim |
+
+**⚠ Blocker surfaced 2026-06-16:** the P0 spike (ndarray #219) shows the shipped
+single-method leaf-LFD `anomaly_scores` reaches only AUC 0.624 on ideal synthetic
+data. Porting the multi-method CHAODA ensemble (Ishaq et al. 2021) is now a
+**prerequisite for PROBE-CHAODA-1000G**, ahead of any genomic-fixture work. See
+the ⚠ FINDING under PROBE-CHAODA-1000G below.
 
 **Critical-path note:** PROBE-CHAODA-1000G is the single highest-leverage probe.
 If it fails (AUC < 0.85 on novel-variant detection against ClinVar Pathogenic
@@ -48,7 +54,43 @@ probe is a regression gate, not a discovery gate).
 > singletons from common population variants at ROC-AUC ≥ 0.85 on a
 > held-out test fold drawn from 1000-Genomes Phase 3 + ClinVar.
 
-### Current evidence (CONJECTURE)
+### ⚠ FINDING (spike substitute RUN 2026-06-16) — single-method LFD is BELOW the bar
+
+The 1-day spike substitute (see §Cost below) has been **run** against the
+shipped kernel (`ndarray` PR #219, `test_chaoda_flags_novel_outliers_in_genetics_like_mixture`).
+On a 5-lane Gaussian mixture — three tight "common" clusters + eight
+deliberately extreme "novel" outliers, thermometer-encoded so Hamming
+distance is monotone in per-lane L1 magnitude — the shipped single-method
+leaf-LFD `anomaly_scores` measured:
+
+| metric | value |
+|---|---|
+| mean cluster score | 0.6749 |
+| mean outlier score | 0.7500 |
+| frac cluster ≥ 0.5 | 0.733 |
+| frac outlier ≥ 0.5 | 0.750 |
+| **ROC-AUC** | **0.6240** |
+
+**AUC 0.624 on the easiest possible case is well below the ≥ 0.85 bar.**
+The cause is mechanical and now proven: leaf `LFD = log₂(|B(c,r)|/|B(c,r/2)|)`
+measures *intra-leaf* geometry complexity, not *inter-leaf* isolation, so an
+isolated singleton lands in a leaf whose LFD is comparable to a dense
+cluster's, and the global min-max normalisation compresses both into the
+same score band. The CHAODA ensemble of Ishaq et al. 2021 combines several
+graph-based signals (relative/component cardinality, graph neighbourhood,
+random-walk stationary distribution, vertex degree); **only the LFD signal is
+shipped today.**
+
+**Consequence for this probe:** `PROBE-CHAODA-1000G` as specified — using
+the shipped single-method `anomaly_scores` — would NOT pass even with perfect
+genomic fixtures. Before any D-GEN spend on the CHAODA-1000G fixture pipeline,
+the substrate needs **the multi-method CHAODA ensemble ported** (or an
+augmented anomaly signal). The §1.4 *"unsupervised novel-variant detection"*
+claim in `docs/GENETIC_RESEARCH_VIA_STACK.md` is **NOT supported by the
+shipped kernel alone** and is now caveated there. This is the
+evidence-before-build payoff: the gap is caught before the adapter is funded.
+
+### Current evidence (CONJECTURE → partially FINDING, see ⚠ above)
 
 - The CHAODA kernel is shipped and validated for language-embedding
   anomaly scoring (`ndarray/src/hpc/clam.rs:1493-1567`, Phase 4 section).
@@ -97,32 +139,45 @@ Each lane normalised to `[0, 1]` against its empirical CDF on the training fold.
    layout (`ndarray/src/hpc/clam.rs`, HEEL=16 / HIP=256 / TWIG=4096 per
    `lance-graph/.claude/session_2026_04_11_bf16_hhtl_combined_research.md`).
 2. Project held-out vectors through the tree (assign to leaf cluster).
-3. Compute `anomaly_scores(held_out_bytes, vec_len=5)` → `Vec<AnomalyScore>`.
-4. Compute ROC-AUC of `AnomalyScore.score` against ground-truth label.
-5. Compute per-quartile (`AwarenessState`) confusion matrix to characterise
-   *where* on the LFD distribution the discriminative signal lives.
+3. Compute anomaly scores via the **ported multi-method ensemble**
+   (`D-GEN-CHAODA-ENSEMBLE`, see DAG-honesty below) — NOT the single-method
+   `anomaly_scores`. The shipped `anomaly_scores(held_out_bytes, vec_len=5)` →
+   `Vec<AnomalyScore>` (single leaf-LFD signal) is the **known-bad baseline**
+   that the ⚠ FINDING measured at AUC 0.624; run it too, but only as the
+   baseline column the ensemble must beat. The probe's accept/reject decision
+   reads the **ensemble** score, not `AnomalyScore.score`.
+4. Compute ROC-AUC for BOTH score columns against ground-truth label:
+   (a) the ensemble score (the gated number), (b) the single-LFD
+   `AnomalyScore.score` baseline (expected ≈ 0.62, the regression floor).
+5. Compute per-quartile confusion matrix on the ensemble score to characterise
+   *where* the discriminative signal lives.
 
 ### Pass condition
 
-- **ROC-AUC ≥ 0.85** on the held-out fold.
-- **Per-quartile separation:** Pathogenic-class fraction in
-  `AwarenessState::Noise` ≥ 3× the Pathogenic-class fraction in
-  `AwarenessState::Crystallized`. (Sanity check that the LFD signal is
-  actually in the high-LFD tail, not noise.)
+- **Ensemble ROC-AUC ≥ 0.85** on the held-out fold. (The single-LFD baseline
+  is NOT gated — it is recorded only to confirm the ensemble's lift over the
+  known AUC ≈ 0.62 floor.)
+- **Per-quartile separation (ensemble score):** Pathogenic-class fraction in
+  the top score quartile ≥ 3× the Pathogenic-class fraction in the bottom
+  quartile. (Sanity check that the signal is in the anomalous tail, not noise.)
 - Tree-quality probes from ndarray PR #218 stay green
   (silhouette ≥ 0.4 on training fold, Cronbach α ≥ 0.7 across the 5 lanes).
 
 ### Fail mode → what it means
 
-- AUC < 0.85 ⇒ CHAODA-on-genomic-features does NOT recover supervised-classifier
-  discrimination. The whole "unsupervised novel-variant detection" claim in
+- Ensemble AUC < 0.85 ⇒ even the multi-method CHAODA ensemble on genomic
+  features does NOT recover supervised-classifier discrimination. The whole
+  "unsupervised novel-variant detection" claim in
   `GENETIC_RESEARCH_VIA_STACK.md` §1.4 collapses. Either the feature vector is
-  underdetermined (add more lanes), or the LFD-based anomaly framing doesn't
+  underdetermined (add more lanes), or the LFD/graph-anomaly framing doesn't
   capture biological-novelty geometry (rethink composition).
-- AUC ≥ 0.85 but Pathogenic-class fraction in `Crystallized` ≥ `Noise` ⇒ the
-  signal is real but **inverted** — common variants land in high-LFD regions
-  (perhaps because of greater linkage / regulatory complexity). Useful but the
-  current `AwarenessState` polarity must be re-documented before publication.
+- Ensemble AUC ≈ single-LFD baseline (≈ 0.62) ⇒ the ensemble port added no
+  lift; the graph-based signals are not separating on this manifold either —
+  escalate before any genomic-fixture spend.
+- Ensemble AUC ≥ 0.85 but top-quartile Pathogenic fraction ≤ bottom-quartile ⇒
+  the signal is real but **inverted** — common variants land in the anomalous
+  band (perhaps from greater linkage / regulatory complexity). Useful but the
+  score polarity must be re-documented before publication.
 
 ### Cost
 
@@ -133,6 +188,11 @@ Each lane normalised to `[0, 1]` against its empirical CDF on the training fold.
   synthesised 5-dim Gaussian-mixture data with one "outlier" component;
   verify the anomaly_scores fire on the outlier component. This is a
   smoke test for the kernel, NOT for the genomic-novelty claim.
+  **DONE 2026-06-16 — `ndarray` PR #219.** Result: AUC 0.624 (see the ⚠
+  FINDING above). The kernel runs deterministically and the polarity is
+  correct (outliers ≥ cluster mean) but the single-method LFD signal is
+  far too weak — the multi-method ensemble is the prerequisite, not the
+  genomic fixtures.
 
 ---
 
@@ -279,6 +339,35 @@ fails, the adapter scaffold (D-GEN-1..4) still has value — VCF round-trip,
 CAM-PQ k-mer fingerprints, classid mint — but the §1.4 novelty-detection
 story must be retracted and the GENETIC_RESEARCH_VIA_STACK.md hand-off
 re-shaped before further external-audience use.
+
+**Update 2026-06-16 — the spike already fired the first warning.** The P0
+spike (ndarray #219) measured AUC 0.624 with the *shipped single-method
+leaf-LFD* signal. This does NOT retract the whole probe — it relocates the
+prerequisite: **before** PROBE-CHAODA-1000G can pass, the multi-method
+CHAODA ensemble (Ishaq et al. 2021: relative/component cardinality, graph
+neighbourhood, random-walk stationary distribution, vertex degree) must be
+ported into `ndarray::hpc::clam`. That ensemble port is now the true P0
+work item; the genomic-fixture pipeline (which depends on D-GEN-1+2) is
+gated behind it. The §1.4 hand-off has been caveated rather than retracted —
+the pattern match is sound, the single shipped signal is not yet sufficient,
+and the honest path is "port the ensemble, then re-run the spike, then build
+the fixture." A new candidate deliverable falls out of this:
+
+> **D-GEN-CHAODA-ENSEMBLE (new, prerequisite to PROBE-CHAODA-1000G):** add the
+> multi-method CHAODA anomaly ensemble to `ndarray::hpc::clam` as a **new
+> scoring entry point** (e.g. `ensemble_anomaly_scores(...) -> Vec<AnomalyScore>`,
+> name TBD at implementation), combining the graph-based signals of Ishaq et
+> al. 2021. The existing single-method `anomaly_scores` is **kept unchanged as
+> the documented baseline / regression** (the ndarray #219 spike's `auc < 0.85`
+> tripwire stays green on it). **`PROBE-CHAODA-1000G` Step 3 must call the new
+> ensemble entry point, not `anomaly_scores`** — that wiring is part of this
+> deliverable, otherwise the genomic probe would re-measure the known-bad
+> AUC-0.624 path. Re-run the ndarray #219 spike against the ensemble; gate at
+> AUC ≥ 0.85 on the synthetic mixture *before* genomic fixtures are built.
+> Lift: ~1 week (the graph-construction primitives — cluster cardinality,
+> neighbourhood, random-walk — are mostly present in the CLAM tree already;
+> the ensemble combination + per-method scoring + the probe-API wiring is the
+> new code).
 
 **PROBE-CHAODA-1000G fires first, even though chronologically D-GEN-1..2 must
 ship first.** That ordering is a substrate-economic decision (cheaper to
