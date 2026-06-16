@@ -341,3 +341,5 @@ turning a modeling assumption into a testable claim.
 | Fidelity ladder = iterations vs a limiting fork | cheap→medium→fork adds columns + swaps solver; never rewrites the field tier |
 | Uniform constant prior vs noise | a constant adds NO heterogeneity (relative shape clean); random fill fabricates structure — never fill missing data with noise |
 | Uniform-aging null vs density-proxy Gegenhypothese | uniform = relative-invariant null; density-proxy = genuine topology-derived heterogeneity that *should* bend the shape — they are competing hypotheses, validated against the observed footprint |
+| DC overload cascade vs voltage collapse | the 28 Apr 2025 Iberian blackout was **voltage/reactive driven** (ENTSO-E expert panel), NOT line-overload — the DC cascade screens *structural* vulnerability, the voltage *trigger* needs the AC fork; do not claim the DC path reproduces that event (see `DATA_SOURCES.md` §5) |
+| Electrical mechanism vs human footprint | the cascade/voltage event is the *mechanism*; excess mortality (147 deaths, Eurosurveillance) is the *consequence/severity* — validate them separately |
