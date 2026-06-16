@@ -1,3 +1,27 @@
+## 2026-06-16 — 4-task unblock-cascade landing: NiblePath::from_guid_prefix + MailboxSoaOwner cherry-pick + LanceVersionScheduler + SurrealMailboxView (D-PG-6 contract slice)
+
+**Main thread (Opus 4.7) — single agent**, four ordered tasks responding to the user's "1 2 3 and 4" go-ahead on the shortest-unblocking-path list surfaced after #497-#501 + the surrealdb fork bump (`AdaWorldAPI/surrealdb` PR #34/#35/#36/#37 → main at `3aa6ab9` with `lance=7.0.0`/`lancedb=0.30.0`). All four committed together on `claude/odoo-savant-reasoners`, branch fast-forwarded through `cb14704`.
+
+**Tasks shipped (in dep order, smaller → larger):**
+
+1. **(3) `lance_graph_contract::hhtl::NiblePath::{from_guid_prefix, prefix}`** — the ontology-side keystone follow-up of #498 (`classid → ReadMode`). Deterministic 20→16 nibble fold of `classid_lo(4) | HEEL(4) | HIP(4) | TWIG(4)` (root-first), returns `None` when the canon-reserved high `u16` of classid is in use (refuses the lossy fold). `prefix(d)` is the O(1) single-shot ancestor view that satisfies `prefix(d).is_ancestor_of(self)` for every `d ≤ self.depth`. Zero-dep. +7 tests in `hhtl::tests` (612 → 619 → 632 contract lib green; clippy/fmt clean).
+
+2. **(2) `impl MailboxSoaView + MailboxSoaOwner for MailboxSoA<N>`** — cherry-pick of commit `463d71b` (jolly-cori-clnf9, the +149 LOC the integrated-cognitive-planner-v1 §2 named as Seam #3). Adds `pub phase: KanbanColumn` field + zero-copy `repr(transparent)` slice impls (`edges_raw` / `meta_raw`) + the in-RAM Rubicon driving loop. The contract spine (#437/#439) now drives an actual loop — no surreal, no ractor bus needed for the in-process case. +1 driving-loop test (`test_in_ram_driving_loop_walks_rubicon_to_commit`, walks Planning → CognitiveWork → Evaluation → Commit with the −550 µs Libet anchor). 86 driver lib tests green.
+
+3. **(1) `lance_graph::graph::scheduler::LanceVersionScheduler`** — D-MBX-9-IN core impl (the CI-gated twin of the contract slice D-MBX-9-IN shipped 2026-05-31). Wraps a `VersionedGraph` + inner `VersionScheduler<S = NextPhaseScheduler>` and lowers a Lance `versions()` tick into the next legal `KanbanMove` via `drive_once` / `drive_at_latest` / `current_dataset_version`. Closes `E-SUBSTRATE-IS-THE-SCHEDULER`'s OUT-direction end-to-end. +5 tests, real on-disk tempdir Lance (no mocks). New module wired in `crates/lance-graph/src/graph/mod.rs`.
+
+4. **(4) `surreal_container::view::SurrealMailboxView`** — D-PG-6 contract slice (polyglot-container-query-membrane-v1 §D-PG-6). Read-only `MailboxSoaView` adapter that a SurrealQL projection over kv-lance populates via `from_columns(...)` — pure zero-copy borrow, no SurrealQL types cross the cognitive-side seam. Module imports `MailboxSoaView` but NOT `MailboxSoaOwner` (compile-time enforcement of the "surreal=project-read-only" ruling, `kanban.rs:1-21`). `read_via_kv_lance()` returns the new typed `SurrealContainerError::BlockedColdBuild` until the surrealdb fork dep in `Cargo.toml` is uncommented (kept off by default to avoid the cold-build cost on contributors who don't need it). +4 tests. New `lance-graph-contract` dep added to `surreal_container/Cargo.toml`; `BLOCKED(C)` note updated to RESOLVED.
+
+**Test summary (this session):** lance-graph-contract **632** (+7) · cognitive-shader-driver **86** (+1) · lance-graph::graph::scheduler **5** (new) · surreal_container::view **4** (new). All clippy `-D warnings` clean on my files (pre-existing lints in `lance-graph-ontology`/`lance-graph-planner`/`ndarray_bridge.rs` ignored — out of session scope).
+
+**Cross-PR unblocks closed by this commit:**
+- D-MBX-9-IN-impl → SHIPPED (the contract trait now has a real Lance-backed implementor).
+- D-MBX-A6-P3 (planner emit KanbanMove) → still queued, BUT Seams #3 (the loop) is now in-tree, so a downstream session can wire the emit-side without depending on the unmerged jolly branch.
+- D-PG-6 (Rubicon kanban VIEW over surrealdb) → contract slice SHIPPED (typed `MailboxSoaView` impl); impl-side gated on `BlockedColdBuild` flip-on.
+- Identity-architecture v1 §3 P-SCOPE-CLASSIFY blocker → solved (`from_guid_prefix` is deterministic + bijective + ancestor-preserving).
+
+**Discipline:** PR_ARC entry deferred until merge commit; board hygiene (LATEST_STATE Contract Inventory + EPIPHANIES E-UNBLOCK-CASCADE-1) landed in the SAME commit per the mandatory rule.
+
 ## 2026-06-16 — 5-specialist framing of #497 OCR-transcode plans → plans rebaselined to #498 + probes spec'd
 
 **Main thread (Opus 4.8 1M) + 5 Opus specialists in parallel** (cascade-architect / family-codec-smith / palette-engineer / dto-soa-savant / truth-architect), each read the 7 merged #497 plans + post-#498 source in full (Rule 7 — read, don't grep-judge). Operator: *"review the plans against your awareness of the new architecture incl. the last 15 PR arc (Morton Cascade + Helix 48 + turbovec residue) — send 5 specialist framing it."* See `EPIPHANIES.md` E-OCR-PLAN-DRIFT-1 for the consolidated framing.

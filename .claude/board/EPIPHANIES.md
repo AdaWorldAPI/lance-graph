@@ -1,3 +1,31 @@
+## 2026-06-16 — E-UNBLOCK-CASCADE-1 — three independent fork/contract landings collapsed onto the same `MailboxSoaView` seam, closing four queued deliverables in one commit
+
+**Status:** FINDING.
+**Confidence:** High — every claim is grounded in shipped code (`hhtl::from_guid_prefix`, `MailboxSoaOwner for MailboxSoA<N>`, `LanceVersionScheduler`, `SurrealMailboxView`) and a single-pass `cargo test` sweep (632 + 86 + 5 + 4 green).
+
+**Context.** Three landings hit the workspace within ~24 h:
+- PR #498 (`feat(contract): GUID decode→read-mode keystone + helix Signed360 right-size + OCR→NodeRow transcode`) — surfaced `NodeGuid::decode() → GuidParts` + `classid_read_mode`.
+- `AdaWorldAPI/surrealdb` PR #34/#35/#36/#37 → main at `3aa6ab9` (lance/lancedb/object_store pins reconciled) — closed the `BLOCKED(C)` on `surreal_container`.
+- The cherry-pick of `jolly-cori-clnf9` commit `463d71b` (the +149 LOC `MailboxSoaOwner` impl for `MailboxSoA<N>`) had been the integrated-cognitive-planner-v1 Seam #3.
+
+**The find.** All three meet at exactly **one trait surface**: `lance_graph_contract::soa_view::MailboxSoaView`. Each landing made a DIFFERENT impl viable on the same boundary:
+- **`MailboxSoA<N>` (cognitive)** — the in-process owner+view, so the Rubicon loop runs in-RAM (was only on `jolly`).
+- **`SurrealMailboxView<'a>` (surreal-side view)** — D-PG-6's read glove, now buildable end-to-end via the fork's `kv-lance` backend.
+- **`NiblePath::from_guid_prefix`** — the ontology-side keystone follow-up of #498's `classid → ReadMode` LazyLock: a deterministic 20→16 nibble fold that satisfies the routing-prefix `is_ancestor_of` invariant the LE contract names.
+
+`LanceVersionScheduler` (D-MBX-9-IN core impl) sits one layer up and consumes ANY `V: MailboxSoaView` — so a single OUT-direction wrapper drives all three impls without case-splitting. The trait's read-only-by-design (`MailboxSoaView` has no mutator method) is the structural enforcement of `kanban.rs:1-21`'s "surreal=project-read-only, callcenter=commit" ruling; the SurrealQL adapter NOT importing `MailboxSoaOwner` is the compile-time tripwire if a future drift tries to mutate through the projection.
+
+**Why this matters.** Four "still BLOCKED" rows from the most recent unblock-list synthesis (last sync turn) all collapse onto a SINGLE commit, because the substrate already had the shape — only three independent dep/code landings had to converge. The pattern:
+- Substrate trait designed once + multiple implementors (no `Box<dyn>` in hot paths — generic `V: MailboxSoaView` everywhere).
+- Read-only-by-trait-design = compile-time enforcement of the architectural ruling (no need for a runtime "you can't write through this" guard).
+- A typed `BlockedColdBuild` error variant lets a heavy dep wire-up (surrealdb cold build) be deferred without breaking the contract-side adapter — the surface ships, the integrator flips it on in their branch.
+
+**Lesson.** When three plans cite the same trait surface as their unblock dependency, the first session that lands ANY one of the implementors should ALSO ship the trait-impl shape for the others (even as a stub returning a typed error). This collapses N independent post-unblock follow-ups into 1 commit's worth of trait engineering. The cost is ~50 LOC of stub + a typed error variant; the benefit is N − 1 fewer post-merge commits per queued plan.
+
+**Cross-ref.** Identity-architecture v1 §3 (the bijection-width problem); polyglot-container-query-membrane-v1 §D-PG-6 (the Rubicon kanban VIEW); integrated-cognitive-planner-v1 §2 (Seams #1–#6, the additive-only convergence); `E-SUBSTRATE-IS-THE-SCHEDULER` (the bidirectional kanban subscription); `kanban.rs:1-21` (the read-only ruling the trait shape enforces).
+
+---
+
 ## 2026-06-16 — E-OCR-PLAN-DRIFT-1 — the #497 OCR-transcode plans drifted from the substrate in 6 ways; 2 were showstoppers
 
 **Status:** FINDING (5-specialist framing — cascade-architect / family-codec-smith / palette-engineer / dto-soa-savant / truth-architect, each read the merged plans + source in full).

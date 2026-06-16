@@ -16,32 +16,39 @@ build on.
 Depends on task 01 (deps_substrate) being resolved before compiling.
 """
 
-# ── BLOCKED(C): FULLY RESOLVED 2026-06-14 (coordinates verified against the fork) ──
+# ── BLOCKED(C): RESOLVED 2026-06-16 (fork lance/lancedb pins aligned to workspace) ──
 #
-# All coordinates confirmed by reading github.com/AdaWorldAPI/surrealdb via GH_TOKEN+REST
-# (the scoped git PROXY denies it, but github.com w/ token reaches any fork — the earlier
-# "inaccessible" / "session-auth" framing was wrong):
+# Coordinates confirmed against the fork (github.com/AdaWorldAPI/surrealdb):
 #   • git URL = https://github.com/AdaWorldAPI/surrealdb        ✅
-#   • branch  = feat/sdk-forward-kv-lance                       ✅ (Lance KV backend is
-#     INTEGRATED here at surrealdb/core/src/kvs/lance/{mod,schema,timeline,tx_buffer,
-#     background_optimizer,cnf,tests}.rs — not WIP, fully present on this branch)
+#   • branch  = main                                            ✅ (was feat/sdk-forward-kv-lance;
+#     PRs #34 (ndarray pin) / #35 (SDK kv-lance forwarding) / #36 (Lance backend struct +
+#     endpoint helper) / #37 (C16c bridge From<op_surreal_ast::*> for catalog::*) ALL
+#     merged to main; lance/lance-index =7.0.0 + lancedb =0.30.0 since 2026-06-16)
 #   • feature = kv-lance                                        ✅ (surrealdb/core/Cargo.toml:27
 #     `kv-lance = ["dep:lance","dep:lance-index","dep:lancedb","dep:arrow-array","dep:arrow-schema"]`)
 #
-# The fork ALREADY pulls our stack (its Cargo.lock pins): lance-graph-contract 0.1.0,
-# lance 6.0.0, lance-index 6.0.0, lancedb 0.29.0, ndarray 0.16.1 + 0.17.2. So this is NOT
-# a from-scratch integration — the deps are wired in the fork.
+# Version reconcile DONE: surrealdb fork now pins lance =7.0.0 / lance-index =7.0.0 /
+# lancedb =0.30.0 (matches this workspace). PR #34 also pinned ndarray fork exact-rev.
+# Unblocks D-PG-6 (Rubicon kanban VIEW), D-MBX-9 OUT (LanceVersionScheduler over
+# versions() — shipped in lance-graph::graph::scheduler), identity-architecture Phase H
+# (SurrealQL read glove). See TD-SURREALDB-KVLANCE-LANCE7 closure note.
 #
-# REAL REMAINING ITEM = version reconcile (NOT access, branch, or feature):
-#   fork pins lance 6.0.0 / lancedb 0.29.0 ; this crate pins lance =7.0.0 / lancedb =0.30.0.
-#   Align the workspace on ONE lance/lancedb line before building (the lance family moves
-#   in lockstep). Then build-verify (cargo git-fetches the fork; mind the SurrealDB
-#   cold-build disk cost). Until aligned, the dep stays commented so the manifest resolves.
+# OPERATIONAL NOTE: uncommenting the dep below triggers a cold surrealdb build (~hundreds
+# of crates, ~10+ min cold). This crate keeps the surrealdb dep commented so default
+# `cargo check` stays fast for non-surreal contributors; the kv-lance integrator
+# uncomments it in their branch and takes the cold-build cost. The contract-side
+# adapter (`view.rs`) ships independently and depends only on lance-graph-contract.
 
 [dependencies]
-# ── BLOCKED(C) RESOLVED: uncomment once lance/lancedb are aligned across the workspace
-#    (fork is 6.0.0/0.29.0; this crate is 7.0.0/0.30.0) — see note above ──────────
-# surrealdb = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "feat/sdk-forward-kv-lance", default-features = false, features = ["kv-lance"] }
+# ── BLOCKED(C) RESOLVED 2026-06-16: surrealdb fork now aligned at lance=7.0.0 /
+# lancedb=0.30.0 (PR #34/#35/#36/#37 merged to main). Uncomment to wire kv-lance
+# real I/O — note the cold-build cost (~10+ min for the surrealdb crate graph).
+# Until uncommented, the contract-side `view.rs` adapter compiles and ships
+# the MailboxSoaView surface with a documented `BlockedColdBuild` stub.
+# surrealdb = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "main", default-features = false, features = ["kv-lance"] }
+
+# Contract types the view glove (`view.rs`) implements.
+lance-graph-contract = { path = "../lance-graph-contract" }
 
 lance    = "=7.0.0"
 lancedb  = { version = "=0.30.0", optional = true, default-features = false }
