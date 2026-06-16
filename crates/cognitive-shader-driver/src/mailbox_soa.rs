@@ -112,8 +112,12 @@ pub struct MailboxSoA<const N: usize> {
     /// `ActorStatus`; see `.claude/knowledge/orchestration-boundary-v1.md`).
     /// Mutated only via [`MailboxSoaOwner::advance_phase`] /
     /// [`MailboxSoaOwner::try_advance_phase`]; starts at
-    /// [`KanbanColumn::Planning`].
-    pub phase: KanbanColumn,
+    /// [`KanbanColumn::Planning`]. Read it through the
+    /// [`MailboxSoaView::phase`] getter. `pub(crate)` (not `pub`) so the
+    /// "mutated only via the owner trait" invariant is compiler-enforced — a
+    /// downstream crate cannot assign an arbitrary column directly and bypass
+    /// the lifecycle DAG check + `KanbanMove` emission (PR #507 review).
+    pub(crate) phase: KanbanColumn,
 }
 
 /// Default capacity: 1024 rows (4× current BindSpace row count).
