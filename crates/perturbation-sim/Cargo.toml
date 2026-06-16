@@ -60,3 +60,35 @@ path = "examples/reinforce.rs"
 [[example]]
 name = "hhtl_resident"
 path = "examples/hhtl_resident.rs"
+
+[[example]]
+name = "meta_hops"
+path = "examples/meta_hops.rs"
+
+[[example]]
+name = "validate_mediators"
+path = "examples/validate_mediators.rs"
+
+[[example]]
+name = "rolling_floor"
+path = "examples/rolling_floor.rs"
+
+[[example]]
+name = "modifier_validity"
+path = "examples/modifier_validity.rs"
+
+[[example]]
+name = "resilience"
+path = "examples/resilience.rs"
+
+[[example]]
+name = "buffer"
+path = "examples/buffer.rs"
+
+[[example]]
+name = "explore"
+path = "examples/explore.rs"
+
+[[example]]
+name = "scorecard"
+path = "examples/scorecard.rs"
