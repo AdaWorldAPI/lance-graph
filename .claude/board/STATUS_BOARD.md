@@ -1,3 +1,19 @@
+## openproject-ar-shape-extraction-v1 — 100 %-coverage `ruff_ruby_spo` against `OpenProject/app/models` + `op-surreal-ast` SurrealQL DDL emitter (7 deliverables; 78-name DSL surface measured)
+
+Plan path: `.claude/plans/openproject-ar-shape-extraction-v1.md`. Branch: `claude/openproject-ar-shape-extraction-v1`. Handover: `.claude/handovers/2026-06-15-2050-openproject-ar-shape-wave-kickoff.md`. Surface census: `/tmp/cov-repro/openproject-78-name-surface.txt`. Companions: `aerial-arm-ruby-spo-codegen-synergies` (the bracket map), `normalized-entity-holy-grail-v1` (trunk), `polyglot-container-query-membrane-v1` (D-PG-5 = D-AR-5/6). Proposed debt anchor: `TD-RUBY-DEFINE-METHOD-DYNAMIC` (24 `define_method` calls with static-unresolvable names). Proposed epiphany: `E-AR-SHAPE-IS-78-NAMES` (the OpenProject corpus has a bounded surface; 100 % is a real number).
+
+| D-id | Title | Crate(s) / repo | Risk | Status | PR / Evidence |
+|---|---|---|---|---|---|
+| D-AR-1 | `ruff_spo_triplet::Predicate` vocab extension (+22) + `Provenance::OpenProjectExtracted{file, line}` variant; council-gated (D-ARM-SYN-1) | `AdaWorldAPI/ruff::ruff_spo_triplet` | LOW-MED | **Queued** | gated on Round-1 savant consensus; ~50 LOC + ndjson closed-vocab test update |
+| D-AR-2 | `RubyClass` IR expansion → `Vec<Declaration>` discriminated union over 67 categories + STI parent chain + nested assoc options | `AdaWorldAPI/ruff::ruff_ruby_spo` | MED | **Queued** | gates D-AR-3; ~300 LOC |
+| D-AR-3 | `ruff_ruby_spo` extractor real implementation (the `todo!()` replacement) — `lib-ruby-parser` dep, walks `app/models/**/*.rb`, dispatches on the 78-name surface, recurses concerns + namespaces | `AdaWorldAPI/ruff::ruff_ruby_spo` | MED-HIGH | **Queued** | depends on D-AR-1/2; ~600 LOC + tests |
+| D-AR-4 | **100 %-coverage proof test** — zero `Unclassified`, predicate-frequency table within ±5 %, ndjson round-trips via `parse_triples` | `AdaWorldAPI/ruff::ruff_ruby_spo` | MED | **Queued** | **THE GATE** — Round 3 cannot start until D-AR-4 is green |
+| D-AR-5 | `op-surreal-ast` skeleton — ndjson → SurrealQL `DEFINE TABLE/FIELD/INDEX` via surrealdb-fork C16b `new_for_ddl` builders | `adaworldapi/openproject-nexgen-rs::op-surreal-ast` | MED | **Queued** | depends on D-AR-4; parallel with D-AR-6 |
+| D-AR-6 | C16c bridge — `From<op_surreal_ast::*> for catalog::*` plumbing DDL into `lance-graph-contract::callcenter::ogit_uris` | `adaworldapi/openproject-nexgen-rs` *or* `AdaWorldAPI/surrealdb` (integration-lead decides) | MED | **Queued** | depends on D-AR-4; parallel with D-AR-5 |
+| D-AR-7 | Board hygiene — plan file, this STATUS_BOARD section, INTEGRATION_PLANS prepend, handover, TECH_DEBT `TD-RUBY-DEFINE-METHOD-DYNAMIC` | `.claude/` | LOW | **In progress** | this commit |
+
+---
+
 ## entropy-ladder-spo-rung-v1 — Staunen↔Wisdom entropy coordinate unifies SPO rungs + NARS reliability (R1 shipped; R2–R6 roadmap)
 
 Plan path: `.claude/plans/entropy-ladder-spo-rung-v1.md`. Foundation: `ndarray::hpc::{reliability, edge_codec, entropy_ladder}`. Selector: `lance-graph-contract::EdgeCodecFlavor`.

@@ -1,3 +1,23 @@
+## 2026-06-15 — openproject-ar-shape-extraction-v1 (100 %-coverage `ruff_ruby_spo` against `OpenProject/app/models` + `op-surreal-ast` SurrealQL DDL emitter — finishes the SCAFFOLD ruff_ruby_spo names + lands the polyglot D-PG-5 DDL bridge)
+
+**Status:** PROPOSAL — Round 1 autoattended wave in flight. **Plan file:** `.claude/plans/openproject-ar-shape-extraction-v1.md`. **Branch:** `claude/openproject-ar-shape-extraction-v1` (lance-graph) + `claude/ar-shape-coverage-ruff` (AdaWorldAPI/ruff, planned) + `claude/op-surreal-ast` (openproject-nexgen-rs, planned).
+**Surface measured this session:** 78 distinct class-body DSL names across `OpenProject/app/models/**/*.rb` (941 files, 1696 declarations). Saved: `/tmp/cov-repro/openproject-78-name-surface.txt`. 67 emit categories + 11 scope markers = 100 % accounted-for.
+**Owns:** 7 deliverables D-AR-{1..7}.
+- D-AR-1: `ruff_spo_triplet::Predicate` vocab extension (+22 predicates over the existing 7) + `Provenance::OpenProjectExtracted{file, line}` variant; council-gated per D-ARM-SYN-1 (dto-soa-savant + truth-architect)
+- D-AR-2: `RubyClass` IR expansion — `Vec<String>` → `Vec<Declaration>` discriminated union over the 67 categories; STI parent chain; nested association options (`class_name`, `dependent`, `polymorphic`, `through`, `optional`, `inverse_of`, …)
+- D-AR-3: `ruff_ruby_spo` extractor real implementation — `lib-ruby-parser` dep, walks `app/models/**/*.rb`, dispatches on the 78-name surface, recurses concerns + namespaces
+- D-AR-4: **the 100 %-coverage proof test** — every class-body line either emits ≥ 1 Triple or matches the 11-name scope-marker allowlist; predicate-frequency table matches §2 ± 5 %; ndjson round-trips via `parse_triples`
+- D-AR-5: `op-surreal-ast` skeleton in `openproject-nexgen-rs` — ndjson → SurrealQL `DEFINE TABLE/FIELD/INDEX` via the surrealdb-fork C16b `new_for_ddl` builders
+- D-AR-6: C16c bridge — `From<op_surreal_ast::*> for catalog::*` plumbing the DDL into `lance-graph-contract::callcenter::ogit_uris`
+- D-AR-7: board hygiene (this commit) + `TD-RUBY-DEFINE-METHOD-DYNAMIC` for the one category the extractor cannot statically resolve
+**Companions:** `aerial-arm-ruby-spo-codegen-synergies` (the bracket map), `normalized-entity-holy-grail-v1` (the trunk consuming the ndjson), `polyglot-container-query-membrane-v1` (D-PG-5 = our D-AR-5/6).
+**Anchored debt (proposed):** `TD-RUBY-DEFINE-METHOD-DYNAMIC` (the 24 `define_method` calls where the static parser cannot resolve the method name). **Anchored epiphany (candidate):** `E-AR-SHAPE-IS-78-NAMES` (the OpenProject corpus has a bounded 78-name surface; 100 % is a real number, not a hand-wave).
+**Wave:** Round 1 autoattended (4 savants: dto-soa-savant + prior-art-savant + truth-architect + integration-lead) → main thread atomic-consolidation → Round 2 sequential (D-AR-1 → D-AR-2 → D-AR-3 → D-AR-4 = the 100 % gate) → Round 3 parallel (D-AR-5 + D-AR-6 cross-repo).
+**Handover:** `.claude/handovers/2026-06-15-2050-openproject-ar-shape-wave-kickoff.md`.
+**Out of scope:** Aerial+ rule mining over extracted SPO (separate `streaming-arm-nars-discovery-v1`); coverage of `controllers/`/`services/`/`lib/` (Phase 2); consumer-side `normalized-entity-holy-grail-v1` integration (separate plan iteration).
+
+---
+
 ## 2026-06-15 — integrated-cognitive-planner-v1 (ONE Rubicon/kanban/ractor/thinking-style/AST↔Elixir planner; ~90% EXISTS, 6 additive seams + addressing + cognitive-cycle sequencer)
 
 **Status:** RESEARCH MAP + REFERENCE DOC (capture-before-dilution; pre-expansion). **Plan file:** `.claude/plans/integrated-cognitive-planner-v1.md`.
