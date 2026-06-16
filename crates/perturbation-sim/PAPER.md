@@ -333,14 +333,18 @@ tier-to-tier λ₂ change, monotonically rising ⇒ all-`+`):
 | TWIG | 5.65e-6 | 0.392 | + | 3.0 | +0.344 | +1.822 | 0.44 | 1.68 |
 | LEAF | 8.88e-6 | 0.032 | + | 2.0 | +0.130 | +1.951 | 0.36 | 2.04 |
 
-All-aligned phase ⇒ penetration depth 4/4; the coarse→fine inertia ramp puts the
-fast seconds in the leaf tiers (dt 0.68 → 0.36 s), and the cumulative ~2 s lands
-in the **electromechanical / low-inertia** regime — the same mechanism class as
-the 27 s event (the absolute scale depends on `ΔP`, relay band, and the true
-`H`-ramp; this run uses illustrative values). The lesson the model encodes: a
-deep four-tier cascade needs **phase alignment AND low leaf-inertia** — break
-either (a phase flip at one tier, or more synchronous inertia at the leaves) and
-the front self-arrests or slows below the protection window.
+The **front penetration is 3/4** (arriving `|signed_amp|` 1.0 → 0.48 → 0.34 ≥ 0.25,
+then 0.13 at the leaf where the gain `g→0` absorbs it). Front reach is **gain-driven
+and phase-independent** (`|±x|=x`); what the all-aligned phase buys is a *growing
+interference field* (peak `|Σ|=1.95`) — alternating phases would cancel it. The
+coarse→fine inertia ramp puts the fast seconds in the leaf tiers (dt 0.68 → 0.36 s),
+and the cumulative ~2 s lands in the **electromechanical / low-inertia** regime — the
+same mechanism class as the 27 s event (the absolute scale depends on `ΔP`, relay
+band, and the true `H`-ramp; this run uses illustrative values). The lesson the model
+encodes: a deep cascade needs **passing gains (weak field × strong infight) AND low
+leaf-inertia** — break either (more connectivity at a tier, or more synchronous
+inertia at the leaves) and the front self-arrests or slows below the protection
+window; phase separately decides whether the bundled field reinforces or cancels.
 
 *Honest status: CONJECTURE [H]. The gain law is `meta_cascade`; the phase+inertia
 refinement is `meta_cascade_phase`. The structural phase (sign of Δλ₂) and the
@@ -357,11 +361,16 @@ Summe): **Betrag** über die Durchlass-Verstärkung `gᵢ = Infightᵢ·(1−Rau
 **Bündelung (laufende Summe) vorzeichenbehafteter Beiträge** — gleichgerichtete
 Phasen verstärken (tiefe Kaskade), alternierende löschen aus (Selbst-Arrest in
 den oberen Ebenen). **Trägheit** stellt die Uhr `dtᵢ` (Schwinggleichung,
-`H`-Rampe grob→fein). Am realen ES-Kern: alle Phasen `+` ⇒ Eindringtiefe 4/4,
-die schnellen Sekunden in den Blatt-Ebenen (dt 0,68 → 0,36 s), kumulativ ~2 s im
-**elektromechanischen** Regime — dieselbe Mechanismus-Klasse wie die 27 s. Lehre:
-eine tiefe Kaskade braucht **Phasen-Ausrichtung UND niedrige Blatt-Trägheit** —
-bricht eines von beiden, arretiert die Front. Status: Vermutung [H]; Phase (Δλ₂)
+`H`-Rampe grob→fein). Am realen ES-Kern: **Front-Eindringtiefe 3/4** (ankommendes
+`|signed_amp|` 1,0 → 0,48 → 0,34 ≥ 0,25, dann 0,13 am Blatt, wo `g→0` absorbiert).
+Die Front-Reichweite ist **verstärkungs-getrieben und phasen-unabhängig** (`|±x|=x`);
+die gleichgerichtete Phase erzeugt ein *wachsendes Interferenzfeld* (Spitze
+`|Σ|=1,95`), alternierende Phasen würden es auslöschen. Schnelle Sekunden in den
+Blatt-Ebenen (dt 0,68 → 0,36 s), kumulativ ~2 s im **elektromechanischen** Regime —
+dieselbe Mechanismus-Klasse wie die 27 s. Lehre: eine tiefe Kaskade braucht
+**durchlassende Verstärkungen UND niedrige Blatt-Trägheit** — bricht eines von
+beiden, arretiert die Front; die Phase entscheidet separat über Feld-Verstärkung
+oder -Auslöschung. Status: Vermutung [H]; Phase (Δλ₂)
 und Trägheits-Rampe sind Platzhalter, Kalibrierung gegen beobachtete Kaskade ist
 die [H]→[G]-Probe.
 

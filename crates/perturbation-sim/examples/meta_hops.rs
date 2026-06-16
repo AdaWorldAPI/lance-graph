@@ -232,8 +232,10 @@ fn main() {
         );
     }
     let total = trace.last().map(|h| h.t).unwrap_or(0.0);
+    let field_peak = trace.iter().map(|h| h.field.abs()).fold(0.0, f64::max);
     println!(
-        "\n  penetration depth (|field| ≥ 0.25): {depth} tiers\n  \
+        "\n  front penetration (arriving |signed_amp| ≥ 0.25): {depth} tiers\n  \
+         interference field peak |Σ|: {field_peak:.3}  (phase-governed: grows if aligned)\n  \
          cumulative wall-clock: {total:.1} s  →  {}",
         mechanism_from_timescale(total)
     );

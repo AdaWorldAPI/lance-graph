@@ -181,10 +181,15 @@ pub struct MetaHop {
 /// tell falls out of low inertia (short `dt`) over a few deep hops.
 ///
 /// Returns `(per-tier MetaHop trace, penetration_depth)` where
-/// `penetration_depth` = the number of tiers whose interference field magnitude
-/// stays `≥ threshold` (how deep the phase-aware perturbation actually reaches).
-/// CONJECTURE [H]: a modeling refinement of `meta_cascade`; needs a probe
-/// against an observed multi-tier cascade before promotion to FINDING.
+/// `penetration_depth` = the number of tiers the **arriving** contribution
+/// `|signed_ampᵢ|` stays `≥ threshold` — the front reach. It is **gain-driven and
+/// hence phase-independent** (`|±x| = x`): phase governs the `field` interference
+/// (constructive grows, alternating cancels — read it off the `MetaHop.field`
+/// column), magnitude/gain governs how deep the front propagates. Counting depth
+/// from the cumulative `field` would overstate the reach once a tier absorbs the
+/// front (Codex #509 P2). CONJECTURE [H]: a modeling refinement of `meta_cascade`
+/// (it adds the clock + the interference field); needs a probe against an observed
+/// multi-tier cascade before promotion to FINDING.
 #[allow(clippy::too_many_arguments)]
 pub fn meta_cascade_phase(
     raumgewinn: &[f64],
@@ -233,7 +238,13 @@ pub fn meta_cascade_phase(
             dt,
             t,
         });
-        if field.abs() >= threshold {
+        // Penetration depth follows the ARRIVING contribution `|signed_amp|` (the
+        // front), NOT the cumulative `field`. Once a tier absorbs (g→0) the front
+        // dies and no deeper tier is reached, even though the bundled `field`
+        // retains the earlier seed — counting from `field` would overstate the
+        // reach (Codex #509 P2). The front magnitude is phase-independent (|±x|=x),
+        // so phase governs the `field` interference, not the depth.
+        if signed_amp.abs() >= threshold {
             depth += 1;
         }
 
@@ -315,12 +326,14 @@ mod tests {
     }
 
     #[test]
-    fn phase_alignment_decides_penetration_depth() {
-        // Same magnitudes (gains [1,1,1,0]); only the phase pattern differs.
-        // Aligned phases bundle constructively (field grows 1→2→3→4); alternating
-        // phases cancel (field 1→2→1→0).
+    fn phase_governs_the_field_not_the_front_depth() {
+        // Same magnitudes (gains [1,1,1,0]); only the phase pattern differs. The
+        // arriving front |signed_amp| is identical (phase = ±1 ⇒ |·| unchanged), so
+        // penetration depth is EQUAL — phase does NOT change the front reach. What
+        // phase DOES change is the bundled `field`: aligned phases reinforce
+        // (1→2→3→4), alternating phases cancel (1→2→1→0). (Post Codex #509 P2.)
         let h = [3.0, 3.0, 3.0, 3.0];
-        let (con, deep) = meta_cascade_phase(
+        let (con, depth_con) = meta_cascade_phase(
             &PASS_RAUM,
             &PASS_FIGHT,
             &[1, 1, 1, 1],
@@ -328,9 +341,9 @@ mod tests {
             0.1,
             0.2,
             0.2,
-            1.5,
+            0.5,
         );
-        let (alt, shallow) = meta_cascade_phase(
+        let (alt, depth_alt) = meta_cascade_phase(
             &PASS_RAUM,
             &PASS_FIGHT,
             &[1, -1, 1, -1],
@@ -338,17 +351,17 @@ mod tests {
             0.1,
             0.2,
             0.2,
-            1.5,
+            0.5,
         );
-        assert!(
-            deep > shallow,
-            "constructive phase reaches deeper: {deep} > {shallow}"
+        assert_eq!(
+            depth_con, depth_alt,
+            "front reach is phase-independent: {depth_con} == {depth_alt}"
         );
         let con_max = con.iter().map(|hp| hp.field.abs()).fold(0.0, f64::max);
         let alt_max = alt.iter().map(|hp| hp.field.abs()).fold(0.0, f64::max);
         assert!(
             alt_max < con_max,
-            "alternating phase self-arrests: peak field {alt_max} < {con_max}"
+            "alternating phase self-arrests the FIELD: peak {alt_max} < {con_max}"
         );
     }
 

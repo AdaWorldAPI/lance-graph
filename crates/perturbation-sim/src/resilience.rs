@@ -41,6 +41,16 @@ pub fn kirchhoff_index(eigenvalues: &[f64], tol: f64) -> f64 {
     if n == 0 {
         return 0.0;
     }
+    // A connected graph has EXACTLY one zero mode ⇒ n−1 finite eigenvalues. If
+    // there are fewer (≥2 zero modes), the graph is disconnected and the
+    // cross-component effective resistance is infinite — so Kf must be ∞, not the
+    // finite sum over the live components. Returning the finite sum here would
+    // rank an already-fragmented compartment as RESILIENT (low Kf), the opposite
+    // of the truth. (Codex #509 P1.)
+    let finite = eigenvalues.iter().filter(|&&l| l > tol).count();
+    if finite < n - 1 {
+        return f64::INFINITY;
+    }
     let inv_sum: f64 = eigenvalues
         .iter()
         .filter(|&&l| l > tol)
@@ -114,6 +124,30 @@ mod tests {
             // λ₂ of K_n is n.
             assert!((algebraic_connectivity(&eig.values) - n as f64).abs() < 1e-6);
         }
+    }
+
+    #[test]
+    fn disconnected_graph_has_infinite_kirchhoff() {
+        // Two disjoint edges (0–1, 2–3): 2 components ⇒ 2 zero modes ⇒ Kf = ∞,
+        // NOT the finite sum over each live component. A disconnected compartment
+        // must rank as the LEAST resilient, not the most. (Codex #509 P1.)
+        let g = Grid::new(
+            4,
+            vec![Edge::new(0, 1, 1.0, 1.0), Edge::new(2, 3, 1.0, 1.0)],
+        );
+        let eig = symmetric_eigen(&g.laplacian_of(&vec![true; g.edges.len()]), g.n);
+        let cert = Resilience::from_eigenvalues(&eig.values, 1e-9);
+        assert!(cert.kirchhoff.is_infinite(), "disconnected ⇒ Kf = ∞");
+        assert!(cert.mean_resistance().is_infinite(), "and mean R = ∞");
+        // λ₂ ≈ 0 for the disconnected graph (the second zero mode).
+        assert!(cert.lambda2 < 1e-9, "disconnected ⇒ λ₂ ≈ 0");
+        // The single-edge connected case is finite (n−1 = 1 finite mode): Kf(P₂)=2.
+        let p2 = Grid::new(2, vec![Edge::new(0, 1, 1.0, 1.0)]);
+        let e2 = symmetric_eigen(&p2.laplacian_of(&[true]), 2);
+        assert!(
+            kirchhoff_index(&e2.values, 1e-9).is_finite(),
+            "connected ⇒ finite"
+        );
     }
 
     #[test]
