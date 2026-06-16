@@ -12,6 +12,7 @@ method:
 | **Basin / HHTL field tier** | Kron reduction (Schur complement — basin→super-node, cross-border), effective-resistance metric + spectral embedding (electrical Morton/HHTL coords), Cheeger sweep (`μ₂/2 ≤ h ≤ √(2μ₂)` — the field↔cut exchange rate), and the Go-meta `infight_vs_raumgewinn` regime. | `basin.rs` |
 | **Fast-sketch synergy** (PROTOTYPE) | Spielman–Srivastava resistance sketch via random ±1 (`vsa_bundle`) projections + Walsh/Morton pyramid coarse↔fine collapse screen. The VSA/Hamming side of the field tier. | `sketch.rs` |
 | **Gaussian-splat magnitude side** (PROTOTYPE) | anisotropic `Σ` fit to the electrical neighbourhood + EWA pyramid coarsen (Morton-seam anti-alias) + `morton2`. The magnitude algebra complementing the Walsh sign side. | `splat.rs` |
+| **Data-shaped scoping** | run on today's data; `assess_capability` gates which outputs are valid; missing variables modeled as uniform constants (provably free for relative results); `AgeModel` = Uniform null vs DensityProxy Gegenhypothese (topology-only) vs ModernizationSpend (official planning data). | `model.rs` |
 
 > **Methods & math grounding:** see [`METHODS.md`](METHODS.md) — the one-operator
 > grounding that connects all four, the anti-dilution distinctions (combinatorial
