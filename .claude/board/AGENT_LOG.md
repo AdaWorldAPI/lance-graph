@@ -1,3 +1,13 @@
+## 2026-06-16 — 5-specialist framing of #497 OCR-transcode plans → plans rebaselined to #498 + probes spec'd
+
+**Main thread (Opus 4.8 1M) + 5 Opus specialists in parallel** (cascade-architect / family-codec-smith / palette-engineer / dto-soa-savant / truth-architect), each read the 7 merged #497 plans + post-#498 source in full (Rule 7 — read, don't grep-judge). Operator: *"review the plans against your awareness of the new architecture incl. the last 15 PR arc (Morton Cascade + Helix 48 + turbovec residue) — send 5 specialist framing it."* See `EPIPHANIES.md` E-OCR-PLAN-DRIFT-1 for the consolidated framing.
+
+**Two showstoppers:** (1) the "reversible without a hash" migration rationale is FALSE in code (no `residue→rank` inverse; `vocabulary.rs` is a stored string-table keyed by rank) — truth-architect; (2) the "Morton-tile stacked-pyramid perturbation-shader cascade" does NOT exist (0 hits; Morton rejected for Hilbert) — cascade-architect. **Convergent drift (≥4 lenses):** dead 48 B HelixResidue (now 6 B), D-OCR-50 already shipped (#498), `ValueSchema::Ocr`/`Meta`-5-jobs/`TurbovecResidue`-wrong-carrier §0 tripwires, HHTL = coherent address-trie not a blur.
+
+**Outcome:** all 7 plans corrected on `claude/wonderful-hawking-lodtql` (rebaselined #496→#498, Morton purged, reversibility reframed, §0 tripwires fixed, master critical-path fixed = the open CodeRabbit Major on #497). New `ocr-probes-v1.md` (4 gating probes OCR-RT/DET/POST/SCHEMA + 3 cascade perf probes). **OCR-SCHEMA shipped as a contract test** (`ocr::tests::ocr_schema_fit_rides_existing_preset_no_new_variant`). contract 620 lib green; fmt clean. Both #497 + #498 review threads resolved/dispositioned.
+
+**Next:** open the follow-up PR; run OCR-DET (deepnsm example) + OCR-RT (needs deepnsm+helix wiring) before any transcode code is funded.
+
 ## 2026-06-15 — integrated-cognitive-planner-v1: 3-hardener verdicts folded (§9) + §0 anti-invention guardrail
 
 **Main thread (Opus 4.8 1M) + 3 Opus brutal hardeners** (PP-13 brutally-honest-tester / PP-15 baton-handoff-auditor / PP-16 preflight-drift-auditor), all pinned to the plan by `file:line`. Verdicts: **HOLD / CATCH-LATENT / READY-TO-DISPATCH** — all fixes spec-text, no architectural rewrite; all three confirmed the grounding + dependency-wall claims + measure-first ratio.

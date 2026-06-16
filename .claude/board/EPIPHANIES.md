@@ -1,3 +1,26 @@
+## 2026-06-16 — E-OCR-PLAN-DRIFT-1 — the #497 OCR-transcode plans drifted from the substrate in 6 ways; 2 were showstoppers
+
+**Status:** FINDING (5-specialist framing — cascade-architect / family-codec-smith / palette-engineer / dto-soa-savant / truth-architect, each read the merged plans + source in full).
+**Confidence:** High — every claim cited plan file:line vs current source file:line; convergent across ≥4 lenses for the load-bearing ones.
+
+**Context.** #497 (Tesseract→tesseract-rs transcode plan family, 7 design docs) and #498 (helix `Signed360` + GUID keystone) merged within hours. The #497 plans were authored against the pre-#498 branch, so they reason against a substrate that shifted under them. Five specialists framed the merged plans against the post-#498 architecture.
+
+**The two showstoppers:**
+1. **The "reversible without a hash" rationale is false in code** (truth-architect). The migration's headline — "OCR text reconstructs from residue + codebook, no string column" — has no support: `deepnsm/vocabulary.rs` maps `rank→&str` via a stored table, every decode entry point takes a *known* rank as input, and there is no `residue→rank` inverse (helix encode is lossy). The "reversible residue" was a renamed stored string-table keyed by index — the very thing it claimed to avoid.
+2. **The "Morton-tile stacked-pyramid perturbation-shader cascade" does not exist** (cascade-architect). 0 hits in either repo; Morton is explicitly *rejected* for Hilbert (`linalg/hilbert.rs:50`). Three deliverables (D-OCR-52, the reconstruction round-trip, the whole soa-centroid synthesis plan) were built on a fabricated subsystem name.
+
+**Convergent drift (≥4 lenses):**
+- Plans argue "HelixResidue is 48 B, category-wrong, don't use it" — #498 made it **6 B** (a stored `Signed360` place index), which IS the keep-the-index design the plan wanted. Every byte budget was dead (Full 154→112, carve `[32,186)`→`[32,144)`).
+- D-OCR-50 (`LayoutBlock::to_node_row`) already SHIPPED in #498 — described as future work.
+- §0 tripwires: `ValueSchema::Ocr` (5th preset variant = anti-invention violation; ride Full/Compressed); `Meta` u64 overloaded 5 ways (split → Energy/Plasticity/residues/content-store); `TurbovecResidue` is the *edge* codec (rank-only fidelity) — wrong carrier for glyph→word (use DeepNSM CamCodes).
+- HHTL Doc→Page→Block→Line→Token onto HEEL/HIP/TWIG+family is a *coherent address-trie, NOT a Frankenstein* (family-codec + cascade) — but it spends the similarity-basin semantics on layout, so OCR nodes must be `classid`-marked as layout-addressed.
+
+**Disposition.** All 7 plans corrected (rebaselined to #498; Morton purged → real primitives `framebuffer::build_mipmap_pyramid` / `splat3d/depth_cascade` / CAKES; reversibility reframed to identity→content-store + codebook-as-repair-signal; §0 tripwires fixed; master critical-path fixed per the open CodeRabbit Major). Unmeasured claims (int8-exact LSTM, bit-reproducible diff, 200k-LOC 1:1 layout) gated behind 4 probes in `ocr-probes-v1.md` (OCR-RT/DET/POST/SCHEMA); **OCR-SCHEMA shipped as a contract test** proving OCR rides an existing preset (no new `ValueSchema` variant).
+
+**Lesson.** When two PRs touch the same substrate within hours, the later merge silently invalidates the earlier plan's premises. Plans citing sizes/budgets/file:line must be rebaselined the moment a substrate PR lands — and "reversible / never-stored" claims must be PROVEN against the actual decode path before becoming a migration's rationale.
+
+---
+
 ## 2026-06-13 — E-TURBOVEC-AMX-WRONG-TOOL-1 — AMX accelerates the operation TurboQuant deliberately removed
 
 **Status:** FINDING (benchmarked; AVX-512+VNNI host, `amx_available=false`).

@@ -232,4 +232,40 @@ mod tests {
             "a tenant the transcode doesn't populate stays zero"
         );
     }
+
+    #[test]
+    fn ocr_schema_fit_rides_existing_preset_no_new_variant() {
+        // Probe OCR-SCHEMA (.claude/plans/ocr-probes-v1.md): the OCR value tenants
+        // fit an EXISTING ValueSchema preset, so a 5th `ValueSchema::Ocr` enum variant
+        // is NOT needed (#496 §0 anti-invention). The codec-residue set OCR rides —
+        // HelixResidue + TurbovecResidue + EntityType (+ Fingerprint) — is exactly
+        // `Compressed`; everything else OCR could want is in the POC `Full` default.
+        let compressed = ValueSchema::Compressed;
+        for t in [
+            ValueTenant::HelixResidue,
+            ValueTenant::TurbovecResidue,
+            ValueTenant::EntityType,
+            ValueTenant::Fingerprint,
+        ] {
+            assert!(
+                compressed.has(t),
+                "Compressed already carries {t:?} — OCR rides it"
+            );
+        }
+        // The shipped transcode rides POC `Full`, which carries every tenant OCR touches
+        // (incl. Meta anchor / Energy confidence / Plasticity provenance).
+        let full = ValueSchema::Full;
+        for t in [
+            ValueTenant::HelixResidue,
+            ValueTenant::TurbovecResidue,
+            ValueTenant::EntityType,
+            ValueTenant::Meta,
+            ValueTenant::Energy,
+            ValueTenant::Plasticity,
+        ] {
+            assert!(full.has(t), "Full POC default carries {t:?}");
+        }
+        // Both presets are layout-preserving — riding either needs no ENVELOPE_LAYOUT_VERSION bump.
+        assert!(compressed.is_layout_preserving() && full.is_layout_preserving());
+    }
 }
