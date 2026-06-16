@@ -53,10 +53,12 @@ pub mod cascade;
 pub mod eigen;
 pub mod flow;
 pub mod graph;
+pub mod ingest;
 pub mod perturbation;
 
 pub use cascade::{simulate_outage, CascadeConfig, CascadeResult, PerturbationShape};
 pub use eigen::{symmetric_eigen, Eigen};
 pub use flow::{dc_flows, lodf};
 pub use graph::{Edge, Grid};
+pub use ingest::{estimate_snom_mva, from_pypsa_csv, PypsaImport};
 pub use perturbation::{spectral_perturbation, SpectralPerturbation};
