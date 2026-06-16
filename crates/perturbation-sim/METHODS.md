@@ -323,6 +323,40 @@ model with the highest criterion validity *is the evidence* for which aging
 story (uniform / density-correlated / spend-driven) best explains the blackout —
 turning a modeling assumption into a testable claim.
 
+## 10. SIMD acceleration + the live-encoding carrier
+
+### `ndarray-simd` feature (the Morton-pyramid transform, accelerated)
+The pyramid's Walsh–Hadamard transform routes through **`ndarray::simd::wht_f32`**
+(AVX-512/AMX under `target-cpu=x86-64-v4`) — the one workspace-sanctioned SIMD
+source (never raw intrinsics here). Default **OFF** → scalar `fwht`, zero-dep;
+**ON** via `--features ndarray-simd` (ndarray fork as a git/path dep, `["std"]`).
+Both paths pass the same tests. Deeper *tile-specific* ndarray targets, to wire
+as the SoA tile layout matures: `simd_soa::MultiLaneColumn` (byte-backed SoA
+column → `f32x16`/`f64x8`/`u8x64` lanes — the natural Morton-tile field store),
+`hpc::codec::ctu` (HEVC **quadtree** = the Morton tile), `hpc::linalg::hilbert`
+(space-filling curve), and `hamming_distance_raw`/`U8x64` (the XOR **sign** side).
+
+### Live 4-factor encoding — generic residue carrier, NOT an electricity tenant
+The four factors (`d_lambda2`, `dk_rotation`, `d_conductance`, `infight`,
+`raumgewinn`) are **abstract signed spectral magnitudes** — already unit-free —
+so they fit the **generic helix `Signed360` residue tenant** (6 B/factor, signed
+full-sphere, the `HelixResidue` contract value-tenant), *not* a bespoke
+electricity tenant. The load-bearing reason: `Signed360`'s distance is
+**L1-metric-safe**, so **Spearman/ICC computed on the residue-encoded factors ≈
+on the raw f64** — the statistics battery survives the encoding. Roles:
+- **Carrier (live stream/store):** helix `Signed360` residue — 6 B/factor,
+  metric-safe; a contingency's 5-factor record ≈ 30 B, streamable + comparable
+  by L1.
+- **Search ("which past contingencies resemble this now"):** `turbovec` ANN
+  (2–4 bit/dim, data-oblivious) over the factor vectors — episodic retrieval.
+- **Compute:** the f64 field tier — definitive stats on **raw f64**; residue +
+  turbovec are storage/stream/search carriers, never the compute.
+
+Reserve **electricity-specific** encoding for the **raw physical layer** (AC
+`|V|`, MW — where units actually bite), never the factor layer. (`Signed360` is
+256-palette lossy, ±½ bucket — fine for a live screen/stream; compute exact
+stats on raw. `turbovec` is coarse — retrieval, not values.)
+
 ## Anti-dilution table — the distinctions to never collapse
 
 | Do NOT conflate | Because |
@@ -343,3 +377,5 @@ turning a modeling assumption into a testable claim.
 | Uniform-aging null vs density-proxy Gegenhypothese | uniform = relative-invariant null; density-proxy = genuine topology-derived heterogeneity that *should* bend the shape — they are competing hypotheses, validated against the observed footprint |
 | DC overload cascade vs voltage collapse | the 28 Apr 2025 Iberian blackout was **voltage/reactive driven** (ENTSO-E expert panel), NOT line-overload — the DC cascade screens *structural* vulnerability, the voltage *trigger* needs the AC fork; do not claim the DC path reproduces that event (see `DATA_SOURCES.md` §5) |
 | Electrical mechanism vs human footprint | the cascade/voltage event is the *mechanism*; excess mortality (147 deaths, Eurosurveillance) is the *consequence/severity* — validate them separately |
+| Generic Signed360 residue tenant vs electricity-specific tenant | the 4 factors are unit-free spectral magnitudes → the generic L1-metric-safe residue carries them (stats survive); reserve a bespoke electricity tenant for the raw `|V|`/MW layer only |
+| Residue/turbovec carrier vs the compute | residue (store/stream) + turbovec (search) are carriers; the definitive 4-factor values + stats are computed on raw f64, never on the lossy code |

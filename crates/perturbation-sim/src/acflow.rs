@@ -416,10 +416,26 @@ mod tests {
         // (With charging, zero load still lifts V slightly — the Ferranti effect.)
         let sys = AcSystem::new(
             vec![
-                AcBus { kind: BusKind::Slack, p: 0.0, q: 0.0, v_set: 1.0 },
-                AcBus { kind: BusKind::Pq, p: 0.0, q: 0.0, v_set: 1.0 },
+                AcBus {
+                    kind: BusKind::Slack,
+                    p: 0.0,
+                    q: 0.0,
+                    v_set: 1.0,
+                },
+                AcBus {
+                    kind: BusKind::Pq,
+                    p: 0.0,
+                    q: 0.0,
+                    v_set: 1.0,
+                },
             ],
-            vec![AcLine { from: 0, to: 1, r: 0.02, x: 0.1, b_shunt: 0.0 }],
+            vec![AcLine {
+                from: 0,
+                to: 1,
+                r: 0.02,
+                x: 0.1,
+                b_shunt: 0.0,
+            }],
         );
         let r = sys.solve(50, 1e-10);
         assert!(r.converged);

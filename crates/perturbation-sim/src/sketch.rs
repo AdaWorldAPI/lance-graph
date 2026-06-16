@@ -94,7 +94,25 @@ pub fn resistance_sketch(
 
 // ── Walsh / Morton pyramid screen ────────────────────────────────────────────
 
+/// Walsh–Hadamard dispatch: the SIMD `ndarray::simd::wht_f32` when the
+/// `ndarray-simd` feature is on (the Morton pyramid transform, accelerated),
+/// else the scalar [`fwht`]. The pyramid energy is a screen, so the f32 SIMD
+/// path's precision is ample.
+#[cfg(feature = "ndarray-simd")]
+fn wht_dispatch(a: &mut [f64]) {
+    let mut f: Vec<f32> = a.iter().map(|&x| x as f32).collect();
+    ndarray::simd::wht_f32(&mut f);
+    for (d, s) in a.iter_mut().zip(f) {
+        *d = s as f64;
+    }
+}
+#[cfg(not(feature = "ndarray-simd"))]
+fn wht_dispatch(a: &mut [f64]) {
+    fwht(a);
+}
+
 /// In-place fast Walsh–Hadamard transform (length must be a power of two).
+/// Scalar reference; the accelerated path is [`wht_dispatch`].
 pub fn fwht(a: &mut [f64]) {
     let n = a.len();
     let mut h = 1;
@@ -132,7 +150,7 @@ pub fn walsh_pyramid_energy(field: &[f64]) -> WalshEnergy {
     }
     let mut a = vec![0.0; n];
     a[..field.len()].copy_from_slice(field);
-    fwht(&mut a);
+    wht_dispatch(&mut a);
 
     let levels = (n as f64).log2() as usize + 1;
     let mut per = vec![0.0; levels];

@@ -14,6 +14,11 @@ method:
 | **Gaussian-splat magnitude side** (PROTOTYPE) | anisotropic `Σ` fit to the electrical neighbourhood + EWA pyramid coarsen (Morton-seam anti-alias) + `morton2`. The magnitude algebra complementing the Walsh sign side. | `splat.rs` |
 | **Data-shaped scoping** | run on today's data; `assess_capability` gates which outputs are valid; missing variables modeled as uniform constants (provably free for relative results); `AgeModel` = Uniform null vs DensityProxy Gegenhypothese (topology-only) vs ModernizationSpend (official planning data). | `model.rs` |
 
+> **SIMD:** the Morton/Walsh pyramid transform optionally routes through
+> `ndarray::simd::wht_f32` (AVX-512/AMX) via `--features ndarray-simd`
+> (`RUSTFLAGS='-C target-cpu=x86-64-v4'`); default is the zero-dep scalar path.
+> All SIMD comes from `ndarray::simd` (workspace rule). See `METHODS.md §10`.
+
 > **Methods & math grounding:** see [`METHODS.md`](METHODS.md) — the one-operator
 > grounding that connects all four, the anti-dilution distinctions (combinatorial
 > `λ₂` vs normalized `μ₂`; geography vs electrical distance; infight vs

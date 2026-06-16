@@ -9,7 +9,22 @@ description = "Spectral + edge-propagation outage simulator: models the perturba
 # sigker / helix). Verify with:
 #   cargo test  --manifest-path crates/perturbation-sim/Cargo.toml
 #   cargo run   --manifest-path crates/perturbation-sim/Cargo.toml --example simulate
+[features]
+# Route the Morton/Walsh pyramid transform through ndarray's SIMD
+# (AVX-512/AMX, x86-64-v4) Walsh–Hadamard. Default OFF → the crate stays
+# zero-dep with the scalar `fwht` fallback. Build accelerated with:
+#   RUSTFLAGS='-C target-cpu=x86-64-v4' cargo … --features ndarray-simd
+# (or target-cpu=native locally). All SIMD comes from `ndarray::simd` per the
+# workspace rule — never raw intrinsics here.
+ndarray-simd = ["dep:ndarray"]
+
 [dependencies]
+# The AdaWorldAPI fork ("The Foundation"), optional + behind `ndarray-simd`.
+# Path dep: perturbation-sim lives inside lance-graph, which already path-deps
+# this sibling for its core crates, so the fork is expected present. Clean-
+# checkout alternative (helix pattern): swap to
+#   ndarray = { git = "https://github.com/AdaWorldAPI/ndarray.git", branch = "master", optional = true, default-features = false, features = ["std"] }
+ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std"] }
 
 [lib]
 name = "perturbation_sim"
