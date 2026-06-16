@@ -32,6 +32,7 @@ flags what is actually usable today vs needs extraction.
 | [MITECO — electricidad](https://www.miteco.gob.es/es/energia/energia-electrica/electricidad.html) | ministry electricity portal | HTML/PDF | public | policy/spend context |
 | [MITECO — planificación electricidad/gas](https://www.miteco.gob.es/es/energia/estrategia-normativa/planificacion/planificacion-electricidad-gas.html) | national planning | HTML/PDF | public | the planning-process root |
 | [REE — Informe del Sistema Eléctrico 2024 (ISE_2024.pdf)](https://www.sistemaelectrico-ree.es/sites/default/files/2025-03/ISE_2024.pdf) | realized capacity, grid additions, regional stats | PDF | public | the realized-state companion to the forward plan |
+| [REE — Auditoría Calidad de Servicio RdT 2024](https://www.ree.es/sites/default/files/datos/transporte/Informe_Auditoria_Calidad_de_Servicio_RdT_SEE_2024.pdf) | **transmission quality-of-service**: availability, energy-not-supplied (ENS), interruption indices per element/region | PDF | public | **the empirical condition/reliability layer.** Lifts the tech-debt modifier from a topology *proxy* (`AgeModel::DensityProxy`) to *measured* per-region condition → legitimate `DataLevel::WithHeterogeneousAssets`. Low availability / high ENS = older/weaker asset → `newness ↓`. Parse PDF → per-region condition index → `ModernizationSpend`-style `newness` vector |
 
 ## 4. Renewable + storage context (→ the solar/wind layer; future storage hook)
 
