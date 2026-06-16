@@ -19,11 +19,17 @@
 
 ## Sequencing
 
-| Phase | Probe | Cost | Gates |
-|---|---|---|---|
-| **P0** | PROBE-CHAODA-1000G | ~3 days (after D-GEN-1+2) | The "CHAODA-as-novelty-detector" line of the entire plan |
-| **P1** | PROBE-KRAS-COUNTERFACTUAL-DET | ~2 days (included in D-GEN-7) | D-GEN-7 flagship dynamics-axis claim |
-| **P2** | PROBE-CAM-PQ-VS-BLAST | ~1 week | D-GEN-3 sequence-fingerprint claim |
+| Phase | Probe | Cost | Status | Gates |
+|---|---|---|---|---|
+| **P0** | PROBE-CHAODA-1000G | ~3 days (after D-GEN-1+2) | ⚠ **spike RUN — AUC 0.624, BELOW bar** (ndarray #219) | The "CHAODA-as-novelty-detector" line of the entire plan |
+| **P1** | PROBE-KRAS-COUNTERFACTUAL-DET | ~2 days (included in D-GEN-7) | queued | D-GEN-7 flagship dynamics-axis claim |
+| **P2** | PROBE-CAM-PQ-VS-BLAST | ~1 week | queued | D-GEN-3 sequence-fingerprint claim |
+
+**⚠ Blocker surfaced 2026-06-16:** the P0 spike (ndarray #219) shows the shipped
+single-method leaf-LFD `anomaly_scores` reaches only AUC 0.624 on ideal synthetic
+data. Porting the multi-method CHAODA ensemble (Ishaq et al. 2021) is now a
+**prerequisite for PROBE-CHAODA-1000G**, ahead of any genomic-fixture work. See
+the ⚠ FINDING under PROBE-CHAODA-1000G below.
 
 **Critical-path note:** PROBE-CHAODA-1000G is the single highest-leverage probe.
 If it fails (AUC < 0.85 on novel-variant detection against ClinVar Pathogenic
@@ -48,7 +54,43 @@ probe is a regression gate, not a discovery gate).
 > singletons from common population variants at ROC-AUC ≥ 0.85 on a
 > held-out test fold drawn from 1000-Genomes Phase 3 + ClinVar.
 
-### Current evidence (CONJECTURE)
+### ⚠ FINDING (spike substitute RUN 2026-06-16) — single-method LFD is BELOW the bar
+
+The 1-day spike substitute (see §Cost below) has been **run** against the
+shipped kernel (`ndarray` PR #219, `test_chaoda_flags_novel_outliers_in_genetics_like_mixture`).
+On a 5-lane Gaussian mixture — three tight "common" clusters + eight
+deliberately extreme "novel" outliers, thermometer-encoded so Hamming
+distance is monotone in per-lane L1 magnitude — the shipped single-method
+leaf-LFD `anomaly_scores` measured:
+
+| metric | value |
+|---|---|
+| mean cluster score | 0.6749 |
+| mean outlier score | 0.7500 |
+| frac cluster ≥ 0.5 | 0.733 |
+| frac outlier ≥ 0.5 | 0.750 |
+| **ROC-AUC** | **0.6240** |
+
+**AUC 0.624 on the easiest possible case is well below the ≥ 0.85 bar.**
+The cause is mechanical and now proven: leaf `LFD = log₂(|B(c,r)|/|B(c,r/2)|)`
+measures *intra-leaf* geometry complexity, not *inter-leaf* isolation, so an
+isolated singleton lands in a leaf whose LFD is comparable to a dense
+cluster's, and the global min-max normalisation compresses both into the
+same score band. The CHAODA ensemble of Ishaq et al. 2021 combines several
+graph-based signals (relative/component cardinality, graph neighbourhood,
+random-walk stationary distribution, vertex degree); **only the LFD signal is
+shipped today.**
+
+**Consequence for this probe:** `PROBE-CHAODA-1000G` as specified — using
+the shipped single-method `anomaly_scores` — would NOT pass even with perfect
+genomic fixtures. Before any D-GEN spend on the CHAODA-1000G fixture pipeline,
+the substrate needs **the multi-method CHAODA ensemble ported** (or an
+augmented anomaly signal). The §1.4 *"unsupervised novel-variant detection"*
+claim in `docs/GENETIC_RESEARCH_VIA_STACK.md` is **NOT supported by the
+shipped kernel alone** and is now caveated there. This is the
+evidence-before-build payoff: the gap is caught before the adapter is funded.
+
+### Current evidence (CONJECTURE → partially FINDING, see ⚠ above)
 
 - The CHAODA kernel is shipped and validated for language-embedding
   anomaly scoring (`ndarray/src/hpc/clam.rs:1493-1567`, Phase 4 section).
@@ -133,6 +175,11 @@ Each lane normalised to `[0, 1]` against its empirical CDF on the training fold.
   synthesised 5-dim Gaussian-mixture data with one "outlier" component;
   verify the anomaly_scores fire on the outlier component. This is a
   smoke test for the kernel, NOT for the genomic-novelty claim.
+  **DONE 2026-06-16 — `ndarray` PR #219.** Result: AUC 0.624 (see the ⚠
+  FINDING above). The kernel runs deterministically and the polarity is
+  correct (outliers ≥ cluster mean) but the single-method LFD signal is
+  far too weak — the multi-method ensemble is the prerequisite, not the
+  genomic fixtures.
 
 ---
 
@@ -279,6 +326,28 @@ fails, the adapter scaffold (D-GEN-1..4) still has value — VCF round-trip,
 CAM-PQ k-mer fingerprints, classid mint — but the §1.4 novelty-detection
 story must be retracted and the GENETIC_RESEARCH_VIA_STACK.md hand-off
 re-shaped before further external-audience use.
+
+**Update 2026-06-16 — the spike already fired the first warning.** The P0
+spike (ndarray #219) measured AUC 0.624 with the *shipped single-method
+leaf-LFD* signal. This does NOT retract the whole probe — it relocates the
+prerequisite: **before** PROBE-CHAODA-1000G can pass, the multi-method
+CHAODA ensemble (Ishaq et al. 2021: relative/component cardinality, graph
+neighbourhood, random-walk stationary distribution, vertex degree) must be
+ported into `ndarray::hpc::clam`. That ensemble port is now the true P0
+work item; the genomic-fixture pipeline (which depends on D-GEN-1+2) is
+gated behind it. The §1.4 hand-off has been caveated rather than retracted —
+the pattern match is sound, the single shipped signal is not yet sufficient,
+and the honest path is "port the ensemble, then re-run the spike, then build
+the fixture." A new candidate deliverable falls out of this:
+
+> **D-GEN-CHAODA-ENSEMBLE (new, prerequisite to PROBE-CHAODA-1000G):** port
+> the multi-method CHAODA anomaly ensemble into `ndarray::hpc::clam`
+> alongside the existing leaf-LFD `anomaly_scores`. Re-run the ndarray #219
+> spike; gate at AUC ≥ 0.85 on the synthetic mixture *before* genomic
+> fixtures are built. Lift: ~1 week (the graph-construction primitives —
+> cluster cardinality, neighbourhood, random-walk — are mostly present in
+> the CLAM tree already; the ensemble combination + per-method scoring is
+> the new code).
 
 **PROBE-CHAODA-1000G fires first, even though chronologically D-GEN-1..2 must
 ship first.** That ordering is a substrate-economic decision (cheaper to
