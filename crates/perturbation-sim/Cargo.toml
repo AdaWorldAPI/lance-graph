@@ -18,3 +18,7 @@ path = "src/lib.rs"
 [[example]]
 name = "simulate"
 path = "examples/simulate.rs"
+
+[[example]]
+name = "iberian"
+path = "examples/iberian.rs"
