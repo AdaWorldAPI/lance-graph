@@ -77,7 +77,7 @@ above, or test fails.
 
 ### D-AR-1 — `ruff_spo_triplet::Predicate` vocab + `Provenance::OpenProjectExtracted` (target: `AdaWorldAPI/ruff`) *— Round 1 LOCKED via savant consolidation*
 
-Add **23 new predicates** *(Round 1 final count, with the §2 fixes)* to the closed-vocab enum (`Predicate::*`, `as_str`, `from_str`, `default_provenance`). Add
+Add **27 new predicates** *(Round 1 final count, with the §2 fixes)* to the closed-vocab enum (`Predicate::*`, `as_str`, `from_str`, `default_provenance`). Add
 `Provenance::OpenProjectExtracted{file: PathBuf, line: u32}` variant
 distinct from existing `Provenance::Authoritative(0.95, 0.90)` *(the actual existing tier name — corrected from the original handover's "Extracted")*, `Provenance::Inferred(0.85, 0.75)`, and `Provenance::Structural(1.0, 1.0)`.
 
@@ -86,10 +86,12 @@ distinct from existing `Provenance::Authoritative(0.95, 0.90)` *(the actual exis
 **Council gate:** dto-soa-savant + truth-architect must both ACK before merge,
 per `aerial-arm-ruff-spo-codegen-synergies.md` D-ARM-SYN-1. **Round 1 status: ACK from both.**
 
-**Acceptance:** `ndjson::from_ndjson` round-trips all 23 new predicate names;
+**Acceptance:** `ndjson::from_ndjson` round-trips all 27 new predicate names;
 the existing `mined_rules_serialise_to_spo_ndjson` test stays green.
 
 **PR shape: lands with D-AR-2 in ONE ruff PR** per integration-lead consolidation (the predicate enum + the `Declaration → Triple` expansion test are coupled; council reviews vocab+expansion atomically).
+
+**Round-2 status (PR X):** ✅ **BRANCH PUSHED** to `AdaWorldAPI/ruff` at `claude/ar-shape-coverage-ruff` (commit `21c828d`, 2026-06-15). 36 tests pass in `ruff_spo_triplet` (was 14); 3 in `ruff_ruby_spo` (was 2). `Predicate::ALL.len() == 34` test-asserted. Operator action: review + open PR. Errata banked: round-1 consolidation called M = 23 (savant carry-over from kickoff plan); canonical §2 table = **27**; total emit predicates = **34** (7 core + 27 AR-shape). Plan + AGENT_LOG reconcile to 27.
 
 ### D-AR-2 — `ruff_ruby_spo::RubyClass` + `ruff_spo_triplet::Model` IR expansion (target: `AdaWorldAPI/ruff`) *— Round 1 LOCKED*
 
@@ -176,7 +178,7 @@ return. Main thread does the atomic-consolidation pass.
 
 - **Round 1 (parallel, complete 2026-06-15 ~20:55 UTC):** 4 savants research → main consolidates. **Status: DONE.** All 4 ACK + 4 amendments applied above.
 - **Round 2 (sequential, post-consolidation):**
-  - **PR X (`AdaWorldAPI/ruff`, branch `claude/ar-shape-coverage-ruff`):** D-AR-1 + D-AR-2 in ONE PR — predicate vocab (23 new) + `Provenance::OpenProjectExtracted(0.95, 0.88)` + `RubyClass.declarations: Vec<Declaration>` + `Model` IR expansion (13 new Vec fields) + Declaration→Triple unit tests. Gate: D-ARM-SYN-1 council ACK + ndjson 23-predicate round-trip.
+  - **PR X (`AdaWorldAPI/ruff`, branch `claude/ar-shape-coverage-ruff`):** ✅ **SHIPPED `21c828d` 2026-06-15.** D-AR-1 + D-AR-2 in ONE PR — predicate vocab (27 new; total 34) + `Provenance::OpenProjectExtracted(0.95, 0.88)` + `RubyClass.declarations: Vec<Declaration>` + `Model` IR expansion (12 Vec + 1 Option fields) + Declaration→Triple unit tests. Gate: D-ARM-SYN-1 council ACK + ndjson 27-predicate round-trip. 36 tests pass in `ruff_spo_triplet` (was 14); 3 in `ruff_ruby_spo` (was 2). Operator action: review + open PR.
   - **PR Y (`AdaWorldAPI/ruff`, same branch, stacked or fast-followed on PR X):** D-AR-3 + D-AR-4 — `lib-ruby-parser` dep + real extractor over `app/models/` + **the 100 %-coverage proof test**. Gate: D-AR-4 green = THE 100 % GATE.
 - **Round 3 (parallel, can start any time after PR X merges):**
   - **PR Z (`adaworldapi/openproject-nexgen-rs`, branch `claude/op-surreal-ast`):** D-AR-5 skeleton — parallelizes with PR Y per integration-lead (ndjson contract = firewall; consumer match-arm-extensibly against existing 7 predicates, new vocab grows handled cases never breaks contract). Gate: SurrealQL parses + `DEFINE TABLE` count matches.

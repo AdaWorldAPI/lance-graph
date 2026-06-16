@@ -54,6 +54,42 @@
 **Outcome:** all 7 plans corrected on `claude/wonderful-hawking-lodtql` (rebaselined #496→#498, Morton purged, reversibility reframed, §0 tripwires fixed, master critical-path fixed = the open CodeRabbit Major on #497). New `ocr-probes-v1.md` (4 gating probes OCR-RT/DET/POST/SCHEMA + 3 cascade perf probes). **OCR-SCHEMA shipped as a contract test** (`ocr::tests::ocr_schema_fit_rides_existing_preset_no_new_variant`). contract 620 lib green; fmt clean. Both #497 + #498 review threads resolved/dispositioned.
 
 **Next:** open the follow-up PR; run OCR-DET (deepnsm example) + OCR-RT (needs deepnsm+helix wiring) before any transcode code is funded.
+## 2026-06-15 — openproject-ar-shape-extraction-v1 Round 2 / PR X SHIPPED (main thread)
+
+**Main thread (Opus 4.7).** Round 2 — **PR X (D-AR-1 + D-AR-2) branch pushed to `AdaWorldAPI/ruff`** at `21c828d` on `claude/ar-shape-coverage-ruff`. Atomic ship per integration-lead Round-1 consolidation (vocab + IR + expansion-test coupled by the `Declaration → Triple` round-trip).
+
+**Worktree route, NOT in-place edits.** The `ruff-clone` checkout had an in-flight WIP on a sibling branch (`claude/openproject-sqlx-emitter`: 1284 LOC of dep-free line-scanner extractor + `ruff_openproject` orchestrator + SQLX emitter additions) — pre-existing work from another session direction. Preserved intact by branching the Round 2 work via `git worktree add ../ruff-ar-shape -b claude/ar-shape-coverage-ruff main` so neither effort blocks the other.
+
+**Shipped on the ruff branch (one commit, 21c828d, +1655/-131):**
+
+1. **`ruff_spo_triplet::Predicate`** — 7 → 34 variants. Adds the 27 OpenProject AR-shape predicates the §2 closed-vocab table specifies. `Predicate::ALL` const slice + round-trip test over it (closed-vocab guarantee). `predicate_count_locked_at_34` test (drift gate).
+2. **`Provenance::OpenProjectExtracted = (0.95, 0.88)`** — single tier, hand-tuned per `I-NOISE-FLOOR-JIRAK`. The `open_project_extracted_is_one_notch_below_authoritative` test asserts the exact 0.02 confidence drop (two NARS revision-counts).
+3. **Per-edge truth overrides** — `defines_method` defaults to `Inferred(0.85, 0.75)` (dynamism = heuristic; 24 sites = 1.4 %); `concern_class_methods` / `concern_included_block` default to `Structural(1.0, 1.0)` (block declarations are structural-by-construction).
+4. **`Model`** — 12 new `Vec<…>` fields + 1 `Option<StiInfo>` per the prior-art-savant additions-only verdict. `ModelGraph` itself adds zero fields (downstream consumers walking `models` unaffected).
+5. **13 typed sub-IRs** in `ir.rs`: `AssocDecl`, `Validation`, `Callback`, `ConcernRef`, `AttrDecl`, `Delegation`, `ScopeDecl`, `ActsAs`, `DslCall`, `GemDsl`, `DynMethod`, `UsingRef`, `StiInfo` + their 6 supporting enums (`AssocKind`, `ValidationKind`, `ConcernKind`, `AttrKind`, `ScopeKind`, `GemKind`).
+6. **`expand()`** — `Expander` struct with one method per Model sibling field. 13 new arms, all pure projections; determinism preserved (sorted by `(s, p, o)`, dedup by identity, truth not in key).
+7. **`ruff_ruby_spo::RubyClass`** — `associations: Vec<String>` + `body_source: String` → `declarations: Vec<Declaration>` (frontend-local discriminated union). `body_source` smuggling REJECTED per prior-art-savant. `extract()` unpacks declarations into typed `Model::*` slots via `unpack_declaration`.
+
+**Tests:** `ruff_spo_triplet` 14 → 36 (+22); `ruff_ruby_spo` 2 → 3 (+1). The `ar_shape_emits_every_ar_predicate` test asserts the expander covers all 25 AR-shape-reachable predicates from a single fixture (the 2 missing — `reads_field` / `traverses_relation` — require a `Function` IR which the AR fixture omits; they're tested via the Odoo `fixture()` and `expands_all_predicate_classes`). `declarations_unpack_into_typed_model_slots` guards the frontend→IR seam against routing-arm drift.
+
+**Clippy posture:** matches main exactly. 2 pre-existing pedantic warnings (`should_implement_trait` on `Predicate::from_str`, `many_single_char_names` on the existing `has` closure). Zero new warnings from this PR (60+ doc_markdown + 3 doc_list + 2 manual_string_new + 1 float_cmp + 2 unused_import all fixed via clippy --fix + manual passes).
+
+**Council gates:** dto-soa-savant + truth-architect (D-AR-1) + prior-art-savant + integration-lead (D-AR-2 + PR shape) — all four Round-1 ACK applied verbatim. No invention. Honours `§0 ANTI-INVENTION GUARDRAIL` from the integrated-cognitive-planner trunk.
+
+**Errata banked from Round 2 work:**
+- Round-1 consolidation entry said "Final M = 23 new"; the actual count from my §2 table is **M = 27 new** (savant counted the pre-corrected handover plan; the §2 table is canonical). Updated the count to 27 in the docstrings + tests; total predicates = 34 (7 + 27).
+- AGENT_LOG carries the 23 figure historically. Future Round-3 PRs reference 27.
+
+**Next (Round 2 — pending operator review of PR X):**
+- **PR Y** (`AdaWorldAPI/ruff`, same branch stacked OR new branch): D-AR-3 + D-AR-4 — replace the `todo!()` extractors with a real Ruby parser (`lib-ruby-parser` per plan, OR reuse the sibling-branch dep-free line scanner per the existing 1284-LOC WIP if council prefers minimal-dep) + the 100 %-coverage gate test (assert all 78 names are routed by the extractor). The 100 % gate is THE deliverable.
+- **PR Z** (`adaworldapi/openproject-nexgen-rs`, parallelizable now that the ndjson contract is locked via PR X): D-AR-5 `op-surreal-ast` skeleton.
+- **PR W** (`AdaWorldAPI/surrealdb` fork, parallelizable): D-AR-6 C16c bridge.
+
+**PR X URL** (operator to open):
+https://github.com/AdaWorldAPI/ruff/pull/new/claude/ar-shape-coverage-ruff
+
+---
+
 ## 2026-06-15 — openproject-ar-shape-extraction-v1 Round 1 CONSOLIDATION (main thread)
 
 **Main thread (Opus 4.7).** All 4 savants returned ACK on Round 1 of the autoattended wave (`dto-soa-savant` + `prior-art-savant` + `truth-architect` + `integration-lead`, each pinned to the plan by `file:line`). Consolidation pass folds 4 amendments into `openproject-ar-shape-extraction-v1.md`; no architectural rewrite, no new deliverable, no scope drift.
