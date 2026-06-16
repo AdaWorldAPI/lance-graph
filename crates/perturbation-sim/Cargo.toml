@@ -43,3 +43,7 @@ path = "examples/iberian.rs"
 [[example]]
 name = "validate"
 path = "examples/validate.rs"
+
+[[example]]
+name = "weakest_links"
+path = "examples/weakest_links.rs"
