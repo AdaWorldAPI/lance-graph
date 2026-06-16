@@ -49,6 +49,7 @@
 //! against numpy/scipy/R. Targets modest networks (`n` up to a few hundred
 //! buses) — exactly the regime of a regional transmission graph.
 
+pub mod basin;
 pub mod cascade;
 pub mod eigen;
 pub mod flow;
@@ -56,6 +57,10 @@ pub mod graph;
 pub mod ingest;
 pub mod perturbation;
 
+pub use basin::{
+    cheeger_sweep, contingency_features, effective_resistance, infight_vs_raumgewinn, kron_reduce,
+    laplacian_pinv, spectral_embedding, Cheeger, ContingencyFeatures, GoScore, KronReduced, Regime,
+};
 pub use cascade::{simulate_outage, CascadeConfig, CascadeResult, PerturbationShape};
 pub use eigen::{symmetric_eigen, Eigen};
 pub use flow::{dc_flows, lodf};

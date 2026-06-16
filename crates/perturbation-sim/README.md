@@ -9,6 +9,14 @@ method:
 |---|---|---|
 | **Spectral perturbation** | A line trip is a rank-1 perturbation `E` of the weighted Laplacian `L` (`‖E‖₂ = 2·b_k`). Certifies **Weyl** `|λᵢ(L')−λᵢ(L)| ≤ ‖E‖₂`, reports **Davis–Kahan** Fiedler rotation `sinθ ≤ ‖E‖₂/gap`, and tracks **algebraic connectivity** `λ₂` (its drop toward 0 = fragmentation precursor). | `perturbation.rs`, `eigen.rs` |
 | **Edge propagation** | DC power flow `θ = L⁺p`, `f_e = b_e(θ_a−θ_b)`; a trip redistributes flow, overloaded lines trip in turn (the cascade), recomputed exactly each round. | `flow.rs`, `cascade.rs`, `graph.rs` |
+| **Basin / HHTL field tier** | Kron reduction (Schur complement — basin→super-node, cross-border), effective-resistance metric + spectral embedding (electrical Morton/HHTL coords), Cheeger sweep (`μ₂/2 ≤ h ≤ √(2μ₂)` — the field↔cut exchange rate), and the Go-meta `infight_vs_raumgewinn` regime. | `basin.rs` |
+
+> **Methods & math grounding:** see [`METHODS.md`](METHODS.md) — the one-operator
+> grounding that connects all four, the anti-dilution distinctions (combinatorial
+> `λ₂` vs normalized `μ₂`; geography vs electrical distance; infight vs
+> Raumgewinn), and the statistics design (the four methods as a measurement
+> battery → ICC / Pearson / Spearman / Cronbach, mutual control variables via
+> partial correlation, Jirak-correct significance).
 
 Output: [`PerturbationShape`] — a per-bus angle-deviation field + per-line
 flow-shift field + the trip footprint (which lines tripped, in which round).
