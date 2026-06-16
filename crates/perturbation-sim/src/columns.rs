@@ -8,18 +8,31 @@
 //! truth). It is the bridge artifact a contract-side change would consume; nothing
 //! here serializes or touches the operator-locked `canonical_node` spine.
 //!
+//! **Orthogonality to topology is structural, not earned (operator, 2026-06-16).**
+//! In the HHTL-OGAR GUID model, **topology lives in the KEY** — the HEEL/HIP/TWIG
+//! cascade tiers of the `canonical_node` GUID — and the magnitude axes are **helix
+//! value members hung off that key**. So any helix-residue value member is
+//! orthogonal to topology *by the key/value split itself*; the resilience study's
+//! measured `Spearman(λ₂, buffer) ≈ 0` only **confirms** what the GUID addressing
+//! already enforces, it does not establish a new axis. Consequence: `inertia_buffer`
+//! is NOT a novel "orthogonal column" — it is just **another helix value slot on
+//! the HHTL key**, additive in the trivial sense (one more value member), with its
+//! topology-orthogonality free.
+//!
 //! Two findings shape it:
 //! 1. **The existing value tenants suffice.** All five contingency factors certify
 //!    by value at **2-bit linear, stored normalized** (ICC ≥ 0.96) — a 2-bit
 //!    turbovec/palette slot per factor preserves the study's per-axis values. The
 //!    cross-axis structure (α / discriminant) wants ≥6-bit, so the *read budget*
 //!    where orthogonality is judged is wider than the *store budget* per value.
-//! 2. **One genuinely additive column.** The resilience study measured the
-//!    inertia/buffer axis ORTHOGONAL to topology (`Spearman(λ₂, buffer) ≈ 0`), so
-//!    no existing connectivity member can carry it — it requires its own member
-//!    ([`INERTIA`], flagged [`additive`](SoaMemberSpec::additive)).
+//! 2. **The "new" member is just a helix value slot.** `inertia_buffer`
+//!    ([`INERTIA`]) is added as one more helix-residue value member on the HHTL-OGAR
+//!    key; its orthogonality to the topology (which the key carries) is structural,
+//!    confirmed by the study, not introduced by it.
 
-/// How a member quantizes its normalized value.
+/// How a member quantizes its normalized value. Every variant is a **value tenant
+/// hung off the HHTL-OGAR GUID key** — topology is the key, so all of these are
+/// orthogonal to topology by construction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Encoding {
     /// Min-max linear bins (palette / Signed360 rim) — sufficient when the
@@ -28,6 +41,9 @@ pub enum Encoding {
     /// Equal-population / codebook bins (turbovec, CAM-PQ) — resolution follows the
     /// data; preferred when the raw distribution is heavy-tailed.
     DataAdaptive,
+    /// Helix `Signed360` residue value member — the canonical magnitude tenant on
+    /// the HHTL-OGAR key.
+    HelixResidue,
 }
 
 /// One calibrated SoA member: the width + encoding the study certifies for an axis.
@@ -44,8 +60,9 @@ pub struct SoaMemberSpec {
     /// Members store normalized `[0,1]` values, not raw physical units (also lifts
     /// tiny-magnitude axes out of the ICC variance-underflow guard).
     pub normalized: bool,
-    /// `true` if this member does NOT exist in the current substrate and must be
-    /// added (it is statistically orthogonal to every existing column).
+    /// `true` if this is a NEW value slot to add to the substrate. Orthogonality to
+    /// topology is NOT a property of the member — it is structural, given by the
+    /// HHTL-OGAR key/value split (topology in the key, this in the value).
     pub additive: bool,
 }
 
@@ -59,13 +76,15 @@ pub const CONTINGENCY_FACTORS: [SoaMemberSpec; 5] = [
     spec("raumgewinn", false),
 ];
 
-/// The one genuinely additive member: the inertia/buffer axis (resilience study),
-/// orthogonal to topology — no existing connectivity column carries it.
+/// The one additive member: the inertia/buffer axis (resilience study), added as a
+/// helix-residue value slot on the HHTL-OGAR key. Its orthogonality to topology is
+/// STRUCTURAL (topology is the key; this is a value) — the study's `Spearman ≈ 0`
+/// confirms it. `additive` here means "one more value slot", not "a new axis type".
 pub const INERTIA: SoaMemberSpec = SoaMemberSpec {
     name: "inertia_buffer",
     store_bits: 2,
     read_bits: 6,
-    encoding: Encoding::Linear,
+    encoding: Encoding::HelixResidue,
     normalized: true,
     additive: true,
 };
