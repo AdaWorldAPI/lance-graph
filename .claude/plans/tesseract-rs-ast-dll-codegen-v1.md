@@ -2,7 +2,7 @@
 
 > **Type:** plan (sub-plan). Deliverables D-OCR-40/41/42. The transcode *mechanism*.
 > **Status:** PLANTED 2026-06-15 v2 — layout IS in scope (1:1 raw-pointer), not skipped.
-> **Front:** post-#496. Uses `AdaWorldAPI/ruff` AST/codegen crates as the Rust-emission engine.
+> **Front:** post-#498. Uses `AdaWorldAPI/ruff` AST/codegen crates as the Rust-emission engine.
 > **Canon anchors:** master §4. Deterministic + diff-gated (bit-reproducibility doctrine).
 > **Skip-by-rule:** only leaf/mechanical modules are codegen targets; ownership-heavy code is transcribed faithfully as raw-pointer Rust (1:1), with safe-refactor deferred to a later oracle-gated pass.
 
@@ -75,7 +75,7 @@ the harness is re-runnable to prove the commit equals the generator output.
 ## 6. Deliverables
 
 - **D-OCR-40:** libclang → stable IR dump for the codegen-target module set; NOT-CODEGENABLE flagging works.
-- **D-OCR-41:** IR → committed Rust via ruff emission; re-run is byte-identical.
+- **D-OCR-41:** IR → committed Rust via ruff emission; re-run is byte-identical (CONJECTURE — a determinism property of an as-yet-unbuilt harness; prove with a re-run diff once D-OCR-40 lands).
 - **D-OCR-42:** behavioral + structural diff-gate green for the target modules vs the FFI oracle.
 
 ## 7. Open decisions

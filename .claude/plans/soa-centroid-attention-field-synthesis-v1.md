@@ -8,19 +8,26 @@
 
 ## 0. The one idea
 
-The **48-bit helix residue + Morton-tile stacked-pyramid perturbation-shader IS a
-centroid attention field.** Place (HHTL) = centroid; residue (24-bit golden index)
-= each point's perturbation off it = the **query↔key alignment**; the pyramid =
-**multi-scale attention** (coarse centroid → fine). The field is *evaluated from the
-φ-spiral template, never stored*. Everything below is a **read of this one field at
-a different scale** — not separate engines bolted together.
+The **6-byte (48-bit) helix `Signed360` place index IS the stored handle of a
+centroid attention field.** Place (HHTL) = centroid; the stored 6 B index (rim +
+sign-partition polar + golden azimuth) is each point's perturbation off it; the
+**field is the deterministic *decode* of that stored index** via the φ-template
+(`HemispherePoint::lift` / `RollingFloor::quantize`) — "8K resolution at Super-8
+cost": the **index is stored, the field is evaluated from it** (NOT "never stored" —
+that earlier framing fought the stored-index reality and would break the zero-copy
+`NodeRowPacket` round-trip the D-OCR-53 golden diff depends on). Multi-scale
+coarse→fine uses the **real** primitives — `framebuffer::build_mipmap_pyramid`, the
+HHTL `splat3d/depth_cascade`, the CAKES ladder (`high_heel.rs`). There is **no**
+"Morton-tile stacked-pyramid perturbation-shader" in either repo (Morton is
+explicitly rejected for Hilbert, `linalg/hilbert.rs:50`) — drop the name. Everything
+below is a **read of this one field at a different scale** — not separate engines.
 
 ## 1. The reads (each is the same field, different scale)
 
 | Capability | Real crate / source | What it is, as a field read |
 |---|---|---|
 | **Perception (ONNX/LSTM)** | embedanything(candle)/GGUF host | emits a **query** into the field (golden index + posteriors); the ONLY learned-perceptual part, stays hosted |
-| **Attention eval** | `helix` (golden index, curve-ruler, `DistanceLut`) | query↔centroid alignment; Morton pyramid = coarse→fine resolution |
+| **Attention eval** | `helix` (stored 6 B `Signed360` index, curve-ruler, `DistanceLut`) | query↔centroid alignment; coarse→fine via mipmap pyramid / HHTL depth-cascade (NOT "Morton") |
 | **Markov context building / bundling** | `deepnsm::markov_bundle`, `encoder` | temporal **superposition along the field** = the bundling read (context = bundled perturbations) |
 | **Quorum + NARS reasoning** | `causal-edge::{pearl,nars,syllogism}` | centroid **coupling** = edge read; quorum = agreement of multiple field reads; NARS truth = coupling strength |
 | **Grammar heuristics** | `deepnsm::{parser,pos,morphology,spo,syllogism}` | syntactic **field masks** = structured attention over the field |
@@ -42,6 +49,14 @@ autoencoder is replaced by the integer codebook-distance oracle (the field) and
 still mines rules — neurosymbolic learning with NO autoencoder, NO SGD, NO seed.
 What's missing is only **plasticity** (centroid drift), not a learner.
 
+> **CONJECTURE (gate before citing as fact):** the central equivalence "VSA
+> bind/bundle/similarity *are* the helix field operations" is **asserted, not
+> measured**. Probe it: does `deepnsm::markov_bundle` over a set of residues produce
+> the same alignment *ordering* as `helix::DistanceLut` over the same residues
+> (Spearman ρ ≥ target)? Until that probe runs, this plan stays a phase-2 marker,
+> not a buildable spec — it is the synthesis plan most at risk of unification-without-
+> measurement. See `ocr-probes-v1.md`.
+
 ## 3. Phase-2: make the field plastic (the "learning edges")
 
 Not new tenants — **the field adapts**:
@@ -59,7 +74,7 @@ coupling resolve to the token. So ONNX = the perceptual *encoder into* the field
 the field = everything symbolic/sequential/relational. One substrate, two scales.
 
 ## 5. Determinism split (non-negotiable)
-- **Frozen mode** (centroids/gains fixed) → bit-reproducible → the Tesseract oracle + golden-file harness run here.
+- **Frozen mode** (centroids/gains fixed, helix `floor_version` **pinned** in the golden bytes, f32 repair stage carved out) → bit-reproducible → the Tesseract oracle + golden-file harness run here.
 - **Plastic mode** (field adapts) → live use; NOT golden-diffable; gated by snapshot.
 Two modes, explicitly separated, or the bit-repro guarantee is lost.
 

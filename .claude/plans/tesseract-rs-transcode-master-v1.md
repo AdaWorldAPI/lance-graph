@@ -3,7 +3,7 @@
 > **Type:** plan family root. SUPERSEDES v1 (which wrongly skipped layout).
 > **Status:** PLANTED 2026-06-15 v2 — design locked. 1:1 behavioral transcode of ALL
 >   of Tesseract; the LSTM forward is the ONLY swapped component.
-> **Front:** post-#496. Hosts: `embedanything` DTO (GGUF→candle→ndarray-AMX, per
+> **Front:** post-#498 (helix `Signed360` 48 B→6 B; OCR keystone `LayoutBlock::to_node_row` SHIPPED; `ENVELOPE_LAYOUT_VERSION`=2). Hosts: `embedanything` DTO (GGUF→candle→ndarray-AMX, per
 >   `.grok/NDARRAY_BGZ_EMBEDANYTHING_INTEGRATION.md`); `bgz_tensor` weight store.
 > **Canon:** OGAR/CLAUDE.md GUID P0; lance-graph/CLAUDE.md SoA node; canonical_node.rs.
 
@@ -69,16 +69,19 @@ the only change the OCR use forces on the shared interface. Narrow, additive.
 | D-OCR-31 | minimal Leptonica ops on image/imageproc (numeric parity) | — |
 | D-OCR-40 | AST-DLL clang→IR→Rust codegen harness (ruff emission) | — |
 | D-OCR-42 | oracle diff-gate (every module vs libtesseract FFI) | D-OCR-21,30 |
-| D-OCR-50 | OCR token → canonical NodeRow (OGAR class, HHTL, ValueSchema, edges) | canon |
-| D-OCR-52 | DeepNSM + char-confusion + CAM/PQ token repair | D-OCR-50 |
-| D-OCR-53 | bit-reproducibility harness (crop→text→NodeRow golden diff) | D-OCR-21,30,**50,51** |
+| D-OCR-50 | OCR token → canonical NodeRow (**PARTIALLY SHIPPED #498**: `ocr.rs` block→NodeRow; remaining: token-grain + HHTL trie + OGAR class) | canon (#498) |
+| D-OCR-52 | DeepNSM + char-confusion + CAM/PQ token repair (L1 cascade, not Hamming) | D-OCR-50 |
+| D-OCR-53 | bit-reproducibility harness (crop→text→NodeRow golden diff; f32 repair carved out, `floor_version` pinned) | D-OCR-21,30,**50,51** |
 
-Critical path: **40 → {10,30} → 16 → 21 → 42 → 53**. D-OCR-15 parallel (tiny). The
-layout transcode (30) and the recognizer host (16) are independent until decode.
+Critical path: **40 → {10,30} → 16 → 21 → 42 → {50,51} → 53**. D-OCR-15 parallel
+(tiny). The layout transcode (30) and the recognizer host (16) are independent until
+decode. D-OCR-53 (golden diff) needs the SoA row layout defined first, so D-OCR-50/51
+(in `ocr-canonical-soa-integration-v1`) precede it on the path — matching its
+dependency list above.
 
 ## 5. Success criteria
 
-1. `tesseract-rs` reproduces libtesseract output **byte-identical** on ≥10k line crops AND full-page layouts (oracle gate) — layout included, since it's 1:1.
+1. `tesseract-rs` reproduces libtesseract output **byte-identical** on ≥10k line crops AND full-page layouts (oracle gate) — layout included, since it's 1:1. **CONJECTURE until measured:** byte-identity of raw-pointer-transcribed ~200k-LOC layout AND the GGUF→candle→ndarray int8 posterior path are the two biggest unproven claims — gate them with probe **OCR-POST** (posterior parity on one crop) BEFORE funding the full transcode. See `ocr-probes-v1.md`.
 2. LSTM runs ONLY via embedanything(candle)→ndarray; no transcoded LSTM kernels.
 3. Zero crates.io (forks + ndarray/lance family); `ort` sole opt-in C++ (off by default).
 4. Recognized tokens land as canonical NodeRows with no bespoke geometry.
