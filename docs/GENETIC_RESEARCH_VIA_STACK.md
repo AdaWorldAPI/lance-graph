@@ -53,12 +53,14 @@ bits 7..4   = L2: 4096 terminal          (TWIG, COCA alignment)
 
 **You know:** identifying a rare or de novo variant against population catalogues is essentially an outlier-detection problem in a high-dimensional feature space (allele frequency × read-depth × strand bias × neighborhood × etc.). Tools like CADD, REVEL, AlphaMissense produce per-variant scores.
 
-**We have:** **CHAODA** (Clustered Hierarchical Anomaly and Outlier Detection Algorithm, Ishaq et al. 2021) shipped as Phase 4 of `ndarray::hpc::clam` (`ndarray/src/hpc/clam.rs:1493-1560`):
+**We have:** **CHAODA** (Clustered Hierarchical Anomaly and Outlier Detection Algorithm, Ishaq et al. 2021) shipped as Phase 4 of `ndarray::hpc::clam` (`ndarray/src/hpc/clam.rs:1493-1567`):
 
 ```rust
 pub struct AnomalyScore {
-    pub score: f32,                  // normalised in [0, 1]; higher = more anomalous
-    pub awareness: AwarenessState,   // classification derived from anomaly level
+    pub index: usize,                // original dataset index
+    pub lfd: f64,                    // LFD of the leaf cluster
+    pub score: f64,                  // normalised in [0, 1]; higher = more anomalous
+    pub awareness: AwarenessState,   // Crystallized / Tensioned / Uncertain / Noise (clam.rs:1549-1557)
 }
 
 impl ClamTree {
@@ -67,7 +69,7 @@ impl ClamTree {
 }
 ```
 
-**The composition:** build a CLAM tree on your per-variant feature vectors; CHAODA scores every variant against the local manifold's intrinsic dimensionality. A novel variant in a region of high LFD lights up as `AnomalyScore { score → 1.0, awareness → Salient }` because its position differs from the population's local manifold — *without you having to train a classifier or annotate a truth set first*. This is *unsupervised* outlier detection on the same tree your range queries walk.
+**The composition:** build a CLAM tree on your per-variant feature vectors; CHAODA scores every variant against the local manifold's intrinsic dimensionality. A novel variant in a region of high LFD lights up as `AnomalyScore { score → 1.0, awareness → AwarenessState::Noise }` (the `score ≥ 0.75` quartile per `clam.rs:1556`) because its position differs from the population's local manifold — *without you having to train a classifier or annotate a truth set first*. This is *unsupervised* outlier detection on the same tree your range queries walk. **Gated by `PROBE-CHAODA-1000G`** (`.claude/plans/genetics-probes-v1.md`): the claim is conjecture until that probe runs.
 
 ### 1.5 minimap2 minimizers ↔ bgz17 11/17 X-Trans stride
 
