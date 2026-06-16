@@ -14,6 +14,7 @@ flags what is actually usable today vs needs extraction.
 | [PyPSA-Eur](https://github.com/PyPSA/pypsa-eur/) | full workflow → real `x,r,s_nom` | code | open | run upstream if you want PyPSA's own line parameters |
 | [OSM Power networks](https://wiki.openstreetmap.org/wiki/Power_networks) (Overpass) | raw lines/substations | XML/JSON | ODbL | full control; you estimate electrical params |
 | [openmod datasets (GridKit/SciGRID)](https://wiki.openmod-initiative.org/wiki/Transmission_network_datasets) | ENTSO-E-map-derived grid | CSV | open | richer electrical metadata than raw OSM |
+| [Awesome-Electrical-Grid-Mapping (open-energy-transition)](https://github.com/open-energy-transition/Awesome-Electrical-Grid-Mapping) | curated index of grid datasets/tools | links | open | meta-source — start here when adding a new country/region feed |
 
 ## 2. Live state — injections `p` + the observed footprint (→ validation, §5)
 
@@ -38,6 +39,40 @@ flags what is actually usable today vs needs extraction.
 |---|---|---|
 | [Climate17 — Spain grid infrastructure](https://www.climate17.com/blog/spain-renewable-power-puzzle-strengthening-grid-infrastructure) | renewable-integration / grid-strengthening narrative | context for the solar/wind feasibility doc (`ada-docs/research/SOLAR_WIND_PEAK_PREDICTION_FEASIBILITY.md`) |
 | [Energy-Storage.news — NECP 22.5 GW by 2030](https://www.energy-storage.news/spain-increases-energy-storage-target-in-necp-to-22-5gw-by-2030/) | storage targets per the NECP | implies the **storage hook** below |
+
+## 5. Ground truth — the observed footprints (→ validation, §5 of METHODS)
+
+| Source | Footprint | Note |
+|---|---|---|
+| [ENTSO-E expert-panel final report (2026-03-20)](https://www.entsoe.eu/news/2026/03/20/entso-e-publishes-expert-panel-final-report-on-28-april-2025-blackout-in-spain-and-portugal/) · [publications](https://www.entsoe.eu/publications/blackout/28-april-2025-iberian-blackout/) | **electrical mechanism** | the authoritative reconstruction: **overvoltage-driven cascading *generation* disconnection** + oscillations + reactive-power/voltage-control gaps + uneven stabilisation — a **voltage-collapse** event, *not* a line-overload cascade |
+| [Eurosurveillance 30/26 (2500405)](https://www.eurosurveillance.org/content/10.2807/1560-7917.ES.2025.30.26.2500405) · [PMC12231376](https://pmc.ncbi.nlm.nih.gov/articles/PMC12231376/) | **human footprint** | MoMo excess-mortality surveillance: **147 excess deaths over 3 days** (95% CI −35..330, +4.2%); 65–84 yr **+7.9% = 94 deaths** (CI 63..125); ~10 directly attributed. Per-region severity target, not mechanism |
+
+### ⚠ Validation caveat — read before claiming the model "explains" the blackout
+The expert panel is explicit: the 28 Apr 2025 event was **voltage/reactive driven**
+(AC mode). `perturbation-sim`'s DC cascade is the **line-overload** mechanism —
+**not** what triggered this blackout. What legitimately transfers:
+
+- **The structural / field tier is mechanism-agnostic and stays relevant:**
+  Weyl/Davis–Kahan (`perturbation.rs`), Cheeger + Fiedler + Kron (`basin.rs`)
+  measure *where the grid is structurally weak* and *how any perturbation would
+  propagate through its connectivity* — a vulnerability screen independent of
+  whether the trigger is overload or overvoltage. The Go-meta Raumgewinn side
+  (global connectivity collapse) is the right lens for a *system-wide* event
+  like this one.
+- **The DC overload cascade does NOT reproduce the Iberian sequence.** Do not
+  claim it does. The voltage/reactive trigger needs the **AC fork** (METHODS §8:
+  full π-model `R+jX+jB/2`, voltages, reactive Q) — the rung that unlocks the
+  voltage-collapse mode. This event is the concrete justification for climbing it.
+- **The human footprint validates *severity*, any mechanism:** correlate a
+  model's predicted regional impact against the per-autonomous-community excess
+  mortality (the §5 ICC/Pearson/Spearman battery, Jirak-significant). Ties to the
+  workspace's public-health surface (medcare-rs / MoMo-style surveillance).
+
+So: use the field tier as an honest **structural-vulnerability screen**; treat
+the DC cascade as one mechanism among several; reach for the AC fork to model
+the actual voltage-collapse trigger; validate severity against the mortality
+footprint. Over-claiming "we model the Iberian blackout" with the DC path alone
+would be exactly the dilution this crate's METHODS doc guards against.
 
 ### The storage hook (genuine new modeling axis — not yet built)
 Storage (NECP target 22.5 GW by 2030) is a **controllable injection**: a battery
