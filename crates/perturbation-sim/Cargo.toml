@@ -52,3 +52,7 @@ path = "examples/weakest_links.rs"
 [[example]]
 name = "hhtl_levels"
 path = "examples/hhtl_levels.rs"
+
+[[example]]
+name = "reinforce"
+path = "examples/reinforce.rs"

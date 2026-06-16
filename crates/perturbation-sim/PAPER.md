@@ -193,6 +193,53 @@ operative Analyse fanden. Ein zweiter Korridor zwischen den beiden HIP-Becken
 (§ Verstärkung) = eine **dritte familienfremde Kante** im kanonischen `EdgeBlock`
 (4 solche Slots reserviert); ihr λ₂-Gewinn ist durch die Verschachtelung begrenzt.
 
+### 4.4 Reinforcement & the two-axis insight (Braess) / Verstärkung & die Zwei-Achsen-Einsicht
+
+**EN.** We add the **optimal third corridor** across the Cheeger seam — the
+single new edge maximizing the first-order gain `∂λ₂/∂w = (v₂[a]−v₂[b])²` (the
+Fiedler-extreme pair, one bus per basin; in OGAR terms a **third out-of-family
+`EdgeBlock` edge**). On the ES core (buses 1199–4258):
+
+| metric | without tie | with tie | move |
+|---|---|---|---|
+| algebraic connectivity λ₂ | 3.15e-7 | 7.44e-7 | **+136 %** |
+| seam-trip connectivity-loss | 39.0 % | 34.4 % | −4.6 pp (better) |
+| seam-trip lines cascaded | **48** | **95** | **worse** |
+
+**The headline finding:** *one* reinforcement moves the two axes in **opposite
+directions** — Raumgewinn improves (λ₂ ↑ 136 %, connectivity-loss ↓) while
+infight worsens (48 → 95 trips). This is the measured **infight ⊥ Raumgewinn
+orthogonality (ρ ≈ 0.05)** realized in a single intervention, and it is a
+power-grid **Braess paradox**: the new low-impedance path re-routes flow into
+lines whose limits were *not* re-rated, so a structurally stronger grid is
+operationally *more* cascade-fragile. **The actionable rule: match the remedy to
+the failure axis.** A corridor (λ₂ / Cheeger / Kron) fixes **separation /
+islanding** (territorial collapse — the 28-Apr-type voltage/separation event,
+when paired with reactive support); an **overload cascade** needs **limit
+re-rating / redispatch**, not more connectivity — and structural reinforcement
+**must be co-designed with limit upgrades** on the lines that will newly carry
+flow, or it backfires. The Go-meta `Regime` classifier tells you *which* axis a
+given contingency loads, hence which remedy applies. *(Caveat: the cascade
+worsening is partly genuine Braess and partly the limits being calibrated to the
+pre-tie flows — both reinforce the same lesson: λ₂ gain ⇏ cascade reduction.)*
+
+**DE.** Wir fügen den **optimalen dritten Korridor** über den Cheeger-Schnitt
+hinzu — die neue Kante, die den Erstordnungs-Gewinn `∂λ₂/∂w = (v₂[a]−v₂[b])²`
+maximiert (das Fiedler-Extrempaar, ein Knoten je Becken; in OGAR eine **dritte
+familienfremde `EdgeBlock`-Kante**). Auf dem ES-Kern (Knoten 1199–4258): λ₂
+**+136 %**, Konnektivitätsverlust 39,0 %→34,4 % (besser), aber **48 → 95**
+kaskadierte Leitungen (schlechter). **Kernbefund:** *eine* Verstärkung bewegt die
+zwei Achsen in **entgegengesetzte Richtungen** — Raumgewinn besser (λ₂↑),
+Infight schlechter — die gemessene **Infight-⊥-Raumgewinn-Orthogonalität
+(ρ ≈ 0,05)** in einer einzigen Maßnahme, ein **Braess-Paradoxon** des Netzes: der
+neue niederohmige Pfad lenkt Fluss in Leitungen, deren Grenzwerte *nicht*
+nachgezogen wurden. **Regel: die Abhilfe der Versagensachse anpassen.** Ein
+Korridor (λ₂/Cheeger/Kron) behebt **Trennung/Inselbildung**; eine
+**Überlast-Kaskade** braucht **Grenzwert-Anpassung/Redispatch**, nicht mehr
+Konnektivität — strukturelle Verstärkung **muss mit Grenzwert-Upgrades
+ko-entworfen** werden, sonst geht sie nach hinten los. Der Go-Meta-`Regime`-
+Klassifikator sagt, *welche* Achse eine Störung belastet.
+
 ---
 
 ## 5. Solar/wind feed-in threshold / Solar-Wind-Einspeise-Schwelle
