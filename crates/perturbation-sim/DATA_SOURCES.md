@@ -5,11 +5,17 @@ with format / openness / extraction reality. Keeps provenance in one place
 (anti-dilution: one ledger, not URLs scattered across commits). Honesty column
 flags what is actually usable today vs needs extraction.
 
+> **No data is committed to the repo.** The consumable ODbL topology lives as a
+> GitHub **Release** asset (`perturbation-sim-data-v0.1`, §1) so clones stay
+> lean and nothing auto-pulls; official Spanish PDFs are referenced by link, not
+> re-hosted (licensing). Fetch on demand with the `curl` recipes below.
+
 ## 1. Topology + electrical parameters (→ `ingest.rs`, the `Grid`)
 
 | Source | Feeds | Format | Open | Note |
 |---|---|---|---|---|
 | [Zenodo 13358976 — PyPSA-Eur/OSM prebuilt network](https://zenodo.org/records/13358976) | buses+lines, 35 ctry incl. ES | CSV | ODbL | **primary.** v0.3 is topology + voltage + circuits + length only → `r`/`x`/`s_nom` estimated (see `HARVESTING.md`) |
+| [**Release mirror** `perturbation-sim-data-v0.1`](https://github.com/AdaWorldAPI/lance-graph/releases/tag/perturbation-sim-data-v0.1) | `buses.csv` + `lines.csv` | CSV | ODbL (© OSM contributors) | the ODbL data attached as a **GitHub Release asset** so it is **never committed / auto-pulled** by a clone — `curl -L .../releases/download/perturbation-sim-data-v0.1/buses.csv`. Official Spanish PDFs are NOT re-hosted (links only) |
 | [Nature SciData 2025](https://www.nature.com/articles/s41597-025-04550-7) · [arXiv 2408.17178](https://arxiv.org/pdf/2408.17178) | the method | paper | open | how the OSM grid was built (5 km substation aggregation) |
 | [PyPSA-Eur](https://github.com/PyPSA/pypsa-eur/) | full workflow → real `x,r,s_nom` | code | open | run upstream if you want PyPSA's own line parameters |
 | [OSM Power networks](https://wiki.openstreetmap.org/wiki/Power_networks) (Overpass) | raw lines/substations | XML/JSON | ODbL | full control; you estimate electrical params |

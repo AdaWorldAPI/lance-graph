@@ -18,8 +18,12 @@ already understands, or add an alias."
 
 ```sh
 mkdir -p /tmp/pypsa && cd /tmp/pypsa
+# Either the canonical Zenodo source …
 curl -L -o buses.csv 'https://zenodo.org/records/13358976/files/buses.csv?download=1'
 curl -L -o lines.csv 'https://zenodo.org/records/13358976/files/lines.csv?download=1'
+# … or our ODbL release mirror (same files, kept out of git):
+#   R=https://github.com/AdaWorldAPI/lance-graph/releases/download/perturbation-sim-data-v0.1
+#   curl -L -o buses.csv $R/buses.csv ; curl -L -o lines.csv $R/lines.csv
 cargo run --manifest-path crates/perturbation-sim/Cargo.toml --example iberian -- \
     /tmp/pypsa/buses.csv /tmp/pypsa/lines.csv ES        # ← any ISO-2 code: FR, PT, DE, IT…
 ```
