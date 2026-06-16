@@ -54,6 +54,41 @@
 **Outcome:** all 7 plans corrected on `claude/wonderful-hawking-lodtql` (rebaselined #496→#498, Morton purged, reversibility reframed, §0 tripwires fixed, master critical-path fixed = the open CodeRabbit Major on #497). New `ocr-probes-v1.md` (4 gating probes OCR-RT/DET/POST/SCHEMA + 3 cascade perf probes). **OCR-SCHEMA shipped as a contract test** (`ocr::tests::ocr_schema_fit_rides_existing_preset_no_new_variant`). contract 620 lib green; fmt clean. Both #497 + #498 review threads resolved/dispositioned.
 
 **Next:** open the follow-up PR; run OCR-DET (deepnsm example) + OCR-RT (needs deepnsm+helix wiring) before any transcode code is funded.
+### 2026-06-15 — prior-art-savant — Round 1 — D-AR-2/3 (chain-integrity re-confirm)
+
+**Wave:** `openproject-ar-shape-extraction-v1` Round 1, parallel savant (second invocation).
+Read: plan §2/§3, kickoff Q2, knowledge §1-§4, `ruff_ruby_spo/lib.rs` (RubyClass{name, body_source, associations: Vec<String>}), `ruff_spo_triplet/src/{ir.rs, expand.rs, triple.rs, lib.rs}` (ModelGraph{namespace, models: Vec<Model>}; expand is a free fn, NO traits crate-wide), Python sibling `ruff_python_dto_check::bundle::{Bundle, EmittedBundle}` (precedent: structured per-emit data, never a re-parse over raw source).
+**Verdict:** ADDITIONS-ONLY within the canonical chain. New Model-local sub-IRs (assoc_declarations, validations, callbacks, etc.) live INSIDE Model{} — NOT outside `ruff_spo_triplet`. `expand()` extends with match arms only, no new trait (none exists). ACK `Vec<String>→Vec<Declaration>` on RubyClass; REJECT `body_source` smuggling.
+
+### 2026-06-15 — dto-soa-savant — Round 1 — D-AR-1 (collision sweep, second pass)
+
+**Wave:** `openproject-ar-shape-extraction-v1` Round 1, parallel savant (second invocation).
+Read: plan §2/§3 D-AR-1, kickoff handover Q1, `ruff_spo_triplet/src/{triple.rs,ir.rs,lib.rs}` (7 predicates + Model/Field/Function IR), `ruff_ruby_spo/lib.rs` (scaffold), `aerial-arm-ruff-spo-codegen-synergies.md` §1.
+**Verdict:** ACCEPT-WITH-1-COLLISION-FIX + SPLIT-CATCH-ALL. Real collision: declarative `belongs_to`/`has_many` would corrupt existing `traverses_relation` (different subject/truth/source). Fix: introduce `declares_association` (Authoritative, subject=class). `has_dsl_call` SPLIT: promote `register_journal_formatter` + `register_journal_formatted_fields` (40/54 calls = 74%) to discriminated predicates; keep catch-all only for 4 singletons + sparse OP-custom. Final M = 23 new, total = 30. Naming nits: rename `has_constraint` → `validates_constraint` (subject=class, not fn, disambiguates from `raises`); rename `mixes_in_acts_as` → `acts_as`; rename `defines_method_dynamically` → `defines_method`.
+
+### 2026-06-15 — integration-lead — Round 1 — D-AR-{1..6} sequencing
+
+**Wave:** `openproject-ar-shape-extraction-v1` Round 1, parallel savant.
+Read: plan §5 sequencing + §3 deliverables, handover open-Q4, polyglot plan §2.2 (C16b builders at `AdaWorldAPI/surrealdb` fork `core/src/catalog/{table,schema/field,schema/index}.rs`; downstream consumer `op-surreal-ast` in `openproject-nexgen-rs`; C16c = `From<op_surreal_ast::*> for catalog::*`), `ruff_spo_triplet/src/triple.rs` (7 existing predicates), normalized-entity-holy-grail §1-2.
+**Verdict on §5:** CORRECT-WITH-AMENDMENT — D-AR-1+D-AR-2 ship as ONE PR (vocab + IR coupled by `Declaration→Triple` expansion test); D-AR-5 skeleton parallelizes with D-AR-3/4 against the existing 7-predicate contract; D-AR-6 (C16c) lands on the surrealdb fork side where `catalog::*` lives, not on `openproject-nexgen-rs`.
+
+### 2026-06-15 — prior-art-savant — Round 1 — D-AR-2/3
+
+**Wave:** `openproject-ar-shape-extraction-v1` Round 1, parallel savant.
+Read: plan §2/§3, handover Q2, `aerial-arm-ruff-spo-codegen-synergies.md` §1-§4, `ruff_ruby_spo/src/lib.rs` (RubyClass{name, body_source, associations: Vec<String>}), `ruff_spo_triplet/src/{ir.rs, expand.rs, triple.rs}` (ModelGraph{namespace, models: Vec<Model>}; Model{name, fields, functions}; expand() = free fn over (Model, Field, Function) shape, no trait), `ruff_python_dto_check/src/{lib.rs, bundle.rs, extractors/*}`.
+**Verdict:** NEW-TYPES-NEEDED inside `Model` (within the canonical chain — NOT outside it). `expand()` extends with new match arms ONLY (no new trait). ACK `Vec<String> → Vec<Declaration>` on `RubyClass` (the frontend-local IR), REJECT smuggling 67-way disambiguation through `body_source` re-parsing. Chain integrity preserved end-to-end.
+
+### 2026-06-15 — dto-soa-savant — Round 1 — D-AR-1
+
+**Wave:** `openproject-ar-shape-extraction-v1` Round 1, parallel savant.
+Read: plan §2/§3 D-AR-1, handover Q1, `triple.rs` (7 existing predicates), `ir.rs` (Model/Field/Function shape), `ruff_ruby_spo/lib.rs` (scaffold + locked-shape test), aerial synergies §1.
+**Verdict:** ACCEPT with 1 SPLIT + 1 RENAME of an existing-predicate-overlap + 3 naming nits. **One real semantic overlap:** declarative `belongs_to`/`has_many` MUST NOT reuse `traverses_relation` (subject = class, not fn; truth = Authoritative, not Inferred) — introduce `declares_association`. `has_dsl_call{name,args}` partially violates the iron rule on 40/54 high-frequency calls — SPLIT off `register_journal_formatter` + `register_journal_formatted_fields` as discriminated predicates; keep catch-all for the 3 singletons + `deprecated_alias` + `activity_provider_for`. Final M=23, total = 30. See full finding returned to orchestrator.
+
+### 2026-06-15 — truth-architect — Round 1 — D-AR-1
+
+**Wave:** `openproject-ar-shape-extraction-v1` Round 1, parallel savant.
+Read: plan §3 D-AR-1, handover open-Q3, `triple.rs` (Provenance::truth = Structural(1,1)/Authoritative(.95,.90)/Inferred(.85,.75)), aerial synergies §4 (`Aerial+::Mined` ≠ fixed tier — `arm_to_nars` evidence-driven, Jirak-floored), `I-NOISE-FLOOR-JIRAK`.
+**Recommendation:** `Provenance::OpenProjectExtracted = (0.95, 0.88)` — single tier, hand-tuned per I-NOISE-FLOOR-JIRAK (one notch below Odoo `Authoritative` to encode Ruby metaprogramming surface; 24 `define_method` carry `Inferred(0.85,0.75)` per-edge override, no sub-tier variant).
 
 ## 2026-06-15 — integrated-cognitive-planner-v1: 3-hardener verdicts folded (§9) + §0 anti-invention guardrail
 
