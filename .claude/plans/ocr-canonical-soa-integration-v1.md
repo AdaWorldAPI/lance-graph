@@ -93,11 +93,13 @@ keyed by `identity`. Not bundled into the node.
 **ValueSchema:** do **NOT** add a 5th `ValueSchema::Ocr` enum variant — that is a
 contract-surface addition against the #496 §0 anti-invention guardrail. Shipped
 `ocr.rs` already transcodes by riding the POC-`Full` default (`classid_read_mode →
-Full`) and writing only the tenants it populates. Post-POC, OCR rides the existing
-**`Compressed`** preset (already = Fingerprint + HelixResidue + TurbovecResidue +
-EntityType) — or, if a distinct tenant set is truly needed, **mint an OCR class** in
-OGAR whose `ClassView` selects existing tenants (the §0-sanctioned opt-in route).
-New capability = new column/class, never a new enum variant.
+Full`) and writing only the tenants it populates. Post-POC, OCR rides **`Full`** —
+the only existing preset carrying the codec residues (HelixResidue + TurbovecResidue)
+AND the hot columns the §4 writeback needs (Energy for confidence, Plasticity for the
+repair stamp). `Compressed` lacks Energy/Plasticity and `Cognitive` lacks the
+residues, so neither fits OCR (codex P2 on #500). A leaner OCR row would need an
+operator-minted preset — that is an operator decision, not a plan default; the rule
+that holds is **no new enum variant from a plan**.
 
 ## 4. Repair: DeepNSM + CAM/PQ nearest-valid-token (D-OCR-52)
 
