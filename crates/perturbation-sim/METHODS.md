@@ -195,6 +195,72 @@ let feats: Vec<[f64;5]> = seeds.iter()
 
 ---
 
+## 6. Fast-sketch synergy (`sketch.rs`, PROTOTYPE)
+
+The XOR/bundle/JL machinery *is* a field-tier accelerator — two pieces.
+
+- **Spielman–Srivastava resistance sketch** (`resistance_sketch`). `R_eff(u,v) =
+  ‖W^{1/2}B L⁺ (e_u−e_v)‖²` exactly (because `Mᵀ M = L`), so `k = O(log n/ε²)`
+  random ±1 projections give an unbiased JL estimate `‖z_u − z_v‖²`. The ±1
+  rows are a `vsa_bundle` of sign fingerprints; the distance readout is the
+  σ-band/Hamming readout. **[G]** (theorem). **Honest scope:** the prototype
+  uses dense `L⁺`, so it demonstrates *accuracy* (tested < 12% rel-err at
+  k=6000 on the bridge graph), **not** the asymptotic speed win — that needs a
+  fast Laplacian solver. Value is at continental `n` where the exact eigensolve
+  dies; at demo `n` the exact path wins. Error bars are **Jirak**, not IID.
+- **Walsh/Morton pyramid screen** (`walsh_pyramid_energy`, `fwht`). The WHT of a
+  node field, grouped into dyadic (Morton/quadtree) levels: coarse (low-
+  sequency) energy = global/**Raumgewinn**/collapse, fine = local/**infight**.
+  One `O(N log N)` pass; the sign side (XOR/`bind`) of the pyramid. **[H]** — a
+  *screen*: the Walsh basis equals the graph eigenbasis only on hypercube-
+  structured graphs, so coarse energy *flags* candidate collapse regions that
+  the exact eigensolve (`perturbation.rs`/`basin.rs`) then certifies. Tested:
+  smooth field is coarse-dominated, a spike is fine-dominated; `fwht∘fwht = N·I`.
+
+## 7. Gaussian-splat magnitude side (`splat.rs`, PROTOTYPE)
+
+The **magnitude** side of the same pyramid (the `vsa_bundle` algebra; §6 is the
+sign side). EWA splatting *is* anisotropic mip-filtering — its reason to exist
+is anti-aliasing resampling between pyramid levels.
+
+- **`splat_neighborhood`** fits an SPD covariance `Σ` to a bus's local
+  *electrical* neighbourhood (the `spectral_embedding` coords, resistance-
+  closeness weighted). `Σ`'s anisotropy is the spread direction ≈ the cut
+  normal. Tested symmetric + PSD. **Splats in electrical coordinates, never
+  geography** — the one correction that makes the Morton idea valid.
+- **`ewa_coarsen` vs `box_coarsen`** coarsen one pyramid level. A z-order seam
+  ("Z-jump") groups spatially-distant cells; a hard box-average aliases them in,
+  EWA's Gaussian footprint down-weights them. Tested: wide-σ EWA → box (limit);
+  tight-σ EWA suppresses a seam outlier (box ≈ 34 → EWA ≈ 1). **[H]** — shows
+  the construction + the seam fix; the `Σ` push-forward up the pyramid is the
+  certified `jc::ewa_sandwich` / ndarray pillar-12 `J·Σ·Jᵀ`, not re-derived.
+- **`morton2`** — the 2-bit/axis Z-order interleave (the 4×4 tile = the EWA
+  footprint quantum). Tested against known codes.
+
+Together §6+§7 are the OGAR bipolar-phase pyramid: **sign (Walsh/XOR — the
+infight↔Raumgewinn scale) × magnitude (EWA Gaussian splat — the anisotropic
+neighbourhood footprint)**. The two-algebra rule (`I-VSA-IDENTITIES`): sign side
+= XOR/`bind`, magnitude side = `bundle`/EWA, never mixed.
+
+## 8. The fidelity ladder is iterative, not a fork that limits the design
+
+Physical fidelity is a *sequence of iterations on one extensible substrate*, not
+a one-time DC-vs-AC choice. The design must not bake in DC; each rung adds data
+to the same `Grid`/`Edge`/cascade and the same `L`-derived methods:
+
+| Iteration | Adds | Reuses unchanged |
+|---|---|---|
+| **cheap** | `Edge` gains `r` (resistance) → `loss_gradient` = `I²R` field; temporal driver runs the cascade per time slice → test-retest ICC | all of §1–§7 (the methods are functions of `L`; richer weights just change `L`) |
+| **medium** | event-driven cascade: relay inverse-time curves + thermal inertia → trip *timing*; tech-debt modifiers (age→derate/R/relay/failure-prior) as control variables | `simulate_outage` becomes a timed variant; Weyl/Cheeger/Kron/sketch/splat untouched |
+| **fork** | full **AC** π-model (`R+jX+jB/2`, voltages, reactive Q, Newton–Raphson) → voltage-collapse mode + true losses | the Laplacian generalizes to the complex `Y_bus`; the spectral/effective-resistance/Cheeger/Kron machinery has complex analogues — the field tier carries over |
+
+**Design rule:** keep every method a function of the (possibly complex,
+possibly time-indexed) admittance operator, and keep parameters as `Edge`/`Node`
+data columns + modifier functions. Then "cheap → medium → fork" is *adding
+columns and swapping the solver*, never rewriting the field tier. The data
+ceiling (proprietary asset condition) is handled by priors + sensitivity +
+disclosure (`n_estimated_*`), never invented numbers.
+
 ## Anti-dilution table — the distinctions to never collapse
 
 | Do NOT conflate | Because |
@@ -207,3 +273,7 @@ let feats: Vec<[f64;5]> = seeds.iter()
 | ICC vs Pearson | Pearson ignores systematic bias; ICC catches it (the method-bias = the Go duality) |
 | IID Berry–Esseen vs Jirak weak-dependence | grid contingencies are dependent; IID inflates significance |
 | Estimated `x`/`s_nom` (OSM proxy) vs measured | DC screening proxy, not as-built protection data |
+| SS sketch *accuracy* vs *speed* | exact in expectation (JL), but "fast" needs a fast Laplacian solver this crate lacks — at demo `n` the exact path wins |
+| Walsh pyramid *screen* vs exact partition | basis = graph eigenbasis only on hypercubes; it flags, the eigensolve certifies |
+| Splat in geography vs electrical embedding | a lon/lat splat is a rhyme; a `spectral_embedding` splat is principled |
+| Fidelity ladder = iterations vs a limiting fork | cheap→medium→fork adds columns + swaps solver; never rewrites the field tier |
