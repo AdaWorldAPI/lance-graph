@@ -22,3 +22,7 @@ path = "examples/simulate.rs"
 [[example]]
 name = "iberian"
 path = "examples/iberian.rs"
+
+[[example]]
+name = "validate"
+path = "examples/validate.rs"

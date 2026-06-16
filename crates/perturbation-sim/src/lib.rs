@@ -49,6 +49,7 @@
 //! against numpy/scipy/R. Targets modest networks (`n` up to a few hundred
 //! buses) — exactly the regime of a regional transmission graph.
 
+pub mod acflow;
 pub mod basin;
 pub mod cascade;
 pub mod eigen;
@@ -59,7 +60,9 @@ pub mod model;
 pub mod perturbation;
 pub mod sketch;
 pub mod splat;
+pub mod stats;
 
+pub use acflow::{AcBus, AcLine, AcSystem, BusKind, PowerFlowResult};
 pub use basin::{
     cheeger_sweep, contingency_features, effective_resistance, infight_vs_raumgewinn, kron_reduce,
     laplacian_pinv, spectral_embedding, Cheeger, ContingencyFeatures, GoScore, KronReduced, Regime,
@@ -76,3 +79,4 @@ pub use model::{
 pub use perturbation::{spectral_perturbation, SpectralPerturbation};
 pub use sketch::{fwht, resistance_sketch, walsh_pyramid_energy, ResistanceSketch, WalshEnergy};
 pub use splat::{box_coarsen, ewa_coarsen, morton2, splat_neighborhood, Splat};
+pub use stats::{cronbach_alpha, icc_a1, pearson, spearman, zscore};
