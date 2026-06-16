@@ -9,17 +9,32 @@ use lance_graph_contract::collapse_gate::MailboxId;
 /// Messages the AttentionMaskActor accepts.
 #[derive(Clone, Debug)]
 pub enum AttentionMaskMsg {
-    BindRequest { mailbox_id: MailboxId, w_slot: u8, reply_to: u32 },
-    BindReply { mailbox_id: MailboxId, was_new: bool, reply_to: u32 },
-    EvictionMsg { evicted: MailboxId },
+    BindRequest {
+        mailbox_id: MailboxId,
+        w_slot: u8,
+        reply_to: u32,
+    },
+    BindReply {
+        mailbox_id: MailboxId,
+        was_new: bool,
+        reply_to: u32,
+    },
+    EvictionMsg {
+        evicted: MailboxId,
+    },
     Tick,
 }
 
 /// Outcome of one actor message handle.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AttentionMaskOutcome {
-    Bound { mailbox_id: MailboxId, was_new: bool },
-    Evicted { mailbox_id: MailboxId },
+    Bound {
+        mailbox_id: MailboxId,
+        was_new: bool,
+    },
+    Evicted {
+        mailbox_id: MailboxId,
+    },
     Ticked,
     NoOp,
 }
@@ -59,22 +74,32 @@ pub struct AttentionMaskActor<B: AttentionMaskBackend> {
 
 impl<B: AttentionMaskBackend> AttentionMaskActor<B> {
     pub fn new(inner: B) -> Self {
-        Self { inner, pending_evictions: Vec::new() }
+        Self {
+            inner,
+            pending_evictions: Vec::new(),
+        }
     }
 
     pub fn handle(&mut self, msg: AttentionMaskMsg) -> AttentionMaskOutcome {
         match msg {
-            AttentionMaskMsg::BindRequest { mailbox_id, w_slot, .. } => {
+            AttentionMaskMsg::BindRequest {
+                mailbox_id, w_slot, ..
+            } => {
                 let was_new = self.inner.touch(mailbox_id, w_slot);
                 if let Some(evicted) = self.inner.evict_lru() {
                     self.pending_evictions.push(evicted);
                 }
-                AttentionMaskOutcome::Bound { mailbox_id, was_new }
+                AttentionMaskOutcome::Bound {
+                    mailbox_id,
+                    was_new,
+                }
             }
             AttentionMaskMsg::BindReply { .. } => AttentionMaskOutcome::NoOp,
             AttentionMaskMsg::EvictionMsg { evicted } => {
                 self.pending_evictions.push(evicted);
-                AttentionMaskOutcome::Evicted { mailbox_id: evicted }
+                AttentionMaskOutcome::Evicted {
+                    mailbox_id: evicted,
+                }
             }
             AttentionMaskMsg::Tick => {
                 self.inner.tick();
@@ -163,7 +188,13 @@ mod tests {
             w_slot: 3,
             reply_to: 0,
         });
-        assert_eq!(outcome, AttentionMaskOutcome::Bound { mailbox_id: 1, was_new: true });
+        assert_eq!(
+            outcome,
+            AttentionMaskOutcome::Bound {
+                mailbox_id: 1,
+                was_new: true
+            }
+        );
 
         // Second bind for the same id: already present → was_new == false
         let outcome2 = actor.handle(AttentionMaskMsg::BindRequest {
@@ -171,7 +202,13 @@ mod tests {
             w_slot: 3,
             reply_to: 0,
         });
-        assert_eq!(outcome2, AttentionMaskOutcome::Bound { mailbox_id: 1, was_new: false });
+        assert_eq!(
+            outcome2,
+            AttentionMaskOutcome::Bound {
+                mailbox_id: 1,
+                was_new: false
+            }
+        );
     }
 
     #[test]
@@ -220,8 +257,16 @@ mod tests {
         let mut actor = AttentionMaskActor::new(backend);
 
         // Two BindRequests: each causes one LRU eviction from the queue
-        actor.handle(AttentionMaskMsg::BindRequest { mailbox_id: 1, w_slot: 0, reply_to: 0 });
-        actor.handle(AttentionMaskMsg::BindRequest { mailbox_id: 2, w_slot: 0, reply_to: 0 });
+        actor.handle(AttentionMaskMsg::BindRequest {
+            mailbox_id: 1,
+            w_slot: 0,
+            reply_to: 0,
+        });
+        actor.handle(AttentionMaskMsg::BindRequest {
+            mailbox_id: 2,
+            w_slot: 0,
+            reply_to: 0,
+        });
 
         // First drain returns both and clears
         let first_drain = actor.drain_pending_evictions();

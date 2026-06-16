@@ -5,13 +5,13 @@
 //! OQ-LAYOUT-1: RESOLVED. G-slot dropped (L-3). Mantissa = 4b signed i4 (L-4).
 
 // ── v1 fields preserved (shifts unchanged from v1) ─────────────────────────
-pub const S_SHIFT:      u32 = 0;
-pub const P_SHIFT:      u32 = 8;
-pub const O_SHIFT:      u32 = 16;
-pub const FREQ_SHIFT:   u32 = 24;
-pub const CONF_SHIFT:   u32 = 32;
+pub const S_SHIFT: u32 = 0;
+pub const P_SHIFT: u32 = 8;
+pub const O_SHIFT: u32 = 16;
+pub const FREQ_SHIFT: u32 = 24;
+pub const CONF_SHIFT: u32 = 32;
 pub const CAUSAL_SHIFT: u32 = 40;
-pub const DIR_SHIFT:    u32 = 43;
+pub const DIR_SHIFT: u32 = 43;
 
 // ── v1→v2 EXPANDED field ────────────────────────────────────────────────────
 /// Inference mantissa: 4-bit signed (−8..+7).
@@ -23,18 +23,18 @@ pub const DIR_SHIFT:    u32 = 43;
 ///   7=Extension/Intension-negative (future).
 /// Encodes direction × NARS rule in one field.
 /// See pr-ce64-mb-2-causaledge64-v2.md §"Signed Mantissa Rationale".
-pub const INFER_SHIFT:  u32 = 46;
+pub const INFER_SHIFT: u32 = 46;
 
 /// 4-bit unsigned mask for pack/unpack of the signed i4 mantissa field.
-pub const BITS4_MASK:   u64 = 0xF;
+pub const BITS4_MASK: u64 = 0xF;
 
 /// Mask covering the mantissa field (bits 46-49) in the u64 word.
-pub const INFER_MASK:   u64 = BITS4_MASK << INFER_SHIFT;
+pub const INFER_MASK: u64 = BITS4_MASK << INFER_SHIFT;
 
 // ── v1 field SHIFTED ────────────────────────────────────────────────────────
 /// Plasticity flags: bits 50-52 (shifted by +1 from v1's bits 49-51 due to
 /// mantissa expansion from 3b unsigned to 4b signed i4 per L-4).
-pub const PLAST_SHIFT:  u32 = 50;
+pub const PLAST_SHIFT: u32 = 50;
 
 // ── v1 field DEPRECATED ─────────────────────────────────────────────────────
 /// Deprecated: temporal field shift from v1. Bits 52-63 reclaimed in v2.
@@ -51,26 +51,26 @@ pub const V1_TEMPORAL_SHIFT: u32 = 52;
 // ── v2 NEW fields (reclaimed from dropped temporal 12 bits) ─────────────────
 /// W slot: 6-bit witness corpus root handle (bits 53-58), 0..=63.
 /// 0 = no corpus anchor. Per cognitive-substrate-convergence-v1.md L-6.
-pub const W_SHIFT:      u32 = 53;
+pub const W_SHIFT: u32 = 53;
 
 /// Truth-band lens: 2-bit TrustTexture ordinal (bits 59-60).
 /// 0 = Crystalline. Per cognitive-substrate-convergence-v1.md L-7.
-pub const TRUTH_SHIFT:  u32 = 59;
+pub const TRUTH_SHIFT: u32 = 59;
 
 /// Spare: 3-bit reserved for sprint-12+ (bits 61-63).
 /// Candidates: Rubicon-commit marker, Markov-decay quantum, I-NOISE-FLOOR-JIRAK threshold.
-pub const SPARE_SHIFT:  u32 = 61;
+pub const SPARE_SHIFT: u32 = 61;
 
 // ── Common masks ─────────────────────────────────────────────────────────────
-pub const BYTE_MASK:    u64 = 0xFF;
-pub const BITS3_MASK:   u64 = 0x7;
-pub const BITS6_MASK:   u64 = 0x3F;
-pub const BITS2_MASK:   u64 = 0x3;
+pub const BYTE_MASK: u64 = 0xFF;
+pub const BITS3_MASK: u64 = 0x7;
+pub const BITS6_MASK: u64 = 0x3F;
+pub const BITS2_MASK: u64 = 0x3;
 
-pub const PLAST_MASK:   u64 = BITS3_MASK << PLAST_SHIFT;
-pub const W_MASK:       u64 = BITS6_MASK << W_SHIFT;
-pub const TRUTH_MASK:   u64 = BITS2_MASK << TRUTH_SHIFT;
-pub const SPARE_MASK:   u64 = BITS3_MASK << SPARE_SHIFT;
+pub const PLAST_MASK: u64 = BITS3_MASK << PLAST_SHIFT;
+pub const W_MASK: u64 = BITS6_MASK << W_SHIFT;
+pub const TRUTH_MASK: u64 = BITS2_MASK << TRUTH_SHIFT;
+pub const SPARE_MASK: u64 = BITS3_MASK << SPARE_SHIFT;
 
 // ── Compile-time layout coverage assertion ────────────────────────────────────
 /// Const-assert: all 64 bits covered exactly once.
@@ -88,7 +88,7 @@ const _LAYOUT_COVERAGE: () = {
         | (BITS3_MASK << PLAST_SHIFT)             // bits 50-52 (shifted from v1)
         | (BITS6_MASK << W_SHIFT)                 // bits 53-58 (NEW)
         | (BITS2_MASK << TRUTH_SHIFT)             // bits 59-60 (NEW)
-        | (BITS3_MASK << SPARE_SHIFT);            // bits 61-63 (NEW)
+        | (BITS3_MASK << SPARE_SHIFT); // bits 61-63 (NEW)
     assert!(
         all == u64::MAX,
         "CausalEdge64 v2 bit layout must cover all 64 bits exactly once"

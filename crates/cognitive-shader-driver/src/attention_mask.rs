@@ -202,13 +202,17 @@ mod tests {
         let mut soa = AttentionMaskSoA::new(2);
 
         soa.touch(1, 0); // cycle 0
-        soa.tick();      // cycle 1
+        soa.tick(); // cycle 1
         soa.touch(2, 0); // cycle 1
-        soa.tick();      // cycle 2
+        soa.tick(); // cycle 2
         soa.touch(3, 0); // cycle 2 — now active_count = 3 > max_active = 2
 
         let evicted = soa.evict_lru();
-        assert_eq!(evicted, Some(1), "mailbox_id 1 was touched at cycle 0 (oldest)");
+        assert_eq!(
+            evicted,
+            Some(1),
+            "mailbox_id 1 was touched at cycle 0 (oldest)"
+        );
         assert_eq!(soa.active_count(), 2);
         assert!(!soa.is_active(1));
         assert!(soa.is_active(2));
@@ -256,11 +260,11 @@ mod tests {
 
         // Touch three entries at different cycles.
         soa.touch(10, 0); // cycle 0
-        soa.tick();       // cycle 1
+        soa.tick(); // cycle 1
         soa.touch(20, 0); // cycle 1
-        soa.tick();       // cycle 2
+        soa.tick(); // cycle 2
         soa.touch(30, 0); // cycle 2
-        soa.tick();       // cycle 3
+        soa.tick(); // cycle 3
 
         // Re-touch id=10 to make it fresh; id=20 is now oldest.
         soa.touch(10, 0); // cycle 3
@@ -269,7 +273,11 @@ mod tests {
         soa.touch(40, 0); // cycle 3, active_count = 4 > max_active = 3
 
         let evicted = soa.evict_lru();
-        assert_eq!(evicted, Some(20), "id=20 was last touched at cycle 1 (oldest remaining)");
+        assert_eq!(
+            evicted,
+            Some(20),
+            "id=20 was last touched at cycle 1 (oldest remaining)"
+        );
         assert!(!soa.is_active(20));
         assert!(soa.is_active(10));
         assert!(soa.is_active(30));

@@ -139,6 +139,15 @@ impl VersionedGraph {
 
     // -- dataset paths ------------------------------------------------------
 
+    /// The base directory or URI this graph is rooted at (local path, `s3://`,
+    /// `az://`, `gs://`). The per-dataset paths (`nodes.lance`, `edges.lance`,
+    /// …) are this suffixed by their dataset name. Exposed so downstream
+    /// crates (e.g. `graph::scheduler::LanceVersionScheduler`) can derive a
+    /// dataset path without scraping the `Debug` representation.
+    pub fn base_path(&self) -> &str {
+        &self.base_path
+    }
+
     fn nodes_path(&self) -> String {
         format!("{}/nodes.lance", self.base_path)
     }

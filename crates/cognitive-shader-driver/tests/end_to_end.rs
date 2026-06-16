@@ -6,24 +6,26 @@ use bgz17::base17::Base17;
 use bgz17::palette::Palette;
 use bgz17::palette_semiring::PaletteSemiring;
 
-use cognitive_shader_driver::bindspace::{BindSpace, WORDS_PER_FP, FLOATS_PER_VSA};
+use cognitive_shader_driver::auto_style;
+use cognitive_shader_driver::bindspace::{BindSpace, FLOATS_PER_VSA, WORDS_PER_FP};
 use cognitive_shader_driver::driver::CognitiveShaderBuilder;
 use cognitive_shader_driver::engine_bridge::{
-    ingest_codebook_indices, persist_cycle, read_qualia_17d, write_qualia_17d,
-    classification_distance, read_qualia_decomposed,
+    classification_distance, ingest_codebook_indices, persist_cycle, read_qualia_17d,
+    read_qualia_decomposed, write_qualia_17d,
 };
 use cognitive_shader_driver::{
     CognitiveShaderDriver, ColumnWindow, MetaFilter, ShaderDispatch, StyleSelector,
 };
-use cognitive_shader_driver::auto_style;
 
 fn palette_256() -> PaletteSemiring {
-    let entries: Vec<Base17> = (0..256).map(|i| {
-        let mut dims = [0i16; 17];
-        dims[0] = (i * 100 % 3400) as i16;
-        dims[1] = ((i * 37) % 200) as i16;
-        Base17 { dims }
-    }).collect();
+    let entries: Vec<Base17> = (0..256)
+        .map(|i| {
+            let mut dims = [0i16; 17];
+            dims[0] = (i * 100 % 3400) as i16;
+            dims[1] = ((i * 37) % 200) as i16;
+            Base17 { dims }
+        })
+        .collect();
     PaletteSemiring::build(&Palette { entries })
 }
 
@@ -53,17 +55,26 @@ fn full_pipeline_ingest_dispatch_persist_read() {
     for row in 0..32u32 {
         let words = bs.fingerprints.content_row(row as usize);
         let popcount: u32 = words.iter().map(|w| w.count_ones()).sum();
-        assert_eq!(popcount, 1, "each ingested row should have exactly 1 bit set");
+        assert_eq!(
+            popcount, 1,
+            "each ingested row should have exactly 1 bit set"
+        );
     }
 
     // [3] Write qualia for row 0 (fear-like) and row 1 (steelwind-like).
     let mut fear_q = [0.0f32; 17];
-    fear_q[0] = 0.9; fear_q[1] = -0.8; fear_q[2] = 0.9;
-    fear_q[3] = 0.1; fear_q[4] = 0.3; fear_q[5] = 0.8;
+    fear_q[0] = 0.9;
+    fear_q[1] = -0.8;
+    fear_q[2] = 0.9;
+    fear_q[3] = 0.1;
+    fear_q[4] = 0.3;
+    fear_q[5] = 0.8;
     write_qualia_17d(&mut bs, 0, &fear_q);
 
     let mut novel_q = [0.0f32; 17];
-    novel_q[0] = 0.5; novel_q[1] = 0.5; novel_q[2] = 0.8;
+    novel_q[0] = 0.5;
+    novel_q[1] = 0.5;
+    novel_q[2] = 0.8;
     novel_q[4] = 0.9;
     write_qualia_17d(&mut bs, 1, &novel_q);
 
@@ -98,13 +109,25 @@ fn full_pipeline_ingest_dispatch_persist_read() {
     let crystal = driver.dispatch(&req);
 
     // [5] Verify cycle_fingerprint is not all-zero (XOR fold of content rows).
-    let fp_popcount: u32 = crystal.bus.cycle_fingerprint.iter()
-        .map(|w| w.count_ones()).sum();
-    assert!(fp_popcount > 0, "cycle_fingerprint should have bits from XOR fold");
+    let fp_popcount: u32 = crystal
+        .bus
+        .cycle_fingerprint
+        .iter()
+        .map(|w| w.count_ones())
+        .sum();
+    assert!(
+        fp_popcount > 0,
+        "cycle_fingerprint should have bits from XOR fold"
+    );
 
     // [6] Verify resonance top_k has hits.
-    let active_hits = crystal.bus.resonance.top_k.iter()
-        .filter(|h| h.resonance > 0.0).count();
+    let active_hits = crystal
+        .bus
+        .resonance
+        .top_k
+        .iter()
+        .filter(|h| h.resonance > 0.0)
+        .count();
     assert!(active_hits > 0, "should have at least one resonance hit");
 
     // [7] Verify style was auto-detected.
@@ -119,14 +142,22 @@ fn full_pipeline_ingest_dispatch_persist_read() {
     let persisted_vsa = persist_bs.fingerprints.cycle_row(0);
     // Verify it's not all zeros (the bus had bits set via XOR fold).
     let nonzero_count = persisted_vsa.iter().filter(|&&v| v != 0.0).count();
-    assert_eq!(nonzero_count, FLOATS_PER_VSA, "bipolar projection should have no zeros — every dim is ±1");
+    assert_eq!(
+        nonzero_count, FLOATS_PER_VSA,
+        "bipolar projection should have no zeros — every dim is ±1"
+    );
     // Verify round-trip: threshold back to bits, compare.
     use lance_graph_contract::crystal::vsa16k_to_binary16k_threshold;
     let round_tripped = vsa16k_to_binary16k_threshold(
-        persisted_vsa.try_into().expect("cycle_row len must be 16384")
+        persisted_vsa
+            .try_into()
+            .expect("cycle_row len must be 16384"),
     );
-    assert_eq!(&round_tripped[..], &crystal.bus.cycle_fingerprint[..],
-        "bipolar projection must be lossless round-trip");
+    assert_eq!(
+        &round_tripped[..],
+        &crystal.bus.cycle_fingerprint[..],
+        "bipolar projection must be lossless round-trip"
+    );
 
     // Verify meta was packed.
     let meta = persist_bs.meta.get(0);
@@ -137,10 +168,21 @@ fn full_pipeline_ingest_dispatch_persist_read() {
     eprintln!("  Ingested: {} rows", end - start);
     eprintln!("  Cycle FP popcount: {}", fp_popcount);
     eprintln!("  Active hits: {}", active_hits);
-    eprintln!("  Style: {} ({})", style_ord,
-        cognitive_shader_driver::engine_bridge::unified_style(style_ord).name);
-    eprintln!("  Gate: {}", if crystal.bus.gate.is_flow() { "Flow" }
-        else if crystal.bus.gate.is_hold() { "Hold" } else { "Block" });
+    eprintln!(
+        "  Style: {} ({})",
+        style_ord,
+        cognitive_shader_driver::engine_bridge::unified_style(style_ord).name
+    );
+    eprintln!(
+        "  Gate: {}",
+        if crystal.bus.gate.is_flow() {
+            "Flow"
+        } else if crystal.bus.gate.is_hold() {
+            "Hold"
+        } else {
+            "Block"
+        }
+    );
     eprintln!("  Fear CD: {:.3}, Novel CD: {:.3}", cd_fear, cd_novel);
 }
 
@@ -156,6 +198,9 @@ fn style_auto_detect_matches_qualia() {
 
     let back = read_qualia_17d(&bs, 0);
     let detected = auto_style::style_from_qualia(&back);
-    assert_eq!(detected, auto_style::ANALYTICAL,
-        "high certainty + low urgency should auto-detect as analytical");
+    assert_eq!(
+        detected,
+        auto_style::ANALYTICAL,
+        "high certainty + low urgency should auto-detect as analytical"
+    );
 }

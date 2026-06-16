@@ -58,9 +58,15 @@ pub enum DetectError {
     /// `config.json` not found next to the safetensors file.
     ConfigMissing { path: String },
     /// IO failure reading `config.json`.
-    Io { path: String, source: std::io::Error },
+    Io {
+        path: String,
+        source: std::io::Error,
+    },
     /// `config.json` failed JSON parse.
-    Parse { path: String, source: serde_json::Error },
+    Parse {
+        path: String,
+        source: serde_json::Error,
+    },
     /// `config.json` missing a required field (listed in `field`).
     MissingField { path: String, field: &'static str },
 }
@@ -117,10 +123,14 @@ pub fn detect(model_path: &Path) -> Result<ModelFingerprint, DetectError> {
         return Err(DetectError::ConfigMissing { path: path_str });
     }
 
-    let raw = fs::read_to_string(&config_path)
-        .map_err(|e| DetectError::Io { path: path_str.clone(), source: e })?;
-    let cfg: HfConfig = serde_json::from_str(&raw)
-        .map_err(|e| DetectError::Parse { path: path_str.clone(), source: e })?;
+    let raw = fs::read_to_string(&config_path).map_err(|e| DetectError::Io {
+        path: path_str.clone(),
+        source: e,
+    })?;
+    let cfg: HfConfig = serde_json::from_str(&raw).map_err(|e| DetectError::Parse {
+        path: path_str.clone(),
+        source: e,
+    })?;
 
     let architecture = cfg
         .model_type
@@ -132,15 +142,20 @@ pub fn detect(model_path: &Path) -> Result<ModelFingerprint, DetectError> {
     let hidden_size = cfg
         .hidden_size
         .or(cfg.d_model)
-        .ok_or(DetectError::MissingField { path: path_str.clone(), field: "hidden_size" })?;
+        .ok_or(DetectError::MissingField {
+            path: path_str.clone(),
+            field: "hidden_size",
+        })?;
 
-    let n_layers = cfg
-        .num_hidden_layers
-        .ok_or(DetectError::MissingField { path: path_str.clone(), field: "num_hidden_layers" })?;
+    let n_layers = cfg.num_hidden_layers.ok_or(DetectError::MissingField {
+        path: path_str.clone(),
+        field: "num_hidden_layers",
+    })?;
 
-    let vocab_size = cfg
-        .vocab_size
-        .ok_or(DetectError::MissingField { path: path_str.clone(), field: "vocab_size" })?;
+    let vocab_size = cfg.vocab_size.ok_or(DetectError::MissingField {
+        path: path_str.clone(),
+        field: "vocab_size",
+    })?;
 
     let default_lane_width = suggest_lane_width(&architecture, cfg.torch_dtype.as_deref());
     let default_distance = suggest_distance(&architecture);
@@ -348,6 +363,12 @@ mod tests {
             None,
         );
         let err = detect(&dir).unwrap_err();
-        assert!(matches!(err, DetectError::MissingField { field: "hidden_size", .. }));
+        assert!(matches!(
+            err,
+            DetectError::MissingField {
+                field: "hidden_size",
+                ..
+            }
+        ));
     }
 }

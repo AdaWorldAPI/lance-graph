@@ -1,3 +1,26 @@
+## 2026-06-16 — PR #507 review pass: 5+3 agent fleet (5 specialists + PP-13/15/16 hardeners) → 1 P0 + 2 P1 + P2 docs fixed
+
+**Main thread (Opus 4.7) spawned an 8-agent review fleet against PR #507** (the 4-task unblock-cascade below): 5 specialists (sentinel-qa, dto-soa-savant, iron-rule-savant, scenario-world, container-architect) + the 3 brutal hardeners (PP-13 brutally-honest-tester, PP-15 baton-handoff-auditor, PP-16 preflight-drift-auditor). Verdicts: dto-soa **LAND**, iron-rule **YIELDS-ALL**, container-architect **EXACT**, sentinel-qa **SOUND+P1**, scenario-world **CORRECT+P1**, PP-15 **CATCH-LATENT**, PP-16 **HOLD(P0)**, PP-13 **HOLD(P1×2)**. Consensus: mergeable after mechanical fixes; **zero REJECT, zero architectural rework** — "high-quality work" (PP-13), tests verified not-theater.
+
+**The fleet earned its keep — two real defects all four green test suites missed:**
+
+- **P0 (PP-16, root cause) — incomplete cherry-pick.** Task 2 cherry-picked `463d71b`'s `mailbox_soa.rs` half (+149) but **dropped its `causal-edge/src/edge.rs` half** (+6: the `#[repr(transparent)]` on `CausalEdge64` that is the layout enabler the `&[CausalEdge64]→&[u64]` reinterpret depends on). The SAFETY comment cited a `repr(transparent)` the type didn't carry — sound on today's rustc by newtype-layout coincidence, unsound by the letter, invisible to CI (borrow-checker ignores `repr`). Confirmed via `git show 463d71b --stat`. **Process lesson → EPIPHANIES E-CHERRYPICK-SPANS-CRATES-1.**
+- **P1 (PP-13) — `fmt --check` overclaim.** The prior AGENT_LOG entry below said "clippy/fmt clean" but only clippy had been run; `cargo fmt --check` actually FAILED on PR-added lines (`hhtl.rs`, `scheduler.rs`, `view.rs`). Honest correction.
+
+**Fixes applied (new commit on the same branch — preserves review history):**
+- **FIX-A (P0):** restored the dropped enabler — `#[repr(transparent)]` + doc on `CausalEdge64` (`causal-edge/src/edge.rs:148-156`); added `const _` size/align guards at the `edges_raw`/`meta_raw` cast sites (compile-error on any layout regression); corrected both SAFETY comments.
+- **FIX-B (P1):** ran `cargo fmt` on all 5 touched crates; `fmt --check` now exits 0.
+- **FIX-C (P1, PP-15):** `SurrealMailboxView::from_columns` `debug_assert_eq!` → `assert_eq!` (the column-length invariant now fails loudly in ALL profiles — closes a release-build OOB where a ragged kv-lance projection → `n_rows() > entity_type().len()` → `SoaWavePrimer::project` indexes out of bounds). + `from_columns_rejects_ragged_projection` panic test.
+- **FIX-D (P1, 4 agents):** `pub fn base_path()` on `VersionedGraph`; deleted the `format!("{:?}")` Debug-scrape in `scheduler.rs` (embedded-quote truncation hazard).
+- **FIX-E (PP-13):** `test_edges_raw_meta_raw_reinterpret_round_trips` — the unsafe cast had ZERO coverage; now bit-exact round-trip + pointer-identity asserted.
+- **FIX-F/H (P2 docs):** `hhtl` bijection doc `0..=16` → `1..=16` (prefix(0)=EMPTY is ancestor of nothing); `drive_at_latest` scope note (version-agnostic policies only) + `versions().last()` upstream-pagination caveat tying the ascending-sort assumption to the lance =7.0.0 pin.
+
+**Disk verification this turn:** `git diff` confirms FIX-A landed (`#[repr(transparent)]` on `CausalEdge64` at `edge.rs:156`, `const _:` size/align guards at both cast sites in `mailbox_soa.rs`, `test_edges_raw_meta_raw_reinterpret_round_trips` at `mailbox_soa.rs:716`, `from_columns_rejects_ragged_projection` at `surreal_container/src/view.rs:257`). 34 files modified, +2841/-1100 — all uncommitted, awaits operator decision.
+
+**Discipline note:** this entry prepended BEFORE commit, per board-hygiene rule (board update must land in same commit, not as retroactive cleanup).
+
+---
+
 ## 2026-06-16 — 4-task unblock-cascade landing: NiblePath::from_guid_prefix + MailboxSoaOwner cherry-pick + LanceVersionScheduler + SurrealMailboxView (D-PG-6 contract slice)
 
 **Main thread (Opus 4.7) — single agent**, four ordered tasks responding to the user's "1 2 3 and 4" go-ahead on the shortest-unblocking-path list surfaced after #497-#501 + the surrealdb fork bump (`AdaWorldAPI/surrealdb` PR #34/#35/#36/#37 → main at `3aa6ab9` with `lance=7.0.0`/`lancedb=0.30.0`). All four committed together on `claude/odoo-savant-reasoners`, branch fast-forwarded through `cb14704`.

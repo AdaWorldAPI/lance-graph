@@ -73,7 +73,6 @@ pub struct MailboxSoA<const N: usize> {
     pub last_active_cycle: [u32; N],
 
     // ── NEW: migrated thoughtspace columns (per-mailbox owned, D-MBX-A1) ──
-
     /// Per-row LE baton edge (`CausalEdge64`, 8 B/row).
     /// Migrated from `BindSpace.edges` (EdgeColumn).
     /// This IS the LE contract / baton edge for this mailbox row.
@@ -180,8 +179,7 @@ impl<const N: usize> MailboxSoA<N> {
             let m = edge.inference_mantissa() as f32 / 8.0;
             let c = edge.confidence();
             self.energy[row] += m * c;
-            self.plasticity_counter[row] =
-                self.plasticity_counter[row].saturating_add(1);
+            self.plasticity_counter[row] = self.plasticity_counter[row].saturating_add(1);
             accepted += 1;
         }
         accepted
@@ -373,19 +371,29 @@ impl<const N: usize> MailboxSoaView for MailboxSoA<N> {
     }
     #[inline]
     fn edges_raw(&self) -> &[u64] {
+        // The `#[repr(transparent)]` on `CausalEdge64` (causal-edge `edge.rs`) is
+        // the load-bearing layout guarantee for this cast; the const guards below
+        // make a layout regression a COMPILE error (not silent UB) even if the
+        // repr is ever removed upstream.
+        const _: () = assert!(core::mem::size_of::<CausalEdge64>() == core::mem::size_of::<u64>());
+        const _: () =
+            assert!(core::mem::align_of::<CausalEdge64>() == core::mem::align_of::<u64>());
         // SAFETY: `CausalEdge64` is `#[repr(transparent)]` over `u64` (causal-edge
         // `edge.rs`), so `[CausalEdge64; N]` has identical size/alignment/layout to
-        // `[u64; N]`. The pointer is non-null, aligned, and valid for `N` `u64`
-        // reads; the returned slice borrows `&self`, so it cannot outlive the
-        // backing array. Zero-copy — never clones the store (R1).
+        // `[u64; N]` (the two `const _` asserts above enforce it at compile time).
+        // The pointer is non-null, aligned, and valid for `N` `u64` reads; the
+        // returned slice borrows `&self`, so it cannot outlive the backing array.
+        // Zero-copy — never clones the store (R1).
         unsafe { core::slice::from_raw_parts(self.edges.as_ptr() as *const u64, N) }
     }
     #[inline]
     fn meta_raw(&self) -> &[u32] {
+        const _: () = assert!(core::mem::size_of::<MetaWord>() == core::mem::size_of::<u32>());
+        const _: () = assert!(core::mem::align_of::<MetaWord>() == core::mem::align_of::<u32>());
         // SAFETY: `MetaWord` is `#[repr(transparent)]` over `u32`
         // (lance-graph-contract `cognitive_shader.rs`), so `[MetaWord; N]` has
-        // identical layout to `[u32; N]`. Same validity/lifetime reasoning as
-        // `edges_raw`. Zero-copy.
+        // identical layout to `[u32; N]` (const-asserted above). Same
+        // validity/lifetime reasoning as `edges_raw`. Zero-copy.
         unsafe { core::slice::from_raw_parts(self.meta.as_ptr() as *const u32, N) }
     }
     #[inline]
@@ -409,8 +417,7 @@ impl<const N: usize> MailboxSoaOwner for MailboxSoA<N> {
             // for the chain index until the witness_arc column lands — matching
             // `NextPhaseScheduler`'s convention.
             witness_chain_position: self.current_cycle,
-            libet_offset_us: if from == KanbanColumn::Planning
-                && to == KanbanColumn::CognitiveWork
+            libet_offset_us: if from == KanbanColumn::Planning && to == KanbanColumn::CognitiveWork
             {
                 -550_000
             } else {
@@ -519,7 +526,11 @@ mod tests {
 
         assert_eq!(accepted, 0, "wrong-w_slot baton must be rejected");
         assert_eq!(mb.energy_at(2), 0.0, "energy[2] must be unchanged");
-        assert_eq!(mb.plasticity_at(2), 0, "plasticity_counter[2] must be unchanged");
+        assert_eq!(
+            mb.plasticity_at(2),
+            0,
+            "plasticity_counter[2] must be unchanged"
+        );
     }
 
     // ── test 5: out-of-range target rejected ─────────────────────────────────
@@ -558,8 +569,7 @@ mod tests {
             "energy[3] must reset to 0 after consumption"
         );
         assert_eq!(
-            mb.last_active_cycle[3],
-            mb.current_cycle,
+            mb.last_active_cycle[3], mb.current_cycle,
             "last_active_cycle[3] must equal current_cycle"
         );
     }
@@ -572,7 +582,10 @@ mod tests {
         let mut mb: MailboxSoA<8> = MailboxSoA::new(5, 2, 1.0);
         mb.energy[3] = 0.5; // below 1.0 threshold
 
-        assert!(!mb.consume_firing(3), "below-threshold row must not consume");
+        assert!(
+            !mb.consume_firing(3),
+            "below-threshold row must not consume"
+        );
         assert_eq!(mb.energy_at(3), 0.5, "energy[3] must be unchanged");
     }
 
@@ -680,10 +693,56 @@ mod tests {
             "the forward arc calcifies at Commit"
         );
         assert!(mb.phase().is_absorbing());
-        assert_eq!(steps, 3, "Planning→CognitiveWork→Evaluation→Commit = 3 advances");
+        assert_eq!(
+            steps, 3,
+            "Planning→CognitiveWork→Evaluation→Commit = 3 advances"
+        );
         assert_eq!(
             first_libet, -550_000,
             "the Planning→CognitiveWork crossing carries the Libet −550 ms anchor"
+        );
+    }
+
+    // ── test 12: the unsafe zero-copy reinterpret casts round-trip ───────────
+
+    /// Exercises the `repr(transparent)` reinterpret casts in `edges_raw()` /
+    /// `meta_raw()` — the only genuinely `unsafe` code path in this impl, which
+    /// the driving-loop test never touches. Writes known bit patterns into the
+    /// `[CausalEdge64; N]` / `[MetaWord; N]` columns and asserts the `&[u64]` /
+    /// `&[u32]` views read the SAME bytes back. A layout regression on either
+    /// newtype would fail HERE (in addition to the `const _` size/align guards
+    /// at the cast site failing to compile).
+    #[test]
+    fn test_edges_raw_meta_raw_reinterpret_round_trips() {
+        let mut mb: MailboxSoA<4> = MailboxSoA::new(1, 0, 1.0);
+        // Distinct, non-trivial bit patterns per row.
+        for (i, raw) in [0xDEAD_BEEF_CAFE_0001u64, 2, 0xFFFF_FFFF_FFFF_FFFF, 0]
+            .into_iter()
+            .enumerate()
+        {
+            mb.edges[i] = CausalEdge64(raw);
+            mb.meta[i] = MetaWord((raw & 0xFFFF_FFFF) as u32);
+        }
+
+        let edges_view: &[u64] = mb.edges_raw();
+        let meta_view: &[u32] = mb.meta_raw();
+        assert_eq!(edges_view.len(), 4);
+        assert_eq!(meta_view.len(), 4);
+        for i in 0..4 {
+            // The reinterpret reads the EXACT u64/u32 backing the newtype.
+            assert_eq!(edges_view[i], mb.edges[i].0, "edges_raw[{i}] bit-exact");
+            assert_eq!(meta_view[i], mb.meta[i].0, "meta_raw[{i}] bit-exact");
+        }
+        // Pointer identity: the view borrows the column, never copies it (R1).
+        assert_eq!(
+            edges_view.as_ptr() as usize,
+            mb.edges.as_ptr() as usize,
+            "edges_raw is zero-copy (same backing pointer)"
+        );
+        assert_eq!(
+            meta_view.as_ptr() as usize,
+            mb.meta.as_ptr() as usize,
+            "meta_raw is zero-copy (same backing pointer)"
         );
     }
 }

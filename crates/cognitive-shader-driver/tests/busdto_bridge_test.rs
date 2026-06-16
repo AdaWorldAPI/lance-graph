@@ -77,7 +77,10 @@ fn busdto_round_trip_dense_top_k_is_bit_exact() {
     got_idx.sort_unstable();
     sent_idx.dedup();
     got_idx.dedup();
-    assert_eq!(sent_idx, got_idx, "top_k index SET must be bit-exact (positions in 0..16384)");
+    assert_eq!(
+        sent_idx, got_idx,
+        "top_k index SET must be bit-exact (positions in 0..16384)"
+    );
 
     for i in 0..8 {
         assert_eq!(
@@ -176,7 +179,11 @@ fn busdto_dispatch_writes_meta_thinking_style() {
     let bus = make_dense_bus(99);
     dispatch_busdto(&mut bs, 2, &bus, 7 /* focused */);
     let m = bs.meta.get(2);
-    assert_eq!(m.thinking(), 7, "style ordinal must land in MetaWord.thinking");
+    assert_eq!(
+        m.thinking(),
+        7,
+        "style ordinal must land in MetaWord.thinking"
+    );
     assert_eq!(m.awareness(), 3, "converged=true → awareness=FLOW(3)");
     // free_e clamped to <=63, but cycle_count was 7 so no clamp.
     assert_eq!(m.free_e(), 7);
@@ -190,8 +197,16 @@ fn busdto_round_trip_zero_codebook_index_is_handled() {
     let bus = BusDto {
         codebook_index: 0,
         energy: 0.1,
-        top_k: [(0, 0.1), (0, 0.0), (0, 0.0), (0, 0.0),
-                 (0, 0.0), (0, 0.0), (0, 0.0), (0, 0.0)],
+        top_k: [
+            (0, 0.1),
+            (0, 0.0),
+            (0, 0.0),
+            (0, 0.0),
+            (0, 0.0),
+            (0, 0.0),
+            (0, 0.0),
+            (0, 0.0),
+        ],
         cycle_count: 0,
         converged: true,
     };

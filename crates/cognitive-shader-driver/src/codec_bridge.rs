@@ -29,16 +29,21 @@ pub struct CodecResearchBridge;
 
 impl OrchestrationBridge for CodecResearchBridge {
     fn route(&self, step: &mut UnifiedStep) -> Result<(), OrchestrationError> {
-        let domain = StepDomain::from_step_type(&step.step_type)
-            .ok_or_else(|| OrchestrationError::RoutingFailed(format!(
-                "unknown step_type prefix: {}", step.step_type
-            )))?;
+        let domain = StepDomain::from_step_type(&step.step_type).ok_or_else(|| {
+            OrchestrationError::RoutingFailed(format!(
+                "unknown step_type prefix: {}",
+                step.step_type
+            ))
+        })?;
         if domain != StepDomain::Ndarray {
             return Err(OrchestrationError::DomainUnavailable(domain));
         }
 
         step.status = StepStatus::Running;
-        let op = step.step_type.strip_prefix("nd.").unwrap_or(&step.step_type);
+        let op = step
+            .step_type
+            .strip_prefix("nd.")
+            .unwrap_or(&step.step_type);
         let args = step.reasoning.as_deref().unwrap_or("{}");
 
         match op {
@@ -75,7 +80,9 @@ impl OrchestrationBridge for CodecResearchBridge {
                 step.status = StepStatus::Completed;
                 step.reasoning = Some(format!(
                     "probe tensor={} n_rows={} entries={}",
-                    r.tensor_name, r.n_rows, r.entries.len()
+                    r.tensor_name,
+                    r.n_rows,
+                    r.entries.len()
                 ));
                 Ok(())
             }

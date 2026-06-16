@@ -253,10 +253,11 @@ impl NiblePath {
     ///
     /// **Bijection invariant.** For any GUID whose `classid >> 16 == 0`,
     /// `from_guid_prefix(guid).prefix(d).is_ancestor_of(from_guid_prefix(guid))`
-    /// holds for every `d in 0..=16`. The routing-cache view (typically
-    /// `prefix(4)` over `classid_lo`) is therefore a valid HHTL ancestor of
-    /// the full class path — the LE contract the `classid → ReadMode` keystone
-    /// meets at the classid.
+    /// holds for every `d in 1..=16` (`prefix(0)` is [`EMPTY`](NiblePath::EMPTY),
+    /// which by definition is an ancestor of nothing — the "no basin routed"
+    /// sentinel). The routing-cache view (typically `prefix(4)` over
+    /// `classid_lo`) is therefore a valid HHTL ancestor of the full class path —
+    /// the LE contract the `classid → ReadMode` keystone meets at the classid.
     #[must_use]
     pub const fn from_guid_prefix(guid: &crate::canonical_node::NodeGuid) -> Option<Self> {
         let parts = guid.decode();
@@ -620,7 +621,10 @@ mod tests {
         assert_eq!(p.prefix(0), Some(NiblePath::EMPTY));
         assert_eq!(p.prefix(1), Some(NiblePath::root(0x2)));
         assert_eq!(p.prefix(2), Some(NiblePath::root(0x2).child(0x5)));
-        assert_eq!(p.prefix(3), Some(NiblePath::root(0x2).child(0x5).child(0xA)));
+        assert_eq!(
+            p.prefix(3),
+            Some(NiblePath::root(0x2).child(0x5).child(0xA))
+        );
         assert_eq!(p.prefix(4), Some(p), "prefix(self.depth) is reflexive");
         assert_eq!(p.prefix(5), None, "prefix beyond own depth is rejected");
     }
@@ -629,7 +633,11 @@ mod tests {
     fn prefix_is_always_an_ancestor_of_self() {
         // The structural invariant the routing-cache view relies on: every
         // returned prefix passes is_ancestor_of(self). Walk the whole depth.
-        let p = NiblePath::root(0x1).child(0x2).child(0x3).child(0x4).child(0x5);
+        let p = NiblePath::root(0x1)
+            .child(0x2)
+            .child(0x3)
+            .child(0x4)
+            .child(0x5);
         for d in 1..=p.depth() {
             let pre = p.prefix(d).unwrap();
             assert!(
@@ -643,7 +651,11 @@ mod tests {
     #[test]
     fn prefix_matches_repeated_parent_chain() {
         // O(1) prefix(d) must agree with O(depth-d) parent()-loop.
-        let p = NiblePath::root(0x7).child(0x3).child(0xA).child(0x1).child(0xC);
+        let p = NiblePath::root(0x7)
+            .child(0x3)
+            .child(0xA)
+            .child(0x1)
+            .child(0xC);
         let mut walked = p;
         let mut d = p.depth();
         while d > 0 {
@@ -671,8 +683,7 @@ mod tests {
         assert_eq!(path.leaf(), Some(0xC));
 
         // Packed value mirrors classid_lo|HEEL|HIP|TWIG, root-first.
-        let expected: u64 =
-            (0xABCDu64 << 48) | (0x1234u64 << 32) | (0x5678u64 << 16) | 0x9ABCu64;
+        let expected: u64 = (0xABCDu64 << 48) | (0x1234u64 << 32) | (0x5678u64 << 16) | 0x9ABCu64;
         assert_eq!(path.packed(), (expected, MAX_DEPTH));
     }
 
@@ -689,7 +700,11 @@ mod tests {
             "high classid u16 != 0 ⇒ refuse the lossy fold"
         );
         let g = NodeGuid::new(0x0001_0000, 0, 0, 0, 0, 0);
-        assert_eq!(NiblePath::from_guid_prefix(&g), None, "boundary: bit 16 set");
+        assert_eq!(
+            NiblePath::from_guid_prefix(&g),
+            None,
+            "boundary: bit 16 set"
+        );
         // At exactly the boundary (high u16 == 0) the fold is lossless.
         let g = NodeGuid::new(0x0000_FFFF, 0, 0, 0, 0, 0);
         assert!(NiblePath::from_guid_prefix(&g).is_some());

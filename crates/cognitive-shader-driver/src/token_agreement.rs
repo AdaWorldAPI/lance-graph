@@ -89,7 +89,10 @@ impl std::fmt::Display for TokenAgreementError {
         match self {
             Self::ModelPathMissing { path } => write!(f, "model path missing: {path}"),
             Self::EmptyPromptSet => write!(f, "prompt set empty"),
-            Self::TokenCountMismatch { reference, candidate } => {
+            Self::TokenCountMismatch {
+                reference,
+                candidate,
+            } => {
                 write!(f, "token count mismatch: ref={reference} cand={candidate}")
             }
             Self::NotImplementedYet { what } => {
@@ -157,12 +160,20 @@ impl TopKAgreement {
 
     /// top1 match rate ∈ [0, 1]. Passes the cert gate at ≥ 0.99 per D0.2.
     pub fn top1_rate(&self) -> f32 {
-        if self.total_positions == 0 { 0.0 } else { self.top1_matches as f32 / self.total_positions as f32 }
+        if self.total_positions == 0 {
+            0.0
+        } else {
+            self.top1_matches as f32 / self.total_positions as f32
+        }
     }
 
     /// top5 match rate ∈ [0, 1]. Passes the cert gate at ≥ 0.999 per D0.2.
     pub fn top5_rate(&self) -> f32 {
-        if self.total_positions == 0 { 0.0 } else { self.top5_matches as f32 / self.total_positions as f32 }
+        if self.total_positions == 0 {
+            0.0
+        } else {
+            self.top5_matches as f32 / self.total_positions as f32
+        }
     }
 
     /// Meets D0.2 acceptance thresholds (top1 ≥ 0.99 AND top5 ≥ 0.999).
@@ -210,7 +221,12 @@ impl TokenAgreementHarness {
         candidate: WireCodecParams,
         n_tokens: u32,
     ) -> Self {
-        Self { reference, baseline, candidate, n_tokens }
+        Self {
+            reference,
+            baseline,
+            candidate,
+            n_tokens,
+        }
     }
 
     /// D2.1 STUB: returns a deterministic zero-rate result with `stub: true`
@@ -255,7 +271,10 @@ mod tests {
         WireCodecParams {
             subspaces: 6,
             centroids: 256,
-            residual: WireResidualSpec { depth: 0, centroids: 256 },
+            residual: WireResidualSpec {
+                depth: 0,
+                centroids: 256,
+            },
             lane_width: WireLaneWidth::F32x16,
             pre_rotation: WireRotation::Identity,
             distance: WireDistance::AdcU8,
@@ -275,7 +294,8 @@ mod tests {
 
     #[test]
     fn reference_model_load_missing_path_yields_typed_error() {
-        let err = ReferenceModel::load(Path::new("/nonexistent/xyz/model.safetensors")).unwrap_err();
+        let err =
+            ReferenceModel::load(Path::new("/nonexistent/xyz/model.safetensors")).unwrap_err();
         assert!(matches!(err, TokenAgreementError::ModelPathMissing { .. }));
     }
 
@@ -320,7 +340,13 @@ mod tests {
         let r = vec![vec![1], vec![2]];
         let c = vec![vec![1]];
         let err = TopKAgreement::compare(&r, &c).unwrap_err();
-        assert!(matches!(err, TokenAgreementError::TokenCountMismatch { reference: 2, candidate: 1 }));
+        assert!(matches!(
+            err,
+            TokenAgreementError::TokenCountMismatch {
+                reference: 2,
+                candidate: 1
+            }
+        ));
     }
 
     #[test]
@@ -370,7 +396,10 @@ mod tests {
             total_positions: 1000,
             divergence_positions: vec![],
         };
-        assert!(!a.meets_cert_gate(), "top1 just below threshold should fail even if top5 passes");
+        assert!(
+            !a.meets_cert_gate(),
+            "top1 just below threshold should fail even if top5 passes"
+        );
     }
 
     #[test]
@@ -383,20 +412,22 @@ mod tests {
             total_positions: 1000,
             divergence_positions: vec![],
         };
-        assert!(!a.meets_cert_gate(), "top5 just below threshold should fail even if top1 passes");
+        assert!(
+            !a.meets_cert_gate(),
+            "top5 just below threshold should fail even if top1 passes"
+        );
     }
 
     #[test]
     fn harness_measure_stub_returns_machine_checkable_stub_flag() {
         let ref_model = ReferenceModel::stub(1, 16);
-        let harness = TokenAgreementHarness::new(
-            ref_model,
-            WireBaseline::Passthrough,
-            stub_candidate(),
-            128,
-        );
+        let harness =
+            TokenAgreementHarness::new(ref_model, WireBaseline::Passthrough, stub_candidate(), 128);
         let result = harness.measure_stub().unwrap();
-        assert!(result.stub, "stub flag MUST be true so clients cannot confuse stub for real measurement");
+        assert!(
+            result.stub,
+            "stub flag MUST be true so clients cannot confuse stub for real measurement"
+        );
         assert_eq!(result.backend, "stub");
         assert_eq!(result.top1_rate, 0.0);
         assert_eq!(result.top5_rate, 0.0);
@@ -406,12 +437,8 @@ mod tests {
     #[test]
     fn harness_measure_full_returns_not_implemented_pointing_at_d22() {
         let ref_model = ReferenceModel::stub(1, 16);
-        let harness = TokenAgreementHarness::new(
-            ref_model,
-            WireBaseline::Passthrough,
-            stub_candidate(),
-            128,
-        );
+        let harness =
+            TokenAgreementHarness::new(ref_model, WireBaseline::Passthrough, stub_candidate(), 128);
         let err = harness.measure_full().unwrap_err();
         assert!(matches!(err, TokenAgreementError::NotImplementedYet { .. }));
     }
@@ -419,12 +446,8 @@ mod tests {
     #[test]
     fn harness_measure_stub_rejects_zero_n_tokens() {
         let ref_model = ReferenceModel::stub(1, 16);
-        let harness = TokenAgreementHarness::new(
-            ref_model,
-            WireBaseline::Passthrough,
-            stub_candidate(),
-            0,
-        );
+        let harness =
+            TokenAgreementHarness::new(ref_model, WireBaseline::Passthrough, stub_candidate(), 0);
         let err = harness.measure_stub().unwrap_err();
         assert!(matches!(err, TokenAgreementError::EmptyPromptSet));
     }

@@ -54,9 +54,14 @@ pub fn plan(planner: &PlannerAwareness, req: &WirePlanRequest) -> Result<WirePla
         "full" => {
             let s = req.situation.clone().unwrap_or_default();
             let situation = situation_from_wire(&s);
-            p.plan_full(&req.query, &situation).map_err(|e| e.to_string())?
+            p.plan_full(&req.query, &situation)
+                .map_err(|e| e.to_string())?
         }
-        other => return Err(format!("unknown plan mode '{other}' (use 'auto' or 'full')")),
+        other => {
+            return Err(format!(
+                "unknown plan mode '{other}' (use 'auto' or 'full')"
+            ))
+        }
     };
 
     Ok(WirePlanResponse {
@@ -66,7 +71,10 @@ pub fn plan(planner: &PlannerAwareness, req: &WirePlanRequest) -> Result<WirePla
         compass_score: result.compass_score,
         mul_gate: result.mul.as_ref().map(|m| format!("{:?}", m)),
         thinking_style_name: result.thinking.as_ref().map(|t| format!("{:?}", t.style)),
-        nars_type: result.thinking.as_ref().map(|t| format!("{:?}", t.nars_type)),
+        nars_type: result
+            .thinking
+            .as_ref()
+            .map(|t| format!("{:?}", t.nars_type)),
         elapsed_ms: t0.elapsed().as_millis() as u64,
     })
 }

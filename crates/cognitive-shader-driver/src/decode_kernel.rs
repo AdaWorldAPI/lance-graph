@@ -82,14 +82,19 @@ pub struct StubDecodeKernel {
 }
 
 impl StubDecodeKernel {
-    pub const fn new(dim: u32, tag: u64) -> Self { Self { dim, tag } }
+    pub const fn new(dim: u32, tag: u64) -> Self {
+        Self { dim, tag }
+    }
 }
 
 impl DecodeKernel for StubDecodeKernel {
     fn decode(&self, bytes: &[u8]) -> Result<Vec<f32>, DecodeError> {
         let expected = self.bytes_per_row() as usize;
         if bytes.len() != expected {
-            return Err(DecodeError::SizeMismatch { expected, actual: bytes.len() });
+            return Err(DecodeError::SizeMismatch {
+                expected,
+                actual: bytes.len(),
+            });
         }
         let mut out = Vec::with_capacity(self.dim as usize);
         for chunk in bytes.chunks_exact(4) {
@@ -101,7 +106,10 @@ impl DecodeKernel for StubDecodeKernel {
     fn encode(&self, vec: &[f32]) -> Result<Vec<u8>, DecodeError> {
         let expected = self.dim as usize;
         if vec.len() != expected {
-            return Err(DecodeError::SizeMismatch { expected, actual: vec.len() });
+            return Err(DecodeError::SizeMismatch {
+                expected,
+                actual: vec.len(),
+            });
         }
         let mut out = Vec::with_capacity(expected * 4);
         for &v in vec {
@@ -110,8 +118,12 @@ impl DecodeKernel for StubDecodeKernel {
         Ok(out)
     }
 
-    fn bytes_per_row(&self) -> u32 { self.dim * 4 }
-    fn dim(&self) -> u32 { self.dim }
+    fn bytes_per_row(&self) -> u32 {
+        self.dim * 4
+    }
+    fn dim(&self) -> u32 {
+        self.dim
+    }
 
     fn signature(&self) -> u64 {
         let mut h = DefaultHasher::new();
@@ -121,7 +133,9 @@ impl DecodeKernel for StubDecodeKernel {
         h.finish()
     }
 
-    fn backend(&self) -> &'static str { "stub" }
+    fn backend(&self) -> &'static str {
+        "stub"
+    }
 }
 
 // ─── Residual composer ───────────────────────────────────────────────────
@@ -165,16 +179,25 @@ impl DecodeKernel for ResidualComposer {
         let base_b = self.base.bytes_per_row() as usize;
         let expected = self.bytes_per_row() as usize;
         if bytes.len() != expected {
-            return Err(DecodeError::SizeMismatch { expected, actual: bytes.len() });
+            return Err(DecodeError::SizeMismatch {
+                expected,
+                actual: bytes.len(),
+            });
         }
         let base_v = self
             .base
             .decode(&bytes[..base_b])
-            .map_err(|e| DecodeError::Stage { stage: "base::decode", detail: e.to_string() })?;
-        let residual_v = self
-            .residual
-            .decode(&bytes[base_b..])
-            .map_err(|e| DecodeError::Stage { stage: "residual::decode", detail: e.to_string() })?;
+            .map_err(|e| DecodeError::Stage {
+                stage: "base::decode",
+                detail: e.to_string(),
+            })?;
+        let residual_v =
+            self.residual
+                .decode(&bytes[base_b..])
+                .map_err(|e| DecodeError::Stage {
+                    stage: "residual::decode",
+                    detail: e.to_string(),
+                })?;
         let mut out = base_v;
         for (dst, &r) in out.iter_mut().zip(&residual_v) {
             *dst += r;
@@ -185,24 +208,36 @@ impl DecodeKernel for ResidualComposer {
     fn encode(&self, vec: &[f32]) -> Result<Vec<u8>, DecodeError> {
         let expected = self.dim() as usize;
         if vec.len() != expected {
-            return Err(DecodeError::SizeMismatch { expected, actual: vec.len() });
+            return Err(DecodeError::SizeMismatch {
+                expected,
+                actual: vec.len(),
+            });
         }
         // First-pass encode + its self-reconstruction.
-        let base_bytes = self
-            .base
-            .encode(vec)
-            .map_err(|e| DecodeError::Stage { stage: "base::encode", detail: e.to_string() })?;
+        let base_bytes = self.base.encode(vec).map_err(|e| DecodeError::Stage {
+            stage: "base::encode",
+            detail: e.to_string(),
+        })?;
         let base_reconstructed = self
             .base
             .decode(&base_bytes)
-            .map_err(|e| DecodeError::Stage { stage: "base::decode", detail: e.to_string() })?;
+            .map_err(|e| DecodeError::Stage {
+                stage: "base::decode",
+                detail: e.to_string(),
+            })?;
         // Residual = original − base.decode(base.encode(original)).
-        let residual_vec: Vec<f32> =
-            vec.iter().zip(&base_reconstructed).map(|(a, b)| a - b).collect();
-        let residual_bytes = self
-            .residual
-            .encode(&residual_vec)
-            .map_err(|e| DecodeError::Stage { stage: "residual::encode", detail: e.to_string() })?;
+        let residual_vec: Vec<f32> = vec
+            .iter()
+            .zip(&base_reconstructed)
+            .map(|(a, b)| a - b)
+            .collect();
+        let residual_bytes =
+            self.residual
+                .encode(&residual_vec)
+                .map_err(|e| DecodeError::Stage {
+                    stage: "residual::encode",
+                    detail: e.to_string(),
+                })?;
         // Concat.
         let mut out = Vec::with_capacity(base_bytes.len() + residual_bytes.len());
         out.extend_from_slice(&base_bytes);
@@ -214,7 +249,9 @@ impl DecodeKernel for ResidualComposer {
         self.base.bytes_per_row() + self.residual.bytes_per_row()
     }
 
-    fn dim(&self) -> u32 { self.base.dim() }
+    fn dim(&self) -> u32 {
+        self.base.dim()
+    }
 
     fn signature(&self) -> u64 {
         let mut h = DefaultHasher::new();
@@ -254,9 +291,21 @@ mod tests {
     fn stub_rejects_wrong_input_size() {
         let k = StubDecodeKernel::new(4, 0);
         let err = k.encode(&[1.0, 2.0, 3.0]).unwrap_err();
-        assert!(matches!(err, DecodeError::SizeMismatch { expected: 4, actual: 3 }));
+        assert!(matches!(
+            err,
+            DecodeError::SizeMismatch {
+                expected: 4,
+                actual: 3
+            }
+        ));
         let err = k.decode(&[0u8; 10]).unwrap_err();
-        assert!(matches!(err, DecodeError::SizeMismatch { expected: 16, actual: 10 }));
+        assert!(matches!(
+            err,
+            DecodeError::SizeMismatch {
+                expected: 16,
+                actual: 10
+            }
+        ));
     }
 
     #[test]
@@ -278,13 +327,19 @@ mod tests {
         let base = Box::new(StubDecodeKernel::new(4, 0));
         let residual = Box::new(StubDecodeKernel::new(8, 0));
         let err = ResidualComposer::new(base, residual).unwrap_err();
-        assert!(matches!(err, DecodeError::SizeMismatch { expected: 4, actual: 8 }));
+        assert!(matches!(
+            err,
+            DecodeError::SizeMismatch {
+                expected: 4,
+                actual: 8
+            }
+        ));
     }
 
     #[test]
     fn residual_compose_bytes_per_row_sums_stages() {
-        let base = Box::new(StubDecodeKernel::new(6, 1));      // 24 bytes
-        let residual = Box::new(StubDecodeKernel::new(6, 2));  // 24 bytes
+        let base = Box::new(StubDecodeKernel::new(6, 1)); // 24 bytes
+        let residual = Box::new(StubDecodeKernel::new(6, 2)); // 24 bytes
         let comp = ResidualComposer::new(base, residual).unwrap();
         assert_eq!(comp.bytes_per_row(), 48);
         assert_eq!(comp.dim(), 6);
@@ -326,7 +381,11 @@ mod tests {
         let a2 = Box::new(StubDecodeKernel::new(4, 1));
         let b2 = Box::new(StubDecodeKernel::new(4, 2));
         let ba = ResidualComposer::new(b2, a2).unwrap();
-        assert_ne!(ab.signature(), ba.signature(), "base/residual order is part of identity");
+        assert_ne!(
+            ab.signature(),
+            ba.signature(),
+            "base/residual order is part of identity"
+        );
     }
 
     #[test]

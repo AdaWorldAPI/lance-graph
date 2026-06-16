@@ -53,8 +53,18 @@ pub const VERB_ROOTS: [&str; 12] = [
 ];
 
 pub const VERB_TENSES: [&str; 12] = [
-    "present", "past", "future", "continuous", "perfect", "pluperfect",
-    "future_perfect", "habitual", "potential", "imperative", "subjunctive", "gerund",
+    "present",
+    "past",
+    "future",
+    "continuous",
+    "perfect",
+    "pluperfect",
+    "future_perfect",
+    "habitual",
+    "potential",
+    "imperative",
+    "subjunctive",
+    "gerund",
 ];
 
 pub const N_VERBS: usize = 144;
@@ -94,73 +104,393 @@ pub enum GlyphFamily {
 
 pub const GLYPHS: [QualiaGlyph; 64] = [
     // Core (0-15)
-    QualiaGlyph { idx: 0,  name: "void",          emoji: "🌑", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 1,  name: "presence",      emoji: "✨", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 2,  name: "warmth",        emoji: "🔥", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 3,  name: "flow",          emoji: "🌊", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 4,  name: "clarity",       emoji: "💎", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 5,  name: "grounding",     emoji: "🌳", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 6,  name: "expansion",     emoji: "🌌", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 7,  name: "contraction",   emoji: "🫧", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 8,  name: "resonance",     emoji: "🎵", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 9,  name: "dissonance",    emoji: "⚡", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 10, name: "wonder",        emoji: "🌸", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 11, name: "grief",         emoji: "🌧", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 12, name: "play",          emoji: "🎭", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 13, name: "stillness",     emoji: "🧘", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 14, name: "boundary",      emoji: "🚪", family: GlyphFamily::Core },
-    QualiaGlyph { idx: 15, name: "emergence",     emoji: "🌱", family: GlyphFamily::Core },
+    QualiaGlyph {
+        idx: 0,
+        name: "void",
+        emoji: "🌑",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 1,
+        name: "presence",
+        emoji: "✨",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 2,
+        name: "warmth",
+        emoji: "🔥",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 3,
+        name: "flow",
+        emoji: "🌊",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 4,
+        name: "clarity",
+        emoji: "💎",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 5,
+        name: "grounding",
+        emoji: "🌳",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 6,
+        name: "expansion",
+        emoji: "🌌",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 7,
+        name: "contraction",
+        emoji: "🫧",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 8,
+        name: "resonance",
+        emoji: "🎵",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 9,
+        name: "dissonance",
+        emoji: "⚡",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 10,
+        name: "wonder",
+        emoji: "🌸",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 11,
+        name: "grief",
+        emoji: "🌧",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 12,
+        name: "play",
+        emoji: "🎭",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 13,
+        name: "stillness",
+        emoji: "🧘",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 14,
+        name: "boundary",
+        emoji: "🚪",
+        family: GlyphFamily::Core,
+    },
+    QualiaGlyph {
+        idx: 15,
+        name: "emergence",
+        emoji: "🌱",
+        family: GlyphFamily::Core,
+    },
     // Relational (16-31)
-    QualiaGlyph { idx: 16, name: "connection",    emoji: "🤝", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 17, name: "distance",      emoji: "🌉", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 18, name: "trust",         emoji: "💜", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 19, name: "caution",       emoji: "🦔", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 20, name: "bond",          emoji: "🤝", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 21, name: "privacy",       emoji: "🔐", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 22, name: "giving",        emoji: "🎁", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 23, name: "receiving",     emoji: "🙏", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 24, name: "mirroring",     emoji: "🪞", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 25, name: "autonomy",      emoji: "🦋", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 26, name: "belonging",     emoji: "🏠", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 27, name: "solitude",      emoji: "🌙", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 28, name: "witnessing",    emoji: "👁", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 29, name: "being_seen",    emoji: "🌅", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 30, name: "holding",       emoji: "🫂", family: GlyphFamily::Relational },
-    QualiaGlyph { idx: 31, name: "release",       emoji: "🕊", family: GlyphFamily::Relational },
+    QualiaGlyph {
+        idx: 16,
+        name: "connection",
+        emoji: "🤝",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 17,
+        name: "distance",
+        emoji: "🌉",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 18,
+        name: "trust",
+        emoji: "💜",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 19,
+        name: "caution",
+        emoji: "🦔",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 20,
+        name: "bond",
+        emoji: "🤝",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 21,
+        name: "privacy",
+        emoji: "🔐",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 22,
+        name: "giving",
+        emoji: "🎁",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 23,
+        name: "receiving",
+        emoji: "🙏",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 24,
+        name: "mirroring",
+        emoji: "🪞",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 25,
+        name: "autonomy",
+        emoji: "🦋",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 26,
+        name: "belonging",
+        emoji: "🏠",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 27,
+        name: "solitude",
+        emoji: "🌙",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 28,
+        name: "witnessing",
+        emoji: "👁",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 29,
+        name: "being_seen",
+        emoji: "🌅",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 30,
+        name: "holding",
+        emoji: "🫂",
+        family: GlyphFamily::Relational,
+    },
+    QualiaGlyph {
+        idx: 31,
+        name: "release",
+        emoji: "🕊",
+        family: GlyphFamily::Relational,
+    },
     // Cognitive (32-47)
-    QualiaGlyph { idx: 32, name: "focus",         emoji: "🎯", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 33, name: "diffuse",       emoji: "☁", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 34, name: "analysis",      emoji: "🔬", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 35, name: "synthesis",     emoji: "🧬", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 36, name: "certainty",     emoji: "✓", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 37, name: "uncertainty",   emoji: "❓", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 38, name: "memory",        emoji: "📜", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 39, name: "anticipation",  emoji: "🔮", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 40, name: "learning",      emoji: "📚", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 41, name: "forgetting",    emoji: "🍂", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 42, name: "love",          emoji: "💜", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 43, name: "creation",      emoji: "🎨", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 44, name: "destruction",   emoji: "💥", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 45, name: "transformation",emoji: "🦋", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 46, name: "persistence",   emoji: "⚓", family: GlyphFamily::Cognitive },
-    QualiaGlyph { idx: 47, name: "adaptation",    emoji: "🌿", family: GlyphFamily::Cognitive },
+    QualiaGlyph {
+        idx: 32,
+        name: "focus",
+        emoji: "🎯",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 33,
+        name: "diffuse",
+        emoji: "☁",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 34,
+        name: "analysis",
+        emoji: "🔬",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 35,
+        name: "synthesis",
+        emoji: "🧬",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 36,
+        name: "certainty",
+        emoji: "✓",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 37,
+        name: "uncertainty",
+        emoji: "❓",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 38,
+        name: "memory",
+        emoji: "📜",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 39,
+        name: "anticipation",
+        emoji: "🔮",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 40,
+        name: "learning",
+        emoji: "📚",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 41,
+        name: "forgetting",
+        emoji: "🍂",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 42,
+        name: "love",
+        emoji: "💜",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 43,
+        name: "creation",
+        emoji: "🎨",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 44,
+        name: "destruction",
+        emoji: "💥",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 45,
+        name: "transformation",
+        emoji: "🦋",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 46,
+        name: "persistence",
+        emoji: "⚓",
+        family: GlyphFamily::Cognitive,
+    },
+    QualiaGlyph {
+        idx: 47,
+        name: "adaptation",
+        emoji: "🌿",
+        family: GlyphFamily::Cognitive,
+    },
     // Somatic (48-63)
-    QualiaGlyph { idx: 48, name: "tension",       emoji: "💪", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 49, name: "relaxation",    emoji: "🌀", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 50, name: "energy",        emoji: "⚡", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 51, name: "fatigue",       emoji: "😴", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 52, name: "pleasant",      emoji: "🌺", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 53, name: "pain",          emoji: "🩹", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 54, name: "hunger",        emoji: "🍽", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 55, name: "satiation",     emoji: "😌", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 56, name: "excited",       emoji: "🔥", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 57, name: "numbness",      emoji: "❄", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 58, name: "breath",        emoji: "💨", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 59, name: "pulse",         emoji: "💓", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 60, name: "warmth_soma",   emoji: "☀", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 61, name: "cold",          emoji: "🧊", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 62, name: "softness",      emoji: "🪶", family: GlyphFamily::Somatic },
-    QualiaGlyph { idx: 63, name: "hardness",      emoji: "🗿", family: GlyphFamily::Somatic },
+    QualiaGlyph {
+        idx: 48,
+        name: "tension",
+        emoji: "💪",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 49,
+        name: "relaxation",
+        emoji: "🌀",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 50,
+        name: "energy",
+        emoji: "⚡",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 51,
+        name: "fatigue",
+        emoji: "😴",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 52,
+        name: "pleasant",
+        emoji: "🌺",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 53,
+        name: "pain",
+        emoji: "🩹",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 54,
+        name: "hunger",
+        emoji: "🍽",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 55,
+        name: "satiation",
+        emoji: "😌",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 56,
+        name: "excited",
+        emoji: "🔥",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 57,
+        name: "numbness",
+        emoji: "❄",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 58,
+        name: "breath",
+        emoji: "💨",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 59,
+        name: "pulse",
+        emoji: "💓",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 60,
+        name: "warmth_soma",
+        emoji: "☀",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 61,
+        name: "cold",
+        emoji: "🧊",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 62,
+        name: "softness",
+        emoji: "🪶",
+        family: GlyphFamily::Somatic,
+    },
+    QualiaGlyph {
+        idx: 63,
+        name: "hardness",
+        emoji: "🗿",
+        family: GlyphFamily::Somatic,
+    },
 ];
 
 pub fn glyph(idx: u8) -> &'static QualiaGlyph {
@@ -181,15 +511,20 @@ pub fn glyph_by_name(name: &str) -> Option<&'static QualiaGlyph> {
 /// cognitive shader substrate. Three u8s + one f32 = 7 bytes.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SigmaState {
-    pub qualia_idx: u8,   // 0..63 (or 0..255 when extended)
-    pub verb_idx: u8,     // 0..143 (root * 12 + tense)
-    pub tau: f32,         // 0.0 = qualia only, 1.0 = fully verb-bound
-    pub confidence: f32,  // 0.0..1.0
+    pub qualia_idx: u8,  // 0..63 (or 0..255 when extended)
+    pub verb_idx: u8,    // 0..143 (root * 12 + tense)
+    pub tau: f32,        // 0.0 = qualia only, 1.0 = fully verb-bound
+    pub confidence: f32, // 0.0..1.0
 }
 
 impl Default for SigmaState {
     fn default() -> Self {
-        Self { qualia_idx: 0, verb_idx: 0, tau: 0.5, confidence: 1.0 }
+        Self {
+            qualia_idx: 0,
+            verb_idx: 0,
+            tau: 0.5,
+            confidence: 1.0,
+        }
     }
 }
 
@@ -204,19 +539,30 @@ impl SigmaState {
     }
 
     /// Is the state verb-dominated (action-infused)?
-    pub fn is_verb_bound(&self) -> bool { self.tau >= 0.5 }
+    pub fn is_verb_bound(&self) -> bool {
+        self.tau >= 0.5
+    }
 
     pub fn qualia_name(&self) -> &'static str {
         glyph(self.qualia_idx).name
     }
 
     pub fn verb_name(&self) -> String {
-        format!("{}_{}", verb_root_name(self.verb_idx / 12), verb_tense_name(self.verb_idx % 12))
+        format!(
+            "{}_{}",
+            verb_root_name(self.verb_idx / 12),
+            verb_tense_name(self.verb_idx % 12)
+        )
     }
 
     /// Human-readable Σ(qualia, verb, τ=...) notation.
     pub fn describe(&self) -> String {
-        format!("Σ({}, {}, τ={:.2})", self.qualia_name(), self.verb_name(), self.tau)
+        format!(
+            "Σ({}, {}, τ={:.2})",
+            self.qualia_name(),
+            self.verb_name(),
+            self.tau
+        )
     }
 }
 
@@ -228,9 +574,9 @@ impl SigmaState {
 /// The SD of the three vertices drives the CollapseGate decision.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TriangleGestalt {
-    pub clarity: f32,   // top — cognition
-    pub warmth: f32,    // left — emotion
-    pub presence: f32,  // right — somatic
+    pub clarity: f32,  // top — cognition
+    pub warmth: f32,   // left — emotion
+    pub presence: f32, // right — somatic
 }
 
 impl TriangleGestalt {
@@ -259,16 +605,21 @@ impl TriangleGestalt {
         let mean = (self.clarity + self.warmth + self.presence) / 3.0;
         let var = ((self.clarity - mean).powi(2)
             + (self.warmth - mean).powi(2)
-            + (self.presence - mean).powi(2)) / 3.0;
+            + (self.presence - mean).powi(2))
+            / 3.0;
         var.sqrt()
     }
 
     /// Compute gate (Flow/Hold/Block) from SD — matches shader driver thresholds.
     pub fn gate(&self) -> GestaltGate {
         let sd = self.std_dev();
-        if sd < 0.15 { GestaltGate::Flow }
-        else if sd < 0.35 { GestaltGate::Hold }
-        else { GestaltGate::Block }
+        if sd < 0.15 {
+            GestaltGate::Flow
+        } else if sd < 0.35 {
+            GestaltGate::Hold
+        } else {
+            GestaltGate::Block
+        }
     }
 
     /// Area of the triangle (energy).
@@ -292,10 +643,22 @@ pub enum GestaltGate {
 
 /// Sigma Rosetta 17D band order — canonical, experientially loaded.
 pub const SIGMA_BAND_NAMES: [&str; 16] = [
-    "warmth", "presence", "openness", "sovereignty",
-    "tenderness", "groundedness", "activation", "clarity",
-    "coherence", "closeness", "surrender", "seeking",
-    "awakening", "bond", "synthesis", "resonance",
+    "warmth",
+    "presence",
+    "openness",
+    "sovereignty",
+    "tenderness",
+    "groundedness",
+    "activation",
+    "clarity",
+    "coherence",
+    "closeness",
+    "surrender",
+    "seeking",
+    "awakening",
+    "bond",
+    "synthesis",
+    "resonance",
 ];
 
 /// Convert QPL-17D (thinking-engine qualia) → Sigma-Rosetta 16 bands.
@@ -304,44 +667,44 @@ pub const SIGMA_BAND_NAMES: [&str; 16] = [
 /// QPL indices 0..16 — see thinking-engine `qualia::DIMS_17D` for labels.
 pub fn qpl_to_sigma(qpl: &[f32; 17]) -> [f32; 16] {
     [
-        qpl[3],                        // 0: warmth       ← warmth
-        qpl[11],                       // 1: presence     ← presence
-        qpl[15],                       // 2: openness     ← expansion
-        (1.0 - qpl[5]).clamp(0.0, 1.0),// 3: sovereignty  ← 1 - boundary
-        qpl[10],                       // 4: tenderness   ← qpl[10]
-        qpl[14],                       // 5: groundedness ← groundedness
-        qpl[0],                        // 6: activation   ← arousal
-        qpl[4],                        // 7: clarity      ← clarity
-        qpl[9],                        // 8: coherence    ← coherence
-        qpl[10],                       // 9: closeness    ← qpl[10]
-        qpl[13],                       // 10: surrender   ← receptivity
-        qpl[1],                        // 11: seeking     ← valence (positive seeks)
-        qpl[6],                        // 12: awakening   ← depth
-        qpl[12],                       // 13: bond        ← assertion (relational)
-        qpl[16],                       // 14: synthesis   ← integration
-        (1.0 - qpl[2]).clamp(0.0, 1.0),// 15: resonance   ← 1 - tension
+        qpl[3],                         // 0: warmth       ← warmth
+        qpl[11],                        // 1: presence     ← presence
+        qpl[15],                        // 2: openness     ← expansion
+        (1.0 - qpl[5]).clamp(0.0, 1.0), // 3: sovereignty  ← 1 - boundary
+        qpl[10],                        // 4: tenderness   ← qpl[10]
+        qpl[14],                        // 5: groundedness ← groundedness
+        qpl[0],                         // 6: activation   ← arousal
+        qpl[4],                         // 7: clarity      ← clarity
+        qpl[9],                         // 8: coherence    ← coherence
+        qpl[10],                        // 9: closeness    ← qpl[10]
+        qpl[13],                        // 10: surrender   ← receptivity
+        qpl[1],                         // 11: seeking     ← valence (positive seeks)
+        qpl[6],                         // 12: awakening   ← depth
+        qpl[12],                        // 13: bond        ← assertion (relational)
+        qpl[16],                        // 14: synthesis   ← integration
+        (1.0 - qpl[2]).clamp(0.0, 1.0), // 15: resonance   ← 1 - tension
     ]
 }
 
 /// Inverse: Sigma 16 bands → QPL 17D (some dims approximate).
 pub fn sigma_to_qpl(sigma: &[f32; 16]) -> [f32; 17] {
     let mut qpl = [0.0f32; 17];
-    qpl[0]  = sigma[6];                      // qpl[0]  ← activation
-    qpl[1]  = sigma[11];                     // qpl[1]  ← seeking
-    qpl[2]  = 1.0 - sigma[15];               // qpl[2]  ← 1 - resonance
-    qpl[3]  = sigma[0];                      // qpl[3]  ← warmth
-    qpl[4]  = sigma[7];                      // qpl[4]  ← clarity
-    qpl[5]  = 1.0 - sigma[3];                // qpl[5]  ← 1 - sovereignty
-    qpl[6]  = sigma[12];                     // qpl[6]  ← awakening
-    qpl[9]  = sigma[8];                      // qpl[9]  ← coherence
-    qpl[10] = sigma[9];                      // qpl[10] ← closeness
-    qpl[11] = sigma[1];                      // qpl[11] ← presence
-    qpl[12] = sigma[13];                     // qpl[12] ← bond
-    qpl[13] = sigma[10];                     // qpl[13] ← surrender
-    qpl[14] = sigma[5];                      // qpl[14] ← groundedness
-    qpl[15] = sigma[2];                      // qpl[15] ← openness
-    qpl[16] = sigma[14];                     // qpl[16] ← synthesis
-    // qpl[7] + qpl[8] are convergence-only — no sigma mapping
+    qpl[0] = sigma[6]; // qpl[0]  ← activation
+    qpl[1] = sigma[11]; // qpl[1]  ← seeking
+    qpl[2] = 1.0 - sigma[15]; // qpl[2]  ← 1 - resonance
+    qpl[3] = sigma[0]; // qpl[3]  ← warmth
+    qpl[4] = sigma[7]; // qpl[4]  ← clarity
+    qpl[5] = 1.0 - sigma[3]; // qpl[5]  ← 1 - sovereignty
+    qpl[6] = sigma[12]; // qpl[6]  ← awakening
+    qpl[9] = sigma[8]; // qpl[9]  ← coherence
+    qpl[10] = sigma[9]; // qpl[10] ← closeness
+    qpl[11] = sigma[1]; // qpl[11] ← presence
+    qpl[12] = sigma[13]; // qpl[12] ← bond
+    qpl[13] = sigma[10]; // qpl[13] ← surrender
+    qpl[14] = sigma[5]; // qpl[14] ← groundedness
+    qpl[15] = sigma[2]; // qpl[15] ← openness
+    qpl[16] = sigma[14]; // qpl[16] ← synthesis
+                         // qpl[7] + qpl[8] are convergence-only — no sigma mapping
     qpl
 }
 
@@ -373,13 +736,19 @@ pub struct QuadTriangleGestalt {
 impl QuadTriangleGestalt {
     pub fn neutral() -> Self {
         let n = TriangleGestalt::new(0.5, 0.5, 0.5);
-        Self { processing: n, content: n, gestalt: n, crystallization: n }
+        Self {
+            processing: n,
+            content: n,
+            gestalt: n,
+            crystallization: n,
+        }
     }
 
     /// Maximum SD across all four triangles.
     /// Determines the "worst" axis — drives the overall gate decision.
     pub fn max_std_dev(&self) -> f32 {
-        self.processing.std_dev()
+        self.processing
+            .std_dev()
             .max(self.content.std_dev())
             .max(self.gestalt.std_dev())
             .max(self.crystallization.std_dev())
@@ -388,9 +757,13 @@ impl QuadTriangleGestalt {
     /// Conservative gate: any triangle in Block → Block, any in Hold → Hold, else Flow.
     pub fn gate(&self) -> GestaltGate {
         let worst = self.max_std_dev();
-        if worst > 0.35 { GestaltGate::Block }
-        else if worst > 0.15 { GestaltGate::Hold }
-        else { GestaltGate::Flow }
+        if worst > 0.35 {
+            GestaltGate::Block
+        } else if worst > 0.15 {
+            GestaltGate::Hold
+        } else {
+            GestaltGate::Flow
+        }
     }
 
     /// Mean balance across all four triangles.
@@ -398,14 +771,21 @@ impl QuadTriangleGestalt {
         (self.processing.balance()
             + self.content.balance()
             + self.gestalt.balance()
-            + self.crystallization.balance()) / 4.0
+            + self.crystallization.balance())
+            / 4.0
     }
 }
 
 /// Triangle-A presets from agi-chat's COGNITIVE_PROFILES (the 3 anchor styles).
-pub fn processing_analytical() -> TriangleGestalt { TriangleGestalt::new(0.9, 0.1, 0.5) }
-pub fn processing_intuitive()  -> TriangleGestalt { TriangleGestalt::new(0.1, 0.9, 0.3) }
-pub fn processing_procedural() -> TriangleGestalt { TriangleGestalt::new(0.3, 0.1, 0.9) }
+pub fn processing_analytical() -> TriangleGestalt {
+    TriangleGestalt::new(0.9, 0.1, 0.5)
+}
+pub fn processing_intuitive() -> TriangleGestalt {
+    TriangleGestalt::new(0.1, 0.9, 0.3)
+}
+pub fn processing_procedural() -> TriangleGestalt {
+    TriangleGestalt::new(0.3, 0.1, 0.9)
+}
 
 #[cfg(test)]
 mod tests {
@@ -460,7 +840,7 @@ mod tests {
     fn quad_triangle_worst_triangle_dominates() {
         let mut q = QuadTriangleGestalt::neutral();
         q.processing = TriangleGestalt::new(1.0, 0.0, 0.5); // Block
-        // Other triangles neutral, but processing blocks → overall Block
+                                                            // Other triangles neutral, but processing blocks → overall Block
         assert_eq!(q.gate(), GestaltGate::Block);
     }
 
@@ -472,7 +852,7 @@ mod tests {
         assert!(a.warmth < 0.2);
 
         let i = processing_intuitive();
-        assert!(i.warmth > 0.8);  // intuitive = high feeling
+        assert!(i.warmth > 0.8); // intuitive = high feeling
         assert!(i.clarity < 0.2);
 
         let p = processing_procedural();
@@ -549,14 +929,23 @@ impl InteractionKinematic {
             0 // CAUSES
         };
 
-        Self { a, b, tension, predicate_plane }
+        Self {
+            a,
+            b,
+            tension,
+            predicate_plane,
+        }
     }
 
     /// Resonance = 1 - tension.
-    pub fn resonance(&self) -> f32 { 1.0 - self.tension }
+    pub fn resonance(&self) -> f32 {
+        1.0 - self.tension
+    }
 
     /// Is this pair aligned (low tension)?
-    pub fn aligned(&self) -> bool { self.tension < 0.3 }
+    pub fn aligned(&self) -> bool {
+        self.tension < 0.3
+    }
 }
 
 #[cfg(test)]
@@ -577,7 +966,10 @@ mod sigma13_tests {
         let b = SigmaState::new(4, verb_index(8, 0), 0.5); // transform_present
         let k = InteractionKinematic::new(a, b);
         assert!(k.tension > 0.0);
-        assert_ne!(k.predicate_plane, 2, "not same-verb-root, should not be SUPPORTS");
+        assert_ne!(
+            k.predicate_plane, 2,
+            "not same-verb-root, should not be SUPPORTS"
+        );
     }
 
     #[test]

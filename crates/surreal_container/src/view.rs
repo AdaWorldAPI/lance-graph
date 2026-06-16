@@ -97,12 +97,18 @@ impl<'a> SurrealMailboxView<'a> {
     /// from the scan's underlying buffers and the view is dropped before the
     /// next tick.
     ///
-    /// **Invariant:** all column slices MUST have the same length
-    /// `N == energy.len() == edges_raw.len() == meta_raw.len() ==
-    /// entity_type.len()` — this is what `n_rows()` returns. Mismatched
-    /// lengths are a programming error in the projection; `from_columns`
-    /// debug-asserts in tests but does not validate at runtime to preserve
-    /// zero-copy.
+    /// **Invariant (enforced):** all column slices MUST have the same length
+    /// `n_rows() == energy.len() == edges_raw.len() == meta_raw.len() ==
+    /// entity_type.len()`. A `MailboxSoaView` consumer (e.g.
+    /// `lance-graph`'s `SoaWavePrimer::project`) iterates `0..n_rows()` and
+    /// indexes every column at `row`, so a ragged projection would index
+    /// out of bounds. This constructor **asserts** the invariant in ALL build
+    /// profiles (not just `debug`) — a mismatched-length kv-lance projection is
+    /// a programming error that must fail loudly, not produce a view that
+    /// out-of-bounds-indexes downstream in release (PR #507 review, PP-15).
+    /// The 4 length comparisons are negligible against a kv-lance scan; "zero-
+    /// copy" means the column DATA is borrowed, not that length checks are
+    /// skipped.
     //
     // `#[allow(clippy::too_many_arguments)]`: the arg list IS the
     // `MailboxSoaView` column shape (4 scalars + 4 column slices). Packing
@@ -122,9 +128,21 @@ impl<'a> SurrealMailboxView<'a> {
         meta_raw: &'a [u32],
         entity_type: &'a [u16],
     ) -> Self {
-        debug_assert_eq!(energy.len(), edges_raw.len());
-        debug_assert_eq!(energy.len(), meta_raw.len());
-        debug_assert_eq!(energy.len(), entity_type.len());
+        assert_eq!(
+            energy.len(),
+            edges_raw.len(),
+            "MailboxSoaView column-length invariant: energy vs edges_raw"
+        );
+        assert_eq!(
+            energy.len(),
+            meta_raw.len(),
+            "MailboxSoaView column-length invariant: energy vs meta_raw"
+        );
+        assert_eq!(
+            energy.len(),
+            entity_type.len(),
+            "MailboxSoaView column-length invariant: energy vs entity_type"
+        );
         Self {
             mailbox_id,
             w_slot,
@@ -222,9 +240,7 @@ pub async fn read_via_kv_lance(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lance_graph_contract::scheduler::{
-        DatasetVersion, NextPhaseScheduler, VersionScheduler,
-    };
+    use lance_graph_contract::scheduler::{DatasetVersion, NextPhaseScheduler, VersionScheduler};
 
     fn make_view<'a>(
         phase: KanbanColumn,
@@ -234,6 +250,29 @@ mod tests {
         et: &'a [u16],
     ) -> SurrealMailboxView<'a> {
         SurrealMailboxView::from_columns(7, 5, 13, phase, energy, edges, meta, et)
+    }
+
+    #[test]
+    #[should_panic(expected = "column-length invariant")]
+    fn from_columns_rejects_ragged_projection() {
+        // A kv-lance projection that hands mismatched-length columns must fail
+        // loudly at construction (in ALL build profiles) rather than produce a
+        // view whose n_rows() exceeds a shorter column → downstream OOB index
+        // (PR #507 review, PP-15). entity_type is one short here.
+        let energy = [1.0f32, 2.0, 3.0];
+        let edges = [10u64, 20, 30];
+        let meta = [100u32, 200, 300];
+        let et = [1u16, 2]; // ragged: len 2 vs 3
+        let _ = SurrealMailboxView::from_columns(
+            1,
+            0,
+            0,
+            KanbanColumn::Planning,
+            &energy,
+            &edges,
+            &meta,
+            &et,
+        );
     }
 
     #[test]

@@ -46,11 +46,7 @@ pub fn disambiguate_parse_candidates(
     position: usize,
     candidates: Vec<CrystalFingerprint>,
 ) -> Result<CrystalFingerprint, DisambiguationResult> {
-    let result = chain.disambiguate_with(
-        position,
-        candidates,
-        DisambiguateOpts::default(),
-    );
+    let result = chain.disambiguate_with(position, candidates, DisambiguateOpts::default());
     if result.escalate_to_llm {
         Err(result)
     } else {
@@ -69,8 +65,8 @@ impl OrchestrationBridge for CypherBridge {
         // through to the planner bridge.
         if !step.step_type.starts_with("lg.cypher") {
             // Signal domain mismatch so the route_handler falls through.
-            let domain = StepDomain::from_step_type(&step.step_type)
-                .unwrap_or(StepDomain::LanceGraph);
+            let domain =
+                StepDomain::from_step_type(&step.step_type).unwrap_or(StepDomain::LanceGraph);
             return Err(OrchestrationError::DomainUnavailable(domain));
         }
 
@@ -99,16 +95,14 @@ impl OrchestrationBridge for CypherBridge {
         let upper = query.to_uppercase();
         if upper.starts_with("CREATE") {
             step.status = StepStatus::Completed;
-            step.reasoning = Some(
-                "cypher CREATE parsed (stub — actual SPO commit pending)".to_string(),
-            );
+            step.reasoning =
+                Some("cypher CREATE parsed (stub — actual SPO commit pending)".to_string());
             step.confidence = Some(0.5);
             Ok(())
         } else if upper.starts_with("MATCH") {
             step.status = StepStatus::Completed;
-            step.reasoning = Some(
-                "cypher MATCH parsed (stub — actual BindSpace search pending)".to_string(),
-            );
+            step.reasoning =
+                Some("cypher MATCH parsed (stub — actual BindSpace search pending)".to_string());
             step.confidence = Some(0.5);
             Ok(())
         } else {
@@ -169,7 +163,11 @@ mod tests {
         let bridge = CypherBridge;
         let mut step = make_step("lg.cypher", Some("CREATE (c:Customer {id:1})"));
         let result = bridge.route(&mut step);
-        assert!(result.is_ok(), "CREATE should be accepted, got {:?}", result);
+        assert!(
+            result.is_ok(),
+            "CREATE should be accepted, got {:?}",
+            result
+        );
         assert_eq!(step.status, StepStatus::Completed);
         assert_eq!(step.confidence, Some(0.5));
         assert!(step

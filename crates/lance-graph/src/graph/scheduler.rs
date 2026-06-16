@@ -125,25 +125,32 @@ impl<S: VersionScheduler> LanceVersionScheduler<S> {
     /// Read the **latest** dataset version among `versions()` and lower it
     /// via the inner policy.
     ///
-    /// Equivalent to [`drive_once`](Self::drive_once) under the current
-    /// `VersionedGraph` semantics (Lance's `current_version()` IS the head
-    /// of `versions()`); separated to mirror the reactive shape a real
-    /// `LIVE` subscription will take (the substrate fires `versions()` on
-    /// every commit; the scheduler folds them into one move).
+    /// For the default version-agnostic [`NextPhaseScheduler`] this is
+    /// equivalent to [`drive_once`](Self::drive_once) (that policy ignores the
+    /// `at` argument — the move is a pure function of `view.phase()`). For a
+    /// custom version-sensitive `S` the two entry points can legally diverge
+    /// under concurrent commits between the two reads; such a policy should
+    /// pick one entry point and stick to it. Separated from `drive_once` to
+    /// mirror the reactive shape a real `LIVE` subscription takes (the
+    /// substrate fires `versions()` on every commit; the scheduler folds them
+    /// into one move).
     pub async fn drive_at_latest<V: MailboxSoaView>(
         &self,
         view: &V,
         exec: ExecTarget,
     ) -> Result<Option<KanbanMove>> {
         let versions = self.graph.versions().await?;
-        // `versions()` returns chronologically-ordered entries; the head is
-        // the latest commit. An empty list is treated as v=0 (the
-        // pre-commit sentinel, matching `NextPhaseScheduler`'s no-arg
-        // expectation that any version triggers the forward arc).
+        // `versions()` is ascending-sorted by version number in the pinned
+        // lance =7.0.0 (`Dataset::versions()` ends with `sort_by_key(|v|
+        // v.version)`), so `.last()` is the head = latest commit. NB the
+        // upstream surface carries a `// TODO: support pagination` — if a
+        // future lance bump paginates `versions()`, prefer the head via
+        // `current_dataset_version()` (which reads `version().version`
+        // directly) over `.last()`. An empty list is treated as v=0 (the
+        // pre-commit sentinel, matching `NextPhaseScheduler`'s expectation
+        // that any version triggers the forward arc).
         let latest = versions.last().map(|v| v.version).unwrap_or(0);
-        Ok(self
-            .inner
-            .on_version(view, DatasetVersion(latest), exec))
+        Ok(self.inner.on_version(view, DatasetVersion(latest), exec))
     }
 
     /// Current Lance dataset version (nodes), wrapped as [`DatasetVersion`].
@@ -161,35 +168,12 @@ impl<S: VersionScheduler> LanceVersionScheduler<S> {
         Ok(DatasetVersion(ds.version().version))
     }
 
-    /// Path of the nodes dataset under `VersionedGraph` (mirror of
-    /// `versioned::VersionedGraph::nodes_path`). Kept private because the
-    /// `base_path` is a `VersionedGraph` implementation detail; we just
-    /// suffix `nodes.lance` the same way it does.
+    /// Path of the nodes dataset under `VersionedGraph` — `base_path/nodes.lance`,
+    /// the same convention `VersionedGraph` uses internally. Reads the base path
+    /// through the crate-public `VersionedGraph::base_path()` accessor (no
+    /// `Debug`-scraping — that brittle path was removed per PR #507 review).
     fn nodes_path(&self) -> String {
-        // VersionedGraph::nodes_path is private; expose the same convention
-        // through the public accessor (`Debug`-derived base_path access is
-        // the cheapest stable surface). We rely on the documented layout:
-        // base_path/nodes.lance — same as VersionedGraph itself.
-        format!("{}/nodes.lance", self.graph_base_path())
-    }
-
-    /// Read `VersionedGraph`'s base path via its `Debug` output (the field is
-    /// private; `Debug` is the stable surface). Hidden behind this helper so
-    /// future changes can swap in a public accessor without rippling.
-    fn graph_base_path(&self) -> String {
-        // VersionedGraph derives `Debug` and the base_path is its only field
-        // — format!("{:?}", graph) yields `VersionedGraph { base_path: "..." }`.
-        // Parse out the quoted value. This is the cheapest read-only path
-        // until VersionedGraph exposes `pub fn base_path(&self) -> &str`.
-        let dbg = format!("{:?}", self.graph);
-        // dbg shape: `VersionedGraph { base_path: "<value>" }`
-        let start_marker = "base_path: \"";
-        let start = dbg.find(start_marker).map(|i| i + start_marker.len());
-        let end = start.and_then(|s| dbg[s..].find('"').map(|i| s + i));
-        match (start, end) {
-            (Some(s), Some(e)) => dbg[s..e].to_string(),
-            _ => dbg,
-        }
+        format!("{}/nodes.lance", self.graph.base_path())
     }
 }
 
