@@ -175,9 +175,9 @@ flags. Separately, #507 left `intervene_counterfactual.rs:133/165` calling the
 `8131c480` lives on the unmerged `claude/continue-ndarray-x0Oaw`) — that WARNS, does
 not fail (v1 default routes through the canonical mapping per I-LEGACY-API-FEATURE-
 GATED); tracked here as a separate latent item, not fixed on this CI branch.
-Cross-ref: `.github/workflows/rust-test.yml` (now both jobs at `debuginfo=0`); PR
-#507 (`0c6ef02c`); `claude/continue-ndarray-x0Oaw` (the pending ce64-v2 consumer
-migration).
+Cross-ref: `.github/workflows/rust-test.yml` (now both jobs at `debuginfo=0`);
+PR #507 (`0c6ef02c`); `claude/continue-ndarray-x0Oaw` (the pending ce64-v2
+consumer migration).
 
 ### TD-UNBUNDLE-FROM-1 — `unbundle_from` is NOT the inverse of `bundle_into` (2026-06-07)
 

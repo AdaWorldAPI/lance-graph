@@ -106,6 +106,13 @@ pub fn hhtl_keys(grid: &Grid) -> Vec<HhtlKey> {
 /// Per-leaf-basin algebraic connectivity `λ₂` keyed by HHTL address — the topology
 /// "value" the key indexes (read once from the spectrum, deterministic).
 pub fn basin_lambda2(grid: &Grid, keys: &[HhtlKey]) -> HashMap<HhtlKey, f64> {
+    assert_eq!(
+        keys.len(),
+        grid.n,
+        "basin_lambda2 requires exactly one HHTL key per grid node (got {} keys for {} nodes)",
+        keys.len(),
+        grid.n
+    );
     let mut groups: HashMap<HhtlKey, Vec<usize>> = HashMap::new();
     for (n, k) in keys.iter().enumerate() {
         groups.entry(*k).or_default().push(n);
