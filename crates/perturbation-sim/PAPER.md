@@ -163,6 +163,36 @@ größten strukturellen Schwachstellen.** Operativ (10 % Reserve) kaskadieren
 zwei Leitungen halten den Kern zusammen; der Verlust einer davon lässt λ₂
 einbrechen und fragmentiert das Netz.
 
+### 4.3 The 4 models on 4 HHTL tiers / Die 4 Modelle auf 4 HHTL-Ebenen
+
+**EN.** Recursive spectral (Cheeger/Fiedler) bisection builds the OGAR HHTL tree
+(HEEL→HIP→TWIG→LEAF); the four theorems are read at each tier:
+
+| tier | basins | Weyl λ₂ (med) | DK gap λ₃−λ₂ | Cheeger μ₂/φ | Kron (N, out-of-family ties) |
+|---|---|---|---|---|---|
+| HEEL | 1 | 3.15e-7 | 1.0e-6 | 5.1e-4 / 1.7e-3 | (1, 0) |
+| HIP | 2 | 2.07e-6 | 4.0e-6 | 2.7e-3 / 5.0e-3 | (2, **2**) |
+| TWIG | 4 | 5.65e-6 | 2.3e-6 | 1.0e-2 / 2.0e-2 | (4, 9) |
+| LEAF | 8 | 8.88e-6 | 7.3e-6 | 1.1e-2 / 2.4e-2 | (8, 20) |
+
+The readings cohere: λ₂ rises monotonically HEEL→LEAF (**Cauchy interlacing** —
+finer basins better-connected); Cheeger μ₂/φ rise as bottlenecks ease; and the
+**HIP tier has exactly 2 out-of-family ties — lines 46 & 150 — the same weakest
+links** the structural and operational analyses found. A second corridor between
+the two HIP basins (§ reinforcement) = a **third out-of-family edge** in the
+canonical `EdgeBlock` (4 such slots reserved); its λ₂ gain is bounded by
+interlacing.
+
+**DE.** Rekursive spektrale (Cheeger/Fiedler) Halbierung baut den OGAR-HHTL-Baum
+(HEEL→HIP→TWIG→LEAF); die vier Sätze werden je Ebene gelesen (Tabelle oben). Die
+Lesarten sind konsistent: λ₂ steigt monoton HEEL→LEAF (**Cauchy-Verschachtelung**
+— feinere Becken besser verbunden); Cheeger μ₂/φ steigen, wenn Engpässe
+nachlassen; und die **HIP-Ebene hat genau 2 familienfremde Verbindungen —
+Leitungen 46 & 150 — dieselben Schwachstellen**, die die strukturelle und
+operative Analyse fanden. Ein zweiter Korridor zwischen den beiden HIP-Becken
+(§ Verstärkung) = eine **dritte familienfremde Kante** im kanonischen `EdgeBlock`
+(4 solche Slots reserviert); ihr λ₂-Gewinn ist durch die Verschachtelung begrenzt.
+
 ---
 
 ## 5. Solar/wind feed-in threshold / Solar-Wind-Einspeise-Schwelle

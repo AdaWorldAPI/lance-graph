@@ -48,3 +48,7 @@ path = "examples/validate.rs"
 [[example]]
 name = "weakest_links"
 path = "examples/weakest_links.rs"
+
+[[example]]
+name = "hhtl_levels"
+path = "examples/hhtl_levels.rs"
