@@ -56,3 +56,7 @@ path = "examples/hhtl_levels.rs"
 [[example]]
 name = "reinforce"
 path = "examples/reinforce.rs"
+
+[[example]]
+name = "hhtl_resident"
+path = "examples/hhtl_resident.rs"

@@ -87,11 +87,19 @@ fn main() {
         let imp = perturbation_sim::from_pypsa_csv(&buses, &lines, Some(cc))
             .expect("import")
             .largest_component();
-        println!("grid: {cc} PyPSA core — {} buses, {} lines", imp.grid.n, imp.grid.edges.len());
+        println!(
+            "grid: {cc} PyPSA core — {} buses, {} lines",
+            imp.grid.n,
+            imp.grid.edges.len()
+        );
         imp.grid
     } else {
         let g = synthetic(8, 8);
-        println!("grid: synthetic 8×8 — {} buses, {} lines", g.n, g.edges.len());
+        println!(
+            "grid: synthetic 8×8 — {} buses, {} lines",
+            g.n,
+            g.edges.len()
+        );
         g
     };
 
@@ -115,7 +123,12 @@ fn main() {
     println!("\n  the 4 theorems × the 4 HHTL tiers (recursive spectral bisection)\n");
     println!(
         "{:<5} {:>7} {:>22} {:>14} {:>20} {:>18}",
-        "tier", "basins", "Weyl λ₂ (min/med/max)", "DK gap λ₃−λ₂", "Cheeger μ₂ / φ (med)", "Kron super(N,ties)"
+        "tier",
+        "basins",
+        "Weyl λ₂ (min/med/max)",
+        "DK gap λ₃−λ₂",
+        "Cheeger μ₂ / φ (med)",
+        "Kron super(N,ties)"
     );
     println!("  {}", "─".repeat(92));
 
@@ -129,7 +142,10 @@ fn main() {
             let sub = induced(&grid, basin);
             let eig = symmetric_eigen(&sub.laplacian_of(&vec![true; sub.edges.len()]), sub.n);
             lam2s.push(eig.values.get(1).copied().unwrap_or(0.0));
-            gaps.push(eig.values.get(2).copied().unwrap_or(0.0) - eig.values.get(1).copied().unwrap_or(0.0));
+            gaps.push(
+                eig.values.get(2).copied().unwrap_or(0.0)
+                    - eig.values.get(1).copied().unwrap_or(0.0),
+            );
             let c = cheeger_sweep(&sub, &vec![true; sub.edges.len()]);
             mu2s.push(c.mu2);
             phis.push(c.conductance);

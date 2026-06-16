@@ -52,11 +52,19 @@ fn main() {
         let imp = perturbation_sim::from_pypsa_csv(&buses, &lines, Some(cc))
             .expect("import")
             .largest_component();
-        println!("grid: {cc} PyPSA core — {} buses, {} lines\n", imp.grid.n, imp.grid.edges.len());
+        println!(
+            "grid: {cc} PyPSA core — {} buses, {} lines\n",
+            imp.grid.n,
+            imp.grid.edges.len()
+        );
         (imp.grid, imp.bus_ids)
     } else {
         let (g, ids) = synthetic(6, 6);
-        println!("grid: synthetic 6×6 — {} buses, {} lines\n", g.n, g.edges.len());
+        println!(
+            "grid: synthetic 6×6 — {} buses, {} lines\n",
+            g.n,
+            g.edges.len()
+        );
         (g, ids)
     };
 
@@ -93,7 +101,11 @@ fn main() {
             .get(1)
             .copied()
             .unwrap_or(0.0);
-        let loss = if lam2 > 1e-12 { 1.0 - lam2_after / lam2 } else { 0.0 };
+        let loss = if lam2 > 1e-12 {
+            1.0 - lam2_after / lam2
+        } else {
+            0.0
+        };
         let splits = lam2_after < 1e-9;
         if splits {
             bridges += 1;
@@ -103,7 +115,11 @@ fn main() {
             lbl(*e),
             sens,
             100.0 * loss,
-            if splits { "   ← BRIDGE (trip disconnects the core)" } else { "" }
+            if splits {
+                "   ← BRIDGE (trip disconnects the core)"
+            } else {
+                ""
+            }
         );
     }
     println!("  → {bridges}/10 top-sensitivity lines are bridges\n");
@@ -116,8 +132,14 @@ fn main() {
         .collect();
     println!("== 2. Cheeger local boundary (the seam that flaps) ==");
     println!("  μ₂ (normalized gap)      : {:.5}", c.mu2);
-    println!("  conductance φ of the cut : {:.5}   (Cheeger {:.5} ≤ h ≤ {:.5})", c.conductance, c.lower, c.upper);
-    println!("  partition                : {small} | {} buses (small side | rest)", n - small);
+    println!(
+        "  conductance φ of the cut : {:.5}   (Cheeger {:.5} ≤ h ≤ {:.5})",
+        c.conductance, c.lower, c.upper
+    );
+    println!(
+        "  partition                : {small} | {} buses (small side | rest)",
+        n - small
+    );
     println!("  the boundary crosses {} lines:", cut_lines.len());
     for &e in cut_lines.iter().take(8) {
         println!("     line {e:>4}  {}", lbl(e));
@@ -140,7 +162,10 @@ fn main() {
     }
     // Cascade only the top structural candidates (full N-1 is O(m·rounds)
     // eigensolves — intractable at m=348); bound rounds too.
-    let cfg = CascadeConfig { max_rounds: 16, ..CascadeConfig::default() };
+    let cfg = CascadeConfig {
+        max_rounds: 16,
+        ..CascadeConfig::default()
+    };
     let candidates: Vec<usize> = struct_rank.iter().take(25).map(|x| x.0).collect();
     let mut op_rank: Vec<(usize, usize, f64, bool)> = candidates
         .iter()
@@ -161,7 +186,10 @@ fn main() {
         );
     }
     let big = op_rank.iter().filter(|(_, nt, _, _)| *nt >= 3).count();
-    println!("  → {big}/{} candidate seed trips cascade to ≥3 lines under 10% headroom\n", candidates.len());
+    println!(
+        "  → {big}/{} candidate seed trips cascade to ≥3 lines under 10% headroom\n",
+        candidates.len()
+    );
 
     println!(
         "Reads: structural rank = WHERE the grid is topologically thin (bridges/cut);\n\

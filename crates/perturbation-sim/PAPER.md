@@ -240,6 +240,67 @@ Konnektivität — strukturelle Verstärkung **muss mit Grenzwert-Upgrades
 ko-entworfen** werden, sonst geht sie nach hinten los. Der Go-Meta-`Regime`-
 Klassifikator sagt, *welche* Achse eine Störung belastet.
 
+### 4.5 HHTL residents & the scale-dependent coupling / skalenabhängige Kopplung
+
+**EN.** Split HHTL as **HH (HEEL/HIP, coarse) | TL (TWIG/LEAF, fine)**. HH is
+*resident* to **Raumgewinn** (basin λ₂); TL is resident to **infight** (basin
+cascade fraction). Measured per leaf basin on the ES core (n=20 basins):
+Pearson **+0.53**, Spearman **+0.44**, ICC(2,1) **+0.55** — *positively coupled*.
+But globally, across contingencies (§ battery), infight ⊥ Raumgewinn (ρ≈0.05).
+**The orthogonality is scale-dependent:** orthogonal at the global/contingency
+scale, coupled inside a small basin (a well-connected basin has more lines to
+cascade through). This is *why* a single fixed blend is wrong and **per-tier
+weighting** is needed.
+
+**DE.** HHTL als **HH (grob) | TL (fein)**; HH = Raumgewinn (Becken-λ₂), TL =
+Infight (Becken-Kaskade). Pro Blatt-Becken (ES, n=20): Pearson +0,53, Spearman
++0,44, ICC +0,55 — *positiv gekoppelt*; global aber orthogonal (ρ≈0,05). **Die
+Orthogonalität ist skalenabhängig** → deshalb Gewichtung pro Ebene.
+
+### 4.6 Time as mediator, inertia as the clock, and the collapse number
+
+**EN.** The cascade is **hops × time-per-hop**: `rounds` is the hop count; the
+clock is set by **inertia** via the swing equation `RoCoF = f₀·ΔP/2H` (low
+inertia ⇒ steep RoCoF ⇒ faster trips). **Inertia *mediates* the structural
+perturbation (HH/Raumgewinn) → realized cascade (TL/infight)** — more inertia
+slows the clock so fewer hops complete before protection/operators arrest it.
+The **total timescale fingerprints the mechanism**: the Iberian event collapsed
+in **~27 s** ⇒ electromechanical, low-inertia, voltage/frequency regime
+(consistent with ENTSO-E), **not** a minutes-scale thermal cascade — *the
+27-second window is itself the tell.*
+
+**Per-tier weighting** (`timing::HHTL_WEIGHTS`): `(w_R,w_I)` = (4,1)/(3,2)/(2,3)/
+(1,4) for HEEL→LEAF — coarse tiers weight Raumgewinn, fine tiers infight.
+
+**The collapse number (proposed scaling law, CONJECTURE [H]):**
+
+```
+        Raumgewinn · spread        time · distance
+  Π  =  ─────────────────────  =  ─────────────────
+        infight · inertia          infight · inertia
+```
+
+The numerator `Raumgewinn · spread ≈ time · distance` (the field perturbation is
+a space-time front — how far × how fast it propagates); the denominator is the
+local fight damped by inertia. **High Π ⇒ fast, wide spread (blackout-prone);
+inertia and infight damp it — an inverse correlation.** This unifies the arc:
+Raumgewinn (the field, HH), infight (local collapse, TL), spread (Davis–Kahan /
+hop distance), time (the 27 s), and inertia (the clock) in one dimensionless
+group. *Honest status: a proposed dimensional law; the next probe is to fit Π
+against observed cascade size / the 27 s and report Pearson/Spearman with
+Jirak-honest significance before promoting [H]→[G].*
+
+**DE.** Die Kaskade ist **Sprünge × Zeit-pro-Sprung**; die Uhr stellt die
+**Trägheit** (Schwinggleichung `RoCoF = f₀·ΔP/2H`). **Trägheit *vermittelt*
+Struktur (HH/Raumgewinn) → realisierte Kaskade (TL/Infight).** Die Gesamtzeit ist
+der Mechanismus-Fingerabdruck: Iberien kollabierte in **~27 s** ⇒
+elektromechanisch, träge-arm, Spannungs/Frequenz — **nicht** thermisch
+(Minuten). Gewichtung pro Ebene (4:1→1:4). **Kollaps-Zahl (Skalengesetz,
+Vermutung [H]):** `Π = (Raumgewinn·spread)/(Infight·Trägheit) =
+(Zeit·Distanz)/(Infight·Trägheit)` — hohes Π ⇒ schnelle weite Ausbreitung;
+Trägheit und Infight dämpfen (inverse Korrelation). Nächste Probe: Π gegen
+beobachtete Kaskadengröße/27 s fitten, Jirak-signifikant, vor [H]→[G].
+
 ---
 
 ## 5. Solar/wind feed-in threshold / Solar-Wind-Einspeise-Schwelle

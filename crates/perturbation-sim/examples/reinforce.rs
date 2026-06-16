@@ -59,12 +59,20 @@ fn main() {
         let imp = perturbation_sim::from_pypsa_csv(&buses, &lines, Some(cc))
             .expect("import")
             .largest_component();
-        println!("grid: {cc} PyPSA core — {} buses, {} lines", imp.grid.n, imp.grid.edges.len());
+        println!(
+            "grid: {cc} PyPSA core — {} buses, {} lines",
+            imp.grid.n,
+            imp.grid.edges.len()
+        );
         (imp.grid, imp.bus_ids)
     } else {
         let g = synthetic(8, 8);
         let ids = (0..g.n).map(|i| i.to_string()).collect();
-        println!("grid: synthetic 8×8 — {} buses, {} lines", g.n, g.edges.len());
+        println!(
+            "grid: synthetic 8×8 — {} buses, {} lines",
+            g.n,
+            g.edges.len()
+        );
         (g, ids)
     };
     let n = grid.n;
@@ -93,7 +101,10 @@ fn main() {
     println!("  base λ₂ = {lam2:.3e}   (new-line susceptance b = {w_new:.3})");
     println!("  top-5 candidate ties (first-order λ₂ gain w·(v₂[a]−v₂[b])²):");
     for (a, b, g) in cands.iter().take(5) {
-        println!("     {} — {}   Δλ₂(1st-order) ≈ {:+.3e}", ids[*a], ids[*b], g);
+        println!(
+            "     {} — {}   Δλ₂(1st-order) ≈ {:+.3e}",
+            ids[*a], ids[*b], g
+        );
     }
 
     // Exact Δλ₂ for the best tie.
@@ -104,7 +115,11 @@ fn main() {
     let lam2_new = lambda2(&grid2);
     println!(
         "\n  best tie {} — {} : λ₂ {:.3e} → {:.3e}  (exact Δλ₂ {:+.3e}, +{:.0}%)",
-        ids[a], ids[b], lam2, lam2_new, lam2_new - lam2,
+        ids[a],
+        ids[b],
+        lam2,
+        lam2_new,
+        lam2_new - lam2,
         100.0 * (lam2_new / lam2 - 1.0)
     );
 
@@ -128,7 +143,10 @@ fn main() {
         .iter()
         .max_by(|&&x, &&y| base[x].abs().partial_cmp(&base[y].abs()).unwrap())
         .unwrap_or(&0);
-    let cfg = CascadeConfig { max_rounds: 16, ..CascadeConfig::default() };
+    let cfg = CascadeConfig {
+        max_rounds: 16,
+        ..CascadeConfig::default()
+    };
     let before = simulate_outage(&g_lim, &p, seed, cfg);
 
     let mut g_lim2 = g_lim.clone();
@@ -142,18 +160,26 @@ fn main() {
     );
     println!(
         "  WITHOUT tie: {} lines tripped, connectivity-loss {:.1}%, islanded {} ({} comps)",
-        before.shape.n_tripped(), 100.0 * before.spectral.connectivity_loss(),
-        before.islanded, before.components_final
+        before.shape.n_tripped(),
+        100.0 * before.spectral.connectivity_loss(),
+        before.islanded,
+        before.components_final
     );
     println!(
         "  WITH    tie: {} lines tripped, connectivity-loss {:.1}%, islanded {} ({} comps)",
-        after.shape.n_tripped(), 100.0 * after.spectral.connectivity_loss(),
-        after.islanded, after.components_final
+        after.shape.n_tripped(),
+        100.0 * after.spectral.connectivity_loss(),
+        after.islanded,
+        after.components_final
     );
     println!(
         "\n  → the 3rd out-of-family corridor raises λ₂ by +{:.0}% and {} the seam cascade.",
         100.0 * (lam2_new / lam2 - 1.0),
-        if after.shape.n_tripped() < before.shape.n_tripped() { "shrinks" } else { "does not shrink" }
+        if after.shape.n_tripped() < before.shape.n_tripped() {
+            "shrinks"
+        } else {
+            "does not shrink"
+        }
     );
     println!("\n(Reinforcement = populating a 3rd out-of-family EdgeBlock slot; λ₂ gain bounded by Cauchy interlacing. Synthetic injections + estimated limits.)");
 }

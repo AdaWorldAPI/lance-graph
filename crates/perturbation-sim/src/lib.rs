@@ -61,6 +61,7 @@ pub mod perturbation;
 pub mod sketch;
 pub mod splat;
 pub mod stats;
+pub mod timing;
 
 pub use acflow::{AcBus, AcLine, AcSystem, BusKind, PowerFlowResult};
 pub use basin::{
@@ -80,3 +81,7 @@ pub use perturbation::{spectral_perturbation, SpectralPerturbation};
 pub use sketch::{fwht, resistance_sketch, walsh_pyramid_energy, ResistanceSketch, WalshEnergy};
 pub use splat::{box_coarsen, ewa_coarsen, morton2, splat_neighborhood, Splat};
 pub use stats::{cronbach_alpha, icc_a1, pearson, spearman, zscore};
+pub use timing::{
+    cascade_wall_time, collapse_number, mechanism_from_timescale, rocof_hz_per_s, tier_composite,
+    HHTL_WEIGHTS,
+};
