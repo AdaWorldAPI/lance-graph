@@ -15,7 +15,7 @@ method:
 | **Data-shaped scoping** | run on today's data; `assess_capability` gates which outputs are valid; missing variables modeled as uniform constants (provably free for relative results); `AgeModel` = Uniform null vs DensityProxy Gegenhypothese (topology-only) vs ModernizationSpend (official planning data). | `model.rs` |
 
 > **SIMD:** the Morton/Walsh pyramid transform optionally routes through
-> `ndarray::simd::wht_f32` (AVX-512/AMX) via `--features ndarray-simd`
+> `ndarray::simd::wht_f32` (AVX-512 under x86-64-v4; AMX not used — f32 WHT, not int8 tile-GEMM) via `--features ndarray-simd`
 > (`RUSTFLAGS='-C target-cpu=x86-64-v4'`); default is the zero-dep scalar path.
 > All SIMD comes from `ndarray::simd` (workspace rule). See `METHODS.md §10`.
 

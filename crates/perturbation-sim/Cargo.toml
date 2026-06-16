@@ -11,7 +11,8 @@ description = "Spectral + edge-propagation outage simulator: models the perturba
 #   cargo run   --manifest-path crates/perturbation-sim/Cargo.toml --example simulate
 [features]
 # Route the Morton/Walsh pyramid transform through ndarray's SIMD
-# (AVX-512/AMX, x86-64-v4) Walsh–Hadamard. Default OFF → the crate stays
+# (AVX-512 under x86-64-v4) Walsh–Hadamard. AMX is int8/bf16 tile-GEMM and is
+# NOT used (this crate's WHT is f32, its field tier f64). Default OFF → stays
 # zero-dep with the scalar `fwht` fallback. Build accelerated with:
 #   RUSTFLAGS='-C target-cpu=x86-64-v4' cargo … --features ndarray-simd
 # (or target-cpu=native locally). All SIMD comes from `ndarray::simd` per the
