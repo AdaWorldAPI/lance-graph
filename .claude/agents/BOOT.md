@@ -112,6 +112,9 @@ documents listed in its header (`READ BY:` line) BEFORE producing output.
 | Composing subsystems / integration | truth-architect | frankenstein-checklist.md |
 | New abstraction / new struct | truth-architect | frankenstein-checklist.md (§ redundant abstractions) |
 | Performance budget question | truth-architect | frankenstein-checklist.md (§ correctness-first) |
+| C++→Rust transcode / codegen / AST-DLL / "port Tesseract" | core-first-architect (gate) + truth-architect | core-first-transcode-doctrine.md |
+| Shaping a C++ method into a DO/DTO adapter | adapter-shaper | core-first-transcode-doctrine.md |
+| Adapter "doesn't fit" the Core / before scaling adapters | core-gap-auditor | core-first-transcode-doctrine.md (§ Core gap + parity probe) |
 
 **The insight update cycle:**
 

@@ -1058,6 +1058,7 @@ SIBLING REPOS:
 .claude/knowledge/lab-vs-canonical-surface.md     — MANDATORY before touching REST/gRPC/Wire DTO/endpoint/shader-lab (prevents "add another REST endpoint" hallucination)
 .claude/knowledge/autoattended-multiagent-pattern.md — MANDATORY before planning a wave with ≥4 parallel workers; 4-savant taxonomy (PP-13/14/15/16), worker iron rules, atomic-consolidation pass
 .claude/knowledge/ndarray-vertical-simd-alien-magic.md — MANDATORY before writing SIMD code in any consumer crate OR filing a PR against `adaworldapi/ndarray` `src/simd_*`; canonical reference for the wave W1a (5 ndarray primitives) + W1b (5 consumer migrations) + W1.5 (3 sigker primitives, gated on jc Pillar 11) plan
+.claude/knowledge/core-first-transcode-doctrine.md — MANDATORY before any C++→Rust transcode / codegen / AST-DLL / "port Tesseract" / DO-adapter work; the Core-first inversion (a generated layer is only as clean as the OGAR Core it targets) + the OGAR movable-parts assume-contract + the unicharset adapter-parity falsifier. Carried by the core-first-architect / adapter-shaper / core-gap-auditor ensemble.
 .claude/CALIBRATION_STATUS_GROUND_TRUTH.md       — OVERRIDE: read BEFORE any SESSION_*.md
 .claude/PLAN_BF16_DISTANCE_TABLES.md             — 5-phase plan for BF16 distance tables
 .claude/TECHNICAL_DEBT_SIGNED_SESSION.md          — 56% useful, 44% bypass (honest review)
@@ -1080,6 +1081,26 @@ LAB-ONLY scaffolding. Adding another `/v1/<thing>` endpoint is the
 Kahneman-Tversky System-1 easy path and is nearly always wrong; extending
 the canonical bridge is the System-2 correct move. See the Decision
 Procedure in that doc before writing a single new handler.
+
+**Best practice (P0 for transcode work): `.claude/knowledge/core-first-transcode-doctrine.md`
+must be read BEFORE any C++→Rust transcode, codegen, AST-DLL, "port Tesseract",
+or DO/DTO-adapter work.** The Core-First inversion: a generated layer (AST /
+adapters / codegen'd Rust) is only ever as clean as the Core it targets, so the
+**OGAR Core is shaped first, deliberately** — never treated as the residue of
+"what we couldn't codegen." Emit **thin classid-keyed adapters that ASSUME the
+Core** (identity = `classid`; state = SoA value tenants per the #511
+`SoaMemberSpec` calibration; relations = `EdgeBlock`;
+composition/inheritance = `classid → ClassView`; invocation = `UnifiedStep`),
+and treat the `ruff_cpp_spo` SPO harvest (`has_function` / `inherits_from` /
+`virtually_overrides`) as the **ClassView method-resolution manifest** — the
+harvest and the codegen are two halves of ONE system, not orthogonal. **Never**
+build a parallel Tesseract-rs object model, **never** let an adapter carry its
+own state (a Core gap → *extend the Core deliberately*, never hack the adapter),
+and **never** force intrusive/stateful methods into the adapter mold (route them
+to raw-pointer hand-port — Frankenstein flattening guard). Holds for
+mechanical/data-shaped leaf methods only; CONJECTURE until
+`PROBE-OGAR-ADAPTER-UNICHARSET` runs byte-parity green. Carried by the
+`core-first-architect` / `adapter-shaper` / `core-gap-auditor` ensemble.
 
 Every `.claude/knowledge/` document has a `READ BY:` header listing which agents
 MUST load it before producing output in that domain. When a knowledge trigger fires
