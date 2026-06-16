@@ -261,6 +261,68 @@ columns and swapping the solver*, never rewriting the field tier. The data
 ceiling (proprietary asset condition) is handled by priors + sensitivity +
 disclosure (`n_estimated_*`), never invented numbers.
 
+## 9. Data-shaped scoping & competing aging hypotheses (`model.rs`)
+
+The design runs on **today's data** (topology-only) and computes only what that
+data supports; missing per-asset variables are modeled as **uniform constants,
+never as noise** — because a uniform constant injects *no spurious
+heterogeneity*, so the relative shape and the contingency ranking stay clean.
+
+### What the data supports ([`assess_capability`] → [`Capability`])
+| `DataLevel` | valid outputs | how missing data is handled |
+|---|---|---|
+| `TopologyOnly` (now) | relative shape + ranking | reactance/limits = uniform-constant estimates; absolute MW invalid |
+| `WithReactance` | + electrical distance | per-line `x` present |
+| `WithLosses` | + loss gradient, absolute MW | per-line `r` present |
+| `WithHeterogeneousAssets` | + tech-debt *differential* | per-asset age/condition present |
+
+`relative_shape` is **always** valid — the simulation always runs.
+
+### The invariance that licenses constant priors
+- **Uniform susceptance scale ([`scale_susceptance`]) is provably free**: `b→c·b`
+  ⇒ `L→c·L` ⇒ `θ→θ/c` ⇒ flows unchanged, cascade identical, `λ₂→c·λ₂` cancels in
+  `connectivity_loss`. (test `uniform_susceptance_scale_is_relative_invariant`.)
+  So "assume the whole network is uniformly outdated" costs nothing for relative
+  analysis.
+- **Uniform derate ([`with_uniform_derate`]) is a global stress knob** — not
+  invariant (it moves every threshold together), but uniform ⇒ no false
+  structure. Sweep it, disclose it. (test `uniform_derate_is_a_stress_knob…`.)
+
+### Hypothesis vs Gegenhypothese vs spend ([`AgeModel`])
+Three competing models of condition heterogeneity, each runnable on the data
+available at its tier:
+- **`Uniform(age)`** — the null. No heterogeneity; relative shape unchanged.
+- **`DensityProxy`** — the **Gegenhypothese**: sparse, low-connectivity rural
+  areas (fewer lines / fewer Umspannwerk) are older. Derived from **topology
+  alone** (degree as connectivity-density proxy), so it is computable *now* and
+  is a *genuine* data-derived heterogeneity that legitimately bends the shape.
+  (test: the sparse edge comes out oldest.)
+- **`ModernizationSpend(newness)`** — per-bus newness from the official Spanish
+  grid-planning record (money spent / projects per area):
+  - <https://www.planificacionelectrica.es/en/current-planning> — the 2021-2026
+    Network Development Plan (+ 2025-2030 in progress): **~260 transmission
+    projects** with codes, voltage (66-400 kV), and geographic connecting
+    points. **PDF only** (no GIS/Excel) → must be parsed to per-bus newness and
+    geo-matched to the PyPSA-Eur buses.
+  - <https://www.miteco.gob.es/es/energia/energia-electrica/electricidad.html>
+  - <https://www.miteco.gob.es/es/energia/estrategia-normativa/planificacion/planificacion-electricidad-gas.html>
+    — MITECO ministry electricity + planning portals (the policy/spend layer).
+  - <https://www.sistemaelectrico-ree.es/sites/default/files/2025-03/ISE_2024.pdf>
+    — REE *Informe del Sistema Eléctrico 2024* (annual system report: installed
+    capacity, grid additions, regional system stats — the realized-state
+    companion to the forward plan).
+
+`edge_age_factors(grid, alive, model)` → per-line age `∈[0,1]`; `apply_aging`
+maps age to a thermal derate (`limit *= lerp(1, oldest_derate, age)`).
+
+### The scientific payoff (falsifiable)
+The three `AgeModel`s are **competing hypotheses**. Run each, then correlate the
+predicted perturbation `node_field` against the **observed** Spain-outage
+footprint with the §5 battery (Pearson/Spearman/**ICC**, Jirak-significant). The
+model with the highest criterion validity *is the evidence* for which aging
+story (uniform / density-correlated / spend-driven) best explains the blackout —
+turning a modeling assumption into a testable claim.
+
 ## Anti-dilution table — the distinctions to never collapse
 
 | Do NOT conflate | Because |
@@ -277,3 +339,5 @@ disclosure (`n_estimated_*`), never invented numbers.
 | Walsh pyramid *screen* vs exact partition | basis = graph eigenbasis only on hypercubes; it flags, the eigensolve certifies |
 | Splat in geography vs electrical embedding | a lon/lat splat is a rhyme; a `spectral_embedding` splat is principled |
 | Fidelity ladder = iterations vs a limiting fork | cheap→medium→fork adds columns + swaps solver; never rewrites the field tier |
+| Uniform constant prior vs noise | a constant adds NO heterogeneity (relative shape clean); random fill fabricates structure — never fill missing data with noise |
+| Uniform-aging null vs density-proxy Gegenhypothese | uniform = relative-invariant null; density-proxy = genuine topology-derived heterogeneity that *should* bend the shape — they are competing hypotheses, validated against the observed footprint |
