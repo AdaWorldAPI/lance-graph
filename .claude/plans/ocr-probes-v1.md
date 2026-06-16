@@ -27,8 +27,10 @@
   turbovec PQ residue), attempt to recover the **rank** from the residue bytes ALONE
   (no stored-rank lookup). Needs deepnsm `Codebook` + helix `Signed360` wired in one
   crate (they are not today — that wiring is itself part of the gate).
-- **Pass:** ≥ 99 % of the 4096-word vocab round-trips residue→rank→word exactly.
-- **Fail:** < 99 %, OR recovery requires the original rank as input ⇒ "reversible
+- **Pass:** **100 %** of the 4096-word vocab round-trips residue→rank→word exactly —
+  a reversibility gate must be exact; a single miss fails it (a lossy map is NOT
+  "reversible"). Any tolerance belongs in a separate *quality* probe, never this gate.
+- **Fail:** any miss, OR recovery requires the original rank as input ⇒ "reversible
   without a hash" is FALSE; the corrected plans already say text = identity →
   content-store lookup, codebook = repair signal (this probe confirms or lifts that).
 - **Cost:** ~80 LOC once deepnsm+helix are co-located; the wiring is the real work.

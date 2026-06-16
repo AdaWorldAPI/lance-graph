@@ -237,9 +237,10 @@ mod tests {
     fn ocr_schema_fit_rides_existing_preset_no_new_variant() {
         // Probe OCR-SCHEMA (.claude/plans/ocr-probes-v1.md): the OCR value tenants
         // fit an EXISTING ValueSchema preset, so a 5th `ValueSchema::Ocr` enum variant
-        // is NOT needed (#496 §0 anti-invention). The codec-residue set OCR rides —
-        // HelixResidue + TurbovecResidue + EntityType (+ Fingerprint) — is exactly
-        // `Compressed`; everything else OCR could want is in the POC `Full` default.
+        // is NOT needed (#496 §0 anti-invention). `Compressed` carries the codec
+        // residues — but OCR also writes confidence→Energy + repair→Plasticity, which
+        // `Compressed` LACKS, so OCR rides `Full` (the only preset with residues AND
+        // the hot lifecycle columns), not `Compressed` (codex P2 on #500).
         let compressed = ValueSchema::Compressed;
         for t in [
             ValueTenant::HelixResidue,
@@ -249,11 +250,20 @@ mod tests {
         ] {
             assert!(
                 compressed.has(t),
-                "Compressed already carries {t:?} — OCR rides it"
+                "Compressed carries the codec residue {t:?}"
             );
         }
-        // The shipped transcode rides POC `Full`, which carries every tenant OCR touches
-        // (incl. Meta anchor / Energy confidence / Plasticity provenance).
+        // ...but NOT the hot columns OCR's writeback needs — Compressed alone drops them.
+        assert!(
+            !compressed.has(ValueTenant::Energy),
+            "Compressed lacks Energy"
+        );
+        assert!(
+            !compressed.has(ValueTenant::Plasticity),
+            "Compressed lacks Plasticity"
+        );
+        // OCR rides `Full`, which carries every tenant OCR touches (residues + Meta
+        // anchor + Energy confidence + Plasticity provenance + EntityType).
         let full = ValueSchema::Full;
         for t in [
             ValueTenant::HelixResidue,
