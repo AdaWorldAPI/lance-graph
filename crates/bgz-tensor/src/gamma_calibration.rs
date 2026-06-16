@@ -432,7 +432,7 @@ mod tests {
 
     #[test]
     fn calibration_profile_size() {
-        assert_eq!(CalibrationProfile::byte_size(), 40); // 28 + 12
+        assert_eq!(CalibrationProfile::byte_size(), 48); // RoleGamma 36 + CosineGamma 12
     }
 
     #[test]
