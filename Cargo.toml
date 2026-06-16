@@ -39,6 +39,12 @@ exclude = [
     "crates/learning",
     "crates/jc",
     "crates/sigker",
+    # Outage perturbation-shape simulator — standalone zero-dep research crate.
+    # The applied companion to jc: supplies the genuine eigenvalue-perturbation
+    # result (Weyl/Davis-Kahan on the weighted Laplacian) that jc::weyl
+    # (equidistribution) is NOT, composed with a DC-power-flow/LODF cascade.
+    # Verify via `cargo test --manifest-path crates/perturbation-sim/Cargo.toml`.
+    "crates/perturbation-sim",
     # Place/Residue golden-spiral codec — standalone, with a MANDATORY git dep on
     # the AdaWorldAPI ndarray fork (the SIMD foundation). Verified via
     # `cargo test --manifest-path crates/helix/Cargo.toml`.

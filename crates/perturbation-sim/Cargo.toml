@@ -1,0 +1,20 @@
+[package]
+name = "perturbation-sim"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Spectral + edge-propagation outage simulator: models the perturbation SHAPE of a cascading grid failure. Weyl/Davis-Kahan eigenvalue-perturbation of the weighted graph Laplacian (a line trip = low-rank perturbation E) composed with a DC-power-flow / LODF cascade. Standalone, zero-dep, deterministic — the applied companion to lance-graph crates/jc (jc::weyl = equidistribution; this crate is the missing eigenvalue-perturbation pillar) and jc::ewa_sandwich (edge propagation)."
+
+# Standalone research crate (excluded from the lance-graph workspace, like jc /
+# sigker / helix). Verify with:
+#   cargo test  --manifest-path crates/perturbation-sim/Cargo.toml
+#   cargo run   --manifest-path crates/perturbation-sim/Cargo.toml --example simulate
+[dependencies]
+
+[lib]
+name = "perturbation_sim"
+path = "src/lib.rs"
+
+[[example]]
+name = "simulate"
+path = "examples/simulate.rs"
