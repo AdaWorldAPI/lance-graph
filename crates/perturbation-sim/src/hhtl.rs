@@ -179,4 +179,15 @@ mod tests {
         assert!(!l2.is_empty(), "at least one keyed basin");
         assert_eq!(k.len(), g.n);
     }
+
+    #[test]
+    #[should_panic(expected = "exactly one HHTL key per grid node")]
+    fn basin_lambda2_rejects_key_count_mismatch() {
+        // Locks the one-key-per-node precondition: a short key vector must panic
+        // rather than silently group the wrong nodes.
+        let g = grid_2x2_blocks();
+        let mut k = hhtl_keys(&g);
+        k.pop(); // keys.len() == g.n - 1
+        let _ = basin_lambda2(&g, &k);
+    }
 }
