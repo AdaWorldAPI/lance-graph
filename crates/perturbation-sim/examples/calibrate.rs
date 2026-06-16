@@ -123,11 +123,19 @@ fn main() {
     };
     let n = grid.n;
     let alive = vec![true; grid.edges.len()];
+    let m = grid.edges.len();
+    // Degenerate grids would divide by zero (`k = 24.min(m) = 0` → `m / k`) and
+    // break the eigenvector / `m - 1` assumptions below. Guard up front.
+    if n < 2 || m == 0 {
+        eprintln!(
+            "calibrate requires a connected grid with at least 2 buses and 1 line (got n={n}, m={m})"
+        );
+        std::process::exit(2);
+    }
 
     // Ground truth = the study's 5-factor contingency matrix on the real core.
     let base = symmetric_eigen(&grid.laplacian_of(&alive), n);
     let v2 = base.eigenvector(1);
-    let m = grid.edges.len();
     let mut sens: Vec<(usize, f64)> = (0..m)
         .map(|e| {
             let d = v2[grid.edges[e].from] - v2[grid.edges[e].to];

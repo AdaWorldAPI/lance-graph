@@ -8,7 +8,7 @@
 > when starting a session; read this file when deciding which
 > specialist to wake for a specific task.
 
-Ensemble size: **19 specialists + 5 meta-agents**. Every card is at
+Ensemble size: **22 specialists + 5 meta-agents**. Every card is at
 `.claude/agents/<name>.md`. Each card declares its own
 `tools`, `model`, and `READ BY:` knowledge prerequisites.
 
@@ -170,6 +170,35 @@ revision-aware memory design.
 
 ---
 
+## Transcode / Codegen (Core-First)
+
+Carry `.claude/knowledge/core-first-transcode-doctrine.md`: a generated layer
+(AST / adapters / codegen'd Rust) is only ever as clean as the OGAR Core it
+targets. Use this ensemble for any C++→Rust transcode / codegen / AST-DLL /
+"port Tesseract" / DO-adapter work.
+
+### `core-first-architect`
+Gatekeeper of the Core-First inversion. Checks that a transcode/codegen proposal
+TARGETS the OGAR Core (`classid` / SoA value tenants / `EdgeBlock` /
+`classid → ClassView` / `UnifiedStep`) and stays thin, rather than building a
+parallel object model or treating the Core as codegen residue. Verdict:
+TARGETS-CORE / RESIDUE-CORE / PARALLEL-MODEL. **Use BEFORE** any transcode proposal.
+
+### `adapter-shaper`
+Shapes ONE C++ method into a thin classid-keyed DO-in/out adapter: maps its I/O
+onto the SoA value tenants (the #511 `SoaMemberSpec` calibration), defers
+composition to ClassView, and routes intrusive/stateful methods to hand-port
+instead of forcing the adapter mold. **Use when** transcoding a specific leaf method.
+
+### `core-gap-auditor`
+The honest guard: fires when an adapter needs state/dispatch the Core can't hold
+(a Core gap). Rules EXTEND-CORE (grow the deliberate Core) vs ADAPTER-HACK
+(reject — the moment an adapter carries its own state the elegance is gone). Owns
+`PROBE-OGAR-ADAPTER-UNICHARSET`, the CONJECTURE→FINDING parity gate. **Use when**
+an adapter "doesn't quite fit", or before scaling the adapter approach across modules.
+
+---
+
 ## How to pick the right agent
 
 Decision flow:
@@ -193,6 +222,9 @@ Decision flow:
    - Persona / user / topic / angle → `perspective-weaver`.
    - Kernel mediation / hypothesis loops → `mirror-kernel-synthesist`.
    - codec-research / ZeckBF17 / golden-step → `savant-research`.
+   - C++→Rust transcode / codegen / "port Tesseract" / DO-adapter →
+     `core-first-architect` (gate) → `adapter-shaper` (per method) →
+     `core-gap-auditor` (Core gaps + the parity probe).
    - Drift / anti-pattern check → `adk-behavior-monitor`.
 5. **Before PR merge** on any HHTL / codec / claims work →
    `truth-architect` review is the final link.

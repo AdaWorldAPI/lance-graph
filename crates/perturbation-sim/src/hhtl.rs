@@ -106,6 +106,13 @@ pub fn hhtl_keys(grid: &Grid) -> Vec<HhtlKey> {
 /// Per-leaf-basin algebraic connectivity `λ₂` keyed by HHTL address — the topology
 /// "value" the key indexes (read once from the spectrum, deterministic).
 pub fn basin_lambda2(grid: &Grid, keys: &[HhtlKey]) -> HashMap<HhtlKey, f64> {
+    assert_eq!(
+        keys.len(),
+        grid.n,
+        "basin_lambda2 requires exactly one HHTL key per grid node (got {} keys for {} nodes)",
+        keys.len(),
+        grid.n
+    );
     let mut groups: HashMap<HhtlKey, Vec<usize>> = HashMap::new();
     for (n, k) in keys.iter().enumerate() {
         groups.entry(*k).or_default().push(n);
@@ -171,5 +178,16 @@ mod tests {
         let l2 = basin_lambda2(&g, &k);
         assert!(!l2.is_empty(), "at least one keyed basin");
         assert_eq!(k.len(), g.n);
+    }
+
+    #[test]
+    #[should_panic(expected = "exactly one HHTL key per grid node")]
+    fn basin_lambda2_rejects_key_count_mismatch() {
+        // Locks the one-key-per-node precondition: a short key vector must panic
+        // rather than silently group the wrong nodes.
+        let g = grid_2x2_blocks();
+        let mut k = hhtl_keys(&g);
+        k.pop(); // keys.len() == g.n - 1
+        let _ = basin_lambda2(&g, &k);
     }
 }
