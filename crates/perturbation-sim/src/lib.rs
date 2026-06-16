@@ -73,9 +73,12 @@ pub use basin::{
     cheeger_sweep, contingency_features, effective_resistance, infight_vs_raumgewinn, kron_reduce,
     laplacian_pinv, spectral_embedding, Cheeger, ContingencyFeatures, GoScore, KronReduced, Regime,
 };
-pub use buffer::{compartment_buffer, impulse_buffer, ketchup_yield, Yield};
+pub use buffer::{compartment_buffer, impulse_buffer, inertia_buffer_column, ketchup_yield, Yield};
 pub use cascade::{simulate_outage, CascadeConfig, CascadeResult, PerturbationShape};
-pub use columns::{study_member_specs, Encoding, SoaMemberSpec, INERTIA};
+pub use columns::{
+    study_member_specs, study_slot_assignments, Encoding, GuardrailVerdict, InertiaPromotion,
+    SoaMemberSpec, INERTIA, INERTIA_PROMOTION, INERTIA_SLOT,
+};
 pub use eigen::{symmetric_eigen, Eigen};
 pub use flow::{dc_flows, lodf};
 pub use graph::{Edge, Grid};

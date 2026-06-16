@@ -74,9 +74,56 @@ pub fn compartment_buffer(inertia_h: &[f64], df_band: f64) -> f64 {
     inertia_h.iter().map(|&h| impulse_buffer(h, df_band)).sum()
 }
 
+/// The `inertia_buffer` SoA column for a set of buses: each bus's impulse buffer
+/// ([`impulse_buffer`]) min-max **normalized to `[0,1]`** — the form the calibrated
+/// [`crate::INERTIA`] spec stores (normalized, not raw physical units; normalizing
+/// also lifts the axis clear of the ICC variance-underflow guard). This is the
+/// promoted additive value member, *computed*. It is orthogonal to topology by the
+/// HHTL-OGAR key/value split (topology is the GUID key; this is one more value) —
+/// the structural fact `buffer_is_independent_of_connectivity` witnesses. Degenerate
+/// (all-equal `H`, or empty) input yields all-zeros, never `NaN`.
+pub fn inertia_buffer_column(per_bus_h: &[f64], df_band: f64) -> Vec<f32> {
+    let raw: Vec<f64> = per_bus_h
+        .iter()
+        .map(|&h| impulse_buffer(h, df_band))
+        .collect();
+    let lo = raw.iter().copied().fold(f64::INFINITY, f64::min);
+    let hi = raw.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let span = hi - lo;
+    raw.iter()
+        .map(|&r| {
+            if span > 0.0 {
+                ((r - lo) / span) as f32
+            } else {
+                0.0
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inertia_column_is_normalized_and_monotone_in_h() {
+        // Per-bus inertia decoupled from any wiring: the column normalizes to [0,1]
+        // and preserves the H order (impulse_buffer is monotone in H at fixed df).
+        let h = [1.0_f64, 5.0, 3.0, 0.0, 8.0];
+        let col = inertia_buffer_column(&h, 0.2);
+        assert_eq!(col.len(), h.len());
+        for &c in &col {
+            assert!((0.0..=1.0).contains(&c), "normalized to [0,1]");
+        }
+        assert_eq!(col[3], 0.0, "H=0 is the min → 0.0");
+        assert_eq!(col[4], 1.0, "H=8 is the max → 1.0");
+        // Order preserved: H[0]=1 < H[2]=3 < H[1]=5 < H[4]=8.
+        assert!(col[0] < col[2] && col[2] < col[1] && col[1] < col[4]);
+        // Degenerate (all-equal H → no span) yields zeros, never NaN.
+        let flat = inertia_buffer_column(&[4.0, 4.0, 4.0], 0.2);
+        assert!(flat.iter().all(|&c| c == 0.0));
+        assert!(inertia_buffer_column(&[], 0.2).is_empty());
+    }
 
     #[test]
     fn buffer_grows_with_inertia() {
