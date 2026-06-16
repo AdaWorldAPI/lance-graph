@@ -51,6 +51,7 @@
 
 pub mod acflow;
 pub mod basin;
+pub mod buffer;
 pub mod cascade;
 pub mod eigen;
 pub mod flow;
@@ -58,6 +59,8 @@ pub mod graph;
 pub mod ingest;
 pub mod model;
 pub mod perturbation;
+pub mod resilience;
+pub mod rolling_floor;
 pub mod sketch;
 pub mod splat;
 pub mod stats;
@@ -68,6 +71,7 @@ pub use basin::{
     cheeger_sweep, contingency_features, effective_resistance, infight_vs_raumgewinn, kron_reduce,
     laplacian_pinv, spectral_embedding, Cheeger, ContingencyFeatures, GoScore, KronReduced, Regime,
 };
+pub use buffer::{compartment_buffer, impulse_buffer, ketchup_yield, Yield};
 pub use cascade::{simulate_outage, CascadeConfig, CascadeResult, PerturbationShape};
 pub use eigen::{symmetric_eigen, Eigen};
 pub use flow::{dc_flows, lodf};
@@ -78,10 +82,12 @@ pub use model::{
     AgeModel, Capability, DataLevel,
 };
 pub use perturbation::{spectral_perturbation, SpectralPerturbation};
+pub use resilience::{algebraic_connectivity, kirchhoff_index, Resilience};
+pub use rolling_floor::{weyl_over_fiedler, FloorBand, RollingFloor, StackResult, TierFloors};
 pub use sketch::{fwht, resistance_sketch, walsh_pyramid_energy, ResistanceSketch, WalshEnergy};
 pub use splat::{box_coarsen, ewa_coarsen, morton2, splat_neighborhood, Splat};
 pub use stats::{cronbach_alpha, icc_a1, pearson, spearman, zscore};
 pub use timing::{
-    cascade_wall_time, collapse_number, mechanism_from_timescale, rocof_hz_per_s, tier_composite,
-    HHTL_WEIGHTS,
+    cascade_wall_time, collapse_number, implied_dt_per_hop, mechanism_from_timescale, meta_cascade,
+    meta_cascade_phase, per_hop_time, rocof_hz_per_s, tier_composite, MetaHop, HHTL_WEIGHTS,
 };

@@ -365,6 +365,52 @@ Reserve **electricity-specific** encoding for the **raw physical layer** (AC
 256-palette lossy, ±½ bucket — fine for a live screen/stream; compute exact
 stats on raw. `turbovec` is coarse — retrieval, not values.)
 
+## 11. Why the pyramid is a *computation* substrate: witness arc as a standing wave
+
+The perturbation pyramid is not only an outage model — it is the **computation
+kernel** for evaluating a Mailbox-SoA **witness arc** as a *standing wave* instead
+of by *pointer chasing*. This is the bridge the operator named ("use Mailbox SoA
+and witness > pointer chasing as a standing wave, but it needs the perturbation
+pyramid for computation"), and it lands on architecture that already exists in
+`lance-graph-contract`.
+
+**The two views of the same arc** (already documented in
+`contract::witness_table` and `contract::soa_view`):
+
+- **Particle view (pointer chasing).** The `CausalEdge64` W-slot → witness chain
+  is a Markov #1 reference arc; walking it means dereferencing one witness per hop
+  across the SPO store — `O(hops)` dependent loads, each a cache miss. This is the
+  *discrete, addressable, exact* witness pointer (`witness_table.rs`: "the chain of
+  W-references across edges forms a Markov chain … walked backwards without
+  dereferencing the full SPO store on every hop"; `soa_view.rs`: "the *particle*").
+
+- **Wave view (standing wave).** The same arc, evaluated *all at once* as a bipolar
+  **interference field** over the HHTL tiers — the windowed/resonance reading
+  (`soa_view.rs`: "the windowed … *wave*"). No per-hop dereference: the field is a
+  function of the address tree, not of a pointer walk.
+
+**The pyramid is what makes the wave computable** — and it is exactly
+`timing::meta_cascade_phase` (§4.7 of `PAPER.md`):
+
+| Standing-wave ingredient | Pyramid mechanism (this crate) | OGAR canon |
+|---|---|---|
+| phase (±1) composes between levels | `phase_{i+1} = phaseᵢ · sign` (XOR/multiply) | "sign side = `vsa_bind` = XOR" |
+| magnitude bundles into the field | `field_k = Σ phaseᵢ·magnitudeᵢ` (running sum) | "magnitude side = `vsa_bundle` = add" |
+| the field is the Walsh–Hadamard of the tree | `sketch::fwht` / `walsh_pyramid_energy` (`ndarray::simd::wht_f32`) | "Bipolar-phase pyramid — Walsh-Hadamard on VSA" |
+| tier = one meta-hop, `O(tiers)` not `O(hops)` | 4 HHTL tiers, `tier = level >> 2` | "perturbation pyramid for computation" |
+
+So the witness arc that the particle view walks in `O(hops)` dependent loads, the
+wave view reads in `O(tiers)` (≤ 4) tier lookups — *because the deterministic
+bipolar phase is generated from the address, never stored* (OGAR "DETERMINISTIC
+PHASE"). The standing wave is the witness arc; the perturbation pyramid is its
+evaluator; the SoA columns (`FingerprintColumns`/`EdgeColumn`) are its backing
+store. **Scope (honest):** the bridge is *structural* — `perturbation-sim`
+demonstrates the pyramid/phase/inertia field on power grids; wiring it as the
+actual `witness`-arc evaluator in the contract is a separate, gated step (the
+witness/SoA types are the cognitive spine — additive only, behind the iron rules).
+It is recorded here as the computation-substrate connection, not yet as shipped
+contract code. CONJECTURE [H].
+
 ## Anti-dilution table — the distinctions to never collapse
 
 | Do NOT conflate | Because |
