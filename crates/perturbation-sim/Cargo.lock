@@ -90,6 +90,7 @@ dependencies = [
 [[package]]
 name = "ndarray"
 version = "0.17.2"
+source = "git+https://github.com/AdaWorldAPI/ndarray.git?branch=master#2d708ef8cadb83de5840372b02d06e783b9fcce2"
 dependencies = [
  "blake3",
  "matrixmultiply",

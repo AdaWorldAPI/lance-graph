@@ -20,11 +20,13 @@ ndarray-simd = ["dep:ndarray"]
 
 [dependencies]
 # The AdaWorldAPI fork ("The Foundation"), optional + behind `ndarray-simd`.
-# Path dep: perturbation-sim lives inside lance-graph, which already path-deps
-# this sibling for its core crates, so the fork is expected present. Clean-
-# checkout alternative (helix pattern): swap to
-#   ndarray = { git = "https://github.com/AdaWorldAPI/ndarray.git", branch = "master", optional = true, default-features = false, features = ["std"] }
-ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std"] }
+# Sourced by GIT (not a local path): an optional *path* dep is read at manifest
+# resolution, so a clean checkout without the sibling `../../../ndarray` fails
+# even with the feature OFF — breaking the zero-dep default (codex P2 on #504,
+# the helix-#460 lesson). A git source resolves remotely and is only fetched/
+# built when `ndarray-simd` activates it. Local-dev alternative: swap to
+#   ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std"] }
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray.git", branch = "master", optional = true, default-features = false, features = ["std"] }
 
 [lib]
 name = "perturbation_sim"

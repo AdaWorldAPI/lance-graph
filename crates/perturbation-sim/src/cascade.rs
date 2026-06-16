@@ -112,6 +112,10 @@ pub fn simulate_outage(
     alive[seed_line] = false;
     let mut trip_round = vec![-1i32; m];
     trip_round[seed_line] = 0;
+    // Flow each line carried in the round it tripped (the overload that caused
+    // it). Seeded with the base flow so the seed line — and any survivor —
+    // defaults sensibly; round-trips overwrite with their current-round flow.
+    let mut trip_flow = flow_base.clone();
 
     // Assigned on every loop iteration before any break (the loop body always
     // runs at least once), so no initializer is needed.
@@ -149,6 +153,7 @@ pub fn simulate_outage(
         for e in new_trips {
             alive[e] = false;
             trip_round[e] = rounds as i32;
+            trip_flow[e] = flow[e]; // the overloaded flow that tripped it
         }
     }
 
@@ -159,7 +164,7 @@ pub fn simulate_outage(
             if alive[e] {
                 (flow[e] - flow_base[e]).abs()
             } else {
-                flow_base[e].abs()
+                trip_flow[e].abs()
             }
         })
         .collect();
@@ -227,6 +232,38 @@ mod tests {
         );
         // The perturbation shape must be non-trivial somewhere.
         assert!(r.shape.node_field.iter().any(|&x| x > 1e-9));
+    }
+
+    #[test]
+    fn round_trip_edge_field_is_the_overload_not_base() {
+        // A line that trips in a later round tripped because its REDISTRIBUTED
+        // flow exceeded its limit — so its edge_field must be that overload
+        // (> limit), not its (smaller) base flow. Guards the Codex P2 fix.
+        let g = Grid::new(
+            4,
+            vec![
+                Edge::new(0, 1, 1.0, 0.6),
+                Edge::new(1, 2, 1.0, 0.6),
+                Edge::new(2, 3, 1.0, 0.6),
+                Edge::new(3, 0, 1.0, 0.6),
+            ],
+        );
+        let p = vec![1.0, 0.0, -1.0, 0.0];
+        let r = simulate_outage(&g, &p, 0, CascadeConfig::default());
+        let mut checked = 0;
+        for e in 0..g.edges.len() {
+            if r.shape.trip_round[e] >= 1 {
+                assert!(
+                    r.shape.edge_field[e] > g.edges[e].limit - 1e-9,
+                    "round-{} trip {e}: edge_field {} should be the overload (> limit {})",
+                    r.shape.trip_round[e],
+                    r.shape.edge_field[e],
+                    g.edges[e].limit
+                );
+                checked += 1;
+            }
+        }
+        assert!(checked >= 1, "expected at least one round-≥1 trip to check");
     }
 
     #[test]
