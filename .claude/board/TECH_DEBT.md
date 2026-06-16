@@ -147,6 +147,38 @@ timing-race hypothesis (read the actual `cargo llvm-cov` log with a scoped token
 Cross-ref: `.github/workflows/rust-test.yml` (test job mold step vs coverage job);
 `bindspace-singleton-to-mailbox-soa-v1` (the migration this is NOT).
 
+**2026-06-16 addendum — the `test` job now hits the SAME cliff; fix extended to
+it (branch `claude/ci-test-job-debuginfo0`).** The cliff this entry called out as
+*"a 2/50 intermittent"* on the coverage job has now surfaced on the **plain
+`test`** job: `ld terminated with signal 7 [Bus error]` + an LLVM crash dump at
+the `cargo test --no-run` link step of `test_sql_query` / `intervene_counterfactual`.
+Root-caused to a **link-footprint growth, not a logic break** (a layout break would
+fail an assertion, not SIGBUS at link): **PR #507** (`0c6ef02c`, +4055/−1048 across
+`causal-edge` edge.rs/layout.rs — the ce64-v2 layout — and `cognitive-shader-driver`
+mailbox_soa.rs/driver.rs/planner_bridge.rs — MailboxSoaOwner + SurrealMailboxView,
+D-PG-6) grew the object-file set linked by the lance-graph integration tests enough
+to tip the previously-marginal `test`-job link over the same disk/RSS ceiling. It
+surfaced on the first full-workspace CI run *after* #507 (the two PRs between, #509
+and the perturbation-sim #511, are root-`exclude`d so their CI never linked the
+post-#507 tree — which is why this is "the first failing PR" yet not its fault).
+**This is a FENCE, not a root reduction:** it does not shrink #507's legitimate
+codegen; it removes the dead `debuginfo=1` weight (CI never opens a debugger) to
+buy headroom — exactly the b56bb2cd lever, now applied to the `test` job. **Fix:**
+job-level `RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"` on `test` (parity
+with `test-with-coverage`; mold already installed). Side effect: the `test` job
+gets its own Swatinem cache key (first run repopulates). **Confirm** on the next
+green `test` run. **Residual debt if it recurs after this:** the footprint is on a
+secular upward trend (every cognitive-layer PR adds codegen) — the durable fix is a
+bigger runner or splitting the integration-test link set, not repeatedly shaving
+flags. Separately, #507 left `intervene_counterfactual.rs:133/165` calling the
+**deprecated** `CausalEdge64::inference_type()` (the consumer-migration commit
+`8131c480` lives on the unmerged `claude/continue-ndarray-x0Oaw`) — that WARNS, does
+not fail (v1 default routes through the canonical mapping per I-LEGACY-API-FEATURE-
+GATED); tracked here as a separate latent item, not fixed on this CI branch.
+Cross-ref: `.github/workflows/rust-test.yml` (now both jobs at `debuginfo=0`); PR
+#507 (`0c6ef02c`); `claude/continue-ndarray-x0Oaw` (the pending ce64-v2 consumer
+migration).
+
 ### TD-UNBUNDLE-FROM-1 — `unbundle_from` is NOT the inverse of `bundle_into` (2026-06-07)
 
 **Open.** `crates/lance-graph-planner/src/cache/kv_bundle.rs` — `unbundle_from`
