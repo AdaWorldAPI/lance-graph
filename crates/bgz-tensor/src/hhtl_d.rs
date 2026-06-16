@@ -553,7 +553,7 @@ mod tests {
 
     #[test]
     fn hhtl_d_entry_roundtrip() {
-        let entry = HhtlDEntry::new(HeelBasin::Gate, 7, 42, true, 0x3C00); // BF16 1.0
+        let entry = HhtlDEntry::new(HeelBasin::Gate, 7, 42, true, 0x3F80); // BF16 1.0 (0x3F80, not the F16 0x3C00)
         let bytes = entry.to_le_bytes();
         let decoded = HhtlDEntry::from_le_bytes(&bytes);
 

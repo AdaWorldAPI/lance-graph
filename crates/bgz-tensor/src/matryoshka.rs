@@ -466,7 +466,7 @@ pub fn encode_row(row: &[f32], basis: &SvdBasis, profile: &BandProfile) -> Matry
 
     for band in &profile.bands {
         let max_val = band.precision.max_val();
-        let band_coeffs = &coeffs[band.start..band.end.min(coeffs.len())];
+        let band_coeffs = &coeffs[band.start.min(coeffs.len())..band.end.min(coeffs.len())];
 
         // Find scale for this band
         let band_max = band_coeffs
@@ -552,7 +552,10 @@ pub fn decode_row(encoded: &MatryoshkaRow, basis: &SvdBasis, profile: &BandProfi
         offset += 2;
         let inv_scale = band_max / max_val as f32;
 
-        let n = band.n_components();
+        // Cap to the coeff buffer: the basis rank can be lower than the
+        // profile's nominal max (e.g. fewer sample rows than requested
+        // components), so a band may extend past the available coeffs.
+        let n = band.n_components().min(coeffs.len().saturating_sub(band.start));
 
         match band.precision {
             BandPrecision::I16 => {
