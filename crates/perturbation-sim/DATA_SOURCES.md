@@ -46,7 +46,7 @@ flags what is actually usable today vs needs extraction.
 
 | Source | Footprint | Note |
 |---|---|---|
-| [ENTSO-E expert-panel final report (2026-03-20)](https://www.entsoe.eu/news/2026/03/20/entso-e-publishes-expert-panel-final-report-on-28-april-2025-blackout-in-spain-and-portugal/) · [publications](https://www.entsoe.eu/publications/blackout/28-april-2025-iberian-blackout/) | **electrical mechanism** | the authoritative reconstruction: **overvoltage-driven cascading *generation* disconnection** + oscillations + reactive-power/voltage-control gaps + uneven stabilisation — a **voltage-collapse** event, *not* a line-overload cascade |
+| [ENTSO-E expert-panel final report (2026-03-20)](https://www.entsoe.eu/news/2026/03/20/entso-e-publishes-expert-panel-final-report-on-28-april-2025-blackout-in-spain-and-portugal/) · [publications](https://www.entsoe.eu/publications/blackout/28-april-2025-iberian-blackout/) · [full PDF (50 MB)](https://eepublicdownloads.blob.core.windows.net/public-cdn-container/clean-documents/Publications/2025/iberian-blackout/Final%20Report%20on%20the%20Grid%20Incident%20in%20Spain%20and%20Portugal%20on%2028%20April%202025.pdf) | **electrical mechanism** | the authoritative reconstruction: **overvoltage-driven cascading *generation* disconnection** + oscillations + reactive-power/voltage-control gaps + uneven stabilisation — a **voltage-collapse** event, *not* a line-overload cascade. Reconstructed sequence below |
 | [Eurosurveillance 30/26 (2500405)](https://www.eurosurveillance.org/content/10.2807/1560-7917.ES.2025.30.26.2500405) · [PMC12231376](https://pmc.ncbi.nlm.nih.gov/articles/PMC12231376/) | **human footprint** | MoMo excess-mortality surveillance: **147 excess deaths over 3 days** (95% CI −35..330, +4.2%); 65–84 yr **+7.9% = 94 deaths** (CI 63..125); ~10 directly attributed. Per-region severity target, not mechanism |
 
 ### ⚠ Validation caveat — read before claiming the model "explains" the blackout
@@ -75,6 +75,37 @@ the DC cascade as one mechanism among several; reach for the AC fork to model
 the actual voltage-collapse trigger; validate severity against the mortality
 footprint. Over-claiming "we model the Iberian blackout" with the DC path alone
 would be exactly the dilution this crate's METHODS doc guards against.
+
+#### Reconstructed sequence (from the full report — the concrete validation target)
+All times 28 Apr 2025 CEST; numbers quoted from the report:
+- **Pre-conditions:** high RES, exports ≈ **5 GW**; two damped oscillation events
+  earlier — a local mode at **0.63 Hz** (~12:03) and an East-Centre inter-area
+  mode at **0.2 Hz** (12:19–12:22). Operators damped both.
+- **12:32:00:** system voltage begins rising across many nodes (PMU data). From
+  12:32:00–12:32:48, distribution loss ≈ **317 MW**, >5 MW generators down
+  ≈ **500 MW**, ≈ **208 MW** distributed wind lost.
+- **12:33:16–18:** the overvoltage-protection cascade — chunks of ≈ **525**,
+  ≈ **727**, ≈ **928**, **355 MW** trip (e.g. a 220 kV overvoltage protection on
+  a transformer injecting 355 MW; 727 MW PV+thermosolar lost at 12:33:16.820 to
+  overvoltage protection).
+- **12:33:20.473:** AC link to Morocco trips (underfrequency).
+- **12:33:21.535:** France–Spain AC lines disconnect by protection (loss of
+  synchronism) — **this is the connectivity cut that isolates Iberia from
+  Continental Europe**.
+- **12:33:23.960:** HVDC Spain→France trips → full electrical separation; the
+  Iberian system collapses. Frequency falls toward ~**48 Hz**; RoCoF within
+  ±1 Hz/s until 12:33:20.56.
+
+**Mechanism → model mapping (the honest split):**
+- The **trigger** (overvoltage → cascading generation trips, ~24 s electro-
+  mechanical) is **AC/reactive** → only the **AC fork** (METHODS §8) can
+  reproduce it; the DC overload cascade cannot.
+- The **separation** (France–Spain AC + HVDC disconnect isolating Iberia) **is a
+  connectivity cut / islanding** → exactly what the **field tier** describes:
+  Cheeger min-cut, Fiedler `λ₂` collapse, Kron cross-border reduction. So the
+  field tier legitimately models the *separation geometry* even though it did
+  not cause the *trigger*. Use it to screen "which cut isolates Iberia"; use the
+  AC fork for "why the voltage ran away."
 
 ### The storage hook (genuine new modeling axis — not yet built)
 Storage (NECP target 22.5 GW by 2030) is a **controllable injection**: a battery
