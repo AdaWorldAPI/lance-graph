@@ -59,6 +59,7 @@ pub mod eigen;
 pub mod flow;
 pub mod graph;
 pub mod hhtl;
+pub mod inertia_data;
 pub mod ingest;
 pub mod model;
 pub mod perturbation;
@@ -88,6 +89,7 @@ pub use eigen::{symmetric_eigen, Eigen};
 pub use flow::{dc_flows, lodf};
 pub use graph::{Edge, Grid};
 pub use hhtl::{basin_lambda2, hhtl_keys, HhtlKey};
+pub use inertia_data::{inertia_for_buses, parse_bus_inertia, proxy_inertia, InertiaProvenance};
 pub use ingest::{estimate_snom_mva, from_pypsa_csv, PypsaImport};
 pub use model::{
     apply_aging, assess_capability, edge_age_factors, scale_susceptance, with_uniform_derate,

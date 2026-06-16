@@ -108,3 +108,7 @@ path = "examples/chaoda.rs"
 [[example]]
 name = "witness"
 path = "examples/witness.rs"
+
+[[example]]
+name = "inertia_ingest"
+path = "examples/inertia_ingest.rs"
