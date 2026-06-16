@@ -12,8 +12,7 @@
 //!        --example weakest_links -- /tmp/pypsa/buses.csv /tmp/pypsa/lines.csv ES
 
 use perturbation_sim::{
-    cheeger_sweep, dc_flows, simulate_outage, spectral_perturbation, symmetric_eigen,
-    CascadeConfig, Edge, Grid,
+    cheeger_sweep, dc_flows, simulate_outage, symmetric_eigen, CascadeConfig, Edge, Grid,
 };
 
 struct Rng(u64);
@@ -66,26 +65,48 @@ fn main() {
     let alive = vec![true; m];
     let lbl = |e: usize| format!("{}–{}", ids[grid.edges[e].from], ids[grid.edges[e].to]);
 
-    // 1. STRUCTURAL weakest links: single-trip λ₂-loss (no limits, no cascade).
-    let mut struct_rank: Vec<(usize, f64, bool)> = (0..m)
+    // 1. STRUCTURAL weakest links via first-order Fiedler sensitivity.
+    //    ∂λ₂/∂wₑ = (v₂[a]−v₂[b])²  (exact derivative), so removing line e drops
+    //    λ₂ by ≈ (v₂[a]−v₂[b])²·bₑ to first order. One eigensolve ranks all m
+    //    lines; the exact λ₂-loss is then recomputed only for the top few.
+    let base_eig = symmetric_eigen(&grid.laplacian_of(&alive), n);
+    let lam2 = base_eig.values.get(1).copied().unwrap_or(0.0);
+    let v2 = base_eig.eigenvector(1);
+    let mut struct_rank: Vec<(usize, f64)> = (0..m)
         .map(|e| {
-            let sp = spectral_perturbation(&grid, &alive, e);
-            (e, sp.connectivity_loss(), sp.fiedler_after.abs() < 1e-9)
+            let (a, b) = (grid.edges[e].from, grid.edges[e].to);
+            let d = v2[a] - v2[b];
+            (e, d * d * grid.edges[e].susceptance) // first-order Δλ₂ proxy
         })
         .collect();
-    struct_rank.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    struct_rank.sort_by(|x, y| y.1.partial_cmp(&x.1).unwrap());
 
-    println!("== 1. Structural weakest links (single-trip λ₂ loss; pure topology) ==");
-    for (e, loss, splits) in struct_rank.iter().take(10) {
+    println!("== 1. Structural weakest links (first-order Fiedler sensitivity ∂λ₂/∂wₑ) ==");
+    println!("   base λ₂ = {lam2:.6}");
+    let mut bridges = 0usize;
+    for (e, sens) in struct_rank.iter().take(10) {
+        // Exact recompute for the top lines only.
+        let mut after = alive.clone();
+        after[*e] = false;
+        let lam2_after = symmetric_eigen(&grid.laplacian_of(&after), n)
+            .values
+            .get(1)
+            .copied()
+            .unwrap_or(0.0);
+        let loss = if lam2 > 1e-12 { 1.0 - lam2_after / lam2 } else { 0.0 };
+        let splits = lam2_after < 1e-9;
+        if splits {
+            bridges += 1;
+        }
         println!(
-            "  line {e:>4}  {:<16}  λ₂-loss {:>6.2}%{}",
+            "  line {e:>4}  {:<16}  sens {:>8.5}  exact λ₂-loss {:>6.2}%{}",
             lbl(*e),
+            sens,
             100.0 * loss,
-            if *splits { "   ← cutting it DISCONNECTS the grid (bridge)" } else { "" }
+            if splits { "   ← BRIDGE (trip disconnects the core)" } else { "" }
         );
     }
-    let bridges = struct_rank.iter().filter(|(_, _, s)| *s).count();
-    println!("  → {bridges} single lines are bridges (their trip alone disconnects the core)\n");
+    println!("  → {bridges}/10 top-sensitivity lines are bridges\n");
 
     // 2. CHEEGER local boundary — where the grid wants to separate (the flap).
     let c = cheeger_sweep(&grid, &alive);
@@ -117,15 +138,20 @@ fn main() {
     for (e, edge) in g.edges.iter_mut().enumerate() {
         edge.limit = (1.1 * base[e].abs()).max(1e-6);
     }
-    let mut op_rank: Vec<(usize, usize, f64, bool)> = (0..m)
-        .map(|e| {
-            let r = simulate_outage(&g, &p, e, CascadeConfig::default());
+    // Cascade only the top structural candidates (full N-1 is O(m·rounds)
+    // eigensolves — intractable at m=348); bound rounds too.
+    let cfg = CascadeConfig { max_rounds: 16, ..CascadeConfig::default() };
+    let candidates: Vec<usize> = struct_rank.iter().take(25).map(|x| x.0).collect();
+    let mut op_rank: Vec<(usize, usize, f64, bool)> = candidates
+        .iter()
+        .map(|&e| {
+            let r = simulate_outage(&g, &p, e, cfg);
             (e, r.shape.n_tripped(), r.fraction_tripped, r.islanded)
         })
         .collect();
     op_rank.sort_by_key(|x| std::cmp::Reverse(x.1));
 
-    println!("== 3. Operational weakest links (N-1 cascade size, headroom ×1.1) ==");
+    println!("== 3. Operational weakest links (cascade size of the top-25 structural candidates, headroom ×1.1) ==");
     for (e, ntrip, frac, islanded) in op_rank.iter().take(10) {
         println!(
             "  seed {e:>4}  {:<16}  → {ntrip:>3} lines ({:>4.1}%){}",
@@ -135,7 +161,7 @@ fn main() {
         );
     }
     let big = op_rank.iter().filter(|(_, nt, _, _)| *nt >= 3).count();
-    println!("  → {big}/{m} seed trips cascade to ≥3 lines under 10% headroom\n");
+    println!("  → {big}/{} candidate seed trips cascade to ≥3 lines under 10% headroom\n", candidates.len());
 
     println!(
         "Reads: structural rank = WHERE the grid is topologically thin (bridges/cut);\n\

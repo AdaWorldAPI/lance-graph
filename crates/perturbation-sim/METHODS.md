@@ -327,10 +327,15 @@ turning a modeling assumption into a testable claim.
 
 ### `ndarray-simd` feature (the Morton-pyramid transform, accelerated)
 The pyramid's Walsh–Hadamard transform routes through **`ndarray::simd::wht_f32`**
-(AVX-512 under `target-cpu=x86-64-v4`; **AMX is NOT used** — AMX is int8/bf16
-tile-GEMM, whereas the WHT is f32 and the field tier f64. An int8 AMX path
-(`ndarray::simd::matmul_i8_to_i32`) for a quantized resistance sketch is a
-possible future wiring, not present) — the one workspace-sanctioned SIMD
+(AVX-512 under `target-cpu=x86-64-v4`). **Two-sided picture (per the OGAR
+two-algebra rule):** the **sign side** (Walsh/XOR WHT) is what this crate wires —
+`wht_f32`, **AVX-512 f32**, *not* AMX. The **magnitude side** (the EWA Gaussian-
+splat / Morton-tile coarsening) maps onto ndarray's **AMX bf16/int8 tile-GEMM**
+(`bf16_tile_gemm` / `amx_matmul` / `edge_codec`'s `matmul_i8_to_i32`) — genuinely
+AMX-backed in ndarray, but **not yet wired here** (this crate's field tier is
+f64, its WHT f32). Wiring the magnitude/tile path (or an int8 resistance sketch
+via `matmul_i8_to_i32`) is the AMX entry point — the unwired half) — the one
+workspace-sanctioned SIMD
 source (never raw intrinsics here). Default **OFF** → scalar `fwht`, zero-dep;
 **ON** via `--features ndarray-simd` (ndarray fork as a git/path dep, `["std"]`).
 Both paths pass the same tests. Deeper *tile-specific* ndarray targets, to wire
