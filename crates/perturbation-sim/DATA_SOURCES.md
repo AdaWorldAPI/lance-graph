@@ -15,6 +15,7 @@ flags what is actually usable today vs needs extraction.
 | [OSM Power networks](https://wiki.openstreetmap.org/wiki/Power_networks) (Overpass) | raw lines/substations | XML/JSON | ODbL | full control; you estimate electrical params |
 | [openmod datasets (GridKit/SciGRID)](https://wiki.openmod-initiative.org/wiki/Transmission_network_datasets) | ENTSO-E-map-derived grid | CSV | open | richer electrical metadata than raw OSM |
 | [Awesome-Electrical-Grid-Mapping (open-energy-transition)](https://github.com/open-energy-transition/Awesome-Electrical-Grid-Mapping) | curated index of grid datasets/tools | links | open | meta-source — start here when adding a new country/region feed |
+| [i-DE (Iberdrola DSO) hosting-capacity map, 11 Apr 2025](https://www.i-de.es/en/grid-connection/energy-generation/capacity-map) · [PDF](https://www.i-de.es/documents/2803098/3162312/MapaDeCapacidad_iDE_11_Abril_2025.pdf/d07461a2-ee12-f2e2-e56b-55a777c031b8) | **distribution layer**: per-substation (*Umspannwerk*) available generation-connection capacity | PDF/map | public | the **DSO complement** to the REE/PyPSA transmission layer — finally per-substation granularity. Saturated substations (≈0 headroom) = candidate stressed nodes; ties to `AgeModel`. **Dated 17 days pre-blackout** → near-contemporaneous grid-state snapshot for an "as-of 28 Apr 2025" study. Map-style PDF → OCR/parse to a substation→capacity table |
 
 ## 2. Live state — injections `p` + the observed footprint (→ validation, §5)
 
