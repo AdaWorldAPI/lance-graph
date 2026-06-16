@@ -53,11 +53,13 @@ pub mod acflow;
 pub mod basin;
 pub mod buffer;
 pub mod cascade;
+pub mod chaoda;
 pub mod columns;
 pub mod eigen;
 pub mod flow;
 pub mod graph;
 pub mod hhtl;
+pub mod inertia_data;
 pub mod ingest;
 pub mod model;
 pub mod perturbation;
@@ -67,19 +69,27 @@ pub mod sketch;
 pub mod splat;
 pub mod stats;
 pub mod timing;
+pub mod witness;
 
 pub use acflow::{AcBus, AcLine, AcSystem, BusKind, PowerFlowResult};
 pub use basin::{
     cheeger_sweep, contingency_features, effective_resistance, infight_vs_raumgewinn, kron_reduce,
     laplacian_pinv, spectral_embedding, Cheeger, ContingencyFeatures, GoScore, KronReduced, Regime,
 };
-pub use buffer::{compartment_buffer, impulse_buffer, ketchup_yield, Yield};
+pub use buffer::{compartment_buffer, impulse_buffer, inertia_buffer_column, ketchup_yield, Yield};
 pub use cascade::{simulate_outage, CascadeConfig, CascadeResult, PerturbationShape};
-pub use columns::{study_member_specs, Encoding, SoaMemberSpec, INERTIA};
+pub use chaoda::{
+    anomaly_ranking, cakes_neighbors, chaoda_scores, resilience_basin_features, CHAODA_FLAG,
+};
+pub use columns::{
+    study_member_specs, study_slot_assignments, Encoding, GuardrailVerdict, InertiaPromotion,
+    SoaMemberSpec, INERTIA, INERTIA_PROMOTION, INERTIA_SLOT,
+};
 pub use eigen::{symmetric_eigen, Eigen};
 pub use flow::{dc_flows, lodf};
 pub use graph::{Edge, Grid};
 pub use hhtl::{basin_lambda2, hhtl_keys, HhtlKey};
+pub use inertia_data::{inertia_for_buses, parse_bus_inertia, proxy_inertia, InertiaProvenance};
 pub use ingest::{estimate_snom_mva, from_pypsa_csv, PypsaImport};
 pub use model::{
     apply_aging, assess_capability, edge_age_factors, scale_susceptance, with_uniform_derate,
@@ -94,4 +104,7 @@ pub use stats::{cronbach_alpha, icc_a1, pearson, spearman, zscore};
 pub use timing::{
     cascade_wall_time, collapse_number, implied_dt_per_hop, mechanism_from_timescale, meta_cascade,
     meta_cascade_phase, per_hop_time, rocof_hz_per_s, tier_composite, MetaHop, HHTL_WEIGHTS,
+};
+pub use witness::{
+    field_spectrum, particle_equals_wave, witness_from_spectrum, witness_particle, witness_wave,
 };

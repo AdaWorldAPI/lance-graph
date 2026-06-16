@@ -101,6 +101,71 @@ pub const INERTIA: SoaMemberSpec = SoaMemberSpec {
     additive: true,
 };
 
+/// §0 anti-invention guardrail outcome for an additive member.
+///
+/// The substrate's §0 guardrail forbids "inventing a property" (minting a new axis /
+/// `ValueTenant`) without operator sign-off. An `additive` [`SoaMemberSpec`] therefore
+/// starts [`Proposed`](GuardrailVerdict::Proposed) and MUST NOT be wired into a real
+/// layout until it is promoted through the gate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GuardrailVerdict {
+    /// Awaiting the §0 review — the default for any `additive` member.
+    Proposed,
+    /// Reviewed and PASSED via the guardrail-PREFERRED path: the member reuses an
+    /// EXISTING carrier slot (a helix-residue `ResidueEdge` on the HHTL-OGAR key)
+    /// and invents no new axis, so it is not "a new property" in the §0 sense — the
+    /// guardrail is satisfied by *reuse*, not *waived*.
+    RatifiedReuse,
+}
+
+/// The ResidueEdge slot `inertia_buffer` occupies: after the five contingency
+/// factors (slots 0..5), within the 16 helix-residue read slots.
+pub const INERTIA_SLOT: u8 = 5;
+
+/// The §0 promotion record for the one additive member, [`INERTIA`].
+///
+/// Operator sign-off **2026-06-16** ("flip the §0 guardrail review for that one
+/// additive member"). Verdict [`GuardrailVerdict::RatifiedReuse`]: `inertia_buffer`
+/// takes ResidueEdge slot [`INERTIA_SLOT`] — a value tenant that already exists — and
+/// adds no new axis (topology stays the GUID key; the buffer is one more value), so
+/// the anti-invention guardrail is satisfied by reuse. Evidence: the resilience
+/// study's `Spearman(λ₂, buffer) ≈ 0` CONFIRMS the orthogonality the HHTL-OGAR
+/// key/value split already enforces; `buffer::inertia_buffer_column` is the computed
+/// producer and `buffer_is_independent_of_connectivity` (buffer.rs) is the structural
+/// witness.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InertiaPromotion {
+    /// The member promoted (must equal [`INERTIA`]`.name`).
+    pub member: &'static str,
+    /// The §0 verdict.
+    pub verdict: GuardrailVerdict,
+    /// The ResidueEdge slot it now owns.
+    pub slot: u8,
+    /// Human-readable sign-off provenance.
+    pub signoff: &'static str,
+}
+
+/// The ratified §0 promotion for `inertia_buffer` (operator sign-off 2026-06-16).
+pub const INERTIA_PROMOTION: InertiaPromotion = InertiaPromotion {
+    member: INERTIA.name,
+    verdict: GuardrailVerdict::RatifiedReuse,
+    slot: INERTIA_SLOT,
+    signoff: "2026-06-16 operator §0 sign-off (reuse path)",
+};
+
+/// The full member set mapped to ResidueEdge slots: the five contingency factors take
+/// slots `0..5`, the promoted inertia member takes [`INERTIA_SLOT`]. Deterministic and
+/// collision-free — the slot assignment the substrate read-carrier consumes.
+pub fn study_slot_assignments() -> Vec<(&'static str, u8)> {
+    let mut v: Vec<(&'static str, u8)> = CONTINGENCY_FACTORS
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (s.name, i as u8))
+        .collect();
+    v.push((INERTIA.name, INERTIA_SLOT));
+    v
+}
+
 const fn spec(name: &'static str, store_bits: u32, additive: bool) -> SoaMemberSpec {
     SoaMemberSpec {
         name,
@@ -173,5 +238,30 @@ mod tests {
         let additive: Vec<_> = specs.iter().filter(|s| s.additive).collect();
         assert_eq!(additive.len(), 1, "exactly one new member required");
         assert_eq!(additive[0].name, "inertia_buffer");
+    }
+
+    #[test]
+    fn inertia_buffer_is_ratified_via_reuse() {
+        // The §0 promotion gate: operator sign-off (2026-06-16) promotes the one
+        // additive member via the guardrail-PREFERRED reuse path — it occupies an
+        // existing ResidueEdge slot and invents no new axis.
+        assert_eq!(INERTIA_PROMOTION.member, INERTIA.name);
+        assert_eq!(INERTIA_PROMOTION.member, "inertia_buffer");
+        assert_eq!(INERTIA_PROMOTION.verdict, GuardrailVerdict::RatifiedReuse);
+        assert_eq!(INERTIA_PROMOTION.slot, INERTIA_SLOT);
+        // (`INERTIA.additive == true` is covered by `inertia_is_the_one_additive_member`.)
+    }
+
+    #[test]
+    fn slots_are_unique_and_fit_the_residue_edge_carrier() {
+        use std::collections::HashSet;
+        let slots = study_slot_assignments();
+        assert_eq!(slots.len(), study_member_specs().len());
+        let mut seen = HashSet::new();
+        for (name, slot) in &slots {
+            assert!(*slot < 16, "{name} fits one of the 16 ResidueEdge slots");
+            assert!(seen.insert(*slot), "{name} slot {slot} is unique");
+        }
+        assert!(slots.contains(&("inertia_buffer", INERTIA_SLOT)));
     }
 }

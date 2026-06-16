@@ -100,3 +100,15 @@ path = "examples/calibrate.rs"
 [[example]]
 name = "hhtl_grid"
 path = "examples/hhtl_grid.rs"
+
+[[example]]
+name = "chaoda"
+path = "examples/chaoda.rs"
+
+[[example]]
+name = "witness"
+path = "examples/witness.rs"
+
+[[example]]
+name = "inertia_ingest"
+path = "examples/inertia_ingest.rs"
