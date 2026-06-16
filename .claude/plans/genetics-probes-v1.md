@@ -139,32 +139,45 @@ Each lane normalised to `[0, 1]` against its empirical CDF on the training fold.
    layout (`ndarray/src/hpc/clam.rs`, HEEL=16 / HIP=256 / TWIG=4096 per
    `lance-graph/.claude/session_2026_04_11_bf16_hhtl_combined_research.md`).
 2. Project held-out vectors through the tree (assign to leaf cluster).
-3. Compute `anomaly_scores(held_out_bytes, vec_len=5)` → `Vec<AnomalyScore>`.
-4. Compute ROC-AUC of `AnomalyScore.score` against ground-truth label.
-5. Compute per-quartile (`AwarenessState`) confusion matrix to characterise
-   *where* on the LFD distribution the discriminative signal lives.
+3. Compute anomaly scores via the **ported multi-method ensemble**
+   (`D-GEN-CHAODA-ENSEMBLE`, see DAG-honesty below) — NOT the single-method
+   `anomaly_scores`. The shipped `anomaly_scores(held_out_bytes, vec_len=5)` →
+   `Vec<AnomalyScore>` (single leaf-LFD signal) is the **known-bad baseline**
+   that the ⚠ FINDING measured at AUC 0.624; run it too, but only as the
+   baseline column the ensemble must beat. The probe's accept/reject decision
+   reads the **ensemble** score, not `AnomalyScore.score`.
+4. Compute ROC-AUC for BOTH score columns against ground-truth label:
+   (a) the ensemble score (the gated number), (b) the single-LFD
+   `AnomalyScore.score` baseline (expected ≈ 0.62, the regression floor).
+5. Compute per-quartile confusion matrix on the ensemble score to characterise
+   *where* the discriminative signal lives.
 
 ### Pass condition
 
-- **ROC-AUC ≥ 0.85** on the held-out fold.
-- **Per-quartile separation:** Pathogenic-class fraction in
-  `AwarenessState::Noise` ≥ 3× the Pathogenic-class fraction in
-  `AwarenessState::Crystallized`. (Sanity check that the LFD signal is
-  actually in the high-LFD tail, not noise.)
+- **Ensemble ROC-AUC ≥ 0.85** on the held-out fold. (The single-LFD baseline
+  is NOT gated — it is recorded only to confirm the ensemble's lift over the
+  known AUC ≈ 0.62 floor.)
+- **Per-quartile separation (ensemble score):** Pathogenic-class fraction in
+  the top score quartile ≥ 3× the Pathogenic-class fraction in the bottom
+  quartile. (Sanity check that the signal is in the anomalous tail, not noise.)
 - Tree-quality probes from ndarray PR #218 stay green
   (silhouette ≥ 0.4 on training fold, Cronbach α ≥ 0.7 across the 5 lanes).
 
 ### Fail mode → what it means
 
-- AUC < 0.85 ⇒ CHAODA-on-genomic-features does NOT recover supervised-classifier
-  discrimination. The whole "unsupervised novel-variant detection" claim in
+- Ensemble AUC < 0.85 ⇒ even the multi-method CHAODA ensemble on genomic
+  features does NOT recover supervised-classifier discrimination. The whole
+  "unsupervised novel-variant detection" claim in
   `GENETIC_RESEARCH_VIA_STACK.md` §1.4 collapses. Either the feature vector is
-  underdetermined (add more lanes), or the LFD-based anomaly framing doesn't
+  underdetermined (add more lanes), or the LFD/graph-anomaly framing doesn't
   capture biological-novelty geometry (rethink composition).
-- AUC ≥ 0.85 but Pathogenic-class fraction in `Crystallized` ≥ `Noise` ⇒ the
-  signal is real but **inverted** — common variants land in high-LFD regions
-  (perhaps because of greater linkage / regulatory complexity). Useful but the
-  current `AwarenessState` polarity must be re-documented before publication.
+- Ensemble AUC ≈ single-LFD baseline (≈ 0.62) ⇒ the ensemble port added no
+  lift; the graph-based signals are not separating on this manifold either —
+  escalate before any genomic-fixture spend.
+- Ensemble AUC ≥ 0.85 but top-quartile Pathogenic fraction ≤ bottom-quartile ⇒
+  the signal is real but **inverted** — common variants land in the anomalous
+  band (perhaps from greater linkage / regulatory complexity). Useful but the
+  score polarity must be re-documented before publication.
 
 ### Cost
 
@@ -340,14 +353,21 @@ the pattern match is sound, the single shipped signal is not yet sufficient,
 and the honest path is "port the ensemble, then re-run the spike, then build
 the fixture." A new candidate deliverable falls out of this:
 
-> **D-GEN-CHAODA-ENSEMBLE (new, prerequisite to PROBE-CHAODA-1000G):** port
-> the multi-method CHAODA anomaly ensemble into `ndarray::hpc::clam`
-> alongside the existing leaf-LFD `anomaly_scores`. Re-run the ndarray #219
-> spike; gate at AUC ≥ 0.85 on the synthetic mixture *before* genomic
-> fixtures are built. Lift: ~1 week (the graph-construction primitives —
-> cluster cardinality, neighbourhood, random-walk — are mostly present in
-> the CLAM tree already; the ensemble combination + per-method scoring is
-> the new code).
+> **D-GEN-CHAODA-ENSEMBLE (new, prerequisite to PROBE-CHAODA-1000G):** add the
+> multi-method CHAODA anomaly ensemble to `ndarray::hpc::clam` as a **new
+> scoring entry point** (e.g. `ensemble_anomaly_scores(...) -> Vec<AnomalyScore>`,
+> name TBD at implementation), combining the graph-based signals of Ishaq et
+> al. 2021. The existing single-method `anomaly_scores` is **kept unchanged as
+> the documented baseline / regression** (the ndarray #219 spike's `auc < 0.85`
+> tripwire stays green on it). **`PROBE-CHAODA-1000G` Step 3 must call the new
+> ensemble entry point, not `anomaly_scores`** — that wiring is part of this
+> deliverable, otherwise the genomic probe would re-measure the known-bad
+> AUC-0.624 path. Re-run the ndarray #219 spike against the ensemble; gate at
+> AUC ≥ 0.85 on the synthetic mixture *before* genomic fixtures are built.
+> Lift: ~1 week (the graph-construction primitives — cluster cardinality,
+> neighbourhood, random-walk — are mostly present in the CLAM tree already;
+> the ensemble combination + per-method scoring + the probe-API wiring is the
+> new code).
 
 **PROBE-CHAODA-1000G fires first, even though chronologically D-GEN-1..2 must
 ship first.** That ordering is a substrate-economic decision (cheaper to
