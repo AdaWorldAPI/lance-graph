@@ -300,9 +300,9 @@ fn main() {
     }
     println!(
         "\n  Findings → the additive member design:\n  \
-         • ALL 5 study factors certify by VALUE at just 2-bit LINEAR (ICC ≥ 0.96) once stored\n    \
-           NORMALIZED — the existing palette/turbovec tenants already suffice for per-axis\n    \
-           value fidelity. §10 (\"the statistics survive the encoding\") confirmed strongly.\n  \
+         • 4 of 5 factors certify by VALUE at 2-bit LINEAR normalized (ICC ≥ 0.96); infight is\n    \
+           MARGINAL — 2-bit ICC 0.93 (synthetic) … 0.96 (ES), straddling 0.95 — so its robustly\n    \
+           certified width is 4-bit. Existing palette/turbovec tenants suffice; §10 confirmed.\n  \
          • α (construct internal consistency) is preserved within Δ ≤ 0.02 at ≥4-bit (exact\n    \
            at 6-8); the discriminant ρ wobbles ±0.15 at N=24 under coarse bins, so to read\n    \
            the cross-axis orthogonality crisply use ≥6-bit and/or more contingencies.\n  \

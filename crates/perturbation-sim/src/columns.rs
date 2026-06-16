@@ -29,6 +29,14 @@
 //!    ([`INERTIA`]) is added as one more helix-residue value member on the HHTL-OGAR
 //!    key; its orthogonality to the topology (which the key carries) is structural,
 //!    confirmed by the study, not introduced by it.
+//! 3. **It maps onto two existing carriers (operator, 2026-06-16).** The substrate
+//!    already offers the two tiers the calibration asks for: **16 × 8-bit
+//!    `ResidueEdge` slots** (the helix-residue value members of the EdgeBlock) for
+//!    the structure *read* budget (`read_bits ≤ 8`), and **32 × 4-bit turbovec
+//!    lanes** (pairwise turboquant) for the per-value *store* (`store_bits ≤ 4` —
+//!    `infight`'s certified 4-bit is exactly one lane). Six members fit either
+//!    carrier with headroom (6/16 ResidueEdges or 6/32 turbovec lanes), so no new
+//!    layout is needed — only the slot assignments (asserted in tests).
 
 /// How a member quantizes its normalized value. Every variant is a **value tenant
 /// hung off the HHTL-OGAR GUID key** — topology is the key, so all of these are
@@ -66,14 +74,18 @@ pub struct SoaMemberSpec {
     pub additive: bool,
 }
 
-/// The five contingency factors — all certify at 2-bit linear, normalized; read at
-/// ≥6-bit to keep the orthogonality crisp. These map onto EXISTING value tenants.
+/// The five contingency factors as EXISTING value tenants, normalized, read at
+/// ≥6-bit to keep the orthogonality crisp. Store width = the **robustly certified**
+/// width (ICC ≥ 0.95 across inputs), NOT the cheapest that squeaks by on one sample:
+/// four factors certify at 2-bit, but `infight` is marginal — its 2-bit ICC ranges
+/// 0.93 (synthetic grid) to 0.96 (ES core), straddling the threshold, so its spec is
+/// the robust **4-bit** (≥0.99 on both). (Codex #511 P2.)
 pub const CONTINGENCY_FACTORS: [SoaMemberSpec; 5] = [
-    spec("d_lambda2", false),
-    spec("dk_rotation", false),
-    spec("d_conductance", false),
-    spec("infight", false),
-    spec("raumgewinn", false),
+    spec("d_lambda2", 2, false),
+    spec("dk_rotation", 2, false),
+    spec("d_conductance", 2, false),
+    spec("infight", 4, false), // marginal at 2-bit (0.93–0.96) → certified width is 4-bit
+    spec("raumgewinn", 2, false),
 ];
 
 /// The one additive member: the inertia/buffer axis (resilience study), added as a
@@ -89,10 +101,10 @@ pub const INERTIA: SoaMemberSpec = SoaMemberSpec {
     additive: true,
 };
 
-const fn spec(name: &'static str, additive: bool) -> SoaMemberSpec {
+const fn spec(name: &'static str, store_bits: u32, additive: bool) -> SoaMemberSpec {
     SoaMemberSpec {
         name,
-        store_bits: 2,
+        store_bits,
         read_bits: 6,
         encoding: Encoding::Linear,
         normalized: true,
@@ -113,10 +125,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn value_members_certify_at_two_bits_normalized() {
-        // The calibration finding: 2-bit linear normalized suffices per value.
+    fn value_members_carry_their_robustly_certified_width() {
+        // The calibration finding: normalized members certify at low bits — 2-bit
+        // for four factors, but `infight` is marginal (2-bit ICC 0.93–0.96 across
+        // inputs) so it carries the robust 4-bit. All map to existing tenants.
         for s in CONTINGENCY_FACTORS {
-            assert_eq!(s.store_bits, 2, "{} store width", s.name);
+            let expect = if s.name == "infight" { 4 } else { 2 };
+            assert_eq!(s.store_bits, expect, "{} certified store width", s.name);
             assert!(s.normalized, "{} must be normalized", s.name);
             assert!(!s.additive, "{} maps to an existing tenant", s.name);
         }
@@ -128,6 +143,27 @@ mod tests {
         for s in study_member_specs() {
             assert!(s.read_bits >= s.store_bits, "{} read ≥ store", s.name);
             assert!(s.read_bits >= 6, "{} structure read ≥ 6-bit", s.name);
+        }
+    }
+
+    #[test]
+    fn fits_substrate_carriers() {
+        // store fits a 4-bit turbovec lane; read fits an 8-bit ResidueEdge slot;
+        // the whole set fits both carriers (≤32 turbovec lanes, ≤16 ResidueEdges).
+        let specs = study_member_specs();
+        assert!(specs.len() <= 16, "fits the 16 ResidueEdge slots");
+        assert!(specs.len() <= 32, "fits the 32 turbovec lanes");
+        for s in &specs {
+            assert!(
+                s.store_bits <= 4,
+                "{} store fits a 4-bit turbovec lane",
+                s.name
+            );
+            assert!(
+                s.read_bits <= 8,
+                "{} read fits an 8-bit ResidueEdge slot",
+                s.name
+            );
         }
     }
 
