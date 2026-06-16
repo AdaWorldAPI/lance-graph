@@ -60,10 +60,18 @@ pub struct WireDispatch {
     pub meta_filter: Option<WireMetaFilter>,
 }
 
-fn default_layer_mask() -> u8 { 0xFF }
-fn default_radius() -> u16 { u16::MAX }
-fn default_max_cycles() -> u16 { 10 }
-fn default_entropy_floor() -> f32 { 0.05 }
+fn default_layer_mask() -> u8 {
+    0xFF
+}
+fn default_radius() -> u16 {
+    u16::MAX
+}
+fn default_max_cycles() -> u16 {
+    10
+}
+fn default_entropy_floor() -> f32 {
+    0.05
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(tag = "type", content = "value")]
@@ -88,7 +96,9 @@ pub struct WireMetaFilter {
     pub free_e_max: u8,
 }
 
-fn default_free_e_max() -> u8 { 63 }
+fn default_free_e_max() -> u8 {
+    63
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WireIngest {
@@ -201,10 +211,18 @@ pub struct WireCalibrateRequest {
     pub icc_samples: usize,
 }
 
-fn default_cal_subspaces() -> usize { 6 }
-fn default_cal_centroids() -> usize { 256 }
-fn default_cal_iters() -> usize { 20 }
-fn default_icc_samples() -> usize { 512 }
+fn default_cal_subspaces() -> usize {
+    6
+}
+fn default_cal_centroids() -> usize {
+    256
+}
+fn default_cal_iters() -> usize {
+    20
+}
+fn default_icc_samples() -> usize {
+    512
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -239,7 +257,9 @@ pub struct WireCalibrateResponse {
     pub backend: String,
 }
 
-fn default_backend() -> String { "legacy".to_string() }
+fn default_backend() -> String {
+    "legacy".to_string()
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // D0.1 — CodecParams serde mirrors (Rule F: serialise at edges only)
@@ -251,10 +271,18 @@ fn default_backend() -> String { "legacy".to_string() }
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum WireLaneWidth { F32x16, U8x64, F64x8, BF16x32 }
+pub enum WireLaneWidth {
+    F32x16,
+    U8x64,
+    F64x8,
+    BF16x32,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum WireDistance { AdcU8, AdcI8 }
+pub enum WireDistance {
+    AdcU8,
+    AdcI8,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
@@ -291,12 +319,27 @@ pub struct WireCodecParams {
     pub seed: u64,
 }
 
-fn default_wire_residual() -> WireResidualSpec { WireResidualSpec { depth: 0, centroids: 256 } }
-fn default_wire_lane() -> WireLaneWidth { WireLaneWidth::F32x16 }
-fn default_wire_rotation() -> WireRotation { WireRotation::Identity }
-fn default_wire_distance() -> WireDistance { WireDistance::AdcU8 }
-fn default_calibration_rows() -> u32 { 2048 }
-fn default_seed() -> u64 { 42 }
+fn default_wire_residual() -> WireResidualSpec {
+    WireResidualSpec {
+        depth: 0,
+        centroids: 256,
+    }
+}
+fn default_wire_lane() -> WireLaneWidth {
+    WireLaneWidth::F32x16
+}
+fn default_wire_rotation() -> WireRotation {
+    WireRotation::Identity
+}
+fn default_wire_distance() -> WireDistance {
+    WireDistance::AdcU8
+}
+fn default_calibration_rows() -> u32 {
+    2048
+}
+fn default_seed() -> u64 {
+    42
+}
 
 // ─────── TryFrom conversions — one decode at ingress (Rule F) ───────
 
@@ -330,14 +373,23 @@ impl From<WireRotation> for CamRotation {
         match r {
             WireRotation::Identity => CamRotation::Identity,
             WireRotation::Hadamard { dim } => CamRotation::Hadamard { dim },
-            WireRotation::Opq { matrix_blob_id, dim } => CamRotation::Opq { matrix_blob_id, dim },
+            WireRotation::Opq {
+                matrix_blob_id,
+                dim,
+            } => CamRotation::Opq {
+                matrix_blob_id,
+                dim,
+            },
         }
     }
 }
 
 impl From<WireResidualSpec> for CamResidualSpec {
     fn from(r: WireResidualSpec) -> Self {
-        CamResidualSpec { depth: r.depth, centroids: r.centroids }
+        CamResidualSpec {
+            depth: r.depth,
+            centroids: r.centroids,
+        }
     }
 }
 
@@ -435,8 +487,12 @@ impl AlignedBytes {
         (self.ptr as usize).is_multiple_of(64)
     }
 
-    pub fn len(&self) -> usize { self.len }
-    pub fn is_empty(&self) -> bool { self.len == 0 }
+    pub fn len(&self) -> usize {
+        self.len
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 }
 
 impl Drop for AlignedBytes {
@@ -462,7 +518,11 @@ impl std::fmt::Display for WireTensorViewError {
         match self {
             Self::Base64(e) => write!(f, "base64 decode: {}", e),
             Self::SizeMismatch { expected, actual } => {
-                write!(f, "byte size mismatch: expected {} got {}", expected, actual)
+                write!(
+                    f,
+                    "byte size mismatch: expected {} got {}",
+                    expected, actual
+                )
             }
             Self::ZeroShape => write!(f, "tensor view shape contains zero dimension"),
         }
@@ -488,10 +548,14 @@ impl WireTensorView {
     }
 
     /// Row count.
-    pub fn row_count(&self) -> u32 { self.shape[0] }
+    pub fn row_count(&self) -> u32 {
+        self.shape[0]
+    }
 
     /// Column count (elements per row).
-    pub fn col_count(&self) -> u32 { self.shape[1] }
+    pub fn col_count(&self) -> u32 {
+        self.shape[1]
+    }
 
     /// Row stride in bytes.
     pub fn row_bytes(&self) -> usize {
@@ -512,7 +576,10 @@ impl WireTensorView {
             .map_err(WireTensorViewError::Base64)?;
         let expected = self.expected_bytes();
         if raw.len() != expected {
-            return Err(WireTensorViewError::SizeMismatch { expected, actual: raw.len() });
+            return Err(WireTensorViewError::SizeMismatch {
+                expected,
+                actual: raw.len(),
+            });
         }
         let mut aligned = AlignedBytes::alloc_zeroed(expected);
         aligned.as_mut_slice().copy_from_slice(&raw);
@@ -557,7 +624,9 @@ pub struct WireProbeRequest {
     pub icc_samples: usize,
 }
 
-fn default_probe_counts() -> Vec<usize> { vec![128, 256, 512, 1024] }
+fn default_probe_counts() -> Vec<usize> {
+    vec![128, 256, 512, 1024]
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WireProbeEntry {
@@ -603,7 +672,9 @@ pub struct WirePlanRequest {
     pub situation: Option<WireSituation>,
 }
 
-fn default_plan_mode() -> String { "auto".to_string() }
+fn default_plan_mode() -> String {
+    "auto".to_string()
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Generic OrchestrationBridge routing — UnifiedStep as JSON
@@ -629,15 +700,23 @@ pub struct WireStepResult {
 /// Mirror of lance_graph_contract::mul::SituationInput for JSON transport.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WireSituation {
-    #[serde(default = "half")]  pub felt_competence: f64,
-    #[serde(default = "half")]  pub demonstrated_competence: f64,
-    #[serde(default = "half")]  pub source_reliability: f64,
-    #[serde(default = "half")]  pub environment_stability: f64,
-    #[serde(default = "half")]  pub calibration_accuracy: f64,
-    #[serde(default = "half")]  pub complexity_ratio: f64,
+    #[serde(default = "half")]
+    pub felt_competence: f64,
+    #[serde(default = "half")]
+    pub demonstrated_competence: f64,
+    #[serde(default = "half")]
+    pub source_reliability: f64,
+    #[serde(default = "half")]
+    pub environment_stability: f64,
+    #[serde(default = "half")]
+    pub calibration_accuracy: f64,
+    #[serde(default = "half")]
+    pub complexity_ratio: f64,
 }
 
-fn half() -> f64 { 0.5 }
+fn half() -> f64 {
+    0.5
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WirePlanResponse {
@@ -704,13 +783,38 @@ pub struct WireRunbookStepLabeled {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum WireRunbookStepResult {
-    Tensors { label: String, response: WireTensorsResponse },
-    Calibrate { label: String, response: WireCalibrateResponse },
-    Probe { label: String, response: WireProbeResponse },
-    Dispatch { label: String, response: WireCrystal },
-    Ingest { label: String, ingested: u32, row_start: u32, row_end: u32, write_cursor: u32 },
-    Plan { label: String, response: WirePlanResponse },
-    Error { label: String, step: String, error: String },
+    Tensors {
+        label: String,
+        response: WireTensorsResponse,
+    },
+    Calibrate {
+        label: String,
+        response: WireCalibrateResponse,
+    },
+    Probe {
+        label: String,
+        response: WireProbeResponse,
+    },
+    Dispatch {
+        label: String,
+        response: WireCrystal,
+    },
+    Ingest {
+        label: String,
+        ingested: u32,
+        row_start: u32,
+        row_end: u32,
+        write_cursor: u32,
+    },
+    Plan {
+        label: String,
+        response: WirePlanResponse,
+    },
+    Error {
+        label: String,
+        step: String,
+        error: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -812,9 +916,7 @@ impl WireDispatch {
         let style = match &self.style {
             WireStyleSelector::Auto => StyleSelector::Auto,
             WireStyleSelector::Ordinal(n) => StyleSelector::Ordinal(*n),
-            WireStyleSelector::Named(s) => {
-                StyleSelector::Ordinal(named_to_ordinal(s))
-            }
+            WireStyleSelector::Named(s) => StyleSelector::Ordinal(named_to_ordinal(s)),
         };
         let rung = match self.rung {
             0 => RungLevel::Surface,
@@ -833,13 +935,17 @@ impl WireDispatch {
             "persist" => EmitMode::Persist,
             _ => EmitMode::Cycle,
         };
-        let meta_prefilter = self.meta_filter.as_ref().map(|f| MetaFilter {
-            thinking_mask: f.thinking_mask,
-            awareness_min: f.awareness_min,
-            nars_f_min: f.nars_f_min,
-            nars_c_min: f.nars_c_min,
-            free_e_max: f.free_e_max,
-        }).unwrap_or(MetaFilter::ALL);
+        let meta_prefilter = self
+            .meta_filter
+            .as_ref()
+            .map(|f| MetaFilter {
+                thinking_mask: f.thinking_mask,
+                awareness_min: f.awareness_min,
+                nars_f_min: f.nars_f_min,
+                nars_c_min: f.nars_c_min,
+                free_e_max: f.free_e_max,
+            })
+            .unwrap_or(MetaFilter::ALL);
 
         ShaderDispatch {
             meta_prefilter,
@@ -874,7 +980,12 @@ impl From<&ShaderHit> for WireHit {
 impl From<&ShaderResonance> for WireResonance {
     fn from(r: &ShaderResonance) -> Self {
         Self {
-            top_k: r.top_k.iter().filter(|h| h.resonance > 0.0).map(WireHit::from).collect(),
+            top_k: r
+                .top_k
+                .iter()
+                .filter(|h| h.resonance > 0.0)
+                .map(WireHit::from)
+                .collect(),
             hit_count: r.hit_count,
             cycles_used: r.cycles_used,
             entropy: r.entropy,
@@ -886,13 +997,19 @@ impl From<&ShaderResonance> for WireResonance {
 
 impl From<&ShaderBus> for WireBus {
     fn from(b: &ShaderBus) -> Self {
-        let hex: String = b.cycle_fingerprint.iter()
+        let hex: String = b
+            .cycle_fingerprint
+            .iter()
             .map(|w| format!("{:016x}", w))
             .collect::<Vec<_>>()
             .join("");
-        let gate_str = if b.gate.is_flow() { "flow" }
-            else if b.gate.is_hold() { "hold" }
-            else { "block" };
+        let gate_str = if b.gate.is_flow() {
+            "flow"
+        } else if b.gate.is_hold() {
+            "hold"
+        } else {
+            "block"
+        };
         Self {
             cycle_fingerprint_hex: hex,
             emitted_edges: b.emitted_edges[..b.emitted_edge_count as usize].to_vec(),
@@ -969,7 +1086,6 @@ pub enum WireBaseline {
     Passthrough,
 }
 
-
 /// `POST /v1/shader/token-agreement` request.
 ///
 /// Client provides the model + a `CodecParams` candidate + a prompt-set
@@ -1031,7 +1147,9 @@ pub struct WireTokenAgreementResult {
     pub backend: String,
 }
 
-fn default_ta_backend() -> String { "stub".to_string() }
+fn default_ta_backend() -> String {
+    "stub".to_string()
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // D0.3 — WireSweep: the streaming cross-product sweep surface (Phase 0 stub)
@@ -1102,13 +1220,27 @@ pub struct WireSweepGrid {
     pub seed: u64,
 }
 
-fn default_subspaces_axis() -> Vec<u32> { vec![6] }
-fn default_centroids_axis() -> Vec<u32> { vec![256] }
-fn default_residual_depths_axis() -> Vec<u8> { vec![0] }
-fn default_rotations_axis() -> Vec<WireRotation> { vec![WireRotation::Identity] }
-fn default_distances_axis() -> Vec<WireDistance> { vec![WireDistance::AdcU8] }
-fn default_lane_widths_axis() -> Vec<WireLaneWidth> { vec![WireLaneWidth::F32x16] }
-fn default_residual_centroids() -> u32 { 256 }
+fn default_subspaces_axis() -> Vec<u32> {
+    vec![6]
+}
+fn default_centroids_axis() -> Vec<u32> {
+    vec![256]
+}
+fn default_residual_depths_axis() -> Vec<u8> {
+    vec![0]
+}
+fn default_rotations_axis() -> Vec<WireRotation> {
+    vec![WireRotation::Identity]
+}
+fn default_distances_axis() -> Vec<WireDistance> {
+    vec![WireDistance::AdcU8]
+}
+fn default_lane_widths_axis() -> Vec<WireLaneWidth> {
+    vec![WireLaneWidth::F32x16]
+}
+fn default_residual_centroids() -> u32 {
+    256
+}
 
 impl WireSweepGrid {
     /// Product of all axis lengths.
@@ -1239,7 +1371,8 @@ mod tests {
 
     #[test]
     fn wire_dispatch_with_style() {
-        let json = r#"{"row_start": 0, "row_end": 50, "style": {"type": "Named", "value": "analytical"}}"#;
+        let json =
+            r#"{"row_start": 0, "row_end": 50, "style": {"type": "Named", "value": "analytical"}}"#;
         let wd: WireDispatch = serde_json::from_str(json).unwrap();
         let internal = wd.to_internal();
         matches!(internal.style, StyleSelector::Ordinal(1));
@@ -1331,7 +1464,12 @@ mod tests {
         let crystal = ShaderCrystal {
             bus: ShaderBus::empty(),
             persisted_row: Some(42),
-            meta: MetaSummary { confidence: 0.9, meta_confidence: 0.8, brier: 0.1, should_admit_ignorance: false },
+            meta: MetaSummary {
+                confidence: 0.9,
+                meta_confidence: 0.8,
+                brier: 0.1,
+                should_admit_ignorance: false,
+            },
             alpha_composite: None,
         };
         let wire = WireCrystal::from(&crystal);
@@ -1349,18 +1487,29 @@ mod tests {
         let wire = WireCodecParams {
             subspaces: 6,
             centroids: 1024,
-            residual: WireResidualSpec { depth: 1, centroids: 256 },
+            residual: WireResidualSpec {
+                depth: 1,
+                centroids: 256,
+            },
             lane_width: WireLaneWidth::BF16x32,
-            pre_rotation: WireRotation::Opq { matrix_blob_id: 0xDEADBEEF, dim: 4096 },
+            pre_rotation: WireRotation::Opq {
+                matrix_blob_id: 0xDEADBEEF,
+                dim: 4096,
+            },
             distance: WireDistance::AdcU8,
             calibration_rows: 2048,
             measurement_rows: 512,
             seed: 42,
         };
-        let params: CodecParams = wire.try_into().expect("OPQ + BF16x32 is precision-ladder valid");
+        let params: CodecParams = wire
+            .try_into()
+            .expect("OPQ + BF16x32 is precision-ladder valid");
         assert_eq!(params.subspaces, 6);
         assert_eq!(params.centroids, 1024);
-        assert!(params.is_matmul_heavy(), "OPQ + wide codebook must be matmul-heavy");
+        assert!(
+            params.is_matmul_heavy(),
+            "OPQ + wide codebook must be matmul-heavy"
+        );
     }
 
     #[test]
@@ -1369,9 +1518,15 @@ mod tests {
         let wire = WireCodecParams {
             subspaces: 6,
             centroids: 256,
-            residual: WireResidualSpec { depth: 0, centroids: 256 },
+            residual: WireResidualSpec {
+                depth: 0,
+                centroids: 256,
+            },
             lane_width: WireLaneWidth::F32x16,
-            pre_rotation: WireRotation::Opq { matrix_blob_id: 1, dim: 4096 },
+            pre_rotation: WireRotation::Opq {
+                matrix_blob_id: 1,
+                dim: 4096,
+            },
             distance: WireDistance::AdcU8,
             calibration_rows: 2048,
             measurement_rows: 0,
@@ -1387,7 +1542,10 @@ mod tests {
         let wire = WireCodecParams {
             subspaces: 6,
             centroids: 256,
-            residual: WireResidualSpec { depth: 0, centroids: 256 },
+            residual: WireResidualSpec {
+                depth: 0,
+                centroids: 256,
+            },
             lane_width: WireLaneWidth::F32x16,
             pre_rotation: WireRotation::Identity,
             distance: WireDistance::AdcU8,
@@ -1396,18 +1554,21 @@ mod tests {
             seed: 42,
         };
         let err = CodecParams::try_from(wire).unwrap_err();
-        assert!(matches!(err, CodecParamsError::CalibrationEqualsMeasurement { rows: 128 }));
+        assert!(matches!(
+            err,
+            CodecParamsError::CalibrationEqualsMeasurement { rows: 128 }
+        ));
     }
 
     #[test]
     fn wire_codec_params_deserializes_from_minimal_json() {
         let json = r#"{"subspaces":6,"centroids":256}"#;
         let wire: WireCodecParams = serde_json::from_str(json).unwrap();
-        assert_eq!(wire.lane_width, WireLaneWidth::F32x16);       // default
-        assert_eq!(wire.distance, WireDistance::AdcU8);           // default
-        assert_eq!(wire.pre_rotation, WireRotation::Identity);    // default
-        assert_eq!(wire.calibration_rows, 2048);                  // default
-        assert_eq!(wire.seed, 42);                                // default
+        assert_eq!(wire.lane_width, WireLaneWidth::F32x16); // default
+        assert_eq!(wire.distance, WireDistance::AdcU8); // default
+        assert_eq!(wire.pre_rotation, WireRotation::Identity); // default
+        assert_eq!(wire.calibration_rows, 2048); // default
+        assert_eq!(wire.seed, 42); // default
     }
 
     #[cfg(feature = "serve")]
@@ -1425,7 +1586,10 @@ mod tests {
         assert_eq!(view.expected_bytes(), 256);
         assert_eq!(view.row_bytes(), 64);
         let decoded = view.decode().expect("valid base64 + matching size");
-        assert!(decoded.is_aligned_64(), "Rule A: decoded buffer MUST be 64-byte aligned");
+        assert!(
+            decoded.is_aligned_64(),
+            "Rule A: decoded buffer MUST be 64-byte aligned"
+        );
         assert_eq!(decoded.len(), 256);
 
         // Rule A: slice::array_windows::<64>() must consume the row directly.
@@ -1435,7 +1599,10 @@ mod tests {
         for _w in row0.array_windows::<64>() {
             windows += 1;
         }
-        assert_eq!(windows, 1, "exactly one 64-byte window per row at this size");
+        assert_eq!(
+            windows, 1,
+            "exactly one 64-byte window per row at this size"
+        );
     }
 
     #[cfg(feature = "serve")]
@@ -1449,7 +1616,13 @@ mod tests {
             bytes_base64: STANDARD.encode(&wrong_bytes),
         };
         let err = view.decode().unwrap_err();
-        assert!(matches!(err, WireTensorViewError::SizeMismatch { expected: 256, actual: 100 }));
+        assert!(matches!(
+            err,
+            WireTensorViewError::SizeMismatch {
+                expected: 256,
+                actual: 100
+            }
+        ));
     }
 
     #[cfg(feature = "serve")]
@@ -1464,7 +1637,9 @@ mod tests {
             bytes_base64: STANDARD.encode(&bytes),
         };
         let decoded = view.decode().unwrap();
-        let sub = view.subspace(&decoded, 0, 2, 16).expect("subspace 2 of row 0");
+        let sub = view
+            .subspace(&decoded, 0, 2, 16)
+            .expect("subspace 2 of row 0");
         assert_eq!(sub.len(), 16);
         // subspace 2 of row 0 starts at byte 32 (0 × 96 + 2 × 16) — value = 32.
         assert_eq!(sub[0], 32);
@@ -1497,9 +1672,15 @@ mod tests {
             candidate: WireCodecParams {
                 subspaces: 6,
                 centroids: 1024,
-                residual: WireResidualSpec { depth: 1, centroids: 256 },
+                residual: WireResidualSpec {
+                    depth: 1,
+                    centroids: 256,
+                },
                 lane_width: WireLaneWidth::BF16x32,
-                pre_rotation: WireRotation::Opq { matrix_blob_id: 0x42, dim: 4096 },
+                pre_rotation: WireRotation::Opq {
+                    matrix_blob_id: 0x42,
+                    dim: 4096,
+                },
                 distance: WireDistance::AdcU8,
                 calibration_rows: 2048,
                 measurement_rows: 512,
@@ -1653,7 +1834,10 @@ mod tests {
     #[test]
     fn sweep_measure_serializes_snake_case() {
         let m = WireMeasure::ReconstructionIccHeldOut;
-        assert_eq!(serde_json::to_string(&m).unwrap(), "\"reconstruction_icc_held_out\"");
+        assert_eq!(
+            serde_json::to_string(&m).unwrap(),
+            "\"reconstruction_icc_held_out\""
+        );
         let m: WireMeasure = serde_json::from_str("\"token_agreement_top1\"").unwrap();
         assert_eq!(m, WireMeasure::TokenAgreementTop1);
     }

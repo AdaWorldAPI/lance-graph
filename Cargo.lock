@@ -8477,6 +8477,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "lance",
+ "lance-graph-contract",
  "lancedb",
  "snafu 0.8.9",
  "tempfile",

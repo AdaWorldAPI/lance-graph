@@ -29,16 +29,17 @@ use bgz17::palette_semiring::PaletteSemiring;
 use causal_edge::edge::{CausalEdge64, InferenceType};
 use causal_edge::pearl::CausalMask;
 use causal_edge::plasticity::PlasticityState;
-use causal_edge::tables::{NarsTables, unpack_c, unpack_f};
+use causal_edge::tables::{unpack_c, unpack_f, NarsTables};
 use lance_graph_contract::cognitive_shader::{
     AlphaComposite, CognitiveShaderDriver, EmitMode, MetaSummary, NullSink, ShaderBus,
-    ShaderCrystal, ShaderDispatch, ShaderHit, ShaderResonance, ShaderSink,
-    ALPHA_COMPOSITE_DIMS,
+    ShaderCrystal, ShaderDispatch, ShaderHit, ShaderResonance, ShaderSink, ALPHA_COMPOSITE_DIMS,
 };
 use lance_graph_contract::collapse_gate::{GateDecision, MergeMode, ALPHA_SATURATION_THRESHOLD};
 use lance_graph_contract::grammar::free_energy::{FreeEnergy, EPIPHANY_MARGIN};
 use lance_graph_contract::grammar::inference::NarsInference;
-use lance_graph_contract::grammar::thinking_styles::{GrammarStyleAwareness, ParamKey, ParseOutcome};
+use lance_graph_contract::grammar::thinking_styles::{
+    GrammarStyleAwareness, ParamKey, ParseOutcome,
+};
 use lance_graph_contract::mul::{MulAssessment, MulThresholdProfile, SituationInput};
 use lance_graph_contract::thinking::ThinkingStyle;
 use p64_bridge::cognitive_shader::CognitiveShader;
@@ -135,7 +136,9 @@ impl ShaderDriver {
 
     /// Borrow the underlying BindSpace (read-only).
     #[inline]
-    pub fn bindspace(&self) -> &BindSpace { &self.bindspace }
+    pub fn bindspace(&self) -> &BindSpace {
+        &self.bindspace
+    }
 
     /// Snapshot the topology planes (8 × 64 u64).
     ///
@@ -178,8 +181,7 @@ impl ShaderDriver {
         // [3] Shader cascade — bgz17 O(1) per probed block.
         // Snapshot the planes under the read lock so the cascade sees a
         // consistent topology even if `update_planes` fires mid-dispatch.
-        let planes_snapshot: [[u64; 64]; 8] =
-            **self.planes.read().expect("planes RwLock poisoned");
+        let planes_snapshot: [[u64; 64]; 8] = **self.planes.read().expect("planes RwLock poisoned");
         let shader = CognitiveShader::new(planes_snapshot, &self.semiring);
         let max_dist = (self.semiring.k as f32) * (self.semiring.k as f32);
         let mut hits = Vec::<ShaderHit>::with_capacity(passed_rows.len().min(64));
@@ -199,9 +201,14 @@ impl ShaderDriver {
                 let fp_i = self.bindspace.fingerprints.content_row(row_i as usize);
                 for (j_off, &row_j) in passed_rows.iter().enumerate().skip(i + 1) {
                     let fp_j = self.bindspace.fingerprints.content_row(row_j as usize);
-                    let fp_i_bytes = unsafe { std::slice::from_raw_parts(fp_i.as_ptr() as *const u8, WORDS_PER_FP * 8) };
-                    let fp_j_bytes = unsafe { std::slice::from_raw_parts(fp_j.as_ptr() as *const u8, WORDS_PER_FP * 8) };
-                    let hamming = ndarray::hpc::bitwise::hamming_distance_raw(fp_i_bytes, fp_j_bytes) as u32;
+                    let fp_i_bytes = unsafe {
+                        std::slice::from_raw_parts(fp_i.as_ptr() as *const u8, WORDS_PER_FP * 8)
+                    };
+                    let fp_j_bytes = unsafe {
+                        std::slice::from_raw_parts(fp_j.as_ptr() as *const u8, WORDS_PER_FP * 8)
+                    };
+                    let hamming =
+                        ndarray::hpc::bitwise::hamming_distance_raw(fp_i_bytes, fp_j_bytes) as u32;
                     let resonance = 1.0 - (hamming as f32 / FP_BITS);
                     if resonance >= min_resonance {
                         hits.push(ShaderHit {
@@ -226,7 +233,9 @@ impl ShaderDriver {
         }
 
         for (cycle_idx, &row) in passed_rows.iter().enumerate() {
-            if cycle_idx as u16 >= req.max_cycles.saturating_mul(4) { break; }
+            if cycle_idx as u16 >= req.max_cycles.saturating_mul(4) {
+                break;
+            }
             // Use the SPO `s_idx` of the row's edge as the query palette index.
             // Rows with edge=0 default to palette 0 (identity probe).
             let edge = CausalEdge64(self.bindspace.edges.get(row as usize));
@@ -261,7 +270,11 @@ impl ShaderDriver {
         }
 
         // Sort by resonance descending, keep top-8.
-        hits.sort_by(|a, b| b.resonance.partial_cmp(&a.resonance).unwrap_or(std::cmp::Ordering::Equal));
+        hits.sort_by(|a, b| {
+            b.resonance
+                .partial_cmp(&a.resonance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         hits.truncate(8);
 
         // [4] Build the cycle_fingerprint with positional Markov braiding.
@@ -310,9 +323,14 @@ impl ShaderDriver {
         // NARS-revised awareness. Maps directly to MUL's skill_level
         // axis — competence as the system has demonstrated it, not as
         // it feels right now.
-        let awareness_skill = self.awareness.read()
+        let awareness_skill = self
+            .awareness
+            .read()
             .ok()
-            .and_then(|aw| aw.get(style_ord as usize).map(|s| s.recent_success.frequency as f64))
+            .and_then(|aw| {
+                aw.get(style_ord as usize)
+                    .map(|s| s.recent_success.frequency as f64)
+            })
             .unwrap_or(0.5);
         let std_dev_clamped = std_dev.clamp(0.0, 1.0) as f64;
         let situation = SituationInput {
@@ -328,14 +346,20 @@ impl ShaderDriver {
         // D-CASCADE-V1-7: ctx_id resolves via BindSpace.entity_type +
         // optional OntologyRegistry handle; per-row context column is
         // Wave-3.5 follow-up (gate is one-per-dispatch today).
-        let ctx_id: u32 = passed_rows.first().copied().and_then(|r| {
-            let etid = self.bindspace.entity_type[r as usize];
-            if etid == 0 { return None; }
-            self.bindspace.ontology().and_then(|reg| {
-                reg.enumerate_first_with_entity_type_id(etid)
-                    .map(|row| row.ontology_context_id())
+        let ctx_id: u32 = passed_rows
+            .first()
+            .copied()
+            .and_then(|r| {
+                let etid = self.bindspace.entity_type[r as usize];
+                if etid == 0 {
+                    return None;
+                }
+                self.bindspace.ontology().and_then(|reg| {
+                    reg.enumerate_first_with_entity_type_id(etid)
+                        .map(|row| row.ontology_context_id())
+                })
             })
-        }).unwrap_or(0);
+            .unwrap_or(0);
         let profile = MulThresholdProfile::for_context(ctx_id);
         let trust_below_floor = (mul.trust.value as f32) < profile.trust_min;
 
@@ -353,7 +377,10 @@ impl ShaderDriver {
         } else if is_epiphany {
             GateDecision::HOLD
         } else if free_energy.is_homeostatic() {
-            GateDecision { gate: 0, merge: MergeMode::Bundle }
+            GateDecision {
+                gate: 0,
+                merge: MergeMode::Bundle,
+            }
         } else {
             GateDecision::HOLD
         };
@@ -362,7 +389,9 @@ impl ShaderDriver {
         let mut emitted = [0u64; 8];
         let mut emitted_n = 0u8;
         for h in hits.iter().take(8) {
-            if h.resonance < 0.2 { continue; }
+            if h.resonance < 0.2 {
+                continue;
+            }
             let f = (h.resonance.clamp(0.0, 1.0) * 255.0) as u8;
             let c = (h.resonance.clamp(0.0, 1.0) * 255.0) as u8;
             let s_palette = (h.row % 256) as u8;
@@ -415,8 +444,14 @@ impl ShaderDriver {
         // D-CSV-5b: bs.qualia is now QualiaI4Column (returns QualiaI4_16D by value).
         // alpha_front_to_back_composite expects F: Fn(u32) -> &'a [f32].
         // Pre-materialize hit qualia as f32 so references are valid for the closure.
-        let hit_qualia_f32: Vec<(u32, [f32; 17])> = hits.iter()
-            .map(|h| (h.row, self.bindspace.qualia.row(h.row as usize).to_f32_17d()))
+        let hit_qualia_f32: Vec<(u32, [f32; 17])> = hits
+            .iter()
+            .map(|h| {
+                (
+                    h.row,
+                    self.bindspace.qualia.row(h.row as usize).to_f32_17d(),
+                )
+            })
             .collect();
         let alpha_composite = if effective_merge == MergeMode::AlphaFrontToBack {
             let threshold = req
@@ -425,7 +460,8 @@ impl ShaderDriver {
             Some(alpha_front_to_back_composite(
                 &hits,
                 |row| {
-                    hit_qualia_f32.iter()
+                    hit_qualia_f32
+                        .iter()
                         .find(|(r, _)| *r == row)
                         .map(|(_, q)| &q[..])
                         .unwrap_or(&[][..])
@@ -505,7 +541,12 @@ impl ShaderDriver {
             }
         }
 
-        let crystal = ShaderCrystal { bus, persisted_row, meta, alpha_composite };
+        let crystal = ShaderCrystal {
+            bus,
+            persisted_row,
+            meta,
+            alpha_composite,
+        };
         sink.on_crystal(&crystal);
         crystal
     }
@@ -575,7 +616,12 @@ where
         }
     }
 
-    AlphaComposite { color_acc, alpha_acc, hits_consumed, saturated }
+    AlphaComposite {
+        color_acc,
+        alpha_acc,
+        hits_consumed,
+        saturated,
+    }
 }
 
 impl CognitiveShaderDriver for ShaderDriver {
@@ -584,11 +630,17 @@ impl CognitiveShaderDriver for ShaderDriver {
         self.run(req, &mut null)
     }
 
-    fn dispatch_with_sink<S: ShaderSink>(&self, req: &ShaderDispatch, sink: &mut S) -> ShaderCrystal {
+    fn dispatch_with_sink<S: ShaderSink>(
+        &self,
+        req: &ShaderDispatch,
+        sink: &mut S,
+    ) -> ShaderCrystal {
         self.run(req, sink)
     }
 
-    fn row_count(&self) -> u32 { self.bindspace.len as u32 }
+    fn row_count(&self) -> u32 {
+        self.bindspace.len as u32
+    }
 
     fn byte_footprint(&self) -> usize {
         self.bindspace.byte_footprint()
@@ -687,7 +739,9 @@ impl CognitiveShaderBuilder {
 }
 
 impl Default for CognitiveShaderBuilder {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -695,18 +749,26 @@ impl Default for CognitiveShaderBuilder {
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn entropy_std(hits: &[ShaderHit]) -> (f32, f32) {
-    if hits.is_empty() { return (0.0, 0.0); }
+    if hits.is_empty() {
+        return (0.0, 0.0);
+    }
     let sum: f32 = hits.iter().map(|h| h.resonance).sum();
-    if sum <= 0.0 { return (0.0, 0.0); }
+    if sum <= 0.0 {
+        return (0.0, 0.0);
+    }
     let mut ent = 0.0f32;
     for h in hits {
         let p = h.resonance / sum;
-        if p > 1e-9 { ent -= p * p.ln(); }
+        if p > 1e-9 {
+            ent -= p * p.ln();
+        }
     }
     let mean = sum / hits.len() as f32;
-    let var: f32 = hits.iter()
+    let var: f32 = hits
+        .iter()
         .map(|h| (h.resonance - mean).powi(2))
-        .sum::<f32>() / hits.len() as f32;
+        .sum::<f32>()
+        / hits.len() as f32;
     (ent, var.sqrt())
 }
 
@@ -715,9 +777,16 @@ fn collapse_gate(sd: f32) -> GateDecision {
     // Matches thinking_engine::cognitive_stack::{SD_FLOW_THRESHOLD, SD_BLOCK_THRESHOLD}.
     const FLOW: f32 = 0.15;
     const BLOCK: f32 = 0.35;
-    if sd < FLOW { GateDecision { gate: 0, merge: MergeMode::Xor } }
-    else if sd > BLOCK { GateDecision::BLOCK }
-    else { GateDecision::HOLD }
+    if sd < FLOW {
+        GateDecision {
+            gate: 0,
+            merge: MergeMode::Xor,
+        }
+    } else if sd > BLOCK {
+        GateDecision::BLOCK
+    } else {
+        GateDecision::HOLD
+    }
 }
 
 fn style_ord_to_inference(ord: u8) -> InferenceType {
@@ -730,8 +799,8 @@ fn style_ord_to_inference(ord: u8) -> InferenceType {
         1..=3 => InferenceType::Deduction,
         4..=6 => InferenceType::Induction,
         7..=9 => InferenceType::Abduction,
-        0 | 10    => InferenceType::Revision,
-        _         => InferenceType::Synthesis,
+        0 | 10 => InferenceType::Revision,
+        _ => InferenceType::Synthesis,
     }
 }
 
@@ -740,18 +809,18 @@ fn style_ord_to_inference(ord: u8) -> InferenceType {
 /// the closest semantic match per cluster.
 fn ord_to_thinking_style(ord: u8) -> ThinkingStyle {
     match ord {
-        0  => ThinkingStyle::Methodical,    // deliberate
-        1  => ThinkingStyle::Analytical,    // analytical
-        2  => ThinkingStyle::Logical,       // convergent
-        3  => ThinkingStyle::Systematic,    // systematic
-        4  => ThinkingStyle::Creative,      // creative
-        5  => ThinkingStyle::Imaginative,   // divergent
-        6  => ThinkingStyle::Exploratory,   // exploratory
-        7  => ThinkingStyle::Precise,       // focused
-        8  => ThinkingStyle::Speculative,   // diffuse
-        9  => ThinkingStyle::Curious,       // peripheral
-        10 => ThinkingStyle::Reflective,    // intuitive
-        _  => ThinkingStyle::Metacognitive, // metacognitive
+        0 => ThinkingStyle::Methodical,    // deliberate
+        1 => ThinkingStyle::Analytical,    // analytical
+        2 => ThinkingStyle::Logical,       // convergent
+        3 => ThinkingStyle::Systematic,    // systematic
+        4 => ThinkingStyle::Creative,      // creative
+        5 => ThinkingStyle::Imaginative,   // divergent
+        6 => ThinkingStyle::Exploratory,   // exploratory
+        7 => ThinkingStyle::Precise,       // focused
+        8 => ThinkingStyle::Speculative,   // diffuse
+        9 => ThinkingStyle::Curious,       // peripheral
+        10 => ThinkingStyle::Reflective,   // intuitive
+        _ => ThinkingStyle::Metacognitive, // metacognitive
     }
 }
 
@@ -778,10 +847,10 @@ mod tests {
     use crate::bindspace::{BindSpaceBuilder, QUALIA_DIMS, WORDS_PER_FP};
     use bgz17::base17::Base17;
     use bgz17::palette::Palette;
+    use lance_graph_contract::cognitive_shader::MetaWord;
     use lance_graph_contract::cognitive_shader::{
         ColumnWindow, MetaFilter, ShaderDispatch, StyleSelector,
     };
-    use lance_graph_contract::cognitive_shader::MetaWord;
 
     fn demo_bindspace() -> BindSpace {
         use lance_graph_contract::qualia::QualiaI4_16D;
@@ -790,18 +859,20 @@ mod tests {
         BindSpaceBuilder::new(4)
             .push(&content, MetaWord::new(1, 1, 200, 200, 5), 0, q, 0, 0)
             .push(&content, MetaWord::new(2, 2, 100, 100, 5), 0, q, 0, 0)
-            .push(&content, MetaWord::new(3, 3,  50,  50, 5), 0, q, 0, 0)
-            .push(&content, MetaWord::new(4, 4,   0,   0, 5), 0, q, 0, 0)
+            .push(&content, MetaWord::new(3, 3, 50, 50, 5), 0, q, 0, 0)
+            .push(&content, MetaWord::new(4, 4, 0, 0, 5), 0, q, 0, 0)
             .build()
     }
 
     fn demo_semiring() -> PaletteSemiring {
-        let entries: Vec<Base17> = (0..16).map(|i| {
-            let mut dims = [0i16; 17];
-            dims[0] = (i as i16) * 100;
-            dims[1] = ((i as i16) * 37) % 200;
-            Base17 { dims }
-        }).collect();
+        let entries: Vec<Base17> = (0..16)
+            .map(|i| {
+                let mut dims = [0i16; 17];
+                dims[0] = (i as i16) * 100;
+                dims[1] = ((i as i16) * 37) % 200;
+                Base17 { dims }
+            })
+            .collect();
         let palette = Palette { entries };
         PaletteSemiring::build(&palette)
     }
@@ -809,8 +880,10 @@ mod tests {
     fn demo_planes() -> [[u64; 64]; 8] {
         let mut planes = [[0u64; 64]; 8];
         for i in 0..4 {
-            if i + 1 < 4 { planes[0][i] |= 1u64 << (i + 1); } // CAUSES
-            planes[2][i] |= 1u64 << i;                        // SUPPORTS self
+            if i + 1 < 4 {
+                planes[0][i] |= 1u64 << (i + 1);
+            } // CAUSES
+            planes[2][i] |= 1u64 << i; // SUPPORTS self
         }
         planes
     }
@@ -861,7 +934,10 @@ mod tests {
             .planes(demo_planes())
             .build();
 
-        let tight = MetaFilter { nars_c_min: 150, ..MetaFilter::ALL };
+        let tight = MetaFilter {
+            nars_c_min: 150,
+            ..MetaFilter::ALL
+        };
         let req = ShaderDispatch {
             rows: ColumnWindow::new(0, 4),
             meta_prefilter: tight,
@@ -879,7 +955,13 @@ mod tests {
         let q = QualiaI4_16D::ZERO;
         let mut builder = BindSpaceBuilder::new(rows.len());
         for (idx, content) in rows.iter().enumerate() {
-            let meta = MetaWord::new((idx as u8).wrapping_add(1), (idx as u8).wrapping_add(1), 200, 200, 5);
+            let meta = MetaWord::new(
+                (idx as u8).wrapping_add(1),
+                (idx as u8).wrapping_add(1),
+                200,
+                200,
+                5,
+            );
             builder = builder.push(content, meta, 0, q, 0, 0);
         }
         builder.build()
@@ -890,17 +972,24 @@ mod tests {
         // Two rows with near-identical content (differ in only 4 bits)
         // → resonance ≈ 0.9998, well above any style threshold.
         let mut a = [0u64; WORDS_PER_FP];
-        for i in 0..250 { a[i / 64] |= 1u64 << (i % 64); }
+        for i in 0..250 {
+            a[i / 64] |= 1u64 << (i % 64);
+        }
         let mut b = a;
         b[0] ^= 0xF; // 4-bit difference → Hamming = 4
-        // A third row with substantially different content.
+                     // A third row with substantially different content.
         let mut c = [0u64; WORDS_PER_FP];
-        for i in 8000..8250 { c[i / 64] |= 1u64 << (i % 64); }
+        for i in 8000..8250 {
+            c[i / 64] |= 1u64 << (i % 64);
+        }
 
         let bs = Arc::new(bindspace_with_content(&[a, b, c]));
         let sr = Arc::new(demo_semiring());
         let driver = CognitiveShaderBuilder::new()
-            .bindspace(bs).semiring(sr).planes(demo_planes()).build();
+            .bindspace(bs)
+            .semiring(sr)
+            .planes(demo_planes())
+            .build();
 
         let req = ShaderDispatch {
             rows: ColumnWindow::new(0, 3),
@@ -912,15 +1001,23 @@ mod tests {
         };
         let crystal = driver.dispatch(&req);
         // Top-k must contain at least one content-match hit (predicates=0x01).
-        let content_hits: Vec<_> = crystal.bus.resonance.top_k.iter()
+        let content_hits: Vec<_> = crystal
+            .bus
+            .resonance
+            .top_k
+            .iter()
             .filter(|h| h.predicates & 0x01 != 0 && h.resonance > 0.0)
             .collect();
-        assert!(!content_hits.is_empty(),
+        assert!(
+            !content_hits.is_empty(),
             "expected at least one content-match hit, got top_k={:?}",
-            crystal.bus.resonance.top_k);
+            crystal.bus.resonance.top_k
+        );
         // Similarity should be very high (differ in only 4/16384 bits).
-        assert!(content_hits.iter().any(|h| h.resonance > 0.5),
-            "content-match resonance should be > 0.5 for near-identical rows");
+        assert!(
+            content_hits.iter().any(|h| h.resonance > 0.5),
+            "content-match resonance should be > 0.5 for near-identical rows"
+        );
     }
 
     #[test]
@@ -929,15 +1026,22 @@ mod tests {
         // is BELOW analytical threshold (0.85). Analytical must not emit
         // a content-match hit.
         let mut a = [0u64; WORDS_PER_FP];
-        for i in 0..5000 { a[i / 64] |= 1u64 << (i % 64); }
+        for i in 0..5000 {
+            a[i / 64] |= 1u64 << (i % 64);
+        }
         let mut b = [0u64; WORDS_PER_FP];
-        for i in 8000..13000 { b[i / 64] |= 1u64 << (i % 64); }
+        for i in 8000..13000 {
+            b[i / 64] |= 1u64 << (i % 64);
+        }
         // Disjoint ranges → Hamming ≈ 10000.
 
         let bs = Arc::new(bindspace_with_content(&[a, b]));
         let sr = Arc::new(demo_semiring());
         let driver = CognitiveShaderBuilder::new()
-            .bindspace(bs).semiring(sr).planes(demo_planes()).build();
+            .bindspace(bs)
+            .semiring(sr)
+            .planes(demo_planes())
+            .build();
 
         let req = ShaderDispatch {
             rows: ColumnWindow::new(0, 2),
@@ -948,12 +1052,18 @@ mod tests {
             ..Default::default()
         };
         let crystal = driver.dispatch(&req);
-        let content_hits: Vec<_> = crystal.bus.resonance.top_k.iter()
+        let content_hits: Vec<_> = crystal
+            .bus
+            .resonance
+            .top_k
+            .iter()
             .filter(|h| h.predicates & 0x01 != 0 && h.resonance > 0.0)
             .collect();
-        assert!(content_hits.is_empty(),
+        assert!(
+            content_hits.is_empty(),
             "analytical style should not emit content hits when resonance < 0.85; got {:?}",
-            content_hits);
+            content_hits
+        );
     }
 
     #[test]
@@ -964,9 +1074,13 @@ mod tests {
         // a = bits [0..5000), b = bits [2500..7500) → overlap 2500 bits,
         // disjoint 2500+2500 = 5000, Hamming ≈ 5000.
         let mut a = [0u64; WORDS_PER_FP];
-        for i in 0..5000 { a[i / 64] |= 1u64 << (i % 64); }
+        for i in 0..5000 {
+            a[i / 64] |= 1u64 << (i % 64);
+        }
         let mut b = [0u64; WORDS_PER_FP];
-        for i in 2500..7500 { b[i / 64] |= 1u64 << (i % 64); }
+        for i in 2500..7500 {
+            b[i / 64] |= 1u64 << (i % 64);
+        }
 
         // Use empty planes so the palette cascade produces no hits —
         // isolates the content pre-pass so it cannot be drowned out by
@@ -976,7 +1090,10 @@ mod tests {
             let bs = Arc::new(bindspace_with_content(&[a, b]));
             let sr = Arc::new(demo_semiring());
             CognitiveShaderBuilder::new()
-                .bindspace(bs).semiring(sr).planes(empty_planes).build()
+                .bindspace(bs)
+                .semiring(sr)
+                .planes(empty_planes)
+                .build()
         };
         let mk_req = |style_ord: u8| ShaderDispatch {
             rows: ColumnWindow::new(0, 2),
@@ -988,16 +1105,29 @@ mod tests {
         };
 
         let strict = mk_driver().dispatch(&mk_req(auto_style::ANALYTICAL));
-        let loose  = mk_driver().dispatch(&mk_req(auto_style::CREATIVE));
-        let strict_hits = strict.bus.resonance.top_k.iter()
-            .filter(|h| h.predicates & 0x01 != 0 && h.resonance > 0.0).count();
-        let loose_hits  = loose.bus.resonance.top_k.iter()
-            .filter(|h| h.predicates & 0x01 != 0 && h.resonance > 0.0).count();
+        let loose = mk_driver().dispatch(&mk_req(auto_style::CREATIVE));
+        let strict_hits = strict
+            .bus
+            .resonance
+            .top_k
+            .iter()
+            .filter(|h| h.predicates & 0x01 != 0 && h.resonance > 0.0)
+            .count();
+        let loose_hits = loose
+            .bus
+            .resonance
+            .top_k
+            .iter()
+            .filter(|h| h.predicates & 0x01 != 0 && h.resonance > 0.0)
+            .count();
         // Monotonicity: loosening the style cannot reduce the set of
         // content-match hits. This is the load-bearing invariant.
-        assert!(strict_hits <= loose_hits,
+        assert!(
+            strict_hits <= loose_hits,
             "creative (loose) should emit >= analytical (strict) content hits: strict={} loose={}",
-            strict_hits, loose_hits);
+            strict_hits,
+            loose_hits
+        );
         assert!(loose_hits > 0,
             "creative (threshold 0.35) should emit content hits for resonance ≈ 0.695\nloose top_k: {:?}",
             loose.bus.resonance.top_k);
@@ -1007,7 +1137,9 @@ mod tests {
     fn sink_short_circuits_on_false() {
         struct Stop;
         impl ShaderSink for Stop {
-            fn on_resonance(&mut self, _r: &ShaderResonance) -> bool { false }
+            fn on_resonance(&mut self, _r: &ShaderResonance) -> bool {
+                false
+            }
         }
 
         let bs = Arc::new(demo_bindspace());
@@ -1019,7 +1151,10 @@ mod tests {
             .build();
 
         let mut stop = Stop;
-        let req = ShaderDispatch { rows: ColumnWindow::new(0, 4), ..Default::default() };
+        let req = ShaderDispatch {
+            rows: ColumnWindow::new(0, 4),
+            ..Default::default()
+        };
         let crystal = driver.dispatch_with_sink(&req, &mut stop);
         // Short-circuited → persisted_row is None, meta is default.
         assert!(crystal.persisted_row.is_none());
@@ -1036,24 +1171,32 @@ mod tests {
     /// Build hits inline with the given resonances. Each hit gets a unique
     /// `row` so the qualia closure can map row → distinct color.
     fn mk_hits(resonances: &[f32]) -> Vec<ShaderHit> {
-        resonances.iter().enumerate().map(|(i, &r)| ShaderHit {
-            row: i as u32,
-            distance: 0,
-            predicates: 0,
-            _pad: 0,
-            resonance: r,
-            cycle_index: i as u32,
-        }).collect()
+        resonances
+            .iter()
+            .enumerate()
+            .map(|(i, &r)| ShaderHit {
+                row: i as u32,
+                distance: 0,
+                predicates: 0,
+                _pad: 0,
+                resonance: r,
+                cycle_index: i as u32,
+            })
+            .collect()
     }
 
     /// Per-row qualia: row k → all-ones vector × (k+1) so we can tell which
     /// hits actually contributed to the composited color.
     fn qualia_with(rows: usize) -> Vec<[f32; QUALIA_DIMS]> {
-        (0..rows).map(|k| {
-            let mut q = [0.0f32; QUALIA_DIMS];
-            for slot in q.iter_mut() { *slot = (k + 1) as f32; }
-            q
-        }).collect()
+        (0..rows)
+            .map(|k| {
+                let mut q = [0.0f32; QUALIA_DIMS];
+                for slot in q.iter_mut() {
+                    *slot = (k + 1) as f32;
+                }
+                q
+            })
+            .collect()
     }
 
     #[test]
@@ -1069,13 +1212,20 @@ mod tests {
             |row| &qualia[row as usize][..],
             ALPHA_SATURATION_THRESHOLD,
         );
-        assert_eq!(composite.hits_consumed, 2,
+        assert_eq!(
+            composite.hits_consumed, 2,
             "early-ray-termination should fire after 2 hits at α=0.99 each, got {}",
-            composite.hits_consumed);
-        assert!(composite.saturated,
-            "saturated flag should be set when α exceeds threshold");
-        assert!(composite.alpha_acc > ALPHA_SATURATION_THRESHOLD,
-            "α_acc must exceed threshold at termination, got {}", composite.alpha_acc);
+            composite.hits_consumed
+        );
+        assert!(
+            composite.saturated,
+            "saturated flag should be set when α exceeds threshold"
+        );
+        assert!(
+            composite.alpha_acc > ALPHA_SATURATION_THRESHOLD,
+            "α_acc must exceed threshold at termination, got {}",
+            composite.alpha_acc
+        );
     }
 
     #[test]
@@ -1095,9 +1245,11 @@ mod tests {
         // Second hit weight = 0.5 · 0.5   = 0.25 → contributes 0.25 · 2.0 = 0.5
         // color_acc[0] = 0.5 + 0.5 = 1.0
         // α_acc       = 0.75
-        assert!((asc_composite.color_acc[0] - 1.0).abs() < 1e-5,
+        assert!(
+            (asc_composite.color_acc[0] - 1.0).abs() < 1e-5,
             "expected color_acc[0] = 1.0 (front=row0 dominates first), got {}",
-            asc_composite.color_acc[0]);
+            asc_composite.color_acc[0]
+        );
 
         // Reverse order: row 1 first (qualia × 2), row 0 second (qualia × 1)
         let mut hits_rev = hits_desc.clone();
@@ -1111,11 +1263,15 @@ mod tests {
         // First hit weight 0.5 · 1.0 = 0.5  → 0.5 · 2.0 = 1.0
         // Second hit weight 0.5 · 0.5 = 0.25 → 0.25 · 1.0 = 0.25
         // color_acc[0] = 1.25, distinct from the 1.0 we got front-first.
-        assert!((rev_composite.color_acc[0] - 1.25).abs() < 1e-5,
+        assert!(
+            (rev_composite.color_acc[0] - 1.25).abs() < 1e-5,
             "reversed order should give color_acc[0] = 1.25, got {}",
-            rev_composite.color_acc[0]);
-        assert!((asc_composite.color_acc[0] - rev_composite.color_acc[0]).abs() > 0.1,
-            "front-to-back composite must be order-dependent; got identical results");
+            rev_composite.color_acc[0]
+        );
+        assert!(
+            (asc_composite.color_acc[0] - rev_composite.color_acc[0]).abs() > 0.1,
+            "front-to-back composite must be order-dependent; got identical results"
+        );
     }
 
     #[test]
@@ -1130,8 +1286,11 @@ mod tests {
         assert_eq!(composite.hits_consumed, 0);
         assert!(!composite.saturated);
         for &slot in composite.color_acc.iter() {
-            assert_eq!(slot, 0.0,
-                "zero-hits composite must be all-zero color, found {}", slot);
+            assert_eq!(
+                slot, 0.0,
+                "zero-hits composite must be all-zero color, found {}",
+                slot
+            );
         }
         // Sanity: AlphaComposite::default() matches the zero-hits result.
         let default = AlphaComposite::default();
@@ -1156,21 +1315,33 @@ mod tests {
             ALPHA_SATURATION_THRESHOLD,
         );
         assert_eq!(composite.hits_consumed, 1);
-        assert!((composite.alpha_acc - 1.0).abs() < 1e-6,
-            "α_acc must be 1.0 after one opaque hit, got {}", composite.alpha_acc);
-        assert!(composite.saturated,
-            "α=1.0 > 0.99 threshold → saturated must be true");
+        assert!(
+            (composite.alpha_acc - 1.0).abs() < 1e-6,
+            "α_acc must be 1.0 after one opaque hit, got {}",
+            composite.alpha_acc
+        );
+        assert!(
+            composite.saturated,
+            "α=1.0 > 0.99 threshold → saturated must be true"
+        );
         // qualia[0] = [1.0; QUALIA_DIMS]. weight = 1.0 · 1.0 = 1.0.
         // color_acc[0..QUALIA_DIMS] = qualia[0].
         for i in 0..QUALIA_DIMS {
-            assert!((composite.color_acc[i] - 1.0).abs() < 1e-6,
+            assert!(
+                (composite.color_acc[i] - 1.0).abs() < 1e-6,
                 "color_acc[{}] must equal qualia[0][{}] = 1.0, got {}",
-                i, i, composite.color_acc[i]);
+                i,
+                i,
+                composite.color_acc[i]
+            );
         }
         // Trailing slots [QUALIA_DIMS..ALPHA_COMPOSITE_DIMS) stay zero.
         for i in QUALIA_DIMS..ALPHA_COMPOSITE_DIMS {
-            assert_eq!(composite.color_acc[i], 0.0,
-                "color_acc[{}] beyond QUALIA_DIMS must be zero", i);
+            assert_eq!(
+                composite.color_acc[i], 0.0,
+                "color_acc[{}] beyond QUALIA_DIMS must be zero",
+                i
+            );
         }
     }
 
@@ -1185,7 +1356,10 @@ mod tests {
         let bs = Arc::new(demo_bindspace());
         let sr = Arc::new(demo_semiring());
         let driver = CognitiveShaderBuilder::new()
-            .bindspace(bs).semiring(sr).planes(demo_planes()).build();
+            .bindspace(bs)
+            .semiring(sr)
+            .planes(demo_planes())
+            .build();
 
         let baseline = ShaderDispatch {
             rows: ColumnWindow::new(0, 4),
@@ -1198,8 +1372,10 @@ mod tests {
         let baseline_crystal = driver.dispatch(&baseline);
         // No override → alpha_composite must be None (gate decides Bundle
         // by default for homeostatic paths, never AlphaFrontToBack).
-        assert!(baseline_crystal.alpha_composite.is_none(),
-            "default dispatch must not populate alpha_composite");
+        assert!(
+            baseline_crystal.alpha_composite.is_none(),
+            "default dispatch must not populate alpha_composite"
+        );
 
         // Bundle override — the gate's Bundle path stays.
         let bundle_req = ShaderDispatch {
@@ -1207,13 +1383,19 @@ mod tests {
             ..baseline
         };
         let bundle_crystal = driver.dispatch(&bundle_req);
-        assert!(bundle_crystal.alpha_composite.is_none(),
-            "MergeMode::Bundle override must not populate alpha_composite");
+        assert!(
+            bundle_crystal.alpha_composite.is_none(),
+            "MergeMode::Bundle override must not populate alpha_composite"
+        );
         // Top-K outputs remain identical to baseline.
-        assert_eq!(bundle_crystal.bus.resonance.hit_count,
-                   baseline_crystal.bus.resonance.hit_count);
-        assert_eq!(bundle_crystal.bus.resonance.entropy.to_bits(),
-                   baseline_crystal.bus.resonance.entropy.to_bits());
+        assert_eq!(
+            bundle_crystal.bus.resonance.hit_count,
+            baseline_crystal.bus.resonance.hit_count
+        );
+        assert_eq!(
+            bundle_crystal.bus.resonance.entropy.to_bits(),
+            baseline_crystal.bus.resonance.entropy.to_bits()
+        );
 
         // Xor override — same negative-space property.
         let xor_req = ShaderDispatch {
@@ -1221,10 +1403,14 @@ mod tests {
             ..baseline
         };
         let xor_crystal = driver.dispatch(&xor_req);
-        assert!(xor_crystal.alpha_composite.is_none(),
-            "MergeMode::Xor override must not populate alpha_composite");
-        assert_eq!(xor_crystal.bus.resonance.hit_count,
-                   baseline_crystal.bus.resonance.hit_count);
+        assert!(
+            xor_crystal.alpha_composite.is_none(),
+            "MergeMode::Xor override must not populate alpha_composite"
+        );
+        assert_eq!(
+            xor_crystal.bus.resonance.hit_count,
+            baseline_crystal.bus.resonance.hit_count
+        );
 
         // Superposition override — same.
         let super_req = ShaderDispatch {
@@ -1232,8 +1418,10 @@ mod tests {
             ..baseline
         };
         let super_crystal = driver.dispatch(&super_req);
-        assert!(super_crystal.alpha_composite.is_none(),
-            "MergeMode::Superposition override must not populate alpha_composite");
+        assert!(
+            super_crystal.alpha_composite.is_none(),
+            "MergeMode::Superposition override must not populate alpha_composite"
+        );
 
         // Positive control: AlphaFrontToBack override DOES populate it.
         let alpha_req = ShaderDispatch {
@@ -1241,18 +1429,32 @@ mod tests {
             ..baseline
         };
         let alpha_crystal = driver.dispatch(&alpha_req);
-        assert!(alpha_crystal.alpha_composite.is_some(),
-            "MergeMode::AlphaFrontToBack override MUST populate alpha_composite");
+        assert!(
+            alpha_crystal.alpha_composite.is_some(),
+            "MergeMode::AlphaFrontToBack override MUST populate alpha_composite"
+        );
     }
 
     /// Sanity probe: `confidence_to_alpha` clamps NaN / out-of-range
     /// resonances to zero so a poisoned hit can't break the composite.
     #[test]
     fn confidence_to_alpha_clamps_pathological() {
-        let hit_nan = ShaderHit { resonance: f32::NAN, ..Default::default() };
-        let hit_inf = ShaderHit { resonance: f32::INFINITY, ..Default::default() };
-        let hit_neg = ShaderHit { resonance: -0.5, ..Default::default() };
-        let hit_big = ShaderHit { resonance: 5.0, ..Default::default() };
+        let hit_nan = ShaderHit {
+            resonance: f32::NAN,
+            ..Default::default()
+        };
+        let hit_inf = ShaderHit {
+            resonance: f32::INFINITY,
+            ..Default::default()
+        };
+        let hit_neg = ShaderHit {
+            resonance: -0.5,
+            ..Default::default()
+        };
+        let hit_big = ShaderHit {
+            resonance: 5.0,
+            ..Default::default()
+        };
         assert_eq!(hit_nan.confidence_to_alpha(), 0.0);
         assert_eq!(hit_inf.confidence_to_alpha(), 0.0);
         assert_eq!(hit_neg.confidence_to_alpha(), 0.0);

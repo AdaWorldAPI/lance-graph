@@ -18,7 +18,6 @@
 
 use lance_graph_contract::cognitive_shader::StyleSelector;
 
-
 /// Mapping from qualia shape to a style ordinal (0..11 matches
 /// `thinking_engine::cognitive_stack::ThinkingStyle::all()`).
 pub const DELIBERATE: u8 = 0;
@@ -57,7 +56,10 @@ pub fn style_from_qualia(q: &[f32]) -> u8 {
         ("valence", score(valence)),
     ]
     .into_iter()
-    .fold(("deliberate", 0.0), |acc, (name, v)| if v > acc.1 { (name, v) } else { acc });
+    .fold(
+        ("deliberate", 0.0),
+        |acc, (name, v)| if v > acc.1 { (name, v) } else { acc },
+    );
 
     if dom_value < 0.25 {
         return DELIBERATE;
@@ -65,15 +67,15 @@ pub fn style_from_qualia(q: &[f32]) -> u8 {
 
     match dom_axis {
         "certainty" if urgency.abs() < 0.3 => ANALYTICAL,
-        "certainty"                        => CONVERGENT,
-        "arousal" if activation > 0.5       => CREATIVE,
-        "arousal"                          => EXPLORATORY,
-        "urgency" if activation > 0.5       => FOCUSED,
-        "urgency"                          => INTUITIVE,
-        "depth" if certainty < 0.3         => METACOGNITIVE,
-        "depth"                            => SYSTEMATIC,
-        "valence" if activation > 0.5       => DIVERGENT,
-        "valence"                          => DIFFUSE,
+        "certainty" => CONVERGENT,
+        "arousal" if activation > 0.5 => CREATIVE,
+        "arousal" => EXPLORATORY,
+        "urgency" if activation > 0.5 => FOCUSED,
+        "urgency" => INTUITIVE,
+        "depth" if certainty < 0.3 => METACOGNITIVE,
+        "depth" => SYSTEMATIC,
+        "valence" if activation > 0.5 => DIVERGENT,
+        "valence" => DIFFUSE,
         _ => DELIBERATE,
     }
 }
@@ -108,7 +110,9 @@ mod tests {
 
     fn q(vals: &[(usize, f32)]) -> [f32; QUALIA_DIMS] {
         let mut out = [0.0f32; QUALIA_DIMS];
-        for &(i, v) in vals { out[i] = v; }
+        for &(i, v) in vals {
+            out[i] = v;
+        }
         out
     }
 

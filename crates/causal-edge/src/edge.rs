@@ -61,19 +61,19 @@ impl InferenceType {
     pub fn to_mantissa(self) -> i8 {
         match self {
             // Forward-chain (positive mantissa)
-            Self::Deduction    => 1,
-            Self::Induction    => 2,
+            Self::Deduction => 1,
+            Self::Induction => 2,
             // NOTE: Abduction is backward in the signed encoding; v1 enum maps it to +3 slot
             // for forward semantics, but in v2 signed scheme Abduction is negative direction.
             // For v1 back-compat, Abduction here returns the forward slot (+3 = Exemplification
             // slot). Callers must use from_mantissa() to distinguish signed direction.
-            Self::Abduction    => -1,   // backward: |1| = Abduction
-            Self::Revision     => 4,    // forward: Revision-positive slot
-            Self::Synthesis    => 5,    // forward: Synthesis slot
-            Self::Intervention => 6,    // forward: PR-LL-1 Intervention (+6 per L-9)
+            Self::Abduction => -1,   // backward: |1| = Abduction
+            Self::Revision => 4,     // forward: Revision-positive slot
+            Self::Synthesis => 5,    // forward: Synthesis slot
+            Self::Intervention => 6, // forward: PR-LL-1 Intervention (+6 per L-9)
             // Backward-chain (negative mantissa)
             Self::Counterfactual => -6, // backward: PR-LL-1 Counterfactual (−6 per L-9)
-            Self::Reserved7    => 7,    // extension slot (positive, forward)
+            Self::Reserved7 => 7,       // extension slot (positive, forward)
         }
     }
 
@@ -87,14 +87,44 @@ impl InferenceType {
         let mag = m.unsigned_abs() & 0x7; // magnitude 0..7
         let forward = m >= 0;
         match mag {
-            0 => Self::Deduction,    // 0 = Identity/neutral → treat as Deduction
-            1 => if forward { Self::Deduction } else { Self::Abduction },
-            2 => if forward { Self::Induction } else { Self::Abduction }, // Contraposition → Abduction
-            3 => if forward { Self::Synthesis } else { Self::Abduction }, // Exemplification / Analogy-neg
-            4 => Self::Revision,     // Revision +/- (same enum, sign distinguishes)
-            5 => if forward { Self::Synthesis } else { Self::Synthesis }, // Synthesis / Decomposition
-            6 => if forward { Self::Intervention } else { Self::Counterfactual }, // PR-LL-1 (L-9)
-            _ => Self::Reserved7,    // 7 = Extension / Intension-negative (future)
+            0 => Self::Deduction, // 0 = Identity/neutral → treat as Deduction
+            1 => {
+                if forward {
+                    Self::Deduction
+                } else {
+                    Self::Abduction
+                }
+            }
+            2 => {
+                if forward {
+                    Self::Induction
+                } else {
+                    Self::Abduction
+                }
+            } // Contraposition → Abduction
+            3 => {
+                if forward {
+                    Self::Synthesis
+                } else {
+                    Self::Abduction
+                }
+            } // Exemplification / Analogy-neg
+            4 => Self::Revision, // Revision +/- (same enum, sign distinguishes)
+            5 => {
+                if forward {
+                    Self::Synthesis
+                } else {
+                    Self::Synthesis
+                }
+            } // Synthesis / Decomposition
+            6 => {
+                if forward {
+                    Self::Intervention
+                } else {
+                    Self::Counterfactual
+                }
+            } // PR-LL-1 (L-9)
+            _ => Self::Reserved7, // 7 = Extension / Intension-negative (future)
         }
     }
 }
@@ -114,7 +144,16 @@ impl InferenceType {
 /// [49:51] Plasticity flags (3 bits, hot/cold per S,P,O)
 /// [52:63] Temporal index (12 bits, 4096 time slots)
 /// ```
+///
+/// `#[repr(transparent)]`: a single-`u64` newtype whose layout is GUARANTEED
+/// identical to `u64`, so `&[CausalEdge64]` can be soundly reinterpreted as
+/// `&[u64]` (the zero-copy `MailboxSoaView::edges_raw` borrow in
+/// `cognitive-shader-driver`). Layout-neutral — the in-memory representation
+/// was already a bare `u64`; this only documents and compiler-enforces it for
+/// the reinterpret (a future second field becomes a compile error). Mirrors
+/// the ndarray twin `ndarray::hpc::causal_diff::CausalEdge64`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct CausalEdge64(pub u64);
 
 // Bit field positions and masks
@@ -470,9 +509,13 @@ impl CausalEdge64 {
     #[inline(always)]
     pub fn plasticity(self) -> PlasticityState {
         #[cfg(feature = "causal-edge-v2-layout")]
-        { PlasticityState::from_bits(((self.0 >> crate::layout::PLAST_SHIFT) & BITS3_MASK) as u8) }
+        {
+            PlasticityState::from_bits(((self.0 >> crate::layout::PLAST_SHIFT) & BITS3_MASK) as u8)
+        }
         #[cfg(not(feature = "causal-edge-v2-layout"))]
-        { PlasticityState::from_bits(((self.0 >> PLAST_SHIFT) & BITS3_MASK) as u8) }
+        {
+            PlasticityState::from_bits(((self.0 >> PLAST_SHIFT) & BITS3_MASK) as u8)
+        }
     }
 
     /// Set plasticity state.
@@ -484,8 +527,8 @@ impl CausalEdge64 {
         #[cfg(feature = "causal-edge-v2-layout")]
         {
             let shift = crate::layout::PLAST_SHIFT;
-            self.0 = (self.0 & !(BITS3_MASK << shift))
-                | (((p.bits() as u64) & BITS3_MASK) << shift);
+            self.0 =
+                (self.0 & !(BITS3_MASK << shift)) | (((p.bits() as u64) & BITS3_MASK) << shift);
         }
         #[cfg(not(feature = "causal-edge-v2-layout"))]
         {
@@ -592,7 +635,8 @@ impl CausalEdge64 {
         // (e.g. -1 = 0b1111 reads as Reserved7), bypassing Abduction/
         // Counterfactual semantics entirely.
         #[cfg(feature = "causal-edge-v2-layout")]
-        #[allow(deprecated)] // weight.inference_type() is the v1 fallback below; v2 uses mantissa
+        #[allow(deprecated)]
+        // weight.inference_type() is the v1 fallback below; v2 uses mantissa
         let resolved_infer = InferenceType::from_mantissa(weight.inference_mantissa());
         #[cfg(not(feature = "causal-edge-v2-layout"))]
         let resolved_infer = weight.inference_type();
@@ -783,10 +827,10 @@ impl CausalEdge64 {
         direction: u8,
         plasticity: PlasticityState,
     ) -> Self {
-        use crate::layout::{S_SHIFT as LS, P_SHIFT as LP, O_SHIFT as LO,
-                            FREQ_SHIFT as LF, CONF_SHIFT as LC,
-                            CAUSAL_SHIFT as LCA, DIR_SHIFT as LD,
-                            PLAST_SHIFT as LPL, BITS3_MASK as B3};
+        use crate::layout::{
+            BITS3_MASK as B3, CAUSAL_SHIFT as LCA, CONF_SHIFT as LC, DIR_SHIFT as LD,
+            FREQ_SHIFT as LF, O_SHIFT as LO, PLAST_SHIFT as LPL, P_SHIFT as LP, S_SHIFT as LS,
+        };
         let mut v: u64 = 0;
         v |= (s_idx as u64) << LS;
         v |= (p_idx as u64) << LP;
@@ -800,7 +844,6 @@ impl CausalEdge64 {
         // W-slot, truth-band, spare default to 0
         Self(v)
     }
-
 }
 
 // ─── V2 Accessors and Builders ─────────────────────────────────────────────
@@ -819,7 +862,7 @@ impl CausalEdge64 {
     /// of unknown provenance. `CausalEdge64::ZERO` returns 0 (correct default).
     #[inline(always)]
     pub fn w_slot(self) -> u8 {
-        use crate::layout::{W_SHIFT, BITS6_MASK};
+        use crate::layout::{BITS6_MASK, W_SHIFT};
         ((self.0 >> W_SHIFT) & BITS6_MASK) as u8
     }
 
@@ -833,16 +876,26 @@ impl CausalEdge64 {
     /// sign-extended to i8 via arithmetic shift: if bit 3 set, OR with 0xF0.
     #[inline(always)]
     pub fn inference_mantissa(self) -> i8 {
-        use crate::layout::{INFER_SHIFT, BITS4_MASK};
+        use crate::layout::{BITS4_MASK, INFER_SHIFT};
         let raw = ((self.0 >> INFER_SHIFT) & BITS4_MASK) as u8;
-        if raw & 0x8 != 0 { (raw | 0xF0) as i8 } else { raw as i8 }
+        if raw & 0x8 != 0 {
+            (raw | 0xF0) as i8
+        } else {
+            raw as i8
+        }
     }
 
     /// Chain direction extracted from mantissa sign: 1=forward, −1=backward, 0=neutral.
     #[inline(always)]
     pub fn inference_direction(self) -> i8 {
         let m = self.inference_mantissa();
-        if m > 0 { 1 } else if m < 0 { -1 } else { 0 }
+        if m > 0 {
+            1
+        } else if m < 0 {
+            -1
+        } else {
+            0
+        }
     }
 
     /// Base NARS rule index (0..7) extracted from mantissa magnitude.
@@ -857,7 +910,7 @@ impl CausalEdge64 {
     /// may read as Solid/Fuzzy/Murky. Apply a version gate on edges of unknown provenance.
     #[inline(always)]
     pub fn truth(self) -> crate::layout::TrustTexture {
-        use crate::layout::{TRUTH_SHIFT, BITS2_MASK, TrustTexture};
+        use crate::layout::{TrustTexture, BITS2_MASK, TRUTH_SHIFT};
         TrustTexture::from_bits_2(((self.0 >> TRUTH_SHIFT) & BITS2_MASK) as u8)
     }
 
@@ -865,7 +918,7 @@ impl CausalEdge64 {
     /// Useful for round-trip tests and direct comparisons.
     #[inline(always)]
     pub fn truth_raw(self) -> u8 {
-        use crate::layout::{TRUTH_SHIFT, BITS2_MASK};
+        use crate::layout::{BITS2_MASK, TRUTH_SHIFT};
         ((self.0 >> TRUTH_SHIFT) & BITS2_MASK) as u8
     }
 
@@ -873,7 +926,7 @@ impl CausalEdge64 {
     /// Returns 0 for ZERO edges and all v1-written edges (temporal MSBs were ≤ 0xFFF).
     #[inline(always)]
     pub fn spare(self) -> u8 {
-        use crate::layout::{SPARE_SHIFT, BITS3_MASK};
+        use crate::layout::{BITS3_MASK, SPARE_SHIFT};
         ((self.0 >> SPARE_SHIFT) & BITS3_MASK) as u8
     }
 
@@ -882,7 +935,7 @@ impl CausalEdge64 {
     /// Return new edge with W slot set to `w` (0..=63).
     #[inline]
     pub fn with_w_slot(self, w: u8) -> Self {
-        use crate::layout::{W_SHIFT, BITS6_MASK, W_MASK};
+        use crate::layout::{BITS6_MASK, W_MASK, W_SHIFT};
         debug_assert!(w <= 63, "w_slot must fit 6 bits (0..=63), got {w}");
         Self((self.0 & !W_MASK) | (((w as u64) & BITS6_MASK) << W_SHIFT))
     }
@@ -890,7 +943,7 @@ impl CausalEdge64 {
     /// Return new edge with truth-band lens set.
     #[inline]
     pub fn with_truth(self, t: crate::layout::TrustTexture) -> Self {
-        use crate::layout::{TRUTH_SHIFT, BITS2_MASK, TRUTH_MASK};
+        use crate::layout::{BITS2_MASK, TRUTH_MASK, TRUTH_SHIFT};
         Self((self.0 & !TRUTH_MASK) | ((t.to_bits_2() as u64 & BITS2_MASK) << TRUTH_SHIFT))
     }
 
@@ -900,7 +953,7 @@ impl CausalEdge64 {
     /// are naturally wrapped by the 4-bit mask (low nibble of `m as u8`).
     #[inline]
     pub fn with_inference_mantissa(self, m: i8) -> Self {
-        use crate::layout::{INFER_SHIFT, BITS4_MASK, INFER_MASK};
+        use crate::layout::{BITS4_MASK, INFER_MASK, INFER_SHIFT};
         debug_assert!((-8..=7).contains(&m), "mantissa must be −8..+7, got {m}");
         let raw = (m as u8) & 0xF;
         Self((self.0 & !INFER_MASK) | ((raw as u64 & BITS4_MASK) << INFER_SHIFT))
@@ -909,7 +962,7 @@ impl CausalEdge64 {
     /// Return new edge with spare bits set (0..=7, 3-bit field).
     #[inline]
     pub fn with_spare(self, s: u8) -> Self {
-        use crate::layout::{SPARE_SHIFT, BITS3_MASK, SPARE_MASK};
+        use crate::layout::{BITS3_MASK, SPARE_MASK, SPARE_SHIFT};
         debug_assert!(s <= 7, "spare must fit 3 bits (0..=7), got {s}");
         Self((self.0 & !SPARE_MASK) | ((s as u64 & BITS3_MASK) << SPARE_SHIFT))
     }
@@ -922,7 +975,7 @@ impl CausalEdge64 {
     /// Composable: `edge.with_routing(12, TrustTexture::Solid).with_inference_mantissa(-1)`.
     #[inline]
     pub fn with_routing(self, w: u8, t: crate::layout::TrustTexture) -> Self {
-        use crate::layout::{W_SHIFT, TRUTH_SHIFT, BITS6_MASK, BITS2_MASK, W_MASK, TRUTH_MASK};
+        use crate::layout::{BITS2_MASK, BITS6_MASK, TRUTH_MASK, TRUTH_SHIFT, W_MASK, W_SHIFT};
         debug_assert!(w <= 63, "w_slot ({w}) out of 6-bit range");
         let routing = ((w as u64 & BITS6_MASK) << W_SHIFT)
             | ((t.to_bits_2() as u64 & BITS2_MASK) << TRUTH_SHIFT);
@@ -934,7 +987,7 @@ impl CausalEdge64 {
     /// Set W slot in-place.
     #[inline]
     pub fn set_w_slot(&mut self, w: u8) {
-        use crate::layout::{W_SHIFT, BITS6_MASK, W_MASK};
+        use crate::layout::{BITS6_MASK, W_MASK, W_SHIFT};
         debug_assert!(w <= 63);
         self.0 = (self.0 & !W_MASK) | (((w as u64) & BITS6_MASK) << W_SHIFT);
     }
@@ -942,14 +995,14 @@ impl CausalEdge64 {
     /// Set truth-band lens in-place.
     #[inline]
     pub fn set_truth(&mut self, t: crate::layout::TrustTexture) {
-        use crate::layout::{TRUTH_SHIFT, BITS2_MASK, TRUTH_MASK};
+        use crate::layout::{BITS2_MASK, TRUTH_MASK, TRUTH_SHIFT};
         self.0 = (self.0 & !TRUTH_MASK) | ((t.to_bits_2() as u64 & BITS2_MASK) << TRUTH_SHIFT);
     }
 
     /// Set signed inference mantissa in-place (range −8..+7).
     #[inline]
     pub fn set_inference_mantissa(&mut self, m: i8) {
-        use crate::layout::{INFER_SHIFT, BITS4_MASK, INFER_MASK};
+        use crate::layout::{BITS4_MASK, INFER_MASK, INFER_SHIFT};
         debug_assert!((-8..=7).contains(&m));
         let raw = (m as u8) & 0xF;
         self.0 = (self.0 & !INFER_MASK) | ((raw as u64 & BITS4_MASK) << INFER_SHIFT);
@@ -958,7 +1011,7 @@ impl CausalEdge64 {
     /// Set spare bits in-place (0..=7, 3-bit field).
     #[inline]
     pub fn set_spare(&mut self, s: u8) {
-        use crate::layout::{SPARE_SHIFT, BITS3_MASK, SPARE_MASK};
+        use crate::layout::{BITS3_MASK, SPARE_MASK, SPARE_SHIFT};
         debug_assert!(s <= 7);
         self.0 = (self.0 & !SPARE_MASK) | ((s as u64 & BITS3_MASK) << SPARE_SHIFT);
     }
@@ -971,29 +1024,53 @@ impl CausalEdge64 {
 #[cfg(not(feature = "causal-edge-v2-layout"))]
 impl CausalEdge64 {
     #[inline(always)]
-    pub fn w_slot(self) -> u8 { 0 }
+    pub fn w_slot(self) -> u8 {
+        0
+    }
     #[inline(always)]
-    pub fn inference_mantissa(self) -> i8 { 0 }
+    pub fn inference_mantissa(self) -> i8 {
+        0
+    }
     #[inline(always)]
-    pub fn inference_direction(self) -> i8 { 0 }
+    pub fn inference_direction(self) -> i8 {
+        0
+    }
     #[inline(always)]
-    pub fn inference_rule_index(self) -> u8 { 0 }
+    pub fn inference_rule_index(self) -> u8 {
+        0
+    }
     #[inline(always)]
-    pub fn truth(self) -> crate::layout::TrustTexture { crate::layout::TrustTexture::Crystalline }
+    pub fn truth(self) -> crate::layout::TrustTexture {
+        crate::layout::TrustTexture::Crystalline
+    }
     #[inline(always)]
-    pub fn truth_raw(self) -> u8 { 0 }
+    pub fn truth_raw(self) -> u8 {
+        0
+    }
     #[inline(always)]
-    pub fn spare(self) -> u8 { 0 }
+    pub fn spare(self) -> u8 {
+        0
+    }
     #[inline]
-    pub fn with_w_slot(self, _w: u8) -> Self { self }
+    pub fn with_w_slot(self, _w: u8) -> Self {
+        self
+    }
     #[inline]
-    pub fn with_truth(self, _t: crate::layout::TrustTexture) -> Self { self }
+    pub fn with_truth(self, _t: crate::layout::TrustTexture) -> Self {
+        self
+    }
     #[inline]
-    pub fn with_inference_mantissa(self, _m: i8) -> Self { self }
+    pub fn with_inference_mantissa(self, _m: i8) -> Self {
+        self
+    }
     #[inline]
-    pub fn with_spare(self, _s: u8) -> Self { self }
+    pub fn with_spare(self, _s: u8) -> Self {
+        self
+    }
     #[inline]
-    pub fn with_routing(self, _w: u8, _t: crate::layout::TrustTexture) -> Self { self }
+    pub fn with_routing(self, _w: u8, _t: crate::layout::TrustTexture) -> Self {
+        self
+    }
     #[inline]
     pub fn set_w_slot(&mut self, _w: u8) {}
     #[inline]
@@ -1003,7 +1080,6 @@ impl CausalEdge64 {
     #[inline]
     pub fn set_spare(&mut self, _s: u8) {}
 }
-
 
 impl std::fmt::Debug for CausalEdge64 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

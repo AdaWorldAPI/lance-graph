@@ -92,6 +92,20 @@ pub struct SurrealStore {
 }
 
 impl SurrealStore {
+    /// Test-only constructor for an uninitialised `SurrealStore`. Lets
+    /// downstream tests exercise stub code paths (like
+    /// [`view::read_via_kv_lance`]) without going through the
+    /// `BLOCKED(C)`-gated `open()`. Not part of the public surface; gated
+    /// by `cfg(test)` to keep the prod constructor singular.
+    #[cfg(test)]
+    pub(crate) fn test_placeholder() -> Self {
+        Self {
+            _placeholder: std::marker::PhantomData,
+        }
+    }
+}
+
+impl SurrealStore {
     /// Open (or create) an embedded `kv-lance` Datastore at `lance_path`.
     ///
     /// `lance_path` is the filesystem path to the Lance dataset directory that
@@ -158,6 +172,18 @@ pub enum SurrealContainerError {
         reason: &'static str,
     },
 
+    /// The surrealdb fork dep is commented in `Cargo.toml` to keep default
+    /// builds fast (cold surrealdb build is heavy). The caller pattern-matches
+    /// this to fall back to a direct lance-graph read, or instructs the user
+    /// to uncomment the dep and take the cold-build cost.
+    ///
+    /// Distinct from [`SurrealContainerError::Blocked`] (which signals an
+    /// unresolved coordinate / API gap): `BlockedColdBuild` means everything
+    /// is *known* and *aligned*; only the cold-build flip-on is pending.
+    BlockedColdBuild {
+        /// Human-readable pointer to the Cargo.toml note and integration site.
+        reason: &'static str,
+    },
     // BLOCKED(C): add `Init { source: surrealdb::Error }` once fork dep lands.
     // BLOCKED(A)/(B): add `Lance { source: lance::Error }` once Lance 6 is pinned.
 }
@@ -166,6 +192,9 @@ impl std::fmt::Display for SurrealContainerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Blocked { reason } => write!(f, "surreal_container blocked: {reason}"),
+            Self::BlockedColdBuild { reason } => {
+                write!(f, "surreal_container blocked (cold-build gate): {reason}")
+            }
         }
     }
 }
@@ -213,3 +242,12 @@ pub mod compaction;
 /// Clean-writer invariants: append-only, single-writer, no LWW collision (task 12).
 // TODO task 12
 pub mod writer_invariants;
+
+/// SurrealQL read-glove: `MailboxSoaView` adapter over a kv-lance-backed
+/// mailbox row (D-PG-6 contract slice). Pairs with
+/// `lance-graph::graph::scheduler::LanceVersionScheduler` to close the
+/// IN-direction of the bidirectional kanban subscription
+/// (`E-SUBSTRATE-IS-THE-SCHEDULER`). The actual SurrealQL projection +
+/// kv-lance scan is the cold-build follow-on; the contract surface is
+/// available today.
+pub mod view;

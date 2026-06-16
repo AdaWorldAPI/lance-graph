@@ -16,6 +16,7 @@ pub mod hydrate;
 pub mod metadata;
 pub mod neighborhood;
 pub mod neuron;
+pub mod scheduler;
 pub mod semiring_map;
 pub mod sparse;
 pub mod spo;

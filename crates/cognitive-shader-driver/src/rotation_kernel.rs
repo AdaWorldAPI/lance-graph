@@ -39,7 +39,10 @@ impl std::fmt::Display for RotationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::DimMismatch { expected, actual } => {
-                write!(f, "rotation input dim mismatch: expected {expected}, got {actual}")
+                write!(
+                    f,
+                    "rotation input dim mismatch: expected {expected}, got {actual}"
+                )
             }
             Self::HadamardNotPow2 { dim } => {
                 write!(f, "Hadamard dim must be power of two, got {dim}")
@@ -97,7 +100,10 @@ pub fn build(rotation: &Rotation, dim: u32) -> Result<Box<dyn RotationKernel>, R
             }
             Ok(Box::new(HadamardRotation { dim: *h_dim }))
         }
-        Rotation::Opq { matrix_blob_id, dim: o_dim } => {
+        Rotation::Opq {
+            matrix_blob_id,
+            dim: o_dim,
+        } => {
             if *o_dim != dim {
                 return Err(RotationError::DimMismatch {
                     expected: *o_dim as usize,
@@ -134,7 +140,9 @@ impl RotationKernel for IdentityRotation {
         Ok(())
     }
 
-    fn dim(&self) -> u32 { self.dim }
+    fn dim(&self) -> u32 {
+        self.dim
+    }
 
     fn signature(&self) -> u64 {
         let mut h = DefaultHasher::new();
@@ -143,7 +151,9 @@ impl RotationKernel for IdentityRotation {
         h.finish()
     }
 
-    fn backend(&self) -> &'static str { "avx512" }
+    fn backend(&self) -> &'static str {
+        "avx512"
+    }
 }
 
 // ─── Hadamard (Sylvester butterfly) ──────────────────────────────────────
@@ -167,7 +177,10 @@ impl RotationKernel for HadamardRotation {
     fn apply(&self, vec: &mut [f32]) -> Result<(), RotationError> {
         let n = self.dim as usize;
         if vec.len() != n {
-            return Err(RotationError::DimMismatch { expected: n, actual: vec.len() });
+            return Err(RotationError::DimMismatch {
+                expected: n,
+                actual: vec.len(),
+            });
         }
         if n == 0 || !n.is_power_of_two() {
             return Err(RotationError::HadamardNotPow2 { dim: self.dim });
@@ -192,7 +205,9 @@ impl RotationKernel for HadamardRotation {
         Ok(())
     }
 
-    fn dim(&self) -> u32 { self.dim }
+    fn dim(&self) -> u32 {
+        self.dim
+    }
 
     fn signature(&self) -> u64 {
         let mut h = DefaultHasher::new();
@@ -201,7 +216,9 @@ impl RotationKernel for HadamardRotation {
         h.finish()
     }
 
-    fn backend(&self) -> &'static str { "avx512" }
+    fn backend(&self) -> &'static str {
+        "avx512"
+    }
 }
 
 // ─── OPQ (stub — real impl plugs JIT engine in D1.1b) ────────────────────
@@ -229,10 +246,14 @@ impl RotationKernel for OpqRotationStub {
             });
         }
         // Stub — no matrix loaded yet.
-        Err(RotationError::OpqMatrixNotLoaded { matrix_blob_id: self.matrix_blob_id })
+        Err(RotationError::OpqMatrixNotLoaded {
+            matrix_blob_id: self.matrix_blob_id,
+        })
     }
 
-    fn dim(&self) -> u32 { self.dim }
+    fn dim(&self) -> u32 {
+        self.dim
+    }
 
     fn signature(&self) -> u64 {
         let mut h = DefaultHasher::new();
@@ -242,7 +263,9 @@ impl RotationKernel for OpqRotationStub {
         h.finish()
     }
 
-    fn backend(&self) -> &'static str { "stub" }
+    fn backend(&self) -> &'static str {
+        "stub"
+    }
 }
 
 #[cfg(test)]
@@ -264,7 +287,13 @@ mod tests {
         let r = IdentityRotation { dim: 8 };
         let mut v = vec![0.0; 16];
         let err = r.apply(&mut v).unwrap_err();
-        assert!(matches!(err, RotationError::DimMismatch { expected: 8, actual: 16 }));
+        assert!(matches!(
+            err,
+            RotationError::DimMismatch {
+                expected: 8,
+                actual: 16
+            }
+        ));
     }
 
     #[test]
@@ -309,15 +338,26 @@ mod tests {
         let norm_sq_out: f32 = v.iter().map(|x| x * x).sum();
         let expected = 16.0 * norm_sq_in;
         let rel_err = (norm_sq_out - expected).abs() / expected;
-        assert!(rel_err < 1e-5, "norm² out {norm_sq_out} vs expected {expected}");
+        assert!(
+            rel_err < 1e-5,
+            "norm² out {norm_sq_out} vs expected {expected}"
+        );
     }
 
     #[test]
     fn opq_stub_returns_matrix_not_loaded() {
-        let r = OpqRotationStub { matrix_blob_id: 0xDEAD_BEEF, dim: 4096 };
+        let r = OpqRotationStub {
+            matrix_blob_id: 0xDEAD_BEEF,
+            dim: 4096,
+        };
         let mut v = vec![0.0; 4096];
         let err = r.apply(&mut v).unwrap_err();
-        assert!(matches!(err, RotationError::OpqMatrixNotLoaded { matrix_blob_id: 0xDEAD_BEEF }));
+        assert!(matches!(
+            err,
+            RotationError::OpqMatrixNotLoaded {
+                matrix_blob_id: 0xDEAD_BEEF
+            }
+        ));
         assert_eq!(r.backend(), "stub");
     }
 
@@ -338,7 +378,13 @@ mod tests {
     #[test]
     fn build_hadamard_rejects_mismatched_dim() {
         let err = build(&Rotation::Hadamard { dim: 4096 }, 2048).unwrap_err();
-        assert!(matches!(err, RotationError::DimMismatch { expected: 4096, actual: 2048 }));
+        assert!(matches!(
+            err,
+            RotationError::DimMismatch {
+                expected: 4096,
+                actual: 2048
+            }
+        ));
     }
 
     #[test]
@@ -349,7 +395,14 @@ mod tests {
 
     #[test]
     fn build_opq_returns_stub() {
-        let k = build(&Rotation::Opq { matrix_blob_id: 42, dim: 4096 }, 4096).unwrap();
+        let k = build(
+            &Rotation::Opq {
+                matrix_blob_id: 42,
+                dim: 4096,
+            },
+            4096,
+        )
+        .unwrap();
         assert_eq!(k.dim(), 4096);
         assert_eq!(k.backend(), "stub");
     }
@@ -358,7 +411,10 @@ mod tests {
     fn kernel_signatures_are_distinct_across_variants() {
         let id = IdentityRotation { dim: 256 };
         let had = HadamardRotation { dim: 256 };
-        let opq = OpqRotationStub { matrix_blob_id: 1, dim: 256 };
+        let opq = OpqRotationStub {
+            matrix_blob_id: 1,
+            dim: 256,
+        };
         assert_ne!(id.signature(), had.signature());
         assert_ne!(id.signature(), opq.signature());
         assert_ne!(had.signature(), opq.signature());
@@ -373,8 +429,14 @@ mod tests {
 
     #[test]
     fn opq_signature_depends_on_matrix_blob_id() {
-        let a = OpqRotationStub { matrix_blob_id: 1, dim: 4096 };
-        let b = OpqRotationStub { matrix_blob_id: 2, dim: 4096 };
+        let a = OpqRotationStub {
+            matrix_blob_id: 1,
+            dim: 4096,
+        };
+        let b = OpqRotationStub {
+            matrix_blob_id: 2,
+            dim: 4096,
+        };
         assert_ne!(a.signature(), b.signature());
     }
 }

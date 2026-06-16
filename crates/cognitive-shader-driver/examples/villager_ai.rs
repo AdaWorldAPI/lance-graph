@@ -45,27 +45,27 @@ impl WorldMapRenderer for VillagerRenderer {
     fn axis_label(&self, idx: usize) -> &str {
         // Villager-flavoured axis names mapped to the canonical 11 dimensions.
         const LABELS: [&str; 11] = [
-            "comfort",       // warmth
-            "awareness",     // clarity
-            "patience",      // depth
-            "safety",        // safety
-            "energy",        // vitality
-            "intuition",     // insight
-            "sociability",   // contact
-            "unease",        // tension
-            "curiosity",     // novelty
-            "wonder",        // wonder
-            "rapport",       // attunement
+            "comfort",     // warmth
+            "awareness",   // clarity
+            "patience",    // depth
+            "safety",      // safety
+            "energy",      // vitality
+            "intuition",   // insight
+            "sociability", // contact
+            "unease",      // tension
+            "curiosity",   // novelty
+            "wonder",      // wonder
+            "rapport",     // attunement
         ];
         LABELS.get(idx).copied().unwrap_or("")
     }
 
     fn anchor_label(&self, anchor: StateAnchor) -> &str {
         match anchor {
-            StateAnchor::Intake   => "listening",
-            StateAnchor::Focused  => "trading",
-            StateAnchor::Rest     => "sleeping",
-            StateAnchor::Flow     => "working",
+            StateAnchor::Intake => "listening",
+            StateAnchor::Focused => "trading",
+            StateAnchor::Rest => "sleeping",
+            StateAnchor::Flow => "working",
             StateAnchor::Observer => "watching",
             StateAnchor::Balanced => "socialising",
             StateAnchor::Baseline => "idle",
@@ -97,7 +97,12 @@ struct Pet {
 
 impl Pet {
     fn new(name: &'static str, species: &'static str) -> Self {
-        Self { name, species, bond: 0.0, anchor: StateAnchor::Baseline }
+        Self {
+            name,
+            species,
+            bond: 0.0,
+            anchor: StateAnchor::Baseline,
+        }
     }
 
     /// Positive interaction: feed, pet, play. Bond climbs toward 1.
@@ -148,9 +153,17 @@ impl Villager {
             name,
             profession,
             axes: ProprioceptionAxes {
-                warmth: 0.5, clarity: 0.5, depth: 0.5, safety: 0.6,
-                vitality: 0.5, insight: 0.5, contact: 0.4,
-                tension: 0.3, novelty: 0.5, wonder: 0.4, attunement: 0.5,
+                warmth: 0.5,
+                clarity: 0.5,
+                depth: 0.5,
+                safety: 0.6,
+                vitality: 0.5,
+                insight: 0.5,
+                contact: 0.4,
+                tension: 0.3,
+                novelty: 0.5,
+                wonder: 0.4,
+                attunement: 0.5,
             },
         }
     }

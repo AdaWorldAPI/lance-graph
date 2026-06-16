@@ -27,12 +27,11 @@
 //! ```
 
 use lance_graph_contract::cognitive_shader::{
-    ColumnWindow, MetaFilter, MetaWord, ShaderBus, ShaderDispatch,
-    StyleSelector, EmitMode,
+    ColumnWindow, EmitMode, MetaFilter, MetaWord, ShaderBus, ShaderDispatch, StyleSelector,
 };
 
-use lance_graph_contract::qualia::QualiaI4_16D;
 use crate::bindspace::{BindSpace, WORDS_PER_FP};
+use lance_graph_contract::qualia::QualiaI4_16D;
 
 #[cfg(feature = "with-engine")]
 use thinking_engine::dto::BusDto;
@@ -62,7 +61,9 @@ pub fn ingest_codebook_indices(
     let mut cursor = start;
 
     for &idx in indices {
-        if cursor >= bs.meta.0.len() { break; }
+        if cursor >= bs.meta.0.len() {
+            break;
+        }
 
         // Build content fingerprint: set bit at `idx` position.
         let mut content = [0u64; WORDS_PER_FP];
@@ -71,7 +72,8 @@ pub fn ingest_codebook_indices(
         bs.fingerprints.set_content(cursor, &content);
 
         // Meta: source_ordinal as thinking style, no NARS yet.
-        bs.meta.set(cursor, MetaWord::new(source_ordinal, 0, 0, 0, 0));
+        bs.meta
+            .set(cursor, MetaWord::new(source_ordinal, 0, 0, 0, 0));
         bs.temporal[cursor] = timestamp;
 
         cursor += 1;
@@ -95,7 +97,8 @@ pub fn dispatch_from_top_k(
     total_rows: u32,
     style: StyleSelector,
 ) -> ShaderDispatch {
-    let active: Vec<u16> = top_k.iter()
+    let active: Vec<u16> = top_k
+        .iter()
         .filter(|&&(_, e)| e > 0.01)
         .map(|&(idx, _)| idx)
         .collect();
@@ -228,13 +231,12 @@ fn busdto_to_binary16k(bus: &BusDto) -> [u64; WORDS_PER_FP] {
 ///
 /// Returns the row written.
 #[cfg(feature = "with-engine")]
-pub fn dispatch_busdto(
-    bs: &mut BindSpace,
-    row: usize,
-    bus: &BusDto,
-    style_ord: u8,
-) -> usize {
-    assert!(row < bs.len, "dispatch_busdto: row {row} out of bounds {}", bs.len);
+pub fn dispatch_busdto(bs: &mut BindSpace, row: usize, bus: &BusDto, style_ord: u8) -> usize {
+    assert!(
+        row < bs.len,
+        "dispatch_busdto: row {row} out of bounds {}",
+        bs.len
+    );
 
     // [1] cycle column — codebook_index + top_k indices as Binary16K → Vsa16kF32.
     let bits = busdto_to_binary16k(bus);
@@ -280,7 +282,10 @@ pub fn dispatch_busdto(
     };
     let nars_c = (bus.energy * 255.0).clamp(0.0, 255.0) as u8;
     let free_e = bus.cycle_count.min(63) as u8;
-    bs.meta.set(row, MetaWord::new(style_ord, awareness, nars_f, nars_c, free_e));
+    bs.meta.set(
+        row,
+        MetaWord::new(style_ord, awareness, nars_f, nars_c, free_e),
+    );
 
     // [4] expert column — cycle_count (full u16 fidelity, lossless).
     bs.expert[row] = bus.cycle_count;
@@ -308,7 +313,11 @@ pub fn dispatch_busdto(
 /// LOSSY for top_k entries with non-positive energy at encode.
 #[cfg(feature = "with-engine")]
 pub fn unbind_busdto(bs: &BindSpace, row: usize) -> BusDto {
-    assert!(row < bs.len, "unbind_busdto: row {row} out of bounds {}", bs.len);
+    assert!(
+        row < bs.len,
+        "unbind_busdto: row {row} out of bounds {}",
+        bs.len
+    );
 
     // [1] qualia → energy + top_k energies.
     // D-CSV-5b: bs.qualia is now QualiaI4Column; convert to f32 at the read site.
@@ -439,12 +448,12 @@ pub fn classification_distance(experienced: &[f32; 17]) -> f32 {
     // Basic emotion archetypes in QPL space (arousal, valence, tension, warmth, clarity, ...)
     const ARCHETYPES: [[f32; 6]; 6] = [
         // arousal, valence, tension, warmth, clarity, boundary
-        [0.9, -0.8, 0.9, 0.1, 0.3, 0.8],  // fear
-        [0.8, -0.6, 0.7, 0.2, 0.4, 0.6],  // anger
-        [0.2, -0.7, 0.3, 0.6, 0.2, 0.3],  // sadness
-        [0.7,  0.8, 0.1, 0.9, 0.8, 0.2],  // joy
-        [0.3,  0.1, 0.5, 0.3, 0.1, 0.9],  // surprise
-        [0.1, -0.2, 0.1, 0.2, 0.6, 0.4],  // disgust
+        [0.9, -0.8, 0.9, 0.1, 0.3, 0.8], // fear
+        [0.8, -0.6, 0.7, 0.2, 0.4, 0.6], // anger
+        [0.2, -0.7, 0.3, 0.6, 0.2, 0.3], // sadness
+        [0.7, 0.8, 0.1, 0.9, 0.8, 0.2],  // joy
+        [0.3, 0.1, 0.5, 0.3, 0.1, 0.9],  // surprise
+        [0.1, -0.2, 0.1, 0.2, 0.6, 0.4], // disgust
     ];
 
     let mut min_dist = f32::MAX;
@@ -499,53 +508,185 @@ pub struct UnifiedStyle {
 /// The 12 unified styles. Index = ordinal.
 pub const UNIFIED_STYLES: [UnifiedStyle; 12] = [
     // 0: Deliberate
-    UnifiedStyle { ordinal: 0, name: "deliberate",
-        layer_mask: 0b0111_1111, combine: 3, contra: 0, density_target: 0.08,
-        resonance_threshold: 0.70, fan_out: 7, exploration: 0.20, speed: 0.1, collapse_bias: -0.05, butterfly_sensitivity: 0.50 },
+    UnifiedStyle {
+        ordinal: 0,
+        name: "deliberate",
+        layer_mask: 0b0111_1111,
+        combine: 3,
+        contra: 0,
+        density_target: 0.08,
+        resonance_threshold: 0.70,
+        fan_out: 7,
+        exploration: 0.20,
+        speed: 0.1,
+        collapse_bias: -0.05,
+        butterfly_sensitivity: 0.50,
+    },
     // 1: Analytical
-    UnifiedStyle { ordinal: 1, name: "analytical",
-        layer_mask: 0b0111_0111, combine: 1, contra: 0, density_target: 0.05,
-        resonance_threshold: 0.85, fan_out: 3, exploration: 0.05, speed: 0.1, collapse_bias: -0.10, butterfly_sensitivity: 0.80 },
+    UnifiedStyle {
+        ordinal: 1,
+        name: "analytical",
+        layer_mask: 0b0111_0111,
+        combine: 1,
+        contra: 0,
+        density_target: 0.05,
+        resonance_threshold: 0.85,
+        fan_out: 3,
+        exploration: 0.05,
+        speed: 0.1,
+        collapse_bias: -0.10,
+        butterfly_sensitivity: 0.80,
+    },
     // 2: Convergent
-    UnifiedStyle { ordinal: 2, name: "convergent",
-        layer_mask: 0b0011_0111, combine: 1, contra: 0, density_target: 0.04,
-        resonance_threshold: 0.75, fan_out: 4, exploration: 0.10, speed: 0.3, collapse_bias: -0.05, butterfly_sensitivity: 0.70 },
+    UnifiedStyle {
+        ordinal: 2,
+        name: "convergent",
+        layer_mask: 0b0011_0111,
+        combine: 1,
+        contra: 0,
+        density_target: 0.04,
+        resonance_threshold: 0.75,
+        fan_out: 4,
+        exploration: 0.10,
+        speed: 0.3,
+        collapse_bias: -0.05,
+        butterfly_sensitivity: 0.70,
+    },
     // 3: Systematic
-    UnifiedStyle { ordinal: 3, name: "systematic",
-        layer_mask: 0b0111_1111, combine: 1, contra: 0, density_target: 0.03,
-        resonance_threshold: 0.70, fan_out: 5, exploration: 0.10, speed: 0.2, collapse_bias: 0.00, butterfly_sensitivity: 0.60 },
+    UnifiedStyle {
+        ordinal: 3,
+        name: "systematic",
+        layer_mask: 0b0111_1111,
+        combine: 1,
+        contra: 0,
+        density_target: 0.03,
+        resonance_threshold: 0.70,
+        fan_out: 5,
+        exploration: 0.10,
+        speed: 0.2,
+        collapse_bias: 0.00,
+        butterfly_sensitivity: 0.60,
+    },
     // 4: Creative
-    UnifiedStyle { ordinal: 4, name: "creative",
-        layer_mask: 0b1111_1111, combine: 0, contra: 1, density_target: 0.40,
-        resonance_threshold: 0.35, fan_out: 12, exploration: 0.80, speed: 0.5, collapse_bias: 0.15, butterfly_sensitivity: 0.20 },
+    UnifiedStyle {
+        ordinal: 4,
+        name: "creative",
+        layer_mask: 0b1111_1111,
+        combine: 0,
+        contra: 1,
+        density_target: 0.40,
+        resonance_threshold: 0.35,
+        fan_out: 12,
+        exploration: 0.80,
+        speed: 0.5,
+        collapse_bias: 0.15,
+        butterfly_sensitivity: 0.20,
+    },
     // 5: Divergent
-    UnifiedStyle { ordinal: 5, name: "divergent",
-        layer_mask: 0b1000_1001, combine: 0, contra: 2, density_target: 0.30,
-        resonance_threshold: 0.40, fan_out: 10, exploration: 0.70, speed: 0.4, collapse_bias: 0.10, butterfly_sensitivity: 0.35 },
+    UnifiedStyle {
+        ordinal: 5,
+        name: "divergent",
+        layer_mask: 0b1000_1001,
+        combine: 0,
+        contra: 2,
+        density_target: 0.30,
+        resonance_threshold: 0.40,
+        fan_out: 10,
+        exploration: 0.70,
+        speed: 0.4,
+        collapse_bias: 0.10,
+        butterfly_sensitivity: 0.35,
+    },
     // 6: Exploratory
-    UnifiedStyle { ordinal: 6, name: "exploratory",
-        layer_mask: 0b1111_1111, combine: 0, contra: 1, density_target: 0.50,
-        resonance_threshold: 0.30, fan_out: 15, exploration: 0.90, speed: 0.6, collapse_bias: 0.20, butterfly_sensitivity: 0.15 },
+    UnifiedStyle {
+        ordinal: 6,
+        name: "exploratory",
+        layer_mask: 0b1111_1111,
+        combine: 0,
+        contra: 1,
+        density_target: 0.50,
+        resonance_threshold: 0.30,
+        fan_out: 15,
+        exploration: 0.90,
+        speed: 0.6,
+        collapse_bias: 0.20,
+        butterfly_sensitivity: 0.15,
+    },
     // 7: Focused
-    UnifiedStyle { ordinal: 7, name: "focused",
-        layer_mask: 0b0000_0011, combine: 1, contra: 0, density_target: 0.02,
-        resonance_threshold: 0.90, fan_out: 1, exploration: 0.00, speed: 0.2, collapse_bias: -0.15, butterfly_sensitivity: 0.90 },
+    UnifiedStyle {
+        ordinal: 7,
+        name: "focused",
+        layer_mask: 0b0000_0011,
+        combine: 1,
+        contra: 0,
+        density_target: 0.02,
+        resonance_threshold: 0.90,
+        fan_out: 1,
+        exploration: 0.00,
+        speed: 0.2,
+        collapse_bias: -0.15,
+        butterfly_sensitivity: 0.90,
+    },
     // 8: Diffuse
-    UnifiedStyle { ordinal: 8, name: "diffuse",
-        layer_mask: 0b0111_0111, combine: 2, contra: 3, density_target: 0.20,
-        resonance_threshold: 0.45, fan_out: 8, exploration: 0.40, speed: 0.5, collapse_bias: 0.05, butterfly_sensitivity: 0.25 },
+    UnifiedStyle {
+        ordinal: 8,
+        name: "diffuse",
+        layer_mask: 0b0111_0111,
+        combine: 2,
+        contra: 3,
+        density_target: 0.20,
+        resonance_threshold: 0.45,
+        fan_out: 8,
+        exploration: 0.40,
+        speed: 0.5,
+        collapse_bias: 0.05,
+        butterfly_sensitivity: 0.25,
+    },
     // 9: Peripheral
-    UnifiedStyle { ordinal: 9, name: "peripheral",
-        layer_mask: 0b1110_0000, combine: 0, contra: 1, density_target: 0.35,
-        resonance_threshold: 0.20, fan_out: 20, exploration: 0.60, speed: 0.7, collapse_bias: 0.25, butterfly_sensitivity: 0.10 },
+    UnifiedStyle {
+        ordinal: 9,
+        name: "peripheral",
+        layer_mask: 0b1110_0000,
+        combine: 0,
+        contra: 1,
+        density_target: 0.35,
+        resonance_threshold: 0.20,
+        fan_out: 20,
+        exploration: 0.60,
+        speed: 0.7,
+        collapse_bias: 0.25,
+        butterfly_sensitivity: 0.10,
+    },
     // 10: Intuitive
-    UnifiedStyle { ordinal: 10, name: "intuitive",
-        layer_mask: 0b0000_0001, combine: 0, contra: 1, density_target: 0.50,
-        resonance_threshold: 0.50, fan_out: 3, exploration: 0.30, speed: 0.9, collapse_bias: 0.00, butterfly_sensitivity: 0.30 },
+    UnifiedStyle {
+        ordinal: 10,
+        name: "intuitive",
+        layer_mask: 0b0000_0001,
+        combine: 0,
+        contra: 1,
+        density_target: 0.50,
+        resonance_threshold: 0.50,
+        fan_out: 3,
+        exploration: 0.30,
+        speed: 0.9,
+        collapse_bias: 0.00,
+        butterfly_sensitivity: 0.30,
+    },
     // 11: Metacognitive
-    UnifiedStyle { ordinal: 11, name: "metacognitive",
-        layer_mask: 0b1110_0000, combine: 2, contra: 3, density_target: 0.10,
-        resonance_threshold: 0.50, fan_out: 5, exploration: 0.30, speed: 0.3, collapse_bias: 0.00, butterfly_sensitivity: 0.40 },
+    UnifiedStyle {
+        ordinal: 11,
+        name: "metacognitive",
+        layer_mask: 0b1110_0000,
+        combine: 2,
+        contra: 3,
+        density_target: 0.10,
+        resonance_threshold: 0.50,
+        fan_out: 5,
+        exploration: 0.30,
+        speed: 0.3,
+        collapse_bias: 0.00,
+        butterfly_sensitivity: 0.40,
+    },
 ];
 
 pub fn unified_style(ord: u8) -> &'static UnifiedStyle {
@@ -562,12 +703,7 @@ pub fn unified_style(ord: u8) -> &'static UnifiedStyle {
 /// - meta update (gate state → awareness, NARS → f/c)
 ///
 /// Returns the row written.
-pub fn persist_cycle(
-    bs: &mut BindSpace,
-    row: usize,
-    bus: &ShaderBus,
-    style_ord: u8,
-) {
+pub fn persist_cycle(bs: &mut BindSpace, row: usize, bus: &ShaderBus, style_ord: u8) {
     bs.write_cycle_fingerprint(row, &bus.cycle_fingerprint);
 
     if bus.emitted_edge_count > 0 {
@@ -583,7 +719,10 @@ pub fn persist_cycle(
     let nars_c = ((1.0 - bus.resonance.std_dev) * 255.0).clamp(0.0, 255.0) as u8;
     let free_e = ((bus.resonance.entropy / 3.0) * 63.0).clamp(0.0, 63.0) as u8;
 
-    bs.meta.set(row, MetaWord::new(style_ord, awareness, nars_f, nars_c, free_e));
+    bs.meta.set(
+        row,
+        MetaWord::new(style_ord, awareness, nars_f, nars_c, free_e),
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -628,8 +767,12 @@ mod tests {
     fn engine_bus_bridge_extracts_top1() {
         let mut bus = ShaderBus::empty();
         bus.resonance.top_k[0] = ShaderHit {
-            row: 42, distance: 100, predicates: 0x07, _pad: 0,
-            resonance: 0.85, cycle_index: 0,
+            row: 42,
+            distance: 100,
+            predicates: 0x07,
+            _pad: 0,
+            resonance: 0.85,
+            cycle_index: 0,
         };
         bus.gate = GateDecision::FLOW_XOR;
         let bridge = EngineBusBridge::from_shader_bus(&bus);
@@ -645,46 +788,64 @@ mod tests {
         // Round-trip tolerance must be >= 1 i4 step (0.15 covers it).
         let mut bs = BindSpace::zeros(2);
         let mut q17 = [0.0f32; 17];
-        q17[0] = 0.8;   // arousal: round(0.8*7)=6 → 6/7 ≈ 0.857 (within 0.15 of 0.8)
+        q17[0] = 0.8; // arousal: round(0.8*7)=6 → 6/7 ≈ 0.857 (within 0.15 of 0.8)
         q17[4] = 0.571; // clarity: round(0.571*7)=4 → 4/7 ≈ 0.571 (near-exact)
         q17[14] = -0.25; // groundedness: round(-0.25*8)=-2 → -2/8 = -0.25 (exact)
         write_qualia_17d(&mut bs, 0, &q17);
         let back = read_qualia_17d(&bs, 0);
         // Tolerance = 0.15 (1 i4 step). Values chosen to be representable in i4.
-        assert!((back[0] - q17[0]).abs() < 0.15,
-            "dim 0: expected ~{}, got {} (i4 quantization ±0.15)", q17[0], back[0]);
-        assert!((back[4] - q17[4]).abs() < 0.15,
-            "dim 4: expected ~{}, got {} (i4 quantization ±0.15)", q17[4], back[4]);
-        assert!((back[14] - q17[14]).abs() < 0.15,
-            "dim 14: expected ~{}, got {} (i4 quantization ±0.15)", q17[14], back[14]);
+        assert!(
+            (back[0] - q17[0]).abs() < 0.15,
+            "dim 0: expected ~{}, got {} (i4 quantization ±0.15)",
+            q17[0],
+            back[0]
+        );
+        assert!(
+            (back[4] - q17[4]).abs() < 0.15,
+            "dim 4: expected ~{}, got {} (i4 quantization ±0.15)",
+            q17[4],
+            back[4]
+        );
+        assert!(
+            (back[14] - q17[14]).abs() < 0.15,
+            "dim 14: expected ~{}, got {} (i4 quantization ±0.15)",
+            q17[14],
+            back[14]
+        );
     }
 
     #[test]
     fn cmyk_rgb_fear_is_near_zero_distance() {
         // "Fear" archetype: high arousal, negative valence, high tension
         let mut fear = [0.0f32; 17];
-        fear[0] = 0.9;  // arousal
+        fear[0] = 0.9; // arousal
         fear[1] = -0.8; // valence
-        fear[2] = 0.9;  // tension
-        fear[3] = 0.1;  // warmth
-        fear[4] = 0.3;  // clarity
-        fear[5] = 0.8;  // boundary
+        fear[2] = 0.9; // tension
+        fear[3] = 0.1; // warmth
+        fear[4] = 0.3; // clarity
+        fear[5] = 0.8; // boundary
         let cd = classification_distance(&fear);
-        assert!(cd < 0.15, "Fear should be near-zero distance (named), got {cd}");
+        assert!(
+            cd < 0.15,
+            "Fear should be near-zero distance (named), got {cd}"
+        );
     }
 
     #[test]
     fn cmyk_rgb_steelwind_is_far() {
         // "Steelwind" — a novel qualia with no archetype match
         let mut steelwind = [0.0f32; 17];
-        steelwind[0] = 0.5;  // moderate arousal
-        steelwind[1] = 0.5;  // positive valence
-        steelwind[2] = 0.8;  // high tension (unusual with positive valence)
-        steelwind[3] = 0.0;  // no warmth
-        steelwind[4] = 0.9;  // very clear
-        steelwind[5] = 0.0;  // no boundary
+        steelwind[0] = 0.5; // moderate arousal
+        steelwind[1] = 0.5; // positive valence
+        steelwind[2] = 0.8; // high tension (unusual with positive valence)
+        steelwind[3] = 0.0; // no warmth
+        steelwind[4] = 0.9; // very clear
+        steelwind[5] = 0.0; // no boundary
         let cd = classification_distance(&steelwind);
-        assert!(cd > 0.3, "Steelwind should be far from named emotions, got {cd}");
+        assert!(
+            cd > 0.3,
+            "Steelwind should be far from named emotions, got {cd}"
+        );
     }
 
     #[test]
@@ -698,11 +859,18 @@ mod tests {
         experienced[0] = 4.0 / 7.0; // exact i4 representation: round(4/7*7)=4 → 4/7
         write_qualia_observed(&mut bs, 0, &experienced, 0.75);
         let (back_exp, back_cd) = read_qualia_decomposed(&bs, 0);
-        assert!((back_exp[0] - experienced[0]).abs() < 0.15,
-            "experienced dim 0: expected ~{}, got {} (i4 quantization)", experienced[0], back_exp[0]);
+        assert!(
+            (back_exp[0] - experienced[0]).abs() < 0.15,
+            "experienced dim 0: expected ~{}, got {} (i4 quantization)",
+            experienced[0],
+            back_exp[0]
+        );
         // classification_distance is not stored post-cutover; returns 1.0 (default)
-        assert!((back_cd - 1.0).abs() < 1e-6,
-            "D-CSV-5b: classification_distance not stored in i4 column; expected 1.0, got {}", back_cd);
+        assert!(
+            (back_cd - 1.0).abs() < 1e-6,
+            "D-CSV-5b: classification_distance not stored in i4 column; expected 1.0, got {}",
+            back_cd
+        );
     }
 
     #[test]
@@ -732,8 +900,8 @@ mod tests {
         let meta = bs.meta.get(0);
         assert_eq!(meta.thinking(), auto_style::ANALYTICAL);
         assert_eq!(meta.awareness(), 3); // Flow = 3
-        assert!(meta.nars_f() > 200);   // 0.9 * 255 ≈ 230
-        assert!(meta.nars_c() > 200);   // (1-0.1) * 255 ≈ 230
+        assert!(meta.nars_f() > 200); // 0.9 * 255 ≈ 230
+        assert!(meta.nars_c() > 200); // (1-0.1) * 255 ≈ 230
         assert_eq!(bs.edges.get(0), 0xDEAD);
     }
 }

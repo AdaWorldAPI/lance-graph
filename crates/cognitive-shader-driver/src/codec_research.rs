@@ -71,18 +71,23 @@ pub fn calibrate_tensor(req: &WireCalibrateRequest) -> Result<WireCalibrateRespo
     let row_dim = if rows.is_empty() { 0 } else { rows[0].len() };
     let adjusted_dim = (row_dim / req.num_subspaces) * req.num_subspaces;
     if adjusted_dim == 0 {
-        return Err(format!("row_dim {row_dim} < num_subspaces {}", req.num_subspaces));
+        return Err(format!(
+            "row_dim {row_dim} < num_subspaces {}",
+            req.num_subspaces
+        ));
     }
 
     let t0 = std::time::Instant::now();
     let calibration_rows: Vec<Vec<f32>> = match req.max_rows {
-        Some(n) if n < n_rows => rows[..n].iter().map(|r| r[..adjusted_dim].to_vec()).collect(),
+        Some(n) if n < n_rows => rows[..n]
+            .iter()
+            .map(|r| r[..adjusted_dim].to_vec())
+            .collect(),
         _ => rows.iter().map(|r| r[..adjusted_dim].to_vec()).collect(),
     };
     let cal_n = calibration_rows.len();
 
-    let codebook =
-        cam_pq::train_geometric(&calibration_rows, adjusted_dim, req.kmeans_iterations);
+    let codebook = cam_pq::train_geometric(&calibration_rows, adjusted_dim, req.kmeans_iterations);
 
     let sliced: Vec<Vec<f32>> = rows.iter().map(|r| r[..adjusted_dim].to_vec()).collect();
     let icc = measure_icc(&sliced, &codebook, req.icc_samples);

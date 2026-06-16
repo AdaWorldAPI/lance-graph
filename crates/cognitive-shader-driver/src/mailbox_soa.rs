@@ -29,7 +29,9 @@
 use causal_edge::CausalEdge64;
 use lance_graph_contract::cognitive_shader::MetaWord;
 use lance_graph_contract::collapse_gate::MailboxId;
+use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
 use lance_graph_contract::qualia::QualiaI4_16D;
+use lance_graph_contract::soa_view::{MailboxSoaOwner, MailboxSoaView};
 
 /// Spatial-temporal accumulator for per-row edge receipts.
 ///
@@ -71,7 +73,6 @@ pub struct MailboxSoA<const N: usize> {
     pub last_active_cycle: [u32; N],
 
     // ── NEW: migrated thoughtspace columns (per-mailbox owned, D-MBX-A1) ──
-
     /// Per-row LE baton edge (`CausalEdge64`, 8 B/row).
     /// Migrated from `BindSpace.edges` (EdgeColumn).
     /// This IS the LE contract / baton edge for this mailbox row.
@@ -105,6 +106,18 @@ pub struct MailboxSoA<const N: usize> {
     /// A row is firing when `energy[row].abs() >= threshold`
     /// (see [`Self::pending_count`]).
     pub threshold: f32,
+
+    /// The Rubicon lifecycle column this mailbox currently occupies — the
+    /// **cognitive** FSM state (distinct from ractor's process-lifecycle
+    /// `ActorStatus`; see `.claude/knowledge/orchestration-boundary-v1.md`).
+    /// Mutated only via [`MailboxSoaOwner::advance_phase`] /
+    /// [`MailboxSoaOwner::try_advance_phase`]; starts at
+    /// [`KanbanColumn::Planning`]. Read it through the
+    /// [`MailboxSoaView::phase`] getter. `pub(crate)` (not `pub`) so the
+    /// "mutated only via the owner trait" invariant is compiler-enforced — a
+    /// downstream crate cannot assign an arbitrary column directly and bypass
+    /// the lifecycle DAG check + `KanbanMove` emission (PR #507 review).
+    pub(crate) phase: KanbanColumn,
 }
 
 /// Default capacity: 1024 rows (4× current BindSpace row count).
@@ -139,6 +152,8 @@ impl<const N: usize> MailboxSoA<N> {
             qualia: [QualiaI4_16D::ZERO; N],
             meta: [MetaWord(0); N],
             entity_type: [0u16; N],
+            // Pre-Rubicon: every mailbox starts in deliberation.
+            phase: KanbanColumn::Planning,
         }
     }
 
@@ -168,8 +183,7 @@ impl<const N: usize> MailboxSoA<N> {
             let m = edge.inference_mantissa() as f32 / 8.0;
             let c = edge.confidence();
             self.energy[row] += m * c;
-            self.plasticity_counter[row] =
-                self.plasticity_counter[row].saturating_add(1);
+            self.plasticity_counter[row] = self.plasticity_counter[row].saturating_add(1);
             accepted += 1;
         }
         accepted
@@ -324,6 +338,100 @@ impl<const N: usize> MailboxSoA<N> {
     }
 }
 
+// ── Contract trait impls: MailboxSoA IS the in-RAM Rubicon owner ──────────────
+//
+// `MailboxSoaView` (read) + `MailboxSoaOwner` (write) make `MailboxSoA<N>` the
+// in-RAM owner the contract names (`soa_view.rs` doc: "implements
+// MailboxSoaOwner"). With these, a real `MailboxSoA` is BOTH the `view` a
+// `VersionScheduler::on_version` reads AND the `owner` whose `try_advance_phase`
+// applies the proposed `KanbanMove` — the in-process driving loop, no surreal /
+// ractor message bus needed. The surreal-side external trigger (`surreal_container`
+// view + `Notification → on_version`) is the fork-blocked follow-on (OQ-11.6).
+
+impl<const N: usize> MailboxSoaView for MailboxSoA<N> {
+    #[inline]
+    fn mailbox_id(&self) -> MailboxId {
+        self.mailbox_id
+    }
+    #[inline]
+    fn n_rows(&self) -> usize {
+        N
+    }
+    #[inline]
+    fn w_slot(&self) -> u8 {
+        self.w_slot
+    }
+    #[inline]
+    fn current_cycle(&self) -> u32 {
+        self.current_cycle
+    }
+    #[inline]
+    fn phase(&self) -> KanbanColumn {
+        self.phase
+    }
+    #[inline]
+    fn energy(&self) -> &[f32] {
+        &self.energy
+    }
+    #[inline]
+    fn edges_raw(&self) -> &[u64] {
+        // The `#[repr(transparent)]` on `CausalEdge64` (causal-edge `edge.rs`) is
+        // the load-bearing layout guarantee for this cast; the const guards below
+        // make a layout regression a COMPILE error (not silent UB) even if the
+        // repr is ever removed upstream.
+        const _: () = assert!(core::mem::size_of::<CausalEdge64>() == core::mem::size_of::<u64>());
+        const _: () =
+            assert!(core::mem::align_of::<CausalEdge64>() == core::mem::align_of::<u64>());
+        // SAFETY: `CausalEdge64` is `#[repr(transparent)]` over `u64` (causal-edge
+        // `edge.rs`), so `[CausalEdge64; N]` has identical size/alignment/layout to
+        // `[u64; N]` (the two `const _` asserts above enforce it at compile time).
+        // The pointer is non-null, aligned, and valid for `N` `u64` reads; the
+        // returned slice borrows `&self`, so it cannot outlive the backing array.
+        // Zero-copy — never clones the store (R1).
+        unsafe { core::slice::from_raw_parts(self.edges.as_ptr() as *const u64, N) }
+    }
+    #[inline]
+    fn meta_raw(&self) -> &[u32] {
+        const _: () = assert!(core::mem::size_of::<MetaWord>() == core::mem::size_of::<u32>());
+        const _: () = assert!(core::mem::align_of::<MetaWord>() == core::mem::align_of::<u32>());
+        // SAFETY: `MetaWord` is `#[repr(transparent)]` over `u32`
+        // (lance-graph-contract `cognitive_shader.rs`), so `[MetaWord; N]` has
+        // identical layout to `[u32; N]` (const-asserted above). Same
+        // validity/lifetime reasoning as `edges_raw`. Zero-copy.
+        unsafe { core::slice::from_raw_parts(self.meta.as_ptr() as *const u32, N) }
+    }
+    #[inline]
+    fn entity_type(&self) -> &[u16] {
+        &self.entity_type
+    }
+}
+
+impl<const N: usize> MailboxSoaOwner for MailboxSoA<N> {
+    /// Advance the Rubicon column and emit the move. Prefer the trait's checked
+    /// [`MailboxSoaOwner::try_advance_phase`] (it enforces the lifecycle DAG);
+    /// this unchecked primitive is what it calls after the legality check passes.
+    fn advance_phase(&mut self, to: KanbanColumn) -> KanbanMove {
+        let from = self.phase;
+        self.phase = to;
+        KanbanMove {
+            mailbox: self.mailbox_id,
+            from,
+            to,
+            // Structural witness position (R4): the monotonic cycle stamp stands in
+            // for the chain index until the witness_arc column lands — matching
+            // `NextPhaseScheduler`'s convention.
+            witness_chain_position: self.current_cycle,
+            libet_offset_us: if from == KanbanColumn::Planning && to == KanbanColumn::CognitiveWork
+            {
+                -550_000
+            } else {
+                0
+            },
+            exec: ExecTarget::Native,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -422,7 +530,11 @@ mod tests {
 
         assert_eq!(accepted, 0, "wrong-w_slot baton must be rejected");
         assert_eq!(mb.energy_at(2), 0.0, "energy[2] must be unchanged");
-        assert_eq!(mb.plasticity_at(2), 0, "plasticity_counter[2] must be unchanged");
+        assert_eq!(
+            mb.plasticity_at(2),
+            0,
+            "plasticity_counter[2] must be unchanged"
+        );
     }
 
     // ── test 5: out-of-range target rejected ─────────────────────────────────
@@ -461,8 +573,7 @@ mod tests {
             "energy[3] must reset to 0 after consumption"
         );
         assert_eq!(
-            mb.last_active_cycle[3],
-            mb.current_cycle,
+            mb.last_active_cycle[3], mb.current_cycle,
             "last_active_cycle[3] must equal current_cycle"
         );
     }
@@ -475,7 +586,10 @@ mod tests {
         let mut mb: MailboxSoA<8> = MailboxSoA::new(5, 2, 1.0);
         mb.energy[3] = 0.5; // below 1.0 threshold
 
-        assert!(!mb.consume_firing(3), "below-threshold row must not consume");
+        assert!(
+            !mb.consume_firing(3),
+            "below-threshold row must not consume"
+        );
         assert_eq!(mb.energy_at(3), 0.5, "energy[3] must be unchanged");
     }
 
@@ -537,5 +651,102 @@ mod tests {
         let mut mb: MailboxSoA<8> = MailboxSoA::new(1, 0, 1.0);
         assert!(!mb.consume_firing(8), "row == N must be rejected");
         assert!(!mb.consume_firing(100), "row > N must be rejected");
+    }
+
+    // ── test 11: the in-RAM driving loop (OUT+IN over a REAL MailboxSoA) ──────
+
+    /// `VersionScheduler::on_version` proposes → `MailboxSoaOwner::try_advance_phase`
+    /// applies, on a real `MailboxSoA` (not the contract's `FakeView`/`FakeSoa`).
+    /// Drives the Rubicon forward arc Planning → CognitiveWork → Evaluation →
+    /// Commit and halts at the absorbing column. This is the unblocked in-RAM
+    /// loop — surreal's external version trigger is the fork-blocked follow-on.
+    #[test]
+    fn test_in_ram_driving_loop_walks_rubicon_to_commit() {
+        use lance_graph_contract::kanban::ExecTarget;
+        use lance_graph_contract::scheduler::{
+            DatasetVersion, NextPhaseScheduler, VersionScheduler,
+        };
+
+        let mut mb: MailboxSoA<8> = MailboxSoA::new(42, 5, 1.0);
+        assert_eq!(mb.phase(), KanbanColumn::Planning, "starts pre-Rubicon");
+
+        let sched = NextPhaseScheduler;
+        let mut steps = 0u32;
+        let mut first_libet = 0i32;
+        for v in 1..=10u64 {
+            // IN-direction: the scheduler lowers a version tick to the next move…
+            let Some(mv) = sched.on_version(&mb, DatasetVersion(v), ExecTarget::Native) else {
+                break; // absorbing column reached — the cycle ended
+            };
+            // …proposed from the mailbox's CURRENT phase…
+            assert_eq!(mv.from, mb.phase());
+            // …and OUT-direction: the owner applies it through the checked airgap.
+            let applied = mb
+                .try_advance_phase(mv.to)
+                .expect("the scheduler proposes only legal Rubicon edges");
+            assert_eq!(applied.to, mv.to);
+            if steps == 0 {
+                first_libet = applied.libet_offset_us;
+            }
+            steps += 1;
+        }
+
+        assert_eq!(
+            mb.phase(),
+            KanbanColumn::Commit,
+            "the forward arc calcifies at Commit"
+        );
+        assert!(mb.phase().is_absorbing());
+        assert_eq!(
+            steps, 3,
+            "Planning→CognitiveWork→Evaluation→Commit = 3 advances"
+        );
+        assert_eq!(
+            first_libet, -550_000,
+            "the Planning→CognitiveWork crossing carries the Libet −550 ms anchor"
+        );
+    }
+
+    // ── test 12: the unsafe zero-copy reinterpret casts round-trip ───────────
+
+    /// Exercises the `repr(transparent)` reinterpret casts in `edges_raw()` /
+    /// `meta_raw()` — the only genuinely `unsafe` code path in this impl, which
+    /// the driving-loop test never touches. Writes known bit patterns into the
+    /// `[CausalEdge64; N]` / `[MetaWord; N]` columns and asserts the `&[u64]` /
+    /// `&[u32]` views read the SAME bytes back. A layout regression on either
+    /// newtype would fail HERE (in addition to the `const _` size/align guards
+    /// at the cast site failing to compile).
+    #[test]
+    fn test_edges_raw_meta_raw_reinterpret_round_trips() {
+        let mut mb: MailboxSoA<4> = MailboxSoA::new(1, 0, 1.0);
+        // Distinct, non-trivial bit patterns per row.
+        for (i, raw) in [0xDEAD_BEEF_CAFE_0001u64, 2, 0xFFFF_FFFF_FFFF_FFFF, 0]
+            .into_iter()
+            .enumerate()
+        {
+            mb.edges[i] = CausalEdge64(raw);
+            mb.meta[i] = MetaWord((raw & 0xFFFF_FFFF) as u32);
+        }
+
+        let edges_view: &[u64] = mb.edges_raw();
+        let meta_view: &[u32] = mb.meta_raw();
+        assert_eq!(edges_view.len(), 4);
+        assert_eq!(meta_view.len(), 4);
+        for i in 0..4 {
+            // The reinterpret reads the EXACT u64/u32 backing the newtype.
+            assert_eq!(edges_view[i], mb.edges[i].0, "edges_raw[{i}] bit-exact");
+            assert_eq!(meta_view[i], mb.meta[i].0, "meta_raw[{i}] bit-exact");
+        }
+        // Pointer identity: the view borrows the column, never copies it (R1).
+        assert_eq!(
+            edges_view.as_ptr() as usize,
+            mb.edges.as_ptr() as usize,
+            "edges_raw is zero-copy (same backing pointer)"
+        );
+        assert_eq!(
+            meta_view.as_ptr() as usize,
+            mb.meta.as_ptr() as usize,
+            "meta_raw is zero-copy (same backing pointer)"
+        );
     }
 }

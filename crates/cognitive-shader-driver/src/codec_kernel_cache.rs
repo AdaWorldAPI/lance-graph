@@ -136,7 +136,11 @@ impl<H: Clone> CodecKernelCache<H> {
         let hits = self.hit_count() as f64;
         let compiles = self.compile_count() as f64;
         let total = hits + compiles;
-        if total < 0.5 { 0.0 } else { hits / total }
+        if total < 0.5 {
+            0.0
+        } else {
+            hits / total
+        }
     }
 
     /// Check whether a specific signature is cached without calling compile.
@@ -184,7 +188,11 @@ impl StubKernel {
         Self {
             signature: params.kernel_signature(),
             is_matmul_heavy: params.is_matmul_heavy(),
-            backend: if params.is_matmul_heavy() { "amx" } else { "avx512" },
+            backend: if params.is_matmul_heavy() {
+                "amx"
+            } else {
+                "avx512"
+            },
         }
     }
 }
@@ -254,7 +262,10 @@ mod tests {
     fn matmul_heavy_params_select_amx_backend_in_stub() {
         let opq = CodecParamsBuilder::new()
             .lane_width(LaneWidth::BF16x32)
-            .rotation(Rotation::Opq { matrix_blob_id: 42, dim: 4096 })
+            .rotation(Rotation::Opq {
+                matrix_blob_id: 42,
+                dim: 4096,
+            })
             .build()
             .unwrap();
         let identity = CodecParamsBuilder::new().build().unwrap();
@@ -319,11 +330,19 @@ mod tests {
             CodecParamsBuilder::new().centroids(256).build().unwrap(),
             CodecParamsBuilder::new().centroids(512).build().unwrap(),
             CodecParamsBuilder::new().centroids(1024).build().unwrap(),
-            CodecParamsBuilder::new().centroids(256).seed(999).build().unwrap(), // same sig as first
+            CodecParamsBuilder::new()
+                .centroids(256)
+                .seed(999)
+                .build()
+                .unwrap(), // same sig as first
             CodecParamsBuilder::new()
                 .lane_width(LaneWidth::BF16x32)
-                .rotation(Rotation::Opq { matrix_blob_id: 1, dim: 4096 })
-                .build().unwrap(),
+                .rotation(Rotation::Opq {
+                    matrix_blob_id: 1,
+                    dim: 4096,
+                })
+                .build()
+                .unwrap(),
         ];
 
         for p in &candidates {

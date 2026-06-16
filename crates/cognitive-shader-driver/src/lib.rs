@@ -92,12 +92,12 @@
 // engine are just consumers that plug in via the bridge.
 pub mod attention_mask;
 pub mod attention_mask_actor;
+pub mod auto_style;
 pub mod bindspace;
 pub mod driver;
-pub mod auto_style;
 pub mod engine_bridge;
-pub mod sigma_rosetta;
 pub mod mailbox_soa;
+pub mod sigma_rosetta;
 
 // ──────────────────────────────────────────────────────────────────────
 // LAB-ONLY modules — compiled only into the shader-lab binary. Never
@@ -183,9 +183,9 @@ pub mod cypher_bridge;
 pub mod planner_bridge;
 
 pub use lance_graph_contract::cognitive_shader::{
-    CognitiveShaderDriver, ColumnWindow, EmitMode, MetaFilter, MetaSummary, MetaWord,
-    NullSink, RungLevel, ShaderBus, ShaderCrystal, ShaderDispatch, ShaderHit,
-    ShaderResonance, ShaderSink, StyleSelector,
+    CognitiveShaderDriver, ColumnWindow, EmitMode, MetaFilter, MetaSummary, MetaWord, NullSink,
+    RungLevel, ShaderBus, ShaderCrystal, ShaderDispatch, ShaderHit, ShaderResonance, ShaderSink,
+    StyleSelector,
 };
 
 pub use lance_graph_contract::collapse_gate::{GateDecision, MergeMode};
@@ -194,13 +194,13 @@ pub use lance_graph_contract::collapse_gate::{GateDecision, MergeMode};
 // QualiaColumn (f32, 72 B/row) is deprecated and will be removed in the next
 // major version. Use bs.qualia (now QualiaI4Column) for all new code.
 #[allow(deprecated)]
-pub use bindspace::{BindSpace, BindSpaceBuilder, EdgeColumn, FingerprintColumns,
-                     MetaColumn, QualiaI4Column,
-                     QualiaColumn}; // deprecated — use QualiaI4Column
+pub use bindspace::{
+    BindSpace, BindSpaceBuilder, EdgeColumn, FingerprintColumns, MetaColumn, QualiaColumn,
+    QualiaI4Column,
+}; // deprecated — use QualiaI4Column
 pub use driver::{CognitiveShaderBuilder, ShaderDriver};
 pub use engine_bridge::{
-    EngineBusBridge, UnifiedStyle, UNIFIED_STYLES, unified_style,
-    ingest_codebook_indices, dispatch_from_top_k,
-    write_qualia_17d, read_qualia_17d, persist_cycle,
+    dispatch_from_top_k, ingest_codebook_indices, persist_cycle, read_qualia_17d, unified_style,
+    write_qualia_17d, EngineBusBridge, UnifiedStyle, UNIFIED_STYLES,
 };
-pub use mailbox_soa::{MailboxSoA, DefaultMailboxSoA};
+pub use mailbox_soa::{DefaultMailboxSoA, MailboxSoA};

@@ -29,10 +29,7 @@ mod v2_layout_tests {
     fn test_w_slot_roundtrip() {
         for w in [0u8, 1, 31, 63] {
             let edge = CausalEdge64::ZERO.with_w_slot(w);
-            assert_eq!(
-                edge.w_slot(), w,
-                "w_slot round-trip failed for w={w}"
-            );
+            assert_eq!(edge.w_slot(), w, "w_slot round-trip failed for w={w}");
         }
     }
 
@@ -47,10 +44,7 @@ mod v2_layout_tests {
             TrustTexture::Murky,
         ] {
             let edge = CausalEdge64::ZERO.with_truth(t);
-            assert_eq!(
-                edge.truth(), t,
-                "truth round-trip failed for {t:?}"
-            );
+            assert_eq!(edge.truth(), t, "truth round-trip failed for {t:?}");
         }
     }
 
@@ -62,7 +56,8 @@ mod v2_layout_tests {
         for m in [-8i8, -7, -1, 0, 1, 7] {
             let edge = CausalEdge64::ZERO.with_inference_mantissa(m);
             assert_eq!(
-                edge.inference_mantissa(), m,
+                edge.inference_mantissa(),
+                m,
                 "inference_mantissa signed round-trip failed for m={m}"
             );
         }
@@ -75,7 +70,11 @@ mod v2_layout_tests {
         // v2 signature: with_routing(w: u8, t: TrustTexture) — no g parameter (L-3)
         let edge = CausalEdge64::ZERO.with_routing(42, TrustTexture::Fuzzy);
         assert_eq!(edge.w_slot(), 42, "with_routing: w_slot mismatch");
-        assert_eq!(edge.truth(), TrustTexture::Fuzzy, "with_routing: truth mismatch");
+        assert_eq!(
+            edge.truth(),
+            TrustTexture::Fuzzy,
+            "with_routing: truth mismatch"
+        );
     }
 
     // ── test_v2_fields_do_not_disturb_v1_fields ────────────────────────────
@@ -85,13 +84,16 @@ mod v2_layout_tests {
         // Build a v1-style edge using the existing pack() (back-compat path).
         #[allow(deprecated)]
         let base = CausalEdge64::pack(
-            143, 7, 201,            // S, P, O palette indices
-            209, 181,               // NARS f=0.82, c=0.71
-            CausalMask::PO,         // interventional level
-            0b101,                  // direction triad
+            143,
+            7,
+            201, // S, P, O palette indices
+            209,
+            181,            // NARS f=0.82, c=0.71
+            CausalMask::PO, // interventional level
+            0b101,          // direction triad
             InferenceType::Deduction,
             PlasticityState::S_HOT,
-            0,                      // temporal = 0 (v1 compat; bits 52-63 must be 0 for v2 clean read)
+            0, // temporal = 0 (v1 compat; bits 52-63 must be 0 for v2 clean read)
         );
 
         // Apply v2 routing and mantissa
@@ -120,7 +122,11 @@ mod v2_layout_tests {
     fn test_zero_edge_v2_defaults() {
         let e = CausalEdge64::ZERO;
         assert_eq!(e.w_slot(), 0, "ZERO: w_slot must be 0");
-        assert_eq!(e.truth(), TrustTexture::Crystalline, "ZERO: truth must be Crystalline");
+        assert_eq!(
+            e.truth(),
+            TrustTexture::Crystalline,
+            "ZERO: truth must be Crystalline"
+        );
         assert_eq!(e.inference_mantissa(), 0, "ZERO: mantissa must be 0");
         assert_eq!(e.spare(), 0, "ZERO: spare must be 0");
     }
@@ -134,7 +140,8 @@ mod v2_layout_tests {
         let e = CausalEdge64::ZERO.with_w_slot(63);
         assert_eq!(e.w_slot(), 63, "w_slot max round-trip failed");
         assert_eq!(
-            e.truth(), TrustTexture::Crystalline,
+            e.truth(),
+            TrustTexture::Crystalline,
             "w_slot=63 must not contaminate truth-band (bits 59-60)"
         );
     }
@@ -148,7 +155,8 @@ mod v2_layout_tests {
         let e = CausalEdge64::ZERO.with_truth(TrustTexture::Murky);
         assert_eq!(e.truth_raw(), 3, "truth_raw Murky must be 3");
         assert_eq!(
-            e.w_slot(), 0,
+            e.w_slot(),
+            0,
             "truth=Murky must not contaminate W-slot (bits 53-58)"
         );
     }
@@ -163,7 +171,8 @@ mod v2_layout_tests {
         assert_eq!(e.spare(), 0b111, "spare round-trip failed");
         assert_eq!(e.w_slot(), 0, "spare must not disturb W-slot");
         assert_eq!(
-            e.truth(), TrustTexture::Crystalline,
+            e.truth(),
+            TrustTexture::Crystalline,
             "spare must not disturb truth-band"
         );
     }
@@ -176,12 +185,10 @@ mod v2_layout_tests {
         // Plasticity is bits 50-52 (shifted by +1 from v1 per L-4).
         // Bits 50-52 must be untouched (i.e., plasticity = ALL_FROZEN = 0).
         let e = CausalEdge64::ZERO.with_inference_mantissa(-1);
+        assert_eq!(e.inference_mantissa(), -1, "mantissa -1 round-trip failed");
         assert_eq!(
-            e.inference_mantissa(), -1,
-            "mantissa -1 round-trip failed"
-        );
-        assert_eq!(
-            e.plasticity(), PlasticityState::ALL_FROZEN,
+            e.plasticity(),
+            PlasticityState::ALL_FROZEN,
             "mantissa=-1 (bits 46-49 all set) must not contaminate plasticity (bits 50-52)"
         );
     }
@@ -191,11 +198,13 @@ mod v2_layout_tests {
     #[test]
     fn test_size_unchanged() {
         assert_eq!(
-            std::mem::size_of::<CausalEdge64>(), 8,
+            std::mem::size_of::<CausalEdge64>(),
+            8,
             "CausalEdge64 must be exactly 8 bytes (one register)"
         );
         assert_eq!(
-            8 * std::mem::size_of::<CausalEdge64>(), 64,
+            8 * std::mem::size_of::<CausalEdge64>(),
+            64,
             "8 × CausalEdge64 must equal one cache line (64 bytes)"
         );
     }
@@ -218,7 +227,8 @@ mod v2_layout_tests {
         for m in -8i8..=7 {
             let e = CausalEdge64::ZERO.with_inference_mantissa(m);
             assert_eq!(
-                e.inference_mantissa(), m,
+                e.inference_mantissa(),
+                m,
                 "inference_mantissa round-trip failed for m={m}"
             );
         }
@@ -232,7 +242,11 @@ mod v2_layout_tests {
             .with_routing(10, TrustTexture::Fuzzy)
             .with_routing(20, TrustTexture::Murky);
         assert_eq!(e.w_slot(), 20, "second with_routing should override W");
-        assert_eq!(e.truth(), TrustTexture::Murky, "second with_routing should override truth");
+        assert_eq!(
+            e.truth(),
+            TrustTexture::Murky,
+            "second with_routing should override truth"
+        );
     }
 
     // ── Bonus: InferenceType to_mantissa / from_mantissa round-trip ─────────
@@ -241,20 +255,24 @@ mod v2_layout_tests {
     fn test_intervention_counterfactual_mantissa_slots() {
         // PR-LL-1 absorbed at slots 6 and -6 per L-9
         assert_eq!(
-            InferenceType::Intervention.to_mantissa(), 6,
+            InferenceType::Intervention.to_mantissa(),
+            6,
             "Intervention must map to mantissa +6"
         );
         assert_eq!(
-            InferenceType::Counterfactual.to_mantissa(), -6,
+            InferenceType::Counterfactual.to_mantissa(),
+            -6,
             "Counterfactual must map to mantissa -6"
         );
         // from_mantissa round-trip for PR-LL-1 slots
         assert_eq!(
-            InferenceType::from_mantissa(6), InferenceType::Intervention,
+            InferenceType::from_mantissa(6),
+            InferenceType::Intervention,
             "from_mantissa(+6) must return Intervention"
         );
         assert_eq!(
-            InferenceType::from_mantissa(-6), InferenceType::Counterfactual,
+            InferenceType::from_mantissa(-6),
+            InferenceType::Counterfactual,
             "from_mantissa(-6) must return Counterfactual"
         );
     }
@@ -264,14 +282,21 @@ mod v2_layout_tests {
     #[test]
     fn test_pack_v2_v2_field_defaults() {
         let e = CausalEdge64::pack_v2(
-            1, 2, 3,
-            200, 200,
+            1,
+            2,
+            3,
+            200,
+            200,
             CausalMask::None,
             0,
             PlasticityState::ALL_FROZEN,
         );
         assert_eq!(e.w_slot(), 0, "pack_v2: w_slot defaults to 0");
-        assert_eq!(e.truth(), TrustTexture::Crystalline, "pack_v2: truth defaults to Crystalline");
+        assert_eq!(
+            e.truth(),
+            TrustTexture::Crystalline,
+            "pack_v2: truth defaults to Crystalline"
+        );
         assert_eq!(e.inference_mantissa(), 0, "pack_v2: mantissa defaults to 0");
         assert_eq!(e.spare(), 0, "pack_v2: spare defaults to 0");
         // v1 fields must be set correctly
@@ -292,16 +317,24 @@ mod v2_layout_tests {
         // Build a weight edge with mantissa = -1 (Abduction direction).
         // Use pack_v2 so the v1 enum discriminant path is bypassed.
         let mut weight = CausalEdge64::pack_v2(
-            10, 20, 30,
-            200, 200,
+            10,
+            20,
+            30,
+            200,
+            200,
             CausalMask::SPO,
             0,
             PlasticityState::ALL_FROZEN,
         );
         weight = weight.with_inference_mantissa(-1);
-        assert_eq!(weight.inference_mantissa(), -1, "weight must carry mantissa=-1");
         assert_eq!(
-            InferenceType::from_mantissa(-1), InferenceType::Abduction,
+            weight.inference_mantissa(),
+            -1,
+            "weight must carry mantissa=-1"
+        );
+        assert_eq!(
+            InferenceType::from_mantissa(-1),
+            InferenceType::Abduction,
             "from_mantissa(-1) is Abduction per the v2 mapping table"
         );
         // The actual forward() execution is tested by feeding it through;
@@ -310,7 +343,8 @@ mod v2_layout_tests {
         // bits 46-48 = 0b111 and dispatched as Reserved7/Synthesis instead.
         let resolved = InferenceType::from_mantissa(weight.inference_mantissa());
         assert_eq!(
-            resolved, InferenceType::Abduction,
+            resolved,
+            InferenceType::Abduction,
             "v2 forward() must dispatch negative mantissa through Abduction"
         );
     }
@@ -323,23 +357,43 @@ mod v2_layout_tests {
     #[test]
     fn test_set_temporal_no_op_under_v2() {
         let mut edge = CausalEdge64::pack_v2(
-            1, 2, 3, 200, 200,
-            CausalMask::SPO, 0, PlasticityState::ALL_FROZEN,
+            1,
+            2,
+            3,
+            200,
+            200,
+            CausalMask::SPO,
+            0,
+            PlasticityState::ALL_FROZEN,
         );
-        edge = edge.with_w_slot(42).with_truth(TrustTexture::Fuzzy).with_spare(0b101);
+        edge = edge
+            .with_w_slot(42)
+            .with_truth(TrustTexture::Fuzzy)
+            .with_spare(0b101);
         let pre = edge;
         // Call set_temporal with a value that, under v1, would set bits 52-61.
         edge.set_temporal(1023);
         // Under v2, the routing state must survive.
-        assert_eq!(edge.w_slot(), 42,
-            "set_temporal must not clobber w_slot under v2");
-        assert_eq!(edge.truth(), TrustTexture::Fuzzy,
-            "set_temporal must not clobber truth under v2");
-        assert_eq!(edge.spare(), 0b101,
-            "set_temporal must not clobber spare under v2");
+        assert_eq!(
+            edge.w_slot(),
+            42,
+            "set_temporal must not clobber w_slot under v2"
+        );
+        assert_eq!(
+            edge.truth(),
+            TrustTexture::Fuzzy,
+            "set_temporal must not clobber truth under v2"
+        );
+        assert_eq!(
+            edge.spare(),
+            0b101,
+            "set_temporal must not clobber spare under v2"
+        );
         // Raw bits identical to pre-call.
-        assert_eq!(edge.0, pre.0,
-            "set_temporal under v2 must be a complete no-op on the raw u64");
+        assert_eq!(
+            edge.0, pre.0,
+            "set_temporal under v2 must be a complete no-op on the raw u64"
+        );
     }
 
     /// Codex P2: pack() under v2 must write the signed mantissa via
@@ -353,42 +407,71 @@ mod v2_layout_tests {
     fn test_pack_uses_mantissa_mapping_under_v2() {
         // Abduction: to_mantissa() = -1, decodes from -1 back to Abduction.
         let abd_edge = CausalEdge64::pack(
-            1, 2, 3, 200, 200,
-            CausalMask::SPO, 0,
+            1,
+            2,
+            3,
+            200,
+            200,
+            CausalMask::SPO,
+            0,
             InferenceType::Abduction,
             PlasticityState::ALL_FROZEN,
             0,
         );
         let m = abd_edge.inference_mantissa();
-        assert_eq!(m, InferenceType::Abduction.to_mantissa(),
-            "pack(Abduction) under v2 must round-trip through to_mantissa()");
-        assert_eq!(InferenceType::from_mantissa(m), InferenceType::Abduction,
-            "pack(Abduction) under v2 must decode back to Abduction, not Induction");
+        assert_eq!(
+            m,
+            InferenceType::Abduction.to_mantissa(),
+            "pack(Abduction) under v2 must round-trip through to_mantissa()"
+        );
+        assert_eq!(
+            InferenceType::from_mantissa(m),
+            InferenceType::Abduction,
+            "pack(Abduction) under v2 must decode back to Abduction, not Induction"
+        );
 
         // Counterfactual: to_mantissa() = -6, decodes back to Counterfactual.
         let cf_edge = CausalEdge64::pack(
-            1, 2, 3, 200, 200,
-            CausalMask::SPO, 0,
+            1,
+            2,
+            3,
+            200,
+            200,
+            CausalMask::SPO,
+            0,
             InferenceType::Counterfactual,
             PlasticityState::ALL_FROZEN,
             0,
         );
         let m = cf_edge.inference_mantissa();
-        assert_eq!(m, InferenceType::Counterfactual.to_mantissa(),
-            "pack(Counterfactual) under v2 must round-trip through to_mantissa()");
-        assert_eq!(InferenceType::from_mantissa(m), InferenceType::Counterfactual,
-            "pack(Counterfactual) under v2 must decode back to Counterfactual");
+        assert_eq!(
+            m,
+            InferenceType::Counterfactual.to_mantissa(),
+            "pack(Counterfactual) under v2 must round-trip through to_mantissa()"
+        );
+        assert_eq!(
+            InferenceType::from_mantissa(m),
+            InferenceType::Counterfactual,
+            "pack(Counterfactual) under v2 must decode back to Counterfactual"
+        );
 
         // Intervention: to_mantissa() = +6, decodes back to Intervention.
         let iv_edge = CausalEdge64::pack(
-            1, 2, 3, 200, 200,
-            CausalMask::SPO, 0,
+            1,
+            2,
+            3,
+            200,
+            200,
+            CausalMask::SPO,
+            0,
             InferenceType::Intervention,
             PlasticityState::ALL_FROZEN,
             0,
         );
-        assert_eq!(InferenceType::from_mantissa(iv_edge.inference_mantissa()),
+        assert_eq!(
+            InferenceType::from_mantissa(iv_edge.inference_mantissa()),
             InferenceType::Intervention,
-            "pack(Intervention) under v2 must decode back to Intervention");
+            "pack(Intervention) under v2 must decode back to Intervention"
+        );
     }
 }

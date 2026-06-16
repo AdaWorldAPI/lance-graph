@@ -55,8 +55,8 @@ use crate::wire::{
     WireTokenAgreement, WireTokenAgreementResult, WireUnifiedStep,
 };
 use lance_graph_contract::cam::CodecParams;
-use std::path::Path as StdPath;
 use lance_graph_contract::cognitive_shader::CognitiveShaderDriver;
+use std::path::Path as StdPath;
 
 struct ServerState {
     driver: ShaderDriver,
@@ -127,7 +127,10 @@ async fn dispatch_handler(
 ) -> Result<Json<WireCrystal>, (StatusCode, Json<Value>)> {
     let internal = wire.to_internal();
     let st = state.lock().map_err(|_| {
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "lock poisoned"})))
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "lock poisoned"})),
+        )
     })?;
     let crystal = st.driver.dispatch(&internal);
     Ok(Json(WireCrystal::from(&crystal)))
@@ -138,11 +141,17 @@ async fn ingest_handler(
     Json(wire): Json<WireIngest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let mut st = state.lock().map_err(|_| {
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "lock poisoned"})))
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "lock poisoned"})),
+        )
     })?;
     let cursor = st.write_cursor;
     let bs = Arc::get_mut(&mut st.driver.bindspace).ok_or_else(|| {
-        (StatusCode::CONFLICT, Json(json!({"error": "bindspace has multiple references"})))
+        (
+            StatusCode::CONFLICT,
+            Json(json!({"error": "bindspace has multiple references"})),
+        )
     })?;
     let (start, end) = engine_bridge::ingest_codebook_indices(
         bs,
@@ -160,21 +169,22 @@ async fn ingest_handler(
     })))
 }
 
-async fn health_handler(
-    State(state): State<AppState>,
-) -> Json<WireHealth> {
+async fn health_handler(State(state): State<AppState>) -> Json<WireHealth> {
     let st = state.lock().unwrap();
     Json(WireHealth {
         row_count: st.driver.row_count(),
         byte_footprint: st.driver.byte_footprint(),
-        styles: UNIFIED_STYLES.iter().map(|s| WireStyleInfo {
-            ordinal: s.ordinal,
-            name: s.name.to_string(),
-            layer_mask: s.layer_mask,
-            density_target: s.density_target,
-            resonance_threshold: s.resonance_threshold,
-            fan_out: s.fan_out,
-        }).collect(),
+        styles: UNIFIED_STYLES
+            .iter()
+            .map(|s| WireStyleInfo {
+                ordinal: s.ordinal,
+                name: s.name.to_string(),
+                layer_mask: s.layer_mask,
+                density_target: s.density_target,
+                resonance_threshold: s.resonance_threshold,
+                fan_out: s.fan_out,
+            })
+            .collect(),
         neural_debug: None, // populated when neural-debug dep is wired
     })
 }
@@ -184,11 +194,17 @@ async fn qualia_handler(
     Path(row): Path<u32>,
 ) -> Result<Json<WireQualia>, (StatusCode, Json<Value>)> {
     let st = state.lock().map_err(|_| {
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "lock poisoned"})))
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "lock poisoned"})),
+        )
     })?;
     let bs = st.driver.bindspace();
     if row as usize >= bs.len {
-        return Err((StatusCode::NOT_FOUND, Json(json!({"error": "row out of range"}))));
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": "row out of range"})),
+        ));
     }
     let (experienced, cd) = engine_bridge::read_qualia_decomposed(bs, row as usize);
     let style_ord = crate::auto_style::style_from_qualia(&experienced);
@@ -202,14 +218,19 @@ async fn qualia_handler(
 }
 
 async fn styles_handler() -> Json<Vec<WireStyleInfo>> {
-    Json(UNIFIED_STYLES.iter().map(|s| WireStyleInfo {
-        ordinal: s.ordinal,
-        name: s.name.to_string(),
-        layer_mask: s.layer_mask,
-        density_target: s.density_target,
-        resonance_threshold: s.resonance_threshold,
-        fan_out: s.fan_out,
-    }).collect())
+    Json(
+        UNIFIED_STYLES
+            .iter()
+            .map(|s| WireStyleInfo {
+                ordinal: s.ordinal,
+                name: s.name.to_string(),
+                layer_mask: s.layer_mask,
+                density_target: s.density_target,
+                resonance_threshold: s.resonance_threshold,
+                fan_out: s.fan_out,
+            })
+            .collect(),
+    )
 }
 
 // ─── Codec research handlers ────────────────────────────────────────────────
@@ -258,20 +279,24 @@ async fn token_agreement_handler(
 ) -> Result<Json<WireTokenAgreementResult>, (StatusCode, Json<Value>)> {
     // Validate CodecParams at ingress (precision-ladder / overfit guard
     // fire here, not inside the harness).
-    let _params: CodecParams = req
-        .candidate
-        .clone()
-        .try_into()
-        .map_err(|e: lance_graph_contract::cam::CodecParamsError| {
-            (StatusCode::BAD_REQUEST, Json(json!({"error": format!("invalid CodecParams: {e}")})))
-        })?;
+    let _params: CodecParams = req.candidate.clone().try_into().map_err(
+        |e: lance_graph_contract::cam::CodecParamsError| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": format!("invalid CodecParams: {e}")})),
+            )
+        },
+    )?;
 
     // Reference model — real path if it exists, stub otherwise. D2.2
     // replaces with a strict path check once the safetensors loader lands.
     let model_path = StdPath::new(&req.model_path);
     let reference = if model_path.exists() {
         ReferenceModel::load(model_path).map_err(|e| {
-            (StatusCode::BAD_REQUEST, Json(json!({"error": format!("model load: {e}")})))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": format!("model load: {e}")})),
+            )
         })?
     } else {
         // Deterministic stub keyed on the path string so repeated calls
@@ -282,16 +307,13 @@ async fn token_agreement_handler(
         ReferenceModel::stub(std::hash::Hasher::finish(&h), 0)
     };
 
-    let harness = TokenAgreementHarness::new(
-        reference,
-        req.reference,
-        req.candidate,
-        req.n_tokens,
-    );
-    harness
-        .measure_stub()
-        .map(Json)
-        .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": format!("{e}")}))))
+    let harness = TokenAgreementHarness::new(reference, req.reference, req.candidate, req.n_tokens);
+    harness.measure_stub().map(Json).map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": format!("{e}")})),
+        )
+    })
 }
 
 /// D3.1 — `POST /v1/shader/sweep` handler (batch mode).
@@ -331,14 +353,16 @@ async fn sweep_handler(
     let mut results = Vec::with_capacity(candidates.len());
     for (idx, wire_params) in candidates.into_iter().enumerate() {
         // Validate each grid point at ingress — surface typed errors early.
-        let params: CodecParams = wire_params
-            .clone()
-            .try_into()
-            .map_err(|e: lance_graph_contract::cam::CodecParamsError| {
-                (StatusCode::BAD_REQUEST, Json(json!({
-                    "error": format!("grid point {idx}: invalid CodecParams: {e}")
-                })))
-            })?;
+        let params: CodecParams = wire_params.clone().try_into().map_err(
+            |e: lance_graph_contract::cam::CodecParamsError| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": format!("grid point {idx}: invalid CodecParams: {e}")
+                    })),
+                )
+            },
+        )?;
 
         results.push(WireSweepResult {
             grid_index: idx as u32,
@@ -368,9 +392,7 @@ async fn route_handler(
     State(_state): State<AppState>,
     Json(wire): Json<WireUnifiedStep>,
 ) -> Result<Json<WireStepResult>, (StatusCode, Json<Value>)> {
-    use lance_graph_contract::orchestration::{
-        OrchestrationBridge, StepStatus, UnifiedStep,
-    };
+    use lance_graph_contract::orchestration::{OrchestrationBridge, StepStatus, UnifiedStep};
 
     let mut step = UnifiedStep {
         step_id: wire.step_id.clone(),
@@ -389,7 +411,10 @@ async fn route_handler(
     // If codec bridge rejected with DomainUnavailable, try CypherBridge
     // (lg.cypher). This keeps the nd.* hot path unchanged while adding
     // `lg.cypher` routing ahead of the planner fallthrough.
-    if matches!(result, Err(lance_graph_contract::orchestration::OrchestrationError::DomainUnavailable(_))) {
+    if matches!(
+        result,
+        Err(lance_graph_contract::orchestration::OrchestrationError::DomainUnavailable(_))
+    ) {
         let cypher_bridge = crate::cypher_bridge::CypherBridge;
         let cypher_result = cypher_bridge.route(&mut step);
 
@@ -402,7 +427,10 @@ async fn route_handler(
             #[cfg(feature = "with-planner")]
             {
                 let st = _state.lock().map_err(|_| {
-                    (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "lock poisoned"})))
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({"error": "lock poisoned"})),
+                    )
                 })?;
                 let _ = OrchestrationBridge::route(&st.planner, &mut step);
             }
@@ -444,11 +472,13 @@ fn run_plan(
     state: &AppState,
     req: &WirePlanRequest,
 ) -> Result<WirePlanResponse, (StatusCode, String)> {
-    let st = state
-        .lock()
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "lock poisoned".to_string()))?;
-    crate::planner_bridge::plan(&st.planner, req)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))
+    let st = state.lock().map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "lock poisoned".to_string(),
+        )
+    })?;
+    crate::planner_bridge::plan(&st.planner, req).map_err(|e| (StatusCode::BAD_REQUEST, e))
 }
 
 #[cfg(not(feature = "with-planner"))]
@@ -539,10 +569,7 @@ async fn encode_handler(
 
     // ── 4b. Build fingerprint hex and popcount ────────────────────────────
     let vsa_words = sentence_vec.as_words(); // &[u64; VSA_WORDS] (VSA_WORDS = 8)
-    let fingerprint_hex: String = vsa_words
-        .iter()
-        .map(|w| format!("{:016x}", w))
-        .collect();
+    let fingerprint_hex: String = vsa_words.iter().map(|w| format!("{:016x}", w)).collect();
     let bits_set = sentence_vec.popcount() as usize;
 
     // ── 5. Expand 8 × u64 → 256 × u64 (16 Kbit) ─────────────────────────
@@ -562,14 +589,20 @@ async fn encode_handler(
     // ── 6. Write to BindSpace, advance write_cursor ───────────────────────
     let row_written = {
         let mut st = state.lock().map_err(|_| {
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "lock poisoned"})))
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": "lock poisoned"})),
+            )
         })?;
         let cursor = st.write_cursor;
         if cursor >= st.driver.bindspace.len {
             None
         } else {
             let bs = Arc::get_mut(&mut st.driver.bindspace).ok_or_else(|| {
-                (StatusCode::CONFLICT, Json(json!({"error": "bindspace has multiple references"})))
+                (
+                    StatusCode::CONFLICT,
+                    Json(json!({"error": "bindspace has multiple references"})),
+                )
             })?;
             bs.fingerprints.set_content(cursor, &content_fp);
             st.write_cursor = cursor + 1;
@@ -624,12 +657,24 @@ async fn runbook_handler(
             WireRunbookStep::Plan(_) => "plan",
         };
         let outcome: Result<WireRunbookStepResult, String> = match s.step {
-            WireRunbookStep::Tensors(r) => codec_research::list_tensors(&r)
-                .map(|response| WireRunbookStepResult::Tensors { label: label.clone(), response }),
-            WireRunbookStep::Calibrate(r) => codec_research::calibrate_tensor(&r)
-                .map(|response| WireRunbookStepResult::Calibrate { label: label.clone(), response }),
-            WireRunbookStep::Probe(r) => codec_research::row_count_probe(&r)
-                .map(|response| WireRunbookStepResult::Probe { label: label.clone(), response }),
+            WireRunbookStep::Tensors(r) => {
+                codec_research::list_tensors(&r).map(|response| WireRunbookStepResult::Tensors {
+                    label: label.clone(),
+                    response,
+                })
+            }
+            WireRunbookStep::Calibrate(r) => codec_research::calibrate_tensor(&r).map(|response| {
+                WireRunbookStepResult::Calibrate {
+                    label: label.clone(),
+                    response,
+                }
+            }),
+            WireRunbookStep::Probe(r) => {
+                codec_research::row_count_probe(&r).map(|response| WireRunbookStepResult::Probe {
+                    label: label.clone(),
+                    response,
+                })
+            }
             WireRunbookStep::Dispatch(wd) => match state.lock() {
                 Err(_) => Err("lock poisoned".to_string()),
                 Ok(st) => {
@@ -648,7 +693,11 @@ async fn runbook_handler(
                         None => Err("bindspace has multiple references".to_string()),
                         Some(bs) => {
                             let (start, end) = engine_bridge::ingest_codebook_indices(
-                                bs, &wi.codebook_indices, wi.source_ordinal, wi.timestamp, cursor,
+                                bs,
+                                &wi.codebook_indices,
+                                wi.source_ordinal,
+                                wi.timestamp,
+                                cursor,
                             );
                             st.write_cursor = end as usize;
                             Ok(WireRunbookStepResult::Ingest {

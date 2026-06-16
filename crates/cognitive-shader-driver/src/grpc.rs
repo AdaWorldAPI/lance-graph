@@ -23,8 +23,8 @@ use tonic::{Request, Response, Status};
 use crate::driver::ShaderDriver;
 use crate::engine_bridge::{self, unified_style, UNIFIED_STYLES};
 use lance_graph_contract::cognitive_shader::{
-    ColumnWindow, CognitiveShaderDriver as DriverTrait, EmitMode, MetaFilter,
-    RungLevel, ShaderDispatch, StyleSelector,
+    CognitiveShaderDriver as DriverTrait, ColumnWindow, EmitMode, MetaFilter, RungLevel,
+    ShaderDispatch, StyleSelector,
 };
 
 pub mod pb {
@@ -59,19 +59,33 @@ impl CognitiveShaderService for ShaderGrpcService {
     ) -> Result<Response<pb::CrystalResponse>, Status> {
         let req = request.into_inner();
         let internal = proto_to_dispatch(&req);
-        let drv = self.driver.lock().map_err(|_| Status::internal("lock poisoned"))?;
+        let drv = self
+            .driver
+            .lock()
+            .map_err(|_| Status::internal("lock poisoned"))?;
         let crystal = drv.dispatch(&internal);
 
         // Convert cycle_fingerprint [u64; 256] → bytes (2048)
-        let fp_bytes: Vec<u8> = crystal.bus.cycle_fingerprint.iter()
+        let fp_bytes: Vec<u8> = crystal
+            .bus
+            .cycle_fingerprint
+            .iter()
             .flat_map(|w| w.to_le_bytes())
             .collect();
 
-        let gate = if crystal.bus.gate.is_flow() { 0 }
-            else if crystal.bus.gate.is_block() { 1 }
-            else { 2 };
+        let gate = if crystal.bus.gate.is_flow() {
+            0
+        } else if crystal.bus.gate.is_block() {
+            1
+        } else {
+            2
+        };
 
-        let hits: Vec<pb::HitMessage> = crystal.bus.resonance.top_k.iter()
+        let hits: Vec<pb::HitMessage> = crystal
+            .bus
+            .resonance
+            .top_k
+            .iter()
             .filter(|h| h.resonance > 0.0)
             .map(|h| pb::HitMessage {
                 row: h.row,
@@ -85,7 +99,8 @@ impl CognitiveShaderService for ShaderGrpcService {
         Ok(Response::new(pb::CrystalResponse {
             bus: Some(pb::BusMessage {
                 cycle_fingerprint: fp_bytes,
-                emitted_edges: crystal.bus.emitted_edges[..crystal.bus.emitted_edge_count as usize].to_vec(),
+                emitted_edges: crystal.bus.emitted_edges[..crystal.bus.emitted_edge_count as usize]
+                    .to_vec(),
                 gate,
                 resonance: Some(pb::ResonanceMessage {
                     top_k: hits,
@@ -113,14 +128,21 @@ impl CognitiveShaderService for ShaderGrpcService {
         let req = request.into_inner();
         let indices: Vec<u16> = req.codebook_indices.iter().map(|&v| v as u16).collect();
 
-        let mut cursor = self.write_cursor.lock().map_err(|_| Status::internal("lock"))?;
+        let mut cursor = self
+            .write_cursor
+            .lock()
+            .map_err(|_| Status::internal("lock"))?;
         let mut drv = self.driver.lock().map_err(|_| Status::internal("lock"))?;
         let bs = Arc::get_mut(&mut drv.bindspace)
             .ok_or_else(|| Status::failed_precondition("bindspace has multiple refs"))?;
 
         let c = *cursor;
         let (start, end) = engine_bridge::ingest_codebook_indices(
-            bs, &indices, req.source_ordinal as u8, req.timestamp, c,
+            bs,
+            &indices,
+            req.source_ordinal as u8,
+            req.timestamp,
+            c,
         );
         *cursor = end as usize;
 
@@ -182,23 +204,30 @@ impl CognitiveShaderService for ShaderGrpcService {
         let req = request.into_inner();
         let wire_req = crate::wire::WireTensorsRequest {
             model_path: req.model_path,
-            route_filter: if req.route_filter.is_empty() { None } else { Some(req.route_filter) },
+            route_filter: if req.route_filter.is_empty() {
+                None
+            } else {
+                Some(req.route_filter)
+            },
         };
-        let r = crate::codec_research::list_tensors(&wire_req)
-            .map_err(Status::invalid_argument)?;
+        let r = crate::codec_research::list_tensors(&wire_req).map_err(Status::invalid_argument)?;
         Ok(Response::new(pb::TensorsResponse {
             total: r.total as u32,
             shown: r.shown as u32,
             cam_pq: r.cam_pq as u32,
             passthrough: r.passthrough as u32,
             skip: r.skip as u32,
-            tensors: r.tensors.iter().map(|t| pb::TensorEntry {
-                name: t.name.clone(),
-                dims: t.dims.clone(),
-                dtype: t.dtype.clone(),
-                route: t.route.clone(),
-                n_elements: t.n_elements,
-            }).collect(),
+            tensors: r
+                .tensors
+                .iter()
+                .map(|t| pb::TensorEntry {
+                    name: t.name.clone(),
+                    dims: t.dims.clone(),
+                    dtype: t.dtype.clone(),
+                    route: t.route.clone(),
+                    n_elements: t.n_elements,
+                })
+                .collect(),
         }))
     }
 
@@ -215,14 +244,34 @@ impl CognitiveShaderService for ShaderGrpcService {
             // REST-only until the proto schema catches up (D0.3b).
             params: None,
             tensor_view: None,
-            num_subspaces: if req.num_subspaces == 0 { 6 } else { req.num_subspaces as usize },
-            num_centroids: if req.num_centroids == 0 { 256 } else { req.num_centroids as usize },
-            kmeans_iterations: if req.kmeans_iterations == 0 { 20 } else { req.kmeans_iterations as usize },
-            max_rows: if req.max_rows == 0 { None } else { Some(req.max_rows as usize) },
-            icc_samples: if req.icc_samples == 0 { 512 } else { req.icc_samples as usize },
+            num_subspaces: if req.num_subspaces == 0 {
+                6
+            } else {
+                req.num_subspaces as usize
+            },
+            num_centroids: if req.num_centroids == 0 {
+                256
+            } else {
+                req.num_centroids as usize
+            },
+            kmeans_iterations: if req.kmeans_iterations == 0 {
+                20
+            } else {
+                req.kmeans_iterations as usize
+            },
+            max_rows: if req.max_rows == 0 {
+                None
+            } else {
+                Some(req.max_rows as usize)
+            },
+            icc_samples: if req.icc_samples == 0 {
+                512
+            } else {
+                req.icc_samples as usize
+            },
         };
-        let r = crate::codec_research::calibrate_tensor(&wire_req)
-            .map_err(Status::invalid_argument)?;
+        let r =
+            crate::codec_research::calibrate_tensor(&wire_req).map_err(Status::invalid_argument)?;
         Ok(Response::new(pb::CalibrateResponse {
             tensor_name: r.tensor_name,
             dims: r.dims,
@@ -250,10 +299,14 @@ impl CognitiveShaderService for ShaderGrpcService {
             model_path: req.model_path,
             tensor_name: req.tensor_name,
             row_counts: req.row_counts.iter().map(|&n| n as usize).collect(),
-            icc_samples: if req.icc_samples == 0 { 512 } else { req.icc_samples as usize },
+            icc_samples: if req.icc_samples == 0 {
+                512
+            } else {
+                req.icc_samples as usize
+            },
         };
-        let r = crate::codec_research::row_count_probe(&wire_req)
-            .map_err(Status::invalid_argument)?;
+        let r =
+            crate::codec_research::row_count_probe(&wire_req).map_err(Status::invalid_argument)?;
         Ok(Response::new(pb::ProbeResponse {
             tensor_name: r.tensor_name,
             n_rows: r.n_rows as u32,
@@ -261,20 +314,26 @@ impl CognitiveShaderService for ShaderGrpcService {
             adjusted_dim: r.adjusted_dim as u32,
             num_subspaces: r.num_subspaces as u32,
             num_centroids: r.num_centroids as u32,
-            entries: r.entries.iter().map(|e| pb::ProbeEntry {
-                n_train: e.n_train as u32,
-                icc_train: e.icc_train,
-                icc_all_rows: e.icc_all_rows,
-                relative_l2_error: e.relative_l2_error,
-                elapsed_ms: e.elapsed_ms,
-            }).collect(),
+            entries: r
+                .entries
+                .iter()
+                .map(|e| pb::ProbeEntry {
+                    n_train: e.n_train as u32,
+                    icc_train: e.icc_train,
+                    icc_all_rows: e.icc_all_rows,
+                    relative_l2_error: e.relative_l2_error,
+                    elapsed_ms: e.elapsed_ms,
+                })
+                .collect(),
         }))
     }
 }
 
 fn proto_to_dispatch(req: &pb::DispatchRequest) -> ShaderDispatch {
-    let style = req.style.as_ref().map(|s| {
-        match &s.selector {
+    let style = req
+        .style
+        .as_ref()
+        .map(|s| match &s.selector {
             Some(pb::style_selector::Selector::Auto(_)) => StyleSelector::Auto,
             Some(pb::style_selector::Selector::Ordinal(n)) => StyleSelector::Ordinal(*n as u8),
             Some(pb::style_selector::Selector::Named(name)) => {
@@ -284,8 +343,8 @@ fn proto_to_dispatch(req: &pb::DispatchRequest) -> ShaderDispatch {
                 ))
             }
             None => StyleSelector::Auto,
-        }
-    }).unwrap_or(StyleSelector::Auto);
+        })
+        .unwrap_or(StyleSelector::Auto);
 
     let rung = match req.rung {
         0 => RungLevel::Surface,
@@ -306,13 +365,17 @@ fn proto_to_dispatch(req: &pb::DispatchRequest) -> ShaderDispatch {
         _ => EmitMode::Cycle,
     };
 
-    let meta = req.meta_filter.as_ref().map(|f| MetaFilter {
-        thinking_mask: f.thinking_mask,
-        awareness_min: f.awareness_min as u8,
-        nars_f_min: f.nars_f_min as u8,
-        nars_c_min: f.nars_c_min as u8,
-        free_e_max: f.free_e_max as u8,
-    }).unwrap_or(MetaFilter::ALL);
+    let meta = req
+        .meta_filter
+        .as_ref()
+        .map(|f| MetaFilter {
+            thinking_mask: f.thinking_mask,
+            awareness_min: f.awareness_min as u8,
+            nars_f_min: f.nars_f_min as u8,
+            nars_c_min: f.nars_c_min as u8,
+            free_e_max: f.free_e_max as u8,
+        })
+        .unwrap_or(MetaFilter::ALL);
 
     ShaderDispatch {
         meta_prefilter: meta,
@@ -328,18 +391,21 @@ fn proto_to_dispatch(req: &pb::DispatchRequest) -> ShaderDispatch {
 }
 
 fn unified_styles_proto() -> Vec<pb::StyleInfo> {
-    UNIFIED_STYLES.iter().map(|s| pb::StyleInfo {
-        ordinal: s.ordinal as u32,
-        name: s.name.to_string(),
-        layer_mask: s.layer_mask as u32,
-        density_target: s.density_target,
-        resonance_threshold: s.resonance_threshold,
-        fan_out: s.fan_out as u32,
-        combine: s.combine as u32,
-        contra: s.contra as u32,
-        exploration: s.exploration,
-        speed: s.speed,
-        collapse_bias: s.collapse_bias,
-        butterfly_sensitivity: s.butterfly_sensitivity,
-    }).collect()
+    UNIFIED_STYLES
+        .iter()
+        .map(|s| pb::StyleInfo {
+            ordinal: s.ordinal as u32,
+            name: s.name.to_string(),
+            layer_mask: s.layer_mask as u32,
+            density_target: s.density_target,
+            resonance_threshold: s.resonance_threshold,
+            fan_out: s.fan_out as u32,
+            combine: s.combine as u32,
+            contra: s.contra as u32,
+            exploration: s.exploration,
+            speed: s.speed,
+            collapse_bias: s.collapse_bias,
+            butterfly_sensitivity: s.butterfly_sensitivity,
+        })
+        .collect()
 }

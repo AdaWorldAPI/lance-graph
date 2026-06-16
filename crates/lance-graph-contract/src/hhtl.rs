@@ -210,6 +210,79 @@ impl NiblePath {
         Some(Self { path, depth })
     }
 
+    /// The first `depth` nibbles of this path as a shorter `NiblePath` — an
+    /// ancestor-or-equal of `self`. Returns `None` if `depth > self.depth`;
+    /// `prefix(0)` is [`EMPTY`](NiblePath::EMPTY).
+    ///
+    /// Single-shot O(1) alternative to repeated [`parent`](NiblePath::parent)
+    /// calls. By construction `self.prefix(d).is_ancestor_of(self)` whenever
+    /// `Some(_)` is returned: this is the coarse-routing-cache view of a
+    /// deeper class path (the 4-nibble routing prefix vs the full 16-nibble
+    /// class path, identity-architecture v1 §3).
+    #[must_use]
+    pub const fn prefix(self, depth: u8) -> Option<Self> {
+        if depth > self.depth {
+            return None;
+        }
+        if depth == 0 {
+            return Some(Self::EMPTY);
+        }
+        // Right-shift the path so the desired prefix occupies the low 4·depth
+        // bits. When self.depth == MAX_DEPTH and depth == MAX_DEPTH the shift
+        // is zero; when depth < self.depth, drop the trailing (self.depth -
+        // depth) nibbles. `shift < 64` always (depth >= 1 ⇒ shift ≤ 4·15 = 60).
+        let shift = 4 * (self.depth as u32 - depth as u32);
+        Some(Self {
+            path: self.path >> shift,
+            depth,
+        })
+    }
+
+    /// Lower a [`NodeGuid`](crate::canonical_node::NodeGuid) prefix to a 16-nibble
+    /// `NiblePath`, the routing-path counterpart of the GUID's
+    /// `classid · HEEL · HIP · TWIG` cascade (identity-architecture v1 §3).
+    ///
+    /// The 20-nibble prefix `classid(8) | HEEL(4) | HIP(4) | TWIG(4)` overflows
+    /// `MAX_DEPTH = 16`. The deterministic fold drops the **HIGH 4 classid
+    /// nibbles** (the canon-reserved high `u16` of `classid`) and packs the
+    /// remaining 16 nibbles root-first as
+    /// `classid_lo(4) | HEEL(4) | HIP(4) | TWIG(4)`. Returns `None` when the
+    /// HIGH 4 classid nibbles are nonzero — the fold would be lossy, and the
+    /// caller must mint within the low `u16` space (CANON: RESERVE, DON'T
+    /// RECLAIM — high classid bits are documented as reserved-zero).
+    ///
+    /// **Bijection invariant.** For any GUID whose `classid >> 16 == 0`,
+    /// `from_guid_prefix(guid).prefix(d).is_ancestor_of(from_guid_prefix(guid))`
+    /// holds for every `d in 1..=16` (`prefix(0)` is [`EMPTY`](NiblePath::EMPTY),
+    /// which by definition is an ancestor of nothing — the "no basin routed"
+    /// sentinel). The routing-cache view (typically `prefix(4)` over
+    /// `classid_lo`) is therefore a valid HHTL ancestor of the full class path —
+    /// the LE contract the `classid → ReadMode` keystone meets at the classid.
+    #[must_use]
+    pub const fn from_guid_prefix(guid: &crate::canonical_node::NodeGuid) -> Option<Self> {
+        let parts = guid.decode();
+        // High 4 classid nibbles (the canon-reserved high u16) must be zero —
+        // otherwise the 20→16 nibble fold drops information. The caller mints
+        // into the low u16 of classid (see CANON / identity-architecture v1
+        // §3): a nonzero high u16 is not silently re-routed, it's reported.
+        if (parts.classid >> 16) != 0 {
+            return None;
+        }
+        // Pack root-first into 16 nibbles = 64 bits = the full u64 path:
+        //   nibbles 0..4  (high) = classid_lo  (basin = top nibble of classid_lo)
+        //   nibbles 4..8         = HEEL
+        //   nibbles 8..12        = HIP
+        //   nibbles 12..16 (low) = TWIG        (leaf = low nibble of TWIG)
+        let classid_lo = (parts.classid & 0xFFFF) as u64;
+        let path = (classid_lo << 48)
+            | ((parts.heel as u64) << 32)
+            | ((parts.hip as u64) << 16)
+            | (parts.twig as u64);
+        // from_packed handles the high-bit guard; at MAX_DEPTH every u64 is
+        // valid by construction (4·16 = 64 used bits).
+        Self::from_packed(path, MAX_DEPTH)
+    }
+
     /// Is this path a descendant-or-equal of `other`? — the symmetric form of
     /// [`is_ancestor_of`]. `self.is_descendant_of(other)` is equivalent to
     /// `other.is_ancestor_of(self)` BUT the form is sometimes more natural at
@@ -536,5 +609,170 @@ mod tests {
         let a = NiblePath::root(0x1);
         assert_eq!(a.common_ancestor(NiblePath::EMPTY), None);
         assert_eq!(NiblePath::EMPTY.common_ancestor(a), None);
+    }
+
+    // ── NiblePath::prefix — single-shot ancestor view ─────────────────────────
+
+    #[test]
+    fn prefix_returns_ancestor_or_equal_at_requested_depth() {
+        // depth 0 ⇒ EMPTY (the "no basin routed" sentinel — symmetrical with
+        // parent() of a basin returning None).
+        let p = NiblePath::root(0x2).child(0x5).child(0xA).child(0x3);
+        assert_eq!(p.prefix(0), Some(NiblePath::EMPTY));
+        assert_eq!(p.prefix(1), Some(NiblePath::root(0x2)));
+        assert_eq!(p.prefix(2), Some(NiblePath::root(0x2).child(0x5)));
+        assert_eq!(
+            p.prefix(3),
+            Some(NiblePath::root(0x2).child(0x5).child(0xA))
+        );
+        assert_eq!(p.prefix(4), Some(p), "prefix(self.depth) is reflexive");
+        assert_eq!(p.prefix(5), None, "prefix beyond own depth is rejected");
+    }
+
+    #[test]
+    fn prefix_is_always_an_ancestor_of_self() {
+        // The structural invariant the routing-cache view relies on: every
+        // returned prefix passes is_ancestor_of(self). Walk the whole depth.
+        let p = NiblePath::root(0x1)
+            .child(0x2)
+            .child(0x3)
+            .child(0x4)
+            .child(0x5);
+        for d in 1..=p.depth() {
+            let pre = p.prefix(d).unwrap();
+            assert!(
+                pre.is_ancestor_of(p),
+                "prefix(d={d})={pre:?} must be an ancestor of self={p:?}"
+            );
+            assert_eq!(pre.depth(), d);
+        }
+    }
+
+    #[test]
+    fn prefix_matches_repeated_parent_chain() {
+        // O(1) prefix(d) must agree with O(depth-d) parent()-loop.
+        let p = NiblePath::root(0x7)
+            .child(0x3)
+            .child(0xA)
+            .child(0x1)
+            .child(0xC);
+        let mut walked = p;
+        let mut d = p.depth();
+        while d > 0 {
+            assert_eq!(p.prefix(d), Some(walked), "depth {d}");
+            d -= 1;
+            walked = walked.parent().unwrap_or(NiblePath::EMPTY);
+        }
+        assert_eq!(p.prefix(0), Some(NiblePath::EMPTY));
+    }
+
+    // ── NiblePath::from_guid_prefix — 20→16 nibble fold (identity-arch v1 §3) ──
+
+    #[test]
+    fn from_guid_prefix_returns_full_max_depth_path() {
+        use crate::canonical_node::NodeGuid;
+        // A canonical GUID with classid in the low u16 round-trips to a
+        // 16-nibble path with the documented root-first layout.
+        let g = NodeGuid::new(0x0000_ABCD, 0x1234, 0x5678, 0x9ABC, 0x00_0001, 0x00_0002);
+        let path = NiblePath::from_guid_prefix(&g).expect("classid_lo only ⇒ Some");
+        assert_eq!(path.depth(), MAX_DEPTH, "fold occupies the full u64");
+
+        // Root-first: top nibble of classid_lo is the basin (0xA from 0xABCD).
+        assert_eq!(path.basin(), Some(0xA));
+        // Leaf: low nibble of TWIG (0xC from 0x9ABC).
+        assert_eq!(path.leaf(), Some(0xC));
+
+        // Packed value mirrors classid_lo|HEEL|HIP|TWIG, root-first.
+        let expected: u64 = (0xABCDu64 << 48) | (0x1234u64 << 32) | (0x5678u64 << 16) | 0x9ABCu64;
+        assert_eq!(path.packed(), (expected, MAX_DEPTH));
+    }
+
+    #[test]
+    fn from_guid_prefix_returns_none_when_high_classid_nibbles_in_use() {
+        use crate::canonical_node::NodeGuid;
+        // The 20→16 fold drops the HIGH 4 classid nibbles. When the high u16
+        // is nonzero, the fold is lossy — None signals it, callers don't get
+        // a silent collision.
+        let g = NodeGuid::new(0xDEAD_BEEF, 0, 0, 0, 0, 0);
+        assert_eq!(
+            NiblePath::from_guid_prefix(&g),
+            None,
+            "high classid u16 != 0 ⇒ refuse the lossy fold"
+        );
+        let g = NodeGuid::new(0x0001_0000, 0, 0, 0, 0, 0);
+        assert_eq!(
+            NiblePath::from_guid_prefix(&g),
+            None,
+            "boundary: bit 16 set"
+        );
+        // At exactly the boundary (high u16 == 0) the fold is lossless.
+        let g = NodeGuid::new(0x0000_FFFF, 0, 0, 0, 0, 0);
+        assert!(NiblePath::from_guid_prefix(&g).is_some());
+    }
+
+    #[test]
+    fn from_guid_prefix_bootstrap_classid_is_all_zero_path() {
+        use crate::canonical_node::NodeGuid;
+        // CANON bootstrap: classid 0 + HHT zero ⇒ a 16-nibble path of all-zero
+        // nibbles. Basin = 0 (Endurant by ontology convention; agnostic here).
+        let g = NodeGuid::local(0x00_00CD);
+        let path = NiblePath::from_guid_prefix(&g).unwrap();
+        assert_eq!(path.depth(), MAX_DEPTH);
+        assert_eq!(path.packed(), (0u64, MAX_DEPTH));
+        assert_eq!(path.basin(), Some(0));
+        assert_eq!(path.leaf(), Some(0));
+    }
+
+    #[test]
+    fn from_guid_prefix_bijection_classid_lo_heel_hip_twig_only() {
+        use crate::canonical_node::NodeGuid;
+        // Two GUIDs that differ ONLY in family/identity (the trailing 6 bytes)
+        // share the same routing path — the routing prefix is class-scoped, not
+        // instance-scoped. This is the bijection the operator pinned: identity
+        // doesn't perturb the class path.
+        let g1 = NodeGuid::new(0x0000_1234, 0xAAAA, 0xBBBB, 0xCCCC, 0x11_2233, 0x44_5566);
+        let g2 = NodeGuid::new(0x0000_1234, 0xAAAA, 0xBBBB, 0xCCCC, 0x00_0001, 0x00_0002);
+        assert_eq!(
+            NiblePath::from_guid_prefix(&g1),
+            NiblePath::from_guid_prefix(&g2),
+            "same (classid_lo, HEEL, HIP, TWIG) ⇒ same routing path"
+        );
+        // Two GUIDs that differ in any of the four tier groups produce
+        // distinct paths.
+        let g3 = NodeGuid::new(0x0000_1234, 0xAAAA, 0xBBBB, 0xCCCD, 0, 0);
+        let g4 = NodeGuid::new(0x0000_1234, 0xAAAA, 0xBBBC, 0xCCCC, 0, 0);
+        assert_ne!(
+            NiblePath::from_guid_prefix(&g1),
+            NiblePath::from_guid_prefix(&g3)
+        );
+        assert_ne!(
+            NiblePath::from_guid_prefix(&g1),
+            NiblePath::from_guid_prefix(&g4)
+        );
+    }
+
+    #[test]
+    fn from_guid_prefix_routing_cache_is_ancestor_of_full_path() {
+        use crate::canonical_node::NodeGuid;
+        // The keystone invariant the `classid → ReadMode` LE contract meets:
+        // a coarser routing prefix (e.g. PREFIX_NIBBLES = 4, the classid_lo
+        // tier only) MUST be an HHTL ancestor of the full 16-nibble class
+        // path. Without this, the consumer's read-mode resolution can't
+        // dispatch by prefix.
+        let g = NodeGuid::new(0x0000_ABCD, 0x1111, 0x2222, 0x3333, 0, 0);
+        let full = NiblePath::from_guid_prefix(&g).unwrap();
+        // Routing prefix at every depth from 1..=MAX_DEPTH is_ancestor_of full.
+        for d in 1..=MAX_DEPTH {
+            let routing = full.prefix(d).unwrap();
+            assert!(
+                routing.is_ancestor_of(full),
+                "routing prefix d={d} ({routing:?}) must HHTL-reach full ({full:?})"
+            );
+        }
+        // The 4-nibble routing prefix (identity-architecture v1 PREFIX_NIBBLES)
+        // is the classid_lo: 0xABCD, basin 0xA.
+        let routing4 = full.prefix(4).unwrap();
+        assert_eq!(routing4.packed(), (0xABCDu64, 4));
+        assert_eq!(routing4.basin(), Some(0xA));
     }
 }

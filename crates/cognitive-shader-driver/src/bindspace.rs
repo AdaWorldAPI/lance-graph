@@ -99,14 +99,12 @@ impl FingerprintColumns {
     /// Write a row's content fingerprint.
     pub fn set_content(&mut self, row: usize, words: &[u64]) {
         assert_eq!(words.len(), WORDS_PER_FP);
-        self.content[row * WORDS_PER_FP..(row + 1) * WORDS_PER_FP]
-            .copy_from_slice(words);
+        self.content[row * WORDS_PER_FP..(row + 1) * WORDS_PER_FP].copy_from_slice(words);
     }
 
     pub fn set_cycle(&mut self, row: usize, vsa: &[f32]) {
         assert_eq!(vsa.len(), FLOATS_PER_VSA);
-        self.cycle[row * FLOATS_PER_VSA..(row + 1) * FLOATS_PER_VSA]
-            .copy_from_slice(vsa);
+        self.cycle[row * FLOATS_PER_VSA..(row + 1) * FLOATS_PER_VSA].copy_from_slice(vsa);
     }
 
     /// Write a cycle fingerprint from Binary16K (u64×256) by projecting to Vsa16kF32 bipolar.
@@ -114,8 +112,7 @@ impl FingerprintColumns {
     pub fn set_cycle_from_bits(&mut self, row: usize, bits: &[u64; WORDS_PER_FP]) {
         use lance_graph_contract::crystal::binary16k_to_vsa16k_bipolar;
         let vsa = binary16k_to_vsa16k_bipolar(bits);
-        self.cycle[row * FLOATS_PER_VSA..(row + 1) * FLOATS_PER_VSA]
-            .copy_from_slice(&*vsa);
+        self.cycle[row * FLOATS_PER_VSA..(row + 1) * FLOATS_PER_VSA].copy_from_slice(&*vsa);
     }
 }
 
@@ -124,9 +121,17 @@ impl FingerprintColumns {
 pub struct EdgeColumn(pub Box<[u64]>);
 
 impl EdgeColumn {
-    pub fn zeros(len: usize) -> Self { Self(vec![0u64; len].into_boxed_slice()) }
-    #[inline] pub fn get(&self, row: usize) -> u64 { self.0[row] }
-    #[inline] pub fn set(&mut self, row: usize, edge: u64) { self.0[row] = edge; }
+    pub fn zeros(len: usize) -> Self {
+        Self(vec![0u64; len].into_boxed_slice())
+    }
+    #[inline]
+    pub fn get(&self, row: usize) -> u64 {
+        self.0[row]
+    }
+    #[inline]
+    pub fn set(&mut self, row: usize, edge: u64) {
+        self.0[row] = edge;
+    }
 }
 
 /// **DEPRECATED** since 0.2.0 — use `QualiaI4Column` directly.
@@ -136,13 +141,18 @@ impl EdgeColumn {
 ///
 /// 18 × f32 per row (legacy layout). Replaced by 8 B/row packed i4×16
 /// per cognitive-substrate-convergence-v1.md §7.2 and plan decision L-10.
-#[deprecated(since = "0.2.0", note = "use QualiaI4Column directly; this f32 column was retired in D-CSV-5b cutover")]
+#[deprecated(
+    since = "0.2.0",
+    note = "use QualiaI4Column directly; this f32 column was retired in D-CSV-5b cutover"
+)]
 #[derive(Debug)]
 pub struct QualiaColumn(pub Box<[f32]>);
 
 #[allow(deprecated)]
 impl QualiaColumn {
-    pub fn zeros(len: usize) -> Self { Self(vec![0.0f32; len * QUALIA_DIMS].into_boxed_slice()) }
+    pub fn zeros(len: usize) -> Self {
+        Self(vec![0.0f32; len * QUALIA_DIMS].into_boxed_slice())
+    }
 
     #[inline]
     pub fn row(&self, row: usize) -> &[f32] {
@@ -217,9 +227,17 @@ impl QualiaI4Column {
 pub struct MetaColumn(pub Box<[u32]>);
 
 impl MetaColumn {
-    pub fn zeros(len: usize) -> Self { Self(vec![0u32; len].into_boxed_slice()) }
-    #[inline] pub fn get(&self, row: usize) -> MetaWord { MetaWord(self.0[row]) }
-    #[inline] pub fn set(&mut self, row: usize, w: MetaWord) { self.0[row] = w.0; }
+    pub fn zeros(len: usize) -> Self {
+        Self(vec![0u32; len].into_boxed_slice())
+    }
+    #[inline]
+    pub fn get(&self, row: usize) -> MetaWord {
+        MetaWord(self.0[row])
+    }
+    #[inline]
+    pub fn set(&mut self, row: usize, w: MetaWord) {
+        self.0[row] = w.0;
+    }
 }
 
 /// The BindSpace — read-only universal address space.
@@ -272,7 +290,10 @@ impl std::fmt::Debug for BindSpace {
             .field("temporal", &self.temporal)
             .field("expert", &self.expert)
             .field("entity_type", &self.entity_type)
-            .field("ontology", &self.ontology.as_ref().map(|_| "<OntologyRegistry>"))
+            .field(
+                "ontology",
+                &self.ontology.as_ref().map(|_| "<OntologyRegistry>"),
+            )
             .finish()
     }
 }
@@ -320,7 +341,15 @@ impl BindSpace {
         let temporal_bytes = self.len * 8;
         let expert_bytes = self.len * 2;
         let entity_type_bytes = self.len * 2;
-        content_topic_angle + cycle_bytes + sigma_bytes + edge_bytes + qualia_bytes + meta_bytes + temporal_bytes + expert_bytes + entity_type_bytes
+        content_topic_angle
+            + cycle_bytes
+            + sigma_bytes
+            + edge_bytes
+            + qualia_bytes
+            + meta_bytes
+            + temporal_bytes
+            + expert_bytes
+            + entity_type_bytes
     }
 
     /// Apply MetaFilter across a row window. Returns a dense Vec of row
@@ -360,7 +389,10 @@ pub struct BindSpaceBuilder {
 
 impl BindSpaceBuilder {
     pub fn new(capacity: usize) -> Self {
-        Self { bs: BindSpace::zeros(capacity), cursor: 0 }
+        Self {
+            bs: BindSpace::zeros(capacity),
+            cursor: 0,
+        }
     }
 
     /// Push a row with default entity_type (0 = untyped).
@@ -412,7 +444,8 @@ impl BindSpaceBuilder {
         assert!(
             self.cursor < self.bs.len,
             "BindSpaceBuilder overflow: tried to push row {} into capacity {}",
-            self.cursor, self.bs.len,
+            self.cursor,
+            self.bs.len,
         );
         let row = self.cursor;
         self.bs.fingerprints.set_content(row, content);
@@ -464,7 +497,11 @@ mod tests {
         let fp = FingerprintColumns::zeros(8);
         assert_eq!(fp.sigma.len(), 8);
         for row in 0..8 {
-            assert_eq!(fp.sigma_at(row), 0, "row {row} must default to codebook index 0");
+            assert_eq!(
+                fp.sigma_at(row),
+                0,
+                "row {row} must default to codebook index 0"
+            );
         }
     }
 
@@ -513,7 +550,10 @@ mod tests {
         bs.meta.set(2, MetaWord::new(0, 0, 255, 255, 0));
         bs.meta.set(3, MetaWord::new(0, 0, 10, 10, 0));
 
-        let filter = MetaFilter { nars_c_min: 150, ..MetaFilter::ALL };
+        let filter = MetaFilter {
+            nars_c_min: 150,
+            ..MetaFilter::ALL
+        };
         let hits = bs.meta_prefilter(ColumnWindow::new(0, 4), &filter);
         assert_eq!(hits, vec![0, 2]);
     }
@@ -539,9 +579,9 @@ mod tests {
         bs.write_cycle_fingerprint(1, &fp);
         // After bipolar projection: bit 0 set → dim 0 = +1.0, bit 1 unset → dim 1 = -1.0
         let row = bs.fingerprints.cycle_row(1);
-        assert_eq!(row[0], 1.0);   // bit 0 was set
-        assert_eq!(row[1], -1.0);  // bit 1 was not set
-        // Row 0 should still be all zeros (not projected)
+        assert_eq!(row[0], 1.0); // bit 0 was set
+        assert_eq!(row[1], -1.0); // bit 1 was not set
+                                  // Row 0 should still be all zeros (not projected)
         assert!(bs.fingerprints.cycle_row(0).iter().all(|&v| v == 0.0));
     }
 
@@ -570,7 +610,15 @@ mod tests {
         let qualia = QualiaI4_16D::ZERO;
         let content = [0u64; WORDS_PER_FP];
         let bs = BindSpaceBuilder::new(2)
-            .push_typed(&content, MetaWord::new(1, 0, 100, 100, 0), 0, qualia, 0, 0, 5)
+            .push_typed(
+                &content,
+                MetaWord::new(1, 0, 100, 100, 0),
+                0,
+                qualia,
+                0,
+                0,
+                5,
+            )
             .push(&content, MetaWord::new(2, 0, 200, 200, 0), 0, qualia, 0, 0)
             .build();
         assert_eq!(bs.entity_type[0], 5, "push_typed should set entity_type");
@@ -613,7 +661,12 @@ mod tests {
         // qualia is now QualiaI4Column; len() is row count (not flat f32 len).
         assert_eq!(bs.qualia.len(), N);
         for i in 0..N {
-            assert_eq!(bs.qualia.row(i), QualiaI4_16D::ZERO, "row {} should be ZERO", i);
+            assert_eq!(
+                bs.qualia.row(i),
+                QualiaI4_16D::ZERO,
+                "row {} should be ZERO",
+                i
+            );
         }
         assert!(!bs.qualia.is_empty());
         assert!(BindSpace::zeros(0).qualia.is_empty());
@@ -627,20 +680,31 @@ mod tests {
         let footprint = bs.byte_footprint();
         // Explicit formula (D-CSV-5b): no f32 qualia column (72 B/row gone).
         let content_topic_angle = 3 * N * WORDS_PER_FP * 8; // 3 × 2048 × N
-        let cycle_bytes = N * FLOATS_PER_VSA * 4;            // 65536 × N
-        let sigma_bytes = N;                                  // 1 × N
-        let edge_bytes = N * 8;                              // 8 × N
-        let qualia_bytes = N * 8;                            // i4: 8 × N (NOT 72 × N)
+        let cycle_bytes = N * FLOATS_PER_VSA * 4; // 65536 × N
+        let sigma_bytes = N; // 1 × N
+        let edge_bytes = N * 8; // 8 × N
+        let qualia_bytes = N * 8; // i4: 8 × N (NOT 72 × N)
         let meta_bytes = N * 4;
         let temporal_bytes = N * 8;
         let expert_bytes = N * 2;
         let entity_type_bytes = N * 2;
-        let expected = content_topic_angle + cycle_bytes + sigma_bytes + edge_bytes
-            + qualia_bytes + meta_bytes + temporal_bytes
-            + expert_bytes + entity_type_bytes;
-        assert_eq!(footprint, expected,
+        let expected = content_topic_angle
+            + cycle_bytes
+            + sigma_bytes
+            + edge_bytes
+            + qualia_bytes
+            + meta_bytes
+            + temporal_bytes
+            + expert_bytes
+            + entity_type_bytes;
+        assert_eq!(
+            footprint,
+            expected,
             "D-CSV-5b: byte_footprint should be {} (i4 8 B/row × {} rows), not {} (f32 72 B/row)",
-            expected, N, expected + N * (QUALIA_DIMS * 4 - 8));
+            expected,
+            N,
+            expected + N * (QUALIA_DIMS * 4 - 8)
+        );
     }
 
     /// 3. push_typed writes i4; read back via bs.qualia.row(0) equals the input.
@@ -650,10 +714,21 @@ mod tests {
         let known = QualiaI4_16D::ZERO.with(0, 3).with(7, -5).with(15, 7);
         let content = [0u64; WORDS_PER_FP];
         let bs = BindSpaceBuilder::new(1)
-            .push_typed(&content, MetaWord::new(1, 0, 100, 100, 0), 0, known, 0, 0, 0)
+            .push_typed(
+                &content,
+                MetaWord::new(1, 0, 100, 100, 0),
+                0,
+                known,
+                0,
+                0,
+                0,
+            )
             .build();
-        assert_eq!(bs.qualia.row(0), known,
-            "push_typed must write QualiaI4_16D verbatim to bs.qualia.row(0)");
+        assert_eq!(
+            bs.qualia.row(0),
+            known,
+            "push_typed must write QualiaI4_16D verbatim to bs.qualia.row(0)"
+        );
     }
 
     /// 4. engine_bridge conversion: from_f32_17d at the bridge produces the
@@ -664,7 +739,7 @@ mod tests {
         // Simulate what dispatch_busdto does post-cutover:
         // the engine produces f32; from_f32_17d converts at the bridge boundary.
         let mut q = [0.0f32; QUALIA_DIMS]; // QUALIA_DIMS=18 (bindspace local const)
-        q[0] = 0.8;  // energy
+        q[0] = 0.8; // energy
         q[1] = 0.3;
         q[3] = -0.6;
         q[9] = 512.0; // codebook_index as f32
@@ -677,8 +752,11 @@ mod tests {
         // Write to BindSpace the same way the bridge will post-cutover
         let mut bs = BindSpace::zeros(1);
         bs.qualia.set(0, oracle); // bridge writes the converted i4 directly
-        assert_eq!(bs.qualia.row(0), oracle,
-            "bridge-converted i4 must match QualiaI4_16D::from_f32_17d oracle");
+        assert_eq!(
+            bs.qualia.row(0),
+            oracle,
+            "bridge-converted i4 must match QualiaI4_16D::from_f32_17d oracle"
+        );
     }
 
     /// 5. QualiaColumn deprecation attribute is present (meta-test).
@@ -696,8 +774,11 @@ mod tests {
         {
             let col = QualiaColumn::zeros(2);
             // The type exists and is functional during the deprecation cycle.
-            assert_eq!(col.0.len(), 2 * QUALIA_DIMS,
-                "deprecated QualiaColumn must still allocate during deprecation cycle");
+            assert_eq!(
+                col.0.len(),
+                2 * QUALIA_DIMS,
+                "deprecated QualiaColumn must still allocate during deprecation cycle"
+            );
         }
         // The canonical field on BindSpace is QualiaI4Column, not QualiaColumn.
         let bs = BindSpace::zeros(1);
@@ -705,5 +786,4 @@ mod tests {
         use lance_graph_contract::qualia::QualiaI4_16D;
         let _: QualiaI4_16D = bs.qualia.row(0);
     }
-
 }
