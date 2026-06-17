@@ -33,6 +33,11 @@ use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
 use lance_graph_contract::qualia::QualiaI4_16D;
 use lance_graph_contract::soa_view::{MailboxSoaOwner, MailboxSoaView};
 
+/// Canonical named-fingerprint plane width: 256 × u64 = 16,384 bits
+/// (mirrors `bindspace::WORDS_PER_FP`; defined locally so the mailbox does NOT
+/// depend on the singleton it is migrating off of — W7 deletes BindSpace, not this).
+pub const WORDS_PER_FP: usize = 256;
+
 /// Spatial-temporal accumulator for per-row edge receipts.
 ///
 /// `N` is the maximum number of neuron rows this mailbox can serve.
@@ -119,6 +124,26 @@ pub struct MailboxSoA<const N: usize> {
     /// identity planes are a separate W1b step.
     pub sigma: [u8; N],
 
+    // ── NEW: D-MBX-A2 dense identity planes (W1b) ──
+    // The content/topic/angle Hamming identity planes stay HOT in the mailbox
+    // (~6 KB/thought; OQ-1 RESOLVED §2.7 — NOT reduced to a tiny ref). They are
+    // HEAP `Box<[u64]>` of `N * WORDS_PER_FP` (a `[u64; N*256]` stack array is not
+    // expressible on stable Rust and would be ~2 MB/plane at N=1024). The
+    // deprecated `Vsa16kF32` `cycle` plane is NEVER migrated — compute it
+    // transiently if a step needs it.
+    /// Per-row content identity fingerprint (`WORDS_PER_FP` u64/row). Migrated from
+    /// `BindSpace.fingerprints.content`. This is the heaviest column and the one the
+    /// driver's resonance search reads (`content_row`).
+    pub content: Box<[u64]>,
+
+    /// Per-row topic identity plane (`WORDS_PER_FP` u64/row). Migrated from
+    /// `BindSpace.fingerprints.topic`.
+    pub topic: Box<[u64]>,
+
+    /// Per-row angle identity plane (`WORDS_PER_FP` u64/row). Migrated from
+    /// `BindSpace.fingerprints.angle`.
+    pub angle: Box<[u64]>,
+
     /// Monotonic cycle stamp; advanced by `tick()`.
     pub current_cycle: u32,
 
@@ -181,6 +206,10 @@ impl<const N: usize> MailboxSoA<N> {
             temporal: [0u64; N],
             expert: [0u16; N],
             sigma: [0u8; N],
+            // ── NEW D-MBX-A2 dense identity planes — heap, zero-initialised (W1b) ──
+            content: vec![0u64; N * WORDS_PER_FP].into_boxed_slice(),
+            topic: vec![0u64; N * WORDS_PER_FP].into_boxed_slice(),
+            angle: vec![0u64; N * WORDS_PER_FP].into_boxed_slice(),
             // Pre-Rubicon: every mailbox starts in deliberation.
             phase: KanbanColumn::Planning,
         }
@@ -275,6 +304,12 @@ impl<const N: usize> MailboxSoA<N> {
         self.temporal[row] = 0;
         self.expert[row] = 0;
         self.sigma[row] = 0;
+        // ── NEW D-MBX-A2 dense identity planes reset (W1b) ──
+        let lo = row * WORDS_PER_FP;
+        let hi = lo + WORDS_PER_FP;
+        self.content[lo..hi].fill(0);
+        self.topic[lo..hi].fill(0);
+        self.angle[lo..hi].fill(0);
     }
 
     // ── Read-only inspectors ──────────────────────────────────────────────────
@@ -408,6 +443,61 @@ impl<const N: usize> MailboxSoA<N> {
     #[inline]
     pub fn set_sigma(&mut self, row: usize, s: u8) {
         self.sigma[row] = s;
+    }
+
+    // ── D-MBX-A2 dense identity-plane accessors (W1b) ────────────────────────
+
+    /// Zero-copy view of `row`'s content identity fingerprint (`WORDS_PER_FP`
+    /// u64). This is the hot read the driver's resonance/Hamming search performs
+    /// (the BindSpace equivalent is `FingerprintColumns::content_row`).
+    #[inline]
+    pub fn content_row(&self, row: usize) -> &[u64] {
+        &self.content[row * WORDS_PER_FP..(row + 1) * WORDS_PER_FP]
+    }
+
+    /// Write `row`'s content identity fingerprint. Panics if `words.len() != WORDS_PER_FP`.
+    #[inline]
+    pub fn set_content(&mut self, row: usize, words: &[u64]) {
+        assert_eq!(
+            words.len(),
+            WORDS_PER_FP,
+            "content fingerprint must be WORDS_PER_FP u64"
+        );
+        self.content[row * WORDS_PER_FP..(row + 1) * WORDS_PER_FP].copy_from_slice(words);
+    }
+
+    /// Zero-copy view of `row`'s topic identity plane (`WORDS_PER_FP` u64).
+    #[inline]
+    pub fn topic_row(&self, row: usize) -> &[u64] {
+        &self.topic[row * WORDS_PER_FP..(row + 1) * WORDS_PER_FP]
+    }
+
+    /// Write `row`'s topic identity plane. Panics if `words.len() != WORDS_PER_FP`.
+    #[inline]
+    pub fn set_topic(&mut self, row: usize, words: &[u64]) {
+        assert_eq!(
+            words.len(),
+            WORDS_PER_FP,
+            "topic plane must be WORDS_PER_FP u64"
+        );
+        self.topic[row * WORDS_PER_FP..(row + 1) * WORDS_PER_FP].copy_from_slice(words);
+    }
+
+    /// Zero-copy view of `row`'s angle identity plane (`WORDS_PER_FP` u64).
+    #[inline]
+    pub fn angle_row(&self, row: usize) -> &[u64] {
+        &self.angle[row * WORDS_PER_FP..(row + 1) * WORDS_PER_FP]
+    }
+
+    /// Write `row`'s angle identity plane. Panics if `words.len() != WORDS_PER_FP`.
+    #[inline]
+    pub fn set_angle(&mut self, row: usize, words: &[u64]) {
+        assert_eq!(
+            words.len(),
+            WORDS_PER_FP,
+            "angle plane must be WORDS_PER_FP u64"
+        );
+        self.angle[row * WORDS_PER_FP..(row + 1) * WORDS_PER_FP].copy_from_slice(words);
     }
 }
 
@@ -915,5 +1005,94 @@ mod tests {
         assert_eq!(mb.temporal_at(2), 0, "temporal[2] must reset to 0");
         assert_eq!(mb.expert_at(2), 0, "expert[2] must reset to 0");
         assert_eq!(mb.sigma_at(2), 0, "sigma[2] must reset to 0");
+    }
+
+    // ── test 15: W1b dense identity planes — parity with BindSpace ───────────
+
+    /// **The W1b "test the new" proof.** The content/topic/angle Hamming identity
+    /// planes stay hot in the mailbox (OQ-1). For `content` — the migration-critical
+    /// plane the driver's resonance search reads — assert byte parity against a
+    /// `BindSpace` window written with the same words. For `topic`/`angle`, BindSpace
+    /// exposes no public setter (they default zero there), so assert full round-trip
+    /// correctness on the mailbox. The deprecated `cycle` (Vsa16kF32) plane is never
+    /// migrated. Deletes nothing.
+    #[test]
+    fn test_mailbox_soa_dense_planes_parity_with_bindspace() {
+        use crate::bindspace::BindSpace;
+
+        const N: usize = 4;
+        let mut bs = BindSpace::zeros(N);
+        let mut mb: MailboxSoA<N> = MailboxSoA::new(1, 0, 1.0);
+
+        // Distinct per-row, per-plane bit patterns so a cross-row or cross-plane
+        // mixup fails. Set words across the full 256-word span.
+        let mk = |row: usize, plane: u64| -> [u64; WORDS_PER_FP] {
+            let mut w = [0u64; WORDS_PER_FP];
+            w[0] = 0x1000_0000_0000_0000 | ((row as u64) << 8) | plane;
+            w[row % WORDS_PER_FP] |= 1u64 << (row as u32 % 64);
+            w[WORDS_PER_FP - 1] = plane.wrapping_mul(0x9E37_79B9) ^ row as u64;
+            w
+        };
+        for row in 0..N {
+            let (c, t, a) = (mk(row, 1), mk(row, 2), mk(row, 3));
+            // content: write to BOTH (BindSpace exposes set_content) → true parity.
+            bs.fingerprints.set_content(row, &c);
+            mb.set_content(row, &c);
+            // topic/angle: mailbox-only round-trip (no public BindSpace setter).
+            mb.set_topic(row, &t);
+            mb.set_angle(row, &a);
+        }
+
+        for row in 0..N {
+            // content: byte-identical to the BindSpace plane (the hot read path).
+            assert_eq!(
+                mb.content_row(row),
+                bs.fingerprints.content_row(row),
+                "content[{row}] plane parity vs BindSpace"
+            );
+            // topic/angle: full-slice round-trip on the mailbox.
+            assert_eq!(
+                mb.topic_row(row),
+                &mk(row, 2)[..],
+                "topic[{row}] round-trip"
+            );
+            assert_eq!(
+                mb.angle_row(row),
+                &mk(row, 3)[..],
+                "angle[{row}] round-trip"
+            );
+        }
+    }
+
+    // ── test 16: reset_row clears the W1b dense planes ───────────────────────
+
+    /// `reset_row()` must zero the content/topic/angle plane spans for the row.
+    #[test]
+    fn test_mailbox_soa_reset_row_clears_dense_planes() {
+        const N: usize = 4;
+        let mut mb: MailboxSoA<N> = MailboxSoA::new(1, 0, 1.0);
+        let mut w = [0u64; WORDS_PER_FP];
+        w[0] = 0xDEAD_BEEF;
+        w[WORDS_PER_FP - 1] = 0xCAFE;
+        mb.set_content(2, &w);
+        mb.set_topic(2, &w);
+        mb.set_angle(2, &w);
+
+        mb.reset_row(2);
+
+        assert!(
+            mb.content_row(2).iter().all(|&x| x == 0),
+            "content row cleared"
+        );
+        assert!(mb.topic_row(2).iter().all(|&x| x == 0), "topic row cleared");
+        assert!(mb.angle_row(2).iter().all(|&x| x == 0), "angle row cleared");
+        // A neighbouring row must be untouched by the reset (span isolation).
+        mb.set_content(3, &w);
+        mb.reset_row(2);
+        assert_eq!(
+            mb.content_row(3)[0],
+            0xDEAD_BEEF,
+            "row 3 content must survive row-2 reset"
+        );
     }
 }
