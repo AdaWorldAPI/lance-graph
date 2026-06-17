@@ -20,9 +20,9 @@
 
 | column | type | per-row | → MailboxSoA destination | status |
 |---|---|---|---|---|
-| `fingerprints.content` | `Box<[u64]>` (256/row) | 2 KB | **own, dense, hot** (OQ-1 RESOLVED §2.7) | **GAP** |
-| `fingerprints.topic` | `Box<[u64]>` (256/row) | 2 KB | own, dense, hot | **GAP** |
-| `fingerprints.angle` | `Box<[u64]>` (256/row) | 2 KB | own, dense, hot | **GAP** |
+| `fingerprints.content` | `Box<[u64]>` (256/row) | 2 KB | **own, dense, hot** (OQ-1 RESOLVED §2.7) | **SHIPPED (W1b)** |
+| `fingerprints.topic` | `Box<[u64]>` (256/row) | 2 KB | own, dense, hot | **SHIPPED (W1b)** |
+| `fingerprints.angle` | `Box<[u64]>` (256/row) | 2 KB | own, dense, hot | **SHIPPED (W1b)** |
 | `fingerprints.cycle` | `Box<[f32]>` (16 384/row, `Vsa16kF32`) | **64 KB** | **DROP** — transient local, never a column | n/a |
 | `fingerprints.sigma` | `Box<[u8]>` (1/row) | 1 B | own `[u8; N]` (Σ-codebook ref) | **SHIPPED (W1)** |
 | `edges` | `EdgeColumn(Box<[u64]>)` (**raw u64**) | 8 B | own `[CausalEdge64; N]` (typed) | **SHIPPED** |
@@ -40,11 +40,12 @@
 Implements `MailboxSoaView` + `MailboxSoaOwner` (contract), with the `repr(transparent)`
 `edges_raw()`/`meta_raw()` zero-copy casts (const-asserted).
 
-**The remaining D-MBX-A2 gap (post-W1):** `content`/`topic`/`angle` (dense, hot — NOT a tiny
-ref; OQ-1 resolved). `sigma`/`temporal`/`expert` shipped in **W1** (see the W-sequence below).
-Note the content planes are **heap** (`Box<[u64]>` of `N*256`, like BindSpace) — they cannot be
-`[u64; N]` stack arrays and `[u64; N*256]` is not stable; design choice is a parallel
-`Box<[u64]>` field or a small `FingerprintColumns`-shaped sub-struct owned by the mailbox (W1b).
+**D-MBX-A2 is now COMPLETE (post-W1 + W1b):** all migrated columns own their place in
+`MailboxSoA<N>` — `sigma`/`temporal`/`expert` (W1) and the dense `content`/`topic`/`angle`
+Hamming identity planes (W1b, heap `Box<[u64]>` of `N*256`, with zero-copy `content_row()` etc.).
+The only `BindSpace.fingerprints` column NOT migrated is `cycle` (`Vsa16kF32`) — **dropped by
+design** (OQ-1/§2.7), computed transiently if a step needs it. The remaining arc is wiring
+(W2→W7), not column parity.
 
 ---
 
@@ -146,14 +147,14 @@ Each step keeps **both paths live** and adds tests for the new before removing a
   `BindSpace` window and a `MailboxSoA`, asserts `edges`/`qualia`/`meta`/`entity_type` +
   `temporal`/`expert`/`sigma` read back identically). 13 mailbox_soa tests green, clippy clean.
   Deletes nothing.
-- **W1b — D-MBX-A2 dense identity planes (additive, tested).** Add `content`/`topic`/`angle`
-  (dense, hot, heap `Box<[u64]>` of `N*256`, mirroring `FingerprintColumns` minus `cycle`) to
-  `MailboxSoA<N>` + a zero-copy `content_row(row)->&[u64]` accessor + parity test vs
-  `BindSpace.fingerprints`. **Design note:** the mailbox is otherwise all-stack `[T;N]`; the
-  planes MUST be heap (`N*256` u64 ≈ 2 MB at N=1024 cannot be stack, and `[u64; N*256]` is not
-  stable) — own them as `Box<[u64]>` fields or a small `MailboxFingerprints` sub-struct. The
-  `cycle` (`Vsa16kF32`) plane is NEVER added (OQ-1/§2.7). This is the hot-path-critical column
-  (`driver.rs` resonance read = `content_row`), so it gets its own focused step.
+- **W1b — D-MBX-A2 dense identity planes (additive, tested). DONE.** Added `content`/`topic`/
+  `angle` as heap `Box<[u64]>` of `N*WORDS_PER_FP` (mirroring `FingerprintColumns` minus `cycle`)
+  to `MailboxSoA<N>`, with zero-copy `content_row`/`topic_row`/`angle_row` accessors + `set_*` +
+  `reset_row` span-clearing. Tests: `test_mailbox_soa_dense_planes_parity_with_bindspace`
+  (content byte-parity vs a `BindSpace` window; topic/angle full round-trip) +
+  `test_mailbox_soa_reset_row_clears_dense_planes` (span isolation — a neighbour row survives).
+  16 mailbox_soa tests green, clippy clean. The `cycle` (`Vsa16kF32`) plane is NEVER added
+  (OQ-1/§2.7). Deletes nothing. **⇒ D-MBX-A2 column migration COMPLETE.**
 - **W2 — read-parity harness on the hot path.** Add a *read shim* so a `MailboxSoaView` can
   serve the columns `driver.rs` reads (content_row, edge, meta, qualia, entity_type). Run the
   dispatch resonance read against BOTH the singleton and a mailbox built from the same rows;
