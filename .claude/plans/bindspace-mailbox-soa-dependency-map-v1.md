@@ -24,12 +24,12 @@
 | `fingerprints.topic` | `Box<[u64]>` (256/row) | 2 KB | own, dense, hot | **GAP** |
 | `fingerprints.angle` | `Box<[u64]>` (256/row) | 2 KB | own, dense, hot | **GAP** |
 | `fingerprints.cycle` | `Box<[f32]>` (16 384/row, `Vsa16kF32`) | **64 KB** | **DROP** — transient local, never a column | n/a |
-| `fingerprints.sigma` | `Box<[u8]>` (1/row) | 1 B | own `[u8; N]` (Σ-codebook ref) | **GAP** |
+| `fingerprints.sigma` | `Box<[u8]>` (1/row) | 1 B | own `[u8; N]` (Σ-codebook ref) | **SHIPPED (W1)** |
 | `edges` | `EdgeColumn(Box<[u64]>)` (**raw u64**) | 8 B | own `[CausalEdge64; N]` (typed) | **SHIPPED** |
 | `qualia` | `QualiaI4Column` | 8 B | own `[QualiaI4_16D; N]` | **SHIPPED** |
 | `meta` | `MetaColumn(Box<[u32]>)` | 4 B | own `[MetaWord; N]` | **SHIPPED** |
-| `temporal` | `Box<[u64]>` | 8 B | own `[u64; N]` (OQ-2 fallback; v2 edge can't carry it) | **GAP** |
-| `expert` | `Box<[u16]>` | 2 B | subsume into `mailbox_id`/`w_slot`, or `[u16; N]` | **GAP** |
+| `temporal` | `Box<[u64]>` | 8 B | own `[u64; N]` (OQ-2 fallback; v2 edge can't carry it) | **SHIPPED (W1)** |
+| `expert` | `Box<[u16]>` | 2 B | subsume into `mailbox_id`/`w_slot`, or `[u16; N]` | **SHIPPED (W1)** |
 | `entity_type` | `Box<[u16]>` | 2 B | own `[u16; N]` | **SHIPPED** |
 | `ontology` | `Option<Arc<OntologyRegistry>>` | shared | **stays shared** (cold Zone-2, by `&`/`Arc`) | n/a |
 
@@ -40,11 +40,11 @@
 Implements `MailboxSoaView` + `MailboxSoaOwner` (contract), with the `repr(transparent)`
 `edges_raw()`/`meta_raw()` zero-copy casts (const-asserted).
 
-**The D-MBX-A2 gap (what S1 still owes):** `content`/`topic`/`angle` (dense, hot — NOT a tiny
-ref; OQ-1 resolved), `sigma`, `temporal`, `expert`. Note the content planes are **heap**
-(`Box<[u64]>` of `N*256`, like BindSpace) — they cannot be `[u64; N]` stack arrays and
-`[u64; N*256]` is not stable; design choice is a parallel `Box<[u64]>` field or a small
-`FingerprintColumns`-shaped sub-struct owned by the mailbox.
+**The remaining D-MBX-A2 gap (post-W1):** `content`/`topic`/`angle` (dense, hot — NOT a tiny
+ref; OQ-1 resolved). `sigma`/`temporal`/`expert` shipped in **W1** (see the W-sequence below).
+Note the content planes are **heap** (`Box<[u64]>` of `N*256`, like BindSpace) — they cannot be
+`[u64; N]` stack arrays and `[u64; N*256]` is not stable; design choice is a parallel
+`Box<[u64]>` field or a small `FingerprintColumns`-shaped sub-struct owned by the mailbox (W1b).
 
 ---
 

@@ -897,4 +897,23 @@ mod tests {
             );
         }
     }
+
+    // ── test 14: reset_row clears the W1 A2 columns ──────────────────────────
+
+    /// `reset_row()` must clear the new `temporal` / `expert` / `sigma` columns
+    /// (migration-invariant regression guard — a reset that forgot a new column
+    /// would leak stale per-row state into a reused mailbox row).
+    #[test]
+    fn test_mailbox_soa_reset_row_clears_a2_columns() {
+        let mut mb: MailboxSoA<4> = MailboxSoA::new(1, 0, 1.0);
+        mb.set_temporal(2, 123);
+        mb.set_expert(2, 77);
+        mb.set_sigma(2, 9);
+
+        mb.reset_row(2);
+
+        assert_eq!(mb.temporal_at(2), 0, "temporal[2] must reset to 0");
+        assert_eq!(mb.expert_at(2), 0, "expert[2] must reset to 0");
+        assert_eq!(mb.sigma_at(2), 0, "sigma[2] must reset to 0");
+    }
 }
