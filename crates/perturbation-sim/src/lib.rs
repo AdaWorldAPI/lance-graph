@@ -95,7 +95,9 @@ pub use model::{
     apply_aging, assess_capability, edge_age_factors, scale_susceptance, with_uniform_derate,
     AgeModel, Capability, DataLevel,
 };
-pub use perturbation::{spectral_perturbation, SpectralPerturbation};
+pub use perturbation::{
+    spectral_perturbation, SpectralPerturbation, FRAGMENTATION_SENTINEL, SPECTRAL_GAP_FLOOR,
+};
 pub use resilience::{algebraic_connectivity, kirchhoff_index, Resilience};
 pub use rolling_floor::{weyl_over_fiedler, FloorBand, RollingFloor, StackResult, TierFloors};
 pub use sketch::{fwht, resistance_sketch, walsh_pyramid_energy, ResistanceSketch, WalshEnergy};

@@ -50,10 +50,17 @@ pub enum FloorBand {
 /// is the per-tier early-warning signal the Bardioc "monitor mode stability"
 /// slide calls for; `1/λ₂` is the regional-mode susceptibility (Mode 2 = Fiedler).
 pub fn weyl_over_fiedler(weyl_dlambda: f64, fiedler_lambda2: f64) -> f64 {
-    if fiedler_lambda2.abs() < 1e-12 {
-        f64::INFINITY
+    // `1/λ₂` is the regional-mode susceptibility, and `λ₂ → 0` is the blackout
+    // precursor — the same NaN/divergence landmine as the Davis–Kahan `/ gap`. We
+    // floor the Fiedler denominator (absolute floor: λ₂ is itself an eigenvalue
+    // near 0) and surface `λ₂ ≤ floor` as the FRAGMENTATION_SENTINEL divergence
+    // (an unbounded instability ratio — the near-disconnected mode is maximally
+    // susceptible), never a `NaN`. `weyl_dlambda.max(0.0)` keeps the numerator
+    // non-negative so a sign-noisy Δλ cannot flip the ratio negative.
+    if fiedler_lambda2.abs() < crate::perturbation::SPECTRAL_GAP_FLOOR {
+        crate::perturbation::FRAGMENTATION_SENTINEL
     } else {
-        weyl_dlambda.max(0.0) / fiedler_lambda2
+        weyl_dlambda.max(0.0) / fiedler_lambda2.abs()
     }
 }
 
@@ -266,6 +273,26 @@ mod tests {
             weyl_over_fiedler(1.0, 0.0).is_infinite(),
             "λ₂→0 ⇒ unbounded"
         );
+    }
+
+    /// B1 finiteness gate: the `1/λ₂` instability ratio is NaN-free across the
+    /// blackout-precursor regime (λ₂ → 0, exactly 0, tiny-negative noise), and a
+    /// degenerate λ₂ surfaces the divergence sentinel — never a noisy finite or a
+    /// NaN. Normal-regime values are unchanged (parity).
+    #[test]
+    fn weyl_over_fiedler_is_nan_free_at_the_precursor() {
+        for &l2 in &[0.0, 1e-14, -1e-14, 1e-300, 1e-9, 1e-3, 1.0, 5.0] {
+            let r = weyl_over_fiedler(1e-6, l2);
+            assert!(!r.is_nan(), "weyl_over_fiedler NaN at λ₂={l2}");
+            assert!(
+                r >= 0.0,
+                "instability ratio must be non-negative at λ₂={l2}"
+            );
+        }
+        // Below the spectral floor ⇒ divergence sentinel (fragmenting mode).
+        assert!(weyl_over_fiedler(1e-6, 1e-14).is_infinite());
+        // Parity: a healthy λ₂ gives the plain, unchanged ratio.
+        assert!((weyl_over_fiedler(2.0, 4.0) - 0.5).abs() < 1e-12);
     }
 
     #[test]

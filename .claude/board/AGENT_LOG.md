@@ -13,6 +13,28 @@
 **Cross-repo validation (LOCAL ONLY, no odoo-rs commit):** built a slice-2-scoped enriched fixture, ran `od_ontology::RecomputeDag` from a throwaway `origin/main` worktree. **Baseline:** 0 cross-model compute edges, edge `_compute_amount_residual → _compute_amount` ABSENT. **Enriched:** 27 compute edges, that cross-model edge PRESENT — the wishlist's P0 ask (visible cross-model ordering) is delivered. **Correction:** the graph stays acyclic; the MISSED-1 dependency is an *ordering edge*, not a cycle (move depends on line; line does not depend back on move's totals), so odoo-rs's `slice_2_compute_subset_no_cross_model_cycle` no-cycle assertion legitimately still holds. Reported, not faked. Worktree removed.
 
 **Finding:** the corpus's original generator (`emit_ontology2.py` over `methods.parquet`) is absent from the tree; the blueprint extractor emits typed Rust `OdooEntity` consts (separate artifact). Enrichment runs over shipped corpus + present Odoo source — the correct additive stage. See `EPIPHANIES.md` E-ODOO-FK-DEEP-READS.
+## 2026-06-17 — perturbation-sim B1: finite-gate the spectral-gap NaN landmine (Davis–Kahan / λ₂→0 blackout precursor)
+
+**Main thread (Opus) — single implementer**, on new branch `claude/perturbation-soa-nan-gate-witness` off `origin/main`. Phase B of the SoA-substrate arc — "one NaN less + something to check against." Ran cargo freely against the shared `target/` (per the Opus-orchestrator hygiene rule).
+
+**B1 (the must-have) SHIPPED — finite-gate every spectral-gap division.** Full audit of all 7 spectral files + the 6 other modules (every `/` by gap/λ₂/eigenvalue-diff/norm). Finding: the crate was already remarkably well-defended (eigen.rs `pseudo_apply`/`pseudo_inverse` use a *relative* `rel_tol·λ_max` cutoff; lodf/kirchhoff/stats/timing/buffer/chaoda/model all guarded), but the Davis–Kahan path used **naked, absolute, inconsistent** ε-guards that (a) caught `0/0` but (b) let a tiny-positive noisy `gap` through as a silently-wrong finite bound. Fix mirrors `ndarray::hpc::entropy_ladder::residue_surprise` (PR #221): floor the denominator AFTER the subtract-and-`min`, relative to `λ_max`, divide unconditionally.
+
+Sites gated (all in `perturbation-sim/src/`):
+- `perturbation.rs:141-164` — `davis_kahan_bound`: `gap = min(λ₂−λ₁, λ₃−λ₂)` floored at `SPECTRAL_GAP_FLOOR·λ_max` AFTER the min; `gap ≤ floor` ⇒ `FRAGMENTATION_SENTINEL` (= `+∞`, the documented divergence signal — finiteness-checkable, never NaN). Two new `pub const`s (`SPECTRAL_GAP_FLOOR`, `FRAGMENTATION_SENTINEL`) exported via lib.rs; the small-network arm and the degenerate arm both return the sentinel, never a fabricated finite.
+- `perturbation.rs:95-101` — `connectivity_loss`: `λ₂'/λ₂` gated by the floor + result `.clamp(0,1)` (was unclamped → could exceed 1 on noisy `fiedler_before`).
+- `rolling_floor.rs:52-65` — `weyl_over_fiedler` (`Δλ·1/λ₂`): floor unified with `SPECTRAL_GAP_FLOOR`, divide by `λ₂.abs()`, numerator `.max(0.0)` (sign-noise can't flip the ratio negative).
+
+**Regression tests (the "check against"):** +4 tests, 91 → **95 green**.
+- `blackout_precursor_regime_is_never_nan` (near-zero-bridge grid, all lines): asserts NO output is NaN + the fragmenting-trip DK bound IS the sentinel (not a noisy finite).
+- `disconnected_graph_spectral_outputs_are_nan_free` (two independent components, λ₂≈0).
+- `weyl_over_fiedler_is_nan_free_at_the_precursor` (λ₂ ∈ {0, ±1e-14, 1e-300, …}).
+- `healthy_grid_davis_kahan_is_finite_and_bounds_rotation` (**parity** — asymmetric weighted path with a *separated* λ₂; non-vacuity asserted via `saw_finite`): the gate does NOT perturb healthy numbers, gates ONLY the singular path. (Discovered: a symmetric ring's Fiedler mode is degenerate → sentinel is correct & reachable in normal use; parity must use an asymmetric grid.)
+
+**B2 (the bonus) — STOP-and-report, not forced.** Assessed wiring `witness.rs`'s `particle == wave` oracle as the contract `witness_table` evaluator. **Outcome: the contract `WitnessTable` is an address-resolution primitive** (`(mailbox_ref:u32, spo_fact_ref:Option<u64>)` lookup by 6-bit W-slot; `get`/`set` only — see `lance-graph-contract/src/witness_table.rs`), **NOT an arc evaluator.** There is no evaluator hook to wire the particle/wave identity into; doing so would require inventing a NEW contract trait/method (an arc-evaluation surface), which is *more than additive* and crosses the iron-rule "no new trait/bridge" guidance + I-LEGACY-API-FEATURE-GATED. witness.rs's own doc already flags this as "a separate, gated step." Per the task's STOP-and-report instruction, did NOT force it. **Exact surface needed (if B2 is later greenlit):** a contract trait e.g. `WitnessArcEvaluator { fn evaluate_arc(&self, field: &[f64], arc: &[f64]) -> f64; }` (or an inherent method on a NEW field-carrying type — `WitnessTable` carries no field column), plus the FWHT/Parseval engine behind a feature gate. That is an additive *new type*, not an extension of the existing primitive — operator decision required.
+
+**Gates:** `cargo test --manifest-path crates/perturbation-sim/Cargo.toml` → 95 lib + 0 doctest green; `cargo clippy --manifest-path … --all-targets -- -D warnings` → clean (EXIT 0); `cargo fmt --check` → clean; examples build. No pre-existing `-D warnings` debt in this standalone crate (zero-dep; no causal-edge/p64-bridge transitive deps touched).
+
+**Board hygiene (this commit):** EPIPHANIES `E-SPECTRAL-GAP-NAN-1` prepended (the spectral-gap NaN class + floored-denominator decision + the acflow adjacent-finding note); this AGENT_LOG entry prepended. Additive / behaviour-preserving in the normal regime; gated ONLY the degenerate path. PR NOT opened (orchestrator opens it).
 
 ---
 
