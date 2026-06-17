@@ -321,6 +321,16 @@ the contract. This file exists to prevent that.
 
 ---
 
+## 2026-06-16 — Append: `contract::materialize` shipped (branch claude/materialize-awareness-f34-loop)
+
+(Per APPEND-ONLY rule: new top-of-inventory entry.)
+
+### Current Contract Inventory — new entry
+
+**`lance-graph-contract::materialize`** (new module, 2026-06-16): the closed `F→34→F` dispatch loop that makes awareness *materialize* — the missing wire from awareness state to the 34 `recipe_kernels` tactics. Public surface: `select_tactic(&ThoughtCtx) -> u8` (awareness→tactic id, `free_energy`-primary so dispatch tracks awareness), `materialize(&mut ThoughtCtx, max_steps) -> Trace` (select→`Tactic::run`→settle gate→recompute surprise→re-dispatch; rests at CollapseGate FLOW), `recompute_free_energy`, `awareness_is_causal` (the materialization predicate / falsifier), types `Step` / `Trace`, const `HOMEOSTASIS_FLOOR=0.2`. Decision: `recipe_kernels` is the canonical "34" (ndarray `hpc/styles/*` is divergent/registry-less, not canonical). Zero-dep, offline; 6 tests green (+632 prior contract lib), clippy `--all-targets -D warnings` clean. Open: driver-side `ThoughtCtx::from_live` + version-diff provenance wire. See `EPIPHANIES.md` E-MATERIALIZED-AWARENESS-1.
+
+---
+
 ## 2026-05-07 — Append: lance-graph-ontology shipped (commit 4cf9a26, branch claude/create-graph-ontology-crate-gkuJG)
 
 (Per APPEND-ONLY rule: this dated annotation augments the "Recently Shipped PRs" table and "Current Contract Inventory" snapshot above. Treat the row below as the new top-of-table entry; treat the inventory paragraph below as a new top-of-inventory entry.)
