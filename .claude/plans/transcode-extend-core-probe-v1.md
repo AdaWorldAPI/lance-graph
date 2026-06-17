@@ -435,3 +435,26 @@ the generated crate into tesseract-rs (needs the leptonica build env) and run
 `PROBE-OGAR-ADAPTER-UNICHARSET` byte-parity (Option B) — the only path to
 CONJECTURE→FINDING. Everything to here is CONJECTURE per the doctrine; the
 `PARITY: UNRUN` markers on every generated file say so.
+
+### Unicharset content store + byte-parity probe — Rust side READY (2026-06-17)
+
+The deferred Option A content-store tier, built (the operator chose "keep
+building here" + the leptonica-is-an-install-not-a-transcode epiphany):
+`lance_graph_contract::unicharset::UniCharSet` — `deepnsm::Vocabulary`-shaped
+(`reverse`/`lookup`), `load_from_str`/`load_from_file` + `id_to_unichar` /
+`unichar_to_id` + `dump()`. **Pure text parsing, ZERO leptonica** (the unicharset
+path never touches `Pix`), so it builds + unit-tests in-env (4 tests; 644 lib
+green). The `unicharset_dump` example renders the oracle-shape table.
+
+**The byte-parity probe is now one diff, not a build.** leptonica is an *install*
+(`apt-get libtesseract-dev libleptonica-dev`), never a transcode — it's only a
+*link* dep of the C++ oracle harness, never in the Rust path. So
+`PROBE-OGAR-ADAPTER-UNICHARSET` reduces to: (1) `combine_tessdata -u … eng.` to
+get a real `.unicharset`; (2) a ~10-line C++ harness (`-ltesseract -lleptonica`)
+dumps `id_to_unichar`; (3) `cargo run --example unicharset_dump` dumps the Rust
+side; (4) `diff`. Byte-identical → CONJECTURE→FINDING. Built to the documented
+`old_style_included_` plain-table format; any special-token edge case the real
+`eng.unicharset` shows on first diff is the refine-then item (the falsifier
+loop). The classid→`&UniCharSet` `LazyLock` resolver (the OGAR wiring) and
+transcoding leptonica itself (only for the far-off zero-C end-state, a large
+hand-port — NOT needed for the probe) both remain explicit follow-ups.

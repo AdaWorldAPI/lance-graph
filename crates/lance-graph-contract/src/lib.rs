@@ -101,6 +101,7 @@ pub mod soa_view;
 pub mod splat;
 pub mod tax;
 pub mod thinking;
+pub mod unicharset;
 pub mod view_angle;
 pub mod vsa;
 pub mod witness_table;
