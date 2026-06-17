@@ -157,6 +157,27 @@ pub struct MailboxSoA<const N: usize> {
     /// (see [`Self::pending_count`]).
     pub threshold: f32,
 
+    /// **Declared populated-row count (W1c).** The logical row count this mailbox is
+    /// using — the exact analogue of `BindSpace::len`, NOT the const capacity `N`.
+    ///
+    /// **Why it exists:** a zeroed `MetaWord` *passes* `MetaFilter::accepts`
+    /// (`0 >= 0`, `thinking_mask == 0` accepts all). A prefilter sweep clamped to the
+    /// capacity `N` (e.g. 1024) would therefore return `N − len` phantom rows for a
+    /// mailbox that only uses `len` rows — diverging from a `BindSpace` window of
+    /// `len`. Any row-bounded sweep (notably the migration read-shim's
+    /// `meta_prefilter` analogue) MUST clamp to [`Self::populated`] (the logical
+    /// row count), not the type-level capacity `N`. (Since W1c, `n_rows()` is
+    /// bound to `populated`, so it is now safe to clamp to either — `N` is the
+    /// only wrong choice.)
+    ///
+    /// **Semantics mirror `BindSpace::len`:** a *declared* size, set once at
+    /// construction/population time via [`Self::set_populated`] (just as
+    /// `BindSpace::zeros(len)` fixes `len`), NOT a per-write high-water-mark and NOT
+    /// decremented by [`Self::reset_row`] (clearing a row's contents does not shrink
+    /// the logical size, exactly as it does not change `BindSpace::len`). Defaults to
+    /// `0` (an empty mailbox) until declared.
+    pub(crate) populated: usize,
+
     /// The Rubicon lifecycle column this mailbox currently occupies — the
     /// **cognitive** FSM state (distinct from ractor's process-lifecycle
     /// `ActorStatus`; see `.claude/knowledge/orchestration-boundary-v1.md`).
@@ -210,6 +231,9 @@ impl<const N: usize> MailboxSoA<N> {
             content: vec![0u64; N * WORDS_PER_FP].into_boxed_slice(),
             topic: vec![0u64; N * WORDS_PER_FP].into_boxed_slice(),
             angle: vec![0u64; N * WORDS_PER_FP].into_boxed_slice(),
+            // ── W1c — empty mailbox: zero logical rows until `set_populated(...)`
+            //          declares the size (no write path bumps this implicitly) ──
+            populated: 0,
             // Pre-Rubicon: every mailbox starts in deliberation.
             phase: KanbanColumn::Planning,
         }
@@ -279,6 +303,28 @@ impl<const N: usize> MailboxSoA<N> {
     /// same-cycle idempotency guard safe for long-running sessions.
     pub fn tick(&mut self) {
         self.current_cycle = self.current_cycle.wrapping_add(1);
+    }
+
+    /// Declared populated-row count (W1c) — the `BindSpace::len` analogue, NOT the
+    /// type-level capacity `N`. Row-bounded sweeps (the migration read-shim's
+    /// `meta_prefilter`) clamp to this logical size, so zeroed padding rows
+    /// `populated..N` are not swept (a zeroed `MetaWord` would otherwise pass
+    /// `MetaFilter::accepts`). Since W1c, [`MailboxSoaView::n_rows`] is bound to
+    /// this field, so the two agree; only the const `N` is the wrong bound.
+    /// This is a *declaration*, never an implicit per-write counter — callers
+    /// manage it explicitly via [`Self::set_populated`].
+    #[inline]
+    pub fn populated(&self) -> usize {
+        self.populated
+    }
+
+    /// Declare the populated-row count (clamped to the capacity `N`). Set this to the
+    /// logical size the mailbox represents — e.g. when mirroring a `BindSpace` window
+    /// of `len` rows, call `set_populated(len)`. Mirrors fixing `BindSpace::len` at
+    /// construction; it is a declaration, not a per-write counter.
+    #[inline]
+    pub fn set_populated(&mut self, n: usize) {
+        self.populated = n.min(N);
     }
 
     /// Reset one row to its zero-initialised state.
@@ -518,7 +564,13 @@ impl<const N: usize> MailboxSoaView for MailboxSoA<N> {
     }
     #[inline]
     fn n_rows(&self) -> usize {
-        N
+        // Contract (`MailboxSoaView::n_rows`): "Number of POPULATED rows" — NOT the
+        // const capacity `N`. Generic view consumers (e.g. `SoaWavePrimer::project`)
+        // bound their row loop with `n_rows()`, so returning `N` would make them
+        // scan the zeroed padding rows `populated..N` (a zeroed `MetaWord` passes
+        // `MetaFilter::accepts`) — the exact phantom-row divergence W1c prevents.
+        // Returns the W1c declared logical size; `N` (capacity) is a type-level const.
+        self.populated
     }
     #[inline]
     fn w_slot(&self) -> u8 {
@@ -1094,5 +1146,49 @@ mod tests {
             0xDEAD_BEEF,
             "row 3 content must survive row-2 reset"
         );
+    }
+
+    // ── test 17: W1c populated() — the prefilter-bound declaration ───────────
+
+    /// `populated()` is the `BindSpace::len` analogue (declared logical size), NOT
+    /// the const capacity `N`. It defaults to 0, is set via `set_populated` (clamped
+    /// to `N`), and is NOT shrunk by `reset_row` — mirroring `BindSpace::len`, which
+    /// is fixed at construction regardless of row contents. The contract trait method
+    /// **`MailboxSoaView::n_rows()` reflects `populated()`** (its doc: "Number of
+    /// populated rows") so generic view consumers (`SoaWavePrimer::project`) that
+    /// bound `0..n_rows()` do NOT scan the zeroed padding rows `populated..N` (a
+    /// zeroed `MetaWord` passes `MetaFilter::accepts`).
+    #[test]
+    fn test_mailbox_soa_populated_is_declared_len_not_capacity() {
+        let mut mb: MailboxSoA<1024> = MailboxSoA::new(1, 0, 1.0);
+        assert_eq!(mb.populated(), 0, "empty mailbox uses zero rows");
+        // The trait surface mirrors the declared size, NOT the const capacity N=1024.
+        assert_eq!(
+            mb.n_rows(),
+            0,
+            "n_rows() (trait) reflects populated, not capacity N — the phantom-row guard"
+        );
+
+        mb.set_populated(4);
+        assert_eq!(mb.populated(), 4, "declared logical size");
+        assert_eq!(
+            mb.n_rows(),
+            4,
+            "n_rows() (trait) tracks populated() so view sweeps clamp correctly"
+        );
+
+        // reset_row clears contents but does NOT shrink the declared size.
+        mb.set_content(2, &[0u64; WORDS_PER_FP]);
+        mb.reset_row(2);
+        assert_eq!(
+            mb.populated(),
+            4,
+            "reset_row must not change populated (mirrors BindSpace::len)"
+        );
+
+        // set_populated clamps to the capacity N — never exceeds the backing arrays.
+        mb.set_populated(9999);
+        assert_eq!(mb.populated(), 1024, "set_populated clamps to N");
+        assert_eq!(mb.n_rows(), 1024, "n_rows() tracks the clamped populated");
     }
 }
