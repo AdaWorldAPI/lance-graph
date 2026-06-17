@@ -15,6 +15,47 @@
 
 ## Open Debt
 
+### TD-CI-TEST-JOB-DEBUGINFO0 — `test` job hit the same link cliff; `debuginfo=0` extended to it (2026-06-16)
+
+**Open — fix applied (merged via #511's CI commit), CONFIRM on the next green
+`test` run.** Extends `TD-CI-COVERAGE-MOLD-1` from the coverage job to the plain
+`test` job. The cliff that entry called *"a 2/50 intermittent"* surfaced on the
+**`test`** job: `ld terminated with signal 7 [Bus error]` + an LLVM crash dump at
+the `cargo test --no-run` link step of `test_sql_query` / `intervene_counterfactual`.
+
+Root cause is **link-footprint growth, not a logic break** (a layout break fails an
+assertion, not SIGBUS at link): **PR #507** (`0c6ef02c`, +4055/−1048 across
+`causal-edge` edge.rs/layout.rs — the ce64-v2 layout — and `cognitive-shader-driver`
+mailbox_soa.rs/driver.rs/planner_bridge.rs — MailboxSoaOwner + SurrealMailboxView,
+D-PG-6) grew the object-file set the lance-graph integration tests link, tipping the
+previously-marginal `test`-job link over the same disk/RSS ceiling. It surfaced on
+the first full-workspace CI run *after* #507 (the PRs between — #509 and
+perturbation-sim #511 — are root-`exclude`d so their CI never linked the post-#507
+tree; that is why it was "the first failing PR" yet not its fault).
+
+**This is a FENCE, not a root reduction:** it does not shrink #507's legitimate
+codegen; it sheds the dead `debuginfo=1` weight (CI never opens a debugger) to buy
+headroom — the same b56bb2cd lever, now on the `test` job. **Fix:** job-level
+`RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"` on `test` (parity with
+`test-with-coverage`; mold already installed). Side effect: the `test` job gets its
+own Swatinem cache key (first run repopulates).
+
+**Residual debt if it recurs after this:** the footprint is on a secular upward
+trend (every cognitive-layer PR adds codegen) — the durable fix is a bigger runner
+or splitting the integration-test link set, not repeatedly shaving flags.
+**Separately tracked latent item:** #507 left `intervene_counterfactual.rs:133/165`
+calling the **deprecated** `CausalEdge64::inference_type()` (the consumer-migration
+commit `8131c480` lives on the unmerged `claude/continue-ndarray-x0Oaw`) — that
+WARNS, does not fail (v1 default routes through the canonical mapping per
+I-LEGACY-API-FEATURE-GATED).
+
+Cross-ref: `TD-CI-COVERAGE-MOLD-1` (the coverage-job origin this extends);
+`.github/workflows/rust-test.yml` (now both jobs at `debuginfo=0`); PR #507
+(`0c6ef02c`); `claude/continue-ndarray-x0Oaw` (the pending ce64-v2 consumer
+migration). *(Relocated 2026-06-16 from an inline addendum inside
+`TD-CI-COVERAGE-MOLD-1` to this prepended entry, per the append-only board-hygiene
+rule — CodeRabbit #512 review.)*
+
 ### TD-CAUSAL-EDGE-LINT — `causal-edge` crate-wide pre-existing clippy (15) + fmt drift (2026-06-15)
 
 **Surfaced by** fixing the long-standing `test_build_fast` red (2026-06-15, this commit: `tables.rs:144` `<`→`<=`, the `c_levels=1` 256 KB floor — test now **48/48 green**). With the test green, `cargo clippy --manifest-path crates/causal-edge/Cargo.toml --lib -- -D warnings` still fails with **15 errors** (edge.rs `to_mantissa`/`from_mantissa`/`plasticity` — match-arm + needless-block lints) and `cargo fmt --check` shows **crate-wide drift** (edge.rs, v2_layout_tests.rs — arm spacing, long `assert_eq!` lines, nested if/else). **Pre-existing, NOT from the test-bound fix** (one line, tables.rs, fmt-clean). **CI-invisible** — `causal-edge` is not a lance-graph workspace member, so the workspace gate never clippy/fmt-checks it (same class as helix `probe_mantissa_fill`).
@@ -147,37 +188,10 @@ timing-race hypothesis (read the actual `cargo llvm-cov` log with a scoped token
 Cross-ref: `.github/workflows/rust-test.yml` (test job mold step vs coverage job);
 `bindspace-singleton-to-mailbox-soa-v1` (the migration this is NOT).
 
-**2026-06-16 addendum — the `test` job now hits the SAME cliff; fix extended to
-it (branch `claude/ci-test-job-debuginfo0`).** The cliff this entry called out as
-*"a 2/50 intermittent"* on the coverage job has now surfaced on the **plain
-`test`** job: `ld terminated with signal 7 [Bus error]` + an LLVM crash dump at
-the `cargo test --no-run` link step of `test_sql_query` / `intervene_counterfactual`.
-Root-caused to a **link-footprint growth, not a logic break** (a layout break would
-fail an assertion, not SIGBUS at link): **PR #507** (`0c6ef02c`, +4055/−1048 across
-`causal-edge` edge.rs/layout.rs — the ce64-v2 layout — and `cognitive-shader-driver`
-mailbox_soa.rs/driver.rs/planner_bridge.rs — MailboxSoaOwner + SurrealMailboxView,
-D-PG-6) grew the object-file set linked by the lance-graph integration tests enough
-to tip the previously-marginal `test`-job link over the same disk/RSS ceiling. It
-surfaced on the first full-workspace CI run *after* #507 (the two PRs between, #509
-and the perturbation-sim #511, are root-`exclude`d so their CI never linked the
-post-#507 tree — which is why this is "the first failing PR" yet not its fault).
-**This is a FENCE, not a root reduction:** it does not shrink #507's legitimate
-codegen; it removes the dead `debuginfo=1` weight (CI never opens a debugger) to
-buy headroom — exactly the b56bb2cd lever, now applied to the `test` job. **Fix:**
-job-level `RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"` on `test` (parity
-with `test-with-coverage`; mold already installed). Side effect: the `test` job
-gets its own Swatinem cache key (first run repopulates). **Confirm** on the next
-green `test` run. **Residual debt if it recurs after this:** the footprint is on a
-secular upward trend (every cognitive-layer PR adds codegen) — the durable fix is a
-bigger runner or splitting the integration-test link set, not repeatedly shaving
-flags. Separately, #507 left `intervene_counterfactual.rs:133/165` calling the
-**deprecated** `CausalEdge64::inference_type()` (the consumer-migration commit
-`8131c480` lives on the unmerged `claude/continue-ndarray-x0Oaw`) — that WARNS, does
-not fail (v1 default routes through the canonical mapping per I-LEGACY-API-FEATURE-
-GATED); tracked here as a separate latent item, not fixed on this CI branch.
-Cross-ref: `.github/workflows/rust-test.yml` (now both jobs at `debuginfo=0`);
-PR #507 (`0c6ef02c`); `claude/continue-ndarray-x0Oaw` (the pending ce64-v2
-consumer migration).
+**Status (2026-06-16):** the `test` job has since hit the SAME cliff and the
+`debuginfo=0` fix was extended to it — relocated to the prepended dated entry
+**"CI `test`-job `debuginfo=0`"** at the top of Open Debt (kept there for
+append-only hygiene rather than inline here).
 
 ### TD-UNBUNDLE-FROM-1 — `unbundle_from` is NOT the inverse of `bundle_into` (2026-06-07)
 
