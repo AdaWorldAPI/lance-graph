@@ -162,3 +162,36 @@ the tautologies/mis-cites dropped:
 
 Sequence unchanged from integration-lead: **C (re-scoped) → A (EXTEND-CORE probe,
 council-gated) → D (harvester polish) → B (byte-parity, operator)**.
+
+## C-FIRST step 1 — LANDED (2026-06-17)
+
+The re-scoped gate is built and green (AdaWorldAPI/ruff, branch
+`claude/happy-hamilton-0azlw4`):
+
+- **`ruff_spo_triplet::reassemble`** — generator stage 1, the inverse of
+  `expand`'s C++ projection. Method identity recovered from index-prefixed
+  `has_param_type` triples (baton P1(a) honored — never a `,`-split of the
+  `(params)` suffix); class attribution anchor-first. **`cpp_projection`**
+  exposed as the formal round-trip target.
+- **Round-trip falsifier (NOT a self-golden):** in-crate, 6 tests incl. the
+  three adversarial cases (same-name-method cross-attribution guard, overload
+  split, comma-bearing templated param). 54 `ruff_spo_triplet` tests green.
+- **`CPP-REASSEMBLE-RT` against the REAL corpus** (gated on `TESSERACT_SRC`):
+  Tesseract 5.5.0 ccutil, **67 classes — class-set preservation + idempotence
+  hold**. truth-architect's PREMATURE flag resolved: this is a real measurement
+  on real data, not a tautology.
+- **Falsifier earned its keep — it found a real bug class:** 48/67 round-trip
+  byte-exact, **19 differ** = const/non-const overloads colliding on one method
+  IRI (const-ness absent from the `(params)` suffix; `expand`'s `(s,p,o)` dedup
+  merges them). Generalizes baton P1(a) to a cv-qualification axis, quantified
+  19/67 on real data. Queued as **GAP-CONST-OVERLOAD** (harvester IRI-scheme
+  change, operator-gated) in `ruff/.claude/plans/cpp-spo-probes-v1.md` — a
+  documented known-gap, not a silent drop.
+- **adk-behavior-monitor honesty guardrail** still owed when real `.rs`
+  emission lands (step ≥2): `PARITY: UNRUN (operator-blocked: leptonica)`
+  markers so a green generator suite is never misread as the byte-parity
+  FINDING (Option B, operator's host).
+
+**Next:** C step 2 (the Rust *emitter* consuming the reassembled `ModelGraph`)
+remains; it is where the `PARITY: UNRUN` markers and the GAP-CONST-OVERLOAD
+single-merged-adapter handling apply. Options A / D / B unchanged.
