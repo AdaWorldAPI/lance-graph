@@ -374,3 +374,32 @@ one needed D. `GAP-CONST-OVERLOAD` is RESOLVED; no merged-adapter known-gap
 remains. **Next: the emitter scaffold (`ruff_cpp_codegen`, autonomous,
 emit-text + ruff-side round-trip gate); then the `MethodSig` EXTEND-CORE in
 lance-graph (additive, the emitted text's compile target).**
+
+### Emitter scaffold — LANDED (2026-06-17, AdaWorldAPI/ruff)
+
+`ruff_cpp_codegen` shipped (depends on `ruff_spo_triplet` only — the forbidden
+`ruff → lance-graph` edge confirmed absent):
+
+- **`project(&ModelGraph) → Vec<ClassManifest>`** extracts the method plane
+  (`MethodSig` = name, ordered params, return, `is_const`, `is_static`, override;
+  body-shaping flags dropped). **`render(&[ClassManifest]) → String`** emits
+  Rust **text** naming `lance_graph_contract::codegen_manifest::MethodSig` —
+  emit-text-only, deterministic, escaped (comma-bearing templated params stay one
+  quoted element), with `PARITY: UNRUN` headers and the hand-curated Frankenstein
+  deny-list (`id_to_unichar_ext`, `CleanupString` → `// HAND-PORT`).
+- **The gate has teeth (not a self-golden):** `decompile(project(g))` must equal
+  `expand(g)` on the signature plane — the `codegen_spine::roundtrip_eq` pattern
+  over the *live* triples, implemented over `ruff_spo_triplet::Triple` to stay
+  lance-graph-free. `round_trip_detects_a_dropped_method` proves it can fail.
+- **`CPP-CODEGEN-RT` (gated e2e on the real corpus):** ccutil harvest → 67
+  classes, **857 methods → a 124 KB `MethodSig` manifest**; the signature-plane
+  round-trip holds and the render carries PARITY + one literal per method.
+  classid minting stays OGAR-side (name-keyed text). 10 + 16 tests green.
+
+**Next (operator-gated): the `MethodSig` EXTEND-CORE in `lance-graph-contract`**
+— a `&'static str`-backed `MethodSig` POD + `codegen_manifest` module (additive,
+container-architect ADDITIVE-CONFIRMED), the compile target the emitted text
+names. It touches operator-locked canon (additively), so unlike D and the
+scaffold (ruff-internal correctness/codegen) it is the deliberate-Core-growth
+step the doctrine says to file + review before landing. Then: wire the generated
+crate in tesseract-rs and run byte-parity (Option B, operator's leptonica host).
