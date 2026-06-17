@@ -1470,6 +1470,7 @@ mod tests {
                 brier: 0.1,
                 should_admit_ignorance: false,
             },
+            materialize: Default::default(),
             alpha_composite: None,
         };
         let wire = WireCrystal::from(&crystal);

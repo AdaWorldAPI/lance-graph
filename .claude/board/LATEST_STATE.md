@@ -333,6 +333,26 @@ the contract. This file exists to prevent that.
 
 ---
 
+## 2026-06-17 — Append: materialized-awareness driver wire (provenance-only) on branch claude/materialize-awareness-f34-loop
+
+(Per APPEND-ONLY rule: new top-of-inventory entry.)
+
+### Current Contract Inventory — new entry
+
+**`lance-graph-contract::cognitive_shader::MaterializeProvenance`** (new type, 2026-06-17): primitive-only Copy record (`first_tactic:u8`, `steps:u16`, `rested:bool`, `final_free_energy:f32`, `fork:u8`) added as a field on `ShaderCrystal`. The `cognitive-shader-driver` runs the `materialize` F→34→F loop **and** the ndarray HHTL `fork_decision` as a **side analysis** over each cycle's already-computed observables (`free_energy`, `std_dev`, MUL, per-hit resonances) and records the outcome here. **Provenance-only — does NOT alter `bus.gate` or persistence** (operator decision 2026-06-17: cycle untouched). Observable→`ThoughtCtx` mapping is faithful (sd←std_dev, confidence←1−F, dissonance←|felt−demonstrated| DK gap); the fork's challenge is a **`std_dev` dispersion proxy (CONJECTURE)** with a std_dev-calibrated floor/σ, pending the real orthogonal `CoarseResidue` magnitude from the codec path and real HHTL cascade depth (depth==max⇒leaf for now). Driver helper `materialize_provenance(...)`; 2 driver tests (confident→Commit, scattered→ForkDomain; dispatch populates provenance) + the ndarray fork ladder (PR #221, merged). `fork:u8` = `ForkAction` (0 Commit /1 DescendDeeper /2 ForkBasin /3 ForkDomain). Note: `cognitive-shader-driver` is not in the default-workspace clippy member set. See `EPIPHANIES.md` E-MATERIALIZED-AWARENESS-1.
+
+---
+
+## 2026-06-16 — Append: `contract::materialize` shipped (branch claude/materialize-awareness-f34-loop)
+
+(Per APPEND-ONLY rule: new top-of-inventory entry.)
+
+### Current Contract Inventory — new entry
+
+**`lance-graph-contract::materialize`** (new module, 2026-06-16): the closed `F→34→F` dispatch loop that makes awareness *materialize* — the missing wire from awareness state to the 34 `recipe_kernels` tactics. Public surface: `select_tactic(&ThoughtCtx) -> u8` (awareness→tactic id, `free_energy`-primary so dispatch tracks awareness), `materialize(&mut ThoughtCtx, max_steps) -> Trace` (select→`Tactic::run`→settle gate→recompute surprise→re-dispatch; rests at CollapseGate FLOW), `recompute_free_energy`, `awareness_is_causal` (the materialization predicate / falsifier), types `Step` / `Trace`, const `HOMEOSTASIS_FLOOR=0.2`. Decision: `recipe_kernels` is the canonical "34" (ndarray `hpc/styles/*` is divergent/registry-less, not canonical). Zero-dep, offline; 6 tests green (+632 prior contract lib), clippy `--all-targets -D warnings` clean. Open: driver-side `ThoughtCtx::from_live` + version-diff provenance wire. See `EPIPHANIES.md` E-MATERIALIZED-AWARENESS-1.
+
+---
+
 ## 2026-05-07 — Append: lance-graph-ontology shipped (commit 4cf9a26, branch claude/create-graph-ontology-crate-gkuJG)
 
 (Per APPEND-ONLY rule: this dated annotation augments the "Recently Shipped PRs" table and "Current Contract Inventory" snapshot above. Treat the row below as the new top-of-table entry; treat the inventory paragraph below as a new top-of-inventory entry.)
