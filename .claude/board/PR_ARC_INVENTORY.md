@@ -35,6 +35,99 @@
 
 ---
 
+## #512 perturbation-sim: degenerate-grid + key-cardinality guards + core-first-transcode doctrine (review #511 + #513)
+
+**Status:** MERGED 2026-06-16 20:33 UTC (merge commit `1e23c410`), branch `claude/happy-hamilton-0azlw4`. **+591/-5 across 11 files** — addresses the open review findings from #511 (which merged before they resolved) AND introduces the **core-first-transcode** doctrine + 3 new agent cards.
+
+**Added (code fixes):**
+- **CodeRabbit Major fix** — `examples/calibrate.rs` divide-by-zero on a degenerate grid: `k = 24.min(m)` is `0` when `m == 0` so `m / k` panics; `eigenvector(1)` / `m - 1` also break for `n < 2`. Up-front guard exits cleanly with a message.
+- **CodeRabbit Major fix** — `src/hhtl.rs::basin_lambda2` silent corruption: a `keys` slice whose length ≠ `grid.n` silently produced wrong basin groupings + λ₂. Added `assert_eq!(keys.len(), grid.n, …)` precondition at the API boundary (loud-fail, all profiles).
+- **CodeRabbit Minor fix** — `TECH_DEBT.md` MD018: reflowed the wrapped `#507` so it stops parsing as an ATX heading.
+
+**Added (doctrine — the structural delivery):**
+- **`.claude/knowledge/core-first-transcode-doctrine.md` (218 LOC)** — new mandatory-read knowledge doc establishing the core-first transcode posture. Likely directly aligned with the ontology-first stance the operator just locked in on `odoo-rs` (Odoo's ontology runs natively in SurrealDB, codegen is the "cut tail").
+- **3 new agent cards:** `core-first-architect.md` (91 LOC), `core-gap-auditor.md` (91 LOC), `adapter-shaper.md` (80 LOC). Wired into `.claude/agents/BOOT.md` (+3) and `.claude/agents/README.md` (+33).
+- **`.claude/board/EPIPHANIES.md`** prepend (+24 LOC) — the originating finding.
+- **`CLAUDE.md`** workspace charter (+21 LOC) — assumed to wire the core-first doctrine into the top-level read list (NEW content not yet inspected this session).
+
+**Not changed (with stated reason):**
+- **Codex P2 (`infight` width)** already fixed before merge — `columns.rs` carries `spec("infight", 4, …)` (certified 4-bit per the §10 note), tests assert. Thread left open without code change.
+- **CodeRabbit Major (TECH_DEBT.md append-only governance)** — the 2026-06-16 addendum sits mid-entry instead of as a prepended dated entry. Valid governance observation; the compliant fix is a 31-line board reorganization that belongs in a focused hygiene pass, not churn inside a code-fix PR. Flagged on the thread, deferred to the entry owner.
+
+**Locked:** the core-first doctrine and its 3 specialist agents are now part of the workspace mandatory-read set (`core-first-transcode-doctrine.md`). The `assert_eq!` precondition on `basin_lambda2` formalises the key-cardinality contract — degraded silent output is now a panic.
+
+**Deferred:** TECH_DEBT.md append-only repositioning (separate hygiene PR). Cross-doctrine reconciliation between `core-first-transcode-doctrine.md` and the existing `lab-vs-canonical-surface.md` / `encoding-ecosystem.md` knowledge spine has not been inspected this session.
+
+**Docs:** see above — 218-LOC new knowledge doc, EPIPHANIES entry, CLAUDE.md wire-up, 3 new agent cards. AGENT_LOG/LATEST_STATE updated in **this** retroactive-hygiene commit.
+
+**Confidence (2026-06-16):** code-fix portion working (`fmt` + `clippy -D warnings` + `test` green; 75 lib tests on perturbation-sim). Doctrine portion **unverified this session** — the new `core-first-transcode-doctrine.md` content is unread by this thread and may impact the odoo-rs ontology-first design when next loaded.
+
+## #513 perturbation-sim: inertia §0 promotion gate + CAKES/CHAODA + witness standing-wave + H ingest
+
+**Status:** MERGED 2026-06-16 20:27 UTC (merge commit `8a3e335b`), branch `claude/perturbation-sim-inertia-clam`. **+1009/-2 across 10 files**. Disjoint files from #512 (no `calibrate.rs`, no `basin_lambda2` body, no `TECH_DEBT.md`) by design. Four additive deliverables continuing the resilience arc after #511.
+
+**Added (1) — `inertia_buffer` §0 promotion gate (`33d66ca9`):** flips the anti-invention guardrail review for the one additive SoA member (operator sign-off 2026-06-16) and makes it real:
+- `GuardrailVerdict { Proposed, RatifiedReuse }` + `INERTIA_PROMOTION`. **Verdict = RatifiedReuse**: `inertia_buffer` takes `ResidueEdge` slot `INERTIA_SLOT = 5`, reuses an existing value tenant, invents no new axis → **passes §0 by *reuse*, not waiver**. Topology stays the HHTL-OGAR GUID key; the buffer is one more value, orthogonal by the key/value split.
+- `study_slot_assignments()`: the 6 members → ResidueEdge slots 0..6, collision-free.
+- `buffer::inertia_buffer_column()`: the computed producer (per-bus `impulse_buffer`, normalized to [0,1], degenerate-safe).
+
+**Added (2) — Probe 1, CAKES + CHAODA over HHTL basins (`8d87ef0e`):** the CLAM-family similarity (attraction) / anomaly (repulsion) pair applied to grid resilience:
+- HHTL = the family basin; **CAKES** (`cakes_neighbors`) = "who are my relatives"; **CHAODA** (`chaoda_scores` / `anomaly_ranking`) = per-basin kNN-distance anomaly = the fail-first compartment (`CHAODA_FLAG = 0.75` mirrors `ndarray::clam`'s flag).
+- `resilience_basin_features`: per-basin `[λ₂, size, inertia]` rows (topology / scale / buffer — the three orthogonal axes).
+- Self-contained CHAODA-lite; `ndarray::clam`'s full `ClamTree` ensemble is the gated production path (no local ndarray sibling here). Example `chaoda` flags the planted brittle block (basin 1.1.0, score 1.000).
+
+**Added (3) — Probe 2, witness arc as standing wave (`006d2322`, METHODS §11):** proves `particle == wave`. A witness arc walked hop-by-hop (`O(hops)` pointer-chase) equals its Walsh-pyramid evaluation via **Parseval** (`Hᵀ·H = N·I`): `⟨field, arc⟩ = (1/N)·⟨Ĥ·field, Ĥ·arc⟩`.
+- `witness_particle` (the walk) / `field_spectrum` (transform once) / `witness_from_spectrum` (read many arcs, `O(N)` each — the amortization win) / `witness_wave` / `particle_equals_wave`.
+- Example `witness` runs it on the inertia-buffer field; particle vs wave agree to **0.00e0**. The contract `witness_table` evaluator remains a separate gated step (SoA spine = additive-only behind iron rules).
+
+**Added (4) — Probe 3, per-bus inertia (H) ingest path (`723472a9`):** real H is not in PyPSA/OSM topology; this PR opens the ingest path so per-bus inertia becomes observable. Source: `crates/perturbation-sim/src/inertia_data.rs` (183 LOC, new) + `examples/inertia_ingest.rs` (66 LOC, new). [PR body truncated in fetch — full payload details TBC on next session.]
+
+**Locked:** (1) **§0 RatifiedReuse precedent** — additive SoA members can be ratified by *reuse of an existing value tenant* rather than a §0 waiver, when the topology stays in the HHTL-OGAR GUID key and the new member rides an existing tenant. (2) `INERTIA_SLOT = 5` carved in `ResidueEdge`. (3) Particle/wave duality via Parseval is the canonical pattern for witness-arc evaluation at scale (read-many amortization).
+
+**Deferred:** (1) Production CHAODA/CAKES path through `ndarray::clam::ClamTree` (gated on local ndarray sibling). (2) Contract-side `witness_table` evaluator (the SoA spine surface that consumes Probe-2's math). (3) Full inertia ingest API documentation (truncated PR body).
+
+**Docs:** standalone crate, no `.claude/board/*` updates landed in this PR (the doctrine work landed separately in #512). This entry + LATEST_STATE row + AGENT_LOG entry land in **the same commit** as the #512 entry above (retroactive batch hygiene).
+
+**Confidence (2026-06-16):** working — `fmt` + `clippy -D warnings` + `test` green on the standalone perturbation-sim crate; particle-equals-wave numeric agreement at machine epsilon; CHAODA-lite correctly flags the planted brittle block.
+
+## #511 perturbation-sim: substrate calibration (study as ground truth) + calibrated SoA member spec
+
+**Status:** MERGED 2026-06-16 19:01 UTC (merge commit `c3dddfc9`), branch `claude/perturbation-sim-calibrate-soa`. **Additive: +886/-0 across 9 files** — `examples/calibrate.rs` (new, 318 LOC), `src/columns.rs` (new, 177 LOC, spec only), `src/hhtl.rs` (new, 175 LOC), `examples/hhtl_grid.rs` (new, 81 LOC), `CLAM_CHAODA_FRAMING.md` (new, 75 LOC), small wires in `Cargo.toml`/`src/lib.rs`, plus `.claude/board/TECH_DEBT.md` (+32) and `.github/workflows/rust-test.yml` (+16). Does **NOT** touch the operator-locked `canonical_node`.
+
+**Added:** the substrate-calibration loop — use perturbation-sim's deterministic study as ground truth, encode its factor matrix through the SoA value tenants, certify with the `certification-officer` battery (**ICC(2,1)** = abs agreement source↔encoded · **Spearman** = rank · **Pearson** = linear readout · **Cronbach α** = *reproduce* the source α — NOT maximize; the study's α is low by design and "improving" it corrupts the construct). Significance at the **Jirak `n^(p/2−1)`** rate (per `I-NOISE-FLOOR-JIRAK`).
+
+**Findings (real ES core, members stored normalized):**
+- All 5 contingency factors **certify by VALUE at 2-bit linear** (ICC ≥ 0.96) — the existing palette/turbovec tenants already suffice per value. The §10 "the statistics survive the encoding" claim is **confirmed**.
+- **α preserved within Δ ≤ 0.02 at ≥4-bit**; the discriminant ρ wobbles ±0.15 at N=24 under coarse bins → read the cross-axis orthogonality at **≥6-bit** (store budget < read budget).
+- **Self-correction (the run falsified two of my own guesses):** `d_lambda2`'s initial ICC=0 was **not** heavy-tail and **not** near-constant — it was a tiny-magnitude (~1e-7) underflow of ICC's variance guard; storing the member **normalized** fixes it (1.00 at 2-bit). Both wrong hypotheses retracted in the example headline.
+
+**Locked:** (1) the **5 factors map to existing tenants** (2-bit linear, normalized, read ≥6-bit) — no new SoA columns for the contingency axes; (2) the **one genuinely additive member is `inertia_buffer`** — the axis the resilience study (PR #509) measured *orthogonal* to topology (`Spearman(λ₂, buffer) ≈ 0`), which no existing connectivity column can carry. **Spec only** (`src/columns.rs`); promoting `inertia_buffer` into `lance-graph-contract` is a separate gated step (§0 anti-invention guardrail honoured).
+
+**Deferred:** (1) the `inertia_buffer` promotion into the contract crate (gated by §0 guardrail review). (2) helix's exact curve-placement — this calibration tests the shared value-quantization principle via a generic min-max/rank quantizer mapping the tenants' bit budgets; not helix-curve verbatim. (3) cross-axis orthogonality probe at ≥6-bit (the read-budget recommendation).
+
+**Docs:** `crates/perturbation-sim/CLAM_CHAODA_FRAMING.md` (new) + `.claude/board/TECH_DEBT.md` updated (+32 lines). This entry. **AGENT_LOG + LATEST_STATE updates owed** to this commit per board-hygiene rule (this is the retroactive cleanup window, not the same-commit landing).
+
+**Confidence (2026-06-16):** working — calibration battery green, 71 lib tests + clippy `-D warnings` + fmt clean on the perturbation-sim crate.
+
+## #510 surreal_container seam falsifier — SurrealMailboxView → VersionScheduler → KanbanMove (IN-direction only)
+
+**Status:** MERGED 2026-06-16 16:36 UTC (merge commit `0e6452c8`), branch `claude/sleepy-cori-aRK2x`. Additive: +125/-0, one new file (`crates/surreal_container/tests/scheduler_seam.rs`); zero source change; first integration-test file in the `surreal_container` crate.
+
+**Added:** five kill-condition-first tests pinning the doc-comment contract of the **IN-direction** of the surreal↔kanban↔scheduler wiring (`SurrealMailboxView → NextPhaseScheduler::on_version → KanbanMove`):
+1. `full_rubicon_arc_lowers_to_legal_successors` — walks Planning→CognitiveWork→Evaluation→Commit + Plan→Planning; asserts every forward tick lands on a `can_transition_to == true` edge.
+2. `absorbing_columns_schedule_no_move` — `Commit`/`Prune` MUST schedule no advance (closes the non-terminating-lifecycle bug).
+3. `libet_anchor_only_on_sigma_commit_crossing` — the `-550_000µs` readiness anchor MUST appear at the Planning→CognitiveWork Σ-commit crossing and nowhere else.
+4. `lowering_is_deterministic` — same `(view, version, exec)` → identical `KanbanMove` (no hidden state).
+5. `exec_target_rides_onto_the_move` — `ExecTarget` backend selector survives lowering.
+
+**Locked:** the IN-direction contract is now testable end-to-end against the real `SurrealMailboxView` (not just the in-crate `FakeView`). The kill-condition framing is the **template** the planner-emit half (OUT-direction, D-MBX-A6-P3) will be verified against once it lands.
+
+**Deferred (explicit in PR body):** the **OUT-direction = planner-emit `KanbanMove`** (the `CognitiveCycle` sequencer + §9 LOCKED decisions from #496). PR body: *"this does not touch the contested planner-emit half … which is the planner-owning session's lane."* → D-MBX-A6-P3 remains **the next unblock** for closing the loop. This PR proves the loop's downstream half; the upstream half is still hand-rolled.
+
+**Docs:** AGENT_LOG + LATEST_STATE updated (this commit). No new knowledge doc.
+
+**Confidence (2026-06-16):** working — IN-direction now has 5 contract-pinning tests; OUT-direction unchanged.
+
 ## #498 GUID decode→read-mode keystone + helix Signed360 right-size + OCR→NodeRow transcode
 
 **Status:** OPEN 2026-06-15 (branch `claude/wonderful-hawking-lodtql`, 8 commits post-#496). In review (CodeRabbit + codex). **NOTE:** this entry documents the helix / keystone / OCR / causal-edge work that CodeRabbit on PR #498 mis-attributed to #496 — those changes are **#498's, not #496's**. #496 shipped only ValueSchema presets + the reference plan (its immutable entry below correctly shows the pre-right-size 154/98 B budgets).
