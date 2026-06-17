@@ -348,3 +348,29 @@ as the output.** Execution order:
 self-golden); GAP-CONST-OVERLOAD is fixed at the source by D (not relied on as a
 round-trip failure); A and B are lifecycle stages, not a choice. Sequence:
 **D → emitter scaffold → MethodSig EXTEND-CORE → wire/parity.**
+
+### D — LANDED (2026-06-17, AdaWorldAPI/ruff)
+
+cv-aware method IRI shipped: `expand` appends ` const` when `is_const`,
+`clang_walker` does the same for the override target, `reassemble` reconstructs
+it. **`CPP-REASSEMBLE-RT` went 48/67 → 67/67 byte-exact, now a hard gate.**
+
+**The falsifier corrected the council's own assumption.** "19/67 = const
+overloads" was an inference; the cv-aware IRI fixed only **3**. Tracing the rest
+(per-class methods/templates/fields delta) showed the council had conflated three
+distinct causes: **13** were benign duplicate `template_instantiates` that
+`expand` dedups but `cpp_projection` did not; **2** were duplicate-harvested
+methods (same cause); **1** (UnicityTable) was an equal-`(name,params)`-sort-key
+ordering artifact for a const/non-const pair. Two round-trip-metric fixes
+followed — `cpp_projection` now de-duplicates every collection (mirroring
+`expand`'s `(s,p,o)` dedup), and the methods sort key includes `is_const`. Net:
+the round-trip is now a faithful, total-order, deduped projection; real
+collisions (same key, different content) still surface, exact duplicates collapse.
+
+This is the C-FIRST doctrine working as intended: build the cheap in-env
+falsifier, run it on real data, and let it overturn the synthesis — the council
+*assumed* a single const-overload cause; the measurement found three, and only
+one needed D. `GAP-CONST-OVERLOAD` is RESOLVED; no merged-adapter known-gap
+remains. **Next: the emitter scaffold (`ruff_cpp_codegen`, autonomous,
+emit-text + ruff-side round-trip gate); then the `MethodSig` EXTEND-CORE in
+lance-graph (additive, the emitted text's compile target).**
