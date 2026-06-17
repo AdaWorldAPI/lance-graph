@@ -1191,4 +1191,171 @@ mod tests {
         assert_eq!(mb.populated(), 1024, "set_populated clamps to N");
         assert_eq!(mb.n_rows(), 1024, "n_rows() tracks the clamped populated");
     }
+
+    // ── test 18: W4a field-isolation matrix — each column write is independent ─
+
+    /// **The layout-bit-boundary regression guard (W4a, I-LEGACY-API-FEATURE-GATED).**
+    /// Writing one migrated column on a row must leave EVERY other migrated column
+    /// on that row byte-unchanged. This is the field-isolation matrix the iron rule
+    /// mandates whenever a layout reclaims or co-locates per-row state. We seed a
+    /// row with a known baseline across all columns, then mutate exactly one column
+    /// at a time and assert the others are untouched.
+    #[test]
+    fn test_mailbox_soa_field_isolation_matrix() {
+        const N: usize = 4;
+        const R: usize = 2;
+
+        // Baseline values (distinct, non-zero where the column allows).
+        let base_edge = CausalEdge64(0x1111_2222_3333_4444);
+        let base_qualia = QualiaI4_16D::ZERO.with(0, 3).with(5, -4);
+        let base_meta = MetaWord::new(5, 2, 100, 120, 7);
+        let base_etype = 42u16;
+        let base_temporal = 0x9999_0000_0000_0001u64;
+        let base_expert = 77u16;
+        let base_sigma = 9u8;
+        let base_content = {
+            let mut w = [0u64; WORDS_PER_FP];
+            w[0] = 0xCAFE;
+            w[WORDS_PER_FP - 1] = 0xBEEF;
+            w
+        };
+
+        let seed = |mb: &mut MailboxSoA<N>| {
+            mb.set_edge(R, base_edge);
+            mb.set_qualia(R, base_qualia);
+            mb.set_meta(R, base_meta);
+            mb.set_entity_type(R, base_etype);
+            mb.set_temporal(R, base_temporal);
+            mb.set_expert(R, base_expert);
+            mb.set_sigma(R, base_sigma);
+            mb.set_content(R, &base_content);
+        };
+
+        // Assert all columns EXCEPT `changed` match baseline. `changed` is a tag.
+        let assert_others_unchanged = |mb: &MailboxSoA<N>, changed: &str| {
+            if changed != "edge" {
+                assert_eq!(mb.edge(R).0, base_edge.0, "edge changed by {changed}");
+            }
+            if changed != "qualia" {
+                assert_eq!(mb.qualia_at(R), base_qualia, "qualia changed by {changed}");
+            }
+            if changed != "meta" {
+                assert_eq!(mb.meta_at(R).0, base_meta.0, "meta changed by {changed}");
+            }
+            if changed != "entity_type" {
+                assert_eq!(
+                    mb.entity_type_at(R),
+                    base_etype,
+                    "entity_type changed by {changed}"
+                );
+            }
+            if changed != "temporal" {
+                assert_eq!(
+                    mb.temporal_at(R),
+                    base_temporal,
+                    "temporal changed by {changed}"
+                );
+            }
+            if changed != "expert" {
+                assert_eq!(mb.expert_at(R), base_expert, "expert changed by {changed}");
+            }
+            if changed != "sigma" {
+                assert_eq!(mb.sigma_at(R), base_sigma, "sigma changed by {changed}");
+            }
+            if changed != "content" {
+                assert_eq!(
+                    mb.content_row(R),
+                    &base_content[..],
+                    "content changed by {changed}"
+                );
+            }
+        };
+
+        // Mutate each column to a DISTINCT new value, one at a time, from a fresh
+        // baseline each iteration, and assert isolation.
+        {
+            let mut mb: MailboxSoA<N> = MailboxSoA::new(1, 0, 1.0);
+            seed(&mut mb);
+            mb.set_edge(R, CausalEdge64(0xDEAD_BEEF_DEAD_BEEF));
+            assert_others_unchanged(&mb, "edge");
+        }
+        {
+            let mut mb: MailboxSoA<N> = MailboxSoA::new(1, 0, 1.0);
+            seed(&mut mb);
+            mb.set_qualia(R, QualiaI4_16D::ZERO.with(15, 7));
+            assert_others_unchanged(&mb, "qualia");
+        }
+        {
+            let mut mb: MailboxSoA<N> = MailboxSoA::new(1, 0, 1.0);
+            seed(&mut mb);
+            mb.set_meta(R, MetaWord::new(11, 3, 5, 6, 1));
+            assert_others_unchanged(&mb, "meta");
+        }
+        {
+            let mut mb: MailboxSoA<N> = MailboxSoA::new(1, 0, 1.0);
+            seed(&mut mb);
+            mb.set_entity_type(R, 999);
+            assert_others_unchanged(&mb, "entity_type");
+        }
+        {
+            let mut mb: MailboxSoA<N> = MailboxSoA::new(1, 0, 1.0);
+            seed(&mut mb);
+            mb.set_temporal(R, 0x1234_5678_9ABC_DEF0);
+            assert_others_unchanged(&mb, "temporal");
+        }
+        {
+            let mut mb: MailboxSoA<N> = MailboxSoA::new(1, 0, 1.0);
+            seed(&mut mb);
+            mb.set_expert(R, 12345);
+            assert_others_unchanged(&mb, "expert");
+        }
+        {
+            let mut mb: MailboxSoA<N> = MailboxSoA::new(1, 0, 1.0);
+            seed(&mut mb);
+            mb.set_sigma(R, 200);
+            assert_others_unchanged(&mb, "sigma");
+        }
+        {
+            let mut mb: MailboxSoA<N> = MailboxSoA::new(1, 0, 1.0);
+            seed(&mut mb);
+            let mut other = [0u64; WORDS_PER_FP];
+            other[3] = 0xABCD;
+            mb.set_content(R, &other);
+            assert_others_unchanged(&mb, "content");
+        }
+    }
+
+    // ── test 19: cycle-plane footprint — no cycle* symbol, ~6 KB/row hot ──────
+
+    /// **The cycle-drop proof (cycle-plane is NEVER migrated).** The mailbox's
+    /// hot per-row footprint is the three dense identity planes (content / topic
+    /// / angle), each `WORDS_PER_FP` u64 = 2 KB, totalling ≈ 6 KB/row — NOT the
+    /// ≈ 71.6 KB/row a BindSpace row costs (dominated by the 64 KB Vsa16kF32
+    /// `cycle` plane). The absence of any `cycle*` storage on `MailboxSoA` is the
+    /// structural guarantee; this test pins the dense-plane byte count.
+    #[test]
+    fn test_mailbox_soa_hot_footprint_excludes_cycle_plane() {
+        const N: usize = 1024;
+        // Per-row dense identity planes: 3 × WORDS_PER_FP × 8 bytes.
+        let per_row_dense = 3 * WORDS_PER_FP * 8;
+        assert_eq!(per_row_dense, 6144, "content+topic+angle = 6 KB/row");
+
+        // The whole dense backing store is exactly N × per_row_dense bytes.
+        let mb: MailboxSoA<N> = MailboxSoA::new(1, 0, 1.0);
+        let dense_bytes = (mb.content.len() + mb.topic.len() + mb.angle.len()) * 8;
+        assert_eq!(
+            dense_bytes,
+            N * per_row_dense,
+            "dense planes total = N × 6 KB"
+        );
+
+        // The BindSpace per-row cost (incl. the 64 KB Vsa16kF32 cycle plane) is
+        // ~71.6 KB — the mailbox is ~12× lighter per row because cycle is dropped.
+        const BINDSPACE_PER_ROW: usize = 71_713; // see bindspace::tests footprint(1)
+        assert!(
+            per_row_dense * 11 < BINDSPACE_PER_ROW,
+            "mailbox hot row ({per_row_dense} B) must be >10× lighter than a \
+             BindSpace row ({BINDSPACE_PER_ROW} B) — the dropped 64 KB cycle plane"
+        );
+    }
 }

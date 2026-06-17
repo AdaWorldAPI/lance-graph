@@ -311,6 +311,22 @@ pub fn dispatch_busdto(bs: &mut BindSpace, row: usize, bus: &BusDto, style_ord: 
 /// Tolerance: bit-exact for codebook_index, top_k indices with positive
 /// energy at encode, energies (f32 in qualia), cycle_count, converged.
 /// LOSSY for top_k entries with non-positive energy at encode.
+///
+/// ## Feature interaction: `mailbox-thoughtspace` (C5 / D-DIST-5)
+///
+/// The non-headline `top_k[*].idx` recovery reads the `cycle` plane
+/// (`Vsa16kF32` Binary16K set-bits). That plane is the deprecated one the
+/// `MailboxSoA` migration **never carries** (it is computed transiently, never
+/// a mailbox column — see `mailbox_soa.rs`). Under `mailbox-thoughtspace` the
+/// cycle-plane index recovery is therefore feature-gated OUT: only the headline
+/// `codebook_index` (stored losslessly in `qualia[9]`) survives, and the
+/// non-headline `top_k[1..].idx` recover as `0`. This is an explicit downgrade
+/// of an ALREADY-lossy register recovery (`I-VSA-IDENTITIES`: VSA bundles
+/// identities, not content — the cycle-plane set-bits were never a faithful
+/// register), on a `#[cfg(with-engine)]` lab path the live `run()` never reads.
+/// Migration successor: read indices from the SoA edge/identity columns, not the
+/// dropped cycle plane. The singleton (default) build keeps the bit-exact
+/// cycle-plane recovery via `#[cfg(not(feature = "mailbox-thoughtspace"))]`.
 #[cfg(feature = "with-engine")]
 pub fn unbind_busdto(bs: &BindSpace, row: usize) -> BusDto {
     assert!(
@@ -319,59 +335,64 @@ pub fn unbind_busdto(bs: &BindSpace, row: usize) -> BusDto {
         bs.len
     );
 
-    // [1] qualia → energy + top_k energies.
+    // [1] qualia → energy + top_k energies + headline codebook_index.
     // D-CSV-5b: bs.qualia is now QualiaI4Column; convert to f32 at the read site.
+    // codex P2 fix (2026-05-07): the headline is stored explicitly in qualia[9]
+    // at encode, so it round-trips bit-exact regardless of cycle-plane state.
     let q_i4 = bs.qualia.row(row);
     let q = q_i4.to_f32_17d(); // [f32; 17] — sufficient for dims 0..9
     let energy = q[0];
+    let codebook_index = q[9] as u16;
     let mut top_k = [(0u16, 0.0f32); 8];
     for i in 0..8 {
         top_k[i].1 = q[TOP_K_ENERGY_BASE_DIM + i];
     }
 
-    // [2] cycle column → recover indices from set bits.
-    //     Project Vsa16kF32 back to Binary16K (sign threshold → bit).
-    let cycle = bs.fingerprints.cycle_row(row);
-    let mut cycle_arr = [0.0f32; crate::bindspace::FLOATS_PER_VSA];
-    cycle_arr.copy_from_slice(cycle);
-    let bits = lance_graph_contract::crystal::vsa16k_to_binary16k_threshold(&cycle_arr);
-    let set_bits: Vec<u16> = (0..(WORDS_PER_FP * 64))
-        .filter(|&pos| bits[pos / 64] & (1u64 << (pos % 64)) != 0)
-        .map(|pos| pos as u16)
-        .collect();
+    // [2/3] cycle column → recover NON-headline top_k indices from set bits.
+    //       SINGLETON BUILD ONLY — the cycle plane is never migrated to the
+    //       mailbox (C5 / D-DIST-5). Under `mailbox-thoughtspace` this block is
+    //       gated out and the non-headline indices stay 0 (documented loss).
+    #[cfg(not(feature = "mailbox-thoughtspace"))]
+    {
+        // Project Vsa16kF32 back to Binary16K (sign threshold → bit).
+        let cycle = bs.fingerprints.cycle_row(row);
+        let mut cycle_arr = [0.0f32; crate::bindspace::FLOATS_PER_VSA];
+        cycle_arr.copy_from_slice(cycle);
+        let bits = lance_graph_contract::crystal::vsa16k_to_binary16k_threshold(&cycle_arr);
+        let set_bits: Vec<u16> = (0..(WORDS_PER_FP * 64))
+            .filter(|&pos| bits[pos / 64] & (1u64 << (pos % 64)) != 0)
+            .map(|pos| pos as u16)
+            .collect();
 
-    // [3] Reconstruct top_k indices in the slots where the encoder set them.
-    //     codex P2 fix (2026-05-07): the headline (codebook_index) is now
-    //     stored explicitly in qualia[9] at encode, so we read it back
-    //     directly rather than guessing from set_bits.iter().next() (which
-    //     returned the LOWEST set bit, not the original headline, when
-    //     codebook_index collided with or exceeded any positive-energy
-    //     top_k index). The set_bits iterator now feeds only the
-    //     non-headline top_k slots.
-    let codebook_index = q[9] as u16;
-    let mut bit_iter = set_bits.iter().copied().filter(|&b| b != codebook_index);
-    // For each positive-energy top_k slot at encode, attach the next set bit.
-    // We can't perfectly recover ordering for ties; we use the natural ascending
-    // bit order, which matches the encoder's deterministic walk for distinct indices.
-    // Note: the headline often equals top_k[0].idx — rebuild that match first.
-    if top_k[0].1 > 0.0 {
-        top_k[0].0 = codebook_index;
-    }
-    // Fill remaining positive-energy top_k slots from the remaining set bits.
-    // Skip the headline bit if top_k[0] used it. (bit_iter already filters
-    // out codebook_index above, so no second filter pass is needed.)
-    let remaining: Vec<u16> = bit_iter.collect();
-    let mut r = remaining.into_iter();
-    let skip_head = top_k[0].1 > 0.0;
-    for slot in top_k.iter_mut().skip(if skip_head { 1 } else { 0 }) {
-        if slot.1 > 0.0 {
-            if let Some(b) = r.next() {
-                slot.0 = b;
+        // The set_bits iterator feeds only the non-headline top_k slots.
+        let bit_iter = set_bits.iter().copied().filter(|&b| b != codebook_index);
+        // The headline often equals top_k[0].idx — rebuild that match first.
+        if top_k[0].1 > 0.0 {
+            top_k[0].0 = codebook_index;
+        }
+        // Fill remaining positive-energy top_k slots from the remaining set bits.
+        let remaining: Vec<u16> = bit_iter.collect();
+        let mut r = remaining.into_iter();
+        let skip_head = top_k[0].1 > 0.0;
+        for slot in top_k.iter_mut().skip(if skip_head { 1 } else { 0 }) {
+            if slot.1 > 0.0 {
+                if let Some(b) = r.next() {
+                    slot.0 = b;
+                }
             }
         }
+        // If top_k[0].1 was non-positive but the encoder always sets the headline,
+        // we still recovered codebook_index above — it's authoritative.
     }
-    // If top_k[0].1 was non-positive but the encoder always sets the headline,
-    // we still recovered codebook_index above — it's authoritative.
+    // Under `mailbox-thoughtspace`: top_k[0].idx still gets the headline if it
+    // had positive energy (the headline is in qualia[9], not the dropped plane);
+    // all other non-headline indices remain 0 (the documented C5 loss).
+    #[cfg(feature = "mailbox-thoughtspace")]
+    {
+        if top_k[0].1 > 0.0 {
+            top_k[0].0 = codebook_index;
+        }
+    }
 
     // [4] meta column → converged.
     let m = bs.meta.get(row);

@@ -93,6 +93,7 @@
 pub mod attention_mask;
 pub mod attention_mask_actor;
 pub mod auto_style;
+pub(crate) mod backing;
 pub mod bindspace;
 pub mod driver;
 pub mod engine_bridge;

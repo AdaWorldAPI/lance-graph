@@ -1,3 +1,22 @@
+## 2026-06-17 — W3+W4a atomic read/write shim landed (BindSpace→MailboxSoA migration, first behaviour-touching step)
+
+**Main thread (Opus) — single implementer**, on branch `claude/bindspace-mailbox-soa-w3-w4a` (plan v2 already committed). Sole-owner working tree; ran cargo freely against the shared `target/`.
+
+**Shipped (D-id W3+W4a under `bindspace-singleton-to-mailbox-soa-v1`):**
+- New `src/backing.rs` (`pub(crate)`): `BackingStore<'a>` (read shim) + `BackingStoreWrite<'a>` (write shim, C1). Enum-over-trait (OQ-C). `Singleton(&BindSpace)` = live default; `#[cfg(feature="mailbox-thoughtspace")] Mailbox(&MailboxSoA<1024>)` = migration target. Six read methods (prefilter/content_row/qualia_17d/edge/entity_type/len) + eight write methods. Mailbox prefilter iterates `win.start.min(populated)..win.end.min(populated)` — byte-identical to `BindSpace::meta_prefilter` window semantics (C2, P0). `set_edge` wraps `u64↔CausalEdge64` on the singleton arm.
+- New Cargo feature `mailbox-thoughtspace` — **default-OFF, NOT in `lab`**.
+- `driver.rs`: `const DEFAULT_MAILBOX: MailboxId = 0` (OQ-D Option A, no contract change), private `fn backing()` selector (`debug_assert!(mailboxes.len() <= 1)`, singleton fallback when none registered), ALL 6 reads in `run()` re-pointed through one `backing` value (one body, no `#[cfg]` inside `run`). `ontology()` stays on the singleton (W4b re-home); `entity_type` ctx_id read routes through the shim.
+- `engine_bridge.rs::unbind_busdto`: C5 downgrade — cycle-plane index recovery `#[cfg(not(mailbox-thoughtspace))]` (cycle plane is never migrated, D-DIST-5); headline survives via `qualia[9]`; singleton build keeps bit-exact recovery. Doc migration pointer added (I-LEGACY-API-FEATURE-GATED).
+- Tests: `tests/w2_differential.rs` (4, whole-ShaderCrystal `to_bits()` parity incl. non-zero-window + non-vacuity + meta-prefilter + alpha-merge cases); `tests/firewall.rs` (2, twin-bar lint via std::fs walk + planted-twin meta-sanity); `mailbox_soa.rs` field-isolation matrix + cycle-drop footprint; `backing.rs` in-module read+write round-trip (singleton + mailbox windowed prefilter); `busdto_bridge_test.rs` gated the 3 cycle-plane-dependent tests to `not(mailbox-thoughtspace)` + added a mailbox-arm test pinning the non-headline-idx→0 loss.
+
+**Test counts:** default `97 lib + 2 firewall + 2 e2e` all green (regression gate — singleton arm byte-identical, the existing 94 lib + 2 e2e untouched); feature-on `98 lib + 2 firewall + 2 e2e + 4 w2` all green. clippy `-p cognitive-shader-driver --all-targets` (both cfgs) + `cargo fmt` clean on touched files (no new warnings, the two `#[allow(dead_code)]` are on the forward-staged C1 write surface, justified + tested).
+
+**P0 surfaced (pre-existing, NOT mine, left untouched):** `--features with-engine` does NOT compile on clean HEAD (`engine_bridge.rs:259` references `QUALIA_DIMS` unimported); consequently the busdto tests (incl. my C5 mailbox-arm test) are dormant, and the D-CSV-5b i4-qualia cutover separately breaks the busdto `codebook_index` round-trip (u16 stored in ±7 i4 `qualia[9]`). Verified pre-existing via `git stash` on clean HEAD. Flagged for operator decision; out of W3+W4a scope.
+
+**Board hygiene (this commit):** STATUS_BOARD W3+W4a row (→ In PR), LATEST_STATE dated bullet, this AGENT_LOG entry — all in the same commit per the mandatory rule.
+
+---
+
 ## 2026-06-16 — odoo-rs SEEDED + PR #511 board hygiene (cross-repo)
 
 **Main thread (Opus 4.7) — two outputs, one session arc.**

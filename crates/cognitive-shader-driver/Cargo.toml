@@ -74,6 +74,12 @@ tonic-build = { version = "0.12", optional = true }
 default = []
 with-engine = ["dep:thinking-engine"]
 with-planner = ["dep:lance-graph-planner"]
+# W3+W4a — BindSpace→MailboxSoA migration read/write shim. Default-OFF (NOT in
+# `default`, NOT in `lab`): production stays singleton-read + singleton-write
+# until W7. When ON, the driver constructs its `BackingStore` from the single
+# designated `MailboxSoA` (DEFAULT_MAILBOX) instead of the singleton BindSpace,
+# and the W2 differential harness exercises both arms for bit-identity.
+mailbox-thoughtspace = []
 # Shared LAB DTOs — `wire.rs` + `auto_detect.rs` + codec kernel scaffolds
 # + token_agreement use these regardless of whether the transport is REST
 # (serve) or gRPC (grpc). Both features pull this set.

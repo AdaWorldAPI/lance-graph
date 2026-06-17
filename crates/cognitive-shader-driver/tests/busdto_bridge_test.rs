@@ -39,6 +39,12 @@ fn make_dense_bus(seed: u16) -> BusDto {
     }
 }
 
+// The full index-recovery round-trips (dense + sparse + zero-headline) depend
+// on the `cycle` plane, which `mailbox-thoughtspace` drops (C5 / D-DIST-5).
+// They stay LIVE on the singleton (default) build; a separate mailbox-arm test
+// below pins the documented loss. Energy/cycle_count/converged/headline parity
+// holds on BOTH builds and is asserted unconditionally where convenient.
+#[cfg(not(feature = "mailbox-thoughtspace"))]
 #[test]
 fn busdto_round_trip_dense_top_k_is_bit_exact() {
     let mut bs = BindSpace::zeros(8);
@@ -91,6 +97,7 @@ fn busdto_round_trip_dense_top_k_is_bit_exact() {
     }
 }
 
+#[cfg(not(feature = "mailbox-thoughtspace"))]
 #[test]
 fn busdto_round_trip_sparse_top_k_preserves_positive_idx_set() {
     // Mix of positive + zero + negative energy supporters. The encoder only
@@ -216,4 +223,67 @@ fn busdto_round_trip_zero_codebook_index_is_handled() {
     assert_eq!(recovered.cycle_count, 0);
     assert_eq!(recovered.converged, true);
     assert_eq!(recovered.energy.to_bits(), 0.1f32.to_bits());
+}
+
+// ── C5 / D-DIST-5: mailbox-arm downgraded contract (pin the documented loss) ──
+//
+// Under `mailbox-thoughtspace` the `cycle` plane is dropped, so `unbind_busdto`
+// recovers ONLY the headline `codebook_index` (from qualia[9]); the non-headline
+// `top_k[1..].idx` recover as `0`. This test asserts that loss EXPLICITLY rather
+// than tolerating it (never relax the bit-exact singleton tests above — they
+// stay live on the default build). Requires BOTH `with-engine` (BusDto) and
+// `mailbox-thoughtspace` (the gated path).
+#[cfg(feature = "mailbox-thoughtspace")]
+#[test]
+fn busdto_mailbox_arm_recovers_headline_only_nonheadline_idx_zero() {
+    let mut bs = BindSpace::zeros(4);
+    // Distinct non-zero indices so a non-zero recovery would be visible.
+    let bus = BusDto {
+        codebook_index: 4321,
+        energy: 0.77,
+        top_k: [
+            (4321, 0.9), // headline-matching positive slot
+            (1111, 0.8), // positive non-headline — idx WILL be lost (→ 0)
+            (2222, 0.7), // positive non-headline — idx WILL be lost (→ 0)
+            (3333, 0.6),
+            (0, 0.0),
+            (0, 0.0),
+            (0, 0.0),
+            (0, 0.0),
+        ],
+        cycle_count: 5,
+        converged: true,
+    };
+    dispatch_busdto(&mut bs, 0, &bus, 1);
+    let recovered = unbind_busdto(&bs, 0);
+
+    // Headline survives — qualia[9] is lossless and not on the dropped plane.
+    assert_eq!(
+        recovered.codebook_index, 4321,
+        "headline codebook_index must survive the cycle-plane drop (qualia[9])"
+    );
+    // top_k[0].idx echoes the headline because top_k[0] had positive energy.
+    assert_eq!(
+        recovered.top_k[0].0, 4321,
+        "top_k[0].idx echoes the headline (positive energy slot)"
+    );
+    // Every NON-headline top_k idx is lost → recovers as 0 (the C5 loss).
+    for i in 1..8 {
+        assert_eq!(
+            recovered.top_k[i].0, 0,
+            "mailbox arm: non-headline top_k[{i}].idx must recover as 0 \
+             (cycle plane dropped — C5 / D-DIST-5)"
+        );
+    }
+    // Energies, cycle_count, converged still round-trip bit-exact (qualia/expert/meta).
+    for i in 0..8 {
+        assert_eq!(
+            recovered.top_k[i].1.to_bits(),
+            bus.top_k[i].1.to_bits(),
+            "top_k[{i}].energy must round-trip bit-exact even on the mailbox arm",
+        );
+    }
+    assert_eq!(recovered.energy.to_bits(), bus.energy.to_bits());
+    assert_eq!(recovered.cycle_count, 5);
+    assert_eq!(recovered.converged, true);
 }
