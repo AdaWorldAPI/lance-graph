@@ -382,6 +382,9 @@ pub struct ShaderCrystal {
     pub persisted_row: Option<u32>,
     /// Meta assessment (Brier, confidence, should_admit_ignorance).
     pub meta: MetaSummary,
+    /// Provenance of the side-run materialized-awareness analysis (the 34-tactic
+    /// dispatch + HHTL fork). Provenance-only: does not affect `bus.gate`.
+    pub materialize: MaterializeProvenance,
     /// Pillar-7 α-front-to-back composite, populated only when stage [7]
     /// dispatched on `MergeMode::AlphaFrontToBack`. `None` for the
     /// existing top-K aggregation modes (Bundle / Xor / Superposition).
@@ -395,6 +398,34 @@ pub struct MetaSummary {
     pub meta_confidence: f32,
     pub brier: f32,
     pub should_admit_ignorance: bool,
+}
+
+/// Provenance of the materialized-awareness analysis run *alongside* the cycle.
+///
+/// **Provenance-only — does NOT alter the gate/emit decision.** The driver runs
+/// the `materialize` F→34→F loop and the HHTL `fork_decision` as a side analysis
+/// over the cycle's already-computed observables (`free_energy`, dispersion, MUL),
+/// then records the outcome here. It answers "which of the 34 would this awareness
+/// state dispatch, would the loop settle, and would the leaf residue fork to a new
+/// domain" without changing hot-path semantics. Primitive-only so the contract
+/// crate stays zero-dep (`fork` is `ForkAction as u8`, not the ndarray enum).
+///
+/// A zeroed value (`first_tactic == 0`) means the analysis did not run for this
+/// cycle (e.g. a sink-aborted early return).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct MaterializeProvenance {
+    /// Tactic id (1..=34) the awareness state dispatched first; `0` = not run.
+    pub first_tactic: u8,
+    /// Dispatch steps the F→34→F loop took before settling (or hitting the cap).
+    pub steps: u16,
+    /// Did the loop settle into rest (gate FLOW and surprise below the floor)?
+    pub rested: bool,
+    /// Residual free energy at rest.
+    pub final_free_energy: f32,
+    /// HHTL fork action as `u8` (0 Commit, 1 DescendDeeper, 2 ForkBasin,
+    /// 3 ForkDomain). CONJECTURE: the challenge is a dispersion (std_dev) proxy,
+    /// pending the real orthogonal `CoarseResidue` magnitude from the codec path.
+    pub fork: u8,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -501,6 +532,7 @@ mod tests {
             bus: ShaderBus::empty(),
             persisted_row: None,
             meta: MetaSummary::default(),
+            materialize: MaterializeProvenance::default(),
             alpha_composite: None,
         });
     }

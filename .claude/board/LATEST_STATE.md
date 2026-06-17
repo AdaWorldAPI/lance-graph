@@ -321,6 +321,16 @@ the contract. This file exists to prevent that.
 
 ---
 
+## 2026-06-17 — Append: materialized-awareness driver wire (provenance-only) on branch claude/materialize-awareness-f34-loop
+
+(Per APPEND-ONLY rule: new top-of-inventory entry.)
+
+### Current Contract Inventory — new entry
+
+**`lance-graph-contract::cognitive_shader::MaterializeProvenance`** (new type, 2026-06-17): primitive-only Copy record (`first_tactic:u8`, `steps:u16`, `rested:bool`, `final_free_energy:f32`, `fork:u8`) added as a field on `ShaderCrystal`. The `cognitive-shader-driver` runs the `materialize` F→34→F loop **and** the ndarray HHTL `fork_decision` as a **side analysis** over each cycle's already-computed observables (`free_energy`, `std_dev`, MUL, per-hit resonances) and records the outcome here. **Provenance-only — does NOT alter `bus.gate` or persistence** (operator decision 2026-06-17: cycle untouched). Observable→`ThoughtCtx` mapping is faithful (sd←std_dev, confidence←1−F, dissonance←|felt−demonstrated| DK gap); the fork's challenge is a **`std_dev` dispersion proxy (CONJECTURE)** with a std_dev-calibrated floor/σ, pending the real orthogonal `CoarseResidue` magnitude from the codec path and real HHTL cascade depth (depth==max⇒leaf for now). Driver helper `materialize_provenance(...)`; 2 driver tests (confident→Commit, scattered→ForkDomain; dispatch populates provenance) + the ndarray fork ladder (PR #221, merged). `fork:u8` = `ForkAction` (0 Commit /1 DescendDeeper /2 ForkBasin /3 ForkDomain). Note: `cognitive-shader-driver` is not in the default-workspace clippy member set. See `EPIPHANIES.md` E-MATERIALIZED-AWARENESS-1.
+
+---
+
 ## 2026-06-16 — Append: `contract::materialize` shipped (branch claude/materialize-awareness-f34-loop)
 
 (Per APPEND-ONLY rule: new top-of-inventory entry.)

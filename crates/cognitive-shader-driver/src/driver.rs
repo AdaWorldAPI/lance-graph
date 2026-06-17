@@ -31,8 +31,9 @@ use causal_edge::pearl::CausalMask;
 use causal_edge::plasticity::PlasticityState;
 use causal_edge::tables::{unpack_c, unpack_f, NarsTables};
 use lance_graph_contract::cognitive_shader::{
-    AlphaComposite, CognitiveShaderDriver, EmitMode, MetaSummary, NullSink, ShaderBus,
-    ShaderCrystal, ShaderDispatch, ShaderHit, ShaderResonance, ShaderSink, ALPHA_COMPOSITE_DIMS,
+    AlphaComposite, CognitiveShaderDriver, EmitMode, MaterializeProvenance, MetaSummary, NullSink,
+    ShaderBus, ShaderCrystal, ShaderDispatch, ShaderHit, ShaderResonance, ShaderSink,
+    ALPHA_COMPOSITE_DIMS,
 };
 use lance_graph_contract::collapse_gate::{GateDecision, MergeMode, ALPHA_SATURATION_THRESHOLD};
 use lance_graph_contract::grammar::free_energy::{FreeEnergy, EPIPHANY_MARGIN};
@@ -40,7 +41,9 @@ use lance_graph_contract::grammar::inference::NarsInference;
 use lance_graph_contract::grammar::thinking_styles::{
     GrammarStyleAwareness, ParamKey, ParseOutcome,
 };
+use lance_graph_contract::materialize::materialize;
 use lance_graph_contract::mul::{MulAssessment, MulThresholdProfile, SituationInput};
+use lance_graph_contract::recipe_kernels::ThoughtCtx;
 use lance_graph_contract::thinking::ThinkingStyle;
 use p64_bridge::cognitive_shader::CognitiveShader;
 
@@ -484,6 +487,7 @@ impl ShaderDriver {
                 },
                 persisted_row: None,
                 meta: MetaSummary::default(),
+                materialize: MaterializeProvenance::default(),
                 alpha_composite,
             };
         }
@@ -500,6 +504,7 @@ impl ShaderDriver {
                 bus,
                 persisted_row: None,
                 meta: MetaSummary::default(),
+                materialize: MaterializeProvenance::default(),
                 alpha_composite,
             };
         }
@@ -517,6 +522,19 @@ impl ShaderDriver {
             EmitMode::Persist => Some(resonance_dto.top_k[0].row),
             _ => None,
         };
+
+        // Materialized-awareness provenance — runs the F→34→F loop + HHTL fork as
+        // a SIDE analysis over this cycle's observables. Provenance-only: it has
+        // NOT influenced `gate` above and does not influence persistence; it only
+        // records "what the 34 would dispatch and whether the leaf residue forks".
+        let candidate_resonances: Vec<f32> = hits.iter().map(|h| h.resonance).collect();
+        let materialize_prov = materialize_provenance(
+            &free_energy,
+            std_dev,
+            top_resonance,
+            awareness_skill,
+            &candidate_resonances,
+        );
 
         // [8] NARS revision — phi-1 humility ceiling.
         //     System observes its own outcome and revises per-style awareness.
@@ -545,6 +563,7 @@ impl ShaderDriver {
             bus,
             persisted_row,
             meta,
+            materialize: materialize_prov,
             alpha_composite,
         };
         sink.on_crystal(&crystal);
@@ -772,6 +791,66 @@ fn entropy_std(hits: &[ShaderHit]) -> (f32, f32) {
     (ent, var.sqrt())
 }
 
+/// Run the materialized-awareness analysis *alongside* the cycle — provenance
+/// only, never alters the gate. Builds a `ThoughtCtx` from the cycle's
+/// already-computed observables, runs the F→34→F loop, and computes the HHTL
+/// fork action from a dispersion proxy (CONJECTURE pending the real orthogonal
+/// `CoarseResidue` magnitude from the codec path).
+///
+/// Observable → `ThoughtCtx` mapping (faithful to fields the cycle already builds):
+/// - `free_energy` ← `F.total` (surprise)
+/// - `sd`          ← `std_dev` (CollapseGate dispersion — exact)
+/// - `confidence`  ← `1 - F.total` (the driver's own `demonstrated_competence`)
+/// - `dissonance`  ← `|top_resonance - (1 - F.total)|` (the Dunning-Kruger gap:
+///   what the cycle *feels* vs what it has *demonstrated*)
+/// - `temperature` ← `std_dev` clamp (spread ⇒ explore; proxy)
+/// - `rung`        ← `1` (no HHTL cascade depth surfaced in this cycle; proxy)
+fn materialize_provenance(
+    free_energy: &FreeEnergy,
+    std_dev: f32,
+    top_resonance: f32,
+    awareness_skill: f64,
+    candidate_resonances: &[f32],
+) -> MaterializeProvenance {
+    let demonstrated = (1.0 - free_energy.total).clamp(0.0, 1.0);
+    let mut ctx = ThoughtCtx::new(candidate_resonances.to_vec());
+    ctx.free_energy = free_energy.total.clamp(0.0, 1.0);
+    ctx.sd = std_dev;
+    ctx.confidence = demonstrated;
+    ctx.dissonance = (top_resonance.clamp(0.0, 1.0) - demonstrated)
+        .abs()
+        .clamp(0.0, 1.0);
+    ctx.temperature = std_dev.clamp(0.0, 1.0);
+    ctx.rung = 1;
+
+    let trace = materialize(&mut ctx, 64);
+
+    // HHTL fork: `std_dev` (dispersion) is the CONJECTURE residue-magnitude proxy
+    // until the real orthogonal `CoarseResidue` is surfaced into the cycle. The
+    // floor/sigma_k are calibrated to std_dev's ~[0.05, 0.35] working range (NOT
+    // the codec's NOISE_FLOOR), so a confident low-spread cycle reads as low
+    // challenge (Commit) and a scattered one as high (fork). `depth == max_depth`
+    // treats the read as a leaf, so ForkDomain is reachable when skill is short.
+    const STD_DEV_RESIDUE_FLOOR: f64 = 0.05;
+    const STD_DEV_RESIDUE_SIGMA_K: f64 = 6.0;
+    let fork = ndarray::hpc::entropy_ladder::fork_decision(
+        std_dev as f64,
+        awareness_skill,
+        1,
+        1,
+        STD_DEV_RESIDUE_FLOOR,
+        STD_DEV_RESIDUE_SIGMA_K,
+    ) as u8;
+
+    MaterializeProvenance {
+        first_tactic: trace.steps.first().map(|s| s.tactic_id).unwrap_or(0),
+        steps: trace.steps.len() as u16,
+        rested: trace.rested,
+        final_free_energy: trace.final_free_energy,
+        fork,
+    }
+}
+
 #[allow(dead_code)]
 fn collapse_gate(sd: f32) -> GateDecision {
     // Matches thinking_engine::cognitive_stack::{SD_FLOW_THRESHOLD, SD_BLOCK_THRESHOLD}.
@@ -922,6 +1001,67 @@ mod tests {
         };
         let crystal = driver.dispatch(&req);
         assert_eq!(crystal.bus.resonance.style_ord, auto_style::ANALYTICAL);
+    }
+
+    #[test]
+    fn dispatch_populates_materialize_provenance() {
+        let bs = Arc::new(demo_bindspace());
+        let sr = Arc::new(demo_semiring());
+        let driver = CognitiveShaderBuilder::new()
+            .bindspace(bs)
+            .semiring(sr)
+            .planes(demo_planes())
+            .build();
+        let req = ShaderDispatch {
+            rows: ColumnWindow::new(0, 4),
+            meta_prefilter: MetaFilter::ALL,
+            layer_mask: 0xFF,
+            radius: u16::MAX,
+            style: StyleSelector::Ordinal(auto_style::ANALYTICAL),
+            ..Default::default()
+        };
+        let crystal = driver.dispatch(&req);
+        let m = crystal.materialize;
+        // Sane provenance. `first_tactic == 0` is the legitimate "already at rest,
+        // nothing dispatched" case (this demo cycle is confident → settles at once);
+        // any dispatched step must name a real tactic.
+        assert!(
+            m.first_tactic <= 34,
+            "tactic id in 0..=34, got {}",
+            m.first_tactic
+        );
+        if m.steps > 0 {
+            assert!(
+                (1..=34).contains(&m.first_tactic),
+                "a dispatched step must name a real tactic, got {}",
+                m.first_tactic
+            );
+        }
+        assert!(
+            m.fork <= 3,
+            "fork action is a valid ForkAction u8, got {}",
+            m.fork
+        );
+        assert!(m.final_free_energy.is_finite() && (0.0..=1.0).contains(&m.final_free_energy));
+    }
+
+    #[test]
+    fn materialize_provenance_confident_commits_scattered_forks() {
+        // Confident cycle: high resonance, low dispersion, ample skill → Boredom →
+        // Commit (fork 0). The leaf residue is small, the domain over-explains.
+        let fe_lo = FreeEnergy::compose(0.95, 0.05);
+        let confident = materialize_provenance(&fe_lo, 0.05, 0.95, 0.9, &[0.95, 0.9, 0.88]);
+        assert_eq!(confident.fork, 0, "confident cycle commits (no fork)");
+
+        // Scattered cycle: low resonance, high dispersion, short skill → Anxiety at
+        // leaf → ForkDomain (fork 3): the orthogonal leaf residue is strong enough
+        // that free energy forks into a new domain.
+        let fe_hi = FreeEnergy::compose(0.3, 0.4);
+        let scattered = materialize_provenance(&fe_hi, 0.4, 0.3, 0.1, &[0.3, 0.28, 0.31]);
+        assert_eq!(
+            scattered.fork, 3,
+            "scattered low-skill cycle forks to a new domain"
+        );
     }
 
     #[test]
