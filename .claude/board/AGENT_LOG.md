@@ -1,3 +1,21 @@
+## 2026-06-17 — odoo SPO corpus enrichment: P1 FK-target + P0 deep-reads_field (UPSTREAM_WISHLIST)
+
+**Main thread (Opus) — single implementer**, branch `claude/odoo-spo-fk-target-deep-reads`. Implements the odoo-rs `UPSTREAM_WISHLIST` P1 (FK `target`/`inverse_name`) + coupled P0 (deep `reads_field`) corpus enrichment, lance-graph only.
+
+**Shipped:**
+- `tools/odoo-blueprint-extractor/odoo_blueprint_extractor/spo_enrich.py` (new, stdlib-only): builds a `(model, field) → (comodel, inverse)` relation map from `/home/user/odoo/addons` via `ast`, then (P1) emits `target`/`inverse_name` sibling triples keyed by the relation IRI (ruff#18 shape, raw dotted comodel object) for every relational field on a corpus-declared model, and (P0) resolves each dotted `@api.depends` path through the map and lifts a deep `reads_field` onto the field's emitting method. Additive, deterministic, idempotent (`(s,p,o)` dedup); self-loops dropped; unknown-hop paths skipped + counted. CLI: `python3 -m odoo_blueprint_extractor.spo_enrich --corpus … --addons …`.
+- `crates/lance-graph/src/graph/spo/odoo_ontology.spo.ndjson` regenerated: 22 245 → **23 701** triples (**+618 `target`, +102 `inverse_name`, +736 deep `reads_field`**; 567 dotted-path skips for unknown hops).
+- `crates/lance-graph/src/graph/spo/odoo_ontology.rs`: module-doc updated (new predicates + provenance/regeneration note), triple-count test 22 245→23 701, histogram test extended (`target`=618, `inverse_name`=102, `reads_field`=2 831), 2 new tests (`enrichment_emits_fk_target_and_inverse_name`, `enrichment_emits_cross_model_deep_reads_field`).
+- `tools/odoo-blueprint-extractor/tests/test_spo_enrich.py` (new): 14 unittest cases (path resolution, P1/P0 emission, dedup/idempotence, self-loop drop, unknown-model guard).
+
+**Tests:** lance-graph `cargo test -p lance-graph --lib odoo_ontology` 9/9 green; `action_emitter`/`spo` green (no regression — function count 3 328 unchanged, `_ =>{}` dispatch absorbs new predicates). Extractor `python3 -m unittest tests.test_spo_enrich` 14/14 + `tests/test_smoke_uom.py` green. `cargo fmt` + `cargo clippy -p lance-graph --lib` clean.
+
+**Cross-repo validation (LOCAL ONLY, no odoo-rs commit):** built a slice-2-scoped enriched fixture, ran `od_ontology::RecomputeDag` from a throwaway `origin/main` worktree. **Baseline:** 0 cross-model compute edges, edge `_compute_amount_residual → _compute_amount` ABSENT. **Enriched:** 27 compute edges, that cross-model edge PRESENT — the wishlist's P0 ask (visible cross-model ordering) is delivered. **Correction:** the graph stays acyclic; the MISSED-1 dependency is an *ordering edge*, not a cycle (move depends on line; line does not depend back on move's totals), so odoo-rs's `slice_2_compute_subset_no_cross_model_cycle` no-cycle assertion legitimately still holds. Reported, not faked. Worktree removed.
+
+**Finding:** the corpus's original generator (`emit_ontology2.py` over `methods.parquet`) is absent from the tree; the blueprint extractor emits typed Rust `OdooEntity` consts (separate artifact). Enrichment runs over shipped corpus + present Odoo source — the correct additive stage. See `EPIPHANIES.md` E-ODOO-FK-DEEP-READS.
+
+---
+
 ## 2026-06-17 — W3+W4a atomic read/write shim landed (BindSpace→MailboxSoA migration, first behaviour-touching step)
 
 **Main thread (Opus) — single implementer**, on branch `claude/bindspace-mailbox-soa-w3-w4a` (plan v2 already committed). Sole-owner working tree; ran cargo freely against the shared `target/`.
