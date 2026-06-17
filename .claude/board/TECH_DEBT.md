@@ -15,6 +15,21 @@
 
 ## Open Debt
 
+### TD-BUSDTO-TOPK-IDX-16384 — BusDto top_k indices ≥ 16384 are unrecoverable from the cycle bit plane (2026-06-17)
+
+**Open.** On the `with-engine` BusDto path, `busdto_to_binary16k` sets bit
+`idx % 16384` (WIDTH_BITS). The headline `codebook_index` now round-trips
+losslessly via the `temporal` lane (E-TENANT-IDENTITY-1), but the **non-headline
+`top_k[*].idx` supporters are still recovered from set bits**, so any supporter
+index ≥ 16384 aliases on encode and round-trips as `idx % 16384`. `codebook_index`
+itself is u16 (0..65535) so values in [16384, 65535] would alias in the cycle
+plane — harmless for the headline (temporal is authoritative) but means the
+cycle-plane bit for such a headline lands at a wrong position. Documented LOSSY in
+the `unbind_busdto` doc-comment. **Owed:** either widen the supporter recovery to
+also ride a lossless lane (an extra column — deferred, needs the operator's
+column-add sign-off), or document that BusDto top_k indices are domain-bounded to
+< 16384. No consumer currently exercises indices ≥ 16384, so this is latent.
+
 ### TD-CI-TEST-JOB-DEBUGINFO0 — `test` job hit the same link cliff; `debuginfo=0` extended to it (2026-06-16)
 
 **Open — fix applied (merged via #511's CI commit), CONFIRM on the next green

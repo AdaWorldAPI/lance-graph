@@ -448,4 +448,102 @@ mod tests {
         let q5 = QualiaI4_16D::ZERO;
         assert_eq!(q5.magnitude(), 0);
     }
+
+    // ── i4 affective-cutover FIDELITY PROBE (2026-06-17) ──────────────────
+    //
+    // PURPOSE: measure whether the D-CSV-5b f32→i4 affective cutover preserved
+    // rank-order fidelity of the 16 AFFECTIVE qualia dims. This is the probe
+    // the with-engine BusDto round-trip surfaced the need for: the round-trip
+    // is i4-lossy by design, so the right question is not "is it bit-exact?"
+    // (it is not) but "does the quantization preserve the ORDERING of affective
+    // intensities?" — which is what every downstream consumer (resonance,
+    // magnitude, nearest-archetype classification) actually relies on.
+    //
+    // We compute Spearman rank-correlation ρ between a representative set of
+    // affective f32 vectors (the 16 affective dims in their canonical ranges —
+    // [0,1] for the unsigned axes and [-1,1] for the signed axes, NOT identity
+    // indices) and their i4 round-trips, and assert ρ >= a calibration floor.
+    //
+    // THRESHOLD JUSTIFICATION (0.95): i4 gives 15 distinct levels across
+    // [-1,1] (8 negative + 7 positive + zero). With the test vectors spread
+    // across that range, ties on round-trip are the only source of rank
+    // disagreement; ρ >= 0.95 is a defensible "ordering essentially preserved"
+    // floor for a 4-bit quantizer over ~15 levels. It is a CALIBRATION floor,
+    // NOT a statistical-significance claim: per I-NOISE-FLOOR-JIRAK, qualia
+    // dims are weakly dependent by construction (shared codebook, overlapping
+    // role slices), so classical IID Berry-Esseen does not apply here; any
+    // "N σ above noise floor" framing would require Jirak-2016 weak-dependence
+    // rates, which this probe deliberately does NOT assert. We only assert the
+    // hand-set 0.95 floor and label it as such.
+    fn spearman_rho(a: &[f32], b: &[f32]) -> f32 {
+        assert_eq!(a.len(), b.len());
+        let n = a.len();
+        // Fractional (tie-averaged) ranks.
+        let rank = |v: &[f32]| -> Vec<f32> {
+            let mut idx: Vec<usize> = (0..n).collect();
+            idx.sort_by(|&i, &j| v[i].partial_cmp(&v[j]).unwrap());
+            let mut ranks = vec![0.0f32; n];
+            let mut i = 0;
+            while i < n {
+                let mut j = i + 1;
+                while j < n && v[idx[j]] == v[idx[i]] {
+                    j += 1;
+                }
+                // average rank for the tie group [i, j)
+                let avg = ((i + j - 1) as f32) / 2.0 + 1.0; // 1-based
+                for &k in &idx[i..j] {
+                    ranks[k] = avg;
+                }
+                i = j;
+            }
+            ranks
+        };
+        let ra = rank(a);
+        let rb = rank(b);
+        let mean = (n as f32 + 1.0) / 2.0;
+        let (mut cov, mut va, mut vb) = (0.0f32, 0.0f32, 0.0f32);
+        for k in 0..n {
+            let da = ra[k] - mean;
+            let db = rb[k] - mean;
+            cov += da * db;
+            va += da * da;
+            vb += db * db;
+        }
+        if va == 0.0 || vb == 0.0 {
+            return 1.0;
+        }
+        cov / (va.sqrt() * vb.sqrt())
+    }
+
+    #[test]
+    fn qualia_i4_affective_fidelity_probe_spearman() {
+        // A representative spread of affective values across the i4 range.
+        // 32 vectors deterministically constructed; each of the 16 dims sweeps
+        // [-1, 1] at a different phase so the pooled (orig, restored) pairs
+        // cover the whole quantizer.
+        let mut originals: Vec<f32> = Vec::new();
+        let mut restored: Vec<f32> = Vec::new();
+        for s in 0..32u32 {
+            let mut v: QualiaVector = [0.0; QUALIA_DIMS];
+            for (dim, slot) in v.iter_mut().enumerate().take(QUALIA_I4_DIMS) {
+                // phase-shifted ramp in [-1, 1]
+                let t = ((s as f32) * 0.31 + (dim as f32) * 0.137).fract();
+                *slot = 2.0 * t - 1.0;
+            }
+            let rt = QualiaI4_16D::from_f32_17d(&v).to_f32_17d();
+            for dim in 0..QUALIA_I4_DIMS {
+                originals.push(v[dim]);
+                restored.push(rt[dim]);
+            }
+        }
+        let rho = spearman_rho(&originals, &restored);
+        // Calibration floor (NOT a significance claim — see comment above;
+        // I-NOISE-FLOOR-JIRAK forbids classical-IID significance framing here).
+        assert!(
+            rho >= 0.95,
+            "i4 affective cutover preserved rank fidelity below floor: \
+             Spearman ρ = {rho:.4} (floor 0.95, n = {} pairs)",
+            originals.len()
+        );
+    }
 }

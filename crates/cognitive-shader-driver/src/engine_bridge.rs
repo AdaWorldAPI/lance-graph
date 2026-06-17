@@ -30,7 +30,7 @@ use lance_graph_contract::cognitive_shader::{
     ColumnWindow, EmitMode, MetaFilter, MetaWord, ShaderBus, ShaderDispatch, StyleSelector,
 };
 
-use crate::bindspace::{BindSpace, WORDS_PER_FP};
+use crate::bindspace::{BindSpace, QUALIA_DIMS, WORDS_PER_FP};
 use lance_graph_contract::qualia::QualiaI4_16D;
 
 #[cfg(feature = "with-engine")]
@@ -242,26 +242,35 @@ pub fn dispatch_busdto(bs: &mut BindSpace, row: usize, bus: &BusDto, style_ord: 
     let bits = busdto_to_binary16k(bus);
     bs.write_cycle_fingerprint(row, &bits);
 
-    // [2] qualia column — energies as continuous payload (lossless f32 store).
-    //     qualia[0]   = headline energy
+    // [2] qualia column — AFFECTIVE energies only (lossless-ish i4 store).
+    //     qualia[0]    = headline energy
     //     qualia[1..9] = top_k energies (positions 1-based to keep dim 0 = headline)
-    //     qualia[9]   = codebook_index headline (codex P2 fix 2026-05-07)
-    //     qualia[10..18] = zeroed (reserved for downstream qualia / classification dist)
+    //     qualia[9..]  = remaining affective dims (left 0 here; not used by this path)
     //
-    // The codebook_index headline goes into qualia[9] explicitly so the
-    // round-trip is bit-exact even when codebook_index collides with or
-    // is larger than any positive-energy top_k index. Previously the
-    // decoder relied on `set_bits.iter().next()` which always returned
-    // the LOWEST set bit; for `codebook_index = 1234` with positive
-    // top_k containing 777, the recovered headline was 777 instead of
-    // 1234. f32 represents any integer in [0, 2^24] exactly, so the
-    // u16 codebook_index round-trips losslessly through f32.
+    //     The qualia tenant is AFFECTIVE content (arousal/valence/…), stored as
+    //     signed i4 clamped to [−8, +7] after the D-CSV-5b cutover. It is NOT a
+    //     lossless integer lane.
+    //
+    //     TENANT CATEGORY-ERROR FIX (2026-06-17, I-VSA-IDENTITIES):
+    //     The headline `codebook_index` was previously stuffed into `qualia[9]`
+    //     as `index as f32`. That predated D-CSV-5b, when the column was an f32
+    //     payload able to hold any integer in [0, 2^24] exactly. Post-cutover,
+    //     `from_f32_17d` does `clamp(-1.0, 1.0)` then `round(·*7)`, so EVERY
+    //     `codebook_index >= 1` collapsed to the i4 value +7 — the headline was
+    //     destroyed. The comment claiming "round-trips losslessly through f32"
+    //     was a stale lie carried over from the f32-column era.
+    //
+    //     Per I-VSA-IDENTITIES, a `codebook_index` is a 12-bit IDENTITY pointer
+    //     (which CAM-PQ centroid), not affective content; it must NOT live in
+    //     the affective qualia tenant. It now rides the non-affective `temporal`
+    //     lane (u64, free on the BusDto encode/decode path — `dispatch_busdto`
+    //     and `unbind_busdto` are the only writers/readers of this row's
+    //     temporal and never used it for a timestamp). See [4b] below.
     let mut q = [0.0f32; QUALIA_DIMS];
     q[0] = bus.energy;
     for (i, &(_idx, e)) in bus.top_k.iter().enumerate().take(8) {
         q[TOP_K_ENERGY_BASE_DIM + i] = e;
     }
-    q[9] = bus.codebook_index as f32;
     // D-CSV-5b: engine still produces f32; convert at the bridge boundary.
     // from_f32_17d expects [f32; 17]; q is [f32; QUALIA_DIMS=18].
     let mut q17 = [0.0f32; 17];
@@ -290,6 +299,12 @@ pub fn dispatch_busdto(bs: &mut BindSpace, row: usize, bus: &BusDto, style_ord: 
     // [4] expert column — cycle_count (full u16 fidelity, lossless).
     bs.expert[row] = bus.cycle_count;
 
+    // [4b] temporal column — codebook_index headline (full u16 fidelity, lossless).
+    //      The IDENTITY pointer rides the non-affective temporal lane instead of
+    //      the affective qualia tenant (I-VSA-IDENTITIES). u64 holds u16 exactly;
+    //      `unbind_busdto` reads it back authoritatively as the headline.
+    bs.temporal[row] = bus.codebook_index as u64;
+
     row
 }
 
@@ -299,11 +314,10 @@ pub fn dispatch_busdto(bs: &mut BindSpace, row: usize, bus: &BusDto, style_ord: 
 ///  - `cycle_count`  — bit-exact from `expert[row]`.
 ///  - `converged`    — bit-exact from `meta.awareness >= 3`.
 ///  - `energy` + `top_k[*].energy` — bit-exact from qualia f32 store.
-///  - `codebook_index` — bit-exact for the headline index, since it was
-///    always emitted by `busdto_to_binary16k` (the headline bit is
-///    guaranteed-set; we recover it via top_k[0].idx, which the caller
-///    encoded redundantly). Falls back to lowest-set bit if top_k[0] is
-///    zero-valued.
+///  - `codebook_index` — bit-exact, recovered from the `temporal` lane
+///    (the IDENTITY pointer, stored losslessly as a u64; I-VSA-IDENTITIES).
+///    NOT from the affective qualia tenant, which clamps to i4 and would
+///    destroy any index >= 1 (the pre-2026-06-17 bug).
 ///  - `top_k[*].idx` — bit-exact for the SUBSET that had positive energy at
 ///    encode (those indices became set bits). Indices with energy ≤ 0 at
 ///    encode produced no bit; their original values are not recoverable.
@@ -341,15 +355,14 @@ pub fn unbind_busdto(bs: &BindSpace, row: usize) -> BusDto {
         .collect();
 
     // [3] Reconstruct top_k indices in the slots where the encoder set them.
-    //     codex P2 fix (2026-05-07): the headline (codebook_index) is now
-    //     stored explicitly in qualia[9] at encode, so we read it back
-    //     directly rather than guessing from set_bits.iter().next() (which
-    //     returned the LOWEST set bit, not the original headline, when
-    //     codebook_index collided with or exceeded any positive-energy
-    //     top_k index). The set_bits iterator now feeds only the
-    //     non-headline top_k slots.
-    let codebook_index = q[9] as u16;
-    let mut bit_iter = set_bits.iter().copied().filter(|&b| b != codebook_index);
+    //     Tenant-fix (2026-06-17, I-VSA-IDENTITIES): the headline
+    //     (codebook_index) is the IDENTITY pointer and is read back from the
+    //     non-affective `temporal` lane where `dispatch_busdto` stored it
+    //     losslessly. This replaces the prior `qualia[9] as u16` read, which
+    //     was destroyed by the D-CSV-5b i4 clamp (any index >= 1 → +7). The
+    //     set_bits iterator feeds only the non-headline top_k slots.
+    let codebook_index = bs.temporal[row] as u16;
+    let bit_iter = set_bits.iter().copied().filter(|&b| b != codebook_index);
     // For each positive-energy top_k slot at encode, attach the next set bit.
     // We can't perfectly recover ordering for ties; we use the natural ascending
     // bit order, which matches the encoder's deterministic walk for distinct indices.

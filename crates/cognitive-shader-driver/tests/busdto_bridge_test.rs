@@ -5,21 +5,37 @@
 //! `.claude/knowledge/soa-dto-dependency-ledger.md` (BusDto = Tier 2,
 //! `thinking-engine::dto.rs:115`).
 //!
-//! Tolerance level: **bit-exact** for codebook_index, top_k indices with
-//! positive energy at encode, energies (f32 in qualia), cycle_count
-//! (full u16 fidelity in expert column), and converged. The `top_k`
-//! entries with non-positive energy at encode (i.e. they did not set a
-//! cycle bit) lose their idx but keep their energy through the qualia
-//! store; their idx round-trips as 0.
+//! Tolerance level:
+//!  - **bit-exact** for `codebook_index` (rides the non-affective `temporal`
+//!    lane as a lossless u16 IDENTITY pointer — I-VSA-IDENTITIES, 2026-06-17),
+//!    `cycle_count` (full u16 fidelity in the `expert` column), and `converged`
+//!    (1 bit in MetaWord).
+//!  - **bit-exact** for the SET of top_k indices that had positive energy at
+//!    encode (they set a cycle bit in 0..16384). Non-positive-energy entries
+//!    set no bit, so their idx is lost (round-trips as 0).
+//!  - **i4-quantized** for `energy` and the `top_k[*].energy` payload. These
+//!    are AFFECTIVE continuous values in [0,1] that legitimately live in the
+//!    `qualia` tenant. Post D-CSV-5b the qualia column is signed i4 (step 1/7
+//!    on the positive side), so energy round-trips within ±1/7, NOT bit-exact.
+//!    The pre-cutover header claimed bit-exact energy "f32 in qualia"; that was
+//!    true only while the column was an f32 payload. Documented loss, asserted
+//!    to the i4 tolerance below.
 //!
 //! These tests gate on `--features with-engine` because `BusDto` lives
-//! in `thinking-engine` (an optional dependency).
+//! in `thinking-engine` (an optional dependency). They had never run before
+//! 2026-06-17 because the crate did not compile under `with-engine` (a missing
+//! `QUALIA_DIMS` import); the codebook_index round-trip defect they assert was
+//! latent until then.
 
 #![cfg(feature = "with-engine")]
 
 use cognitive_shader_driver::bindspace::BindSpace;
 use cognitive_shader_driver::engine_bridge::{dispatch_busdto, unbind_busdto};
 use thinking_engine::dto::BusDto;
+
+/// i4 quantization tolerance for affective energy in [0,1]: positive step 1/7,
+/// plus rounding slack. Any energy in [0,1] round-trips within this bound.
+const ENERGY_I4_TOL: f32 = 1.0 / 7.0 + 1e-4;
 
 /// All-positive top_k: the strictest round-trip case (every supporter bit set).
 fn make_dense_bus(seed: u16) -> BusDto {
@@ -52,11 +68,12 @@ fn busdto_round_trip_dense_top_k_is_bit_exact() {
         recovered.codebook_index, bus.codebook_index,
         "codebook_index must round-trip bit-exact"
     );
-    // Energy: bit-exact f32 (qualia store).
-    assert_eq!(
-        recovered.energy.to_bits(),
-        bus.energy.to_bits(),
-        "energy must round-trip bit-exact"
+    // Energy: i4-quantized in the affective qualia tenant (within ±1/7).
+    assert!(
+        (recovered.energy - bus.energy).abs() <= ENERGY_I4_TOL,
+        "energy must round-trip within i4 tolerance: sent {}, got {} (tol {ENERGY_I4_TOL})",
+        bus.energy,
+        recovered.energy,
     );
     // cycle_count: bit-exact (expert column = u16, no saturation).
     assert_eq!(recovered.cycle_count, bus.cycle_count);
@@ -83,10 +100,11 @@ fn busdto_round_trip_dense_top_k_is_bit_exact() {
     );
 
     for i in 0..8 {
-        assert_eq!(
-            recovered.top_k[i].1.to_bits(),
-            bus.top_k[i].1.to_bits(),
-            "top_k[{i}].energy must round-trip bit-exact",
+        assert!(
+            (recovered.top_k[i].1 - bus.top_k[i].1).abs() <= ENERGY_I4_TOL,
+            "top_k[{i}].energy must round-trip within i4 tolerance: sent {}, got {}",
+            bus.top_k[i].1,
+            recovered.top_k[i].1,
         );
     }
 }
@@ -138,12 +156,14 @@ fn busdto_round_trip_sparse_top_k_preserves_positive_idx_set() {
          positive={positive_set:?}, recovered={recovered_set:?}",
     );
 
-    // Energies bit-exact regardless of sign.
+    // Energies i4-quantized regardless of sign (negative path step 1/8).
     for i in 0..8 {
-        assert_eq!(
-            recovered.top_k[i].1.to_bits(),
-            bus.top_k[i].1.to_bits(),
-            "top_k[{i}].energy must round-trip bit-exact (sparse case)",
+        assert!(
+            (recovered.top_k[i].1 - bus.top_k[i].1).abs() <= ENERGY_I4_TOL,
+            "top_k[{i}].energy must round-trip within i4 tolerance (sparse case): \
+             sent {}, got {}",
+            bus.top_k[i].1,
+            recovered.top_k[i].1,
         );
     }
     // converged: bit-exact (false in this case).
@@ -215,5 +235,9 @@ fn busdto_round_trip_zero_codebook_index_is_handled() {
     assert_eq!(recovered.codebook_index, 0);
     assert_eq!(recovered.cycle_count, 0);
     assert_eq!(recovered.converged, true);
-    assert_eq!(recovered.energy.to_bits(), 0.1f32.to_bits());
+    assert!(
+        (recovered.energy - 0.1f32).abs() <= ENERGY_I4_TOL,
+        "energy within i4 tolerance: got {}",
+        recovered.energy,
+    );
 }

@@ -1,3 +1,17 @@
+## 2026-06-17 — with-engine BusDto qualia round-trip fix (D-CSV-5b tenant category-error)
+
+**Main thread (Opus 4.8) on branch `claude/with-engine-qualia-roundtrip-fix` (off `main`, NOT #520).** Two pre-existing defects on the `#[cfg(feature="with-engine")]` BusDto lab path, both latent because the crate did not compile under `with-engine`:
+
+**(1) Compile break** — `engine_bridge.rs` used `QUALIA_DIMS` without importing it. Fixed by adding `crate::bindspace::QUALIA_DIMS` (=18, the BindSpace flat-layout stride) to the existing `use`. NOTE there are two `QUALIA_DIMS`: contract `qualia::QUALIA_DIMS`=17 (the canonical affective dim count) and bindspace `QUALIA_DIMS`=18 (the column stride). The stale comment "QUALIA_DIMS=18" at the convert site was actually correct for the bindspace const; `q17.copy_from_slice(&q[..17])` is correct.
+
+**(2) codebook_index round-trip break (TENANT CATEGORY-ERROR, I-VSA-IDENTITIES).** `dispatch_busdto` stored the headline `codebook_index` into `qualia[9]` as `index as f32`. Pre D-CSV-5b the column was f32 (any int ≤ 2^24 exact); post-cutover `from_f32_17d` does `clamp(-1,1)·round(·*7)`, so EVERY `codebook_index ≥ 1` collapsed to i4 +7 → headline destroyed. Per I-VSA-IDENTITIES a codebook_index is a 12-bit IDENTITY pointer, NOT affective content, so it must not live in the affective qualia tenant. **Fix: route the headline through the non-affective `temporal: u64` lane** (verified free on the BusDto encode/decode path — `dispatch_busdto`/`unbind_busdto` are the only writers/readers of that row and never used temporal for a timestamp; `expert` was taken by cycle_count, `entity_type` is the semantically-wrong ontology id). u64 holds u16 losslessly → bit-exact headline. Lane chosen over a pinned-loss path because a genuinely-free lossless lane existed.
+
+**Energy was independently broken too:** the two never-run round-trip tests asserted bit-exact f32 energy "in qualia". Post-cutover energy ∈[0,1] is i4-lossy by design (±1/7). Energy IS legitimately affective content (correct tenant), so the tests were updated to assert i4 tolerance (`ENERGY_I4_TOL = 1/7+1e-4`) and the stale bit-exact header was corrected. Judgment call: did NOT add a column for energy — the i4 loss is the deliberate D-CSV-5b design.
+
+**Fidelity probe (added — none existed):** `qualia_i4_affective_fidelity_probe_spearman` in `lance-graph-contract::qualia` tests. Round-trips 512 affective f32 pairs across [-1,1] through `from_f32_17d`/`to_f32_17d`, computes Spearman ρ, asserts ρ≥0.95 (CALIBRATION floor, explicitly NOT a significance claim — I-NOISE-FLOOR-JIRAK forbids classical-IID framing under weak dependence). Measured ρ=0.9978.
+
+**Tests:** default `cognitive-shader-driver` 96 pass /1 ignored; `with-engine` 101 pass /1 ignored (the 5 busdto round-trip tests now RUN and pass); `lance-graph-contract` 673 pass. clippy clean on the 3 touched files (engine_bridge.rs, busdto_bridge_test.rs, qualia.rs); the lone `too_many_arguments` lib warning is pre-existing on untouched bindspace.rs. `mailbox-thoughtspace` feature does NOT exist on `main` (it's a #520 branch feature) so that GATE is N/A here. No PR opened (operator opens it).
+
 ## 2026-06-16 — odoo-rs SEEDED + PR #511 board hygiene (cross-repo)
 
 **Main thread (Opus 4.7) — two outputs, one session arc.**
