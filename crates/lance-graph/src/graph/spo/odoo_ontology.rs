@@ -68,8 +68,15 @@
 //!
 //! Data file `odoo_ontology.spo.ndjson` carries the base extraction (388
 //! Object Types, 3 107 Properties, 3 328 Functions) plus the `spo_enrich`
-//! P1/P0 layer (618 `target` + 102 `inverse_name` + 736 deep `reads_field`),
-//! for 23 701 triples total. The base extraction's original generator
+//! P1/P0 layer (842 `target` + 144 `inverse_name` + 935 deep `reads_field`),
+//! for 24 166 triples total. The `target`/`inverse_name`/deep-read totals grew
+//! over the initial enrichment (618/102/736) once `spo_enrich` (a) honored
+//! `_inherit`-only extension classes — `_inherit = "account.move"` with no
+//! `_name`, the common Odoo extension form whose relational fields were
+//! previously dropped — and (b) lifted each deep `reads_field` onto EVERY
+//! emitter of the dependent field, not just the last (a field such as
+//! `stock_move.quantity` is emitted by both `_compute_quantity` and
+//! `_onchange_product_uom_qty`). The base extraction's original generator
 //! (`emit_ontology2.py` over a `methods.parquet`) is not present in this
 //! tree — only its output is — so the enrichment is applied over the shipped
 //! corpus + the Odoo source via
@@ -146,9 +153,9 @@ mod tests {
     #[test]
     fn parses_all_triples() {
         let triples = parse_triples(ONTOLOGY);
-        // 22 245 base triples + 1 456 spo_enrich triples (618 target +
-        // 102 inverse_name + 736 deep reads_field) = 23 701.
-        assert_eq!(triples.len(), 23_701, "triple count drifted from data file");
+        // 22 245 base triples + 1 921 spo_enrich triples (842 target +
+        // 144 inverse_name + 935 deep reads_field) = 24 166.
+        assert_eq!(triples.len(), 24_166, "triple count drifted from data file");
     }
 
     #[test]
@@ -176,10 +183,13 @@ mod tests {
         assert_eq!(hist.get("emitted_by"), Some(&3228));
         assert_eq!(hist.get("rdf:type"), Some(&6823));
         // spo_enrich P1/P0 layer: FK target/inverse_name + deep reads_field.
-        assert_eq!(hist.get("target"), Some(&618));
-        assert_eq!(hist.get("inverse_name"), Some(&102));
-        // reads_field grew from 2 095 (base) to 2 831 with 736 deep lifts.
-        assert_eq!(hist.get("reads_field"), Some(&2831));
+        // Totals grew from 618/102/736 once `_inherit`-only extension classes
+        // were honored (more `target`/`inverse_name`) and deep reads were
+        // lifted onto EVERY emitter of a field (more deep `reads_field`).
+        assert_eq!(hist.get("target"), Some(&842));
+        assert_eq!(hist.get("inverse_name"), Some(&144));
+        // reads_field grew from 2 095 (base) to 3 030 with 935 deep lifts.
+        assert_eq!(hist.get("reads_field"), Some(&3030));
         assert_eq!(hist.get("other"), None, "unexpected predicate kind");
     }
 
@@ -367,6 +377,60 @@ mod tests {
         assert_eq!(
             functions, 3328,
             "function count drifted from module-doc claim (3 328)"
+        );
+    }
+
+    /// `spo_enrich` P0 multi-emitter — a field emitted by MORE than one method
+    /// must have its deep `reads_field` lifted onto EVERY emitter, not just the
+    /// last. `stock_move.quantity` is emitted by both `_compute_quantity` AND
+    /// `_onchange_product_uom_qty`; both must carry the cross-model deep reads
+    /// (`stock_move_line.quantity` / `stock_move_line.product_uom_id`). Before
+    /// the multi-emitter fix the deep read landed on only one of them, dropping
+    /// the recompute-ordering edge for the other (typically the `_compute_*`).
+    #[test]
+    fn enrichment_lifts_deep_reads_onto_every_emitter() {
+        let triples = parse_triples(ONTOLOGY);
+        let deep_on = |method: &str, obj: &str| {
+            triples
+                .iter()
+                .any(|t| t.s == method && t.p == "reads_field" && t.o == obj)
+        };
+        // Both emitters of stock_move.quantity carry the cross-model deep read.
+        assert!(
+            deep_on(
+                "odoo:stock_move._compute_quantity",
+                "odoo:stock_move_line.quantity"
+            ),
+            "P0 multi-emitter: _compute_quantity must read stock_move_line.quantity"
+        );
+        assert!(
+            deep_on(
+                "odoo:stock_move._onchange_product_uom_qty",
+                "odoo:stock_move_line.quantity"
+            ),
+            "P0 multi-emitter: _onchange_product_uom_qty must also read \
+             stock_move_line.quantity (every emitter, not just the last)"
+        );
+    }
+
+    /// `spo_enrich` P1 `_inherit`-only — relational fields declared on an
+    /// extension class (`_inherit = "account.move"` with no `_name`) must still
+    /// get their `target`. `account_move.authorized_transaction_ids` is declared
+    /// only on the `account_payment` extension of `account.move`; before the
+    /// `_inherit` fix the class was skipped (no `_name`) and the field never got
+    /// a target.
+    #[test]
+    fn enrichment_honors_inherit_only_extension_fields() {
+        let triples = parse_triples(ONTOLOGY);
+        let target = triples.iter().any(|t| {
+            t.s == "odoo:account_move.authorized_transaction_ids"
+                && t.p == "target"
+                && t.o == "payment.transaction"
+        });
+        assert!(
+            target,
+            "P1 _inherit-only: authorized_transaction_ids (declared on an \
+             _inherit='account.move' extension) must resolve to payment.transaction"
         );
     }
 }

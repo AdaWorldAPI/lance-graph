@@ -1,6 +1,24 @@
+## 2026-06-17 — PR #523 review fixes: spo_enrich multi-emitter + `_inherit`-only
+
+**Main thread (Opus) — single implementer**, branch `claude/odoo-spo-fk-target-deep-reads` (review-fix commit on top of the enrichment commit, no rebase). Addresses 4 valid review findings (codex P1 + codex P2/CodeRabbit Major + 2 CodeRabbit doc nits). Scope: the lance-graph SPO corpus + the stdlib Python extractor tooling under `tools/odoo-blueprint-extractor/` (no odoo-rs change).
+
+**Fixed:**
+- **Fix 1 (codex P1, real bug):** `spo_enrich.py` deep-read lift kept only the LAST `emitted_by` method per field (`field_emitter` dict). A field with multiple emitters (confirmed `stock_move.quantity` ← `_compute_quantity` AND `_onchange_product_uom_qty`) lifted the deep `reads_field` onto one only. Changed to a per-field sorted emitter LIST (`field_emitters`); the deep read is now emitted for EACH emitter (self-loop drop preserved per-emitter, determinism kept).
+- **Fix 2 (codex P2 / CodeRabbit Major):** `_scan_file` bound relational fields only when `_name` was present, dropping the `_inherit`-only extension form (`_inherit = "account.move"` / `["a","b"]` with no `_name`). Now resolves `model_names` from `_name` if present ELSE from `_inherit` (string→1, list/tuple→each, via new `_const_str_list`), mapping `local_fields` onto every resolved model — mirroring the package class parser's `_inherit` handling.
+- **Fix 3 (CodeRabbit doc nit):** AGENT_LOG scope reworded from "lance-graph only" to "lance-graph corpus + the stdlib Python extractor tooling" (the diff includes `spo_enrich.py` + tests).
+- **Fix 4 (CodeRabbit doc nit):** the EPIPHANIES "27 compute edges / no-cycle verified locally" claim used a discarded worktree. Re-anchored to a persistent in-repo fixture test (`tools/odoo-blueprint-extractor/tests/test_spo_enrich.py` `TestMultiEmitterDeepReads` + `TestInheritOnlyRelationMap`).
+
+**Corpus regenerated from base (22 245):** 22 245 → **24 166** triples. `target` 618→**842** (+224, `_inherit`-only extension fields), `inverse_name` 102→**144** (+42), deep `reads_field` 736→**935** (+199, per-emitter lift); `reads_field` total 2 095→**3 030**. Unknown-hop skips 567→337 (more hops now resolve via `_inherit` targets). `rdf:type`/`depends_on`/`emitted_by`/`has_function` unchanged.
+
+**Rust:** `odoo_ontology.rs` module-doc + count test (24 166), histogram (`target`=842, `inverse_name`=144, `reads_field`=3 030) updated; 2 new in-corpus tests (`enrichment_lifts_deep_reads_onto_every_emitter` on `stock_move.quantity`; `enrichment_honors_inherit_only_extension_fields` on `account_move.authorized_transaction_ids` → `payment.transaction`).
+
+**Tests:** extractor `python3 -m unittest discover` 20/20 green (14 prior + 6 new). lance-graph `cargo test -p lance-graph --lib odoo_ontology` green (counts updated). `cargo fmt` clean; `cargo clippy -p lance-graph -- -D warnings` clean on the touched crate (pre-existing causal-edge/p64-bridge/planner `-D warnings` debt untouched). See `EPIPHANIES.md` E-ODOO-FK-DEEP-READS (Status updated with the review-fix totals).
+
+---
+
 ## 2026-06-17 — odoo SPO corpus enrichment: P1 FK-target + P0 deep-reads_field (UPSTREAM_WISHLIST)
 
-**Main thread (Opus) — single implementer**, branch `claude/odoo-spo-fk-target-deep-reads`. Implements the odoo-rs `UPSTREAM_WISHLIST` P1 (FK `target`/`inverse_name`) + coupled P0 (deep `reads_field`) corpus enrichment, lance-graph only.
+**Main thread (Opus) — single implementer**, branch `claude/odoo-spo-fk-target-deep-reads`. Implements the odoo-rs `UPSTREAM_WISHLIST` P1 (FK `target`/`inverse_name`) + coupled P0 (deep `reads_field`) corpus enrichment. Scope: the lance-graph SPO corpus + the stdlib Python extractor tooling under `tools/odoo-blueprint-extractor/` (no odoo-rs change). **Review-fix follow-up 2026-06-17 (PR #523, see entry above):** totals below (618/102/736 → 24 166) were corrected by the review pass; see the prepended entry for the new figures.
 
 **Shipped:**
 - `tools/odoo-blueprint-extractor/odoo_blueprint_extractor/spo_enrich.py` (new, stdlib-only): builds a `(model, field) → (comodel, inverse)` relation map from `/home/user/odoo/addons` via `ast`, then (P1) emits `target`/`inverse_name` sibling triples keyed by the relation IRI (ruff#18 shape, raw dotted comodel object) for every relational field on a corpus-declared model, and (P0) resolves each dotted `@api.depends` path through the map and lifts a deep `reads_field` onto the field's emitting method. Additive, deterministic, idempotent (`(s,p,o)` dedup); self-loops dropped; unknown-hop paths skipped + counted. CLI: `python3 -m odoo_blueprint_extractor.spo_enrich --corpus … --addons …`.
