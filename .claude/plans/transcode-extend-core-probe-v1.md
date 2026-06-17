@@ -307,3 +307,44 @@ or the parallel-model/`CppMethod`-duplication trap? (2) does the shipped
 `codegen_spine::TripletProjection` actually fit a method manifest, or is that
 stretching a triple-projection contract? (3) is manifest-first real codegen or a
 tautology — and does D go first?
+
+### 3-brutal panel (2026-06-17, step 2)
+
+| Critic | Verdict | Load-bearing finding |
+|---|---|---|
+| adk-behavior-monitor | A=tautology, B=falsifier, **emitter-before-D** | Option A's "manifest matches harvest" test is a tautology (AP2) + duplicates `CppMethod` (AP3). `roundtrip_eq` checks `decompile(project(input)) == input` *internally* (verified `codegen_spine.rs:138-183`), so it's a real falsifier. Claimed GAP-CONST-OVERLOAD becomes an observable round-trip failure and proposed building against the dirty corpus first as the fixture. **[Refuted on the const-overload point — see below.]** |
+| baton-handoff-auditor | **A (re-scoped), D-first, no classid mint** | **Decisive correction:** the const-overload merge happens UPSTREAM in `expand`'s `(s,p,o)` dedup (`expand.rs:123-128`, `:581-585`) — both overloads collapse to one IRI *before* any projection/reassembly. So `roundtrip_eq` sees the collapsed set and passes; it CANNOT observe the gap. `MethodSig`≠`CppMethod`-dup (harvest-IR vs `&'static` Core-registry, the `ReadMode`/`BUILTIN_READ_MODES` posture; verified neither exists yet). Emitter must emit **name/IRI-keyed text and NEVER mint a classid** (the `ocr.rs::to_node_row(classid,…)` precedent takes classid as a caller param). Forbidden ruff→lance edge confirmed absent. |
+| brutally-honest-tester | **HOLD → build with 3 fixes; A-vs-B is a FALSE BINARY** | `codegen_spine::TripletProjection` genuinely fits (generic over `type Const`; a method manifest IS a valid `Const`) — but core-first-architect's "emit NO new type" is self-contradictory (the trait REQUIRES a `Const` type). The synthesis: **B's `roundtrip_eq` machinery = the build-time GATE; A's `MethodSig` shape = the emitted text target; A's runtime registry = DEFERRED canon-review.** Confirmed const-overload is a round-trip fixed point (invisible) → carry `merged_overload` explicitly AND **D-first** (more firmly than integration-lead). The one discipline that separates codegen from tautology: gate the manifest `Const` with a round-trip against the **LIVE** harvested triples, never a hand-authored table. |
+
+### FINAL DECISION (8/8 consolidated)
+
+**Build the emitter — but D first, with B's round-trip as the gate and A's shape
+as the output.** Execution order:
+
+1. **D — cv-aware method IRI (NOW, autonomous correctness fix).** The current
+   IRI scheme silently merges 19/67 const/non-const overloads — a **lossy-harvest
+   defect** the falsifier quantified, not a feature. Append ` const` to the method
+   IRI when `is_const` (in `expand`), reconstruct it in `reassemble`, and make the
+   override target cv-aware in `clang_walker`. **Reclassified from "operator-gated"
+   to autonomous correctness fix:** it adds NO predicate (vocab stays 54), it is
+   ruff-internal, and it has a hard falsifier — `CPP-REASSEMBLE-RT` must go
+   **48/67 → 67/67** byte-exact. (Reversible: a string format in three functions.)
+2. **Emitter scaffold (`ruff_cpp_codegen`, emit-text-only).** Walks the
+   reassembled `ModelGraph`, emits `MethodSig`-shaped Rust **text** naming
+   `lance_graph_contract` types; `ruff_spo_triplet`-only dep (no lance edge).
+   **Gate = a ruff-side round-trip** (the `TripletProjection` PATTERN over
+   `ruff_spo_triplet::Triple`: emit manifest `Const` → decompile → assert
+   `(s,p,o)`-set-equal to the live harvested triples). NEVER mints a classid
+   (name/IRI-keyed). PARITY markers + hand-curated Frankenstein deny-list.
+3. **`MethodSig` EXTEND-CORE in lance-graph (additive, council-reviewed).** A
+   `&'static str`-backed POD + `classid_methods` `LazyLock` registry — the
+   method-axis sibling of `classid_read_mode`. container-architect:
+   ADDITIVE-CONFIRMED (generated impls SELECT presets, never CONSTRUCT layout).
+   Lands when the emitter's output is wired; classid binding stays OGAR-side.
+4. **Wire + byte-parity (Option B, operator's leptonica host)** — the only path
+   to CONJECTURE→FINDING; unchanged.
+
+**Corrections folded in:** the gate is a live-triple round-trip (not a
+self-golden); GAP-CONST-OVERLOAD is fixed at the source by D (not relied on as a
+round-trip failure); A and B are lifecycle stages, not a choice. Sequence:
+**D → emitter scaffold → MethodSig EXTEND-CORE → wire/parity.**
