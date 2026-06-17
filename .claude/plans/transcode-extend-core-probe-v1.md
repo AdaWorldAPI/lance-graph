@@ -403,3 +403,35 @@ names. It touches operator-locked canon (additively), so unlike D and the
 scaffold (ruff-internal correctness/codegen) it is the deliberate-Core-growth
 step the doctrine says to file + review before landing. Then: wire the generated
 crate in tesseract-rs and run byte-parity (Option B, operator's leptonica host).
+
+### MethodSig EXTEND-CORE — LANDED (2026-06-17, AdaWorldAPI/lance-graph)
+
+`lance_graph_contract::codegen_manifest` shipped (the council pre-review =
+file + review; container-architect ADDITIVE-CONFIRMED):
+
+- **`MethodSig`** — the dispatch signature in a `const`-constructible shape (all
+  fields `&'static`: `name`, `params: &'static [&'static str]`, `ret`,
+  `is_const`, `is_static`, `overrides`). This is the exact literal
+  `ruff_cpp_codegen::render` emits, so the generated text now has a real compile
+  target. The `&'static` shape is the whole point — `class_view::FieldRef` is
+  `String`-backed and cannot appear in a `const`; `MethodSig` is the method-axis
+  sibling that can.
+- **`ClassMethods{classid, methods}`** + **`methods_for(registry, classid)`** —
+  the registry-entry type + pure zero-fallback lookup. classid is bound
+  OGAR-side (never minted here); the runtime `classid→methods` registry DATA is
+  generated downstream (consumer repo), NOT stored in lance-graph — the
+  honest-tester's "defer the runtime registry" honored.
+- **Additive**: a sibling module, zero `NodeRow`/`ValueTenant`/`ValueSchema`/
+  stride/`ENVELOPE_LAYOUT_VERSION` impact. Board hygiene: LATEST_STATE Contract
+  Inventory updated in the same commit (D-CPP-CODEGEN-1). +2 tests
+  (const-constructibility proof — the load-bearing property — + zero-fallback
+  lookup); 640 contract lib green; clippy `-D warnings` clean.
+
+**C-FIRST status:** D ✓ → emitter scaffold ✓ → MethodSig EXTEND-CORE ✓. The
+in-env, lance-graph-internal arc of the pipeline is complete: a C++ harvest now
+flows harvest → reassemble → project → render → a `MethodSig` manifest whose
+type exists in the Core. **Remaining (operator-gated, out of this env):** wire
+the generated crate into tesseract-rs (needs the leptonica build env) and run
+`PROBE-OGAR-ADAPTER-UNICHARSET` byte-parity (Option B) — the only path to
+CONJECTURE→FINDING. Everything to here is CONJECTURE per the doctrine; the
+`PARITY: UNRUN` markers on every generated file say so.

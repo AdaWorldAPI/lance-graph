@@ -44,6 +44,7 @@ pub mod callcenter;
 pub mod cam;
 pub mod canonical_node;
 pub mod class_view;
+pub mod codegen_manifest;
 pub mod codegen_spine;
 pub mod cognitive_shader;
 pub mod collapse_gate;
