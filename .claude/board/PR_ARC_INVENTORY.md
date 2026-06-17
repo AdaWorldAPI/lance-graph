@@ -35,6 +35,35 @@
 
 ---
 
+## #521 lance-graph-contract: C++ codegen target (`MethodSig`) + `UniCharSet` content store
+
+**Status:** MERGED 2026-06-17 20:53 UTC (merge commit `620bd8e`), branch `claude/happy-hamilton-0azlw4`. **+940/-4 across 8 files, 9 commits.** The Core-side of the Tesseract C++→Rust transcode — the contract types ruff's `ruff_cpp_codegen` targets, plus the byte-parity probe's Rust side. **Additive to `lance-graph-contract` only** (container-architect ADDITIVE-CONFIRMED: zero `NodeRow`/`ValueTenant`/`ValueSchema`/stride/`ENVELOPE_LAYOUT_VERSION` impact). Pairs with **ruff #20** (the harvester + codegen that produces what these types consume; merged 2026-06-17 19:38 into ruff `main`).
+
+**Added (code):**
+- **`codegen_manifest` module** — `MethodSig`: the `&'static`-backed, **`const`-constructible** method-signature type the generated Rust names (the method-axis sibling of `ClassView`'s field projection). `ClassMethods` + `methods_for(registry, classid)`: the registry entry + zero-fallback lookup (classid bound OGAR-side; the data is generated downstream, no runtime registry stored in the contract).
+- **`unicharset` module** — `UniCharSet` (`deepnsm::Vocabulary`-shaped: `reverse: Vec<String>` id→unichar + `lookup: HashMap<String,u32>` unichar→id), `load_from_str`/`load_from_file`/`id_to_unichar`/`unichar_to_id`/`size`/`dump`, typed `UniCharSetError`. The Rust side of `PROBE-OGAR-ADAPTER-UNICHARSET`: pure text parsing, **zero leptonica** (the unicharset path never touches `Pix`).
+- **`examples/unicharset_dump.rs`** — renders the oracle-shape `"<id>\t<unichar>\n"` table so byte-parity is a single `diff`.
+
+**Locked:**
+- **PROBE-OGAR-ADAPTER-UNICHARSET → FINDING.** The core-first transcode doctrine is now **empirically proven end-to-end**: a real Tesseract adapter produced through the pipeline (`ruff_cpp_spo` harvest → `reassemble` → `ruff_cpp_codegen` → these contract types) is **byte-identical (112/112)** to the C++ libtesseract `UNICHARSET::id_to_unichar` oracle on real trained `eng` data. Doctrine flipped CONJECTURE→FINDING in `core-first-transcode-doctrine.md`.
+- **`NULL`→space convention** (`unicharset.cpp:882`): the loader special-cases the file token `"NULL"` to the runtime space unichar `" "`. This was the sole id-0 diff the probe surfaced (was 111/112). Locked by the `null_token_maps_to_space` unit test. (codex P1 on #521 flagged the same edge case independently; resolved + thread closed.)
+- **`MethodSig` must be `&'static`/`const`-constructible** — because `ClassView::FieldRef` is `String`-backed and cannot appear in a `const`, the method axis needed a distinct `&'static`-backed type. That is why this is a new type, not a `ClassView` extension.
+
+**Deferred:**
+- Wiring the proven `UniCharSet` lookups through `classid → ClassView → UnifiedStep` (the `classid → &UniCharSet` `LazyLock` resolver) — the honest next increment.
+- Per-leaf-method one-`diff` parity checks as each future Tesseract method body is transcoded.
+- Fragment / `CleanupString` unichar normalization (a separate, later adapter leaf; this PR is the `old_style_included_ == true` plain-table scope).
+
+**Docs:**
+- `.claude/plans/transcode-extend-core-probe-v1.md` — full 5-consolidate + 3-brutal council record + the C-FIRST D → emitter → EXTEND-CORE arc + the BYTE-PARITY ACHIEVED section.
+- `.claude/board/EPIPHANIES.md` — `E-CPP-PARITY-1` (the byte-parity FINDING).
+- `.claude/knowledge/core-first-transcode-doctrine.md` — falsifier gate flipped CONJECTURE→FINDING (RAN GREEN 2026-06-17, 112/112).
+- LATEST_STATE Contract Inventory: `D-CPP-CODEGEN-1` + `D-UNICHARSET-1` (in-PR).
+
+**Confidence (2026-06-17):** working. 644 contract lib tests green; clippy `-D warnings` + fmt clean. Byte-parity 112/112 re-verified post-rebase (onto main after #522 odoo-extractor). codex P1 (NULL→space) resolved + thread closed; CodeRabbit summary clean.
+
+---
+
 ## #512 perturbation-sim: degenerate-grid + key-cardinality guards + core-first-transcode doctrine (review #511 + #513)
 
 **Status:** MERGED 2026-06-16 20:33 UTC (merge commit `1e23c410`), branch `claude/happy-hamilton-0azlw4`. **+591/-5 across 11 files** — addresses the open review findings from #511 (which merged before they resolved) AND introduces the **core-first-transcode** doctrine + 3 new agent cards.
