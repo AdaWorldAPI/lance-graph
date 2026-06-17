@@ -195,3 +195,115 @@ The re-scoped gate is built and green (AdaWorldAPI/ruff, branch
 **Next:** C step 2 (the Rust *emitter* consuming the reassembled `ModelGraph`)
 remains; it is where the `PARITY: UNRUN` markers and the GAP-CONST-OVERLOAD
 single-merged-adapter handling apply. Options A / D / B unchanged.
+
+---
+
+## C step 2 — the emitter: plan + council (UNDER REVIEW 2026-06-17)
+
+> **Status:** PROPOSAL — under 5-consolidate + 3-brutal council review. The
+> emitter is the first codegen that produces actual Rust *source*; the
+> Core-First doctrine treats this as the central "parallel-model" danger, so it
+> is gated by the doctrine ensemble before a line is written.
+
+### What step 2 is
+
+Stage 1 (`reassemble`, landed) turns the harvested triples back into a
+`ModelGraph`. Stage 2 — the **emitter** — turns that `ModelGraph` into Rust
+that targets the OGAR Core (`lance-graph-contract`: `canonical_node.rs`
+NodeRow/classid, `class_view.rs` ClassView, `UnifiedStep`). The doctrine names
+the harvest "the ClassView method-resolution manifest", so the emitter's job is
+to project that manifest onto the Core — NOT to grow a second object model.
+
+### The fork the council must resolve — what does the emitter emit FIRST?
+
+The content-store tier for variable-length state (the unicharset id↔utf8
+registry) is **Option A, council-gated and NOT built**. So the emitter cannot
+yet produce full unicharset adapter bodies. Three candidate first cuts:
+
+- **(1) Manifest-first (thinnest).** Emit ONLY the `classid → ClassView`
+  method-resolution manifest as Rust data: per class, the ordered method set
+  (name, params, return, const/static, override target) from `has_function` +
+  the signature predicates. No adapter bodies, no state mapping. Targets the
+  existing `ClassView` trait. Needs no content-store tier. Verifiable in-env
+  (compiles; manifest matches the harvest). Risk: too thin to be "codegen"?
+- **(2) Signature-stub adapters.** Emit adapter fn signatures targeting Core
+  types, bodies = `// HAND-PORT` / `todo!()`. Forces the per-method
+  value-tenant vs content-store mapping decision now → hits the Option-A gate
+  for any unicharset leaf. Risk: blocked on Option A; premature.
+- **(3) Full leaf-method bodies.** Deepest; needs the content-store tier + any
+  Core gaps resolved + byte-parity (operator-blocked). Out of scope for step 2.
+
+### Cross-cutting questions
+
+- **Placement:** does the emitter live in `ruff` (a `ruff_cpp_codegen` module
+  consuming `ruff_spo_triplet::ModelGraph`), in `tesseract-rs` (per
+  `tesseract-rs-ast-dll-codegen-v1.md`), or as a standalone? What does it
+  depend on, and does that respect the BBB / no-parallel-model rules?
+- **Core-targeting:** does the emitted Rust reference REAL Core types
+  (`NodeRow`/`classid`/`ClassView`/`UnifiedStep`), or does it drift into a
+  parallel model? (doctrine's central litmus.)
+- **GAP-CONST-OVERLOAD:** the 19/67 const-overload collisions — the emitter
+  must treat a colliding method IRI as a single merged adapter (documented),
+  not silently pick one. How is that surfaced in the generated output?
+- **Honesty markers:** `PARITY: UNRUN (operator-blocked: leptonica)` on every
+  generated file + `mod.rs`.
+
+### Council questions
+
+1. **core-first-architect:** of the three first-cuts, which TARGETS-CORE vs
+   risks a PARALLEL-MODEL? Is manifest-first the right thinnest projection of
+   the "ClassView method-resolution manifest", or does even that smuggle a
+   second model?
+2. **core-gap-auditor:** does the OGAR Core (today's `class_view.rs` ClassView
+   trait + `canonical_node.rs`) already accept the manifest the emitter would
+   produce, or is there a Core gap (EXTEND-CORE) before the emitter can target
+   it? Is manifest-first reachable without Option A?
+3. **adapter-shaper:** for the chosen cut, what is the concrete emitted shape —
+   a `const`/`static` manifest table, a generated `impl ClassView`, or fn
+   stubs? How does it carry the GAP-CONST-OVERLOAD merged-method case honestly?
+4. **container-architect:** does the emitted output respect the locked
+   NodeRow/ValueTenant/ValueSchema/ClassView layout — zero new variant, zero
+   stride change? Any hidden lock break in a generated `impl`?
+5. **integration-lead:** placement (ruff vs tesseract-rs vs standalone) +
+   sequencing. What does manifest-first unblock; what stays gated on Option A /
+   byte-parity? Is step 2 the right next move, or does D (harvester polish:
+   GAP-CONST-OVERLOAD fix) come first so the manifest is collision-free?
+
+### Consolidation — 5-agent council (2026-06-17, step 2)
+
+**MAJOR REFRAME (3 of 5 independently): the plan's premise is false against the
+code.** `ClassView` (`class_view.rs:152-249`) is a **field/render** vocabulary
+(`fields() -> &[FieldRef]`, `template()`, `value_schema()`, `edge_codec_flavor()`)
+— it has **no method-resolution surface**; the string `has_function` does not
+appear anywhere in `lance-graph-contract`. So "emit a `classid → ClassView`
+method manifest targeting the existing trait" targets a home that does not exist.
+
+| Agent | Verdict | Load-bearing finding |
+|---|---|---|
+| core-first-architect | **re-scope; none of the 3 cuts as written** | The 3 cuts are PARALLEL-MODEL (1, as framed) / RESIDUE-CORE (2) / out-of-scope (3). **Discovered `codegen_spine.rs` — a SHIPPED codegen contract the plan never cites:** `TripletProjection` + `roundtrip_eq` (build-time loss falsifier), `Genericity` (codegen-vs-runtime marker), `manifest.rs` (build.rs-generated `&'static` const data is already a Core-sanctioned pattern). Proposes "projection-first": emit via `TripletProjection` validated by the shipped `roundtrip_eq`, sourced from `ruff_spo_triplet::CppMethod` directly (no new struct), no `impl ClassView`, no classid mint. GAP-CONST-OVERLOAD then becomes an **observable round-trip failure**, not a documented-and-ignored merge. Rule: emitter may only produce `impl TripletProjection` const (validated by `roundtrip_eq`) OR `ocr.rs::to_node_row`-shape bodies; never a new Rust type for a C++ class/method; never an `impl ClassView` method member (that's unsanctioned EXTEND-CORE on locked canon). |
+| core-gap-auditor | **EXTEND-CORE (minimal)** | A *method*-resolution manifest has no home on today's ClassView. Minimal additive delta: a `MethodRef` POD + a free `classid_methods(classid) -> &[MethodRef]` `LazyLock` registry — the **method-axis sibling of `classid_read_mode`/`BUILTIN_READ_MODES`** — never a string-mangled `FieldRef`, never an adapter that carries its own table. No node bytes / ValueTenant / stride / version bump. **Honest split:** a *value/field* manifest IS Core-ready today (the `ocr.rs` precedent); only the *method* manifest needs the delta. Manifest-first sidesteps Option A (content-store). GAP-CONST-OVERLOAD at manifest level = benign "one entry not two" iff identity key = `(name, param_types)` (which `reassemble` already uses). |
+| adapter-shaper | **manifest-first, but NOT `impl ClassView`** | `FieldRef` is `String`-backed (`ontology.rs:467`) → a `const` ClassView field table is impossible. Thinnest TARGETS-CORE shape: a `classid → &'static [MethodSig]` registry mirroring `BUILTIN_READ_MODES`, with a NEW `&'static str`-backed `MethodSig`/`Receiver` type in a new `lance-graph-contract::codegen_manifest` module. Mapped `CppMethod`→`MethodSig` (name, ordered params, ret, receiver=Const/Static, overrides); dropped the body-shaping flags (pure_virtual/constexpr/noexcept/operator/requires). GAP-CONST-OVERLOAD → `merged_overload: true` flag + comment (machine-checkable). Frankenstein guard = hand-curated deny-list (`id_to_unichar_ext`, `CleanupString`, LSTM/ELIST) in `ruff_cpp_codegen/src/hand_port_denylist.rs`. PARITY markers in `//!` headers. |
+| container-architect | **ADDITIVE-CONFIRMED (all 3 cuts)** | Generated code is ClassView-side; never touches NodeRow/ValueTenant/ValueSchema/stride/`ENVELOPE_LAYOUT_VERSION`. Single invariant: generated impls **SELECT** existing `ValueSchema`/`EdgeCodecFlavor` presets, never **CONSTRUCT** a layout — unbreakable because the enums have no byte-offset constructor. Adding a sibling `codegen_manifest` module is additive (same posture as `ocr.rs` adding `LayoutBlock` beside `NodeRow`). |
+| integration-lead | **placement (a) + D-first** | Emitter = new `ruff_cpp_codegen` crate in ruff next to `ruff_spo_triplet`, **emit-text-only — compile NOTHING against lance-graph** (consumes `ModelGraph`, only NAMES contract types as text; a ruff→lance-graph-contract compile edge is FORBIDDEN — inverts the contract's consumers-depend-on-it arrow; verified zero `lance` in ruff manifests). **Run D (GAP-CONST-OVERLOAD harvester fix) BEFORE the emitter** so the first manifest is collision-free (0/67 not 19/67); D is small, in-ruff, operator-gated. Manifest-first = maximal in-env slice; bodies gated on Option A, parity on Option B. |
+
+### The unresolved fork (for the 3-brutal panel)
+
+All 5 agree: **manifest-first** (not stubs/bodies), **additive**, **placement =
+`ruff_cpp_codegen` emit-text-only**, **D before the emitter**, **PARITY markers +
+Frankenstein deny-list**. The genuine disagreement the brutal panel must settle:
+
+- **A — `MethodSig` registry (adapter-shaper + core-gap-auditor):** mint a minimal
+  `MethodSig` POD + `classid_methods` `LazyLock` registry (method-axis sibling of
+  `classid_read_mode`). Runtime-dispatchable; EXTEND-CORE but additive.
+- **B — `TripletProjection` projection-first (core-first-architect):** ride the
+  SHIPPED `codegen_spine::TripletProjection`/`roundtrip_eq`; emit NO new type;
+  GAP-CONST-OVERLOAD becomes an observable `roundtrip_eq` failure. Warns that a
+  new `MethodSig` re-implements `ruff_spo_triplet::CppMethod` = the parallel-model
+  trap, and that re-emitting the harvest as a Rust table is a **tautology**
+  ("emit the manifest, test it matches the harvest it came from").
+
+The brutal panel adjudicates: (1) is `MethodSig` a justified minimal EXTEND-CORE
+or the parallel-model/`CppMethod`-duplication trap? (2) does the shipped
+`codegen_spine::TripletProjection` actually fit a method manifest, or is that
+stretching a triple-projection contract? (3) is manifest-first real codegen or a
+tautology — and does D go first?
