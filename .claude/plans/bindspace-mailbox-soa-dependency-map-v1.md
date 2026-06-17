@@ -139,12 +139,21 @@ populated but not yet consumed by the hot path. This is exactly the "two paths" 
 
 Each step keeps **both paths live** and adds tests for the new before removing anything.
 
-- **W0 (this doc).** Map ratified. — *here.*
-- **W1 — D-MBX-A2 columns (additive, tested).** Add `content`/`topic`/`angle` (dense hot,
-  `Box<[u64]>`), `sigma`/`temporal`/`expert` to `MailboxSoA<N>` + accessors + `reset_row`.
-  **Test:** a parity round-trip — write matched per-row values to a `BindSpace` window and a
-  `MailboxSoA`, assert every migrated column reads back identically (content planes included;
-  `cycle` deliberately absent). Deletes nothing.
+- **W0 (this doc).** Map ratified. — *DONE.*
+- **W1 — D-MBX-A2 small columns (additive, tested). DONE.** Added `temporal: [u64;N]`,
+  `expert: [u16;N]`, `sigma: [u8;N]` to `MailboxSoA<N>` + accessors + `reset_row` +
+  `test_mailbox_soa_column_parity_with_bindspace` (writes matched per-row values to a
+  `BindSpace` window and a `MailboxSoA`, asserts `edges`/`qualia`/`meta`/`entity_type` +
+  `temporal`/`expert`/`sigma` read back identically). 13 mailbox_soa tests green, clippy clean.
+  Deletes nothing.
+- **W1b — D-MBX-A2 dense identity planes (additive, tested).** Add `content`/`topic`/`angle`
+  (dense, hot, heap `Box<[u64]>` of `N*256`, mirroring `FingerprintColumns` minus `cycle`) to
+  `MailboxSoA<N>` + a zero-copy `content_row(row)->&[u64]` accessor + parity test vs
+  `BindSpace.fingerprints`. **Design note:** the mailbox is otherwise all-stack `[T;N]`; the
+  planes MUST be heap (`N*256` u64 ≈ 2 MB at N=1024 cannot be stack, and `[u64; N*256]` is not
+  stable) — own them as `Box<[u64]>` fields or a small `MailboxFingerprints` sub-struct. The
+  `cycle` (`Vsa16kF32`) plane is NEVER added (OQ-1/§2.7). This is the hot-path-critical column
+  (`driver.rs` resonance read = `content_row`), so it gets its own focused step.
 - **W2 — read-parity harness on the hot path.** Add a *read shim* so a `MailboxSoaView` can
   serve the columns `driver.rs` reads (content_row, edge, meta, qualia, entity_type). Run the
   dispatch resonance read against BOTH the singleton and a mailbox built from the same rows;
