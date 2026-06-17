@@ -19,14 +19,15 @@
 //!
 //! ```text
 //! awareness state ──select_tactic──► one of the 34 ──run──► fold delta_conf
-//!        ▲                                                        │ settle gate (sd↓, dissonance↓)
+//!        ▲                                                        │ on fire: sd↓, dissonance↓, confidence↑
 //!        └────────────── recompute free-energy ◄──────────────────┘
-//!  rest when the CollapseGate enters FLOW (sd < SD_FLOW) — surprise resolved.
+//!  rest when the CollapseGate is in FLOW (sd < SD_FLOW) AND surprise < floor.
 //! ```
 //!
 //! Awareness is not *read by* a controller that decides to think; it *is* the
-//! gradient that selects the next tactic. The loop rests when the gate settles —
-//! guaranteed, because attending decays dispersion each fired step.
+//! gradient that selects the next tactic. The loop rests when the gate settles and
+//! surprise is resolved — guaranteed for a firing chain, because attending decays
+//! both dispersion and surprise each fired step.
 //!
 //! Zero-dep, deterministic, offline-tested. This is the reduction-to-practice for
 //! the 2³-rung → NARS-candidate → 34-tactic doctrine; persisting the dispatch trace
@@ -47,6 +48,11 @@ pub const HOMEOSTASIS_FLOOR: f32 = 0.2;
 const SETTLE_SD: f32 = 0.85;
 /// Per-fired-step contradiction relaxation — engaging a tactic reconciles split.
 const SETTLE_DISSONANCE: f32 = 0.6;
+/// Per-fired-step confidence gain — attending to a tactic moves confidence toward
+/// 1 (active inference: engaging the world resolves uncertainty). Without it, a
+/// fired tactic with zero `delta_conf` would leave surprise pinned and the loop
+/// could ride `sd` decay alone; this guarantees reported surprise also descends.
+const ATTEND_GAIN: f32 = 0.35;
 
 /// Re-derive the CollapseGate state from dispersion (`ThoughtCtx::gate_state` is
 /// private; the thresholds `SD_FLOW`/`SD_BLOCK` are public).
@@ -69,16 +75,20 @@ fn gate_of(sd: f32) -> GateState {
 /// `rung` (depth → difficulty tier) are secondary modulators. Deterministic; scores
 /// every recipe by metadata match and takes the lowest id on a tie.
 pub fn select_tactic(ctx: &ThoughtCtx) -> u8 {
-    // What kind of reasoning does this awareness state call for?
-    let want_mech = if ctx.dissonance >= 0.5 {
-        Mechanism::TruthAwareInference // a contradiction wants revision/abduction
-    } else if ctx.free_energy >= 0.66 {
+    // PRIMARY: what kind of reasoning does the surprise level call for? `free_energy`
+    // alone picks the mechanism — this is the causal axis (the materialization
+    // criterion). It is NOT overridden by any other field; a contradicted state with
+    // low surprise still wants routine work, and high surprise still wants a leap.
+    let want_mech = if ctx.free_energy >= 0.66 {
         Mechanism::StructuralDivergence // high surprise wants a creative leap
     } else if ctx.free_energy >= 0.33 {
         Mechanism::TruthAwareInference // mid surprise wants inference
     } else {
         Mechanism::ParallelIndependence // low surprise: routine parallel work
     };
+    // SECONDARY: a contradiction nudges toward revision/abduction, but only as a
+    // tie-weight — it never replaces the surprise-chosen mechanism.
+    let wants_reconciliation = ctx.dissonance >= 0.5;
     // Where should it execute? (the gate picks the hardware bucket)
     let want_bucket = match gate_of(ctx.sd) {
         GateState::Block => Bucket::Gate,
@@ -99,13 +109,18 @@ pub fn select_tactic(ctx: &ThoughtCtx) -> u8 {
     for id in 1..=34u8 {
         if let Some(r) = recipe(id) {
             let mut score = 0;
+            // Primary mechanism match outweighs bucket(2) + tier(1) + reconcile(1).
             if r.mechanism == want_mech {
-                score += 3;
+                score += 5;
             }
             if r.bucket == want_bucket {
                 score += 2;
             }
             if r.tier == want_tier {
+                score += 1;
+            }
+            // Secondary contradiction signal: a faint pull toward inference tactics.
+            if wants_reconciliation && r.mechanism == Mechanism::TruthAwareInference {
                 score += 1;
             }
             if score > best_score {
@@ -150,16 +165,23 @@ pub struct Trace {
     pub final_free_energy: f32,
 }
 
-/// **The closed `F → 34 → F` loop.** Each step: if the gate is in FLOW the loop
-/// rests (surprise resolved); else select a tactic from the awareness state, run it
-/// (folding `delta_conf` into confidence), settle the gate (dispersion + contradiction
-/// decay — attending reconciles), and recompute surprise. `max_steps` bounds the run;
-/// rest is *guaranteed* within `~log_{1/SETTLE_SD}(sd/SD_FLOW)` fired steps because
-/// dispersion decays monotonically into FLOW.
+/// **The closed `F → 34 → F` loop.** Each step: recompute surprise; if the gate is
+/// in FLOW *and* surprise fell below [`HOMEOSTASIS_FLOOR`] the loop rests; else select
+/// a tactic from the awareness state and run it. A tactic that *fired* settles the
+/// gate (dispersion + contradiction decay) and raises confidence ([`ATTEND_GAIN`],
+/// active inference); a *blocked* tactic changes nothing, so the loop stops rather
+/// than spin on an unchanged state. `max_steps` bounds the run; for a firing chain,
+/// rest is reached within `~log_{1/SETTLE_SD}(sd/SD_FLOW)` steps because dispersion
+/// and surprise decay monotonically.
 pub fn materialize(ctx: &mut ThoughtCtx, max_steps: usize) -> Trace {
-    let mut steps = Vec::with_capacity(max_steps);
+    // Bound the up-front allocation: a settling run is short (~log decay), so don't
+    // reserve for a pathological `max_steps` the loop will never reach.
+    let mut steps = Vec::with_capacity(max_steps.min(64));
     for _ in 0..max_steps {
-        if gate_of(ctx.sd) == GateState::Flow {
+        ctx.free_energy = recompute_free_energy(ctx);
+        // Rest only when the gate is in FLOW *and* surprise actually resolved — a
+        // cool gate with residual surprise is not rest, it must keep dispatching.
+        if gate_of(ctx.sd) == GateState::Flow && ctx.free_energy < HOMEOSTASIS_FLOOR {
             break; // settled — the shader rests
         }
         let id = select_tactic(ctx);
@@ -167,17 +189,26 @@ pub fn materialize(ctx: &mut ThoughtCtx, max_steps: usize) -> Trace {
             break; // unreachable: id is always 1..=34
         };
         let out = tactic.run(ctx); // folds out.delta_conf into ctx.confidence
-        ctx.sd *= SETTLE_SD; // attending settles dispersion → toward FLOW
-        ctx.dissonance *= SETTLE_DISSONANCE;
-        ctx.free_energy = recompute_free_energy(ctx);
+        if out.fired {
+            // Only a tactic that actually fired settles the gate and resolves
+            // surprise — a blocked tactic changed nothing, so don't fake progress.
+            ctx.sd *= SETTLE_SD; // attending settles dispersion → toward FLOW
+            ctx.dissonance *= SETTLE_DISSONANCE;
+            ctx.confidence =
+                (ctx.confidence + ATTEND_GAIN * (1.0 - ctx.confidence)).clamp(0.0, 1.0);
+        }
         steps.push(Step {
             tactic_id: id,
             fired: out.fired,
             delta_conf: out.delta_conf,
         });
+        if !out.fired {
+            break; // a blocked tactic won't unblock on re-dispatch of the same state
+        }
     }
+    ctx.free_energy = recompute_free_energy(ctx);
     Trace {
-        rested: gate_of(ctx.sd) == GateState::Flow,
+        rested: gate_of(ctx.sd) == GateState::Flow && ctx.free_energy < HOMEOSTASIS_FLOOR,
         final_confidence: ctx.confidence,
         final_free_energy: ctx.free_energy,
         steps,
@@ -218,6 +249,15 @@ mod tests {
         assert!(
             awareness_is_causal(&b, 0.1, 0.9),
             "free_energy must steer dispatch — else awareness is a dead label"
+        );
+        // Regression: surprise stays causal even for a contradicted base. dissonance
+        // is a SECONDARY tie-weight, not an override — it must not pin the mechanism
+        // and erase free_energy's steering (the bug review #515 caught).
+        let mut contradicted = base();
+        contradicted.dissonance = 0.7;
+        assert!(
+            awareness_is_causal(&contradicted, 0.1, 0.9),
+            "free_energy must steer dispatch even under contradiction"
         );
         // Sweep free_energy: dispatch must take ≥ 2 distinct tactics (not stuck).
         let ids: BTreeSet<u8> = (0..=10)
@@ -314,9 +354,13 @@ mod tests {
 
     #[test]
     fn already_at_rest_dispatches_nothing() {
-        // FLOW on entry (sd < SD_FLOW) ⇒ no surprise ⇒ no dispatch (the shader rests).
+        // FLOW on entry (sd < SD_FLOW) AND resolved surprise ⇒ no dispatch (rest).
+        // Rest now requires free_energy < floor, so the base must be confident and
+        // uncontradicted as well as gate-cool — a cool gate alone is not rest.
         let mut c = base();
         c.sd = 0.05;
+        c.confidence = 0.95;
+        c.dissonance = 0.0;
         let trace = materialize(&mut c, 64);
         assert!(trace.rested && trace.steps.is_empty());
     }
