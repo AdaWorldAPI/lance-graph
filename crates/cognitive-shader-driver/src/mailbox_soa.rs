@@ -165,8 +165,10 @@ pub struct MailboxSoA<const N: usize> {
     /// capacity `N` (e.g. 1024) would therefore return `N − len` phantom rows for a
     /// mailbox that only uses `len` rows — diverging from a `BindSpace` window of
     /// `len`. Any row-bounded sweep (notably the migration read-shim's
-    /// `meta_prefilter` analogue) MUST clamp to [`Self::populated`], never to
-    /// `n_rows()` (= `N`).
+    /// `meta_prefilter` analogue) MUST clamp to [`Self::populated`] (the logical
+    /// row count), not the type-level capacity `N`. (Since W1c, `n_rows()` is
+    /// bound to `populated`, so it is now safe to clamp to either — `N` is the
+    /// only wrong choice.)
     ///
     /// **Semantics mirror `BindSpace::len`:** a *declared* size, set once at
     /// construction/population time via [`Self::set_populated`] (just as
@@ -229,7 +231,8 @@ impl<const N: usize> MailboxSoA<N> {
             content: vec![0u64; N * WORDS_PER_FP].into_boxed_slice(),
             topic: vec![0u64; N * WORDS_PER_FP].into_boxed_slice(),
             angle: vec![0u64; N * WORDS_PER_FP].into_boxed_slice(),
-            // ── W1c — empty mailbox uses zero rows until a write bumps the mark ──
+            // ── W1c — empty mailbox: zero logical rows until `set_populated(...)`
+            //          declares the size (no write path bumps this implicitly) ──
             populated: 0,
             // Pre-Rubicon: every mailbox starts in deliberation.
             phase: KanbanColumn::Planning,
@@ -302,10 +305,14 @@ impl<const N: usize> MailboxSoA<N> {
         self.current_cycle = self.current_cycle.wrapping_add(1);
     }
 
-    /// Declared populated-row count (W1c) — the `BindSpace::len` analogue, NOT `N`.
-    /// Row-bounded sweeps (the migration read-shim's `meta_prefilter`) clamp to this,
-    /// never to [`Self::n_rows`], so zeroed padding rows `populated..N` are not swept
-    /// (a zeroed `MetaWord` would otherwise pass `MetaFilter::accepts`).
+    /// Declared populated-row count (W1c) — the `BindSpace::len` analogue, NOT the
+    /// type-level capacity `N`. Row-bounded sweeps (the migration read-shim's
+    /// `meta_prefilter`) clamp to this logical size, so zeroed padding rows
+    /// `populated..N` are not swept (a zeroed `MetaWord` would otherwise pass
+    /// `MetaFilter::accepts`). Since W1c, [`MailboxSoaView::n_rows`] is bound to
+    /// this field, so the two agree; only the const `N` is the wrong bound.
+    /// This is a *declaration*, never an implicit per-write counter — callers
+    /// manage it explicitly via [`Self::set_populated`].
     #[inline]
     pub fn populated(&self) -> usize {
         self.populated
