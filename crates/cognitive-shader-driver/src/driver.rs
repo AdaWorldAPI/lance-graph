@@ -48,9 +48,20 @@ use lance_graph_contract::thinking::ThinkingStyle;
 use p64_bridge::cognitive_shader::CognitiveShader;
 
 use crate::auto_style;
+use crate::backing::BackingStore;
 use crate::bindspace::{BindSpace, WORDS_PER_FP};
 use crate::mailbox_soa::MailboxSoA;
 use lance_graph_contract::collapse_gate::MailboxId;
+
+/// The single designated mailbox the dispatch read-shim selects under the
+/// `mailbox-thoughtspace` feature (OQ-D, Option A — no contract change).
+///
+/// `ShaderDispatch` carries no `MailboxId` today, so a singleton-shaped
+/// dispatch routes to this fixed id. Multi-mailbox routing is W5; until then
+/// the driver `debug_assert!`s exactly one mailbox is registered. `MailboxId`
+/// is a `u32` alias (`collapse_gate.rs`), so this is a free const.
+#[cfg(feature = "mailbox-thoughtspace")]
+const DEFAULT_MAILBOX: MailboxId = 0;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ShaderDriver — holds everything the shader needs to drive
@@ -166,16 +177,53 @@ impl ShaderDriver {
         **guard = new_planes;
     }
 
+    /// Select the dispatch read substrate (W3 read-shim).
+    ///
+    /// Default (`mailbox-thoughtspace` OFF): the live singleton `BindSpace` —
+    /// byte-identical to the pre-shim reads. Under the feature: the single
+    /// designated `MailboxSoA` ([`DEFAULT_MAILBOX`]). `run()` keeps ONE body
+    /// written against [`BackingStore`]; this method (NOT a `#[cfg]` inside
+    /// `run`) selects which variant is constructed.
+    #[inline]
+    fn backing(&self) -> BackingStore<'_> {
+        #[cfg(feature = "mailbox-thoughtspace")]
+        {
+            // OQ-D: multi-mailbox routing is W5. Until then AT MOST one mailbox
+            // is the BindSpace surrogate; a singleton-shaped dispatch selects it.
+            // An unmigrated driver (zero mailboxes) falls back to the singleton,
+            // so the feature build never panics on a driver that hasn't been
+            // populated with the designated mailbox yet.
+            debug_assert!(
+                self.mailboxes.len() <= 1,
+                "mailbox-thoughtspace expects at most one designated mailbox \
+                 (DEFAULT_MAILBOX) until W5 multi-mailbox routing; got {}",
+                self.mailboxes.len()
+            );
+            if let Some(mb) = self.mailboxes.get(&DEFAULT_MAILBOX) {
+                return BackingStore::Mailbox(mb);
+            }
+            BackingStore::Singleton(&self.bindspace)
+        }
+        #[cfg(not(feature = "mailbox-thoughtspace"))]
+        {
+            BackingStore::Singleton(&self.bindspace)
+        }
+    }
+
     /// Run one dispatch, feeding a sink. This is the single hot path.
     fn run<S: ShaderSink>(&self, req: &ShaderDispatch, sink: &mut S) -> ShaderCrystal {
+        // W3 read-shim: select the substrate (singleton BindSpace by default;
+        // the designated MailboxSoA under `mailbox-thoughtspace`). The body
+        // below is written ONCE against `backing` — no `#[cfg]` branches here.
+        let backing = self.backing();
+
         // [1] Cheap meta prefilter (u32 column sweep).
-        let passed_rows = self.bindspace.meta_prefilter(req.rows, &req.meta_prefilter);
+        let passed_rows = backing.prefilter(req.rows, &req.meta_prefilter);
 
         // [2] Resolve style — Auto reads the qualia of the FIRST surviving row.
-        // D-CSV-5b: bs.qualia is now QualiaI4Column (returns QualiaI4_16D by value).
-        // Convert to f32 at the call site for auto_style::resolve(&[f32]).
+        // D-CSV-5b: qualia is QualiaI4_16D; the shim converts to f32 at the read.
         let qualia_f32_arr: [f32; 17] = if let Some(&row) = passed_rows.first() {
-            self.bindspace.qualia.row(row as usize).to_f32_17d()
+            backing.qualia_17d(row as usize)
         } else {
             [0.0f32; 17]
         };
@@ -201,9 +249,9 @@ impl ShaderDriver {
             let min_resonance = style_cfg.resonance_threshold;
 
             for (i, &row_i) in passed_rows.iter().enumerate() {
-                let fp_i = self.bindspace.fingerprints.content_row(row_i as usize);
+                let fp_i = backing.content_row(row_i as usize);
                 for (j_off, &row_j) in passed_rows.iter().enumerate().skip(i + 1) {
-                    let fp_j = self.bindspace.fingerprints.content_row(row_j as usize);
+                    let fp_j = backing.content_row(row_j as usize);
                     let fp_i_bytes = unsafe {
                         std::slice::from_raw_parts(fp_i.as_ptr() as *const u8, WORDS_PER_FP * 8)
                     };
@@ -241,7 +289,7 @@ impl ShaderDriver {
             }
             // Use the SPO `s_idx` of the row's edge as the query palette index.
             // Rows with edge=0 default to palette 0 (identity probe).
-            let edge = CausalEdge64(self.bindspace.edges.get(row as usize));
+            let edge = backing.edge(row as usize);
             let query = edge.s_idx();
             let raw = shader.cascade(query, req.radius, req.layer_mask);
             for hit in raw.into_iter().take(4) {
@@ -287,7 +335,7 @@ impl ShaderDriver {
         //     even in binary space; full f32 VSA bundle is the next step.
         let mut cycle_fp = [0u64; WORDS_PER_FP];
         for h in &hits {
-            let row_words = self.bindspace.fingerprints.content_row(h.row as usize);
+            let row_words = backing.content_row(h.row as usize);
             let pos = (h.cycle_index as usize) % WORDS_PER_FP;
             for (i, w) in row_words.iter().enumerate() {
                 cycle_fp[(i + pos) % WORDS_PER_FP] ^= *w;
@@ -353,7 +401,9 @@ impl ShaderDriver {
             .first()
             .copied()
             .and_then(|r| {
-                let etid = self.bindspace.entity_type[r as usize];
+                // entity_type routes through the shim; ontology() stays on the
+                // singleton (the registry re-home is W4b — see plan §90).
+                let etid = backing.entity_type(r as usize);
                 if etid == 0 {
                     return None;
                 }
@@ -449,12 +499,7 @@ impl ShaderDriver {
         // Pre-materialize hit qualia as f32 so references are valid for the closure.
         let hit_qualia_f32: Vec<(u32, [f32; 17])> = hits
             .iter()
-            .map(|h| {
-                (
-                    h.row,
-                    self.bindspace.qualia.row(h.row as usize).to_f32_17d(),
-                )
-            })
+            .map(|h| (h.row, backing.qualia_17d(h.row as usize)))
             .collect();
         let alpha_composite = if effective_merge == MergeMode::AlphaFrontToBack {
             let threshold = req
