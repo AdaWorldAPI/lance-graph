@@ -458,3 +458,20 @@ side; (4) `diff`. Byte-identical → CONJECTURE→FINDING. Built to the document
 loop). The classid→`&UniCharSet` `LazyLock` resolver (the OGAR wiring) and
 transcoding leptonica itself (only for the far-off zero-C end-state, a large
 hand-port — NOT needed for the probe) both remain explicit follow-ups.
+
+### BYTE-PARITY ACHIEVED — PROBE-OGAR-ADAPTER-UNICHARSET GREEN (2026-06-17, in-env)
+
+leptonica installed in-env (`apt-get` — an install, not a transcode), so the
+probe RAN and passed. `UniCharSet` dump vs a C++ `UNICHARSET` FFI oracle on the
+real `eng.lstm-unicharset`: **112/112 byte-identical.** The falsifier found
+exactly one real convention the documented-format parser missed — the `NULL`
+file-token maps to `" "` (space) at runtime (`unicharset.cpp:882`) — a one-line
+fix, then 0 diff.
+
+**CONJECTURE → FINDING** for the unicharset adapter: the variable-length
+bijection rides the content-store tier with no Core gap and is byte-exact with
+libtesseract. The doctrine flips (`core-first-transcode-doctrine.md` § falsifier
+RESULT; EPIPHANIES E-CPP-PARITY-1). Remaining is mechanical: the
+`classid → &UniCharSet` ClassView resolver + invoke through `UnifiedStep` (the
+lookups themselves are now proven). The whole C-FIRST arc —
+D → emitter → EXTEND-CORE → byte-parity — is closed in-env.

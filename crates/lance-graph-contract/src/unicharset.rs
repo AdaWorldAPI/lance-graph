@@ -68,7 +68,14 @@ impl UniCharSet {
             // entry's position. A unichar repeated in the file keeps its FIRST
             // id in `lookup` (matches a forward-scan loader), but `reverse` keeps
             // every entry so `id_to_unichar` is exact per position.
-            let unichar = line.split_whitespace().next().unwrap_or("").to_string();
+            //
+            // The one special token: tesseract stores the space unichar as the
+            // literal `"NULL"` (a real space can't be a whitespace-delimited
+            // token), and load remaps `"NULL"` -> `" "` (tesseract
+            // `unicharset.cpp:882`). The byte-parity probe surfaced this as the
+            // sole id-0 diff against the C++ oracle.
+            let token = line.split_whitespace().next().unwrap_or("");
+            let unichar = if token == "NULL" { " " } else { token }.to_string();
             let id = u32::try_from(reverse.len()).map_err(|_| UniCharSetError::BadCount)?;
             lookup.entry(unichar.clone()).or_insert(id);
             reverse.push(unichar);
@@ -199,6 +206,22 @@ cd 5 0,255,0,255,0,255,0,255,0,255 0 cd Left cd cd
     fn dump_matches_oracle_line_shape() {
         let u = UniCharSet::load_from_str(SAMPLE).expect("valid");
         assert_eq!(u.dump(), "0\ta\n1\tb\n2\tcd\n");
+    }
+
+    /// Tesseract stores the space unichar as the literal `"NULL"` token; load
+    /// remaps it to `" "` (`unicharset.cpp:882`). This is the sole id-0
+    /// discrepancy the byte-parity probe found against the C++ oracle on the
+    /// real `eng.lstm-unicharset`.
+    #[test]
+    fn null_token_maps_to_space() {
+        let u = UniCharSet::load_from_str("1\nNULL 0 Common 0\n").expect("valid");
+        assert_eq!(u.id_to_unichar(0), Some(" "));
+        assert_eq!(u.unichar_to_id(" "), Some(0));
+        assert_eq!(
+            u.unichar_to_id("NULL"),
+            None,
+            "NULL is the file token, never the runtime unichar"
+        );
     }
 
     #[test]

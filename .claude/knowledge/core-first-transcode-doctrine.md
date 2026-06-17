@@ -158,8 +158,9 @@ reviewed — not an excuse to fatten one adapter.
 
 ## The falsifier (CONJECTURE → FINDING gate)
 
-Per `truth-architect` discipline, this doctrine is a CONJECTURE until measured.
-The cheapest end-to-end probe:
+Per `truth-architect` discipline, this doctrine was a CONJECTURE until measured.
+**The byte-parity heart RAN GREEN in-env on 2026-06-17 (result below) — promoted
+to FINDING for the unicharset adapter.** The cheapest end-to-end probe:
 
 ```
 PROBE-OGAR-ADAPTER-UNICHARSET (P0)
@@ -174,8 +175,26 @@ PROBE-OGAR-ADAPTER-UNICHARSET (P0)
      building the whole transcode.
 ```
 
-Until this runs green, "the OGAR Core makes the transcode clean" is a
-CONJECTURE. Do NOT scale the adapter approach across modules until it passes.
+**RESULT — RAN GREEN (2026-06-17, in-env).** Step 1's byte-parity heart is
+confirmed: `lance_graph_contract::unicharset::UniCharSet` (the content-store tier
++ `id_to_unichar` / `unichar_to_id` leaves) is **byte-identical to libtesseract**
+on the real `eng.lstm-unicharset` — 112/112 entries, diffed against a C++
+`UNICHARSET` FFI oracle (installed `libtesseract` 5.3.4 + `libleptonica` 1.82;
+`examples/unicharset_dump.rs` vs the oracle harness). The falsifier did its job:
+it found exactly one real convention (`NULL` file-token → `" "` space,
+`unicharset.cpp:882`) — a one-line fix, NOT a Core gap. The doctrine's central
+worry ("the adapter needs state the SoA tenants can't carry") is **refuted**: the
+variable-length bijection rides the content-store tier (`deepnsm::Vocabulary`-
+shaped) cleanly, no new node state.
+
+So "the OGAR Core makes the transcode clean" is now a **FINDING** for the
+unicharset adapter — the bijection / content-store pattern is validated and may be
+scaled. **Honest scope:** steps 2–3 (compose via `classid → ClassView` resolver,
+invoke through `UnifiedStep`) are mechanical wiring of a now-proven-correct
+adapter; each method-body leaf remains its own byte-parity check, but the pattern
+is no longer a conjecture. Leptonica is an *install*, not a transcode — it is only
+a link dep of the C++ oracle, never in the Rust path (the unicharset path never
+touches `Pix`).
 
 ## Anti-patterns this doctrine exists to catch
 
