@@ -22,6 +22,30 @@
 //! | `reads_field`        | `odoo:<fam>.<fn>`    | `odoo:<fam>.<field>` | body read (inferred) |
 //! | `raises`             | `odoo:<fam>.<fn>`    | `exc:<Type>`         | body raise (authoritative) |
 //! | `traverses_relation` | `odoo:<fam>.<fn>`    | `odoo:<fam>.<rel>`   | body for-loop (inferred) |
+//! | `target`             | `odoo:<fam>.<rel>`   | `"<comodel.dotted>"` | relational comodel (declared) |
+//! | `inverse_name`       | `odoo:<fam>.<rel>`   | `"<inverse>"`        | One2many/inverse (declared) |
+//!
+//! ## FK-target + deep-read enrichment (`spo_enrich`)
+//!
+//! Two additive predicate families layer on top of the base extraction
+//! (`tools/odoo-blueprint-extractor/odoo_blueprint_extractor/spo_enrich.py`,
+//! the `UPSTREAM_WISHLIST` P1 + P0 corpus enrichment):
+//!
+//! - **`target` / `inverse_name`** (P1, ruff#18 sibling-triple shape): for
+//!   every relational field (Many2one / One2many / Many2many / Reference) on a
+//!   corpus model whose comodel resolves from the Odoo source, a sibling
+//!   triple keyed by the relation IRI carries the *raw* dotted comodel name
+//!   (e.g. `(odoo:account_move.line_ids, target, "account.move.line")` +
+//!   `(…, inverse_name, "move_id")`). This is the cross-language analog of
+//!   ruff#18's `(WorkPackage.owner, class_name, "User")`.
+//! - **deep `reads_field`** (P0): each `@api.depends('rel.leaf', …)` whose
+//!   `rel` is a relational field is resolved through the `target` map and the
+//!   transitive read lifted onto the field's emitting method — e.g.
+//!   `(odoo:account_move._compute_amount, reads_field,
+//!   odoo:account_move_line.amount_residual)` is emitted *in addition to* the
+//!   shallow relation read `(…, reads_field, odoo:account_move.line_ids)`.
+//!   This surfaces the cross-model recompute-ordering edge that the
+//!   surface-only corpus left invisible to `od_ontology::RecomputeDag`.
 //!
 //! Truth values (NARS `(frequency, confidence)`) carry the provenance:
 //! structural edges are certain `(1.0, 1.0)`; decorator/body-authoritative
@@ -42,9 +66,16 @@
 //!
 //! # Provenance
 //!
-//! Data file `odoo_ontology.spo.ndjson` is regenerable:
-//! `python3 .claude/odoo/emit_ontology2.py` over `.claude/odoo/methods.parquet`.
-//! 22 245 triples, 388 Object Types, 3 107 Properties, 3 328 Functions.
+//! Data file `odoo_ontology.spo.ndjson` carries the base extraction (388
+//! Object Types, 3 107 Properties, 3 328 Functions) plus the `spo_enrich`
+//! P1/P0 layer (618 `target` + 102 `inverse_name` + 736 deep `reads_field`),
+//! for 23 701 triples total. The base extraction's original generator
+//! (`emit_ontology2.py` over a `methods.parquet`) is not present in this
+//! tree — only its output is — so the enrichment is applied over the shipped
+//! corpus + the Odoo source via
+//! `python3 -m odoo_blueprint_extractor.spo_enrich --corpus
+//! crates/lance-graph/src/graph/spo/odoo_ontology.spo.ndjson` (idempotent;
+//! re-running de-duplicates the new triples by `(s, p, o)`).
 
 use crate::graph::fingerprint::{dn_hash, label_fp};
 use crate::graph::spo::builder::SpoBuilder;
@@ -115,8 +146,9 @@ mod tests {
     #[test]
     fn parses_all_triples() {
         let triples = parse_triples(ONTOLOGY);
-        // 22 245 triples per the emit_ontology2.py run (2026-05-28).
-        assert_eq!(triples.len(), 22_245, "triple count drifted from data file");
+        // 22 245 base triples + 1 456 spo_enrich triples (618 target +
+        // 102 inverse_name + 736 deep reads_field) = 23 701.
+        assert_eq!(triples.len(), 23_701, "triple count drifted from data file");
     }
 
     #[test]
@@ -133,6 +165,8 @@ mod tests {
                     "reads_field" => "reads_field",
                     "raises" => "raises",
                     "traverses_relation" => "traverses_relation",
+                    "target" => "target",
+                    "inverse_name" => "inverse_name",
                     _ => "other",
                 })
                 .or_default() += 1;
@@ -141,6 +175,11 @@ mod tests {
         assert_eq!(hist.get("depends_on"), Some(&6309));
         assert_eq!(hist.get("emitted_by"), Some(&3228));
         assert_eq!(hist.get("rdf:type"), Some(&6823));
+        // spo_enrich P1/P0 layer: FK target/inverse_name + deep reads_field.
+        assert_eq!(hist.get("target"), Some(&618));
+        assert_eq!(hist.get("inverse_name"), Some(&102));
+        // reads_field grew from 2 095 (base) to 2 831 with 736 deep lifts.
+        assert_eq!(hist.get("reads_field"), Some(&2831));
         assert_eq!(hist.get("other"), None, "unexpected predicate kind");
     }
 
@@ -211,6 +250,106 @@ mod tests {
             store.len(),
             1,
             "duplicate (s,p,o) must collapse to a single store entry"
+        );
+    }
+
+    /// `spo_enrich` P1 — the FK target/inverse_name layer is present and
+    /// carries the wishlist's canonical `account_move.line_ids` case: the
+    /// One2many's comodel (`account.move.line`) and inverse (`move_id`) are
+    /// lifted into sibling triples keyed by the relation IRI (ruff#18 shape).
+    /// This is the parity check on the upstream side: `RelationMap::from_corpus`
+    /// in `od-ontology` resolves `(model, field) → (target, inverse)` directly
+    /// from these triples.
+    #[test]
+    fn enrichment_emits_fk_target_and_inverse_name() {
+        let triples = parse_triples(ONTOLOGY);
+
+        let target = triples.iter().any(|t| {
+            t.s == "odoo:account_move.line_ids" && t.p == "target" && t.o == "account.move.line"
+        });
+        assert!(
+            target,
+            "P1: account_move.line_ids must carry target=\"account.move.line\""
+        );
+
+        let inverse = triples.iter().any(|t| {
+            t.s == "odoo:account_move.line_ids" && t.p == "inverse_name" && t.o == "move_id"
+        });
+        assert!(
+            inverse,
+            "P1: account_move.line_ids must carry inverse_name=\"move_id\""
+        );
+
+        // The phantom-target case the wishlist names explicitly: the
+        // `invoice_line_ids` field name's `<parent>_<stem>` convention
+        // (`invoice_line`) misses the real comodel (`account.move.line`).
+        // The target triple is the corpus's correction of that phantom.
+        let phantom_fix = triples.iter().any(|t| {
+            t.s == "odoo:account_move.invoice_line_ids"
+                && t.p == "target"
+                && t.o == "account.move.line"
+        });
+        assert!(
+            phantom_fix,
+            "P1: invoice_line_ids phantom-target must resolve to account.move.line"
+        );
+    }
+
+    /// `spo_enrich` P0 — at least one deep `reads_field` lands on a DIFFERENT
+    /// model than the reading method, proving the cross-model recompute edge
+    /// is now structurally visible. The canonical case:
+    /// `account.move._compute_amount` reads `account_move_line.amount_residual`
+    /// (resolved through `@api.depends('line_ids.amount_residual')`), where the
+    /// surface corpus only had the relation read `(_compute_amount, reads_field,
+    /// account_move.line_ids)`.
+    #[test]
+    fn enrichment_emits_cross_model_deep_reads_field() {
+        let triples = parse_triples(ONTOLOGY);
+
+        // The exact cross-model deep read that makes `RecomputeDag` see the
+        // line→move ordering edge (line.amount_residual is emitted_by
+        // account_move_line._compute_amount_residual).
+        let deep = triples.iter().any(|t| {
+            t.s == "odoo:account_move._compute_amount"
+                && t.p == "reads_field"
+                && t.o == "odoo:account_move_line.amount_residual"
+        });
+        assert!(
+            deep,
+            "P0: _compute_amount must carry a deep reads_field on \
+             account_move_line.amount_residual (cross-model)"
+        );
+
+        // The shallow relation read is STILL present (the deep read is
+        // additive, never a replacement).
+        let shallow = triples.iter().any(|t| {
+            t.s == "odoo:account_move._compute_amount"
+                && t.p == "reads_field"
+                && t.o == "odoo:account_move.line_ids"
+        });
+        assert!(
+            shallow,
+            "P0: the original shallow relation read must be preserved"
+        );
+
+        // No deep read is a self-loop (reads_field object == reading method).
+        let self_loop = triples.iter().any(|t| t.p == "reads_field" && t.o == t.s);
+        assert!(!self_loop, "deep reads_field must never be a self-loop");
+
+        // Count: at least one deep read crosses model boundaries (object's
+        // model differs from the reading method's model).
+        let cross_model = triples
+            .iter()
+            .filter(|t| t.p == "reads_field")
+            .filter(|t| {
+                let s_model = t.s.strip_prefix("odoo:").and_then(|b| b.split('.').next());
+                let o_model = t.o.strip_prefix("odoo:").and_then(|b| b.split('.').next());
+                matches!((s_model, o_model), (Some(a), Some(b)) if a != b)
+            })
+            .count();
+        assert!(
+            cross_model > 0,
+            "P0: at least one reads_field must cross model boundaries"
         );
     }
 
