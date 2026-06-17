@@ -94,6 +94,31 @@ pub struct MailboxSoA<const N: usize> {
     /// The registry itself stays `Arc<OntologyRegistry>` (cold Zone-2, not owned here).
     pub entity_type: [u16; N],
 
+    // ── NEW: D-MBX-A2 migrated columns (W1 — temporal / expert / sigma) ──
+    /// Per-row temporal stamp (`u64`, 8 B/row). Migrated from `BindSpace.temporal`.
+    ///
+    /// Kept as a standalone column (OQ-2 fallback), NOT folded into the edge: the
+    /// v2 `causal_edge::CausalEdge64` layout reclaimed the old temporal bits
+    /// (`I-LEGACY-API-FEATURE-GATED`), so the edge cannot carry it. `current_cycle`
+    /// is the mailbox-level clock; this is the per-row event stamp.
+    pub temporal: [u64; N],
+
+    /// Per-row expert/corpus id (`u16`, 2 B/row). Migrated from `BindSpace.expert`.
+    ///
+    /// Often subsumed by `mailbox_id` / `w_slot` (the mailbox *is* an expert), but
+    /// kept per-row for multi-expert mailboxes during the migration.
+    pub expert: [u16; N],
+
+    /// Per-row Σ-codebook index (`u8`, 1 B/row). Migrated from
+    /// `BindSpace.fingerprints.sigma`.
+    ///
+    /// A *reference* (1-byte index) into the 256-entry Σ codebook owned by
+    /// `lance-graph-contract::sigma_propagation` — content, like the ontology and
+    /// the CAM-PQ codebook, stays shared/cold and is NOT copied per row
+    /// (`I-VSA-IDENTITIES`: indices, not content). The dense content/topic/angle
+    /// identity planes are a separate W1b step.
+    pub sigma: [u8; N],
+
     /// Monotonic cycle stamp; advanced by `tick()`.
     pub current_cycle: u32,
 
@@ -152,6 +177,10 @@ impl<const N: usize> MailboxSoA<N> {
             qualia: [QualiaI4_16D::ZERO; N],
             meta: [MetaWord(0); N],
             entity_type: [0u16; N],
+            // ── NEW D-MBX-A2 columns — zero-initialised (W1) ──
+            temporal: [0u64; N],
+            expert: [0u16; N],
+            sigma: [0u8; N],
             // Pre-Rubicon: every mailbox starts in deliberation.
             phase: KanbanColumn::Planning,
         }
@@ -242,6 +271,10 @@ impl<const N: usize> MailboxSoA<N> {
         self.qualia[row] = QualiaI4_16D::ZERO;
         self.meta[row] = MetaWord(0);
         self.entity_type[row] = 0;
+        // ── NEW D-MBX-A2 columns reset (W1) ──
+        self.temporal[row] = 0;
+        self.expert[row] = 0;
+        self.sigma[row] = 0;
     }
 
     // ── Read-only inspectors ──────────────────────────────────────────────────
@@ -335,6 +368,46 @@ impl<const N: usize> MailboxSoA<N> {
     #[inline]
     pub fn set_entity_type(&mut self, row: usize, t: u16) {
         self.entity_type[row] = t;
+    }
+
+    // ── D-MBX-A2 column accessors (W1: temporal / expert / sigma) ────────────
+
+    /// Per-row temporal stamp for `row`.
+    #[inline]
+    pub fn temporal_at(&self, row: usize) -> u64 {
+        self.temporal[row]
+    }
+
+    /// Set the per-row temporal stamp for `row`. (Distinct from the v2
+    /// `CausalEdge64::set_temporal` no-op — this is the mailbox's standalone
+    /// temporal column, the legitimate home per `I-LEGACY-API-FEATURE-GATED`.)
+    #[inline]
+    pub fn set_temporal(&mut self, row: usize, t: u64) {
+        self.temporal[row] = t;
+    }
+
+    /// Per-row expert/corpus id for `row`.
+    #[inline]
+    pub fn expert_at(&self, row: usize) -> u16 {
+        self.expert[row]
+    }
+
+    /// Set the per-row expert/corpus id for `row`.
+    #[inline]
+    pub fn set_expert(&mut self, row: usize, e: u16) {
+        self.expert[row] = e;
+    }
+
+    /// Per-row Σ-codebook index for `row`.
+    #[inline]
+    pub fn sigma_at(&self, row: usize) -> u8 {
+        self.sigma[row]
+    }
+
+    /// Set the per-row Σ-codebook index for `row`.
+    #[inline]
+    pub fn set_sigma(&mut self, row: usize, s: u8) {
+        self.sigma[row] = s;
     }
 }
 
@@ -748,5 +821,99 @@ mod tests {
             mb.meta.as_ptr() as usize,
             "meta_raw is zero-copy (same backing pointer)"
         );
+    }
+
+    // ── test 13: W1 column parity — MailboxSoA carries what BindSpace carries ──
+
+    /// **The "test the new before deleting the old" proof (W1).** Write distinct
+    /// per-row values to a `BindSpace` window AND mirror them into a `MailboxSoA`,
+    /// then assert every migrated LE-contract column reads back identically:
+    /// `edges` / `qualia` / `meta` / `entity_type` (D-MBX-A1) plus the new
+    /// `temporal` / `expert` / `sigma` (D-MBX-A2, W1). This proves the mailbox is a
+    /// faithful carrier for these columns — it deletes nothing and touches no
+    /// dispatch path. The dense `content`/`topic`/`angle` identity planes are the
+    /// separate W1b step; the deprecated `cycle` (Vsa16kF32) plane is never migrated.
+    #[test]
+    fn test_mailbox_soa_column_parity_with_bindspace() {
+        use crate::bindspace::BindSpace;
+        use lance_graph_contract::cognitive_shader::MetaWord;
+        use lance_graph_contract::qualia::QualiaI4_16D;
+
+        const N: usize = 8;
+        let mut bs = BindSpace::zeros(N);
+        let mut mb: MailboxSoA<N> = MailboxSoA::new(1, 0, 1.0);
+
+        for row in 0..N {
+            let edge = 0xABCD_0000u64 | row as u64;
+            let q = QualiaI4_16D::ZERO
+                .with(0, (row % 7) as i8)
+                .with(7, -((row % 8) as i8));
+            let m = MetaWord::new(
+                (row % 12) as u8,
+                1,
+                (row * 10) as u8,
+                (row * 7) as u8,
+                (row % 6) as u8,
+            );
+            let etype = (100 + row) as u16;
+            let temporal = 0xDEAD_0000u64 | row as u64;
+            let expert = (200 + row) as u16;
+            let sigma = (row * 3) as u8;
+
+            // BindSpace side (the singleton, source).
+            bs.edges.set(row, edge);
+            bs.qualia.set(row, q);
+            bs.meta.set(row, m);
+            bs.entity_type[row] = etype;
+            bs.temporal[row] = temporal;
+            bs.expert[row] = expert;
+            bs.fingerprints.write_sigma(row, sigma);
+
+            // MailboxSoA side (the migrated owner).
+            mb.set_edge(row, CausalEdge64(edge));
+            mb.set_qualia(row, q);
+            mb.set_meta(row, m);
+            mb.set_entity_type(row, etype);
+            mb.set_temporal(row, temporal);
+            mb.set_expert(row, expert);
+            mb.set_sigma(row, sigma);
+        }
+
+        for row in 0..N {
+            assert_eq!(mb.edge(row).0, bs.edges.get(row), "edges[{row}]");
+            assert_eq!(mb.qualia_at(row), bs.qualia.row(row), "qualia[{row}]");
+            assert_eq!(mb.meta_at(row).0, bs.meta.get(row).0, "meta[{row}]");
+            assert_eq!(
+                mb.entity_type_at(row),
+                bs.entity_type[row],
+                "entity_type[{row}]"
+            );
+            assert_eq!(mb.temporal_at(row), bs.temporal[row], "temporal[{row}]");
+            assert_eq!(mb.expert_at(row), bs.expert[row], "expert[{row}]");
+            assert_eq!(
+                mb.sigma_at(row),
+                bs.fingerprints.sigma_at(row),
+                "sigma[{row}]"
+            );
+        }
+    }
+
+    // ── test 14: reset_row clears the W1 A2 columns ──────────────────────────
+
+    /// `reset_row()` must clear the new `temporal` / `expert` / `sigma` columns
+    /// (migration-invariant regression guard — a reset that forgot a new column
+    /// would leak stale per-row state into a reused mailbox row).
+    #[test]
+    fn test_mailbox_soa_reset_row_clears_a2_columns() {
+        let mut mb: MailboxSoA<4> = MailboxSoA::new(1, 0, 1.0);
+        mb.set_temporal(2, 123);
+        mb.set_expert(2, 77);
+        mb.set_sigma(2, 9);
+
+        mb.reset_row(2);
+
+        assert_eq!(mb.temporal_at(2), 0, "temporal[2] must reset to 0");
+        assert_eq!(mb.expert_at(2), 0, "expert[2] must reset to 0");
+        assert_eq!(mb.sigma_at(2), 0, "sigma[2] must reset to 0");
     }
 }
