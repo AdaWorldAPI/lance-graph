@@ -25,6 +25,8 @@ use crate::proposal::{
 };
 use crate::semantic_types::SemanticTypeMap;
 use crate::ttl_parse::{parse_ttl_directory_with_provenance, ttl_root_checksum};
+use lance_graph_contract::canonical_node::NodeGuid;
+use lance_graph_contract::class_view::ClassId;
 use lance_graph_contract::hhtl::NiblePath;
 use lance_graph_contract::property::{Marking, SemanticType};
 use std::collections::HashMap;
@@ -418,6 +420,29 @@ impl OntologyRegistry {
     /// The bijective reverse: `NiblePath → entity_type`.
     pub fn entity_type_of(&self, path: NiblePath) -> Option<u16> {
         self.inner.read().unwrap().type_by_path.get(&path).copied()
+    }
+
+    /// **OGAR → ClassView wiring.** Resolve an OGAR node's [`NodeGuid`] to its
+    /// ontology class (`entity_type` / [`ClassId`]) — the single link that lets a
+    /// node row carrying a `classid` reach its class shape through
+    /// [`RegistryClassView`](crate::class_resolver::RegistryClassView), which keys
+    /// on the returned `entity_type`.
+    ///
+    /// Composes the two halves that already existed but were never chained: the
+    /// canon GUID→NiblePath fold ([`NiblePath::from_guid_prefix`] — root-first
+    /// `classid_lo · HEEL · HIP · TWIG`) and this registry's `NiblePath →
+    /// entity_type` bijection ([`Self::entity_type_of`]).
+    ///
+    /// Returns `None` when the GUID's high `classid` u16 is nonzero (the fold
+    /// refuses the lossy case — no silent collision) OR when no class is
+    /// registered at the folded path (zero-fallback: an unbound GUID resolves to
+    /// no class, never a panic). The `classid_lo ↔ entity_type` correspondence is
+    /// the registrar's invariant: `register_class_path(t,
+    /// NiblePath::from_guid_prefix(guid))` makes `class_id_for_guid(guid) ==
+    /// Some(t)` (see `class_id_for_guid_wires_ogar_guid_to_classview`).
+    pub fn class_id_for_guid(&self, guid: &NodeGuid) -> Option<ClassId> {
+        let path = NiblePath::from_guid_prefix(guid)?;
+        self.entity_type_of(path)
     }
 
     /// Export the registry to an OGIT-shaped TTL fragment for the named
@@ -871,6 +896,43 @@ mod tests {
         }
         reg.register_class_path(ta, pa)
             .expect("re-registering the same pair is idempotent");
+    }
+
+    #[test]
+    fn class_id_for_guid_wires_ogar_guid_to_classview() {
+        let reg = OntologyRegistry::new_in_memory();
+        let a = reg
+            .append_mapping(proposal("ogit.Tess:UniCharSet"))
+            .unwrap();
+        let t = a.schema_ptr.entity_type_id();
+
+        // An OGAR node GUID (classid in the low u16 + the HHT cascade). The
+        // registrar pairs the class with the GUID-DERIVED path — that is the
+        // `classid_lo ↔ entity_type` consistency the wiring relies on.
+        let g = NodeGuid::new(0x0000_ABCD, 0x1234, 0x5678, 0x9ABC, 1, 2);
+        let path = NiblePath::from_guid_prefix(&g).expect("classid_lo only ⇒ Some");
+        reg.register_class_path(t, path).unwrap();
+
+        // The wiring: GUID → from_guid_prefix → entity_type_of → ClassId.
+        assert_eq!(reg.class_id_for_guid(&g), Some(t));
+        // Equal to the explicit composition (documents exactly what it does).
+        assert_eq!(
+            reg.class_id_for_guid(&g),
+            reg.entity_type_of(NiblePath::from_guid_prefix(&g).unwrap()),
+        );
+
+        // Zero-fallback: a GUID whose folded path was never registered → None.
+        let unbound = NodeGuid::new(0x0000_1111, 0, 0, 0, 0, 0);
+        assert_eq!(reg.class_id_for_guid(&unbound), None);
+
+        // The fold refuses a high-classid-u16 GUID upstream → None (no silent
+        // collision onto a folded path).
+        let high = NodeGuid::new(0xDEAD_BEEF, 0, 0, 0, 0, 0);
+        assert_eq!(
+            reg.class_id_for_guid(&high),
+            None,
+            "high classid u16 ⇒ lossy fold refused, so no class resolves"
+        );
     }
 
     #[test]

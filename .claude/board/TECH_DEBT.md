@@ -15,6 +15,10 @@
 
 ## Open Debt
 
+### TD-ONTOLOGY-LINT — `lance-graph-ontology` pre-existing clippy (12) on toolchain 1.95 (2026-06-18)
+
+`cargo clippy -p lance-graph-ontology -- -D warnings` exits 101 with 12 errors on the pinned 1.95 toolchain — all **pre-existing on `main`** (e.g. `odoo_blueprint/op_emitter.rs:182` is byte-identical on `origin/main`), in `hydrators/owl.rs` (2), `odoo_blueprint/op_emitter.rs` (1), `ttl_parse.rs` (3), + others. Mostly mechanical (`iter_cloned_collect` → `.to_vec()`, etc.). The crate is not in the CI clippy sweep ("CI tests 4 of ~30 crates"), so the debt accumulated un-gated. Surfaced while wiring `class_id_for_guid` (E-OGAR-ONTOLOGY-WIRED-1; `registry.rs` itself is clippy-clean + fmt-clean). Fix is a focused lint pass, out of scope for the wiring increment. Same class as `TD-CAUSAL-EDGE-LINT`.
+
 ### TD-CI-LINUX-BUILD-DEBUGINFO0 — `linux-build` was the last job missing the link-cliff mitigation; debuginfo=0 + mold extended to it (2026-06-18)
 
 **Paid (this commit).** `build.yml`'s `linux-build (stable)` job linked the full
