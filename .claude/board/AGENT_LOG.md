@@ -1,3 +1,13 @@
+## 2026-06-18 — 5+3 council: mailbox-cycle-aware-write-contract-v1 (design, no code)
+
+**Main thread (Opus) + 8-agent council.** Branch `claude/soa-cycle-ownership-sync`. Drafted `.claude/plans/mailbox-cycle-aware-write-contract-v1.md` (the next code deliverable named by `E-SOA-CYCLE-OWNERSHIP` rule 1) and ran the operator-mandated 5+3.
+
+**Builders (5):** convergence (OQ-B → reuse `SoaEnvelope::cycle()`, NO version bump; OQ-A → two stamps, phase-pack deferred `OQ-CSV-CYCLEPACK`), dto-soa (FITS-COLUMN/EXTENDS-CANONICAL; `WriteCell` must stay a staging view), trajectory (`temporal.rs` is read-only — plan over-claimed a write seam; HLC keys within-lane order, `current_cycle` keys the lane; OQ-C → Aware-buffer), integration-lead (slots S2.5 pre-S3; 3 increments; not blocked by surrealdb; OQ-D → `WriteOutcome` enum), container-architect (spawn pointer = `identity` 24-bit new `u32` field, not `mailbox_id`; **gate MUST be wrap-aware** else 8–40 min sweep misclassifies post-wrap; `WriteCell` carries `(row,cycle)`; OQ-B no-bump holds iff identity stays in key).
+
+**Critics (3):** brutally-honest → **HOLD** on 2 P0s (temporal.rs write-sink fiction + unreachable feature-graph) — both CLEARED by operator direction (de-interlace = addressing via GUID identity tail, stale handling LOCAL, no planner dep); reversed 2 builder leans (OQ-D infallible not Result; setters stay `pub`+`#[doc(hidden)]` not `pub(crate)` — breaks `tests/w2_differential.rs`). iron-rule → **YIELDS-WITH-AP** (no violation; conditional on no-production-blind-path guard + `last_write_cycle`/`identity` in `reset_row`+field-isolation SAME commit). baton-handoff → **CATCH-CRITICAL**: `BackingStoreWrite::Singleton(&BindSpace)` has no `current_cycle` → uniform gated signature returns unconditional `Accepted` = C2-divergence sentinel-lie; fix = Singleton cycle-blind-by-construction. CATCH-LATENT: `mailbox_id`(u32)→`NodeGuid::identity`(24b) panics-not-corrupts if >0x00FF_FFFF.
+
+**Outcome:** all fixes folded into the plan (resolved OQs A–E, P0 addressing rewrite, wrap-aware gate, Singleton contract, test/guard same-commit requirements, 3-increment cascade). Verdict: **LAND as S2.5**, code 5+3-clean. Cold TS+kanban stay Lance-native (lancedb 0.30 / lance 7). No source/test change this entry — design only.
+
 ## 2026-06-18 — repo-sync: SoA cycle-ownership architecture into the migration plan (no code)
 
 **Main thread (Opus).** Branch `claude/soa-cycle-ownership-sync`. Operator directive: tie the converged BindSpace→SoA architecture into the plan to bring the repo in sync, before the code wiring's 5+3. Docs only.
