@@ -100,6 +100,12 @@ pub mod op_emitter;
 /// Extracted-leg breadth feeder. See the module doc for the full rationale.
 pub mod structural;
 
+/// `virtually_overrides` — the ClassView method-resolution relation,
+/// **computed** from the `has_function` + `inherits_from` manifest, NOT
+/// harvested. The Core-correct home for the wishlist's last item: a derived
+/// MRO-precedence resolution, not `spo_enrich` predicate #6.
+pub mod mro;
+
 // ─── Top-level entity ─────────────────────────────────────────────────────
 
 /// Which ORM base class the entity inherits from.
