@@ -1,3 +1,15 @@
+## 2026-06-18 — E-WITNESS-ARC-TWO-OBJECTS-1 — "witness arc" names TWO different objects; do NOT unify them under a `WitnessArcEvaluator` trait
+
+**Status:** FINDING (5+3 council, unanimous: convergence-architect DROP, iron-rule-savant REJECT-trait, dto-soa-savant FITS-COLUMN-as-free-fn, dilution-collapse-sentinel KEEP-SEPARATE, truth-architect PROVEN-math, brutally-honest-tester Option-B-LAND, baton-handoff-auditor CATCH-CRITICAL, integration-lead DEFER). B2 resolved as documentation, not code.
+
+Two code objects share the term **"witness arc"** but operate on **different value categories**:
+1. `perturbation-sim::witness` — a **numeric** standing-wave inner product `∑ field·arc` over `&[f64]`, evaluated two ways (particle pointer-chase vs wave/Parseval-FWHT) that must agree (`particle == wave`, PROVEN: FWHT is the symmetric involution-up-to-N the identity needs; tested 1e-9).
+2. `lance-graph-contract::witness_table` — a 6-bit W-slot **index → identity** table (`WitnessEntry { mailbox_ref: u32, spo_fact_ref: Option<u64> }`); its arc is a chain of W-references across `CausalEdge64` edges, already `O(1)` array indexing.
+
+**Why they must NOT be welded under a `WitnessArcEvaluator` trait:** (a) no inner-product/transform structure exists over opaque identity tuples — superposing them is the register-loss `I-VSA-IDENTITIES` forbids; (b) a trait with one math impl in an *excluded* crate and zero call-sites is AP6 speculative generality; (c) the AGI-as-glove doctrine bars a new trait/bridge ("new capability = new column, not a new layer"); (d) the trait would force the **zero-dep** contract crate to gain a `perturbation-sim` dependency / `f64` field semantics (baton CATCH-CRITICAL, dep-direction inversion). The genuine relationship is a **pipeline seam** (W-slot arc *addresses*, numeric column *evaluates*) — a consumer-side free function over a borrowed `&[f64]` column, never a unifying trait.
+
+**Secondary correction (truth-architect + brutally-honest-tester):** the `witness.rs` doc overclaimed per-arc cost as `q·O(N)`; as implemented `witness_from_spectrum` re-transforms each arc (`O(N log N)`), so the honest total is `O(N log N) + q·O(N log N)`, narrowing to `q·O(N)` only for precomputed/structured arc spectra. The amortized quantity is the **field** transform, not the arc dot. Doc-string corrected; no measured speed claim is made. Cross-references added in both files; seam recorded as `TD-WITNESS-EVAL-WIRING-1`, wiring gated as D-MBX-A3 (on D-MBX-A2 + OQ-11.2 + a §0 dep-direction ruling).
+
 ## 2026-06-17 — E-ODOO-SPO-INHERITS-VALKIND — spo_enrich extended with inherits_from (P1b/ruff#19) + validation_kind (P2/ruff#21); corpus regen pending Odoo source
 
 **Status:** FINDING for the code shape + tests; CONJECTURE for the wire effect on the shipped corpus (regenerates when a session has `/home/user/odoo/addons` available). `spo_enrich.py` adds two enrichment passes via the same single AST walk #525 introduced (`build_all_facts` returns `(relmap, inherits, constrains)`). 18 new tests on top of #525's 23 (41/41 OK total). Rust loader's predicate-histogram match arm gained `inherits_from` + `validation_kind`.

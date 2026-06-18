@@ -1,3 +1,15 @@
+## 2026-06-18 — B2 resolved: witness-arc boundary documented (NO `WitnessArcEvaluator` trait)
+
+**Main thread (Opus) + 5+3 council**, branch `claude/witness-arc-boundary-doc`. The parked B2 item — "wire perturbation-sim witness arc into contract witness_table" — was put through the critical-decision protocol (5 analysts + 3 brutal critics, all read both files in full). **Unanimous verdict: do NOT build the trait.** The two "witness arc" notions are different objects (numeric `∑field·arc` standing wave vs W-slot→identity resolution); welding them is an AP6 one-impl trait + AGI-as-glove "never a new trait" violation + a CATCH-CRITICAL dep-direction inversion (zero-dep contract would gain a perturbation-sim dep). integration-lead confirmed the real wiring is downstream D-MBX-A3, gated on D-MBX-A2 (current gating gap) + OQ-11.2 + a §0 dep ruling.
+
+**Shipped (doc + board only, no type/dep change):**
+- `perturbation-sim/src/witness.rs` — added "NOT the same witness arc as contract::witness_table" section; corrected the per-arc complexity overclaim (`q·O(N)` → `q·O(N log N)` as implemented; `q·O(N)` only for precomputed/structured arc spectra — flagged by truth-architect + brutally-honest-tester); amortized quantity is the FIELD transform.
+- `lance-graph-contract/src/witness_table.rs` — reciprocal "Not the perturbation-sim witness arc — different object" section; states any future wiring is a consumer-side free function over a borrowed `&[f64]` column, never a trait on the zero-dep crate.
+- `EPIPHANIES.md` — `E-WITNESS-ARC-TWO-OBJECTS-1` (the finding + the math-claim correction).
+- `TECH_DEBT.md` — `TD-WITNESS-EVAL-WIRING-1` (the seam, its three gating prerequisites, paid-when condition).
+
+**Math validated (truth-architect, reviewer-only):** Parseval `particle == wave` PROVEN (FWHT is the symmetric involution-up-to-N; tested 1e-9); NaN/degenerate safety PROVEN; only the doc-string asymptotic bookkeeping was off (now fixed). No code/test behavior changed.
+
 ## 2026-06-18 — #526 follow-up: corpus regenerated with inherits_from + validation_kind
 
 **Main thread (Opus) — single implementer**, branch `claude/odoo-spo-corpus-regen`. Executes the explicit pending step from PR #526 ("Corpus regenerated against live `/home/user/odoo/addons` — pending next session with Odoo source"). This session HAS the Odoo source, so the two new enrichment passes #526 shipped as code now land their triples in the shipped corpus.
