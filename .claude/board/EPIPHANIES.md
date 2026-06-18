@@ -1,3 +1,22 @@
+## 2026-06-18 — E-HELIX-IS-EXACT-LOCATION — adjacency (relational: near/edge) is NOT location (absolute: exact orthogonal coordinate); the helix `Signed360` gives the exact point, and "where" is a decode-cost ladder containment → place → residue
+
+**Status:** FINDING (operator correction, grounded in `canonical_node.rs` `ValueTenant::HelixResidue` = `Signed360`, signed full-sphere golden-spiral Place/Residue, 48-bit/6 B, in the `Compressed` value schema). Refines `E-ADJACENCY-IS-KEY-AND-EDGECODEC`: that epiphany answered *"who is related"* (adjacency). This answers *"where exactly is it"* (location) — a different question, and the helix is a **coordinate, not an edge**.
+
+**The split the operator drew:**
+- **Adjacency = relational.** "Near" (HHTL/CLAM containment) or "connected" (`EdgeBlock` typed edge). Tells you the *neighborhood / the link*.
+- **Location = absolute.** The helix `Signed360` gives the **exact orthogonal point on the signed full-sphere** (golden-spiral, equal-area ⇒ the axes are orthogonal ⇒ the coordinate decodes exactly, lossless-for-synthesis). Tells you *precisely here*, not *near what*.
+
+**"Where" is a decode-cost ladder (each rung more precise, more decode):**
+1. **HHTL / CLAM containment** — key prefix (`NiblePath` `is_ancestor_of`/`prefix`). "Which cluster." **Zero value decode** (coarsest).
+2. **Helix PLACE** — the golden-spiral position *deterministic from the address* (generated, not stored; the `place` half of place/residue). The exact point the key *implies*. **Zero value decode.**
+3. **Helix RESIDUE** — `Signed360` (`HelixResidue` tenant, 6 B in the value slab). The exact orthogonal location to full precision = PLACE ⊕ the stored 6-byte remainder. **One value-tenant decode** (paid only when exactness beyond the cluster is needed).
+
+So the substrate answers location at three precisions off one node, and you pay decode only for the precision you ask for — consistent with `E-GUID-IS-THE-GRAPH` (the key prerenders coarse position free) and the OGAR place/residue doctrine (PLACE deterministic, RESIDUE stored). CLAM tells you the neighborhood; the helix `Signed360` tells you the exact orthogonal point.
+
+**Consequence for the Cypher/router work:** a proximity / `MATCH … NEAR` query resolves on the key (HHTL/CLAM, zero decode); an *exact-position / sort-by-true-distance / orthogonal-coordinate* query reads the `HelixResidue` tenant (a value decode — it is NOT a zero-decode operation, and must be costed as such, unlike the adjacency facets). Do not conflate "find the cluster" (free) with "find the exact point" (6-byte decode). Cross-refs: `E-ADJACENCY-IS-KEY-AND-EDGECODEC`, `E-GUID-IS-THE-GRAPH`, `canonical_node::{ValueTenant::HelixResidue, ValueSchema::Compressed}`, the `helix` crate's `Signed360`.
+
+---
+
 ## 2026-06-18 — E-ADJACENCY-IS-KEY-AND-EDGECODEC — adjacency lives in two places, classid/key-resolved: HHTL cascade in the GUID = CLAM neighborhood; the 16-byte EdgeBlock = 12-family/4-external OR 32×4 turbovec per EdgeCodecFlavor; CausalEdge64 = SPO
 
 **Status:** FINDING (operator-stated, grounded in shipped `hhtl.rs` `NiblePath` + `canonical_node.rs` `EdgeCodecFlavor` + `graph/neighborhood/clam.rs`). Resolves `cypher-kanban-ast-unification-v1` boundary §4b ("which edge rep") — there is no single rep to pick; there are distinct adjacency facets, each selected by the key/classid, never guessed by the query.
