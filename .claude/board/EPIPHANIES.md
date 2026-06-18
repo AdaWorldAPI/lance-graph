@@ -1,3 +1,40 @@
+## 2026-06-18 — E-OGAR-ROUTER-ENCODER — the "particle/wave click" is a domain-agnostic ADDRESS ROUTER + a deterministic FIELD ENCODER over one classid-dispatched node; the physics-duality framing is a costume to strip
+
+**Status:** FINDING (8-agent 5+3, unanimous; cascade-architect grounded in shipped ndarray code). The click is REAL and mostly in code — but NOT where the physics vocabulary put it.
+
+**What the 5+3 was asked:** make the "API Class inherited-view + edges + particle/wave" click *hard*. **What it found:** the click splits into two real mechanisms welded to one costume.
+
+### COLLAPSES — legitimate, at the ADDRESS only (the hard click)
+- **Address ROUTER [H]** — one shift/mask prefix-distance over the 128-bit `NodeGuid` (`classid·HEEL·HIP·TWIG`, 6 bytes = the CAM-PQ 6×256 code, 3 tier-table lookups, O(1)) serves BOTH a 2-axis spatial mipmap (OSM x/y) AND a semantic centroid cascade (AR class). `classid` selects the codebook; the domain binds the axes. **Semantic side is GREEN-shipped** (`ndarray::hpc::cam_pq::DistanceTables::distance` = 6 lookups + 5 adds). D-BOTHCASC is real AT THE KEY.
+- **Field ENCODER [H]** — the bipolar-phase Walsh-Hadamard pyramid synthesizes the field from the address (phase, *never stored*, CurveRuler stride-4-over-17) + the magnitude tenant. The TWO-ALGEBRA rule (sign = XOR = `vsa_bind`; magnitude = `vsa_bundle`, NEVER raw-XOR) is correctly Markov-fenced.
+
+### MUST STAY DISTINCT — do NOT flatten (value + lifecycle)
+It is **allocation, not conservation**: the 480 B value slab holds the discrete-identity tenants (Class) AND the field-residue tenants in *different byte ranges* — a byte-budget partition, not a conjugate-basis duality.
+- `ValueSchema::Cognitive` (particle: Meta/Qualia/Energy/Plasticity/EntityType) vs `Compressed` (wave: HelixResidue/Turbovec) — disjoint presets over one slab, by classid `ReadMode`.
+- `EdgeBlock` `CoarseOnly` (particle FK adjacency, ≤16 discrete) vs `Pq32x4`/residue (wave continuous coupling) — distinct `EdgeCodecFlavor`, same 16 bytes.
+- DO-arm: `ActionInvocation` (RBAC+MUL **Rubicon commit gate**, discrete, egress) vs the **deterministic phase recurrence** (ungated, reversible, WHT self-inverse, never commits). Two physics on opposite sides of the firewall (ADR-022).
+
+### STRIP — rhyme/costume (DROP-DO-NOT-BUILD the physics framing)
+- **"particle/wave duality" as physics** — there is no norm-preserving transform `T(Class)↔field` (the residue is lossy-for-analysis → one direction lossy → not a basis change). Build nothing assuming a Class↔field conjugacy.
+- **"simultaneously spatial AND semantic"** — a node inhabits ONE domain (classid dispatch), never both at once; it's a dispatch, not a superposition.
+- **"Heisenberg / uncertainty principle"** — `N ≤ √d/4 ≈ 32` is a VSA capacity/SNR floor, NOT Δx·Δp. The number survives; demote the physics label to [S].
+
+### THE TWO CRACKS for the named 3D consumer (cascade-architect, shipped-code-grounded) — load-bearing
+**OpenStreetMap → gaussian splat → electricity perturbation is 3D, and the shipped spatial substrate is 3D Hilbert (`ndarray::hpc::linalg::hilbert.rs`, N=3) — which does NOT factor into the 2-axis 256×256 centroid tile.** So:
+1. **Axis count:** the unification holds for **2D-spatial (OSM x/y) ≡ 2-PQ-semantic**; the **3D gaussian-splat grid is a RELATED-BUT-DISTINCT 3-axis Hilbert cascade**, not the same byte-per-axis Morton stride. Either pin spatial to 2D x/y (defer z to a 4th tier / the value plane) OR formally admit two stride families. **The user's exact consumer is the 3D case → it is a sibling cascade, not the 2-axis spine.**
+2. **Spatial distance is not LUT-based yet** — `splat3d::depth_cascade::cascade_block` gates on screen-space-error + depth certificate (live floats), not `table[s][byte]` sums. "3 tier lookups" is realized for semantic, CONJECTURE for spatial until a splat position is encoded to centroid bytes through `DistanceTables`.
+
+### The single proof that makes it "hard" (theorem-checker)
+The **bit-partition identity:** the base-4 depth-4 centroid-tree decomposition (the router's tree) must be the *same* partition of the tier-byte that the WHT sign-pyramid sums over (the encoder's basis). The canon's "byte's **nibbles** are the centroid's ancestry" is an arithmetic slip — a depth-4 4-ary tree needs **four 2-bit crumbs**, not two base-16 nibbles; the 16-ary GUID tree and the 4-ary centroid tree are different trees over the same 8 bits. Pin them to ONE partition → router+encoder harden [H]→[G]. It does NOT rescue the physics-duality claim (separate, false).
+
+### Falsifiable obligations + Core deliverables (all layout-preserving)
+- Probes: **bit-partition identity**; **PROBE-CODEBOOK-44** (semantic hierarchical-4⁴ VQ ρ vs 0.9973/0.965); **pin-spatial-to-2-axis** (or admit the 3D-Hilbert sibling); **norm-preserving-T test** (predicted FAIL → confirms strip the physics); **disjoint-schema regression** (`Cognitive ∩ Compressed = {Fingerprint, EntityType}` only); **revert `ReadMode::DEFAULT=Full` POC → Bootstrap** before claiming the click below the key (`read_mode_default_is_full_poc` is the tripwire).
+- Core (converged across agents): `ClassView::{axis_binding, centroid_codebook}` (per-class spatial/wave selector); a `Field` `ValueSchema` preset (Energy in the compressed set); the Jirak reword of the "top gaussian preserved" Parseval line.
+
+**Consumer landing split:** PARTICLE consumers (woa-rs, medcare-rs, q2-as-gotham/neo4j, odoo-rs, openproject) = AR Class via `classid→ClassView` + `EdgeBlock(CoarseOnly)` + `Cognitive` schema + `ActionInvocation`(RBAC+MUL). WAVE consumer (OSM→splat→electricity, **3D → sibling cascade**) = same `NodeGuid` router family + `Compressed`/`Field` schema (Helix/Turbovec/Energy) + PQ coupling + deterministic recurrence (no RBAC). They SHARE the address-router + codebook-selection-by-classid; they do NOT share the value slab or the lifecycle.
+
+---
+
 ## 2026-06-18 — E-SOA-CYCLE-OWNERSHIP — cycle is per-mailbox + per-cycle, LE-contract-enforced; multi-mailbox interlaces; non-fitting consumers get OGAR classid→schema
 
 **Status:** FINDING (operator-ratified architecture sync; the wiring itself is 5+3-gated before code). Repo brought in sync via the `bindspace-singleton-to-mailbox-soa-v1` ERRATA ADDENDUM 2026-06-18c.
