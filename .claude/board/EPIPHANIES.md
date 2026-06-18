@@ -1,3 +1,33 @@
+## 2026-06-18 — E-EXCEL-SHADER-PROJECTION — a spreadsheet projected as a shader is the clean 2-axis existence proof for the router + DO arm + `compute_dag` + cycle-aware write
+
+**Status:** CONJECTURE / proposed probe. The buildable demonstrator of `E-OGAR-ROUTER-ENCODER` in its provable 2-axis form, and the named first proof for the one Core gap (`ClassView::compute_dag`). Builds on (do NOT lose): `E-OGAR-ROUTER-ENCODER` (the router/encoder click + the strip-the-physics verdict), `E-AR-DO-WIRING` (ruff+ARM+AR→OGAR consumer landing), `E-SOA-CYCLE-OWNERSHIP` (cycle-aware write), and the `mailbox-cycle-aware-write-contract` / DO-arm `action.rs` work.
+
+**The mapping (every piece lands on a shipped or named primitive — mechanism, not rhyme):**
+
+| Excel | OGAR stack |
+|---|---|
+| cell `(row, col)` | node, addressed by the **2-axis router** (`HEEL/HIP/TWIG` 256×256 tile, x/y binding — the cascade-architect's GREEN 2-axis case) |
+| cell value | value tenant (`Energy`=number, content=text) — the **particle** |
+| formula `=A1+B2` | **`ActionInvocation`** (DO arm, `action.rs`): predicate=formula, `depends_on`=precedents, `exec`=Native/Jit |
+| the dependency DAG | **`ClassView::compute_dag`** — the *one named Core gap* (core-gap-auditor), landed here |
+| recompute-on-edit (topological) | the **cycle-aware write (`write_row`) + the field-wave** — dirty-set propagates through the DAG; the write gates the recompute-generation |
+| `SUM(A1:A10)` | tier-table reduction / `vsa_bundle` |
+| the sheet *projected* | **`CognitiveShader` dispatch over the SoA grid** — "can't NOT recompute while dirty" IS the active-inference dispatch (F>floor→fire) |
+
+**Why it's the ideal first proof (carries the prior-iteration verdict):**
+1. **2-axis = the router's PROVEN home.** A sheet is inherently row/col — it sidesteps the 3D-Hilbert axis-count crack (`E-OGAR-ROUTER-ENCODER`: OSM→splat→electricity is the 3D *sibling* cascade; Excel is the 2-axis case `cam_pq::DistanceTables` already ships GREEN).
+2. **Formulas ARE the `compute_dag`** — building Excel-as-shader lands that Core extension on the cleanest case.
+3. **Universal.** Odoo `@api.depends`, medcare lab-trends, woa calculations, q2 computed cells all **reduce to a sheet** — so this is the consumer-agnostic proof the AR consumers (`E-AR-DO-WIRING`) all collapse to.
+4. The recompute **is** the cycle-aware field-wave — it exercises the `write_row` contract end-to-end.
+
+**Honest scope line (truth-architect):** a formula's *semantics* (`=VLOOKUP`, `=IF`) are general compute dispatched per-cell via the DO arm / `UnifiedStep` — **NOT** the Walsh-Hadamard deterministic-phase field. "Shader projection" = the **dependency-driven recompute dispatch** (`compute_dag` + cycle), not field *synthesis*. Correct, buildable scope — exactly the gap already named, never the physics costume `E-OGAR-ROUTER-ENCODER` stripped.
+
+**The probe (`PROBE-EXCEL-COMPUTE-DAG`, compute_dag existence proof):** a minimal sheet — cells = SoA rows, 2-axis `(row,col)` addressed; formulas = `ActionDef`s with `depends_on` edges; `ClassView::compute_dag` topological recompute on cell-edit, each recompute gated by `write_row(cycle)`. **Success:** editing `A1` dirties + recomputes dependents in topological order through the shader dispatch, every recompute cycle-stamped; cycle rejects (registry-build) on a formula loop; `ValueSchema::Cognitive ∩ Compressed = {Fingerprint, EntityType}` disjointness holds (no over-collapse). **Lands:** `ClassView::compute_dag` on the 2-axis case — the prerequisite the core-gap-auditor flagged for *every* computed-field AR consumer (odoo/medcare/woa/q2). Better first proof than any single consumer because they all reduce to it.
+
+**Carries the converged deliverables (unchanged, all layout-preserving):** `ClassView::{axis_binding, centroid_codebook}` (the wave/spatial selector — the sheet uses `axis_binding=Spatial(x/y)`); the `Field` `ValueSchema` preset; the Jirak reword. Cross-refs: `E-OGAR-ROUTER-ENCODER`, `E-AR-DO-WIRING`, `lite-unified-surrealql-lance-v1`.
+
+---
+
 ## 2026-06-18 — E-OGAR-ROUTER-ENCODER — the "particle/wave click" is a domain-agnostic ADDRESS ROUTER + a deterministic FIELD ENCODER over one classid-dispatched node; the physics-duality framing is a costume to strip
 
 **Status:** FINDING (8-agent 5+3, unanimous; cascade-architect grounded in shipped ndarray code). The click is REAL and mostly in code — but NOT where the physics vocabulary put it.
