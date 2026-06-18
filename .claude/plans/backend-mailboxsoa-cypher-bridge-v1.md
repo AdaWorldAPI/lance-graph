@@ -640,3 +640,49 @@ All tests build a **hand-rolled** `MailboxSoaView` (or `&[NodeRow]`) with
   tenants, not arbitrary KV. Recommend properties resolve from a side store
   by `(classid, identity)` (OQ-1 option a), with v1 shipping classid +
   `FieldMask` presence only (option c) and deferring string values.
+
+---
+
+## Update 2026-06-18 — OQ (string-property byte-home) resolved by the codebook; validated downstream in q2
+
+The spec's single biggest open question (§ Open Questions) was: *node string
+properties (`RETURN n.name` / `n.type`) have no byte-home on the 512B row, since
+the 480B value slab is typed cognitive `ValueTenant`s, not arbitrary key-value.*
+
+**Resolution — the codebook (use-the-register, `I-VSA-IDENTITIES` Test 0).** A
+categorical label/property has a natural identity, so it does not live on the row
+as a string at all: it lives **once** in a codebook side-store, and the row
+carries a fixed-width **`u16` codebook id**. Storing repeated variable-length
+strings was register-laziness; the codebook id is the register. This is the same
+move as `classid`, Base17, and CAM-PQ — and it fits the 512B row trivially (a
+`u16` per categorical field in a value tenant, resolved via the codebook on read).
+
+- **High-cardinality free text** (a unique `name`) stays in the side content
+  store keyed by `(classid, identity)` — unchanged from the spec's recommendation.
+- **Low-cardinality categoricals** (`type`, status, relationship label) become
+  codebook ids on the row. v1 can ship these immediately; only genuinely-unique
+  strings defer to the side store.
+
+**Downstream validation (q2 consumer, this session).** The q2 cockpit's
+notebook-query layer adopted exactly this pattern at the Arrow tier — categorical
+label columns became `DictionaryArray<UInt16, Utf8>` (dictionary = codebook,
+u16 keys = the binary index table). **lance-graph's own Cypher → DataFusion path
+executes over these dictionary columns end-to-end**: `MATCH (n0:System) RETURN
+n0.type` resolves the dictionary back to its string transparently (q2 commit
+`e43630f`, `tests/gremlin_e2e.rs::gremlin_returns_dictionary_encoded_label_column`).
+
+So the codebook-id-on-the-row approach is **proven queryable** through the
+existing engine at the Arrow layer; the `Backend::MailboxSoa` scan (§ Scan
+Semantics) should resolve categorical fields the same way — read the `u16`,
+resolve via the per-class codebook, hand DataFusion/the projection the string.
+Status of this OQ: **RESOLVED (design)**; substrate impl still CONJECTURE.
+
+**Cross-finding (lance-graph planner gap, surfaced by the same q2 experiment).**
+Multi-hop traversal that RETURNs the *target* node's columns
+(`MATCH (a:System)-[e]->(b) RETURN b.id`) fails planning today:
+*"No field named n1__id; did you mean n0__id"* — the Cypher→DataFusion planner
+projects only the first node's columns. Single-hop + property + dict-column
+queries all execute. This is independent of the MailboxSoa backend but is
+on the same RETURN-projection surface the new backend must get right; worth
+fixing in the core planner before (or alongside) the MailboxSoa scan so both
+read paths project multi-binding RETURNs correctly.
