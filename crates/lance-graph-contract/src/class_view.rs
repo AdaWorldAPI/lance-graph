@@ -138,6 +138,130 @@ impl FieldMask {
     }
 }
 
+/// One recompute edge in a class's **compute DAG**: field position `target` is
+/// (re)computed from the field positions in `inputs`.
+///
+/// Harvest-sourced — `target` is the `emitted_by` field, `inputs` are its
+/// `depends_on` precedents (Odoo `@api.depends`, an Excel formula's referenced
+/// cells, a chess-eval feature's inputs). All fields are `&'static` so a
+/// generated `const DAG: &[ComputeEdge] = &[..]` compiles (the harvest IS the
+/// manifest — mirrors [`crate::codegen_manifest::MethodSig`] /
+/// [`crate::action::ActionDef`]). Positions index the class's [`FieldMask`]
+/// (0..[`FieldMask::MAX_FIELDS`]), matching [`ClassView::fields`].
+///
+/// This is the Core home for recompute *dispatch* (`E-EXCEL-SHADER-PROJECTION` /
+/// `probe-excel-compute-dag-v1`): the manifest lives ABOVE the SoA (resolution
+/// metadata, stores nothing on the row); no adapter carries its own `@api.depends`
+/// table (`core-first-transcode-doctrine` — that would be the Adapter-State-Leak).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ComputeEdge {
+    /// Field position this edge recomputes (the `emitted_by` target).
+    pub target: u8,
+    /// Field positions this target reads (its `depends_on` precedents).
+    pub inputs: &'static [u8],
+}
+
+/// Whether a class's `compute_dag` is **acyclic** — the registry-build gate.
+///
+/// A cyclic recompute DAG (a formula loop `A=B+1, B=A+1`, or a `@api.depends`
+/// cycle) MUST be rejected at registry-build: it has no topological order and
+/// would never converge. Returns `false` on any cycle (incl. a self-loop
+/// `target ∈ inputs`). Considers only positions `< FieldMask::MAX_FIELDS`;
+/// out-of-range targets/inputs are ignored (no panic, mirrors
+/// [`FieldMask::from_positions`]). Allocation-free (≤ 64 positions).
+#[must_use]
+pub fn compute_dag_is_acyclic(edges: &[ComputeEdge]) -> bool {
+    const N: usize = FieldMask::MAX_FIELDS as usize; // 64
+                                                     // deps[t] = bitmask of in-range positions that target `t` depends on.
+    let mut deps = [0u64; N];
+    let mut is_target = 0u64;
+    for e in edges {
+        if (e.target as usize) >= N {
+            continue;
+        }
+        is_target |= 1u64 << e.target;
+        for &inp in e.inputs {
+            if (inp as usize) < N {
+                deps[e.target as usize] |= 1u64 << inp;
+            }
+        }
+    }
+    // Kahn: leaves (non-targets) are resolved; peel any target whose deps are all
+    // resolved. If a round makes no progress with targets remaining → cycle.
+    let mut resolved = !is_target;
+    let mut remaining = is_target;
+    loop {
+        if remaining == 0 {
+            return true;
+        }
+        let mut progressed = false;
+        let mut r = remaining;
+        while r != 0 {
+            let t = r.trailing_zeros();
+            r &= r - 1;
+            if deps[t as usize] & !resolved == 0 {
+                resolved |= 1u64 << t;
+                remaining &= !(1u64 << t);
+                progressed = true;
+            }
+        }
+        if !progressed {
+            return false; // stuck with targets remaining → cycle
+        }
+    }
+}
+
+/// A valid **recompute order** for a class's `compute_dag` — the target field
+/// positions in an order where every target appears after all targets it
+/// (transitively) depends on. `None` if the DAG is cyclic (no topological order).
+///
+/// Leaves (positions that are only inputs, never targets) are not included — they
+/// are the already-present values a recompute reads. Within one Kahn round the
+/// resolved targets are mutually independent, so any order among them is valid.
+/// The consumer recomputes targets in this order, each gated by the cycle-aware
+/// `write_row` (`probe-excel-compute-dag-v1` Inc 2). Allocation = one `Vec` of
+/// the target positions (≤ 64).
+#[must_use]
+pub fn compute_dag_topo_order(edges: &[ComputeEdge]) -> Option<Vec<u8>> {
+    const N: usize = FieldMask::MAX_FIELDS as usize; // 64
+    let mut deps = [0u64; N];
+    let mut is_target = 0u64;
+    for e in edges {
+        if (e.target as usize) >= N {
+            continue;
+        }
+        is_target |= 1u64 << e.target;
+        for &inp in e.inputs {
+            if (inp as usize) < N {
+                deps[e.target as usize] |= 1u64 << inp;
+            }
+        }
+    }
+    let mut resolved = !is_target;
+    let mut remaining = is_target;
+    let mut order = Vec::with_capacity(is_target.count_ones() as usize);
+    loop {
+        if remaining == 0 {
+            return Some(order);
+        }
+        let mut progressed = false;
+        let mut r = remaining;
+        while r != 0 {
+            let t = r.trailing_zeros();
+            r &= r - 1;
+            if deps[t as usize] & !resolved == 0 {
+                resolved |= 1u64 << t;
+                remaining &= !(1u64 << t);
+                order.push(t as u8);
+                progressed = true;
+            }
+        }
+        if !progressed {
+            return None; // cycle
+        }
+    }
+}
+
 /// The class as a **meta lookup that flies above the SoA** — the resolver trait.
 ///
 /// An implementor (in `lance-graph-ontology`, over the OGIT cache) is the
@@ -246,6 +370,24 @@ pub trait ClassView {
         // signed / fingerprint / …), it adds no new property.
         crate::canonical_node::ValueSchema::Full
     }
+
+    /// The class's **recompute DAG** — the topological manifest of which fields
+    /// recompute from which (the `emitted_by` + `depends_on` harvest), the Core
+    /// home for computed-field dispatch (Odoo `@api.depends`, Excel formulas,
+    /// chess-eval features; `probe-excel-compute-dag-v1`).
+    ///
+    /// Default `&[]` — the zero-fallback: an unconfigured class has no computed
+    /// fields (mirrors `compute_dag`'s no-panic siblings). An implementor returns
+    /// a generated `const &[ComputeEdge]`; the registry MUST validate it with
+    /// [`compute_dag_is_acyclic`] at build (a cyclic DAG is rejected, never
+    /// recomputed). Layout-preserving: resolution metadata above the SoA, stores
+    /// nothing on the row, never a `NODE_ROW_STRIDE`/`ENVELOPE_LAYOUT_VERSION`
+    /// change. The instance recompute that consumes this is gated per-cell by the
+    /// cycle-aware `write_row` (`E-SOA-CYCLE-OWNERSHIP`).
+    #[inline]
+    fn compute_dag(&self, _class: ClassId) -> &[ComputeEdge] {
+        &[]
+    }
 }
 
 /// One populated field to render — the late-resolved `label` + its `predicate` key.
@@ -317,6 +459,151 @@ mod tests {
         fn dolce_category_id(&self, _class: ClassId) -> u8 {
             0 // Endurant, resolved from the cache in the real impl
         }
+    }
+
+    // ── compute_dag (probe-excel-compute-dag-v1, Inc 0) ──────────────────────
+
+    /// Default `compute_dag` is the zero-fallback empty manifest (no computed
+    /// fields for an unconfigured class).
+    #[test]
+    fn compute_dag_default_is_empty() {
+        let c = FakeClasses { invoice: vec![] };
+        assert!(c.compute_dag(7).is_empty());
+        assert!(c.compute_dag(0).is_empty());
+    }
+
+    /// `const`-constructible manifest — the exact shape a generated
+    /// `const DAG: &[ComputeEdge]` emits (a chain: f2 = g(f1), f1 = h(f0)).
+    const SAMPLE_DAG: &[ComputeEdge] = &[
+        ComputeEdge {
+            target: 1,
+            inputs: &[0],
+        },
+        ComputeEdge {
+            target: 2,
+            inputs: &[1],
+        },
+    ];
+
+    #[test]
+    fn compute_dag_acyclic_chain_passes() {
+        assert!(
+            compute_dag_is_acyclic(SAMPLE_DAG),
+            "a dependency chain f0→f1→f2 is acyclic"
+        );
+        assert!(compute_dag_is_acyclic(&[]), "empty dag is acyclic");
+        // a target reading a non-computed leaf is fine
+        assert!(compute_dag_is_acyclic(&[ComputeEdge {
+            target: 5,
+            inputs: &[3, 4]
+        }]));
+    }
+
+    #[test]
+    fn compute_dag_cycle_is_rejected() {
+        // f0 = g(f1), f1 = h(f0) — a 2-cycle, no topological order.
+        let two_cycle = &[
+            ComputeEdge {
+                target: 0,
+                inputs: &[1],
+            },
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+        ];
+        assert!(
+            !compute_dag_is_acyclic(two_cycle),
+            "a formula loop must be rejected at registry-build"
+        );
+        // self-loop f0 = g(f0)
+        assert!(!compute_dag_is_acyclic(&[ComputeEdge {
+            target: 0,
+            inputs: &[0]
+        }]));
+        // 3-cycle f0→f1→f2→f0
+        assert!(!compute_dag_is_acyclic(&[
+            ComputeEdge {
+                target: 1,
+                inputs: &[0]
+            },
+            ComputeEdge {
+                target: 2,
+                inputs: &[1]
+            },
+            ComputeEdge {
+                target: 0,
+                inputs: &[2]
+            },
+        ]));
+    }
+
+    #[test]
+    fn compute_dag_out_of_range_positions_ignored() {
+        // target/inputs >= MAX_FIELDS (64) are ignored, never folded → no panic,
+        // no false cycle (mirrors FieldMask::from_positions).
+        assert!(compute_dag_is_acyclic(&[
+            ComputeEdge {
+                target: 64,
+                inputs: &[0]
+            }, // ignored target
+            ComputeEdge {
+                target: 5,
+                inputs: &[200]
+            }, // input ignored → leaf-only target
+        ]));
+    }
+
+    #[test]
+    fn compute_dag_topo_order_respects_dependencies() {
+        // chain f0→f1→f2: f1 must come before f2; f0 is a leaf, not emitted.
+        let order = compute_dag_topo_order(SAMPLE_DAG).expect("acyclic has an order");
+        assert_eq!(order.len(), 2, "two targets (f1, f2); f0 is a read-only leaf");
+        let pos1 = order.iter().position(|&t| t == 1).unwrap();
+        let pos2 = order.iter().position(|&t| t == 2).unwrap();
+        assert!(pos1 < pos2, "f1 recomputed before its dependent f2");
+        // empty manifest → empty order, not None.
+        assert_eq!(compute_dag_topo_order(&[]), Some(vec![]));
+    }
+
+    #[test]
+    fn compute_dag_topo_order_none_on_cycle() {
+        // a 2-cycle has no topological order — None, matching is_acyclic == false.
+        let two_cycle = &[
+            ComputeEdge {
+                target: 0,
+                inputs: &[1],
+            },
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+        ];
+        assert!(compute_dag_topo_order(two_cycle).is_none());
+        assert!(!compute_dag_is_acyclic(two_cycle));
+    }
+
+    #[test]
+    fn compute_dag_topo_order_diamond() {
+        // f3 = g(f1, f2); f1 = h(f0); f2 = k(f0). f0 leaf. f1,f2 before f3.
+        let diamond = &[
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+            ComputeEdge {
+                target: 2,
+                inputs: &[0],
+            },
+            ComputeEdge {
+                target: 3,
+                inputs: &[1, 2],
+            },
+        ];
+        let order = compute_dag_topo_order(diamond).expect("acyclic");
+        let p = |t: u8| order.iter().position(|&x| x == t).unwrap();
+        assert!(p(1) < p(3) && p(2) < p(3), "both precedents before the join");
+        assert_eq!(order.len(), 3);
     }
 
     #[test]

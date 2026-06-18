@@ -1,3 +1,158 @@
+## 2026-06-18 — E-PERTURBATION-CASCADE-IS-COMPUTE-DAG — the electricity cascade crate is `compute_dag` already running on a real physical field, and it ships the Weyl bound that certifies the incremental recompute
+
+**Status:** FINDING (mechanism mapping; no dependency added). The `crates/perturbation-sim` outage simulator is the physical instance of the SAME topological recompute `ClassView::compute_dag` + `compute_dag_topo_order` + `write_row` express abstractly. Doc-level join only (`crates/perturbation-sim/COMPUTE_DAG_MAPPING.md`); the crate stays zero-dep / workspace-excluded — no `lance-graph-contract` import. Grounds: `E-CHESS-TENSOR-PROVEN`, `E-EXCEL-SHADER-PROJECTION`, `E-OGAR-ROUTER-ENCODER`, `probe-excel-compute-dag-v1`.
+
+**The mapping (mechanism, not rhyme):**
+
+| `perturbation-sim` | `compute_dag` substrate |
+|---|---|
+| `simulate_outage` round loop (trip → recompute survivors → re-trip) | `compute_dag_topo_order` dispatch (edit → dirty-set → recompute dependents) |
+| `PerturbationShape::trip_round[e]` (round each line tripped, `0`=seed) | the topological generation in `compute_dag_topo_order` |
+| seed trip = rank-1 `E` on Laplacian `L` | the dirty seed `write_row(seed, cycle)` |
+| `spectral_perturbation` Weyl `\|λᵢ(L′)−λᵢ(L)\|≤‖E‖₂` + Davis–Kahan | the **NNUE incremental ≡ full** invariant: bounded local edit → bounded global perturbation → dirty-set is the complete support |
+| `PerturbationShape::node_field` | the wave/field readoff (`E-OGAR-ROUTER-ENCODER` field side) |
+| `splat::morton2` | the 2-axis router ADDRESS (256×256 tile, GREEN case) |
+| `sketch::fwht` + `walsh_pyramid_energy` | the deterministic field ENCODER (Walsh pyramid) |
+| `witness::particle_equals_wave` (Parseval over FWHT) | particle (`∑field·arc`) ≡ wave (transform once, many arcs) — proven on a real field |
+
+**The headline (truth-architect honesty):** the two crates are deliberate **complementary halves**. `perturbation-sim` does the EXACT FULL recompute each round (robust, no LODF drift) but ships the **certification apparatus** — its Weyl/Davis–Kahan bounds are precisely the inequalities an incremental scheme needs to prove it equals the full recompute. `compute_dag` is the INCREMENTAL dispatch (recompute only dirty dependents in topo order, gated by `write_row`); the Weyl bound this crate certifies is *why* that incremental recompute is sound. **This crate = proof + full reference + router/field/witness encoders; the `compute_dag` harness = the incremental consumer whose equivalence the bound certifies.** Stockfish NNUE proves the incremental side at scale; perturbation-sim proves the bound holding it together is real.
+
+**Why it strengthens the arc without diluting:** `E-OGAR-ROUTER-ENCODER` flagged OSM → splat → electricity as the 3D *sibling* cascade (N=3 Hilbert, distinct from the 2-axis centroid tile). This says: that 3D cascade is a legitimate `compute_dag` consumer — its recompute order IS `simulate_outage`'s round structure, its incremental-equivalence IS Weyl-bounded. The crate already self-guards every scope line we'd draw: no measured speed claim (`witness.rs`), the numeric witness arc explicitly NOT the contract `WitnessTable` (`I-VSA-IDENTITIES`), significance via Jirak not IID Berry–Esseen (`I-NOISE-FLOOR-JIRAK`). Nothing new to strip; the costume was never put on here.
+
+**Scope guard (unchanged):** per-bus/per-cell evaluation semantics are general compute via the DO arm / `UnifiedStep` — the *recompute structure* transfers, the *formula/injection content* does not. Same line `E-EXCEL` / `E-CHESS` drew. Cross-refs: `crates/perturbation-sim/COMPUTE_DAG_MAPPING.md`, `class_view::{compute_dag, compute_dag_topo_order, compute_dag_is_acyclic}`.
+
+---
+
+## 2026-06-18 — E-CHESS-TENSOR-PROVEN — chess AI is the proven-at-scale instance of router(grid)+field(planes)+incremental-recompute(NNUE)+search(MCTS); its 4 species = the session's 4 facets
+
+**Status:** FINDING (grounding/validation). Makes `E-EXCEL-SHADER-PROJECTION` / `PROBE-EXCEL-COMPUTE-DAG` non-speculative: the architecture it proposes is what production chess engines already run.
+
+**The mapping (chess AI → OGAR stack), each piece an anchor not a rhyme:**
+
+| Chess AI | OGAR stack | session anchor |
+|---|---|---|
+| 8×8 board (rank×file) | **2-axis router grid** | `E-OGAR-ROUTER-ENCODER` (2-axis = the GREEN case) |
+| `C` feature planes (12 piece + history + reps + counters; AlphaZero `N×N×(MT+L)`, Leela 112 planes of 8×8) | **value tenants / the field over the grid** | the "wave"; `Energy`/`HelixResidue` tenants |
+| AlphaZero/Leela `8×8×C → CNN → policy/value` | **`CognitiveShader` dispatch over the SoA grid** (the field read) | "shader projection" |
+| **Stockfish NNUE** — *"efficiently updatable… only small input changes between neighboring positions"* | **the cycle-aware INCREMENTAL recompute = `compute_dag` dirty-propagation gated by `write_row`** | `E-SOA-CYCLE-OWNERSHIP` + `E-EXCEL` — **the exact match** |
+| transformer chess (64 squares as tokens, attention; arXiv 2406.00877 learned look-ahead) | **`EdgeBlock` coupling / attention-as-table-lookup (`bgz-tensor`)** | the coupling |
+| MCTS / alpha-beta search | **the dispatch cycle** ("can't NOT think while surprise exists") + scenario/counterfactual branching | the cycle; `ScenarioBranch` |
+| classical bitboards + handcrafted eval | the **particle register** (discrete piece positions) | `I-VSA-IDENTITIES` Test-0 register |
+
+**The headline:** the four "species of chess AI" are the session's four facets of ONE node, each proven independently at the highest level — **bitboards = particle register, AlphaZero/Leela CNN = field/wave (shader projection), Stockfish NNUE = the incremental cycle-aware recompute (the `compute_dag`), transformer = the `EdgeBlock`/attention coupling.** Critically, **NNUE is `PROBE-EXCEL-COMPUTE-DAG` already proven at world-champion strength**: "only small input changes between neighboring positions, incrementally update" *is* the `compute_dag` dirty-propagation + the cycle-aware `write_row`. The probe re-derives NNUE's incrementality as the `compute_dag`/`write_row` contract on a 2-axis grid.
+
+**Why this strengthens, not dilutes (truth-architect):** the chess board is the same 2-axis grid (rank×file = x/y) the cascade-architect certified GREEN — so chess validates the router+field+incremental+search architecture *without* touching the open 3D-Hilbert / bit-partition questions (`E-OGAR-ROUTER-ENCODER`). A chess board is an even cleaner 2-axis demonstrator than a sheet; **Excel stays the consumer-facing demonstrator** (odoo/medcare/woa/q2 are spreadsheet-shaped per `E-AR-DO-WIRING`), **chess is the architecture validator + the feature-plane / NNUE-incremental design reference.** Honest scope unchanged: the *recompute structure* (planes + incremental update + search) transfers; per-cell/per-square *evaluation semantics* are general compute via the DO arm / `UnifiedStep`, not the Walsh-Hadamard field — never the physics costume that was stripped.
+
+Cross-refs: `E-EXCEL-SHADER-PROJECTION` (the probe), `E-OGAR-ROUTER-ENCODER` (router/encoder), `E-AR-DO-WIRING` (consumers), `bgz-tensor` (attention-as-lookup = the transformer-chess facet, already shipped).
+
+---
+
+## 2026-06-18 — E-EXCEL-SHADER-PROJECTION — a spreadsheet projected as a shader is the clean 2-axis existence proof for the router + DO arm + `compute_dag` + cycle-aware write
+
+**Status:** CONJECTURE / proposed probe. The buildable demonstrator of `E-OGAR-ROUTER-ENCODER` in its provable 2-axis form, and the named first proof for the one Core gap (`ClassView::compute_dag`). Builds on (do NOT lose): `E-OGAR-ROUTER-ENCODER` (the router/encoder click + the strip-the-physics verdict), `E-AR-DO-WIRING` (ruff+ARM+AR→OGAR consumer landing), `E-SOA-CYCLE-OWNERSHIP` (cycle-aware write), and the `mailbox-cycle-aware-write-contract` / DO-arm `action.rs` work.
+
+**The mapping (every piece lands on a shipped or named primitive — mechanism, not rhyme):**
+
+| Excel | OGAR stack |
+|---|---|
+| cell `(row, col)` | node, addressed by the **2-axis router** (`HEEL/HIP/TWIG` 256×256 tile, x/y binding — the cascade-architect's GREEN 2-axis case) |
+| cell value | value tenant (`Energy`=number, content=text) — the **particle** |
+| formula `=A1+B2` | **`ActionInvocation`** (DO arm, `action.rs`): predicate=formula, `depends_on`=precedents, `exec`=Native/Jit |
+| the dependency DAG | **`ClassView::compute_dag`** — the *one named Core gap* (core-gap-auditor), landed here |
+| recompute-on-edit (topological) | the **cycle-aware write (`write_row`) + the field-wave** — dirty-set propagates through the DAG; the write gates the recompute-generation |
+| `SUM(A1:A10)` | tier-table reduction / `vsa_bundle` |
+| the sheet *projected* | **`CognitiveShader` dispatch over the SoA grid** — "can't NOT recompute while dirty" IS the active-inference dispatch (F>floor→fire) |
+
+**Why it's the ideal first proof (carries the prior-iteration verdict):**
+1. **2-axis = the router's PROVEN home.** A sheet is inherently row/col — it sidesteps the 3D-Hilbert axis-count crack (`E-OGAR-ROUTER-ENCODER`: OSM→splat→electricity is the 3D *sibling* cascade; Excel is the 2-axis case `cam_pq::DistanceTables` already ships GREEN).
+2. **Formulas ARE the `compute_dag`** — building Excel-as-shader lands that Core extension on the cleanest case.
+3. **Universal.** Odoo `@api.depends`, medcare lab-trends, woa calculations, q2 computed cells all **reduce to a sheet** — so this is the consumer-agnostic proof the AR consumers (`E-AR-DO-WIRING`) all collapse to.
+4. The recompute **is** the cycle-aware field-wave — it exercises the `write_row` contract end-to-end.
+
+**Honest scope line (truth-architect):** a formula's *semantics* (`=VLOOKUP`, `=IF`) are general compute dispatched per-cell via the DO arm / `UnifiedStep` — **NOT** the Walsh-Hadamard deterministic-phase field. "Shader projection" = the **dependency-driven recompute dispatch** (`compute_dag` + cycle), not field *synthesis*. Correct, buildable scope — exactly the gap already named, never the physics costume `E-OGAR-ROUTER-ENCODER` stripped.
+
+**The probe (`PROBE-EXCEL-COMPUTE-DAG`, compute_dag existence proof):** a minimal sheet — cells = SoA rows, 2-axis `(row,col)` addressed; formulas = `ActionDef`s with `depends_on` edges; `ClassView::compute_dag` topological recompute on cell-edit, each recompute gated by `write_row(cycle)`. **Success:** editing `A1` dirties + recomputes dependents in topological order through the shader dispatch, every recompute cycle-stamped; cycle rejects (registry-build) on a formula loop; `ValueSchema::Cognitive ∩ Compressed = {Fingerprint, EntityType}` disjointness holds (no over-collapse). **Lands:** `ClassView::compute_dag` on the 2-axis case — the prerequisite the core-gap-auditor flagged for *every* computed-field AR consumer (odoo/medcare/woa/q2). Better first proof than any single consumer because they all reduce to it.
+
+**Carries the converged deliverables (unchanged, all layout-preserving):** `ClassView::{axis_binding, centroid_codebook}` (the wave/spatial selector — the sheet uses `axis_binding=Spatial(x/y)`); the `Field` `ValueSchema` preset; the Jirak reword. Cross-refs: `E-OGAR-ROUTER-ENCODER`, `E-AR-DO-WIRING`, `lite-unified-surrealql-lance-v1`.
+
+---
+
+## 2026-06-18 — E-OGAR-ROUTER-ENCODER — the "particle/wave click" is a domain-agnostic ADDRESS ROUTER + a deterministic FIELD ENCODER over one classid-dispatched node; the physics-duality framing is a costume to strip
+
+**Status:** FINDING (8-agent 5+3, unanimous; cascade-architect grounded in shipped ndarray code). The click is REAL and mostly in code — but NOT where the physics vocabulary put it.
+
+**What the 5+3 was asked:** make the "API Class inherited-view + edges + particle/wave" click *hard*. **What it found:** the click splits into two real mechanisms welded to one costume.
+
+### COLLAPSES — legitimate, at the ADDRESS only (the hard click)
+- **Address ROUTER [H]** — one shift/mask prefix-distance over the 128-bit `NodeGuid` (`classid·HEEL·HIP·TWIG`, 6 bytes = the CAM-PQ 6×256 code, 3 tier-table lookups, O(1)) serves BOTH a 2-axis spatial mipmap (OSM x/y) AND a semantic centroid cascade (AR class). `classid` selects the codebook; the domain binds the axes. **Semantic side is GREEN-shipped** (`ndarray::hpc::cam_pq::DistanceTables::distance` = 6 lookups + 5 adds). D-BOTHCASC is real AT THE KEY.
+- **Field ENCODER [H]** — the bipolar-phase Walsh-Hadamard pyramid synthesizes the field from the address (phase, *never stored*, CurveRuler stride-4-over-17) + the magnitude tenant. The TWO-ALGEBRA rule (sign = XOR = `vsa_bind`; magnitude = `vsa_bundle`, NEVER raw-XOR) is correctly Markov-fenced.
+
+### MUST STAY DISTINCT — do NOT flatten (value + lifecycle)
+It is **allocation, not conservation**: the 480 B value slab holds the discrete-identity tenants (Class) AND the field-residue tenants in *different byte ranges* — a byte-budget partition, not a conjugate-basis duality.
+- `ValueSchema::Cognitive` (particle: Meta/Qualia/Energy/Plasticity/EntityType) vs `Compressed` (wave: HelixResidue/Turbovec) — disjoint presets over one slab, by classid `ReadMode`.
+- `EdgeBlock` `CoarseOnly` (particle FK adjacency, ≤16 discrete) vs `Pq32x4`/residue (wave continuous coupling) — distinct `EdgeCodecFlavor`, same 16 bytes.
+- DO-arm: `ActionInvocation` (RBAC+MUL **Rubicon commit gate**, discrete, egress) vs the **deterministic phase recurrence** (ungated, reversible, WHT self-inverse, never commits). Two physics on opposite sides of the firewall (ADR-022).
+
+### STRIP — rhyme/costume (DROP-DO-NOT-BUILD the physics framing)
+- **"particle/wave duality" as physics** — there is no norm-preserving transform `T(Class)↔field` (the residue is lossy-for-analysis → one direction lossy → not a basis change). Build nothing assuming a Class↔field conjugacy.
+- **"simultaneously spatial AND semantic"** — a node inhabits ONE domain (classid dispatch), never both at once; it's a dispatch, not a superposition.
+- **"Heisenberg / uncertainty principle"** — `N ≤ √d/4 ≈ 32` is a VSA capacity/SNR floor, NOT Δx·Δp. The number survives; demote the physics label to [S].
+
+### THE TWO CRACKS for the named 3D consumer (cascade-architect, shipped-code-grounded) — load-bearing
+**OpenStreetMap → gaussian splat → electricity perturbation is 3D, and the shipped spatial substrate is 3D Hilbert (`ndarray::hpc::linalg::hilbert.rs`, N=3) — which does NOT factor into the 2-axis 256×256 centroid tile.** So:
+1. **Axis count:** the unification holds for **2D-spatial (OSM x/y) ≡ 2-PQ-semantic**; the **3D gaussian-splat grid is a RELATED-BUT-DISTINCT 3-axis Hilbert cascade**, not the same byte-per-axis Morton stride. Either pin spatial to 2D x/y (defer z to a 4th tier / the value plane) OR formally admit two stride families. **The user's exact consumer is the 3D case → it is a sibling cascade, not the 2-axis spine.**
+2. **Spatial distance is not LUT-based yet** — `splat3d::depth_cascade::cascade_block` gates on screen-space-error + depth certificate (live floats), not `table[s][byte]` sums. "3 tier lookups" is realized for semantic, CONJECTURE for spatial until a splat position is encoded to centroid bytes through `DistanceTables`.
+
+### The single proof that makes it "hard" (theorem-checker)
+The **bit-partition identity:** the base-4 depth-4 centroid-tree decomposition (the router's tree) must be the *same* partition of the tier-byte that the WHT sign-pyramid sums over (the encoder's basis). The canon's "byte's **nibbles** are the centroid's ancestry" is an arithmetic slip — a depth-4 4-ary tree needs **four 2-bit crumbs**, not two base-16 nibbles; the 16-ary GUID tree and the 4-ary centroid tree are different trees over the same 8 bits. Pin them to ONE partition → router+encoder harden [H]→[G]. It does NOT rescue the physics-duality claim (separate, false).
+
+### Falsifiable obligations + Core deliverables (all layout-preserving)
+- Probes: **bit-partition identity**; **PROBE-CODEBOOK-44** (semantic hierarchical-4⁴ VQ ρ vs 0.9973/0.965); **pin-spatial-to-2-axis** (or admit the 3D-Hilbert sibling); **norm-preserving-T test** (predicted FAIL → confirms strip the physics); **disjoint-schema regression** (`Cognitive ∩ Compressed = {Fingerprint, EntityType}` only); **revert `ReadMode::DEFAULT=Full` POC → Bootstrap** before claiming the click below the key (`read_mode_default_is_full_poc` is the tripwire).
+- Core (converged across agents): `ClassView::{axis_binding, centroid_codebook}` (per-class spatial/wave selector); a `Field` `ValueSchema` preset (Energy in the compressed set); the Jirak reword of the "top gaussian preserved" Parseval line.
+
+**Consumer landing split:** PARTICLE consumers (woa-rs, medcare-rs, q2-as-gotham/neo4j, odoo-rs, openproject) = AR Class via `classid→ClassView` + `EdgeBlock(CoarseOnly)` + `Cognitive` schema + `ActionInvocation`(RBAC+MUL). WAVE consumer (OSM→splat→electricity, **3D → sibling cascade**) = same `NodeGuid` router family + `Compressed`/`Field` schema (Helix/Turbovec/Energy) + PQ coupling + deterministic recurrence (no RBAC). They SHARE the address-router + codebook-selection-by-classid; they do NOT share the value slab or the lifecycle.
+
+---
+
+## 2026-06-18 — E-AR-DO-WIRING — ruff (static) + ARM (dynamic) meet at SPO; AR Class splits along DOLCE into THINK+DO; consumers land off the harvest
+
+**Status:** FINDING (cross-session converged: odoo-rs + OGAR-contract + openproject-nexgen-rs blast-radius surveys all confirm additive convergence onto the #534 keystone). Landing recipe: `docs/OGAR_CONSUMER_API.md`.
+
+**One frame — how a domain becomes an OGAR node, and where each consumer plugs in:**
+
+```
+ruff_cpp_spo / ruff-Rails harvest (STATIC: has_function, reads_field, inherits_from, validation_kind)
+        +  lance-graph-arm-discovery / ARM (DYNAMIC: runtime (X→Y) rules, codebook-deterministic)
+        └──────────────► MEET at SPO {s,p,o,f,c}  ──►  the OGAR Core (classid → ClassView)
+                                                              │
+        AR Class splits along DOLCE (one node, two arms):     │
+        • fields      → Endurant  → THINK : ValueTenant cols + MethodSig (ClassMethods/methods_for)
+        • methods     → Perdurant → DO    : ActionDef (ClassActions/actions_for) + ActionInvocation
+        • inheritance → classid → ClassView (one mechanism, both arms; child overrides parent by key)
+        • relations   → EdgeBlock (12 in-family + 4 out)
+                                                              ▼
+   consumer generates `const ClassMethods` (THINK) + `const ClassActions` (DO) from ITS harvest,
+   binds classid OGAR-side, writes THIN classid-keyed adapters that ASSUME the Core,
+   commits through the gate: def-match → RBAC (ActorContext) → state-guard → MUL (GateDecision)
+   → ExecTarget::SurrealQl (the AR-shaped API surface; NOT a per-crate endpoint).
+```
+
+**The three claims that let a consumer land NOW (no waiting):**
+1. **The harvest IS the manifest.** Don't hand-author the object model — generate the `const` tables. `has_function`→`ActionDef.predicate`; `inherits_from`→`overrides` (filled at codegen by `mro::resolve_overrides`); `reads_field`→`ValueSchema`/`FieldMask`. (odoo-rs: `mro` gains a downstream consumer, no change.)
+2. **Static + dynamic are one SPO.** ruff = the static skeleton; ARM = dynamic enrichment; both emit `{s,p,o,f,c}`. A consumer with only a static harvest lands the full THINK+DO shape today; ARM refines `(f,c)` later.
+3. **DOLCE draws the THINK/DO line, not the consumer.** Perdurant (methods/events) = DO; Endurant/Quality (fields/state) = THINK. `aerial/ontology.rs` already emits the `dolce_id`.
+
+**Per-consumer entry points (from the 3 blast-radius surveys):**
+- **odoo-rs:** `od-posting::_post` IS an `ActionInvocation` (ExecTarget::SurrealQl) — the runtime DO consumer. `od-ontology` stays zero-dep (NO `RegistryClassView` dep without a council). `mro::resolve_overrides` = the `overrides` source at codegen.
+- **openproject-nexgen-rs:** `op-surreal-ast` imports only `codegen_spine::Triple` (unchanged). Two net-new lifts: `ogar-from-ruff` `Model::functions → ClassActions/ActionDef` (DO producer); a registration hop `Class → register_class_path` + classid bind (THINK next-hop).
+- **tesseract-rs:** the cheapest existence proof — its pipeline is already byte-parity green; generate one class's `ClassActions` from `has_function`.
+
+**Convergence flagged (3 instances now → unify):** override-resolution appears as `effective_actions` (DO, per-class) + `mro::resolve_overrides` (whole-manifest) + `ClassView` inherit — same child-overrides-parent-by-key relation. Crosses the abstraction threshold → an `Overridable`/keyed-merge primitive (council-gated).
+
+**Guards (every consumer holds):** ENVELOPE_LAYOUT_VERSION=2 / NODE_ROW_STRIDE=512 must not move; `from_guid_prefix` high-classid-u16→None refusal + 16M-per-basin ceiling are now addressing-load-bearing; `ClassView::{compute_dag, constraints}` (computed-field recompute/validation) grows the EXISTING ClassView, never a new layer.
+
+---
+
 ## 2026-06-18 — E-SOA-CYCLE-OWNERSHIP — cycle is per-mailbox + per-cycle, LE-contract-enforced; multi-mailbox interlaces; non-fitting consumers get OGAR classid→schema
 
 **Status:** FINDING (operator-ratified architecture sync; the wiring itself is 5+3-gated before code). Repo brought in sync via the `bindspace-singleton-to-mailbox-soa-v1` ERRATA ADDENDUM 2026-06-18c.
