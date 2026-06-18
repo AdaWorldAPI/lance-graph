@@ -1,3 +1,24 @@
+## 2026-06-18 — E-ADJACENCY-IS-KEY-AND-EDGECODEC — adjacency lives in two places, classid/key-resolved: HHTL cascade in the GUID = CLAM neighborhood; the 16-byte EdgeBlock = 12-family/4-external OR 32×4 turbovec per EdgeCodecFlavor; CausalEdge64 = SPO
+
+**Status:** FINDING (operator-stated, grounded in shipped `hhtl.rs` `NiblePath` + `canonical_node.rs` `EdgeCodecFlavor` + `graph/neighborhood/clam.rs`). Resolves `cypher-kanban-ast-unification-v1` boundary §4b ("which edge rep") — there is no single rep to pick; there are distinct adjacency facets, each selected by the key/classid, never guessed by the query.
+
+**The three facets:**
+
+1. **HHTL cascade *in the GUID key* = hierarchical/neighborhood adjacency = the CLAM tree.** `NiblePath::from_guid_prefix(guid)` over `classid·HEEL·HIP·TWIG`; `is_ancestor_of` / `prefix(d)` = centroid-tree containment. Longer shared prefix ⇒ nearer ⇒ same CLAM cluster. The "connecting tissue" structural traversal — **free, in the key, zero value decode**; `graph/neighborhood/clam.rs` is the search engine. Adjacency was never an `EdgeBlock` requirement for the neighborhood case — it is the cascade prefix.
+
+2. **The 16-byte `EdgeBlock` *in the node* = explicit typed edges, read per the classid's `EdgeCodecFlavor`:**
+   - **`CoarseOnly` (16×8) → 12 in-family + 4 external** adjacency edges (one byte = neighbor basin-local index → `local_key`). The 12/4 split is **family-internal vs cross-family interface** (canon).
+   - **`Pq32x4` (32×4) → turbovec residue edges** (same 16 bytes as 32 four-bit PQ residue codes).
+   - `CoarseResidue` (1+⌈D/2⌉) → coarse index + per-dim residue.
+
+3. **`edges_raw` column → `CausalEdge64` = SPO causal/belief arcs** (s/p/o palette indices — NOT a row→row adjacency pointer; a separate facet).
+
+**Traversal dispatch (the resolved boundary):** neighborhood/proximity → HHTL/CLAM (key); explicit typed edge → `EdgeBlock` via `classid → ClassView → EdgeCodecFlavor` (12-family/4-external **or** 32×4 turbovec); causal/belief → `CausalEdge64`. The class picks the rep; the query never guesses.
+
+**Wiring implication (next Inc-0 slice):** the edge/neighborhood traversal half needs `MailboxSoaView` to expose, per row, **(a)** the HHTL `NiblePath` (or the full `NodeGuid` key — the canon `NodeRow` already carries `key(16)`, so this exposes what's there) for the CLAM cascade, and **(b)** the `EdgeBlock` bytes + the class's `EdgeCodecFlavor` for the explicit-edge deref. Then: CLAM neighborhood = prefix routing on the key; `(a)-[r]->(b)` = `EdgeBlock` slot deref under the resolved flavor. Both zero-value-decode. The node-match half (`#544`) already lands the classid route; this adds the two key/edge accessors + the CLAM + EdgeBlock deref. Cross-refs: `E-GUID-IS-THE-GRAPH`, `E-CYPHER-IS-THE-KANBAN-AST`, `hhtl::NiblePath`, `canonical_node::{EdgeBlock, EdgeCodecFlavor}`, `graph/neighborhood/clam.rs`, `graph/mailbox_scan.rs`, `cypher-kanban-ast-unification-v1` §4b.
+
+---
+
 ## 2026-06-18 — E-OGAR-IS-FOUNDRY — being Palantir Foundry / Gotham reduces to "write the OGAR class schema + inheritance"; everything else (traversal, query, pipelines, actions, low-code apps) is generic machinery over it via the shared AST
 
 **Status:** FINDING (capstone; operator-stated). The platform-level reading of the whole arc: Foundry/Gotham is not a platform to rebuild — it is an **OGAR class-schema-inheritance exercise**, because every other Foundry/Gotham layer is already generic machinery the workspace ships, parameterized only by `classid`.
