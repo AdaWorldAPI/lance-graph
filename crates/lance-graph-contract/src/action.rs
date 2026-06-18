@@ -189,32 +189,59 @@ impl ActionInvocation {
         }
     }
 
-    /// Adjudicate a `Pending` action against RBAC + the MUL impact gate, and
-    /// advance its lifecycle. Returns the resulting [`ActionState`].
+    /// Adjudicate a `Pending` action against its `ActionDef` (match), RBAC, the
+    /// state guard, and the MUL impact gate, in that order. Returns the
+    /// resulting [`ActionState`].
     ///
+    /// `guard_field_value` is the current value of `def.guard.field` on the
+    /// target instance, supplied by the caller (the Core holds no object state —
+    /// `I-VSA-IDENTITIES`); `None` when unknown. It is consulted ONLY when
+    /// `def.guard` is `Some`.
+    ///
+    /// Order and outcomes:
+    /// - `def` does not identify THIS invocation (`object_class`/`predicate`
+    ///   mismatch) → `Failed` — authorization is NEVER applied against an
+    ///   unrelated definition's `required_role`.
     /// - unauthorized actor (lacks [`ActionDef::required_role`], not admin) → `Failed`
+    /// - state guard present and unsatisfied (`guard_field_value != Some(value)`)
+    ///   → `Cancelled` — the action is not eligible in the current state.
     /// - MUL `Flow`  → `Committed` (dispatched; `emitted_at_millis` stamped)
     /// - MUL `Hold`  → stays `Pending` (escalate / re-assess next cycle)
     /// - MUL `Block` → `Cancelled`
     ///
     /// Terminal states are sticky (a committed/failed/cancelled action is not
-    /// re-adjudicated). RBAC is checked FIRST: an unauthorized actor never
-    /// reaches the impact gate.
+    /// re-adjudicated). The `def`-match is checked FIRST, before RBAC/guard/MUL.
     pub fn commit(
         &mut self,
         def: &ActionDef,
         actor: &ActorContext,
         impact: &GateDecision,
+        guard_field_value: Option<&str>,
         now_millis: u64,
     ) -> ActionState {
         if self.state.is_terminal() {
             return self.state; // sticky
         }
-        // RBAC first — authority before impact.
+        // The `def` MUST identify THIS invocation — otherwise RBAC/guard/MUL
+        // would adjudicate against an unrelated action's policy (P1).
+        if def.object_class != self.object_class || def.predicate != self.predicate {
+            self.state = ActionState::Failed;
+            return self.state;
+        }
+        // RBAC — authority before eligibility/impact.
         if let Some(role) = def.required_role {
             let authorized = actor.is_admin() || actor.roles.iter().any(|r| r == role);
             if !authorized {
                 self.state = ActionState::Failed;
+                return self.state;
+            }
+        }
+        // State guard — fire only when `field == value` (P2). An unsatisfied (or
+        // unknown) guarded state refuses the fire; a fresh invocation runs when
+        // the instance re-enters the eligible state.
+        if let Some(g) = def.guard {
+            if guard_field_value != Some(g.value) {
+                self.state = ActionState::Cancelled;
                 return self.state;
             }
         }
@@ -346,13 +373,14 @@ mod tests {
     fn commit_requires_rbac_then_mul_flow() {
         let def = &SALE_ORDER_ACTIONS[0]; // required_role = "sales_manager"
 
-        // authorized + Flow → Committed, stamped.
+        // authorized + guard satisfied (state==draft) + Flow → Committed, stamped.
         let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
         assert_eq!(
             inv.commit(
                 def,
                 &actor_with(&["sales_manager"]),
                 &GateDecision::Flow,
+                Some("draft"),
                 1000
             ),
             ActionState::Committed
@@ -368,6 +396,7 @@ mod tests {
                 &GateDecision::Block {
                     reason: "x".to_string()
                 },
+                Some("draft"),
                 2000
             ),
             ActionState::Committed
@@ -378,9 +407,15 @@ mod tests {
     fn commit_unauthorized_fails_before_impact() {
         let def = &SALE_ORDER_ACTIONS[0];
         let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
-        // wrong role, even with a Flow gate → Failed (RBAC checked first).
+        // wrong role, even with a Flow gate + satisfied guard → Failed (RBAC first).
         assert_eq!(
-            inv.commit(def, &actor_with(&["viewer"]), &GateDecision::Flow, 1000),
+            inv.commit(
+                def,
+                &actor_with(&["viewer"]),
+                &GateDecision::Flow,
+                Some("draft"),
+                1000
+            ),
             ActionState::Failed
         );
         assert_eq!(inv.emitted_at_millis, None, "failed action never emitted");
@@ -391,6 +426,7 @@ mod tests {
         let def = &SALE_ORDER_ACTIONS[1]; // no required_role
         let any = actor_with(&[]);
 
+        // action_cancel has no guard → guard_field_value is ignored (None).
         let mut held = ActionInvocation::pending(0x0A1E_0001, "action_cancel", 7, 3, 1, 1);
         assert_eq!(
             held.commit(
@@ -399,6 +435,7 @@ mod tests {
                 &GateDecision::Hold {
                     reason: "low confidence".to_string()
                 },
+                None,
                 1000
             ),
             ActionState::Pending,
@@ -413,9 +450,72 @@ mod tests {
                 &GateDecision::Block {
                     reason: "unsound impact".to_string()
                 },
+                None,
                 1000
             ),
             ActionState::Cancelled
+        );
+    }
+
+    /// P1 (codex #538): `commit` must reject a `def` that does not identify this
+    /// invocation BEFORE applying RBAC — else passing the unguarded, no-role
+    /// `action_cancel` def to an `action_confirm` invocation would reach
+    /// `Committed` under `Flow` without the confirm role.
+    #[test]
+    fn commit_rejects_mismatched_def() {
+        let confirm_inv_with_cancel_def = || {
+            let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
+            // SALE_ORDER_ACTIONS[1] is action_cancel (no required_role, no guard).
+            let state = inv.commit(
+                &SALE_ORDER_ACTIONS[1],
+                &actor_with(&[]),
+                &GateDecision::Flow,
+                None,
+                1000,
+            );
+            (inv, state)
+        };
+        let (inv, state) = confirm_inv_with_cancel_def();
+        assert_eq!(
+            state,
+            ActionState::Failed,
+            "a def whose predicate/object_class mismatch the invocation must NOT authorize"
+        );
+        assert_eq!(inv.emitted_at_millis, None, "mismatched def never emits");
+    }
+
+    /// P2 (codex #538): a guarded action (`state == draft`) must NOT commit when
+    /// the target instance is in a non-eligible state, even with role + `Flow`.
+    #[test]
+    fn guarded_action_refused_in_wrong_state() {
+        let def = &SALE_ORDER_ACTIONS[0]; // guard: state == "draft"
+        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
+        let state = inv.commit(
+            def,
+            &actor_with(&["sales_manager"]),
+            &GateDecision::Flow,
+            Some("sent"), // wrong state
+            1000,
+        );
+        assert_eq!(
+            state,
+            ActionState::Cancelled,
+            "guarded action in a non-eligible state is refused, not committed"
+        );
+        assert_eq!(inv.emitted_at_millis, None, "refused action never emits");
+
+        // unknown state (None) with a guard present is also refused.
+        let mut inv2 = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
+        assert_eq!(
+            inv2.commit(
+                def,
+                &actor_with(&["sales_manager"]),
+                &GateDecision::Flow,
+                None,
+                1000
+            ),
+            ActionState::Cancelled,
+            "unknown guarded state is refused"
         );
     }
 }

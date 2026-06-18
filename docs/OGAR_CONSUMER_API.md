@@ -109,11 +109,20 @@ A DO action mutates an external domain system, so it does **not** fire freely.
 cycle decides the result sound" egress:
 
 ```rust
-let outcome = inv.commit(&def, &actor /* auth::ActorContext */, &impact /* mul::GateDecision */, now_millis);
+//                         def    actor                 impact            guard_field_value   now
+let outcome = inv.commit(&def, &actor, &impact, Some(current_state_value), now_millis);
 ```
 
-- **RBAC first** (`auth::ActorContext`): actor must hold `def.required_role`
-  (or be admin) → else `ActionState::Failed` (never reaches the impact gate).
+Adjudication order (each step can short-circuit):
+- **`def`-match first**: `def.object_class`/`predicate` MUST identify this
+  invocation, else `ActionState::Failed` — RBAC/guard/MUL are never applied
+  against an unrelated definition's policy.
+- **RBAC** (`auth::ActorContext`): actor must hold `def.required_role` (or be
+  admin) → else `Failed`.
+- **State guard** (`def.guard`): if present, `guard_field_value` must equal
+  `guard.value` (the caller supplies the target instance's current field value —
+  the Core holds no object state) → else `Cancelled` (not eligible in this
+  state). `guard_field_value` is ignored when `def.guard` is `None`.
 - **MUL impact** (`mul::GateDecision`): `Flow → Committed` (HLC-stamped,
   dispatched); `Hold → ` stays `Pending` (escalate / re-assess next cycle);
   `Block → Cancelled`.
@@ -205,6 +214,8 @@ const SALE_ORDER: &[ActionDef] = &[ActionDef {
 }];
 
 let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", /*instance*/ 42, /*cycle*/ 7, 1, 1);
-let outcome = inv.commit(&SALE_ORDER[0], &actor /* holds sales_manager */, &GateDecision::Flow, now);
+// guard is state=="draft"; supply the instance's current state value.
+let outcome = inv.commit(&SALE_ORDER[0], &actor /* holds sales_manager */, &GateDecision::Flow, Some("draft"), now);
 // outcome == ActionState::Committed → dispatch via UnifiedStep at ExecTarget::SurrealQl.
+// (wrong def, missing role, state != "draft", or a Hold/Block gate would NOT commit.)
 ```
