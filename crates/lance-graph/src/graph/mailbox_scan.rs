@@ -34,6 +34,7 @@
 //! lookup (via [`MailboxSoaView::row_for_local_key`]); edge dispatch lands once
 //! the representation boundary is resolved.
 
+use lance_graph_contract::hhtl::NiblePath;
 use lance_graph_contract::soa_view::MailboxSoaView;
 
 use crate::graph::graph_router::Backend;
@@ -87,6 +88,55 @@ pub fn match_node_by_local_key<V: MailboxSoaView>(view: &V, local_key: u64) -> O
     })
 }
 
+/// **CLAM containment** — the rows in `query`'s subtree: every row whose HHTL
+/// path is a descendant-or-equal of `query` (`query.is_ancestor_of(path)`).
+///
+/// This is the `panCAKES ≡ radix trie ≡ HHTL` neighborhood (`E-CLAM-IS-THE-MANIFOLD-ENGINE`
+/// / `E-PANCAKES-IS-RADIX-IS-HHTL`): the CLAM cluster is the radix-trie subtree
+/// under the query prefix. Pure key arithmetic — **zero value decode**. Rows with
+/// no materialized HHTL path (`hhtl_path_at == None`) are skipped.
+pub fn clam_contained<V: MailboxSoaView>(view: &V, query: NiblePath) -> Vec<NodeMatch> {
+    (0..view.n_rows())
+        .filter(|&row| view.hhtl_path_at(row).is_some_and(|p| query.is_ancestor_of(p)))
+        .map(|row| NodeMatch {
+            row,
+            backend: Backend::MailboxSoa,
+        })
+        .collect()
+}
+
+/// **CAKES nearest** — the `k` rows nearest `query` by longest-common-prefix
+/// depth (descending), the radix-trie nearest-neighbor over the HHTL paths.
+///
+/// Returns `(NodeMatch, shared_depth)`; deeper shared prefix ⇒ nearer (same deeper
+/// CLAM cluster). Ties keep ascending row order (stable). Pure key arithmetic —
+/// **zero value decode**; rows without a materialized HHTL path are skipped. This
+/// is CAKES "attraction" expressed as `NiblePath::common_prefix_depth`
+/// (`E-CLAM-IS-THE-MANIFOLD-ENGINE`).
+pub fn cakes_nearest<V: MailboxSoaView>(
+    view: &V,
+    query: NiblePath,
+    k: usize,
+) -> Vec<(NodeMatch, u8)> {
+    let mut scored: Vec<(NodeMatch, u8)> = (0..view.n_rows())
+        .filter_map(|row| {
+            view.hhtl_path_at(row).map(|p| {
+                (
+                    NodeMatch {
+                        row,
+                        backend: Backend::MailboxSoa,
+                    },
+                    query.common_prefix_depth(p),
+                )
+            })
+        })
+        .collect();
+    // Descending by shared depth; stable sort preserves ascending row order on ties.
+    scored.sort_by(|a, b| b.1.cmp(&a.1));
+    scored.truncate(k);
+    scored
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,6 +150,7 @@ mod tests {
         class_ids: Vec<u16>,
         edges: Vec<u64>,
         keyed_rows: Vec<(u64, usize)>,
+        paths: Vec<Option<NiblePath>>,
     }
 
     impl MailboxSoaView for GuardedSoa {
@@ -141,6 +192,9 @@ mod tests {
                 .find(|(k, _)| *k == local_key)
                 .map(|(_, r)| *r)
         }
+        fn hhtl_path_at(&self, row: usize) -> Option<NiblePath> {
+            self.paths.get(row).copied().flatten()
+        }
     }
 
     fn sample() -> GuardedSoa {
@@ -149,6 +203,15 @@ mod tests {
             class_ids: vec![7, 9, 7, 9, 7],
             edges: vec![0; 5],
             keyed_rows: vec![(0xABCD, 3), (0x1234, 0)],
+            // HHTL radix-trie paths (root basin 1):
+            //   row0: 1·2·3   row1: 1·2·4   row2: 1·2   row3: 1·5   row4: 9 (other basin)
+            paths: vec![
+                Some(NiblePath::root(1).child(2).child(3)),
+                Some(NiblePath::root(1).child(2).child(4)),
+                Some(NiblePath::root(1).child(2)),
+                Some(NiblePath::root(1).child(5)),
+                Some(NiblePath::root(9)),
+            ],
         }
     }
 
@@ -193,9 +256,55 @@ mod tests {
     #[test]
     fn f2_zero_value_decode_the_scan_never_panics_on_value_columns() {
         // The GuardedSoa panics if energy()/meta_raw() are read. If this test
-        // completes, the classid node-match touched ONLY the class column.
+        // completes, the classid node-match + CLAM/CAKES touched ONLY the
+        // class/HHTL key columns, never the value slab.
         let soa = sample();
         let _ = match_nodes_by_class(&soa, 7);
         let _ = match_node_by_local_key(&soa, 0x1234);
+        let _ = clam_contained(&soa, NiblePath::root(1).child(2));
+        let _ = cakes_nearest(&soa, NiblePath::root(1).child(2).child(3), 3);
+    }
+
+    #[test]
+    fn clam_contained_is_the_radix_subtree() {
+        // query = 1·2 ⇒ its CLAM cluster = the radix subtree under 1·2:
+        // rows 0 (1·2·3), 1 (1·2·4), 2 (1·2 itself). NOT 3 (1·5) or 4 (other basin 9).
+        let soa = sample();
+        let rows: Vec<usize> = clam_contained(&soa, NiblePath::root(1).child(2))
+            .iter()
+            .map(|m| m.row)
+            .collect();
+        assert_eq!(rows, vec![0, 1, 2]);
+        // a deeper query narrows the subtree to the exact leaf.
+        let leaf: Vec<usize> = clam_contained(&soa, NiblePath::root(1).child(2).child(3))
+            .iter()
+            .map(|m| m.row)
+            .collect();
+        assert_eq!(leaf, vec![0]);
+    }
+
+    #[test]
+    fn cakes_nearest_ranks_by_longest_common_prefix() {
+        // query = 1·2·3 (row 0). Shared-prefix depths:
+        //   row0 1·2·3 →3, row1 1·2·4 →2, row2 1·2 →2, row3 1·5 →1, row4 9 →0.
+        let soa = sample();
+        let near = cakes_nearest(&soa, NiblePath::root(1).child(2).child(3), 3);
+        let ranked: Vec<(usize, u8)> = near.iter().map(|(m, d)| (m.row, *d)).collect();
+        assert_eq!(ranked, vec![(0, 3), (1, 2), (2, 2)], "nearest-3 by shared depth");
+        assert!(near.iter().all(|(m, _)| m.backend == Backend::MailboxSoa));
+        // k larger than n returns all rows, still depth-sorted descending.
+        let all = cakes_nearest(&soa, NiblePath::root(1).child(2).child(3), 99);
+        let depths: Vec<u8> = all.iter().map(|(_, d)| *d).collect();
+        assert_eq!(depths, vec![3, 2, 2, 1, 0]);
+    }
+
+    #[test]
+    fn clam_cakes_skip_rows_with_no_materialized_path() {
+        // A view with all-None hhtl paths (the deferred-binding default) yields
+        // nothing — the consumer falls back to a coarser facet, never a wrong row.
+        let mut soa = sample();
+        soa.paths = vec![None; 5];
+        assert!(clam_contained(&soa, NiblePath::root(1)).is_empty());
+        assert!(cakes_nearest(&soa, NiblePath::root(1), 5).is_empty());
     }
 }

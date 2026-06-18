@@ -1,3 +1,23 @@
+## 2026-06-18 — E-PANCAKES-IS-RADIX-IS-HHTL — panCAKES ≡ radix trie ≡ HHTL: the CLAM cluster tree is NOT a separate structure, it IS the radix trie of the HHTL prefixes already in the keys; so CLAM/CAKES = prefix arithmetic on the GUID, zero value decode
+
+**Status:** FINDING (operator-stated identity; wired this commit). The unification that makes the manifold-geometry facet (`E-CLAM-IS-THE-MANIFOLD-ENGINE`) *free*: there is no CLAM tree to build and store — the tree IS the radix trie of the `classid·HEEL·HIP·TWIG` nibble paths that already live in every GUID key.
+
+**The three are one structure seen three ways:**
+- **HHTL** = the cascade tiers in the key (`NiblePath` over `classid·HEEL·HIP·TWIG`).
+- **radix trie** = prefix tree; routing = bit-shift on the nibble path, not hash.
+- **panCAKES** = the compressed CLAM tree — and a CLAM cluster IS a radix-trie subtree (shared prefix = same cluster); the cluster structure IS the codec.
+
+**Operational consequence (the wiring):** the CLAM/CAKES operations reduce to pure prefix arithmetic on the key, **zero value decode** —
+- **CLAM containment** (which cluster / subtree) = `NiblePath::is_ancestor_of` — the radix subtree under the query prefix.
+- **CAKES nearest** (ranked similar) = `NiblePath::common_prefix_depth` (added this commit) — longest-common-prefix ranking IS the entropy-scaling NN over the cluster tree; deeper shared prefix ⇒ same deeper cluster ⇒ nearer.
+- **panCAKES compression** = the trie itself (shared prefixes are the dedup).
+
+No separate index, no scent-vector tree materialization for the *structural* neighborhood — the keys are the tree. (CAKES over *content scent vectors* in `ndarray::hpc::clam` remains the metric-space path for non-prefix similarity; this identity covers the HHTL-prefix structural neighborhood, the free tier.)
+
+**Wired:** `NiblePath::common_prefix_depth`; `MailboxSoaView::hhtl_path_at` (deferred-binding, default `None`); `graph::mailbox_scan::{clam_contained, cakes_nearest}` over the View — all key-only, F2 zero-value-decode-guarded (#544). Cross-refs: `E-CLAM-IS-THE-MANIFOLD-ENGINE`, `E-ADJACENCY-IS-KEY-AND-EDGECODEC`, `E-GUID-IS-THE-GRAPH`, `hhtl::NiblePath`, `ndarray::hpc::clam` (CAKES/panCAKES/CHAODA).
+
+---
+
 ## 2026-06-18 — E-CLAM-IS-THE-MANIFOLD-ENGINE — the CLAM facet is not a containment check; it is the CAKES+CHAODA+LFD ensemble (ndarray `clam.rs`): containment + ranked-NN + anomaly + compression, one tree, one geometric measure
 
 **Status:** FINDING (operator-stated, grounded in `ndarray/src/hpc/clam.rs` — CAKES arXiv:2309.05491 Partition Alg 1 / ρ-NN Alg 4 / DFS-sieve Alg 6, panCAKES Alg 2, **CHAODA Phase 4 `anomaly_scores` from the LFD distribution**; + `lance-graph/crates/perturbation-sim/src/chaoda.rs` CHAODA-lite which names ndarray's `ClamTree` as the production path). Enriches `E-ADJACENCY-IS-KEY-AND-EDGECODEC`: the "HHTL/CLAM neighborhood" facet is a whole geometry engine, not `is_ancestor_of`.

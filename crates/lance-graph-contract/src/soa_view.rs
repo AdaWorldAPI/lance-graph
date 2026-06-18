@@ -88,6 +88,24 @@ pub trait MailboxSoaView {
         None
     }
 
+    /// The HHTL routing path ([`NiblePath`](crate::hhtl::NiblePath)) of `row`'s
+    /// GUID key — the `classid·HEEL·HIP·TWIG` cascade lowered to a nibble path.
+    /// This is the **radix-trie / CLAM cluster address** of the node
+    /// (`panCAKES ≡ radix trie ≡ HHTL`): containment = `is_ancestor_of`,
+    /// CAKES nearest = `common_prefix_depth`, both pure key arithmetic, **zero
+    /// value decode**.
+    ///
+    /// **Default = `None` (zero-fallback, deferred binding)** — same discipline as
+    /// [`row_for_local_key`](MailboxSoaView::row_for_local_key): a view that has
+    /// not materialized a per-row key/HHTL column returns `None`, and a CLAM/CAKES
+    /// scan over it yields nothing (the consumer falls back to a coarser facet).
+    /// An owner that carries the GUID key per row overrides this (the canon
+    /// `NodeRow` already holds `key(16)`, so the override exposes what is there).
+    #[inline]
+    fn hhtl_path_at(&self, _row: usize) -> Option<crate::hhtl::NiblePath> {
+        None
+    }
+
     // NOTE (follow-up): the qualia column (`QualiaI4_16D`) accessor is intentionally omitted —
     // add `fn qualia(&self) -> &[crate::qualia::QualiaI4_16D]` when the first consumer
     // (planner strategy selection) needs it; keep the read surface minimal until then.
