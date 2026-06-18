@@ -35,6 +35,54 @@
 
 ---
 
+## #540 lance-graph: `lite-unified` additive default-OFF coexistence feature gate
+
+**Status:** MERGED 2026-06-18 (merge commit `ef7e97ef`), branch `claude/lite-unified-gate`. **+35/-5 across 2 files.** The "wire it but don't deprecate datafusion — process, not switch" request made concrete and non-destructive.
+
+- **Added** — `lite-unified = []` feature in `crates/lance-graph/Cargo.toml` (empty until the SurrealQL-on-lance lowering lands); `.claude/plans/lite-unified-surrealql-lance-v1.md` staged plan.
+- **Locked** — **datafusion stays the DEFAULT query engine; NOT deprecated, NOT made optional by this feature.** `lite-unified` only adds the SurrealQL lowering path ALONGSIDE datafusion, promoted gradually per query-shape once OQ-LU-2a (the datafusion_planner coverage probe) is green. Zero behavior change at the default feature set (flag off + empty). No dependency made optional; no source removed.
+- **Deferred** — the actual SurrealQL lowering (the feature is a gate, not the impl); OQ-LU-2a coverage probe.
+- **Docs** — `.claude/plans/lite-unified-surrealql-lance-v1.md`.
+- **Confidence (2026-06-18):** working — additive gate, clean merge, no conflicts.
+
+---
+
+## #539 the particle/wave click → `ClassView::compute_dag` (the one Core gap) + the electricity-cascade join
+
+**Status:** MERGED 2026-06-18 (merge commit `b0255499`), branch `claude/particle-wave-click-epiphany`. **+570 across 6 files, additive to `lance-graph-contract` only** (zero `NodeRow`/stride/`ENVELOPE_LAYOUT_VERSION` impact). Hardens the "particle/wave click" into a buildable Core extension, proves it has a real physical instance.
+
+- **Added** — `lance_graph_contract::class_view::{ComputeEdge, compute_dag_is_acyclic, compute_dag_topo_order}` + `ClassView::compute_dag(class) -> &[ComputeEdge]` default method (zero-fallback `&[]`). `ComputeEdge {target: u8, inputs: &'static [u8]}` = the const-constructible harvest-sourced recompute manifest. `compute_dag_is_acyclic` = the registry-build cycle gate (Kahn over ≤64-bit field masks, allocation-free). `compute_dag_topo_order -> Option<Vec<u8>>` = the recompute ORDER (the harness needs the order, not just the bool; `None` on cycle; leaves excluded). 4 epiphanies (`E-OGAR-ROUTER-ENCODER`, `E-EXCEL-SHADER-PROJECTION`, `E-CHESS-TENSOR-PROVEN`, `E-PERTURBATION-CASCADE-IS-COMPUTE-DAG`); folded the stranded `E-AR-DO-WIRING`. Plan `probe-excel-compute-dag-v1`. Doc-level join `crates/perturbation-sim/COMPUTE_DAG_MAPPING.md` (perturbation-sim stays zero-dep / workspace-excluded — no contract import).
+- **Locked** — the "click" = a domain-agnostic ADDRESS ROUTER (shift/mask prefix-distance, 6 bytes = CAM-PQ 6×256 code) + a deterministic FIELD ENCODER (bipolar-phase Walsh–Hadamard; sign=XOR=`vsa_bind`, magnitude=`vsa_bundle`); **the physics-duality framing is a costume, stripped.** `compute_dag` is the incremental-recompute dispatch (NNUE-proven shape); per-cell/per-square evaluation *semantics* are general compute via the DO arm / `UnifiedStep`, NOT the Walsh field. perturbation-sim's `simulate_outage` round loop ≡ `compute_dag_topo_order`; its Weyl/Davis–Kahan bound ≡ the NNUE incremental≡full invariant. No measured speed claim anywhere (inherits `witness.rs` honesty). 13/13 class_view, clippy/fmt clean.
+- **Deferred** — **`ClassView::value_schema` default returns `ValueSchema::Full` — a TEMPORARY POC default (revert to `Bootstrap` + the `value_schema_default_is_full_temporary_poc` test together when the consumer-transcode POC phase ends).** Type-level `ValueSchema::default()` stays `Bootstrap` (substrate zero-fallback untouched; only class→schema resolution is Full). Sibling `ClassView::constraints` (`validation_kind`-sourced). The probe Inc 1-3 (the actual sheet harness wiring `compute_dag` + `write_row`).
+- **Docs** — `.claude/board/EPIPHANIES.md` (4+1 epiphanies), `.claude/plans/probe-excel-compute-dag-v1.md`, `crates/perturbation-sim/COMPUTE_DAG_MAPPING.md`.
+- **Confidence (2026-06-18):** working — merged; the Full POC default is the one tracked pre-merge-of-next-phase item.
+
+---
+
+## #538 cycle-aware write contract (S2.5) + the OGAR DO arm (`action.rs`)
+
+**Status:** MERGED 2026-06-18, branch `claude/soa-write-deinterlace-inc2`. The cycle-aware mailbox write + the Perdurant DO arm completing the OGAR IR. (PR_ARC entry backfilled 2026-06-18 during #539/#540 post-merge hygiene.)
+
+- **Added** — `mailbox_soa.rs`: `last_write_cycle: [u32; N]`, `stale_write_count`, `WriteOutcome{Accepted,Stale,Future}`, `WriteCell`, wrap-aware `write_row(row, cycle, &WriteCell)`. `backing.rs`: `BackingStoreWrite::write_row` (Mailbox gated, Singleton cycle-blind-by-construction). `kanban.rs`: `KanbanMove::cycle()` over `witness_chain_position`. `action::{ActionState, StateGuard, ActionDef, ClassActions, actions_for, effective_actions, ActionInvocation}` — the DO arm; `ActionInvocation::commit(def, actor, impact, guard_field_value, now_millis)` gated egress: def-match → RBAC (`auth::ActorContext`) → state-guard → MUL (`mul::GateDecision`) → `ExecTarget::SurrealQl`. `tests/substrate_sanity.rs` (NaN/tautology harness, 8 tests). `docs/OGAR_CONSUMER_API.md`.
+- **Locked** — cycle is per-mailbox + per-cycle (`E-SOA-CYCLE-OWNERSHIP`); `last_write_cycle` (write-generation) is distinct from `last_active_cycle` (consumption stamp). The DO-arm commit gate ordering (def-match FIRST, then RBAC, then guard, then MUL). `ActionInvocation.object_instance` is a full `NodeGuid` (5+3 council CATCH-CRITICAL: u32 couldn't address outside the default basin). `ActionInvocation` is `Clone` not `Copy`; idempotency is the caller's job. ENVELOPE_LAYOUT_VERSION=2 / NODE_ROW_STRIDE=512 frozen.
+- **Deferred** — the per-consumer adapters (od-posting / op-surreal-ast / tesseract); `compute_dag`/`constraints` (landed in #539).
+- **Docs** — `docs/OGAR_CONSUMER_API.md`, `.claude/plans/mailbox-cycle-aware-write-contract-v1.md`.
+- **Confidence (2026-06-18):** working — codex P1 (def-match) + P2 (state-guard) resolved pre-merge; 5+3 council CATCH-CRITICAL (NodeGuid) resolved.
+
+---
+
+## #537 docs: STACK_SCAFFOLD + OGAR consumer-API groundwork
+
+**Status:** MERGED 2026-06-18, branch (docs tier). (PR_ARC entry backfilled 2026-06-18 during #539/#540 post-merge hygiene.)
+
+- **Added** — `docs/STACK_SCAFFOLD.md` (surreal+ractor+ndarray Cargo/Dockerfile reference, fork-wired; surreal Lance-KV status corrected to "module implemented at crates/core/src/kvs/lance/, not yet feature-wired").
+- **Locked** — fork-only wiring for the reference scaffold (P0 AdaWorldAPI forks, never crates.io upstream).
+- **Confidence (2026-06-18):** working — docs only.
+
+> **Note (2026-06-18, #539/#540 hygiene):** PR **#534** (the OGAR contract keystone referenced by `E-AR-DO-WIRING`) predates these and is **not yet captured** in this inventory — a known backfill gap. Recorded here so a future session does not assume its absence means it never merged; see `LATEST_STATE.md` Contract Inventory for the live type record.
+
+---
+
 ## #521 lance-graph-contract: C++ codegen target (`MethodSig`) + `UniCharSet` content store
 
 **Status:** MERGED 2026-06-17 20:53 UTC (merge commit `620bd8e`), branch `claude/happy-hamilton-0azlw4`. **+940/-4 across 8 files, 9 commits.** The Core-side of the Tesseract C++→Rust transcode — the contract types ruff's `ruff_cpp_codegen` targets, plus the byte-parity probe's Rust side. **Additive to `lance-graph-contract` only** (container-architect ADDITIVE-CONFIRMED: zero `NodeRow`/`ValueTenant`/`ValueSchema`/stride/`ENVELOPE_LAYOUT_VERSION` impact). Pairs with **ruff #20** (the harvester + codegen that produces what these types consume; merged 2026-06-17 19:38 into ruff `main`).
