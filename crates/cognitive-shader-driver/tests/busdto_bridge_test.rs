@@ -287,3 +287,33 @@ fn busdto_mailbox_arm_recovers_headline_only_nonheadline_idx_zero() {
     assert_eq!(recovered.cycle_count, 5);
     assert_eq!(recovered.converged, true);
 }
+
+/// C8 (truth-architect addendum) — headline `codebook_index` round-trips
+/// bit-exact across the full u16 corner corpus, on BOTH builds.
+///
+/// The fix stores `codebook_index` in the **f32 qualia tenant** (`q[9]`); f32
+/// represents every integer in `[0, 2^24]` exactly, so every u16 survives. The
+/// corner values pin the regression boundaries: `255→256` is where
+/// `MetaWord.nars_f = codebook_index & 0xFF` aliases (a future refactor that
+/// reconstructed the headline from `nars_f` would collapse 256/512/0), and
+/// `65535` is the u16 max. The i4 column this tenant supersedes clamped every
+/// value ≥ 1 to 1 — this test is the proof that the f32 tenant repairs it.
+#[test]
+fn busdto_codebook_index_corner_corpus_round_trips_bit_exact() {
+    for &idx in &[0u16, 255, 256, 1234, 4095, 65535] {
+        let mut bs = BindSpace::zeros(1);
+        let bus = BusDto {
+            codebook_index: idx,
+            energy: 0.5,
+            top_k: [(idx, 0.5); 8],
+            cycle_count: 1,
+            converged: true,
+        };
+        dispatch_busdto(&mut bs, 0, &bus, 0);
+        let recovered = unbind_busdto(&bs, 0);
+        assert_eq!(
+            recovered.codebook_index, idx,
+            "codebook_index {idx} must round-trip bit-exact via the f32 qualia tenant",
+        );
+    }
+}
