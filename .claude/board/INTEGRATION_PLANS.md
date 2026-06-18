@@ -1,3 +1,14 @@
+## 2026-06-18 — probe-excel-compute-dag-v1 (land ClassView::compute_dag on the 2-axis grid; the NNUE-incremental existence proof)
+
+**Status:** CONJECTURE / probe scope. **Plan file:** `.claude/plans/probe-excel-compute-dag-v1.md`. Grounded by `E-CHESS-TENSOR-PROVEN` + `E-EXCEL-SHADER-PROJECTION` + `E-OGAR-ROUTER-ENCODER`.
+**Owns:** the named first proof for the one Core gap `ClassView::compute_dag` — a spreadsheet (≡ Stockfish-NNUE's incremental eval) projected onto the shader: cells=SoA rows (2-axis (row,col)), formulas=`ActionDef`+`depends_on`, edit→topological recompute gated per-cell by the cycle-aware `write_row`.
+- **Inc 0:** `ClassView::compute_dag(classid)` — per-class topological recompute manifest from `depends_on`+`emitted_by`; registry-build rejects cycles; layout-preserving default-method (mirrors `value_schema`). **Inc 1:** minimal sheet harness (cells/formulas/tenants). **Inc 2:** topological recompute on edit, each a `write_row(cycle)`. **Inc 3:** success = cycle-stamped dirty-propagation in topological order + loop-rejected-at-build + Cognitive∩Compressed disjoint + incremental≡full-recompute parity (the NNUE invariant).
+- **Why first:** lands the gap for EVERY computed-field AR consumer at once (odoo @api.depends/medcare/woa/q2 all reduce to a sheet); 2-axis dodges the 3D-Hilbert + bit-partition open questions.
+**Scope line:** recompute STRUCTURE transfers; per-cell formula semantics are general compute via DO arm/UnifiedStep, not the WHT field. Independent of lite-unified / surreal-kv-lance / the 3D-spatial thread.
+**Repos:** lance-graph (contract `ClassView` extension). Branch `claude/particle-wave-click-epiphany`.
+
+---
+
 ## 2026-06-18 — lite-unified-surrealql-lance-v1 (one store + one query surface, feature-gated; CONJECTURE, test-don't-commit)
 
 **Status:** CONJECTURE / design — feature-gated test path, NOT a default-build change. **Plan file:** `.claude/plans/lite-unified-surrealql-lance-v1.md`.

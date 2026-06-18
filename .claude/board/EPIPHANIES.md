@@ -1,3 +1,27 @@
+## 2026-06-18 — E-CHESS-TENSOR-PROVEN — chess AI is the proven-at-scale instance of router(grid)+field(planes)+incremental-recompute(NNUE)+search(MCTS); its 4 species = the session's 4 facets
+
+**Status:** FINDING (grounding/validation). Makes `E-EXCEL-SHADER-PROJECTION` / `PROBE-EXCEL-COMPUTE-DAG` non-speculative: the architecture it proposes is what production chess engines already run.
+
+**The mapping (chess AI → OGAR stack), each piece an anchor not a rhyme:**
+
+| Chess AI | OGAR stack | session anchor |
+|---|---|---|
+| 8×8 board (rank×file) | **2-axis router grid** | `E-OGAR-ROUTER-ENCODER` (2-axis = the GREEN case) |
+| `C` feature planes (12 piece + history + reps + counters; AlphaZero `N×N×(MT+L)`, Leela 112 planes of 8×8) | **value tenants / the field over the grid** | the "wave"; `Energy`/`HelixResidue` tenants |
+| AlphaZero/Leela `8×8×C → CNN → policy/value` | **`CognitiveShader` dispatch over the SoA grid** (the field read) | "shader projection" |
+| **Stockfish NNUE** — *"efficiently updatable… only small input changes between neighboring positions"* | **the cycle-aware INCREMENTAL recompute = `compute_dag` dirty-propagation gated by `write_row`** | `E-SOA-CYCLE-OWNERSHIP` + `E-EXCEL` — **the exact match** |
+| transformer chess (64 squares as tokens, attention; arXiv 2406.00877 learned look-ahead) | **`EdgeBlock` coupling / attention-as-table-lookup (`bgz-tensor`)** | the coupling |
+| MCTS / alpha-beta search | **the dispatch cycle** ("can't NOT think while surprise exists") + scenario/counterfactual branching | the cycle; `ScenarioBranch` |
+| classical bitboards + handcrafted eval | the **particle register** (discrete piece positions) | `I-VSA-IDENTITIES` Test-0 register |
+
+**The headline:** the four "species of chess AI" are the session's four facets of ONE node, each proven independently at the highest level — **bitboards = particle register, AlphaZero/Leela CNN = field/wave (shader projection), Stockfish NNUE = the incremental cycle-aware recompute (the `compute_dag`), transformer = the `EdgeBlock`/attention coupling.** Critically, **NNUE is `PROBE-EXCEL-COMPUTE-DAG` already proven at world-champion strength**: "only small input changes between neighboring positions, incrementally update" *is* the `compute_dag` dirty-propagation + the cycle-aware `write_row`. The probe re-derives NNUE's incrementality as the `compute_dag`/`write_row` contract on a 2-axis grid.
+
+**Why this strengthens, not dilutes (truth-architect):** the chess board is the same 2-axis grid (rank×file = x/y) the cascade-architect certified GREEN — so chess validates the router+field+incremental+search architecture *without* touching the open 3D-Hilbert / bit-partition questions (`E-OGAR-ROUTER-ENCODER`). A chess board is an even cleaner 2-axis demonstrator than a sheet; **Excel stays the consumer-facing demonstrator** (odoo/medcare/woa/q2 are spreadsheet-shaped per `E-AR-DO-WIRING`), **chess is the architecture validator + the feature-plane / NNUE-incremental design reference.** Honest scope unchanged: the *recompute structure* (planes + incremental update + search) transfers; per-cell/per-square *evaluation semantics* are general compute via the DO arm / `UnifiedStep`, not the Walsh-Hadamard field — never the physics costume that was stripped.
+
+Cross-refs: `E-EXCEL-SHADER-PROJECTION` (the probe), `E-OGAR-ROUTER-ENCODER` (router/encoder), `E-AR-DO-WIRING` (consumers), `bgz-tensor` (attention-as-lookup = the transformer-chess facet, already shipped).
+
+---
+
 ## 2026-06-18 — E-EXCEL-SHADER-PROJECTION — a spreadsheet projected as a shader is the clean 2-axis existence proof for the router + DO arm + `compute_dag` + cycle-aware write
 
 **Status:** CONJECTURE / proposed probe. The buildable demonstrator of `E-OGAR-ROUTER-ENCODER` in its provable 2-axis form, and the named first proof for the one Core gap (`ClassView::compute_dag`). Builds on (do NOT lose): `E-OGAR-ROUTER-ENCODER` (the router/encoder click + the strip-the-physics verdict), `E-AR-DO-WIRING` (ruff+ARM+AR→OGAR consumer landing), `E-SOA-CYCLE-OWNERSHIP` (cycle-aware write), and the `mailbox-cycle-aware-write-contract` / DO-arm `action.rs` work.
