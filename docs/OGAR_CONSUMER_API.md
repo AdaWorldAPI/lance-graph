@@ -127,7 +127,10 @@ Adjudication order (each step can short-circuit):
   dispatched); `Hold → ` stays `Pending` (escalate / re-assess next cycle);
   `Block → Cancelled`.
 - Terminal states are **sticky** (a committed/failed/cancelled action is never
-  re-adjudicated).
+  re-adjudicated). A `Hold→Pending` action CAN be re-`commit`ted (re-assessment)
+  — **idempotency/replay dedup is the caller's (dispatch-layer) responsibility**,
+  keyed on `(object_instance, idempotency_key)`; `commit` is policy adjudication
+  only, it does not itself dedup re-fires.
 
 ### 2.5 Dispatch — `UnifiedStep`, never a per-crate endpoint
 
@@ -181,7 +184,16 @@ For each consumer crate:
    into it.
 4. **No model identifier** in any committed artifact; **no PII labels** leaking
    from the domain (leaf-rename at the adapter).
-5. **Egress only through the commit gate** (RBAC + MUL) and `UnifiedStep`.
+5. **Egress only through the commit gate** (RBAC + MUL + state guard) and `UnifiedStep`.
+6. **`required_role` and `exec` are consumer-private policy, NOT portable.** They
+   are not in the `has_function` harvest — each consumer supplies its own RBAC
+   map + exec target. The contract guarantees the action *shape*, never that two
+   consumers agree on a role/exec for the "same" `(classid, predicate)`.
+7. **Normalize predicates per a documented rule.** The commit def-match is exact
+   `(object_class, predicate)` string equality; `(classid, predicate)` identity
+   is **consumer-local**. Cross-consumer action equality is NOT a contract
+   guarantee — two harvests of `action_confirm` vs `actionConfirm` are distinct
+   actions. Pick one normalization (snake_case) at harvest time.
 
 ---
 
@@ -213,7 +225,9 @@ const SALE_ORDER: &[ActionDef] = &[ActionDef {
     required_role: Some("sales_manager"), overrides: None,
 }];
 
-let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", /*instance*/ 42, /*cycle*/ 7, 1, 1);
+// object_instance is the FULL NodeGuid (classid must match), not a bare id.
+let target = NodeGuid::new(0x0A1E_0001, 0, 0, 0, /*family*/ 0, /*identity*/ 42);
+let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", target, /*cycle*/ 7, 1, 1);
 // guard is state=="draft"; supply the instance's current state value.
 let outcome = inv.commit(&SALE_ORDER[0], &actor /* holds sales_manager */, &GateDecision::Flow, Some("draft"), now);
 // outcome == ActionState::Committed → dispatch via UnifiedStep at ExecTarget::SurrealQl.

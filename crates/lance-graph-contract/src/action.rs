@@ -30,6 +30,7 @@
 //! consumer after the cycle decides the result sound" egress.
 
 use crate::auth::ActorContext;
+use crate::canonical_node::NodeGuid;
 use crate::kanban::ExecTarget;
 use crate::mul::GateDecision;
 
@@ -92,6 +93,15 @@ pub struct ActionDef {
     pub overrides: Option<&'static str>,
 }
 
+impl ActionDef {
+    /// Whether this action overrides a parent-class action (OGAR inheritance).
+    /// Mirrors [`crate::codegen_manifest::MethodSig::is_override`].
+    #[must_use]
+    pub const fn is_override(&self) -> bool {
+        self.overrides.is_some()
+    }
+}
+
 /// One class's action manifest, keyed by classid — the action-axis sibling of
 /// [`crate::codegen_manifest::ClassMethods`]. Generated downstream; the Core
 /// provides the type + the (inheritance-aware) lookup.
@@ -125,34 +135,66 @@ pub fn actions_for(registry: &[ClassActions], classid: u32) -> &'static [ActionD
 /// then the child's net-new actions appended.
 #[must_use]
 pub fn effective_actions(parent: &[ActionDef], child: &[ActionDef]) -> Vec<ActionDef> {
+    // Precondition: predicates are unique WITHIN each class's action table (the
+    // harvest is the manifest — a duplicate predicate is a generator bug). The
+    // merge below is also defensively dedup'd so a stray duplicate never
+    // double-dispatches; the assert surfaces the generator bug in debug.
+    debug_assert!(
+        !has_duplicate_predicate(parent) && !has_duplicate_predicate(child),
+        "effective_actions: each ActionDef slice must have unique predicates per class"
+    );
     let mut out: Vec<ActionDef> = Vec::with_capacity(parent.len() + child.len());
+    // Parent actions, each overridden by a same-predicate child if present.
+    // Emit each predicate at most once (first occurrence within parent wins).
     for p in parent {
-        // A child action with the same predicate overrides the parent's.
+        if out.iter().any(|e| e.predicate == p.predicate) {
+            continue; // duplicate predicate already emitted
+        }
         match child.iter().find(|c| c.predicate == p.predicate) {
             Some(c) => out.push(*c),
             None => out.push(*p),
         }
     }
+    // Child net-new actions (predicate not already emitted), deduped.
     for c in child {
-        if !parent.iter().any(|p| p.predicate == c.predicate) {
-            out.push(*c);
+        if out.iter().any(|e| e.predicate == c.predicate) {
+            continue;
         }
+        out.push(*c);
     }
     out
 }
 
+/// Whether `defs` contains two actions with the same `predicate` (a per-class
+/// uniqueness violation — the harvest should never produce one).
+fn has_duplicate_predicate(defs: &[ActionDef]) -> bool {
+    defs.iter()
+        .enumerate()
+        .any(|(i, a)| defs[..i].iter().any(|b| b.predicate == a.predicate))
+}
+
 /// DO arm — **dynamic** invocation (one per fire). Carries the lifecycle, the
-/// S2.5 SoA cycle stamp, and the dedup/provenance keys. `Copy` (all fields are
-/// scalar/`&'static`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// S2.5 SoA cycle stamp, and the dedup/provenance keys.
+///
+/// **`Clone`, NOT `Copy`** (deliberate): this is a one-shot lifecycle carrier
+/// whose `commit` mutates `state`/`emitted_at_millis` in place. `Copy` would let
+/// a caller commit a *copy* and silently lose the mutation on the original (and
+/// mint duplicate-`idempotency_key` fires) — so duplication must be an explicit
+/// `.clone()` at the call site.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActionInvocation {
     /// The acted-upon class (OGAR classid) — with `predicate`, identifies the
-    /// [`ActionDef`] this realizes.
+    /// [`ActionDef`] this realizes. Equals `object_instance.classid()`.
     pub object_class: u32,
     /// The realized action's `has_function` name.
     pub predicate: &'static str,
-    /// The specific instance acted on (GUID identity tail).
-    pub object_instance: u32,
+    /// The specific instance acted on — the **full canonical [`NodeGuid`]**, not
+    /// a bare identity tail. It carries the `classid`, HHTL prefix, `family`
+    /// basin, and `identity`, so a consumer reconstructs the exact target with
+    /// no truncation or basin ambiguity. (A bare `u32` tail would panic the
+    /// 24-bit assert or alias two basins; the external-mutation egress must not
+    /// drop the key.)
+    pub object_instance: NodeGuid,
     /// Lifecycle state.
     pub state: ActionState,
     /// SoA cycle-ownership stamp (S2.5) — the mailbox `current_cycle` that
@@ -168,15 +210,24 @@ pub struct ActionInvocation {
 
 impl ActionInvocation {
     /// Construct a fresh `Pending` invocation.
+    ///
+    /// `object_instance` is the full canonical [`NodeGuid`] of the target; its
+    /// `classid()` must equal `object_class` (debug-asserted — the def-match
+    /// keys on `object_class`, the address on the GUID, and they must agree).
     #[must_use]
     pub fn pending(
         object_class: u32,
         predicate: &'static str,
-        object_instance: u32,
+        object_instance: NodeGuid,
         cycle: u32,
         idempotency_key: u64,
         trace_id: u64,
     ) -> Self {
+        debug_assert_eq!(
+            object_instance.classid(),
+            object_class,
+            "object_instance GUID classid must match object_class"
+        );
         Self {
             object_class,
             predicate,
@@ -369,12 +420,18 @@ mod tests {
         )
     }
 
+    /// A target instance GUID whose classid matches the sale_order actions
+    /// (0x0A1E_0001), default basin, `identity` discriminating.
+    fn inst(identity: u32) -> NodeGuid {
+        NodeGuid::new(0x0A1E_0001, 0, 0, 0, 0, identity)
+    }
+
     #[test]
     fn commit_requires_rbac_then_mul_flow() {
         let def = &SALE_ORDER_ACTIONS[0]; // required_role = "sales_manager"
 
         // authorized + guard satisfied (state==draft) + Flow → Committed, stamped.
-        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
+        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", inst(7), 3, 1, 1);
         assert_eq!(
             inv.commit(
                 def,
@@ -406,7 +463,7 @@ mod tests {
     #[test]
     fn commit_unauthorized_fails_before_impact() {
         let def = &SALE_ORDER_ACTIONS[0];
-        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
+        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", inst(7), 3, 1, 1);
         // wrong role, even with a Flow gate + satisfied guard → Failed (RBAC first).
         assert_eq!(
             inv.commit(
@@ -427,7 +484,7 @@ mod tests {
         let any = actor_with(&[]);
 
         // action_cancel has no guard → guard_field_value is ignored (None).
-        let mut held = ActionInvocation::pending(0x0A1E_0001, "action_cancel", 7, 3, 1, 1);
+        let mut held = ActionInvocation::pending(0x0A1E_0001, "action_cancel", inst(7), 3, 1, 1);
         assert_eq!(
             held.commit(
                 def,
@@ -442,7 +499,7 @@ mod tests {
             "Hold escalates — stays Pending for re-assessment"
         );
 
-        let mut blocked = ActionInvocation::pending(0x0A1E_0001, "action_cancel", 7, 3, 1, 1);
+        let mut blocked = ActionInvocation::pending(0x0A1E_0001, "action_cancel", inst(7), 3, 1, 1);
         assert_eq!(
             blocked.commit(
                 def,
@@ -464,7 +521,8 @@ mod tests {
     #[test]
     fn commit_rejects_mismatched_def() {
         let confirm_inv_with_cancel_def = || {
-            let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
+            let mut inv =
+                ActionInvocation::pending(0x0A1E_0001, "action_confirm", inst(7), 3, 1, 1);
             // SALE_ORDER_ACTIONS[1] is action_cancel (no required_role, no guard).
             let state = inv.commit(
                 &SALE_ORDER_ACTIONS[1],
@@ -489,7 +547,7 @@ mod tests {
     #[test]
     fn guarded_action_refused_in_wrong_state() {
         let def = &SALE_ORDER_ACTIONS[0]; // guard: state == "draft"
-        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
+        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", inst(7), 3, 1, 1);
         let state = inv.commit(
             def,
             &actor_with(&["sales_manager"]),
@@ -505,7 +563,7 @@ mod tests {
         assert_eq!(inv.emitted_at_millis, None, "refused action never emits");
 
         // unknown state (None) with a guard present is also refused.
-        let mut inv2 = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
+        let mut inv2 = ActionInvocation::pending(0x0A1E_0001, "action_confirm", inst(7), 3, 1, 1);
         assert_eq!(
             inv2.commit(
                 def,
