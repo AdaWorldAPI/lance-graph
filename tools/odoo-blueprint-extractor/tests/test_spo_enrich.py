@@ -599,17 +599,19 @@ class TestConstrainsScan(unittest.TestCase):
 
 
 def _scan_sel(src):
-    """Run `_scan_file` over a synthetic module; return the selections dict."""
-    from odoo_blueprint_extractor.spo_enrich import _scan_file
-    relmap, inherits, constrains, selections = {}, {}, {}, {}
+    """Run `_scan_file` over a synthetic module; return the RESOLVED selections
+    map (`None` = open domain, else the closed value list) — mirroring what
+    `build_all_facts` returns."""
+    from odoo_blueprint_extractor.spo_enrich import _scan_file, _resolve_selections
+    relmap, inherits, constrains, sel_acc = {}, {}, {}, {}
     with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as f:
         f.write(src)
         path = f.name
     try:
-        _scan_file(path, relmap, inherits, constrains, selections)
+        _scan_file(path, relmap, inherits, constrains, sel_acc)
     finally:
         os.unlink(path)
-    return selections
+    return _resolve_selections(sel_acc)
 
 
 def _classify_sel(src):
@@ -762,6 +764,24 @@ class TestSelectionScan(unittest.TestCase):
         self.assertIn("open", keys)
         self.assertNotIn(
             "posted", keys, "stale key from the replaced declaration must be dropped"
+        )
+
+    def test_selection_add_before_base_is_order_independent(self):
+        # codex #536 follow-up: the `selection_add` EXTENSION class is scanned
+        # BEFORE the base `selection=` class (glob.iglob gives no order). The
+        # base's REPLACE must NOT clobber the already-accumulated extension —
+        # the resolved domain includes the added key regardless of order.
+        sel = _scan_sel(
+            "class Ext:\n"
+            "    _inherit = 'account.move'\n"
+            "    state = fields.Selection(selection_add=[('reviewed','Reviewed')])\n"
+            "\n"
+            "class Base:\n"
+            "    _name = 'account.move'\n"
+            "    state = fields.Selection([('draft','Draft'),('posted','Posted')])\n"
+        )
+        self.assertEqual(
+            sel, {("account_move", "state"): ["draft", "posted", "reviewed"]}
         )
 
 

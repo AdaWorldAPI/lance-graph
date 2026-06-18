@@ -172,6 +172,42 @@ SELECTION_VALUE_TRUTH = (0.95, 0.90)
 _VALIDATION_KINDS = ("presence", "uniqueness", "range", "format", "lookup")
 
 
+def _new_sel_acc() -> Dict[str, object]:
+    """An order-independent Selection-domain accumulator per `(model, field)`.
+
+    `replace` and `extend` are kept SEPARATE through the whole scan so the
+    final domain does not depend on the order `glob.iglob` happens to walk the
+    addon files in (codex follow-up on #536): a `selection_add=` extension
+    scanned BEFORE the base `selection=[…]` must not be clobbered by the
+    base's REPLACE.
+
+    - `replace`: keys from the last static `selection=[…]` (full declaration —
+      a redeclaration supersedes the earlier one). `None` until one is seen.
+    - `extend`:  the union of every `selection_add=[…]` (order-preserving).
+    - `poison`:  any dynamic base seen → the domain is open and never closable.
+    """
+    return {"replace": None, "extend": [], "poison": False}
+
+
+def _resolve_selections(
+    acc: "Dict[Tuple[str, str], Dict[str, object]]",
+) -> "Dict[Tuple[str, str], Optional[List[str]]]":
+    """Collapse the per-field accumulators into the final domain map:
+    `None` = poisoned (open), else `replace ++ extend` (de-duped, base first).
+    Order-independent: replace and extend were tracked separately."""
+    out: "Dict[Tuple[str, str], Optional[List[str]]]" = {}
+    for key, rec in acc.items():
+        if rec["poison"]:
+            out[key] = None
+            continue
+        domain: List[str] = list(rec["replace"] or [])  # type: ignore[arg-type]
+        for v in rec["extend"]:  # type: ignore[union-attr]
+            if v not in domain:
+                domain.append(v)
+        out[key] = domain
+    return out
+
+
 def _selection_tuple_keys(node: Optional[ast.expr], out: List[str], seen: Set[str]) -> None:
     """Append the first-element string key of each 2-tuple in `node` (a list
     or tuple of `('key','Label')` pairs) to `out`, de-duplicating against
@@ -335,7 +371,7 @@ def _scan_file(
     relmap: Dict[Tuple[str, str], Tuple[str, Optional[str]]],
     inherits: Optional[Dict[str, Set[str]]] = None,
     constrains: Optional[Dict[Tuple[str, str], Set[str]]] = None,
-    selections: Optional[Dict[Tuple[str, str], Optional[List[str]]]] = None,
+    selections: Optional[Dict[Tuple[str, str], Dict[str, object]]] = None,
 ) -> None:
     """Parse one .py file; record every relational field on every named model.
     Optionally also record `inherits_from` edges and `@api.constrains`
@@ -492,28 +528,29 @@ def _scan_file(
                 # comodel for a given (model, field) is stable in practice.
                 relmap[(mu, field_name)] = (comodel, inverse)
             if selections is not None:
-                # Sentinel `None` value = POISONED (open domain): a dynamic
-                # base anywhere means the field can never be a closed
-                # `ASSERT IN [...]`. Poison is STICKY and wins over any keys.
+                # Accumulate REPLACE / EXTEND / POISON SEPARATELY per field so
+                # the resolved domain is independent of file scan order (codex
+                # follow-up on #536). `_resolve_selections` collapses these at
+                # the end of `build_all_facts`.
+                #   - poison: a dynamic base → open domain, sticky, never closed
+                #   - replace: last static `selection=` wins (drops stale keys
+                #     from a superseded full redeclaration — #532 finding #2)
+                #   - extend: union of every `selection_add=` (order-preserving;
+                #     NEVER clobbered by a replace — the #536 fix)
                 for field_name in local_sel_poison:
-                    selections[(mu, field_name)] = None
-                # A full static `selection=` REPLACES the domain (drops the
-                # earlier declaration's stale keys — codex #532 finding #2),
-                # unless the field is already poisoned.
+                    selections.setdefault((mu, field_name), _new_sel_acc())[
+                        "poison"
+                    ] = True
                 for field_name, keys in local_sel_replace.items():
-                    if selections.get((mu, field_name), 0) is None:
-                        continue
-                    selections[(mu, field_name)] = list(keys)
-                # `selection_add=` EXTENDS (unions onto the accumulated set),
-                # unless poisoned (codex #532 finding #1 — never close a
-                # dynamic-base domain from selection_add alone).
+                    selections.setdefault((mu, field_name), _new_sel_acc())[
+                        "replace"
+                    ] = list(keys)
                 for field_name, keys in local_sel_extend.items():
-                    if selections.get((mu, field_name), 0) is None:
-                        continue
-                    acc = selections.setdefault((mu, field_name), [])
+                    acc = selections.setdefault((mu, field_name), _new_sel_acc())
+                    ext = acc["extend"]
                     for v in keys:
-                        if v not in acc:
-                            acc.append(v)
+                        if v not in ext:
+                            ext.append(v)
 
         # ── P1b: inherits_from edges ─────────────────────────────────────
         # Only when the class declares a NEW model (_name is set). An
@@ -561,10 +598,14 @@ def build_all_facts(
     relmap: Dict[Tuple[str, str], Tuple[str, Optional[str]]] = {}
     inherits: Dict[str, Set[str]] = {}
     constrains: Dict[Tuple[str, str], Set[str]] = {}
-    selections: Dict[Tuple[str, str], List[str]] = {}
+    # Raw per-field accumulators (replace/extend/poison kept separate); resolved
+    # to the final `Optional[List[str]]` domain map AFTER the full scan, so the
+    # result is independent of glob walk order.
+    sel_acc: "Dict[Tuple[str, str], Dict[str, object]]" = {}
     pattern = os.path.join(addons_root, "**", "*.py")
     for path in glob.iglob(pattern, recursive=True):
-        _scan_file(path, relmap, inherits, constrains, selections)
+        _scan_file(path, relmap, inherits, constrains, sel_acc)
+    selections = _resolve_selections(sel_acc)
     return relmap, inherits, constrains, selections
 
 
