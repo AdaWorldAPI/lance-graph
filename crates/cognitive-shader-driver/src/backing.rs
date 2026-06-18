@@ -44,9 +44,9 @@ use causal_edge::edge::CausalEdge64;
 use lance_graph_contract::cognitive_shader::{ColumnWindow, MetaFilter};
 
 use crate::bindspace::BindSpace;
-use crate::mailbox_soa::{WriteCell, WriteOutcome};
 #[cfg(feature = "mailbox-thoughtspace")]
 use crate::mailbox_soa::MailboxSoA;
+use crate::mailbox_soa::{WriteCell, WriteOutcome};
 
 /// Read-only substrate the dispatch hot path sweeps.
 ///
@@ -272,7 +272,12 @@ impl BackingStoreWrite<'_> {
     ///   Mailbox-only on the write shim; the legacy singleton path does not carry
     ///   them (it has no dense-plane setter on this surface).
     #[inline]
-    pub(crate) fn write_row(&mut self, row: usize, cycle: u32, cell: &WriteCell<'_>) -> WriteOutcome {
+    pub(crate) fn write_row(
+        &mut self,
+        row: usize,
+        cycle: u32,
+        cell: &WriteCell<'_>,
+    ) -> WriteOutcome {
         #[cfg(feature = "mailbox-thoughtspace")]
         if let BackingStoreWrite::Mailbox(mb) = self {
             return mb.write_row(row, cycle, cell);

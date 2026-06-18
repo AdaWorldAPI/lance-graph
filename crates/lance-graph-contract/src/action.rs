@@ -316,14 +316,19 @@ mod tests {
         ];
         let eff = effective_actions(parent, child);
         assert_eq!(eff.len(), 3, "confirm(overridden) + message_post + done");
-        let confirm = eff.iter().find(|a| a.predicate == "action_confirm").unwrap();
+        let confirm = eff
+            .iter()
+            .find(|a| a.predicate == "action_confirm")
+            .unwrap();
         assert_eq!(
             confirm.object_class, 0x02,
             "child's action_confirm overrides the parent's"
         );
         assert_eq!(confirm.required_role, Some("sales_manager"));
         // inherited unchanged
-        assert!(eff.iter().any(|a| a.predicate == "message_post" && a.object_class == 0x01));
+        assert!(eff
+            .iter()
+            .any(|a| a.predicate == "message_post" && a.object_class == 0x01));
         // net-new appended
         assert!(eff.iter().any(|a| a.predicate == "action_done"));
     }
@@ -344,7 +349,12 @@ mod tests {
         // authorized + Flow → Committed, stamped.
         let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
         assert_eq!(
-            inv.commit(def, &actor_with(&["sales_manager"]), &GateDecision::Flow, 1000),
+            inv.commit(
+                def,
+                &actor_with(&["sales_manager"]),
+                &GateDecision::Flow,
+                1000
+            ),
             ActionState::Committed
         );
         assert_eq!(inv.emitted_at_millis, Some(1000));
@@ -352,7 +362,14 @@ mod tests {
 
         // committed is sticky — re-adjudication is a no-op.
         assert_eq!(
-            inv.commit(def, &actor_with(&["sales_manager"]), &GateDecision::Block { reason: "x".to_string() }, 2000),
+            inv.commit(
+                def,
+                &actor_with(&["sales_manager"]),
+                &GateDecision::Block {
+                    reason: "x".to_string()
+                },
+                2000
+            ),
             ActionState::Committed
         );
     }
@@ -376,14 +393,28 @@ mod tests {
 
         let mut held = ActionInvocation::pending(0x0A1E_0001, "action_cancel", 7, 3, 1, 1);
         assert_eq!(
-            held.commit(def, &any, &GateDecision::Hold { reason: "low confidence".to_string() }, 1000),
+            held.commit(
+                def,
+                &any,
+                &GateDecision::Hold {
+                    reason: "low confidence".to_string()
+                },
+                1000
+            ),
             ActionState::Pending,
             "Hold escalates — stays Pending for re-assessment"
         );
 
         let mut blocked = ActionInvocation::pending(0x0A1E_0001, "action_cancel", 7, 3, 1, 1);
         assert_eq!(
-            blocked.commit(def, &any, &GateDecision::Block { reason: "unsound impact".to_string() }, 1000),
+            blocked.commit(
+                def,
+                &any,
+                &GateDecision::Block {
+                    reason: "unsound impact".to_string()
+                },
+                1000
+            ),
             ActionState::Cancelled
         );
     }
