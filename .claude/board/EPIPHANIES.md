@@ -1,3 +1,28 @@
+## 2026-06-18 — E-GUID-IS-THE-GRAPH — the substrate IS a graph already: GUID-key = node, EdgeBlock-slot = edge, traversal = prefix-route + slot-deref, all zero-value-decode; SurrealQL is egress, kanban dispatches
+
+**Status:** FINDING (grounded in shipped `canonical_node.rs` / `soa_view.rs` / `kanban.rs` / planner polyglot strategies). Written to stop the q2-rewire session from hallucinating a node/edge/Cypher layer that already exists.
+
+**The spine — the GUID is the key (canon, CLAUDE.md CANON + OGAR P0):** a node IS its 16-byte `NodeGuid`. There is no "node table with a guid column" and nothing to "expose" — the key is the address and the prerender:
+- `classid (0..4) → ClassView` (type/class/method-resolution),
+- `HEEL/HIP/TWIG (4..10) → cascade tier` (HHTL routing),
+- `family (10..13) → basin`, `identity (13..16) → instance`; `local_key()` = bytes 10..16.
+All of that resolves **off the key alone, zero value decode** ("the key prerenders nodes — in any way — with zero value decode"). The `MailboxSoaView` columns (`energy`/`edges_raw`/`meta_raw`/`entity_type`/`class_id`/content·topic·angle planes) are the **value side** — "everything the key isn't" (deferred 480 B, Lance-compressible). You never look up a row's GUID; the GUID is how you addressed the row.
+
+**Edges are key-references, not blobs:** an `EdgeBlock` slot is one byte = a basin-local index that resolves to a neighbor's `local_key`. Two coexisting representations: `EdgeBlock` (12 in-family + 4 out-family adjacency-of-keys, in the canonical `NodeRow`) and `edges_raw() -> &[u64]` (`CausalEdge64`, the causal/W-slot variant on the view). Both are references.
+
+**Therefore the substrate is ALREADY a graph — traversal needs no new layer:**
+- `MATCH (n:Person)` → classid prefix binds `ClassView` (a prefix route on the key).
+- `(a)-[r]->(b)` → dereference an `EdgeBlock` slot (byte → neighbor `local_key`).
+- Both happen on keys, zero value decode — that is the entire point of GUID-as-key: routing + prerender never touch the compressed value.
+
+**Two corrections to the q2 framing (what it got inverted):**
+1. **SurrealQL is EGRESS, not a Cypher/Gremlin front-end.** Front-end parsers are Cypher/Gremlin/SPARQL/GQL → one planner IR. SurrealQL appears only as `ExecTarget::SurrealQl` (lower the parsed plan, run in substrate) + `ogar-adapter-surrealql` schema registration (`DEFINE TABLE`/`knowable_from`). Flow is `Cypher → IR → (optionally) ExecTarget::SurrealQl`, never "SurrealQL adapter as Cypher." (The "DLL AST adapter" phrasing is the OGAR C++→Rust codegen subsystem — a third, unrelated thing.)
+2. **Kanban is the mailbox LIFECYCLE, not the traversal.** `KanbanColumn` = `Planning→CognitiveWork→Evaluation→Commit` (+`Plan`/`Prune`), the Rubicon cycle of ONE mailbox (`phase()`, `try_advance_phase`, `KanbanMove`). A traversal is **dispatched as** the `CognitiveWork` action via `ExecTarget` — fine read as *dispatched-within*, wrong read as *kanban-transition = edge-hop*. "16k" is the `Vsa16kF32` fingerprint width (16384 bits/row), a different axis from a `MailboxSoA<N>` row-count.
+
+**The minimal real wiring (no new layer):** the only missing piece for Cypher-over-the-canonical-substrate is a `Backend::MailboxSoa` variant in `graph_router` whose scan resolves **key → row** (`from_guid_prefix` / `local_key()`) and follows `EdgeBlock`/`edges_raw` slots. Not a guid value-column; not a SurrealQL front-end; not a kanban-as-traversal. Just: route on the key, deref the edge slot. Cross-refs: `canonical_node::{NodeGuid, EdgeBlock, NodeRow}`, `soa_view::MailboxSoaView`, `kanban::{KanbanColumn, ExecTarget}`, planner `strategy/{cypher,gremlin,sparql,gql}_parse.rs`, `E-OGAR-ROUTER-ENCODER` (the key-prefix router is the same address machinery).
+
+---
+
 ## 2026-06-18 — E-PERTURBATION-CASCADE-IS-COMPUTE-DAG — the electricity cascade crate is `compute_dag` already running on a real physical field, and it ships the Weyl bound that certifies the incremental recompute
 
 **Status:** FINDING (mechanism mapping; no dependency added). The `crates/perturbation-sim` outage simulator is the physical instance of the SAME topological recompute `ClassView::compute_dag` + `compute_dag_topo_order` + `write_row` express abstractly. Doc-level join only (`crates/perturbation-sim/COMPUTE_DAG_MAPPING.md`); the crate stays zero-dep / workspace-excluded — no `lance-graph-contract` import. Grounds: `E-CHESS-TENSOR-PROVEN`, `E-EXCEL-SHADER-PROJECTION`, `E-OGAR-ROUTER-ENCODER`, `probe-excel-compute-dag-v1`.
