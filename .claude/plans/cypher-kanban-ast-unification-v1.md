@@ -105,3 +105,20 @@ traversal is Cypher over `Backend::MailboxSoa`.
 `kanban::{KanbanColumn, ExecTarget}`, planner `thinking/` +
 `strategy/cypher_parse.rs`, `graph_router::Backend`,
 `.claude/rules/architectural-compliance.md` (q2 must consume, not substitute).
+
+---
+
+## 5+3 Council verdict (2026-06-18) — revisions applied
+
+8/8 reported. Core thesis **SOUND** (convergence: `StepDomain::Kanban` exists; all 4 polyglot parsers already return one `PlanInput`/`QueryFeatures` IR — 3 of 4 sides are genuinely one IR). Revisions:
+
+1. **Headline demoted** (dilution-sentinel): "four sides of one AST" → **"one IR, four *relationships*"** (surface=Cypher / egress=SurrealQL / planner-layer=styles / mutated=board).
+2. **CATCH-CRITICAL fixed first** (baton-auditor): `MailboxSoaView` had no key→row resolver — added `row_for_local_key(local_key) -> Option<usize>` default-`None` (deferred binding). `from_guid_prefix` is on **`NiblePath`** (`hhtl.rs:262`), not `NodeGuid` — Inc 0 routes via `NiblePath::from_guid_prefix(&guid)` + `NodeGuid::local_key` + `MailboxSoaView::row_for_local_key`.
+3. **Resequenced** (integration-lead): **first shippable = Inc 0 + F1/F2 ALONE**, on the DataFusion-default `ExecTarget::Native` path — zero SurrealQL, zero `lite-unified`, zero q2 coupling. **Inc 1 (Cypher→SurrealQL) is a *dependency-on* `lite-unified-v1`'s OQ-LU-2, NOT a duplicate deliverable** (the two plans were claiming the same lowering).
+4. **Three boundaries to pin before Inc 0 lands** (ripple-architect):
+   - **(b) edge-representation is `classid`-resolved, not query-guessed:** a relationship-type binds to `EdgeBlock` (adjacency) XOR `CausalEdge64` (causal) via the class's `EdgeCodecFlavor`/`ReadMode` — the router must not pick by availability.
+   - **(a) domain-board transition schema ≠ `KanbanColumn`:** a domain board's legal moves resolve via `classid → ClassView`, NOT `KanbanColumn::can_transition_to` (that encodes the *mailbox* Rubicon DAG only). Same graph shape, different transition algebra.
+   - **(d) board mutation routes through the DO arm:** a move = `ActionInvocation` through the commit gate (def-match→RBAC→state-guard→MUL), NOT a raw `MATCH…SET` edge-rewrite — otherwise WIP/permission/MUL guards are bypassed. Add F6: an illegal move fails at plan time for ALL guard classes, not just Rubicon legality.
+5. **Status downgrades** (truth-architect + archaeologist): the "odoo existence proof" is a tagged `const` + `classify_odoo`, NOT a running traversal → CONJECTURE; "zero-value-decode" (F2) is design-intent until the value-access counter exists; `ogar-adapter-surrealql` is not a crate (it's `surreal_container::SurrealStore`, a `BLOCKED(C)` stub).
+
+**Net first increment (this PR):** the `row_for_local_key` deferred-binding contract method (the named dropped baton) — additive, zero-dep, testable now. `Backend::MailboxSoa` (Inc 0 proper) follows once the three boundaries above are pinned.

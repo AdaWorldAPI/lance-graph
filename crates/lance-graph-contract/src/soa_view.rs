@@ -68,6 +68,26 @@ pub trait MailboxSoaView {
         self.entity_type()[row]
     }
 
+    /// Resolve a canonical [`NodeGuid::local_key`](crate::canonical_node::NodeGuid::local_key)
+    /// (bytes 10..16 = family++identity, the basin-local discriminator) to a row
+    /// index in this view — the **key→row baton** a `Backend::MailboxSoa` graph
+    /// router needs to land a Cypher `MATCH`/edge-slot deref on the GUID-keyed
+    /// substrate (`cypher-kanban-ast-unification-v1` Inc 0; the baton-handoff-auditor's
+    /// CATCH-CRITICAL — the View previously exposed only `n_rows`, with no way to go
+    /// from the canon address back to a row).
+    ///
+    /// **Default = `None` (zero-fallback, deferred binding).** A view that has NOT
+    /// materialized a per-row key index returns `None` for every key — the same
+    /// deferred-accessor discipline as `qualia` / `episodic_witness` below: the
+    /// resolver contract is declared here so the router signature can name it, and an
+    /// owner that stores keys (the in-RAM `MailboxSoA`, once it carries a `local_key`
+    /// column) overrides this. Until then a consumer that gets `None` falls back to
+    /// the positional `(mailbox_id, row)` address, never a wrong row.
+    #[inline]
+    fn row_for_local_key(&self, _local_key: u64) -> Option<usize> {
+        None
+    }
+
     // NOTE (follow-up): the qualia column (`QualiaI4_16D`) accessor is intentionally omitted —
     // add `fn qualia(&self) -> &[crate::qualia::QualiaI4_16D]` when the first consumer
     // (planner strategy selection) needs it; keep the read surface minimal until then.
@@ -230,6 +250,17 @@ mod tests {
         assert_eq!(soa.energy_at(1), 0.2);
         assert_eq!(soa.phase(), KanbanColumn::Planning);
         assert_eq!(soa.w_slot(), 7);
+    }
+
+    #[test]
+    fn row_for_local_key_defaults_to_none_until_a_key_index_is_materialized() {
+        // Deferred-binding default: a view with no per-row key column resolves
+        // every local_key to None — the consumer falls back to the positional
+        // (mailbox_id, row) address, never a wrong row. The Backend::MailboxSoa
+        // router can name this baton; an owner that stores keys overrides it.
+        let soa = sample();
+        assert_eq!(soa.row_for_local_key(0), None);
+        assert_eq!(soa.row_for_local_key(u64::MAX), None);
     }
 
     #[test]

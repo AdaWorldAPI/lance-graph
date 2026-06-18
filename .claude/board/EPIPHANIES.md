@@ -1,4 +1,27 @@
+## 2026-06-18 — E-OGAR-IS-FOUNDRY — being Palantir Foundry / Gotham reduces to "write the OGAR class schema + inheritance"; everything else (traversal, query, pipelines, actions, low-code apps) is generic machinery over it via the shared AST
+
+**Status:** FINDING (capstone; operator-stated). The platform-level reading of the whole arc: Foundry/Gotham is not a platform to rebuild — it is an **OGAR class-schema-inheritance exercise**, because every other Foundry/Gotham layer is already generic machinery the workspace ships, parameterized only by `classid`.
+
+**The reduction (each Foundry/Gotham layer → an OGAR primitive already in code):**
+
+| Foundry / Gotham layer | OGAR primitive | Shipped surface |
+|---|---|---|
+| **Ontology** (object types + links) | OGAR **class schema + inheritance** | `classid → ClassView`; `effective_actions` / effective-methods = inheritance |
+| **Objects + links** | GUID node + `EdgeBlock` edge | `E-GUID-IS-THE-GRAPH` (key=node, slot=edge, zero-value-decode) |
+| **AR object behavior** | **DO vs THINK = Active Record** | THINK = `ClassView`/`MethodSig` (fields+methods, read/compute); DO = `ActionDef`/`ActionInvocation` (actions, gated RBAC→state-guard→MUL) |
+| **Pipelines / transforms** | `compute_dag` topological recompute | `ClassView::compute_dag` + `compute_dag_topo_order` (`E-EXCEL`/`E-CHESS`/`E-PERTURBATION`) |
+| **Apps / low-code / dashboards** | **Jinja/templates over OGAR classes** | `soa_view.rs:57` — `class_id → OGIT ontology → "label inheritance, column projection, jinja templates"` resolve one layer up |
+| **Query / traversal surface** | **Cypher ⇄ SurrealQL, one shared AST** | `E-CYPHER-IS-THE-KANBAN-AST`; polyglot parsers → one `PlanInput` IR; SurrealQL is egress |
+
+**The headline:** AR-shaped DO/THINK objects + the shared Cypher/SurrealQL AST mean **any low-code or Jinja template runs over OGAR classes** without bespoke per-app wiring — the template binds to the class's fields (THINK) and actions (DO), the AST traverses/queries/mutates them, `compute_dag` recomputes derived fields, the DO-arm gate authorizes writes. So a vertical (medical / work-orders / intelligence cases / project boards) = *write its OGAR classes + inheritance*, and the platform behaviors fall out. That is the Foundry-aspiring superpower: the reduction of "build a platform" to "declare a schema."
+
+**Scope guard (truth-architect, carried from the 5+3 on the sibling plan):** "everything else is shipped" is the *architecture*, not "all wired today." The honest gaps the council found: (a) `ogar-adapter-surrealql` is NOT a crate — the nearest is `surreal_container::SurrealStore` (a `BLOCKED(C)` stub); the Cypher→SurrealQL lowering rides `lite-unified` (#540, default-OFF). (b) the "odoo ontology traversal already runs through SurrealQL" claim is a tagged `const ActionDef` + `classify_odoo` classification, **not** a running end-to-end traversal — CONJECTURE, not FINDING, until an `ExecTarget::SurrealQl` executor arm exists. (c) Jinja-over-classes is the `class_id→ontology` seam (real hook) + `lance-graph-ontology` resolution — the template *engine* binding is not yet a shipped path. The reduction is the doctrine; the wiring is the `cypher-kanban-ast-unification-v1` increments. Cross-refs: `E-CYPHER-IS-THE-KANBAN-AST`, `E-GUID-IS-THE-GRAPH`, `E-AR-DO-WIRING` (DO/THINK arms), `cypher-kanban-ast-unification-v1`, `canonical_node`/`class_view`/`action`/`soa_view`.
+
+---
+
 ## 2026-06-18 — E-CYPHER-IS-THE-KANBAN-AST — a kanban board IS a graph, so Cypher is its AST; board-ops + ontology-traversal + thinking-style dispatch + SurrealQL egress collapse to ONE shared AST
+
+**Council correction (2026-06-18, 5+3 on `cypher-kanban-ast-unification-v1`):** three legs of this entry were over-stated and are hereby qualified (the CORE — board-is-graph, Cypher-is-graph-AST — stands; convergence-architect confirmed 3 of 4 sides share one shipped `PlanInput` IR): **(1)** "one AST seen from four sides" → say **"one IR, four *relationships*"** (surface = Cypher; egress = SurrealQL; planner-layer = thinking-styles; mutated = board) — they are *is* / *lowers-to* / *plans-over* / *is-mutated-by*, not one identity (dilution-collapse-sentinel). **(2)** "odoo ontology traversal already runs through the SurrealQL AST adapter — existence proof" is **CONJECTURE, not FINDING**: it is a tagged `const ActionDef`(`ExecTarget::SurrealQl`) + `classify_odoo`, with NO executor arm and NO Cypher→SurrealQL lowering in source; `ogar-adapter-surrealql` is not a crate (truth-architect + runtime-archaeologist). **(3)** `from_guid_prefix` lives on **`NiblePath`** (`hhtl.rs:262`), NOT `NodeGuid`; and the wiring is **blocked CATCH-CRITICAL** until `MailboxSoaView` gains a key→row resolver (`row_for_local_key`, now added default-`None`) — the View had only `n_rows`, no way back from the canon address to a row (baton-handoff-auditor). Preserve the distinction `E-GUID` correction #2 drew: mailbox-cycle `KanbanColumn` phase-advance (traversal *dispatched-within* `CognitiveWork`) ≠ domain-board column move (an edge-rewrite) — same AST surface, two semantics (ripple-architect).
 
 **Status:** FINDING (convergence; odoo is the existence proof — ontology traversal already runs through the SurrealQL AST adapter). Refines `E-GUID-IS-THE-GRAPH` correction #2: "kanban is lifecycle, not traversal" was a false dichotomy — the lifecycle state-machine IS a graph, and that's the whole point.
 
