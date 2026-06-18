@@ -11,28 +11,37 @@
 //! prefix-route**, resolved off the key/class column with **zero value decode**
 //! (it never touches the 480 B value slab: `energy` / `meta` / fingerprints).
 //!
-//! ## Scope of this increment (the verified-safe half)
+//! ## Facets landed (the dispatch table — all key-resident, zero value decode)
 //!
-//! This lands the **node-match** half — `MATCH (n:Label)` → the set of rows whose
-//! class discriminator equals the queried class. That is the half that is correct
-//! *without* the boundary the 5+3 council said to pin first.
+//! The substrate IS the graph, so a query routes to the cheapest facet that
+//! answers it, off the GUID key, never touching the 480 B value slab
+//! (`energy` / `meta` / fingerprints — the F2 invariant):
 //!
-//! The **edge-traversal** half (`(a)-[r]->(b)`) is deliberately **deferred**, for
-//! two grounded reasons (verdict §4b):
+//! - **classid node-match** ([`match_nodes_by_class`]) — `MATCH (n:Label)` as a
+//!   classid prefix-route; [`match_node_by_local_key`] for the `local_key`→row
+//!   point lookup.
+//! - **CLAM/CAKES neighborhood** ([`clam_contained`] / [`cakes_nearest`]) —
+//!   `panCAKES ≡ radix trie ≡ HHTL`: the CLAM cluster tree IS the radix trie of
+//!   the HHTL nibble paths in the keys, so containment = `is_ancestor_of` and
+//!   nearest = `NiblePath::common_prefix_depth` (`E-PANCAKES-IS-RADIX-IS-HHTL`).
+//! - **EdgeBlock typed edges** ([`edge_slots_coarse`]) — `(a)-[r]->…` under the
+//!   classid-resolved [`EdgeCodecFlavor`]; `EdgeBlock` is bytes 16..32 (the edge
+//!   region, not the value slab). `CoarseOnly` = 12-family/4-external slot
+//!   structure; `Pq32x4` (turbovec residue) / `CoarseResidue` are refused, not
+//!   coerced to adjacency (`E-ADJACENCY-IS-KEY-AND-EDGECODEC` §4b).
 //!
-//! 1. **Edge-representation is not yet pinned.** `EdgeBlock` (12+4 one-byte
-//!    *adjacency* slots → neighbor `local_key`) and `CausalEdge64` (an **SPO
-//!    triple** of s/p/o palette indices, the `edges_raw` column) are NOT
-//!    interchangeable. A relationship-type must bind to one via the class's
-//!    `EdgeCodecFlavor` — the router must not guess by availability.
-//! 2. **The View exposes only `edges_raw` (`CausalEdge64`/SPO), not `EdgeBlock`
-//!    adjacency.** `CausalEdge64` carries s/p/o palette indices, not a row→row
-//!    pointer, so it cannot be dereferenced to a neighbor row without the
-//!    adjacency accessor (a follow-on contract addition).
+//! ## Deliberately deferred (different cost tier / open encoding decision)
 //!
-//! So this module does the classid prefix-route and the `local_key`→row point
-//! lookup (via [`MailboxSoaView::row_for_local_key`]); edge dispatch lands once
-//! the representation boundary is resolved.
+//! - **EdgeBlock slot-byte → neighbor-row resolution** — needs the basin-local-
+//!   index convention (zero = unused; 1-based vs basin-table), the next encoding
+//!   decision, analogous to `row_for_local_key`. This module lands the edge
+//!   *structure*, never fakes the row resolution.
+//! - **Helix `Signed360` exact-location, CHAODA anomaly, CausalEdge64 SPO** —
+//!   the costed tier: a value-slab decode (helix), the metric-space `ClamTree`
+//!   (CHAODA), or cross-crate `causal-edge` accessors (SPO). They break the
+//!   zero-value-decode invariant or need other-crate work, so they land
+//!   separately with their own cost gates (`E-HELIX-IS-EXACT-LOCATION`,
+//!   `E-CLAM-IS-THE-MANIFOLD-ENGINE`).
 
 use lance_graph_contract::canonical_node::EdgeCodecFlavor;
 use lance_graph_contract::hhtl::NiblePath;
@@ -98,7 +107,10 @@ pub fn match_node_by_local_key<V: MailboxSoaView>(view: &V, local_key: u64) -> O
 /// no materialized HHTL path (`hhtl_path_at == None`) are skipped.
 pub fn clam_contained<V: MailboxSoaView>(view: &V, query: NiblePath) -> Vec<NodeMatch> {
     (0..view.n_rows())
-        .filter(|&row| view.hhtl_path_at(row).is_some_and(|p| query.is_ancestor_of(p)))
+        .filter(|&row| {
+            view.hhtl_path_at(row)
+                .is_some_and(|p| query.is_ancestor_of(p))
+        })
         .map(|row| NodeMatch {
             row,
             backend: Backend::MailboxSoa,
@@ -178,8 +190,18 @@ pub fn edge_slots_coarse<V: MailboxSoaView>(
     }
     let block = view.edge_block_at(row)?;
     Some(EdgeNeighbors {
-        in_family: block.in_family.iter().copied().filter(|&b| b != 0).collect(),
-        external: block.out_family.iter().copied().filter(|&b| b != 0).collect(),
+        in_family: block
+            .in_family
+            .iter()
+            .copied()
+            .filter(|&b| b != 0)
+            .collect(),
+        external: block
+            .out_family
+            .iter()
+            .copied()
+            .filter(|&b| b != 0)
+            .collect(),
     })
 }
 
@@ -375,7 +397,11 @@ mod tests {
         let soa = sample();
         let near = cakes_nearest(&soa, NiblePath::root(1).child(2).child(3), 3);
         let ranked: Vec<(usize, u8)> = near.iter().map(|(m, d)| (m.row, *d)).collect();
-        assert_eq!(ranked, vec![(0, 3), (1, 2), (2, 2)], "nearest-3 by shared depth");
+        assert_eq!(
+            ranked,
+            vec![(0, 3), (1, 2), (2, 2)],
+            "nearest-3 by shared depth"
+        );
         assert!(near.iter().all(|(m, _)| m.backend == Backend::MailboxSoa));
         // k larger than n returns all rows, still depth-sorted descending.
         let all = cakes_nearest(&soa, NiblePath::root(1).child(2).child(3), 99);
