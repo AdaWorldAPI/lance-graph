@@ -1,3 +1,28 @@
+## 2026-06-18 — E-PERTURBATION-CASCADE-IS-COMPUTE-DAG — the electricity cascade crate is `compute_dag` already running on a real physical field, and it ships the Weyl bound that certifies the incremental recompute
+
+**Status:** FINDING (mechanism mapping; no dependency added). The `crates/perturbation-sim` outage simulator is the physical instance of the SAME topological recompute `ClassView::compute_dag` + `compute_dag_topo_order` + `write_row` express abstractly. Doc-level join only (`crates/perturbation-sim/COMPUTE_DAG_MAPPING.md`); the crate stays zero-dep / workspace-excluded — no `lance-graph-contract` import. Grounds: `E-CHESS-TENSOR-PROVEN`, `E-EXCEL-SHADER-PROJECTION`, `E-OGAR-ROUTER-ENCODER`, `probe-excel-compute-dag-v1`.
+
+**The mapping (mechanism, not rhyme):**
+
+| `perturbation-sim` | `compute_dag` substrate |
+|---|---|
+| `simulate_outage` round loop (trip → recompute survivors → re-trip) | `compute_dag_topo_order` dispatch (edit → dirty-set → recompute dependents) |
+| `PerturbationShape::trip_round[e]` (round each line tripped, `0`=seed) | the topological generation in `compute_dag_topo_order` |
+| seed trip = rank-1 `E` on Laplacian `L` | the dirty seed `write_row(seed, cycle)` |
+| `spectral_perturbation` Weyl `\|λᵢ(L′)−λᵢ(L)\|≤‖E‖₂` + Davis–Kahan | the **NNUE incremental ≡ full** invariant: bounded local edit → bounded global perturbation → dirty-set is the complete support |
+| `PerturbationShape::node_field` | the wave/field readoff (`E-OGAR-ROUTER-ENCODER` field side) |
+| `splat::morton2` | the 2-axis router ADDRESS (256×256 tile, GREEN case) |
+| `sketch::fwht` + `walsh_pyramid_energy` | the deterministic field ENCODER (Walsh pyramid) |
+| `witness::particle_equals_wave` (Parseval over FWHT) | particle (`∑field·arc`) ≡ wave (transform once, many arcs) — proven on a real field |
+
+**The headline (truth-architect honesty):** the two crates are deliberate **complementary halves**. `perturbation-sim` does the EXACT FULL recompute each round (robust, no LODF drift) but ships the **certification apparatus** — its Weyl/Davis–Kahan bounds are precisely the inequalities an incremental scheme needs to prove it equals the full recompute. `compute_dag` is the INCREMENTAL dispatch (recompute only dirty dependents in topo order, gated by `write_row`); the Weyl bound this crate certifies is *why* that incremental recompute is sound. **This crate = proof + full reference + router/field/witness encoders; the `compute_dag` harness = the incremental consumer whose equivalence the bound certifies.** Stockfish NNUE proves the incremental side at scale; perturbation-sim proves the bound holding it together is real.
+
+**Why it strengthens the arc without diluting:** `E-OGAR-ROUTER-ENCODER` flagged OSM → splat → electricity as the 3D *sibling* cascade (N=3 Hilbert, distinct from the 2-axis centroid tile). This says: that 3D cascade is a legitimate `compute_dag` consumer — its recompute order IS `simulate_outage`'s round structure, its incremental-equivalence IS Weyl-bounded. The crate already self-guards every scope line we'd draw: no measured speed claim (`witness.rs`), the numeric witness arc explicitly NOT the contract `WitnessTable` (`I-VSA-IDENTITIES`), significance via Jirak not IID Berry–Esseen (`I-NOISE-FLOOR-JIRAK`). Nothing new to strip; the costume was never put on here.
+
+**Scope guard (unchanged):** per-bus/per-cell evaluation semantics are general compute via the DO arm / `UnifiedStep` — the *recompute structure* transfers, the *formula/injection content* does not. Same line `E-EXCEL` / `E-CHESS` drew. Cross-refs: `crates/perturbation-sim/COMPUTE_DAG_MAPPING.md`, `class_view::{compute_dag, compute_dag_topo_order, compute_dag_is_acyclic}`.
+
+---
+
 ## 2026-06-18 — E-CHESS-TENSOR-PROVEN — chess AI is the proven-at-scale instance of router(grid)+field(planes)+incremental-recompute(NNUE)+search(MCTS); its 4 species = the session's 4 facets
 
 **Status:** FINDING (grounding/validation). Makes `E-EXCEL-SHADER-PROJECTION` / `PROBE-EXCEL-COMPUTE-DAG` non-speculative: the architecture it proposes is what production chess engines already run.
