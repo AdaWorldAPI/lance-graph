@@ -196,6 +196,16 @@ is no longer a conjecture. Leptonica is an *install*, not a transcode — it is 
 a link dep of the C++ oracle, never in the Rust path (the unicharset path never
 touches `Pix`).
 
+**Update (2026-06-18) — steps 2–3 wired (keystone landed).** The "mechanical
+wiring" is done: `lance_graph_contract::unicharset_adapter::invoke_unicharset`
+composes the adapter via `codegen_manifest::methods_for` (the ClassView
+composition gate over the harvested `has_function` manifest) + a classid-keyed
+`UniCharSetStore` content tier, and routes to the proven leaf. The `NULL`→space
+parity edge survives the full dispatch; the iron guard held with zero strain —
+no adapter-state-leak, no Core gap, no parallel object model. The doctrine is now
+proven END-TO-END for the unicharset class, not just for the leaf's bytes. See
+`EPIPHANIES.md` E-CPP-KEYSTONE-1 + LATEST_STATE `D-UNICHARSET-KEYSTONE`.
+
 ## Anti-patterns this doctrine exists to catch
 
 - **Residue-Core** — treating the Core as "the parts we couldn't codegen"

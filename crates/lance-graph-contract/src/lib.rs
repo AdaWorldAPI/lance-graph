@@ -103,6 +103,7 @@ pub mod tax;
 pub mod thinking;
 pub mod unichar;
 pub mod unicharset;
+pub mod unicharset_adapter;
 pub mod view_angle;
 pub mod vsa;
 pub mod witness_table;
