@@ -72,9 +72,13 @@ existing SPO ndjson corpus with four additive predicate families:
 
     Enables the consumer to lower a Selection field to
     `DEFINE FIELD state … ASSERT $value IN ['draft','posted','cancel']`.
-    Dynamic selections (`selection='_compute_states'`, a bare Name constant,
-    or `related=`) are skipped — their values aren't statically knowable.
-    Source order is preserved. Selection fields bind to the same
+    Both the base list (positional arg 0 or `selection=`) AND a
+    `_inherit` addon's `selection_add=[…]` extension are read and unioned —
+    an extension's keys MERGE onto the field's accumulated set across
+    classes, so the `ASSERT` set includes legal extension-added states (codex
+    #530). Dynamic selections (`selection='_compute_states'`, a bare Name
+    constant, or `related=`) are skipped — their values aren't statically
+    knowable. Source order is preserved. Selection fields bind to the same
     `model_names` as relational fields (`_name`, else `_inherit[0]`).
 
     This is *in addition* to the existing shallow relation read
@@ -162,37 +166,49 @@ SELECTION_VALUE_TRUTH = (0.95, 0.90)
 _VALIDATION_KINDS = ("presence", "uniqueness", "range", "format", "lookup")
 
 
-def _extract_selection_values(call: ast.Call) -> List[str]:
-    """Pull the value KEYS from a `fields.Selection([('k','Label'), …])`
-    declaration. The selection list is the first positional arg OR the
-    `selection=` kwarg; each entry is a 2-tuple whose first element is the
-    stored key.
-
-    Returns the keys in source order, de-duplicated (first occurrence wins).
-    Returns `[]` for dynamic selections — a bare Name (constant reference),
-    a string (compute-method name), `related=`, or any entry whose first
-    element isn't a string constant. Those values aren't statically known.
-    """
-    sel: Optional[ast.expr] = None
-    for kw in call.keywords:
-        if kw.arg == "selection":
-            sel = kw.value
-            break
-    if sel is None and call.args:
-        sel = call.args[0]
-    if not isinstance(sel, (ast.List, ast.Tuple)):
-        # `selection='_compute_x'` (str), a Name constant, or related= → skip.
-        return []
-
-    out: List[str] = []
-    seen: Set[str] = set()
-    for elt in sel.elts:
+def _selection_tuple_keys(node: Optional[ast.expr], out: List[str], seen: Set[str]) -> None:
+    """Append the first-element string key of each 2-tuple in `node` (a list
+    or tuple of `('key','Label')` pairs) to `out`, de-duplicating against
+    `seen`, preserving order. Non-list/tuple `node` (a str method-ref, a bare
+    Name constant, `related=`) contributes nothing — those aren't static."""
+    if not isinstance(node, (ast.List, ast.Tuple)):
+        return
+    for elt in node.elts:
         if not isinstance(elt, (ast.Tuple, ast.List)) or len(elt.elts) < 1:
             continue
         key = _const_str(elt.elts[0])
         if key is not None and key not in seen:
             seen.add(key)
             out.append(key)
+
+
+def _extract_selection_values(call: ast.Call) -> List[str]:
+    """Pull the value KEYS from a `fields.Selection(...)` declaration.
+
+    Reads BOTH the base list — first positional arg OR `selection=` kwarg —
+    AND the `selection_add=` kwarg (the Odoo idiom for an `_inherit` addon
+    that *extends* an existing Selection field's domain without redeclaring
+    it). Keys from both are unioned, base first, in source order, de-duped.
+
+    Returns `[]` when neither source is a static list of 2-tuples — a dynamic
+    `selection='_compute_x'` (str), a bare Name constant, or `related=`.
+    A pure `selection_add=` extension (no base list) yields just the added
+    keys, which the caller MERGES onto the field's accumulated set.
+    """
+    base: Optional[ast.expr] = None
+    add: Optional[ast.expr] = None
+    for kw in call.keywords:
+        if kw.arg == "selection":
+            base = kw.value
+        elif kw.arg == "selection_add":
+            add = kw.value
+    if base is None and call.args:
+        base = call.args[0]
+
+    out: List[str] = []
+    seen: Set[str] = set()
+    _selection_tuple_keys(base, out, seen)
+    _selection_tuple_keys(add, out, seen)
     return out
 
 
@@ -449,9 +465,15 @@ def _scan_file(
                 relmap[(mu, field_name)] = (comodel, inverse)
             if selections is not None:
                 for field_name, vals in local_selections.items():
-                    # Last write wins (a later reopening that redeclares the
-                    # Selection with a fuller value list supersedes).
-                    selections[(mu, field_name)] = vals
+                    # MERGE, not overwrite: the base `selection=` declaration
+                    # and any `_inherit` addon's `selection_add=` extensions
+                    # live in DIFFERENT classes, so a given (model, field)
+                    # accumulates across scans (codex #530). Order-preserving,
+                    # de-duplicated union.
+                    acc = selections.setdefault((mu, field_name), [])
+                    for v in vals:
+                        if v not in acc:
+                            acc.append(v)
 
         # ── P1b: inherits_from edges ─────────────────────────────────────
         # Only when the class declares a NEW model (_name is set). An
