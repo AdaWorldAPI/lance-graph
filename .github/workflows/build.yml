@@ -24,6 +24,18 @@ jobs:
   linux-build:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      # Override the workflow-level debuginfo=1 for this job (parity with the
+      # `test` + `test-with-coverage` jobs in rust-test.yml, TD-CI-TEST-JOB-DEBUGINFO0
+      # / TD-CI-COVERAGE-MOLD-1). This job links the SAME full lance+datafusion
+      # test-binary set at the SAME disk/RSS cliff and was the one job still
+      # missing the mitigation — it flaked twice with a hard `rust-lld` SIGBUS
+      # (signal 7 = object file truncated when the link partition fills mid-link,
+      # crashing in llvm::parallelFor). debuginfo carries no value in CI (no
+      # debugger is attached); dropping it cut per-binary link footprint ~73%
+      # in the sibling jobs. Note: a job-level RUSTFLAGS gives this job its own
+      # Swatinem cache key — the first run after this change repopulates it.
+      RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
     defaults:
       run:
         working-directory: lance-graph
@@ -44,6 +56,11 @@ jobs:
         run: |
           rustup toolchain install ${{ matrix.toolchain }}
           rustup default ${{ matrix.toolchain }}
+      - name: Setup mold linker
+        # Parity with rust-test.yml: the heavy lance+datafusion build + test
+        # binaries hit the GNU-ld/rust-lld RSS+disk cliff at the link step
+        # (intermittent SIGBUS). mold links them fast + low-memory.
+        uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "lance-graph-deps"

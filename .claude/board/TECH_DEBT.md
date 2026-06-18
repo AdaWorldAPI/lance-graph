@@ -15,6 +15,21 @@
 
 ## Open Debt
 
+### TD-CI-LINUX-BUILD-DEBUGINFO0 — `linux-build` was the last job missing the link-cliff mitigation; debuginfo=0 + mold extended to it (2026-06-18)
+
+**Paid (this commit).** `build.yml`'s `linux-build (stable)` job linked the full
+lance+datafusion test-binary set at workflow-level `debuginfo=1` and **without
+mold** — the only job still missing the mitigation that `TD-CI-TEST-JOB-DEBUGINFO0`
+(the `test` job) and `TD-CI-COVERAGE-MOLD-1` (`test-with-coverage`) already carry.
+It flaked **twice** (#525, #528) with a hard `rust-lld` SIGBUS (signal 7, object
+file truncated when the link partition fills mid-link; crash in
+`llvm::parallelFor`). Fix mirrors the green sibling jobs exactly: job-level
+`RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"` (the load-bearing relief —
+shrinks per-binary link footprint ~73% so the partition can't fill) + the pinned
+`rui314/setup-mold` step. Additive only; first run after this change repopulates
+the job's Swatinem cache (job-level RUSTFLAGS = own cache key). **Confirm on the
+next few green `linux-build` runs that the SIGBUS does not recur.**
+
 ### TD-WITNESS-EVAL-WIRING-1 — perturbation-sim Parseval witness evaluator ↔ contract `WitnessTable` are shipped but unconnected by design (2026-06-18)
 
 **Open — intentionally deferred (5+3 council, B2).** `perturbation-sim::witness`

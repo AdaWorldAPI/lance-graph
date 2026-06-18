@@ -1,3 +1,9 @@
+## 2026-06-18 — CI: extend debuginfo=0 + mold to the `linux-build` job (link-cliff flake)
+
+**Main thread (Opus).** Branch `claude/ci-linux-build-debuginfo0-mold`. The `linux-build (stable)` job in `build.yml` flaked twice (#525, #528) with the `rust-lld` SIGBUS link cliff (signal 7, object truncated when the partition fills mid-link, crash in `llvm::parallelFor`). It was the ONLY job still linking the full lance+datafusion test set at workflow-level `debuginfo=1` and without mold — the `test` (TD-CI-TEST-JOB-DEBUGINFO0) and `test-with-coverage` (TD-CI-COVERAGE-MOLD-1) jobs in rust-test.yml already had both mitigations and are green.
+
+**Fix (additive, mirrors the green jobs exactly):** job-level `RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"` override (the load-bearing relief — ~73% smaller per-binary link footprint per the sibling-job measurements) + the pinned `rui314/setup-mold@9c9c13bf…` step before the Swatinem cache. 17 insertions, no deletions. YAML validated. Board: TD-CI-LINUX-BUILD-DEBUGINFO0 (Paid, confirm-on-green). No source/test change.
+
 ## 2026-06-18 — B2 resolved: witness-arc boundary documented (NO `WitnessArcEvaluator` trait)
 
 **Main thread (Opus) + 5+3 council**, branch `claude/witness-arc-boundary-doc`. The parked B2 item — "wire perturbation-sim witness arc into contract witness_table" — was put through the critical-decision protocol (5 analysts + 3 brutal critics, all read both files in full). **Unanimous verdict: do NOT build the trait.** The two "witness arc" notions are different objects (numeric `∑field·arc` standing wave vs W-slot→identity resolution); welding them is an AP6 one-impl trait + AGI-as-glove "never a new trait" violation + a CATCH-CRITICAL dep-direction inversion (zero-dep contract would gain a perturbation-sim dep). integration-lead confirmed the real wiring is downstream D-MBX-A3, gated on D-MBX-A2 (current gating gap) + OQ-11.2 + a §0 dep ruling.
