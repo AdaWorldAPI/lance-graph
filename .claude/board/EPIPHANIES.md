@@ -1,3 +1,27 @@
+## 2026-06-18 — E-TENANT-ANGLE-SWEEP-IS-PRUNE-THEN-RANK — "switch tenant + compare across the 16K mailbox from an angle" is the costed value-side sweep; it composes with the free key facets as a two-stage HHTL cascade (key prune → angle Hamming rank)
+
+**Status:** FINDING (forward design; grounded in `MailboxSoA::{content_row,topic_row,angle_row}` W1b planes + `ndarray::simd_avx2::{hamming_batch,hamming_top_k}` + the cycle-aware write contract). The value-side mirror of the free key facets (`E-CLAM-IS-THE-MANIFOLD-ENGINE` / #544), and how they compose.
+
+**The operation decomposed:**
+- **"compare across the 16K views"** = a batch Hamming sweep — `hamming_top_k(query, plane_database, n_rows=16384, row_bytes=2048)` over a contiguous SoA identity plane. This is the *right* use of popcount (`E-… popcount`): homogeneous 16K-bit fingerprint bits, the AVX-512 streaming path (~611M lookups/sec), NOT the heterogeneous GUID key.
+- **"from a certain angle"** = which identity plane (`content`/`topic`/`angle`) + the query vector — the perspective axis (AGI-as-glove: angle = the angle/QualiaColumn read).
+- **"tenant switch"** = a **column selector** (which value tenant the sweep reads: angle plane / `Energy` / `HelixResidue`). A which-column choice, not a key op.
+
+**The load-bearing structure — two-stage HHTL cascade (free prune → costed rank):**
+
+| Stage | Facet | Cost | Touches |
+|---|---|---|---|
+| 1. prune | CLAM/CAKES prefix on the GUID key (#544 `cakes_nearest`) | **free** | key only, zero value decode |
+| 2. rank | angle-Hamming sweep over the *pruned* rows | **costed** | the angle value plane |
+
+A tenant-switch comparison is NOT a naive full-16K sweep: the free key prefix gives the candidate cluster zero-decode, then the angle-Hamming ranks ONLY the pruned set ("95% of pairs skipped", the bgz-tensor HHTL-cascade doctrine). Full-16K sweep is the un-pruned fallback. **The key facets and this value sweep are the two halves of one query: address-prune (key) + content-rank (value plane).**
+
+**Cost-class boundary (must hold):** this facet **deliberately decodes the value plane** — it is explicitly NOT in the zero-value-decode class that the #544 F2 gate enforces. That's correct (it's the other side of the line), so it lands on its own branch with its own cost gate, never mixed into the free key facets. Cycle-consistency: the sweep reads a coherent `current_cycle` snapshot (the cycle-aware write contract), so a tenant-switch compare is a clean point-in-time view.
+
+**Wiring (when built):** `MailboxSoaView` plane accessor (`angle_row`/plane selector, deferred-binding default like `hhtl_path_at`); a `compare_from_angle(view, plane, query, k)` calling `hamming_top_k`; tenant switch = a `PlaneSelector` enum; compose `cakes_nearest` (prune) → `compare_from_angle` (rank). Cross-refs: `E-CLAM-IS-THE-MANIFOLD-ENGINE`, `E-HELIX-IS-EXACT-LOCATION`, `E-GUID-IS-THE-GRAPH`, `MailboxSoA::{content,topic,angle}_row`, `ndarray::simd_avx2::hamming_top_k`, `graph::mailbox_scan` (#544).
+
+---
+
 ## 2026-06-18 — E-PANCAKES-IS-RADIX-IS-HHTL — panCAKES ≡ radix trie ≡ HHTL: the CLAM cluster tree is NOT a separate structure, it IS the radix trie of the HHTL prefixes already in the keys; so CLAM/CAKES = prefix arithmetic on the GUID, zero value decode
 
 **Status:** FINDING (operator-stated identity; wired this commit). The unification that makes the manifold-geometry facet (`E-CLAM-IS-THE-MANIFOLD-ENGINE`) *free*: there is no CLAM tree to build and store — the tree IS the radix trie of the `classid·HEEL·HIP·TWIG` nibble paths that already live in every GUID key.
