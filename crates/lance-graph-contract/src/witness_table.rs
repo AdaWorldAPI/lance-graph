@@ -39,6 +39,22 @@
 //!
 //! This file declares the *column-type primitive only*. It does **not** wire the table
 //! into `CausalEdge64`, `MailboxSoA`, or any emission path — those are later slices.
+//!
+//! ## Not the `perturbation-sim` "witness arc" — different object
+//!
+//! `perturbation-sim::witness` proves a *numeric* identity (`particle == wave`, an
+//! `∑ field·arc` inner product over `&[f64]` evaluated two ways via Parseval/FWHT).
+//! That arc is a **signed real weight vector**; THIS table's arc is a **chain of
+//! W-slot indices resolving to identity tuples** (`mailbox_ref`, `spo_fact_ref`).
+//! They share the word "witness arc" and the Markov reference-chain shape, but the
+//! value categories do not match (real field magnitude vs opaque identity handle) —
+//! there is no inner-product / transform structure over `WitnessEntry`, and slot
+//! resolution is already `O(1)`. Wiring the standing-wave evaluator over a numeric
+//! SoA column is the downstream, gated D-MBX-A3 step (gated on D-MBX-A2; see
+//! `TD-WITNESS-EVAL-WIRING-1`) and lands as a **consumer-side free function over a
+//! borrowed `&[f64]` column**, never a `WitnessArcEvaluator` trait on this zero-dep
+//! crate. Conflating the two would be a register-loss / Frankenstein hazard
+//! (`I-VSA-IDENTITIES`).
 
 // ── Type declarations ────────────────────────────────────────────────────────
 

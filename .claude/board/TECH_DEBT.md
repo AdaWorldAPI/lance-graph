@@ -15,6 +15,25 @@
 
 ## Open Debt
 
+### TD-WITNESS-EVAL-WIRING-1 — perturbation-sim Parseval witness evaluator ↔ contract `WitnessTable` are shipped but unconnected by design (2026-06-18)
+
+**Open — intentionally deferred (5+3 council, B2).** `perturbation-sim::witness`
+(Probe-2, #513: `particle == wave` standing-wave evaluator over `&[f64]`) and
+`lance-graph-contract::witness_table::WitnessTable<64>` (A3, #427: W-slot →
+`WitnessEntry{mailbox_ref:u32, spo_fact_ref:Option<u64>}` identity table) both exist,
+both have zero consumers, and are **deliberately not wired**. They are *different
+objects* sharing the name "witness arc" (numeric field inner-product vs identity
+resolution — see `E-WITNESS-ARC-TWO-OBJECTS-1`). The wiring is the downstream
+deliverable **D-MBX-A3** (`witness_arc: [u32; W]` per-row column), gated on:
+(1) **D-MBX-A2** (BindSpace expressivity gaps — content_ref + S/P/O role slices +
+temporal/expert fold; the plan's current gating gap), (2) **OQ-11.2** ratified, and
+(3) a **§0 dependency-direction ruling** — the zero-dep contract must NOT gain a
+`perturbation-sim` dep; the evaluator stays a consumer-side free function over a
+borrowed `&[f64]` column, never a `WitnessArcEvaluator` trait. **Paid when** D-MBX-A3
+lands its column + a consumer that walks a W-slot arc through the field evaluator.
+Boundary cross-references added in both files (this commit) so the seam is not
+rediscovered as a "missing wiring" bug.
+
 ### TD-CI-TEST-JOB-DEBUGINFO0 — `test` job hit the same link cliff; `debuginfo=0` extended to it (2026-06-16)
 
 **Open — fix applied (merged via #511's CI commit), CONFIRM on the next green

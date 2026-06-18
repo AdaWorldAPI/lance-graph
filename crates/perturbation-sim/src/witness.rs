@@ -11,19 +11,45 @@
 //!   the field, and by **Parseval for the Walsh–Hadamard transform** (`Hᵀ H = N·I`,
 //!   the involution-up-to-`N` the pyramid already provides via [`fwht`]):
 //!   `⟨field, arc⟩ = (1/N)·⟨Ĥfield, Ĥarc⟩`. Transform the field **once**
-//!   (`O(N log N)`); then every witness arc is an `O(N)` dot against its spectrum —
-//!   the whole arc is evaluated at once, no walk.
+//!   (`O(N log N)`); then each witness arc is read against the field spectrum —
+//!   the whole arc is evaluated at once, no hop-by-hop walk.
 //!
 //! **The identity `particle == wave` is what this probe proves** ([`particle_equals_wave`]).
-//! The payoff is amortization: [`field_spectrum`] computes the standing wave once,
-//! and [`witness_from_spectrum`] reads many arcs off it — `O(N log N) + q·O(N)` for
-//! `q` arcs, vs the particle view's `q` independent pointer-chasing walks.
+//! The amortized quantity is the **field** transform: [`field_spectrum`] computes the
+//! standing wave once and [`witness_from_spectrum`] reuses it across many arcs. As
+//! implemented, each arc is itself transformed (`fwht` on the arc), so the per-arc
+//! cost is `O(N log N)` and the `q`-arc total is `O(N log N) + q·O(N log N)`; it
+//! narrows to `O(N log N) + q·O(N)` only when the arc spectrum is precomputed or the
+//! arc is structured/sparse (its spectrum known in closed form). The win over the
+//! particle view's `q` independent pointer-chasing walks is therefore in the regime
+//! "one field, many arcs whose spectra are reusable", not for a single dense arc —
+//! this probe makes **no measured** speed claim (see [`crate::sketch`] for the same
+//! honest framing of the demo-`N` exact path).
 //!
 //! Self-contained, in perturbation-sim — this demonstrates the pyramid/field
 //! mechanism on a grid field (e.g. the [`crate::inertia_buffer_column`] field).
-//! Wiring it as the *actual* `witness_table` evaluator in the contract is a separate,
-//! gated step: the witness/SoA types are the cognitive spine — additive only, behind
-//! the iron rules.
+//!
+//! # NOT the same "witness arc" as `lance_graph_contract::witness_table`
+//!
+//! This module's "witness arc" is a **numeric** object: a signed `&[f64]` weight
+//! vector read against an `&[f64]` field by an inner product (`∑ field·arc`). The
+//! contract's `WitnessTable` arc is an **identity** object: a chain of 6-bit
+//! W-slot indices each resolving to a `WitnessEntry { mailbox_ref: u32,
+//! spo_fact_ref: Option<u64> }` (which mailbox witnessed a belief, and whether it
+//! crystallised to an SPO fact). They share the *word* "witness arc" and the
+//! Markov-#1-reference-chain *shape*, but operate on **different value categories**
+//! — there is no Parseval identity over identity tuples, and the W-slot table is
+//! already `O(1)` array indexing with nothing to transform away. Do **not** unify
+//! them under one trait: that would conflate field-evaluation with
+//! identity-resolution (a register-loss / Frankenstein hazard, cf. `I-VSA-IDENTITIES`).
+//!
+//! Wiring this evaluator into a real SoA traversal is a separate, downstream, **gated**
+//! step (D-MBX-A3, gated on D-MBX-A2; see `TD-WITNESS-EVAL-WIRING-1`): the witness/SoA
+//! types are the cognitive spine — additive only, behind the iron rules. When it
+//! happens it is a *consumer-side projection* (W-slot arc → support of an `&[f64]`
+//! arc over a borrowed numeric column), evaluated by these free functions — never a
+//! `WitnessArcEvaluator` trait on the zero-dep contract. (Contract type:
+//! `crates/lance-graph-contract/src/witness_table.rs`.)
 
 use crate::sketch::fwht;
 
