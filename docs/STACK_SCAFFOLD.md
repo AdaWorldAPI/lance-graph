@@ -13,7 +13,7 @@
 |---|---|---|---|
 | **ndarray** | `AdaWorldAPI/ndarray` | `/home/user/ndarray` | ✅ ready (HPC, 880+ tests) |
 | **ractor** | `AdaWorldAPI/ractor` | `/home/user/ractor` | ✅ ready |
-| **surrealdb** | `AdaWorldAPI/surrealdb` | `/home/user/surrealdb` | ⚠️ **KV-lance PENDING** — the Lance KV backend is the fork's `.claude/lance-backend` scaffold (12-day plan), NOT a wired feature yet. Today only `storage-{mem,surrealkv,rocksdb,tikv,indxdb}` exist. Use `storage-mem` until `kv-lance` lands; track `surrealdb/.claude/lance-backend/DAY_BY_DAY.md`. |
+| **surrealdb** | `AdaWorldAPI/surrealdb` | `/home/user/surrealdb` | ⚠️ **KV-lance: backend MODULE implemented, not yet feature-wired.** The Lance KV backend is real code at `crates/core/src/kvs/lance/` (`mod`/`schema`/`tx_buffer`/`timeline`/`background_optimizer`/`tests` — the 19-method `Transactable` scaffold), NOT a sketch. But it is **not yet exposed as a storage feature** (no `kv-lance` in `crates/core/Cargo.toml`, not `mod`'d into `kvs/mod.rs`, no `lance` dep wired) and the `TODO(lance-integration)` Lance-API call sites remain (the `.claude/lance-backend/DAY_BY_DAY.md` 12-day item). Use `storage-mem` until the feature + integration land; then switch the `surrealdb` feature line to `kv-lance`. |
 
 **Footprint (resolved-crate proxy):** lance-graph `Cargo.lock` ≈ **889**;
 surrealdb (all backends) ≈ **1148**. Both share the lance+arrow base; surreal's
