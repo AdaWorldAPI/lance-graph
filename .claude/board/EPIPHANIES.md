@@ -1,24 +1,24 @@
-## 2026-06-18 — E-TENANT-ANGLE-SWEEP-IS-PRUNE-THEN-RANK — "switch tenant + compare across the 16K mailbox from an angle" is the costed value-side sweep; it composes with the free key facets as a two-stage HHTL cascade (key prune → angle Hamming rank)
+## 2026-06-18 — E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC — "switch tenant + compare across the 16K from an angle" is a CAM-PQ ADC (table lookups), NOT a Hamming sweep; and its IVF coarse quantizer IS the HHTL/CLAM prefix — the prune+rank cascade is literally IVF-PQ
 
-**Status:** FINDING (forward design; grounded in `MailboxSoA::{content_row,topic_row,angle_row}` W1b planes + `ndarray::simd_avx2::{hamming_batch,hamming_top_k}` + the cycle-aware write contract). The value-side mirror of the free key facets (`E-CLAM-IS-THE-MANIFOLD-ENGINE` / #544), and how they compose.
+**Status:** FINDING (operator correction "sweep or just 90° fingerprint vector cam index" → CAM index; grounded in `ndarray/src/hpc/{cam_pq,cam_index}.rs`, contract `cam::{DistanceTableProvider, CamCodecContract, IvfContract::probe}`, turbovec KNOWLEDGE "palette256 = coarse quantizer"). **Supersedes this entry's first framing** (posted 2026-06-18 as "…-SWEEP-IS-PRUNE-THEN-RANK"): the Hamming sweep is only the naive fallback — the real path is CAM-PQ ADC, and the two stages are IVF-PQ, not a prefilter+scan.
 
-**The operation decomposed:**
-- **"compare across the 16K views"** = a batch Hamming sweep — `hamming_top_k(query, plane_database, n_rows=16384, row_bytes=2048)` over a contiguous SoA identity plane. This is the *right* use of popcount (`E-… popcount`): homogeneous 16K-bit fingerprint bits, the AVX-512 streaming path (~611M lookups/sec), NOT the heterogeneous GUID key.
-- **"from a certain angle"** = which identity plane (`content`/`topic`/`angle`) + the query vector — the perspective axis (AGI-as-glove: angle = the angle/QualiaColumn read).
-- **"tenant switch"** = a **column selector** (which value tenant the sweep reads: angle plane / `Energy` / `HelixResidue`). A which-column choice, not a key op.
+**The operation = CAM-PQ ADC, all table lookups (no linear scan):**
+- angle (90°/orthogonal) fingerprint → CAM-PQ `encode` → PQ codes;
+- query → precompute the **distance table** (`DistanceTableProvider`), then **ADC** = per-subspace table lookups summed (O(1)/candidate, no decompression, no per-row popcount);
+- `IvfContract::probe(query, num_probes)` → the few coarse cells to touch; ADC only inside them → sub-linear. This IS the "attention as table lookup" / 611M-lookups path — it was never a sweep.
 
-**The load-bearing structure — two-stage HHTL cascade (free prune → costed rank):**
+**The unification (the load-bearing correction): the IVF coarse quantizer IS the HHTL/CLAM prefix.** CAM-PQ = IVF-PQ = coarse quantizer → residual ADC, and:
 
-| Stage | Facet | Cost | Touches |
-|---|---|---|---|
-| 1. prune | CLAM/CAKES prefix on the GUID key (#544 `cakes_nearest`) | **free** | key only, zero value decode |
-| 2. rank | angle-Hamming sweep over the *pruned* rows | **costed** | the angle value plane |
+| CAM-PQ stage | ≡ | shipped facet |
+|---|---|---|
+| IVF coarse cell (which centroid) | ≡ | **HHTL prefix / CLAM containment** (`cakes_nearest`, #544) — the key IS the coarse quantizer (turbovec: "palette256 = coarse quantizer") |
+| PQ residual codes (fine ADC) | ≡ | **turbovec residue** (`EdgeCodecFlavor::Pq32x4`, 32×4) / value-slab CAM-PQ tenant |
 
-A tenant-switch comparison is NOT a naive full-16K sweep: the free key prefix gives the candidate cluster zero-decode, then the angle-Hamming ranks ONLY the pruned set ("95% of pairs skipped", the bgz-tensor HHTL-cascade doctrine). Full-16K sweep is the un-pruned fallback. **The key facets and this value sweep are the two halves of one query: address-prune (key) + content-rank (value plane).**
+So the prune→rank cascade is **literally IVF-PQ**: the HHTL prefix is the coarse-quantization step, the PQ residual is the fine ADC. Not a prefilter bolted onto a sweep — one CAM index whose coarse stage is free (key) and whose fine stage is the residual ADC (costed, but table-lookups not scan).
 
-**Cost-class boundary (must hold):** this facet **deliberately decodes the value plane** — it is explicitly NOT in the zero-value-decode class that the #544 F2 gate enforces. That's correct (it's the other side of the line), so it lands on its own branch with its own cost gate, never mixed into the free key facets. Cycle-consistency: the sweep reads a coherent `current_cycle` snapshot (the cycle-aware write contract), so a tenant-switch compare is a clean point-in-time view.
+**90°/orthogonal:** `content`/`topic`/`angle` are orthogonal axes → each gets its own PQ codebook + distance table; "switch tenant / from an angle" = switch which orthogonal distance table you ADC against, and orthogonality makes the per-axis ADCs separable. The Hamming **sweep** (`hamming_top_k`) remains only as the no-CAM-index fallback for tiny/un-indexed sets.
 
-**Wiring (when built):** `MailboxSoaView` plane accessor (`angle_row`/plane selector, deferred-binding default like `hhtl_path_at`); a `compare_from_angle(view, plane, query, k)` calling `hamming_top_k`; tenant switch = a `PlaneSelector` enum; compose `cakes_nearest` (prune) → `compare_from_angle` (rank). Cross-refs: `E-CLAM-IS-THE-MANIFOLD-ENGINE`, `E-HELIX-IS-EXACT-LOCATION`, `E-GUID-IS-THE-GRAPH`, `MailboxSoA::{content,topic,angle}_row`, `ndarray::simd_avx2::hamming_top_k`, `graph::mailbox_scan` (#544).
+**Cost-class boundary (unchanged):** the ADC reads the residual codes (value-side), NOT zero-value-decode; lands on its own branch with its own cost gate, never mixed into #544's free key facets. Cycle-consistency unchanged (coherent `current_cycle` snapshot). Wiring (when built): reuse the existing CAM-PQ (`ndarray::hpc::cam_pq`/`cam_index`, contract `IvfContract`) with the HHTL prefix as the IVF coarse quantizer; per-axis (content/topic/angle) distance tables; `cakes_nearest` (= IVF probe) → ADC. Cross-refs: `E-CLAM-IS-THE-MANIFOLD-ENGINE`, `E-PANCAKES-IS-RADIX-IS-HHTL`, `E-ADJACENCY-IS-KEY-AND-EDGECODEC` (Pq32x4 = the residual), `cam::IvfContract`, `ndarray::hpc::cam_pq`.
 
 ---
 
