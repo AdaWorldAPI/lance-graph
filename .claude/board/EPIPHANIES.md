@@ -1,3 +1,30 @@
+## 2026-06-18 — E-CLAM-IS-THE-MANIFOLD-ENGINE — the CLAM facet is not a containment check; it is the CAKES+CHAODA+LFD ensemble (ndarray `clam.rs`): containment + ranked-NN + anomaly + compression, one tree, one geometric measure
+
+**Status:** FINDING (operator-stated, grounded in `ndarray/src/hpc/clam.rs` — CAKES arXiv:2309.05491 Partition Alg 1 / ρ-NN Alg 4 / DFS-sieve Alg 6, panCAKES Alg 2, **CHAODA Phase 4 `anomaly_scores` from the LFD distribution**; + `lance-graph/crates/perturbation-sim/src/chaoda.rs` CHAODA-lite which names ndarray's `ClamTree` as the production path). Enriches `E-ADJACENCY-IS-KEY-AND-EDGECODEC`: the "HHTL/CLAM neighborhood" facet is a whole geometry engine, not `is_ancestor_of`.
+
+**The CLAM tree (built off the GUID/scent vectors) answers four geometric questions, all over ONE tree with LFD as the shared measure:**
+- **Containment** — `is_ancestor_of`/`prefix`: which cluster (the HHTL cascade view).
+- **CAKES (attraction)** — entropy-scaling **exact k-NN search** (ρ-NN + DFS-sieve): the ranked similar neighbors. "Pull in the similar."
+- **CHAODA (repulsion)** — per-cluster **anomaly score from the LFD distribution** (high Local Fractal Dimension = complex local geometry = outlier): how typical/anomalous a node is. "Push out the unusual."
+- **panCAKES** — compression *via the same tree* (the cluster structure IS the codec).
+
+`CAKES pulls in the similar + CHAODA pushes out the unusual = meaningful structure` (perturbation-sim's framing). LFD is the one measure both ride.
+
+**The synthesized geometry-of-a-node (the full surface off one GUID, tiered by decode cost):**
+
+| Question | Facet | Cost |
+|---|---|---|
+| which cluster? | CLAM containment (key prefix) | zero value decode |
+| nearest similar? | **CAKES** ρ-NN/DFS over the CLAM tree | tree walk (scent vectors) |
+| how anomalous? | **CHAODA** LFD anomaly score | tree walk (LFD) |
+| exact location? | helix `Signed360` (`HelixResidue` tenant) | one value decode (`E-HELIX-IS-EXACT-LOCATION`) |
+| connected to? | `EdgeBlock` typed edge (12-family/4-external or 32×4 turbovec) | edge-block read (`E-ADJACENCY…`) |
+| caused by? | `CausalEdge64` SPO | `edges_raw` read |
+
+So a single node exposes containment + ranked-NN + anomaly + exact-location + typed-edges + causal — a complete geometric *and* relational surface, each answered by the right ndarray/contract primitive at its own cost. The router/Cypher layer dispatches a query to the cheapest facet that answers it (proximity→containment, similarity→CAKES, novelty→CHAODA, position→helix). Cross-refs: `ndarray::hpc::clam` (CAKES/panCAKES/CHAODA), `perturbation-sim::chaoda`, `graph/neighborhood/clam.rs`, `E-ADJACENCY-IS-KEY-AND-EDGECODEC`, `E-HELIX-IS-EXACT-LOCATION`, `E-GUID-IS-THE-GRAPH`.
+
+---
+
 ## 2026-06-18 — E-HELIX-IS-EXACT-LOCATION — adjacency (relational: near/edge) is NOT location (absolute: exact orthogonal coordinate); the helix `Signed360` gives the exact point, and "where" is a decode-cost ladder containment → place → residue
 
 **Status:** FINDING (operator correction, grounded in `canonical_node.rs` `ValueTenant::HelixResidue` = `Signed360`, signed full-sphere golden-spiral Place/Residue, 48-bit/6 B, in the `Compressed` value schema). Refines `E-ADJACENCY-IS-KEY-AND-EDGECODEC`: that epiphany answered *"who is related"* (adjacency). This answers *"where exactly is it"* (location) — a different question, and the helix is a **coordinate, not an edge**.
