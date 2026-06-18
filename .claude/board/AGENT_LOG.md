@@ -1,3 +1,15 @@
+## 2026-06-18 — #526 follow-up: corpus regenerated with inherits_from + validation_kind
+
+**Main thread (Opus) — single implementer**, branch `claude/odoo-spo-corpus-regen`. Executes the explicit pending step from PR #526 ("Corpus regenerated against live `/home/user/odoo/addons` — pending next session with Odoo source"). This session HAS the Odoo source, so the two new enrichment passes #526 shipped as code now land their triples in the shipped corpus.
+
+**Regenerated:** `python3 -m odoo_blueprint_extractor.spo_enrich --corpus odoo_ontology.spo.ndjson --addons /home/user/odoo/addons`. Additive + `(s,p,o)`-idempotent: P1/P0 emitted 0 new (already present — confirms #525's `inherit[0]` fix + multi-emitter lifts are baked in), `inherits_from`=166 new, `validation_kind`=247 new. **24 166 → 24 579.**
+
+**Rust (`odoo_ontology.rs`):** count assertion `24_166`→`24_579`; histogram gains `inherits_from`=166 + `validation_kind`=247 asserts; module-doc provenance + count updated. 2 new regression tests: `enrichment_emits_inherits_from_to_declared_base` (account_account→mail_thread; every base is a declared ObjectType; no self-loop) and `enrichment_emits_validation_kind_on_constrains_method` (_check_account_code=format; every object ∈ {presence,uniqueness,range,format,lookup}). validation_kind distribution: presence 108 / range 80 / lookup 31 / uniqueness 18 / format 10.
+
+**Tests:** `cargo test -p lance-graph --lib odoo_ontology` 13/13 green; `cargo fmt -p lance-graph --check` clean; `python3 -m unittest tests.test_spo_enrich` 41/41 (unchanged — no Python edit this round).
+
+**Consumer:** `od_ontology::RecomputeDag` + a future `ClassView` MRO walk now see the 166 inheritance edges; odoo-rs `UPSTREAM_WISHLIST` P1 (`_inherit`/`_inherits`) + P2 (`validation_kind`) are upstream-RESOLVED once a consumer PR consumes them (no odoo-rs change here — one-way pull).
+
 ## 2026-06-18 — PR #525 follow-up: `_inherit`-only binding scoped to `inherit[0]`
 
 **Main thread (Opus) — single implementer**, branch `claude/odoo-spo-fk-target-deep-reads`. Addresses the one unresolved codex P2 on #525: the prior `_inherit`-only fix bound a no-`_name` class's relational fields to the WHOLE `_inherit` list, so a multi-element `_inherit = ['a','b']` would attach local fields to every inherited mixin and let `build_relation_map()` emit bogus `target`/`reads_field` triples for secondary parents.
