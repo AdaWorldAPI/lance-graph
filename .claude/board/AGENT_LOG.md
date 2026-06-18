@@ -1,3 +1,14 @@
+## 2026-06-18 — S-series Step 1+2: unbreak --features with-engine + F32-17D bit-exact qualia tenant
+
+**Main thread (Opus) + panel.** Branch `claude/with-engine-build-fix`. Two commits: (1) import `QUALIA_DIMS` to unbreak `--features with-engine` (engine_bridge.rs:259 used it unimported — the entire dispatch/unbind lab surface was dormant); (2) restore an F32-17D bit-exact qualia tenant.
+
+**Fix:** added `BindSpace.qualia_f32: Box<[QualiaVector]>` (`#[cfg(with-engine)]`, singleton only, ~278KB on 4096 rows) + `qualia_f32_row`/`set_qualia_f32` accessors. `dispatch_busdto` writes it alongside the i4 column; `unbind_busdto` reads it (bit-exact). MailboxSoA hot path UNCHANGED (i4 only — no 64k blowup). codebook_index rides q[9]-f32 (lossless). The i4 column stays the production carrier (C7: the ±0.15 i4-tolerance tests untouched). `QUALIA_DIMS` import gated to with-engine (no default unused-import). See `E-QUALIA-F32-LAB-TENANT`.
+
+**The 3 round-trip tests pass un-ignored + UNMODIFIED** (bit-exact assertions are the spec; not weakened). Added C8 corner corpus. singleton 6/6, mailbox-arm 5/5, default lib 20/20, fmt clean.
+
+**Note (not in this PR):** CI does not clippy-gate `cognitive-shader-driver` or `lance-graph-ontology` (style.yml scopes to contract/lance-graph/deepnsm). `lance-graph-ontology` carries 12 pre-existing `-D warnings` clippy errors (oxrdf deprecation + doc-list + `to_vec`, from #530/#533) — cap-lints-allowed as a dep, not a CI gate, not this PR's scope. My crate's pre-existing clippy debt (bindspace:475, engine_bridge:780, test helpers) is likewise out of scope and not introduced here.
+
+**Next (S3):** flip ShaderDriver off the Arc<BindSpace> singleton onto the mailbox set; the F32 tenant is now the bit-exact anchor to diff every migration step against.
 ## 2026-06-18 — D-MBX-A2 board reconciliation (carrier shipped; S2 ~80% pre-absorbed) — 5+3 council
 
 **Main thread (Opus) + 5+3 council**, branch `claude/dmbxa2-board-reconciliation`. Operator asked for "D-MBX-A2 ⟷ S-series together"; the council (integration-lead, preflight-drift-auditor, iron-rule-savant, dto-soa-savant, truth-architect + brutal critics brutally-honest-tester, baton-handoff-auditor, firewall-warden) unanimously found D-MBX-A2's column carrier is **already shipped** (landed after the 2026-06-13 reconciliation snapshot the boards were trusting) and the engine_bridge "S2" re-home is ~80% pre-absorbed by the W4a `BackingStore`/`BackingStoreWrite` shim. brutally-honest-tester: "land the board reconciliation, not S2." So this PR is the honest D-MBX-A2 closure (docs only).

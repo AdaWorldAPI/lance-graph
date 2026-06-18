@@ -31,7 +31,12 @@ use lance_graph_contract::cognitive_shader::{
 };
 
 use crate::bindspace::{BindSpace, WORDS_PER_FP};
-use lance_graph_contract::qualia::{QualiaI4_16D, QUALIA_DIMS};
+use lance_graph_contract::qualia::QualiaI4_16D;
+// QUALIA_DIMS is referenced only inside `dispatch_busdto` (which is
+// `#[cfg(feature = "with-engine")]`); gate the import so default builds don't
+// warn on an unused import under clippy `-D warnings`.
+#[cfg(feature = "with-engine")]
+use lance_graph_contract::qualia::QUALIA_DIMS;
 
 #[cfg(feature = "with-engine")]
 use thinking_engine::dto::BusDto;
@@ -266,7 +271,12 @@ pub fn dispatch_busdto(bs: &mut BindSpace, row: usize, bus: &BusDto, style_ord: 
     // from_f32_17d expects [f32; 17]; q is [f32; QUALIA_DIMS=17].
     let mut q17 = [0.0f32; 17];
     q17.copy_from_slice(&q[..17]);
+    // Canonical i4 column (hot-path representation; lossy — general qualia consumers).
     bs.qualia.set(row, QualiaI4_16D::from_f32_17d(&q17));
+    // Lab bit-exact tenant: store the full f32-17D so `unbind_busdto` round-trips
+    // exactly. The i4 column above clamps to ±1, which corrupts `codebook_index`
+    // (q[9]) and the energies — the D-CSV-5b regression this tenant repairs.
+    bs.set_qualia_f32(row, &q17);
 
     // [3] meta column — packed dispatch state.
     //     thinking = caller's style ordinal
@@ -339,8 +349,10 @@ pub fn unbind_busdto(bs: &BindSpace, row: usize) -> BusDto {
     // D-CSV-5b: bs.qualia is now QualiaI4Column; convert to f32 at the read site.
     // codex P2 fix (2026-05-07): the headline is stored explicitly in qualia[9]
     // at encode, so it round-trips bit-exact regardless of cycle-plane state.
-    let q_i4 = bs.qualia.row(row);
-    let q = q_i4.to_f32_17d(); // [f32; 17] — sufficient for dims 0..9
+    // Read the bit-exact f32 tenant — NOT the i4 `qualia` column, which clamps
+    // to ±1 and would corrupt codebook_index (q[9]) and the energies (the
+    // D-CSV-5b regression). The f32 tenant is the migration's exactness anchor.
+    let q = *bs.qualia_f32_row(row); // [f32; 17] — bit-exact ground-truth
     let energy = q[0];
     let codebook_index = q[9] as u16;
     let mut top_k = [(0u16, 0.0f32); 8];

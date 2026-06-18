@@ -14,6 +14,13 @@ use std::sync::Arc;
 
 use lance_graph_contract::cognitive_shader::{ColumnWindow, MetaFilter, MetaWord};
 use lance_graph_contract::qualia::QualiaI4_16D;
+// Lab-only bit-exact qualia tenant (see the `qualia_f32` field on `BindSpace`).
+// `QualiaVector = [f32; 17]` is the canonical contract type. NOTE: the contract's
+// `QUALIA_DIMS` is 17; this module's local `QUALIA_DIMS` const is 18 (the old
+// padded scheme) — the tenant is sized off the contract `QualiaVector`, not the
+// local const.
+#[cfg(feature = "with-engine")]
+use lance_graph_contract::qualia::QualiaVector;
 use lance_graph_ontology::OntologyRegistry;
 
 pub const WORDS_PER_FP: usize = 256;
@@ -256,6 +263,16 @@ pub struct BindSpace {
     /// Canonical qualia column (i4-16D, D-CSV-5b). Returns `QualiaI4_16D` by value.
     /// The old `QualiaColumn` (f32) was retired in D-CSV-5b; see `QualiaColumn` docs.
     pub qualia: QualiaI4Column,
+    /// **Lab bit-exact qualia tenant** (`with-engine` only). NOT a D-CSV-5b
+    /// reversal: the canonical hot column is `qualia` (i4, `QualiaI4_16D`); this
+    /// `[f32; 17]`-per-row tenant exists solely as the bit-exact ground-truth for
+    /// the `engine_bridge` `dispatch_busdto` / `unbind_busdto` round-trip during
+    /// the SoA migration (one exactness to measure every migration step against).
+    /// Production builds and `MailboxSoA` carry ONLY the i4 column — this tenant is
+    /// absent unless `with-engine` is on. 68 B/row on the singleton only.
+    /// See `E-QUALIA-F32-LAB-TENANT`.
+    #[cfg(feature = "with-engine")]
+    pub qualia_f32: Box<[QualiaVector]>,
     pub meta: MetaColumn,
     pub temporal: Box<[u64]>,
     pub expert: Box<[u16]>,
@@ -306,12 +323,36 @@ impl BindSpace {
             fingerprints: FingerprintColumns::zeros(len),
             edges: EdgeColumn::zeros(len),
             qualia: QualiaI4Column::zeros(len),
+            // Lab bit-exact tenant: one QualiaVector ([f32; 17]) per row, zeroed.
+            #[cfg(feature = "with-engine")]
+            qualia_f32: vec![[0.0f32; 17]; len].into_boxed_slice(),
             meta: MetaColumn::zeros(len),
             temporal: vec![0u64; len].into_boxed_slice(),
             expert: vec![0u16; len].into_boxed_slice(),
             entity_type: vec![0u16; len].into_boxed_slice(),
             ontology: None,
         }
+    }
+
+    /// Read the lab bit-exact qualia tenant row (`with-engine` only).
+    ///
+    /// Returns the full-fidelity `[f32; 17]` qualia for `row` — the ground-truth
+    /// the i4 `qualia` column quantizes. Used by `unbind_busdto` so the BusDto
+    /// round-trip is bit-exact (the i4 column clamps to ±1 and would corrupt
+    /// `codebook_index` / energies).
+    #[cfg(feature = "with-engine")]
+    pub fn qualia_f32_row(&self, row: usize) -> &QualiaVector {
+        &self.qualia_f32[row]
+    }
+
+    /// Write the lab bit-exact qualia tenant row (`with-engine` only).
+    ///
+    /// Stores the full-fidelity `[f32; 17]`. The canonical i4 `qualia` column is
+    /// written separately (and stays the hot-path representation); this tenant is
+    /// additive lab ground-truth, never the production carrier.
+    #[cfg(feature = "with-engine")]
+    pub fn set_qualia_f32(&mut self, row: usize, q: &QualiaVector) {
+        self.qualia_f32[row] = *q;
     }
 
     /// Attach a read-only ontology registry handle. Phase 7 (v4 plan).
