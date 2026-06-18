@@ -1,3 +1,30 @@
+## 2026-06-18 — E-CYPHER-IS-THE-KANBAN-AST — a kanban board IS a graph, so Cypher is its AST; board-ops + ontology-traversal + thinking-style dispatch + SurrealQL egress collapse to ONE shared AST
+
+**Status:** FINDING (convergence; odoo is the existence proof — ontology traversal already runs through the SurrealQL AST adapter). Refines `E-GUID-IS-THE-GRAPH` correction #2: "kanban is lifecycle, not traversal" was a false dichotomy — the lifecycle state-machine IS a graph, and that's the whole point.
+
+**The collapse:** a kanban board is a graph, full stop —
+- **card → GUID node** (`E-GUID-IS-THE-GRAPH`),
+- **column / phase → state** (a `Column` node the card has an `:IN` edge to, or a `classid`/property),
+- **move → edge rewrite** (`(c)-[:IN]->(Doing)` ⇒ `(c)-[:IN]->(Done)`),
+- **dependency / blocks → edge**, **WIP limit → a count constraint** (a Cypher `MATCH … RETURN count` guard), **swimlane → basin/label**.
+- the Rubicon transition rules (`KanbanColumn::can_transition_to`) **ARE the graph schema** (which edges are legal).
+
+So the board's queries and mutations are graph patterns, and **Cypher is the AST for graph patterns**. Driving the board with Cypher is not a metaphor — it is the board's native query/mutation language.
+
+**Why it's the obvious move (the four-into-one):** the planner already holds all the pieces, and they share one AST/IR —
+1. **Cypher/Gremlin/SPARQL/GQL → one planner IR** (front-end parsers).
+2. **SurrealQL AST** = the shared adapter/egress hub that IR lowers into and the substrate runs (`ExecTarget::SurrealQl` + `ogar-adapter-surrealql`). odoo's **ontology traversal already goes through this adapter** — the existence proof.
+3. **Thinking styles + MUL** dispatch over that IR (planner `thinking/`, 12 styles, NARS, sigma chain).
+4. **Kanban phases** (`KanbanColumn`) are the lifecycle the cards move through.
+
+These are not four subsystems to be bridged — they are **one AST seen from four sides**: Cypher is the surface syntax, SurrealQL is the adapter/egress, thinking-styles are the planner layer over it, kanban is the board the patterns mutate. **Cypher AS the kanban-board AST unifies them.** Not doing so means re-expressing board moves in a second language while the graph AST sits right there — the dumb path.
+
+**Concretely:** a board move = a Cypher mutation → planner IR → thinking-style/MUL plan → `ExecTarget::SurrealQl` (or `Native`/`Jit`) over the GUID-keyed substrate; a board query (cards in a column, blocked cards, WIP count) = a Cypher `MATCH` → prefix-route on `classid` + `EdgeBlock`-slot deref, zero-value-decode (`E-GUID-IS-THE-GRAPH`). The `KanbanColumn` lifecycle is the *mailbox cognitive-cycle* instantiation of the same structure; an odoo project board / woa work-order board / q2 case board are *domain* instantiations — **same AST, same substrate, different `classid` + edge schema.**
+
+**Scope guard (truth-architect):** "Cypher is the AST" = Cypher is the surface that lowers to the shared IR/SurrealQL AST — NOT a claim that the core's nom Cypher parser already emits SurrealQL (it lowers to DataFusion today; the SurrealQL lowering is the `lite-unified` gate #540, default-OFF, process-not-switch). The unification is the architecture; the wiring is the `Backend::MailboxSoa` router variant + the Cypher→SurrealQL lowering behind `lite-unified`. Cross-refs: `E-GUID-IS-THE-GRAPH`, `E-AR-DO-WIRING` (ontology→DO consumers), `lite-unified-surrealql-lance-v1`, planner `thinking/` + `strategy/cypher_parse.rs`, `kanban::{KanbanColumn, ExecTarget}`.
+
+---
+
 ## 2026-06-18 — E-GUID-IS-THE-GRAPH — the substrate IS a graph already: GUID-key = node, EdgeBlock-slot = edge, traversal = prefix-route + slot-deref, all zero-value-decode; SurrealQL is egress, kanban dispatches
 
 **Status:** FINDING (grounded in shipped `canonical_node.rs` / `soa_view.rs` / `kanban.rs` / planner polyglot strategies). Written to stop the q2-rewire session from hallucinating a node/edge/Cypher layer that already exists.
