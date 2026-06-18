@@ -3,8 +3,10 @@
 //!
 //! Builds the per-bus inertia-buffer field, then reads three witness arcs both ways:
 //! the particle walk (`O(hops)` per arc) and the standing wave (one `field_spectrum`
-//! transform, then `O(N)` per arc). They agree to floating point — and the wave form
-//! amortizes one transform across all arcs.
+//! transform reused across all arcs). They agree to floating point. As implemented,
+//! each arc is itself transformed, so the per-arc cost is `O(N log N)` (it narrows to
+//! `O(N)` only when the arc spectrum is precomputed or the arc is structured/sparse);
+//! the amortized quantity is the one **field** transform, not the per-arc dot.
 //!
 //! Run: cargo run --release --manifest-path crates/perturbation-sim/Cargo.toml \
 //!        --example witness
@@ -43,7 +45,8 @@ fn main() {
         ("alternating", &alt),
     ];
 
-    // Wave view: transform the field ONCE; every arc is then an O(N) read off it.
+    // Wave view: transform the field ONCE, then reuse the spectrum across all arcs
+    // (each arc still transformed → O(N log N) per arc; O(N) only if precomputed).
     let spectrum = field_spectrum(&field);
 
     println!("witness arc as a standing wave — particle (walk) vs wave (Parseval)\n");
@@ -62,7 +65,8 @@ fn main() {
     }
     println!(
         "\n  max |particle − wave| = {max_err:.2e} (Parseval: Hᵀ H = N·I, exact up to fp).\n  \
-         particle = O(hops) pointer-chase per arc; wave = O(N log N) once + O(N) per arc.\n  \
+         particle = O(hops) pointer-chase per arc; wave = O(N log N) field transform once,\n  \
+         reused across all arcs (each arc O(N log N) as written; O(N) only if precomputed).\n  \
          The standing wave IS the witness arc — evaluated all at once, no chain walk.\n  \
          (Demonstration in perturbation-sim; the contract witness_table evaluator is the\n  \
          separate gated step — the SoA spine is additive-only behind the iron rules.)"
