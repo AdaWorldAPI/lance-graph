@@ -24,6 +24,8 @@
 //! | `traverses_relation` | `odoo:<fam>.<fn>`    | `odoo:<fam>.<rel>`   | body for-loop (inferred) |
 //! | `target`             | `odoo:<fam>.<rel>`   | `"<comodel.dotted>"` | relational comodel (declared) |
 //! | `inverse_name`       | `odoo:<fam>.<rel>`   | `"<inverse>"`        | One2many/inverse (declared) |
+//! | `inherits_from`      | `odoo:<family>`      | `odoo:<base_family>` | `_inherit`/`_inherits` base (declared) |
+//! | `validation_kind`    | `odoo:<fam>.<fn>`    | `"<kind>"`           | `@api.constrains` body pattern (inferred) |
 //!
 //! ## FK-target + deep-read enrichment (`spo_enrich`)
 //!
@@ -174,6 +176,8 @@ mod tests {
                     "traverses_relation" => "traverses_relation",
                     "target" => "target",
                     "inverse_name" => "inverse_name",
+                    "inherits_from" => "inherits_from",
+                    "validation_kind" => "validation_kind",
                     _ => "other",
                 })
                 .or_default() += 1;

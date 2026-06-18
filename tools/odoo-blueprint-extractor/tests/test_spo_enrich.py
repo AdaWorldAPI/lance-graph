@@ -369,5 +369,229 @@ class TestInheritOnlyRelationMap(unittest.TestCase):
         self.assertIsNone(relmap.get(("mail_thread", "partner_id")))
 
 
+# ---------------------------------------------------------------------------
+# PR #526 — inherits_from (P1b/ruff#19) + validation_kind (P2/ruff#21)
+# ---------------------------------------------------------------------------
+
+
+def _scan_src(src):
+    from odoo_blueprint_extractor.spo_enrich import _scan_file
+    relmap = {}
+    inherits = {}
+    constrains = {}
+    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as f:
+        f.write(src)
+        path = f.name
+    try:
+        _scan_file(path, relmap, inherits, constrains)
+    finally:
+        os.unlink(path)
+    return relmap, inherits, constrains
+
+
+def _classify(src):
+    import ast as _ast
+    from odoo_blueprint_extractor.spo_enrich import _classify_constrains_body
+    tree = _ast.parse(src)
+    fn = next(n for n in _ast.walk(tree) if isinstance(n, _ast.FunctionDef))
+    return _classify_constrains_body(fn)
+
+
+class TestP1bInheritsFrom(unittest.TestCase):
+    def test_emit_for_corpus_declared_base(self):
+        triples = [
+            t("odoo:account_move", "rdf:type", "ogit:ObjectType"),
+            t("odoo:mail_thread", "rdf:type", "ogit:ObjectType"),
+        ]
+        lines, stats = enrich(triples, RELMAP, inherits={"account_move": {"mail_thread"}})
+        self.assertIn(
+            '{"s":"odoo:account_move","p":"inherits_from","o":"odoo:mail_thread"',
+            "\n".join(lines),
+        )
+        self.assertEqual(stats["inherits_from"], 1)
+
+    def test_skip_unknown_base(self):
+        triples = [t("odoo:account_move", "rdf:type", "ogit:ObjectType")]
+        lines, stats = enrich(triples, RELMAP, inherits={"account_move": {"mail_thread"}})
+        self.assertEqual(stats["inherits_from"], 0)
+        self.assertEqual(stats["inherits_skip_unknown_base"], 1)
+        self.assertEqual(lines, [])
+
+    def test_dedup_against_existing(self):
+        triples = [
+            t("odoo:account_move", "rdf:type", "ogit:ObjectType"),
+            t("odoo:mail_thread", "rdf:type", "ogit:ObjectType"),
+            t("odoo:account_move", "inherits_from", "odoo:mail_thread"),
+        ]
+        _, stats = enrich(triples, RELMAP, inherits={"account_move": {"mail_thread"}})
+        self.assertEqual(stats["inherits_from"], 0)
+
+    def test_inherit_string_lifts(self):
+        _, inh, _ = _scan_src(
+            "class M:\n    _name = 'account.move'\n    _inherit = 'mail.thread'\n"
+        )
+        self.assertEqual(inh, {"account_move": {"mail_thread"}})
+
+    def test_inherit_list_lifts_all(self):
+        _, inh, _ = _scan_src(
+            "class M:\n    _name = 'account.move'\n"
+            "    _inherit = ['mail.thread', 'mail.activity.mixin']\n"
+        )
+        self.assertEqual(inh, {"account_move": {"mail_thread", "mail_activity_mixin"}})
+
+    def test_self_inherit_dropped(self):
+        _, inh, _ = _scan_src(
+            "class M:\n    _name = 'account.move'\n    _inherit = 'account.move'\n"
+        )
+        self.assertEqual(inh, {})
+
+    def test_inherits_delegation_dict_keys_lift(self):
+        _, inh, _ = _scan_src(
+            "class M:\n    _name = 'account.move'\n"
+            "    _inherits = {'mail.thread': 'thread_id'}\n"
+        )
+        self.assertEqual(inh, {"account_move": {"mail_thread"}})
+
+    def test_inherit_only_class_no_new_edge(self):
+        _, inh, _ = _scan_src(
+            "class Ext:\n    _inherit = 'account.move'\n    foo = fields.Char()\n"
+        )
+        self.assertEqual(inh, {})
+
+
+class TestP2ValidationKind(unittest.TestCase):
+    def _triples(self, method_iri="odoo:account_move._check_x"):
+        return [
+            t("odoo:account_move", "rdf:type", "ogit:ObjectType"),
+            t("odoo:account_move", "has_function", method_iri),
+        ]
+
+    def test_emit_for_declared_method(self):
+        lines, stats = enrich(
+            self._triples(),
+            RELMAP,
+            constrains={("account_move", "_check_x"): {"lookup"}},
+        )
+        self.assertEqual(stats["validation_kind"], 1)
+        self.assertTrue(any('"validation_kind","o":"lookup"' in ln for ln in lines))
+
+    def test_emit_multiple_kinds_per_method(self):
+        _, stats = enrich(
+            self._triples(),
+            RELMAP,
+            constrains={("account_move", "_check_x"): {"presence", "range"}},
+        )
+        self.assertEqual(stats["validation_kind"], 2)
+
+    def test_skip_method_not_in_corpus(self):
+        triples = [t("odoo:account_move", "rdf:type", "ogit:ObjectType")]
+        lines, stats = enrich(
+            triples, RELMAP, constrains={("account_move", "_check_x"): {"presence"}}
+        )
+        self.assertEqual(stats["validation_kind"], 0)
+        self.assertEqual(stats["validation_skip_unknown_method"], 1)
+        self.assertEqual(lines, [])
+
+    def test_drop_non_canonical_kinds(self):
+        _, stats = enrich(
+            self._triples(),
+            RELMAP,
+            constrains={("account_move", "_check_x"): {"future_kind"}},
+        )
+        self.assertEqual(stats["validation_kind"], 0)
+
+
+class TestAstClassifier(unittest.TestCase):
+    def test_format_via_re_match(self):
+        kinds = _classify(
+            "import re\ndef _check_x(self):\n"
+            "    if not re.match(r'\\d+', self.code):\n"
+            "        raise ValidationError('bad')\n"
+        )
+        self.assertIn("format", kinds)
+        # codex P2 #3: `not <Call>` is NOT presence.
+        self.assertNotIn("presence", kinds)
+
+    def test_uniqueness_via_search_count_gt(self):
+        kinds = _classify(
+            "def _check_x(self):\n"
+            "    if self.env['m'].search_count([('a','=',1)]) > 1:\n"
+            "        raise ValidationError('dup')\n"
+        )
+        self.assertIn("uniqueness", kinds)
+        # codex P2 #2: `search_count(...) > N` is NOT also range.
+        self.assertNotIn("range", kinds)
+
+    def test_range_for_field_vs_numeric_bound(self):
+        kinds = _classify(
+            "def _check_x(self):\n"
+            "    if self.amount < 0:\n"
+            "        raise ValidationError('neg')\n"
+        )
+        self.assertIn("range", kinds)
+
+    def test_lookup_via_search(self):
+        kinds = _classify(
+            "def _check_x(self):\n"
+            "    if not self.env['r'].search([]):\n"
+            "        raise ValidationError('miss')\n"
+        )
+        self.assertIn("lookup", kinds)
+        self.assertNotIn("presence", kinds)
+
+    def test_presence_via_attribute_truthiness(self):
+        kinds = _classify(
+            "def _check_x(self):\n"
+            "    if not self.partner:\n"
+            "        raise ValidationError('miss')\n"
+        )
+        self.assertIn("presence", kinds)
+
+    def test_presence_via_is_none(self):
+        kinds = _classify(
+            "def _check_x(self):\n"
+            "    if self.partner is None:\n"
+            "        raise ValidationError('miss')\n"
+        )
+        self.assertIn("presence", kinds)
+
+
+class TestConstrainsScan(unittest.TestCase):
+    """Binding follows #525's `model_names` decision:
+    `_name` if set, else `_inherit[0]` only — no broadcast to mixins."""
+
+    def test_bind_to_name_model(self):
+        _, _, c = _scan_src(
+            "class M:\n    _name = 'account.move'\n"
+            "    @api.constrains('amount')\n"
+            "    def _check_amount(self):\n"
+            "        if self.amount < 0:\n"
+            "            raise ValidationError('neg')\n"
+        )
+        self.assertEqual(c, {("account_move", "_check_amount"): {"range"}})
+
+    def test_inherit_only_binds_to_inherit_zero(self):
+        # `_inherit = ['a', 'b']` with no `_name` binds to `a` only.
+        _, _, c = _scan_src(
+            "class Ext:\n"
+            "    _inherit = ['account.move', 'mail.thread']\n"
+            "    @api.constrains('amount')\n"
+            "    def _check_amount(self):\n"
+            "        if self.amount < 0:\n"
+            "            raise ValidationError('neg')\n"
+        )
+        self.assertEqual(c, {("account_move", "_check_amount"): {"range"}})
+
+    def test_name_plus_inherit_binds_to_name_only(self):
+        _, _, c = _scan_src(
+            "class M:\n    _name = 'account.move'\n    _inherit = 'mail.thread'\n"
+            "    @api.constrains('subject')\n"
+            "    def _check_subject(self):\n"
+            "        if not self.subject:\n"
+            "            raise ValidationError('miss')\n"
+        )
+        self.assertEqual(c, {("account_move", "_check_subject"): {"presence"}})
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
