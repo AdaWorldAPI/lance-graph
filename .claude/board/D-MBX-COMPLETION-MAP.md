@@ -5,8 +5,9 @@
 > Status mirrors STATUS_BOARD; this doc adds the critical-path + gating-OQ view.
 > Maintained via `tee` (board-hygiene, newest facts win; supersede by re-`tee`).
 
-## Where we are (2026-05-30)
+## Where we are (2026-06-18 update; base 2026-05-30)
 - **D-MBX-A1** — migrated thoughtspace columns on `MailboxSoA<N>` — **SHIPPED** (between #418/#433).
+- **D-MBX-A2** — close BindSpace expressivity gaps — **SHIPPED (carrier), 2026-06-18 reconcile.** Columns landed post-2026-06-13: W1 `22f5120a` (temporal/expert/sigma) + W1b `707360dc` (dense content/topic/angle) + W1c + W4a `BackingStore`/`BackingStoreWrite` shim, with accessors + parity + field-isolation tests. OQ-1 resolved (dense planes hot). S/P/O role slices = NON-GAP (VSA-unbind vs `grammar/role_keys`). Residual: OQ-2 fold decision (landed standalone). The §6 S1 gate (`D-CE64-MB-1-impl` par-tile apex / `PR-NDARRAY-MIRI-COMPLETE`) was **sidestepped** (enum-over-trait shim, OQ-C), not satisfied. See `E-DMBXA2-SHIPPED-RECONCILE`.
 - **D-MBX-A6-P1** — contract seam (`kanban`/`soa_view`/`StepDomain::Kanban` + `class_id` N1 hook) — **SHIPPED #437**.
 - **D-MBX-A6-P2** — Rubicon lifecycle DAG enforcement + `ExecTarget` — **IN PR #439**.
 - Everything else below: **Queued**, gated as shown.
@@ -54,7 +55,7 @@
 ```
 
 ## Critical path to "done" (longest chain)
-`A6-P2(#439)` → **A6-P3** → A2 → A3 → A5 → D-MBX-7 → **D-MBX-9** (transparent view) → D-MBX-12 (nine-consumer convergence). D-MBX-10/11 are off-critical-path foundations that should land in parallel NOW (11 is mechanical, 10 is the version-gate everything reads).
+`A6-P2(#439)` → **A6-P3** → ~~A2~~ (SHIPPED carrier 2026-06-18) → A3 → A5 → D-MBX-7 → **D-MBX-9** (transparent view) → D-MBX-12 (nine-consumer convergence). D-MBX-10/11 are off-critical-path foundations that should land in parallel NOW (11 is mechanical, 10 is the version-gate everything reads). **Note (2026-06-18):** the engine_bridge per-row re-home (plan §6 "S2") is ~80% pre-absorbed by the W4a `BackingStore`/`BackingStoreWrite` shim; its residual (re-point the `#[cfg(with-engine)]` lab callers through the shim) folds into S3 (driver flips off the singleton), which is the true next substantive node and is gated on OQ-2 + the pre-existing `--features with-engine` compile break (`QUALIA_DIMS` unimported, engine_bridge.rs:259).
 
 ## Gating Open Questions (these block, not the code)
 - **OQ-11.6** — surreal_container fork coords (URL/branch/kv-lance flag); BLOCKED(B/C/D). **Blocks D-MBX-9** (the whole payoff). Highest-leverage unblock.
