@@ -15,7 +15,7 @@ already shares **one IR/AST** across all four sides:
 | Side | Surface | Already shipped |
 |---|---|---|
 | **Query language** | Cypher / Gremlin / SPARQL / GQL → one IR | planner `strategy/{cypher,gremlin,sparql,gql}_parse.rs` |
-| **Adapter / egress** | SurrealQL AST (`DEFINE`/traversal) | `ExecTarget::SurrealQl` + `ogar-adapter-surrealql`; odoo ontology traversal = existence proof |
+| **Adapter / egress** | SurrealQL AST (`DEFINE`/traversal) | `ExecTarget::SurrealQl` enum tag only (no lowering yet; `ogar-adapter-surrealql` is NOT a crate — nearest is `surreal_container::SurrealStore`, a `BLOCKED(C)` stub); odoo path = CONJECTURE, see verdict §5 |
 | **Planner layer** | thinking-styles + MUL over the IR | planner `thinking/` (12 styles, NARS, sigma chain), `mul/` |
 | **Board** | kanban phases the cards move through | `kanban::{KanbanColumn, ExecTarget}` |
 
@@ -41,8 +41,11 @@ board / woa work-order board / q2 case board are *domain* instantiations —
   var-length `*1..2`, WHERE/RETURN/etc).
 - **The polyglot front-ends → one IR**; **thinking-styles + MUL** plan over it;
   **`ExecTarget::SurrealQl`** is the egress.
-- **odoo ontology traversal already runs through the SurrealQL AST adapter** —
-  the existence proof that Cypher/ontology-over-SurrealQL works.
+- **odoo ontology work suggests the Cypher/ontology-over-SurrealQL path** — but
+  this is **CONJECTURE, not a proof** (verdict §5): what ships is a tagged
+  `const ActionDef`(`ExecTarget::SurrealQl`) + `classify_odoo` classification, with
+  NO executor arm and NO Cypher→SurrealQL lowering in source yet. Treat as a
+  convergent-but-unwired signal, not a running traversal.
 
 ## The gap (what this plan wires) — additive, layout-preserving
 
