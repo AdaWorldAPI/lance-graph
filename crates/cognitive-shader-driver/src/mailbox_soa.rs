@@ -77,6 +77,14 @@ pub struct MailboxSoA<const N: usize> {
     /// rows already stamped this cycle are skipped.
     pub last_active_cycle: [u32; N],
 
+    /// Per-row last-**write** cycle stamp (S2.5 cycle-aware write contract).
+    /// Distinct from `last_active_cycle` (consumption): this records the cycle
+    /// at which [`Self::write_row`] last accepted a write into the row. Kept
+    /// separate so the write gate's *ordering* check never couples to
+    /// `consume_firing`'s *exact-match* idempotency guard (`I-LEGACY-API-FEATURE-GATED`:
+    /// same field, two semantics is forbidden). Sentinel `u32::MAX` = never written.
+    pub last_write_cycle: [u32; N],
+
     // ── NEW: migrated thoughtspace columns (per-mailbox owned, D-MBX-A1) ──
     /// Per-row LE baton edge (`CausalEdge64`, 8 B/row).
     /// Migrated from `BindSpace.edges` (EdgeColumn).
@@ -147,6 +155,13 @@ pub struct MailboxSoA<const N: usize> {
     /// Monotonic cycle stamp; advanced by `tick()`.
     pub current_cycle: u32,
 
+    /// Count of writes rejected as stale by [`Self::write_row`] (telemetry).
+    /// A late batch targeting a cycle the mailbox already advanced past is
+    /// dropped, not applied — this counts those drops (drop-with-telemetry =
+    /// the Strict `WriteDisposition`; an Aware local buffer is a future option).
+    /// Mailbox-level (not per-row); [`Self::reset_row`] does NOT touch it.
+    pub(crate) stale_write_count: u64,
+
     /// 6-bit W-slot value this mailbox represents.
     /// Incoming edges with `edge.w_slot() != self.w_slot` are rejected.
     /// Must be < 64 (plan §6 L-6).
@@ -194,6 +209,56 @@ pub struct MailboxSoA<const N: usize> {
 /// Default capacity: 1024 rows (4× current BindSpace row count).
 pub type DefaultMailboxSoA = MailboxSoA<1024>;
 
+/// Outcome of a cycle-aware row write through [`MailboxSoA::write_row`].
+///
+/// Infallible-with-outcome (NOT `Result`): ownership is compile-proven
+/// (`&mut self`, E-CE64-MB-4), so "this write is for another cycle" is a valid
+/// in-domain *outcome*, not an aliasing failure (council OQ-D).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WriteOutcome {
+    /// `cycle == current_cycle` — the `cell` was applied and `last_write_cycle[row]`
+    /// stamped to `cycle`.
+    Accepted,
+    /// `cycle` is (wrap-aware) strictly behind `current_cycle` — a late batch
+    /// targeting a cycle the mailbox advanced past. Nothing mutated;
+    /// `stale_write_count` incremented. This is the "nothing buffers a stale
+    /// mailbox / no cycle-blind overwrite" guarantee.
+    Stale,
+    /// `cycle` is (wrap-aware) strictly ahead of `current_cycle`. Nothing
+    /// mutated (Strict `WriteDisposition` default; an Aware buffer is a future
+    /// option for the multi-producer interlace target).
+    Future,
+}
+
+/// Field-presence staging cell for one cycle-aware row write.
+///
+/// Only `Some` fields are applied; `None` fields are left untouched. It is a
+/// *view over what to write*, carrying no column data it does not need
+/// (register-laziness, `I-VSA-IDENTITIES`). Slices borrow; scalars copy.
+#[derive(Debug, Clone, Default)]
+pub struct WriteCell<'a> {
+    /// Content identity plane (`WORDS_PER_FP` u64) — borrowed.
+    pub content: Option<&'a [u64]>,
+    /// Topic identity plane (`WORDS_PER_FP` u64) — borrowed.
+    pub topic: Option<&'a [u64]>,
+    /// Angle identity plane (`WORDS_PER_FP` u64) — borrowed.
+    pub angle: Option<&'a [u64]>,
+    /// LE baton edge.
+    pub edge: Option<CausalEdge64>,
+    /// Affective i4-16D vector.
+    pub qualia: Option<QualiaI4_16D>,
+    /// Packed meta word.
+    pub meta: Option<MetaWord>,
+    /// OGIT entity-type index.
+    pub entity_type: Option<u16>,
+    /// Temporal stamp.
+    pub temporal: Option<u64>,
+    /// Expert/corpus id.
+    pub expert: Option<u16>,
+    /// Σ-codebook index.
+    pub sigma: Option<u8>,
+}
+
 impl<const N: usize> MailboxSoA<N> {
     /// Construct a new `MailboxSoA` with all per-row state zero-initialised.
     ///
@@ -215,7 +280,10 @@ impl<const N: usize> MailboxSoA<N> {
             // u32::MAX during a session, so first consumption on any cycle is
             // always permitted (u32::MAX != any valid cycle stamp).
             last_active_cycle: [u32::MAX; N],
+            // u32::MAX = "never written" sentinel (mirrors last_active_cycle).
+            last_write_cycle: [u32::MAX; N],
             current_cycle: 0,
+            stale_write_count: 0,
             w_slot,
             threshold,
             // ── NEW thoughtspace columns — zero-initialised (D-MBX-A1) ──
@@ -305,6 +373,80 @@ impl<const N: usize> MailboxSoA<N> {
         self.current_cycle = self.current_cycle.wrapping_add(1);
     }
 
+    /// Cycle-aware row write — the ONE deinterlacing mutator (S2.5).
+    ///
+    /// The gate is **wrap-aware** against `current_cycle` (a naive `<`/`>`
+    /// misclassifies post-`u32`-wrap stragglers as `Future` across a long
+    /// interlaced sweep):
+    /// - `cycle == current_cycle` → apply the `Some` fields of `cell`, stamp
+    ///   `last_write_cycle[row] = cycle`, return [`WriteOutcome::Accepted`].
+    /// - `cycle` strictly behind (wrapping distance `< 2^31`) → mutate nothing,
+    ///   increment `stale_write_count`, return [`WriteOutcome::Stale`].
+    /// - `cycle` strictly ahead → mutate nothing, return [`WriteOutcome::Future`].
+    ///
+    /// Out-of-range `row` returns `Stale` without mutation (a row we do not own
+    /// is never written). This is the cycle-blind-setter gap closed: no write
+    /// lands without the owner's `current_cycle` agreeing.
+    pub fn write_row(&mut self, row: usize, cycle: u32, cell: &WriteCell<'_>) -> WriteOutcome {
+        if row >= N {
+            return WriteOutcome::Stale;
+        }
+        // Wrap-aware: delta in [0, 2^31) ⇒ cycle is at-or-behind current
+        // (0 = current, >0 = stale); [2^31, 2^32) ⇒ cycle is ahead (future).
+        let delta = self.current_cycle.wrapping_sub(cycle);
+        if delta == 0 {
+            if let Some(w) = cell.content {
+                self.set_content(row, w);
+            }
+            if let Some(w) = cell.topic {
+                self.set_topic(row, w);
+            }
+            if let Some(w) = cell.angle {
+                self.set_angle(row, w);
+            }
+            if let Some(e) = cell.edge {
+                self.set_edge(row, e);
+            }
+            if let Some(q) = cell.qualia {
+                self.set_qualia(row, q);
+            }
+            if let Some(m) = cell.meta {
+                self.set_meta(row, m);
+            }
+            if let Some(t) = cell.entity_type {
+                self.set_entity_type(row, t);
+            }
+            if let Some(t) = cell.temporal {
+                self.set_temporal(row, t);
+            }
+            if let Some(x) = cell.expert {
+                self.set_expert(row, x);
+            }
+            if let Some(s) = cell.sigma {
+                self.set_sigma(row, s);
+            }
+            self.last_write_cycle[row] = cycle;
+            WriteOutcome::Accepted
+        } else if delta < 0x8000_0000 {
+            self.stale_write_count = self.stale_write_count.saturating_add(1);
+            WriteOutcome::Stale
+        } else {
+            WriteOutcome::Future
+        }
+    }
+
+    /// Per-row last-**write** cycle stamp (`u32::MAX` = never written).
+    #[inline]
+    pub fn last_write_cycle_at(&self, row: usize) -> u32 {
+        self.last_write_cycle[row]
+    }
+
+    /// Count of writes rejected as stale by [`Self::write_row`] (telemetry).
+    #[inline]
+    pub fn stale_write_count(&self) -> u64 {
+        self.stale_write_count
+    }
+
     /// Declared populated-row count (W1c) — the `BindSpace::len` analogue, NOT the
     /// type-level capacity `N`. Row-bounded sweeps (the migration read-shim's
     /// `meta_prefilter`) clamp to this logical size, so zeroed padding rows
@@ -341,6 +483,9 @@ impl<const N: usize> MailboxSoA<N> {
         // Restore the "never consumed" sentinel so the row can fire immediately
         // on the next cycle without triggering the same-cycle guard.
         self.last_active_cycle[row] = u32::MAX;
+        // Restore the "never written" sentinel (field-isolation: a new [u32; N]
+        // that reset_row forgets is the exact leak the matrix test catches).
+        self.last_write_cycle[row] = u32::MAX;
         // ── NEW thoughtspace columns reset (D-MBX-A1) ──
         self.edges[row] = CausalEdge64::ZERO;
         self.qualia[row] = QualiaI4_16D::ZERO;
@@ -634,7 +779,11 @@ impl<const N: usize> MailboxSoaOwner for MailboxSoA<N> {
             to,
             // Structural witness position (R4): the monotonic cycle stamp stands in
             // for the chain index until the witness_arc column lands — matching
-            // `NextPhaseScheduler`'s convention.
+            // `NextPhaseScheduler`'s convention. Read it as the SoA cycle-ownership
+            // stamp via `KanbanMove::cycle()` (S2.5) — makes the move + planner +
+            // SurrealQL exec cycle-aware off one source of truth. (No "emission":
+            // the mailbox writes to itself in place; this is its own lifecycle
+            // step recorded at its own current_cycle, per the #477 three-tier model.)
             witness_chain_position: self.current_cycle,
             libet_offset_us: if from == KanbanColumn::Planning && to == KanbanColumn::CognitiveWork
             {

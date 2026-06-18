@@ -94,7 +94,8 @@ impl VersionScheduler for NextPhaseScheduler {
             from,
             to,
             // Structural witness position (R4): the monotonic cycle stamp stands in
-            // for the chain index until the A3 `witness_arc` column lands.
+            // for the chain index until the A3 `witness_arc` column lands. Read it as
+            // the SoA cycle-ownership stamp via `KanbanMove::cycle()` (S2.5).
             witness_chain_position: view.current_cycle(),
             libet_offset_us,
             exec,
