@@ -1,3 +1,56 @@
+## 2026-06-18 — E-AR-DO-WIRING — ruff (static) + ARM (dynamic) meet at SPO; AR Class splits along DOLCE into THINK+DO; consumers land off the harvest
+
+**Status:** FINDING (cross-session converged: odoo-rs + OGAR-contract + openproject-nexgen-rs blast-radius surveys all confirm additive convergence onto the #534 keystone). Landing recipe: `docs/OGAR_CONSUMER_API.md`.
+
+**One frame — how a domain becomes an OGAR node, and where each consumer plugs in:**
+
+```
+ruff_cpp_spo / ruff-Rails harvest (STATIC: has_function, reads_field, inherits_from, validation_kind)
+        +  lance-graph-arm-discovery / ARM (DYNAMIC: runtime (X→Y) rules, codebook-deterministic)
+        └──────────────► MEET at SPO {s,p,o,f,c}  ──►  the OGAR Core (classid → ClassView)
+                                                              │
+        AR Class splits along DOLCE (one node, two arms):     │
+        • fields      → Endurant  → THINK : ValueTenant cols + MethodSig (ClassMethods/methods_for)
+        • methods     → Perdurant → DO    : ActionDef (ClassActions/actions_for) + ActionInvocation
+        • inheritance → classid → ClassView (one mechanism, both arms; child overrides parent by key)
+        • relations   → EdgeBlock (12 in-family + 4 out)
+                                                              ▼
+   consumer generates `const ClassMethods` (THINK) + `const ClassActions` (DO) from ITS harvest,
+   binds classid OGAR-side, writes THIN classid-keyed adapters that ASSUME the Core,
+   commits through the gate: def-match → RBAC (ActorContext) → state-guard → MUL (GateDecision)
+   → ExecTarget::SurrealQl (the AR-shaped API surface; NOT a per-crate endpoint).
+```
+
+**The three claims that let a consumer land NOW (no waiting):**
+1. **The harvest IS the manifest.** Don't hand-author the object model — generate the `const` tables. `has_function`→`ActionDef.predicate`; `inherits_from`→`overrides` (filled at codegen by `mro::resolve_overrides`); `reads_field`→`ValueSchema`/`FieldMask`. (odoo-rs: `mro` gains a downstream consumer, no change.)
+2. **Static + dynamic are one SPO.** ruff = the static skeleton; ARM = dynamic enrichment; both emit `{s,p,o,f,c}`. A consumer with only a static harvest lands the full THINK+DO shape today; ARM refines `(f,c)` later.
+3. **DOLCE draws the THINK/DO line, not the consumer.** Perdurant (methods/events) = DO; Endurant/Quality (fields/state) = THINK. `aerial/ontology.rs` already emits the `dolce_id`.
+
+**Per-consumer entry points (from the 3 blast-radius surveys):**
+- **odoo-rs:** `od-posting::_post` IS an `ActionInvocation` (ExecTarget::SurrealQl) — the runtime DO consumer. `od-ontology` stays zero-dep (NO `RegistryClassView` dep without a council). `mro::resolve_overrides` = the `overrides` source at codegen.
+- **openproject-nexgen-rs:** `op-surreal-ast` imports only `codegen_spine::Triple` (unchanged). Two net-new lifts: `ogar-from-ruff` `Model::functions → ClassActions/ActionDef` (DO producer); a registration hop `Class → register_class_path` + classid bind (THINK next-hop).
+- **tesseract-rs:** the cheapest existence proof — its pipeline is already byte-parity green; generate one class's `ClassActions` from `has_function`.
+
+**Convergence flagged (3 instances now → unify):** override-resolution appears as `effective_actions` (DO, per-class) + `mro::resolve_overrides` (whole-manifest) + `ClassView` inherit — same child-overrides-parent-by-key relation. Crosses the abstraction threshold → an `Overridable`/keyed-merge primitive (council-gated).
+
+**Guards (every consumer holds):** ENVELOPE_LAYOUT_VERSION=2 / NODE_ROW_STRIDE=512 must not move; `from_guid_prefix` high-classid-u16→None refusal + 16M-per-basin ceiling are now addressing-load-bearing; `ClassView::{compute_dag, constraints}` (computed-field recompute/validation) grows the EXISTING ClassView, never a new layer.
+
+---
+
+## 2026-06-18 — E-SOA-CYCLE-OWNERSHIP — cycle is per-mailbox + per-cycle, LE-contract-enforced; multi-mailbox interlaces; non-fitting consumers get OGAR classid→schema
+
+**Status:** FINDING (operator-ratified architecture sync; the wiring itself is 5+3-gated before code). Repo brought in sync via the `bindspace-singleton-to-mailbox-soa-v1` ERRATA ADDENDUM 2026-06-18c.
+
+After the AoS→SoA rotation (done) + the F32 bit-exact anchor (#535), the remaining migration is bounded by four operator-ratified rules:
+
+1. **Cycle ownership = per-mailbox, per-cycle, byte-explicit in the LE contract of the tenant AND the envelope.** No cycle-blind write; nothing buffers a stale/older mailbox. The gap today: only `consume_firing` is cycle-aware; the per-row setters (`set_content/qualia/edge/meta/temporal`) and `BackingStoreWrite` are cycle-blind. Target: every write carries/checks `current_cycle` (`SoaEnvelope::cycle()` / `current_cycle` / `last_active_cycle`). This is the next code deliverable.
+
+2. **Multi-mailbox interlace is the target; `backing()`'s `debug_assert(≤1 mailbox)` is W5-transitional, not the design.** 16k open mailboxes ≈ 8 MB (512 B each); 16M ≈ 8 GB — linear, trivial. No open mailbox goes inaccessible at scale because addressing is the canonical GUID prefix-route (classid·HEEL·HIP·TWIG → ~1024 L3-resident prefix tables; trie binds the prefix, masked-load the tail). Per-cycle discipline is per-mailbox.
+
+3. **Consumer fork — not every consumer rotates into the one SoA.** SoA-fits → rotate onto the SoA columns. Doesn't-fit → a customized OGAR-driven `classid → schema` (per-class ClassView/Template, the Core-First path #530/#533). The ~10 live BindSpace consumers (cypher_bridge, sentence_crystal, fabric, learning/{scm,feedback}, spo/merkle, callcenter/transcode, planner/elevation) split along this line; they migrate at D-MBX-12 (gated on D-MBX-7 + D-MBX-9-surrealdb). Dissolves the "all nine migrate to one SoA" misframe.
+
+4. **Layering down:** at the consumer/persistence boundary, OGAR (canonical node) + Template (ClassView) + Schema-version (envelope `LAYOUT_VERSION`, currently 2) become mandatory.
+
 ## 2026-06-18 — E-QUALIA-F32-LAB-TENANT — i4 qualia is lossy for codebook_index + energies; the F32-17D BindSpace tenant is the migration's bit-exact anchor
 
 **Status:** FINDING (operator-directed "wire F32; one exactness to measure against during the migration"; 3-agent panel LAND — dto-soa FITS-COLUMN, iron-rule LAND-with-AP1-guard, truth-architect PASS-able — supplementing the earlier 8-agent S-series council).
