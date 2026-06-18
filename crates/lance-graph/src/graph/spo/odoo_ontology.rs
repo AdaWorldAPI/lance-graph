@@ -26,6 +26,7 @@
 //! | `inverse_name`       | `odoo:<fam>.<rel>`   | `"<inverse>"`        | One2many/inverse (declared) |
 //! | `inherits_from`      | `odoo:<family>`      | `odoo:<base_family>` | `_inherit`/`_inherits` base (declared) |
 //! | `validation_kind`    | `odoo:<fam>.<fn>`    | `"<kind>"`           | `@api.constrains` body pattern (inferred) |
+//! | `selection_value`    | `odoo:<fam>.<field>` | `"<value_key>"`      | `fields.Selection` enum key (declared) |
 //!
 //! ## FK-target + deep-read enrichment (`spo_enrich`)
 //!
@@ -183,6 +184,7 @@ mod tests {
                     "inverse_name" => "inverse_name",
                     "inherits_from" => "inherits_from",
                     "validation_kind" => "validation_kind",
+                    "selection_value" => "selection_value",
                     _ => "other",
                 })
                 .or_default() += 1;

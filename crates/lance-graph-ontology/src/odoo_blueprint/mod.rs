@@ -93,6 +93,13 @@ pub mod style_recipe;
 // build.rs → OUT_DIR → include!(). See op_emitter::emit_op_dispatch.
 pub mod op_emitter;
 
+/// Structural Core extension — typed home for `inherits_from` +
+/// `selection_value` (the two structural gaps that do not fit the
+/// 3 554-literal `OdooField` / 404-literal `OdooEntity` mega-structs).
+/// Core is authoritative; the `spo_enrich.py` harvest is the subordinate
+/// Extracted-leg breadth feeder. See the module doc for the full rationale.
+pub mod structural;
+
 // ─── Top-level entity ─────────────────────────────────────────────────────
 
 /// Which ORM base class the entity inherits from.
