@@ -655,6 +655,27 @@ class TestSelectionExtraction(unittest.TestCase):
         vals = _classify_sel("fields.Selection([('a','A'), 'bogus', ('b','B')])")
         self.assertEqual(vals, ["a", "b"])
 
+    # codex #530 — selection_add (the _inherit extension idiom)
+    def test_selection_add_kwarg_alone(self):
+        # A pure extension: `selection_add=` with no base list → the added keys.
+        vals = _classify_sel(
+            "fields.Selection(selection_add=[('reviewed','Reviewed'),('void','Void')])"
+        )
+        self.assertEqual(vals, ["reviewed", "void"])
+
+    def test_selection_base_plus_add_union_base_first(self):
+        vals = _classify_sel(
+            "fields.Selection(selection=[('draft','Draft'),('posted','Posted')], "
+            "selection_add=[('reviewed','Reviewed')])"
+        )
+        self.assertEqual(vals, ["draft", "posted", "reviewed"])
+
+    def test_selection_add_dedups_against_base(self):
+        vals = _classify_sel(
+            "fields.Selection(selection=[('a','A')], selection_add=[('a','A2'),('b','B')])"
+        )
+        self.assertEqual(vals, ["a", "b"])
+
 
 class TestSelectionScan(unittest.TestCase):
     """`_scan_file` binds Selection values to model_names (per #525 rule)."""
@@ -682,6 +703,24 @@ class TestSelectionScan(unittest.TestCase):
             "    s = fields.Selection(selection='_compute_s')\n"
         )
         self.assertEqual(sel, {})
+
+    def test_selection_add_merges_across_classes(self):
+        # codex #530: base declaration in the _name class + a selection_add
+        # extension in a separate _inherit class must ACCUMULATE, not
+        # overwrite — else the ASSERT $value IN [...] rejects legal added
+        # states.
+        sel = _scan_sel(
+            "class Base:\n"
+            "    _name = 'account.move'\n"
+            "    state = fields.Selection([('draft','Draft'),('posted','Posted')])\n"
+            "\n"
+            "class Ext:\n"
+            "    _inherit = 'account.move'\n"
+            "    state = fields.Selection(selection_add=[('reviewed','Reviewed')])\n"
+        )
+        self.assertEqual(
+            sel, {("account_move", "state"): ["draft", "posted", "reviewed"]}
+        )
 
 
 class TestP3SelectionValueEmission(unittest.TestCase):
