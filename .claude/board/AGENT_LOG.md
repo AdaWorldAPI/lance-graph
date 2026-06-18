@@ -1,3 +1,15 @@
+## 2026-06-18 — 5+3 council: mailbox-belief-update-and-substrate-test-v1 (design, no code)
+
+**Main thread (Opus) + 8-agent council.** Branch `claude/soa-cycle-ownership-sync`. Question: should within-mailbox belief change be a per-item AriGraph belief update ("this thought made me smarter, what did I learn"), best-cased with Sudoku/goban/deepeval?
+
+**Builders (5):** trajectory (DERIVED read, witness arc IS the revision log, emit at Commit not consume), dto-soa (FITS-COLUMN, no new layer), creative-explorer (2nd-order: competence self-model; 2 axes ΔF+ΔStaunen, single signed delta is the dilution), contradiction-cartographer (**P0: net Δ⟨f,c⟩ is LOSSY** — averaging hides revision-vs-contradiction-commit; carry signed residual + regime tag + qualia delta, reuse `support`/`dissonance`), convergence (single-step delta = OPPORTUNITY `belief_delta()` no new column; multi-cycle arc = D-MBX-A3 not free; `last_write_cycle` doesn't exist yet, `last_active_cycle`+`current_cycle` give the N+1 endpoint only).
+
+**Critics (brutal):** cross-domain-synthesizer — Sudoku↔edge-Weyl **[S] DROP** (rhyme; two real Weyls in codebase, neither is this), Sudoku field-prop TEST-HARNESS-ONLY (confluence regression), goban **[H] MECHANISM** for support/capture/ko (DROP influence leg [S]), deepeval **DROP** (Python LLM-judge = firewall breach; cherry-pick only the trivial threshold shape). theorem-checker — Sudoku↔Weyl **[S]** (20-regular vertex-transitive → maximally degenerate spectrum = OPPOSITE of φ-Weyl degeneracy-breaking; real statement is a Hoffman coloring bound [G], not Weyl), constraint-prop↔VSA **[H]-skeleton/[S]-semantics** (Tarski fixpoint shared; exact/finite/lossless vs statistical/continuous/lossy differ in the load-bearing property), a Sudoku harness certifies speed+correctness in the deterministic limit ONLY — not the spectral/concentration property.
+
+**Operator reframe (resolved the critique):** the test is NOT the Weyl spectral connection — it's TWO axes: (1) THROUGHPUT "16M sudoku in 3.4 min" (exact-oracle workload, hard speed+correctness number) vs (2) LEARNING "thinking-style improved exponentially, ceiling x" (= φ-1 humility; the belief-update learning curve). They compose: Sudoku = workload, learning-curve = belief-update measured over it.
+
+**Outcome:** plan `mailbox-belief-update-and-substrate-test-v1.md` created, slots S2.5b (after the write contract). Verdict: belief-update = derived read (LAND), carry the non-lossy 4-tuple; throughput test valid (drop Weyl label); deepeval dropped. No source/test change — design only.
+
 ## 2026-06-18 — 5+3 council: mailbox-cycle-aware-write-contract-v1 (design, no code)
 
 **Main thread (Opus) + 8-agent council.** Branch `claude/soa-cycle-ownership-sync`. Drafted `.claude/plans/mailbox-cycle-aware-write-contract-v1.md` (the next code deliverable named by `E-SOA-CYCLE-OWNERSHIP` rule 1) and ran the operator-mandated 5+3.

@@ -1,3 +1,15 @@
+## 2026-06-18 — mailbox-belief-update-and-substrate-test-v1 ("what did I learn" = NARS-revision delta + two-axis test; 5+3-ratified; slots S2.5b)
+
+**Status:** CONJECTURE / design — 5+3 COMPLETE. **Plan file:** `.claude/plans/mailbox-belief-update-and-substrate-test-v1.md`. Parent: `bindspace-singleton-to-mailbox-soa-v1` §11 + `E-SOA-CYCLE-OWNERSHIP`.
+**Owns:** the per-item belief-update ("this thought made me smarter") + the two-axis substrate test.
+- **Belief-update = NARS-revision delta, DERIVED** (not stored). Single-step = `belief_delta(row)` read method on `MailboxSoaView`, ZERO new column (`(f,c)` off `CausalEdge64` + `qualia` diff). Multi-cycle arc = the queued `D-MBX-A3` witness column (not free). Emit at Commit, not every consume (witness arc IS the revision log — parent §11.2).
+- **Must NOT be lossy net Δ⟨f,c⟩** (contradiction-cartographer P0): carry signed residual `(Δw⁺,Δw⁻)` (reuse `support`/`dissonance`) + regime tag (Revision vs contradiction-commit) + qualia delta. Accumulates into a per-mailbox **competence self-model** (creative-explorer 2nd-order).
+- **Two-axis test:** Axis-1 THROUGHPUT "16M sudoku in 3.4 min" (exact-oracle constraint workload; certifies speed+correctness, **NOT Weyl/spectral** — that's [S] RHYME, dropped); Axis-2 LEARNING "thinking-style improved exponentially, ceiling x = φ-1 humility" (native integer metric; **deepeval DROPPED** = Python LLM-judge firewall breach). They compose: Sudoku = workload, learning-curve = belief-update over it. goban = secondary belief-state harness ([H] support/capture/ko; drop influence leg).
+**Key decisions:** both math critics (cross-domain + theorem-checker) graded Sudoku↔edge-Weyl [S] RHYME (20-regular degenerate spectrum is opposite of φ-Weyl's degeneracy-breaking) — reframed to throughput per operator. Sequencing S2.5b (after the write contract).
+**Repos:** lance-graph, branch `claude/soa-cycle-ownership-sync`. Grounded by an 8-agent 5+3 (2026-06-18).
+
+---
+
 ## 2026-06-18 — mailbox-cycle-aware-write-contract-v1 (every SoA write carries/checks its cycle; 5+3-ratified; slots as S2.5)
 
 **Status:** CONJECTURE / design — 5+3 council COMPLETE (LAND after plan-edit fixes, all applied). **Plan file:** `.claude/plans/mailbox-cycle-aware-write-contract-v1.md`. Child of `bindspace-singleton-to-mailbox-soa-v1` rule 1 (`E-SOA-CYCLE-OWNERSHIP`).
