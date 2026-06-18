@@ -1,3 +1,17 @@
+## 2026-06-18 — E-SOA-CYCLE-OWNERSHIP — cycle is per-mailbox + per-cycle, LE-contract-enforced; multi-mailbox interlaces; non-fitting consumers get OGAR classid→schema
+
+**Status:** FINDING (operator-ratified architecture sync; the wiring itself is 5+3-gated before code). Repo brought in sync via the `bindspace-singleton-to-mailbox-soa-v1` ERRATA ADDENDUM 2026-06-18c.
+
+After the AoS→SoA rotation (done) + the F32 bit-exact anchor (#535), the remaining migration is bounded by four operator-ratified rules:
+
+1. **Cycle ownership = per-mailbox, per-cycle, byte-explicit in the LE contract of the tenant AND the envelope.** No cycle-blind write; nothing buffers a stale/older mailbox. The gap today: only `consume_firing` is cycle-aware; the per-row setters (`set_content/qualia/edge/meta/temporal`) and `BackingStoreWrite` are cycle-blind. Target: every write carries/checks `current_cycle` (`SoaEnvelope::cycle()` / `current_cycle` / `last_active_cycle`). This is the next code deliverable.
+
+2. **Multi-mailbox interlace is the target; `backing()`'s `debug_assert(≤1 mailbox)` is W5-transitional, not the design.** 16k open mailboxes ≈ 8 MB (512 B each); 16M ≈ 8 GB — linear, trivial. No open mailbox goes inaccessible at scale because addressing is the canonical GUID prefix-route (classid·HEEL·HIP·TWIG → ~1024 L3-resident prefix tables; trie binds the prefix, masked-load the tail). Per-cycle discipline is per-mailbox.
+
+3. **Consumer fork — not every consumer rotates into the one SoA.** SoA-fits → rotate onto the SoA columns. Doesn't-fit → a customized OGAR-driven `classid → schema` (per-class ClassView/Template, the Core-First path #530/#533). The ~10 live BindSpace consumers (cypher_bridge, sentence_crystal, fabric, learning/{scm,feedback}, spo/merkle, callcenter/transcode, planner/elevation) split along this line; they migrate at D-MBX-12 (gated on D-MBX-7 + D-MBX-9-surrealdb). Dissolves the "all nine migrate to one SoA" misframe.
+
+4. **Layering down:** at the consumer/persistence boundary, OGAR (canonical node) + Template (ClassView) + Schema-version (envelope `LAYOUT_VERSION`, currently 2) become mandatory.
+
 ## 2026-06-18 — E-QUALIA-F32-LAB-TENANT — i4 qualia is lossy for codebook_index + energies; the F32-17D BindSpace tenant is the migration's bit-exact anchor
 
 **Status:** FINDING (operator-directed "wire F32; one exactness to measure against during the migration"; 3-agent panel LAND — dto-soa FITS-COLUMN, iron-rule LAND-with-AP1-guard, truth-architect PASS-able — supplementing the earlier 8-agent S-series council).

@@ -1,3 +1,10 @@
+## 2026-06-18 — repo-sync: SoA cycle-ownership architecture into the migration plan (no code)
+
+**Main thread (Opus).** Branch `claude/soa-cycle-ownership-sync`. Operator directive: tie the converged BindSpace→SoA architecture into the plan to bring the repo in sync, before the code wiring's 5+3. Docs only.
+
+Captured (plan ERRATA ADDENDUM 2026-06-18c + `E-SOA-CYCLE-OWNERSHIP`): (1) cycle ownership per-mailbox/per-cycle, LE-contract-enforced on tenant + envelope — the gap is the cycle-blind setters/`BackingStoreWrite` (next code deliverable, 5+3-gated); (2) multi-mailbox interlace is the target, the `backing()` ≤1 assert is W5-transitional (16k=8MB, 16M=8GB, GUID-prefix-routed via L3-resident prefix tables); (3) consumer fork — SoA-fit rotates in, non-fit gets an OGAR `classid→schema` (ClassView/Template, #530/#533); (4) OGAR + Template + Schema-version mandatory at the consumer/persistence boundary. Also recorded that #535 closed the with-engine break + the i4-codebook_index risk via the F32 anchor.
+
+No source/test change.
 ## 2026-06-18 — S-series Step 1+2: unbreak --features with-engine + F32-17D bit-exact qualia tenant
 
 **Main thread (Opus) + panel.** Branch `claude/with-engine-build-fix`. Two commits: (1) import `QUALIA_DIMS` to unbreak `--features with-engine` (engine_bridge.rs:259 used it unimported — the entire dispatch/unbind lab surface was dormant); (2) restore an F32-17D bit-exact qualia tenant.
