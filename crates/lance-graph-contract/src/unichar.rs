@@ -62,12 +62,11 @@ pub const fn utf8_step(lead: u8) -> u8 {
 const UTF8_OFFSETS: [i32; 5] = [0, 0, 0x3080, 0xE2080, 0x3C8_2080];
 
 /// The Unicode codepoint of the first character in `bytes`, mirroring
-/// `UNICHAR::first_uni` (`unichar.cpp:105`). `bytes` must be non-empty and
-/// begin with a legal lead whose continuation bytes are present — the only
-/// caller, [`utf8_to_utf32`], guarantees the lead is legal before calling.
-/// If the buffer is shorter than the lead implies (a truncated trailing
-/// character) this decodes only the bytes present rather than reading past the
-/// slice; that case is out of the documented byte-parity scope.
+/// `UNICHAR::first_uni` (`unichar.cpp:105`). The only caller, [`utf8_to_utf32`],
+/// guarantees `bytes` is non-empty, begins with a legal lead, AND contains all
+/// `utf8_step(bytes[0])` bytes of that character (it rejects truncated trailing
+/// sequences *before* calling). The `.take(len)` is therefore defensive — it can
+/// never read past the slice even if that guarantee were ever violated.
 fn first_uni(bytes: &[u8]) -> i32 {
     let len = utf8_step(bytes[0]) as usize;
     let mut uni: i32 = 0;
@@ -84,12 +83,15 @@ fn first_uni(bytes: &[u8]) -> i32 {
 /// `UNICHAR::UTF8ToUTF32` (`unichar.cpp:220`).
 ///
 /// Returns `None` if any character's **lead byte** is illegal (the C++
-/// "return an empty vector" path). Like the C++, continuation bytes are NOT
-/// re-validated, so the overlong NUL `C0 80` decodes to `[0]` rather than being
-/// rejected (see the module docs). Empty input is `Some(vec![])` — distinct
-/// from the `None` illegal case, which the C++ conflates as an empty vector
-/// (this is the one place the Rust surface is strictly clearer; the corpus
-/// avoids empty input so the byte-parity diff is unaffected).
+/// "return an empty vector" path) OR if the input ends mid-character (a trailing
+/// multibyte lead whose continuation bytes are not all present). The C++ reads
+/// past its buffer in that truncation case (UB on a length-delimited slice);
+/// this length-delimited decoder rejects it instead of fabricating a codepoint
+/// from the partial bytes. Like the C++, continuation bytes that ARE present are
+/// not re-validated, so the overlong NUL `C0 80` decodes to `[0]` rather than
+/// being rejected (see the module docs). Empty input is `Some(vec![])` —
+/// distinct from the `None` illegal case, which the C++ conflates as an empty
+/// vector (the corpus avoids empty input so the byte-parity diff is unaffected).
 #[must_use]
 pub fn utf8_to_utf32(bytes: &[u8]) -> Option<Vec<i32>> {
     let mut out = Vec::new();
@@ -98,6 +100,9 @@ pub fn utf8_to_utf32(bytes: &[u8]) -> Option<Vec<i32>> {
         let step = utf8_step(bytes[i]) as usize;
         if step == 0 {
             return None; // illegal lead
+        }
+        if i + step > bytes.len() {
+            return None; // truncated trailing multibyte sequence
         }
         out.push(first_uni(&bytes[i..]));
         i += step;
@@ -161,6 +166,25 @@ mod tests {
         assert_eq!(utf8_to_utf32(&[0x80]), None);
         assert_eq!(utf8_to_utf32(&[0xFF]), None);
         assert_eq!(utf8_to_utf32(&[b'A', 0xF8]), None); // legal then illegal
+    }
+
+    /// A truncated trailing multibyte sequence (legal lead, but its continuation
+    /// bytes are not all present) is rejected — NOT decoded into a fabricated
+    /// codepoint. The C++ reads past its buffer here (UB); this length-delimited
+    /// decoder returns `None`. (Codex P2 on PR #534.)
+    #[test]
+    fn truncated_trailing_multibyte_is_rejected() {
+        assert_eq!(utf8_to_utf32(&[0xC3]), None, "2-byte lead, 1 byte present");
+        assert_eq!(utf8_to_utf32(&[0xE4, 0xB8]), None, "3-byte lead, 2 present");
+        assert_eq!(
+            utf8_to_utf32(&[0xF0, 0x9F, 0x98]),
+            None,
+            "4-byte lead, 3 present"
+        );
+        // Truncation after a valid char is rejected too (the whole decode fails).
+        assert_eq!(utf8_to_utf32(&[b'a', 0xE4, 0xB8]), None);
+        // A COMPLETE multibyte char is still accepted (regression guard).
+        assert_eq!(utf8_to_utf32(&[0xC3, 0xA9]), Some(vec![0xE9]));
     }
 
     /// The overlong NUL `C0 80` is accepted and decodes to `0` — the defining
