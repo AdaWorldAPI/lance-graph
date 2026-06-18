@@ -90,12 +90,34 @@ def _const_str(node: Optional[ast.expr]) -> Optional[str]:
     return None
 
 
+def _const_str_list(node: Optional[ast.expr]) -> List[str]:
+    """`'x'` → `['x']`; `['a', 'b']` / `('a', 'b')` → `['a', 'b']`; else `[]`.
+
+    Mirrors the package class parser's `_extract_list_or_string`, extended to
+    accept tuples as well as lists (both are common `_inherit` forms).
+    """
+    s = _const_str(node)
+    if s is not None:
+        return [s]
+    if isinstance(node, (ast.List, ast.Tuple)):
+        out: List[str] = []
+        for elt in node.elts:
+            v = _const_str(elt)
+            if v is not None:
+                out.append(v)
+        return out
+    return []
+
+
 def _scan_file(path: str, relmap: Dict[Tuple[str, str], Tuple[str, Optional[str]]]) -> None:
     """Parse one .py file; record every relational field on every named model.
 
-    A model is keyed by its `_name`. Relational fields capture comodel
-    (kw `comodel_name` or positional arg 0) and inverse name (One2many's
-    positional arg 1 / kw `inverse_name`; Many2one has no inverse here).
+    A model is keyed by its `_name` when present, ELSE by its `_inherit`
+    target(s) — the common Odoo extension form `_inherit = "some.model"`
+    (or `_inherit = ["a", "b"]`) with no `_name`. Relational fields capture
+    comodel (kw `comodel_name` or positional arg 0) and inverse name
+    (One2many's positional arg 1 / kw `inverse_name`; Many2one has no inverse
+    here), and are mapped onto EVERY resolved model name.
     """
     try:
         with open(path, encoding="utf-8") as fh:
@@ -109,7 +131,8 @@ def _scan_file(path: str, relmap: Dict[Tuple[str, str], Tuple[str, Optional[str]
         if not isinstance(node, ast.ClassDef):
             continue
 
-        model_name: Optional[str] = None
+        name_model: Optional[str] = None
+        inherit_models: List[str] = []
         local_fields: Dict[str, Tuple[str, Optional[str]]] = {}
 
         for stmt in node.body:
@@ -125,7 +148,14 @@ def _scan_file(path: str, relmap: Dict[Tuple[str, str], Tuple[str, Optional[str]
             if target_name == "_name":
                 s = _const_str(stmt.value)
                 if s is not None:
-                    model_name = s
+                    name_model = s
+                continue
+
+            # _inherit = 'sale.order'  OR  _inherit = ['a', 'b']
+            # The extension form (no _name) reopens an existing model to add
+            # relational fields; those fields belong to the inherited model(s).
+            if target_name == "_inherit":
+                inherit_models = _const_str_list(stmt.value)
                 continue
 
             # field = fields.X(...)
@@ -163,7 +193,23 @@ def _scan_file(path: str, relmap: Dict[Tuple[str, str], Tuple[str, Optional[str]
             if comodel is not None:
                 local_fields[target_name] = (comodel, inverse)
 
-        if model_name is not None:
+        # Resolve the model name(s) this class contributes fields to: `_name`
+        # if present, else the single in-place `_inherit` target. A class with
+        # neither contributes nothing.
+        #
+        # No-`_name` extension reopens ONE existing model in place. Odoo binds
+        # such a class to `_inherit[0]`; a multi-element `_inherit` adds the rest
+        # as mixins, NOT as additional homes for these local fields. Assigning
+        # the whole list here would attach the fields to every secondary mixin
+        # and let build_relation_map() emit bogus `target`/`reads_field` triples
+        # for them. `parsers/classes.py` collapses the no-name case to
+        # `inherit[0]` for the same reason; mirror it.
+        if name_model is not None:
+            model_names = [name_model]
+        else:
+            model_names = inherit_models[:1]
+
+        for model_name in model_names:
             mu = model_to_underscore(model_name)
             for field_name, (comodel, inverse) in local_fields.items():
                 # Last write wins across _inherit reopenings of the same model;
@@ -270,10 +316,21 @@ def enrich(
             if len(parts) >= 3 and parts[0] in object_type_models:
                 candidate_field_iris.add(f"odoo:{parts[0]}.{parts[1]}")
 
-    # field IRI → emitting method IRI (for the deep-read lift target)
-    field_emitter: Dict[str, str] = {
-        t["s"]: t["o"] for t in triples if t["p"] == "emitted_by"
-    }
+    # field IRI → ALL emitting method IRIs (for the deep-read lift target).
+    # A field can be emitted by more than one method (e.g. `stock_move.quantity`
+    # is emitted by BOTH `_compute_quantity` AND `_onchange_product_uom_qty`).
+    # The deep `reads_field` must be lifted onto EVERY emitter, or the
+    # recompute-ordering edge is lost for all but one of them (typically the
+    # `_compute_*`). Index is a de-duplicated, sorted list per field for
+    # determinism.
+    field_emitters: Dict[str, List[str]] = {}
+    for t in triples:
+        if t["p"] == "emitted_by":
+            field_emitters.setdefault(t["s"], [])
+            if t["o"] not in field_emitters[t["s"]]:
+                field_emitters[t["s"]].append(t["o"])
+    for methods in field_emitters.values():
+        methods.sort()
 
     new_lines: List[str] = []
     stats = {
@@ -322,8 +379,8 @@ def enrich(
         if t["p"] != "depends_on":
             continue
         dep_field = t["s"]
-        method = field_emitter.get(dep_field)
-        if method is None:
+        methods = field_emitters.get(dep_field)
+        if not methods:
             stats["deep_skip_no_emitter"] += 1
             continue
         obj = t["o"]
@@ -343,17 +400,23 @@ def enrich(
             continue
         final_model_us, leaf = resolved
         deep_obj = f"odoo:{final_model_us}.{leaf}"
-        if deep_obj == method:
-            stats["deep_skip_self_loop"] += 1
-            continue
-        spo = (method, "reads_field", deep_obj)
-        if spo in existing_spo:
-            continue
-        new_lines.append(
-            triple_line(method, "reads_field", deep_obj, *DEEP_READ_TRUTH)
-        )
-        existing_spo.add(spo)
-        stats["deep_reads_field"] += 1
+        # Lift the deep read onto EVERY method that emits the dependent field
+        # (sorted for determinism). A read equal to its own emitter is dropped
+        # per-emitter (the self-loop guard), so a multi-emitter field can emit
+        # the deep read for some emitters and skip it for the one that IS the
+        # leaf's owning method.
+        for method in methods:
+            if deep_obj == method:
+                stats["deep_skip_self_loop"] += 1
+                continue
+            spo = (method, "reads_field", deep_obj)
+            if spo in existing_spo:
+                continue
+            new_lines.append(
+                triple_line(method, "reads_field", deep_obj, *DEEP_READ_TRUTH)
+            )
+            existing_spo.add(spo)
+            stats["deep_reads_field"] += 1
 
     new_lines.sort()
     return new_lines, stats
