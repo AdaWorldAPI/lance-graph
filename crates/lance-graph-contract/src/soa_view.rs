@@ -106,6 +106,25 @@ pub trait MailboxSoaView {
         None
     }
 
+    /// The 16-byte [`EdgeBlock`](crate::canonical_node::EdgeBlock) of `row` — the
+    /// node's **explicit typed edges** (12 in-family + 4 out-of-family one-byte
+    /// slots), bytes 16..32 of the canonical `NodeRow`. This is the edge region,
+    /// **NOT the value slab** (32..512), so reading it is **zero value decode**.
+    ///
+    /// How the 16 bytes are *interpreted* is the class's
+    /// [`EdgeCodecFlavor`](crate::canonical_node::EdgeCodecFlavor)
+    /// (`CoarseOnly` = 12-family/4-external adjacency, `Pq32x4` = 32×4 turbovec
+    /// residue) — resolved `classid → ClassView`, never guessed by the query
+    /// (`E-ADJACENCY-IS-KEY-AND-EDGECODEC`).
+    ///
+    /// **Default = `None` (zero-fallback, deferred binding)** — a view that has not
+    /// materialized the edge region returns `None`; an owner that carries the
+    /// canonical `NodeRow` (which holds `edges(16)`) overrides this.
+    #[inline]
+    fn edge_block_at(&self, _row: usize) -> Option<crate::canonical_node::EdgeBlock> {
+        None
+    }
+
     // NOTE (follow-up): the qualia column (`QualiaI4_16D`) accessor is intentionally omitted —
     // add `fn qualia(&self) -> &[crate::qualia::QualiaI4_16D]` when the first consumer
     // (planner strategy selection) needs it; keep the read surface minimal until then.

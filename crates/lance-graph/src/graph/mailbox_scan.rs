@@ -34,6 +34,7 @@
 //! lookup (via [`MailboxSoaView::row_for_local_key`]); edge dispatch lands once
 //! the representation boundary is resolved.
 
+use lance_graph_contract::canonical_node::EdgeCodecFlavor;
 use lance_graph_contract::hhtl::NiblePath;
 use lance_graph_contract::soa_view::MailboxSoaView;
 
@@ -132,14 +133,60 @@ pub fn cakes_nearest<V: MailboxSoaView>(
         })
         .collect();
     // Descending by shared depth; stable sort preserves ascending row order on ties.
-    scored.sort_by(|a, b| b.1.cmp(&a.1));
+    scored.sort_by_key(|&(_, depth)| core::cmp::Reverse(depth));
     scored.truncate(k);
     scored
+}
+
+/// The explicit typed edges of a node under the `CoarseOnly` flavor: the
+/// **populated** (non-zero) slot references, split family-internal vs external.
+///
+/// Canon: an `EdgeBlock` slot is "zeroed when unused", so a zero byte is an empty
+/// slot and a non-zero byte is a basin-local edge reference. The 12 `in_family`
+/// slots are intra-basin edges; the 4 `external` slots are cross-family interface
+/// references (`E-ADJACENCY-IS-KEY-AND-EDGECODEC`). The refs are returned raw —
+/// resolving a ref → neighbor row needs the basin-local-index→row convention
+/// (the next encoding decision, analogous to `row_for_local_key`); this facet
+/// lands the *structure* (which slots are edges, family vs external), not the
+/// row-resolution, and never fakes it.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct EdgeNeighbors {
+    /// Populated in-family (intra-basin) edge slot references (non-zero bytes).
+    pub in_family: Vec<u8>,
+    /// Populated out-of-family (cross-basin interface) edge slot references.
+    pub external: Vec<u8>,
+}
+
+/// Decode a node's explicit typed edges under the **`CoarseOnly`** flavor —
+/// `(a)-[r]->…` as the populated 12-family/4-external slot references.
+///
+/// Returns `None` when the view has no edge block for `row`
+/// ([`MailboxSoaView::edge_block_at`] default), or when the class's `flavor` is
+/// not `CoarseOnly` (the adjacency reading) — `Pq32x4` is **turbovec residue**,
+/// not adjacency, and `CoarseResidue` is coarse+residue; both are a different
+/// read handled elsewhere, never coerced into slot adjacency
+/// (`E-ADJACENCY-IS-KEY-AND-EDGECODEC` boundary §4b: classid-resolved, not
+/// query-guessed). **Zero value decode** — the `EdgeBlock` is bytes 16..32, the
+/// edge region, never the 480 B value slab.
+pub fn edge_slots_coarse<V: MailboxSoaView>(
+    view: &V,
+    row: usize,
+    flavor: EdgeCodecFlavor,
+) -> Option<EdgeNeighbors> {
+    if flavor != EdgeCodecFlavor::CoarseOnly {
+        return None;
+    }
+    let block = view.edge_block_at(row)?;
+    Some(EdgeNeighbors {
+        in_family: block.in_family.iter().copied().filter(|&b| b != 0).collect(),
+        external: block.out_family.iter().copied().filter(|&b| b != 0).collect(),
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lance_graph_contract::canonical_node::EdgeBlock;
     use lance_graph_contract::kanban::KanbanColumn;
 
     /// A minimal view over fixed columns. The value-side columns
@@ -151,6 +198,7 @@ mod tests {
         edges: Vec<u64>,
         keyed_rows: Vec<(u64, usize)>,
         paths: Vec<Option<NiblePath>>,
+        blocks: Vec<Option<EdgeBlock>>,
     }
 
     impl MailboxSoaView for GuardedSoa {
@@ -195,6 +243,9 @@ mod tests {
         fn hhtl_path_at(&self, row: usize) -> Option<NiblePath> {
             self.paths.get(row).copied().flatten()
         }
+        fn edge_block_at(&self, row: usize) -> Option<EdgeBlock> {
+            self.blocks.get(row).copied().flatten()
+        }
     }
 
     fn sample() -> GuardedSoa {
@@ -211,6 +262,17 @@ mod tests {
                 Some(NiblePath::root(1).child(2)),
                 Some(NiblePath::root(1).child(5)),
                 Some(NiblePath::root(9)),
+            ],
+            // row0 has in-family edges to refs 2,5 and one external ref 1; rest empty.
+            blocks: vec![
+                Some(EdgeBlock {
+                    in_family: [2, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    out_family: [1, 0, 0, 0],
+                }),
+                Some(EdgeBlock::default()),
+                None,
+                None,
+                None,
             ],
         }
     }
@@ -263,6 +325,29 @@ mod tests {
         let _ = match_node_by_local_key(&soa, 0x1234);
         let _ = clam_contained(&soa, NiblePath::root(1).child(2));
         let _ = cakes_nearest(&soa, NiblePath::root(1).child(2).child(3), 3);
+        let _ = edge_slots_coarse(&soa, 0, EdgeCodecFlavor::CoarseOnly);
+    }
+
+    #[test]
+    fn edge_slots_coarse_decodes_populated_family_and_external() {
+        let soa = sample();
+        let n = edge_slots_coarse(&soa, 0, EdgeCodecFlavor::CoarseOnly).unwrap();
+        assert_eq!(n.in_family, vec![2, 5], "non-zero in-family slots only");
+        assert_eq!(n.external, vec![1], "non-zero external slot");
+        // an all-zero block ⇒ no edges (zeroed = unused).
+        let empty = edge_slots_coarse(&soa, 1, EdgeCodecFlavor::CoarseOnly).unwrap();
+        assert!(empty.in_family.is_empty() && empty.external.is_empty());
+        // no edge block materialized ⇒ None (deferred-binding fallback).
+        assert!(edge_slots_coarse(&soa, 2, EdgeCodecFlavor::CoarseOnly).is_none());
+    }
+
+    #[test]
+    fn edge_slots_coarse_refuses_non_coarse_flavors() {
+        // Pq32x4 = turbovec residue, NOT adjacency; CoarseResidue likewise.
+        // The classid-resolved flavor gates the read — never coerced to slots.
+        let soa = sample();
+        assert!(edge_slots_coarse(&soa, 0, EdgeCodecFlavor::Pq32x4).is_none());
+        assert!(edge_slots_coarse(&soa, 0, EdgeCodecFlavor::CoarseResidue).is_none());
     }
 
     #[test]
