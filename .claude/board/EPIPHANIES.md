@@ -1,3 +1,78 @@
+## 2026-06-18 — E-OGAR-IS-FOUNDRY — being Palantir Foundry / Gotham reduces to "write the OGAR class schema + inheritance"; everything else (traversal, query, pipelines, actions, low-code apps) is generic machinery over it via the shared AST
+
+**Status:** FINDING (capstone; operator-stated). The platform-level reading of the whole arc: Foundry/Gotham is not a platform to rebuild — it is an **OGAR class-schema-inheritance exercise**, because every other Foundry/Gotham layer is already generic machinery the workspace ships, parameterized only by `classid`.
+
+**The reduction (each Foundry/Gotham layer → an OGAR primitive already in code):**
+
+| Foundry / Gotham layer | OGAR primitive | Shipped surface |
+|---|---|---|
+| **Ontology** (object types + links) | OGAR **class schema + inheritance** | `classid → ClassView`; `effective_actions` / effective-methods = inheritance |
+| **Objects + links** | GUID node + `EdgeBlock` edge | `E-GUID-IS-THE-GRAPH` (key=node, slot=edge, zero-value-decode) |
+| **AR object behavior** | **DO vs THINK = Active Record** | THINK = `ClassView`/`MethodSig` (fields+methods, read/compute); DO = `ActionDef`/`ActionInvocation` (actions, gated RBAC→state-guard→MUL) |
+| **Pipelines / transforms** | `compute_dag` topological recompute | `ClassView::compute_dag` + `compute_dag_topo_order` (`E-EXCEL`/`E-CHESS`/`E-PERTURBATION`) |
+| **Apps / low-code / dashboards** | **Jinja/templates over OGAR classes** | `soa_view.rs:57` — `class_id → OGIT ontology → "label inheritance, column projection, jinja templates"` resolve one layer up |
+| **Query / traversal surface** | **Cypher ⇄ SurrealQL, one shared AST** | `E-CYPHER-IS-THE-KANBAN-AST`; polyglot parsers → one `PlanInput` IR; SurrealQL is egress |
+
+**The headline:** AR-shaped DO/THINK objects + the shared Cypher/SurrealQL AST mean **any low-code or Jinja template runs over OGAR classes** without bespoke per-app wiring — the template binds to the class's fields (THINK) and actions (DO), the AST traverses/queries/mutates them, `compute_dag` recomputes derived fields, the DO-arm gate authorizes writes. So a vertical (medical / work-orders / intelligence cases / project boards) = *write its OGAR classes + inheritance*, and the platform behaviors fall out. That is the Foundry-aspiring superpower: the reduction of "build a platform" to "declare a schema."
+
+**Scope guard (truth-architect, carried from the 5+3 on the sibling plan):** "everything else is shipped" is the *architecture*, not "all wired today." The honest gaps the council found: (a) `ogar-adapter-surrealql` is NOT a crate — the nearest is `surreal_container::SurrealStore` (a `BLOCKED(C)` stub); the Cypher→SurrealQL lowering rides `lite-unified` (#540, default-OFF). (b) the "odoo ontology traversal already runs through SurrealQL" claim is a tagged `const ActionDef` + `classify_odoo` classification, **not** a running end-to-end traversal — CONJECTURE, not FINDING, until an `ExecTarget::SurrealQl` executor arm exists. (c) Jinja-over-classes is the `class_id→ontology` seam (real hook) + `lance-graph-ontology` resolution — the template *engine* binding is not yet a shipped path. The reduction is the doctrine; the wiring is the `cypher-kanban-ast-unification-v1` increments. Cross-refs: `E-CYPHER-IS-THE-KANBAN-AST`, `E-GUID-IS-THE-GRAPH`, `E-AR-DO-WIRING` (DO/THINK arms), `cypher-kanban-ast-unification-v1`, `canonical_node`/`class_view`/`action`/`soa_view`.
+
+---
+
+## 2026-06-18 — E-CYPHER-IS-THE-KANBAN-AST — a kanban board IS a graph, so Cypher is its AST; board-ops + ontology-traversal + thinking-style dispatch + SurrealQL egress collapse to ONE shared AST
+
+**Council correction (2026-06-18, 5+3 on `cypher-kanban-ast-unification-v1`):** three legs of this entry were over-stated and are hereby qualified (the CORE — board-is-graph, Cypher-is-graph-AST — stands; convergence-architect confirmed 3 of 4 sides share one shipped `PlanInput` IR): **(1)** "one AST seen from four sides" → say **"one IR, four *relationships*"** (surface = Cypher; egress = SurrealQL; planner-layer = thinking-styles; mutated = board) — they are *is* / *lowers-to* / *plans-over* / *is-mutated-by*, not one identity (dilution-collapse-sentinel). **(2)** "odoo ontology traversal already runs through the SurrealQL AST adapter — existence proof" is **CONJECTURE, not FINDING**: it is a tagged `const ActionDef`(`ExecTarget::SurrealQl`) + `classify_odoo`, with NO executor arm and NO Cypher→SurrealQL lowering in source; `ogar-adapter-surrealql` is not a crate (truth-architect + runtime-archaeologist). **(3)** `from_guid_prefix` lives on **`NiblePath`** (`hhtl.rs:262`), NOT `NodeGuid`; and the wiring is **blocked CATCH-CRITICAL** until `MailboxSoaView` gains a key→row resolver (`row_for_local_key`, now added default-`None`) — the View had only `n_rows`, no way back from the canon address to a row (baton-handoff-auditor). Preserve the distinction `E-GUID` correction #2 drew: mailbox-cycle `KanbanColumn` phase-advance (traversal *dispatched-within* `CognitiveWork`) ≠ domain-board column move (an edge-rewrite) — same AST surface, two semantics (ripple-architect).
+
+**Status:** FINDING (convergence; odoo is the existence proof — ontology traversal already runs through the SurrealQL AST adapter). Refines `E-GUID-IS-THE-GRAPH` correction #2: "kanban is lifecycle, not traversal" was a false dichotomy — the lifecycle state-machine IS a graph, and that's the whole point.
+
+**The collapse:** a kanban board is a graph, full stop —
+- **card → GUID node** (`E-GUID-IS-THE-GRAPH`),
+- **column / phase → state** (a `Column` node the card has an `:IN` edge to, or a `classid`/property),
+- **move → edge rewrite** (`(c)-[:IN]->(Doing)` ⇒ `(c)-[:IN]->(Done)`),
+- **dependency / blocks → edge**, **WIP limit → a count constraint** (a Cypher `MATCH … RETURN count` guard), **swimlane → basin/label**.
+- the Rubicon transition rules (`KanbanColumn::can_transition_to`) **ARE the graph schema** (which edges are legal).
+
+So the board's queries and mutations are graph patterns, and **Cypher is the AST for graph patterns**. Driving the board with Cypher is not a metaphor — it is the board's native query/mutation language.
+
+**Why it's the obvious move (the four-into-one):** the planner already holds all the pieces, and they share one AST/IR —
+1. **Cypher/Gremlin/SPARQL/GQL → one planner IR** (front-end parsers).
+2. **SurrealQL AST** = the shared adapter/egress hub that IR lowers into and the substrate runs (`ExecTarget::SurrealQl` + `ogar-adapter-surrealql`). odoo's **ontology traversal already goes through this adapter** — the existence proof.
+3. **Thinking styles + MUL** dispatch over that IR (planner `thinking/`, 12 styles, NARS, sigma chain).
+4. **Kanban phases** (`KanbanColumn`) are the lifecycle the cards move through.
+
+These are not four subsystems to be bridged — they are **one AST seen from four sides**: Cypher is the surface syntax, SurrealQL is the adapter/egress, thinking-styles are the planner layer over it, kanban is the board the patterns mutate. **Cypher AS the kanban-board AST unifies them.** Not doing so means re-expressing board moves in a second language while the graph AST sits right there — the dumb path.
+
+**Concretely:** a board move = a Cypher mutation → planner IR → thinking-style/MUL plan → `ExecTarget::SurrealQl` (or `Native`/`Jit`) over the GUID-keyed substrate; a board query (cards in a column, blocked cards, WIP count) = a Cypher `MATCH` → prefix-route on `classid` + `EdgeBlock`-slot deref, zero-value-decode (`E-GUID-IS-THE-GRAPH`). The `KanbanColumn` lifecycle is the *mailbox cognitive-cycle* instantiation of the same structure; an odoo project board / woa work-order board / q2 case board are *domain* instantiations — **same AST, same substrate, different `classid` + edge schema.**
+
+**Scope guard (truth-architect):** "Cypher is the AST" = Cypher is the surface that lowers to the shared IR/SurrealQL AST — NOT a claim that the core's nom Cypher parser already emits SurrealQL (it lowers to DataFusion today; the SurrealQL lowering is the `lite-unified` gate #540, default-OFF, process-not-switch). The unification is the architecture; the wiring is the `Backend::MailboxSoa` router variant + the Cypher→SurrealQL lowering behind `lite-unified`. Cross-refs: `E-GUID-IS-THE-GRAPH`, `E-AR-DO-WIRING` (ontology→DO consumers), `lite-unified-surrealql-lance-v1`, planner `thinking/` + `strategy/cypher_parse.rs`, `kanban::{KanbanColumn, ExecTarget}`.
+
+---
+
+## 2026-06-18 — E-GUID-IS-THE-GRAPH — the substrate IS a graph already: GUID-key = node, EdgeBlock-slot = edge, traversal = prefix-route + slot-deref, all zero-value-decode; SurrealQL is egress, kanban dispatches
+
+**Status:** FINDING (grounded in shipped `canonical_node.rs` / `soa_view.rs` / `kanban.rs` / planner polyglot strategies). Written to stop the q2-rewire session from hallucinating a node/edge/Cypher layer that already exists.
+
+**The spine — the GUID is the key (canon, CLAUDE.md CANON + OGAR P0):** a node IS its 16-byte `NodeGuid`. There is no "node table with a guid column" and nothing to "expose" — the key is the address and the prerender:
+- `classid (0..4) → ClassView` (type/class/method-resolution),
+- `HEEL/HIP/TWIG (4..10) → cascade tier` (HHTL routing),
+- `family (10..13) → basin`, `identity (13..16) → instance`; `local_key()` = bytes 10..16.
+All of that resolves **off the key alone, zero value decode** ("the key prerenders nodes — in any way — with zero value decode"). The `MailboxSoaView` columns (`energy`/`edges_raw`/`meta_raw`/`entity_type`/`class_id`/content·topic·angle planes) are the **value side** — "everything the key isn't" (deferred 480 B, Lance-compressible). You never look up a row's GUID; the GUID is how you addressed the row.
+
+**Edges are key-references, not blobs:** an `EdgeBlock` slot is one byte = a basin-local index that resolves to a neighbor's `local_key`. Two coexisting representations: `EdgeBlock` (12 in-family + 4 out-family adjacency-of-keys, in the canonical `NodeRow`) and `edges_raw() -> &[u64]` (`CausalEdge64`, the causal/W-slot variant on the view). Both are references.
+
+**Therefore the substrate is ALREADY a graph — traversal needs no new layer:**
+- `MATCH (n:Person)` → classid prefix binds `ClassView` (a prefix route on the key).
+- `(a)-[r]->(b)` → dereference an `EdgeBlock` slot (byte → neighbor `local_key`).
+- Both happen on keys, zero value decode — that is the entire point of GUID-as-key: routing + prerender never touch the compressed value.
+
+**Two corrections to the q2 framing (what it got inverted):**
+1. **SurrealQL is EGRESS, not a Cypher/Gremlin front-end.** Front-end parsers are Cypher/Gremlin/SPARQL/GQL → one planner IR. SurrealQL appears only as `ExecTarget::SurrealQl` (lower the parsed plan, run in substrate) + `ogar-adapter-surrealql` schema registration (`DEFINE TABLE`/`knowable_from`). Flow is `Cypher → IR → (optionally) ExecTarget::SurrealQl`, never "SurrealQL adapter as Cypher." (The "DLL AST adapter" phrasing is the OGAR C++→Rust codegen subsystem — a third, unrelated thing.)
+2. **Kanban is the mailbox LIFECYCLE, not the traversal.** `KanbanColumn` = `Planning→CognitiveWork→Evaluation→Commit` (+`Plan`/`Prune`), the Rubicon cycle of ONE mailbox (`phase()`, `try_advance_phase`, `KanbanMove`). A traversal is **dispatched as** the `CognitiveWork` action via `ExecTarget` — fine read as *dispatched-within*, wrong read as *kanban-transition = edge-hop*. "16k" is the `Vsa16kF32` fingerprint width (16384 bits/row), a different axis from a `MailboxSoA<N>` row-count.
+
+**The minimal real wiring (no new layer):** the only missing piece for Cypher-over-the-canonical-substrate is a `Backend::MailboxSoa` variant in `graph_router` whose scan resolves **key → row** (`from_guid_prefix` / `local_key()`) and follows `EdgeBlock`/`edges_raw` slots. Not a guid value-column; not a SurrealQL front-end; not a kanban-as-traversal. Just: route on the key, deref the edge slot. Cross-refs: `canonical_node::{NodeGuid, EdgeBlock, NodeRow}`, `soa_view::MailboxSoaView`, `kanban::{KanbanColumn, ExecTarget}`, planner `strategy/{cypher,gremlin,sparql,gql}_parse.rs`, `E-OGAR-ROUTER-ENCODER` (the key-prefix router is the same address machinery).
+
+---
+
 ## 2026-06-18 — E-PERTURBATION-CASCADE-IS-COMPUTE-DAG — the electricity cascade crate is `compute_dag` already running on a real physical field, and it ships the Weyl bound that certifies the incremental recompute
 
 **Status:** FINDING (mechanism mapping; no dependency added). The `crates/perturbation-sim` outage simulator is the physical instance of the SAME topological recompute `ClassView::compute_dag` + `compute_dag_topo_order` + `write_row` express abstractly. Doc-level join only (`crates/perturbation-sim/COMPUTE_DAG_MAPPING.md`); the crate stays zero-dep / workspace-excluded — no `lance-graph-contract` import. Grounds: `E-CHESS-TENSOR-PROVEN`, `E-EXCEL-SHADER-PROJECTION`, `E-OGAR-ROUTER-ENCODER`, `probe-excel-compute-dag-v1`.

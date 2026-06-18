@@ -1,3 +1,13 @@
+## 2026-06-18 — cypher-kanban-ast-unification-v1 (Cypher IS the kanban-board AST; the GUID-keyed substrate IS the graph; four subsystems → one AST)
+
+**Status:** PLAN (pre-5+3-council). **Plan file:** `.claude/plans/cypher-kanban-ast-unification-v1.md`. Grounded by `E-GUID-IS-THE-GRAPH` + `E-CYPHER-IS-THE-KANBAN-AST`; odoo ontology-traversal-through-SurrealQL-AST = existence proof.
+**Thesis:** a kanban board is a graph (card=GUID node, column/phase=state, move=edge rewrite, dep=edge, WIP=count guard, `can_transition_to`=schema), so Cypher is its AST; the planner already shares ONE IR across Cypher/Gremlin/SPARQL/GQL front-ends + SurrealQL adapter/egress + thinking-styles/MUL + kanban phases — one AST seen from four sides.
+- **Inc 0:** `Backend::MailboxSoa` router variant — key→row via `from_guid_prefix`/`local_key`, edge = `EdgeBlock`-slot deref; `MATCH (n:Label)` = classid prefix-route, `(a)-[r]->(b)` = slot-deref, zero-value-decode. **Inc 1:** Cypher→SurrealQL lowering behind `lite-unified` (#540, default-OFF). **Inc 2:** kanban-board-as-Cypher over the GUID substrate. **Inc 3:** q2 consumer (domain classid+edge schema; consumes lance-graph, never substitutes).
+- **Gates:** F1 backend parity vs DataFusion · F2 zero-value-decode 1-hop · F3 illegal-move rejected at plan time · F4 `lite-unified`-OFF byte-identical · F5 no new layer.
+**Scope line:** "Cypher is the AST" = surface lowering to the shared IR/SurrealQL AST, NOT the nom parser emitting SurrealQL today. datafusion NOT deprecated. **Repos:** lance-graph (router + planner) + q2 (consumer). Branch `claude/q2-substrate-grounding`.
+
+---
+
 ## 2026-06-18 — probe-excel-compute-dag-v1 (land ClassView::compute_dag on the 2-axis grid; the NNUE-incremental existence proof)
 
 **Status:** CONJECTURE / probe scope. **Plan file:** `.claude/plans/probe-excel-compute-dag-v1.md`. Grounded by `E-CHESS-TENSOR-PROVEN` + `E-EXCEL-SHADER-PROJECTION` + `E-OGAR-ROUTER-ENCODER`.
