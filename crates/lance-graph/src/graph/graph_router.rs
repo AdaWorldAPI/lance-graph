@@ -50,6 +50,15 @@ pub enum Backend {
     Blasgraph,
     /// Palette-accelerated traversal (Entry 2: bgz17 hot path).
     Palette,
+    /// MailboxSoA traversal (Entry 3, `cypher-kanban-ast-unification-v1` Inc 0):
+    /// a Cypher `MATCH` routed over the canonical GUID-keyed substrate via the
+    /// zero-dep `MailboxSoaView` contract — classid prefix-route for node match,
+    /// `local_key`→row for point lookup. Edge-slot traversal is deferred until the
+    /// edge-representation boundary is pinned (classid-resolved `EdgeBlock`
+    /// adjacency vs `CausalEdge64` SPO — they are NOT interchangeable; see
+    /// `graph::mailbox_scan` and the plan's verdict §4b). See
+    /// [`crate::graph::mailbox_scan`].
+    MailboxSoa,
 }
 
 /// Classification of a query for routing purposes.
