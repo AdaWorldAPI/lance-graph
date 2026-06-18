@@ -70,15 +70,19 @@
 //!
 //! Data file `odoo_ontology.spo.ndjson` carries the base extraction (388
 //! Object Types, 3 107 Properties, 3 328 Functions) plus the `spo_enrich`
-//! P1/P0 layer (842 `target` + 144 `inverse_name` + 935 deep `reads_field`),
-//! for 24 166 triples total. The `target`/`inverse_name`/deep-read totals grew
+//! P1/P0 layer (842 `target` + 144 `inverse_name` + 935 deep `reads_field`)
+//! and the P1b/P2 layer (166 `inherits_from` + 247 `validation_kind`), for
+//! 24 579 triples total. The `target`/`inverse_name`/deep-read totals grew
 //! over the initial enrichment (618/102/736) once `spo_enrich` (a) honored
 //! `_inherit`-only extension classes — `_inherit = "account.move"` with no
 //! `_name`, the common Odoo extension form whose relational fields were
 //! previously dropped — and (b) lifted each deep `reads_field` onto EVERY
 //! emitter of the dependent field, not just the last (a field such as
 //! `stock_move.quantity` is emitted by both `_compute_quantity` and
-//! `_onchange_product_uom_qty`). The base extraction's original generator
+//! `_onchange_product_uom_qty`). `inherits_from` (ruff#19 shape) carries
+//! `_inherit`/`_inherits` bases that are themselves corpus-declared
+//! ObjectTypes; `validation_kind` (ruff#21 shape) classifies each
+//! `@api.constrains` method body. The base extraction's original generator
 //! (`emit_ontology2.py` over a `methods.parquet`) is not present in this
 //! tree — only its output is — so the enrichment is applied over the shipped
 //! corpus + the Odoo source via
@@ -155,9 +159,10 @@ mod tests {
     #[test]
     fn parses_all_triples() {
         let triples = parse_triples(ONTOLOGY);
-        // 22 245 base triples + 1 921 spo_enrich triples (842 target +
-        // 144 inverse_name + 935 deep reads_field) = 24 166.
-        assert_eq!(triples.len(), 24_166, "triple count drifted from data file");
+        // 22 245 base triples + 1 921 spo_enrich P1/P0 triples (842 target +
+        // 144 inverse_name + 935 deep reads_field) + 413 P1b/P2 triples
+        // (166 inherits_from + 247 validation_kind) = 24 579.
+        assert_eq!(triples.len(), 24_579, "triple count drifted from data file");
     }
 
     #[test]
@@ -194,6 +199,10 @@ mod tests {
         assert_eq!(hist.get("inverse_name"), Some(&144));
         // reads_field grew from 2 095 (base) to 3 030 with 935 deep lifts.
         assert_eq!(hist.get("reads_field"), Some(&3030));
+        // spo_enrich P1b/P2 layer: inherits_from (ruff#19) + validation_kind
+        // (ruff#21), regenerated against /home/user/odoo/addons (#526 follow-up).
+        assert_eq!(hist.get("inherits_from"), Some(&166));
+        assert_eq!(hist.get("validation_kind"), Some(&247));
         assert_eq!(hist.get("other"), None, "unexpected predicate kind");
     }
 
@@ -436,5 +445,63 @@ mod tests {
             "P1 _inherit-only: authorized_transaction_ids (declared on an \
              _inherit='account.move' extension) must resolve to payment.transaction"
         );
+    }
+
+    /// `spo_enrich` P1b `inherits_from` (ruff#19 shape) — a model that mixes in
+    /// `mail.thread` carries an `inherits_from` edge to the base, and the base
+    /// is itself a corpus-declared ObjectType (the enrichment never invents an
+    /// edge to an unknown base). No self-inherits (`_inherit == _name`).
+    #[test]
+    fn enrichment_emits_inherits_from_to_declared_base() {
+        let triples = parse_triples(ONTOLOGY);
+        let edge = triples.iter().any(|t| {
+            t.s == "odoo:account_account" && t.p == "inherits_from" && t.o == "odoo:mail_thread"
+        });
+        assert!(
+            edge,
+            "P1b: account_account must inherits_from mail_thread (mixin base)"
+        );
+
+        // Every inherits_from base is a declared ObjectType, and no edge is a
+        // self-loop (the Odoo extend-in-place idiom is dropped at scan time).
+        let object_types: std::collections::HashSet<&str> = triples
+            .iter()
+            .filter(|t| t.p == "rdf:type" && t.o == "ogit:ObjectType")
+            .map(|t| t.s.as_str())
+            .collect();
+        for t in triples.iter().filter(|t| t.p == "inherits_from") {
+            assert_ne!(t.s, t.o, "inherits_from must never be a self-loop");
+            assert!(
+                object_types.contains(t.o.as_str()),
+                "inherits_from base {} must be a declared ObjectType",
+                t.o
+            );
+        }
+    }
+
+    /// `spo_enrich` P2 `validation_kind` (ruff#21 shape) — an `@api.constrains`
+    /// method is classified by AST pattern; the subject is the METHOD IRI and
+    /// every object is one of the five recognised kinds.
+    #[test]
+    fn enrichment_emits_validation_kind_on_constrains_method() {
+        let triples = parse_triples(ONTOLOGY);
+        let classified = triples.iter().any(|t| {
+            t.s == "odoo:account_account._check_account_code"
+                && t.p == "validation_kind"
+                && t.o == "format"
+        });
+        assert!(
+            classified,
+            "P2: _check_account_code must be classified validation_kind=format"
+        );
+
+        const KINDS: [&str; 5] = ["presence", "uniqueness", "range", "format", "lookup"];
+        for t in triples.iter().filter(|t| t.p == "validation_kind") {
+            assert!(
+                KINDS.contains(&t.o.as_str()),
+                "validation_kind object {} not in the recognised set",
+                t.o
+            );
+        }
     }
 }
