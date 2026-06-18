@@ -613,74 +613,84 @@ def _scan_sel(src):
 
 
 def _classify_sel(src):
-    """Classify a single synthetic `fields.Selection(...)` call."""
+    """Resolve a single synthetic `fields.Selection(...)` →
+    `(base_dynamic, base_keys, add_keys)`."""
     import ast as _ast
-    from odoo_blueprint_extractor.spo_enrich import _extract_selection_values
+    from odoo_blueprint_extractor.spo_enrich import _extract_selection
     tree = _ast.parse(src)
     call = next(n for n in _ast.walk(tree) if isinstance(n, _ast.Call))
-    return _extract_selection_values(call)
+    return _extract_selection(call)
 
 
 class TestSelectionExtraction(unittest.TestCase):
-    def test_list_of_tuples_positional(self):
-        vals = _classify_sel(
-            "fields.Selection([('draft','Draft'),('posted','Posted'),('cancel','Cancel')])"
+    def test_static_list_positional_is_base(self):
+        self.assertEqual(
+            _classify_sel(
+                "fields.Selection([('draft','Draft'),('posted','Posted'),('cancel','Cancel')])"
+            ),
+            (False, ["draft", "posted", "cancel"], []),
         )
-        self.assertEqual(vals, ["draft", "posted", "cancel"])
 
-    def test_selection_kwarg(self):
-        vals = _classify_sel(
-            "fields.Selection(selection=[('a','A'),('b','B')], string='X')"
+    def test_selection_kwarg_is_base(self):
+        self.assertEqual(
+            _classify_sel("fields.Selection(selection=[('a','A'),('b','B')], string='X')"),
+            (False, ["a", "b"], []),
         )
-        self.assertEqual(vals, ["a", "b"])
 
-    def test_dynamic_method_name_skipped(self):
-        # selection='_compute_states' is a compute method ref → no static values.
-        vals = _classify_sel("fields.Selection(selection='_compute_states')")
-        self.assertEqual(vals, [])
-
-    def test_bare_name_constant_skipped(self):
-        # selection=SOME_CONSTANT — not statically resolvable from this AST.
-        vals = _classify_sel("fields.Selection(STATE_VALUES)")
-        self.assertEqual(vals, [])
-
-    def test_dedup_preserves_first_order(self):
-        vals = _classify_sel(
-            "fields.Selection([('a','A'),('b','B'),('a','A2')])"
+    def test_dynamic_method_name_is_base_dynamic(self):
+        # selection='_compute_states' = provided-but-unresolvable → POISON signal.
+        self.assertEqual(
+            _classify_sel("fields.Selection(selection='_compute_states')"), (True, [], [])
         )
-        self.assertEqual(vals, ["a", "b"])
+
+    def test_bare_name_constant_is_base_dynamic(self):
+        self.assertEqual(_classify_sel("fields.Selection(STATE_VALUES)"), (True, [], []))
+
+    def test_no_selection_arg_is_not_dynamic(self):
+        # No selection arg at all is NOT a provided-but-dynamic base.
+        self.assertEqual(_classify_sel("fields.Selection(string='X')"), (False, [], []))
+
+    def test_dedup_within_base(self):
+        _, base, _ = _classify_sel("fields.Selection([('a','A'),('b','B'),('a','A2')])")
+        self.assertEqual(base, ["a", "b"])
 
     def test_non_tuple_entries_skipped(self):
-        # A malformed entry (not a 2-tuple) is skipped, others survive.
-        vals = _classify_sel("fields.Selection([('a','A'), 'bogus', ('b','B')])")
-        self.assertEqual(vals, ["a", "b"])
+        _, base, _ = _classify_sel("fields.Selection([('a','A'), 'bogus', ('b','B')])")
+        self.assertEqual(base, ["a", "b"])
 
-    # codex #530 — selection_add (the _inherit extension idiom)
-    def test_selection_add_kwarg_alone(self):
-        # A pure extension: `selection_add=` with no base list → the added keys.
-        vals = _classify_sel(
-            "fields.Selection(selection_add=[('reviewed','Reviewed'),('void','Void')])"
+    # codex #530 — selection_add is EXTEND, kept separate from base
+    def test_selection_add_alone_is_extend(self):
+        self.assertEqual(
+            _classify_sel(
+                "fields.Selection(selection_add=[('reviewed','Reviewed'),('void','Void')])"
+            ),
+            (False, [], ["reviewed", "void"]),
         )
-        self.assertEqual(vals, ["reviewed", "void"])
 
-    def test_selection_base_plus_add_union_base_first(self):
-        vals = _classify_sel(
-            "fields.Selection(selection=[('draft','Draft'),('posted','Posted')], "
-            "selection_add=[('reviewed','Reviewed')])"
+    def test_base_and_add_kept_separate(self):
+        self.assertEqual(
+            _classify_sel(
+                "fields.Selection(selection=[('draft','Draft'),('posted','Posted')], "
+                "selection_add=[('reviewed','Reviewed')])"
+            ),
+            (False, ["draft", "posted"], ["reviewed"]),
         )
-        self.assertEqual(vals, ["draft", "posted", "reviewed"])
 
-    def test_selection_add_dedups_against_base(self):
-        vals = _classify_sel(
-            "fields.Selection(selection=[('a','A')], selection_add=[('a','A2'),('b','B')])"
+    # codex #532 #1 — dynamic base + add must flag dynamic (caller poisons)
+    def test_dynamic_base_with_add_flags_dynamic(self):
+        dyn, base, add = _classify_sel(
+            "fields.Selection(STATE_CONST, selection_add=[('reviewed','Reviewed')])"
         )
-        self.assertEqual(vals, ["a", "b"])
+        self.assertTrue(dyn, "provided-but-dynamic base must flag poison")
+        self.assertEqual(base, [])
+        self.assertEqual(add, ["reviewed"])  # parsed, but caller drops under poison
 
 
 class TestSelectionScan(unittest.TestCase):
-    """`_scan_file` binds Selection values to model_names (per #525 rule)."""
+    """`_scan_file` binds Selection domains: static REPLACE, add EXTEND,
+    dynamic POISON (sentinel `None`)."""
 
-    def test_selection_bound_to_name_model(self):
+    def test_static_base_bound_to_name_model(self):
         sel = _scan_sel(
             "class M:\n"
             "    _name = 'account.move'\n"
@@ -688,7 +698,7 @@ class TestSelectionScan(unittest.TestCase):
         )
         self.assertEqual(sel, {("account_move", "state"): ["draft", "posted"]})
 
-    def test_selection_on_inherit_only_binds_to_inherit_zero(self):
+    def test_static_base_on_inherit_only_binds_inherit_zero(self):
         sel = _scan_sel(
             "class Ext:\n"
             "    _inherit = ['account.move', 'mail.thread']\n"
@@ -696,19 +706,19 @@ class TestSelectionScan(unittest.TestCase):
         )
         self.assertEqual(sel, {("account_move", "kind"): ["x", "y"]})
 
-    def test_dynamic_selection_field_records_nothing(self):
+    def test_dynamic_base_poisons_field_to_none(self):
+        # codex #532 #1: a dynamic base records the field as OPEN (None),
+        # so enrich emits no closed `ASSERT IN` for it.
         sel = _scan_sel(
             "class M:\n"
             "    _name = 'account.move'\n"
             "    s = fields.Selection(selection='_compute_s')\n"
         )
-        self.assertEqual(sel, {})
+        self.assertEqual(sel, {("account_move", "s"): None})
 
     def test_selection_add_merges_across_classes(self):
-        # codex #530: base declaration in the _name class + a selection_add
-        # extension in a separate _inherit class must ACCUMULATE, not
-        # overwrite — else the ASSERT $value IN [...] rejects legal added
-        # states.
+        # codex #530: base in the _name class + a selection_add extension in a
+        # separate _inherit class must ACCUMULATE, not overwrite.
         sel = _scan_sel(
             "class Base:\n"
             "    _name = 'account.move'\n"
@@ -720,6 +730,38 @@ class TestSelectionScan(unittest.TestCase):
         )
         self.assertEqual(
             sel, {("account_move", "state"): ["draft", "posted", "reviewed"]}
+        )
+
+    def test_dynamic_base_plus_add_stays_poisoned(self):
+        # codex #532 #1: a dynamic base in one class POISONS the domain even if
+        # another class statically adds — never close an open domain.
+        sel = _scan_sel(
+            "class Base:\n"
+            "    _name = 'account.move'\n"
+            "    state = fields.Selection(STATE_CONST)\n"
+            "\n"
+            "class Ext:\n"
+            "    _inherit = 'account.move'\n"
+            "    state = fields.Selection(selection_add=[('reviewed','Reviewed')])\n"
+        )
+        self.assertEqual(sel, {("account_move", "state"): None})
+
+    def test_full_redeclaration_replaces_not_unions(self):
+        # codex #532 #2: a full static `selection=` redeclaration REPLACES the
+        # domain; stale keys from the earlier declaration must not survive.
+        sel = _scan_sel(
+            "class Base:\n"
+            "    _name = 'account.move'\n"
+            "    state = fields.Selection([('draft','Draft'),('posted','Posted')])\n"
+            "\n"
+            "class Ext:\n"
+            "    _inherit = 'account.move'\n"
+            "    state = fields.Selection([('draft','Draft'),('open','Open')])\n"
+        )
+        keys = sel[("account_move", "state")]
+        self.assertIn("open", keys)
+        self.assertNotIn(
+            "posted", keys, "stale key from the replaced declaration must be dropped"
         )
 
 
@@ -762,6 +804,16 @@ class TestP3SelectionValueEmission(unittest.TestCase):
         )
         # 'draft' already present → only 'posted' is new.
         self.assertEqual(stats["selection_value"], 1)
+
+    def test_open_domain_none_emits_nothing(self):
+        # codex #532 #1: a poisoned (None) domain → no selection_value triples.
+        triples = [t("odoo:account_move", "rdf:type", "ogit:ObjectType")]
+        lines, stats = enrich(
+            triples, RELMAP, selections={("account_move", "state"): None}
+        )
+        self.assertEqual(stats["selection_value"], 0)
+        self.assertEqual(stats["selection_skip_open_domain"], 1)
+        self.assertEqual(lines, [])
 
 
 if __name__ == "__main__":

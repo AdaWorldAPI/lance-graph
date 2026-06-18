@@ -105,12 +105,8 @@ fn nearest_base_declaring(
     seen.insert(start.to_string());
     // Frontier holds (model) at increasing chain distance; a BTreeSet per level
     // gives the sorted tie-break, then feeds the next level.
-    let mut frontier: VecDeque<String> = bases_of
-        .get(start)
-        .into_iter()
-        .flatten()
-        .cloned()
-        .collect();
+    let mut frontier: VecDeque<String> =
+        bases_of.get(start).into_iter().flatten().cloned().collect();
 
     while let Some(node) = frontier.pop_front() {
         if !seen.insert(node.clone()) {
@@ -220,11 +216,7 @@ mod tests {
     #[test]
     fn nearest_base_wins_over_farther_base() {
         // child → mid → far ; all declare _x. Override targets `mid` (nearest).
-        let m = methods(&[
-            ("child", &["_x"]),
-            ("mid", &["_x"]),
-            ("far", &["_x"]),
-        ]);
+        let m = methods(&[("child", &["_x"]), ("mid", &["_x"]), ("far", &["_x"])]);
         let b = bases(&[("child", &["mid"]), ("mid", &["far"])]);
         let ov = resolve_overrides(&m, &b);
         assert_eq!(ov.len(), 2, "child→mid and mid→far both resolve");
@@ -249,7 +241,9 @@ mod tests {
         let m = methods(&[("a", &["_x"]), ("b", &["_x"])]);
         let b = bases(&[("a", &["b"]), ("b", &["a"])]);
         let ov = resolve_overrides(&m, &b); // must not hang
-        assert!(ov.iter().any(|o| o.child_model == "a" && o.base_model == "b"));
+        assert!(ov
+            .iter()
+            .any(|o| o.child_model == "a" && o.base_model == "b"));
     }
 
     #[test]
@@ -279,7 +273,10 @@ mod tests {
         // non-trivial and the call is total, not that overrides exist.
         let (m, b) = manifest_from_curated_core();
         assert!(!m.is_empty(), "curated core declares methods");
-        assert!(b.contains_key("account_move"), "account_move has _inherit bases");
+        assert!(
+            b.contains_key("account_move"),
+            "account_move has _inherit bases"
+        );
         let _ = resolve_overrides(&m, &b); // terminates, deterministic
     }
 }

@@ -72,14 +72,20 @@ existing SPO ndjson corpus with four additive predicate families:
 
     Enables the consumer to lower a Selection field to
     `DEFINE FIELD state … ASSERT $value IN ['draft','posted','cancel']`.
-    Both the base list (positional arg 0 or `selection=`) AND a
-    `_inherit` addon's `selection_add=[…]` extension are read and unioned —
-    an extension's keys MERGE onto the field's accumulated set across
-    classes, so the `ASSERT` set includes legal extension-added states (codex
-    #530). Dynamic selections (`selection='_compute_states'`, a bare Name
-    constant, or `related=`) are skipped — their values aren't statically
-    knowable. Source order is preserved. Selection fields bind to the same
-    `model_names` as relational fields (`_name`, else `_inherit[0]`).
+    The two Odoo idioms are kept distinct (codex #532 follow-ups):
+
+    - a full static `selection=[…]` (positional or kwarg) **REPLACES** the
+      domain — a later redeclaration drops the earlier keys, not unions them;
+    - an `_inherit` addon's `selection_add=[…]` **EXTENDS** it — its keys
+      union onto the field's accumulated set across classes, so the `ASSERT`
+      includes legal extension-added states;
+    - a **dynamic** base (`selection='_compute_states'`, a bare Name constant,
+      `related=`) **POISONS** the field — its domain is open and is **never**
+      emitted as a closed `ASSERT IN`, even if a `selection_add` is statically
+      known. Poison is sticky across classes.
+
+    Source order is preserved within a domain. Selection fields bind to the
+    same `model_names` as relational fields (`_name`, else `_inherit[0]`).
 
     This is *in addition* to the existing shallow relation read
     `(_compute_amount, reads_field, odoo:account_move.line_ids)`. The deep
@@ -182,34 +188,45 @@ def _selection_tuple_keys(node: Optional[ast.expr], out: List[str], seen: Set[st
             out.append(key)
 
 
-def _extract_selection_values(call: ast.Call) -> List[str]:
-    """Pull the value KEYS from a `fields.Selection(...)` declaration.
+def _extract_selection(call: ast.Call) -> "Tuple[bool, List[str], List[str]]":
+    """Resolve a `fields.Selection(...)` into `(base_dynamic, base_keys, add_keys)`.
 
-    Reads BOTH the base list — first positional arg OR `selection=` kwarg —
-    AND the `selection_add=` kwarg (the Odoo idiom for an `_inherit` addon
-    that *extends* an existing Selection field's domain without redeclaring
-    it). Keys from both are unioned, base first, in source order, de-duped.
+    Distinguishes the two Odoo idioms a single flat list conflated (codex #530
+    follow-ups):
 
-    Returns `[]` when neither source is a static list of 2-tuples — a dynamic
-    `selection='_compute_x'` (str), a bare Name constant, or `related=`.
-    A pure `selection_add=` extension (no base list) yields just the added
-    keys, which the caller MERGES onto the field's accumulated set.
+    - `base_dynamic` — a base `selection=`/positional arg was **provided** but is
+      not a static list of 2-tuples (a `'_compute_x'` method-ref, a bare `Name`
+      constant, `related=`). The field's value domain is then **open** and
+      cannot be closed into an `ASSERT $value IN [...]`. This is distinct from
+      *no base arg at all* (a pure `selection_add=` extension).
+    - `base_keys` — a static base list. A full `selection=[...]` **REPLACES** the
+      domain (so a later redeclaration drops the earlier keys, not unions them).
+      Empty when there is no static base.
+    - `add_keys` — `selection_add=[...]` keys. An `_inherit` addon **EXTENDS**
+      the domain (unions onto whatever the field accumulates across classes).
     """
-    base: Optional[ast.expr] = None
-    add: Optional[ast.expr] = None
+    base_node: Optional[ast.expr] = None
+    base_provided = False
+    add_node: Optional[ast.expr] = None
     for kw in call.keywords:
         if kw.arg == "selection":
-            base = kw.value
+            base_node = kw.value
+            base_provided = True
         elif kw.arg == "selection_add":
-            add = kw.value
-    if base is None and call.args:
-        base = call.args[0]
+            add_node = kw.value
+    if base_node is None and call.args:
+        base_node = call.args[0]
+        base_provided = True
 
-    out: List[str] = []
-    seen: Set[str] = set()
-    _selection_tuple_keys(base, out, seen)
-    _selection_tuple_keys(add, out, seen)
-    return out
+    base_static = isinstance(base_node, (ast.List, ast.Tuple))
+    base_dynamic = base_provided and not base_static
+
+    base_keys: List[str] = []
+    add_keys: List[str] = []
+    if base_static:
+        _selection_tuple_keys(base_node, base_keys, set())
+    _selection_tuple_keys(add_node, add_keys, set())
+    return base_dynamic, base_keys, add_keys
 
 
 def _is_uniqueness_call(node: ast.expr) -> bool:
@@ -318,7 +335,7 @@ def _scan_file(
     relmap: Dict[Tuple[str, str], Tuple[str, Optional[str]]],
     inherits: Optional[Dict[str, Set[str]]] = None,
     constrains: Optional[Dict[Tuple[str, str], Set[str]]] = None,
-    selections: Optional[Dict[Tuple[str, str], List[str]]] = None,
+    selections: Optional[Dict[Tuple[str, str], Optional[List[str]]]] = None,
 ) -> None:
     """Parse one .py file; record every relational field on every named model.
     Optionally also record `inherits_from` edges and `@api.constrains`
@@ -359,7 +376,12 @@ def _scan_file(
         inherits_models: List[str] = []  # _inherits dict keys (delegation)
         local_fields: Dict[str, Tuple[str, Optional[str]]] = {}
         local_constrains: List[Tuple[str, ast.FunctionDef]] = []
-        local_selections: Dict[str, List[str]] = {}
+        # Selection domains split by idiom (codex #530 follow-ups): a static
+        # `selection=` REPLACES, `selection_add=` EXTENDS, a dynamic base
+        # POISONS (open domain, never closable into ASSERT IN).
+        local_sel_replace: Dict[str, List[str]] = {}
+        local_sel_extend: Dict[str, List[str]] = {}
+        local_sel_poison: Set[str] = set()
 
         for stmt in node.body:
             # Method definitions — gather @api.constrains methods for P2.
@@ -409,11 +431,17 @@ def _scan_file(
             ):
                 continue
             field_type = stmt.value.func.attr
-            # Selection field — extract statically-known value keys (P3).
+            # Selection field — split into REPLACE / EXTEND / POISON (P3).
             if field_type == "Selection" and selections is not None:
-                vals = _extract_selection_values(stmt.value)
-                if vals:
-                    local_selections[target_name] = vals
+                base_dynamic, base_keys, add_keys = _extract_selection(stmt.value)
+                if base_dynamic:
+                    # A provided-but-unresolvable base = open domain: do not
+                    # let any `selection_add` masquerade as a closed set.
+                    local_sel_poison.add(target_name)
+                if base_keys:
+                    local_sel_replace[target_name] = base_keys
+                if add_keys:
+                    local_sel_extend[target_name] = add_keys
                 continue
             if field_type not in RELATIONAL_KINDS:
                 continue
@@ -464,14 +492,26 @@ def _scan_file(
                 # comodel for a given (model, field) is stable in practice.
                 relmap[(mu, field_name)] = (comodel, inverse)
             if selections is not None:
-                for field_name, vals in local_selections.items():
-                    # MERGE, not overwrite: the base `selection=` declaration
-                    # and any `_inherit` addon's `selection_add=` extensions
-                    # live in DIFFERENT classes, so a given (model, field)
-                    # accumulates across scans (codex #530). Order-preserving,
-                    # de-duplicated union.
+                # Sentinel `None` value = POISONED (open domain): a dynamic
+                # base anywhere means the field can never be a closed
+                # `ASSERT IN [...]`. Poison is STICKY and wins over any keys.
+                for field_name in local_sel_poison:
+                    selections[(mu, field_name)] = None
+                # A full static `selection=` REPLACES the domain (drops the
+                # earlier declaration's stale keys — codex #532 finding #2),
+                # unless the field is already poisoned.
+                for field_name, keys in local_sel_replace.items():
+                    if selections.get((mu, field_name), 0) is None:
+                        continue
+                    selections[(mu, field_name)] = list(keys)
+                # `selection_add=` EXTENDS (unions onto the accumulated set),
+                # unless poisoned (codex #532 finding #1 — never close a
+                # dynamic-base domain from selection_add alone).
+                for field_name, keys in local_sel_extend.items():
+                    if selections.get((mu, field_name), 0) is None:
+                        continue
                     acc = selections.setdefault((mu, field_name), [])
-                    for v in vals:
+                    for v in keys:
                         if v not in acc:
                             acc.append(v)
 
@@ -508,7 +548,7 @@ def build_all_facts(
     Dict[Tuple[str, str], Tuple[str, Optional[str]]],
     Dict[str, Set[str]],
     Dict[Tuple[str, str], Set[str]],
-    Dict[Tuple[str, str], List[str]],
+    Dict[Tuple[str, str], Optional[List[str]]],
 ]:
     """Single-pass scan that populates (relmap, inherits, constrains, selections).
 
@@ -586,7 +626,7 @@ def enrich(
     relmap: Dict[Tuple[str, str], Tuple[str, Optional[str]]],
     inherits: Optional[Dict[str, Set[str]]] = None,
     constrains: Optional[Dict[Tuple[str, str], Set[str]]] = None,
-    selections: Optional[Dict[Tuple[str, str], List[str]]] = None,
+    selections: Optional[Dict[Tuple[str, str], Optional[List[str]]]] = None,
 ) -> Tuple[List[str], dict]:
     """Compute the additive enrichment lines + a stats dict.
 
@@ -665,6 +705,7 @@ def enrich(
         "validation_skip_unknown_method": 0,
         "selection_value": 0,
         "selection_skip_unknown_model": 0,
+        "selection_skip_open_domain": 0,
     }
 
     # ── P1: target / inverse_name ─────────────────────────────────────────
@@ -786,8 +827,15 @@ def enrich(
     # One triple per statically-known enum key on a Selection field. Scoped to
     # corpus-declared ObjectTypes (the additive boundary): never invent a
     # selection on an unknown model. Value order preserved (source order).
+    # A `None` value is a POISONED (open) domain — a dynamic base means the
+    # field is not statically closable, so emit nothing (codex #532 finding #1).
     if selections:
-        for (model_us, field_name), vals in sorted(selections.items()):
+        for (model_us, field_name), vals in sorted(
+            selections.items(), key=lambda kv: kv[0]
+        ):
+            if vals is None:
+                stats["selection_skip_open_domain"] += 1
+                continue
             if model_us not in object_type_models:
                 stats["selection_skip_unknown_model"] += 1
                 continue
@@ -815,7 +863,9 @@ def run(corpus_path: str, addons_root: str, out_path: str) -> dict:
     stats["relmap_entries"] = len(relmap)
     stats["inherits_entries"] = sum(len(v) for v in inherits.values())
     stats["constrains_entries"] = sum(len(v) for v in constrains.values())
-    stats["selections_entries"] = sum(len(v) for v in selections.values())
+    stats["selections_entries"] = sum(
+        len(v) for v in selections.values() if v is not None
+    )
     stats["new_triples"] = len(new_lines)
 
     # Preserve the original corpus lines verbatim, then append the sorted new
