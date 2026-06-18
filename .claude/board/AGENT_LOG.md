@@ -1,3 +1,13 @@
+## 2026-06-18 — PR #525 follow-up: `_inherit`-only binding scoped to `inherit[0]`
+
+**Main thread (Opus) — single implementer**, branch `claude/odoo-spo-fk-target-deep-reads`. Addresses the one unresolved codex P2 on #525: the prior `_inherit`-only fix bound a no-`_name` class's relational fields to the WHOLE `_inherit` list, so a multi-element `_inherit = ['a','b']` would attach local fields to every inherited mixin and let `build_relation_map()` emit bogus `target`/`reads_field` triples for secondary parents.
+
+**Fix:** `spo_enrich.py` no-`_name` case now binds to `inherit[0]` only (`inherit_models[:1]`), matching Odoo in-place extension semantics and the repo's own `parsers/classes.py` collapse. `test_inherit_list_binds_field_to_each_model` → `..._to_first_model_only` (asserts `sale_order` bound, `purchase_order` NOT). Docstrings reworded.
+
+**Corpus impact: NONE.** Regenerated from base `1ec76f5b` (22 245) with the fixed enrich → `out=24166`, `target=842`, `inverse_name=144` — **byte-identical** to the committed corpus (`diff -q` clean). No real scanned-addons class triggers the bogus secondary-mixin binding scoped to a corpus-declared model, so the Rust count assertions (24 166 / 842 / 144 / 3 030) are unchanged; no `odoo_ontology.rs` edit. The fix is defensive tooling-correctness.
+
+**Tests:** `python3 -m unittest tests.test_spo_enrich` 20/20 green.
+
 ## 2026-06-17 — PR #523 review fixes: spo_enrich multi-emitter + `_inherit`-only
 
 **Main thread (Opus) — single implementer**, branch `claude/odoo-spo-fk-target-deep-reads` (review-fix commit on top of the enrichment commit, no rebase). Addresses 4 valid review findings (codex P1 + codex P2/CodeRabbit Major + 2 CodeRabbit doc nits). Scope: the lance-graph SPO corpus + the stdlib Python extractor tooling under `tools/odoo-blueprint-extractor/` (no odoo-rs change).

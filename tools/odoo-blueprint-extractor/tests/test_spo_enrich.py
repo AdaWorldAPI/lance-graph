@@ -295,9 +295,11 @@ class TestInheritOnlyRelationMap(unittest.TestCase):
 
     The common Odoo extension form reopens an existing model via
     `_inherit = "some.model"` (string) or `_inherit = ["a", "b"]` (list) WITHOUT
-    a `_name`; relational fields on such classes must map onto the inherited
-    model(s), or their target/inverse_name (and any deep hop through them) is
-    lost.
+    a `_name`; relational fields on such classes must map onto the single
+    in-place extension target, or their target/inverse_name (and any deep hop
+    through them) is lost. Odoo binds the no-`_name` case to `_inherit[0]`; any
+    further entries are mixins, not additional homes for the local fields, so
+    they must NOT receive the relational fields (mirrors `parsers/classes.py`).
     """
 
     def _scan_source(self, src: str):
@@ -320,7 +322,11 @@ class TestInheritOnlyRelationMap(unittest.TestCase):
             ("payment.transaction", None),
         )
 
-    def test_inherit_list_binds_field_to_each_model(self):
+    def test_inherit_list_binds_field_to_first_model_only(self):
+        # No-`_name` multi-element `_inherit` extends `_inherit[0]` in place;
+        # the rest are mixins and must NOT inherit the local relational fields
+        # (otherwise build_relation_map() emits bogus target/reads_field triples
+        # for secondary parents). Matches parsers/classes.py inherit[0] collapse.
         src = (
             "from odoo import fields, models\n"
             "class Mixin(models.AbstractModel):\n"
@@ -331,9 +337,7 @@ class TestInheritOnlyRelationMap(unittest.TestCase):
         self.assertEqual(
             relmap.get(("sale_order", "partner_id")), ("res.partner", None)
         )
-        self.assertEqual(
-            relmap.get(("purchase_order", "partner_id")), ("res.partner", None)
-        )
+        self.assertIsNone(relmap.get(("purchase_order", "partner_id")))
 
     def test_inherit_tuple_form_is_accepted(self):
         src = (

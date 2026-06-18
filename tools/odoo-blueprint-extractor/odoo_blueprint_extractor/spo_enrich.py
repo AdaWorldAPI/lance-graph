@@ -194,12 +194,20 @@ def _scan_file(path: str, relmap: Dict[Tuple[str, str], Tuple[str, Optional[str]
                 local_fields[target_name] = (comodel, inverse)
 
         # Resolve the model name(s) this class contributes fields to: `_name`
-        # if present, else the `_inherit` target(s). A class with neither
-        # contributes nothing.
+        # if present, else the single in-place `_inherit` target. A class with
+        # neither contributes nothing.
+        #
+        # No-`_name` extension reopens ONE existing model in place. Odoo binds
+        # such a class to `_inherit[0]`; a multi-element `_inherit` adds the rest
+        # as mixins, NOT as additional homes for these local fields. Assigning
+        # the whole list here would attach the fields to every secondary mixin
+        # and let build_relation_map() emit bogus `target`/`reads_field` triples
+        # for them. `parsers/classes.py` collapses the no-name case to
+        # `inherit[0]` for the same reason; mirror it.
         if name_model is not None:
             model_names = [name_model]
         else:
-            model_names = inherit_models
+            model_names = inherit_models[:1]
 
         for model_name in model_names:
             mu = model_to_underscore(model_name)
