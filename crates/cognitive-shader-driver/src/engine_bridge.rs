@@ -31,7 +31,7 @@ use lance_graph_contract::cognitive_shader::{
 };
 
 use crate::bindspace::{BindSpace, WORDS_PER_FP};
-use lance_graph_contract::qualia::QualiaI4_16D;
+use lance_graph_contract::qualia::{QualiaI4_16D, QUALIA_DIMS};
 
 #[cfg(feature = "with-engine")]
 use thinking_engine::dto::BusDto;
@@ -246,7 +246,7 @@ pub fn dispatch_busdto(bs: &mut BindSpace, row: usize, bus: &BusDto, style_ord: 
     //     qualia[0]   = headline energy
     //     qualia[1..9] = top_k energies (positions 1-based to keep dim 0 = headline)
     //     qualia[9]   = codebook_index headline (codex P2 fix 2026-05-07)
-    //     qualia[10..18] = zeroed (reserved for downstream qualia / classification dist)
+    //     qualia[10..17] = zeroed (reserved for downstream qualia / classification dist)
     //
     // The codebook_index headline goes into qualia[9] explicitly so the
     // round-trip is bit-exact even when codebook_index collides with or
@@ -263,7 +263,7 @@ pub fn dispatch_busdto(bs: &mut BindSpace, row: usize, bus: &BusDto, style_ord: 
     }
     q[9] = bus.codebook_index as f32;
     // D-CSV-5b: engine still produces f32; convert at the bridge boundary.
-    // from_f32_17d expects [f32; 17]; q is [f32; QUALIA_DIMS=18].
+    // from_f32_17d expects [f32; 17]; q is [f32; QUALIA_DIMS=17].
     let mut q17 = [0.0f32; 17];
     q17.copy_from_slice(&q[..17]);
     bs.qualia.set(row, QualiaI4_16D::from_f32_17d(&q17));
