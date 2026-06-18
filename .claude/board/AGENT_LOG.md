@@ -1,3 +1,32 @@
+## 2026-06-18 — 5+3 council: mailbox-belief-update-and-substrate-test-v1 (design, no code)
+
+**Main thread (Opus) + 8-agent council.** Branch `claude/soa-cycle-ownership-sync`. Question: should within-mailbox belief change be a per-item AriGraph belief update ("this thought made me smarter, what did I learn"), best-cased with Sudoku/goban/deepeval?
+
+**Builders (5):** trajectory (DERIVED read, witness arc IS the revision log, emit at Commit not consume), dto-soa (FITS-COLUMN, no new layer), creative-explorer (2nd-order: competence self-model; 2 axes ΔF+ΔStaunen, single signed delta is the dilution), contradiction-cartographer (**P0: net Δ⟨f,c⟩ is LOSSY** — averaging hides revision-vs-contradiction-commit; carry signed residual + regime tag + qualia delta, reuse `support`/`dissonance`), convergence (single-step delta = OPPORTUNITY `belief_delta()` no new column; multi-cycle arc = D-MBX-A3 not free; `last_write_cycle` doesn't exist yet, `last_active_cycle`+`current_cycle` give the N+1 endpoint only).
+
+**Critics (brutal):** cross-domain-synthesizer — Sudoku↔edge-Weyl **[S] DROP** (rhyme; two real Weyls in codebase, neither is this), Sudoku field-prop TEST-HARNESS-ONLY (confluence regression), goban **[H] MECHANISM** for support/capture/ko (DROP influence leg [S]), deepeval **DROP** (Python LLM-judge = firewall breach; cherry-pick only the trivial threshold shape). theorem-checker — Sudoku↔Weyl **[S]** (20-regular vertex-transitive → maximally degenerate spectrum = OPPOSITE of φ-Weyl degeneracy-breaking; real statement is a Hoffman coloring bound [G], not Weyl), constraint-prop↔VSA **[H]-skeleton/[S]-semantics** (Tarski fixpoint shared; exact/finite/lossless vs statistical/continuous/lossy differ in the load-bearing property), a Sudoku harness certifies speed+correctness in the deterministic limit ONLY — not the spectral/concentration property.
+
+**Operator reframe (resolved the critique):** the test is NOT the Weyl spectral connection — it's TWO axes: (1) THROUGHPUT "16M sudoku in 3.4 min" (exact-oracle workload, hard speed+correctness number) vs (2) LEARNING "thinking-style improved exponentially, ceiling x" (= φ-1 humility; the belief-update learning curve). They compose: Sudoku = workload, learning-curve = belief-update measured over it.
+
+**Outcome:** plan `mailbox-belief-update-and-substrate-test-v1.md` created, slots S2.5b (after the write contract). Verdict: belief-update = derived read (LAND), carry the non-lossy 4-tuple; throughput test valid (drop Weyl label); deepeval dropped. No source/test change — design only.
+
+## 2026-06-18 — 5+3 council: mailbox-cycle-aware-write-contract-v1 (design, no code)
+
+**Main thread (Opus) + 8-agent council.** Branch `claude/soa-cycle-ownership-sync`. Drafted `.claude/plans/mailbox-cycle-aware-write-contract-v1.md` (the next code deliverable named by `E-SOA-CYCLE-OWNERSHIP` rule 1) and ran the operator-mandated 5+3.
+
+**Builders (5):** convergence (OQ-B → reuse `SoaEnvelope::cycle()`, NO version bump; OQ-A → two stamps, phase-pack deferred `OQ-CSV-CYCLEPACK`), dto-soa (FITS-COLUMN/EXTENDS-CANONICAL; `WriteCell` must stay a staging view), trajectory (`temporal.rs` is read-only — plan over-claimed a write seam; HLC keys within-lane order, `current_cycle` keys the lane; OQ-C → Aware-buffer), integration-lead (slots S2.5 pre-S3; 3 increments; not blocked by surrealdb; OQ-D → `WriteOutcome` enum), container-architect (spawn pointer = `identity` 24-bit new `u32` field, not `mailbox_id`; **gate MUST be wrap-aware** else 8–40 min sweep misclassifies post-wrap; `WriteCell` carries `(row,cycle)`; OQ-B no-bump holds iff identity stays in key).
+
+**Critics (3):** brutally-honest → **HOLD** on 2 P0s (temporal.rs write-sink fiction + unreachable feature-graph) — both CLEARED by operator direction (de-interlace = addressing via GUID identity tail, stale handling LOCAL, no planner dep); reversed 2 builder leans (OQ-D infallible not Result; setters stay `pub`+`#[doc(hidden)]` not `pub(crate)` — breaks `tests/w2_differential.rs`). iron-rule → **YIELDS-WITH-AP** (no violation; conditional on no-production-blind-path guard + `last_write_cycle`/`identity` in `reset_row`+field-isolation SAME commit). baton-handoff → **CATCH-CRITICAL**: `BackingStoreWrite::Singleton(&BindSpace)` has no `current_cycle` → uniform gated signature returns unconditional `Accepted` = C2-divergence sentinel-lie; fix = Singleton cycle-blind-by-construction. CATCH-LATENT: `mailbox_id`(u32)→`NodeGuid::identity`(24b) panics-not-corrupts if >0x00FF_FFFF.
+
+**Outcome:** all fixes folded into the plan (resolved OQs A–E, P0 addressing rewrite, wrap-aware gate, Singleton contract, test/guard same-commit requirements, 3-increment cascade). Verdict: **LAND as S2.5**, code 5+3-clean. Cold TS+kanban stay Lance-native (lancedb 0.30 / lance 7). No source/test change this entry — design only.
+
+## 2026-06-18 — repo-sync: SoA cycle-ownership architecture into the migration plan (no code)
+
+**Main thread (Opus).** Branch `claude/soa-cycle-ownership-sync`. Operator directive: tie the converged BindSpace→SoA architecture into the plan to bring the repo in sync, before the code wiring's 5+3. Docs only.
+
+Captured (plan ERRATA ADDENDUM 2026-06-18c + `E-SOA-CYCLE-OWNERSHIP`): (1) cycle ownership per-mailbox/per-cycle, LE-contract-enforced on tenant + envelope — the gap is the cycle-blind setters/`BackingStoreWrite` (next code deliverable, 5+3-gated); (2) multi-mailbox interlace is the target, the `backing()` ≤1 assert is W5-transitional (16k=8MB, 16M=8GB, GUID-prefix-routed via L3-resident prefix tables); (3) consumer fork — SoA-fit rotates in, non-fit gets an OGAR `classid→schema` (ClassView/Template, #530/#533); (4) OGAR + Template + Schema-version mandatory at the consumer/persistence boundary. Also recorded that #535 closed the with-engine break + the i4-codebook_index risk via the F32 anchor.
+
+No source/test change.
 ## 2026-06-18 — S-series Step 1+2: unbreak --features with-engine + F32-17D bit-exact qualia tenant
 
 **Main thread (Opus) + panel.** Branch `claude/with-engine-build-fix`. Two commits: (1) import `QUALIA_DIMS` to unbreak `--features with-engine` (engine_bridge.rs:259 used it unimported — the entire dispatch/unbind lab surface was dormant); (2) restore an F32-17D bit-exact qualia tenant.

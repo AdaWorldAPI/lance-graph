@@ -1,3 +1,28 @@
+## 2026-06-18 — mailbox-belief-update-and-substrate-test-v1 ("what did I learn" = NARS-revision delta + two-axis test; 5+3-ratified; slots S2.5b)
+
+**Status:** CONJECTURE / design — 5+3 COMPLETE. **Plan file:** `.claude/plans/mailbox-belief-update-and-substrate-test-v1.md`. Parent: `bindspace-singleton-to-mailbox-soa-v1` §11 + `E-SOA-CYCLE-OWNERSHIP`.
+**Owns:** the per-item belief-update ("this thought made me smarter") + the two-axis substrate test.
+- **Belief-update = NARS-revision delta, DERIVED** (not stored). Single-step = `belief_delta(row)` read method on `MailboxSoaView`, ZERO new column (`(f,c)` off `CausalEdge64` + `qualia` diff). Multi-cycle arc = the queued `D-MBX-A3` witness column (not free). Emit at Commit, not every consume (witness arc IS the revision log — parent §11.2).
+- **Must NOT be lossy net Δ⟨f,c⟩** (contradiction-cartographer P0): carry signed residual `(Δw⁺,Δw⁻)` (reuse `support`/`dissonance`) + regime tag (Revision vs contradiction-commit) + qualia delta. Accumulates into a per-mailbox **competence self-model** (creative-explorer 2nd-order).
+- **Two-axis test:** Axis-1 THROUGHPUT "16M sudoku in 3.4 min" (exact-oracle constraint workload; certifies speed+correctness, **NOT Weyl/spectral** — that's [S] RHYME, dropped); Axis-2 LEARNING "thinking-style improved exponentially, ceiling x = φ-1 humility" (native integer metric; **deepeval DROPPED** = Python LLM-judge firewall breach). They compose: Sudoku = workload, learning-curve = belief-update over it. goban = secondary belief-state harness ([H] support/capture/ko; drop influence leg).
+**Key decisions:** both math critics (cross-domain + theorem-checker) graded Sudoku↔edge-Weyl [S] RHYME (20-regular degenerate spectrum is opposite of φ-Weyl's degeneracy-breaking) — reframed to throughput per operator. Sequencing S2.5b (after the write contract).
+**Repos:** lance-graph, branch `claude/soa-cycle-ownership-sync`. Grounded by an 8-agent 5+3 (2026-06-18).
+
+---
+
+## 2026-06-18 — mailbox-cycle-aware-write-contract-v1 (every SoA write carries/checks its cycle; 5+3-ratified; slots as S2.5)
+
+**Status:** CONJECTURE / design — 5+3 council COMPLETE (LAND after plan-edit fixes, all applied). **Plan file:** `.claude/plans/mailbox-cycle-aware-write-contract-v1.md`. Child of `bindspace-singleton-to-mailbox-soa-v1` rule 1 (`E-SOA-CYCLE-OWNERSHIP`).
+**Owns:** the per-cycle write-awareness contract — `write_row(row, cycle, &WriteCell) -> WriteOutcome`, `last_write_cycle: [u32;N]` (2nd stamp), `identity: u32` spawn pointer (GUID tail), wrap-aware gate, local stale handling.
+- **Resolved OQs:** A→two stamps (phase-pack deferred `OQ-CSV-CYCLEPACK`); B→**no version bump** (reuse `current_cycle`/`SoaEnvelope::cycle()`; identity stays in key); C→Aware-buffer (`WriteDisposition`, not `EpistemicMode` reuse); D→infallible `WriteOutcome::{Accepted,Stale,Future}` (W4b `Arc` precedent = category error); E→**S2.5** pre-S3, own `mailbox-thoughtspace` gate.
+- **P0 fixes folded:** de-interlace is ADDRESSING (GUID identity tail), NOT planner-routing — `temporal.rs` write-sink was fiction (read-only `deinterlace()`) + unreachable under the feature gate; stale handling is LOCAL (no planner dep). `BackingStoreWrite::Singleton` is cycle-blind-by-construction (gate is Mailbox-only until W7 deletes BindSpace) — else a C2-divergence sentinel-lie.
+- **P1 fixes folded:** wrap-aware gate (`wrapping_sub`+half-range, else 8–40 min sweep misclassifies post-wrap stragglers); setters stay `pub`+`#[doc(hidden)]` (`pub(crate)` breaks `tests/w2_differential.rs`); `last_write_cycle`+`identity`→`reset_row`+field-isolation matrix SAME commit; no-production-blind-path guard SAME commit (I-LEGACY); `mailbox_id` not overloaded (≤0x00FF_FFFF when used as spawn pointer).
+- **3 increments:** Inc1 contract floor (no bump) → Inc2 gated mutator+stamps+identity+tests → Inc3 engine_bridge consumers (post-#535). Cold TS+kanban stay Lance-native (lancedb 0.30 / lance 7).
+**Key decisions:** iron-rule verdict YIELDS-WITH-AP (no violation, conditional on the two same-commit guards); brutally-honest HOLD→cleared by operator addressing direction; baton-handoff CATCH-CRITICAL (Singleton arm) folded. Not blocked by surrealdb/D-MBX-9.
+**Repos:** lance-graph, branch `claude/soa-cycle-ownership-sync`. Grounded by an 8-agent 5+3 (convergence/dto-soa/trajectory/integration-lead/container-architect + brutally-honest/iron-rule/baton-handoff, 2026-06-18).
+
+---
+
 ## 2026-06-15 — integrated-cognitive-planner-v1 (ONE Rubicon/kanban/ractor/thinking-style/AST↔Elixir planner; ~90% EXISTS, 6 additive seams + addressing + cognitive-cycle sequencer)
 
 **Status:** RESEARCH MAP + REFERENCE DOC (capture-before-dilution; pre-expansion). **Plan file:** `.claude/plans/integrated-cognitive-planner-v1.md`.
