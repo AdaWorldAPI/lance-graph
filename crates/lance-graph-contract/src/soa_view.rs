@@ -192,7 +192,7 @@ mod tests {
                 mailbox: self.id,
                 from,
                 to,
-                witness_chain_position: 0,
+                witness_chain_position: self.cycle,
                 libet_offset_us: if to == KanbanColumn::CognitiveWork {
                     -550_000
                 } else {

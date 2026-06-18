@@ -128,6 +128,27 @@ pub struct KanbanMove {
     pub exec: ExecTarget,
 }
 
+impl KanbanMove {
+    /// The SoA cycle-ownership stamp (S2.5) — the mailbox `current_cycle` at
+    /// which this lifecycle step was emitted.
+    ///
+    /// Both real paths that record a move ([`crate::scheduler`] and the
+    /// `cognitive-shader-driver` `MailboxSoaOwner` impl — the mailbox writing its
+    /// own lifecycle step in place, NOT an inter-mailbox emission per the #477
+    /// three-tier model) stamp `witness_chain_position = current_cycle` (the
+    /// documented "monotonic cycle
+    /// stamp stands in for the chain index until the A3 witness-arc column lands"
+    /// convention). This accessor names that intent so the planner and a
+    /// `ExecTarget::SurrealQl` read-as-of can be cycle-aware off ONE source of
+    /// truth without growing the ≤16 B airgap baton. When the A3 witness-arc
+    /// column lands and `witness_chain_position` becomes a distinct chain index,
+    /// this accessor moves to its own field (an A3-era change, version-gated).
+    #[inline]
+    pub fn cycle(&self) -> u32 {
+        self.witness_chain_position
+    }
+}
+
 /// The execution backend a [`KanbanMove`] is dispatched to — the planner's
 /// JIT-adjacent **strategy target**. Distinct from the planner's 16 composable
 /// *planning* strategies: this names *where the precipitated plan runs*.

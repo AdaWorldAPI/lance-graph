@@ -46,6 +46,7 @@ use lance_graph_contract::cognitive_shader::{ColumnWindow, MetaFilter};
 use crate::bindspace::BindSpace;
 #[cfg(feature = "mailbox-thoughtspace")]
 use crate::mailbox_soa::MailboxSoA;
+use crate::mailbox_soa::{WriteCell, WriteOutcome};
 
 /// Read-only substrate the dispatch hot path sweeps.
 ///
@@ -255,6 +256,60 @@ impl BackingStoreWrite<'_> {
             #[cfg(feature = "mailbox-thoughtspace")]
             BackingStoreWrite::Mailbox(mb) => mb.set_sigma(row, s),
         }
+    }
+
+    /// Cycle-aware row write (S2.5 deinterlacing) — routes a [`WriteCell`]
+    /// through the per-mailbox cycle gate.
+    ///
+    /// - **Mailbox arm:** delegates to [`MailboxSoA::write_row`], which gates the
+    ///   write (wrap-aware) against the mailbox's `current_cycle`: a stale batch
+    ///   never overwrites a row the owner advanced past.
+    /// - **Singleton arm:** **cycle-blind BY CONSTRUCTION** (CATCH-CRITICAL,
+    ///   baton-handoff). `BindSpace` owns no `current_cycle`, so it cannot gate;
+    ///   it applies the cell's present fields via the per-field setters and
+    ///   returns [`WriteOutcome::Accepted`] unconditionally. The cycle gate is a
+    ///   Mailbox-only guarantee until W7 deletes `BindSpace`. `topic`/`angle` are
+    ///   Mailbox-only on the write shim; the legacy singleton path does not carry
+    ///   them (it has no dense-plane setter on this surface).
+    #[inline]
+    pub(crate) fn write_row(
+        &mut self,
+        row: usize,
+        cycle: u32,
+        cell: &WriteCell<'_>,
+    ) -> WriteOutcome {
+        #[cfg(feature = "mailbox-thoughtspace")]
+        if let BackingStoreWrite::Mailbox(mb) = self {
+            return mb.write_row(row, cycle, cell);
+        }
+        // Singleton arm: cycle-blind by construction. The `cycle` argument is
+        // intentionally unused here (no clock to compare against).
+        let _ = cycle;
+        if let Some(w) = cell.content {
+            self.set_content(row, w);
+        }
+        if let Some(q) = cell.qualia {
+            self.set_qualia(row, q);
+        }
+        if let Some(e) = cell.edge {
+            self.set_edge(row, e);
+        }
+        if let Some(m) = cell.meta {
+            self.set_meta(row, m);
+        }
+        if let Some(t) = cell.entity_type {
+            self.set_entity_type(row, t);
+        }
+        if let Some(t) = cell.temporal {
+            self.set_temporal(row, t);
+        }
+        if let Some(x) = cell.expert {
+            self.set_expert(row, x);
+        }
+        if let Some(s) = cell.sigma {
+            self.set_sigma(row, s);
+        }
+        WriteOutcome::Accepted
     }
 }
 

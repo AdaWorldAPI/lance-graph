@@ -1,3 +1,15 @@
+## 2026-06-18 — lite-unified-surrealql-lance-v1 (one store + one query surface, feature-gated; CONJECTURE, test-don't-commit)
+
+**Status:** CONJECTURE / design — feature-gated test path, NOT a default-build change. **Plan file:** `.claude/plans/lite-unified-surrealql-lance-v1.md`.
+**Owns:** the "lite unified" bet — collapse the two query engines (datafusion + SurrealQL) + two stores (lance + rocksdb) to **ONE store (lance-KV) + ONE primary query surface (SurrealQL/AR-API)**, datafusion feature-gated (`datafusion-analytical`), rocksdb dropped; the DO-arm `ExecTarget::SurrealQl` becomes the primary exec path.
+- **Win** (graph/AR/CRUD/cognitive/vector): Cypher→SurrealQL is a better lowering than Cypher→datafusion-SQL (surreal is natively graph); drops the rocksdb C++ build + makes datafusion optional. **Downgrade** (heavy analytical SQL): datafusion's strength → kept feature-gated, not deleted.
+- **Falsifier (truth-architect):** lance-graph `datafusion_planner` test queries → can SurrealQL express each? Covered → drop datafusion for that path; gaps → keep `datafusion-analytical`. Measure footprint (proxy: lance-graph ≈889 crates, surreal-all ≈1148, SurrealQL-engine marginal ~260, rocksdb separate C++).
+- **Blockers (OQ-LU-1/2/3):** surreal kv-lance not yet feature-wired (`surrealdb/core/src/kvs/lance/` module implemented, no `kv-lance` feature); polyglot→SurrealQL lowering doesn't exist (today polyglot→datafusion); SPARQL/Gremlin lowering cleanliness unknown.
+**Gate before any promotion:** convergence + cross-domain (mechanism-vs-rhyme) + truth-architect (query-shape coverage). Do NOT touch the default build until green.
+**Repos:** lance-graph (+ surrealdb fork for kv-lance). Surfaced from the footprint discussion (drop datafusion+rocksdb) on branch `claude/soa-write-deinterlace-inc2`.
+
+---
+
 ## 2026-06-18 — mailbox-belief-update-and-substrate-test-v1 ("what did I learn" = NARS-revision delta + two-axis test; 5+3-ratified; slots S2.5b)
 
 **Status:** CONJECTURE / design — 5+3 COMPLETE. **Plan file:** `.claude/plans/mailbox-belief-update-and-substrate-test-v1.md`. Parent: `bindspace-singleton-to-mailbox-soa-v1` §11 + `E-SOA-CYCLE-OWNERSHIP`.

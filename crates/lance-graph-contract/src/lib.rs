@@ -38,6 +38,7 @@ pub mod cognition;
 pub mod transaction;
 
 pub mod a2a_blackboard;
+pub mod action;
 pub mod atoms;
 pub mod auth;
 pub mod callcenter;
