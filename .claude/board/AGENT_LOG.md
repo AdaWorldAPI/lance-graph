@@ -1,3 +1,18 @@
+## 2026-06-18 — D-MBX-A2 board reconciliation (carrier shipped; S2 ~80% pre-absorbed) — 5+3 council
+
+**Main thread (Opus) + 5+3 council**, branch `claude/dmbxa2-board-reconciliation`. Operator asked for "D-MBX-A2 ⟷ S-series together"; the council (integration-lead, preflight-drift-auditor, iron-rule-savant, dto-soa-savant, truth-architect + brutal critics brutally-honest-tester, baton-handoff-auditor, firewall-warden) unanimously found D-MBX-A2's column carrier is **already shipped** (landed after the 2026-06-13 reconciliation snapshot the boards were trusting) and the engine_bridge "S2" re-home is ~80% pre-absorbed by the W4a `BackingStore`/`BackingStoreWrite` shim. brutally-honest-tester: "land the board reconciliation, not S2." So this PR is the honest D-MBX-A2 closure (docs only).
+
+**Reconciled (board ↔ code drift, all flagged by preflight-drift-auditor):**
+- STATUS_BOARD:643 D-MBX-A2 Queued → **Shipped (carrier)** with evidence (W1 `22f5120a`/W1b `707360dc`/W1c/W4a + parity/field-isolation tests).
+- D-MBX-COMPLETION-MAP: A2 added to "Where we are" SHIPPED; critical-path A2 struck; S2-pre-absorbed / S3-is-next note.
+- TECH_DEBT: dated correction line on TD-WITNESS-EVAL-WIRING-1 (A2 is not "the gating gap"; A3's real gates = OQ-11.2 + §0 ruling).
+- Plan `bindspace-singleton-to-mailbox-soa-v1.md`: ERRATA ADDENDUM (S1 done; S1 gate sidestepped via enum-over-trait; OQ-1 resolved dense-planes-hot; S/P/O = non-gap; S2 folds into S3).
+- EPIPHANIES: `E-DMBXA2-SHIPPED-RECONCILE` (full finding + the PR#427-"A2"-vs-deliverable-A2 naming-collision disambiguation).
+
+**Findings carried, NOT fixed here (flagged for a dedicated engine_bridge pass):** (1) `--features with-engine` broken on main (`QUALIA_DIMS` unimported, engine_bridge.rs:259); (2) correctness risk — `codebook_index` stored in `qualia[9]` which became i4 in D-CSV-5b while doc comments still claim f32-lossless (truth-architect: needs a differential test, codebook_index ∈ {0,255,256,1234,4095,65535} round-trip through both arms). These + the S2 residual route-through-shim are the real next work, owned by S3.
+
+**Docs only; no source/test change.** S/P/O role slices confirmed a non-gap (`I-VSA-IDENTITIES`: VSA-unbind vs `contract::grammar::role_keys`, not a per-row column).
+
 ## 2026-06-18 — CI: extend debuginfo=0 + mold to the `linux-build` job (link-cliff flake)
 
 **Main thread (Opus).** Branch `claude/ci-linux-build-debuginfo0-mold`. The `linux-build (stable)` job in `build.yml` flaked twice (#525, #528) with the `rust-lld` SIGBUS link cliff (signal 7, object truncated when the partition fills mid-link, crash in `llvm::parallelFor`). It was the ONLY job still linking the full lance+datafusion test set at workflow-level `debuginfo=1` and without mold — the `test` (TD-CI-TEST-JOB-DEBUGINFO0) and `test-with-coverage` (TD-CI-COVERAGE-MOLD-1) jobs in rust-test.yml already had both mitigations and are green.

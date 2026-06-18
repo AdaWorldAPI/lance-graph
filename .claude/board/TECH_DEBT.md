@@ -49,6 +49,12 @@ lands its column + a consumer that walks a W-slot arc through the field evaluato
 Boundary cross-references added in both files (this commit) so the seam is not
 rediscovered as a "missing wiring" bug.
 
+**Correction (2026-06-18, `E-DMBXA2-SHIPPED-RECONCILE`):** the parenthetical above
+calling D-MBX-A2 "the plan's current gating gap" is stale. D-MBX-A2's column carrier
+is **Shipped** (W1/W1b/W1c/W4a in `mailbox_soa.rs`); "S/P/O role slices" is a non-gap
+(VSA-unbind vs `grammar/role_keys`). D-MBX-A3's true remaining gates are OQ-11.2 + the
+§0 dependency-direction ruling, **not** missing A2 columns.
+
 ### TD-CI-TEST-JOB-DEBUGINFO0 — `test` job hit the same link cliff; `debuginfo=0` extended to it (2026-06-16)
 
 **Open — fix applied (merged via #511's CI commit), CONFIRM on the next green
