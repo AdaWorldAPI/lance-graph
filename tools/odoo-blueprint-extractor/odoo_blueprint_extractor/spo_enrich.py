@@ -83,6 +83,32 @@ existing SPO ndjson corpus with four additive predicate families:
     `od_ontology::RecomputeDag` (which today sees only the relation read,
     leaving the line→move dependency structurally invisible).
 
+# ARCHITECTURE NOTE — this is the breadth feeder, NOT the home (2026-06-18)
+
+The *structural* predicates here — `target` / `inverse_name` / `inherits_from`
+/ `selection_value` — are **Core** facts (relations / composition / value
+domain). Their AUTHORITATIVE home is the typed `OdooEntity` Core in
+`lance-graph-ontology::odoo_blueprint` (`OdooField.target` already exists;
+`inherits_from` + `selection_value` live in the
+`odoo_blueprint::structural` side-table). This module is the **Extracted
+leg** (per `.claude/knowledge/odoo-extraction-strategies-v1.md`): a *breadth*
+feeder that AST-walks the full Odoo source for the ~322 ObjectTypes the
+curated Core has not yet reached. On convergence in the `SpoStore` the
+curated Core (`OdooConfidence::Curated`) WINS over this leg's extracted
+confidence for any model it covers — the harvest never becomes the home for
+a structural fact, it fills in where the Core is silent.
+
+Reading this file as "where structural predicates live" is the
+self-fulfilling drift the 2026-06-18 Core-first correction reversed
+(see `EPIPHANIES.md` E-ODOO-CORE-FIRST-STRUCTURAL). Do NOT add
+`virtually_overrides` here — it is a ClassView/Core MRO capability, not a
+harvest predicate.
+
+The *behavioural* predicates (`reads_field` deep lifts, `emitted_by`,
+transitive `depends_on`, `raises`, `validation_kind` body classification)
+ARE genuine harvest — they describe a method *body*, not the model's
+structure — and correctly live here.
+
 # Why a separate enrichment pass (not the ORM extractor)
 
 The ORM extractor (`parsers/`, `emitters/`) emits typed Rust `OdooEntity`
