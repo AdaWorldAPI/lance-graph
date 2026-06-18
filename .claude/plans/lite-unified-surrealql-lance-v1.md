@@ -7,6 +7,19 @@
 > `lance-graph-contract::action`), `docs/STACK_SCAFFOLD.md`, the
 > "cold TS + kanban stay Lance-native" ruling.
 
+## Process, not a switch (operator constraint, 2026-06-18) — LOAD-BEARING
+
+**datafusion is NOT deprecated and NOT removed.** It stays the **default** query
+engine. `lite-unified` is an **additive, default-OFF coexistence gate** (wired as
+an empty feature in `crates/lance-graph/Cargo.toml`, datafusion untouched) that
+adds the SurrealQL-on-lance path *alongside* datafusion. Promotion is **gradual,
+per query-shape** — a shape moves to the SurrealQL path only after the OQ-LU-2a
+probe shows SurrealQL covers it; everything else keeps running on datafusion,
+indefinitely if need be. There is no flip-the-switch cutover and no
+deprecation milestone. The two engines coexist; the feature selects the path
+per workload. Any wording below that reads as "drop/replace datafusion" means
+*"feature-gate an alternative path,"* never *"remove datafusion."*
+
 ## Epiphany (less is more)
 
 Today there are **two query engines over the same lance storage** (lance-graph's
@@ -26,9 +39,13 @@ A `lite-unified` feature that, when ON:
    (Cypher/GQL/Gremlin/SPARQL/neo4j) lowers to **SurrealQL** (or the DO-arm
    `ActionInvocation`) instead of datafusion SQL. *Missing today:* the
    polyglot→SurrealQL lowering (today it's polyglot→datafusion).
-3. **datafusion = `optional`, OFF** on this path. Kept behind a separate
-   `datafusion-analytical` feature for the workloads that genuinely need
-   vectorized/analytical SQL (joins, aggregations) — SurrealQL's weak spot.
+3. **datafusion stays DEFAULT + ON — NOT made optional, NOT deprecated.** Under
+   `lite-unified` the SurrealQL path runs *alongside* it; a query-shape uses
+   SurrealQL only once the probe proves coverage, otherwise it stays on
+   datafusion. Far-future (only if the probe ever shows SurrealQL covers
+   *everything* a deployment uses, and a deployment opts in): datafusion *could*
+   become `optional` behind a `datafusion-analytical` feature — but that is a
+   separate, later, opt-in decision, never part of wiring `lite-unified`.
 4. The DO-arm `ExecTarget::SurrealQl` becomes the **primary** exec path, not one
    of four.
 
@@ -66,10 +83,16 @@ is a separate C++ build.
    integration; add the `kv-lance` feature + lance dep + `mod lance` in `kvs/mod.rs`).
 3. **Polyglot→SurrealQL lowering** — the missing front-end leg (parallel to the
    existing polyglot→datafusion).
-4. **`datafusion` → `optional`** + a `datafusion-analytical` feature; default the
-   common path to SurrealQL-on-lance under `lite-unified`.
+4. **Per-shape promotion under the gate** — move covered query-shapes to the
+   SurrealQL path under `lite-unified`; datafusion stays the default for
+   everything else. NO `datafusion`→optional flip here (that's a far-future,
+   separate, opt-in decision — see § Process, not a switch).
 5. **Measure** footprint + query-shape coverage; promote CONJECTURE→FINDING or
    correct.
+
+**Increment 0 — DONE (this commit):** the `lite-unified` coexistence feature is
+wired in `crates/lance-graph/Cargo.toml` (additive, default-OFF, empty, datafusion
+untouched). The gate exists; the lowering attaches to it incrementally per above.
 
 ## Blockers / open questions
 

@@ -88,6 +88,13 @@ planner = ["dep:lance-graph-planner"]
 bgz17-codec = ["dep:bgz17"]
 # tensor-codec: attention as table lookup, SimilarityTable, Belichtungsmesser, variance audit.
 tensor-codec = ["dep:bgz-tensor"]
+# lite-unified: ADDITIVE, default-OFF coexistence gate for the SurrealQL-on-lance
+# query path (.claude/plans/lite-unified-surrealql-lance-v1.md). PROCESS, NOT A
+# SWITCH — datafusion stays the DEFAULT query engine and is NOT deprecated, NOT
+# made optional by this feature. `lite-unified` only adds the SurrealQL lowering
+# path ALONGSIDE datafusion, promoted gradually per query-shape once OQ-LU-2a
+# (the datafusion_planner coverage probe) is green. Empty until the lowering lands.
+lite-unified = []
 
 [dev-dependencies]
 futures = "0.3"
