@@ -1,3 +1,11 @@
+## 2026-06-18 — E-ODOO-SPO-SELECTION-VALUE — spo_enrich gains selection_value (wishlist P3); corpus regen pending Odoo source
+
+**Status:** FINDING for the code + tests; CONJECTURE for the wire effect on the shipped corpus (regenerates when a session has `/home/user/odoo/addons`). `spo_enrich.py` adds a fifth enrichment pass via the same single AST walk: `fields.Selection([('draft','Draft'), …])` declarations emit one `(odoo:<model>.<field>, selection_value, "<key>")` triple per statically-resolvable enum key. 12 new tests (6 extraction + 3 scan-binding + 3 emission); total suite 41→53 green. Rust loader histogram arm gained `selection_value`.
+
+**Shape.** `_extract_selection_values` pulls the first element of each 2-tuple from the Selection list (positional arg 0 OR `selection=` kwarg), preserving source order, de-duplicating. Dynamic selections — `selection='_compute_x'` (str method-ref), a bare Name constant, `related=` — are skipped (values not statically knowable). Truth `(0.95, 0.90)` — read straight from the decorator, authoritative. Scoped to corpus-declared ObjectTypes (the additive boundary); Selection fields bind to the same `model_names` as relational fields (`_name`, else `_inherit[0]`, per #525).
+
+**Consumer use.** Lets odoo-rs lower a Selection field to `DEFINE FIELD state … ASSERT $value IN ['draft','posted','cancel']` — the wishlist P3 ask. Once a session with the Odoo source re-runs `python -m odoo_blueprint_extractor.spo_enrich`, the triples land and the predicate-histogram count can be locked. Remaining wishlist item after this: `virtually_overrides` (genuine ClassView MRO design, not a single-predicate emission).
+
 ## 2026-06-18 — E-WITNESS-ARC-TWO-OBJECTS-1 — "witness arc" names TWO different objects; do NOT unify them under a `WitnessArcEvaluator` trait
 
 **Status:** FINDING (5+3 council, unanimous: convergence-architect DROP, iron-rule-savant REJECT-trait, dto-soa-savant FITS-COLUMN-as-free-fn, dilution-collapse-sentinel KEEP-SEPARATE, truth-architect PROVEN-math, brutally-honest-tester Option-B-LAND, baton-handoff-auditor CATCH-CRITICAL, integration-lead DEFER). B2 resolved as documentation, not code.

@@ -1,5 +1,6 @@
 """SPO corpus enrichment — FK target/inverse_name (P1) + deep reads_field (P0)
-+ inherits_from (P1b, ruff#19) + validation_kind (P2, ruff#21).
++ inherits_from (P1b, ruff#19) + validation_kind (P2, ruff#21)
++ selection_value (P3).
 
 Stdlib-only Python 3. Reads the Odoo ORM source (the same addons tree the
 ORM extractor parses) to build a relation-target map, then enriches an
@@ -60,6 +61,22 @@ existing SPO ndjson corpus with four additive predicate families:
     extension classes bind to `_inherit[0]` (mirrors `_scan_file`'s field
     binding decision per #525 codex review).
 
+  * **P3 — `selection_value`** (UPSTREAM_WISHLIST P3): for every
+    `fields.Selection([('draft','Draft'), ('posted','Posted'), …])`
+    declaration with a *statically resolvable* list of 2-tuples, emit one
+    triple per value KEY (the first tuple element), keyed by the field IRI::
+
+        (odoo:account_move.state, selection_value, "draft")
+        (odoo:account_move.state, selection_value, "posted")
+        (odoo:account_move.state, selection_value, "cancel")
+
+    Enables the consumer to lower a Selection field to
+    `DEFINE FIELD state … ASSERT $value IN ['draft','posted','cancel']`.
+    Dynamic selections (`selection='_compute_states'`, a bare Name constant,
+    or `related=`) are skipped — their values aren't statically knowable.
+    Source order is preserved. Selection fields bind to the same
+    `model_names` as relational fields (`_name`, else `_inherit[0]`).
+
     This is *in addition* to the existing shallow relation read
     `(_compute_amount, reads_field, odoo:account_move.line_ids)`. The deep
     read makes the cross-model recompute-ordering edge visible to
@@ -110,10 +127,47 @@ INHERITS_FROM_TRUTH = (0.95, 0.90)
 # validation_kind is an AST-pattern classification of a method body
 # (heuristic, not authoritative).
 VALIDATION_KIND_TRUTH = (0.85, 0.75)
+# selection_value is a statically-resolved enum key from a Selection
+# declaration (authoritative — read straight from the field decorator).
+SELECTION_VALUE_TRUTH = (0.95, 0.90)
 
 # Recognised `validation_kind` strings (matches ruff#21's Rails set where
 # semantics overlap; Odoo-specific patterns like `lookup` extend it).
 _VALIDATION_KINDS = ("presence", "uniqueness", "range", "format", "lookup")
+
+
+def _extract_selection_values(call: ast.Call) -> List[str]:
+    """Pull the value KEYS from a `fields.Selection([('k','Label'), …])`
+    declaration. The selection list is the first positional arg OR the
+    `selection=` kwarg; each entry is a 2-tuple whose first element is the
+    stored key.
+
+    Returns the keys in source order, de-duplicated (first occurrence wins).
+    Returns `[]` for dynamic selections — a bare Name (constant reference),
+    a string (compute-method name), `related=`, or any entry whose first
+    element isn't a string constant. Those values aren't statically known.
+    """
+    sel: Optional[ast.expr] = None
+    for kw in call.keywords:
+        if kw.arg == "selection":
+            sel = kw.value
+            break
+    if sel is None and call.args:
+        sel = call.args[0]
+    if not isinstance(sel, (ast.List, ast.Tuple)):
+        # `selection='_compute_x'` (str), a Name constant, or related= → skip.
+        return []
+
+    out: List[str] = []
+    seen: Set[str] = set()
+    for elt in sel.elts:
+        if not isinstance(elt, (ast.Tuple, ast.List)) or len(elt.elts) < 1:
+            continue
+        key = _const_str(elt.elts[0])
+        if key is not None and key not in seen:
+            seen.add(key)
+            out.append(key)
+    return out
 
 
 def _is_uniqueness_call(node: ast.expr) -> bool:
@@ -222,6 +276,7 @@ def _scan_file(
     relmap: Dict[Tuple[str, str], Tuple[str, Optional[str]]],
     inherits: Optional[Dict[str, Set[str]]] = None,
     constrains: Optional[Dict[Tuple[str, str], Set[str]]] = None,
+    selections: Optional[Dict[Tuple[str, str], List[str]]] = None,
 ) -> None:
     """Parse one .py file; record every relational field on every named model.
     Optionally also record `inherits_from` edges and `@api.constrains`
@@ -262,6 +317,7 @@ def _scan_file(
         inherits_models: List[str] = []  # _inherits dict keys (delegation)
         local_fields: Dict[str, Tuple[str, Optional[str]]] = {}
         local_constrains: List[Tuple[str, ast.FunctionDef]] = []
+        local_selections: Dict[str, List[str]] = {}
 
         for stmt in node.body:
             # Method definitions — gather @api.constrains methods for P2.
@@ -311,6 +367,12 @@ def _scan_file(
             ):
                 continue
             field_type = stmt.value.func.attr
+            # Selection field — extract statically-known value keys (P3).
+            if field_type == "Selection" and selections is not None:
+                vals = _extract_selection_values(stmt.value)
+                if vals:
+                    local_selections[target_name] = vals
+                continue
             if field_type not in RELATIONAL_KINDS:
                 continue
 
@@ -359,6 +421,11 @@ def _scan_file(
                 # Last write wins across _inherit reopenings of the same model;
                 # comodel for a given (model, field) is stable in practice.
                 relmap[(mu, field_name)] = (comodel, inverse)
+            if selections is not None:
+                for field_name, vals in local_selections.items():
+                    # Last write wins (a later reopening that redeclares the
+                    # Selection with a fuller value list supersedes).
+                    selections[(mu, field_name)] = vals
 
         # ── P1b: inherits_from edges ─────────────────────────────────────
         # Only when the class declares a NEW model (_name is set). An
@@ -393,21 +460,24 @@ def build_all_facts(
     Dict[Tuple[str, str], Tuple[str, Optional[str]]],
     Dict[str, Set[str]],
     Dict[Tuple[str, str], Set[str]],
+    Dict[Tuple[str, str], List[str]],
 ]:
-    """Single-pass scan that populates (relmap, inherits, constrains).
+    """Single-pass scan that populates (relmap, inherits, constrains, selections).
 
     Returns:
         relmap     — (model_us, field) → (comodel_dotted, inverse_or_None)
         inherits   — model_us → set(base_us)  from `_inherit` + `_inherits`
         constrains — (model_us, method) → set(kind) from `@api.constrains`
+        selections — (model_us, field) → [value_key, …] from `fields.Selection`
     """
     relmap: Dict[Tuple[str, str], Tuple[str, Optional[str]]] = {}
     inherits: Dict[str, Set[str]] = {}
     constrains: Dict[Tuple[str, str], Set[str]] = {}
+    selections: Dict[Tuple[str, str], List[str]] = {}
     pattern = os.path.join(addons_root, "**", "*.py")
     for path in glob.iglob(pattern, recursive=True):
-        _scan_file(path, relmap, inherits, constrains)
-    return relmap, inherits, constrains
+        _scan_file(path, relmap, inherits, constrains, selections)
+    return relmap, inherits, constrains, selections
 
 
 def build_relation_map(addons_root: str) -> Dict[Tuple[str, str], Tuple[str, Optional[str]]]:
@@ -468,6 +538,7 @@ def enrich(
     relmap: Dict[Tuple[str, str], Tuple[str, Optional[str]]],
     inherits: Optional[Dict[str, Set[str]]] = None,
     constrains: Optional[Dict[Tuple[str, str], Set[str]]] = None,
+    selections: Optional[Dict[Tuple[str, str], List[str]]] = None,
 ) -> Tuple[List[str], dict]:
     """Compute the additive enrichment lines + a stats dict.
 
@@ -544,6 +615,8 @@ def enrich(
         "inherits_skip_unknown_base": 0,
         "validation_kind": 0,
         "validation_skip_unknown_method": 0,
+        "selection_value": 0,
+        "selection_skip_unknown_model": 0,
     }
 
     # ── P1: target / inverse_name ─────────────────────────────────────────
@@ -661,6 +734,26 @@ def enrich(
                 existing_spo.add(spo)
                 stats["validation_kind"] += 1
 
+    # ── P3: selection_value ───────────────────────────────────────────────
+    # One triple per statically-known enum key on a Selection field. Scoped to
+    # corpus-declared ObjectTypes (the additive boundary): never invent a
+    # selection on an unknown model. Value order preserved (source order).
+    if selections:
+        for (model_us, field_name), vals in sorted(selections.items()):
+            if model_us not in object_type_models:
+                stats["selection_skip_unknown_model"] += 1
+                continue
+            field_iri = f"odoo:{model_us}.{field_name}"
+            for val in vals:
+                spo = (field_iri, "selection_value", val)
+                if spo in existing_spo:
+                    continue
+                new_lines.append(
+                    triple_line(field_iri, "selection_value", val, *SELECTION_VALUE_TRUTH)
+                )
+                existing_spo.add(spo)
+                stats["selection_value"] += 1
+
     new_lines.sort()
     return new_lines, stats
 
@@ -668,12 +761,13 @@ def enrich(
 def run(corpus_path: str, addons_root: str, out_path: str) -> dict:
     """Enrich `corpus_path` using `addons_root`, write to `out_path`. Returns stats."""
     triples = load_corpus(corpus_path)
-    relmap, inherits, constrains = build_all_facts(addons_root)
-    new_lines, stats = enrich(triples, relmap, inherits, constrains)
+    relmap, inherits, constrains, selections = build_all_facts(addons_root)
+    new_lines, stats = enrich(triples, relmap, inherits, constrains, selections)
     stats["corpus_triples_in"] = len(triples)
     stats["relmap_entries"] = len(relmap)
     stats["inherits_entries"] = sum(len(v) for v in inherits.values())
     stats["constrains_entries"] = sum(len(v) for v in constrains.values())
+    stats["selections_entries"] = sum(len(v) for v in selections.values())
     stats["new_triples"] = len(new_lines)
 
     # Preserve the original corpus lines verbatim, then append the sorted new
@@ -733,6 +827,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         f"self_loop={stats['deep_skip_self_loop']}) "
         f"inherits_from={stats['inherits_from']} "
         f"validation_kind={stats['validation_kind']} "
+        f"selection_value={stats['selection_value']} "
         f"out={stats['corpus_triples_out']}",
         file=sys.stderr,
     )

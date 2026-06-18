@@ -593,5 +593,137 @@ class TestConstrainsScan(unittest.TestCase):
         self.assertEqual(c, {("account_move", "_check_subject"): {"presence"}})
 
 
+# ---------------------------------------------------------------------------
+# PR #529 — selection_value (P3)
+# ---------------------------------------------------------------------------
+
+
+def _scan_sel(src):
+    """Run `_scan_file` over a synthetic module; return the selections dict."""
+    from odoo_blueprint_extractor.spo_enrich import _scan_file
+    relmap, inherits, constrains, selections = {}, {}, {}, {}
+    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as f:
+        f.write(src)
+        path = f.name
+    try:
+        _scan_file(path, relmap, inherits, constrains, selections)
+    finally:
+        os.unlink(path)
+    return selections
+
+
+def _classify_sel(src):
+    """Classify a single synthetic `fields.Selection(...)` call."""
+    import ast as _ast
+    from odoo_blueprint_extractor.spo_enrich import _extract_selection_values
+    tree = _ast.parse(src)
+    call = next(n for n in _ast.walk(tree) if isinstance(n, _ast.Call))
+    return _extract_selection_values(call)
+
+
+class TestSelectionExtraction(unittest.TestCase):
+    def test_list_of_tuples_positional(self):
+        vals = _classify_sel(
+            "fields.Selection([('draft','Draft'),('posted','Posted'),('cancel','Cancel')])"
+        )
+        self.assertEqual(vals, ["draft", "posted", "cancel"])
+
+    def test_selection_kwarg(self):
+        vals = _classify_sel(
+            "fields.Selection(selection=[('a','A'),('b','B')], string='X')"
+        )
+        self.assertEqual(vals, ["a", "b"])
+
+    def test_dynamic_method_name_skipped(self):
+        # selection='_compute_states' is a compute method ref → no static values.
+        vals = _classify_sel("fields.Selection(selection='_compute_states')")
+        self.assertEqual(vals, [])
+
+    def test_bare_name_constant_skipped(self):
+        # selection=SOME_CONSTANT — not statically resolvable from this AST.
+        vals = _classify_sel("fields.Selection(STATE_VALUES)")
+        self.assertEqual(vals, [])
+
+    def test_dedup_preserves_first_order(self):
+        vals = _classify_sel(
+            "fields.Selection([('a','A'),('b','B'),('a','A2')])"
+        )
+        self.assertEqual(vals, ["a", "b"])
+
+    def test_non_tuple_entries_skipped(self):
+        # A malformed entry (not a 2-tuple) is skipped, others survive.
+        vals = _classify_sel("fields.Selection([('a','A'), 'bogus', ('b','B')])")
+        self.assertEqual(vals, ["a", "b"])
+
+
+class TestSelectionScan(unittest.TestCase):
+    """`_scan_file` binds Selection values to model_names (per #525 rule)."""
+
+    def test_selection_bound_to_name_model(self):
+        sel = _scan_sel(
+            "class M:\n"
+            "    _name = 'account.move'\n"
+            "    state = fields.Selection([('draft','Draft'),('posted','Posted')])\n"
+        )
+        self.assertEqual(sel, {("account_move", "state"): ["draft", "posted"]})
+
+    def test_selection_on_inherit_only_binds_to_inherit_zero(self):
+        sel = _scan_sel(
+            "class Ext:\n"
+            "    _inherit = ['account.move', 'mail.thread']\n"
+            "    kind = fields.Selection([('x','X'),('y','Y')])\n"
+        )
+        self.assertEqual(sel, {("account_move", "kind"): ["x", "y"]})
+
+    def test_dynamic_selection_field_records_nothing(self):
+        sel = _scan_sel(
+            "class M:\n"
+            "    _name = 'account.move'\n"
+            "    s = fields.Selection(selection='_compute_s')\n"
+        )
+        self.assertEqual(sel, {})
+
+
+class TestP3SelectionValueEmission(unittest.TestCase):
+    def _triples(self, field_iri="odoo:account_move.state"):
+        return [
+            t("odoo:account_move", "rdf:type", "ogit:ObjectType"),
+        ]
+
+    def test_emits_one_triple_per_value(self):
+        lines, stats = enrich(
+            self._triples(),
+            RELMAP,
+            selections={("account_move", "state"): ["draft", "posted", "cancel"]},
+        )
+        self.assertEqual(stats["selection_value"], 3)
+        joined = "\n".join(lines)
+        for v in ("draft", "posted", "cancel"):
+            self.assertIn(
+                f'{{"s":"odoo:account_move.state","p":"selection_value","o":"{v}"',
+                joined,
+            )
+
+    def test_skip_unknown_model(self):
+        triples = [t("odoo:account_move", "rdf:type", "ogit:ObjectType")]
+        lines, stats = enrich(
+            triples, RELMAP, selections={("mystery_model", "s"): ["a"]}
+        )
+        self.assertEqual(stats["selection_value"], 0)
+        self.assertEqual(stats["selection_skip_unknown_model"], 1)
+        self.assertEqual(lines, [])
+
+    def test_dedup_against_existing(self):
+        triples = [
+            t("odoo:account_move", "rdf:type", "ogit:ObjectType"),
+            t("odoo:account_move.state", "selection_value", "draft"),
+        ]
+        _, stats = enrich(
+            triples, RELMAP, selections={("account_move", "state"): ["draft", "posted"]}
+        )
+        # 'draft' already present → only 'posted' is new.
+        self.assertEqual(stats["selection_value"], 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
