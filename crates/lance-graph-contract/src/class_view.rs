@@ -211,6 +211,57 @@ pub fn compute_dag_is_acyclic(edges: &[ComputeEdge]) -> bool {
     }
 }
 
+/// A valid **recompute order** for a class's `compute_dag` — the target field
+/// positions in an order where every target appears after all targets it
+/// (transitively) depends on. `None` if the DAG is cyclic (no topological order).
+///
+/// Leaves (positions that are only inputs, never targets) are not included — they
+/// are the already-present values a recompute reads. Within one Kahn round the
+/// resolved targets are mutually independent, so any order among them is valid.
+/// The consumer recomputes targets in this order, each gated by the cycle-aware
+/// `write_row` (`probe-excel-compute-dag-v1` Inc 2). Allocation = one `Vec` of
+/// the target positions (≤ 64).
+#[must_use]
+pub fn compute_dag_topo_order(edges: &[ComputeEdge]) -> Option<Vec<u8>> {
+    const N: usize = FieldMask::MAX_FIELDS as usize; // 64
+    let mut deps = [0u64; N];
+    let mut is_target = 0u64;
+    for e in edges {
+        if (e.target as usize) >= N {
+            continue;
+        }
+        is_target |= 1u64 << e.target;
+        for &inp in e.inputs {
+            if (inp as usize) < N {
+                deps[e.target as usize] |= 1u64 << inp;
+            }
+        }
+    }
+    let mut resolved = !is_target;
+    let mut remaining = is_target;
+    let mut order = Vec::with_capacity(is_target.count_ones() as usize);
+    loop {
+        if remaining == 0 {
+            return Some(order);
+        }
+        let mut progressed = false;
+        let mut r = remaining;
+        while r != 0 {
+            let t = r.trailing_zeros();
+            r &= r - 1;
+            if deps[t as usize] & !resolved == 0 {
+                resolved |= 1u64 << t;
+                remaining &= !(1u64 << t);
+                order.push(t as u8);
+                progressed = true;
+            }
+        }
+        if !progressed {
+            return None; // cycle
+        }
+    }
+}
+
 /// The class as a **meta lookup that flies above the SoA** — the resolver trait.
 ///
 /// An implementor (in `lance-graph-ontology`, over the OGIT cache) is the
@@ -501,6 +552,58 @@ mod tests {
                 inputs: &[200]
             }, // input ignored → leaf-only target
         ]));
+    }
+
+    #[test]
+    fn compute_dag_topo_order_respects_dependencies() {
+        // chain f0→f1→f2: f1 must come before f2; f0 is a leaf, not emitted.
+        let order = compute_dag_topo_order(SAMPLE_DAG).expect("acyclic has an order");
+        assert_eq!(order.len(), 2, "two targets (f1, f2); f0 is a read-only leaf");
+        let pos1 = order.iter().position(|&t| t == 1).unwrap();
+        let pos2 = order.iter().position(|&t| t == 2).unwrap();
+        assert!(pos1 < pos2, "f1 recomputed before its dependent f2");
+        // empty manifest → empty order, not None.
+        assert_eq!(compute_dag_topo_order(&[]), Some(vec![]));
+    }
+
+    #[test]
+    fn compute_dag_topo_order_none_on_cycle() {
+        // a 2-cycle has no topological order — None, matching is_acyclic == false.
+        let two_cycle = &[
+            ComputeEdge {
+                target: 0,
+                inputs: &[1],
+            },
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+        ];
+        assert!(compute_dag_topo_order(two_cycle).is_none());
+        assert!(!compute_dag_is_acyclic(two_cycle));
+    }
+
+    #[test]
+    fn compute_dag_topo_order_diamond() {
+        // f3 = g(f1, f2); f1 = h(f0); f2 = k(f0). f0 leaf. f1,f2 before f3.
+        let diamond = &[
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+            ComputeEdge {
+                target: 2,
+                inputs: &[0],
+            },
+            ComputeEdge {
+                target: 3,
+                inputs: &[1, 2],
+            },
+        ];
+        let order = compute_dag_topo_order(diamond).expect("acyclic");
+        let p = |t: u8| order.iter().position(|&x| x == t).unwrap();
+        assert!(p(1) < p(3) && p(2) < p(3), "both precedents before the join");
+        assert_eq!(order.len(), 3);
     }
 
     #[test]
