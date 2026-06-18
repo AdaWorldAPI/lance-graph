@@ -1,0 +1,390 @@
+//! `action` — the **DO arm** of the OGAR IR: `ActionDef` (static declaration) +
+//! `ActionInvocation` (dynamic fire). The Perdurant complement of the Endurant
+//! field-set: where `class_view`/`codegen_manifest` carry a class's *state* and
+//! *method signatures* (THINK), this carries its *functional actions* (DO).
+//!
+//! Sourced from the SPO harvest's `has_function` rows (the Perdurant methods)
+//! and shaped per OGAR `OGAR-AST-CONTRACT.md` §1. An `ActionInvocation` rides
+//! the canonical [`crate::orchestration::UnifiedStep`] envelope to a
+//! [`crate::kanban::ExecTarget`] (native / jit / **SurrealQL** / elixir) — it is
+//! NOT a per-crate endpoint.
+//!
+//! # OGAR inheritance (classid → ClassView)
+//!
+//! A class's DO surface is **its own actions plus its parents'**, minus
+//! overrides — the same `classid → ClassView` inheritance the field-set uses.
+//! [`ActionDef::overrides`] names a parent-class action this one supersedes;
+//! [`effective_actions`] composes the inherited set. No adapter carries its own
+//! action table; the harvest IS the manifest (mirrors
+//! [`crate::codegen_manifest`]).
+//!
+//! # The commit gate (RBAC + MUL) — why an action does not fire freely
+//!
+//! A DO action mutates an external domain consumer (odoo-rs / openproject /
+//! woa-rs / tesseract-rs), so it is high-stakes: [`ActionInvocation::commit`]
+//! advances `Pending → Committed` **only if** (a) the actor is RBAC-authorized
+//! for the action's [`ActionDef::required_role`] ([`crate::auth::ActorContext`]),
+//! AND (b) the MUL impact assessment ([`crate::mul::GateDecision`]) is `Flow`.
+//! A `Hold` keeps it `Pending` (escalate / re-assess), a `Block` `Cancelled`,
+//! and an unauthorized actor `Failed`. This IS the "commit to the external
+//! consumer after the cycle decides the result sound" egress.
+
+use crate::auth::ActorContext;
+use crate::kanban::ExecTarget;
+use crate::mul::GateDecision;
+
+/// Lifecycle state of an [`ActionInvocation`] (OGAR `ActionStateKind`).
+///
+/// `Pending → Committed | Failed | Cancelled`. The terminal states are sticky.
+/// Maps onto the Rubicon commit boundary: an action is `Pending` until the
+/// cycle decides the result sound (RBAC + MUL pass), then it commits OUT.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub enum ActionState {
+    /// Declared/fired, not yet adjudicated (or `Hold`-escalated).
+    #[default]
+    Pending = 0,
+    /// RBAC-authorized + MUL `Flow` — dispatched to the external consumer.
+    Committed = 1,
+    /// RBAC-unauthorized (or runtime failure).
+    Failed = 2,
+    /// MUL `Block` — impact judged unsound, refused.
+    Cancelled = 3,
+}
+
+impl ActionState {
+    /// Whether this is a terminal (non-`Pending`) state.
+    #[must_use]
+    pub const fn is_terminal(&self) -> bool {
+        !matches!(self, ActionState::Pending)
+    }
+}
+
+/// A `KausalSpec::StateGuard` on an [`ActionDef`] — the action fires only when
+/// `field` holds `value`. `const`-constructible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct StateGuard {
+    /// The field name guarded.
+    pub field: &'static str,
+    /// The value `field` must hold for the action to be eligible.
+    pub value: &'static str,
+}
+
+/// DO arm — **static** action declaration (one per handler / transition), the
+/// Perdurant sibling of [`crate::codegen_manifest::MethodSig`]. All fields are
+/// `&'static`/`Copy` so a generated `const ACTIONS: &[ActionDef] = &[..]`
+/// compiles — the action-axis manifest the consumer repos emit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ActionDef {
+    /// Event / handler name — the `has_function` method (e.g. `"action_confirm"`).
+    pub predicate: &'static str,
+    /// The acted-upon class (OGAR classid).
+    pub object_class: u32,
+    /// Where the action's work runs (native / jit / SurrealQL / elixir).
+    pub exec: ExecTarget,
+    /// Optional `KausalSpec::StateGuard`: fire only when `field == value`.
+    pub guard: Option<StateGuard>,
+    /// RBAC role required to invoke this action (`None` = unguarded).
+    /// Checked against [`crate::auth::ActorContext`] at commit.
+    pub required_role: Option<&'static str>,
+    /// Fully-qualified parent-class action this overrides (OGAR `classid →
+    /// ClassView` inheritance), if any. `None` = a fresh action.
+    pub overrides: Option<&'static str>,
+}
+
+/// One class's action manifest, keyed by classid — the action-axis sibling of
+/// [`crate::codegen_manifest::ClassMethods`]. Generated downstream; the Core
+/// provides the type + the (inheritance-aware) lookup.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClassActions {
+    /// The OGAR classid this manifest belongs to.
+    pub classid: u32,
+    /// The class's own actions (a generated `const` table).
+    pub actions: &'static [ActionDef],
+}
+
+/// Resolve a classid to its OWN action manifest within a generated `registry`
+/// (zero-fallback: an unregistered classid resolves to no actions, never a
+/// panic — mirrors [`crate::codegen_manifest::methods_for`]).
+#[must_use]
+pub fn actions_for(registry: &[ClassActions], classid: u32) -> &'static [ActionDef] {
+    registry
+        .iter()
+        .find(|entry| entry.classid == classid)
+        .map_or(&[], |entry| entry.actions)
+}
+
+/// Compose a class's **effective** DO surface via OGAR inheritance: the
+/// `parent` class's actions, then the `child`'s, with a child action of the
+/// same `predicate` **overriding** the parent's. This is the `classid →
+/// ClassView` inheritance applied to the action axis — a class inherits its
+/// parents' actions and may supersede them, exactly as it inherits fields.
+///
+/// Returns an owned `Vec` (resolution, not `const`): parent-only actions first
+/// (in order), each replaced in place if the child redefines its `predicate`,
+/// then the child's net-new actions appended.
+#[must_use]
+pub fn effective_actions(parent: &[ActionDef], child: &[ActionDef]) -> Vec<ActionDef> {
+    let mut out: Vec<ActionDef> = Vec::with_capacity(parent.len() + child.len());
+    for p in parent {
+        // A child action with the same predicate overrides the parent's.
+        match child.iter().find(|c| c.predicate == p.predicate) {
+            Some(c) => out.push(*c),
+            None => out.push(*p),
+        }
+    }
+    for c in child {
+        if !parent.iter().any(|p| p.predicate == c.predicate) {
+            out.push(*c);
+        }
+    }
+    out
+}
+
+/// DO arm — **dynamic** invocation (one per fire). Carries the lifecycle, the
+/// S2.5 SoA cycle stamp, and the dedup/provenance keys. `Copy` (all fields are
+/// scalar/`&'static`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ActionInvocation {
+    /// The acted-upon class (OGAR classid) — with `predicate`, identifies the
+    /// [`ActionDef`] this realizes.
+    pub object_class: u32,
+    /// The realized action's `has_function` name.
+    pub predicate: &'static str,
+    /// The specific instance acted on (GUID identity tail).
+    pub object_instance: u32,
+    /// Lifecycle state.
+    pub state: ActionState,
+    /// SoA cycle-ownership stamp (S2.5) — the mailbox `current_cycle` that
+    /// precipitated this fire, so a dispatched action is tied to its cycle.
+    pub cycle: u32,
+    /// Idempotency key — dedups re-fires of the same logical action.
+    pub idempotency_key: u64,
+    /// Trace id for provenance.
+    pub trace_id: u64,
+    /// HLC emit stamp (set on commit); `None` while `Pending`.
+    pub emitted_at_millis: Option<u64>,
+}
+
+impl ActionInvocation {
+    /// Construct a fresh `Pending` invocation.
+    #[must_use]
+    pub fn pending(
+        object_class: u32,
+        predicate: &'static str,
+        object_instance: u32,
+        cycle: u32,
+        idempotency_key: u64,
+        trace_id: u64,
+    ) -> Self {
+        Self {
+            object_class,
+            predicate,
+            object_instance,
+            state: ActionState::Pending,
+            cycle,
+            idempotency_key,
+            trace_id,
+            emitted_at_millis: None,
+        }
+    }
+
+    /// Adjudicate a `Pending` action against RBAC + the MUL impact gate, and
+    /// advance its lifecycle. Returns the resulting [`ActionState`].
+    ///
+    /// - unauthorized actor (lacks [`ActionDef::required_role`], not admin) → `Failed`
+    /// - MUL `Flow`  → `Committed` (dispatched; `emitted_at_millis` stamped)
+    /// - MUL `Hold`  → stays `Pending` (escalate / re-assess next cycle)
+    /// - MUL `Block` → `Cancelled`
+    ///
+    /// Terminal states are sticky (a committed/failed/cancelled action is not
+    /// re-adjudicated). RBAC is checked FIRST: an unauthorized actor never
+    /// reaches the impact gate.
+    pub fn commit(
+        &mut self,
+        def: &ActionDef,
+        actor: &ActorContext,
+        impact: &GateDecision,
+        now_millis: u64,
+    ) -> ActionState {
+        if self.state.is_terminal() {
+            return self.state; // sticky
+        }
+        // RBAC first — authority before impact.
+        if let Some(role) = def.required_role {
+            let authorized = actor.is_admin() || actor.roles.iter().any(|r| r == role);
+            if !authorized {
+                self.state = ActionState::Failed;
+                return self.state;
+            }
+        }
+        // MUL impact assessment.
+        self.state = match impact {
+            GateDecision::Flow => {
+                self.emitted_at_millis = Some(now_millis);
+                ActionState::Committed
+            }
+            GateDecision::Hold { .. } => ActionState::Pending,
+            GateDecision::Block { .. } => ActionState::Cancelled,
+        };
+        self.state
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `const`-constructibility — the exact shape a generated
+    /// `const ACTIONS: &[ActionDef]` emits (mirrors the `MethodSig` guard).
+    const SALE_ORDER_ACTIONS: &[ActionDef] = &[
+        ActionDef {
+            predicate: "action_confirm",
+            object_class: 0x0A1E_0001,
+            exec: ExecTarget::SurrealQl,
+            guard: Some(StateGuard {
+                field: "state",
+                value: "draft",
+            }),
+            required_role: Some("sales_manager"),
+            overrides: None,
+        },
+        ActionDef {
+            predicate: "action_cancel",
+            object_class: 0x0A1E_0001,
+            exec: ExecTarget::SurrealQl,
+            guard: None,
+            required_role: None,
+            overrides: None,
+        },
+    ];
+
+    const REGISTRY: &[ClassActions] = &[ClassActions {
+        classid: 0x0A1E_0001,
+        actions: SALE_ORDER_ACTIONS,
+    }];
+
+    #[test]
+    fn const_action_manifest_constructs_and_resolves() {
+        assert_eq!(actions_for(REGISTRY, 0x0A1E_0001).len(), 2);
+        assert!(
+            actions_for(REGISTRY, 0xDEAD).is_empty(),
+            "unregistered classid → no actions (zero-fallback)"
+        );
+        assert_eq!(SALE_ORDER_ACTIONS[0].exec, ExecTarget::SurrealQl);
+    }
+
+    #[test]
+    fn ogar_inheritance_child_overrides_parent_by_predicate() {
+        let parent = &[
+            ActionDef {
+                predicate: "action_confirm",
+                object_class: 0x01,
+                exec: ExecTarget::Native,
+                guard: None,
+                required_role: None,
+                overrides: None,
+            },
+            ActionDef {
+                predicate: "message_post",
+                object_class: 0x01,
+                exec: ExecTarget::Native,
+                guard: None,
+                required_role: None,
+                overrides: None,
+            },
+        ];
+        let child = &[
+            // overrides the parent's action_confirm
+            ActionDef {
+                predicate: "action_confirm",
+                object_class: 0x02,
+                exec: ExecTarget::SurrealQl,
+                guard: None,
+                required_role: Some("sales_manager"),
+                overrides: Some("parent::action_confirm"),
+            },
+            // net-new
+            ActionDef {
+                predicate: "action_done",
+                object_class: 0x02,
+                exec: ExecTarget::SurrealQl,
+                guard: None,
+                required_role: None,
+                overrides: None,
+            },
+        ];
+        let eff = effective_actions(parent, child);
+        assert_eq!(eff.len(), 3, "confirm(overridden) + message_post + done");
+        let confirm = eff.iter().find(|a| a.predicate == "action_confirm").unwrap();
+        assert_eq!(
+            confirm.object_class, 0x02,
+            "child's action_confirm overrides the parent's"
+        );
+        assert_eq!(confirm.required_role, Some("sales_manager"));
+        // inherited unchanged
+        assert!(eff.iter().any(|a| a.predicate == "message_post" && a.object_class == 0x01));
+        // net-new appended
+        assert!(eff.iter().any(|a| a.predicate == "action_done"));
+    }
+
+    fn actor_with(roles: &[&str]) -> ActorContext {
+        // TenantId = u64 (crate::sla); 0 = default tenant.
+        ActorContext::new(
+            "u1".to_string(),
+            0,
+            roles.iter().map(|s| s.to_string()).collect(),
+        )
+    }
+
+    #[test]
+    fn commit_requires_rbac_then_mul_flow() {
+        let def = &SALE_ORDER_ACTIONS[0]; // required_role = "sales_manager"
+
+        // authorized + Flow → Committed, stamped.
+        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
+        assert_eq!(
+            inv.commit(def, &actor_with(&["sales_manager"]), &GateDecision::Flow, 1000),
+            ActionState::Committed
+        );
+        assert_eq!(inv.emitted_at_millis, Some(1000));
+        assert_eq!(inv.cycle, 3, "cycle stamp preserved");
+
+        // committed is sticky — re-adjudication is a no-op.
+        assert_eq!(
+            inv.commit(def, &actor_with(&["sales_manager"]), &GateDecision::Block { reason: "x".to_string() }, 2000),
+            ActionState::Committed
+        );
+    }
+
+    #[test]
+    fn commit_unauthorized_fails_before_impact() {
+        let def = &SALE_ORDER_ACTIONS[0];
+        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", 7, 3, 1, 1);
+        // wrong role, even with a Flow gate → Failed (RBAC checked first).
+        assert_eq!(
+            inv.commit(def, &actor_with(&["viewer"]), &GateDecision::Flow, 1000),
+            ActionState::Failed
+        );
+        assert_eq!(inv.emitted_at_millis, None, "failed action never emitted");
+    }
+
+    #[test]
+    fn mul_hold_keeps_pending_block_cancels() {
+        let def = &SALE_ORDER_ACTIONS[1]; // no required_role
+        let any = actor_with(&[]);
+
+        let mut held = ActionInvocation::pending(0x0A1E_0001, "action_cancel", 7, 3, 1, 1);
+        assert_eq!(
+            held.commit(def, &any, &GateDecision::Hold { reason: "low confidence".to_string() }, 1000),
+            ActionState::Pending,
+            "Hold escalates — stays Pending for re-assessment"
+        );
+
+        let mut blocked = ActionInvocation::pending(0x0A1E_0001, "action_cancel", 7, 3, 1, 1);
+        assert_eq!(
+            blocked.commit(def, &any, &GateDecision::Block { reason: "unsound impact".to_string() }, 1000),
+            ActionState::Cancelled
+        );
+    }
+}
