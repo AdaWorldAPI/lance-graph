@@ -24,7 +24,9 @@ Board ⇄ graph mapping (no new types):
 - **column / phase → state** (a `Column` node via `:IN` edge, or a `classid`/property)
 - **move → edge rewrite** (`(c)-[:IN]->(Doing)` ⇒ `(c)-[:IN]->(Done)`)
 - **dependency / blocks → edge**; **WIP limit → a Cypher `count` guard**; **swimlane → basin/label**
-- **`KanbanColumn::can_transition_to` → the graph schema** (which edges are legal)
+- **legal moves → the graph schema:** mailbox-lifecycle legality stays with
+  `KanbanColumn::can_transition_to`; domain-board legality resolves via
+  `classid → ClassView` (NOT `KanbanColumn` — see verdict §4a)
 
 The `KanbanColumn` cognitive cycle is the *mailbox* instantiation; an odoo project
 board / woa work-order board / q2 case board are *domain* instantiations —
@@ -46,10 +48,13 @@ board / woa work-order board / q2 case board are *domain* instantiations —
 
 ### Inc 0 — `Backend::MailboxSoa` router variant
 `graph_router::Backend` gains a `MailboxSoa` variant whose scan:
-- resolves **key → row** via `NodeGuid::{from_guid_prefix, local_key}` (no guid
-  value-column — the key IS the address),
-- follows edges by **`EdgeBlock` slot deref** (byte → neighbor `local_key`) and/or
-  `MailboxSoaView::edges_raw` (`CausalEdge64`),
+- resolves **key → row** via `NiblePath::from_guid_prefix(&guid)` + `NodeGuid::local_key`
+  + `MailboxSoaView::row_for_local_key` (no guid value-column — the key IS the address;
+  `from_guid_prefix` is on `NiblePath`, not `NodeGuid` — see verdict §2),
+- follows edges via the **`classid`-resolved** representation (verdict §4b) —
+  `EdgeBlock` slot deref (adjacency, byte → neighbor `local_key`) **XOR**
+  `MailboxSoaView::edges_raw` (`CausalEdge64`, causal), selected by the class's
+  `EdgeCodecFlavor`/`ReadMode`, never guessed by availability,
 - a Cypher `MATCH (n:Label)` lowers to a **classid prefix route**; `(a)-[r]->(b)`
   to an **edge-slot deref** — both zero-value-decode.
 Additive to the existing 3-backend router (DataFusion / Blasgraph / Palette); no
@@ -62,9 +67,11 @@ the AST, gated per the #540 process-not-switch invariant.
 
 ### Inc 2 — kanban-board-as-Cypher over the GUID substrate
 Express board ops as Cypher patterns dispatched through the planner with
-thinking-styles/MUL: a move = a Cypher edge-rewrite → IR → style/MUL plan →
-`ExecTarget`; a query (cards-in-column / blocked / WIP-count) = a Cypher `MATCH`.
-The transition-legality (`KanbanColumn::can_transition_to`) is the schema guard.
+thinking-styles/MUL: a move = a Cypher edge-rewrite **routed through the DO arm**
+(`ActionInvocation` commit gate: def-match → RBAC → state-guard → MUL — NOT a raw
+`MATCH…SET`, see verdict §4d); a query (cards-in-column / blocked / WIP-count) =
+a Cypher `MATCH`. Legality is `classid → ClassView`-resolved for a domain board;
+`KanbanColumn::can_transition_to` governs only the mailbox cognitive cycle.
 
 ### Inc 3 — q2 consumer wiring (the rewire)
 q2 (Palantir-Gotham/neo4j-aspiring) cases = a **domain `classid` + edge schema**
@@ -78,8 +85,11 @@ traversal is Cypher over `Backend::MailboxSoa`.
   the same node set as the DataFusion backend on the same data (backend parity).
 - **F2 (zero-decode):** a 1-hop traversal touches only key + `EdgeBlock` bytes,
   never the 480 B value slab (assert via a value-access counter / borrow check).
-- **F3 (board legality):** an illegal kanban move (`!can_transition_to`) is
-  rejected at plan time, not after the edge rewrite.
+- **F3 (board legality, all guard classes — was F6 in the verdict):** an illegal
+  domain-board move (rejected by the `classid → ClassView` schema) **and** any
+  DO-arm guard failure (RBAC / state-guard / MUL) are rejected at plan time, not
+  after the edge rewrite. (Mailbox-cycle legality is the separate
+  `KanbanColumn::can_transition_to` check.)
 - **F4 (gate isolation):** with `lite-unified` OFF, behaviour is byte-identical to
   today (datafusion path); the SurrealQL lowering is unreachable.
 - **F5 (no new layer):** the unification adds ONE router variant + ONE lowering
