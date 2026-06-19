@@ -525,6 +525,67 @@ pub fn declared_classes(
         .collect()
 }
 
+/// Structural-hardening seed: return the set of class IRIs that
+/// participate in at least one OGIT canonical relation in the supplied
+/// CANONICAL triple set, **bidirectionally** — as either subject (the
+/// class emits the relation) or object (another class points to it).
+///
+/// Bidirectional matters because leaf classes like a currency policy or
+/// a tax-rate target rarely emit Many2one out; they're SOURCE objects
+/// for inbound relations from documents and line items. A
+/// subject-only check would falsely flag them as inert.
+///
+/// Object-side IRI shapes handled:
+/// - Class IRI (`<ns><Class>`) — Odoo-translated codebook output
+///   names the comodel class directly.
+/// - Field IRI (`<ns><Class>.<assoc>`) — Rails-translated codebook
+///   output keeps the field-IRI verbatim. The class is the part before
+///   the `.`.
+///
+/// Usage pattern:
+/// ```ignore
+/// let canonical = translate_rails_to_ogit(&raw_triples);
+/// let participants =
+///     classes_participating_in_canonical_relations(&canonical, "openproject:");
+/// let hardened: Vec<_> = lexical_candidates
+///     .into_iter()
+///     .filter(|c| participants.contains(c))
+///     .collect();
+/// ```
+///
+/// Direction-blind today; the seed for future
+/// `class_has_outbound_relation_to_<concept>` /
+/// `class_has_inbound_relation_from_<concept>` refinements.
+#[must_use]
+pub fn classes_participating_in_canonical_relations(
+    canonical_triples: &[Triple],
+    namespace_prefix: &str,
+) -> std::collections::BTreeSet<String> {
+    let mut out = std::collections::BTreeSet::new();
+    for t in canonical_triples {
+        if !ogit_relations::is_relation_predicate(&t.p) {
+            continue;
+        }
+        // Subject side — the class emitting the relation.
+        if let Some(s_no_ns) = t.s.strip_prefix(namespace_prefix) {
+            if !s_no_ns.contains('.') {
+                out.insert(s_no_ns.to_string());
+            }
+        }
+        // Object side — the class being pointed at. For Rails-translated
+        // output the object is a field IRI (`<ns><Class>.<assoc>`); the
+        // leading `<Class>` is the SOURCE class, already covered by the
+        // subject side above. For Odoo-translated output the object is
+        // a bare class IRI (`<ns><comodel>`); count that as a participant.
+        if let Some(o_no_ns) = t.o.strip_prefix(namespace_prefix) {
+            if !o_no_ns.contains('.') {
+                out.insert(o_no_ns.to_string());
+            }
+        }
+    }
+    out
+}
+
 /// Find class IRIs in a triple set shaped like a `CommercialDocument`
 /// (the parent of line items): class-IRI's lowercased form ends with
 /// `"invoice"` (`osb:Invoice`), `"move"` (`odoo:account_move`), or
@@ -1271,6 +1332,58 @@ mod tests {
             "Odoo candidates missing account_payment; got first 5: {:?}",
             odoo_c.iter().take(5).collect::<Vec<_>>(),
         );
+    }
+
+    /// Structural-hardening seed: every concept-shape candidate the
+    /// six lexical detectors surface on the real OSB + Odoo corpora
+    /// must ALSO appear in the participating-classes set (i.e. surface
+    /// as the subject of at least one OGIT canonical relation after
+    /// codebook translation). If the lexical detector returns a class
+    /// that has zero canonical relations, that's a structural false
+    /// positive worth flagging — but on today's corpora, all 6
+    /// expected pairs participate.
+    #[test]
+    fn lexical_candidates_survive_canonical_relation_participation_check() {
+        let osb_raw = load_triples_ndjson(include_bytes!(
+            "../tests/fixtures/osb_ruby_spo.ndjson"
+        ))
+        .unwrap();
+        let odoo_raw = load_triples_ndjson(include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        ))
+        .unwrap();
+
+        let osb_canonical = translate_rails_to_ogit(&osb_raw);
+        let odoo_canonical = translate_odoo_to_ogit(&odoo_raw, "odoo:");
+
+        let osb_participants = classes_participating_in_canonical_relations(
+            &osb_canonical,
+            "openproject:",
+        );
+        let odoo_participants =
+            classes_participating_in_canonical_relations(&odoo_canonical, "odoo:");
+
+        for c in ["InvoiceLineItem", "Invoice", "Tax", "Client", "Currency", "Payment"] {
+            assert!(
+                osb_participants.contains(c),
+                "OSB candidate `{c}` is lexically matched but has ZERO OGIT \
+                 canonical relations as subject — structural false positive?",
+            );
+        }
+        for c in [
+            "account_move_line",
+            "account_move",
+            "account_tax",
+            "res_partner",
+            "res_currency",
+            "account_payment",
+        ] {
+            assert!(
+                odoo_participants.contains(c),
+                "Odoo candidate `{c}` is lexically matched but has ZERO OGIT \
+                 canonical relations as subject — structural false positive?",
+            );
+        }
     }
 
     /// Hand-fixture detection (the `overlap_commercial_line_item` path
