@@ -116,3 +116,7 @@ path = "examples/inertia_ingest.rs"
 [[example]]
 name = "basin_placement_learning"
 path = "examples/basin_placement_learning.rs"
+
+[[example]]
+name = "outage_over_hhtl_hops"
+path = "examples/outage_over_hhtl_hops.rs"
