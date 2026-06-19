@@ -342,15 +342,24 @@ pub enum BasinOf {
 /// - `Some(BasinOf::Local(row))` — the parent basin-node is in this mailbox;
 /// - `Some(BasinOf::Route(prefix))` — the parent lives in another shard, addressed
 ///   by its HHTL prefix (route it; **never an absence for a node that has a parent**);
-/// - `Some(BasinOf::Top)` — the node is a top-tier basin (no parent, by `parent()`);
-/// - `None` — **the node's HHTL path is not materialized** (the deferred-binding
-///   default): *unresolved, fall back to a coarser facet*, NOT "no parent". This
-///   is kept distinct from `Top` so a yet-to-be-bound row is not mistaken for a
-///   root and silently dropped from routing.
+/// - `Some(BasinOf::Top)` — the node is a genuine top-tier basin: a **depth-1**
+///   root (`NiblePath::root(0..16)`) whose `parent()` is `None`;
+/// - `None` — **unresolved**: either the node's HHTL path is not materialized (the
+///   deferred-binding default of [`MailboxSoaView::hhtl_path_at`]) OR it is the
+///   **depth-0 `NiblePath::EMPTY` "no route" sentinel**. Both mean *fall back to a
+///   coarser facet*, NOT "no parent". Kept distinct from `Top` so a yet-to-be-bound
+///   row — or an explicit no-route sentinel — is not mistaken for a root and
+///   silently dropped from routing.
 pub fn memberof<V: MailboxSoaView>(view: &V, member_row: usize) -> Option<BasinOf> {
     // `None` here = path not materialized (deferred-binding) → unresolved.
     let path = view.hhtl_path_at(member_row)?;
-    // A real top-tier basin: path exists but has no parent.
+    // The depth-0 `EMPTY` "no route" sentinel is ALSO unresolved — its `parent()`
+    // is `None` like a real root, but it is not a top-tier basin (it has no basin
+    // at all). Distinguish by depth before classifying `Top` (codex #550 P2).
+    if path.depth() == 0 {
+        return None;
+    }
+    // A real top-tier basin: a depth-1 root, path exists but has no parent.
     let Some(parent) = path.parent() else {
         return Some(BasinOf::Top);
     };
@@ -723,15 +732,37 @@ mod tests {
 
     #[test]
     fn memberof_unmaterialized_path_is_none_not_top() {
-        // Codex P2: a deferred-binding row (hhtl_path_at == None) must return
+        // Codex #549 P2: a deferred-binding row (hhtl_path_at == None) must return
         // None (unresolved, fall back) — DISTINCT from a real top-tier basin,
         // which returns Some(Top). Conflating them silently stops routing a
         // not-yet-bound row.
         let mut soa = sample();
         soa.paths[0] = None; // row0's path not materialized
-        assert_eq!(memberof(&soa, 0), None, "unmaterialized path ⇒ None (fall back)");
+        assert_eq!(
+            memberof(&soa, 0),
+            None,
+            "unmaterialized path ⇒ None (fall back)"
+        );
         // row4 still a genuine top-tier basin ⇒ Some(Top), not None.
         assert_eq!(memberof(&soa, 4), Some(BasinOf::Top));
+    }
+
+    #[test]
+    fn memberof_empty_sentinel_is_none_not_top() {
+        // Codex #550 P2: NiblePath::EMPTY (depth 0, the "no route" sentinel) has
+        // parent() == None like a real root, but it is NOT a top-tier basin — it
+        // has no basin at all. It must read as None (unresolved), not Some(Top),
+        // so the no-route fallback is preserved.
+        let mut soa = sample();
+        soa.paths[4] = Some(NiblePath::EMPTY); // depth-0 sentinel
+        assert_eq!(
+            memberof(&soa, 4),
+            None,
+            "EMPTY (depth 0) ⇒ None (unresolved), never Top"
+        );
+        // root(>=16) also yields EMPTY → same no-route classification.
+        soa.paths[4] = Some(NiblePath::root(16));
+        assert_eq!(memberof(&soa, 4), None);
     }
 
     #[test]
