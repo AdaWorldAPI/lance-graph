@@ -1,0 +1,79 @@
+# Golden-image probe crate — EXCLUDED from the lance-graph workspace.
+#
+# Reproduces the exact configuration that compiled + linked green on
+# 2026-06-19 (cargo build exit 0, 19m18s, 4.2 MB binary, 912 packages, 0
+# errors): the full Ada stack — lance-graph + lance =7.0.0 + lancedb =0.30.0
+# + ndarray fork + ractor fork + surrealdb (kv-lance only) + OGAR — linked
+# into ONE binary. The known-good foundation for the kanban thinking, whose
+# first test workload is the perturbation simulation.
+#
+# WHY EXCLUDED (own [workspace] table below): like crates/perturbation-sim,
+# crates/jc, crates/helix, this crate pulls a heavy external graph
+# (surrealdb-core + OGAR + the whole lance/datafusion tree). Keeping it out
+# of the main workspace means lance-graph's default `cargo build` / CI never
+# drags surrealdb-core or OGAR in. Build it explicitly:
+#
+#   cargo build --manifest-path crates/symbiont/Cargo.toml
+#
+# An excluded crate needs its OWN [workspace] table for the [patch] below to
+# be honored (patches apply only from a workspace root).
+
+[package]
+name = "symbiont"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Golden-image probe: lance-graph + lance7/lancedb0.30 + ndarray fork + ractor fork + surrealdb(kv-lance) + OGAR compiled into ONE binary."
+
+# Own workspace root — keeps this crate out of the parent lance-graph
+# workspace AND makes the [patch] below take effect.
+[workspace]
+
+[[bin]]
+name = "symbiont"
+path = "src/main.rs"
+
+[dependencies]
+# ── ractor fork (actors / bounded-mailbox dispatch — the kanban backpressure) ──
+ractor = { path = "../../../ractor/ractor" }
+
+# ── lance-graph core (the spine) — pulls lance =7.0.0, lancedb =0.30.0,
+#    arrow 58, datafusion 53, and the ndarray fork via its `ndarray-hpc` default ──
+lance-graph = { path = "../lance-graph" }
+
+# ── surrealdb fork, gated to kv-lance ONLY (drops RocksDB/C++ + TiKV/gRPC) ──
+surrealdb-core = { path = "../../../surrealdb/surrealdb/core", default-features = false, features = ["kv-lance"] }
+
+# ── perturbation simulation — first kanban-thinking test workload.
+#    Scalar (zero-dep) here; ndarray-simd is a later opt-in (see INTEGRATION_PLAN). ──
+perturbation-sim = { path = "../perturbation-sim" }
+
+# ── OGAR (ontology / SurrealQL DDL bridge) ──
+ogar-vocab = { path = "../../../OGAR/crates/ogar-vocab" }
+ogar-ontology = { path = "../../../OGAR/crates/ogar-ontology" }
+ogar-adapter-surrealql = { path = "../../../OGAR/crates/ogar-adapter-surrealql", features = ["surrealdb-parser"] }
+
+# Redirect OGAR's `AdaWorldAPI/surrealdb#main` git deps to the LOCAL fork so the
+# whole graph resolves to ONE surrealdb (and never touches the network).
+[patch."https://github.com/AdaWorldAPI/surrealdb"]
+surrealdb-ast = { path = "../../../surrealdb/surrealdb/ast" }
+surrealdb-parser = { path = "../../../surrealdb/surrealdb/parser" }
+surrealdb-core = { path = "../../../surrealdb/surrealdb/core" }
+
+# ── ONE ndarray = our fork, honestly (council R1 resolved 2026-06-19) ──
+# lance-index pins `ndarray = "0.16.1"`. Rather than lie about the fork's
+# version (rejected — dirty), we VENDOR lance-index (compiled from source
+# anyway) and bump THAT ONE dependency line to accept 0.17 — legitimate
+# because our fork retains the 0.16 API (ArrayBase / Array2 /
+# into_shape_with_order) + the `matrixmultiply-threading` feature lance-index
+# needs. Then both ndarray sources — lance-index's (now-0.17) crates.io dep
+# AND surrealdb-core's git rev — redirect to the single local fork path.
+# Result: exactly ONE ndarray in the graph (our fork, honest 0.17.2).
+# The only edit to vendored lance-index is that single version line; diff it
+# against the registry source to verify.
+[patch.crates-io]
+ndarray = { path = "../../../ndarray" }
+lance-index = { path = "vendor/lance-index" }
+
+[patch."https://github.com/AdaWorldAPI/ndarray.git"]
+ndarray = { path = "../../../ndarray" }
