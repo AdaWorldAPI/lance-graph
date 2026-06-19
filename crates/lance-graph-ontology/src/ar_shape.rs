@@ -121,6 +121,24 @@ pub enum CanonicalConcept {
     /// Promoted from `{ osb:InvoiceLineItem, odoo:account.move.line }`
     /// pair on 2026-06-19.
     CommercialLineItem,
+    /// `CommercialDocument` — the parent commercial document (invoice,
+    /// journal entry, sales order). Promoted from
+    /// `{ osb:Invoice, odoo:account.move }` on 2026-06-19.
+    CommercialDocument,
+    /// `TaxPolicy` — a named, rate-bearing tax binding. Promoted from
+    /// `{ osb:Tax, odoo:account.tax }` on 2026-06-19.
+    TaxPolicy,
+    /// `BillingParty` — a counterparty (customer / supplier / partner).
+    /// Promoted from `{ osb:Client, odoo:res.partner }` on 2026-06-19.
+    BillingParty,
+    /// `PaymentRecord` — an amount-bearing event tied to a commercial
+    /// document. Promoted from `{ osb:Payment, odoo:account.payment }`
+    /// on 2026-06-19.
+    PaymentRecord,
+    /// `CurrencyPolicy` — a named currency carrying a code (ISO 4217)
+    /// and a label. Promoted from `{ osb:Currency, odoo:res.currency }`
+    /// on 2026-06-19.
+    CurrencyPolicy,
 }
 
 /// A typed fixture for one curator's class declaration. Hand-built today;
@@ -465,6 +483,132 @@ pub fn classes_matching_commercial_line_item_shape_canonical(
     }
 
     has_doc_assoc.intersection(&has_tax_assoc).cloned().collect()
+}
+
+// ─── Sibling concept detectors (lexical class-name shape on declared OGIT
+// ObjectTypes) ─────────────────────────────────────────────────────────
+//
+// Each of the five sibling detectors below answers "which classes in
+// this corpus are shaped like <CanonicalConcept>?" by combining two
+// signals:
+//
+// 1. The class must be DECLARED — surfaces as the subject of an
+//    `(s, rdf:type, ogit:ObjectType)` triple. This filters out method /
+//    field IRIs (e.g. `Foo.bar`) and unrelated namespaces.
+// 2. The class IRI matches a concept-specific lexical hint
+//    (e.g. ends_with `"tax"` for TaxPolicy). Hints converge across
+//    Rails (PascalCase: `Tax`, `Invoice`, `Client`, `Currency`,
+//    `Payment`) and Odoo (snake_case underscored: `account_tax`,
+//    `account_move`, `res_partner`, `res_currency`, `account_payment`)
+//    because both serialize the canonical concept name in the class
+//    leaf.
+//
+// Structural-shape refinement (incoming/outgoing OGIT canonical
+// relations) is the natural follow-up — today's lexical shape is the
+// minimal viable detector that lets the ≥2-curator promotion rule fire
+// per concept. Each promotion is gated by a dedicated test on the real
+// OSB + Odoo corpora.
+
+/// Return the set of class IRIs declared as `rdf:type ogit:ObjectType`
+/// in this triple set, with `namespace_prefix` stripped. Filters out
+/// non-class subjects (anything containing `.`).
+#[must_use]
+pub fn declared_classes(
+    triples: &[Triple],
+    namespace_prefix: &str,
+) -> std::collections::BTreeSet<String> {
+    triples
+        .iter()
+        .filter(|t| t.p == "rdf:type" && t.o == "ogit:ObjectType")
+        .filter_map(|t| t.s.strip_prefix(namespace_prefix).map(String::from))
+        .filter(|c| !c.contains('.'))
+        .collect()
+}
+
+/// Find class IRIs in a triple set shaped like a `CommercialDocument`
+/// (the parent of line items): class-IRI's lowercased form ends with
+/// `"invoice"` (`osb:Invoice`), `"move"` (`odoo:account_move`), or
+/// `"order"` (`odoo:sale_order`), and the IRI does NOT contain `"line"`
+/// (to filter out `InvoiceLineItem` / `account_move_line` which are
+/// CommercialLineItem candidates, not document candidates).
+#[must_use]
+pub fn classes_matching_commercial_document_shape_canonical(
+    triples: &[Triple],
+    namespace_prefix: &str,
+) -> Vec<String> {
+    declared_classes(triples, namespace_prefix)
+        .into_iter()
+        .filter(|c| {
+            let lower = c.to_lowercase();
+            if lower.contains("line") {
+                return false;
+            }
+            lower.ends_with("invoice")
+                || lower.ends_with("move")
+                || lower.ends_with("order")
+        })
+        .collect()
+}
+
+/// Find class IRIs shaped like a `TaxPolicy`: class IRI's lowercased
+/// form ends with `"tax"`. Catches `osb:Tax` and `odoo:account_tax`;
+/// excludes `TaxGroup` / `account_tax_group` (lowercased `"taxgroup"`,
+/// `"account_tax_group"` — neither ends with `"tax"`).
+#[must_use]
+pub fn classes_matching_tax_policy_shape_canonical(
+    triples: &[Triple],
+    namespace_prefix: &str,
+) -> Vec<String> {
+    declared_classes(triples, namespace_prefix)
+        .into_iter()
+        .filter(|c| c.to_lowercase().ends_with("tax"))
+        .collect()
+}
+
+/// Find class IRIs shaped like a `BillingParty`: lowercased ends with
+/// `"client"`, `"customer"`, or `"partner"`. Catches `osb:Client` and
+/// `odoo:res_partner`.
+#[must_use]
+pub fn classes_matching_billing_party_shape_canonical(
+    triples: &[Triple],
+    namespace_prefix: &str,
+) -> Vec<String> {
+    declared_classes(triples, namespace_prefix)
+        .into_iter()
+        .filter(|c| {
+            let lower = c.to_lowercase();
+            lower.ends_with("client") || lower.ends_with("customer") || lower.ends_with("partner")
+        })
+        .collect()
+}
+
+/// Find class IRIs shaped like a `CurrencyPolicy`: lowercased ends with
+/// `"currency"`. Catches `osb:Currency` and `odoo:res_currency`.
+#[must_use]
+pub fn classes_matching_currency_policy_shape_canonical(
+    triples: &[Triple],
+    namespace_prefix: &str,
+) -> Vec<String> {
+    declared_classes(triples, namespace_prefix)
+        .into_iter()
+        .filter(|c| c.to_lowercase().ends_with("currency"))
+        .collect()
+}
+
+/// Find class IRIs shaped like a `PaymentRecord`: lowercased ends with
+/// `"payment"`. Catches `osb:Payment` and `odoo:account_payment`. Also
+/// catches `osb:CreditPayment` (a sub-type) — that's expected; the
+/// detector returns multiple candidates and downstream ranking picks
+/// the primary one.
+#[must_use]
+pub fn classes_matching_payment_record_shape_canonical(
+    triples: &[Triple],
+    namespace_prefix: &str,
+) -> Vec<String> {
+    declared_classes(triples, namespace_prefix)
+        .into_iter()
+        .filter(|c| c.to_lowercase().ends_with("payment"))
+        .collect()
 }
 
 // ─── Triple-based detection on real ruff-harvested corpora ──────────────
@@ -997,6 +1141,135 @@ mod tests {
             odoo_cands.iter().any(|c| c == "account_move_line"),
             "Odoo canonical-detector candidates missing account_move_line; got first 5: {:?}",
             odoo_cands.iter().take(5).collect::<Vec<_>>(),
+        );
+    }
+
+    // ─── Five sibling-concept corpus-driven tests ───────────────────
+
+    /// `open_source_billing_invoice_and_odoo_account_move_overlap_as_commercial_document`
+    /// — the strongest accounting pair after CommercialLineItem.
+    #[test]
+    fn open_source_billing_invoice_and_odoo_account_move_overlap_as_commercial_document() {
+        let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        );
+        let osb = load_triples_ndjson(osb_bytes).unwrap();
+        let odoo = load_triples_ndjson(odoo_bytes).unwrap();
+
+        let osb_c = classes_matching_commercial_document_shape_canonical(&osb, "openproject:");
+        let odoo_c = classes_matching_commercial_document_shape_canonical(&odoo, "odoo:");
+
+        assert!(
+            osb_c.iter().any(|c| c == "Invoice"),
+            "OSB candidates missing Invoice; got {osb_c:?}",
+        );
+        assert!(
+            odoo_c.iter().any(|c| c == "account_move"),
+            "Odoo candidates missing account_move; got first 5: {:?}",
+            odoo_c.iter().take(5).collect::<Vec<_>>(),
+        );
+        // CommercialLineItem candidates (Invoice*Line* / account_move_line)
+        // must NOT promote as CommercialDocument — the "line" filter
+        // discriminates them.
+        assert!(!osb_c.iter().any(|c| c == "InvoiceLineItem"));
+        assert!(!odoo_c.iter().any(|c| c == "account_move_line"));
+    }
+
+    /// `open_source_billing_tax_and_odoo_tax_overlap_as_tax_policy` —
+    /// the operator's named second smoke test.
+    #[test]
+    fn open_source_billing_tax_and_odoo_tax_overlap_as_tax_policy() {
+        let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        );
+        let osb = load_triples_ndjson(osb_bytes).unwrap();
+        let odoo = load_triples_ndjson(odoo_bytes).unwrap();
+
+        let osb_c = classes_matching_tax_policy_shape_canonical(&osb, "openproject:");
+        let odoo_c = classes_matching_tax_policy_shape_canonical(&odoo, "odoo:");
+
+        assert!(
+            osb_c.iter().any(|c| c == "Tax"),
+            "OSB candidates missing Tax; got {osb_c:?}",
+        );
+        assert!(
+            odoo_c.iter().any(|c| c == "account_tax"),
+            "Odoo candidates missing account_tax; got first 5: {:?}",
+            odoo_c.iter().take(5).collect::<Vec<_>>(),
+        );
+    }
+
+    /// `open_source_billing_client_and_odoo_res_partner_overlap_as_billing_party`.
+    #[test]
+    fn open_source_billing_client_and_odoo_res_partner_overlap_as_billing_party() {
+        let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        );
+        let osb = load_triples_ndjson(osb_bytes).unwrap();
+        let odoo = load_triples_ndjson(odoo_bytes).unwrap();
+
+        let osb_c = classes_matching_billing_party_shape_canonical(&osb, "openproject:");
+        let odoo_c = classes_matching_billing_party_shape_canonical(&odoo, "odoo:");
+
+        assert!(
+            osb_c.iter().any(|c| c == "Client"),
+            "OSB candidates missing Client; got {osb_c:?}",
+        );
+        assert!(
+            odoo_c.iter().any(|c| c == "res_partner"),
+            "Odoo candidates missing res_partner; got first 5: {:?}",
+            odoo_c.iter().take(5).collect::<Vec<_>>(),
+        );
+    }
+
+    /// `open_source_billing_currency_and_odoo_res_currency_overlap_as_currency_policy`.
+    #[test]
+    fn open_source_billing_currency_and_odoo_res_currency_overlap_as_currency_policy() {
+        let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        );
+        let osb = load_triples_ndjson(osb_bytes).unwrap();
+        let odoo = load_triples_ndjson(odoo_bytes).unwrap();
+
+        let osb_c = classes_matching_currency_policy_shape_canonical(&osb, "openproject:");
+        let odoo_c = classes_matching_currency_policy_shape_canonical(&odoo, "odoo:");
+
+        assert!(
+            osb_c.iter().any(|c| c == "Currency"),
+            "OSB candidates missing Currency; got {osb_c:?}",
+        );
+        assert!(
+            odoo_c.iter().any(|c| c == "res_currency"),
+            "Odoo candidates missing res_currency; got first 5: {:?}",
+            odoo_c.iter().take(5).collect::<Vec<_>>(),
+        );
+    }
+
+    /// `open_source_billing_payment_and_odoo_account_payment_overlap_as_payment_record`.
+    #[test]
+    fn open_source_billing_payment_and_odoo_account_payment_overlap_as_payment_record() {
+        let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        );
+        let osb = load_triples_ndjson(osb_bytes).unwrap();
+        let odoo = load_triples_ndjson(odoo_bytes).unwrap();
+
+        let osb_c = classes_matching_payment_record_shape_canonical(&osb, "openproject:");
+        let odoo_c = classes_matching_payment_record_shape_canonical(&odoo, "odoo:");
+
+        assert!(
+            osb_c.iter().any(|c| c == "Payment"),
+            "OSB candidates missing Payment; got {osb_c:?}",
+        );
+        assert!(
+            odoo_c.iter().any(|c| c == "account_payment"),
+            "Odoo candidates missing account_payment; got first 5: {:?}",
+            odoo_c.iter().take(5).collect::<Vec<_>>(),
         );
     }
 
