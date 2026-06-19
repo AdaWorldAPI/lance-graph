@@ -267,6 +267,206 @@ pub const fn odoo_account_move_line() -> Class {
     }
 }
 
+// ─── OGIT canonical relation predicates ─────────────────────────────────
+//
+// Per `OGIT/SGO/sgo/verbs/{includes,isMemberOf,contains,isPartOf}.ttl`,
+// OGIT defines the canonical relation predicate vocabulary for ALL
+// curators. Each extractor (ruff_ruby_spo for Rails, spo_enrich.py for
+// Odoo, future SAP) gets a small **codebook** that maps its
+// extractor-specific predicates into the OGIT canonical names. OGAR
+// then consumes the canonical predicates directly — synergy detection
+// no longer has to know which extractor produced a triple.
+//
+// The codebook pattern dissolves the "predicate-vocabulary divergence"
+// finding from `E-OGAR-AR-SHAPE-SMOKE-2`: each extractor stays free to
+// emit its own native shape, and a per-extractor `translate_*_to_ogit`
+// pass folds them into a unified canonical stream.
+
+/// OGIT canonical relation predicates. The single shared vocabulary that
+/// every curator's extractor codebook targets. See
+/// `OGIT/SGO/sgo/verbs/*.ttl` for the authoritative `owl:ObjectProperty`
+/// definitions.
+pub mod ogit_relations {
+    /// `ogit:includes` — *"Indicates if an entity includes something
+    /// else."* One-to-many parent → children (`has_many`, `One2many`).
+    pub const INCLUDES: &str = "ogit:includes";
+    /// `ogit:isMemberOf` — *"An entity can be a member of another
+    /// entity."* Many-to-one child → parent (`belongs_to`, `Many2one`).
+    pub const IS_MEMBER_OF: &str = "ogit:isMemberOf";
+    /// `ogit:contains` — *"This relationship indicates that something
+    /// is part of something else."* Composition (`has_and_belongs_to_many`,
+    /// `Many2many` from the composing side).
+    pub const CONTAINS: &str = "ogit:contains";
+    /// `ogit:isPartOf` — *"Indicates if an entity is part of another
+    /// entity."* Inverse of `contains`.
+    pub const IS_PART_OF: &str = "ogit:isPartOf";
+
+    /// Returns `true` if the given predicate IRI is any of the four
+    /// OGIT canonical relation predicates. Useful for direction-blind
+    /// shape checks ("does class C have ANY relation to class T?").
+    #[must_use]
+    pub fn is_relation_predicate(p: &str) -> bool {
+        matches!(p, INCLUDES | IS_MEMBER_OF | CONTAINS | IS_PART_OF)
+    }
+}
+
+/// Codebook: translate Rails / `ruff_ruby_spo` extractor output into
+/// OGIT-canonical relation triples.
+///
+/// The Rails extractor emits `(class, declares_association, class.assoc)`
+/// alongside `(class.assoc, association_kind, "<kind>")` where kind is
+/// one of `belongs_to` / `has_many` / `has_one` / `has_and_belongs_to_many`.
+/// This codebook joins the two streams and emits one OGIT triple per
+/// relation, with the canonical direction:
+///
+/// | Rails kind                    | OGIT predicate         |
+/// |-------------------------------|------------------------|
+/// | `belongs_to`                  | `ogit:isMemberOf`      |
+/// | `has_many`                    | `ogit:includes`        |
+/// | `has_one`                     | `ogit:includes`        |
+/// | `has_and_belongs_to_many`     | `ogit:contains`        |
+///
+/// Output subject = the class IRI (with namespace prefix). Output
+/// object = the original `<class>.<assoc>` field IRI (curator label
+/// preserved as leaf detail per doctrine §2 correction 4).
+///
+/// Missing `association_kind` triple (older ndjson predating
+/// `AdaWorldAPI/ruff#15`) defaults to `belongs_to` → `isMemberOf`,
+/// preserving the conservative many-to-one assumption.
+#[must_use]
+pub fn translate_rails_to_ogit(triples: &[Triple]) -> Vec<Triple> {
+    let mut kinds: std::collections::BTreeMap<String, String> =
+        std::collections::BTreeMap::new();
+    for t in triples {
+        if t.p == "association_kind" {
+            kinds.insert(t.s.clone(), t.o.clone());
+        }
+    }
+
+    let mut out = Vec::new();
+    for t in triples {
+        if t.p != "declares_association" {
+            continue;
+        }
+        let kind = kinds
+            .get(&t.o)
+            .map(String::as_str)
+            .unwrap_or("belongs_to");
+        let predicate = match kind {
+            "belongs_to" => ogit_relations::IS_MEMBER_OF,
+            "has_many" | "has_one" => ogit_relations::INCLUDES,
+            "has_and_belongs_to_many" => ogit_relations::CONTAINS,
+            _ => continue,
+        };
+        out.push(Triple {
+            s: t.s.clone(),
+            p: predicate.to_string(),
+            o: t.o.clone(),
+        });
+    }
+    out
+}
+
+/// Codebook: translate Odoo / `spo_enrich.py` extractor output into
+/// OGIT-canonical relation triples.
+///
+/// The Odoo extractor emits `(class.field, target, comodel.name)`
+/// without an explicit field-kind sibling triple (today's `spo_enrich`
+/// does not surface `Many2one` vs `One2many` vs `Many2many`). This
+/// codebook conservatively defaults to **`ogit:isMemberOf`** — the
+/// many-to-one assumption — because:
+///
+/// 1. Odoo's relational `target` is overwhelmingly `Many2one`
+///    (every `*_id` field is a `Many2one`; `One2many` and `Many2many`
+///    are the minority).
+/// 2. For synergy detection, the direction-blind `is_relation_predicate`
+///    check sees BOTH `isMemberOf` and `includes` as relations — the
+///    detector doesn't care which one is emitted.
+/// 3. A future Odoo-extractor extension can emit a sibling
+///    `(class.field, field_kind, "Many2one"|"One2many"|"Many2many")`
+///    triple; this codebook is then extended to dispatch on it.
+///
+/// Output subject = the class IRI (`<ns><class>`). Output object = the
+/// comodel IRI under the same namespace, with `.` replaced by `_` to
+/// match the workspace's underscored-IRI convention for Odoo class
+/// identifiers (`account.tax` → `<ns>account_tax`).
+#[must_use]
+pub fn translate_odoo_to_ogit(triples: &[Triple], namespace_prefix: &str) -> Vec<Triple> {
+    let mut out = Vec::new();
+    for t in triples {
+        if t.p != "target" {
+            continue;
+        }
+        let Some(s_no_ns) = t.s.strip_prefix(namespace_prefix) else {
+            continue;
+        };
+        let Some((class, _field)) = s_no_ns.split_once('.') else {
+            continue;
+        };
+        let comodel_underscored = t.o.replace('.', "_");
+        out.push(Triple {
+            s: format!("{namespace_prefix}{class}"),
+            p: ogit_relations::IS_MEMBER_OF.to_string(),
+            o: format!("{namespace_prefix}{comodel_underscored}"),
+        });
+    }
+    out
+}
+
+/// Find class IRIs in an OGIT-canonical triple set that look like a
+/// `CommercialLineItem`. Walks **only** the OGIT canonical predicates
+/// (`is_relation_predicate`), direction-blind — both `isMemberOf` (the
+/// child→parent and `Many2one` case) and `includes` (the parent→children
+/// and `has_many` case) count as "relation present."
+///
+/// Same `classify_line_item_signal` as the vocabulary-aware detector,
+/// but here the curator-specific predicate names are gone: callers
+/// pre-translate via `translate_rails_to_ogit` / `translate_odoo_to_ogit`,
+/// then this single detector runs unchanged on either side.
+///
+/// **This is the "OGAR uses canonical" path** the user named: the
+/// extractor codebooks fold curator vocabularies into OGIT canonical,
+/// and detection runs on the canonical stream.
+#[must_use]
+pub fn classes_matching_commercial_line_item_shape_canonical(
+    canonical_triples: &[Triple],
+    namespace_prefix: &str,
+) -> Vec<String> {
+    let mut has_doc_assoc = std::collections::BTreeSet::<String>::new();
+    let mut has_tax_assoc = std::collections::BTreeSet::<String>::new();
+
+    for t in canonical_triples {
+        if !ogit_relations::is_relation_predicate(&t.p) {
+            continue;
+        }
+        let Some(class_iri) = t.s.strip_prefix(namespace_prefix) else {
+            continue;
+        };
+        if class_iri.contains('.') {
+            continue;
+        }
+        // Object is either `<ns><Class>.<assoc>` (Rails leaf) or
+        // `<ns><comodel_underscored>` (Odoo translated). Strip ns;
+        // the final segment after any `.` is the signal source.
+        let Some(o_no_ns) = t.o.strip_prefix(namespace_prefix) else {
+            continue;
+        };
+        let signal_source = o_no_ns.rsplit('.').next().unwrap_or(o_no_ns);
+
+        match classify_line_item_signal(signal_source) {
+            LineItemSignal::DocParent => {
+                has_doc_assoc.insert(class_iri.to_string());
+            }
+            LineItemSignal::TaxBinding => {
+                has_tax_assoc.insert(class_iri.to_string());
+            }
+            LineItemSignal::Other => {}
+        }
+    }
+
+    has_doc_assoc.intersection(&has_tax_assoc).cloned().collect()
+}
+
 // ─── Triple-based detection on real ruff-harvested corpora ──────────────
 //
 // The hand-fixture path above remains as the structural CLAIM. The Triple
@@ -671,6 +871,133 @@ mod tests {
                  (no tax association); got {candidates:?}",
             );
         }
+    }
+
+    // ─── OGIT canonical codebook tests ──────────────────────────────
+
+    /// The four OGIT canonical relation predicates have stable IRIs
+    /// matching `OGIT/SGO/sgo/verbs/*.ttl`. Lock them.
+    #[test]
+    fn ogit_relation_predicates_have_stable_canonical_iris() {
+        assert_eq!(ogit_relations::INCLUDES, "ogit:includes");
+        assert_eq!(ogit_relations::IS_MEMBER_OF, "ogit:isMemberOf");
+        assert_eq!(ogit_relations::CONTAINS, "ogit:contains");
+        assert_eq!(ogit_relations::IS_PART_OF, "ogit:isPartOf");
+
+        assert!(ogit_relations::is_relation_predicate("ogit:isMemberOf"));
+        assert!(ogit_relations::is_relation_predicate("ogit:includes"));
+        assert!(ogit_relations::is_relation_predicate("ogit:contains"));
+        assert!(ogit_relations::is_relation_predicate("ogit:isPartOf"));
+        assert!(!ogit_relations::is_relation_predicate("declares_association"));
+        assert!(!ogit_relations::is_relation_predicate("target"));
+    }
+
+    /// Rails codebook maps `belongs_to` → `isMemberOf` and `has_many` →
+    /// `includes` via the joined `association_kind` triple. On the real
+    /// OSB harvest, both directions appear (`Client.invoices: has_many`
+    /// vs `InvoiceLineItem.invoice: belongs_to`).
+    #[test]
+    fn rails_codebook_translates_has_many_to_includes_and_belongs_to_to_is_member_of() {
+        let triples = vec![
+            // Rails: Client has_many :invoices
+            Triple {
+                s: "openproject:Client".into(),
+                p: "declares_association".into(),
+                o: "openproject:Client.invoices".into(),
+            },
+            Triple {
+                s: "openproject:Client.invoices".into(),
+                p: "association_kind".into(),
+                o: "has_many".into(),
+            },
+            // Rails: InvoiceLineItem belongs_to :invoice
+            Triple {
+                s: "openproject:InvoiceLineItem".into(),
+                p: "declares_association".into(),
+                o: "openproject:InvoiceLineItem.invoice".into(),
+            },
+            Triple {
+                s: "openproject:InvoiceLineItem.invoice".into(),
+                p: "association_kind".into(),
+                o: "belongs_to".into(),
+            },
+        ];
+        let canonical = translate_rails_to_ogit(&triples);
+        assert_eq!(canonical.len(), 2);
+        let invoices = canonical.iter().find(|t| t.s == "openproject:Client").unwrap();
+        assert_eq!(invoices.p, ogit_relations::INCLUDES);
+        let parent = canonical
+            .iter()
+            .find(|t| t.s == "openproject:InvoiceLineItem")
+            .unwrap();
+        assert_eq!(parent.p, ogit_relations::IS_MEMBER_OF);
+    }
+
+    /// Odoo codebook conservatively maps `target` → `isMemberOf` (the
+    /// Many2one-dominant default) and rewrites the subject to the class
+    /// IRI plus the underscored comodel as the object.
+    #[test]
+    fn odoo_codebook_translates_target_to_is_member_of_with_underscored_comodel() {
+        let triples = vec![
+            Triple {
+                s: "odoo:account_move_line.move_id".into(),
+                p: "target".into(),
+                o: "account.move".into(),
+            },
+            Triple {
+                s: "odoo:account_move_line.tax_ids".into(),
+                p: "target".into(),
+                o: "account.tax".into(),
+            },
+        ];
+        let canonical = translate_odoo_to_ogit(&triples, "odoo:");
+        assert_eq!(canonical.len(), 2);
+        for t in &canonical {
+            assert_eq!(t.s, "odoo:account_move_line");
+            assert_eq!(t.p, ogit_relations::IS_MEMBER_OF);
+        }
+        assert!(canonical.iter().any(|t| t.o == "odoo:account_move"));
+        assert!(canonical.iter().any(|t| t.o == "odoo:account_tax"));
+    }
+
+    /// **The "OGAR uses canonical" smoke**: both codebooks fold their
+    /// curator-specific vocabularies into OGIT canonical; the single
+    /// `classes_matching_commercial_line_item_shape_canonical` detector
+    /// runs unchanged on either side and surfaces the expected class
+    /// (`InvoiceLineItem` on OSB; `account_move_line` on Odoo).
+    #[test]
+    fn ogit_canonical_detector_finds_line_item_classes_on_both_corpora() {
+        let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        );
+
+        let osb_raw = load_triples_ndjson(osb_bytes).unwrap();
+        let odoo_raw = load_triples_ndjson(odoo_bytes).unwrap();
+
+        // Codebook pass — curator vocab → OGIT canonical.
+        let osb_canonical = translate_rails_to_ogit(&osb_raw);
+        let odoo_canonical = translate_odoo_to_ogit(&odoo_raw, "odoo:");
+
+        // Single canonical detector runs on either side.
+        let osb_cands = classes_matching_commercial_line_item_shape_canonical(
+            &osb_canonical,
+            "openproject:",
+        );
+        let odoo_cands = classes_matching_commercial_line_item_shape_canonical(
+            &odoo_canonical,
+            "odoo:",
+        );
+
+        assert!(
+            osb_cands.iter().any(|c| c == "InvoiceLineItem"),
+            "OSB canonical-detector candidates missing InvoiceLineItem; got {osb_cands:?}",
+        );
+        assert!(
+            odoo_cands.iter().any(|c| c == "account_move_line"),
+            "Odoo canonical-detector candidates missing account_move_line; got first 5: {:?}",
+            odoo_cands.iter().take(5).collect::<Vec<_>>(),
+        );
     }
 
     /// Hand-fixture detection (the `overlap_commercial_line_item` path
