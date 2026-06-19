@@ -51,11 +51,6 @@ pub mod semantic_types;
 pub mod ttl_parse;
 pub mod wikidata_hhtl;
 
-// Smoke convergence — first concrete instance of the synergy-registry
-// framing from `docs/OGAR_AR_SHAPE_ENDGAME.md` §2 corrections.
-// OSB::InvoiceLineItem + Odoo::account.move.line → CanonicalConcept::CommercialLineItem.
-pub mod ar_shape;
-
 #[cfg(feature = "lance-cache")]
 pub mod lance_cache;
 
