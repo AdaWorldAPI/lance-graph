@@ -31,7 +31,7 @@ use lance_graph_contract::cognitive_shader::MetaWord;
 use lance_graph_contract::collapse_gate::MailboxId;
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
 use lance_graph_contract::qualia::QualiaI4_16D;
-use lance_graph_contract::soa_view::{MailboxSoaOwner, MailboxSoaView};
+use lance_graph_contract::soa_view::{IdentityPlane, MailboxSoaOwner, MailboxSoaView};
 
 /// Canonical named-fingerprint plane width: 256 × u64 = 16,384 bits
 /// (mirrors `bindspace::WORDS_PER_FP`; defined locally so the mailbox does NOT
@@ -729,6 +729,23 @@ impl<const N: usize> MailboxSoaView for MailboxSoA<N> {
     fn phase(&self) -> KanbanColumn {
         self.phase
     }
+    /// Override the deferred-binding default: the in-RAM owner DOES carry the
+    /// content/topic/angle identity planes (W1b), so the value-side Hamming
+    /// distance (`graph::mailbox_scan::DistanceMeans::Hamming`) can compute over
+    /// the real view, not just the unit-test fake. Guarded by `populated` — never
+    /// reads a zero-padded capacity row (same logical-row discipline as
+    /// `n_rows()`); a query into `populated..N` returns `None`.
+    #[inline]
+    fn identity_plane_at(&self, row: usize, plane: IdentityPlane) -> Option<&[u64]> {
+        if row >= self.populated {
+            return None;
+        }
+        Some(match plane {
+            IdentityPlane::Content => self.content_row(row),
+            IdentityPlane::Topic => self.topic_row(row),
+            IdentityPlane::Angle => self.angle_row(row),
+        })
+    }
     #[inline]
     fn energy(&self) -> &[f32] {
         &self.energy
@@ -1206,6 +1223,32 @@ mod tests {
         assert_eq!(mb.temporal_at(2), 0, "temporal[2] must reset to 0");
         assert_eq!(mb.expert_at(2), 0, "expert[2] must reset to 0");
         assert_eq!(mb.sigma_at(2), 0, "sigma[2] must reset to 0");
+    }
+
+    /// `identity_plane_at` (the `MailboxSoaView` override, #545 codex P2): the real
+    /// owner DOES carry the W1b planes, so the value-side Hamming distance can read
+    /// them on the live view (not just the unit-test fake). Guarded by `populated`:
+    /// a row beyond the logical size returns `None`, never a zero-padded capacity row.
+    #[test]
+    fn identity_plane_at_returns_planes_and_guards_padding() {
+        let mut mb: MailboxSoA<4> = MailboxSoA::new(1, 0, 1.0);
+        mb.set_populated(2);
+        let mut c0 = vec![0u64; WORDS_PER_FP];
+        c0[0] = 0b1011;
+        mb.set_content(0, &c0);
+        // populated row → Some, byte-identical to content_row.
+        assert_eq!(
+            mb.identity_plane_at(0, IdentityPlane::Content),
+            Some(mb.content_row(0))
+        );
+        // topic/angle planes default zero but are still materialized (Some).
+        assert_eq!(
+            mb.identity_plane_at(0, IdentityPlane::Topic),
+            Some(mb.topic_row(0))
+        );
+        // row beyond `populated` (2) → None: never a zero-padded capacity row.
+        assert_eq!(mb.identity_plane_at(2, IdentityPlane::Content), None);
+        assert_eq!(mb.identity_plane_at(3, IdentityPlane::Angle), None);
     }
 
     // ── test 15: W1b dense identity planes — parity with BindSpace ───────────
