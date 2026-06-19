@@ -261,6 +261,53 @@ pub fn node_distance<V: MailboxSoaView>(
     }
 }
 
+/// **`members`** (one-to-many) — the direct child nodes of a basin: the rows
+/// exactly one HHTL tier deeper whose path the basin's path is an ancestor of.
+///
+/// This is the `basin-IS-a-node` navigation (`E-BASIN-IS-A-NODE`): a basin is a
+/// node, its members are the next-tier-down rows in the radix trie. The tree is
+/// **virtual** — no ownership, no SoA restructure — `members` is pure key
+/// arithmetic (`is_ancestor_of` + a depth check), **zero value decode**. Inverse
+/// of [`memberof`]: every `r` in `members(basin)` has `memberof(r) == basin`.
+/// Rows with no materialized HHTL path are skipped. Returns empty if the basin
+/// row itself has no path.
+pub fn members<V: MailboxSoaView>(view: &V, basin_row: usize) -> Vec<NodeMatch> {
+    let Some(bp) = view.hhtl_path_at(basin_row) else {
+        return Vec::new();
+    };
+    let child_depth = bp.depth() + 1;
+    (0..view.n_rows())
+        .filter(|&row| {
+            view.hhtl_path_at(row)
+                .is_some_and(|p| p.depth() == child_depth && bp.is_ancestor_of(p))
+        })
+        .map(|row| NodeMatch {
+            row,
+            backend: Backend::MailboxSoa,
+        })
+        .collect()
+}
+
+/// **`memberof`** (many-to-one) — the basin a node belongs to: the row holding
+/// the parent path (one HHTL tier shallower), via `NiblePath::parent`.
+///
+/// The many-to-one half of `basin-IS-a-node` (`E-BASIN-IS-A-NODE`), inverse of
+/// [`members`]. Pure key arithmetic — **zero value decode**. Returns `None` when
+/// the member is already at the top tier (`parent() == None`, the basin/DOLCE
+/// top facet has no parent) or when the parent basin-node is not materialized in
+/// this mailbox (the parent lives in another shard — resolve via the coarse
+/// router, `E-COARSE-QUANTIZER-IS-SCALE-FREE-ROUTER`). The lookup matches the
+/// exact parent path; in a well-formed trie at most one row holds it.
+pub fn memberof<V: MailboxSoaView>(view: &V, member_row: usize) -> Option<NodeMatch> {
+    let parent = view.hhtl_path_at(member_row)?.parent()?;
+    (0..view.n_rows())
+        .find(|&row| view.hhtl_path_at(row) == Some(parent))
+        .map(|row| NodeMatch {
+            row,
+            backend: Backend::MailboxSoa,
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -526,5 +573,41 @@ mod tests {
         soa.paths = vec![None; 5];
         assert!(clam_contained(&soa, NiblePath::root(1)).is_empty());
         assert!(cakes_nearest(&soa, NiblePath::root(1), 5).is_empty());
+    }
+
+    #[test]
+    fn members_are_the_direct_children_one_tier_down() {
+        let soa = sample();
+        // basin row2 = 1·2 ; direct children at depth 3 = row0 (1·2·3), row1 (1·2·4).
+        let kids: Vec<usize> = members(&soa, 2).into_iter().map(|m| m.row).collect();
+        assert_eq!(kids, vec![0, 1]);
+        // row0 (1·2·3) is a leaf here — no depth-4 rows — so no members.
+        assert!(members(&soa, 0).is_empty());
+        // row4 (9) has no materialized children in this mailbox.
+        assert!(members(&soa, 4).is_empty());
+    }
+
+    #[test]
+    fn memberof_is_the_parent_basin_and_inverts_members() {
+        let soa = sample();
+        // row0 (1·2·3) belongs to basin 1·2 = row2.
+        assert_eq!(memberof(&soa, 0).map(|m| m.row), Some(2));
+        assert_eq!(memberof(&soa, 1).map(|m| m.row), Some(2));
+        // Inverse property: every member's memberof is the basin.
+        for m in members(&soa, 2) {
+            assert_eq!(memberof(&soa, m.row).map(|x| x.row), Some(2));
+        }
+        // row2 (1·2) parent 1 is not materialized here → None (lives in another shard).
+        assert_eq!(memberof(&soa, 2), None);
+        // row4 (9) is a top-tier basin (depth 1) → parent() is None.
+        assert_eq!(memberof(&soa, 4), None);
+    }
+
+    #[test]
+    fn members_memberof_are_key_only_no_value_decode() {
+        // F2: navigating the virtual basin tree must never touch the value slab.
+        let soa = sample();
+        let _ = members(&soa, 2);
+        let _ = memberof(&soa, 0);
     }
 }
