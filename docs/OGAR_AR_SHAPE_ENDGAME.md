@@ -165,6 +165,84 @@ GoBD audit chain, OpenProject's project-management primitives, SMB-Office's
 legacy German ERP behaviour). They do NOT mean the compiler architecture
 varies by curator — the variation is the namespace, full stop.
 
+### Correction follow-on (2026-06-19, operator) — once domains are namespaced, the work is synergy wiring
+
+The regex correction above closes one question and opens the next: **what
+DOES the compiler do, once the namespaces are distinguished?** Answer:
+**wire synergies between namespace-tagged inputs and the OGAR Core**.
+Synergies are bidirectional:
+
+- **Input synergy (curator promotion):** multiple namespace-prefixed
+  identities resolve INTO one OGAR class identity. The ≥2-curator
+  promotion rule is the resolver:
+  `{ odoo:account_move, openproject:invoice, woa:vorgang(doc_type=invoice),
+  sap:bkpf+bseg } → ogar:Invoice <: LegalDocument`.
+  Same shape for primitives that aren't classes but predicates / kinds:
+  `{ odoo:fields.Selection('state'), woa:WoStatusAction(enum),
+  openproject:status_id, rails:acts_as_state_machine } → ogar:StateMachine`.
+- **Output synergy (adapter dispatch):** one OGAR class projects OUT to
+  multiple namespace-prefixed targets via the §3 `adapter_targets` slot +
+  the ARM `Executor::Adapter(&'static str)` discriminator (post §11
+  remediations). `ogar:Invoice → { odoo:account_move,
+  rails:invoice_ar, woa:vorgang, sap:fi_document }`.
+
+**The synergy registry is the work.** Inc 4's "curator promotion table"
+is exactly this registry mechanised — the §11.1 framing should read it
+that way (synergy table, not just a promotion log). Each row of the
+registry is a synergy: `(ogar_class, [namespace-tagged inputs],
+[namespace-tagged outputs])`. Inc 4's F4 gate (≥4 primitives surface
+under ≥2 curators) is the falsifier that the registry actually has
+SYNERGIES, not just single-curator entries dressed up as "promoted."
+
+This sharpens §3 (the class shape `adapter_targets` is the output-synergy
+slot — already named, just unlabelled as synergy), §11.1 Inc 4 (the
+promotion table IS the synergy table), and §10's Invoice example (the
+four `adapter_targets` listed there ARE the output synergies of
+`ogar:Invoice`).
+
+### Correction punchline (2026-06-19, operator) — _"tadaa"_: WoA-rs consumes ERP through the synergy registry, not through SurrealQL
+
+The synergy framing above closes the loop with
+`E-AR-PROJECTION-CORRECTION-1` (the 5+3 council that retracted the
+"WoA-rs as first SurrealQL consumer" claim because WoA is sea-orm /
+MySQL / axum, not SurrealDB). The retraction stands for **SurrealQL
+specifically** — WoA never consumed the SurrealQL DDL adapter target,
+and never will under its locked stack. What WoA-rs DOES consume — and
+what makes it a first downstream consumer of the OGAR Core IN A WAY
+THAT IS NOW MECHANICALLY CORRECT — is the **synergy registry**.
+
+The flow (with WoA on its native stack, no SurrealQL anywhere):
+
+```
+   curators                synergy registry           consumer
+   ─────────                ─────────────────         ────────
+   odoo:account_move ─┐                              ┌─ woa:vorgang
+   openproject:invoice ─┼─►  ogar:Invoice           ─┼─►  sea-orm Entity (MySQL)
+   sap:bkpf+bseg ─────┘    (cross-curator             │
+   (read into OGAR via     promoted; carries          └─ codegen against
+   namespace prefix +       regulatory anchor +          OGAR class shape
+   ≥2-curator rule)         state machine +              instead of
+                            audit chain +                hand-rolling
+                            adapter_targets)             per-curator)
+```
+
+WoA-rs's first cross-curator value isn't "render SurrealQL" — it's
+**inherit the cross-curator definition of `Invoice` (Odoo's regulatory
+GoBD anchors + OpenProject's PM linkage + future SAP's FI mapping) and
+project it onto its own sea-orm/MySQL adapter target**. The SurrealQL
+adapter target stays one of N output synergies (per `E-AR-PROJECTION-
+CORRECTION-1` Phase 1/2 placement); sea-orm is another; both project
+from the same `ogar:Invoice` class shape.
+
+This is the _tadaa_: once domains are namespaced (regex) and synergies
+are wired (registry), every consumer — WoA-rs (sea-orm/MySQL),
+smb-office-rs (MongoDB), future SAP NetWeaver, future SurrealQL — projects
+from ONE OGAR class shape via its own `Executor::Adapter` target. No
+consumer needs the SurrealQL adapter to benefit; SurrealQL is just one
+of the projection lanes. WoA-rs becomes a first consumer of the
+**synergy registry**, not the SurrealQL DDL — and that distinction is
+what makes the "first downstream consumer" framing finally honest.
+
 ---
 
 ## 3. OGAR inherited class model
