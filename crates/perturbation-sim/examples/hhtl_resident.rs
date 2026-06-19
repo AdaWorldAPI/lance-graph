@@ -150,7 +150,7 @@ fn main() {
         let seed = base
             .iter()
             .enumerate()
-            .max_by(|x, y| x.1.abs().partial_cmp(&y.1.abs()).unwrap())
+            .max_by(|x, y| x.1.abs().total_cmp(&y.1.abs()))
             .map(|(i, _)| i)
             .unwrap_or(0);
         let infight = simulate_outage(&sub, &p, seed, cfg).fraction_tripped;

@@ -95,7 +95,7 @@ fn median(mut v: Vec<f64>) -> f64 {
     if v.is_empty() {
         return 0.0;
     }
-    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    v.sort_by(|a, b| a.total_cmp(b));
     v[v.len() / 2]
 }
 
@@ -169,7 +169,7 @@ fn main() {
             let seed = base
                 .iter()
                 .enumerate()
-                .max_by(|x, y| x.1.abs().partial_cmp(&y.1.abs()).unwrap())
+                .max_by(|x, y| x.1.abs().total_cmp(&y.1.abs()))
                 .map(|(i, _)| i)
                 .unwrap_or(0);
             infs.push(simulate_outage(&sub, &p, seed, cfg).fraction_tripped);

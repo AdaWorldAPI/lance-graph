@@ -105,10 +105,18 @@ pub fn zscore(x: &[f64]) -> Vec<f64> {
 }
 
 fn mean(x: &[f64]) -> f64 {
+    // Empty-slice guard: 0/0 = NaN. All current callers validate len ≥ 2, but
+    // wire the NaN at the source so a future caller can never leak it.
+    if x.is_empty() {
+        return 0.0;
+    }
     x.iter().sum::<f64>() / x.len() as f64
 }
 
 fn pop_var(x: &[f64]) -> f64 {
+    if x.is_empty() {
+        return 0.0;
+    }
     let m = mean(x);
     x.iter().map(|&v| (v - m).powi(2)).sum::<f64>() / x.len() as f64
 }

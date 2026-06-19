@@ -133,6 +133,13 @@ pub fn simulate_outage(
         theta = eig.pseudo_apply(p, cfg.rel_tol);
         flow = dc_flows(grid, &alive, &theta);
 
+        // NaN guard: a non-finite angle/flow signals numerical failure; treat
+        // as terminal (matching the islanding-break style) so NaN cannot
+        // propagate into the output shape or keep the loop alive.
+        if theta.iter().any(|x| !x.is_finite()) || flow.iter().any(|x| !x.is_finite()) {
+            break;
+        }
+
         if components_final > 1 {
             // Network fragmented: injections no longer balance per island, so
             // the DC solution is only the least-norm proxy. Treat as terminal

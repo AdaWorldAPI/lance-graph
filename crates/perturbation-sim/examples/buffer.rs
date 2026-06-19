@@ -214,7 +214,7 @@ fn main() {
     let mut weakest: Vec<(usize, f64, f64)> = (0..comps.len())
         .map(|ci| (ci, mean_buf[ci], lam2s[ci]))
         .collect();
-    weakest.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    weakest.sort_by(|a, b| a.1.total_cmp(&b.1));
     let mut first_yield = None;
     for (ci, buf, l2) in &weakest {
         let y = ketchup_yield(impulse, *buf);

@@ -95,7 +95,7 @@ fn main() {
         dc_flows(&grid, &alive, &eig.pseudo_apply(&p0, 1e-9))
     };
     let mut order: Vec<usize> = (0..base0.len()).collect();
-    order.sort_by(|&a, &b| base0[b].abs().partial_cmp(&base0[a].abs()).unwrap());
+    order.sort_by(|&a, &b| base0[b].abs().total_cmp(&base0[a].abs()));
     let seeds: Vec<usize> = order.into_iter().take(m_seeds).collect();
 
     let factor_names = [

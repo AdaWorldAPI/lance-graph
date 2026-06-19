@@ -88,7 +88,7 @@ fn quantize_rank_bits(col: &[f64], bits: u32) -> Vec<f64> {
     let n = col.len();
     let bins = (1usize << bits).min(n.max(1));
     let mut idx: Vec<usize> = (0..n).collect();
-    idx.sort_by(|&a, &b| col[a].partial_cmp(&col[b]).unwrap());
+    idx.sort_by(|&a, &b| col[a].total_cmp(&col[b]));
     let mut out = vec![0.0; n];
     for b in 0..bins {
         let s = b * n / bins;
@@ -142,7 +142,7 @@ fn main() {
             (e, d * d * grid.edges[e].susceptance)
         })
         .collect();
-    sens.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    sens.sort_by(|a, b| b.1.total_cmp(&a.1));
     let k = 24.min(m);
     let step = (m / k).max(1);
     let cand: Vec<usize> = (0..k).map(|i| sens[(i * step).min(m - 1)].0).collect();
