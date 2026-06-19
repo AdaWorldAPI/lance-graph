@@ -13,15 +13,19 @@
 # On Railway: set the service's Dockerfile path to `crates/symbiont/Dockerfile`
 # and the root directory to the repo root.
 #
-# AUTH: the AdaWorldAPI forks must be reachable during the build. If they are
-# private, provide a token — e.g. mount a git credential or pass a build secret
-# and configure `git config --global url."https://x-access-token:$TOKEN@github.com/".insteadOf "https://github.com/"`.
+# AUTH: a Railway server has access to all private AdaWorldAPI repositories by
+# design, so no token wiring is needed. The build only has to make cargo use
+# the SYSTEM git (which honors Railway's ambient credentials) rather than its
+# built-in libgit2 transport — done via CARGO_NET_GIT_FETCH_WITH_CLI=true below.
 
 ARG ADA_BRANCH=claude/jirak-math-theorems-harvest-rfii13
 
 # ── builder ──────────────────────────────────────────────────────────────────
 FROM rust:1.95-bookworm AS builder
 ARG ADA_BRANCH
+# Make cargo fetch git deps via the system `git` CLI so it uses Railway's
+# ambient credentials for the private AdaWorldAPI forks.
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 # Native build deps for the closure: aws-lc-sys (C++), zstd/lz4 (C), protoc.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         cmake clang protobuf-compiler pkg-config libssl-dev git ca-certificates \

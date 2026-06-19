@@ -40,10 +40,11 @@ docker run --rm symbiont
 2. Set the Dockerfile path to `crates/symbiont/Dockerfile`.
 3. The build proves the stack links; a green build is the deliverable.
 
-**Auth:** the build fetches the AdaWorldAPI forks. If they're private, provide
-a token to the build (e.g. `git config --global
-url."https://x-access-token:$TOKEN@github.com/".insteadOf
-"https://github.com/"` via a Railway build secret).
+**Auth:** a Railway server has access to all private AdaWorldAPI repositories
+by design — no token wiring needed. The Dockerfile sets
+`CARGO_NET_GIT_FETCH_WITH_CLI=true` so cargo fetches the git-dep forks through
+the system `git` (which honors Railway's ambient credentials) instead of its
+built-in transport.
 
 ## Notes
 
