@@ -808,6 +808,150 @@ pub fn classes_matching_payment_record_shape_canonical(
         .collect()
 }
 
+// ─── One-shot synergy registry over real ruff/odoo harvests ────────────
+//
+// `synergy_registry_one_shot` takes the three harvest ndjson byte-buffers
+// the workspace currently ships (OSB Ruby via ruff_ruby_spo, Spree Ruby
+// via the same harvester, Odoo Python via the existing spo_enrich)
+// alongside their namespace prefixes, runs every concept-specific
+// lexical detector against each curator, and returns the full canonical
+// ERP label table in one call — exactly the synergy-registry shape the
+// doctrine §2 corrections framed.
+//
+// Each `CanonicalErpEntry` carries one concept + the cross-curator
+// class IRIs that surface it under their per-curator labels (leaf
+// detail per doctrine §2 correction 4). The ≥2-curator promotion rule
+// is applied at the entry level: a concept lands in the registry only
+// if at least two distinct curators surface a matching class. Single-
+// curator hits are dropped (they'd be premature promotions per
+// operator acceptance #2-#3).
+
+/// One row of the canonical ERP label table: which `CanonicalConcept`,
+/// and which curator-tagged class IRIs surface it.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CanonicalErpEntry {
+    /// The promoted concept (one of the 11 today).
+    pub concept: CanonicalConcept,
+    /// All curator-class pairs whose lexical detector surfaced this
+    /// concept on the supplied harvests. Sorted by curator then class
+    /// IRI for deterministic output.
+    pub matches: Vec<(SourceCurator, String)>,
+}
+
+impl CanonicalErpEntry {
+    /// Number of distinct curators contributing matches. The ≥2 gate
+    /// is enforced by [`synergy_registry_one_shot`] — every entry it
+    /// returns has `curator_count() >= 2`.
+    #[must_use]
+    pub fn curator_count(&self) -> usize {
+        let set: std::collections::BTreeSet<_> =
+            self.matches.iter().map(|(c, _)| c).collect();
+        set.len()
+    }
+}
+
+/// Run every concept detector on each of three curator harvests and
+/// return the full canonical ERP label table, filtered by the
+/// ≥2-curator promotion rule.
+///
+/// Inputs are `(triples, namespace_prefix)` tuples per curator. The
+/// namespace prefix is needed because `ruff_ruby_spo` hardcodes
+/// `openproject:` for any Rails harvest today — OSB and Spree both
+/// arrive with that prefix, distinguishable only by the
+/// `SourceCurator` tag passed in. (Once `ruff#27`'s
+/// `extract_with(path, ns)` API lands, the harvests will carry
+/// their native namespaces and this becomes more explicit.)
+///
+/// Output: one `CanonicalErpEntry` per promoted concept, sorted by
+/// concept (enum-discriminant order). Each entry's `matches` list is
+/// sorted by `(SourceCurator, class_iri)` for deterministic
+/// reproducibility — re-running on the same inputs returns the same
+/// table.
+///
+/// This is the **canonical ERP label table** referenced in
+/// `E-OGAR-AR-SHAPE-ENDGAME` §2's synergy-registry framing: one call,
+/// three harvests, the full cross-curator class-mapping table out.
+#[must_use]
+pub fn synergy_registry_one_shot(
+    osb: (&[Triple], &str),
+    spree: (&[Triple], &str),
+    odoo: (&[Triple], &str),
+) -> Vec<CanonicalErpEntry> {
+    let curators: [(SourceCurator, &[Triple], &str); 3] = [
+        (SourceCurator::OpenSourceBilling, osb.0, osb.1),
+        (SourceCurator::Spree, spree.0, spree.1),
+        (SourceCurator::Odoo, odoo.0, odoo.1),
+    ];
+
+    // Method-pointer table: one detector per concept. Order matches
+    // the `CanonicalConcept` enum so the output is deterministic.
+    let detectors: [(CanonicalConcept, fn(&[Triple], &str) -> Vec<String>); 11] = [
+        (
+            CanonicalConcept::CommercialLineItem,
+            classes_matching_commercial_line_item_shape,
+        ),
+        (
+            CanonicalConcept::CommercialDocument,
+            classes_matching_commercial_document_shape_canonical,
+        ),
+        (
+            CanonicalConcept::TaxPolicy,
+            classes_matching_tax_policy_shape_canonical,
+        ),
+        (
+            CanonicalConcept::BillingParty,
+            classes_matching_billing_party_shape_canonical,
+        ),
+        (
+            CanonicalConcept::PaymentRecord,
+            classes_matching_payment_record_shape_canonical,
+        ),
+        (
+            CanonicalConcept::CurrencyPolicy,
+            classes_matching_currency_policy_shape_canonical,
+        ),
+        (
+            CanonicalConcept::SalesOrder,
+            classes_matching_sales_order_shape_canonical,
+        ),
+        (
+            CanonicalConcept::SalesOrderLine,
+            classes_matching_sales_order_line_shape_canonical,
+        ),
+        (
+            CanonicalConcept::FulfillmentFlow,
+            classes_matching_fulfillment_flow_shape_canonical,
+        ),
+        (
+            CanonicalConcept::InventoryMovement,
+            classes_matching_inventory_movement_shape_canonical,
+        ),
+        (
+            CanonicalConcept::ProductOffering,
+            classes_matching_product_offering_shape_canonical,
+        ),
+    ];
+
+    let mut out = Vec::new();
+    for (concept, detector) in detectors {
+        let mut matches: Vec<(SourceCurator, String)> = Vec::new();
+        for &(curator, triples, ns) in &curators {
+            for class_iri in detector(triples, ns) {
+                matches.push((curator, class_iri));
+            }
+        }
+        matches.sort();
+        matches.dedup();
+        let entry = CanonicalErpEntry { concept, matches };
+        // ≥2-curator promotion rule: a concept lands in the registry
+        // only if at least two distinct curators contribute matches.
+        if entry.curator_count() >= 2 {
+            out.push(entry);
+        }
+    }
+    out
+}
+
 // ─── Triple-based detection on real ruff-harvested corpora ──────────────
 //
 // The hand-fixture path above remains as the structural CLAIM. The Triple
@@ -1468,6 +1612,161 @@ mod tests {
             "Odoo candidates missing account_payment; got first 5: {:?}",
             odoo_c.iter().take(5).collect::<Vec<_>>(),
         );
+    }
+
+    // ─── One-shot synergy registry test ─────────────────────────────
+
+    /// `synergy_registry_one_shot` consumes all three workspace
+    /// harvests (OSB Ruby, Spree Ruby, Odoo Python) and returns the
+    /// full canonical ERP label table — every concept the ≥2-curator
+    /// promotion rule admits, with the cross-curator class IRIs that
+    /// surface it. **The operator's "canonical ERP labels in one
+    /// shot" request, mechanized.**
+    #[test]
+    fn synergy_registry_one_shot_returns_full_canonical_erp_label_table() {
+        let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
+        let spree_bytes =
+            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        );
+
+        let osb = load_triples_ndjson(osb_bytes).unwrap();
+        let spree = load_triples_ndjson(spree_bytes).unwrap();
+        let odoo = load_triples_ndjson(odoo_bytes).unwrap();
+
+        let registry = synergy_registry_one_shot(
+            (&osb, "openproject:"),
+            (&spree, "openproject:"),
+            (&odoo, "odoo:"),
+        );
+
+        // Helper: lookup the entry for a concept, panicking on absence
+        // with a useful message (the test author should know which
+        // concept didn't surface).
+        let entry_for = |concept: CanonicalConcept| -> &CanonicalErpEntry {
+            registry
+                .iter()
+                .find(|e| e.concept == concept)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "concept {concept:?} missing from registry; \
+                         got {} entries: {:?}",
+                        registry.len(),
+                        registry.iter().map(|e| e.concept).collect::<Vec<_>>(),
+                    )
+                })
+        };
+
+        // Helper: assert a (curator, class) pair is in the entry's
+        // matches list.
+        let assert_match =
+            |entry: &CanonicalErpEntry, curator: SourceCurator, class_iri: &str| {
+                assert!(
+                    entry.matches.iter().any(|(c, s)| *c == curator && s == class_iri),
+                    "{:?} missing ({:?}, {class_iri}); matches: {:?}",
+                    entry.concept,
+                    curator,
+                    entry.matches,
+                );
+            };
+
+        // Every one of the 11 promoted concepts must appear and carry
+        // its expected OSB/Spree/Odoo classes.
+        let cli = entry_for(CanonicalConcept::CommercialLineItem);
+        assert_match(cli, SourceCurator::OpenSourceBilling, "InvoiceLineItem");
+        assert_match(cli, SourceCurator::Odoo, "account_move_line");
+
+        let cd = entry_for(CanonicalConcept::CommercialDocument);
+        assert_match(cd, SourceCurator::OpenSourceBilling, "Invoice");
+        assert_match(cd, SourceCurator::Odoo, "account_move");
+
+        let tax = entry_for(CanonicalConcept::TaxPolicy);
+        assert_match(tax, SourceCurator::OpenSourceBilling, "Tax");
+        assert_match(tax, SourceCurator::Odoo, "account_tax");
+        assert_match(tax, SourceCurator::Spree, "Spree::TaxRate");
+        assert!(
+            tax.curator_count() >= 3,
+            "TaxPolicy is a 3-curator concept; got {} curators",
+            tax.curator_count(),
+        );
+
+        let bp = entry_for(CanonicalConcept::BillingParty);
+        assert_match(bp, SourceCurator::OpenSourceBilling, "Client");
+        assert_match(bp, SourceCurator::Odoo, "res_partner");
+
+        let pay = entry_for(CanonicalConcept::PaymentRecord);
+        assert_match(pay, SourceCurator::OpenSourceBilling, "Payment");
+        assert_match(pay, SourceCurator::Odoo, "account_payment");
+        assert_match(pay, SourceCurator::Spree, "Spree::Payment");
+        assert!(
+            pay.curator_count() >= 3,
+            "PaymentRecord is a 3-curator concept; got {} curators",
+            pay.curator_count(),
+        );
+
+        let cur = entry_for(CanonicalConcept::CurrencyPolicy);
+        assert_match(cur, SourceCurator::OpenSourceBilling, "Currency");
+        assert_match(cur, SourceCurator::Odoo, "res_currency");
+
+        let so = entry_for(CanonicalConcept::SalesOrder);
+        assert_match(so, SourceCurator::Spree, "Spree::Order");
+        assert_match(so, SourceCurator::Odoo, "sale_order");
+
+        let sol = entry_for(CanonicalConcept::SalesOrderLine);
+        assert_match(sol, SourceCurator::Spree, "Spree::LineItem");
+        assert_match(sol, SourceCurator::Odoo, "sale_order_line");
+
+        let ff = entry_for(CanonicalConcept::FulfillmentFlow);
+        assert_match(ff, SourceCurator::Spree, "Spree::Shipment");
+        assert_match(ff, SourceCurator::Odoo, "stock_picking");
+
+        let im = entry_for(CanonicalConcept::InventoryMovement);
+        assert_match(im, SourceCurator::Spree, "Spree::InventoryUnit");
+        assert_match(im, SourceCurator::Odoo, "stock_move");
+
+        let po = entry_for(CanonicalConcept::ProductOffering);
+        assert_match(po, SourceCurator::Spree, "Spree::Product");
+        assert_match(po, SourceCurator::Odoo, "product_product");
+
+        // Registry size — all 11 concepts cleared the ≥2-curator gate.
+        assert_eq!(
+            registry.len(),
+            11,
+            "expected 11 registry entries; got {}: {:?}",
+            registry.len(),
+            registry.iter().map(|e| e.concept).collect::<Vec<_>>(),
+        );
+    }
+
+    /// Determinism: the same inputs MUST produce the same registry on
+    /// repeated calls (matches sorted, dedup applied).
+    #[test]
+    fn synergy_registry_one_shot_is_deterministic() {
+        let osb = load_triples_ndjson(include_bytes!(
+            "../tests/fixtures/osb_ruby_spo.ndjson"
+        ))
+        .unwrap();
+        let spree = load_triples_ndjson(include_bytes!(
+            "../tests/fixtures/spree_ruby_spo.ndjson"
+        ))
+        .unwrap();
+        let odoo = load_triples_ndjson(include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        ))
+        .unwrap();
+
+        let r1 = synergy_registry_one_shot(
+            (&osb, "openproject:"),
+            (&spree, "openproject:"),
+            (&odoo, "odoo:"),
+        );
+        let r2 = synergy_registry_one_shot(
+            (&osb, "openproject:"),
+            (&spree, "openproject:"),
+            (&odoo, "odoo:"),
+        );
+        assert_eq!(r1, r2);
     }
 
     // ─── Spree harvest tests (smoke target B; 3rd curator) ────────
