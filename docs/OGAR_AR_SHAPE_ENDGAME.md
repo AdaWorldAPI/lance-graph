@@ -144,6 +144,27 @@ The doctrine: **the curator teaches by example. The ontology survives by
 being more abstract than any one curator.** A primitive is only Core-grade
 when ≥2 independent curators surface it under different syntactic forms.
 
+### Correction (2026-06-19, operator) — the curator distinction is one regex
+
+The per-curator role list above (Rails / Odoo / WoA / SMB / SAP each with a
+distinct "Role:" sentence) read this doc as if each curator demanded a
+distinct architecture — that overstates the mechanical reality. **The
+curator distinction at the harvest→AST seam is one tiny regex.**
+OpenProject is a project-management domain; Odoo is an ERP domain. At the
+extractor surface they emit the SAME AR-shape predicate vocabulary
+(`rdf:type` / `has_attribute` / `declares_association` / …) on the SAME
+`codegen_spine::Triple` carrier; they differ only in their namespace
+prefix (`openproject:` vs `odoo:`). `from_triples::strip_namespace` needs
+to recognise both (and any future ERP prefix); that's the entire
+mechanical difference. Domain identity rides the namespace; the compiler
+treats curators uniformly.
+
+The per-curator "Role:" sentences ABOVE still read accurately as
+*what each curator teaches the ontology* (Odoo's regulatory anchors, WoA's
+GoBD audit chain, OpenProject's project-management primitives, SMB-Office's
+legacy German ERP behaviour). They do NOT mean the compiler architecture
+varies by curator — the variation is the namespace, full stop.
+
 ---
 
 ## 3. OGAR inherited class model
