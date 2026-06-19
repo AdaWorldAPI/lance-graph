@@ -189,7 +189,7 @@ fn main() {
     }
 
     // Rank by exposure (most exposed first).
-    rows.sort_by(|a, b| b.6.partial_cmp(&a.6).unwrap());
+    rows.sort_by(|a, b| b.6.total_cmp(&a.6));
     println!("\n== Exposure ranking (most exposed first) ==");
     for (i, r) in rows.iter().enumerate() {
         println!("  {}. {:<10} exposure = {:.3e}", i + 1, r.0, r.6);
@@ -200,7 +200,7 @@ fn main() {
     // the panel median: topology (mean R), buffer (1/H storage), or policy. The
     // binding axis dictates the intervention TYPE and the marginal exposure cut.
     let med = |mut v: Vec<f64>| {
-        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        v.sort_by(|a, b| a.total_cmp(b));
         v[v.len() / 2]
     };
     let med_r = med(rows.iter().map(|r| r.2).collect());

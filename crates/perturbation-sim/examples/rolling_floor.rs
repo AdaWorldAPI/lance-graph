@@ -142,7 +142,7 @@ fn main() {
         if v.is_empty() {
             return 0.0;
         }
-        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        v.sort_by(|a, b| a.total_cmp(b));
         v[v.len() / 2]
     };
     for (l, level) in levels.iter().enumerate() {

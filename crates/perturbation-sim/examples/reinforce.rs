@@ -95,7 +95,7 @@ fn main() {
             }
         }
     }
-    cands.sort_by(|x, y| y.2.partial_cmp(&x.2).unwrap());
+    cands.sort_by(|x, y| y.2.total_cmp(&x.2));
 
     println!("\n== Reinforcement: optimal 3rd corridor across the Cheeger seam ==");
     println!("  base λ₂ = {lam2:.3e}   (new-line susceptance b = {w_new:.3})");
@@ -141,7 +141,7 @@ fn main() {
         .collect();
     let seed = *seam
         .iter()
-        .max_by(|&&x, &&y| base[x].abs().partial_cmp(&base[y].abs()).unwrap())
+        .max_by(|&&x, &&y| base[x].abs().total_cmp(&base[y].abs()))
         .unwrap_or(&0);
     let cfg = CascadeConfig {
         max_rounds: 16,

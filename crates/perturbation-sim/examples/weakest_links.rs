@@ -87,7 +87,7 @@ fn main() {
             (e, d * d * grid.edges[e].susceptance) // first-order Δλ₂ proxy
         })
         .collect();
-    struct_rank.sort_by(|x, y| y.1.partial_cmp(&x.1).unwrap());
+    struct_rank.sort_by(|x, y| y.1.total_cmp(&x.1));
 
     println!("== 1. Structural weakest links (first-order Fiedler sensitivity ∂λ₂/∂wₑ) ==");
     println!("   base λ₂ = {lam2:.3e}");

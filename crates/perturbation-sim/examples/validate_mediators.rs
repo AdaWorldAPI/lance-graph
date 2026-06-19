@@ -116,7 +116,7 @@ fn main() {
             (e, d * d * grid.edges[e].susceptance)
         })
         .collect();
-    sens.sort_by(|x, y| y.1.partial_cmp(&x.1).unwrap());
+    sens.sort_by(|x, y| y.1.total_cmp(&x.1));
 
     // Stride-sample K lines ACROSS the full sensitivity ranking (not the top-K):
     // the top-K are nearly all bridges (raumgewinn ≡ 1, no variety), so a stride

@@ -131,7 +131,7 @@ fn main() {
             (e, d * d * grid.edges[e].susceptance)
         })
         .collect();
-    sens.sort_by(|x, y| y.1.partial_cmp(&x.1).unwrap());
+    sens.sort_by(|x, y| y.1.total_cmp(&x.1));
     let k = 30.min(m);
     let step = (m / k).max(1);
     let cand: Vec<usize> = (0..k).map(|i| sens[(i * step).min(m - 1)].0).collect();

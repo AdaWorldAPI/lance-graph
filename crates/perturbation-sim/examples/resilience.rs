@@ -131,7 +131,7 @@ fn main() {
         .map(|(i, b)| (i, cert(&induced(&grid, b))))
         .collect();
     // Weakest compartment first = smallest λ₂ margin.
-    certs.sort_by(|a, b| a.1.lambda2.partial_cmp(&b.1.lambda2).unwrap());
+    certs.sort_by(|a, b| a.1.lambda2.total_cmp(&b.1.lambda2));
 
     println!(
         "\n== Per-compartment certificate ({} compartments, weakest λ₂ first) ==",
