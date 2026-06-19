@@ -177,8 +177,11 @@ So the substrate answers location at three precisions off one node, and you pay 
 
 **Wiring implication (next Inc-0 slice):** the edge/neighborhood traversal half needs `MailboxSoaView` to expose, per row, **(a)** the HHTL `NiblePath` (or the full `NodeGuid` key — the canon `NodeRow` already carries `key(16)`, so this exposes what's there) for the CLAM cascade, and **(b)** the `EdgeBlock` bytes + the class's `EdgeCodecFlavor` for the explicit-edge deref. Then: CLAM neighborhood = prefix routing on the key; `(a)-[r]->(b)` = `EdgeBlock` slot deref under the resolved flavor. Both zero-value-decode. The node-match half (`#544`) already lands the classid route; this adds the two key/edge accessors + the CLAM + EdgeBlock deref. Cross-refs: `E-GUID-IS-THE-GRAPH`, `E-CYPHER-IS-THE-KANBAN-AST`, `hhtl::NiblePath`, `canonical_node::{EdgeBlock, EdgeCodecFlavor}`, `graph/neighborhood/clam.rs`, `graph/mailbox_scan.rs`, `cypher-kanban-ast-unification-v1` §4b.
 ## 2026-06-19 — E-OGAR-AR-SHAPE-ENDGAME — flat triples were corpse-scan; the deliverable is an executable ontology compiler with THING/DO/THINK and AST/ARM/DLL trichotomies (operator-ratified doctrine)
+## 2026-06-19 — E-OGAR-AR-SHAPE-ENDGAME — OGAR IS the AR-shaped THINK/DO compiler; Foundry/Gotham/OpenProject/Odoo are schema+inheritance FED INTO it; flat triples were corpse-scan; THING/DO/THINK + AST/ARM/DLL is the executable grammar (operator-ratified doctrine)
 
 **Status:** FINDING (operator-ratified capstone). Names what `E-OGAR-IS-FOUNDRY` + `E-AR-DO-WIRING` + `E-CYPHER-IS-THE-KANBAN-AST` + `E-GUID-IS-THE-GRAPH` + `E-AR-PROJECTION-CORRECTION-1` were pointing at together: the real deliverable was never "an Odoo SurrealQL DDL emitter," it was an **ontology compiler** with curators (Rails / Odoo / WoA / SAP) as fossils, OGAR as the metabolism, and an executable DO/THING/THINK + AST/ARM/DLL grammar as the output. Full doctrine: `docs/OGAR_AR_SHAPE_ENDGAME.md`.
+
+**The headline framing (operator-ratified, 2026-06-19):** **OGAR IS the AR-shaped THINK/DO compiler. Foundry / Gotham / OpenProject / Odoo are schema + class inheritance FED INTO it — not external systems OGAR adapts to.** Every Foundry-class platform reduces, at the architecture level, to "an ontology of classes with inheritance + actions + policies." OGAR is that compiler. The ERPs are INPUTS (schema dumps the compiler ingests), not foundations the compiler depends on. This is the strongest statement of `E-OGAR-IS-FOUNDRY`: not "OGAR is LIKE Foundry," but "Foundry/Gotham/OpenProject/Odoo collapse INTO OGAR's class-inheritance + THINK/DO graph."
 
 **The reframing that closes the arc.** "AR-shape is not flat triples; AR-shape is the living adapter grammar learned from Rails/OpenProject + Odoo, purified through OGAR/DOLCE until it is backend-agnostic." The prior "flat triples → typed SurrealQL DDL" framing (E-AR-PROJECTION-CONVERGED + E-AR-PROJECTION-CORRECTION-1) is **kept** as the harvest substrate and SurrealQL adapter target — but is **NOT** the endgame; it is **one adapter target** of the larger ontology. _Tiny brass thunderbolt: Foundry maps the enterprise. OGAR metabolizes it._
 
@@ -190,18 +193,31 @@ So the substrate answers location at three precisions off one node, and you pay 
 
 3. **Curator promotion rule (FINDING; operator-ratified).** "The curator teaches by example. The ontology survives by being more abstract than any one curator. A primitive is promoted into OGAR Core ONLY when ≥2 independent curators surface it under different syntactic forms." Closes the loop with `E-AR-PROJECTION-CORRECTION-1`: WoA `audit_chain.rs::chain_hash` is interesting NOT because it equals Odoo's `_post` chain (it doesn't), but because both Odoo and WoA independently surfaced the same GoBD I9 hash-chain INVARIANT. The promoted Core primitive is `AuditChain <: GoBD-immutability`, not "the chain_hash function."
 
-**Crisp ownership boundaries (operator-ratified, codifies prior architecture):**
+**Crisp ownership boundaries (operator-ratified; corrected 2026-06-19 same-session: ractor is compile-time only; LanceGraph is the thinking plane; SurrealAST + Kanban is the orchestration plane):**
 
 ```
-ractor                  → mutation authority + actor mailboxes
-LanceGraph (lance-graph) → physical SoA memory + zero-copy lifecycle + tombstones
-SurrealDB / SurrealQL    → query / control plane + schema projection + live queries
-OGAR (lance-graph-ontology) → meaning
-lance-graph-contract     → interface promises (trait surfaces, carriers)
-lance-graph-callcenter   → outer execution membrane (adapter dispatch)
+ractor                       → COMPILE-TIME ownership guarantee
+                               mailbox-as-owner; Rust move/borrow proves
+                               no aliasing / no race / no UAF;
+                               UB becomes a compile error (canonical
+                               §9 E-CE64-MB-4). NOT runtime mutation
+                               authority — the mailbox IS the owner;
+                               ractor makes the pattern type-safe.
+LanceGraph (lance-graph)     → THE THINKING — MailboxSoA, compute_dag,
+                               cycle-aware writes (write_row + wrap-aware
+                               u32 gate), zero-copy lifecycle, tombstones.
+                               Recompute fires here.
+SurrealAST + Kanban          → THE ORCHESTRATION — SurrealAST drives query
+                               + mutation lowering (sister to Cypher AST);
+                               KanbanColumn (Planning → CognitiveWork →
+                               Evaluation → Commit) sequences cycles;
+                               ARM verdicts route execution. NOT thinking.
+OGAR (lance-graph-ontology)  → meaning
+lance-graph-contract         → interface promises (trait surfaces, carriers)
+lance-graph-callcenter       → outer execution membrane (adapter dispatch)
 ```
 
-The implicit question buried in `E-CYPHER-IS-THE-KANBAN-AST`: **who owns business state?** Answer: **NOT SurrealDB.** SurrealDB is the Rubicon/Kanban/query plane sitting OVER Lance-backed KVS. ractor owns mutation, Lance owns memory, OGAR owns meaning, callcenter touches the world.
+The implicit question buried in `E-CYPHER-IS-THE-KANBAN-AST`: **where does the thinking happen and where does the orchestration happen?** Answer: thinking is in LanceGraph's SoA (cycle-aware writes recompute dependents via compute_dag); orchestration is the SurrealAST + Kanban plane (which cycle fires when, in which Rubicon phase, with which state transition); ractor is the COMPILE-TIME proof that the orchestration→thinking handoff cannot race. Common drift this corrects: "ractor runs the business logic" — that conflates the compile-time guarantee with runtime mutation authority.
 
 **Per-curator role (binds `E-AR-PROJECTION-CORRECTION-1`'s retractions):** openproject-nexgen-rs = Rails-shaped projection prototype (NOT the ontology home); odoo_blueprint + extractor = dense regulatory + behavioural teaching corpus (NOT identity source); WoA-rs = German ERP sanity witness (NOT first SurrealQL consumer); SMB-Office = parity-validation for German legacy ERP behaviour; SAP = future independent confirmation of the curated ontology.
 

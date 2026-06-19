@@ -4,9 +4,24 @@
 > SMB-Office / SAP transcode, or proposes a new ERP curator.
 > **Status:** doctrine (operator-ratified 2026-06-19; closes the
 > 5+3 council on `E-AR-PROJECTION-CORRECTION-1`).
+>
+> **The headline:**
+>
+> > **OGAR IS the AR-shaped THINK/DO compiler.**
+> > **Foundry / Gotham / OpenProject / Odoo are just schema + class
+> > inheritance FED INTO it — not external systems OGAR adapts to.**
+>
+> Every "platform" worth competing with (Palantir Foundry, Gotham, Odoo as
+> an ERP-platform, Rails AR / OpenProject as an app-platform, future SAP)
+> reduces, at the architecture level, to "an ontology of classes with
+> inheritance + actions + policies." OGAR is that ontology compiler. The
+> ERPs become INPUTS — schema dumps fed to the compiler — not foundations
+> the compiler depends on.
+>
 > **One-line read:** flat triples are corpse-scan; OGAR classes are living
 > anatomy; ERP curators teach the system what business software keeps
-> reinventing; the deliverable is an **executable ontology**, not a port.
+> reinventing; the deliverable is an **executable ontology compiler**, not
+> a port.
 >
 > _Tiny brass thunderbolt: Foundry maps the enterprise. OGAR metabolizes it. ⚙️🫀_
 
@@ -66,11 +81,18 @@ This is the difference between **transcoding** and **metabolizing**.
 
 ---
 
-## 2. Rails / OpenProject / Odoo / WoA-rs / SAP as curators, not foundations
+## 2. Rails / OpenProject / Odoo / WoA-rs / SAP as curators, not foundations — and Foundry/Gotham reduces to the same shape
 
 These ERPs are **fossils in the cliff-face** — what we learn from, not what
-we depend on. They teach the canonical primitives that every business
-software keeps reinventing:
+we depend on. Every "Foundry-class platform" reduces to the same shape:
+**class inheritance + actions + policies over enterprise objects**. Palantir
+Foundry's ontology layer, Gotham's case ontology, OpenProject's AR models,
+Odoo's ORM — they all converge on this. OGAR is the compiler that takes
+the schema-shape of any of them as INPUT and emits an executable ontology
+as output.
+
+They teach the canonical primitives that every business software keeps
+reinventing:
 
 ```
 class            field            association
@@ -318,24 +340,59 @@ into the compile graph.
 
 ---
 
-## 7. SurrealDB / Lance / ractor ownership boundaries
+## 7. Ownership boundaries — ractor compile-time, LanceGraph thinks, SurrealAST + Kanban orchestrate
 
-The crisp split (operator-ratified):
+The crisp split (operator-ratified; **corrects 2026-06-19 first draft** that
+conflated ractor's compile-time guarantee with runtime mutation authority):
 
 ```
-ractor                  owns mutation authority + actor mailboxes
-LanceGraph (lance-graph) owns physical SoA memory + zero-copy lifecycle + tombstones
-SurrealDB / SurrealQL    owns query/control plane + schema projection + live queries
-OGAR (lance-graph-ontology) owns meaning
-lance-graph-contract     owns interface promises (trait surfaces, carriers)
-lance-graph-callcenter   owns outer execution membrane (adapter dispatch)
+ractor                       COMPILE-TIME ownership guarantee
+                             mailbox-as-owner; Rust move/borrow semantics
+                             prove no aliasing / no data race / no UAF;
+                             UB becomes a compile error (canonical §9
+                             E-CE64-MB-4). NOT runtime mutation authority —
+                             the mailbox itself IS the owner; ractor makes
+                             the pattern type-safe at the type system.
+
+LanceGraph (lance-graph)     THE THINKING — where it actually happens
+                             SoA cognitive substrate (MailboxSoA), compute_dag,
+                             cycle-aware writes (write_row + wrap-aware u32 gate),
+                             zero-copy lifecycle, tombstones. The recompute
+                             organ. THINK / DO compute on these columns.
+
+SurrealAST + Kanban          THE ORCHESTRATION — the decision plane
+                             SurrealAST drives query + mutation lowering
+                             (sister to Cypher AST per E-CYPHER-IS-THE-KANBAN-AST);
+                             KanbanColumn (Planning → CognitiveWork →
+                             Evaluation → Commit) sequences which cognitive
+                             cycle fires when; ARM verdicts route execution.
+                             NOT the thinking itself — the dispatch over the
+                             thinking.
+
+OGAR (lance-graph-ontology)  Meaning
+                             inherited classes, regulatory anchors, the
+                             living-anatomy ontology
+
+lance-graph-contract         Interface promises
+                             trait surfaces, carriers (Triple, ActionDef,
+                             ClassView, MailboxSoA contracts)
+
+lance-graph-callcenter       Outer execution membrane
+                             adapter dispatch, DLL capabilities, human-task
+                             Kanban queue, external system integration
 ```
 
 This is the answer to the implicit question buried in
-`E-CYPHER-IS-THE-KANBAN-AST`: **who owns business state?**
+`E-CYPHER-IS-THE-KANBAN-AST`: **where does the thinking happen and where does the
+orchestration happen?**
 
-> Not SurrealDB. SurrealDB is the Rubicon/Kanban/query plane sitting OVER
-> Lance-backed KVS.
+> Thinking happens in LanceGraph's SoA (cycle-aware writes recompute
+> dependents via compute_dag; the mailbox-as-owner pattern is the
+> type-safe ownership argument). Orchestration happens in the
+> SurrealAST + Kanban plane (which cycle fires when, in which phase,
+> with which state transition). ractor is the COMPILE-TIME proof that
+> the orchestration→thinking handoff cannot race; it is NOT a runtime
+> mutation authority that sits between them.
 
 Concretely:
 
@@ -345,14 +402,18 @@ Concretely:
 ├─────────────────────────────────────────────────────────────────┤
 │  lance-graph-contract (interface promises)                       │
 ├─────────────────────────────────────────────────────────────────┤
-│  SurrealQL projection (query / live query / DDL view)            │
-│       ▲                                                          │
-│       │ reads / writes through controlled KVS path               │
-│       │                                                          │
-│  ractor (mutation authority, transactional choreography)         │
-│       │                                                          │
-│       ▼ owns                                                     │
-│  LanceGraph SoA (physical columns, zero-copy, versioned)         │
+│  ORCHESTRATION plane (decides which cycle, when, in what phase)  │
+│   ├─ SurrealAST (query + mutation lowering — sister to Cypher)   │
+│   └─ Kanban     (Rubicon phases: Plan → Cog → Eval → Commit)     │
+│                          │                                       │
+│                          │ dispatches a cycle into…              │
+│                          ▼                                       │
+│  THINKING plane (where the recompute actually fires)             │
+│   └─ LanceGraph SoA (MailboxSoA, compute_dag, write_row(cycle))  │
+│                          ▲                                       │
+│                          │ proved race-free at compile time by…  │
+│                          │                                       │
+│  ractor (compile-time mailbox-as-owner ownership guarantee)      │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -363,15 +424,21 @@ Concretely:
 The single binary holds all of this. The layers are **logical**, not
 process boundaries. But they MUST NOT collapse into soup — the
 ownership rules above are the discipline that keeps the layers
-distinct in code review.
+distinct in code review. The most common drift to watch for: collapsing
+"orchestration" and "thinking" into "ractor runs the business logic" —
+that's the misframe this section corrects.
 
 ---
 
 ## 8. Rubicon / Heckhausen Kanban execution loop
 
-The execution-time decision pattern (already named in
+The execution-time decision pattern is **the orchestration plane** (per §7
+correction). SurrealAST handles the query/mutation lowering side;
+Kanban-with-Rubicon-phases handles the sequencing side. Together they
+DECIDE which cycle fires when. They do NOT do the thinking — the thinking
+fires in LanceGraph's SoA inside the Commit phase. (Named in
 `E-CYPHER-IS-THE-KANBAN-AST` — extended here with the Rubicon-Heckhausen
-phase model and the AST/ARM connection):
+phase model and the AST/ARM/thinking-plane connection):
 
 ```
    ┌──────────┐    ┌──────────────┐    ┌───────────┐    ┌──────────┐
@@ -525,21 +592,35 @@ SurrealQL transaction fallback.)
 
 ```
 PostInvoice AST
-  → ARM decides NativeLance
-  → ractor mailbox receives mutation request
-  → THINK policies re-checked at commit-time
-  → ActionDef.commit(def, actor, impact, guard='Draft', now) → ActionState::Committed
-  → MailboxSoA::write_row(I42, cycle, WriteCell{state=Posted, audit=new_hash})
-  → compute_dag dirties: lines (recompute JournalEntries), summary fields
-  → cycle-aware write lands; tombstones prior version
-  → SurrealQL projection: `UPDATE Invoice:I42 SET state='Posted', ...`
-       (the QUERY plane sees the change; not the mutation authority)
-  → callcenter: emits audit event to external GoBD compliance system
-       (via Executor::ExternalHttp)
+  → ORCHESTRATION plane: ARM decides Executor::NativeLance
+  → ORCHESTRATION plane: Kanban advances Planning → CognitiveWork
+  → THINK policies evaluated (Cognitive Work phase)
+  → ORCHESTRATION plane: Kanban advances CognitiveWork → Evaluation
+       Rubicon decision: cross?
+  → THINKING plane fires:
+        ActionDef.commit(def, actor, impact, guard='Draft', now)
+            → ActionState::Committed
+        MailboxSoA::write_row(I42, cycle, WriteCell{state=Posted, audit=new_hash})
+        compute_dag dirties: lines (recompute JournalEntries), summary fields
+        cycle-aware write lands; tombstones prior version
+            — ractor's compile-time mailbox-as-owner guarantee proves
+              this write cannot race the read that THINK just did,
+              cannot alias any other mailbox, cannot UAF — and that
+              proof is at the type system, not at runtime
+  → ORCHESTRATION plane: Kanban advances Evaluation → Commit phase complete
+  → ORCHESTRATION plane: SurrealAST projection
+        `UPDATE Invoice:I42 SET state='Posted', ...`
+        (the query side of the orchestration plane — readers see the change)
+  → callcenter (outer membrane): emits audit event to external GoBD
+        compliance system (via Executor::ExternalHttp)
 ```
 
-This is **one operation**. Five layers participate. None of them is the
-"Odoo transcode." All of them are doing the work the ontology specifies.
+This is **one operation**. Six layers participate (ontology, contract,
+orchestration, thinking, ractor's compile-time proof, membrane).
+None of them is the "Odoo transcode." All of them are doing the work the
+ontology specifies. The thinking is in LanceGraph; the orchestration
+is in SurrealAST + Kanban; ractor proves the handoff is safe at compile
+time; the membrane reaches out.
 
 That is the OGAR endgame.
 
@@ -603,7 +684,10 @@ ships the probe. Don't ship more synthesis without a measurement.
 | **THINK** | New typed slot. Continuous policies, never commit, gate every DO. |
 | **Curator** | An ERP (Rails/Odoo/WoA/SAP) used as a teaching corpus, not a foundation. |
 | **Promotion rule** | A primitive enters OGAR Core when ≥2 independent curators surface it under different syntactic forms. |
-| **Rubicon** | Heckhausen's pre-/actional decision threshold. The commit gate. |
+| **Rubicon** | Heckhausen's pre-/actional decision threshold. The phase boundary in the orchestration plane. |
+| **Orchestration plane** | SurrealAST + Kanban. The decision plane that sequences which cycle fires when. NOT the thinking. |
+| **Thinking plane** | LanceGraph's SoA — MailboxSoA, compute_dag, cycle-aware writes. Where recompute actually happens. |
+| **ractor** | The compile-time mailbox-as-owner ownership guarantee. Rust move/borrow semantics prove no aliasing / no race / no UAF. NOT a runtime mutation authority — UB becomes a compile error (canonical §9 E-CE64-MB-4). |
 | **Membrane** | callcenter's role — routing skin between ontology and world. |
 
 ---
