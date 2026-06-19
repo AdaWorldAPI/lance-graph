@@ -1,3 +1,28 @@
+## 2026-06-18 — E-ORTHOGONAL-BUNDLE-IS-WHT-READOUT — bundling a 90° (orthogonal) sweep is Parseval-recoverable in any basis; it is specifically a Walsh-Hadamard projection in the bipolar ±1 basis (this substrate's case) — the third ranking path: transform-once, read-many
+
+**Status:** FINDING (graded; operator intuition "bundle a 90° sweep → a Hadamard projection or something" — made precise). Grounded in `ndarray::simd::wht_f32`, `perturbation-sim::sketch::{fwht, walsh_pyramid_energy}`, `perturbation-sim::witness.rs` (Parseval-over-FWHT, "particle == wave"), OGAR canon "Bipolar-phase pyramid — Walsh-Hadamard on VSA". Theorem-checker applied; the "also Hadamard" is conditional, not universal.
+
+**Graded statement:**
+- **[G]** Bundle (`vsa_bundle` = Σ add) of mutually **orthogonal** (90°) vectors → each component recoverable by orthogonal projection; Parseval `‖Σ‖²=Σ‖parts‖²`. True in **any** orthonormal basis — orthogonal decomposition, not yet Hadamard.
+- **[G]** It is specifically a **Walsh-Hadamard** projection **iff** the basis is the ±1 WH basis (H symmetric, `HᵀH=N·I`, self-inverse up to N): bundle = inverse WHT of coefficients, readout = forward WHT.
+- **[G, this substrate]** Fingerprints are **bipolar ±1**, so the basis IS (block-)Hadamard → a 90° bundle here literally IS a WHT projection. Canon already formalizes it (bipolar-phase pyramid = WHT; sign=`vsa_bind`/XOR, magnitude=`vsa_bundle`/add; `witness.rs` particle==wave).
+
+**Caveats (the "or something"):**
+- **Two Hadamards — don't conflate:** the **transform** (WHT, orthogonal basis change — what's meant) vs the **product** (element-wise multiply = `vsa_bind`). The WHT structure comes from the orthogonal ±1 **basis**, not the bundling op (plain add).
+- **[H, conditional]** "Walsh = eigenbasis" holds **only on hypercube-structured data** (`sketch.rs:20` states this). The GUID/HHTL nibble cube is approximately that, so WHT is the natural spectral basis here — but NOT the eigenbasis of an arbitrary graph. So: orthogonal ⇒ Parseval (general); Hadamard ⇒ ±1 basis only; eigenbasis ⇒ hypercube only.
+
+**The payoff — the third ranking path (completes the trio with `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`):**
+
+| Path | How | When |
+|---|---|---|
+| Hamming **sweep** | per-row popcount | naive fallback |
+| **CAM-PQ ADC** | IVF probe + distance tables (coarse = HHTL prefix) | indexed, per-candidate |
+| **WHT spectral readout** | FWHT the bundled field **once**, read each angle query by Parseval inner product (`witness.rs` particle==wave) | one field, **many** angle queries — amortized; exact *because* of 90° orthogonality |
+
+**[H] Honest bound (from `witness.rs` itself):** the WHT "wave" path wins only when one field is reused across many queries (Parseval reuse); it makes **NO measured single-query speedup claim**. So it's a real transform-once/read-many path, not a universal speedup. Cross-refs: `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`, OGAR "Bipolar-phase pyramid = Walsh-Hadamard", `ndarray::simd::wht_f32`, `perturbation-sim::{sketch::fwht, witness}`, `I-SUBSTRATE-MARKOV` (bundle = add, the algebra this rides).
+
+---
+
 ## 2026-06-18 — E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC — "switch tenant + compare across the 16K from an angle" is a CAM-PQ ADC (table lookups), NOT a Hamming sweep; and its IVF coarse quantizer IS the HHTL/CLAM prefix — the prune+rank cascade is literally IVF-PQ
 
 **Status:** FINDING (operator correction "sweep or just 90° fingerprint vector cam index" → CAM index; grounded in `ndarray/src/hpc/{cam_pq,cam_index}.rs`, contract `cam::{DistanceTableProvider, CamCodecContract, IvfContract::probe}`, turbovec KNOWLEDGE "palette256 = coarse quantizer"). **Supersedes this entry's first framing** (posted 2026-06-18 as "…-SWEEP-IS-PRUNE-THEN-RANK"): the Hamming sweep is only the naive fallback — the real path is CAM-PQ ADC, and the two stages are IVF-PQ, not a prefilter+scan.
