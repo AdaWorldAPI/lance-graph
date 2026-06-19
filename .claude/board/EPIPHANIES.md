@@ -1,3 +1,28 @@
+## 2026-06-18 — E-WHT-META-AWARENESS-AND-KRONECKER-LOOKUP — per-tenant WHT spectrum = cheap global meta-awareness (a few coefficients); and the Walsh transform tensor-factorizes along HHTL (H_16^⊗n) → "exponential lookup over prefixed tables" for separable factors
+
+**Status:** TWO claims, graded separately (operator synthesis: "operationalize WHT picking any tenant over the standing wave sorted by any factor → meta-awareness; …use it for HHTL 16ⁿ exponential lookup over prefixed tables"). Theorem-checker applied. Grounded in `perturbation-sim::sketch::{fwht, walsh_pyramid_energy}`, `ndarray::simd::wht_f32`, bgz-tensor attention-as-table-lookup + HHTL cascade, OGAR "Bipolar-phase pyramid = Walsh-Hadamard". Capstone of the geometry-of-a-node arc.
+
+**Claim 1 — per-tenant WHT spectrum = global meta-awareness. [G as descriptor; framing as "awareness"].** `walsh_pyramid_energy` already gives Walsh energy per dyadic level + coarse fraction. So one FWHT of a tenant field → a **few-coefficient summary of all 16K rows**: coarse-dominant = smooth/clustered/predictable (low surprise), fine-spread = scattered (high surprise). For all tenants (hhtl/helix/energy/content/topic/angle) it's a small fixed "meta-fingerprint" panel, transform-once, reusable, **cheap** — and it is a **free-energy proxy** (spectral concentration = field predictability = the workspace's self-monitoring/awareness signal, per the active-inference loop). Sound and valuable.
+
+**Claim 2 — WHT for HHTL 16ⁿ "exponential lookup over prefixed tables". [G for the mechanism; H for "any factor"].**
+- **[G]** The Walsh-Hadamard matrix **tensor-factorizes along the nibble hierarchy**: `H_{16ⁿ} = H₁₆ ⊗ H₁₆ ⊗ … (n)` (Kronecker; the FWHT butterfly, radix-16). The HHTL nibble tree IS that tensor structure (`E-PANCAKES-IS-RADIX-IS-HHTL`).
+- **[G]** Therefore a Walsh-domain operation over a 16ᵏ prefix-subtree decomposes into **k stages of 16-point table ops** — the per-level 16-entry tables are the "prefixed tables," composed by the tensor product → **O(k·16) vs O(16ᵏ)** for a **separable** factor (the bgz-tensor "attention as table lookup" + HHTL cascade, seen as the Kronecker factorization). "Top gaussian preserved level-to-level" (canon Parseval) is the condition making the common factor separable.
+- **[H] Caveat (do NOT overclaim):** the exponential saving holds only for factors **low-sequency / separable** in the Walsh basis; an arbitrary high-sequency factor still has to touch the leaves. And a full FWHT of the whole field is O(N log N), not sub-linear — the exponential win is the **per-level table composition over a prefix subtree**, not the full transform.
+
+**The capstone — five threads are ONE structure (Walsh-Kronecker factorization along the HHTL nibble hierarchy):**
+
+| Thread | facet of the Kronecker/HHTL structure |
+|---|---|
+| `E-PANCAKES` (radix≡HHTL≡panCAKES) | the tensor **index** (n nibble levels) |
+| `E-ORTHOGONAL-BUNDLE` (90°→WHT) | the tensor **transform** (H₁₆^⊗ⁿ) |
+| `E-TENANT-ANGLE` CAM-PQ ADC | the tensor **tables** (prefixed 16-point distance tables) |
+| Claim 1 (per-tenant spectrum) | the tensor **summary** (pyramid energy = meta-awareness) |
+| Claim 2 (16ⁿ prefix lookup) | the tensor **composition** (k stages, not 16ᵏ) |
+
+Cross-refs: `E-ORTHOGONAL-BUNDLE-IS-WHT-READOUT`, `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`, `E-PANCAKES-IS-RADIX-IS-HHTL`, `E-CLAM-IS-THE-MANIFOLD-ENGINE`, `ndarray::simd::wht_f32`, `perturbation-sim::sketch`, bgz-tensor attention-as-lookup.
+
+---
+
 ## 2026-06-18 — E-ORTHOGONAL-BUNDLE-IS-WHT-READOUT — bundling a 90° (orthogonal) sweep is Parseval-recoverable in any basis; it is specifically a Walsh-Hadamard projection in the bipolar ±1 basis (this substrate's case) — the third ranking path: transform-once, read-many
 
 **Status:** FINDING (graded; operator intuition "bundle a 90° sweep → a Hadamard projection or something" — made precise). Grounded in `ndarray::simd::wht_f32`, `perturbation-sim::sketch::{fwht, walsh_pyramid_energy}`, `perturbation-sim::witness.rs` (Parseval-over-FWHT, "particle == wave"), OGAR canon "Bipolar-phase pyramid — Walsh-Hadamard on VSA". Theorem-checker applied; the "also Hadamard" is conditional, not universal.
