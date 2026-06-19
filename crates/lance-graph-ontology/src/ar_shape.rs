@@ -139,6 +139,27 @@ pub enum CanonicalConcept {
     /// and a label. Promoted from `{ osb:Currency, odoo:res.currency }`
     /// on 2026-06-19.
     CurrencyPolicy,
+    /// `SalesOrder` — a customer-facing order document (commerce-side
+    /// sibling of `CommercialDocument`). Promoted from
+    /// `{ spree:Spree::Order, odoo:sale.order }` on 2026-06-19.
+    SalesOrder,
+    /// `SalesOrderLine` — a per-line entry on a sales order
+    /// (commerce-side sibling of `CommercialLineItem`). Promoted from
+    /// `{ spree:Spree::LineItem, odoo:sale.order.line }` on 2026-06-19.
+    SalesOrderLine,
+    /// `FulfillmentFlow` — the shipment/picking flow that moves
+    /// inventory to fulfill a sales order. Promoted from
+    /// `{ spree:Spree::Shipment, odoo:stock.picking }` on 2026-06-19.
+    FulfillmentFlow,
+    /// `InventoryMovement` — a single inventory state change
+    /// (allocation, reservation, transfer). Promoted from
+    /// `{ spree:Spree::InventoryUnit, odoo:stock.move }` on
+    /// 2026-06-19.
+    InventoryMovement,
+    /// `ProductOffering` — the catalog product / variant that gets
+    /// sold. Promoted from `{ spree:Spree::Product, odoo:product.product }`
+    /// on 2026-06-19.
+    ProductOffering,
 }
 
 /// A typed fixture for one curator's class declaration. Hand-built today;
@@ -587,11 +608,17 @@ pub fn classes_participating_in_canonical_relations(
 }
 
 /// Find class IRIs in a triple set shaped like a `CommercialDocument`
-/// (the parent of line items): class-IRI's lowercased form ends with
-/// `"invoice"` (`osb:Invoice`), `"move"` (`odoo:account_move`), or
-/// `"order"` (`odoo:sale_order`), and the IRI does NOT contain `"line"`
-/// (to filter out `InvoiceLineItem` / `account_move_line` which are
+/// (the accounting parent of line items): class-IRI's lowercased form
+/// ends with `"invoice"` (`osb:Invoice`) or `"move"`
+/// (`odoo:account_move`), and the IRI does NOT contain `"line"` (to
+/// filter out `InvoiceLineItem` / `account_move_line` which are
 /// CommercialLineItem candidates, not document candidates).
+///
+/// Note: `"order"` endings are NOT matched here — those land as
+/// [`classes_matching_sales_order_shape_canonical`] (commerce side).
+/// `Invoice`/`account_move` is the accounting document; `Order`/
+/// `sale_order` is the commerce document; the two are
+/// distinct-but-adjacent concepts.
 #[must_use]
 pub fn classes_matching_commercial_document_shape_canonical(
     triples: &[Triple],
@@ -604,17 +631,123 @@ pub fn classes_matching_commercial_document_shape_canonical(
             if lower.contains("line") {
                 return false;
             }
-            lower.ends_with("invoice")
-                || lower.ends_with("move")
-                || lower.ends_with("order")
+            lower.ends_with("invoice") || lower.ends_with("move")
+        })
+        .collect()
+}
+
+/// Find class IRIs shaped like a `SalesOrder` (commerce-side sibling of
+/// `CommercialDocument`): lowercased ends with `"order"` and the IRI
+/// does NOT contain `"line"` (to filter out `Spree::LineItem` /
+/// `sale_order_line` — those are `SalesOrderLine`). Catches
+/// `Spree::Order` and `odoo:sale_order`.
+#[must_use]
+pub fn classes_matching_sales_order_shape_canonical(
+    triples: &[Triple],
+    namespace_prefix: &str,
+) -> Vec<String> {
+    declared_classes(triples, namespace_prefix)
+        .into_iter()
+        .filter(|c| {
+            let lower = c.to_lowercase();
+            if lower.contains("line") {
+                return false;
+            }
+            lower.ends_with("order")
+        })
+        .collect()
+}
+
+/// Find class IRIs shaped like a `SalesOrderLine`: lowercased ends with
+/// `"lineitem"` (Spree `LineItem` → snake = "line_item"; `to_lowercase`
+/// just removes case so `LineItem` → `"lineitem"`) OR ends with
+/// `"order_line"` (`odoo:sale_order_line`). Catches `Spree::LineItem`
+/// and `odoo:sale_order_line`. Does NOT match `InvoiceLineItem` (that's
+/// `CommercialLineItem`); the `"order"` suffix on the snake-cased Odoo
+/// IRI discriminates.
+#[must_use]
+pub fn classes_matching_sales_order_line_shape_canonical(
+    triples: &[Triple],
+    namespace_prefix: &str,
+) -> Vec<String> {
+    declared_classes(triples, namespace_prefix)
+        .into_iter()
+        .filter(|c| {
+            let lower = c.to_lowercase();
+            // Spree's `LineItem` directly under `Spree::` ends in
+            // "lineitem"; siblings like `Spree::OrderLineItem` etc.
+            // also legitimately match.
+            if lower.ends_with("lineitem") {
+                return true;
+            }
+            // Odoo's `sale_order_line` ends with "order_line"; matches
+            // also `sale_order_line_template` if it exists.
+            lower.ends_with("order_line") || lower.ends_with("orderline")
+        })
+        .collect()
+}
+
+/// Find class IRIs shaped like a `FulfillmentFlow`: lowercased ends with
+/// `"shipment"` (`Spree::Shipment`) or `"picking"` (`odoo:stock_picking`).
+#[must_use]
+pub fn classes_matching_fulfillment_flow_shape_canonical(
+    triples: &[Triple],
+    namespace_prefix: &str,
+) -> Vec<String> {
+    declared_classes(triples, namespace_prefix)
+        .into_iter()
+        .filter(|c| {
+            let lower = c.to_lowercase();
+            lower.ends_with("shipment") || lower.ends_with("picking")
+        })
+        .collect()
+}
+
+/// Find class IRIs shaped like an `InventoryMovement`: lowercased ends
+/// with `"inventoryunit"` (`Spree::InventoryUnit`) or `"stock_move"`
+/// (`odoo:stock_move`). Filters out `account_move` (which is a
+/// CommercialDocument) by requiring the `"stock_"` qualifier on the
+/// Odoo side.
+#[must_use]
+pub fn classes_matching_inventory_movement_shape_canonical(
+    triples: &[Triple],
+    namespace_prefix: &str,
+) -> Vec<String> {
+    declared_classes(triples, namespace_prefix)
+        .into_iter()
+        .filter(|c| {
+            let lower = c.to_lowercase();
+            lower.ends_with("inventoryunit") || lower.ends_with("stock_move")
+        })
+        .collect()
+}
+
+/// Find class IRIs shaped like a `ProductOffering`: lowercased ends with
+/// `"product"` (`Spree::Product`, `odoo:product_product`) or
+/// `"variant"` (`Spree::Variant`) or `"product_template"`
+/// (`odoo:product_template`).
+#[must_use]
+pub fn classes_matching_product_offering_shape_canonical(
+    triples: &[Triple],
+    namespace_prefix: &str,
+) -> Vec<String> {
+    declared_classes(triples, namespace_prefix)
+        .into_iter()
+        .filter(|c| {
+            let lower = c.to_lowercase();
+            lower.ends_with("product")
+                || lower.ends_with("variant")
+                || lower.ends_with("product_template")
         })
         .collect()
 }
 
 /// Find class IRIs shaped like a `TaxPolicy`: class IRI's lowercased
-/// form ends with `"tax"`. Catches `osb:Tax` and `odoo:account_tax`;
-/// excludes `TaxGroup` / `account_tax_group` (lowercased `"taxgroup"`,
-/// `"account_tax_group"` — neither ends with `"tax"`).
+/// form ends with `"tax"` (`osb:Tax`, `odoo:account_tax`,
+/// `Spree::Calculator::DefaultTax`) OR contains `"taxrate"`
+/// (`Spree::TaxRate` — the strongest commerce-side tax-policy
+/// signal). Excludes `TaxGroup` / `account_tax_group` (lowercased
+/// `"taxgroup"` / `"account_tax_group"` — neither tail matches).
 #[must_use]
 pub fn classes_matching_tax_policy_shape_canonical(
     triples: &[Triple],
@@ -622,7 +755,10 @@ pub fn classes_matching_tax_policy_shape_canonical(
 ) -> Vec<String> {
     declared_classes(triples, namespace_prefix)
         .into_iter()
-        .filter(|c| c.to_lowercase().ends_with("tax"))
+        .filter(|c| {
+            let lower = c.to_lowercase();
+            lower.ends_with("tax") || lower.contains("taxrate")
+        })
         .collect()
 }
 
@@ -1331,6 +1467,198 @@ mod tests {
             odoo_c.iter().any(|c| c == "account_payment"),
             "Odoo candidates missing account_payment; got first 5: {:?}",
             odoo_c.iter().take(5).collect::<Vec<_>>(),
+        );
+    }
+
+    // ─── Spree harvest tests (smoke target B; 3rd curator) ────────
+
+    /// `spree_order_and_odoo_sale_order_overlap_as_sales_order`
+    /// — the headline smoke target B per operator directive.
+    #[test]
+    fn spree_order_and_odoo_sale_order_overlap_as_sales_order() {
+        let spree_bytes =
+            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        );
+        let spree = load_triples_ndjson(spree_bytes).unwrap();
+        let odoo = load_triples_ndjson(odoo_bytes).unwrap();
+
+        let spree_c = classes_matching_sales_order_shape_canonical(&spree, "openproject:");
+        let odoo_c = classes_matching_sales_order_shape_canonical(&odoo, "odoo:");
+
+        assert!(
+            spree_c.iter().any(|c| c == "Spree::Order"),
+            "Spree candidates missing Spree::Order; got first 5: {:?}",
+            spree_c.iter().take(5).collect::<Vec<_>>(),
+        );
+        assert!(
+            odoo_c.iter().any(|c| c == "sale_order"),
+            "Odoo candidates missing sale_order; got first 5: {:?}",
+            odoo_c.iter().take(5).collect::<Vec<_>>(),
+        );
+        // Spree::Order must NOT promote as CommercialDocument — sales
+        // orders are commerce-side, distinct from accounting docs.
+        let spree_cd =
+            classes_matching_commercial_document_shape_canonical(&spree, "openproject:");
+        assert!(!spree_cd.iter().any(|c| c == "Spree::Order"));
+        let odoo_cd =
+            classes_matching_commercial_document_shape_canonical(&odoo, "odoo:");
+        assert!(!odoo_cd.iter().any(|c| c == "sale_order"));
+    }
+
+    /// `spree_line_item_and_odoo_sale_order_line_overlap_as_sales_order_line`
+    /// — operator-named test from smoke target B.
+    #[test]
+    fn spree_line_item_and_odoo_sale_order_line_overlap_as_sales_order_line() {
+        let spree_bytes =
+            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        );
+        let spree = load_triples_ndjson(spree_bytes).unwrap();
+        let odoo = load_triples_ndjson(odoo_bytes).unwrap();
+
+        let spree_c =
+            classes_matching_sales_order_line_shape_canonical(&spree, "openproject:");
+        let odoo_c =
+            classes_matching_sales_order_line_shape_canonical(&odoo, "odoo:");
+
+        assert!(
+            spree_c.iter().any(|c| c == "Spree::LineItem"),
+            "Spree candidates missing Spree::LineItem; got first 5: {:?}",
+            spree_c.iter().take(5).collect::<Vec<_>>(),
+        );
+        assert!(
+            odoo_c.iter().any(|c| c == "sale_order_line"),
+            "Odoo candidates missing sale_order_line; got first 5: {:?}",
+            odoo_c.iter().take(5).collect::<Vec<_>>(),
+        );
+    }
+
+    /// `spree_shipment_and_odoo_stock_picking_overlap_as_fulfillment_flow`.
+    #[test]
+    fn spree_shipment_and_odoo_stock_picking_overlap_as_fulfillment_flow() {
+        let spree_bytes =
+            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        );
+        let spree = load_triples_ndjson(spree_bytes).unwrap();
+        let odoo = load_triples_ndjson(odoo_bytes).unwrap();
+
+        let spree_c =
+            classes_matching_fulfillment_flow_shape_canonical(&spree, "openproject:");
+        let odoo_c =
+            classes_matching_fulfillment_flow_shape_canonical(&odoo, "odoo:");
+
+        assert!(
+            spree_c.iter().any(|c| c == "Spree::Shipment"),
+            "Spree candidates missing Spree::Shipment; got {spree_c:?}",
+        );
+        assert!(
+            odoo_c.iter().any(|c| c == "stock_picking"),
+            "Odoo candidates missing stock_picking; got {odoo_c:?}",
+        );
+    }
+
+    /// `spree_inventory_unit_and_odoo_stock_move_overlap_as_inventory_movement`.
+    /// Critically: must NOT match `account_move` (CommercialDocument)
+    /// — the `stock_` qualifier discriminates.
+    #[test]
+    fn spree_inventory_unit_and_odoo_stock_move_overlap_as_inventory_movement() {
+        let spree_bytes =
+            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        );
+        let spree = load_triples_ndjson(spree_bytes).unwrap();
+        let odoo = load_triples_ndjson(odoo_bytes).unwrap();
+
+        let spree_c =
+            classes_matching_inventory_movement_shape_canonical(&spree, "openproject:");
+        let odoo_c =
+            classes_matching_inventory_movement_shape_canonical(&odoo, "odoo:");
+
+        assert!(
+            spree_c.iter().any(|c| c == "Spree::InventoryUnit"),
+            "Spree candidates missing Spree::InventoryUnit; got {spree_c:?}",
+        );
+        assert!(
+            odoo_c.iter().any(|c| c == "stock_move"),
+            "Odoo candidates missing stock_move; got {odoo_c:?}",
+        );
+        // account_move must NOT promote as InventoryMovement — the
+        // stock_ qualifier is what discriminates.
+        assert!(!odoo_c.iter().any(|c| c == "account_move"));
+    }
+
+    /// `spree_product_variant_and_odoo_product_overlap_as_product_offering`.
+    #[test]
+    fn spree_product_variant_and_odoo_product_overlap_as_product_offering() {
+        let spree_bytes =
+            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        );
+        let spree = load_triples_ndjson(spree_bytes).unwrap();
+        let odoo = load_triples_ndjson(odoo_bytes).unwrap();
+
+        let spree_c =
+            classes_matching_product_offering_shape_canonical(&spree, "openproject:");
+        let odoo_c =
+            classes_matching_product_offering_shape_canonical(&odoo, "odoo:");
+
+        assert!(
+            spree_c.iter().any(|c| c == "Spree::Product"),
+            "Spree candidates missing Spree::Product; got first 5: {:?}",
+            spree_c.iter().take(5).collect::<Vec<_>>(),
+        );
+        assert!(
+            spree_c.iter().any(|c| c == "Spree::Variant"),
+            "Spree candidates missing Spree::Variant; got first 5: {:?}",
+            spree_c.iter().take(5).collect::<Vec<_>>(),
+        );
+        assert!(
+            odoo_c.iter().any(|c| c == "product_product"),
+            "Odoo candidates missing product_product; got first 5: {:?}",
+            odoo_c.iter().take(5).collect::<Vec<_>>(),
+        );
+        assert!(
+            odoo_c.iter().any(|c| c == "product_template"),
+            "Odoo candidates missing product_template; got first 5: {:?}",
+            odoo_c.iter().take(5).collect::<Vec<_>>(),
+        );
+    }
+
+    /// 3-curator convergence on the existing OSB↔Odoo concepts when
+    /// Spree is added as a 3rd curator: TaxPolicy + PaymentRecord
+    /// surface on Spree too (`Spree::TaxRate`, `Spree::Payment`),
+    /// proving the existing detectors generalize beyond the 2-curator
+    /// gate.
+    #[test]
+    fn spree_third_curator_convergence_on_tax_policy_and_payment_record() {
+        let spree_bytes =
+            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let spree = load_triples_ndjson(spree_bytes).unwrap();
+
+        let tax = classes_matching_tax_policy_shape_canonical(&spree, "openproject:");
+        let payment =
+            classes_matching_payment_record_shape_canonical(&spree, "openproject:");
+
+        // Spree models multiple tax classes — TaxRate, TaxCategory,
+        // Calculator::DefaultTax, Adjustable::Adjuster::Tax. Any
+        // ending in "tax" counts. TaxRate is the strongest match
+        // (corresponds to OSB::Tax / odoo:account_tax).
+        assert!(
+            tax.iter().any(|c| c.ends_with("TaxRate") || c == "Spree::TaxRate"),
+            "Spree candidates missing a TaxRate; got first 5: {:?}",
+            tax.iter().take(5).collect::<Vec<_>>(),
+        );
+        assert!(
+            payment.iter().any(|c| c == "Spree::Payment"),
+            "Spree candidates missing Spree::Payment; got first 5: {:?}",
+            payment.iter().take(5).collect::<Vec<_>>(),
         );
     }
 
