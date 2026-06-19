@@ -243,6 +243,57 @@ of the projection lanes. WoA-rs becomes a first consumer of the
 **synergy registry**, not the SurrealQL DDL — and that distinction is
 what makes the "first downstream consumer" framing finally honest.
 
+### Correction (2026-06-19, operator) — labels are leaf detail; the ontology shapes everything agnostically through the contract
+
+The synergy-registry framing above leaves one more thing implicit. The
+final crisp statement: **per-curator labels are a tiny detail in the
+OGAR class-inheritance tree; the ontology does the shaping; the contract
+routes it agnostically.**
+
+Per-curator labels — `odoo:account.move` as a model name, `move_type` /
+`state` field names, German / English / French translation strings, the
+specific view-XML or AR-attribute syntax a curator emits — are
+**leaf-level decoration** that hangs off the OGAR class-inheritance
+edge. They are NOT the architecture. The inheritance is the structure
+(`Invoice <: LegalDocument <: EconomicCommitment <: SocialObject`); the
+labels are what the curator named the leaf in its own namespace, and
+they survive in the synergy registry only as `&'static str` adapter
+target ids (`Executor::Adapter("odoo:account_move")`, etc.).
+
+What does the shaping is the ontology in `lance-graph-ontology`. It
+shapes:
+
+- **The ERP** — what an `Invoice` MEANS (the regulatory anchor, the
+  state machine, the audit-chain requirement), independent of which
+  curator surfaced it first.
+- **The classes** — the inheritance tree (THING), the action set (DO),
+  the policy set (THINK).
+- **The adapters** — the `Executor::Adapter(namespace_id)` discriminator
+  per class, with each consumer registering its adapter behind the
+  callcenter `ExecutorTarget` trait (per §11.1 Inc 3 remediation).
+- **The interfaces** — the trait shapes (`ClassView`, `ClassActions`,
+  `ClassMethods`, `policies`, `compute_dag`) consumers depend on to
+  consume an OGAR class.
+- **The routes** — `ArmDecision::route_ogar(op, actor) → executor` via
+  `OrchestrationBridge`, with the ontology deciding which executor
+  handles which class-instance-action for which actor.
+
+**All of this routes AGNOSTICALLY through the `lance-graph-contract`
+crate** — which is zero-dep, trait-only, and the workspace's
+P0-invariant substrate (per CLAUDE.md § Workspace Structure: "ZERO
+DEPS"). The contract carries the trait surfaces (`OrchestrationBridge`,
+`ClassView`, `Executor`, `Triple`, `OgarAst`); the ontology fills them
+with per-class shape; the consumers read the shape and project it onto
+their native adapter. The contract never knows whether the consumer is
+WoA's sea-orm or SMB's MongoDB or SurrealQL's DDL; the ontology never
+knows either. Both layers are curator-agnostic by construction.
+
+The _tadaa_ again, rotated: **once the labels become leaf detail and the
+ontology does the shaping, every consumer — present and future — just
+plugs in through the contract. The ontology grows by adding classes /
+synergies / policies; consumers grow by adding adapters. Nothing else
+changes.**
+
 ---
 
 ## 3. OGAR inherited class model
