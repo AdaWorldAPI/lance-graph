@@ -411,12 +411,202 @@ THIS plan specifically:**
 
 ## 10. Acceptance criteria for this PLAN PR
 
-- [ ] 5+3 council runs and the verdict is documented (`PLAN-RATIFIED` or
-      `REJECT-WITH-REASONS` per Inc).
-- [ ] Open questions §9 are answered (each one moved to either "decided"
-      or "deferred-to-Inc-N").
-- [ ] `INTEGRATION_PLANS.md` entry updated post-council with the verdict
-      summary.
-- [ ] No code changes in this PR — plan + council only.
+- [x] 5+3 council ran (2026-06-19); verdict per Inc documented in §11
+- [x] Open questions §9 resolved by council; remediations folded into §11
+- [x] `INTEGRATION_PLANS.md` entry updated with verdict summary
+- [x] No code changes in this PR — plan + council only
 
-When PLAN-RATIFIED: each Inc opens its own PR off the doctrine branch.
+When PLAN-RATIFIED (per §11 remediations): each Inc opens its own PR off
+the doctrine branch.
+
+---
+
+## 11. Council verdict (2026-06-19) — HOLD, sharpened
+
+**Composition:** 5 panel (`convergence-architect`, `prior-art-savant`,
+`dto-soa-savant`, `cascade-impact-savant`, `core-first-architect`) + 3
+critique (`truth-architect`, `baton-handoff-auditor`, `iron-rule-savant`).
+
+**Overall verdict:** **HOLD with required remediations**. The doctrine
++ spine + litmus stand. The 5-Inc ladder is architecturally sound. But
+the implementation specs ship with:
+
+- **2 P0 type-collisions** (`Verdict` ↔ `mul::GateDecision`;
+  `OrchestrationBridge::route` overload)
+- **1 P0 zero-dep contract breach** (`Executor::ExternalHttp(Url)` needs
+  the `url` crate)
+- **1 BLOCKED gate** (F4 unsurveyable on today's corpus — only 1 of 4
+  named primitives is verifiable)
+- **1 fundamental design gap** (F5 stubs-validating-stubs — the litmus
+  asserts hand-coded equal outcomes are equal, not a real falsifier)
+
+### 11.1 Per-Inc disposition + required remediations
+
+#### Inc 1 — `ClassView::policies` + `ThinkVerdict` (was `Verdict`) — **HOLD**
+
+**5 LAND-leaning** (dto-soa FITS, cascade-impact CONTAINED ZERO downstream
+consumers, core-first TARGETS-CORE, prior-art FRESH on `policies` slot,
+convergence-architect collapse-with-probe-excel-Inc-0 opportunity).
+
+**3 require remediation:**
+
+- **baton-handoff CATCH-CRITICAL — `Verdict` ID-collides with `mul::GateDecision`** (both contract, both decide flow/block, semantically isomorphic). **Fix:**
+  rename `Verdict` → **`ThinkVerdict`** + add `impl From<ThinkVerdict>
+  for GateDecision { ThinkVerdict::Reject(_) → GateDecision::Block(_), ... }`
+  + document the mapping verbatim in Inc 1 spec.
+- **baton-handoff + iron-rule — `ActionState::ThinkRejected(ThinkVerdict)`**
+  breaks `#[derive(Copy)]` + `#[repr(u8)]` (the `action.rs:42-44` layout).
+  **Fix:** drop `Copy` + `#[repr(u8)]`, mark `#[non_exhaustive]`, add a
+  field-isolation test asserting pre-existing variants survive the addition
+  (per `i4-substrate-decisions.md` instances #1 + #3). The `is_terminal()`
+  helper at action.rs:59 needs the `ThinkRejected` arm.
+- **prior-art — Inc 1 + `probe-excel-compute-dag-v1` Inc 0 are the SAME
+  `ClassView` evolution.** **Optional collapse:** ship as ONE PR carrying
+  both `policies` and `compute_dag` (the latter already partly on main per
+  `probe-excel-compute-dag-v1` status). Council recommends the collapse;
+  not strictly required for PLAN-RATIFIED.
+
+#### Inc 2 — `OgarAst` + `TripletProjection` — **LAND** (smallest remediation)
+
+**6 LAND, 2 minor remediations:**
+
+- **baton-handoff CATCH-LATENT — file count off by 1.** **Fix:** name the
+  `crates/lance-graph-contract/src/lib.rs` `pub mod ogar_ast;` touch in
+  the mandatory file list (was 3, is 4).
+- **convergence-architect WORTH-EXPLORING — verify OgarAst::to_triples()
+  is the canonical Triple emitter.** **Fix:** F2 acceptance includes
+  proving the relationship explicitly (`OgarAst::Do → emits the same
+  triple shape spo_enrich.py would for that action`). This makes Inc 2
+  the formal roof on the `codegen_spine::Triple` carrier, not a parallel
+  enum.
+
+#### Inc 3 — **REJECT as drafted; require SPLIT + 5 remediations**
+
+**Most critical Inc.** 4 of 8 angles flagged it.
+
+- **prior-art OVERLAPS triple-collision** — `Executor` overlaps
+  `StepDomain`; `ArmDecision` overlaps `BridgeSlot`; the SurrealAst variant
+  overlaps `cypher-kanban-ast-unification-v1::ExecTarget`. Three parallel
+  routing taxonomies. **Fix:** normalize to ONE codomain BEFORE Inc 3
+  PRs land. Map `Executor::SurrealAst → ExecTarget::SurrealQl` (declare
+  cross-plan dep, don't ship parallel enum). Map `Executor` ↔ `StepDomain`
+  axis in the §1.3 spec explicitly OR collapse `Executor` into
+  `StepDomain` variant extensions.
+- **baton-handoff CATCH-CRITICAL + iron-rule VIOLATES** —
+  `OrchestrationBridge::route` already exists at `orchestration.rs:392`
+  with `fn route(&self, step: &mut UnifiedStep) -> Result<...>`. The
+  proposed new method has the same name with different signature. AP1
+  pattern (same name, different semantics). **Fix:** rename the new method
+  to **`route_ogar(&self, op: &OgarAst, actor: &ActorContext) -> ArmDecision`**.
+- **iron-rule REJECT — `Executor::ExternalHttp(Url)` requires `url`
+  crate** → P0 zero-dep contract breach (`Cargo.toml:10-13` is verbatim
+  "Zero dependencies by design"). **Fix:** drop the `Url` payload — use
+  `&'static str` for the endpoint name OR defer the variant to a later Inc
+  when the dep policy is council'd separately.
+- **iron-rule REJECT + core-first PARALLEL-MODEL — `Executor::Dll(CapabilityId)`
+  is phantom; `CapabilityId` is undefined.** AP6 pattern (speculative
+  abstraction with no impl). **Fix:** drop until `CapabilityId` has a
+  defined shape AND a real consumer.
+- **core-first PARALLEL-MODEL on adapter variants** —
+  `Executor::OdooAdapter` / `RailsAdapter` encode adapter-target identity
+  in CONTRACT, but §9 says callcenter holds the adapter registry. **Fix:**
+  drop the named adapter variants from contract `Executor` enum; keep
+  them as runtime registrations in `callcenter` behind a trait
+  `ExecutorTarget` whose discriminator IS surfaced in contract (e.g.
+  `Executor::Adapter(AdapterTargetId)` where `AdapterTargetId =
+  &'static str`).
+- **cascade-impact UNDERSTATED by 3 — 5 production `OrchestrationBridge`
+  impls exist + 2 test impls.** **Fix:** `route_ogar` must have a `default`
+  body returning `ArmDecision::executor = NativeLance, fallback = None`
+  so existing impls don't break. With default impl, Inc 3 cascade is
+  ~5-6 files (not 5-8).
+- **SPLIT REQUIRED — Inc 3 → Inc 3a + Inc 3b:**
+  - **3a:** contract changes only — `ArmDecision`, slim `Executor` enum
+    (NativeLance + SurrealAst + HumanKanban + `Adapter(&'static str)`),
+    `OrchestrationBridge::route_ogar` with default. ~4 files.
+  - **3b:** stub executors in planner — NativeLance + SurrealAst.
+    SurrealAst declares dep on `cypher-kanban-ast-unification-v1` Inc 1.
+    ~3 files.
+
+#### Inc 4 — **DEFER or WEAKEN** (truth-architect BLOCK)
+
+- **truth-architect BLOCK — only 1 of 4 named primitives surveyable
+  today.** `state_machine` is surveyable (Odoo `fields.Selection('state')`
+  + WoA `WoStatusAction`). `audit_chain` is NOT in the Odoo extractor (no
+  `restrictive_audit_trail` predicate harvested; only docstring matcher).
+  `tenant_boundary` is conflated with `company_id` (a relational field,
+  not a typed primitive). `number_sequence` is runtime-only (`ir.sequence`
+  model, not in the predicate vocabulary). PLUS nexgen Odoo arms have not
+  shipped per `E-AR-PROJECTION-CORRECTION-1`.
+- **Fix (PICK ONE):**
+  - **(a) WEAKEN F4** to "≥2 primitives in ≥2 curators" (only
+    `state_machine` qualifies today; one more surfaces as a stretch).
+  - **(b) DEFER F4** until: (i) `E-AR-PROJECTION-CORRECTION-1` Phase 1
+    Option A ships Odoo predicate arms in nexgen, AND (ii)
+    `spo_enrich.py` gains `audit_trail` + `number_sequence` harvesters.
+    The plan §6 demotion path already names this; invoke it.
+- **baton-handoff CATCH-LATENT — Q4 corpus location** is `/tmp/sources/`
+  (ephemeral, no master-pin). cascade-impact confirms the
+  `/tmp/sources/AdaWorldAPI-openproject-nexgen-rs-bb957b0` tree exists
+  (3.5 MB extracted). Decision: **(a) reuse the existing extracted
+  zipball; do NOT vendor.** Q4 closed.
+
+#### Inc 5 — **F5-smoke (current spec) + F5-real (deferred)** — truth-architect BLOCK on doctrine §10 promotion
+
+- **truth-architect BLOCK — F5 as drafted is stubs-validating-stubs.** §5
+  scope-caps executors at "hand-coded outcomes that demonstrate semantic
+  equivalence"; §1 Inc 5 then asserts they're equal. F5 is testing
+  `assert_eq!`, not falsifying the doctrine.
+- **Fix:** split F5 into TWO gates:
+  - **F5-smoke (lands now):** the current spec — 4 hand-coded stub
+    executors + crown-detection sub-probe forces hand-injected
+    divergence. Promotes Inc 5 plumbing, NOT doctrine §10.
+  - **F5-real (deferred — gates doctrine §10 promotion):** ONE executor
+    pair must be REAL — NativeLance via actual Lance write OR SurrealAst
+    via `lite-unified-surrealql-lance-v1` real emission. Property-fuzz
+    binding values (date tz, decimal rounding, string collation, NULL
+    semantics) where curator leakage historically occurs. F5-real is
+    the doctrine's load-bearing probe; doctrine §10 stays CONJECTURE
+    until F5-real runs green.
+- **baton-handoff CATCH-LATENT — `ThinkVerdict::PartialEq` reason-text
+  semantics.** **Fix:** specify `ThinkVerdict::kind()` discriminator
+  method; F5 asserts on `kind()`, not on full struct equality (reason text
+  is curator-specific by design).
+- **convergence-architect — F5 surfaces the curator primitives organically;
+  could subsume Inc 4.** Decision: keep Inc 4 separate (different gate,
+  different artifact — a curator promotion TABLE, not a single litmus
+  test). But document the cross-Inc data flow: F4 reads what F5 surfaces.
+
+### 11.2 Open questions §9 — resolved
+
+| Q | Resolution |
+|---|---|
+| Q1 THINK slot on `ClassView` vs sibling `ClassPolicies` | DECIDED: `ClassView::policies` (per Inc 1 spec; mirrors `compute_dag` + `ClassActions` precedent — core-first + dto-soa concur). |
+| Q2 `BindingSet` zero-dep tradeoff | DECIDED: `BTreeMap<&'static str, NodeGuid>` (per Inc 2 spec; iron-rule + core-first concur — runtime bindings forbidden as Inc 2 scope; future Inc may extend). |
+| Q3 Crown-detection error message format | DECIDED: locked format per §1 Inc 5 spec. The phrase "the curator wearing the crown" must appear verbatim. |
+| Q4 F4 corpus surveyability | DECIDED: (a) reuse existing `/tmp/sources/AdaWorldAPI-openproject-nexgen-rs-bb957b0` (cascade-impact confirmed 3.5 MB exists). No vendoring. |
+| Q5 Cross-plan `ClassView` layout collision | DECIDED: additive — `policies` + `compute_dag` co-exist as `&'static [...]` defaults. Optionally collapse Inc 1 with `probe-excel-compute-dag-v1` Inc 0 into ONE PR (convergence-architect recommends; not required). |
+
+### 11.3 Final PLAN-RATIFIED status (post-remediations)
+
+Once §11.1 remediations are in the per-Inc PRs:
+
+| Inc | Status |
+|---|---|
+| Inc 1 (ThinkVerdict rename + non_exhaustive + ActionState repr drop + GateDecision conversion) | **PLAN-RATIFIED** |
+| Inc 2 (lib.rs touch named + OgarAst::to_triples canonical Triple proof) | **PLAN-RATIFIED** |
+| Inc 3a (contract: ArmDecision + slim Executor + route_ogar with default) | **PLAN-RATIFIED** |
+| Inc 3b (planner: NativeLance + SurrealAst stubs; SurrealAst declares cross-plan dep) | **PLAN-RATIFIED** |
+| Inc 4 (WEAKEN to ≥2-in-≥2 OR DEFER until Odoo arms ship) | **PLAN-RATIFIED-conditional** (operator picks (a) or (b)) |
+| Inc 5 (split into F5-smoke + F5-real; ThinkVerdict::kind() discriminator) | **F5-smoke PLAN-RATIFIED; F5-real DEFERRED** |
+
+Doctrine §10 (the litmus) stays CONJECTURE until F5-real runs green.
+
+### 11.4 What this council did NOT change
+
+The DOCTRINE (`docs/OGAR_AR_SHAPE_ENDGAME.md`) is operator-ratified and
+not subject to this council. The spine, the litmus failure name, the
+THING/DO/THINK trichotomy, the ownership boundaries (ractor compile-time
+/ LanceGraph thinks / SurrealAST+Kanban orchestrate), the curators-not-
+foundations framing — all stand. This council only sharpened the
+IMPLEMENTATION PLAN that lands them.
