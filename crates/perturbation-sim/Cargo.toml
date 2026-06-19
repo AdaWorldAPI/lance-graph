@@ -120,3 +120,7 @@ path = "examples/basin_placement_learning.rs"
 [[example]]
 name = "outage_over_hhtl_hops"
 path = "examples/outage_over_hhtl_hops.rs"
+
+[[example]]
+name = "family_basin_weyl_multihop"
+path = "examples/family_basin_weyl_multihop.rs"
