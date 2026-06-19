@@ -1,3 +1,305 @@
+## 2026-06-18 — E-COARSE-QUANTIZER-IS-SCALE-FREE-ROUTER — the 1024 HHTL coarse fingerprints route a query in-RAM (IVF probe) AND cross-server (shard route) with one lookup; the GUID-key substrate shards on the prefix, value-slab compresses in Lance, durability via SurrealDB-on-TiKV/Raft
+
+**Status:** FINDING (deployment-tier; operator capacity+distribution synthesis). Grounded in `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC` (IVF coarse ≡ HHTL prefix), `E-GUID-IS-THE-GRAPH` (key = address), canon node = 512 B. Theorem-checker on the arithmetic.
+
+**Corrected capacity (canon node = 512 B = 4096 bit):**
+- mailbox = 16384 × 512 B = **8 MiB** (operator's "2 MB" is 4× low at 512 B; it equals 2 MiB only at a **128 B reduced node** — pin which before sizing).
+- 1024 prefixes × 8 MiB = **8 GiB** per 1024-prefix shard (matches the session's earlier 8 GB figure); + 1024 coarse fingerprints = **512 KiB** (negligible).
+- ⇒ a 2 TB server holds ~256 prefix-shards at 8 GiB (or ~1M mailboxes), the coarse table fits trivially in RAM on every node.
+
+**The scale-free insight:** the **same 1024-fingerprint coarse quantizer** routes at two scales with one lookup —
+- **in-RAM:** IVF probe → which CLAM cluster (the local prune, `cakes_nearest`);
+- **cross-server:** the prefix → which region/server holds that shard (the distributed route).
+The HHTL prefix is simultaneously the **cluster key, the IVF cell, and the shard key**. So "delegate lookup-table awareness to other servers" = **replicate the 512 KiB coarse table** (it's tiny, gossip-cheap) and route by prefix. No new structure — the IVF coarse stage IS the shard router.
+
+**The deployment split:** GUID key + coarse routing stay **uncompressed/transparent** (the GUID-is-key invariant: addressability never costs a value decode); the **480 B value slab compresses in Lance** (columnar); **durability/consensus via Raft per region**.
+
+**Fences:** (1) **Fork policy P0** — TiKV has no AdaWorldAPI fork; the blessed path is **SurrealDB-on-TiKV** (SurrealDB ships a TiKV storage engine; ties to `lite-unified`/`ExecTarget::SurrealQl`), NOT a raw new TiKV dep → STOP-and-ask before introducing. (2) "In theory" — capacity arithmetic only, no throughput bench; the Lance-vs-surreal-kv value split needs measurement. Cross-refs: `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`, `E-WHT-META-AWARENESS-AND-KRONECKER-LOOKUP`, `E-GUID-IS-THE-GRAPH`, `lite-unified-surrealql-lance-v1`, canon node 512 B.
+
+---
+
+## 2026-06-18 — E-WHT-META-AWARENESS-AND-KRONECKER-LOOKUP — per-tenant WHT spectrum = cheap global meta-awareness (a few coefficients); and the Walsh transform tensor-factorizes along HHTL (H_16^⊗n) → "exponential lookup over prefixed tables" for separable factors
+
+**Status:** TWO claims, graded separately (operator synthesis: "operationalize WHT picking any tenant over the standing wave sorted by any factor → meta-awareness; …use it for HHTL 16ⁿ exponential lookup over prefixed tables"). Theorem-checker applied. Grounded in `perturbation-sim::sketch::{fwht, walsh_pyramid_energy}`, `ndarray::simd::wht_f32`, bgz-tensor attention-as-table-lookup + HHTL cascade, OGAR "Bipolar-phase pyramid = Walsh-Hadamard". Capstone of the geometry-of-a-node arc.
+
+**Claim 1 — per-tenant WHT spectrum = global meta-awareness. [G as descriptor; framing as "awareness"].** `walsh_pyramid_energy` already gives Walsh energy per dyadic level + coarse fraction. So one FWHT of a tenant field → a **few-coefficient summary of all 16K rows**: coarse-dominant = smooth/clustered/predictable (low surprise), fine-spread = scattered (high surprise). For all tenants (hhtl/helix/energy/content/topic/angle) it's a small fixed "meta-fingerprint" panel, transform-once, reusable, **cheap** — and it is a **free-energy proxy** (spectral concentration = field predictability = the workspace's self-monitoring/awareness signal, per the active-inference loop). Sound and valuable.
+
+**Claim 2 — WHT for HHTL 16ⁿ "exponential lookup over prefixed tables". [G for the mechanism; H for "any factor"].**
+- **[G]** The Walsh-Hadamard matrix **tensor-factorizes along the nibble hierarchy**: `H_{16ⁿ} = H₁₆ ⊗ H₁₆ ⊗ … (n)` (Kronecker; the FWHT butterfly, radix-16). The HHTL nibble tree IS that tensor structure (`E-PANCAKES-IS-RADIX-IS-HHTL`).
+- **[G]** Therefore a Walsh-domain operation over a 16ᵏ prefix-subtree decomposes into **k stages of 16-point table ops** — the per-level 16-entry tables are the "prefixed tables," composed by the tensor product → **O(k·16) vs O(16ᵏ)** for a **separable** factor (the bgz-tensor "attention as table lookup" + HHTL cascade, seen as the Kronecker factorization). "Top gaussian preserved level-to-level" (canon Parseval) is the condition making the common factor separable.
+- **[H] Caveat (do NOT overclaim):** the exponential saving holds only for factors **low-sequency / separable** in the Walsh basis; an arbitrary high-sequency factor still has to touch the leaves. And a full FWHT of the whole field is O(N log N), not sub-linear — the exponential win is the **per-level table composition over a prefix subtree**, not the full transform.
+
+**The capstone — five threads are ONE structure (Walsh-Kronecker factorization along the HHTL nibble hierarchy):**
+
+| Thread | facet of the Kronecker/HHTL structure |
+|---|---|
+| `E-PANCAKES` (radix≡HHTL≡panCAKES) | the tensor **index** (n nibble levels) |
+| `E-ORTHOGONAL-BUNDLE` (90°→WHT) | the tensor **transform** (H₁₆^⊗ⁿ) |
+| `E-TENANT-ANGLE` CAM-PQ ADC | the tensor **tables** (prefixed 16-point distance tables) |
+| Claim 1 (per-tenant spectrum) | the tensor **summary** (pyramid energy = meta-awareness) |
+| Claim 2 (16ⁿ prefix lookup) | the tensor **composition** (k stages, not 16ᵏ) |
+
+Cross-refs: `E-ORTHOGONAL-BUNDLE-IS-WHT-READOUT`, `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`, `E-PANCAKES-IS-RADIX-IS-HHTL`, `E-CLAM-IS-THE-MANIFOLD-ENGINE`, `ndarray::simd::wht_f32`, `perturbation-sim::sketch`, bgz-tensor attention-as-lookup.
+
+---
+
+## 2026-06-18 — E-ORTHOGONAL-BUNDLE-IS-WHT-READOUT — bundling a 90° (orthogonal) sweep is Parseval-recoverable in any basis; it is specifically a Walsh-Hadamard projection in the bipolar ±1 basis (this substrate's case) — the third ranking path: transform-once, read-many
+
+**Status:** FINDING (graded; operator intuition "bundle a 90° sweep → a Hadamard projection or something" — made precise). Grounded in `ndarray::simd::wht_f32`, `perturbation-sim::sketch::{fwht, walsh_pyramid_energy}`, `perturbation-sim::witness.rs` (Parseval-over-FWHT, "particle == wave"), OGAR canon "Bipolar-phase pyramid — Walsh-Hadamard on VSA". Theorem-checker applied; the "also Hadamard" is conditional, not universal.
+
+**Graded statement:**
+- **[G]** Bundle (`vsa_bundle` = Σ add) of mutually **orthogonal** (90°) vectors → each component recoverable by orthogonal projection; Parseval `‖Σ‖²=Σ‖parts‖²`. True in **any** orthonormal basis — orthogonal decomposition, not yet Hadamard.
+- **[G]** It is specifically a **Walsh-Hadamard** projection **iff** the basis is the ±1 WH basis (H symmetric, `HᵀH=N·I`, self-inverse up to N): bundle = inverse WHT of coefficients, readout = forward WHT.
+- **[G, this substrate]** Fingerprints are **bipolar ±1**, so the basis IS (block-)Hadamard → a 90° bundle here literally IS a WHT projection. Canon already formalizes it (bipolar-phase pyramid = WHT; sign=`vsa_bind`/XOR, magnitude=`vsa_bundle`/add; `witness.rs` particle==wave).
+
+**Caveats (the "or something"):**
+- **Two Hadamards — don't conflate:** the **transform** (WHT, orthogonal basis change — what's meant) vs the **product** (element-wise multiply = `vsa_bind`). The WHT structure comes from the orthogonal ±1 **basis**, not the bundling op (plain add).
+- **[H, conditional]** "Walsh = eigenbasis" holds **only on hypercube-structured data** (`sketch.rs:20` states this). The GUID/HHTL nibble cube is approximately that, so WHT is the natural spectral basis here — but NOT the eigenbasis of an arbitrary graph. So: orthogonal ⇒ Parseval (general); Hadamard ⇒ ±1 basis only; eigenbasis ⇒ hypercube only.
+
+**The payoff — the third ranking path (completes the trio with `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`):**
+
+| Path | How | When |
+|---|---|---|
+| Hamming **sweep** | per-row popcount | naive fallback |
+| **CAM-PQ ADC** | IVF probe + distance tables (coarse = HHTL prefix) | indexed, per-candidate |
+| **WHT spectral readout** | FWHT the bundled field **once**, read each angle query by Parseval inner product (`witness.rs` particle==wave) | one field, **many** angle queries — amortized; exact *because* of 90° orthogonality |
+
+**[H] Honest bound (from `witness.rs` itself):** the WHT "wave" path wins only when one field is reused across many queries (Parseval reuse); it makes **NO measured single-query speedup claim**. So it's a real transform-once/read-many path, not a universal speedup. Cross-refs: `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`, OGAR "Bipolar-phase pyramid = Walsh-Hadamard", `ndarray::simd::wht_f32`, `perturbation-sim::{sketch::fwht, witness}`, `I-SUBSTRATE-MARKOV` (bundle = add, the algebra this rides).
+
+---
+
+## 2026-06-18 — E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC — "switch tenant + compare across the 16K from an angle" is a CAM-PQ ADC (table lookups), NOT a Hamming sweep; and its IVF coarse quantizer IS the HHTL/CLAM prefix — the prune+rank cascade is literally IVF-PQ
+
+**Status:** FINDING (operator correction "sweep or just 90° fingerprint vector cam index" → CAM index; grounded in `ndarray/src/hpc/{cam_pq,cam_index}.rs`, contract `cam::{DistanceTableProvider, CamCodecContract, IvfContract::probe}`, turbovec KNOWLEDGE "palette256 = coarse quantizer"). **Supersedes this entry's first framing** (posted 2026-06-18 as "…-SWEEP-IS-PRUNE-THEN-RANK"): the Hamming sweep is only the naive fallback — the real path is CAM-PQ ADC, and the two stages are IVF-PQ, not a prefilter+scan.
+
+**The operation = CAM-PQ ADC, all table lookups (no linear scan):**
+- angle (90°/orthogonal) fingerprint → CAM-PQ `encode` → PQ codes;
+- query → precompute the **distance table** (`DistanceTableProvider`), then **ADC** = per-subspace table lookups summed (O(1)/candidate, no decompression, no per-row popcount);
+- `IvfContract::probe(query, num_probes)` → the few coarse cells to touch; ADC only inside them → sub-linear. This IS the "attention as table lookup" / 611M-lookups path — it was never a sweep.
+
+**The unification (the load-bearing correction): the IVF coarse quantizer IS the HHTL/CLAM prefix.** CAM-PQ = IVF-PQ = coarse quantizer → residual ADC, and:
+
+| CAM-PQ stage | ≡ | shipped facet |
+|---|---|---|
+| IVF coarse cell (which centroid) | ≡ | **HHTL prefix / CLAM containment** (`cakes_nearest`, #544) — the key IS the coarse quantizer (turbovec: "palette256 = coarse quantizer") |
+| PQ residual codes (fine ADC) | ≡ | **turbovec residue** (`EdgeCodecFlavor::Pq32x4`, 32×4) / value-slab CAM-PQ tenant |
+
+So the prune→rank cascade is **literally IVF-PQ**: the HHTL prefix is the coarse-quantization step, the PQ residual is the fine ADC. Not a prefilter bolted onto a sweep — one CAM index whose coarse stage is free (key) and whose fine stage is the residual ADC (costed, but table-lookups not scan).
+
+**90°/orthogonal:** `content`/`topic`/`angle` are orthogonal axes → each gets its own PQ codebook + distance table; "switch tenant / from an angle" = switch which orthogonal distance table you ADC against, and orthogonality makes the per-axis ADCs separable. The Hamming **sweep** (`hamming_top_k`) remains only as the no-CAM-index fallback for tiny/un-indexed sets.
+
+**Cost-class boundary (unchanged):** the ADC reads the residual codes (value-side), NOT zero-value-decode; lands on its own branch with its own cost gate, never mixed into #544's free key facets. Cycle-consistency unchanged (coherent `current_cycle` snapshot). Wiring (when built): reuse the existing CAM-PQ (`ndarray::hpc::cam_pq`/`cam_index`, contract `IvfContract`) with the HHTL prefix as the IVF coarse quantizer; per-axis (content/topic/angle) distance tables; `cakes_nearest` (= IVF probe) → ADC. Cross-refs: `E-CLAM-IS-THE-MANIFOLD-ENGINE`, `E-PANCAKES-IS-RADIX-IS-HHTL`, `E-ADJACENCY-IS-KEY-AND-EDGECODEC` (Pq32x4 = the residual), `cam::IvfContract`, `ndarray::hpc::cam_pq`.
+
+---
+
+## 2026-06-18 — E-PANCAKES-IS-RADIX-IS-HHTL — panCAKES ≡ radix trie ≡ HHTL: the CLAM cluster tree is NOT a separate structure, it IS the radix trie of the HHTL prefixes already in the keys; so CLAM/CAKES = prefix arithmetic on the GUID, zero value decode
+
+**Status:** FINDING (operator-stated identity; wired this commit). The unification that makes the manifold-geometry facet (`E-CLAM-IS-THE-MANIFOLD-ENGINE`) *free*: there is no CLAM tree to build and store — the tree IS the radix trie of the `classid·HEEL·HIP·TWIG` nibble paths that already live in every GUID key.
+
+**The three are one structure seen three ways:**
+- **HHTL** = the cascade tiers in the key (`NiblePath` over `classid·HEEL·HIP·TWIG`).
+- **radix trie** = prefix tree; routing = bit-shift on the nibble path, not hash.
+- **panCAKES** = the compressed CLAM tree — and a CLAM cluster IS a radix-trie subtree (shared prefix = same cluster); the cluster structure IS the codec.
+
+**Operational consequence (the wiring):** the CLAM/CAKES operations reduce to pure prefix arithmetic on the key, **zero value decode** —
+- **CLAM containment** (which cluster / subtree) = `NiblePath::is_ancestor_of` — the radix subtree under the query prefix.
+- **CAKES nearest** (ranked similar) = `NiblePath::common_prefix_depth` (added this commit) — longest-common-prefix ranking IS the entropy-scaling NN over the cluster tree; deeper shared prefix ⇒ same deeper cluster ⇒ nearer.
+- **panCAKES compression** = the trie itself (shared prefixes are the dedup).
+
+No separate index, no scent-vector tree materialization for the *structural* neighborhood — the keys are the tree. (CAKES over *content scent vectors* in `ndarray::hpc::clam` remains the metric-space path for non-prefix similarity; this identity covers the HHTL-prefix structural neighborhood, the free tier.)
+
+**Wired:** `NiblePath::common_prefix_depth`; `MailboxSoaView::hhtl_path_at` (deferred-binding, default `None`); `graph::mailbox_scan::{clam_contained, cakes_nearest}` over the View — all key-only, F2 zero-value-decode-guarded (#544). Cross-refs: `E-CLAM-IS-THE-MANIFOLD-ENGINE`, `E-ADJACENCY-IS-KEY-AND-EDGECODEC`, `E-GUID-IS-THE-GRAPH`, `hhtl::NiblePath`, `ndarray::hpc::clam` (CAKES/panCAKES/CHAODA).
+
+---
+
+## 2026-06-18 — E-CLAM-IS-THE-MANIFOLD-ENGINE — the CLAM facet is not a containment check; it is the CAKES+CHAODA+LFD ensemble (ndarray `clam.rs`): containment + ranked-NN + anomaly + compression, one tree, one geometric measure
+
+**Status:** FINDING (operator-stated, grounded in `ndarray/src/hpc/clam.rs` — CAKES arXiv:2309.05491 Partition Alg 1 / ρ-NN Alg 4 / DFS-sieve Alg 6, panCAKES Alg 2, **CHAODA Phase 4 `anomaly_scores` from the LFD distribution**; + `lance-graph/crates/perturbation-sim/src/chaoda.rs` CHAODA-lite which names ndarray's `ClamTree` as the production path). Enriches `E-ADJACENCY-IS-KEY-AND-EDGECODEC`: the "HHTL/CLAM neighborhood" facet is a whole geometry engine, not `is_ancestor_of`.
+
+**The CLAM tree (built off the GUID/scent vectors) answers four geometric questions, all over ONE tree with LFD as the shared measure:**
+- **Containment** — `is_ancestor_of`/`prefix`: which cluster (the HHTL cascade view).
+- **CAKES (attraction)** — entropy-scaling **exact k-NN search** (ρ-NN + DFS-sieve): the ranked similar neighbors. "Pull in the similar."
+- **CHAODA (repulsion)** — per-cluster **anomaly score from the LFD distribution** (high Local Fractal Dimension = complex local geometry = outlier): how typical/anomalous a node is. "Push out the unusual."
+- **panCAKES** — compression *via the same tree* (the cluster structure IS the codec).
+
+`CAKES pulls in the similar + CHAODA pushes out the unusual = meaningful structure` (perturbation-sim's framing). LFD is the one measure both ride.
+
+**The synthesized geometry-of-a-node (the full surface off one GUID, tiered by decode cost):**
+
+| Question | Facet | Cost |
+|---|---|---|
+| which cluster? | CLAM containment (key prefix) | zero value decode |
+| nearest similar? | **CAKES** ρ-NN/DFS over the CLAM tree | tree walk (scent vectors) |
+| how anomalous? | **CHAODA** LFD anomaly score | tree walk (LFD) |
+| exact location? | helix `Signed360` (`HelixResidue` tenant) | one value decode (`E-HELIX-IS-EXACT-LOCATION`) |
+| connected to? | `EdgeBlock` typed edge (12-family/4-external or 32×4 turbovec) | edge-block read (`E-ADJACENCY…`) |
+| caused by? | `CausalEdge64` SPO | `edges_raw` read |
+
+So a single node exposes containment + ranked-NN + anomaly + exact-location + typed-edges + causal — a complete geometric *and* relational surface, each answered by the right ndarray/contract primitive at its own cost. The router/Cypher layer dispatches a query to the cheapest facet that answers it (proximity→containment, similarity→CAKES, novelty→CHAODA, position→helix). Cross-refs: `ndarray::hpc::clam` (CAKES/panCAKES/CHAODA), `perturbation-sim::chaoda`, `graph/neighborhood/clam.rs`, `E-ADJACENCY-IS-KEY-AND-EDGECODEC`, `E-HELIX-IS-EXACT-LOCATION`, `E-GUID-IS-THE-GRAPH`.
+
+---
+
+## 2026-06-18 — E-HELIX-IS-EXACT-LOCATION — adjacency (relational: near/edge) is NOT location (absolute: exact orthogonal coordinate); the helix `Signed360` gives the exact point, and "where" is a decode-cost ladder containment → place → residue
+
+**Status:** FINDING (operator correction, grounded in `canonical_node.rs` `ValueTenant::HelixResidue` = `Signed360`, signed full-sphere golden-spiral Place/Residue, 48-bit/6 B, in the `Compressed` value schema). Refines `E-ADJACENCY-IS-KEY-AND-EDGECODEC`: that epiphany answered *"who is related"* (adjacency). This answers *"where exactly is it"* (location) — a different question, and the helix is a **coordinate, not an edge**.
+
+**The split the operator drew:**
+- **Adjacency = relational.** "Near" (HHTL/CLAM containment) or "connected" (`EdgeBlock` typed edge). Tells you the *neighborhood / the link*.
+- **Location = absolute.** The helix `Signed360` gives the **exact orthogonal point on the signed full-sphere** (golden-spiral, equal-area ⇒ the axes are orthogonal ⇒ the coordinate decodes exactly, lossless-for-synthesis). Tells you *precisely here*, not *near what*.
+
+**"Where" is a decode-cost ladder (each rung more precise, more decode):**
+1. **HHTL / CLAM containment** — key prefix (`NiblePath` `is_ancestor_of`/`prefix`). "Which cluster." **Zero value decode** (coarsest).
+2. **Helix PLACE** — the golden-spiral position *deterministic from the address* (generated, not stored; the `place` half of place/residue). The exact point the key *implies*. **Zero value decode.**
+3. **Helix RESIDUE** — `Signed360` (`HelixResidue` tenant, 6 B in the value slab). The exact orthogonal location to full precision = PLACE ⊕ the stored 6-byte remainder. **One value-tenant decode** (paid only when exactness beyond the cluster is needed).
+
+So the substrate answers location at three precisions off one node, and you pay decode only for the precision you ask for — consistent with `E-GUID-IS-THE-GRAPH` (the key prerenders coarse position free) and the OGAR place/residue doctrine (PLACE deterministic, RESIDUE stored). CLAM tells you the neighborhood; the helix `Signed360` tells you the exact orthogonal point.
+
+**Consequence for the Cypher/router work:** a proximity / `MATCH … NEAR` query resolves on the key (HHTL/CLAM, zero decode); an *exact-position / sort-by-true-distance / orthogonal-coordinate* query reads the `HelixResidue` tenant (a value decode — it is NOT a zero-decode operation, and must be costed as such, unlike the adjacency facets). Do not conflate "find the cluster" (free) with "find the exact point" (6-byte decode). Cross-refs: `E-ADJACENCY-IS-KEY-AND-EDGECODEC`, `E-GUID-IS-THE-GRAPH`, `canonical_node::{ValueTenant::HelixResidue, ValueSchema::Compressed}`, the `helix` crate's `Signed360`.
+
+---
+
+## 2026-06-18 — E-ADJACENCY-IS-KEY-AND-EDGECODEC — adjacency lives in two places, classid/key-resolved: HHTL cascade in the GUID = CLAM neighborhood; the 16-byte EdgeBlock = 12-family/4-external OR 32×4 turbovec per EdgeCodecFlavor; CausalEdge64 = SPO
+
+**Status:** FINDING (operator-stated, grounded in shipped `hhtl.rs` `NiblePath` + `canonical_node.rs` `EdgeCodecFlavor` + `graph/neighborhood/clam.rs`). Resolves `cypher-kanban-ast-unification-v1` boundary §4b ("which edge rep") — there is no single rep to pick; there are distinct adjacency facets, each selected by the key/classid, never guessed by the query.
+
+**The three facets:**
+
+1. **HHTL cascade *in the GUID key* = hierarchical/neighborhood adjacency = the CLAM tree.** `NiblePath::from_guid_prefix(guid)` over `classid·HEEL·HIP·TWIG`; `is_ancestor_of` / `prefix(d)` = centroid-tree containment. Longer shared prefix ⇒ nearer ⇒ same CLAM cluster. The "connecting tissue" structural traversal — **free, in the key, zero value decode**; `graph/neighborhood/clam.rs` is the search engine. Adjacency was never an `EdgeBlock` requirement for the neighborhood case — it is the cascade prefix.
+
+2. **The 16-byte `EdgeBlock` *in the node* = explicit typed edges, read per the classid's `EdgeCodecFlavor`:**
+   - **`CoarseOnly` (16×8) → 12 in-family + 4 external** adjacency edges (one byte = neighbor basin-local index → `local_key`). The 12/4 split is **family-internal vs cross-family interface** (canon).
+   - **`Pq32x4` (32×4) → turbovec residue edges** (same 16 bytes as 32 four-bit PQ residue codes).
+   - `CoarseResidue` (1+⌈D/2⌉) → coarse index + per-dim residue.
+
+3. **`edges_raw` column → `CausalEdge64` = SPO causal/belief arcs** (s/p/o palette indices — NOT a row→row adjacency pointer; a separate facet).
+
+**Traversal dispatch (the resolved boundary):** neighborhood/proximity → HHTL/CLAM (key); explicit typed edge → `EdgeBlock` via `classid → ClassView → EdgeCodecFlavor` (12-family/4-external **or** 32×4 turbovec); causal/belief → `CausalEdge64`. The class picks the rep; the query never guesses.
+
+**Wiring implication (next Inc-0 slice):** the edge/neighborhood traversal half needs `MailboxSoaView` to expose, per row, **(a)** the HHTL `NiblePath` (or the full `NodeGuid` key — the canon `NodeRow` already carries `key(16)`, so this exposes what's there) for the CLAM cascade, and **(b)** the `EdgeBlock` bytes + the class's `EdgeCodecFlavor` for the explicit-edge deref. Then: CLAM neighborhood = prefix routing on the key; `(a)-[r]->(b)` = `EdgeBlock` slot deref under the resolved flavor. Both zero-value-decode. The node-match half (`#544`) already lands the classid route; this adds the two key/edge accessors + the CLAM + EdgeBlock deref. Cross-refs: `E-GUID-IS-THE-GRAPH`, `E-CYPHER-IS-THE-KANBAN-AST`, `hhtl::NiblePath`, `canonical_node::{EdgeBlock, EdgeCodecFlavor}`, `graph/neighborhood/clam.rs`, `graph/mailbox_scan.rs`, `cypher-kanban-ast-unification-v1` §4b.
+## 2026-06-19 — E-OGAR-AR-SHAPE-ENDGAME — flat triples were corpse-scan; the deliverable is an executable ontology compiler with THING/DO/THINK and AST/ARM/DLL trichotomies (operator-ratified doctrine)
+## 2026-06-19 — E-OGAR-AR-SHAPE-ENDGAME — OGAR IS the AR-shaped THINK/DO compiler; Foundry/Gotham/OpenProject/Odoo are schema+inheritance FED INTO it; flat triples were corpse-scan; THING/DO/THINK + AST/ARM/DLL is the executable grammar (operator-ratified doctrine)
+
+**Status:** FINDING (operator-ratified capstone). Names what `E-OGAR-IS-FOUNDRY` + `E-AR-DO-WIRING` + `E-CYPHER-IS-THE-KANBAN-AST` + `E-GUID-IS-THE-GRAPH` + `E-AR-PROJECTION-CORRECTION-1` were pointing at together: the real deliverable was never "an Odoo SurrealQL DDL emitter," it was an **ontology compiler** with curators (Rails / Odoo / WoA / SAP) as fossils, OGAR as the metabolism, and an executable DO/THING/THINK + AST/ARM/DLL grammar as the output. Full doctrine: `docs/OGAR_AR_SHAPE_ENDGAME.md`.
+
+**The headline framing (operator-ratified, 2026-06-19):** **OGAR IS the AR-shaped THINK/DO compiler. Foundry / Gotham / OpenProject / Odoo are schema + class inheritance FED INTO it — not external systems OGAR adapts to.** Every Foundry-class platform reduces, at the architecture level, to "an ontology of classes with inheritance + actions + policies." OGAR is that compiler. The ERPs are INPUTS (schema dumps the compiler ingests), not foundations the compiler depends on. This is the strongest statement of `E-OGAR-IS-FOUNDRY`: not "OGAR is LIKE Foundry," but "Foundry/Gotham/OpenProject/Odoo collapse INTO OGAR's class-inheritance + THINK/DO graph."
+
+**The spine (memorable summary; operator-ratified):**
+
+> **Curators teach. OGAR compiles. LanceGraph thinks. SurrealAST + Kanban orchestrate. Adapters obey.**
+
+**The litmus failure-mode name (operator-ratified — quote it when you see it):**
+
+> The same `OgarAst::Do(PostInvoice, …)` MUST execute semantically identically across NativeLance / SurrealAST / Odoo adapter / Rails adapter. **If one backend leaks its syntax into the semantic result, that curator has started wearing the crown — that is the bug.**
+
+**The reframing that closes the arc.** "AR-shape is not flat triples; AR-shape is the living adapter grammar learned from Rails/OpenProject + Odoo, purified through OGAR/DOLCE until it is backend-agnostic." The prior "flat triples → typed SurrealQL DDL" framing (E-AR-PROJECTION-CONVERGED + E-AR-PROJECTION-CORRECTION-1) is **kept** as the harvest substrate and SurrealQL adapter target — but is **NOT** the endgame; it is **one adapter target** of the larger ontology. _Tiny brass thunderbolt: Foundry maps the enterprise. OGAR metabolizes it._
+
+**The three new doctrinal pieces (CONJECTURE → FINDING gate per section):**
+
+1. **THING / DO / THINK (DOLCE refinement, FINDING for the trichotomy + CONJECTURE for the new THINK slot).** Extends `E-AR-DO-WIRING`'s two-arm split. **THING** = Endurant state (SoA columns); **DO** = Perdurant commits gated by `def-match→RBAC→state-guard→MUL` (already shipped: `ActionDef.commit`); **THINK** = NEW typed slot on `ClassView` for continuous policies that gate every DO without ever mutating. THINK promotes `validation_kind` + `@api.constrains` + GoBD checks + RBAC from "ASSERT clauses" into a typed first-class slot returning `Verdict { ProceedAs(plan) | RouteToHuman | Reject(reason) | Defer(condition) }`. Triad invariant: **THING is read. DO writes (gated). THINK never writes.**
+
+2. **AST / ARM / DLL trichotomy (CONJECTURE; council-gated before code).** The portable semantic operation tree (`OgarAst::{Thing, Slot, Relation, Do, Transition, Think, Verdict, Constraint, AdapterCall}`) extends the polyglot harvest contract upward — from "what classes/fields/methods exist" to "what operations they support." **ARM** is the routing layer picking an executor (NativeLance / SurrealQl / OdooAdapter / RailsAdapter / HumanKanban / ExternalHttp / Dll). **DLL** is registered dynamically-loadable capability — keeps the ontology open without forcing every adapter into the compile graph. Falsifying probe: the same `OgarAst::Do(PostInvoice, …)` must execute SEMANTICALLY identically via Lance-native compute_dag, SurrealQL transaction, and Odoo adapter — divergence flags syntax leakage.
+
+3. **Curator promotion rule (FINDING; operator-ratified).** "The curator teaches by example. The ontology survives by being more abstract than any one curator. A primitive is promoted into OGAR Core ONLY when ≥2 independent curators surface it under different syntactic forms." Closes the loop with `E-AR-PROJECTION-CORRECTION-1`: WoA `audit_chain.rs::chain_hash` is interesting NOT because it equals Odoo's `_post` chain (it doesn't), but because both Odoo and WoA independently surfaced the same GoBD I9 hash-chain INVARIANT. The promoted Core primitive is `AuditChain <: GoBD-immutability`, not "the chain_hash function."
+
+**Crisp ownership boundaries (operator-ratified; corrected 2026-06-19 same-session: ractor is compile-time only; LanceGraph is the thinking plane; SurrealAST + Kanban is the orchestration plane):**
+
+```
+ractor                       → COMPILE-TIME ownership guarantee
+                               mailbox-as-owner; Rust move/borrow proves
+                               no aliasing / no race / no UAF;
+                               UB becomes a compile error (canonical
+                               §9 E-CE64-MB-4). NOT runtime mutation
+                               authority — the mailbox IS the owner;
+                               ractor makes the pattern type-safe.
+LanceGraph (lance-graph)     → THE THINKING — MailboxSoA, compute_dag,
+                               cycle-aware writes (write_row + wrap-aware
+                               u32 gate), zero-copy lifecycle, tombstones.
+                               Recompute fires here.
+SurrealAST + Kanban          → THE ORCHESTRATION — SurrealAST drives query
+                               + mutation lowering (sister to Cypher AST);
+                               KanbanColumn (Planning → CognitiveWork →
+                               Evaluation → Commit) sequences cycles;
+                               ARM verdicts route execution. NOT thinking.
+OGAR (lance-graph-ontology)  → meaning
+lance-graph-contract         → interface promises (trait surfaces, carriers)
+lance-graph-callcenter       → outer execution membrane (adapter dispatch)
+```
+
+The implicit question buried in `E-CYPHER-IS-THE-KANBAN-AST`: **where does the thinking happen and where does the orchestration happen?** Answer: thinking is in LanceGraph's SoA (cycle-aware writes recompute dependents via compute_dag); orchestration is the SurrealAST + Kanban plane (which cycle fires when, in which Rubicon phase, with which state transition); ractor is the COMPILE-TIME proof that the orchestration→thinking handoff cannot race. Common drift this corrects: "ractor runs the business logic" — that conflates the compile-time guarantee with runtime mutation authority.
+
+**Per-curator role (binds `E-AR-PROJECTION-CORRECTION-1`'s retractions):** openproject-nexgen-rs = Rails-shaped projection prototype (NOT the ontology home); odoo_blueprint + extractor = dense regulatory + behavioural teaching corpus (NOT identity source); WoA-rs = German ERP sanity witness (NOT first SurrealQL consumer); SMB-Office = parity-validation for German legacy ERP behaviour; SAP = future independent confirmation of the curated ontology.
+
+**Council scope still in force.** The 5+3 verdict on **typed AST placement** (Phase 1 Option A in nexgen RFC; Phase 2 Option D in surrealdb fork via C16b/C16c) stands — that decision concerns the SurrealQL **adapter target**, which is ONE leg of the ARM layer, not the ontology itself. The doctrine here is upstream of the placement question; the placement remains the next concrete deliverable.
+
+**Cross-refs:** `docs/OGAR_AR_SHAPE_ENDGAME.md` (canonical doctrine, 13 sections + glossary); `E-OGAR-IS-FOUNDRY` (the Foundry-reduction this doc makes concrete); `E-AR-DO-WIRING` (the 2-arm split this extends to 3); `E-CYPHER-IS-THE-KANBAN-AST` (the Kanban execution loop this doc names); `E-GUID-IS-THE-GRAPH` (the ractor-Lance ownership substrate this codifies); `E-ODOO-CORE-FIRST-STRUCTURAL` (the curator promotion rule operationalized); `E-AR-PROJECTION-CORRECTION-1` (the retractions bound).
+
+---
+
+## 2026-06-19 — E-AR-PROJECTION-CORRECTION-1 — 5+3 council verdict on E-AR-PROJECTION-CONVERGED: two claims unsupported, B/C rejected, A→D sequenced as architecturally correct path
+
+**Status:** FINDING (correction). Bounds the framing of `E-AR-PROJECTION-CONVERGED` directly below: the projection-mechanism finding stands, the placement-options analysis is sharpened, and two unsupported sub-claims are explicitly retracted.
+
+**Convened on the typed-AST placement question** (A: extend nexgen's `op-surreal-ast`; B: mirror in `lance-graph-ontology::surreal_ast`; C: push to `lance-graph-contract`). 5 panel (`convergence-architect`, `prior-art-savant`, `dto-soa-savant`, `cascade-impact-savant`, `core-first-architect`) + 3 critique (`truth-architect`, `baton-handoff-auditor`, `iron-rule-savant`). 6 verdicts converged on the framing; 2 sharpened the sequencing.
+
+**Two claims from E-AR-PROJECTION-CONVERGED that do NOT hold up (truth-architect):**
+1. *"`audit_chain.rs::chain_hash` is byte-equivalent to Odoo `_post.md`'s hash chain"* — **UNSUPPORTED.** No `_post.md` spec file exists in the Odoo extractor or corpus. `tools/odoo-blueprint-extractor/parsers/regulation.py` literal-string-matches `"hash chain"` against docstrings → IRI tag; `data_extractors/gobd_company.py` verifies FIELD-PRESENCE (`restrictive_audit_trail`); neither extracts the algorithm. `WoA/woa-rs::audit_chain.rs` is verified against `WoA/woa/erp/engine/audit_chain.py` (the Python sibling), NOT against Odoo. Retracted: the byte-equivalence is hand-waving until an Odoo `_inalterable_hash` extraction + golden-input parity test exists.
+2. *"WoA-rs is the first downstream consumer"* — **STRUCTURALLY WRONG FRAMING.** WoA-rs is sea-orm + MySQL + axum (locked stack per `/home/user/woa-rs/CLAUDE.md`); it does NOT use SurrealDB. `op_surreal_ast::Schema` emits `DEFINE TABLE … SCHEMAFULL;` SurrealQL DDL. The proposed wiring "WoA-rs reads the `Schema` to generate Rust DTOs or cross-validate" is "speculative validator of a SurrealQL DDL against a sea-orm/MySQL schema" — and WoA-rs's `Cargo.toml:142-167` shows the `lance-graph-ontology` deps were DROPPED for Docker/Railway-build reasons (independent of this proposal), with `ontology = []` empty. Per WoA Iron Rule 7 wiring any new cross-validation path requires an RFC first. Retracted: the "first downstream consumer" framing.
+
+**Three projection-mechanism gaps surfaced (still corrigible inside the FINDING):**
+3. *"`op-surreal-ast::triples_to_schema` is the projection mechanism running today"* — partial truth: `triples_to_schema` is unit-tested on hand-built Triple vectors + the `op_codegen_ndjson` CLI runs it on ndjson; but the only filesystem-corpus end-to-end test (`crates/op-codegen-pipeline/tests/rails_fixture.rs`) uses a DIFFERENT projection (`op_codegen_projection::OpSurrealProjection`). Two projection paths exist; the EPIPHANY conflates them. Sharpened: the projection that IS running E2E is `OpSurrealProjection`, not `triples_to_schema`; the convergence story rides the latter and needs its own corpus-driven E2E test.
+4. *Namespace dispatch gap* — `from_triples::strip_namespace` strips only `openproject:`. The Odoo extractor emits `odoo:` prefix throughout (`spo_enrich.py:636-638`). Running today's `from_triples` on Odoo ndjson would silently produce table names like `odoo:account_move` and annotation strings like `inherits:odoo:mail_thread` — observable corruption, not a clean predicate-arm extension. Sharpened: the Odoo retrofit requires `strip_namespace` generalization (or `from_triples::for_namespace(prefix)`), not just predicate-arm appendage.
+5. *Synthesis-without-measurement red flags* — the "27+ predicate vocabulary" and "field-name agreement" claims are unanchored. Before any code lands, the convergence story owes three measured numbers: (a) Odoo predicate set vs Rails arm catalogue (counts + diff list), (b) curated Odoo `account.move` Schema vs WoA `Vorgang` field-name overlap percentage (with the caveat from retraction 2 that this is NOT a SurrealQL DDL consumer wiring — it's a structural validation only), (c) triple count / degenerate-path stats from `op-codegen-ndjson --stats` on both Rails and Odoo corpora.
+
+**Council placement verdict (4 of 8 explicit recommendations, 4 of 8 implicit endorsements):**
+
+| Option | Iron-rule | Core-first | DTO-SoA | Baton | Cascade | Convergence | Prior-art | Truth |
+|---|---|---|---|---|---|---|---|---|
+| A (extend nexgen) | **LAND** (YIELDS-ALL) | **LAND** (TARGETS-CORE) | ORTHOGONAL-isolates | CATCH-LATENT | CONTAINED-but-blocks-WoA | DROP | (B as bridge to D) | HOLD-with-gaps |
+| B (mirror in lance-graph-ontology) | **REJECT** (AP-DTO-PARALLEL + I-LEGACY-API-FEATURE-GATED by import path) | **REJECT** (PARALLEL-MODEL risk) | **LAND** (FITS) | **REJECT** (CATCH-CRITICAL — ID collision) | **LAND** (cheapest by file count) | fallback if D blocked | (B→D documented migration) | **HARD-FAIL** on cross-val framing |
+| C (push to contract) | **REJECT** (P0 zero-dep violation) | **REJECT** (RESIDUE-CORE) | **REJECT** (VIOLATES-SOA) | **LAND** (CLEAN — dep already exists) | **REJECT** (18+ mandatory + 30+ cross-crate cascade) | DROP | DROP | **HARD-FAIL** (orphaned without surrealql runtime consumer) |
+| D (typed AST in surrealdb fork; nexgen + lance-graph + future ERP frontends path-dep) | YIELDS-ALL if fork wired | (not surveyed) | (not surveyed) | (not surveyed) | (B→D natural endpoint) | **OPPORTUNITY-NOW** | **LIVE PATH** | (not surveyed) |
+
+**Two dispositive facts the council surfaced** (not in original entry):
+- **(prior-art-savant)** `/home/user/surrealdb/.claude/op-codegen-bridge/README.md` documents an ACTIVE C16b initiative IN the AdaWorldAPI/surrealdb fork shipping `TableDefinition::new_for_ddl()` + `with_*()` chainable setters. The README explicitly names `op-surreal-ast` as "the first consumer" and its C16c sprint as switching to `From<op_surreal_ast::*> for catalog::*` impls. Option D is not theoretical — it's already in motion upstream.
+- **(baton-handoff-auditor)** `/tmp/sources/AdaWorldAPI-openproject-nexgen-rs-bb957b0/crates/op-surreal-ast/Cargo.toml:33` ALREADY declares `lance-graph-contract` as a path-dep (via vendored `vendor/AdaWorldAPI-lance-graph/`). The dep arrow is already set: nexgen → contract → (eventually) surrealdb fork. Pure additions to nexgen's `op-surreal-ast` from this side don't break the workspace's dep DAG.
+
+**Architecturally correct path — A→D sequenced (5 of 8 agents converge):**
+- **Phase 1 (now, RFC-gated):** Option A — extend `op_surreal_ast::from_triples` in `AdaWorldAPI/openproject-nexgen-rs` with (a) Odoo predicate arms (`selection_value` → typed value-domain or `ASSERT IN` clause, `virtually_overrides` → annotation, Odoo-flavor `@api.constrains` → `validates_constraint` ASSERT family), and (b) namespace dispatch generalization so `strip_namespace` handles `odoo:` / `openproject:` / future-ERP-prefix. Adds a per-predicate coverage table + corpus-driven E2E test against `triples_to_schema` (not `OpSurrealProjection`). RFC owner: nexgen maintainer; the work IS appendage on existing `from_triples` arms, mechanically symmetric with the Rails ones.
+- **Phase 2 (when C16b lands in surrealdb fork):** Option D — `op-surreal-ast` C16c sprint switches to `From<op_surreal_ast::*> for surrealdb_core::catalog::*` impls per the upstream README. lance-graph downstream consumers depend on `AdaWorldAPI/surrealdb` directly via the fork path-dep; `op-surreal-ast` becomes a thin transitive consumer. All ERP frontends (Rails, Odoo, future SAP) project into the canonical `surrealdb_core::catalog::*` shape directly.
+- **B and C rejected:** B fails on AP-DTO-PARALLEL-MODEL + Core/adapter line muddying (4 critics); C fails on P0 zero-dep contract invariant + cross-crate cascade cost (5 agents). Neither lands.
+
+**This session's deliverable (autonomous, lance-graph-owned):** this correction entry. The Phase 1 nexgen work requires nexgen-side ownership/RFC and is NOT autonomously appropriate from this repo. The Phase 2 fork work rides surrealdb's C16b/C16c sprint cadence. The lance-graph-side preparation that COULD be done autonomously here, if requested: (a) generate a per-predicate Odoo-vs-Rails coverage diff table from `spo_enrich.py` + `from_triples.rs` (count + diff list), (b) write a structural-validation probe (NOT a wiring RFC) comparing curated `account.move` Schema slots against WoA-rs `Vorgang` field names as a measurement, NOT a consumer claim.
+
+**Cross-refs:** `E-AR-PROJECTION-CONVERGED` (status updated to FINDING-bounded-below); `E-AR-DO-WIRING` (unchanged — A is consistent with its landing recipe); `E-OGAR-IS-FOUNDRY` (D realizes "any low-code or Jinja template runs over OGAR classes" by collapsing the typed AST upstream into the fork); `E-ODOO-CORE-FIRST-STRUCTURAL` (core-first doctrine reading favors A over B for adapter/Core distinction); `/home/user/surrealdb/.claude/op-codegen-bridge/README.md` (C16b initiative); `/tmp/sources/AdaWorldAPI-openproject-nexgen-rs-bb957b0/crates/op-surreal-ast/Cargo.toml:33` (the existing nexgen→contract dep arrow).
+
+---
+
+## 2026-06-19 — E-AR-PROJECTION-CONVERGED — Rails (openproject-nexgen-rs) and Odoo (odoo_blueprint) emit the SAME `codegen_spine::Triple` carrier; the typed SurrealQL DDL projection target already runs (Rails arms today); WoA-rs is the first downstream retrofit consumer
+
+**Status:** FINDING (with corrections — see `E-AR-PROJECTION-CORRECTION-1` above; two sub-claims retracted, three sharpened, placement verdict consolidated). The PROJECTION-MECHANISM finding stands; the WoA-as-first-consumer and chain_hash byte-equivalence sub-claims are retracted; the placement options reduce to A→D sequenced.
+
+**What the third curator already shipped (not "to-design"):**
+- `crates/op-surreal-ast` — typed SurrealQL DDL AST (`Schema / TableDefinition / FieldDefinition / IndexDefinition / Kind`) mirroring `surrealdb_core::catalog::*` slot-for-slot (the runtime ID / cache fields intentionally omitted — DDL-only mirror). 760+ lines, all `to_sql()` outputs byte-locked by tests. `Kind::from_rails_type()` maps the 9 Rails scalars (`:integer/:bigint/:big_integer/:string/:boolean/:float/:decimal/:datetime/:binary/:uuid`) to typed SurrealQL kinds.
+- `crates/op-surreal-ast/src/from_triples.rs` — `triples_to_schema(&[Triple]) -> Schema`, the projection. **Imports only `lance_graph_contract::codegen_spine::Triple`** — the canonical cross-language carrier this workspace already ships. Two-pass: pass 1 discovers tables via `rdf:type ogit:ObjectType`; pass 2 fans out the predicate arms. Handles: phantom-table guards (body-walk triples on undeclared subjects drop), polymorphic-association fallback to `option<any>`, `class_name:` override with `Storages::FileLink → FileLink` namespace-strip, `belongs_to` vs `has_many/has_one/habtm` gating on `association_kind`, `validation_kind` ANDed ASSERT composition (9 Rails kinds), `validation_param` parametric clauses (length:maximum=N, numericality:greater_than=N, …) with numeric-literal-only safety gate, scoped UNIQUE indices from `uniqueness:scope=[…]`, irregular plural + `-us` singularization. 30+ regression tests, each tied to a codex finding.
+- `lance_graph_contract::codegen_spine` — `Triple {s,p,o,f,c}` carrier + `TripletProjection` trait + `roundtrip_eq` lossless gate. **Round-trip equality is the build-time test**; a projection that drops triples fails CI, not review.
+
+**The 27+ predicate vocabulary the projection consumes** (the AR-shape meta-language, by category) — structural: `rdf:type`, `has_attribute`, `field_type`, `declares_association`, `association_kind`, `class_name`, `inherits_from`, `includes_module`; validation: `validates_constraint`, `validation_kind`, `validation_param`, `normalizes_attribute`; class-level facts: `acts_as`, `has_callback`, `has_scope`, `has_default_scope`, `has_dsl_call`, `column_override`, `defines_method`, `aliases_method`, `aliases_attribute`, `delegates_to`, `extends_module`, `prepends_module`, `uses_refinement`, `mounts_uploader`, `has_paper_trail`, `has_closure_tree`, `counter_cultures`, `auto_strips`, `registers_journal_formatter`, `registers_journal_formatted_fields`. The Odoo extractor (`odoo-blueprint-extractor::spo_enrich`) emits a compatible Triple stream with Odoo-specific extensions: `selection_value` (E-ODOO-SPO-SELECTION-VALUE), `inherits_from` (the Odoo `_inherit` chain — predicate name is SHARED with Rails STI), `virtually_overrides` (E-ODOO-VIRTUALLY-OVERRIDES-COMPUTED, derived not harvested), Odoo-flavor `validation_kind` from `@api.constrains`.
+
+**The convergence (third curator confirms, doesn't refute):** AR-shape IS the canonical predicate vocabulary on the shared `Triple` carrier — NOT a new `ar_shape::Class` struct. Each ERP frontend (ruff-Rails for openproject, `spo_enrich.py`+structural side-table for Odoo, future SAP/Tesseract via `ruff_cpp_spo`) emits Triples with the SAME structural predicates and backend-specific extensions. One typed projection target (`op_surreal_ast::Schema`) → one SurrealQL DDL emission. This is exactly what `E-OGAR-IS-FOUNDRY` calls "AR-shaped DO/THINK objects + the shared … AST mean any low-code or Jinja template runs over OGAR classes without bespoke per-app wiring" — operating proof in two sibling repos.
+
+**Construction-error correction (carried).** The framing my earlier session committed to — "build `od-ontology` with `RelationMap::from_corpus`/`InheritanceMap::from_corpus`/`RecomputeDag::from_triples` as a parallel object model" — IS drift, owned and superseded by `E-ODOO-CORE-FIRST-STRUCTURAL` already on the board. The third curator's existence makes the corrected path concrete: the Odoo extraction produces Triples (correct), the typed Core (`OdooEntity` + `structural::INHERITS` + `FIELD_SELECTIONS`) is authoritative for curated models (correct), and the **missing link** is exactly the projection arms in `op_surreal_ast::from_triples` that recognize the Odoo-specific predicates so the SAME `Schema → DDL` chain emits Odoo DDL the way it already emits Rails DDL.
+
+**WoA-rs as the first downstream consumer (operator-named, 2026-06-19).** WoA-rs already has the AR-shape structurally — `src/erp/engine/audit_chain.rs::chain_hash` is byte-equivalent to Odoo `_post.md`'s GoBD I9 hash chain spec, `WoStatusAction` is a `StateMachine`, `number_sequence` is a `NumberRange`, `Vorgang::doc_type` is the `move_type` discriminator with 7 values mirroring `account.move.move_type`. The retrofit lands as: Odoo extraction `Triple` stream → typed `Schema` (via the Odoo-aware `from_triples` arms, NEW), then WoA-rs reads the `Schema` to either (a) generate Rust DTOs alongside its hand-written `sea-orm` `Entity` types or (b) cross-validate that its existing models match the curated Odoo shape. **The Cargo.toml comment in WoA-rs about `lance-graph-ontology` being "currently empty"** is no longer accurate — once the Odoo projection arms land, it becomes the natural dep.
+
+**Next moves (sequenced, council-gated before code per workspace rules):**
+1. Append Odoo predicate arms to `op_surreal_ast::from_triples` (or a sibling crate inside `lance-graph-ontology` that mirrors the shape until the AdaWorldAPI surrealdb fork lands DDL-friendly setters per the `op-surreal-ast` module doc's C16b note). New arms: `selection_value` → `Kind::Literal(IN [...])` (or `ASSERT` clause), `virtually_overrides` → `annotation`, Odoo `validates_constraint`/`@api.constrains` → `ASSERT $value !=NONE` (same shape as Rails). Round-trip tested via `roundtrip_eq` per `TripletProjection`.
+2. Wire WoA-rs's existing typed Rust models (`src/models/work_order.rs`, `src/erp/engine/*`) to consume the projected `Schema` for cross-validation: the curated Odoo `account.move` `Schema` must agree with WoA's `Vorgang`/`workorder` shape at the field-name level (modulo language: `state ↔ status`, `move_type ↔ doc_type`, the camelCase wire vs `:firma` BSON pivot in `mongo-schema-warden`'s scope). Drift signals divergent Domain choices, not bugs.
+3. Document this as a polyglot extractor pattern in `.claude/knowledge/core-first-transcode-doctrine.md` § "Cross-frontend convergence": three frontends (Rails ruby, Odoo python, C++/Tesseract via ruff_cpp_spo), one carrier (`codegen_spine::Triple`), one typed AST (`op_surreal_ast::Schema`), N DDL emissions (SurrealQL today; SQL/MongoDB/etc. as future projections).
+
+**Honest scope.** This is the FINDING about the projection mechanism, NOT a claim that Odoo→WoA-rs is wired today. The Odoo predicates aren't in `from_triples` yet; WoA-rs's `lance-graph-ontology` dep is still commented out. What this entry locks is that the design path is no longer "invent" but "extend" — and the extension is small enough (per-predicate arms, like the Rails ones above them) to be one PR per predicate family. Cross-refs: `E-OGAR-IS-FOUNDRY` (the doctrine this proves); `E-AR-DO-WIRING` (the consumer landing this expands); `E-ODOO-CORE-FIRST-STRUCTURAL` (the corrected framing this implements); `E-ODOO-SPO-SELECTION-VALUE`, `E-ODOO-VIRTUALLY-OVERRIDES-COMPUTED` (the Odoo-specific predicates the new arms project); `core-first-transcode-doctrine.md` (per-curator existence proof); openproject-nexgen-rs `crates/op-surreal-ast/{lib,from_triples}.rs`; this workspace `crates/lance-graph-contract/src/codegen_spine.rs`.
+
+---
+
 ## 2026-06-18 — E-OGAR-IS-FOUNDRY — being Palantir Foundry / Gotham reduces to "write the OGAR class schema + inheritance"; everything else (traversal, query, pipelines, actions, low-code apps) is generic machinery over it via the shared AST
 
 **Status:** FINDING (capstone; operator-stated). The platform-level reading of the whole arc: Foundry/Gotham is not a platform to rebuild — it is an **OGAR class-schema-inheritance exercise**, because every other Foundry/Gotham layer is already generic machinery the workspace ships, parameterized only by `classid`.

@@ -238,6 +238,35 @@ impl NiblePath {
         })
     }
 
+    /// The depth of the **longest common prefix** with `other` — the radix-trie
+    /// nearest-neighbor measure. Larger ⇒ the two paths share more cascade tiers
+    /// ⇒ they sit in the same deeper CLAM cluster ⇒ they are nearer.
+    ///
+    /// This is the operational form of `panCAKES ≡ radix trie ≡ HHTL`
+    /// (`E-PANCAKES-IS-RADIX-IS-HHTL`): CAKES nearest-neighbor over the cluster
+    /// tree is *longest-common-prefix ranking* over the HHTL nibble paths — no
+    /// separate tree to build, the keys ARE the tree. Pure prefix arithmetic on
+    /// the key; never touches the value slab.
+    #[must_use]
+    pub const fn common_prefix_depth(self, other: Self) -> u8 {
+        let max = if self.depth < other.depth {
+            self.depth
+        } else {
+            other.depth
+        };
+        let mut d = 0u8;
+        // Walk depth-by-depth while the aligned prefixes agree. `prefix(d)` is
+        // `Some` for every d ≤ depth, so the unwraps below cannot fail.
+        while d < max {
+            let next = d + 1;
+            match (self.prefix(next), other.prefix(next)) {
+                (Some(a), Some(b)) if a.path == b.path && a.depth == b.depth => d = next,
+                _ => break,
+            }
+        }
+        d
+    }
+
     /// Lower a [`NodeGuid`](crate::canonical_node::NodeGuid) prefix to a 16-nibble
     /// `NiblePath`, the routing-path counterpart of the GUID's
     /// `classid · HEEL · HIP · TWIG` cascade (identity-architecture v1 §3).
@@ -454,6 +483,24 @@ mod tests {
             None,
             "bad basin must not alias to basin 0"
         );
+    }
+
+    #[test]
+    fn common_prefix_depth_is_the_radix_nn_measure() {
+        let a = NiblePath::root(1).child(2).child(3);
+        let b = NiblePath::root(1).child(2).child(4);
+        let c = NiblePath::root(1).child(2);
+        let d = NiblePath::root(9);
+        assert_eq!(a.common_prefix_depth(a), 3, "self ⇒ full depth");
+        assert_eq!(a.common_prefix_depth(b), 2, "1·2 shared, leaf differs");
+        assert_eq!(a.common_prefix_depth(c), 2, "ancestor ⇒ min depth");
+        assert_eq!(a.common_prefix_depth(d), 0, "different basin ⇒ 0");
+        assert_eq!(
+            a.common_prefix_depth(b),
+            b.common_prefix_depth(a),
+            "symmetric"
+        );
+        assert_eq!(NiblePath::EMPTY.common_prefix_depth(a), 0);
     }
 
     #[test]

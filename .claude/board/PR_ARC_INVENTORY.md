@@ -35,6 +35,19 @@
 
 ---
 
+## #542 the q2-substrate grounding arc — E-OGAR-IS-FOUNDRY capstone + 5+3 council + the key→row baton
+
+**Status:** MERGED 2026-06-18 (merge commit `faca377f`), branch `claude/q2-substrate-grounding`. The platform-level reading + the council that hardened it, + the one buildable prerequisite. Additive to `lance-graph-contract` only.
+
+- **Added** — `MailboxSoaView::row_for_local_key(local_key) -> Option<usize>` (default `None`, deferred-binding; the key→row baton a `Backend::MailboxSoa` router needs). +1 test, clippy clean. Epiphanies: `E-OGAR-IS-FOUNDRY` (capstone), `E-CYPHER-IS-THE-KANBAN-AST`, `E-GUID-IS-THE-GRAPH`. Plan: `cypher-kanban-ast-unification-v1`.
+- **Locked** — **Foundry/Gotham = "write the OGAR class schema + inheritance"; everything else is generic machinery over it:** ontology=`classid→ClassView`+inheritance, AR behavior=DO/THINK (`ActionDef` vs `MethodSig`), pipelines=`compute_dag`, apps=Jinja-over-classes (`class_id→OGIT ontology` seam), query=Cypher⇄SurrealQL one IR. The substrate IS the graph (GUID-key=node, `EdgeBlock`-slot=edge, traversal=prefix-route+slot-deref, zero-value-decode). A kanban board IS a graph → Cypher is its AST (one IR, four *relationships*: surface/egress/planner-layer/mutated).
+- **Deferred** — `Backend::MailboxSoa` router variant (Inc 0) gated on three pinned boundaries: edge-rep `classid`-resolved (`EdgeCodecFlavor`) not query-guessed; domain-board legality via `classid→ClassView` (NOT `KanbanColumn`); board mutation through the DO-arm commit gate (RBAC→state-guard→MUL), not raw `MATCH…SET`. Cypher→SurrealQL lowering = dependency-on `lite-unified` OQ-LU-2 (not a duplicate). q2 consumer (Inc 3).
+- **Corrections (from the 5+3 council)** — `from_guid_prefix` is on `NiblePath` (`hhtl.rs:262`), not `NodeGuid`. The "odoo existence proof" is CONJECTURE not FINDING (tagged `const ActionDef` + `classify_odoo`, no executor arm, no lowering); `ogar-adapter-surrealql` is NOT a crate (nearest = `surreal_container::SurrealStore`, `BLOCKED(C)` stub). "zero-value-decode" (F2) is design-intent until a value-access counter exists.
+- **Docs** — `E-OGAR-IS-FOUNDRY` + 2 prior epiphanies + council corrections; `.claude/plans/cypher-kanban-ast-unification-v1.md` (plan + 5+3 verdict + body-on-one-contract fixes from PR review).
+- **Confidence (2026-06-18):** working — capstone doctrine + the deferred-binding accessor merged; the router variant is the next increment, boundary-gated.
+
+---
+
 ## #540 lance-graph: `lite-unified` additive default-OFF coexistence feature gate
 
 **Status:** MERGED 2026-06-18 (merge commit `ef7e97ef`), branch `claude/lite-unified-gate`. **+35/-5 across 2 files.** The "wire it but don't deprecate datafusion — process, not switch" request made concrete and non-destructive.
