@@ -71,21 +71,20 @@ Verdicts: brutally-honest-tester = **HOLD**, baton-handoff-auditor =
 **CATCH-LATENT**. The image links cleanly today; these harden it into a
 *reproducible* foundation. None blocks the current green build.
 
-- **☐ R1 (latent, top item) — the AdaWorldAPI `ndarray` fork is linked TWICE.**
-  lance-graph uses `path = ../../../ndarray` (local HEAD `786110a`);
-  surrealdb-core uses `git ...ndarray.git rev=0129b5c8` (older), non-optional.
-  symbiont's `[patch]` covers surrealdb-* but NOT `ndarray.git`, so two
-  distinct `0.17.2` crate identities compile + link. (A third `ndarray 0.16.1`
-  from crates.io via `lance-index` is the *real* numerical ndarray — a
-  different crate sharing the name; harmless.) Latent because no ndarray type
-  crosses the surrealdb↔lance-graph seam today; drops the baton if a future
-  workload passes a `Fingerprint`/array across it (mismatched `TypeId`).
-  **Fix (do carefully):** align the source — either checkout local ndarray to
-  `0129b5c8`, or bump surrealdb's pin to local HEAD, then add
-  `[patch."https://github.com/AdaWorldAPI/ndarray.git"] ndarray = { path = "/home/user/ndarray" }`.
-  Verify API compat first; this is a 19-min rebuild that can break surrealdb-core
-  if the fork's API drifted between the revs. NOT attempted now (the green
-  build is preserved).
+- **☑ R1 — ndarray duplication: ACCEPTED as cosmetic (decision 2026-06-19).**
+  The graph links two ndarray-fork instances (surrealdb-core's git rev +
+  lance-graph's path) plus the real crates.io `ndarray 0.16.1` lance-index
+  legitimately needs. The 5+3 council confirmed **no ndarray type crosses the
+  surrealdb↔lance-graph seam**, so the duplication never manifests at a call
+  boundary — pure binary-size cosmetics, not a correctness issue. The proven
+  green build (912 packages, exit 0) had exactly this shape.
+  **Two fixes were tried and rejected:** (a) relabeling the shared fork's
+  version `0.17.2→0.16.1` — dirty, lies about the fork's identity to every
+  consumer; (b) vendoring lance-index + bumping its one ndarray req to `0.17`
+  — honest but adds 126 vendored files + an unproven compile for a non-problem.
+  **Resolution: leave the duplicate.** Revisit only if a real workload needs to
+  pass an ndarray type across the surrealdb↔lance-graph boundary (then the
+  clean route is the AdaWorldAPI lance-index fork bumped to ndarray 0.17).
 - **☐ R2 — commit `symbiont/Cargo.lock`.** It exists on disk (the build
   generated it) but isn't tracked. Without it, `branch`-pinned git deps
   (OGAR's surrealdb `main`, ndarray) can resolve to different commits on

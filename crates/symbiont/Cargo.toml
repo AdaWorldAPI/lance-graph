@@ -60,20 +60,12 @@ surrealdb-ast = { path = "../../../surrealdb/surrealdb/ast" }
 surrealdb-parser = { path = "../../../surrealdb/surrealdb/parser" }
 surrealdb-core = { path = "../../../surrealdb/surrealdb/core" }
 
-# ── ONE ndarray = our fork, honestly (council R1 resolved 2026-06-19) ──
-# lance-index pins `ndarray = "0.16.1"`. Rather than lie about the fork's
-# version (rejected — dirty), we VENDOR lance-index (compiled from source
-# anyway) and bump THAT ONE dependency line to accept 0.17 — legitimate
-# because our fork retains the 0.16 API (ArrayBase / Array2 /
-# into_shape_with_order) + the `matrixmultiply-threading` feature lance-index
-# needs. Then both ndarray sources — lance-index's (now-0.17) crates.io dep
-# AND surrealdb-core's git rev — redirect to the single local fork path.
-# Result: exactly ONE ndarray in the graph (our fork, honest 0.17.2).
-# The only edit to vendored lance-index is that single version line; diff it
-# against the registry source to verify.
-[patch.crates-io]
-ndarray = { path = "../../../ndarray" }
-lance-index = { path = "vendor/lance-index" }
-
-[patch."https://github.com/AdaWorldAPI/ndarray.git"]
-ndarray = { path = "../../../ndarray" }
+# ── ndarray: the duplicate is accepted (cosmetic) ──
+# This graph links two ndarray-fork instances (surrealdb-core's git rev +
+# lance-graph's path) plus the REAL crates.io ndarray 0.16.1 that lance-index
+# legitimately needs. The 5+3 council confirmed NO ndarray type crosses the
+# surrealdb↔lance-graph seam, so the duplication never manifests at a call
+# boundary — it's binary-size cosmetics, not a correctness issue. The proven
+# green build (912 packages, exit 0) had exactly this shape. We deliberately
+# do NOT vendor lance-index or relabel the fork's version to force one copy —
+# both add risk/clutter for a non-problem.
