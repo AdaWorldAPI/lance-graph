@@ -205,6 +205,55 @@ pub fn edge_slots_coarse<V: MailboxSoaView>(
     })
 }
 
+/// The **means** by which an edge/node distance is measured over the GUID-keyed
+/// substrate — "edge distance over different means, while the GUID is the node"
+/// (`E-GUID-IS-THE-GRAPH`). One node IS its GUID; the separation between two
+/// nodes is computed by a *selectable* metric, all anchored on the key. The
+/// key-resident means are **zero value decode**; the value means (named, not yet
+/// wired) read the 480 B value slab and are a separate cost tier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DistanceMeans {
+    /// **CLAM/HHTL radix tree-hop distance** — `(depth_a − cpd) + (depth_b − cpd)`
+    /// where `cpd = common_prefix_depth(a, b)`: the steps up to the shared
+    /// ancestor and back down. A genuine metric (`d(x,x)=0`, symmetric, tree
+    /// triangle inequality). Key-only, zero value decode
+    /// (`E-PANCAKES-IS-RADIX-IS-HHTL`).
+    PrefixDepth,
+    // ── value-decode means (the costed tier — named here as the dispatch
+    //    surface; wired on their own branch with their own cost gate, never
+    //    mixed into the zero-decode facets; `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`,
+    //    `E-HELIX-IS-EXACT-LOCATION`): ──
+    //    Hamming(plane) — fingerprint popcount over a content/topic/angle plane;
+    //    HelixAngular   — Signed360 exact-orthogonal-location distance;
+    //    PqAdc          — CAM-PQ asymmetric distance (IVF probe + tables).
+}
+
+/// Distance between two nodes (rows, each a GUID) under the chosen `means`.
+///
+/// `PrefixDepth`: the radix tree-hop distance `(depth_a − cpd) + (depth_b − cpd)`
+/// — `0` for the same leaf, growing as the two GUIDs' `NiblePath`s diverge nearer
+/// the root (different basin = farthest). `None` if either row has no
+/// materialized HHTL path (deferred-binding fallback). Key-only, **zero value
+/// decode**.
+///
+/// The value-decode means (`DistanceMeans` doc) return `None` here until wired —
+/// they land on the costed branch, never silently in the zero-decode path.
+pub fn node_distance<V: MailboxSoaView>(
+    view: &V,
+    a: usize,
+    b: usize,
+    means: DistanceMeans,
+) -> Option<u32> {
+    match means {
+        DistanceMeans::PrefixDepth => {
+            let pa = view.hhtl_path_at(a)?;
+            let pb = view.hhtl_path_at(b)?;
+            let cpd = pa.common_prefix_depth(pb);
+            Some(u32::from((pa.depth() - cpd) + (pb.depth() - cpd)))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -407,6 +456,33 @@ mod tests {
         let all = cakes_nearest(&soa, NiblePath::root(1).child(2).child(3), 99);
         let depths: Vec<u8> = all.iter().map(|(_, d)| *d).collect();
         assert_eq!(depths, vec![3, 2, 2, 1, 0]);
+    }
+
+    #[test]
+    fn node_distance_prefix_depth_is_the_tree_hop_metric() {
+        // rows: 0=1·2·3 (d3) 1=1·2·4 (d3) 2=1·2 (d2) 3=1·5 (d2) 4=9 (d1).
+        let soa = sample();
+        let d = |a, b| node_distance(&soa, a, b, DistanceMeans::PrefixDepth);
+        // metric: d(x,x) = 0.
+        assert_eq!(d(0, 0), Some(0));
+        // 1·2·3 vs 1·2·4: cpd 2 ⇒ (3−2)+(3−2) = 2 (siblings).
+        assert_eq!(d(0, 1), Some(2));
+        // 1·2·3 vs 1·2 (its ancestor): cpd 2 ⇒ (3−2)+(2−2) = 1.
+        assert_eq!(d(0, 2), Some(1));
+        // 1·2·3 vs 1·5: cpd 1 ⇒ (3−1)+(2−1) = 3.
+        assert_eq!(d(0, 3), Some(3));
+        // 1·2·3 vs 9 (different basin): cpd 0 ⇒ (3−0)+(1−0) = 4 (farthest).
+        assert_eq!(d(0, 4), Some(4));
+        // symmetric + monotone.
+        assert_eq!(d(0, 4), d(4, 0));
+        assert!(d(0, 1).unwrap() < d(0, 4).unwrap());
+    }
+
+    #[test]
+    fn node_distance_none_without_materialized_path() {
+        let mut soa = sample();
+        soa.paths[1] = None;
+        assert_eq!(node_distance(&soa, 0, 1, DistanceMeans::PrefixDepth), None);
     }
 
     #[test]
