@@ -124,3 +124,7 @@ path = "examples/outage_over_hhtl_hops.rs"
 [[example]]
 name = "family_basin_weyl_multihop"
 path = "examples/family_basin_weyl_multihop.rs"
+
+[[example]]
+name = "chaoda_surge_epicenter"
+path = "examples/chaoda_surge_epicenter.rs"

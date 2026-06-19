@@ -1,3 +1,32 @@
+## 2026-06-19 — E-CHAODA-IS-NOT-THE-SEAM-EPICENTER — REFUTES this session's own "WHERE = CHAODA anomaly" conjecture: on the real ES grid with a Fiedler-sign fingerprint, the brittle 2-line seam is NOT a CHAODA/LFD anomaly (it is LESS anomalous than average); the geometric outlier and the spectral-cut bottleneck do not coincide
+
+**Status:** FINDING (measured NEGATIVE; probe `perturbation-sim/examples/chaoda_surge_epicenter.rs`, gated `--features ndarray-simd`, real `ndarray::hpc::clam::{ClamTree, anomaly_scores}`). **Refutes** the conjecture I posted earlier this session ("a surge's epicenter CAN be modeled as a CHAODA anomaly — the WHERE axis"). The user asked to model CLAM/CHAODA with the real ndarray engine; I did, and it killed the conjecture — measured, not asserted.
+
+**What the probe measured (ES largest component, 261 buses):** each node → a 64-bit Fiedler-sign fingerprint (the spectral embedding) → real ndarray `ClamTree::build` (Hamming) → `anomaly_scores` (leaf-cluster LFD, normalized). The HHTL seam = the inter-HEEL-basin cut (4 nodes — exactly the 2-line bottleneck).
+- mean anomaly, **SEAM** nodes: **0.302** — mean anomaly, ALL nodes: **0.339** → ratio **0.89** (seam is *less* anomalous);
+- seam share of the top-quartile anomalies: 1/4, **lift 1.00** (pure chance).
+**VERDICT: NOT SUPPORTED** (gate was ratio ≥ 1.30 AND lift ≥ 1.30).
+
+**Why (clear in hindsight):** Fiedler-sign fingerprints cluster nodes *by basin*, so boundary/cut nodes sit in a **dense, low-LFD** region → low anomaly. CHAODA flags **high-LFD** geometric complexity, which lives elsewhere (not at the spectral cut). The brittle cut is not a geometric outlier on this embedding. So **CHAODA ≠ epicenter detector** as I'd claimed; the three-axis "surge" decomposition's WHERE leg is **not** simply a CHAODA anomaly — that synthesis claim was over-reach, now corrected.
+
+**Honest scope / non-tuning:** this is ONE encoding (Fiedler-sign) on ONE grid; I did NOT keep swapping encodings until it went green (that's the confirmation-bias trap in reverse). The defensible statement: *on the natural spectral-embedding encoding, CHAODA's LFD anomaly does not identify the seam.* A different fingerprint (e.g. raw bus features, or distance-to-cut) might behave differently — but the clean "epicenter = CHAODA anomaly" claim is **withdrawn** pending such a probe. CHAODA remains a real manifold-anomaly detector; it just doesn't detect *this* (the spectral bottleneck). Cross-refs: `E-CLAM-IS-THE-MANIFOLD-ENGINE` (CHAODA = LFD repulsion — still true, just not seam-aligned), `E-FAMILY-BASIN-WEYL-HOP-LOCAL-AT-CRISP-TIER` (the HOW-it-spreads axis, which DID hold), `ndarray::hpc::clam`.
+
+---
+
+## 2026-06-19 — E-FAMILY-BASIN-WEYL-IT-REPLICATION — the crisp-tier hop-locality reinstatement replicates on the IT grid (independent C-solid grid), strengthening `E-FAMILY-BASIN-WEYL-HOP-LOCAL-AT-CRISP-TIER` from one-grid to cross-grid
+
+**Status:** FINDING (confirmation; same probe `family_basin_weyl_multihop`, country=IT). Run on the IT largest component (192 buses / 259 lines) — the other C-solid grid (probe C `(λ₃−λ₂)/λ₂ = 2.38`):
+
+| tier | basins | within | seam | ratio | verdict |
+|---|---|---|---|---|---|
+| HEEL | 2 | 0.730 | 0.561 | 1.30 | **HOP-LOCAL** |
+| HIP | 4 | 0.791 | 0.587 | 1.35 | **HOP-LOCAL** |
+| LEAF | 8 | 0.592 | 0.512 | 1.16 | leaks |
+
+IT **replicates and slightly extends** the ES result: the crisp band is hop-local at HEEL **and HIP** (ES was HEEL only), LEAF leaks — same shape (crisp tiers localize, finest tier leaks), on an independent grid. So the family-basin Weyl-multi-hop hop-locality is **not an ES artifact** — it holds where the bisection is stable, across grids. The tier at which leakage sets in is grid-specific (the marginal-DK / out-of-family-tie-growth boundary), as expected. Cross-ref: `E-FAMILY-BASIN-WEYL-HOP-LOCAL-AT-CRISP-TIER` (the ES finding this confirms).
+
+---
+
 ## 2026-06-19 — E-FAMILY-BASIN-WEYL-HOP-LOCAL-AT-CRISP-TIER — REINSTATEMENT (tier-scoped) of `E-OUTAGE-CASCADE-IS-NON-LOCAL`: WITH the family-basin partition, a within-basin perturbation is block-localized (95.7 % containment, within/seam ratio 1.54) at the **crisp top split**, so multi-hop Weyl IS hop-local there; finer tiers leak. The earlier non-locality was the *un-partitioned* global solve. (Davis-Kahan is the *mechanism* — see body — NOT the numeric evidence; the gate is the containment ratio.)
 
 **Status:** FINDING (measured, real ES PyPSA data; probe `perturbation-sim/examples/family_basin_weyl_multihop.rs`). **Tier-scoped reinstatement** of the reach claim that `E-OUTAGE-CASCADE-IS-NON-LOCAL` had corrected. Operator hypothesis: "with family basin it works now with weyl multihop." Confirmed — at the crisp tier only.
