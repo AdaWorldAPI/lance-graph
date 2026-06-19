@@ -13,6 +13,7 @@ pub mod blasgraph;
 pub mod fingerprint;
 pub mod graph_router;
 pub mod hydrate;
+pub mod mailbox_scan;
 pub mod metadata;
 pub mod neighborhood;
 pub mod neuron;

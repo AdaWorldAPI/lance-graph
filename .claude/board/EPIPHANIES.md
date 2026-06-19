@@ -1,3 +1,184 @@
+## 2026-06-18 — E-COARSE-QUANTIZER-IS-SCALE-FREE-ROUTER — the 1024 HHTL coarse fingerprints route a query in-RAM (IVF probe) AND cross-server (shard route) with one lookup; the GUID-key substrate shards on the prefix, value-slab compresses in Lance, durability via SurrealDB-on-TiKV/Raft
+
+**Status:** FINDING (deployment-tier; operator capacity+distribution synthesis). Grounded in `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC` (IVF coarse ≡ HHTL prefix), `E-GUID-IS-THE-GRAPH` (key = address), canon node = 512 B. Theorem-checker on the arithmetic.
+
+**Corrected capacity (canon node = 512 B = 4096 bit):**
+- mailbox = 16384 × 512 B = **8 MiB** (operator's "2 MB" is 4× low at 512 B; it equals 2 MiB only at a **128 B reduced node** — pin which before sizing).
+- 1024 prefixes × 8 MiB = **8 GiB** per 1024-prefix shard (matches the session's earlier 8 GB figure); + 1024 coarse fingerprints = **512 KiB** (negligible).
+- ⇒ a 2 TB server holds ~256 prefix-shards at 8 GiB (or ~1M mailboxes), the coarse table fits trivially in RAM on every node.
+
+**The scale-free insight:** the **same 1024-fingerprint coarse quantizer** routes at two scales with one lookup —
+- **in-RAM:** IVF probe → which CLAM cluster (the local prune, `cakes_nearest`);
+- **cross-server:** the prefix → which region/server holds that shard (the distributed route).
+The HHTL prefix is simultaneously the **cluster key, the IVF cell, and the shard key**. So "delegate lookup-table awareness to other servers" = **replicate the 512 KiB coarse table** (it's tiny, gossip-cheap) and route by prefix. No new structure — the IVF coarse stage IS the shard router.
+
+**The deployment split:** GUID key + coarse routing stay **uncompressed/transparent** (the GUID-is-key invariant: addressability never costs a value decode); the **480 B value slab compresses in Lance** (columnar); **durability/consensus via Raft per region**.
+
+**Fences:** (1) **Fork policy P0** — TiKV has no AdaWorldAPI fork; the blessed path is **SurrealDB-on-TiKV** (SurrealDB ships a TiKV storage engine; ties to `lite-unified`/`ExecTarget::SurrealQl`), NOT a raw new TiKV dep → STOP-and-ask before introducing. (2) "In theory" — capacity arithmetic only, no throughput bench; the Lance-vs-surreal-kv value split needs measurement. Cross-refs: `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`, `E-WHT-META-AWARENESS-AND-KRONECKER-LOOKUP`, `E-GUID-IS-THE-GRAPH`, `lite-unified-surrealql-lance-v1`, canon node 512 B.
+
+---
+
+## 2026-06-18 — E-WHT-META-AWARENESS-AND-KRONECKER-LOOKUP — per-tenant WHT spectrum = cheap global meta-awareness (a few coefficients); and the Walsh transform tensor-factorizes along HHTL (H_16^⊗n) → "exponential lookup over prefixed tables" for separable factors
+
+**Status:** TWO claims, graded separately (operator synthesis: "operationalize WHT picking any tenant over the standing wave sorted by any factor → meta-awareness; …use it for HHTL 16ⁿ exponential lookup over prefixed tables"). Theorem-checker applied. Grounded in `perturbation-sim::sketch::{fwht, walsh_pyramid_energy}`, `ndarray::simd::wht_f32`, bgz-tensor attention-as-table-lookup + HHTL cascade, OGAR "Bipolar-phase pyramid = Walsh-Hadamard". Capstone of the geometry-of-a-node arc.
+
+**Claim 1 — per-tenant WHT spectrum = global meta-awareness. [G as descriptor; framing as "awareness"].** `walsh_pyramid_energy` already gives Walsh energy per dyadic level + coarse fraction. So one FWHT of a tenant field → a **few-coefficient summary of all 16K rows**: coarse-dominant = smooth/clustered/predictable (low surprise), fine-spread = scattered (high surprise). For all tenants (hhtl/helix/energy/content/topic/angle) it's a small fixed "meta-fingerprint" panel, transform-once, reusable, **cheap** — and it is a **free-energy proxy** (spectral concentration = field predictability = the workspace's self-monitoring/awareness signal, per the active-inference loop). Sound and valuable.
+
+**Claim 2 — WHT for HHTL 16ⁿ "exponential lookup over prefixed tables". [G for the mechanism; H for "any factor"].**
+- **[G]** The Walsh-Hadamard matrix **tensor-factorizes along the nibble hierarchy**: `H_{16ⁿ} = H₁₆ ⊗ H₁₆ ⊗ … (n)` (Kronecker; the FWHT butterfly, radix-16). The HHTL nibble tree IS that tensor structure (`E-PANCAKES-IS-RADIX-IS-HHTL`).
+- **[G]** Therefore a Walsh-domain operation over a 16ᵏ prefix-subtree decomposes into **k stages of 16-point table ops** — the per-level 16-entry tables are the "prefixed tables," composed by the tensor product → **O(k·16) vs O(16ᵏ)** for a **separable** factor (the bgz-tensor "attention as table lookup" + HHTL cascade, seen as the Kronecker factorization). "Top gaussian preserved level-to-level" (canon Parseval) is the condition making the common factor separable.
+- **[H] Caveat (do NOT overclaim):** the exponential saving holds only for factors **low-sequency / separable** in the Walsh basis; an arbitrary high-sequency factor still has to touch the leaves. And a full FWHT of the whole field is O(N log N), not sub-linear — the exponential win is the **per-level table composition over a prefix subtree**, not the full transform.
+
+**The capstone — five threads are ONE structure (Walsh-Kronecker factorization along the HHTL nibble hierarchy):**
+
+| Thread | facet of the Kronecker/HHTL structure |
+|---|---|
+| `E-PANCAKES` (radix≡HHTL≡panCAKES) | the tensor **index** (n nibble levels) |
+| `E-ORTHOGONAL-BUNDLE` (90°→WHT) | the tensor **transform** (H₁₆^⊗ⁿ) |
+| `E-TENANT-ANGLE` CAM-PQ ADC | the tensor **tables** (prefixed 16-point distance tables) |
+| Claim 1 (per-tenant spectrum) | the tensor **summary** (pyramid energy = meta-awareness) |
+| Claim 2 (16ⁿ prefix lookup) | the tensor **composition** (k stages, not 16ᵏ) |
+
+Cross-refs: `E-ORTHOGONAL-BUNDLE-IS-WHT-READOUT`, `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`, `E-PANCAKES-IS-RADIX-IS-HHTL`, `E-CLAM-IS-THE-MANIFOLD-ENGINE`, `ndarray::simd::wht_f32`, `perturbation-sim::sketch`, bgz-tensor attention-as-lookup.
+
+---
+
+## 2026-06-18 — E-ORTHOGONAL-BUNDLE-IS-WHT-READOUT — bundling a 90° (orthogonal) sweep is Parseval-recoverable in any basis; it is specifically a Walsh-Hadamard projection in the bipolar ±1 basis (this substrate's case) — the third ranking path: transform-once, read-many
+
+**Status:** FINDING (graded; operator intuition "bundle a 90° sweep → a Hadamard projection or something" — made precise). Grounded in `ndarray::simd::wht_f32`, `perturbation-sim::sketch::{fwht, walsh_pyramid_energy}`, `perturbation-sim::witness.rs` (Parseval-over-FWHT, "particle == wave"), OGAR canon "Bipolar-phase pyramid — Walsh-Hadamard on VSA". Theorem-checker applied; the "also Hadamard" is conditional, not universal.
+
+**Graded statement:**
+- **[G]** Bundle (`vsa_bundle` = Σ add) of mutually **orthogonal** (90°) vectors → each component recoverable by orthogonal projection; Parseval `‖Σ‖²=Σ‖parts‖²`. True in **any** orthonormal basis — orthogonal decomposition, not yet Hadamard.
+- **[G]** It is specifically a **Walsh-Hadamard** projection **iff** the basis is the ±1 WH basis (H symmetric, `HᵀH=N·I`, self-inverse up to N): bundle = inverse WHT of coefficients, readout = forward WHT.
+- **[G, this substrate]** Fingerprints are **bipolar ±1**, so the basis IS (block-)Hadamard → a 90° bundle here literally IS a WHT projection. Canon already formalizes it (bipolar-phase pyramid = WHT; sign=`vsa_bind`/XOR, magnitude=`vsa_bundle`/add; `witness.rs` particle==wave).
+
+**Caveats (the "or something"):**
+- **Two Hadamards — don't conflate:** the **transform** (WHT, orthogonal basis change — what's meant) vs the **product** (element-wise multiply = `vsa_bind`). The WHT structure comes from the orthogonal ±1 **basis**, not the bundling op (plain add).
+- **[H, conditional]** "Walsh = eigenbasis" holds **only on hypercube-structured data** (`sketch.rs:20` states this). The GUID/HHTL nibble cube is approximately that, so WHT is the natural spectral basis here — but NOT the eigenbasis of an arbitrary graph. So: orthogonal ⇒ Parseval (general); Hadamard ⇒ ±1 basis only; eigenbasis ⇒ hypercube only.
+
+**The payoff — the third ranking path (completes the trio with `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`):**
+
+| Path | How | When |
+|---|---|---|
+| Hamming **sweep** | per-row popcount | naive fallback |
+| **CAM-PQ ADC** | IVF probe + distance tables (coarse = HHTL prefix) | indexed, per-candidate |
+| **WHT spectral readout** | FWHT the bundled field **once**, read each angle query by Parseval inner product (`witness.rs` particle==wave) | one field, **many** angle queries — amortized; exact *because* of 90° orthogonality |
+
+**[H] Honest bound (from `witness.rs` itself):** the WHT "wave" path wins only when one field is reused across many queries (Parseval reuse); it makes **NO measured single-query speedup claim**. So it's a real transform-once/read-many path, not a universal speedup. Cross-refs: `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`, OGAR "Bipolar-phase pyramid = Walsh-Hadamard", `ndarray::simd::wht_f32`, `perturbation-sim::{sketch::fwht, witness}`, `I-SUBSTRATE-MARKOV` (bundle = add, the algebra this rides).
+
+---
+
+## 2026-06-18 — E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC — "switch tenant + compare across the 16K from an angle" is a CAM-PQ ADC (table lookups), NOT a Hamming sweep; and its IVF coarse quantizer IS the HHTL/CLAM prefix — the prune+rank cascade is literally IVF-PQ
+
+**Status:** FINDING (operator correction "sweep or just 90° fingerprint vector cam index" → CAM index; grounded in `ndarray/src/hpc/{cam_pq,cam_index}.rs`, contract `cam::{DistanceTableProvider, CamCodecContract, IvfContract::probe}`, turbovec KNOWLEDGE "palette256 = coarse quantizer"). **Supersedes this entry's first framing** (posted 2026-06-18 as "…-SWEEP-IS-PRUNE-THEN-RANK"): the Hamming sweep is only the naive fallback — the real path is CAM-PQ ADC, and the two stages are IVF-PQ, not a prefilter+scan.
+
+**The operation = CAM-PQ ADC, all table lookups (no linear scan):**
+- angle (90°/orthogonal) fingerprint → CAM-PQ `encode` → PQ codes;
+- query → precompute the **distance table** (`DistanceTableProvider`), then **ADC** = per-subspace table lookups summed (O(1)/candidate, no decompression, no per-row popcount);
+- `IvfContract::probe(query, num_probes)` → the few coarse cells to touch; ADC only inside them → sub-linear. This IS the "attention as table lookup" / 611M-lookups path — it was never a sweep.
+
+**The unification (the load-bearing correction): the IVF coarse quantizer IS the HHTL/CLAM prefix.** CAM-PQ = IVF-PQ = coarse quantizer → residual ADC, and:
+
+| CAM-PQ stage | ≡ | shipped facet |
+|---|---|---|
+| IVF coarse cell (which centroid) | ≡ | **HHTL prefix / CLAM containment** (`cakes_nearest`, #544) — the key IS the coarse quantizer (turbovec: "palette256 = coarse quantizer") |
+| PQ residual codes (fine ADC) | ≡ | **turbovec residue** (`EdgeCodecFlavor::Pq32x4`, 32×4) / value-slab CAM-PQ tenant |
+
+So the prune→rank cascade is **literally IVF-PQ**: the HHTL prefix is the coarse-quantization step, the PQ residual is the fine ADC. Not a prefilter bolted onto a sweep — one CAM index whose coarse stage is free (key) and whose fine stage is the residual ADC (costed, but table-lookups not scan).
+
+**90°/orthogonal:** `content`/`topic`/`angle` are orthogonal axes → each gets its own PQ codebook + distance table; "switch tenant / from an angle" = switch which orthogonal distance table you ADC against, and orthogonality makes the per-axis ADCs separable. The Hamming **sweep** (`hamming_top_k`) remains only as the no-CAM-index fallback for tiny/un-indexed sets.
+
+**Cost-class boundary (unchanged):** the ADC reads the residual codes (value-side), NOT zero-value-decode; lands on its own branch with its own cost gate, never mixed into #544's free key facets. Cycle-consistency unchanged (coherent `current_cycle` snapshot). Wiring (when built): reuse the existing CAM-PQ (`ndarray::hpc::cam_pq`/`cam_index`, contract `IvfContract`) with the HHTL prefix as the IVF coarse quantizer; per-axis (content/topic/angle) distance tables; `cakes_nearest` (= IVF probe) → ADC. Cross-refs: `E-CLAM-IS-THE-MANIFOLD-ENGINE`, `E-PANCAKES-IS-RADIX-IS-HHTL`, `E-ADJACENCY-IS-KEY-AND-EDGECODEC` (Pq32x4 = the residual), `cam::IvfContract`, `ndarray::hpc::cam_pq`.
+
+---
+
+## 2026-06-18 — E-PANCAKES-IS-RADIX-IS-HHTL — panCAKES ≡ radix trie ≡ HHTL: the CLAM cluster tree is NOT a separate structure, it IS the radix trie of the HHTL prefixes already in the keys; so CLAM/CAKES = prefix arithmetic on the GUID, zero value decode
+
+**Status:** FINDING (operator-stated identity; wired this commit). The unification that makes the manifold-geometry facet (`E-CLAM-IS-THE-MANIFOLD-ENGINE`) *free*: there is no CLAM tree to build and store — the tree IS the radix trie of the `classid·HEEL·HIP·TWIG` nibble paths that already live in every GUID key.
+
+**The three are one structure seen three ways:**
+- **HHTL** = the cascade tiers in the key (`NiblePath` over `classid·HEEL·HIP·TWIG`).
+- **radix trie** = prefix tree; routing = bit-shift on the nibble path, not hash.
+- **panCAKES** = the compressed CLAM tree — and a CLAM cluster IS a radix-trie subtree (shared prefix = same cluster); the cluster structure IS the codec.
+
+**Operational consequence (the wiring):** the CLAM/CAKES operations reduce to pure prefix arithmetic on the key, **zero value decode** —
+- **CLAM containment** (which cluster / subtree) = `NiblePath::is_ancestor_of` — the radix subtree under the query prefix.
+- **CAKES nearest** (ranked similar) = `NiblePath::common_prefix_depth` (added this commit) — longest-common-prefix ranking IS the entropy-scaling NN over the cluster tree; deeper shared prefix ⇒ same deeper cluster ⇒ nearer.
+- **panCAKES compression** = the trie itself (shared prefixes are the dedup).
+
+No separate index, no scent-vector tree materialization for the *structural* neighborhood — the keys are the tree. (CAKES over *content scent vectors* in `ndarray::hpc::clam` remains the metric-space path for non-prefix similarity; this identity covers the HHTL-prefix structural neighborhood, the free tier.)
+
+**Wired:** `NiblePath::common_prefix_depth`; `MailboxSoaView::hhtl_path_at` (deferred-binding, default `None`); `graph::mailbox_scan::{clam_contained, cakes_nearest}` over the View — all key-only, F2 zero-value-decode-guarded (#544). Cross-refs: `E-CLAM-IS-THE-MANIFOLD-ENGINE`, `E-ADJACENCY-IS-KEY-AND-EDGECODEC`, `E-GUID-IS-THE-GRAPH`, `hhtl::NiblePath`, `ndarray::hpc::clam` (CAKES/panCAKES/CHAODA).
+
+---
+
+## 2026-06-18 — E-CLAM-IS-THE-MANIFOLD-ENGINE — the CLAM facet is not a containment check; it is the CAKES+CHAODA+LFD ensemble (ndarray `clam.rs`): containment + ranked-NN + anomaly + compression, one tree, one geometric measure
+
+**Status:** FINDING (operator-stated, grounded in `ndarray/src/hpc/clam.rs` — CAKES arXiv:2309.05491 Partition Alg 1 / ρ-NN Alg 4 / DFS-sieve Alg 6, panCAKES Alg 2, **CHAODA Phase 4 `anomaly_scores` from the LFD distribution**; + `lance-graph/crates/perturbation-sim/src/chaoda.rs` CHAODA-lite which names ndarray's `ClamTree` as the production path). Enriches `E-ADJACENCY-IS-KEY-AND-EDGECODEC`: the "HHTL/CLAM neighborhood" facet is a whole geometry engine, not `is_ancestor_of`.
+
+**The CLAM tree (built off the GUID/scent vectors) answers four geometric questions, all over ONE tree with LFD as the shared measure:**
+- **Containment** — `is_ancestor_of`/`prefix`: which cluster (the HHTL cascade view).
+- **CAKES (attraction)** — entropy-scaling **exact k-NN search** (ρ-NN + DFS-sieve): the ranked similar neighbors. "Pull in the similar."
+- **CHAODA (repulsion)** — per-cluster **anomaly score from the LFD distribution** (high Local Fractal Dimension = complex local geometry = outlier): how typical/anomalous a node is. "Push out the unusual."
+- **panCAKES** — compression *via the same tree* (the cluster structure IS the codec).
+
+`CAKES pulls in the similar + CHAODA pushes out the unusual = meaningful structure` (perturbation-sim's framing). LFD is the one measure both ride.
+
+**The synthesized geometry-of-a-node (the full surface off one GUID, tiered by decode cost):**
+
+| Question | Facet | Cost |
+|---|---|---|
+| which cluster? | CLAM containment (key prefix) | zero value decode |
+| nearest similar? | **CAKES** ρ-NN/DFS over the CLAM tree | tree walk (scent vectors) |
+| how anomalous? | **CHAODA** LFD anomaly score | tree walk (LFD) |
+| exact location? | helix `Signed360` (`HelixResidue` tenant) | one value decode (`E-HELIX-IS-EXACT-LOCATION`) |
+| connected to? | `EdgeBlock` typed edge (12-family/4-external or 32×4 turbovec) | edge-block read (`E-ADJACENCY…`) |
+| caused by? | `CausalEdge64` SPO | `edges_raw` read |
+
+So a single node exposes containment + ranked-NN + anomaly + exact-location + typed-edges + causal — a complete geometric *and* relational surface, each answered by the right ndarray/contract primitive at its own cost. The router/Cypher layer dispatches a query to the cheapest facet that answers it (proximity→containment, similarity→CAKES, novelty→CHAODA, position→helix). Cross-refs: `ndarray::hpc::clam` (CAKES/panCAKES/CHAODA), `perturbation-sim::chaoda`, `graph/neighborhood/clam.rs`, `E-ADJACENCY-IS-KEY-AND-EDGECODEC`, `E-HELIX-IS-EXACT-LOCATION`, `E-GUID-IS-THE-GRAPH`.
+
+---
+
+## 2026-06-18 — E-HELIX-IS-EXACT-LOCATION — adjacency (relational: near/edge) is NOT location (absolute: exact orthogonal coordinate); the helix `Signed360` gives the exact point, and "where" is a decode-cost ladder containment → place → residue
+
+**Status:** FINDING (operator correction, grounded in `canonical_node.rs` `ValueTenant::HelixResidue` = `Signed360`, signed full-sphere golden-spiral Place/Residue, 48-bit/6 B, in the `Compressed` value schema). Refines `E-ADJACENCY-IS-KEY-AND-EDGECODEC`: that epiphany answered *"who is related"* (adjacency). This answers *"where exactly is it"* (location) — a different question, and the helix is a **coordinate, not an edge**.
+
+**The split the operator drew:**
+- **Adjacency = relational.** "Near" (HHTL/CLAM containment) or "connected" (`EdgeBlock` typed edge). Tells you the *neighborhood / the link*.
+- **Location = absolute.** The helix `Signed360` gives the **exact orthogonal point on the signed full-sphere** (golden-spiral, equal-area ⇒ the axes are orthogonal ⇒ the coordinate decodes exactly, lossless-for-synthesis). Tells you *precisely here*, not *near what*.
+
+**"Where" is a decode-cost ladder (each rung more precise, more decode):**
+1. **HHTL / CLAM containment** — key prefix (`NiblePath` `is_ancestor_of`/`prefix`). "Which cluster." **Zero value decode** (coarsest).
+2. **Helix PLACE** — the golden-spiral position *deterministic from the address* (generated, not stored; the `place` half of place/residue). The exact point the key *implies*. **Zero value decode.**
+3. **Helix RESIDUE** — `Signed360` (`HelixResidue` tenant, 6 B in the value slab). The exact orthogonal location to full precision = PLACE ⊕ the stored 6-byte remainder. **One value-tenant decode** (paid only when exactness beyond the cluster is needed).
+
+So the substrate answers location at three precisions off one node, and you pay decode only for the precision you ask for — consistent with `E-GUID-IS-THE-GRAPH` (the key prerenders coarse position free) and the OGAR place/residue doctrine (PLACE deterministic, RESIDUE stored). CLAM tells you the neighborhood; the helix `Signed360` tells you the exact orthogonal point.
+
+**Consequence for the Cypher/router work:** a proximity / `MATCH … NEAR` query resolves on the key (HHTL/CLAM, zero decode); an *exact-position / sort-by-true-distance / orthogonal-coordinate* query reads the `HelixResidue` tenant (a value decode — it is NOT a zero-decode operation, and must be costed as such, unlike the adjacency facets). Do not conflate "find the cluster" (free) with "find the exact point" (6-byte decode). Cross-refs: `E-ADJACENCY-IS-KEY-AND-EDGECODEC`, `E-GUID-IS-THE-GRAPH`, `canonical_node::{ValueTenant::HelixResidue, ValueSchema::Compressed}`, the `helix` crate's `Signed360`.
+
+---
+
+## 2026-06-18 — E-ADJACENCY-IS-KEY-AND-EDGECODEC — adjacency lives in two places, classid/key-resolved: HHTL cascade in the GUID = CLAM neighborhood; the 16-byte EdgeBlock = 12-family/4-external OR 32×4 turbovec per EdgeCodecFlavor; CausalEdge64 = SPO
+
+**Status:** FINDING (operator-stated, grounded in shipped `hhtl.rs` `NiblePath` + `canonical_node.rs` `EdgeCodecFlavor` + `graph/neighborhood/clam.rs`). Resolves `cypher-kanban-ast-unification-v1` boundary §4b ("which edge rep") — there is no single rep to pick; there are distinct adjacency facets, each selected by the key/classid, never guessed by the query.
+
+**The three facets:**
+
+1. **HHTL cascade *in the GUID key* = hierarchical/neighborhood adjacency = the CLAM tree.** `NiblePath::from_guid_prefix(guid)` over `classid·HEEL·HIP·TWIG`; `is_ancestor_of` / `prefix(d)` = centroid-tree containment. Longer shared prefix ⇒ nearer ⇒ same CLAM cluster. The "connecting tissue" structural traversal — **free, in the key, zero value decode**; `graph/neighborhood/clam.rs` is the search engine. Adjacency was never an `EdgeBlock` requirement for the neighborhood case — it is the cascade prefix.
+
+2. **The 16-byte `EdgeBlock` *in the node* = explicit typed edges, read per the classid's `EdgeCodecFlavor`:**
+   - **`CoarseOnly` (16×8) → 12 in-family + 4 external** adjacency edges (one byte = neighbor basin-local index → `local_key`). The 12/4 split is **family-internal vs cross-family interface** (canon).
+   - **`Pq32x4` (32×4) → turbovec residue edges** (same 16 bytes as 32 four-bit PQ residue codes).
+   - `CoarseResidue` (1+⌈D/2⌉) → coarse index + per-dim residue.
+
+3. **`edges_raw` column → `CausalEdge64` = SPO causal/belief arcs** (s/p/o palette indices — NOT a row→row adjacency pointer; a separate facet).
+
+**Traversal dispatch (the resolved boundary):** neighborhood/proximity → HHTL/CLAM (key); explicit typed edge → `EdgeBlock` via `classid → ClassView → EdgeCodecFlavor` (12-family/4-external **or** 32×4 turbovec); causal/belief → `CausalEdge64`. The class picks the rep; the query never guesses.
+
+**Wiring implication (next Inc-0 slice):** the edge/neighborhood traversal half needs `MailboxSoaView` to expose, per row, **(a)** the HHTL `NiblePath` (or the full `NodeGuid` key — the canon `NodeRow` already carries `key(16)`, so this exposes what's there) for the CLAM cascade, and **(b)** the `EdgeBlock` bytes + the class's `EdgeCodecFlavor` for the explicit-edge deref. Then: CLAM neighborhood = prefix routing on the key; `(a)-[r]->(b)` = `EdgeBlock` slot deref under the resolved flavor. Both zero-value-decode. The node-match half (`#544`) already lands the classid route; this adds the two key/edge accessors + the CLAM + EdgeBlock deref. Cross-refs: `E-GUID-IS-THE-GRAPH`, `E-CYPHER-IS-THE-KANBAN-AST`, `hhtl::NiblePath`, `canonical_node::{EdgeBlock, EdgeCodecFlavor}`, `graph/neighborhood/clam.rs`, `graph/mailbox_scan.rs`, `cypher-kanban-ast-unification-v1` §4b.
+
+---
+
 ## 2026-06-18 — E-OGAR-IS-FOUNDRY — being Palantir Foundry / Gotham reduces to "write the OGAR class schema + inheritance"; everything else (traversal, query, pipelines, actions, low-code apps) is generic machinery over it via the shared AST
 
 **Status:** FINDING (capstone; operator-stated). The platform-level reading of the whole arc: Foundry/Gotham is not a platform to rebuild — it is an **OGAR class-schema-inheritance exercise**, because every other Foundry/Gotham layer is already generic machinery the workspace ships, parameterized only by `classid`.

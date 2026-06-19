@@ -88,6 +88,43 @@ pub trait MailboxSoaView {
         None
     }
 
+    /// The HHTL routing path ([`NiblePath`](crate::hhtl::NiblePath)) of `row`'s
+    /// GUID key — the `classid·HEEL·HIP·TWIG` cascade lowered to a nibble path.
+    /// This is the **radix-trie / CLAM cluster address** of the node
+    /// (`panCAKES ≡ radix trie ≡ HHTL`): containment = `is_ancestor_of`,
+    /// CAKES nearest = `common_prefix_depth`, both pure key arithmetic, **zero
+    /// value decode**.
+    ///
+    /// **Default = `None` (zero-fallback, deferred binding)** — same discipline as
+    /// [`row_for_local_key`](MailboxSoaView::row_for_local_key): a view that has
+    /// not materialized a per-row key/HHTL column returns `None`, and a CLAM/CAKES
+    /// scan over it yields nothing (the consumer falls back to a coarser facet).
+    /// An owner that carries the GUID key per row overrides this (the canon
+    /// `NodeRow` already holds `key(16)`, so the override exposes what is there).
+    #[inline]
+    fn hhtl_path_at(&self, _row: usize) -> Option<crate::hhtl::NiblePath> {
+        None
+    }
+
+    /// The 16-byte [`EdgeBlock`](crate::canonical_node::EdgeBlock) of `row` — the
+    /// node's **explicit typed edges** (12 in-family + 4 out-of-family one-byte
+    /// slots), bytes 16..32 of the canonical `NodeRow`. This is the edge region,
+    /// **NOT the value slab** (32..512), so reading it is **zero value decode**.
+    ///
+    /// How the 16 bytes are *interpreted* is the class's
+    /// [`EdgeCodecFlavor`](crate::canonical_node::EdgeCodecFlavor)
+    /// (`CoarseOnly` = 12-family/4-external adjacency, `Pq32x4` = 32×4 turbovec
+    /// residue) — resolved `classid → ClassView`, never guessed by the query
+    /// (`E-ADJACENCY-IS-KEY-AND-EDGECODEC`).
+    ///
+    /// **Default = `None` (zero-fallback, deferred binding)** — a view that has not
+    /// materialized the edge region returns `None`; an owner that carries the
+    /// canonical `NodeRow` (which holds `edges(16)`) overrides this.
+    #[inline]
+    fn edge_block_at(&self, _row: usize) -> Option<crate::canonical_node::EdgeBlock> {
+        None
+    }
+
     // NOTE (follow-up): the qualia column (`QualiaI4_16D`) accessor is intentionally omitted —
     // add `fn qualia(&self) -> &[crate::qualia::QualiaI4_16D]` when the first consumer
     // (planner strategy selection) needs it; keep the read surface minimal until then.
