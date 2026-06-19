@@ -1,3 +1,21 @@
+## 2026-06-19 — ogar-ar-shape-endgame-v1 (the ontology compiler — curators teach, OGAR metabolizes, AST/ARM/DLL routes, ractor-Lance-SurrealDB-callcenter execute)
+
+**Status:** DOCTRINE (operator-ratified capstone; not a code plan). **Doctrine file:** `docs/OGAR_AR_SHAPE_ENDGAME.md`. **Epiphany anchor:** `E-OGAR-AR-SHAPE-ENDGAME` (TOP of EPIPHANIES.md, dated 2026-06-19).
+**Reframing that closes the arc.** The deliverable was never an Odoo SurrealQL DDL emitter. It is an ontology compiler. Rails / Odoo / WoA / SAP are curators (fossils in the cliff-face), not foundations. OGAR Core (`lance-graph-ontology`) holds inherited classes with regulatory anchors. The compiled output is a **THING / DO / THINK** triad + an **AST / ARM / DLL** trichotomy that any backend (Lance native / SurrealQL / Odoo adapter / Rails adapter / SAP RFC / human Kanban / DLL) can execute. _Flat triples = corpse scan. OGAR classes = living anatomy._
+- **§1-§2 doctrine:** flat triples rejected as endgame (kept as harvest substrate); curators teach by example, promoted into Core only when ≥2 independent curators surface a primitive under different syntactic forms.
+- **§3-§4 ontology shape:** classes inherit (Invoice <: LegalDocument <: EconomicCommitment <: SocialObject); each has identity / state-schema (THING) / actions (DO) / **policies (THINK — new typed `ClassView` slot, CONJECTURE)** / regulatory anchor / adapter targets / parent chain. THING is read; DO writes (gated); THINK never writes.
+- **§5-§6 grammar:** `OgarAst` (Thing / Slot / Relation / Do / Transition / Think / Verdict / Constraint / AdapterCall) is the portable inter-lingua; `ArmDecision` picks Executor (NativeLance / SurrealQl / OdooAdapter / RailsAdapter / HumanKanban / ExternalHttp / Dll). DLL = dynamically loaded backend capability.
+- **§7 ownership:** ractor=mutation, Lance=memory, SurrealDB=query/control, OGAR=meaning, contract=interface, callcenter=outer membrane. SurrealDB does NOT own business state.
+- **§8 Rubicon Kanban loop:** Planning → Cognitive Work (THINK) → Evaluation (Rubicon cross?) → Commit (DO via gate). Failures → Human Kanban cards.
+- **§9 callcenter:** the outer membrane — routes ARM decisions out; holds adapter registry + DLL capability table + human-task queue + tool-call surface. NOT business logic.
+- **§10 worked example:** Invoice + PostInvoice across all five layers in one operation (THING schema → DO action → THINK policies → AST → ARM verdict → execution path).
+- **§12 CONJECTURE/FINDING ledger:** §1-§2 + §7 + §9 FINDING; §3 + §4 mixed (trichotomy FINDING, THINK-slot CONJECTURE); §5 + §6 + §10 CONJECTURE (named, not yet shipped — probes: same `OgarAst::Do(PostInvoice)` must execute SEMANTICALLY identically on Lance + SurrealQL + Odoo adapter).
+**Bounds:** the 5+3 council verdict on **typed AST placement** (Phase 1 Option A nexgen RFC + Phase 2 Option D surrealdb-fork C16b/C16c per `E-AR-PROJECTION-CORRECTION-1`) STANDS — it concerns the SurrealQL adapter target, which is ONE leg of the ARM layer, not the ontology. This doctrine is upstream of the placement question.
+**Repos:** lance-graph (doctrine home + OGAR Core). Bounds nexgen (curator role) / odoo extractor (curator role) / woa-rs (curator role) / smb-office-rs (curator role) / surrealdb fork (adapter target) / future SAP (curator role).
+**Branch:** `claude/hydrate-dolce-dul-owl-Ce9Oa`.
+
+---
+
 ## 2026-06-18 — cypher-kanban-ast-unification-v1 (Cypher IS the kanban-board AST; the GUID-keyed substrate IS the graph; four subsystems → one AST)
 
 **Status:** PLAN (pre-5+3-council). **Plan file:** `.claude/plans/cypher-kanban-ast-unification-v1.md`. Grounded by `E-GUID-IS-THE-GRAPH` + `E-CYPHER-IS-THE-KANBAN-AST`; odoo ontology-traversal-through-SurrealQL-AST = existence proof.

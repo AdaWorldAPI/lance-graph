@@ -176,6 +176,41 @@ So the substrate answers location at three precisions off one node, and you pay 
 **Traversal dispatch (the resolved boundary):** neighborhood/proximity → HHTL/CLAM (key); explicit typed edge → `EdgeBlock` via `classid → ClassView → EdgeCodecFlavor` (12-family/4-external **or** 32×4 turbovec); causal/belief → `CausalEdge64`. The class picks the rep; the query never guesses.
 
 **Wiring implication (next Inc-0 slice):** the edge/neighborhood traversal half needs `MailboxSoaView` to expose, per row, **(a)** the HHTL `NiblePath` (or the full `NodeGuid` key — the canon `NodeRow` already carries `key(16)`, so this exposes what's there) for the CLAM cascade, and **(b)** the `EdgeBlock` bytes + the class's `EdgeCodecFlavor` for the explicit-edge deref. Then: CLAM neighborhood = prefix routing on the key; `(a)-[r]->(b)` = `EdgeBlock` slot deref under the resolved flavor. Both zero-value-decode. The node-match half (`#544`) already lands the classid route; this adds the two key/edge accessors + the CLAM + EdgeBlock deref. Cross-refs: `E-GUID-IS-THE-GRAPH`, `E-CYPHER-IS-THE-KANBAN-AST`, `hhtl::NiblePath`, `canonical_node::{EdgeBlock, EdgeCodecFlavor}`, `graph/neighborhood/clam.rs`, `graph/mailbox_scan.rs`, `cypher-kanban-ast-unification-v1` §4b.
+## 2026-06-19 — E-OGAR-AR-SHAPE-ENDGAME — flat triples were corpse-scan; the deliverable is an executable ontology compiler with THING/DO/THINK and AST/ARM/DLL trichotomies (operator-ratified doctrine)
+
+**Status:** FINDING (operator-ratified capstone). Names what `E-OGAR-IS-FOUNDRY` + `E-AR-DO-WIRING` + `E-CYPHER-IS-THE-KANBAN-AST` + `E-GUID-IS-THE-GRAPH` + `E-AR-PROJECTION-CORRECTION-1` were pointing at together: the real deliverable was never "an Odoo SurrealQL DDL emitter," it was an **ontology compiler** with curators (Rails / Odoo / WoA / SAP) as fossils, OGAR as the metabolism, and an executable DO/THING/THINK + AST/ARM/DLL grammar as the output. Full doctrine: `docs/OGAR_AR_SHAPE_ENDGAME.md`.
+
+**The reframing that closes the arc.** "AR-shape is not flat triples; AR-shape is the living adapter grammar learned from Rails/OpenProject + Odoo, purified through OGAR/DOLCE until it is backend-agnostic." The prior "flat triples → typed SurrealQL DDL" framing (E-AR-PROJECTION-CONVERGED + E-AR-PROJECTION-CORRECTION-1) is **kept** as the harvest substrate and SurrealQL adapter target — but is **NOT** the endgame; it is **one adapter target** of the larger ontology. _Tiny brass thunderbolt: Foundry maps the enterprise. OGAR metabolizes it._
+
+**The three new doctrinal pieces (CONJECTURE → FINDING gate per section):**
+
+1. **THING / DO / THINK (DOLCE refinement, FINDING for the trichotomy + CONJECTURE for the new THINK slot).** Extends `E-AR-DO-WIRING`'s two-arm split. **THING** = Endurant state (SoA columns); **DO** = Perdurant commits gated by `def-match→RBAC→state-guard→MUL` (already shipped: `ActionDef.commit`); **THINK** = NEW typed slot on `ClassView` for continuous policies that gate every DO without ever mutating. THINK promotes `validation_kind` + `@api.constrains` + GoBD checks + RBAC from "ASSERT clauses" into a typed first-class slot returning `Verdict { ProceedAs(plan) | RouteToHuman | Reject(reason) | Defer(condition) }`. Triad invariant: **THING is read. DO writes (gated). THINK never writes.**
+
+2. **AST / ARM / DLL trichotomy (CONJECTURE; council-gated before code).** The portable semantic operation tree (`OgarAst::{Thing, Slot, Relation, Do, Transition, Think, Verdict, Constraint, AdapterCall}`) extends the polyglot harvest contract upward — from "what classes/fields/methods exist" to "what operations they support." **ARM** is the routing layer picking an executor (NativeLance / SurrealQl / OdooAdapter / RailsAdapter / HumanKanban / ExternalHttp / Dll). **DLL** is registered dynamically-loadable capability — keeps the ontology open without forcing every adapter into the compile graph. Falsifying probe: the same `OgarAst::Do(PostInvoice, …)` must execute SEMANTICALLY identically via Lance-native compute_dag, SurrealQL transaction, and Odoo adapter — divergence flags syntax leakage.
+
+3. **Curator promotion rule (FINDING; operator-ratified).** "The curator teaches by example. The ontology survives by being more abstract than any one curator. A primitive is promoted into OGAR Core ONLY when ≥2 independent curators surface it under different syntactic forms." Closes the loop with `E-AR-PROJECTION-CORRECTION-1`: WoA `audit_chain.rs::chain_hash` is interesting NOT because it equals Odoo's `_post` chain (it doesn't), but because both Odoo and WoA independently surfaced the same GoBD I9 hash-chain INVARIANT. The promoted Core primitive is `AuditChain <: GoBD-immutability`, not "the chain_hash function."
+
+**Crisp ownership boundaries (operator-ratified, codifies prior architecture):**
+
+```
+ractor                  → mutation authority + actor mailboxes
+LanceGraph (lance-graph) → physical SoA memory + zero-copy lifecycle + tombstones
+SurrealDB / SurrealQL    → query / control plane + schema projection + live queries
+OGAR (lance-graph-ontology) → meaning
+lance-graph-contract     → interface promises (trait surfaces, carriers)
+lance-graph-callcenter   → outer execution membrane (adapter dispatch)
+```
+
+The implicit question buried in `E-CYPHER-IS-THE-KANBAN-AST`: **who owns business state?** Answer: **NOT SurrealDB.** SurrealDB is the Rubicon/Kanban/query plane sitting OVER Lance-backed KVS. ractor owns mutation, Lance owns memory, OGAR owns meaning, callcenter touches the world.
+
+**Per-curator role (binds `E-AR-PROJECTION-CORRECTION-1`'s retractions):** openproject-nexgen-rs = Rails-shaped projection prototype (NOT the ontology home); odoo_blueprint + extractor = dense regulatory + behavioural teaching corpus (NOT identity source); WoA-rs = German ERP sanity witness (NOT first SurrealQL consumer); SMB-Office = parity-validation for German legacy ERP behaviour; SAP = future independent confirmation of the curated ontology.
+
+**Council scope still in force.** The 5+3 verdict on **typed AST placement** (Phase 1 Option A in nexgen RFC; Phase 2 Option D in surrealdb fork via C16b/C16c) stands — that decision concerns the SurrealQL **adapter target**, which is ONE leg of the ARM layer, not the ontology itself. The doctrine here is upstream of the placement question; the placement remains the next concrete deliverable.
+
+**Cross-refs:** `docs/OGAR_AR_SHAPE_ENDGAME.md` (canonical doctrine, 13 sections + glossary); `E-OGAR-IS-FOUNDRY` (the Foundry-reduction this doc makes concrete); `E-AR-DO-WIRING` (the 2-arm split this extends to 3); `E-CYPHER-IS-THE-KANBAN-AST` (the Kanban execution loop this doc names); `E-GUID-IS-THE-GRAPH` (the ractor-Lance ownership substrate this codifies); `E-ODOO-CORE-FIRST-STRUCTURAL` (the curator promotion rule operationalized); `E-AR-PROJECTION-CORRECTION-1` (the retractions bound).
+
+---
+
 ## 2026-06-19 — E-AR-PROJECTION-CORRECTION-1 — 5+3 council verdict on E-AR-PROJECTION-CONVERGED: two claims unsupported, B/C rejected, A→D sequenced as architecturally correct path
 
 **Status:** FINDING (correction). Bounds the framing of `E-AR-PROJECTION-CONVERGED` directly below: the projection-mechanism finding stands, the placement-options analysis is sharpened, and two unsupported sub-claims are explicitly retracted.
