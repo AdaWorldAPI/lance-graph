@@ -61,6 +61,23 @@ fn dipole(n: usize, s: usize, t: usize) -> Vec<f64> {
     p
 }
 
+/// The honest HOP-LOCAL gate (single source, used by `main` and tested):
+/// block-tight within-basin containment (`wm ≥ 0.70`) AND a real within/seam
+/// margin (`ratio ≥ 1.30`) AND a valid within-basin Weyl check — **and the
+/// evidence must actually exist** (`has_within && has_straddle`). Missing
+/// evidence ⇒ NOT supported (no ∞-ratio or defaulted-true Weyl false positives).
+/// No "2×null" gate (the null ≈ 0.5 for coarse tiers and breaks the test); no
+/// Davis-Kahan bound (it is vacuous when the eigengap is tiny).
+fn tier_supported(
+    has_within: bool,
+    has_straddle: bool,
+    wm: f64,
+    ratio: f64,
+    weyl_ok: bool,
+) -> bool {
+    has_within && has_straddle && wm >= 0.70 && ratio >= 1.30 && weyl_ok
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let (bpath, lpath, country) = (
@@ -149,19 +166,25 @@ fn main() {
             let theta = eig.pseudo_apply(&dipole(n, e.from, e.to), REL_TOL);
             straddle.push(containment(&theta, ma).max(containment(&theta, mb)));
         }
-        // Weyl on a within-basin line trip at this tier.
+        // Weyl on a within-basin line trip at this tier. No within-basin line ⇒
+        // `false` (no valid check ⇒ not supported), NOT a defaulted `true`.
         let weyl_ok = grid
             .edges
             .iter()
             .position(|e| part(keys[e.from]) == part(keys[e.to]))
-            .is_none_or(|line| spectral_perturbation(grid, &alive, line).weyl_satisfied);
+            .map(|line| spectral_perturbation(grid, &alive, line).weyl_satisfied)
+            .unwrap_or(false);
 
+        let (has_within, has_straddle) = (!within.is_empty(), !straddle.is_empty());
         let (wm, sm) = (mean(&within), mean(&straddle));
-        let ratio = if sm > 0.0 { wm / sm } else { f64::INFINITY };
-        // Honest gate: block-tight containment AND a real within/seam margin.
-        // (No "2×null" — the null is ~0.5 for coarse tiers and breaks the test;
-        //  no DK bound — it's vacuous when the eigengap is tiny.)
-        let supported = wm >= 0.70 && ratio >= 1.30 && weyl_ok;
+        // ratio = 0 (not ∞) when there are no seam samples — a missing seam
+        // comparison must never pass the margin trivially.
+        let ratio = if has_straddle && sm > 0.0 {
+            wm / sm
+        } else {
+            0.0
+        };
+        let supported = tier_supported(has_within, has_straddle, wm, ratio, weyl_ok);
         any_tier_supported |= supported;
         println!(
             "  {name:<5} {:>6} {wm:>10.3} {sm:>10.3} {ratio:>10.2} {:>8}  {}",
@@ -194,4 +217,44 @@ fn main() {
          low SEAM ratio is the block-localization signature (Cheeger/spectral-clustering). The \
          ratio, not the absolute, is the hop-boundary test."
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn containment_basic_and_edges() {
+        // All energy on members → 1.0.
+        assert!((containment(&[3.0, 4.0, 0.0], &[0, 1]) - 1.0).abs() < 1e-12);
+        // θ=[3,4] → energies 9,16; members={0} → 9/25.
+        assert!((containment(&[3.0, 4.0], &[0]) - 9.0 / 25.0).abs() < 1e-12);
+        // Zero field → 0.0, never NaN.
+        assert_eq!(containment(&[0.0, 0.0], &[0]), 0.0);
+        // Empty members → 0.0.
+        assert_eq!(containment(&[1.0, 2.0], &[]), 0.0);
+    }
+
+    #[test]
+    fn dipole_is_balanced() {
+        let p = dipole(5, 1, 3);
+        assert_eq!(p, vec![0.0, 1.0, 0.0, -1.0, 0.0]);
+        assert!(p.iter().sum::<f64>().abs() < 1e-12); // Σp = 0
+    }
+
+    #[test]
+    fn gate_requires_evidence_not_just_thresholds() {
+        // Strong, complete evidence → supported.
+        assert!(tier_supported(true, true, 0.96, 1.54, true));
+        // Missing seam samples (ratio would have been ∞) → NOT supported.
+        assert!(!tier_supported(true, false, 0.96, 0.0, true));
+        // Missing within-basin line / Weyl false → NOT supported.
+        assert!(!tier_supported(true, true, 0.96, 1.54, false));
+        // No within evidence → NOT supported.
+        assert!(!tier_supported(false, true, 0.96, 1.54, true));
+        // Thin margin (the leaky tiers) → NOT supported.
+        assert!(!tier_supported(true, true, 0.58, 0.93, true));
+        // Block-tight but margin just under 1.30 → NOT supported.
+        assert!(!tier_supported(true, true, 0.95, 1.29, true));
+    }
 }
