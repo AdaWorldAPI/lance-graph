@@ -35,6 +35,20 @@
 
 ---
 
+## (IN PR, branch `claude/edge-distance-basin-node-epiphany`) basin-IS-a-node — members/memberof navigation + GUID self-routing + field-perturbation probe
+
+**Added (lance-graph core):** `graph::mailbox_scan::{members, memberof, BasinOf}` — the one-to-many / many-to-one basin-node navigation realizing `E-BASIN-IS-A-NODE` as **virtual tree navigation over the flat MailboxSoA** (no ownership change, no SoA restructure, zero-copy invariant untouched). All pure key arithmetic, **zero value decode**: `members(basin)` = direct children one HHTL tier down (`is_ancestor_of` + depth); `memberof(node) -> BasinOf::{Local(row), Route(NiblePath)}` = parent via `NiblePath::parent`, returning a **route** (the HHTL prefix = shard key) when the parent is non-local, `None` only at the top tier. Inverses. 5 new tests, 16/16 mailbox_scan green, clippy clean.
+
+**Added (perturbation-sim):** `examples/basin_placement_learning.rs` — probe for the one CONJECTURE in `E-BASIN-IS-A-NODE` (field-perturbation learns placement). Spectral perturbation (`hhtl_keys` = Cheeger/Fiedler bisection) used AS the basin placement, scored by the `node_distance(PrefixDepth)` tree-hop. **Green: mean hop 1.00 vs 4.13 random = 75.8 % tighter** (gate ≥ 15 %). Promotes the mechanism CONJECTURE → measured FINDING [G]; full online learner stays future work.
+
+**Locked (epiphanies, this arc):** `E-BASIN-IS-A-NODE` (basin = node, distance = hop = PrefixDepth, 4-ary fan-out = Morton pyramid = perturbation field), `E-FAMILY-NODE-IS-META-AWARENESS` (parent = coarse Walsh band = awareness summary), `E-GUID-SELF-ROUTES-THE-BASIN-TREE` (HHTL-tier truncation = route key; no coarse-fingerprint table for `memberof`). Capstone: one 512 B key, read five ways — representation / ontology / compute (Morton) / learning / meta-awareness — four of five key-resident zero-decode.
+
+**Deferred:** the full online iterative placement learner (inject delta → minimise cascade surprise → re-place); `memberof` cross-shard row-fetch via a path→row index (today the route key is returned, the fetch is the consumer's); CHAODA as unary `node_anomaly` (reclassified out of `DistanceMeans`); helix/PqAdc value-tier means.
+
+**Confidence (2026-06-19):** navigation + probe green locally; zero-decode F2 guard tested; awaiting PR review.
+
+---
+
 ## #542 the q2-substrate grounding arc — E-OGAR-IS-FOUNDRY capstone + 5+3 council + the key→row baton
 
 **Status:** MERGED 2026-06-18 (merge commit `faca377f`), branch `claude/q2-substrate-grounding`. The platform-level reading + the council that hardened it, + the one buildable prerequisite. Additive to `lance-graph-contract` only.

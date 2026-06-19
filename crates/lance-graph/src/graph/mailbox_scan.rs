@@ -272,6 +272,81 @@ pub fn node_distance<V: MailboxSoaView>(
     }
 }
 
+/// **`members`** (one-to-many) — the direct child nodes of a basin: the rows
+/// exactly one HHTL tier deeper whose path the basin's path is an ancestor of.
+///
+/// This is the `basin-IS-a-node` navigation (`E-BASIN-IS-A-NODE`): a basin is a
+/// node, its members are the next-tier-down rows in the radix trie. The tree is
+/// **virtual** — no ownership, no SoA restructure — `members` is pure key
+/// arithmetic (`is_ancestor_of` + a depth check), **zero value decode**. Inverse
+/// of [`memberof`]: every `r` in `members(basin)` has `memberof(r) == basin`.
+/// Rows with no materialized HHTL path are skipped. Returns empty if the basin
+/// row itself has no path.
+pub fn members<V: MailboxSoaView>(view: &V, basin_row: usize) -> Vec<NodeMatch> {
+    let Some(bp) = view.hhtl_path_at(basin_row) else {
+        return Vec::new();
+    };
+    let child_depth = bp.depth() + 1;
+    (0..view.n_rows())
+        .filter(|&row| {
+            view.hhtl_path_at(row)
+                .is_some_and(|p| p.depth() == child_depth && bp.is_ancestor_of(p))
+        })
+        .map(|row| NodeMatch {
+            row,
+            backend: Backend::MailboxSoa,
+        })
+        .collect()
+}
+
+/// The resolution of a [`memberof`] query: the parent basin is either
+/// materialized in this mailbox (`Local`) or lives in another shard, addressed
+/// by its HHTL prefix (`Route`).
+///
+/// The GUID self-routes (`E-GUID-SELF-ROUTES-THE-BASIN-TREE`): the parent's HHTL
+/// prefix **is** the shard/route key (`E-COARSE-QUANTIZER-IS-SCALE-FREE-ROUTER`
+/// — the prefix is simultaneously the CLAM cluster key, the IVF cell, and the
+/// shard key). So an unmaterialized parent is a **`Route`, not an absence** — no
+/// separate coarse-fingerprint table is consulted; the prefix routes directly.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BasinOf {
+    /// The parent basin-node row, materialized in this mailbox.
+    Local(NodeMatch),
+    /// The parent lives in another shard; this is its HHTL prefix — route it to
+    /// the shard that owns the prefix (the coarse router keys on exactly this).
+    /// Zero value decode; the route key derives from the child's own GUID.
+    Route(NiblePath),
+}
+
+/// **`memberof`** (many-to-one) — the basin a node belongs to: the parent path
+/// (one HHTL tier shallower), via `NiblePath::parent`.
+///
+/// The many-to-one half of `basin-IS-a-node` (`E-BASIN-IS-A-NODE`), inverse of
+/// [`members`]. Pure key arithmetic — **zero value decode**. The parent prefix
+/// is the GUID's HHTL surfaced via [`MailboxSoaView::hhtl_path_at`] (the View
+/// populates it through `NiblePath::from_guid_prefix`), so it is GUID-derived by
+/// construction (`E-GUID-SELF-ROUTES-THE-BASIN-TREE`).
+///
+/// Returns:
+/// - `Some(BasinOf::Local(row))` — the parent basin-node is in this mailbox;
+/// - `Some(BasinOf::Route(prefix))` — the parent lives in another shard, addressed
+///   by its HHTL prefix (route it; **never `None` for a node that has a parent**);
+/// - `None` — only at the top tier (`parent() == None`, the basin/DOLCE top facet
+///   has no parent).
+pub fn memberof<V: MailboxSoaView>(view: &V, member_row: usize) -> Option<BasinOf> {
+    let parent = view.hhtl_path_at(member_row)?.parent()?;
+    Some(
+        (0..view.n_rows())
+            .find(|&row| view.hhtl_path_at(row) == Some(parent))
+            .map_or(BasinOf::Route(parent), |row| {
+                BasinOf::Local(NodeMatch {
+                    row,
+                    backend: Backend::MailboxSoa,
+                })
+            }),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -583,5 +658,54 @@ mod tests {
         soa.paths = vec![None; 5];
         assert!(clam_contained(&soa, NiblePath::root(1)).is_empty());
         assert!(cakes_nearest(&soa, NiblePath::root(1), 5).is_empty());
+    }
+
+    #[test]
+    fn members_are_the_direct_children_one_tier_down() {
+        let soa = sample();
+        // basin row2 = 1·2 ; direct children at depth 3 = row0 (1·2·3), row1 (1·2·4).
+        let kids: Vec<usize> = members(&soa, 2).into_iter().map(|m| m.row).collect();
+        assert_eq!(kids, vec![0, 1]);
+        // row0 (1·2·3) is a leaf here — no depth-4 rows — so no members.
+        assert!(members(&soa, 0).is_empty());
+        // row4 (9) has no materialized children in this mailbox.
+        assert!(members(&soa, 4).is_empty());
+    }
+
+    fn local_row(b: Option<BasinOf>) -> Option<usize> {
+        match b {
+            Some(BasinOf::Local(m)) => Some(m.row),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn memberof_is_the_parent_basin_and_inverts_members() {
+        let soa = sample();
+        // row0/row1 (1·2·3, 1·2·4) belong to basin 1·2 = row2, materialized here.
+        assert_eq!(local_row(memberof(&soa, 0)), Some(2));
+        assert_eq!(local_row(memberof(&soa, 1)), Some(2));
+        // Inverse property: every member's memberof is the basin.
+        for m in members(&soa, 2) {
+            assert_eq!(local_row(memberof(&soa, m.row)), Some(2));
+        }
+        // row4 (9) is a top-tier basin (depth 1) → parent() is None.
+        assert_eq!(memberof(&soa, 4), None);
+    }
+
+    #[test]
+    fn memberof_routes_when_parent_lives_in_another_shard() {
+        let soa = sample();
+        // row2 (1·2) parent is basin 1, not materialized in this mailbox → Route,
+        // NOT None: the HHTL prefix IS the shard key (E-GUID-SELF-ROUTES-THE-BASIN-TREE).
+        assert_eq!(memberof(&soa, 2), Some(BasinOf::Route(NiblePath::root(1))));
+    }
+
+    #[test]
+    fn members_memberof_are_key_only_no_value_decode() {
+        // F2: navigating the virtual basin tree must never touch the value slab.
+        let soa = sample();
+        let _ = members(&soa, 2);
+        let _ = memberof(&soa, 0);
     }
 }
