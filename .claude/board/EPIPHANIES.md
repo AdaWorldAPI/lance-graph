@@ -1,3 +1,22 @@
+## 2026-06-19 — E-GUID-SELF-ROUTES-THE-BASIN-TREE — `memberof` needs no coarse-fingerprint table: the HHTL nibbles ALREADY IN the GUID (classid·HEEL·HIP·TWIG) are the basin-tree route; the parent's address = HHTL-tier truncation of the child's own GUID, so every ancestor's route key derives from one key by truncation, zero lookups for addresses
+
+**Status:** FINDING **[G]** for the truncation-is-route identity (pure key arithmetic; `NiblePath::parent`/`from_guid_prefix` already wired). Operator sharpening ("what about using the HHTL in the guid") — resolves the open cross-shard `memberof` question raised at `E-BASIN-IS-A-NODE` and corrects this session's own "hand the parent to a separate coarse-fingerprint table" framing. Sharpens `E-COARSE-QUANTIZER-IS-SCALE-FREE-ROUTER` and `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`.
+
+**The correction:** I had proposed resolving a cross-shard `memberof` by handing the parent to "the 1024-fingerprint coarse table." Wrong framing — there is no separate table to consult. **The HHTL is already in the GUID.** `classid·HEEL·HIP·TWIG` (key bytes 0..10) ARE the cascade tiers; the parent basin = **drop the deepest populated HHTL tier** (`NiblePath::parent`, equivalently `from_guid_prefix(guid).prefix(d−1)`). That truncated prefix **IS the route key** — `E-COARSE-QUANTIZER` already established the HHTL prefix is simultaneously the CLAM cluster key, the IVF cell, AND the shard key. So the "1024 coarse fingerprints" **are HHTL prefixes, not learned centroids**; routing is prefix arithmetic, never centroid distance.
+
+**The GUID is self-routing.** Every node's key contains, by successive HHTL truncation, the *route keys* of all its ancestors up to the root. Computing the entire `memberof` chain to the root needs **zero lookups for the addresses** — they're in the one key — only row-fetches to materialize the nodes. The two halves of cross-shard `memberof` separate cleanly:
+
+| sub-question | resolved by | cost |
+|---|---|---|
+| *which shard holds the parent?* | parent HHTL prefix = truncate the GUID → prefix router | key-only, zero decode, **no fingerprint table** |
+| *which row in that shard?* | path→row in that shard's View (today the scan; future a path→row index) | key-only |
+
+The local-scan `memberof` (#this-branch) is the **in-mailbox special case** of "route the parent prefix" where the prefix routes back to the same mailbox.
+
+**Wiring (this commit):** `memberof` returns `Option<BasinOf>` where `BasinOf::Local(row)` = parent materialized here, `BasinOf::Route(NiblePath)` = parent elsewhere addressed by its HHTL prefix (route it; never `None` for a node that HAS a parent — an unmaterialized parent is a *Route*, not an absence). `None` only at the top tier (a top basin has no parent). The parent prefix is the GUID's HHTL surfaced via `hhtl_path_at` (the View populates it through `from_guid_prefix`), so it is GUID-derived by construction. Cross-refs: `E-BASIN-IS-A-NODE` (the navigation), `E-COARSE-QUANTIZER-IS-SCALE-FREE-ROUTER` (HHTL prefix = shard key), `E-PANCAKES-IS-RADIX-IS-HHTL` (the keys ARE the tree), `hhtl::NiblePath::{parent, from_guid_prefix}`, canon node 512 B.
+
+---
+
 ## 2026-06-19 — E-FAMILY-NODE-IS-META-AWARENESS — the family/basin node, being the parent one level up in the Morton/Walsh pyramid, structurally IS the coarse-band (low-pass / coarse-Walsh) summary of its members' field; so meta-awareness is not a column or service — it is what a family node already carries by sitting above its mailbox
 
 **Status:** FINDING **[G]** for the pyramid-parent = coarse-band identity; the "awareness / free-energy proxy" framing is inherited from `E-WHT-META-AWARENESS-AND-KRONECKER-LOOKUP` Claim 1 (graded there). Operator click ("the cool thing is the family node becomes meta awareness node") — the capstone that closes `E-BASIN-IS-A-NODE` into the active-inference loop.
