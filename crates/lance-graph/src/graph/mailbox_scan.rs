@@ -299,15 +299,22 @@ pub fn members<V: MailboxSoaView>(view: &V, basin_row: usize) -> Vec<NodeMatch> 
         .collect()
 }
 
-/// The resolution of a [`memberof`] query: the parent basin is either
-/// materialized in this mailbox (`Local`) or lives in another shard, addressed
-/// by its HHTL prefix (`Route`).
+/// The resolution of a [`memberof`] query: the parent basin is materialized in
+/// this mailbox (`Local`), lives in another shard addressed by its HHTL prefix
+/// (`Route`), or the node IS a top-tier basin with no parent (`Top`).
 ///
 /// The GUID self-routes (`E-GUID-SELF-ROUTES-THE-BASIN-TREE`): the parent's HHTL
 /// prefix **is** the shard/route key (`E-COARSE-QUANTIZER-IS-SCALE-FREE-ROUTER`
 /// — the prefix is simultaneously the CLAM cluster key, the IVF cell, and the
 /// shard key). So an unmaterialized parent is a **`Route`, not an absence** — no
 /// separate coarse-fingerprint table is consulted; the prefix routes directly.
+///
+/// `Top` is the genuine "no parent" case (the DOLCE top facet). It is **distinct
+/// from [`memberof`] returning `None`**, which means the node's own HHTL path is
+/// not materialized (the deferred-binding default of
+/// [`MailboxSoaView::hhtl_path_at`]) — i.e. *unresolved, fall back to a coarser
+/// facet*, NOT *no parent*. Conflating the two would silently stop routing a row
+/// whose path simply has not been bound yet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BasinOf {
     /// The parent basin-node row, materialized in this mailbox.
@@ -316,6 +323,10 @@ pub enum BasinOf {
     /// the shard that owns the prefix (the coarse router keys on exactly this).
     /// Zero value decode; the route key derives from the child's own GUID.
     Route(NiblePath),
+    /// The node is a top-tier basin (`NiblePath::parent() == None`) — the DOLCE
+    /// top facet, genuinely no parent. Distinct from `memberof` returning `None`
+    /// (path not materialized; unresolved).
+    Top,
 }
 
 /// **`memberof`** (many-to-one) — the basin a node belongs to: the parent path
@@ -330,11 +341,19 @@ pub enum BasinOf {
 /// Returns:
 /// - `Some(BasinOf::Local(row))` — the parent basin-node is in this mailbox;
 /// - `Some(BasinOf::Route(prefix))` — the parent lives in another shard, addressed
-///   by its HHTL prefix (route it; **never `None` for a node that has a parent**);
-/// - `None` — only at the top tier (`parent() == None`, the basin/DOLCE top facet
-///   has no parent).
+///   by its HHTL prefix (route it; **never an absence for a node that has a parent**);
+/// - `Some(BasinOf::Top)` — the node is a top-tier basin (no parent, by `parent()`);
+/// - `None` — **the node's HHTL path is not materialized** (the deferred-binding
+///   default): *unresolved, fall back to a coarser facet*, NOT "no parent". This
+///   is kept distinct from `Top` so a yet-to-be-bound row is not mistaken for a
+///   root and silently dropped from routing.
 pub fn memberof<V: MailboxSoaView>(view: &V, member_row: usize) -> Option<BasinOf> {
-    let parent = view.hhtl_path_at(member_row)?.parent()?;
+    // `None` here = path not materialized (deferred-binding) → unresolved.
+    let path = view.hhtl_path_at(member_row)?;
+    // A real top-tier basin: path exists but has no parent.
+    let Some(parent) = path.parent() else {
+        return Some(BasinOf::Top);
+    };
     Some(
         (0..view.n_rows())
             .find(|&row| view.hhtl_path_at(row) == Some(parent))
@@ -689,8 +708,9 @@ mod tests {
         for m in members(&soa, 2) {
             assert_eq!(local_row(memberof(&soa, m.row)), Some(2));
         }
-        // row4 (9) is a top-tier basin (depth 1) → parent() is None.
-        assert_eq!(memberof(&soa, 4), None);
+        // row4 (9) is a top-tier basin (depth 1) → parent() is None → Top,
+        // NOT None (None is reserved for an unmaterialized path).
+        assert_eq!(memberof(&soa, 4), Some(BasinOf::Top));
     }
 
     #[test]
@@ -699,6 +719,19 @@ mod tests {
         // row2 (1·2) parent is basin 1, not materialized in this mailbox → Route,
         // NOT None: the HHTL prefix IS the shard key (E-GUID-SELF-ROUTES-THE-BASIN-TREE).
         assert_eq!(memberof(&soa, 2), Some(BasinOf::Route(NiblePath::root(1))));
+    }
+
+    #[test]
+    fn memberof_unmaterialized_path_is_none_not_top() {
+        // Codex P2: a deferred-binding row (hhtl_path_at == None) must return
+        // None (unresolved, fall back) — DISTINCT from a real top-tier basin,
+        // which returns Some(Top). Conflating them silently stops routing a
+        // not-yet-bound row.
+        let mut soa = sample();
+        soa.paths[0] = None; // row0's path not materialized
+        assert_eq!(memberof(&soa, 0), None, "unmaterialized path ⇒ None (fall back)");
+        // row4 still a genuine top-tier basin ⇒ Some(Top), not None.
+        assert_eq!(memberof(&soa, 4), Some(BasinOf::Top));
     }
 
     #[test]
