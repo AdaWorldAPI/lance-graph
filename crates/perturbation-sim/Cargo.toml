@@ -112,3 +112,7 @@ path = "examples/witness.rs"
 [[example]]
 name = "inertia_ingest"
 path = "examples/inertia_ingest.rs"
+
+[[example]]
+name = "basin_placement_learning"
+path = "examples/basin_placement_learning.rs"
