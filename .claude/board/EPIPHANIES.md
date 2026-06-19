@@ -1,3 +1,23 @@
+## 2026-06-18 — E-COARSE-QUANTIZER-IS-SCALE-FREE-ROUTER — the 1024 HHTL coarse fingerprints route a query in-RAM (IVF probe) AND cross-server (shard route) with one lookup; the GUID-key substrate shards on the prefix, value-slab compresses in Lance, durability via SurrealDB-on-TiKV/Raft
+
+**Status:** FINDING (deployment-tier; operator capacity+distribution synthesis). Grounded in `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC` (IVF coarse ≡ HHTL prefix), `E-GUID-IS-THE-GRAPH` (key = address), canon node = 512 B. Theorem-checker on the arithmetic.
+
+**Corrected capacity (canon node = 512 B = 4096 bit):**
+- mailbox = 16384 × 512 B = **8 MiB** (operator's "2 MB" is 4× low at 512 B; it equals 2 MiB only at a **128 B reduced node** — pin which before sizing).
+- 1024 prefixes × 8 MiB = **8 GiB** per 1024-prefix shard (matches the session's earlier 8 GB figure); + 1024 coarse fingerprints = **512 KiB** (negligible).
+- ⇒ a 2 TB server holds ~256 prefix-shards at 8 GiB (or ~1M mailboxes), the coarse table fits trivially in RAM on every node.
+
+**The scale-free insight:** the **same 1024-fingerprint coarse quantizer** routes at two scales with one lookup —
+- **in-RAM:** IVF probe → which CLAM cluster (the local prune, `cakes_nearest`);
+- **cross-server:** the prefix → which region/server holds that shard (the distributed route).
+The HHTL prefix is simultaneously the **cluster key, the IVF cell, and the shard key**. So "delegate lookup-table awareness to other servers" = **replicate the 512 KiB coarse table** (it's tiny, gossip-cheap) and route by prefix. No new structure — the IVF coarse stage IS the shard router.
+
+**The deployment split:** GUID key + coarse routing stay **uncompressed/transparent** (the GUID-is-key invariant: addressability never costs a value decode); the **480 B value slab compresses in Lance** (columnar); **durability/consensus via Raft per region**.
+
+**Fences:** (1) **Fork policy P0** — TiKV has no AdaWorldAPI fork; the blessed path is **SurrealDB-on-TiKV** (SurrealDB ships a TiKV storage engine; ties to `lite-unified`/`ExecTarget::SurrealQl`), NOT a raw new TiKV dep → STOP-and-ask before introducing. (2) "In theory" — capacity arithmetic only, no throughput bench; the Lance-vs-surreal-kv value split needs measurement. Cross-refs: `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`, `E-WHT-META-AWARENESS-AND-KRONECKER-LOOKUP`, `E-GUID-IS-THE-GRAPH`, `lite-unified-surrealql-lance-v1`, canon node 512 B.
+
+---
+
 ## 2026-06-18 — E-WHT-META-AWARENESS-AND-KRONECKER-LOOKUP — per-tenant WHT spectrum = cheap global meta-awareness (a few coefficients); and the Walsh transform tensor-factorizes along HHTL (H_16^⊗n) → "exponential lookup over prefixed tables" for separable factors
 
 **Status:** TWO claims, graded separately (operator synthesis: "operationalize WHT picking any tenant over the standing wave sorted by any factor → meta-awareness; …use it for HHTL 16ⁿ exponential lookup over prefixed tables"). Theorem-checker applied. Grounded in `perturbation-sim::sketch::{fwht, walsh_pyramid_energy}`, `ndarray::simd::wht_f32`, bgz-tensor attention-as-table-lookup + HHTL cascade, OGAR "Bipolar-phase pyramid = Walsh-Hadamard". Capstone of the geometry-of-a-node arc.
