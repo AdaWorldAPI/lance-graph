@@ -374,8 +374,7 @@ pub mod ogit_relations {
 /// preserving the conservative many-to-one assumption.
 #[must_use]
 pub fn translate_rails_to_ogit(triples: &[Triple]) -> Vec<Triple> {
-    let mut kinds: std::collections::BTreeMap<String, String> =
-        std::collections::BTreeMap::new();
+    let mut kinds: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
     for t in triples {
         if t.p == "association_kind" {
             kinds.insert(t.s.clone(), t.o.clone());
@@ -387,10 +386,7 @@ pub fn translate_rails_to_ogit(triples: &[Triple]) -> Vec<Triple> {
         if t.p != "declares_association" {
             continue;
         }
-        let kind = kinds
-            .get(&t.o)
-            .map(String::as_str)
-            .unwrap_or("belongs_to");
+        let kind = kinds.get(&t.o).map(String::as_str).unwrap_or("belongs_to");
         let predicate = match kind {
             "belongs_to" => ogit_relations::IS_MEMBER_OF,
             "has_many" | "has_one" => ogit_relations::INCLUDES,
@@ -503,7 +499,178 @@ pub fn classes_matching_commercial_line_item_shape_canonical(
         }
     }
 
-    has_doc_assoc.intersection(&has_tax_assoc).cloned().collect()
+    has_doc_assoc
+        .intersection(&has_tax_assoc)
+        .cloned()
+        .collect()
+}
+
+// ─── Concept-graph edges — the real cross-curator ERP AST test ──────────
+//
+// Name-level convergence (a class IRI → a `CanonicalConcept`) is the first
+// half. The deeper test is **edge-level**: does the canonical concept
+// GRAPH — concept→concept relations — converge across a Rails-based ERP
+// (OSB) and Odoo, despite different field names AND different predicate
+// vocabularies? E.g. both curators' `CommercialLineItem` must point at
+// `CommercialDocument` (OSB `invoice` / Odoo `move_id → account.move`)
+// and at `TaxPolicy` (OSB `tax1`/`tax2` / Odoo `tax_ids → account.tax`).
+// That shared sub-graph IS the AR-shape ERP AST: the same business
+// structure, regardless of curator syntax.
+
+/// Resolve a single relation token — EITHER an Odoo comodel class name
+/// (`account_tax`, `account_move`, `res_partner`) OR a Rails relation
+/// leaf-name (`tax1`, `invoice`, `item`, `client`) — to its
+/// `CanonicalConcept`, by the same lexical hints the 11 class-shape
+/// detectors use.
+///
+/// Priority-ordered (most specific first) so ambiguous substrings
+/// resolve correctly:
+/// 1. `*line*` + order/move → line-item concepts (must precede the
+///    document arms, which also match `move`/`order`).
+/// 2. tax → `TaxPolicy` (precedes `account_*` document match).
+/// 3. document / order / party / currency / payment / inventory /
+///    fulfillment / product.
+///
+/// Returns `None` for tokens that don't map to a known concept
+/// (`estimate`, `uom`, `analytic_account`, …) — those are real
+/// relations but to concepts not yet promoted.
+#[must_use]
+pub fn concept_of_token(token: &str) -> Option<CanonicalConcept> {
+    let t = token.to_lowercase();
+
+    // 1. Line-item concepts first — they contain "line"/"move"/"order"
+    //    substrings that the document arms would otherwise capture.
+    if t.contains("line") && (t.contains("order") || t.contains("sale")) {
+        return Some(CanonicalConcept::SalesOrderLine);
+    }
+    if t.contains("lineitem")
+        || t.ends_with("order_line")
+        || t.ends_with("move_line")
+        || (t.contains("invoice") && t.contains("line"))
+    {
+        // sale_order_line is handled above; remaining *_line / lineitem
+        // map to CommercialLineItem unless they're sales-order lines.
+        if t.contains("order") || t.contains("sale") {
+            return Some(CanonicalConcept::SalesOrderLine);
+        }
+        return Some(CanonicalConcept::CommercialLineItem);
+    }
+
+    // 2. Tax before any `account_*` document match.
+    if t.contains("tax") {
+        return Some(CanonicalConcept::TaxPolicy);
+    }
+
+    // 3. Inventory / fulfillment (stock_move before the bare move arm).
+    if t.ends_with("inventoryunit") || t.contains("stock_move") {
+        return Some(CanonicalConcept::InventoryMovement);
+    }
+    if t.ends_with("shipment") || t.ends_with("picking") {
+        return Some(CanonicalConcept::FulfillmentFlow);
+    }
+
+    // 4. Documents — sales order vs accounting document.
+    if t.contains("order") || t.contains("sale_order") {
+        return Some(CanonicalConcept::SalesOrder);
+    }
+    if t.contains("invoice") || t.contains("account_move") || t == "move" {
+        return Some(CanonicalConcept::CommercialDocument);
+    }
+
+    // 5. Party / currency / payment.
+    if t.contains("partner") || t.contains("client") || t.contains("customer") {
+        return Some(CanonicalConcept::BillingParty);
+    }
+    if t.contains("currency") {
+        return Some(CanonicalConcept::CurrencyPolicy);
+    }
+    if t.contains("payment") {
+        return Some(CanonicalConcept::PaymentRecord);
+    }
+
+    // 6. Product (OSB's line→item is the catalog product; Odoo
+    //    product_id → product.product / variant).
+    if t.contains("product") || t.contains("variant") || t == "item" {
+        return Some(CanonicalConcept::ProductOffering);
+    }
+
+    None
+}
+
+/// One directed edge in the canonical concept-graph: `from` concept has
+/// an OGIT canonical relation to `to` concept.
+pub type ConceptEdge = (CanonicalConcept, CanonicalConcept);
+
+/// A class-shape detector: `(triples, namespace_prefix) -> matching
+/// class IRIs`. Aliased so the [`synergy_registry_one_shot`] detector
+/// table stays readable (clippy `type_complexity`).
+pub type ConceptDetector = fn(&[Triple], &str) -> Vec<String>;
+
+/// Extract the canonical concept-graph from a curator's raw harvest
+/// triples. Runs the per-curator codebook (Rails or Odoo) to get OGIT
+/// canonical relations, resolves BOTH endpoints of each relation to a
+/// `CanonicalConcept` via [`concept_of_token`], and returns the set of
+/// `(from_concept, to_concept)` edges.
+///
+/// `is_rails` selects the codebook: `true` →
+/// [`translate_rails_to_ogit`] (the object is a field-IRI whose leaf is
+/// the relation name, resolved by Rails convention); `false` →
+/// [`translate_odoo_to_ogit`] (the object is the comodel class IRI).
+///
+/// Self-edges (a concept relating to itself, e.g. a line reconciling
+/// against another line) are dropped — they're not cross-concept
+/// structure.
+///
+/// **This is the cross-curator ERP AST surface.** Two curators that
+/// describe the same business domain emit the SAME concept-edge set,
+/// even though their class names, field names, and predicate
+/// vocabularies all differ.
+#[must_use]
+pub fn concept_edges(
+    triples: &[Triple],
+    namespace_prefix: &str,
+    is_rails: bool,
+) -> std::collections::BTreeSet<ConceptEdge> {
+    let canonical = if is_rails {
+        translate_rails_to_ogit(triples)
+    } else {
+        translate_odoo_to_ogit(triples, namespace_prefix)
+    };
+
+    let mut out = std::collections::BTreeSet::new();
+    for t in &canonical {
+        // Subject side: `<ns><Class>` → concept.
+        let Some(s_no_ns) = t.s.strip_prefix(namespace_prefix) else {
+            continue;
+        };
+        let from_token = s_no_ns.split('.').next().unwrap_or(s_no_ns);
+        let Some(from) = concept_of_token(from_token) else {
+            continue;
+        };
+
+        // Object side differs by curator:
+        //  - Rails: `<ns><Class>.<relation-leaf>` → the LEAF is the
+        //    relation name (`tax1`, `invoice`), resolved by convention.
+        //  - Odoo: `<ns><comodel>` → the whole thing (sans ns) is the
+        //    target class name.
+        let Some(o_no_ns) = t.o.strip_prefix(namespace_prefix) else {
+            continue;
+        };
+        let to_token = if is_rails {
+            // last dotted segment = the relation leaf
+            o_no_ns.rsplit('.').next().unwrap_or(o_no_ns)
+        } else {
+            o_no_ns
+        };
+        let Some(to) = concept_of_token(to_token) else {
+            continue;
+        };
+
+        if from != to {
+            out.insert((from, to));
+        }
+    }
+    out
 }
 
 // ─── Sibling concept detectors (lexical class-name shape on declared OGIT
@@ -844,8 +1011,7 @@ impl CanonicalErpEntry {
     /// returns has `curator_count() >= 2`.
     #[must_use]
     pub fn curator_count(&self) -> usize {
-        let set: std::collections::BTreeSet<_> =
-            self.matches.iter().map(|(c, _)| c).collect();
+        let set: std::collections::BTreeSet<_> = self.matches.iter().map(|(c, _)| c).collect();
         set.len()
     }
 }
@@ -885,7 +1051,7 @@ pub fn synergy_registry_one_shot(
 
     // Method-pointer table: one detector per concept. Order matches
     // the `CanonicalConcept` enum so the output is deterministic.
-    let detectors: [(CanonicalConcept, fn(&[Triple], &str) -> Vec<String>); 11] = [
+    let detectors: [(CanonicalConcept, ConceptDetector); 11] = [
         (
             CanonicalConcept::CommercialLineItem,
             classes_matching_commercial_line_item_shape,
@@ -1173,7 +1339,10 @@ pub fn classes_matching_commercial_line_item_shape(
         }
     }
 
-    has_doc_assoc.intersection(&has_tax_assoc).cloned().collect()
+    has_doc_assoc
+        .intersection(&has_tax_assoc)
+        .cloned()
+        .collect()
 }
 
 #[cfg(test)]
@@ -1253,7 +1422,10 @@ mod tests {
     /// `&'static str`). Lock the two curators we actually use today.
     #[test]
     fn namespace_prefixes_for_today_curators_are_stable() {
-        assert_eq!(SourceCurator::OpenSourceBilling.namespace_prefix(), "open_source_billing:");
+        assert_eq!(
+            SourceCurator::OpenSourceBilling.namespace_prefix(),
+            "open_source_billing:"
+        );
         assert_eq!(SourceCurator::Odoo.namespace_prefix(), "odoo:");
     }
 
@@ -1308,19 +1480,15 @@ mod tests {
     #[test]
     fn ruff_harvested_osb_and_odoo_corpora_surface_commercial_line_item_candidates() {
         let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
 
         let osb = load_triples_ndjson(osb_bytes).expect("osb ndjson loads");
         let odoo = load_triples_ndjson(odoo_bytes).expect("odoo ndjson loads");
 
         // OSB harvest uses the (intentionally wrong-for-OSB) `openproject:`
         // prefix today; Odoo uses `odoo:`.
-        let osb_candidates =
-            classes_matching_commercial_line_item_shape(&osb, "openproject:");
-        let odoo_candidates =
-            classes_matching_commercial_line_item_shape(&odoo, "odoo:");
+        let osb_candidates = classes_matching_commercial_line_item_shape(&osb, "openproject:");
+        let odoo_candidates = classes_matching_commercial_line_item_shape(&odoo, "odoo:");
 
         // OSB must surface InvoiceLineItem (the strongest pair per
         // operator directive 2026-06-19).
@@ -1345,8 +1513,7 @@ mod tests {
     fn ruff_harvested_osb_corpus_does_not_promote_non_line_item_classes() {
         let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
         let osb = load_triples_ndjson(osb_bytes).expect("osb ndjson loads");
-        let candidates =
-            classes_matching_commercial_line_item_shape(&osb, "openproject:");
+        let candidates = classes_matching_commercial_line_item_shape(&osb, "openproject:");
         // Currency / Client / Company are not LineItem-shaped — they
         // don't carry a tax association.
         for negative in ["Currency", "Client", "Company", "Project", "Payment"] {
@@ -1373,7 +1540,9 @@ mod tests {
         assert!(ogit_relations::is_relation_predicate("ogit:includes"));
         assert!(ogit_relations::is_relation_predicate("ogit:contains"));
         assert!(ogit_relations::is_relation_predicate("ogit:isPartOf"));
-        assert!(!ogit_relations::is_relation_predicate("declares_association"));
+        assert!(!ogit_relations::is_relation_predicate(
+            "declares_association"
+        ));
         assert!(!ogit_relations::is_relation_predicate("target"));
     }
 
@@ -1409,7 +1578,10 @@ mod tests {
         ];
         let canonical = translate_rails_to_ogit(&triples);
         assert_eq!(canonical.len(), 2);
-        let invoices = canonical.iter().find(|t| t.s == "openproject:Client").unwrap();
+        let invoices = canonical
+            .iter()
+            .find(|t| t.s == "openproject:Client")
+            .unwrap();
         assert_eq!(invoices.p, ogit_relations::INCLUDES);
         let parent = canonical
             .iter()
@@ -1453,9 +1625,7 @@ mod tests {
     #[test]
     fn ogit_canonical_detector_finds_line_item_classes_on_both_corpora() {
         let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
 
         let osb_raw = load_triples_ndjson(osb_bytes).unwrap();
         let odoo_raw = load_triples_ndjson(odoo_bytes).unwrap();
@@ -1465,14 +1635,10 @@ mod tests {
         let odoo_canonical = translate_odoo_to_ogit(&odoo_raw, "odoo:");
 
         // Single canonical detector runs on either side.
-        let osb_cands = classes_matching_commercial_line_item_shape_canonical(
-            &osb_canonical,
-            "openproject:",
-        );
-        let odoo_cands = classes_matching_commercial_line_item_shape_canonical(
-            &odoo_canonical,
-            "odoo:",
-        );
+        let osb_cands =
+            classes_matching_commercial_line_item_shape_canonical(&osb_canonical, "openproject:");
+        let odoo_cands =
+            classes_matching_commercial_line_item_shape_canonical(&odoo_canonical, "odoo:");
 
         assert!(
             osb_cands.iter().any(|c| c == "InvoiceLineItem"),
@@ -1492,9 +1658,7 @@ mod tests {
     #[test]
     fn open_source_billing_invoice_and_odoo_account_move_overlap_as_commercial_document() {
         let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
         let osb = load_triples_ndjson(osb_bytes).unwrap();
         let odoo = load_triples_ndjson(odoo_bytes).unwrap();
 
@@ -1522,9 +1686,7 @@ mod tests {
     #[test]
     fn open_source_billing_tax_and_odoo_tax_overlap_as_tax_policy() {
         let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
         let osb = load_triples_ndjson(osb_bytes).unwrap();
         let odoo = load_triples_ndjson(odoo_bytes).unwrap();
 
@@ -1546,9 +1708,7 @@ mod tests {
     #[test]
     fn open_source_billing_client_and_odoo_res_partner_overlap_as_billing_party() {
         let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
         let osb = load_triples_ndjson(osb_bytes).unwrap();
         let odoo = load_triples_ndjson(odoo_bytes).unwrap();
 
@@ -1570,9 +1730,7 @@ mod tests {
     #[test]
     fn open_source_billing_currency_and_odoo_res_currency_overlap_as_currency_policy() {
         let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
         let osb = load_triples_ndjson(osb_bytes).unwrap();
         let odoo = load_triples_ndjson(odoo_bytes).unwrap();
 
@@ -1594,9 +1752,7 @@ mod tests {
     #[test]
     fn open_source_billing_payment_and_odoo_account_payment_overlap_as_payment_record() {
         let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
         let osb = load_triples_ndjson(osb_bytes).unwrap();
         let odoo = load_triples_ndjson(odoo_bytes).unwrap();
 
@@ -1614,6 +1770,167 @@ mod tests {
         );
     }
 
+    // ─── Concept-graph (ERP AST) convergence tests ──────────────────
+
+    /// `concept_of_token` resolves both Odoo comodel names and Rails
+    /// relation leaves to the same `CanonicalConcept`. This is the
+    /// cross-vocabulary unifier behind the concept-edge test.
+    #[test]
+    fn concept_of_token_resolves_both_curator_vocabularies() {
+        // Odoo comodel class names.
+        assert_eq!(
+            concept_of_token("account_tax"),
+            Some(CanonicalConcept::TaxPolicy)
+        );
+        assert_eq!(
+            concept_of_token("account_move"),
+            Some(CanonicalConcept::CommercialDocument)
+        );
+        assert_eq!(
+            concept_of_token("res_partner"),
+            Some(CanonicalConcept::BillingParty)
+        );
+        assert_eq!(
+            concept_of_token("res_currency"),
+            Some(CanonicalConcept::CurrencyPolicy)
+        );
+        assert_eq!(
+            concept_of_token("sale_order"),
+            Some(CanonicalConcept::SalesOrder)
+        );
+        assert_eq!(
+            concept_of_token("sale_order_line"),
+            Some(CanonicalConcept::SalesOrderLine)
+        );
+        assert_eq!(
+            concept_of_token("product_product"),
+            Some(CanonicalConcept::ProductOffering)
+        );
+        assert_eq!(
+            concept_of_token("stock_move"),
+            Some(CanonicalConcept::InventoryMovement)
+        );
+
+        // Rails relation leaves (different syntax, same concept).
+        assert_eq!(concept_of_token("tax1"), Some(CanonicalConcept::TaxPolicy));
+        assert_eq!(concept_of_token("tax2"), Some(CanonicalConcept::TaxPolicy));
+        assert_eq!(
+            concept_of_token("invoice"),
+            Some(CanonicalConcept::CommercialDocument)
+        );
+        assert_eq!(
+            concept_of_token("client"),
+            Some(CanonicalConcept::BillingParty)
+        );
+        assert_eq!(
+            concept_of_token("item"),
+            Some(CanonicalConcept::ProductOffering)
+        );
+
+        // Non-concept relations resolve to None (real edges, unpromoted
+        // targets).
+        assert_eq!(concept_of_token("estimate"), None);
+        assert_eq!(concept_of_token("uom"), None);
+    }
+
+    /// **The cross-curator ERP AST test.** The Rails-based OSB and the
+    /// Python Odoo both describe a `CommercialLineItem`, with totally
+    /// different field names (`tax1`/`tax2` vs `tax_ids`; `invoice` vs
+    /// `move_id`) AND different predicate vocabularies
+    /// (`declares_association` vs `target`) — yet their canonical
+    /// concept-GRAPHS converge: BOTH emit the edges
+    /// `CommercialLineItem → CommercialDocument` and
+    /// `CommercialLineItem → TaxPolicy`. The shared sub-graph IS the
+    /// AR-shape ERP AST.
+    #[test]
+    fn osb_rails_and_odoo_commercial_line_item_share_concept_edges() {
+        let osb =
+            load_triples_ndjson(include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson")).unwrap();
+        let odoo = load_triples_ndjson(include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        ))
+        .unwrap();
+
+        let osb_edges = concept_edges(&osb, "openproject:", true);
+        let odoo_edges = concept_edges(&odoo, "odoo:", false);
+
+        // The two load-bearing line-item edges that MUST converge.
+        let line_to_doc = (
+            CanonicalConcept::CommercialLineItem,
+            CanonicalConcept::CommercialDocument,
+        );
+        let line_to_tax = (
+            CanonicalConcept::CommercialLineItem,
+            CanonicalConcept::TaxPolicy,
+        );
+
+        assert!(
+            osb_edges.contains(&line_to_doc),
+            "OSB (Rails) missing CommercialLineItem→CommercialDocument; \
+             edges: {:?}",
+            osb_edges,
+        );
+        assert!(
+            odoo_edges.contains(&line_to_doc),
+            "Odoo missing CommercialLineItem→CommercialDocument; \
+             edges: {:?}",
+            odoo_edges,
+        );
+        assert!(
+            osb_edges.contains(&line_to_tax),
+            "OSB (Rails) missing CommercialLineItem→TaxPolicy; edges: {:?}",
+            osb_edges,
+        );
+        assert!(
+            odoo_edges.contains(&line_to_tax),
+            "Odoo missing CommercialLineItem→TaxPolicy; edges: {:?}",
+            odoo_edges,
+        );
+
+        // The shared sub-graph (the intersection) is non-trivial —
+        // both curators agree on AT LEAST these two structural edges.
+        let shared: std::collections::BTreeSet<_> =
+            osb_edges.intersection(&odoo_edges).copied().collect();
+        assert!(
+            shared.contains(&line_to_doc) && shared.contains(&line_to_tax),
+            "the cross-curator AST shared sub-graph must contain both \
+             line-item edges; shared: {shared:?}",
+        );
+    }
+
+    /// The document-side concept edge converges too: a
+    /// `CommercialDocument` points at a `BillingParty` in BOTH curators
+    /// (OSB `Invoice belongs_to :client`; Odoo `account_move →
+    /// partner_id → res.partner`). Proves the AST convergence isn't
+    /// limited to the line-item node.
+    #[test]
+    fn osb_rails_and_odoo_commercial_document_both_link_billing_party() {
+        let osb =
+            load_triples_ndjson(include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson")).unwrap();
+        let odoo = load_triples_ndjson(include_bytes!(
+            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
+        ))
+        .unwrap();
+
+        let osb_edges = concept_edges(&osb, "openproject:", true);
+        let odoo_edges = concept_edges(&odoo, "odoo:", false);
+
+        let doc_to_party = (
+            CanonicalConcept::CommercialDocument,
+            CanonicalConcept::BillingParty,
+        );
+        assert!(
+            osb_edges.contains(&doc_to_party),
+            "OSB (Rails) missing CommercialDocument→BillingParty; edges: {:?}",
+            osb_edges,
+        );
+        assert!(
+            odoo_edges.contains(&doc_to_party),
+            "Odoo missing CommercialDocument→BillingParty; edges: {:?}",
+            odoo_edges,
+        );
+    }
+
     // ─── One-shot synergy registry test ─────────────────────────────
 
     /// `synergy_registry_one_shot` consumes all three workspace
@@ -1625,11 +1942,8 @@ mod tests {
     #[test]
     fn synergy_registry_one_shot_returns_full_canonical_erp_label_table() {
         let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
-        let spree_bytes =
-            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let spree_bytes = include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
 
         let osb = load_triples_ndjson(osb_bytes).unwrap();
         let spree = load_triples_ndjson(spree_bytes).unwrap();
@@ -1660,16 +1974,18 @@ mod tests {
 
         // Helper: assert a (curator, class) pair is in the entry's
         // matches list.
-        let assert_match =
-            |entry: &CanonicalErpEntry, curator: SourceCurator, class_iri: &str| {
-                assert!(
-                    entry.matches.iter().any(|(c, s)| *c == curator && s == class_iri),
-                    "{:?} missing ({:?}, {class_iri}); matches: {:?}",
-                    entry.concept,
-                    curator,
-                    entry.matches,
-                );
-            };
+        let assert_match = |entry: &CanonicalErpEntry, curator: SourceCurator, class_iri: &str| {
+            assert!(
+                entry
+                    .matches
+                    .iter()
+                    .any(|(c, s)| *c == curator && s == class_iri),
+                "{:?} missing ({:?}, {class_iri}); matches: {:?}",
+                entry.concept,
+                curator,
+                entry.matches,
+            );
+        };
 
         // Every one of the 11 promoted concepts must appear and carry
         // its expected OSB/Spree/Odoo classes.
@@ -1743,14 +2059,10 @@ mod tests {
     /// repeated calls (matches sorted, dedup applied).
     #[test]
     fn synergy_registry_one_shot_is_deterministic() {
-        let osb = load_triples_ndjson(include_bytes!(
-            "../tests/fixtures/osb_ruby_spo.ndjson"
-        ))
-        .unwrap();
-        let spree = load_triples_ndjson(include_bytes!(
-            "../tests/fixtures/spree_ruby_spo.ndjson"
-        ))
-        .unwrap();
+        let osb =
+            load_triples_ndjson(include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson")).unwrap();
+        let spree =
+            load_triples_ndjson(include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson")).unwrap();
         let odoo = load_triples_ndjson(include_bytes!(
             "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
         ))
@@ -1775,11 +2087,8 @@ mod tests {
     /// — the headline smoke target B per operator directive.
     #[test]
     fn spree_order_and_odoo_sale_order_overlap_as_sales_order() {
-        let spree_bytes =
-            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let spree_bytes = include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
         let spree = load_triples_ndjson(spree_bytes).unwrap();
         let odoo = load_triples_ndjson(odoo_bytes).unwrap();
 
@@ -1798,11 +2107,9 @@ mod tests {
         );
         // Spree::Order must NOT promote as CommercialDocument — sales
         // orders are commerce-side, distinct from accounting docs.
-        let spree_cd =
-            classes_matching_commercial_document_shape_canonical(&spree, "openproject:");
+        let spree_cd = classes_matching_commercial_document_shape_canonical(&spree, "openproject:");
         assert!(!spree_cd.iter().any(|c| c == "Spree::Order"));
-        let odoo_cd =
-            classes_matching_commercial_document_shape_canonical(&odoo, "odoo:");
+        let odoo_cd = classes_matching_commercial_document_shape_canonical(&odoo, "odoo:");
         assert!(!odoo_cd.iter().any(|c| c == "sale_order"));
     }
 
@@ -1810,18 +2117,13 @@ mod tests {
     /// — operator-named test from smoke target B.
     #[test]
     fn spree_line_item_and_odoo_sale_order_line_overlap_as_sales_order_line() {
-        let spree_bytes =
-            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let spree_bytes = include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
         let spree = load_triples_ndjson(spree_bytes).unwrap();
         let odoo = load_triples_ndjson(odoo_bytes).unwrap();
 
-        let spree_c =
-            classes_matching_sales_order_line_shape_canonical(&spree, "openproject:");
-        let odoo_c =
-            classes_matching_sales_order_line_shape_canonical(&odoo, "odoo:");
+        let spree_c = classes_matching_sales_order_line_shape_canonical(&spree, "openproject:");
+        let odoo_c = classes_matching_sales_order_line_shape_canonical(&odoo, "odoo:");
 
         assert!(
             spree_c.iter().any(|c| c == "Spree::LineItem"),
@@ -1838,18 +2140,13 @@ mod tests {
     /// `spree_shipment_and_odoo_stock_picking_overlap_as_fulfillment_flow`.
     #[test]
     fn spree_shipment_and_odoo_stock_picking_overlap_as_fulfillment_flow() {
-        let spree_bytes =
-            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let spree_bytes = include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
         let spree = load_triples_ndjson(spree_bytes).unwrap();
         let odoo = load_triples_ndjson(odoo_bytes).unwrap();
 
-        let spree_c =
-            classes_matching_fulfillment_flow_shape_canonical(&spree, "openproject:");
-        let odoo_c =
-            classes_matching_fulfillment_flow_shape_canonical(&odoo, "odoo:");
+        let spree_c = classes_matching_fulfillment_flow_shape_canonical(&spree, "openproject:");
+        let odoo_c = classes_matching_fulfillment_flow_shape_canonical(&odoo, "odoo:");
 
         assert!(
             spree_c.iter().any(|c| c == "Spree::Shipment"),
@@ -1866,18 +2163,13 @@ mod tests {
     /// — the `stock_` qualifier discriminates.
     #[test]
     fn spree_inventory_unit_and_odoo_stock_move_overlap_as_inventory_movement() {
-        let spree_bytes =
-            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let spree_bytes = include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
         let spree = load_triples_ndjson(spree_bytes).unwrap();
         let odoo = load_triples_ndjson(odoo_bytes).unwrap();
 
-        let spree_c =
-            classes_matching_inventory_movement_shape_canonical(&spree, "openproject:");
-        let odoo_c =
-            classes_matching_inventory_movement_shape_canonical(&odoo, "odoo:");
+        let spree_c = classes_matching_inventory_movement_shape_canonical(&spree, "openproject:");
+        let odoo_c = classes_matching_inventory_movement_shape_canonical(&odoo, "odoo:");
 
         assert!(
             spree_c.iter().any(|c| c == "Spree::InventoryUnit"),
@@ -1895,18 +2187,13 @@ mod tests {
     /// `spree_product_variant_and_odoo_product_overlap_as_product_offering`.
     #[test]
     fn spree_product_variant_and_odoo_product_overlap_as_product_offering() {
-        let spree_bytes =
-            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let spree_bytes = include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
         let spree = load_triples_ndjson(spree_bytes).unwrap();
         let odoo = load_triples_ndjson(odoo_bytes).unwrap();
 
-        let spree_c =
-            classes_matching_product_offering_shape_canonical(&spree, "openproject:");
-        let odoo_c =
-            classes_matching_product_offering_shape_canonical(&odoo, "odoo:");
+        let spree_c = classes_matching_product_offering_shape_canonical(&spree, "openproject:");
+        let odoo_c = classes_matching_product_offering_shape_canonical(&odoo, "odoo:");
 
         assert!(
             spree_c.iter().any(|c| c == "Spree::Product"),
@@ -1937,20 +2224,19 @@ mod tests {
     /// gate.
     #[test]
     fn spree_third_curator_convergence_on_tax_policy_and_payment_record() {
-        let spree_bytes =
-            include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
+        let spree_bytes = include_bytes!("../tests/fixtures/spree_ruby_spo.ndjson");
         let spree = load_triples_ndjson(spree_bytes).unwrap();
 
         let tax = classes_matching_tax_policy_shape_canonical(&spree, "openproject:");
-        let payment =
-            classes_matching_payment_record_shape_canonical(&spree, "openproject:");
+        let payment = classes_matching_payment_record_shape_canonical(&spree, "openproject:");
 
         // Spree models multiple tax classes — TaxRate, TaxCategory,
         // Calculator::DefaultTax, Adjustable::Adjuster::Tax. Any
         // ending in "tax" counts. TaxRate is the strongest match
         // (corresponds to OSB::Tax / odoo:account_tax).
         assert!(
-            tax.iter().any(|c| c.ends_with("TaxRate") || c == "Spree::TaxRate"),
+            tax.iter()
+                .any(|c| c.ends_with("TaxRate") || c == "Spree::TaxRate"),
             "Spree candidates missing a TaxRate; got first 5: {:?}",
             tax.iter().take(5).collect::<Vec<_>>(),
         );
@@ -1971,10 +2257,8 @@ mod tests {
     /// expected pairs participate.
     #[test]
     fn lexical_candidates_survive_canonical_relation_participation_check() {
-        let osb_raw = load_triples_ndjson(include_bytes!(
-            "../tests/fixtures/osb_ruby_spo.ndjson"
-        ))
-        .unwrap();
+        let osb_raw =
+            load_triples_ndjson(include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson")).unwrap();
         let odoo_raw = load_triples_ndjson(include_bytes!(
             "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
         ))
@@ -1983,14 +2267,19 @@ mod tests {
         let osb_canonical = translate_rails_to_ogit(&osb_raw);
         let odoo_canonical = translate_odoo_to_ogit(&odoo_raw, "odoo:");
 
-        let osb_participants = classes_participating_in_canonical_relations(
-            &osb_canonical,
-            "openproject:",
-        );
+        let osb_participants =
+            classes_participating_in_canonical_relations(&osb_canonical, "openproject:");
         let odoo_participants =
             classes_participating_in_canonical_relations(&odoo_canonical, "odoo:");
 
-        for c in ["InvoiceLineItem", "Invoice", "Tax", "Client", "Currency", "Payment"] {
+        for c in [
+            "InvoiceLineItem",
+            "Invoice",
+            "Tax",
+            "Client",
+            "Currency",
+            "Payment",
+        ] {
             assert!(
                 osb_participants.contains(c),
                 "OSB candidate `{c}` is lexically matched but has ZERO OGIT \
@@ -2022,24 +2311,18 @@ mod tests {
     #[test]
     fn hand_fixture_and_corpus_detection_agree_on_invoice_line_item_pair() {
         // Hand fixture → Some(CommercialLineItem)
-        let hand = overlap_commercial_line_item(
-            &osb_invoice_line_item(),
-            &odoo_account_move_line(),
-        );
+        let hand =
+            overlap_commercial_line_item(&osb_invoice_line_item(), &odoo_account_move_line());
         assert_eq!(hand, Some(CanonicalConcept::CommercialLineItem));
 
         // Corpus → InvoiceLineItem and account_move_line both appear as
         // candidates → the pair is a synergy row.
         let osb_bytes = include_bytes!("../tests/fixtures/osb_ruby_spo.ndjson");
-        let odoo_bytes = include_bytes!(
-            "../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson"
-        );
+        let odoo_bytes = include_bytes!("../../lance-graph/src/graph/spo/odoo_ontology.spo.ndjson");
         let osb = load_triples_ndjson(osb_bytes).unwrap();
         let odoo = load_triples_ndjson(odoo_bytes).unwrap();
-        let osb_c =
-            classes_matching_commercial_line_item_shape(&osb, "openproject:");
-        let odoo_c =
-            classes_matching_commercial_line_item_shape(&odoo, "odoo:");
+        let osb_c = classes_matching_commercial_line_item_shape(&osb, "openproject:");
+        let odoo_c = classes_matching_commercial_line_item_shape(&odoo, "odoo:");
         assert!(osb_c.iter().any(|c| c == "InvoiceLineItem"));
         assert!(odoo_c.iter().any(|c| c == "account_move_line"));
     }
