@@ -1,3 +1,25 @@
+## 2026-06-19 — E-FAMILY-BASIN-WEYL-HOP-LOCAL-AT-CRISP-TIER — REINSTATEMENT (tier-scoped) of `E-OUTAGE-CASCADE-IS-NON-LOCAL`: WITH the family-basin partition, a within-basin perturbation is block-localized (Davis-Kahan) at the **crisp top split**, so multi-hop Weyl IS hop-local there; finer tiers leak. The earlier non-locality was the *un-partitioned* global solve.
+
+**Status:** FINDING (measured, real ES PyPSA data; probe `perturbation-sim/examples/family_basin_weyl_multihop.rs`). **Tier-scoped reinstatement** of the reach claim that `E-OUTAGE-CASCADE-IS-NON-LOCAL` had corrected. Operator hypothesis: "with family basin it works now with weyl multihop." Confirmed — at the crisp tier only.
+
+**The measurement (ES largest component, 261 buses / 348 lines; containment = fraction of L⁺ dipole-response energy kept in the seed's basin):**
+
+| tier | basins | within | seam | ratio | verdict |
+|---|---|---|---|---|---|
+| **HEEL (top split)** | 2 | **0.957** | 0.621 | **1.54** | **HOP-LOCAL** |
+| HIP | 4 | 0.579 | 0.621 | 0.93 | leaks |
+| LEAF | 7 | 0.529 | 0.485 | 1.09 | leaks |
+
+At the **crisp top split** a within-basin perturbation stays **95.7 % contained** and beats the seam-straddle (ratio 1.54) — block-localized, Weyl satisfied. This **reinstates "hop bounds reach" on the eigenvalue axis**: the mechanism is Davis-Kahan block-localization under weak inter-block coupling (Cheeger/spectral-clustering). The earlier non-locality (`E-OUTAGE-CASCADE-IS-NON-LOCAL`) was measured on the **un-partitioned global solve** AND seeded the **max-flow line = the seam itself** (a seam trip leaks by construction); both errors are removed here.
+
+**The honest scope — it is the COARSE crisp split, not all tiers.** HIP/LEAF leak (within ≈ seam): the perturbation is NOT contained at finer tiers. This matches the spectral structure exactly — probe C (bisection stability) is solid at the top (ES `(λ₃−λ₂)/λ₂ = 3.23`) and marginal deeper; the operator's "without family nodes" table shows out-of-family ties growing 0→2→9→20 HEEL→HIP→TWIG→LEAF (the deeper blocks are loosely coupled). **The 2-basin "HEEL" split here IS that table's HIP 2-line seam** (lines 46, 150) — `hhtl_keys` puts the first crisp Cheeger cut at the heel nibble; labels offset by one, structure agrees.
+
+**The three-axis close (a "surge" decomposes, and each axis owns one aspect):** WHERE it breaks = CHAODA anomaly (manifold repulsion, `ndarray::hpc::clam`); HOW MUCH = Weyl magnitude (probes A–D, [G] exact in code); HOW it spreads = **family-basin block-localized Weyl multi-hop, hop-local at the crisp tier** (this finding) + the ketchup yield as the seam gate. The family-basin layer (`E-BASIN-IS-A-NODE`) is the keystone that block-diagonalizes the Laplacian so per-basin Weyl chains seam-to-seam.
+
+**Self-correction (process):** the probe's first verdict rubber-stamped a 0.044 within-vs-seam gap + a **vacuous Davis-Kahan bound (2199)** as "SUPPORTED" — the same confirmation-bias trap. Tightened the gate to per-tier within ≥ 0.70 AND within/seam ratio ≥ 1.30 AND Weyl, dropped the DK bound as evidence (it is uninformative when the eigengap is tiny). Under the honest gate only HEEL passes — which is the correct, nuanced result. Cross-refs: `E-OUTAGE-CASCADE-IS-NON-LOCAL` (the claim reinstated), `E-BASIN-IS-A-NODE` (the family-basin keystone), `perturbation-sim::{spectral_perturbation, hhtl_keys}`, probes A–E (the spectral foundation, real PyPSA), the "without family nodes" tier table.
+
+---
+
 ## 2026-06-19 — E-OUTAGE-CASCADE-IS-NON-LOCAL — CORRECTION to `E-BASIN-IS-A-NODE`: the electricity-outage perturbation does NOT decay with HHTL hop; the "cascade round = hop / hop bounds reach" identity is a property of the COGNITIVE substrate (propagation rides basin-tree EDGES by construction), NOT of the DC-power-flow electrical metaphor — they must not be conflated
 
 **Status:** FINDING (measured correction; probe `perturbation-sim/examples/outage_over_hhtl_hops.rs`). **Corrects** the second [H] sub-claim posted in `E-BASIN-IS-A-NODE` ("cascade round k = nodes at hop-distance k; Weyl bounds magnitude per round, hop-count bounds the reach"). Operator prompt: "model the electricity outage perturbation again with the HHTL L1-L4." The honest answer: I did, and it **refutes** the literal-electrical reading.
