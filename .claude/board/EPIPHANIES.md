@@ -1,3 +1,20 @@
+## 2026-06-19 — E-OUTAGE-CASCADE-IS-NON-LOCAL — CORRECTION to `E-BASIN-IS-A-NODE`: the electricity-outage perturbation does NOT decay with HHTL hop; the "cascade round = hop / hop bounds reach" identity is a property of the COGNITIVE substrate (propagation rides basin-tree EDGES by construction), NOT of the DC-power-flow electrical metaphor — they must not be conflated
+
+**Status:** FINDING (measured correction; probe `perturbation-sim/examples/outage_over_hhtl_hops.rs`). **Corrects** the second [H] sub-claim posted in `E-BASIN-IS-A-NODE` ("cascade round k = nodes at hop-distance k; Weyl bounds magnitude per round, hop-count bounds the reach"). Operator prompt: "model the electricity outage perturbation again with the HHTL L1-L4." The honest answer: I did, and it **refutes** the literal-electrical reading.
+
+**What the probe measured.** A sparse hierarchically-coupled backbone (8 leaf basins, Cheeger bisection recovers the L1-L4 HHTL tiers), seeded at the max-base-flow line, `simulate_outage` run, perturbation `node_field` and `trip_round` scored against the `node_distance(PrefixDepth)` tree-hop from the seed:
+- magnitude vs hop is **non-monotone** (hop0 5.13, hop2 5.22, hop4 0.22, **hop6 rebounds to 2.82**), Spearman ρ = **−0.233** (weak);
+- the cascade **islands** (the grid fragments — node_field becomes a least-norm proxy, not physical);
+- trip-order vs hop ρ = **−0.20** (if anything, later rounds trip *closer*, the opposite of hop-local).
+
+So on the DC-power-flow model the outage is **non-local**: a far basin can feel as much shape as a near one, because flow redistributes globally (LODF), and the network islands. **The identity is NOT a property of the electrical metaphor.**
+
+**What survives (the load-bearing distinction).** The hop = cascade-level identity holds for the **cognitive substrate**, where propagation is constrained to the basin-tree EDGES *by construction* — a delta reaches a node only through its HHTL neighbours, so reach IS hop-bounded and `node_distance(PrefixDepth)` IS the propagation metric. The electrical DC cascade is the **non-local counter-model that proves the distinction**: do not import "cascade reach = hop" from the power-grid analogy into the substrate as if measured there. The cognitive case is edge-local (trivially hop-bounded); the electrical case is globally-coupled (not hop-bounded). `E-BASIN-IS-A-NODE`'s *other* axes are untouched — basin=node, distance=hop=`PrefixDepth` (the placement probe `basin_placement_learning.rs`, green 75.8 %, stands), Morton-pyramid distribution. Only the electrical-cascade-as-propagation framing is corrected.
+
+**Self-correction note (process):** the probe's first auto-verdict rubber-stamped ρ=−0.233 as "SUPPORTED" (threshold ρ<−0.2). That was the confirmation-bias trap (`adk-behavior-monitor`: "feels like success"). The verdict was tightened to require **monotone decay AND no islanding AND ρ<−0.5**; under the honest gate the result reads CORRECTED, not supported. Cross-refs: `E-BASIN-IS-A-NODE` (the corrected claim), `perturbation-sim::cascade::simulate_outage`, `mailbox_scan::node_distance` (the edge-local metric that IS hop-bounded).
+
+---
+
 ## 2026-06-19 — E-GUID-SELF-ROUTES-THE-BASIN-TREE — `memberof` needs no coarse-fingerprint table: the HHTL nibbles ALREADY IN the GUID (classid·HEEL·HIP·TWIG) are the basin-tree route; the parent's address = HHTL-tier truncation of the child's own GUID, so every ancestor's route key derives from one key by truncation, zero lookups for addresses
 
 **Status:** FINDING **[G]** for the truncation-is-route identity (pure key arithmetic; `NiblePath::parent`/`from_guid_prefix` already wired). Operator sharpening ("what about using the HHTL in the guid") — resolves the open cross-shard `memberof` question raised at `E-BASIN-IS-A-NODE` and corrects this session's own "hand the parent to a separate coarse-fingerprint table" framing. Sharpens `E-COARSE-QUANTIZER-IS-SCALE-FREE-ROUTER` and `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`.
