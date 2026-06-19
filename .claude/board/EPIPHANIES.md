@@ -371,6 +371,32 @@ Cross-ref: TECH_DEBT `TD-SURREALDB-KVLANCE-LANCE7` (now PAID); `E-LANCE7-OBJECTS
 | LEAF | 8 | 0.592 | 0.512 | 1.16 | leaks |
 
 IT **replicates and slightly extends** the ES result: the crisp band is hop-local at HEEL **and HIP** (ES was HEEL only), LEAF leaks — same shape (crisp tiers localize, finest tier leaks), on an independent grid. So the family-basin Weyl-multi-hop hop-locality is **not an ES artifact** — it holds where the bisection is stable, across grids. The tier at which leakage sets in is grid-specific (the marginal-DK / out-of-family-tie-growth boundary), as expected. Cross-ref: `E-FAMILY-BASIN-WEYL-HOP-LOCAL-AT-CRISP-TIER` (the ES finding this confirms).
+## 2026-06-19 — E-OGAR-AR-SHAPE-REHOME — the `ar_shape` module was a PARALLEL AR registry in the wrong repo (the od-ontology construction error, repeated); OGAR's `ogar-vocab` already IS the canonical registry — lance-graph does Odoo EXTRACTION that resolves to OGAR's codebook, it does not RE-DERIVE the registry
+
+**Status:** FINDING (construction-error correction; operator-flagged 2026-06-19; #552 closed, module reverted from lance-graph). **Supersedes the CODE-HOME claim of `E-OGAR-AR-SHAPE-SMOKE-1..6` below** — their *findings* (cross-curator node/vocabulary/edge/mixin convergence) hold and are real, but the *code that proved them belongs in `AdaWorldAPI/OGAR`, not `lance-graph-ontology`*. The module was reverted; this entry records why so a future session does not rebuild it here.
+
+**The error (the same pattern called out at the very start of this arc).** The operator's opening critique of this whole line of work was: *"using flat od-ontology and not touching ar_shape is a huge construction error… a parallel object model duplicating what the typed Core already held."* I then did the inverse-but-identical mistake: I built `lance-graph-ontology::ar_shape` — a `CanonicalConcept` enum + codebook ids + `concept_of_token` resolver + `concept_edges` + `synergy_registry_one_shot` + per-curator codebooks — **as a parallel generic-AR registry in lance-graph**, when `AdaWorldAPI/OGAR`'s `ogar-vocab` (3 383 LOC) ALREADY IS that registry, richer.
+
+**The duplication, line by line (verified against OGAR@156c016):**
+
+| `ar_shape` (lance-graph, reverted) | `ogar-vocab` (OGAR, canonical) |
+|---|---|
+| `CanonicalConcept` enum + `codebook_id()` | `const CODEBOOK` + `canonical_concept_id(name) -> Option<u16>` |
+| `concept_of_token(token)` | `canonical_concept(name) -> String` (richer alias arms) |
+| `synergy_registry_one_shot` | `wire_synergies(classes) -> Vec<Synergy>` + `Synergy`/`SynergyMember` |
+| `concept_edges` / `ConceptEdge` | `Association` / `AssociationKind` on the full `Class` |
+| `Domain` (I drafted then reverted) | `ConceptDomain` + `canonical_concept_domain(id)` (the 0xDDCC encoding) |
+| the 6 commerce concepts `0x0201`–`0x0206` | **identical ids**, landed by OGAR PR #64 ("commerce/ERP canonical wave — 6 cross-curator concepts (OSB ↔ Odoo)"), with full `Class` (attrs/methods/actions), not lexical detectors |
+
+OGAR's `ogar-from-rails` even states the intended split in a source comment: *"the Odoo-side extraction lives in the parallel session"* — i.e. **OGAR owns the registry; lance-graph does the Odoo extraction; they MEET at `canonical_concept_id`** (a Rails label and an Odoo label both resolve to the same `u16`). I re-implemented the registry instead of consuming it.
+
+**The correct architecture (what lance-graph's contribution should have been).** lance-graph already has the Odoo half: `odoo_blueprint` (the typed Odoo Core) + `tools/odoo-blueprint-extractor` + `crates/lance-graph/src/graph/spo/odoo_ontology.spo.ndjson`. The *only* legitimate lance-graph addition would have been a thin resolver mapping an Odoo class label to OGAR's `canonical_concept_id` — and even that mostly exists. **No `CanonicalConcept` enum, no codebooks, no fixtures belonged in lance-graph.** The detection is generic AR = OGAR; the Odoo extraction is lance-graph; they meet at the codebook.
+
+**What was genuinely net-new (and where it goes).** OGAR's commerce block stops at `0x0206` (`currency_policy`). The **five SMOKE-5 concepts — `SalesOrder`, `SalesOrderLine`, `FulfillmentFlow`, `InventoryMovement`, `ProductOffering`** (Spree + Odoo evidence) — are NOT yet in OGAR's codebook. **Those are the only re-homeable contribution**, and they belong in OGAR's `0x0207`–`0x020B` commerce extension + a Spree curator in `ogar-from-rails`, in OGAR's full-`Class` pattern (matching `commercial_line_item()` etc.) — NOT as lance-graph lexical detectors. Queued for OGAR; the other session owns that lane. The cross-curator edge-convergence *finding* + the mixin-as-family-node *finding* are real but OGAR's `Association` + `wire_synergies` + the `project_actor` STI-collapse already carry those shapes.
+
+**The lesson (generalize the guard).** Before building ANY canonical-concept registry, resolver, codebook, or synergy detector, **check OGAR first** — `ogar-vocab` is the single source of truth for AR canonical concepts; `ogar-from-rails`/`ogar-from-ruff`/`ogar-from-elixir` are the harvest frontends; the `ogar-adapter-*` crates are egress. A consumer repo (lance-graph, woa-rs, odoo-rs) RESOLVES to OGAR's codebook; it never re-derives it. The 30-turn rediscovery tax this session paid is the cost of not checking the curated OGAR surface before writing 2 568 lines of duplicate.
+
+**Cross-refs:** `AdaWorldAPI/OGAR` `ogar-vocab` (the canonical registry this duplicated) + `ogar-from-rails` ("Odoo-side extraction lives in the parallel session") + PR #64 (the commerce concepts, already landed); the reverted `lance-graph-ontology::ar_shape` (#552, closed); `E-ODOO-CORE-FIRST-STRUCTURAL` (the original "don't build a parallel model" doctrine this re-violated); `E-OGAR-AR-SHAPE-SMOKE-1..6` (findings preserved, code-home corrected); `docs/OGAR_AR_SHAPE_ENDGAME.md` (the doctrine — correctly says OGAR is the compiler; I just put the code in the wrong consumer).
 
 ---
 
