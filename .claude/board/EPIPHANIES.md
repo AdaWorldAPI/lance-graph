@@ -183,6 +183,14 @@ So the substrate answers location at three precisions off one node, and you pay 
 
 **The headline framing (operator-ratified, 2026-06-19):** **OGAR IS the AR-shaped THINK/DO compiler. Foundry / Gotham / OpenProject / Odoo are schema + class inheritance FED INTO it — not external systems OGAR adapts to.** Every Foundry-class platform reduces, at the architecture level, to "an ontology of classes with inheritance + actions + policies." OGAR is that compiler. The ERPs are INPUTS (schema dumps the compiler ingests), not foundations the compiler depends on. This is the strongest statement of `E-OGAR-IS-FOUNDRY`: not "OGAR is LIKE Foundry," but "Foundry/Gotham/OpenProject/Odoo collapse INTO OGAR's class-inheritance + THINK/DO graph."
 
+**The spine (memorable summary; operator-ratified):**
+
+> **Curators teach. OGAR compiles. LanceGraph thinks. SurrealAST + Kanban orchestrate. Adapters obey.**
+
+**The litmus failure-mode name (operator-ratified — quote it when you see it):**
+
+> The same `OgarAst::Do(PostInvoice, …)` MUST execute semantically identically across NativeLance / SurrealAST / Odoo adapter / Rails adapter. **If one backend leaks its syntax into the semantic result, that curator has started wearing the crown — that is the bug.**
+
 **The reframing that closes the arc.** "AR-shape is not flat triples; AR-shape is the living adapter grammar learned from Rails/OpenProject + Odoo, purified through OGAR/DOLCE until it is backend-agnostic." The prior "flat triples → typed SurrealQL DDL" framing (E-AR-PROJECTION-CONVERGED + E-AR-PROJECTION-CORRECTION-1) is **kept** as the harvest substrate and SurrealQL adapter target — but is **NOT** the endgame; it is **one adapter target** of the larger ontology. _Tiny brass thunderbolt: Foundry maps the enterprise. OGAR metabolizes it._
 
 **The three new doctrinal pieces (CONJECTURE → FINDING gate per section):**

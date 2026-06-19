@@ -23,6 +23,18 @@
 > reinventing; the deliverable is an **executable ontology compiler**, not
 > a port.
 >
+> **The spine (memorize this; everything else fits under it):**
+>
+> > **Curators teach. OGAR compiles. LanceGraph thinks.
+> > SurrealAST + Kanban orchestrate. Adapters obey.**
+>
+> **The litmus failure (name it when you see it):**
+>
+> > The same `OgarAst::Do(PostInvoice, …)` MUST execute semantically
+> > identically across NativeLance / SurrealAST / Odoo adapter / Rails
+> > adapter. **If one backend leaks its syntax into the semantic result,
+> > that curator has started wearing the crown — that is the bug.**
+>
 > _Tiny brass thunderbolt: Foundry maps the enterprise. OGAR metabolizes it. ⚙️🫀_
 
 ---
