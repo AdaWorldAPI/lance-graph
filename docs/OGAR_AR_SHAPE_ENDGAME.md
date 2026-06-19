@@ -57,7 +57,7 @@ Rails/OpenProject AR   +   Odoo ORM   +   WoA ERP   +   SAP (later)
               Rubicon / Heckhausen Kanban
                               │ executes via
                               ▼
-   ractor-owned LanceGraph SoA  +  SurrealDB / Lance KVS  +  callcenter membrane
+   ractor-proven LanceGraph SoA  +  SurrealDB / Lance KVS  +  callcenter membrane
 ```
 
 The earlier "flat Odoo triples → generated DDL" path is **rejected as the
@@ -312,14 +312,17 @@ struct ArmDecision {
 }
 
 enum Executor {
-    NativeLance,       // run as compute_dag + ractor mutation
-    SurrealQl,         // emit DEFINE TABLE / CREATE / UPDATE / RELATE
-    OdooAdapter,       // route to a live Odoo instance via XML-RPC / RPC
-    RailsAdapter,      // route to OpenProject/Rails AR over HTTP
-    HumanKanban,       // surface as a Kanban card needing operator decision
-    ExternalHttp(Url), // call out
-    Dll(CapabilityId), // dynamically loaded backend capability
+    NativeLance,              // run as compute_dag + ractor mutation
+    SurrealAst,               // emit DEFINE TABLE / CREATE / UPDATE / RELATE
+    HumanKanban,              // surface as a Kanban card needing operator decision
+    Adapter(AdapterTargetId), // route to a callcenter-registered backend
 }
+
+type AdapterTargetId = &'static str;
+// Concrete adapters — Odoo, Rails/OpenProject, SAP, external HTTP — live in the
+// callcenter registry, NOT in lance-graph-contract: the contract names only the
+// routing slot. Drops pre-council ExternalHttp(Url) (zero-dep violation) and
+// Dll(CapabilityId) (phantom); OdooAdapter/RailsAdapter collapse into Adapter.
 ```
 
 The ARM consults THINK before picking an executor:
@@ -339,15 +342,16 @@ remotely, or by a human.
 This is what `lance-graph-callcenter` becomes: the outer membrane carrying
 ARM decisions out.
 
-### DLL — dynamically loaded backend capability
+### Adapter — callcenter-registered backend capability
 
-The third leg of AST/ARM/DLL: a `DLL` is a registered, dynamically
-loadable executor that the ARM can pick. Today's executors
-(NativeLance, SurrealQl) are compile-time. Tomorrow's DLLs (an SAP
-adapter, a customer-specific tax engine) are registered at runtime
-through `callcenter`'s capability table.
+The third leg of AST/ARM/Adapter: an `Adapter(AdapterTargetId)` is a
+registered, runtime-resolvable executor that the ARM can pick. Today's
+compile-time executors are `NativeLance` and `SurrealAst`. Tomorrow's
+adapters (an SAP adapter, a customer-specific tax engine, Odoo,
+Rails/OpenProject) are registered at runtime through `callcenter`'s adapter
+registry — never named in `lance-graph-contract`.
 
-The DLL slot keeps the ontology **open** without forcing every adapter
+The adapter slot keeps the ontology **open** without forcing every adapter
 into the compile graph.
 
 ---
@@ -390,7 +394,7 @@ lance-graph-contract         Interface promises
                              ClassView, MailboxSoA contracts)
 
 lance-graph-callcenter       Outer execution membrane
-                             adapter dispatch, DLL capabilities, human-task
+                             adapter dispatch, adapter registry, human-task
                              Kanban queue, external system integration
 ```
 
@@ -494,7 +498,7 @@ What callcenter holds:
 
 - Adapter target registry (Odoo XML-RPC endpoint, Rails HTTP API,
   WoA REST, SAP RFC, …).
-- Capability table for DLL executors (dynamically loaded).
+- Runtime-resolved `Adapter(AdapterTargetId)` executors (registered in the table above).
 - Human-task queue (Kanban cards that need operator decisions).
 - Tool-call surface for external integrations (LLM tools, MCP servers).
 
@@ -593,7 +597,7 @@ OgarAst::Do(
 ```
 Verdict::ProceedAs {
     preferred_executor: Executor::NativeLance,
-    fallback:          Some(Executor::SurrealQl),
+    fallback:          Some(Executor::SurrealAst),
 }
 ```
 
@@ -624,7 +628,7 @@ PostInvoice AST
         `UPDATE Invoice:I42 SET state='Posted', ...`
         (the query side of the orchestration plane — readers see the change)
   → callcenter (outer membrane): emits audit event to external GoBD
-        compliance system (via Executor::ExternalHttp)
+        compliance system (via Executor::Adapter("gobd-compliance"))
 ```
 
 This is **one operation**. Six layers participate (ontology, contract,
@@ -671,7 +675,7 @@ Per workspace discipline:
 | §3 inherited-class model | FINDING (the shape) + CONJECTURE (the §4 THINK slot extension to ClassView) |
 | §4 THING / DO / THINK | FINDING (the trichotomy) + CONJECTURE (THINK as new typed slot beside actions) |
 | §5 AST grammar | CONJECTURE (named, not yet shipped — probe: same `OgarAst::Do` runs identically on Lance + SurrealQL + Odoo adapter) |
-| §6 ARM grammar | CONJECTURE (named, not yet shipped — overlaps `OrchestrationBridge` today; the DLL slot is new) |
+| §6 ARM grammar | CONJECTURE (named, not yet shipped — overlaps `OrchestrationBridge` today; the Adapter slot is new) |
 | §7 ownership boundaries | FINDING (operator-ratified, codifies prior architecture) |
 | §8 Rubicon Kanban loop | FINDING (Rubicon phases already in `KanbanColumn`) + CONJECTURE (AST/ARM connection) |
 | §9 callcenter as membrane | FINDING (matches existing callcenter scope) |
@@ -690,7 +694,7 @@ ships the probe. Don't ship more synthesis without a measurement.
 | **AR-shape** | The cross-curator adapter grammar (Active Record-inspired but ERP-agnostic). |
 | **AST** | `OgarAst` — portable semantic operation tree. |
 | **ARM** | The routing decision layer over the AST. Picks an executor. |
-| **DLL** | Dynamically loaded backend capability (registered at runtime). |
+| **Adapter** | Callcenter-registered backend capability (runtime-resolved via `Adapter(AdapterTargetId)`). |
 | **THING** | DOLCE Endurant. State that exists. SoA columns. |
 | **DO** | DOLCE Perdurant. Mutations that commit through the gate. |
 | **THINK** | New typed slot. Continuous policies, never commit, gate every DO. |
