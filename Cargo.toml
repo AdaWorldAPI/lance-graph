@@ -73,6 +73,13 @@ exclude = [
     # nibble-LUT ADC + ndarray::simd::matmul_i8_to_i32 polyfill GEMM) compiled.
     # Verify via `cargo test --manifest-path crates/lance-graph-turbovec/Cargo.toml`.
     "crates/lance-graph-turbovec",
+    # Golden-image probe — the full Ada stack (lance-graph + lance7/lancedb0.30
+    # + ndarray fork + ractor fork + surrealdb kv-lance + OGAR) in ONE binary.
+    # Portable git-deps build (own [workspace] + a surrealdb [patch]) for any
+    # session + Railway/CI. MUST stay excluded (keeps surrealdb-core/OGAR out of
+    # the default build). Verify via `cargo build --manifest-path crates/symbiont/Cargo.toml`
+    # or `docker build -f crates/symbiont/Dockerfile -t symbiont .`.
+    "crates/symbiont",
 ]
 resolver = "2"
 

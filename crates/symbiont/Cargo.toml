@@ -1,0 +1,52 @@
+# Portable golden-image probe — EXCLUDED from the lance-graph workspace.
+#
+# THE one and only way the full Ada stack is meant to compile+link as one
+# binary: lance-graph + lance =7.0.0 + lancedb =0.30.0 + ndarray fork +
+# ractor fork + surrealdb (kv-lance only) + OGAR.
+#
+# This manifest is SELF-CONTAINED via git deps to the AdaWorldAPI forks (pinned
+# to the `claude/jirak-math-theorems-harvest-rfii13` branch) so it resolves in
+# any session and on Railway/CI — no machine-specific paths. The two same-repo
+# crates (lance-graph, perturbation-sim) stay path deps.
+#
+# Build locally:   cargo build --manifest-path crates/symbiont/Cargo.toml
+# Build container: docker build -f crates/symbiont/Dockerfile -t symbiont .
+#                  (from the lance-graph repo root — see Dockerfile + README)
+#
+# NOTE: lance-graph's own Cargo.toml path-deps the ndarray fork as a SIBLING
+# (`../../../ndarray`), so a from-scratch build needs the ndarray fork checked
+# out next to lance-graph. In a session it already is; the Dockerfile clones it.
+
+[package]
+name = "symbiont"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Golden-image probe: the full Ada stack (lance-graph + lance7/lancedb0.30 + ndarray + ractor + surrealdb kv-lance + OGAR) compiled into ONE binary. Portable git-deps build for any session + Railway/CI."
+
+# Own workspace root — keeps this crate out of the parent lance-graph workspace
+# AND makes the [patch] below take effect.
+[workspace]
+
+[[bin]]
+name = "symbiont"
+path = "src/main.rs"
+
+[dependencies]
+# ── same-repo crates: path deps ──
+lance-graph = { path = "../lance-graph" }
+perturbation-sim = { path = "../perturbation-sim" }
+
+# ── external AdaWorldAPI forks: git deps, pinned to the shared dev branch ──
+ractor = { git = "https://github.com/AdaWorldAPI/ractor", branch = "claude/jirak-math-theorems-harvest-rfii13" }
+surrealdb-core = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "claude/jirak-math-theorems-harvest-rfii13", default-features = false, features = ["kv-lance"] }
+ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "claude/jirak-math-theorems-harvest-rfii13" }
+ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "claude/jirak-math-theorems-harvest-rfii13" }
+ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "claude/jirak-math-theorems-harvest-rfii13", features = ["surrealdb-parser"] }
+
+# OGAR git-deps surrealdb on its own branch (`main`); redirect ALL surrealdb
+# deps in the graph to the same branch we use, so it resolves to ONE surrealdb.
+[patch."https://github.com/AdaWorldAPI/surrealdb"]
+surrealdb-ast = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "claude/jirak-math-theorems-harvest-rfii13" }
+surrealdb-parser = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "claude/jirak-math-theorems-harvest-rfii13" }
+surrealdb-core = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "claude/jirak-math-theorems-harvest-rfii13" }
