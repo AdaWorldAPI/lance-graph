@@ -119,15 +119,19 @@ syntactic accidents, and promote the surviving invariant into OGAR.
 
 ### Per-curator role
 
-- **Rails / OpenProject** (`AdaWorldAPI/openproject-nexgen-rs`) — already
-  proved the polyglot extractor pattern: AST → `Triple` carrier → typed
-  projection. 27+ predicates surveyed. **Role:** Rails-shaped AR projection
-  prototype, NOT the ontology home. (See `E-AR-PROJECTION-CONVERGED` +
-  `E-AR-PROJECTION-CORRECTION-1`.)
+- **Gotham** (Palantir case ontology) — domain `OSINT`, traversal dialect
+  `Neo4j` (`graph::traversal::dialect`). Same class-inheritance + actions +
+  policies shape as the ERP curators, surfaced through graph traversal
+  rather than an ORM. **Role:** OSINT-shaped graph/case-ontology curator.
+- **Rails / OpenProject** (`AdaWorldAPI/openproject-nexgen-rs`) — domain
+  `project`. Already proved the polyglot extractor pattern: AST → `Triple`
+  carrier → typed projection. 27+ predicates surveyed. **Role:** Rails-shaped
+  AR projection prototype, NOT the ontology home. (See
+  `E-AR-PROJECTION-CONVERGED` + `E-AR-PROJECTION-CORRECTION-1`.)
 - **Odoo** (`tools/odoo-blueprint-extractor` + `crates/lance-graph-ontology/src/odoo_blueprint/`)
-  — mature ERP with regulatory anchors (GoBD, restrictive audit trail),
-  composition (`_inherit`), value domains (`fields.Selection`), MRO
-  derivation. **Role:** dense regulatory + behavioural teaching corpus,
+  — domain `ERP`. Mature ERP with regulatory anchors (GoBD, restrictive
+  audit trail), composition (`_inherit`), value domains (`fields.Selection`),
+  MRO derivation. **Role:** dense regulatory + behavioural teaching corpus,
   NOT the source of truth for class identity.
 - **WoA-rs** (`/home/user/woa-rs`) — sea-orm/MySQL/axum German ERP. Has
   GoBD audit_chain, sammelrechnung, mahnstufe state machine, 7-doc-type
