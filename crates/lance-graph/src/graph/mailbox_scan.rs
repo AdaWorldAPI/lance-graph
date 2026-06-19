@@ -68,10 +68,17 @@ pub struct NodeMatch {
 /// `entity_type` u16 slot — the Cognitive-RISC N1 class hook); the 480 B value
 /// slab (`energy` / `meta` / fingerprints) is never touched. This is the
 /// substrate-is-the-graph node-selection half of `Backend::MailboxSoa`.
+///
+/// **Clamped to `n_rows()`** — the real `MailboxSoA<N>` reports `n_rows() ==
+/// populated` while `class_id()`/`entity_type()` borrow the full backing
+/// capacity (zero-padded). Iterating the raw slice would surface phantom padding
+/// rows (e.g. `MATCH` class 0 hitting the zeroed tail, or stale padding after a
+/// logical shrink); the scan must stop at the logical row count.
 pub fn match_nodes_by_class<V: MailboxSoaView>(view: &V, class_id: u16) -> Vec<NodeMatch> {
     let classes = view.class_id();
     classes
         .iter()
+        .take(view.n_rows())
         .enumerate()
         .filter_map(|(row, &c)| {
             (c == class_id).then_some(NodeMatch {
@@ -282,6 +289,10 @@ mod tests {
         paths: Vec<Option<NiblePath>>,
         blocks: Vec<Option<EdgeBlock>>,
         content_planes: Vec<Option<Vec<u64>>>,
+        /// Logical populated rows; `None` ⇒ the full `class_ids` length. Set
+        /// smaller to model the real `MailboxSoA<N>` (zero-padded capacity with
+        /// `n_rows() == populated < entity_type().len()`).
+        logical_n: Option<usize>,
     }
 
     impl MailboxSoaView for GuardedSoa {
@@ -289,7 +300,7 @@ mod tests {
             0
         }
         fn n_rows(&self) -> usize {
-            self.class_ids.len()
+            self.logical_n.unwrap_or(self.class_ids.len())
         }
         fn w_slot(&self) -> u8 {
             0
@@ -372,7 +383,29 @@ mod tests {
                 Some(vec![0, 0]),
                 Some(vec![u64::MAX, u64::MAX]),
             ],
+            logical_n: None,
         }
+    }
+
+    #[test]
+    fn match_nodes_by_class_clamps_to_n_rows_ignoring_padding() {
+        // Model the real MailboxSoA<N>: class_id() borrows the full capacity
+        // (zero-padded), but n_rows() reports only the populated prefix.
+        let mut soa = sample();
+        soa.class_ids = vec![7, 7, 0, 0, 0]; // 2 populated, 3 zero-padding
+        soa.logical_n = Some(2);
+        // class 7 ⇒ only the 2 populated rows, never the padding.
+        let sevens: Vec<usize> = match_nodes_by_class(&soa, 7)
+            .iter()
+            .map(|m| m.row)
+            .collect();
+        assert_eq!(sevens, vec![0, 1]);
+        // class 0 ⇒ EMPTY — the zeroed padding tail must NOT surface as phantom
+        // matches (the codex P1 regression).
+        assert!(
+            match_nodes_by_class(&soa, 0).is_empty(),
+            "padding rows beyond n_rows() must not match class 0"
+        );
     }
 
     #[test]
