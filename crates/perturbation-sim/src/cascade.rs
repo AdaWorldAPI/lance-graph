@@ -119,26 +119,36 @@ pub fn simulate_outage(
 
     // Assigned on every loop iteration before any break (the loop body always
     // runs at least once), so no initializer is needed.
-    let mut theta: Vec<f64>;
-    let mut flow: Vec<f64>;
+    // Seed `theta`/`flow` with the finite base state and overwrite them each
+    // round ONLY after the new values are confirmed finite — so they always
+    // hold the last finite state. If a round goes non-finite we break without
+    // adopting it, and the shape below is built from that last-good state,
+    // never from NaN/Inf (codex #554 P2).
+    let mut theta: Vec<f64> = theta_base.clone();
+    let mut flow: Vec<f64> = flow_base.clone();
     let mut islanded = false;
-    let mut components_final: usize;
+    let mut components_final: usize = 1;
     let mut rounds = 0usize;
 
     loop {
         rounds += 1;
         let eig = symmetric_eigen(&grid.laplacian_of(&alive), n);
-        components_final = eig.nullity(cfg.rel_tol);
+        let nullity = eig.nullity(cfg.rel_tol);
 
-        theta = eig.pseudo_apply(p, cfg.rel_tol);
-        flow = dc_flows(grid, &alive, &theta);
+        let theta_next = eig.pseudo_apply(p, cfg.rel_tol);
+        let flow_next = dc_flows(grid, &alive, &theta_next);
 
-        // NaN guard: a non-finite angle/flow signals numerical failure; treat
-        // as terminal (matching the islanding-break style) so NaN cannot
-        // propagate into the output shape or keep the loop alive.
-        if theta.iter().any(|x| !x.is_finite()) || flow.iter().any(|x| !x.is_finite()) {
+        // NaN guard: a non-finite angle/flow signals numerical failure (solver
+        // breakdown, overflow). Break WITHOUT adopting the bad round — `theta`/
+        // `flow`/`components_final` retain the last finite state, so the
+        // perturbation shape can never carry NaN/Inf into node_field/edge_field
+        // or downstream rankings/statistics (codex #554 P2).
+        if theta_next.iter().any(|x| !x.is_finite()) || flow_next.iter().any(|x| !x.is_finite()) {
             break;
         }
+        theta = theta_next;
+        flow = flow_next;
+        components_final = nullity;
 
         if components_final > 1 {
             // Network fragmented: injections no longer balance per island, so
@@ -293,5 +303,74 @@ mod tests {
         let r = simulate_outage(&g, &p, 6, CascadeConfig::default());
         assert!(r.islanded, "bridge trip must island the network");
         assert_eq!(r.components_final, 2);
+        // The islanding shape (least-norm proxy) must still be finite.
+        assert!(r.shape.node_field.iter().all(|x| x.is_finite()));
+        assert!(r.shape.edge_field.iter().all(|x| x.is_finite()));
+    }
+
+    #[test]
+    fn perturbation_shape_is_always_finite() {
+        // codex #554 P2: the perturbation shape must NEVER carry NaN/Inf — the
+        // NaN guard preserves the last finite theta/flow, so node_field /
+        // edge_field stay finite across every terminal path (converge, cascade,
+        // island, max_rounds). Locks the invariant the fix guarantees.
+        let cases: [(Grid, Vec<f64>, usize); 3] = [
+            // generous limits: only the seed trips (converge path).
+            (
+                Grid::new(
+                    4,
+                    vec![
+                        Edge::new(0, 1, 1.0, 1e6),
+                        Edge::new(1, 2, 1.0, 1e6),
+                        Edge::new(2, 3, 1.0, 1e6),
+                        Edge::new(3, 0, 1.0, 1e6),
+                    ],
+                ),
+                vec![1.0, 0.0, -1.0, 0.0],
+                0,
+            ),
+            // tight limits: multi-line cascade path.
+            (
+                Grid::new(
+                    4,
+                    vec![
+                        Edge::new(0, 1, 1.0, 0.6),
+                        Edge::new(1, 2, 1.0, 0.6),
+                        Edge::new(2, 3, 1.0, 0.6),
+                        Edge::new(3, 0, 1.0, 0.6),
+                    ],
+                ),
+                vec![1.0, 0.0, -1.0, 0.0],
+                0,
+            ),
+            // two triangles + bridge: islanding path.
+            (
+                Grid::new(
+                    6,
+                    vec![
+                        Edge::new(0, 1, 1.0, 1e6),
+                        Edge::new(1, 2, 1.0, 1e6),
+                        Edge::new(2, 0, 1.0, 1e6),
+                        Edge::new(3, 4, 1.0, 1e6),
+                        Edge::new(4, 5, 1.0, 1e6),
+                        Edge::new(5, 3, 1.0, 1e6),
+                        Edge::new(2, 3, 1.0, 1e6),
+                    ],
+                ),
+                vec![1.0, 0.0, 0.0, 0.0, 0.0, -1.0],
+                6,
+            ),
+        ];
+        for (g, p, seed) in cases {
+            let r = simulate_outage(&g, &p, seed, CascadeConfig::default());
+            assert!(
+                r.shape.node_field.iter().all(|x| x.is_finite()),
+                "node_field carried a non-finite value"
+            );
+            assert!(
+                r.shape.edge_field.iter().all(|x| x.is_finite()),
+                "edge_field carried a non-finite value"
+            );
+        }
     }
 }
