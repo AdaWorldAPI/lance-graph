@@ -19,6 +19,20 @@
 use crate::collapse_gate::MailboxId;
 use crate::kanban::{KanbanColumn, KanbanMove, RubiconTransitionError};
 
+/// Which dense identity plane a value-side read selects — the orthogonal
+/// perspective axes of a node's content (`E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`).
+/// Each is a `WORDS_PER_FP`-u64 fingerprint in the value slab; reading one is a
+/// **value decode** (the costed tier), never the zero-decode key path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum IdentityPlane {
+    /// The content identity fingerprint plane.
+    Content,
+    /// The topic identity fingerprint plane.
+    Topic,
+    /// The angle (perspective) identity fingerprint plane.
+    Angle,
+}
+
 /// A transparent, read-only view over one mailbox's SoA columns.
 ///
 /// Implementors return **borrows** (`&[T]`) or `Copy` scalars — never clones of the
@@ -122,6 +136,20 @@ pub trait MailboxSoaView {
     /// canonical `NodeRow` (which holds `edges(16)`) overrides this.
     #[inline]
     fn edge_block_at(&self, _row: usize) -> Option<crate::canonical_node::EdgeBlock> {
+        None
+    }
+
+    /// `row`'s dense identity-plane fingerprint (`WORDS_PER_FP` u64) for the
+    /// selected [`IdentityPlane`] — content / topic / angle. This is the
+    /// **value-side** read behind the costed distance/sweep tier
+    /// (`E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`): a Hamming/CAM rank "from an angle"
+    /// reads this plane, so unlike the key facets it is **NOT zero value decode**.
+    ///
+    /// **Default = `None` (zero-fallback, deferred binding)** — a view that has not
+    /// materialized the planes returns `None`; the in-RAM `MailboxSoA` owner
+    /// (which carries content/topic/angle planes, W1b) overrides this.
+    #[inline]
+    fn identity_plane_at(&self, _row: usize, _plane: IdentityPlane) -> Option<&[u64]> {
         None
     }
 

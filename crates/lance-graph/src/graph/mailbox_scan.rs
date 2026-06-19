@@ -45,7 +45,7 @@
 
 use lance_graph_contract::canonical_node::EdgeCodecFlavor;
 use lance_graph_contract::hhtl::NiblePath;
-use lance_graph_contract::soa_view::MailboxSoaView;
+use lance_graph_contract::soa_view::{IdentityPlane, MailboxSoaView};
 
 use crate::graph::graph_router::Backend;
 
@@ -219,13 +219,18 @@ pub enum DistanceMeans {
     /// triangle inequality). Key-only, zero value decode
     /// (`E-PANCAKES-IS-RADIX-IS-HHTL`).
     PrefixDepth,
-    // ── value-decode means (the costed tier — named here as the dispatch
-    //    surface; wired on their own branch with their own cost gate, never
-    //    mixed into the zero-decode facets; `E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`,
-    //    `E-HELIX-IS-EXACT-LOCATION`): ──
-    //    Hamming(plane) — fingerprint popcount over a content/topic/angle plane;
-    //    HelixAngular   — Signed360 exact-orthogonal-location distance;
-    //    PqAdc          — CAM-PQ asymmetric distance (IVF probe + tables).
+    /// **Hamming over an identity plane** (`IdentityPlane`: content / topic /
+    /// angle) — the popcount of the XOR of the two nodes' fingerprint planes.
+    /// This is the **costed tier**: it reads the value-side plane
+    /// (`MailboxSoaView::identity_plane_at`), so — unlike `PrefixDepth` — it is
+    /// **NOT zero value decode** (`E-TENANT-ANGLE-RANK-IS-CAM-PQ-ADC`). The right
+    /// use of popcount: homogeneous 16K-bit fingerprint bits, not the
+    /// heterogeneous GUID key.
+    Hamming(IdentityPlane),
+    // ── further value means (named; wired as they land, same costed tier):
+    //    HelixAngular — Signed360 exact-orthogonal-location distance
+    //                   (`E-HELIX-IS-EXACT-LOCATION`);
+    //    PqAdc        — CAM-PQ asymmetric distance (IVF probe + tables).
 }
 
 /// Distance between two nodes (rows, each a GUID) under the chosen `means`.
@@ -251,6 +256,12 @@ pub fn node_distance<V: MailboxSoaView>(
             let cpd = pa.common_prefix_depth(pb);
             Some(u32::from((pa.depth() - cpd) + (pb.depth() - cpd)))
         }
+        // COSTED tier: reads the value-side plane (NOT zero value decode).
+        DistanceMeans::Hamming(plane) => {
+            let fa = view.identity_plane_at(a, plane)?;
+            let fb = view.identity_plane_at(b, plane)?;
+            Some(fa.iter().zip(fb).map(|(x, y)| (x ^ y).count_ones()).sum())
+        }
     }
 }
 
@@ -270,6 +281,7 @@ mod tests {
         keyed_rows: Vec<(u64, usize)>,
         paths: Vec<Option<NiblePath>>,
         blocks: Vec<Option<EdgeBlock>>,
+        content_planes: Vec<Option<Vec<u64>>>,
     }
 
     impl MailboxSoaView for GuardedSoa {
@@ -317,6 +329,13 @@ mod tests {
         fn edge_block_at(&self, row: usize) -> Option<EdgeBlock> {
             self.blocks.get(row).copied().flatten()
         }
+        fn identity_plane_at(&self, row: usize, plane: IdentityPlane) -> Option<&[u64]> {
+            // Only the Content plane is materialized in this fake.
+            match plane {
+                IdentityPlane::Content => self.content_planes.get(row).and_then(|p| p.as_deref()),
+                IdentityPlane::Topic | IdentityPlane::Angle => None,
+            }
+        }
     }
 
     fn sample() -> GuardedSoa {
@@ -344,6 +363,14 @@ mod tests {
                 None,
                 None,
                 None,
+            ],
+            // content planes (2 u64 each) for the Hamming means; row2 unmaterialized.
+            content_planes: vec![
+                Some(vec![0b1011, 0]),
+                Some(vec![0b1101, 0]),
+                None,
+                Some(vec![0, 0]),
+                Some(vec![u64::MAX, u64::MAX]),
             ],
         }
     }
@@ -476,6 +503,36 @@ mod tests {
         // symmetric + monotone.
         assert_eq!(d(0, 4), d(4, 0));
         assert!(d(0, 1).unwrap() < d(0, 4).unwrap());
+    }
+
+    #[test]
+    fn node_distance_hamming_plane_is_popcount_xor_over_the_value_plane() {
+        let soa = sample();
+        // row0 0b1011, row1 0b1101 → XOR 0b0110 → popcount 2.
+        assert_eq!(
+            node_distance(&soa, 0, 1, DistanceMeans::Hamming(IdentityPlane::Content)),
+            Some(2)
+        );
+        // self-distance = 0 (metric).
+        assert_eq!(
+            node_distance(&soa, 0, 0, DistanceMeans::Hamming(IdentityPlane::Content)),
+            Some(0)
+        );
+        // all-zero vs all-ones over 2×u64 = 128 bits.
+        assert_eq!(
+            node_distance(&soa, 3, 4, DistanceMeans::Hamming(IdentityPlane::Content)),
+            Some(128)
+        );
+        // unmaterialized plane (row2) ⇒ None (costed-tier fallback).
+        assert_eq!(
+            node_distance(&soa, 0, 2, DistanceMeans::Hamming(IdentityPlane::Content)),
+            None
+        );
+        // a plane this fake doesn't carry ⇒ None (Topic/Angle not materialized).
+        assert_eq!(
+            node_distance(&soa, 0, 1, DistanceMeans::Hamming(IdentityPlane::Angle)),
+            None
+        );
     }
 
     #[test]
