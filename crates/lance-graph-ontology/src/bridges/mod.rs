@@ -1,6 +1,6 @@
 //! Default tenant bridge implementations.
 //!
-//! Five bridges ship today:
+//! Six bridges ship today:
 //!
 //! - [`OgitBridge`]: pass-through bridge for tools that already speak raw
 //!   OGIT URIs. `bridge_id = "ogit"`. Locks to whatever namespace its
@@ -17,6 +17,12 @@
 //!   the Sharepoint→smb-office-rs content orchestrator (UploadIntent /
 //!   DriveScope / ComplianceTagging) — distinct from EmailCorrespondance:
 //!   one covers documents / drives / sites, the other covers mail.
+//! - [`OpenProjectBridge`]: locks to the `OpenProject` namespace.
+//!   Public names like `WorkPackage` / `TimeEntry` / `Project` resolve
+//!   to `ogit.OpenProject:*` URIs. Northstar plan §3 C4 — supplies the
+//!   port (`openproject-nexgen-rs` + `op-canon`) with the scoped
+//!   registry view every consumer that touches OpenProject data on the
+//!   unified bridge goes through.
 //!
 //! The `smb-bridge` and `callcenter-bridge` are NOT created in this
 //! session: smb stays on its native ontology fallback, callcenter has its
@@ -24,12 +30,14 @@
 
 mod medcare_bridge;
 mod ogit_bridge;
+mod openproject_bridge;
 mod sharepoint_bridge;
 mod spear_bridge;
 mod woa_bridge;
 
 pub use medcare_bridge::MedcareBridge;
 pub use ogit_bridge::OgitBridge;
+pub use openproject_bridge::OpenProjectBridge;
 pub use sharepoint_bridge::SharePointBridge;
 pub use spear_bridge::SpearBridge;
 pub use woa_bridge::WoaBridge;
