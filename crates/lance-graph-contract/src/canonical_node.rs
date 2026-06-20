@@ -204,6 +204,131 @@ impl NodeGuid {
     }
 }
 
+// ── GUID v2 tail (leaf·family·identity, 3×u16) — D-GV2-1, feature-gated ────────
+//
+// The v2 basin tail repartitions bytes 10..16: leaf(u16) 10..12 (the 4th HHTL
+// tier), family(u16) 12..14 (the basin / episodic hub), identity(u16) 14..16
+// (the instance). Bytes 0..10 (classid·HEEL·HIP·TWIG) are IDENTICAL to v1.
+// Additive and NON-breaking: v1 `new`/`family`/`identity` are untouched; these
+// v2 accessors coexist behind `guid-v2-tail` until cutover (D-GV2-5). Per
+// I-LEGACY-API-FEATURE-GATED the v2 names are distinct (`leaf`/`*_v2`), so no
+// function silently changes semantics, and `GUID_TAIL_LAYOUT_VERSION_V2` is the
+// version gate marking a v2-tail packet.
+#[cfg(feature = "guid-v2-tail")]
+impl NodeGuid {
+    /// Construct a v2-tail GUID: `classid·HEEL·HIP·TWIG` identical to v1, then the
+    /// 3×u16 basin tail `leaf·family·identity`. Each tail field is a full `u16` —
+    /// no 24-bit truncation footgun (the point of v2).
+    #[allow(clippy::too_many_arguments)]
+    pub const fn new_v2(
+        classid: u32,
+        heel: u16,
+        hip: u16,
+        twig: u16,
+        leaf: u16,
+        family: u16,
+        identity: u16,
+    ) -> Self {
+        let c = classid.to_le_bytes();
+        let h = heel.to_le_bytes();
+        let p = hip.to_le_bytes();
+        let t = twig.to_le_bytes();
+        let l = leaf.to_le_bytes();
+        let f = family.to_le_bytes();
+        let i = identity.to_le_bytes();
+        Self([
+            c[0], c[1], c[2], c[3], //  0..4  classid
+            h[0], h[1], //  4..6  HEEL
+            p[0], p[1], //  6..8  HIP
+            t[0], t[1], //  8..10 TWIG
+            l[0], l[1], // 10..12 leaf   (4th HHTL tier)
+            f[0], f[1], // 12..14 family (basin / episodic hub)
+            i[0], i[1], // 14..16 identity (instance)
+        ])
+    }
+
+    /// v2 `leaf` — bytes 10..12, the 4th HHTL routing tier (cascade terminal).
+    #[inline]
+    pub const fn leaf(&self) -> u16 {
+        u16::from_le_bytes([self.0[10], self.0[11]])
+    }
+
+    /// v2 `family` — bytes 12..14, the basin / episodic-hub tier (the codebook
+    /// selector). Distinct from v1 [`family`](NodeGuid::family) (u24 at 10..13):
+    /// different name, different bytes — no silent semantic swap.
+    #[inline]
+    pub const fn family_v2(&self) -> u16 {
+        u16::from_le_bytes([self.0[12], self.0[13]])
+    }
+
+    /// v2 `identity` — bytes 14..16, the instance tier (full `u16`).
+    #[inline]
+    pub const fn identity_v2(&self) -> u16 {
+        u16::from_le_bytes([self.0[14], self.0[15]])
+    }
+
+    /// v2 basin-local key: trailing 4 bytes (family ++ identity), zero-padded to
+    /// `u32` — the discriminator once the HHTL prefix (incl. leaf) is bound.
+    #[inline]
+    pub const fn local_key_v2(&self) -> u32 {
+        u32::from_le_bytes([self.0[12], self.0[13], self.0[14], self.0[15]])
+    }
+
+    /// v2 decode — every tier (`classid·HEEL·HIP·TWIG·leaf·family·identity`) as a
+    /// native integer. The "read the GUID as a GUID" surface for v2.
+    #[inline]
+    pub const fn decode_v2(&self) -> GuidPartsV2 {
+        GuidPartsV2 {
+            classid: self.classid(),
+            heel: self.heel(),
+            hip: self.hip(),
+            twig: self.twig(),
+            leaf: self.leaf(),
+            family: self.family_v2(),
+            identity: self.identity_v2(),
+        }
+    }
+
+    /// v2 self-describing hex: `classid-heel-hip-twig-leaf-family-identity`,
+    /// uniform 4-hex groups (classid as 8) — the v2 Display shape.
+    pub fn to_hex_v2(&self) -> String {
+        let p = self.decode_v2();
+        format!(
+            "{:08x}-{:04x}-{:04x}-{:04x}-{:04x}-{:04x}-{:04x}",
+            p.classid, p.heel, p.hip, p.twig, p.leaf, p.family, p.identity
+        )
+    }
+}
+
+/// The v2-tail GUID decoded — `classid · HEEL · HIP · TWIG · leaf · family ·
+/// identity`, every tier a native integer (no `u24`). The v2 counterpart of
+/// [`GuidParts`]. (D-GV2-1; feature `guid-v2-tail`.)
+#[cfg(feature = "guid-v2-tail")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct GuidPartsV2 {
+    /// 0..4 — prefix-routable class id.
+    pub classid: u32,
+    /// 4..6 — HEEL (HHT cascade tier 1).
+    pub heel: u16,
+    /// 6..8 — HIP (HHT cascade tier 2).
+    pub hip: u16,
+    /// 8..10 — TWIG (HHT cascade tier 3).
+    pub twig: u16,
+    /// 10..12 — leaf, the 4th HHTL tier.
+    pub leaf: u16,
+    /// 12..14 — family, the basin / episodic hub.
+    pub family: u16,
+    /// 14..16 — identity, the instance.
+    pub identity: u16,
+}
+
+/// v2 layout-version marker: a v2-tail packet is layout version 2. A v1 reader
+/// MUST refuse a v2 blob (and vice-versa) — the version gate per
+/// `I-LEGACY-API-FEATURE-GATED`. Wired into the `SoaEnvelope` version at cutover
+/// (D-GV2-5).
+#[cfg(feature = "guid-v2-tail")]
+pub const GUID_TAIL_LAYOUT_VERSION_V2: u16 = 2;
+
 /// The whole canonical key decoded in one shot — `classid · HEEL · HIP · TWIG ·
 /// family · identity`, each as its native LE-decoded integer.
 ///
@@ -1283,5 +1408,66 @@ mod tests {
             ReadMode::OSINT
         );
         assert!(osint.is_layout_preserving() && fma.is_layout_preserving());
+    }
+
+    // ── GUID v2 tail (D-GV2-1) — field-isolation matrix + coexistence ─────────
+
+    #[cfg(feature = "guid-v2-tail")]
+    #[test]
+    fn v2_field_isolation_matrix() {
+        // Each tier carries a distinct value; every accessor reads back exactly
+        // its own, and varying ONE tier changes ONLY that accessor (the
+        // mandatory layout-bit-boundary test for a reclaim, I-LEGACY).
+        let base = NodeGuid::new_v2(0x1111_2222, 0x3333, 0x4444, 0x5555, 0x6666, 0x7777, 0x8888);
+        assert_eq!(base.classid(), 0x1111_2222);
+        assert_eq!(base.heel(), 0x3333);
+        assert_eq!(base.hip(), 0x4444);
+        assert_eq!(base.twig(), 0x5555);
+        assert_eq!(base.leaf(), 0x6666);
+        assert_eq!(base.family_v2(), 0x7777);
+        assert_eq!(base.identity_v2(), 0x8888);
+
+        // vary ONLY leaf
+        let l = NodeGuid::new_v2(0x1111_2222, 0x3333, 0x4444, 0x5555, 0xAAAA, 0x7777, 0x8888);
+        assert_eq!(l.leaf(), 0xAAAA);
+        assert_eq!(l.family_v2(), base.family_v2());
+        assert_eq!(l.identity_v2(), base.identity_v2());
+        assert_eq!(l.twig(), base.twig());
+        // vary ONLY family
+        let f = NodeGuid::new_v2(0x1111_2222, 0x3333, 0x4444, 0x5555, 0x6666, 0xBBBB, 0x8888);
+        assert_eq!(f.family_v2(), 0xBBBB);
+        assert_eq!(f.leaf(), base.leaf());
+        assert_eq!(f.identity_v2(), base.identity_v2());
+        // vary ONLY identity
+        let i = NodeGuid::new_v2(0x1111_2222, 0x3333, 0x4444, 0x5555, 0x6666, 0x7777, 0xCCCC);
+        assert_eq!(i.identity_v2(), 0xCCCC);
+        assert_eq!(i.leaf(), base.leaf());
+        assert_eq!(i.family_v2(), base.family_v2());
+
+        // local_key_v2 = family ++ identity (LE)
+        assert_eq!(base.local_key_v2(), 0x8888_7777);
+        // decode_v2 round-trips the tail
+        let d = base.decode_v2();
+        assert_eq!((d.leaf, d.family, d.identity), (0x6666, 0x7777, 0x8888));
+        // Display is uniform 4-hex groups (classid 8).
+        assert_eq!(base.to_hex_v2(), "11112222-3333-4444-5555-6666-7777-8888");
+    }
+
+    #[cfg(feature = "guid-v2-tail")]
+    #[test]
+    fn v1_and_v2_share_prefix_differ_in_tail() {
+        // v1 and v2 agree on the prefix (classid·HEEL·HIP·TWIG)…
+        let v1 = NodeGuid::new(0xDEAD_BEEF, 0x1111, 0x2222, 0x3333, 0x00_00AB, 0x00_00CD);
+        let v2 = NodeGuid::new_v2(0xDEAD_BEEF, 0x1111, 0x2222, 0x3333, 0, 0xABCD, 0);
+        assert_eq!(v1.classid(), v2.classid());
+        assert_eq!(v1.heel(), v2.heel());
+        assert_eq!(v1.hip(), v2.hip());
+        assert_eq!(v1.twig(), v2.twig());
+        // …but the tail bytes are interpreted differently — which is exactly why
+        // the version gate is mandatory before reading a tail.
+        assert_eq!(GUID_TAIL_LAYOUT_VERSION_V2, 2);
+        // v1 accessors remain UNTOUCHED under the feature (additive, non-breaking).
+        assert_eq!(v1.family(), 0x00_00AB);
+        assert_eq!(v1.identity(), 0x00_00CD);
     }
 }
