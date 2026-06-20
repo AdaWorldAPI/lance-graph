@@ -42,3 +42,9 @@ trajectory-audit = []
 # (`leaf`/`*_v2`) coexist with v1 until cutover (D-GV2-5). Layout reclaim →
 # I-LEGACY-API-FEATURE-GATED (field-isolation matrix + version gate).
 guid-v2-tail = []
+
+# tenant-counters — per-ValueTenant update counters for debug instrumentation of
+# the SoA write cascade (the capstone NaN-census / seam-wiring measurement). OFF
+# by default: `tenant_counter::tenant_update` is a zero-cost no-op unless enabled
+# (compile-time dispatch). On: one relaxed atomic increment per tenant write.
+tenant-counters = []

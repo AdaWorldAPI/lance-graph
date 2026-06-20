@@ -479,6 +479,7 @@ const _: () = assert!(core::mem::size_of::<NodeRow>() == 512);
 // ── SoaEnvelope binding for [NodeRow] ────────────────────────────────────────
 
 use crate::class_view::FieldMask;
+use crate::kanban::{ExecTarget, KanbanColumn};
 use crate::soa_envelope::{ColumnDescriptor, ColumnKind, SoaEnvelope};
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -563,6 +564,13 @@ pub enum ValueTenant {
     Plasticity = 7,
     /// OGIT entity-type / class discriminator (`u16`).
     EntityType = 8,
+    /// kanban×Rubicon phase cursor (8 B): `phase` (KanbanColumn) + `exec`
+    /// (ExecTarget) + reserved + `cycle` (u32). The per-node Rubicon lifecycle
+    /// column — owner-advanced (the `MailboxSoaOwner` split), surreal-read (the
+    /// Rubicon "view never mutates" projection), q2 renders columns by `phase`.
+    /// Pins SoA↔kanban in the LE blob at value-slab `[112,120)` (subsumes the
+    /// envelope-pointer G1: the node carries its own phase + cycle).
+    Kanban = 9,
 }
 
 impl ValueTenant {
@@ -646,6 +654,14 @@ pub const VALUE_TENANTS: &[ColumnDescriptor] = &[
         elems_per_row: 1,
         row_offset: 142,
     },
+    ColumnDescriptor {
+        // kanban×Rubicon cursor: 8 B contiguous at row_offset 144 (value-slab
+        // [112,120)); reserve-don't-reclaim, layout-preserving (Full ends 152 ≤ 480).
+        name_id: ValueTenant::Kanban as u16,
+        kind: ColumnKind::U64,
+        elems_per_row: 1,
+        row_offset: 144,
+    },
 ];
 
 // Compile-time canon: VALUE_TENANTS is discriminant-ordered, contiguous within the
@@ -716,6 +732,7 @@ impl ValueSchema {
                 ValueTenant::Energy as u8,
                 ValueTenant::Plasticity as u8,
                 ValueTenant::EntityType as u8,
+                ValueTenant::Kanban as u8,
             ]),
             ValueSchema::Compressed => FieldMask::from_positions(&[
                 ValueTenant::Fingerprint as u8,
@@ -733,6 +750,7 @@ impl ValueSchema {
                 ValueTenant::Energy as u8,
                 ValueTenant::Plasticity as u8,
                 ValueTenant::EntityType as u8,
+                ValueTenant::Kanban as u8,
             ]),
         }
     }
@@ -1016,9 +1034,124 @@ pub fn node_rows_from_le_bytes(bytes: &[u8]) -> Option<&[NodeRow]> {
     Some(unsafe { core::slice::from_raw_parts(bytes.as_ptr().cast::<NodeRow>(), n) })
 }
 
+// ── kanban×Rubicon value tenant (the per-node phase cursor) ───────────────────
+
+/// The kanban×Rubicon phase cursor stored in [`ValueTenant::Kanban`] — 8 bytes at
+/// value-slab `[112, 120)`, LE: `phase(u8) | exec(u8) | reserved(u16) | cycle(u32)`.
+///
+/// Per-node Rubicon lifecycle: `phase` advances along the [`KanbanColumn`] DAG
+/// (**owner-only** write — the `MailboxSoaOwner`/`View` split is what makes "the
+/// view never mutates the SoA" a compile-time guarantee), `exec` names the
+/// dispatch backend ([`ExecTarget`]), `cycle` is the owner's `current_cycle`
+/// stamp. A `Copy` microcopy: read zero-copy from the slab, written only on phase
+/// advance. surrealdb projects it as the kanban view (read-only, Rubicon); q2
+/// renders columns by `phase`. Because it lives IN the node, SoA↔kanban is pinned
+/// in the 512-byte LE blob — no separate envelope pointer needed (subsumes G1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct KanbanTenant {
+    /// Rubicon lifecycle column.
+    pub phase: KanbanColumn,
+    /// Dispatch backend the planner selected.
+    pub exec: ExecTarget,
+    /// Owner `current_cycle` stamp at the last phase write.
+    pub cycle: u32,
+}
+
+impl KanbanTenant {
+    /// Decode from the 8 tenant bytes (LE; unknown phase/exec discriminants fall
+    /// back to their zero defaults via [`KanbanColumn::from_u8`]/[`ExecTarget::from_u8`]).
+    #[inline]
+    #[must_use]
+    pub fn from_bytes(b: [u8; 8]) -> Self {
+        Self {
+            phase: KanbanColumn::from_u8(b[0]),
+            exec: ExecTarget::from_u8(b[1]),
+            // b[2..4] reserved
+            cycle: u32::from_le_bytes([b[4], b[5], b[6], b[7]]),
+        }
+    }
+
+    /// Encode to the 8 tenant bytes (LE).
+    #[inline]
+    #[must_use]
+    pub fn to_bytes(self) -> [u8; 8] {
+        let c = self.cycle.to_le_bytes();
+        [
+            self.phase as u8,
+            self.exec as u8,
+            0,
+            0,
+            c[0],
+            c[1],
+            c[2],
+            c[3],
+        ]
+    }
+}
+
+impl NodeRow {
+    /// Read the [`KanbanTenant`] phase cursor from the [`ValueTenant::Kanban`]
+    /// slab bytes — zero-copy decode, `Copy` result. The per-node Rubicon phase.
+    #[inline]
+    #[must_use]
+    pub fn kanban(&self) -> KanbanTenant {
+        let o = ValueTenant::Kanban.value_offset();
+        let mut b = [0u8; 8];
+        b.copy_from_slice(&self.value[o..o + 8]);
+        KanbanTenant::from_bytes(b)
+    }
+
+    /// Write the [`KanbanTenant`] into the slab. **Owner-only by convention** (the
+    /// `MailboxSoaOwner` phase-advance path); reads stay zero-copy. Bumps the
+    /// `Kanban` per-tenant update counter (no-op unless `tenant-counters`).
+    #[inline]
+    pub fn set_kanban(&mut self, k: KanbanTenant) {
+        let o = ValueTenant::Kanban.value_offset();
+        self.value[o..o + 8].copy_from_slice(&k.to_bytes());
+        crate::tenant_counter::tenant_update(ValueTenant::Kanban);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn kanban_tenant_round_trip_and_field_isolation() {
+        let mut row = NodeRow {
+            key: NodeGuid::local(1),
+            edges: EdgeBlock::default(),
+            value: [0xABu8; 480],
+        };
+        let before = row.value;
+        let k = KanbanTenant {
+            phase: KanbanColumn::CognitiveWork,
+            exec: ExecTarget::SurrealQl,
+            cycle: 0xDEAD_BEEF,
+        };
+        row.set_kanban(k);
+        assert_eq!(row.kanban(), k, "kanban tenant round-trips");
+        let o = ValueTenant::Kanban.value_offset();
+        assert_eq!(o, 112, "kanban tenant at value-slab [112,120)");
+        for (i, (&now, &was)) in row.value.iter().zip(before.iter()).enumerate() {
+            if (o..o + 8).contains(&i) {
+                continue;
+            }
+            assert_eq!(
+                now, was,
+                "byte {i} outside the kanban tenant must not change"
+            );
+        }
+    }
+
+    #[test]
+    fn kanban_in_cognitive_and_full_schemas() {
+        assert!(ValueSchema::Cognitive.has(ValueTenant::Kanban));
+        assert!(ValueSchema::Full.has(ValueTenant::Kanban));
+        assert!(!ValueSchema::Bootstrap.has(ValueTenant::Kanban));
+        assert!(ValueSchema::Full.tenant_bytes() <= VALUE_SLAB_LEN);
+        assert_eq!(ValueTenant::Kanban.byte_len(), 8);
+    }
 
     #[test]
     fn node_rows_le_bytes_round_trip_zero_copy() {
@@ -1366,8 +1499,8 @@ mod tests {
         assert!(prev_end <= NODE_ROW_STRIDE);
         assert_eq!(
             prev_end - VALUE_SLAB_ROW_OFFSET,
-            112,
-            "current Full carve uses 112 of 480 B (helix right-sized 48→6)"
+            120,
+            "current Full carve uses 120 of 480 B (helix 6 + kanban×Rubicon tenant 8)"
         );
         assert!(prev_end - VALUE_SLAB_ROW_OFFSET <= VALUE_SLAB_LEN);
     }
@@ -1393,6 +1526,7 @@ mod tests {
             ValueTenant::Energy,
             ValueTenant::Plasticity,
             ValueTenant::EntityType,
+            ValueTenant::Kanban,
         ] {
             assert!(full.has(t), "Full must materialise {t:?}");
         }
@@ -1401,9 +1535,11 @@ mod tests {
     #[test]
     fn value_schema_byte_budgets_are_locked() {
         assert_eq!(ValueSchema::Bootstrap.tenant_bytes(), 0);
-        assert_eq!(ValueSchema::Cognitive.tenant_bytes(), 58);
+        // Cognitive 58 + Kanban 8 = 66; Full 112 + Kanban 8 = 120 (kanban×Rubicon
+        // tenant added — reserve-don't-reclaim, still ≤ 480, stride unchanged).
+        assert_eq!(ValueSchema::Cognitive.tenant_bytes(), 66);
         assert_eq!(ValueSchema::Compressed.tenant_bytes(), 56);
-        assert_eq!(ValueSchema::Full.tenant_bytes(), 112);
+        assert_eq!(ValueSchema::Full.tenant_bytes(), 120);
         for s in [
             ValueSchema::Bootstrap,
             ValueSchema::Cognitive,
@@ -1511,7 +1647,7 @@ mod tests {
     #[test]
     fn default_class_node_materialises_full_slab() {
         // End-to-end connect: a bootstrap NodeRow → its classid resolves to Full →
-        // the Full preset covers every tenant and uses the locked 112-byte carve.
+        // the Full preset covers every tenant and uses the locked 120-byte carve.
         let row = sample_row(NodeGuid::CLASSID_DEFAULT, 0x00_00CD);
         let rm = row.key.read_mode();
         assert_eq!(rm.value_schema, ValueSchema::Full);
@@ -1520,8 +1656,8 @@ mod tests {
             VALUE_TENANTS.len(),
             "Full read-mode materialises every value tenant"
         );
-        assert_eq!(rm.value_schema.tenant_bytes(), 112);
-        // The slab has room (112 ≤ 480) and the choice never grows the stride.
+        assert_eq!(rm.value_schema.tenant_bytes(), 120);
+        // The slab has room (120 ≤ 480) and the choice never grows the stride.
         assert!(rm.value_schema.tenant_bytes() <= VALUE_SLAB_LEN);
         assert!(rm.is_layout_preserving());
     }

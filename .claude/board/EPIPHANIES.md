@@ -1,3 +1,17 @@
+## 2026-06-20 — E-KANBAN-IS-A-VALUE-TENANT-SUBSUMES-G1 — making kanban×Rubicon a per-node SoA value tenant (`ValueTenant::Kanban`, 8 B at value-slab [112,120)) pins SoA↔kanban in the 512-byte LE blob and dissolves the envelope-pointer gap (G1): the node carries its OWN phase+cycle, so no `UnifiedStep` field is needed
+
+**Status:** FINDING (operator "brutal version" lock, 2026-06-20; shipped, capstone S1 green).
+
+The kanban phase was going to be carried by a new `UnifiedStep` pointer field (G1). Putting it IN the SoA instead is cleaner and subsumes G1:
+- `ValueTenant::Kanban = 9` at row_offset 144 (value-slab `[112,120)`), 8 B: `phase(KanbanColumn u8) | exec(ExecTarget u8) | reserved(u16) | cycle(u32)`. Reserve-don't-reclaim (368 B were free), **layout-preserving** — Full 112→120 ≤ 480, stride still 512, no `ENVELOPE_LAYOUT_VERSION` bump. Field-isolation matrix test mandatory (I-LEGACY) — green.
+- **Pins SoA↔kanban in the LE contract**: kanban is now a fixed byte range in the 512-byte blob → a `FixedSizeBinary(512)` store (surrealdb second brain) reads the kanban state zero-copy at any Lance version; the kanbanview = mailbox rows projected by the tenant's `phase`.
+- **Owner-gated write / Rubicon read-only**: `NodeRow::set_kanban` is owner-only by convention (the `MailboxSoaOwner`/`View` split); surreal reads, never writes.
+- **Decisions kept (I-VSA-IDENTITIES register-laziness + AGI-glove):** thinking-style is ClassView + the `Meta` tenant, NOT a new 128-bit tenant (the 48+80 flat split was rejected — duplicates Plasticity/Meta/Qualia). plan-shape stays ClassView-derived. The MUL flow-vs-mismatch trigger is a FUNCTION over Qualia/Meta/Plasticity → GateDecision → advance phase, not a stored tenant.
+
+Companion: `tenant_counter` (feature `tenant-counters`, default OFF, zero-cost no-op when off; one relaxed atomic per tenant write when on) — the per-tenant update-counter instrument the capstone NaN-census reads. `set_kanban` bumps the `Kanban` counter as the first wired cascade point.
+
+Verified: contract lib 714 (default) / 715 (tenant-counters) / 720 (guid-v2-tail), clippy `-D warnings` clean all three, fmt clean; Full carve math 120 B ends row 152 ≤ 512. Cross-ref: capstone plan S1; `E-SURREALDB-SECOND-BRAIN-IS-ZERO-COPY-IFF-FIXEDSIZEBINARY`; AGENT_LOG 2026-06-20 (cont.¹⁷).
+
 ## 2026-06-20 — E-SURREALDB-SECOND-BRAIN-IS-ZERO-COPY-IFF-FIXEDSIZEBINARY — surrealdb (kv-lance) can become a zero-copy "second brain" inside lance-graph ONLY if it stores each node as an uncompressed `FixedSizeBinary(512)` LE blob; the contract a store satisfies is `node_rows_from_le_bytes(&[u8]) -> Option<&[NodeRow]>` (the inverse of `NodeRowPacket::as_le_bytes`), and a variable-length `Binary` column does NOT qualify
 
 **Status:** FINDING (brutal feasibility pass, 2026-06-20; contract primitive shipped, surrealdb side planned).
