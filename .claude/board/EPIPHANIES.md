@@ -1,3 +1,18 @@
+## 2026-06-20 — E-ZERO-DECODE-IS-FALSIFIABLE-BY-POISON — a "we never read region X" claim (zero-value-decode key render, cold-column skip, head-only scan) is not a comment, it is a TEST: poison region X with a sentinel, run the op, assert the output is byte-identical to the un-poisoned run; if it touched X, the bytes diverge
+
+**Status:** FINDING (perennial; shipped `symbiont/key_render.rs::tests::render_ignores_value_slab`, 2026-06-20).
+
+The canon's whole key-value bet is that the 16-byte GUID + 16-byte EdgeBlock **prerender a node with zero value decode** (OGAR P0: "the key prerenders nodes in any way with zero value decode"). The neo4j-grade render (superpower §2.4) reads `row.key` + `row.edges` and never the 480-byte value slab — but "never" written in a doc-comment is unverified prose, exactly the kind of claim `E-SCENT-IS-NOT-READING` warns drifts. The cheap, decisive proof: **poison the region you claim not to read.** Fill every `row.value` with `0xFF`, render, assert the `KeyGraph` is byte-identical (`PartialEq`) to the render over zeroed slabs. Identical ⇒ the value region was provably untouched; any read would have leaked a `0xFF` into the output and failed the assert.
+
+Why this is perennial, not a one-off test trick:
+1. **It generalises to the whole codec stack.** Any "this tier doesn't decompress the next" / "this scan stays in the cold column's metadata" / "this facet is key-only" claim has the same falsifier: sentinel-fill the region asserted unread, assert invariance. Lance columnar skips, CAM-PQ search-without-decompress, Scent-tier triage — all checkable this way.
+2. **It is the dual of `E-SCENT-IS-NOT-READING`.** That epiphany says a positional preview is not comprehension; this one says a claimed *non-*read is not proven until you make reading it observably break the result. Both convert a confidence claim into a falsifiable one.
+3. **It costs ~nothing.** One `clone()`, one slab memset, one `assert_eq!` — no instrumentation, no coverage tooling. The poison sentinel turns an invisible invariant into a loud failure.
+
+The anti-pattern it kills: shipping `// zero value decode` as a load-bearing claim with no test, then a later refactor quietly adds a value read and nothing catches it until a 16k-board scan is silently 16× slower (or wrong). Cross-ref: `unified-soa-rubikon-integration-v1.md` §2.4; OGAR `CLAUDE.md` P0 "the key prerenders nodes with zero value decode"; `E-SCENT-IS-NOT-READING` (the dual); `E-GUID-IS-THE-GRAPH` (the claim this probe protects).
+
+---
+
 ## 2026-06-20 — E-SURREALQL-IS-A-LENS-NOT-A-SINK — because SurrealDB's kv-lance engine stores into the SAME Lance bytes the SoA writes, SurrealQL is a second NATIVE runtime over the one substrate, not an egress dialect we export to; "ship it to SurrealDB" is a category error the way "ship it to a different view of the same table" is
 
 **Status:** FINDING (perennial; grounded in `surrealdb/core/src/kvs/lance/` — the fork, verified 2026-06-20).

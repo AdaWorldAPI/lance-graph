@@ -1,3 +1,11 @@
+## 2026-06-20 (cont.⁵) — §2.4 key-only neo4j render green (zero value decode, falsifiable)
+
+**Main thread (Opus), autoattended.** Operator picked superpower §2.4 from the post-reconciliation menu. Read the canon surface in full first (`canonical_node.rs` NodeGuid/EdgeBlock/NodeRow + ValueTenant carve; `soa_view.rs` the `hhtl_path_at`/`edge_block_at`/`identity_plane_at` deferred key facets; `hhtl.rs` NiblePath) — not a scent-skim.
+
+NEW `crates/symbiont/src/key_render.rs`: `render_key_only(&[NodeRow]) -> KeyGraph` reads ONLY `row.key` (128-bit GUID) + `row.edges` (128-bit EdgeBlock), never the 480-byte value slab. `hhtl_path_of` lowers the 3×4 HHT cascade (HEEL·HIP·TWIG = 12 nibbles, root-first) to a `NiblePath`; classid = routing prefix + identity = leaf are excluded (tested). `SymbiontBoard` now OVERRIDES the contract's `edge_block_at`/`hhtl_path_at` (the owner carries the NodeRow head, so the `None` defaults become `Some`) — `main.rs` + `domino::seed_board` seed a ring in-family slot + an adapter out-family slot (the Domino AMX sweep never reads the edge region, so this is free). `cargo test --manifest-path crates/symbiont/Cargo.toml` **12/12** (4 new key_render + 1 new kanban facet test). Binary renders **16384 nodes / 32768 edges from 512 KiB of 32-byte heads, 7680 KiB of value slabs left COLD**; sample node[3] = `00000000-0000-0000-0000-000000000003` hhtl_depth=12. Incremental build 3m04s (warm 8.2G target, 14G free).
+
+**Falsifiable zero-value-decode probe** (`render_ignores_value_slab`): poison every `row.value` with `0xFF` → render is byte-identical → the value region was provably untouched. Promoted to EPIPHANY `E-ZERO-DECODE-IS-FALSIFIABLE-BY-POISON` (the dual of `E-SCENT-IS-NOT-READING`; generalises to the whole codec stack). Plan §2.4 + §5 step 3 = ✅ SHIPPED. **Zero new contract types** — only materialises existing key facets. Pushed to main.
+
 ## 2026-06-20 (cont.⁴) — D2 kanban loop (pure-SoA slice) green
 
 **Main thread (Opus), autoattended.** Scoped via a read-only explorer (the contract `kanban`/`soa_view`/`scheduler` surface is COMPLETE), then **read the actual files** (kanban.rs/soa_view.rs/scheduler.rs — after a self-caught scent-skim the operator flagged: I'd `grep`/`sed`'d instead of reading, the exact E-SCENT-IS-NOT-READING anti-pattern; corrected by reading in full).

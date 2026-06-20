@@ -44,12 +44,14 @@
 //! shipped + 5 `#[tokio::test]`s) — for consumers that aren't the writer. The one
 //! remaining stub is the SurrealQL re-read (`surreal_container::view::read_via_kv_lance`).
 
-use lance_graph_contract::canonical_node::NodeRow;
+use lance_graph_contract::canonical_node::{EdgeBlock, NodeRow};
+use lance_graph_contract::hhtl::NiblePath;
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
 use lance_graph_contract::scheduler::{DatasetVersion, NextPhaseScheduler, VersionScheduler};
 use lance_graph_contract::soa_view::{MailboxSoaOwner, MailboxSoaView};
 
 use crate::domino;
+use crate::key_render;
 
 /// A mailbox-as-owner over symbiont's flat `Vec<NodeRow>` board-set. The SoA
 /// columns are kept parallel to the rows so the trait's zero-copy `&[T]` borrows
@@ -160,6 +162,18 @@ impl MailboxSoaView for SymbiontBoard {
     fn entity_type(&self) -> &[u16] {
         &self.entity
     }
+
+    // ── §2.4 key facets: the owner carries the canonical `NodeRow`, so it
+    // materialises the zero-value-decode head accessors the trait defaults to
+    // `None`. Both read ONLY the 32-byte head (key + edges), never the value slab.
+
+    fn edge_block_at(&self, row: usize) -> Option<EdgeBlock> {
+        self.rows.get(row).map(|r| r.edges)
+    }
+
+    fn hhtl_path_at(&self, row: usize) -> Option<NiblePath> {
+        self.rows.get(row).map(|r| key_render::hhtl_path_of(&r.key))
+    }
 }
 
 impl MailboxSoaOwner for SymbiontBoard {
@@ -241,5 +255,25 @@ mod tests {
         // Planning → Evaluation is not a legal Rubicon edge.
         assert!(board.try_advance_phase(KanbanColumn::Evaluation).is_err());
         assert_eq!(board.phase(), KanbanColumn::Planning);
+    }
+
+    #[test]
+    fn key_facets_are_materialized_not_the_none_default() {
+        // §2.4: the owner carries the NodeRow head, so edge_block_at /
+        // hhtl_path_at now return Some (the contract default is None until an
+        // owner materialises them). Both are zero-value-decode key facets.
+        let board = SymbiontBoard::spawn(16, 9);
+        let eb = board
+            .edge_block_at(3)
+            .expect("owner materialises the edge block");
+        assert_eq!(eb.in_family[0], 4); // ring edge (3 % 255) + 1
+        assert_eq!(eb.out_family[0], 4); // adapter slot 1 + (3 % 4)
+        assert!(
+            board.hhtl_path_at(3).is_some(),
+            "owner materialises the HHTL path"
+        );
+        // Out-of-range row falls back to the None default, never a wrong row.
+        assert_eq!(board.edge_block_at(999), None);
+        assert_eq!(board.hhtl_path_at(999), None);
     }
 }

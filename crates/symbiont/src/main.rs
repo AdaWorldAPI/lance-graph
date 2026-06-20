@@ -11,6 +11,7 @@
 mod bridge;
 mod domino;
 mod kanban_loop;
+mod key_render;
 
 fn main() {
     println!(
@@ -26,4 +27,7 @@ fn main() {
     // D2 — the kanban loop: version-tick → NextPhaseScheduler → try_advance_phase,
     // with the Domino sweep as the CognitiveWork phase over the SoA.
     kanban_loop::run_demo();
+    // §2.4 — the key-only neo4j-grade render: read all 16k boards touching ONLY
+    // the 32-byte head (GUID + EdgeBlock), zero value-slab decode.
+    key_render::run_demo();
 }

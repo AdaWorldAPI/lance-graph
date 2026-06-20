@@ -84,10 +84,20 @@ pub fn energy_of(row: &NodeRow) -> f32 {
 }
 
 /// Seed a board: a deterministic Morton-addressed 4×4 BF16 tile in `Fingerprint`.
+///
+/// The 32-byte head is seeded too so the key-only graph render (§2.4,
+/// `key_render`) is non-trivial: `key` = bootstrap address (identity = idx),
+/// `edges` = one in-family ring slot + one out-of-family adapter slot, both
+/// one-byte basin-local indices per the canonical `EdgeBlock`. The Domino sweep
+/// NEVER reads the edge region (it touches only the `Fingerprint`/`Energy` value
+/// tenants), so seeding edges here is free for the AMX path.
 fn seed_board(idx: usize) -> NodeRow {
+    let mut edges = EdgeBlock::default();
+    edges.in_family[0] = ((idx % 255) + 1) as u8; // ring neighbour (always 1..=255)
+    edges.out_family[0] = (1 + (idx % 4)) as u8; // inherited-adapter slot (1..=4)
     let mut row = NodeRow {
         key: NodeGuid::local(idx as u32),
-        edges: EdgeBlock::default(),
+        edges,
         value: [0u8; 480],
     };
     let mut f = [0.0f32; LANES];

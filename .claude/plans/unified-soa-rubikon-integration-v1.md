@@ -49,6 +49,11 @@ No copies, no per-subsystem mirror (R1 "one SoA never transformed").
 - ✅ **ractor = ownership guarantee, not a message bus** (E-CE64-MB-4 / #477):
   `SymbiontBoard`'s single `&mut self` owner IS the mailbox-as-owner compile-time
   proof. No tokio, no messages — a structural/dummy wrapper.
+- ✅ **Key-only neo4j render (superpower §2.4)** — `symbiont/key_render.rs` reads
+  16384 boards touching ONLY the 32-byte head (128-bit GUID + 128-bit EdgeBlock):
+  16384 nodes / 32768 edges from 512 KiB of heads, 7680 KiB of value slabs COLD;
+  zero-value-decode proven by the `0xFF`-poison falsifiable probe. `SymbiontBoard`
+  now materialises the contract's `edge_block_at`/`hhtl_path_at` key facets.
 
 ---
 
@@ -72,12 +77,20 @@ The SoA is column-major (`MailboxSoaView`: `energy() -> &[f32]`,
    `CausalEdge64` (`edges_raw()` raw u64 → `CausalEdge64(raw)`), qualia, plasticity
    — superposed/reduced over the SoA the same way as (1). The tenant catalogue
    (`VALUE_TENANTS`) is the column set; the projection is generic.
-4. ☐ **Key-only neo4j-grade render — ZERO value decode.** Read all 16k boards
+4. ✅ **Key-only neo4j-grade render — ZERO value decode.** Read all 16k boards
    touching ONLY the 32-byte head: the 128-bit `NodeGuid` (node) + the 128-bit
    `EdgeBlock` (12 in-family + 4 inherited out-of-family edges). `key(16)+edges(16)`,
    never the 480-byte value slab — a Neo4j-like graph view at memory-scan speed
    (`hhtl_path_at`/`edge_block_at` accessors are declared on `MailboxSoaView` for
    exactly this, defaulting to `None` until the owner materialises the head).
+   **SHIPPED** (`symbiont/key_render.rs` + `SymbiontBoard` overrides of
+   `edge_block_at`/`hhtl_path_at`): `render_key_only(&[NodeRow])` reads only
+   `row.key` + `row.edges`; the binary renders **16384 nodes / 32768 edges from
+   512 KiB of heads, 7680 KiB of value slabs left COLD**. Zero-value-decode is a
+   FALSIFIABLE probe (`render_ignores_value_slab`): poison every value slab with
+   `0xFF` → render is byte-identical. `hhtl_path_of` lowers the 3×4 HHT cascade
+   (HEEL·HIP·TWIG = 12 nibbles) to a `NiblePath`; classid/identity excluded
+   (tested). 12 symbiont tests green.
 
 ---
 
@@ -136,8 +149,8 @@ to drive the SoA.
 1. ☐ Planner reads the symbiont SoA (a `MailboxSoaView`) and runs a real query.
 2. ☐ Superpower §2.1 — tenant→fingerprint meta-query (one tenant, 16k rows → one
    fingerprint; cosine/CAM over the standing wave).
-3. ☐ Superpower §2.4 — key-only 32-byte render (materialise `hhtl_path_at` /
-   `edge_block_at`; assert zero value-slab reads).
+3. ✅ Superpower §2.4 — key-only 32-byte render (materialise `hhtl_path_at` /
+   `edge_block_at`; assert zero value-slab reads). **SHIPPED** — see §2.4.
 4. ☐ Superpower §2.2/§2.3 — `temporal` Markov chaining + project
    witness/CausalEdge64.
 5. ☐ Rubikon §3 — the −200 ms Libet-veto anchor on `Planning → Prune`.
