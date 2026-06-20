@@ -11,11 +11,14 @@ Status legend: ☐ open · ◐ in progress · ☑ done (this session) · ⊘ blo
   This is the kanban backpressure valve. (AdaWorldAPI/ractor#2, merged.)
 - ☑ **kv-lance feature gates proven + documented.** Lite-unified surreal
   compiles without RocksDB/C++ storage. (AdaWorldAPI/surrealdb#47, #48, merged.)
-- ☑ **Golden image compiles + links.** `cargo build` exit 0, 19m18s,
-  `target/debug/symbiont` 4.2 MB, 912 packages, zero errors. The five forks
-  resolve AND compile+link into one binary; lockstep pins held. (This is a
-  compile milestone — it proves nothing about runtime data flow; see the
-  loose-end ledger below.)
+- ☑ **Golden image compiles + links — TWICE, both green.** (1) local-path build:
+  `cargo build` exit 0, 19m18s, 912 packages. (2) **Portable git-deps build**
+  (the living-harness config — surrealdb/OGAR `main`, ndarray `master`, ractor
+  `jirak`): `CARGO_EXIT=0`, 12m52s, `target/debug/symbiont` 4.3 MB, runs + prints
+  the linked-stack line. Unified `lance 7.0.0 / lance-index 7.0.0 / lancedb
+  0.30.0 / datafusion 53.1.0 / arrow 58`, **no lance-6/7 split.** (A compile
+  milestone — it proves the stack composes on the lockstep pins; it proves
+  nothing about runtime data flow; see the loose-end ledger below.)
 - ☑ **Perturbation-sim NaN foundations.** `cascade.rs` preserve-last-finite
   abort + `perturbation_shape_is_always_finite` test; `stats.rs` empty-slice
   guards on `mean`/`pop_var`. (lance-graph, merged.)
@@ -85,19 +88,22 @@ Verdicts: brutally-honest-tester = **HOLD**, baton-handoff-auditor =
   **Resolution: leave the duplicate.** Revisit only if a real workload needs to
   pass an ndarray type across the surrealdb↔lance-graph boundary (then the
   clean route is the AdaWorldAPI lance-index fork bumped to ndarray 0.17).
-- **☐ R2 — commit `symbiont/Cargo.lock`.** It exists on disk (the build
-  generated it) but isn't tracked. Without it, `branch`-pinned git deps
-  (OGAR's surrealdb `main`, ndarray) can resolve to different commits on
-  different days → not byte-reproducible.
-- **☐ R3 — pin OGAR's surrealdb git dep to an exact `rev`.** `OGAR/Cargo.toml`
-  uses `branch = "main"`, but symbiont's `[patch]` silently substitutes the
-  local tree on a *different* branch. Compiles today (AST shape matches);
-  drops the baton if the local branch advances the AST or the patch is removed.
-- **☐ R4 — regenerate `/home/user/surrealdb/Cargo.lock`.** It resolves lance
-  **6.0.0** / lancedb 0.29 — contradicting surrealdb's own `=7.0.0` manifest
-  pin. surrealdb's kv-lance-on-lance-7 path was **never resolved inside
-  surrealdb's own workspace**; symbiont is the first witness. Regenerate so
-  the fork's CI exercises lance 7.
+- **☑ R2 / R3 — SUPERSEDED by the living-harness reframe (2026-06-20).** These
+  asked to commit `symbiont/Cargo.lock` and pin git-deps to exact `rev`s for
+  byte-reproducibility — the **snapshot** model the operator explicitly rejected
+  ("a Dockerfile + Cargo that actually RUNS the *current* substrate, pending
+  integration"). The golden image is a *living* harness: it re-resolves to each
+  fork's canonical branch tip every build. `Cargo.lock` is now `.gitignore`d; the
+  `[patch]` is gone (surrealdb consumers align on `main` → one source; cargo
+  forbids patching a url to itself anyway). See EPIPHANIES
+  E-GOLDEN-IMAGE-IS-A-LIVING-HARNESS.
+- **☑ R4 — surrealdb lance-7 witnessed GREEN.** The git-deps build resolved
+  surrealdb-core's `kv-lance` against `lance 7.0.0 / lance-index 7.0.0 / lancedb
+  0.30.0` cleanly — the fork's `main` manifest pins `=7.0.0` (verified). The
+  earlier "resolves lance 6" worry was the **stale `jirak` branch**, not `main`.
+  `TD-SURREALDB-KVLANCE-LANCE7` is **PAID**. Residual (surrealdb-fork CI
+  housekeeping, not ours): the fork's own committed `Cargo.lock` may still
+  resolve lance 6 — regenerate it in the fork so its CI exercises lance 7.
 - **note — absolute paths are deliberate** (`publish = false`); the image is
   intentionally machine-pinned to `/home/user/{...}`. Switch to relative
   (`../`) only if portability is wanted.
@@ -168,10 +174,12 @@ This folds into §B (the NaN-free win condition).
 
 ## Other loose ends (post-gate)
 
-- ⊘ **surreal_container — blocked.** The `surreal_container` consumer still
-  has the kv-lance fork dep unwired in its `Cargo.toml`. The golden image
-  proves the dep graph works; porting that wiring into `surreal_container`
-  clears the block.
+- ⊘ **surreal_container — version-unblocked, execution-blocked on wiring.**
+  `BLOCKED(C)` was a VERSION blocker (surrealdb `kv-lance` pinned lance 6) — now
+  RESOLVED: surrealdb `main` pins lance 7 and the golden image built green
+  against it. The residual is pure wiring: `surreal_container`'s surrealdb dep
+  is still commented out (D-PG-6 Rubicon kanban VIEW). Uncomment + wire; no
+  version work remains. (TECH_DEBT `TD-SURREALDB-KVLANCE-LANCE7` = PAID.)
 - ☐ **ndarray-simd in perturbation-sim.** Enable the `ndarray-simd` feature
   (Walsh-Hadamard via ndarray AVX-512 under `target-cpu=x86-64-v4`) and
   `[patch]` perturbation-sim's git ndarray to the local fork. Deferred from
