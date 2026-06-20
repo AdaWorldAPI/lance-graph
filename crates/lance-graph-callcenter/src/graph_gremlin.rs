@@ -83,25 +83,39 @@ impl<'a> Traversal<'a> {
     }
 
     fn step(&mut self, label: Option<&str>, outgoing: bool) {
-        let cur: HashSet<&str> = self.current.iter().map(String::as_str).collect();
+        // Bag/multiset semantics (Gremlin): each current traverser independently
+        // emits its reached targets, so duplicates are PRESERVED — `count()` and
+        // downstream steps reflect edge multiplicity / fan-in. Set semantics is
+        // the explicit `dedup()` step, never implicit (codex P2, PR #560).
+        let cur = std::mem::take(&mut self.current);
         let mut next: Vec<String> = Vec::new();
-        let mut seen: HashSet<String> = HashSet::new();
-        for e in &self.snap.edges {
-            if let Some(l) = label {
-                if e.label != l {
-                    continue;
+        for from_v in &cur {
+            for e in &self.snap.edges {
+                if let Some(l) = label {
+                    if e.label != l {
+                        continue;
+                    }
                 }
-            }
-            let (from, to) = if outgoing {
-                (&e.source, &e.target)
-            } else {
-                (&e.target, &e.source)
-            };
-            if cur.contains(from.as_str()) && seen.insert(to.clone()) {
-                next.push(to.clone());
+                let (from, to) = if outgoing {
+                    (&e.source, &e.target)
+                } else {
+                    (&e.target, &e.source)
+                };
+                if from == from_v {
+                    next.push(to.clone());
+                }
             }
         }
         self.current = next;
+    }
+
+    /// Gremlin `dedup()` — collapse to distinct vertices (set semantics). The
+    /// explicit opt-in; every other step preserves bag/multiset multiplicity.
+    #[must_use]
+    pub fn dedup(mut self) -> Self {
+        let mut seen: HashSet<String> = HashSet::new();
+        self.current.retain(|id| seen.insert(id.clone()));
+        self
     }
 
     /// Terminal `values("kind")` — project the `kind` of each reached vertex
@@ -216,6 +230,21 @@ mod tests {
         let s = sample();
         // A's "member-of" neighbour is the family hub → kind "Family".
         assert_eq!(g(&s).v(&["A"]).out_e("member-of").values_kind(), vec!["Family"]);
+    }
+
+    #[test]
+    fn out_preserves_bag_multiplicity() {
+        // A→B and C→B: from {A,C}, out() reaches B TWICE (bag semantics);
+        // dedup() collapses to one. No implicit dedup (codex P2, PR #560).
+        let s = GraphSnapshot {
+            nodes: vec![node("A", "X"), node("B", "X"), node("C", "X")],
+            edges: vec![edge("A", "B", "r"), edge("C", "B", "r")],
+            inferences: vec![],
+            contradictions: vec![],
+            timestamp: 0,
+        };
+        assert_eq!(g(&s).v(&["A", "C"]).out().count(), 2);
+        assert_eq!(g(&s).v(&["A", "C"]).out().dedup().count(), 1);
     }
 
     #[test]

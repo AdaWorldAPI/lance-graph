@@ -89,13 +89,15 @@ pub fn aiwar_node_rows(graph: &LiteralGraph) -> Vec<NodeRow> {
                 .collect();
             slots.sort_unstable();
             slots.dedup();
+            // aiwar entities connect ACROSS categories (Nation→System, …); every
+            // adapter here is cross-family (built from `tf != fam`), so they go in
+            // the 4 OUT-of-family slots (labeled `references`), never in-family
+            // (`linked`) — otherwise the label would flip with fan-out count and
+            // `references` queries would miss them (codex P2, PR #560). Cap at the
+            // 4 canonical out-of-family slots.
             let mut edges = EdgeBlock::default();
-            for (k, &b) in slots.iter().take(16).enumerate() {
-                if k < 12 {
-                    edges.in_family[k] = b;
-                } else {
-                    edges.out_family[k - 12] = b;
-                }
+            for (k, &b) in slots.iter().take(4).enumerate() {
+                edges.out_family[k] = b;
             }
             NodeRow {
                 key: NodeGuid::new(
@@ -167,12 +169,17 @@ mod tests {
         // every entity → member-of edge to its category family hub
         let member_of = snap.edges.iter().filter(|e| e.label == "member-of").count();
         assert_eq!(member_of, g.node_count());
-        // Israel (Nation) → the PredictiveAnalytics family hub: a cross-category
-        // family-adapter edge (resolves to a family node, not an individual member)
+        // Israel (Nation) → the PredictiveAnalytics family hub: a cross-CATEGORY
+        // edge, so it carries the out-of-family `references` label — never the
+        // in-family `linked` (aiwar edges are all cross-category).
         assert!(snap
             .edges
             .iter()
-            .any(|e| e.label == "linked" && e.target.starts_with("family:")));
+            .any(|e| e.label == "references" && e.target.starts_with("family:")));
+        assert!(
+            !snap.edges.iter().any(|e| e.label == "linked"),
+            "aiwar edges are all cross-category ⇒ none are in-family `linked`"
+        );
     }
 
     #[test]
