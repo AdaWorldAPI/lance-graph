@@ -80,6 +80,14 @@ exclude = [
     # the default build). Verify via `cargo build --manifest-path crates/symbiont/Cargo.toml`
     # or `docker build -f crates/symbiont/Dockerfile -t symbiont .`.
     "crates/symbiont",
+    # OGAR (Open Graph of Active Record) activation crate — re-exports OGAR's full
+    # AR surface (ogar-vocab Class/codebook + ogar-class-view impl ClassView +
+    # ogar-ontology + ogar-adapter-surrealql) and hosts the codebook parity-guard.
+    # EXCLUDED (own [workspace], git-deps OGAR + lance-graph-contract@main = one
+    # source, no [patch]) so OGAR never enters the default build; the lance-graph
+    # half of the OGIT(ontology)/OGAR(ogar) clean separation. Verify via
+    # `cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml`.
+    "crates/lance-graph-ogar",
 ]
 resolver = "2"
 
