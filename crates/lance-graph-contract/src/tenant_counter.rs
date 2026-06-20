@@ -18,9 +18,13 @@
 
 use crate::canonical_node::ValueTenant;
 
-/// Number of distinct [`ValueTenant`] positions the counter array covers.
-/// Must be ≥ the highest `ValueTenant` discriminant + 1.
-pub const N_TENANTS: usize = 10;
+/// Number of distinct [`ValueTenant`] positions the counter array covers —
+/// derived from the canonical carve so it can never drift out of sync with the
+/// enum (adding a `ValueTenant` grows `VALUE_TENANTS`, which grows this, which
+/// grows the counter array — no hand-maintained constant to forget, no
+/// out-of-bounds on `tenant as usize`). Equals the highest discriminant + 1
+/// because `VALUE_TENANTS` is contiguous discriminant-ordered (canon-asserted).
+pub const N_TENANTS: usize = crate::canonical_node::VALUE_TENANTS.len();
 
 #[cfg(feature = "tenant-counters")]
 static TENANT_COUNTERS: std::sync::LazyLock<[std::sync::atomic::AtomicU64; N_TENANTS]> =

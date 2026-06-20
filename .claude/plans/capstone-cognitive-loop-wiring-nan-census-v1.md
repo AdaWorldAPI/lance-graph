@@ -40,7 +40,7 @@ with **seam-wiring → 100%**, each step backed by a probe number.
 
 ## 2 — The loop under test (one cycle)
 
-```
+```text
 SoA node (Kanban tenant: phase)                         ── S1
   → MUL reads Qualia(flow/trust/DK)+Meta(NARS/FE)+Plasticity ── S2
   → GateDecision (flow vs mismatch)                     ── S2
@@ -57,7 +57,7 @@ SoA node (Kanban tenant: phase)                         ── S1
 
 | Seam | Claim | Probe (pass/fail) | KILL condition | Status |
 |---|---|---|---|---|
-| **S1** kanban tenant | `ValueTenant::Kanban` at `[144,152)` carries phase+cycle+exec, layout-preserving | field-isolation matrix: write each tenant, assert all others unchanged; `NodeRowPacket` round-trips kanban byte-exact | stride ≠ 512, or any other tenant perturbed | ✅ **FINDING (green 2026-06-20)** — shipped `ValueTenant::Kanban`/`KanbanTenant`/`NodeRow::{kanban,set_kanban}`; field-isolation + schema-membership tests pass; Full 112→120 ≤ 480, stride 512. + `tenant_counter` instrument. |
+| **S1** kanban tenant | `ValueTenant::Kanban` at `row_offset 144` (`[112,120)` in the value slab) carries phase+cycle+exec, layout-preserving | field-isolation matrix: write each tenant, assert all others unchanged; `NodeRowPacket` round-trips kanban byte-exact | stride ≠ 512, or any other tenant perturbed | ✅ **FINDING (green 2026-06-20)** — shipped `ValueTenant::Kanban`/`KanbanTenant`/`NodeRow::{kanban,set_kanban}`; field-isolation + schema-membership tests pass; Full 112→120 ≤ 480, stride 512. + `tenant_counter` instrument. |
 | **S2** MUL→phase | `MUL::GateDecision(Qualia,Meta,Plasticity)` mismatch ⇒ owner advances phase | feed a known flow-vs-mismatch qualia vector; assert the gate returns the expected `KanbanMove` (or HOLD) | gate ignores qualia (constant output), or reads uninitialized → NaN | CONJECTURE |
 | **S3** version→move | `VersionScheduler::on_version` lowers a real Lance version to the next legal `KanbanMove` | drive a 2-version dataset; assert the forward-arc move emitted | no move on a legal transition, or illegal edge emitted | CONJECTURE (type exists, unwired) |
 | **S4** envelope route | a kanban `UnifiedStep` reaches the present `BridgeSlot` (surreal plan engaged by Cargo presence) | register a surreal slot; route a `step_type:"kanban.*"`; assert it lands; with slot absent assert graceful unhandled (not panic) | routes to wrong domain, or panics when slot absent | CONJECTURE (UnifiedStep has no SoA pointer — G1) |
