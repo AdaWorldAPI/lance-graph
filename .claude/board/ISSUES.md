@@ -263,3 +263,8 @@ flip Open entry to Superseded.
 
 **When an issue is deferred knowingly** — leave it Open here but
 also append a row to `TECH_DEBT.md` with cross-ref back.
+
+## ISS-CLASSID-OGAR-DRIFT — 2026-06-20 — OPEN (needs operator sign-off)
+**What:** merged `lance-graph-contract` classids drifted from OGAR `ogar-vocab`'s domain-encoded codebook (`0xDDCC`, `crates/ogar-vocab/src/lib.rs:1073` CODEBOOK + `:1163` `canonical_concept_domain`). `CLASSID_OSINT=0x0007` → `0x00` = OGAR *Reserved* domain (OSINT is `0x07XX`); `CLASSID_FMA=0x0008` → OGAR *OCR* block (FMA/anatomy is clinical → Health `0x09XX`). OGAR's own note (`lib.rs:1204-1212`): codebook id == `NodeGuid.classid` low u16, and `LabelDTO` "long-term belongs in lance-graph-contract." So contract + OGAR currently disagree on what `0x07`/`0x08` mean.
+**Impact:** the contract↔OGAR↔q2 triangle has an inconsistent classid space; `canonical_concept_domain(id>>8)` mis-routes contract's OSINT/FMA; project/ERP un-minted.
+**Fix (proposed):** `.claude/plans/ogar-vocab-contract-codebook-migration-v1.md` D-OVC-1..4 — host the codebook/`ConceptDomain`/`LabelDTO` in contract, classids follow `0xDDCC` (mint project `0x01XX`+ERP `0x02XX`; realign OSINT→`0x0700`, FMA→Health `0x09XX`). **Realigning merged OSINT/FMA rewrites canon (#557/#560 + CLAUDE.md canon block) → operator sign-off required** (plan §5). Origin: `CLASSID_OSINT=0x0007` minted from the early "OSINT is 0x0007" guess before ogar-vocab's `0xDDCC` layout was consulted.

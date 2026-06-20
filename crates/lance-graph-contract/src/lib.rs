@@ -46,6 +46,9 @@ pub mod callcenter;
 pub mod cam;
 pub mod canonical_node;
 pub mod class_view;
+/// D-GV2-2 — per-family codebook (`family → Codebook`), gated on the v2 tail.
+#[cfg(feature = "guid-v2-tail")]
+pub mod codebook;
 pub mod codegen_manifest;
 pub mod codegen_spine;
 pub mod cognitive_shader;
