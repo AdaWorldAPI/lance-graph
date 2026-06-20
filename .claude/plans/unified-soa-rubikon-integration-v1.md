@@ -158,8 +158,117 @@ to drive the SoA.
   `lance-graph-callcenter`, OGAR i4-32D / `ClassView`), but the wiring is the
   work — none of §2–§5 is claimed running.
 
+---
+
+## 7. Reconciliation with prior plans — this is NOT a new arc
+
+This plan **complements, does not duplicate**, the existing Rubikon/kanban
+convergence work. Cross-read this session (`unified-soa-convergence-v1.md` +
+`D-MBX-COMPLETION-MAP.md` + the kanban EPIPHANIES). The mapping, so the two
+plans cannot drift:
+
+| This plan (§) | Canonical home (prior plan / D-id) | Status there | Relationship |
+|---|---|---|---|
+| §1 golden image SoA | — (new harness this session) | ✅ shipped | NEW — the proof-of-composition the prior arc lacked |
+| §2.1–.4 four superpowers | `D-MBX-A6` (planner DTO overhaul) + §2 "one SoA, never transformed" | ☐ A6-P3 NEXT | the superpowers ARE planner ops over the SoA — land **under A6**, not a new layer |
+| §3 Rubikon + Libet −550 ms | `unified-soa-convergence-v1` §5 R3 + `D-MBX-8` | ✅ −550 ms shipped | SAME anchor; no divergence |
+| §3 Libet −200 ms veto | `unified-soa-convergence-v1` §5 R3**(a)** "pre-commit veto, card never leaves Planning" | ☐ unbuilt | **REFINES, not invents:** R3(a) named the *veto*; this plan gives it the *anchor* — RP at −550 ms, conscious intention ≈ −200 ms, "free won't" window between −200 ms and the act → stamp **−200 000 µs on `Planning → Prune`**. R3(b) post-eval Prune is the *other* veto expression and already exists. |
+| §4 planner ↔ SoA | `D-MBX-A6` / `D-MBX-12.5` (planner sub-PR) | ☐ A6-P3 NEXT | identical target; **do NOT mint a new "PlannerDTO"** (E-2026-05-30 COUNCIL: that name is drift — canonical = `Candidate` + `KanbanMove`) |
+| §4 thinking-style ↔ Rubikon | `style_strategy.rs` (#439 D-MBX-A6-P3a) + OGAR i4-32D CAM | ◐ #439 passthrough | the missing edge is `Outcome → KanbanMove` emit = **A6-P3**, gated by the planner-output overhaul |
+| §4 SurrealQL membrane | `D-MBX-9` (Rubicon kanban VIEW) + `surreal_container::view::read_via_kv_lance` | ☐ stub, `OQ-11.6` | identical stub; gated on the surrealdb-fork dep being uncommented |
+| §4 callcenter boundary | `callcenter-membrane-v1` DM-4 (`LanceVersionWatcher`) | ✅ shipped (std-sync) | the *subscriber* fan-out already exists — §4's "version watcher" = this |
+| §2.4 key-only render | `E-GUID-IS-THE-GRAPH` + `E-CYPHER-IS-THE-KANBAN-AST` | ✅ FINDING | the zero-value-decode graph view is the doctrine; §2.4 is its planner op |
+
+**Loose ends tied (the reconciliation deltas):**
+
+1. **§4 is `D-MBX-A6-P3`, full stop.** The planner integration is not a parallel
+   effort — it is the NEXT node of the shipped A6 chain (P1 #437 + P2 #439 land
+   2 of 3 edges; the missing edge is `Outcome → KanbanMove`). This plan's §4
+   should be read as the **capstone narrative** for A6-P3, not a competing spec.
+2. **The −200 ms veto is the one genuinely-new contract enrichment** here, and it
+   is small: a single `libet_offset_us = -200_000` stamp on the `Planning → Prune`
+   edge in `advance_phase` (today it stamps 0), mirroring the −550 000 already on
+   `Planning → CognitiveWork`. It refines `unified-soa-convergence-v1` R3(a); it
+   does not contradict R3(b).
+3. **No new kanban/SoA/scheduler type.** Everything routes through shipped
+   `contract::{kanban, soa_view, scheduler}` + `surreal_container::view` +
+   `callcenter::version_watcher`. Per CLAUDE.md "AGI IS the struct-of-arrays" and
+   `E-CYPHER-IS-THE-KANBAN-AST`: board-ops + ontology-traversal + thinking-style
+   dispatch + SurrealQL egress are **one AST seen from four sides**, not four
+   subsystems to bridge.
+4. **`D-MBX-7` is the hard prerequisite for the transparent view** (lance-graph
+   containers ≡ `MailboxSoA` layout) and `D-MBX-11`/`OQ-11.6` (Lance-7 pin +
+   surrealdb-fork URL) gate the kv-lance re-read. The golden image already pins
+   lance-7 lockstep, so the `D-MBX-11` blocker is *retired in the harness* — the
+   surrealdb fork's `claude/kvs-lance-timeline` branch bumped to `lance =7.0.0 /
+   lancedb =0.30.0` to match (verified this session). What remains is `OQ-11.6`
+   (uncomment the fork dep, fill `read_via_kv_lance`).
+
+---
+
+## 8. The SurrealQL superpowers (grounded in the AdaWorldAPI fork)
+
+The operator's note — *"I think we didn't understand properly the superpowers
+that SurrealQL grants us, time series etc"* — is correct: SurrealQL is not just
+an egress dialect, it is a **second native runtime over the SAME Lance bytes**.
+All four below are VERIFIED present in `/home/user/surrealdb` (the AdaWorldAPI
+fork), not generic-SurrealDB hearsay:
+
+1. ✅ **kv-lance engine = SurrealDB runs ON Lance.**
+   `surrealdb/core/src/kvs/lance/{mod,schema,tx_buffer,background_optimizer,
+   timeline}.rs` — a full `Transactable` KV backend on the Lance versioned
+   columnar format. **Consequence:** the SAME `nodes.lance` dataset the SoA
+   batch-writer commits IS the SurrealDB store. No ETL, no copy — the
+   "transparent container view" (`D-MBX-7`) is literally SurrealDB pointed at the
+   SoA's own Lance files. This is why `surreal_container::view` borrows zero-copy
+   (§4): the bytes are already there.
+2. ✅ **Time-series = `kvs/lance/timeline.rs` + record-id ranges.**
+   The `timeline.rs` module in the kv-lance backend is the time-series surface;
+   SurrealQL record-id ranges (`SELECT * FROM mailbox:[$lo]..[$hi]`) scan the
+   monotonic version/cycle axis directly. **Maps to** superpower §2.2 (the
+   `temporal` implicit Markov chain) and the witness arc (`CausalEdge64`
+   emissions are an ordered series; the SurrealQL range IS the arc read). The
+   Lance version log = the time axis = the kanban witness chain; no separate
+   event store (cf. `E-2026-...` "the actor's state history IS the Lance version
+   log").
+3. ✅ **LIVE SELECT + CHANGEFEED = the version-subscription IN-direction.**
+   `surrealdb/core/src/expr/statements/live.rs` + `key/table/lq.rs` (live-query
+   keys) + `CHANGEFEED` on `DEFINE TABLE`/`DEFINE DATABASE`
+   (`expr/statements/define/{table,database}.rs`). **This is CDC**, and it is the
+   exact shape of `LanceVersionScheduler::drive_once` (async subscriber reads a
+   version it didn't write) + `callcenter::LanceVersionWatcher` (std-sync
+   always-latest fan-out). A `LIVE SELECT … FROM mailbox` is the SurrealQL
+   spelling of "subscribe to the kanban version tick" → `on_version` →
+   `KanbanMove`. The writer still fires the kanban update **synchronously** (§1);
+   LIVE/CHANGEFEED is for *other* consumers (the subscriber half), matching the
+   "async only because it reads a version it didn't write" ruling.
+4. ✅ **RELATE = native graph edges ↔ `EdgeBlock`.**
+   `surrealdb/core/src/expr/statements/relate.rs` — SurrealQL `RELATE a->edge->b`
+   is a first-class graph edge. **Maps to** the `EdgeBlock` (12 in-family + 4
+   out-of-family slots) and superpower §2.4 (key-only neo4j-grade render).
+   A `RELATE`/`->edge->` traversal over the kv-lance store IS the prefix-route +
+   slot-deref of `E-GUID-IS-THE-GRAPH`, expressed in SurrealQL instead of Cypher
+   — the same AST, the egress side (`E-CYPHER-IS-THE-KANBAN-AST`).
+
+**Net:** the four superpowers of §2 (meta-query / temporal Markov / project-any-
+tenant / key-only render) each have a **SurrealQL spelling** over the identical
+Lance bytes — meta-query via aggregate `SELECT`, temporal via record-range +
+`timeline.rs`, tenant projection via column `SELECT`, key-only render via
+`RELATE`/`->`. SurrealQL is not a sink we *export to*; it is a co-equal lens on
+the one SoA, gated only by `OQ-11.6` (uncomment the fork dep + fill
+`read_via_kv_lance`). The membrane is already typed and tested
+(`surreal_container::view`, 5 tests green); only the kv-lance scan body is a stub.
+
+---
+
 **Cross-ref:** symbiont `INTEGRATION_PLAN.md` + `BATTLE_TEST_PLAN.md`; CANON
 (`canonical_node.rs`); `kanban.rs` / `scheduler.rs` / `soa_view.rs`;
-`scheduler_seam.rs`; EPIPHANIES `E-NODE-IS-SOA-IS-KANBAN-BOARD`,
-`E-BINDSPACE-IS-A-NAN-PROJECTION-SURFACE`, `E-SCENT-IS-NOT-READING`; STATUS_BOARD
-`symbiont-golden-image-harness`.
+`scheduler_seam.rs`; `surreal_container/src/view.rs` (the `read_via_kv_lance`
+stub); `lance-graph-callcenter/src/version_watcher.rs` (the subscriber fan-out);
+`/home/user/surrealdb/surrealdb/core/src/kvs/lance/` (the kv-lance engine +
+`timeline.rs`). **Prior plans reconciled:** `unified-soa-convergence-v1.md`
+(D-MBX-7/8/9/A6/12, §5 R3 Libet, §7 plasticity); `cypher-kanban-ast-unification-v1.md`;
+`callcenter-membrane-v1.md` (DM-4 watcher). **EPIPHANIES:**
+`E-NODE-IS-SOA-IS-KANBAN-BOARD`, `E-BINDSPACE-IS-A-NAN-PROJECTION-SURFACE`,
+`E-SCENT-IS-NOT-READING`, `E-CYPHER-IS-THE-KANBAN-AST`, `E-GUID-IS-THE-GRAPH`,
+`E-SUBSTRATE-IS-THE-SCHEDULER`. STATUS_BOARD `symbiont-golden-image-harness`.

@@ -1,3 +1,21 @@
+## 2026-06-20 — E-SURREALQL-IS-A-LENS-NOT-A-SINK — because SurrealDB's kv-lance engine stores into the SAME Lance bytes the SoA writes, SurrealQL is a second NATIVE runtime over the one substrate, not an egress dialect we export to; "ship it to SurrealDB" is a category error the way "ship it to a different view of the same table" is
+
+**Status:** FINDING (perennial; grounded in `surrealdb/core/src/kvs/lance/` — the fork, verified 2026-06-20).
+
+The reflex is to treat SurrealQL as the *egress* side — the place a result lands AFTER the cognitive substrate is done (the "send it to Splunk" shape medcare-rs's audit-sink rule already warns against). That reflex is wrong here, and the reason is the **kv-lance engine** (`surrealdb/core/src/kvs/lance/{mod,schema,tx_buffer,timeline}.rs`): SurrealDB is a `Transactable` over the Lance versioned columnar format, so its store *is* the SoA's own `nodes.lance` dataset. There is no second copy to export to — there is one set of bytes with two native runtimes pointed at it (the cognitive SoA writer, and SurrealQL).
+
+Four consequences, each a superpower over the IDENTICAL bytes, not a feature of a downstream system:
+1. **Time-series is free** — `kvs/lance/timeline.rs` + record-id ranges read the Lance version axis directly; the version log = the witness arc (`CausalEdge64` series), no event store.
+2. **LIVE SELECT / CHANGEFEED = the version-subscription IN-direction** — the SurrealQL spelling of `LanceVersionScheduler::drive_once` + `callcenter::LanceVersionWatcher`. CDC for the *subscriber* half only; the writer still fires kanban synchronously.
+3. **RELATE = the `EdgeBlock`** — `->edge->` traversal IS the prefix-route + slot-deref of `E-GUID-IS-THE-GRAPH`, in SurrealQL syntax instead of Cypher: one AST, the egress side (`E-CYPHER-IS-THE-KANBAN-AST`).
+4. **Column SELECT = tenant projection** — the §2 superpowers (meta-query, project-any-tenant) each have a SurrealQL spelling over the same SoA columns.
+
+The load-bearing correction: do NOT design a SoA→SurrealDB *serialization* path. The membrane (`surreal_container::view`) borrows zero-copy because the bytes are already in Lance; the only stub is the kv-lance scan body (`read_via_kv_lance`, `OQ-11.6`), not a transport. SurrealQL is a lens, gated on uncommenting a fork dep — never an export.
+
+Cross-ref: `.claude/plans/unified-soa-rubikon-integration-v1.md` §8; `unified-soa-convergence-v1.md` §2.7 (SurrealDB-is-a-view-not-a-store) + D-MBX-7/9; `surreal_container/src/view.rs`; medcare-rs CLAUDE.md "the audit event does not go outside" (same anti-egress reflex, different subsystem); `E-CYPHER-IS-THE-KANBAN-AST`; `E-GUID-IS-THE-GRAPH`; `E-SUBSTRATE-IS-THE-SCHEDULER`.
+
+---
+
 ## 2026-06-20 — E-SCENT-IS-NOT-READING — head/tail (and summaries/breadcrumbs) are a positional SCENT for routing, never a substitute for the read; mistaking the scent for comprehension is the student who skimmed the first and last chapter and wrote the essay anyway
 
 **Status:** FINDING (perennial).
