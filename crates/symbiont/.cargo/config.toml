@@ -1,0 +1,6 @@
+# Build the golden image NATIVE so ndarray detects this host's AMX
+# (Sapphire / Emerald Rapids) and uses the real TDPBF16PS BF16 tile path —
+# not the scalar/AVX-512 fallback. amx_available() is a runtime CPUID gate, but
+# native codegen also lights up AVX-512 for the surrounding sweep.
+[build]
+rustflags = ["-C", "target-cpu=native"]

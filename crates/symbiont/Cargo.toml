@@ -39,6 +39,9 @@ perturbation-sim = { path = "../perturbation-sim" }
 # canonical SoA node (NodeRow/NodeGuid/EdgeBlock) — NOT re-exported by lance-graph,
 # so the D1 bridge names it directly. Zero-dep, already in the graph.
 lance-graph-contract = { path = "../lance-graph-contract" }
+# ndarray fork — direct, for the AMX BF16 tile GEMM (bf16_tile_gemm_16x16) +
+# amx_available() the Domino POC drives. Already in the graph via lance-graph.
+ndarray = { path = "../../../ndarray" }
 
 # ── external AdaWorldAPI forks: git deps ──
 # ractor: jirak branch (carries this session's MessagingErr::Saturated fix; on github).

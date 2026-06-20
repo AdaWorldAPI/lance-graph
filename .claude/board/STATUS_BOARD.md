@@ -7,6 +7,7 @@ The golden image (`crates/symbiont`, workspace-`exclude`d): the full Ada stack i
 | D0 | Golden image compiles+links (lockstep lance-7) | symbiont | **Shipped** | git-deps build `CARGO_EXIT=0`, unified `lance 7.0.0 / lancedb 0.30.0 / df 53.1 / arrow 58`, binary runs |
 | D1 | Grid→NodeRow bridge — each bus = 1 SoA board, f64 → `Energy` tenant | symbiont/bridge.rs | **Shipped** | 2 probes green; 64 buses→64 NodeRows, perturbation in the Energy(f32) tenant, all finite |
 | E2 | Parallel SoA sweep at scale (16k boards = 8 MiB, zero-copy) | symbiont/bridge.rs | **Shipped** | `run_scale_demo(16384)` → 8 MiB, all 16384 Energy tenants finite |
+| D3-AMX | Domino POC — 16-board AMX 16×16 BF16 Morton-tile cascade + NaN-projection | symbiont/domino.rs | **In progress** | native (`target-cpu=native`) build+test verifying; `bf16_tile_gemm_16x16` (TDPBF16PS), `amx_available()`, BindSpace-as-NaN-projection; the SoA-orchestration POC |
 | D2 | Kanban loop (`LanceVersionScheduler`→`KanbanMove`→SoA write→Lance commit) | symbiont + lance-graph-supervisor | Queued | — |
 | E1 | Spain-grid acceptance gate (real fixture, NaN-free, clippy+machete clean) | symbiont | Queued | the north star — first N *real* nodes on the SoA in parallel |
 | BT | Battle-test plan (probes A1–E3, gated behind singleton-BindSpace→SoA) | workspace | **Shipped (doc)** | `crates/symbiont/BATTLE_TEST_PLAN.md`; A1 partial-green + D1 green; A2–E3 specced |
