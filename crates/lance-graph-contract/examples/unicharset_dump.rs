@@ -1,6 +1,7 @@
 //! Dump a `.unicharset`'s id→unichar table (default), its per-id property bits
-//! (`properties` mode), or its per-id script ids (`script` mode) — the Rust side
-//! of the byte-parity probe `PROBE-OGAR-ADAPTER-UNICHARSET`.
+//! (`properties` mode), its per-id script ids (`script` mode), or its per-id
+//! case-pair ids (`other_case` mode) — the Rust side of the byte-parity probe
+//! `PROBE-OGAR-ADAPTER-UNICHARSET`.
 //!
 //! ```sh
 //! # on a box with libtesseract + libleptonica installed:
@@ -32,7 +33,7 @@ use lance_graph_contract::unicharset::UniCharSet;
 
 fn main() -> ExitCode {
     let Some(path) = std::env::args().nth(1) else {
-        eprintln!("usage: unicharset_dump <path/to/eng.unicharset> [properties|script]");
+        eprintln!("usage: unicharset_dump <path/to/eng.unicharset> [properties|script|other_case]");
         return ExitCode::FAILURE;
     };
     let mode = std::env::args().nth(2).unwrap_or_default();
@@ -41,6 +42,7 @@ fn main() -> ExitCode {
             match mode.as_str() {
                 "properties" => print!("{}", unicharset.dump_properties()),
                 "script" => print!("{}", unicharset.dump_script()),
+                "other_case" => print!("{}", unicharset.dump_other_case()),
                 _ => print!("{}", unicharset.dump()),
             }
             ExitCode::SUCCESS

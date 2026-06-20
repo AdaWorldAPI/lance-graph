@@ -54,6 +54,16 @@
 //! out-of-range id → `null_sid_` (0). The script name parsed per line is the
 //! token after the optional bbox/stats CSV; [`UniCharSet::dump_script`] is the
 //! byte-parity surface for the script ids.
+//!
+//! # Other-case leaf
+//!
+//! Each entry carries `other_case` — the id of its case-paired unichar (`'C'` →
+//! `'c'`), or itself when there is no pair. It is the token immediately after
+//! the script, clamped at load exactly as `unicharset.cpp:901`: a parsed value
+//! not less than `size` (and the absent default, `unicharset.cpp:813`, = `size`)
+//! folds to the id itself. [`UniCharSet::get_other_case`] mirrors the C++
+//! accessor (`unicharset.h:703`): out-of-range id → `INVALID_UNICHAR_ID` (-1).
+//! [`UniCharSet::dump_other_case`] is the byte-parity surface.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -77,6 +87,10 @@ pub struct UniCharSet {
     /// by the first `unichar_insert` (`unicharset.cpp:680`); real scripts follow
     /// in first-seen id order. `script_ids` indexes into this.
     scripts: Vec<String>,
+    /// id → the case-paired unichar id (`other_case`), parallel to `reverse`.
+    /// Clamped at load: a parsed value `>= size` (incl. the default) becomes the
+    /// id itself (tesseract `unicharset.cpp:901`).
+    other_cases: Vec<i32>,
 }
 
 /// `isalpha` property bit (tesseract `unicharset.cpp:41`).
@@ -99,6 +113,9 @@ const NULL_SCRIPT: &str = "NULL";
 /// The null script id — what `get_script` returns for an out-of-range id
 /// (the C++ `null_sid_`, `unicharset.h:683`).
 const NULL_SID: i32 = 0;
+/// The C++ `INVALID_UNICHAR_ID` sentinel — what id-returning accessors yield for
+/// an out-of-range id (tesseract `unichar.h`; e.g. `get_other_case`).
+const INVALID_UNICHAR_ID: i32 = -1;
 
 /// Intern `name` into `scripts` (insertion-order dedup), returning its index —
 /// the transcription of `UNICHARSET::add_script` (tesseract `unicharset.cpp:1063`).
@@ -134,6 +151,8 @@ impl UniCharSet {
         let mut props = Vec::with_capacity(count);
         let mut script_ids = Vec::with_capacity(count);
         let mut scripts: Vec<String> = Vec::new();
+        let mut other_cases = Vec::with_capacity(count);
+        let count_i32 = i32::try_from(count).unwrap_or(i32::MAX);
         for line in lines.take(count) {
             // The unichar is the first whitespace-delimited token; the id is the
             // entry's position. A unichar repeated in the file keeps its FIRST
@@ -179,6 +198,16 @@ impl UniCharSet {
                 None => NULL_SCRIPT,
             };
             script_ids.push(intern_script(&mut scripts, script_name));
+            // other_case: the token right after the script (present in every
+            // column tier that carries it). Clamped exactly as
+            // `unicharset.cpp:901`: a parsed value not less than `size` — and the
+            // absent default (`unicharset.cpp:813`, = size) — folds to the id.
+            let id_i32 = i32::try_from(id).unwrap_or(INVALID_UNICHAR_ID);
+            let oc = tokens
+                .next()
+                .and_then(|t| t.parse::<i32>().ok())
+                .unwrap_or(count_i32);
+            other_cases.push(if oc < count_i32 { oc } else { id_i32 });
         }
 
         if reverse.len() != count {
@@ -193,6 +222,7 @@ impl UniCharSet {
             props,
             script_ids,
             scripts,
+            other_cases,
         })
     }
 
@@ -317,6 +347,19 @@ impl UniCharSet {
         self.script_from_script_id(self.get_script(id))
     }
 
+    /// The case-paired unichar id of `id` (`other_case`) — e.g. `'C'` → the id of
+    /// `'c'`, or the id itself when there is no pair. Mirrors
+    /// `UNICHARSET::get_other_case` (tesseract `unicharset.h:703`): an
+    /// out-of-range id (the `INVALID_UNICHAR_ID` sentinel) returns
+    /// `INVALID_UNICHAR_ID` (-1).
+    #[must_use]
+    pub fn get_other_case(&self, id: u32) -> i32 {
+        self.other_cases
+            .get(id as usize)
+            .copied()
+            .unwrap_or(INVALID_UNICHAR_ID)
+    }
+
     /// Render the id→properties table as
     /// `"<id>\t<isalpha> <islower> <isupper> <isdigit> <ispunctuation>\n"` lines
     /// (each flag `0`/`1`) — the exact shape the C++ property oracle prints, so
@@ -351,6 +394,21 @@ impl UniCharSet {
             out.push_str(&id.to_string());
             out.push('\t');
             out.push_str(&self.get_script(id).to_string());
+            out.push('\n');
+        }
+        out
+    }
+
+    /// Render the id→other-case table as `"<id>\t<other_case>\n"` lines — the
+    /// exact shape the C++ `get_other_case` oracle prints, so the byte-parity
+    /// diff is `diff oracle_other_case.tsv rust_other_case.tsv`.
+    #[must_use]
+    pub fn dump_other_case(&self) -> String {
+        let mut out = String::new();
+        for id in 0..self.reverse.len() as u32 {
+            out.push_str(&id.to_string());
+            out.push('\t');
+            out.push_str(&self.get_other_case(id).to_string());
             out.push('\n');
         }
         out
@@ -576,6 +634,43 @@ b 3 0,255,0,255,0,0,0,0,0,0 Latin 1 0 1 b
     fn dump_script_matches_oracle_shape() {
         let u = UniCharSet::load_from_str(SCRIPT_SAMPLE).expect("valid");
         assert_eq!(u.dump_script(), "0\t1\n1\t2\n2\t2\n3\t1\n");
+    }
+
+    /// id 0 `C` pairs with id 1 `c` and vice-versa; id 2 `.` has an out-of-range
+    /// other_case (99 ≥ size 3) which clamps to itself (`unicharset.cpp:901`).
+    const OTHER_CASE_SAMPLE: &str = "\
+3
+C 5 0,255,0,255,0,0,0,0,0,0 Latin 1 0 0 C
+c 3 0,255,0,255,0,0,0,0,0,0 Latin 0 0 1 c
+. 10 0,255,0,255,0,0,0,0,0,0 Common 99 0 2 .
+";
+
+    #[test]
+    fn other_case_decodes_and_clamps() {
+        let u = UniCharSet::load_from_str(OTHER_CASE_SAMPLE).expect("valid");
+        assert_eq!(u.get_other_case(0), 1); // C -> c
+        assert_eq!(u.get_other_case(1), 0); // c -> C
+        assert_eq!(u.get_other_case(2), 2); // 99 >= size -> clamped to self
+    }
+
+    #[test]
+    fn other_case_absent_defaults_to_self() {
+        // A line with no other_case token (script only): default = size, clamps
+        // to the id itself.
+        let u = UniCharSet::load_from_str("1\nx 1 Latin\n").expect("valid");
+        assert_eq!(u.get_other_case(0), 0);
+    }
+
+    #[test]
+    fn other_case_out_of_range_id_is_invalid() {
+        let u = UniCharSet::load_from_str(OTHER_CASE_SAMPLE).expect("valid");
+        assert_eq!(u.get_other_case(99), -1); // INVALID_UNICHAR_ID
+    }
+
+    #[test]
+    fn dump_other_case_matches_oracle_shape() {
+        let u = UniCharSet::load_from_str(OTHER_CASE_SAMPLE).expect("valid");
+        assert_eq!(u.dump_other_case(), "0\t1\n1\t0\n2\t2\n");
     }
 
     #[test]

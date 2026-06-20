@@ -73,6 +73,20 @@ The 5+3 council's headline was "five crates linked into one binary with ZERO run
 **Next edges:** Grid→NodeRow over a REAL Spain fixture (E1 acceptance gate); the kanban loop (D2: `LanceVersionScheduler` → `KanbanMove` → SoA write → Lance commit).
 
 Cross-ref: PR #555 INTEGRATION_PLAN D1; battle-test plan probes A1/B-series; STATUS_BOARD symbiont-golden-image-harness; `crates/symbiont/src/bridge.rs`.
+## 2026-06-20 — E-CPP-PARITY-5 — the UNICHARSET `other_case` (case-pair id, size-clamped) is byte-identical to libtesseract; the fifth leaf through PROBE-OGAR-ADAPTER-UNICHARSET
+
+**Status:** FINDING (in-env, real trained data). `lance_graph_contract::unicharset::UniCharSet::get_other_case` dumps the `eng.lstm-unicharset` per-id case-pair ids **byte-identical to tesseract's own `UNICHARSET::get_other_case`, 112/112** (same self-validating oracle, `other_case` mode). The fifth proven adapter surface; the second per-id integer field (after script id) and the first with a load-time **clamp**.
+
+**The transcode detail — a size-clamp with a size-valued default.** `other_case` is the case-paired unichar's id (`'C'` → the id of `'c'`), or the id itself when unpaired. Load clamps it (`unicharset.cpp:901`): `set_other_case(id, (other_case < size) ? other_case : id)` — a parsed value `>= size`, AND the absent-column default (`unicharset.cpp:813`, initialized to `size`), both fold to the id itself. So "no pair" and "out-of-range pair" collapse to self. `get_other_case` (`unicharset.h:703`) returns `INVALID_UNICHAR_ID` (-1) for an out-of-range id — distinct from the `null_sid_`-style 0 of `get_script`. The oracle confirmed 60/112 ids are self, 52 carry a real pair (e.g. id 3 `C`→87 `c`, id 4 `H`→97 `h`).
+
+**Column position without the full tier-parser (again).** `other_case` is the token immediately after the script token in every tier that carries it — so `other_case = token[4] if token[2] has a comma else token[3]` (one token past the script extractor), proven across eng's mixed tiers (tier-5 id 0 with no CSV: `NULL 0 Common 0` → other_case `0`; tier-1 ids with CSV). The remaining columns (direction/mirror/bbox/stats) sit *after* other_case and genuinely need the multi-tier fallback to place — that is the next, larger leaf. This is the last field cleanly reachable by token-offset alone.
+
+**Pattern holds (E-CPP-KEYSTONE-1).** +1 accessor + clamp + one `diff`, no new architecture, no Core gap. +4 contract tests (23 unicharset total); consumed by `tesseract-core::CharSet::get_other_case` (+1 boundary test, 6/6). Reproducible via the committed `examples/unicharset_dump.rs other_case`. Measure-before-assert held: the oracle's `other_case` dump defined the spec (incl. the 60-self / 52-pair split) before the Rust was written.
+
+Cross-ref: `E-CPP-PARITY-1/2/3/4` (the prior four leaves), `E-CPP-KEYSTONE-1`, `.claude/knowledge/core-first-transcode-doctrine.md`. Branch `claude/happy-hamilton-0azlw4`, lance-graph + tesseract-rs.
+
+---
+
 ## 2026-06-20 — E-CPP-PARITY-4 — the UNICHARSET script table (`get_script` + the interned `add_script` table) is byte-identical to libtesseract; the fourth leaf through PROBE-OGAR-ADAPTER-UNICHARSET, and the first to transcode an INTERNING side-table
 
 **Status:** FINDING (in-env, real trained data). `lance_graph_contract::unicharset::UniCharSet::get_script` dumps the `eng.lstm-unicharset` per-id script ids **byte-identical to tesseract's own `UNICHARSET::get_script`, 112/112** — verified by the same self-validating oracle (bijection half = proven 112/112 layout check, then `./uniprops_oracle … script` diffs 0). The fourth proven adapter surface (after id↔unichar, properties, and the UNICHAR codec).
