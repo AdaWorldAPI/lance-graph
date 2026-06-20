@@ -87,7 +87,7 @@ impl NamespaceRegistry {
     /// - `lance-graph-callcenter::hydration::parse_super_domain_name`
     /// - OQ-4 resolution in PR #366 / EPIPHANIES 2026-05-13 sprint-7 meta entry
     pub fn seed_defaults() -> Self {
-        let mut ids = HashMap::with_capacity(29);
+        let mut ids = HashMap::with_capacity(31);
         // Live cognitive namespaces.
         ids.insert("SMB".to_string(), 0); // export-only per v5 ratification
         ids.insert("WorkOrder".to_string(), 1);
@@ -97,6 +97,15 @@ impl NamespaceRegistry {
         ids.insert("EmailCorrespondance".to_string(), 4);
         // SharePoint content orchestration namespace (Sharepoint→smb-office-rs).
         ids.insert("SharePoint".to_string(), 5);
+        // Project-management ports — Northstar §3 C4/C5 + codex P2 on
+        // PR #558 ("seed OpenProject before exposing bridge"). Without
+        // these seeds every OpenProject/Redmine row stamped via
+        // `RegistryState::append` would fall back to context id 0
+        // (the unbound/export-only context), making the bridge's
+        // downstream context-based routing dead-effect for OpenProject
+        // and Redmine data.
+        ids.insert("OpenProject".to_string(), 6);
+        ids.insert("Redmine".to_string(), 7);
         // Medical/<sub> reserved range 10..=19, dense.
         ids.insert("Medical/ICD10CM".to_string(), 10);
         ids.insert("Medical/RxNorm".to_string(), 11);
@@ -167,11 +176,27 @@ impl NamespaceRegistry {
         self.ids.iter().map(|(k, v)| (k.as_str(), *v))
     }
 
+    /// Seeded context id for `namespace_iri`. Wraps a process-static
+    /// `LazyLock<NamespaceRegistry>` constructed from
+    /// [`NamespaceRegistry::seed_defaults`] so callers (bridges, in
+    /// particular) can stamp the right `ontology_context_id` on
+    /// synthesized [`crate::namespace::SchemaPtr`]s without having to
+    /// rebuild the registry per call.
+    ///
+    /// Returns `None` for unseeded namespaces — including
+    /// dynamically-allocated ones; only the seed table is consulted.
+    pub fn seed_context_id(namespace_iri: &str) -> Option<u32> {
+        use std::sync::LazyLock;
+        static SEED: LazyLock<NamespaceRegistry> =
+            LazyLock::new(NamespaceRegistry::seed_defaults);
+        SEED.get(namespace_iri)
+    }
+
     /// First context id that is not currently in use. Walks `0u32..` and
     /// returns the first value not present in the registry. With the
-    /// current `seed_defaults` (16 cognitive + 13 Foundation/FinancialAccounting
-    /// entries), the seed occupies 0..=5 + 10..=19 + 20..=25 + 30..=36;
-    /// the first dynamic id therefore lands at 6 (next gap), then 7..=9,
+    /// current `seed_defaults` (18 cognitive + 13 Foundation/FinancialAccounting
+    /// entries), the seed occupies 0..=7 + 10..=19 + 20..=25 + 30..=36;
+    /// the first dynamic id therefore lands at 8 (next gap), then 9,
     /// then 26..=29, then 37+. Allocation stays dense across seed gaps.
     fn next_free_id(&self) -> u32 {
         let mut candidate: u32 = 0;
@@ -188,15 +213,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn seed_defaults_has_twenty_nine_entries() {
+    fn seed_defaults_has_thirty_one_entries() {
         let r = NamespaceRegistry::seed_defaults();
-        // 6 cognitive (SMB, WorkOrder, Healthcare, Network, Email, SharePoint)
+        // 8 cognitive (SMB, WorkOrder, Healthcare, Network, Email,
+        //              SharePoint, OpenProject, Redmine)
         // + 10 Medical/* (ICD10CM..CHEBI)
         // + 6 Foundation/* (DOLCE-DUL, OWL-Time, PROV-O, QUDT, schema-org, SKOS)
         // + 7 FinancialAccounting/* (FIBO-FND, FIBO-BE, ZUGFeRD, ZUGFeRD-Rules,
         //                            SKR03, SKR04, SKR03-Bau)
-        // = 29
-        assert_eq!(r.len(), 29);
+        // = 31
+        assert_eq!(r.len(), 31);
     }
 
     #[test]
@@ -209,6 +235,9 @@ mod tests {
         assert_eq!(r.get("Network"), Some(3));
         assert_eq!(r.get("EmailCorrespondance"), Some(4));
         assert_eq!(r.get("SharePoint"), Some(5));
+        // Project-management ports (PR #558 codex P2 + #559 follow-up).
+        assert_eq!(r.get("OpenProject"), Some(6));
+        assert_eq!(r.get("Redmine"), Some(7));
         // Medical/<sub> reserved range 10..=19.
         assert_eq!(r.get("Medical/ICD10CM"), Some(10));
         assert_eq!(r.get("Medical/CHEBI"), Some(19));
@@ -226,13 +255,13 @@ mod tests {
     #[test]
     fn allocate_skips_to_first_unused_id() {
         let mut r = NamespaceRegistry::seed_defaults();
-        // Occupied: 0..=5, 10..=19, 20..=25, 30..=36. First free id is 6.
+        // Occupied: 0..=7, 10..=19, 20..=25, 30..=36. First free id is 8.
         let id = r.allocate("CallCenter");
-        assert_eq!(id, 6);
+        assert_eq!(id, 8);
         // Idempotent: re-allocate returns the same id.
-        assert_eq!(r.allocate("CallCenter"), 6);
-        // Next allocation skips again (still in 6..=9 gap).
-        assert_eq!(r.allocate("Splat"), 7);
+        assert_eq!(r.allocate("CallCenter"), 8);
+        // Next allocation skips again (still in 8..=9 gap).
+        assert_eq!(r.allocate("Splat"), 9);
     }
 
     /// Regression: `SMB.bson` is intentionally absent from `seed_defaults`.
