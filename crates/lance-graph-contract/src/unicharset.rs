@@ -42,6 +42,18 @@
 //! the plain-table loader (`unicharset.cpp:893` always `set_isngram(id, false)`)
 //! so [`UniCharSet::get_isngram`] is always `false` for a file-loaded set.
 //! [`UniCharSet::dump_properties`] is the byte-parity surface for these bits.
+//!
+//! # Script leaf
+//!
+//! Each entry carries a script id — an index into an interned table built by
+//! `add_script` (tesseract `unicharset.cpp:1063`, insertion-order dedup).
+//! `null_script` ("NULL", `unicharset.cpp:82`) is seeded at id 0 by the first
+//! `unichar_insert` (`unicharset.cpp:680`, before the real script is set), so
+//! `null_sid_ == 0` always and real scripts follow in first-seen id order.
+//! [`UniCharSet::get_script`] mirrors the C++ accessor (`unicharset.h:681`):
+//! out-of-range id → `null_sid_` (0). The script name parsed per line is the
+//! token after the optional bbox/stats CSV; [`UniCharSet::dump_script`] is the
+//! byte-parity surface for the script ids.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -57,6 +69,14 @@ pub struct UniCharSet {
     /// parallel to `reverse`. Only the low 5 bits are meaningful; see the
     /// `*_MASK` consts.
     props: Vec<u8>,
+    /// id → script id (index into `scripts`), parallel to `reverse`. The C++
+    /// `unichars[id].properties.script_id` (tesseract `unicharset.cpp:894`).
+    script_ids: Vec<i32>,
+    /// The interned script-name table (`add_script`, tesseract
+    /// `unicharset.cpp:1063`). Index 0 is always `null_script` ("NULL"), seeded
+    /// by the first `unichar_insert` (`unicharset.cpp:680`); real scripts follow
+    /// in first-seen id order. `script_ids` indexes into this.
+    scripts: Vec<String>,
 }
 
 /// `isalpha` property bit (tesseract `unicharset.cpp:41`).
@@ -72,6 +92,23 @@ const ISPUNCTUATION_MASK: u8 = 0x10;
 /// All meaningful property bits — the loader masks the parsed hex to these.
 const PROPERTY_BITS: u8 =
     ISALPHA_MASK | ISLOWER_MASK | ISUPPER_MASK | ISDIGIT_MASK | ISPUNCTUATION_MASK;
+
+/// The null script name (tesseract `unicharset.cpp:82`), always interned at
+/// script id 0 (`null_sid_ == 0`, `unicharset.cpp:949-950`).
+const NULL_SCRIPT: &str = "NULL";
+/// The null script id — what `get_script` returns for an out-of-range id
+/// (the C++ `null_sid_`, `unicharset.h:683`).
+const NULL_SID: i32 = 0;
+
+/// Intern `name` into `scripts` (insertion-order dedup), returning its index —
+/// the transcription of `UNICHARSET::add_script` (tesseract `unicharset.cpp:1063`).
+fn intern_script(scripts: &mut Vec<String>, name: &str) -> i32 {
+    let idx = scripts.iter().position(|s| s == name).unwrap_or_else(|| {
+        scripts.push(name.to_string());
+        scripts.len() - 1
+    });
+    i32::try_from(idx).unwrap_or(NULL_SID)
+}
 
 impl UniCharSet {
     /// Parse a `.unicharset` from its text contents. See the module docs for the
@@ -95,6 +132,8 @@ impl UniCharSet {
         let mut reverse = Vec::with_capacity(count);
         let mut lookup = HashMap::with_capacity(count);
         let mut props = Vec::with_capacity(count);
+        let mut script_ids = Vec::with_capacity(count);
+        let mut scripts: Vec<String> = Vec::new();
         for line in lines.take(count) {
             // The unichar is the first whitespace-delimited token; the id is the
             // entry's position. A unichar repeated in the file keeps its FIRST
@@ -126,6 +165,20 @@ impl UniCharSet {
             // <= 0x1F); the fallback keeps the path total without `unwrap`.
             let prop_byte = u8::try_from(properties & u32::from(PROPERTY_BITS)).unwrap_or(0);
             props.push(prop_byte);
+            // Script (tesseract `unicharset.cpp:894`). `unichar_insert` seeds
+            // `null_script` at sid 0 (`unicharset.cpp:680`) BEFORE the real
+            // script is set, so intern "NULL" first every iteration (idempotent
+            // after the first) then the parsed script. The script token is the
+            // one right after the optional bbox/stats CSV: token[2] when it has
+            // no comma, else token[3] — covering every column tier present on
+            // real `eng` data; an absent token defaults to `null_script`.
+            intern_script(&mut scripts, NULL_SCRIPT);
+            let script_name = match tokens.next() {
+                Some(t) if t.contains(',') => tokens.next().unwrap_or(NULL_SCRIPT),
+                Some(t) => t,
+                None => NULL_SCRIPT,
+            };
+            script_ids.push(intern_script(&mut scripts, script_name));
         }
 
         if reverse.len() != count {
@@ -138,6 +191,8 @@ impl UniCharSet {
             reverse,
             lookup,
             props,
+            script_ids,
+            scripts,
         })
     }
 
@@ -224,6 +279,44 @@ impl UniCharSet {
         false
     }
 
+    /// The script id of `id` — an index into the interned script table. Mirrors
+    /// `UNICHARSET::get_script` (tesseract `unicharset.h:681`): an out-of-range
+    /// id (the `INVALID_UNICHAR_ID` sentinel) returns the null script id
+    /// (`null_sid_ == 0`), else the stored `script_id`.
+    #[must_use]
+    pub fn get_script(&self, id: u32) -> i32 {
+        self.script_ids
+            .get(id as usize)
+            .copied()
+            .unwrap_or(NULL_SID)
+    }
+
+    /// The number of interned scripts (always ≥ 1: index 0 is `null_script`).
+    /// Mirrors `UNICHARSET::get_script_table_size`.
+    #[must_use]
+    pub fn get_script_table_size(&self) -> usize {
+        self.scripts.len()
+    }
+
+    /// The script name for a script id, or `None` if out of range. Mirrors
+    /// `UNICHARSET::get_script_from_script_id` (which returns `null_script` for
+    /// an out-of-range id; here the caller chooses the fallback via `Option`).
+    #[must_use]
+    pub fn script_from_script_id(&self, script_id: i32) -> Option<&str> {
+        usize::try_from(script_id)
+            .ok()
+            .and_then(|i| self.scripts.get(i))
+            .map(String::as_str)
+    }
+
+    /// The script name of unichar `id` (the composition of [`Self::get_script`]
+    /// and [`Self::script_from_script_id`]) — the OCR-facing "what script is this
+    /// character" query. Out-of-range → `Some("NULL")` (the null script).
+    #[must_use]
+    pub fn script_of(&self, id: u32) -> Option<&str> {
+        self.script_from_script_id(self.get_script(id))
+    }
+
     /// Render the id→properties table as
     /// `"<id>\t<isalpha> <islower> <isupper> <isdigit> <ispunctuation>\n"` lines
     /// (each flag `0`/`1`) — the exact shape the C++ property oracle prints, so
@@ -243,6 +336,21 @@ impl UniCharSet {
             out.push(if self.get_isdigit(id) { '1' } else { '0' });
             out.push(' ');
             out.push(if self.get_ispunctuation(id) { '1' } else { '0' });
+            out.push('\n');
+        }
+        out
+    }
+
+    /// Render the id→script-id table as `"<id>\t<script_id>\n"` lines — the exact
+    /// shape the C++ `get_script` oracle prints, so the byte-parity diff is
+    /// `diff oracle_script.tsv rust_script.tsv`.
+    #[must_use]
+    pub fn dump_script(&self) -> String {
+        let mut out = String::new();
+        for id in 0..self.reverse.len() as u32 {
+            out.push_str(&id.to_string());
+            out.push('\t');
+            out.push_str(&self.get_script(id).to_string());
             out.push('\n');
         }
         out
@@ -420,6 +528,54 @@ x 1 0,255,0,255,0,0,0,0,0,0 Latin 0 0 0 x
         assert!(!u.get_isalpha(0)); // "a" has no second token -> 0
         assert!(u.get_isalpha(1) && u.get_islower(1)); // "b 3" -> 0x3
         assert_eq!(u.id_to_unichar(0), Some("a"));
+    }
+
+    /// Mirrors the real `eng.lstm-unicharset` mixed-tier shape: id 0 has no bbox
+    /// CSV (script is token[2]); ids 1-3 do (script is token[3]). The interned
+    /// table is `["NULL", "Common", "Latin"]` — exactly the oracle's table.
+    const SCRIPT_SAMPLE: &str = "\
+4
+NULL 0 Common 0
+a 3 0,255,0,255,0,0,0,0,0,0 Latin 1 0 1 a
+b 3 0,255,0,255,0,0,0,0,0,0 Latin 1 0 1 b
+5 8 0,255,0,255,0,0,0,0,0,0 Common 2 0 2 5
+";
+
+    #[test]
+    fn scripts_intern_in_id_order_with_null_seeded_at_zero() {
+        let u = UniCharSet::load_from_str(SCRIPT_SAMPLE).expect("valid");
+        // null_script seeded at 0; real scripts follow in first-seen id order.
+        assert_eq!(u.get_script_table_size(), 3);
+        assert_eq!(u.script_from_script_id(0), Some("NULL"));
+        assert_eq!(u.script_from_script_id(1), Some("Common")); // id 0's script
+        assert_eq!(u.script_from_script_id(2), Some("Latin")); // id 1's script
+        assert_eq!(u.script_from_script_id(3), None); // out of range
+                                                      // per-id script ids (matches the libtesseract oracle on real eng shape)
+        assert_eq!(u.get_script(0), 1); // Common
+        assert_eq!(u.get_script(1), 2); // Latin (after the bbox CSV)
+        assert_eq!(u.get_script(2), 2); // Latin (deduped)
+        assert_eq!(u.get_script(3), 1); // Common (deduped)
+    }
+
+    #[test]
+    fn script_out_of_range_is_null_sid() {
+        let u = UniCharSet::load_from_str(SCRIPT_SAMPLE).expect("valid");
+        assert_eq!(u.get_script(99), 0); // null_sid_
+        assert_eq!(u.script_of(99), Some("NULL")); // resolves the null script
+    }
+
+    #[test]
+    fn script_of_resolves_name() {
+        let u = UniCharSet::load_from_str(SCRIPT_SAMPLE).expect("valid");
+        assert_eq!(u.script_of(0), Some("Common"));
+        assert_eq!(u.script_of(1), Some("Latin"));
+        assert_eq!(u.script_of(3), Some("Common"));
+    }
+
+    #[test]
+    fn dump_script_matches_oracle_shape() {
+        let u = UniCharSet::load_from_str(SCRIPT_SAMPLE).expect("valid");
+        assert_eq!(u.dump_script(), "0\t1\n1\t2\n2\t2\n3\t1\n");
     }
 
     #[test]
