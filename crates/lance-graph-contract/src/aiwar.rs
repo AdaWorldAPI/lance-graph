@@ -74,7 +74,8 @@ impl AiwarClassView {
 pub fn aiwar_node_rows(graph: &LiteralGraph) -> Vec<NodeRow> {
     let view = AiwarClassView::from_graph(graph);
     let ids = graph.all_node_ids();
-    let fam_of = |id: &str| -> Option<u32> { graph.node(id).and_then(|n| view.family_of(&n.label)) };
+    let fam_of =
+        |id: &str| -> Option<u32> { graph.node(id).and_then(|n| view.family_of(&n.label)) };
     ids.iter()
         .enumerate()
         .map(|(i, id)| {

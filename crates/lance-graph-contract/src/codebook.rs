@@ -163,7 +163,7 @@ mod tests {
         }
         assert!(cb.is_full());
         assert_eq!(cb.len(), 255); // indices 1..=255, 0 reserved
-        // a NEW label overflows → None (split the family)…
+                                   // a NEW label overflows → None (split the family)…
         assert_eq!(cb.intern("one_too_many"), None);
         // …but an already-interned label still resolves at capacity.
         assert_eq!(cb.intern("e0"), Some(1));

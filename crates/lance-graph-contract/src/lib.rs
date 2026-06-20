@@ -78,6 +78,8 @@ pub mod mul;
 pub mod nan_projection;
 pub mod nars;
 pub mod ocr;
+/// D-OVC-1 — OGAR concept codebook (`0xDDCC` domain layout), wire-compat mirror.
+pub mod ogar_codebook;
 pub mod ontology;
 pub mod orchestration;
 pub mod orchestration_mode;
@@ -127,9 +129,14 @@ pub use collapse_gate::{GateDecision, MailboxId, MergeMode};
 pub use episodic_edges::{EdgeRef, EpisodicEdges64};
 pub use head2head::{CompetitionOutcome, Head2Head, WinnerCriterion};
 pub use kanban::{ExecTarget, KanbanColumn, KanbanMove, RubiconTransitionError};
+pub use ogar_codebook::{
+    canonical_concept_domain, canonical_concept_id, classid_concept_domain, source_domain_concept,
+    ConceptDomain, LabelDTO, CODEBOOK,
+};
 pub use scheduler::{DatasetVersion, NextPhaseScheduler, VersionScheduler};
 pub use soa_graph::{
-    nearest_anchor, project_snapshot, AnchorHop, DomainSpec, FMA_ANATOMY, OSINT_GOTHAM,
+    nearest_anchor, project_snapshot, AnchorHop, DomainSpec, ERP, FMA_ANATOMY, OSINT_GOTHAM,
+    PROJECT,
 };
 pub use soa_view::{MailboxSoaOwner, MailboxSoaView};
 pub use view_angle::ViewAngle;

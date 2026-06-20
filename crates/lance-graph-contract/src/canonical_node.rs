@@ -40,15 +40,31 @@ impl NodeGuid {
     /// Reserved canonical default basin (implicit fallback; no neighborhood grouping).
     pub const FAMILY_DEFAULT: u32 = 0x00_0000;
 
-    /// OGAR class for the **OSINT / Palantir-Gotham** domain — the neo4j-emulation
-    /// entity graph (people / orgs / systems / events, family-grouped). Resolves
-    /// to [`ReadMode::OSINT`] (hot `Cognitive` value + `CoarseOnly` adjacency edges).
-    pub const CLASSID_OSINT: u32 = 0x0000_0007;
-    /// OGAR class for the **FMA anatomy** domain — the Foundational Model of
-    /// Anatomy (~70k structural entities, family = body region, bones = stability
-    /// anchors). Resolves to [`ReadMode::FMA`] (cold `Compressed` reference value +
-    /// `CoarseOnly` part-of adjacency).
-    pub const CLASSID_FMA: u32 = 0x0000_0008;
+    // ── classids follow OGAR `ogar-vocab`'s domain-encoded `0xDDCC` codebook ──
+    // (DD = domain high byte, CC = concept slot; CC=0x00 = domain root, reserved).
+    // `canonical_concept_domain(classid_lo)` (see `crate::ogar_codebook`) routes on
+    // `classid >> 8`. Realigned 2026-06-20 (ISS-CLASSID-OGAR-DRIFT): OSINT was
+    // 0x0007 (OGAR Reserved domain) → 0x0700; FMA was 0x0008 (OGAR OCR block) →
+    // 0x0901 (anatomy concept in the Health domain). Migration:
+    // `.claude/plans/ogar-vocab-contract-codebook-migration-v1.md`.
+
+    /// **OSINT / Palantir-Gotham** domain root (`0x07` = OSINT domain, `0x00` =
+    /// root). The neo4j-emulation entity graph (people / orgs / systems / events,
+    /// family-grouped). Resolves to [`ReadMode::OSINT`] (hot `Cognitive` value +
+    /// `CoarseOnly` adjacency).
+    pub const CLASSID_OSINT: u32 = 0x0000_0700;
+    /// **FMA anatomy** — the `anatomy` concept (`0x01`) in the **Health** domain
+    /// (`0x09`); `0x0900` is the Health root. The Foundational Model of Anatomy
+    /// (~70k structural entities, family = body region, bones = stability anchors).
+    /// Resolves to [`ReadMode::FMA`] (cold `Compressed` reference + `CoarseOnly`).
+    pub const CLASSID_FMA: u32 = 0x0000_0901;
+    /// **Project-management** domain root (`0x01`) — OpenProject ↔ Redmine
+    /// (work items, members, versions, …). OGAR codebook `0x01XX`. Resolves to
+    /// [`ReadMode::PROJECT`].
+    pub const CLASSID_PROJECT: u32 = 0x0000_0100;
+    /// **Commerce / ERP** domain root (`0x02`) — Odoo ↔ OSB (invoices, taxes,
+    /// partners, payments, …). OGAR codebook `0x02XX`. Resolves to [`ReadMode::ERP`].
+    pub const CLASSID_ERP: u32 = 0x0000_0200;
 
     /// Construct from the six canonical groups. `family`/`identity` use their low 3 bytes.
     ///
@@ -813,6 +829,24 @@ impl ReadMode {
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
 
+    /// The **project-management** read-mode ([`NodeGuid::CLASSID_PROJECT`],
+    /// OpenProject ↔ Redmine): a *hot* work-item graph — [`ValueSchema::Cognitive`]
+    /// (live lifecycle: status / assignee / version edges queried + reasoned over)
+    /// with [`EdgeCodecFlavor::CoarseOnly`] adjacency (parent / blocks / relates).
+    pub const PROJECT: ReadMode = ReadMode {
+        value_schema: ValueSchema::Cognitive,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
+    /// The **commerce / ERP** read-mode ([`NodeGuid::CLASSID_ERP`], Odoo ↔ OSB):
+    /// a *hot* transactional graph — [`ValueSchema::Cognitive`] (invoices / taxes /
+    /// partners / payments queried live) with [`EdgeCodecFlavor::CoarseOnly`]
+    /// adjacency (partner-of / line-of / paid-by).
+    pub const ERP: ReadMode = ReadMode {
+        value_schema: ValueSchema::Cognitive,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
     /// Both axes are layout-preserving (a preset/flavor re-interprets reserved
     /// bytes, never a stride change), so adopting any read-mode needs no
     /// `ENVELOPE_LAYOUT_VERSION` bump.
@@ -839,6 +873,10 @@ static BUILTIN_READ_MODES: LazyLock<HashMap<u32, ReadMode>> = LazyLock::new(|| {
     // CoarseOnly adjacency; they differ in the value schema (hot vs cold).
     m.insert(NodeGuid::CLASSID_OSINT, ReadMode::OSINT);
     m.insert(NodeGuid::CLASSID_FMA, ReadMode::FMA);
+    // Project-management (OpenProject ↔ Redmine) + commerce/ERP (Odoo ↔ OSB) —
+    // the OGAR `0x01XX` / `0x02XX` domains; both hot business graphs (Cognitive).
+    m.insert(NodeGuid::CLASSID_PROJECT, ReadMode::PROJECT);
+    m.insert(NodeGuid::CLASSID_ERP, ReadMode::ERP);
     m
 });
 
@@ -1399,15 +1437,42 @@ mod tests {
         assert_eq!(fma.value_schema, ValueSchema::Compressed);
         assert_eq!(fma.edge_codec, EdgeCodecFlavor::CoarseOnly);
 
-        // The classids are the OGAR-confirmed 0x0007 (OSINT) and 0x0008 (FMA);
-        // both are layout-preserving and carrier-method-consistent.
-        assert_eq!(NodeGuid::CLASSID_OSINT, 0x0000_0007);
-        assert_eq!(NodeGuid::CLASSID_FMA, 0x0000_0008);
+        // The classids follow OGAR `0xDDCC` (ISS-CLASSID-OGAR-DRIFT realign):
+        // OSINT domain root `0x0700` (`>>8 == 0x07`); FMA = anatomy concept
+        // `0x0901` in the Health domain (`>>8 == 0x09`). Never the pre-realign
+        // 0x0007 (OGAR Reserved) / 0x0008 (OGAR OCR) values.
+        assert_eq!(NodeGuid::CLASSID_OSINT, 0x0000_0700);
+        assert_eq!(NodeGuid::CLASSID_FMA, 0x0000_0901);
+        assert_eq!(NodeGuid::CLASSID_OSINT >> 8, 0x07, "OSINT domain high byte");
+        assert_eq!(NodeGuid::CLASSID_FMA >> 8, 0x09, "Health domain high byte");
         assert_eq!(
             NodeGuid::new(NodeGuid::CLASSID_OSINT, 1, 2, 3, 0xAB, 0xCD).read_mode(),
             ReadMode::OSINT
         );
         assert!(osint.is_layout_preserving() && fma.is_layout_preserving());
+    }
+
+    #[test]
+    fn project_and_erp_classids_resolve_to_their_read_modes() {
+        // OGAR `0x01XX` (project-mgmt: OpenProject ↔ Redmine) + `0x02XX`
+        // (commerce/ERP: Odoo ↔ OSB) — both hot business graphs (Cognitive).
+        let project = classid_read_mode(NodeGuid::CLASSID_PROJECT);
+        assert_eq!(project, ReadMode::PROJECT);
+        assert_eq!(project.value_schema, ValueSchema::Cognitive);
+        assert_eq!(project.edge_codec, EdgeCodecFlavor::CoarseOnly);
+
+        let erp = classid_read_mode(NodeGuid::CLASSID_ERP);
+        assert_eq!(erp, ReadMode::ERP);
+        assert_eq!(erp.value_schema, ValueSchema::Cognitive);
+        assert_eq!(erp.edge_codec, EdgeCodecFlavor::CoarseOnly);
+
+        // Domain roots: project `0x0100` (`>>8 == 0x01`), ERP `0x0200`
+        // (`>>8 == 0x02`); low byte `0x00` = the domain root (reserved concept).
+        assert_eq!(NodeGuid::CLASSID_PROJECT, 0x0000_0100);
+        assert_eq!(NodeGuid::CLASSID_ERP, 0x0000_0200);
+        assert_eq!(NodeGuid::CLASSID_PROJECT >> 8, 0x01);
+        assert_eq!(NodeGuid::CLASSID_ERP >> 8, 0x02);
+        assert!(project.is_layout_preserving() && erp.is_layout_preserving());
     }
 
     // ── GUID v2 tail (D-GV2-1) — field-isolation matrix + coexistence ─────────

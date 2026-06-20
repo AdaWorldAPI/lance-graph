@@ -723,7 +723,7 @@ mod tests {
         let sib = NiblePath::root(0x1).child(0x2).child(0x3).child(0x9);
         assert_eq!(a.family_hop_count(sib), 2);
         assert_eq!(sib.family_hop_count(a), 2); // symmetric
-        // parent = 1 hop
+                                                // parent = 1 hop
         let parent = NiblePath::root(0x1).child(0x2).child(0x3);
         assert_eq!(a.family_hop_count(parent), 1);
         // cousins: share (1)(2), differ from depth 3 down → (4-2)+(4-2) = 4
