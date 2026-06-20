@@ -26,11 +26,19 @@
 //! wrapper, never a message handler). `step()` drives the loop by direct owned
 //! mutation, never by sending a message.
 //!
-//! DEFERRED (the genuinely-live half — both need a live Lance dataset): replace
-//! the `u32` `version_tick` with the real Lance version stream
-//! (`LanceVersionScheduler::drive_at_latest` over `VersionedGraph::versions()` /
-//! callcenter `LanceVersionWatcher`), and wire the SurrealQL re-read
-//! (`surreal_container::view::read_via_kv_lance`).
+//! LIVE TRIGGER — **SHIPPED + TESTED, not missing.** The Lance-version→kanban
+//! trigger is `lance_graph::graph::scheduler::LanceVersionScheduler`
+//! (`crates/lance-graph/src/graph/scheduler.rs`): `drive_once` / `drive_at_latest`
+//! open a `VersionedGraph`'s `nodes.lance`, read `versions()` / `version().version`,
+//! and lower the tick into the next `KanbanMove` for ANY `MailboxSoaView`. Five
+//! `#[tokio::test]`s drive it against a REAL tempfile Lance dataset
+//! (`commit_encounter_round` → version bump → `drive_once` → the forward-arc move).
+//! `SymbiontBoard` ALREADY impls `MailboxSoaView`, so going live is exactly the
+//! two calls those tests make — `LanceVersionScheduler::new(graph).drive_once(
+//! &board, ExecTarget::Native).await?` then `board.try_advance_phase(mv.to)` —
+//! swapping the in-process `u32` `version_tick` (the POC stand-in: no async, no
+//! Lance I/O) for the real dataset version. The ONE piece still a stub is the
+//! SurrealQL re-read (`surreal_container::view::read_via_kv_lance`).
 
 use lance_graph_contract::canonical_node::NodeRow;
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
