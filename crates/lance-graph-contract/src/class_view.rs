@@ -558,7 +558,11 @@ mod tests {
     fn compute_dag_topo_order_respects_dependencies() {
         // chain f0→f1→f2: f1 must come before f2; f0 is a leaf, not emitted.
         let order = compute_dag_topo_order(SAMPLE_DAG).expect("acyclic has an order");
-        assert_eq!(order.len(), 2, "two targets (f1, f2); f0 is a read-only leaf");
+        assert_eq!(
+            order.len(),
+            2,
+            "two targets (f1, f2); f0 is a read-only leaf"
+        );
         let pos1 = order.iter().position(|&t| t == 1).unwrap();
         let pos2 = order.iter().position(|&t| t == 2).unwrap();
         assert!(pos1 < pos2, "f1 recomputed before its dependent f2");
@@ -602,7 +606,10 @@ mod tests {
         ];
         let order = compute_dag_topo_order(diamond).expect("acyclic");
         let p = |t: u8| order.iter().position(|&x| x == t).unwrap();
-        assert!(p(1) < p(3) && p(2) < p(3), "both precedents before the join");
+        assert!(
+            p(1) < p(3) && p(2) < p(3),
+            "both precedents before the join"
+        );
         assert_eq!(order.len(), 3);
     }
 

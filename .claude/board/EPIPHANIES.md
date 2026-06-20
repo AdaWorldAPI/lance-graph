@@ -73,6 +73,17 @@ The 5+3 council's headline was "five crates linked into one binary with ZERO run
 **Next edges:** Grid→NodeRow over a REAL Spain fixture (E1 acceptance gate); the kanban loop (D2: `LanceVersionScheduler` → `KanbanMove` → SoA write → Lance commit).
 
 Cross-ref: PR #555 INTEGRATION_PLAN D1; battle-test plan probes A1/B-series; STATUS_BOARD symbiont-golden-image-harness; `crates/symbiont/src/bridge.rs`.
+## 2026-06-20 — E-CPP-PARITY-3 — the UNICHARSET property accessors (`get_is{alpha,lower,upper,digit,punctuation}`) are byte-identical to libtesseract; the third leaf through PROBE-OGAR-ADAPTER-UNICHARSET
+
+**Status:** FINDING (in-env, real trained data). `lance_graph_contract::unicharset::UniCharSet`'s property family dumps the `eng.lstm-unicharset` per-id category bits **byte-identical to tesseract's own `UNICHARSET::get_is*` accessors, 112/112** — every id's `(isalpha, islower, isupper, isdigit, ispunctuation)` tuple. This is the THIRD adapter surface proven after `UniCharSet` id↔unichar (E-CPP-PARITY-1) and the `UNICHAR` codec (E-CPP-PARITY-2): the core-first transcode now covers a content-store tier, a pure codec, AND a per-entry property decode.
+
+**The transcode.** Tesseract parses the second whitespace token of each line as a hex bitmask (`unicharset.cpp:824`, `stream >> std::hex >> properties`) and sets each flag via `set_is*(id, properties & MASK)` (`unicharset.cpp:888-892`); masks are `ISALPHA=0x1 ISLOWER=0x2 ISUPPER=0x4 ISDIGIT=0x8 ISPUNCTUATION=0x10` (`unicharset.cpp:41-45`). The Rust loader now parses + stores that byte (masked to the 5 meaningful bits) parallel to `reverse`, and the accessors mirror the C++ inline guard (`unicharset.h:497+`): out-of-range id (the `INVALID_UNICHAR_ID` sentinel) → `false`, else the stored bit. `is_ngram` is always-false on the plain-table load path (`unicharset.cpp:893`), faithfully reproduced.
+
+**The self-validating oracle (handles a real version skew honestly).** The in-env libtesseract is **5.3.4** with NO installed dev headers; the source tree is **5.5.0**. Compiling 5.5.0 headers against the 5.3.4 lib is an ABI hazard (the lib's `load_from_file` fills a struct my header-inlined accessors then read). Rather than assume it safe, the oracle (`/tmp/uniprops_oracle.cpp`, links `-ltesseract`) dumps BOTH halves: the id↔unichar **bijection** (for which E-CPP-PARITY-1 is a proven 112/112 Rust reference) AND the new properties. Step 1: the bijection half diffed **0 differences** vs the Rust `dump()` → the 5.5.0-header/5.3.4-lib object layout is proven sound for the fields read. Step 2 (now trustworthy): the property half diffed **0 differences** vs `dump_properties()`. A failing Step 1 would have invalidated Step 2; it passed, so the skew is empirically a non-issue here. (No encoding/threshold was tuned to force green — one input, one diff.)
+
+**Pattern confirmation (per E-CPP-KEYSTONE-1).** This leaf is exactly the predicted "repetition of a validated pattern": one new accessor family + one byte-parity `diff`, no new architecture, no Core gap (the property byte rides the existing content tier, the adapter holds no state). Consumed by `tesseract-core` as `CharSet::get_is*` with a consumer-boundary test; no re-implementation downstream.
+
+Cross-ref: `E-CPP-PARITY-1` (bijection 112/112), `E-CPP-PARITY-2` (UNICHAR 268/268), `E-CPP-KEYSTONE-1` (end-to-end dispatch), `.claude/knowledge/core-first-transcode-doctrine.md` (PROBE-OGAR-ADAPTER-UNICHARSET). Branch work (`claude/happy-hamilton-0azlw4`), lance-graph + tesseract-rs.
 
 ---
 
