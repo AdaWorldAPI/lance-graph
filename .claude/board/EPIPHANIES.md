@@ -1,3 +1,21 @@
+## 2026-06-20 — E-DOMINO-SOA-ORCHESTRATION-GREEN — BF16 Morton-tile Domino POC proves SoA orchestration via the `ndarray::simd` polyfill; AMX is genuinely DISABLED on this guest (functional gates fail), so it runs the AVX-512 fallback, NaN-clean
+
+**Status:** FINDING (green — 3/3 tests + run; AMX-absence MEASURED at the functional gates, not assumed from CPUID).
+
+The POC works: 256 SoA `NodeRow` boards, each a 4×4 BF16 tile (Morton-addressed) in its `Fingerprint` tenant; 16 boards batch into one `ndarray::simd::bf16_tile_gemm_16x16` (the polyfill name; self-dispatches `if amx_available() { TDPBF16PS } else { F32x16 fallback }` at `bf16_tile_gemm.rs:45`); 3-stage Domino cascade (C re-quantised back into the tiles); per-board reduction → `Energy` tenant → swept by the NaN-detection projection surface (the demoted BindSpace). All finite. `cargo test -p symbiont domino` 3/3.
+
+**Polyfill (W1a), settled:** all SIMD via `ndarray::simd::*` — added `bf16_tile_gemm_16x16` to ndarray's polyfill (`05bfea7a`) so the consumer never reaches into `hpc::*`; `f32_to_bf16_batch_rne` for conversion; only `morton4` is consumer-side (ndarray has no Morton — Hilbert only). `hpc::bf16_tile_gemm` already dispatched to AMX internally; the re-export is the clean handle, not a behaviour change.
+
+**AMX is genuinely OFF on this guest — DEFINITIVE functional probe (`/tmp/amxcheck`), not just CPUID:**
+- CPUID(7,0) amx_tile/int8/bf16 = 0 (masked); model "Xeon @ 2.80GHz" generic.
+- **XCR0 = 0xe7 → TILECFG(b17)=0, TILEDATA(b18)=0** — the OS has NOT enabled tile XSTATE.
+- **arch_prctl(158, REQ_XCOMP_PERM, XTILEDATA) = -95 (-EOPNOTSUPP)** — the kernel REFUSES the XTILEDATA grant; GET_XCOMP_PERM confirms it.
+So this is NOT "CPUID-masked-but-functional": the tile XSTATE is disabled and the kernel won't grant XTILEDATA, so a forced byte-encoded `TDPBF16PS` would fault. `ndarray::detect_amx` is CORRECT to return false — and Steps 3+4 (XCR0, arch_prctl) fail here even if the Step-1 CPUID gate were bypassed. The AVX-512 fallback is the right + only path on THIS instance; the same binary prints `[AMX TDPBF16PS]` on an AMX-granted guest (the one ndarray's `AMX_GOTCHAS.md` header verified: Emerald Rapids, XTILEDATA granted). **No overclaim: AMX did not execute here, and could not.** The "byte call always enables it" pattern is true only where `arch_prctl` returns 0 — this provisioning doesn't.
+
+Cross-ref: `symbiont/src/domino.rs`; ndarray `AMX_GOTCHAS.md` (Gotcha 4/5/8) + `simd_amx.rs:145` `detect_amx`; `/tmp/amxcheck.rs`; STATUS_BOARD D3-AMX.
+
+---
+
 ## 2026-06-20 — E-BINDSPACE-IS-A-NAN-PROJECTION-SURFACE — the singleton BindSpace is KILLED as a stateful carrier and survives ONLY as a read-only NaN-detection projection over the SoA
 
 **Status:** FINDING (green — `lance_graph_contract::nan_projection`, 3 probes pass in the zero-dep crate, sub-second).

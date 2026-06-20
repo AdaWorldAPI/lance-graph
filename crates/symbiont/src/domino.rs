@@ -24,7 +24,7 @@
 use lance_graph_contract::canonical_node::{NodeRow, ValueTenant};
 use lance_graph_contract::nan_projection::project_energy_nonfinite;
 use lance_graph_contract::{EdgeBlock, NodeGuid};
-use ndarray::simd::{amx_available, bf16_tile_gemm_16x16, f32_to_bf16_batch_rne};
+use ndarray::simd::{amx_available, amx_report, bf16_tile_gemm_16x16, f32_to_bf16_batch_rne};
 
 const TILE: usize = 4;
 const LANES: usize = TILE * TILE; // 16 lanes/board = 32 BF16 bytes (Fingerprint tenant)
@@ -178,6 +178,7 @@ pub fn run_poc(n_boards: usize, stages: usize) {
         energy_of(&rows[0]),
         energy_of(&rows[n_boards - 1]),
     );
+    println!("  amx gate: {}", amx_report());
 }
 
 #[cfg(test)]
