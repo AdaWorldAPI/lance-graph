@@ -26,19 +26,23 @@
 //! wrapper, never a message handler). `step()` drives the loop by direct owned
 //! mutation, never by sending a message.
 //!
-//! LIVE TRIGGER — **SHIPPED + TESTED, not missing.** The Lance-version→kanban
-//! trigger is `lance_graph::graph::scheduler::LanceVersionScheduler`
-//! (`crates/lance-graph/src/graph/scheduler.rs`): `drive_once` / `drive_at_latest`
-//! open a `VersionedGraph`'s `nodes.lance`, read `versions()` / `version().version`,
-//! and lower the tick into the next `KanbanMove` for ANY `MailboxSoaView`. Five
-//! `#[tokio::test]`s drive it against a REAL tempfile Lance dataset
-//! (`commit_encounter_round` → version bump → `drive_once` → the forward-arc move).
-//! `SymbiontBoard` ALREADY impls `MailboxSoaView`, so going live is exactly the
-//! two calls those tests make — `LanceVersionScheduler::new(graph).drive_once(
-//! &board, ExecTarget::Native).await?` then `board.try_advance_phase(mv.to)` —
-//! swapping the in-process `u32` `version_tick` (the POC stand-in: no async, no
-//! Lance I/O) for the real dataset version. The ONE piece still a stub is the
-//! SurrealQL re-read (`surreal_container::view::read_via_kv_lance`).
+//! THE TRIGGER IS SYNCHRONOUS — the writer fires it. `VersionScheduler::on_version(
+//! &view, DatasetVersion(u64), exec)` is a **sync pure function** (contract
+//! `scheduler.rs`); a batch writer that commits a SoA batch already KNOWS the
+//! version it wrote, so it fires the kanban update inline — `on_version` →
+//! `try_advance_phase` — with NO async. `surreal_container/tests/scheduler_seam.rs`
+//! drives the WHOLE Rubicon arc this way with plain `#[test]`s feeding
+//! `DatasetVersion(i)` directly, and `cognitive-shader-driver`'s `MailboxSoA`
+//! (test 11) runs the same in-RAM OUT+IN loop ("no surreal / ractor message bus
+//! needed", `mailbox_soa.rs:700`). This loop's `u32` `version_tick` IS that
+//! pattern — the writer's monotonic version, lowered synchronously.
+//!
+//! Async enters in only two places, NEITHER of which is the kanban firing: the
+//! Lance WRITE I/O itself, and the SUBSCRIPTION variant
+//! `lance_graph::graph::scheduler::LanceVersionScheduler::drive_once` (async
+//! SOLELY because it READS a version it did NOT write — opening `nodes.lance`;
+//! shipped + 5 `#[tokio::test]`s) — for consumers that aren't the writer. The one
+//! remaining stub is the SurrealQL re-read (`surreal_container::view::read_via_kv_lance`).
 
 use lance_graph_contract::canonical_node::NodeRow;
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
