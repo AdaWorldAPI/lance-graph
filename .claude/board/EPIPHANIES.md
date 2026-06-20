@@ -1,3 +1,19 @@
+## 2026-06-20 — E-SURREALDB-SECOND-BRAIN-IS-ZERO-COPY-IFF-FIXEDSIZEBINARY — surrealdb (kv-lance) can become a zero-copy "second brain" inside lance-graph ONLY if it stores each node as an uncompressed `FixedSizeBinary(512)` LE blob; the contract a store satisfies is `node_rows_from_le_bytes(&[u8]) -> Option<&[NodeRow]>` (the inverse of `NodeRowPacket::as_le_bytes`), and a variable-length `Binary` column does NOT qualify
+
+**Status:** FINDING (brutal feasibility pass, 2026-06-20; contract primitive shipped, surrealdb side planned).
+
+Operator proposal: "a contract in surrealdb that ensures LE contract to the lance-graph SoA view → zero-copy symbiont; surrealdb becomes a second brain inside lance-graph." Verified against the real code on both sides:
+
+**lance-graph side — already zero-copy-ready:** `NodeRow` is `#[repr(C, align(64))]`, 512 bytes (const-asserted), key(16)+edges(16)+value(480), all canon-LE. `NodeRowPacket::as_le_bytes` already casts `&[NodeRow] → &[u8]` (the WRITE path). The missing piece — the READ path — is now shipped: **`node_rows_from_le_bytes(&[u8]) -> Option<&[NodeRow]>`** (checked: `len % 512 == 0` AND `ptr % 64 == 0`, else `None` → caller copies rather than risk UB). That function IS the LE contract a backing store satisfies.
+
+**surrealdb side — NOT zero-copy as scaffolded:** the `.claude/lance-backend` Arrow schema stores `val: DataType::Binary` (variable-length `BinaryArray` = offsets + an unaligned, non-fixed-stride value buffer). That **cannot** be cast to `&[NodeRow]`. The SoA value path needs `DataType::FixedSizeBinary(512)` (a single contiguous N×512 buffer, which arrow-rs allocates 64-byte aligned) so the column buffer IS a `&[NodeRow]` in place.
+
+**The two honest caveats (brutal):**
+1. **Zero-copy on the VALUE requires the column be UNcompressed.** A Lance-compressed `FixedSizeBinary` decodes to a contiguous buffer first — that's ONE copy (still no per-field deserialize, far better than serde, but not literally zero). The KEY (16 bytes) is always addressable zero-copy (OGAR canon: "the key is never compressed"). So: zero-copy address always; zero-copy value iff stored uncompressed.
+2. **Direction of the contract:** the LE layout is OWNED by `lance-graph-contract` (`NodeRow` + `node_rows_from_le_bytes`); surrealdb SATISFIES it by depending on the **zero-dep** contract (the handshake, not the engine — OGAR-pattern) and storing `FixedSizeBinary(512)`. "Second brain" = surrealdb's kv-lance bytes ARE the SoA the cognitive shader reads in place; surrealdb adds SurrealQL + MVCC + Lance versioning over the SAME bytes, no serialize boundary.
+
+Shipped: `node_rows_from_le_bytes` + round-trip/reject tests (712 lib green, clippy+fmt clean). Planned: surrealdb-side `FixedSizeBinary(512)` SoA value path + read-through (the `.claude/lance-backend` 12-day wiring). Cross-ref: AGENT_LOG 2026-06-20 (cont.¹⁴); `soa_envelope::SoaEnvelope`; surrealdb `.claude/lance-backend/lance/schema.rs`; OGAR canon "the GUID is the key of key-value … the key is never compressed."
+
 ## 2026-06-20 — E-OGAR-IS-AR-CORE-AUTOACTIVATED-BY-CARGO-PRESENCE — OGAR is the Active-Record Core (Class + ClassView), not "just vocab"; it already `impl`s the contract's `ClassView`, so a lance-graph-side `lance-graph-ogar` crate AUTO-ACTIVATES the real AR surface wherever it is compiled in (Cargo presence = the switch, no runtime detection), guarded against drift by a parity fuse — while OGAR stays headless-capable and the contract stays zero-dep
 
 **Status:** FINDING (operator clean-separation lock, 2026-06-20; shipped `crates/lance-graph-ogar`).

@@ -968,9 +968,113 @@ impl<'a> SoaEnvelope for NodeRowPacket<'a> {
     }
 }
 
+/// Zero-copy **read** of a [`NodeRow`] slice out of an external LE byte buffer —
+/// the inverse of [`NodeRowPacket::as_le_bytes`] and the load-bearing primitive
+/// for "a store hands lance-graph its SoA view without a copy."
+///
+/// This is the **LE contract a backing store satisfies**: hand a byte slice that
+/// is (a) a whole number of 512-byte rows and (b) aligned to
+/// `align_of::<NodeRow>()` (64), and you get back a `&[NodeRow]` viewing the SAME
+/// bytes — no allocation, no deserialize. Returns `None` if either invariant
+/// fails (a sliced/offset buffer that lost 64-byte alignment, or a length that
+/// isn't a multiple of the stride), so the caller can fall back to a copy rather
+/// than risk UB.
+///
+/// Intended consumer: a Lance-backed key-value store (e.g. surrealdb's `kv-lance`)
+/// that persists each node as a fixed-size 512-byte LE blob
+/// (`arrow::FixedSizeBinary(512)`, whose value buffer arrow-rs allocates 64-byte
+/// aligned). The store's value buffer is then directly a `&[NodeRow]` the
+/// cognitive shader reads in place — surrealdb's bytes ARE the SoA. (A
+/// *variable-length* `Binary` column does NOT qualify: it has no fixed stride and
+/// no alignment guarantee; the store must use `FixedSizeBinary(512)` for the SoA
+/// value path. And the buffer must be uncompressed for the read to be literally
+/// zero-copy — a Lance-compressed column decodes to a contiguous buffer first,
+/// which is one copy, still no per-field deserialize.)
+///
+/// The bytes are interpreted in canon-LE order exactly as [`NodeGuid`]/[`EdgeBlock`]
+/// wrote them, so no endianness translation happens at the boundary.
+#[inline]
+#[must_use]
+pub fn node_rows_from_le_bytes(bytes: &[u8]) -> Option<&[NodeRow]> {
+    if bytes.is_empty() {
+        return Some(&[]);
+    }
+    if !bytes.len().is_multiple_of(NODE_ROW_STRIDE) {
+        return None;
+    }
+    if !(bytes.as_ptr() as usize).is_multiple_of(core::mem::align_of::<NodeRow>()) {
+        return None;
+    }
+    let n = bytes.len() / NODE_ROW_STRIDE;
+    // SAFETY: NodeRow is #[repr(C, align(64))], size_of == 512 == NODE_ROW_STRIDE
+    // (const-asserted above). We checked (1) bytes.len() is an exact multiple of
+    // the stride, so n rows span the whole slice with no trailing bytes, and (2)
+    // the pointer is aligned to align_of::<NodeRow>() (64). Every bit pattern in
+    // the 512 bytes is a valid NodeRow (NodeGuid is bytes, EdgeBlock is [u8;16],
+    // value is [u8;480] — no niche/enum to invalidate), so the reinterpretation
+    // is sound. The returned slice borrows `bytes` for its lifetime (no copy).
+    Some(unsafe { core::slice::from_raw_parts(bytes.as_ptr().cast::<NodeRow>(), n) })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn node_rows_le_bytes_round_trip_zero_copy() {
+        // Build a small SoA, view it as LE bytes (the write path), then read it
+        // back as &[NodeRow] (the inverse) — same bytes, no copy.
+        let rows = vec![
+            NodeRow {
+                key: NodeGuid::new(NodeGuid::CLASSID_OSINT, 1, 2, 3, 0xAB, 0xCD),
+                edges: EdgeBlock::default(),
+                value: [7u8; 480],
+            },
+            NodeRow {
+                key: NodeGuid::new(NodeGuid::CLASSID_PROJECT, 4, 5, 6, 0x11, 0x22),
+                edges: EdgeBlock::default(),
+                value: [9u8; 480],
+            },
+        ];
+        let packet = NodeRowPacket::new(&rows, 0);
+        let bytes = packet.as_le_bytes();
+        assert_eq!(bytes.len(), 2 * NODE_ROW_STRIDE);
+
+        let view = node_rows_from_le_bytes(bytes).expect("aligned, 512-multiple");
+        assert_eq!(view.len(), 2);
+        assert_eq!(view[0].key.classid(), NodeGuid::CLASSID_OSINT);
+        assert_eq!(view[1].key.classid(), NodeGuid::CLASSID_PROJECT);
+        assert_eq!(view[0].value, [7u8; 480]);
+        // Truly zero-copy: the view aliases the SAME backing store as `rows`.
+        assert_eq!(view.as_ptr().cast::<u8>(), rows.as_ptr().cast::<u8>());
+    }
+
+    #[test]
+    fn node_rows_from_le_bytes_rejects_bad_inputs() {
+        let rows = vec![
+            NodeRow {
+                key: NodeGuid::local(1),
+                edges: EdgeBlock::default(),
+                value: [0u8; 480],
+            },
+            NodeRow {
+                key: NodeGuid::local(2),
+                edges: EdgeBlock::default(),
+                value: [0u8; 480],
+            },
+        ];
+        let packet = NodeRowPacket::new(&rows, 0);
+        let bytes = packet.as_le_bytes(); // 1024 bytes, 64-aligned
+                                          // empty → Some(empty)
+        assert_eq!(node_rows_from_le_bytes(&[]).map(<[_]>::len), Some(0));
+        // not a whole number of rows → None (length check)
+        assert!(node_rows_from_le_bytes(&bytes[..NODE_ROW_STRIDE - 1]).is_none());
+        // a 512-length window offset by 1 off the 64-aligned base: correct length
+        // but misaligned → None via the alignment check (no UB cast).
+        let misaligned = &bytes[1..1 + NODE_ROW_STRIDE];
+        assert_eq!(misaligned.len(), NODE_ROW_STRIDE);
+        assert!(node_rows_from_le_bytes(misaligned).is_none());
+    }
 
     #[test]
     fn defaults_are_zero_and_bootstrap() {

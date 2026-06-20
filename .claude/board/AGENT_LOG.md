@@ -1,3 +1,11 @@
+## 2026-06-20 (cont.¹⁴) — zero-copy SoA read contract (`node_rows_from_le_bytes`) — the surrealdb "second brain" primitive
+
+**Main thread (Opus), autoattended.** Operator: "create a contract … that ensures LE contract to the lance-graph SoA view → zero-copy symbiont; surrealdb becomes a second brain inside lance-graph." Brutal feasibility pass against real code on both sides (see EPIPHANY `E-SURREALDB-SECOND-BRAIN-IS-ZERO-COPY-IFF-FIXEDSIZEBINARY`):
+- lance-graph side already zero-copy-ready: `NodeRow` `#[repr(C, align(64))]` 512B LE; `NodeRowPacket::as_le_bytes` is the WRITE cast. **Shipped the missing READ inverse:** `canonical_node::node_rows_from_le_bytes(&[u8]) -> Option<&[NodeRow]>` — checked (`len % 512`, `ptr % 64`), `None` on violation (caller copies, no UB), empty→Some(empty). Re-exported from lib.rs; +`NodeRowPacket` re-export. 2 tests (zero-copy round-trip with ptr-identity assert; rejects non-multiple + misaligned-but-correct-length window). 712 lib green, clippy `-D warnings` both configs + fmt clean.
+- surrealdb side does NOT yet qualify: `.claude/lance-backend/lance/schema.rs` stores `val: DataType::Binary` (variable BinaryArray, no fixed stride / no align) → not castable. Needs `FixedSizeBinary(512)` SoA value column + deps the zero-dep contract + reads through `node_rows_from_le_bytes`. Caveat: value zero-copy iff stored UNcompressed (compressed = one decode-copy; key always zero-copy). That's the surrealdb-side plan (the lance-backend wiring), not done here.
+
+Rides on the jirak branch (PR #564 arc — the symbiont contract surface: OGAR activation + SoA zero-copy reader). Next: the surrealdb-side FixedSizeBinary(512) SoA path plan.
+
 ## 2026-06-20 (cont.¹³) — clean separation: NEW `lance-graph-ogar` activation crate (OGAR AR surface), #563 merged
 
 **Main thread (Opus), autoattended.** Operator: "what about clean separation — lance-graph-ontology OGIT / lance-graph-ogar OGAR" + correction "OGAR isn't just vocab, it's classes, ClassView, active-record shape" + "563 merged". Rebased jirak onto new main (ff1a3452 = merged #563, so `contract::ogar_codebook` is now ON main).
