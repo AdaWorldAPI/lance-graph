@@ -1,3 +1,19 @@
+## 2026-06-20 — E-NODE-IS-SOA-IS-KANBAN-BOARD — each grid node is ONE whole SoA node (a `NodeRow` = a kanban board) and each external f64 is ONE internal typed `ValueTenant` — never a scalar in a shared slab, never raw value bytes; up to 16384 boards = 8 MiB zero-copy
+
+**Status:** FINDING (green — bridge rewritten to the operator's correction; 2 probes pass incl. the 16k/8-MiB scale). **Refines** E-FIRST-RUNTIME-EDGE-GREEN (below): the node→NodeRow + cascade-on-Grid + result-into-SoA framing stands; the ENCODING is corrected from raw `value[0..8]` to a typed tenant.
+
+The operator corrected the D1 undersell — it is NOT "encode the cascade result into a value slab":
+- **Every node → one whole SoA `NodeRow`** = one kanban board. The Spanish grid = up to 16384 NodeRows = **8 MiB (16384 × 512 B)** = up to 16384 boards. Verified: `run_scale_demo(16384)` → 8 MiB zero-copy, all Energy tenants finite.
+- **Each external f64 → ONE internal typed `ValueTenant`.** The perturbation magnitude maps to `ValueTenant::Energy` (`canonical_node.rs:410`, "spatio-temporal accumulator", F32, slab offset 102) — NOT raw `value[0..8]`. One external quantity ⇒ one typed column the SIMD sweep / planner reads. `value_offset()`/`byte_len()` are the write API.
+- **The perturbation cascade IS a thinking-style cascade** — a deterministic per-node field update, the physics instance of the cognitive cascade skeleton ("the shader can't resist the thinking").
+- **16k boards are driven by surrealdb + ractor + lance-graph-planner via a Lance subscription hook** (D2: the planner SoA reacts to Lance versions; `LanceVersionScheduler` is the real shape of the kanban loop — the planner SoA via a Lance subscription).
+
+**Open canon decision (operator-gated, see ISSUES):** `ValueTenant::Energy` is **F32**; there is NO F64 tenant. The external f64 narrows to f32 (exact at f32, lossy vs f64). True-f64 preservation = a CANON EXTENSION (new F64 tenant) — operator-locked, RESERVE-DON'T-RECLAIM; not done autonomously.
+
+Cross-ref: `crates/symbiont/src/bridge.rs`; `ValueTenant`/`VALUE_TENANTS` (`canonical_node.rs:394/441`); STATUS_BOARD symbiont D1/E2; ISSUES `F64-TENANT-VS-F32-ENERGY`.
+
+---
+
 ## 2026-06-20 — E-FIRST-RUNTIME-EDGE-GREEN — the golden image now RUNS one genuine cross-crate edge: perturbation-sim `Grid` → canonical SoA `NodeRow`, cascade NaN-free, zero-copy 512-B stride (D1, the degenerate Spain-grid gate)
 
 **Status:** FINDING (green — 2 probes pass + the harness runs).

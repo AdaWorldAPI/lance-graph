@@ -14,7 +14,9 @@ fn main() {
     println!(
         "symbiont golden image: lance-graph + lance7/lancedb0.30 + ndarray + ractor + surrealdb(kv-lance) + OGAR linked"
     );
-    // D1 — the first real runtime edge: run the perturbation cascade and encode
-    // the result onto canonical SoA NodeRows (the degenerate Spain-grid gate).
+    // D1 — the first real runtime edge: each bus → one SoA NodeRow, its f64
+    // perturbation → the Energy tenant (a thinking-style cascade onto the SoA).
     bridge::run_demo();
+    // Scale: the 16k-board / 8-MiB ceiling, zero-copy.
+    bridge::run_scale_demo(bridge::MAX_BOARDS);
 }

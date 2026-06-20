@@ -1,3 +1,11 @@
+## 2026-06-20 (cont.²) — D1 bridge corrected to the operator's SoA architecture (tenant + 16k boards)
+
+**Main thread (Opus), autoattended.** Operator correction: "every node → ONE SoA each; each external f64 → ONE internal SoA tenant; wire the perturbation as a thinking-style cascade; up to 16k SoA (8 MiB) = 16k kanban boards; planner SoA via a Lance subscription hook (surrealdb+ractor+lance-graph-planner)."
+
+Read the real `ValueTenant` enum (`canonical_node.rs:394/441`), rewrote `bridge.rs`: each bus → one `NodeRow` (kanban board); the f64 perturbation → `ValueTenant::Energy` (the F32 spatio-temporal accumulator, slab offset 102) via `value_offset()`/`byte_len()` — NOT raw value bytes. Added `run_scale_demo` proving the 16384-board / 8-MiB ceiling, zero-copy. `cargo test -p symbiont` 2/2 (Energy-tenant round-trip + 8-MiB scale); `cargo run` prints both lines. See EPIPHANIES `E-NODE-IS-SOA-IS-KANBAN-BOARD`; STATUS_BOARD D1 (updated) + E2 (Shipped). **Operator decision flagged** (ISSUES `F64-TENANT-VS-F32-ENERGY`): canon has no F64 tenant; f64→f32 narrowing on Energy — accept F32 or extend the operator-locked canon. **Next:** D2 kanban loop (LanceVersionScheduler + Lance subscription); E1 real Spain fixture.
+
+---
+
 ## 2026-06-20 (cont.) — D1 bridge GREEN: perturbation-sim Grid → canonical SoA NodeRow (first runtime edge)
 
 **Main thread (Opus), autoattended autonomous** (operator: "go ahead autoattended autonomous decision making and auto resolve using the new architecture"). Mapped the bridge surface with an Opus explorer subagent (NodeRow API in `lance-graph-contract::canonical_node`; perturbation-sim `Grid`/`simulate_outage`), then implemented.

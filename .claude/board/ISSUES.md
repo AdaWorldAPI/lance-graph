@@ -1,5 +1,13 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-06-20 — F64-TENANT-VS-F32-ENERGY — perturbation f64 narrows to the F32 `Energy` tenant; a true-f64 tenant is a canon EXTENSION (operator decision)
+
+**Status:** Open · Owner: operator (the canon is operator-locked) · Blocks: nothing (F32 `Energy` works today; D1 green)
+
+The D1 bridge (`crates/symbiont/src/bridge.rs`) stores each bus's f64 perturbation magnitude in `ValueTenant::Energy` (F32) — "one external f64 → one internal typed tenant," per the operator's architecture. The operator's phrasing was "F64 tenant," but the canon has **no F64 tenant**: `Energy` is F32 (`canonical_node.rs:410`, `VALUE_TENANTS:481`). The f64→f32 narrowing is exact at f32 but lossy vs f64. **Decision needed:** (a) accept F32 `Energy` (the substrate's deliberate accumulator precision; no change), OR (b) extend the canon with a NEW F64 tenant — a value-slab layout addition (RESERVE-DON'T-RECLAIM; bumps `ENVELOPE_LAYOUT_VERSION`; the canon is operator-locked). Not done autonomously. Cross-ref: EPIPHANIES `E-NODE-IS-SOA-IS-KANBAN-BOARD`.
+
+---
+
 ## 2026-05-30 — OD-CANONICAL-SPEC-DISAGREEMENT-TIER-SET — `cognitive-risc-core.md` and `wikidata-hhtl-load.md` disagree on the ProvenanceTier value-set; SPEC-OWNER decision, not Claude-session
 
 **Status:** Open · Owner: spec author (NOT a Claude session) · Blocks: D-ARM-1 (ProvenanceTier in `lance-graph-contract`), D-ARM-2 (`Proposer` trait + `CandidateRule`), D-ARM-SYN-1/2/3 (per PR #436 follow-ups).
