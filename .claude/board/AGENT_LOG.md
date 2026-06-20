@@ -1,3 +1,11 @@
+## 2026-06-20 (cont.¹⁵) — PR #564 codex P2 fixes (contract-source unification + build-time parity fuse)
+
+**Main thread (Opus), autoattended.** Two codex P2 review comments on #564, both correct, both fixed:
+1. **One contract source at the integration boundary** (Cargo.toml): `lance-graph` + `symbiont` path-dep `lance-graph-contract`; `lance-graph-ogar` git-dep'd it → two distinct crates when composed → `OgarClassView` would impl the git `ClassView`, not the path one. Fix: `lance-graph-ogar` now **path-deps** `../lance-graph-contract` (the canonical in-repo copy) + a `[patch."…/lance-graph"] lance-graph-contract = { path = … }` folds ogar-class-view's transitive git contract onto the SAME path copy = ONE source. Documented the cargo limitation: an in-repo workspace root (symbiont) adding this crate MUST repeat the patch (`[patch]` only applies at the root).
+2. **Parity guard only ran under `#[cfg(test)]`** (lib.rs) → a downstream `cargo build` never executed it, contradicting the "fails the build on drift" claim. Fix: added a **compile-time length fuse** `parity::COUNT_FUSE` (`const _ = assert!(mirror::CODEBOOK.len() == ogar_vocab::class_ids::ALL.len())`) that fires in ANY build (cargo build included) on add/remove drift; kept the runtime `assert_codebook_parity` (full id/domain bijection, tested + callable at startup); corrected the docs to state both depths precisely (no overclaim).
+
+Re-verified: `cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml` 3/3 (the `ogar_class_view_implements_contract_class_view` test compiling PROVES one-source unification), clippy `-D warnings` + fmt clean, no "patch not used". Both threads replied + resolved. Pushed to #564.
+
 ## 2026-06-20 (cont.¹⁴) — zero-copy SoA read contract (`node_rows_from_le_bytes`) — the surrealdb "second brain" primitive
 
 **Main thread (Opus), autoattended.** Operator: "create a contract … that ensures LE contract to the lance-graph SoA view → zero-copy symbiont; surrealdb becomes a second brain inside lance-graph." Brutal feasibility pass against real code on both sides (see EPIPHANY `E-SURREALDB-SECOND-BRAIN-IS-ZERO-COPY-IFF-FIXEDSIZEBINARY`):

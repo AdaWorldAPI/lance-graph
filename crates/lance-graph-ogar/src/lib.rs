@@ -37,12 +37,20 @@
 //! A build graph that pulls THIS crate (the golden image via `symbiont`, or any
 //! AR-aware consumer — q2, medcare, …) gets the **real** OGAR `Class`/`ClassView`/
 //! codebook (including [`ogar_vocab`]'s full curator-alias normalizer, so OGAR is
-//! never dumbed down) **plus** the [`parity`] guard that fails the build if the
-//! contract's lean `ogar_codebook` mirror ever drifts from OGAR's authoritative
-//! `class_ids::ALL`. One contract source: this crate and `ogar-class-view` both
-//! resolve `lance-graph-contract` to git `AdaWorldAPI/lance-graph#main` (which
-//! carries `ogar_codebook` since PR #563), so the `OgarClassView` `impl ClassView`
-//! is for the SAME contract the guard checks.
+//! never dumbed down) **plus** the [`parity`] guard. The guard fires at two depths
+//! so it cannot be silently bypassed (codex P2, PR #564):
+//! - a **compile-time length fuse** ([`parity`] `const _`) that fails ANY build
+//!   (`cargo build` included) if the mirror and `ogar_vocab::class_ids::ALL` have
+//!   a different concept count — the most common drift (add/remove a concept);
+//! - a **runtime full-bijection** check ([`parity::assert_codebook_parity`]) for
+//!   id + domain agreement, asserted by this crate's tests (the CI gate) and
+//!   callable at consumer startup.
+//!
+//! One contract source: this crate path-deps `lance-graph-contract` (the canonical
+//! in-repo copy) and a `[patch]` folds `ogar-class-view`'s transitive *git*
+//! contract onto the SAME path copy, so the `OgarClassView` `impl ClassView` is for
+//! the contract the guard checks (an in-repo workspace root adding this crate must
+//! repeat that patch — see the manifest CONSUMER REQUIREMENT note).
 //!
 //! # The OGIT ↔ OGAR seam
 //!
@@ -72,12 +80,23 @@ pub use ogar_vocab::Class;
 
 /// Codebook parity-guard — the drift fuse between OGAR's authoritative codebook
 /// (`ogar_vocab::class_ids::ALL`) and the contract's zero-dep wire mirror
-/// (`lance_graph_contract::ogar_codebook::CODEBOOK`). Compiled (and tested) only
-/// when this crate is in the build graph, so any OGAR-present build (the golden
-/// image, AR-aware consumers) fails fast on divergence; OGAR-absent builds carry
-/// the mirror alone and never need the check.
+/// (`lance_graph_contract::ogar_codebook::CODEBOOK`). Two depths so it cannot be
+/// silently bypassed (codex P2, PR #564): a [`COUNT_FUSE`] **compile-time** assert
+/// that fires in ANY build, plus [`assert_codebook_parity`] for the runtime full
+/// id/domain bijection (tested here = CI gate; call at consumer startup too). When
+/// this crate is absent, the contract's mirror stands alone and needs no check.
 pub mod parity {
     use lance_graph_contract::ogar_codebook as mirror;
+
+    /// **Compile-time length fuse.** Fails the build — `cargo build`, not just
+    /// `cargo test` — if the contract mirror and OGAR's authoritative
+    /// `class_ids::ALL` carry a different number of concepts (add/remove drift).
+    /// The full id/domain bijection is the runtime [`assert_codebook_parity`].
+    pub const COUNT_FUSE: () = assert!(
+        mirror::CODEBOOK.len() == ogar_vocab::class_ids::ALL.len(),
+        "ogar_codebook mirror drifted from ogar_vocab::class_ids::ALL (concept count mismatch) — \
+         update lance_graph_contract::ogar_codebook::CODEBOOK to match OGAR",
+    );
 
     /// Whether OGAR's domain for `id` agrees with the contract mirror's. Both
     /// enums are structurally identical (`id >> 8` discriminant); compared by a

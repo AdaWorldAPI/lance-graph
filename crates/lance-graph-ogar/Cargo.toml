@@ -15,17 +15,31 @@
 #   ogar-adapter-surrealql          = emit(Class) -> SurrealQL DDL (the DO arm)
 #
 # Auto-activation = Cargo presence: a build graph that pulls THIS crate gets the
-# real OGAR Class/ClassView/codebook + the parity-guard (lib.rs) that fails the
-# build if `lance_graph_contract::ogar_codebook`'s lean mirror ever drifts from
-# `ogar_vocab::CODEBOOK`. A build WITHOUT this crate uses the contract's zero-dep
-# mirror + the bare ClassView trait (headless OGAR app, or a self-supplied impl).
-# OGAR never depends on the lance-graph ENGINE — only on the zero-dep contract.
+# real OGAR Class/ClassView/codebook + the parity-guard (lib.rs): a COMPILE-TIME
+# length fuse (`const _` assert that the mirror and `ogar_vocab::class_ids::ALL`
+# have equal count — fires in ANY build, `cargo build` included) plus a runtime
+# `parity::assert_codebook_parity()` for the full id/domain bijection (call it at
+# consumer startup; also asserted by this crate's tests = the CI gate). A build
+# WITHOUT this crate uses the contract's zero-dep mirror + the bare ClassView
+# trait. OGAR never depends on the lance-graph ENGINE — only the zero-dep contract.
 #
-# ONE contract source: this crate AND ogar-class-view both resolve
-# `lance-graph-contract` to git `AdaWorldAPI/lance-graph#main` (which carries
-# `ogar_codebook` since PR #563) — so `OgarClassView`'s `impl ClassView` is for
-# the SAME contract the parity-guard checks. No [patch] needed (the symbiont
-# pattern: align on one source rather than redirect).
+# ── ONE contract source (codex P2, PR #564) ──
+# The canonical `lance-graph-contract` in-repo is the PATH copy (`crates/
+# lance-graph-contract`) — what `lance-graph` and `symbiont` already path-dep.
+# `ogar-class-view` (in the OGAR repo) hard-codes a `git` dep on
+# `AdaWorldAPI/lance-graph#main` for ITS standalone build; Cargo treats path and
+# git as DISTINCT crates even at the same version, so `OgarClassView` would impl a
+# DIFFERENT `ClassView` than the engine expects. The `[patch]` below redirects
+# that transitive git contract onto the SAME path copy, so this crate's standalone
+# build has exactly one contract source = the path copy.
+#
+# CONSUMER REQUIREMENT (cargo limitation): `[patch]` only applies in the WORKSPACE
+# ROOT. When an in-repo workspace root (e.g. `crates/symbiont`) adds
+# `lance-graph-ogar`, THIS crate's `[patch]` is ignored — that root MUST repeat:
+#   [patch."https://github.com/AdaWorldAPI/lance-graph"]
+#   lance-graph-contract = { path = "../lance-graph-contract" }
+# to unify ogar-class-view's transitive git contract onto its path copy. Without
+# it the OgarClassView `impl ClassView` won't typecheck against the engine's.
 #
 # Build/verify:  cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml
 # Full DO arm :  cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml \
@@ -53,9 +67,10 @@ serde = ["ogar-vocab/serde", "ogar-adapter-surrealql/serde"]
 
 [dependencies]
 # Contract surface (zero-dep): ClassView / ObjectView / ClassId / NodeGuid + the
-# ogar_codebook wire-compat mirror the parity-guard checks. git main == the SAME
-# source ogar-class-view git-deps, so there is exactly ONE lance-graph-contract.
-lance-graph-contract = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
+# ogar_codebook wire-compat mirror the parity-guard checks. PATH copy = the
+# canonical in-repo source (same as lance-graph / symbiont); the [patch] below
+# folds ogar-class-view's transitive git contract onto it = ONE source.
+lance-graph-contract = { path = "../lance-graph-contract" }
 
 # ── OGAR Active-Record forks: git deps @ main (the canonical superset; matches
 #    symbiont's pins so they resolve to ONE source in the golden image) ──
@@ -65,3 +80,12 @@ ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # default features only = the light emit() DDL formatter (no surrealdb tree);
 # the parser half is opt-in via this crate's `surrealql-parser` feature.
 ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+
+# Fold ogar-class-view's transitive `lance-graph-contract` (git
+# AdaWorldAPI/lance-graph#main) onto the SAME path copy this crate uses, so there
+# is exactly ONE contract crate and `OgarClassView`'s `impl ClassView` is for it
+# (codex P2, PR #564). Applies in THIS crate's standalone build (its own
+# [workspace] root); an in-repo workspace root that adds this crate must repeat
+# the patch (see the CONSUMER REQUIREMENT note in the header).
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
