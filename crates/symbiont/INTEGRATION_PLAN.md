@@ -1,6 +1,6 @@
 # Integration plan — loose ends → the Spain-grid acceptance gate
 
-Status legend: ☐ open · ◐ in progress · ☑ done (this session)
+Status legend: ☐ open · ◐ in progress · ☑ done (this session) · ⊘ blocked (waiting on an upstream/dep change)
 
 ---
 
@@ -146,16 +146,28 @@ This folds into §B (the NaN-free win condition).
 
 ### C. Tight graph
 
-- ☐ **C1 — `cargo machete` clean.** Remove unused deps from the golden-image
-  graph and from `perturbation-sim`. (Machete reads manifests; cheap.)
-- ☐ **C2 — `cargo clippy --all-targets -- -D warnings` clean** across the
-  symbiont graph (at least the first-party crates; upstream warnings triaged).
+- ☐ **C1 — `cargo machete` clean.** Run with
+  `--manifest-path crates/symbiont/Cargo.toml` (and on `perturbation-sim`).
+  **CAUTION — do NOT delete symbiont's direct deps.** `main.rs` only prints a
+  probe line, so symbiont's manifest entries (lance-graph, perturbation-sim,
+  ractor, surrealdb-core, ogar-*) ARE the integration payload — they are what
+  force the golden-image build to pull in the full Ada stack. machete will flag
+  them as unused; that is expected and intentional. Whitelist them via
+  `[package.metadata.cargo-machete] ignored = [...]` (or add real references in
+  `main.rs`) — never remove them, or the build passes while exercising nothing.
+  machete should only remove genuinely-unused deps elsewhere (e.g. in
+  `perturbation-sim`).
+- ☐ **C2 — `cargo clippy --all-targets -- -D warnings` clean.** NOTE:
+  `symbiont` has its OWN `[workspace]`, so a root-level `cargo clippy` SKIPS it
+  entirely — run from `crates/symbiont/` or add
+  `--manifest-path crates/symbiont/Cargo.toml`. First-party crates must be
+  clean; upstream (git-dep) warnings triaged, not gated.
 
 ---
 
 ## Other loose ends (post-gate)
 
-- ☐ **surreal_container `BLOCKED(C)`.** The `surreal_container` consumer still
+- ⊘ **surreal_container — blocked.** The `surreal_container` consumer still
   has the kv-lance fork dep unwired in its `Cargo.toml`. The golden image
   proves the dep graph works; porting that wiring into `surreal_container`
   clears the block.
