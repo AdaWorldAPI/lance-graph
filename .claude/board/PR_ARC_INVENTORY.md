@@ -51,7 +51,7 @@
 
 ## #555 lance-graph: symbiont golden-image plan (5+3 council ledger) + the living-harness reframe
 
-**Status:** OPEN 2026-06-20, branch `claude/symbiont-golden-image-plan`. Adds `crates/symbiont/INTEGRATION_PLAN.md` (the council loose-end ledger → Spain-grid acceptance gate). The golden-image crate itself landed **direct on `main`** (`82013145` crate → `e24b8626` OGAR→main → surrealdb→main fix): a workspace-`exclude`d probe that compiles+links the full stack into ONE binary.
+**Status:** MERGED 2026-06-20 (merge commit `37cc21b2`), branch `claude/symbiont-golden-image-plan`. Adds `crates/symbiont/INTEGRATION_PLAN.md` (the council loose-end ledger → Spain-grid acceptance gate). The golden-image crate itself landed **direct on `main`** (`82013145` crate → `e24b8626` OGAR→main → `d0a59e4e` surrealdb→main fix, verified green): a workspace-`exclude`d probe that compiles+links the full stack into ONE binary.
 
 **Added:** `crates/symbiont/{Cargo.toml (portable git-deps), Dockerfile (rust:1.95 → debian-slim, build/CI validation), README, src/main.rs, INTEGRATION_PLAN.md}`. Root `Cargo.toml` exclude entry.
 

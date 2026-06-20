@@ -1,3 +1,21 @@
+## 2026-06-20 — E-FIRST-RUNTIME-EDGE-GREEN — the golden image now RUNS one genuine cross-crate edge: perturbation-sim `Grid` → canonical SoA `NodeRow`, cascade NaN-free, zero-copy 512-B stride (D1, the degenerate Spain-grid gate)
+
+**Status:** FINDING (green — 2 probes pass + the harness runs).
+
+The 5+3 council's headline was "five crates linked into one binary with ZERO runtime edges." This builds the FIRST edge. `crates/symbiont/src/bridge.rs`: an in-tree 8×8 lattice → `simulate_outage` (DC-flow cascade) → encode each bus's `node_field[i]` (`|θ perturbation|`) into one canonical `NodeRow` (`key = NodeGuid::local(bus)`, `value[0..8]` = f64 LE) → assert every decoded f64 finite → `NodeRowPacket` proves the 512-B/row zero-copy SoA stride. Demo: 64 buses → 64 NodeRows, all finite, 32768-byte packet, max |perturbation| 0.814452. `cargo test -p symbiont` 2/2 (bit-exact round-trip + stride).
+
+**Architecture facts banked (verified against source):**
+- `NodeRow`/`NodeGuid`/`EdgeBlock` live in **`lance-graph-contract::canonical_node`**, NOT `lance-graph`, and are NOT re-exported by lance-graph — a consumer names them via a direct dep on the contract crate. `NodeRowPacket::as_le_bytes` is a `SoaEnvelope` trait method (import the trait).
+- `NodeRow` has NO constructor — struct-literal only (`key`/`edges`/`value` pub). `NodeGuid::local(id)` = the bootstrap address (classid=0, family=0, identity=id<2²⁴).
+- **symbiont is the correct home for the bridge** — it is the only crate that sees BOTH the contract `NodeRow` and perturbation-sim's `Grid` (lance-graph core can't dep perturbation-sim). The golden image stops being a link-only probe.
+- The cascade runs ON `Grid` (owns its f64 buffers); only the RESULT is encoded into the SoA — one-directional, no live state in `NodeRow` during compute (respects the readonly-substrate + owned-microcopy borrow doctrine).
+
+**Next edges:** Grid→NodeRow over a REAL Spain fixture (E1 acceptance gate); the kanban loop (D2: `LanceVersionScheduler` → `KanbanMove` → SoA write → Lance commit).
+
+Cross-ref: PR #555 INTEGRATION_PLAN D1; battle-test plan probes A1/B-series; STATUS_BOARD symbiont-golden-image-harness; `crates/symbiont/src/bridge.rs`.
+
+---
+
 ## 2026-06-20 — E-GOLDEN-IMAGE-IS-A-LIVING-HARNESS — the all-in-one substrate binary is an integration HARNESS that tracks each fork's LIVING canonical branch, NOT a pinned snapshot; and every per-session "jirak" branch is a stale checkout name (HEAD ⊂ the fork's main/master, 0 unique commits)
 
 **Status:** FINDING (verified by `git fetch` + `merge-base` across all four forks, by direct manifest reads, and by a real git-deps build resolving to the lockstep pins).

@@ -36,6 +36,9 @@ path = "src/main.rs"
 # ── same-repo crates: path deps ──
 lance-graph = { path = "../lance-graph" }
 perturbation-sim = { path = "../perturbation-sim" }
+# canonical SoA node (NodeRow/NodeGuid/EdgeBlock) — NOT re-exported by lance-graph,
+# so the D1 bridge names it directly. Zero-dep, already in the graph.
+lance-graph-contract = { path = "../lance-graph-contract" }
 
 # ── external AdaWorldAPI forks: git deps ──
 # ractor: jirak branch (carries this session's MessagingErr::Saturated fix; on github).

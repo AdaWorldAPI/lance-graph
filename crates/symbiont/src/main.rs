@@ -8,8 +8,13 @@
 //! Build:  cargo build --manifest-path crates/symbiont/Cargo.toml
 //! Or:     docker build -f crates/symbiont/Dockerfile -t symbiont .
 
+mod bridge;
+
 fn main() {
     println!(
         "symbiont golden image: lance-graph + lance7/lancedb0.30 + ndarray + ractor + surrealdb(kv-lance) + OGAR linked"
     );
+    // D1 — the first real runtime edge: run the perturbation cascade and encode
+    // the result onto canonical SoA NodeRows (the degenerate Spain-grid gate).
+    bridge::run_demo();
 }

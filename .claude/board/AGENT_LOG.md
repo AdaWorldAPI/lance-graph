@@ -1,3 +1,11 @@
+## 2026-06-20 (cont.) — D1 bridge GREEN: perturbation-sim Grid → canonical SoA NodeRow (first runtime edge)
+
+**Main thread (Opus), autoattended autonomous** (operator: "go ahead autoattended autonomous decision making and auto resolve using the new architecture"). Mapped the bridge surface with an Opus explorer subagent (NodeRow API in `lance-graph-contract::canonical_node`; perturbation-sim `Grid`/`simulate_outage`), then implemented.
+
+`crates/symbiont/src/bridge.rs` (+ `main.rs` calls it, + `Cargo.toml` gains a `lance-graph-contract` path-dep — NodeRow isn't re-exported by lance-graph). Build green; `cargo test --manifest-path crates/symbiont/Cargo.toml` **2/2 pass** (bit-exact finite round-trip through the SoA value slab + 512-B stride); `cargo run` prints `D1 bridge: 64 buses → 64 NodeRows ... all node_field finite ... max |perturbation| 0.814452`. **First real runtime edge** between two of the five crates (perturbation-sim ↔ lance-graph-contract). The golden image now RUNS, not just links. See EPIPHANIES `E-FIRST-RUNTIME-EDGE-GREEN`; STATUS_BOARD `symbiont-golden-image-harness` D1 = Shipped. Next: real Spain fixture (E1), kanban loop (D2).
+
+---
+
 ## 2026-06-20 — golden-image (symbiont) integration harness + jirak-stale finding + TD-SURREALDB-KVLANCE-LANCE7 PAID
 
 **Main thread (Opus).** Operator framing: "a Dockerfile + Cargo that actually RUNS the future AGI/Foundry-aspiring substrate — all in one binary, *pending integration*" — explicitly NOT a pinned snapshot.
