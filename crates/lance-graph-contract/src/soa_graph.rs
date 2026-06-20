@@ -281,13 +281,12 @@ mod tests {
     use super::*;
     use crate::canonical_node::EdgeBlock;
 
-    /// Build a node in a domain: `classid` from the domain, hierarchy in the HHT
-    /// tiers, family = basin leaf, identity = leaf. Edges optional.
+    /// Build a node in a domain: `classid` from the domain, hierarchy in the
+    /// `hht` tiers `(heel, hip, twig)`, family = basin leaf, identity = leaf.
+    /// Edges optional.
     fn node(
         domain: &DomainSpec,
-        heel: u16,
-        hip: u16,
-        twig: u16,
+        hht: (u16, u16, u16),
         family: u32,
         identity: u32,
         in_fam: &[u8],
@@ -301,7 +300,7 @@ mod tests {
             edges.out_family[i] = b;
         }
         NodeRow {
-            key: NodeGuid::new(domain.classid, heel, hip, twig, family, identity),
+            key: NodeGuid::new(domain.classid, hht.0, hht.1, hht.2, family, identity),
             edges,
             value: [0u8; 480],
         }
@@ -313,10 +312,10 @@ mod tests {
         // at member 2 (identity low byte 2) via in_family; member 1 also links
         // out to family B (low byte 0xB) via out_family.
         let rows = [
-            node(&OSINT_GOTHAM, 1, 0, 0, 0xA, 1, &[2], &[0xB]),
-            node(&OSINT_GOTHAM, 1, 0, 0, 0xA, 2, &[], &[]),
-            node(&OSINT_GOTHAM, 2, 0, 0, 0xB, 1, &[], &[]),
-            node(&OSINT_GOTHAM, 2, 0, 0, 0xB, 2, &[], &[]),
+            node(&OSINT_GOTHAM, (1, 0, 0), 0xA, 1, &[2], &[0xB]),
+            node(&OSINT_GOTHAM, (1, 0, 0), 0xA, 2, &[], &[]),
+            node(&OSINT_GOTHAM, (2, 0, 0), 0xB, 1, &[], &[]),
+            node(&OSINT_GOTHAM, (2, 0, 0), 0xB, 2, &[], &[]),
         ];
         let snap = project_snapshot(&rows, &OSINT_GOTHAM);
         // 4 member nodes + 2 family nodes
@@ -344,8 +343,8 @@ mod tests {
             ..FMA_ANATOMY
         };
         let rows = [
-            node(&fma_bones, 0x1, 0, 0, 0x01, 1, &[], &[]), // bone
-            node(&fma_bones, 0x2, 0, 0, 0x02, 1, &[], &[]), // tissue
+            node(&fma_bones, (0x1, 0, 0), 0x01, 1, &[], &[]), // bone
+            node(&fma_bones, (0x2, 0, 0), 0x02, 1, &[], &[]), // tissue
         ];
         let snap = project_snapshot(&rows, &fma_bones);
         let anchor = snap.nodes.iter().find(|n| n.id == "family:000001").unwrap();
@@ -366,10 +365,10 @@ mod tests {
             ..FMA_ANATOMY
         };
         let rows = [
-            node(&fma_bones, 0x1000, 0, 0, 0x01, 1, &[], &[]), // the anchor itself
-            node(&fma_bones, 0x1000, 0, 0, 0x02, 1, &[], &[]), // same HHT path
-            node(&fma_bones, 0x1009, 0, 0, 0x03, 1, &[], &[]), // diverges late (lcp 7)
-            node(&fma_bones, 0xF000, 0, 0, 0x04, 1, &[], &[]), // diverges early (lcp 4)
+            node(&fma_bones, (0x1000, 0, 0), 0x01, 1, &[], &[]), // the anchor itself
+            node(&fma_bones, (0x1000, 0, 0), 0x02, 1, &[], &[]), // same HHT path
+            node(&fma_bones, (0x1009, 0, 0), 0x03, 1, &[], &[]), // diverges late (lcp 7)
+            node(&fma_bones, (0xF000, 0, 0), 0x04, 1, &[], &[]), // diverges early (lcp 4)
         ];
         let hops = nearest_anchor(&rows, &fma_bones);
         assert_eq!(hops.len(), 4);
@@ -391,7 +390,7 @@ mod tests {
     #[test]
     fn nearest_anchor_with_no_anchors_is_unreachable() {
         // Default OSINT declares no anchor families ⇒ every node is unreachable.
-        let rows = [node(&OSINT_GOTHAM, 1, 0, 0, 0xA, 1, &[], &[])];
+        let rows = [node(&OSINT_GOTHAM, (1, 0, 0), 0xA, 1, &[], &[])];
         let hops = nearest_anchor(&rows, &OSINT_GOTHAM);
         assert_eq!(hops[0].hops, u8::MAX);
         assert_eq!(hops[0].anchor_family, u32::MAX);
@@ -402,8 +401,8 @@ mod tests {
         // Poison the value slab; the snapshot must be byte-identical (the
         // E-GUID-IS-THE-GRAPH / zero-value-decode invariant, falsifiable).
         let clean = [
-            node(&OSINT_GOTHAM, 1, 0, 0, 0xA, 1, &[2], &[0xB]),
-            node(&OSINT_GOTHAM, 2, 0, 0, 0xB, 2, &[], &[]),
+            node(&OSINT_GOTHAM, (1, 0, 0), 0xA, 1, &[2], &[0xB]),
+            node(&OSINT_GOTHAM, (2, 0, 0), 0xB, 2, &[], &[]),
         ];
         let mut poisoned = clean;
         for row in &mut poisoned {
