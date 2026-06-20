@@ -1,0 +1,67 @@
+# lance-graph-ogar — the OGAR (Open Graph of Active Record) activation crate.
+# EXCLUDED from the lance-graph workspace (own [workspace] root below).
+#
+# Clean separation (operator, 2026-06-20):
+#   lance-graph-ontology  =  OGIT   (TTL/RDF hydration spine)
+#   lance-graph-ogar      =  OGAR   (Active-Record Class / ClassView / adapters)
+#
+# This crate is the lance-graph-side ACTIVATION + re-export of OGAR's full AR
+# surface. OGAR is the Active-Record Core and already speaks the contract:
+#   ogar-vocab::Class               = the calcified AR shape (attributes + family
+#                                     Associations); `canonical_concept_id` == ClassId
+#   ogar-class-view::OgarClassView  impl lance_graph_contract::ClassView
+#                                     (32 promoted concepts → ObjectView/render_rows)
+#   ogar-ontology                   = prefix conventions + NiblePath identity routing
+#   ogar-adapter-surrealql          = emit(Class) -> SurrealQL DDL (the DO arm)
+#
+# Auto-activation = Cargo presence: a build graph that pulls THIS crate gets the
+# real OGAR Class/ClassView/codebook + the parity-guard (lib.rs) that fails the
+# build if `lance_graph_contract::ogar_codebook`'s lean mirror ever drifts from
+# `ogar_vocab::CODEBOOK`. A build WITHOUT this crate uses the contract's zero-dep
+# mirror + the bare ClassView trait (headless OGAR app, or a self-supplied impl).
+# OGAR never depends on the lance-graph ENGINE — only on the zero-dep contract.
+#
+# ONE contract source: this crate AND ogar-class-view both resolve
+# `lance-graph-contract` to git `AdaWorldAPI/lance-graph#main` (which carries
+# `ogar_codebook` since PR #563) — so `OgarClassView`'s `impl ClassView` is for
+# the SAME contract the parity-guard checks. No [patch] needed (the symbiont
+# pattern: align on one source rather than redirect).
+#
+# Build/verify:  cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml
+# Full DO arm :  cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml \
+#                  --features surrealql-parser   (pulls surrealdb-ast/parser, rust 1.95+)
+
+[package]
+name = "lance-graph-ogar"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "OGAR (Open Graph of Active Record) activation crate: re-exports ogar-vocab Class/codebook + ogar-class-view (impl lance_graph_contract::ClassView) + ogar-ontology + ogar-adapter-surrealql, with a codebook parity-guard against the contract's zero-dep ogar_codebook mirror. Auto-activates the real OGAR AR surface wherever it is compiled into the build (golden image / AR-aware consumers)."
+license = "Apache-2.0"
+
+# Own workspace root — keeps this crate out of the parent lance-graph workspace.
+[workspace]
+
+[features]
+default = []
+# The unmap(SurrealQL) -> Class half of the DO arm: pulls surrealdb-ast +
+# surrealdb-parser (heavy; rust-version 1.95+). The emit() DDL formatter half is
+# always available (no surrealdb deps).
+surrealql-parser = ["ogar-adapter-surrealql/surrealdb-parser"]
+# serde passthrough for the OGAR IR types.
+serde = ["ogar-vocab/serde", "ogar-adapter-surrealql/serde"]
+
+[dependencies]
+# Contract surface (zero-dep): ClassView / ObjectView / ClassId / NodeGuid + the
+# ogar_codebook wire-compat mirror the parity-guard checks. git main == the SAME
+# source ogar-class-view git-deps, so there is exactly ONE lance-graph-contract.
+lance-graph-contract = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
+
+# ── OGAR Active-Record forks: git deps @ main (the canonical superset; matches
+#    symbiont's pins so they resolve to ONE source in the golden image) ──
+ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-class-view = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+# default features only = the light emit() DDL formatter (no surrealdb tree);
+# the parser half is opt-in via this crate's `surrealql-parser` feature.
+ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }

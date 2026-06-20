@@ -112,6 +112,22 @@ class-identity codebook. Reconcile onto OGAR's `0xDDCC` scheme:
   on the low-u16 `0xDDCC` high byte; tests assert all five classids resolve to their
   `ConceptDomain`. q2's `LabelDTO`/`canonical` display-label consumption is the q2-side
   leg (this crate exports the type + ids).
+- **D-OVC-5** ✅ **SHIPPED — clean separation `ontology=OGIT / ogar=OGAR`.** NEW
+  `crates/lance-graph-ogar` (EXCLUDED, own `[workspace]`, git-deps OGAR@main +
+  lance-graph-contract@main = ONE source, no `[patch]`): re-exports the **full OGAR
+  Active-Record surface** (`ogar-vocab` Class/codebook + `ogar-class-view`
+  `OgarClassView impl ClassView` + `ogar-ontology` + `ogar-adapter-surrealql`) +
+  the **codebook parity-guard** (`parity::assert_codebook_parity` — bijective
+  `ogar_codebook::CODEBOOK ⇄ ogar_vocab::class_ids::ALL` + domain agreement, fails
+  the build on drift). **Auto-activation = Cargo presence** (no runtime detection):
+  pulling the crate (golden image via symbiont, or q2/medcare) lights up the real
+  OGAR AR surface + the drift fuse; OGAR stays headless-capable (its only
+  lance-graph dep is the zero-dep contract — the compile-time handshake). Features
+  `default` (light emit-only) / `surrealql-parser` (the heavy `unmap()` parser
+  half, rust 1.95+) / `serde`. Verified 3/3 + clippy + fmt clean. This realizes the
+  §5-decision-2 "(a) consolidation" path the wire-compat baseline deferred — both
+  now coexist: contract mirror = OGAR-absent baseline, `lance-graph-ogar` = the
+  OGAR-present activation. EPIPHANY `E-OGAR-IS-AR-CORE-AUTOACTIVATED-BY-CARGO-PRESENCE`.
 
 ## 5 — Decisions needed (operator) — ✅ RESOLVED 2026-06-20
 

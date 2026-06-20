@@ -1,0 +1,7 @@
+# Activation crate (re-resolves OGAR + lance-graph-contract to branch `main` on
+# every build) — do NOT commit Cargo.lock. Pinning would freeze the git-deps to
+# specific revs (the snapshot anti-pattern); the activation must reflect the
+# CURRENT OGAR AR surface + contract codebook so the parity-guard checks live
+# state. Same rationale as crates/symbiont/.gitignore (E-GOLDEN-IMAGE-IS-A-LIVING-HARNESS).
+/Cargo.lock
+/target

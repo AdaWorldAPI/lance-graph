@@ -1,3 +1,21 @@
+## 2026-06-20 — E-OGAR-IS-AR-CORE-AUTOACTIVATED-BY-CARGO-PRESENCE — OGAR is the Active-Record Core (Class + ClassView), not "just vocab"; it already `impl`s the contract's `ClassView`, so a lance-graph-side `lance-graph-ogar` crate AUTO-ACTIVATES the real AR surface wherever it is compiled in (Cargo presence = the switch, no runtime detection), guarded against drift by a parity fuse — while OGAR stays headless-capable and the contract stays zero-dep
+
+**Status:** FINDING (operator clean-separation lock, 2026-06-20; shipped `crates/lance-graph-ogar`).
+
+Two corrections crystallised the design:
+
+1. **OGAR ≠ codebook.** OGAR = *Open Graph of Active Record*: the unit is the **`Class`** (canonical concept + typed attributes + family-edge `Association`s) and its **`ClassView`**. The `u16` codebook id is ONE facet of a Class's identity (`canonical_concept_id == ClassId == NodeGuid.classid` low u16). A bridge that only carried the id would be exactly the "make OGAR stupid" failure the operator warned against.
+2. **The AR bridge already exists, OGAR-side.** `ogar-class-view::OgarClassView` already `impl lance_graph_contract::ClassView` (32 promoted concepts → `ObjectView`/`render_rows`), git-depping `lance-graph-contract@main`. So OGAR already *speaks the contract*; depending on the **zero-dep** contract is the compile-time handshake, NOT "needing lance-graph" (contracts compile types, never serialize). OGAR stays fully headless.
+
+**The clean separation (two crates, two responsibilities):**
+- `lance-graph-ontology` = **OGIT** (TTL/RDF hydration — the ontology SOURCE).
+- `lance-graph-ogar` = **OGAR** (re-export + activation of the full AR surface: ogar-vocab Class/codebook + ogar-class-view ClassView + ogar-ontology + ogar-adapter-surrealql).
+- `lance-graph-contract` keeps the **zero-dep `ogar_codebook` mirror** as the OGAR-ABSENT baseline + the `ClassView`/`ObjectView` traits OGAR implements.
+
+**Auto-activation = Cargo presence (no runtime detection).** A build graph that pulls `lance-graph-ogar` (golden image via symbiont, or q2/medcare) gets the REAL OGAR Class/ClassView/codebook + full `from_alias` normalizer + the **parity-guard** (`assert_codebook_parity`: bijective `mirror ⇄ ogar_vocab::class_ids::ALL` + domain agreement) that FAILS THE BUILD on drift. A build without it carries the lean mirror + the bare `ClassView` trait and never knows the difference. **One contract source** is the load-bearing constraint: `lance-graph-ogar` AND `ogar-class-view` both resolve `lance-graph-contract` to git `#main` (no `[patch]`, the symbiont alignment), so the `impl ClassView` matches the trait the guard checks (path + git copies would be two distinct types). The crate is `exclude`d from the workspace (git OGAR deps), built via `--manifest-path`.
+
+Verified: `cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml` 3/3 (parity bijection over ≥32 concepts + classid↔codebook-id identity + OgarClassView-is-a-ClassView), clippy `-D warnings` + fmt clean; resolved `lance-graph-contract` to ONE source (git main #ff1a3452 = merged #563). Cross-ref: AGENT_LOG 2026-06-20 (cont.¹³), plan `ogar-vocab-contract-codebook-migration-v1` D-OVC-5; the `from_alias`-vs-`from_canonical` split (E-... ogar_codebook mirror, #563).
+
 ## 2026-06-20 — E-UNIFORM-MORTON-TILE-PYRAMID — making every GUID tier the same size (8×u16) makes the KEY, the per-family CODEBOOK, the VALUE tile, and the PERTURBATION pyramid all the SAME 2bit×2bit 4×4 Morton-tile primitive — so one kernel (Morton + AMX 4×4 BF16 GEMM), one distance (Morton common-prefix = HHTL hop), and one codebook shape (256×256 per tier) govern the whole substrate
 
 **Status:** FINDING (operator design lock, GUID-v2-tail, 2026-06-20).
