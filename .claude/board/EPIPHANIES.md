@@ -1,3 +1,17 @@
+## 2026-06-20 — E-MIXIN-IS-AN-ADDRESS-REFERENCE-NOT-A-COPY — when group membership lives in the GUID ADDRESS (the family tier / the 16 family-adapter bytes) and shared state lives ONCE on the family-node basin, a mixin / multiple-membership is O(1) (a byte reference) not O(n) (materialized inherited edges), and inter-node distance is HHTL hop arithmetic on the address, never a BFS over edges — "distance is in the address/hops"
+
+**Status:** FINDING (perennial; operator design lock, GUID-v2-tail plan, 2026-06-20).
+
+Naive multiple-inheritance / multi-group graphs explode: a node in N groups must materialize N inherited edge-sets (copy or link each) → O(n) per node, and "how far apart are A and B" is a BFS over those materialized edges. Both costs vanish when membership is **addressed, not materialized**:
+
+1. **A family node is an episodic basin.** The connections accumulated *on the basin* (its in/out edges) ARE the **supporting edges** of every member — the shared state lives ONCE, on the family-node row, not copied into each member.
+2. **A member mixes in a family by reference** — a 1-byte family-adapter slot (or the `family` tier of its own GUID), never a copy. N memberships = N adapter bytes (≤16), bounded. Adding a member to a rich basin is free: it inherits the basin's whole supporting-edge set by pointing at it. **Mixin = O(1).**
+3. **Distance is in the address.** Inter-node distance = HHTL hop count (`family_hop_count` / `common_prefix_depth`) computed from the two GUIDs — O(depth) arithmetic, never a graph traversal. "Distance is in the address/hops."
+
+So the three costs that kill multi-group graphs become: membership = O(1) (a byte), shared episodic state = stored once (the basin), distance = O(1) (address arithmetic). This is *why* the GUID-v2 tail (`leaf` HHTL tier · `family` basin · `identity` instance) + per-family codebooks is not just a layout tidy-up — it makes mixins and supporting-edge inheritance asymptotically cheap. The condition is strict: it only holds while membership stays in the head address (never a value-slab list) and the family basin owns the shared edges (never per-member copies). Cross-ref: `E-FAMILY-ADAPTER-EDGES-ARE-RENDER-STABLE` (the edge-resolution face), `E-ANCHOR-IS-A-HEAD-FIELD-NOT-A-VALUE-TYPE` (structure-in-the-head), `E-GUID-IS-THE-GRAPH`, plan `guid-v2-tail-per-family-codebook-v1.md` (D-GV2-2 episodic basin), OGAR codebook-scoping canon.
+
+---
+
 ## 2026-06-20 — E-FAMILY-ADAPTER-EDGES-ARE-RENDER-STABLE — resolving graph edges to FAMILY nodes (16×8-bit family-node adapters) instead of to individual members trades a "mixin dependency" (a referenced family must exist) for two structural wins — extreme render stability (family hubs are fixed anchors, members attach to them, the layout doesn't churn) and the dissolution of the >255-member identity-byte aliasing (resolution is only ever family-level)
 
 **Status:** FINDING (perennial; operator model, shipped `contract::soa_graph` 16-adapter reading + `aiwar` POC, 2026-06-20).

@@ -15,11 +15,21 @@ Three findings this session converge on one layout change:
 2. **`u24` is awkward** — `family()`/`identity()` hand-assemble 3 bytes into a zero-padded `u32`; the tail is the only non-`u16`-aligned part of the key.
 3. **The 16×8-bit family-adapter edges** (`E-FAMILY-ADAPTER-EDGES-ARE-RENDER-STABLE`) resolve by `family & 0xFF`, which aliases at >256 families (codex P1 #2, currently handled by collision-skip).
 
-**The change:** repartition the trailing 6 bytes `family(u24)|identity(u24)` →
-`leaf(u16)|family(u16)|identity(u16)`, making the whole key a **uniform 8×u16
-tier array** (`classid_hi·classid_lo·HEEL·HIP·TWIG·leaf·family·identity`), and
-scope **codebooks per family** (`family → Codebook`, the finer sibling of the
-existing `classid → ClassView`).
+**The change (operator-pinned 2026-06-20):** `leaf` is the **4th HHTL tier**
+("a natural HHTL") — the cascade becomes `HEEL·HIP·TWIG·leaf` = 4 tiers × 4
+nibbles = **16 nibbles = a full `u64` NiblePath** (routing, not basin). `family`
+is the **basin / episodic hub**, `identity` the instance, so the basin-local key
+shrinks to `family·identity` = **4 bytes** (was 6). The whole 16-byte key is a
+**uniform 8×u16 tier array** that splits cleanly into three roles:
+
+```
+classid_hi classid_lo │ HEEL HIP TWIG leaf │ family   identity
+└─ codebook prefix ───┘ └─ HHTL path (4×4=16 nibbles) ┘ └─ basin · instance ┘
+   (classid → Codebook)    (routing / hop distance)       (episodic hub · row)
+```
+
+Plus **codebooks scoped per family** (`family → Codebook`, the finer sibling of
+`classid → ClassView`).
 
 ## What it buys
 
@@ -47,17 +57,43 @@ hits (cycle counters, fingerprint masks, learning-state) are NOT the GUID tail.
 
 ## Gating numbers (operator must confirm before build)
 
-- **identity 16.7M → 65 536 per `(leaf,family)` bucket.** OK unless a single bucket needs >65 536 instances. OSINT/FMA: comfortable. Confirm against the densest expected basin.
+- **identity 16.7M → 65 536 per family basin.** OK unless a single family needs >65 536 instances. OSINT/FMA: comfortable. (`leaf` is now a routing tier, so it deepens the HHTL tree rather than partitioning the basin.) Confirm against the densest expected family.
 - **family codebook ≤ 256 entries** (1-byte in-family index). A family that outgrows it **splits** (mint a sub-family — cheap with a 16-bit family) rather than widening the byte. Confirm densest single-family vocabulary < 256.
 
-## Open decision (pins Display order + codebook mapping)
+## The O(1) mixin — family node = episodic basin (operator, 2026-06-20)
 
-Which of `leaf` / `family` is the COARSER tier — `leaf`=node-type-coarse above `family`=subclass, or `leaf` below `family`? (Recommend leaf = coarse category, family = subclass, identity = instance, coarse→fine left-to-right, matching HEEL→TWIG direction.)
+The payoff of putting membership in the address: **mixin / multiple-membership
+is O(1), not O(n).**
+
+- A **family node is an episodic basin** — connections accumulated *on the basin*
+  (its in/out edges) ARE the **supporting edges** of every member. The shared
+  state lives ONCE, on the family-node row.
+- A member **mixes in** a family by **reference** — a 1-byte family-adapter slot
+  (or the `family` field itself), never a copy. N memberships = N adapter bytes
+  (≤16), bounded; not N materialized edge-sets per node. So adding a member to a
+  rich basin is free — it inherits the basin's whole supporting-edge set by
+  pointing at it.
+- **Distance is in the address.** Inter-node distance = HHTL hop count
+  (`family_hop_count` / `common_prefix_depth`) computed from the two addresses —
+  O(depth) arithmetic, NOT a BFS over materialized edges. "Distance is in the
+  address/hops."
+
+Net: membership O(1) (a byte), shared episodic state stored once (the basin),
+distance O(1) (address arithmetic). This is what avoids the O(n) edge explosion
+that kills naive multiple-inheritance / multi-group graphs. Captured as
+`E-MIXIN-IS-AN-ADDRESS-REFERENCE-NOT-A-COPY`.
+
+## Resolved decision (operator, 2026-06-20)
+
+`leaf` = the **4th HHTL routing tier** (the natural cascade terminal), NOT a
+basin tier. `family` = the basin/episodic hub, `identity` = the instance.
+coarse→fine left-to-right: `…·TWIG·leaf` (routing) then `family·identity`
+(basin). Display: uniform 4-hex groups, `…-twig-leaf-family-identity`.
 
 ## Deliverables (when greenlit — feature `guid-v2-tail`, default OFF)
 
-- **D-GV2-1** `canonical_node` v2 layout behind `#[cfg(feature="guid-v2-tail")]`: 3×u16 tail accessors + `leaf()`, `new` arity, `local_key`, `decode`/`GuidParts`, `Display`. v1 stays default. **Field-isolation matrix test** (write each tier, assert all others unchanged) + `ENVELOPE_LAYOUT_VERSION` bump + v1→v2 version gate (`I-LEGACY-API-FEATURE-GATED`).
-- **D-GV2-2** `family → Codebook` registry (sibling of `classid → ClassView` in `lance-graph-ontology`): `LazyLock`/Lance-backed, masked-load lookup, head-only. 256-entry cap + split-on-overflow guard.
+- **D-GV2-1** `canonical_node` v2 layout behind `#[cfg(feature="guid-v2-tail")]` — u16 tiers at fixed offsets: classid `0..4`, HEEL `4..6`, HIP `6..8`, TWIG `8..10`, **leaf `10..12`**, **family `12..14`**, **identity `14..16`**. `leaf()`/`family()`/`identity()` return `u16`; `new` arity (+`leaf`); `local_key` = `family·identity` (4 bytes); `decode`/`GuidParts`; `Display` (uniform 4-hex groups). **`from_guid_prefix_v2` = `HEEL·HIP·TWIG·leaf`** (16 nibbles; classid is the separate codebook prefix). v1 stays default. **Field-isolation matrix test** (write each tier, assert all others unchanged) + `ENVELOPE_LAYOUT_VERSION` bump + v1→v2 version gate (`I-LEGACY-API-FEATURE-GATED`).
+- **D-GV2-2** `family → Codebook` registry = **episodic basin** (the codebook + the basin's accumulated supporting edges), sibling of `classid → ClassView` in `lance-graph-ontology`: `LazyLock`/Lance-backed, masked-load lookup, head-only. 256-entry cap + split-on-overflow guard. Mixin = O(1) reference to this basin (`E-MIXIN-IS-AN-ADDRESS-REFERENCE-NOT-A-COPY`).
 - **D-GV2-3** `soa_graph` per-family edge resolution: 12 in-family = 1-byte own-codebook index, 4 out-of-family = `(family,index)`; retire `family & 0xFF` collision-skip under v2.
 - **D-GV2-4** `aiwar` re-keyed on `leaf` (coarse node-type, 5 hubs) + per-family codebook (System/Stakeholder/… vocabularies) → resolves the "60 noisy families" on real data.
 - **D-GV2-5** cutover: flip default after the gating numbers + downstream (none today) confirmed; v1 → `#[deprecated]` no-op path with migration pointer.
