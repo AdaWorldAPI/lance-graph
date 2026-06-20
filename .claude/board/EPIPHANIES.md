@@ -1,3 +1,23 @@
+## 2026-06-20 — E-UNIFORM-MORTON-TILE-PYRAMID — making every GUID tier the same size (8×u16) makes the KEY, the per-family CODEBOOK, the VALUE tile, and the PERTURBATION pyramid all the SAME 2bit×2bit 4×4 Morton-tile primitive — so one kernel (Morton + AMX 4×4 BF16 GEMM), one distance (Morton common-prefix = HHTL hop), and one codebook shape (256×256 per tier) govern the whole substrate
+
+**Status:** FINDING (operator design lock, GUID-v2-tail, 2026-06-20).
+
+The v2 tail's payoff is not just "kills u24" — it's that **uniform tier size collapses four separate structures onto one tile primitive**:
+
+- **1 nibble = 2bit×2bit = a 4×4 Morton tile = `FAN_OUT`-16** (one HHTL level). The atom — the same `morton4(x,y)` interleave `domino.rs` already runs on the value side.
+- **1 u16 tier = 4 nibbles = a 256×256 Morton tile** (8 bits/axis) = OGAR's "256×256 centroid tile per tier" (`256 = 4⁴`; nibble-interleave = alternating-axis refinement = Morton in centroid space).
+- **8 u16 tiers = one stacked pyramid**, every tier identical in size/shape (`classid_hi·classid_lo·HEEL·HIP·TWIG·leaf·family·identity`).
+
+The same 4×4 Morton primitive then governs four things that were separate:
+1. **Key/address** — each tier a 256×256 tile; routing = descend tiles.
+2. **Codebook** — a 256×256 centroid tile per family (per-family scoping), selected by the family tier (itself a tile). D-GV2-2.
+3. **Value** — the domino BF16 4×4 Morton tile → AMX `TDPBF16PS` GEMM (shipped).
+4. **Perturbation/helix** — the stacked-pyramid (exponent=tier-level, location=Morton sub-tile, phase=deterministic, magnitude=stored) lands on the same grid (OGAR `guid-prefix-shape-routing.md` §4).
+
+Payoffs collapse to one each: **one kernel** (Morton addressing + the AMX 4×4 tile GEMM sweeps tiers / codebooks / values uniformly, no special-casing), **one distance** (Morton common-prefix depth = HHTL hop = `family_hop_count` = `E-MIXIN-IS-AN-ADDRESS-REFERENCE-NOT-A-COPY`'s "distance in the address"), **one codebook shape**. The 24+24 tail broke this uniformity (a u24 is neither a clean Morton tile nor u16-aligned); 16+16+16 restores it. Condition: only holds while every tier stays u16 (4-nibble = one 256×256 tile) and the codebook stays the 4⁴ centroid hierarchy (flat k-means-256 breaks the Morton prefix; `OGAR/CLAUDE.md` "Tier interpretation"). Cross-ref: `E-MIXIN-IS-AN-ADDRESS-REFERENCE-NOT-A-COPY`, `E-FAMILY-ADAPTER-EDGES-ARE-RENDER-STABLE`, OGAR canon "256×256 CENTROID TILE" + "Bipolar-phase pyramid", `domino.rs` (`morton4` + AMX tile GEMM), plan `guid-v2-tail-per-family-codebook-v1.md`.
+
+---
+
 ## 2026-06-20 — E-MIXIN-IS-AN-ADDRESS-REFERENCE-NOT-A-COPY — when group membership lives in the GUID ADDRESS (the family tier / the 16 family-adapter bytes) and shared state lives ONCE on the family-node basin, a mixin / multiple-membership is O(1) (a byte reference) not O(n) (materialized inherited edges), and inter-node distance is HHTL hop arithmetic on the address, never a BFS over edges — "distance is in the address/hops"
 
 **Status:** FINDING (perennial; operator design lock, GUID-v2-tail plan, 2026-06-20).

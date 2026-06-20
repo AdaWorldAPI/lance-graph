@@ -83,6 +83,21 @@ distance O(1) (address arithmetic). This is what avoids the O(n) edge explosion
 that kills naive multiple-inheritance / multi-group graphs. Captured as
 `E-MIXIN-IS-AN-ADDRESS-REFERENCE-NOT-A-COPY`.
 
+## Everything folds into one Morton tile (operator, 2026-06-20)
+
+Uniform tier size is the real prize: **1 nibble = 2bit×2bit = a 4×4 Morton tile
+= `FAN_OUT`-16; 1 u16 tier = a 256×256 Morton tile (`256 = 4⁴`); 8 tiers = one
+stacked pyramid.** The same 4×4 Morton primitive then governs the **key** (each
+tier a tile, routing = descend tiles), the **per-family codebook** (a 256×256
+centroid tile per family, D-GV2-2), the **value** (the shipped `domino.rs` BF16
+4×4 Morton tile → AMX `TDPBF16PS`), and the **perturbation/helix pyramid** —
+collapsing to one kernel (Morton + AMX tile GEMM), one distance (Morton
+common-prefix = HHTL hop = `family_hop_count`), one codebook shape. The 24+24
+tail broke this (u24 ≠ a clean Morton tile, not u16-aligned); 16+16+16 restores
+it. Captured as `E-UNIFORM-MORTON-TILE-PYRAMID`. (Only holds while tiers stay
+u16 and the codebook stays the 4⁴ centroid hierarchy — flat k-means-256 breaks
+the Morton prefix.)
+
 ## Resolved decision (operator, 2026-06-20)
 
 `leaf` = the **4th HHTL routing tier** (the natural cascade terminal), NOT a
