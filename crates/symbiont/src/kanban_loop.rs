@@ -16,10 +16,20 @@
 //! Evaluation → Commit` (absorbing → halt). The scheduler PROPOSES (`&view`); the
 //! owner DISPOSES (`&mut`) — R1 read/write split, the same as in the contract.
 //!
-//! DEFERRED (named, shipped types to swap in): the real Lance subscription
-//! (`lance-graph` `LanceVersionScheduler::drive_at_latest` / callcenter
-//! `LanceVersionWatcher::wait_changed`), the ractor `Actor` wrapper (pattern off
-//! `lance-graph-supervisor` `StubConsumerActor`), and the SurrealQL re-read
+//! OWNERSHIP (operator, 2026-06-20): ractor is the **runtime ownership
+//! guarantee**, NOT a message bus — "the mailbox-as-owner ... Rust move/ownership
+//! semantics prove no aliasing / no data race / no use-after-free at compile
+//! time" (CLAUDE.md E-CE64-MB-4; PR #477: nothing is serialized or transmitted
+//! between mailboxes). So there is **no ractor message actor here and no tokio**:
+//! `SymbiontBoard`'s single `&mut self` owner IS that guarantee, in plain Rust —
+//! ractor would host the exact same ownership in prod (a structural/dummy
+//! wrapper, never a message handler). `step()` drives the loop by direct owned
+//! mutation, never by sending a message.
+//!
+//! DEFERRED (the genuinely-live half — both need a live Lance dataset): replace
+//! the `u32` `version_tick` with the real Lance version stream
+//! (`LanceVersionScheduler::drive_at_latest` over `VersionedGraph::versions()` /
+//! callcenter `LanceVersionWatcher`), and wire the SurrealQL re-read
 //! (`surreal_container::view::read_via_kv_lance`).
 
 use lance_graph_contract::canonical_node::NodeRow;
