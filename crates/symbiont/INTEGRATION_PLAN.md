@@ -1,0 +1,208 @@
+# Integration plan — loose ends → the Spain-grid acceptance gate
+
+Status legend: ☐ open · ◐ in progress · ☑ done (this session) · ⊘ blocked (waiting on an upstream/dep change)
+
+---
+
+## Done this session (the foundation)
+
+- ☑ **ractor messaging compiles.** `MessagingErr::Saturated` handled at all
+  three match sites (`actor.rs`, `thread_local/inner.rs`, `derived_actor.rs`).
+  This is the kanban backpressure valve. (AdaWorldAPI/ractor#2, merged.)
+- ☑ **kv-lance feature gates proven + documented.** Lite-unified surreal
+  compiles without RocksDB/C++ storage. (AdaWorldAPI/surrealdb#47, #48, merged.)
+- ☑ **Golden image compiles + links — TWICE, both green.** (1) local-path build:
+  `cargo build` exit 0, 19m18s, 912 packages. (2) **Portable git-deps build**
+  (the living-harness config — surrealdb/OGAR `main`, ndarray `master`, ractor
+  `jirak`): `CARGO_EXIT=0`, 12m52s, `target/debug/symbiont` 4.3 MB, runs + prints
+  the linked-stack line. Unified `lance 7.0.0 / lance-index 7.0.0 / lancedb
+  0.30.0 / datafusion 53.1.0 / arrow 58`, **no lance-6/7 split.** (A compile
+  milestone — it proves the stack composes on the lockstep pins; it proves
+  nothing about runtime data flow; see the loose-end ledger below.)
+- ☑ **Perturbation-sim NaN foundations.** `cascade.rs` preserve-last-finite
+  abort + `perturbation_shape_is_always_finite` test; `stats.rs` empty-slice
+  guards on `mean`/`pop_var`. (lance-graph, merged.)
+
+---
+
+## Council findings (5+3 hardening, 2026-06-19) — read before §A
+
+An 8-agent council (5 research + 3 brutal reviewers) audited the gap between
+"compiles" and the win condition. The one finding everything reduced to:
+
+> **The five crates are linked into one binary with ZERO runtime edges
+> between them.** "Compiles" proves the dependency graph; it proves nothing
+> about data flow. There are **three incompatible "node" representations and
+> no adapter between any of them:**
+> 1. canonical `NodeRow` (4096-bit, `lance-graph-contract::canonical_node`) — what the win condition means by "16K-node SoA"
+> 2. `VersionedGraph::NodeSchema` (SPO triple planes, `FixedSizeBinary(2048)`, `blasgraph/columnar.rs`) — what `LanceVersionScheduler` *actually* reads today
+> 3. perturbation-sim's `Grid`/`PerturbationShape` (plain `f64`) — what the cascade produces
+
+**☐ D0 — PREREQUISITE DECISION (gates all of §A): pick which representation
+"the 16K-node SoA" is.** A2 says "canonical 4096-bit node"; the only wired
+Lance substrate (`VersionedGraph`) uses a *different* SPO-plane schema. They
+cannot both be "the 16K-node SoA." Decide canon (`NodeRow`) and the §A work
+targets it; until written down, the Grid→substrate bridge can't be aimed.
+
+**Corrected prerequisite chain** (the plan's flat checkboxes hid these):
+`D0 (pick representation)` → `A1 fixture` (also: create the `tests/` dir — it
+doesn't exist) → `#1 perturbation-sim gains lance-graph-contract dep` →
+`A2 Grid→NodeRow bridge` → `#3 NodeRowPacket→Lance writer` → `A3/A4`.
+`C2` (clippy, §C) is independent and **failing now** — cheapest to clear.
+The entire kanban loop (ractor scheduler, jitson dispatch, surrealdb version
+stream) is **genuinely post-gate** — the 3-part gate needs none of it.
+
+**Key-encoding probe (gates whether A2 is mechanical):** the *value* side of
+the bridge is a 0-friction OPPORTUNITY (`basin.rs::as_row()[5]` +
+`buffer.rs::inertia_buffer_column()` → `ValueTenant` slots, algebra aligned).
+The *key* side is WORTH-EXPLORING: `hhtl.rs::HhtlKey` is the binary-Cheeger
+1-bit/tier instance, **not** OGAR's 16-ary/256-centroid production key — it
+type-aligns (`u16×3`) but isn't prefix-routable. Probe first: does the binary
+key give acceptable HHTL routing locality on the Spain grid, or must the
+centroid encoder (compose `basin.rs::spectral_embedding` + `splat.rs::morton2`)
+be built before A4's cascade routing is meaningful?
+
+**Honesty corrections applied to the docs (overclaim-auditor):** the README
+no longer states the substrate "carries" Spain's grid in present tense; the
+build milestone is scoped to compile/link (done) vs data-flow (not); the
+"912 packages" claim is scoped to resolution+build, with the two-`object_store`
+caveat noted.
+
+### Reviewer findings — golden-image setup correctness (P0/P1 reviewers)
+
+Verdicts: brutally-honest-tester = **HOLD**, baton-handoff-auditor =
+**CATCH-LATENT**. The image links cleanly today; these harden it into a
+*reproducible* foundation. None blocks the current green build.
+
+- **☑ R1 — ndarray duplication: ACCEPTED as cosmetic (decision 2026-06-19).**
+  The graph links two ndarray-fork instances (surrealdb-core's git rev +
+  lance-graph's path) plus the real crates.io `ndarray 0.16.1` lance-index
+  legitimately needs. The 5+3 council confirmed **no ndarray type crosses the
+  surrealdb↔lance-graph seam**, so the duplication never manifests at a call
+  boundary — pure binary-size cosmetics, not a correctness issue. The proven
+  green build (912 packages, exit 0) had exactly this shape.
+  **Two fixes were tried and rejected:** (a) relabeling the shared fork's
+  version `0.17.2→0.16.1` — dirty, lies about the fork's identity to every
+  consumer; (b) vendoring lance-index + bumping its one ndarray req to `0.17`
+  — honest but adds 126 vendored files + an unproven compile for a non-problem.
+  **Resolution: leave the duplicate.** Revisit only if a real workload needs to
+  pass an ndarray type across the surrealdb↔lance-graph boundary (then the
+  clean route is the AdaWorldAPI lance-index fork bumped to ndarray 0.17).
+- **☑ R2 / R3 — SUPERSEDED by the living-harness reframe (2026-06-20).** These
+  asked to commit `symbiont/Cargo.lock` and pin git-deps to exact `rev`s for
+  byte-reproducibility — the **snapshot** model the operator explicitly rejected
+  ("a Dockerfile + Cargo that actually RUNS the *current* substrate, pending
+  integration"). The golden image is a *living* harness: it re-resolves to each
+  fork's canonical branch tip every build. `Cargo.lock` is now `.gitignore`d; the
+  `[patch]` is gone (surrealdb consumers align on `main` → one source; cargo
+  forbids patching a url to itself anyway). See EPIPHANIES
+  E-GOLDEN-IMAGE-IS-A-LIVING-HARNESS.
+- **☑ R4 — surrealdb lance-7 witnessed GREEN.** The git-deps build resolved
+  surrealdb-core's `kv-lance` against `lance 7.0.0 / lance-index 7.0.0 / lancedb
+  0.30.0` cleanly — the fork's `main` manifest pins `=7.0.0` (verified). The
+  earlier "resolves lance 6" worry was the **stale `jirak` branch**, not `main`.
+  `TD-SURREALDB-KVLANCE-LANCE7` is **PAID**. Residual (surrealdb-fork CI
+  housekeeping, not ours): the fork's own committed `Cargo.lock` may still
+  resolve lance 6 — regenerate it in the fork so its CI exercises lance 7.
+- **note — absolute paths are deliberate** (`publish = false`); the image is
+  intentionally machine-pinned to `/home/user/{...}`. Switch to relative
+  (`../`) only if portability is wanted.
+
+**NaN coverage (reviewer-confirmed, strong):** `cascade.rs:146` finite-guard,
+`perturbation.rs` `FRAGMENTATION_SENTINEL = +∞` (deliberately not NaN,
+finiteness-checkable), `eigen.rs:123` div-guard, `stats.rs` divisor floors.
+One real P2 gap: a `+∞` sentinel reaching `stats::pearson` makes `saa*sbb=+∞`
+→ `sqrt`→ ratio → **NaN**, and the `<1e-12` guard does NOT catch `+∞`. Add an
+`is_finite` filter at the stats boundary + a `pearson_rejects_nonfinite` test.
+This folds into §B (the NaN-free win condition).
+
+## The acceptance gate (the biggest goal)
+
+> **16K-node SoA substrate carries every Spanish electricity node; the
+> perturbation cascade runs NaN-free; `cargo clippy` + `cargo machete` clean.**
+
+### A. Substrate carries the Spanish grid
+
+- ☐ **A1 — source the Spanish grid topology.** REE / ENTSO-E node + line
+  list (buses, lines, transformers, susceptances). Deterministic fixture
+  checked into `perturbation-sim/tests/fixtures/` (no network at test time).
+- ☐ **A2 — map each grid node → one canonical 4096-bit node.**
+  `key(16) = classid(u32) | HEEL | HIP | TWIG | family(u24) | identity(u24)`.
+  Grid nodes start in the default basin (classid=0, family=0); `identity`
+  alone discriminates (16.7M capacity — Spain's ~10³–10⁴ buses fit trivially).
+  Edges (12 in-family + 4 out-of-family) carry the line adjacency.
+- ☐ **A3 — load the grid into a `MailboxSoA` view over a Lance dataset.**
+  The 16K-node column is the Lance-backed SoA; this is where `kv-lance`
+  earns its place (zero-copy columnar, versioned).
+- ☐ **A4 — run the cascade over the full node set.** `cascade.rs`
+  (Weyl/Davis-Kahan spectral perturbation ∘ DC-power-flow/LODF) +
+  `basin.rs` (Kron-reduced cross-border super-nodes) + `scorecard.rs`
+  (ES `policy_mult` 1.3, `H` 2.0). Output: the perturbation SHAPE per node.
+
+### B. NaN-free, enforced
+
+- ☐ **B1 — NaN linter guard.** A clippy lint / debug-assert pass that fails
+  if any `f32`/`f64` in the cascade, spectral step, or scorecard is non-finite.
+  Build on the existing `is_finite()` guards; promote them to a checked
+  invariant at module boundaries (not just the cascade loop).
+- ☐ **B2 — property test over the grid fixture.** Extend
+  `perturbation_shape_is_always_finite` to the full Spain fixture (every
+  node, every cascade round) — the regression that proves B1 holds on real
+  topology, not just synthetic input.
+
+### C. Tight graph
+
+- ☐ **C1 — `cargo machete` clean.** Run with
+  `--manifest-path crates/symbiont/Cargo.toml` (and on `perturbation-sim`).
+  Note: machete is **report-only by default** — it lists unused deps and exits
+  non-zero, but only `--fix` actually edits `Cargo.toml`. The catch for
+  symbiont: `main.rs` only prints a probe line, so its direct deps (lance-graph,
+  perturbation-sim, ractor, surrealdb-core, ogar-*) ARE the integration payload
+  — exactly what forces the golden-image link — so machete will (correctly)
+  report them as unused and **fail a "machete clean" gate**. Whitelist them via
+  `[package.metadata.cargo-machete] ignored = [...]` so the report passes; never
+  `--fix` them away (the build would pass while exercising nothing).
+  Genuinely-unused deps elsewhere (e.g. in `perturbation-sim`) are the real
+  targets.
+- ☐ **C2 — `cargo clippy --all-targets -- -D warnings` clean.** NOTE:
+  `symbiont` has its OWN `[workspace]`, so a root-level `cargo clippy` SKIPS it
+  entirely — run from `crates/symbiont/` or add
+  `--manifest-path crates/symbiont/Cargo.toml`. First-party crates must be
+  clean; upstream (git-dep) warnings triaged, not gated.
+
+---
+
+## Other loose ends (post-gate)
+
+- ⊘ **surreal_container — version-unblocked, execution-blocked on wiring.**
+  `BLOCKED(C)` was a VERSION blocker (surrealdb `kv-lance` pinned lance 6) — now
+  RESOLVED: surrealdb `main` pins lance 7 and the golden image built green
+  against it. The residual is pure wiring: `surreal_container`'s surrealdb dep
+  is still commented out (D-PG-6 Rubicon kanban VIEW). Uncomment + wire; no
+  version work remains. (TECH_DEBT `TD-SURREALDB-KVLANCE-LANCE7` = PAID.)
+- ☐ **ndarray-simd in perturbation-sim.** Enable the `ndarray-simd` feature
+  (Walsh-Hadamard via ndarray AVX-512 under `target-cpu=x86-64-v4`) and
+  `[patch]` perturbation-sim's git ndarray to the local fork. Deferred from
+  the first image to keep the AVX/git-patch risk out of the initial compile.
+- ☐ **Kanban loop wiring.** Stand up `LanceVersionScheduler` (ractor) →
+  `KanbanMove(ExecTarget::Jit)` → jitson formula → `MailboxSoaView` write →
+  Lance commit. The perturbation cascade becomes the first *formula* the
+  scheduler dispatches.
+- ☐ **main.rs as a real harness.** Replace the probe `println!` with a CLI
+  that loads the grid fixture, runs the cascade, prints the scorecard, and
+  asserts finite — so `cargo run` IS the acceptance-gate demo.
+- ☐ **Optional: no-C++ image.** Drop S3 cloud object-store features + flip
+  `jsonwebtoken` to `rust_crypto` (see INSTALLATION.md). Nice-to-have only.
+
+---
+
+## Risks / watch-items
+
+- **Two `object_store` versions** appear in the resolved graph (lance vs
+  surrealdb transitive). Allowed by cargo (distinct majors); watch for any
+  public-type mismatch if they ever meet at an API boundary.
+- **Disk:** the full `target/` is multi-GB; build in one shared target dir,
+  clean sibling `target/`s (build residue, not research data) if headroom
+  drops below ~3 GB.
+- **edition 2024 (OGAR)** requires the 1.95 toolchain in the active override —
+  `rust-toolchain.toml` pins it; don't run the image build under 1.94.
