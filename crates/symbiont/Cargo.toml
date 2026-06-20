@@ -40,9 +40,11 @@ perturbation-sim = { path = "../perturbation-sim" }
 # ── external AdaWorldAPI forks: git deps, pinned to the shared dev branch ──
 ractor = { git = "https://github.com/AdaWorldAPI/ractor", branch = "claude/jirak-math-theorems-harvest-rfii13" }
 surrealdb-core = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "claude/jirak-math-theorems-harvest-rfii13", default-features = false, features = ["kv-lance"] }
-ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "claude/jirak-math-theorems-harvest-rfii13" }
-ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "claude/jirak-math-theorems-harvest-rfii13" }
-ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "claude/jirak-math-theorems-harvest-rfii13", features = ["surrealdb-parser"] }
+# OGAR tracks `main` (its jirak commit 3016c78 is an ancestor of main — main is a
+# strict superset; there is no separate OGAR jirak branch on github).
+ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main", features = ["surrealdb-parser"] }
 
 # OGAR git-deps surrealdb on its own branch (`main`); redirect ALL surrealdb
 # deps in the graph to the same branch we use, so it resolves to ONE surrealdb.
