@@ -1,0 +1,7 @@
+# Living integration harness — do NOT commit Cargo.lock.
+# Pinning the lock would freeze the git-deps to specific revs (the snapshot
+# anti-pattern the operator explicitly rejected). The harness must re-resolve to
+# each fork's canonical branch tip on every build, so the binary always reflects
+# the CURRENT substrate. See EPIPHANIES E-GOLDEN-IMAGE-IS-A-LIVING-HARNESS.
+/Cargo.lock
+/target
