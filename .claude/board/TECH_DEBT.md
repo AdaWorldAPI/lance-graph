@@ -52,6 +52,22 @@ enum, not a local rename. Canonical = the contract. Surfaced while grounding
 Deferred: cross-crate dep addition, out of scope for the convergence-probe
 increment. Same class as the resolved `CausalEdge64` shadow.
 
+### TD-CONTRACT-NOT-FMT-GATED — `lance-graph-contract` is not fmt-checked in CI (2026-06-20)
+
+**Open.** `.github/workflows/style.yml` runs `cargo fmt --check` only on
+`crates/lance-graph/` and `crates/deepnsm/` — NOT on `crates/lance-graph-contract/`.
+Consequence: merged PRs (symbiont / SoA work) have left rustfmt-1.9.0 drift in
+contract files — observed in `hhtl.rs:682`, `nan_projection.rs:125`, and
+`soa_graph.rs:{178,248,326,413}` (all whitespace/wrapping, behaviour-preserving).
+A local `cargo fmt -p lance-graph-contract -- --check` is therefore red on `main`
+even when a given PR's own files are clean. This has been re-discovered 3×
+(class_view.rs, nan_projection.rs, now hhtl/soa_graph) — recording it so the next
+session doesn't a 4th time. **Pay by** either adding a contract-crate `cargo fmt
+--check` step to `style.yml` (and a one-shot `cargo fmt -p lance-graph-contract`
+normalization commit), OR a deliberate decision to leave the contract crate
+ungated. Until then: leaf PRs keep their OWN files fmt-clean and do not reformat
+others' merged files (avoids muddied diffs + conflicts with in-flight PRs).
+
 ### TD-ONTOLOGY-LINT — `lance-graph-ontology` pre-existing clippy (12) on toolchain 1.95 (2026-06-18)
 
 `cargo clippy -p lance-graph-ontology -- -D warnings` exits 101 with 12 errors on the pinned 1.95 toolchain — all **pre-existing on `main`** (e.g. `odoo_blueprint/op_emitter.rs:182` is byte-identical on `origin/main`), in `hydrators/owl.rs` (2), `odoo_blueprint/op_emitter.rs` (1), `ttl_parse.rs` (3), + others. Mostly mechanical (`iter_cloned_collect` → `.to_vec()`, etc.). The crate is not in the CI clippy sweep ("CI tests 4 of ~30 crates"), so the debt accumulated un-gated. Surfaced while wiring `class_id_for_guid` (E-OGAR-ONTOLOGY-WIRED-1; `registry.rs` itself is clippy-clean + fmt-clean). Fix is a focused lint pass, out of scope for the wiring increment. Same class as `TD-CAUSAL-EDGE-LINT`.
