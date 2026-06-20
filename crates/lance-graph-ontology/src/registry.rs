@@ -31,16 +31,16 @@ use lance_graph_contract::hhtl::NiblePath;
 use lance_graph_contract::property::{Marking, SemanticType};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, RwLock};
+use std::sync::RwLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-// Codex P1 fix (2026-05-07): canonical namespace → ontology_context_id
-// lookup for `RegistryState::append`. The `seed_defaults()` constructor
-// is hot-path-cheap (allocates one HashMap on first call) and the
-// resulting registry is read-only thereafter, so a LazyLock is the
-// right primitive — no rebuild per append.
-static SEED_NAMESPACE_REGISTRY: LazyLock<NamespaceRegistry> =
-    LazyLock::new(NamespaceRegistry::seed_defaults);
+// Canonical namespace → ontology_context_id lookup for
+// `RegistryState::append`. Delegates to
+// [`NamespaceRegistry::seed_context_id`] (the public accessor), which
+// wraps a process-static `LazyLock<NamespaceRegistry>` constructed
+// from `seed_defaults()`. Bridges that synthesize SchemaPtrs use the
+// same accessor so the context_id stamping stays consistent across
+// the registry's append path and the bridge codebook path.
 
 /// The single ontology registry.
 pub struct OntologyRegistry {
@@ -613,9 +613,7 @@ impl RegistryState {
         // Look up the seeded context_id by namespace name and stamp it
         // onto the SchemaPtr so the dispatch gate can reach
         // MEDICAL/CALLCENTER for Healthcare / WorkOrder / Medical/* rows.
-        let ctx_id = SEED_NAMESPACE_REGISTRY
-            .get(&proposal.namespace)
-            .unwrap_or(0);
+        let ctx_id = NamespaceRegistry::seed_context_id(&proposal.namespace).unwrap_or(0);
         let schema_ptr = SchemaPtr::new(namespace_id, entity_type_id, kind).with_context_id(ctx_id);
 
         let semantic_type = match &proposal.kind {

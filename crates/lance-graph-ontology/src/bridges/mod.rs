@@ -1,6 +1,6 @@
 //! Default tenant bridge implementations.
 //!
-//! Six bridges ship today:
+//! Seven bridges ship today:
 //!
 //! - [`OgitBridge`]: pass-through bridge for tools that already speak raw
 //!   OGIT URIs. `bridge_id = "ogit"`. Locks to whatever namespace its
@@ -23,21 +23,37 @@
 //!   port (`openproject-nexgen-rs` + `op-canon`) with the scoped
 //!   registry view every consumer that touches OpenProject data on the
 //!   unified bridge goes through.
+//! - [`RedmineBridge`]: locks to the `Redmine` namespace. Public names
+//!   like `Issue` / `TimeEntry` / `Project` resolve to
+//!   `ogit.Redmine:*` URIs. Northstar plan §3 C5 — sibling of
+//!   `OpenProjectBridge` over the same 32 promoted concepts. Both
+//!   bridges synthesize EntityRefs whose `entity_type_id()` is the
+//!   shared OGAR codebook id for the canonical concept (so
+//!   `WorkPackage` and `Issue` both → `0x0102 project_work_item`),
+//!   delivering the cross-fork convergence pin.
+//!
+//! The shared codebook constants both project-management bridges
+//! reference live in [`codebook`] — single source of truth so the
+//! OpenProject port and the Redmine port can't drift on the same
+//! canonical concept's class_id.
 //!
 //! The `smb-bridge` and `callcenter-bridge` are NOT created in this
 //! session: smb stays on its native ontology fallback, callcenter has its
 //! own auth + per-customer scoping concerns that need a separate design pass.
 
+pub mod codebook;
 mod medcare_bridge;
 mod ogit_bridge;
 mod openproject_bridge;
+mod redmine_bridge;
 mod sharepoint_bridge;
 mod spear_bridge;
 mod woa_bridge;
 
 pub use medcare_bridge::MedcareBridge;
 pub use ogit_bridge::OgitBridge;
-pub use openproject_bridge::OpenProjectBridge;
+pub use openproject_bridge::{OpenProjectBridge, OPENPROJECT_CODEBOOK};
+pub use redmine_bridge::{RedmineBridge, REDMINE_CODEBOOK};
 pub use sharepoint_bridge::SharePointBridge;
 pub use spear_bridge::SpearBridge;
 pub use woa_bridge::WoaBridge;
