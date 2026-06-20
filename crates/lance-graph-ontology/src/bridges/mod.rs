@@ -9,6 +9,11 @@
 //!   `Customer`, `WorkOrder`, `Position` are translated via the registry
 //!   to the corresponding `ogit.WorkOrder:*` URIs.
 //! - [`MedcareBridge`]: locks to the `Healthcare` namespace.
+//! - [`OdooBridge`]: locks to the `Odoo` namespace. Companion to the
+//!   `OdooConsumerActor` skeleton in `lance-graph-supervisor` and the
+//!   four-way alignment seam in `lance_graph_callcenter::odoo_alignment`
+//!   (Seam decision 1 / Option B — odoo inherits FIBO families, no own
+//!   CAM codebook).
 //! - [`SpearBridge`]: locks to the `EmailCorrespondance` namespace. Used
 //!   by the spear columnar mail server with stalwart (IMAP/JMAP) and
 //!   SharePoint as upstream mail-orchestration producers — both feed the
@@ -43,6 +48,7 @@
 
 pub mod codebook;
 mod medcare_bridge;
+mod odoo_bridge;
 mod ogit_bridge;
 mod openproject_bridge;
 mod redmine_bridge;
@@ -51,6 +57,7 @@ mod spear_bridge;
 mod woa_bridge;
 
 pub use medcare_bridge::MedcareBridge;
+pub use odoo_bridge::OdooBridge;
 pub use ogit_bridge::OgitBridge;
 pub use openproject_bridge::{OpenProjectBridge, OPENPROJECT_CODEBOOK};
 pub use redmine_bridge::{RedmineBridge, REDMINE_CODEBOOK};

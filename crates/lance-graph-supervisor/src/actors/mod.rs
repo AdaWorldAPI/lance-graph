@@ -3,7 +3,8 @@
 //! Each active G slot has one actor. The `StubConsumerActor` (in `supervisor.rs`)
 //! serves as the skeleton. Concrete implementations live here:
 //!
-//! - `medcare_actor.rs` — `MedcareConsumerActor` (G=2, HEALTHCARE_V1, proof-of-concept)
+//! - `medcare_actor.rs` — `MedcareConsumerActor` (G=2,  HEALTHCARE_V1, proof-of-concept)
+//! - `odoo_actor.rs`    — `OdooConsumerActor`    (G=50, ODOO_V1,       proof-of-concept)
 //!
 //! Future:
 //! - `ogit_actor.rs`  — OgitBridge actor (G=4, SMB_V1)
@@ -16,5 +17,7 @@
 //! Arrow scalars) never cross the actor mailbox boundary.
 
 pub mod medcare_actor;
+pub mod odoo_actor;
 
 pub use medcare_actor::MedcareConsumerActor;
+pub use odoo_actor::OdooConsumerActor;

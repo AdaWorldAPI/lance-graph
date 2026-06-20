@@ -65,4 +65,4 @@ pub use supervisor::{
 };
 
 #[cfg(feature = "supervisor")]
-pub use actors::MedcareConsumerActor;
+pub use actors::{MedcareConsumerActor, OdooConsumerActor};
