@@ -1,3 +1,15 @@
+## 2026-06-20 — E-BINDSPACE-IS-A-NAN-PROJECTION-SURFACE — the singleton BindSpace is KILLED as a stateful carrier and survives ONLY as a read-only NaN-detection projection over the SoA
+
+**Status:** FINDING (green — `lance_graph_contract::nan_projection`, 3 probes pass in the zero-dep crate, sub-second).
+
+Operator (2026-06-20): "kill the singleton BindSpace; use it ONLY as a projection surface to have an NaN detection projection surface." Implemented: `nan_projection::project_energy_nonfinite(&[NodeRow]) -> NanReport` + `energy_all_finite` — a **read-only**, fixed-offset/fixed-stride sweep of the accumulator tenant, NaN/Inf decided by ONE integer exponent mask (`(bits & 0x7F80_0000) == 0x7F80_0000`), **no float load, SIMD-friendly**. The demoted BindSpace holds NO state and bundles NOTHING; it answers exactly one question — "did any board go non-finite this cycle?" — over the SoA NodeRows, with NaN logging of the offending board indices. Built + tested in the contract crate (the FAST inner loop the operator asked for — no full-stack rebuild to hunt NaN).
+
+**Tenant precision, settled:** F32 is the FAST tenant for NaN hunting; the F64 question (ISSUES `F64-TENANT-VS-F32-ENERGY`) is **resolved NOT-F64**. Operator follow-on pivot → **BF16 compute tenant + `add_mul` (FMA) + AMX** for a 4×4-Morton-tile Domino thinking-style POC; the same projection surface extends to a BF16 non-finite check (BF16 = top 16 bits of f32 → same exponent-all-ones test on the 8-bit exponent).
+
+Cross-ref: `nan_projection.rs`; E-NODE-IS-SOA-IS-KANBAN-BOARD; CLAUDE.md "AGI IS the struct-of-arrays" (SoA columns, not a singleton); AGENT_LOG BF16/AMX pivot.
+
+---
+
 ## 2026-06-20 — E-NODE-IS-SOA-IS-KANBAN-BOARD — each grid node is ONE whole SoA node (a `NodeRow` = a kanban board) and each external f64 is ONE internal typed `ValueTenant` — never a scalar in a shared slab, never raw value bytes; up to 16384 boards = 8 MiB zero-copy
 
 **Status:** FINDING (green — bridge rewritten to the operator's correction; 2 probes pass incl. the 16k/8-MiB scale). **Refines** E-FIRST-RUNTIME-EDGE-GREEN (below): the node→NodeRow + cascade-on-Grid + result-into-SoA framing stands; the ENCODING is corrected from raw `value[0..8]` to a typed tenant.

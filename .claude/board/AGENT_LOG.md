@@ -1,3 +1,15 @@
+## 2026-06-20 (cont.³) — NaN-detection projection surface (BindSpace demoted) + BF16/AMX/Domino pivot
+
+**Main thread (Opus), autoattended.** Operator: "kill the singleton BindSpace and use it only as a projection surface to have an NaN-detection projection surface"; then "use BF16 and add_mul where possible and use amx ... the 2bit×2bit 4×4 Morton tile AMX is our magic bullet to ... burn through some simple Domino thinking style ... very basic POC just to prove the SoA Orchestration."
+
+**Shipped (fast, contract crate):** `lance_graph_contract::nan_projection` — `project_energy_nonfinite`/`energy_all_finite`/`NanReport` + `f32_bits_nonfinite`. The demoted singleton BindSpace: a read-only fixed-offset/stride sweep of the accumulator tenant, NaN/Inf via one integer exponent mask, NaN-logging the offending boards. `cargo test -p lance-graph-contract nan_projection` 3/3 sub-second (no full-stack rebuild — the fast inner loop). Wired into symbiont's bridge (uncommitted; lands with the POC build). See EPIPHANIES `E-BINDSPACE-IS-A-NAN-PROJECTION-SURFACE`.
+
+**Resolved:** ISSUES `F64-TENANT-VS-F32-ENERGY` → NOT F64; F32 is the fast NaN tenant; compute pivots to BF16+AMX.
+
+**Pivot / next POC:** drop Spain/perturbation as the focus. Build a **very-basic SoA-orchestration POC**: a 4×4 (2bit×2bit Morton) BF16 tile per board, one **Domino thinking-style** step via ndarray **AMX** `TDPBF16PS` (or its scalar/SIMD fallback) + `add_mul`, swept across the SoA, NaN-projected finite. Dispatched a read-only explorer to map ndarray's BF16/AMX/`add_mul` + thinking-engine `domino` + how to seat a 4×4 BF16 Morton tile in a NodeRow tenant. POC build is the next increment (one symbiont assembly compile).
+
+---
+
 ## 2026-06-20 (cont.²) — D1 bridge corrected to the operator's SoA architecture (tenant + 16k boards)
 
 **Main thread (Opus), autoattended.** Operator correction: "every node → ONE SoA each; each external f64 → ONE internal SoA tenant; wire the perturbation as a thinking-style cascade; up to 16k SoA (8 MiB) = 16k kanban boards; planner SoA via a Lance subscription hook (surrealdb+ractor+lance-graph-planner)."

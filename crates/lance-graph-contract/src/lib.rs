@@ -71,6 +71,7 @@ pub mod literal_graph;
 pub mod mail;
 pub mod manifest;
 pub mod mul;
+pub mod nan_projection;
 pub mod nars;
 pub mod ocr;
 pub mod ontology;
