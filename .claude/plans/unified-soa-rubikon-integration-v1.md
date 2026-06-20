@@ -54,6 +54,14 @@ No copies, no per-subsystem mirror (R1 "one SoA never transformed").
   16384 nodes / 32768 edges from 512 KiB of heads, 7680 KiB of value slabs COLD;
   zero-value-decode proven by the `0xFF`-poison falsifiable probe. `SymbiontBoard`
   now materialises the contract's `edge_block_at`/`hhtl_path_at` key facets.
+- ✅ **OSINT family-adapter edges + Callcenter DataFusion/Gremlin + aiwar POC**
+  (follow-up to #557, codex P1 fixes rolled in) — `soa_graph` now reads the
+  `EdgeBlock` as **16×8-bit family-node adapters** (edges → families, collision-
+  aware; dissolves >255-member aliasing) + classid-filtered projection;
+  `lance-graph-callcenter::graph_table` (DataFusion `nodes`/`edges` MemTables) +
+  `graph_gremlin` (Gremlin/SurrealQL traversal); `contract::aiwar` ingests the
+  real `aiwar-neo4j-harvest` graph (221 entities → 60 family hubs). q2 wires the
+  GraphSnapshot → Quadro-2 visual. `E-FAMILY-ADAPTER-EDGES-ARE-RENDER-STABLE`.
 - ✅ **SoA-as-graph domain foundation for q2 (OSINT/Gotham + FMA)** —
   `contract::soa_graph` projects the head into the EXISTING `graph_render`
   Gotham/neo4j surface (`GraphSnapshot`): family nodes (u24 `family`),

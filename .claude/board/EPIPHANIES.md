@@ -1,3 +1,52 @@
+## 2026-06-20 — E-UNIFORM-MORTON-TILE-PYRAMID — making every GUID tier the same size (8×u16) makes the KEY, the per-family CODEBOOK, the VALUE tile, and the PERTURBATION pyramid all the SAME 2bit×2bit 4×4 Morton-tile primitive — so one kernel (Morton + AMX 4×4 BF16 GEMM), one distance (Morton common-prefix = HHTL hop), and one codebook shape (256×256 per tier) govern the whole substrate
+
+**Status:** FINDING (operator design lock, GUID-v2-tail, 2026-06-20).
+
+The v2 tail's payoff is not just "kills u24" — it's that **uniform tier size collapses four separate structures onto one tile primitive**:
+
+- **1 nibble = 2bit×2bit = a 4×4 Morton tile = `FAN_OUT`-16** (one HHTL level). The atom — the same `morton4(x,y)` interleave `domino.rs` already runs on the value side.
+- **1 u16 tier = 4 nibbles = a 256×256 Morton tile** (8 bits/axis) = OGAR's "256×256 centroid tile per tier" (`256 = 4⁴`; nibble-interleave = alternating-axis refinement = Morton in centroid space).
+- **8 u16 tiers = one stacked pyramid**, every tier identical in size/shape (`classid_hi·classid_lo·HEEL·HIP·TWIG·leaf·family·identity`).
+
+The same 4×4 Morton primitive then governs four things that were separate:
+1. **Key/address** — each tier a 256×256 tile; routing = descend tiles.
+2. **Codebook** — a 256×256 centroid tile per family (per-family scoping), selected by the family tier (itself a tile). D-GV2-2.
+3. **Value** — the domino BF16 4×4 Morton tile → AMX `TDPBF16PS` GEMM (shipped).
+4. **Perturbation/helix** — the stacked-pyramid (exponent=tier-level, location=Morton sub-tile, phase=deterministic, magnitude=stored) lands on the same grid (OGAR `guid-prefix-shape-routing.md` §4).
+
+Payoffs collapse to one each: **one kernel** (Morton addressing + the AMX 4×4 tile GEMM sweeps tiers / codebooks / values uniformly, no special-casing), **one distance** (Morton common-prefix depth = HHTL hop = `family_hop_count` = `E-MIXIN-IS-AN-ADDRESS-REFERENCE-NOT-A-COPY`'s "distance in the address"), **one codebook shape**. The 24+24 tail broke this uniformity (a u24 is neither a clean Morton tile nor u16-aligned); 16+16+16 restores it. Condition: only holds while every tier stays u16 (4-nibble = one 256×256 tile) and the codebook stays the 4⁴ centroid hierarchy (flat k-means-256 breaks the Morton prefix; `OGAR/CLAUDE.md` "Tier interpretation"). Cross-ref: `E-MIXIN-IS-AN-ADDRESS-REFERENCE-NOT-A-COPY`, `E-FAMILY-ADAPTER-EDGES-ARE-RENDER-STABLE`, OGAR canon "256×256 CENTROID TILE" + "Bipolar-phase pyramid", `domino.rs` (`morton4` + AMX tile GEMM), plan `guid-v2-tail-per-family-codebook-v1.md`.
+
+---
+
+## 2026-06-20 — E-MIXIN-IS-AN-ADDRESS-REFERENCE-NOT-A-COPY — when group membership lives in the GUID ADDRESS (the family tier / the 16 family-adapter bytes) and shared state lives ONCE on the family-node basin, a mixin / multiple-membership is O(1) (a byte reference) not O(n) (materialized inherited edges), and inter-node distance is HHTL hop arithmetic on the address, never a BFS over edges — "distance is in the address/hops"
+
+**Status:** FINDING (perennial; operator design lock, GUID-v2-tail plan, 2026-06-20).
+
+Naive multiple-inheritance / multi-group graphs explode: a node in N groups must materialize N inherited edge-sets (copy or link each) → O(n) per node, and "how far apart are A and B" is a BFS over those materialized edges. Both costs vanish when membership is **addressed, not materialized**:
+
+1. **A family node is an episodic basin.** The connections accumulated *on the basin* (its in/out edges) ARE the **supporting edges** of every member — the shared state lives ONCE, on the family-node row, not copied into each member.
+2. **A member mixes in a family by reference** — a 1-byte family-adapter slot (or the `family` tier of its own GUID), never a copy. N memberships = N adapter bytes (≤16), bounded. Adding a member to a rich basin is free: it inherits the basin's whole supporting-edge set by pointing at it. **Mixin = O(1).**
+3. **Distance is in the address.** Inter-node distance = HHTL hop count (`family_hop_count` / `common_prefix_depth`) computed from the two GUIDs — O(depth) arithmetic, never a graph traversal. "Distance is in the address/hops."
+
+So the three costs that kill multi-group graphs become: membership = O(1) (a byte), shared episodic state = stored once (the basin), distance = O(1) (address arithmetic). This is *why* the GUID-v2 tail (`leaf` HHTL tier · `family` basin · `identity` instance) + per-family codebooks is not just a layout tidy-up — it makes mixins and supporting-edge inheritance asymptotically cheap. The condition is strict: it only holds while membership stays in the head address (never a value-slab list) and the family basin owns the shared edges (never per-member copies). Cross-ref: `E-FAMILY-ADAPTER-EDGES-ARE-RENDER-STABLE` (the edge-resolution face), `E-ANCHOR-IS-A-HEAD-FIELD-NOT-A-VALUE-TYPE` (structure-in-the-head), `E-GUID-IS-THE-GRAPH`, plan `guid-v2-tail-per-family-codebook-v1.md` (D-GV2-2 episodic basin), OGAR codebook-scoping canon.
+
+---
+
+## 2026-06-20 — E-FAMILY-ADAPTER-EDGES-ARE-RENDER-STABLE — resolving graph edges to FAMILY nodes (16×8-bit family-node adapters) instead of to individual members trades a "mixin dependency" (a referenced family must exist) for two structural wins — extreme render stability (family hubs are fixed anchors, members attach to them, the layout doesn't churn) and the dissolution of the >255-member identity-byte aliasing (resolution is only ever family-level)
+
+**Status:** FINDING (perennial; operator model, shipped `contract::soa_graph` 16-adapter reading + `aiwar` POC, 2026-06-20).
+
+The merged `soa_graph` (PR #557) resolved the 12 in-family edge slots to individual sibling members by `identity & 0xFF`. Codex P1 #2 caught the flaw: a family with >255 members aliases on the low byte, so "first match" renders an edge to the *wrong* member by row order. The operator's fix is not a wider member index — it is a **reinterpretation**: read the canonical 16-byte `EdgeBlock` as **16 family-node adapter slots**, every byte resolving to a FAMILY (`family & 0xFF`), never an individual member.
+
+Why this is the right move, not just a bug patch:
+1. **The aliasing dissolves at the source.** There is no longer any member-level byte resolution — edges land on family nodes. The only remaining ambiguity is two families sharing a low byte (>256 families), handled by a collision-aware map that skips the ambiguous byte (never a wrong edge). 256 families "covers pretty much everything" for a POC; the prefix/HHTL route is the >256 escalation.
+2. **Render stability is structural.** Family nodes are fixed hubs; members attach to them (member-of) and adjacency is member→family. A force-directed layout anchored on a small stable set of family hubs does not churn frame-to-frame — the operator's "extreme render stability." This is the same stability `E-ANCHOR-IS-A-HEAD-FIELD` gives the FMA skeleton (bones = anchor families); the two epiphanies are the static (anchor) and dynamic (edge-resolution) faces of one principle: **structure lives on families, in the head.**
+3. **Flexibility + the one cost.** A node mixes in up to 16 family adjacencies (huge flexibility, any-to-any within 256). The named limitation is **mixin dependency**: a referenced family must exist or the slot is a dangling adapter (skipped). That is the honest trade — and it is cheap, because a missing family is a render no-op, not a corruption.
+
+The general rule for graph edges on this substrate: **resolve to the stable grouping (family), not the volatile leaf (member)** — unless a richer flavor (8×16-bit, 32×4 residue, member→member second-hop) is measured to be needed. Cross-ref: `E-ANCHOR-IS-A-HEAD-FIELD-NOT-A-VALUE-TYPE` (the static dual), `E-GUID-IS-THE-GRAPH`, the operator's deferred helix-basin-anchor (CLAM ⇄ Louvain turbovec edge residue) as the eventual richer flavor; `aiwar.rs` (the POC: 221 aiwar entities → 60 category family hubs).
+
+---
+
 ## 2026-06-20 — E-ANCHOR-IS-A-HEAD-FIELD-NOT-A-VALUE-TYPE — graph STRUCTURE (domain, family grouping, hierarchy, stability anchors, adjacency) must key off the 32-byte HEAD (classid / family / HHTL path), never the value slab; only then does the whole neo4j/Gotham view — and "FMA bones as stability anchor" — stay zero-value-decode at memory-scan speed
 
 **Status:** FINDING (perennial; shipped `contract::soa_graph` + `NiblePath::family_hop_count`, 2026-06-20).

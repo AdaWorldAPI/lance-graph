@@ -35,3 +35,10 @@ harness = false
 # cross-PR bridge between PR #278 audit log + PR #279 grammar trajectory.
 # No-op alias today; concrete impl lands once the bridge PR ships.
 trajectory-audit = []
+
+# guid-v2-tail (D-GV2-1, plan: guid-v2-tail-per-family-codebook-v1.md) — the v2
+# basin tail leaf(u16)·family(u16)·identity(u16) replacing v1 family(u24)·
+# identity(u24), leaf as the 4th HHTL tier. Default OFF; additive v2 accessors
+# (`leaf`/`*_v2`) coexist with v1 until cutover (D-GV2-5). Layout reclaim →
+# I-LEGACY-API-FEATURE-GATED (field-isolation matrix + version gate).
+guid-v2-tail = []

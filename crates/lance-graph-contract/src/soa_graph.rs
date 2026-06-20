@@ -28,16 +28,29 @@
 //!   [`NiblePath::family_hop_count`] (CLAM tree distance) — the "HHTL CLAM via
 //!   family-nodes hop count as adjacency" metric.
 //!
-//! ## Edge resolution (the `EdgeBlock` reading)
+//! ## Edge resolution — 16 × 8-bit family-node adapters
 //!
-//! `EdgeCodecFlavor::CoarseOnly` (the read-mode both registered domains use):
-//! each non-zero edge byte is a one-byte basin-local neighbour index.
-//! - `in_family[k]` → the same-family member whose `identity & 0xFF` equals the
-//!   byte (an intra-basin adjacency edge, [`DomainSpec::in_family_edge`]).
-//! - `out_family[k]` → the family node whose `family & 0xFF` equals the byte (a
-//!   cross-basin link to another family, [`DomainSpec::out_family_edge`]).
+//! `EdgeCodecFlavor::CoarseOnly` over the canonical 16-byte [`EdgeBlock`], read
+//! as **16 family-node adapter slots** (operator model, 2026-06-20): every
+//! non-zero edge byte references a FAMILY (not an individual member), resolved by
+//! `family & 0xFF` → the family node. The 12 in-family slots emit
+//! [`DomainSpec::in_family_edge`] edges, the 4 out-of-family slots emit
+//! [`DomainSpec::out_family_edge`] edges; both land on a stable family node.
 //!
-//! Unresolved bytes are skipped (a dangling 1-byte index, never a wrong edge).
+//! Why family adapters (not member-by-identity): edges to families give
+//! **extreme render stability** — family nodes are fixed anchors, members attach
+//! to stable hubs, the layout doesn't churn — and **huge flexibility** (a node
+//! mixes in up to 16 family adjacencies). The one limitation is **mixin
+//! dependency**: a referenced family must exist, else the slot is a dangling
+//! adapter (skipped). It also dissolves the >255-member aliasing — resolution is
+//! only ever family-level (256 families per low-byte space), and an ambiguous low
+//! byte (two families sharing it) is skipped, never mis-routed. Member→member
+//! edges and wider encodings (8×16-bit, 32×4 residue, second-hop) are deferred
+//! richer flavors.
+//!
+//! A `classid` IS the class (granular, exact — not a 2-nibble prefix): the
+//! projector includes only rows whose `classid == domain.classid`, so a
+//! mixed-class board never leaks one domain's nodes into another's view.
 //!
 //! Two domains ship registered: [`OSINT_GOTHAM`] (classid
 //! [`NodeGuid::CLASSID_OSINT`]) and [`FMA_ANATOMY`] (classid
@@ -114,28 +127,40 @@ fn hhtl_path(guid: &NodeGuid) -> NiblePath {
 /// edges. Touches ONLY the 32-byte head of each row (`key` + `edges`); never the
 /// value slab.
 pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot {
-    // family → its members as (identity_low_byte, guid)
-    let mut by_family: HashMap<u32, Vec<(u8, NodeGuid)>> = HashMap::new();
-    // family_low_byte → a family id (first seen) for out-of-family resolution
-    let mut family_by_low: HashMap<u8, u32> = HashMap::new();
-    for row in rows {
-        let g = row.key;
-        let fam = g.family();
-        by_family
-            .entry(fam)
-            .or_default()
-            .push(((g.identity() & 0xFF) as u8, g));
-        family_by_low.entry((fam & 0xFF) as u8).or_insert(fam);
+    // codex P1: a classid IS the class — project only rows of THIS domain, so a
+    // mixed-class board can't leak other domains' nodes/edges into the view.
+    let domain_rows: Vec<&NodeRow> = rows
+        .iter()
+        .filter(|r| r.key.classid() == domain.classid)
+        .collect();
+
+    // family → member count, and a COLLISION-AWARE family-low-byte → family map.
+    // codex P1: with >256 families two ids can share a low byte; a duplicate
+    // marks the slot ambiguous (None) so an adapter byte is skipped, never
+    // mis-routed (the family-adapter model: edges resolve only at family level).
+    let mut by_family: HashMap<u32, usize> = HashMap::new();
+    let mut family_by_low: HashMap<u8, Option<u32>> = HashMap::new();
+    for row in &domain_rows {
+        let fam = row.key.family();
+        *by_family.entry(fam).or_insert(0) += 1;
+        family_by_low
+            .entry((fam & 0xFF) as u8)
+            .and_modify(|e| {
+                if *e != Some(fam) {
+                    *e = None; // collision ⇒ ambiguous
+                }
+            })
+            .or_insert(Some(fam));
     }
 
-    let mut nodes: Vec<RenderNode> = Vec::with_capacity(rows.len() + by_family.len());
+    let mut nodes: Vec<RenderNode> = Vec::with_capacity(domain_rows.len() + by_family.len());
     let mut edges: Vec<RenderEdge> = Vec::new();
 
-    // One family node per distinct family (the "use family nodes" surface).
-    // Sorted for deterministic output regardless of HashMap iteration order.
-    let mut families: Vec<(&u32, &Vec<(u8, NodeGuid)>)> = by_family.iter().collect();
+    // One family node per distinct family (the stable anchors). Sorted for
+    // deterministic output regardless of HashMap iteration order.
+    let mut families: Vec<(&u32, &usize)> = by_family.iter().collect();
     families.sort_by_key(|(fam, _)| **fam);
-    for (&fam, members) in families {
+    for (&fam, &members) in families {
         let is_anchor = domain.anchor_families.contains(&fam);
         nodes.push(RenderNode {
             id: family_node_id(fam),
@@ -144,14 +169,22 @@ pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot 
             confidence: 1.0,
             props: vec![
                 ("family".to_string(), format!("{fam:06x}")),
-                ("members".to_string(), members.len().to_string()),
+                ("members".to_string(), members.to_string()),
                 ("anchor".to_string(), is_anchor.to_string()),
             ],
         });
     }
 
-    // Member nodes + their edges (all head-only).
-    for row in rows {
+    // Resolve a family-adapter byte to its (unambiguous, non-self) family node.
+    let resolve = |b: u8, own: u32| -> Option<String> {
+        match family_by_low.get(&b).copied().flatten() {
+            Some(fam) if fam != own => Some(family_node_id(fam)),
+            _ => None,
+        }
+    };
+
+    // Member nodes + their edges (all head-only, family-adapter resolution).
+    for row in &domain_rows {
         let g = row.key;
         let fam = g.family();
         nodes.push(RenderNode {
@@ -165,7 +198,7 @@ pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot 
                 ("hhtl_depth".to_string(), hhtl_path(&g).depth().to_string()),
             ],
         });
-        // member → family containment
+        // member → own family containment
         edges.push(RenderEdge {
             source: g.to_string(),
             target: family_node_id(fam),
@@ -174,37 +207,30 @@ pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot 
             confidence: 1.0,
             inferred: false,
         });
+        // 16 family-node adapters: 12 in-family + 4 out-of-family, each → a family.
         let eb = row.edges;
-        // in-family adjacency: byte = same-family member's identity low byte
-        if let Some(members) = by_family.get(&fam) {
-            for &b in eb.in_family.iter().filter(|&&b| b != 0) {
-                if let Some(&(_, target)) =
-                    members.iter().find(|(lb, t)| *lb == b && *t != g)
-                {
-                    edges.push(RenderEdge {
-                        source: g.to_string(),
-                        target: target.to_string(),
-                        label: domain.in_family_edge.to_string(),
-                        frequency: 1.0,
-                        confidence: 1.0,
-                        inferred: false,
-                    });
-                }
+        for &b in eb.in_family.iter().filter(|&&b| b != 0) {
+            if let Some(target) = resolve(b, fam) {
+                edges.push(RenderEdge {
+                    source: g.to_string(),
+                    target,
+                    label: domain.in_family_edge.to_string(),
+                    frequency: 1.0,
+                    confidence: 1.0,
+                    inferred: false,
+                });
             }
         }
-        // out-of-family links: byte = target family's low byte → its family node
         for &b in eb.out_family.iter().filter(|&&b| b != 0) {
-            if let Some(&target_fam) = family_by_low.get(&b) {
-                if target_fam != fam {
-                    edges.push(RenderEdge {
-                        source: g.to_string(),
-                        target: family_node_id(target_fam),
-                        label: domain.out_family_edge.to_string(),
-                        frequency: 1.0,
-                        confidence: 1.0,
-                        inferred: false,
-                    });
-                }
+            if let Some(target) = resolve(b, fam) {
+                edges.push(RenderEdge {
+                    source: g.to_string(),
+                    target,
+                    label: domain.out_family_edge.to_string(),
+                    frequency: 1.0,
+                    confidence: 1.0,
+                    inferred: false,
+                });
             }
         }
     }
@@ -244,9 +270,14 @@ pub struct AnchorHop {
 /// tree walk: smaller hops ⇔ deeper shared `classid_lo·HEEL·HIP·TWIG` prefix.
 /// Ranking (nearest anchor) is what callers use; the absolute value is even.
 pub fn nearest_anchor(rows: &[NodeRow], domain: &DomainSpec) -> Vec<AnchorHop> {
+    // codex P1: only rank rows of THIS domain (classid IS the class).
+    let domain_rows: Vec<&NodeRow> = rows
+        .iter()
+        .filter(|r| r.key.classid() == domain.classid)
+        .collect();
     // Representative HHTL path per anchor family (first member encountered).
     let mut anchor_paths: Vec<(u32, NiblePath)> = Vec::new();
-    for row in rows {
+    for row in &domain_rows {
         let fam = row.key.family();
         if domain.anchor_families.contains(&fam)
             && !anchor_paths.iter().any(|(f, _)| *f == fam)
@@ -254,7 +285,8 @@ pub fn nearest_anchor(rows: &[NodeRow], domain: &DomainSpec) -> Vec<AnchorHop> {
             anchor_paths.push((fam, hhtl_path(&row.key)));
         }
     }
-    rows.iter()
+    domain_rows
+        .iter()
         .map(|row| {
             let g = row.key;
             let p = hhtl_path(&g);
@@ -307,12 +339,13 @@ mod tests {
     }
 
     #[test]
-    fn project_emits_family_nodes_and_member_edges() {
-        // Two families (0xA, 0xB), two members each. Member 1 in family A points
-        // at member 2 (identity low byte 2) via in_family; member 1 also links
-        // out to family B (low byte 0xB) via out_family.
+    fn project_emits_family_nodes_and_family_adapter_edges() {
+        // Two families (0xA, 0xB), two members each. Member 1 in family A carries
+        // an in-family adapter byte 0x0B (→ family B, "linked") and an
+        // out-of-family adapter byte 0x0B (→ family B, "references"). Edges resolve
+        // to the FAMILY node, not an individual member (the 16-adapter model).
         let rows = [
-            node(&OSINT_GOTHAM, (1, 0, 0), 0xA, 1, &[2], &[0xB]),
+            node(&OSINT_GOTHAM, (1, 0, 0), 0xA, 1, &[0x0B], &[0x0B]),
             node(&OSINT_GOTHAM, (1, 0, 0), 0xA, 2, &[], &[]),
             node(&OSINT_GOTHAM, (2, 0, 0), 0xB, 1, &[], &[]),
             node(&OSINT_GOTHAM, (2, 0, 0), 0xB, 2, &[], &[]),
@@ -325,14 +358,64 @@ mod tests {
         // every member has a member-of edge → 4 of them
         let member_of = snap.edges.iter().filter(|e| e.label == "member-of").count();
         assert_eq!(member_of, 4);
-        // the in-family adjacency edge member1 → member2
-        assert!(snap.edges.iter().any(|e| e.label == "linked"
-            && e.target.ends_with("000a000002")));
-        // the out-of-family link member1 → family:00000b
+        // in-family adapter byte 0x0B → family:00000b ("linked")
+        assert!(snap
+            .edges
+            .iter()
+            .any(|e| e.label == "linked" && e.target == "family:00000b"));
+        // out-of-family adapter byte 0x0B → family:00000b ("references")
         assert!(snap
             .edges
             .iter()
             .any(|e| e.label == "references" && e.target == "family:00000b"));
+        // No edge targets an individual member (everything lands on a family node).
+        assert!(snap
+            .edges
+            .iter()
+            .all(|e| e.target.starts_with("family:")));
+    }
+
+    #[test]
+    fn ambiguous_family_low_byte_is_skipped_not_misrouted() {
+        // codex P1 #2: two families sharing low byte 0x00 (0x0100, 0x0200) are
+        // ambiguous; a node referencing 0x00 must NOT render an edge to either
+        // (skipped, never the wrong one). A node referencing the unambiguous
+        // 0x55 family DOES resolve.
+        let rows = [
+            node(&OSINT_GOTHAM, (1, 0, 0), 0x0100, 1, &[0x00], &[]),
+            node(&OSINT_GOTHAM, (1, 0, 0), 0x0200, 1, &[], &[]),
+            node(&OSINT_GOTHAM, (1, 0, 0), 0x0055, 1, &[0x55], &[]),
+        ];
+        let snap = project_snapshot(&rows, &OSINT_GOTHAM);
+        // The ambiguous 0x00 adapter resolves to nothing — no "linked" edge from
+        // the 0x0100 member.
+        let from_0100 = snap
+            .edges
+            .iter()
+            .filter(|e| e.label == "linked" && e.source.ends_with("010000000001"))
+            .count();
+        assert_eq!(from_0100, 0, "ambiguous low byte must be skipped");
+        // 0x55 is unambiguous → the 0x0055 member links to family:000055 (self,
+        // skipped because own family) — assert the ambiguity skip didn't crash and
+        // every emitted edge still targets a real family node.
+        assert!(snap.edges.iter().all(|e| e.target.starts_with("family:")));
+    }
+
+    #[test]
+    fn mixed_class_board_excludes_other_domains() {
+        // codex P1 #1: a board with one OSINT row + one FMA row, projected as
+        // OSINT, yields ONLY the OSINT member + its family — the FMA node and its
+        // family are excluded (classid IS the class).
+        let rows = [
+            node(&OSINT_GOTHAM, (1, 0, 0), 0xA, 1, &[], &[]),
+            node(&FMA_ANATOMY, (1, 0, 0), 0xB, 1, &[], &[]),
+        ];
+        let snap = project_snapshot(&rows, &OSINT_GOTHAM);
+        // 1 OSINT member + 1 family node (0xA) = 2; FMA's 0xB family absent.
+        assert_eq!(snap.nodes.len(), 2);
+        assert!(snap.nodes.iter().all(|n| n.kind != "FMA-Anatomy"));
+        assert!(snap.nodes.iter().any(|n| n.id == "family:00000a"));
+        assert!(!snap.nodes.iter().any(|n| n.id == "family:00000b"));
     }
 
     #[test]

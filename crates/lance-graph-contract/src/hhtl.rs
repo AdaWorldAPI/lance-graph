@@ -312,6 +312,27 @@ impl NiblePath {
         Self::from_packed(path, MAX_DEPTH)
     }
 
+    /// v2 GUID→path lowering (D-GV2-1, feature `guid-v2-tail`): the HHTL path is
+    /// `HEEL·HIP·TWIG·leaf` — 4 tiers × 4 nibbles = 16 nibbles = a full `u64`
+    /// NiblePath. `leaf` (the v2 4th tier) IS part of the routing path; `classid`
+    /// is the separate codebook prefix (not folded in), and `family`/`identity`
+    /// are the basin tail (NOT in the path). Two GUIDs differing only in
+    /// family/identity therefore share a path; differing in any HHT tier (incl.
+    /// `leaf`) do not — the property v2 hop-distance relies on.
+    #[cfg(feature = "guid-v2-tail")]
+    #[must_use]
+    pub const fn from_guid_prefix_v2(guid: &crate::canonical_node::NodeGuid) -> Self {
+        let path = ((guid.heel() as u64) << 48)
+            | ((guid.hip() as u64) << 32)
+            | ((guid.twig() as u64) << 16)
+            | (guid.leaf() as u64);
+        // 16 nibbles = full depth; from_packed is always Some at MAX_DEPTH.
+        match Self::from_packed(path, MAX_DEPTH) {
+            Some(p) => p,
+            None => Self::EMPTY,
+        }
+    }
+
     /// **Family hop count** — the CLAM tree distance to `other`: the number of
     /// edges between the two nodes through their lowest common ancestor in the
     /// 16ⁿ tree. `(self.depth − common) + (other.depth − common)` where `common =
@@ -671,6 +692,26 @@ mod tests {
         let a = NiblePath::root(0x1);
         assert_eq!(a.common_ancestor(NiblePath::EMPTY), None);
         assert_eq!(NiblePath::EMPTY.common_ancestor(a), None);
+    }
+
+    #[cfg(feature = "guid-v2-tail")]
+    #[test]
+    fn from_guid_prefix_v2_includes_leaf_not_basin_tail() {
+        use crate::canonical_node::NodeGuid;
+        let g = NodeGuid::new_v2(0xDEAD_BEEF, 0x1234, 0x5678, 0x9ABC, 0xDEF0, 0, 0);
+        assert_eq!(NiblePath::from_guid_prefix_v2(&g).depth(), 16);
+        // family/identity (basin tail) do NOT affect the path
+        let same = NodeGuid::new_v2(0xDEAD_BEEF, 0x1234, 0x5678, 0x9ABC, 0xDEF0, 0xFFFF, 0xFFFF);
+        assert_eq!(
+            NiblePath::from_guid_prefix_v2(&g),
+            NiblePath::from_guid_prefix_v2(&same)
+        );
+        // leaf IS in the path → changing it changes the path
+        let diff_leaf = NodeGuid::new_v2(0xDEAD_BEEF, 0x1234, 0x5678, 0x9ABC, 0x0EF0, 0, 0);
+        assert_ne!(
+            NiblePath::from_guid_prefix_v2(&g),
+            NiblePath::from_guid_prefix_v2(&diff_leaf)
+        );
     }
 
     #[test]

@@ -39,6 +39,7 @@ pub mod transaction;
 
 pub mod a2a_blackboard;
 pub mod action;
+pub mod aiwar;
 pub mod atoms;
 pub mod auth;
 pub mod callcenter;
