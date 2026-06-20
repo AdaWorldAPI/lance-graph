@@ -54,6 +54,16 @@ No copies, no per-subsystem mirror (R1 "one SoA never transformed").
   16384 nodes / 32768 edges from 512 KiB of heads, 7680 KiB of value slabs COLD;
   zero-value-decode proven by the `0xFF`-poison falsifiable probe. `SymbiontBoard`
   now materialises the contract's `edge_block_at`/`hhtl_path_at` key facets.
+- ✅ **SoA-as-graph domain foundation for q2 (OSINT/Gotham + FMA)** —
+  `contract::soa_graph` projects the head into the EXISTING `graph_render`
+  Gotham/neo4j surface (`GraphSnapshot`): family nodes (u24 `family`),
+  member/in-family/out-of-family edges, `nearest_anchor` via the new
+  `NiblePath::family_hop_count` (CLAM hop adjacency). Domains `OSINT_GOTHAM`
+  (`classid 0x0007`) + `FMA_ANATOMY` (`0x0008`, bones = anchor families)
+  registered in `BUILTIN_READ_MODES`. All structure head-only (anchor = `family`,
+  not value type → `E-ANCHOR-IS-A-HEAD-FIELD`). **Rendering deferred to the q2
+  session; Callcenter DataFusion/gremlin POC + OntologyRegistry ClassView labels
+  are the named next slices.**
 
 ---
 
