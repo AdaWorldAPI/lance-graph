@@ -148,15 +148,16 @@ This folds into §B (the NaN-free win condition).
 
 - ☐ **C1 — `cargo machete` clean.** Run with
   `--manifest-path crates/symbiont/Cargo.toml` (and on `perturbation-sim`).
-  **CAUTION — do NOT delete symbiont's direct deps.** `main.rs` only prints a
-  probe line, so symbiont's manifest entries (lance-graph, perturbation-sim,
-  ractor, surrealdb-core, ogar-*) ARE the integration payload — they are what
-  force the golden-image build to pull in the full Ada stack. machete will flag
-  them as unused; that is expected and intentional. Whitelist them via
-  `[package.metadata.cargo-machete] ignored = [...]` (or add real references in
-  `main.rs`) — never remove them, or the build passes while exercising nothing.
-  machete should only remove genuinely-unused deps elsewhere (e.g. in
-  `perturbation-sim`).
+  Note: machete is **report-only by default** — it lists unused deps and exits
+  non-zero, but only `--fix` actually edits `Cargo.toml`. The catch for
+  symbiont: `main.rs` only prints a probe line, so its direct deps (lance-graph,
+  perturbation-sim, ractor, surrealdb-core, ogar-*) ARE the integration payload
+  — exactly what forces the golden-image link — so machete will (correctly)
+  report them as unused and **fail a "machete clean" gate**. Whitelist them via
+  `[package.metadata.cargo-machete] ignored = [...]` so the report passes; never
+  `--fix` them away (the build would pass while exercising nothing).
+  Genuinely-unused deps elsewhere (e.g. in `perturbation-sim`) are the real
+  targets.
 - ☐ **C2 — `cargo clippy --all-targets -- -D warnings` clean.** NOTE:
   `symbiont` has its OWN `[workspace]`, so a root-level `cargo clippy` SKIPS it
   entirely — run from `crates/symbiont/` or add
