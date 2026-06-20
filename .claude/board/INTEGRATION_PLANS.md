@@ -1,3 +1,9 @@
+## 2026-06-20 — symbiont-battle-test-plan (substrate → SoA migration → cognition → scale; probes A1–E3)
+
+Plan: `crates/symbiont/BATTLE_TEST_PLAN.md`. Companion to `crates/symbiont/INTEGRATION_PLAN.md` (PR #555, merged). Sequencing: Phase A substrate probes run NOW (SoA-independent baseline); Phase B is the singleton-BindSpace→SoA migration with B2 bit-parity as the gate; Phases C/D/E (cognition / five-crate runtime edges / scale) run on the SoA. **Green so far:** D1 Grid→NodeRow bridge (first runtime edge); A1 finite-closure partial (`bridge.rs` + perturbation-sim). **North star:** E1 Spain-grid acceptance gate (N real nodes on the SoA, NaN-free). Status on STATUS_BOARD `symbiont-golden-image-harness`.
+
+---
+
 ## 2026-06-19 — ogar-ar-shape-endgame-v1 (the ontology compiler — curators teach, OGAR metabolizes, AST/ARM/DLL routes, ractor-Lance-SurrealDB-callcenter execute)
 
 **Status:** DOCTRINE-RATIFIED + PLAN-RATIFIED-with-required-remediations (5+3 council 2026-06-19 in plan §11). **Doctrine file:** `docs/OGAR_AR_SHAPE_ENDGAME.md` (operator-ratified, untouched by council). **Plan file:** `.claude/plans/ogar-ar-shape-endgame-v1.md` (5 Inc gates F1-F5 + Inc 3 SPLIT into 3a+3b + Inc 4 WEAKEN-or-DEFER + Inc 5 SPLIT into F5-smoke + F5-real). **PR:** #546. **Epiphany anchor:** `E-OGAR-AR-SHAPE-ENDGAME` (TOP of EPIPHANIES.md, dated 2026-06-19).

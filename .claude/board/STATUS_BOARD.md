@@ -8,7 +8,7 @@ The golden image (`crates/symbiont`, workspace-`exclude`d): the full Ada stack i
 | D1 | Grid→NodeRow bridge (perturbation cascade onto SoA) | symbiont/bridge.rs | **Shipped** | 2 probes green; demo 64 buses→64 NodeRows finite, 512-B zero-copy stride |
 | D2 | Kanban loop (`LanceVersionScheduler`→`KanbanMove`→SoA write→Lance commit) | symbiont + lance-graph-supervisor | Queued | — |
 | E1 | Spain-grid acceptance gate (real fixture, NaN-free, clippy+machete clean) | symbiont | Queued | the north star — first N *real* nodes on the SoA in parallel |
-| BT | Battle-test plan (probes A1–E3, gated behind singleton-BindSpace→SoA) | workspace | Queued | drafted; land as `BATTLE_TEST_PLAN.md` |
+| BT | Battle-test plan (probes A1–E3, gated behind singleton-BindSpace→SoA) | workspace | **Shipped (doc)** | `crates/symbiont/BATTLE_TEST_PLAN.md`; A1 partial-green + D1 green; A2–E3 specced |
 
 ---
 
