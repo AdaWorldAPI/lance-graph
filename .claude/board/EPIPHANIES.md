@@ -1,3 +1,17 @@
+## 2026-06-20 — E-SCENT-IS-NOT-READING — head/tail (and summaries/breadcrumbs) are a positional SCENT for routing, never a substitute for the read; mistaking the scent for comprehension is the student who skimmed the first and last chapter and wrote the essay anyway
+
+**Status:** FINDING (perennial).
+
+`head`/`tail`, a compaction summary, a doc's intro+footer — these are the 1-byte **Scent** tier (codec stack, ρ≈0.937) applied to prose: a cheap positional preview that *triages* ("is this the right file / section / does it concern me?") for ~free. That is its whole job. **It is not reading.** The failure mode is substituting the scent for comprehension — the student who reads chapter 1 + the conclusion and writes the essay anyway: fluent, confident, wrong. (`grep`/`sed -n`/`head` are *locators*, not comprehension; the workspace's Reading-Depth-Ladder + Lie-Detector LD-1..5 exist precisely to catch this.)
+
+Two consequences, both load-bearing:
+1. **Reading:** use the scent to ROUTE, then read what the task needs. Summaries + breadcrumbs are legitimate — *as routing*, not as the read. On doubt, upgrade depth, never downgrade.
+2. **Authoring (the dual):** because others WILL scent your doc, a load-bearing caveat must live IN the scent zone or be flagged out of it — never buried where only a full read finds it (why Gotcha 14 was placed mid-doc + cross-referenced, not left to a tail-skim). The same principle governs the codec stack AND how agents read each other's docs.
+
+Cross-ref: WoA `.claude/CLAUDE.md` Reading-Depth-Ladder + Lie-Detector; lance-graph CLAUDE.md "Read before Write"; codec Scent tier; ndarray `AMX_GOTCHAS.md` Gotcha 14 (the authoring consequence).
+
+---
+
 ## 2026-06-20 — E-DOMINO-SOA-ORCHESTRATION-GREEN — BF16 Morton-tile Domino POC proves SoA orchestration via the `ndarray::simd` polyfill; AMX is genuinely DISABLED on this guest (functional gates fail), so it runs the AVX-512 fallback, NaN-clean
 
 **Status:** FINDING (green — 3/3 tests + run; AMX-absence MEASURED at the functional gates, not assumed from CPUID).
