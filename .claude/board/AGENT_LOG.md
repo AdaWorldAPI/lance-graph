@@ -1,3 +1,11 @@
+## 2026-06-20 (cont.⁴) — D2 kanban loop (pure-SoA slice) green
+
+**Main thread (Opus), autoattended.** Scoped via a read-only explorer (the contract `kanban`/`soa_view`/`scheduler` surface is COMPLETE), then **read the actual files** (kanban.rs/soa_view.rs/scheduler.rs — after a self-caught scent-skim the operator flagged: I'd `grep`/`sed`'d instead of reading, the exact E-SCENT-IS-NOT-READING anti-pattern; corrected by reading in full).
+
+`crates/symbiont/src/kanban_loop.rs` (+ `domino::{seed_boards, domino_sweep, energy_of}` exposed; `main.rs` wires it). `SymbiontBoard` impls `MailboxSoaView` + `MailboxSoaOwner` over the existing `Vec<NodeRow>`; a `u32` `version_tick` stands in for the Lance subscription. The IN-direction loop runs verbatim from the contract: `tick → NextPhaseScheduler::on_version(view) → KanbanMove → try_advance_phase`, with `domino_sweep` (BF16 AMX-or-fallback) as the `CognitiveWork` phase. `cargo test -p symbiont` **7/7** (2 new: forward-arc-to-Commit incl. the −550 000 µs Libet anchor + monotonic cycle stamps; illegal-skip rejected no-mutation). `cargo run`: `mailbox 7 (64 boards) drove [CognitiveWork, Evaluation, Commit] … halted absorbing in 3 cycles; max Energy = 40.7930`. Incremental native build (contract untouched, 17s). **Zero new types** — reuses the complete contract kanban surface. STATUS_BOARD D2 = Shipped (slice). **Deferred (named):** live `LanceVersionScheduler`/`LanceVersionWatcher`, the ractor `Actor` wrapper, SurrealQL `read_via_kv_lance`.
+
+---
+
 ## 2026-06-20 (cont.³) — NaN-detection projection surface (BindSpace demoted) + BF16/AMX/Domino pivot
 
 **Main thread (Opus), autoattended.** Operator: "kill the singleton BindSpace and use it only as a projection surface to have an NaN-detection projection surface"; then "use BF16 and add_mul where possible and use amx ... the 2bit×2bit 4×4 Morton tile AMX is our magic bullet to ... burn through some simple Domino thinking style ... very basic POC just to prove the SoA Orchestration."

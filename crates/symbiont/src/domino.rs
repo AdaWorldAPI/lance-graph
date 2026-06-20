@@ -78,7 +78,7 @@ fn set_energy(row: &mut NodeRow, e: f32) {
     let off = en_off();
     row.value[off..off + 4].copy_from_slice(&e.to_le_bytes());
 }
-fn energy_of(row: &NodeRow) -> f32 {
+pub fn energy_of(row: &NodeRow) -> f32 {
     let off = en_off();
     f32::from_le_bytes(row.value[off..off + 4].try_into().expect("4 bytes"))
 }
@@ -179,6 +179,24 @@ pub fn run_poc(n_boards: usize, stages: usize) {
         energy_of(&rows[n_boards - 1]),
     );
     println!("  amx gate: {}", amx_report());
+}
+
+/// Seed `n` boards (each a Morton-addressed 4×4 BF16 tile). Public so the kanban
+/// loop (`kanban_loop::SymbiontBoard`) can spawn a mailbox over them.
+pub fn seed_boards(n: usize) -> Vec<NodeRow> {
+    (0..n).map(seed_board).collect()
+}
+
+/// Run a `stages`-deep Domino sweep over an existing board-set, in full 16-board
+/// AMX batches — the `CognitiveWork` phase of the kanban loop. A trailing partial
+/// batch (`n` not a multiple of 16) is left untouched.
+pub fn domino_sweep(rows: &mut [NodeRow], stages: usize) {
+    let w = weight();
+    for batch in rows.chunks_mut(BATCH) {
+        if batch.len() == BATCH {
+            domino_batch(batch, &w, stages);
+        }
+    }
 }
 
 #[cfg(test)]

@@ -10,6 +10,7 @@
 
 mod bridge;
 mod domino;
+mod kanban_loop;
 
 fn main() {
     println!(
@@ -22,4 +23,7 @@ fn main() {
     bridge::run_scale_demo(bridge::MAX_BOARDS);
     // The SoA-orchestration POC: 16-board AMX BF16 Morton-tile Domino batches.
     domino::run_poc(256, 3);
+    // D2 — the kanban loop: version-tick → NextPhaseScheduler → try_advance_phase,
+    // with the Domino sweep as the CognitiveWork phase over the SoA.
+    kanban_loop::run_demo();
 }
