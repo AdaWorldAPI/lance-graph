@@ -56,8 +56,28 @@ ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main", features = ["surrealdb-parser"] }
 
-# No [patch] needed: this dep and OGAR's transitive surrealdb (ast/parser/core)
-# all resolve to https://github.com/AdaWorldAPI/surrealdb#main — ONE source —
-# and cargo unions the features so kv-lance is enabled on the shared
+# The OGAR activation crate (in-repo, path) — the golden image's whole point is to
+# prove the FULL AR surface links: ogar-class-view's `impl lance_graph_contract::
+# ClassView` + the codebook parity-guard, not just raw ogar-vocab. Pulling this
+# crate (which transitively pulls ogar-class-view) is what makes the unified binary
+# exercise the Active-Record bridge. features=["surrealql-parser"] matches the
+# ogar-adapter-surrealql parser pin above (one surrealdb#main source).
+lance-graph-ogar = { path = "../lance-graph-ogar", features = ["surrealql-parser"] }
+
+# ── [patch] — unify lance-graph-contract to the ONE in-repo path copy ──
+# CONSUMER REQUIREMENT (codex P2, PR #564): `ogar-class-view` (pulled via
+# lance-graph-ogar) hard-git-deps `lance-graph-contract` @ AdaWorldAPI/lance-graph#main,
+# while this crate + lance-graph path-dep it. Cargo treats path and git as DISTINCT
+# crates even at the same version, so without this patch `OgarClassView` would impl
+# a DIFFERENT `ClassView` than the engine expects (won't typecheck). The patch
+# folds the git contract onto the path copy = exactly one contract source.
+# (Applies here because symbiont is the workspace root; lance-graph-ogar's own
+# identical patch is ignored when it is not the root.)
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+# No surrealdb [patch] needed: this crate's surrealdb-core and OGAR's transitive
+# surrealdb (ast/parser/core) all resolve to https://github.com/AdaWorldAPI/surrealdb#main
+# — ONE source — and cargo unions the features so kv-lance is enabled on the shared
 # surrealdb-core. (cargo forbids patching a git URL to the same git URL, which is
 # why the earlier jirak-redirect patch failed; aligning on main removes the need.)

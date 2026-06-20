@@ -1,3 +1,13 @@
+## 2026-06-20 — capstone-cognitive-loop-wiring-nan-census-v1 (PROPOSED)
+
+The measurement companion to the kanban×Rubicon tenant arc. **A measurement plan,
+not a build plan** — converts the operator's "99% present / 28% wiring gaps / 72%
+NaN" into THREE orthogonal measured quantities (piece-presence% / seam-wiring% /
+run-NaN%) over the phase-aligned cognitive loop. 7 seams (S1 kanban tenant … S7
+SoA self-NaN-census = "Orchestration meta-awareness"), each a CONJECTURE until its
+probe runs green. Wave 0 = measure the baseline on shipped code (the honest number
+behind 72% NaN). Plan: `.claude/plans/capstone-cognitive-loop-wiring-nan-census-v1.md`.
+
 ## 2026-06-20 — ogar-vocab ⇄ contract codebook migration (PROPOSED; surfaces a canon conflict)
 
 Plan: `.claude/plans/ogar-vocab-contract-codebook-migration-v1.md`. Closes the ontology→contract seam: OGAR `ogar-vocab` already defines the class-identity codebook (`CODEBOOK` domain-encoded `0xDDCC`, `ConceptDomain`, `source_domain_concept`, `canonical_concept_id`, `LabelDTO`) and its own doc says `LabelDTO` "long-term belongs in lance-graph-contract … codebook ids and the NodeGuid.classid u16 low half are wire-compatible." **Conflict surfaced:** merged `CLASSID_OSINT=0x0007` routes to OGAR's *Reserved* domain (OSINT is `0x07XX`), and `CLASSID_FMA=0x0008` sits in OGAR's OCR block (FMA/anatomy ≈ Health `0x09XX`). Target: contract hosts the codebook/`ConceptDomain`/`LabelDTO`, classids follow `0xDDCC` (mint project `0x01XX` + ERP `0x02XX`; realign OSINT→`0x0700`, FMA→Health). D-OVC-1..4. **Gated on operator sign-off (canon realign of merged OSINT/FMA + the OGAR↔contract dependency direction) — see plan §5.** Per-family codebook (D-GV2-2) is the finer scope of the same idea. Cross-ref ISSUES `ISS-CLASSID-OGAR-DRIFT`.

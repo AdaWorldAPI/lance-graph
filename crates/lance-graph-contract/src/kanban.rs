@@ -102,6 +102,22 @@ impl KanbanColumn {
     pub fn can_transition_to(self, to: KanbanColumn) -> bool {
         self.next_phases().contains(&to)
     }
+
+    /// Decode a stored discriminant (e.g. the `ValueTenant::Kanban` phase byte).
+    /// Unknown values fall back to [`Planning`](KanbanColumn::Planning) — the
+    /// zero-fallback default, consistent with the canon ladder.
+    #[inline]
+    #[must_use]
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => Self::CognitiveWork,
+            2 => Self::Evaluation,
+            3 => Self::Commit,
+            4 => Self::Plan,
+            5 => Self::Prune,
+            _ => Self::Planning,
+        }
+    }
 }
 
 /// One kanban transition: the planner's output unit and the ractor's lifecycle step.
@@ -164,6 +180,21 @@ pub enum ExecTarget {
     SurrealQl = 2,
     /// An Elixir-like declarative template.
     Elixir = 3,
+}
+
+impl ExecTarget {
+    /// Decode a stored discriminant (e.g. the `ValueTenant::Kanban` exec byte).
+    /// Unknown values fall back to [`Native`](ExecTarget::Native), the default.
+    #[inline]
+    #[must_use]
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => Self::Jit,
+            2 => Self::SurrealQl,
+            3 => Self::Elixir,
+            _ => Self::Native,
+        }
+    }
 }
 
 /// Error from [`crate::soa_view::MailboxSoaOwner::try_advance_phase`] when a requested
