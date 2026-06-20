@@ -73,6 +73,47 @@ The 5+3 council's headline was "five crates linked into one binary with ZERO run
 **Next edges:** Grid→NodeRow over a REAL Spain fixture (E1 acceptance gate); the kanban loop (D2: `LanceVersionScheduler` → `KanbanMove` → SoA write → Lance commit).
 
 Cross-ref: PR #555 INTEGRATION_PLAN D1; battle-test plan probes A1/B-series; STATUS_BOARD symbiont-golden-image-harness; `crates/symbiont/src/bridge.rs`.
+## 2026-06-20 — E-CPP-PARITY-5 — the UNICHARSET `other_case` (case-pair id, size-clamped) is byte-identical to libtesseract; the fifth leaf through PROBE-OGAR-ADAPTER-UNICHARSET
+
+**Status:** FINDING (in-env, real trained data). `lance_graph_contract::unicharset::UniCharSet::get_other_case` dumps the `eng.lstm-unicharset` per-id case-pair ids **byte-identical to tesseract's own `UNICHARSET::get_other_case`, 112/112** (same self-validating oracle, `other_case` mode). The fifth proven adapter surface; the second per-id integer field (after script id) and the first with a load-time **clamp**.
+
+**The transcode detail — a size-clamp with a size-valued default.** `other_case` is the case-paired unichar's id (`'C'` → the id of `'c'`), or the id itself when unpaired. Load clamps it (`unicharset.cpp:901`): `set_other_case(id, (other_case < size) ? other_case : id)` — a parsed value `>= size`, AND the absent-column default (`unicharset.cpp:813`, initialized to `size`), both fold to the id itself. So "no pair" and "out-of-range pair" collapse to self. `get_other_case` (`unicharset.h:703`) returns `INVALID_UNICHAR_ID` (-1) for an out-of-range id — distinct from the `null_sid_`-style 0 of `get_script`. The oracle confirmed 60/112 ids are self, 52 carry a real pair (e.g. id 3 `C`→87 `c`, id 4 `H`→97 `h`).
+
+**Column position without the full tier-parser (again).** `other_case` is the token immediately after the script token in every tier that carries it — so `other_case = token[4] if token[2] has a comma else token[3]` (one token past the script extractor), proven across eng's mixed tiers (tier-5 id 0 with no CSV: `NULL 0 Common 0` → other_case `0`; tier-1 ids with CSV). The remaining columns (direction/mirror/bbox/stats) sit *after* other_case and genuinely need the multi-tier fallback to place — that is the next, larger leaf. This is the last field cleanly reachable by token-offset alone.
+
+**Pattern holds (E-CPP-KEYSTONE-1).** +1 accessor + clamp + one `diff`, no new architecture, no Core gap. +4 contract tests (23 unicharset total); consumed by `tesseract-core::CharSet::get_other_case` (+1 boundary test, 6/6). Reproducible via the committed `examples/unicharset_dump.rs other_case`. Measure-before-assert held: the oracle's `other_case` dump defined the spec (incl. the 60-self / 52-pair split) before the Rust was written.
+
+Cross-ref: `E-CPP-PARITY-1/2/3/4` (the prior four leaves), `E-CPP-KEYSTONE-1`, `.claude/knowledge/core-first-transcode-doctrine.md`. Branch `claude/happy-hamilton-0azlw4`, lance-graph + tesseract-rs.
+
+---
+
+## 2026-06-20 — E-CPP-PARITY-4 — the UNICHARSET script table (`get_script` + the interned `add_script` table) is byte-identical to libtesseract; the fourth leaf through PROBE-OGAR-ADAPTER-UNICHARSET, and the first to transcode an INTERNING side-table
+
+**Status:** FINDING (in-env, real trained data). `lance_graph_contract::unicharset::UniCharSet::get_script` dumps the `eng.lstm-unicharset` per-id script ids **byte-identical to tesseract's own `UNICHARSET::get_script`, 112/112** — verified by the same self-validating oracle (bijection half = proven 112/112 layout check, then `./uniprops_oracle … script` diffs 0). The fourth proven adapter surface (after id↔unichar, properties, and the UNICHAR codec).
+
+**What's new vs the property leaf — an interned side-table, not a per-id field.** `get_script(id)` returns an *index* into a script-name table built by `add_script` (insertion-order dedup, `unicharset.cpp:1063`). The non-obvious transcode detail the oracle confirmed empirically (rather than my deriving it wrong): `null_script` ("NULL") is **always** interned at id 0 — not because the file lists it first, but because `unichar_insert` calls `set_script(id, null_script)` for EVERY entry (`unicharset.cpp:680`) *before* the loop sets the real script, so the very first insert seeds "NULL"→0 and `null_sid_ == 0` is an invariant (`unicharset.cpp:949-950`). Real scripts then intern from 1 in first-seen id order. On real eng: table = `["NULL","Common","Latin"]`, and the space char (id 0, the `NULL`→space token) carries script "Common" (sid 1), not the null script. The Rust mirrors this by interning `NULL_SCRIPT` first every iteration (idempotent) then the parsed script.
+
+**Column-tier handling without the full multi-tier parser.** The script token's position varies (`unicharset.cpp:833-868` has 5 fallback tiers): on real eng, id 0 is tier-5 (`script other_case`, no bbox CSV) while most ids are tier-1/2 (full bbox+stats CSV). But script is ALWAYS the token immediately after the optional CSV, so `script = token[3] if token[2] contains ',' else token[2]` extracts it for every tier present — proven by the 112/112 diff across the mixed-tier real file. The remaining columns (other_case/mirror/direction/bbox/stats) DO need the full tier parser; that's the next leaf, deliberately scoped out here.
+
+**Methodology note (let the oracle teach the interning).** Rather than hand-derive the script numbering and risk an off-by-one on the null-seed, I extended the oracle with a `script` mode that prints the table to stderr (`sid 0=NULL, 1=Common, 2=Latin`) and the per-id ids to stdout, READ the truth, then wrote the Rust to match. This is the measure-before-assert discipline applied to a transcode: the falsifier defined the spec.
+
+**Pattern holds (E-CPP-KEYSTONE-1).** Still "repetition of a validated pattern": +1 accessor family (now with a backing intern table) + one `diff`, no new architecture, no Core gap (the table rides the content tier; the adapter holds no state). +4 contract tests (19 unicharset total); consumed by `tesseract-core::CharSet::{get_script,script_of}` (+1 boundary test, 5/5). Reproducible via the committed `examples/unicharset_dump.rs script`.
+
+Cross-ref: `E-CPP-PARITY-1/2/3` (the prior three leaves), `E-CPP-KEYSTONE-1` (end-to-end), `.claude/knowledge/core-first-transcode-doctrine.md`. Branch `claude/happy-hamilton-0azlw4`, lance-graph + tesseract-rs.
+
+---
+
+## 2026-06-20 — E-CPP-PARITY-3 — the UNICHARSET property accessors (`get_is{alpha,lower,upper,digit,punctuation}`) are byte-identical to libtesseract; the third leaf through PROBE-OGAR-ADAPTER-UNICHARSET
+
+**Status:** FINDING (in-env, real trained data). `lance_graph_contract::unicharset::UniCharSet`'s property family dumps the `eng.lstm-unicharset` per-id category bits **byte-identical to tesseract's own `UNICHARSET::get_is*` accessors, 112/112** — every id's `(isalpha, islower, isupper, isdigit, ispunctuation)` tuple. This is the THIRD adapter surface proven after `UniCharSet` id↔unichar (E-CPP-PARITY-1) and the `UNICHAR` codec (E-CPP-PARITY-2): the core-first transcode now covers a content-store tier, a pure codec, AND a per-entry property decode.
+
+**The transcode.** Tesseract parses the second whitespace token of each line as a hex bitmask (`unicharset.cpp:824`, `stream >> std::hex >> properties`) and sets each flag via `set_is*(id, properties & MASK)` (`unicharset.cpp:888-892`); masks are `ISALPHA=0x1 ISLOWER=0x2 ISUPPER=0x4 ISDIGIT=0x8 ISPUNCTUATION=0x10` (`unicharset.cpp:41-45`). The Rust loader now parses + stores that byte (masked to the 5 meaningful bits) parallel to `reverse`, and the accessors mirror the C++ inline guard (`unicharset.h:497+`): out-of-range id (the `INVALID_UNICHAR_ID` sentinel) → `false`, else the stored bit. `is_ngram` is always-false on the plain-table load path (`unicharset.cpp:893`), faithfully reproduced.
+
+**The self-validating oracle (handles a real version skew honestly).** The in-env libtesseract is **5.3.4** with NO installed dev headers; the source tree is **5.5.0**. Compiling 5.5.0 headers against the 5.3.4 lib is an ABI hazard (the lib's `load_from_file` fills a struct my header-inlined accessors then read). Rather than assume it safe, the oracle (`/tmp/uniprops_oracle.cpp`, links `-ltesseract`) dumps BOTH halves: the id↔unichar **bijection** (for which E-CPP-PARITY-1 is a proven 112/112 Rust reference) AND the new properties. Step 1: the bijection half diffed **0 differences** vs the Rust `dump()` → the 5.5.0-header/5.3.4-lib object layout is proven sound for the fields read. Step 2 (now trustworthy): the property half diffed **0 differences** vs `dump_properties()`. A failing Step 1 would have invalidated Step 2; it passed, so the skew is empirically a non-issue here. (No encoding/threshold was tuned to force green — one input, one diff.)
+
+**Pattern confirmation (per E-CPP-KEYSTONE-1).** This leaf is exactly the predicted "repetition of a validated pattern": one new accessor family + one byte-parity `diff`, no new architecture, no Core gap (the property byte rides the existing content tier, the adapter holds no state). Consumed by `tesseract-core` as `CharSet::get_is*` with a consumer-boundary test; no re-implementation downstream.
+
+Cross-ref: `E-CPP-PARITY-1` (bijection 112/112), `E-CPP-PARITY-2` (UNICHAR 268/268), `E-CPP-KEYSTONE-1` (end-to-end dispatch), `.claude/knowledge/core-first-transcode-doctrine.md` (PROBE-OGAR-ADAPTER-UNICHARSET). Branch work (`claude/happy-hamilton-0azlw4`), lance-graph + tesseract-rs.
 
 ---
 
