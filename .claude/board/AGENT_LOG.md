@@ -1,3 +1,20 @@
+## 2026-06-20 — golden-image (symbiont) integration harness + jirak-stale finding + TD-SURREALDB-KVLANCE-LANCE7 PAID
+
+**Main thread (Opus).** Operator framing: "a Dockerfile + Cargo that actually RUNS the future AGI/Foundry-aspiring substrate — all in one binary, *pending integration*" — explicitly NOT a pinned snapshot.
+
+**Shipped to lance-graph `main`:** `crates/symbiont/` (workspace-`exclude`d golden-image probe) — portable git-deps `Cargo.toml` + multi-stage `Dockerfile` (rust:1.95 → debian-slim; `CARGO_NET_GIT_FETCH_WITH_CLI=true` so cargo fetches the private forks via the system git on Railway) + `README` + `src/main.rs`. Declaring each repo as a dep forces lance-graph + lance7/lancedb0.30 + ndarray + ractor + surrealdb(kv-lance) + OGAR to compile+link into ONE binary. Commits `82013145` (crate) → `e24b8626` (OGAR→main) → surrealdb→main fix. **PR #555** carries the 5+3 council `INTEGRATION_PLAN.md` (loose-end ledger → Spain-grid acceptance gate); CodeRabbit + Codex review addressed (machete report-only/whitelist, clippy `--manifest-path`, `⊘ blocked` legend) and threads resolved.
+
+**Findings (verified, not asserted):**
+1. **Every `jirak` fork branch is a stale checkout name.** merge-base: HEAD ⊂ main/master with 0 unique commits on all four forks (OGAR 3016c78⊂bc21fce; surrealdb f860455⊂173e99c; ractor 2bc7819⊂f4c474f; ndarray 786110a⊂master 2d5c9bbd). OGAR has no jirak on github at all. → harness tracks the living canonical branch (`main`; ndarray `master`). See E-GOLDEN-IMAGE-IS-A-LIVING-HARNESS.
+2. **`TD-SURREALDB-KVLANCE-LANCE7` PAID.** surrealdb `main` already pins kv-lance to `lance/lance-index =7.0.0`, `lancedb =0.30.0`, `arrow 58` (direct manifest read). A real git-deps build resolved the whole graph to ONE `lance 7.0.0 / lancedb 0.30.0 / datafusion 53.1.0 / arrow 58` — no lance-6/7 split. The stale jirak still held the old lance-6 pin; tracking `main` is what unifies.
+3. **Cargo can't patch a git URL to itself** — the jirak-redirect `[patch]` errored `patch points to the same source`; aligning OGAR + symbiont on surrealdb `main` dropped the patch (one source, kv-lance union'd in).
+
+**Board hygiene this turn:** EPIPHANIES prepend (E-GOLDEN-IMAGE-IS-A-LIVING-HARNESS); TECH_DEBT TD-SURREALDB-KVLANCE-LANCE7 Open→PAID; PR_ARC #555; LATEST_STATE top; this entry.
+
+**Reframe banked:** golden image = living integration harness, not a frozen snapshot. **Queued:** battle-test plan (probes A1–E3) gated behind the singleton-BindSpace → SoA switch; Grid→NodeRow bridge; kanban-loop wiring.
+
+---
+
 ## 2026-06-18 — 5+3 council: mailbox-belief-update-and-substrate-test-v1 (design, no code)
 
 **Main thread (Opus) + 8-agent council.** Branch `claude/soa-cycle-ownership-sync`. Question: should within-mailbox belief change be a per-item AriGraph belief update ("this thought made me smarter, what did I learn"), best-cased with Sudoku/goban/deepeval?

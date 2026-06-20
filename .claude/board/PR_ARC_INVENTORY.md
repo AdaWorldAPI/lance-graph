@@ -49,6 +49,22 @@
 
 ---
 
+## #555 lance-graph: symbiont golden-image plan (5+3 council ledger) + the living-harness reframe
+
+**Status:** OPEN 2026-06-20, branch `claude/symbiont-golden-image-plan`. Adds `crates/symbiont/INTEGRATION_PLAN.md` (the council loose-end ledger → Spain-grid acceptance gate). The golden-image crate itself landed **direct on `main`** (`82013145` crate → `e24b8626` OGAR→main → surrealdb→main fix): a workspace-`exclude`d probe that compiles+links the full stack into ONE binary.
+
+**Added:** `crates/symbiont/{Cargo.toml (portable git-deps), Dockerfile (rust:1.95 → debian-slim, build/CI validation), README, src/main.rs, INTEGRATION_PLAN.md}`. Root `Cargo.toml` exclude entry.
+
+**Locked:** the golden image is a **living integration harness, not a snapshot** — it tracks each fork's canonical branch (ndarray `master`; ractor/surrealdb/OGAR `main`), never `jirak` (proven stale: HEAD ⊂ main/master, 0 unique commits, all four forks) and never a frozen rev. surrealdb + OGAR resolve to ONE `surrealdb#main` source (no `[patch]` — cargo forbids patching a url to itself). **Verified green:** real git-deps build `CARGO_EXIT=0`, binary runs, unified `lance 7.0.0 / lance-index 7.0.0 / lancedb 0.30.0 / datafusion 53.1.0 / arrow 58` (no lance-6/7 split) → `TD-SURREALDB-KVLANCE-LANCE7` PAID.
+
+**Deferred:** the Grid→NodeRow bridge, kanban-loop wiring (2 of 5 arrows), `surreal_container` live dep (version-unblocked, execution-blocked on D-PG-6). Battle-test plan (probes A1–E3) queued behind the singleton-BindSpace → SoA switch.
+
+**Confidence (2026-06-20):** HIGH that the full stack resolves + compiles + links on the lockstep pins (built green). The *runtime edges* between the five crates remain the open integration work — "linked, pending integration" is the honest state.
+
+**Cross-ref:** EPIPHANIES `E-GOLDEN-IMAGE-IS-A-LIVING-HARNESS`; TECH_DEBT `TD-SURREALDB-KVLANCE-LANCE7` (PAID); AGENT_LOG 2026-06-20.
+
+---
+
 ## #542 the q2-substrate grounding arc — E-OGAR-IS-FOUNDRY capstone + 5+3 council + the key→row baton
 
 **Status:** MERGED 2026-06-18 (merge commit `faca377f`), branch `claude/q2-substrate-grounding`. The platform-level reading + the council that hardened it, + the one buildable prerequisite. Additive to `lance-graph-contract` only.

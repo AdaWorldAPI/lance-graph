@@ -282,7 +282,7 @@ FINDING D-CLS↔D-ARM-14 (EPIPHANIES).
 
 ### TD-SURREALDB-KVLANCE-LANCE7 (deps — surrealdb-core still pins lance =6.0.0)
 
-**Status: Open — blocker CONFIRMED SHALLOW (operator 2026-06-15: "surrealdb just needed 7.0.0 / lancedb 0.30 pin").** The kv-lance backend is already implemented in-tree; the ONLY remaining blocker is the version pin (no deep architectural work). The 2026-05-31 lance `6.0.0 → =7.0.0` / lancedb `0.29.0 →
+**Status: PAID 2026-06-20 (verified on surrealdb `main`) — was Open, blocker CONFIRMED SHALLOW (operator 2026-06-15: "surrealdb just needed 7.0.0 / lancedb 0.30 pin").** The kv-lance backend is already implemented in-tree; the ONLY remaining blocker was the version pin (no deep architectural work). The 2026-05-31 lance `6.0.0 → =7.0.0` / lancedb `0.29.0 →
 =0.30.0` bump (lance-graph, `claude/jolly-cori-clnf9` → PR #445) moved this
 workspace's `object_store` transitive `0.12 → 0.13.2`. The AdaWorldAPI/surrealdb
 fork's `surrealdb-core` already runs `object_store = "0.13.0"`, but its
@@ -295,6 +295,8 @@ with the fork's own 0.13. Until those three pins move to 7.0.0/0.30.0 the
 EPIPHANIES E-LANCE7-OBJECTSTORE-SURREALDB; root `Cargo.toml` RESOLVED(A2/B2).
 (The earlier `TD-LANCE-6.0.1-PIN` — only ever a root Cargo.toml comment, never a
 row here — is moot: no lancedb pinned lance `=6.0.1`; `0.30.0 → 7.0.0` superseded it.)
+
+**2026-06-20 update (PAID — verified):** the 3-pin bump HAS LANDED on `AdaWorldAPI/surrealdb` `main`. Direct manifest read at `main` (173e99c): `surrealdb/core/Cargo.toml` now pins `lance = "=7.0.0"`, `lance-index = "=7.0.0"`, `lancedb = "=0.30.0"`, `arrow-array/schema = "58"`. Confirmed end-to-end by the `symbiont` golden-image build (git-deps): the whole graph (lance-graph + surrealdb kv-lance + OGAR + ractor) resolved to ONE `lance 7.0.0 / lance-index 7.0.0 / lancedb 0.30.0 / datafusion 53.1.0 / arrow 58` — no lance-6/7 split. Note: the stale `jirak` branches still carry the OLD lance-6 pin (see EPIPHANIES E-GOLDEN-IMAGE-IS-A-LIVING-HARNESS); tracking `main` is what delivers the unified lance-7. Residual (separate item): `surreal_container`'s surrealdb dep is still commented out (version-unblocked, execution-blocked on wiring D-PG-6) — that is a wiring task, not this version debt.
 
 **2026-06-15 update (operator ground truth):** the fix is exactly the 3-pin bump (`lance` / `lance-index` `=7.0.0`, `lancedb` `=0.30.0`) in `AdaWorldAPI/surrealdb` `surrealdb/core/Cargo.toml` — a write to the surrealdb FORK, **outside this session's 3-repo scope** (ndarray / lance-graph / turbovec; `add_repo` unavailable this session, so it can't be pushed from here). Once it lands, `surreal_container` resolves → unblocks **D-PG-6** (Rubicon kanban VIEW), **D-MBX-9 OUT** (`LanceVersionScheduler` over `versions()`), **identity-architecture Phase H** (SurrealQL read glove). **Companion (ractor):** the `--features supervisor` blocker is the `AdaWorldAPI/ractor` fork's `MessagingErr::Saturated` non-exhaustive match (fork ~2 commits behind upstream's error-enum fix) — sync the fork with upstream; also a fork write, also out of this session's scope. We don't use the messaging path; default builds are unaffected (ractor is `optional`, off by default).
 

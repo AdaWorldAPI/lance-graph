@@ -1,3 +1,21 @@
+## 2026-06-20 — E-GOLDEN-IMAGE-IS-A-LIVING-HARNESS — the all-in-one substrate binary is an integration HARNESS that tracks each fork's LIVING canonical branch, NOT a pinned snapshot; and every per-session "jirak" branch is a stale checkout name (HEAD ⊂ the fork's main/master, 0 unique commits)
+
+**Status:** FINDING (verified by `git fetch` + `merge-base` across all four forks, by direct manifest reads, and by a real git-deps build resolving to the lockstep pins).
+
+**The reframe (operator).** "Golden image" = a Dockerfile + Cargo that always compile the CURRENT state of the whole stack (lance-graph + lance7/lancedb0.30 + ndarray + ractor + surrealdb kv-lance + OGAR) into ONE binary — the living convergence point, *pending integration*. **NOT** a frozen, reproducible snapshot. Consequence: pin each git-dep to the fork's living canonical branch (cargo follows the moving tip), never to a rev.
+
+**The jirak-is-stale finding (all four forks).** `claude/jirak-math-theorems-harvest-rfii13` is a per-session checkout name, not a real divergence. merge-base proof: OGAR jirak `3016c78` ⊂ main `bc21fce` (75 behind, 0 unique); surrealdb jirak `f860455` ⊂ main `173e99c` (0 unique); ractor jirak `2bc7819` ⊂ main `f4c474f` (0 unique); ndarray jirak `786110a` ⊂ **master** `2d5c9bbd` (0 unique). On github, OGAR has NO jirak branch at all. → track `main` (ndarray: `master`); jirak is abandoned.
+
+**Why it is load-bearing (the lance-7 lockstep).** Tracking the living line is what UNIFIES lance. surrealdb `main` already carries the 3-pin bump (`lance`/`lance-index` `=7.0.0`, `lancedb` `=0.30.0`, `arrow 58`) → **TD-SURREALDB-KVLANCE-LANCE7 is PAID**. The stale jirak still held the OLD `lance =6.0.0` pin; tracking it would have split the graph into lance 6 (surrealdb) vs lance 7 (lance-graph). A real git-deps build resolved to ONE `lance 7.0.0 / lance-index 7.0.0 / lancedb 0.30.0 / datafusion 53.1.0 / arrow 58` — the canonical lockstep — proving the harness composes on the living branches.
+
+**Cargo lesson.** You cannot `[patch."<git-url>"]` a git source to the SAME url (even a different branch) — cargo errors `patch ... points to the same source`. The earlier jirak-redirect patch failed on exactly this; aligning every surrealdb consumer (OGAR + symbiont) on `main` removed the need for a patch entirely (one source, `kv-lance` feature union'd in).
+
+**Litmus carried forward:** a "golden image" PR that pins a rev or a stale per-session branch is the snapshot anti-pattern; the harness must follow each fork's canonical line, because that line is where integration actually lands (lance-7 was on `main`, never on jirak).
+
+Cross-ref: TECH_DEBT `TD-SURREALDB-KVLANCE-LANCE7` (now PAID); `E-LANCE7-OBJECTSTORE-SURREALDB`; PR #555; `crates/symbiont/{Cargo.toml,Dockerfile,README,INTEGRATION_PLAN.md}`.
+
+---
+
 ## 2026-06-19 — E-CHAODA-IS-NOT-THE-SEAM-EPICENTER — REFUTES this session's own "WHERE = CHAODA anomaly" conjecture: on the real ES grid with a Fiedler-sign fingerprint, the brittle 2-line seam is NOT a CHAODA/LFD anomaly (it is LESS anomalous than average); the geometric outlier and the spectral-cut bottleneck do not coincide
 
 **Status:** FINDING (measured NEGATIVE; probe `perturbation-sim/examples/chaoda_surge_epicenter.rs`, gated `--features ndarray-simd`, real `ndarray::hpc::clam::{ClamTree, anomaly_scores}`). **Refutes** the conjecture I posted earlier this session ("a surge's epicenter CAN be modeled as a CHAODA anomaly — the WHERE axis"). The user asked to model CLAM/CHAODA with the real ndarray engine; I did, and it killed the conjecture — measured, not asserted.
