@@ -1,34 +1,37 @@
-//! Domino POC — proving SoA orchestration with AMX BF16 tiles.
+//! Domino POC — SoA orchestration via the `ndarray::simd` polyfill (AMX BF16 tiles).
 //!
-//! Operator (2026-06-20): "use BF16 and add_mul where possible and use amx ...
-//! the 2bit×2bit 4×4 Morton tile [AMX] is our magic bullet ... Domino thinking
-//! style ... very basic POC just to prove the SoA Orchestration." The sandbox is
-//! Sapphire/Emerald Rapids (AMX present); built native (`crates/symbiont/.cargo/
-//! config.toml` → `target-cpu=native`), `amx_available()` is true and the real
-//! `TDPBF16PS` tile path fires (the GEMM's tile-dot IS the fused multiply-add).
+//! Operator (2026-06-20): BF16 + AMX, 2bit×2bit 4×4 Morton tile, Domino thinking
+//! style, no Spain — very basic POC to prove the SoA orchestration. **ALL SIMD
+//! goes through `ndarray::simd::*`** (the W1a polyfill: `simd.rs` → `simd_amx` /
+//! `simd_avx512` / `simd_ops` / `simd_soa`), NEVER `ndarray::hpc::*` directly:
+//! the AMX `arch_prctl(158)` XTILEDATA grant is gated inside `amx_available()`,
+//! which `bf16_tile_gemm_16x16` calls before any tile op (the documented gotcha).
+//! Nothing here re-implements an op the polyfill already has (BF16↔f32 batch
+//! conversion is `f32_to_bf16_batch_rne`); only `morton4` is consumer-side
+//! (ndarray has no Morton primitive).
+//!
+//! Host: Emerald Rapids (kernel 6.18.5) — ndarray's `CpuModel` detects it
+//! (family 6, model 0xCF), so `amx_available()` is true and the real `TDPBF16PS`
+//! tile path fires.
 //!
 //! Each SoA board carries a 4×4 BF16 tile (16 lanes, Morton-addressed) in its
-//! `Fingerprint` tenant. **16 boards' tiles batch into ONE AMX 16×16 tile GEMM**
-//! — that is the SoA-orchestration unit: AMX burns through 16 boards per tile
-//! instruction. One **Domino step** = `C[16,16] = A[16,32]·W[32,16]`, with C
-//! re-quantised back into each board's tile (the cascade essence of the
-//! thinking-engine `domino` style, emulated inline). The per-board scalar
-//! reduction lands in `Energy` for the NaN-detection projection surface (the
-//! demoted singleton BindSpace).
+//! `Fingerprint` tenant; 16 boards batch into ONE AMX 16×16 tile GEMM — AMX burns
+//! through 16 SoA boards per instruction. One Domino step = `C = A·W`, C
+//! re-quantised back into the tiles (cascade feedback); per-board reduction →
+//! `Energy` tenant → swept by the NaN-detection projection surface (the demoted
+//! singleton BindSpace). 256 boards = 16 batches.
 
 use lance_graph_contract::canonical_node::{NodeRow, ValueTenant};
 use lance_graph_contract::nan_projection::project_energy_nonfinite;
 use lance_graph_contract::{EdgeBlock, NodeGuid};
-use ndarray::hpc::bf16_tile_gemm::bf16_tile_gemm_16x16;
-use ndarray::hpc::quantized::BF16;
-use ndarray::simd::amx_available;
+use ndarray::simd::{amx_available, bf16_tile_gemm_16x16, f32_to_bf16_batch_rne};
 
 const TILE: usize = 4;
 const LANES: usize = TILE * TILE; // 16 lanes/board = 32 BF16 bytes (Fingerprint tenant)
 const BATCH: usize = 16; // 16 boards → one AMX 16×16 tile
 const K: usize = 32; // AMX BF16 contraction (min, multiple of 32)
 
-/// 2bit×2bit Morton (Z-order) index for a 4×4 tile: (x,y) ∈ [0,4)² → [0,16).
+/// 2bit×2bit Morton (Z-order) index for a 4×4 tile (no ndarray primitive exists).
 #[inline]
 fn morton4(x: usize, y: usize) -> usize {
     let spread = |v: usize| (v & 1) | ((v & 2) << 1); // bit0→0, bit1→2
@@ -44,7 +47,17 @@ fn en_off() -> usize {
     ValueTenant::Energy.value_offset()
 }
 
-/// Read a board's 16 BF16 lanes (raw u16 bit patterns) from the Fingerprint tenant.
+/// 16 f32 lanes → 16 BF16 (u16) via the polyfill batch RNE converter (NOT a
+/// hand-rolled per-element conversion — that would duplicate `ndarray::simd`).
+#[inline]
+fn lanes_to_bf16(f: &[f32; LANES]) -> [u16; LANES] {
+    let mut out = [0u16; LANES];
+    f32_to_bf16_batch_rne(f, &mut out);
+    out
+}
+
+/// Read a board's 16 BF16 lanes (u16) from the Fingerprint tenant (plain bytes —
+/// memory access, not a SIMD op).
 fn read_lanes(row: &NodeRow) -> [u16; LANES] {
     let off = fp_off();
     let mut l = [0u16; LANES];
@@ -53,8 +66,6 @@ fn read_lanes(row: &NodeRow) -> [u16; LANES] {
     }
     l
 }
-
-/// Write 16 BF16 lanes (u16) into the Fingerprint tenant.
 fn write_lanes(row: &mut NodeRow, lanes: &[u16; LANES]) {
     let off = fp_off();
     for (i, &x) in lanes.iter().enumerate() {
@@ -63,7 +74,6 @@ fn write_lanes(row: &mut NodeRow, lanes: &[u16; LANES]) {
         row.value[off + i * 2 + 1] = hi;
     }
 }
-
 fn set_energy(row: &mut NodeRow, e: f32) {
     let off = en_off();
     row.value[off..off + 4].copy_from_slice(&e.to_le_bytes());
@@ -80,58 +90,53 @@ fn seed_board(idx: usize) -> NodeRow {
         edges: EdgeBlock::default(),
         value: [0u8; 480],
     };
-    let mut lanes = [0u16; LANES];
+    let mut f = [0.0f32; LANES];
     for y in 0..TILE {
         for x in 0..TILE {
-            let v = ((morton4(x, y) + idx) % 7) as f32 * 0.25;
-            lanes[morton4(x, y)] = BF16::from_f32_rounded(v).0;
+            f[morton4(x, y)] = ((morton4(x, y) + idx) % 7) as f32 * 0.25;
         }
     }
-    write_lanes(&mut row, &lanes);
+    write_lanes(&mut row, &lanes_to_bf16(&f));
     row
 }
 
-/// The 32×16 BF16 weight: top 16×16 = a tridiagonal smoothing kernel, bottom 16
-/// rows = 0 (the K-pad). Row-major `W[j*16 + l]`.
+/// The 32×16 BF16 weight: top 16×16 = tridiagonal smoothing kernel, bottom 16
+/// rows = 0 (the K-pad). Converted once through the polyfill.
 fn weight() -> [u16; K * BATCH] {
-    let mut w = [0u16; K * BATCH]; // 32×16
+    let mut f = [0.0f32; K * BATCH]; // 32×16
     for j in 0..LANES {
         for l in 0..BATCH {
-            let val = if j == l {
+            f[j * BATCH + l] = if j == l {
                 1.0
             } else if (j as i32 - l as i32).abs() == 1 {
                 0.25
             } else {
                 0.0
             };
-            w[j * BATCH + l] = BF16::from_f32_rounded(val).0;
         }
     }
-    w
+    let mut out = [0u16; K * BATCH];
+    f32_to_bf16_batch_rne(&f, &mut out);
+    out
 }
 
-/// One Domino step over a 16-board batch via the AMX 16×16 BF16 tile GEMM.
-/// `C[16,16] = A[16,32]·W[32,16]`; C re-quantised back into the tiles (the
-/// domino feedback); per-board `sum(C[i,:])` → `Energy`.
+/// One Domino step over a 16-board batch via the polyfill AMX 16×16 tile GEMM.
+/// `C[16,16] = A[16,32]·W[32,16]`; C re-quantised back into the tiles (domino
+/// feedback); per-board `sum(C[i,:])` → `Energy`.
 fn domino_batch(boards: &mut [NodeRow], w: &[u16; K * BATCH], stages: usize) {
     debug_assert_eq!(boards.len(), BATCH);
     for _ in 0..stages {
-        let mut a = [0u16; BATCH * K]; // 16×32, board lanes padded to K
+        let mut a = [0u16; BATCH * K]; // 16×32, lanes padded to K
         for (i, row) in boards.iter().enumerate() {
-            let lanes = read_lanes(row);
-            a[i * K..i * K + LANES].copy_from_slice(&lanes);
+            a[i * K..i * K + LANES].copy_from_slice(&read_lanes(row));
         }
-        let mut c = [0.0f32; BATCH * BATCH]; // 16×16, zeroed (tile-GEMM does +=)
-        bf16_tile_gemm_16x16(&a, w, &mut c, K); // AMX TDPBF16PS (or safe fallback)
+        let mut c = [0.0f32; BATCH * BATCH]; // 16×16
+        bf16_tile_gemm_16x16(&a, w, &mut c, K); // ndarray::simd polyfill → AMX TDPBF16PS
         for (i, row) in boards.iter_mut().enumerate() {
-            let mut lanes = [0u16; LANES];
-            let mut sum = 0.0f32;
-            for (l, lane) in lanes.iter_mut().enumerate() {
-                let v = c[i * BATCH + l];
-                *lane = BF16::from_f32_rounded(v).0;
-                sum += v;
-            }
-            write_lanes(row, &lanes);
+            let mut f = [0.0f32; LANES];
+            f.copy_from_slice(&c[i * BATCH..i * BATCH + LANES]);
+            let sum: f32 = f.iter().sum();
+            write_lanes(row, &lanes_to_bf16(&f)); // domino: output → next input
             set_energy(row, sum);
         }
     }
@@ -194,13 +199,12 @@ mod tests {
 
     #[test]
     fn lanes_round_trip_through_fingerprint_tenant() {
-        let row = seed_board(3);
-        assert_eq!(read_lanes(&row), read_lanes(&seed_board(3)));
+        assert_eq!(read_lanes(&seed_board(3)), read_lanes(&seed_board(3)));
     }
 
     #[test]
     fn domino_amx_sweep_stays_finite() {
-        // run_poc asserts NaN-clean internally; exercises the full AMX-or-fallback path.
+        // run_poc asserts NaN-clean internally; exercises the full polyfill path.
         run_poc(64, 3);
     }
 }
