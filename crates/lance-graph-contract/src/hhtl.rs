@@ -312,6 +312,21 @@ impl NiblePath {
         Self::from_packed(path, MAX_DEPTH)
     }
 
+    /// **Family hop count** — the CLAM tree distance to `other`: the number of
+    /// edges between the two nodes through their lowest common ancestor in the
+    /// 16ⁿ tree. `(self.depth − common) + (other.depth − common)` where `common =
+    /// `[`common_prefix_depth`](NiblePath::common_prefix_depth). Identical path =
+    /// 0, parent/child = 1, siblings = 2; disjoint subtrees = the full ascent +
+    /// descent. This is the operator's "HHTL CLAM via family-nodes hop count as
+    /// adjacency" metric — pure key arithmetic, O(depth), **zero value decode**.
+    ///
+    /// Symmetric: `a.family_hop_count(b) == b.family_hop_count(a)`.
+    #[must_use]
+    pub const fn family_hop_count(self, other: Self) -> u8 {
+        let common = self.common_prefix_depth(other);
+        (self.depth - common) + (other.depth - common)
+    }
+
     /// Is this path a descendant-or-equal of `other`? — the symmetric form of
     /// [`is_ancestor_of`]. `self.is_descendant_of(other)` is equivalent to
     /// `other.is_ancestor_of(self)` BUT the form is sometimes more natural at
@@ -656,6 +671,26 @@ mod tests {
         let a = NiblePath::root(0x1);
         assert_eq!(a.common_ancestor(NiblePath::EMPTY), None);
         assert_eq!(NiblePath::EMPTY.common_ancestor(a), None);
+    }
+
+    #[test]
+    fn family_hop_count_is_clam_tree_distance() {
+        let a = NiblePath::root(0x1).child(0x2).child(0x3).child(0x4);
+        // identical path = 0 hops
+        assert_eq!(a.family_hop_count(a), 0);
+        // siblings (share parent (1)(2)(3), differ in leaf) = 2 hops
+        let sib = NiblePath::root(0x1).child(0x2).child(0x3).child(0x9);
+        assert_eq!(a.family_hop_count(sib), 2);
+        assert_eq!(sib.family_hop_count(a), 2); // symmetric
+        // parent = 1 hop
+        let parent = NiblePath::root(0x1).child(0x2).child(0x3);
+        assert_eq!(a.family_hop_count(parent), 1);
+        // cousins: share (1)(2), differ from depth 3 down → (4-2)+(4-2) = 4
+        let cousin = NiblePath::root(0x1).child(0x2).child(0x7).child(0x8);
+        assert_eq!(a.family_hop_count(cousin), 4);
+        // disjoint basins: no common prefix → full ascent + descent
+        let other = NiblePath::root(0xF).child(0xE);
+        assert_eq!(a.family_hop_count(other), 4 + 2);
     }
 
     // ── NiblePath::prefix — single-shot ancestor view ─────────────────────────

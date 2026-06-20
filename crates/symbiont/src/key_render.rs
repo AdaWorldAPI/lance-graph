@@ -23,29 +23,15 @@ use lance_graph_contract::canonical_node::NodeRow;
 use lance_graph_contract::hhtl::NiblePath;
 use lance_graph_contract::NodeGuid;
 
-/// Lower a GUID's 3×4 HHT cascade — `HEEL·HIP·TWIG`, 3 tiers × 4 nibbles = 12
-/// nibbles, root-first — to a [`NiblePath`] (the radix-trie / CLAM cluster
-/// address). `classid` is the routing PREFIX (codebook selector, resolved
-/// separately by longest-prefix); the HHTL *path* proper is the 12 HHT nibbles
-/// (OGAR canon "3×4 PATH — uniform"). Pure key arithmetic, zero value decode.
+/// Lower a GUID to its HHTL routing path via the canonical
+/// [`NiblePath::from_guid_prefix`] (`classid_lo·HEEL·HIP·TWIG`, 16 nibbles,
+/// root-first) — the radix-trie / CLAM cluster address. Falls back to
+/// [`NiblePath::EMPTY`] only for the canon-reserved non-zero high-`classid` case.
+/// Thin wrapper kept for callers in this crate; the lowering itself is the
+/// contract's single source of truth (no third copy). Zero value decode.
 #[inline]
 pub fn hhtl_path_of(guid: &NodeGuid) -> NiblePath {
-    let tiers = [guid.heel(), guid.hip(), guid.twig()];
-    let mut p = NiblePath::EMPTY;
-    let mut first = true;
-    for tier in tiers {
-        // 4 nibbles per u16 tier, most-significant first (root-first).
-        for shift in [12u32, 8, 4, 0] {
-            let nib = ((tier >> shift) & 0xF) as u8;
-            p = if first {
-                first = false;
-                NiblePath::root(nib)
-            } else {
-                p.child(nib)
-            };
-        }
-    }
-    p
+    NiblePath::from_guid_prefix(guid).unwrap_or(NiblePath::EMPTY)
 }
 
 /// One rendered node, derived from the 32-byte head ONLY.
@@ -165,25 +151,27 @@ mod tests {
     }
 
     #[test]
-    fn hhtl_path_of_bootstrap_is_depth_12_all_zero() {
-        // A bootstrap GUID (HEEL=HIP=TWIG=0) lowers to a 12-nibble all-zero path
-        // (root basin 0, descending 0 each level) — every HHT tier consulted,
-        // none discriminating yet (the zero-fallback ladder, in the path axis).
+    fn hhtl_path_of_bootstrap_is_depth_16_all_zero() {
+        // The canonical lowering packs 16 nibbles (classid_lo·HEEL·HIP·TWIG). A
+        // bootstrap GUID (classid=HEEL=HIP=TWIG=0) lowers to a 16-nibble all-zero
+        // path — every tier consulted, none discriminating yet (zero-fallback).
         let g = NodeGuid::local(42);
         let p = hhtl_path_of(&g);
-        assert_eq!(p.depth(), 12);
+        assert_eq!(p.depth(), 16);
     }
 
     #[test]
-    fn hhtl_path_of_uses_hht_tiers_not_classid_or_identity() {
-        // classid is the routing prefix (codebook selector), identity is the
-        // leaf — neither is part of the HHT path. Two GUIDs differing ONLY in
-        // classid + identity share the same 12-nibble HHTL path; differing in a
-        // HHT tier changes it.
-        let a = NodeGuid::new(0xAAAA_AAAA, 0x1234, 0x5678, 0x9ABC, 0, 0x00_0001);
-        let b = NodeGuid::new(0xBBBB_BBBB, 0x1234, 0x5678, 0x9ABC, 0, 0x00_0002);
-        let c = NodeGuid::new(0xAAAA_AAAA, 0x0234, 0x5678, 0x9ABC, 0, 0x00_0001);
+    fn hhtl_path_of_includes_classid_lo_and_hht_not_identity() {
+        // Canonical lowering: classid_lo is the routing PREFIX (top 4 nibbles),
+        // HEEL/HIP/TWIG are the cascade, identity (leaf) is NOT in the path.
+        // a vs b differ ONLY in identity ⇒ same path; a vs c differ in classid_lo
+        // ⇒ different path; a vs d differ in a HHT tier ⇒ different path.
+        let a = NodeGuid::new(0x0000_0007, 0x1234, 0x5678, 0x9ABC, 0xAB, 0x00_0001);
+        let b = NodeGuid::new(0x0000_0007, 0x1234, 0x5678, 0x9ABC, 0xAB, 0x00_0002);
+        let c = NodeGuid::new(0x0000_0008, 0x1234, 0x5678, 0x9ABC, 0xAB, 0x00_0001);
+        let d = NodeGuid::new(0x0000_0007, 0x0234, 0x5678, 0x9ABC, 0xAB, 0x00_0001);
         assert_eq!(hhtl_path_of(&a), hhtl_path_of(&b));
         assert_ne!(hhtl_path_of(&a), hhtl_path_of(&c));
+        assert_ne!(hhtl_path_of(&a), hhtl_path_of(&d));
     }
 }

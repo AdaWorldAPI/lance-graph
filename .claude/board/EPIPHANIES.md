@@ -1,3 +1,20 @@
+## 2026-06-20 — E-ANCHOR-IS-A-HEAD-FIELD-NOT-A-VALUE-TYPE — graph STRUCTURE (domain, family grouping, hierarchy, stability anchors, adjacency) must key off the 32-byte HEAD (classid / family / HHTL path), never the value slab; only then does the whole neo4j/Gotham view — and "FMA bones as stability anchor" — stay zero-value-decode at memory-scan speed
+
+**Status:** FINDING (perennial; shipped `contract::soa_graph` + `NiblePath::family_hop_count`, 2026-06-20).
+
+When a domain wants a "type" or "category" to drive graph structure or layout, the System-1 reflex is to read an entity-type field — which lives in the **value slab** (`ValueTenant::EntityType`, bytes 32..512). That quietly defeats the entire `E-GUID-IS-THE-GRAPH` thesis: the moment structure depends on a value field, the "render from the head" scan has to decode the value, and the 8 MiB of slabs go hot. The fix is an ontology discipline, not a trick: **every structural axis is already in the 32-byte head**, so put the category there.
+
+The head carries three orthogonal structural axes, and the OSINT/Gotham + FMA graph uses all three with zero value decode:
+1. **Domain = `classid`** (bytes 0..4, head). OSINT/Gotham = `0x0007`, FMA-anatomy = `0x0008`. The `classid → ReadMode` registry resolves how to read the 128+128 — itself a head-only lookup.
+2. **Family grouping = `family`** (u24, bytes 10..13, head). `soa_graph::project_snapshot` emits one family node per distinct `family`; "use family nodes" is a head field, not a join.
+3. **Hierarchy + adjacency = the HHTL path** (`classid_lo·HEEL·HIP·TWIG`, head). `NiblePath::family_hop_count` (CLAM tree distance) ranks nearest-anchor with no value read.
+
+The keystone: **a stability anchor is a FAMILY (head), not an entity-type (value).** "FMA bones as the skeleton the soft tissue hangs off" is expressible as `DomainSpec::anchor_families: &[u32]` — a list of head `family` ids — so `nearest_anchor` computes the bone-distance layout signal entirely from keys. Had we modelled "bone" as a value-slab entity-type, a 70k-node anatomy render would decode 70k×480 B just to find the skeleton. Because anchor-ness is a head field, the same projector serves the Gotham entity graph and the FMA body with one zero-value-decode sweep.
+
+The general rule: **value slab = content (fingerprints, qualia, energy); head = structure (identity, domain, family, hierarchy, anchors).** If a graph/layout/routing decision is reaching into the value slab, the category is in the wrong register — lift it to classid/family/HHT. Cross-ref: `E-GUID-IS-THE-GRAPH`, `E-ZERO-DECODE-IS-FALSIFIABLE-BY-POISON` (the test that catches a regression here — `soa_graph::tests::projection_is_head_only_zero_value_decode` poisons the slab and asserts the snapshot is invariant), `E-BASIN-IS-A-NODE` (the family/basin tree this projects), OGAR `CLAUDE.md` P0 "the key prerenders nodes with zero value decode."
+
+---
+
 ## 2026-06-20 — E-ZERO-DECODE-IS-FALSIFIABLE-BY-POISON — a "we never read region X" claim (zero-value-decode key render, cold-column skip, head-only scan) is not a comment, it is a TEST: poison region X with a sentinel, run the op, assert the output is byte-identical to the un-poisoned run; if it touched X, the bytes diverge
 
 **Status:** FINDING (perennial; shipped `symbiont/key_render.rs::tests::render_ignores_value_slab`, 2026-06-20).

@@ -40,6 +40,16 @@ impl NodeGuid {
     /// Reserved canonical default basin (implicit fallback; no neighborhood grouping).
     pub const FAMILY_DEFAULT: u32 = 0x00_0000;
 
+    /// OGAR class for the **OSINT / Palantir-Gotham** domain — the neo4j-emulation
+    /// entity graph (people / orgs / systems / events, family-grouped). Resolves
+    /// to [`ReadMode::OSINT`] (hot `Cognitive` value + `CoarseOnly` adjacency edges).
+    pub const CLASSID_OSINT: u32 = 0x0000_0007;
+    /// OGAR class for the **FMA anatomy** domain — the Foundational Model of
+    /// Anatomy (~70k structural entities, family = body region, bones = stability
+    /// anchors). Resolves to [`ReadMode::FMA`] (cold `Compressed` reference value +
+    /// `CoarseOnly` part-of adjacency).
+    pub const CLASSID_FMA: u32 = 0x0000_0008;
+
     /// Construct from the six canonical groups. `family`/`identity` use their low 3 bytes.
     ///
     /// Panics (incl. const-eval) when `family` or `identity` exceed 24 bits — the
@@ -659,6 +669,25 @@ impl ReadMode {
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
 
+    /// The **OSINT / Palantir-Gotham** read-mode ([`NodeGuid::CLASSID_OSINT`]):
+    /// a *hot* entity graph — [`ValueSchema::Cognitive`] (Meta + Qualia +
+    /// Fingerprint + Energy + Plasticity + EntityType, for live NARS reasoning)
+    /// over [`EdgeCodecFlavor::CoarseOnly`] adjacency (the 12 in-family + 4
+    /// out-of-family slots read literally as the neo4j-emulation edges).
+    pub const OSINT: ReadMode = ReadMode {
+        value_schema: ValueSchema::Cognitive,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
+    /// The **FMA anatomy** read-mode ([`NodeGuid::CLASSID_FMA`]): a *cold*
+    /// structural reference graph — [`ValueSchema::Compressed`] (Fingerprint +
+    /// Helix + Turbovec + EntityType; no hot lifecycle columns, it is static
+    /// reference data) over [`EdgeCodecFlavor::CoarseOnly`] part-of adjacency.
+    pub const FMA: ReadMode = ReadMode {
+        value_schema: ValueSchema::Compressed,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
     /// Both axes are layout-preserving (a preset/flavor re-interprets reserved
     /// bytes, never a stride change), so adopting any read-mode needs no
     /// `ENVELOPE_LAYOUT_VERSION` bump.
@@ -680,6 +709,11 @@ static BUILTIN_READ_MODES: LazyLock<HashMap<u32, ReadMode>> = LazyLock::new(|| {
     let mut m = HashMap::new();
     // The canon default class materialises the POC-Full slab (see ReadMode::DEFAULT).
     m.insert(NodeGuid::CLASSID_DEFAULT, ReadMode::DEFAULT);
+    // OSINT/Gotham (hot entity graph) + FMA anatomy (cold structural reference) —
+    // the two registered graph domains (see `soa_graph`). Both read edges as
+    // CoarseOnly adjacency; they differ in the value schema (hot vs cold).
+    m.insert(NodeGuid::CLASSID_OSINT, ReadMode::OSINT);
+    m.insert(NodeGuid::CLASSID_FMA, ReadMode::FMA);
     m
 });
 
@@ -1223,5 +1257,31 @@ mod tests {
         // The slab has room (112 ≤ 480) and the choice never grows the stride.
         assert!(rm.value_schema.tenant_bytes() <= VALUE_SLAB_LEN);
         assert!(rm.is_layout_preserving());
+    }
+
+    #[test]
+    fn osint_and_fma_classids_resolve_to_their_read_modes() {
+        // The two registered graph domains (see `soa_graph`): OSINT/Gotham is a
+        // hot entity graph (Cognitive value), FMA anatomy is a cold structural
+        // reference (Compressed value); both read edges as CoarseOnly adjacency.
+        let osint = classid_read_mode(NodeGuid::CLASSID_OSINT);
+        assert_eq!(osint, ReadMode::OSINT);
+        assert_eq!(osint.value_schema, ValueSchema::Cognitive);
+        assert_eq!(osint.edge_codec, EdgeCodecFlavor::CoarseOnly);
+
+        let fma = classid_read_mode(NodeGuid::CLASSID_FMA);
+        assert_eq!(fma, ReadMode::FMA);
+        assert_eq!(fma.value_schema, ValueSchema::Compressed);
+        assert_eq!(fma.edge_codec, EdgeCodecFlavor::CoarseOnly);
+
+        // The classids are the OGAR-confirmed 0x0007 (OSINT) and 0x0008 (FMA);
+        // both are layout-preserving and carrier-method-consistent.
+        assert_eq!(NodeGuid::CLASSID_OSINT, 0x0000_0007);
+        assert_eq!(NodeGuid::CLASSID_FMA, 0x0000_0008);
+        assert_eq!(
+            NodeGuid::new(NodeGuid::CLASSID_OSINT, 1, 2, 3, 0xAB, 0xCD).read_mode(),
+            ReadMode::OSINT
+        );
+        assert!(osint.is_layout_preserving() && fma.is_layout_preserving());
     }
 }

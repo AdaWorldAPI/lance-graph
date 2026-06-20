@@ -99,6 +99,7 @@ pub mod sensorium;
 pub mod sigma_propagation;
 pub mod sla;
 pub mod soa_envelope;
+pub mod soa_graph;
 pub mod soa_view;
 pub mod splat;
 pub mod tax;
@@ -123,5 +124,8 @@ pub use episodic_edges::{EdgeRef, EpisodicEdges64};
 pub use head2head::{CompetitionOutcome, Head2Head, WinnerCriterion};
 pub use kanban::{ExecTarget, KanbanColumn, KanbanMove, RubiconTransitionError};
 pub use scheduler::{DatasetVersion, NextPhaseScheduler, VersionScheduler};
+pub use soa_graph::{
+    nearest_anchor, project_snapshot, AnchorHop, DomainSpec, FMA_ANATOMY, OSINT_GOTHAM,
+};
 pub use soa_view::{MailboxSoaOwner, MailboxSoaView};
 pub use view_angle::ViewAngle;
