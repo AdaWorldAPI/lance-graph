@@ -130,6 +130,15 @@ pub mod policy;
 // MySQL ↔ DataFusion ↔ SPO reconciler. See `transcode/mod.rs`.
 pub mod transcode;
 
+// Graph adapter (OSINT/Gotham + FMA): the SoA `GraphSnapshot` (built from the
+// 32-byte node head by `lance_graph_contract::soa_graph`) projected two ways —
+// `graph_table` exposes `nodes` + `edges` as DataFusion `TableProvider`s (the
+// SQL/Cypher→SQL path, `query-lite`); `graph_gremlin` is the pure-Rust
+// Gremlin/SurrealQL traversal kernel (always-on, zero extra deps).
+pub mod graph_gremlin;
+#[cfg(feature = "query-lite")]
+pub mod graph_table;
+
 // PR-D4 (pr-d4-family-hydration.md) — boot-time TTL hydration of FAMILY_TABLE.
 // `parse_family_registry()` (OQ-1 option c) + `FAMILY_TABLE` OnceLock +
 // `try_resolve()` + backward-compat shim for `super_domain_for_family()`.

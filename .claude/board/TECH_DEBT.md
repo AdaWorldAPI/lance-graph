@@ -2890,3 +2890,6 @@ after hydration (the OGAR/hydrator seed step does this). Persisting the pairs
 the Paid state. Low risk: dedup itself survives replay (the deduped
 `entity_type` is baked into each persisted `schema_ptr`); only the path
 bijection needs re-seeding. Pair: D-IDENTITY-4.
+
+## TD-CALLCENTER-QUERY-CLIPPY — 2026-06-20 — OPEN
+**Owed:** `cargo clippy -p lance-graph-callcenter --features query --lib --tests -- -D warnings` fails on PRE-EXISTING debt unrelated to the graph-adapter work: `oxrdf::Subject` deprecation (`src/edge.rs`, use `NamedOrBlankNode`), doc-list overindent + misc in `savant_reasoners.rs` / `vsa_udfs.rs` / `ttl_parse.rs` / `transcode/zerocopy.rs` / `hydrators/owl.rs`. Surfaced (not caused) by the 16-family-adapter PR, whose own files (`graph_table.rs`, `graph_gremlin.rs`) are clippy-clean (verified: zero errors originate in them). **Why deferred:** out of scope — fixing the oxrdf deprecation + doc lints across 6 unrelated modules is its own sweep; this PR is the OSINT graph adapter. **Pay when:** a callcenter-clippy-hardening pass, or opportunistically when those modules are next touched.

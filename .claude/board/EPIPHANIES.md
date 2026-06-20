@@ -1,3 +1,18 @@
+## 2026-06-20 — E-FAMILY-ADAPTER-EDGES-ARE-RENDER-STABLE — resolving graph edges to FAMILY nodes (16×8-bit family-node adapters) instead of to individual members trades a "mixin dependency" (a referenced family must exist) for two structural wins — extreme render stability (family hubs are fixed anchors, members attach to them, the layout doesn't churn) and the dissolution of the >255-member identity-byte aliasing (resolution is only ever family-level)
+
+**Status:** FINDING (perennial; operator model, shipped `contract::soa_graph` 16-adapter reading + `aiwar` POC, 2026-06-20).
+
+The merged `soa_graph` (PR #557) resolved the 12 in-family edge slots to individual sibling members by `identity & 0xFF`. Codex P1 #2 caught the flaw: a family with >255 members aliases on the low byte, so "first match" renders an edge to the *wrong* member by row order. The operator's fix is not a wider member index — it is a **reinterpretation**: read the canonical 16-byte `EdgeBlock` as **16 family-node adapter slots**, every byte resolving to a FAMILY (`family & 0xFF`), never an individual member.
+
+Why this is the right move, not just a bug patch:
+1. **The aliasing dissolves at the source.** There is no longer any member-level byte resolution — edges land on family nodes. The only remaining ambiguity is two families sharing a low byte (>256 families), handled by a collision-aware map that skips the ambiguous byte (never a wrong edge). 256 families "covers pretty much everything" for a POC; the prefix/HHTL route is the >256 escalation.
+2. **Render stability is structural.** Family nodes are fixed hubs; members attach to them (member-of) and adjacency is member→family. A force-directed layout anchored on a small stable set of family hubs does not churn frame-to-frame — the operator's "extreme render stability." This is the same stability `E-ANCHOR-IS-A-HEAD-FIELD` gives the FMA skeleton (bones = anchor families); the two epiphanies are the static (anchor) and dynamic (edge-resolution) faces of one principle: **structure lives on families, in the head.**
+3. **Flexibility + the one cost.** A node mixes in up to 16 family adjacencies (huge flexibility, any-to-any within 256). The named limitation is **mixin dependency**: a referenced family must exist or the slot is a dangling adapter (skipped). That is the honest trade — and it is cheap, because a missing family is a render no-op, not a corruption.
+
+The general rule for graph edges on this substrate: **resolve to the stable grouping (family), not the volatile leaf (member)** — unless a richer flavor (8×16-bit, 32×4 residue, member→member second-hop) is measured to be needed. Cross-ref: `E-ANCHOR-IS-A-HEAD-FIELD-NOT-A-VALUE-TYPE` (the static dual), `E-GUID-IS-THE-GRAPH`, the operator's deferred helix-basin-anchor (CLAM ⇄ Louvain turbovec edge residue) as the eventual richer flavor; `aiwar.rs` (the POC: 221 aiwar entities → 60 category family hubs).
+
+---
+
 ## 2026-06-20 — E-ANCHOR-IS-A-HEAD-FIELD-NOT-A-VALUE-TYPE — graph STRUCTURE (domain, family grouping, hierarchy, stability anchors, adjacency) must key off the 32-byte HEAD (classid / family / HHTL path), never the value slab; only then does the whole neo4j/Gotham view — and "FMA bones as stability anchor" — stay zero-value-decode at memory-scan speed
 
 **Status:** FINDING (perennial; shipped `contract::soa_graph` + `NiblePath::family_hop_count`, 2026-06-20).
