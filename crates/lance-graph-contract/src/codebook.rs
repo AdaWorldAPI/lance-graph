@@ -24,9 +24,12 @@
 
 use std::collections::HashMap;
 
-/// Max entries per family codebook — the 1-byte in-family index cap. A family
-/// that needs more SPLITS (mint a sub-family), never widens the byte.
-pub const CODEBOOK_CAP: usize = 256;
+/// Max entries per family codebook — indices `1..=255`. **Index `0` is reserved**
+/// as the `EdgeBlock` empty-slot sentinel (an all-zero adapter byte means
+/// "unused"; `soa_graph` skips `byte == 0`), so real entries are 1-based. This is
+/// the same reserve-`0` rule the `0xDDCC` codebook uses (`CC = 0x00` = domain
+/// root). A family needing >255 entries SPLITS (mint a sub-family).
+pub const CODEBOOK_CAP: usize = 255;
 
 /// A per-family codebook: insertion-ordered label interning, `index ↔ label`.
 /// `index` is the 1-byte in-family adapter value (`0..len`). ≤[`CODEBOOK_CAP`].
@@ -42,10 +45,11 @@ impl Codebook {
         Self::default()
     }
 
-    /// Intern `label` → its 1-byte index (insertion order, deduped). Returns
-    /// `None` if the codebook is full (256) and `label` is new — the caller must
-    /// SPLIT the family (the `CODEBOOK_CAP` overflow signal). An already-present
-    /// label always resolves (even at capacity).
+    /// Intern `label` → its **1-based** 1-byte index (insertion order, deduped).
+    /// Index `0` is reserved (the `EdgeBlock` empty-slot sentinel), so the first
+    /// entry is `1`. Returns `None` if the codebook is full (255 entries) and
+    /// `label` is new — the caller must SPLIT the family (the `CODEBOOK_CAP`
+    /// overflow signal). An already-present label always resolves (even at capacity).
     pub fn intern(&mut self, label: &str) -> Option<u8> {
         if let Some(&i) = self.by_label.get(label) {
             return Some(i);
@@ -53,20 +57,25 @@ impl Codebook {
         if self.entries.len() >= CODEBOOK_CAP {
             return None;
         }
-        let i = self.entries.len() as u8;
+        // 1-based: index 0 is the reserved empty-slot sentinel.
+        let i = (self.entries.len() + 1) as u8;
         self.entries.push(label.to_string());
         self.by_label.insert(label.to_string(), i);
         Some(i)
     }
 
-    /// The 1-byte index of `label`, if interned.
+    /// The 1-based 1-byte index of `label`, if interned.
     pub fn index_of(&self, label: &str) -> Option<u8> {
         self.by_label.get(label).copied()
     }
 
-    /// The label at `index`, if present.
+    /// The label at `index` (1-based), if present. Index `0` (the reserved
+    /// empty-slot sentinel) resolves to `None`.
     pub fn label(&self, index: u8) -> Option<&str> {
-        self.entries.get(index as usize).map(String::as_str)
+        if index == 0 {
+            return None;
+        }
+        self.entries.get((index - 1) as usize).map(String::as_str)
     }
 
     /// Number of interned entries.
@@ -133,14 +142,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn intern_dedups_and_assigns_sequential_indices() {
+    fn intern_is_1_based_and_dedups() {
+        // Index 0 is reserved (EdgeBlock empty-slot sentinel) — entries start at 1.
         let mut cb = Codebook::new();
-        assert_eq!(cb.intern("Nation"), Some(0));
-        assert_eq!(cb.intern("TechCompany"), Some(1));
-        assert_eq!(cb.intern("Nation"), Some(0)); // dedup
+        assert_eq!(cb.intern("Nation"), Some(1));
+        assert_eq!(cb.intern("TechCompany"), Some(2));
+        assert_eq!(cb.intern("Nation"), Some(1)); // dedup
         assert_eq!(cb.len(), 2);
-        assert_eq!(cb.index_of("TechCompany"), Some(1));
-        assert_eq!(cb.label(0), Some("Nation"));
+        assert_eq!(cb.index_of("TechCompany"), Some(2));
+        assert_eq!(cb.label(1), Some("Nation"));
+        assert_eq!(cb.label(0), None, "index 0 is the reserved sentinel");
         assert_eq!(cb.label(9), None);
     }
 
@@ -151,24 +162,27 @@ mod tests {
             assert!(cb.intern(&format!("e{i}")).is_some());
         }
         assert!(cb.is_full());
+        assert_eq!(cb.len(), 255); // indices 1..=255, 0 reserved
         // a NEW label overflows → None (split the family)…
         assert_eq!(cb.intern("one_too_many"), None);
         // …but an already-interned label still resolves at capacity.
-        assert_eq!(cb.intern("e0"), Some(0));
+        assert_eq!(cb.intern("e0"), Some(1));
     }
 
     #[test]
     fn registry_scopes_codebooks_per_family() {
         // The SAME label gets INDEPENDENT indices in different families — the
-        // whole point of per-family scoping (no global contamination).
+        // whole point of per-family scoping (no global contamination). All
+        // 1-based (0 reserved).
         let mut reg = FamilyCodebookRegistry::new();
-        assert_eq!(reg.intern(0x0001, "Issue"), Some(0));
-        assert_eq!(reg.intern(0x0001, "Bug"), Some(1));
-        assert_eq!(reg.intern(0x0002, "Issue"), Some(0)); // family 2's own index 0
+        assert_eq!(reg.intern(0x0001, "Issue"), Some(1));
+        assert_eq!(reg.intern(0x0001, "Bug"), Some(2));
+        assert_eq!(reg.intern(0x0002, "Issue"), Some(1)); // family 2's own index 1
         assert_eq!(reg.families(), 2);
         // cross-family resolve (family, index) → label
-        assert_eq!(reg.resolve(0x0001, 1), Some("Bug"));
-        assert_eq!(reg.resolve(0x0002, 0), Some("Issue"));
-        assert_eq!(reg.resolve(0x0099, 0), None); // unknown family
+        assert_eq!(reg.resolve(0x0001, 2), Some("Bug"));
+        assert_eq!(reg.resolve(0x0002, 1), Some("Issue"));
+        assert_eq!(reg.resolve(0x0001, 0), None); // reserved sentinel
+        assert_eq!(reg.resolve(0x0099, 1), None); // unknown family
     }
 }
