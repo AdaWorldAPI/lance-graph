@@ -108,6 +108,32 @@ pub const FMA_ANATOMY: DomainSpec = DomainSpec {
     member_edge: "part-of",
 };
 
+/// The **project-management** domain (classid [`NodeGuid::CLASSID_PROJECT`],
+/// OGAR `0x01XX`): OpenProject ↔ Redmine work items. Family = project / version;
+/// `in_family` = relates-to, `out_family` = blocks (cross-project dependency).
+/// Anchor families are caller-supplied (the milestone / release hubs).
+pub const PROJECT: DomainSpec = DomainSpec {
+    classid: NodeGuid::CLASSID_PROJECT,
+    name: "Project",
+    anchor_families: &[],
+    in_family_edge: "relates-to",
+    out_family_edge: "blocks",
+    member_edge: "in-project",
+};
+
+/// The **commerce / ERP** domain (classid [`NodeGuid::CLASSID_ERP`], OGAR
+/// `0x02XX`): Odoo ↔ OSB invoices / partners / taxes. Family = partner / journal;
+/// `in_family` = line-of, `out_family` = paid-by (cross-partner settlement).
+/// Anchor families are caller-supplied (the key accounts / journals).
+pub const ERP: DomainSpec = DomainSpec {
+    classid: NodeGuid::CLASSID_ERP,
+    name: "ERP",
+    anchor_families: &[],
+    in_family_edge: "line-of",
+    out_family_edge: "paid-by",
+    member_edge: "in-ledger",
+};
+
 /// The synthetic id of a family node in the snapshot (`"family:RRGGBB"` hex).
 #[inline]
 fn family_node_id(family: u32) -> String {
@@ -279,9 +305,7 @@ pub fn nearest_anchor(rows: &[NodeRow], domain: &DomainSpec) -> Vec<AnchorHop> {
     let mut anchor_paths: Vec<(u32, NiblePath)> = Vec::new();
     for row in &domain_rows {
         let fam = row.key.family();
-        if domain.anchor_families.contains(&fam)
-            && !anchor_paths.iter().any(|(f, _)| *f == fam)
-        {
+        if domain.anchor_families.contains(&fam) && !anchor_paths.iter().any(|(f, _)| *f == fam) {
             anchor_paths.push((fam, hhtl_path(&row.key)));
         }
     }
@@ -369,10 +393,7 @@ mod tests {
             .iter()
             .any(|e| e.label == "references" && e.target == "family:00000b"));
         // No edge targets an individual member (everything lands on a family node).
-        assert!(snap
-            .edges
-            .iter()
-            .all(|e| e.target.starts_with("family:")));
+        assert!(snap.edges.iter().all(|e| e.target.starts_with("family:")));
     }
 
     #[test]
@@ -496,7 +517,10 @@ mod tests {
         // GraphSnapshot isn't PartialEq; compare the structural projection.
         let key = |s: &GraphSnapshot| {
             (
-                s.nodes.iter().map(|n| (n.id.clone(), n.kind.clone())).collect::<Vec<_>>(),
+                s.nodes
+                    .iter()
+                    .map(|n| (n.id.clone(), n.kind.clone()))
+                    .collect::<Vec<_>>(),
                 s.edges
                     .iter()
                     .map(|e| (e.source.clone(), e.target.clone(), e.label.clone()))

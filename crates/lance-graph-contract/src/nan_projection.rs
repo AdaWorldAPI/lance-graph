@@ -125,7 +125,11 @@ mod tests {
     #[test]
     fn subnormal_and_zero_are_finite() {
         // exponent-zero patterns (zero, subnormals) must NOT be flagged
-        let rows = vec![board_with(0.0), board_with(-0.0), board_with(f32::MIN_POSITIVE)];
+        let rows = vec![
+            board_with(0.0),
+            board_with(-0.0),
+            board_with(f32::MIN_POSITIVE),
+        ];
         assert!(project_energy_nonfinite(&rows).is_clean());
     }
 }

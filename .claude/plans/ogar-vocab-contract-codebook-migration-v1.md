@@ -1,9 +1,9 @@
 # Migration — OGAR `ogar-vocab` codebook ⇄ `lance-graph-contract` classid (v1)
 
-> **Status:** PROPOSED (2026-06-20). Surfaces a **canon conflict** between merged
-> `lance-graph-contract` classids and OGAR's `ogar-vocab` codebook; the
-> reconciliation rewrites merged canon (`CLASSID_OSINT`/`CLASSID_FMA`) and so is
-> gated on operator sign-off.
+> **Status:** SHIPPING (2026-06-20). Operator signed off §5; D-OVC-1/2/4 landed
+> on the jirak branch + D-OVC-3 realign landed (canon-doc cross-ref pending).
+> Originally surfaced a **canon conflict** between merged `lance-graph-contract`
+> classids and OGAR's `ogar-vocab` codebook.
 > **The triangle:** ontology (OGAR `ogar-vocab`) → contract (`NodeGuid`/`ClassId`)
 > → q2 (Quadro-2 cockpit consuming `GraphSnapshot`).
 
@@ -84,23 +84,43 @@ class-identity codebook. Reconcile onto OGAR's `0xDDCC` scheme:
 
 ## 4 — Deliverables (gated on §5 decisions)
 
-- **D-OVC-1** Move/mirror `ConceptDomain` + `canonical_concept_domain` +
-  `source_domain_concept` + `canonical_concept_id` + `CODEBOOK` + `LabelDTO`
-  into `lance-graph-contract` (e.g. `contract::ogar_codebook`); `ogar-vocab`
-  re-exports (or wire-compat duplicate). Round-trip test: `LabelDTO::from_alias`
-  parity across both crates.
-- **D-OVC-2** Mint `CLASSID_PROJECT` (`0x0100`) + `CLASSID_ERP` (`0x0200`) in
-  `canonical_node.rs` + `ReadMode`s, registered in `BUILTIN_READ_MODES`. Add
-  `soa_graph::{PROJECT, ERP}` `DomainSpec`s (siblings of `OSINT_GOTHAM`/`FMA_ANATOMY`).
-- **D-OVC-3** **Canon realign (SIGN-OFF):** `CLASSID_OSINT 0x0007 → 0x0700`,
-  `CLASSID_FMA 0x0008 → 0x09xx` (Health) or a minted anatomy domain. Field-isolation
-  / version-gate per `I-LEGACY-API-FEATURE-GATED`; update `aiwar.rs`, `soa_graph.rs`,
-  tests, and the canon block in `lance-graph/CLAUDE.md` + OGAR `CODEBOOK`.
-- **D-OVC-4** Route `classid → ReadMode` (and the domain ClassView) through
-  `canonical_concept_domain(classid_lo)`; q2 reads `LabelDTO`/`canonical` for
-  display labels (the contract→q2 leg of the triangle).
+> **Update 2026-06-20:** operator signed off §5 (realign 0xDDCC / wire-compat /
+> FMA = Health `0x0901`). D-OVC-1/2 SHIPPED, D-OVC-4 SHIPPED (function + tests;
+> q2 display-label leg is q2-side); D-OVC-3 (cutover audit) downgraded — the
+> classid realign is a const *value* change, not a bit-layout reclaim, so it is
+> layout-preserving (no `ENVELOPE_LAYOUT_VERSION` bump); what remains is updating
+> the `lance-graph/CLAUDE.md` canon block + OGAR `CODEBOOK` cross-doc.
 
-## 5 — Decisions needed (operator)
+- **D-OVC-1** ✅ **SHIPPED.** NEW `contract::ogar_codebook` — wire-compat mirror
+  (zero-dep, no OGAR↔contract dependency): `ConceptDomain`, `canonical_concept_domain`,
+  `classid_concept_domain` (the classid→domain route, D-OVC-4), `source_domain_concept`,
+  `CODEBOOK` (project `0x01XX` + commerce `0x02XX`), `canonical_concept_id`,
+  `LabelDTO { label, id, canonical }` + `from_canonical` + `id_le`. (Named
+  `from_canonical`, not `from_alias`: the contract carries the codebook-id layer,
+  NOT OGAR's curator-alias normalizer — that stays in `ogar-vocab`.) Drift-guard
+  test pins the shared `0xDDCC` ids; 6 tests.
+- **D-OVC-2** ✅ **SHIPPED.** Minted `CLASSID_PROJECT` (`0x0100`) + `CLASSID_ERP`
+  (`0x0200`) in `canonical_node.rs` + `ReadMode::{PROJECT, ERP}` (both Cognitive /
+  CoarseOnly), registered in `BUILTIN_READ_MODES`. Added `soa_graph::{PROJECT, ERP}`
+  `DomainSpec`s (siblings of `OSINT_GOTHAM`/`FMA_ANATOMY`), re-exported from lib.rs.
+- **D-OVC-3** ◐ **PARTIAL.** Canon realign LANDED: `CLASSID_OSINT 0x0007 → 0x0700`,
+  `CLASSID_FMA 0x0008 → 0x0901` (anatomy concept in Health). Tests updated to assert
+  the new values + `>>8` domain bytes. **Layout-preserving** (const value, not a bit
+  reclaim) → no field-isolation matrix / version-gate needed. **Remaining:** update
+  the `lance-graph/CLAUDE.md` canon block note + OGAR `CODEBOOK` cross-ref doc.
+- **D-OVC-4** ✅ **SHIPPED (contract leg).** `classid_concept_domain(classid)` routes
+  on the low-u16 `0xDDCC` high byte; tests assert all five classids resolve to their
+  `ConceptDomain`. q2's `LabelDTO`/`canonical` display-label consumption is the q2-side
+  leg (this crate exports the type + ids).
+
+## 5 — Decisions needed (operator) — ✅ RESOLVED 2026-06-20
+
+1. **Canon realign OSINT/FMA?** → **YES, realign to `0xDDCC`** (OSINT `0x0700`,
+   FMA `0x0901`).
+2. **Dependency direction?** → **(b) wire-compat now** — both define, the `u16` LE
+   wire is the only contract, drift-guard test prevents divergence. No new dep.
+3. **FMA/anatomy domain?** → **Health `0x09XX`** — FMA = anatomy concept `0x0901`,
+   `0x0900` = Health root. (`CC = 0x00` = domain root, reserved everywhere.)
 
 1. **Canon realign OSINT/FMA?** `CLASSID_OSINT 0x0007 → 0x0700`, `CLASSID_FMA
    0x0008 → 0x09XX`. This rewrites merged canon (#557/#560) + the `lance-graph/
