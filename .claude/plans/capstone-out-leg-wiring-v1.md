@@ -199,7 +199,25 @@ ractor `cast` — **same ownership, same `try_advance_phase`**. No no-owner test
 
 ## run-NaN — the measurement (Wave-0's third metric)
 
-**Census state:** HYPOTHESIS. `symbiont::kanban_loop::run_to_absorbing
+**Status (2026-06-21): actor-side half PROVEN green** (lance-free, symbiont-free).
+`lance-graph-supervisor::kanban_actor::run_to_absorbing(actor, max_ticks)` drives a
+mailbox to its absorbing column through the REAL actor messages (the `Tick` arc)
+and returns the forward-arc `KanbanMove` trace. Test
+`run_to_absorbing_drives_a_full_rubicon_cycle_no_nan_no_panic`: a mailbox runs
+`Planning → CognitiveWork → Evaluation → Commit`, terminates within the bound,
+every move is a legal Rubicon edge, no panic, no spurious `Illegal`, and the run
+is idempotent at rest (a second run is an empty trace, phase unchanged). The
+phase/i4 path is integer-only → **NaN is structurally impossible on this half**,
+so the green run IS the actor-side run-NaN answer. 14 tests green; clippy + fmt
+clean; light build.
+
+**Remaining (symbiont/disk-gated):** the *cognitive* half — instrument
+`symbiont::kanban_loop::run_to_absorbing(&NextPhaseScheduler)` over the energy
+column + observable outputs (not just the phase trail) for a live-cycle NaN%.
+That harness drives the full domino sweep over a real SoA and is owned by the
+cognitive-compilation session — coordinate first.
+
+**Census state (orig):** HYPOTHESIS. `symbiont::kanban_loop::run_to_absorbing
 (&NextPhaseScheduler)` is the runnable harness.
 
 **Work:** instrument one `run_to_absorbing` cycle; count valid vs
