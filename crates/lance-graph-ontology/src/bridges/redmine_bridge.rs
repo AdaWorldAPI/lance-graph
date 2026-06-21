@@ -207,7 +207,9 @@ ogit.Redmine:Issue
     #[test]
     fn new_returns_unknown_namespace_when_not_registered() {
         let registry = Arc::new(OntologyRegistry::new_in_memory());
-        let err = RedmineBridge::new(registry).unwrap_err();
+        let err = RedmineBridge::new(registry)
+            .err()
+            .expect("expected UnknownNamespace error");
         match err {
             Error::UnknownNamespace(name) => assert_eq!(name, "Redmine"),
             other => panic!("expected UnknownNamespace, got {other:?}"),

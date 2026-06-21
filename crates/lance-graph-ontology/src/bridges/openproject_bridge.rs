@@ -224,7 +224,9 @@ ogit.OpenProject:WorkPackage
     #[test]
     fn new_returns_unknown_namespace_when_not_registered() {
         let registry = Arc::new(OntologyRegistry::new_in_memory());
-        let err = OpenProjectBridge::new(registry).unwrap_err();
+        let err = OpenProjectBridge::new(registry)
+            .err()
+            .expect("expected UnknownNamespace error");
         match err {
             Error::UnknownNamespace(name) => assert_eq!(name, "OpenProject"),
             other => panic!("expected UnknownNamespace, got {other:?}"),
