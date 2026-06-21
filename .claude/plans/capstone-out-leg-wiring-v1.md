@@ -64,19 +64,25 @@ advances exactly the expected rows; integer i4 gate ⇒ no NaN.
 synthetic `u32` tick (`self.cycle`); the lowering is proven, the live source is
 open.
 
-**Enabler (contract):** none — `VersionScheduler`/`NextPhaseScheduler`/
-`DatasetVersion` already exist and are tested (`scheduler.rs`).
+**Enabler:** none — and crucially the **live scheduler ALSO already exists**:
+`lance-graph::graph::scheduler::LanceVersionScheduler<S = NextPhaseScheduler>`
+with `drive_once` / `drive_at_latest` over `VersionedGraph::versions()`
+(`crates/lance-graph/src/graph/scheduler.rs`). **Do NOT create a second one in
+callcenter** (codex #573 — that would duplicate the surface and is the
+"propose a type that already exists" tax).
 
-**Consumer site:** a `LanceVersionScheduler` in **callcenter** (the crate that
-already has the lance dep) subscribing `Dataset::versions()` (or the callcenter
-`LanceVersionWatcher`) → on each new version, `NextPhaseScheduler::on_version
-(view, DatasetVersion(v), exec)` → `owner.try_advance_phase(move.to)`. Replace
-the synthetic tick with the real `versions()` delta.
+**Consumer site (the ACTUAL gap):** the consumer that calls
+`scheduler.drive_at_latest(view, exec)` and **applies** the returned
+`Option<KanbanMove>` via `owner.try_advance_phase(move.to)`, **and suppresses
+no-op ticks** (a `versions()` poll with no new version yields no apply). The
+scheduler→move lowering is done; the missing work is the apply + de-dup loop in
+whatever crate owns the live `VersionedGraph` + the mailbox owner.
 
-**Test:** drive a 2-version Lance dataset; assert exactly one forward-arc move
-per new version, none on a no-op tick.
+**Test:** 2-version dataset → exactly one forward-arc apply; re-poll with no new
+version → no apply (no-op tick suppressed).
 
-**Blocker:** lance build + disk; callcenter crate.
+**Blocker:** that consumer crate's build (lance) + disk. (Scheduler exists; this
+is consumption only.)
 
 ---
 
@@ -89,21 +95,31 @@ bridge impl returns `DomainUnavailable` (`orchestration_impl.rs:55-57`,
 **Enabler (contract):** none — `StepDomain::Kanban` + `from_step_type("kanban")`
 + `OrchestrationBridge` trait all exist.
 
-**Consumer site:** a `Kanban` arm in a consumer-crate `OrchestrationBridge`
-impl. Two options:
-- (a) extend `PlannerAwareness::route` with a `StepDomain::Kanban` branch, OR
-- (b) a dedicated `KanbanBridge` in the planner (or shader-driver) that accepts
-  only `Kanban`.
-The arm parses the sub-op after the `kanban.` prefix and applies the move via
-the mailbox owner (`try_advance_phase`) — **Decision B preserved**: identity
-stays on the `KanbanMove`/owner side, `UnifiedStep` gains no pointer field.
-Absent-owner ⇒ graceful `OrchestrationError`, never panic (the S4 probe's
-fail-closed half).
+**Consumer site:** an **owner-carrying bridge**, NOT a `PlannerAwareness`
+branch. Codex #573 (verified): `PlannerAwareness` holds only
+`strategies`/`selector` (`lib.rs:99-103`), `route(&self, &mut UnifiedStep)` is
+`&self`, and `UnifiedStep` is pointer-free (`orchestration.rs:343-355`) — so a
+`PlannerAwareness::route` branch can ONLY mark status `Completed` (accept); it
+**cannot** reach an owner to `try_advance_phase`, and cannot exercise the
+no-owner error case. The real S4 mechanism:
+- a dedicated `KanbanBridge` that **holds the mailbox owner** behind interior
+  mutability (`RwLock<dyn MailboxSoaOwner>` or a registry keyed by mailbox —
+  needed because `route(&self)` must not take `&mut self` during compute, per
+  the no-`&mut`-during-compute data-flow rule). Its `route()` accepts only
+  `StepDomain::Kanban`, parses the sub-op after the `kanban.` prefix, and
+  applies the move via the held owner; an unregistered/absent owner ⇒ graceful
+  `OrchestrationError` (the fail-closed half).
+- **Decision B preserved**: `UnifiedStep` gains NO field — the identity reaches
+  the owner via the bridge's HELD state (mailbox registry), not via the step.
+The "single `PlannerAwareness` branch" is demoted to an accept-only stub; it is
+NOT the smallest *true* wire (it can't advance a phase).
 
-**Test:** route a `step_type:"kanban.advance"` → lands (status `Completed`),
-the owner's phase advanced; route it with no owner registered → graceful Err.
+**Test:** register an owner in the bridge; route `step_type:"kanban.advance"` →
+owner phase advanced + status `Completed`; route with no owner registered →
+graceful Err (no panic).
 
-**Blocker:** planner (or shader-driver) build (datafusion+lance → disk).
+**Blocker:** the bridge's host crate build (datafusion+lance via planner, or
+shader-driver) → disk.
 
 ---
 
@@ -126,10 +142,14 @@ ownership of `symbiont` — coordinate first.
 
 ## Sequencing (lowest blast radius first)
 
-1. **S4** (a) — smallest: one `Kanban` arm in `PlannerAwareness::route` + test.
-   Needs only the planner build. Closes the resolve-then-reject gap.
+1. **S4** — the owner-carrying `KanbanBridge` (holds the mailbox owner via
+   interior mutability) + test. NOT a `PlannerAwareness` branch (codex #573:
+   that can only accept, not advance). Smallest *true* wire; host-crate build.
 2. **S2** — the `qualia()` enabler + shader-driver owner loop + test (one PR).
-3. **S3** — the callcenter `LanceVersionScheduler` (lance subscription).
+3. **S3** — the consumer that drives the EXISTING
+   `lance-graph::graph::scheduler::LanceVersionScheduler::drive_at_latest` and
+   applies the returned `KanbanMove` + suppresses no-op ticks (codex #573: do
+   not add a second scheduler).
 4. **run-NaN** — instrument `symbiont` (after coordinating with the other
    session); ideally after S3 so the cycle is live, not synthetic.
 
