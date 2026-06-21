@@ -88,6 +88,21 @@ exclude = [
     # half of the OGIT(ontology)/OGAR(ogar) clean separation. Verify via
     # `cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml`.
     "crates/lance-graph-ogar",
+    # Cognitive Compilation loop (claude/cognitive-compilation-lance-graph-h8sgym).
+    # The NEW piece is the Elixir-shaped template — thinking styles, JITson, and
+    # i4-32D thinking-style vectors already exist; the template was the gap. Four
+    # standalone zero-dep crates, EXCLUDED so they never enter the default build.
+    # Verify each via `cargo test --manifest-path crates/<name>/Cargo.toml`.
+    # Plan: .claude/plans/cognitive-compilation-v1.md.
+    "crates/elixir-template",      # representation + parser + source_ranking_v1 slice
+    "crates/template-runtime",     # deterministic reflex executor (OGAR-action dispatch)
+    "crates/template-equivalence", # replay grading (Exact/RankOrder real; Semantic deferred)
+    "crates/cognitive-compiler",   # trace → template synthesis surface (logic deferred)
+    # Golden image: NEW Elixir-template stack linked on top of the OLD AdaWorldAPI
+    # forks (lance-graph + ndarray + ractor + surrealdb kv-lance + OGAR) in ONE
+    # binary. Own [workspace] + git-deps (sibling of crates/symbiont). Verify via
+    # `cargo build --manifest-path crates/cognitive-stack/Cargo.toml` or the Dockerfile.
+    "crates/cognitive-stack",
 ]
 resolver = "2"
 

@@ -1,3 +1,23 @@
+## 2026-06-21 — cognitive-compilation-v1 (PROPOSED; scaffold landed)
+
+Plan: `.claude/plans/cognitive-compilation-v1.md`. "LLM = teacher/compiler/critic;
+Lance-Graph = reflex runtime." The LLM solves a task once, the run is traced,
+the trace is **compiled into an Elixir-shaped template**, replayed for
+equivalence, reviewed, and promoted — after which matching tasks run
+deterministically with **no LLM in the hot path** (§18). **Operator scope
+correction (2026-06-21):** the ONLY new idea is the Elixir-shaped template;
+ractor / surrealdb-kv-lance / Rubicon-kanbanview / thinking-styles / JITson /
+i4-32D all already exist and are untouched. This PR lands four standalone
+zero-dep excluded crates in lance-graph — `elixir-template` (the gap: parser +
+representation + `source_ranking_v1` slice), `template-runtime` (deterministic
+OGAR-action dispatch), `template-equivalence` (Exact/RankOrder real, Semantic
+deferred), `cognitive-compiler` (trace→template surface) — plus, additively in
+siblings: rig (`rig-surrealdb` pointed at our kv-lance fork) and rs-graph-llm
+(one isolated, cherry-pickable graph-flow Task). 17 tests green, clippy clean.
+index/review/promoter/ledger/rubicon/rig-adapter/fence = existing homes or DEFERRED.
+
+---
+
 ## 2026-06-20 — capstone-cognitive-loop-wiring-nan-census-v1 (PROPOSED)
 
 The measurement companion to the kanban×Rubicon tenant arc. **A measurement plan,
