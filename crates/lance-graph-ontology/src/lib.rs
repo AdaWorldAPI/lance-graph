@@ -17,8 +17,9 @@
 //! - [`NamespaceBridge`] is the trait every tenant bridge implements. Default
 //!   methods do the heavy lifting: a typical tenant bridge is ~15-20 lines
 //!   that lock to one namespace and route resolution through the shared
-//!   registry. See [`bridges::WoaBridge`], [`bridges::MedcareBridge`],
-//!   [`bridges::OgitBridge`].
+//!   registry. See [`bridges::WoaBridge`], [`bridges::OgitBridge`]. The
+//!   OGAR-driven port bridges (OpenProject / Redmine / MedCare) live in
+//!   the `lance-graph-ogar` crate (OGAR), not here (OGIT).
 //! - [`MappingProposal`] is the producer-side DTO. TTL hydration emits
 //!   proposals; schema scanners (MySQL/MSSQL, future) and customer admin
 //!   forms emit proposals; everything funnels through one append path.

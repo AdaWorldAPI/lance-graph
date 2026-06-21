@@ -45,11 +45,11 @@
 //! `P::NAMESPACE`), so downstream context-based routing can
 //! distinguish per-port data from the default (unbound) context.
 
-use crate::bridge::{BridgeError, BridgeFromRegistry, EntityRef, NamespaceBridge};
-use crate::error::{Error, Result};
-use crate::namespace::{NamespaceId, OgitUri, SchemaKind, SchemaPtr};
-use crate::namespace_registry::NamespaceRegistry;
-use crate::registry::OntologyRegistry;
+use lance_graph_ontology::bridge::{BridgeError, BridgeFromRegistry, EntityRef, NamespaceBridge};
+use lance_graph_ontology::error::{Error, Result};
+use lance_graph_ontology::namespace::{NamespaceId, OgitUri, SchemaKind, SchemaPtr};
+use lance_graph_ontology::namespace_registry::NamespaceRegistry;
+use lance_graph_ontology::registry::OntologyRegistry;
 use ogar_vocab::ports::PortSpec;
 use std::marker::PhantomData;
 use std::sync::Arc;

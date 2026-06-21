@@ -49,11 +49,11 @@ mod tests {
     //! Healthcare fixtures differ.
 
     use super::*;
-    use crate::bridge::{BridgeError, NamespaceBridge};
-    use crate::error::Error;
-    use crate::namespace::NamespaceId;
-    use crate::namespace_registry::NamespaceRegistry;
-    use crate::registry::OntologyRegistry;
+    use lance_graph_ontology::bridge::{BridgeError, NamespaceBridge};
+    use lance_graph_ontology::error::Error;
+    use lance_graph_ontology::namespace::NamespaceId;
+    use lance_graph_ontology::namespace_registry::NamespaceRegistry;
+    use lance_graph_ontology::registry::OntologyRegistry;
     use ogar_vocab::class_ids;
     // PortSpec needed in scope for `HealthcarePort::aliases()`.
     use ogar_vocab::ports::PortSpec;

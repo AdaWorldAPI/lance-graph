@@ -11,19 +11,6 @@ keywords = ["ontology", "ogit", "ttl", "rdf", "lance"]
 # / SchemaExpander. Zero-dep crate by design — we depend on it, not the reverse.
 lance-graph-contract = { path = "../lance-graph-contract" }
 
-# Canonical class schema (codebook + Class fns + PortSpec). The
-# `UnifiedBridge<P: PortSpec>` harness in `crate::bridges::unified` is
-# parameterised by `ogar_vocab::ports::PortSpec`, so per-port bridges
-# (OpenProjectBridge, RedmineBridge, …) are type aliases over the
-# harness — the namespace / bridge_id / public-name-alias data all
-# come from OGAR class schema, not from this crate.
-# OGAR `main` carries `ports::PortSpec` + the project-mgmt ports AND the
-# `HealthcarePort` + 0x09XX Health codebook that
-# `MedcareBridge = UnifiedBridge<HealthcarePort>` needs (OGAR #91 merged).
-# Tracks `main`, matching the sibling `lance-graph-ogar` / `cognitive-stack`
-# / `symbiont` pins — one OGAR source for the whole graph.
-ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
-
 # TTL parser. oxttl is the smallest streaming Turtle parser in the workspace's
 # dependency graph and matches the shape of OGIT's per-entity .ttl files.
 # Pinned to the same oxrdf version as oxrdfxml below — duplicate-version

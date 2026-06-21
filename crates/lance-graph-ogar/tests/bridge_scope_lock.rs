@@ -11,7 +11,8 @@
 //! or `BridgeError::NotInScope` (the latter when the namespace itself is
 //! present but the public name was filed under a different bridge id).
 
-use lance_graph_ontology::bridges::{MedcareBridge, OgitBridge, WoaBridge};
+use lance_graph_ogar::bridges::MedcareBridge;
+use lance_graph_ontology::bridges::{OgitBridge, WoaBridge};
 use lance_graph_ontology::{NamespaceBridge, OgitUri, OntologyRegistry};
 use std::fs;
 use std::sync::Arc;
