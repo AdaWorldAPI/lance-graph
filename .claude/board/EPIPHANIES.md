@@ -1,3 +1,18 @@
+## 2026-06-21 — E-S4-ENVELOPE-STAYS-POINTERLESS — the routed `UnifiedStep` must NOT gain a SoA-pointer field; identity rides the typed `KanbanMove` sidecar + the node self-describes via `ValueTenant::Kanban` (G1 subsumed). 5+3 council verdict 6×B / 1×A(satisfied-by-B) / 1×DEFER-then-B
+
+**Status:** FINDING (autoattended 5+3 hardening council, 2026-06-21; capstone S4 design-locked + deferred).
+
+The fork: how does a routed `UnifiedStep` (the canonical cross-crate envelope) identify WHICH SoA node a kanban update concerns? (A) add `node: NodeGuid`/`mailbox+cycle` field; (B) pointer-free — `KanbanMove` sidecar carries the typed `mailbox`+`cycle()`, node self-describes via its kanban tenant, `step_type:"kanban.*"` is the routing key only; (C) thin embedded `EnvelopeHeader`.
+
+**5+3 council (5 savants + 3 brutally-honest reviewers), parallel, Opus:**
+- bus-compiler **B**, host-glove-designer **B**, convergence-architect **B (OPPORTUNITY — 0-friction collapse: the node IS the state)**, integration-lead **B**, truth-architect **B + "route path partly live but kanban→surreal leg is scaffold"**.
+- baton-handoff-auditor **A** — but its CATCH-CRITICAL ("stringly-typed pointer from FNV-hashed `step_id`") is *satisfied by B's actual shape*: the typed identity is the `KanbanMove` sidecar (`mailbox: MailboxId`), not the parsed string; the string is routing/debug only. Its own analysis flags C as CATCH-LATENT (second-source-of-truth drift vs `KanbanTenant`).
+- dto-soa-savant **B** (A/C = a second home for identity the kanban column already owns = "fifth-column drift"; lab-vs-canonical "extend by column, not layer").
+- overclaim-auditor **DEFER, then B** (no real `impl OrchestrationBridge` route consumer for `kanban.*` exists; shipping A/B/C now is "scaffold dressed as a seam"; HONEST-S4 = the route-reaches-slot / absent→graceful-Err probe, which needs the downstream consumer).
+
+**Decision (navigated, not asked):** **B + DEFER.** `UnifiedStep` stays pointer-free (rejecting A/C). A/C would (1) break all 7 `UnifiedStep` struct-literal sites + force a crewai-rust/n8n-rs multi-repo bump (no `#[non_exhaustive]`/Default/builder — integration-lead), and (2) duplicate the identity the node's `ValueTenant::Kanban` already pins (G1 subsumed — dto-soa/convergence), violating R1/zero-copy. S4-as-routing is DEFERRED on a real downstream `OrchestrationBridge` consumer (planner `DrainTask`/`pipeline.rs` + a registered surreal `BridgeSlot` + a `Kanban` arm in `route`). The big win: the council surgically PREVENTED a multi-repo-breaking over-build. No code change — the navigated outcome is "don't build the field; the seam is downstream."
+
+Cross-ref: capstone plan S4 row; `orchestration.rs:343` (UnifiedStep, no pointer) / `:392` (route → Result) / `:409` (DomainUnavailable); `kanban.rs:151` (KanbanMove.mailbox typed); `canonical_node.rs:574` (Kanban tenant "subsumes G1"); lab-vs-canonical-surface.md.
 ## 2026-06-20 — E-KANBAN-IS-A-VALUE-TENANT-SUBSUMES-G1 — making kanban×Rubicon a per-node SoA value tenant (`ValueTenant::Kanban`, 8 B at value-slab [112,120)) pins SoA↔kanban in the 512-byte LE blob and dissolves the envelope-pointer gap (G1): the node carries its OWN phase+cycle, so no `UnifiedStep` field is needed
 
 **Status:** FINDING (operator "brutal version" lock, 2026-06-20; shipped, capstone S1 green).
