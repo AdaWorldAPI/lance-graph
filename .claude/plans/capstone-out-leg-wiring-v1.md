@@ -88,7 +88,17 @@ is consumption only.)
 
 ## S4 — envelope route gets a `Kanban` handler (resolve-then-reject → accept)
 
-**Census state:** GAP. `kanban.*` resolves to `StepDomain::Kanban` then every
+**Status (2026-06-21): owner-advance HALF shipped.** `lance-graph-supervisor::
+kanban_actor::KanbanActor<O: MailboxSoaOwner>` is a real ractor actor whose
+`State` IS the owner; on `KanbanMsg::Advance` it calls `try_advance_phase`
+(owner advances itself; illegal edge → typed `RubiconTransitionError`, no
+mutation). 2 tests green under `--features supervisor` (light build, no
+disk/symbiont gate). **Remaining:** the *delivery edge* — `kanban.*` step →
+mailbox id → `ractor::registry::where_is` → `cast(Advance)` — plus the S2/S3
+drivers that send `Advance`. The mechanism the operator described ("every SoA
+is ractor-owned, the owner advances itself") is now real code.
+
+**Census state (original):** GAP. `kanban.*` resolves to `StepDomain::Kanban` then every
 bridge impl returns `DomainUnavailable` (`orchestration_impl.rs:55-57`,
 `codec_bridge.rs:38-40`). No handler.
 
