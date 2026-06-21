@@ -73,9 +73,36 @@ advances exactly the expected rows; integer i4 gate ⇒ no NaN.
 
 ## S3 — version→move gets the LIVE subscription (not a synthetic tick)
 
-**Census state:** PARTIAL. `symbiont::kanban_loop` exercises `on_version` from a
-synthetic `u32` tick (`self.cycle`); the lowering is proven, the live source is
-open.
+**Status (2026-06-21): apply+suppress DRIVER shipped** (actor-side path).
+`lance-graph-supervisor::kanban_actor` (feature `supervisor`) now carries the
+IN-leg consumer primitives:
+- `KanbanMsg::Tick { at, reply }` — the **atomic** in-actor realization of
+  `NextPhaseScheduler`: a version tick advances the owner along the forward arc
+  (`phase().next_phases().first()`) in ONE serialized message, reading the phase
+  at the instant of mutation (the codex-#578 atomicity lesson applied to the
+  IN-leg). Absorbing column → `None`: **the no-op tick is suppressed**, not an
+  error.
+- `drive_version_tick(actor, at)` — thin async wrapper over `Tick`.
+- `drive_scheduled_tick(scheduler, view, at, exec, actor)` — generic consumer
+  that drives the EXISTING `VersionScheduler` trait ("propose, don't dispose":
+  the scheduler proposes from a view, the owner disposes via `Advance`; `None`
+  suppresses). For custom policies (version-delta gating, `Plan`/`Prune`,
+  batching) that read a richer view than the owner computes internally.
+
+Tests (light, no lance): forward-arc chain Planning→…→Commit then suppressed at
+absorbing; two concurrent ticks serialize along the arc (no stale-phase
+collision); the generic consumer drives `NextPhaseScheduler` propose→dispose +
+suppresses an absorbing proposal.
+
+**Remaining (lance/disk-gated):** wire the LIVE source —
+`lance-graph::graph::scheduler::LanceVersionScheduler::drive_at_latest` over a
+real `VersionedGraph::versions()` — to feed `at` into `drive_version_tick` (or a
+custom policy into `drive_scheduled_tick`). The apply + no-op-suppress loop is
+done; only the live `versions()` poll remains.
+
+**Census state (orig):** PARTIAL. `symbiont::kanban_loop` exercises `on_version`
+from a synthetic `u32` tick (`self.cycle`); the lowering is proven, the live
+source is open.
 
 **Enabler:** none — and crucially the **live scheduler ALSO already exists**:
 `lance-graph::graph::scheduler::LanceVersionScheduler<S = NextPhaseScheduler>`
