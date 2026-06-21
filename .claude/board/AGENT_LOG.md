@@ -1,3 +1,25 @@
+## 2026-06-21 (cont.³⁶) — run-NaN COGNITIVE half PROVEN green (#580 handoff) + fixed the ogar_codebook drift that blocked it
+
+**Main thread (Opus), cognitive-compilation session.** Picked up the cognitive
+half #580 explicitly handed to this session: instrument `symbiont::kanban_loop::
+run_to_absorbing` for a live-cycle NaN%. Added `run_nan_census_live_cycle_is_zero_at_scale`
+— drives the FULL Rubicon arc (incl. the BF16 Domino sweep through CognitiveWork)
+over a **4096-row SoA**, censuses the energy column: **0% NaN / 0% Inf, non-trivial
+finite energy. PROVEN green** (`cargo test --manifest-path crates/symbiont kanban_loop`,
+4/4). The phase/i4 path is integer-only + the sweep is NaN-projection-guarded.
+
+**Blocker found + fixed en route:** the symbiont build (and cognitive-stack)
+failed at the `lance-graph-ogar` const parity guard — OGAR main advanced
+`class_ids::ALL` 32→39 (added the 0x09XX **Health** domain) but the contract wire
+mirror `ogar_codebook::CODEBOOK` was stale at 32. The mirror was already prepped
+for health (`ConceptDomain::Health`, `0x09 => Health`, the `0x0901==Health` test);
+only the 7 entries were missing. Synced CODEBOOK→39 (verbatim, stable ids);
+contract codebook tests green. This unblocks symbiont + cognitive-stack
+workspace-wide (the golden image builds on current OGAR main again). Branch
+`claude/symbiont-run-nan-census` (2 commits). Coordination note for the OGAR
+session: keep the contract mirror in lockstep when advancing `class_ids::ALL` —
+the const guard is the discipline.
+
 ## 2026-06-21 (cont.³⁵) — run-NaN actor-side half PROVEN green — run_to_absorbing drives a full Rubicon cycle, lance-free
 
 **Main thread (Opus), self-directed ("what do you choose next").** Chose the highest-value LIGHT move over forcing a disk-heavy lance build: answered the buildable half of the capstone's **run-NaN HYPOTHESIS**. New `lance-graph-supervisor::kanban_actor::run_to_absorbing(actor, max_ticks)` — repeatedly `drive_version_tick` until the owner reports an absorbing column (`Commit`/`Prune`), returning the forward-arc `KanbanMove` trace; `max_ticks` is a defensive non-termination guard (pure forward arc always reaches `Commit`). This is the actor-side, lance-free, symbiont-free analog of `symbiont::kanban_loop::run_to_absorbing`. **+1 test (14 total green):** `run_to_absorbing_drives_a_full_rubicon_cycle_no_nan_no_panic` — a mailbox runs `Planning → CognitiveWork → Evaluation → Commit`, terminates, every move is a legal Rubicon edge, no panic, no spurious `Illegal`, idempotent at rest (second run empty, phase unchanged). The phase/i4 path is integer-only ⇒ **NaN is structurally impossible on this half**, so green IS the actor-side run-NaN answer. clippy + fmt clean; light build, no lance/disk/symbiont gate. **Remaining run-NaN (symbiont/disk-gated):** the cognitive half — instrument `symbiont::kanban_loop::run_to_absorbing` over the energy column for a live-cycle NaN% (other session owns symbiont; coordinate). Plan run-NaN status annotated "actor-side half PROVEN". Rides a PR on jirak. Capstone actor-side substrate now complete: S4 (#576/#577) + S2 (#578) + S3 (#579) + run-to-absorbing (this).
