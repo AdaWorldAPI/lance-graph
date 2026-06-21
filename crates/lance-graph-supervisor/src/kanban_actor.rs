@@ -347,6 +347,40 @@ where
     }
 }
 
+// ─── Capstone run-to-absorbing: drive a mailbox to its terminal column ─────────
+
+/// Drive a mailbox to its **absorbing column** by repeatedly ticking
+/// ([`drive_version_tick`]) until the owner reports no further move
+/// (`Commit`/`Prune`). Returns the full forward-arc [`KanbanMove`] trace.
+///
+/// This is the actor-side, lance-free analog of the cognitive loop's
+/// run-to-absorbing: it proves the OUT/IN-leg substrate carries a mailbox through
+/// a complete Rubicon cycle to a terminal state with no panic and no spurious
+/// rejection (the integer-only phase/i4 path cannot produce NaN). The live S3
+/// source feeds real `versions()` ticks through the same `drive_version_tick`;
+/// here the loop counter stands in for the version stream.
+///
+/// `max_ticks` bounds the loop defensively. The pure forward arc always reaches
+/// `Commit` (`Planning → CognitiveWork → Evaluation → Commit`), so the bound is a
+/// guard against a future non-terminating policy, not a normal exit: exceeding it
+/// returns [`KanbanRouteError::Rpc`] with a non-termination note rather than
+/// looping forever.
+pub async fn run_to_absorbing(
+    actor: &ActorRef<KanbanMsg>,
+    max_ticks: usize,
+) -> Result<Vec<KanbanMove>, KanbanRouteError> {
+    let mut trace = Vec::new();
+    for tick in 0..max_ticks {
+        match drive_version_tick(actor, DatasetVersion(tick as u64 + 1)).await? {
+            Some(mv) => trace.push(mv),
+            None => return Ok(trace), // absorbing column reached — the cycle ended
+        }
+    }
+    Err(KanbanRouteError::Rpc(format!(
+        "run_to_absorbing did not reach an absorbing column within {max_ticks} ticks"
+    )))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -736,5 +770,58 @@ mod tests {
             actor.stop(None);
             handle.await.expect("actor join");
         }
+    }
+
+    #[tokio::test]
+    async fn run_to_absorbing_drives_a_full_rubicon_cycle_no_nan_no_panic() {
+        // Capstone run-NaN (actor-side, lance-free): a mailbox driven from
+        // Planning runs to the absorbing Commit column through the REAL actor
+        // messages — it terminates, never panics, never emits a spurious Illegal,
+        // and the trace is the deterministic forward arc. The integer phase/i4
+        // path cannot produce NaN, so a green run here IS the actor-side half of
+        // the loop's run-NaN answer.
+        let (actor, handle) = Actor::spawn(
+            None,
+            KanbanActor::<TestBoard>::default(),
+            board(KanbanColumn::Planning),
+        )
+        .await
+        .expect("spawn");
+
+        let trace = run_to_absorbing(&actor, 16)
+            .await
+            .expect("reaches an absorbing column within the bound");
+
+        // Forward arc: Planning → CognitiveWork → Evaluation → Commit (3 moves).
+        let arc: Vec<_> = trace.iter().map(|m| m.to).collect();
+        assert_eq!(
+            arc,
+            vec![
+                KanbanColumn::CognitiveWork,
+                KanbanColumn::Evaluation,
+                KanbanColumn::Commit,
+            ]
+        );
+        // Every move en route is a legal Rubicon edge (no corruption).
+        for m in &trace {
+            assert!(
+                m.from.can_transition_to(m.to),
+                "{:?} -> {:?} must be legal",
+                m.from,
+                m.to
+            );
+        }
+
+        // The owner rests in the absorbing column: a further run is empty, and
+        // the phase is unchanged (idempotent at rest — no spurious advance/error).
+        let again = run_to_absorbing(&actor, 4)
+            .await
+            .expect("idempotent at the absorbing column");
+        assert!(again.is_empty(), "absorbing column yields no further moves");
+        let phase = ractor::call!(actor, |reply| KanbanMsg::Phase { reply }).expect("rpc");
+        assert_eq!(phase, KanbanColumn::Commit);
+
+        actor.stop(None);
+        handle.await.expect("actor join");
     }
 }
