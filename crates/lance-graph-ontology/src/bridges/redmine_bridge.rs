@@ -35,7 +35,7 @@
 use crate::bridge::{BridgeError, BridgeFromRegistry, EntityRef, NamespaceBridge};
 use crate::bridges::codebook;
 use crate::error::{Error, Result};
-use crate::namespace::{NamespaceId, SchemaKind, SchemaPtr};
+use crate::namespace::{NamespaceId, OgitUri, SchemaKind, SchemaPtr};
 use crate::namespace_registry::NamespaceRegistry;
 use crate::registry::OntologyRegistry;
 use std::sync::Arc;
@@ -133,10 +133,7 @@ impl NamespaceBridge for RedmineBridge {
     /// tenant-specific URIs).
     fn entity(&self, public_name: &str) -> std::result::Result<EntityRef, BridgeError> {
         if let Some(class_id) = redmine_class_id(public_name) {
-            let ctx_id = NamespaceRegistry::seed_context_id(NAMESPACE).unwrap_or(0);
-            let schema_ptr = SchemaPtr::new(self.g_lock, class_id, SchemaKind::Entity)
-                .with_context_id(ctx_id);
-            return Ok(EntityRef { schema_ptr });
+            return Ok(self.synthesize_codebook_entity(class_id));
         }
         let ptr = self
             .registry()
@@ -153,6 +150,49 @@ impl NamespaceBridge for RedmineBridge {
             });
         }
         Ok(EntityRef { schema_ptr: ptr })
+    }
+
+    /// Codebook-aware override of [`NamespaceBridge::entity_by_uri`] —
+    /// codex P2 on PR #562. Symmetric to the OpenProject bridge: a URI
+    /// in the form `ogit.Redmine:<Name>` where `<Name>` is a codebook
+    /// entry goes through the synthesis path so URI-based and
+    /// public-name-based resolution converge on the same
+    /// `entity_type_id`.
+    fn entity_by_uri(&self, uri: &OgitUri) -> std::result::Result<EntityRef, BridgeError> {
+        if uri.namespace() == Some(NAMESPACE) {
+            if let Some(name) = uri.name() {
+                if let Some(class_id) = redmine_class_id(name) {
+                    return Ok(self.synthesize_codebook_entity(class_id));
+                }
+            }
+        }
+        let ptr = self
+            .registry()
+            .resolve_uri(uri.as_str())
+            .ok_or_else(|| BridgeError::NotInScope {
+                bridge_id: self.bridge_id_static(),
+                public_name: uri.as_str().to_string(),
+            })?;
+        if ptr.namespace_id() != self.g_lock() {
+            return Err(BridgeError::CrossNamespaceLeak {
+                bridge_id: self.bridge_id_static(),
+                resolved_id: ptr.namespace_id(),
+                locked_id: self.g_lock(),
+            });
+        }
+        Ok(EntityRef { schema_ptr: ptr })
+    }
+}
+
+impl RedmineBridge {
+    /// Build a synthesised [`EntityRef`] for a codebook concept. Shared
+    /// by [`NamespaceBridge::entity`] and [`NamespaceBridge::entity_by_uri`]
+    /// so the two paths can't drift on the convergence contract.
+    fn synthesize_codebook_entity(&self, class_id: u16) -> EntityRef {
+        let ctx_id = NamespaceRegistry::seed_context_id(NAMESPACE).unwrap_or(0);
+        let schema_ptr = SchemaPtr::new(self.g_lock, class_id, SchemaKind::Entity)
+            .with_context_id(ctx_id);
+        EntityRef { schema_ptr }
     }
 }
 
@@ -207,10 +247,12 @@ ogit.Redmine:Issue
     #[test]
     fn new_returns_unknown_namespace_when_not_registered() {
         let registry = Arc::new(OntologyRegistry::new_in_memory());
-        let err = RedmineBridge::new(registry).unwrap_err();
-        match err {
-            Error::UnknownNamespace(name) => assert_eq!(name, "Redmine"),
-            other => panic!("expected UnknownNamespace, got {other:?}"),
+        // `unwrap_err()` would require `RedmineBridge: Debug`, which it
+        // intentionally doesn't impl. Match on the result instead.
+        match RedmineBridge::new(registry) {
+            Ok(_) => panic!("expected UnknownNamespace, got Ok(_)"),
+            Err(Error::UnknownNamespace(name)) => assert_eq!(name, "Redmine"),
+            Err(other) => panic!("expected UnknownNamespace, got {other:?}"),
         }
     }
 

@@ -72,12 +72,17 @@ fn namespace_registry_seed_defaults_assigns_canonical_v1_ids() {
     assert_eq!(r.get("FinancialAccounting/FIBO-FND"), Some(30));
     assert_eq!(r.get("FinancialAccounting/SKR03-Bau"), Some(36));
 
-    // 29 seed mappings total:
-    //   6 cognitive (SMB / WorkOrder / Healthcare / Network / Email / SharePoint)
+    // Project-management ports added in #562 (codex P2 on #558).
+    assert_eq!(r.get("OpenProject"), Some(6));
+    assert_eq!(r.get("Redmine"), Some(7));
+
+    // 31 seed mappings total:
+    //   8 cognitive (SMB / WorkOrder / Healthcare / Network / Email /
+    //                SharePoint / OpenProject / Redmine)
     // + 10 medical (ICD10CM..CHEBI)
     // + 6 foundation (DOLCE-DUL, OWL-Time, PROV-O, QUDT, schema-org, SKOS)
     // + 7 financial (FIBO-FND, FIBO-BE, ZUGFeRD, ZUGFeRD-Rules, SKR03, SKR04, SKR03-Bau)
-    assert_eq!(r.len(), 29);
+    assert_eq!(r.len(), 31);
 }
 
 #[test]
@@ -90,18 +95,19 @@ fn namespace_registry_get_returns_none_for_unregistered() {
 #[test]
 fn namespace_registry_allocate_is_idempotent_and_dense() {
     let mut r = NamespaceRegistry::seed_defaults();
-    // Allocate a new namespace; gets the first free id (6 — between
-    // SharePoint=5 and Medical/ICD10CM=10).
+    // Allocate a new namespace; gets the first free id. Seed occupies
+    // 0..=7 (post-#562) + 10..=19 + 20..=25 + 30..=36, so the first
+    // free id is 8.
     let id1 = r.allocate("CallCenter");
-    assert_eq!(id1, 6);
+    assert_eq!(id1, 8);
     // Idempotent.
-    assert_eq!(r.allocate("CallCenter"), 6);
-    // Next free id continues densely (7).
+    assert_eq!(r.allocate("CallCenter"), 8);
+    // Next free id continues densely (9).
     let id2 = r.allocate("Splat");
-    assert_eq!(id2, 7);
+    assert_eq!(id2, 9);
     assert_ne!(id1, id2);
-    // Seed (29) + 2 new allocations = 31.
-    assert_eq!(r.len(), 31);
+    // Seed (31) + 2 new allocations = 33.
+    assert_eq!(r.len(), 33);
 }
 
 #[test]

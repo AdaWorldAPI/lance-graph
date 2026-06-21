@@ -186,3 +186,62 @@ fn synthesised_entity_refs_stamp_seeded_context_ids() {
     assert_ne!(wp.schema_ptr.ontology_context_id(), 0);
     assert_ne!(issue.schema_ptr.ontology_context_id(), 0);
 }
+
+#[test]
+fn entity_by_uri_routes_through_codebook_for_canonical_concepts() {
+    // Codex P2 on PR #562: URI resolution must converge on the
+    // SAME entity_type_id as public-name resolution. Without this,
+    // `bridge.entity_by_uri("ogit.OpenProject:WorkPackage")` would
+    // return the registry's URI-keyed (= append-order) id, while
+    // `bridge.entity("WorkPackage")` returns the codebook id —
+    // splitting the convergence contract by lookup path.
+    use lance_graph_ontology::OgitUri;
+    let registry = make_registry();
+    let op = OpenProjectBridge::new(Arc::clone(&registry)).unwrap();
+    let rm = RedmineBridge::new(registry).unwrap();
+
+    let wp_uri = OgitUri::parse("ogit.OpenProject:WorkPackage").unwrap();
+    let issue_uri = OgitUri::parse("ogit.Redmine:Issue").unwrap();
+
+    let wp_by_uri = op.entity_by_uri(&wp_uri).unwrap();
+    let wp_by_name = op.entity("WorkPackage").unwrap();
+    let issue_by_uri = rm.entity_by_uri(&issue_uri).unwrap();
+    let issue_by_name = rm.entity("Issue").unwrap();
+
+    // Same lookup path -> same EntityRef.
+    assert_eq!(wp_by_uri.schema_ptr.raw(), wp_by_name.schema_ptr.raw());
+    assert_eq!(issue_by_uri.schema_ptr.raw(), issue_by_name.schema_ptr.raw());
+
+    // Across-port convergence on the codebook class_id holds for both
+    // lookup paths.
+    assert_eq!(
+        wp_by_uri.schema_ptr.entity_type_id(),
+        codebook::PROJECT_WORK_ITEM,
+    );
+    assert_eq!(
+        issue_by_uri.schema_ptr.entity_type_id(),
+        codebook::PROJECT_WORK_ITEM,
+    );
+    assert_eq!(
+        wp_by_uri.schema_ptr.entity_type_id(),
+        issue_by_uri.schema_ptr.entity_type_id(),
+    );
+
+    // Synthesized ctx_id stamps the seeded namespace id, same as the
+    // public-name path.
+    assert_eq!(wp_by_uri.schema_ptr.ontology_context_id(), 6);
+    assert_eq!(issue_by_uri.schema_ptr.ontology_context_id(), 7);
+}
+
+#[test]
+fn entity_by_uri_falls_through_for_non_codebook_uris() {
+    // A URI in the bridge's namespace but NOT in the codebook reaches
+    // the default registry path. The fixture hydrates only WorkPackage
+    // / Issue, so an unregistered URI returns NotInScope.
+    use lance_graph_ontology::OgitUri;
+    let registry = make_registry();
+    let op = OpenProjectBridge::new(registry).unwrap();
+    let nonsense = OgitUri::parse("ogit.OpenProject:NotAConcept").unwrap();
+    let result = op.entity_by_uri(&nonsense);
+    assert!(result.is_err(), "non-codebook URI must not synthesize: {result:?}");
+}
