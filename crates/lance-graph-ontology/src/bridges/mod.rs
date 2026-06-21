@@ -1,47 +1,50 @@
 //! Default tenant bridge implementations.
 //!
-//! Seven bridges ship today:
+//! # Two layers
+//!
+//! - The **generic harness** [`unified::UnifiedBridge<P: PortSpec>`] is
+//!   the one-and-only NamespaceBridge impl for OGAR-driven ports. It
+//!   inherits everything that varies between ports
+//!   (`NAMESPACE` / `BRIDGE_ID` / public-name → class_id aliases) from
+//!   [`ogar_vocab::ports::PortSpec`]. Adding a port is `impl PortSpec
+//!   for FooPort {…}` in OGAR — no bridge boilerplate here.
+//! - The **legacy per-tenant bridges** ([`WoaBridge`], [`MedcareBridge`],
+//!   [`SpearBridge`], [`SharePointBridge`], [`OgitBridge`]) keep their
+//!   bespoke struct shape for now. They predate OGAR's codebook and
+//!   don't yet have a `PortSpec` impl in `ogar-vocab::ports`. When the
+//!   WorkOrder / Healthcare / EmailCorrespondance / SharePoint
+//!   namespaces get promoted into the codebook, these collapse the
+//!   same way OpenProject and Redmine just did.
+//!
+//! # Project-management ports (`UnifiedBridge<P>` aliases)
+//!
+//! - [`OpenProjectBridge`]: `UnifiedBridge<ogar_vocab::ports::OpenProjectPort>`
+//!   — locks to the `OpenProject` namespace. `WorkPackage` / `TimeEntry`
+//!   / `Project` etc. resolve to OGAR canonical class_ids via the
+//!   port's alias table.
+//! - [`RedmineBridge`]: `UnifiedBridge<ogar_vocab::ports::RedminePort>` —
+//!   locks to the `Redmine` namespace. `Issue` / `TimeEntry` / `Project`
+//!   etc. resolve to the SAME OGAR canonical class_ids as the
+//!   OpenProject equivalents, so cross-fork convergence is the default
+//!   not the exception.
+//!
+//! # Per-tenant bridges (legacy struct shape)
 //!
 //! - [`OgitBridge`]: pass-through bridge for tools that already speak raw
 //!   OGIT URIs. `bridge_id = "ogit"`. Locks to whatever namespace its
-//!   constructor is called with (typically the namespace of the caller).
-//! - [`WoaBridge`]: locks to the `WorkOrder` namespace. Public names like
-//!   `Customer`, `WorkOrder`, `Position` are translated via the registry
-//!   to the corresponding `ogit.WorkOrder:*` URIs.
+//!   constructor is called with.
+//! - [`WoaBridge`]: locks to the `WorkOrder` namespace.
 //! - [`MedcareBridge`]: locks to the `Healthcare` namespace.
-//! - [`SpearBridge`]: locks to the `EmailCorrespondance` namespace. Used
-//!   by the spear columnar mail server with stalwart (IMAP/JMAP) and
-//!   SharePoint as upstream mail-orchestration producers — both feed the
-//!   same `ogit.EmailCorrespondance:*` URIs through this bridge.
-//! - [`SharePointBridge`]: locks to the `SharePoint` namespace. Used by
-//!   the Sharepoint→smb-office-rs content orchestrator (UploadIntent /
-//!   DriveScope / ComplianceTagging) — distinct from EmailCorrespondance:
-//!   one covers documents / drives / sites, the other covers mail.
-//! - [`OpenProjectBridge`]: locks to the `OpenProject` namespace.
-//!   Public names like `WorkPackage` / `TimeEntry` / `Project` resolve
-//!   to `ogit.OpenProject:*` URIs. Northstar plan §3 C4 — supplies the
-//!   port (`openproject-nexgen-rs` + `op-canon`) with the scoped
-//!   registry view every consumer that touches OpenProject data on the
-//!   unified bridge goes through.
-//! - [`RedmineBridge`]: locks to the `Redmine` namespace. Public names
-//!   like `Issue` / `TimeEntry` / `Project` resolve to
-//!   `ogit.Redmine:*` URIs. Northstar plan §3 C5 — sibling of
-//!   `OpenProjectBridge` over the same 32 promoted concepts. Both
-//!   bridges synthesize EntityRefs whose `entity_type_id()` is the
-//!   shared OGAR codebook id for the canonical concept (so
-//!   `WorkPackage` and `Issue` both → `0x0102 project_work_item`),
-//!   delivering the cross-fork convergence pin.
-//!
-//! The shared codebook constants both project-management bridges
-//! reference live in [`codebook`] — single source of truth so the
-//! OpenProject port and the Redmine port can't drift on the same
-//! canonical concept's class_id.
+//! - [`SpearBridge`]: locks to the `EmailCorrespondance` namespace.
+//! - [`SharePointBridge`]: locks to the `SharePoint` namespace.
 //!
 //! The `smb-bridge` and `callcenter-bridge` are NOT created in this
-//! session: smb stays on its native ontology fallback, callcenter has its
-//! own auth + per-customer scoping concerns that need a separate design pass.
+//! session: smb stays on its native ontology fallback, callcenter has
+//! its own auth + per-customer scoping concerns that need a separate
+//! design pass.
 
-pub mod codebook;
+pub mod unified;
+
 mod medcare_bridge;
 mod ogit_bridge;
 mod openproject_bridge;
@@ -52,8 +55,20 @@ mod woa_bridge;
 
 pub use medcare_bridge::MedcareBridge;
 pub use ogit_bridge::OgitBridge;
-pub use openproject_bridge::{OpenProjectBridge, OPENPROJECT_CODEBOOK};
-pub use redmine_bridge::{RedmineBridge, REDMINE_CODEBOOK};
+pub use openproject_bridge::{OpenProjectBridge, OpenProjectPort};
+pub use redmine_bridge::{RedmineBridge, RedminePort};
 pub use sharepoint_bridge::SharePointBridge;
 pub use spear_bridge::SpearBridge;
+pub use unified::UnifiedBridge;
 pub use woa_bridge::WoaBridge;
+
+// Compatibility shims for the pre-migration constants. `bridges`
+// previously re-exported `OPENPROJECT_CODEBOOK` / `REDMINE_CODEBOOK`
+// directly; both now live in `ogar_vocab::ports::*_ALIASES` (the
+// canonical layer is the single source of truth). The re-exports here
+// are `#[deprecated]` in the per-port modules and forward to the OGAR
+// constants — existing consumers keep compiling (codex P2 on PR #570).
+#[allow(deprecated)]
+pub use openproject_bridge::OPENPROJECT_CODEBOOK;
+#[allow(deprecated)]
+pub use redmine_bridge::REDMINE_CODEBOOK;
