@@ -303,9 +303,12 @@ pub async fn drive_version_tick(
 /// message (from the supplied `view`), so it is **advisory**: if the owner's phase
 /// changes between the proposal and the `Advance`, the edge may be rejected
 /// ([`KanbanRouteError::Illegal`]) rather than silently corrupting — surfaced, not
-/// panicked. For the pure forward-arc policy prefer the atomic
-/// [`drive_version_tick`]; reach for this only when the policy needs a richer view
-/// than the owner computes internally.
+/// panicked. The returned move is the owner's (authoritative phase transition,
+/// witness position, and libet anchor from the REAL mutation) with the
+/// **scheduler's `exec` overlaid** — the backend routing tag is the policy's
+/// decision, which the owner (defaulting to `Native`) can't make. For the pure
+/// forward-arc policy prefer the atomic [`drive_version_tick`]; reach for this
+/// only when the policy needs a richer view than the owner computes internally.
 pub async fn drive_scheduled_tick<S, V>(
     scheduler: &S,
     view: &V,
@@ -327,10 +330,21 @@ where
         reply
     })
     .map_err(|e| KanbanRouteError::Rpc(e.to_string()))?;
-    inner.map(Some).map_err(|e| KanbanRouteError::Illegal {
-        from: e.from,
-        to: e.to,
-    })
+    match inner {
+        // The owner's emitted move is authoritative for the phase transition,
+        // witness position, and libet anchor (from the REAL mutation), but it
+        // defaults to `ExecTarget::Native` and can't know which backend the policy
+        // chose — overlay the scheduler's selection so a `Jit`/`SurrealQl`/`Elixir`
+        // target is not silently reported/routed as Native (codex #579 P2).
+        Ok(mut emitted) => {
+            emitted.exec = proposed.exec;
+            Ok(Some(emitted))
+        }
+        Err(e) => Err(KanbanRouteError::Illegal {
+            from: e.from,
+            to: e.to,
+        }),
+    }
 }
 
 #[cfg(test)]
@@ -688,5 +702,39 @@ mod tests {
 
         actor.stop(None);
         handle.await.expect("actor join");
+    }
+
+    #[tokio::test]
+    async fn scheduled_tick_preserves_non_native_exec_target() {
+        use lance_graph_contract::scheduler::NextPhaseScheduler;
+
+        // codex #579 P2: the scheduler selects the backend; the owner defaults to
+        // `Native`. The returned move must carry the scheduler's exec, NOT be
+        // flattened to the owner's Native default.
+        for exec in [ExecTarget::Jit, ExecTarget::SurrealQl, ExecTarget::Elixir] {
+            // Fresh owner per exec so the phase starts at Planning each iteration.
+            let (actor, handle) = Actor::spawn(
+                None,
+                KanbanActor::<TestBoard>::default(),
+                board(KanbanColumn::Planning),
+            )
+            .await
+            .expect("spawn");
+
+            let view = board(KanbanColumn::Planning);
+            let mv =
+                drive_scheduled_tick(&NextPhaseScheduler, &view, DatasetVersion(1), exec, &actor)
+                    .await
+                    .expect("scheduled ok")
+                    .expect("forward arc proposed + disposed");
+            assert_eq!(mv.to, KanbanColumn::CognitiveWork);
+            assert_eq!(
+                mv.exec, exec,
+                "scheduler's backend must survive, not be overwritten with Native"
+            );
+
+            actor.stop(None);
+            handle.await.expect("actor join");
+        }
     }
 }
