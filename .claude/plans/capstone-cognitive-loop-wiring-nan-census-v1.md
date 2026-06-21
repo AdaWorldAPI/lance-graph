@@ -31,7 +31,7 @@ toward 0 seam by seam.
 | Metric | Definition | How measured | Baseline (Wave 0) |
 |---|---|---|---|
 | **Piece-presence %** | of the N named loop components, how many TYPES exist | static: grep the contract + surrealdb for each named type | **100% — 15/15 measured 2026-06-21** (all named loop types/fns present in the contract; `BridgeSlot` is a `trait`) |
-| **Seam-wiring %** | of the M seams (S1..S7), how many are CONNECTED (caller→callee actually invoked in a non-test path) | runtime-trace: instrument one cycle, count seams that fire | **~57% static — 4/7 measured 2026-06-21** (S1/S2/S3/S4 have non-test consumers; S5/S6/S7 gaps). Static = a non-test call site exists, NOT that it fires NaN-free at runtime. Advanced past the plan's "S4 deferred" — consumers arrived. |
+| **Seam-wiring %** | of the M seams (S1..S7), how many are CONNECTED (caller→callee actually invoked in a non-test path) | runtime-trace: instrument one cycle, count seams that fire | **~14% static — 1/7 measured 2026-06-21 (CORRECTED per codex #572)** — only **S1** (owner-write `try_advance_phase`) has a genuine non-test seam consumer. The first pass over-counted 4/7: S2's gate is reused for *tier-routing*, not phase-advance (the `mul_phase_step` seam is test-only); S4's `kanban.*` *resolves* to `StepDomain::Kanban` then is **rejected** (`DomainUnavailable` — no Kanban handler); S3's lowering runs only against a **synthetic `u32` tick** harness, the live `Dataset::versions()` subscription is still open. Static = a call site exists ≠ the seam is consumed end-to-end. |
 | **Run-NaN %** | of the K observable outputs in one end-to-end cycle, fraction that are NaN / `None` / unhandled-`BridgeSlot` / default-fallback | run one cycle on shipped code, count valid vs NaN | **HYPOTHESIS** — needs one runtime cycle; `symbiont::kanban_loop::run_to_absorbing` is now a runnable end-to-end harness, so this is measurable when build/disk allows (deferred this pass — disk ceiling) |
 
 **These are distinct.** A piece can be present (99%) yet its seam unwired (28% gap)
@@ -100,23 +100,30 @@ contract: `ValueTenant`/`KanbanTenant`/`mul_phase_step`/`gate_decision_i4`/
 (trait)/`OrchestrationBridge`/`from_step_type`/`node_rows_from_le_bytes`/
 `MailboxSoaOwner`/`try_advance_phase`/`CycleAccumulator`.
 
-**Seam-wiring: 4/7 (~57%) have a non-test consumer.** Evidence (file:line):
+**Seam-wiring: 1/7 (~14%) — CORRECTED per codex #572.** The first pass counted
+4/7 by treating "a shared primitive is called somewhere" and "the domain string
+parses" as wiring; codex enforced the doc's own static≠consumed guard harder. A
+seam counts only when its OWN purpose is consumed end-to-end in a non-test path.
+Evidence (file:line):
 
-| Seam | Static wiring | Non-test consumer |
+| Seam | Static wiring | Reality (codex-verified) |
 |---|---|---|
-| S1 owner write | ✅ WIRED | `symbiont/src/kanban_loop.rs:120` + `cognitive-shader-driver/src/mailbox_soa.rs:1066` call `try_advance_phase` |
-| S2 MUL gate | ✅ WIRED (gate) | `sigma-tier-router/src/lib.rs:365` calls `gate_decision_i4`. **Nuance:** the consumed path is `gate_decision_i4` directly; the `NodeRow::mul_phase_step` wrapper is **test-only** (no runtime caller) — the node-method seam is unused, the gate it wraps is used. |
-| S3 version→move | ✅ WIRED | `symbiont/src/kanban_loop.rs:116` `sched.on_version(...)` inside `fn step()` — the live subscription the plan called "the remaining gap (downstream crate)" now EXISTS (synchronous writer-fired). |
-| S4 envelope route | ✅ WIRED (skeleton) | `StepDomain::Kanban` exists (`orchestration.rs:55`), `from_step_type("kanban")→Kanban` (`:79`); real bridge impls call it — `lance-graph-planner/src/orchestration_impl.rs:48`, `cognitive-shader-driver/src/codec_bridge.rs:32`. **Domain resolves; end-to-end dispatch-to-handler for `kanban.*` unverified** (the deeper S4 probe). The plan's "no route consumer exists / defer" premise is now FALSE. |
+| S1 owner write | ✅ WIRED | `symbiont/src/kanban_loop.rs:120` + `cognitive-shader-driver/src/mailbox_soa.rs:1066` call `try_advance_phase` — the owner-advance seam genuinely consumed (non-test). (Consumer is the symbiont golden-image loop.) |
+| S2 MUL→phase | ❌ GAP | The S2 SEAM is `NodeRow::mul_phase_step` (gate→phase-advance) and it is **test-only** (`canonical_node.rs` unit test). `sigma-tier-router/src/lib.rs:365` consumes `gate_decision_i4` but for **tier dispatch (`Rest`/route), never to advance a `KanbanColumn`** — a different consumer of a shared primitive, not the S2 seam. (codex #572-1) |
+| S3 version→move | ⚠️ PARTIAL — lowering only | `symbiont/src/kanban_loop.rs:116` calls `on_version`, but its `version_tick` is a **synthetic `u32` counter** (`self.cycle += 1`) explicitly documented as a stand-in for a Lance `versions()` event. The *lowering* is exercised; the **live subscription is still OPEN** — no `Dataset::versions()` / `LanceVersionWatcher` feeds the scheduler. (codex #572-2) |
+| S4 envelope route | ❌ GAP | `kanban.*` resolves to `StepDomain::Kanban` (`from_step_type`, `orchestration.rs:79`), but the cited bridge impls **reject it**: `PlannerAwareness::route` returns `DomainUnavailable` unless `LanceGraph` (`orchestration_impl.rs:55-57`); `CodecResearchBridge::route` unless `Ndarray` (`codec_bridge.rs:38-40`). No impl HANDLES `Kanban` → resolve-then-reject, not a consumer. (codex #572-3) |
 | S5 batch push | ❌ GAP | surrealdb-side (out of this repo); plan records pull-only. |
 | S6 zero-copy read | ❌ GAP (in-repo) | `node_rows_from_le_bytes` has **only test callers** in lance-graph; the runtime consumer is surrealdb (separate repo). |
 | S7 meta census | ❌ CONJECTURE | not built. |
 
-**Corrections to the plan's narrative (stale → measured):**
-- **S3** — upgrade "live subscription pending (downstream)" → **wired in `symbiont::kanban_loop`** (the OUT leg `tick → on_version → try_advance_phase`, with `domino_sweep` on the `CognitiveWork` crossing).
-- **S4** — the DESIGN-LOCKED-B/DEFERRED rationale ("no `impl OrchestrationBridge`, no `Kanban` arm, no route consumer") is **superseded by code**: the impls + the `Kanban` domain now exist (consumers migrating to UnifiedBridge). Decision **B still holds** (`UnifiedStep` stays pointer-free; identity rides the `KanbanMove` sidecar) — what changed is the deferral gate lifted, so the *real* S4 probe (does a `kanban.*` step dispatch to a registered handler end-to-end?) is now runnable, not blocked.
+**Corrections to the plan's narrative (measured, codex-verified):**
+- **S2** — NOT wired. The gate primitive is reused for tier-routing; the MUL→phase seam (`mul_phase_step`) has no runtime caller.
+- **S3** — lowering proven + exercised in a **synthetic-tick harness**; the live `Dataset::versions()`/`LanceVersionWatcher` subscription **remains the open integration** (do NOT skip it — the synthetic tick is not the watcher).
+- **S4** — the **pointer-free design choice (Decision B) is unchanged and not revisited**; what changed is only that the *blocking premise* ("no route consumer / no impl exists") is now partly false (the `Kanban` domain + bridge impls exist). But **no impl handles `Kanban` yet** — it resolves then rejects — so the S4 *probe* is now runnable, but S4 is **not wired**. The remaining work is a bridge arm that accepts `StepDomain::Kanban`.
 
-**Run-NaN: still HYPOTHESIS.** The runtime half needs one end-to-end cycle. `symbiont::kanban_loop::run_to_absorbing(&NextPhaseScheduler)` is now a self-contained harness for exactly that — instrument it, count valid-vs-NaN/`None` outputs per cycle. Deferred this pass only because the `symbiont` build exceeds the current disk ceiling; it is no longer architecturally blocked (a harness exists), only resource-blocked.
+**Run-NaN: still HYPOTHESIS.** The runtime half needs one end-to-end cycle. `symbiont::kanban_loop::run_to_absorbing(&NextPhaseScheduler)` is a self-contained harness for exactly that — instrument it, count valid-vs-NaN/`None` outputs per cycle. **Caveat (codex):** it drives the scheduler from a synthetic tick, so it measures the lowering/owner path, not a live-subscription cycle. Deferred this pass on the disk ceiling, not architecture.
+
+**Net honest reading:** piece-presence ~100%, end-to-end seam-wiring ~14% (1/7, S3 partial). The loop is almost entirely *present* but barely *consumed end-to-end* — which makes the operator's "28% wiring / 72% NaN" framing, if anything, generous on the wiring side. The pieces exist; the connective consumers (kanban bridge arm, live version subscription, the MUL→phase node path, surrealdb push/zero-copy read) are the real remaining work.
 
 ## 5 — The honest AGI-adjacency framing (overclaim guard)
 
