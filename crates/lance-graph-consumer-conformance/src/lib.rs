@@ -90,7 +90,11 @@ mod tests {
 
     #[test]
     fn medcare_bridge_conforms() {
-        use lance_graph_ontology::bridges::MedcareBridge;
+        // MedcareBridge moved to the OGAR crate in #585 (it's codebook-/
+        // PortSpec-driven via `HealthcarePort`, so it belongs to OGAR, not
+        // OGIT). OgitBridge / WoaBridge below stay in lance-graph-ontology —
+        // those are OGIT-native legacy bridges.
+        use lance_graph_ogar::bridges::MedcareBridge;
 
         let registry = seed_medcare_registry();
         let bridge = Arc::new(MedcareBridge::new(registry).unwrap());
