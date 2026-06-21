@@ -1,0 +1,14 @@
+[package]
+name = "template-runtime"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Deterministic executor for Elixir-shaped compiled templates. Each template step binds to an OGAR action; the runtime never interprets free text. This is Lance-Graph's reflex memory — the hot path that runs cognition without the LLM. Standalone, zero-dep scaffold (logic deferred); see .claude/plans/cognitive-compilation-v1.md."
+
+# Standalone scaffold crate (excluded from the workspace). Verify with:
+#   cargo test --manifest-path crates/template-runtime/Cargo.toml
+[dependencies]
+
+[lib]
+name = "template_runtime"
+path = "src/lib.rs"

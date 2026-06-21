@@ -1,3 +1,22 @@
+## 2026-06-21 — E-ELIXIR-TEMPLATE-IS-THE-GAP — the compiled-cognition loop already has every organ EXCEPT the Elixir-shaped template; that template is the only new build
+
+**Status:** FINDING (operator scope correction, 2026-06-21). The "Cognitive
+Compilation" idea (LLM = teacher/compiler/critic, Lance-Graph = reflex runtime)
+maps onto organs the workspace already grew: **ractor** (control-plane ownership
+fence), **surrealdb-as-kv-lance** (provenance/timeline view), **Rubicon /
+kanbanview** (phase choreography), **thinking styles + JITson + i4-32D
+thinking-style vectors** (style dispatch + compiled kernels). The one missing
+organ is the **Elixir-shaped template** — the declarative `pipeline do step :x end`
+a proven LLM run compiles down to, whose steps bind to OGAR actions and run
+deterministically. Consequence: the additive build is small and surgical
+(`elixir-template` representation + parser + the `source_ranking_v1` first slice,
+plus the runtime/equivalence/compiler surfaces around it), NOT a from-scratch
+stack. Anything that proposes re-building Rubicon, a new orchestration crate, a
+surrealdb engine change, or a thinking-style system is drift — those exist.
+Cross-ref: plan `.claude/plans/cognitive-compilation-v1.md`; OGAR `ogar-from-elixir`
+(the eventual richer Elixir→OGAR front-end); §18 gates (no trace→no template,
+no replay→no promotion, no LLM in hot path once a template passes).
+
 ## 2026-06-21 — E-S6-SOA-IS-ONE-FIXEDSIZEBINARY-NO-SECOND-COPY — operator override CORRECTS `E-S6-SCAN-SOA-NOT-ON-SHARED-VAL`: the SoA is stored ONCE as `FixedSizeBinary(512)` (single source, zero-copy) in lance-graph's own dataset; surrealdb is the Rubicon VIEW; NO second copy/column, NO time-series drop via tombstone+purge, lance 7.0.0 MANDATORY (not "unverified")
 
 **Status:** FINDING (operator directive, 2026-06-21 — three explicit NOs that supersede the prior council's suggestions). CORRECTS the same-day `E-S6-SCAN-SOA-NOT-ON-SHARED-VAL` (whose "separate `soa_val` column / per-cell copy-fallback floor / deferred behind an unverified lance baseline" framing is RETRACTED).

@@ -1,0 +1,15 @@
+[package]
+name = "cognitive-compiler"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Trace → template synthesis for the Cognitive Compilation loop. Takes a recorded LLM ExecutionTrace plus its OGAR schema and source spans and produces a deterministic, replayable TemplateCandidate. The compiler half of 'LLM = teacher/compiler/critic'. Standalone, zero-dep scaffold (logic deferred); see .claude/plans/cognitive-compilation-v1.md."
+
+# Standalone scaffold crate (excluded from the lance-graph workspace, like
+# perturbation-sim / jc / helix). Verify with:
+#   cargo test --manifest-path crates/cognitive-compiler/Cargo.toml
+[dependencies]
+
+[lib]
+name = "cognitive_compiler"
+path = "src/lib.rs"

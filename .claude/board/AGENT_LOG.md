@@ -1,3 +1,26 @@
+## 2026-06-21 (cont.²⁵) — Cognitive Compilation: Elixir-template stack scaffolded (operator-scoped)
+
+**Main thread (Opus).** Operator request: stand up the "Cognitive Compilation"
+loop (LLM teaches/compiles/critiques; Lance-Graph runs the reflex) — then a
+mid-flight scope correction landed: the ONLY new idea is the **Elixir-shaped
+template**; ractor / surrealdb-kv-lance / Rubicon-kanbanview / thinking-styles /
+JITson / i4-32D already exist and are NOT touched; changes must be additive.
+Done in lance-graph: plan `.claude/plans/cognitive-compilation-v1.md` (+ scope-
+correction header), four standalone zero-dep `exclude`d crates —
+`elixir-template` (the gap: `pipeline do step :x end` parser + representation +
+`OgarAction` catalogue + `source_ranking_v1` first slice; REAL deterministic
+logic), `template-runtime` (REAL reflex dispatch over an `ActionRegistry`,
+OGAR-action bodies = `NotImplemented`), `template-equivalence` (REAL Exact +
+RankOrder + no-new-claims; Semantic deferred), `cognitive-compiler` (trace→
+template surface; structural §18 checks real, synthesis = `NotImplemented`, no
+fabricated templates). 17 tests green (6+4+4+3), clippy `-D warnings` clean on
+all four. Board hygiene same-commit: INTEGRATION_PLANS + STATUS_BOARD (D-CC-*) +
+EPIPHANIES (`E-ELIXIR-TEMPLATE-IS-THE-GAP`) + this entry. Cross-repo (separate
+commits, this branch): rig `rig-surrealdb` → AdaWorldAPI kv-lance fork; rs-graph-llm
+one isolated graph-flow Task for templates (+ local repo copy + branch push as
+recovery before the operator's upstream reset / cherry-pick-back). DEFERRED:
+lance-template-index / review-gates / github-promoter (existing homes or future).
+
 ## 2026-06-21 (cont.²⁴) — operator override on S6 + landed the MANDATORY lance-7 pin in the repo (stop reverting it locally)
 
 **Main thread (Opus).** Operator (annoyed, 3-6th time ordered): the lance/lancedb/datafusion/arrow pins must be FIXED IN THE REPOSITORY, not "fixed locally" and reverted each session. Canonical: **lance 7.0.0, lancedb 0.30, datafusion 53, arrow 58.** Done: surrealdb `Cargo.lock` carried stale **lance 6.0.0 / lance-index 6.0.0 / lancedb 0.29.0** vs its `=7.0.0`/`=0.30.0` manifest — `cargo update --precise` to 7.0.0/7.0.0/0.30.0 (object_store cascade 0.12→0.13.2), committed (`b5e2927`, 1270/420 lock churn) + pushed to #49, + `timeline.rs` doc "Lance 6.0.0 surface"→7.0.0. lance-graph lock already correct (7.0.0/0.30.0/53/58). **No more local-only revert.** Three architecture overrides that CORRECT my cont.²³ S6 framing: (1) **NO second copy/column** — the `soa_val`-alongside-`val` (soa-review C) + owned-`Vec` (A) are REJECTED; SoA stored ONCE as `FixedSizeBinary(512)`, single home = lance-graph's dataset, surrealdb is the VIEW. (2) **NO time-series drop via tombstone+purge** — version history IS the timeline; no `cleanup_old_versions` that drops it. (3) **lance 7 is MANDATORY, not "unverified"** — drift fixed on the fly, never a deferral gate. Recorded `E-S6-SOA-IS-ONE-FIXEDSIZEBINARY-NO-SECOND-COPY` (corrects `E-S6-SCAN-SOA-NOT-ON-SHARED-VAL`) + capstone S6 row/Wave-2 rewrite + surrealdb board correction. #567 merged (carried the now-corrected cont.²³ framing); this correction rides a fresh PR.
