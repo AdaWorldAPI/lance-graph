@@ -1,3 +1,16 @@
+## 2026-06-21 — capstone-out-leg-wiring-v1 (PLAN)
+
+Plan: `.claude/plans/capstone-out-leg-wiring-v1.md`. The file-level execution
+spec for the four OUT-leg seams the Wave-0 census (codex-corrected to 1/7 wired)
+found unconsumed: **S2** (owner-side MUL→phase via a new `MailboxSoaView::qualia()`
++ shader-driver loop), **S3** (callcenter `LanceVersionScheduler` over
+`Dataset::versions()` replacing the synthetic tick), **S4** (a `Kanban` arm in a
+consumer-crate `OrchestrationBridge` impl — Decision B preserved, no `UnifiedStep`
+field), **run-NaN** (instrument `symbiont::kanban_loop::run_to_absorbing`). Cross-
+cutting blockers named: the disk ceiling (consumer crates pull lance+datafusion
+≈14–18 GB) and `symbiont` ownership (cognitive-compilation session active). Each
+seam is independently shippable; the gate is resources/coordination, not design.
+
 ## 2026-06-21 — cognitive-compilation-v1 (PROPOSED; scaffold landed)
 
 Plan: `.claude/plans/cognitive-compilation-v1.md`. "LLM = teacher/compiler/critic;
