@@ -1,3 +1,26 @@
+## 2026-06-21 (cont.²⁶) — Cognitive Compilation golden image: cognitive-stack (new + old stack, one binary)
+
+**Main thread (Opus).** Operator: "add a separate Cargo/Docker file for the new
+stack including the old stack (lance-graph ndarray ractor surrealdb OGAR — all
+AdaWorldAPI forks); document integration plan, usage, purpose." Done as
+`crates/cognitive-stack` — the cognitive-compilation sibling of `crates/symbiont`,
+modeled on symbiont's PROVEN fork wiring (same git pins: ractor jirak branch;
+surrealdb-core + OGAR `main`, `default-features=false, features=["kv-lance"]` →
+no rocksdb/tikv; ndarray sibling path; the `[patch]` folding git
+lance-graph-contract onto the in-repo path copy). Adds path-deps to the four NEW
+Elixir-template crates + a `main` that links every fork (`use … as _`) and runs
+the `source_ranking_v1` reflex. **rig (LLM) deliberately NOT linked** — the
+runtime binary having zero LLM deps IS the verifiable "no LLM in the hot path"
+invariant; rig is teacher-only in its own repo. Own `[workspace]`, EXCLUDED from
+the parent. Manifest RESOLVES (922 packages, all forks fetched, patch applied,
+`cargo generate-lockfile` exit 0); full multi-fork compile kicked (validation
+model = the Dockerfile, like symbiont; protoc now required + documented). Docs:
+`README.md` (purpose + usage + build reqs) + `INTEGRATION.md` (loop↔crate map,
+why no LLM, fork-wiring table). Cross-repo recap this session: rs-graph-llm #11
+(template-task) merged; rig #1 (fork wiring + 1.95) + #2 (kv-lance scoping, no
+rocksdb/tikv) merged; rig-surrealdb full build proven past 531 crates, gated only
+by missing `protoc` (env), now installed.
+
 ## 2026-06-21 (cont.²⁵) — Cognitive Compilation: Elixir-template stack scaffolded (operator-scoped)
 
 **Main thread (Opus).** Operator request: stand up the "Cognitive Compilation"

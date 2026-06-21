@@ -98,6 +98,11 @@ exclude = [
     "crates/template-runtime",     # deterministic reflex executor (OGAR-action dispatch)
     "crates/template-equivalence", # replay grading (Exact/RankOrder real; Semantic deferred)
     "crates/cognitive-compiler",   # trace → template synthesis surface (logic deferred)
+    # Golden image: NEW Elixir-template stack linked on top of the OLD AdaWorldAPI
+    # forks (lance-graph + ndarray + ractor + surrealdb kv-lance + OGAR) in ONE
+    # binary. Own [workspace] + git-deps (sibling of crates/symbiont). Verify via
+    # `cargo build --manifest-path crates/cognitive-stack/Cargo.toml` or the Dockerfile.
+    "crates/cognitive-stack",
 ]
 resolver = "2"
 
