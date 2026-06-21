@@ -123,6 +123,26 @@ impl FieldMask {
         self.0 == 0
     }
 
+    /// The full mask — every addressable field position present. The
+    /// "no projection constraint" default for an RBAC role that has not
+    /// narrowed its view (lance-graph-rbac `PermissionSpec::projection`).
+    pub const FULL: Self = Self(u64::MAX);
+
+    /// Bitwise intersection — the field positions present in BOTH masks.
+    #[inline]
+    pub const fn intersect(self, other: Self) -> Self {
+        Self(self.0 & other.0)
+    }
+
+    /// Do the two masks share NO field position? RBAC uses this to assert
+    /// two roles project **distinct** views of the same class — e.g. a
+    /// research projection must be disjoint from the identifier fields
+    /// (`classid :: role :: membership`, where the role is the projection).
+    #[inline]
+    pub const fn is_disjoint(self, other: Self) -> bool {
+        self.0 & other.0 == 0
+    }
+
     /// Inherit a parent class's presence into this mask — the **mask-inherits-as-
     /// delta** of the HHTL `subClassOf` walk (`wikidata-hhtl-load.md`). A child
     /// IS-A its parent, so its mask carries every field the parent declares

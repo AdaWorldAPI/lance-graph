@@ -6003,7 +6003,7 @@ dependencies = [
 [[package]]
 name = "ogar-vocab"
 version = "0.1.0"
-source = "git+https://github.com/AdaWorldAPI/OGAR?branch=claude%2Fport-spec-trait#e81434a6479e2e28af3225cce7d20d39c7e51536"
+source = "git+https://github.com/AdaWorldAPI/OGAR?branch=claude%2Fmedcare-bridge-lance-graph-wmx76z#c679bccb7996abffdf8de0a46d6700da992527d7"
 
 [[package]]
 name = "once_cell"

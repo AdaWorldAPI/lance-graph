@@ -132,8 +132,12 @@ fn openproject_bridge_construction_fails_when_namespace_missing() {
     // Error::UnknownNamespace.
     let registry = Arc::new(OntologyRegistry::new_in_memory());
     let result = OpenProjectBridge::new(registry);
+    // NB: `OpenProjectBridge` is `UnifiedBridge<OpenProjectPort>`, which
+    // intentionally does not implement `Debug`, so we assert on `is_err()`
+    // without formatting the `Ok` value (pre-#570 the bridge was a Debug
+    // struct and this message interpolated `{result:?}`).
     assert!(
         result.is_err(),
-        "expected UnknownNamespace error, got {result:?}",
+        "expected UnknownNamespace error from constructing over an empty registry",
     );
 }
