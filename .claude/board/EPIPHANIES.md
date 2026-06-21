@@ -1,3 +1,39 @@
+## 2026-06-21 — E-EQUIVALENCE-IS-THE-CRUX — template-equivalence is the load-bearing verifier of the whole loop; it MUST fail closed, and it rides on transparent Lance versioning (surrealdb #50)
+
+**Status:** FINDING (cross-session feedback, 2026-06-21). Reframing that
+re-grades the comparison gate from footnote to crux. The Cognitive Compilation
+loop's "take the training wheels off" decision — let a deterministic Elixir
+template REPLACE the LLM run — is exactly the output of `template-equivalence`:
+*does the template reproduce the recorded LLM run's results?* Therefore:
+
+1. **The verifier is load-bearing, not incidental.** If the comparison can pass
+   when it shouldn't, the loop **self-certifies on a lie** — the LLM is removed
+   from the hot path on a false equivalence. A codex P2 on this crate (a stable
+   top item passing `RankOrder` despite dropped provenance) is really the crux,
+   not a minor note.
+2. **Fail closed.** A pass must be an affirmative PROOF of reproduction, never
+   "no difference detected". Hardened accordingly (commit `…`): claims compared
+   as a SET both ways (no additions AND no omissions), source spans compared
+   exactly, ranked-item SET preserved for `RankOrder` (only order may perturb,
+   within tolerance), and every unevaluable dimension (incl. the deferred
+   Semantic class) → `Failure`. 8 tests.
+3. **It rides on transparent versioning (surrealdb #50).** The loop records each
+   orchestration step as a versioned Lance commit and verifies by **AS-OF replay
+   + compare**. That requires the corrected version→snapshot mapping landed in
+   surrealdb #50; under the old broken `checkout_version(versionstamp)` the
+   verifier would replay the WRONG step and compare garbage. #50 is the substrate
+   this loop records and replays on — load-bearing for the verifier, not
+   incidental.
+
+Architecture note (cross-session): rig + rs-graph-llm (a Rust LangGraph) run the
+LLM-angle orchestration onto surrealdb-on-kv-lance; each step is a Lance commit;
+the run is transcribed into an Elixir template and verified by replay-and-compare
+against the recorded run. The reflex binary (`crates/cognitive-stack`) stays
+LLM-free; the LLM lives in the learning loop only.
+
+Cross-ref: `crates/template-equivalence/src/lib.rs` (fail-closed `compare`);
+PR #571; surrealdb #50 (transparent versioning); E-ELIXIR-TEMPLATE-IS-THE-GAP.
+
 ## 2026-06-21 — E-ELIXIR-TEMPLATE-IS-THE-GAP — the compiled-cognition loop already has every organ EXCEPT the Elixir-shaped template; that template is the only new build
 
 **Status:** FINDING (operator scope correction, 2026-06-21). The "Cognitive

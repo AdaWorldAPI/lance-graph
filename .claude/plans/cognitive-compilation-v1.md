@@ -237,3 +237,25 @@ No LLM is called. No template is synthesized. No replay runs. No PR is
 opened. This is the **type system + trait spine** for the loop — the
 "obligatory shape" that the slice-first logic will fill. Per §18: no logic
 ships without its trace, replay, equivalence, review, and gate.
+
+---
+
+## 11. The verifier is load-bearing — `template-equivalence` is the crux
+
+The "take the training wheels off" decision (let a deterministic template
+**replace** the LLM run) is exactly the output of `template-equivalence`. It is
+not a footnote — it is the gate the whole loop's integrity rests on. Two
+consequences (see `EPIPHANIES.md` E-EQUIVALENCE-IS-THE-CRUX):
+
+1. **Fail closed.** A pass is an affirmative PROOF of reproduction, never "no
+   difference detected". The checker compares claims as a set both ways (no adds,
+   no drops), source spans exactly, and requires the ranked-item set be preserved
+   for `RankOrder`; every unevaluable dimension (incl. the deferred Semantic
+   class) returns `Failure`. If the comparison can pass when it shouldn't, the
+   loop self-certifies on a lie.
+2. **It rides on transparent versioning (surrealdb #50).** The loop records each
+   orchestration step (run by rig + rs-graph-llm onto surrealdb-on-kv-lance) as a
+   versioned Lance commit, and verifies by **AS-OF replay + compare**. This needs
+   the corrected version→snapshot mapping from surrealdb #50; the old broken
+   `checkout_version(versionstamp)` would replay the wrong step and compare
+   garbage. #50 is the substrate the verifier records and replays on.
