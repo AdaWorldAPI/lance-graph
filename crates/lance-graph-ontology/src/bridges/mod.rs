@@ -61,3 +61,14 @@ pub use sharepoint_bridge::SharePointBridge;
 pub use spear_bridge::SpearBridge;
 pub use unified::UnifiedBridge;
 pub use woa_bridge::WoaBridge;
+
+// Compatibility shims for the pre-migration constants. `bridges`
+// previously re-exported `OPENPROJECT_CODEBOOK` / `REDMINE_CODEBOOK`
+// directly; both now live in `ogar_vocab::ports::*_ALIASES` (the
+// canonical layer is the single source of truth). The re-exports here
+// are `#[deprecated]` in the per-port modules and forward to the OGAR
+// constants — existing consumers keep compiling (codex P2 on PR #570).
+#[allow(deprecated)]
+pub use openproject_bridge::OPENPROJECT_CODEBOOK;
+#[allow(deprecated)]
+pub use redmine_bridge::REDMINE_CODEBOOK;

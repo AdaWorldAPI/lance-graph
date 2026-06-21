@@ -15,6 +15,10 @@
 //! `tests/bridge_codebook_convergence.rs` for the cross-port pin.
 
 use crate::bridges::unified::UnifiedBridge;
+// `OpenProjectPort::NAMESPACE` / `::aliases()` are `PortSpec`
+// associated items — the trait must be in scope for the resolution to
+// work (codex P1 on PR #570). Same import in the test module below.
+use ogar_vocab::ports::PortSpec;
 pub use ogar_vocab::ports::OpenProjectPort;
 
 /// OpenProject `NamespaceBridge` — alias over the generic harness.
@@ -24,6 +28,17 @@ pub type OpenProjectBridge = UnifiedBridge<OpenProjectPort>;
 /// `OpenProjectPort::NAMESPACE` so existing consumers that imported
 /// the constant from this module keep building.
 pub const NAMESPACE: &str = OpenProjectPort::NAMESPACE;
+
+/// Compatibility shim — re-exports `ogar_vocab::ports::OPENPROJECT_ALIASES`
+/// under the pre-migration name so consumers that imported the constant
+/// from this module still build (codex P2 on PR #570). New code should
+/// reach for `ogar_vocab::ports::OPENPROJECT_ALIASES` (or
+/// `OpenProjectPort::aliases()`) directly — going through the canonical
+/// layer keeps lance-graph free of port-specific data.
+#[deprecated(
+    note = "use `ogar_vocab::ports::OPENPROJECT_ALIASES` (or `OpenProjectPort::aliases()`) — the constant moved to OGAR"
+)]
+pub const OPENPROJECT_CODEBOOK: &[(&str, u16)] = ogar_vocab::ports::OPENPROJECT_ALIASES;
 
 #[cfg(test)]
 mod tests {
@@ -40,6 +55,9 @@ mod tests {
     use crate::namespace_registry::NamespaceRegistry;
     use crate::registry::OntologyRegistry;
     use ogar_vocab::class_ids;
+    // PortSpec needed in scope for `OpenProjectPort::aliases()` (the
+    // method is a trait item — codex P1 on PR #570).
+    use ogar_vocab::ports::PortSpec;
     use std::fs;
     use std::sync::Arc;
 

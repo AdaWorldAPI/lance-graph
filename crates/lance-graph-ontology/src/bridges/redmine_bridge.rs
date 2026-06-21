@@ -10,6 +10,10 @@
 //! covers every consumer.
 
 use crate::bridges::unified::UnifiedBridge;
+// `RedminePort::NAMESPACE` / `::aliases()` are `PortSpec` associated
+// items — the trait must be in scope for the resolution to work
+// (codex P1 on PR #570).
+use ogar_vocab::ports::PortSpec;
 pub use ogar_vocab::ports::RedminePort;
 
 /// Redmine `NamespaceBridge` — alias over the generic harness.
@@ -20,6 +24,14 @@ pub type RedmineBridge = UnifiedBridge<RedminePort>;
 /// keep building.
 pub const NAMESPACE: &str = RedminePort::NAMESPACE;
 
+/// Compatibility shim — re-exports `ogar_vocab::ports::REDMINE_ALIASES`
+/// under the pre-migration name (codex P2 on PR #570). New code should
+/// reach for the OGAR constant directly.
+#[deprecated(
+    note = "use `ogar_vocab::ports::REDMINE_ALIASES` (or `RedminePort::aliases()`) — the constant moved to OGAR"
+)]
+pub const REDMINE_CODEBOOK: &[(&str, u16)] = ogar_vocab::ports::REDMINE_ALIASES;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -29,6 +41,9 @@ mod tests {
     use crate::namespace_registry::NamespaceRegistry;
     use crate::registry::OntologyRegistry;
     use ogar_vocab::class_ids;
+    // PortSpec needed in scope for `RedminePort::aliases()` (the method
+    // is a trait item — codex P1 on PR #570).
+    use ogar_vocab::ports::PortSpec;
     use std::fs;
     use std::sync::Arc;
 
