@@ -25,7 +25,9 @@
 //! Rubicon edge is a typed [`RubiconTransitionError`], never silent corruption.
 
 use lance_graph_contract::kanban::{KanbanColumn, KanbanMove, RubiconTransitionError};
+use lance_graph_contract::mul::i4_eval::gate_decision_i4;
 use lance_graph_contract::soa_view::MailboxSoaOwner;
+use lance_graph_contract::QualiaI4_16D;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 
 /// Messages the kanban actor accepts.
@@ -166,6 +168,51 @@ pub async fn deliver_kanban_step(step_type: &str) -> Result<KanbanMove, KanbanRo
         from: e.from,
         to: e.to,
     })
+}
+
+// ─── S2 driver: MUL gate (`gate_decision_i4`) → owner advance ─────────────────
+
+/// The MUL-gated target phase for `phase` given a node's `qualia` + inference
+/// `mantissa`: run the i4 gate ([`gate_decision_i4`]) and lower it to the
+/// DAG-legal next phase via [`KanbanColumn::advance_on_gate`] (Flow → forward,
+/// Block → Prune-where-legal, Hold → `None`). Pure + integer-only (no f64/NaN).
+pub fn mul_target(
+    phase: KanbanColumn,
+    qualia: &QualiaI4_16D,
+    mantissa: i8,
+) -> Option<KanbanColumn> {
+    let gate = gate_decision_i4(qualia, mantissa);
+    phase.advance_on_gate(&gate)
+}
+
+/// S2 driver: read the owning actor's current phase, run the MUL gate over
+/// `qualia`+`mantissa`, and — if the gate advances — deliver
+/// [`KanbanMsg::Advance`] to that owner. Returns the emitted [`KanbanMove`], or
+/// `None` when the gate says Hold (no advance). This is the S2→S4 composition:
+/// the MUL gate decides, the owner advances ITSELF.
+///
+/// The advance target comes from [`KanbanColumn::advance_on_gate`], which only
+/// ever yields a DAG-legal successor, so the owner's checked `try_advance_phase`
+/// accepts it; an `Illegal` here would signal a gate/DAG drift bug, surfaced
+/// (not panicked).
+pub async fn drive_mul_advance(
+    actor: &ActorRef<KanbanMsg>,
+    qualia: &QualiaI4_16D,
+    mantissa: i8,
+) -> Result<Option<KanbanMove>, KanbanRouteError> {
+    let phase = ractor::call!(actor, |reply| KanbanMsg::Phase { reply })
+        .map_err(|e| KanbanRouteError::Rpc(e.to_string()))?;
+    match mul_target(phase, qualia, mantissa) {
+        None => Ok(None), // gate says Hold — no advance
+        Some(to) => {
+            let inner = ractor::call!(actor, |reply| KanbanMsg::Advance { to, reply })
+                .map_err(|e| KanbanRouteError::Rpc(e.to_string()))?;
+            inner.map(Some).map_err(|e| KanbanRouteError::Illegal {
+                from: e.from,
+                to: e.to,
+            })
+        }
+    }
 }
 
 #[cfg(test)]
@@ -341,6 +388,38 @@ mod tests {
             deliver_kanban_step("lg.noop").await,
             Err(KanbanRouteError::BadStepType(_))
         ));
+
+        actor.stop(None);
+        handle.await.expect("actor join");
+    }
+
+    #[tokio::test]
+    async fn s2_driver_gate_advances_then_holds() {
+        let (actor, handle) = Actor::spawn(
+            None,
+            KanbanActor::<TestBoard>::default(),
+            board(KanbanColumn::Planning),
+        )
+        .await
+        .expect("spawn");
+
+        // Flow qualia (warmth/groundedness high, low tension, calibrated) +
+        // mantissa>0 → gate Flow → forward advance Planning → CognitiveWork.
+        let flow_q = QualiaI4_16D(0).with(3, 4).with(14, 3).with(9, 4).with(1, 2);
+        let mv = drive_mul_advance(&actor, &flow_q, 4)
+            .await
+            .expect("driver ok")
+            .expect("advanced on Flow");
+        assert_eq!(mv.from, KanbanColumn::Planning);
+        assert_eq!(mv.to, KanbanColumn::CognitiveWork);
+
+        // Neutral qualia + mantissa 0 → gate Hold → None (owner stays put).
+        let held = drive_mul_advance(&actor, &QualiaI4_16D(0), 0)
+            .await
+            .expect("driver ok");
+        assert!(held.is_none(), "Hold must not advance");
+        let phase = ractor::call!(actor, |reply| KanbanMsg::Phase { reply }).expect("rpc");
+        assert_eq!(phase, KanbanColumn::CognitiveWork);
 
         actor.stop(None);
         handle.await.expect("actor join");
