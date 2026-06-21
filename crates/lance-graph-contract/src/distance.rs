@@ -41,7 +41,13 @@ pub trait Distance: Sized {
     #[inline]
     fn similarity_z(&self, other: &Self) -> f32 {
         let s = self.similarity(other);
-        let clamped = s.clamp(-0.999, 0.999);
+        // Clamp away from ±1 so `atanh` (the `ln` below) stays finite.
+        // The bound is ±0.9999, not ±0.999: a self-match (s = 1.0) must
+        // round-trip back through `tanh(atanh(clamp)) = clamp` to a value
+        // that reads as "essentially identical" (≈0.99986), not be capped
+        // at 0.999 — otherwise `cohort_similarity_z(self) > 0.999` is
+        // unreachable. atanh(0.9999) ≈ 4.95 is comfortably finite.
+        let clamped = s.clamp(-0.9999, 0.9999);
         ((1.0 + clamped) / (1.0 - clamped)).ln() * 0.5
     }
 }
