@@ -12,8 +12,11 @@ publish = false   # internal CI gate — not published to crates.io
 [dependencies]
 # The conformance harness imports UnifiedBridge, AuditChain, SuperDomain etc.
 lance-graph-callcenter = { path = "../lance-graph-callcenter" }
-# NamespaceBridge trait + bridge implementations (MedcareBridge, OgitBridge, WoaBridge)
+# NamespaceBridge trait + OGIT-native legacy bridges (OgitBridge, WoaBridge).
 lance-graph-ontology = { path = "../lance-graph-ontology" }
+# OGAR-driven port bridges (MedcareBridge / HealthcarePort) — moved out of
+# lance-graph-ontology in #585 to restore OGIT/OGAR separation of concerns.
+lance-graph-ogar = { path = "../lance-graph-ogar" }
 # fnv1a_str, PrefetchDepth
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Policy, Role, PermissionSpec for per-consumer test fixtures
