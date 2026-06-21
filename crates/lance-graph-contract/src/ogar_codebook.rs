@@ -138,6 +138,14 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("billing_party", 0x0204),
     ("payment_record", 0x0205),
     ("currency_policy", 0x0206),
+    // ── 0x09XX — Health domain (MedCare; OGIT NTO/Healthcare promotion) ──
+    ("patient", 0x0901),
+    ("diagnosis", 0x0902),
+    ("lab_value", 0x0903),
+    ("medication", 0x0904),
+    ("treatment", 0x0905),
+    ("visit", 0x0906),
+    ("vital_sign", 0x0907),
 ];
 
 /// Resolve a **canonical-concept** string to its stable `u16` codebook id via
