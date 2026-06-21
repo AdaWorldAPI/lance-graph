@@ -1054,7 +1054,7 @@ name = "bgz-tensor"
 version = "0.1.0"
 dependencies = [
  "holograph",
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
  "ndarray 0.17.2",
  "serde",
  "serde_json",
@@ -1546,7 +1546,7 @@ dependencies = [
  "bytemuck",
  "causal-edge",
  "deepnsm",
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
  "lance-graph-ontology",
  "lance-graph-planner",
  "ndarray 0.17.2",
@@ -2772,7 +2772,7 @@ checksum = "092966b41edc516079bdf31ec78a2e0588d1d0c08f78b91d8307215928642b2b"
 name = "deepnsm"
 version = "0.1.0"
 dependencies = [
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
  "ndarray 0.17.2",
 ]
 
@@ -4801,7 +4801,7 @@ dependencies = [
  "lance",
  "lance-arrow",
  "lance-graph-catalog",
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
  "lance-graph-planner",
  "lance-index",
  "lance-linalg",
@@ -4822,7 +4822,7 @@ name = "lance-graph-archetype"
 version = "0.1.0"
 dependencies = [
  "arrow",
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
  "thiserror 2.0.18",
 ]
 
@@ -4855,7 +4855,7 @@ dependencies = [
  "flate2",
  "futures",
  "lance",
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
  "lance-graph-ontology",
  "lance-graph-rbac",
  "log",
@@ -4890,7 +4890,8 @@ name = "lance-graph-consumer-conformance"
 version = "0.1.0"
 dependencies = [
  "lance-graph-callcenter",
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
+ "lance-graph-ogar",
  "lance-graph-ontology",
  "lance-graph-rbac",
 ]
@@ -4906,6 +4907,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "lance-graph-contract"
+version = "0.1.0"
+source = "git+https://github.com/AdaWorldAPI/lance-graph?branch=main#fc7b2c9579ea8d9bb3a7633723bdeac900f61d07"
+dependencies = [
+ "glob",
+ "serde",
+ "serde_yaml",
+]
+
+[[package]]
+name = "lance-graph-ogar"
+version = "0.1.0"
+dependencies = [
+ "lance-graph-contract 0.1.0",
+ "lance-graph-ontology",
+ "ogar-adapter-surrealql",
+ "ogar-class-view",
+ "ogar-ontology",
+ "ogar-vocab",
+]
+
+[[package]]
 name = "lance-graph-ontology"
 version = "0.1.0"
 dependencies = [
@@ -4914,7 +4937,7 @@ dependencies = [
  "arrow-schema",
  "futures",
  "lance",
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
  "once_cell",
  "oxrdf",
  "oxrdfxml",
@@ -4934,7 +4957,7 @@ dependencies = [
  "axum 0.8.9",
  "bgz17",
  "causal-edge",
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
  "ndarray 0.17.2",
  "p64",
  "p64-bridge",
@@ -4950,7 +4973,7 @@ dependencies = [
 name = "lance-graph-rbac"
 version = "0.1.0"
 dependencies = [
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
 ]
 
 [[package]]
@@ -4958,7 +4981,7 @@ name = "lance-graph-supervisor"
 version = "0.1.0"
 dependencies = [
  "lance-graph-callcenter",
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
  "ractor",
  "static_assertions",
  "thiserror 1.0.69",
@@ -5998,6 +6021,33 @@ dependencies = [
  "pin-project",
  "tokio",
 ]
+
+[[package]]
+name = "ogar-adapter-surrealql"
+version = "0.1.0"
+source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#b6a12a6525c49cc0c643c1820962b50749b07d1d"
+dependencies = [
+ "ogar-vocab",
+]
+
+[[package]]
+name = "ogar-class-view"
+version = "0.1.0"
+source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#b6a12a6525c49cc0c643c1820962b50749b07d1d"
+dependencies = [
+ "lance-graph-contract 0.1.0 (git+https://github.com/AdaWorldAPI/lance-graph?branch=main)",
+ "ogar-vocab",
+]
+
+[[package]]
+name = "ogar-ontology"
+version = "0.1.0"
+source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#b6a12a6525c49cc0c643c1820962b50749b07d1d"
+
+[[package]]
+name = "ogar-vocab"
+version = "0.1.0"
+source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#b6a12a6525c49cc0c643c1820962b50749b07d1d"
 
 [[package]]
 name = "once_cell"
@@ -8155,7 +8205,7 @@ name = "sigma-tier-router"
 version = "0.1.0"
 dependencies = [
  "causal-edge",
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
 ]
 
 [[package]]
@@ -8477,7 +8527,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "lance",
- "lance-graph-contract",
+ "lance-graph-contract 0.1.0",
  "lancedb",
  "snafu 0.8.9",
  "tempfile",
