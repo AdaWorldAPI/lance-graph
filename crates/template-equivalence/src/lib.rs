@@ -96,6 +96,15 @@ impl EquivalenceChecker for StructuralChecker {
             return EquivalenceReport { class: EquivalenceClass::Failure, score: 0.0, notes };
         }
 
+        // §18.3 (no source span → no claim): a replay that keeps claims but drops
+        // the provenance backing them must not pass — not even as RankOrder. Without
+        // this guard a stable top-ranked item would let an uncited replay through the
+        // promotion gate (the original had spans; the replay lost them).
+        if !replay.claims.is_empty() && replay.source_spans.is_empty() && !original.source_spans.is_empty() {
+            notes.push("replay kept claims but dropped all source spans (§18: no source span → no claim)".into());
+            return EquivalenceReport { class: EquivalenceClass::Failure, score: 0.0, notes };
+        }
+
         // Exact: identical ranked items, claims, and spans.
         if original.ranked_items == replay.ranked_items
             && original.claims == replay.claims
@@ -152,6 +161,18 @@ mod tests {
     fn new_uncited_claim_fails() {
         let a = obs(&["s1"], &["c1"], 0.9);
         let b = obs(&["s1"], &["c1", "c2"], 0.9);
+        let r = StructuralChecker.compare(&a, &b, &EquivalenceConfig::default());
+        assert_eq!(r.class, EquivalenceClass::Failure);
+        assert!(!r.passes());
+    }
+
+    #[test]
+    fn rankorder_with_dropped_spans_fails_not_passes() {
+        // Same top item (would be RankOrder), but replay lost the source spans
+        // that backed its claim — must fail, not pass.
+        let mut a = obs(&["s1", "s2"], &["c1"], 0.9);
+        a.source_spans = vec![("doc".into(), 0, 5)];
+        let b = obs(&["s2", "s1"], &["c1"], 0.9); // empty source_spans
         let r = StructuralChecker.compare(&a, &b, &EquivalenceConfig::default());
         assert_eq!(r.class, EquivalenceClass::Failure);
         assert!(!r.passes());

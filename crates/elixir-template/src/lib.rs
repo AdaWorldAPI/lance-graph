@@ -136,13 +136,16 @@ impl ElixirTemplate {
     /// shape. A trailing `_vN` on the name is read as the version (default 1).
     pub fn parse(src: &str) -> Result<Self, ParseError> {
         let raw_name = extract_defmacro_name(src).ok_or(ParseError::MissingDefmacro)?;
-        if !src.contains("pipeline") {
+        // Restrict everything to the FIRST macro's body, and within it the FIRST
+        // `pipeline do … end` block. A `step` in a later macro, or outside the
+        // pipeline, must NOT be folded into this template.
+        let body = &src[src.find("defmacro").expect("defmacro found above")..];
+        if !body.contains("pipeline") {
             return Err(ParseError::MissingPipeline);
         }
         let (name, version) = split_version(&raw_name);
-        let steps: Vec<Step> = src
-            .lines()
-            .filter_map(parse_step_line)
+        let steps: Vec<Step> = steps_in_first_pipeline(body)
+            .into_iter()
             .map(|atom| Step { action: OgarAction::from_atom(&atom), atom })
             .collect();
         if steps.is_empty() {
@@ -224,6 +227,30 @@ fn split_version(raw: &str) -> (String, u32) {
     (raw.to_string(), 1)
 }
 
+/// Collect the `step :atom` lines inside the FIRST `pipeline do … end` block of
+/// `body` (which begins at the first `defmacro`). Stops at that block's closing
+/// `end`, so steps in a later macro or outside the pipeline are excluded.
+fn steps_in_first_pipeline(body: &str) -> Vec<String> {
+    let mut steps = Vec::new();
+    let mut in_pipeline = false;
+    for line in body.lines() {
+        let t = line.trim();
+        if !in_pipeline {
+            if t.starts_with("pipeline") {
+                in_pipeline = true;
+            }
+            continue;
+        }
+        if t == "end" {
+            break; // closes the `pipeline do` block
+        }
+        if let Some(atom) = parse_step_line(line) {
+            steps.push(atom);
+        }
+    }
+    steps
+}
+
 fn parse_step_line(line: &str) -> Option<String> {
     let t = line.trim();
     let rest = t.strip_prefix("step")?.trim_start();
@@ -283,6 +310,23 @@ mod tests {
     fn no_steps_is_an_error() {
         let src = "defmacro foo(input) do\n  pipeline do\n  end\nend";
         assert_eq!(ElixirTemplate::parse(src), Err(ParseError::NoSteps));
+    }
+
+    #[test]
+    fn parse_scopes_to_first_pipeline_only() {
+        let src = "defmacro a_v1(input) do\n  pipeline do\n    step :extract_sources\n  end\nend\n\ndefmacro b_v1(input) do\n  pipeline do\n    step :score_independence\n  end\nend\n";
+        let t = ElixirTemplate::parse(src).unwrap();
+        assert_eq!(t.name, "a");
+        assert_eq!(t.steps.len(), 1);
+        assert_eq!(t.steps[0].action, OgarAction::ExtractSources);
+    }
+
+    #[test]
+    fn parse_ignores_steps_outside_the_pipeline() {
+        let src = "defmacro a_v1(input) do\n  step :score_independence\n  pipeline do\n    step :extract_sources\n  end\nend\n";
+        let t = ElixirTemplate::parse(src).unwrap();
+        assert_eq!(t.steps.len(), 1);
+        assert_eq!(t.steps[0].action, OgarAction::ExtractSources);
     }
 
     #[test]
