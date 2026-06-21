@@ -53,7 +53,7 @@ docker run --rm cognitive-stack
 
 Expected output (shape):
 
-```
+```text
 cognitive-stack — linked golden image
   NEW: elixir-template · template-runtime · template-equivalence · cognitive-compiler
   OLD: lance-graph + ndarray + ractor + surrealdb(kv-lance) + OGAR  [AdaWorldAPI forks]

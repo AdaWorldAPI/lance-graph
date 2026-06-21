@@ -6,7 +6,7 @@ crate fits the larger plan at `../../.claude/plans/cognitive-compilation-v1.md`.
 
 ## 1. The loop, mapped to crates/repos
 
-```
+```text
 new task
   │
   ▼

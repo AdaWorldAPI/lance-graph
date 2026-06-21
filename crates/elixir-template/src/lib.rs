@@ -151,7 +151,7 @@ impl ElixirTemplate {
         if steps.is_empty() {
             return Err(ParseError::NoSteps);
         }
-        Ok(ElixirTemplate { name, version, steps, osint: None })
+        Ok(ElixirTemplate { name, version, steps, osint: parse_osint(src) })
     }
 
     /// Start a template builder.
@@ -164,9 +164,19 @@ impl ElixirTemplate {
         self.steps.iter().map(|s| s.action.ogar_name()).collect()
     }
 
-    /// Render back to the Elixir-shaped source (round-trips through [`parse`]).
+    /// Render back to the Elixir-shaped source. Round-trips losslessly through
+    /// [`parse`] — including the OSINT guardrail, which is emitted as `# osint.*`
+    /// header comments (one field per line, value verbatim to end-of-line, so no
+    /// escaping is needed for single-line reasons).
     pub fn to_source(&self) -> String {
-        let mut s = format!("defmacro {}_v{}(input) do\n  pipeline do\n", self.name, self.version);
+        let mut s = String::new();
+        if let Some(g) = &self.osint {
+            s.push_str(&format!("# osint.public_interest_reason: {}\n", g.public_interest_reason));
+            s.push_str(&format!("# osint.scope_boundary: {}\n", g.scope_boundary));
+            s.push_str(&format!("# osint.source_provenance_required: {}\n", g.source_provenance_required));
+            s.push_str(&format!("# osint.harm_minimization_checked: {}\n", g.harm_minimization_checked));
+        }
+        s.push_str(&format!("defmacro {}_v{}(input) do\n  pipeline do\n", self.name, self.version));
         for step in &self.steps {
             s.push_str(&format!("    step :{}\n", step.atom));
         }
@@ -225,6 +235,38 @@ fn split_version(raw: &str) -> (String, u32) {
         }
     }
     (raw.to_string(), 1)
+}
+
+/// Read the OSINT guardrail back from `# osint.<field>: <value>` header comments
+/// emitted by [`ElixirTemplate::to_source`]. Returns `None` when no such header
+/// is present (so a plain pipeline parses to `osint: None`).
+fn parse_osint(src: &str) -> Option<OsintGuardrail> {
+    let (mut reason, mut scope, mut prov, mut harm) = (None, None, None, None);
+    for line in src.lines() {
+        let Some(rest) = line.trim().strip_prefix("# osint.") else {
+            continue;
+        };
+        let Some((key, value)) = rest.split_once(':') else {
+            continue;
+        };
+        let value = value.trim();
+        match key.trim() {
+            "public_interest_reason" => reason = Some(value.to_string()),
+            "scope_boundary" => scope = Some(value.to_string()),
+            "source_provenance_required" => prov = Some(value == "true"),
+            "harm_minimization_checked" => harm = Some(value == "true"),
+            _ => {}
+        }
+    }
+    if reason.is_none() && scope.is_none() && prov.is_none() && harm.is_none() {
+        return None;
+    }
+    Some(OsintGuardrail {
+        public_interest_reason: reason.unwrap_or_default(),
+        scope_boundary: scope.unwrap_or_default(),
+        source_provenance_required: prov.unwrap_or(false),
+        harm_minimization_checked: harm.unwrap_or(false),
+    })
 }
 
 /// Collect the `step :atom` lines inside the FIRST `pipeline do … end` block of
@@ -351,5 +393,8 @@ mod tests {
         assert_eq!(reparsed.name, t.name);
         assert_eq!(reparsed.version, t.version);
         assert_eq!(reparsed.steps, t.steps);
+        // The OSINT guardrail must survive the round-trip (no silent drop).
+        assert_eq!(reparsed.osint, t.osint);
+        assert!(reparsed.osint.is_some());
     }
 }
