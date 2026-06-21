@@ -58,6 +58,14 @@ pub mod supervisor;
 #[cfg(feature = "supervisor")]
 pub mod actors;
 
+/// S4 OUT-leg: the kanban-advance actor (mailbox-as-owner; the owner advances
+/// its own Rubicon phase on a message).
+#[cfg(feature = "supervisor")]
+pub mod kanban_actor;
+
+#[cfg(feature = "supervisor")]
+pub use kanban_actor::{KanbanActor, KanbanMsg};
+
 #[cfg(feature = "supervisor")]
 pub use supervisor::{
     CallcenterSupervisor, ChildSummary, ConsumerSlot, ModuleEntry, StubConsumerActor,
