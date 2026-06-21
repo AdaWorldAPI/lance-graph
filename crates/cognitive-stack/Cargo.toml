@@ -1,0 +1,69 @@
+# Cognitive Compilation golden image — EXCLUDED from the lance-graph workspace.
+#
+# ONE binary that links the NEW stack (the Elixir-shaped template crates) on top
+# of the OLD stack (every AdaWorldAPI fork): lance-graph + lance =7.0.0 +
+# lancedb =0.30.0 + ndarray + ractor + surrealdb (kv-lance only) + OGAR.
+#
+# This is the cognitive-compilation sibling of `crates/symbiont`: same proven
+# fork wiring for the old stack, plus path-deps to the four new template crates.
+# rig (the LLM teacher/critic) is intentionally NOT linked here — per the design,
+# the LLM is teacher-only and never in the reflex hot path, so the runtime stack
+# binary contains no LLM.
+#
+# Build locally:   cargo build --manifest-path crates/cognitive-stack/Cargo.toml
+# Build container: docker build -f crates/cognitive-stack/Dockerfile -t cognitive-stack .
+#                  (from the lance-graph repo root)
+#
+# NOTE: lance-graph path-deps the ndarray fork as a SIBLING (`../../../ndarray`),
+# so a from-scratch build needs the ndarray fork checked out next to lance-graph.
+# In a session it already is; the Dockerfile clones it.
+
+[package]
+name = "cognitive-stack"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Cognitive Compilation golden image: the Elixir-template stack (elixir-template + template-runtime + template-equivalence + cognitive-compiler) linked on top of the full Ada old-stack forks (lance-graph + lance7/lancedb0.30 + ndarray + ractor + surrealdb kv-lance + OGAR) in ONE binary."
+
+# Own workspace root — keeps this crate out of the parent lance-graph workspace
+# AND makes the [patch] below take effect.
+[workspace]
+
+[[bin]]
+name = "cognitive-stack"
+path = "src/main.rs"
+
+[dependencies]
+# ── NEW stack: the Cognitive Compilation Elixir-template crates (path) ──
+elixir-template = { path = "../elixir-template" }
+template-runtime = { path = "../template-runtime" }
+template-equivalence = { path = "../template-equivalence" }
+cognitive-compiler = { path = "../cognitive-compiler" }
+
+# ── OLD stack, same-repo crates: path deps ──
+lance-graph = { path = "../lance-graph" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+ndarray = { path = "../../../ndarray" }
+
+# ── OLD stack, external AdaWorldAPI forks: git deps (mirrors crates/symbiont) ──
+# ractor: jirak branch (carries the MessagingErr::Saturated fix; on github).
+# surrealdb + OGAR: `main` — each fork's jirak HEAD is an ANCESTOR of its main
+# (main is the canonical superset), and kv-lance lives on surrealdb main; pinning
+# surrealdb to main matches OGAR's own surrealdb pin so they resolve to ONE source.
+ractor = { git = "https://github.com/AdaWorldAPI/ractor", branch = "claude/jirak-math-theorems-harvest-rfii13" }
+surrealdb-core = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "main", default-features = false, features = ["kv-lance"] }
+ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main", features = ["surrealdb-parser"] }
+
+# The OGAR activation crate (in-repo, path) — links the full Active-Record surface
+# (ogar-class-view's `impl lance_graph_contract::ClassView` + codebook parity-guard).
+lance-graph-ogar = { path = "../lance-graph-ogar", features = ["surrealql-parser"] }
+
+# ── [patch] — unify lance-graph-contract to the ONE in-repo path copy ──
+# ogar-class-view (via lance-graph-ogar) git-deps lance-graph-contract @
+# lance-graph#main; this crate + lance-graph path-dep it. Cargo treats path/git as
+# distinct crates, so fold the git contract onto the path copy = exactly one source
+# (otherwise OgarClassView would impl a DIFFERENT ClassView than the engine expects).
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }

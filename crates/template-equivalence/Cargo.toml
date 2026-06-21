@@ -1,0 +1,14 @@
+[package]
+name = "template-equivalence"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Replay-equivalence checker for the Cognitive Compilation loop. Replays a synthesized template against the same input and grades its output vs the original LLM trace: Exact / Semantic / RankOrder / Tolerance / Failure (§7 of the plan). Enforces §18.2 'no replay → no promotion' and §18.4 'no equivalence → no merge'. Standalone, zero-dep; exact + rank-order are real, semantic is deferred. See .claude/plans/cognitive-compilation-v1.md."
+
+# Standalone crate (excluded from the workspace). Verify with:
+#   cargo test --manifest-path crates/template-equivalence/Cargo.toml
+[dependencies]
+
+[lib]
+name = "template_equivalence"
+path = "src/lib.rs"

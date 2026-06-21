@@ -1,0 +1,14 @@
+[package]
+name = "elixir-template"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "The compiled-cognition Elixir-shaped template: a declarative `pipeline do step :x end` whose steps bind to OGAR actions. This is the NEW piece of the Cognitive Compilation loop — thinking styles, JITson, and i4-32D already exist; the Elixir template was the gap. Standalone, zero-dep; real parser + representation + the source_ranking_v1 first slice. See .claude/plans/cognitive-compilation-v1.md."
+
+# Standalone crate (excluded from the workspace, like jc / helix). Verify with:
+#   cargo test --manifest-path crates/elixir-template/Cargo.toml
+[dependencies]
+
+[lib]
+name = "elixir_template"
+path = "src/lib.rs"

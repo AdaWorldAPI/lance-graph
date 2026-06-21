@@ -1,3 +1,21 @@
+## cognitive-compilation-v1 — Elixir-template stack (LLM teaches, Lance-Graph runs)
+
+Plan: `.claude/plans/cognitive-compilation-v1.md`. The new idea is the
+Elixir-shaped template; the rest of the loop reuses existing organs.
+
+| D-id | Title | Crate(s) | Status | Evidence |
+|---|---|---|---|---|
+| D-CC-RUNTIME-1 | elixir-template: representation + parser + `source_ranking_v1` slice | elixir-template | **Scaffolded** | 6 tests green (parse, version split, custom atom, round-trip, 7-step slice + guardrail); clippy clean |
+| D-CC-RUNTIME-2 | template-runtime: deterministic OGAR-action dispatch (reflex executor) | template-runtime | **Scaffolded** | 4 tests green (threaded dispatch, unknown-action, empty, unimplemented-bubbles); action bodies deferred |
+| D-CC-EQUIV-1 | template-equivalence: replay grading | template-equivalence | **Scaffolded** | 4 tests green (Exact, RankOrder-within-tolerance, new-claim-fail, confidence-drift-fail); Semantic deferred |
+| D-CC-COMPILER-1 | cognitive-compiler: trace→template synthesis surface | cognitive-compiler | **Scaffolded** | 3 tests green (NotImplemented contract, non-Execution reject, unsourced-claim reject); synthesis = first probe |
+| D-CC-RIG-1 | rig-surrealdb pointed at AdaWorldAPI kv-lance fork | rig (sibling) | Queued | additive Cargo wiring |
+| D-CC-RUBICON-1 | graph-flow Task for templates (isolated, cherry-pickable) | rs-graph-llm (sibling) | Queued | local copy + branch push as recovery paths |
+| D-CC-OGAR-1 | OGAR canonical classes for the loop | OGAR ogar-ontology/ogar-from-elixir | **Exists** | reused, not rebuilt |
+| D-CC-INDEX/REVIEW/PROMOTE/LEDGER/FENCE | basin match / reviewers / PR automation / provenance / ownership fence | planner / agents / surreal kv-lance / ractor | **Exists or DEFERRED** | not this PR |
+
+---
+
 ## symbiont-golden-image-harness — the living all-in-one substrate binary + the first runtime edges
 
 The golden image (`crates/symbiont`, workspace-`exclude`d): the full Ada stack in ONE binary, then real cross-crate edges onto the canonical SoA. Plan: `crates/symbiont/INTEGRATION_PLAN.md` (PR #555, merged `37cc21b2`).
