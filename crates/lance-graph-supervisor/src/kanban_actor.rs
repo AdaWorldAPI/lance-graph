@@ -26,7 +26,8 @@
 
 use lance_graph_contract::kanban::{KanbanColumn, KanbanMove, RubiconTransitionError};
 use lance_graph_contract::mul::i4_eval::gate_decision_i4;
-use lance_graph_contract::soa_view::MailboxSoaOwner;
+use lance_graph_contract::scheduler::{DatasetVersion, VersionScheduler};
+use lance_graph_contract::soa_view::{MailboxSoaOwner, MailboxSoaView};
 use lance_graph_contract::QualiaI4_16D;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 
@@ -51,6 +52,21 @@ pub enum KanbanMsg {
         qualia: QualiaI4_16D,
         mantissa: i8,
         reply: RpcReplyPort<Result<Option<KanbanMove>, RubiconTransitionError>>,
+    },
+    /// **Atomic** S3 IN-leg step: a substrate version tick (`at`) advances the
+    /// owner along the Rubicon **forward arc** — `phase().next_phases().first()` —
+    /// in ONE message, reading the owner's phase at the instant of mutation. This
+    /// is the in-actor realization of [`scheduler::NextPhaseScheduler`]'s policy
+    /// (`E-SUBSTRATE-IS-THE-SCHEDULER`): a Lance `versions()` event lowers to the
+    /// next legal move and the owner applies it. Replies `Some(move)` on advance,
+    /// or `None` when the owner is in an absorbing column (`Commit`/`Prune`) — a
+    /// **no-op tick is suppressed**, not an error. No error variant: the forward
+    /// arc is legal by construction.
+    ///
+    /// [`scheduler::NextPhaseScheduler`]: lance_graph_contract::scheduler::NextPhaseScheduler
+    Tick {
+        at: DatasetVersion,
+        reply: RpcReplyPort<Option<KanbanMove>>,
     },
 }
 
@@ -118,6 +134,19 @@ where
                     Some(to) => state.try_advance_phase(to).map(Some), // advance
                 };
                 let _ = reply.send(result);
+            }
+            KanbanMsg::Tick { at: _, reply } => {
+                // Forward-arc advance, atomic against the owner's live phase. The
+                // first legal successor is empty exactly for absorbing columns
+                // (`Commit`/`Prune`) → `None` suppresses the no-op tick. The arc
+                // is legal by construction, so the infallible `advance_phase` is
+                // correct here (no `try_`/error path).
+                let from = state.phase();
+                let moved = from
+                    .next_phases()
+                    .first()
+                    .map(|&to| state.advance_phase(to));
+                let _ = reply.send(moved);
             }
         }
         Ok(())
@@ -234,6 +263,71 @@ pub async fn drive_mul_advance(
     })
     .map_err(|e| KanbanRouteError::Rpc(e.to_string()))?;
     inner.map_err(|e| KanbanRouteError::Illegal {
+        from: e.from,
+        to: e.to,
+    })
+}
+
+// ─── S3 IN-leg: substrate version tick → owner forward-arc advance ─────────────
+
+/// S3 driver: a substrate version tick advances the owner along the Rubicon
+/// forward arc, in ONE atomic actor message ([`KanbanMsg::Tick`]). Returns the
+/// emitted [`KanbanMove`] on advance, or `None` when the owner is absorbing
+/// (`Commit`/`Prune`) — the **no-op tick is suppressed** (D-MBX-9-IN,
+/// `E-SUBSTRATE-IS-THE-SCHEDULER`).
+///
+/// **Atomicity:** like [`drive_mul_advance`], the next-phase decision and the
+/// transition run inside the SAME serialized mailbox message, so concurrent ticks
+/// cannot read a stale phase and collide — they chain along the arc instead
+/// (codex #578 lesson, applied to the IN-leg). This is the actor-side realization
+/// of the contract's [`NextPhaseScheduler`] policy; use [`drive_scheduled_tick`]
+/// when a custom [`VersionScheduler`] policy (version-delta gating, `Plan`/`Prune`
+/// over the forward arc, batching) reads a richer view.
+///
+/// [`NextPhaseScheduler`]: lance_graph_contract::scheduler::NextPhaseScheduler
+pub async fn drive_version_tick(
+    actor: &ActorRef<KanbanMsg>,
+    at: DatasetVersion,
+) -> Result<Option<KanbanMove>, KanbanRouteError> {
+    ractor::call!(actor, |reply| KanbanMsg::Tick { at, reply })
+        .map_err(|e| KanbanRouteError::Rpc(e.to_string()))
+}
+
+/// S3 driver (custom policy): drive an arbitrary [`VersionScheduler`] for one
+/// version tick. The scheduler **proposes** the next move from `view`; if it
+/// yields `Some`, the owner **disposes** it via [`KanbanMsg::Advance`]; `None`
+/// **suppresses the no-op tick** ("propose, don't dispose" — the scheduler reads,
+/// the owner is the sole mutator).
+///
+/// Unlike [`drive_version_tick`], the proposal is computed OUTSIDE the owner's
+/// message (from the supplied `view`), so it is **advisory**: if the owner's phase
+/// changes between the proposal and the `Advance`, the edge may be rejected
+/// ([`KanbanRouteError::Illegal`]) rather than silently corrupting — surfaced, not
+/// panicked. For the pure forward-arc policy prefer the atomic
+/// [`drive_version_tick`]; reach for this only when the policy needs a richer view
+/// than the owner computes internally.
+pub async fn drive_scheduled_tick<S, V>(
+    scheduler: &S,
+    view: &V,
+    at: DatasetVersion,
+    exec: lance_graph_contract::kanban::ExecTarget,
+    actor: &ActorRef<KanbanMsg>,
+) -> Result<Option<KanbanMove>, KanbanRouteError>
+where
+    S: VersionScheduler,
+    V: MailboxSoaView,
+{
+    // Propose: lower the version event to the next legal move (or `None`).
+    let Some(proposed) = scheduler.on_version(view, at, exec) else {
+        return Ok(None); // absorbing / policy-filtered → suppress the no-op tick
+    };
+    // Dispose: the owner applies it (checked); relay an illegal edge as typed.
+    let inner = ractor::call!(actor, |reply| KanbanMsg::Advance {
+        to: proposed.to,
+        reply
+    })
+    .map_err(|e| KanbanRouteError::Rpc(e.to_string()))?;
+    inner.map(Some).map_err(|e| KanbanRouteError::Illegal {
         from: e.from,
         to: e.to,
     })
@@ -478,6 +572,119 @@ mod tests {
         // Serialized chain: Planning → CognitiveWork → Evaluation.
         let phase = ractor::call!(actor, |reply| KanbanMsg::Phase { reply }).expect("rpc");
         assert_eq!(phase, KanbanColumn::Evaluation);
+
+        actor.stop(None);
+        handle.await.expect("actor join");
+    }
+
+    #[tokio::test]
+    async fn version_tick_advances_forward_arc_then_suppresses_at_absorbing() {
+        // S3 IN-leg: a version tick advances along the forward arc; once the owner
+        // reaches an absorbing column the tick is a suppressed no-op (`None`).
+        let (actor, handle) = Actor::spawn(
+            None,
+            KanbanActor::<TestBoard>::default(),
+            board(KanbanColumn::Planning),
+        )
+        .await
+        .expect("spawn");
+
+        // Planning → CognitiveWork → Evaluation → Commit, one tick per version.
+        let expected = [
+            KanbanColumn::CognitiveWork,
+            KanbanColumn::Evaluation,
+            KanbanColumn::Commit,
+        ];
+        for (i, want) in expected.iter().enumerate() {
+            let mv = drive_version_tick(&actor, DatasetVersion(i as u64 + 1))
+                .await
+                .expect("tick ok")
+                .expect("non-absorbing advances");
+            assert_eq!(mv.to, *want);
+        }
+
+        // Commit is absorbing: the next tick advances nothing (no-op suppressed).
+        let noop = drive_version_tick(&actor, DatasetVersion(99))
+            .await
+            .expect("tick ok");
+        assert!(noop.is_none(), "absorbing column must suppress the tick");
+        let phase = ractor::call!(actor, |reply| KanbanMsg::Phase { reply }).expect("rpc");
+        assert_eq!(phase, KanbanColumn::Commit);
+
+        actor.stop(None);
+        handle.await.expect("actor join");
+    }
+
+    #[tokio::test]
+    async fn concurrent_version_ticks_serialize_along_the_arc() {
+        // Two concurrent ticks must NOT both read a stale `Planning`; the atomic
+        // `Tick` serializes decision+advance in the owner's mailbox, so they chain
+        // Planning → CognitiveWork → Evaluation (both advance, neither is lost).
+        let (actor, handle) = Actor::spawn(
+            None,
+            KanbanActor::<TestBoard>::default(),
+            board(KanbanColumn::Planning),
+        )
+        .await
+        .expect("spawn");
+
+        let a1 = actor.clone();
+        let a2 = actor.clone();
+        let (r1, r2) = tokio::join!(
+            drive_version_tick(&a1, DatasetVersion(1)),
+            drive_version_tick(&a2, DatasetVersion(2)),
+        );
+        assert!(r1.expect("tick1 ok").is_some(), "first advanced");
+        assert!(r2.expect("tick2 ok").is_some(), "second advanced");
+
+        let phase = ractor::call!(actor, |reply| KanbanMsg::Phase { reply }).expect("rpc");
+        assert_eq!(phase, KanbanColumn::Evaluation);
+
+        actor.stop(None);
+        handle.await.expect("actor join");
+    }
+
+    #[tokio::test]
+    async fn custom_scheduler_proposes_and_owner_disposes() {
+        use lance_graph_contract::scheduler::NextPhaseScheduler;
+
+        // The generic consumer drives the EXISTING `VersionScheduler` trait: the
+        // reference `NextPhaseScheduler` proposes from a view, the owner disposes.
+        let (actor, handle) = Actor::spawn(
+            None,
+            KanbanActor::<TestBoard>::default(),
+            board(KanbanColumn::Planning),
+        )
+        .await
+        .expect("spawn");
+
+        // View mirrors the owner's current phase; scheduler proposes CognitiveWork.
+        let view = board(KanbanColumn::Planning);
+        let mv = drive_scheduled_tick(
+            &NextPhaseScheduler,
+            &view,
+            DatasetVersion(1),
+            ExecTarget::Native,
+            &actor,
+        )
+        .await
+        .expect("scheduled ok")
+        .expect("forward arc proposed + disposed");
+        assert_eq!(mv.from, KanbanColumn::Planning);
+        assert_eq!(mv.to, KanbanColumn::CognitiveWork);
+
+        // An absorbing view → scheduler yields `None` → suppressed, no RPC needed.
+        let absorbing_view = board(KanbanColumn::Commit);
+        let noop = drive_scheduled_tick(
+            &NextPhaseScheduler,
+            &absorbing_view,
+            DatasetVersion(2),
+            ExecTarget::Native,
+            &actor,
+        )
+        .await
+        .expect("scheduled ok");
+        assert!(noop.is_none(), "absorbing proposal is suppressed");
 
         actor.stop(None);
         handle.await.expect("actor join");
