@@ -105,14 +105,29 @@ structural/dummy owner" in tests, a real `ractor::Actor` in prod (cf.
 **is** a `MailboxSoaOwner`. So an "absent owner / graceful `DomainUnavailable`"
 test describes a state that cannot exist — it is void.
 
-The wire: a `kanban.advance` step is delivered to the owning ractor actor (a
-`cast`/message). The actor — which already holds the SoA `&mut` and processes
-one message at a time, i.e. the compile-time single-writer / no-race guarantee
-(CLAUDE.md mailbox-as-owner, E-CE64-MB-4) — applies `try_advance_phase`. The
-`route()` is just the delivery edge (resolve `kanban.*` → the mailbox's actor
-address); the **owner advances itself**, the bridge does not hold it. **Decision
-B preserved**: identity = the actor address (the mailbox), never a `UnifiedStep`
-field. (`PlannerAwareness::route` can still ACCEPT a `kanban.*` step for the
+**Two paths, and only one needs a route at all:**
+- **Normal OUT-leg (owner-driven) — NO route.** The advance is the actor's
+  reaction to S2 (MUL gate) / S3 (version tick); nothing external addresses it.
+  `symbiont::kanban_loop` already does exactly this. Codex's "unroutable /
+  single implicit actor" concern does not apply here — there is no route.
+- **External command to a NAMED mailbox** (the only case a `kanban.*`
+  `UnifiedStep` exists). **Target resolution (codex #574 gap closed):** the
+  mailbox id rides in the step's EXISTING string — `step_type` as
+  `kanban.<mailbox>.<op>` (or `step_id`) — and is resolved to an `ActorRef` via
+  **ractor's OWN name registry**, `ractor::registry::where_is(mailbox_id)`
+  (verified present in `ractor/src/registry.rs`). That is neither the forbidden
+  bespoke bridge-owner registry NOR a new `UnifiedStep` field — it is the actor
+  system's native name→`ActorRef` lookup (mailbox-as-owner addressing).
+  Multi-mailbox works because `where_is` resolves any registered mailbox by name.
+
+The wire: parse the mailbox id from the step string → `where_is` → `cast` a
+`kanban.advance` message to that owning ractor actor. The actor — which already
+holds the SoA `&mut` and processes one message at a time, i.e. the compile-time
+single-writer / no-race guarantee (CLAUDE.md mailbox-as-owner, E-CE64-MB-4) —
+applies `try_advance_phase`. The **owner advances itself**; the bridge holds no
+owner. **Decision B preserved**: the address is recovered from the step's
+existing string via the actor registry, never a new `UnifiedStep` typed field.
+(`PlannerAwareness::route` can still ACCEPT a `kanban.*` step for the
 non-actor/in-process path, but the advance is the actor's, not a bridge
 registry's.)
 
