@@ -1,3 +1,24 @@
+## 2026-06-21 (cont.²⁷) — AriGraph-as-OSINT feasibility: verified (markov_soa [H]→[G]) + plan via the rig seam
+
+**Main thread (Opus).** Operator: feasibility of AriGraph as an LLM-OSINT pattern
+over the ractor-owned SoA, transparently in surrealdb kv-lance, with an episodic
+arc in rs-graph-llm + rig as training wheels. **Finding: ~70% already built.**
+`graph/arigraph/` is explicitly an "OSINT knowledge graph with episodic memory" —
+`markov_soa` (AriGraph on the ractor-owned `MailboxSoaView` SoA), `episodic` (the
+arc), `triplet_graph`/`witness_corpus`/`retrieval` (semantic KG + provenance),
+plus the `lance-graph-osint` web→triplets pipeline. **Verified the load-bearing
+[H]:** ran `cargo check -p lance-graph` (full checkout, protoc installed) → exit 0,
+4m02s, 480 crates, **no errors** (8 pre-existing `CausalEdge64::temporal`
+deprecation warnings only) — markov_soa + the whole AriGraph module compile;
+[H]→[G]. Operator nudge corrected the wiring: rs-graph-llm → **rig** → rig-core
+(LLM) + rig-lancedb (episodic) + rig-surrealdb (kv-lance semantic graph + versioned
+arc); rig is the single seam, all on the same lance bytes as the AriGraph SoA /
+surrealdb kv-lance VIEW (E-S6). Net-new = one `episodic-arc` graph-flow Task
+(sibling of template-task, via the rig adapters) + the SpoRanks→value-tenant
+schema map. Wrote plan `arigraph-osint-episodic-v1.md` + board (INTEGRATION_PLANS,
+STATUS_BOARD D-CC-ARI-1..5, EPIPHANY E-ARIGRAPH-IS-ALREADY-THE-OSINT-ORGAN). Docs
+only; rides PR #571's branch. Deps: surrealdb #50 (AS-OF replay), lance-7 lockstep.
+
 ## 2026-06-21 (cont.²⁶) — Cognitive Compilation golden image: cognitive-stack (new + old stack, one binary)
 
 **Main thread (Opus).** Operator: "add a separate Cargo/Docker file for the new

@@ -1,3 +1,24 @@
+## 2026-06-21 — arigraph-osint-episodic-v1 (PROPOSED; feasibility verified)
+
+Plan: `.claude/plans/arigraph-osint-episodic-v1.md`. Points the Cognitive
+Compilation loop at OSINT/online-research with AriGraph as the memory organ.
+**Feasibility = ~70% already built** (`graph/arigraph/` is explicitly an "OSINT
+knowledge graph with episodic memory": `markov_soa` = AriGraph on the
+ractor-owned SoA, `episodic` = the arc, `triplet_graph`/`witness_corpus`/
+`retrieval` = semantic KG + provenance; plus the `lance-graph-osint` pipeline).
+**Verified this session:** `cargo check -p lance-graph` exit 0 (4m02s, 480
+crates, no errors) — markov_soa + the whole AriGraph module compile on a full
+checkout ([H]→[G]). Corrected wiring (operator nudge): rs-graph-llm → **rig** →
+rig-core (LLM) + rig-lancedb (episodic) + rig-surrealdb (kv-lance semantic graph
++ versioned arc); rig is the single seam, all on the same lance bytes as the
+AriGraph SoA / surrealdb kv-lance VIEW. Net-new = an `episodic-arc` graph-flow
+Task (sibling of template-task, via the rig adapters) + the SpoRanks→value-tenant
+schema map. Gates ride the cognitive-compilation verifier (fail-closed + §14
+OsintGuardrail + witness provenance). D-CC-ARI-1..5 (ARI-1 DONE). Deps: surrealdb
+#50 (AS-OF replay), lance-7 lockstep.
+
+---
+
 ## 2026-06-21 — cognitive-compilation-v1 (PROPOSED; scaffold landed)
 
 Plan: `.claude/plans/cognitive-compilation-v1.md`. "LLM = teacher/compiler/critic;

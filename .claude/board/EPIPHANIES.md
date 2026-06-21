@@ -1,3 +1,33 @@
+## 2026-06-21 — E-ARIGRAPH-IS-ALREADY-THE-OSINT-ORGAN — the AriGraph-on-SoA OSINT memory is already built + compiles; the OSINT loop is a wiring job through the rig seam, not a port
+
+**Status:** FINDING (feasibility check, 2026-06-21; markov_soa verification = [G]).
+The "use AriGraph as an LLM-OSINT pattern over the ractor-owned SoA, transparently
+in surrealdb kv-lance, with an episodic arc as training wheels" idea is ~70%
+pre-built:
+
+1. **AriGraph is already the OSINT organ in Rust.** `graph/arigraph/mod.rs`:
+   *"AriGraph: OSINT knowledge graph with episodic memory."* `markov_soa.rs` =
+   AriGraph promoted to the **ractor-owned SoA** (cold→hot; `SoaWavePrimer` over
+   `MailboxSoaView` → addressable `SpoRanks`, register-preserving, injected
+   distance); `episodic.rs` = the episodic arc; `triplet_graph`/`witness_corpus`/
+   `retrieval` = semantic KG + OSINT provenance; `lance-graph-osint` = the
+   web→triplets pipeline ($0, no-LLM).
+2. **It compiles on a full checkout** — `cargo check -p lance-graph` exit 0
+   (4m02s, 480 crates, no errors; protoc installed). markov_soa's
+   "provisional/unverified-offline" note is now STALE → refresh it.
+3. **rig is the single seam (operator correction).** rs-graph-llm → rig →
+   {rig-core LLM, rig-lancedb episodic, rig-surrealdb kv-lance semantic+arc}.
+   What rig persists IS the AriGraph tenant SoA (same lance bytes; surrealdb is
+   the VIEW per E-S6). The episodic/semantic split maps 1:1 onto the two rig
+   store adapters — no bridge, no copy. Net-new = one `episodic-arc` graph-flow
+   Task + the `SpoRanks`→value-tenant schema map.
+
+Consequence: don't re-port AriGraph or re-run the Python (TextWorld/QA reference
+only); wire the existing Rust organ through rig and ride the cognitive-compilation
+verifier (fail-closed + §14 OsintGuardrail + witness provenance) for "training
+wheels off". Cross-ref: plan `arigraph-osint-episodic-v1.md`;
+E-EQUIVALENCE-IS-THE-CRUX; E-S6 (surrealdb VIEW); surrealdb #50.
+
 ## 2026-06-21 — E-EQUIVALENCE-IS-THE-CRUX — template-equivalence is the load-bearing verifier of the whole loop; it MUST fail closed, and it rides on transparent Lance versioning (surrealdb #50)
 
 **Status:** FINDING (cross-session feedback, 2026-06-21). Reframing that

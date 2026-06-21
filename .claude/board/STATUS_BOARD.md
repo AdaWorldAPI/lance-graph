@@ -1,3 +1,18 @@
+## arigraph-osint-episodic-v1 — AriGraph as the OSINT memory organ via the rig seam
+
+Plan: `.claude/plans/arigraph-osint-episodic-v1.md`. Wiring (not a port): the
+AriGraph-on-SoA OSINT organ already exists; rig is the seam.
+
+| D-id | Title | Crate(s) | Status | Evidence |
+|---|---|---|---|---|
+| D-CC-ARI-1 | Verify AriGraph-on-SoA compiles on full checkout | lance-graph (arigraph/) | **Done [G]** | `cargo check -p lance-graph` exit 0, 4m02s, 480 crates, 0 errors; markov_soa + episodic + triplet_graph + witness_corpus all compile |
+| D-CC-ARI-2 | `episodic-arc` graph-flow Task (via rig: core+lancedb+surrealdb) | rs-graph-llm (sibling of template-task) | Queued | cherry-pickable; drives existing rig adapters |
+| D-CC-ARI-3 | SoA tenant map: SpoRanks(3×u16)+truth+step → value tenants | lance-graph / contract | Queued | row shape exists (#511 SoaMemberSpec) |
+| D-CC-ARI-4 | OSINT first slice end-to-end (fetch→episodic→template→verify) | rs-graph-llm + lance-graph-osint | Queued | mirrors source_ranking_v1 |
+| D-CC-ARI-5 | Refresh stale `markov_soa.rs` "unverified-offline" note | lance-graph | Queued | separate small PR (kept off #571) |
+
+---
+
 ## cognitive-compilation-v1 — Elixir-template stack (LLM teaches, Lance-Graph runs)
 
 Plan: `.claude/plans/cognitive-compilation-v1.md`. The new idea is the
