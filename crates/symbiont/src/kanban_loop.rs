@@ -250,6 +250,31 @@ mod tests {
     }
 
     #[test]
+    fn run_nan_census_live_cycle_is_zero_at_scale() {
+        // The cognitive-half run-NaN answer (#580 handoff). Drive the FULL Rubicon
+        // forward arc — including the BF16 Domino sweep burned through CognitiveWork
+        // — over a large SoA, then census the energy column. The phase/i4 path is
+        // integer-only and the sweep is guarded by the NaN-projection surface, so a
+        // live-cycle census must read 0% NaN / 0% Inf.
+        let mut board = SymbiontBoard::spawn(4096, 13);
+        let trail = board.run_to_absorbing(&NextPhaseScheduler);
+
+        assert!(board.phase().is_absorbing(), "must reach the absorbing Commit");
+        assert!(!trail.is_empty(), "the arc must have advanced");
+
+        let energy = board.energy();
+        let total = energy.len();
+        let nan = energy.iter().filter(|e| e.is_nan()).count();
+        let inf = energy.iter().filter(|e| e.is_infinite()).count();
+        let nonzero = energy.iter().filter(|&&e| e != 0.0).count();
+
+        assert_eq!(nan, 0, "live-cycle NaN census: {nan}/{total} NaN over the arc");
+        assert_eq!(inf, 0, "live-cycle Inf census: {inf}/{total} Inf over the arc");
+        // The sweep must have produced real, finite energy (not a no-op all-zeros).
+        assert!(nonzero > 0, "the BF16 Domino sweep produced no finite energy");
+    }
+
+    #[test]
     fn illegal_skip_is_rejected_no_mutation() {
         let mut board = SymbiontBoard::spawn(16, 2);
         // Planning → Evaluation is not a legal Rubicon edge.
