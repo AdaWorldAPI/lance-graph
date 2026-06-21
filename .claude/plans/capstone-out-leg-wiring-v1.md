@@ -35,6 +35,19 @@ moment a surface frees.
 
 ## S2 — MUL→phase seam gets a real owner-side consumer
 
+**Status (2026-06-21): MUL→phase DRIVER shipped** (actor-side path).
+`lance-graph-supervisor::kanban_actor::drive_mul_advance(actor, qualia, mantissa)`
+reads the owner's phase, runs `gate_decision_i4` → `advance_on_gate`, and on a
+non-Hold gate `cast`s `KanbanMsg::Advance` to the owning actor (the S2→S4
+composition; the owner advances itself). `mul_target` is the pure lowering.
+Integer i4 gate — no f64/NaN. Test `s2_driver_gate_advances_then_holds` green
+(Flow → Planning→CognitiveWork; Hold → no advance). This is the actor-side S2
+consumer the census wanted (the `mul_phase_step` node wrapper stays the
+single-node convenience). **Remaining (heavier, deferred):** the per-row owner
+loop in `cognitive-shader-driver` that reads the `qualia` column and drives many
+rows — needs `MailboxSoaView::qualia()` (the `soa_view.rs:157` deferral) + the
+shader-driver build (disk). The actor-side trigger is real, tested code now.
+
 **Census state:** GAP. `NodeRow::mul_phase_step` (gate→phase) is test-only;
 `sigma-tier-router` consumes `gate_decision_i4` for tier dispatch, not phase.
 

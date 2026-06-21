@@ -25,7 +25,9 @@
 //! Rubicon edge is a typed [`RubiconTransitionError`], never silent corruption.
 
 use lance_graph_contract::kanban::{KanbanColumn, KanbanMove, RubiconTransitionError};
+use lance_graph_contract::mul::i4_eval::gate_decision_i4;
 use lance_graph_contract::soa_view::MailboxSoaOwner;
+use lance_graph_contract::QualiaI4_16D;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 
 /// Messages the kanban actor accepts.
@@ -39,6 +41,17 @@ pub enum KanbanMsg {
     },
     /// Read the owned mailbox's current Rubicon phase (no mutation).
     Phase { reply: RpcReplyPort<KanbanColumn> },
+    /// **Atomic** S2 step: run the MUL gate (`gate_decision_i4` over `qualia` +
+    /// `mantissa`) against the owner's CURRENT phase and advance in ONE message.
+    /// Replies `Ok(Some(move))` on advance, `Ok(None)` on Hold, or the typed
+    /// error on an illegal edge. Gate-read and transition are serialized with the
+    /// owner state (one mailbox message), so a concurrent sender cannot make the
+    /// phase read stale between decision and mutation (codex #578).
+    MulAdvance {
+        qualia: QualiaI4_16D,
+        mantissa: i8,
+        reply: RpcReplyPort<Result<Option<KanbanMove>, RubiconTransitionError>>,
+    },
 }
 
 /// A ractor actor whose `State` IS a [`MailboxSoaOwner`] — the SoA mailbox and
@@ -90,6 +103,21 @@ where
             }
             KanbanMsg::Phase { reply } => {
                 let _ = reply.send(state.phase());
+            }
+            KanbanMsg::MulAdvance {
+                qualia,
+                mantissa,
+                reply,
+            } => {
+                // Gate-decision + transition in ONE serialized message: the gate
+                // reads `state.phase()` at the instant of mutation, so a
+                // concurrent sender can't make it stale (mailbox-as-owner
+                // atomicity — codex #578).
+                let result = match mul_target(state.phase(), &qualia, mantissa) {
+                    None => Ok(None),                                  // Hold
+                    Some(to) => state.try_advance_phase(to).map(Some), // advance
+                };
+                let _ = reply.send(result);
             }
         }
         Ok(())
@@ -162,6 +190,49 @@ pub async fn deliver_kanban_step(step_type: &str) -> Result<KanbanMove, KanbanRo
     let actor: ActorRef<KanbanMsg> = cell.into();
     let inner = ractor::call!(actor, |reply| KanbanMsg::Advance { to, reply })
         .map_err(|e| KanbanRouteError::Rpc(e.to_string()))?;
+    inner.map_err(|e| KanbanRouteError::Illegal {
+        from: e.from,
+        to: e.to,
+    })
+}
+
+// ─── S2 driver: MUL gate (`gate_decision_i4`) → owner advance ─────────────────
+
+/// The MUL-gated target phase for `phase` given a node's `qualia` + inference
+/// `mantissa`: run the i4 gate ([`gate_decision_i4`]) and lower it to the
+/// DAG-legal next phase via [`KanbanColumn::advance_on_gate`] (Flow → forward,
+/// Block → Prune-where-legal, Hold → `None`). Pure + integer-only (no f64/NaN).
+pub fn mul_target(
+    phase: KanbanColumn,
+    qualia: &QualiaI4_16D,
+    mantissa: i8,
+) -> Option<KanbanColumn> {
+    let gate = gate_decision_i4(qualia, mantissa);
+    phase.advance_on_gate(&gate)
+}
+
+/// S2 driver: the MUL gate decides, the owner advances ITSELF — in ONE atomic
+/// actor message ([`KanbanMsg::MulAdvance`]). Returns the emitted [`KanbanMove`]
+/// on advance, `None` on Hold, or [`KanbanRouteError::Illegal`] on an illegal
+/// edge.
+///
+/// **Atomicity (codex #578):** the gate-read and the transition run inside the
+/// SAME serialized mailbox message, so the gate sees the owner's phase at the
+/// instant of mutation — two concurrent drivers can't both read a stale
+/// `Planning` and collide. (The earlier two-RPC `Phase`-then-`Advance` shape had
+/// that race.) `advance_on_gate` only yields a DAG-legal successor, so `Illegal`
+/// here would signal a gate/DAG drift bug — surfaced, not panicked.
+pub async fn drive_mul_advance(
+    actor: &ActorRef<KanbanMsg>,
+    qualia: QualiaI4_16D,
+    mantissa: i8,
+) -> Result<Option<KanbanMove>, KanbanRouteError> {
+    let inner = ractor::call!(actor, |reply| KanbanMsg::MulAdvance {
+        qualia,
+        mantissa,
+        reply
+    })
+    .map_err(|e| KanbanRouteError::Rpc(e.to_string()))?;
     inner.map_err(|e| KanbanRouteError::Illegal {
         from: e.from,
         to: e.to,
@@ -341,6 +412,72 @@ mod tests {
             deliver_kanban_step("lg.noop").await,
             Err(KanbanRouteError::BadStepType(_))
         ));
+
+        actor.stop(None);
+        handle.await.expect("actor join");
+    }
+
+    #[tokio::test]
+    async fn s2_driver_gate_advances_then_holds() {
+        let (actor, handle) = Actor::spawn(
+            None,
+            KanbanActor::<TestBoard>::default(),
+            board(KanbanColumn::Planning),
+        )
+        .await
+        .expect("spawn");
+
+        // Flow qualia (warmth/groundedness high, low tension, calibrated) +
+        // mantissa>0 → gate Flow → forward advance Planning → CognitiveWork.
+        let flow_q = QualiaI4_16D(0).with(3, 4).with(14, 3).with(9, 4).with(1, 2);
+        let mv = drive_mul_advance(&actor, flow_q, 4)
+            .await
+            .expect("driver ok")
+            .expect("advanced on Flow");
+        assert_eq!(mv.from, KanbanColumn::Planning);
+        assert_eq!(mv.to, KanbanColumn::CognitiveWork);
+
+        // Neutral qualia + mantissa 0 → gate Hold → None (owner stays put).
+        let held = drive_mul_advance(&actor, QualiaI4_16D(0), 0)
+            .await
+            .expect("driver ok");
+        assert!(held.is_none(), "Hold must not advance");
+        let phase = ractor::call!(actor, |reply| KanbanMsg::Phase { reply }).expect("rpc");
+        assert_eq!(phase, KanbanColumn::CognitiveWork);
+
+        actor.stop(None);
+        handle.await.expect("actor join");
+    }
+
+    #[tokio::test]
+    async fn concurrent_mul_drivers_serialize_no_spurious_rejection() {
+        // codex #578: two concurrent Flow drivers must NOT both read a stale
+        // `Planning` and collide. The atomic `MulAdvance` serializes gate+advance
+        // in the owner's mailbox, so they chain Planning→CognitiveWork→Evaluation
+        // — both succeed, neither is a spurious `Illegal`.
+        let (actor, handle) = Actor::spawn(
+            None,
+            KanbanActor::<TestBoard>::default(),
+            board(KanbanColumn::Planning),
+        )
+        .await
+        .expect("spawn");
+
+        let flow = || QualiaI4_16D(0).with(3, 4).with(14, 3).with(9, 4).with(1, 2);
+        let a1 = actor.clone();
+        let a2 = actor.clone();
+        let (r1, r2) = tokio::join!(
+            drive_mul_advance(&a1, flow(), 4),
+            drive_mul_advance(&a2, flow(), 4),
+        );
+
+        // Neither call is a spurious rejection; both advanced along the arc.
+        assert!(r1.expect("driver1 ok").is_some(), "first advanced");
+        assert!(r2.expect("driver2 ok").is_some(), "second advanced");
+
+        // Serialized chain: Planning → CognitiveWork → Evaluation.
+        let phase = ractor::call!(actor, |reply| KanbanMsg::Phase { reply }).expect("rpc");
+        assert_eq!(phase, KanbanColumn::Evaluation);
 
         actor.stop(None);
         handle.await.expect("actor join");
