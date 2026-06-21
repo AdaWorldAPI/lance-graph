@@ -1,3 +1,17 @@
+## 2026-06-21 — E-CREWAI-N8N-EVICTED — crewai-rust + n8n-rs are EVICTED as binding consumers of lance-graph-contract (operator-directed); the contract now evolves without a crewai/n8n multi-repo bump, gated only by IN-TREE consumers
+
+**Status:** FINDING (operator directive "force evict crewai-rs and n8n-rs", 2026-06-21).
+
+crewai-rust (The Agents) and n8n-rs (The Orchestrator) were the two external downstream consumers of the zero-dep contract (per the old CLAUDE.md cross-repo block). Their roles — agent orchestration / thinking styles, workflow-DAG / JIT styles — are superseded by **ladybug-rs + the in-tree thinking-engine + planner**. Operator force-evicted them.
+
+**Eviction scope (surgical, not a 40-file churn):**
+- The two AUTHORITATIVE consumer declarations updated: contract `lib.rs` module doc + `CLAUDE.md` "Cross-Repo Dependencies" / architecture / dependency-chain blocks now list only ladybug-rs + the in-tree consumers (planner / callcenter / smb-bridge / symbiont); crewai/n8n marked EVICTED.
+- The ~40 scattered `// replaces crewai-rust's X` / `// n8n-rs calls Y` doc-comments across `orchestration.rs`/`thinking.rs`/`nars.rs`/`jit.rs`/`plan.rs`/… are retained as **historical provenance** (NOT live consumer claims) — rewriting them is churn-risk for zero value.
+- `StepDomain::{Crew, N8n}` enum variants + their `from_step_type` "crew"/"n8n" mappings stay as **reserved-dormant routing tags** (CANON reserve-don't-reclaim: a dead route is *not consulted*, never *compacted away*; removing variants would break in-tree `from_step_type`/`profile()` match arms + violate the ethos). They are dormant, not deleted.
+
+**Consequence (the reason this matters now):** the integration-lead's "adding a `UnifiedStep` field forces a crewai-rust/n8n-rs multi-repo bump" objection (E-S4-ENVELOPE-STAYS-POINTERLESS) is **VOID** — a `UnifiedStep` field change would now be IN-TREE only (7 struct-literal sites). **The S4 decision is UNCHANGED (B):** the load-bearing reasons survive the eviction — the node's `ValueTenant::Kanban` already owns the identity (a field DUPLICATES it; lab-vs-canonical "extend by column, not layer"), and no route consumer exists (defer). Prefer B unless a future consumer is *measured* unable to resolve identity from the node.
+
+Verified: contract lib 715 green, clippy `-D warnings` clean (docs-only + reserved variants). Cross-ref: `lib.rs` module doc; `CLAUDE.md` Cross-Repo Dependencies; E-S4-ENVELOPE-STAYS-POINTERLESS; capstone S4 row.
 ## 2026-06-21 — E-S4-ENVELOPE-STAYS-POINTERLESS — the routed `UnifiedStep` must NOT gain a SoA-pointer field; identity rides the typed `KanbanMove` sidecar + the node self-describes via `ValueTenant::Kanban` (G1 subsumed). 5+3 council verdict 6×B / 1×A(satisfied-by-B) / 1×DEFER-then-B
 
 **Status:** FINDING (autoattended 5+3 hardening council, 2026-06-21; capstone S4 design-locked + deferred).

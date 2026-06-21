@@ -3,8 +3,17 @@
 //! Zero-dependency trait crate that defines the contract between:
 //! - **lance-graph-planner** (implements these traits)
 //! - **ladybug-rs** (calls Planner + CamPq + OrchestrationBridge)
-//! - **crewai-rust** (calls ThinkingStyleContract + MulContract)
-//! - **n8n-rs** (calls JitContract + OrchestrationBridge)
+//!
+//! **EVICTED 2026-06-21 (operator):** `crewai-rust` and `n8n-rs` are NO LONGER
+//! binding consumers of this contract — superseded by ladybug-rs + the in-tree
+//! thinking-engine / planner. Their roles (agent orchestration, workflow DAG /
+//! JIT styles) fold in-tree. Consequence: the contract is free to evolve without
+//! a crewai/n8n multi-repo bump; only IN-TREE consumers (planner, callcenter,
+//! smb-bridge, symbiont) gate API changes. Scattered `// replaces crewai-rust's
+//! X` / `// n8n-rs calls Y` doc-comments below are retained as historical
+//! PROVENANCE (not live consumer claims); `StepDomain::{Crew, N8n}` stay as
+//! reserved-dormant routing tags (reserve-don't-reclaim). See EPIPHANIES
+//! `E-CREWAI-N8N-EVICTED`.
 //!
 //! # Why This Exists
 //!
@@ -12,13 +21,12 @@
 //! field modulation structs, and query plan types. Now:
 //!
 //! ```text
-//! crewai-rust ──┐
-//!               │
-//! n8n-rs ───────┤── depend on ──► lance-graph-contract (traits only)
-//!               │
-//! ladybug-rs ───┘
+//! ladybug-rs ───┐
+//!               ├── depend on ──► lance-graph-contract (traits only)
+//! in-tree ──────┘   (planner / callcenter / smb-bridge / symbiont)
 //!
 //! lance-graph-planner ──► implements lance-graph-contract traits
+//! (crewai-rust / n8n-rs: EVICTED 2026-06-21 — no longer consumers)
 //! ```
 //!
 //! # Module Layout
