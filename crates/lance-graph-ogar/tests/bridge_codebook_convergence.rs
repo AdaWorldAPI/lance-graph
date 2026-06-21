@@ -18,7 +18,7 @@
 //! `REDMINE_CODEBOOK`) keyed off the shared
 //! `lance_graph_ontology::bridges::codebook::*` constants.
 
-use lance_graph_ontology::bridges::{OpenProjectBridge, RedmineBridge};
+use lance_graph_ogar::bridges::{OpenProjectBridge, RedmineBridge};
 use ogar_vocab::class_ids as codebook;
 use lance_graph_ontology::{NamespaceBridge, OntologyRegistry};
 use std::fs;

@@ -11,7 +11,7 @@
 //! Woa/Medcare pair — symmetric coverage so the addition can't
 //! silently relax the scope-lock guarantee.
 
-use lance_graph_ontology::bridges::{MedcareBridge, OpenProjectBridge};
+use lance_graph_ogar::bridges::{MedcareBridge, OpenProjectBridge};
 use lance_graph_ontology::{NamespaceBridge, OgitUri, OntologyRegistry};
 use std::fs;
 use std::sync::Arc;

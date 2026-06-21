@@ -78,6 +78,15 @@ pub use ogar_class_view::OgarClassView;
 /// The calcified canonical AR shape (attributes + family `Association`s).
 pub use ogar_vocab::Class;
 
+// ── OGAR-driven tenant port bridges (moved out of lance-graph-ontology,
+//    which is OGIT and must not depend on ogar-vocab) ──
+pub mod bridges;
+
+pub use bridges::{
+    HealthcarePort, MedcareBridge, OpenProjectBridge, OpenProjectPort, RedmineBridge, RedminePort,
+    UnifiedBridge,
+};
+
 /// Codebook parity-guard — the drift fuse between OGAR's authoritative codebook
 /// (`ogar_vocab::class_ids::ALL`) and the contract's zero-dep wire mirror
 /// (`lance_graph_contract::ogar_codebook::CODEBOOK`). Two depths so it cannot be

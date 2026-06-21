@@ -9,7 +9,7 @@
 //! cross-fork convergence (pinned in `bridge_codebook_convergence.rs`)
 //! lands on a substrate that refuses cross-namespace leaks by default.
 
-use lance_graph_ontology::bridges::{OpenProjectBridge, RedmineBridge};
+use lance_graph_ogar::bridges::{OpenProjectBridge, RedmineBridge};
 use lance_graph_ontology::{NamespaceBridge, OgitUri, OntologyRegistry};
 use std::fs;
 use std::sync::Arc;

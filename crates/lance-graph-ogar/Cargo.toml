@@ -72,6 +72,12 @@ serde = ["ogar-vocab/serde", "ogar-adapter-surrealql/serde"]
 # folds ogar-class-view's transitive git contract onto it = ONE source.
 lance-graph-contract = { path = "../lance-graph-contract" }
 
+# OGIT spine (the NamespaceBridge trait + registry + namespace/error types the
+# OGAR-driven port bridges build on). The OGIT/OGAR seam: the bridges live HERE
+# (OGAR) because they couple to ogar-vocab; the trait + registry they implement
+# against live in lance-graph-ontology (OGIT). OGIT does NOT depend on OGAR.
+lance-graph-ontology = { path = "../lance-graph-ontology" }
+
 # ── OGAR Active-Record forks: git deps @ main (the canonical superset; matches
 #    symbiont's pins so they resolve to ONE source in the golden image) ──
 ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
@@ -89,3 +95,8 @@ ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch =
 # the patch (see the CONSUMER REQUIREMENT note in the header).
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }
+
+[dev-dependencies]
+# TTL fixtures for the moved bridge scope-lock / codebook-convergence tests
+# stage on-disk via tempfile::tempdir() + std::fs (matches lance-graph-ontology).
+tempfile = "3"
