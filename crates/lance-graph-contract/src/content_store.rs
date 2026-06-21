@@ -91,10 +91,13 @@ impl SourceSpan {
         Self { content, start, end: end.max(start) }
     }
 
-    /// Span length in bytes.
+    /// Span length in bytes. Saturating: a malformed span (`end < start`, only
+    /// constructible by bypassing [`new`](Self::new) via the public fields)
+    /// reports `0`, consistent with [`is_empty`](Self::is_empty) — never panics
+    /// (debug) or wraps to a huge value (release).
     #[must_use]
     pub fn len(self) -> u32 {
-        self.end - self.start
+        self.end.saturating_sub(self.start)
     }
 
     /// Whether the span covers zero bytes.
@@ -236,5 +239,15 @@ mod tests {
         assert!(!SourceSpan::new(ContentId(0), 0, 5).is_cited());
         assert!(!SourceSpan::new(ContentId(7), 5, 5).is_cited());
         assert!(SourceSpan::new(ContentId(7), 0, 5).is_cited());
+    }
+
+    #[test]
+    fn malformed_span_len_saturates_not_panics() {
+        // Public fields let a consumer build end < start, bypassing new()'s clamp.
+        // len() must saturate to 0 (consistent with is_empty), never panic/wrap.
+        let bad = SourceSpan { content: ContentId(7), start: 13, end: 0 };
+        assert_eq!(bad.len(), 0);
+        assert!(bad.is_empty());
+        assert!(!bad.is_cited());
     }
 }
