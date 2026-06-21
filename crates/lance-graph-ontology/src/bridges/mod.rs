@@ -8,15 +8,15 @@
 //!   (`NAMESPACE` / `BRIDGE_ID` / public-name → class_id aliases) from
 //!   [`ogar_vocab::ports::PortSpec`]. Adding a port is `impl PortSpec
 //!   for FooPort {…}` in OGAR — no bridge boilerplate here.
-//! - The **legacy per-tenant bridges** ([`WoaBridge`], [`MedcareBridge`],
-//!   [`SpearBridge`], [`SharePointBridge`], [`OgitBridge`]) keep their
-//!   bespoke struct shape for now. They predate OGAR's codebook and
-//!   don't yet have a `PortSpec` impl in `ogar-vocab::ports`. When the
-//!   WorkOrder / Healthcare / EmailCorrespondance / SharePoint
-//!   namespaces get promoted into the codebook, these collapse the
-//!   same way OpenProject and Redmine just did.
+//! - The **legacy per-tenant bridges** ([`WoaBridge`], [`SpearBridge`],
+//!   [`SharePointBridge`], [`OgitBridge`]) keep their bespoke struct
+//!   shape for now. They predate OGAR's codebook and don't yet have a
+//!   `PortSpec` impl in `ogar-vocab::ports`. When the WorkOrder /
+//!   EmailCorrespondance / SharePoint namespaces get promoted into the
+//!   codebook, these collapse the same way OpenProject, Redmine, and
+//!   MedCare already did.
 //!
-//! # Project-management ports (`UnifiedBridge<P>` aliases)
+//! # OGAR-driven ports (`UnifiedBridge<P>` aliases)
 //!
 //! - [`OpenProjectBridge`]: `UnifiedBridge<ogar_vocab::ports::OpenProjectPort>`
 //!   — locks to the `OpenProject` namespace. `WorkPackage` / `TimeEntry`
@@ -27,6 +27,12 @@
 //!   etc. resolve to the SAME OGAR canonical class_ids as the
 //!   OpenProject equivalents, so cross-fork convergence is the default
 //!   not the exception.
+//! - [`MedcareBridge`]: `UnifiedBridge<ogar_vocab::ports::HealthcarePort>`
+//!   — locks to the `Healthcare` namespace. `Patient` / `Diagnosis` /
+//!   `LabValue` / `Medication` / `Treatment` / `Visit` / `VitalSign`
+//!   resolve to the `0x09XX` Health codebook (Northstar T9). Single-
+//!   tenant today; a future FMA / SNOMED curator converges on the same
+//!   ids.
 //!
 //! # Per-tenant bridges (legacy struct shape)
 //!
@@ -34,7 +40,6 @@
 //!   OGIT URIs. `bridge_id = "ogit"`. Locks to whatever namespace its
 //!   constructor is called with.
 //! - [`WoaBridge`]: locks to the `WorkOrder` namespace.
-//! - [`MedcareBridge`]: locks to the `Healthcare` namespace.
 //! - [`SpearBridge`]: locks to the `EmailCorrespondance` namespace.
 //! - [`SharePointBridge`]: locks to the `SharePoint` namespace.
 //!
@@ -53,7 +58,7 @@ mod sharepoint_bridge;
 mod spear_bridge;
 mod woa_bridge;
 
-pub use medcare_bridge::MedcareBridge;
+pub use medcare_bridge::{HealthcarePort, MedcareBridge};
 pub use ogit_bridge::OgitBridge;
 pub use openproject_bridge::{OpenProjectBridge, OpenProjectPort};
 pub use redmine_bridge::{RedmineBridge, RedminePort};

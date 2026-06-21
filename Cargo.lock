@@ -4915,6 +4915,7 @@ dependencies = [
  "futures",
  "lance",
  "lance-graph-contract",
+ "ogar-vocab",
  "once_cell",
  "oxrdf",
  "oxrdfxml",
@@ -5998,6 +5999,11 @@ dependencies = [
  "pin-project",
  "tokio",
 ]
+
+[[package]]
+name = "ogar-vocab"
+version = "0.1.0"
+source = "git+https://github.com/AdaWorldAPI/OGAR?branch=claude%2Fmedcare-bridge-lance-graph-wmx76z#dd1ef95a774d0e3b98f5022db863e709e56e040a"
 
 [[package]]
 name = "once_cell"

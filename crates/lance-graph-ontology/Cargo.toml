@@ -17,10 +17,12 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # (OpenProjectBridge, RedmineBridge, …) are type aliases over the
 # harness — the namespace / bridge_id / public-name-alias data all
 # come from OGAR class schema, not from this crate.
-# Pinned to the OGAR `claude/port-spec-trait` branch until the OGAR PR
-# adding the `ports` module merges to main; will move to `branch =
-# "main"` in a follow-up.
-ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "claude/port-spec-trait" }
+# Pinned to the OGAR `claude/medcare-bridge-lance-graph-wmx76z` branch:
+# it carries `ports::PortSpec` + the project-mgmt ports (from
+# port-spec-trait) AND the new `HealthcarePort` + 0x09XX Health codebook
+# that `MedcareBridge = UnifiedBridge<HealthcarePort>` needs. Will move
+# to `branch = "main"` once both OGAR PRs merge.
+ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "claude/medcare-bridge-lance-graph-wmx76z" }
 
 # TTL parser. oxttl is the smallest streaming Turtle parser in the workspace's
 # dependency graph and matches the shape of OGIT's per-entity .ttl files.
