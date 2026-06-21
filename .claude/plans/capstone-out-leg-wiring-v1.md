@@ -88,15 +88,21 @@ is consumption only.)
 
 ## S4 — envelope route gets a `Kanban` handler (resolve-then-reject → accept)
 
-**Status (2026-06-21): owner-advance HALF shipped.** `lance-graph-supervisor::
-kanban_actor::KanbanActor<O: MailboxSoaOwner>` is a real ractor actor whose
-`State` IS the owner; on `KanbanMsg::Advance` it calls `try_advance_phase`
-(owner advances itself; illegal edge → typed `RubiconTransitionError`, no
-mutation). 2 tests green under `--features supervisor` (light build, no
-disk/symbiont gate). **Remaining:** the *delivery edge* — `kanban.*` step →
-mailbox id → `ractor::registry::where_is` → `cast(Advance)` — plus the S2/S3
-drivers that send `Advance`. The mechanism the operator described ("every SoA
-is ractor-owned, the owner advances itself") is now real code.
+**Status (2026-06-21): S4 mechanism COMPLETE (owner-advance + delivery edge).**
+`lance-graph-supervisor::kanban_actor` (feature `supervisor`):
+- `KanbanActor<O: MailboxSoaOwner>` — ractor actor whose `State` IS the owner;
+  `KanbanMsg::Advance` → `try_advance_phase` (owner advances itself; illegal
+  edge → typed `RubiconTransitionError`, no mutation).
+- `deliver_kanban_step("kanban.<mailbox>.<phase>")` — the delivery edge:
+  `parse_kanban_step` → `ractor::registry::where_is(mailbox)` → `cast(Advance)`;
+  unknown mailbox → graceful `KanbanRouteError::NoMailbox`, illegal edge →
+  `Illegal`, malformed → `BadStepType`. Address source = the step string + the
+  actor system's OWN registry (no bespoke registry, no `UnifiedStep` field).
+4 tests green under `--features supervisor`; clippy + fmt clean; light build (no
+disk/symbiont gate). **Remaining:** only the S2/S3 *drivers* that SEND
+`KanbanMsg::Advance` (the MUL gate and the live version tick) — both compose ON
+TOP of this complete mechanism. The operator's model ("every SoA is
+ractor-owned, the owner advances itself") is now real, tested code end-to-end.
 
 **Census state (original):** GAP. `kanban.*` resolves to `StepDomain::Kanban` then every
 bridge impl returns `DomainUnavailable` (`orchestration_impl.rs:55-57`,

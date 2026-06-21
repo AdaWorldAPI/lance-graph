@@ -96,6 +96,78 @@ where
     }
 }
 
+// ─── S4 delivery edge: `kanban.<mailbox>.<phase>` → where_is → cast(Advance) ───
+
+/// Error from delivering a `kanban.*` step to its owning actor.
+#[derive(Debug, thiserror::Error)]
+pub enum KanbanRouteError {
+    /// `step_type` was not a well-formed `kanban.<mailbox>.<phase>`.
+    #[error("malformed kanban step_type: {0}")]
+    BadStepType(String),
+    /// No live actor is registered under `<mailbox>`. A routing MISS, distinct
+    /// from the (impossible) "no owner" case: a live mailbox is always owned by
+    /// its actor — this means the *named* mailbox isn't registered/live.
+    #[error("no live mailbox registered as `{0}`")]
+    NoMailbox(String),
+    /// The owner rejected the transition (illegal Rubicon edge; no mutation).
+    #[error("illegal transition {from:?} -> {to:?}")]
+    Illegal {
+        from: KanbanColumn,
+        to: KanbanColumn,
+    },
+    /// The actor RPC failed (mailbox closed, timeout, …).
+    #[error("kanban rpc failed: {0}")]
+    Rpc(String),
+}
+
+/// Parse a `kanban.<mailbox>.<phase>` step type into `(mailbox, target_phase)`,
+/// where `<phase>` is the snake_case [`KanbanColumn`] name (e.g. `cognitive_work`).
+/// Returns `None` for anything that isn't a well-formed kanban step.
+pub fn parse_kanban_step(step_type: &str) -> Option<(&str, KanbanColumn)> {
+    let mut it = step_type.splitn(3, '.');
+    match (it.next(), it.next(), it.next()) {
+        (Some("kanban"), Some(mailbox), Some(phase)) if !mailbox.is_empty() => {
+            phase_from_name(phase).map(|p| (mailbox, p))
+        }
+        _ => None,
+    }
+}
+
+/// Snake_case phase name → [`KanbanColumn`] (the `kanban.*` routing vocabulary;
+/// inverse of the canonical column names).
+fn phase_from_name(name: &str) -> Option<KanbanColumn> {
+    Some(match name {
+        "planning" => KanbanColumn::Planning,
+        "cognitive_work" => KanbanColumn::CognitiveWork,
+        "evaluation" => KanbanColumn::Evaluation,
+        "commit" => KanbanColumn::Commit,
+        "plan" => KanbanColumn::Plan,
+        "prune" => KanbanColumn::Prune,
+        _ => return None,
+    })
+}
+
+/// The S4 **delivery edge**: resolve a `kanban.<mailbox>.<phase>` step to its
+/// owning ractor actor via the actor system's OWN name registry
+/// ([`ractor::registry::where_is`]) and RPC it [`KanbanMsg::Advance`]. The owner
+/// advances ITSELF; this only delivers. No bridge-held owner, no `UnifiedStep`
+/// field — the target is recovered from the step string + the registry
+/// (mailbox-as-owner addressing). Multi-mailbox resolves because `where_is`
+/// looks up any registered mailbox by name.
+pub async fn deliver_kanban_step(step_type: &str) -> Result<KanbanMove, KanbanRouteError> {
+    let (mailbox, to) = parse_kanban_step(step_type)
+        .ok_or_else(|| KanbanRouteError::BadStepType(step_type.to_string()))?;
+    let cell = ractor::registry::where_is(mailbox)
+        .ok_or_else(|| KanbanRouteError::NoMailbox(mailbox.to_string()))?;
+    let actor: ActorRef<KanbanMsg> = cell.into();
+    let inner = ractor::call!(actor, |reply| KanbanMsg::Advance { to, reply })
+        .map_err(|e| KanbanRouteError::Rpc(e.to_string()))?;
+    inner.map_err(|e| KanbanRouteError::Illegal {
+        from: e.from,
+        to: e.to,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -216,6 +288,59 @@ mod tests {
         // Phase unchanged — the owner did not mutate on the rejected edge.
         let phase = ractor::call!(actor, |reply| KanbanMsg::Phase { reply }).expect("rpc");
         assert_eq!(phase, KanbanColumn::Planning);
+
+        actor.stop(None);
+        handle.await.expect("actor join");
+    }
+
+    #[test]
+    fn parse_kanban_step_shapes() {
+        assert_eq!(
+            parse_kanban_step("kanban.mb42.cognitive_work"),
+            Some(("mb42", KanbanColumn::CognitiveWork))
+        );
+        assert_eq!(parse_kanban_step("lg.foo"), None); // wrong domain
+        assert_eq!(parse_kanban_step("kanban.mb42"), None); // no phase
+        assert_eq!(parse_kanban_step("kanban..commit"), None); // empty mailbox
+        assert_eq!(parse_kanban_step("kanban.mb42.bogus"), None); // unknown phase
+    }
+
+    #[tokio::test]
+    async fn delivery_edge_resolves_via_registry_then_advances() {
+        // Register the owning actor under a name — `where_is` is the actor
+        // system's own registry, the S4 addressing source (no bespoke registry).
+        let name = "mb-kanban-route-test";
+        let (actor, handle) = Actor::spawn(
+            Some(name.to_string()),
+            KanbanActor::<TestBoard>::default(),
+            board(KanbanColumn::Planning),
+        )
+        .await
+        .expect("spawn named");
+
+        // Legal: kanban.<mailbox>.cognitive_work → resolves → owner advances.
+        let mv = deliver_kanban_step(&format!("kanban.{name}.cognitive_work"))
+            .await
+            .expect("delivered + advanced");
+        assert_eq!(mv.to, KanbanColumn::CognitiveWork);
+
+        // Unknown mailbox → graceful routing miss (NOT a panic, NOT a no-owner).
+        assert!(matches!(
+            deliver_kanban_step("kanban.no-such-mailbox.cognitive_work").await,
+            Err(KanbanRouteError::NoMailbox(_))
+        ));
+
+        // Illegal Rubicon edge → typed Illegal, relayed from the owner.
+        assert!(matches!(
+            deliver_kanban_step(&format!("kanban.{name}.commit")).await,
+            Err(KanbanRouteError::Illegal { .. })
+        ));
+
+        // Malformed step type → BadStepType.
+        assert!(matches!(
+            deliver_kanban_step("lg.noop").await,
+            Err(KanbanRouteError::BadStepType(_))
+        ));
 
         actor.stop(None);
         handle.await.expect("actor join");
