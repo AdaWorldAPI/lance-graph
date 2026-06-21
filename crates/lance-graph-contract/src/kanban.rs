@@ -21,6 +21,7 @@
 //!   convention survives the carrier's removal per PR #477.)
 
 use crate::collapse_gate::MailboxId;
+use crate::mul::GateDecision;
 
 /// The four Rubicon phases (+ two terminal exits), Libet-anchored.
 ///
@@ -116,6 +117,28 @@ impl KanbanColumn {
             4 => Self::Plan,
             5 => Self::Prune,
             _ => Self::Planning,
+        }
+    }
+
+    /// The next Rubicon column a [`GateDecision`] drives this phase to — the S2
+    /// "MUL → phase" seam (capstone `cognitive-loop-wiring` plan). Returns ONLY a
+    /// legal successor ([`next_phases`](KanbanColumn::next_phases)), so the gate
+    /// can never produce an out-of-DAG transition:
+    /// - [`GateDecision::Flow`] → the forward successor (the first non-`Prune`
+    ///   next phase): `Planning → CognitiveWork → Evaluation → Commit`,
+    ///   `Plan → Planning`. Absorbing columns (`Commit`/`Prune`) have none.
+    /// - [`GateDecision::Block`] → `Prune` **iff** it is a legal successor here
+    ///   (the Libet "free won't" veto at `Planning`/`Evaluation`); else `None`
+    ///   (mid-`CognitiveWork` has no veto edge — hold instead).
+    /// - [`GateDecision::Hold`] → `None` (stay in place, re-evaluate next cycle).
+    #[inline]
+    #[must_use]
+    pub fn advance_on_gate(self, gate: &GateDecision) -> Option<KanbanColumn> {
+        let nexts = self.next_phases();
+        match gate {
+            GateDecision::Flow => nexts.iter().copied().find(|c| *c != KanbanColumn::Prune),
+            GateDecision::Block { .. } => nexts.iter().copied().find(|c| *c == KanbanColumn::Prune),
+            GateDecision::Hold { .. } => None,
         }
     }
 }

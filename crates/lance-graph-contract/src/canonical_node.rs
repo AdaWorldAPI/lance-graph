@@ -480,6 +480,7 @@ const _: () = assert!(core::mem::size_of::<NodeRow>() == 512);
 
 use crate::class_view::FieldMask;
 use crate::kanban::{ExecTarget, KanbanColumn};
+use crate::qualia::QualiaI4_16D;
 use crate::soa_envelope::{ColumnDescriptor, ColumnKind, SoaEnvelope};
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -1110,6 +1111,36 @@ impl NodeRow {
         self.value[o..o + 8].copy_from_slice(&k.to_bytes());
         crate::tenant_counter::tenant_update(ValueTenant::Kanban);
     }
+
+    /// Read the [`ValueTenant::Qualia`] slab bytes as a [`QualiaI4_16D`] — the 16
+    /// signed-4-bit chroma channels (flow / trust / coherence …), zero-copy decode
+    /// (`QualiaI4_16D` is a `u64`; the tenant is its 8 LE bytes).
+    #[inline]
+    #[must_use]
+    pub fn qualia(&self) -> QualiaI4_16D {
+        let o = ValueTenant::Qualia.value_offset();
+        let mut b = [0u8; 8];
+        b.copy_from_slice(&self.value[o..o + 8]);
+        QualiaI4_16D(u64::from_le_bytes(b))
+    }
+
+    /// **S2 — the MUL → phase seam** (capstone `cognitive-loop-wiring` plan).
+    /// Reads this node's `Qualia` tenant + current `Kanban` phase, runs the
+    /// zero-dep MUL gate ([`mul::i4_eval::gate_decision_i4`](crate::mul::i4_eval::gate_decision_i4),
+    /// flow-vs-mismatch over the qualia + the signed `mantissa`), and returns the
+    /// advanced [`KanbanTenant`] — or `None` to hold. **Pure read** (no `&mut`
+    /// during compute, per the borrow-strategy rule): the owner applies the result
+    /// via [`set_kanban`](NodeRow::set_kanban). `mantissa` is the inference
+    /// strength (e.g. `causal_edge::InferenceType::to_mantissa()` / a Meta signal).
+    #[inline]
+    #[must_use]
+    pub fn mul_phase_step(&self, mantissa: i8) -> Option<KanbanTenant> {
+        let gate = crate::mul::i4_eval::gate_decision_i4(&self.qualia(), mantissa);
+        let cur = self.kanban();
+        cur.phase
+            .advance_on_gate(&gate)
+            .map(|to| KanbanTenant { phase: to, ..cur })
+    }
 }
 
 #[cfg(test)]
@@ -1151,6 +1182,51 @@ mod tests {
         assert!(!ValueSchema::Bootstrap.has(ValueTenant::Kanban));
         assert!(ValueSchema::Full.tenant_bytes() <= VALUE_SLAB_LEN);
         assert_eq!(ValueTenant::Kanban.byte_len(), 8);
+    }
+
+    #[test]
+    fn s2_mul_phase_step_flow_advances_block_prunes_hold_stays() {
+        // S2 seam probe (capstone): node Qualia tenant → MUL gate → kanban phase.
+        let qo = ValueTenant::Qualia.value_offset();
+        let mk = |q: QualiaI4_16D, phase: KanbanColumn| {
+            let mut row = NodeRow {
+                key: NodeGuid::local(1),
+                edges: EdgeBlock::default(),
+                value: [0u8; 480],
+            };
+            row.value[qo..qo + 8].copy_from_slice(&q.0.to_le_bytes());
+            row.set_kanban(KanbanTenant {
+                phase,
+                ..Default::default()
+            });
+            row
+        };
+        // Flow qualia (warmth+groundedness high, low tension, calibrated) + mantissa>0
+        // → GateDecision::Flow → forward advance Planning → CognitiveWork.
+        let flow_q = QualiaI4_16D(0).with(3, 4).with(14, 3).with(9, 4).with(1, 2);
+        assert_eq!(
+            mk(flow_q, KanbanColumn::Planning)
+                .mul_phase_step(4)
+                .map(|k| k.phase),
+            Some(KanbanColumn::CognitiveWork),
+        );
+        // Block qualia (coherence very low + tension high → Uncertain) → Block →
+        // Prune (the legal Libet veto edge at Planning).
+        let block_q = QualiaI4_16D(0).with(9, -4).with(2, 4);
+        assert_eq!(
+            mk(block_q, KanbanColumn::Planning)
+                .mul_phase_step(0)
+                .map(|k| k.phase),
+            Some(KanbanColumn::Prune),
+        );
+        // Block mid-CognitiveWork: no Prune successor in the DAG → hold (None).
+        assert!(mk(block_q, KanbanColumn::CognitiveWork)
+            .mul_phase_step(0)
+            .is_none());
+        // Neutral qualia + mantissa 0 → Boredom/Calibrated → Hold → None (stay).
+        assert!(mk(QualiaI4_16D(0), KanbanColumn::Planning)
+            .mul_phase_step(0)
+            .is_none());
     }
 
     #[test]
