@@ -1128,18 +1128,21 @@ impl NodeRow {
     /// Reads this node's `Qualia` tenant + current `Kanban` phase, runs the
     /// zero-dep MUL gate ([`mul::i4_eval::gate_decision_i4`](crate::mul::i4_eval::gate_decision_i4),
     /// flow-vs-mismatch over the qualia + the signed `mantissa`), and returns the
-    /// advanced [`KanbanTenant`] — or `None` to hold. **Pure read** (no `&mut`
-    /// during compute, per the borrow-strategy rule): the owner applies the result
-    /// via [`set_kanban`](NodeRow::set_kanban). `mantissa` is the inference
-    /// strength (e.g. `causal_edge::InferenceType::to_mantissa()` / a Meta signal).
+    /// **target [`KanbanColumn`]** to advance to — or `None` to hold.
+    ///
+    /// Returns the *phase decision only*, NOT a full `KanbanTenant`: the owner
+    /// stamps `cycle` + `exec` at write time, i.e.
+    /// `set_kanban(KanbanTenant { phase, exec, cycle: <owner current_cycle> })`.
+    /// It must use the OWNER'S current cycle — reusing the node's stored `cycle`
+    /// would mark a later-cycle advance as stale (codex P2 #566). **Pure read**
+    /// (no `&mut` during compute, per the borrow-strategy rule). `mantissa` is the
+    /// inference strength (e.g. `causal_edge::InferenceType::to_mantissa()` / a
+    /// Meta signal).
     #[inline]
     #[must_use]
-    pub fn mul_phase_step(&self, mantissa: i8) -> Option<KanbanTenant> {
+    pub fn mul_phase_step(&self, mantissa: i8) -> Option<KanbanColumn> {
         let gate = crate::mul::i4_eval::gate_decision_i4(&self.qualia(), mantissa);
-        let cur = self.kanban();
-        cur.phase
-            .advance_on_gate(&gate)
-            .map(|to| KanbanTenant { phase: to, ..cur })
+        self.kanban().phase.advance_on_gate(&gate)
     }
 }
 
@@ -1203,20 +1206,17 @@ mod tests {
         };
         // Flow qualia (warmth+groundedness high, low tension, calibrated) + mantissa>0
         // → GateDecision::Flow → forward advance Planning → CognitiveWork.
+        // (Returns the target phase only; the owner stamps cycle+exec at write.)
         let flow_q = QualiaI4_16D(0).with(3, 4).with(14, 3).with(9, 4).with(1, 2);
         assert_eq!(
-            mk(flow_q, KanbanColumn::Planning)
-                .mul_phase_step(4)
-                .map(|k| k.phase),
+            mk(flow_q, KanbanColumn::Planning).mul_phase_step(4),
             Some(KanbanColumn::CognitiveWork),
         );
         // Block qualia (coherence very low + tension high → Uncertain) → Block →
         // Prune (the legal Libet veto edge at Planning).
         let block_q = QualiaI4_16D(0).with(9, -4).with(2, 4);
         assert_eq!(
-            mk(block_q, KanbanColumn::Planning)
-                .mul_phase_step(0)
-                .map(|k| k.phase),
+            mk(block_q, KanbanColumn::Planning).mul_phase_step(0),
             Some(KanbanColumn::Prune),
         );
         // Block mid-CognitiveWork: no Prune successor in the DAG → hold (None).
