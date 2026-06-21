@@ -83,7 +83,10 @@ ogit.Healthcare:Patient
         registry
             .hydrate_once_sync(tmp.path(), &["Healthcare"])
             .unwrap();
-        std::mem::forget(tmp);
+        // `hydrate_once_sync` parses the TTL into the in-memory registry, so
+        // the temp dir is no longer needed — let it drop (no leak). The
+        // earlier `std::mem::forget(tmp)` kept it alive unnecessarily
+        // (CodeRabbit, PR #582).
         registry
     }
 
