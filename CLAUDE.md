@@ -789,12 +789,13 @@ CAM-PQ compressed search, distributional semantics (DeepNSM), attention-as-table
 Architecture:
   ndarray            = The Foundation  (SIMD, GEMM, HPC, Fingerprint<256>, CAM-PQ codec)
   lance-graph        = The Spine       (query + codec + semantics + contracts)  <-- THIS REPO
-  crewai-rust        = The Agents      (agent orchestration, thinking styles)
-  n8n-rs             = The Orchestrator (workflow DAG, step routing)
+  ladybug-rs         = The Agents/Orchestrator (agent + workflow roles, in the spine)
+  (crewai-rust / n8n-rs = EVICTED 2026-06-21 — agent + workflow-DAG roles folded
+   into ladybug-rs + the in-tree thinking-engine; no longer consumers)
 
 Dependency chain:
-  n8n-rs     ──► lance-graph-contract (traits)
-  crewai-rust──► lance-graph-contract (traits)
+  ladybug-rs ──► lance-graph-contract (traits)
+  in-tree    ──► lance-graph-contract (planner / callcenter / smb-bridge / symbiont)
   lance-graph──► ndarray (default dep, with fallback)
 ```
 
@@ -1026,8 +1027,13 @@ YAML card → 23D vector → ThinkingStyle(36) → FieldModulation(7D) → ScanP
 
 ```
 WHO DEPENDS ON lance-graph-contract:
-  crewai-rust    — ThinkingStyleProvider, MulProvider
-  n8n-rs         — JitCompiler, StyleRegistry, OrchestrationBridge
+  in-tree        — planner, callcenter, smb-bridge, symbiont (the BINDING consumers)
+  ladybug-rs     — Planner + CamPq + OrchestrationBridge
+  (crewai-rust / n8n-rs — EVICTED 2026-06-21, operator-directed; superseded by
+   ladybug-rs + the in-tree thinking-engine. NO LONGER binding consumers — the
+   contract evolves without a crewai/n8n multi-repo bump. Scattered "replaces
+   crewai-rust's X" doc-comments are historical provenance; StepDomain::{Crew,N8n}
+   stay reserved-dormant. See EPIPHANIES E-CREWAI-N8N-EVICTED.)
 
 WHO WE DEPEND ON:
   ndarray        — Fingerprint, CAM-PQ, CLAM, BLAS, ZeckF64, HDR cascade, JIT
