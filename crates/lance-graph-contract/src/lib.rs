@@ -62,6 +62,7 @@ pub mod codegen_spine;
 pub mod cognitive_shader;
 pub mod collapse_gate;
 pub mod container;
+pub mod content_store;
 pub mod counterfactual;
 pub mod crystal;
 pub mod cycle_accumulator;
