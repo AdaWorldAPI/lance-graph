@@ -95,31 +95,49 @@ bridge impl returns `DomainUnavailable` (`orchestration_impl.rs:55-57`,
 **Enabler (contract):** none — `StepDomain::Kanban` + `from_step_type("kanban")`
 + `OrchestrationBridge` trait all exist.
 
-**Consumer site:** an **owner-carrying bridge**, NOT a `PlannerAwareness`
-branch. Codex #573 (verified): `PlannerAwareness` holds only
-`strategies`/`selector` (`lib.rs:99-103`), `route(&self, &mut UnifiedStep)` is
-`&self`, and `UnifiedStep` is pointer-free (`orchestration.rs:343-355`) — so a
-`PlannerAwareness::route` branch can ONLY mark status `Completed` (accept); it
-**cannot** reach an owner to `try_advance_phase`, and cannot exercise the
-no-owner error case. The real S4 mechanism:
-- a dedicated `KanbanBridge` that **holds the mailbox owner** behind interior
-  mutability (`RwLock<dyn MailboxSoaOwner>` or a registry keyed by mailbox —
-  needed because `route(&self)` must not take `&mut self` during compute, per
-  the no-`&mut`-during-compute data-flow rule). Its `route()` accepts only
-  `StepDomain::Kanban`, parses the sub-op after the `kanban.` prefix, and
-  applies the move via the held owner; an unregistered/absent owner ⇒ graceful
-  `OrchestrationError` (the fail-closed half).
-- **Decision B preserved**: `UnifiedStep` gains NO field — the identity reaches
-  the owner via the bridge's HELD state (mailbox registry), not via the step.
-The "single `PlannerAwareness` branch" is demoted to an accept-only stub; it is
-NOT the smallest *true* wire (it can't advance a phase).
+**Consumer site:** route `kanban.*` to the **owning ractor actor**. There is NO
+owner-registry, NO interior-mutability-over-owner, and NO no-owner case —
+**operator override (codex's S4 framing was wrong)**: *every SoA mailbox is
+ALWAYS owned by its ractor actor* (mailbox-as-owner). Grounding:
+`symbiont/src/kanban_loop.rs:19` "ractor is the runtime ownership … a
+structural/dummy owner" in tests, a real `ractor::Actor` in prod (cf.
+`lance-graph-supervisor::CallcenterSupervisor: Actor`); `SymbiontBoard`
+**is** a `MailboxSoaOwner`. So an "absent owner / graceful `DomainUnavailable`"
+test describes a state that cannot exist — it is void.
 
-**Test:** register an owner in the bridge; route `step_type:"kanban.advance"` →
-owner phase advanced + status `Completed`; route with no owner registered →
-graceful Err (no panic).
+**Two paths, and only one needs a route at all:**
+- **Normal OUT-leg (owner-driven) — NO route.** The advance is the actor's
+  reaction to S2 (MUL gate) / S3 (version tick); nothing external addresses it.
+  `symbiont::kanban_loop` already does exactly this. Codex's "unroutable /
+  single implicit actor" concern does not apply here — there is no route.
+- **External command to a NAMED mailbox** (the only case a `kanban.*`
+  `UnifiedStep` exists). **Target resolution (codex #574 gap closed):** the
+  mailbox id rides in the step's EXISTING string — `step_type` as
+  `kanban.<mailbox>.<op>` (or `step_id`) — and is resolved to an `ActorRef` via
+  **ractor's OWN name registry**, `ractor::registry::where_is(mailbox_id)`
+  (verified present in `ractor/src/registry.rs`). That is neither the forbidden
+  bespoke bridge-owner registry NOR a new `UnifiedStep` field — it is the actor
+  system's native name→`ActorRef` lookup (mailbox-as-owner addressing).
+  Multi-mailbox works because `where_is` resolves any registered mailbox by name.
 
-**Blocker:** the bridge's host crate build (datafusion+lance via planner, or
-shader-driver) → disk.
+The wire: parse the mailbox id from the step string → `where_is` → `cast` a
+`kanban.advance` message to that owning ractor actor. The actor — which already
+holds the SoA `&mut` and processes one message at a time, i.e. the compile-time
+single-writer / no-race guarantee (CLAUDE.md mailbox-as-owner, E-CE64-MB-4) —
+applies `try_advance_phase`. The **owner advances itself**; the bridge holds no
+owner. **Decision B preserved**: the address is recovered from the step's
+existing string via the actor registry, never a new `UnifiedStep` typed field.
+(`PlannerAwareness::route` can still ACCEPT a `kanban.*` step for the
+non-actor/in-process path, but the advance is the actor's, not a bridge
+registry's.)
+
+**Test:** the owning board/actor receives a kanban-advance → its phase
+advances. This is exactly what `symbiont::kanban_loop` already does with the
+structural/dummy owner (in-RAM); the prod path swaps the in-RAM call for a
+ractor `cast` — **same ownership, same `try_advance_phase`**. No no-owner test.
+
+**Blocker:** the actor host crate build (symbiont / a ractor consumer) → disk +
+(if symbiont) the cognitive-compilation session's ownership.
 
 ---
 
@@ -142,9 +160,11 @@ ownership of `symbiont` — coordinate first.
 
 ## Sequencing (lowest blast radius first)
 
-1. **S4** — the owner-carrying `KanbanBridge` (holds the mailbox owner via
-   interior mutability) + test. NOT a `PlannerAwareness` branch (codex #573:
-   that can only accept, not advance). Smallest *true* wire; host-crate build.
+1. **S4** — deliver `kanban.*` to the **owning ractor actor**, which advances
+   itself via `try_advance_phase` (operator: every SoA is ractor-owned; no
+   owner-registry, no no-owner case). The structural/dummy owner already does
+   this in `symbiont::kanban_loop`; the wire swaps the in-RAM call for a ractor
+   `cast`. Host-crate build.
 2. **S2** — the `qualia()` enabler + shader-driver owner loop + test (one PR).
 3. **S3** — the consumer that drives the EXISTING
    `lance-graph::graph::scheduler::LanceVersionScheduler::drive_at_latest` and
