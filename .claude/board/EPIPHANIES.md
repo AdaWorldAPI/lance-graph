@@ -1,3 +1,18 @@
+## 2026-06-21 — E-S6-SOA-IS-ONE-FIXEDSIZEBINARY-NO-SECOND-COPY — operator override CORRECTS `E-S6-SCAN-SOA-NOT-ON-SHARED-VAL`: the SoA is stored ONCE as `FixedSizeBinary(512)` (single source, zero-copy) in lance-graph's own dataset; surrealdb is the Rubicon VIEW; NO second copy/column, NO time-series drop via tombstone+purge, lance 7.0.0 MANDATORY (not "unverified")
+
+**Status:** FINDING (operator directive, 2026-06-21 — three explicit NOs that supersede the prior council's suggestions). CORRECTS the same-day `E-S6-SCAN-SOA-NOT-ON-SHARED-VAL` (whose "separate `soa_val` column / per-cell copy-fallback floor / deferred behind an unverified lance baseline" framing is RETRACTED).
+
+The earlier 5+3 council reached a *defensible* answer to the wrong question. Operator override, verbatim intent:
+
+1. **"a second copy ... whether caused by stale lance 6 or not is unacceptable."** Both council escape-hatches — soa-review option C (a nullable `soa_val: FixedSizeBinary(512)` column *alongside* `val`) AND option A (an owned `Vec<NodeRow>` copied out of the dropped batch) — are REJECTED. The SoA is stored **ONCE** as `FixedSizeBinary(512)` and read in place as `&[NodeRow]` via `node_rows_from_le_bytes`. No duplicate column, no owned copy. The single SoA home is **lance-graph's own Lance dataset**; surrealdb is the Rubicon **VIEW** over that one dataset ("view, never a store"), so there is neither a second copy nor a byte-opacity violation — the bytes surrealdb views ARE lance-graph's SoA, period.
+
+2. **"dropping time series because of tombstone+purge is unacceptable."** The Lance version history IS the Rubicon timeline. A tombstone marks logical deletion *at a version*; it must NOT trigger a `cleanup_old_versions`/purge that drops history. `Timeline::view_at(v).scan()` must stay queryable across the whole arc — the time-series is preserved by construction.
+
+3. **"7 is not unverified ... 7 is mandatory ... anything else gets updated on the fly."** lance **7.0.0** / lance-index 7.0.0 / lancedb 0.30.0 / datafusion 53 / arrow 58 are the canonical pins, now landed in BOTH repos' `Cargo.lock` (surrealdb carried a stale lance-6 lock vs its =7.0.0 manifest — fixed + committed, not reverted-locally-again). lance 7 is the mandate, not a deferral gate; lance-6→7 API drift is fixed on the fly. The "unverified baseline / HOLD" framing is struck.
+
+**Net:** the prior entry's *facts* about variable-`Binary` (alignment-silent-drop on a per-cell view) remain TRUE and are exactly WHY the answer is a single `FixedSizeBinary(512)` SoA dataset — not a second column, not a copy-fallback, not a deferral. Implementation (point surrealdb's `Timeline` at lance-graph's `FixedSizeBinary(512)` SoA dataset; zero-copy `&[NodeRow]` read; purge-preserves-history) is the clearly-specified next engine step, on lance 7.
+
+Cross-ref: `E-S6-SCAN-SOA-NOT-ON-SHARED-VAL` (corrected); capstone plan S6 row + Wave 2; `canonical_node.rs::node_rows_from_le_bytes`; surrealdb `core/src/kvs/lance/{schema.rs,timeline.rs}`; both repos' `Cargo.lock` (lance 7.0.0 pinned); CLAUDE.md key-deps (lance =7.0.0, lancedb =0.30.0, datafusion 53, arrow 58).
 ## 2026-06-21 — E-S6-SCAN-SOA-NOT-ON-SHARED-VAL — the surrealdb SoA read-through must NOT be built over the shared variable-`Binary` `val` column; the NodeRow interpretation stays CONSUMER-side (zero surrealdb code), and whole-column zero-copy is a SEPARATE deferred `FixedSizeBinary(512)` column. 5+3 council: 8/8 block the shared-`val` scan_soa
 
 **Status:** FINDING (autoattended 5+3 hardening council, 2026-06-21; capstone S6 navigated → design-locked + deferred). Refines `E-SURREALDB-SECOND-BRAIN-IS-ZERO-COPY-IFF-FIXEDSIZEBINARY` (2026-06-20) with the per-cell/dilution/baseline detail the brutal pass surfaced.
