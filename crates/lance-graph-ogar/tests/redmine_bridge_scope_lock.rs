@@ -1,6 +1,9 @@
 // Skip under Miri — TTL fixtures use `tempfile::tempdir()` +
 // `std::fs::create_dir_all/write`, both blocked by Miri's isolation.
 #![cfg(not(miri))]
+// Exercises the deprecated `RedmineBridge` alias on purpose — see
+// `docs/CONSUMER-BRIDGE-DEPRECATION.md`.
+#![allow(deprecated)]
 
 //! `RedmineBridge` scope-lock test — Northstar plan §3 C5.
 //!

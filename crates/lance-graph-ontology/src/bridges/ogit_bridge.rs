@@ -14,6 +14,12 @@ use crate::namespace::NamespaceId;
 use crate::registry::OntologyRegistry;
 use std::sync::Arc;
 
+/// **Deprecated:** pull the classid via the OGAR PortSpec for the
+/// relevant namespace (`ogar_vocab::ports::*Port::class_id(name)`).
+/// See `docs/CONSUMER-BRIDGE-DEPRECATION.md` + AdaWorldAPI/OGAR#95.
+#[deprecated(
+    note = "pull the classid via the OGAR PortSpec for the namespace (e.g. `WoaPort::class_id(name)`) — see AdaWorldAPI/OGAR#95 + docs/CONSUMER-BRIDGE-DEPRECATION.md"
+)]
 pub struct OgitBridge {
     registry: Arc<OntologyRegistry>,
     namespace_name: String,

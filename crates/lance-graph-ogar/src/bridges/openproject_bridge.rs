@@ -22,6 +22,14 @@ pub use ogar_vocab::ports::OpenProjectPort;
 use ogar_vocab::ports::PortSpec;
 
 /// OpenProject `NamespaceBridge` — alias over the generic harness.
+///
+/// **Deprecated:** pull the classid via the OGAR PortSpec instead —
+/// `ogar_vocab::ports::OpenProjectPort::class_id(name)`. The bridge will
+/// be removed once all consumers migrate. See
+/// `docs/CONSUMER-BRIDGE-DEPRECATION.md` + AdaWorldAPI/OGAR#95.
+#[deprecated(
+    note = "pull the classid via `OpenProjectPort::class_id(name)` — see AdaWorldAPI/OGAR#95 + docs/CONSUMER-BRIDGE-DEPRECATION.md"
+)]
 pub type OpenProjectBridge = UnifiedBridge<OpenProjectPort>;
 
 /// Canonical namespace name for OpenProject. Mirrors
@@ -41,6 +49,7 @@ pub const NAMESPACE: &str = OpenProjectPort::NAMESPACE;
 pub const OPENPROJECT_CODEBOOK: &[(&str, u16)] = ogar_vocab::ports::OPENPROJECT_ALIASES;
 
 #[cfg(test)]
+#[allow(deprecated)] // exercises the deprecated bridge alias on purpose
 mod tests {
     //! Co-located unit tests retained from the pre-migration shape —
     //! constructor success/failure, contract methods, codebook

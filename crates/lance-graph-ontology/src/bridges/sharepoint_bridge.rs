@@ -30,6 +30,14 @@ use std::sync::Arc;
 
 pub const NAMESPACE: &str = "SharePoint";
 
+/// **Deprecated:** no OGAR PortSpec exists for `SharePoint` today;
+/// consumers should author one in `ogar_vocab::ports` per the
+/// `CONSUMER-MIGRATION-HOWTO.md` and then pull the classid via the
+/// static port lookup. See `docs/CONSUMER-BRIDGE-DEPRECATION.md` +
+/// AdaWorldAPI/OGAR#95.
+#[deprecated(
+    note = "author a `SharePointPort` in `ogar_vocab::ports` and pull the classid via `SharePointPort::class_id(name)` — see AdaWorldAPI/OGAR#95 + docs/CONSUMER-BRIDGE-DEPRECATION.md"
+)]
 pub struct SharePointBridge {
     registry: Arc<OntologyRegistry>,
     g_lock: NamespaceId,

@@ -82,9 +82,18 @@ pub use ogar_vocab::Class;
 //    which is OGIT and must not depend on ogar-vocab) ──
 pub mod bridges;
 
+// Per-port bridge aliases (`MedcareBridge` / `OpenProjectBridge` /
+// `RedmineBridge` / `OdooBridge` / `SmbBridge` / `WoaBridge`) are
+// `#[deprecated]` (2026-06-22) — pull the classid via the corresponding
+// PortSpec instead. The `Port` types and `UnifiedBridge` harness are
+// NOT deprecated. See `docs/CONSUMER-BRIDGE-DEPRECATION.md` +
+// AdaWorldAPI/OGAR#95.
 pub use bridges::{
-    HealthcarePort, MedcareBridge, OpenProjectBridge, OpenProjectPort, RedmineBridge, RedminePort,
-    UnifiedBridge,
+    HealthcarePort, OdooPort, OpenProjectPort, RedminePort, SmbPort, UnifiedBridge, WoaPort,
+};
+#[allow(deprecated)]
+pub use bridges::{
+    MedcareBridge, OdooBridge, OpenProjectBridge, RedmineBridge, SmbBridge, WoaBridge,
 };
 
 /// Codebook parity-guard — the drift fuse between OGAR's authoritative codebook

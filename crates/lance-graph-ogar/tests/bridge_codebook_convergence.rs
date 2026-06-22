@@ -1,6 +1,10 @@
 // Skip under Miri — TTL fixtures use `tempfile::tempdir()` +
 // `std::fs::create_dir_all/write`, both blocked by Miri's isolation.
 #![cfg(not(miri))]
+// Exercises the deprecated `OpenProjectBridge` / `RedmineBridge` aliases on
+// purpose — the convergence pin is what we're testing. See
+// `docs/CONSUMER-BRIDGE-DEPRECATION.md`.
+#![allow(deprecated)]
 
 //! Bridge codebook convergence test — codex P1 on PR #559.
 //!
