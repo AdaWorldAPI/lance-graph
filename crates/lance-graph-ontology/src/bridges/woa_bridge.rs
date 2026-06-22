@@ -2,6 +2,11 @@
 //! namespace. Phase 6 of this session emits the corresponding TTL into
 //! `AdaWorldAPI/OGIT/NTO/WorkOrder/`.
 
+// This module IS the deprecated `WoaBridge`'s implementation; its own impl
+// blocks + `_compile_check` reference the deprecated struct intentionally.
+// Consumers in other crates still get the warning. See docs/CONSUMER-BRIDGE-DEPRECATION.md.
+#![allow(deprecated)]
+
 use crate::bridge::{BridgeError, BridgeFromRegistry, NamespaceBridge};
 use crate::error::{Error, Result};
 use crate::namespace::NamespaceId;

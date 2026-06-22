@@ -22,6 +22,11 @@
 //! the scope-lock catches any cross-namespace leak before it reaches the
 //! orchestrator's storage schema.
 
+// This module IS the deprecated `SharePointBridge`'s implementation; its own
+// impl blocks reference the deprecated struct intentionally. Consumers in
+// other crates still get the warning. See docs/CONSUMER-BRIDGE-DEPRECATION.md.
+#![allow(deprecated)]
+
 use crate::bridge::{BridgeFromRegistry, NamespaceBridge};
 use crate::error::{Error, Result};
 use crate::namespace::NamespaceId;
