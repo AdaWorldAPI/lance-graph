@@ -2,6 +2,9 @@
 // Miri isolation blocks the syscalls. Stable runs it normally; the test
 // even skips gracefully when OGIT_FORK_PATH is unset.
 #![cfg(not(miri))]
+// Exercises the deprecated `OgitBridge` / `WoaBridge` structs on purpose —
+// see `docs/CONSUMER-BRIDGE-DEPRECATION.md`.
+#![allow(deprecated)]
 
 //! Hydrate against the actual `AdaWorldAPI/OGIT` fork.
 //!

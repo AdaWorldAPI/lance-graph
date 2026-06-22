@@ -3,6 +3,9 @@
 // isolation blocks `mkdir`/`open`. Stable and nightly without Miri run it
 // normally.
 #![cfg(not(miri))]
+// Exercises the deprecated bridge aliases on purpose — see
+// `docs/CONSUMER-BRIDGE-DEPRECATION.md`.
+#![allow(deprecated)]
 
 //! Bridge scope-lock test.
 //!

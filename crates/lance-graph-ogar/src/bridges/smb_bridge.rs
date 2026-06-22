@@ -24,12 +24,20 @@ pub use ogar_vocab::ports::SmbPort;
 
 /// SMB `NamespaceBridge` — alias over the generic harness, locked to
 /// the `SMB` namespace via [`SmbPort`].
+///
+/// **Deprecated:** pull the classid via the OGAR PortSpec instead —
+/// `ogar_vocab::ports::SmbPort::class_id(name)`. See
+/// `docs/CONSUMER-BRIDGE-DEPRECATION.md` + AdaWorldAPI/OGAR#95.
+#[deprecated(
+    note = "pull the classid via `SmbPort::class_id(name)` — see AdaWorldAPI/OGAR#95 + docs/CONSUMER-BRIDGE-DEPRECATION.md"
+)]
 pub type SmbBridge = UnifiedBridge<SmbPort>;
 
 /// Canonical namespace name for SMB. Mirrors `SmbPort::NAMESPACE`.
 pub const NAMESPACE: &str = SmbPort::NAMESPACE;
 
 #[cfg(test)]
+#[allow(deprecated)] // exercises the deprecated bridge alias on purpose
 mod tests {
     use super::*;
     use lance_graph_ontology::bridge::{BridgeError, NamespaceBridge};

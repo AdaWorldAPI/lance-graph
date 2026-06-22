@@ -25,12 +25,20 @@ use ogar_vocab::ports::PortSpec;
 
 /// Odoo `NamespaceBridge` — alias over the generic harness, locked to
 /// the `Odoo` namespace via [`OdooPort`].
+///
+/// **Deprecated:** pull the classid via the OGAR PortSpec instead —
+/// `ogar_vocab::ports::OdooPort::class_id(name)`. See
+/// `docs/CONSUMER-BRIDGE-DEPRECATION.md` + AdaWorldAPI/OGAR#95.
+#[deprecated(
+    note = "pull the classid via `OdooPort::class_id(name)` — see AdaWorldAPI/OGAR#95 + docs/CONSUMER-BRIDGE-DEPRECATION.md"
+)]
 pub type OdooBridge = UnifiedBridge<OdooPort>;
 
 /// Canonical namespace name for Odoo. Mirrors `OdooPort::NAMESPACE`.
 pub const NAMESPACE: &str = OdooPort::NAMESPACE;
 
 #[cfg(test)]
+#[allow(deprecated)] // exercises the deprecated bridge alias on purpose
 mod tests {
     use super::*;
     use lance_graph_ontology::bridge::{BridgeError, NamespaceBridge};

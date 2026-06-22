@@ -1,6 +1,9 @@
 // Skip under Miri — fixture is written to disk via tempfile + std::fs; Miri
 // isolation blocks the syscalls. Stable runs it normally.
 #![cfg(not(miri))]
+// Exercises the deprecated `OgitBridge` struct on purpose — see
+// `docs/CONSUMER-BRIDGE-DEPRECATION.md`.
+#![allow(deprecated)]
 
 //! End-to-end TTL hydration test.
 //!

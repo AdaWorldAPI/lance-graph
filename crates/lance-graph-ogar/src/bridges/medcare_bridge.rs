@@ -33,6 +33,13 @@ use ogar_vocab::ports::PortSpec;
 
 /// MedCare `NamespaceBridge` — alias over the generic harness, locked to
 /// the `Healthcare` namespace via [`HealthcarePort`].
+///
+/// **Deprecated:** pull the classid via the OGAR PortSpec instead —
+/// `ogar_vocab::ports::HealthcarePort::class_id(name)`. See
+/// `docs/CONSUMER-BRIDGE-DEPRECATION.md` + AdaWorldAPI/OGAR#95.
+#[deprecated(
+    note = "pull the classid via `HealthcarePort::class_id(name)` — see AdaWorldAPI/OGAR#95 + docs/CONSUMER-BRIDGE-DEPRECATION.md"
+)]
 pub type MedcareBridge = UnifiedBridge<HealthcarePort>;
 
 /// Canonical namespace name for MedCare / Healthcare. Mirrors
@@ -41,6 +48,7 @@ pub type MedcareBridge = UnifiedBridge<HealthcarePort>;
 pub const NAMESPACE: &str = HealthcarePort::NAMESPACE;
 
 #[cfg(test)]
+#[allow(deprecated)] // exercises the deprecated bridge alias on purpose
 mod tests {
     //! Co-located unit tests for the migrated alias — constructor
     //! success/failure, contract methods, codebook resolution, fallback

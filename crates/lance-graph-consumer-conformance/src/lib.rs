@@ -1,3 +1,8 @@
+// Exercises the deprecated `MedcareBridge` / `OgitBridge` / `WoaBridge`
+// symbols on purpose — this harness IS the conformance gate for them.
+// See `docs/CONSUMER-BRIDGE-DEPRECATION.md`.
+#![allow(deprecated)]
+
 //! `lance-graph-consumer-conformance` — cross-crate registry conformance harness.
 //!
 //! This crate is the CI gate that prevents a consumer crate from shipping a

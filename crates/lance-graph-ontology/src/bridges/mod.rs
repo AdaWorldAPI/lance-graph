@@ -30,7 +30,14 @@ mod sharepoint_bridge;
 mod spear_bridge;
 mod woa_bridge;
 
+// All four legacy per-tenant bridges are `#[deprecated]` (2026-06-22) —
+// consumers should pull the classid via an OGAR PortSpec instead. See
+// `docs/CONSUMER-BRIDGE-DEPRECATION.md` + AdaWorldAPI/OGAR#95.
+#[allow(deprecated)]
 pub use ogit_bridge::OgitBridge;
+#[allow(deprecated)]
 pub use sharepoint_bridge::SharePointBridge;
+#[allow(deprecated)]
 pub use spear_bridge::SpearBridge;
+#[allow(deprecated)]
 pub use woa_bridge::WoaBridge;

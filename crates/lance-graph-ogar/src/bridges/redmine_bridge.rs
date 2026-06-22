@@ -17,6 +17,13 @@ use ogar_vocab::ports::PortSpec;
 pub use ogar_vocab::ports::RedminePort;
 
 /// Redmine `NamespaceBridge` — alias over the generic harness.
+///
+/// **Deprecated:** pull the classid via the OGAR PortSpec instead —
+/// `ogar_vocab::ports::RedminePort::class_id(name)`. See
+/// `docs/CONSUMER-BRIDGE-DEPRECATION.md` + AdaWorldAPI/OGAR#95.
+#[deprecated(
+    note = "pull the classid via `RedminePort::class_id(name)` — see AdaWorldAPI/OGAR#95 + docs/CONSUMER-BRIDGE-DEPRECATION.md"
+)]
 pub type RedmineBridge = UnifiedBridge<RedminePort>;
 
 /// Canonical namespace name for Redmine. Mirrors `RedminePort::NAMESPACE`
@@ -33,6 +40,7 @@ pub const NAMESPACE: &str = RedminePort::NAMESPACE;
 pub const REDMINE_CODEBOOK: &[(&str, u16)] = ogar_vocab::ports::REDMINE_ALIASES;
 
 #[cfg(test)]
+#[allow(deprecated)] // exercises the deprecated bridge alias on purpose
 mod tests {
     use super::*;
     use lance_graph_ontology::bridge::{BridgeError, NamespaceBridge};

@@ -10,6 +10,14 @@ use std::sync::Arc;
 
 pub const NAMESPACE: &str = "WorkOrder";
 
+/// **Deprecated:** pull the classid via the OGAR PortSpec instead —
+/// `ogar_vocab::ports::WoaPort::class_id(name)`. The codebook-aware
+/// OGAR-driven bridge `lance_graph_ogar::bridges::WoaBridge` is also
+/// deprecated; both share the same replacement path. See
+/// `docs/CONSUMER-BRIDGE-DEPRECATION.md` + AdaWorldAPI/OGAR#95.
+#[deprecated(
+    note = "pull the classid via `WoaPort::class_id(name)` — see AdaWorldAPI/OGAR#95 + docs/CONSUMER-BRIDGE-DEPRECATION.md"
+)]
 pub struct WoaBridge {
     registry: Arc<OntologyRegistry>,
     g_lock: NamespaceId,
