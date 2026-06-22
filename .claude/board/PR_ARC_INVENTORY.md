@@ -35,6 +35,24 @@
 
 ---
 
+## #592 lance-graph: `contract::ogar_codebook` APP-prefix (hi-u16) mirror — closes ISS-CONTRACT-APP-PREFIX-MIRROR
+
+**Status:** MERGED 2026-06-22 (merge commit `48794eaf`), branch `claude/contract-app-prefix-mirror`. Closes the Core gap the #591 consumer spellbook surfaced: `contract::ogar_codebook` mirrored the lo-u16 concept pull but not OGAR#97's hi-u16 render composition, so membrane consumers had to hand-stamp `0x000N`.
+
+**Added (`lance-graph-contract::ogar_codebook`, wire-compat mirror of OGAR `ogar_vocab::app`, no `ogar-vocab` dep):** `AppPrefix` enum (the OGAR#95 §2 allocation table as typed data — `Core 0x0000` / OpenProject `0x0001` / Odoo `0x0002` / WoA `0x0003` / SMB `0x0004` / Healthcare `0x0005` / Redmine `0x0007`) with `prefix()` / `from_prefix()` / `render(concept)`; free fns `render_classid(prefix, concept)` (mirror of `app::render_classid`), `render_classid_for_concept(AppPrefix, &str)` (one-call membrane helper), `classid_app_prefix(classid)` (`app::app_of`), `classid_concept(classid)` (`app::concept_of`). Re-exported at crate root. 2 parity tests + 1 doctest.
+
+**Locked:** the membrane consumer pulls BOTH halves of a render classid BBB-safely from one zero-dep source — `render_classid_for_concept(AppPrefix::Healthcare, "patient") == Some(0x0005_0901)` — never hand-stamping `0x000N`, never copying OGAR's table; the hi-u16 render lens never perturbs the lo-u16 concept (RBAC/ontology key on the low half). The contract is the **wire-compat mirror** (parity-test drift-guarded), NOT a dependency on `ogar-vocab` — same pattern as the lo-u16 `CODEBOOK` (#563). Follows the OGAR#98 `canonical_concept_name`-mirror precedent.
+
+**Deferred (OGAR-side, other session):** the spine-vs-membrane import-path distinction in OGAR#100's best-practices §2 Pattern 1 (the BBB-barrier case — membrane uses `contract::ogar_codebook`, spine uses `ogar_vocab` / `*Port`). This PR is the contract half; the OGAR-doc half is theirs.
+
+**Docs/board:** `ISSUES.md` ISS-CONTRACT-APP-PREFIX-MIRROR → RESOLVED; `.claude/knowledge/ogar-consumer-preflight.md` Core-gap → CLOSED + remediation step 3 cites the new helper; LATEST_STATE inventory entry. Incidental: crate-wide `cargo fmt` corrected pre-existing `content_store.rs` struct-literal drift (no behavior change).
+
+**Confidence (2026-06-22):** HIGH — `cargo test -p lance-graph-contract` green, `clippy -p lance-graph-contract --all-targets -D warnings` clean (default + `guid-v2-tail`), fmt clean; CodeRabbit 5/5 pre-merge checks, no actionable comments. Consumed by the medcare-rs consumer spellbook (`MedCare-rs` `claude/pensive-mendel-ou2rj6`, commit `1e1652d`).
+
+**Cross-ref:** ISSUES `ISS-CONTRACT-APP-PREFIX-MIRROR` (RESOLVED); knowledge `ogar-consumer-preflight.md`; PR #591 (the spellbook that surfaced the gap) + #563 (the lo-u16 base this extends); OGAR#95/#97/#98/#100.
+
+---
+
 ## (IN PR, branch `claude/edge-distance-basin-node-epiphany`) basin-IS-a-node — members/memberof navigation + GUID self-routing + field-perturbation probe
 
 **Added (lance-graph core):** `graph::mailbox_scan::{members, memberof, BasinOf}` — the one-to-many / many-to-one basin-node navigation realizing `E-BASIN-IS-A-NODE` as **virtual tree navigation over the flat MailboxSoA** (no ownership change, no SoA restructure, zero-copy invariant untouched). All pure key arithmetic, **zero value decode**: `members(basin)` = direct children one HHTL tier down (`is_ancestor_of` + depth); `memberof(node) -> BasinOf::{Local(row), Route(NiblePath)}` = parent via `NiblePath::parent`, returning a **route** (the HHTL prefix = shard key) when the parent is non-local, `None` only at the top tier. Inverses. 5 new tests, 16/16 mailbox_scan green, clippy clean.
