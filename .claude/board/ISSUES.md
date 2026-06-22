@@ -1,5 +1,26 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-06-22 — OGAR-AR-MIGRATION-WOA-SMB-OPEN — woa-rs + smb-office-rs (+ odoo-rs W3 severity, q2 W4) migrate to OGAR classid-first; ports exist (OGAR #93/#94), gated on the RBAC keystone
+
+**Status:** Open — port-minting blocker RESOLVED (OGAR #93/#94); now gated on `lance-graph-rbac` (the RBAC keystone, `CLASSID-RBAC-KEYSTONE-SPEC.md`) shipping. P1.
+
+**The migration (per OGAR PR #95 `CONSUMER-MIGRATION-HOWTO.md`):** a consumer is enrichment over a `classid` — it holds no ontology, no registry, no bridge. The target is bridge **DELETION** + static `ogar_vocab::ports::<App>Port::class_id(name)` pull, NOT a bridge repoint. See EPIPHANIES `E-OGAR-CONSUMER-IS-NOT-A-BRIDGE` for the full mechanics + why the prior repoint framing was wrong + why the `lance_graph_ogar::bridges::*` aliases (PR #587) are parity scaffolding not the consumer surface.
+
+**Why keystone-gated:** woa-rs `UnifiedBridge<WoaBridge>` (`src/unified_bridge.rs:34-42`) + smb `UnifiedBridge<OgitBridge>` (`unified_bridge_wiring.rs`) are resolve-then-**authorize** surfaces. The bridge IS the auth surface; deleting it before `lance_graph_rbac::authorize(actor, cid, op)` exists removes auth (behaviour change — woa-rs Iron Rule 7, smb Iron Rule 3). The class_id-resolution half can migrate now; the auth half waits for the keystone.
+
+**Per-wave (OGAR #95 `APP-CODEBOOK-MIGRATION-PLAN.md`):**
+- **W0** OpenProject (`0x0001`) + Redmine (`0x0007`) — flagship, ports exist, the two-renders-one-concept showcase.
+- **W1** WoA (`0x0003`) — port exists; delete `WoaBridge` (`src/registry.rs:15`, `src/unified_bridge.rs:22`); RFC-010 (Iron Rule 1 allow-list: add `ogar-vocab` + `lance-graph-rbac`, drop `lance-graph-ontology` + `lance-graph-callcenter`). Spec: woa-rs `OGAR-MIGRATION-GAP-2026-06-21.md` CORRECTION banner.
+- **W2** SMB (`0x0004`) — port exists; `crates/smb-bridge/src/unified_bridge_wiring.rs:40` drops `OgitBridge`. Spec: smb-office-rs `TD-OGAR-CONSUMER-MIGRATION-1-CORRECTION`.
+- **W3** Odoo (`0x0002`) — SEVERITY: delete the `od-ontology::{surreal_ast,triple,emit}` fork; converge onto `ogar_vocab::Class` + `ogar-adapter-surrealql`.
+- **W4** q2 (`0x0006`) — AUTHOR `Q2Port` in OGAR FIRST (no port yet; likely needs a private `0x0006_NNCC` codebook for Gotham/aiwar/neo4j entities).
+
+**Closure criterion:** every in-scope consumer pulls `classid` statically (no bridge, no registry, no hydration) + authorizes via `lance_graph_rbac`; the diff touches only OGAR + the consumer crate (spine byte-for-byte unchanged). Per-app DoD in OGAR #95 `APP-CODEBOOK-MIGRATION-PLAN.md` "Definition of done".
+
+**Cross-refs:** EPIPHANIES `E-OGAR-CONSUMER-IS-NOT-A-BRIDGE`; OGAR PR #93/#94/#95; lance-graph PR #585 (OGIT/OGAR split) + #587 (bridge aliases); woa-rs `OGAR-MIGRATION-GAP-2026-06-21.md`; smb-office-rs `TECH_DEBT.md TD-OGAR-CONSUMER-MIGRATION-1(-CORRECTION)`; operator directive 2026-06-21 ("if you don't use OGAR you're doing something wrong" + "planner times align with billable hours").
+
+---
+
 ## 2026-06-20 — F64-TENANT-VS-F32-ENERGY — perturbation f64 narrows to the F32 `Energy` tenant; a true-f64 tenant is a canon EXTENSION (operator decision)
 
 **Status:** RESOLVED 2026-06-20 (operator) — **NOT F64.** F32 is the fast NaN-hunt tenant (half of f64; NaN test is one integer exponent mask). The compute tenant pivots to **BF16 + AMX** (operator: "use BF16 and add_mul where possible and use amx"); the perturbation/Spain workload is deprioritised in favour of a BF16 4×4-Morton-tile Domino POC. No F64 canon extension. Cross-ref: AGENT_LOG BF16/AMX pivot.
