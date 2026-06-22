@@ -142,8 +142,9 @@ pub use episodic_edges::{EdgeRef, EpisodicEdges64};
 pub use head2head::{CompetitionOutcome, Head2Head, WinnerCriterion};
 pub use kanban::{ExecTarget, KanbanColumn, KanbanMove, RubiconTransitionError};
 pub use ogar_codebook::{
-    canonical_concept_domain, canonical_concept_id, classid_concept_domain, source_domain_concept,
-    ConceptDomain, LabelDTO, CODEBOOK,
+    canonical_concept_domain, canonical_concept_id, classid_app_prefix, classid_concept,
+    classid_concept_domain, render_classid, render_classid_for_concept, source_domain_concept,
+    AppPrefix, ConceptDomain, LabelDTO, CODEBOOK,
 };
 pub use scheduler::{DatasetVersion, NextPhaseScheduler, VersionScheduler};
 pub use soa_graph::{
