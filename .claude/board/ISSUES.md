@@ -1,5 +1,23 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-06-21 — OGAR-AR-MIGRATION-WOA-SMB-OPEN — woa-rs + smb-office-rs (+ likely tikv/sea-orm/surrealdb downstream) still on legacy OGIT `NamespaceBridge` + `callcenter::UnifiedBridge<B: NamespaceBridge>`; missing OGAR's `UnifiedBridge<P: PortSpec>` + `ClassView` + codebook-synthesized class_ids — SEVERITY
+
+**Status:** OPEN — gated on OGAR-side PortSpec minting (out of this session's MCP scope; AdaWorldAPI/OGAR not in repo list).
+
+**Blocker:** `ogar_vocab::ports::WoaPort` and `ogar_vocab::ports::SmbPort` need to land in `AdaWorldAPI/OGAR`. Each is ~30 LOC: associated `NAMESPACE` + `BRIDGE_ID` constants + `aliases() -> &'static [(&'static str, u16)]` table mapping public names to canonical codebook class_ids. Sibling pattern of the already-landed `HealthcarePort` / `OpenProjectPort` / `RedminePort`.
+
+**Unblock action sequence (when OGAR PortSpecs land):**
+
+1. **woa-rs** consumer-side (~50 LOC): add `lance-graph-ogar` dep alongside the existing `lance-graph-ontology` git pin; switch `use lance_graph_ontology::bridges::WoaBridge` → `use lance_graph_ogar::bridges::WoaBridge` in `src/registry.rs`, `src/unified_bridge.rs`, `tests/ontology_cypher_round_trip.rs`; delete the callcenter::UnifiedBridge wiring; verify `cargo test` + `cargo fmt --check` + no duplicate-crate errors.
+2. **smb-office-rs** consumer-side (~50 LOC): same shape — add `lance-graph-ogar` dep; switch `use lance_graph_ontology::bridges::OgitBridge` → `use lance_graph_ogar::bridges::SmbBridge` in `crates/smb-bridge/src/unified_bridge_wiring.rs`; verify the same gates.
+3. **Cross-repo audit:** sweep `tikv` / `sea-orm` / `surrealdb` for `lance_graph_ontology::bridges` imports — if any, repoint similarly.
+
+**Closure criterion:** all in-scope consumers import from `lance_graph_ogar::bridges::*` (the OGAR-driven AR-shape harness) for their codebook-resolved bridges. The OGIT pass-through `OgitBridge` stays valid for raw-OGIT-URI tooling; the per-consumer scoped bridges move to OGAR.
+
+**Pinned to:** EPIPHANIES `E-OGAR-AR-MIGRATION-IS-SEVERITY`; TECH_DEBT `TD-OGAR-CONSUMER-MIGRATION-1`; operator directive 2026-06-21 ("if you don't use OGAR you're doing something wrong"); PR #585 (the OGAR/OGIT separation merge that left consumers behind).
+
+---
+
 ## 2026-06-20 — F64-TENANT-VS-F32-ENERGY — perturbation f64 narrows to the F32 `Energy` tenant; a true-f64 tenant is a canon EXTENSION (operator decision)
 
 **Status:** RESOLVED 2026-06-20 (operator) — **NOT F64.** F32 is the fast NaN-hunt tenant (half of f64; NaN test is one integer exponent mask). The compute tenant pivots to **BF16 + AMX** (operator: "use BF16 and add_mul where possible and use amx"); the perturbation/Spain workload is deprioritised in favour of a BF16 4×4-Morton-tile Domino POC. No F64 canon extension. Cross-ref: AGENT_LOG BF16/AMX pivot.
