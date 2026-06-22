@@ -8,6 +8,11 @@
 //! A common pattern is to spin one `OgitBridge` per OGIT namespace that
 //! the consumer cares about, e.g. one for `Network`, another for `Auth`.
 
+// This module IS the deprecated `OgitBridge`'s implementation; its own
+// impl blocks reference the deprecated struct intentionally. Consumers in
+// other crates still get the warning. See docs/CONSUMER-BRIDGE-DEPRECATION.md.
+#![allow(deprecated)]
+
 use crate::bridge::{BridgeFromRegistry, NamespaceBridge};
 use crate::error::{Error, Result};
 use crate::namespace::NamespaceId;

@@ -63,13 +63,32 @@ mod redmine_bridge;
 mod smb_bridge;
 mod woa_bridge;
 
-pub use medcare_bridge::{HealthcarePort, MedcareBridge};
-pub use odoo_bridge::{OdooBridge, OdooPort};
-pub use openproject_bridge::{OpenProjectBridge, OpenProjectPort};
-pub use redmine_bridge::{RedmineBridge, RedminePort};
-pub use smb_bridge::{SmbBridge, SmbPort};
+// Canonical surface — the `*Port` types and the `UnifiedBridge` harness
+// are the replacement and are NOT deprecated.
+pub use medcare_bridge::HealthcarePort;
+pub use odoo_bridge::OdooPort;
+pub use openproject_bridge::OpenProjectPort;
+pub use redmine_bridge::RedminePort;
+pub use smb_bridge::SmbPort;
 pub use unified::UnifiedBridge;
-pub use woa_bridge::{WoaBridge, WoaPort};
+pub use woa_bridge::WoaPort;
+
+// Deprecated per-port bridge aliases (2026-06-22) — pull the classid via
+// the corresponding PortSpec instead. The `#[allow(deprecated)]` here
+// silences the re-export site; the lint still fires at consumer
+// use-sites. See `docs/CONSUMER-BRIDGE-DEPRECATION.md` + AdaWorldAPI/OGAR#95.
+#[allow(deprecated)]
+pub use medcare_bridge::MedcareBridge;
+#[allow(deprecated)]
+pub use odoo_bridge::OdooBridge;
+#[allow(deprecated)]
+pub use openproject_bridge::OpenProjectBridge;
+#[allow(deprecated)]
+pub use redmine_bridge::RedmineBridge;
+#[allow(deprecated)]
+pub use smb_bridge::SmbBridge;
+#[allow(deprecated)]
+pub use woa_bridge::WoaBridge;
 
 // Compatibility shims for the pre-migration constants. `bridges`
 // previously re-exported `OPENPROJECT_CODEBOOK` / `REDMINE_CODEBOOK`
