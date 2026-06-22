@@ -83,8 +83,8 @@ pub use ogar_vocab::Class;
 pub mod bridges;
 
 pub use bridges::{
-    HealthcarePort, MedcareBridge, OpenProjectBridge, OpenProjectPort, RedmineBridge, RedminePort,
-    UnifiedBridge,
+    HealthcarePort, MedcareBridge, OdooBridge, OdooPort, OpenProjectBridge, OpenProjectPort,
+    RedmineBridge, RedminePort, SmbBridge, SmbPort, UnifiedBridge, WoaBridge, WoaPort,
 };
 
 /// Codebook parity-guard — the drift fuse between OGAR's authoritative codebook
