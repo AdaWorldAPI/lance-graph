@@ -18,7 +18,12 @@
 //! What this mirror carries: the **codebook-id layer** the contract needs to route
 //! a `classid` to its domain ([`canonical_concept_domain`], [`classid_concept_domain`])
 //! and to resolve a canonical-concept string to its id ([`canonical_concept_id`],
-//! [`LabelDTO::from_canonical`]). What it does NOT carry: OGAR's curator-alias
+//! [`LabelDTO::from_canonical`]). It also carries the **APP / render-prefix
+//! layer** (the hi u16): [`AppPrefix`] (the §2 allocation table as typed data),
+//! [`render_classid`] / [`render_classid_for_concept`] (compose), and
+//! [`classid_app_prefix`] / [`classid_concept`] (decompose) — the membrane
+//! equivalent of OGAR `render_classid_for::<P>()`, so a zero-dep consumer stamps
+//! the prefix from ONE source instead of hardcoding `0x000N`. What it does NOT carry: OGAR's curator-alias
 //! normalizer (`canonical_concept` — the large `"Issue"`/`"WorkPackage"` →
 //! `"project_work_item"` table). Alias normalization stays in `ogar-vocab`; this
 //! module resolves canonical-shaped concept strings only (hence `from_canonical`,
@@ -94,6 +99,147 @@ pub fn source_domain_concept(source_domain: &str) -> Option<ConceptDomain> {
         "erp" | "german-erp" => Some(ConceptDomain::Commerce),
         _ => None,
     }
+}
+
+// ── APP / render-prefix layer (the hi u16) — wire-compat mirror of OGAR `ogar_vocab::app` ──
+
+/// The **APP / render prefix** — the high u16 of a full 32-bit `classid`.
+///
+/// A full render classid is two orthogonal halves:
+///
+/// ```text
+/// classid : u32  =  [ hi u16 : APP / render prefix ]  [ lo u16 : concept ]
+///                     0xAAAA (per-app ClassView lens)    0xDDCC (shared RBAC+ontology)
+/// ```
+///
+/// `0x0000` ([`AppPrefix::Core`]) is the shared canonical core — every
+/// [`canonical_concept_id`] is `0x0000_DDCC`, additive and invariant. A
+/// non-zero prefix selects an app's render lens (its per-app `ClassView` /
+/// template set) while the lo-u16 concept — the RBAC + ontology + cross-app
+/// identity key — stays shared; concept/domain routing reads only the low half
+/// ([`classid_concept_domain`] does `… as u16`), so it is identical under every
+/// render prefix. Mirrors OGAR `PortSpec::APP_PREFIX` (the
+/// `APP-CLASS-CODEBOOK-LAYOUT.md` §2 allocation table as typed data);
+/// wire-compatible, **no `ogar-vocab` dependency**. This is the membrane
+/// equivalent of OGAR's `render_classid_for::<P>()` — the contract carries the
+/// prefix as an enum value rather than a `PortSpec` generic, so a zero-dep
+/// consumer never hand-stamps `0x000N`. Drift is guarded by
+/// [`tests::app_prefixes_match_ogar_allocation_table`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum AppPrefix {
+    /// `0x0000` — shared canonical core (default `ClassView`, no render lens).
+    Core,
+    /// `0x0001` — OpenProject (project-mgmt render lens).
+    OpenProject,
+    /// `0x0002` — Odoo (commerce / ERP render lens).
+    Odoo,
+    /// `0x0003` — WoA (WorkOrder render lens).
+    Woa,
+    /// `0x0004` — SMB-Office render lens.
+    Smb,
+    /// `0x0005` — Healthcare / MedCare render lens.
+    Healthcare,
+    /// `0x0007` — Redmine (project-mgmt render lens; OpenProject twin at the
+    /// shared concept level).
+    Redmine,
+}
+
+impl AppPrefix {
+    /// The reserved high-u16 prefix from the §2 allocation table. `const` so it
+    /// composes in `const` contexts. MUST match OGAR `PortSpec::APP_PREFIX`
+    /// (pinned by [`tests::app_prefixes_match_ogar_allocation_table`]).
+    #[inline]
+    #[must_use]
+    pub const fn prefix(self) -> u16 {
+        match self {
+            AppPrefix::Core => 0x0000,
+            AppPrefix::OpenProject => 0x0001,
+            AppPrefix::Odoo => 0x0002,
+            AppPrefix::Woa => 0x0003,
+            AppPrefix::Smb => 0x0004,
+            AppPrefix::Healthcare => 0x0005,
+            AppPrefix::Redmine => 0x0007,
+        }
+    }
+
+    /// Resolve a high-u16 prefix value back to its [`AppPrefix`]. `None` for an
+    /// unallocated value (`0x0006`, `0x0008`+ — reserved, costs nothing until
+    /// an app mints its first private class).
+    #[inline]
+    #[must_use]
+    pub const fn from_prefix(prefix: u16) -> Option<Self> {
+        match prefix {
+            0x0000 => Some(AppPrefix::Core),
+            0x0001 => Some(AppPrefix::OpenProject),
+            0x0002 => Some(AppPrefix::Odoo),
+            0x0003 => Some(AppPrefix::Woa),
+            0x0004 => Some(AppPrefix::Smb),
+            0x0005 => Some(AppPrefix::Healthcare),
+            0x0007 => Some(AppPrefix::Redmine),
+            _ => None,
+        }
+    }
+
+    /// Compose the full render `classid` for this app and a canonical concept
+    /// id: `(prefix << 16) | concept`. The membrane equivalent of OGAR
+    /// `render_classid_for::<P>(concept)`, reading the prefix from typed data
+    /// rather than a `PortSpec` generic.
+    #[inline]
+    #[must_use]
+    pub const fn render(self, concept: u16) -> u32 {
+        render_classid(self.prefix(), concept)
+    }
+}
+
+/// Compose a full render `classid` from an app `prefix` (high u16) and a
+/// canonical `concept` id (low u16): `(prefix << 16) | concept`. Wire-compat
+/// mirror of OGAR `ogar_vocab::app::render_classid`.
+///
+/// `render_classid(0x0005, 0x0901)` → `0x0005_0901` (MedCare's `patient`); the
+/// core form `render_classid(0x0000, id)` equals `id` widened to `u32`
+/// (additive — a bare concept IS a render classid under the core lens).
+#[inline]
+#[must_use]
+pub const fn render_classid(prefix: u16, concept: u16) -> u32 {
+    ((prefix as u32) << 16) | (concept as u32)
+}
+
+/// Compose a render `classid` from an [`AppPrefix`] and a **canonical-concept
+/// string** — looks the concept up in [`CODEBOOK`], then stamps the prefix.
+/// `None` if the concept is not promoted. The one-call membrane equivalent of
+/// OGAR `render_classid_for::<P>(class_ids::CONCEPT)`: a consumer pulls the id
+/// AND the prefix from ONE source instead of hardcoding `0x000N`.
+///
+/// ```
+/// use lance_graph_contract::{render_classid_for_concept, AppPrefix};
+/// // MedCare patient under the Healthcare render lens — the canonical example.
+/// assert_eq!(render_classid_for_concept(AppPrefix::Healthcare, "patient"), Some(0x0005_0901));
+/// assert_eq!(render_classid_for_concept(AppPrefix::Healthcare, "not_a_concept"), None);
+/// ```
+#[inline]
+#[must_use]
+pub fn render_classid_for_concept(app: AppPrefix, concept: &str) -> Option<u32> {
+    canonical_concept_id(concept).map(|id| app.render(id))
+}
+
+/// The APP / render-prefix half of a full `classid` (`classid >> 16`). Mirror
+/// of OGAR `ogar_vocab::app::app_of`. Pair with [`AppPrefix::from_prefix`] to
+/// recover the typed app.
+#[inline]
+#[must_use]
+pub const fn classid_app_prefix(classid: u32) -> u16 {
+    (classid >> 16) as u16
+}
+
+/// The canonical concept-id half of a full `classid` (`classid as u16`) — the
+/// shared RBAC + ontology + cross-app identity key, identical under every
+/// render prefix. Mirror of OGAR `ogar_vocab::app::concept_of`; the sibling of
+/// [`classid_concept_domain`], which routes this half to its [`ConceptDomain`].
+#[inline]
+#[must_use]
+pub const fn classid_concept(classid: u32) -> u16 {
+    classid as u16
 }
 
 /// The curated `(canonical_concept, u16)` codebook — wire-compatible mirror of
@@ -302,6 +448,80 @@ mod tests {
             LabelDTO::from_canonical("Issue"),
             None,
             "curator alias unresolved in contract (normalize via ogar-vocab first)"
+        );
+    }
+
+    #[test]
+    fn app_prefixes_match_ogar_allocation_table() {
+        // §2 allocation table — MUST match OGAR `PortSpec::APP_PREFIX` (the
+        // wire). If OGAR re-allocates a prefix, update BOTH sides together.
+        assert_eq!(AppPrefix::Core.prefix(), 0x0000);
+        assert_eq!(AppPrefix::OpenProject.prefix(), 0x0001);
+        assert_eq!(AppPrefix::Odoo.prefix(), 0x0002);
+        assert_eq!(AppPrefix::Woa.prefix(), 0x0003);
+        assert_eq!(AppPrefix::Smb.prefix(), 0x0004);
+        assert_eq!(AppPrefix::Healthcare.prefix(), 0x0005);
+        assert_eq!(AppPrefix::Redmine.prefix(), 0x0007);
+        // round-trips; unallocated slots are None (reserved, cost nothing).
+        for app in [
+            AppPrefix::Core,
+            AppPrefix::OpenProject,
+            AppPrefix::Odoo,
+            AppPrefix::Woa,
+            AppPrefix::Smb,
+            AppPrefix::Healthcare,
+            AppPrefix::Redmine,
+        ] {
+            assert_eq!(AppPrefix::from_prefix(app.prefix()), Some(app));
+        }
+        assert_eq!(AppPrefix::from_prefix(0x0006), None);
+        assert_eq!(AppPrefix::from_prefix(0x0008), None);
+    }
+
+    #[test]
+    fn render_classid_composes_decomposes_and_preserves_the_concept_half() {
+        // Worked examples mirrored from OGAR `ogar_vocab::app` tests.
+        assert_eq!(render_classid(0x0001, 0x0102), 0x0001_0102);
+        assert_eq!(render_classid(0x0007, 0x0102), 0x0007_0102); // Redmine twin
+
+        // MedCare patient — the canonical worked example: 0x0005_0901.
+        let pat = render_classid_for_concept(AppPrefix::Healthcare, "patient").unwrap();
+        assert_eq!(pat, 0x0005_0901);
+        assert_eq!(classid_app_prefix(pat), 0x0005);
+        assert_eq!(classid_concept(pat), 0x0901);
+        assert_eq!(
+            AppPrefix::from_prefix(classid_app_prefix(pat)),
+            Some(AppPrefix::Healthcare)
+        );
+        // the concept half still routes to its domain under the render prefix.
+        assert_eq!(
+            canonical_concept_domain(classid_concept(pat)),
+            ConceptDomain::Health
+        );
+
+        // Core (hi=0x0000) is additive: a bare concept IS a render classid.
+        let core = render_classid(0x0000, 0x0102);
+        assert_eq!(core, u32::from(0x0102u16));
+        assert_eq!(classid_concept(core), 0x0102);
+
+        // The render lens never perturbs the lo-u16 concept RBAC keys on.
+        let op = AppPrefix::OpenProject.render(0x0103);
+        let rm = AppPrefix::Redmine.render(0x0103);
+        assert_ne!(
+            classid_app_prefix(op),
+            classid_app_prefix(rm),
+            "render lenses differ"
+        );
+        assert_eq!(
+            classid_concept(op),
+            classid_concept(rm),
+            "concept is shared"
+        );
+
+        // Unpromoted concept → no classid (don't invent one).
+        assert_eq!(
+            render_classid_for_concept(AppPrefix::Healthcare, "nope"),
+            None
         );
     }
 }

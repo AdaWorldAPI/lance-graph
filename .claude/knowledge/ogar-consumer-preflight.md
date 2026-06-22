@@ -112,8 +112,10 @@ One signature is suspicious; a local codebook copy alone is the trap.
 2. **Pull the classid** — pure function, no registry:
    - spine: `lance_graph_ogar::WoaPort::class_id(name) -> Option<u16>`
    - membrane (BBB): `lance_graph_contract::ogar_codebook::canonical_concept_id(name)`
-3. **Stamp the app prefix + delete the old surface.** Render id =
-   `APP << 16 | cid`; authorize on the shared `cid` (lo u16). Then delete: the
+3. **Stamp the app prefix + delete the old surface.** Compose the render id —
+   membrane (BBB): `ogar_codebook::render_classid_for_concept(AppPrefix::X, name)`
+   or `AppPrefix::X.render(cid)`; spine: `render_classid_for::<XPort>(cid)`. Both
+   are `APP << 16 | cid`; authorize on the shared `cid` (lo u16). Then delete: the
    `*Bridge` import, any `OntologyRegistry` field, and every local codebook
    copy. Your diff touches only your crate; the spine is byte-for-byte unchanged.
 
@@ -133,17 +135,27 @@ repo; the classid pull is a pure function call.
 These three are the migration backlog. The terminal `bridges/` deletion in the
 spine is gated on all three reaching 0.
 
-## A Core gap this spellbook surfaces (honest — flag, don't paper)
+## A Core gap this spellbook surfaced — now CLOSED
 
-`contract::ogar_codebook` mirrors `canonical_concept_id` / `canonical_concept_name`
-(the lo-u16 pull, BBB-safe) but does **not** yet mirror OGAR#97's
-`PortSpec::APP_PREFIX` / `render_classid_for` (the hi-u16 render composition). So
-a **membrane** consumer can pull the shared concept but must hand-stamp the app
-prefix from the OGAR#95 allocation table — a small re-derivation a
-`contract::ogar_codebook::APP_PREFIX` mirror would remove. Per Core-First the
-consumer must NOT hard-code `0x000N`; file the contract mirror (the
-`canonical_concept_name` precedent is OGAR#98) rather than minting a local
-prefix const. Tracked: `ISS-CONTRACT-APP-PREFIX-MIRROR`.
+> **Resolved 2026-06-22** (`claude/contract-app-prefix-mirror`, closes
+> `ISS-CONTRACT-APP-PREFIX-MIRROR`). `contract::ogar_codebook` now mirrors the
+> hi-u16 APP-prefix layer alongside the lo-u16 concept layer: `AppPrefix` (the
+> OGAR#95 §2 allocation table as typed data — `0x0001` OpenProject … `0x0005`
+> Healthcare … `0x0007` Redmine), `render_classid` / `render_classid_for_concept`
+> (compose), `classid_app_prefix` / `classid_concept` (decompose). A **membrane**
+> consumer now pulls BOTH halves BBB-safely —
+> `render_classid_for_concept(AppPrefix::Healthcare, "patient")` → `Some(0x0005_0901)`,
+> no hand-stamped `0x000N`. Wire-compat parity tests pin the prefixes against OGAR
+> `PortSpec::APP_PREFIX`. Mirrors OGAR#97 `ogar_vocab::app`, following the OGAR#98
+> `canonical_concept_name` precedent.
+
+Original gap (kept for the record — honest, flag don't paper):
+`contract::ogar_codebook` mirrored the lo-u16 concept pull (`canonical_concept_id`)
+but not OGAR#97's `PortSpec::APP_PREFIX` / `render_classid_for` (the hi-u16 render
+composition), so a **membrane** consumer could pull the shared concept yet had to
+hand-stamp the app prefix from the OGAR#95 allocation table. Per Core-First the
+fix was to mirror it into the contract (the `canonical_concept_name` precedent is
+OGAR#98), never to mint a local prefix const.
 
 ## When this doc fires + trigger phrases
 
