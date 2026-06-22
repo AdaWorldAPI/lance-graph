@@ -1,5 +1,13 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-06-22 — ISS-CONTRACT-APP-PREFIX-MIRROR — `contract::ogar_codebook` lacks the OGAR#97 `APP_PREFIX` / `render_classid_for` mirror, so membrane consumers must hand-stamp the hi-u16 render prefix
+
+**Status:** Open · Owner: lance-graph-contract · Surfaced by: `.claude/knowledge/ogar-consumer-preflight.md` (the consumer spellbook).
+
+`contract::ogar_codebook` mirrors `canonical_concept_id` / `canonical_concept_name` (the lo-u16 concept pull, BBB-safe for membrane consumers woa-rs / medcare-rs / smb-office-rs) but does NOT mirror OGAR#97's `PortSpec::APP_PREFIX` + `render_classid_for` (the hi-u16 render composition: `render_classid = APP << 16 | concept`, OGAR#95 §2). A membrane consumer (BBB-barrier: contract/ontology/callcenter only — `lance_graph_ogar` forbidden) can therefore pull the shared concept but must re-derive the app prefix from the OGAR#95 allocation table by hand. Per Core-First the consumer MUST NOT hard-code `0x000N`. **Fix:** mirror the app-prefix table + a `render_classid` helper into `contract::ogar_codebook` (the `canonical_concept_name` reverse-map mirror, OGAR#98, is the precedent) so the membrane stamps from one source. Interim: the spellbook's Q5 says "stamp from the allocation table." Cross-ref: `.claude/knowledge/ogar-consumer-preflight.md` § "A Core gap this spellbook surfaces"; OGAR#95/#97/#98.
+
+---
+
 ## 2026-06-20 — F64-TENANT-VS-F32-ENERGY — perturbation f64 narrows to the F32 `Energy` tenant; a true-f64 tenant is a canon EXTENSION (operator decision)
 
 **Status:** RESOLVED 2026-06-20 (operator) — **NOT F64.** F32 is the fast NaN-hunt tenant (half of f64; NaN test is one integer exponent mask). The compute tenant pivots to **BF16 + AMX** (operator: "use BF16 and add_mul where possible and use amx"); the perturbation/Spain workload is deprioritised in favour of a BF16 4×4-Morton-tile Domino POC. No F64 canon extension. Cross-ref: AGENT_LOG BF16/AMX pivot.
