@@ -19,8 +19,8 @@
 //! `lance_graph_ontology::bridges::codebook::*` constants.
 
 use lance_graph_ogar::bridges::{OpenProjectBridge, RedmineBridge};
-use ogar_vocab::class_ids as codebook;
 use lance_graph_ontology::{NamespaceBridge, OntologyRegistry};
+use ogar_vocab::class_ids as codebook;
 use std::fs;
 use std::sync::Arc;
 
@@ -129,7 +129,10 @@ fn status_and_type_alias_pairs_converge_through_each_ports_naming() {
 
     assert_eq!(
         op.entity("Status").unwrap().schema_ptr.entity_type_id(),
-        rm.entity("IssueStatus").unwrap().schema_ptr.entity_type_id(),
+        rm.entity("IssueStatus")
+            .unwrap()
+            .schema_ptr
+            .entity_type_id(),
     );
     assert_eq!(
         op.entity("Status").unwrap().schema_ptr.entity_type_id(),

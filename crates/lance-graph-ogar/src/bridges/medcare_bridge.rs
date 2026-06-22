@@ -28,8 +28,8 @@ use crate::bridges::unified::UnifiedBridge;
 // `HealthcarePort::NAMESPACE` / `::aliases()` are `PortSpec` associated
 // items — the trait must be in scope for the resolution to work (codex
 // P1 on PR #570). Same import in the test module below.
-use ogar_vocab::ports::PortSpec;
 pub use ogar_vocab::ports::HealthcarePort;
+use ogar_vocab::ports::PortSpec;
 
 /// MedCare `NamespaceBridge` — alias over the generic harness, locked to
 /// the `Healthcare` namespace via [`HealthcarePort`].

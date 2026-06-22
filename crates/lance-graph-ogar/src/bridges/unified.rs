@@ -89,8 +89,8 @@ impl<P: PortSpec> UnifiedBridge<P> {
     /// on the convergence contract.
     fn synthesize_codebook_entity(&self, class_id: u16) -> EntityRef {
         let ctx_id = NamespaceRegistry::seed_context_id(P::NAMESPACE).unwrap_or(0);
-        let schema_ptr = SchemaPtr::new(self.g_lock, class_id, SchemaKind::Entity)
-            .with_context_id(ctx_id);
+        let schema_ptr =
+            SchemaPtr::new(self.g_lock, class_id, SchemaKind::Entity).with_context_id(ctx_id);
         EntityRef { schema_ptr }
     }
 }
@@ -144,13 +144,13 @@ impl<P: PortSpec> NamespaceBridge for UnifiedBridge<P> {
                 }
             }
         }
-        let ptr = self
-            .registry()
-            .resolve_uri(uri.as_str())
-            .ok_or_else(|| BridgeError::NotInScope {
-                bridge_id: self.bridge_id_static(),
-                public_name: uri.as_str().to_string(),
-            })?;
+        let ptr =
+            self.registry()
+                .resolve_uri(uri.as_str())
+                .ok_or_else(|| BridgeError::NotInScope {
+                    bridge_id: self.bridge_id_static(),
+                    public_name: uri.as_str().to_string(),
+                })?;
         if ptr.namespace_id() != self.g_lock() {
             return Err(BridgeError::CrossNamespaceLeak {
                 bridge_id: self.bridge_id_static(),
