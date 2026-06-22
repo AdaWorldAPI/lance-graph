@@ -12,12 +12,16 @@
 //!
 //! # The convergence pin (operator value statement 2026-06-21)
 //!
-//! Odoo's `HrAttendance` and `account.move.line(qty=hours)` resolve to
-//! the SAME canonical [`ogar_vocab::class_ids::BILLABLE_WORK_ENTRY`]
-//! the planner consumers (OpenProject `TimeEntry`, Redmine `TimeEntry`)
-//! and the German ERP consumers (WoA `Stundenzettel`, SMB
-//! `Stundenzettel`) all resolve to. The planner→ERP→billing chain
-//! collapses into one codebook lookup at every hop.
+//! Odoo's `account.analytic.line` (the canonical timesheet model — Odoo
+//! tracks billable hours as analytic lines, confirmed by OGAR PR #96 +
+//! odoo-rs PR #1) resolves to the SAME canonical
+//! [`ogar_vocab::class_ids::BILLABLE_WORK_ENTRY`] (`0x0103`) the planner
+//! consumers (OpenProject `TimeEntry`, Redmine `TimeEntry`) and the
+//! German ERP consumers (WoA `Stundenzettel`, SMB `Stundenzettel`) all
+//! resolve to. Odoo's `account.move` likewise resolves to
+//! `COMMERCIAL_DOCUMENT` (`0x0202`). The planner→ERP→billing chain
+//! collapses into one codebook lookup at every hop — pinned across all
+//! five ports by `ogar_vocab::ports::tests::billable_work_entry_converges_across_all_five_ports`.
 
 use crate::bridges::unified::UnifiedBridge;
 pub use ogar_vocab::ports::OdooPort;
