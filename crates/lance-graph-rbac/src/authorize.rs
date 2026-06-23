@@ -44,37 +44,13 @@ use crate::access::AccessDecision;
 use crate::permission::PermissionSpec;
 use crate::policy::Operation;
 
-/// The codebook class identity an authorization targets — the `NodeGuid.classid`
-/// (or its low-`u16` codebook id widened). Opaque to the kernel: `authorize`
-/// only compares and looks it up, never decodes it (per the keystone, the kernel
-/// "never touches a token" — only resolved keys go inward).
-pub type ClassId = u32;
-
-/// An actor identity. In the full keystone this is the OIDC `sub` resolved to a
-/// membership-set; here it is the opaque key the [`ClassRbac`] impl maps to
-/// roles.
-pub type ActorId<'a> = &'a str;
-
-/// A role identity (a minted role classid in the full keystone; the role *name*
-/// here, to reconcile against the shipped string-keyed `Policy`).
-pub type RoleId = &'static str;
-
-/// The §4 grant-resolution surface, **classid-keyed**. Both the membrane gate
-/// and the cognitive loop resolve access through this one trait; the impl owns
-/// the membership→role folding and the (role, class) grant table. Kept
-/// rbac-crate-local for the probe; the keystone §11 promotes the trait to
-/// `lance-graph-contract` once the gate is green (tracked as follow-up).
-pub trait ClassRbac {
-    /// Roles the actor holds, already folded through
-    /// membership → member_role → role (the §4 `actor_roles`). Empty ⇒ the actor
-    /// is unknown to the policy.
-    fn actor_roles(&self, actor: ActorId<'_>) -> &[RoleId];
-
-    /// Does `role` carry a grant on `class` that permits `op`? The positive
-    /// `R⁺` op-mask gate (§5 stage 1). No grant, or a grant that does not permit
-    /// the op, ⇒ `false` (restrictive default-deny).
-    fn grant_permits(&self, role: RoleId, class: ClassId, op: &Operation<'_>) -> bool;
-}
+// `ClassId` / `ActorId` / `RoleId` / `ClassRbac` were promoted to
+// `lance_graph_contract::rbac` (keystone §11) so `lance-graph-ogar`'s
+// `OgarClassView` (deps contract, NOT rbac) can implement the trait. Re-exported
+// here so the `lance_graph_rbac::authorize::{ClassRbac, ClassId, ActorId, RoleId}`
+// paths are unchanged; `authorize()` + `ClassGrants` (the kernel + reference impl)
+// stay in this crate.
+pub use lance_graph_contract::rbac::{ActorId, ClassId, ClassRbac, RoleId};
 
 /// The §5 kernel — positive intersection ∧ op-gate, collapsed to the shipped
 /// [`AccessDecision`]. An actor is allowed iff it holds at least one role whose

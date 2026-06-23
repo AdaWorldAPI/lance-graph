@@ -2,7 +2,6 @@
 
 use crate::access::AccessDecision;
 use crate::role::Role;
-use lance_graph_contract::property::PrefetchDepth;
 
 /// A policy is a named set of roles. Users are assigned roles;
 /// the policy resolves access decisions by checking the user's role.
@@ -77,13 +76,11 @@ impl Policy {
     }
 }
 
-/// What the caller wants to do.
-#[derive(Clone, Debug)]
-pub enum Operation<'a> {
-    Read { depth: PrefetchDepth },
-    Write { predicate: &'a str },
-    Act { action: &'a str },
-}
+/// What the caller wants to do — promoted to `lance_graph_contract::rbac`
+/// (keystone §11) so `lance-graph-ogar` can range over it without depending on
+/// this crate. Re-exported here so `lance_graph_rbac::policy::Operation` is
+/// unchanged for existing consumers (callcenter, the sibling membrane gates).
+pub use lance_graph_contract::rbac::Operation;
 
 /// Build the default SMB policy with accountant, auditor, admin roles.
 pub fn smb_policy() -> Policy {
