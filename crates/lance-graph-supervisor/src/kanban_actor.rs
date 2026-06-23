@@ -824,4 +824,47 @@ mod tests {
         actor.stop(None);
         handle.await.expect("actor join");
     }
+
+    #[tokio::test]
+    async fn mixed_triggers_compose_on_one_owner_s2_gate_then_s3_ticks() {
+        // The capstone integration: the S2 MUL gate and the S3 version tick are
+        // DIFFERENT triggers driving the SAME owner. Here the first Rubicon step
+        // is taken by a MUL gate (Flow qualia → Planning→CognitiveWork) and the
+        // rest by version ticks (run_to_absorbing → …→Commit). Both compose
+        // cleanly on one mailbox-as-owner: no panic, no spurious rejection, lands
+        // absorbing.
+        let (actor, handle) = Actor::spawn(
+            None,
+            KanbanActor::<TestBoard>::default(),
+            board(KanbanColumn::Planning),
+        )
+        .await
+        .expect("spawn");
+
+        // S2: the MUL gate takes the first step (Flow qualia + mantissa>0).
+        let flow_q = QualiaI4_16D(0).with(3, 4).with(14, 3).with(9, 4).with(1, 2);
+        let gated = drive_mul_advance(&actor, flow_q, 4)
+            .await
+            .expect("gate driver ok")
+            .expect("Flow advances");
+        assert_eq!(gated.from, KanbanColumn::Planning);
+        assert_eq!(gated.to, KanbanColumn::CognitiveWork);
+
+        // S3: version ticks carry the rest of the arc to the absorbing column.
+        let tail = run_to_absorbing(&actor, 16)
+            .await
+            .expect("ticks reach absorbing");
+        let arc: Vec<_> = tail.iter().map(|m| m.to).collect();
+        assert_eq!(
+            arc,
+            vec![KanbanColumn::Evaluation, KanbanColumn::Commit],
+            "S3 ticks resume from where the S2 gate left the owner"
+        );
+
+        let phase = ractor::call!(actor, |reply| KanbanMsg::Phase { reply }).expect("rpc");
+        assert_eq!(phase, KanbanColumn::Commit);
+
+        actor.stop(None);
+        handle.await.expect("actor join");
+    }
 }
