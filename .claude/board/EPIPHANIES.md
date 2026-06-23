@@ -23,6 +23,36 @@ collision is cleared. Constant-following consumers (the `ReadMode::FMA` registry
 inherit the fix with no change. Tests updated to assert `0x0A01` / Anatomy and to
 forbid the `0x0901` alias. Cross-ref: OGAR PR #117 (the Anatomy mint + audit),
 q2 PR #50 (independent `[mixin:instance]` convergence, F-6).
+## 2026-06-23 — E-CASCADE-KEY-IS-THE-SPATIAL-ADDRESS — one 48-bit Morton key, read six ways
+
+**Status:** FINDING (measured, scoped to perturbation-sim). **Confidence:** the
+locality result is a measured probe, not a proof; the six-lens *identity* is
+structural.
+
+The electric-outage cascade re-wired onto `perturbation-sim::CascadeKey`
+(`family:u16 | leaf:u16 | identity:u16` = HEEL/HIP/TWIG, the OGAR production form
+the old binary-Cheeger `HhtlKey` defers). Each tier is a full 16-bit 256×256
+centroid tile of the bus's `spectral_embedding` position (Morton-interleaved,
+min-max norm ⇒ nibble prefix = quad-tree ancestry, the 4⁴ condition). The same
+key is six readings of one address, NOT six artifacts:
+
+- **location** = `tile()` decode (the address is the position);
+- **math** = `cascade_distance` = `3 − shared_prefix_tiers`, O(1) Morton
+  containment, zero value decode;
+- **representation** = `to_guid_tiers()` IS the canonical `(HEEL,HIP,TWIG)`;
+- **substrate** = three `u16` = the `NodeGuid` cascade tiers at bytes 4..10;
+  `morton48()` = the packed SoA key;
+- **learning + thinking** = the blackout epicentre is **prefix-local** — measured
+  mean cascade-distance **1.000 vs 2.561 random baseline** on the 3-region grid;
+  the footprint learns the basin tree and the cascade traverses the same key.
+
+This realizes `guid-prefix-shape-routing.md` §4 ("the key selects the grid") on a
+real perturbation domain. Honest fences: spectrally-symmetric buses (a clique)
+collide at the finest tier (degenerate eigenvectors — broken symmetry separates
+them in real grids); the locality number is a single-probe measurement (cite
+Jirak `n^(p/2−1)`, not IID, for any significance claim per I-NOISE-FLOOR-JIRAK);
+"topology IS the key" — these are electrical (spectral) coordinates, not geography.
+Ref: AGENT_LOG cont.³⁸, `perturbation-sim/src/cascade_key.rs` + `examples/spain_cascade.rs`.
 
 ## 2026-06-23 — E-CLASSRBAC-PROMOTED-TO-CONTRACT — the §11 trait-placement that lets ogar join the RBAC chain
 
