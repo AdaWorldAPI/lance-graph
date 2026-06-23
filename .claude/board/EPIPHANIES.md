@@ -1,3 +1,35 @@
+## 2026-06-23 — E-RBAC-AUTHORIZE-PROBE-GREEN — classid-keyed `authorize()` reproduces the shipped membrane gate bit-for-bit; keystone §5 promoted CONJECTURE→FINDING (for the in-repo reference)
+
+**Status:** FINDING (probe green, 2026-06-23). The OGAR `CLASSID-RBAC-KEYSTONE-SPEC.md`
+§10 names `PROBE-OGAR-RBAC-AUTHORIZE` as the gate that must pass before any consumer
+collapses onto classid-keyed authorization: the classid-keyed kernel must reproduce a
+reference system's decision **bit-for-bit**. Built against the in-repo reference (the
+shipped `lance_graph_rbac::policy::Policy::evaluate` — the "reconcile the shipped
+MembraneGate path with the keystone" framing of `ISS-RBAC-AUTHORIZE-BY-CLASSID`):
+
+- `lance-graph-rbac/src/authorize.rs` — `ClassRbac` trait (§4), `authorize(rbac, actor,
+  class: ClassId, op)` (§5 positive ∧ op-gate kernel), `ClassGrants` (`PermissionSpec`
+  **re-keyed by `ClassId`**, §11). The kernel mirrors the shipped deny reasons exactly
+  ("unknown role" / "insufficient read depth" / "predicate not writable" / "action not
+  allowed") so the comparison is bit-for-bit, not just allow/deny.
+- `probe_ogar_rbac_authorize` — 15-tuple corpus across all three SMB roles, all three op
+  kinds, the allow path, every distinct deny reason, the depth boundary, and the
+  unknown-actor path → all equal to `Policy::evaluate`. GREEN.
+- `probe_is_falsifiable_under_wrong_keying` — proves the gate is not vacuous: a wrong
+  classid flips an Allow, so the corpus genuinely tests the keying + kernel, not a
+  delegation.
+
+**Honest fence (what is NOT yet certified):** the shipped reference is positive
+role→permission only — no row-scope predicate, no field projection in the decision. So
+this gate certifies the §5 *positive ∧ op-gate* half and the §11 classid re-keying.
+The §5 stage-2 row-scope predicate and the projecting `Allow { scope, mask }` return
+remain keystone work; the stronger references (Odoo `ir.model.access ∧ ir.rule`,
+OpenFGA) exercise scope and are the follow-on probes. **Necessary, not yet sufficient**
+for the full keystone — but it is the step-4 reconciliation, and it unblocks the
+medcare #169 consumer-collapse (`authorize(actor, HealthcarePort::class_id("Patient"))`)
+against the positive-grant half. Trait promotion to `lance-graph-contract` (§11) and the
+scope-bearing references are the next deliverables.
+
 ## 2026-06-23 — E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC — an OGAR concept mint is NOT done until the lance-graph-contract mirror lands in the SAME arc
 
 **Status:** FINDING (cross-repo cascade, 2026-06-23). Minting the `0x0B`
