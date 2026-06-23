@@ -287,6 +287,13 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("billing_party", 0x0204),
     ("payment_record", 0x0205),
     ("currency_policy", 0x0206),
+    // Phase-3 mints per OGAR PR #111: both product.template / product.product
+    // and account.account / account.account.template converge on these two
+    // canonical concepts (same convergence pattern as account.move ↔ sale.order
+    // → commercial_document). Closes the cross-axis identity gap surfaced by
+    // odoo-rs PR #14.
+    ("product", 0x0207),
+    ("accounting_account", 0x0208),
     // ── 0x09XX — Health domain (MedCare; OGIT NTO/Healthcare promotion) ──
     ("patient", 0x0901),
     ("diagnosis", 0x0902),
