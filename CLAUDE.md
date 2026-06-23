@@ -1260,44 +1260,69 @@ All findings in `.claude/knowledge/session_autocomplete_cache.md`.
 611M SPO lookups/sec. 17K tokens/sec. 388 KB RAM. 100% information preservation.
 
 
-## CANON — Minimal SoA node + zero-fallback ladder (locked 2026-06-13)
+## CANON — Minimal SoA node + zero-fallback ladder (v2 3×16 tail; locked 2026-06-13, v1→v2 corrected 2026-06-23)
 
-> Operator-locked this session. Append-only. Wrapper `NodeGuid` (#480) is audited
-> against THIS, never the reverse. No RFC-9562 ceremony in the hot key.
+> Operator-owned. Wrapper `NodeGuid` (#480) is audited against THIS, never the
+> reverse. No RFC-9562 ceremony in the hot key.
+>
+> **v2 (3×16) is canonical; v1 (2×24) is DEPRECATED.** The old 24+24
+> family/identity tail was superseded by the uniform **3×16** (leaf/family/
+> identity) tail — see EPIPHANIES ("16+16+16 restores Morton-tile uniformity;
+> the 24+24 tail broke it") + plan `guid-v2-tail-per-family-codebook-v1.md`.
+> `NodeGuid::family()`/`identity()` (the u24 accessors) + `NodeGuid::new()` are
+> the LEGACY v1 path; all new code uses `new_v2` / `leaf()` / `family_v2()` /
+> `identity_v2()`. There is NO per-row version byte ("no version nibble"), so a
+> v1 reader on a v2 row reads garbage — every producer/reader pair MUST agree on
+> v2. Migration is INCOMPLETE: `canonical_node.rs`, `hhtl.rs`, and the q2 cockpit
+> (`osint_gotham.rs`) emit v2; `aiwar.rs`, `soa_graph.rs` (`project_snapshot`),
+> `action.rs`, `ocr.rs`, `lance-graph-callcenter`, `lance-graph-ogar`,
+> `lance-graph-ontology`, `symbiont` still build/read v1 → see TECH_DEBT.
 
 **Node = 4096 bit = 512 byte:** `key(16) | edges(16) | value(480)`.
 
-**Key (16 byte, little-endian):**
+**Key (16 byte, little-endian) — eight uniform u16 tiers:**
 ```
- 0..4   classid   (u32)   8 hex — prefix-routable; default 0x0000_0000
+ 0..2   classid_hi (u16)  ┐ classid (u32, 8 hex) — prefix-routable; default 0
+ 2..4   classid_lo (u16)  ┘
  4..6   HEEL      (u16)   ┐
- 6..8   HIP       (u16)   ├ 3 cascade tiers (HHTL path)
+ 6..8   HIP       (u16)   ├ HHTL cascade tiers
  8..10  TWIG      (u16)   ┘
-10..13  family    (u24)   ┐ trailing 6 bytes = basin-local key
-13..16  identity  (u24)   ┘ (masked load after the trie binds the prefix)
+10..12  leaf      (u16)   ← 4th HHTL tier (cascade terminal)
+12..14  family    (u16)   ← basin / episodic hub (the codebook selector)
+14..16  identity  (u16)   ← instance tier
 ```
-`local_key()` = bytes 10..16 (family ++ identity), the only discriminator once
-the prefix is resolved.
+Eight identical u16 tiers = one stacked Morton-tile pyramid (one kernel, one
+distance = common-prefix depth = HHTL hop, one 256×256-centroid codebook shape).
+`local_key()` = bytes 10..16 (leaf ++ family ++ identity), the basin-local key.
+**v1 (DEPRECATED):** family u24 @ 10..13, identity u24 @ 13..16 — the u24 tail is
+neither a clean Morton tile nor u16-aligned; do not extend it.
 
-**Edge block (16 byte):** 12 in-family + 4 out-of-family, one byte per slot.
-Canonical, NOT mandatory — always reserved (zeroed when unused), never shrunk; a
-class opting out of edges is resolved via `classid → ClassView`, never by a stride
+**Edge block (16 byte):** a FLAT 16×8-bit array of mixin-node adapters (the ≤16
+distinct relay basins this node connects through). The old **12+4** in-family/
+out-of-family split is WAIVED — `EdgeBlock` still names `in_family[12]` +
+`out_family[4]` for the 16 bytes, but treat them as one flat array; never
+special-case the split. Always reserved (zeroed when unused), never shrunk; a
+class opting out of edges is resolved via `classid → ClassView`, never a stride
 change.
 
 **Zero-fallback ladder (monotonic — zero = fall through to the broader default):**
 - `classid == 0x0000_0000` → default class, no prefix routing (dormant)
-- `family  == 0x00_0000`    → default basin, no neighborhood grouping (dormant)
-- ⇒ while both are zero, `identity` (24 bit) ALONE discriminates — the bootstrap
-  address. 16.7M identities per default basin; mint a non-zero family to expand.
+- `family  == 0x0000`       → default basin, no neighborhood grouping (dormant)
+- ⇒ while both are zero, `identity` (u16) ALONE discriminates — the bootstrap
+  address. 65 536 identities per default basin; mint a non-zero `family` (u16)
+  to expand into another 65 536 basins.
 
 **RESERVE, DON'T RECLAIM:** a zero tier means *not consulted*, never *compacted
-away*. classid(4B) and family(3B) keep fixed offsets so a non-zero mint later
-wakes routing/basin binding with ZERO `ENVELOPE_LAYOUT_VERSION` change. Mint path
-must `debug_assert` identity uniqueness while in the default basin.
+away*. classid (4B) and the leaf/family/identity tiers keep fixed offsets so a
+non-zero mint later wakes routing/basin binding with ZERO `ENVELOPE_LAYOUT_VERSION`
+change. Mint path must `debug_assert` identity uniqueness while in the default
+basin.
 
 **No UUID ceremony:** no version nibble, no variant bits, no namespace/kind. The
-dash-groups are the only semantics; the tail is plain `family|identity`.
+tiers are the only semantics; the tail is plain `leaf|family|identity`.
 
-Reference impl: `canonical_node.rs` (`NodeGuid` / `EdgeBlock` / `NodeRow`, with
+Reference impl: `canonical_node.rs` (`NodeGuid::new_v2` / `leaf` / `family_v2` /
+`identity_v2`; `EdgeBlock` / `NodeRow`; `GUID_TAIL_LAYOUT_VERSION_V2 = 2`; with
 `const _` size asserts at 16/16/512 and `is_default_class` / `is_unbasined` /
-`is_bootstrap_address` guards).
+`is_bootstrap_address` guards). v2 rationale: EPIPHANIES (Morton-tile uniformity)
++ plan `guid-v2-tail-per-family-codebook-v1.md`.
