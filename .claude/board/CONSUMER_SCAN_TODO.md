@@ -37,10 +37,16 @@ rg -n "ConceptDomain|canonical_concept_domain|class_ids::ALL|0x0[0-9A-F]{3}" --t
 ### Per-client status
 - [fixed] **lance-graph-contract** `ogar_codebook::CODEBOOK` — the one hand-maintained mirror. Synced to 43 (added 0x0B auth family). This is the only client that can structurally drift; guard it hardest.
 - [x] **openproject-nexgen-rs** `op-canon/src/class_ids.rs` — `pub use ogar_vocab::class_ids::*` re-export → cannot drift. CLEAN.
-- [ ] **MedCare-rs** — vendors `lance-graph-ogar` + `ogar-vocab` (git main); no local codebook copy expected. Confirm `medcare-rbac` / `medcare-bridge` inherit the Health set via the upstream gate, not a hand-list.
-- [ ] **smb-office-rs** — vendors lance-graph-contract; confirm no local codebook copy.
-- [ ] **woa-rs** — confirm `WoaPort`/membrane pulls classid via PortSpec, no local id table.
-- [ ] **q2 / ladybug-rs / crewai-rust / n8n-rs / rs-graph-llm** — confirm none carries a literal OGAR id table (most don't consume the codebook at all).
+- [x] **MedCare-rs** — SWEPT 2026-06-23 (workspace-wide id-table grep): no literal `0xDDCC`/`ConceptDomain` table in any `medcare-*` crate. Vendors `lance-graph-ogar` + `ogar-vocab` (git main); the Health set is inherited via the upstream gate, not a hand-list. CLEAN.
+- [x] **smb-office-rs** — SWEPT 2026-06-23: no local codebook copy; consumes via `lance-graph-contract`. CLEAN.
+- [x] **woa-rs** — SWEPT 2026-06-23: no literal id table; `WoaPort` pulls classid via PortSpec. CLEAN.
+- [x] **q2 / ladybug-rs / crewai-rust / n8n-rs / rs-graph-llm** — SWEPT 2026-06-23: none carries a literal OGAR id table (most don't consume the codebook at all). CLEAN.
+
+> **Sweep result (2026-06-23):** a workspace-wide grep for literal codebook id-tables
+> (`const … CODEBOOK`, `=> ConceptDomain::…`, `pub const … : u16 = 0xDD…`) returns
+> exactly TWO authoritative tables: `OGAR/ogar-vocab` (the source) and
+> `lance-graph-contract::ogar_codebook` (the mirror, now fused at 43). Every other
+> consumer re-exports or pulls via PortSpec. **Class-A drift surface = the one mirror.**
 
 ### Guard to add (prevents recurrence)
 - [ ] Any client that maintains its own concept list MUST either (a) `pub use ogar_vocab::class_ids::*`, or (b) add a `const _` COUNT_FUSE against `ogar_vocab::class_ids::ALL.len()`. Hand-lists with neither are the bug.
