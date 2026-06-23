@@ -64,18 +64,36 @@ const PERDURANT_SUFFIXES: &[&str] = &[
 ];
 
 /// Name suffixes indicating a Quality (attribute / classification / rate).
+///
+/// NOTE on `.groups` (plural): the canonical Odoo class is `res.groups`,
+/// which ends in `.groups` (plural), NOT `.group`. The bare `.group` rule
+/// alone misses `res.groups` despite the comment claiming to match it.
+/// Both forms are listed so plural-form Odoo classes are caught. Surfaced
+/// 2026-06-23 by cross-validation against `od_ontology::alignment` (see
+/// `.claude/board/EPIPHANIES.md § E-DOLCE-ODOO-SILENT-SUFFIX-DRIFT`).
 const QUALITY_SUFFIXES: &[&str] = &[
     ".tag",      // crm.tag, account.account.tag
     ".category", // product.category, res.partner.category
     ".type",     // account.account.type, sale.order.type
-    ".group",    // res.groups, account.tax.group
+    ".groups",   // res.groups (the canonical Odoo class — PLURAL)
+    ".group",    // account.tax.group, *.group (singular variants)
     ".tax",      // account.tax (it's a rate, a quality, not an event)
 ];
 
 /// Name suffixes indicating an AbstractEntity (reference / config / template).
+///
+/// NOTE on `.settings`: the canonical Odoo settings shape is
+/// `*.config.settings` (e.g. `res.config.settings`, `sale.config.settings`),
+/// which ends in `.settings`, NOT `.config`. The bare `.config` rule alone
+/// misses `*.config.settings` despite the comment claiming to match it.
+/// Both forms are listed so settings models are caught regardless of the
+/// trailing segment. Surfaced 2026-06-23 by cross-validation against
+/// `od_ontology::alignment` (see
+/// `.claude/board/EPIPHANIES.md § E-DOLCE-ODOO-SILENT-SUFFIX-DRIFT`).
 const ABSTRACT_SUFFIXES: &[&str] = &[
     ".template", // mail.template, account.chart.template
-    ".config",   // *.config.settings
+    ".settings", // *.config.settings (res.config.settings, sale.config.settings)
+    ".config",   // *.config (catches direct *.config models)
     ".policy",   // any *.policy
     ".rule",     // account.reconcile.model rules
     ".formula",  // hr.payroll.structure.line formulas
@@ -159,5 +177,56 @@ mod tests {
             classify_odoo("https://ada.world/onto/odoo#res.partner"),
             DolceCategory::Endurant
         );
+    }
+
+    // ─── Regression: silent suffix-rule drift caught by cross-validation ───
+    //
+    // The two assertions below would fail BEFORE the 2026-06-23 fix in this
+    // module that added `.groups` (plural) to QUALITY_SUFFIXES and `.settings`
+    // to ABSTRACT_SUFFIXES. The previous module-doc comments claimed to match
+    // `res.groups` (via `.group`) and `*.config.settings` (via `.config`) but
+    // the rules didn't actually catch those class names. See
+    // `.claude/board/EPIPHANIES.md § E-DOLCE-ODOO-SILENT-SUFFIX-DRIFT`.
+
+    #[test]
+    fn classifies_res_groups_as_quality_via_plural_suffix() {
+        // `res.groups` (plural) is the canonical Odoo class — `res.users`'s
+        // role/permission cohort. Must classify as Quality (a classification
+        // dimension), not get swept into the default (Endurant) bucket.
+        assert_eq!(classify_odoo("res.groups"), DolceCategory::Quality);
+        assert_eq!(classify_odoo("odoo:res.groups"), DolceCategory::Quality);
+    }
+
+    #[test]
+    fn classifies_config_settings_models_as_abstract_via_settings_suffix() {
+        // `*.config.settings` is the canonical Odoo settings shape — a
+        // configuration form, an AbstractEntity (rule/policy/template). The
+        // `.settings` suffix catches it; `.config` alone never matched it.
+        assert_eq!(
+            classify_odoo("res.config.settings"),
+            DolceCategory::AbstractEntity
+        );
+        assert_eq!(
+            classify_odoo("sale.config.settings"),
+            DolceCategory::AbstractEntity
+        );
+        assert_eq!(
+            classify_odoo("odoo:res.config.settings"),
+            DolceCategory::AbstractEntity
+        );
+    }
+
+    #[test]
+    fn singular_dot_group_still_matches_for_tax_group_style_classes() {
+        // Adding `.groups` must NOT accidentally drop the original `.group`
+        // singular match for `*.group` / `account.tax.group` / etc.
+        assert_eq!(classify_odoo("account.tax.group"), DolceCategory::Quality);
+    }
+
+    #[test]
+    fn singular_dot_config_still_matches_for_direct_config_classes() {
+        // Adding `.settings` must NOT drop the original `.config` match for
+        // direct `*.config` models.
+        assert_eq!(classify_odoo("crm.config"), DolceCategory::AbstractEntity);
     }
 }
