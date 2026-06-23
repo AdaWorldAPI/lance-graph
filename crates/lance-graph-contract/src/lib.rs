@@ -98,6 +98,7 @@ pub mod plan;
 pub mod property;
 pub mod proprioception;
 pub mod qualia;
+pub mod rbac;
 pub use qualia::{
     axis_index, axis_label, qualia_to_state, QualiaI4_16D, QualiaVector, AXIS_LABELS, MIDPOINT,
     QUALIA_DIMS, QUALIA_I4_DIMS, QUALIA_I4_LABELS, ZERO,

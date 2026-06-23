@@ -1,3 +1,33 @@
+## 2026-06-23 — E-CLASSRBAC-PROMOTED-TO-CONTRACT — the §11 trait-placement that lets ogar join the RBAC chain
+
+**Status:** FINDING (2026-06-23). The four-crate chain `contract ↔ rbac ↔ ogar ↔
+callcenter` had one structural gap: the keystone prescribes `impl ClassRbac for
+OgarClassView` (Q5), but `ClassRbac` lived in `lance-graph-rbac`, which
+`lance-graph-ogar` does NOT depend on (ogar deps contract only). So ogar could
+not satisfy the trait. Per keystone §11 ("`ClassRbac` trait in
+`lance-graph-contract`") the trait + the `Operation` its methods range over were
+promoted into a new `lance_graph_contract::rbac` module (pure types/trait;
+`Operation` reads the contract's own `PrefetchDepth`, zero rbac dep). rbac
+re-exports them so every existing path is unchanged.
+
+What stayed in rbac (deliberately, Q5 "rbac stays contract-tier"): the concrete
+`authorize()` kernel, `ClassGrants`, `Policy`, `AccessDecision`, and the `0x0B`
+auth membrane. Only the **trait surface** moved — the contract owns the *shape*,
+rbac owns the *impl*.
+
+Two prior-art discoveries the "consult before you guess" rule surfaced (and that
+this promotion deliberately did NOT duplicate): `contract::auth::ActorContext`
+already is the resolved-identity triple (actor + tenant + roles) that
+`rbac::auth::ResolvedIdentity` mirrors — converging them is a tracked follow-on;
+and `contract::external_membrane::MembraneGate` is the gate trait that *consults*
+`ClassRbac` (gate and grant-resolution compose, they don't duplicate).
+
+Consequence: `lance-graph-ogar` can now `impl ClassRbac for OgarClassView` — but a
+*meaningful* impl needs the §6 `project_role.granted` typed tenant (grant data the
+ClassView doesn't carry yet), so threading ogar concretely into the chain is the
+next, §6-gated step. The trait placement is the unblock. Cross-ref: LATEST_STATE
+2026-06-23 `contract::rbac`, OGAR keystone §11/Q5, E-RBAC-AUTHORIZE-PROBE-GREEN.
+
 ## 2026-06-23 — E-AUTH-CLASS-WIRED-TO-RBAC — the OGIT-imported 0x0B AuthStore family is now the membrane front-door of authorize()
 
 **Status:** FINDING (2026-06-23). The OGIT `NTO/Auth/Configuration` entity (arago's
