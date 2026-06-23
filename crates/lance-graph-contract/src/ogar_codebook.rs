@@ -54,7 +54,9 @@ pub enum ConceptDomain {
     Ocr,
     /// `0x09XX` — Health (clinical / patient / care; FMA anatomy lives here).
     Health,
-    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x0AXX`+).
+    /// `0x0BXX` — Auth (identity / authz: AuthStore, Zitadel, Zanzibar, Ory Keto).
+    Auth,
+    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x0AXX`, `0x0CXX`+).
     Unassigned,
 }
 
@@ -71,6 +73,7 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x07 => ConceptDomain::Osint,
         0x08 => ConceptDomain::Ocr,
         0x09 => ConceptDomain::Health,
+        0x0B => ConceptDomain::Auth,
         _ => ConceptDomain::Unassigned,
     }
 }
@@ -292,6 +295,11 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("treatment", 0x0905),
     ("visit", 0x0906),
     ("vital_sign", 0x0907),
+    // ── 0x0BXX — Auth domain (identity / authz; OGAR's 0x0B AuthStore family) ──
+    ("auth_store", 0x0B01),
+    ("auth_zitadel", 0x0B02),
+    ("auth_zanzibar", 0x0B03),
+    ("auth_ory_keto", 0x0B04),
 ];
 
 /// Resolve a **canonical-concept** string to its stable `u16` codebook id via
@@ -363,6 +371,7 @@ mod tests {
         assert_eq!(canonical_concept_domain(0x0700), ConceptDomain::Osint);
         assert_eq!(canonical_concept_domain(0x0801), ConceptDomain::Ocr);
         assert_eq!(canonical_concept_domain(0x0901), ConceptDomain::Health);
+        assert_eq!(canonical_concept_domain(0x0B01), ConceptDomain::Auth);
         assert_eq!(canonical_concept_domain(0x0500), ConceptDomain::Unassigned);
     }
 
@@ -417,6 +426,11 @@ mod tests {
         assert_eq!(canonical_concept_id("commercial_line_item"), Some(0x0201));
         assert_eq!(canonical_concept_id("commercial_document"), Some(0x0202));
         assert_eq!(canonical_concept_id("currency_policy"), Some(0x0206));
+        // 0x09XX Health + 0x0BXX Auth (OGAR #110 minted the AuthStore family).
+        assert_eq!(canonical_concept_id("patient"), Some(0x0901));
+        assert_eq!(canonical_concept_id("vital_sign"), Some(0x0907));
+        assert_eq!(canonical_concept_id("auth_store"), Some(0x0B01));
+        assert_eq!(canonical_concept_id("auth_ory_keto"), Some(0x0B04));
         assert_eq!(canonical_concept_id("not_a_concept"), None);
     }
 
