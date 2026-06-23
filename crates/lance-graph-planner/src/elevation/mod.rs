@@ -21,6 +21,7 @@ pub mod homeostasis;
 pub mod learning;
 pub mod operator;
 
+use lance_graph_contract::cognitive_shader::RungLevel;
 use std::time::{Duration, Instant};
 
 /// Execution level in the elevation stack.
@@ -87,6 +88,41 @@ impl ElevationLevel {
         Self::IvfBatch,
         Self::Async,
     ];
+
+    /// The **baseline** elevation a semantic [`RungLevel`] (the cognition-depth
+    /// "Flughöhe", 0..9) implies — the calibration between the two ladders.
+    ///
+    /// Two distinct axes meet here: the **Rung** is *how deep the thinking goes*
+    /// (`Surface` … `Transcendent`, the hot-path cognition altitude); the
+    /// **ElevationLevel** is *how much execution machinery the search spends*
+    /// (`Point` … `Async`). Deeper cognition needs more execution headroom, so the
+    /// map is **monotone non-decreasing** — but it is a *floor of ambition*, not a
+    /// fixed cost. The Csíkszentmihályi **Flow channel** tunes the actual spend
+    /// around this floor: [`homeostasis`] raises the patience budget under
+    /// `Boredom` (skill ≫ challenge → go deeper than the rung's floor) and cuts it
+    /// under `Anxiety` (challenge ≫ skill → cap below it). So `from_rung` sets
+    /// where the search *starts*; `should_elevate` + the flow-modulated budget
+    /// decide where it *ends*.
+    ///
+    /// | Rung (depth) | → Elevation (cost floor) | why |
+    /// |---|---|---|
+    /// | `Surface` / `Shallow` (0–1) | `Point` | literal / hot-path lookup |
+    /// | `Contextual` / `Analogical` (2–3) | `Scan` | local neighborhood |
+    /// | `Abstract` / `Structural` (4–5) | `Cascade` | CAM-PQ multi-stroke |
+    /// | `Counterfactual` (6) | `Batch` | scenario forks need a morsel pipeline |
+    /// | `Meta` (7) | `IvfBatch` | meta-search partitions the space |
+    /// | `Recursive` / `Transcendent` (8–9) | `Async` | unbounded depth → fire-and-forget |
+    #[must_use]
+    pub fn from_rung(rung: RungLevel) -> Self {
+        match rung {
+            RungLevel::Surface | RungLevel::Shallow => Self::Point,
+            RungLevel::Contextual | RungLevel::Analogical => Self::Scan,
+            RungLevel::Abstract | RungLevel::Structural => Self::Cascade,
+            RungLevel::Counterfactual => Self::Batch,
+            RungLevel::Meta => Self::IvfBatch,
+            RungLevel::Recursive | RungLevel::Transcendent => Self::Async,
+        }
+    }
 }
 
 impl std::fmt::Display for ElevationLevel {
@@ -152,6 +188,44 @@ mod tests {
         assert_eq!(ElevationLevel::Async.next(), ElevationLevel::Async);
         assert_eq!(ElevationLevel::Point.prev(), ElevationLevel::Point);
         assert_eq!(ElevationLevel::Batch.prev(), ElevationLevel::Cascade);
+    }
+
+    #[test]
+    fn from_rung_is_monotone_and_spans_the_ladder() {
+        // The Rung→Elevation calibration: deeper cognition ⇒ never-lower cost
+        // floor, and the two endpoints map to the two ladder ends.
+        let rungs = [
+            RungLevel::Surface,
+            RungLevel::Shallow,
+            RungLevel::Contextual,
+            RungLevel::Analogical,
+            RungLevel::Abstract,
+            RungLevel::Structural,
+            RungLevel::Counterfactual,
+            RungLevel::Meta,
+            RungLevel::Recursive,
+            RungLevel::Transcendent,
+        ];
+        let mut prev = ElevationLevel::Point;
+        for r in rungs {
+            let e = ElevationLevel::from_rung(r);
+            assert!(e >= prev, "from_rung must be monotone non-decreasing");
+            prev = e;
+        }
+        // Endpoints: Surface floors at the hot path, Transcendent at fire-and-forget.
+        assert_eq!(
+            ElevationLevel::from_rung(RungLevel::Surface),
+            ElevationLevel::Point
+        );
+        assert_eq!(
+            ElevationLevel::from_rung(RungLevel::Transcendent),
+            ElevationLevel::Async
+        );
+        // The counterfactual rung is the scenario-fork threshold → Batch.
+        assert_eq!(
+            ElevationLevel::from_rung(RungLevel::Counterfactual),
+            ElevationLevel::Batch
+        );
     }
 
     #[test]

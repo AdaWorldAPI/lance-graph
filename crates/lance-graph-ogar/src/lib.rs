@@ -82,6 +82,11 @@ pub use ogar_vocab::Class;
 //    which is OGIT and must not depend on ogar-vocab) ──
 pub mod bridges;
 
+// ── OGAR DO-arm provider: per-class ActionDef manifests with RBAC hardcoded
+//    into the class (the Türsteher). The action-axis sibling of OgarClassView. ──
+pub mod actions;
+pub use actions::OgarActionProvider;
+
 // Per-port bridge aliases (`MedcareBridge` / `OpenProjectBridge` /
 // `RedmineBridge` / `OdooBridge` / `SmbBridge` / `WoaBridge`) are
 // `#[deprecated]` (2026-06-22) — pull the classid via the corresponding
