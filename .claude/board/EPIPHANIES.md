@@ -1,3 +1,92 @@
+## 2026-06-23 — E-AUTH-CLASS-WIRED-TO-RBAC — the OGIT-imported 0x0B AuthStore family is now the membrane front-door of authorize()
+
+**Status:** FINDING (2026-06-23). The OGIT `NTO/Auth/Configuration` entity (arago's
+`auth_store`, 1:1 with OGAR `0x0B01`) is wired into `lance-graph-rbac` as the
+authorization membrane (keystone §7 / I-K7: the inner `authorize()` kernel never
+touches a token). `lance-graph-rbac/src/auth.rs`:
+
+- `AuthProvider` enum = the preminted `0x0B` family (`Store`/`Zitadel`/`Zanzibar`/
+  `OryKeto`); each variant's classid is resolved through the **zero-dep contract
+  mirror** (`contract::ogar_codebook::canonical_concept_id`) — one source, no
+  hardcoded `0x0B0N`, no `ogar-vocab` dep (BBB-safe).
+- `ClaimGrammar` per provider (subject/roles/tenant claim keys) — Zitadel's
+  project-roles URN, Zanzibar's user/relation/namespace tuple grammar, the
+  plain-OIDC base — the §7 "each profile carries its claim grammar as data".
+- `AuthProvider::resolve(sub, roles, tenant) -> ResolvedIdentity` — the §7 mapping
+  (`sub → actor`, `role-key → roles`, `org → tenant`/scope). `ResolvedIdentity` is
+  the ONLY thing that crosses inward; it feeds `authorize(rbac, &id.actor, class, op)`.
+- 4 tests incl. `resolved_identity_feeds_authorize` (membrane → kernel end-to-end)
+  and `provider_class_ids_resolve_through_the_contract_mirror` (pins the 0x0B family
+  to the codebook).
+
+Token *extraction* (JWT/JSON parse via `grammar()`) stays at the consumer membrane —
+no JWT/serde dep leaks into the rbac tier. The consumer maps IdP role strings → its
+own role set. Cross-ref: OGAR `CLASSID-RBAC-KEYSTONE-SPEC.md` §7, E-RBAC-AUTHORIZE-PROBE-GREEN.
+
+## 2026-06-23 — E-RBAC-AUTHORIZE-PROBE-GREEN — classid-keyed `authorize()` reproduces the shipped membrane gate bit-for-bit; keystone §5 promoted CONJECTURE→FINDING (for the in-repo reference)
+
+**Status:** FINDING (probe green, 2026-06-23). The OGAR `CLASSID-RBAC-KEYSTONE-SPEC.md`
+§10 names `PROBE-OGAR-RBAC-AUTHORIZE` as the gate that must pass before any consumer
+collapses onto classid-keyed authorization: the classid-keyed kernel must reproduce a
+reference system's decision **bit-for-bit**. Built against the in-repo reference (the
+shipped `lance_graph_rbac::policy::Policy::evaluate` — the "reconcile the shipped
+MembraneGate path with the keystone" framing of `ISS-RBAC-AUTHORIZE-BY-CLASSID`):
+
+- `lance-graph-rbac/src/authorize.rs` — `ClassRbac` trait (§4), `authorize(rbac, actor,
+  class: ClassId, op)` (§5 positive ∧ op-gate kernel), `ClassGrants` (`PermissionSpec`
+  **re-keyed by `ClassId`**, §11). The kernel mirrors the shipped deny reasons exactly
+  ("unknown role" / "insufficient read depth" / "predicate not writable" / "action not
+  allowed") so the comparison is bit-for-bit, not just allow/deny.
+- `probe_ogar_rbac_authorize` — 15-tuple corpus across all three SMB roles, all three op
+  kinds, the allow path, every distinct deny reason, the depth boundary, and the
+  unknown-actor path → all equal to `Policy::evaluate`. GREEN.
+- `probe_is_falsifiable_under_wrong_keying` — proves the gate is not vacuous: a wrong
+  classid flips an Allow, so the corpus genuinely tests the keying + kernel, not a
+  delegation.
+
+**Honest fence (what is NOT yet certified):** the shipped reference is positive
+role→permission only — no row-scope predicate, no field projection in the decision. So
+this gate certifies the §5 *positive ∧ op-gate* half and the §11 classid re-keying.
+The §5 stage-2 row-scope predicate and the projecting `Allow { scope, mask }` return
+remain keystone work; the stronger references (Odoo `ir.model.access ∧ ir.rule`,
+OpenFGA) exercise scope and are the follow-on probes. **Necessary, not yet sufficient**
+for the full keystone — but it is the step-4 reconciliation, and it unblocks the
+medcare #169 consumer-collapse (`authorize(actor, HealthcarePort::class_id("Patient"))`)
+against the positive-grant half. Trait promotion to `lance-graph-contract` (§11) and the
+scope-bearing references are the next deliverables.
+
+## 2026-06-23 — E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC — an OGAR concept mint is NOT done until the lance-graph-contract mirror lands in the SAME arc
+
+**Status:** FINDING (cross-repo cascade, 2026-06-23). Minting the `0x0B`
+AuthStore family in OGAR (`ogar-vocab` PR #110, merged to OGAR `main`) added 4
+concepts to `ogar_vocab::class_ids::ALL` (39 → 43). The `lance-graph-contract`
+zero-dep mirror (`ogar_codebook::CODEBOOK`) was NOT updated in the same arc, so
+the **compile-time `COUNT_FUSE`** in `lance-graph-ogar` (`assert!(mirror::CODEBOOK.len()
+== ogar_vocab::class_ids::ALL.len())`) fired `error[E0080]` in **every** lance-graph
+consumer that vendors the OGAR git dep — medcare CI went red on a `cargo build`,
+not just a test. The fuse did exactly its job; the gap was process.
+
+The lesson, promoted to a rule:
+
+1. **The codebook has TWO authoritative homes that move in lockstep.** OGAR
+   `ogar-vocab` (the source) and `lance-graph-contract::ogar_codebook` (the
+   zero-dep wire mirror). The `COUNT_FUSE` (compile-time) + `assert_codebook_parity`
+   (runtime, in `lance-graph-ogar`) bind them. A mint touches BOTH or it breaks
+   the build of everything downstream.
+2. **A mint is a cross-repo arc, not a single-repo PR.** The Definition-of-Done
+   for "mint concept X in OGAR" includes: (a) the OGAR `ogar-vocab` entry +
+   `ConceptDomain` variant + `canonical_concept_domain` arm; (b) the paired
+   `lance-graph-contract` mirror CODEBOOK rows + `ConceptDomain::X` variant +
+   `0xDD => X` arm; (c) the `lance-graph-ogar` `domains_agree` match arm (else the
+   runtime parity test panics); (d) the consumer coverage gates that inherit the
+   concept set (medcare's RLS fail-closed gate inherits the Health set this way —
+   a new Health concept becomes a fail-closed boot error, by design).
+3. **Fix landed here:** mirror CODEBOOK +4 auth rows (auth_store 0x0B01,
+   auth_zitadel 0x0B02, auth_zanzibar 0x0B03, auth_ory_keto 0x0B04),
+   `ConceptDomain::Auth`, `0x0B => Auth`, and the `domains_agree` `(O::Auth, C::Auth)`
+   arm — restoring 43 == 43. Confirmed by the OGIT Configuration ⊨ auth_store
+   convergence (arago's Jan-2026 bridge entity). See OGAR `docs/CLASSID-RBAC-KEYSTONE-SPEC.md`
+   §7 + OGAR `EPIPHANIES` for the mint provenance.
 ## 2026-06-23 — E-DOLCE-ODOO-SILENT-SUFFIX-DRIFT — two hydrator-side suffix rules silently failed their own comments; cross-validation against `od_ontology::alignment` caught it (odoo-rs PR #15)
 
 **Status:** FINDING (cross-validation result from a sibling repo). Two

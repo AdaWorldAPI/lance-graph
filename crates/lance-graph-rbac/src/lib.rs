@@ -8,6 +8,8 @@
 //! Depends only on `lance-graph-contract`.
 
 pub mod access;
+pub mod auth;
+pub mod authorize;
 pub mod permission;
 pub mod policy;
 pub mod role;
