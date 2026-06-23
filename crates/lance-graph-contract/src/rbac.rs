@@ -86,6 +86,114 @@ pub trait ClassRbac {
     fn grant_permits(&self, role: RoleId, class: ClassId, op: &Operation<'_>) -> bool;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §6 — the typed `granted` value-tenant (first-class replacement for
+// `project_role.permissions: text`).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The verb bitmask of a class-grant — the §3 axis-1 "verb × class" gate, one
+/// `u8`, palette-native (#511 `SoaMemberSpec`: a role's grants are low-tens, one
+/// column). Shaped after Odoo `ir.model.access`'s `perm_{read,write,create,unlink}`.
+///
+/// This is the **coarse verb gate** (§5 stage 1). It answers "may this role
+/// *read / write / act on* this class at all", not the finer "at what depth /
+/// which predicate / which action name" — those are the field-projection (axis 4)
+/// and row-scope (axis 3) refinements that layer *above* a passed verb gate. So
+/// [`OpMask::permits`] maps [`Operation::Read`] → the `READ` bit regardless of
+/// depth; a depth/predicate/action-name check is a separate, finer stage.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, PartialOrd, Ord, Hash)]
+pub struct OpMask(pub u8);
+
+impl OpMask {
+    /// May read the class (any depth).
+    pub const READ: OpMask = OpMask(1 << 0);
+    /// May write a predicate on the class.
+    pub const WRITE: OpMask = OpMask(1 << 1);
+    /// May create an instance (Odoo `perm_create`).
+    pub const CREATE: OpMask = OpMask(1 << 2);
+    /// May delete an instance (Odoo `perm_unlink`).
+    pub const DELETE: OpMask = OpMask(1 << 3);
+    /// May trigger a named action (the DO arm — `ActionDef` fire).
+    pub const ACT: OpMask = OpMask(1 << 4);
+
+    /// The empty mask — grants nothing (restrictive default-deny).
+    pub const NONE: OpMask = OpMask(0);
+
+    /// Union of two masks (grant composition; e.g. role-hierarchy fold).
+    #[inline]
+    #[must_use]
+    pub const fn union(self, other: OpMask) -> OpMask {
+        OpMask(self.0 | other.0)
+    }
+
+    /// Whether `self` carries every bit of `bits`.
+    #[inline]
+    #[must_use]
+    pub const fn contains(self, bits: OpMask) -> bool {
+        self.0 & bits.0 == bits.0
+    }
+
+    /// Whether this mask permits `op` — the verb gate. `Read` → `READ`,
+    /// `Write` → `WRITE`, `Act` → `ACT` (depth / predicate / action-name are
+    /// finer stages, not decided here).
+    #[inline]
+    #[must_use]
+    pub fn permits(self, op: &Operation<'_>) -> bool {
+        let bit = match op {
+            Operation::Read { .. } => OpMask::READ,
+            Operation::Write { .. } => OpMask::WRITE,
+            Operation::Act { .. } => OpMask::ACT,
+        };
+        self.contains(bit)
+    }
+}
+
+/// One typed class-grant tuple — `(target_classid: u16, op_mask: u8)`. The
+/// first-class, palette-native replacement for the `project_role.permissions:
+/// text` blob (keystone §6 / I-K0 registry axiom: "decisions key on `classid`,
+/// not on text"). A role's `granted` value-tenant is a `&[ClassGrant]`.
+///
+/// `target_classid` is the **low `u16` codebook id** (the shared-concept half of
+/// a [`NodeGuid`](crate::NodeGuid)'s `classid`) — the RBAC + ontology identity,
+/// app-render-skin-independent (the hi `u16` chooses render, never grants).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, PartialOrd, Ord, Hash)]
+pub struct ClassGrant {
+    /// The class this grant targets (low-`u16` codebook id).
+    pub target_classid: u16,
+    /// The verbs this grant permits on that class.
+    pub op_mask: OpMask,
+}
+
+impl ClassGrant {
+    /// Construct a grant.
+    #[inline]
+    #[must_use]
+    pub const fn new(target_classid: u16, op_mask: OpMask) -> Self {
+        Self {
+            target_classid,
+            op_mask,
+        }
+    }
+
+    /// Whether this grant permits `op` on `class`. Matches on the **low `u16`**
+    /// of `class` (the codebook id), so a grant authored against the shared
+    /// concept applies regardless of which app's render-skin (hi `u16`) the
+    /// `ClassId` carries.
+    #[inline]
+    #[must_use]
+    pub fn permits(&self, class: ClassId, op: &Operation<'_>) -> bool {
+        self.target_classid == (class as u16) && self.op_mask.permits(op)
+    }
+}
+
+/// Does any grant in a role's `granted` set permit `op` on `class`? The slice
+/// form of the §5 stage-1 positive op-gate — the body a typed [`ClassRbac`] impl
+/// uses for `grant_permits` (restrictive default-deny: empty ⇒ `false`).
+#[must_use]
+pub fn grants_permit(granted: &[ClassGrant], class: ClassId, op: &Operation<'_>) -> bool {
+    granted.iter().any(|g| g.permits(class, op))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,5 +232,85 @@ mod tests {
             }
         ));
         assert!(!rbac.grant_permits("reader", 0x0901, &Operation::Act { action: "x" }));
+    }
+
+    // ── §6 typed `granted` value-tenant ──
+
+    const PATIENT: ClassId = 0x0000_0901;
+
+    #[test]
+    fn opmask_permits_the_matching_verb_only() {
+        let rw = OpMask::READ.union(OpMask::WRITE);
+        assert!(rw.permits(&Operation::Read {
+            depth: PrefetchDepth::Full
+        }));
+        assert!(rw.permits(&Operation::Write { predicate: "x" }));
+        assert!(!rw.permits(&Operation::Act { action: "approve" }));
+        // contains is bit-subset
+        assert!(rw.contains(OpMask::READ));
+        assert!(!rw.contains(OpMask::ACT));
+        assert_eq!(OpMask::NONE, OpMask::default());
+    }
+
+    #[test]
+    fn class_grant_matches_on_low_u16_codebook_id() {
+        let grant = ClassGrant::new(0x0901, OpMask::READ.union(OpMask::ACT));
+        // Same concept, different app render-skin (hi u16) → still permitted:
+        // the grant keys on the shared-concept low u16, never the render half.
+        let app_a: ClassId = 0x0000_0901;
+        let app_b: ClassId = 0xAB12_0901;
+        let read = Operation::Read {
+            depth: PrefetchDepth::Identity,
+        };
+        assert!(grant.permits(app_a, &read));
+        assert!(grant.permits(app_b, &read));
+        // Wrong concept → denied even with the verb.
+        assert!(!grant.permits(0x0000_0902, &read));
+        // Right concept, ungranted verb → denied.
+        assert!(!grant.permits(app_a, &Operation::Write { predicate: "due" }));
+    }
+
+    /// A typed [`ClassRbac`] impl whose `grant_permits` body IS [`grants_permit`]
+    /// over a role's `granted` value-tenant — the §6 shape end-to-end, proving the
+    /// typed tenant replaces `permissions: text` with contract-only types.
+    struct TypedRoleGrants {
+        // physician → {READ+ACT on PATIENT}; cashier → {READ on PATIENT}
+        physician: [ClassGrant; 1],
+        cashier: [ClassGrant; 1],
+    }
+    impl ClassRbac for TypedRoleGrants {
+        fn actor_roles(&self, actor: ActorId<'_>) -> &[RoleId] {
+            match actor {
+                "dr-house" => &["physician"],
+                "betty" => &["cashier"],
+                _ => &[],
+            }
+        }
+        fn grant_permits(&self, role: RoleId, class: ClassId, op: &Operation<'_>) -> bool {
+            let granted: &[ClassGrant] = match role {
+                "physician" => &self.physician,
+                "cashier" => &self.cashier,
+                _ => &[],
+            };
+            grants_permit(granted, class, op)
+        }
+    }
+
+    #[test]
+    fn typed_granted_drives_grant_permits() {
+        let rbac = TypedRoleGrants {
+            physician: [ClassGrant::new(0x0901, OpMask::READ.union(OpMask::ACT))],
+            cashier: [ClassGrant::new(0x0901, OpMask::READ)],
+        };
+        let act = Operation::Act { action: "approve" };
+        // physician may act; cashier may not — restrictive default-deny.
+        assert!(rbac.grant_permits("physician", PATIENT, &act));
+        assert!(!rbac.grant_permits("cashier", PATIENT, &act));
+        // both may read
+        let read = Operation::Read {
+            depth: PrefetchDepth::Identity,
+        };
+        assert!(rbac.grant_permits("physician", PATIENT, &read));
+        assert!(rbac.grant_permits("cashier", PATIENT, &read));
     }
 }
