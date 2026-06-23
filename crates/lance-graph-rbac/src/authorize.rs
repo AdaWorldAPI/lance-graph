@@ -199,12 +199,18 @@ pub fn authorize_scoped(
     let mut mask = FieldMask::EMPTY;
     for &r in rbac.actor_roles(actor) {
         if rbac.grant_permits(r, class, &op) {
-            // restrictive-AND of row-scopes (a role with no scope = global).
-            let rs = rbac.row_scope(r, class).unwrap_or_default();
-            scope = Some(match scope {
-                None => rs,
-                Some(acc) => acc.intersect(rs),
-            });
+            // restrictive-AND of row-scopes. A role with NO scope is global —
+            // it must NOT narrow the fold, so we only intersect *concrete* `Some`
+            // scopes and leave `None` (the global sentinel) untouched. Folding a
+            // `None` in as `ScopeSpec::default()` would replace the "no restriction"
+            // sentinel with a materialized empty-tenant scope and force every
+            // consumer down the `Some` branch even when nothing restricts.
+            if let Some(rs) = rbac.row_scope(r, class) {
+                scope = Some(match scope {
+                    None => rs,
+                    Some(acc) => acc.intersect(rs),
+                });
+            }
             // union of field projections (a user sees any column any role permits).
             mask = mask.union(rbac.field_mask(r, class));
         }
@@ -241,10 +247,12 @@ mod scoped_tests {
                 "role_a" => Some(ScopeSpec {
                     tenant: Some(7),
                     predicate_key: 0,
+                    deny: false,
                 }),
                 "role_b" => Some(ScopeSpec {
                     tenant: None,
                     predicate_key: 2,
+                    deny: false,
                 }),
                 _ => None,
             }
@@ -267,10 +275,12 @@ mod scoped_tests {
         let expected_scope = ScopeSpec {
             tenant: Some(7),
             predicate_key: 0,
+            deny: false,
         }
         .intersect(ScopeSpec {
             tenant: None,
             predicate_key: 2,
+            deny: false,
         });
         assert_eq!(d.scope, Some(expected_scope));
         assert_eq!(d.scope.unwrap().tenant, Some(7));

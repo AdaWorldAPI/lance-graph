@@ -122,18 +122,25 @@ PR completes generically (provider-agnostic) so MARS plugs in unchanged later.
 
 **F1 — `contract/src/rbac.rs`:** Reuse `contract::class_view::FieldMask` (NOT a
 raw `u64` — it already exists, is zero-dep, and rbac's `PermissionSpec.projection`
-already uses it). Drop the `ScopeSpec` new type — use `row_scope(role, class) ->
-Option<TenantId>` reusing the existing auth tenant axis (`TenantId` from
-`contract::sla`). Drop the `RoleSet` newtype — `roles_reaching(&self, class) ->
-&[RoleId]` (default `&[]`). All three are **DEFAULT** methods (default
-`field_mask` = `FieldMask::FULL`, `row_scope` = `None`, `roles_reaching` = `&[]`)
-so `ClassGrants` + the green `PROBE-OGAR-RBAC-AUTHORIZE` compile/pass unchanged.
+already uses it). **Keep** the `ScopeSpec` newtype as the axis-3 row-scope token:
+`pub struct ScopeSpec { tenant: Option<u64>, predicate_key: u32, deny: bool }`
+(`Copy` POD, no interpreting methods; `tenant: None` = global, `deny: true` = the
+empty scope) — a dedicated token rather than a bare `Option<TenantId>` because the
+restrictive-AND fold needs a sound *conflict* value (two distinct tenants → empty,
+not "self wins") and a reserved `predicate_key`. Drop the `RoleSet` newtype —
+`roles_reaching(&self, class) -> &[RoleId]` (default `&[]`). All three are
+**DEFAULT** methods (default `field_mask` = `FieldMask::FULL`, `row_scope` =
+`None`, `roles_reaching` = `&[]`) so `ClassGrants` + the green
+`PROBE-OGAR-RBAC-AUTHORIZE` compile/pass unchanged.
 
 **F2 — `rbac/src/authorize.rs`:** `ScopedDecision { decision: AccessDecision,
-scope: Option<TenantId>, field_mask: FieldMask }` + `authorize_scoped(...)`. Stage-1
+scope: Option<ScopeSpec>, field_mask: FieldMask }` + `authorize_scoped(...)`. Stage-1
 REUSES `authorize()`. `AccessDecision` has **THREE** variants — `Allow`,
 `Deny{reason}`, `Escalate{reason}` — the stage-2 match MUST be exhaustive and
-short-circuit scope on ANY non-`Allow`. `authorize()` stays byte-unchanged.
+short-circuit scope on ANY non-`Allow`. The stage-2 fold intersects only
+*concrete* `Some` row-scopes (a `None`/global role never narrows the fold; it
+leaves the `None` sentinel intact), and `ScopeSpec::intersect` returns the empty
+scope (`deny`) on a two-tenant conflict. `authorize()` stays byte-unchanged.
 
 **F3 — `contract/src/action.rs`:** Add `commit_via<R: ClassRbac>(&mut self, def,
 rbac: &R, actor_id: ActorId<'_>, impact, guard_field_value, now) -> ActionState`.
@@ -194,7 +201,7 @@ on the old RBAC surface" half of gap #3. `dispatch` stays untouched.
 
 // F1 contract/src/rbac.rs — extend trait with DEFAULT methods (zero existing impl edited) + ScopeSpec
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub struct ScopeSpec { pub tenant: Option<u64>, pub predicate_key: u32 } // Copy POD, NO interpreting methods; predicate_key reserved (0 = tenant-only)
+pub struct ScopeSpec { pub tenant: Option<u64>, pub predicate_key: u32, pub deny: bool } // Copy POD, NO interpreting methods; tenant None=global, deny true=empty scope; predicate_key reserved (0 = tenant-only). intersect: distinct tenants => DENY (never self-wins); deny absorbing.
 // added to `trait ClassRbac` (ALL with default bodies):
 //   fn roles_reaching(&self, _class: ClassId) -> &[RoleId] { &[] }                 // axis-2 hook, default empty (CONJECTURE: not impl'd this PR)
 //   fn row_scope(&self, _role: RoleId, _class: ClassId) -> Option<ScopeSpec> { None } // axis-3, default global

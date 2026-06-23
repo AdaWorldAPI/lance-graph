@@ -44,26 +44,53 @@ pub struct ScopeSpec {
     /// Reserved predicate key (0 = tenant-only; non-zero reserved for future
     /// predicate-scoped row filters — do NOT interpret in this PR).
     pub predicate_key: u32,
+    /// The **empty** scope — `true` ⇒ no row is visible. This is the sound
+    /// representation of an irreconcilable [`intersect`](ScopeSpec::intersect):
+    /// when two granting roles bind DIFFERENT tenants, no row can satisfy both,
+    /// so the AND-fold is empty — NOT "one tenant arbitrarily wins" (which would
+    /// silently *widen* visibility to a tenant the other role never granted).
+    /// `deny` is absorbing: `deny ∩ anything = deny`. Default `false` (a fresh
+    /// scope denies nothing).
+    pub deny: bool,
 }
 
 impl ScopeSpec {
+    /// The empty scope — denies every row. The absorbing element of
+    /// [`intersect`](ScopeSpec::intersect).
+    pub const DENY: ScopeSpec = ScopeSpec {
+        tenant: None,
+        predicate_key: 0,
+        deny: true,
+    };
+
     /// Restrictive intersection of two scopes — the AND-fold `authorize_scoped`
     /// uses when a user holds several granting roles (each row must satisfy
     /// EVERY granting role's scope). `None` (global) ∩ x = x (the specific one
-    /// restricts). Two distinct tenants is a genuine conflict; `self` wins —
-    /// documented simplification, since full multi-tenant conflict resolution +
-    /// predicate composition is reserved for the §6 tenant work. `predicate_key`s
+    /// restricts). Two **distinct** tenants is a genuine conflict: no row lives
+    /// in both, so the result is the empty scope ([`ScopeSpec::DENY`]) — never
+    /// "self wins" (that would widen visibility to `self`'s tenant, which the
+    /// other granting role never authorized). `deny` is absorbing. `predicate_key`s
     /// are OR-combined (reserved; both keys apply once a consumer interprets them).
     #[inline]
     #[must_use]
     pub const fn intersect(self, other: Self) -> Self {
-        let tenant = match (self.tenant, other.tenant) {
-            (None, t) | (t, None) => t,
-            (Some(a), Some(_)) => Some(a),
-        };
-        Self {
-            tenant,
-            predicate_key: self.predicate_key | other.predicate_key,
+        if self.deny || other.deny {
+            return ScopeSpec::DENY;
+        }
+        let predicate_key = self.predicate_key | other.predicate_key;
+        match (self.tenant, other.tenant) {
+            (None, t) | (t, None) => Self {
+                tenant: t,
+                predicate_key,
+                deny: false,
+            },
+            (Some(a), Some(b)) if a == b => Self {
+                tenant: Some(a),
+                predicate_key,
+                deny: false,
+            },
+            // Distinct tenants: empty intersection — no row satisfies both.
+            (Some(_), Some(_)) => ScopeSpec::DENY,
         }
     }
 }
@@ -409,6 +436,7 @@ mod tests {
             Some(ScopeSpec {
                 tenant: Some(42),
                 predicate_key: 0,
+                deny: false,
             })
         }
         fn field_mask(&self, _role: RoleId, _class: ClassId) -> FieldMask {
@@ -428,19 +456,30 @@ mod tests {
 
     #[test]
     fn scope_intersect_is_restrictive() {
-        let global = ScopeSpec::default(); // tenant None
+        let global = ScopeSpec::default(); // tenant None, denies nothing
         let t1 = ScopeSpec {
             tenant: Some(1),
             predicate_key: 0,
+            deny: false,
         };
         let t2 = ScopeSpec {
             tenant: Some(2),
             predicate_key: 0,
+            deny: false,
         };
         // global ∩ specific = specific (the specific one restricts)
         assert_eq!(global.intersect(t1).tenant, Some(1));
+        assert!(!global.intersect(t1).deny);
         assert_eq!(t1.intersect(global).tenant, Some(1));
-        // distinct tenants: self wins (documented simplification)
-        assert_eq!(t1.intersect(t2).tenant, Some(1));
+        // same tenant ∩ itself = itself (still visible)
+        assert_eq!(t1.intersect(t1).tenant, Some(1));
+        assert!(!t1.intersect(t1).deny);
+        // distinct tenants: EMPTY intersection (deny), never "self wins" —
+        // self-wins would widen visibility to tenant 1 that t2 never granted.
+        assert!(t1.intersect(t2).deny);
+        assert_eq!(t1.intersect(t2), ScopeSpec::DENY);
+        // deny is absorbing
+        assert!(ScopeSpec::DENY.intersect(t1).deny);
+        assert!(t1.intersect(ScopeSpec::DENY).deny);
     }
 }

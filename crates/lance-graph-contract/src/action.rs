@@ -344,15 +344,16 @@ impl ActionInvocation {
             return self.state;
         }
         // RBAC — resolve `ok` to bool BEFORE mutating `self.state` (borrow hygiene).
-        if def.required_role.is_some() {
+        if let Some(required_role) = def.required_role {
             let ok = rbac.actor_roles(actor_id).iter().any(|&r| {
-                rbac.grant_permits(
-                    r,
-                    def.object_class,
-                    &Operation::Act {
-                        action: def.predicate,
-                    },
-                )
+                r == required_role
+                    && rbac.grant_permits(
+                        r,
+                        def.object_class,
+                        &Operation::Act {
+                            action: def.predicate,
+                        },
+                    )
             });
             if !ok {
                 self.state = ActionState::Failed;
