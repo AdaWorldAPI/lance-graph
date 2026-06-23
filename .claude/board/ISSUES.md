@@ -1,5 +1,11 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-06-23 — ISS-OGAR-AUTH-MIRROR-DRIFT — `0x0B` AuthStore mint broke the contract mirror's COUNT_FUSE in every consumer
+
+**Status:** RESOLVED 2026-06-23 (this commit). OGAR `ogar-vocab` PR #110 minted the `0x0B` AuthStore family (4 concepts: auth_store 0x0B01, auth_zitadel 0x0B02, auth_zanzibar 0x0B03, auth_ory_keto 0x0B04) and merged to OGAR `main`, taking `ogar_vocab::class_ids::ALL` from 39 → 43. The paired `lance-graph-contract::ogar_codebook::CODEBOOK` mirror was NOT updated in the same arc, so the compile-time `COUNT_FUSE` in `lance-graph-ogar` (`assert!(mirror::CODEBOOK.len() == ogar_vocab::class_ids::ALL.len())`) fired `error[E0080]` (`vendor/lance-graph/crates/lance-graph-ogar/src/lib.rs:113`) in **every** consumer vendoring the OGAR git dep — medcare CI went red on `cargo build`. **Resolution:** added the 4 auth rows + `ConceptDomain::Auth` + `0x0B => Auth` to the mirror, and the `(O::Auth, C::Auth)` arm to `lance-graph-ogar::parity::domains_agree` (else the runtime `assert_codebook_parity` test panics). 43 == 43 restored; `cargo test -p lance-graph-contract` green. **Process fix (see EPIPHANIES E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC):** an OGAR concept mint is a cross-repo arc — the OGAR entry + the contract mirror + the `domains_agree` arm land together, never split across sessions.
+
+---
+
 ## 2026-06-20 — F64-TENANT-VS-F32-ENERGY — perturbation f64 narrows to the F32 `Energy` tenant; a true-f64 tenant is a canon EXTENSION (operator decision)
 
 **Status:** RESOLVED 2026-06-20 (operator) — **NOT F64.** F32 is the fast NaN-hunt tenant (half of f64; NaN test is one integer exponent mask). The compute tenant pivots to **BF16 + AMX** (operator: "use BF16 and add_mul where possible and use amx"); the perturbation/Spain workload is deprioritised in favour of a BF16 4×4-Morton-tile Domino POC. No F64 canon extension. Cross-ref: AGENT_LOG BF16/AMX pivot.

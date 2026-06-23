@@ -1,3 +1,36 @@
+## 2026-06-23 — E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC — an OGAR concept mint is NOT done until the lance-graph-contract mirror lands in the SAME arc
+
+**Status:** FINDING (cross-repo cascade, 2026-06-23). Minting the `0x0B`
+AuthStore family in OGAR (`ogar-vocab` PR #110, merged to OGAR `main`) added 4
+concepts to `ogar_vocab::class_ids::ALL` (39 → 43). The `lance-graph-contract`
+zero-dep mirror (`ogar_codebook::CODEBOOK`) was NOT updated in the same arc, so
+the **compile-time `COUNT_FUSE`** in `lance-graph-ogar` (`assert!(mirror::CODEBOOK.len()
+== ogar_vocab::class_ids::ALL.len())`) fired `error[E0080]` in **every** lance-graph
+consumer that vendors the OGAR git dep — medcare CI went red on a `cargo build`,
+not just a test. The fuse did exactly its job; the gap was process.
+
+The lesson, promoted to a rule:
+
+1. **The codebook has TWO authoritative homes that move in lockstep.** OGAR
+   `ogar-vocab` (the source) and `lance-graph-contract::ogar_codebook` (the
+   zero-dep wire mirror). The `COUNT_FUSE` (compile-time) + `assert_codebook_parity`
+   (runtime, in `lance-graph-ogar`) bind them. A mint touches BOTH or it breaks
+   the build of everything downstream.
+2. **A mint is a cross-repo arc, not a single-repo PR.** The Definition-of-Done
+   for "mint concept X in OGAR" includes: (a) the OGAR `ogar-vocab` entry +
+   `ConceptDomain` variant + `canonical_concept_domain` arm; (b) the paired
+   `lance-graph-contract` mirror CODEBOOK rows + `ConceptDomain::X` variant +
+   `0xDD => X` arm; (c) the `lance-graph-ogar` `domains_agree` match arm (else the
+   runtime parity test panics); (d) the consumer coverage gates that inherit the
+   concept set (medcare's RLS fail-closed gate inherits the Health set this way —
+   a new Health concept becomes a fail-closed boot error, by design).
+3. **Fix landed here:** mirror CODEBOOK +4 auth rows (auth_store 0x0B01,
+   auth_zitadel 0x0B02, auth_zanzibar 0x0B03, auth_ory_keto 0x0B04),
+   `ConceptDomain::Auth`, `0x0B => Auth`, and the `domains_agree` `(O::Auth, C::Auth)`
+   arm — restoring 43 == 43. Confirmed by the OGIT Configuration ⊨ auth_store
+   convergence (arago's Jan-2026 bridge entity). See OGAR `docs/CLASSID-RBAC-KEYSTONE-SPEC.md`
+   §7 + OGAR `EPIPHANIES` for the mint provenance.
+
 ## 2026-06-21 — E-EQUIVALENCE-IS-THE-CRUX — template-equivalence is the load-bearing verifier of the whole loop; it MUST fail closed, and it rides on transparent Lance versioning (surrealdb #50)
 
 **Status:** FINDING (cross-session feedback, 2026-06-21). Reframing that
