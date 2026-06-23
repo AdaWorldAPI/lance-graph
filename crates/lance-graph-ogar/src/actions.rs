@@ -166,7 +166,21 @@ impl OgarActionProvider {
     #[must_use]
     pub fn effective_actions(&self, classid: u32) -> Vec<ActionDef> {
         match self.parent_of(classid) {
-            Some(parent) => effective_actions(self.actions_for(parent), self.actions_for(classid)),
+            Some(parent) => {
+                let mut actions =
+                    effective_actions(self.actions_for(parent), self.actions_for(classid));
+                // Rebind every effective action to THIS class. Inherited parent
+                // actions carry the parent's `object_class`; left unchanged, the
+                // `commit` def-match (`def.object_class == inv.object_class`,
+                // contract::action) would reject them for a child instance BEFORE
+                // RBAC — the inherited action would be advertised but uncommittable
+                // for the child. The child's own actions already carry `classid`,
+                // so the rebind is idempotent for them.
+                for a in &mut actions {
+                    a.object_class = classid;
+                }
+                actions
+            }
             None => self.actions_for(classid).to_vec(),
         }
     }
@@ -232,6 +246,12 @@ mod tests {
         assert_eq!(issue.exec, ExecTarget::Elixir);
         assert_eq!(issue.required_role, Some(ROLE_AUTH_USER));
         assert!(issue.is_override());
+        // Every effective action — inherited ones included — must carry the
+        // CHILD classid, else commit's def-match rejects it before RBAC.
+        assert!(
+            eff.iter().all(|a| a.object_class == AUTH_ZITADEL_CID),
+            "effective child actions must commit against the child classid"
+        );
     }
 
     #[test]
