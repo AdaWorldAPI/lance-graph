@@ -1,3 +1,28 @@
+## 2026-06-23 — E-AUTH-CLASS-WIRED-TO-RBAC — the OGIT-imported 0x0B AuthStore family is now the membrane front-door of authorize()
+
+**Status:** FINDING (2026-06-23). The OGIT `NTO/Auth/Configuration` entity (arago's
+`auth_store`, 1:1 with OGAR `0x0B01`) is wired into `lance-graph-rbac` as the
+authorization membrane (keystone §7 / I-K7: the inner `authorize()` kernel never
+touches a token). `lance-graph-rbac/src/auth.rs`:
+
+- `AuthProvider` enum = the preminted `0x0B` family (`Store`/`Zitadel`/`Zanzibar`/
+  `OryKeto`); each variant's classid is resolved through the **zero-dep contract
+  mirror** (`contract::ogar_codebook::canonical_concept_id`) — one source, no
+  hardcoded `0x0B0N`, no `ogar-vocab` dep (BBB-safe).
+- `ClaimGrammar` per provider (subject/roles/tenant claim keys) — Zitadel's
+  project-roles URN, Zanzibar's user/relation/namespace tuple grammar, the
+  plain-OIDC base — the §7 "each profile carries its claim grammar as data".
+- `AuthProvider::resolve(sub, roles, tenant) -> ResolvedIdentity` — the §7 mapping
+  (`sub → actor`, `role-key → roles`, `org → tenant`/scope). `ResolvedIdentity` is
+  the ONLY thing that crosses inward; it feeds `authorize(rbac, &id.actor, class, op)`.
+- 4 tests incl. `resolved_identity_feeds_authorize` (membrane → kernel end-to-end)
+  and `provider_class_ids_resolve_through_the_contract_mirror` (pins the 0x0B family
+  to the codebook).
+
+Token *extraction* (JWT/JSON parse via `grammar()`) stays at the consumer membrane —
+no JWT/serde dep leaks into the rbac tier. The consumer maps IdP role strings → its
+own role set. Cross-ref: OGAR `CLASSID-RBAC-KEYSTONE-SPEC.md` §7, E-RBAC-AUTHORIZE-PROBE-GREEN.
+
 ## 2026-06-23 — E-RBAC-AUTHORIZE-PROBE-GREEN — classid-keyed `authorize()` reproduces the shipped membrane gate bit-for-bit; keystone §5 promoted CONJECTURE→FINDING (for the in-repo reference)
 
 **Status:** FINDING (probe green, 2026-06-23). The OGAR `CLASSID-RBAC-KEYSTONE-SPEC.md`
