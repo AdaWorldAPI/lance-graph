@@ -1,3 +1,17 @@
+## 2026-06-23 — integration-actionhandler-rbac-orchestration-v1 (PLAN; shipped)
+
+Plan: `.claude/plans/integration-actionhandler-rbac-orchestration-v1.md`. The
+ActionHandler⟷RBAC⟷orchestration spine, 5+3-hardened then built one-Sonnet-agent-
+per-file (commented drafts → Opus uncomment+reconcile+central compile). Six files:
+F1 `contract::rbac` §4 trait (`roles_reaching`/`row_scope`/`field_mask` defaults +
+`ScopeSpec`), F2 `rbac::authorize_scoped`+`ScopedDecision` (§5 two-stage), F3
+`ActionInvocation::commit_via` (ClassRbac convergence of the inline gate), F4
+`lance-graph-ogar::OgarRbac<S: GrantSource>` (Q5 as a local newtype — orphan-safe +
+§6 evaporation seam), F5 `graph-flow-kanban::run_cycle` (end-to-end spine), F6
+`graph-flow-action::dispatch_via` (executor-side convergence). DEFERRED (OGAR repo):
+MARS class mint + `gen_statem→ActionDef` lift (the three `ogar-from-elixir` todo!()s).
+contract 735 / rbac 23 / ogar 3 / kanban 12 / action 11 green; clippy+fmt clean.
+
 ## 2026-06-21 — capstone-out-leg-wiring-v1 (PLAN)
 
 Plan: `.claude/plans/capstone-out-leg-wiring-v1.md`. The file-level execution

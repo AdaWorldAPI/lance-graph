@@ -134,6 +134,15 @@ impl FieldMask {
         Self(self.0 & other.0)
     }
 
+    /// Bitwise union — the field positions present in EITHER mask. The fold an
+    /// RBAC kernel uses to combine the projections a user's several granting
+    /// roles each permit (a user sees the union of the columns any of their
+    /// roles may see).
+    #[inline]
+    pub const fn union(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+
     /// Do the two masks share NO field position? RBAC uses this to assert
     /// two roles project **distinct** views of the same class — e.g. a
     /// research projection must be disjoint from the identifier fields
