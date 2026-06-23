@@ -64,7 +64,10 @@ pub mod actors;
 pub mod kanban_actor;
 
 #[cfg(feature = "supervisor")]
-pub use kanban_actor::{KanbanActor, KanbanMsg};
+pub use kanban_actor::{
+    deliver_kanban_step, drive_mul_advance, drive_scheduled_tick, drive_version_tick,
+    run_to_absorbing, KanbanActor, KanbanMsg, KanbanRouteError,
+};
 
 #[cfg(feature = "supervisor")]
 pub use supervisor::{
