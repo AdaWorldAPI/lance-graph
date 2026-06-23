@@ -15,6 +15,11 @@
 //! catches any cross-namespace leak before it reaches Spear's columnar
 //! schema.
 
+// This module IS the deprecated `SpearBridge`'s implementation; its own
+// impl blocks reference the deprecated struct intentionally. Consumers in
+// other crates still get the warning. See docs/CONSUMER-BRIDGE-DEPRECATION.md.
+#![allow(deprecated)]
+
 use crate::bridge::{BridgeFromRegistry, NamespaceBridge};
 use crate::error::{Error, Result};
 use crate::namespace::NamespaceId;

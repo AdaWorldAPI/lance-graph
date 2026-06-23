@@ -62,6 +62,54 @@ The lesson, promoted to a rule:
    arm — restoring 43 == 43. Confirmed by the OGIT Configuration ⊨ auth_store
    convergence (arago's Jan-2026 bridge entity). See OGAR `docs/CLASSID-RBAC-KEYSTONE-SPEC.md`
    §7 + OGAR `EPIPHANIES` for the mint provenance.
+## 2026-06-23 — E-DOLCE-ODOO-SILENT-SUFFIX-DRIFT — two hydrator-side suffix rules silently failed their own comments; cross-validation against `od_ontology::alignment` caught it (odoo-rs PR #15)
+
+**Status:** FINDING (cross-validation result from a sibling repo). Two
+`lance_graph_ontology::hydrators::dolce_odoo` suffix rules carried module-doc
+comments claiming to match canonical Odoo classes, but the rules as written
+DID NOT actually match those classes:
+
+| Suffix rule | Comment claimed to match | What it actually matched | Canonical Odoo class |
+|---|---|---|---|
+| `.group` | `res.groups`, `account.tax.group` | only `account.tax.group` | `res.groups` (PLURAL) was silently missed |
+| `.config` | `*.config.settings` | only `*.config` direct models | `res.config.settings`, `sale.config.settings` were silently missed |
+
+The hydrator's own tests didn't catch either bug — they tested
+`account.move`/`res.partner` (covered by other rules) and never asserted the
+class names the comments claimed.
+
+**How it was caught.** `odoo-rs` PR #14 pulled the alignment table into
+`od_ontology::alignment` and added cross-validation pins; PR #15 enriched the
+classifier by pulling from this hydrator and added test cases for
+`res.groups` and `res.config.settings`, both of which then failed against the
+original rules. The fix added `.groups` (plural) to `QUALITY_SUFFIXES` and
+`.settings` to `ABSTRACT_SUFFIXES` while keeping the singular `.group` /
+`.config` for the cases they always caught. Module-doc comments now record
+the convention explicitly.
+
+**Two-classifier disagreement context.** lance-graph hosts **two** DOLCE
+classifiers for Odoo: this one (`ontology::hydrators::dolce_odoo`) and
+`callcenter::odoo_alignment::dolce_odoo`. They disagree on `.tax` (Quality vs
+Abstract), `.template` resolution (special-cased vs swept), `hr.*` default,
+and the unmatched-default behavior (Endurant vs Unknown). odoo-rs PR #15
+documented the full reconciliation table in `crates/od-ontology/src/alignment.rs`
+§ "Two-classifier disagreement". This finding scopes only to the silent
+suffix-rule drift; the broader two-classifier reconciliation is a Phase-3
+OGAR-side decision (cross-ref `od_ontology::specs/REPATRIATION-FRAME.md`
+Phase 3).
+
+**Action shipped:**
+- `crates/lance-graph-ontology/src/hydrators/dolce_odoo.rs`: added `.groups`
+  to `QUALITY_SUFFIXES`, `.settings` to `ABSTRACT_SUFFIXES`, module-doc
+  notes record the rationale.
+- Four new regression tests pin: `res.groups` → Quality, `*.config.settings`
+  → AbstractEntity, plus the additive guards that the original singular
+  rules still match.
+
+**Source-of-finding:**
+[odoo-rs PR #15](https://github.com/AdaWorldAPI/odoo-rs/pull/15) +
+[odoo-rs PR #16](https://github.com/AdaWorldAPI/odoo-rs/pull/16)
+(repatriation-frame citations).
 
 ## 2026-06-21 — E-EQUIVALENCE-IS-THE-CRUX — template-equivalence is the load-bearing verifier of the whole loop; it MUST fail closed, and it rides on transparent Lance versioning (surrealdb #50)
 

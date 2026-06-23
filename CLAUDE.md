@@ -1065,6 +1065,7 @@ SIBLING REPOS:
 .claude/knowledge/autoattended-multiagent-pattern.md — MANDATORY before planning a wave with ≥4 parallel workers; 4-savant taxonomy (PP-13/14/15/16), worker iron rules, atomic-consolidation pass
 .claude/knowledge/ndarray-vertical-simd-alien-magic.md — MANDATORY before writing SIMD code in any consumer crate OR filing a PR against `adaworldapi/ndarray` `src/simd_*`; canonical reference for the wave W1a (5 ndarray primitives) + W1b (5 consumer migrations) + W1.5 (3 sigker primitives, gated on jc Pillar 11) plan
 .claude/knowledge/core-first-transcode-doctrine.md — MANDATORY before any C++→Rust transcode / codegen / AST-DLL / "port Tesseract" / DO-adapter work; the Core-first inversion (a generated layer is only as clean as the OGAR Core it targets) + the OGAR movable-parts assume-contract + the unicharset adapter-parity falsifier. Carried by the core-first-architect / adapter-shaper / core-gap-auditor ensemble.
+.claude/knowledge/ogar-consumer-preflight.md     — MANDATORY before any consumer (woa-rs/medcare-rs/smb-office-rs) classid/bridge/codebook work; the consumer-side spellbook (pull via *Port::class_id / contract::ogar_codebook::canonical_concept_id; NEVER construct a *Bridge or copy the codebook). Inverse of OGAR's SURREAL-AST-TRAP-PREFLIGHT; operational mirror of docs/CONSUMER-BRIDGE-DEPRECATION.md (#589/#590).
 .claude/CALIBRATION_STATUS_GROUND_TRUTH.md       — OVERRIDE: read BEFORE any SESSION_*.md
 .claude/PLAN_BF16_DISTANCE_TABLES.md             — 5-phase plan for BF16 distance tables
 .claude/TECHNICAL_DEBT_SIGNED_SESSION.md          — 56% useful, 44% bypass (honest review)
@@ -1107,6 +1108,17 @@ to raw-pointer hand-port — Frankenstein flattening guard). Holds for
 mechanical/data-shaped leaf methods only; CONJECTURE until
 `PROBE-OGAR-ADAPTER-UNICHARSET` runs byte-parity green. Carried by the
 `core-first-architect` / `adapter-shaper` / `core-gap-auditor` ensemble.
+
+**Best practice (consumer-side): `.claude/knowledge/ogar-consumer-preflight.md`
+is the consumer mirror of OGAR's SurrealQL-AST trap.** Read it BEFORE any consumer
+crate (woa-rs / medcare-rs / smb-office-rs) pulls a classid, migrates off a
+`*Bridge`, or touches the OGAR codebook. The consumer trap is the *inverse* of the
+producer trap: re-implementing the Core locally — a `*Bridge` construction, a local
+`*_CODEBOOK` copy, a parallel registry — instead of pulling via
+`*Port::class_id` (spine) / `contract::ogar_codebook::canonical_concept_id`
+(membrane, BBB-safe), then stamping the OGAR#95 app prefix. Five questions, 90
+seconds. Carried by `integration-lead` / `baton-handoff-auditor` /
+`core-first-architect`.
 
 Every `.claude/knowledge/` document has a `READ BY:` header listing which agents
 MUST load it before producing output in that domain. When a knowledge trigger fires

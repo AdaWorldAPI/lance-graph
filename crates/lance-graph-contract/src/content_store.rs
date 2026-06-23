@@ -88,7 +88,11 @@ impl SourceSpan {
     /// New span; `end` is clamped to be `>= start`.
     #[must_use]
     pub fn new(content: ContentId, start: u32, end: u32) -> Self {
-        Self { content, start, end: end.max(start) }
+        Self {
+            content,
+            start,
+            end: end.max(start),
+        }
     }
 
     /// Span length in bytes. Saturating: a malformed span (`end < start`, only
@@ -226,7 +230,10 @@ mod tests {
     fn out_of_bounds_and_missing_fail() {
         let mut s = MemStore::default();
         let id = s.put_str("short");
-        assert_eq!(s.resolve_span(SourceSpan::new(id, 0, 999)), Err(ContentError::SpanOutOfBounds));
+        assert_eq!(
+            s.resolve_span(SourceSpan::new(id, 0, 999)),
+            Err(ContentError::SpanOutOfBounds)
+        );
         assert_eq!(
             s.resolve_span(SourceSpan::new(ContentId(123), 0, 1)),
             Err(ContentError::NotFound)
@@ -245,7 +252,11 @@ mod tests {
     fn malformed_span_len_saturates_not_panics() {
         // Public fields let a consumer build end < start, bypassing new()'s clamp.
         // len() must saturate to 0 (consistent with is_empty), never panic/wrap.
-        let bad = SourceSpan { content: ContentId(7), start: 13, end: 0 };
+        let bad = SourceSpan {
+            content: ContentId(7),
+            start: 13,
+            end: 0,
+        };
         assert_eq!(bad.len(), 0);
         assert!(bad.is_empty());
         assert!(!bad.is_cited());
