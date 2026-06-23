@@ -43,6 +43,8 @@
 use crate::access::AccessDecision;
 use crate::permission::PermissionSpec;
 use crate::policy::Operation;
+use lance_graph_contract::class_view::FieldMask;
+use lance_graph_contract::rbac::ScopeSpec;
 
 // `ClassId` / `ActorId` / `RoleId` / `ClassRbac` were promoted to
 // `lance_graph_contract::rbac` (keystone §11) so `lance-graph-ogar`'s
@@ -150,6 +152,163 @@ impl ClassRbac for ClassGrants {
             Operation::Write { predicate } => g.can_write(predicate),
             Operation::Act { action } => g.can_act(action),
         }
+    }
+}
+
+/// The §5 two-stage authorization result — the positive∧op-gate decision PLUS
+/// the row-scope (axis-3) and field-projection (axis-4) a granted read carries.
+/// `Allow` carries `scope`+`field_mask`; a non-`Allow` carries `None`/`FULL`
+/// (scope is irrelevant when access is refused).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScopedDecision {
+    /// The stage-1 positive∧op-gate verdict (unchanged from [`authorize`]).
+    pub decision: AccessDecision,
+    /// Axis-3 row-scope — the restrictive-AND of every granting role's
+    /// [`ScopeSpec`]. `None` ⇒ global (no row restriction).
+    pub scope: Option<ScopeSpec>,
+    /// Axis-4 field projection — the union of every granting role's
+    /// [`FieldMask`]. `FieldMask::FULL` on a refused decision.
+    pub field_mask: FieldMask,
+}
+
+/// §5 two-stage authorize: stage-1 is the unchanged positive∧op-gate
+/// ([`authorize`]); stage-2 folds the **granting subset** (the roles that
+/// actually permit `op` — the SAME predicate stage-1 uses, NOT `roles_reaching`)
+/// into a restrictive-AND row-scope and a union field-mask.
+///
+/// A non-`Allow` stage-1 short-circuits (no scope/mask computed). `AccessDecision`
+/// is unchanged — the projection lives only here, in [`ScopedDecision`].
+#[must_use]
+pub fn authorize_scoped(
+    rbac: &impl ClassRbac,
+    actor: ActorId<'_>,
+    class: ClassId,
+    op: Operation<'_>,
+) -> ScopedDecision {
+    let decision = authorize(rbac, actor, class, op.clone());
+    // Deny OR Escalate (any non-Allow) → no projection.
+    if !matches!(decision, AccessDecision::Allow) {
+        return ScopedDecision {
+            decision,
+            scope: None,
+            field_mask: FieldMask::FULL,
+        };
+    }
+    // Stage 2 — fold over the granting subset (actor_roles ∧ grant_permits).
+    let mut scope: Option<ScopeSpec> = None;
+    let mut mask = FieldMask::EMPTY;
+    for &r in rbac.actor_roles(actor) {
+        if rbac.grant_permits(r, class, &op) {
+            // restrictive-AND of row-scopes. A role with NO scope is global —
+            // it must NOT narrow the fold, so we only intersect *concrete* `Some`
+            // scopes and leave `None` (the global sentinel) untouched. Folding a
+            // `None` in as `ScopeSpec::default()` would replace the "no restriction"
+            // sentinel with a materialized empty-tenant scope and force every
+            // consumer down the `Some` branch even when nothing restricts.
+            if let Some(rs) = rbac.row_scope(r, class) {
+                scope = Some(match scope {
+                    None => rs,
+                    Some(acc) => acc.intersect(rs),
+                });
+            }
+            // union of field projections (a user sees any column any role permits).
+            mask = mask.union(rbac.field_mask(r, class));
+        }
+    }
+    ScopedDecision {
+        decision,
+        scope,
+        field_mask: mask,
+    }
+}
+
+#[cfg(test)]
+mod scoped_tests {
+    use super::*;
+    use lance_graph_contract::rbac::{ClassGrant, OpMask};
+
+    // Two roles, BOTH granting Act on the class, with DIFFERENT row_scope +
+    // DIFFERENT field_mask — so the fold's restrictive-AND scope + union mask are
+    // both exercised (the test FAILS if scope is OR'd or mask is intersected).
+    struct DualGrantRbac;
+    const CLS: ClassId = 0x0000_0901;
+    impl ClassRbac for DualGrantRbac {
+        fn actor_roles(&self, _actor: ActorId<'_>) -> &[RoleId] {
+            const R: &[RoleId] = &["role_a", "role_b"];
+            R
+        }
+        fn grant_permits(&self, role: RoleId, class: ClassId, op: &Operation<'_>) -> bool {
+            (role == "role_a" || role == "role_b")
+                && class == CLS
+                && matches!(op, Operation::Act { .. })
+        }
+        fn row_scope(&self, role: RoleId, _class: ClassId) -> Option<ScopeSpec> {
+            match role {
+                "role_a" => Some(ScopeSpec {
+                    tenant: Some(7),
+                    predicate_key: 0,
+                    deny: false,
+                }),
+                "role_b" => Some(ScopeSpec {
+                    tenant: None,
+                    predicate_key: 2,
+                    deny: false,
+                }),
+                _ => None,
+            }
+        }
+        fn field_mask(&self, role: RoleId, _class: ClassId) -> FieldMask {
+            match role {
+                "role_a" => FieldMask::from_positions(&[0, 1]),
+                "role_b" => FieldMask::from_positions(&[1, 2]),
+                _ => FieldMask::EMPTY,
+            }
+        }
+    }
+
+    #[test]
+    fn scoped_allow_ands_scope_and_unions_mask() {
+        let _ = ClassGrant::new(0, OpMask::ACT); // touch the imports
+        let d = authorize_scoped(&DualGrantRbac, "u", CLS, Operation::Act { action: "x" });
+        assert_eq!(d.decision, AccessDecision::Allow);
+        // restrictive-AND of {tenant 7, pk 0} ∩ {tenant None, pk 2}
+        let expected_scope = ScopeSpec {
+            tenant: Some(7),
+            predicate_key: 0,
+            deny: false,
+        }
+        .intersect(ScopeSpec {
+            tenant: None,
+            predicate_key: 2,
+            deny: false,
+        });
+        assert_eq!(d.scope, Some(expected_scope));
+        assert_eq!(d.scope.unwrap().tenant, Some(7));
+        assert_eq!(d.scope.unwrap().predicate_key, 2);
+        // union of {0,1} ∪ {1,2} = {0,1,2}
+        assert_eq!(
+            d.field_mask,
+            FieldMask::from_positions(&[0, 1]).union(FieldMask::from_positions(&[1, 2]))
+        );
+        assert!(d.field_mask.has(0) && d.field_mask.has(1) && d.field_mask.has(2));
+    }
+
+    // Zero roles → Deny short-circuits with no scope, FULL mask.
+    struct NoRoles;
+    impl ClassRbac for NoRoles {
+        fn actor_roles(&self, _a: ActorId<'_>) -> &[RoleId] {
+            &[]
+        }
+        fn grant_permits(&self, _r: RoleId, _c: ClassId, _o: &Operation<'_>) -> bool {
+            false
+        }
+    }
+    #[test]
+    fn scoped_deny_yields_no_scope_full_mask() {
+        let d = authorize_scoped(&NoRoles, "ghost", CLS, Operation::Act { action: "x" });
+        assert!(matches!(d.decision, AccessDecision::Deny { .. }));
+        assert_eq!(d.scope, None);
+        assert_eq!(d.field_mask, FieldMask::FULL);
     }
 }
 

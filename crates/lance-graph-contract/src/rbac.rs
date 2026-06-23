@@ -28,7 +28,72 @@
 //!   admit/deny an external commit; `ClassRbac` is the *grant resolution* a gate
 //!   consults. They compose: a gate calls `authorize(rbac, actor, class, op)`.
 
+use crate::class_view::FieldMask;
 use crate::property::PrefetchDepth;
+
+/// §3/§4 compiled scope-and-projection token — the `(tenant, predicate_key)` pair
+/// that constrains a role's row-visibility on a class. `predicate_key = 0` means
+/// tenant-only scope (the common case). Intentionally opaque: NO `evaluate` /
+/// interpret methods — it is a compiled address token, not a runtime policy
+/// engine; the kernel resolves it against the store, never interprets it inline.
+/// `Copy` POD (no heap).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct ScopeSpec {
+    /// The tenant discriminant. `None` = global (cross-tenant) scope.
+    pub tenant: Option<u64>,
+    /// Reserved predicate key (0 = tenant-only; non-zero reserved for future
+    /// predicate-scoped row filters — do NOT interpret in this PR).
+    pub predicate_key: u32,
+    /// The **empty** scope — `true` ⇒ no row is visible. This is the sound
+    /// representation of an irreconcilable [`intersect`](ScopeSpec::intersect):
+    /// when two granting roles bind DIFFERENT tenants, no row can satisfy both,
+    /// so the AND-fold is empty — NOT "one tenant arbitrarily wins" (which would
+    /// silently *widen* visibility to a tenant the other role never granted).
+    /// `deny` is absorbing: `deny ∩ anything = deny`. Default `false` (a fresh
+    /// scope denies nothing).
+    pub deny: bool,
+}
+
+impl ScopeSpec {
+    /// The empty scope — denies every row. The absorbing element of
+    /// [`intersect`](ScopeSpec::intersect).
+    pub const DENY: ScopeSpec = ScopeSpec {
+        tenant: None,
+        predicate_key: 0,
+        deny: true,
+    };
+
+    /// Restrictive intersection of two scopes — the AND-fold `authorize_scoped`
+    /// uses when a user holds several granting roles (each row must satisfy
+    /// EVERY granting role's scope). `None` (global) ∩ x = x (the specific one
+    /// restricts). Two **distinct** tenants is a genuine conflict: no row lives
+    /// in both, so the result is the empty scope ([`ScopeSpec::DENY`]) — never
+    /// "self wins" (that would widen visibility to `self`'s tenant, which the
+    /// other granting role never authorized). `deny` is absorbing. `predicate_key`s
+    /// are OR-combined (reserved; both keys apply once a consumer interprets them).
+    #[inline]
+    #[must_use]
+    pub const fn intersect(self, other: Self) -> Self {
+        if self.deny || other.deny {
+            return ScopeSpec::DENY;
+        }
+        let predicate_key = self.predicate_key | other.predicate_key;
+        match (self.tenant, other.tenant) {
+            (None, t) | (t, None) => Self {
+                tenant: t,
+                predicate_key,
+                deny: false,
+            },
+            (Some(a), Some(b)) if a == b => Self {
+                tenant: Some(a),
+                predicate_key,
+                deny: false,
+            },
+            // Distinct tenants: empty intersection — no row satisfies both.
+            (Some(_), Some(_)) => ScopeSpec::DENY,
+        }
+    }
+}
 
 /// The codebook class identity an authorization targets — the
 /// [`NodeGuid`](crate::NodeGuid) `classid` (or its low-`u16` codebook id widened).
@@ -84,6 +149,32 @@ pub trait ClassRbac {
     /// `R⁺` op-mask gate (§5 stage 1). No grant, or a grant that does not permit
     /// the op, ⇒ `false` (restrictive default-deny).
     fn grant_permits(&self, role: RoleId, class: ClassId, op: &Operation<'_>) -> bool;
+
+    /// Axis-2 role-hierarchy fold hook — the roles that *reach* `class` through a
+    /// hierarchy above the direct actor roles. Default empty: the kernel consults
+    /// only [`actor_roles`](ClassRbac::actor_roles) when this returns `&[]`.
+    /// **CONJECTURE (not implemented this PR):** a non-empty return will be folded
+    /// in by a future keystone phase; today's `authorize()` / `authorize_scoped()`
+    /// do NOT call this method (they use `actor_roles ∧ grant_permits`).
+    fn roles_reaching(&self, _class: ClassId) -> &[RoleId] {
+        &[]
+    }
+
+    /// Axis-3 compiled scope — the row-visibility constraint for `role` on
+    /// `class`. `None` (global, see all rows) by default. A non-`None` value is a
+    /// pre-compiled [`ScopeSpec`] token; the kernel resolves it against the store
+    /// as an address, never interprets it inline.
+    fn row_scope(&self, _role: RoleId, _class: ClassId) -> Option<ScopeSpec> {
+        None
+    }
+
+    /// Axis-4 field projection — the column mask permitted for `role` on `class`.
+    /// [`FieldMask::FULL`] (all fields) by default; a narrower mask gives
+    /// column-level RBAC. The kernel intersects this with the query's own
+    /// projection before emitting rows.
+    fn field_mask(&self, _role: RoleId, _class: ClassId) -> FieldMask {
+        FieldMask::FULL
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -312,5 +403,83 @@ mod tests {
         };
         assert!(rbac.grant_permits("physician", PATIENT, &read));
         assert!(rbac.grant_permits("cashier", PATIENT, &read));
+    }
+
+    // ── F1: axis-2/3/4 default-body + override tests ──
+
+    /// A minimal 2-method impl still compiles after adding default methods —
+    /// E0046 cannot fire on default bodies — and the defaults are positive-preserving.
+    #[test]
+    fn defaults_preserve_two_method_impls() {
+        let rbac = OneRole;
+        assert_eq!(rbac.roles_reaching(0x0901), &[] as &[RoleId]); // axis-2 empty
+        assert!(rbac.row_scope("reader", 0x0901).is_none()); // axis-3 global
+        assert_eq!(rbac.field_mask("reader", 0x0901), FieldMask::FULL); // axis-4 all fields
+    }
+
+    /// A 5-method impl overriding all three new axis methods — proves the hooks
+    /// are individually overridable.
+    struct FullRbac;
+    impl ClassRbac for FullRbac {
+        fn actor_roles(&self, _actor: ActorId<'_>) -> &[RoleId] {
+            const R: &[RoleId] = &["admin"];
+            R
+        }
+        fn grant_permits(&self, _role: RoleId, _class: ClassId, _op: &Operation<'_>) -> bool {
+            true
+        }
+        fn roles_reaching(&self, _class: ClassId) -> &[RoleId] {
+            const R: &[RoleId] = &["super-admin"];
+            R
+        }
+        fn row_scope(&self, _role: RoleId, _class: ClassId) -> Option<ScopeSpec> {
+            Some(ScopeSpec {
+                tenant: Some(42),
+                predicate_key: 0,
+                deny: false,
+            })
+        }
+        fn field_mask(&self, _role: RoleId, _class: ClassId) -> FieldMask {
+            FieldMask::EMPTY
+        }
+    }
+
+    #[test]
+    fn override_all_three_axis_methods() {
+        let rbac = FullRbac;
+        assert_eq!(rbac.roles_reaching(0x0901), &["super-admin"]);
+        let scope = rbac.row_scope("admin", 0x0901).expect("should be Some");
+        assert_eq!(scope.tenant, Some(42));
+        assert_eq!(scope.predicate_key, 0);
+        assert_eq!(rbac.field_mask("admin", 0x0901), FieldMask::EMPTY);
+    }
+
+    #[test]
+    fn scope_intersect_is_restrictive() {
+        let global = ScopeSpec::default(); // tenant None, denies nothing
+        let t1 = ScopeSpec {
+            tenant: Some(1),
+            predicate_key: 0,
+            deny: false,
+        };
+        let t2 = ScopeSpec {
+            tenant: Some(2),
+            predicate_key: 0,
+            deny: false,
+        };
+        // global ∩ specific = specific (the specific one restricts)
+        assert_eq!(global.intersect(t1).tenant, Some(1));
+        assert!(!global.intersect(t1).deny);
+        assert_eq!(t1.intersect(global).tenant, Some(1));
+        // same tenant ∩ itself = itself (still visible)
+        assert_eq!(t1.intersect(t1).tenant, Some(1));
+        assert!(!t1.intersect(t1).deny);
+        // distinct tenants: EMPTY intersection (deny), never "self wins" —
+        // self-wins would widen visibility to tenant 1 that t2 never granted.
+        assert!(t1.intersect(t2).deny);
+        assert_eq!(t1.intersect(t2), ScopeSpec::DENY);
+        // deny is absorbing
+        assert!(ScopeSpec::DENY.intersect(t1).deny);
+        assert!(t1.intersect(ScopeSpec::DENY).deny);
     }
 }

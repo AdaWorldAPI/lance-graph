@@ -86,6 +86,7 @@ pub mod bridges;
 //    into the class (the Türsteher). The action-axis sibling of OgarClassView. ──
 pub mod actions;
 pub use actions::OgarActionProvider;
+pub mod rbac_impl;
 
 // Per-port bridge aliases (`MedcareBridge` / `OpenProjectBridge` /
 // `RedmineBridge` / `OdooBridge` / `SmbBridge` / `WoaBridge`) are

@@ -309,6 +309,273 @@ impl ActionInvocation {
     }
 }
 
+use crate::rbac::{ActorId, ClassRbac, Operation};
+
+impl ActionInvocation {
+    /// ClassRbac convergence of [`ActionInvocation::commit`]'s inline RBAC gate.
+    ///
+    /// Identical lifecycle order to `commit` (sticky-terminal → def-match → RBAC →
+    /// state guard → MUL impact), but RBAC is resolved through the [`ClassRbac`]
+    /// trait instead of an [`crate::auth::ActorContext`] value.
+    ///
+    /// **No `is_admin` bypass**: unlike `commit`, this method does NOT grant
+    /// unconditional access to admins. An actor claiming administrative privilege
+    /// must hold a role whose grant explicitly permits
+    /// `Operation::Act { action: def.predicate }` on `def.object_class`. This is
+    /// deliberate: the `ClassRbac` surface is the authoritative grant registry;
+    /// out-of-band bypass is not modelled here.
+    pub fn commit_via<R: ClassRbac>(
+        &mut self,
+        def: &ActionDef,
+        rbac: &R,
+        actor_id: ActorId<'_>,
+        impact: &GateDecision,
+        guard_field_value: Option<&str>,
+        now_millis: u64,
+    ) -> ActionState {
+        // Sticky terminal — already adjudicated, not re-adjudicated.
+        if self.state.is_terminal() {
+            return self.state;
+        }
+        // Def-match: the def MUST identify THIS invocation before any policy check.
+        // Applying an unrelated def's required_role would authorize via the wrong policy.
+        if def.object_class != self.object_class || def.predicate != self.predicate {
+            self.state = ActionState::Failed;
+            return self.state;
+        }
+        // RBAC — resolve `ok` to bool BEFORE mutating `self.state` (borrow hygiene).
+        if let Some(required_role) = def.required_role {
+            let ok = rbac.actor_roles(actor_id).iter().any(|&r| {
+                r == required_role
+                    && rbac.grant_permits(
+                        r,
+                        def.object_class,
+                        &Operation::Act {
+                            action: def.predicate,
+                        },
+                    )
+            });
+            if !ok {
+                self.state = ActionState::Failed;
+                return self.state;
+            }
+        }
+        // State guard — fire only when `field == value` (P2).
+        // An unsatisfied or unknown guarded state refuses the fire (Cancelled, not Failed).
+        if let Some(g) = def.guard {
+            if guard_field_value != Some(g.value) {
+                self.state = ActionState::Cancelled;
+                return self.state;
+            }
+        }
+        // MUL impact assessment — mirrors `commit` exactly.
+        self.state = match impact {
+            GateDecision::Flow => {
+                self.emitted_at_millis = Some(now_millis);
+                ActionState::Committed
+            }
+            GateDecision::Hold { .. } => ActionState::Pending,
+            GateDecision::Block { .. } => ActionState::Cancelled,
+        };
+        self.state
+    }
+}
+
+#[cfg(test)]
+mod commit_via_tests {
+    use super::*;
+
+    // Minimal ClassRbac test double: a fixed grant table.
+    struct TestRbac {
+        // triples of (role, object_class, action_predicate) that are permitted
+        grants: Vec<(&'static str, u32, &'static str)>,
+        // pairs of actor_id -> roles
+        actor_roles_map: Vec<(&'static str, Vec<&'static str>)>,
+    }
+
+    impl ClassRbac for TestRbac {
+        fn actor_roles<'a>(&'a self, actor_id: ActorId<'_>) -> &'a [&'static str] {
+            for (id, roles) in &self.actor_roles_map {
+                if *id == actor_id {
+                    return roles.as_slice();
+                }
+            }
+            &[]
+        }
+        fn grant_permits(&self, role: &'static str, object_class: u32, op: &Operation) -> bool {
+            match op {
+                Operation::Act { action } => self
+                    .grants
+                    .iter()
+                    .any(|&(r, c, a)| r == role && c == object_class && a == *action),
+                _ => false,
+            }
+        }
+    }
+
+    fn inst(identity: u32) -> NodeGuid {
+        NodeGuid::new(0x0A1E_0001, 0, 0, 0, 0, identity)
+    }
+
+    const DEF_WITH_ROLE: ActionDef = ActionDef {
+        predicate: "action_confirm",
+        object_class: 0x0A1E_0001,
+        exec: ExecTarget::SurrealQl,
+        guard: Some(StateGuard {
+            field: "state",
+            value: "draft",
+        }),
+        required_role: Some("sales_manager"),
+        overrides: None,
+    };
+
+    const DEF_NO_ROLE: ActionDef = ActionDef {
+        predicate: "action_cancel",
+        object_class: 0x0A1E_0001,
+        exec: ExecTarget::SurrealQl,
+        guard: None,
+        required_role: None,
+        overrides: None,
+    };
+
+    fn rbac_granting(role: &'static str) -> TestRbac {
+        TestRbac {
+            grants: vec![(role, 0x0A1E_0001, "action_confirm")],
+            actor_roles_map: vec![("u1", vec![role])],
+        }
+    }
+
+    fn rbac_denying() -> TestRbac {
+        TestRbac {
+            grants: vec![("sales_manager", 0x0A1E_0001, "action_confirm")],
+            actor_roles_map: vec![("u1", vec!["viewer"])],
+        }
+    }
+
+    fn actor(id: &'static str) -> ActorId<'static> {
+        id
+    }
+
+    /// Authorized actor (holds a role whose grant permits Act) + guard satisfied + Flow
+    /// → Committed, emitted_at_millis stamped. Terminal sticky on re-call.
+    #[test]
+    fn commit_via_authorized_flow_commits() {
+        let rbac = rbac_granting("sales_manager");
+        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", inst(1), 5, 1, 1);
+        let state = inv.commit_via(
+            &DEF_WITH_ROLE,
+            &rbac,
+            actor("u1"),
+            &GateDecision::Flow,
+            Some("draft"),
+            2000,
+        );
+        assert_eq!(state, ActionState::Committed);
+        assert_eq!(inv.emitted_at_millis, Some(2000));
+        // sticky: re-adjudication is a no-op even with Block
+        let state2 = inv.commit_via(
+            &DEF_WITH_ROLE,
+            &rbac,
+            actor("u1"),
+            &GateDecision::Block {
+                reason: "x".to_string(),
+            },
+            Some("draft"),
+            3000,
+        );
+        assert_eq!(state2, ActionState::Committed);
+        assert_eq!(
+            inv.emitted_at_millis,
+            Some(2000),
+            "stamp must not be overwritten on sticky re-call"
+        );
+    }
+
+    /// Ungranted actor (role present but grant does not permit Act) → Failed before guard/MUL.
+    #[test]
+    fn commit_via_ungranted_actor_fails() {
+        let rbac = rbac_denying();
+        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", inst(2), 5, 2, 2);
+        let state = inv.commit_via(
+            &DEF_WITH_ROLE,
+            &rbac,
+            actor("u1"),
+            &GateDecision::Flow,
+            Some("draft"),
+            2000,
+        );
+        assert_eq!(state, ActionState::Failed);
+        assert_eq!(inv.emitted_at_millis, None, "failed action must not emit");
+    }
+
+    /// required_role: None → proceeds regardless of rbac content (parity with commit).
+    /// No role check means even an actor with no roles can proceed to MUL/guard.
+    #[test]
+    fn commit_via_no_required_role_proceeds_regardless_of_rbac() {
+        let rbac = rbac_denying(); // rbac grants nothing useful for this actor
+        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_cancel", inst(3), 5, 3, 3);
+        // DEF_NO_ROLE has no guard and no required_role → reaches MUL directly
+        let state = inv.commit_via(
+            &DEF_NO_ROLE,
+            &rbac,
+            actor("u1"),
+            &GateDecision::Flow,
+            None,
+            1000,
+        );
+        assert_eq!(
+            state,
+            ActionState::Committed,
+            "no required_role means rbac is not consulted"
+        );
+    }
+
+    /// Admin-as-role: an actor explicitly granted "admin" role whose grant permits Act passes.
+    /// Bare `is_admin` does NOT bypass — there is no `ActorContext` here, no backdoor.
+    #[test]
+    fn commit_via_admin_must_be_granted_role_not_bypass() {
+        // Actor "admin_user" is explicitly granted "admin" role with the required permission.
+        let rbac = TestRbac {
+            grants: vec![("admin", 0x0A1E_0001, "action_confirm")],
+            actor_roles_map: vec![("admin_user", vec!["admin"])],
+        };
+        let admin_def = ActionDef {
+            required_role: Some("admin"),
+            ..DEF_WITH_ROLE
+        };
+        let mut inv = ActionInvocation::pending(0x0A1E_0001, "action_confirm", inst(4), 5, 4, 4);
+        let state = inv.commit_via(
+            &admin_def,
+            &rbac,
+            actor("admin_user"),
+            &GateDecision::Flow,
+            Some("draft"),
+            1000,
+        );
+        assert_eq!(state, ActionState::Committed, "admin-as-granted-role works");
+
+        // Actor whose id is literally "admin" but holds a role with no grant → fails (no bypass).
+        let rbac_no_grants = TestRbac {
+            grants: vec![],
+            actor_roles_map: vec![("admin", vec!["admin"])],
+        };
+        let mut inv2 = ActionInvocation::pending(0x0A1E_0001, "action_confirm", inst(5), 5, 5, 5);
+        let state2 = inv2.commit_via(
+            &DEF_WITH_ROLE,
+            &rbac_no_grants,
+            actor("admin"),
+            &GateDecision::Flow,
+            Some("draft"),
+            1000,
+        );
+        assert_eq!(
+            state2,
+            ActionState::Failed,
+            "no grant → fails; bare is_admin does not bypass"
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
