@@ -54,6 +54,9 @@ pub enum ConceptDomain {
     Ocr,
     /// `0x09XX` — Health (clinical / patient / care; FMA anatomy lives here).
     Health,
+    /// `0x0BXX` — Auth (provider-agnostic IAM; the AuthStore class family).
+    /// Mirrors OGAR `ConceptDomain::Auth` (added in OGAR PR #110).
+    Auth,
     /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x0AXX`+).
     Unassigned,
 }
@@ -71,6 +74,7 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x07 => ConceptDomain::Osint,
         0x08 => ConceptDomain::Ocr,
         0x09 => ConceptDomain::Health,
+        0x0B => ConceptDomain::Auth,
         _ => ConceptDomain::Unassigned,
     }
 }
@@ -244,11 +248,13 @@ pub const fn classid_concept(classid: u32) -> u16 {
 
 /// The curated `(canonical_concept, u16)` codebook — wire-compatible mirror of
 /// OGAR `ogar_vocab::CODEBOOK`. Ids are stable forever (once shipped, never
-/// re-assigned); domain-encoded `0xDDCC`. Carries the two domains the contract
-/// graph surfaces realize today (project-mgmt `0x01XX`, commerce/ERP `0x02XX`);
-/// OSINT (`0x07XX`) and Health/anatomy (`0x09XX`) are represented by their
-/// [`NodeGuid`](crate::NodeGuid) classid roots, not yet by promoted concept slots here. Drift is
-/// guarded by [`tests::codebook_ids_match_ogar_vocab`].
+/// re-assigned); domain-encoded `0xDDCC`. Carries the four domains the contract
+/// graph surfaces realize today (project-mgmt `0x01XX`, commerce/ERP `0x02XX`,
+/// health `0x09XX`, auth `0x0BXX`); OSINT (`0x07XX`) and OCR (`0x08XX`) are
+/// represented by their [`NodeGuid`](crate::NodeGuid) classid roots, not yet
+/// by promoted concept slots here. Drift is guarded by
+/// [`tests::codebook_ids_match_ogar_vocab`] and the **compile-time**
+/// `lance_graph_ogar::parity::COUNT_FUSE`.
 pub const CODEBOOK: &[(&str, u16)] = &[
     // ── 0x01XX — project-mgmt domain (OpenProject ↔ Redmine) ──
     ("project", 0x0101),
@@ -292,6 +298,16 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("treatment", 0x0905),
     ("visit", 0x0906),
     ("vital_sign", 0x0907),
+    // ── 0x0BXX — Auth domain (the AuthStore class family, OGAR keystone §7) ──
+    // Mirrored from OGAR PR #110 (`9034170 feat(vocab): mint the 0x0B AuthStore
+    // class family`). Provider-agnostic IAM: `auth_store` is the base; the
+    // three provider profiles are `is-a` AuthStore + a `claim_grammar`
+    // attribute. Reserved at the codebook layer — enforcement (authorize()
+    // semantics) stays gated on `PROBE-OGAR-RBAC-AUTHORIZE` upstream.
+    ("auth_store", 0x0B01),
+    ("auth_zitadel", 0x0B02),
+    ("auth_zanzibar", 0x0B03),
+    ("auth_ory_keto", 0x0B04),
 ];
 
 /// Resolve a **canonical-concept** string to its stable `u16` codebook id via

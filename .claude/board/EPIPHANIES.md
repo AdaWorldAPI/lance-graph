@@ -1,3 +1,78 @@
+## 2026-06-23 — E-OGAR-AUTH-MIRROR-DRIFT — `ogar_codebook` mirror was 4 entries behind OGAR main (the 4 `auth_*` from OGAR #110); also exposed `domains_agree` was missing the `Auth` arm; q2 #42's pin bump surfaced both (q2 #42 → q2 build fail → drift fix)
+
+**Status:** FINDING (build-fail-driven; closes the drift OGAR PR #110 introduced
+and lance-graph never mirrored).
+
+OGAR PR #110 (2026-06-23, `9034170 feat(vocab): mint the 0x0B AuthStore class
+family`) added 4 new entries to `ogar_vocab::class_ids::ALL`:
+`auth_store 0x0B01`, `auth_zitadel 0x0B02`, `auth_zanzibar 0x0B03`,
+`auth_ory_keto 0x0B04`. These also created the `ConceptDomain::Auth` variant
+in OGAR.
+
+`lance-graph-contract::ogar_codebook::CODEBOOK` is the **wire-compatible
+mirror** of OGAR's codebook (per PR #592 the APP-prefix layer joined it). The
+mirror was NOT updated when #110 landed — a 4-entry drift sat in main from
+2026-06-23 until exposed.
+
+**The build that exposed it.** q2 #42 bumped q2's stale OGAR pin (`b6a12a6` →
+`302c284`); after the bump q2's Railway docker build ran `cargo build` against:
+  - lance-graph HEAD (latest main) — mirror had 39 entries (pre-#110)
+  - OGAR `302c284` — `class_ids::ALL` had 43 entries (post-#110)
+  → `lance_graph_ogar::parity::COUNT_FUSE` const-eval-panic.
+
+The local lance-graph build had been masking the drift because lance-graph's own
+Cargo.lock pinned ogar-vocab to `08a9c979` (pre-#110, 39 entries). So
+`mirror == ALL == 39` locally; only the q2-side build (which bumped to
+`302c284`) saw the mismatch.
+
+**Two complementary fixes in this PR:**
+
+1. **Mirror parity** — extend `lance-graph-contract::ogar_codebook::CODEBOOK`
+   with the 4 `auth_*` entries; add `ConceptDomain::Auth` variant; add `0x0B
+   → Auth` to `canonical_concept_domain`; update the module-doc count claim
+   from "two domains" to "four domains".
+2. **`domains_agree` match arm** — `lance_graph_ogar::parity::domains_agree`
+   used a `matches!()` macro with explicit `(O::X, C::X)` arms for each
+   variant; the new `Auth` variant on both sides falls into the default-false
+   bucket. Added `(O::Auth, C::Auth)` arm.
+3. **Cargo.lock OGAR pin** — bumped from `08a9c979` → `302c284` in both the
+   workspace lock and `crates/lance-graph-ogar/Cargo.lock` (own root). 8
+   refs total (4+4). Safe SHA swap verified — Cargo.toml deps for the four
+   OGAR crates (`ogar-vocab`, `ogar-class-view`, `ogar-ontology`,
+   `ogar-adapter-surrealql`) are byte-identical between the two commits.
+
+**Consequences:**
+
+- `lance_graph_ogar::parity::COUNT_FUSE` (compile-time) and
+  `parity::assert_codebook_parity` (runtime) both now agree across both pins.
+- `OdooPort`/`SmbPort`/`WoaPort` from OGAR PR #94 / OGAR PR #588 are also
+  visible at the new pin — see q2 #42 + this PR for the cross-pin
+  coordination. q2's Railway build now passes; the wider consumer surface is
+  also restored.
+
+**Mirror parity should fire IMMEDIATELY on the next OGAR domain mint.** This
+finding is the standing reminder that the lance-graph mirror must be updated
+in the SAME commit as any OGAR-side ALL-list extension. Discovering it
+four-PRs-after-OGAR-landed is the avoidable pattern; the COUNT_FUSE is the
+guardrail when it fires LOCALLY (matching pins). The q2-side build was the
+guardrail that fired this time, two days late.
+
+**Action shipped:**
+- `crates/lance-graph-contract/src/ogar_codebook.rs`: `ConceptDomain::Auth`
+  + `canonical_concept_domain(0x0B) → Auth` + 4 CODEBOOK entries + doc
+  update ("four domains").
+- `crates/lance-graph-ogar/src/lib.rs::domains_agree`: `(O::Auth, C::Auth)`
+  arm.
+- `Cargo.lock` + `crates/lance-graph-ogar/Cargo.lock`: ogar-vocab pin
+  `08a9c979` → `302c284` (8 refs total).
+
+Tests: 9 contract doctests pass; 53/53 lance-graph-ogar lib tests pass
+including `parity::tests::mirror_is_a_faithful_copy_of_ogar_codebook`.
+
+**Source-of-finding:**
+[q2 build error](https://github.com/AdaWorldAPI/q2) (Railway docker run,
+post-q2-#42-bump). Related: OGAR #110, lance-graph #592.
+
 ## 2026-06-21 — E-EQUIVALENCE-IS-THE-CRUX — template-equivalence is the load-bearing verifier of the whole loop; it MUST fail closed, and it rides on transparent Lance versioning (surrealdb #50)
 
 **Status:** FINDING (cross-session feedback, 2026-06-21). Reframing that
