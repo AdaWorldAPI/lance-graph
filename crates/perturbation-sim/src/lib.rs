@@ -64,6 +64,7 @@ pub mod inertia_data;
 pub mod ingest;
 pub mod model;
 pub mod perturbation;
+pub mod place_buffer;
 pub mod resilience;
 pub mod rolling_floor;
 pub mod sketch;
@@ -99,6 +100,9 @@ pub use model::{
 };
 pub use perturbation::{
     spectral_perturbation, SpectralPerturbation, FRAGMENTATION_SENTINEL, SPECTRAL_GAP_FLOOR,
+};
+pub use place_buffer::{
+    bf16_to_f32, buffer_residue, f32_to_bf16, helix_place, BufferResidue, GOLDEN_ANGLE,
 };
 pub use resilience::{algebraic_connectivity, kirchhoff_index, Resilience};
 pub use rolling_floor::{weyl_over_fiedler, FloorBand, RollingFloor, StackResult, TierFloors};
