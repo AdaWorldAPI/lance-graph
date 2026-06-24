@@ -23,6 +23,16 @@ collision is cleared. Constant-following consumers (the `ReadMode::FMA` registry
 inherit the fix with no change. Tests updated to assert `0x0A01` / Anatomy and to
 forbid the `0x0901` alias. Cross-ref: OGAR PR #117 (the Anatomy mint + audit),
 q2 PR #50 (independent `[mixin:instance]` convergence, F-6).
+## 2026-06-23 — E-V3-PART-OF-IS-A-TILE — each 16-bit HHTL tier is an 8:8 (part_of:is_a) split: two hierarchies, one key
+
+**Status:** FINDING (q2 `converge.rs` / `V3_SOA_WIRING.md` are the existence proof on FMA anatomy; this entry records the grid instance + the consumer-bump awareness). **Confidence:** the 8:8 split + dual-query are shipped/tested; the consumer-bump items are an inventory, not yet PRs.
+
+q2's V3 addressing reinterprets each canonical 16-bit HHTL tier as **high byte = `part_of`** (PLACE / mereology / where) **: low byte = `is_a`** (TISSUE / taxonomy / what). The high-byte chain (HEEL.hi→HIP.hi→TWIG.hi) prefix-routes containment; the low-byte chain routes type. `EdgeBlock` in-family = `part_of` siblings = `connected_to`. **It needs no `ENVELOPE_LAYOUT_VERSION` bump** — it is an *interpretation* of the operator-locked 3×u16 tiers (the 6-group `NodeGuid`, NOT the in-flight 7-group LEAF `new_v2`).
+
+For the **electric grid** (`perturbation-sim::CascadeKeyV3`, additive to the V1/V2 `CascadeKey`): `part_of` (place) = the 24-bit Morton spectral cell (where in the grid), `is_a` (tissue) = the bus-role taxonomy (source/sink/transfer, generalizable to `BusKind`). The payoff over V1/V2 spatial-only: a `part_of` prefix selects "which region blacked out" AND an `is_a` prefix selects "all generators / all loads" — **two orthogonal queries on ONE key** (proven: source vs sink carry distinct is_a class bytes; the outage footprint is part_of-local). EdgeBlock in-family = the lines the cascade propagates along.
+
+**Consumer V1/V2→V3 bump inventory:** lance-graph `canonical_node` lacks an 8:8 `(part_of/is_a)` byte accessor (additive, layout-preserving — the natural canonical surface); `contract::soa_graph`/`graph_render` could split place/tissue on render; **live blocker** — q2 `osint-bake/fma.rs` calls `NodeGuid::new_v2(...LEAF...)`, a 7-group API absent from `canonical_node` (`I-LEGACY-API-FEATURE-GATED`); V3 is the 6-group-compatible resolution that sidesteps it. (Not actioned here — OGAR/contract surface is another session's; flagged only.) Ref: AGENT_LOG cont.³⁹, `cascade_key.rs` (V3 section), q2 `V3_SOA_WIRING.md` / `OGAR_CONSUMER_INTEGRATION.md`.
+
 ## 2026-06-23 — E-CASCADE-KEY-IS-THE-SPATIAL-ADDRESS — one 48-bit Morton key, read six ways
 
 **Status:** FINDING (measured, scoped to perturbation-sim). **Confidence:** the

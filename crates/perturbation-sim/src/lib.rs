@@ -79,7 +79,7 @@ pub use basin::{
 };
 pub use buffer::{compartment_buffer, impulse_buffer, inertia_buffer_column, ketchup_yield, Yield};
 pub use cascade::{simulate_outage, CascadeConfig, CascadeResult, PerturbationShape};
-pub use cascade_key::{cascade_keys, CascadeKey};
+pub use cascade_key::{cascade_keys, cascade_keys_v3, CascadeKey, CascadeKeyV3, IsaPath};
 pub use chaoda::{
     anomaly_ranking, cakes_neighbors, chaoda_scores, resilience_basin_features, CHAODA_FLAG,
 };

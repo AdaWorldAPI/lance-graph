@@ -192,6 +192,158 @@ pub fn cascade_keys(grid: &Grid, alive: &[bool]) -> Vec<CascadeKey> {
         .collect()
 }
 
+// ─── V3: the `(part_of : is_a)` 8:8 tile (q2 `converge.rs`, V3_SOA_WIRING.md) ───
+
+/// A node's 3-level `is_a` taxonomy path — the **low-byte (tissue) chain** of the
+/// HHTL tiers. Each field is a sibling-rank under the node's parent in the type
+/// taxonomy (1-based, 0 = root/unset), coarse→fine. For the electric grid:
+/// `class` = role in the power balance (source/sink/transfer), `kind` = a finer
+/// electrical class (e.g. connectivity bucket / `BusKind`), `sub` = leaf rank.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct IsaPath {
+    /// Level-0 `is_a` rank (HEEL low byte) — the broad type class.
+    pub class: u8,
+    /// Level-1 `is_a` rank (HIP low byte) — the kind within the class.
+    pub kind: u8,
+    /// Level-2 `is_a` rank (TWIG low byte) — the leaf type.
+    pub sub: u8,
+}
+
+/// The **V3** cascade key: each 16-bit HHTL tier is an 8:8 `(place : tissue)` =
+/// `(part_of : is_a)` split (q2 `converge.rs`; `V3_SOA_WIRING.md` §2). The
+/// **high-byte chain** (HEEL.hi → HIP.hi → TWIG.hi) prefix-routes WHERE the node
+/// sits (`part_of` / mereology — here the Morton spectral cell); the **low-byte
+/// chain** (HEEL.lo → HIP.lo → TWIG.lo) prefix-routes WHAT it is (`is_a` /
+/// taxonomy). Two orthogonal hierarchies, one key — the strict refinement of the
+/// V1/V2 [`CascadeKey`] (which spent both bytes on spatial Morton).
+///
+/// For the electric grid this is the better representation: a `part_of` prefix
+/// selects "this region of the grid" (the blackout footprint), an `is_a` prefix
+/// selects "all generators" / "all loads" — **independently, on the same key**.
+/// `EdgeBlock` in-family = `part_of`/`connected_to` siblings (the lines the
+/// cascade propagates along); out-of-family = the `is_a` parent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct CascadeKeyV3 {
+    /// HEEL = `(place₀ : tissue₀)`.
+    pub heel: u16,
+    /// HIP = `(place₁ : tissue₁)`.
+    pub hip: u16,
+    /// TWIG = `(place₂ : tissue₂)`.
+    pub twig: u16,
+}
+
+/// Pack one 8:8 tier: high byte = `place` (part_of), low byte = `tissue` (is_a).
+/// Literally `converge.rs`'s `fn tier(hi, lo) -> u16`.
+#[inline]
+fn tier_v3(place: u8, tissue: u8) -> u16 {
+    ((place as u16) << 8) | tissue as u16
+}
+
+impl CascadeKeyV3 {
+    /// Build from the 3 `part_of` place octets (the Morton spectral-cell bytes,
+    /// coarse→fine) and the `is_a` taxonomy path.
+    pub fn new(place: [u8; 3], isa: IsaPath) -> Self {
+        CascadeKeyV3 {
+            heel: tier_v3(place[0], isa.class),
+            hip: tier_v3(place[1], isa.kind),
+            twig: tier_v3(place[2], isa.sub),
+        }
+    }
+
+    /// The `part_of` / PLACE chain (high bytes, coarse→fine) — WHERE it sits.
+    #[inline]
+    pub fn place_chain(self) -> [u8; 3] {
+        [
+            (self.heel >> 8) as u8,
+            (self.hip >> 8) as u8,
+            (self.twig >> 8) as u8,
+        ]
+    }
+
+    /// The `is_a` / TISSUE chain (low bytes, coarse→fine) — WHAT it is.
+    #[inline]
+    pub fn tissue_chain(self) -> [u8; 3] {
+        [self.heel as u8, self.hip as u8, self.twig as u8]
+    }
+
+    /// Canonical `(HEEL, HIP, TWIG)` `u16` triple — the V3 key IS a 6-group
+    /// `NodeGuid` cascade path (no LEAF tier; both hierarchies live inside the
+    /// existing 3×u16, so this needs **no `ENVELOPE_LAYOUT_VERSION` bump**).
+    #[inline]
+    pub fn to_guid_tiers(self) -> (u16, u16, u16) {
+        (self.heel, self.hip, self.twig)
+    }
+
+    /// Shared prefix length (0..=3) along ONE byte chain.
+    fn shared(a: [u8; 3], b: [u8; 3]) -> u8 {
+        let mut n = 0u8;
+        while (n as usize) < 3 && a[n as usize] == b[n as usize] {
+            n += 1;
+        }
+        n
+    }
+
+    /// `part_of` (place) distance: `3 − shared place-prefix`. Small ⇒ same region
+    /// of the grid. This is the blackout-locality metric.
+    #[inline]
+    pub fn part_of_distance(self, other: Self) -> u8 {
+        3 - Self::shared(self.place_chain(), other.place_chain())
+    }
+
+    /// `is_a` (tissue) distance: `3 − shared tissue-prefix`. Small ⇒ same type
+    /// (both generators, both loads). Orthogonal to `part_of_distance`.
+    #[inline]
+    pub fn is_a_distance(self, other: Self) -> u8 {
+        3 - Self::shared(self.tissue_chain(), other.tissue_chain())
+    }
+}
+
+/// Assign every bus its V3 `(part_of:is_a)` key. `part_of` (place) = the 24-bit
+/// Morton spectral cell (12 bits per spectral axis → 3 octets, coarse→fine);
+/// `is_a` (tissue) = the per-bus [`IsaPath`] taxonomy. `is_a.len()` must equal the
+/// node count. Deterministic (spectrum + fixed Morton); same grid + same taxonomy
+/// ⇒ same keys.
+pub fn cascade_keys_v3(grid: &Grid, alive: &[bool], is_a: &[IsaPath]) -> Vec<CascadeKeyV3> {
+    assert_eq!(
+        is_a.len(),
+        grid.n,
+        "cascade_keys_v3 needs one IsaPath per bus (got {} for {} buses)",
+        is_a.len(),
+        grid.n
+    );
+    let emb = spectral_embedding(grid, alive, 2);
+    if emb.is_empty() {
+        return Vec::new();
+    }
+    let axis = |k: usize| {
+        emb.iter()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), e| {
+                let x = e.get(k).copied().unwrap_or(0.0);
+                (lo.min(x), hi.max(x))
+            })
+    };
+    let (ub, vb) = (axis(0), axis(1));
+    let norm = |x: f64, (lo, hi): (f64, f64)| {
+        let w = hi - lo;
+        if w.abs() < 1e-300 {
+            0.0
+        } else {
+            ((x - lo) / w).clamp(0.0, 1.0)
+        }
+    };
+    emb.iter()
+        .zip(is_a.iter())
+        .map(|(e, &isa)| {
+            // 12-bit per spectral axis → 24-bit Morton code → 3 place octets.
+            let xi = (norm(e.first().copied().unwrap_or(0.0), ub) * 4095.0).round() as u16;
+            let yi = (norm(e.get(1).copied().unwrap_or(0.0), vb) * 4095.0).round() as u16;
+            let m = morton2(xi, yi); // 24-bit Z-order (12+12 interleaved)
+            let place = [(m >> 16) as u8, (m >> 8) as u8, m as u8];
+            CascadeKeyV3::new(place, isa)
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -336,5 +488,143 @@ mod tests {
             "epicentre cascade-distance {epi_local} must beat the random baseline {baseline} \
              (the footprint is prefix-local — placement learns the tree)"
         );
+    }
+
+    // ─── V3 (part_of:is_a) ───
+
+    /// Build the grid's `is_a` taxonomy from the injection pattern: a bus is a
+    /// SOURCE (generator, p>0), a SINK (load, p<0), or a TRANSFER node (p==0).
+    /// `kind` buckets the source/sink finer; `sub` is the leaf rank.
+    fn grid_isa(p: &[f64]) -> Vec<IsaPath> {
+        p.iter()
+            .map(|&pi| {
+                let class = if pi > 0.0 {
+                    1
+                } else if pi < 0.0 {
+                    2
+                } else {
+                    3
+                };
+                IsaPath {
+                    class,
+                    kind: class,
+                    sub: 0,
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn v3_packs_part_of_high_byte_and_is_a_low_byte() {
+        // The 8:8 split: place in the high byte, tissue in the low byte.
+        let k = CascadeKeyV3::new(
+            [0xAB, 0xCD, 0xEF],
+            IsaPath {
+                class: 1,
+                kind: 2,
+                sub: 3,
+            },
+        );
+        assert_eq!(k.to_guid_tiers(), (0xAB01, 0xCD02, 0xEF03));
+        assert_eq!(k.place_chain(), [0xAB, 0xCD, 0xEF]); // part_of / where
+        assert_eq!(k.tissue_chain(), [1, 2, 3]); // is_a / what
+    }
+
+    #[test]
+    fn v3_two_hierarchies_are_independent() {
+        // Same place, different type → part_of_distance 0, is_a_distance > 0.
+        // Different place, same type → the reverse. The two axes are orthogonal.
+        let gen_here = CascadeKeyV3::new(
+            [5, 5, 5],
+            IsaPath {
+                class: 1,
+                kind: 1,
+                sub: 0,
+            },
+        );
+        let load_here = CascadeKeyV3::new(
+            [5, 5, 5],
+            IsaPath {
+                class: 2,
+                kind: 2,
+                sub: 0,
+            },
+        );
+        let gen_there = CascadeKeyV3::new(
+            [9, 5, 5],
+            IsaPath {
+                class: 1,
+                kind: 1,
+                sub: 0,
+            },
+        );
+        assert_eq!(gen_here.part_of_distance(load_here), 0, "same place");
+        assert!(gen_here.is_a_distance(load_here) > 0, "different type");
+        assert_eq!(gen_here.is_a_distance(gen_there), 0, "same type");
+        assert!(gen_here.part_of_distance(gen_there) > 0, "different place");
+    }
+
+    #[test]
+    fn v3_blackout_is_part_of_local_and_queryable_by_is_a() {
+        // The electric-grid payoff: the outage footprint is part_of (place)-local
+        // — AND the SAME key answers "which kind blacked out" via is_a, a query
+        // the V1/V2 spatial-only key cannot express.
+        let g = three_region_grid();
+        let mut p = vec![0.0; g.n];
+        p[0] = 1.0; // region-0 generator (source)
+        p[10] = -1.0; // region-2 load (sink)
+        let keys = cascade_keys_v3(&g, &vec![true; g.edges.len()], &grid_isa(&p));
+
+        let res = simulate_outage(
+            &g,
+            &p,
+            g.edges.len() - 1,
+            CascadeConfig {
+                overload_factor: 1.0,
+                max_rounds: 16,
+                rel_tol: 1e-12,
+            },
+        );
+        let epi: Vec<usize> = res.shape.epicentre(4).into_iter().map(|(b, _)| b).collect();
+        assert!(epi.len() >= 2);
+
+        // part_of (place) locality: epicentre mean place-distance < random baseline.
+        let mean = |bs: &[usize], f: &dyn Fn(usize, usize) -> u8| {
+            let (mut s, mut n) = (0u32, 0u32);
+            for i in 0..bs.len() {
+                for j in (i + 1)..bs.len() {
+                    s += f(bs[i], bs[j]) as u32;
+                    n += 1;
+                }
+            }
+            if n == 0 {
+                0.0
+            } else {
+                s as f64 / n as f64
+            }
+        };
+        let pod = |a: usize, b: usize| keys[a].part_of_distance(keys[b]);
+        let all: Vec<usize> = (0..g.n).collect();
+        assert!(
+            mean(&epi, &pod) < mean(&all, &pod),
+            "blackout footprint must be part_of (place)-local"
+        );
+
+        // is_a query: the SAME key cleanly separates the sources from the sinks
+        // (their is_a class bytes differ) — orthogonal to where they sit.
+        let src = 0usize; // p>0 → class 1
+        let sink = 10usize; // p<0 → class 2
+        assert_ne!(
+            keys[src].tissue_chain()[0],
+            keys[sink].tissue_chain()[0],
+            "source and sink carry distinct is_a class bytes"
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "one IsaPath per bus")]
+    fn v3_rejects_isa_count_mismatch() {
+        let g = three_region_grid();
+        let _ = cascade_keys_v3(&g, &vec![true; g.edges.len()], &[IsaPath::default()]);
     }
 }

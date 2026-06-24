@@ -9,7 +9,9 @@
 //! learning, representation, substrate, and thinking — it is not six artifacts,
 //! it is six readings of one address.
 
-use perturbation_sim::{cascade_keys, simulate_outage, CascadeConfig, Edge, Grid};
+use perturbation_sim::{
+    cascade_keys, cascade_keys_v3, simulate_outage, CascadeConfig, Edge, Grid, IsaPath,
+};
 
 /// A small Iberian-shaped transmission graph: three regional 4-clique pockets
 /// (e.g. North / Centre / South) joined by two weak tie-lines — the topology
@@ -97,5 +99,51 @@ fn main() {
          ⇒ footprint is prefix-local (placement learns the basin tree)",
         mean(&epi),
         mean(&all),
+    );
+
+    // ── V3 (part_of:is_a): each tier = (place:tissue), two hierarchies one key ──
+    println!("\n== V3 (part_of:is_a) — the better grid representation ==\n");
+    // is_a taxonomy from the power balance: source (p>0) / sink (p<0) / transfer.
+    let is_a: Vec<IsaPath> = p
+        .iter()
+        .map(|&pi| {
+            let class = if pi > 0.0 {
+                1
+            } else if pi < 0.0 {
+                2
+            } else {
+                3
+            };
+            IsaPath {
+                class,
+                kind: class,
+                sub: 0,
+            }
+        })
+        .collect();
+    let v3 = cascade_keys_v3(&g, &alive, &is_a);
+    println!("bus  HEEL  HIP   TWIG   place(part_of)  tissue(is_a)  role");
+    for (bus, k) in v3.iter().enumerate() {
+        let (h, hp, t) = k.to_guid_tiers();
+        let role = match k.tissue_chain()[0] {
+            1 => "source/gen",
+            2 => "sink/load",
+            _ => "transfer",
+        };
+        println!(
+            "{bus:>3}  {h:04X}  {hp:04X}  {t:04X}   {:?}      {:?}     {role}",
+            k.place_chain(),
+            k.tissue_chain()
+        );
+    }
+    // Two orthogonal prefix queries on ONE key — impossible with V1/V2 spatial-only:
+    let gen = 0usize;
+    let load = 10usize;
+    println!(
+        "\npart_of: outage epicentre is place-local (where it blacked out)\n\
+         is_a:    bus{gen}(source) vs bus{load}(sink) part_of_distance={} is_a_distance={} \
+         — same key, orthogonal axes",
+        v3[gen].part_of_distance(v3[load]),
+        v3[gen].is_a_distance(v3[load]),
     );
 }
