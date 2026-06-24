@@ -1,3 +1,29 @@
+## 2026-06-24 — E-CLASSID-FMA-PATIENT-COLLISION — `CLASSID_FMA = 0x0901` aliased OGAR `patient`; retargeted to the Anatomy domain `0x0A01`
+
+**Status:** FINDING + FIX (2026-06-24). Surfaced by OGAR's NodeGuid canon audit
+(`OGAR/docs/NODEGUID-CANON-AUDIT.md` F-1). `canonical_node.rs` pinned
+`NodeGuid::CLASSID_FMA = 0x0000_0901` ("anatomy concept in the Health domain",
+ISS-CLASSID-OGAR-DRIFT realign 2026-06-20). But `ogar_codebook.rs` has
+`("patient", 0x0901)` — so **FMA anatomy and `patient` shared the identical
+classid `0x0901`**, both in Health (`>>8 == 0x09`). A consumer could not tell an
+FMA structural node from a patient node by classid; RBAC over `0x0901` (the
+patient grants in `rbac.rs`) would also gate FMA reference data.
+
+**Root cause:** anatomy was placed in the Health PHI domain. But anatomy is
+**public reference** (the femur exists; it is `part_of` the lower limb) — a
+clinical *finding about* it is PHI; the structure itself is not.
+
+**Fix:** OGAR minted a new **Anatomy domain `0x0A`** this week
+(`anatomical_structure 0x0A01` / `skeleton 0x0A02` / `bone 0x0A03` / `joint
+0x0A04`); this contract mirrors it — `ConceptDomain::Anatomy`, `0x0A` routing,
+the four concepts in `CODEBOOK` — and **retargets `CLASSID_FMA 0x0901 → 0x0A01`**
+(`anatomical_structure`, the FMA root). `patient` stays at `0x0901`; the
+collision is cleared. Constant-following consumers (the `ReadMode::FMA` registry,
+`soa_graph` `DomainSpec`, q2 #50's `osint-bake/fma` which uses the constant)
+inherit the fix with no change. Tests updated to assert `0x0A01` / Anatomy and to
+forbid the `0x0901` alias. Cross-ref: OGAR PR #117 (the Anatomy mint + audit),
+q2 PR #50 (independent `[mixin:instance]` convergence, F-6).
+
 ## 2026-06-23 — E-CLASSRBAC-PROMOTED-TO-CONTRACT — the §11 trait-placement that lets ogar join the RBAC chain
 
 **Status:** FINDING (2026-06-23). The four-crate chain `contract ↔ rbac ↔ ogar ↔

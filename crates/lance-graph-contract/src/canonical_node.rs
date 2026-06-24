@@ -45,19 +45,24 @@ impl NodeGuid {
     // `canonical_concept_domain(classid_lo)` (see `crate::ogar_codebook`) routes on
     // `classid >> 8`. Realigned 2026-06-20 (ISS-CLASSID-OGAR-DRIFT): OSINT was
     // 0x0007 (OGAR Reserved domain) → 0x0700; FMA was 0x0008 (OGAR OCR block) →
-    // 0x0901 (anatomy concept in the Health domain). Migration:
-    // `.claude/plans/ogar-vocab-contract-codebook-migration-v1.md`.
+    // 0x0901. Re-realigned 2026-06-24 (ISS-CLASSID-OGAR-DRIFT cont.): FMA 0x0901
+    // **collided with OGAR `patient` (0x0901)** — both Health. FMA now routes to
+    // the new **Anatomy** domain root 0x0A01 (`anatomical_structure`); anatomy is
+    // public reference, not Health PHI. Surfaced by OGAR `docs/NODEGUID-CANON-AUDIT.md`
+    // F-1. Migration: `.claude/plans/ogar-vocab-contract-codebook-migration-v1.md`.
 
     /// **OSINT / Palantir-Gotham** domain root (`0x07` = OSINT domain, `0x00` =
     /// root). The neo4j-emulation entity graph (people / orgs / systems / events,
     /// family-grouped). Resolves to [`ReadMode::OSINT`] (hot `Cognitive` value +
     /// `CoarseOnly` adjacency).
     pub const CLASSID_OSINT: u32 = 0x0000_0700;
-    /// **FMA anatomy** — the `anatomy` concept (`0x01`) in the **Health** domain
-    /// (`0x09`); `0x0900` is the Health root. The Foundational Model of Anatomy
+    /// **FMA anatomy** — `anatomical_structure` (`0x01`) in the **Anatomy** domain
+    /// (`0x0A`); `0x0A00` is the Anatomy root. The Foundational Model of Anatomy
     /// (~70k structural entities, family = body region, bones = stability anchors).
-    /// Resolves to [`ReadMode::FMA`] (cold `Compressed` reference + `CoarseOnly`).
-    pub const CLASSID_FMA: u32 = 0x0000_0901;
+    /// Anatomy is **public reference, not Health PHI** — moved off `0x0901` to
+    /// clear the collision with OGAR `patient`. Resolves to [`ReadMode::FMA`]
+    /// (cold `Compressed` reference + `CoarseOnly`).
+    pub const CLASSID_FMA: u32 = 0x0000_0A01;
     /// **Project-management** domain root (`0x01`) — OpenProject ↔ Redmine
     /// (work items, members, versions, …). OGAR codebook `0x01XX`. Resolves to
     /// [`ReadMode::PROJECT`].
@@ -1754,13 +1759,19 @@ mod tests {
         assert_eq!(fma.edge_codec, EdgeCodecFlavor::CoarseOnly);
 
         // The classids follow OGAR `0xDDCC` (ISS-CLASSID-OGAR-DRIFT realign):
-        // OSINT domain root `0x0700` (`>>8 == 0x07`); FMA = anatomy concept
-        // `0x0901` in the Health domain (`>>8 == 0x09`). Never the pre-realign
-        // 0x0007 (OGAR Reserved) / 0x0008 (OGAR OCR) values.
+        // OSINT domain root `0x0700` (`>>8 == 0x07`); FMA = `anatomical_structure`
+        // `0x0A01` in the **Anatomy** domain (`>>8 == 0x0A`) — re-realigned off
+        // `0x0901` to clear the OGAR `patient` collision. Never the pre-realign
+        // 0x0007 / 0x0008, nor the colliding 0x0901.
         assert_eq!(NodeGuid::CLASSID_OSINT, 0x0000_0700);
-        assert_eq!(NodeGuid::CLASSID_FMA, 0x0000_0901);
+        assert_eq!(NodeGuid::CLASSID_FMA, 0x0000_0A01);
+        assert_ne!(
+            NodeGuid::CLASSID_FMA,
+            0x0000_0901,
+            "must not alias `patient`"
+        );
         assert_eq!(NodeGuid::CLASSID_OSINT >> 8, 0x07, "OSINT domain high byte");
-        assert_eq!(NodeGuid::CLASSID_FMA >> 8, 0x09, "Health domain high byte");
+        assert_eq!(NodeGuid::CLASSID_FMA >> 8, 0x0A, "Anatomy domain high byte");
         assert_eq!(
             NodeGuid::new(NodeGuid::CLASSID_OSINT, 1, 2, 3, 0xAB, 0xCD).read_mode(),
             ReadMode::OSINT
