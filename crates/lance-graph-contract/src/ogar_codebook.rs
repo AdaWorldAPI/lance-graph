@@ -436,8 +436,10 @@ mod tests {
         assert_eq!(canonical_concept_domain(0x0B01), ConceptDomain::Auth);
         assert_eq!(canonical_concept_domain(0x0C01), ConceptDomain::Automation);
         assert_eq!(canonical_concept_domain(0x0C09), ConceptDomain::Automation);
+        assert_eq!(canonical_concept_domain(0x0D01), ConceptDomain::HR);
+        assert_eq!(canonical_concept_domain(0x0D04), ConceptDomain::HR);
         assert_eq!(canonical_concept_domain(0x0500), ConceptDomain::Unassigned);
-        assert_eq!(canonical_concept_domain(0x0D00), ConceptDomain::Unassigned);
+        assert_eq!(canonical_concept_domain(0x0E00), ConceptDomain::Unassigned);
     }
 
     #[test]
