@@ -52,11 +52,15 @@ pub enum ConceptDomain {
     Osint,
     /// `0x08XX` — OCR (optical character recognition / document extraction).
     Ocr,
-    /// `0x09XX` — Health (clinical / patient / care; FMA anatomy lives here).
+    /// `0x09XX` — Health (clinical / patient / care).
     Health,
+    /// `0x0AXX` — Anatomy (FMA reference ontology; bones / skeleton / joints).
+    /// Public structural reference, distinct from `Health` PHI — the FMA
+    /// anatomy domain (`anatomical_structure` / `skeleton` / `bone` / `joint`).
+    Anatomy,
     /// `0x0BXX` — Auth (identity / authz: AuthStore, Zitadel, Zanzibar, Ory Keto).
     Auth,
-    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x0AXX`, `0x0CXX`+).
+    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x0CXX`+).
     Unassigned,
 }
 
@@ -73,6 +77,7 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x07 => ConceptDomain::Osint,
         0x08 => ConceptDomain::Ocr,
         0x09 => ConceptDomain::Health,
+        0x0A => ConceptDomain::Anatomy,
         0x0B => ConceptDomain::Auth,
         _ => ConceptDomain::Unassigned,
     }
@@ -302,6 +307,15 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("treatment", 0x0905),
     ("visit", 0x0906),
     ("vital_sign", 0x0907),
+    // ── 0x0AXX — Anatomy domain (FMA reference ontology; public, not PHI) ──
+    // FMA anatomy lives HERE, not in Health 0x09 — reference structure is
+    // public, a clinical finding *about* it is PHI. `CLASSID_FMA` retargets to
+    // `anatomical_structure` (0x0A01), clearing the prior 0x0901 = `patient`
+    // collision. Mirrors OGAR `ogar-vocab` ConceptDomain::Anatomy.
+    ("anatomical_structure", 0x0A01),
+    ("skeleton", 0x0A02),
+    ("bone", 0x0A03),
+    ("joint", 0x0A04),
     // ── 0x0BXX — Auth domain (identity / authz; OGAR's 0x0B AuthStore family) ──
     ("auth_store", 0x0B01),
     ("auth_zitadel", 0x0B02),
@@ -378,6 +392,7 @@ mod tests {
         assert_eq!(canonical_concept_domain(0x0700), ConceptDomain::Osint);
         assert_eq!(canonical_concept_domain(0x0801), ConceptDomain::Ocr);
         assert_eq!(canonical_concept_domain(0x0901), ConceptDomain::Health);
+        assert_eq!(canonical_concept_domain(0x0A01), ConceptDomain::Anatomy);
         assert_eq!(canonical_concept_domain(0x0B01), ConceptDomain::Auth);
         assert_eq!(canonical_concept_domain(0x0500), ConceptDomain::Unassigned);
     }
@@ -400,8 +415,9 @@ mod tests {
         );
         assert_eq!(
             classid_concept_domain(NodeGuid::CLASSID_FMA),
-            ConceptDomain::Health,
-            "FMA anatomy lives in the Health domain (0x09XX)"
+            ConceptDomain::Anatomy,
+            "FMA anatomy lives in the Anatomy domain (0x0AXX), not Health — \
+             cleared the 0x0901 = `patient` collision"
         );
         assert_eq!(
             classid_concept_domain(NodeGuid::CLASSID_DEFAULT),
