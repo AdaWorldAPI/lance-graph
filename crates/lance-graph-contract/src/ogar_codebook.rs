@@ -60,7 +60,14 @@ pub enum ConceptDomain {
     Anatomy,
     /// `0x0BXX` — Auth (identity / authz: AuthStore, Zitadel, Zanzibar, Ory Keto).
     Auth,
-    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x0CXX`+).
+    /// `0x0CXX` — Automation (the HIRO IT-automation stack: the MARS structural
+    /// CMDB — `mars_application` / `mars_resource` / `mars_software` /
+    /// `mars_machine` — and the Automation DO-arm actuators — `knowledge_item` /
+    /// `mars_node_template` / `action_handler` / `action_applicability` /
+    /// `automation_trigger`). Infrastructure config, not PHI. Mirrors OGAR
+    /// `ogar_vocab::ConceptDomain::Automation`.
+    Automation,
+    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x0DXX`+).
     Unassigned,
 }
 
@@ -79,6 +86,7 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x09 => ConceptDomain::Health,
         0x0A => ConceptDomain::Anatomy,
         0x0B => ConceptDomain::Auth,
+        0x0C => ConceptDomain::Automation,
         _ => ConceptDomain::Unassigned,
     }
 }
@@ -321,6 +329,18 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("auth_zitadel", 0x0B02),
     ("auth_zanzibar", 0x0B03),
     ("auth_ory_keto", 0x0B04),
+    // ── 0x0CXX — Automation domain (HIRO IT-automation: MARS CMDB + DO-arm
+    // actuators; OGAR's 0x0C Automation domain). One domain spanning the MARS
+    // structural CMDB and the Automation behavioral vocabulary. ──
+    ("mars_application", 0x0C01),
+    ("mars_resource", 0x0C02),
+    ("mars_software", 0x0C03),
+    ("mars_machine", 0x0C04),
+    ("knowledge_item", 0x0C05),
+    ("mars_node_template", 0x0C06),
+    ("action_handler", 0x0C07),
+    ("action_applicability", 0x0C08),
+    ("automation_trigger", 0x0C09),
 ];
 
 /// Resolve a **canonical-concept** string to its stable `u16` codebook id via
@@ -394,7 +414,10 @@ mod tests {
         assert_eq!(canonical_concept_domain(0x0901), ConceptDomain::Health);
         assert_eq!(canonical_concept_domain(0x0A01), ConceptDomain::Anatomy);
         assert_eq!(canonical_concept_domain(0x0B01), ConceptDomain::Auth);
+        assert_eq!(canonical_concept_domain(0x0C01), ConceptDomain::Automation);
+        assert_eq!(canonical_concept_domain(0x0C09), ConceptDomain::Automation);
         assert_eq!(canonical_concept_domain(0x0500), ConceptDomain::Unassigned);
+        assert_eq!(canonical_concept_domain(0x0D00), ConceptDomain::Unassigned);
     }
 
     #[test]
@@ -454,6 +477,11 @@ mod tests {
         assert_eq!(canonical_concept_id("vital_sign"), Some(0x0907));
         assert_eq!(canonical_concept_id("auth_store"), Some(0x0B01));
         assert_eq!(canonical_concept_id("auth_ory_keto"), Some(0x0B04));
+        // 0x0CXX Automation (the MARS/Automation codebook pass minted these in OGAR).
+        assert_eq!(canonical_concept_id("mars_application"), Some(0x0C01));
+        assert_eq!(canonical_concept_id("knowledge_item"), Some(0x0C05));
+        assert_eq!(canonical_concept_id("mars_node_template"), Some(0x0C06));
+        assert_eq!(canonical_concept_id("automation_trigger"), Some(0x0C09));
         assert_eq!(canonical_concept_id("not_a_concept"), None);
     }
 
