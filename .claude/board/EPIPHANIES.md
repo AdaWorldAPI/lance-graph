@@ -23,6 +23,46 @@ collision is cleared. Constant-following consumers (the `ReadMode::FMA` registry
 inherit the fix with no change. Tests updated to assert `0x0A01` / Anatomy and to
 forbid the `0x0901` alias. Cross-ref: OGAR PR #117 (the Anatomy mint + audit),
 q2 PR #50 (independent `[mixin:instance]` convergence, F-6).
+## 2026-06-23 — E-V3-PART-OF-IS-A-TILE — each 16-bit HHTL tier is an 8:8 (part_of:is_a) split: two hierarchies, one key
+
+**Status:** FINDING (q2 `converge.rs` / `V3_SOA_WIRING.md` are the existence proof on FMA anatomy; this entry records the grid instance + the consumer-bump awareness). **Confidence:** the 8:8 split + dual-query are shipped/tested; the consumer-bump items are an inventory, not yet PRs.
+
+q2's V3 addressing reinterprets each canonical 16-bit HHTL tier as **high byte = `part_of`** (PLACE / mereology / where) **: low byte = `is_a`** (TISSUE / taxonomy / what). The high-byte chain (HEEL.hi→HIP.hi→TWIG.hi) prefix-routes containment; the low-byte chain routes type. `EdgeBlock` in-family = `part_of` siblings = `connected_to`. **It needs no `ENVELOPE_LAYOUT_VERSION` bump** — it is an *interpretation* of the operator-locked 3×u16 tiers (the 6-group `NodeGuid`, NOT the in-flight 7-group LEAF `new_v2`).
+
+For the **electric grid** (`perturbation-sim::CascadeKeyV3`, additive to the V1/V2 `CascadeKey`): `part_of` (place) = the 24-bit Morton spectral cell (where in the grid), `is_a` (tissue) = the bus-role taxonomy (source/sink/transfer, generalizable to `BusKind`). The payoff over V1/V2 spatial-only: a `part_of` prefix selects "which region blacked out" AND an `is_a` prefix selects "all generators / all loads" — **two orthogonal queries on ONE key** (proven: source vs sink carry distinct is_a class bytes; the outage footprint is part_of-local). EdgeBlock in-family = the lines the cascade propagates along.
+
+**Consumer V1/V2→V3 bump inventory:** lance-graph `canonical_node` lacks an 8:8 `(part_of/is_a)` byte accessor (additive, layout-preserving — the natural canonical surface); `contract::soa_graph`/`graph_render` could split place/tissue on render; **live blocker** — q2 `osint-bake/fma.rs` calls `NodeGuid::new_v2(...LEAF...)`, a 7-group API absent from `canonical_node` (`I-LEGACY-API-FEATURE-GATED`); V3 is the 6-group-compatible resolution that sidesteps it. (Not actioned here — OGAR/contract surface is another session's; flagged only.) Ref: AGENT_LOG cont.³⁹, `cascade_key.rs` (V3 section), q2 `V3_SOA_WIRING.md` / `OGAR_CONSUMER_INTEGRATION.md`.
+
+## 2026-06-23 — E-CASCADE-KEY-IS-THE-SPATIAL-ADDRESS — one 48-bit Morton key, read six ways
+
+**Status:** FINDING (measured, scoped to perturbation-sim). **Confidence:** the
+locality result is a measured probe, not a proof; the six-lens *identity* is
+structural.
+
+The electric-outage cascade re-wired onto `perturbation-sim::CascadeKey`
+(`family:u16 | leaf:u16 | identity:u16` = HEEL/HIP/TWIG, the OGAR production form
+the old binary-Cheeger `HhtlKey` defers). Each tier is a full 16-bit 256×256
+centroid tile of the bus's `spectral_embedding` position (Morton-interleaved,
+min-max norm ⇒ nibble prefix = quad-tree ancestry, the 4⁴ condition). The same
+key is six readings of one address, NOT six artifacts:
+
+- **location** = `tile()` decode (the address is the position);
+- **math** = `cascade_distance` = `3 − shared_prefix_tiers`, O(1) Morton
+  containment, zero value decode;
+- **representation** = `to_guid_tiers()` IS the canonical `(HEEL,HIP,TWIG)`;
+- **substrate** = three `u16` = the `NodeGuid` cascade tiers at bytes 4..10;
+  `morton48()` = the packed SoA key;
+- **learning + thinking** = the blackout epicentre is **prefix-local** — measured
+  mean cascade-distance **1.000 vs 2.561 random baseline** on the 3-region grid;
+  the footprint learns the basin tree and the cascade traverses the same key.
+
+This realizes `guid-prefix-shape-routing.md` §4 ("the key selects the grid") on a
+real perturbation domain. Honest fences: spectrally-symmetric buses (a clique)
+collide at the finest tier (degenerate eigenvectors — broken symmetry separates
+them in real grids); the locality number is a single-probe measurement (cite
+Jirak `n^(p/2−1)`, not IID, for any significance claim per I-NOISE-FLOOR-JIRAK);
+"topology IS the key" — these are electrical (spectral) coordinates, not geography.
+Ref: AGENT_LOG cont.³⁸, `perturbation-sim/src/cascade_key.rs` + `examples/spain_cascade.rs`.
 
 ## 2026-06-23 — E-CLASSRBAC-PROMOTED-TO-CONTRACT — the §11 trait-placement that lets ogar join the RBAC chain
 
