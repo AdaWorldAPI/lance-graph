@@ -1,3 +1,34 @@
+## 2026-06-23 — E-OGAR-API-EDIT-PULL-FIRST — API-based file edits MUST pull-then-splice; uploading pre-edited local files regresses upstream main
+
+**Status:** FINDING (caught in OGAR #126 CI failure mid-PR-life).
+
+When network 403s block direct git push to OGAR, the fallback is PyGithub's
+`update_file()` API. The trap: if the locally-edited file was based on a
+*stale* checkout of OGAR main (e.g. `/tmp/ogar-work` at `ac4b4162` while
+remote main is at `a3574bdf`), then the API upload *overwrites* the upstream
+changes between the two commits — silently regressing entries that landed
+between them.
+
+In OGAR #126, my initial uploads were against `/tmp/ogar-work@ac4b4162` (pre-
+Anatomy + pre-Automation). The OGAR main had landed PRs #112-#125 in between,
+adding the Anatomy domain (`anatomical_structure`/`skeleton`/`bone`/`joint`)
+and the Automation domain. My uploads regressed those entries. CI fired on
+`ogar-fma-skeleton` referencing `ogar_vocab::class_ids::BONE` which was
+present on main but absent from my upload.
+
+**Fix:** for every API-based file edit, **pull `main`'s current content FIRST**
+(via `r.get_contents(path, ref="main")`), apply only the targeted deltas via
+string-anchor splicing, and upload the result. Never upload a locally-prepared
+file when the working tree might be stale.
+
+**Cross-ref:** sibling pattern to `E-OGAR-AUTH-MIRROR-DRIFT` (lance-graph
+#595 / #596 / #597) — both are about cross-repo edit-time drift. That one
+was "mirror lags ALL"; this one is "API-edit lags upstream main." The
+discipline is the same: pull-first, edit-narrow, push-thin.
+
+**Source-of-finding:** OGAR #126 CI failure 2026-06-23 (`ogar-fma-skeleton`
+referencing `class_ids::BONE`).
+
 ## 2026-06-24 — E-CLASSID-FMA-PATIENT-COLLISION — `CLASSID_FMA = 0x0901` aliased OGAR `patient`; retargeted to the Anatomy domain `0x0A01`
 
 **Status:** FINDING + FIX (2026-06-24). Surfaced by OGAR's NodeGuid canon audit

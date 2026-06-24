@@ -307,6 +307,11 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     // odoo-rs PR #14.
     ("product", 0x0207),
     ("accounting_account", 0x0208),
+    // ProductCatalog cluster (OGAR #126): closes 3 more of the 11 cross-axis
+    // gaps surfaced by odoo-rs PR #14. All stay in 0x02XX commerce arm.
+    ("pricelist", 0x0209),
+    ("pricelist_rule", 0x020A),
+    ("unit_of_measure", 0x020B),
     // ── 0x09XX — Health domain (MedCare; OGIT NTO/Healthcare promotion) ──
     ("patient", 0x0901),
     ("diagnosis", 0x0902),

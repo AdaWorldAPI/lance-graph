@@ -140,7 +140,9 @@ pub mod parity {
                 | (O::Osint, C::Osint)
                 | (O::Ocr, C::Ocr)
                 | (O::Health, C::Health)
+                | (O::Anatomy, C::Anatomy)
                 | (O::Auth, C::Auth)
+                | (O::Automation, C::Automation)
                 | (O::Unassigned, C::Unassigned)
         )
     }
