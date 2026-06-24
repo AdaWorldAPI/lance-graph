@@ -28,6 +28,13 @@ discipline is the same: pull-first, edit-narrow, push-thin.
 
 **Source-of-finding:** OGAR #126 CI failure 2026-06-23 (`ogar-fma-skeleton`
 referencing `class_ids::BONE`).
+## 2026-06-24 — E-LOCATION-PERMEABILITY-CONFLATION — the address became the ketchup yield it measures; split helix-Place (location) from BF16-buffer (permeability)
+
+**Status:** FINDING (measured). **Confidence:** the split is shipped + measured on one grid; the orthogonality re-verification across a sweep is the open follow-up.
+
+`cascade_key`'s `place` (V1/V2/V3) is a quantization of the **live spectral embedding**, which IS the Laplacian impulse-response (effective resistance / Fiedler). So **location was conflated with impulse permeability**: the place-cell exhibits yield-stress (stable, then sudden flip across a centroid boundary) **isomorphic to the cascade it measures** — the instrument became the phenomenon. Diagnostic (certified battery vs `effective_resistance`): under any single line-trip, the absolute place cell flips for **every** bus (octet ICC 0.14) because the spectral frame rotates (Davis-Kahan); only relative geometry survives (pairwise α 0.98). This is a **category error** (location ⊕ permeability fused), and it re-broke the orthogonality #509/#511 measured (`Spearman(λ₂, inertia) ≈ 0`).
+
+The fix is two orthogonal axes (the canon's key/value split done right): **LOCATION = helix Place** (equal-area √u golden-spiral by a stable index — pure geometry, never reads the Laplacian → deterministic, perturbation-invariant); **PERMEABILITY = BF16 buffer residue** (8× conductance = the 3×3 Moore-stencil per Umspannwerk — the responsive axis where the ketchup yield is the *signal*). Measured: location ICC **0.14→1.00**, location ρ-vs-R_eff **0.46→≈0** (it is *not* the dynamics — correct demotion), buffer ICC **0.51** (it moves — the dynamics live here). Honest fence: "buffer ρ-vs-R_eff high" was a metric-shape error (node-summary vs pairwise coupling); the buffer's role is its motion, not a pairwise ρ. Deeper statistical consequence: a frozen palette-256 codebook (the gauge-fix) confines the weak-dependence to the *boundary-margin* set (margin-vs-‖E‖ per Davis-Kahan), not a global σ noise floor — but `cascade_key` re-derives the frame per call, so it is still in the floating/weakly-dependent regime until the codebook is frozen. Ref: AGENT_LOG cont.⁴⁰, `perturbation-sim/src/place_buffer.rs` + `examples/location_buffer_split.rs`; helix `Place/Residue` codec; #509/#511/#513 `inertia_buffer`/`INERTIA_SLOT`.
 
 ## 2026-06-24 — E-CLASSID-FMA-PATIENT-COLLISION — `CLASSID_FMA = 0x0901` aliased OGAR `patient`; retargeted to the Anatomy domain `0x0A01`
 
