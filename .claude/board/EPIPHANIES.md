@@ -1,3 +1,35 @@
+## 2026-06-23 — E-OGAR-11-OF-11-CLOSURE — the cross-axis identity gap from odoo-rs #14 is fully closed (OGAR #111 + #126 + #127; lance-graph #597 + #606 + this D4)
+
+**Status:** FINDING (milestone). odoo-rs PR #14 surfaced 11 missing
+`OdooPort` aliases in the cross-axis identity check
+`alignment_pin::seeded_classes_have_compatible_ogar_identity`. Three OGAR
+PRs progressively closed the gap; three lance-graph PRs mirrored each in
+turn (E-OGAR-AUTH-MIRROR-DRIFT discipline):
+
+| OGAR PR | What | lance-graph mirror PR |
+|---|---|---|
+| #111 | PRODUCT + ACCOUNTING_ACCOUNT (commerce 0x02XX) | #597 (D2) |
+| #126 | PRICELIST + PRICELIST_RULE + UNIT_OF_MEASURE (commerce 0x02XX) | #606 (D3) |
+| #127 | HR domain mint (new 0x0DXX) + 4 entries (hr_employee/hr_department/hr_job/hr_employment_contract) | THIS PR (D4) |
+
+After D4 merges: **11-of-11 closed**. odoo-rs's alignment_pin can flip its
+"7 remaining" informational eprintln to "0 remaining" and tighten the hard
+pin from "commerce-arm only" (3 classes) to "all 15 seeded classes have an
+OGAR classid".
+
+**The discipline that emerged this session:**
+- `E-OGAR-AUTH-MIRROR-DRIFT` — mirror updates land in the SAME commit as
+  any OGAR `ALL`-list extension; the COUNT_FUSE is the guardrail when it
+  fires locally (matching pins).
+- `E-OGAR-API-EDIT-PULL-FIRST` — API-based file edits MUST pull-then-splice;
+  uploading pre-edited local files regresses upstream main.
+
+These two epiphanies are how the C2 #126 CI failure and the C3 #127 test
+failure were caught and fixed without compounding drift.
+
+**Closes:** the 11-class cross-axis gap. **Next:** odoo-rs alignment_pin
+tighten + pin bump to OGAR main (5089c1e8 → 597ecb12 family).
+
 ## 2026-06-23 — E-OGAR-API-EDIT-PULL-FIRST — API-based file edits MUST pull-then-splice; uploading pre-edited local files regresses upstream main
 
 **Status:** FINDING (caught in OGAR #126 CI failure mid-PR-life).

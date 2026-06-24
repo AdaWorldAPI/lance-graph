@@ -67,7 +67,14 @@ pub enum ConceptDomain {
     /// `automation_trigger`). Infrastructure config, not PHI. Mirrors OGAR
     /// `ogar_vocab::ConceptDomain::Automation`.
     Automation,
-    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x0DXX`+).
+    /// `0x0DXX` — HR (employment / org / contracts; `vcard:Individual` /
+    /// `org:OrganizationalUnit` / `org:Role` / `fibo:Contract` alignment).
+    /// Public master-data for person + organizational-unit + role +
+    /// employment-contract entities; distinct from `Auth` (the IdP→classid
+    /// bridge) and from `Health` PHI. Mirrors OGAR
+    /// `ogar_vocab::ConceptDomain::HR` (added in OGAR PR #127).
+    HR,
+    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x0EXX`+).
     Unassigned,
 }
 
@@ -87,6 +94,7 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x0A => ConceptDomain::Anatomy,
         0x0B => ConceptDomain::Auth,
         0x0C => ConceptDomain::Automation,
+        0x0D => ConceptDomain::HR,
         _ => ConceptDomain::Unassigned,
     }
 }
@@ -334,6 +342,13 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("auth_zitadel", 0x0B02),
     ("auth_zanzibar", 0x0B03),
     ("auth_ory_keto", 0x0B04),
+    // ── 0x0DXX — HR domain (employment / org / contracts; OGAR PR #127) ──
+    // Closes the final 4-of-11 cross-axis identity gap surfaced by odoo-rs
+    // PR #14: hr.employee / hr.department / hr.job / hr.contract.
+    ("hr_employee", 0x0D01),
+    ("hr_department", 0x0D02),
+    ("hr_job", 0x0D03),
+    ("hr_employment_contract", 0x0D04),
     // ── 0x0CXX — Automation domain (HIRO IT-automation: MARS CMDB + DO-arm
     // actuators; OGAR's 0x0C Automation domain). One domain spanning the MARS
     // structural CMDB and the Automation behavioral vocabulary. ──
@@ -421,8 +436,10 @@ mod tests {
         assert_eq!(canonical_concept_domain(0x0B01), ConceptDomain::Auth);
         assert_eq!(canonical_concept_domain(0x0C01), ConceptDomain::Automation);
         assert_eq!(canonical_concept_domain(0x0C09), ConceptDomain::Automation);
+        assert_eq!(canonical_concept_domain(0x0D01), ConceptDomain::HR);
+        assert_eq!(canonical_concept_domain(0x0D04), ConceptDomain::HR);
         assert_eq!(canonical_concept_domain(0x0500), ConceptDomain::Unassigned);
-        assert_eq!(canonical_concept_domain(0x0D00), ConceptDomain::Unassigned);
+        assert_eq!(canonical_concept_domain(0x0E00), ConceptDomain::Unassigned);
     }
 
     #[test]

@@ -143,6 +143,7 @@ pub mod parity {
                 | (O::Anatomy, C::Anatomy)
                 | (O::Auth, C::Auth)
                 | (O::Automation, C::Automation)
+                | (O::HR, C::HR)
                 | (O::Unassigned, C::Unassigned)
         )
     }
