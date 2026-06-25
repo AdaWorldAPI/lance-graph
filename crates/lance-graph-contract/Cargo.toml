@@ -43,6 +43,15 @@ trajectory-audit = []
 # I-LEGACY-API-FEATURE-GATED (field-isolation matrix + version gate).
 guid-v2-tail = []
 
+# guid-v3-tail (P-A, plan: soa-value-tenant-migration-v2.md §2.1/§2.2) — gates the
+# V3 cascade-key per-classid entries. The V3 identity AXIS itself (TailVariant::V3
+# + ReadMode::tail_variant) is unconditional, latent (nothing reads tail_variant
+# yet) → non-breaking. The gated entries pin the generation marker in the HIGH
+# (custom) u16, preserving the canon LOW-u16 0xDDCC domain byte (so
+# `classid_concept_domain` still routes the legacy domain). OSINT-V3 (0x1000_0700)
+# is the wired exemplar; FMA-V3 (0x1000_0A01) + Genetics follow. Default OFF.
+guid-v3-tail = []
+
 # tenant-counters — per-ValueTenant update counters for debug instrumentation of
 # the SoA write cascade (the capstone NaN-census / seam-wiring measurement). OFF
 # by default: `tenant_counter::tenant_update` is a zero-cost no-op unless enabled

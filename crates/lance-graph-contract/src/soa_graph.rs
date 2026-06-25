@@ -140,11 +140,23 @@ fn family_node_id(family: u32) -> String {
     format!("family:{family:06x}")
 }
 
-/// HHTL routing path of a GUID, via the canonical [`NiblePath::from_guid_prefix`]
-/// lowering (`classid_lo·HEEL·HIP·TWIG`). Falls back to [`NiblePath::EMPTY`] for
-/// the (canon-reserved) case of a non-zero high `classid` u16.
+/// HHTL routing path of a GUID. The fold is selected by the classid's
+/// `tail_variant` — **the schema decides how** (OGAR #128 `classid → {tail_variant,
+/// …}`). A **V3** classid routes on the `(part_of:is_a)` `HEEL·HIP·TWIG·LEAF`
+/// cascade ([`NiblePath::from_guid_prefix_v3`], both bytes per tier); `classid`
+/// is NOT folded, so its high-`u16` generation marker does not gate routing and
+/// never collapses to [`NiblePath::EMPTY`]. Every other classid uses the canonical
+/// v1 lowering (`classid_lo·HEEL·HIP·TWIG`), which falls back to
+/// [`NiblePath::EMPTY`] only for the v1-fold case of a non-zero high `classid` u16.
 #[inline]
 fn hhtl_path(guid: &NodeGuid) -> NiblePath {
+    #[cfg(feature = "guid-v3-tail")]
+    {
+        use crate::canonical_node::{classid_read_mode, TailVariant};
+        if classid_read_mode(guid.classid()).tail_variant == TailVariant::V3 {
+            return NiblePath::from_guid_prefix_v3(guid);
+        }
+    }
     NiblePath::from_guid_prefix(guid).unwrap_or(NiblePath::EMPTY)
 }
 
