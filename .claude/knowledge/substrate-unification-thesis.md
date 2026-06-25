@@ -191,23 +191,34 @@ it is graded `[H]` where it reuses shipped structure and `[S]` where it bets on
 unbuilt tooling. **Nothing here is canon yet** — it is the north-star's far end,
 written down so the rungs point somewhere.
 
-### 8.1 The homogeneous facet `[H]` — layout-preserving, not layout-breaking
+### 8.1 The homogeneous facet `[H]` — a ClassView reading, NOT a new contract variant
 
 Carve the 480-byte value as **N × 16-byte facets**, each facet itself a
 `(part_of:is_a)` cascade in the §2-Structure algebra:
 
-```
+```text
 facet (16 B) = facet_classid(4) | 6 × (8:8 part_of:is_a tile, 2 B each = 12)
-value (480 B) = up to 30 homogeneous facets        ← ValueSchema::Homogeneous
+value (480 B) = up to 30 homogeneous facets    ← read by classid → ClassView
 ```
 
-The key insight is **compatibility, not replacement**: this is a new
-`ValueSchema::Homogeneous` variant *alongside* the existing `ValueTenant` SoA
-columns — the 16/16/480 split (`canonical_node.rs`) is **untouched**, so it is
-layout-preserving and needs no `ENVELOPE_LAYOUT_VERSION` bump (contrast a *key*
-re-carve, which is canon-level and separate). The value's facets are read by
-the *same* prefix-and-table arithmetic as the path tiers (§2), so "read the
-value" becomes the same operation as "route the key."
+**Guardrail (do not misread this as a free additive).** The canon forbids a
+plan or thesis from minting a `ValueSchema` enum variant: the #496 §0
+anti-invention guardrail + the **#500 no-new-variant contract test**, and
+`core-first-transcode-doctrine.md` ("`classid → ClassView` … **no new layer,
+no new `ValueSchema` variant**"). The genetics and OCR plans both ride the
+existing `Full` / `Compressed` presets and specialise via `classid → ClassView`
+mint — *not* a new variant. So the homogeneous facet is **a ClassView reading
+that interprets the value bytes of an existing preset**, never a
+`ValueSchema::Homogeneous` enum case. Both the 16/16/480 layout
+(`canonical_node.rs`) **and** the `ValueSchema` enum stay untouched; no
+`ENVELOPE_LAYOUT_VERSION` bump, no contract-surface addition. The value's
+facets are read by the *same* prefix-and-table arithmetic as the path tiers
+(§2), so "read the value" becomes the same operation as "route the key."
+
+**If** a dedicated variant is ever judged necessary (a leaner homogeneous
+preset the existing ones can't express), that is an explicit **operator
+decision lifting the #496/#500 guardrail** — with the contract test updated in
+the same change — never an additive a thesis assumes for free.
 
 **The conflation trap, named up front (`[H]` gate):** not every facet is a
 `part_of:is_a` mereology/taxonomy pair. Scalars (a susceptance, a price, a
@@ -246,10 +257,11 @@ GATED` in spirit: same prefix, two semantics, must never silently diverge).
 ### 8.3 LEGO across domains `[S]` — EdgeBlock click via shared codebook
 
 If two programs (an ERP, a OCR pipeline) mint nodes against the *same* OGAR
-concept codebook, their `EdgeBlock` slots are **directly clickable**: an
-out-of-family edge from domain A's node resolves, by `canonical_concept_id`,
-into domain B's node — no adapter, no serialization, because both speak the one
-codebook. "Compile on OGAR classes and do LEGO with class shapes" becomes:
+concept codebook, their `EdgeBlock` slots are **conceptually clickable through
+the shared codebook**: an out-of-family edge from domain A's node resolves, by
+`canonical_concept_id`, into domain B's node — the per-port codebook lookup
+still mediates, but the extra *translation* boundary (a bespoke A→B adapter, a
+serialization hop) disappears, because both already speak the one codebook. "Compile on OGAR classes and do LEGO with class shapes" becomes:
 **compile = SPO manifest → ClassView**; **run = SoA under `UnifiedStep` /
 semiring** (§2-Composition). `[S]` — this is the OGAR core-first doctrine's
 end state, explicitly CONJECTURE until `PROBE-OGAR-ADAPTER-UNICHARSET` is green.

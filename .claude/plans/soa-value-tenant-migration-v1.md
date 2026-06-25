@@ -43,11 +43,14 @@ The canonical node is `key(16) | edges(16) | value(480)` = 512 B
 (`canonical_node.rs`, operator-LOCKED, RESERVE-DON'T-RECLAIM). A **value
 tenant** is a typed claim on some of those 480 value bytes — the `ValueSchema`
 says how the slab is carved, a `ValueTenant` is one carve. The §8 strong form
-(`substrate-unification-thesis.md`) proposes an *additive* `ValueSchema::
-Homogeneous` (N × 16-byte `(part_of:is_a)` facets) **alongside** the existing
-tenants. The migration question for each existing tenant is therefore:
-**KEEP as-is / homogenize to a facet / PQ-code it / deprecate** — and whether
-that move is layout-preserving.
+(`substrate-unification-thesis.md`) reads the homogeneous facet as a
+`classid → ClassView` *interpretation over an existing preset* (`Full` /
+`Compressed`) — **not** a new `ValueSchema` enum variant (the #496 §0
+anti-invention guardrail + the #500 no-new-variant contract test forbid a plan
+from minting one; see §3). The migration question for each existing tenant is
+therefore: **KEEP as-is / homogenize via a ClassView facet reading / PQ-code it
+/ deprecate** — and whether that move stays within the existing presets or
+requires an operator-lifted guardrail.
 
 ---
 
@@ -106,12 +109,21 @@ The harvest must Read, fully, in this order:
 For each tenant the harvest touches, hold these in mind — they are the
 acceptance criteria the §6 panels will check:
 
-- **Layout class.** Is the proposed move *layout-preserving* (a new
-  `ValueSchema` variant alongside; offsets unchanged) or *layout-breaking* (the
-  480 bytes re-carved)? Breaking ⇒ canon-level ⇒ needs `ENVELOPE_LAYOUT_VERSION`
-  bump **and** the operator's nod. The 16/16/480 split and the `const _` asserts
-  do not move without that. (RESERVE-DON'T-RECLAIM: a zeroed/unused region is
-  *not consulted*, never *compacted away*.)
+- **Contract-surface class (the #500 guardrail).** A plan may **NOT** mint a
+  `ValueSchema` enum variant — that is a contract-surface addition against the
+  #496 §0 anti-invention guardrail, enforced by the **#500 no-new-variant
+  contract test** (`core-first-transcode-doctrine.md`: "`classid → ClassView`
+  … no new `ValueSchema` variant"; the genetics + OCR plans both ride `Full` /
+  `Compressed` and specialise via `classid → ClassView` mint). So the default
+  move is a **ClassView reading over an existing preset**, offsets and enum both
+  unchanged. A genuinely new preset is an **operator decision lifting #496/#500**
+  (with the contract test updated in the same change), never a plan default.
+- **Layout class.** Even within the existing enum, is the byte carve
+  *preserving* (offsets unchanged) or *breaking* (the 480 bytes re-carved)?
+  Breaking ⇒ canon-level ⇒ needs `ENVELOPE_LAYOUT_VERSION` bump **and** the
+  operator's nod. The 16/16/480 split and the `const _` asserts do not move
+  without that. (RESERVE-DON'T-RECLAIM: a zeroed/unused region is *not
+  consulted*, never *compacted away*.)
 - **`I-LEGACY-API-FEATURE-GATED`.** The same accessor name must never mean two
   things under two feature flags. Any v1 accessor over bytes a v2 layout
   reclaims ⇒ route through the canonical mapping OR feature-gate to a documented
@@ -168,10 +180,14 @@ hidden. Silent truncation reads as "covered everything" when it didn't.
 
 Direction, fixed; specifics, deferred to the filled inventory:
 
-1. **Additive contract first.** Land `ValueSchema::Homogeneous` + a
-   `FacetCascade` type (`facet_classid(4) | 6×(8:8)=12` = 16 B) as a *new
-   variant alongside* `ValueTenant` — layout-preserving, no version bump. Behind
-   a feature flag. Field-isolation matrix tests from day one.
+1. **ClassView reading first (no new contract variant).** Land the
+   `FacetCascade` *reading* (`facet_classid(4) | 6×(8:8)=12` = 16 B) as a
+   `classid → ClassView` interpretation over an existing preset (`Full` /
+   `Compressed`) — the `ValueSchema` enum and the 16/16/480 layout both
+   untouched, no version bump, no #500 violation. Behind a feature flag.
+   Field-isolation matrix tests from day one. (A dedicated `ValueSchema` preset
+   is out of scope for this plan — it is an operator-lifted #496/#500 decision,
+   filed separately if the existing presets prove insufficient.)
 2. **Per-tenant, in migration_class order:**
    - `homogenize-to-facet` tenants (those that already ARE `part_of:is_a`) move
      first — lowest risk, prototype is `cascade_key` V3.

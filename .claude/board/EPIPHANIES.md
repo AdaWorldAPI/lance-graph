@@ -29,6 +29,39 @@ failure were caught and fixed without compounding drift.
 
 **Closes:** the 11-class cross-axis gap. **Next:** odoo-rs alignment_pin
 tighten + pin bump to OGAR main (5089c1e8 → 597ecb12 family).
+## 2026-06-24 — E-HOMOGENEOUS-FACET-IS-CLASSVIEW-NOT-VARIANT — the §8 homogeneous facet is a `classid → ClassView` reading, NEVER a new `ValueSchema` enum variant
+
+**Status:** FINDING (caught by Codex P2 on PR #610, verified against canon).
+
+The thesis §8.1 + the SoA value-tenant migration plan v1 originally framed the
+homogeneous-facet value as a *new additive* `ValueSchema::Homogeneous` variant
+"alongside" the existing tenants, sold as layout-preserving + no-version-bump.
+**That contradicts a locked guardrail.** Adding a `ValueSchema` enum case is a
+*contract-surface* addition even when the byte layout is untouched, and the
+canon forbids a plan/thesis from minting one:
+
+- `core-first-transcode-doctrine.md:72` — "`classid → ClassView` … **No new
+  layer, no new `ValueSchema` variant.**"
+- `genetic-research-substrate-integration-v1.md:14-16` — the #496 §0
+  anti-invention guardrail + the **#500 no-new-variant contract test**:
+  rows ride `Full` / `Compressed`; specialisation is via `classid → ClassView`
+  mint, not a variant.
+- `ocr-canonical-soa-integration-v1.md:93-102` — "do **NOT** add a 5th
+  `ValueSchema::Ocr` … the rule that holds is **no new enum variant from a
+  plan**."
+
+**Corrected framing (both docs fixed in the same PR):** the homogeneous facet is
+a **ClassView reading that interprets the value bytes of an existing preset** —
+the `ValueSchema` enum AND the 16/16/480 layout both stay untouched, no
+`ENVELOPE_LAYOUT_VERSION` bump, no #500 violation. IF a dedicated preset is ever
+judged necessary, that is an **operator decision lifting #496/#500** with the
+contract test updated in the same change — never a free additive a thesis
+assumes. **Lesson:** "layout-preserving" ≠ "contract-surface-preserving"; an
+enum-variant add is the latter even when the bytes don't move. The default for
+any new value shape is a ClassView reading over `Full`/`Compressed`, not a new
+`ValueSchema` case. (Same PR also softened the §8.3 "no adapter" claim — the
+per-port codebook lookup still mediates; only the bespoke A→B *translation*
+boundary disappears — and tagged a bare markdown fence per CodeRabbit.)
 
 ## 2026-06-23 — E-OGAR-API-EDIT-PULL-FIRST — API-based file edits MUST pull-then-splice; uploading pre-edited local files regresses upstream main
 
