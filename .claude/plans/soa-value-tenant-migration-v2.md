@@ -40,9 +40,10 @@ The harvest correctly **bracketed this key-side** ("a SEPARATE, zero-dep SoA …
 NOT wired into `NodeRow.value`", harvest §4) — so it is *not* covered by the
 value-tenant inventory; it is the prerequisite that inventory assumes.
 
-- **New-gen classids carry the `0x1007` leading-`1` prefix** → route through the
-  **V3 `tail_variant`** in the OGAR registry; the HHTL tiers read as the
-  `(part_of:is_a)` 8:8 tile (`perturbation-sim/src/cascade_key.rs`
+- **New-gen classids carry a leading-`1` generation marker in the HIGH (custom)
+  u16, preserving the canon low u16** (e.g. OSINT `0x0000_0700 → 0x1000_0700`; see
+  §2.2) → route through the **V3 `tail_variant`** in the OGAR registry; the HHTL
+  tiers read as the `(part_of:is_a)` 8:8 tile (`perturbation-sim/src/cascade_key.rs`
   `CascadeKeyV3`, already coded + tested: `v3_two_hierarchies_are_independent`).
 - **Coexist-by-classid, NOT rewrite.** Legacy zero-prefix classids keep their
   current `tail_variant` — **V1** (the default `family·identity` tail) or **V2**
@@ -69,11 +70,14 @@ identical schema." `ReadMode` (:815) already carries the value reading; identity
 is a **third field on the same struct**, resolved by the same lookup — mirroring
 OGAR #128's `classid → {tail_variant, value_schema, edge_codec}`:
 
+**Target struct** — the live `ReadMode` (`canonical_node.rs:815`) carries only
+`value_schema` + `edge_codec`; **P-A (PR #613) adds the `tail_variant` field**:
+
 ```rust
 pub struct ReadMode {
-    pub tail_variant: TailVariant,   // P-A adds — which KEY shape (resolved first, per #128's parse order)
-    pub value_schema: ValueSchema,   // Phase 2 — which tenants (already shipped)
-    pub edge_codec: EdgeCodecFlavor, // edges (already shipped)
+    pub tail_variant: TailVariant,   // P-A (#613) ADDS — which KEY shape (resolved first, per #128's parse order)
+    pub value_schema: ValueSchema,   // existing — which tenants
+    pub edge_codec: EdgeCodecFlavor, // existing — edges
 }
 ```
 
@@ -108,7 +112,7 @@ is the *layer-not-column* anti-pattern and will not serve Phase 2. Reject it.
   `ReadMode` + the `TailVariant` enum + the `mint_for` carrier + the
   `guid-v3-tail` gate are additive / default-V1 / feature-gated → they land
   **now**, non-breaking. Only the per-consumer `classid → tail_variant: V3`
-  **entries** (the `0x1007` placement) need the P-C operator-lock.
+  **entries** (the high-u16 gen-marker placement, §2.2) need the P-C operator-lock.
 
 **Parity fuse — structural-against-canon, NOT runtime-vs-struct.** OGAR #128
 (`E-CLASSID-ENVELOPE-PARSER` / `D-ENVPARSE`, merged, **doc-only**) pins the target
@@ -125,21 +129,23 @@ registry's `tail_variant`.
 
 ### 2.2 P-C classid lock (operator-ratified 2026-06-25)
 
-**Generation marker = flip the leading nibble `0 → 1`** on the *current* classid
-(#128's "exact u32 placement" pinned to the high nibble; versioning in the
-schema-pointer, never a GUID-tail nibble). OGAR's canonical `0xDDCC` domain map
-(`ogar-vocab/src/lib.rs:1062-1086`) is **kept as-is**. The three V3 consumers:
+The classid u32 is **`[ custom (hi u16) : canon (lo u16) ]`** — `classid_concept_domain`
+routes on the **low** u16 (the OGAR `0xDDCC` codebook; `canonical_node.rs:43`,
+`ogar_codebook.rs:103`). So the **generation marker goes in the HIGH (custom) u16,
+leaving the canon low u16 untouched** — "replace the first `0` with `1`" on the
+*full* u32: `0x0000_0700 → 0x1000_0700`. (Codex-P1 correction: a low-half form like
+the earlier `0x1007` overwrites the domain byte — `0x1007 as u16 >> 8 = 0x10` →
+Unassigned — so it is **rejected**.) The live `0xDDCC` consts are kept as-is.
 
-| consumer | base classid | V3 (gen-marked) | OGAR domain | note |
+| consumer | live classid | V3 (hi-u16 marker) | domain route (`as u16`) | status |
 |---|---|---|---|---|
-| OSINT | `0x0007` | **`0x1007`** | `0x07` OSINT | canon ✓, kept as-is |
-| FMA | `0x0008` | **`0x1008`** | `0x08` OCR | **kept as-is** (jungle-avoidant). Canon home is `0x0A` Anatomy — firewall-split from `0x09` Health PHI (lib.rs:1078-1086) — so the realign to `0x100A` is **deferred domain-debt**; flip this one row if/when realigned. |
-| CPIC | `0x000C → 0x000D` | **`0x100D`** | `0x0D` Genetics (new) | the **one forced move**: `0x0C` is Automation (HIRO/MARS), so CPIC's current `0x0C` collides — Genetics mints into the next free slot, then gen-marks. |
+| OSINT | `0x0000_0700` | **`0x1000_0700`** | `0x0700` → Osint ✓ | **wired (#613)** — test asserts the route |
+| FMA | `0x0000_0A01` | **`0x1000_0A01`** | `0x0A01` → Anatomy ✓ | deferred ("rest later") |
+| CPIC/Genetics | `0x000C_…` | **`0x1000_0?00`** | `0x0?00` → Genetics | **domain TBD** — `0x0D` is **HR** in the contract (`ogar_codebook.rs:97`); Genetics needs a free slot (`0x03–0x06` or `0x0E`). Deferred. |
 
-`ReadMode::DEFAULT.tail_variant = V1` (L1) keeps every other classid legacy; these
-are the only `BUILTIN_READ_MODES` V3 entries, each `guid-v3-tail`-gated. The
-Genetics-domain mint (OGAR + contract) and CPIC's `0x0C → 0x0D` move ride with the
-P-A mechanism, not this doc.
+`ReadMode::DEFAULT.tail_variant = V1` (L1) keeps every other classid legacy; the V3
+entries are `guid-v3-tail`-gated. OSINT-V3 is wired in P-A (#613); FMA-V3 + the
+Genetics-domain mint + CPIC's move follow.
 
 ## 3. Phase 2 — V3-shaped value tenants (value-side; = the harvest)
 
@@ -170,7 +176,7 @@ This is what `-v1-harvest.md` inventoried. With the address already V3:
 ## 5. The watch — Phase 1's substance IS the OGAR gap
 
 Phase 1 leans almost entirely on OGAR (the registry, the envelope parser, the
-`0x1007` mint path). The harvest's OGAR sweep was the **casing-miss gap**
+high-u16 `0x1000_xxxx` gen-marker mint path, §2.2). The harvest's OGAR sweep was the **casing-miss gap**
 (harvest §6.1 — the cross-repo agent searched `/home/user/ogar`; the clone is
 `/home/user/OGAR`, and `/home/user/MedCare-rs` likewise). So the corrective
 `/home/user/{OGAR,MedCare-rs}` sweep is **not optional polish deferred to
@@ -183,7 +189,7 @@ the V3 `tail_variant` without reading that producer side.
 
 | Phase | Object | Side | Mechanism | Grade | Gate | Prereq |
 |---|---|---|---|---|---|---|
-| **1** | identity → V3 | key | OGAR registry + envelope parser; `0x1007` prefix → V3 `tail_variant`; coexist-by-classid | `[H]` | F-update | OGAR/MedCare-rs corrective sweep |
+| **1** | identity → V3 | key | OGAR registry + envelope parser; high-u16 `0x1000_xxxx` gen-marker → V3 `tail_variant`; coexist-by-classid | `[H]` | F-update | OGAR/MedCare-rs corrective sweep |
 | **2** | V3-shaped tenants | value | ClassView reading: contained facet + 8 KEEP + 2 DEFER | `[H]`/`[S]` | F-1 + F-code | Phase 1 **+** 5+3 panels |
 
 ## Cross-references
