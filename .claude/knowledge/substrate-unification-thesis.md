@@ -180,6 +180,164 @@ baseline — not when an ICC clears 0.75.
 
 ---
 
+## 8. The strong form — the substrate as a full-stack compiler `[H]`/`[S]`
+
+§0–§7 read *one* node five ways. The strong form asks: what if the **value
+slab itself** is homogeneous in the same algebra as the key — and the `classid`
+in the key is not just a router but a **schema pointer**? Then the 512-byte node
+stops being a record and becomes a *compilation unit*: data → index → schema →
+view, all from one self-describing block. This is the most ambitious reading;
+it is graded `[H]` where it reuses shipped structure and `[S]` where it bets on
+unbuilt tooling. **Nothing here is canon yet** — it is the north-star's far end,
+written down so the rungs point somewhere.
+
+### 8.1 The homogeneous facet `[H]` — layout-preserving, not layout-breaking
+
+Carve the 480-byte value as **N × 16-byte facets**, each facet itself a
+`(part_of:is_a)` cascade in the §2-Structure algebra:
+
+```
+facet (16 B) = facet_classid(4) | 6 × (8:8 part_of:is_a tile, 2 B each = 12)
+value (480 B) = up to 30 homogeneous facets        ← ValueSchema::Homogeneous
+```
+
+The key insight is **compatibility, not replacement**: this is a new
+`ValueSchema::Homogeneous` variant *alongside* the existing `ValueTenant` SoA
+columns — the 16/16/480 split (`canonical_node.rs`) is **untouched**, so it is
+layout-preserving and needs no `ENVELOPE_LAYOUT_VERSION` bump (contrast a *key*
+re-carve, which is canon-level and separate). The value's facets are read by
+the *same* prefix-and-table arithmetic as the path tiers (§2), so "read the
+value" becomes the same operation as "route the key."
+
+**The conflation trap, named up front (`[H]` gate):** not every facet is a
+`part_of:is_a` mereology/taxonomy pair. Scalars (a susceptance, a price, a
+timestamp) are *not* hierarchical — forcing them into an 8:8 tile is exactly
+the §1 "split a conflated pair" error run in reverse. The honest form: scalar
+facets carry **PQ codes** (Jégou [1102.3828]) in the same 16 bytes, and the
+`facet_classid` discriminates codec-per-facet. **This is gated on F-1**
+(codebook fidelity): if the centroid hierarchy isn't a faithful code, a PQ
+facet is a lossy hash wearing an address's clothes, and the homogeneous slab
+degrades to "compact but unfaithful." F-1 must be green before any scalar facet
+ships.
+
+### 8.2 classid dual-dispatch `[H]` — one prefix, two resolutions
+
+The `classid(4)` already routes the codebook scope (OGAR canon: longest-prefix
+binding). The strong form gives it a **second, parallel resolution** off the
+same radix lookup:
+
+- **classid → ReadMode** (the *codec* axis): how to decode this node's value —
+  `place ⊕ residue` = Helix Place (identity, §2-Identity, #607) ⊕ CAM-PQ residue
+  (the scalar/centroid lanes). This is the **deterministic-place + stored-
+  magnitude** split the OGAR perturbation-encoding canon already pins (phase
+  deterministic, magnitude stored). `[H]` — the split is shipped in
+  perturbation-sim; the *per-classid* codec table is unbuilt.
+- **classid → ClassView** (the *schema* axis): what this node's facets *mean* —
+  the class's field roster, edge roster, and method-resolution manifest
+  (OGAR `ClassView`, the `has_function`/`inherits_from`/`virtually_overrides`
+  SPO harvest). `[S]` — the harvest exists in OGAR; the lance-graph-side
+  ClassView read is a bet.
+
+One key, resolved once, yields *both* "how do I read these bytes" and "what do
+these bytes mean." That co-resolution is the load-bearing claim — and its
+honest failure mode is **drift between the two tables** (`I-LEGACY-API-FEATURE-
+GATED` in spirit: same prefix, two semantics, must never silently diverge).
+
+### 8.3 LEGO across domains `[S]` — EdgeBlock click via shared codebook
+
+If two programs (an ERP, a OCR pipeline) mint nodes against the *same* OGAR
+concept codebook, their `EdgeBlock` slots are **directly clickable**: an
+out-of-family edge from domain A's node resolves, by `canonical_concept_id`,
+into domain B's node — no adapter, no serialization, because both speak the one
+codebook. "Compile on OGAR classes and do LEGO with class shapes" becomes:
+**compile = SPO manifest → ClassView**; **run = SoA under `UnifiedStep` /
+semiring** (§2-Composition). `[S]` — this is the OGAR core-first doctrine's
+end state, explicitly CONJECTURE until `PROBE-OGAR-ADAPTER-UNICHARSET` is green.
+
+**Bounds (the doctrine's own fences, not optional):** the click only works on a
+**shared-concept lattice** — domains that don't share concepts get adapter
+bricks at the membrane, paying the cost explicitly (OGAR consumer-preflight).
+**Structure ⊥ flow**: the EdgeBlock click composes *structure*; it does not
+import domain B's *control flow* into A. And per core-first: a Core gap is
+*extended deliberately*, never hacked into the adapter.
+
+### 8.4 The view layer `[S]` — ClassView → askama, with Redmine as donor
+
+The far rung: the `ClassView` schema drives a row/table view the way
+Redmine/OpenProject's metadata→issue-list machinery does — except *generated
+from the schema*, not hand-maintained over 17 years. The theft is sharp because
+Redmine already solved **exactly** the ClassView-renderer problem, and three of
+its classes map almost 1:1:
+
+| Redmine class | What it does | ClassView analogue |
+|---|---|---|
+| `Redmine::FieldFormat` | per-type cell formatter registry (string/int/float/date/enum/list/user/link…), each knows render + edit | **codebook-kind → cell-renderer map**: partonomy tile → link/enum cell, value-quantile tile → number/gauge cell, identity → reference cell |
+| `Query` / `QueryColumn` | "given a model + its fields, produce a row" | `ClassView → lenses → cells` — literally |
+| `CustomField` / `CustomValue` | runtime, per-model, arbitrary-type fields | the **customattribute lens** — consumer schema per `classid` |
+
+So it is not "port a UI" — it is lifting a **proven metadata→row architecture**.
+
+**The one real seam — and its resolution.** Askama is **compile-time** (type-
+checked); Redmine's custom fields are **runtime**. Three reconciliations:
+
+- *codegen* — emit one Askama template per ClassView at `build.rs` time.
+  Compile-checked ("compile on OGAR classes"), but needs schemas at build.
+- *generic renderer* — one Askama *shell* (table/row skeleton, compile-checked)
+  + data-driven cell formatters resolved from the codebook at runtime (the
+  FieldFormat move). Fully dynamic.
+- **hybrid (the answer)** — static type-safe shell + dynamic per-tile cells:
+  Askama gives the skeleton, the codebook gives the per-tile semantics. This is
+  the `jinja <> dynamic classview` arrow, and it dissolves the seam rather than
+  picking a side.
+
+All three stay inside the firewall: build-time codegen from a manifest is the
+sanctioned "compile types" pattern (medcare-rs Iron Rule 7 — *not* runtime
+serialization), and the hybrid's runtime cell-resolution reads the codebook (a
+compile-time contract), it does not deserialize a wire payload.
+
+**The payoff closes the loop:** a Redmine-style row/table is just a **4th
+projection** of the same node — next to the 3D scene / graph / splat
+(`TorsoMap`'s "three tenants of one identity" → four). One ClassView, every
+view. That is §0's "one object, N readings" reaching all the way to the screen.
+
+**Bounds:** transfer the donor's *patterns* (FieldFormat / Query / CustomField
+idioms), **not** the 17-year accretion (the legacy cruft is the anti-goal).
+**Structure ⊥ presentation**: ClassView builds the *default* view; bespoke views
+are **override hooks**, not schema edits. Realistic coverage is ~80% generic +
+explicit overrides — claiming 100% schema-driven view is the overclaim this
+bound exists to catch. `[S]` — askama is shipped and standard, Redmine's
+architecture is proven; the ClassView→cell codegen is entirely unbuilt.
+
+### 8.5 What the strong form adds to the ladder
+
+§8 does not get its own KILL — it **inherits** §4's gates and sequences behind
+them:
+
+- **8.1 (homogeneous facet)** is gated on **F-1** (scalar facets need faithful
+  centroids) and **F-code** (the facet cascade must be a lossless code, not a
+  lossy hash).
+- **8.2 (dual-dispatch)** is gated on **F-collapse** — if a learned index/head
+  matches the address (§4.2, CogNGen counterweight), then classid-as-schema is
+  elegant packing, not a new primitive.
+- **8.3 / 8.4 (LEGO, view)** are gated on the **OGAR core-first probe**
+  (`PROBE-OGAR-ADAPTER-UNICHARSET`) — adapter parity must go byte-green before
+  cross-domain click or schema-driven view is more than a slogan.
+
+**What would kill the strong form specifically** (beyond §6): if facets turn out
+to be *irreducibly heterogeneous* — every class needs a bespoke value layout and
+no homogeneous 16-byte cascade fits — then 8.1 collapses and §8 reduces to "the
+key is a schema pointer" (still useful, far less than claimed). That is the
+8-specific entry on §6's ledger: **homogeneity non-closure** is to §8 what
+F-basis non-closure is to the whole thesis.
+
+The honest one-line summary of §8: **the engineering rungs (§2 axes, #605, #607)
+are real and shipped; the full-stack-compiler reading is a coherent bet whose
+every load-bearing joint already has a named, un-run probe.** It earns a place
+in the thesis precisely because it is falsifiable end-to-end, not because it is
+proven.
+
+---
+
 ## Cross-references
 
 - `canonical_node.rs` — the 512B node (key/edges/value, ValueTenant/ValueSchema).
