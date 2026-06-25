@@ -71,6 +71,25 @@ impl NodeGuid {
     /// partners, payments, …). OGAR codebook `0x02XX`. Resolves to [`ReadMode::ERP`].
     pub const CLASSID_ERP: u32 = 0x0000_0200;
 
+    // ── V3 cascade-key classids (feature `guid-v3-tail`) ───────────────────────
+    // The V3 generation marker lives in the HIGH (custom) u16, leaving the canon
+    // LOW u16 untouched, because the live contract routes domain on `classid as
+    // u16` (`0xDDCC`; CLASSID_OSINT = 0x0700, CLASSID_FMA = 0x0A01). So
+    // `classid_concept_domain` masks the marker off and still routes the legacy
+    // domain — the Codex-P1 fix vs the rejected low-half `0x1007` (which read
+    // domain 0x10 = Unassigned). OSINT-V3 (`0x1000_0700`) is the WIRED exemplar;
+    // FMA-V3 (`0x1000_0A01`) + Genetics (domain TBD — `0x0D` is HR, not Genetics)
+    // follow once their value models are pinned.
+
+    /// **OSINT-V3** — OSINT on a [`TailVariant::V3`] cascade tail. The generation
+    /// marker `0x1000` sits in the HIGH/custom u16; the canon `0x0700` is preserved
+    /// in the LOW u16, so [`classid_concept_domain`](crate::ogar_codebook::classid_concept_domain)
+    /// still routes [`Osint`](crate::ogar_codebook::ConceptDomain::Osint) (it masks
+    /// `classid as u16` → low half) — unlike the rejected low-half `0x0000_1007`,
+    /// which read domain `0x10` = `Unassigned`. Resolves to [`ReadMode::OSINT_V3`].
+    #[cfg(feature = "guid-v3-tail")]
+    pub const CLASSID_OSINT_V3: u32 = 0x1000_0700;
+
     /// Construct from the six canonical groups. `family`/`identity` use their low 3 bytes.
     ///
     /// Panics (incl. const-eval) when `family` or `identity` exceed 24 bits — the
@@ -798,14 +817,61 @@ const _: () = assert!(ValueSchema::Bootstrap.field_mask().is_empty());
 
 // ── classid → read-mode: the LE contract both the consumer and OGAR inherit ────
 
-/// The **read mode** a `classid` resolves to: the pair of *already-existing*
-/// read-mode axes — [`ValueSchema`] (which value tenants to materialise) and
-/// [`EdgeCodecFlavor`] (how to read the 16-byte edge block).
+/// Which tail / identity shape a class uses to *read* its node's 16-byte key —
+/// the key-side analog of [`ValueSchema`] (value slab) and [`EdgeCodecFlavor`]
+/// (edge block). It is the THIRD axis of OGAR #128's reusable envelope parser
+/// (`E-CLASSID-ENVELOPE-PARSER`): `classid → {tail_variant, value_schema,
+/// edge_codec}`, resolved by the SAME [`classid_read_mode`] registry, so the
+/// key-side read is symmetric with the value-side (minting consults
+/// `tail_variant`; [`NodeRow`] value transcode consults `value_schema`).
+///
+/// **Layout-preserving:** every variant re-interprets the SAME 16 key bytes —
+/// `family·identity` vs `leaf·family·identity` vs the cascade `(part_of:is_a)`
+/// tile are all readings of bytes 10..16, never a stride change (no
+/// `ENVELOPE_LAYOUT_VERSION` bump — canon "registry-resolved via
+/// `classid → ClassView`"). [`V1`] is the zero-fallback default: the canonical
+/// original tail that [`NodeGuid::new`] mints.
+///
+/// [`V1`]: TailVariant::V1
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[repr(u8)]
+pub enum TailVariant {
+    /// The canonical original tail `family(u24)·identity(u24)` (bytes 10..16) —
+    /// what [`NodeGuid::new`] mints. The canon zero-fallback default.
+    #[default]
+    V1 = 0,
+    /// The v2 basin tail `leaf(u16)·family(u16)·identity(u16)` — what
+    /// [`NodeGuid::new_v2`] mints (feature `guid-v2-tail`, leaf as the 4th HHTL
+    /// tier).
+    V2 = 1,
+    /// The new-generation `cascade_key` tail: the `(part_of:is_a)` 8:8 tile (the
+    /// two-axis cascade key). Feature `guid-v3-tail`.
+    V3 = 2,
+}
+
+impl TailVariant {
+    /// Every variant re-interprets the SAME 16 key bytes (the tail is a reading
+    /// of bytes 10..16, never a stride change), so no variant forces an
+    /// `ENVELOPE_LAYOUT_VERSION` bump — the canon invariant, encoded so a
+    /// regression test can assert it.
+    #[inline]
+    pub const fn is_layout_preserving(self) -> bool {
+        true
+    }
+}
+
+/// The **read mode** a `classid` resolves to: the trio of *already-existing*
+/// read-mode axes — [`TailVariant`] (which key/identity shape to read),
+/// [`ValueSchema`] (which value tenants to materialise) and [`EdgeCodecFlavor`]
+/// (how to read the 16-byte edge block).
 ///
 /// It is NOT a new node property and NOT a SoA column — nothing is stored on the
 /// row. This is the *resolution result* (the lens): the value-side analog of
-/// "which XSD parses this document". §0 anti-invention — it bundles the two
+/// "which XSD parses this document". §0 anti-invention — it bundles the three
 /// read-mode enums that already exist, adding zero new fields to the node.
+/// There is NO public `new_v3` dispatch — the [`tail_variant`](ReadMode::tail_variant)
+/// registry field IS the mechanism, symmetric with
+/// [`value_schema`](ReadMode::value_schema).
 ///
 /// Both consumers and OGAR resolve `classid → ReadMode` through the one
 /// [`LazyLock`] registry ([`classid_read_mode`]), so the LE interpretation of a
@@ -813,6 +879,10 @@ const _: () = assert!(ValueSchema::Bootstrap.field_mask().is_empty());
 /// minting/projecting the same class read the identical schema.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ReadMode {
+    /// Which tail / identity shape this class reads from its 16-byte key (the
+    /// FIRST axis — resolved upstream of the value slab per OGAR #128's parse
+    /// order: `classid → {tail_variant, value_schema, edge_codec}`).
+    pub tail_variant: TailVariant,
     /// Which value-slab tenants this class materialises.
     pub value_schema: ValueSchema,
     /// How this class reads its 16-byte edge block.
@@ -822,6 +892,14 @@ pub struct ReadMode {
 impl ReadMode {
     /// The zero-fallback / POC default an *unconfigured* classid resolves to.
     ///
+    /// `tail_variant = V1` is the conservative legacy default (L1: every
+    /// un-minted classid stays [`TailVariant::V1`] → zero re-mint of the V1/V2
+    /// corpus, RESERVE-DON'T-RECLAIM). It is **latent, not behavioural** here —
+    /// nothing reads `tail_variant` yet, so V1 is a pin, not a key reformat. The
+    /// precise per-classid legacy tail (e.g. an OSINT class that mints via
+    /// [`NodeGuid::new_v2`] = [`TailVariant::V2`]) is fixed when the reusable
+    /// envelope parser dispatches per classid — not by this conservative default.
+    ///
     /// **TEMPORARY (2026-06-15 POC):** `value_schema = Full` mirrors the
     /// [`ClassView::value_schema`](crate::class_view::ClassView::value_schema)
     /// POC default so an unconfigured class materialises the whole slab for
@@ -830,6 +908,7 @@ impl ReadMode {
     /// [`ValueSchema::Bootstrap`] HERE and in `ClassView` together (one revert,
     /// two sites — the test `read_mode_default_is_full_poc` guards the pairing).
     pub const DEFAULT: ReadMode = ReadMode {
+        tail_variant: TailVariant::V1,
         value_schema: ValueSchema::Full,
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
@@ -840,6 +919,7 @@ impl ReadMode {
     /// over [`EdgeCodecFlavor::CoarseOnly`] adjacency (the 12 in-family + 4
     /// out-of-family slots read literally as the neo4j-emulation edges).
     pub const OSINT: ReadMode = ReadMode {
+        tail_variant: TailVariant::V1,
         value_schema: ValueSchema::Cognitive,
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
@@ -849,6 +929,7 @@ impl ReadMode {
     /// Helix + Turbovec + EntityType; no hot lifecycle columns, it is static
     /// reference data) over [`EdgeCodecFlavor::CoarseOnly`] part-of adjacency.
     pub const FMA: ReadMode = ReadMode {
+        tail_variant: TailVariant::V1,
         value_schema: ValueSchema::Compressed,
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
@@ -858,6 +939,7 @@ impl ReadMode {
     /// (live lifecycle: status / assignee / version edges queried + reasoned over)
     /// with [`EdgeCodecFlavor::CoarseOnly`] adjacency (parent / blocks / relates).
     pub const PROJECT: ReadMode = ReadMode {
+        tail_variant: TailVariant::V1,
         value_schema: ValueSchema::Cognitive,
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
@@ -867,18 +949,45 @@ impl ReadMode {
     /// partners / payments queried live) with [`EdgeCodecFlavor::CoarseOnly`]
     /// adjacency (partner-of / line-of / paid-by).
     pub const ERP: ReadMode = ReadMode {
+        tail_variant: TailVariant::V1,
         value_schema: ValueSchema::Cognitive,
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
 
-    /// Both axes are layout-preserving (a preset/flavor re-interprets reserved
-    /// bytes, never a stride change), so adopting any read-mode needs no
-    /// `ENVELOPE_LAYOUT_VERSION` bump.
+    /// The **OSINT-V3** read-mode ([`NodeGuid::CLASSID_OSINT_V3`]): the same hot
+    /// [`ValueSchema::Cognitive`] value model as legacy [`OSINT`](ReadMode::OSINT),
+    /// read through the new-generation [`TailVariant::V3`] cascade tail. The wired
+    /// V3 exemplar; FMA-V3 + Genetics-V3 follow once their classids/value models
+    /// are pinned.
+    #[cfg(feature = "guid-v3-tail")]
+    pub const OSINT_V3: ReadMode = ReadMode {
+        tail_variant: TailVariant::V3,
+        value_schema: ValueSchema::Cognitive,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
+    /// All three axes are layout-preserving (a tail-variant/preset/flavor
+    /// re-interprets reserved bytes, never a stride change), so adopting any
+    /// read-mode needs no `ENVELOPE_LAYOUT_VERSION` bump.
     #[inline]
     pub const fn is_layout_preserving(self) -> bool {
-        self.value_schema.is_layout_preserving() && self.edge_codec.is_layout_preserving()
+        self.tail_variant.is_layout_preserving()
+            && self.value_schema.is_layout_preserving()
+            && self.edge_codec.is_layout_preserving()
     }
 }
+
+/// Structural parity fuse — names all THREE [`ReadMode`] axes so a field
+/// add/remove is a compile error. This is the structural-against-canon guard
+/// vs OGAR #128's (`E-CLASSID-ENVELOPE-PARSER`) `{tail_variant, value_schema,
+/// edge_codec}` tuple. OGAR #128 is doc-only today, so there is no runtime OGAR
+/// struct to compare against yet; this upgrades to a runtime fuse when OGAR
+/// codes its registry's `tail_variant`.
+const _: ReadMode = ReadMode {
+    tail_variant: TailVariant::V1,
+    value_schema: ValueSchema::Bootstrap,
+    edge_codec: EdgeCodecFlavor::CoarseOnly,
+};
 
 /// Builtin `classid → ReadMode` registry, built once on first use.
 ///
@@ -901,6 +1010,15 @@ static BUILTIN_READ_MODES: LazyLock<HashMap<u32, ReadMode>> = LazyLock::new(|| {
     // the OGAR `0x01XX` / `0x02XX` domains; both hot business graphs (Cognitive).
     m.insert(NodeGuid::CLASSID_PROJECT, ReadMode::PROJECT);
     m.insert(NodeGuid::CLASSID_ERP, ReadMode::ERP);
+    // V3 cascade-key classes (feature `guid-v3-tail`): same value model as their
+    // legacy domain, on a TailVariant::V3 tail. OSINT-V3 (`0x1000_0700`) is the
+    // wired exemplar — the high-u16 gen-marker is masked off by the domain router,
+    // so `classid_concept_domain` still resolves Osint. FMA-V3 + Genetics-V3 land
+    // here once their classids/value models are pinned.
+    #[cfg(feature = "guid-v3-tail")]
+    {
+        m.insert(NodeGuid::CLASSID_OSINT_V3, ReadMode::OSINT_V3);
+    }
     m
 });
 
@@ -1800,6 +1918,70 @@ mod tests {
         assert_eq!(NodeGuid::CLASSID_PROJECT >> 8, 0x01);
         assert_eq!(NodeGuid::CLASSID_ERP >> 8, 0x02);
         assert!(project.is_layout_preserving() && erp.is_layout_preserving());
+    }
+
+    // ── ReadMode tail_variant (P-A) — the V3 identity axis ────────────────────
+
+    #[test]
+    fn read_mode_tail_variant_is_v1_legacy_default() {
+        // The default classid resolves to the conservative legacy tail (V1): every
+        // un-minted classid stays V1 → zero re-mint of the V1/V2 corpus (L1,
+        // RESERVE-DON'T-RECLAIM). V1 is latent (nothing reads tail_variant yet),
+        // and the whole DEFAULT read-mode stays layout-preserving across all three
+        // axes — adopting tail_variant never bumps ENVELOPE_LAYOUT_VERSION.
+        assert_eq!(
+            classid_read_mode(NodeGuid::CLASSID_DEFAULT).tail_variant,
+            TailVariant::V1
+        );
+        assert_eq!(ReadMode::DEFAULT.tail_variant, TailVariant::V1);
+        assert!(TailVariant::default() == TailVariant::V1);
+        assert!(TailVariant::V1.is_layout_preserving());
+        assert!(ReadMode::DEFAULT.is_layout_preserving());
+        // The mechanism axis exists for all three variants (V3 is the new-gen key).
+        // OSINT-V3 is the wired exemplar (see read_mode_osint_v3_routes_v3_tail_and_osint_domain);
+        // FMA-V3 + Genetics-V3 entries are DEFERRED until their classids are pinned.
+        assert!(TailVariant::V3.is_layout_preserving());
+        assert!(TailVariant::V2.is_layout_preserving());
+    }
+
+    #[cfg(feature = "guid-v3-tail")]
+    #[test]
+    fn read_mode_osint_v3_routes_v3_tail_and_osint_domain() {
+        // The wired V3 exemplar proves BOTH facts at once — the whole point of the
+        // high-u16 gen-marker scheme:
+        //   (1) the third axis IS the registry field — classid_read_mode resolves
+        //       CLASSID_OSINT_V3 to TailVariant::V3 (never a public new_v3 dispatch);
+        //   (2) the Codex-P1 fix — the gen-marker 0x1000 sits in the HIGH u16, so the
+        //       domain router (which masks `classid as u16`) still resolves Osint,
+        //       unlike the rejected low-half 0x1007 (which read domain 0x10).
+        assert_eq!(
+            classid_read_mode(NodeGuid::CLASSID_OSINT_V3).tail_variant,
+            TailVariant::V3
+        );
+        assert_eq!(
+            crate::ogar_codebook::classid_concept_domain(NodeGuid::CLASSID_OSINT_V3),
+            crate::ogar_codebook::ConceptDomain::Osint
+        );
+        // The whole read-mode resolves to the V3 exemplar (same hot value model as
+        // legacy OSINT) and stays layout-preserving on all three axes.
+        assert_eq!(
+            classid_read_mode(NodeGuid::CLASSID_OSINT_V3),
+            ReadMode::OSINT_V3
+        );
+        assert_eq!(ReadMode::OSINT_V3.value_schema, ValueSchema::Cognitive);
+        assert!(ReadMode::OSINT_V3.is_layout_preserving());
+        // Concretely: marker in the HIGH half, canon domain in the LOW half.
+        assert_eq!(NodeGuid::CLASSID_OSINT_V3, 0x1000_0700);
+        assert_eq!(
+            NodeGuid::CLASSID_OSINT_V3 >> 16,
+            0x1000,
+            "gen-marker in high u16"
+        );
+        assert_eq!(
+            NodeGuid::CLASSID_OSINT_V3 as u16,
+            NodeGuid::CLASSID_OSINT as u16,
+            "low u16 == canon OSINT concept (0x0700)"
+        );
     }
 
     // ── GUID v2 tail (D-GV2-1) — field-isolation matrix + coexistence ─────────
