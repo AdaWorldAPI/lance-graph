@@ -273,12 +273,15 @@ impl NiblePath {
     ///
     /// The 20-nibble prefix `classid(8) | HEEL(4) | HIP(4) | TWIG(4)` overflows
     /// `MAX_DEPTH = 16`. The deterministic fold drops the **HIGH 4 classid
-    /// nibbles** (the canon-reserved high `u16` of `classid`) and packs the
-    /// remaining 16 nibbles root-first as
-    /// `classid_lo(4) | HEEL(4) | HIP(4) | TWIG(4)`. Returns `None` when the
-    /// HIGH 4 classid nibbles are nonzero — the fold would be lossy, and the
-    /// caller must mint within the low `u16` space (CANON: RESERVE, DON'T
-    /// RECLAIM — high classid bits are documented as reserved-zero).
+    /// nibbles** and packs the remaining 16 nibbles root-first as
+    /// `classid_lo(4) | HEEL(4) | HIP(4) | TWIG(4)`. Returns `None` when the HIGH
+    /// 4 classid nibbles are nonzero — **this v1 fold** uses `classid_lo` as the
+    /// coarse tier, so it needs the high `u16` clear; a nonzero high `u16` is
+    /// reported, not silently re-routed. This is a **v1-fold constraint, NOT a
+    /// global classid law**: the v3 fold [`from_guid_prefix_v3`] reads the
+    /// `(part_of:is_a)` `HEEL·HIP·TWIG·LEAF` tiers and does NOT fold `classid`, so
+    /// a V3 classid carries its high-`u16` generation marker freely (the schema's
+    /// `tail_variant` selects the fold — there is no global reserved-zero after V3).
     ///
     /// **Bijection invariant.** For any GUID whose `classid >> 16 == 0`,
     /// `from_guid_prefix(guid).prefix(d).is_ancestor_of(from_guid_prefix(guid))`
@@ -290,10 +293,11 @@ impl NiblePath {
     #[must_use]
     pub const fn from_guid_prefix(guid: &crate::canonical_node::NodeGuid) -> Option<Self> {
         let parts = guid.decode();
-        // High 4 classid nibbles (the canon-reserved high u16) must be zero —
-        // otherwise the 20→16 nibble fold drops information. The caller mints
-        // into the low u16 of classid (see CANON / identity-architecture v1
-        // §3): a nonzero high u16 is not silently re-routed, it's reported.
+        // In THIS v1 fold the high 4 classid nibbles must be zero — it folds
+        // classid_lo as the coarse tier, so a nonzero high u16 would make the
+        // 20→16 nibble fold lossy. It is reported, not silently re-routed. (The
+        // v3 fold does NOT fold classid — see from_guid_prefix_v3 — so this is a
+        // v1-fold constraint, not a global reserved-zero law.)
         if (parts.classid >> 16) != 0 {
             return None;
         }
@@ -326,6 +330,47 @@ impl NiblePath {
             | ((guid.hip() as u64) << 32)
             | ((guid.twig() as u64) << 16)
             | (guid.leaf() as u64);
+        // 16 nibbles = full depth; from_packed is always Some at MAX_DEPTH.
+        match Self::from_packed(path, MAX_DEPTH) {
+            Some(p) => p,
+            None => Self::EMPTY,
+        }
+    }
+
+    /// v3 GUID→path lowering (feature `guid-v3-tail`): each HHTL tier is an 8:8
+    /// `(part_of : is_a)` = `(place : tissue)` tile, and **BOTH bytes are routed**
+    /// — lossless: the `part_of` high byte (WHERE — `galaxy`, `city`, `class`)
+    /// AND the `is_a` low byte (WHAT — `universe`, `school`, `student`) co-refine
+    /// at every level. (Folding only the high byte, as an earlier draft did, drops
+    /// the whole `is_a` hierarchy.)
+    ///
+    /// The full v3 address is the **6-tier** `(part_of:is_a)` FacetCascade
+    /// (`facet_classid(4) | 6×(8:8)=12`, harvest §5.1 — HEEL·HIP·TWIG·LEAF·family·
+    /// identity). This `NiblePath` carries its **routing prefix**: the 4 HHTL
+    /// tiers `HEEL·HIP·TWIG·LEAF` in FULL (4 × 16 bits = 64 = [`MAX_DEPTH`]). The
+    /// 5th/6th tiers (`family`/`identity`) are the basin tail
+    /// ([`local_key`](crate::canonical_node::NodeGuid::local_key)) — preserved,
+    /// not dropped, exactly as v1/v2 keep their tail out of the `u64` path (which
+    /// holds only 8 bytes; the full 12-byte cascade does not fit one `NiblePath`).
+    ///
+    /// **`classid` is NOT folded in** (unlike v1's `classid_lo·HEEL·HIP·TWIG`), so
+    /// a V3 classid's high-`u16` generation marker (e.g. OSINT-V3 `0x1000_0700`)
+    /// is irrelevant to routing and never collapses to [`EMPTY`](NiblePath::EMPTY).
+    /// This is why "high `u16` is reserved-zero" is a **v1-fold** statement, NOT a
+    /// global classid law — the schema's `tail_variant` selects the fold.
+    #[cfg(feature = "guid-v3-tail")]
+    #[must_use]
+    pub const fn from_guid_prefix_v3(guid: &crate::canonical_node::NodeGuid) -> Self {
+        // Read the 4 HHTL tiers as full LE `u16` from the raw key bytes [4..12] —
+        // BOTH the part_of (high) and is_a (low) byte of each 8:8 tile. Reading
+        // raw bytes avoids the `guid-v2-tail` gate on `leaf()` and is robust to the
+        // v1/v2 tail interpretation (the tier offsets are fixed by the canon).
+        let b = guid.as_bytes();
+        let heel = (b[4] as u64) | ((b[5] as u64) << 8);
+        let hip = (b[6] as u64) | ((b[7] as u64) << 8);
+        let twig = (b[8] as u64) | ((b[9] as u64) << 8);
+        let leaf = (b[10] as u64) | ((b[11] as u64) << 8);
+        let path = (heel << 48) | (hip << 32) | (twig << 16) | leaf;
         // 16 nibbles = full depth; from_packed is always Some at MAX_DEPTH.
         match Self::from_packed(path, MAX_DEPTH) {
             Some(p) => p,
@@ -831,6 +876,69 @@ mod tests {
         // At exactly the boundary (high u16 == 0) the fold is lossless.
         let g = NodeGuid::new(0x0000_FFFF, 0, 0, 0, 0, 0);
         assert!(NiblePath::from_guid_prefix(&g).is_some());
+    }
+
+    #[cfg(feature = "guid-v3-tail")]
+    #[test]
+    fn from_guid_prefix_v3_routes_both_bytes_of_part_of_is_a_and_ignores_classid() {
+        use crate::canonical_node::NodeGuid;
+        // OSINT-V3: classid high u16 = 0x1000 (the generation marker), so the v1
+        // fold REFUSES this GUID — the latent EMPTY-fold Codex flagged.
+        let g = NodeGuid::new(
+            NodeGuid::CLASSID_OSINT_V3,
+            0xAB12,
+            0xCD34,
+            0xEF56,
+            0x00_789A,
+            0xBC_DEF0,
+        );
+        assert_eq!(
+            NiblePath::from_guid_prefix(&g),
+            None,
+            "v1 fold refuses the high-u16 marker — the break v3 resolves"
+        );
+
+        // v3 routes the 4 HHTL tiers HEEL·HIP·TWIG·LEAF in FULL (both the part_of
+        // high byte AND the is_a low byte of each 8:8 tile), depth 16, classid NOT
+        // folded.
+        let b = g.as_bytes();
+        let heel = (b[4] as u64) | ((b[5] as u64) << 8);
+        let hip = (b[6] as u64) | ((b[7] as u64) << 8);
+        let twig = (b[8] as u64) | ((b[9] as u64) << 8);
+        let leaf = (b[10] as u64) | ((b[11] as u64) << 8);
+        let expected = (heel << 48) | (hip << 32) | (twig << 16) | leaf;
+        let p = NiblePath::from_guid_prefix_v3(&g);
+        assert_ne!(
+            p,
+            NiblePath::EMPTY,
+            "the gen marker must NOT collapse routing"
+        );
+        assert_eq!(
+            p.packed(),
+            (expected, MAX_DEPTH),
+            "HEEL·HIP·TWIG·LEAF in full — both bytes per tier"
+        );
+
+        // Routing is INDEPENDENT of classid: drop the generation marker → same path.
+        let unmarked = NodeGuid::new(0x0000_0700, 0xAB12, 0xCD34, 0xEF56, 0x00_789A, 0xBC_DEF0);
+        assert_eq!(NiblePath::from_guid_prefix_v3(&unmarked), p);
+
+        // BOTH bytes routed: flipping an is_a LOW byte (HEEL.lo 0x12 → 0x99) MUST
+        // change the path — proving the is_a hierarchy is folded, not just part_of.
+        // (The earlier part_of-only fold would wrongly keep this identical.)
+        let diff_isa = NodeGuid::new(
+            NodeGuid::CLASSID_OSINT_V3,
+            0xAB99,
+            0xCD34,
+            0xEF56,
+            0x00_789A,
+            0xBC_DEF0,
+        );
+        assert_ne!(
+            NiblePath::from_guid_prefix_v3(&diff_isa),
+            p,
+            "is_a low byte must move routing — both bytes, not just part_of"
+        );
     }
 
     #[test]

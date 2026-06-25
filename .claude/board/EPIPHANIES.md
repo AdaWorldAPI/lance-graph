@@ -1,3 +1,45 @@
+## 2026-06-25 — E-FACET-8-8-ALWAYS — the homogeneous facet is ALWAYS 8:8 (content-blind, consumer-projected); it amortizes to a 2bit×2bit Morton tile cascade
+
+**Status:** FINDING `[H]` (operator-locked 2026-06-25; impl PR #613). Refines
+`E-HOMOGENEITY-CLOSES-AS-CONTAINED-FACET`'s `place⊕search` framing to its general
+form: the facet tier is **ALWAYS 8:8** — two opaque bytes `hi:lo` — and the
+**producer bakes in NO meaning**; only the CONSUMER (the `facet_classid`'s ClassView)
+projects it: `(part_of:is_a)`, a 256:256 palette/CAM-PQ centroid pair, a concatenated
+`u16`, `(group:member)`, `(mixin:identity)`, `(column:row)`, `(Y:Z)`, … (AGI-as-glove:
+the SoA is content-blind, the reader interprets). **Benefit (why ALWAYS-8:8 is the
+right substrate):** every interpretation amortizes to ONE `2 bit × 2 bit` **Morton
+tile cascade** — Morton-interleave `hi:lo` and each nibble is a quad-tree quadrant in
+BOTH bytes at once (`256 = 4⁴` hierarchical ancestry), so hierarchical-prefix routing
+is uniform regardless of meaning. (Operator analogy: chess bitboards / `shakmaty` /
+Stockfish — one fixed bit substrate, many consumers; magic-bitboard + NNUE
+index-into-quantized-table = the centroid reading.)
+
+**Contract (#613, `canonical_node.rs`):** `FacetTier { lo, hi }` (2 B, `as_u16` +
+`morton` projections) + `FacetCascade { facet_classid: u32, tiers: [FacetTier; 6] }`
+(16 B = `facet_classid(4) | 6×(8:8)=12`, harvest §5.1) — a *reading* over a borrowed
+`[u8; 16]`, carrying NO value-slab offset (it does NOT touch the LOCKED 480 B layout;
+the `classid → ClassView` byte-pick is the separate, panel-gated step). `hi_chain`/
+`lo_chain` + `hi_distance`/`lo_distance` are the two orthogonal prefix metrics.
+
+**Key-side V3 routing (#613, `hhtl.rs` / `soa_graph.rs`):**
+`NiblePath::from_guid_prefix_v3` folds the 4 HHTL tiers `HEEL·HIP·TWIG·LEAF` in FULL
+(BOTH bytes per tier, depth 16) — the routing **prefix** of the 6-tier facet;
+`family`/`identity` (tiers 5-6) stay the basin tail (`local_key`), exactly as v1/v2
+keep their tail out of the path (the full 12 B cascade does not fit one `u64`
+NiblePath). `classid` is NOT folded, so `hhtl_path` (schema-driven by `tail_variant`)
+routes OSINT-V3 `0x1000_0700` to a non-empty depth-16 path — fixing the Codex-P2
+latent EMPTY-fold.
+
+**Correction (resolves Codex P2 on #613):** "high `u16` is reserved-zero" is a
+**v1-fold** statement (v1 folds `classid_lo` as the coarse tier), NOT a global classid
+law — V3 abolishes it by never folding `classid`. `from_guid_prefix`'s doc + guard
+scoped to v1 accordingly.
+
+**Cross-ref:** `E-HOMOGENEITY-CLOSES-AS-CONTAINED-FACET` (the place⊕search facet this
+generalizes to content-neutral 8:8), `soa-value-tenant-migration-v1-harvest.md` §5.1,
+`perturbation-sim/src/cascade_key.rs` (`CascadeKeyV3`), q2 `fma/docs/V3_SOA_WIRING.md`,
+`I-VSA-IDENTITIES` (concatenate disjoint bytes, never XOR-bundle codes).
+
 ## 2026-06-25 — E-TWO-SOA-WORLDS — the value-tenant migration's real object is the slab↔parallel-MailboxSoA seam, not homogenization
 
 **Status:** FINDING `[G]` (confirmed-by-read; Phase-1 harvest of `soa-value-tenant-migration-v1`). The 480 B `NodeRow.value` slab (10 `ValueTenant`s, `canonical_node.rs:606`) and the parallel `MailboxSoA<N>` (`cognitive-shader-driver/src/mailbox_soa.rs`, separate `[T;N]` columns) BOTH implement `MailboxSoaView`/`Owner` (`soa_view.rs`) but are **disjoint** — they share exactly one semantic column, `class_id()≡entity_type()` (`soa_view.rs:75`). **6 of 10 slab tenants have NO live producer** (Meta/MaterializedEdges/HelixResidue/TurbovecResidue/Plasticity — only schema tests or parallel-SoA mirrors); only Energy/EntityType/Kanban/Fingerprint are written into the actual slab. `SymbiontBoard` straddles both (carries `Vec<NodeRow>` but exposes parallel mirror `Vec`s). **Consequence:** the migration's load-bearing decision is which world becomes canonical (the A↔B reconciliation), NOT homogenizing tenants. Open (un-answerable from source, a §6-panel question): does `MailboxSoA.edges` become the slab `MaterializedEdges` tenant? Full inventory: `soa-value-tenant-migration-v1-harvest.md`.
