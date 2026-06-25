@@ -1,3 +1,26 @@
+## 2026-06-24 — soa-value-tenant-migration-v1 (BRIEF; harvest-pending)
+
+Plan: `.claude/plans/soa-value-tenant-migration-v1.md`. NOT the migration —
+the orientation + **harvest brief** + **5+3 sign-off protocol** that produces it.
+4 sessions / 3 phases: P0 (this brief) → P1 (**1 harvest session** returns the
+inventory: per-tenant name / def_site / offset-width / axis / codec / producers /
+consumers / migration_class / layout-preserving? / conflation_risk / gate /
+board_status, + an honest completeness note) → P2 (**2 independent 5+3 sessions**
+sign off, convergence=signal). §2 names WHERE to read (canonical_node.rs ground
+truth → contract SoA columns + SoaEnvelope/#477 → cascade_key/place_buffer/
+INERTIA_SLOT prototypes → producers AND consumers incl. BBB pullers + q2 new_v2
+blocker → LATEST_STATE Contract Inventory) under the **read-not-grep** discipline
+(grep locates, full Read comprehends; pointers are leads, not facts). §3 = the
+per-tenant gates (layout-preserving vs canon-level bump; I-LEGACY-API-FEATURE-GATED
++ field-isolation matrix; the conflation trap incl. scalars-aren't-hierarchical→PQ
+gated on F-1; iron rules; no hot-path serialization; producers⊥consumers). §5
+migration body left a SKELETON (additive `ValueSchema::Homogeneous`+`FacetCascade`
+first → homogenize part_of:is_a tenants → PQ-code scalars after F-1 → KEEP the
+irreducibly-heterogeneous = the honest §8.5 homogeneity-non-closure outcome). §6
+5+3 = savants truth-architect/iron-rule-savant/dto-soa-savant/baton-handoff-auditor/
+container-architect + reviewers brutally-honest-tester/overclaim-auditor/firewall-warden.
+Doc-only. Rides PR on jirak. Cross-ref: substrate-unification-thesis §8.
+
 ## 2026-06-23 — integration-actionhandler-rbac-orchestration-v1 (PLAN; shipped)
 
 Plan: `.claude/plans/integration-actionhandler-rbac-orchestration-v1.md`. The
