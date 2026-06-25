@@ -71,6 +71,7 @@ pub mod episodic_edges;
 pub mod escalation;
 pub mod exploration;
 pub mod external_membrane;
+pub mod facet;
 pub mod faculty;
 pub mod grammar;
 pub mod graph_render;
