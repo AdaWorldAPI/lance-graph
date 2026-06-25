@@ -287,6 +287,64 @@ impl NodeGuid {
         ])
     }
 
+    /// Mint a node by its **tail variant** — the carrier form of the Phase-1
+    /// symmetric spine (`soa-value-tenant-migration-v2.md` §2.1): a consumer
+    /// mints with `mint_for(classid_read_mode(c).tail_variant, …)`, NEVER by
+    /// hardcoding `new` vs `new_v2`. The key-side analog of the value-side
+    /// `to_node_row(classid_read_mode(c).value_schema, …)` — same
+    /// [`classid_read_mode`] lookup, sibling field. Migrating a class's identity
+    /// to V3 is then a one-line flip of its `tail_variant` in the registry, with
+    /// zero consumer rewrite (the "extend the one `ReadMode`, never a public
+    /// `new_v3`" litmus).
+    ///
+    /// Dispatch (all three [`TailVariant`] arms exist unconditionally as enum
+    /// values; only the constructors they call are gated):
+    /// - [`V1`](TailVariant::V1) → [`new`](NodeGuid::new): the canonical
+    ///   `family(u24)·identity(u24)` tail. `leaf` is not part of the V1 tail and
+    ///   is intentionally ignored (the V1 cascade is HEEL·HIP·TWIG only).
+    /// - [`V2`](TailVariant::V2) / [`V3`](TailVariant::V3) → [`new_v2`](NodeGuid::new_v2):
+    ///   the shared `leaf·family·identity` 3×u16 tail bytes. V3 differs from V2
+    ///   only in how those bytes are *read* (the `(part_of:is_a)` cascade tile),
+    ///   not how they are *stored* — so it mints through the same constructor.
+    ///
+    /// **No silent truncation** (the footgun v2 exists to remove): the V2/V3 arm
+    /// asserts `family`/`identity` fit `u16`, mirroring [`new`](NodeGuid::new)'s
+    /// own 24-bit guard. An out-of-range value is a loud panic, never a wrong key.
+    #[allow(clippy::too_many_arguments)]
+    pub const fn mint_for(
+        tail_variant: TailVariant,
+        classid: u32,
+        heel: u16,
+        hip: u16,
+        twig: u16,
+        leaf: u16,
+        family: u32,
+        identity: u32,
+    ) -> Self {
+        match tail_variant {
+            TailVariant::V1 => Self::new(classid, heel, hip, twig, family, identity),
+            TailVariant::V2 | TailVariant::V3 => {
+                assert!(
+                    family <= 0xFFFF,
+                    "v2/v3 family must fit in 16 bits (no silent truncation)"
+                );
+                assert!(
+                    identity <= 0xFFFF,
+                    "v2/v3 identity must fit in 16 bits (no silent truncation)"
+                );
+                Self::new_v2(
+                    classid,
+                    heel,
+                    hip,
+                    twig,
+                    leaf,
+                    family as u16,
+                    identity as u16,
+                )
+            }
+        }
+    }
+
     /// v2 `leaf` — bytes 10..12, the 4th HHTL routing tier (cascade terminal).
     #[inline]
     pub const fn leaf(&self) -> u16 {
@@ -1986,6 +2044,108 @@ mod tests {
             NodeGuid::CLASSID_OSINT_V3 as u16,
             NodeGuid::CLASSID_OSINT as u16,
             "low u16 == canon OSINT concept (0x0700)"
+        );
+    }
+
+    #[cfg(feature = "guid-v3-tail")]
+    #[test]
+    fn mint_for_osint_v3_is_end_to_end_routable() {
+        // Phase-1 end-to-end (soa-value-tenant-migration-v2.md §2): mint a class's
+        // identity BY ITS CLASSID's tail_variant — the symmetric spine
+        // `mint_for(classid_read_mode(c).tail_variant, …)` — and confirm the minted
+        // address is V3-routable (the Codex-P2 EMPTY-fold is GONE).
+        use crate::hhtl::{NiblePath, MAX_DEPTH};
+
+        // (1) Resolve the tail shape from the classid — consumers never hardcode
+        //     v1/v2/v3; the registry says which tail OSINT-V3 reads.
+        let tv = classid_read_mode(NodeGuid::CLASSID_OSINT_V3).tail_variant;
+        assert_eq!(
+            tv,
+            TailVariant::V3,
+            "OSINT-V3 classid resolves to the V3 tail"
+        );
+
+        // (2) Mint through the carrier. tv == V3 ⇒ mint_for dispatches to new_v2,
+        //     laying the tail down as leaf·family·identity (3×u16).
+        let node = NodeGuid::mint_for(
+            tv,
+            NodeGuid::CLASSID_OSINT_V3,
+            0xAB12, // HEEL  (part_of:is_a tile)
+            0xCD34, // HIP
+            0xEF56, // TWIG
+            0x789A, // LEAF
+            0xBCDE, // family (basin)
+            0xF012, // identity (instance)
+        );
+
+        // (3) The high-u16 generation marker round-trips in the stored classid…
+        assert_eq!(node.classid(), NodeGuid::CLASSID_OSINT_V3);
+        assert_eq!(
+            node.classid() >> 16,
+            0x1000,
+            "gen-marker preserved in the key"
+        );
+        // …and the node's OWN read_mode() (carrier form) agrees it is V3.
+        assert_eq!(node.read_mode().tail_variant, TailVariant::V3);
+
+        // (4) THE FIX, both directions:
+        //   - the v1 fold REFUSES this address (classid >> 16 != 0) → the latent
+        //     EMPTY fold Codex flagged on #613;
+        assert_eq!(
+            NiblePath::from_guid_prefix(&node),
+            None,
+            "v1 fold still refuses the high-u16 marker"
+        );
+        //   - the v3 fold ROUTES it: HEEL·HIP·TWIG·LEAF in full (both bytes per
+        //     8:8 tile), depth 16, classid NOT folded → never EMPTY.
+        let p = NiblePath::from_guid_prefix_v3(&node);
+        assert_ne!(p, NiblePath::EMPTY, "V3 address must route, not collapse");
+        let expected = (0xAB12u64 << 48) | (0xCD34u64 << 32) | (0xEF56u64 << 16) | 0x789Au64;
+        assert_eq!(
+            p.packed(),
+            (expected, MAX_DEPTH),
+            "the full HEEL·HIP·TWIG·LEAF cascade is the routing prefix"
+        );
+
+        // (5) The tail reads back through the v2 decode (V3 shares the v2 bytes —
+        //     family/identity are the basin tail, preserved not dropped).
+        let d = node.decode_v2();
+        assert_eq!(
+            (d.heel, d.hip, d.twig, d.leaf, d.family, d.identity),
+            (0xAB12, 0xCD34, 0xEF56, 0x789A, 0xBCDE, 0xF012)
+        );
+    }
+
+    #[cfg(feature = "guid-v2-tail")]
+    #[test]
+    fn mint_for_dispatches_to_the_right_constructor_per_tail() {
+        // The carrier is exactly `new` (V1) / `new_v2` (V2 & V3) — no new layout,
+        // just a classid-driven choice of the existing constructors. V3 shares the
+        // V2 *bytes* (it only reads them differently), so it mints identically.
+        let c = 0xDEAD_BEEF;
+        let (h, hp, t) = (0x1111u16, 0x2222u16, 0x3333u16);
+
+        // V1 arm == new(...): the u24 family·identity tail; `leaf` is not a V1 tier
+        // and is ignored (pass a sentinel to prove it is dropped).
+        assert_eq!(
+            NodeGuid::mint_for(TailVariant::V1, c, h, hp, t, 0xFFFF, 0x00_00AB, 0x00_00CD),
+            NodeGuid::new(c, h, hp, t, 0x00_00AB, 0x00_00CD),
+            "V1 arm is `new`, leaf ignored"
+        );
+
+        // V2 arm == new_v2(...): the leaf·family·identity 3×u16 tail.
+        assert_eq!(
+            NodeGuid::mint_for(TailVariant::V2, c, h, hp, t, 0x4444, 0x5555, 0x6666),
+            NodeGuid::new_v2(c, h, hp, t, 0x4444, 0x5555, 0x6666),
+            "V2 arm is `new_v2`"
+        );
+
+        // V3 arm == new_v2(...): identical stored bytes to V2 (the (part_of:is_a)
+        // reading is a *lens*, not a re-carve) — same constructor, same key.
+        assert_eq!(
+            NodeGuid::mint_for(TailVariant::V3, c, h, hp, t, 0x4444, 0x5555, 0x6666),
+            NodeGuid::new_v2(c, h, hp, t, 0x4444, 0x5555, 0x6666),
+            "V3 stores the same bytes as V2"
         );
     }
 
