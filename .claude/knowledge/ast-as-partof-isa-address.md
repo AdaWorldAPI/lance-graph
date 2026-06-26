@@ -111,6 +111,23 @@ over one static SoA; the DO arm is as cheap and as reusable as the THINK arm
 because it is the **same** projection mechanism — only the *little* DO needs to
 ride along, conditionalized, not a parallel engine.
 
+**In the consumer, DO is a classaction *pointer*, not logic.** Because the
+ontology→class conversion is lossless, a class identity is preserved bijectively
+*across* consumers — so its behavior need not be re-implemented, only *pointed
+at*. With separation of concerns + a DTO-carried invocation, the DO arm collapses
+in the consumer to an **object-oriented reusable classaction pointer**: `classid
+→ ActionDef` (the target = shared behavior, minted once), dispatched via an
+`ActionInvocation` DTO (`realizes → ActionDef.identity`; carries
+`object_instance`, `idempotency_key`, `state`). The consumer holds only the
+*pointer* (`classid` address) + its per-app `KausalSpec` guard (the *when/which*)
++ its own content; the *what* (the `ActionDef` body) lives once at the resolution
+target. This is exactly the **OGAR consumer doctrine** — *the `classid` is pure
+address; the class-magic (`ActionDef`+`KausalSpec`) is a property of the Core node
+the address resolves to, never of the address* (`ogar-consumer-preflight.md`). A
+vtable/strategy slot whose implementation is a universal OGAR primitive — and the
+lossless bijection is precisely what guarantees the pointer resolves to the
+*same* target for every consumer.
+
 `openproject-nexgen-rs` (`op-codegen-projection`) and `woa-rs` already pull
 `askama 0.12` — the render end is live.
 
@@ -130,13 +147,57 @@ consumer's *deltas* from the imported primitive). `account.move` /
 `res.partner` / OpenProject `Issue` / MedCare `Patient` are minted **once** in
 OGAR (harvest → `facet_mint`) and reused by every consumer.
 
+**The magnitude:** OpenProject is **~500K LOC** of Rails. Under this model a
+consumer's *marginal* cost collapses from "re-transcode ~500K LOC" to "import the
+OGIT class primitives + wire classaction pointers + per-app content & `KausalSpec`
+guards." The primitive-mint is a real *one-time* cost, but it is **amortized
+across every consumer** — MedCare / WoA / SMB / Odoo / OpenProject-nexgen all draw
+the *same* OGIT patterns (the regulatory `NTO/{Audit, Compliance, Legal}` set
+imported once; cf. boundary #1). That magnitude — "much cheaper than 500K LOC" —
+is precisely the CONJECTURE's payoff, and the brick-3 probe (MedCare harvest →
+mint → SoA → LSP query, MedCareV2 oracle) is what turns it from a claim into a
+measurement.
+
+**What the primitives actually are: laws and regulations, not CRUD shapes —
+content stays with the consumer.** An ERP's hard value is *compliance* (tax law,
+audit/GoBD immutability, SKR04 accounts, sanctions/AML, HIPAA), and regulation is
+**universal** (jurisdiction-wide) and **reusable** (every consumer in that
+jurisdiction needs it). So the importable primitive is the *law as a static
+pattern* — its legally-required fields/relations as an `ObjectView`, its
+regulatory rules as `ActionDef`/`KausalSpec` guards — minted once, pulled by
+every consumer. The **content** (this company's invoices, this clinic's patients)
+stays with the consumer (per `I-VSA-IDENTITIES`: bundle identities, store content
+in the consumer's own stores); only the **pattern** is shared. This is grounded:
+OGIT already carries regulation-as-pattern in `NTO/{Audit, Compliance, Legal}`
+(e.g. `Compliance/{SanctionsEntry, legalBasis, sanctionedUnder, financiallySupports}`).
+
+The enabling result (operator-proven; attributed, not re-verified here):
+**classes convert bijectively and losslessly between OWL (the W3C ontology
+standard regulatory ontologies ship in — e.g. FIBO) and OGIT.** The mechanism is
+structural — OGIT's `{entities, verbs, attributes}` *is* the `(part_of:is_a)`
+shape (entity → class, attribute → `part_of` field, verb → `is_a`/relation) — so
+a standard regulatory ontology published in OWL imports losslessly into the OGAR
+`ClassView`. **Honest scope:** the bijection is over **classes** (the THINK-arm
+structure — the legally-required fields); the regulatory *rules* (when a tax
+applies, an audit guard fires) ride the DO arm (`ActionDef`/`KausalSpec`,
+wireable + membrane-governed per #2 below). What's local-verified is OGIT's
+regulatory namespaces + its native `(part_of:is_a)` shape; the formal
+OWL↔OGIT bijection proof is the operator's prior result, cited not re-run.
+
 ### The three honest boundaries (so this isn't a promise it can't keep)
 
-1. **Mechanism shipped, stdlib mostly empty.** `ogar_codebook` carries the
-   id-layer + compose/decompose ops, but the populated set of minted ERP
-   primitives (full class graphs + ObjectViews) is the
-   harvest → mint → publish-to-codebook pipeline — **that** is the work. The
-   bricks exist (`ruff_*_spo`, `facet_mint`); the end-to-end isn't wired.
+1. **Mechanism shipped; the pattern *source* is imported — the *mint* is the
+   remaining step.** Earlier framings said "stdlib mostly empty"; that's now
+   too pessimistic. **Complete OGIT is imported into OGAR** at
+   `OGAR/vocab/imports/ogit/` — **~1,940 TTL** across the full `NTO` (incl.
+   `Audit` / `Compliance` / `Legal` / `Security`) **plus** the `SDF` automation
+   schemas (`Automation/{event, change, incident, requirement}` — the HIRO
+   ActionHandler lineage, i.e. DO-arm source too). So the regulatory-pattern
+   *source* is in place. What remains is **minting** that source into
+   `FacetCascade` codebook primitives (`facet_mint` → publish to
+   `ogar_codebook`): the bricks all exist (`ruff_*_spo`, `facet_mint`, the OGIT
+   TTL/JSON input) — the **source → codebook wire** is the work, not the
+   harvest.
 2. **The DO arm is *also* wireable — behavior has an OGAR shape too.** (An
    earlier framing treated behavior as bespoke; that is too pessimistic.) The DO
    arm has its own OGAR IR — `ActionDef` / `ActionInvocation` / `KausalSpec`
