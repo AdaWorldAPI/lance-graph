@@ -160,6 +160,47 @@ fn hhtl_path(guid: &NodeGuid) -> NiblePath {
     NiblePath::from_guid_prefix(guid).unwrap_or(NiblePath::EMPTY)
 }
 
+/// The node's basin-`family` id, decoded per its `tail_variant` — the
+/// family-grouping/anchoring counterpart of [`hhtl_path`]'s V3 routing branch.
+/// A V2/V3 tail stores `family` in bytes 12..14 ([`NodeGuid::family_v2`]); the V1
+/// tail in bytes 10..13 ([`NodeGuid::family`]). Reading the V1 `family()` on a
+/// V2/V3 row would fold the `leaf` byte into the id (`I-LEGACY-API-FEATURE-GATED`),
+/// so the family decode is routed through the canonical `classid → tail_variant`
+/// mapping exactly like the path is. Under no tail feature every classid is V1, so
+/// this is just `family()`.
+#[inline]
+fn family_of(guid: &NodeGuid) -> u32 {
+    #[cfg(feature = "guid-v2-tail")]
+    {
+        use crate::canonical_node::{classid_read_mode, TailVariant};
+        if matches!(
+            classid_read_mode(guid.classid()).tail_variant,
+            TailVariant::V2 | TailVariant::V3
+        ) {
+            return guid.family_v2() as u32;
+        }
+    }
+    guid.family()
+}
+
+/// The node's `identity` id, decoded per its `tail_variant` (sibling of
+/// [`family_of`]): V2/V3 read [`NodeGuid::identity_v2`] (bytes 14..16), V1 reads
+/// [`NodeGuid::identity`] (bytes 13..16).
+#[inline]
+fn identity_of(guid: &NodeGuid) -> u32 {
+    #[cfg(feature = "guid-v2-tail")]
+    {
+        use crate::canonical_node::{classid_read_mode, TailVariant};
+        if matches!(
+            classid_read_mode(guid.classid()).tail_variant,
+            TailVariant::V2 | TailVariant::V3
+        ) {
+            return guid.identity_v2() as u32;
+        }
+    }
+    guid.identity()
+}
+
 /// Project a board-set into a [`GraphSnapshot`] for the Gotham/neo4j surface —
 /// member nodes + family nodes + (member→family, in-family, out-of-family)
 /// edges. Touches ONLY the 32-byte head of each row (`key` + `edges`); never the
@@ -179,7 +220,7 @@ pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot 
     let mut by_family: HashMap<u32, usize> = HashMap::new();
     let mut family_by_low: HashMap<u8, Option<u32>> = HashMap::new();
     for row in &domain_rows {
-        let fam = row.key.family();
+        let fam = family_of(&row.key);
         *by_family.entry(fam).or_insert(0) += 1;
         family_by_low
             .entry((fam & 0xFF) as u8)
@@ -224,10 +265,10 @@ pub fn project_snapshot(rows: &[NodeRow], domain: &DomainSpec) -> GraphSnapshot 
     // Member nodes + their edges (all head-only, family-adapter resolution).
     for row in &domain_rows {
         let g = row.key;
-        let fam = g.family();
+        let fam = family_of(&g);
         nodes.push(RenderNode {
             id: g.to_string(),
-            label: format!("{:06x}", g.identity()),
+            label: format!("{:06x}", identity_of(&g)),
             kind: domain.name.to_string(),
             confidence: 1.0,
             props: vec![
@@ -316,7 +357,7 @@ pub fn nearest_anchor(rows: &[NodeRow], domain: &DomainSpec) -> Vec<AnchorHop> {
     // Representative HHTL path per anchor family (first member encountered).
     let mut anchor_paths: Vec<(u32, NiblePath)> = Vec::new();
     for row in &domain_rows {
-        let fam = row.key.family();
+        let fam = family_of(&row.key);
         if domain.anchor_families.contains(&fam) && !anchor_paths.iter().any(|(f, _)| *f == fam) {
             anchor_paths.push((fam, hhtl_path(&row.key)));
         }
@@ -372,6 +413,66 @@ mod tests {
             edges,
             value: [0u8; 480],
         }
+    }
+
+    #[cfg(feature = "guid-v3-tail")]
+    #[test]
+    fn v3_rows_decode_family_and_identity_via_tail_variant() {
+        use crate::canonical_node::classid_read_mode;
+        // A V3-tail row (mint_for V3 -> new_v2 layout): leaf=0xAAAA @10..12,
+        // family=0xBBBB @12..14, identity=0xCCCC @14..16. The codex finding: the V1
+        // family()/identity() decode would fold the leaf byte into the id, so the
+        // projection must route through the tail variant (I-LEGACY-API-FEATURE-GATED).
+        let tv = classid_read_mode(NodeGuid::CLASSID_FMA_V3).tail_variant;
+        let g = NodeGuid::mint_for(
+            tv,
+            NodeGuid::CLASSID_FMA_V3,
+            1,
+            0,
+            0,
+            0xAAAA,
+            0xBBBB,
+            0xCCCC,
+        );
+
+        // The tail-aware helpers read the V3 basin (family_v2 / identity_v2)…
+        assert_eq!(family_of(&g), 0xBBBB, "V3 family = family_v2 (12..14)");
+        assert_eq!(
+            identity_of(&g),
+            0xCCCC,
+            "V3 identity = identity_v2 (14..16)"
+        );
+        // …whereas the raw V1 decode is polluted by the leaf byte (the trap).
+        assert_ne!(
+            g.family(),
+            0xBBBB,
+            "V1 family() folds leaf into the id on a V3 row"
+        );
+
+        // project_snapshot with a V3 DomainSpec groups members by the V3 family.
+        let dom = DomainSpec {
+            classid: NodeGuid::CLASSID_FMA_V3,
+            name: "fma-v3",
+            anchor_families: &[],
+            in_family_edge: "adjacent-to",
+            out_family_edge: "part-of",
+            member_edge: "part-of",
+        };
+        let rows = [NodeRow {
+            key: g,
+            edges: EdgeBlock::default(),
+            value: [0u8; 480],
+        }];
+        let snap = project_snapshot(&rows, &dom);
+        assert!(
+            snap.nodes.iter().any(|n| n.kind == "Family"
+                && n.props.iter().any(|(k, v)| k == "family" && v == "00bbbb")),
+            "family node keyed by the V3 family_v2 (0x00bbbb), not the polluted V1 family"
+        );
+        assert!(
+            snap.nodes.iter().any(|n| n.label == "00cccc"),
+            "member labeled by identity_v2"
+        );
     }
 
     #[test]
