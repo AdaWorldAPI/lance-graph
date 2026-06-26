@@ -74,7 +74,13 @@ pub enum ConceptDomain {
     /// bridge) and from `Health` PHI. Mirrors OGAR
     /// `ogar_vocab::ConceptDomain::HR` (added in OGAR PR #127).
     HR,
-    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x0EXX`+).
+    /// `0x0EXX` — Genetics (pharmacogenomics; CPIC gene–drug guidelines, variant
+    /// annotations). Public reference knowledge, distinct from `Health` PHI.
+    /// Operator-allocated 2026-06-26 (`0x0D` was already HR). Mirror target
+    /// `ogar_vocab::ConceptDomain::Genetics` — OGAR catches up under the drift
+    /// guard (the parity tests pin `0x0E00 → Genetics`).
+    Genetics,
+    /// Any high-byte slot not yet assigned a domain (`0x03XX`–`0x06XX`, `0x0FXX`+).
     Unassigned,
 }
 
@@ -95,6 +101,7 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
         0x0B => ConceptDomain::Auth,
         0x0C => ConceptDomain::Automation,
         0x0D => ConceptDomain::HR,
+        0x0E => ConceptDomain::Genetics,
         _ => ConceptDomain::Unassigned,
     }
 }
@@ -439,7 +446,9 @@ mod tests {
         assert_eq!(canonical_concept_domain(0x0D01), ConceptDomain::HR);
         assert_eq!(canonical_concept_domain(0x0D04), ConceptDomain::HR);
         assert_eq!(canonical_concept_domain(0x0500), ConceptDomain::Unassigned);
-        assert_eq!(canonical_concept_domain(0x0E00), ConceptDomain::Unassigned);
+        // Genetics (0x0E) operator-allocated 2026-06-26 for CPIC-V3 (was Unassigned).
+        assert_eq!(canonical_concept_domain(0x0E00), ConceptDomain::Genetics);
+        assert_eq!(canonical_concept_domain(0x0F00), ConceptDomain::Unassigned);
     }
 
     #[test]
