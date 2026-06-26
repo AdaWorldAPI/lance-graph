@@ -12,6 +12,11 @@
 > `soa-value-tenant-migration-v1-harvest.md` (the filled §4 inventory = the
 > Phase-2 input), `substrate-unification-thesis.md` §8, OGAR #128 (the
 > producer-side envelope parser).
+>
+> **§7 (added 2026-06-26)** records the *application* this sequencing unlocks —
+> AST-as-(part_of:is_a)-address, the self-programming low-code elixir (#616/#617
+> **merged**) + the `facet_mint` rank-minter brick (commit `360fc720`) — the "why"
+> beneath §0's "what." It touches none of the operator-locked §0–§6.
 
 ## 0. The lock, one line
 
@@ -192,7 +197,78 @@ the V3 `tail_variant` without reading that producer side.
 | **1** | identity → V3 | key | OGAR registry + envelope parser; high-u16 `0x1000_xxxx` gen-marker → V3 `tail_variant`; coexist-by-classid | `[H]` | F-update | OGAR/MedCare-rs corrective sweep |
 | **2** | V3-shaped tenants | value | ClassView reading: contained facet + 8 KEEP + 2 DEFER | `[H]`/`[S]` | F-1 + F-code | Phase 1 **+** 5+3 panels |
 
+## 7. The payoff this sequencing unlocks — AST-as-(part_of:is_a)-address (the self-programming low-code elixir)
+
+> Added 2026-06-26. **§0–§6 are operator-locked and unchanged**; this section names
+> the *application* the two phases exist to serve and records its brick status. Full
+> design: `.claude/knowledge/ast-as-partof-isa-address.md` (#616 "what" + V3
+> alignment, #617 "why", both **merged**). Status: **CONJECTURE**; the brick-3 probe
+> is the single promotion gate.
+
+**Why this migration matters, in one line.** Once identity is V3 (Phase 1) and the
+value tenants are the V3-shaped contained facet (Phase 2), a transcode source's
+**structural AST IS its address**. Minting an ERP in any consumer then collapses to
+*importing* pre-minted OGIT class primitives + wiring classaction pointers — the
+low-code platform **self-programs** (composes and mints its own programs as
+addresses, at assembler cost) instead of re-transcoding ~500K LOC per consumer.
+That economic end is what the two-phase sequencing is *for*; §0 is the "what," this
+is the "why beneath it."
+
+**It IS this plan's structure axis, made literal.** §1 already names structure
+(HHTL = `(part_of:is_a)`) as a key-side axis and calls the Phase-2 contained facet
+(`helix-place(6) ‖ CAM-PQ(6)`) "a reflection of that same part_of/is_a split … a
+shadow the V3 key casts." The AST-as-address arc makes that shadow concrete: the
+shipped content-blind `facet::FacetCascade` (`facet_classid(4) | 6×(8:8)`,
+#613/#614) read as `hi_chain()` = part_of, `lo_chain()` = is_a — **the shadow is the
+source AST's structure.** So the arc is **downstream of both phases**: it needs the
+V3 key (Phase 1 carries `(part_of:is_a)`) AND it produces the V3-shaped facet
+(Phase 2 homogenizes HelixResidue → that same 16-byte facet). The migration is the
+substrate; AST-as-address is the first application that proves the substrate
+self-programs.
+
+**The three-layer economic ladder** (each backed by shipped contract code; full
+treatment in the knowledge doc):
+1. *rails-shaped semantic AST at assembler cost* — each LSP/semantic query is one
+   `FacetCascade` SIMD lane (`definition` = row `vpcmpeqd`; `documentSymbol` =
+   `hi_chain` tile; `typeHierarchy` = `lo_chain` prefix `vpxor`+`tzcnt`). Only the
+   **declarative THINK arm** flattens to the fixed-width tiles — not an imperative
+   syntax tree.
+2. *static OGAR shape · dynamic ClassView · askama row-view* — view and action are
+   two projections of one ClassView; **DO is a classaction *pointer* (`classid →
+   ActionDef`), not re-implemented logic** (OGAR consumer doctrine).
+3. *OGAR as importable ERP-primitive stdlib · lance as the compiler* — import a
+   primitive (`canonical_concept_id`), customize (`render_classid_for_concept`),
+   compile (`classid → ClassView → askama`). Headline CONJECTURE: OpenProject+Odoo
+   as **~2 MB GUID-encoded `(part_of:is_a)`** vs ~20 MB / ~250K LOC (~10×) — the
+   *per-consumer marginal* footprint over a shared, once-minted primitive library
+   (the importable primitive is **law-as-pattern** — OGIT `NTO/{Audit, Compliance,
+   Legal}` — minted once; content stays with the consumer per `I-VSA-IDENTITIES`).
+
+**Bricks, mapped onto the phases + gates:**
+
+| brick | what | phase tie | status |
+|---|---|---|---|
+| **1 — slot allocation** | the 6-pair / 12-slot layout | = Phase-2's contained facet (`FacetCascade`) | **LOCKED (shipped #613/#614)** — only the classid half-order (Canon:Custom, below + §2.2) stays open, orthogonal to per-tier packing |
+| **2 — rank-minter** | SPO graph → `(po_rank, ia_rank)` per tier → `FacetCascade` | the **producer** of Phase-2 facets | **BUILT 2026-06-26** — `contract::facet_mint` (commit `360fc720`); `mint_facets(&[NodeDecl], facet_classid)`; exact + roundtrip-lossless; producer-agnostic `NodeDecl` (ruff C++ + Roslyn C# `ruff_csharp_spo`, ruff #29); 8 tests green |
+| **3 — MedCare probe** | `ruff_csharp_spo` harvest → mint → SoA → `typeHierarchy`/`definition`, MedCareV2 oracle | the F-gate over both phases on a real corpus | **PENDING** — the single step that promotes the arc + the 2 MB/10× headline CONJECTURE → FINDING |
+
+**Canon:Custom is ONE lock shared with §2.2, not two.** The minter's `facet_classid`
+(row 0) is a *parameter* — it bakes in no half-order — so brick 2 is unblocked. But
+the classid `(part_of:is_a)` ordering is the SAME open decision §2.2 carries on the
+V3 classid entries: the shipped `0x1000_0700` is custom(hi):canon(lo); the
+operator's Canon:Custom correction flips it to canon(hi):custom(lo) so the prefix
+sorts by shared concept, not render skin. Resolving Canon:Custom settles BOTH the
+Phase-1 classid entries (§2.2) AND the minter's row-0 ordering in one decision.
+
+**Grade / gate.** The arc is **`[S]`→`[H]`** (CONJECTURE; the carrier + mechanism
+are shipped, the economic claim is unmeasured); gate **F-code** via the brick-3
+probe. It changes none of the §6 sequencing — it is the application that the
+sequencing delivers, and the reason identity-first / value-second is worth doing.
+
 ## Cross-references
+- `.claude/knowledge/ast-as-partof-isa-address.md` (the §7 arc — what+why, #616/#617 **merged**; the three-layer thesis + three honest boundaries + brick chain).
+- `crates/lance-graph-contract/src/facet_mint.rs` (brick 2, the rank-minter, commit `360fc720`) over `src/facet.rs` (`FacetCascade`, the shipped carrier #613/#614).
+- ruff #29 — `ruff_csharp_spo` Roslyn harvester (the brick-3 producer; `NodeDecl` is producer-agnostic so ruff C++ and Roslyn C# fill the same shape).
 - `soa-value-tenant-migration-v1.md` (brief — §2 where-to-read, §3 gates, §6 5+3).
 - `soa-value-tenant-migration-v1-harvest.md` (the filled inventory = Phase-2 input).
 - `substrate-unification-thesis.md` §8 (the facet as a reflection of the V3 key).
