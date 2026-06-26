@@ -196,8 +196,12 @@ new work invented here):
 
 "**Confirm identity works**" = the `I-LEGACY-API-FEATURE-GATED` field-isolation
 matrix + version-gate proof on each V3 tail, end-to-end, *before* the prefix moves.
-A precise debt inventory is the **first Phase-1-closeout deliverable** — it is what
-makes condition 3 checkable rather than a vibe.
+A precise debt inventory — **`v3-migration-debt-ledger-v1.md`** (authored 2026-06-26
+from a tree audit: DEBT-1 POC-`Full`→`Bootstrap`, DEBT-2 OGAR `tail_variant` wiring,
+DEBT-3 casing-miss sweep [consumers clean], DEBT-4 FMA-V3 + CPIC-V3 mints) — is the
+**first Phase-1-closeout deliverable**: it makes condition 3 checkable rather than a
+vibe, and carries an **append-only sign-off ledger** so other sessions ratify and add
+perspective before any flip.
 
 **Until the flip:** the shipped `0x1000_0700`-shaped (`custom:canon`) entries
 stand; `facet_mint`'s `facet_classid` (row 0) stays a **parameter** that bakes in

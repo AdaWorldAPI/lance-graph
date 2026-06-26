@@ -142,10 +142,15 @@ discipline when it lands.
 
 ## 6. Where I left off — ordered next moves
 
-0. **Inventory the V3-migration debt** (the first Phase-1-closeout deliverable — makes
-   §2.3 condition 3 checkable): at minimum the POC-`Full`→`Bootstrap` revert (§2.1 L2),
-   the OGAR-side `tail_variant` wiring (§2.1 parity fuse structural→runtime), and the
-   §5 `/home/user/{OGAR,MedCare-rs}` casing-miss sweep.
+0. **Inventory the V3-migration debt — DONE** (`v3-migration-debt-ledger-v1.md`,
+   2026-06-26, grounded from a tree audit): **DEBT-1** POC-`Full`→`Bootstrap` default
+   (`canonical_node.rs:968-970`, OPEN); **DEBT-2** OGAR codes `tail_variant` + fuse
+   structural→runtime (OGAR has it docs-only, OPEN); **DEBT-3** casing-miss sweep
+   (MedCare-rs is a *clean* consumer — 0 V3 refs; the weight is DEBT-2); **DEBT-4**
+   FMA-V3 + CPIC-V3 mints (+ Genetics slot pick, OPEN). The ledger carries an
+   **append-only sign-off section** — other sessions ratify + add perspective there.
+   Burn DEBT-1/2/4 green (each with the field-isolation + version-gate exit bar)
+   **before** the flip.
 1. **FMA-V3 mint** — the clean Phase-1 step: `CLASSID_FMA_V3 = 0x1000_0A01` (Anatomy
    route `0x0A01` intact), a `ReadMode::FMA_V3` const, and the `BUILTIN_READ_MODES`
    entry under `guid-v3-tail`. Mirrors the shipped OSINT-V3 pattern exactly. **Needs
