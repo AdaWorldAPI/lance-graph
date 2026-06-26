@@ -4,6 +4,12 @@
 > **To:** next session picking up the OGAR-ERP / V3 AST-address arc
 > **Status of the arc:** CONJECTURE captured + carrier verified; ONE empirical
 > probe converts it to FINDING. No V3 *migration* was performed this session.
+> **Companion handover (READ ALONGSIDE THIS):** the parallel CPIC/genome session
+> (session `01TzqvDqbFRzyx17EkLKBoZF`) owns the V3 *identity* + genome-aligned
+> track (PRs #614/#615/#618, the `q2/cpic` NARS prototype, the CYP2D6
+> activity-score falsifier). This handover owns the *"why" doc* track (#616/#617,
+> ruff #29). Two halves of one arc — their CYP2D6 probe and my MedCare probe are
+> complementary falsifiers of the SAME genome-/AST-as-address CONJECTURE.
 
 ---
 
@@ -169,13 +175,26 @@ It produces the first real numbers for: (a) bytes-of-(part_of:is_a) vs source LO
 
 1. **Decide:** merge #617 (docs, safe) — or leave for review.
 2. **Brick-3 wiring step 1:** merge `claude/serene-mayer-1a09he` (`facet_mint`).
-3. **Brick-3 wiring step 2 (highest leverage):** write the OGIT-source→`ogar_codebook`
-   mint — the input (`vocab/imports/ogit/`) is already in OGAR; this is the step
-   that first produces real byte-size numbers for the 10× claim.
-4. **Decide the open gate:** the "Canon:Custom" classid half-order (operator call;
-   the importable-stdlib reuse-clustering argues canon-high, but it collides with
-   the shipped low-half domain routing — not free).
-5. **Optional:** verify ruff #29 in CI (needs network + .NET SDK).
+3. **Brick-3 wiring step 2 (highest leverage):** mint OGIT-source→`ogar_codebook`.
+   The input (`OGAR/vocab/imports/ogit/`) is already in OGAR. **CAVEAT (per the
+   companion handover's `ISS-OGAR-GENETICS-MIRROR-PENDING` +
+   `E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC`): this is a CROSS-REPO arc, not a local
+   wire** — minting a concept moves OGAR `ogar-vocab` + the contract `CODEBOOK`
+   mirror + lance-graph-ogar `parity::domains_agree` *together*, in one coordinated
+   change. Don't push a half-mint. It still produces the first real byte-size
+   numbers for the 10× claim — just plan it as the cross-repo arc.
+4. **Decide the open gate:** the "Canon:Custom" classid half-order. **Now
+   UNBLOCKED** (the full V3 set is minted, #618) but **must be done ONCE,
+   atomically, over the COMPLETE V3 set** (OSINT+FMA+CPIC) — a half-flipped corpus
+   mis-routes (`I-LEGACY-API-FEATURE-GATED`). Operator call; reuse-clustering
+   argues canon-high, but it collides with the shipped low-half domain routing.
+5. **Board-hygiene debt (mine — owed):** #616/#617 shipped the knowledge doc +
+   findings WITHOUT the same-commit board updates the rule requires. Owed:
+   `EPIPHANIES.md` entry for the three-layer thesis + `PR_ARC_INVENTORY.md` rows
+   for #616/#617 + a `LATEST_STATE.md` Contract-Inventory line. **Fold into the
+   next PR** (the companion session also has #614/#615/#618 PR_ARC rows
+   outstanding — batch them) — do NOT push a standalone board commit to main.
+6. **Optional:** verify ruff #29 in CI (needs network + .NET SDK).
 
 ---
 
