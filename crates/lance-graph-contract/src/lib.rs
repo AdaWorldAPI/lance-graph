@@ -72,6 +72,7 @@ pub mod escalation;
 pub mod exploration;
 pub mod external_membrane;
 pub mod facet;
+pub mod facet_mint;
 pub mod facet_schema;
 pub mod faculty;
 pub mod grammar;
