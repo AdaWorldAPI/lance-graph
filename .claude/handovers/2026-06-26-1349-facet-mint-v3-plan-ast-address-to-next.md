@@ -107,11 +107,16 @@ source (C#/…) ──ruff_*_spo harvest──► SPO triples ──► NodeDecl
 
 | consumer | V3 state | by whom |
 |---|---|---|
-| **OSINT-V3** | shipped: `CLASSID_OSINT_V3 = 0x1000_0700`, in `BUILTIN_READ_MODES` | **#613, a PRIOR session** — *not* this one |
-| **FMA-V3** | **does not exist** (`CLASSID_FMA` still V1 `0x0000_0A01`) | pending |
-| **CPIC-V3** | **does not exist** (no `CLASSID_CPIC`/Genetics classid; no Genetics domain slot) | pending |
+| **OSINT-V3** | shipped `CLASSID_OSINT_V3 = 0x1000_0700`, in `BUILTIN_READ_MODES` | **#613**, prior session |
+| **FMA-V3** | shipped `CLASSID_FMA_V3 = 0x1000_0A01` + `ReadMode::FMA_V3` | **#618**, parallel genome session |
+| **CPIC-V3** | shipped `CLASSID_CPIC_V3 = 0x1000_0E00` + `ReadMode::CPIC_V3` + `ConceptDomain::Genetics = 0x0E` | **#618**, parallel genome session |
 
-**This session migrated none of the three.**
+**This (facet_mint) session migrated none of the three** — they shipped in #613 (OSINT,
+prior) and #618 (FMA + CPIC, the parallel genome session). **As of the 2026-06-26 merge,
+Phase-1 identity mints are COMPLETE** (verified on main). The flip then waits on §2.3
+condition 3 (DEBT-1 + DEBT-2 of `v3-migration-debt-ledger-v1.md`; DEBT-4 RESOLVED by
+#618) — an operator-adjudication point (the #618 handover reads the flip "unblocked";
+condition 3 keeps DEBT-1/2 as gates).
 
 ## 5. Operator decision locked this session — Canon:Custom DEFERRED (§2.3)
 

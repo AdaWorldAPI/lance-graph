@@ -5,8 +5,15 @@
 > working") *checkable* rather than a vibe. The operator's Canon:Custom flip is gated
 > on this ledger going green. This is the **first Phase-1-closeout deliverable**.
 >
-> **Status:** OPEN (3 OPEN / 1 PARTIAL-clean). Authored 2026-06-26 from a direct
-> audit of the tree (file:line evidence below) — **not** a paraphrase.
+> **Status:** OPEN (2 OPEN / 1 PARTIAL-clean / **1 RESOLVED**). Authored 2026-06-26
+> from a direct audit; **updated 2026-06-26** after **PR #618** (parallel genome
+> session) landed FMA-V3 + CPIC-V3 + `ConceptDomain::Genetics = 0x0E` → **DEBT-4
+> RESOLVED** (verified on main). Phase-1 identity mints are now COMPLETE; the
+> remaining flip-gating debt is **DEBT-1** (POC-`Full`) + **DEBT-2** (OGAR
+> `tail_variant`). **Coordination note:** the #618 handover marks the flip
+> "UNBLOCKED (pending operator)" reading Phase-1-mints-done as the gate; §2.3
+> **condition 3** (this ledger) additionally requires DEBT-1/DEBT-2 cleared +
+> identity confirmed — an operator-adjudication point (see the bottom note).
 >
 > **Sign-off model (operator-directed 2026-06-26):** *"I'd let the other sessions
 > sign off and add their perspective."* So each item carries an **append-only
@@ -124,7 +131,7 @@ the producer wiring is DEBT-2.**
   auditor` pass at mint time would harden this.
 - _…next session: append…_
 
-## DEBT-4 — FMA-V3 + CPIC-V3 are unminted; CPIC needs a Genetics domain slot  ·  OPEN
+## DEBT-4 — FMA-V3 + CPIC-V3 mints + Genetics domain slot  ·  RESOLVED (#618, 2026-06-26)
 
 **What.** Phase 1's remaining identity mints. OSINT-V3 shipped (#613); FMA and CPIC
 do not exist in V3, and CPIC has no domain at all.
@@ -148,10 +155,25 @@ the DEBT exit bar (field-isolation + version gate).
 shipped `canonical_node.rs` + `ogar_codebook.rs` → operator go; the Genetics slot is
 an operator/codebook decision.**
 
+**RESOLVED by PR #618** (parallel genome session, merged to main, verified
+2026-06-26): `CLASSID_FMA_V3 = 0x1000_0A01` (`canonical_node.rs:102`),
+`CLASSID_CPIC_V3 = 0x1000_0E00` (`:124`), `ConceptDomain::Genetics = 0x0E`
+(`ogar_codebook.rs:82/104`, operator-allocated; test `:449-450`), both in
+`BUILTIN_READ_MODES` (`:1134-35`) as `{V3, Compressed, CoarseOnly}`. **Plus** the
+identity-decode fix that hardens the exit bar: `soa_graph::{family_of, identity_of}`
+now route the family/identity decode through `tail_variant` (`:172/190`, test
+`v3_rows_decode_family_and_identity_via_tail_variant`) — previously the V1 accessors
+folded the `leaf` byte into a V2/V3 family id (codex-P2, `I-LEGACY-API-FEATURE-GATED`),
+which also retroactively hardens OSINT-V3.
+
 **Perspectives (append-only):**
 - _(2026-06-26, authoring session)_ — FMA-V3 is the clean first mint; CPIC is blocked
   on the Genetics-slot pick (a codebook decision, not code). Don't mint CPIC before the
   slot is chosen.
+- _(2026-06-26, post-#618)_ — DONE by the parallel session; Genetics = `0x0E`. The
+  `soa_graph` family_of/identity_of fix is real "confirm-identity-works" progress
+  (one tail-aware decode site hardened). `ISS-OGAR-GENETICS-MIRROR-PENDING` tracks the
+  OGAR codebook catch-up (cross-repo arc; safe-in-isolation now, domain-only at 0x0E).
 - _…next session: append…_
 
 ---
@@ -163,11 +185,27 @@ an operator/codebook decision.**
 | DEBT-1 | POC-`Full` → `Bootstrap` default | OPEN | yes (cond. 3) | yes (shipped `canonical_node.rs`) |
 | DEBT-2 | OGAR codes `tail_variant`; fuse → runtime | OPEN | yes (cond. 3) | producer-side OGAR work |
 | DEBT-3 | casing-miss sweep | PARTIAL — consumers clean; = DEBT-2 producer-side | folds into DEBT-2 | — |
-| DEBT-4 | FMA-V3 + CPIC-V3 mints (+ Genetics slot) | OPEN | yes (cond. 2 + 3) | yes + the Genetics-slot pick |
+| DEBT-4 | FMA-V3 + CPIC-V3 mints (+ Genetics slot) | **RESOLVED (#618)** | — | done |
 
-**The flip is unblocked only when DEBT-1, DEBT-2, DEBT-4 are green and each V3 tail
-passes the exit bar.** `facet_mint` (brick 2) is independent of all of this — its
+**Per §2.3 condition 3, the flip is unblocked only when DEBT-1 + DEBT-2 are green and
+each V3 tail passes the exit bar** (DEBT-4 done; identity-decode hardened by #618's
+`soa_graph` fix). `facet_mint` (brick 2) is independent of all of this — its
 `facet_classid` is a parameter.
+
+### Operator-adjudication point (cross-session divergence)
+
+Two sessions read the flip gate differently and it is the operator's call:
+- **#618 genome-session handover (§3):** Phase-1 identity mints COMPLETE ⇒ the flip is
+  **"UNBLOCKED, pending operator."**
+- **§2.3 condition 3 (this ledger, from the operator's 2026-06-26 refinement to the
+  parallel session):** the flip *also* waits on the V3-migration debt cleared +
+  identity confirmed ⇒ **DEBT-1 (POC-`Full`) + DEBT-2 (OGAR `tail_variant`) still
+  gate it.**
+
+The substantive question: does "confirm identity works / fix the V3-migration debt"
+**(a)** mean the mints (now done) so the flip is ready, **(b)** require DEBT-2 (the
+OGAR-side `tail_variant` wiring — clearly V3-migration debt) first, or **(c)** require
+both DEBT-1 + DEBT-2? `facet_mint` is unaffected either way. **Pending operator.**
 
 ## Sign-off ledger (APPEND-ONLY — other sessions add rows; never edit a past row)
 

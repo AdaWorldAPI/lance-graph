@@ -145,12 +145,14 @@ Unassigned — so it is **rejected**.) The live `0xDDCC` consts are kept as-is.
 | consumer | live classid | V3 (hi-u16 marker) | domain route (`as u16`) | status |
 |---|---|---|---|---|
 | OSINT | `0x0000_0700` | **`0x1000_0700`** | `0x0700` → Osint ✓ | **wired (#613)** — test asserts the route |
-| FMA | `0x0000_0A01` | **`0x1000_0A01`** | `0x0A01` → Anatomy ✓ | deferred ("rest later") |
-| CPIC/Genetics | `0x000C_…` | **`0x1000_0?00`** | `0x0?00` → Genetics | **domain TBD** — `0x0D` is **HR** in the contract (`ogar_codebook.rs:97`); Genetics needs a free slot (`0x03–0x06` or `0x0E`). Deferred. |
+| FMA | `0x0000_0A01` | **`0x1000_0A01`** | `0x0A01` → Anatomy ✓ | **wired (#618)** — `CLASSID_FMA_V3` + `ReadMode::FMA_V3` |
+| CPIC/Genetics | `0x000C_…` | **`0x1000_0E00`** | `0x0E00` → Genetics ✓ | **wired (#618)** — `CLASSID_CPIC_V3` + `ReadMode::CPIC_V3`; `ConceptDomain::Genetics = 0x0E` **operator-allocated** (`0x0D` was HR). OGAR codebook mirror pending (`ISS-OGAR-GENETICS-MIRROR-PENDING`). |
 
 `ReadMode::DEFAULT.tail_variant = V1` (L1) keeps every other classid legacy; the V3
-entries are `guid-v3-tail`-gated. OSINT-V3 is wired in P-A (#613); FMA-V3 + the
-Genetics-domain mint + CPIC's move follow.
+entries are `guid-v3-tail`-gated. OSINT-V3 (#613) + FMA-V3 + CPIC-V3 (#618) are all
+wired — **the V3 classid set is COMPLETE (Phase-1 identity mints done).** What remains
+for the flip is §2.3 **condition 3** (V3-migration debt cleared + identity confirmed —
+see `v3-migration-debt-ledger-v1.md`: DEBT-4 RESOLVED by #618, DEBT-1 + DEBT-2 open).
 
 ### 2.3 Canon:Custom flip — DEFERRED (operator, 2026-06-26)
 
@@ -160,8 +162,9 @@ flip now.** It happens **only after ALL THREE**:
 
 1. **Phase 1 is complete**, AND
 2. **OSINT + FMA + CPIC are all re-encoded to V3 shape** (under the *current*
-   `custom:canon` convention + the high-u16 `0x1000_xxxx` gen marker — OSINT done
-   #613; FMA-V3 + CPIC-V3 still to mint, incl. CPIC's Genetics-domain slot), AND
+   `custom:canon` convention + the high-u16 `0x1000_xxxx` gen marker) — ✅ **MET:**
+   OSINT-V3 `0x1000_0700` (#613), FMA-V3 `0x1000_0A01` + CPIC-V3 `0x1000_0E00` +
+   `ConceptDomain::Genetics = 0x0E` (#618). The V3 classid set is complete, AND
 3. **the V3-schema-migration technical debt is resolved AND V3 identity is confirmed
    working** (operator refinement, 2026-06-26). *A schema-prefix flip is a structural
    reorg; the operator will not reorder the prefix on top of unresolved migration debt
