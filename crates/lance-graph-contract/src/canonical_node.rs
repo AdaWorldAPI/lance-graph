@@ -77,9 +77,11 @@ impl NodeGuid {
     // u16` (`0xDDCC`; CLASSID_OSINT = 0x0700, CLASSID_FMA = 0x0A01). So
     // `classid_concept_domain` masks the marker off and still routes the legacy
     // domain — the Codex-P1 fix vs the rejected low-half `0x1007` (which read
-    // domain 0x10 = Unassigned). OSINT-V3 (`0x1000_0700`) is the WIRED exemplar;
-    // FMA-V3 (`0x1000_0A01`) + Genetics (domain TBD — `0x0D` is HR, not Genetics)
-    // follow once their value models are pinned.
+    // domain 0x10 = Unassigned). OSINT-V3 (`0x1000_0700`), FMA-V3 (`0x1000_0A01`),
+    // and CPIC-V3 (`0x1000_0E00`, Genetics domain `0x0E`, operator-allocated
+    // 2026-06-26 — `0x0D` was already HR) are the three wired V3 classes that
+    // complete Phase 1 (identity → V3); the atomic Canon:Custom half-order flip
+    // follows once the V3 set is complete (plan §2.3).
 
     /// **OSINT-V3** — OSINT on a [`TailVariant::V3`] cascade tail. The generation
     /// marker `0x1000` sits in the HIGH/custom u16; the canon `0x0700` is preserved
@@ -89,6 +91,37 @@ impl NodeGuid {
     /// which read domain `0x10` = `Unassigned`. Resolves to [`ReadMode::OSINT_V3`].
     #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_OSINT_V3: u32 = 0x1000_0700;
+
+    /// **FMA-V3** — FMA anatomy on a [`TailVariant::V3`] cascade tail. The marker
+    /// `0x1000` sits in the HIGH/custom u16; the canon `0x0A01` (Anatomy domain
+    /// `0x0A`, `anatomical_structure`) is preserved in the LOW u16, so
+    /// [`classid_concept_domain`](crate::ogar_codebook::classid_concept_domain)
+    /// still routes [`Anatomy`](crate::ogar_codebook::ConceptDomain::Anatomy).
+    /// Resolves to [`ReadMode::FMA_V3`] (same cold `Compressed` model as legacy FMA).
+    #[cfg(feature = "guid-v3-tail")]
+    pub const CLASSID_FMA_V3: u32 = 0x1000_0A01;
+
+    /// **CPIC-V3** — CPIC pharmacogenomics (gene–drug guidelines) on a
+    /// [`TailVariant::V3`] cascade tail, in the new **Genetics** domain (`0x0E`,
+    /// operator-allocated 2026-06-26 — `0x0D` was already HR). The marker `0x1000`
+    /// sits in the HIGH/custom u16; the canon `0x0E00` (Genetics domain root) is
+    /// preserved in the LOW u16, so
+    /// [`classid_concept_domain`](crate::ogar_codebook::classid_concept_domain)
+    /// routes [`Genetics`](crate::ogar_codebook::ConceptDomain::Genetics). Resolves
+    /// to [`ReadMode::CPIC_V3`].
+    ///
+    /// **The 6 V3 basins are genomic MEREOLOGY, not labels** (operator directive
+    /// 2026-06-26; `I-VSA-IDENTITIES` Test-0, register-laziness): a gene's identity
+    /// is its *position* in the part-of hierarchy (genome → chromosome → region →
+    /// locus → gene), readable as HHTL `(X;Y)` coordinates per `(part_of:is_a)`
+    /// tile — never a flat type tag a `HashMap` would carry. The 6-basin + relative
+    /// location is a substantial address; spending it on labels wastes it. The human
+    /// genome is the **fixed schema view** the position is taken against, which is
+    /// why the value model is [`ValueSchema::Compressed`] (a fixed reference frame,
+    /// not a hot lifecycle); Phase 2 shapes the V3 tenants — gene expression as the
+    /// coordinate *value* — on top.
+    #[cfg(feature = "guid-v3-tail")]
+    pub const CLASSID_CPIC_V3: u32 = 0x1000_0E00;
 
     /// Construct from the six canonical groups. `family`/`identity` use their low 3 bytes.
     ///
@@ -1014,13 +1047,35 @@ impl ReadMode {
 
     /// The **OSINT-V3** read-mode ([`NodeGuid::CLASSID_OSINT_V3`]): the same hot
     /// [`ValueSchema::Cognitive`] value model as legacy [`OSINT`](ReadMode::OSINT),
-    /// read through the new-generation [`TailVariant::V3`] cascade tail. The wired
-    /// V3 exemplar; FMA-V3 + Genetics-V3 follow once their classids/value models
-    /// are pinned.
+    /// read through the new-generation [`TailVariant::V3`] cascade tail. The first
+    /// V3 exemplar; [`FMA_V3`](ReadMode::FMA_V3) + [`CPIC_V3`](ReadMode::CPIC_V3)
+    /// complete the Phase-1 V3 set.
     #[cfg(feature = "guid-v3-tail")]
     pub const OSINT_V3: ReadMode = ReadMode {
         tail_variant: TailVariant::V3,
         value_schema: ValueSchema::Cognitive,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
+    /// The **FMA-V3** read-mode ([`NodeGuid::CLASSID_FMA_V3`]): the same cold
+    /// [`ValueSchema::Compressed`] value model as legacy [`FMA`](ReadMode::FMA),
+    /// read through the new-generation [`TailVariant::V3`] cascade tail.
+    #[cfg(feature = "guid-v3-tail")]
+    pub const FMA_V3: ReadMode = ReadMode {
+        tail_variant: TailVariant::V3,
+        value_schema: ValueSchema::Compressed,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
+    /// The **CPIC-V3** read-mode ([`NodeGuid::CLASSID_CPIC_V3`], Genetics domain):
+    /// CPIC pharmacogenomics on a [`TailVariant::V3`] cascade tail. The value model
+    /// [`ValueSchema::Compressed`] is the **Phase-1 provisional** (biomedical
+    /// reference, mirroring FMA's cold treatment); Phase 2 pins the V3-shaped
+    /// tenants. Edges [`EdgeCodecFlavor::CoarseOnly`].
+    #[cfg(feature = "guid-v3-tail")]
+    pub const CPIC_V3: ReadMode = ReadMode {
+        tail_variant: TailVariant::V3,
+        value_schema: ValueSchema::Compressed,
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
 
@@ -1069,13 +1124,15 @@ static BUILTIN_READ_MODES: LazyLock<HashMap<u32, ReadMode>> = LazyLock::new(|| {
     m.insert(NodeGuid::CLASSID_PROJECT, ReadMode::PROJECT);
     m.insert(NodeGuid::CLASSID_ERP, ReadMode::ERP);
     // V3 cascade-key classes (feature `guid-v3-tail`): same value model as their
-    // legacy domain, on a TailVariant::V3 tail. OSINT-V3 (`0x1000_0700`) is the
-    // wired exemplar — the high-u16 gen-marker is masked off by the domain router,
-    // so `classid_concept_domain` still resolves Osint. FMA-V3 + Genetics-V3 land
-    // here once their classids/value models are pinned.
+    // legacy domain, on a TailVariant::V3 tail. The high-u16 gen-marker is masked
+    // off by the domain router, so `classid_concept_domain` still resolves the
+    // legacy domain (Osint / Anatomy / Genetics). The three together complete the
+    // Phase-1 V3 set; the atomic Canon:Custom flip follows (plan §2.3).
     #[cfg(feature = "guid-v3-tail")]
     {
         m.insert(NodeGuid::CLASSID_OSINT_V3, ReadMode::OSINT_V3);
+        m.insert(NodeGuid::CLASSID_FMA_V3, ReadMode::FMA_V3);
+        m.insert(NodeGuid::CLASSID_CPIC_V3, ReadMode::CPIC_V3);
     }
     m
 });
@@ -2001,8 +2058,8 @@ mod tests {
         assert!(TailVariant::V1.is_layout_preserving());
         assert!(ReadMode::DEFAULT.is_layout_preserving());
         // The mechanism axis exists for all three variants (V3 is the new-gen key).
-        // OSINT-V3 is the wired exemplar (see read_mode_osint_v3_routes_v3_tail_and_osint_domain);
-        // FMA-V3 + Genetics-V3 entries are DEFERRED until their classids are pinned.
+        // The Phase-1 V3 set is COMPLETE: OSINT-V3 + FMA-V3 + CPIC-V3 (Genetics) are
+        // all wired (see read_mode_fma_v3_and_cpic_v3_route_their_domains).
         assert!(TailVariant::V3.is_layout_preserving());
         assert!(TailVariant::V2.is_layout_preserving());
     }
@@ -2045,6 +2102,74 @@ mod tests {
             NodeGuid::CLASSID_OSINT as u16,
             "low u16 == canon OSINT concept (0x0700)"
         );
+    }
+
+    #[cfg(feature = "guid-v3-tail")]
+    #[test]
+    fn read_mode_fma_v3_and_cpic_v3_route_their_domains() {
+        use crate::ogar_codebook::{classid_concept_domain, ConceptDomain};
+        // Phase-1 V3 set completion: FMA-V3 + CPIC-V3 resolve to the V3 tail AND
+        // their domain still routes through the high-u16 gen-marker (masked off by
+        // the domain router) — the same scheme proven for OSINT-V3.
+
+        // FMA-V3: Anatomy domain (0x0A) intact; cold Compressed model (mirrors FMA).
+        assert_eq!(
+            classid_read_mode(NodeGuid::CLASSID_FMA_V3).tail_variant,
+            TailVariant::V3
+        );
+        assert_eq!(
+            classid_concept_domain(NodeGuid::CLASSID_FMA_V3),
+            ConceptDomain::Anatomy
+        );
+        assert_eq!(
+            classid_read_mode(NodeGuid::CLASSID_FMA_V3),
+            ReadMode::FMA_V3
+        );
+        assert_eq!(ReadMode::FMA_V3.value_schema, ValueSchema::Compressed);
+        assert_eq!(NodeGuid::CLASSID_FMA_V3, 0x1000_0A01);
+        assert_eq!(
+            NodeGuid::CLASSID_FMA_V3 >> 16,
+            0x1000,
+            "gen-marker high u16"
+        );
+        assert_eq!(
+            NodeGuid::CLASSID_FMA_V3 as u16,
+            NodeGuid::CLASSID_FMA as u16,
+            "low u16 == canon FMA concept (0x0A01)"
+        );
+
+        // CPIC-V3: the operator-allocated Genetics domain (0x0E); Compressed = the
+        // fixed human-genome schema view (basins = genomic mereology, not labels).
+        assert_eq!(
+            classid_read_mode(NodeGuid::CLASSID_CPIC_V3).tail_variant,
+            TailVariant::V3
+        );
+        assert_eq!(
+            classid_concept_domain(NodeGuid::CLASSID_CPIC_V3),
+            ConceptDomain::Genetics
+        );
+        assert_eq!(
+            classid_read_mode(NodeGuid::CLASSID_CPIC_V3),
+            ReadMode::CPIC_V3
+        );
+        assert_eq!(ReadMode::CPIC_V3.value_schema, ValueSchema::Compressed);
+        assert_eq!(NodeGuid::CLASSID_CPIC_V3, 0x1000_0E00);
+        assert_eq!(
+            NodeGuid::CLASSID_CPIC_V3 >> 16,
+            0x1000,
+            "gen-marker high u16"
+        );
+        assert_eq!(
+            NodeGuid::CLASSID_CPIC_V3 as u16,
+            0x0E00,
+            "low u16 == Genetics domain root (0x0E00)"
+        );
+
+        // The three V3 classes are mutually distinct, all V3 + layout-preserving.
+        assert!(ReadMode::FMA_V3.is_layout_preserving());
+        assert!(ReadMode::CPIC_V3.is_layout_preserving());
+        assert_ne!(NodeGuid::CLASSID_FMA_V3, NodeGuid::CLASSID_CPIC_V3);
+        assert_ne!(NodeGuid::CLASSID_FMA_V3, NodeGuid::CLASSID_OSINT_V3);
     }
 
     #[cfg(feature = "guid-v3-tail")]

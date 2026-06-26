@@ -1,3 +1,36 @@
+## 2026-06-26 — E-V3-BASINS-ARE-MEREOLOGY-NOT-LABELS — the 6 V3 basins (+ relative location) are a structural ADDRESS (mereology / HHTL X;Y coordinates), never flat labels
+
+**Status:** FINDING `[H]` (operator directive 2026-06-26; impl in the FMA-V3 +
+CPIC-V3 mint, branch `claude/fma-cpic-v3-mint`). Sharpens `E-FACET-8-8-ALWAYS`
+on the *consumer-projection* side and is a direct application of
+`I-VSA-IDENTITIES` Test-0 (register-laziness).
+
+**The claim.** The V3 identity's 6 `(part_of:is_a)` tiles — HEEL·HIP·TWIG·LEAF
+(routing) + family·identity (basin tail) — plus the *relative location within
+each basin* are a **substantial address** (6 × 16 bits of hierarchical
+coordinate). Spending that address on **labels** (a flat type tag a `HashMap` /
+`enum` would carry) wastes it — the exact register-laziness `I-VSA-IDENTITIES`
+Test-0 forbids ("does this thing have a natural name/ID? then use the register,
+not the rich carrier"). The basins must instead carry **mereology / membership**:
+*where a thing sits in the part-of hierarchy* (AST node position, basin
+location), readable equivalently as HHTL `(X;Y)` coordinates per tile (`part_of`
+= X = hi byte, `is_a` = Y = lo byte).
+
+**The canonical case — genes (Genetics / CPIC-V3).** A gene's identity is its
+**genomic position**: `genome → chromosome → region → locus → gene` is the
+part-of cascade; the **human genome is the fixed schema view** the position is
+taken against (hence `ValueSchema::Compressed` — a fixed reference frame, not a
+hot lifecycle). Phase 2 then carries gene **expression as the coordinate
+*value*** on top of that positional address. "All expression" rides the basins
+as `(X;Y)`, the genome is the codebook.
+
+**Litmus.** Before assigning meaning to a V3 basin: *is this a coordinate
+(where-it-is) or a name (what-it's-called)?* Name → it belongs in the content
+store / ClassView, not the basin. Coordinate / membership → the basin is exactly
+right, and the 6-tier address is the payoff. Cross-ref `E-FACET-8-8-ALWAYS`
+(content-blind 8:8, consumer projects), `I-VSA-IDENTITIES` Test-0, CANON
+"basin location" (`family` = basin), `CLASSID_CPIC_V3` doc-comment.
+
 ## 2026-06-25 — E-FACET-8-8-ALWAYS — the homogeneous facet is ALWAYS 8:8 (content-blind, consumer-projected); it amortizes to a 2bit×2bit Morton tile cascade
 
 **Status:** FINDING `[H]` (operator-locked 2026-06-25; impl PR #613). Refines
