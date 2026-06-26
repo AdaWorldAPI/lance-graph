@@ -152,6 +152,37 @@ Unassigned — so it is **rejected**.) The live `0xDDCC` consts are kept as-is.
 entries are `guid-v3-tail`-gated. OSINT-V3 is wired in P-A (#613); FMA-V3 + the
 Genetics-domain mint + CPIC's move follow.
 
+### 2.3 Canon:Custom flip — DEFERRED (operator, 2026-06-26)
+
+The half-order flip `[ custom (hi) : canon (lo) ] → [ canon (hi) : custom (lo) ]`
+(so the prefix sorts by **shared concept**, not render skin) is **deferred — do not
+flip now.** It happens **only after** BOTH:
+
+1. **Phase 1 is complete**, AND
+2. **OSINT + FMA + CPIC are all re-encoded to V3 shape** (under the *current*
+   `custom:canon` convention + the high-u16 `0x1000_xxxx` gen marker — OSINT done
+   #613; FMA-V3 + CPIC-V3 still to mint, incl. CPIC's Genetics-domain slot).
+
+When that set is complete, **flip once, atomically, across the whole V3 set.**
+
+**Why deferred, not done piecemeal (the forcing reason).** The flip is a *routing*
+reinterpretation of **every** classid: post-flip, `classid_concept_domain` reads
+the **HIGH** u16 instead of the low. So a half-flipped corpus — some entries
+`custom:canon`, some `canon:custom` — mis-routes by construction: the *same*
+`as u16 >> 8` read yields a different domain depending on which convention an
+entry was minted under. That is precisely the `I-LEGACY-API-FEATURE-GATED` failure
+mode (one accessor, two silent semantics by state), so the flip MUST be a single
+coordinated reorder over a **known-complete** V3 set — never trickled in per
+consumer. Mint all of OSINT/FMA/CPIC in the *current* convention first; flip them
+together last.
+
+**Until the flip:** the shipped `0x1000_0700`-shaped (`custom:canon`) entries
+stand; `facet_mint`'s `facet_classid` (row 0) stays a **parameter** that bakes in
+no half-order, so brick 2 is unaffected by the deferral (it never commits to a
+convention). When the flip lands it is a layout reinterpretation → it carries the
+same version-gate + field-isolation discipline (`I-LEGACY-API-FEATURE-GATED`) that
+gates every reclaim in this plan.
+
 ## 3. Phase 2 — V3-shaped value tenants (value-side; = the harvest)
 
 This is what `-v1-harvest.md` inventoried. With the address already V3:
@@ -248,17 +279,21 @@ treatment in the knowledge doc):
 
 | brick | what | phase tie | status |
 |---|---|---|---|
-| **1 — slot allocation** | the 6-pair / 12-slot layout | = Phase-2's contained facet (`FacetCascade`) | **LOCKED (shipped #613/#614)** — only the classid half-order (Canon:Custom, below + §2.2) stays open, orthogonal to per-tier packing |
+| **1 — slot allocation** | the 6-pair / 12-slot layout | = Phase-2's contained facet (`FacetCascade`) | **LOCKED (shipped #613/#614)** — the classid half-order (Canon:Custom) is **DEFERRED** (§2.3 — flipped after Phase-1 + OSINT/FMA/CPIC are all V3), orthogonal to per-tier packing |
 | **2 — rank-minter** | SPO graph → `(po_rank, ia_rank)` per tier → `FacetCascade` | the **producer** of Phase-2 facets | **BUILT 2026-06-26** — `contract::facet_mint` (commit `360fc720`); `mint_facets(&[NodeDecl], facet_classid)`; exact + roundtrip-lossless; producer-agnostic `NodeDecl` (ruff C++ + Roslyn C# `ruff_csharp_spo`, ruff #29); 8 tests green |
 | **3 — MedCare probe** | `ruff_csharp_spo` harvest → mint → SoA → `typeHierarchy`/`definition`, MedCareV2 oracle | the F-gate over both phases on a real corpus | **PENDING** — the single step that promotes the arc + the 2 MB/10× headline CONJECTURE → FINDING |
 
-**Canon:Custom is ONE lock shared with §2.2, not two.** The minter's `facet_classid`
-(row 0) is a *parameter* — it bakes in no half-order — so brick 2 is unblocked. But
-the classid `(part_of:is_a)` ordering is the SAME open decision §2.2 carries on the
-V3 classid entries: the shipped `0x1000_0700` is custom(hi):canon(lo); the
-operator's Canon:Custom correction flips it to canon(hi):custom(lo) so the prefix
-sorts by shared concept, not render skin. Resolving Canon:Custom settles BOTH the
-Phase-1 classid entries (§2.2) AND the minter's row-0 ordering in one decision.
+**Canon:Custom is ONE lock shared with §2.2/§2.3 — and it is now DEFERRED.** The
+minter's `facet_classid` (row 0) is a *parameter* — it bakes in no half-order — so
+brick 2 is unblocked regardless. The classid `(part_of:is_a)` ordering is the SAME
+decision §2.2 carries on the V3 classid entries: the shipped `0x1000_0700` is
+custom(hi):canon(lo); the operator's Canon:Custom correction flips it to
+canon(hi):custom(lo) so the prefix sorts by shared concept, not render skin. **Per
+§2.3 (operator, 2026-06-26) the flip is deferred** until Phase 1 is complete AND
+OSINT + FMA + CPIC are all re-encoded to V3, then done **atomically** across the
+whole set (a piecemeal flip mis-routes — `I-LEGACY-API-FEATURE-GATED`). Resolving it
+then settles BOTH the Phase-1 classid entries (§2.2) AND the minter's row-0 ordering
+in one move.
 
 **Grade / gate.** The arc is **`[S]`→`[H]`** (CONJECTURE; the carrier + mechanism
 are shipped, the economic claim is unmeasured); gate **F-code** via the brick-3
