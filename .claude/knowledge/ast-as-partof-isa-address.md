@@ -158,6 +158,17 @@ is precisely the CONJECTURE's payoff, and the brick-3 probe (MedCare harvest →
 mint → SoA → LSP query, MedCareV2 oracle) is what turns it from a claim into a
 measurement.
 
+**Headline target (CONJECTURE — the probe measures it):** OpenProject + Odoo
+together as **~2 MB of GUID-encoded `(part_of:is_a)`** instead of ~20 MB / ~250K
+LOC — a ~10× collapse. Dimensionally credible: at 16 B/`FacetCascade`,
+2 MB ≈ **131K class/member/field nodes**, enough to hold both ERPs' structural
+skeleton. The honest caveat: that 2 MB is the **THINK-arm structure + classaction
+pointers**; the DO-arm `ActionDef` *bodies* don't vanish — they are minted **once**
+in OGAR and shared (amortized across every consumer), so the figure is the
+*per-consumer marginal* footprint over a shared primitive library, not the whole
+system reduced to 2 MB. The 10× ratio is the hypothesis the MedCare probe gives
+the first real datapoint for.
+
 **What the primitives actually are: laws and regulations, not CRUD shapes —
 content stays with the consumer.** An ERP's hard value is *compliance* (tax law,
 audit/GoBD immutability, SKR04 accounts, sanctions/AML, HIPAA), and regulation is
