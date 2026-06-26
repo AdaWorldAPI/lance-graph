@@ -50,6 +50,120 @@ source (C#/…) ──ruff_*_spo harvest──► SPO triples ──► AR-shape
                                                         ruff-lsp ──► editor
 ```
 
+## The purpose — the three-layer thesis (the *why*, grounded in shipped code)
+
+The *what* above (store the AST as a `(part_of:is_a)` address) exists to serve
+one economic end: **make minting an ERP in any consumer as cheap as importing
+pre-minted class primitives.** Three layers, each already backed by shipped
+contract code (verified this session):
+
+### Layer 1 — rails-shaped semantic AST at *assembler* cost
+
+The structural AST's queries collapse to **one hardware instruction each**,
+because the node's identity *is* a 128-bit register (`facet::FacetCascade`) and
+the semantic operations *are* its four SIMD lanes:
+
+| LSP / semantic query | `(part_of:is_a)` operation | assembler (facet.rs four-lane table) |
+| --- | --- | --- |
+| `definition` (symbol → node) | full-facet equality | `vpcmpeqd` + `vmovmskps` (row lane) |
+| `documentSymbol` (part_of tree) | `hi_chain()` compare | `vpcmpeqw` / `pshufb` (tile lane) |
+| `typeHierarchy` (is_a lattice walk) | `lo_chain()` longest-common-prefix | `vpxor` + `tzcnt` (prefix lane) |
+| ancestry / quadrant containment | Morton nibble prefix | GFNI `vgf2p8affineqb` (nibble lane) |
+
+A graph traversal becomes a register XOR + trailing-zero count. **Why the rails
+shape is the precondition, not a style choice:** a *declarative* class body (a
+flat bag of typed `part_of | is_a` declarations) maps onto fixed-width 6×(8:8)
+tiles; an *imperative* syntax tree (variable-arity, positional) does not. Only
+the declarative **THINK arm** flattens to the address.
+
+### Layer 2 — static OGAR shape · dynamic ClassView · askama row-view
+
+`class_view.rs` already states this exact ladder (its own doc comment):
+
+```
+SoA row            = the XML document   (agnostic bytes, no meaning)
+class / ObjectView = the XSD schema      (the shape: which fields, in order)
+ClassView          = the parser+schema   (projects row → typed view, late-bound)
+askama template    = the XSLT            (renders the projected view)
+```
+
+Two shipped invariants make the static shape *reusable* and let it evolve like
+Redmine's 17-year row view without breaking persisted data:
+
+- **C2 — presence, NEVER semantics.** `has(n)` = "field n is populated here,"
+  never "field n behaves differently here." Per-app variation lives in the
+  ClassView projection + the askama template (the *render*), never in the bits.
+- **N3 — append-only field positions.** "Once instances persist, a field's bit
+  position never moves and retired bits are never reused." *This is the
+  mechanism* behind a row view that grows columns for 17 years without
+  invalidating a single stored row.
+
+**View and action are duals of one ClassView.** A node's SoA value slab holds
+**N × `(facet_classid | 6×(8:8 part_of:is_a))`** facets (the value-tenant
+migration's multiple tenants per node) plus a *little* DO. The ClassView projects
+those same static facets **two** ways: row → typed **view** (THINK → askama
+render) **and** row → conditional **classaction** (DO → an `ActionDef` fired under
+a `KausalSpec` `StateGuard{field,value}` that reads the SoA's own bits). So
+behavior is conditionalized *at the cost of one ClassView classaction dispatch* —
+a guard-read (assembler-cheap, exactly like the view projection) + an `ActionDef`
+lookup by `classid`. Render and behavior are the two projections of one ClassView
+over one static SoA; the DO arm is as cheap and as reusable as the THINK arm
+because it is the **same** projection mechanism — only the *little* DO needs to
+ride along, conditionalized, not a parallel engine.
+
+`openproject-nexgen-rs` (`op-codegen-projection`) and `woa-rs` already pull
+`askama 0.12` — the render end is live.
+
+### Layer 3 — OGAR as importable ERP-primitive stdlib · lance as the compiler
+
+`ogar_codebook.rs` is the import surface — a curated `(concept, u16)` codebook,
+**wire-compatible, zero-dep** (a consumer *stamps* an id, never links a Core):
+
+| economic step | shipped surface |
+| --- | --- |
+| **import** a primitive | `canonical_concept_id("account.move") → u16` → `classid` → `ClassView` |
+| **customize** for an app | `render_classid_for_concept(app_prefix, concept)` — compose shared concept (lo u16, canon) with the consumer's render skin (hi u16, custom) |
+| **compile** to a running app | lance-graph (OGAR-as-IR): `classid → ClassView → askama` |
+
+**Cost collapse:** transcode goes from O(whole app, hand-ported) to O(the
+consumer's *deltas* from the imported primitive). `account.move` /
+`res.partner` / OpenProject `Issue` / MedCare `Patient` are minted **once** in
+OGAR (harvest → `facet_mint`) and reused by every consumer.
+
+### The three honest boundaries (so this isn't a promise it can't keep)
+
+1. **Mechanism shipped, stdlib mostly empty.** `ogar_codebook` carries the
+   id-layer + compose/decompose ops, but the populated set of minted ERP
+   primitives (full class graphs + ObjectViews) is the
+   harvest → mint → publish-to-codebook pipeline — **that** is the work. The
+   bricks exist (`ruff_*_spo`, `facet_mint`); the end-to-end isn't wired.
+2. **The DO arm is *also* wireable — behavior has an OGAR shape too.** (An
+   earlier framing treated behavior as bespoke; that is too pessimistic.) The DO
+   arm has its own OGAR IR — `ActionDef` / `ActionInvocation` / `KausalSpec`
+   (`OGAR-AST-CONTRACT.md`) — and the **arago/HIRO ActionHandler** model
+   transcodes into exactly it (the OGIT ontology *is* arago/almato's — TTL
+   creator `chris.boos@almato.com`). An action handler becomes an `ActionDef`
+   keyed by `classid`, realized as an `ActionInvocation` with a lifecycle
+   `ActionState` machine, guarded by `KausalSpec`. So behavior is
+   mint-and-import-able on the **same** mechanism as the THINK arm — `odoo-rs`'s
+   `od-posting` becomes a *consumer* of imported `ActionDef`s, not hand-written
+   logic. (Consistent with the boundary section below: behavior is keyed *by* the
+   address as `ActionDef`, never flattened *into* it.) **The remaining honesty —
+   not a wall:** (a) same stdlib-population maturity as #1 — the IR + transcode
+   path exist; the *published* per-domain action library is the work; (b) DO
+   composition is **`KausalSpec`-membrane-governed** (StateGuard / lifecycle /
+   dependency-path) by design — behavior is reusable but its wiring is gated and
+   auditable, not free code import. That governance is the feature, not the gap.
+   The *conditionalization* (which `ActionDef` fires, when) is classaction-cheap
+   — a guard-read + a `classid` dispatch; only an `ActionDef`'s *internal* compute
+   (e.g. a tax algorithm) is still its content, imported as a primitive rather
+   than re-derived per consumer.
+3. **Cheapness requires pull-don't-reconstruct.** Holds only if consumers
+   **import** (`canonical_concept_id` / `*Port::class_id`) rather than
+   re-harvest or copy the codebook — the `ogar-consumer-preflight` iron rule.
+   The moment a consumer rebuilds the class graph locally, the cost is paid
+   twice (the do-it-twice / SURREAL-AST trap this whole design rejects).
+
 ## Why this is the convergence, not a detour
 
 1. **An AST has exactly two structural relations, and they ARE the two tile axes.**
