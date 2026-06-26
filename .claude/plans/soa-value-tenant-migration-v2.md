@@ -156,14 +156,19 @@ Genetics-domain mint + CPIC's move follow.
 
 The half-order flip `[ custom (hi) : canon (lo) ] → [ canon (hi) : custom (lo) ]`
 (so the prefix sorts by **shared concept**, not render skin) is **deferred — do not
-flip now.** It happens **only after** BOTH:
+flip now.** It happens **only after ALL THREE**:
 
 1. **Phase 1 is complete**, AND
 2. **OSINT + FMA + CPIC are all re-encoded to V3 shape** (under the *current*
    `custom:canon` convention + the high-u16 `0x1000_xxxx` gen marker — OSINT done
-   #613; FMA-V3 + CPIC-V3 still to mint, incl. CPIC's Genetics-domain slot).
+   #613; FMA-V3 + CPIC-V3 still to mint, incl. CPIC's Genetics-domain slot), AND
+3. **the V3-schema-migration technical debt is resolved AND V3 identity is confirmed
+   working** (operator refinement, 2026-06-26). *A schema-prefix flip is a structural
+   reorg; the operator will not reorder the prefix on top of unresolved migration debt
+   or unconfirmed identity.* First make V3 identity solid + debt-free + confirmed —
+   **then** reorder the prefix.
 
-When that set is complete, **flip once, atomically, across the whole V3 set.**
+When all three hold, **flip once, atomically, across the whole V3 set.**
 
 **Why deferred, not done piecemeal (the forcing reason).** The flip is a *routing*
 reinterpretation of **every** classid: post-flip, `classid_concept_domain` reads
@@ -175,6 +180,24 @@ mode (one accessor, two silent semantics by state), so the flip MUST be a single
 coordinated reorder over a **known-complete** V3 set — never trickled in per
 consumer. Mint all of OSINT/FMA/CPIC in the *current* convention first; flip them
 together last.
+
+**The V3-migration debt condition 3 points at** (already named in this plan — not
+new work invented here):
+- (a) the unreverted **POC-`Full`** default `value_schema` (§2.1 **L2**; canonical
+  target `Bootstrap`, guarded by the revert test) — the default read-mode is still
+  the POC, not the canonical `{V1, Bootstrap, CoarseOnly}` triple;
+- (b) the §2.1 **parity fuse** is still *structural-against-canon* (a compile-time
+  field-set guard) — it upgrades to the *runtime-vs-OGAR* form only once OGAR codes
+  its registry's `tail_variant`, so the **OGAR-side `tail_variant` wiring** is
+  outstanding (OGAR #128 is doc-only);
+- (c) the §5 corrective `/home/user/{OGAR,MedCare-rs}` casing-miss sweep — Phase-1's
+  *actual substance*, which gates Phase-1 start;
+- (d) the **FMA-V3 + CPIC-V3 mints** themselves (incl. CPIC's Genetics-domain slot).
+
+"**Confirm identity works**" = the `I-LEGACY-API-FEATURE-GATED` field-isolation
+matrix + version-gate proof on each V3 tail, end-to-end, *before* the prefix moves.
+A precise debt inventory is the **first Phase-1-closeout deliverable** — it is what
+makes condition 3 checkable rather than a vibe.
 
 **Until the flip:** the shipped `0x1000_0700`-shaped (`custom:canon`) entries
 stand; `facet_mint`'s `facet_classid` (row 0) stays a **parameter** that bakes in
@@ -279,7 +302,7 @@ treatment in the knowledge doc):
 
 | brick | what | phase tie | status |
 |---|---|---|---|
-| **1 — slot allocation** | the 6-pair / 12-slot layout | = Phase-2's contained facet (`FacetCascade`) | **LOCKED (shipped #613/#614)** — the classid half-order (Canon:Custom) is **DEFERRED** (§2.3 — flipped after Phase-1 + OSINT/FMA/CPIC are all V3), orthogonal to per-tier packing |
+| **1 — slot allocation** | the 6-pair / 12-slot layout | = Phase-2's contained facet (`FacetCascade`) | **LOCKED (shipped #613/#614)** — the classid half-order (Canon:Custom) is **DEFERRED** (§2.3 — flipped only after Phase-1 + OSINT/FMA/CPIC all V3 + V3-migration debt cleared/identity confirmed), orthogonal to per-tier packing |
 | **2 — rank-minter** | SPO graph → `(po_rank, ia_rank)` per tier → `FacetCascade` | the **producer** of Phase-2 facets | **BUILT 2026-06-26** — `contract::facet_mint` (commit `360fc720`); `mint_facets(&[NodeDecl], facet_classid)`; exact + roundtrip-lossless; producer-agnostic `NodeDecl` (ruff C++ + Roslyn C# `ruff_csharp_spo`, ruff #29); 8 tests green |
 | **3 — MedCare probe** | `ruff_csharp_spo` harvest → mint → SoA → `typeHierarchy`/`definition`, MedCareV2 oracle | the F-gate over both phases on a real corpus | **PENDING** — the single step that promotes the arc + the 2 MB/10× headline CONJECTURE → FINDING |
 
@@ -289,11 +312,12 @@ brick 2 is unblocked regardless. The classid `(part_of:is_a)` ordering is the SA
 decision §2.2 carries on the V3 classid entries: the shipped `0x1000_0700` is
 custom(hi):canon(lo); the operator's Canon:Custom correction flips it to
 canon(hi):custom(lo) so the prefix sorts by shared concept, not render skin. **Per
-§2.3 (operator, 2026-06-26) the flip is deferred** until Phase 1 is complete AND
-OSINT + FMA + CPIC are all re-encoded to V3, then done **atomically** across the
-whole set (a piecemeal flip mis-routes — `I-LEGACY-API-FEATURE-GATED`). Resolving it
-then settles BOTH the Phase-1 classid entries (§2.2) AND the minter's row-0 ordering
-in one move.
+§2.3 (operator, 2026-06-26) the flip is deferred** until ALL THREE hold — Phase 1
+complete, OSINT + FMA + CPIC all V3, **and the V3-migration debt cleared + identity
+confirmed working** (you don't reorder a schema prefix on top of unresolved migration
+debt) — then done **atomically** across the whole set (a piecemeal flip mis-routes —
+`I-LEGACY-API-FEATURE-GATED`). Resolving it then settles BOTH the Phase-1 classid
+entries (§2.2) AND the minter's row-0 ordering in one move.
 
 **Grade / gate.** The arc is **`[S]`→`[H]`** (CONJECTURE; the carrier + mechanism
 are shipped, the economic claim is unmeasured); gate **F-code** via the brick-3

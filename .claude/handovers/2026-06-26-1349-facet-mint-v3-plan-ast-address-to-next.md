@@ -117,10 +117,19 @@ source (C#/…) ──ruff_*_spo harvest──► SPO triples ──► NodeDecl
 
 The classid half-order flip `[custom(hi):canon(lo)] → [canon(hi):custom(lo)]` (so
 the prefix sorts by **shared concept**, not render skin) is **deferred — do not flip
-now.** It happens **only after** BOTH:
+now.** It happens **only after ALL THREE**:
 1. **Phase 1 complete**, AND
 2. **OSINT + FMA + CPIC all re-encoded to V3** (current `custom:canon` convention +
-   high-u16 `0x1000_xxxx` gen marker — OSINT done #613; FMA-V3 + CPIC-V3 to mint).
+   high-u16 `0x1000_xxxx` gen marker — OSINT done #613; FMA-V3 + CPIC-V3 to mint), AND
+3. **the V3-migration technical debt is resolved AND V3 identity is confirmed working**
+   (operator refinement 2026-06-26) — *a schema-prefix flip is a structural reorg; the
+   operator will not reorder the prefix on top of unresolved migration debt or
+   unconfirmed identity.* The debt §2.3 points at: (a) the unreverted POC-`Full`
+   default `value_schema` (§2.1 L2 → canonical `Bootstrap`); (b) the §2.1 parity fuse
+   is still structural-not-runtime → the OGAR-side `tail_variant` wiring is outstanding
+   (OGAR #128 doc-only); (c) the §5 `/home/user/{OGAR,MedCare-rs}` casing-miss sweep;
+   (d) the FMA-V3 + CPIC-V3 mints. "Confirm identity works" = the
+   `I-LEGACY-API-FEATURE-GATED` field-isolation matrix + version-gate proof per V3 tail.
 
 Then **flip once, atomically, over the whole V3 set.**
 
@@ -133,6 +142,10 @@ discipline when it lands.
 
 ## 6. Where I left off — ordered next moves
 
+0. **Inventory the V3-migration debt** (the first Phase-1-closeout deliverable — makes
+   §2.3 condition 3 checkable): at minimum the POC-`Full`→`Bootstrap` revert (§2.1 L2),
+   the OGAR-side `tail_variant` wiring (§2.1 parity fuse structural→runtime), and the
+   §5 `/home/user/{OGAR,MedCare-rs}` casing-miss sweep.
 1. **FMA-V3 mint** — the clean Phase-1 step: `CLASSID_FMA_V3 = 0x1000_0A01` (Anatomy
    route `0x0A01` intact), a `ReadMode::FMA_V3` const, and the `BUILTIN_READ_MODES`
    entry under `guid-v3-tail`. Mirrors the shipped OSINT-V3 pattern exactly. **Needs
@@ -140,8 +153,13 @@ discipline when it lands.
 2. **CPIC-V3 mint** — **blocked on a Genetics domain slot.** `0x0D` is already **HR**
    in `ogar_codebook.rs`; Genetics needs a free slot (`0x03–0x06` or `0x0E`). Pick the
    slot first (operator/codebook decision), then mint `CLASSID_CPIC_V3 = 0x1000_0?00`.
-3. **Phase 1 complete** ⇒ then (and only then) the **Canon:Custom flip** (§2.3, atomic).
-4. **Brick 3 — MedCare probe** (can run in parallel with 1–2): scaffold the consumer
+3. **Fix the debt + confirm identity works** — clear the items from move 0 and prove
+   each V3 tail with the `I-LEGACY-API-FEATURE-GATED` field-isolation matrix +
+   version-gate, end-to-end. This is §2.3 condition 3; the operator flips **only**
+   after it is green.
+4. **Phase 1 complete + debt clear + identity confirmed** ⇒ then (and only then) the
+   **Canon:Custom flip** (§2.3, atomic over the whole V3 set).
+5. **Brick 3 — MedCare probe** (can run in parallel with 0–3): scaffold the consumer
    half in `MedCare-rs` (`NodeDecl` ingest + `mint_facets` + `typeHierarchy`/
    `definition` assertions), leaving the `ruff_csharp_spo` wiring as the seam to fill
    once `AdaWorldAPI/ruff` is in scope. This is the CONJECTURE→FINDING gate.
