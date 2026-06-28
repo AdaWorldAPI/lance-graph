@@ -1170,6 +1170,30 @@ unambiguous edge type.
 
 **Cross-ref:** OGAR `docs/OSINT-SUBSTRATE-REUSE-MAP.md` (§ "one causal-distance
 format", P0/P1); `E-CE64-MB-4` (sole-writer invariant on the canonical edge).
+## 2026-06-28 — E-HELIX-NEVER-MATERIALIZE — Cartesian pseudo-helix vs Fisher-2z normalized: choose by "how many times will you materialize?"
+
+**Status:** FINDING `[H]` (q2 `/helix` session 2026-06-28). Full decision matrix:
+`.claude/knowledge/helix-cartesian-vs-fisher2z.md` (READ BY codec/orientation work).
+
+**The claim.** Two codecs get conflated. `ndarray::splat3d::helix_orient` (the
+**Cartesian pseudo-helix**) is a golden-spiral cap cascade whose value IS the
+reconstructed `(x,y,z)` vector — place-blind, no metric. `lance-graph::helix`
+(**Fisher-2z normalized** — `Signed360`/`ResidueEdge`) is place-coupled
+(`encode(place,n)` anchors `rim.start_idx` on the HHTL path) and its value is that
+you **never reconstruct**: compare/look-up in the normalized-index domain (256×256
+L1 `DistanceLut`), reconstruction amortized to a one-time LUT build. Decision rule:
+*how many times will you materialize?* — Cartesian = N reconstructions (only pays if
+you need the vector once); Fisher-2z = 0 (or 1 LUT build). **Reconstructing a
+normalized representation per element (atanh/trig per vertex) is always wrong — it is
+the exact cost the substrate exists to avoid** (same discipline as `I-VSA-IDENTITIES`
+"bundle identities, not content"). Signed360 specifics: the **sign** (polar
+partition) turns hemisphere→full sphere, so the 6-byte normal is complete (no second
+"pos" helix); the **rim** is the metric/atanh carrier and is never materialized for
+rendering — only `(polar, azimuth)` drive the direction, which is place-independent.
+
+**Worked pair:** q2 `scratch-fma/helixbake` (encode via `encode_signed`, nearest
+spherical-Fibonacci) + `cockpit/src/BodyHelix.tsx` (decode = pre-materialized
+direction LUT + per-vertex normalized-index gather, no per-vertex trig).
 
 ---
 
