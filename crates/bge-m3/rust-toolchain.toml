@@ -1,2 +1,4 @@
 [toolchain]
-channel = "1.94.0"
+# Aligned to the ecosystem-wide 1.95 pin; matches this crate's own
+# Cargo.toml rust-version = "1.95" (the channel was a 1.94.0 straggler).
+channel = "1.95"

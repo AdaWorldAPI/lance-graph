@@ -1,2 +1,4 @@
 [toolchain]
-channel = "1.94.0"
+# Aligned to the AdaWorldAPI ecosystem-wide 1.95 pin (root lance-graph
+# rust-toolchain.toml). Was a 1.94.0 straggler.
+channel = "1.95"
