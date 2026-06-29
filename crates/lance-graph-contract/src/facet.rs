@@ -374,6 +374,13 @@ pub const CASCADE_UNITS: usize = 12;
 /// elsewhere. With 12 fields it is often cheaper to map a sub-range as a
 /// hierarchy and stack **nested** ClassViews into constructors before
 /// materializing the `32×GUID` SoA — see `docs/OGAR-TRANSPILE-SUBSTRATE.md` §1.5.
+///
+/// **Clean / SoC over packed.** Packing two concerns into one facet via a
+/// straddle (`G4D3`) is rarely necessary: a node has
+/// [`GUIDS_PER_NODE`](crate::canonical_node::GUIDS_PER_NODE) = 32 sixteen-byte
+/// slots, so the cheap move is to *Tetris* each concern into its own slot
+/// (separation-of-concerns) rather than bit-pack — capacity is the reason the
+/// straddle stays a last resort.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CascadeShape {
     /// 6 groups × 2 levels — native `(hi:lo)` per tier (`6×(1:2)`). Aligned

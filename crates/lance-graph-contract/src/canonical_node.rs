@@ -643,6 +643,29 @@ pub const NODE_ROW_COLUMNS: &[ColumnDescriptor] = &[
 /// Row stride for [`NodeRow`] in bytes — equal to `size_of::<NodeRow>()`.
 pub const NODE_ROW_STRIDE: usize = 512;
 
+/// The node viewed as fixed-size **GUID slots**: `NODE_ROW_STRIDE /
+/// size_of::<NodeGuid>()` = `512 / 16` = **32**. A 512-byte SoA row can carry up
+/// to 32 GUID-sized (16-byte) entries; `key` + `edges` occupy 2, leaving the
+/// 480-byte value slab = 30 slots for the class-resolved layout.
+///
+/// **Doctrine — clean / SoC over packed (operator, 2026-06-29).** When a class
+/// needs more structure than fits cleanly in one slot, *Tetris it across the
+/// slots* — give each concern its own 16-byte slot — rather than bit-pack two
+/// concerns into one. Packing into a single facet via a straddling carve is the
+/// worst case [`crate::facet::CascadeShape::G4D3`] /
+/// [`is_byte_aligned`](crate::facet::CascadeShape::is_byte_aligned) flags; the
+/// 32-slot capacity is *why* that straddle is almost never needed —
+/// separation-of-concerns layout is the default, packing the rare last resort.
+/// (This is also the headroom that lets a ClassView *rotate* and lets the rare
+/// classid-stacking-entropy case spread to a fresh slot instead of minting
+/// another classid.)
+pub const GUIDS_PER_NODE: usize = NODE_ROW_STRIDE / 16;
+
+const _: () = assert!(
+    GUIDS_PER_NODE == 32 && GUIDS_PER_NODE * core::mem::size_of::<NodeGuid>() == NODE_ROW_STRIDE,
+    "512-byte node = 32 × 16-byte GUID slots"
+);
+
 // ── Value-slab schema presets: which tenants a class materialises ─────────────
 
 /// Full-row byte offset of the value slab (key 16 + edges 16).
@@ -1594,6 +1617,26 @@ mod tests {
             assert!(f.is_layout_preserving());
         }
         assert_eq!(NODE_ROW_STRIDE, core::mem::size_of::<NodeRow>());
+    }
+
+    #[test]
+    fn guids_per_node_is_32_slots_clean_soc_over_packed() {
+        // The 512-byte node is 32 × 16-byte GUID-sized slots.
+        assert_eq!(GUIDS_PER_NODE, 32);
+        assert_eq!(
+            GUIDS_PER_NODE * core::mem::size_of::<NodeGuid>(),
+            NODE_ROW_STRIDE
+        );
+        // key + edges occupy 2 slots; the value slab is the remaining 30 to
+        // Tetris a class's concerns into (SoC over packed — no straddle needed).
+        let key_edges_slots =
+            (core::mem::size_of::<NodeGuid>() + core::mem::size_of::<EdgeBlock>()) / 16;
+        assert_eq!(key_edges_slots, 2);
+        assert_eq!(
+            GUIDS_PER_NODE - key_edges_slots,
+            30,
+            "value slab = 30 slots"
+        );
     }
 
     #[test]
