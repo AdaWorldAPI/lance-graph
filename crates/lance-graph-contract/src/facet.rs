@@ -286,7 +286,161 @@ impl FacetCascade {
         }
         m
     }
+
+    /// The 12 cascade tier-bytes as **one coarse→fine ladder** — `hi` then `lo`
+    /// per tier, tiers in order:
+    /// `[t0.hi, t0.lo, t1.hi, t1.lo, … t5.hi, t5.lo]`. Excludes the 4-byte
+    /// [`facet_classid`](Self::facet_classid). This is the input the
+    /// [`CascadeShape`] algebra re-carves; it is byte-for-byte the same 12-unit
+    /// ladder a 12-field class exposes, so a ClassView addresses *either* the
+    /// facet bytes or its own fields with the identical `(group, level)` math.
+    /// (Distinct from [`hi_chain`](Self::hi_chain)/[`lo_chain`](Self::lo_chain),
+    /// which group by *axis* across tiers; this groups by *position* in the
+    /// ladder — the `(1:2)`/`(1:2:3)`/`(1:2:3:4)` view.)
+    #[inline]
+    #[must_use]
+    pub const fn tier_bytes(self) -> [u8; CASCADE_UNITS] {
+        let t = &self.tiers;
+        [
+            t[0].hi, t[0].lo, t[1].hi, t[1].lo, t[2].hi, t[2].lo, t[3].hi, t[3].lo, t[4].hi, t[4].lo,
+            t[5].hi, t[5].lo,
+        ]
+    }
+
+    /// The cascade byte at `(group, level)` under `shape` —
+    /// `tier_bytes()[shape.index(group, level)]`. The same lookup whether the
+    /// ClassView reads the facet as `6×2`, `4×3`, or `3×4`; the bytes never move.
+    #[inline]
+    #[must_use]
+    pub const fn cascade_byte(self, shape: CascadeShape, group: u8, level: u8) -> u8 {
+        self.tier_bytes()[shape.index(group, level)]
+    }
+
+    /// Coarse→fine shared-prefix length (`0..=D`) of one group `g` between two
+    /// facets under `shape` — the **per-group LCP redout**; `D` ⇒ that group's
+    /// whole `(1:…:D)` hierarchy agrees. The per-carving refinement of the
+    /// whole-facet [`shared_prefix_tiles`](Self::shared_prefix_tiles): pick the
+    /// carving, then read locality one group (one axis of meaning) at a time.
+    #[inline]
+    #[must_use]
+    pub const fn cascade_group_shared(self, other: Self, shape: CascadeShape, group: u8) -> u8 {
+        let (a, b) = (self.tier_bytes(), other.tier_bytes());
+        let d = shape.levels();
+        let base = shape.index(group, 0);
+        let mut n = 0u8;
+        while n < d && a[base + n as usize] == b[base + n as usize] {
+            n += 1;
+        }
+        n
+    }
 }
+
+/// The number of cascade tier-bytes a [`FacetCascade`] carries (excludes the
+/// 4-byte [`FacetCascade::facet_classid`]): `6 tiers × 2 bytes`. Equivalently
+/// the field-count of a 12-field class — the cascade algebra is unit-agnostic,
+/// so the same `G·D = CASCADE_UNITS` invariant binds bytes and fields alike.
+pub const CASCADE_UNITS: usize = 12;
+
+/// **One cascade algebra, three carvings.** The 12 cascade units (the facet's
+/// [`tier_bytes`](FacetCascade::tier_bytes), or a 12-field class's fields) are
+/// read as `G groups × D levels` with `G·D = CASCADE_UNITS` *always*. The units
+/// never move — the ClassView picks the carving and the same index math
+/// (`i = g·D + l`) addresses any of them.
+///
+/// This is the OGAR GUID's `3×4`-vs-`4×3` debate **generalized**: there the
+/// unit is a nibble and the ladder is 12 levels; here the unit is a byte (or a
+/// class field) and the ladder is the same 12. The carvings inherit the canon's
+/// known trade-offs exactly:
+///
+/// | shape | groups × levels | notation | alignment |
+/// |---|---|---|---|
+/// | [`G6D2`](Self::G6D2) | 6 × 2 | `6×(1:2)` | native per-tier `(hi:lo)`; `group_of` is `i >> 1` |
+/// | [`G4D3`](Self::G4D3) | 4 × 3 | `4×(1:2:3)` | **straddles** tier boundaries (the canon's "1.5-byte" cost); `group_of` needs a real divide |
+/// | [`G3D4`](Self::G3D4) | 3 × 4 | `3×(1:2:3:4)` | tier-pair super-groups, byte-aligned; `group_of` is `i >> 2` (the canon's "tier-of-level is a shift, never a branch") |
+///
+/// All three are legal so the algebra is total; the ClassView chooses by
+/// efficiency. With 12 fields it is often cheaper to map a sub-range as a
+/// hierarchy (a deep group) and stack **nested** ClassViews into constructors
+/// before materializing the `32×GUID` SoA — see
+/// `docs/OGAR-TRANSPILE-SUBSTRATE.md` §1.5.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CascadeShape {
+    /// 6 groups × 2 levels — native `(hi:lo)` per tier (`6×(1:2)`).
+    G6D2,
+    /// 4 groups × 3 levels (`4×(1:2:3)`) — straddles tier boundaries.
+    G4D3,
+    /// 3 groups × 4 levels — tier-pair super-groups (`3×(1:2:3:4)`).
+    G3D4,
+}
+
+impl CascadeShape {
+    /// All three carvings, group-count ascending (coarsest split first).
+    pub const ALL: [CascadeShape; 3] = [CascadeShape::G3D4, CascadeShape::G4D3, CascadeShape::G6D2];
+
+    /// `G` — number of groups (axes of meaning). `groups() · levels() == CASCADE_UNITS`.
+    #[inline]
+    #[must_use]
+    pub const fn groups(self) -> u8 {
+        match self {
+            CascadeShape::G6D2 => 6,
+            CascadeShape::G4D3 => 4,
+            CascadeShape::G3D4 => 3,
+        }
+    }
+
+    /// `D` — levels per group: the depth of the `(1:2:…:D)` coarse→fine ladder.
+    /// `groups() · levels() == CASCADE_UNITS`.
+    #[inline]
+    #[must_use]
+    pub const fn levels(self) -> u8 {
+        match self {
+            CascadeShape::G6D2 => 2,
+            CascadeShape::G4D3 => 3,
+            CascadeShape::G3D4 => 4,
+        }
+    }
+
+    /// Linear unit index of `(group, level)`: `group · D + level` — groups laid
+    /// out in order, coarse→fine within each. The single shared addressing rule
+    /// for facet bytes *and* class fields.
+    #[inline]
+    #[must_use]
+    pub const fn index(self, group: u8, level: u8) -> usize {
+        (group * self.levels() + level) as usize
+    }
+
+    /// Inverse of [`index`](Self::index): which group linear unit `i` belongs to
+    /// (`i / D`). For [`G3D4`](Self::G3D4)/[`G6D2`](Self::G6D2) (`D` a power of
+    /// two) this is a shift (`i >> 2` / `i >> 1`) — the canon's "tier-of-level is
+    /// a shift, never a branch"; [`G4D3`](Self::G4D3) needs a real divide (its
+    /// straddle cost made explicit).
+    #[inline]
+    #[must_use]
+    pub const fn group_of(self, unit: usize) -> u8 {
+        (unit / self.levels() as usize) as u8
+    }
+
+    /// Inverse of [`index`](Self::index): the within-group level of unit `i`
+    /// (`i % D`).
+    #[inline]
+    #[must_use]
+    pub const fn level_of(self, unit: usize) -> u8 {
+        (unit % self.levels() as usize) as u8
+    }
+}
+
+const _: () = assert!(
+    CascadeShape::G6D2.groups() as usize * CascadeShape::G6D2.levels() as usize == CASCADE_UNITS,
+    "6×2 = 12"
+);
+const _: () = assert!(
+    CascadeShape::G4D3.groups() as usize * CascadeShape::G4D3.levels() as usize == CASCADE_UNITS,
+    "4×3 = 12"
+);
+const _: () = assert!(
+    CascadeShape::G3D4.groups() as usize * CascadeShape::G3D4.levels() as usize == CASCADE_UNITS,
+    "3×4 = 12"
+);
 
 #[cfg(test)]
 mod tests {
@@ -364,6 +518,98 @@ mod tests {
         let h = FacetCascade::from_u128(f.as_u128() ^ 1);
         assert_eq!(h.shared_prefix_tiles(f), 0);
         assert_eq!(h.row_match_mask(f), 0b1110);
+    }
+
+    #[test]
+    fn cascade_shape_is_one_algebra_three_carvings() {
+        // G·D == 12 for every carving, and ALL is exhaustive.
+        for s in CascadeShape::ALL {
+            assert_eq!(
+                s.groups() as usize * s.levels() as usize,
+                CASCADE_UNITS,
+                "every carving covers all 12 units exactly"
+            );
+        }
+        assert_eq!(CascadeShape::ALL.len(), 3);
+
+        // index / group_of / level_of are mutual inverses over the whole ladder.
+        for s in CascadeShape::ALL {
+            for unit in 0..CASCADE_UNITS {
+                let (g, l) = (s.group_of(unit), s.level_of(unit));
+                assert!(g < s.groups() && l < s.levels());
+                assert_eq!(s.index(g, l), unit, "{s:?}: index∘(group,level) = id");
+            }
+        }
+
+        // Power-of-two carvings: group_of IS the canon's shift (no branch);
+        // 4×3 is the straddle that needs a real divide.
+        for unit in 0..CASCADE_UNITS {
+            assert_eq!(CascadeShape::G6D2.group_of(unit) as usize, unit >> 1);
+            assert_eq!(CascadeShape::G3D4.group_of(unit) as usize, unit >> 2);
+            assert_eq!(CascadeShape::G4D3.group_of(unit) as usize, unit / 3);
+        }
+    }
+
+    #[test]
+    fn tier_bytes_ladder_and_per_carving_grouping() {
+        let f = FacetCascade::from_bytes(&sample());
+
+        // The 12-unit ladder: hi then lo per tier, coarse→fine. (hi = sample odd
+        // bytes 0xAB..0x56; lo = even bytes 0x01..0x06.)
+        assert_eq!(
+            f.tier_bytes(),
+            [0xAB, 0x01, 0xCD, 0x02, 0xEF, 0x03, 0x12, 0x04, 0x34, 0x05, 0x56, 0x06]
+        );
+
+        // 6×2: group g == tier g's (hi, lo) — the native pairing.
+        for g in 0..6u8 {
+            assert_eq!(f.cascade_byte(CascadeShape::G6D2, g, 0), f.tiers[g as usize].hi);
+            assert_eq!(f.cascade_byte(CascadeShape::G6D2, g, 1), f.tiers[g as usize].lo);
+        }
+        // 3×4: group 0 spans tiers 0–1 (4 bytes), byte-aligned super-group.
+        assert_eq!(
+            [
+                f.cascade_byte(CascadeShape::G3D4, 0, 0),
+                f.cascade_byte(CascadeShape::G3D4, 0, 1),
+                f.cascade_byte(CascadeShape::G3D4, 0, 2),
+                f.cascade_byte(CascadeShape::G3D4, 0, 3),
+            ],
+            [0xAB, 0x01, 0xCD, 0x02]
+        );
+        // 4×3: group 0 straddles tier 0 fully + tier 1's hi (the 1.5-tier cost).
+        assert_eq!(
+            [
+                f.cascade_byte(CascadeShape::G4D3, 0, 0),
+                f.cascade_byte(CascadeShape::G4D3, 0, 1),
+                f.cascade_byte(CascadeShape::G4D3, 0, 2),
+            ],
+            [0xAB, 0x01, 0xCD]
+        );
+    }
+
+    #[test]
+    fn cascade_group_shared_is_per_group_lcp() {
+        let f = FacetCascade::from_bytes(&sample());
+
+        // identical ⇒ every group's whole ladder agrees (== D).
+        for s in CascadeShape::ALL {
+            for g in 0..s.groups() {
+                assert_eq!(f.cascade_group_shared(f, s, g), s.levels());
+            }
+        }
+
+        // Perturb tier1's hi byte (ladder unit 2). Under 6×2 that is group 1,
+        // level 0 ⇒ group 1 diverges immediately (shared 0); group 0 untouched.
+        let mut b = sample();
+        b[7] = 0x99; // tier1.hi
+        let g = FacetCascade::from_bytes(&b);
+        assert_eq!(f.cascade_group_shared(g, CascadeShape::G6D2, 0), 2, "tier0 intact");
+        assert_eq!(f.cascade_group_shared(g, CascadeShape::G6D2, 1), 0, "tier1.hi differs first");
+
+        // Under 3×4 unit 2 is group 0, level 2 ⇒ group 0 shares its first 2
+        // levels then breaks; group 1 (tiers 2–3) fully intact.
+        assert_eq!(f.cascade_group_shared(g, CascadeShape::G3D4, 0), 2);
+        assert_eq!(f.cascade_group_shared(g, CascadeShape::G3D4, 1), 4);
     }
 
     #[test]
