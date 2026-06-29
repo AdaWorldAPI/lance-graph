@@ -384,6 +384,13 @@ pub const CASCADE_UNITS: usize = 12;
 /// slots, so the cheap move is to *Tetris* each concern into its own slot
 /// (separation-of-concerns) rather than bit-pack. (`G4D3`'s divide is a per-class
 /// *shape* cost, separate from this — a class whose schema needs `4×3` is clean.)
+///
+/// **Encoding-lane scope.** These byte-shapes (8-bit tiers) are the **transpile /
+/// ClassView field-grouping** lane. A *separate* `G2×48bit` lane reads the same 12
+/// tier-bytes as the two 48-bit chains ([`hi_chain`](FacetCascade::hi_chain) /
+/// [`lo_chain`](FacetCascade::lo_chain), cf. the CAM-PQ `6×256` path code) — for
+/// **helix** (location) and **CAM-PQ** (centroid) encoding. That lane is **not
+/// required by transpile** and is never dragged into ClassView shape selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CascadeShape {
     /// 6 groups × 2 levels — native `(hi:lo)` per tier (`6×(1:2)`). The Rails
