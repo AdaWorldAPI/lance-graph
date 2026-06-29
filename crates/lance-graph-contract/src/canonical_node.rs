@@ -578,6 +578,19 @@ impl EdgeCodecFlavor {
 /// The 480-byte value is deferred — energy/meta/qualia/entity_type, materialized
 /// CausalEdge64, helix residue, fingerprint, class extensions all land here later,
 /// Lance-compressible. This is the row the MailboxSoA owns and the MailboxSoaView reads.
+///
+/// **Two doctrines (operator 2026-06-29), neither a blocker:**
+/// 1. **Clean ⇒ expansion is `classid`-inherited.** When a clean class's field
+///    set / capacity grows, the `classid` selects the (expanded) shape — no
+///    global layout change (cf. RESERVE-DON'T-RECLAIM + the class-conditioned
+///    [`CascadeShape`](crate::facet::CascadeShape)). Expansion is never a blocker.
+/// 2. **Bulk raw data lives out-of-line — a *separate* Lance table, not this
+///    480-byte value.** The value slab is for structured/compressible columns; a
+///    raw payload that can't fit even compressed (a ~3.2 Gbp genome; the
+///    FMA / BodyParts3D anatomy mesh at 4M vertices / 6M triangles) is its own
+///    table, referenced by `key`/`classid` — and still not a blocker (the
+///    anatomy mesh baked cleanly as a SoA release). The node stays 512 B; bulk
+///    is addressed, not inlined.
 #[derive(Clone, Copy)]
 #[repr(C, align(64))]
 pub struct NodeRow {
