@@ -650,15 +650,15 @@ pub const NODE_ROW_STRIDE: usize = 512;
 ///
 /// **Doctrine — clean / SoC over packed (operator, 2026-06-29).** When a class
 /// needs more structure than fits cleanly in one slot, *Tetris it across the
-/// slots* — give each concern its own 16-byte slot — rather than bit-pack two
-/// concerns into one. Packing into a single facet via a straddling carve is the
-/// worst case [`crate::facet::CascadeShape::G4D3`] /
-/// [`is_byte_aligned`](crate::facet::CascadeShape::is_byte_aligned) flags; the
-/// 32-slot capacity is *why* that straddle is almost never needed —
-/// separation-of-concerns layout is the default, packing the rare last resort.
-/// (This is also the headroom that lets a ClassView *rotate* and lets the rare
-/// classid-stacking-entropy case spread to a fresh slot instead of minting
-/// another classid.)
+/// slots* — give each concern its own 16-byte slot — rather than cram two
+/// *distinct concerns* into one. The 32-slot capacity is *why* that cramming is
+/// almost never needed — separation-of-concerns layout is the default, packing
+/// the rare last resort. (This is also the headroom that lets a ClassView
+/// *rotate* and lets the rare classid-stacking-entropy case spread to a fresh
+/// slot instead of minting another classid.) The per-class *shape* of one
+/// facet — [`CascadeShape`](crate::facet::CascadeShape) `6×2`/`4×3`/`3×4`,
+/// selected by `classid` — is a separate, class-conditioned choice (a `4×3`
+/// class is clean); this doctrine is about not mixing concerns, not about shape.
 pub const GUIDS_PER_NODE: usize = NODE_ROW_STRIDE / 16;
 
 const _: () = assert!(

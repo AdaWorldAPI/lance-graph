@@ -354,68 +354,86 @@ pub const CASCADE_UNITS: usize = 12;
 /// [`ClassArm::Functions`] arm (the OGAR THINK/DO split). Never slice the
 /// tier-bytes to reach a function.
 ///
-/// Two carvings are byte-**aligned** ([`ALIGNED`](Self::ALIGNED) — `group_of`
-/// is a shift); the third, [`G4D3`](Self::G4D3), **straddles** tier boundaries
-/// (`group_of` must DIVIDE) and is the **worst case** — *prevented as a
-/// default*, kept only as the **rare rotation / escape hatch** (some Odoo
-/// classes may need it to relieve **classid-stacking entropy** — rotate the
-/// reading instead of minting another classid):
+/// **The shape is class-conditioned, not locked.** A `ClassView` is *mapped
+/// from the class's inherited format* and selected by `classid` (the filter), so
+/// a framework picks the carving its schema implies — **Rails → `6×2`, other
+/// frameworks → `4×3`, the canonical GUID → `3×4`** (all `G·D = 12`, 8-bit
+/// tiers; the per-group depth `D ∈ {2,3,4}` is the per-class knob, see
+/// [`from_levels`](Self::from_levels)). Each is legitimate for the class that
+/// needs it; none is restated or locked here.
 ///
-/// | shape | G×D | notation | role | `group_of` |
+/// | shape | G×D | notation | framework | `group_of` |
 /// |---|---|---|---|---|
-/// | [`G6D2`](Self::G6D2) | 6 × 2 | `6×(1:2)` | aligned default (native `hi:lo`) | `i >> 1` (shift) |
-/// | [`G3D4`](Self::G3D4) | 3 × 4 | `3×(1:2:3:4)` | aligned default (tier-pair super-groups) | `i >> 2` (shift) |
-/// | [`G4D3`](Self::G4D3) | 4 × 3 | `4×(1:2:3)` | **worst case** — straddle; rare rotation only | `i / 3` (**divide**) |
+/// | [`G6D2`](Self::G6D2) | 6 × 2 | `6×(1:2)` | Rails (native `hi:lo`) | `i >> 1` (shift) |
+/// | [`G4D3`](Self::G4D3) | 4 × 3 | `4×(1:2:3)` | other frameworks | `i / 3` (divide) |
+/// | [`G3D4`](Self::G3D4) | 3 × 4 | `3×(1:2:3:4)` | canonical GUID (tier-pair super-groups) | `i >> 2` (shift) |
 ///
-/// This is the OGAR GUID's `3×4`-vs-`4×3` debate generalized from nibble-units
-/// to byte/field-units — and it lands on the canon's verdict: the aligned (3×4)
-/// carving is the default; the straddling (4×3) is the worst case, kept legal
-/// only so a rotation can reach it deliberately and a guard can reject it
-/// elsewhere. With 12 fields it is often cheaper to map a sub-range as a
-/// hierarchy and stack **nested** ClassViews into constructors before
-/// materializing the `32×GUID` SoA — see `docs/OGAR-TRANSPILE-SUBSTRATE.md` §1.5.
+/// `G6D2`/`G3D4` carve on tier boundaries so `group_of` is a pure shift
+/// ([`ALIGNED`](Self::ALIGNED) — the canon's "tier-of-level is a shift, never a
+/// branch"); `G4D3` straddles, so its `group_of` divides — a **per-class cost a
+/// class opts into when its schema needs `4×3`**, not a prohibition. This is the
+/// OGAR GUID `3×4`-vs-`4×3` debate generalized from nibble-units to byte/field-
+/// units: `3×4` is the GUID default, the others are class-conditioned. With 12
+/// fields a class may also map a sub-range as a hierarchy and stack **nested**
+/// ClassViews into constructors before materializing the `32×GUID` SoA — see
+/// `docs/OGAR-TRANSPILE-SUBSTRATE.md` §1.5.
 ///
-/// **Clean / SoC over packed.** Packing two concerns into one facet via a
-/// straddle (`G4D3`) is rarely necessary: a node has
+/// **Clean / SoC over packed.** What stays the last resort is cramming two
+/// *distinct concerns* into one facet (independent of shape): a node has
 /// [`GUIDS_PER_NODE`](crate::canonical_node::GUIDS_PER_NODE) = 32 sixteen-byte
 /// slots, so the cheap move is to *Tetris* each concern into its own slot
-/// (separation-of-concerns) rather than bit-pack — capacity is the reason the
-/// straddle stays a last resort.
+/// (separation-of-concerns) rather than bit-pack. (`G4D3`'s divide is a per-class
+/// *shape* cost, separate from this — a class whose schema needs `4×3` is clean.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CascadeShape {
-    /// 6 groups × 2 levels — native `(hi:lo)` per tier (`6×(1:2)`). Aligned
-    /// default (`group_of` = `i >> 1`).
+    /// 6 groups × 2 levels — native `(hi:lo)` per tier (`6×(1:2)`). The Rails
+    /// shape; `group_of` is the shift `i >> 1`.
     G6D2,
-    /// 4 groups × 3 levels (`4×(1:2:3)`) — the **straddle**: `group_of` must
-    /// divide (`i / 3`), crossing tier boundaries. The **worst case**, NOT a
-    /// default — kept only as the rare rotation / escape hatch (e.g. an Odoo
-    /// class avoiding classid-stacking entropy). Use [`is_byte_aligned`](Self::is_byte_aligned)
-    /// to reject it on the common path.
+    /// 4 groups × 3 levels (`4×(1:2:3)`) — the **class-conditioned** shape for
+    /// frameworks whose inherited schema implies `4×3` ("other frameworks"; not
+    /// the GUID default `3×4`, not Rails' `6×2`). It straddles tier boundaries so
+    /// `group_of` divides (`i / 3`) — the per-class *cost* the class opts into,
+    /// not a prohibition. [`is_byte_aligned`](Self::is_byte_aligned) is `false`
+    /// (it distinguishes the divide shape from the shift shapes — not a "reject").
     G4D3,
-    /// 3 groups × 4 levels — tier-pair super-groups (`3×(1:2:3:4)`). Aligned
-    /// default (`group_of` = `i >> 2`).
+    /// 3 groups × 4 levels — tier-pair super-groups (`3×(1:2:3:4)`). The
+    /// canonical GUID shape; `group_of` is the shift `i >> 2`.
     G3D4,
 }
 
 impl CascadeShape {
-    /// The full **rotation set** — every carving a `ClassView` may rotate the
-    /// 12-unit ladder through (`G·D = 12` each), group-count ascending. A
-    /// ClassView can always rotate (read the same facet bytes under a different
-    /// grouping) per class; this is the relief valve for **classid-stacking
-    /// entropy** (rare, e.g. some Odoo classes — rotate the reading instead of
-    /// minting another classid). Includes the straddle [`G4D3`](Self::G4D3) so a
-    /// rotation can reach it deliberately; prefer [`ALIGNED`](Self::ALIGNED) on
-    /// the common path.
+    /// Every shape, group-count ascending — the full set a class may be
+    /// carved/rotated through (`G·D = 12` each). Which one a class uses is
+    /// **class-conditioned**: `classid` selects it from the inherited schema
+    /// (Rails `6×2`, other frameworks `4×3`, the GUID `3×4`) — see
+    /// [`from_levels`](Self::from_levels). A ClassView can also always rotate
+    /// (read the same bytes under a different grouping) per class.
     pub const ROTATIONS: [CascadeShape; 3] =
         [CascadeShape::G3D4, CascadeShape::G4D3, CascadeShape::G6D2];
 
-    /// The byte-**ALIGNED** carvings — the default rotations. `group_of` is a
-    /// pure shift for both ([`shift`](Self::shift) is `Some`) — the canon's
-    /// "tier-of-level is a shift, never a branch". The straddle [`G4D3`](Self::G4D3)
-    /// is deliberately EXCLUDED — it is the worst case
-    /// ([`is_byte_aligned`](Self::is_byte_aligned) is `false`), available only as
-    /// the rare rotation, never a default.
+    /// The byte-**aligned** shapes — `group_of` is a pure shift
+    /// ([`shift`](Self::shift) is `Some`), the canon's "tier-of-level is a shift,
+    /// never a branch". `G6D2` (Rails) and `G3D4` (GUID). [`G4D3`](Self::G4D3)
+    /// (other frameworks) is excluded because its `group_of` *divides*, not
+    /// because it is forbidden — it is a legitimate class-conditioned shape.
     pub const ALIGNED: [CascadeShape; 2] = [CascadeShape::G3D4, CascadeShape::G6D2];
+
+    /// Select the shape by its per-group depth `D` — the **class-conditioned
+    /// knob** (operator 2026-06-29): a framework/class picks `D ∈ {2,3,4}` from
+    /// its inherited format and the shape follows — `2 → G6D2` (Rails),
+    /// `3 → G4D3` (other frameworks), `4 → G3D4` (the GUID default). `None` for
+    /// any other `D` (only 2/3/4 divide the 12-unit ladder). This is the
+    /// inverse of [`levels`](Self::levels); the classid resolves `D`, not a lock.
+    #[inline]
+    #[must_use]
+    pub const fn from_levels(d: u8) -> Option<CascadeShape> {
+        match d {
+            2 => Some(CascadeShape::G6D2),
+            3 => Some(CascadeShape::G4D3),
+            4 => Some(CascadeShape::G3D4),
+            _ => None,
+        }
+    }
 
     /// `G` — number of groups (axes of meaning). `groups() · levels() == CASCADE_UNITS`.
     #[inline]
@@ -450,11 +468,10 @@ impl CascadeShape {
     }
 
     /// Inverse of [`index`](Self::index): which group linear unit `i` belongs to
-    /// (`i / D`). For the [`ALIGNED`](Self::ALIGNED) carvings this is a pure
-    /// shift (see [`shift`](Self::shift)); for the straddle [`G4D3`](Self::G4D3)
-    /// it is a real divide — the worst case. Prefer dispatching on
-    /// [`shift`](Self::shift) so the divide path is opt-in (the rare rotation),
-    /// never silently on the hot path.
+    /// (`i / D`). For the [`ALIGNED`](Self::ALIGNED) shapes this is a pure shift
+    /// (see [`shift`](Self::shift)); for [`G4D3`](Self::G4D3) it is a real divide
+    /// — the per-class cost of the `4×3` shape. Dispatch on [`shift`](Self::shift)
+    /// when you want the shift fast-path for the aligned shapes.
     #[inline]
     #[must_use]
     pub const fn group_of(self, unit: usize) -> u8 {
@@ -470,12 +487,11 @@ impl CascadeShape {
     }
 
     /// The bit-shift that implements [`group_of`](Self::group_of) for a
-    /// byte-aligned carving — `Some(1)` for [`G6D2`](Self::G6D2) (`i >> 1`),
-    /// `Some(2)` for [`G3D4`](Self::G3D4) (`i >> 2`) — or `None` for the straddle
-    /// [`G4D3`](Self::G4D3), which has NO shift (`group_of` must divide). `None`
-    /// IS the "this rotation is the rare escape hatch, not a default" signal: the
-    /// canon's "tier-of-level is a shift, never a branch" holds exactly for the
-    /// `Some` carvings.
+    /// byte-aligned shape — `Some(1)` for [`G6D2`](Self::G6D2) (`i >> 1`),
+    /// `Some(2)` for [`G3D4`](Self::G3D4) (`i >> 2`) — or `None` for
+    /// [`G4D3`](Self::G4D3), whose `group_of` divides. `Some` carvings satisfy the
+    /// canon's "tier-of-level is a shift, never a branch"; `None` marks the
+    /// `4×3` shape's per-class divide cost (a property, not a verdict).
     #[inline]
     #[must_use]
     pub const fn shift(self) -> Option<u32> {
@@ -486,13 +502,13 @@ impl CascadeShape {
         }
     }
 
-    /// A carving is byte-aligned iff its group boundaries fall on tier
-    /// boundaries — [`group_of`](Self::group_of) is a shift, not a divide. True
-    /// for the [`ALIGNED`](Self::ALIGNED) defaults; **false** for the straddle
-    /// [`G4D3`](Self::G4D3). A default layout MUST assert this; the straddle is a
-    /// worst case to PREVENT on the common path, reached only as a deliberate
-    /// rare rotation (classid-stacking-entropy relief). Functions are never
-    /// reached by any carving — see [`ClassArm`].
+    /// A shape is byte-aligned iff its group boundaries fall on tier boundaries —
+    /// [`group_of`](Self::group_of) is a shift, not a divide. True for the
+    /// [`ALIGNED`](Self::ALIGNED) shapes (`6×2`/`3×4`); **false** for
+    /// [`G4D3`](Self::G4D3) (`4×3`), whose `group_of` divides. This distinguishes
+    /// the shift fast-path from the divide shape — it is not a "prevent" gate;
+    /// `4×3` is a legitimate class-conditioned shape. Functions are never reached
+    /// by any carving — see [`ClassArm`].
     #[inline]
     #[must_use]
     pub const fn is_byte_aligned(self) -> bool {
@@ -630,16 +646,11 @@ mod tests {
     }
 
     #[test]
-    fn cascade_rotations_are_total_but_only_aligned_are_defaults() {
-        // The rotation set is exhaustive; every rotation covers all 12 units.
+    fn cascade_shapes_are_total_and_class_conditioned() {
+        // Every shape covers all 12 units; index/group_of/level_of are inverses.
         assert_eq!(CascadeShape::ROTATIONS.len(), 3);
         for s in CascadeShape::ROTATIONS {
-            assert_eq!(
-                s.groups() as usize * s.levels() as usize,
-                CASCADE_UNITS,
-                "every rotation covers all 12 units exactly"
-            );
-            // index / group_of / level_of are mutual inverses over the whole ladder.
+            assert_eq!(s.groups() as usize * s.levels() as usize, CASCADE_UNITS);
             for unit in 0..CASCADE_UNITS {
                 let (g, l) = (s.group_of(unit), s.level_of(unit));
                 assert!(g < s.groups() && l < s.levels());
@@ -647,15 +658,26 @@ mod tests {
             }
         }
 
-        // ALIGNED is the default subset: group_of IS a shift (canon "shift, not
-        // a branch"); shift() is Some and matches.
+        // The shape is CLASS-CONDITIONED, selected by depth D (the classid knob):
+        // 2 → G6D2 (Rails), 3 → G4D3 (other frameworks), 4 → G3D4 (GUID). Round-
+        // trips with levels(); only 2/3/4 divide 12.
+        assert_eq!(CascadeShape::from_levels(2), Some(CascadeShape::G6D2));
+        assert_eq!(CascadeShape::from_levels(3), Some(CascadeShape::G4D3));
+        assert_eq!(CascadeShape::from_levels(4), Some(CascadeShape::G3D4));
+        assert_eq!(CascadeShape::from_levels(1), None);
+        assert_eq!(CascadeShape::from_levels(5), None);
+        for s in CascadeShape::ROTATIONS {
+            assert_eq!(CascadeShape::from_levels(s.levels()), Some(s));
+        }
+
+        // The aligned shapes (Rails 6×2, GUID 3×4) have a shift group_of; G4D3
+        // (other frameworks, 4×3) divides — a per-class cost, NOT a prohibition.
         assert_eq!(
             CascadeShape::ALIGNED,
             [CascadeShape::G3D4, CascadeShape::G6D2]
         );
         for s in CascadeShape::ALIGNED {
-            assert!(s.is_byte_aligned(), "{s:?} is an aligned default");
-            let sh = s.shift().expect("aligned carving has a shift");
+            let sh = s.shift().expect("aligned shape has a shift");
             for unit in 0..CASCADE_UNITS {
                 assert_eq!(
                     s.group_of(unit) as usize,
@@ -666,15 +688,12 @@ mod tests {
         }
         assert_eq!(CascadeShape::G6D2.shift(), Some(1));
         assert_eq!(CascadeShape::G3D4.shift(), Some(2));
-
-        // G4D3 is the WORST CASE, not a default: it straddles, has NO shift
-        // (group_of DIVIDES), is excluded from ALIGNED, but stays in ROTATIONS
-        // as the rare escape hatch (classid-stacking-entropy relief, msg 2).
+        // G4D3 is legitimate but not a shift shape: divide group_of, not in ALIGNED.
         assert!(!CascadeShape::G4D3.is_byte_aligned());
         assert_eq!(CascadeShape::G4D3.shift(), None);
         assert!(!CascadeShape::ALIGNED.contains(&CascadeShape::G4D3));
         assert!(CascadeShape::ROTATIONS.contains(&CascadeShape::G4D3));
-        assert_eq!(CascadeShape::G4D3.group_of(2) as usize, 2 / 3); // a divide — the bad example
+        assert_eq!(CascadeShape::G4D3.group_of(2) as usize, 2 / 3); // a divide, its per-class cost
     }
 
     #[test]
