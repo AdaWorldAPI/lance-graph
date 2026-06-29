@@ -468,10 +468,19 @@ impl CascadeShape {
     /// Linear unit index of `(group, level)`: `group · D + level` — groups laid
     /// out in order, coarse→fine within each. The single shared addressing rule
     /// for facet bytes *and* class fields.
+    ///
+    /// **Precondition:** `group < groups()` and `level < levels()` (the result is
+    /// then in `0..CASCADE_UNITS`). The multiply/add is done in `usize` (widen
+    /// first), so an out-of-range argument cannot wrap a `u8` — and a
+    /// `debug_assert` catches the misuse in debug builds.
     #[inline]
     #[must_use]
     pub const fn index(self, group: u8, level: u8) -> usize {
-        (group * self.levels() + level) as usize
+        debug_assert!(
+            group < self.groups() && level < self.levels(),
+            "CascadeShape::index: (group, level) out of range for this shape"
+        );
+        group as usize * self.levels() as usize + level as usize
     }
 
     /// Inverse of [`index`](Self::index): which group linear unit `i` belongs to
@@ -479,17 +488,30 @@ impl CascadeShape {
     /// (see [`shift`](Self::shift)); for [`G4D3`](Self::G4D3) it is a real divide
     /// — the per-class cost of the `4×3` shape. Dispatch on [`shift`](Self::shift)
     /// when you want the shift fast-path for the aligned shapes.
+    ///
+    /// **Precondition:** `unit < CASCADE_UNITS` — the inverse identity
+    /// `index(group_of(u), level_of(u)) == u` holds only on the 12-unit ladder
+    /// (`debug_assert`-checked).
     #[inline]
     #[must_use]
     pub const fn group_of(self, unit: usize) -> u8 {
+        debug_assert!(
+            unit < CASCADE_UNITS,
+            "CascadeShape::group_of: unit out of range"
+        );
         (unit / self.levels() as usize) as u8
     }
 
     /// Inverse of [`index`](Self::index): the within-group level of unit `i`
-    /// (`i % D`).
+    /// (`i % D`). **Precondition:** `unit < CASCADE_UNITS` (`debug_assert`-checked;
+    /// the inverse identity holds only on the 12-unit ladder).
     #[inline]
     #[must_use]
     pub const fn level_of(self, unit: usize) -> u8 {
+        debug_assert!(
+            unit < CASCADE_UNITS,
+            "CascadeShape::level_of: unit out of range"
+        );
         (unit % self.levels() as usize) as u8
     }
 
