@@ -1,2 +1,6 @@
 [toolchain]
-channel = "1.94.0"
+# Aligned to the AdaWorldAPI ecosystem-wide pin (root lance-graph
+# rust-toolchain.toml). Was a 1.94.0 straggler. EXACT pin "1.95.0" (not
+# floating "1.95") so this subdir reuses the installed root toolchain
+# instead of syncing a separate channel — offline-safe (Codex #621).
+channel = "1.95.0"

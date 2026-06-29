@@ -578,6 +578,19 @@ impl EdgeCodecFlavor {
 /// The 480-byte value is deferred — energy/meta/qualia/entity_type, materialized
 /// CausalEdge64, helix residue, fingerprint, class extensions all land here later,
 /// Lance-compressible. This is the row the MailboxSoA owns and the MailboxSoaView reads.
+///
+/// **Two doctrines (operator 2026-06-29), neither a blocker:**
+/// 1. **Clean ⇒ expansion is `classid`-inherited.** When a clean class's field
+///    set / capacity grows, the `classid` selects the (expanded) shape — no
+///    global layout change (cf. RESERVE-DON'T-RECLAIM + the class-conditioned
+///    [`CascadeShape`](crate::facet::CascadeShape)). Expansion is never a blocker.
+/// 2. **Bulk raw data lives out-of-line — a *separate* Lance table, not this
+///    480-byte value.** The value slab is for structured/compressible columns; a
+///    raw payload that can't fit even compressed (a ~3.2 Gbp genome; the
+///    FMA / BodyParts3D anatomy mesh at 4M vertices / 6M triangles) is its own
+///    table, referenced by `key`/`classid` — and still not a blocker (the
+///    anatomy mesh baked cleanly as a SoA release). The node stays 512 B; bulk
+///    is addressed, not inlined.
 #[derive(Clone, Copy)]
 #[repr(C, align(64))]
 pub struct NodeRow {
@@ -642,6 +655,29 @@ pub const NODE_ROW_COLUMNS: &[ColumnDescriptor] = &[
 
 /// Row stride for [`NodeRow`] in bytes — equal to `size_of::<NodeRow>()`.
 pub const NODE_ROW_STRIDE: usize = 512;
+
+/// The node viewed as fixed-size **GUID slots**: `NODE_ROW_STRIDE /
+/// size_of::<NodeGuid>()` = `512 / 16` = **32**. A 512-byte SoA row can carry up
+/// to 32 GUID-sized (16-byte) entries; `key` + `edges` occupy 2, leaving the
+/// 480-byte value slab = 30 slots for the class-resolved layout.
+///
+/// **Doctrine — clean / SoC over packed (operator, 2026-06-29).** When a class
+/// needs more structure than fits cleanly in one slot, *Tetris it across the
+/// slots* — give each concern its own 16-byte slot — rather than cram two
+/// *distinct concerns* into one. The 32-slot capacity is *why* that cramming is
+/// almost never needed — separation-of-concerns layout is the default, packing
+/// the rare last resort. (This is also the headroom that lets a ClassView
+/// *rotate* and lets the rare classid-stacking-entropy case spread to a fresh
+/// slot instead of minting another classid.) The per-class *shape* of one
+/// facet — [`CascadeShape`](crate::facet::CascadeShape) `6×2`/`4×3`/`3×4`,
+/// selected by `classid` — is a separate, class-conditioned choice (a `4×3`
+/// class is clean); this doctrine is about not mixing concerns, not about shape.
+pub const GUIDS_PER_NODE: usize = NODE_ROW_STRIDE / 16;
+
+const _: () = assert!(
+    GUIDS_PER_NODE == 32 && GUIDS_PER_NODE * core::mem::size_of::<NodeGuid>() == NODE_ROW_STRIDE,
+    "512-byte node = 32 × 16-byte GUID slots"
+);
 
 // ── Value-slab schema presets: which tenants a class materialises ─────────────
 
@@ -1594,6 +1630,26 @@ mod tests {
             assert!(f.is_layout_preserving());
         }
         assert_eq!(NODE_ROW_STRIDE, core::mem::size_of::<NodeRow>());
+    }
+
+    #[test]
+    fn guids_per_node_is_32_slots_clean_soc_over_packed() {
+        // The 512-byte node is 32 × 16-byte GUID-sized slots.
+        assert_eq!(GUIDS_PER_NODE, 32);
+        assert_eq!(
+            GUIDS_PER_NODE * core::mem::size_of::<NodeGuid>(),
+            NODE_ROW_STRIDE
+        );
+        // key + edges occupy 2 slots; the value slab is the remaining 30 to
+        // Tetris a class's concerns into (SoC over packed — no straddle needed).
+        let key_edges_slots =
+            (core::mem::size_of::<NodeGuid>() + core::mem::size_of::<EdgeBlock>()) / 16;
+        assert_eq!(key_edges_slots, 2);
+        assert_eq!(
+            GUIDS_PER_NODE - key_edges_slots,
+            30,
+            "value slab = 30 slots"
+        );
     }
 
     #[test]
