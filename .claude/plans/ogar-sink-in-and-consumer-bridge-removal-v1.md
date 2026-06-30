@@ -52,6 +52,56 @@ domain lands as patterns + ontology, not a bridge.
 
 ---
 
+## 1.5 Grounding against the actual OGAR PR arc (#95–#142, read 2026-06-26)
+
+The OGAR side is **substantially shipped** — this plan sequences the *last mile*,
+not a green field. Landmarks (all merged unless noted):
+
+- **#95** — `APP-CLASS-CODEBOOK-LAYOUT.md` + `APP-CODEBOOK-MIGRATION-PLAN.md` +
+  `CONSUMER-MIGRATION-HOWTO.md` + `CLASSID-RBAC-KEYSTONE-SPEC.md`. **The §2 table
+  below is #95's, verbatim:** `classid = [hi u16 APP/render][lo u16 concept]`; lo
+  = WHAT (RBAC + ontology + cross-app identity, shared), hi = WHOSE render
+  (ClassView/Askama, per-app). **Medcare worked example: `patient = 0x0005_0901`**
+  (app prefix `0x0005`, concept `0x0901`). The consumer migration is already
+  **wave-ordered** there: W0 OpenProject(`0x0001`)+Redmine(`0x0007`) → W1 WoA →
+  W2 SMB → W3 Odoo (delete the `od-ontology` fork) → W4 q2. **D-SINK-2 below
+  rides that wave plan; it does not invent its own.** Status `[H]`, minting gated
+  on the 5+3 codebook pass; `PROBE-KV-RENDER-NOSERDE` promotes `[H]→[G]`.
+- **#96/#97/#98** — `billable_work_entry` 5-way convergence pinned; typed
+  `PortSpec::APP_PREFIX` + `render_classid` composition; `canonical_concept_name`
+  reverse map. (The "reusable patterns" surface = these.)
+- **#105/#106/#109** — **OGIT 1:1 import** + `ogar-from-schema` producer; "OGIT
+  was already the symbol table." (The ontology-enrichment sink — D-SINK-5 — is
+  largely done at the *import* layer.)
+- **#110/#111/#120/#126/#127** — codebook mints: AuthStore `0x0B`, PRODUCT/
+  ACCOUNTING_ACCOUNT/PRICELIST/UOM (`0x02XX`), Automation `0x0C`, HR `0x0DXX`.
+- **#114–#125 — the HIRO DO arm is SHIPPED.** #114 the **lossless-DO rule**
+  (`ActionDef` *points to* the body, never DDL-inline — `I-VSA-IDENTITIES` for
+  DO; shape `[G]`, execution CONJECTURE pending `PROBE-OGAR-DO-ARM-LIFT`); #119
+  HIRO→`ActionDef` producer; #121 arago ActionHandler contract; #125
+  **class-late-bound dispatch (ResolvingDaemon)** = the classaction pointer.
+  **DO arm + RBAC meet at `ActionHandler` (`auth_store 0x0B01`).**
+- **#116/#117** — **FMA skeletal spine already minted** (bones as the clamped
+  convergence anchor, 3D-octree CRS, projection contract). *MedCare's FMA is not
+  just a classid to consume — OGAR already has the anatomy spine.*
+- **#128** — value-slab facet closure + **classid-driven envelope parser**
+  (V2/V3, the gen marker). #130 ADR: **V3 as spine + polyglot transpiler**.
+- **#131/#132/#138/#141** — `ogar-from-ruff` (Python/Odoo lift consuming
+  `ruff_python_spo`) + per-class transpile substrate + **`emit_csharp`/
+  `emit_python` codegen**. *This is the downstream consumer of ruff #29's C#
+  harvest.*
+- **#137 — the spine is the COMPILED `ClassView`, not SurrealQL.** One compiled
+  reader recombines all facet carvings (`6×(1:2)`/`4×(1:2:3)`/`3×(1:2:3:4)`),
+  compiled into the binary (not parsed, not a runtime interpreter); SurrealQL is
+  the storage membrane only. **§2's "dynamic ClassView" = a *compiled* reader;
+  Askama is the membrane emit.** (#135 closed: the same content relocated.)
+
+**Net:** the doctrine (#95), the reusable-pattern surface (codebook + PortSpec),
+the OGIT import, the DO arm, FMA, and the transpiler are all merged. What this
+plan still owns: the **lance-graph-side alias deletion** (D-SINK-3) gated on the
+**#95 wave consumer-migration** (D-SINK-2), the **WoaBridge reconciliation**
+(D-SINK-4), and the **codebook-mint completion** (D-SINK-5, the cross-repo arc).
+
 ## 2. The sink-in layering — what lives WHERE (the decision)
 
 The iron principle (from the deprecation doctrine): **the agnostic spine
@@ -102,12 +152,14 @@ enriched by `medcare-rs`, never a bridge object in the agnostic spine.
 - **D-SINK-1 — Ratify the sink-in layering (§2).** *Decision, not code.*
   Operator confirms the WHERE table (esp. the OGAR↔contract dependency
   direction and the RBAC-keys-on-lo-u16 keystone). Gate for everything below.
-- **D-SINK-2 — Migrate `medcare-rs` off `MedcareBridge`.** In the consumer:
-  replace any `MedcareBridge::new(registry)?.entity(name)?` with
-  `HealthcarePort::class_id(name)` (+ stamp the app render prefix in the hi-u16
-  for the render classid). `medcare-rs` work, not lance-graph. **Cross-repo
-  approval gate** (Iron Rule 5). Apply the same to woa-rs/smb-office-rs for the
-  other aliases (parallel, independent).
+- **D-SINK-2 — Migrate consumers off the `*Bridge` aliases — ride OGAR #95's
+  wave plan, don't reinvent it.** `APP-CODEBOOK-MIGRATION-PLAN.md` already orders
+  it: **W0** OpenProject(`0x0001`)+Redmine(`0x0007`) → **W1** WoA → **W2** SMB →
+  **W3** Odoo (delete the `od-ontology` fork) → **W4** q2. In each consumer:
+  replace `FooBridge::new(registry)?.entity(name)?` with `FooPort::class_id(name)`
+  and stamp the app prefix in the hi-u16 for the render classid (Medcare:
+  `patient = 0x0005_0901`). `medcare-rs`/`woa-rs`/`smb-office-rs` work, not
+  lance-graph. **Cross-repo approval gate** (Iron Rule 5).
 - **D-SINK-3 — Delete the 6 deprecated aliases from `lance-graph-ogar::bridges`**
   once D-SINK-2 lands for every consumer. Keep `UnifiedBridge<P>` (mechanism)
   and the `Port` re-exports. Remove the per-module `NAMESPACE` consts +
