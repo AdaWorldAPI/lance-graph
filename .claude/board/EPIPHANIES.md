@@ -1,3 +1,582 @@
+## 2026-07-01 — E-OGAR-LANCEGRAPH-MOVE-IN-PARALLEL — OGAR + lance-graph are one coupled pair moved together every session; the `COUNT_FUSE` is the intentional dependency contract that enforces it (NOT a break to engineer away)
+
+**Status:** DOCTRINE (operator, 2026-07-01: "every session needs to move OGAR and
+lance-graph in parallel … the fuse is okay for now, it's a dependency contract").
+Corrects my earlier recommendation to pin `lance-graph-ogar` to a rev to "retire
+the recurring break class" — that was **wrong**: the recurrence IS the contract
+working.
+
+**The doctrine.**
+- **Move OGAR and lance-graph in parallel, every session.** They are one coupled
+  pair, not two independent repos. An OGAR codebook mint (`ogar_vocab::class_ids::ALL`)
+  and the paired `lance-graph-contract::ogar_codebook::CODEBOOK` mirror (+ the
+  `lance-graph-ogar::parity::domains_agree` arm) land in the **same coordinated
+  arc** — never split across sessions (cf. `E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC`,
+  `ISS-OGAR-AUTH-MIRROR-DRIFT`, `ISS-OGAR-GENETICS-MIRROR-PENDING`,
+  `ISS-OGAR-OSINT-MIRROR-PENDING`).
+- **The `COUNT_FUSE` is a FEATURE.** `assert!(mirror::CODEBOOK.len() ==
+  ogar_vocab::class_ids::ALL.len())` is the **dependency contract** that *forces*
+  the parallel movement — when it blows on merge, that is the contract correctly
+  demanding the mirror catch up, not a defect. `branch = "main"` tracking + the
+  fuse together are the enforcement mechanism. **Do NOT pin to a rev to dodge it;
+  do NOT delete/soften the fuse.** ("The fuse is okay for now.")
+- **Merge sequencing = option 2 (coordinated / brief transient red is fine),
+  never option 1 (pin).** Merge the OGAR mint, then land the paired lance-graph
+  mirror rows immediately; the short red window is the fuse doing its job.
+
+**The plan the fuse is a stopgap FOR (target design).** When OGAR + lance-graph
+are compiled into the **same binary**, lance-graph is **plug-and-play**, and
+**when the contract "clicks" (links with OGAR present), OGAR knows it must emit
+the vocab** — i.e. the mirror becomes *build-time-emitted from OGAR* (codegen,
+not a hand-maintained copy), and the hand-mirror + `COUNT_FUSE` retire naturally.
+Until that click ships, the hand-mirror + fuse is the correct stopgap.
+
+**Consequences.**
+- `ISS-OGAR-OSINT-MIRROR-PENDING` resolution is now: keep the fuse, land the 2
+  mirror rows + `domains_agree` arm in parallel with OGAR #145 (ready patch is in
+  the issue). Not a rev-pin.
+- Any future OGAR concept mint carries its lance-graph mirror rows in the same
+  session's paired PRs — this session's #145 (OGAR) + #624 (lance-graph) is the
+  correct shape; the mirror rows just land in the coordinated merge, not before.
+
+**Cross-ref:** `ISS-OGAR-OSINT-MIRROR-PENDING`; `E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC`;
+`I-LEGACY-API-FEATURE-GATED` (the same-name-different-semantics trap the fuse guards).
+
+---
+
+## 2026-07-01 — E-CLASSID-SPLIT-ORDER-IS-A-FLIP — implement the classid field split as a single flippable "split order" (`(before)::Domain:appid::(after)`), so the deferred human-readable reorder is a one-place flag, not a rewrite
+
+**Status:** DIRECTIVE (operator, 2026-07-01: "when you start implementing the
+substrate you make the `(before)::Domain:appid::(after)` a question of split
+order that later you can flip"). Refines `E-CLASSID-HUMANREADABLE-REORDER-DEFERRED`
+— names *how* to build the reorder so it stays a flip, not a migration.
+
+**The directive.** When the classid field extraction is implemented, route ALL
+of it through **one split-order abstraction** — a single source of truth that
+says which byte range is `before`, which is `Domain:appid`, which is `after`.
+Layout template: **`(before) :: Domain:appid :: (after)`**. Every accessor
+(`domain()`, `app_id()`, the V3-prefix check, the ClassView lookup, the codebook
+row mapping) reads through that one definition. Then flipping the stored↔human-
+readable order (`0x1000_0701` ⇄ `0x07:01::1000`) is a **one-place flag flip**,
+not a rewrite scattered across the codebase.
+
+**Why it matters (the trap it avoids).** If field positions are hardcoded at
+each call site, the deferred reorder becomes a risky N-site migration that can
+silently desync (exactly the `I-LEGACY-API-FEATURE-GATED` failure mode — same
+accessor, different bytes under a flag). One split-order definition = the flip is
+atomic, testable with a single round-trip probe (`stored ⇄ human-readable` is
+identity), and the little-endian contract is provably preserved end-to-end.
+
+**Consequences.**
+- Do NOT hardcode classid byte offsets at call sites when the substrate impl
+  starts — thread them through the single split-order definition.
+- The flip flag defaults to the CURRENT stored order (`(V3 0x1000)(domain 0x07)(app 01)`);
+  the human-readable `0x07:01::1000` is the flipped view, authored later.
+- The reorder arc's acceptance test IS the round-trip: `flip(flip(x)) == x` and
+  `decode_stored(x).fields == decode_humanreadable(flip(x)).fields`.
+
+**Cross-ref:** `E-CLASSID-HUMANREADABLE-REORDER-DEFERRED` (the deferral this
+implements); `I-LEGACY-API-FEATURE-GATED` (the same-name-different-bytes trap the
+single-definition avoids); lance-graph `CLAUDE.md` CANON (LE 16-byte key).
+
+---
+
+## 2026-07-01 — E-CLASSID-HUMANREADABLE-REORDER-DEFERRED — the classid field reorder to human-readable `0x07:01::1000` is a DELIBERATE post-V3 step; the little-endian stored form is the contract P1–P5 are built on — HANDS OFF until deliberately triggered
+
+**Status:** LOCK / DEFERRED-BY-DESIGN (operator, 2026-07-01). Both facts below
+are **correct**; the presentation reorder is **postponed on purpose**, not an
+omission to fix. Guards against a future session / CodeRabbit / codex
+"helpfully" reversing the byte order mid-chase.
+
+**The semantic fields (operator-confirmed).** The classid decomposes as
+**`(V3-substrate 0x1000)(domain 0x07)(app_prefix 0x01)`**. So in the current
+`0x1000_0701`: hi-u16 `0x1000` = the **V3-substrate prefix** (the leading `1` is
+the brute-force V3-format signal — NOT an app), and the low-u16 `0x0701` is
+**`domain : app_prefix` = `0x07 : 01`** (OSINT domain, app-prefix 01). This
+low-u16 is the **64k dynamic-class space** — 256 domains × 256 app-classes, each
+resolving to a **ClassView**, modulated by the **bitmask** (focus of awareness).
+> Correction of my earlier framing: I had called `0x1000` "q2's APP_PREFIX" and
+> `0x0701` "the osint_person concept" — both wrong. `0x1000` is the V3 substrate
+> marker; the concept split is `domain:app`, not a flat concept.
+
+**Why it is DEFERRED (the load-bearing part).** The human-readable form is
+**`0x07:01::1000`** (`domain:app_prefix::v3-substrate`). Applying that reorder
+now would **destroy the little-endian byte contracts** the V3 substrate is
+chasing (cf. lance-graph `CLAUDE.md` CANON — the 16-byte key is explicitly
+**little-endian**; `classid` is bytes 0..4 LE). P1–P5 and every codebook row are
+built against the **current stored `0x1000_0701` LE form**. So the reorder was
+**postponed until the V3 substrate was nailed** (the P-probes), on purpose, and
+stays deferred until the operator deliberately triggers it as its own step.
+
+**Consequences (hands-off list).**
+- **Do NOT** reorder classid bytes, "fix" `0x1000` → domain-first, or rewrite the
+  OGAR codebook rows (`osint_system 0x0700` / `osint_person 0x0701`) toward the
+  human-readable form. They are correct in the current LE contract.
+- The **human-readable `0x07:01::1000`** is a *display/API* projection to be
+  authored later, as a deliberate reorder step — NOT a storage change.
+- `ISS-OGAR-OSINT-MIRROR-PENDING` (the `COUNT_FUSE` row-count arc) is
+  **orthogonal** to this — it's about how many rows exist, not their byte order —
+  and still stands.
+- When the reorder IS triggered post-V3, it gets its own arc + probe (round-trip
+  LE-stored ↔ human-readable) so the LE contract is preserved end-to-end.
+
+**Cross-ref:** lance-graph `CLAUDE.md` CANON (LE 16-byte key);
+`ISS-OGAR-OSINT-MIRROR-PENDING`; OGAR canon §"THE CANONICAL GUID". Operator
+directive 2026-07-01 ("1 is correct but we postponed until V3 substrate was
+nailed … 2 is also correct it's just deferred … later human readable
+`0x07:01::1000`").
+
+---
+
+## 2026-07-01 — E-SUBSTRATE-IS-DEEPNSM-PLUS-OGAR — the substrate IS a Semantic Transformer (deepnsm) + a transpiler (OGAR); the convergence probes are the de-blackboxing of the accumulated-wishlist entropy
+
+**Status:** STRATEGIC FRAME (operator, 2026-07-01: "in the end we're sitting on a
+Semantic Transformer and transpiler as substrate and we didn't make it there
+because our substrate was a bit black box accumulated wishlist"). Names the
+*why* behind the P0–P5 probe arc.
+
+**The diagnosis (operator, verbatim intent).** The substrate accumulated as a
+**black-box wishlist** — features piled up faster than they could be seen
+through (the "massive codebase massive entropy" of the session opener), so the
+fact that **deepnsm = the Semantic Transformer** and **OGAR = the transpiler**
+were already the clean substrate got buried under the pile. "We didn't make it
+there" = the two real substrate layers were obscured, not absent.
+
+**The cure = probe-first legibility (what P0–P5 actually did).** Each probe
+converts one wishlist claim into an integer-exact green assert — that is the
+mechanism that turns "accumulated wishlist" back into "Semantic Transformer +
+transpiler":
+- **P1 literally de-blackboxed the Semantic Transformer**: deepnsm's
+  `subspace_distance_table` *is* the one palette metric, byte-identical to the
+  two integer consumers. "deepnsm converges with everything" → a green test.
+- **P2–P5** proved the edge / Pearl causality / ARM discovery / NAL reasoning all
+  ride that same palette. The wishlist became a verified five-vertex stack.
+- The rung ladder + kanban Rubicon envelope (`graph-flow-kanban` already carries
+  the i4 32-D thinking style **and Rung depth** in `ThinkingContext`, advancing
+  on `GateDecision::{Flow,Block,Hold}`) are the transpiler-side orchestration —
+  shipped, not wishlist.
+
+**What is still black box (the honest edge of "made it there").** The **runtime
+loop** — `rig → CausalEdge64 → AriGraph V3 → next cycle` feedback
+(`E-RIG-ARIGRAPH-FEEDBACK-LAYERING`) — is asserted, not proven; gated on wiring
+AriGraph write-back through the protoc boundary (P6/P9-class). Static substrate =
+legible; dynamic substrate = not yet.
+
+**The standing rule this frame implies.** Entropy re-accumulates the moment a new
+capability lands without a probe. To keep the substrate = deepnsm + OGAR (and not
+re-become a wishlist): **no new substrate claim enters the canon without a green
+integer-exact probe** — the same discipline as OGAR's probe-first doctrine and
+the bf16-hhtl probe queue. The probes are not busywork; they are what keeps the
+two real layers visible under everything built on them.
+
+**Cross-ref:** `E-SPO-2CUBE-GIVES-QUESTIONS-AND-CANDIDATES` (the shared atom);
+`E-P1-DISTANCE-IDENTITY-GREEN` (the Semantic-Transformer de-blackboxing);
+`E-RIG-ARIGRAPH-FEEDBACK-LAYERING` (the still-opaque runtime loop); OGAR
+`docs/OGAR-AS-IR.md` (the transpiler-as-compiler framing).
+
+---
+
+## 2026-07-01 — E-RIG-ARIGRAPH-FEEDBACK-LAYERING — the rig / rs-graph-llm / surrealdb / AriGraph-V3 stack is a hot-loop + cold-projection split, not an OR; the feedback round-trip is UNTESTED (blocked P9-class)
+
+**Status:** DECISION + honest gap (operator, 2026-07-01: "rs-graph-llm on top,
+rig on top of surrealdb on kv-lance OR lancedb / or rig as LLM API in rs-graph-llm
+feeding back akin to AriGraph using our AriGraph V3 — we didn't test it yet").
+Grounded in shipped-code reality (grep 2026-07-01), not doctrine alone.
+
+**On-disk maturity (what settles the "OR").**
+- `rs-graph-llm/graph-flow-action-ogar` — **SHIPPED**: bridges graph-flow → OGAR
+  *Do* arm via `lance_graph_contract::{action, kanban::ExecTarget, rbac,
+  mul::GateDecision}`, contract-only ("no second lance-graph-contract in the
+  graph"). The orchestration↔OGAR seam exists.
+- **AriGraph V3** — **COMMIT CONTRACT, round-trip untested**: named as terminus
+  everywhere (`kanban.rs` "calcify: commit to Lance SPO-G + AriGraph pointer";
+  CausalEdge temporal = "AriGraph anchor"; `witness_table` crystallisation), but
+  agent-output → commit → readable-next-cycle is defined, not exercised.
+- **rig** — **NOT wired** into rs-graph-llm anywhere yet.
+- **surrealdb kv-lance** — **SCAFFOLD**: 8 open `TODO(lance-integration)` sites;
+  not load-bearing.
+
+**Decision — it is a layering, not an OR.**
+- **Hot reasoning path (Option 2, doctrine-aligned + most-scaffolded):**
+  rs-graph-llm (replayable orchestration) drives graph-flow; **rig is the cold
+  LLM membrane** it calls for discovery/proposal; **AriGraph V3 is the thinking
+  tissue** the loop reads+writes (SoA palette tenant + CausalEdge commit +
+  witness crystallisation). "Memory wired INTO the struct, not called FROM it";
+  "orchestration IS graph traversal." rig/spider/rs-graph-llm stay on the cold
+  external side of the Markov membrane (cf. `E-RIG-DISCOVERY-MEMBRANE`).
+- **Cold persistence projection (Option 1, beside not between):** AriGraph V3
+  *tombstones to* Lance SPO-G; a query surface reads that same store. Use
+  **lancedb NOW** (kv-lance has 8 TODOs — do not bet the loop on it yet);
+  surrealdb-on-kv-lance becomes the SurrealQL surface once its integration lands.
+  surrealdb sits *beside* the loop as the query surface, **never between** the
+  agent and its memory.
+
+**The untested thing (operator's flag, made precise).** The **feedback
+round-trip**: (mock-)rig output → `CausalEdge64`/SPO → committed to AriGraph V3 →
+readable next cycle → reshapes free-energy. `PROBE-RIG-ARIGRAPH-FEEDBACK`:
+stub the LLM (deterministic, no network — same pattern as template-runtime stub
+actions), assert the committed edge is read back and moves `F` on the next cycle.
+**Blocker (P9-class):** `graph-flow-action-ogar` is contract-only, so it can test
+the *decision* half (`ActionInvocation → GateDecision(FLOW)`) today, but the
+*commit* half (real AriGraph V3 write-back) needs lance-graph core (protoc),
+unwired into any testable OSINT/graph-flow crate. Testing only the decision half
+and calling it "the loop" would be a manufactured green — do NOT.
+
+**Cross-ref:** `E-RIG-DISCOVERY-MEMBRANE` (rig = cold membrane); `E-RUNG-LADDER-IS-A-DEPENDENCY-STACK`
++ P6 (awareness rollover = the elevation this loop drives); the P9 hot/cold
+blocker (arigraph feature off in `lance-graph-osint`). Same wiring milestone.
+
+---
+
+## 2026-07-01 — E-RIG-DISCOVERY-MEMBRANE + E-6x2x8-EXACT-CENTROID — two addenda to the V3-stack capstone: rig is the RAG/LLM-API template-discovery membrane; and the 6×(8:8) tenant can double as an exact-centroid distance code
+
+**Status:** ADDENDUM to `E-SPO-2CUBE-GIVES-QUESTIONS-AND-CANDIDATES`
+(operator, 2026-07-01). Part A is a stack correction `[G]` (rig was omitted from
+the capstone's V3 list); Part B is a `[S]` CONJECTURE (operator "theoretically we
+could even…"), a representation option, un-probed.
+
+**A — rig = the discovery membrane (cold path), never the hot path.** The V3
+stack capstone listed five components + OGAR-AST render; it omitted **rig**
+(`AdaWorldAPI/rig`) as the **RAG + LLM-API** layer whose job is **template
+discovery**. The shape: rig retrieves (RAG) + calls an external LLM to *propose*
+templates (ElixirTemplate / thinking-style / OSINT source-ranking); those
+proposals compile down to **deterministic golden-image reflexes**
+(`template-runtime` / `template-equivalence`) that run on the palette substrate
+with **no LLM on the hot path** (matches the crewai-rust "LLM is IN THE LOOP, NOT
+source of truth" doctrine + the Markov blood-brain barrier). So rig sits with
+`spider` + `rs-graph-llm` on the **cold, external, learning** side of the
+membrane — exactly the "external OSINT in step AFTER" the operator gated ("only
+if it works without"). Corrected V3 stack = {AriGraph, CausalEdge, thinking-style,
+rung, OGAR-AST-transpile/ClassView+bitmask+askama} **on the palette**, fed by
+{rig-RAG/LLM, spider, rs-graph-llm} **across the membrane**, templates flowing
+cold→hot as compiled reflexes, edges/awareness flowing hot→cold as witnesses.
+
+**B — 6×2×8bit "exact" centroid (6× palette256²) vs CAM-PQ (6×256).** A distance
+representation option: instead of CAM-PQ's 6 subspaces × 1 byte (nearest of 256
+centroids per subspace, 6-byte code, quantization error), use 6 subspaces × **2
+bytes** — each an `(x:y)` byte-pair indexing a 256×256 palette tile
+(`palette256²`), i.e. a 2D product centroid = 65 536 effective positions per
+subspace = "exact" relative to CAM-PQ's 256. Trade: **12 bytes, exact,
+unified** vs **6 bytes, quantized, separate code**.
+- **The coincidence worth the entry:** the OSINT V3 identity tenant is *already*
+  **6×(8:8)** (12 bytes: HEEL `currentStatus:type`, HIP `militaryUse:civicUse`,
+  …). So the semantic tenant's byte-pairs **are** the 6× palette256² tile
+  coordinates — the named semantic axes double as the exact-centroid distance
+  code. No separate CAM-PQ code needed; the tenant IS the distance carrier.
+- **Preserves the one-distance-format (P1):** distance is still
+  `Σ_subspace palette256²[coord_a][coord_b]`, Pearl-maskable exactly like the 2³
+  decomposition — the 8-questions-from-N-reads amortization
+  (`E-SPO-2CUBE-…`) generalizes from 3 planes to 6 subspaces unchanged.
+- **CAM-PQ stays for *search*** (compressed NN, the smaller 6-byte code); the
+  exact 6×(8:8) form is for the *tenant that is already stored* (no extra bytes —
+  the identity is 12 bytes regardless). Per `I-VSA-IDENTITIES`: CAM-PQ = search,
+  this = the stored identity's own distance; separate tools.
+- **CONJECTURE — needs a probe** (`PROBE-6x2x8-vs-CAMPQ`): fidelity (ρ of the
+  exact 6×palette256² distance vs ground-truth) **and** storage/cache (12 B ×
+  N nodes, 6× 256×256 tables vs CAM-PQ's 6× 256×256 + 6-byte codes) **and**
+  whether the 2D product-centroid actually beats 256 flat centroids on OSINT
+  workloads. Do NOT adopt over CAM-PQ without the probe; recorded as an option,
+  not a decision. Certification-officer / palette-engineer own it.
+
+**Cross-ref:** `E-SPO-2CUBE-GIVES-QUESTIONS-AND-CANDIDATES` (the capstone this
+extends); `E-P1-DISTANCE-IDENTITY-GREEN` (the one-format the exact form must
+preserve); `I-VSA-IDENTITIES` (search vs identity-distance separation); OGAR
+canon §"Tier interpretation — 256×256 CENTROID TILE" (the tile reading this
+builds on).
+
+---
+
+## 2026-07-01 — E-SPO-2CUBE-GIVES-QUESTIONS-AND-CANDIDATES — the 8 Pearl projections are 8 distinct questions (each with its own candidate answer), computed all-at-once from 3 cached reads; V3 stack capstone
+
+**Status:** FINDING `[G]` (coded; `cargo test --manifest-path
+crates/lance-graph-osint/Cargo.toml --test p3b_spo_questions_amortized` → 3
+passed, 2026-07-01) + capstone (operator synthesis 2026-07-01). Sharpens
+`E-P2-P3-EDGE-PEARL-GREEN` (P3) and `E-RUNG-LADDER-IS-A-DEPENDENCY-STACK`.
+
+**The mechanism (operator, verbatim intent).** The SPO 2³ rung decomposition
+"gives the questions and candidates inherently" — which is why it is baked into
+the Morton-tile 2bit×2bit 4×4 cascade as **2³ all-at-once amortization on the
+same data in cache.** Grounded in `SpoDistances::all_projections`
+(`ALL_MASKS = [NONE,S,P,O,SP,SO,PO,SPO]`): it reads the **three** per-plane
+palette cells for one `(a,b)` pair and produces **all eight** Pearl projections
+by masked summation — 3 cache reads → 8 causal questions, zero extra traffic.
+Proven un-redundant three ways:
+1. **Amortization** — the 8-vector is a pure function of the 3 scalar plane
+   distances (`p3b_eight_questions_are_a_pure_function_of_three_reads`).
+2. **Monotone ladder** — a superset mask never undercounts; `SPO`
+   (counterfactual) upper-bounds every sub-question.
+3. **Questions AND candidates inherently** — the SAME two candidates rank
+   **oppositely** under Association (`SO`) vs Intervention (`PO`), because `PO`
+   projects out the Subject plane. The 8 masks are 8 real retrievals, not one
+   distance in eight hats — each rung surfaces its own candidate.
+
+**V3 stack — assembled (capstone).** The convergence this probe series (P0–P5 +
+P3b) validates is the click of five V3 components onto ONE palette substrate:
+- **AriGraph V3** — SPO-G quads + the 6×(8:8) OSINT tenant + a cold-KV
+  `path:documentid` reference tenant (wiki blobs off the hot path).
+- **CausalEdge V3** — the 64-bit SPO-palette + NARS⟨f,c⟩ + Pearl-mask + i4
+  mantissa wire (P2/P4/P5 carrier).
+- **Thinking-style V3** — the 36 styles weighting the 8 projections
+  (`style_weight[i] × all_projections[i]`).
+- **Rung decomposition V3** — the 0–9 `RungLevel` dependency stack
+  (`E-RUNG-LADDER-…`), whose per-rung *operation* is a Pearl-masked projection.
+- **OGAR AST-transpile** — ClassView + the ClassView **bitmask as the focus of
+  awareness**, askama-on-ClassView as an ERB-view pattern (akin to Redmine's
+  Active-Record ERB views) — the render surface over the same node.
+
+**Two rabbit holes, now closed (context so the WHY doesn't dilute).** The path
+here went through two detours that are resolved and should not be re-entered:
+(1) the monolithic **Singleton BindSpace → SoA** migration (settled: SoA first,
+zero-copy in-place, no materialized singleton — cf. the P0 CLAUDE.md three-tier
+supersession); (2) **hypothesis testing in kanban-view** (settled: `rs-graph-llm`
+as *replayable* orchestration layered on top of OGAR's Ontology/Do/Think arms +
+the thinking styles — orchestration is graph traversal, not a new bridge).
+
+**Consequence.** The 2³ projection is the atom the whole stack shares: it is the
+rung's operation (P3b), the discovery oracle's distance (P1/P4), the edge's
+Pearl level (P2), and the style's weighting input — one cached tile, eight
+questions, eight candidates. Nothing above it needs its own distance function.
+
+**Cross-ref:** `E-P1-DISTANCE-IDENTITY-GREEN` … `E-P5-SYLLOGIZE-GREEN`;
+`E-RUNG-LADDER-IS-A-DEPENDENCY-STACK`. Test:
+`crates/lance-graph-osint/tests/p3b_spo_questions_amortized.rs`.
+
+---
+
+## 2026-07-01 — E-RUNG-LADDER-IS-A-DEPENDENCY-STACK — the 0–9 `RungLevel` ladder gates higher reasoning on grounded lower rungs; the P1–P5 probes are exactly the per-rung capabilities
+
+**Status:** FINDING `[G]` (operator directive 2026-07-01: "the 1-9 rung ladder
+exists to make higher reasoning depending on observations, hypothesis testing
+with counterfactual on top"). Grounds in shipped code:
+`lance_graph_contract::cognitive_shader::RungLevel` (canonical; mirrored in
+`thinking-engine::cognitive_stack::RungLevel`).
+
+**The ladder (contract, 0..9).** `0 Surface` (literal/immediate = observation) ·
+`1 Shallow` (simple inference) · `2 Contextual` · `3 Analogical` · `4 Abstract` ·
+`5 Structural` (schema) · `6 Counterfactual` (what-if) · `7 Meta` (reasoning
+about reasoning) · `8 Recursive` · `9 Transcendent`.
+
+**The invariant (why it's a stack, not a menu).** A rung's answer is only valid
+resting on the rungs below it — you cannot answer a rung-N question with only
+rung-(N-1) evidence (Pearl's ladder, generalized to 10 levels). The mechanism is
+in the contract: `ShaderDispatch.rung` **"elevates on sustained BLOCK"** — the
+cycle starts at `Surface` (cheapest, observation-only) and climbs **bottom-up**
+only when the collapse gate cannot resolve at the current depth. So
+`Counterfactual` (6) is reached *after* the observation (0–1) and
+hypothesis-forming (2–5) rungs are grounded — "counterfactual on top,"
+literally. Meta/Recursive/Transcendent (7–9) then reason *about* that.
+
+**The P1–P5 probes ARE the per-rung capabilities — read as a ladder climb:**
+- **Observation rungs (0–1)** ← **P1**: one integer-exact palette distance is the
+  literal/immediate comparison every higher rung reads.
+- **Hypothesis rungs (2–5)** ← **P3** (Pearl `PO` = do-calculus intervention,
+  Subject confounder projected out) + **P4** (ARM discovery = deterministic
+  hypothesis *generation* off the same palette).
+- **Counterfactual rung (6)** ← **P3** (full `SPO` mask = Pearl Level-3) + **P5**
+  (`syllogize` multi-hop deduction chains) — what-if reasoning composed on top.
+- The **D-ARM-7 Jirak floor** (`I-NOISE-FLOOR-JIRAK`, jc Pillar 5) is precisely
+  the *stack guard*: a mined rule (rungs 2–4) must not be promoted to a
+  counterfactual (rung 6) claim without enough observation evidence to clear the
+  weak-dependence noise floor. The gate enforces the ladder's dependency.
+
+**Consequence for the runtime probes (P6–P9).** The "static convergence" (P1–P5)
+proved the palette is one metric for each rung's *operation*; the runtime half is
+the *elevation dynamics*. **P6 (awareness rollover) IS the rung-elevation
+mechanism** — sustained BLOCK carried across cycles in the MailboxSoA `MetaWord`
+awareness bits is what pushes `rung` up the ladder. So P6 is not just "does
+awareness persist" — it is "does unresolved surprise climb the ladder toward
+counterfactual, and rest back down when resolved." Design P6 to assert the
+elevation order (Surface → … → Counterfactual on sustained BLOCK; descend on
+FLOW), not merely bit persistence.
+
+**Tech-debt flagged.** `RungLevel` is duplicated verbatim in `thinking-engine`
+(no `lance-graph-contract` dep) — same anti-pattern as `E-CE64-NAME-COLLISION-DEDUP`.
+Canonical is the contract; dedup when thinking-engine takes the contract dep
+(deferred — cross-crate dep addition, not a local rename). Logged in TECH_DEBT.
+
+**Cross-ref:** `E-P5-SYLLOGIZE-GREEN` … `E-P1-DISTANCE-IDENTITY-GREEN` (the rung
+capabilities); `I-NOISE-FLOOR-JIRAK` (the stack guard); OGAR
+`docs/OSINT-SUBSTRATE-REUSE-MAP.md` (probe ladder).
+
+---
+
+## 2026-07-01 — E-P5-SYLLOGIZE-GREEN — NAL transitive deduction on the palette edge: `is_a(A,B)∧is_a(B,C) ⊢ is_a(A,C)`, integer-exact
+
+**Status:** FINDING `[G]` (coded; `cargo test --manifest-path
+crates/lance-graph-osint/Cargo.toml --test p5_syllogize` → 4 passed, 2026-07-01,
+branch `claude/v3-substrate-migration-review-o0yoxv`). Probe P5; the reasoning
+vertex of the convergence.
+
+**What it proves.** Two `CausalEdge64` premises sharing a middle palette term
+compose via `syllogize()` into a derived conclusion edge:
+- `is_a(A,B).figure(is_a(B,C)) == Figure::Chain` (o1==s2==B); the conclusion is
+  `is_a(A,C)` — middle term B consumed, outer terms survive.
+- Deduction truth composes exactly: f = f1·f2 = 1.0 → 255; c = f1·f2·c1·c2 =
+  0.64 → 163 (integer-exact after the single f32 NARS composition).
+- `InferenceType::Deduction` stamps mantissa +1 (forward-chain); Pearl mask =
+  AND of the premises (SPO & SPO = SPO).
+- Negative cases hold: no shared term ⇒ `None`; identical (S,O) ⇒ `None`
+  (that's NARS *revision*, not a syllogism); `syllogize` is a pure function
+  (deterministic).
+
+**Why it matters.** This is the `part_of`/`is_a` ontology chaining OSINT needs
+(actor `part_of` unit `part_of` command; system `is_a` drone `is_a` dual-use) —
+and it runs entirely on the SPO palette with no external reasoner. The predicate
+is a carried placeholder slot, so `is_a` and `part_of` chain by the identical
+mechanism. With P1–P4, the palette is now one metric across **five** vertices:
+distance sources, edge carrier, causal-mask semantics, ARM discovery, and
+multi-hop NAL reasoning. The remaining probes (P6–P8 MailboxSoA
+awareness/owner/reflex loop, P9 AriGraph hot/cold) exercise the *runtime* loop
+and need subsystem wiring not yet present in `lance-graph-osint`.
+
+**Cross-ref:** `E-P4-DISCOVERY-EDGE-GREEN`, `E-P2-P3-EDGE-PEARL-GREEN`,
+`E-P1-DISTANCE-IDENTITY-GREEN`. Test:
+`crates/lance-graph-osint/tests/p5_syllogize.rs`.
+
+---
+
+## 2026-07-01 — E-P4-DISCOVERY-EDGE-GREEN — the Aerial+ ARM probe joins the palette: deterministic mining → exact ppm → `arm_to_truth_u8` → `CausalEdge64` wire
+
+**Status:** FINDING `[G]` (coded; `cargo test --manifest-path
+crates/lance-graph-osint/Cargo.toml --test p4_discovery_edge` → 3 passed,
+2026-07-01, branch `claude/v3-substrate-migration-review-o0yoxv`). Probe P4;
+extends the P1–P3 convergence onto the *discovery* arm.
+
+**What it proves.** An OSINT dual-use fixture (`militaryUse ⟹ impact`, perfect
+correlation over 1000 rows) mined by `arm-discovery`'s `AerialProposer` over a
+`MatrixDistance` oracle (the same integer palette shape P1 unified):
+1. **Exact integer evidence** — the known rule `militaryUse=yes ⟹ impact=high`
+   is mined with `antecedent_count=500`, `cooccur=500`, `support_ppm=500_000`,
+   `confidence_ppm=1_000_000`. No float in the decision path.
+2. **Determinism** — two mines over freshly-built identical data + θ produce
+   byte-identical `Vec<CandidateRule>` (no seed; the float-free guarantee).
+3. **Edge join** — `arm_to_truth_u8(rule, k=1)` → `TruthU8{255, 254}` (freq=1.0,
+   conf=500·255/501) packs into `CausalEdge64::pack_v2`; the edge's
+   `frequency_u8()/confidence_u8()` equal the mined truth. Discovery output IS
+   the edge wire.
+
+**Why it matters.** P1–P3 closed the distance↔edge↔causality triangle; P4 makes
+*discovery* a fourth vertex on the same palette — mined rules become
+`CausalEdge64`s indistinguishable from hand-authored ones, and the mining is
+reproducible integer-exact. Fence: live-`SpoStore` promotion of mined rules
+stays gated on D-ARM-7 (jc Pillar 5, Jirak noise floor under weak dependence,
+`I-NOISE-FLOOR-JIRAK`); this probe exercises only the in-memory
+mine→truth→edge path. Next: P5 (`syllogize` multi-hop chains).
+
+**Cross-ref:** `E-P2-P3-EDGE-PEARL-GREEN`, `E-P1-DISTANCE-IDENTITY-GREEN`.
+Test: `crates/lance-graph-osint/tests/p4_discovery_edge.rs`.
+
+---
+
+## 2026-07-01 — E-P2-P3-EDGE-PEARL-GREEN — the `CausalEdge64` carrier and `SpoDistances` engine index one palette and share one 3-bit Pearl mask
+
+**Status:** FINDING `[G]` (coded; `cargo test --manifest-path
+crates/lance-graph-osint/Cargo.toml --test p2_p3_edge_pearl` → 3 passed,
+2026-07-01, branch `claude/v3-substrate-migration-review-o0yoxv`). Probes P2 +
+P3 of the OSINT-substrate convergence roadmap; builds on `E-P1-DISTANCE-IDENTITY-GREEN`.
+
+**P2 — edge round-trip.** OSINT palette indices `(s,p,o)` → `CausalEdge64::pack_v2`
+→ the packed edge's `s_idx()/p_idx()/o_idx()` return them unchanged, `causal_mask()`
+returns the Pearl level it was stamped with, `frequency_u8()/confidence_u8()`
+round-trip (2048 pairs). The edge carries the palette *coordinate* losslessly;
+bridging two edges into `SpoHead`s, `causal_distance(mask=SPO)` equals the plain
+per-plane palette sum — the edge and the distance engine index the SAME palette.
+
+**P3 — Pearl ladder.** The killer receipt: `causal_edge::CausalMask` and the
+`mask` byte of `SpoDistances::causal_distance` are the SAME 3-bit convention
+(S=0b100, P=0b010, O=0b001) — verified structurally, not by coincidence: each
+mask keeps exactly its planes' terms (`S`→s_dist, `PO`→p+o, `SPO`→s+p+o,
+`None`→0) over 4096 pairs. Level-2 Intervention (`PO`) projects out the Subject
+confounder — strictly less distance than Level-3 Counterfactual (`SPO`) exactly
+when the Subject term is non-zero (the strict-drop branch fired on >4000/4096
+pairs). Pearl's do-calculus ladder is literally a mask over the palette planes.
+
+**Why it matters.** P1 unified the three *distance sources*; P2/P3 unify the
+*edge protocol* and the *causal semantics* onto that same palette. The Pearl
+level a `CausalEdge64` carries IS the plane-selection mask the distance engine
+applies — one enum, one algebra, both crates. This closes the
+edge↔distance↔causality triangle on integer-exact shipped code, and is the base
+for P4 (ARM discovery emitting `CausalEdge64` from mined rules) and P5
+(`syllogize` multi-hop chains).
+
+**Cross-ref:** `E-P1-DISTANCE-IDENTITY-GREEN` (P1 keystone); `E-CE64-NAME-COLLISION-DEDUP`
+(P0). Test: `crates/lance-graph-osint/tests/p2_p3_edge_pearl.rs`.
+
+---
+
+## 2026-07-01 — E-P1-DISTANCE-IDENTITY-GREEN — the V3 "one causal-distance format" claim holds against shipped code: deepnsm f32 → one palette → nars_engine u16 ≡ arm-discovery u32, byte-exact
+
+**Status:** FINDING `[G]` (coded; `cargo test --manifest-path
+crates/lance-graph-osint/Cargo.toml --test p1_distance_identity` → 2 passed,
+2026-07-01, branch `claude/v3-substrate-migration-review-o0yoxv`). The keystone
+probe P1 of the OSINT-substrate convergence roadmap (OGAR
+`docs/OSINT-SUBSTRATE-REUSE-MAP.md`).
+
+**What it proves.** Three real distance sources, driven off ONE table:
+`deepnsm::codebook::Codebook::subspace_distance_table(s)` (256×256 f32 squared
+L2, THE source) → a fixed quantizer → the u16 V3 palette → read by both integer
+consumers: `SpoDistances::s_dist` (planner `nars_engine`) and
+`MatrixDistance::distance` (arm-discovery oracle, single 256-cardinality
+`FeatureSpec` so `code(c)==c`). For 4096 deterministic index pairs (SplitMix64,
+no seed entropy): (i) `nars.s_dist(a,b) as u32 == arm.distance(a,b)` — the two
+independently-authored lookup formulas agree byte-for-byte; (ii) both equal the
+quantized deepnsm entry — the engine table IS the quantized deepnsm subspace
+table, not an independent one; (iii) symmetry survives quantization. A second
+test pins `causal_distance(mask=0b111) == s_dist+p_dist+o_dist` (the `SpoHead`
+entry point → the 8 Pearl projections' composition).
+
+**Why it matters.** This is integer-exact convergence: the *only* float is the
+deepnsm source, collapsed by the quantizer before either consumer sees it (the
+"f32 NARS edge" the roadmap allows). The two integer engines are now provably
+one metric — if a future edit flips a lookup to col-major, changes the feature
+offset, or re-bakes the palette from a different codebook, P1 goes red. This is
+the precondition for P2–P3 (edge round-trip, Pearl ladder) and for wiring the
+per-plane palette as the single distance the ARM discovery / style-weighting /
+kanban-gate paths share. deepnsm already ships the 6×256 (`[u8;6]`) CAM-PQ
+shape, so no deepnsm re-bake was needed — the "fix deepnsm→6×(8:8)" the roadmap
+hedged on was already done upstream.
+
+**Cross-ref:** `E-CE64-NAME-COLLISION-DEDUP` (P0, the edge-type dedup this rests
+on); OGAR `docs/OSINT-SUBSTRATE-REUSE-MAP.md` (§ "one causal-distance format",
+P1 keystone). Test: `crates/lance-graph-osint/tests/p1_distance_identity.rs`.
+
+---
+
+## 2026-07-01 — E-CE64-NAME-COLLISION-DEDUP — thinking-engine's local 8-channel `CausalEdge64` shadowed the canonical `causal_edge::CausalEdge64` in the same file; renamed to `CascadeChannels8`
+
+**Status:** FINDING `[G]` (coded; `cargo check -p thinking-engine` green
+2026-07-01 on branch `claude/v3-substrate-migration-review-o0yoxv`). First code
+delta of the OSINT-substrate convergence roadmap (see OGAR
+`docs/OSINT-SUBSTRATE-REUSE-MAP.md` P0). Pure rename — zero behavior change.
+
+**The trap.** `crates/thinking-engine/src/layered.rs` defined a *local*
+`pub struct CausalEdge64(pub u64)` — an 8-channel Bach-counterpoint cascade
+accumulator (7 constructive + 1 destructive channel) — while the SAME file
+*also* imports the canonical SPO carrier `use causal_edge::CausalEdge64 as
+SpoEdge`. Two unrelated types shared one name across the crate boundary: the
+local one is a scratch cascade register; the canonical one is the frozen
+64-bit SPO-palette + NARS⟨f,c⟩ + Pearl-mask wire truth. `domino.rs` re-exported
+the local type via `use crate::layered::CausalEdge64`, propagating the shadow.
+A reader (or a future baton-handoff) that saw `CausalEdge64` in this crate could
+not tell which algebra was in scope without chasing the import — a name
+collision that would silently mis-wire the convergence work that leans on the
+canonical edge as the one true causal-distance carrier.
+
+**The fix.** Local type → `CascadeChannels8` (names what it is: 8 packed
+u8 channels). Its `to_spo(s,p,o) -> SpoEdge` collapse and `from_spo` inverse are
+unchanged — they still target the canonical `causal_edge::CausalEdge64` at the
+L3 commit boundary. After the rename the identifier `CausalEdge64` appears in
+thinking-engine ONLY as the canonical type (3 sites: the aliased import, the
+collapse-boundary doc-comment, the round-trip test import). One name, one
+algebra — the precondition for the P1 distance-identity probe
+(`causal_distance ≡ arm-discovery oracle ≡ deepnsm`) to reference an
+unambiguous edge type.
+
+**Cross-ref:** OGAR `docs/OSINT-SUBSTRATE-REUSE-MAP.md` (§ "one causal-distance
+format", P0/P1); `E-CE64-MB-4` (sole-writer invariant on the canonical edge).
+
+---
+
 ## 2026-06-26 — E-V3-BASINS-ARE-MEREOLOGY-NOT-LABELS — the 6 V3 basins (+ relative location) are a structural ADDRESS (mereology / HHTL X;Y coordinates), never flat labels
 
 **Status:** FINDING `[H]` (operator directive 2026-06-26; impl in the FMA-V3 +

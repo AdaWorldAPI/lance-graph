@@ -15,6 +15,19 @@
 
 ## Open Debt
 
+### TD-RUNGLEVEL-DUP — `RungLevel` duplicated verbatim in `thinking-engine` vs the canonical `lance-graph-contract` (2026-07-01)
+
+**Open.** `thinking-engine::cognitive_stack::RungLevel` is a byte-for-byte
+duplicate of `lance_graph_contract::cognitive_shader::RungLevel` (0..9:
+Surface..Transcendent), and `thinking-engine` does **not** dep
+`lance-graph-contract` — so the two can silently drift. Same anti-pattern as
+`E-CE64-NAME-COLLISION-DEDUP` (the P0 dedup), but the fix is heavier: it needs
+`thinking-engine` to take the zero-dep contract dep and `pub use` the canonical
+enum, not a local rename. Canonical = the contract. Surfaced while grounding
+`E-RUNG-LADDER-IS-A-DEPENDENCY-STACK` (operator's 1–9 rung-ladder reminder).
+Deferred: cross-crate dep addition, out of scope for the convergence-probe
+increment. Same class as the resolved `CausalEdge64` shadow.
+
 ### TD-ONTOLOGY-LINT — `lance-graph-ontology` pre-existing clippy (12) on toolchain 1.95 (2026-06-18)
 
 `cargo clippy -p lance-graph-ontology -- -D warnings` exits 101 with 12 errors on the pinned 1.95 toolchain — all **pre-existing on `main`** (e.g. `odoo_blueprint/op_emitter.rs:182` is byte-identical on `origin/main`), in `hydrators/owl.rs` (2), `odoo_blueprint/op_emitter.rs` (1), `ttl_parse.rs` (3), + others. Mostly mechanical (`iter_cloned_collect` → `.to_vec()`, etc.). The crate is not in the CI clippy sweep ("CI tests 4 of ~30 crates"), so the debt accumulated un-gated. Surfaced while wiring `class_id_for_guid` (E-OGAR-ONTOLOGY-WIRED-1; `registry.rs` itself is clippy-clean + fmt-clean). Fix is a focused lint pass, out of scope for the wiring increment. Same class as `TD-CAUSAL-EDGE-LINT`.
