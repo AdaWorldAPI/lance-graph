@@ -1,5 +1,19 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-01 — ISS-OSINT-SYSTEM-ROOT-SLOT-VIOLATION — OGAR shipped `osint_system` at the reserved `0x0700` root slot; the lance-graph mirror canon forbids it (`CC==0x00` = domain root, reserved) — the parallel-mirror is BLOCKED on a remap decision
+
+**Status:** OPEN · **BLOCKS `ISS-OGAR-OSINT-MIRROR-PENDING`.** Owner: OGAR `ogar-vocab` (merged, needs follow-up) + `lance-graph-contract::ogar_codebook` mirror + q2 `osint_classview`. Surfaced 2026-07-01 when the merged OGAR #145 + lance-graph #624 met and I ran `cargo test -p lance-graph-contract`.
+
+**The violation.** The shared codebook canon (documented in `ogar_codebook.rs` module header: *"`CC == 0x00` = the domain root, reserved"*) requires every concept id `0xDDCC` to have `CC ≥ 0x01`; `0x__00` is the domain-root/default, NOT a concrete concept. OGAR main ships **`("osint_system", 0x0700)`** — `CC == 0x00`, the reserved root. `("osint_person", 0x0701)` is valid (`CC==01`, operator-frozen). The lance-graph mirror enforces the canon via the workspace-member test `codebook_has_no_duplicate_ids_or_zero_concept_slot` (`assert_ne!(id & 0x00FF, 0x00)`), so **mirroring `0x0700` fails lance-graph's own default CI** (748 pass, 1 fail). The `COUNT_FUSE` (in the *excluded* `lance-graph-ogar`) is a separate, downstream break; this one is in-tree.
+
+**Current blast radius.** lance-graph main's default CI is GREEN (mirror still 65, zero-slot test passes; the `COUNT_FUSE` lives in the excluded `lance-graph-ogar`). Consumers vendoring `lance-graph-ogar` against OGAR-main-67 vs mirror-65 will break on the count fuse. The parallel-mirror fix is **blocked** because the obvious "+2 rows" fix trips the zero-slot invariant.
+
+**Decision needed (operator).** Two coherent reads of `osint_system @ 0x0700`:
+- **Option A — it's a concrete concept → remap.** Move `osint_system` to `0x0702` in OGAR (fresh PR; `0x0701` frozen for `osint_person`); mirror `{0x0701, 0x0702}` (count 67); update q2 `OSINT_SYSTEM_CLASS 0x0700 → 0x0702`. Canon satisfied, but a merged id moves + q2 change.
+- **Option B (recommended) — `0x0700` IS the OSINT domain root/default class, not a counted concept.** This is exactly what the canon reserves `0x__00` for ("zero = fall through to the broader default"). OGAR drops `osint_system` from the *concept* `CODEBOOK`/`class_ids::ALL` (keep an `OSINT_SYSTEM = 0x0700` const documented as the domain-root class if useful); `ALL` → 66; mirror carries only `("osint_person", 0x0701)` → 66; the fuse balances at 66; q2 keeps `0x0700` as the renderable domain-default class (canon-legal: the root IS a real default class, just not a codebook *concept* row). No id moves; aligns with the user's "0x0701 is the frozen concept" framing.
+
+Both are OGAR-side follow-ups (OGAR #145 is merged) landed in parallel with the lance-graph mirror rows, per `E-OGAR-LANCEGRAPH-MOVE-IN-PARALLEL`.
+
 ## 2026-07-01 — ISS-OGAR-OSINT-MIRROR-PENDING — OGAR #145's OSINT mint (+2 to `class_ids::ALL`) breaks the contract-mirror `COUNT_FUSE` on merge; the paired lance-graph mirror rows must land in the same arc
 
 **Status:** OPEN (tracked) · **Resolution path RULED by operator 2026-07-01: keep the fuse (it IS the dependency contract enforcing OGAR↔lance-graph parallel movement); do NOT pin to a rev — "option 1" is REJECTED. Land the 2 mirror rows + `domains_agree` arm in parallel with OGAR #145 (option 2 / coordinated merge; brief transient red is acceptable — "the fuse is okay for now"). See `E-OGAR-LANCEGRAPH-MOVE-IN-PARALLEL`.** · Owner: OGAR `ogar-vocab` (PR #145) + `lance-graph-contract::ogar_codebook` mirror + `lance-graph-ogar::parity::domains_agree`. Surfaced 2026-07-01 while self-reviewing PR #624 / #145. Same cross-repo-arc shape as `ISS-OGAR-AUTH-MIRROR-DRIFT` (which took medcare CI red) and `ISS-OGAR-GENETICS-MIRROR-PENDING`; cited by `E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC`.
