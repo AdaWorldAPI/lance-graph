@@ -1,4 +1,4 @@
-//! Layered thinking cascade with CausalEdge64 upstream propagation.
+//! Layered thinking cascade with CascadeChannels8 upstream propagation.
 //!
 //! Three tiers of ThinkingEngine, connected by causal edges:
 //!
@@ -6,7 +6,7 @@
 //! L1 (small, routing)  ──edges──►  L2 (mid, role resonance)  ──edges──►  L3 (full thought)
 //! ```
 //!
-//! CausalEdge64 packs 8 channels (7 constructive + 1 destructive) into a u64.
+//! CascadeChannels8 packs 8 channels (7 constructive + 1 destructive) into a u64.
 //! Each channel is one byte (0-255). Constructive channels add energy;
 //! the CONTRADICTS channel subtracts energy.
 
@@ -15,7 +15,7 @@ use crate::engine::ThinkingEngine;
 use causal_edge::{CausalEdge64 as SpoEdge, CausalMask};
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CausalEdge64: packed u64 with 7 constructive + 1 destructive channel
+// CascadeChannels8: packed u64 with 7 constructive + 1 destructive channel
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Channel indices.
@@ -30,7 +30,7 @@ pub const CHANNEL_ABSTRACTS: u8 = 5;
 pub const CHANNEL_RELATES: u8 = 6;
 pub const CHANNEL_CONTRADICTS: u8 = 7;
 
-/// CausalEdge64: packed u64 with 7 constructive + 1 destructive channel.
+/// CascadeChannels8: packed u64 with 7 constructive + 1 destructive channel.
 ///
 /// Layout (little-endian byte order within the u64):
 ///   bits  0..7  = channel 0 (BECOMES)
@@ -43,12 +43,12 @@ pub const CHANNEL_CONTRADICTS: u8 = 7;
 ///   bits 56..63 = channel 7 (CONTRADICTS)
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CausalEdge64(pub u64);
+pub struct CascadeChannels8(pub u64);
 
-impl CausalEdge64 {
+impl CascadeChannels8 {
     /// Create a zero edge (no causal strength on any channel).
     pub fn new() -> Self {
-        CausalEdge64(0)
+        CascadeChannels8(0)
     }
 
     /// Set a channel's value (u8, 0..=255). `channel` must be 0..=7.
@@ -103,7 +103,7 @@ impl CausalEdge64 {
     /// Convenience: create an edge with CAUSES channel set to `strength`.
     ///
     /// Source and target are NOT stored inside the u64 (all 64 bits are channels).
-    /// They are carried alongside as the tuple key `(u16, CausalEdge64)`.
+    /// They are carried alongside as the tuple key `(u16, CascadeChannels8)`.
     pub fn with_source_target(_source: u16, _target: u16, strength: u8) -> Self {
         let mut e = Self::new();
         e.set_channel_u8(CHANNEL_CAUSES, strength);
@@ -111,7 +111,7 @@ impl CausalEdge64 {
     }
 }
 
-impl Default for CausalEdge64 {
+impl Default for CascadeChannels8 {
     fn default() -> Self {
         Self::new()
     }
@@ -120,11 +120,11 @@ impl Default for CausalEdge64 {
 // ═══════════════════════════════════════════════════════════════════════════
 // Transcoder impl block (D-CSV-9, Option R-3 per plan §5 L-12)
 //
-// Collapses the 8-channel cascade form into one SPO-palette CausalEdge64
+// Collapses the 8-channel cascade form into one SPO-palette causal_edge::CausalEdge64
 // at the L3 commit boundary, and provides the inverse for round-trip tests.
 // ═══════════════════════════════════════════════════════════════════════════
 
-impl CausalEdge64 {
+impl CascadeChannels8 {
     /// 8 channel labels for diagnostics + tests.
     pub const CHANNEL_NAMES: [&'static str; 8] = [
         "BECOMES", "CAUSES", "SUPPORTS", "REFINES",
@@ -190,7 +190,7 @@ impl CausalEdge64 {
         } else {
             -(mantissa_magnitude as i8)
         };
-        causal_edge::CausalEdge64::pack_v2(s_idx, p_idx, o_idx, freq_u8, conf_u8, causal_mask, 0, causal_edge::PlasticityState::ALL_FROZEN)
+        SpoEdge::pack_v2(s_idx, p_idx, o_idx, freq_u8, conf_u8, causal_mask, 0, causal_edge::PlasticityState::ALL_FROZEN)
             .with_inference_mantissa(mantissa_signed)
     }
 
@@ -216,7 +216,7 @@ impl CausalEdge64 {
         } else {
             -((spo.frequency_u8() as i32 * 32 / 255).min(127) as i8)
         };
-        let mut out = CausalEdge64::default();
+        let mut out = CascadeChannels8::default();
         out.set_channel(dom, net_signed);
         out
     }
@@ -280,11 +280,11 @@ impl TierEngine {
             .collect()
     }
 
-    /// Emit CausalEdge64 events from top-k peaks.
+    /// Emit CascadeChannels8 events from top-k peaks.
     ///
     /// For each of the top-k peaks, emit edges to their 4 nearest neighbors
     /// in the distance table (highest similarity = strongest constructive edges).
-    pub fn emit_causal_edges(&self, k: usize) -> Vec<(u16, CausalEdge64)> {
+    pub fn emit_causal_edges(&self, k: usize) -> Vec<(u16, CascadeChannels8)> {
         let peaks = self.top_k(k);
         let mut edges = Vec::new();
 
@@ -312,7 +312,7 @@ impl TierEngine {
                 if strength == 0 {
                     continue;
                 }
-                let mut edge = CausalEdge64::new();
+                let mut edge = CascadeChannels8::new();
                 edge.set_channel_u8(CHANNEL_CAUSES, strength);
                 edges.push((neighbor_idx as u16, edge));
             }
@@ -325,7 +325,7 @@ impl TierEngine {
     ///
     /// Constructive channels (0..=6) add positive energy.
     /// CONTRADICTS channel (7) subtracts energy.
-    pub fn apply_edges(&mut self, edges: &[(u16, CausalEdge64)]) {
+    pub fn apply_edges(&mut self, edges: &[(u16, CascadeChannels8)]) {
         for &(target, edge) in edges {
             let idx = target as usize;
             if idx >= self.size {
@@ -379,7 +379,7 @@ impl TierEngine {
 // LayeredEngine: three-level cascade with causal edge propagation
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Three-level cascade: L1 → L2 → L3 with CausalEdge64 upstream propagation.
+/// Three-level cascade: L1 → L2 → L3 with CascadeChannels8 upstream propagation.
 pub struct LayeredEngine {
     l1: TierEngine,
     l2: TierEngine,
@@ -427,7 +427,7 @@ impl LayeredEngine {
         } else {
             1
         };
-        let l2_edges: Vec<(u16, CausalEdge64)> = l1_edges
+        let l2_edges: Vec<(u16, CascadeChannels8)> = l1_edges
             .iter()
             .map(|&(idx, edge)| {
                 let scaled = (idx as usize * l1_to_l2).min(l2_size.saturating_sub(1));
@@ -444,7 +444,7 @@ impl LayeredEngine {
         } else {
             1
         };
-        let l3_edges: Vec<(u16, CausalEdge64)> = l2_edges_out
+        let l3_edges: Vec<(u16, CascadeChannels8)> = l2_edges_out
             .iter()
             .map(|&(idx, edge)| {
                 let scaled = (idx as usize * l2_to_l3).min(l3_size.saturating_sub(1));
@@ -506,11 +506,11 @@ mod tests {
         table
     }
 
-    // ── CausalEdge64 tests ──
+    // ── CascadeChannels8 tests ──
 
     #[test]
     fn causal_edge_channels() {
-        let mut edge = CausalEdge64::new();
+        let mut edge = CascadeChannels8::new();
         assert_eq!(edge.0, 0);
 
         // Set each channel to a distinct value.
@@ -530,7 +530,7 @@ mod tests {
 
     #[test]
     fn causal_edge_constructive_sum() {
-        let mut edge = CausalEdge64::new();
+        let mut edge = CascadeChannels8::new();
         // Channels 0-6 = 10 each.
         for ch in 0..7u8 {
             edge.set_channel_u8(ch, 10);
@@ -544,7 +544,7 @@ mod tests {
 
     #[test]
     fn causal_edge_net_strength() {
-        let mut edge = CausalEdge64::new();
+        let mut edge = CascadeChannels8::new();
         // Constructive: channels 0-6 = 20 each = 140 total.
         for ch in 0..7u8 {
             edge.set_channel_u8(ch, 20);
@@ -554,7 +554,7 @@ mod tests {
         assert_eq!(edge.net_strength(), 40); // 140 - 100
 
         // Destructive dominates.
-        let mut edge2 = CausalEdge64::new();
+        let mut edge2 = CascadeChannels8::new();
         edge2.set_channel_u8(CHANNEL_CAUSES, 10);
         edge2.set_channel_u8(CHANNEL_CONTRADICTS, 200);
         assert_eq!(edge2.net_strength(), -190); // 10 - 200
@@ -603,7 +603,7 @@ mod tests {
         let mut tier = TierEngine::new(table, "test");
 
         // Start with zero energy, apply constructive edges.
-        let mut edge = CausalEdge64::new();
+        let mut edge = CascadeChannels8::new();
         edge.set_channel_u8(CHANNEL_CAUSES, 100);
         edge.set_channel_u8(CHANNEL_SUPPORTS, 50);
 
@@ -634,7 +634,7 @@ mod tests {
         assert!(initial > 0.0);
 
         // Apply a strongly contradicting edge to atom 3.
-        let mut edge = CausalEdge64::new();
+        let mut edge = CascadeChannels8::new();
         edge.set_channel_u8(CHANNEL_CONTRADICTS, 255);
         tier.apply_edges(&[(3, edge)]);
 
@@ -689,8 +689,8 @@ mod transcoder_tests {
     use super::*;
     use causal_edge::CausalEdge64 as SpoEdge;
 
-    fn build_8ch_with(idx: usize, net: i8) -> CausalEdge64 {
-        let mut e = CausalEdge64::default();
+    fn build_8ch_with(idx: usize, net: i8) -> CascadeChannels8 {
+        let mut e = CascadeChannels8::default();
         e.set_channel(idx, net);
         e
     }
@@ -707,14 +707,14 @@ mod transcoder_tests {
 
     #[test]
     fn test_dominant_channel_zero_default() {
-        let e = CausalEdge64::default();
+        let e = CascadeChannels8::default();
         assert_eq!(e.dominant_channel(), 0, "all-zero edge dominant idx is 0");
         assert_eq!(e.active_channel_count(), 0);
     }
 
     #[test]
     fn test_dominant_channel_picks_max_abs() {
-        let mut e = CausalEdge64::default();
+        let mut e = CascadeChannels8::default();
         e.set_channel(2, 30);   // SUPPORTS
         e.set_channel(5, -100); // ABSTRACTS, larger magnitude
         e.set_channel(7, 10);
@@ -756,7 +756,7 @@ mod transcoder_tests {
             for &sign in &[1i8, -1i8] {
                 let e = build_8ch_with(dom, sign * 64);
                 let spo = e.to_spo(1, 1, 1);
-                let back = CausalEdge64::from_spo(spo);
+                let back = CascadeChannels8::from_spo(spo);
                 let back_dom = back.dominant_channel();
                 // Channel mapping is many-to-one in the transcoder table; some
                 // dominant channels collapse to the same SPO mantissa slot.
@@ -788,7 +788,7 @@ mod transcoder_tests {
 
     #[test]
     fn test_set_channel_out_of_range_no_op() {
-        let mut e = CausalEdge64::default();
+        let mut e = CascadeChannels8::default();
         e.set_channel(8, 100);
         e.set_channel(255, 50);
         assert_eq!(e.0, 0, "out-of-range set_channel must be a no-op");

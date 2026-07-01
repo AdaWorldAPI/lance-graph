@@ -17,7 +17,7 @@
 //! - Tritone (√2:1) → tension (does not converge)
 //!
 //! Cross-validated against Jina v3 text embeddings (220 calibrated pairs in Upstash).
-//! Bach's 7+1 counterpoint rules = CausalEdge64 7+1 channels = universal structure.
+//! Bach's 7+1 counterpoint rules = CascadeChannels8 7+1 channels = universal structure.
 
 /// The 17 QPL dimensions, in canonical order.
 /// Each maps to a specific convergence observable.

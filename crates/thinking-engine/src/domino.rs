@@ -6,7 +6,7 @@
 //! ```text
 //! Q1 = perturb(tokens)       → 3σ top-K focus
 //!   context = full row        → NARS truth filter (freq, conf)
-//!   promoted + contradicts    → CausalEdge64
+//!   promoted + contradicts    → CascadeChannels8
 //! V1 = focus + promoted       → feed as Q2
 //! Q2 = V1 survivors           → 3σ top-K focus
 //!   ...cascade until NARS confidence saturates
@@ -17,7 +17,7 @@
 //! the few genuinely strong connections per row.
 
 use crate::engine::ThinkingEngine;
-use crate::layered::CausalEdge64;
+use crate::layered::CascadeChannels8;
 
 // Bach counterpoint channel indices
 pub const CH_BECOMES: u8 = 0; // voice crossing — identity shifts
@@ -87,7 +87,7 @@ pub struct StageResult {
 pub struct Transition {
     pub from_atom: u16,
     pub to_atom: u16,
-    pub edge: CausalEdge64,
+    pub edge: CascadeChannels8,
     pub dissonance: f32, // 0.0 = consonant, 1.0 = fully dissonant
 }
 
@@ -131,7 +131,7 @@ pub fn classify_transition(
         1.0
     };
 
-    let mut edge = CausalEdge64::new();
+    let mut edge = CascadeChannels8::new();
 
     if above_floor > 0.8 {
         // Very similar: parallel motion (SUPPORTS)

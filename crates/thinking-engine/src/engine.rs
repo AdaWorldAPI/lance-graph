@@ -123,7 +123,7 @@
 //!   CAUSE: Contradicting attractors of equal strength
 //!   FIX 1: This IS the 7+1 contradiction signal — use it, don't suppress it
 //!   FIX 2: Increase max_cycles (10 → 20)
-//!   FIX 3: Check if CausalEdge64 CONTRADICTS channel resolves it at L2
+//!   FIX 3: Check if CascadeChannels8 CONTRADICTS channel resolves it at L2
 //!
 //! SYMPTOM: f32 precision insufficient (energy values collapse to 0)
 //!   CAUSE: 4096 atoms × 10 cycles, normalization kills small values

@@ -1,3 +1,38 @@
+## 2026-07-01 — E-CE64-NAME-COLLISION-DEDUP — thinking-engine's local 8-channel `CausalEdge64` shadowed the canonical `causal_edge::CausalEdge64` in the same file; renamed to `CascadeChannels8`
+
+**Status:** FINDING `[G]` (coded; `cargo check -p thinking-engine` green
+2026-07-01 on branch `claude/v3-substrate-migration-review-o0yoxv`). First code
+delta of the OSINT-substrate convergence roadmap (see OGAR
+`docs/OSINT-SUBSTRATE-REUSE-MAP.md` P0). Pure rename — zero behavior change.
+
+**The trap.** `crates/thinking-engine/src/layered.rs` defined a *local*
+`pub struct CausalEdge64(pub u64)` — an 8-channel Bach-counterpoint cascade
+accumulator (7 constructive + 1 destructive channel) — while the SAME file
+*also* imports the canonical SPO carrier `use causal_edge::CausalEdge64 as
+SpoEdge`. Two unrelated types shared one name across the crate boundary: the
+local one is a scratch cascade register; the canonical one is the frozen
+64-bit SPO-palette + NARS⟨f,c⟩ + Pearl-mask wire truth. `domino.rs` re-exported
+the local type via `use crate::layered::CausalEdge64`, propagating the shadow.
+A reader (or a future baton-handoff) that saw `CausalEdge64` in this crate could
+not tell which algebra was in scope without chasing the import — a name
+collision that would silently mis-wire the convergence work that leans on the
+canonical edge as the one true causal-distance carrier.
+
+**The fix.** Local type → `CascadeChannels8` (names what it is: 8 packed
+u8 channels). Its `to_spo(s,p,o) -> SpoEdge` collapse and `from_spo` inverse are
+unchanged — they still target the canonical `causal_edge::CausalEdge64` at the
+L3 commit boundary. After the rename the identifier `CausalEdge64` appears in
+thinking-engine ONLY as the canonical type (3 sites: the aliased import, the
+collapse-boundary doc-comment, the round-trip test import). One name, one
+algebra — the precondition for the P1 distance-identity probe
+(`causal_distance ≡ arm-discovery oracle ≡ deepnsm`) to reference an
+unambiguous edge type.
+
+**Cross-ref:** OGAR `docs/OSINT-SUBSTRATE-REUSE-MAP.md` (§ "one causal-distance
+format", P0/P1); `E-CE64-MB-4` (sole-writer invariant on the canonical edge).
+
+---
+
 ## 2026-06-26 — E-V3-BASINS-ARE-MEREOLOGY-NOT-LABELS — the 6 V3 basins (+ relative location) are a structural ADDRESS (mereology / HHTL X;Y coordinates), never flat labels
 
 **Status:** FINDING `[H]` (operator directive 2026-06-26; impl in the FMA-V3 +
