@@ -1,3 +1,61 @@
+## 2026-07-01 — E-RIG-DISCOVERY-MEMBRANE + E-6x2x8-EXACT-CENTROID — two addenda to the V3-stack capstone: rig is the RAG/LLM-API template-discovery membrane; and the 6×(8:8) tenant can double as an exact-centroid distance code
+
+**Status:** ADDENDUM to `E-SPO-2CUBE-GIVES-QUESTIONS-AND-CANDIDATES`
+(operator, 2026-07-01). Part A is a stack correction `[G]` (rig was omitted from
+the capstone's V3 list); Part B is a `[S]` CONJECTURE (operator "theoretically we
+could even…"), a representation option, un-probed.
+
+**A — rig = the discovery membrane (cold path), never the hot path.** The V3
+stack capstone listed five components + OGAR-AST render; it omitted **rig**
+(`AdaWorldAPI/rig`) as the **RAG + LLM-API** layer whose job is **template
+discovery**. The shape: rig retrieves (RAG) + calls an external LLM to *propose*
+templates (ElixirTemplate / thinking-style / OSINT source-ranking); those
+proposals compile down to **deterministic golden-image reflexes**
+(`template-runtime` / `template-equivalence`) that run on the palette substrate
+with **no LLM on the hot path** (matches the crewai-rust "LLM is IN THE LOOP, NOT
+source of truth" doctrine + the Markov blood-brain barrier). So rig sits with
+`spider` + `rs-graph-llm` on the **cold, external, learning** side of the
+membrane — exactly the "external OSINT in step AFTER" the operator gated ("only
+if it works without"). Corrected V3 stack = {AriGraph, CausalEdge, thinking-style,
+rung, OGAR-AST-transpile/ClassView+bitmask+askama} **on the palette**, fed by
+{rig-RAG/LLM, spider, rs-graph-llm} **across the membrane**, templates flowing
+cold→hot as compiled reflexes, edges/awareness flowing hot→cold as witnesses.
+
+**B — 6×2×8bit "exact" centroid (6× palette256²) vs CAM-PQ (6×256).** A distance
+representation option: instead of CAM-PQ's 6 subspaces × 1 byte (nearest of 256
+centroids per subspace, 6-byte code, quantization error), use 6 subspaces × **2
+bytes** — each an `(x:y)` byte-pair indexing a 256×256 palette tile
+(`palette256²`), i.e. a 2D product centroid = 65 536 effective positions per
+subspace = "exact" relative to CAM-PQ's 256. Trade: **12 bytes, exact,
+unified** vs **6 bytes, quantized, separate code**.
+- **The coincidence worth the entry:** the OSINT V3 identity tenant is *already*
+  **6×(8:8)** (12 bytes: HEEL `currentStatus:type`, HIP `militaryUse:civicUse`,
+  …). So the semantic tenant's byte-pairs **are** the 6× palette256² tile
+  coordinates — the named semantic axes double as the exact-centroid distance
+  code. No separate CAM-PQ code needed; the tenant IS the distance carrier.
+- **Preserves the one-distance-format (P1):** distance is still
+  `Σ_subspace palette256²[coord_a][coord_b]`, Pearl-maskable exactly like the 2³
+  decomposition — the 8-questions-from-N-reads amortization
+  (`E-SPO-2CUBE-…`) generalizes from 3 planes to 6 subspaces unchanged.
+- **CAM-PQ stays for *search*** (compressed NN, the smaller 6-byte code); the
+  exact 6×(8:8) form is for the *tenant that is already stored* (no extra bytes —
+  the identity is 12 bytes regardless). Per `I-VSA-IDENTITIES`: CAM-PQ = search,
+  this = the stored identity's own distance; separate tools.
+- **CONJECTURE — needs a probe** (`PROBE-6x2x8-vs-CAMPQ`): fidelity (ρ of the
+  exact 6×palette256² distance vs ground-truth) **and** storage/cache (12 B ×
+  N nodes, 6× 256×256 tables vs CAM-PQ's 6× 256×256 + 6-byte codes) **and**
+  whether the 2D product-centroid actually beats 256 flat centroids on OSINT
+  workloads. Do NOT adopt over CAM-PQ without the probe; recorded as an option,
+  not a decision. Certification-officer / palette-engineer own it.
+
+**Cross-ref:** `E-SPO-2CUBE-GIVES-QUESTIONS-AND-CANDIDATES` (the capstone this
+extends); `E-P1-DISTANCE-IDENTITY-GREEN` (the one-format the exact form must
+preserve); `I-VSA-IDENTITIES` (search vs identity-distance separation); OGAR
+canon §"Tier interpretation — 256×256 CENTROID TILE" (the tile reading this
+builds on).
+
+---
+
 ## 2026-07-01 — E-SPO-2CUBE-GIVES-QUESTIONS-AND-CANDIDATES — the 8 Pearl projections are 8 distinct questions (each with its own candidate answer), computed all-at-once from 3 cached reads; V3 stack capstone
 
 **Status:** FINDING `[G]` (coded; `cargo test --manifest-path
