@@ -1,5 +1,44 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-01 — ISS-Q2-CPIC-MIRROR-DIVERGES-FROM-CPIC-V3-REGISTRY — q2's local `cpic::NodeGuid` mirror is V1-layout-parity-true but diverges from the registered CPIC-V3 read-mode on BOTH domain and tail shape
+
+**Status:** OPEN (record-only; resolve WITH the operator — q2 is push-gated and
+cross-repo blockers are never silently fixed). Owner: q2 `cpic/src/lib.rs` +
+`lance-graph-contract::canonical_node` (CPIC-V3 registry). Surfaced 2026-07-01
+by a verify-the-mirror read after the V3 tenant-carve certification.
+
+**Ground truth (read, not grepped).** q2 `cpic/src/lib.rs`:
+- `NodeGuid::mint(classid, part[3], isa[3], family, identity)` builds
+  HEEL/HIP/TWIG as `(part<<8)|isa` — the V3 `(part_of:is_a)` 8:8 tile. ✓ canon.
+- `key16()` packs `classid·heel·hip·twig·family(u24)·identity(u24)` LE —
+  **byte-identical to the contract's V1 layout** (its parity doc-comment is
+  TRUE at the byte-order level). But that is the **V1 tail**, not the V3
+  (`leaf·family·identity` 3×u16) tail the registry's
+  `ReadMode::CPIC_V3.tail_variant = V3` reads.
+- classids are `0x000C_0001..0x000C_0006` (`CID_GENE..CID_REC`) — domain
+  **`0x0C`**, NOT the operator-allocated Genetics `0x0E`
+  (`CLASSID_CPIC_V3 = 0x1000_0E00`), and no `0x1000` V3 gen-marker.
+
+**So:** V3 *tiles* on a V1 *tail* under an unregistered *domain* — three
+divergences from the wired CPIC-V3 read-mode. A bake produced with this mirror
+will not resolve to `ReadMode::CPIC_V3` (falls to `ReadMode::DEFAULT`) and its
+tail bytes read differently under the registry's V3 lens.
+
+**Stale-brief correction (same sweep):** `soa-value-tenant-migration-v1.md`
+§2.5's blocker — "q2 `osint-bake/fma.rs` calls `NodeGuid::new_v2(...)`, a
+7-group API that does **not** exist" — is stale on both halves: `new_v2` DOES
+exist (7 groups, feature `guid-v2-tail`, shipped + matrix-tested), and no
+`new_v2` call site exists in q2 today (grep: only `cpic::NodeGuid::mint`).
+
+**Resolution paths (operator decision):** (a) q2 cpic re-mints via the
+contract's `mint_for(classid_read_mode(CLASSID_CPIC_V3).tail_variant, …)`
+pull (consumer-preflight shape — pull, never mirror); (b) the registry gains
+the `0x0C` pharmacogenomics classids q2 actually minted; or (c) the q2 POC is
+declared registry-exempt (bake-only) and its parity comment is scoped to
+"V1 byte layout" explicitly. No action taken pending direction.
+
+---
+
 ## 2026-07-01 — ISS-OSINT-SYSTEM-ROOT-SLOT-VIOLATION — OGAR shipped `osint_system` at the reserved `0x0700` root slot; the lance-graph mirror canon forbids it (`CC==0x00` = domain root, reserved) — the parallel-mirror is BLOCKED on a remap decision
 
 **Status:** OPEN · **BLOCKS `ISS-OGAR-OSINT-MIRROR-PENDING`.** Owner: OGAR `ogar-vocab` (merged, needs follow-up) + `lance-graph-contract::ogar_codebook` mirror + q2 `osint_classview`. Surfaced 2026-07-01 when the merged OGAR #145 + lance-graph #624 met and I ran `cargo test -p lance-graph-contract`.
