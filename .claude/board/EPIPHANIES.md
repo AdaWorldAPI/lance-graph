@@ -1,3 +1,43 @@
+## 2026-07-01 — E-RENDER-IS-CLASS-BITMASK-ASKAMA-NOT-SEMIRING — the view/attention side is `class + bitmask + askama` (Redmine ERB over AR), NOT semiring algebra; it lives in the non-frozen `0x1000` app prefix
+
+**Status:** DOCTRINE (operator, 2026-07-01: "we don't want semiring, we use
+classes and bitmask and askama (redmine ERB pattern) … the 1000 non-frozen later
+gets more complicated because it adapts the askama SoA view (implicit focus of
+attention)").
+
+**The split.**
+- **Frozen concept (lo u16, e.g. `0x0701`)** = the shared **Active Record class
+  identity**. A class is just a class (Redmine `Issue`/`Project`/`User` shape);
+  the domain prefix is namespacing, nothing to philosophize about. Frozen,
+  cross-app, RBAC+ontology.
+- **Non-frozen app prefix (hi u16, e.g. `0x1000`)** = the **render / view** side,
+  which "adapts the askama SoA view." This is where the complexity accretes
+  *later*, per-app, and it is NOT the concept.
+
+**The render mechanism — NO semiring.** View/attention is:
+`classid → ClassView (the AR class) → bitmask (the implicit focus of attention:
+which SoA value-tenant columns render/attend) → askama template (Redmine-ERB over
+the AR model)`. The **bitmask is the focus-of-attention selector**; askama is the
+ERB view; the class is the model. No semiring algebra on this path — the AGI-glove
+render surface is `class + bitmask + askama`, not `Σ`.
+
+**Consequences.**
+- The 36-semiring machinery (`docs/SEMIRING_ALGEBRA_SURFACE.md`) is NOT the render
+  path. Do not reach for a semiring to select/compose *view fields* — that's the
+  bitmask + askama job.
+- The bitmask = the `ClassView` field-mask over the SoA value tenants (the "focus
+  of awareness" from `E-SPO-2CUBE-…` / the AGI-glove `MetaColumn`), consumed by an
+  askama template per app prefix.
+- The immediate `osint_system 0x0700 → 0x0702` fix is a **frozen-concept lo-u16
+  slot** correction (a class needs a non-root id) — entirely orthogonal to this
+  render-side doctrine; the askama/bitmask complexity is the `0x1000` side, later.
+
+**Cross-ref:** `E-SPO-2CUBE-GIVES-QUESTIONS-AND-CANDIDATES` (bitmask = focus);
+OGAR `docs/OSINT-SUBSTRATE-REUSE-MAP.md` (ClassView + askama-ERB transfer stack);
+`ISS-OSINT-SYSTEM-ROOT-SLOT-VIOLATION` (the frozen-side id fix).
+
+---
+
 ## 2026-07-01 — E-OGAR-LANCEGRAPH-MOVE-IN-PARALLEL — OGAR + lance-graph are one coupled pair moved together every session; the `COUNT_FUSE` is the intentional dependency contract that enforces it (NOT a break to engineer away)
 
 **Status:** DOCTRINE (operator, 2026-07-01: "every session needs to move OGAR and
