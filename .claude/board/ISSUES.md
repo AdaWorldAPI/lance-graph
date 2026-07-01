@@ -1,5 +1,20 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-01 — ISS-OGAR-OSINT-MIRROR-PENDING — OGAR #145's OSINT mint (+2 to `class_ids::ALL`) breaks the contract-mirror `COUNT_FUSE` on merge; the paired lance-graph mirror rows must land in the same arc
+
+**Status:** OPEN (tracked) · Owner: OGAR `ogar-vocab` (PR #145) + `lance-graph-contract::ogar_codebook` mirror + `lance-graph-ogar::parity::domains_agree`. Surfaced 2026-07-01 while self-reviewing PR #624 / #145. Same cross-repo-arc shape as `ISS-OGAR-AUTH-MIRROR-DRIFT` (which took medcare CI red) and `ISS-OGAR-GENETICS-MIRROR-PENDING`; cited by `E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC`.
+
+**The break.** OGAR PR #145 mints `osint_system` (0x0700) + `osint_person` (0x0701) into `ogar_vocab::class_ids::ALL` (+2). `lance-graph-ogar` pins `ogar-vocab = { git = ".../OGAR", branch = "main" }` (tracks main, NOT a rev), and carries the compile-time `COUNT_FUSE`: `assert!(mirror::CODEBOOK.len() == ogar_vocab::class_ids::ALL.len())` (`lance-graph-ogar/src/lib.rs:119`). The contract mirror `lance-graph-contract::ogar_codebook::CODEBOOK` currently has **65 rows with NO osint entries** (it reserved `ConceptDomain::Osint` + the `0x07 => Osint` route + a domain-nibble test, but not the two concept rows). So **the instant #145 merges to OGAR main, `COUNT_FUSE` fires `error[E0080]` in every consumer vendoring `lance-graph-ogar`** — medcare, smb, woa, etc.
+
+**Why the mirror rows can't just be added to PR #624 now.** #624's `lance-graph-ogar` compiles against OGAR **main**, which still has 65 (osint mint is unmerged on #145). Adding +2 to the mirror now → mirror 67 vs OGAR-main 65 → breaks #624's OWN CI. The two sides are chicken-and-egg across the `branch = "main"` tracking.
+
+**Resolution (coordinated arc, per the auth precedent):** land in lock-step —
+1. OGAR #145 merges to OGAR main (ALL → 67); **at this moment lance-graph main's `COUNT_FUSE` goes red** (known transient, as with the auth mint).
+2. Immediately merge a lance-graph change adding the 2 osint rows to `ogar_codebook::CODEBOOK` (`("osint_system", 0x0700)`, `("osint_person", 0x0701)`) + the `(O::Osint, C::Osint)` arm to `lance-graph-ogar::parity::domains_agree` → 67 == 67 restored.
+   - The `ConceptDomain::Osint` enum + `0x07 => Osint` route already exist in the mirror, so only the 2 CODEBOOK rows + the `domains_agree` arm are missing.
+
+**Merge-ordering decision needed from operator:** whether to (a) merge #145 + the mirror follow-up back-to-back accepting the brief transient red, (b) hold #145 until the mirror PR is staged, or (c) pin `lance-graph-ogar` to a rev instead of `branch = "main"` to decouple the cadence. Flagged to the operator 2026-07-01.
+
 ## 2026-06-26 — ISS-OGAR-GENETICS-MIRROR-PENDING — contract mirror gained `ConceptDomain::Genetics` (0x0E) ahead of OGAR; the `domains_agree` arm + OGAR side follow
 
 **Status:** OPEN (tracked) · Owner: OGAR `ogar-vocab` + `lance-graph-ogar` · Surfaced by: CodeRabbit on #618. The same cross-repo-arc shape as `ISS-OGAR-AUTH-MIRROR-DRIFT` / `E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC`, but **domain-only** so it does not break in isolation.
