@@ -108,7 +108,7 @@ hack the adapter. Bucket 3 is where the Core *grows*; buckets 1–2 are where it
 
 ## The ordering rule
 
-```
+```text
 harvest DO residue
    → is the shape order-varying?           yes → BUCKET 1: canonicalize, re-triage
    → does a standard pattern anticipate it? yes → BUCKET 2: import DTO + swiss-knife

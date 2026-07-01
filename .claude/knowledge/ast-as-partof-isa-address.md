@@ -181,8 +181,9 @@ archive, cross-referenced below, never embedded here):
 1. **The naive 6-tier `(part_of:is_a)` mint was falsified at scale.** A packing
    that maps each concept into a fixed 6-tier `(hi:lo)` cascade *truncates* a
    large fraction of a real corpus and *collides* on god-classes (a WinForms
-   god-class with hundreds of members does not fit six 8-bit tiers). "2 MB" is
-   not reachable by naively bit-packing whatever the harvest emits.
+   god-class exceeds the fixed per-tier 256-cap / 6-tier budget, so the naive
+   packer truncates and collides instead of rerouting). "2 MB" is not reachable
+   by naively bit-packing whatever the harvest emits.
 2. **`mint_factored` (base-255 positional path + `is_a`-from-`inherits`-only) is
    the corrected minter** — it drives collisions **and** truncation to 0 by
    construction, because the path is positional (not a fixed-width bitfield) and
