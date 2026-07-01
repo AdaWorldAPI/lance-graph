@@ -1,3 +1,50 @@
+## 2026-07-01 — E-CLASSID-HUMANREADABLE-REORDER-DEFERRED — the classid field reorder to human-readable `0x07:01::1000` is a DELIBERATE post-V3 step; the little-endian stored form is the contract P1–P5 are built on — HANDS OFF until deliberately triggered
+
+**Status:** LOCK / DEFERRED-BY-DESIGN (operator, 2026-07-01). Both facts below
+are **correct**; the presentation reorder is **postponed on purpose**, not an
+omission to fix. Guards against a future session / CodeRabbit / codex
+"helpfully" reversing the byte order mid-chase.
+
+**The semantic fields (operator-confirmed).** The classid decomposes as
+**`(V3-substrate 0x1000)(domain 0x07)(app_prefix 0x01)`**. So in the current
+`0x1000_0701`: hi-u16 `0x1000` = the **V3-substrate prefix** (the leading `1` is
+the brute-force V3-format signal — NOT an app), and the low-u16 `0x0701` is
+**`domain : app_prefix` = `0x07 : 01`** (OSINT domain, app-prefix 01). This
+low-u16 is the **64k dynamic-class space** — 256 domains × 256 app-classes, each
+resolving to a **ClassView**, modulated by the **bitmask** (focus of awareness).
+> Correction of my earlier framing: I had called `0x1000` "q2's APP_PREFIX" and
+> `0x0701` "the osint_person concept" — both wrong. `0x1000` is the V3 substrate
+> marker; the concept split is `domain:app`, not a flat concept.
+
+**Why it is DEFERRED (the load-bearing part).** The human-readable form is
+**`0x07:01::1000`** (`domain:app_prefix::v3-substrate`). Applying that reorder
+now would **destroy the little-endian byte contracts** the V3 substrate is
+chasing (cf. lance-graph `CLAUDE.md` CANON — the 16-byte key is explicitly
+**little-endian**; `classid` is bytes 0..4 LE). P1–P5 and every codebook row are
+built against the **current stored `0x1000_0701` LE form**. So the reorder was
+**postponed until the V3 substrate was nailed** (the P-probes), on purpose, and
+stays deferred until the operator deliberately triggers it as its own step.
+
+**Consequences (hands-off list).**
+- **Do NOT** reorder classid bytes, "fix" `0x1000` → domain-first, or rewrite the
+  OGAR codebook rows (`osint_system 0x0700` / `osint_person 0x0701`) toward the
+  human-readable form. They are correct in the current LE contract.
+- The **human-readable `0x07:01::1000`** is a *display/API* projection to be
+  authored later, as a deliberate reorder step — NOT a storage change.
+- `ISS-OGAR-OSINT-MIRROR-PENDING` (the `COUNT_FUSE` row-count arc) is
+  **orthogonal** to this — it's about how many rows exist, not their byte order —
+  and still stands.
+- When the reorder IS triggered post-V3, it gets its own arc + probe (round-trip
+  LE-stored ↔ human-readable) so the LE contract is preserved end-to-end.
+
+**Cross-ref:** lance-graph `CLAUDE.md` CANON (LE 16-byte key);
+`ISS-OGAR-OSINT-MIRROR-PENDING`; OGAR canon §"THE CANONICAL GUID". Operator
+directive 2026-07-01 ("1 is correct but we postponed until V3 substrate was
+nailed … 2 is also correct it's just deferred … later human readable
+`0x07:01::1000`").
+
+---
+
 ## 2026-07-01 — E-SUBSTRATE-IS-DEEPNSM-PLUS-OGAR — the substrate IS a Semantic Transformer (deepnsm) + a transpiler (OGAR); the convergence probes are the de-blackboxing of the accumulated-wishlist entropy
 
 **Status:** STRATEGIC FRAME (operator, 2026-07-01: "in the end we're sitting on a
