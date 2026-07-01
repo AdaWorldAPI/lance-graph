@@ -1,3 +1,60 @@
+## 2026-07-01 — E-RUNG-LADDER-IS-A-DEPENDENCY-STACK — the 0–9 `RungLevel` ladder gates higher reasoning on grounded lower rungs; the P1–P5 probes are exactly the per-rung capabilities
+
+**Status:** FINDING `[G]` (operator directive 2026-07-01: "the 1-9 rung ladder
+exists to make higher reasoning depending on observations, hypothesis testing
+with counterfactual on top"). Grounds in shipped code:
+`lance_graph_contract::cognitive_shader::RungLevel` (canonical; mirrored in
+`thinking-engine::cognitive_stack::RungLevel`).
+
+**The ladder (contract, 0..9).** `0 Surface` (literal/immediate = observation) ·
+`1 Shallow` (simple inference) · `2 Contextual` · `3 Analogical` · `4 Abstract` ·
+`5 Structural` (schema) · `6 Counterfactual` (what-if) · `7 Meta` (reasoning
+about reasoning) · `8 Recursive` · `9 Transcendent`.
+
+**The invariant (why it's a stack, not a menu).** A rung's answer is only valid
+resting on the rungs below it — you cannot answer a rung-N question with only
+rung-(N-1) evidence (Pearl's ladder, generalized to 10 levels). The mechanism is
+in the contract: `ShaderDispatch.rung` **"elevates on sustained BLOCK"** — the
+cycle starts at `Surface` (cheapest, observation-only) and climbs **bottom-up**
+only when the collapse gate cannot resolve at the current depth. So
+`Counterfactual` (6) is reached *after* the observation (0–1) and
+hypothesis-forming (2–5) rungs are grounded — "counterfactual on top,"
+literally. Meta/Recursive/Transcendent (7–9) then reason *about* that.
+
+**The P1–P5 probes ARE the per-rung capabilities — read as a ladder climb:**
+- **Observation rungs (0–1)** ← **P1**: one integer-exact palette distance is the
+  literal/immediate comparison every higher rung reads.
+- **Hypothesis rungs (2–5)** ← **P3** (Pearl `PO` = do-calculus intervention,
+  Subject confounder projected out) + **P4** (ARM discovery = deterministic
+  hypothesis *generation* off the same palette).
+- **Counterfactual rung (6)** ← **P3** (full `SPO` mask = Pearl Level-3) + **P5**
+  (`syllogize` multi-hop deduction chains) — what-if reasoning composed on top.
+- The **D-ARM-7 Jirak floor** (`I-NOISE-FLOOR-JIRAK`, jc Pillar 5) is precisely
+  the *stack guard*: a mined rule (rungs 2–4) must not be promoted to a
+  counterfactual (rung 6) claim without enough observation evidence to clear the
+  weak-dependence noise floor. The gate enforces the ladder's dependency.
+
+**Consequence for the runtime probes (P6–P9).** The "static convergence" (P1–P5)
+proved the palette is one metric for each rung's *operation*; the runtime half is
+the *elevation dynamics*. **P6 (awareness rollover) IS the rung-elevation
+mechanism** — sustained BLOCK carried across cycles in the MailboxSoA `MetaWord`
+awareness bits is what pushes `rung` up the ladder. So P6 is not just "does
+awareness persist" — it is "does unresolved surprise climb the ladder toward
+counterfactual, and rest back down when resolved." Design P6 to assert the
+elevation order (Surface → … → Counterfactual on sustained BLOCK; descend on
+FLOW), not merely bit persistence.
+
+**Tech-debt flagged.** `RungLevel` is duplicated verbatim in `thinking-engine`
+(no `lance-graph-contract` dep) — same anti-pattern as `E-CE64-NAME-COLLISION-DEDUP`.
+Canonical is the contract; dedup when thinking-engine takes the contract dep
+(deferred — cross-crate dep addition, not a local rename). Logged in TECH_DEBT.
+
+**Cross-ref:** `E-P5-SYLLOGIZE-GREEN` … `E-P1-DISTANCE-IDENTITY-GREEN` (the rung
+capabilities); `I-NOISE-FLOOR-JIRAK` (the stack guard); OGAR
+`docs/OSINT-SUBSTRATE-REUSE-MAP.md` (probe ladder).
+
+---
+
 ## 2026-07-01 — E-P5-SYLLOGIZE-GREEN — NAL transitive deduction on the palette edge: `is_a(A,B)∧is_a(B,C) ⊢ is_a(A,C)`, integer-exact
 
 **Status:** FINDING `[G]` (coded; `cargo test --manifest-path
