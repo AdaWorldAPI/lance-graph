@@ -415,10 +415,21 @@ because at that layer it is all the same `Model`/ClassView keyed by GUIDs.
 **Remaining open bricks (post-brick-3):**
 
 - **Re-fetch pass** against the moved-forward public `ruff` (`origin/main`
-  `b459ec3`+): diff current `ruff_spo_address` vs the archived snapshot, re-run
-  `medcare_probe` to confirm the numbers on the *current* minter.
-- **Overflow→SoC-reroute automation**: the probe *flags* god-classes; wiring the
-  reroute (split-or-escalate) into the mint pipeline is not yet built.
+  `b459ec3`): diff RAN 2026-07-01 — `lib.rs` is **byte-identical** to the
+  archived snapshot; the forward movement is a **new `soc` module** (below).
+  The `medcare_probe` re-run on the current minter remains blocked on input
+  data (the harvest NDJSON is not in this container).
+- **Overflow→SoC-reroute — classification SHIPPED, reroute execution open.**
+  `ruff_spo_address::soc` now carries the reusable `256-cap-is-a-lint`
+  (`soc_findings` → `SocVerdict::{Duplication, Conflation,
+  DuplicationAndConflation, Counterexample}`, `law_holds` falsifier) promoted
+  from the probe's §[G] check, CI-runnable. Operator refinement recorded there
+  (2026-06-29): the ClassView cascade **shape is class-conditioned, inherited
+  from the class's format** — Rails → `6×2`, other frameworks → `4×3`, the
+  canonical GUID → `3×4` (all `G·D = 12`, 8-bit tiers); never lock one shape.
+  What is still NOT built: *executing* the reroute (the actual SoC split /
+  next-cascade-level escalation) inside the mint pipeline — the lint flags,
+  a human splits.
 - **classid half-order (Canon:Custom)**: still the one open ordering decision;
   orthogonal to per-tier packing, so it did not gate the minter.
 - **LSP serve end** (`ruff-lsp` → lance store): the read surface is still a clean
