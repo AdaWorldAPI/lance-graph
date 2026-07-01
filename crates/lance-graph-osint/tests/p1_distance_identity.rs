@@ -30,15 +30,8 @@ use deepnsm::codebook::{Codebook, NUM_CENTROIDS};
 use lance_graph_arm_discovery::{rule::Item, CodebookDistance, FeatureSpec, MatrixDistance};
 use lance_graph_planner::cache::nars_engine::{SpoDistances, SpoHead};
 
-/// Deterministic PRNG — SplitMix64. No `rand`, no seed entropy; the codebook is
-/// byte-identical on every run and every target.
-fn splitmix64(state: &mut u64) -> u64 {
-    *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-    let mut z = *state;
-    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    z ^ (z >> 31)
-}
+mod common;
+use common::splitmix64;
 
 /// Build a synthetic deepnsm `Codebook` via its `load_binary` path (its only
 /// public constructor keeps `centroids` private). `[6][256][16]` f32 LE =
