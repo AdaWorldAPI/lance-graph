@@ -1,3 +1,36 @@
+## 2026-07-01 — E-P4-DISCOVERY-EDGE-GREEN — the Aerial+ ARM probe joins the palette: deterministic mining → exact ppm → `arm_to_truth_u8` → `CausalEdge64` wire
+
+**Status:** FINDING `[G]` (coded; `cargo test --manifest-path
+crates/lance-graph-osint/Cargo.toml --test p4_discovery_edge` → 3 passed,
+2026-07-01, branch `claude/v3-substrate-migration-review-o0yoxv`). Probe P4;
+extends the P1–P3 convergence onto the *discovery* arm.
+
+**What it proves.** An OSINT dual-use fixture (`militaryUse ⟹ impact`, perfect
+correlation over 1000 rows) mined by `arm-discovery`'s `AerialProposer` over a
+`MatrixDistance` oracle (the same integer palette shape P1 unified):
+1. **Exact integer evidence** — the known rule `militaryUse=yes ⟹ impact=high`
+   is mined with `antecedent_count=500`, `cooccur=500`, `support_ppm=500_000`,
+   `confidence_ppm=1_000_000`. No float in the decision path.
+2. **Determinism** — two mines over freshly-built identical data + θ produce
+   byte-identical `Vec<CandidateRule>` (no seed; the float-free guarantee).
+3. **Edge join** — `arm_to_truth_u8(rule, k=1)` → `TruthU8{255, 254}` (freq=1.0,
+   conf=500·255/501) packs into `CausalEdge64::pack_v2`; the edge's
+   `frequency_u8()/confidence_u8()` equal the mined truth. Discovery output IS
+   the edge wire.
+
+**Why it matters.** P1–P3 closed the distance↔edge↔causality triangle; P4 makes
+*discovery* a fourth vertex on the same palette — mined rules become
+`CausalEdge64`s indistinguishable from hand-authored ones, and the mining is
+reproducible integer-exact. Fence: live-`SpoStore` promotion of mined rules
+stays gated on D-ARM-7 (jc Pillar 5, Jirak noise floor under weak dependence,
+`I-NOISE-FLOOR-JIRAK`); this probe exercises only the in-memory
+mine→truth→edge path. Next: P5 (`syllogize` multi-hop chains).
+
+**Cross-ref:** `E-P2-P3-EDGE-PEARL-GREEN`, `E-P1-DISTANCE-IDENTITY-GREEN`.
+Test: `crates/lance-graph-osint/tests/p4_discovery_edge.rs`.
+
+---
+
 ## 2026-07-01 — E-P2-P3-EDGE-PEARL-GREEN — the `CausalEdge64` carrier and `SpoDistances` engine index one palette and share one 3-bit Pearl mask
 
 **Status:** FINDING `[G]` (coded; `cargo test --manifest-path
