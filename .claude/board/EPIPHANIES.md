@@ -141,6 +141,46 @@ OGAR `docs/OSINT-SUBSTRATE-REUSE-MAP.md` (ClassView + askama-ERB transfer stack)
 `ISS-OSINT-SYSTEM-ROOT-SLOT-VIOLATION` (the frozen-side id fix).
 
 ---
+## 2026-07-01 — E-BRICK3-RAN-TRUNCATION-DISALLOWED — the (part_of:is_a) rank-minter brick-3 RAN; naive 6-tier mint falsified at scale; truncation is DISALLOWED (overflow = SoC-reroute trigger); DO-arm residue triaged into 3 buckets
+
+**Status:** FINDING (brick-3 measured) + DOCTRINE (operator: "truncations were
+disallowed / we introduced bucket overflow with separation of concerns as a
+trigger for rerouting"; the 3-bucket DO triage).
+
+**What ran.** The `ast-as-partof-isa-address.md` "missing brick" (deterministic
+part_of/is_a rank-minter) is no longer missing — public `ruff_spo_address::{mint,
+mint_factored}` shipped and the brick-3 probe RAN against a real C# corpus via
+`ruff_csharp_spo` + `medcare_probe`. Result: the **naive fixed-width 6-tier
+`(part_of:is_a)` packing was falsified at scale** (mass truncation + god-class
+collisions); **`mint_factored`** (base-255 positional path +
+`is_a`-from-`inherits`-only) drives truncation AND collisions to 0. The
+proprietary measured numbers live ONLY in the private MedCare-rs
+`.claude/archive/ruff-spo-address-medcare-probe/` (MedCare-rs is private;
+lance-graph + ruff are not) — this board records the design consequence, never
+the numbers.
+
+**The doctrine (operator).** Truncation is **disallowed by policy** — not
+"reduced by a bigger packer." A bucket that exceeds capacity (256-cap or 6-tier
+depth) neither truncates nor field-widens: **the overflow itself is the
+separation-of-concerns REROUTE trigger** — split the god-class into sub-concerns,
+or escalate to the next cascade level. This is the OGAR `256-cap-is-a-lint` law
+made operational (`scale = the next cascade level, never field-widening`, OGAR
+#130/#140). Division of labour: `mint_factored` = addressing precision;
+overflow→SoC-reroute = structure.
+
+**DO-arm triage (operator, new doc).** The behavioural residue after the THINK
+arm partitions into 3 buckets: (1) **fuzzy/order-varying** → canonicalize first,
+re-triage; (2) **anticipated standard DO** → ontologically-shaped landing zone,
+do ONCE as DTO adapter + codebook swiss-knife (`open`/`filter`/`reorder`/
+`apply_mask`); (3) **truly random** → hand-port, partially inventing new standard
+interfaces so recurrences graduate to bucket 2. Refines OGAR's 85/15 split. Gap:
+the DO extractor (`ruff_python_dto_check`) is **Python-only** — no C#/C++ DO
+harvester yet. Full doc: `.claude/knowledge/do-arm-triage-3-bucket.md`.
+
+**Docs updated in this arc:** `ast-as-partof-isa-address.md` (Status →
+PARTIALLY MEASURED; headline section rewritten with measured design consequence;
+"missing brick" → "brick that ran"; Next-bricks checkmarked + re-fetch/reroute-
+automation/LSP open bricks), new `do-arm-triage-3-bucket.md`.
 
 ## 2026-07-01 — E-OGAR-LANCEGRAPH-MOVE-IN-PARALLEL — OGAR + lance-graph are one coupled pair moved together every session; the `COUNT_FUSE` is the intentional dependency contract that enforces it (NOT a break to engineer away)
 
