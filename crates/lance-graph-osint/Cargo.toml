@@ -41,3 +41,6 @@ default = []
 spider-crawl = ["dep:spider", "dep:tokio"]
 
 [dev-dependencies]
+# P1 convergence probe: the third distance source (discovery oracle) —
+# proves SpoDistances (planner) ≡ MatrixDistance (arm-discovery) on one palette.
+lance-graph-arm-discovery = { path = "../lance-graph-arm-discovery" }

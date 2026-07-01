@@ -1,3 +1,41 @@
+## 2026-07-01 — E-P1-DISTANCE-IDENTITY-GREEN — the V3 "one causal-distance format" claim holds against shipped code: deepnsm f32 → one palette → nars_engine u16 ≡ arm-discovery u32, byte-exact
+
+**Status:** FINDING `[G]` (coded; `cargo test --manifest-path
+crates/lance-graph-osint/Cargo.toml --test p1_distance_identity` → 2 passed,
+2026-07-01, branch `claude/v3-substrate-migration-review-o0yoxv`). The keystone
+probe P1 of the OSINT-substrate convergence roadmap (OGAR
+`docs/OSINT-SUBSTRATE-REUSE-MAP.md`).
+
+**What it proves.** Three real distance sources, driven off ONE table:
+`deepnsm::codebook::Codebook::subspace_distance_table(s)` (256×256 f32 squared
+L2, THE source) → a fixed quantizer → the u16 V3 palette → read by both integer
+consumers: `SpoDistances::s_dist` (planner `nars_engine`) and
+`MatrixDistance::distance` (arm-discovery oracle, single 256-cardinality
+`FeatureSpec` so `code(c)==c`). For 4096 deterministic index pairs (SplitMix64,
+no seed entropy): (i) `nars.s_dist(a,b) as u32 == arm.distance(a,b)` — the two
+independently-authored lookup formulas agree byte-for-byte; (ii) both equal the
+quantized deepnsm entry — the engine table IS the quantized deepnsm subspace
+table, not an independent one; (iii) symmetry survives quantization. A second
+test pins `causal_distance(mask=0b111) == s_dist+p_dist+o_dist` (the `SpoHead`
+entry point → the 8 Pearl projections' composition).
+
+**Why it matters.** This is integer-exact convergence: the *only* float is the
+deepnsm source, collapsed by the quantizer before either consumer sees it (the
+"f32 NARS edge" the roadmap allows). The two integer engines are now provably
+one metric — if a future edit flips a lookup to col-major, changes the feature
+offset, or re-bakes the palette from a different codebook, P1 goes red. This is
+the precondition for P2–P3 (edge round-trip, Pearl ladder) and for wiring the
+per-plane palette as the single distance the ARM discovery / style-weighting /
+kanban-gate paths share. deepnsm already ships the 6×256 (`[u8;6]`) CAM-PQ
+shape, so no deepnsm re-bake was needed — the "fix deepnsm→6×(8:8)" the roadmap
+hedged on was already done upstream.
+
+**Cross-ref:** `E-CE64-NAME-COLLISION-DEDUP` (P0, the edge-type dedup this rests
+on); OGAR `docs/OSINT-SUBSTRATE-REUSE-MAP.md` (§ "one causal-distance format",
+P1 keystone). Test: `crates/lance-graph-osint/tests/p1_distance_identity.rs`.
+
+---
+
 ## 2026-07-01 — E-CE64-NAME-COLLISION-DEDUP — thinking-engine's local 8-channel `CausalEdge64` shadowed the canonical `causal_edge::CausalEdge64` in the same file; renamed to `CascadeChannels8`
 
 **Status:** FINDING `[G]` (coded; `cargo check -p thinking-engine` green
