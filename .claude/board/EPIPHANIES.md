@@ -1,3 +1,55 @@
+## 2026-07-01 — E-RIG-ARIGRAPH-FEEDBACK-LAYERING — the rig / rs-graph-llm / surrealdb / AriGraph-V3 stack is a hot-loop + cold-projection split, not an OR; the feedback round-trip is UNTESTED (blocked P9-class)
+
+**Status:** DECISION + honest gap (operator, 2026-07-01: "rs-graph-llm on top,
+rig on top of surrealdb on kv-lance OR lancedb / or rig as LLM API in rs-graph-llm
+feeding back akin to AriGraph using our AriGraph V3 — we didn't test it yet").
+Grounded in shipped-code reality (grep 2026-07-01), not doctrine alone.
+
+**On-disk maturity (what settles the "OR").**
+- `rs-graph-llm/graph-flow-action-ogar` — **SHIPPED**: bridges graph-flow → OGAR
+  *Do* arm via `lance_graph_contract::{action, kanban::ExecTarget, rbac,
+  mul::GateDecision}`, contract-only ("no second lance-graph-contract in the
+  graph"). The orchestration↔OGAR seam exists.
+- **AriGraph V3** — **COMMIT CONTRACT, round-trip untested**: named as terminus
+  everywhere (`kanban.rs` "calcify: commit to Lance SPO-G + AriGraph pointer";
+  CausalEdge temporal = "AriGraph anchor"; `witness_table` crystallisation), but
+  agent-output → commit → readable-next-cycle is defined, not exercised.
+- **rig** — **NOT wired** into rs-graph-llm anywhere yet.
+- **surrealdb kv-lance** — **SCAFFOLD**: 8 open `TODO(lance-integration)` sites;
+  not load-bearing.
+
+**Decision — it is a layering, not an OR.**
+- **Hot reasoning path (Option 2, doctrine-aligned + most-scaffolded):**
+  rs-graph-llm (replayable orchestration) drives graph-flow; **rig is the cold
+  LLM membrane** it calls for discovery/proposal; **AriGraph V3 is the thinking
+  tissue** the loop reads+writes (SoA palette tenant + CausalEdge commit +
+  witness crystallisation). "Memory wired INTO the struct, not called FROM it";
+  "orchestration IS graph traversal." rig/spider/rs-graph-llm stay on the cold
+  external side of the Markov membrane (cf. `E-RIG-DISCOVERY-MEMBRANE`).
+- **Cold persistence projection (Option 1, beside not between):** AriGraph V3
+  *tombstones to* Lance SPO-G; a query surface reads that same store. Use
+  **lancedb NOW** (kv-lance has 8 TODOs — do not bet the loop on it yet);
+  surrealdb-on-kv-lance becomes the SurrealQL surface once its integration lands.
+  surrealdb sits *beside* the loop as the query surface, **never between** the
+  agent and its memory.
+
+**The untested thing (operator's flag, made precise).** The **feedback
+round-trip**: (mock-)rig output → `CausalEdge64`/SPO → committed to AriGraph V3 →
+readable next cycle → reshapes free-energy. `PROBE-RIG-ARIGRAPH-FEEDBACK`:
+stub the LLM (deterministic, no network — same pattern as template-runtime stub
+actions), assert the committed edge is read back and moves `F` on the next cycle.
+**Blocker (P9-class):** `graph-flow-action-ogar` is contract-only, so it can test
+the *decision* half (`ActionInvocation → GateDecision(FLOW)`) today, but the
+*commit* half (real AriGraph V3 write-back) needs lance-graph core (protoc),
+unwired into any testable OSINT/graph-flow crate. Testing only the decision half
+and calling it "the loop" would be a manufactured green — do NOT.
+
+**Cross-ref:** `E-RIG-DISCOVERY-MEMBRANE` (rig = cold membrane); `E-RUNG-LADDER-IS-A-DEPENDENCY-STACK`
++ P6 (awareness rollover = the elevation this loop drives); the P9 hot/cold
+blocker (arigraph feature off in `lance-graph-osint`). Same wiring milestone.
+
+---
+
 ## 2026-07-01 — E-RIG-DISCOVERY-MEMBRANE + E-6x2x8-EXACT-CENTROID — two addenda to the V3-stack capstone: rig is the RAG/LLM-API template-discovery membrane; and the 6×(8:8) tenant can double as an exact-centroid distance code
 
 **Status:** ADDENDUM to `E-SPO-2CUBE-GIVES-QUESTIONS-AND-CANDIDATES`
