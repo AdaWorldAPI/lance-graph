@@ -30,6 +30,21 @@ tail bytes read differently under the registry's V3 lens.
 exist (7 groups, feature `guid-v2-tail`, shipped + matrix-tested), and no
 `new_v2` call site exists in q2 today (grep: only `cpic::NodeGuid::mint`).
 
+**CORRECTION (2026-07-01, same session — the previous paragraph's second half
+is WRONG; truncated-grep error, head_limit cut before osint-bake):** q2
+`osint-bake` DOES call `new_v2` — `crates/osint-bake/src/lib.rs:606` mints the
+classid-`0x0700` OSINT rows via `NodeGuid::new_v2(NodeGuid::CLASSID_OSINT, …)`
+(also `:745`), and it imports the REAL contract
+(`use lance_graph_contract::canonical_node::{NodeGuid, classid_read_mode}`) —
+no mirror in osint-bake; only `cpic` carries the local mirror. What stands:
+the brief's "API does not exist" half is stale (`new_v2` exists and q2 links
+it fine). NEW observation for the same operator decision: osint-bake's OSINT
+rows mint a **V2 tail** directly (`new_v2`) for legacy `CLASSID_OSINT`, whose
+registered read-mode is `tail_variant = V1` — the known per-classid-legacy-tail
+pending noted in `ReadMode::DEFAULT`'s docs, while its FMA bins already use the
+sanctioned `mint_for(classid_read_mode(c).tail_variant, …)` dispatch. The V3
+class `CLASSID_OSINT_V3 = 0x1000_0700` exists precisely for that migration.
+
 **Resolution paths (operator decision):** (a) q2 cpic re-mints via the
 contract's `mint_for(classid_read_mode(CLASSID_CPIC_V3).tail_variant, …)`
 pull (consumer-preflight shape — pull, never mirror); (b) the registry gains
