@@ -2297,6 +2297,119 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "guid-v3-tail")]
+    #[test]
+    fn osint_v3_cognitive_tenant_carve_field_isolation_matrix() {
+        // Phase-2 seam (the CPIC doc's "Phase 2 shapes the V3 tenants … on top"):
+        // a V3 node's VALUE side is the tenant carve its registry read-mode names.
+        // The V3 exemplar OSINT-V3 resolves to ValueSchema::Cognitive — the
+        // AriGraph-hot set the mailbox SoA view reads (Meta/Energy/EntityType are
+        // the `meta_raw`/`energy`/`entity_type` columns of
+        // `crate::soa_view::MailboxSoaView`; EntityType IS the `class_id` alias).
+        // The I-LEGACY mandatory field-isolation matrix existed only for the
+        // Kanban tenant (kanban_tenant_round_trip_and_field_isolation); this
+        // extends it to EVERY tenant of the Cognitive carve: writing one tenant's
+        // byte lane changes NO byte outside it, and never touches key or edges.
+        // Nothing invented — key minted by registry dispatch (`mint_for`), lanes
+        // read from the compile-asserted `ValueTenant` carve.
+
+        // (1) Registry says: OSINT-V3 = {V3 tail, Cognitive value, CoarseOnly edges}.
+        let rm = classid_read_mode(NodeGuid::CLASSID_OSINT_V3);
+        assert_eq!(rm.value_schema, ValueSchema::Cognitive);
+
+        // (2) Pin the carve: exactly the 7 hot tenants, none of the codec residues.
+        let hot = [
+            ValueTenant::Meta,
+            ValueTenant::Qualia,
+            ValueTenant::Fingerprint,
+            ValueTenant::Energy,
+            ValueTenant::Plasticity,
+            ValueTenant::EntityType,
+            ValueTenant::Kanban,
+        ];
+        for t in hot {
+            assert!(rm.value_schema.has(t), "Cognitive materialises {t:?}");
+        }
+        for t in [
+            ValueTenant::MaterializedEdges,
+            ValueTenant::HelixResidue,
+            ValueTenant::TurbovecResidue,
+        ] {
+            assert!(!rm.value_schema.has(t), "Cognitive must NOT carry {t:?}");
+        }
+        assert_eq!(rm.value_schema.field_mask().count() as usize, hot.len());
+
+        // (3) Mint the key by registry dispatch (consumers never hardcode a
+        //     constructor) and build the canonical row.
+        let key = NodeGuid::mint_for(
+            rm.tail_variant,
+            NodeGuid::CLASSID_OSINT_V3,
+            0x0101,
+            0x0202,
+            0x0303,
+            0x0404,
+            0x0505,
+            0x0606,
+        );
+        let mut row = NodeRow {
+            key,
+            edges: EdgeBlock::default(),
+            value: [0u8; 480],
+        };
+
+        // (4) THE MATRIX: flip every byte of one tenant's lane; assert the lane
+        //     changed and every byte OUTSIDE it did not — per tenant, in carve order.
+        for t in hot {
+            let before = row.value;
+            let (o, n) = (t.value_offset(), t.byte_len());
+            for b in &mut row.value[o..o + n] {
+                *b ^= 0xFF;
+            }
+            for (i, (&now, &was)) in row.value.iter().zip(before.iter()).enumerate() {
+                if (o..o + n).contains(&i) {
+                    assert_ne!(now, was, "{t:?} lane byte {i} must have flipped");
+                } else {
+                    assert_eq!(now, was, "byte {i} outside {t:?} lane must not change");
+                }
+            }
+        }
+        // Value-slab writes never move the key or the edge block.
+        assert_eq!(row.key, key, "key untouched by value-tenant writes");
+        assert_eq!(
+            row.edges,
+            EdgeBlock::default(),
+            "edge block untouched by value-tenant writes"
+        );
+
+        // (5) EntityType tenant ↔ SoA class column: the u16 the slab carries is the
+        //     same discriminator `MailboxSoaView::class_id()` (alias of
+        //     `entity_type()`) exposes per row. Stamp the canon low-u16 concept and
+        //     read it back — on the V3 class it is still the Osint concept 0x0700
+        //     (the high-u16 gen-marker never leaks into the entity discriminator).
+        let o = ValueTenant::EntityType.value_offset();
+        row.value[o..o + 2].copy_from_slice(&(NodeGuid::CLASSID_OSINT_V3 as u16).to_le_bytes());
+        let et = u16::from_le_bytes([row.value[o], row.value[o + 1]]);
+        assert_eq!(
+            et, 0x0700,
+            "EntityType tenant carries the canon Osint concept"
+        );
+
+        // (6) Typed accessors stay live on the V3 row: the kanban round-trip and
+        //     the qualia read decode the SAME slab this matrix certified.
+        row.set_kanban(KanbanTenant {
+            phase: KanbanColumn::CognitiveWork,
+            exec: ExecTarget::Native,
+            cycle: 0x0701_1000,
+        });
+        assert_eq!(row.kanban().cycle, 0x0701_1000);
+        assert_eq!(row.qualia().0, {
+            let qo = ValueTenant::Qualia.value_offset();
+            let mut b = [0u8; 8];
+            b.copy_from_slice(&row.value[qo..qo + 8]);
+            u64::from_le_bytes(b)
+        });
+    }
+
     #[cfg(feature = "guid-v2-tail")]
     #[test]
     fn mint_for_dispatches_to_the_right_constructor_per_tail() {

@@ -1,3 +1,41 @@
+## 2026-07-01 — E-V3-TENANTS-ALREADY-EXIST-WIRE-DONT-INVENT — the "V3 substrate for AriGraph-shaped SoA tenants" already exists in `canonical_node.rs`; Phase-2 work is certification, not invention
+
+**Status:** FINDING (probe green: `osint_v3_cognitive_tenant_carve_field_isolation_matrix`).
+
+**The near-miss.** This session was about to invent a "new V3 substrate for
+AriGraph-shaped SoA tenants" (operator caught it). Reading before writing showed
+every piece already shipped:
+- `TailVariant::V3` + `CLASSID_OSINT_V3 = 0x1000_0700` (gen-marker hi u16, canon
+  concept lo u16 — exactly the operator's `0x07:01 / 1000`), registry-resolved via
+  `classid_read_mode` → `ReadMode::OSINT_V3 = {V3, Cognitive, CoarseOnly}`.
+- The AriGraph-hot tenants ARE `ValueSchema::Cognitive`'s 7 lanes (Meta/Qualia/
+  Fingerprint/Energy/Plasticity/EntityType/Kanban) — the same columns
+  `MailboxSoaView` exposes (`meta_raw`/`energy`/`entity_type`≡`class_id`) and
+  `arigraph::markov_soa` (the wave) folds over.
+- `mint_for(classid_read_mode(c).tail_variant, …)` is the sanctioned mint; no
+  `new_v3` exists by design.
+
+**What was actually missing (and now shipped):** the I-LEGACY mandatory
+field-isolation matrix covered ONLY the Kanban tenant. New probe extends it to
+the whole Cognitive carve on a registry-minted OSINT-V3 row: per-tenant lane
+flip → zero bytes change outside the lane, key+edges untouched, EntityType lane
+carries the canon `0x0700` concept (gen-marker never leaks into the entity
+discriminator), typed accessors (`set_kanban`/`qualia`) decode the same certified
+slab. Phase 2 ("shape the V3 tenants on top", CPIC doc) proceeds as *readings
+over this certified carve* — `classid → ClassView` interpretations, never new
+`ValueSchema` variants (#496/#500 guardrail).
+
+**Build unblock (same commit):** `[patch.crates-io] ndarray` moved from the git
+URL to the local sibling path (`path = "../ndarray"`). The git form re-fetched
+the fork + its `burn` submodule on every resolve; `AdaWorldAPI/burn` is outside
+the session repo scope (403, unfetchable gitlink `9b2b671`), deadlocking every
+offline/scoped session. The patch was `[[patch.unused]]` in the lock either way
+(documented TD-NDARRAY-PATCH-0_16), so resolution is unchanged — only the
+fetch-deadlock is gone. P0 fork doctrine holds: same fork, local source
+("prefer the local/fork source over the registry, always").
+
+---
+
 ## 2026-07-01 — E-RENDER-IS-CLASS-BITMASK-ASKAMA-NOT-SEMIRING — the view/attention side is `class + bitmask + askama` (Redmine ERB over AR), NOT semiring algebra; it lives in the non-frozen `0x1000` app prefix
 
 **Status:** DOCTRINE (operator, 2026-07-01: "we don't want semiring, we use
