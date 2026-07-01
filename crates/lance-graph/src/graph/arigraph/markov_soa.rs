@@ -45,14 +45,16 @@
 //! is only legitimate while leashed to the deterministic chain that confirms it
 //! — an unleashed bundle degrades into "sink-in-and-pray" (Markov #3).**
 //!
-//! ## STATUS: provisional / unverified-offline
+//! ## STATUS: verified (2026-07-01) — compiles + tests green in-sandbox
 //!
-//! Authored against the grounded `contract::soa_view::MailboxSoaView` surface,
-//! but `lance-graph` core does NOT build in the offline sandbox (its
-//! `lance`/`datafusion`/`arrow` deps fetch from crates.io). Compile-verify on a
-//! full checkout before relying on it. The truly-correct home is *inside the
-//! EW64-in-SoA seam* (P1+P2 of the three-Markovs ordering); this module is the
-//! agnostic wave-projector that seam will host.
+//! Authored against the grounded `contract::soa_view::MailboxSoaView` surface.
+//! The earlier "unverified-offline" caveat (core deps fetch from crates.io) is
+//! cleared: with crates.io in the proxy allow-list, the root
+//! `[patch.crates-io] ndarray` pointed at the local sibling path, and `protoc`
+//! installed, `lance-graph` core compiles and this module's 4 tests pass
+//! (part of the 124-green `graph::arigraph` suite). The truly-correct home is
+//! still *inside the EW64-in-SoA seam* (P1+P2 of the three-Markovs ordering);
+//! this module is the agnostic wave-projector that seam will host.
 
 use lance_graph_contract::soa_view::MailboxSoaView;
 

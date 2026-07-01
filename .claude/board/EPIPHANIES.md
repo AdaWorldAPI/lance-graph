@@ -1,6 +1,6 @@
 ## 2026-07-01 — E-V3-TENANTS-ALREADY-EXIST-WIRE-DONT-INVENT — the "V3 substrate for AriGraph-shaped SoA tenants" already exists in `canonical_node.rs`; Phase-2 work is certification, not invention
 
-**Status:** FINDING (probes green: `osint_v3_cognitive_tenant_carve_field_isolation_matrix` + `fma_cpic_v3_compressed_tenant_carve_field_isolation_matrix` — BOTH carves a Phase-1 V3 class materialises, Cognitive hot + Compressed cold, are now matrix-covered).
+**Status:** FINDING (probes green: `osint_v3_cognitive_tenant_carve_field_isolation_matrix` + `fma_cpic_v3_compressed_tenant_carve_field_isolation_matrix` — BOTH carves a Phase-1 V3 class materialises, Cognitive hot + Compressed cold, are now matrix-covered. 2026-07-01 addendum: lance-graph CORE now compiles in-sandbox — crates.io noProxy + local ndarray path patch + protoc — and `graph::arigraph` is 124/124 green incl. `markov_soa`'s 4, so the wave projector's "unverified-offline" caveat is cleared: the full wire classid → read-mode → certified tenants → AriGraph wave is probed end-to-end).
 
 **The near-miss.** This session was about to invent a "new V3 substrate for
 AriGraph-shaped SoA tenants" (operator caught it). Reading before writing showed
