@@ -1,3 +1,60 @@
+## 2026-07-01 — E-SPO-2CUBE-GIVES-QUESTIONS-AND-CANDIDATES — the 8 Pearl projections are 8 distinct questions (each with its own candidate answer), computed all-at-once from 3 cached reads; V3 stack capstone
+
+**Status:** FINDING `[G]` (coded; `cargo test --manifest-path
+crates/lance-graph-osint/Cargo.toml --test p3b_spo_questions_amortized` → 3
+passed, 2026-07-01) + capstone (operator synthesis 2026-07-01). Sharpens
+`E-P2-P3-EDGE-PEARL-GREEN` (P3) and `E-RUNG-LADDER-IS-A-DEPENDENCY-STACK`.
+
+**The mechanism (operator, verbatim intent).** The SPO 2³ rung decomposition
+"gives the questions and candidates inherently" — which is why it is baked into
+the Morton-tile 2bit×2bit 4×4 cascade as **2³ all-at-once amortization on the
+same data in cache.** Grounded in `SpoDistances::all_projections`
+(`ALL_MASKS = [NONE,S,P,O,SP,SO,PO,SPO]`): it reads the **three** per-plane
+palette cells for one `(a,b)` pair and produces **all eight** Pearl projections
+by masked summation — 3 cache reads → 8 causal questions, zero extra traffic.
+Proven un-redundant three ways:
+1. **Amortization** — the 8-vector is a pure function of the 3 scalar plane
+   distances (`p3b_eight_questions_are_a_pure_function_of_three_reads`).
+2. **Monotone ladder** — a superset mask never undercounts; `SPO`
+   (counterfactual) upper-bounds every sub-question.
+3. **Questions AND candidates inherently** — the SAME two candidates rank
+   **oppositely** under Association (`SO`) vs Intervention (`PO`), because `PO`
+   projects out the Subject plane. The 8 masks are 8 real retrievals, not one
+   distance in eight hats — each rung surfaces its own candidate.
+
+**V3 stack — assembled (capstone).** The convergence this probe series (P0–P5 +
+P3b) validates is the click of five V3 components onto ONE palette substrate:
+- **AriGraph V3** — SPO-G quads + the 6×(8:8) OSINT tenant + a cold-KV
+  `path:documentid` reference tenant (wiki blobs off the hot path).
+- **CausalEdge V3** — the 64-bit SPO-palette + NARS⟨f,c⟩ + Pearl-mask + i4
+  mantissa wire (P2/P4/P5 carrier).
+- **Thinking-style V3** — the 36 styles weighting the 8 projections
+  (`style_weight[i] × all_projections[i]`).
+- **Rung decomposition V3** — the 0–9 `RungLevel` dependency stack
+  (`E-RUNG-LADDER-…`), whose per-rung *operation* is a Pearl-masked projection.
+- **OGAR AST-transpile** — ClassView + the ClassView **bitmask as the focus of
+  awareness**, askama-on-ClassView as an ERB-view pattern (akin to Redmine's
+  Active-Record ERB views) — the render surface over the same node.
+
+**Two rabbit holes, now closed (context so the WHY doesn't dilute).** The path
+here went through two detours that are resolved and should not be re-entered:
+(1) the monolithic **Singleton BindSpace → SoA** migration (settled: SoA first,
+zero-copy in-place, no materialized singleton — cf. the P0 CLAUDE.md three-tier
+supersession); (2) **hypothesis testing in kanban-view** (settled: `rs-graph-llm`
+as *replayable* orchestration layered on top of OGAR's Ontology/Do/Think arms +
+the thinking styles — orchestration is graph traversal, not a new bridge).
+
+**Consequence.** The 2³ projection is the atom the whole stack shares: it is the
+rung's operation (P3b), the discovery oracle's distance (P1/P4), the edge's
+Pearl level (P2), and the style's weighting input — one cached tile, eight
+questions, eight candidates. Nothing above it needs its own distance function.
+
+**Cross-ref:** `E-P1-DISTANCE-IDENTITY-GREEN` … `E-P5-SYLLOGIZE-GREEN`;
+`E-RUNG-LADDER-IS-A-DEPENDENCY-STACK`. Test:
+`crates/lance-graph-osint/tests/p3b_spo_questions_amortized.rs`.
+
+---
+
 ## 2026-07-01 — E-RUNG-LADDER-IS-A-DEPENDENCY-STACK — the 0–9 `RungLevel` ladder gates higher reasoning on grounded lower rungs; the P1–P5 probes are exactly the per-rung capabilities
 
 **Status:** FINDING `[G]` (operator directive 2026-07-01: "the 1-9 rung ladder
