@@ -1,3 +1,38 @@
+## 2026-07-01 — E-P5-SYLLOGIZE-GREEN — NAL transitive deduction on the palette edge: `is_a(A,B)∧is_a(B,C) ⊢ is_a(A,C)`, integer-exact
+
+**Status:** FINDING `[G]` (coded; `cargo test --manifest-path
+crates/lance-graph-osint/Cargo.toml --test p5_syllogize` → 4 passed, 2026-07-01,
+branch `claude/v3-substrate-migration-review-o0yoxv`). Probe P5; the reasoning
+vertex of the convergence.
+
+**What it proves.** Two `CausalEdge64` premises sharing a middle palette term
+compose via `syllogize()` into a derived conclusion edge:
+- `is_a(A,B).figure(is_a(B,C)) == Figure::Chain` (o1==s2==B); the conclusion is
+  `is_a(A,C)` — middle term B consumed, outer terms survive.
+- Deduction truth composes exactly: f = f1·f2 = 1.0 → 255; c = f1·f2·c1·c2 =
+  0.64 → 163 (integer-exact after the single f32 NARS composition).
+- `InferenceType::Deduction` stamps mantissa +1 (forward-chain); Pearl mask =
+  AND of the premises (SPO & SPO = SPO).
+- Negative cases hold: no shared term ⇒ `None`; identical (S,O) ⇒ `None`
+  (that's NARS *revision*, not a syllogism); `syllogize` is a pure function
+  (deterministic).
+
+**Why it matters.** This is the `part_of`/`is_a` ontology chaining OSINT needs
+(actor `part_of` unit `part_of` command; system `is_a` drone `is_a` dual-use) —
+and it runs entirely on the SPO palette with no external reasoner. The predicate
+is a carried placeholder slot, so `is_a` and `part_of` chain by the identical
+mechanism. With P1–P4, the palette is now one metric across **five** vertices:
+distance sources, edge carrier, causal-mask semantics, ARM discovery, and
+multi-hop NAL reasoning. The remaining probes (P6–P8 MailboxSoA
+awareness/owner/reflex loop, P9 AriGraph hot/cold) exercise the *runtime* loop
+and need subsystem wiring not yet present in `lance-graph-osint`.
+
+**Cross-ref:** `E-P4-DISCOVERY-EDGE-GREEN`, `E-P2-P3-EDGE-PEARL-GREEN`,
+`E-P1-DISTANCE-IDENTITY-GREEN`. Test:
+`crates/lance-graph-osint/tests/p5_syllogize.rs`.
+
+---
+
 ## 2026-07-01 — E-P4-DISCOVERY-EDGE-GREEN — the Aerial+ ARM probe joins the palette: deterministic mining → exact ppm → `arm_to_truth_u8` → `CausalEdge64` wire
 
 **Status:** FINDING `[G]` (coded; `cargo test --manifest-path
