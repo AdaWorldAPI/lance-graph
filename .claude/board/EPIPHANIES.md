@@ -1,3 +1,40 @@
+## 2026-07-01 — E-CLASSID-SPLIT-ORDER-IS-A-FLIP — implement the classid field split as a single flippable "split order" (`(before)::Domain:appid::(after)`), so the deferred human-readable reorder is a one-place flag, not a rewrite
+
+**Status:** DIRECTIVE (operator, 2026-07-01: "when you start implementing the
+substrate you make the `(before)::Domain:appid::(after)` a question of split
+order that later you can flip"). Refines `E-CLASSID-HUMANREADABLE-REORDER-DEFERRED`
+— names *how* to build the reorder so it stays a flip, not a migration.
+
+**The directive.** When the classid field extraction is implemented, route ALL
+of it through **one split-order abstraction** — a single source of truth that
+says which byte range is `before`, which is `Domain:appid`, which is `after`.
+Layout template: **`(before) :: Domain:appid :: (after)`**. Every accessor
+(`domain()`, `app_id()`, the V3-prefix check, the ClassView lookup, the codebook
+row mapping) reads through that one definition. Then flipping the stored↔human-
+readable order (`0x1000_0701` ⇄ `0x07:01::1000`) is a **one-place flag flip**,
+not a rewrite scattered across the codebase.
+
+**Why it matters (the trap it avoids).** If field positions are hardcoded at
+each call site, the deferred reorder becomes a risky N-site migration that can
+silently desync (exactly the `I-LEGACY-API-FEATURE-GATED` failure mode — same
+accessor, different bytes under a flag). One split-order definition = the flip is
+atomic, testable with a single round-trip probe (`stored ⇄ human-readable` is
+identity), and the little-endian contract is provably preserved end-to-end.
+
+**Consequences.**
+- Do NOT hardcode classid byte offsets at call sites when the substrate impl
+  starts — thread them through the single split-order definition.
+- The flip flag defaults to the CURRENT stored order (`(V3 0x1000)(domain 0x07)(app 01)`);
+  the human-readable `0x07:01::1000` is the flipped view, authored later.
+- The reorder arc's acceptance test IS the round-trip: `flip(flip(x)) == x` and
+  `decode_stored(x).fields == decode_humanreadable(flip(x)).fields`.
+
+**Cross-ref:** `E-CLASSID-HUMANREADABLE-REORDER-DEFERRED` (the deferral this
+implements); `I-LEGACY-API-FEATURE-GATED` (the same-name-different-bytes trap the
+single-definition avoids); lance-graph `CLAUDE.md` CANON (LE 16-byte key).
+
+---
+
 ## 2026-07-01 — E-CLASSID-HUMANREADABLE-REORDER-DEFERRED — the classid field reorder to human-readable `0x07:01::1000` is a DELIBERATE post-V3 step; the little-endian stored form is the contract P1–P5 are built on — HANDS OFF until deliberately triggered
 
 **Status:** LOCK / DEFERRED-BY-DESIGN (operator, 2026-07-01). Both facts below
