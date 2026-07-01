@@ -2359,20 +2359,7 @@ mod tests {
 
         // (4) THE MATRIX: flip every byte of one tenant's lane; assert the lane
         //     changed and every byte OUTSIDE it did not — per tenant, in carve order.
-        for t in hot {
-            let before = row.value;
-            let (o, n) = (t.value_offset(), t.byte_len());
-            for b in &mut row.value[o..o + n] {
-                *b ^= 0xFF;
-            }
-            for (i, (&now, &was)) in row.value.iter().zip(before.iter()).enumerate() {
-                if (o..o + n).contains(&i) {
-                    assert_ne!(now, was, "{t:?} lane byte {i} must have flipped");
-                } else {
-                    assert_eq!(now, was, "byte {i} outside {t:?} lane must not change");
-                }
-            }
-        }
+        assert_value_lane_isolation(&mut row, &hot);
         // Value-slab writes never move the key or the edge block.
         assert_eq!(row.key, key, "key untouched by value-tenant writes");
         assert_eq!(
@@ -2408,6 +2395,107 @@ mod tests {
             b.copy_from_slice(&row.value[qo..qo + 8]);
             u64::from_le_bytes(b)
         });
+    }
+
+    /// Shared body of the tenant-carve matrix: flip every byte of one tenant's
+    /// lane; assert the lane changed and every byte OUTSIDE it did not — per
+    /// tenant, in carve order (the I-LEGACY mandatory field-isolation test).
+    #[cfg(feature = "guid-v3-tail")]
+    fn assert_value_lane_isolation(row: &mut NodeRow, lanes: &[ValueTenant]) {
+        for &t in lanes {
+            let before = row.value;
+            let (o, n) = (t.value_offset(), t.byte_len());
+            for b in &mut row.value[o..o + n] {
+                *b ^= 0xFF;
+            }
+            for (i, (&now, &was)) in row.value.iter().zip(before.iter()).enumerate() {
+                if (o..o + n).contains(&i) {
+                    assert_ne!(now, was, "{t:?} lane byte {i} must have flipped");
+                } else {
+                    assert_eq!(now, was, "byte {i} outside {t:?} lane must not change");
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "guid-v3-tail")]
+    #[test]
+    fn fma_cpic_v3_compressed_tenant_carve_field_isolation_matrix() {
+        // The cold half of the Phase-1 V3 set: FMA-V3 and CPIC-V3 both resolve to
+        // ValueSchema::Compressed — the codec-stack carve (no hot lifecycle
+        // columns). Same certification as the OSINT-V3/Cognitive matrix above:
+        // registry-dispatched mint, per-tenant lane isolation, key+edges untouched.
+        // With this, EVERY carve a Phase-1 V3 class materialises is matrix-covered.
+        let rm = classid_read_mode(NodeGuid::CLASSID_FMA_V3);
+        assert_eq!(rm.value_schema, ValueSchema::Compressed);
+        // CPIC-V3 shares the SAME cold carve — one matrix certifies both.
+        assert_eq!(
+            classid_read_mode(NodeGuid::CLASSID_CPIC_V3).value_schema,
+            ValueSchema::Compressed
+        );
+
+        // Pin the carve: exactly the 4 codec tenants, none of the hot lifecycle set.
+        let cold = [
+            ValueTenant::Fingerprint,
+            ValueTenant::HelixResidue,
+            ValueTenant::TurbovecResidue,
+            ValueTenant::EntityType,
+        ];
+        for t in cold {
+            assert!(rm.value_schema.has(t), "Compressed materialises {t:?}");
+        }
+        for t in [
+            ValueTenant::Meta,
+            ValueTenant::Qualia,
+            ValueTenant::MaterializedEdges,
+            ValueTenant::Energy,
+            ValueTenant::Plasticity,
+            ValueTenant::Kanban,
+        ] {
+            assert!(!rm.value_schema.has(t), "Compressed must NOT carry {t:?}");
+        }
+        assert_eq!(rm.value_schema.field_mask().count() as usize, cold.len());
+
+        // Registry-dispatched mint + the matrix over the cold lanes.
+        let key = NodeGuid::mint_for(
+            rm.tail_variant,
+            NodeGuid::CLASSID_FMA_V3,
+            0x1111,
+            0x2222,
+            0x3333,
+            0x4444,
+            0x5555,
+            0x6666,
+        );
+        let mut row = NodeRow {
+            key,
+            edges: EdgeBlock::default(),
+            value: [0u8; 480],
+        };
+        assert_value_lane_isolation(&mut row, &cold);
+        assert_eq!(row.key, key, "key untouched by value-tenant writes");
+        assert_eq!(
+            row.edges,
+            EdgeBlock::default(),
+            "edge block untouched by value-tenant writes"
+        );
+
+        // The EntityType discriminator carries the canon lo-u16 concept on the
+        // cold classes too — Anatomy 0x0A01 / Genetics root 0x0E00, never the
+        // 0x1000 gen-marker.
+        let o = ValueTenant::EntityType.value_offset();
+        row.value[o..o + 2].copy_from_slice(&(NodeGuid::CLASSID_FMA_V3 as u16).to_le_bytes());
+        assert_eq!(
+            u16::from_le_bytes([row.value[o], row.value[o + 1]]),
+            0x0A01,
+            "EntityType tenant carries the canon Anatomy concept"
+        );
+        row.value[o..o + 2].copy_from_slice(&(NodeGuid::CLASSID_CPIC_V3 as u16).to_le_bytes());
+        assert_eq!(
+            u16::from_le_bytes([row.value[o], row.value[o + 1]]),
+            0x0E00,
+            "EntityType tenant carries the canon Genetics root"
+        );
     }
 
     #[cfg(feature = "guid-v2-tail")]

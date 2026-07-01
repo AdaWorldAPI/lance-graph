@@ -1,6 +1,6 @@
 ## 2026-07-01 — E-V3-TENANTS-ALREADY-EXIST-WIRE-DONT-INVENT — the "V3 substrate for AriGraph-shaped SoA tenants" already exists in `canonical_node.rs`; Phase-2 work is certification, not invention
 
-**Status:** FINDING (probe green: `osint_v3_cognitive_tenant_carve_field_isolation_matrix`).
+**Status:** FINDING (probes green: `osint_v3_cognitive_tenant_carve_field_isolation_matrix` + `fma_cpic_v3_compressed_tenant_carve_field_isolation_matrix` — BOTH carves a Phase-1 V3 class materialises, Cognitive hot + Compressed cold, are now matrix-covered).
 
 **The near-miss.** This session was about to invent a "new V3 substrate for
 AriGraph-shaped SoA tenants" (operator caught it). Reading before writing showed
