@@ -1,3 +1,39 @@
+## 2026-07-01 — E-P2-P3-EDGE-PEARL-GREEN — the `CausalEdge64` carrier and `SpoDistances` engine index one palette and share one 3-bit Pearl mask
+
+**Status:** FINDING `[G]` (coded; `cargo test --manifest-path
+crates/lance-graph-osint/Cargo.toml --test p2_p3_edge_pearl` → 3 passed,
+2026-07-01, branch `claude/v3-substrate-migration-review-o0yoxv`). Probes P2 +
+P3 of the OSINT-substrate convergence roadmap; builds on `E-P1-DISTANCE-IDENTITY-GREEN`.
+
+**P2 — edge round-trip.** OSINT palette indices `(s,p,o)` → `CausalEdge64::pack_v2`
+→ the packed edge's `s_idx()/p_idx()/o_idx()` return them unchanged, `causal_mask()`
+returns the Pearl level it was stamped with, `frequency_u8()/confidence_u8()`
+round-trip (2048 pairs). The edge carries the palette *coordinate* losslessly;
+bridging two edges into `SpoHead`s, `causal_distance(mask=SPO)` equals the plain
+per-plane palette sum — the edge and the distance engine index the SAME palette.
+
+**P3 — Pearl ladder.** The killer receipt: `causal_edge::CausalMask` and the
+`mask` byte of `SpoDistances::causal_distance` are the SAME 3-bit convention
+(S=0b100, P=0b010, O=0b001) — verified structurally, not by coincidence: each
+mask keeps exactly its planes' terms (`S`→s_dist, `PO`→p+o, `SPO`→s+p+o,
+`None`→0) over 4096 pairs. Level-2 Intervention (`PO`) projects out the Subject
+confounder — strictly less distance than Level-3 Counterfactual (`SPO`) exactly
+when the Subject term is non-zero (the strict-drop branch fired on >4000/4096
+pairs). Pearl's do-calculus ladder is literally a mask over the palette planes.
+
+**Why it matters.** P1 unified the three *distance sources*; P2/P3 unify the
+*edge protocol* and the *causal semantics* onto that same palette. The Pearl
+level a `CausalEdge64` carries IS the plane-selection mask the distance engine
+applies — one enum, one algebra, both crates. This closes the
+edge↔distance↔causality triangle on integer-exact shipped code, and is the base
+for P4 (ARM discovery emitting `CausalEdge64` from mined rules) and P5
+(`syllogize` multi-hop chains).
+
+**Cross-ref:** `E-P1-DISTANCE-IDENTITY-GREEN` (P1 keystone); `E-CE64-NAME-COLLISION-DEDUP`
+(P0). Test: `crates/lance-graph-osint/tests/p2_p3_edge_pearl.rs`.
+
+---
+
 ## 2026-07-01 — E-P1-DISTANCE-IDENTITY-GREEN — the V3 "one causal-distance format" claim holds against shipped code: deepnsm f32 → one palette → nars_engine u16 ≡ arm-discovery u32, byte-exact
 
 **Status:** FINDING `[G]` (coded; `cargo test --manifest-path
