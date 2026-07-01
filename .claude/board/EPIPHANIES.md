@@ -1,3 +1,49 @@
+## 2026-07-01 — E-OGAR-LANCEGRAPH-MOVE-IN-PARALLEL — OGAR + lance-graph are one coupled pair moved together every session; the `COUNT_FUSE` is the intentional dependency contract that enforces it (NOT a break to engineer away)
+
+**Status:** DOCTRINE (operator, 2026-07-01: "every session needs to move OGAR and
+lance-graph in parallel … the fuse is okay for now, it's a dependency contract").
+Corrects my earlier recommendation to pin `lance-graph-ogar` to a rev to "retire
+the recurring break class" — that was **wrong**: the recurrence IS the contract
+working.
+
+**The doctrine.**
+- **Move OGAR and lance-graph in parallel, every session.** They are one coupled
+  pair, not two independent repos. An OGAR codebook mint (`ogar_vocab::class_ids::ALL`)
+  and the paired `lance-graph-contract::ogar_codebook::CODEBOOK` mirror (+ the
+  `lance-graph-ogar::parity::domains_agree` arm) land in the **same coordinated
+  arc** — never split across sessions (cf. `E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC`,
+  `ISS-OGAR-AUTH-MIRROR-DRIFT`, `ISS-OGAR-GENETICS-MIRROR-PENDING`,
+  `ISS-OGAR-OSINT-MIRROR-PENDING`).
+- **The `COUNT_FUSE` is a FEATURE.** `assert!(mirror::CODEBOOK.len() ==
+  ogar_vocab::class_ids::ALL.len())` is the **dependency contract** that *forces*
+  the parallel movement — when it blows on merge, that is the contract correctly
+  demanding the mirror catch up, not a defect. `branch = "main"` tracking + the
+  fuse together are the enforcement mechanism. **Do NOT pin to a rev to dodge it;
+  do NOT delete/soften the fuse.** ("The fuse is okay for now.")
+- **Merge sequencing = option 2 (coordinated / brief transient red is fine),
+  never option 1 (pin).** Merge the OGAR mint, then land the paired lance-graph
+  mirror rows immediately; the short red window is the fuse doing its job.
+
+**The plan the fuse is a stopgap FOR (target design).** When OGAR + lance-graph
+are compiled into the **same binary**, lance-graph is **plug-and-play**, and
+**when the contract "clicks" (links with OGAR present), OGAR knows it must emit
+the vocab** — i.e. the mirror becomes *build-time-emitted from OGAR* (codegen,
+not a hand-maintained copy), and the hand-mirror + `COUNT_FUSE` retire naturally.
+Until that click ships, the hand-mirror + fuse is the correct stopgap.
+
+**Consequences.**
+- `ISS-OGAR-OSINT-MIRROR-PENDING` resolution is now: keep the fuse, land the 2
+  mirror rows + `domains_agree` arm in parallel with OGAR #145 (ready patch is in
+  the issue). Not a rev-pin.
+- Any future OGAR concept mint carries its lance-graph mirror rows in the same
+  session's paired PRs — this session's #145 (OGAR) + #624 (lance-graph) is the
+  correct shape; the mirror rows just land in the coordinated merge, not before.
+
+**Cross-ref:** `ISS-OGAR-OSINT-MIRROR-PENDING`; `E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC`;
+`I-LEGACY-API-FEATURE-GATED` (the same-name-different-semantics trap the fuse guards).
+
+---
+
 ## 2026-07-01 — E-CLASSID-SPLIT-ORDER-IS-A-FLIP — implement the classid field split as a single flippable "split order" (`(before)::Domain:appid::(after)`), so the deferred human-readable reorder is a one-place flag, not a rewrite
 
 **Status:** DIRECTIVE (operator, 2026-07-01: "when you start implementing the
