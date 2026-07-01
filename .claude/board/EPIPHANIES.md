@@ -1,3 +1,51 @@
+## 2026-07-01 — E-SUBSTRATE-IS-DEEPNSM-PLUS-OGAR — the substrate IS a Semantic Transformer (deepnsm) + a transpiler (OGAR); the convergence probes are the de-blackboxing of the accumulated-wishlist entropy
+
+**Status:** STRATEGIC FRAME (operator, 2026-07-01: "in the end we're sitting on a
+Semantic Transformer and transpiler as substrate and we didn't make it there
+because our substrate was a bit black box accumulated wishlist"). Names the
+*why* behind the P0–P5 probe arc.
+
+**The diagnosis (operator, verbatim intent).** The substrate accumulated as a
+**black-box wishlist** — features piled up faster than they could be seen
+through (the "massive codebase massive entropy" of the session opener), so the
+fact that **deepnsm = the Semantic Transformer** and **OGAR = the transpiler**
+were already the clean substrate got buried under the pile. "We didn't make it
+there" = the two real substrate layers were obscured, not absent.
+
+**The cure = probe-first legibility (what P0–P5 actually did).** Each probe
+converts one wishlist claim into an integer-exact green assert — that is the
+mechanism that turns "accumulated wishlist" back into "Semantic Transformer +
+transpiler":
+- **P1 literally de-blackboxed the Semantic Transformer**: deepnsm's
+  `subspace_distance_table` *is* the one palette metric, byte-identical to the
+  two integer consumers. "deepnsm converges with everything" → a green test.
+- **P2–P5** proved the edge / Pearl causality / ARM discovery / NAL reasoning all
+  ride that same palette. The wishlist became a verified five-vertex stack.
+- The rung ladder + kanban Rubicon envelope (`graph-flow-kanban` already carries
+  the i4 32-D thinking style **and Rung depth** in `ThinkingContext`, advancing
+  on `GateDecision::{Flow,Block,Hold}`) are the transpiler-side orchestration —
+  shipped, not wishlist.
+
+**What is still black box (the honest edge of "made it there").** The **runtime
+loop** — `rig → CausalEdge64 → AriGraph V3 → next cycle` feedback
+(`E-RIG-ARIGRAPH-FEEDBACK-LAYERING`) — is asserted, not proven; gated on wiring
+AriGraph write-back through the protoc boundary (P6/P9-class). Static substrate =
+legible; dynamic substrate = not yet.
+
+**The standing rule this frame implies.** Entropy re-accumulates the moment a new
+capability lands without a probe. To keep the substrate = deepnsm + OGAR (and not
+re-become a wishlist): **no new substrate claim enters the canon without a green
+integer-exact probe** — the same discipline as OGAR's probe-first doctrine and
+the bf16-hhtl probe queue. The probes are not busywork; they are what keeps the
+two real layers visible under everything built on them.
+
+**Cross-ref:** `E-SPO-2CUBE-GIVES-QUESTIONS-AND-CANDIDATES` (the shared atom);
+`E-P1-DISTANCE-IDENTITY-GREEN` (the Semantic-Transformer de-blackboxing);
+`E-RIG-ARIGRAPH-FEEDBACK-LAYERING` (the still-opaque runtime loop); OGAR
+`docs/OGAR-AS-IR.md` (the transpiler-as-compiler framing).
+
+---
+
 ## 2026-07-01 — E-RIG-ARIGRAPH-FEEDBACK-LAYERING — the rig / rs-graph-llm / surrealdb / AriGraph-V3 stack is a hot-loop + cold-projection split, not an OR; the feedback round-trip is UNTESTED (blocked P9-class)
 
 **Status:** DECISION + honest gap (operator, 2026-07-01: "rs-graph-llm on top,
