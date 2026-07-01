@@ -52,9 +52,15 @@ fn synth_codebook() -> Codebook {
         let v = ((splitmix64(&mut s) >> 40) as f32) / (1u64 << 24) as f32;
         bytes.extend_from_slice(&v.to_le_bytes());
     }
+    // Unique per call: both tests in this binary run concurrently under the
+    // parallel harness and each removes its file after loading; a pid+len-only
+    // path collides and one test can truncate the other's load mid-read.
+    static CODEBOOK_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let seq = CODEBOOK_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let path = std::env::temp_dir().join(format!(
-        "p1_osint_codebook_{}_{}.bin",
+        "p1_osint_codebook_{}_{}_{}.bin",
         std::process::id(),
+        seq,
         bytes.len()
     ));
     std::fs::write(&path, &bytes).expect("write synthetic codebook");
