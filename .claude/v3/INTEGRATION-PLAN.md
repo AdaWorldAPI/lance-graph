@@ -397,3 +397,44 @@ Operator: "check temporal.rs for a deeper understanding." Verified against
   pin. R-3 per-entry board files + per-repo coordination dir as ONE
   merged council proposal (X1 yielded). R-4 OGAR probe-ledger Wave A
   green-light.
+- **CORRECTIONS (same day, operator rulings — canonical text in the
+  intake handover appendices + E-V3-XSESSION-INTAKE-1-RULINGS):**
+  R-1 was a PHANTOM (canon already exists: `domain:appid:classview`,
+  le-contract.md §prefix + primer §5 — "concept" names the whole hi
+  u16; the "app" homonym across the halves caused the thread; both
+  ledgers now carry the line, OGAR D-CLASSID-HI-U16-SPELLING). R-2
+  closed empirically (edges pull separately via the NODE_ROW_COLUMNS
+  strided view; the 512-byte row — tested against kv-lance AND the
+  batch writer, with time series wired into surrealdb from Lance
+  versioning — is NOT touched; residual = a read-side edges-only
+  test). L3 schema design KILLED ("defining arrow schemas is bullshit
+  and hallucination — we already have a working SoA schema"):
+  extraction interchange lands as SoA rows through the W1b cast path;
+  survivors are minter@sha provenance + ndjson-as-golden only.
+
+### Addendum-11 2026-07-02 — operator ruling: per-consumer classid ownership + tripwires; the five open workstreams
+
+**Ruling:** "everyone should be responsible for his own OGAR classids
+and trip the wire if not in sync." Distributed ownership + fuses IS the
+coordination mechanism — each consumer owns its classid allocations and
+wires a sync-tripping test (the flip fuse + two-sided COUNT_FUSE shipped
+this arc are the pattern instances; the serialized-mint-batch was the
+transitional vehicle, ownership+fuses is the steady state).
+
+**The open workstreams after the fuses (operator-enumerated; "huge
+tasks but manageable if done properly"):**
+
+1. **Thinking ↔ substrate + V3 migration** — this plan's W-waves
+   (W1 shipped #631; W2 kanban/board-as-tenant next).
+2. **Orchestration rs-graph-llm** — W3b KanbanSessionStorage +
+   graph-flow as the replayable handler (M25), oracle-frequency rig.
+3. **OGAR as transpiler + compile-time API** — askama + ClassView +
+   FieldMask bitmask (the Redmine ERB pattern), taking over from
+   SurrealQL AST DLL parsing (SURREAL-AST-AS-ADAPTER completes into
+   the compile-time render path).
+4. **The complete cross-repo inventory** (the ~300-crate census asset:
+   MODULE-TABLE + COMPONENT-MAP + consumer maps) — maintain and
+   complete it; it is the substrate for every wave's preflight.
+5. **Per-consumer accommodation** — ruff + OGAR adaptations,
+   lance-graph UnifiedBridge ↔ OGAR, AST contract evolution (the W5
+   consumer wave, now with the fuse doctrine as its safety rail).

@@ -108,3 +108,126 @@ addendum over the combined wishlists. Deltas absorbed into THIS arc:
     authenticity checks in every fetch/diff brief) is a guardrails-§1
     clause family. Queued as a one-paragraph guardrails addition next time
     that doc is touched.
+
+---
+
+## APPENDED 2026-07-02 (operator ruling) — R-1 CLOSED: it was a PHANTOM conflict; the canon already exists and this session authored it
+
+Operator: "Theme 4 is wrong — you did it yourself: domain:appid:classview/concept."
+Verified against the shipped canon (authored in this session's own V3 folder,
+merged via #629/#630):
+
+- `.claude/v3/soa_layout/le-contract.md:21-30` — the 4-byte prefix IS the
+  composed classid: `[domain byte][appid byte][classview u16]`;
+  **canon hi u16 = `domain:appid`** (e.g. `0x07:01` = OSINT:q2);
+  **custom lo u16 = classview** (hosts the 0x1000 monitor + OGAR §2 app
+  render prefixes; post-P4 the 64k ClassView catalogue).
+- `.claude/v3/knowledge/v3-substrate-primer.md:94` — hi u16 spelled
+  **`CANON concept/domain:appid`**: "concept" NAMES the whole hi u16;
+  "domain:appid" is its byte spelling. The le-contract and OGAR-canon
+  descriptions were never in conflict — they name the same u16 at two
+  granularities.
+- The dissolution of the "sharing" argument: `0x0102_0001` (openproject:
+  WorkPackage) and `0x0102_0007` (redmine:Issue) share hi `0x01:02` =
+  domain 0x01 + **appid byte 0x02** (the canonical app-concept slot) and
+  differ in the **lo-u16 ClassView/app-render prefix** (0x0001 OP,
+  0x0007 Redmine). The sibling session's "an appid reading cannot express
+  sharing" argument conflated the canonical **appid byte** (hi half) with
+  the per-vendor **APP render prefix** (lo half) — the word "app" appears
+  in both halves with different meanings; THAT homonym, not the layout,
+  produced the whole R-1 thread.
+- The q2 "collision" dissolves the same way: q2's appid `0x01` lives in
+  the HI half inside a domain (`0x07:01` = OSINT:q2); OpenProject's
+  `0x0001` APP_PREFIX lives in the LO half. Two registers, positionally
+  distinct by construction. The needed "guard" is this naming line in
+  both ledgers, not a new number-space rule. The q2 APP_PREFIX row is
+  therefore NOT blocked — it is simply a mint to make when q2 renders
+  classviews.
+- Process lesson (mine): I relayed the sessions' conflict claim into a
+  RULING-NEEDED row without grepping my own canon docs first — the exact
+  "consult, don't guess" / rule-10 failure the guardrails codify, this
+  time on the orchestrator relaying instead of ruling. Calibration
+  datapoint for the fleet: the sessions escalated a phantom; escalation
+  beats silent divergence, but the FIRST check on any "two ledgers
+  disagree" claim is the primer/le-contract, which already carried the
+  reconciliation in one line.
+- Residual actions: (a) OGAR ledger gets the naming line same-arc (this
+  OGAR batch); (b) the sibling sessions' item-3 asks are answered by this
+  entry — cite `le-contract.md:26` and `primer:94`, do not re-derive;
+  (c) R-2 (EdgeBlock consts) stays open but is downgraded to "probably
+  the same homonym class — verify against canon before treating as a
+  conflict"; the ask for one pinned const set remains sound engineering.
+
+---
+
+## APPENDED 2026-07-02 (operator rulings 2+3) — R-2 answered empirically; L3-as-schema-design KILLED
+
+**R-2 (EdgeBlock) — operator reframe:** the two spellings were never the
+issue; "the question is just if lance-graph is able to pull the second
+edges guid separately — if so it's preferable to have edges cheap without
+having to load the whole values." Answer from the shipped contract:
+
+- YES at the contract level: `NODE_ROW_COLUMNS`
+  (contract/canonical_node.rs:668-687) declares **three separate
+  ColumnDescriptors** — Key (offset 0, 16B), **Edges (offset 16, 16B,
+  own name_id)**, Value (offset 32, 480B). The envelope contract already
+  carves edges as an independently addressable column.
+- NOT yet at the materialization level: exhaustive grep
+  (`NODE_ROW_COLUMNS` and `NodeRowColumn::Edges` over `crates/`
+  `--include=*.rs`) finds **zero consumers outside the contract** — no
+  Lance write path yet materializes the three columns as separate Lance
+  columns. That wiring IS the W1 sink work.
+- **Ruling absorbed as a W1 requirement:** the sink writes NodeRow as
+  THREE Lance columns (not one 512B blob), so Lance's columnar projection
+  serves edge traversal at 16 B/row without touching the value slab.
+  Mechanical gate for the R-2 closure: an edges-only projection test
+  (read the EdgeBlock column for N rows; value column not fetched).
+- Canon wording settled by the same ruling: `key(16)|edges(16)|value(480)`
+  stands (the subdivision is what makes edges cheap); OGAR's
+  `key + value(496)` remains true as the coarse "everything-not-key"
+  view. The one pinned const set BOTH repos cite = `NODE_ROW_COLUMNS` +
+  `NODE_ROW_STRIDE` — OGAR pins by asserting the same numbers, not by
+  restating prose.
+
+**L3 interchange — operator ruling: "defining arrow schemas is bullshit
+and hallucination because we already have a working SoA schema."**
+The L3/E5 "one Arrow schema family (triples batch s/p/o/f/c + facets
+batch)" framing — including my own Addendum-10 bullet — is WITHDRAWN as
+schema design. There is no new interchange schema to define: the SoA
+schema (NODE_ROW_COLUMNS / SoaEnvelope / VALUE_TENANTS / the 16-byte
+facet catalogue) IS the columnar schema, and Lance's own columnar I/O
+writes LE bytes from the envelope-described backing store. Extraction
+output (ruff `Mint`, triples, facets) lands as **node rows + facets in
+the existing canon layout through the W1b cast/descriptor path** — the
+"interchange format" question dissolves into "write SoA rows".
+What survives of L3/E5: provenance stamping (`minter@sha`) and ndjson as
+the human-diffable golden layer for PR review — both are about artifacts
+AROUND the store, not a second schema. op-nexgen / ruff sessions: do NOT
+start a five-column triple-schema design; target the SoA envelope.
+
+---
+
+## APPENDED 2026-07-02 (operator ruling 4) — R-2 requirement RECALIBRATED: the 512-byte SoA schema is NOT touched
+
+Operator: "the SoA schema was 512 bytes before and after and was tested
+against surrealdb kv-lance AND batch writer — so i don't see the reason to
+touch that." The previous appendix's "W1 sink requirement: write NodeRow as
+THREE Lance columns" is RETRACTED as over-reach. Corrected reading:
+
+- The 512-byte row (`key(16)|edges(16)|value(480)`, NODE_ROW_STRIDE = 512)
+  is the tested, frozen storage unit — before and after, kv-lance and
+  batch-writer verified. Nothing restructures it.
+- "Edges cheap without loading the whole values" is served by the layout
+  AS IT IS: `NODE_ROW_COLUMNS` already describes the strided view (Edges =
+  16 bytes at row_offset 16), so an edge sweep is a strided 16-of-512
+  slice read over the existing backing store / mmap — zero-copy per the
+  data-flow rule (SIMD/readers slice into the store, never copy). No new
+  Lance schema, no column re-materialization.
+- Residual gate (read-side only, no storage change): an edges-only strided
+  read helper/test over the NODE_ROW_COLUMNS descriptors proving edge
+  traversal touches 16 B/row. Whether an additional Lance-level column
+  projection ever pays for itself is a MEASUREMENT question for later
+  (truth-architect rules apply) — not a schema decision, and not W1.
+- R-2 is now fully CLOSED: canon text stands as-is on both sides; the one
+  shared const set = NODE_ROW_COLUMNS + NODE_ROW_STRIDE; no repo touches
+  the 512-byte unit.
