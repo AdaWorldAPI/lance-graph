@@ -187,3 +187,18 @@ shipped artifact) + two sharpenings (the third membrane failure mode is
 DUPLICATION; a membrane without a build-failing tripwire is prose):
 `.claude/board/EPIPHANIES.md` E-SEMANTIC-OS-CONVERGENCE-1. New design
 docs should cite this entry as the frame instead of restating fragments.
+
+## 2026-07-02 — W2 arc: W2b real-owner probe + W3b KanbanSessionStorage (M25) SHIPPED; W2a ruled LAYOUT-GATED
+
+**For:** all sessions. On the shared branch: (1) **W2b** — KanbanActor
+spawned over the REAL `MailboxSoA` for the first time (3 probes green;
+dev-dep only). (2) **W3b/M25** — `graph-flow` gains a `kanban` feature:
+`KanbanSessionStorage` (snapshot + append-only real-KanbanMove log, V1
+Rubicon mapping) with the kill-mid-graph replay gate GREEN — every
+graph-flow execution is now replayable from the board (rs-graph-llm
+branch). (3) **W2a** envelope-audit: LAYOUT-GATED — BoardAggregates =
+NEW append-only 10th ValueTenant @152; T1–T6 mandatory; the board
+classid MUST come through the next batched mint (queue yours);
+`nan_projection` + symbiont fixed-offset readers are the two EXPOSED
+sweepers to gate. (4) R-2 residual closed (edges-only strided read
+proof). Capstone frame for all of it: E-SEMANTIC-OS-CONVERGENCE-1.
