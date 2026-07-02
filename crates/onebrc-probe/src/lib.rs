@@ -10,9 +10,13 @@
 //! - **Lane C** (`lane_c_threads`) — `std::thread` parallel baseline,
 //!   newline-aligned chunk split + commutative merge.
 //!
-//! Lane B (ndarray SIMD), Lane D (ractor actors), Lane E (kanban) are
-//! follow-up work — see `README.md` for the stub sections describing what
-//! each will measure.
+//! - **Lane B** (`lane_b::lane_b_simd`, feature `lane-b`) — `ndarray::simd`
+//!   vectorized `;`/`\n` scan, scalar parse.
+//! - **Lane D** (`lane_d::lane_d_ractor`, feature `lane-d`) — `ractor`
+//!   actor-per-worker over the same `chunk_bounds` split as Lane C.
+//!
+//! Lane E (kanban) is follow-up work — see `README.md` for the stub section
+//! describing what it will measure.
 //!
 //! ## Reference inventory
 //!
@@ -31,7 +35,16 @@
 //! branchless parser, and SIMD semicolon-finding (`pulp` / `wide`).
 
 pub mod gen;
+#[cfg(feature = "lane-b")]
+pub mod lane_b;
+#[cfg(feature = "lane-d")]
+pub mod lane_d;
 pub mod sha256;
+
+#[cfg(feature = "lane-b")]
+pub use lane_b::lane_b_simd;
+#[cfg(feature = "lane-d")]
+pub use lane_d::lane_d_ractor;
 
 use std::collections::BTreeMap;
 
@@ -136,8 +149,7 @@ pub fn lane_a_scalar(data: &[u8]) -> BTreeMap<String, Stats> {
         while data[i] != b';' {
             i += 1;
         }
-        let name =
-            std::str::from_utf8(&data[name_start..i]).expect("station name is valid utf8");
+        let name = std::str::from_utf8(&data[name_start..i]).expect("station name is valid utf8");
         i += 1; // skip ';'
         let temp_start = i;
         while data[i] != b'\n' {
@@ -331,5 +343,111 @@ mod tests {
             r1.sha256_hex, r2.sha256_hex,
             "same seed must produce same sha256"
         );
+    }
+
+    /// Lane A and Lane B must agree byte-for-byte on aggregate output over
+    /// a generated corpus — the correctness spot check for the SIMD
+    /// delimiter scan.
+    #[cfg(feature = "lane-b")]
+    #[test]
+    fn lane_b_agrees_with_lane_a_on_generated_corpus() {
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!("onebrc_probe_test_b_{}.txt", std::process::id()));
+        let result = gen::gen(&path, 50_000, 7).expect("gen");
+        assert_eq!(result.rows, 50_000);
+
+        let data = std::fs::read(&path).expect("read generated corpus");
+        std::fs::remove_file(&path).ok();
+
+        let a = lane_a_scalar(&data);
+        let b = lane_b_simd(&data);
+        assert_eq!(a, b, "lane A and lane B must produce identical aggregates");
+        assert!(!a.is_empty());
+    }
+
+    /// Hand-built corpus, crafted so at least one record's `;`/`\n` land in
+    /// DIFFERENT 32-byte SIMD blocks (block0=[0,32), block1=[32,64),
+    /// tail=[64,..)) — exercises the cross-iteration `line_start` /
+    /// `pending_semi` carry in `lane_b_simd`, not just the common in-block
+    /// case a random generated corpus would mostly hit.
+    #[cfg(feature = "lane-b")]
+    #[test]
+    fn lane_b_handles_records_that_straddle_32_byte_block_boundaries() {
+        let long_name = "N".repeat(22);
+        let mut corpus = String::new();
+        corpus.push_str("Ab;1.0\n"); // fully inside block0
+        corpus.push_str(&format!("{long_name};9.9\n")); // straddles block0/block1
+        corpus.push_str("Zz;3.3\n"); // fully inside block1
+        corpus.push_str("QqRrSsTt;2.2\n"); // fully inside block1
+        corpus.push_str("Uu;4.4\n"); // fully inside block1
+        corpus.push_str("Vv;5.5\n"); // straddles block1/tail
+
+        let data = corpus.as_bytes();
+        assert!(
+            data.len() > 64,
+            "test corpus must span block0, block1, AND a tail region"
+        );
+
+        // Confirm (rather than assume) that at least one record's `;` and
+        // `\n` land in different 32-byte blocks — otherwise this test
+        // would silently degrade into testing only the non-crossing case.
+        let find_all = |needle: u8| -> Vec<usize> {
+            data.iter()
+                .enumerate()
+                .filter(|&(_, &b)| b == needle)
+                .map(|(i, _)| i)
+                .collect()
+        };
+        let semis = find_all(b';');
+        let newlines = find_all(b'\n');
+        assert_eq!(semis.len(), newlines.len());
+        let crosses_a_block = semis
+            .iter()
+            .zip(newlines.iter())
+            .any(|(&s, &n)| s / 32 != n / 32);
+        assert!(
+            crosses_a_block,
+            "test corpus must contain a record whose `;`/`\\n` land in different 32-byte blocks"
+        );
+
+        let a = lane_a_scalar(data);
+        let b = lane_b_simd(data);
+        assert_eq!(
+            a, b,
+            "lane B must agree with lane A across straddled block boundaries"
+        );
+
+        let mut expected: BTreeMap<String, Stats> = BTreeMap::new();
+        expected.insert("Ab".to_string(), Stats::single(10));
+        expected.insert(long_name, Stats::single(99));
+        expected.insert("Zz".to_string(), Stats::single(33));
+        expected.insert("QqRrSsTt".to_string(), Stats::single(22));
+        expected.insert("Uu".to_string(), Stats::single(44));
+        expected.insert("Vv".to_string(), Stats::single(55));
+        assert_eq!(
+            b, expected,
+            "lane B stats must match the hand-computed expectation"
+        );
+    }
+
+    /// Lane A and Lane D must agree byte-for-byte on aggregate output —
+    /// the correctness spot check for the ractor actor-per-worker path.
+    /// Uses an odd worker count (3) on purpose, mirroring `chunk_bounds`'s
+    /// own odd-split test coverage.
+    #[cfg(feature = "lane-d")]
+    #[test]
+    fn lane_d_agrees_with_lane_a_on_generated_corpus() {
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!("onebrc_probe_test_d_{}.txt", std::process::id()));
+        let result = gen::gen(&path, 50_000, 13).expect("gen");
+        assert_eq!(result.rows, 50_000);
+
+        let data = std::fs::read(&path).expect("read generated corpus");
+        std::fs::remove_file(&path).ok();
+
+        let a = lane_a_scalar(&data);
+        let d = lane_d_ractor(&data, 3);
+        assert_eq!(a, d, "lane A and lane D must produce identical aggregates");
+        assert!(!a.is_empty());
     }
 }

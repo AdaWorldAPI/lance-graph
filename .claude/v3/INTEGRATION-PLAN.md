@@ -549,3 +549,16 @@ std-only for the baselines). Scaffold + lanes A/C in flight.
   ADDRESSING TAX exactly. F winning or tying validates
   addressing-is-aggregation; F losing prices the address layer — either
   result tunes W2d and gives W2e its "winner owns the hot path" number.
+
+#### Addendum-13 status update (2026-07-02, t1)
+
+Lanes B + D SHIPPED (feature-gated `lane-b`/`lane-d`; A/C stay zero-dep —
+proven by the no-feature test run). t1 best-of-2 on the archived recipe
+corpus (hash re-verified): A 7.012 / B 7.455 (**1.06× vs A** — delimiter
+find alone is not the bottleneck; SWAR parse + hash swap are the next
+levers) / C 27.586 / D 22.078 Mrows/s (**0.80× vs C** — the "ractor is a
+helper, not a messaging path" ruling measured: ~20% actor tax incl. the
+forced one-time Arc corpus copy). Full tables + readings:
+`crates/onebrc-probe/README.md` §5.1. Remaining: lane E (E−D isolates the
+kanban journaling tax; feeds W2d), lane F (Morton-tile shader vs plain
+radix control — the addressing-tax isolator).

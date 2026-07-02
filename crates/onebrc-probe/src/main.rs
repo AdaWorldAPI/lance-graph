@@ -3,8 +3,11 @@
 //!
 //! ```text
 //! onebrc-probe gen <path> <rows> <seed>
-//! onebrc-probe run <path> <lane:a|c> [workers]
+//! onebrc-probe run <path> <lane:a|b|c|d> [workers]
 //! ```
+//!
+//! Lane `b` requires `--features lane-b`; lane `d` requires
+//! `--features lane-d` (see `README.md` §3/§4).
 
 use onebrc_probe::{gen::gen, lane_a_scalar, lane_c_threads};
 use std::env;
@@ -19,7 +22,7 @@ fn main() {
         Some("run") => cmd_run(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|c> [workers]"
+                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|b|c|d> [workers]"
             );
             std::process::exit(2);
         }
@@ -27,10 +30,7 @@ fn main() {
 }
 
 fn cmd_gen(args: &[String]) {
-    let path = PathBuf::from(
-        args.first()
-            .expect("usage: gen <path> <rows> <seed>"),
-    );
+    let path = PathBuf::from(args.first().expect("usage: gen <path> <rows> <seed>"));
     let rows: u64 = args
         .get(1)
         .expect("usage: gen <path> <rows> <seed>")
@@ -54,7 +54,7 @@ fn cmd_gen(args: &[String]) {
 fn cmd_run(args: &[String]) {
     let path = PathBuf::from(
         args.first()
-            .expect("usage: run <path> <lane:a|c> [workers]"),
+            .expect("usage: run <path> <lane:a|b|c|d> [workers]"),
     );
     let lane = args.get(1).map(String::as_str).unwrap_or("a");
     let workers: usize = args
@@ -80,8 +80,30 @@ fn cmd_run(args: &[String]) {
     let map = match lane {
         "a" => lane_a_scalar(&data),
         "c" => lane_c_threads(&data, workers),
+        "b" => {
+            #[cfg(feature = "lane-b")]
+            {
+                onebrc_probe::lane_b_simd(&data)
+            }
+            #[cfg(not(feature = "lane-b"))]
+            {
+                eprintln!("lane b requires --features lane-b");
+                std::process::exit(1);
+            }
+        }
+        "d" => {
+            #[cfg(feature = "lane-d")]
+            {
+                onebrc_probe::lane_d_ractor(&data, workers)
+            }
+            #[cfg(not(feature = "lane-d"))]
+            {
+                eprintln!("lane d requires --features lane-d");
+                std::process::exit(1);
+            }
+        }
         other => {
-            eprintln!("unknown lane '{other}' (expected 'a' or 'c')");
+            eprintln!("unknown lane '{other}' (expected 'a', 'b', 'c', or 'd')");
             std::process::exit(2);
         }
     };

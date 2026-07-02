@@ -4,12 +4,15 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 publish = false
-description = "1BRC (One Billion Row Challenge) substrate probe: measures the V3 SoA/mailbox substrate's groupby-aggregate throughput at container scale (100M rows). Lane A (single-thread scalar baseline) and Lane C (std::thread parallel baseline) ship here; Lane B (ndarray SIMD), Lane D (ractor actors), Lane E (kanban) are follow-up work — see README.md."
+description = "1BRC (One Billion Row Challenge) substrate probe: measures the V3 SoA/mailbox substrate's groupby-aggregate throughput at container scale (100M rows). Lane A (single-thread scalar baseline), Lane C (std::thread parallel baseline), Lane B (ndarray SIMD, feature lane-b) and Lane D (ractor actors, feature lane-d) ship here; Lane E (kanban) is follow-up work — see README.md."
 
 # Standalone, workspace-EXCLUDED crate (see root Cargo.toml `exclude`, same
-# precedent as crates/bgz17 and crates/deepnsm). Zero dependencies for lanes
-# A/C (std only). Verify with:
+# precedent as crates/bgz17 and crates/deepnsm). Lanes A/C are zero-dependency
+# (std only); lanes B/D are opt-in via feature flags so the zero-dep contract
+# for A/C is never silently broken. Verify with:
 #   cargo test --manifest-path crates/onebrc-probe/Cargo.toml
+#   cargo test --manifest-path crates/onebrc-probe/Cargo.toml --features lane-b
+#   cargo test --manifest-path crates/onebrc-probe/Cargo.toml --features lane-d
 
 # Empty [workspace] table: this crate is `exclude`d from the parent
 # lance-graph workspace, but cargo's manifest auto-discovery would otherwise
@@ -17,6 +20,21 @@ description = "1BRC (One Billion Row Challenge) substrate probe: measures the V3
 # (identical precedent/comment to crates/deepnsm/Cargo.toml).
 [workspace]
 
+[features]
+# Lanes A/C stay dependency-free; B and D are opt-in.
+lane-b = ["dep:ndarray"]
+lane-d = ["dep:ractor", "dep:tokio"]
+
 [dependencies]
+# AdaWorldAPI fork (workspace P0 rule: fork over crates.io, always — see
+# CLAUDE.md "P0 — AdaWorldAPI forks ONLY, NEVER crates.io upstream"). Same
+# path convention as crates/lance-graph/Cargo.toml's ndarray dep.
+# default-features = false + "std" exposes ndarray::simd (U8x32 etc.)
+# without dragging in hpc-extras.
+ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std"] }
+# AdaWorldAPI fork of ractor (same coordinates as lance-graph-supervisor;
+# fork carries the MessagingErr::Saturated non-exhaustive-match fix).
+ractor = { git = "https://github.com/AdaWorldAPI/ractor", optional = true, default-features = false, features = ["tokio_runtime"] }
+tokio = { version = "1", optional = true, default-features = false, features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]

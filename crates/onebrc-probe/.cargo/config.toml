@@ -1,0 +1,7 @@
+# Pin the probe to the workspace's CI baseline so lane-B numbers are
+# comparable with lance-graph CI builds (rust-test.yml uses x86-64-v3).
+# ndarray's simd module dispatches at COMPILE time on target_feature:
+# at v3 the U8x32 ops are real AVX2 intrinsics (U8x64 falls back to
+# scalar loops — that's why lane B uses U8x32).
+[build]
+rustflags = ["-C", "target-cpu=x86-64-v3"]

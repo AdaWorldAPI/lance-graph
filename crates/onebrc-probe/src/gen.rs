@@ -59,7 +59,7 @@ const SYLLABLES: &[&str] = &[
 /// for a membership check, never iterated, so its unordered nature never
 /// leaks into the output).
 pub fn station_names(seed: u64, count: usize) -> Vec<String> {
-    let mut rng = SplitMix64::new(seed ^ 0xA11CE_5EED);
+    let mut rng = SplitMix64::new(seed ^ 0xA_11CE_5EED);
     let mut seen = std::collections::HashSet::with_capacity(count * 2);
     let mut names = Vec::with_capacity(count);
     while names.len() < count {

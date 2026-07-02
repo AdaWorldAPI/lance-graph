@@ -80,8 +80,8 @@ regenerating with the same `(rows, seed)` and diffing the printed
 |---|---|---|
 | **A** — `lane_a_scalar` | Single-thread scalar baseline: one pass, byte-wise `;`/`\n` scan, integer temp parse, `BTreeMap<String, Stats>` accumulation | **Shipped** |
 | **C** — `lane_c_threads` | `std::thread` parallel baseline: newline-aligned `chunk_bounds` split, per-worker owned `BTreeMap`, commutative `Stats::merge` combine | **Shipped** |
-| **B** — ndarray SIMD | Vectorized semicolon/newline scanning and/or batched parse via `ndarray::simd` (per the workspace's SIMD rule — never raw `pulp`/`wide`/hand intrinsics in a consumer crate; see `.claude/knowledge/ndarray-vertical-simd-alien-magic.md`). Would also evaluate whether an `ndarray`-backed SIMD hash or SWAR-style parse closes the gap to the reference's `v15_raw_hash`. | **Not implemented** — orchestrator follow-up |
-| **D** — `ractor` actors | Same groupby-aggregate workload, but the aggregation runs as `ractor`-supervised actors (per this workspace's `lance-graph-supervisor` precedent) instead of bare `std::thread::scope`, to measure actor-model overhead/benefit vs Lane C's raw threads at this workload's arrival rate. | **Not implemented** — orchestrator follow-up |
+| **B** — `lane_b::lane_b_simd` (feature `lane-b`) | Vectorized `;`/`\n` scanning via `ndarray::simd::U8x32::cmpeq_mask` (per the workspace's SIMD rule — never raw `pulp`/`wide`/hand intrinsics in a consumer crate; see `.claude/knowledge/ndarray-vertical-simd-alien-magic.md`), 32-byte-stride scan with cross-block `line_start`/`pending_semi` carry, scalar temp parse (SWAR/branchless parse deliberately still deferred). | **Shipped** |
+| **D** — `lane_d::lane_d_ractor` (feature `lane-d`) | Same groupby-aggregate workload as Lane C, but each `chunk_bounds` chunk is aggregated by a stateless `ractor` actor (actor-per-worker, ask-pattern reply, `lance-graph-supervisor`-style `Actor`/`RpcReplyPort` shape) instead of a bare `std::thread::scope` closure — identical chunking + commutative merge, only the worker primitive changes. | **Shipped** |
 | **E** — kanban | Routes the aggregation through the V3 kanban execution machinery (`v3-kanban-executor-engineer` domain — `KanbanPhase` lifecycle, ahead-firing batch writer) to measure the substrate's own scheduling/dispatch overhead against the bare-metal Lane A/C numbers as a ceiling reference. | **Not implemented** — orchestrator follow-up |
 
 ---
@@ -90,7 +90,17 @@ regenerating with the same `(rows, seed)` and diffing the printed
 
 ```text
 onebrc-probe gen <path> <rows> <seed>
-onebrc-probe run <path> <lane:a|c> [workers]
+onebrc-probe run <path> <lane:a|b|c|d> [workers]
+```
+
+Lane `b` requires `--features lane-b`; lane `d` requires `--features lane-d`
+(see `Cargo.toml` `[features]`). Lanes A/C stay dependency-free either way:
+
+```bash
+cargo run --release --manifest-path crates/onebrc-probe/Cargo.toml \
+  --features lane-b -- run /tmp/onebrc_10m.txt b
+cargo run --release --manifest-path crates/onebrc-probe/Cargo.toml \
+  --features lane-d -- run /tmp/onebrc_10m.txt d 4
 ```
 
 `run` prints:
@@ -155,3 +165,40 @@ keeps the tree shallow, but each of the 4 workers still walks its own tree
 independently rather than sharing one flat hash table). Lane B (SIMD
 scan/parse) and a hash-map swap are the natural next levers — deferred to
 the orchestrator's follow-up per §3.
+
+### §5.1 — t1 (lanes B/D) — measured 2026-07-02
+
+Same recipe corpus (`rows=10000000 seed=42 sha256=f1853caa…5691`, hash
+re-verified byte-identical at regeneration), same 4-core container,
+release build `--features lane-b,lane-d` (probe pinned to
+`target-cpu=x86-64-v3` via `.cargo/config.toml`, so `U8x32` ops are real
+AVX2 intrinsics). Two passes per lane, best-of-2 reported (both passes
+listed for honesty):
+
+| Lane | workers | elapsed_ms (best) | throughput (Mrows/s) | ratio |
+|---|---|---|---|---|
+| A (scalar)  | 1 | 1426.066 | 7.012 (7.0, 7.0) | 1.00× vs A |
+| B (SIMD scan) | 1 | 1341.374 | 7.455 (7.1, 7.5) | **1.06× vs A** |
+| C (threads) | 4 | 362.508 | 27.586 (27.3, 27.6) | 3.93× vs A |
+| D (ractor)  | 4 | 452.936 | 22.078 (22.1, 19.7) | **0.80× vs C** |
+
+Readings:
+
+- **B vs A (1.06×):** vectorizing ONLY the delimiter find barely moves
+  the needle — the hot cost at this corpus is the scalar temp parse +
+  `BTreeMap` accumulation, exactly as §5's t0 analysis predicted. The
+  SIMD scan is not wasted (it is the prerequisite structure for lane F's
+  batched tile sweeps); it is just not the bottleneck by itself. Next
+  levers remain SWAR parse + hash-map swap (§1 inventory rows 2–3).
+- **D vs C (0.80×):** the operator's "ractor is a helper, not a
+  messaging path" ruling, as a number — routing the identical chunked
+  workload through actor-per-worker costs ~20% at this arrival rate,
+  and that figure INCLUDES the one-time `Arc<Vec<u8>>` corpus copy
+  (142 MB) that the actor boundary forces and `std::thread::scope`'s
+  borrow does not (see `lane_d.rs` module doc). Actors buy supervision
+  and single-writer ownership, not raw throughput; on the V3 substrate
+  they own SoA mailboxes (W2b) rather than carry bulk data — this lane
+  is the measured cost of doing it the wrong way, kept as the fence.
+- Lane E (kanban scheduling tax, E−D isolates the journaling cost) is
+  the next lane; lane F (Morton-tile cascaded shader vs plain radix
+  control) closes the set per Addendum-13.
