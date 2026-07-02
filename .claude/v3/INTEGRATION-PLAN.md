@@ -328,3 +328,20 @@ Operator: "check temporal.rs for a deeper understanding." Verified against
    dispatchable = time-admitted AND data-ready — the standing rule
    "updates reprioritize, never gate" holds because a data-blocked row is
    dropped from the PROJECTION, not refused at the writer.
+
+### Addendum-9 2026-07-02 — W3c oracle measured LIVE + the self-hosted test bench
+
+- **Live numbers** (rig xai, grok-4-0709 oracle through FlowRunner):
+  framework overhead **1-2 ms** vs **8.4-8.7 s** LLM round trip. W3c's
+  budget IS the LLM call; orchestration is free. Full data:
+  E-V3-ORACLE-LIVE-1.
+- **Test-bench delta (operator):** wire rig's OpenAI-compatible provider
+  at the planner's serve.rs (`/v1/chat/completions`, JITSON behind it)
+  as the LOCAL oracle for CI — zero external spend, no key, graceful
+  retry wrapping for a typical langchain-style bench. Lands with W3b's
+  KanbanSessionStorage tests.
+- **References:** rs-graph-llm's stated design (LangGraph-inspired,
+  Rig-integrated, interruptible-by-design, step-by-step default) matches
+  the W3b role exactly; the thread's queue-vs-stateful debate is resolved
+  in V3 by the kanban board being both (M24 WAL + state). GraphRAG-rs
+  noted as RAG prior art (native LanceDB/Arrow, Leiden, LightRAG, cAST).
