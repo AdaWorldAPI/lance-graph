@@ -1,3 +1,9 @@
+## 2026-07-02 — census fleet COMPLETE (21/21) — MODULE-TABLE.md shipped; D-V3-W0a Shipped
+
+- 304/304 files censused across lance-graph / lance-graph-contract / lance-graph-planner by the Sonnet census fleet (21 chunks, throttled re-dispatch after the rate-limit incident); assembled mechanically into `.claude/v3/MODULE-TABLE.md` (per file: visibility / consumes / emits / LE contract / function+benefit / tech debt / duplication / V3 wave).
+- Rollup: 51 LE/byte surfaces · 146 files with cited tech debt · 78 with known duplication · waves CORE:206 HW:31 W1:22 W3:13 LEGACY:9 W5:8 W4:7 W2:6 W6:2.
+- D-V3-W0a transitioned to Shipped. The `.claude/v3/` consolidation (operator directive) is complete on branch claude/v3-substrate-migration-review-o0yoxv — PR #629 is MERGE-READY at this commit.
+
 ## 2026-07-02 — subsystem mapping fleet COMPLETE (7/7) — COMPONENT-MAP + ENTROPY-MILESTONES + soa_layout ground truth shipped
 
 - **D-ids:** D-V3-W0a (nearly complete — MODULE-TABLE + README pending census), D-V3-W5f/g/h/i minted from audit findings.
