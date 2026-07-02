@@ -64,6 +64,8 @@ pub mod lane_h;
 pub mod lane_i;
 #[cfg(feature = "lane-j")]
 pub mod lane_j;
+#[cfg(feature = "presets")]
+pub mod presets;
 pub mod sha256;
 
 #[cfg(feature = "lane-b")]

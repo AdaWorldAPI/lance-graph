@@ -13,6 +13,19 @@ cargo test --manifest-path crates/onebrc-probe/Cargo.toml
 
 Zero external dependencies for lanes A/C (std only) — see `Cargo.toml`.
 
+**Reading order for a fresh session:**
+
+- **`FINDINGS.md`** — the AGNOSTIC record: environment, methods, all
+  measurement tables (t0–t7), and every asserted invariant WITH its
+  code. No interpretation.
+- **`COMMENTARY.md`** — one session's interpretation (the prime),
+  stored separately so the findings can be read from another angle.
+- **`src/presets.rs`** (feature `presets`) — the 8 batching methods
+  frozen as named, reproducible presets sharing one signature and one
+  parity harness — the lab-sweep surface.
+- This README — the per-lane history (specs, commands, per-round
+  measurement sections §5.0–§5.7) in the order it happened.
+
 ---
 
 ## §1 — Reference inventory

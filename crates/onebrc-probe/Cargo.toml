@@ -45,6 +45,9 @@ lane-i = ["dep:lance-graph-contract", "dep:ractor", "dep:tokio"]
 # Lane J (parameterized batch pipeline): lane I's shape with grid /
 # sink-lanes / registry knobs — needs lane-i's RowOwner.
 lane-j = ["lane-i"]
+# All 8 batching-method presets (src/presets.rs) — the lab-sweep surface;
+# see FINDINGS.md (agnostic record) + COMMENTARY.md (interpretation).
+presets = ["lane-g", "lane-h", "lane-i", "lane-j"]
 
 [dependencies]
 # AdaWorldAPI fork (workspace P0 rule: fork over crates.io, always — see

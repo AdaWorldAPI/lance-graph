@@ -687,3 +687,24 @@ double-cast + flush cache; ownership as the index-aligned guarantee
 table, NOT a standing per-cell actor registry; BF16 planes per ndarray
 #227's proven VDPBF16PS tier as the tile-GEMM continuation. README
 §5.7; board E-1BRC-GRIDLAKE-SWEETSPOT-1.
+
+#### Addendum-13 status update (2026-07-02, consolidation — findings/commentary split, 8 presets, simd_ops wiring)
+
+Operator-requested consolidation SHIPPED: (1) `crates/onebrc-probe/FINDINGS.md`
+— the AGNOSTIC record (environment, methods, all t0–t7 tables, all 11
+invariants WITH their code, reproduction commands; zero interpretation);
+(2) `crates/onebrc-probe/COMMENTARY.md` — this session's prime stored
+SEPARATELY (readings, rulings executed, composed recipe, flagged
+uncertainty, suggested lab sweeps) so another session can analyze the
+findings from its own angle; (3) `src/presets.rs` (feature `presets`) —
+the 8 batching methods frozen as named presets (map-private-merge /
+grid-private-merge / stream-single-owner / orchestrated-lazy-owners /
+batch-64k-registry / gridlake / gridlake-8-lanes / batch-64k-no-registry)
+sharing one signature + one parity harness (`all_presets_agree_with_lane_a`
+— every preset byte-identical to lane A); (4) honest answer to the simd
+question: lane B had used ONLY `U8x32::cmpeq_mask`; NOW also routes the
+stride walk through `ndarray::simd::array_chunks` (simd_ops.rs, the
+non-overlapping walker; `array_windows` is the overlapping GEMM sibling,
+deliberately unused); `simd_soa.rs::SoaBytes` remains an OPEN follow-up
+(natural carrier for vectorized sink sweeps + batch tables). Note: probe
+target/debug purged mid-round (disk full at 100%); gates re-run green.
