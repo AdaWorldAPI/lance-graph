@@ -72,6 +72,9 @@ pub mod pipeline;
 // === Autocomplete Cache (VSA superposition KV-cache) ===
 pub mod cache;
 
+// === W1b ahead-firing batch writer (D-V3-W1e probe-first skeleton) ===
+pub mod batch_writer;
+
 // === Internal API (same-binary, zero-serde) ===
 pub mod api;
 
