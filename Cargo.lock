@@ -5003,6 +5003,7 @@ dependencies = [
 name = "lance-graph-supervisor"
 version = "0.1.0"
 dependencies = [
+ "cognitive-shader-driver",
  "lance-graph-callcenter",
  "lance-graph-contract 0.1.0",
  "ractor",
