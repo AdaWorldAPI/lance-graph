@@ -591,3 +591,25 @@ where the win lives (B was 1.06×). All six lanes A–F + R now measured
 on one regenerable recipe corpus. Board: E-1BRC-ADDRESSING-1. The probe
 is COMPLETE; follow-ups (100M container-scale run, high-cardinality
 corpus, SWAR parse, mmap) are priced and parked in README §1/§5.3.
+
+#### Addendum-13 status update (2026-07-02, t4 — lane G, operator follow-up)
+
+Operator: "compare morton and the kanban vs without — if 64k concurrent
+SoA vs Morton tile can help us understand the pros and cons of our
+architecture when using kanban update." Lane G SHIPPED (feature
+`lane-g`): the lane-F Morton-tile 64K SoA as OWNED state behind shard
+mailbox actors — prefix-routed morsel casts (64K rows, #227's morsel
+size, clear-by-undo extraction), every applied batch witnessed with a
+KanbanMove, journal==casts asserted. ndarray checkout rebased onto
+master (#227 merged — its Morton scatter/morsel probe is the sibling
+reference). t4 medians: F 79.5 / G(1 shard) 43.0 / G(4) 39.9 /
+G(16) 36.0 (one thrash collapse 11.7) / G(workers=3) strictly worse.
+**Ledger: kanban update = 0.54× at morsel granularity, and the tax is
+all boundary (corpus copy + oversubscription + messaging), not the
+witness (lane E: journal ~free). It buys live bounded-staleness state,
+witnessed replayable writes, single-writer safety, bounded worker
+memory. Do NOT shard ownership below contention — at ~400 groups one
+mailbox absorbs everything; shards scale with owner WORK, never with
+rows; the Morton prefix route itself is free (G(4)≈G(1)).** Tables +
+full readings: crates/onebrc-probe/README.md §5.4. Board follow-up
+appended to E-1BRC-ADDRESSING-1 thread as E-1BRC-KANBAN-UPDATE-1.

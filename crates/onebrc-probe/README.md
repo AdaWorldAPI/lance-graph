@@ -84,6 +84,7 @@ regenerating with the same `(rows, seed)` and diffing the printed
 | **D** — `lane_d::lane_d_ractor` (feature `lane-d`) | Same groupby-aggregate workload as Lane C, but each `chunk_bounds` chunk is aggregated by a stateless `ractor` actor (actor-per-worker, ask-pattern reply, `lance-graph-supervisor`-style `Actor`/`RpcReplyPort` shape) instead of a bare `std::thread::scope` closure — identical chunking + commutative merge, only the worker primitive changes. | **Shipped** |
 | **F** — `lane_f::lane_f_morton` (std-only, no feature) | The substrate-native lane: station identity → FNV-1a 64 → two axis bytes **nibble-interleaved** into a 16-bit Morton tile position (the GUID canon's 256×256 centroid-tile read) → slot into flat **SoA accumulators** (`min[]/max[]/sum[]/count[]`, open-addressed linear probe, name-verified on tag hit) — group-by as a prefix ROUTE, aggregation as a gated indexed write, per-worker owned tables BUNDLE-merged. Same scalar scan + `chunk_bounds` as lane C: the only variable vs C is the accumulator. | **Shipped** |
 | **R** — `lane_f::lane_r_radix` (std-only, no feature) | The honest control for F: byte-identical pipeline, slot = plain `hash & 0xFFFF` (no interleave). **F−R isolates the Morton addressing tax exactly; R−C prices flat-SoA-table-vs-BTreeMap.** | **Shipped** |
+| **G** — `lane_g::lane_g_kanban_soa` (feature `lane-g`) | The kanban-update write path: the SAME Morton-tile 64K SoA as lane F, but held as OWNED state by `shards` mailbox actors (mailbox-as-owner over contiguous Morton tile ranges). Workers pre-reduce 64K-row morsels in private tables (identical hot loop to F), extract dirty slots by clear-by-undo, and **cast** the pre-reduced entries prefix-routed to the owning shard; every applied batch is witnessed with a `KanbanMove` on the owner's WAL (`journal == casts` asserted). **G−F prices witnessed streamed ownership vs private-merge-at-end; the `shards` sweep (1/4/16) is the 64K-concurrent-SoA-vs-Morton-tile ownership ledger** (§5.4). | **Shipped** |
 | **E** — `lane_e::lane_e_kanban` (feature `lane-e`) | One kanban card per batch: the corpus splits into `batches` newline-aligned chunks (`batches >= workers`) pulled from a shared `AtomicUsize` queue by `workers` puller tasks; every batch is journaled by a fresh `lance-graph-supervisor::KanbanActor<ProbeBoard>` driven through the full Rubicon forward arc (`Planning->CognitiveWork->Evaluation->Commit`, `drive_version_tick` × 3) around the actual `lane_a_scalar` work. The combined journal is asserted to carry exactly `3 * batches` legal `KanbanMove`s. `batches == workers` vs Lane D isolates the kanban journaling cost (identical chunking + actor-model tax, only the actor type differs); fine-grained batching (`batches >> workers`) prices per-card scheduling overhead (feeds W2d, the 550 ms Libet budget question). | **Shipped** |
 
 ---
@@ -92,12 +93,12 @@ regenerating with the same `(rows, seed)` and diffing the printed
 
 ```text
 onebrc-probe gen <path> <rows> <seed>
-onebrc-probe run <path> <lane:a|b|c|d|e|f|r> [workers] [batches]
+onebrc-probe run <path> <lane:a|b|c|d|e|f|g|r> [workers] [batches|shards]
 ```
 
 Lane `b` requires `--features lane-b`; lane `d` requires `--features lane-d`;
 lane `e` requires `--features lane-e` (see `Cargo.toml` `[features]`). Lanes
-A/C stay dependency-free either way. `batches` is **lane-`e`-only** (ignored
+A/C stay dependency-free either way. `batches` is **lane-`e`-only**; for lane `g` the same 4th positional arg is the **shard-owner count** (default 4; ignored
 by every other lane): the number of newline-aligned batches the corpus
 splits into, each journaled as one kanban card (`batches >= workers`,
 default `workers * 16`):
@@ -296,3 +297,59 @@ Readings — the numbers Addendum-13 sent this lane to fetch:
   bucketing + cascade-ordered sweeps (earns its keep only at high
   cardinality), kanban tile-batch scheduling (lane E priced it:
   ~66 µs/card), SIMD scan (lane B's variable — composable later).
+
+### §5.4 — t4 (lane G, kanban update vs without) — measured 2026-07-02
+
+The operator's question: *"compare morton and the kanban vs without —
+if 64k concurrent SoA vs Morton tile can help us understand the pros
+and cons of our architecture when using kanban update."* Lane G holds
+the SAME Morton-tile 64K SoA as lane F, but as owned state behind
+shard mailbox actors: workers pre-reduce 64K-row morsels (identical
+hot loop to F), cast the dirty entries prefix-routed to the owning
+shard, every applied batch witnessed with a `KanbanMove` (journal ==
+casts asserted). Same recipe corpus, 4-core container, 3 passes each:
+
+| Config | throughput passes (Mrows/s) | median |
+|---|---|---|
+| F, workers=4 (no kanban, private merge) | 79.5, 80.0, 78.4 | **79.5** |
+| G, workers=4, shards=1  | 42.7, 44.7, 43.0 | **43.0** |
+| G, workers=4, shards=4  | 43.0, 39.9, 38.7 | **39.9** |
+| G, workers=4, shards=16 | 36.8, 36.0, 11.7 | **36.0** (one collapse) |
+| G, workers=3, shards=1  | 37.7, 38.3, 33.3 | 37.7 |
+| G, workers=3, shards=4  | 37.7, 35.7, 36.8 | 36.8 |
+| F, workers=3 (reference) | 63.5 | 63.5 |
+
+The pros-and-cons ledger this sweep was sent to fetch:
+
+- **Kanban update costs ~0.54× at morsel granularity** (43.0 vs 79.5).
+  The tax decomposes into KNOWN boundary costs, not the witness
+  itself: the actor-boundary `Arc` corpus copy (lane D's finding),
+  blocking-pool workers + async owner threads oversubscribing 4 cores
+  (F runs exactly 4 scoped threads), and per-morsel extraction +
+  message allocation. Lane E already proved the journal append itself
+  is ~free.
+- **What the ~2× buys** (what F cannot do): LIVE state — mid-flight,
+  the shard owners hold a bounded-staleness view of the whole
+  aggregation, queryable at any instant; WITNESSED writes — every
+  applied batch on the WAL, `journal == casts` asserted, replay-ready;
+  single-writer safety by construction (actor mailbox = serialized
+  `&mut`, E-CE64-MB-4); bounded worker memory (workers hold one morsel
+  table, owners hold THE state).
+- **Do not shard ownership below contention.** At ~400 stations the
+  owner's apply work (~150 batch merges total) is trivially absorbed
+  by ONE mailbox; every added shard is pure scheduling overhead on a
+  4-core box (1 → 4 → 16 shards: 43.0 → 39.9 → 36.0, with one
+  16-shard collapse to 11.7 when 20 tasks thrashed 4 cores). The
+  Morton-tile PREFIX ROUTE itself is structurally free (G(4) is
+  within ~7% of G(1) before thrash) — tile-sharding is the right
+  MECHANISM, but its trigger is owner-side contention (high
+  cardinality / heavy per-entry work), never data volume. Shard count
+  scales with owner WORK, not with rows.
+- **Don't starve scanners to feed owners:** workers=3 + dedicated
+  owner core is strictly worse (37.7 < 43.0) — apply work is too
+  light to deserve a core at this cardinality.
+- **W2d guidance:** if the consumer needs one merged answer at the
+  end, private-merge (F) is 2× faster; the kanban-update path is what
+  you pay when the substrate's claims (live view, witness, replay,
+  ownership) are the product. The 550 ms Libet budget is untouched
+  either way — the tax is throughput, not latency floor.

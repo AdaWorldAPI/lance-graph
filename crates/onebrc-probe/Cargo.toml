@@ -29,6 +29,11 @@ lane-d = ["dep:ractor", "dep:tokio"]
 # the V3 kanban execution machinery (lance-graph-supervisor's KanbanActor +
 # drivers, lance-graph-contract's kanban/scheduler/soa_view contract types).
 lane-e = ["dep:lance-graph-supervisor", "dep:lance-graph-contract", "dep:ractor", "dep:tokio"]
+# Lane G (kanban-update write path): the Morton-tile 64K SoA as owned state
+# behind shard mailbox actors, morsel casts witnessed with KanbanMoves —
+# ractor/tokio + the contract's kanban types (no supervisor needed: the
+# shard owner IS the probe's actor).
+lane-g = ["dep:lance-graph-contract", "dep:ractor", "dep:tokio"]
 
 [dependencies]
 # AdaWorldAPI fork (workspace P0 rule: fork over crates.io, always — see
