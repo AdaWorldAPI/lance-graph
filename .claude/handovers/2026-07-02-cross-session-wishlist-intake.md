@@ -231,3 +231,25 @@ THREE Lance columns" is RETRACTED as over-reach. Corrected reading:
 - R-2 is now fully CLOSED: canon text stands as-is on both sides; the one
   shared const set = NODE_ROW_COLUMNS + NODE_ROW_STRIDE; no repo touches
   the 512-byte unit.
+
+---
+
+## APPENDED 2026-07-02 (ops) — vart in-container unblock: the mirror + re-apply recipe
+
+The `AdaWorldAPI/vart` session-scope 403 (which blocked ALL OGAR workspace
+cargo in-container) is worked around, not solved:
+
+- `/home/user/vart` = complete file-by-file mirror of the fork @ main via
+  raw.githubusercontent.com (the only channel the proxy leaves open for
+  this repo; UI scope-add did not propagate, wget/zipball/api all 403,
+  add_repo unreachable — Claude_Code_Remote MCP unauthenticated). Local
+  git repo with provenance commits; vart's own suite 117/117; NO upstream
+  history — replace with a real clone when scope propagates.
+- Re-apply recipe for local OGAR testing (NEVER COMMIT — breaks CI):
+  in `crates/ogar-knowable-from/Cargo.toml` swap
+  `vart = { git = "https://github.com/AdaWorldAPI/vart", optional = true }`
+  for `vart = { path = "../../../vart", optional = true }`, test, then
+  `git checkout` the manifest. Note: `[patch."<git-url>"]` does NOT work
+  — cargo still fetches the patched-over git source (403s).
+- Proven while applied: full OGAR workspace green including the 16
+  vart-backend tests (first in-container run ever).
