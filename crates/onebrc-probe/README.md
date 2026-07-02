@@ -353,3 +353,48 @@ The pros-and-cons ledger this sweep was sent to fetch:
   you pay when the substrate's claims (live view, witness, replay,
   ownership) are the product. The 550 ms Libet budget is untouched
   either way — the tax is throughput, not latency floor.
+
+### §5.4a — one mailbox per SoA (topology corrected) + the full ownership-granularity curve
+
+Correction to §5.4's framing (operator: *"I thought we spawn one ractor
+mailbox per SoA?"* — yes, that is the canon): lane G's owners were
+always independent (nothing shared), but each owner allocated a
+full-64K-slot table and the prose said "sharding the 64K SoA" — an
+ownership inversion, and it made the fine-grained end unrunnable. Fixed:
+each owner's `State` is now its OWN `OwnerSoa` sized to its tile span
+(one mailbox = one SoA, verbatim), which unlocks the sweep out to the
+literal "64K concurrent SoAs" — `shards=65536`, one mailbox per tile,
+spawn cost included in the measurement. Same recipe corpus, 4 cores,
+3 passes, medians:
+
+| Owners (mailbox=SoA pairs) | tile span/owner | median Mrows/s |
+|---|---|---|
+| F reference (no kanban)    | —     | ~76 (61.8–76.4 this round) |
+| **1**                      | 65536 | **43.4** |
+| 16                         | 4096  | 30.3 (noisy: 29.2–41.9) |
+| 256                        | 256   | 35.9 |
+| 4096                       | 16    | **18.3** |
+| **65536** (mailbox/tile)   | 1     | **2.1** (6.9 s worst pass) |
+
+Readings — the completed pros-and-cons ledger:
+
+- **The ownership-granularity curve is a plateau then a cliff.** 1–256
+  owners live in the same ~30–43 band (topology within it is
+  noise-dominated on 4 cores); 4096 owners halves throughput; 65536
+  owners — the "64K concurrent SoA" end — collapses **20×** vs one
+  owner. The costs at the fine end: 64K actor spawns (paid inside the
+  run), cast fragmentation (each morsel's ~413 stations scatter to
+  ~413 distinct owners → casts explode from ~150 to ~63K), and 64K
+  mailbox tasks scheduled over 4 cores.
+- **Morton tile GROUPING is therefore not an optimization detail — it
+  is what makes mailbox-as-owner viable.** One mailbox per semantic
+  cell (per station/tile) is architecturally clean and measurably
+  catastrophic at OLAP arrival rates; grouping tiles into a few
+  prefix-contiguous owners (matched to contention, not to data) keeps
+  the whole kanban-update discipline inside ~0.5× of the unwitnessed
+  ceiling. The canon's own answer, measured: the mailbox is the OWNER
+  boundary, the tile is the ADDRESS boundary, and they must not be
+  conflated 1:1 under load.
+- Per-owner SoA memory is now ∝ tile span (the 64K-owner run holds
+  64K × 64-slot tables — the collapse above is scheduling + messaging,
+  not memory).

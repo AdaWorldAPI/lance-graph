@@ -613,3 +613,18 @@ mailbox absorbs everything; shards scale with owner WORK, never with
 rows; the Morton prefix route itself is free (G(4)≈G(1)).** Tables +
 full readings: crates/onebrc-probe/README.md §5.4. Board follow-up
 appended to E-1BRC-ADDRESSING-1 thread as E-1BRC-KANBAN-UPDATE-1.
+
+#### Addendum-13 status update (2026-07-02, t4a — topology corrected, curve completed)
+
+Operator correction ratified: **one ractor mailbox per SoA** (canon).
+Lane G reworked — each owner's State is its OWN `OwnerSoa` sized to its
+tile span (no full-64K tables per owner, no "sharded one SoA" framing);
+flush grouping made sort-based (no dense per-shard vecs at 64K owners);
+parity test extended to 4096 mailboxes. Full ownership-granularity curve
+@4 workers, medians: G(1) 43.4 / G(16) 30.3 / G(256) 35.9 / G(4096) 18.3
+/ **G(65536, one mailbox per tile) 2.1 — a 20× collapse** (spawn ×64K +
+cast fragmentation ~150→~63K + 64K tasks on 4 cores). **Ruling: the
+ownership plateau spans 1–256 owners; Morton tile GROUPING is what makes
+mailbox-as-owner viable — mailbox = OWNER boundary, tile = ADDRESS
+boundary, never conflate 1:1 under load.** README §5.4a; board
+E-1BRC-KANBAN-UPDATE-1 correction appended as E-1BRC-OWNER-GRANULARITY-1.

@@ -25,14 +25,20 @@
 //! └─────────────────────────────────┘            └──────────────────────────┘
 //! ```
 //!
-//! - **Route by prefix:** an entry's shard is the top bits of its Morton
+//! - **One mailbox per SoA (the canon, verbatim):** each owner actor's
+//!   `State` IS its own complete [`OwnerSoa`], sized to its tile span —
+//!   there is NO shared table and no "one SoA sharded across owners".
+//!   `shards` only chooses how many (mailbox, SoA) pairs partition the
+//!   tile space: 1 = one mailbox owning one SoA covering all tiles …
+//!   65536 = one mailbox per tile, each owning its own tiny SoA — the
+//!   literal "64K concurrent SoAs" end of the operator's question.
+//! - **Route by prefix:** an entry's owner is the top bits of its Morton
 //!   slot (`slot * shards >> 16`) — contiguous tile ranges, the HHTL
-//!   prefix route. A station's hash always lands in the same shard, so
-//!   shard tables are disjoint by construction.
-//! - **Mailbox-as-owner:** each shard's SoA table is actor `State`; the
-//!   serialized message loop is the single writer (the same compile-time
-//!   no-aliasing argument as `KanbanActor`, E-CE64-MB-4). No lock, no
-//!   shared `&mut`.
+//!   prefix route. A station's hash always lands with the same owner, so
+//!   the owners' SoAs are disjoint by construction.
+//! - **Mailbox-as-owner:** the serialized message loop is the single
+//!   writer of the owner's SoA (the same compile-time no-aliasing
+//!   argument as `KanbanActor`, E-CE64-MB-4). No lock, no shared `&mut`.
 //! - **Kanban update = witnessed write:** every applied morsel batch
 //!   appends one `KanbanMove` (`CognitiveWork → Evaluation`, a legal
 //!   Rubicon forward edge) to the owner's journal — recorded directly to
@@ -54,13 +60,14 @@
 //! Same address (Morton tiles), same scan, same pre-reduction. The delta
 //! is pure architecture: streamed witnessed writes through owner
 //! mailboxes (+ the actor-boundary `Arc` corpus copy, as lanes D/E)
-//! versus private-merge-at-end. `shards` sweeps the concurrency of the
-//! ownership: 1 = one mailbox owns the whole 64K SoA (every update
-//! serializes through one queue); 4/16 = Morton-tile-range mailboxes
-//! (prefix-local concurrency). That sweep is the pros-and-cons ledger of
-//! "64K concurrent SoA vs Morton tile" under kanban update.
+//! versus private-merge-at-end. `shards` sweeps the GRANULARITY of
+//! ownership — 1 mailbox (every update serializes through one queue),
+//! through Morton-tile-range groupings (4/16/256/…), out to 65536 (one
+//! mailbox per tile, 64K concurrent SoAs, spawn cost included in the
+//! measurement). That curve is the pros-and-cons ledger of "64K
+//! concurrent SoA vs Morton tile grouping" under kanban update.
 
-use crate::lane_f::{fnv1a64, morton_slot, table_to_map, SoaTable, SLOTS};
+use crate::lane_f::{fnv1a64, morton_slot, SoaTable, SLOTS};
 use crate::{chunk_bounds, merge_maps, parse_temp_tenths, Stats};
 use lance_graph_contract::collapse_gate::MailboxId;
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
@@ -94,29 +101,119 @@ enum ShardMsg {
     },
 }
 
-/// Owner state: the shard's tile-range SoA table + its kanban WAL.
+/// A mailbox's OWN SoA — one per owner, sized to its tile range (the
+/// canon: one ractor mailbox per SoA; there is no shared table and no
+/// "one SoA sharded across owners"). Same parallel-array shape as lane
+/// F's `SoaTable`, capacity ∝ the owner's tile span (clamped: at least
+/// 64 slots so tiny per-tile owners can still absorb hash-collided
+/// stations; at most 4096 — ~10× the whole corpus's station count — so
+/// a 1-owner topology doesn't allocate 64K slots it can never fill).
+/// Local placement = `morton_slot & (capacity-1)` + linear probe with
+/// full `(h, name)` verification; the PREFIX routing to this mailbox
+/// already happened at the worker.
+struct OwnerSoa {
+    capacity: usize, // power of two
+    tags: Vec<u64>,
+    names: Vec<Vec<u8>>,
+    mins: Vec<i32>,
+    maxs: Vec<i32>,
+    sums: Vec<i64>,
+    counts: Vec<u32>,
+}
+
+impl OwnerSoa {
+    fn for_span(span: usize) -> Self {
+        let capacity = span.clamp(64, 4096).next_power_of_two();
+        Self {
+            capacity,
+            tags: vec![0; capacity],
+            names: vec![Vec::new(); capacity],
+            mins: vec![i32::MAX; capacity],
+            maxs: vec![i32::MIN; capacity],
+            sums: vec![0; capacity],
+            counts: vec![0; capacity],
+        }
+    }
+
+    /// Fold one pre-reduced entry (the commutative BUNDLE merge) into
+    /// this mailbox's own SoA. Panics if the owner's table is full —
+    /// a probe-sizing bug, never silent corruption.
+    fn merge_entry(&mut self, e: &MorselEntry) {
+        let mut s = morton_slot(e.h) as usize & (self.capacity - 1);
+        for _ in 0..self.capacity {
+            if self.counts[s] == 0 {
+                self.tags[s] = e.h;
+                self.names[s] = e.name.clone();
+                self.mins[s] = e.stats.min;
+                self.maxs[s] = e.stats.max;
+                self.sums[s] = e.stats.sum;
+                self.counts[s] = e.stats.count;
+                return;
+            }
+            if self.tags[s] == e.h && self.names[s] == e.name {
+                if e.stats.min < self.mins[s] {
+                    self.mins[s] = e.stats.min;
+                }
+                if e.stats.max > self.maxs[s] {
+                    self.maxs[s] = e.stats.max;
+                }
+                self.sums[s] += e.stats.sum;
+                self.counts[s] += e.stats.count;
+                return;
+            }
+            s = (s + 1) & (self.capacity - 1);
+        }
+        panic!("OwnerSoa full: more stations routed to one mailbox than its capacity");
+    }
+
+    /// Sweep occupied slots into the common output map shape.
+    fn into_map(self) -> BTreeMap<String, Stats> {
+        let mut out = BTreeMap::new();
+        for s in 0..self.capacity {
+            if self.counts[s] > 0 {
+                let name = String::from_utf8(self.names[s].clone()).expect("station name utf8");
+                out.insert(
+                    name,
+                    Stats {
+                        min: self.mins[s],
+                        max: self.maxs[s],
+                        sum: self.sums[s],
+                        count: self.counts[s],
+                    },
+                );
+            }
+        }
+        out
+    }
+}
+
+/// Owner state: THIS mailbox's own SoA + its kanban WAL.
 struct ShardState {
     id: MailboxId,
-    table: SoaTable,
+    table: OwnerSoa,
     journal: Vec<KanbanMove>,
 }
 
-/// The shard-owner actor — mailbox-as-owner over a Morton tile range.
+/// The shard-owner actor — mailbox-as-owner: the actor and its SoA are
+/// one thing; `shards` is simply HOW MANY (mailbox, SoA) pairs the tile
+/// space is partitioned into, from 1 (one mailbox owns all tiles) to
+/// 65536 (one mailbox per tile — the literal "64K concurrent SoAs").
 struct ShardOwner;
 
 impl Actor for ShardOwner {
     type Msg = ShardMsg;
     type State = ShardState;
-    type Arguments = MailboxId;
+    /// `(mailbox id, tile span)` — span sizes this owner's own SoA.
+    type Arguments = (MailboxId, usize);
 
     async fn pre_start(
         &self,
         _myself: ActorRef<Self::Msg>,
-        id: Self::Arguments,
+        (id, span): Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
         Ok(ShardState {
             id,
-            table: SoaTable::new(),
+            table: OwnerSoa::for_span(span),
             journal: Vec::new(),
         })
     }
@@ -130,7 +227,7 @@ impl Actor for ShardOwner {
         match msg {
             ShardMsg::Apply { entries } => {
                 for e in &entries {
-                    merge_entry(&mut state.table, e);
+                    state.table.merge_entry(e);
                 }
                 // The witnessed write: one legal Rubicon forward move per
                 // applied morsel batch, recorded to the WAL trail (see
@@ -147,41 +244,11 @@ impl Actor for ShardOwner {
             }
             ShardMsg::Finish { reply } => {
                 let journal_len = state.journal.len();
-                let table = std::mem::replace(&mut state.table, SoaTable::new());
-                let _ = reply.send((table_to_map(table), journal_len));
+                let table = std::mem::replace(&mut state.table, OwnerSoa::for_span(1));
+                let _ = reply.send((table.into_map(), journal_len));
             }
         }
         Ok(())
-    }
-}
-
-/// Merge one pre-reduced entry into the owner's table: same Morton slot +
-/// linear probe as `SoaTable::observe`, but folding a whole `Stats` (the
-/// commutative BUNDLE merge) instead of a single observation.
-fn merge_entry(table: &mut SoaTable, e: &MorselEntry) {
-    let mut s = morton_slot(e.h) as usize;
-    loop {
-        if table.counts[s] == 0 {
-            table.tags[s] = e.h;
-            table.names[s] = e.name.clone();
-            table.mins[s] = e.stats.min;
-            table.maxs[s] = e.stats.max;
-            table.sums[s] = e.stats.sum;
-            table.counts[s] = e.stats.count;
-            return;
-        }
-        if table.tags[s] == e.h && table.names[s] == e.name {
-            if e.stats.min < table.mins[s] {
-                table.mins[s] = e.stats.min;
-            }
-            if e.stats.max > table.maxs[s] {
-                table.maxs[s] = e.stats.max;
-            }
-            table.sums[s] += e.stats.sum;
-            table.counts[s] += e.stats.count;
-            return;
-        }
-        s = (s + 1) & (SLOTS - 1);
     }
 }
 
@@ -196,6 +263,9 @@ fn shard_of(h: u64, shards: usize) -> usize {
 /// Extract the dirty slots of a worker's morsel table into per-shard entry
 /// batches, resetting each extracted slot by undo (`#227`'s clear-by-undo:
 /// O(dirty), never O(SLOTS)), and cast every non-empty batch to its owner.
+/// Grouping is sort-based (O(dirty log dirty) on ≤ ~station-count entries),
+/// NOT a dense `Vec` per shard — a 64K-owner topology must not allocate
+/// 64K empty vecs per morsel flush.
 fn flush_morsel(
     table: &mut SoaTable,
     dirty: &mut Vec<usize>,
@@ -206,19 +276,22 @@ fn flush_morsel(
     if dirty.is_empty() {
         return;
     }
-    let mut per_shard: Vec<Vec<MorselEntry>> = (0..shards).map(|_| Vec::new()).collect();
+    let mut tagged: Vec<(usize, MorselEntry)> = Vec::with_capacity(dirty.len());
     for &s in dirty.iter() {
         let h = table.tags[s];
-        per_shard[shard_of(h, shards)].push(MorselEntry {
-            h,
-            name: std::mem::take(&mut table.names[s]),
-            stats: Stats {
-                min: table.mins[s],
-                max: table.maxs[s],
-                sum: table.sums[s],
-                count: table.counts[s],
+        tagged.push((
+            shard_of(h, shards),
+            MorselEntry {
+                h,
+                name: std::mem::take(&mut table.names[s]),
+                stats: Stats {
+                    min: table.mins[s],
+                    max: table.maxs[s],
+                    sum: table.sums[s],
+                    count: table.counts[s],
+                },
             },
-        });
+        ));
         // Clear-by-undo: reset exactly the slots this morsel touched.
         table.tags[s] = 0;
         table.mins[s] = i32::MAX;
@@ -227,13 +300,17 @@ fn flush_morsel(
         table.counts[s] = 0;
     }
     dirty.clear();
-    for (shard, entries) in per_shard.into_iter().enumerate() {
-        if !entries.is_empty() {
-            owners[shard]
-                .cast(ShardMsg::Apply { entries })
-                .expect("cast morsel batch to shard owner");
-            casts.fetch_add(1, Ordering::Relaxed);
+    tagged.sort_unstable_by_key(|(shard, _)| *shard);
+    let mut it = tagged.into_iter().peekable();
+    while let Some((shard, first)) = it.next() {
+        let mut entries = vec![first];
+        while it.peek().is_some_and(|(s, _)| *s == shard) {
+            entries.push(it.next().expect("peeked").1);
         }
+        owners[shard]
+            .cast(ShardMsg::Apply { entries })
+            .expect("cast morsel batch to shard owner");
+        casts.fetch_add(1, Ordering::Relaxed);
     }
 }
 
@@ -290,7 +367,7 @@ pub fn lane_g_kanban_soa_with_morsel(
     morsel_rows: usize,
 ) -> BTreeMap<String, Stats> {
     let workers = workers.max(1);
-    let shards = shards.max(1);
+    let shards = shards.clamp(1, SLOTS); // 1 mailbox … 1 mailbox per tile
     let morsel_rows = morsel_rows.max(1);
     let bounds = chunk_bounds(data, workers);
 
@@ -311,8 +388,12 @@ pub fn lane_g_kanban_soa_with_morsel(
 
         let mut owners = Vec::with_capacity(shards);
         let mut owner_handles = Vec::with_capacity(shards);
+        // One (mailbox, SoA) pair per shard — each owner's OWN SoA is
+        // sized to its tile span (SLOTS/shards, i.e. the whole tile space
+        // at shards=1 down to one tile per mailbox at shards=65536).
+        let span = SLOTS.div_ceil(shards);
         for sid in 0..shards {
-            let (actor, handle) = Actor::spawn(None, ShardOwner, sid as MailboxId)
+            let (actor, handle) = Actor::spawn(None, ShardOwner, (sid as MailboxId, span))
                 .await
                 .expect("spawn shard owner");
             owners.push(actor);
@@ -386,8 +467,13 @@ mod tests {
         let a = crate::lane_a_scalar(&data);
         let g1 = lane_g_kanban_soa_with_morsel(&data, 3, 1, 1000);
         let g4 = lane_g_kanban_soa_with_morsel(&data, 3, 4, 1000);
-        assert_eq!(a, g1, "lane G (1 shard) must match lane A");
-        assert_eq!(a, g4, "lane G (4 shards) must match lane A");
+        // Fine-grained ownership: 4096 mailboxes, each owning its own
+        // 16-tile-span SoA (span < 64 → minimum 64-slot capacity per
+        // owner) — exercises the per-owner sizing + local probing.
+        let g4096 = lane_g_kanban_soa_with_morsel(&data, 3, 4096, 1000);
+        assert_eq!(a, g1, "lane G (1 mailbox) must match lane A");
+        assert_eq!(a, g4, "lane G (4 mailboxes) must match lane A");
+        assert_eq!(a, g4096, "lane G (4096 mailboxes) must match lane A");
         assert!(!a.is_empty());
     }
 
