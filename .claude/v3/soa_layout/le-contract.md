@@ -86,6 +86,30 @@ Beyond L1–L4, a `6×(8:8)` plane admits these operator-sanctioned readings
 The reading is ALWAYS selected by the classview (slot purity §2) — never
 by inspecting payload bytes, never by convention-in-code.
 
+### The classview is a FOCUS LENS (operator, 2026-07-02)
+
+The layout choice is not a storage convention — **the classview is the
+focus lens that the DATA SHAPE wants**. A class whose data is relational
+focuses rails; positional data focuses the location layouts; similarity
+data focuses palette pairs. The lens follows the data, and the classview
+carries that focus; code never second-guesses it.
+
+### Let go of the cramped 64-bit register (operator, 2026-07-02)
+
+The prior approach — cramming awareness into a 64-bit packed edge register
+and *"hoping for a 3-bit mantissa to mean the whole awareness"*
+(the CausalEdge64 inference-mantissa lineage, cf. the
+I-LEGACY-API-FEATURE-GATED 5-instance catalogue those bits generated) —
+is **let go**. Awareness/relation semantics get real width in the 96-bit
+facet payloads, lens-selected per class. Consequences:
+
+- Do NOT extend CausalEdge64 bit fields to carry new awareness semantics;
+  new semantics land as facet layouts (L1–L8 + sanctioned readings).
+- **[H] open:** CausalEdge64's residual role (wire/protocol/EdgeBlock
+  compatibility) vs full retirement — needs a scoping ruling; the
+  `edges[16B]` block in the CANON node is untouched by this (it is
+  one-byte SLOT refs, not packed mantissas).
+
 ### CAM_PQ grounding (digital vs analog)
 
 CAM_PQ's codebook is the **DeepNSM 4096-word English-native-speaker

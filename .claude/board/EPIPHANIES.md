@@ -1,3 +1,10 @@
+## 2026-07-02 — E-V3-CLASSVIEW-FOCUS-LENS (operator: the lens follows the data shape; let go of the cramped 64-bit awareness register)
+**Status:** FINDING (operator-ruled)
+
+Two coupled rulings. (1) **ClassView = focus lens.** The choice among the V3 facet payload layouts (E-V3-FACET-4-PLUS-12 L1-L8 + the polymorphic (8:8) readings) must be made through the classview acting as the focus lens **that the data shape wants** — relational data focuses rails, positional data focuses hhtl/helix location, similarity data focuses palette256² pairs. The lens follows the data; the classview carries the focus; code never selects layouts by convention or payload inspection. (2) **Let go of the 64-bit cramp.** The prior pattern — a 64-bit packed edge register "hoping for a 3-bit mantissa to mean the whole awareness" (CausalEdge64 inference-mantissa lineage; the same bits that generated the I-LEGACY-API-FEATURE-GATED 5-instance defect catalogue) — is retired as the awareness carrier. Awareness/relation semantics get real width in 96-bit facet payloads, lens-selected per class. Consequence: never extend CausalEdge64 bit fields for new awareness semantics; new semantics land as facet layouts. [H] open: CausalEdge64 residual role (wire/protocol compat) vs full retirement — scoping ruling pending; the CANON node's edges[16B] one-byte-slot block is NOT touched by this ruling (slots, not mantissas). Canonical doc: `.claude/v3/soa_layout/le-contract.md` §3.
+
+Cross-ref: E-V3-FACET-4-PLUS-12, I-LEGACY-API-FEATURE-GATED, CLAUDE.md § CANON minimal SoA node.
+
 ## 2026-07-02 — E-RUFF-ODOO-MULTI-ANCHOR-AST (operator-stated: AST resolution triangulates from six anchors)
 **Status:** FINDING (operator-stated method; [H] per-mechanism until ruff/odoo code ground-truthed)
 
