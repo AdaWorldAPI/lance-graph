@@ -78,6 +78,7 @@ phases below are unblocked.
 | `ogar_codebook::classid_concept_domain` | routes `classid as u16` (lo) | routes the CANON half via `split_classid` |
 | `hhtl::NiblePath::from_guid_prefix{,_v3}` | v1 fold refuses `classid >> 16 != 0`; v3 fold ignores classid | both route the marker/canon test through `split_classid` |
 | `ogar_codebook::{render_classid, classid_app_prefix, classid_concept}` (OGAR#95 hi-u16 app-prefix mirror) | `(prefix<<16)\|concept` | RECONCILE: the #95 app-prefix scheme put apps in the HI half; the ruling puts canon (domain:appid) HI and custom LO. These must converge on ONE composition — flagged as the Phase-2 operator checkpoint (the #95 table may become the CUSTOM-half render catalogue, or the appid byte subsumes it) |
+| **`EntityType` tenant stamp / `MailboxSoaView::class_id` (the u16 SoA discriminator)** | stamped `classid as u16` (pre-flip that IS the canon lo-half — OSINT `0x0700` / FMA `0x0A01` / CPIC `0x0E00`, distinct) | **MUST route through `split_classid(id).canon`** — a naive `as u16` post-flip yields the CUSTOM half (`0x1000`) for ALL classes: total class collapse, class-based scans/render indistinguishable (codex P2 on #627, line-76 finding). `as u16` on a classid becomes a forbidden pattern (grep gate in P0) |
 | q2 `osint-bake` | mints `CLASSID_OSINT` (`0x0000_0700`) rows via `new_v2` | re-mint as `0x0701_1000` via `mint_for(classid_read_mode(c).tail_variant, …)` |
 | q2 `cpic` local mirror | domain `0x000C`, V1 tail (ISS-Q2-CPIC-MIRROR…) | re-mint into `0x0E01_1000` + V3 tail by PULLING the contract (dissolves the divergence issue in the same pass) |
 | OGAR vocab emission (Phase B of the one-row registry, D-VCW-4) | n/a | emits new-form classids only |
@@ -98,7 +99,11 @@ pub const fn split_classid(classid: u32) -> (u16 /*canon*/, u16 /*custom*/);
 Probes (mandatory, ship WITH the definition): `split(compose(c,x)) == (c,x)`
 both orders; `flip(flip(id)) == id`; domain routing invariant under the flag
 for all registered classids; the legacy-boundary matrix (every pre-flip wired
-classid decodes identically through the split as before the refactor).
+classid decodes identically through the split as before the refactor);
+**no-class-collapse probe** (codex P2 #627): the three post-flip classids
+yield three DISTINCT `split_classid(id).canon` u16 discriminators — and a
+grep gate that no site derives a class discriminator via `as u16` on a
+classid (the pattern that collapses every post-flip class to `0x1000`).
 
 ## §4 Phases
 
@@ -107,7 +112,7 @@ classid decodes identically through the split as before the refactor).
 | **P0** | Land `compose/split/CLASSID_CANON_HIGH=false` + route every §2 lance-graph site through it. ZERO behavior change (probed: all 763+ tests identical). | contract suite green, probes green |
 | **P1** | Flip `CLASSID_CANON_HIGH=true` + mint the three new-form classids (`0x0701_1000`/`0x0A01_1000`/`0x0E01_1000`) into the registry ALONGSIDE the old forms (coexistence). | round-trip + boundary matrix + `flip(flip)` green |
 | **P2** | Reconcile the OGAR#95 hi-u16 app-prefix mirror with the new order (operator checkpoint — see §2 row); OGAR emits new-form vocab. | operator nod on the #95 reconciliation |
-| **P3** | q2 re-mints (osint-bake → `0x0701_1000`; cpic → `0x0E01_1000` via contract pull, dissolving `ISS-Q2-CPIC-MIRROR…`); old-form registry keys retire. | q2 bakes green; fuse green |
+| **P3** | q2 re-mints (osint-bake → `0x0701_1000`; cpic → `0x0E01_1000` via contract pull, dissolving `ISS-Q2-CPIC-MIRROR…`); old-form registry keys **DEMOTE to documented read-only legacy aliases — they do NOT retire here** (codex P2 #627, line-110 finding: mint-forward means persisted pre-flip rows like `0x1000_0700` keep resolving through the concrete registry forever until re-baked; removing the alias would drop them to `ReadMode::DEFAULT` and read the wrong tail/schema). Retirement is a separate later step gated on a **corpus proof** (a scan showing zero stored old-form rows remain) — RESERVE-DON'T-RECLAIM applied to registry keys. | q2 bakes green; fuse green; legacy aliases still resolving |
 | **P4** | `0x1000` marker retirement decision — the custom half opens for the real render catalogue ("later it's 64k dynamic classes and classviews × bitmask"). | **operator checkpoint** |
 
 ## §5 What this plan deliberately does NOT do
