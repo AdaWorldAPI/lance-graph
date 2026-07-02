@@ -404,31 +404,36 @@ mod tests {
     }
 
     /// Hand-built corpus, crafted so at least one record's `;`/`\n` land in
-    /// DIFFERENT 32-byte SIMD blocks (block0=[0,32), block1=[32,64),
-    /// tail=[64,..)) — exercises the cross-iteration `line_start` /
-    /// `pending_semi` carry in `lane_b_simd`, not just the common in-block
-    /// case a random generated corpus would mostly hit.
+    /// DIFFERENT SIMD blocks at BOTH dispatched widths — the 68-byte corpus
+    /// has a record straddling a 32-byte boundary (`long_name`, `;`@29 /
+    /// `\n`@33) AND one straddling a 64-byte boundary (`Vv`, `;`@63 /
+    /// `\n`@67), so the cross-iteration `line_start` / `pending_semi` carry
+    /// in `lane_b_simd` is exercised whether the build strides 32-byte `ymm`
+    /// (avx2) or 64-byte `zmm` (avx512), not just the common in-block case a
+    /// random generated corpus would mostly hit.
     #[cfg(feature = "lane-b")]
     #[test]
-    fn lane_b_handles_records_that_straddle_32_byte_block_boundaries() {
+    fn lane_b_handles_records_that_straddle_block_boundaries() {
+        let lanes = crate::lane_b::SIMD_LANES; // dispatched block width (32 or 64)
         let long_name = "N".repeat(22);
         let mut corpus = String::new();
         corpus.push_str("Ab;1.0\n"); // fully inside block0
-        corpus.push_str(&format!("{long_name};9.9\n")); // straddles block0/block1
-        corpus.push_str("Zz;3.3\n"); // fully inside block1
-        corpus.push_str("QqRrSsTt;2.2\n"); // fully inside block1
-        corpus.push_str("Uu;4.4\n"); // fully inside block1
-        corpus.push_str("Vv;5.5\n"); // straddles block1/tail
+        corpus.push_str(&format!("{long_name};9.9\n")); // straddles a 32-byte boundary
+        corpus.push_str("Zz;3.3\n");
+        corpus.push_str("QqRrSsTt;2.2\n");
+        corpus.push_str("Uu;4.4\n");
+        corpus.push_str("Vv;5.5\n"); // straddles the 64-byte boundary (block0/tail)
 
         let data = corpus.as_bytes();
         assert!(
-            data.len() > 64,
-            "test corpus must span block0, block1, AND a tail region"
+            data.len() > lanes,
+            "test corpus must span at least one full SIMD block AND a tail region"
         );
 
         // Confirm (rather than assume) that at least one record's `;` and
-        // `\n` land in different 32-byte blocks — otherwise this test
-        // would silently degrade into testing only the non-crossing case.
+        // `\n` land in different SIMD blocks AT THE DISPATCHED WIDTH —
+        // otherwise this test would silently degrade into testing only the
+        // non-crossing case.
         let find_all = |needle: u8| -> Vec<usize> {
             data.iter()
                 .enumerate()
@@ -442,10 +447,10 @@ mod tests {
         let crosses_a_block = semis
             .iter()
             .zip(newlines.iter())
-            .any(|(&s, &n)| s / 32 != n / 32);
+            .any(|(&s, &n)| s / lanes != n / lanes);
         assert!(
             crosses_a_block,
-            "test corpus must contain a record whose `;`/`\\n` land in different 32-byte blocks"
+            "test corpus must contain a record whose `;`/`\\n` land in different {lanes}-byte blocks"
         );
 
         let a = lane_a_scalar(data);
