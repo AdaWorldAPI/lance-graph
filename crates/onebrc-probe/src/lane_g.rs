@@ -359,17 +359,21 @@ fn worker_scan(
 }
 
 /// Lane H's worker variant: the SAME scan + morsel pre-reduction as
-/// [`worker_scan`], but the morsel flush GROUPS the dirty entries by a
-/// caller-defined group index (lane H: the router region,
-/// `slot * groups >> 16`) and hands each non-empty group to `sink`
-/// instead of casting to owners directly — the orchestration tier owns
-/// delivery from there (lazy activation + ahead-firing batching).
+/// [`worker_scan`], but the morsel flush GROUPS the dirty entries into
+/// `groups` buckets by a caller-supplied `group_of(hash) -> group_idx`
+/// mapping and hands each non-empty bucket to `sink` instead of casting
+/// to owners directly — the orchestration tier owns delivery from there
+/// (lazy activation + ahead-firing batching). The mapping is a closure
+/// (not the hardwired `slot * groups >> 16`) so lane H can derive the
+/// router bucket FROM the owner tile rather than as an independent
+/// partition of the slot space — see `lane_h::router_of_owner`.
 pub(crate) fn worker_scan_grouped(
     data: &[u8],
     start: usize,
     end: usize,
     morsel_rows: usize,
     groups: usize,
+    group_of: impl Fn(u64) -> usize,
     mut sink: impl FnMut(usize, Vec<MorselEntry>),
 ) {
     let groups = groups.max(1);
@@ -382,7 +386,7 @@ pub(crate) fn worker_scan_grouped(
         let mut per_group: Vec<Vec<MorselEntry>> = (0..groups).map(|_| Vec::new()).collect();
         for &s in dirty.iter() {
             let h = table.tags[s];
-            let group = (morton_slot(h) as usize * groups) >> 16;
+            let group = group_of(h).min(groups - 1);
             per_group[group].push(MorselEntry {
                 h,
                 name: std::mem::take(&mut table.names[s]),

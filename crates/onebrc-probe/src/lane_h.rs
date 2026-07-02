@@ -17,7 +17,12 @@
 //!    corpus OCCUPANCY is ~413 stations. A router tier spawns an owner
 //!    mailbox only when its tile range first receives traffic, so a
 //!    nominal 65536-owner topology activates only the ~413 occupied
-//!    ones. Spawn cost tracks occupancy, never address-space size.
+//!    ones. Spawn cost tracks occupancy, never address-space size. The
+//!    router grain is derived FROM the owner grain (`router_of_owner`,
+//!    integer division) rather than as an independent partition of the
+//!    slot space, so each `owner_idx` is spawned in exactly one router —
+//!    the live-owner count is true occupancy, never inflated by a
+//!    router-boundary straddle.
 //! 2. **Ahead-firing batched delivery** — routers buffer per-owner
 //!    entries and fire one batched `Apply` cast when an owner's buffer
 //!    reaches `batch_k` (the ahead-firing batch-writer shape); the
@@ -60,13 +65,39 @@ use crate::lane_g::{MorselEntry, ShardMsg, ShardOwner};
 use crate::{merge_maps, Stats};
 use lance_graph_contract::collapse_gate::MailboxId;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 /// Default ahead-firing threshold: entries buffered per owner before the
 /// router fires a batched `Apply`.
 pub const DEFAULT_BATCH_K: usize = 64;
+
+/// A station's owner tile index — the fine, occupancy-matched grain: the
+/// `owners_nominal`-quantized Morton prefix. A stable GLOBAL id (the same
+/// station always yields the same `owner_idx`, independent of routing), so
+/// it doubles as the owner mailbox's [`MailboxId`].
+#[inline]
+fn owner_of(h: u64, owners_nominal: usize) -> usize {
+    (morton_slot(h) as usize * owners_nominal) >> 16
+}
+
+/// The single router that owns `owner_idx`. The router grain is derived
+/// FROM the owner grain by integer division — NOT an independent partition
+/// of the Morton slot space — so every `owner_idx` maps to exactly one
+/// router. That keeps the lazy activation honest: an owner is spawned in
+/// one router only, `MailboxId`s never duplicate, and the live-owner count
+/// equals true occupancy. (Fixes the router-boundary straddle CodeRabbit
+/// flagged on #635 r3515365083: when `routers_n` and `owners_nominal`
+/// partitioned the slot space independently — e.g. 3 routers vs 16 owners —
+/// one `owner_idx` range crossed a router boundary and was lazily spawned
+/// as a separate `ShardOwner` in two routers, inflating the very count
+/// this lane exists to measure.)
+#[inline]
+fn router_of_owner(owner_idx: usize, owners_nominal: usize, routers_n: usize) -> usize {
+    // owner_idx ∈ [0, owners_nominal); map monotonically onto [0, routers_n).
+    (owner_idx * routers_n / owners_nominal).min(routers_n - 1)
+}
 
 /// Messages the router (orchestration) tier accepts.
 enum RouteMsg {
@@ -75,10 +106,12 @@ enum RouteMsg {
     /// morsel per router).
     Morsel { entries: Vec<MorselEntry> },
     /// Workers have joined: flush every remaining buffer to its (lazily
-    /// spawned) owner, then reply with the live owners this router
-    /// activated + how many `Apply` casts it fired in total.
+    /// spawned) owner, then reply with the owner_idxs this router
+    /// activated, their live owner refs, and how many `Apply` casts it
+    /// fired in total. The owner_idxs let the coordinator assert that no
+    /// `owner_idx` was activated in more than one router.
     Drain {
-        reply: RpcReplyPort<(Vec<ActorRef<ShardMsg>>, usize)>,
+        reply: RpcReplyPort<(Vec<usize>, Vec<ActorRef<ShardMsg>>, usize)>,
     },
 }
 
@@ -158,7 +191,7 @@ impl Actor for Router {
             RouteMsg::Morsel { entries } => {
                 let mut ready: Vec<usize> = Vec::new();
                 for e in entries {
-                    let owner_idx = (morton_slot(e.h) as usize * state.owners_nominal) >> 16;
+                    let owner_idx = owner_of(e.h, state.owners_nominal);
                     let buf = state.buffers.entry(owner_idx).or_default();
                     buf.push(e);
                     // Ahead-firing: mark for delivery once the buffer
@@ -176,8 +209,9 @@ impl Actor for Router {
                 for owner_idx in pending {
                     state.fire(owner_idx).await?;
                 }
+                let owner_idxs: Vec<usize> = state.live.keys().copied().collect();
                 let owners: Vec<ActorRef<ShardMsg>> = state.live.values().cloned().collect();
-                let _ = reply.send((owners, state.casts_fired));
+                let _ = reply.send((owner_idxs, owners, state.casts_fired));
             }
         }
         Ok(())
@@ -237,6 +271,11 @@ pub fn lane_h_orchestrated_with(
                     end,
                     morsel_rows,
                     routers_n,
+                    // Route each entry to the ONE router that owns its
+                    // owner tile — router grain derived from owner grain,
+                    // never an independent partition — so no owner_idx is
+                    // ever spawned in two routers.
+                    |h| router_of_owner(owner_of(h, owners_nominal), owners_nominal, routers_n),
                     |router_idx, entries| {
                         routers[router_idx]
                             .cast(RouteMsg::Morsel { entries })
@@ -253,13 +292,25 @@ pub fn lane_h_orchestrated_with(
         // Drain the orchestration tier: remaining buffers flush, lazily
         // activated owners are handed to the coordinator.
         let mut all_owners: Vec<ActorRef<ShardMsg>> = Vec::new();
+        let mut all_owner_idxs: Vec<usize> = Vec::new();
         let mut router_casts_total = 0usize;
         for router in routers.iter() {
-            let (owners, casts) =
+            let (owner_idxs, owners, casts) =
                 ractor::call!(router, |reply| RouteMsg::Drain { reply }).expect("router drain rpc");
+            all_owner_idxs.extend(owner_idxs);
             all_owners.extend(owners);
             router_casts_total += casts;
         }
+        // Router grain is derived from owner grain, so each owner_idx is
+        // activated in exactly one router — no MailboxId spawned twice, so
+        // the live-owner count is true occupancy, never inflated by a
+        // router-boundary straddle (#635 r3515365083).
+        let unique_owner_idxs: HashSet<usize> = all_owner_idxs.iter().copied().collect();
+        assert_eq!(
+            unique_owner_idxs.len(),
+            all_owner_idxs.len(),
+            "each owner_idx must activate in exactly one router (no straddle-duplicated MailboxIds)"
+        );
 
         let mut maps = Vec::with_capacity(all_owners.len());
         let mut journal_total = 0usize;
@@ -313,6 +364,13 @@ mod tests {
     /// both a coarse and the full fine-grained nominal granularity —
     /// and the fine-grained run must activate only ~occupancy owners
     /// (lazy activation), never the nominal 64K.
+    ///
+    /// The coarse run uses 16 nominal owners with 3 routers (workers) — a
+    /// DELIBERATELY misaligned pair (16 is not a multiple of 3), the exact
+    /// router-boundary-straddle case CodeRabbit flagged (#635 r3515365083).
+    /// The in-run `unique_owner_idxs.len() == all_owner_idxs.len()` assert
+    /// inside `lane_h_orchestrated_with` fails here if any `owner_idx` is
+    /// activated in more than one router, so this test guards the fix.
     #[test]
     fn lane_h_agrees_with_lane_a_and_activates_only_occupied_owners() {
         let dir = std::env::temp_dir();
