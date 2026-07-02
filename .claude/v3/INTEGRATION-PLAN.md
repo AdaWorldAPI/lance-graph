@@ -482,3 +482,29 @@ fenced to another session (prompt issued; see the intake handover).
 5. **W2d** 550 ms budget via elevation/ (extend, don't shadow) — M12.
 6. **R-2 residual**: edges-only strided-read test over NODE_ROW_COLUMNS
    (read-side; 16-of-512; no storage change) — rides with W2a's PR.
+
+### Addendum-12a 2026-07-02 — W2a envelope-audit ruling: LAYOUT-GATED (spec-stage)
+
+Verdict on the Addendum-12 §3 board-row sketch: **byte-sound, zero
+ENVELOPE_LAYOUT_VERSION change, NOT LAYOUT-BREAK — but the textbook
+I-LEGACY-API-FEATURE-GATED shape** (same stored bytes, meaning selected
+by routing). It lands only with:
+
+- **Crux resolved (orchestrator decision per the ruling):** board
+  aggregates take the **NEW append-only 10th `ValueTenant`
+  (`BoardAggregates`, row_offset 152)** + a board preset + a
+  `BUILTIN_READ_MODES` entry — NOT a reuse-reinterpretation of existing
+  tenant bytes (focus-lens reading inexpressible pre-P4). The sketch's
+  "no new lane" is CORRECTED: additive-at-the-end IS a lane and IS still
+  layout-clean/version-free; guardrails §2's original wording was right.
+- **Mandatory tests T1–T6:** field-isolation matrix; cross-classid
+  reinterpretation guard (paired observability); board-classid
+  registration — fall-through to ReadMode::DEFAULT=Full is FORBIDDEN;
+  mixed-batch zero-copy round-trip; fixed-offset-sweeper safety
+  (`nan_projection` Energy [134,138) + symbiont bridge/domino are the
+  two EXPOSED readers — gate via `schema.has()` or prove the board's
+  Energy slot dormant-zeroed); ENVELOPE_LAYOUT_VERSION==2 regression.
+- **Board classid via the next BATCHED allocation mint** (never solo);
+  implementation WAITS on the mint, tenant + tests prepared behind it.
+- STOP conditions 1–6 bind every implementer; ocr.rs's per-row
+  `schema.has()` reader is the SAFE pattern to copy.

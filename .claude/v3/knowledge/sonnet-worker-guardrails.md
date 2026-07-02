@@ -59,7 +59,7 @@ exactly the row below, never a neighbor.
 |---|---|---|---|
 | **tenant (value tenant)** | a lane in the 480-byte value slab, selected by `classid_read_mode(c).value_schema` | a customer/org (that's consumer-app tenancy) | invent a lane; new lanes are envelope-auditor-gated |
 | **KanbanTenant (per-row)** | the existing per-row kanban state type | the per-mailbox board | extend it to carry board state |
-| **kanban board (per-mailbox)** | W2a deliverable: the mailbox's OWN board, a NEW tenant SIBLING of KanbanTenant | a global/singleton board | implement it without the W2a spec + field-isolation matrix |
+| **kanban board (per-mailbox)** | W2a deliverable: a dedicated board ROW (classid-routed) whose aggregates live in the NEW append-only 10th ValueTenant `BoardAggregates` (row_offset 152) — 2026-07-02 envelope-audit ruling, plan Addendum-12a: LAYOUT-GATED, tests T1-T6 + batched classid mint mandatory | a global/singleton board; a reuse-reinterpretation of existing tenant bytes (pre-P4 inexpressible) | implement without Addendum-12a's T1-T6 + STOP list; let the board classid fall through to ReadMode::DEFAULT |
 | **cascade** | HEEL/HIP/TWIG key tiers (GUID canon; 256×256 centroid tiles) | the perturbation field | rename anything containing "cascade" |
 | **PerturbationDto** (was dto.rs `ResonanceDto`) | the MECHANICAL Morton-tile inverse-pyramid field (Ψ) | awareness/perspective | touch awareness_dto.rs during D-PERT-1 |
 | **ResonanceDto (awareness_dto.rs)** | the PERSPECTIVAL (Piaget Three-Mountains) resonance — KEEPS its name | a duplicate to dedup | rename/merge it with the Ψ DTO |
