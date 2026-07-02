@@ -106,7 +106,7 @@ Gate: replay equivalence green on every template change (template-smith rule).
 
 | D-id | Deliverable | Notes |
 |---|---|---|
-| D-V3-W6a | **Adoption/corpus scanner**: ONE two-metric range-count tool (canon-high adoption % + old-form row count) over Lance datasets | canon-high = clustered index → both metrics are key-range counts |
+| D-V3-W6a | **Adoption/corpus scanner**: ONE two-metric range-count tool (canon-high adoption % + old-form row count) over Lance datasets | metrics are range counts over the DECODED classid u32 (or an order-preserving BE key) — never raw LE key-byte prefixes; old-form = ALL THREE legacy shapes incl. `0xAAAA_DDCC` render-prefix-high (codex #629 sharpenings; routing.md §1/§5) |
 | D-CCF-4 | `0x1000` marker retirement (P4) — trigger DEFINED: adoption reads 100% | **operator checkpoint** |
 | D-V3-W6b | Legacy alias retirement (`CLASSID_*_LEGACY`, compat reader narrowing) | corpus proof = zero old-form rows; never before |
 | D-V3-W6c | Custom half opens: 64k ClassView render catalogue + template catalogue dispatch (completes W3d/F2) | post-P4 only |

@@ -9777,3 +9777,10 @@ Cross-ref: W2's sprint-2 deliverable (Tier-0 "what's shipped" index); `.claude/p
 **Practical consequence (do not let this drift back):** `surreal_container` (BLOCKED A/B/C/D — fork dep + Lance 6 pin) is **optional**, not on the critical path for D-MBX-6. D-MBX-6's hot/cold transparent view uses the LanceDB cold tier directly; the SurrealDB kanban is a *second* view over the same LanceDB rows.
 
 **Cross-ref:** `E-RUBICON-RACTOR` (current ruling), `E-MAILBOX-IS-BINDSPACE` (§2.7 of the plan it gates), `E-BATON-1` (the LE-contract anchor), `.claude/plans/causaledge64-mailbox-rename-soa-v1` (driver plan that subsumes the surreal POC), `.claude/handovers/2026-05-28-1200-pr-418-419-surreal-mailbox-baton-plan-map.md` §5 (the audit source for this entry).
+
+## 2026-07-02 — CORRECTION-OF 2026-07-02 (review #629 sharpenings: LE byte-order, legacy scan shapes, ractor wording)
+**Status:** FINDING
+
+Three review findings on the #629 doc arc, accepted and folded into the V3 docs (routing.md §1/§5, mailbox-kanban-model.md, INTEGRATION-PLAN W6a): (1) **Clustered-index caveat** — `NodeGuid` stores classid via `to_le_bytes`, so RAW key-byte prefixes order by the custom byte first; domain range-scans hold over the DECODED u32 (or an order-preserving big-endian rendering), never raw LE byte prefixes/tries (E-CLASSID-CANON-HIGH-IS-A-CLUSTERED-INDEX reads with this caveat). (2) **Corpus-proof scanner scope** — "old-form" = ALL THREE legacy shapes: `0x0000_DDCC`, `0x1000_DDCC`, AND `0xAAAA_DDCC` (legacy app/render prefix high, e.g. `0x0005_0901`) — exactly the set `classid_canon_compat` routes CanonLow; scanning only the first two can falsely prove the corpus clean (E-V3-MARKER-IS-A-MONITOR reads with this scope). (3) **ractor wording sharpened** — "compile-time ownership dummy / never a hot-path bus" scopes the DATA plane; the actor mailbox remains the runtime serialized single-writer CONTROL path (one-message Advance/MulAdvance serialization = the codex #578 atomicity mechanism). The operator ruling's meaning is unchanged; the wording now says both halves.
+
+Cross-ref: PR #629 review threads (2 codex P2 + 1 coderabbit); E-MAILBOX-KANBAN-NO-COLLAPSEGATE.

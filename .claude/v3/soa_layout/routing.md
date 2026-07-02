@@ -25,7 +25,7 @@ Routing consequences, in prefix order:
 
 | Prefix consumed | Routes to | Mechanism |
 |---|---|---|
-| canon hi-u16 | domain + app (`ConceptDomain` = `canon >> 8`) | range predicate — canon-high IS a clustered index (E-CLASSID-CANON-HIGH-IS-A-CLUSTERED-INDEX) |
+| canon hi-u16 | domain + app (`ConceptDomain` = `canon >> 8`) | range predicate over the **DECODED u32** — canon-high clusters by domain in VALUE order (E-CLASSID-CANON-HIGH-IS-A-CLUSTERED-INDEX). **Byte-order caveat (codex #629):** `NodeGuid` stores classid LE, so RAW key-byte prefixes order by the custom byte first — a byte-trie/raw-prefix scan does NOT walk domain-first; decode the u32 or use an order-preserving big-endian rendering for range keys |
 | custom lo-u16 | render skin / (post-P4) template lens; `0x1000` = V3-adoption monitor | catalogue dispatch; monitor is a marker, never a semantic |
 | classid (full) | `ClassView` + `classid_read_mode(c).value_schema` (tenant schema) | O(1) codebook; longest-prefix codebook binding (OGAR tier rule) |
 | HEEL/HIP/TWIG | cascade position | shift/mask only (`tier = level >> 2`); tier distance = 3 table lookups |
@@ -95,9 +95,14 @@ key-range counts over the same index — ONE two-metric scanner (W6a):
 
 - **adoption%** = rows whose custom half carries `0x1000` (V3 substrate)
   vs total, per domain;
-- **corpus proof** = count of old-form rows (legacy order / legacy tails);
-  zero ⇒ alias retirement unlocks; adoption 100% ⇒ P4 trigger (operator
-  checkpoint) ⇒ marker deprecates ⇒ custom half opens for the
+- **corpus proof** = count of old-form rows — ALL THREE legacy shapes
+  (codex #629): `0x0000_DDCC` (zero-prefix), `0x1000_DDCC` (pre-flip V3
+  marker high), AND `0xAAAA_DDCC` (legacy app/render prefix high, e.g.
+  `0x0005_0901`) — i.e. exactly the set `classid_canon_compat` routes
+  through the CanonLow fallback. Scanning only the first two can falsely
+  prove the corpus clean while un-rebaked render rows remain. Zero across
+  all three ⇒ alias retirement unlocks; adoption 100% ⇒ P4 trigger
+  (operator checkpoint) ⇒ marker deprecates ⇒ custom half opens for the
   render/template catalogue.
 
 Cross-ref: `le-contract.md` (bytes), `tenants.md` (what the value lanes

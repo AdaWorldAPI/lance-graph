@@ -27,7 +27,7 @@ proposes; the owner disposes.
 |---|---|---|
 | **Arm #1 — planner** | `lance-graph-planner/src/strategy/style_strategy.rs` | The D-MBX-A6 seam: the deferred `Outcome → Candidate/KanbanMove` adapter. Strategy outcomes (converged, cycle_count, gate verdicts) become kanban moves. |
 | **Arm #2 — symbiont** | `crates/symbiont` (`kanban_loop.rs` = POC) | SurrealDB-on-kv-lance executor: kanban updates as KV transactions on the same Lance substrate. Gated on the AdaWorldAPI surrealdb fork `kv-lance` feature. |
-| **Structural owner** | `lance-graph-supervisor/kanban_actor.rs` | ractor actor per mailbox. **ractor is a compile-time ownership dummy** — it spawns and proves single-ownership via move semantics; it is NOT a hot-path bus (ractor itself is too slow; it just spawns). |
+| **Structural owner** | `lance-graph-supervisor/kanban_actor.rs` | ractor actor per mailbox. **ractor is a compile-time ownership dummy** — it spawns and proves single-ownership via move semantics; it is NOT a data-plane bus (payloads never flow through it; ractor itself is too slow; it just spawns). **Sharpening (review #629):** the actor mailbox IS still the runtime serialized single-writer CONTROL path — Advance/MulAdvance/Tick serialize through one actor message, which is exactly what the codex #578 atomicity fix relies on. "Dummy" scopes the data plane, not the control serialization. |
 
 ## The ahead-firing batch writer
 
