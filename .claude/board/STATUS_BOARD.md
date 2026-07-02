@@ -5,7 +5,7 @@ Plan: `.claude/plans/v3-convergence-wiring-v1.md`. Sonnet-grindwork/Fable-decisi
 | D-id | Title | Crate(s) | Status | Evidence |
 |---|---|---|---|---|
 | D-VCW-1a | RungLevel arithmetic + RungElevator (sustained-BLOCK policy over certified mask algebra; converged with escalation::rung_delta) | lance-graph-contract | **Shipped** | 755 lib tests green incl. 6 new; clippy clean |
-| D-VCW-1b | Driver wiring: elevator through cycle loop, ctx.rung proxy retired, wire/grpc from_u8 dedup | cognitive-shader-driver | In progress | Sonnet agent in flight |
+| D-VCW-1b | Driver wiring: elevator through cycle loop, ctx.rung proxy retired, wire/grpc from_u8 dedup | cognitive-shader-driver | **Shipped** | driver 100/100 green (2 new tests: sustained-BLOCK elevation across dispatches + rung load-bearing in tactic selection); driver-persistent RwLock elevator, base-change reset |
 | D-VCW-2 | P6 wave-convergence probe (wave dist == certified palette read) | lance-graph core (arigraph) | **Shipped** | markov_soa 6/6 green (2 new P6 tests) |
 | D-VCW-3 | P7 render probe (bitmask → askama; fields == masked tenants) | q2 (push-gated) | Queued | spec ready (plan §3) |
 | D-VCW-4 | One-row registry + read-mode parity fuse | contract (+OGAR Phase B) | Queued | plan §4; Phase B operator-gated |

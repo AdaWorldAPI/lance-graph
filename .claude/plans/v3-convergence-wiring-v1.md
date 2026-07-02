@@ -17,8 +17,8 @@
 | D | Layer | Deliverable | Status |
 |---|---|---|---|
 | D1a | reasoning ladder | `RungLevel::{from_u8, elevate, de_elevate, pearl_level, causal_mask_bits}` + `RungElevator` (zero-dep, contract) — "elevates on sustained BLOCK" as a pure policy over `GateDecision` + the P2/P3-certified mask algebra | **Shipped this session** |
-| D1b | reasoning ladder | Driver wiring: thread a `RungElevator` through the cycle loop (replace `driver.rs` `ctx.rung = 1` proxy); dedup `wire.rs`/`grpc.rs` u8→rung matches through `RungLevel::from_u8` | In progress (Sonnet) |
-| D2 | AriGraph wave | P6 probe: `markov_soa::best_guess_match` driven by a real 256×256 palette-table distance — the wave uses the SAME certified metric as the particle chain (P1–P3) | In progress (Sonnet) |
+| D1b | reasoning ladder | Driver wiring: thread a `RungElevator` through the cycle loop (replace `driver.rs` `ctx.rung = 1` proxy); dedup `wire.rs`/`grpc.rs` u8→rung matches through `RungLevel::from_u8` | **Shipped this session** |
+| D2 | AriGraph wave | P6 probe: `markov_soa::best_guess_match` driven by a real 256×256 palette-table distance — the wave uses the SAME certified metric as the particle chain (P1–P3) | **Shipped this session** |
 | D3 | render / q2 | P7 probe (q2-side, spec in §3): ClassView bitmask → askama render; rendered fields == masked tenants | Queued (q2 push-gated; spec ready) |
 | D4 | registry | One-row registry: codebook row seeds `{tail, value_schema, edge_codec, bitmask, template}`; read-mode parity fuse next to COUNT_FUSE | Planned (§4) |
 | D5 | tiles / q2 | Nibble-hierarchy falsifier: FNV `cascade3` bytes have no nibble ancestry → HHTL routing on bake mints is tier-granular only | Recorded (`ISS-Q2-CASCADE3-...`, §5) |

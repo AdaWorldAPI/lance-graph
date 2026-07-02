@@ -918,18 +918,7 @@ impl WireDispatch {
             WireStyleSelector::Ordinal(n) => StyleSelector::Ordinal(*n),
             WireStyleSelector::Named(s) => StyleSelector::Ordinal(named_to_ordinal(s)),
         };
-        let rung = match self.rung {
-            0 => RungLevel::Surface,
-            1 => RungLevel::Shallow,
-            2 => RungLevel::Contextual,
-            3 => RungLevel::Analogical,
-            4 => RungLevel::Abstract,
-            5 => RungLevel::Structural,
-            6 => RungLevel::Counterfactual,
-            7 => RungLevel::Meta,
-            8 => RungLevel::Recursive,
-            _ => RungLevel::Transcendent,
-        };
+        let rung = RungLevel::from_u8(self.rung);
         let emit = match self.emit.as_str() {
             "bundle" => EmitMode::Bundle,
             "persist" => EmitMode::Persist,

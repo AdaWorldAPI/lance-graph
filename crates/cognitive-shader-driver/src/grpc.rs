@@ -346,18 +346,7 @@ fn proto_to_dispatch(req: &pb::DispatchRequest) -> ShaderDispatch {
         })
         .unwrap_or(StyleSelector::Auto);
 
-    let rung = match req.rung {
-        0 => RungLevel::Surface,
-        1 => RungLevel::Shallow,
-        2 => RungLevel::Contextual,
-        3 => RungLevel::Analogical,
-        4 => RungLevel::Abstract,
-        5 => RungLevel::Structural,
-        6 => RungLevel::Counterfactual,
-        7 => RungLevel::Meta,
-        8 => RungLevel::Recursive,
-        _ => RungLevel::Transcendent,
-    };
+    let rung = RungLevel::from_u8(req.rung as u8);
 
     let emit = match pb::EmitMode::try_from(req.emit) {
         Ok(pb::EmitMode::Bundle) => EmitMode::Bundle,

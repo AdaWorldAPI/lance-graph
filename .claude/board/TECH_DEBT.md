@@ -15,7 +15,20 @@
 
 ## Open Debt
 
-### TD-RUNGLEVEL-DUP — `RungLevel` duplicated verbatim in `thinking-engine` vs the canonical `lance-graph-contract` (2026-07-01)
+### TD-DEPRECATED-ACCESSORS-BLOCK-DEP-CLIPPY — pre-existing deprecation debt in `lance-graph-ontology` (oxrdf::Subject, 12 sites) + `lance-graph-planner` (CausalEdge64 v1 accessors, 2 sites) makes `cargo clippy -D warnings` fail for any DEPENDENT crate (2026-07-01)
+
+**Open.** Surfaced twice this session by the v3-convergence gates: clippy
+`-D warnings` on `cognitive-shader-driver` dies in `lance-graph-ontology`
+(`oxrdf::Subject` → `NamedOrBlankNode`, `hydrators/owl.rs:226,242` +
+`ttl_parse.rs:532,534` + 8 more), and on `lance-graph --lib` dies in
+`lance-graph-planner` (`CausalEdge64::{inference_type, temporal}` deprecated
+under v2 layout, `cache/nars_engine.rs:492-493` — the documented I-LEGACY
+migration pointers). Both are *within-workspace* deprecations, so `-D warnings`
+propagates them as errors to every dependent's clippy run. Payment: migrate the
+call sites (ontology → `NamedOrBlankNode`; planner → `inference_mantissa()` +
+structural temporal per the deprecation messages). Until paid, per-crate clippy
+gates must scope to crates whose dep-closure is deprecation-free, or scan the
+target crate's own lints without `-D warnings` on the closure.
 
 **Open.** `thinking-engine::cognitive_stack::RungLevel` is a byte-for-byte
 duplicate of `lance_graph_contract::cognitive_shader::RungLevel` (0..9:
