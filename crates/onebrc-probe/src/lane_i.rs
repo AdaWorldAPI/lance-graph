@@ -215,7 +215,7 @@ impl BatchTable {
 /// Deliberately message-free in steady state: the ownership guarantee
 /// is structural (aligned fixed indices + the sinks applying writes on
 /// behalf), so the data path never fans out to 64K actors.
-struct RowOwner;
+pub(crate) struct RowOwner;
 
 impl Actor for RowOwner {
     type Msg = ();

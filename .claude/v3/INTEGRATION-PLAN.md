@@ -670,3 +670,20 @@ messaging war outright (messages ∝ batches, independent of occupancy
 AND address space); the standing 64K registry is affordable
 infrastructure; the remaining surface is residency, not architecture.
 README §5.6; board E-1BRC-BATCH-PIPELINE-1.
+
+#### Addendum-13 status update (2026-07-02, t7 — lane J knob matrix, PROBE ARC COMPLETE)
+
+Lane J (feature `lane-j`) parameterizes lane I with the operator's four
+follow-up questions as knobs: grid (4096 gridlake vs 65536), sink lanes
+(1/8/64), registry (on/off). t7 @4 cores, same-session refs G(1)=46.3 /
+H=40.5 / F=70.1: **J(gridlake 4096, 1 lane, no registry) = 46.2–46.3 —
+the measured sweet spot: equals the best streamed topology while
+carrying the double-WAL.** Registry ON halves steady state net of spawn
+(t6 residency CONJECTURE → FINDING); grid 65536 → 40 (L2-busting
+table+memo); lanes 1≈8, 64 over-lanes (apply work is O(dirty) —
+lanes scale with APPLY work, never data). The composed recipe: 64×64
+gridlake batch SoA + codebook CAM + 1–8 lane pairs + whole-table
+double-cast + flush cache; ownership as the index-aligned guarantee
+table, NOT a standing per-cell actor registry; BF16 planes per ndarray
+#227's proven VDPBF16PS tier as the tile-GEMM continuation. README
+§5.7; board E-1BRC-GRIDLAKE-SWEETSPOT-1.

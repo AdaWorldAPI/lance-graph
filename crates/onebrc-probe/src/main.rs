@@ -157,6 +157,35 @@ fn cmd_run(args: &[String]) {
                 std::process::exit(1);
             }
         }
+        "j" => {
+            #[cfg(feature = "lane-j")]
+            {
+                // Positional knobs: [workers] [grid] [lanes] [registry 0|1]
+                // (defaults: gridlake 4096, 1 lane pair, no registry).
+                let grid: usize = args
+                    .get(3)
+                    .map(|s| s.parse().expect("grid must be a usize"))
+                    .unwrap_or(4096);
+                let lanes: usize = args
+                    .get(4)
+                    .map(|s| s.parse().expect("lanes must be a usize"))
+                    .unwrap_or(1);
+                let registry = args.get(5).map(String::as_str) == Some("1");
+                onebrc_probe::lane_j_grid_pipeline_with(
+                    &data,
+                    workers,
+                    grid,
+                    lanes,
+                    registry,
+                    1 << 16,
+                )
+            }
+            #[cfg(not(feature = "lane-j"))]
+            {
+                eprintln!("lane j requires --features lane-j");
+                std::process::exit(1);
+            }
+        }
         "h" => {
             #[cfg(feature = "lane-h")]
             {

@@ -512,3 +512,55 @@ Readings:
   standing registry is affordable as infrastructure (one spawn, ~2 s),
   and the batch data path costs messages ∝ batches — the remaining
   optimization surface is residency footprint, not architecture.
+
+### §5.7 — t7 (lane J: the knob matrix — grid × lanes × registry)
+
+The operator's four follow-up questions, one parameterized lane
+(`lane-j`), one matrix. Same recipe corpus, 4 cores; same-session
+references: G(1)=46.3, H(65536 nominal)=40.5, F=70.1.
+
+| Knob | Config | Mrows/s (passes) |
+|---|---|---|
+| **grid** | **4096 (64×64 gridlake)**, 1 lane, no registry | **42.0, 46.2, 46.3** |
+| grid | 65536 (256×256), 1 lane, no registry | 19.9*, 37.9 / 39.8, 41.5 |
+| **lanes** | 4096 grid, 8 lanes | 43.8, 45.1, 44.1 |
+| lanes | 4096 grid, 64 lanes | 37.6, 39.2, 42.2 |
+| **registry** | 65536 grid, registry ON | 2.6 (spawn 2655 ms), 14.1 (spawn 274 ms) |
+
+*first-pass cold outlier.
+
+Answers:
+
+- **"With Orchestrator it was 39.4?"** — t6's ~20 decomposes into TWO
+  now-isolated costs: the standing 64K registry (knob: registry ON
+  halves steady state even net of spawn — the t6 CONJECTURE is now a
+  FINDING) and the 64K-cell table+memo working set (~2.5 MB/worker,
+  L2-busting). Remove both and the batch pipeline BEATS the
+  orchestrator: 46.2 vs 40.5.
+- **"Different cache?"** — yes, and it was the wrong one. Matching
+  the SoA batch unit to the 64×64 gridlake tile (4096 cells ≈ 80 KB
+  integer-exact; the literal 4096×BF16=16 KB pair is ndarray #227's
+  proven VDPBF16PS tier, ~448 Mrows/s single-thread in its own
+  probe) recovers the loss completely: grid 4096 → 46 vs grid
+  65536 → 40.
+- **"8 or 64 lanes?"** — **1 lane suffices; 8 is free; 64 over-lanes**
+  (37–42). Per-batch apply work here is O(400 dirty rows) — trivial;
+  sink lanes only pay when per-batch apply work is heavy. Lane count
+  scales with APPLY work, never with data or address space.
+- **"Orchestration with 400 the sweet spot?"** — no: the gridlake
+  batch pipeline (46.2, double-WAL on both ends, 312 msgs) beats
+  H's lazy-owner orchestration (40.5, single WAL, ~2.6K msgs). H's
+  mechanisms remain right when fine-grained OWNERSHIP must live as
+  actors; when ownership can be the index-aligned guarantee table,
+  the batch pipeline dominates.
+- **"64×64 gridlake SoA?"** — **yes: the measured sweet spot.**
+  J(4096, 1 lane, no registry) equals the best streamed topology
+  (G(1)) while carrying the double witness — the kanban-update tax
+  at gridlake scale is ~0 vs the best owned topology, and the only
+  remaining gap is the universal actor-boundary cost vs F (70).
+
+The composed sweet-spot recipe, one line: **64×64 gridlake batch
+SoA + codebook CAM addressing + 1–8 sink lane pairs + whole-table
+double-cast + flush cache; ownership as the index-aligned guarantee
+table (no standing per-cell actor registry); BF16 planes per #227's
+tier when tile-GEMM lands.**
