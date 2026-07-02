@@ -1,3 +1,10 @@
+## 2026-07-02 — E-V3-TWO-LEVEL-LE-JC-GATE (operator: tenant LE contract nested in envelope LE contract; consumers certified by jc pillars)
+**Status:** FINDING (operator-ruled)
+
+"32-bit class, 96-bit data" — and the LE contract is TWO-LEVEL: **every tenant has an LE contract** (its facet layout per E-V3-FACET-4-PLUS-12) and **the SoA envelope has its LE contract** (ColumnDescriptor/verify_layout/ENVELOPE_LAYOUT_VERSION). The nesting ensures **scopedness to the single compile-inherited SoA write ownership**: a tenant lane can never acquire a writer the envelope doesn't know; an envelope never writes a lane whose tenant contract it doesn't carry (owner-borrows structural + mailbox_owner() nominal). **Validation gate:** every payload layout is so distinct that consumer READINGS are validated later against the `jc` crate pillars in lance-graph — ICC / Spearman ρ / Cronbach α etc. (certification-officer discipline: real bytes, deterministic sampling, 4-decimal reporting). The statistical mirror of the field-isolation matrix: layout tests prove bytes don't move; jc pillars prove the reading preserves semantics. Canonical doc: `.claude/v3/soa_layout/le-contract.md` §3b.
+
+Cross-ref: E-V3-FACET-4-PLUS-12, E-V3-CLASSVIEW-FOCUS-LENS, I-NOISE-FLOOR-JIRAK (the stats regime jc pillars operate under), crates/jc.
+
 ## 2026-07-02 — E-V3-CLASSVIEW-FOCUS-LENS (operator: the lens follows the data shape; let go of the cramped 64-bit awareness register)
 **Status:** FINDING (operator-ruled)
 

@@ -132,6 +132,34 @@ similarity function. Two styles coexist:
   do not unify silently in code.
 - **L6 semantics** await an operator ruling (the "odoo ?" mark).
 
+## §3b Two-level LE contract + the jc-pillar validation gate (operator, 2026-07-02)
+
+**"32-bit class, 96-bit data"** — and the contract is TWO-LEVEL:
+
+- **Every TENANT has its own LE contract** (the facet layout it carries,
+  per §3), and
+- **the SoA envelope has ITS LE contract** (the register-file descriptor:
+  ColumnDescriptor offsets/widths, `verify_layout()`,
+  `ENVELOPE_LAYOUT_VERSION`).
+
+The nesting is the point: the tenant contract is scoped INSIDE the
+envelope contract, and both inherit the **single, compile-time-inherited
+SoA write ownership** (owner-borrows structurally,
+`mailbox_owner()` nominally). A tenant lane can never acquire a writer
+the envelope doesn't know; an envelope can never write a lane whose
+tenant contract it doesn't carry. Scopedness is the guarantee, not a
+convention.
+
+**Consumer validation gate (jc pillars):** every payload layout is so
+DISTINCT that consumer readings are validated LATER against the `jc`
+crate pillars in lance-graph — the certification math: **ICC, Spearman ρ,
+Cronbach α** (and siblings). A consumer that starts reading a tenant lane
+owes a jc-pillar certification run (the certification-officer pattern:
+real bytes, deterministic sampling, 4-decimal reporting) before its
+reading is trusted in any downstream claim. This is the statistical
+mirror of the field-isolation matrix: layout tests prove bytes don't
+move; jc pillars prove the READING preserves the semantics.
+
 ## §4 Relation to the CANON node and the envelope
 
 - The CANON node (`CLAUDE.md` § Minimal SoA node, locked 2026-06-13)
