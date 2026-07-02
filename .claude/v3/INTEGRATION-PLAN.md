@@ -648,3 +648,25 @@ orchestration tier itself; fine-grained mailbox-as-owner is viable iff
 producers never address owners directly (the ahead-firing batch-writer
 is load-bearing, not an optimization; flat fan-out = the measured 20×
 anti-pattern). README §5.5; board E-1BRC-ORCHESTRATION-SWEETSPOT-1.
+
+#### Addendum-13 status update (2026-07-02, t6 — lane I, operator batch-pipeline spec)
+
+Operator spec implemented verbatim as lane I (feature `lane-i`): all
+65536 mailboxes UPFRONT (standing ownership registry; spawn measured
+separately: 1.1–2.7 s, 17–40 µs/actor); two fixed aligned indices
+(mailbox idx == SoA row idx — ownership guarantee is the
+`row_owner[i]==i` binding + write-on-behalf, never a message path);
+codebook-minted identity → direct CAM addressing (no probe in the hot
+loop; worker-local memo, ~400 global mint locks total); whole-table
+DOUBLE-CASTS (one Arc per 64K-row batch to BOTH the ownership-guarantee
+sink and the Lance row-address sink — 312 messages total vs 63K flat /
+2.6K orchestrated); flush cache interleaving flush and refill (peak 2–3
+tables/worker, worker never waits). Both ends journal every batch
+(ownership==lance==156 asserted) + one DatasetVersion tick per batch —
+the full double-WAL the W1b batch writer needs. t6: steady state ~20–22
+Mrows/s (≈½ of G(1) 43 — residency-footprint attribution CONJECTURE);
+total incl. spawn 3.2–6.1. RULING: the batch pipeline wins the
+messaging war outright (messages ∝ batches, independent of occupancy
+AND address space); the standing 64K registry is affordable
+infrastructure; the remaining surface is residency, not architecture.
+README §5.6; board E-1BRC-BATCH-PIPELINE-1.

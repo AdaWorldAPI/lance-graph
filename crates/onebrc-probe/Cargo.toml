@@ -38,6 +38,10 @@ lane-g = ["dep:lance-graph-contract", "dep:ractor", "dep:tokio"]
 # owner activation + ahead-firing batched delivery over lane G's
 # one-mailbox-per-SoA substrate — same dep set as lane-g.
 lane-h = ["lane-g"]
+# Lane I (substrate batch pipeline): 65536 upfront mailboxes, codebook
+# CAM addressing, whole-table double-casts to ownership + lance sinks,
+# flush-cache interleaving - same dep set as lane-g.
+lane-i = ["dep:lance-graph-contract", "dep:ractor", "dep:tokio"]
 
 [dependencies]
 # AdaWorldAPI fork (workspace P0 rule: fork over crates.io, always — see

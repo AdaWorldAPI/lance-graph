@@ -60,6 +60,8 @@ pub mod lane_f;
 pub mod lane_g;
 #[cfg(feature = "lane-h")]
 pub mod lane_h;
+#[cfg(feature = "lane-i")]
+pub mod lane_i;
 pub mod sha256;
 
 #[cfg(feature = "lane-b")]
@@ -73,6 +75,8 @@ pub use lane_f::{lane_f_morton, lane_r_radix};
 pub use lane_g::{lane_g_kanban_soa, lane_g_kanban_soa_with_morsel};
 #[cfg(feature = "lane-h")]
 pub use lane_h::{lane_h_orchestrated, lane_h_orchestrated_with};
+#[cfg(feature = "lane-i")]
+pub use lane_i::{lane_i_batch_pipeline, lane_i_batch_pipeline_with};
 
 use std::collections::BTreeMap;
 

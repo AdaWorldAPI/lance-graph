@@ -85,6 +85,8 @@ regenerating with the same `(rows, seed)` and diffing the printed
 | **F** — `lane_f::lane_f_morton` (std-only, no feature) | The substrate-native lane: station identity → FNV-1a 64 → two axis bytes **nibble-interleaved** into a 16-bit Morton tile position (the GUID canon's 256×256 centroid-tile read) → slot into flat **SoA accumulators** (`min[]/max[]/sum[]/count[]`, open-addressed linear probe, name-verified on tag hit) — group-by as a prefix ROUTE, aggregation as a gated indexed write, per-worker owned tables BUNDLE-merged. Same scalar scan + `chunk_bounds` as lane C: the only variable vs C is the accumulator. | **Shipped** |
 | **R** — `lane_f::lane_r_radix` (std-only, no feature) | The honest control for F: byte-identical pipeline, slot = plain `hash & 0xFFFF` (no interleave). **F−R isolates the Morton addressing tax exactly; R−C prices flat-SoA-table-vs-BTreeMap.** | **Shipped** |
 | **G** — `lane_g::lane_g_kanban_soa` (feature `lane-g`) | The kanban-update write path: the SAME Morton-tile 64K SoA as lane F, but held as OWNED state by `shards` mailbox actors (mailbox-as-owner over contiguous Morton tile ranges). Workers pre-reduce 64K-row morsels in private tables (identical hot loop to F), extract dirty slots by clear-by-undo, and **cast** the pre-reduced entries prefix-routed to the owning shard; every applied batch is witnessed with a `KanbanMove` on the owner's WAL (`journal == casts` asserted). **G−F prices witnessed streamed ownership vs private-merge-at-end; the `shards` sweep (1/4/16) is the 64K-concurrent-SoA-vs-Morton-tile ownership ledger** (§5.4). | **Shipped** |
+| **H** — `lane_h::lane_h_orchestrated` (feature `lane-h`) | Orchestrated fine-grained ownership over lane G's substrate: router tier with LAZY owner activation (live mailboxes track occupancy, never address-space size) + AHEAD-FIRING batched delivery (`batch_k`). Flattens the ownership-granularity curve (§5.5: 23× recovery at the 64K end). | **Shipped** |
+| **I** — `lane_i::lane_i_batch_pipeline` (feature `lane-i`) | The operator batch-pipeline spec: 65536 mailboxes UPFRONT (standing ownership registry), aligned fixed indices (mailbox idx == SoA row idx), codebook-minted direct CAM addressing, whole-table Arc DOUBLE-CASTS to the ownership-guarantee sink + the Lance row-address sink, flush-cache interleaving. Messages ∝ batches (312 total at 10M rows); double-WAL on both ends (§5.6). | **Shipped** |
 | **E** — `lane_e::lane_e_kanban` (feature `lane-e`) | One kanban card per batch: the corpus splits into `batches` newline-aligned chunks (`batches >= workers`) pulled from a shared `AtomicUsize` queue by `workers` puller tasks; every batch is journaled by a fresh `lance-graph-supervisor::KanbanActor<ProbeBoard>` driven through the full Rubicon forward arc (`Planning->CognitiveWork->Evaluation->Commit`, `drive_version_tick` × 3) around the actual `lane_a_scalar` work. The combined journal is asserted to carry exactly `3 * batches` legal `KanbanMove`s. `batches == workers` vs Lane D isolates the kanban journaling cost (identical chunking + actor-model tax, only the actor type differs); fine-grained batching (`batches >> workers`) prices per-card scheduling overhead (feeds W2d, the 550 ms Libet budget question). | **Shipped** |
 
 ---
@@ -93,7 +95,7 @@ regenerating with the same `(rows, seed)` and diffing the printed
 
 ```text
 onebrc-probe gen <path> <rows> <seed>
-onebrc-probe run <path> <lane:a|b|c|d|e|f|g|r> [workers] [batches|shards]
+onebrc-probe run <path> <lane:a|b|c|d|e|f|g|h|i|r> [workers] [batches|shards|owners_nominal]
 ```
 
 Lane `b` requires `--features lane-b`; lane `d` requires `--features lane-d`;
@@ -449,3 +451,64 @@ Readings:
   ahead-firing batch-writer shape) is a load-bearing part of the
   kanban-update architecture, not an optimization. Flat fan-out to
   fine-grained owners is the measured anti-pattern (20×).
+
+### §5.6 — t6 (lane I: the batch pipeline — 65536 upfront, double-cast, flush cache)
+
+Operator spec: all 65536 mailboxes upfront; two fixed aligned indices
+(mailbox idx == SoA row idx); codebook index → direct CAM addressing;
+whole-table double-casts into the mailbox-ownership-guarantee table AND
+the Lance row-address table; flush cache so flushing and reindexing
+interleave. Lane I (feature `lane-i`) implements it verbatim — see
+`lane_i.rs` for the mechanism-by-mechanism mapping. Same recipe corpus,
+4 cores, 3 passes (stderr breakdown per run):
+
+| Pass | total Mrows/s | mailbox_spawn_ms | steady-state* Mrows/s |
+|---|---|---|---|
+| 1 | 3.19 | 2667.9 | ~22 |
+| 2 | 6.05 | 1135.2 | ~20 |
+| 3 | 3.86 | 2107.4 | ~21 |
+
+*steady-state = rows / (elapsed − spawn − stop); spawn is standing-
+infrastructure setup, paid once per process lifetime, amortized to ~0
+in a long-running substrate.
+
+Fixed per-run facts (identical all passes): `batches=156`,
+`versions=156` (one DatasetVersion tick per batch),
+`rows_addressed=62,400` (400 stations × 156 batches),
+`flush_cache_peak_tables_per_worker=2–3`, `codebook_len=400`,
+ownership journal == lance journal == 156 (double-cast completeness
+asserted).
+
+Readings:
+
+- **The batch pipeline wins the messaging war outright.** 312 messages
+  TOTAL (156 whole-table Arcs × 2 ends) versus ~63K owner-addressed
+  casts flat (t4a) and ~2.6K orchestrated (t5). Message count tracks
+  BATCHES — independent of occupancy AND of address-space size. One
+  allocation serves both ends (the Arc double-cast); nothing is ever
+  repacked into per-owner entry lists.
+- **The flush cache interleaves as designed.** Peak 2–3 tables per
+  worker: while both sinks flush batch n, the worker fills n+1 from a
+  recycled table (refcount-gated). The worker never waits for a flush.
+- **The costs are residency + one-time spawn, not routing.** The 64K
+  upfront spawn costs 1.1–2.7 s on this container (17–40 µs/actor,
+  high variance under memory churn) — standing infrastructure,
+  amortizable. Steady state (~20–22 Mrows/s) runs at roughly HALF of
+  the 1-owner streamed topology (G(1) 43.0) — attribution (CONJECTURE,
+  not isolated): the resident 64K-actor footprint's cache/memory
+  pressure on a 4-core container, plus the two serialized sinks. On
+  real silicon with real RAM the residency term shrinks; the messaging
+  and witness terms are already optimal.
+- **The witness story is the strongest of any lane:** every batch is
+  journaled on BOTH the ownership end and the persistence end with one
+  KanbanMove each + a version tick — the double-WAL that makes the
+  batch replayable from either side. Where lanes G/H witnessed the
+  ownership side only, lane I is the full write-ahead shape the real
+  batch writer (W1b) needs.
+- Composition guidance across t4–t6: **H's lazy activation** (when the
+  registry need not pre-exist) and **I's whole-table double-cast +
+  flush cache** (when it does) are complementary; both keep producers
+  from ever addressing fine-grained owners directly. The 65536
+  standing registry is affordable as infrastructure (one spawn, ~2 s),
+  and the batch data path costs messages ∝ batches — the remaining
+  optimization surface is residency footprint, not architecture.

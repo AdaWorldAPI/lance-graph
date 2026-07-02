@@ -144,6 +144,19 @@ fn cmd_run(args: &[String]) {
                 std::process::exit(1);
             }
         }
+        "i" => {
+            #[cfg(feature = "lane-i")]
+            {
+                // Fixed topology: all 65536 mailboxes upfront, 64K-row
+                // CAM batches (see lane_i.rs; breakdown on stderr).
+                onebrc_probe::lane_i_batch_pipeline(&data, workers)
+            }
+            #[cfg(not(feature = "lane-i"))]
+            {
+                eprintln!("lane i requires --features lane-i");
+                std::process::exit(1);
+            }
+        }
         "h" => {
             #[cfg(feature = "lane-h")]
             {
