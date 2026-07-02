@@ -35,6 +35,18 @@
 
 ---
 
+## #631 lance-graph: W1b LIVE — WAL batch writer implemented, M15 rename, temporal synthesis, live oracle measurements
+
+**Status:** MERGED 2026-07-02 (merge commit `c7149eab`), branch `claude/v3-substrate-migration-review-o0yoxv`.
+
+**Added:** `batch_writer.rs` implementation (BTreeMap board keyed by monotonic CastId; `ack(cast: CastId, version: LanceVersion)` + `acked_version()` — the WAL↔temporal join; `resolve_owner` delegation cache; probe 4 `probe_stacked_casts_never_refused`); `MulGateDecision` rename in planner mul/ (+deprecated alias); plan Addenda 6–9 + EPIPHANIES E-V3-TEMPORAL-DEINTERLACE-1 / E-V3-ORACLE-LIVE-1.
+
+**Locked:** W1b green = the 4 probes (now passing, un-ignored); cast = descriptor never bytes, sink reads live store via `NodeRowPacket::as_le_bytes`, eager drain; **melden macht frei** (no refusal ever — mutation-freeze retracted as contradicting "updates reprioritize, never gate"); **replay = `QueryReference::at(v, rung)` + `deinterlace`** (M24 crash-replay = M25 session-replay = Lance time-travel, ONE mechanism; no-refusal PROVABLE via Strict-reader horizon); W3c budget = the LLM round trip (measured: 1–2 ms framework vs 8.4–8.7 s oracle — orchestration is free); rig = oracle client only; JITSON serve.rs = the local zero-cost CI oracle (W3b test bench).
+
+**Deferred:** W2b real-owner KanbanActor probe; W2a board-as-tenant; KanbanSessionStorage impl (W3b); W6a CLI wrapper + t₀ corpus run; GraphRAG-rs inventory verdict (worker in flight at merge time — lands next arc).
+
+**Confidence (2026-07-02):** HIGH — probes 4/4, planner lib 204 green, live API evidence with reproducible harness in session scratchpad.
+
 ## #630 lance-graph: V3 W1 START — preflight deltas, WAL-shaped writer probes, adoption-scan baseline, D-PERT-1, temporal synthesis
 
 **Status:** MERGED 2026-07-02 (merge commit `9a6df2a1`), branch `claude/v3-substrate-migration-review-o0yoxv`.
