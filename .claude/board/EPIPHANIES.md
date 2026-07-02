@@ -1,3 +1,52 @@
+## 2026-07-02 — E-DTO-LADDER-OWNERSHIP-SPLIT — BusDto stays ownership-FREE; the envelope owns the write moment; StreamDto is the ancestor of the standing async plan
+
+**Status:** DOCTRINE (reconciliation of the operator's overlap question,
+2026-07-02 — the old `thinking-engine > p64 > cognitive-shader-driver`
+ladder vs the mailbox-ownership contract).
+
+**The old Φ/Ψ/B/Γ ladder survives with sharpened roles**
+(`thinking-engine/src/dto.rs`):
+
+- **Φ `StreamDto`** (sensor perturbation entering the field) — the
+  ANCESTOR of the standing-async-plan ruling: "cycles unable to stop
+  thinking, following the async template without waiting to be called"
+  IS StreamDto's semantics, now formalized: a cycle follows its compiled
+  template (`elixir-template` instance) continuously; kanban/ahead
+  updates arrive as StreamDto-shaped perturbations mid-flight — never as
+  a call/response invocation.
+- **Ψ `ResonanceDto`** (the f32[4096] ripple field) — INTRA-mailbox
+  computation carrier only; never crosses a mailbox boundary (same law
+  as Vsa16kF32). Known debt: TWO definitions exist (`dto.rs` +
+  `awareness_dto.rs`) — dedup tracked.
+- **B `BusDto`** (committed thought + cognitive provenance) — **the
+  overlap answer: same MOMENT as the ownership contract, orthogonal
+  CONTENT, and it stays clean under one pinned rule: BusDto NEVER grows
+  ownership fields.** BusDto answers "what was thought and how settled"
+  (peak, top_k, cycles, converged — verified: zero mailbox/owner fields
+  today); the envelope answers "whose lane and who may write"
+  (`SoaEnvelope::mailbox_owner` + write-on-behalf). At write time the
+  batch writer PAIRS them: `cast(on_behalf = envelope.mailbox_owner(),
+  payload = BusDto)` — one ownership source of truth (the envelope),
+  one cognitive-provenance source (the BusDto). Duplicating ownership
+  into BusDto would create the two-sources drift the operator sensed.
+- **Γ `ThoughtStruct`** — persists into the value tenants via the LE
+  envelope (Lance tombstone carries the owner stamp).
+
+**Bonus fit:** BusDto's `converged`/`cycle_count` are exactly the inputs
+the kanban advance policy reads — BusDto is the natural PAYLOAD of the
+D-MBX-A6 `Outcome → KanbanMove` emit: the committed thought that
+justifies the phase move, with ownership supplied by the envelope at
+cast time, never by the payload.
+
+**Old pipeline → new pipeline, one line:** sensors fire `StreamDto` →
+the mailbox's owned field computes `ResonanceDto` under its compiled
+template (the standing async plan) → convergence commits `BusDto` → the
+batch writer casts on-behalf + fires the AHEAD kanban update
+(`KanbanMove` justified by the BusDto) → `ThoughtStruct`/tenants persist
+through the envelope → Lance. p64 remains the convergence highway
+between thinking-engine and cognitive-shader-driver; nothing in the
+ladder is retired.
+
 ## 2026-07-02 — E-V3-MARKER-IS-A-MONITOR — operator clarification: `0x1000` = V3-adoption telemetry, deprecated when nothing is left to monitor
 
 **Status:** DOCTRINE (operator, 2026-07-02).

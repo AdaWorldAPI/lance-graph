@@ -167,3 +167,21 @@ board `E-COMPILED-THINKING-TEMPLATES`.
    (ogar-from-elixir = future richer frontend); the crate doc names the
    compile-down direction — a successful LLM run compiles to the
    deterministic template.
+
+---
+
+## APPENDED (operator overlap question resolved, 2026-07-02): the DTO ladder vs ownership
+
+The old `thinking-engine > p64 > cognitive-shader-driver` ladder
+(Φ `StreamDto` / Ψ `ResonanceDto` / B `BusDto` / Γ `ThoughtStruct`)
+survives intact with one pinned rule: **BusDto never grows ownership
+fields.** BusDto = cognitive provenance (what was thought, how settled);
+`SoaEnvelope::mailbox_owner` + write-on-behalf = write provenance (whose
+lane, who may write). Same moment, orthogonal content; the batch writer
+pairs them at cast: `cast(on_behalf = envelope.mailbox_owner(), payload
+= BusDto)`. StreamDto is the ancestor of the standing-async-plan ruling
+(can't-stop-thinking = following the compiled template without waiting
+to be called); ResonanceDto stays intra-mailbox (dedup its two
+definitions — dto.rs + awareness_dto.rs); BusDto's converged/cycle_count
+feed the D-MBX-A6 KanbanMove emit. Full text: board
+`E-DTO-LADDER-OWNERSHIP-SPLIT`.

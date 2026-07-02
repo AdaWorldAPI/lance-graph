@@ -1,5 +1,13 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-RESONANCEDTO-DUPLICATE (2026-07-02)
+
+Two `ResonanceDto` definitions coexist in thinking-engine: `src/dto.rs`
+(Ψ ripple field, f32 energy + top_k + convergence) and
+`src/awareness_dto.rs`. Surfaced while reconciling the DTO ladder with
+the mailbox-ownership contract (E-DTO-LADDER-OWNERSHIP-SPLIT). Dedup to
+one canonical Ψ carrier; the survivor stays intra-mailbox-only.
+
 > **Append-only ledger** for knowingly-deferred work: TODOs, shortcuts,
 > workarounds, unsafe assumptions, missing probes, hardcoded
 > thresholds, stubs, and anything else we shipped with intentional
