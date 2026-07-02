@@ -91,6 +91,7 @@ pub enum TypedForm {
 #[inline]
 #[must_use]
 pub fn classify_ddl_type(ty: &str) -> TypedForm {
+    let mut saw_record = false;
     let mut saw_any = false;
     let mut token_count = 0usize;
 
@@ -100,6 +101,12 @@ pub fn classify_ddl_type(ty: &str) -> TypedForm {
         }
         token_count += 1;
 
+        // Stub is the ONLY early return: it is top precedence, so nothing a
+        // later token could contain outranks it. `record`/`any` must NOT
+        // early-return — a stub marker may still follow (e.g.
+        // `record<user> TODO`, `record<fixme>`), and the documented
+        // precedence says Stub wins globally, not first-token-wins
+        // (codex P2, PR #632).
         if token.eq_ignore_ascii_case("todo")
             || token.eq_ignore_ascii_case("stub")
             || token.eq_ignore_ascii_case("fixme")
@@ -107,7 +114,7 @@ pub fn classify_ddl_type(ty: &str) -> TypedForm {
             return TypedForm::Stub;
         }
         if token == "record" {
-            return TypedForm::RecordLink;
+            saw_record = true;
         }
         if token == "any" {
             saw_any = true;
@@ -117,6 +124,9 @@ pub fn classify_ddl_type(ty: &str) -> TypedForm {
     if token_count == 0 {
         // Empty or whitespace-only expression.
         return TypedForm::Stub;
+    }
+    if saw_record {
+        return TypedForm::RecordLink;
     }
     if saw_any {
         return TypedForm::AnyTyped;
@@ -261,6 +271,21 @@ mod tests {
         // A stub marker anywhere in the expression wins, even alongside
         // record/any tokens.
         assert_eq!(classify_ddl_type("TODO record<any>"), TypedForm::Stub);
+    }
+
+    #[test]
+    fn classify_ddl_type_stub_marker_after_record_still_wins() {
+        // Regression (codex P2, PR #632): a stub marker AFTER the `record`
+        // token must still win — precedence is global over the whole
+        // expression, never first-token-wins. Before the fix, the early
+        // return on `record` miscounted partially-stubbed record-link DDL
+        // as real links.
+        assert_eq!(classify_ddl_type("record<user> TODO"), TypedForm::Stub);
+        assert_eq!(classify_ddl_type("record<fixme>"), TypedForm::Stub);
+        assert_eq!(
+            classify_ddl_type("array<record<user>> stub"),
+            TypedForm::Stub
+        );
     }
 
     #[test]
