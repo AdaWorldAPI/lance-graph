@@ -126,3 +126,42 @@ Gate: replay equivalence green on every template change (template-smith rule).
 - Adopts (does not duplicate): D-MBX-A6, D-PERT-1, D-CC-RUNTIME/EQUIV/COMPILER rows, D-VCW-3/5/7, D-CCF-4.
 - Extends: `v3-convergence-wiring-v1` (its seam list is W1–W3's ancestry) and `soa-value-tenant-migration-v2` (Phase-2 tenant shaping proceeds under W2a's tenant discipline).
 - Supersedes in prose only: any remaining CollapseGate-as-singleton framing in older docs (primer §6 table governs).
+
+---
+
+## Addendum 2026-07-02 — Fable-5 preflight epiphanies (pre-W1, operator-requested)
+
+Ten-point pass over every layer before phase start (full text: EPIPHANIES
+E-V3-PREFLIGHT-1 + session transcript). Plan deltas adopted:
+
+1. **W1b/W1c collapse (WAL-shaped writer):** the cast IS the kanban move —
+   the AHEAD update is the write-intent record, Lance ack confirms it. The
+   board becomes the write-ahead log; crash recovery = replay unacked moves.
+   New entropy row M24. Gate: kill-after-cast-before-ack replay test.
+2. **M7 ruling recommendation:** re-scope `SoaEnvelope` as the spec/descriptor
+   certification surface (`verify_layout` + field-isolation matrix are the
+   value; trait polymorphism has zero production impls). Doc-line ruling,
+   unblocks W1 without refactor.
+3. **W6a scanner runs FIRST (baseline inversion):** build the two-metric
+   range-count tool at W1 start; record t0 old-form counts in the M1 row.
+   "Adoption 100%" is only falsifiable against a measured denominator.
+4. **W3 oracle ratchet metric:** oracle-hit rate per cycle vs catalogue size
+   must trend DOWN; flat = templates not generalizing = deterministic-first
+   silently dead. One counter, plotted per replay run.
+5. **W2 internal reorder:** W2e (dispatch probe) → W2d (budget) → W2a/b/c.
+   Budget constants come from measured µs; probe measures batch 1/64/4096
+   (sub-µs matters at batch 1); loser owns the slow/plan path (two-speed).
+6. **Ractor batching by construction:** actor boundary takes `Vec<KanbanMove>`
+   per message, never singles — helper-scope compliance enforced by API shape.
+7. **D-PERT-1 rides the first W1 PR** (7 files, mechanical; waiting grows
+   the blast radius).
+8. **M21 pull-forward:** zero-dep `canon-node-bytes` extraction lands in W1
+   (same LE work); byte-parity gate vs contract NodeGuid.
+9. **Gate-run rule:** every wave PR's final commit runs `/v3-audit` + the
+   touched M-row greps, results pasted into AGENT_LOG (self-updating ledger).
+10. **Supervisor stays thin forever:** the product is the compile-time
+    ownership attestation; restart policy is the only runtime duty. No
+    routing/registry/pub-sub creep (the trap arrives dressed as convenience).
+
+Nothing here invents machinery — every delta is a collapse or reorder of
+what the plan already carries (the V3-shape test, passed).

@@ -1,3 +1,8 @@
+## 2026-07-02 — E-V3-PREFLIGHT-1: Fable-5 ten-point preflight over every V3 layer (operator-requested, pre-W1)
+**Status:** FINDING (plan deltas folded into INTEGRATION-PLAN.md Addendum 2026-07-02)
+
+Headline collapses: (1) the kanban board IS the write-ahead log — cast = move = intent, ack = confirmation; W1b/W1c are one object, crash recovery free (M24). (2) M7 ruling rec: SoaEnvelope re-scoped as spec/certification surface (verify_layout + field-isolation matrix are the value; zero production impls of the trait). (3) Baseline inversion: W6a scanner runs at W1 START — adoption-100% needs a measured t0 denominator. (4) W3 oracle ratchet: oracle-hit rate must trend down vs catalogue size or deterministic-first is silently dead. (5) W2 reorder probe→budget→arms; budget constants measured not guessed; probe at batch 1/64/4096; loser owns slow path. (6) Ractor batching by API shape (Vec<KanbanMove> per message). (7+8) Pull-forwards: D-PERT-1 and M21 canon-node-bytes ride W1. (9) Gate-run rule: wave PRs end with /v3-audit + touched M-row greps in AGENT_LOG. (10) Supervisor stays thin — the product is the compile-time ownership attestation, not runtime supervision. Test applied throughout: every item is a collapse/reorder of existing machinery, none invents a layer.
+
 ## 2026-07-02 — E-V3-PLANNER-TWO-NATURES-AND-SPEED-PROBE (operator: planner too slow for sub-µs; resonance-based thinking is not DataFusion)
 **Status:** FINDING (operator-ruled; speed claim probe-gated per truth-architect discipline)
 

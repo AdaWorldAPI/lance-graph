@@ -46,6 +46,7 @@
 | M21 | 3 dep-free hand-copies of the 16-byte NodeGuid LE encoder (q2 cpic, q2 fma/converge.rs, woa-rs erp/canon.rs — each "byte-identical", zero shared code) | one zero-dep `canon-node-bytes` extraction all three import | byte-parity test vs contract NodeGuid; grep local encoders = imports only | QUEUED (W5) |
 | M22 | 2 divergent q2 OSINT V3 bakes (crates/osint-bake canon-high 0x0700_0000 vs data/osint-v3 STALE pre-flip 0x1000_0700 dual-GUID scheme) | one canon-high bake against osint_classview.rs's 0x0700/0x0701 reservation | re-bake; grep pre-flip forms in q2 data/ = zero (or dual-alias-read only) | QUEUED (W5; latent until a reader assumes canon-high) |
 | M23 | 2 write-path doctrines coexisting (owner-stamped V3 writes vs smb-office-rs `LanceConnector::upsert` — the ONE live online consumer write, no stamp/classid/envelope) | all online consumer writes routed through the batch-writer cast | consumer-map §2 table shows zero ORPHAN-WRITE rows; warden green fleet-wide | QUEUED (W5 first live migration; medcare-soa writer BORN stamped as the prevention half) |
+| M24 | 2 write-intent bookkeepers (batch-writer internal state vs kanban board AHEAD update) | ONE: the kanban board IS the write-ahead log — cast = move = intent record; ack = confirmation | kill-after-cast-before-ack replay test green; grep writer-internal intent queues = zero | QUEUED (shapes W1b from first line) |
 
 ## The meta-rule (why this ledger exists)
 
