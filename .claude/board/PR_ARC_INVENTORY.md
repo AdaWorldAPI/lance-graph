@@ -43,6 +43,8 @@
 
 **Locked:** OSINT low byte = APPID space domain-wise (`00` = domain, `01` = q2 — zero vocabulary rows, executed OGAR PR #146, codebook 67→65, COUNT_FUSE balanced with zero mirror changes); `0x1000` = temporary reminder, not a format bit; the SoA `class_id` discriminator derives via `split_classid(id).canon` NEVER `as u16` (codex P2 — post-flip `as u16` collapses every class to `0x1000`); legacy registry keys DEMOTE to read-only aliases, retirement only on corpus proof (codex P2 — mint-forward means persisted old-form rows resolve forever until re-baked).
 
+**Correction (2026-07-02, appended — CodeRabbit on #628):** the exact exported symbols are `ClassidOrder::CanonHigh` (the flippable order const `CLASSID_ORDER`, set via the enum — there is no `CLASSID_CANON_HIGH` bool) and `classid_canon(id)` (the canon accessor — `split_classid(id)` returns a tuple, `.canon` is not a field). The intent of the two guard lines above is unchanged.
+
 **Deferred:** P2 + P4 operator checkpoints; implementation phases (D-CCF-0 starts immediately post-merge).
 
 **Docs/board:** as Added; OGAR side in `DISCOVERY-MAP.md` `D-OSINT-APPID-NOT-CONCEPT` (OGAR #146, merged `a0c7936`).
