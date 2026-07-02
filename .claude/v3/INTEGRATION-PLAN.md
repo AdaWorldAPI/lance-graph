@@ -576,3 +576,18 @@ D 22.381 / E(4 cards) 22.963 / E(64) 22.477 / E(256) 22.118 Mrows/s.
 is not a scheduling threat; the actor-boundary copy remains the only real
 tax (unchanged ~20% vs C). Full tables: `crates/onebrc-probe/README.md`
 §5.2. Remaining: lane F (Morton-tile shader vs plain radix control).
+
+#### Addendum-13 status update (2026-07-02, t3 — PROBE COMPLETE)
+
+Lanes F (Morton-tile SoA) + R (plain-radix control) SHIPPED (std-only, no
+feature gate — the A/C zero-dep contract holds for all four std lanes).
+t3 medians @4 workers: C 28.3 / F 77.4 / R 86.3 Mrows/s. The three
+numbers the probe was sent to fetch: route-and-write beats the classic
+map **3×** (R−C, address-agnostic); the Morton address costs **~10%**
+over plain radix at ~400-group cardinality (F−R — the addressing tax,
+isolated exactly; high-cardinality prefix-local payoff remains untested
+by this corpus and unclaimed); the accumulator, not the SIMD scan, is
+where the win lives (B was 1.06×). All six lanes A–F + R now measured
+on one regenerable recipe corpus. Board: E-1BRC-ADDRESSING-1. The probe
+is COMPLETE; follow-ups (100M container-scale run, high-cardinality
+corpus, SWAR parse, mmap) are priced and parked in README §1/§5.3.

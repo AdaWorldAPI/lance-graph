@@ -82,6 +82,8 @@ regenerating with the same `(rows, seed)` and diffing the printed
 | **C** — `lane_c_threads` | `std::thread` parallel baseline: newline-aligned `chunk_bounds` split, per-worker owned `BTreeMap`, commutative `Stats::merge` combine | **Shipped** |
 | **B** — `lane_b::lane_b_simd` (feature `lane-b`) | Vectorized `;`/`\n` scanning via `ndarray::simd::U8x32::cmpeq_mask` (per the workspace's SIMD rule — never raw `pulp`/`wide`/hand intrinsics in a consumer crate; see `.claude/knowledge/ndarray-vertical-simd-alien-magic.md`), 32-byte-stride scan with cross-block `line_start`/`pending_semi` carry, scalar temp parse (SWAR/branchless parse deliberately still deferred). | **Shipped** |
 | **D** — `lane_d::lane_d_ractor` (feature `lane-d`) | Same groupby-aggregate workload as Lane C, but each `chunk_bounds` chunk is aggregated by a stateless `ractor` actor (actor-per-worker, ask-pattern reply, `lance-graph-supervisor`-style `Actor`/`RpcReplyPort` shape) instead of a bare `std::thread::scope` closure — identical chunking + commutative merge, only the worker primitive changes. | **Shipped** |
+| **F** — `lane_f::lane_f_morton` (std-only, no feature) | The substrate-native lane: station identity → FNV-1a 64 → two axis bytes **nibble-interleaved** into a 16-bit Morton tile position (the GUID canon's 256×256 centroid-tile read) → slot into flat **SoA accumulators** (`min[]/max[]/sum[]/count[]`, open-addressed linear probe, name-verified on tag hit) — group-by as a prefix ROUTE, aggregation as a gated indexed write, per-worker owned tables BUNDLE-merged. Same scalar scan + `chunk_bounds` as lane C: the only variable vs C is the accumulator. | **Shipped** |
+| **R** — `lane_f::lane_r_radix` (std-only, no feature) | The honest control for F: byte-identical pipeline, slot = plain `hash & 0xFFFF` (no interleave). **F−R isolates the Morton addressing tax exactly; R−C prices flat-SoA-table-vs-BTreeMap.** | **Shipped** |
 | **E** — `lane_e::lane_e_kanban` (feature `lane-e`) | One kanban card per batch: the corpus splits into `batches` newline-aligned chunks (`batches >= workers`) pulled from a shared `AtomicUsize` queue by `workers` puller tasks; every batch is journaled by a fresh `lance-graph-supervisor::KanbanActor<ProbeBoard>` driven through the full Rubicon forward arc (`Planning->CognitiveWork->Evaluation->Commit`, `drive_version_tick` × 3) around the actual `lane_a_scalar` work. The combined journal is asserted to carry exactly `3 * batches` legal `KanbanMove`s. `batches == workers` vs Lane D isolates the kanban journaling cost (identical chunking + actor-model tax, only the actor type differs); fine-grained batching (`batches >> workers`) prices per-card scheduling overhead (feeds W2d, the 550 ms Libet budget question). | **Shipped** |
 
 ---
@@ -90,7 +92,7 @@ regenerating with the same `(rows, seed)` and diffing the printed
 
 ```text
 onebrc-probe gen <path> <rows> <seed>
-onebrc-probe run <path> <lane:a|b|c|d|e> [workers] [batches]
+onebrc-probe run <path> <lane:a|b|c|d|e|f|r> [workers] [batches]
 ```
 
 Lane `b` requires `--features lane-b`; lane `d` requires `--features lane-d`;
@@ -252,3 +254,45 @@ Readings:
   material on top.
 - Lane F (Morton-tile cascaded shader vs a plain radix control — the
   addressing-tax isolator) is the remaining lane.
+
+### §5.3 — t3 (lanes F/R) — measured 2026-07-02
+
+Same recipe corpus (hash re-verified), same 4-core container, release
+build (F/R are std-only — no feature flags involved). Five passes per
+lane at 4 workers after an initial warm-up round showed high first-pass
+variance; all five listed:
+
+| Lane | workers | throughput passes (Mrows/s) | median |
+|---|---|---|---|
+| C (BTreeMap)      | 4 | 28.3, 27.8, 28.9, 28.1, 28.8 | **28.3** |
+| F (Morton SoA)    | 4 | 76.2, 80.8, 56.9, 77.4, 81.2 | **77.4** |
+| R (radix control) | 4 | 86.2, 86.4, 86.3, 86.8, 85.1 | **86.3** |
+| F                 | 1 | 21.5 | — |
+| R                 | 1 | 23.3 | — |
+
+(single-thread lane A same session: 7.16 — F/R are 3.0×/3.3× lane A on
+one core, so the win is not a parallelism artifact.)
+
+Readings — the numbers Addendum-13 sent this lane to fetch:
+
+- **Route-and-write beats look-up-and-compare by ~3×.** Both F and R
+  (~77–86 Mrows/s) demolish lane C's BTreeMap accumulation (~28) on
+  identical scan, chunking, and merge — group-by as an address route
+  into flat SoA accumulators with gated indexed writes IS the right
+  shape for the substrate's aggregation paths. R−C = the
+  data-structure win (3.05×), address-agnostic.
+- **The Morton addressing tax is single-digit-to-~10%.** F medians
+  ~10% under R (77.4 vs 86.3), with higher run-to-run variance (one
+  56.9 outlier vs R's ±1%). The interleave ALU chain sits in the
+  address-generation dependency path before the table load, and the
+  tile-scattered slot distribution is less cache-regular than the
+  plain low-bits radix at this tiny (~400-group) cardinality. So:
+  addressing-is-aggregation holds directionally — the semantic
+  address layer costs ~10%, NOT 3× — but it is not free, and at this
+  group count the plain radix bucket is the faster dress. The canon's
+  bet (prefix-local tile batches paying off) is a HIGH-cardinality
+  claim; this corpus can't test it and this table doesn't claim it.
+- Deliberately absent (see `lane_f.rs` module doc): per-tile
+  bucketing + cascade-ordered sweeps (earns its keep only at high
+  cardinality), kanban tile-batch scheduling (lane E priced it:
+  ~66 µs/card), SIMD scan (lane B's variable — composable later).

@@ -20,6 +20,11 @@
 //!   (Planning->CognitiveWork->Evaluation->Commit) around the actual work.
 //!   Measures the V3 kanban scheduling/journaling tax (E-D isolates the
 //!   journaling cost; fine-grained batching prices per-card scheduling).
+//! - **Lanes F/R** (`lane_f::{lane_f_morton, lane_r_radix}`, std-only, no
+//!   feature) — the substrate-native lane and its honest control: station
+//!   identity → Morton tile address → SoA-shaped flat accumulators (F);
+//!   identical pipeline with a plain-radix slot (R). F−R isolates the
+//!   addressing tax; R−C prices flat-table-vs-BTreeMap.
 //!
 //! ## Reference inventory
 //!
@@ -44,6 +49,7 @@ pub mod lane_b;
 pub mod lane_d;
 #[cfg(feature = "lane-e")]
 pub mod lane_e;
+pub mod lane_f;
 pub mod sha256;
 
 #[cfg(feature = "lane-b")]
@@ -52,6 +58,7 @@ pub use lane_b::lane_b_simd;
 pub use lane_d::lane_d_ractor;
 #[cfg(feature = "lane-e")]
 pub use lane_e::lane_e_kanban;
+pub use lane_f::{lane_f_morton, lane_r_radix};
 
 use std::collections::BTreeMap;
 
