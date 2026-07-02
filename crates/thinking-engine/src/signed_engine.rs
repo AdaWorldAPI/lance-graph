@@ -15,7 +15,7 @@
 //! L4 is already i8. With signed L1-L3, the entire stack is uniform.
 //! VNNI hardware: i8x i8->i32 = VPDPBSSD = native instruction.
 
-use crate::dto::{BusDto, ResonanceDto};
+use crate::dto::{BusDto, PerturbationDto};
 use ndarray::hpc::heel_f64x8::cosine_f64_simd;
 use ndarray::simd::F32x16;
 
@@ -350,7 +350,11 @@ impl SignedThinkingEngine {
     }
 
     /// Think with temperature-as-excitation. Lower T = sharper discrimination.
-    pub fn think_with_temperature(&mut self, max_cycles: usize, temperature: f32) -> ResonanceDto {
+    pub fn think_with_temperature(
+        &mut self,
+        max_cycles: usize,
+        temperature: f32,
+    ) -> PerturbationDto {
         for _ in 0..max_cycles {
             let prev = self.energy.clone();
             self.cycle_with_temperature(temperature);
@@ -365,11 +369,11 @@ impl SignedThinkingEngine {
                 break;
             }
         }
-        ResonanceDto::from_energy_f32(&self.energy, self.cycles)
+        PerturbationDto::from_energy_f32(&self.energy, self.cycles)
     }
 
     /// Run until convergence. Returns the resonance state.
-    pub fn think(&mut self, max_cycles: usize) -> ResonanceDto {
+    pub fn think(&mut self, max_cycles: usize) -> PerturbationDto {
         for _ in 0..max_cycles {
             let prev = self.energy.clone();
             self.cycle();
@@ -384,7 +388,7 @@ impl SignedThinkingEngine {
                 break;
             }
         }
-        ResonanceDto::from_energy_f32(&self.energy, self.cycles)
+        PerturbationDto::from_energy_f32(&self.energy, self.cycles)
     }
 
     /// Inject perturbation from sensor output.
@@ -413,7 +417,7 @@ impl SignedThinkingEngine {
 
     /// Commit: dominant peak -> BusDto.
     pub fn commit(&self) -> BusDto {
-        let resonance = ResonanceDto::from_energy_f32(&self.energy, self.cycles);
+        let resonance = PerturbationDto::from_energy_f32(&self.energy, self.cycles);
         BusDto {
             codebook_index: resonance.top_k[0].0,
             energy: resonance.top_k[0].1,

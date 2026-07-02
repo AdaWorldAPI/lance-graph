@@ -1,9 +1,9 @@
 //! DTOs: bus adapters between cognitive speed zones.
 //!
-//! Φ Dispersion:   StreamDto      — sensor output enters the field
-//! Ψ Interference: ResonanceDto   — the ripple field IS f64[4096]
-//! B Consequence:   BusDto         — committed thought with provenance
-//! Γ Collapse:      ThoughtStruct  — stabilized, persisted, text is lazy
+//! Φ Dispersion:   StreamDto        — sensor output enters the field
+//! Ψ Interference: PerturbationDto  — the ripple field IS f64[4096]
+//! B Consequence:   BusDto           — committed thought with provenance
+//! Γ Collapse:      ThoughtStruct    — stabilized, persisted, text is lazy
 
 use crate::engine::CODEBOOK_SIZE;
 
@@ -47,16 +47,21 @@ pub struct StreamDto {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Ψ — ResonanceDto: the ripple field
+// Ψ — PerturbationDto: the ripple field
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// ResonanceDto IS f64[4096] energy. Not a struct with candidate lists.
+/// PerturbationDto IS f64[4096] energy. Not a struct with candidate lists.
 ///
 /// High energy at entry 42 = "thought 42 resonates."
 /// Zero at entry 200 = "thought 200 destructively interfered."
 /// Spike at entry 7 = "thought 7 crystallizing."
+///
+/// D-PERT-1: renamed from `ResonanceDto` — this is the mechanical
+/// Morton-tile inverse-pyramid perturbation field (Ψ), distinct from the
+/// PERSPECTIVAL (Piaget Three-Mountains) `ResonanceDto` in
+/// `awareness_dto.rs`, which keeps the `ResonanceDto` name.
 #[derive(Clone, Debug)]
-pub struct ResonanceDto {
+pub struct PerturbationDto {
     /// Energy distribution. f32 — matches u8 distance table precision.
     pub energy: Vec<f32>,
     pub cycle_count: u16,
@@ -64,7 +69,15 @@ pub struct ResonanceDto {
     pub top_k: [(u16, f32); 8],
 }
 
-impl ResonanceDto {
+/// D-PERT-1: `ResonanceDto` (mechanical Ψ) renamed to `PerturbationDto`.
+/// `ResonanceDto` now names only the perspectival awareness DTO in
+/// `awareness_dto.rs`.
+#[deprecated(
+    note = "renamed to PerturbationDto (D-PERT-1); ResonanceDto now names only the perspectival awareness DTO"
+)]
+pub type ResonanceDto = PerturbationDto;
+
+impl PerturbationDto {
     /// Build from f32 energy array (fixed-size legacy compat).
     pub fn from_energy(energy: &[f32; CODEBOOK_SIZE], cycles: u16) -> Self {
         Self::from_energy_f32(energy.as_slice(), cycles)
@@ -237,7 +250,7 @@ mod tests {
         energy[100] = 0.3;
         energy[200] = 0.2;
 
-        let res = ResonanceDto::from_energy(&energy, 5);
+        let res = PerturbationDto::from_energy(&energy, 5);
         assert_eq!(res.top_k[0].0, 42);
         assert!((res.top_k[0].1 - 0.5).abs() < 1e-10);
         assert_eq!(res.top_k[1].0, 100);

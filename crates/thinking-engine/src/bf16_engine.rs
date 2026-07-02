@@ -12,7 +12,7 @@
 //!
 //! Built from StackedN::cosine() via ClamCodebook, matching bgz-tensor pipeline.
 
-use crate::dto::{BusDto, ResonanceDto};
+use crate::dto::{BusDto, PerturbationDto};
 use bgz_tensor::stacked_n::{bf16_to_f32, f32_to_bf16};
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
 use ndarray::simd::F32x16;
@@ -283,7 +283,7 @@ impl BF16ThinkingEngine {
     }
 
     /// Think until convergence.
-    pub fn think(&mut self, max_cycles: usize) -> ResonanceDto {
+    pub fn think(&mut self, max_cycles: usize) -> PerturbationDto {
         for _ in 0..max_cycles {
             let prev = self.energy.clone();
             self.cycle();
@@ -297,11 +297,15 @@ impl BF16ThinkingEngine {
                 break;
             }
         }
-        ResonanceDto::from_energy_f32(&self.energy, self.cycles)
+        PerturbationDto::from_energy_f32(&self.energy, self.cycles)
     }
 
     /// Think with temperature.
-    pub fn think_with_temperature(&mut self, max_cycles: usize, temperature: f32) -> ResonanceDto {
+    pub fn think_with_temperature(
+        &mut self,
+        max_cycles: usize,
+        temperature: f32,
+    ) -> PerturbationDto {
         for _ in 0..max_cycles {
             let prev = self.energy.clone();
             self.cycle_with_temperature(temperature);
@@ -315,7 +319,7 @@ impl BF16ThinkingEngine {
                 break;
             }
         }
-        ResonanceDto::from_energy_f32(&self.energy, self.cycles)
+        PerturbationDto::from_energy_f32(&self.energy, self.cycles)
     }
 
     /// Perturb with codebook indices.
@@ -344,7 +348,7 @@ impl BF16ThinkingEngine {
 
     /// Commit dominant peak.
     pub fn commit(&self) -> BusDto {
-        let resonance = ResonanceDto::from_energy_f32(&self.energy, self.cycles);
+        let resonance = PerturbationDto::from_energy_f32(&self.energy, self.cycles);
         BusDto {
             codebook_index: resonance.top_k[0].0,
             energy: resonance.top_k[0].1,
