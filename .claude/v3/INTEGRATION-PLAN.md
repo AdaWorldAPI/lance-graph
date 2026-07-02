@@ -196,3 +196,23 @@ replayable langgraph handler." Folded as:
   the bench worker reports rig's provider/store traits.
 - W1e status: probes landed RED (probe-first honored); KanbanMove/KanbanColumn
   already shipped in contract kanban.rs — the skeleton consumes them, zero mints.
+
+### Addendum-4 2026-07-02 — planner-SoA reality audit (operator question) → 3 wiring deltas
+
+Verdict: **type-level reality, wiring-level dormant.** KanbanMove already
+unifies mailbox/witness/libet/exec; supervisor + lance-graph core + symbiont
+are WIRED; the planner crate is the gap (zero MailboxSoaView references,
+zero classid awareness, style_strategy pass-through, mul-gate false friend).
+Deltas:
+1. **W2b += integration probe**: spawn KanbanActor over the REAL
+   MailboxSoA<N> (today: TestBoard-only — proven mechanics, unproven
+   integration).
+2. **W2 += classid-awareness wiring**: planner reads class_id through
+   MailboxSoaView (the getter already exists — wire, don't invent);
+   supervisor likewise if move-routing needs read modes.
+3. **M15 upgraded to BLOCKING-before-W2**: planner mul/gate.rs
+   GateDecision{Proceed,Sandbox,Compass} vs contract
+   mul::GateDecision{Flow,Hold,Block} — rename the planner-local one
+   BEFORE any planner->kanban emission lands, or the wrong gate routes
+   into advance_on_gate silently.
+Full inventory with file:line cites: E-V3-PLANNER-SOA-AUDIT-1 + AGENT_LOG.
