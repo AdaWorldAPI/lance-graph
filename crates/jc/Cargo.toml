@@ -35,6 +35,9 @@ name = "prove_it"
 name = "sigma_probe"
 
 [[example]]
+name = "onebrc_prove"
+
+[[example]]
 name = "probe_p1"
 
 [[example]]

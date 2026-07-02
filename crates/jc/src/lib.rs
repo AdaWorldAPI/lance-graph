@@ -52,6 +52,13 @@ pub mod sigma_codebook_probe;
 //   cargo run --manifest-path crates/jc/Cargo.toml --release --example probe_p1
 pub mod probe_p1_gamma_phase;
 
+// Diagnostic probe (not a theorem proof) — certifies the 1BRC monoid
+// group-by algebra consumed by ndarray/examples/onebrc_cascade_probe.rs
+// (partition/regroup invariance + bf16 hi/lo decomposition exactness).
+// Run via:
+//   cargo run --manifest-path crates/jc/Cargo.toml --release --example onebrc_prove
+pub mod onebrc_agg;
+
 use std::time::Instant;
 
 #[derive(Debug, Clone)]
