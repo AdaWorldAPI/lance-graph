@@ -508,3 +508,44 @@ by routing). It lands only with:
   implementation WAITS on the mint, tenant + tests prepared behind it.
 - STOP conditions 1–6 bind every implementer; ocr.rs's per-row
   `schema.has()` reader is the SAFE pattern to copy.
+
+### Addendum-13 2026-07-02 — the 1BRC substrate probe (operator-requested; W2d/W2e load instrument)
+
+**Why:** the dispatch bench measured scheduler OVERHEAD on no-op tasks;
+kanban-concurrency tuning (W2d 550 ms budget, lane sizing) needs
+THROUGHPUT UNDER REAL WORK. The One Billion Row Challenge
+(automataIA/1brc-rs as reference baseline — REUSE-AS-REFERENCE, never a
+dep) stresses exactly the substrate's claims: SIMD scanning, zero-copy
+slicing (data-flow rule 1), owned-microcopy + commutative-merge
+aggregation (the borrow-strategy doc IS the 1BRC merge shape), and
+scheduling. Container scale: 100M rows (~1.4 GB; 1B = 13 GB does not
+fit); every contender runs the SAME seeded corpus, recipe+hash archived
+with every number (the archival convention). truth-architect reviews all
+numbers; baselines land before any tuned lane.
+
+**Crate:** `crates/onebrc-probe` (standalone, workspace-EXCLUDED,
+std-only for the baselines). Scaffold + lanes A/C in flight.
+
+**Lanes:**
+- **A** scalar single-thread (the honest floor).
+- **B** ndarray-SIMD scan (delimiter find + parse via the simd dispatch).
+- **C** threaded chunks + borrow-strategy merge (owned maps, commutative
+  merge at the end — never raw `=` on shared state).
+- **D** ractor actor-per-worker — QUANTIFIES the "ractor is a helper,
+  not a messaging path" ruling as a measured ratio vs C.
+- **E** kanban-scheduled chunks (casts through the W1b writer shape;
+  KanbanActor lanes) — the scheduling tax on real work; feeds W2d.
+- **F — the substrate-native lane (operator: "process it as cognitive
+  shader in a morton tile cascaded batch"):** station identity → key →
+  Morton-tile cascade position (HHTL prefix route); records bucketed
+  tile-cascaded so accumulation is prefix-local (cache-coherent SIMD
+  sweeps); aggregation = gated write-back into SoA-shaped accumulators
+  (bundle merge — the write masks the thinking); kanban lanes schedule
+  the tile batches. THE thesis test: group-by-identity as a prefix
+  ROUTE, aggregation as a gated write — the semantic OS doing raw OLAP.
+  **Honest framing:** the Morton route is radix bucketing wearing our
+  address; the fastest known 1BRC entries are radix/perfect-hash — so F
+  vs the classic map (A/C) vs a plain radix bucket isolates the
+  ADDRESSING TAX exactly. F winning or tying validates
+  addressing-is-aggregation; F losing prices the address layer — either
+  result tunes W2d and gives W2e its "winner owns the hot path" number.
