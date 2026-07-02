@@ -1,3 +1,8 @@
+## 2026-07-02 — E-V3-TEMPORAL-DEINTERLACE-1: temporal.rs is the read side of the WAL ruling — replay = a read at a pinned QueryReference
+**Status:** FINDING (operator pointer to planner temporal.rs; unifies M24 + M25 with the deinterlace machinery)
+
+planner/src/temporal.rs already ships the four-clock deinterlace (lance version stream / surrealql knowable_from / ractor per-actor V_ref / thinking trajectory; HLC key (server_id, lance_version, hlc_tick); EpistemicMode rung ladder Strict/Aware/Retro; two-axis dispatchable = time-admitted AND data-ready via DependsClosure). Three consequences for W1: (1) stacked-casts-never-refused is PROVABLE — no reader reads raw state, a Strict reader at V_ref cannot observe unacked/future frames, so write-side gating is structurally unnecessary ("the write masks the thinking and vice versa" = the epistemic classification IS the mask); (2) M24 crash-replay, M25 session-replay, and Lance time-travel are ONE mechanism — QueryReference::at(v, rung) + deinterlace; KanbanSessionStorage implements no new replay machinery; (3) the W1b ack signature carries the assigned LanceVersion — CastId <-> LanceVersion is the join between the WAL board and the temporal classifier; unacked casts = rows on no reader's timeline yet. Bonus: the ractor actor's true payload is its V_ref reading-horizon (helper-scope, again).
+
 ## 2026-07-02 — E-V3-PREFLIGHT-1-CORRECTION: "SoaEnvelope has zero production impls" was FALSE — NodeRowPacket is live
 **Status:** CORRECTION (of E-V3-PREFLIGHT-1 delta 2 / M7; caught by codex on #630, verified canonical_node.rs:1275)
 

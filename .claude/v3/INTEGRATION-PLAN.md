@@ -297,3 +297,34 @@ the standing rule ("updates reprioritize, never gate"). Corrected:
 3. M24 gate updated: the mutation-freeze test is REPLACED by the
    stacked-casts test (probe 4, `probe_stacked_casts_never_refused` —
    landed ignored with the other three).
+
+### Addendum-8 2026-07-02 — temporal.rs is the READ side of the WAL ruling (operator pointer)
+
+Operator: "check temporal.rs for a deeper understanding." Verified against
+`crates/lance-graph-planner/src/temporal.rs` (490 lines, read in full):
+
+1. **No-refusal is PROVABLE, not just permitted.** No reader ever reads raw
+   current state — `deinterlace()` classifies every row against the reader's
+   `QueryReference` (Contemporary/Anachronistic/Spoiler/Unknowable, admitted
+   per `EpistemicMode` rung policy Strict 0-4 / Aware 5-8 / Retro 9+). A
+   Strict thinker at `V_ref` cannot see frames past its horizon, so writers
+   stack freely: coherence is a READ-side property. "The write masks the
+   thinking and vice versa" — the mask IS the epistemic classification.
+2. **Replay = a read at a pinned reference.** `QueryReference::at(v, rung)`
+   + `deinterlace` IS crash-replay (M24), session-replay (M25), and
+   time-travel — ONE mechanism. KanbanSessionStorage's replay path
+   implements nothing new: it pins a Strict reader in the past over the
+   board + rows.
+3. **W1b ack carries the assigned LanceVersion**: `ack(cast, LanceVersion)`
+   is the CastId <-> LanceVersion join wiring the WAL into the temporal
+   classifier. Unacked casts = rows on NO reader's timeline yet (exactly
+   why unacked() is the replay surface). Probe file updates with the
+   signature in the W1b commit.
+4. **The ractor actor's payload is its V_ref** (temporal.rs frame table:
+   "ractor (awareness) — each actor's own V_ref reading-horizon") — the
+   helper carries the awareness horizon; one more reason it never needs
+   to be on the hot path.
+5. DATA-causal axis (DependsClosure/NoDeps) composes with the board:
+   dispatchable = time-admitted AND data-ready — the standing rule
+   "updates reprioritize, never gate" holds because a data-blocked row is
+   dropped from the PROJECTION, not refused at the writer.
