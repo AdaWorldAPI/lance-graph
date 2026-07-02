@@ -438,3 +438,47 @@ tasks but manageable if done properly"):**
 5. **Per-consumer accommodation** — ruff + OGAR adaptations,
    lance-graph UnifiedBridge ↔ OGAR, AST contract evolution (the W5
    consumer wave, now with the fuse doctrine as its safety rail).
+
+### Addendum-12 2026-07-02 — the W2+W3b arc (operator: "can you handle those 2 lanes?" — yes; this session owns them)
+
+**Lanes confirmed:** (1) thinking ↔ substrate / V3 migration (W2), (2)
+orchestration rs-graph-llm (W3b). The parallel OGAR F17/DO-arm arc is
+fenced to another session (prompt issued; see the intake handover).
+
+**Execution order (probes first, W1 pattern):**
+
+1. **P-W2b** (in flight): KanbanActor spawned over the REAL
+   `cognitive_shader_driver::mailbox_soa::MailboxSoA` via
+   `MailboxSoaOwner::try_advance_phase` — dev-dep only (the structural-
+   owner proof gains no runtime dep). Gates: legal advances visible
+   through MailboxSoaView on real rows; illegal transition surfaces the
+   lifecycle-DAG error with the row unchanged.
+2. **P-W3b** (in flight): `KanbanSessionStorage` in graph-flow behind a
+   new optional `kanban` feature (graph-flow is the composer; the
+   envelope crate stays contract-only). Snapshot upsert + append-only
+   real-KanbanMove log; **V1 Rubicon mapping** (orchestrator-decided,
+   revisable, tests pin it): first-save→Planning, task-change→
+   CognitiveWork, waiting→Evaluation, completed→Commit, error→Prune.
+   Gate = the M25 kill-mid-graph replay test (resume identically; no
+   repeated/skipped tasks; move-log column sequence pinned). Storage
+   carries the mailbox (acts on behalf of one mailbox) — never the
+   Session (DTO purity). Live-oracle validation follows (keys present;
+   same spend discipline: few calls, small max_tokens).
+3. **W2a board-as-tenant SPEC** (envelope-auditor-gated before any
+   byte lands): per the frozen-row ruling the board mints NO new byte
+   lane — the mailbox's board is a **dedicated board ROW** (a NodeRow
+   whose classid marks board-of-mailbox; classid → ClassView resolves
+   the value-slab interpretation; per-row `KanbanTenant` stays
+   per-work-item; the board row's slab carries board-level aggregates).
+   "One mailbox = one kanban board as tenant" = the board is addressed
+   AS a row of the mailbox. Requires: field-isolation matrix, a board
+   classid allocation (BATCHED mint per the mint rule — goes through
+   the next allocation batch, never a solo edit), zero
+   ENVELOPE_LAYOUT_VERSION change (classid routing only — RESERVE,
+   DON'T RECLAIM). Auditor reviews the spec before implementation.
+4. **W2c symbiont arm**: one dependency-uncomment + ~10 min cold build
+   (BlockedColdBuild is deliberate); attempt in-container after 1–3,
+   disk permitting.
+5. **W2d** 550 ms budget via elevation/ (extend, don't shadow) — M12.
+6. **R-2 residual**: edges-only strided-read test over NODE_ROW_COLUMNS
+   (read-side; 16-of-512; no storage change) — rides with W2a's PR.
