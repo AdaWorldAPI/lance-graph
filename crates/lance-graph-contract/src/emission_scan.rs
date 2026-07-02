@@ -278,14 +278,14 @@ mod tests {
     #[test]
     fn count_emission_mixed_produces_correct_tallies_and_ratio() {
         let types = [
-            "int",                     // Typed
-            "array<float>",            // Typed
-            "any",                     // AnyTyped
-            "array<any>",              // AnyTyped
-            "record<work_package>",    // RecordLink
-            "array<record<user>>",     // RecordLink
-            "",                        // Stub
-            "TODO",                    // Stub
+            "int",                  // Typed
+            "array<float>",         // Typed
+            "any",                  // AnyTyped
+            "array<any>",           // AnyTyped
+            "record<work_package>", // RecordLink
+            "array<record<user>>",  // RecordLink
+            "",                     // Stub
+            "TODO",                 // Stub
         ];
         let counts = count_emission(types.into_iter());
         assert_eq!(

@@ -667,7 +667,10 @@ mod tests {
         // blanket impl) `RouteBucketTyped::kind` are in scope here through
         // `use super::*`; downstream consumers that import only one trait
         // do NOT need this. Semantics unchanged.
-        assert_eq!(RouteBucket::kind(&r).id(), "iter_records_aggregate_relation");
+        assert_eq!(
+            RouteBucket::kind(&r).id(),
+            "iter_records_aggregate_relation"
+        );
         assert_eq!(RouteBucket::id(&r), "account.move._compute_amount");
     }
 
@@ -770,6 +773,14 @@ mod tests {
             id: "projects.get_work_package".to_string(),
         };
         assert_eq!(dispatch_one(&b), "detail");
+        // Construct the remaining fixture variant through the same generic
+        // consumer so every OpKindFixture variant is exercised (dead-code
+        // lint under `-D warnings`) and all match arms are reachable.
+        let t = OpBucket {
+            kind: OpKindFixture::TemplateGet,
+            id: "projects.render_template".to_string(),
+        };
+        assert_eq!(dispatch_one(&t), "template");
     }
 
     /// A back-compat Odoo bucket: impls `RouteBucket` only. The blanket impl
@@ -842,10 +853,7 @@ mod tests {
         fn label<B: RouteBucketTyped<Kind = OdooMethodKind> + ?Sized>(b: &B) -> String {
             format!("{}={}", b.id(), b.kind().id())
         }
-        assert_eq!(
-            label(erased),
-            "account.move._compute_amount=pass_override"
-        );
+        assert_eq!(label(erased), "account.move._compute_amount=pass_override");
 
         // Bonus: same generic accepts a sized concrete implementor, ensuring
         // the `?Sized` widening did not break the original Sized path.
