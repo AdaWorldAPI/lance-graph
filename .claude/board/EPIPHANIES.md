@@ -1,3 +1,45 @@
+## 2026-07-02 — E-MAILBOX-KANBAN-NO-COLLAPSEGATE — operator correction: no singleton-BindSpace CollapseGate; one mailbox = one kanban board (tenant-carried), writer fires AHEAD, consumers write on behalf of the ractor dummy owner
+
+**Status:** DOCTRINE (operator ruling, 2026-07-02 — corrects this session's
+"CollapseGate-gated write-back" continuation step, which used the superseded
+singleton-BindSpace sink-in bundle/bind pattern; consistent with the PR #477
+three-tier supersession).
+
+The ruled write/thinking model:
+
+1. **No CollapseGate as a singleton-BindSpace sink-in bundle/bind op.**
+   That pattern is dead. Merge algebra survives only INSIDE a mailbox's own
+   owned computation, never as a cross-boundary sink.
+2. **One Mailbox = its own Kanban board — and the board itself needs a
+   TENANT** (per-mailbox board state as a value-tenant lane, sibling of the
+   per-row `KanbanTenant`). Executed through kanban-update in
+   lance-graph-planner OR SurrealDB-on-kv-lance "symbiont mode" (the
+   `symbiont` crate's loop is the shipped POC shape).
+3. **ractor = compile-time ownership guarantee DUMMY.** ractor is too slow
+   as a bus — it just spawns; the mailbox actor exists so Rust move
+   semantics prove no-aliasing/no-race at compile time (E-CE64-MB-4).
+   Never a message handler in the hot path.
+4. **Thinking is masked behind the batch writer, which fires an AHEAD
+   update** — the kanban update fires on write CAST, not on write
+   completion (refines symbiont's current "writer fires after commit"
+   framing: don't wait). At write-cast the batch writer checks via cache
+   logic whether ownership needs to be delegated or already is.
+5. **Thinking cycles carry a standing ASYNC PLAN** they follow whether or
+   not an update arrived; the 64k–256k SoA prioritizes / load-balances
+   within the tight 550 ms NET budget (minus load delays).
+6. **Every consuming crate always writes ON BEHALF OF the ractor mailbox
+   dummy owner** — no direct writes, ever (fleet-wide consumer iron rule).
+7. **rs-graph-llm + rig as RAG:** graph-flow (LangGraph-shaped) =
+   REPLAYABLE TEMPLATES; Rig = optional LLM-API template ORACLE;
+   rs-graph-llm must always respect/inherit ownership from the respective
+   SoA (never own state beside it).
+
+Gap list vs shipped code (what the next arc builds): (a) the per-mailbox
+kanban-board tenant; (b) the ahead-update batch writer + write-cast
+delegation cache; (c) the standing async plan + 550 ms SoA load balancer;
+(d) the write-on-behalf consumer rule enforced at the contract surface;
+(e) rs-graph-llm/rig ownership-inheritance wiring.
+
 ## 2026-07-02 — E-CLASSID-CANON-HIGH-IS-A-CLUSTERED-INDEX — the flip bought key-order domain locality, not just naming hygiene
 
 **Status:** FINDING (structural consequence, verifiable by construction).

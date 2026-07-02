@@ -101,3 +101,29 @@
 
 - **P4**: `0x1000` marker retirement / custom-half opening.
 - **Alias retirement**: only after the corpus proof (step 6).
+
+---
+
+## APPENDED CORRECTION (operator, 2026-07-02, same day)
+
+Continuation step 3 above said "CollapseGate-gated write into tenant lanes"
+— **that framing is corrected**: there is no CollapseGate in the
+singleton-BindSpace sink-in bundle/bind sense anymore. The ruled model
+(full text: board `E-MAILBOX-KANBAN-NO-COLLAPSEGATE`):
+
+- One Mailbox = its own Kanban board, carried as a TENANT (per-mailbox,
+  sibling of the per-row `KanbanTenant`), executed via kanban-update in
+  lance-graph-planner or SurrealDB-on-kv-lance symbiont mode (`symbiont`
+  crate = the POC shape).
+- ractor = compile-time ownership dummy (spawn-only, never a hot-path bus).
+- The batch writer fires an AHEAD kanban update on write CAST (no wait),
+  checking ownership delegation via cache logic at cast time.
+- Thinking cycles follow a standing async plan regardless of updates; the
+  64k–256k SoA load-balances within a 550 ms net budget.
+- Every consuming crate writes ON BEHALF OF the ractor dummy-owner mailbox
+  — fleet-wide iron rule.
+- rs-graph-llm (graph-flow) = replayable templates, Rig = optional LLM
+  template oracle; both inherit ownership from the respective SoA.
+
+Sessions reading this handover: steps 3–4 of the continuation execute
+under THIS model, not the CollapseGate wording above.
