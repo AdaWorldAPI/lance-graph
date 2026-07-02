@@ -35,6 +35,24 @@
 
 ---
 
+## #626 lance-graph: V3 convergence wiring — tenant-carve certification, RungElevator, P6 wave probe, seam-list plan
+
+**Status:** MERGED 2026-07-02 (merge commit `5aaee33`), branch `claude/v3-substrate-migration-review-o0yoxv`. The "wire, don't invent" arc: every deliverable a probe or a wiring of EXISTING types (`E-V3-TENANTS-ALREADY-EXIST-WIRE-DONT-INVENT`); operator all-in, Sonnet-grindwork/Fable-decisions model split.
+
+**Added:** contract — `RungLevel::{from_u8, elevate, de_elevate, pearl_level, causal_mask_bits}` + `RungElevator{new, on_gate, apply_delta, causal_mask_bits}` (zero-dep sustained-BLOCK policy, converged with `escalation::rung_delta` — one ladder, two signal sources) + the two V3 tenant-carve field-isolation matrices (`osint_v3_cognitive…` / `fma_cpic_v3_compressed…`, shared `assert_value_lane_isolation`); driver — persistent `RwLock<RungElevator>` on `ShaderDriver` (base-change reset, gate fed post-decision), `materialize_provenance(…, rung)` retires the `ctx.rung = 1` proxy, `rung_from_wire_u32` grpc saturation (codex P2) + wire/grpc `from_u8` dedup + lab-feature compile repair (Pillar-7 initializer fields, `ContextChain::new()`); core — P6 `p6_palette_join` tests (wave dist == certified palette read), `markov_soa` STATUS verified; build — `[patch.crates-io] ndarray` git-URL → local sibling path (burn submodule out of repo scope; patch was `[[patch.unused]]` either way). Plan `.claude/plans/v3-convergence-wiring-v1.md` + knowledge worker Rule 7 (negative-existence claims need exhaustive-search declaration).
+
+**Locked:** rung→Pearl mapping (0–2 observe L1, 3–5 intervene L2 → `PO=0b011` P3-certified, 6–9 counterfactual L3 → `SPO=0b111` P3-certified; L1→`O=0b001` labeled convention pending probe; `Counterfactual = 6` IS the boundary); elevator homeostasis (sustained BLOCK up, sustained FLOW down to dispatched base, HOLD resets streaks; threshold 2 hand-tuned, disclosed); two-SoA-worlds doctrine (Lance columnar I/O is the reconciler; consumers write against per-row accessors; `&[T]` borrows are the owner's privilege); grpc wire rung saturates-never-wraps; board files are append-only ledgers (CodeRabbit learning recorded org-side).
+
+**Deferred:** D-VCW-3 P7 render probe + D-VCW-5 cascade3 nibble falsifier (q2 push-gated, specs ready); D-VCW-4 one-row registry Phase B (OGAR, operator-gated); D-VCW-7 rig/rs-graph-llm FailureTicket loop; osint `0x0700` reconciliation (Options A/B + two-id-spaces addendum strengthening B — operator's); classid human-readable reorder (DEFERRED-by-design).
+
+**Docs/board:** EPIPHANIES `E-V3-TENANTS-ALREADY-EXIST-WIRE-DONT-INVENT` + `E-RUNG-LADDER-IS-DISPATCH-POLICY-OVER-CERTIFIED-MASKS`; ISSUES `ISS-Q2-CPIC-MIRROR-DIVERGES-FROM-CPIC-V3-REGISTRY` (+ dated truncated-grep correction) + `ISS-Q2-CASCADE3-NIBBLE-ANCESTRY`; TECH_DEBT `TD-DEPRECATED-ACCESSORS-BLOCK-DEP-CLIPPY`; STATUS_BOARD D-VCW rows; INTEGRATION_PLANS prepend; AGENT_LOG ×3.
+
+**Confidence (2026-07-02):** HIGH — contract 763 (v2+v3 features)/755 default, core 925 (arigraph 124, markov_soa 6), driver 100 default/186 lab-feature, planner 204; fmt clean; codex P2 fixed+tested; CodeRabbit 5/5 pre-merge, 1 finding fixed + 1 withdrawn (append-only-ledger learning recorded). First session where lance-graph CORE builds+tests in-sandbox (crates.io noProxy + local ndarray path patch + protoc).
+
+**Cross-ref:** plan `v3-convergence-wiring-v1.md`; #624 (P1–P5 probe arc this extends); #496/#500 (tenant-lane layout + no-new-variant guardrail); #618 (V3 identity classes); OGAR #128 (envelope parser, the ReadMode third axis).
+
+---
+
 ## #592 lance-graph: `contract::ogar_codebook` APP-prefix (hi-u16) mirror — closes ISS-CONTRACT-APP-PREFIX-MIRROR
 
 **Status:** MERGED 2026-06-22 (merge commit `48794eaf`), branch `claude/contract-app-prefix-mirror`. Closes the Core gap the #591 consumer spellbook surfaced: `contract::ogar_codebook` mirrored the lo-u16 concept pull but not OGAR#97's hi-u16 render composition, so membrane consumers had to hand-stamp `0x000N`.
