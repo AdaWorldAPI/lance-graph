@@ -45,6 +45,29 @@ The batch writer is where thinking is masked behind persistence:
 5. Lance's columnar I/O writes the LE bytes from the in-place backing store
    (zero-copy; the store never serializes).
 
+## Execution speed tiers + the planner's two natures (operator, 2026-07-02)
+
+**The planner is expected too slow for sub-microsecond handling.** The
+hot dispatch path is probed, not assumed: **D-V3-W2e benchmarks
+rs-graph-llm (graph-flow) execution vs SurrealQL-on-kv-lance** on the
+same kanban/thinking workload; the winner owns the sub-µs `ExecTarget`
+(the enum already encodes the split: Native / Jit / SurrealQl / Elixir —
+kanban.rs). The planner arm remains the SLOW/plan path (strategy
+selection, elevation, MUL) either way.
+
+**Not all planner methods route through DataFusion.** The strategy
+surface has two natures:
+
+1. **Query strategies** — DataFusion-routed (parse → plan → execute).
+2. **Resonance-based thinking** — the thinking style (the elixir
+   low-code compiled template) MATCHING against the **Gestalt resonance
+   of the object** (the perspectival `awareness_dto::ResonanceDto` —
+   "what does the object say about itself", classid → ClassView), to
+   reason at **rung level X** (`RungLevel`/`RungElevator`). No SQL, no
+   DataFusion — a resonance match dispatches a compiled template at a
+   rung. This is the V3-native dispatch and must never be forced through
+   the DataFusion mold.
+
 ## Standing async plans + the 550 ms budget
 
 Thinking cycles follow a **standing async plan** (the compiled template —

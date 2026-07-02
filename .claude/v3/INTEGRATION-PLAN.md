@@ -64,6 +64,7 @@ writer's own paths; no serialization on the hot path (zero-copy invariant).
 | D-V3-W2b | Supervisor wiring: `kanban_actor.rs` applies moves via `MailboxSoaOwner::advance_phase` (sole mutator); ractor stays spawn-only | structural-owner proof unchanged |
 | D-V3-W2c | symbiont arm (SurrealDB-on-kv-lance): kanban updates as KV transactions | **BLOCKED(C)**: AdaWorldAPI surrealdb fork `kv-lance` coordinates; POC = `symbiont/kanban_loop.rs` |
 | D-V3-W2d | 550 ms budget: load-balancing hooks into planner `elevation/` (extend, don't shadow) + budget instrumentation | 64k–256k SoA prioritization |
+| D-V3-W2e | **Sub-µs dispatch speed probe**: rs-graph-llm (graph-flow) vs SurrealQL-on-kv-lance, same kanban/thinking hot path, measured | operator 2026-07-02: "the planner is too slow for sub-microsecond"; winner owns the hot-path `ExecTarget` (Native/Jit/SurrealQl/Elixir already coded, kanban.rs); planner = slow/plan path either way; truth-architect reviews the numbers |
 
 Gate: W1b/W1c shipped (moves fire off casts). Standing rule: updates
 reprioritize, never gate — a missing update must not deadlock a cycle.

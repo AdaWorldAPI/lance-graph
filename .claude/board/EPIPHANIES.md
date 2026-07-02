@@ -1,3 +1,10 @@
+## 2026-07-02 — E-V3-PLANNER-TWO-NATURES-AND-SPEED-PROBE (operator: planner too slow for sub-µs; resonance-based thinking is not DataFusion)
+**Status:** FINDING (operator-ruled; speed claim probe-gated per truth-architect discipline)
+
+Two coupled rulings. (1) **Speed:** the planner is believed too slow for sub-microsecond handling — so the hot dispatch path is PROBED, not assumed: **D-V3-W2e benchmarks rs-graph-llm (graph-flow) execution vs SurrealQL-on-kv-lance** on the same kanban/thinking workload; the winner owns the sub-µs `ExecTarget` (the enum already codes the split: Native/Jit/SurrealQl/Elixir — contract kanban.rs). The planner arm stays the SLOW/plan path (strategy selection, elevation, MUL) either way. (2) **Taxonomy:** lance-graph-planner's many methods have TWO natures — DataFusion-routed query strategies (parse→plan→execute) AND **resonance-based thinking**: the thinking style (elixir low-code compiled template) MATCHING against the **Gestalt resonance of the object** (perspectival `awareness_dto::ResonanceDto`; "was sagt das Objekt über sich selbst aus" = classid→ClassView) to reason at **rung level X** (RungLevel/RungElevator). No SQL involved; never force it through the DataFusion mold. This joins E-TWO-RESONANCES-SPLIT (the perspectival resonance is the MATCHING surface) and E-COMPILED-THINKING-TEMPLATES (the style is the compiled template being matched). Docs: `.claude/v3/knowledge/mailbox-kanban-model.md` § Execution speed tiers; plan W2e.
+
+Cross-ref: E-TWO-RESONANCES-SPLIT, E-COMPILED-THINKING-TEMPLATES, E-MAILBOX-KANBAN-NO-COLLAPSEGATE, contract kanban.rs ExecTarget.
+
 ## 2026-07-02 — E-V3-TWO-LEVEL-LE-JC-GATE (operator: tenant LE contract nested in envelope LE contract; consumers certified by jc pillars)
 **Status:** FINDING (operator-ruled)
 
