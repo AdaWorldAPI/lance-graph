@@ -108,6 +108,25 @@
 **Docs:** plan `classid-canon-custom-flip-v1.md` (phases now P0/P1/P2 DONE, P3 in q2 #71, P4 open); EPIPHANIES `E-CLASSID-FLIP-P1-LANDED` + `E-CLASSID-COMPAT-READER`; fleet inventories in AGENT_LOG. Sibling merges: OGAR #147, MedCare-rs #180, woa-rs #177; open: q2 #71, openproject-nexgen-rs #68 (lock bumped `ff3777b`, gate closed).
 
 **Confidence (2026-07-02):** HIGH — 774 contract tests (guid-v3-tail) + 759 default + doctests + dependents (callcenter/shader-driver/planner/rbac/ogar) green; clippy -D warnings; fleet verified per-repo.
+## #625 lance-graph: brick-3 RAN (truncation-disallowed / overflow-as-SoC-reroute) + DO-arm 3-bucket triage
+
+**Status:** MERGED 2026-07-02 (merge commit `5561908`), branch `claude/medcare-bridge-lance-graph-wmx76z`. Knowledge-tier PR — closes the record-vs-reality drift after #616/#617: the design record catches up to the measurement.
+
+**Added:** `.claude/knowledge/ast-as-partof-isa-address.md` corrections — Status CONJECTURE → PARTIALLY MEASURED (carrier #613/#614/#615 shipped AND the rank-minter brick-3 has RUN: `ruff_csharp_spo` harvest → `ruff_spo_address::{mint, mint_factored}` → `medcare_probe`); "The missing brick" → "The brick that ran"; Next-bricks checkmarked with the real open bricks (reroute *execution* in the mint pipeline, probe re-run blocked on harvest input data, classid Canon:Custom half-order, LSP serve end). New `.claude/knowledge/do-arm-triage-3-bucket.md` — the operator's 3-bucket DO-residue triage (fuzzy/order-varying → canonicalize-first; anticipated standard DO → ontologically-shaped landing zone as ONE DTO adapter + codebook swiss-knife `open`/`filter`/`reorder`/`apply_mask`; truly random → hand-port, recurrences graduate to bucket 2), refining OGAR's 85/15 split; records the C#/C++ DO-extractor gap (`ruff_python_dto_check` is Python-only). Lock: ogar pin `597ecb1 → a0c7936` (post-OGAR-#146). EPIPHANIES `E-BRICK3-RAN-TRUNCATION-DISALLOWED` (same-commit hygiene).
+
+**Locked:** the naive fixed-width 6-tier `(part_of:is_a)` mint is FALSIFIED at real-corpus scale (mass truncation + god-class collisions); `mint_factored` (base-255 positional path + `is_a`-from-`inherits`-only) is the corrected minter. **Truncation is DISALLOWED by policy** — bucket overflow (256-cap / 6-tier depth) is a separation-of-concerns REROUTE trigger (split the god-class or escalate a cascade level; never truncate, never field-widen — the OGAR `256-cap-is-a-lint` law #130/#140 made operational). Division of labour: `mint_factored` = addressing precision; overflow→SoC-reroute = structure. Overflow *classification* SHIPPED upstream as `ruff_spo_address::soc` (`soc_findings` → `SocVerdict`, `law_holds`; class-conditioned cascade shapes Rails `6×2` / other `4×3` / canonical GUID `3×4`, all `G·D = 12`). **Privacy split:** proprietary corpus numbers live ONLY in private MedCare-rs `.claude/archive/ruff-spo-address-medcare-probe/`; the lance-graph tree carries the design consequence, zero corpus identifiers.
+
+**Deferred:** overflow-reroute *execution* inside the mint pipeline (the lint flags, a human splits); `medcare_probe` re-run on the current minter (needs corpus/NDJSON access); C#/C++ DO harvester (bucket-2 landing-zone extractor); classid Canon:Custom half-order (superseded mid-arc by the #627 canon:custom flip plan).
+
+**Mid-arc supersession note (immutable history):** this branch briefly carried the OSINT mirror rows + a `SHIPPED_ROOT_SLOT_CONCEPTS = [0x0700]` zero-slot carve-out (the ISS-OGAR-OSINT-MIRROR-PENDING READY PATCH). OGAR #146 executed the operator ruling ("OSINT contributes ZERO vocabulary rows — low byte is APPID space, domain-wise"), removing both #145 mints; the fuse balances 65 == 65 with zero mirror-side changes, so those commits were DROPPED in the rebase onto #626/#627 and never merged. Main's ISSUES.md (`ISS-OSINT-SYSTEM-ROOT-SLOT-VIOLATION` RESOLVED 2026-07-02) is authoritative.
+
+**Docs/board:** EPIPHANIES ×1; the two knowledge docs above; PR comments record the scope arc + the dropped-commit correction.
+
+**Confidence (2026-07-02):** HIGH for the knowledge content (brick-3 findings mirror the private archive's measured record; re-fetch diff against ruff `b459ec3` confirmed `lib.rs` byte-identical + `soc.rs` as the movement). Lock verified: contract `ogar_codebook` 8/8 + `lance-graph-ogar` standalone green at `a0c7936` (compile-time COUNT_FUSE holds); consumer medcare-bridge (`--features ontology`) compiles clean. NOTE: merged BEFORE #628's P1 flip — the ast-address doc's classid examples predate `ClassidOrder::CanonHigh`; interpret per the flip (canon `domain:appid` = HIGH u16).
+
+**Cross-ref:** #616/#617 (the ast-address doc lineage); #623 (OGAR sink-in plan); OGAR #145/#146 (OSINT mint + zero-rows ruling); ruff `b459ec3` (`ruff_spo_address` + `soc`); `E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC`; MedCare-rs private archive (RESTORE-STATUS re-fetch log).
+
+---
 
 ## #627 lance-graph: classid canon:custom flip TRIGGERED — migration plan v1 + operator ruling record (doc-only)
 
