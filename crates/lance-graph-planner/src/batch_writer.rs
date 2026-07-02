@@ -4,6 +4,15 @@
 //! `unacked()` is the crash-replay surface. Payload-generic: the writer never
 //! inspects `P` (DTO purity — ownership rides the cast pairing, never the DTO).
 //!
+//! **Zero-copy sink (operator ruling, plan Addendum-6):** `P` is a DESCRIPTOR
+//! — (mailbox, dirty row-range, cycle) — never owned delta bytes. Deltas stay
+//! in the SoA backing store; the sink reads them through
+//! `NodeRowPacket::as_le_bytes` at flush time. The sink drains EAGERLY
+//! (ASAP on cast, background), and the phase machine provides the mutual
+//! masking: rows in sink phase are mutation-frozen until ack (the owner
+//! refuses `advance_phase` re-entry), while thinking proceeds on all other
+//! rows — compute masks I/O and vice versa, race-free without buffers.
+//!
 //! Uses the REAL shipped kanban contract types
 //! ([`lance_graph_contract::kanban::KanbanMove`],
 //! [`lance_graph_contract::kanban::KanbanColumn`],

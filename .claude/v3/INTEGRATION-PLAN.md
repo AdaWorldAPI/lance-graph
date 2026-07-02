@@ -252,3 +252,30 @@ through the NodeRowPacket envelope path and preserve/test its
 owner/byte-layout behavior — the trait is NOT descriptor-only. M7's gate
 re-shapes accordingly (roles documented both ways + envelope path tested,
 rather than "≥1 impl or re-scope").
+
+### Addendum-6 2026-07-02 — operator ruling: zero-copy sink + mutual masking (W1b design closed)
+
+Operator: "it was always zerocopy and the write masks the thinking and
+vice versa so that the batch writer sinks the deltas asap." Pinned:
+
+1. **The cast carries a DESCRIPTOR, never bytes:** (mailbox, dirty
+   row-range, cycle) + intent moves. Deltas stay in the SoA backing
+   store; the sink reads them through `NodeRowPacket::as_le_bytes` at
+   flush time (the M7-corrected storage-boundary path). Zero-copy from
+   creation to Lance tombstone INCLUDING through the writer — the
+   payload-generic `P` in the skeleton is a descriptor type, never
+   owned bytes.
+2. **Mutual masking via the phase machine, not buffers:** while cycle
+   N's dirty rows sink, the owner refuses phase re-entry on those rows
+   (Rubicon arc = the mutation freeze); thinking proceeds on all other
+   rows/mailboxes. Compute masks I/O and I/O masks compute — the kanban
+   board IS the scheduler that makes the overlap race-free. No
+   double-buffering, no copies.
+3. **Eager drain:** the sink fires ASAP on cast (background), never
+   batch-until-full — the unacked window IS the replay surface; keep it
+   minimal. W2d's 550 ms budget may treat write latency as masked so
+   long as sink throughput >= delta production rate (instrument both).
+
+Gate added to W1b: a mutation-freeze test — a row in sink phase rejects
+advance_phase until ack (lands with the real-owner wiring, W2b probe
+extends it).
