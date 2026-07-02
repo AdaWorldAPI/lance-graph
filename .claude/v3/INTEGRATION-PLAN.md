@@ -279,3 +279,21 @@ vice versa so that the batch writer sinks the deltas asap." Pinned:
 Gate added to W1b: a mutation-freeze test — a row in sink phase rejects
 advance_phase until ack (lands with the real-owner wiring, W2b probe
 extends it).
+
+### Addendum-7 2026-07-02 — operator correction of Addendum-6: NO refusal — "melden macht frei"
+
+The mutation-freeze point in Addendum-6 was over-design and contradicted
+the standing rule ("updates reprioritize, never gate"). Corrected:
+
+1. **Casting IS reporting, and reporting frees the thinker.** The writer
+   NEVER refuses a cast because earlier casts on the same row/mailbox are
+   unacked. Stacked writes (>=3) are stacked WAL entries: distinct ids,
+   full ordered move history, independent acks.
+2. **Coalescing is natural, not engineered:** the sink reads the LIVE
+   backing store at flush, so one physical flush of a row satisfies every
+   earlier stacked intent for it — last-state-wins is correct because the
+   replay target is the row's latest state, while the move log preserves
+   the full ordering history.
+3. M24 gate updated: the mutation-freeze test is REPLACED by the
+   stacked-casts test (probe 4, `probe_stacked_casts_never_refused` —
+   landed ignored with the other three).

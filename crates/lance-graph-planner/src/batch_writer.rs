@@ -8,10 +8,12 @@
 //! — (mailbox, dirty row-range, cycle) — never owned delta bytes. Deltas stay
 //! in the SoA backing store; the sink reads them through
 //! `NodeRowPacket::as_le_bytes` at flush time. The sink drains EAGERLY
-//! (ASAP on cast, background), and the phase machine provides the mutual
-//! masking: rows in sink phase are mutation-frozen until ack (the owner
-//! refuses `advance_phase` re-entry), while thinking proceeds on all other
-//! rows — compute masks I/O and vice versa, race-free without buffers.
+//! (ASAP on cast, background), and the write masks the thinking and vice
+//! versa: the thinker reports (casts) and moves on — "melden macht frei" —
+//! it is NEVER refused because earlier casts are unacked. Stacked casts on
+//! the same row are stacked WAL entries; the sink reads the LIVE store at
+//! flush, so one physical flush coalesces all earlier intents for a row
+//! (last-state-wins; the move log keeps the full ordered history).
 //!
 //! Uses the REAL shipped kanban contract types
 //! ([`lance_graph_contract::kanban::KanbanMove`],

@@ -103,3 +103,41 @@ fn probe_delegation_miss_then_hit() {
     assert_eq!(resolver_calls, 1, "resolver must not be called again on cache hit");
     assert_eq!(owner_first, owner_second);
 }
+
+/// Probe 4 (M24 / operator ruling "melden macht frei", plan Addendum-7):
+/// casting is REPORTING, and reporting frees the thinker — the writer NEVER
+/// refuses a cast because earlier casts on the same mailbox are still
+/// unacked. Three stacked casts are three WAL entries: distinct ids, full
+/// ordered history retained, acks retire independently. (Physical sink
+/// coalescing — one flush of the live store satisfying all earlier intents
+/// for a row — is sink-side behavior, exercised in the W1b implementation
+/// tests, not at this API surface.)
+#[test]
+#[ignore = "probe-first: W1b mechanism pending — un-ignore in the W1b implementation commit"]
+fn probe_stacked_casts_never_refused() {
+    let mut writer: BatchWriter<()> = BatchWriter::new();
+
+    let mv = |w| make_move(7, KanbanColumn::Planning, KanbanColumn::CognitiveWork, w);
+
+    // Three stacked writes on the SAME mailbox, zero acks in between.
+    let c1 = writer.cast(7, vec![mv(0)], ());
+    let c2 = writer.cast(7, vec![mv(1)], ());
+    let c3 = writer.cast(7, vec![mv(2)], ());
+
+    // No refusal: three distinct WAL entries, cast order preserved.
+    assert_ne!(c1, c2);
+    assert_ne!(c2, c3);
+    assert_eq!(writer.unacked(), vec![c1, c2, c3]);
+
+    // Every stacked intent stays independently replayable.
+    assert!(writer.intent_moves(c1).is_some());
+    assert!(writer.intent_moves(c2).is_some());
+    assert!(writer.intent_moves(c3).is_some());
+
+    // Acks retire independently and in any order.
+    writer.ack(c2);
+    assert_eq!(writer.unacked(), vec![c1, c3]);
+    writer.ack(c1);
+    writer.ack(c3);
+    assert!(writer.unacked().is_empty());
+}
