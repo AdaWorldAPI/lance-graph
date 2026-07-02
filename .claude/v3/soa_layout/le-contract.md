@@ -66,6 +66,26 @@ Byte accounting: every layout is exactly 12 bytes — 6×2, 4×3, 3×4, 2×6.
 The 16-byte facet stride never changes; layouts differ only in how the
 96 payload bits subdivide.
 
+### The (8:8) pair is polymorphic — the classview selects the reading
+
+Beyond L1–L4, a `6×(8:8)` plane admits these operator-sanctioned readings
+(2026-07-02 extension):
+
+- **`area : location` in stacked exactness** — the six pairs stack as a
+  precision ladder: each pair refines the location within its area;
+  stacked levels = progressive exactness.
+- **Second GUID (relationships):** when a node carries a second GUID
+  dedicated to relationships, its rail plane is ENCOURAGED to carry six
+  relations as **`basin : relationtype`** pairs (one-byte basin ref +
+  one-byte relation type).
+- **Static-basin variant:** if the basins are **12 static**, the pair
+  upgrades to **`relationtype : relationtype_orthogonal`** — the basin is
+  implied by position/static table, freeing both bytes for two orthogonal
+  relation types.
+
+The reading is ALWAYS selected by the classview (slot purity §2) — never
+by inspecting payload bytes, never by convention-in-code.
+
 ### CAM_PQ grounding (digital vs analog)
 
 CAM_PQ's codebook is the **DeepNSM 4096-word English-native-speaker
