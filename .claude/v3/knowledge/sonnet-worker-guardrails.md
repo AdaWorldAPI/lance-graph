@@ -71,6 +71,10 @@ exactly the row below, never a neighbor.
 | **canon / custom** | classid halves: hi u16 = canon concept, lo u16 = custom marker/render | "old/new" | read halves with bit math (§1 rule 4) |
 | **template** | a compiled, replayable orchestration artifact (elixir-template DSL) | a prompt or a string | degrade a template into a prompt |
 | **StepMask** | a QUEUED contract type (W3a) — does not exist yet | something to invent ad hoc | mint it without the W3a spec |
+| **facet** | the V3 16-byte atom: 4B prefix (domain\|appid\|classview) + 96-bit payload (soa_layout/le-contract.md §3 catalogue L1–L8) | a free-form struct | add a layout outside the L1–L8 catalogue; put a label/position in a slot |
+| **classview (lo u16)** | the ClassView selector in the classid custom half — labels + positions resolve THROUGH it | a place to store data bits | branch on raw classview values other than via read-mode helpers |
+| **rail** | a 6×(8:8) payload plane of one-byte refs (part_of:is_a etc.) | an edge list to grow | change rail arity/stride |
+| **CAM_PQ digital / analog** | digital = 6×(8:8) palette256² byte pairs (L4, LUT similarity); analog = 48-bit helix + 6B CAM-PQ (L8) | interchangeable encodings | mix the two styles in one lane; compare codes with float math (similarity = DeepNSM 4096 codebook table lookup) |
 
 ## §3 — Footgun catalogue (what broke before → the mechanical prevention)
 

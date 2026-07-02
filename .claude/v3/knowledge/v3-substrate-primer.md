@@ -46,6 +46,12 @@ inherits mailbox ownership **up and down**:
   for Lance-down provenance and consumer-up write-on-behalf.
 - **Iron rule (fleet-wide): every consuming crate writes ON BEHALF OF the
   ractor dummy-owner mailbox.** See `write-on-behalf.md`.
+- **The V3 atom is the 4+12 facet** (E-V3-FACET-4-PLUS-12): 4-byte prefix
+  `[domain|appid|classview u16]` + a 96-bit payload from the sanctioned
+  L1–L8 catalogue (rails / palette256² digital CAM_PQ / triplets / quads /
+  hhtl+helix absolute location / helix+CAM_PQ analog). **Labels and
+  positions come from the ClassView — never a payload slot.** Byte truth:
+  `.claude/v3/soa_layout/le-contract.md`.
 
 ## 3. The DTO ladder (E-DTO-LADDER-OWNERSHIP-SPLIT + E-TWO-RESONANCES-SPLIT)
 
