@@ -127,3 +127,18 @@ singleton-BindSpace sink-in bundle/bind sense anymore. The ruled model
 
 Sessions reading this handover: steps 3–4 of the continuation execute
 under THIS model, not the CollapseGate wording above.
+
+---
+
+## APPENDED (operator, 2026-07-02, same day): compiled thinking templates
+
+Extends the correction above, item on rs-graph-llm/rig: orchestration
+COMPILES like askama ↔ ClassView×bitmask — the elixir-like DSL
+(`ogar-from-elixir`, NOT Elixir) is the source; the compiled orchestration
+graph is a replayable template; a StepMask bitmask (sibling of `FieldMask`)
+selects live steps per style/dispatch; rs-graph-llm executes instances as
+replayable sessions inheriting SoA ownership; Rig is the optional LLM
+template oracle; post-P4 the classid custom half indexes the template
+catalogue (styles-as-lenses F2 becomes catalogue dispatch). Full text +
+the 1:1 gen_statem↔ActionDef↔NextAction mapping + deliverable seeds:
+board `E-COMPILED-THINKING-TEMPLATES`.

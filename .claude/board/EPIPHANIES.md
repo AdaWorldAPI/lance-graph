@@ -1,3 +1,58 @@
+## 2026-07-02 — E-COMPILED-THINKING-TEMPLATES — operator design: orchestration compiles like askama↔ClassView×bitmask; the elixir-like DSL is the source, rs-graph-llm executes replays
+
+**Status:** DOCTRINE (operator directive, 2026-07-02 — extends
+E-MAILBOX-KANBAN-NO-COLLAPSEGATE item 7).
+
+**The ruling:** rs-graph-llm plus the elixir-LIKE low-code syntax (NOT
+Elixir — the `ogar-from-elixir` frontend's DSL arm) should COMPILE thinking
+orchestration exactly the way askama ↔ ClassView-with-bitmask compiles
+rendering: the orchestration graph is a compiled, replayable TEMPLATE; a
+bitmask selects which steps/arms are live per dispatch; execution is pure
+knowledge transfer — no runtime interpretation of orchestration config.
+
+**The exact analogy (each column already exists):**
+
+| Rendering (shipped)            | Thinking orchestration (this design)     |
+|--------------------------------|------------------------------------------|
+| askama template (compile-time checked) | compiled orchestration graph template (replayable) |
+| `ClassView` (per-app projection) | per-style "ThinkView" projection of the graph |
+| `FieldMask` bitmask (which fields render) | StepMask bitmask (which nodes/arms are active) |
+| classid custom half selects the render lens | (post-P4) custom half indexes the template catalogue — 64k ClassViews × bitmask, styles-as-lenses (F2) |
+| OGAR frontend lifts source → `Class` | `ogar-from-elixir` lifts the DSL → `Class`+`ActionDef` |
+
+**Why the lift is already 1:1:** `ogar-from-elixir` maps gen_statem-style
+lifecycle onto `ActionDef` (`state_enter`→`on_enter`, `[:postpone]`→
+`GuardFailurePolicy::Postponable`, `state_timeout`→`state_timeout_millis`,
+`next_state`→`EnterEffect::transition`) — and graph-flow's `NextAction`
+(`Continue`/`ContinueAndExecute`/`WaitForInput`/`GoTo`/`End`) is the SAME
+state-machine vocabulary. An orchestration graph IS a lifted state machine;
+the kanban phase arc (Planning→CognitiveWork→Evaluation→Commit) is itself
+one. One parser, two emitters (wide OGAR arm + narrow SPO arm), one
+compiled artifact.
+
+**Execution semantics (inherits the mailbox ruling):** rs-graph-llm
+executes template INSTANCES as replayable sessions (graph-flow sessions
+are already deterministic step records); every instance inherits ownership
+from its SoA (write-on-behalf of the ractor dummy owner, never state
+beside the SoA); Rig slots in as the optional LLM-API template ORACLE node
+for the escalation tail; the standing 550 ms async plan each thinking
+cycle follows IS a compiled template instance — the cycle replays its
+template whether or not a kanban update arrived.
+
+**Knowledge transfer, literally:** the compiled template is the
+transferable knowledge artifact — deterministic, maskable, replayable
+across sessions and mailboxes. Sessions exchange compiled orchestration,
+not prose plans. (Precedent: jitson "config IS the code" — thresholds
+become immediates; here graph configs become compiled templates.)
+
+**Deliverable seeds (next arc):** (a) contract type for the compiled
+template + StepMask (zero-dep, sibling of `ClassView`/`FieldMask`);
+(b) finish `ogar-from-elixir`'s parser for the DSL arm (the crate is a
+pinned-shape scaffold with locked tests); (c) graph-flow adapter:
+template → `GraphBuilder`, session = replay, ownership inherited;
+(d) Rig oracle node type (optional feature); (e) post-P4: catalogue
+dispatch keyed by the classid custom half.
+
 ## 2026-07-02 — E-MAILBOX-KANBAN-NO-COLLAPSEGATE — operator correction: no singleton-BindSpace CollapseGate; one mailbox = one kanban board (tenant-carried), writer fires AHEAD, consumers write on behalf of the ractor dummy owner
 
 **Status:** DOCTRINE (operator ruling, 2026-07-02 — corrects this session's
