@@ -1,3 +1,20 @@
+## 2026-07-02 — E-V3-MARKER-IS-A-MONITOR — operator clarification: `0x1000` = V3-adoption telemetry, deprecated when nothing is left to monitor
+
+**Status:** DOCTRINE (operator, 2026-07-02).
+
+The `0x1000` custom-half marker is JUST a monitor: it marks classes that
+ARE on the V3 substrate, so one can watch which classes DON'T use V3 yet.
+Once the fleet is fully V3 there is nothing left to monitor and the
+marker is DEPRECATED — that IS the P4 trigger condition (previously an
+open operator checkpoint; now defined: P4 fires when the adoption monitor
+reads 100%). Consequences: (a) new V3 classes keep minting WITH the
+marker until full adoption; (b) the corpus-proof scanner and the adoption
+monitor are ONE tool with two metrics (marker-present range count = V3
+adoption; legacy-form range count = alias-retirement gate) — both are
+key-range counts thanks to canon-high clustering; (c) after P4 the
+custom half opens for the render/style catalogue (E-COMPILED-THINKING-
+TEMPLATES seed (e)).
+
 ## 2026-07-02 — E-COMPILED-THINKING-TEMPLATES — operator design: orchestration compiles like askama↔ClassView×bitmask; the elixir-like DSL is the source, rs-graph-llm executes replays
 
 **Status:** DOCTRINE (operator directive, 2026-07-02 — extends
@@ -45,12 +62,24 @@ across sessions and mailboxes. Sessions exchange compiled orchestration,
 not prose plans. (Precedent: jitson "config IS the code" — thresholds
 become immediates; here graph configs become compiled templates.)
 
-**Deliverable seeds (next arc):** (a) contract type for the compiled
-template + StepMask (zero-dep, sibling of `ClassView`/`FieldMask`);
-(b) finish `ogar-from-elixir`'s parser for the DSL arm (the crate is a
-pinned-shape scaffold with locked tests); (c) graph-flow adapter:
-template → `GraphBuilder`, session = replay, ownership inherited;
-(d) Rig oracle node type (optional feature); (e) post-P4: catalogue
+**The DSL crate already ships IN lance-graph (operator pointer):**
+`crates/elixir-template` — "the declarative, replayable macro a
+successful LLM run compiles down to, whose steps bind to OGAR actions
+and run deterministically without the LLM" — with `crates/
+template-runtime` (deterministic reflex executor, OGAR-action dispatch)
+and `crates/template-equivalence` beside it. `ogar-from-elixir` is the
+eventual RICHER front-end, not the canonical shape. Note the compile
+DIRECTION the crate doc names: a successful LLM (Rig-oracle) run
+compiles DOWN to a template — knowledge transfer is literal (LLM run →
+deterministic replayable macro).
+
+**Deliverable seeds (next arc, corrected):** (a) StepMask bitmask on
+`ElixirTemplate`/`template-runtime` (sibling of `ClassView`/`FieldMask`);
+(b) extend the elixir-template/template-runtime pair (ogar-from-elixir
+stays the future richer frontend); (c) graph-flow adapter in
+rs-graph-llm: `ElixirTemplate` → `GraphBuilder`, session = replay,
+ownership inherited from the SoA; (d) Rig oracle node type (optional
+feature) + the run→template compile-down path; (e) post-P4: catalogue
 dispatch keyed by the classid custom half.
 
 ## 2026-07-02 — E-MAILBOX-KANBAN-NO-COLLAPSEGATE — operator correction: no singleton-BindSpace CollapseGate; one mailbox = one kanban board (tenant-carried), writer fires AHEAD, consumers write on behalf of the ractor dummy owner
@@ -89,11 +118,20 @@ The ruled write/thinking model:
    rs-graph-llm must always respect/inherit ownership from the respective
    SoA (never own state beside it).
 
-Gap list vs shipped code (what the next arc builds): (a) the per-mailbox
-kanban-board tenant; (b) the ahead-update batch writer + write-cast
-delegation cache; (c) the standing async plan + 550 ms SoA load balancer;
-(d) the write-on-behalf consumer rule enforced at the contract surface;
-(e) rs-graph-llm/rig ownership-inheritance wiring.
+Gap list vs shipped code (what the next arc builds), with the CONCRETE
+seams (operator-confirmed): (a) the per-mailbox kanban-board tenant;
+(b) the kanban STEP UPDATE emit — the deferred D-MBX-A6 `Outcome →
+Candidate/KanbanMove` adapter in `lance-graph-planner
+strategy/style_strategy.rs` (the planner computes outcomes but does not
+yet emit KanbanMoves) — with `lance-graph-supervisor kanban_actor.rs` as
+the ractor structural owner and `symbiont` as the SurrealDB-on-kv-lance
+executor arm; (c) the ahead-update batch writer + write-cast delegation
+cache; (d) the standing async plan + 550 ms SoA load balancer; (e) the
+write-on-behalf consumer rule enforced at the contract surface — now
+STARTED: `SoaEnvelope::mailbox_owner()` (the LE contract carries the
+ownership up and down; views are owner-borrows structurally, the stamp
+names the owner nominally for Lance-down and consumer-up); (f)
+rs-graph-llm/rig ownership-inheritance wiring.
 
 ## 2026-07-02 — E-CLASSID-CANON-HIGH-IS-A-CLUSTERED-INDEX — the flip bought key-order domain locality, not just naming hygiene
 

@@ -142,3 +142,28 @@ template oracle; post-P4 the classid custom half indexes the template
 catalogue (styles-as-lenses F2 becomes catalogue dispatch). Full text +
 the 1:1 gen_statem↔ActionDef↔NextAction mapping + deliverable seeds:
 board `E-COMPILED-THINKING-TEMPLATES`.
+
+---
+
+## APPENDED (operator, 2026-07-02, same day): three sharpenings
+
+1. **Envelope ownership witness (SHIPPED this branch):** the SoA LE
+   contract inherits mailbox ownership up and down — `SoaEnvelope` views
+   are owner-borrows (compile-time, structural), and the new
+   `SoaEnvelope::mailbox_owner()` stamp (default `0` = bootstrap per the
+   zero-fallback ladder) names the owner nominally for Lance-down
+   provenance and consumer-up write-on-behalf. Delegation mismatches
+   (cast id ≠ envelope stamp) are the batch writer's cache-logic case.
+2. **The kanban step-update seam is concrete:** D-MBX-A6 — the deferred
+   `Outcome → Candidate/KanbanMove` adapter in `lance-graph-planner
+   strategy/style_strategy.rs`; `lance-graph-supervisor kanban_actor.rs`
+   is the ractor structural owner; `symbiont` is the
+   SurrealDB-on-kv-lance executor arm.
+3. **`0x1000` = V3-adoption MONITOR** (deprecated when nothing is left
+   to monitor) — P4's trigger is now defined: adoption reads 100%. The
+   corpus scanner and adoption monitor are one two-metric range-count
+   tool. Also: the compiled-template DSL already ships in lance-graph as
+   `elixir-template` + `template-runtime` + `template-equivalence`
+   (ogar-from-elixir = future richer frontend); the crate doc names the
+   compile-down direction — a successful LLM run compiles to the
+   deterministic template.
