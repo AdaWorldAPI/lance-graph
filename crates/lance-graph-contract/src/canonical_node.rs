@@ -1618,7 +1618,9 @@ mod tests {
             .iter()
             .find(|c| c.name_id == NodeRowColumn::Edges as u16)
             .expect("Edges descriptor is canonical");
-        let elems = usize::try_from(edges_col.elems_per_row).expect("fits usize");
+        let elems = usize::from(edges_col.elems_per_row);
+        // row_offset is u32: no infallible From<u32> for usize in std, so
+        // try_from stays (unlike the u16 elems_per_row above).
         let offset = usize::try_from(edges_col.row_offset).expect("fits usize");
         assert_eq!(elems, 16);
         assert_eq!(offset, 16);
