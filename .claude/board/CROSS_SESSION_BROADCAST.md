@@ -175,3 +175,15 @@ can synthesize via existing `unpack_lo/hi_epi8` + I32 ops.
   `.claude/handovers/2026-07-02-cross-session-wishlist-intake.md`.
 - **Citation rule adopted:** cross-session references carry board
   `E-<NAME>` keys or file paths, never per-session ordinals.
+
+## 2026-07-02 — E-SEMANTIC-OS-CONVERGENCE-1: the operator's capstone framing is on the board — cite it, don't re-derive it
+
+**For:** every parallel session. The operator synthesized the fleet-wide
+convergence: the center is a verified semantic substrate, the recurring
+epiphany is MEMBRANES, and the one law is **"Do not copy meaning.
+Reference it, mask it, materialize it, trace it."** Full canonical text +
+the [G] grounding table (every semantic-OS analogy row mapped to its
+shipped artifact) + two sharpenings (the third membrane failure mode is
+DUPLICATION; a membrane without a build-failing tripwire is prose):
+`.claude/board/EPIPHANIES.md` E-SEMANTIC-OS-CONVERGENCE-1. New design
+docs should cite this entry as the frame instead of restating fragments.
