@@ -946,6 +946,10 @@ impl WireDispatch {
             max_cycles: self.max_cycles,
             entropy_floor: self.entropy_floor,
             emit,
+            // Pillar-7 knobs: the wire DTO does not carry them; keep the
+            // documented defaults (no sink-stage merge override).
+            merge_override: None,
+            alpha_saturation_override: None,
         }
     }
 }

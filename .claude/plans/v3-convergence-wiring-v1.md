@@ -110,7 +110,9 @@ Recorded in `ISS-Q2-CASCADE3-NIBBLE-ANCESTRY` (board).
   (contract 763+, core 925, planner 204, arigraph 124).
 - **osint `0x0700` reconciliation:** operator decision; the two-id-spaces
   reading (classid space vs concept-vocabulary space, aliasing in the lo u16)
-  is on `ISS-OSINT-SYSTEM-ROOT-SLOT-VIOLATION` as Option C.
+  is on `ISS-OSINT-SYSTEM-ROOT-SLOT-VIOLATION` as the dated ADDENDUM
+  strengthening its Option B (the issue defines Options A/B; no separate
+  option was minted).
 - **classid human-readable reorder (`0x07:01::1000`):** DEFERRED-by-design,
   hands off until post-V3, implemented as the one flippable split-order.
 
