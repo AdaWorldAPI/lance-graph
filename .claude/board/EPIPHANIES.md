@@ -1805,6 +1805,19 @@ Why this is the right move, not just a bug patch:
 3. **Flexibility + the one cost.** A node mixes in up to 16 family adjacencies (huge flexibility, any-to-any within 256). The named limitation is **mixin dependency**: a referenced family must exist or the slot is a dangling adapter (skipped). That is the honest trade — and it is cheap, because a missing family is a render no-op, not a corruption.
 
 The general rule for graph edges on this substrate: **resolve to the stable grouping (family), not the volatile leaf (member)** — unless a richer flavor (8×16-bit, 32×4 residue, member→member second-hop) is measured to be needed. Cross-ref: `E-ANCHOR-IS-A-HEAD-FIELD-NOT-A-VALUE-TYPE` (the static dual), `E-GUID-IS-THE-GRAPH`, the operator's deferred helix-basin-anchor (CLAM ⇄ Louvain turbovec edge residue) as the eventual richer flavor; `aiwar.rs` (the POC: 221 aiwar entities → 60 category family hubs).
+## 2026-06-20 — E-CPP-PARITY-6 — the UNICHARSET `direction` + `mirror` columns are byte-identical to libtesseract; the sixth leaf, and the first to read PAST the bbox CSV into the multi-column tail
+
+**Status:** FINDING (in-env, real trained data). `lance_graph_contract::unicharset::UniCharSet::{get_direction, get_mirror}` dump the `eng.lstm-unicharset` per-id bidi direction codes and mirror ids **byte-identical to tesseract's own `get_direction` / `get_mirror`, 112/112 each** (same self-validating oracle, `direction` + `mirror` modes). Sixth + seventh proven accessor surfaces.
+
+**Why this was the "multi-tier parser" leaf — and why it turned out simple.** `direction`/`mirror` sit two/three columns past the script, after the bbox+stats CSV. Tesseract places them via a 5-tier `istringstream` fallback (`unicharset.cpp:833-868`). But the bbox+stats group is always a SINGLE whitespace token (comma-separated, no spaces), so on a whitespace split the columns land at fixed offsets regardless of tier: `script`, `other_case`, `direction`, `mirror` are simply the 1st/2nd/3rd/4th tokens after the optional CSV. Continuing the existing per-line token walk one and two positions past `other_case` reads them; a tier without the columns leaves the walk exhausted → defaults. No bespoke tier detector needed — the token walk IS the tier collapse. (The float stats inside the CSV still need decimal parsing; that's the remaining sub-leaf.)
+
+**Two transcode subtleties the oracle pinned (read-the-truth-first, again).** (1) `direction`'s load default is `U_LEFT_TO_RIGHT` (0) for an absent column, but `get_direction`'s OUT-OF-RANGE return is `U_OTHER_NEUTRAL` (10) — two different "defaults" for two different conditions (`unicharset.h:712-714`). (2) `mirror` is clamped at load exactly like `other_case` (`>= size` → self) and returns `INVALID_UNICHAR_ID` (-1) out of range. The oracle confirmed direction is genuinely varied on eng (55× LTR=0, 33× OTHER_NEUTRAL=10, plus 2/3/4/6 for digit-class chars) and mirror has 10 real pairs (bracket/paren/brace mirrors, e.g. `(`↔`)`), so this exercises the parse, not just the defaults.
+
+**Pattern holds (E-CPP-KEYSTONE-1).** +2 accessors + 2 dumps + one `diff` each, no new architecture, no Core gap. +3 contract tests (26 unicharset total). Consumed by `tesseract-core::CharSet::{get_direction,get_mirror}`. Reproducible via the committed `examples/unicharset_dump.rs {direction,mirror}`.
+
+**Tooling note (TECH_DEBT filed):** the contract crate is NOT fmt-gated in CI (`style.yml` checks only `lance-graph` + `deepnsm`), so merged symbiont/SoA PRs left rustfmt-1.9.0 drift in `hhtl.rs`/`nan_projection.rs`/`soa_graph.rs`. My leaf files are fmt-clean; I did not reformat others' merged files. See TECH_DEBT.
+
+Cross-ref: `E-CPP-PARITY-1..5` (the prior leaves), `E-CPP-KEYSTONE-1`, `.claude/knowledge/core-first-transcode-doctrine.md`. Branch `claude/happy-hamilton-0azlw4`, lance-graph + tesseract-rs.
 
 ---
 

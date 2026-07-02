@@ -1,7 +1,7 @@
-//! Dump a `.unicharset`'s id→unichar table (default), its per-id property bits
-//! (`properties` mode), its per-id script ids (`script` mode), or its per-id
-//! case-pair ids (`other_case` mode) — the Rust side of the byte-parity probe
-//! `PROBE-OGAR-ADAPTER-UNICHARSET`.
+//! Dump a `.unicharset`'s id→unichar table (default) or a per-id column:
+//! `properties` (category bits), `script` (script ids), `other_case` (case-pair
+//! ids), `direction` (bidi codes), `mirror` (mirror ids) — the Rust side of the
+//! byte-parity probe `PROBE-OGAR-ADAPTER-UNICHARSET`.
 //!
 //! ```sh
 //! # on a box with libtesseract + libleptonica installed:
@@ -33,7 +33,9 @@ use lance_graph_contract::unicharset::UniCharSet;
 
 fn main() -> ExitCode {
     let Some(path) = std::env::args().nth(1) else {
-        eprintln!("usage: unicharset_dump <path/to/eng.unicharset> [properties|script|other_case]");
+        eprintln!(
+            "usage: unicharset_dump <path/to/eng.unicharset> [properties|script|other_case|direction|mirror]"
+        );
         return ExitCode::FAILURE;
     };
     let mode = std::env::args().nth(2).unwrap_or_default();
@@ -43,6 +45,8 @@ fn main() -> ExitCode {
                 "properties" => print!("{}", unicharset.dump_properties()),
                 "script" => print!("{}", unicharset.dump_script()),
                 "other_case" => print!("{}", unicharset.dump_other_case()),
+                "direction" => print!("{}", unicharset.dump_direction()),
+                "mirror" => print!("{}", unicharset.dump_mirror()),
                 _ => print!("{}", unicharset.dump()),
             }
             ExitCode::SUCCESS
