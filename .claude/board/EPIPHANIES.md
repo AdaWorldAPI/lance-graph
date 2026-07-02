@@ -1,3 +1,35 @@
+## 2026-07-02 — E-CLASSID-CANON-HIGH-TRIGGERED — the operator pulled the flip trigger: canon (domain:appid) moves to the HIGH half, `0x1000` was a temporary reminder, OSINT low byte = appid space, q2 gate waived
+
+**Status:** DOCTRINE (operator ruling, verbatim anchors in the plan §0).
+
+**Four rulings in one message arc (2026-07-02):**
+1. **OSINT semantics:** "OSINT Person was a hallucination." `0x07` = OSINT
+   domain; low byte applied **domain-wise as APPID** (`00` = the domain
+   itself; `01` = **q2, our consumer**). OSINT contributes ZERO vocabulary
+   rows — OGAR PR #146 removed both #145 mints (count 67→65; the COUNT_FUSE
+   balances with zero mirror changes; `ISS-OSINT-SYSTEM-ROOT-SLOT-VIOLATION`
+   dissolves — sharper than either of its recorded Options A/B). FMA anatomy
+   = own domain (`0x0A`, separate from Health `0x09`) under q2; CPIC = own
+   Genetics domain (`0x0E`) under q2 (⇒ its q2 class normalizes `:00`→`:01`).
+2. **The marker was temporary:** `0x1000` was "just a temporary V3 substrate
+   marker as a hard reminder for V3 substrate migration" — a sticky note,
+   not a format bit. Retirement is a planned operator checkpoint (plan §4 P4).
+3. **The flip is TRIGGERED:** "now is the right time for the migration."
+   Target stored form `0x0701_1000` — canon (`domain:appid`) HIGH, custom
+   (marker/render) LOW; human-readable `0x07:01::1000`. This IS the
+   `soa-value-tenant-migration-v2` §2.3 atomic Canon:Custom flip, now ACTIVE
+   as `.claude/plans/classid-canon-custom-flip-v1.md` (one flippable
+   compose/split definition, `flip(flip(x))==x` probed, mint-forward with an
+   I-LEGACY version boundary — never a blanket reinterpretation of legacy
+   classids). `E-CLASSID-HUMANREADABLE-REORDER-DEFERRED` is hereby
+   superseded-by-trigger (entry preserved, per append-only).
+4. **q2 push gate WAIVED:** "it was a temporary precaution to not break the
+   cockpit while working on so many different domains — you can unarm that."
+   D-VCW-3 (P7 render probe), D-VCW-5 (cascade3 nibble falsifier), and the
+   q2 phases of the flip (P3) are unblocked.
+
+---
+
 ## 2026-07-01 — E-RUNG-LADDER-IS-DISPATCH-POLICY-OVER-CERTIFIED-MASKS — rung elevation needs zero new math; and there is ONE ladder with TWO signal sources (gate streaks + felt-parse delta)
 
 **Status:** FINDING (shipped: `RungLevel::{from_u8, elevate, de_elevate,

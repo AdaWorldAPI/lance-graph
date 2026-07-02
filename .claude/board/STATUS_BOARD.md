@@ -1,3 +1,15 @@
+## classid-canon-custom-flip-v1 — the TRIGGERED §2.3 atomic flip
+
+Plan: `.claude/plans/classid-canon-custom-flip-v1.md`. Operator trigger 2026-07-02.
+
+| D-id | Title | Crate(s) | Status | Evidence |
+|---|---|---|---|---|
+| D-CCF-0 | compose_classid/split_classid/CLASSID_CANON_HIGH + route all sites (zero behavior) | lance-graph-contract | Queued | plan §3/§4 P0 |
+| D-CCF-1 | Flip + mint new-form classids (0x0701_1000 / 0x0A01_1000 / 0x0E01_1000) coexisting | lance-graph-contract | Queued | gated on P0 probes |
+| D-CCF-2 | OGAR#95 hi-u16 app-prefix reconciliation | contract + OGAR | Blocked (operator checkpoint) | plan §2 row / §4 P2 |
+| D-CCF-3 | q2 re-mints (osint-bake + cpic via contract pull; dissolves ISS-Q2-CPIC-MIRROR) | q2 (gate WAIVED) | Queued | plan §4 P3 |
+| D-CCF-4 | 0x1000 marker retirement | all | Blocked (operator checkpoint) | plan §4 P4 |
+
 ## v3-convergence-wiring-v1 — wire, don't invent (the seam list)
 
 Plan: `.claude/plans/v3-convergence-wiring-v1.md`. Sonnet-grindwork/Fable-decisions split.
@@ -7,9 +19,9 @@ Plan: `.claude/plans/v3-convergence-wiring-v1.md`. Sonnet-grindwork/Fable-decisi
 | D-VCW-1a | RungLevel arithmetic + RungElevator (sustained-BLOCK policy over certified mask algebra; converged with escalation::rung_delta) | lance-graph-contract | **Shipped** | 755 lib tests green incl. 6 new; clippy clean |
 | D-VCW-1b | Driver wiring: elevator through cycle loop, ctx.rung proxy retired, wire/grpc from_u8 dedup | cognitive-shader-driver | **Shipped** | driver 100/100 green (2 new tests: sustained-BLOCK elevation across dispatches + rung load-bearing in tactic selection); driver-persistent RwLock elevator, base-change reset |
 | D-VCW-2 | P6 wave-convergence probe (wave dist == certified palette read) | lance-graph core (arigraph) | **Shipped** | markov_soa 6/6 green (2 new P6 tests) |
-| D-VCW-3 | P7 render probe (bitmask → askama; fields == masked tenants) | q2 (push-gated) | Queued | spec ready (plan §3) |
+| D-VCW-3 | P7 render probe (bitmask → askama; fields == masked tenants) | q2 (**gate WAIVED 2026-07-02**) | Queued (unblocked) | spec ready (plan §3) |
 | D-VCW-4 | One-row registry + read-mode parity fuse | contract (+OGAR Phase B) | Queued | plan §4; Phase B operator-gated |
-| D-VCW-5 | cascade3 nibble-ancestry falsifier | q2 (push-gated) | Recorded | ISS-Q2-CASCADE3-NIBBLE-ANCESTRY |
+| D-VCW-5 | cascade3 nibble-ancestry falsifier | q2 (**gate WAIVED 2026-07-02**) | Queued (unblocked) | ISS-Q2-CASCADE3-NIBBLE-ANCESTRY |
 | D-VCW-6 | Rule 7: negative-existence claims need exhaustive-search declaration | knowledge doc | **Shipped** | autoattended-multiagent-pattern.md §5 Rule 7 |
 | D-VCW-7 | rig/rs-graph-llm FailureTicket loop | rs-graph-llm (sibling) | Deferred | plan §6; probe-first when opened |
 
