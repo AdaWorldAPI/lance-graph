@@ -45,14 +45,16 @@
 //! is only legitimate while leashed to the deterministic chain that confirms it
 //! — an unleashed bundle degrades into "sink-in-and-pray" (Markov #3).**
 //!
-//! ## STATUS: provisional / unverified-offline
+//! ## STATUS: verified (2026-07-01) — compiles + tests green in-sandbox
 //!
-//! Authored against the grounded `contract::soa_view::MailboxSoaView` surface,
-//! but `lance-graph` core does NOT build in the offline sandbox (its
-//! `lance`/`datafusion`/`arrow` deps fetch from crates.io). Compile-verify on a
-//! full checkout before relying on it. The truly-correct home is *inside the
-//! EW64-in-SoA seam* (P1+P2 of the three-Markovs ordering); this module is the
-//! agnostic wave-projector that seam will host.
+//! Authored against the grounded `contract::soa_view::MailboxSoaView` surface.
+//! The earlier "unverified-offline" caveat (core deps fetch from crates.io) is
+//! cleared: with crates.io in the proxy allow-list, the root
+//! `[patch.crates-io] ndarray` pointed at the local sibling path, and `protoc`
+//! installed, `lance-graph` core compiles and this module's 4 tests pass
+//! (part of the 124-green `graph::arigraph` suite). The truly-correct home is
+//! still *inside the EW64-in-SoA seam* (P1+P2 of the three-Markovs ordering);
+//! this module is the agnostic wave-projector that seam will host.
 
 use lance_graph_contract::soa_view::MailboxSoaView;
 
@@ -321,5 +323,109 @@ mod tests {
         let ne = SoaWavePrimer::new(2).project(&s, 2, row_triple);
         assert_eq!(empty.best_guess_match(&ne, dist), 0.0);
         assert_eq!(ne.best_guess_match(&empty, dist), 0.0);
+    }
+
+    /// P6 — the wave's injected distance is the SAME 256×256 palette read the
+    /// particle chain (P1–P3) certified; the join object is the table.
+    ///
+    /// `crates/lance-graph-osint/tests/p1_distance_identity.rs` proved
+    /// `SpoDistances` (`lance-graph-planner::cache::nars_engine`) ≡
+    /// `MatrixDistance` (`lance-graph-arm-discovery`) on one 256×256 palette
+    /// derived from `deepnsm::codebook::Codebook`. This module's own doc
+    /// comment (top of file, "AriGraph is agnostic") claims the wave's
+    /// injected `dist` closure IS "AriGraph's own `cam_pq::DistanceTables`" —
+    /// the same *kind* of 256×256 table the particle chain certified, just
+    /// read as `u8` here (the wave's contract) instead of `u16`/`u32`.
+    /// `markov_soa` cannot depend on `lance-graph-planner` or `deepnsm`
+    /// (dependency flows AriGraph(core) → sensor, never reverse — see the
+    /// module doc), so the TABLE ITSELF is the join object: build one
+    /// deterministically here, exactly as P1–P3 built one and handed it
+    /// across their crate boundaries.
+    mod p6_palette_join {
+        use super::*;
+
+        /// Deterministic PRNG — SplitMix64, mirroring
+        /// `lance-graph-osint/tests/common/mod.rs::splitmix64`. No `rand`, no
+        /// seed entropy; byte-identical on every run and every target.
+        fn splitmix64(state: &mut u64) -> u64 {
+            *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = *state;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^ (z >> 31)
+        }
+
+        /// A deterministic, symmetric, zero-diagonal 256×256 `u8` palette —
+        /// the cam_pq-shaped table read. Mirrors
+        /// `p2_p3_edge_pearl.rs::synth_palette`, narrowed to `u8` because the
+        /// wave's `dist` closure returns `u8` (not `SpoDistances`'s `u16`).
+        fn synth_palette_u8(seed: u64) -> Vec<u8> {
+            let mut t = vec![0u8; 256 * 256];
+            let mut s = seed;
+            for a in 0..256usize {
+                for b in (a + 1)..256usize {
+                    let v = 1 + (splitmix64(&mut s) % 255) as u8; // 1..=255
+                    t[a * 256 + b] = v;
+                    t[b * 256 + a] = v;
+                }
+            }
+            t
+        }
+
+        /// The join object realized as a closure: a plain table lookup, the
+        /// cam_pq-shaped distance read `markov_soa`'s doc comment describes.
+        fn table_dist(table: &[u8]) -> impl Fn(u16, u16) -> u8 + '_ {
+            move |a, b| table[(a as usize & 0xFF) * 256 + (b as usize & 0xFF)]
+        }
+
+        #[test]
+        fn p6_self_match_under_real_palette_table_is_exact_one() {
+            let table = synth_palette_u8(0x0700_0006);
+            let s = soa(20);
+            let proj = SoaWavePrimer::new(3).project(&s, 10, row_triple);
+            let same = SoaWavePrimer::new(3).project(&s, 10, row_triple);
+            let sim = proj.best_guess_match(&same, table_dist(&table));
+            assert!(
+                (sim - 1.0).abs() < 1e-6,
+                "self-match under a real palette-backed table must be exact: got {sim}"
+            );
+        }
+
+        #[test]
+        fn p6_single_triple_similarity_matches_hand_computed_table_read() {
+            let table = synth_palette_u8(0x0700_0007);
+            let dist = table_dist(&table);
+
+            let a = SpoRanks {
+                s: 3,
+                p: 200,
+                o: 77,
+            };
+            let b = SpoRanks { s: 9, p: 5, o: 250 };
+            let here = WaveProjection {
+                triples: vec![a],
+                provenance: BundleProvenance::default(),
+            };
+            let there = WaveProjection {
+                triples: vec![b],
+                provenance: BundleProvenance::default(),
+            };
+
+            // Hand-computable: with exactly one triple on each side, the
+            // "nearest" search degenerates to the single distance — the SAME
+            // per-role table reads `best_guess_match` performs internally,
+            // recomputed here independently from the same real table.
+            let d_s = dist(a.s, b.s);
+            let d_p = dist(a.p, b.p);
+            let d_o = dist(a.o, b.o);
+            let d = ((d_s as u16 + d_p as u16 + d_o as u16) / 3) as u8;
+            let expected = 1.0 - (d as f32 / u8::MAX as f32);
+
+            let got = here.best_guess_match(&there, dist);
+            assert!(
+                (got - expected).abs() < 1e-6,
+                "expected {expected}, got {got} (table entries: s={d_s} p={d_p} o={d_o})"
+            );
+        }
     }
 }

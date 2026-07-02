@@ -346,18 +346,7 @@ fn proto_to_dispatch(req: &pb::DispatchRequest) -> ShaderDispatch {
         })
         .unwrap_or(StyleSelector::Auto);
 
-    let rung = match req.rung {
-        0 => RungLevel::Surface,
-        1 => RungLevel::Shallow,
-        2 => RungLevel::Contextual,
-        3 => RungLevel::Analogical,
-        4 => RungLevel::Abstract,
-        5 => RungLevel::Structural,
-        6 => RungLevel::Counterfactual,
-        7 => RungLevel::Meta,
-        8 => RungLevel::Recursive,
-        _ => RungLevel::Transcendent,
-    };
+    let rung = rung_from_wire_u32(req.rung);
 
     let emit = match pb::EmitMode::try_from(req.emit) {
         Ok(pb::EmitMode::Bundle) => EmitMode::Bundle,
@@ -387,6 +376,10 @@ fn proto_to_dispatch(req: &pb::DispatchRequest) -> ShaderDispatch {
         max_cycles: req.max_cycles as u16,
         entropy_floor: req.entropy_floor,
         emit,
+        // Pillar-7 knobs: the proto does not carry them; keep the documented
+        // defaults (no sink-stage merge override).
+        merge_override: None,
+        alpha_saturation_override: None,
     }
 }
 
@@ -408,4 +401,31 @@ fn unified_styles_proto() -> Vec<pb::StyleInfo> {
             butterfly_sensitivity: s.butterfly_sensitivity,
         })
         .collect()
+}
+
+/// Decode the proto `uint32` rung, saturating BEFORE narrowing: an
+/// out-of-range client value clamps to `Transcendent` (the pre-dedup match's
+/// `_ =>` arm), never wraps (`256 as u8 == 0` would silently run the request
+/// at `Surface`, the shallowest depth — codex P2 on #626).
+fn rung_from_wire_u32(v: u32) -> RungLevel {
+    RungLevel::from_u8(u8::try_from(v).unwrap_or(u8::MAX))
+}
+
+#[cfg(test)]
+mod rung_wire_tests {
+    use super::*;
+
+    #[test]
+    fn wire_rung_saturates_never_wraps() {
+        // In-range ordinals round-trip.
+        assert_eq!(rung_from_wire_u32(0), RungLevel::Surface);
+        assert_eq!(rung_from_wire_u32(6), RungLevel::Counterfactual);
+        assert_eq!(rung_from_wire_u32(9), RungLevel::Transcendent);
+        // Out-of-range clamps to the SAFEST maximum depth — the codex-P2
+        // wrap cases: 256 must NOT become Surface, 257 must NOT become Shallow.
+        assert_eq!(rung_from_wire_u32(10), RungLevel::Transcendent);
+        assert_eq!(rung_from_wire_u32(256), RungLevel::Transcendent);
+        assert_eq!(rung_from_wire_u32(257), RungLevel::Transcendent);
+        assert_eq!(rung_from_wire_u32(u32::MAX), RungLevel::Transcendent);
+    }
 }

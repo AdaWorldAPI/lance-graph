@@ -1,5 +1,112 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-01 — ISS-Q2-CASCADE3-NIBBLE-ANCESTRY — q2 `cascade3` FNV bytes are byte-hierarchical but NOT nibble-hierarchical; HHTL routing over bake mints is sound only at whole-tier granularity
+
+**Status:** OPEN (falsifier specified, not yet run — q2 is push-gated). Owner:
+q2 `cpic/src/lib.rs::cascade3` (+ any bake reusing it) vs the OGAR canon's
+256=4⁴ hierarchical-codebook condition. Plan: `v3-convergence-wiring-v1.md` §5.
+
+**The claim tension.** OGAR canon: each tier's 256-entry codebook is a 4-level
+4-ary centroid HIERARCHY so a byte's nibbles are the centroid's ancestry —
+`is_ancestor_of` = containment, prefix routing rigorous at nibble depth. q2's
+`cascade3` derives tier byte `i` as the FNV-1a low byte of the cumulative DN
+prefix at depth `i`: siblings share leading BYTES (per-tier prefix routing
+holds), but a hash byte's nibbles carry NO ancestry — below whole-byte
+granularity the tree structure is noise.
+
+**Falsifier (runnable in q2 when opened):** two DNs sharing a 3-deep prefix
+must show `common_prefix_depth` at nibble granularity ≈ random beyond the
+shared-byte boundary (vs the 4⁴ condition's prediction of structured nibble
+sharing). Confirmed ⇒ either (a) HHTL routing over bake mints clamps to tier
+granularity (document the boundary), or (b) the cascade generator moves to a
+hierarchical codebook (bigger change, operator call). No routing code should
+assume sub-byte ancestry on these mints until this runs.
+
+---
+
+## 2026-07-01 — ISS-Q2-CPIC-MIRROR-DIVERGES-FROM-CPIC-V3-REGISTRY — q2's local `cpic::NodeGuid` mirror is V1-layout-parity-true but diverges from the registered CPIC-V3 read-mode on BOTH domain and tail shape
+
+**Status:** OPEN (record-only; resolve WITH the operator — q2 is push-gated and
+cross-repo blockers are never silently fixed). Owner: q2 `cpic/src/lib.rs` +
+`lance-graph-contract::canonical_node` (CPIC-V3 registry). Surfaced 2026-07-01
+by a verify-the-mirror read after the V3 tenant-carve certification.
+
+**Ground truth (read, not grepped).** q2 `cpic/src/lib.rs`:
+- `NodeGuid::mint(classid, part[3], isa[3], family, identity)` builds
+  HEEL/HIP/TWIG as `(part<<8)|isa` — the V3 `(part_of:is_a)` 8:8 tile. ✓ canon.
+- `key16()` packs `classid·heel·hip·twig·family(u24)·identity(u24)` LE —
+  **byte-identical to the contract's V1 layout** (its parity doc-comment is
+  TRUE at the byte-order level). But that is the **V1 tail**, not the V3
+  (`leaf·family·identity` 3×u16) tail the registry's
+  `ReadMode::CPIC_V3.tail_variant = V3` reads.
+- classids are `0x000C_0001..0x000C_0006` (`CID_GENE..CID_REC`) — domain
+  **`0x0C`**, NOT the operator-allocated Genetics `0x0E`
+  (`CLASSID_CPIC_V3 = 0x1000_0E00`), and no `0x1000` V3 gen-marker.
+
+**So:** V3 *tiles* on a V1 *tail* under an unregistered *domain* — three
+divergences from the wired CPIC-V3 read-mode. A bake produced with this mirror
+will not resolve to `ReadMode::CPIC_V3` (falls to `ReadMode::DEFAULT`) and its
+tail bytes read differently under the registry's V3 lens.
+
+**Stale-brief correction (same sweep):** `soa-value-tenant-migration-v1.md`
+§2.5's blocker — "q2 `osint-bake/fma.rs` calls `NodeGuid::new_v2(...)`, a
+7-group API that does **not** exist" — is stale on both halves: `new_v2` DOES
+exist (7 groups, feature `guid-v2-tail`, shipped + matrix-tested), and no
+`new_v2` call site exists in q2 today (grep: only `cpic::NodeGuid::mint`).
+
+**CORRECTION (2026-07-01, same session — the previous paragraph's second half
+is WRONG; truncated-grep error, head_limit cut before osint-bake):** q2
+`osint-bake` DOES call `new_v2` — `crates/osint-bake/src/lib.rs:606` mints the
+classid-`0x0700` OSINT rows via `NodeGuid::new_v2(NodeGuid::CLASSID_OSINT, …)`
+(also `:745`), and it imports the REAL contract
+(`use lance_graph_contract::canonical_node::{NodeGuid, classid_read_mode}`) —
+no mirror in osint-bake; only `cpic` carries the local mirror. What stands:
+the brief's "API does not exist" half is stale (`new_v2` exists and q2 links
+it fine). NEW observation for the same operator decision: osint-bake's OSINT
+rows mint a **V2 tail** directly (`new_v2`) for legacy `CLASSID_OSINT`, whose
+registered read-mode is `tail_variant = V1` — the known per-classid-legacy-tail
+pending noted in `ReadMode::DEFAULT`'s docs, while its FMA bins already use the
+sanctioned `mint_for(classid_read_mode(c).tail_variant, …)` dispatch. The V3
+class `CLASSID_OSINT_V3 = 0x1000_0700` exists precisely for that migration.
+
+**Resolution paths (operator decision):** (a) q2 cpic re-mints via the
+contract's `mint_for(classid_read_mode(CLASSID_CPIC_V3).tail_variant, …)`
+pull (consumer-preflight shape — pull, never mirror); (b) the registry gains
+the `0x0C` pharmacogenomics classids q2 actually minted; or (c) the q2 POC is
+declared registry-exempt (bake-only) and its parity comment is scoped to
+"V1 byte layout" explicitly. No action taken pending direction.
+
+---
+
+## 2026-07-01 — ISS-OSINT-SYSTEM-ROOT-SLOT-VIOLATION — OGAR shipped `osint_system` at the reserved `0x0700` root slot; the lance-graph mirror canon forbids it (`CC==0x00` = domain root, reserved) — the parallel-mirror is BLOCKED on a remap decision
+
+**Status:** OPEN · **BLOCKS `ISS-OGAR-OSINT-MIRROR-PENDING`.** Owner: OGAR `ogar-vocab` (merged, needs follow-up) + `lance-graph-contract::ogar_codebook` mirror + q2 `osint_classview`. Surfaced 2026-07-01 when the merged OGAR #145 + lance-graph #624 met and I ran `cargo test -p lance-graph-contract`.
+
+**The violation.** The shared codebook canon (documented in `ogar_codebook.rs` module header: *"`CC == 0x00` = the domain root, reserved"*) requires every concept id `0xDDCC` to have `CC ≥ 0x01`; `0x__00` is the domain-root/default, NOT a concrete concept. OGAR main ships **`("osint_system", 0x0700)`** — `CC == 0x00`, the reserved root. `("osint_person", 0x0701)` is valid (`CC==01`, operator-frozen). The lance-graph mirror enforces the canon via the workspace-member test `codebook_has_no_duplicate_ids_or_zero_concept_slot` (`assert_ne!(id & 0x00FF, 0x00)`), so **mirroring `0x0700` fails lance-graph's own default CI** (748 pass, 1 fail). The `COUNT_FUSE` (in the *excluded* `lance-graph-ogar`) is a separate, downstream break; this one is in-tree.
+
+**Current blast radius.** lance-graph main's default CI is GREEN (mirror still 65, zero-slot test passes; the `COUNT_FUSE` lives in the excluded `lance-graph-ogar`). Consumers vendoring `lance-graph-ogar` against OGAR-main-67 vs mirror-65 will break on the count fuse. The parallel-mirror fix is **blocked** because the obvious "+2 rows" fix trips the zero-slot invariant.
+
+**Decision needed (operator).** Two coherent reads of `osint_system @ 0x0700`:
+- **Option A — it's a concrete concept → remap.** Move `osint_system` to `0x0702` in OGAR (fresh PR; `0x0701` frozen for `osint_person`); mirror `{0x0701, 0x0702}` (count 67); update q2 `OSINT_SYSTEM_CLASS 0x0700 → 0x0702`. Canon satisfied, but a merged id moves + q2 change.
+- **Option B (recommended) — `0x0700` IS the OSINT domain root/default class, not a counted concept.** This is exactly what the canon reserves `0x__00` for ("zero = fall through to the broader default"). OGAR drops `osint_system` from the *concept* `CODEBOOK`/`class_ids::ALL` (keep an `OSINT_SYSTEM = 0x0700` const documented as the domain-root class if useful); `ALL` → 66; mirror carries only `("osint_person", 0x0701)` → 66; the fuse balances at 66; q2 keeps `0x0700` as the renderable domain-default class (canon-legal: the root IS a real default class, just not a codebook *concept* row). No id moves; aligns with the user's "0x0701 is the frozen concept" framing.
+
+Both are OGAR-side follow-ups (OGAR #145 is merged) landed in parallel with the lance-graph mirror rows, per `E-OGAR-LANCEGRAPH-MOVE-IN-PARALLEL`.
+
+**ADDENDUM (2026-07-01, later session — ground-truth strengthening of Option B;
+still the operator's decision, no action taken):** the codebase ALREADY lives
+Option B's distinction. There are two id spaces aliasing in the lo u16: the
+**classid space** (what nodes mint under) and the **concept-vocabulary space**
+(what the codebook counts). Evidence: `canonical_node.rs` ships
+`CLASSID_OSINT = 0x0000_0700` as a LIVE registered class (`ReadMode::OSINT` in
+`BUILTIN_READ_MODES`) and q2 `osint-bake/src/lib.rs:606` mints real `0x0700`
+rows — while the mirror's zero-slot invariant only ever governed *vocabulary
+rows*. So `0xDD00` = "the ONE class per domain" (valid classid, exactly the
+operator's "OSINT is ONE class") and simultaneously "not a nameable concept"
+(no codebook row) — no contradiction once the spaces are named. Under this
+reading OGAR's `osint_system` mint was the same move lance-graph already made,
+just landed in the wrong space (a vocabulary row instead of a classid const).
+Option B resolves it without deleting the idea or moving any id.
+
 ## 2026-07-01 — ISS-OGAR-OSINT-MIRROR-PENDING — OGAR #145's OSINT mint (+2 to `class_ids::ALL`) breaks the contract-mirror `COUNT_FUSE` on merge; the paired lance-graph mirror rows must land in the same arc
 
 **Status:** OPEN (tracked) · **Resolution path RULED by operator 2026-07-01: keep the fuse (it IS the dependency contract enforcing OGAR↔lance-graph parallel movement); do NOT pin to a rev — "option 1" is REJECTED. Land the 2 mirror rows + `domains_agree` arm in parallel with OGAR #145 (option 2 / coordinated merge; brief transient red is acceptable — "the fuse is okay for now"). See `E-OGAR-LANCEGRAPH-MOVE-IN-PARALLEL`.** · Owner: OGAR `ogar-vocab` (PR #145) + `lance-graph-contract::ogar_codebook` mirror + `lance-graph-ogar::parity::domains_agree`. Surfaced 2026-07-01 while self-reviewing PR #624 / #145. Same cross-repo-arc shape as `ISS-OGAR-AUTH-MIRROR-DRIFT` (which took medcare CI red) and `ISS-OGAR-GENETICS-MIRROR-PENDING`; cited by `E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC`.

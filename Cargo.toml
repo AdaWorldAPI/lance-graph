@@ -217,4 +217,10 @@ resolver = "2"
 # The patch is a declared-intent override; effect on the transitive depends
 # on semver compat. See BLOCKED(D) comment above + TD-NDARRAY-PATCH-0_16.
 [patch.crates-io]
-ndarray = { git = "https://github.com/AdaWorldAPI/ndarray.git", branch = "master" }
+# Local sibling checkout of the SAME fork (P0: "prefer the local/fork source,
+# always"; the direct deps already assume the sibling via path = "../../../ndarray").
+# The git-URL form re-fetched AdaWorldAPI/ndarray+its burn submodule on every
+# resolve; burn is outside the session repo scope (403) and the gitlink rev is
+# unfetchable, so the git form deadlocks offline sessions. Path form = zero
+# network, identical source.
+ndarray = { path = "../ndarray" }

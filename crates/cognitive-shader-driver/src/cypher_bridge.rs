@@ -251,7 +251,7 @@ mod tests {
     /// TD-INT-6 — empty candidate list escalates.
     #[test]
     fn disambiguate_empty_candidates_escalates() {
-        let chain = ContextChain::new(8);
+        let chain = ContextChain::new();
         let result = disambiguate_parse_candidates(&chain, 0, Vec::new());
         assert!(result.is_err(), "empty candidates must escalate");
     }
@@ -259,7 +259,7 @@ mod tests {
     /// TD-INT-6 — single candidate escalates (margin = 0).
     #[test]
     fn disambiguate_single_candidate_escalates() {
-        let chain = ContextChain::new(8);
+        let chain = ContextChain::new();
         let cand = CrystalFingerprint::Binary16K(Box::new([0u64; 256]));
         let result = disambiguate_parse_candidates(&chain, 0, vec![cand]);
         assert!(result.is_err(), "single candidate must escalate");

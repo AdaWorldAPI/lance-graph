@@ -32,8 +32,8 @@ use causal_edge::plasticity::PlasticityState;
 use causal_edge::tables::{unpack_c, unpack_f, NarsTables};
 use lance_graph_contract::cognitive_shader::{
     AlphaComposite, CognitiveShaderDriver, EmitMode, MaterializeProvenance, MetaSummary, NullSink,
-    ShaderBus, ShaderCrystal, ShaderDispatch, ShaderHit, ShaderResonance, ShaderSink,
-    ALPHA_COMPOSITE_DIMS,
+    RungElevator, RungLevel, ShaderBus, ShaderCrystal, ShaderDispatch, ShaderHit, ShaderResonance,
+    ShaderSink, ALPHA_COMPOSITE_DIMS,
 };
 use lance_graph_contract::collapse_gate::{GateDecision, MergeMode, ALPHA_SATURATION_THRESHOLD};
 use lance_graph_contract::grammar::free_energy::{FreeEnergy, EPIPHANY_MARGIN};
@@ -97,6 +97,17 @@ pub struct ShaderDriver {
     /// is unchanged — this field is purely additive and does not alter
     /// any existing dispatch semantics. Removed at cutover (plan S3).
     pub(crate) mailboxes: std::collections::HashMap<MailboxId, MailboxSoA<1024>>,
+    /// Persistent rung-elevation state (`RungElevator`) across dispatch
+    /// cycles. Each `run()` call is "one cycle" per this module's own
+    /// docstring ("emits one CycleFingerprint per cycle — the unit of
+    /// thought"); the elevator lives here — same `RwLock`-guarded,
+    /// updated-every-cycle pattern as `awareness` above — so that
+    /// "sustained BLOCK elevates" (the policy `RungElevator::on_gate`
+    /// documents) can actually observe more than one gate. A
+    /// per-call-local elevator would reset every dispatch and could
+    /// never accumulate a streak. Reset to the dispatch's requested
+    /// base whenever `ShaderDispatch::rung` changes between calls.
+    pub(crate) rung_elevator: RwLock<RungElevator>,
 }
 
 impl ShaderDriver {
@@ -118,6 +129,7 @@ impl ShaderDriver {
             awareness: RwLock::new(awareness),
             nars_tables: None,
             mailboxes: std::collections::HashMap::new(),
+            rung_elevator: RwLock::new(RungElevator::new(RungLevel::default())),
         }
     }
 
@@ -568,6 +580,23 @@ impl ShaderDriver {
             _ => None,
         };
 
+        // Feed this cycle's already-decided `gate` into the persistent
+        // per-driver `RungElevator` (sustained-BLOCK elevation over the
+        // dispatched base — see the field doc on `ShaderDriver::rung_elevator`).
+        // A dispatch requesting a different base rung than the elevator
+        // currently tracks resets it to that new base first, so streaks
+        // never leak across unrelated dispatch contexts.
+        let elevated_rung: u8 = {
+            let mut elevator = self
+                .rung_elevator
+                .write()
+                .expect("rung_elevator RwLock poisoned");
+            if elevator.base != req.rung {
+                *elevator = RungElevator::new(req.rung);
+            }
+            elevator.on_gate(gate) as u8
+        };
+
         // Materialized-awareness provenance — runs the F→34→F loop + HHTL fork as
         // a SIDE analysis over this cycle's observables. Provenance-only: it has
         // NOT influenced `gate` above and does not influence persistence; it only
@@ -579,6 +608,7 @@ impl ShaderDriver {
             top_resonance,
             awareness_skill,
             &candidate_resonances,
+            elevated_rung,
         );
 
         // [8] NARS revision — phi-1 humility ceiling.
@@ -798,6 +828,7 @@ impl CognitiveShaderBuilder {
             awareness: RwLock::new(awareness),
             nars_tables: self.nars_tables,
             mailboxes: self.mailboxes,
+            rung_elevator: RwLock::new(RungElevator::new(RungLevel::default())),
         }
     }
 }
@@ -849,13 +880,15 @@ fn entropy_std(hits: &[ShaderHit]) -> (f32, f32) {
 /// - `dissonance`  ← `|top_resonance - (1 - F.total)|` (the Dunning-Kruger gap:
 ///   what the cycle *feels* vs what it has *demonstrated*)
 /// - `temperature` ← `std_dev` clamp (spread ⇒ explore; proxy)
-/// - `rung`        ← `1` (no HHTL cascade depth surfaced in this cycle; proxy)
+/// - `rung`        ← live `RungElevator` level (sustained-BLOCK elevation
+///   over the dispatched base — see `ShaderDriver::rung_elevator`)
 fn materialize_provenance(
     free_energy: &FreeEnergy,
     std_dev: f32,
     top_resonance: f32,
     awareness_skill: f64,
     candidate_resonances: &[f32],
+    rung: u8,
 ) -> MaterializeProvenance {
     let demonstrated = (1.0 - free_energy.total).clamp(0.0, 1.0);
     let mut ctx = ThoughtCtx::new(candidate_resonances.to_vec());
@@ -866,7 +899,7 @@ fn materialize_provenance(
         .abs()
         .clamp(0.0, 1.0);
     ctx.temperature = std_dev.clamp(0.0, 1.0);
-    ctx.rung = 1;
+    ctx.rung = rung;
 
     let trace = materialize(&mut ctx, 64);
 
@@ -1095,17 +1128,120 @@ mod tests {
         // Confident cycle: high resonance, low dispersion, ample skill → Boredom →
         // Commit (fork 0). The leaf residue is small, the domain over-explains.
         let fe_lo = FreeEnergy::compose(0.95, 0.05);
-        let confident = materialize_provenance(&fe_lo, 0.05, 0.95, 0.9, &[0.95, 0.9, 0.88]);
+        let confident = materialize_provenance(&fe_lo, 0.05, 0.95, 0.9, &[0.95, 0.9, 0.88], 1);
         assert_eq!(confident.fork, 0, "confident cycle commits (no fork)");
 
         // Scattered cycle: low resonance, high dispersion, short skill → Anxiety at
         // leaf → ForkDomain (fork 3): the orthogonal leaf residue is strong enough
         // that free energy forks into a new domain.
         let fe_hi = FreeEnergy::compose(0.3, 0.4);
-        let scattered = materialize_provenance(&fe_hi, 0.4, 0.3, 0.1, &[0.3, 0.28, 0.31]);
+        let scattered = materialize_provenance(&fe_hi, 0.4, 0.3, 0.1, &[0.3, 0.28, 0.31], 1);
         assert_eq!(
             scattered.fork, 3,
             "scattered low-skill cycle forks to a new domain"
+        );
+    }
+
+    /// Full driver-cycle test for the `RungElevator` wiring: a dispatch with
+    /// `rung: RungLevel::Surface` whose cycles (each `dispatch()` call is
+    /// "one cycle") produce sustained BLOCK gates elevates the driver's
+    /// persistent `rung_elevator` above `Surface`. Uses an empty row window
+    /// (`ColumnWindow::new(0, 0)`) so `hits` is deterministically empty on
+    /// every call → `top_resonance = 0.0`, `std_dev = 0.0` →
+    /// `FreeEnergy::compose(0.0, 0.0).total == 1.0 > FAILURE_CEILING (0.8)`
+    /// → `GateDecision::BLOCK`, every single cycle, no flakiness.
+    #[test]
+    fn rung_elevator_persists_across_cycles_and_elevates_on_sustained_block() {
+        let bs = Arc::new(demo_bindspace());
+        let sr = Arc::new(demo_semiring());
+        let driver = CognitiveShaderBuilder::new()
+            .bindspace(bs)
+            .semiring(sr)
+            .planes(demo_planes())
+            .build();
+
+        let req = ShaderDispatch {
+            rows: ColumnWindow::new(0, 0),
+            meta_prefilter: MetaFilter::ALL,
+            layer_mask: 0xFF,
+            radius: u16::MAX,
+            style: StyleSelector::Ordinal(auto_style::ANALYTICAL),
+            rung: RungLevel::Surface,
+            ..Default::default()
+        };
+
+        // Base rung starts at Surface (RungElevator::new(RungLevel::default())).
+        assert_eq!(
+            driver.rung_elevator.read().unwrap().level,
+            RungLevel::Surface
+        );
+
+        // Cycle 1: BLOCK, but `RungElevator::DEFAULT_THRESHOLD == 2` — a
+        // single BLOCK is not yet "sustained", so no elevation.
+        let crystal1 = driver.dispatch(&req);
+        assert_eq!(crystal1.bus.gate, GateDecision::BLOCK);
+        assert_eq!(
+            driver.rung_elevator.read().unwrap().level,
+            RungLevel::Surface,
+            "one BLOCK cycle must not elevate (threshold is 2 consecutive)"
+        );
+
+        // Cycle 2: second consecutive BLOCK — sustained — elevates one rung.
+        let crystal2 = driver.dispatch(&req);
+        assert_eq!(crystal2.bus.gate, GateDecision::BLOCK);
+        assert_eq!(
+            driver.rung_elevator.read().unwrap().level,
+            RungLevel::Shallow,
+            "two consecutive BLOCK cycles must elevate Surface -> Shallow"
+        );
+
+        // A dispatch requesting a *different* base rung resets the
+        // elevator to that new base (streaks never leak across unrelated
+        // dispatch contexts) — the `materialize_provenance` seam this
+        // elevator feeds (`ctx.rung ← elevator.on_gate(gate)`) is exercised
+        // directly in the narrower unit test below.
+        let req_meta = ShaderDispatch {
+            rung: RungLevel::Meta,
+            ..req
+        };
+        let _ = driver.dispatch(&req_meta);
+        assert_eq!(
+            driver.rung_elevator.read().unwrap().base,
+            RungLevel::Meta,
+            "a dispatch with a different requested base resets the elevator"
+        );
+    }
+
+    /// Narrower unit test of the wired seam itself: `materialize_provenance`
+    /// now takes the elevator's current level as an explicit `rung: u8`
+    /// parameter and threads it into `ThoughtCtx::rung`, which
+    /// `materialize()` uses for tier selection (`materialize.rs` lines
+    /// ~99-101: `ctx.rung >= 7` / `>= 4` gate which tactic tier is offered).
+    /// This asserts the parameter is load-bearing, not decorative: raising
+    /// `rung` from `1` to `9` (`RungLevel::Transcendent`) changes the offered
+    /// tactic tier for an otherwise-identical scattered cycle.
+    #[test]
+    fn materialize_provenance_threads_elevated_rung_into_thought_ctx() {
+        let fe_hi = FreeEnergy::compose(0.3, 0.4);
+        let low_rung = materialize_provenance(&fe_hi, 0.4, 0.3, 0.1, &[0.3, 0.28, 0.31], 1);
+        let high_rung = materialize_provenance(&fe_hi, 0.4, 0.3, 0.1, &[0.3, 0.28, 0.31], 9);
+        // Both are well-formed provenance (sanity floor from the existing
+        // dispatch_populates_materialize_provenance assertions).
+        assert!(low_rung.first_tactic <= 34);
+        assert!(high_rung.first_tactic <= 34);
+        assert!(low_rung.final_free_energy.is_finite());
+        assert!(high_rung.final_free_energy.is_finite());
+        // Load-bearing check. Honesty note: tier is a +1 tie-weight in the
+        // 34-tactic scoring (mechanism +5 dominates), so different rungs are
+        // NOT guaranteed to select different tactics for every input — but for
+        // THIS scattered mid-surprise cycle they empirically do (rung 1 →
+        // tactic 17, rung 9 → tactic 3 at authoring time). Asserting
+        // inequality (not exact ids) pins the property "the rung parameter
+        // reaches tier selection and can flip the choice" without freezing the
+        // recipe table.
+        assert_ne!(
+            low_rung.first_tactic, high_rung.first_tactic,
+            "rung must be load-bearing in tactic selection for this input"
         );
     }
 

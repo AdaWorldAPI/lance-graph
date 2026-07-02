@@ -1,3 +1,115 @@
+## 2026-07-01 — E-RUNG-LADDER-IS-DISPATCH-POLICY-OVER-CERTIFIED-MASKS — rung elevation needs zero new math; and there is ONE ladder with TWO signal sources (gate streaks + felt-parse delta)
+
+**Status:** FINDING (shipped: `RungLevel::{from_u8, elevate, de_elevate,
+pearl_level, causal_mask_bits}` + `RungElevator` in
+`contract::cognitive_shader`, 755 lib tests green).
+
+**Half 1 — no new math.** "Elevates on sustained BLOCK" (documented intent on
+`ShaderDispatch::rung` since the field landed; driver ran a `ctx.rung = 1`
+proxy) is purely a dispatch policy over algebra the P2/P3 probes already
+certified: rung → Pearl level (the enum names its own boundary —
+`Counterfactual = 6` is where Level 3 starts; 0–2 observe, 3–5 intervene,
+6–9 counterfactual) → SPO projection mask (`PO = 0b011` and `SPO = 0b111`
+probe-certified; `O = 0b001` for L1 is a labeled convention pending its own
+probe). The elevator is a ~40-line homeostatic state machine: sustained BLOCK
+elevates, sustained FLOW relaxes toward the dispatched base, HOLD resets
+streaks without ladder creep. Threshold 2 hand-tuned (disclosed per
+`I-NOISE-FLOOR-JIRAK`).
+
+**Half 2 — convergence catch (anti-invention applied to my own type):** the
+tree already had `escalation::rung_delta(emergence, coherence) → ±1` (the
+felt-parse System-1 rung hint, `CollapseHint::RungElevate`). NOT a duplicate —
+a second signal source. Resolution: `RungElevator::apply_delta(i8)` drives the
+SAME accumulator the gate streaks drive. One ladder, two inputs: gate streaks
+= System-2 stuck/converged evidence; qualia delta = System-1 felt hint; both
+respect the same base floor and Transcendent ceiling. The near-miss (almost
+shipping a parallel ladder) is the same reflex `E-V3-TENANTS-ALREADY-EXIST-
+WIRE-DONT-INVENT` names — caught this time by checking the test namespace
+collision before committing.
+
+Plan: `.claude/plans/v3-convergence-wiring-v1.md` (D-VCW-1a; D-VCW-1b threads
+it through the driver).
+
+---
+
+## 2026-07-01 — E-V3-TENANTS-ALREADY-EXIST-WIRE-DONT-INVENT — the "V3 substrate for AriGraph-shaped SoA tenants" already exists in `canonical_node.rs`; Phase-2 work is certification, not invention
+
+**Status:** FINDING (probes green: `osint_v3_cognitive_tenant_carve_field_isolation_matrix` + `fma_cpic_v3_compressed_tenant_carve_field_isolation_matrix` — BOTH carves a Phase-1 V3 class materialises, Cognitive hot + Compressed cold, are now matrix-covered. 2026-07-01 addendum: lance-graph CORE now compiles in-sandbox — crates.io noProxy + local ndarray path patch + protoc — and `graph::arigraph` is 124/124 green incl. `markov_soa`'s 4, so the wave projector's "unverified-offline" caveat is cleared: the full wire classid → read-mode → certified tenants → AriGraph wave is probed end-to-end).
+
+**The near-miss.** This session was about to invent a "new V3 substrate for
+AriGraph-shaped SoA tenants" (operator caught it). Reading before writing showed
+every piece already shipped:
+- `TailVariant::V3` + `CLASSID_OSINT_V3 = 0x1000_0700` (gen-marker hi u16, canon
+  concept lo u16 — exactly the operator's `0x07:01 / 1000`), registry-resolved via
+  `classid_read_mode` → `ReadMode::OSINT_V3 = {V3, Cognitive, CoarseOnly}`.
+- The AriGraph-hot tenants ARE `ValueSchema::Cognitive`'s 7 lanes (Meta/Qualia/
+  Fingerprint/Energy/Plasticity/EntityType/Kanban) — the same columns
+  `MailboxSoaView` exposes (`meta_raw`/`energy`/`entity_type`≡`class_id`) and
+  `arigraph::markov_soa` (the wave) folds over.
+- `mint_for(classid_read_mode(c).tail_variant, …)` is the sanctioned mint; no
+  `new_v3` exists by design.
+
+**What was actually missing (and now shipped):** the I-LEGACY mandatory
+field-isolation matrix covered ONLY the Kanban tenant. New probe extends it to
+the whole Cognitive carve on a registry-minted OSINT-V3 row: per-tenant lane
+flip → zero bytes change outside the lane, key+edges untouched, EntityType lane
+carries the canon `0x0700` concept (gen-marker never leaks into the entity
+discriminator), typed accessors (`set_kanban`/`qualia`) decode the same certified
+slab. Phase 2 ("shape the V3 tenants on top", CPIC doc) proceeds as *readings
+over this certified carve* — `classid → ClassView` interpretations, never new
+`ValueSchema` variants (#496/#500 guardrail).
+
+**Build unblock (same commit):** `[patch.crates-io] ndarray` moved from the git
+URL to the local sibling path (`path = "../ndarray"`). The git form re-fetched
+the fork + its `burn` submodule on every resolve; `AdaWorldAPI/burn` is outside
+the session repo scope (403, unfetchable gitlink `9b2b671`), deadlocking every
+offline/scoped session. The patch was `[[patch.unused]]` in the lock either way
+(documented TD-NDARRAY-PATCH-0_16), so resolution is unchanged — only the
+fetch-deadlock is gone. P0 fork doctrine holds: same fork, local source
+("prefer the local/fork source over the registry, always").
+
+---
+
+## 2026-07-01 — E-RENDER-IS-CLASS-BITMASK-ASKAMA-NOT-SEMIRING — the view/attention side is `class + bitmask + askama` (Redmine ERB over AR), NOT semiring algebra; it lives in the non-frozen `0x1000` app prefix
+
+**Status:** DOCTRINE (operator, 2026-07-01: "we don't want semiring, we use
+classes and bitmask and askama (redmine ERB pattern) … the 1000 non-frozen later
+gets more complicated because it adapts the askama SoA view (implicit focus of
+attention)").
+
+**The split.**
+- **Frozen concept (lo u16, e.g. `0x0701`)** = the shared **Active Record class
+  identity**. A class is just a class (Redmine `Issue`/`Project`/`User` shape);
+  the domain prefix is namespacing, nothing to philosophize about. Frozen,
+  cross-app, RBAC+ontology.
+- **Non-frozen app prefix (hi u16, e.g. `0x1000`)** = the **render / view** side,
+  which "adapts the askama SoA view." This is where the complexity accretes
+  *later*, per-app, and it is NOT the concept.
+
+**The render mechanism — NO semiring.** View/attention is:
+`classid → ClassView (the AR class) → bitmask (the implicit focus of attention:
+which SoA value-tenant columns render/attend) → askama template (Redmine-ERB over
+the AR model)`. The **bitmask is the focus-of-attention selector**; askama is the
+ERB view; the class is the model. No semiring algebra on this path — the AGI-glove
+render surface is `class + bitmask + askama`, not `Σ`.
+
+**Consequences.**
+- The 36-semiring machinery (`docs/SEMIRING_ALGEBRA_SURFACE.md`) is NOT the render
+  path. Do not reach for a semiring to select/compose *view fields* — that's the
+  bitmask + askama job.
+- The bitmask = the `ClassView` field-mask over the SoA value tenants (the "focus
+  of awareness" from `E-SPO-2CUBE-…` / the AGI-glove `MetaColumn`), consumed by an
+  askama template per app prefix.
+- The immediate `osint_system 0x0700 → 0x0702` fix is a **frozen-concept lo-u16
+  slot** correction (a class needs a non-root id) — entirely orthogonal to this
+  render-side doctrine; the askama/bitmask complexity is the `0x1000` side, later.
+
+**Cross-ref:** `E-SPO-2CUBE-GIVES-QUESTIONS-AND-CANDIDATES` (bitmask = focus);
+OGAR `docs/OSINT-SUBSTRATE-REUSE-MAP.md` (ClassView + askama-ERB transfer stack);
+`ISS-OSINT-SYSTEM-ROOT-SLOT-VIOLATION` (the frozen-side id fix).
+
+---
+
 ## 2026-07-01 — E-OGAR-LANCEGRAPH-MOVE-IN-PARALLEL — OGAR + lance-graph are one coupled pair moved together every session; the `COUNT_FUSE` is the intentional dependency contract that enforces it (NOT a break to engineer away)
 
 **Status:** DOCTRINE (operator, 2026-07-01: "every session needs to move OGAR and
