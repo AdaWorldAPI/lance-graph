@@ -9,6 +9,7 @@ Plan: `.claude/plans/classid-canon-custom-flip-v1.md`. Operator trigger 2026-07-
 | D-CCF-2 | OGAR#95 hi-u16 app-prefix reconciliation | contract + OGAR | In PR (OGAR #147; prefix = custom half) | plan §2 row / §4 P2 |
 | D-CCF-3 | q2 re-mints (osint-bake + cpic via contract pull; dissolves ISS-Q2-CPIC-MIRROR) | q2 (gate WAIVED) | In PR (q2 #71; .soa re-bakes deferred to CI/dev; cpic interim 0x0E01_000N, full contract pull tracked) | plan §4 P3 |
 | D-CCF-4 | 0x1000 marker retirement | all | Blocked (operator checkpoint) | plan §4 P4 |
+| D-PERT-1 | Rename dto.rs ResonanceDto → PerturbationDto (split, not dedup; deprecated alias; awareness_dto keeps Resonance) | thinking-engine + engine_bridge | Queued | E-TWO-RESONANCES-SPLIT |
 
 ## v3-convergence-wiring-v1 — wire, don't invent (the seam list)
 

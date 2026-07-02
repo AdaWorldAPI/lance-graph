@@ -1,3 +1,64 @@
+## 2026-07-02 — E-TWO-RESONANCES-SPLIT — operator disambiguation confirmed: mechanical perturbation ≠ perspectival resonance; rename the Ψ DTO, keep the perspectival name; L4 perturbation feeds Learning through the SoA Lance row
+
+**Status:** DOCTRINE (operator question answered YES-with-precision,
+2026-07-02; naming ruling recorded, rename queued as D-PERT-1).
+
+**Confirmed — there are TWO resonances sharing one name, and the code
+already separates them:**
+
+1. **Mechanical (Ψ):** `thinking-engine/src/dto.rs::ResonanceDto` — the
+   f32 energy ripple field from `StreamDto` perturbations interfering.
+   YES, this is the Morton-tile cascade inverse-pyramid perturbation:
+   its addressed/tiled form is the OGAR perturbation pyramid
+   (256×256 nibble-interleaved centroid tiles, coarse→fine descent,
+   Walsh-Hadamard bipolar phase — the canon itself calls each cell "a
+   resonance field, not combinatorial selection"). It is field PHYSICS.
+2. **Perspectival:** `thinking-engine/src/awareness_dto.rs::ResonanceDto`
+   — and it is ALREADY the Piaget structure in code: `hdr: HdrResonance`
+   is a 3D subject/predicate/object agreement profile;
+   `dominant_perspective: Archetype`; `gestalt_state: GestaltState`;
+   `dissonance`; PLUS an inferred USER model (`user_style` /
+   `user_engagement` / `user_valence` / `user_depth`) — literally the
+   Three-Mountains awareness that the recipient's perspective differs
+   from the sender's and is relative to object perception. The Gestalt
+   line "was sagt das Objekt über sich selbst aus" IS the workspace's
+   canonical "The object speaks for itself" + `classid → ClassView`
+   (the object's self-description, prerendered by the key).
+   Familienaufstellung = the mailbox constellation (sea-star topology):
+   each mailbox holds its own kanban board and its own angle
+   (QualiaColumn) on shared canon objects. "Two renders, one concept"
+   IS the Three-Mountains theorem in the addressing: same canon (the
+   mountain), different custom-half lens (the viewpoint) — post-P4
+   literally addressable.
+
+**Naming ruling (differentiated):**
+- `dto.rs::ResonanceDto` → **`PerturbationDto`** (it IS
+  field-state-from-perturbations; matches the canon's perturbation-
+  pyramid vocabulary). TD-RESONANCEDTO-DUPLICATE resolves by SPLIT,
+  not dedup: the "duplicate" was two distinct concepts under one name.
+- `awareness_dto.rs::ResonanceDto` KEEPS the Resonance name — resonance
+  proper is the perspectival phenomenon (Subject's thinking resonating
+  with the Object's self-Gestalt).
+- **"Cascade" is NOT renamed.** HEEL/HIP/TWIG "3 cascade tiers" is
+  operator-locked GUID canon; only the mechanical DESCENT is called the
+  perturbation pyramid. Renaming the key-tier cascade would churn the
+  entire canon for no disambiguation gain (the collision was in the
+  DTO name, not in "cascade").
+- Rename ships as its own gated deliverable **D-PERT-1** (~9 files in
+  thinking-engine + engine_bridge; transition via a deprecated
+  `pub type ResonanceDto = PerturbationDto;` alias per I-LEGACY).
+
+**L4 feedback loop (operator recall, confirmed consistent):**
+Perturbation at L4 (Composition/orchestration) feeds back into Learning
+THROUGH THE SoA LANCE ROW — the converged perturbation residue persists
+into the value-tenant lanes (Energy/Qualia/Meta) via the owner-stamped
+LE envelope, and the next cycle's standing template READS that row: the
+persisted perturbation reshapes the next cycle's free-energy landscape.
+This is The Click's "global_context += fact → reshapes NEXT cycle's F
+landscape" arc, carried by tenant lanes instead of any singleton
+context — learning is the row, never a cross-mailbox carrier
+(StepDomain::Learning routes it; the envelope owns it).
+
 ## 2026-07-02 — E-DTO-LADDER-OWNERSHIP-SPLIT — BusDto stays ownership-FREE; the envelope owns the write moment; StreamDto is the ancestor of the standing async plan
 
 **Status:** DOCTRINE (reconciliation of the operator's overlap question,

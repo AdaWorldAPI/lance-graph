@@ -185,3 +185,29 @@ to be called); ResonanceDto stays intra-mailbox (dedup its two
 definitions — dto.rs + awareness_dto.rs); BusDto's converged/cycle_count
 feed the D-MBX-A6 KanbanMove emit. Full text: board
 `E-DTO-LADDER-OWNERSHIP-SPLIT`.
+
+---
+
+## APPENDED (operator disambiguation, 2026-07-02): the two resonances
+
+Two distinct concepts share the `ResonanceDto` name; the split is ruled
+(full text: board `E-TWO-RESONANCES-SPLIT`):
+
+- `dto.rs::ResonanceDto` = the MECHANICAL Ψ field (Morton-tile
+  inverse-pyramid perturbation interference) → renames to
+  `PerturbationDto` (D-PERT-1, queued; deprecated alias for transition).
+  "Cascade" (HEEL/HIP/TWIG key tiers) is NOT renamed — canon vocabulary.
+- `awareness_dto.rs::ResonanceDto` = the PERSPECTIVAL resonance and
+  keeps the name — it already encodes the Piaget Three-Mountains
+  structure (3D subject/predicate/object HdrResonance + inferred user
+  model = the recipient's perspective ≠ the sender's) against the
+  Object's self-Gestalt (`classid → ClassView` = "was sagt das Objekt
+  über sich selbst aus" = "the object speaks for itself").
+  Familienaufstellung = the mailbox constellation, each with its own
+  angle on shared canon objects; "two renders, one concept" is the
+  Three-Mountains theorem in the addressing.
+- L4 perturbation feeds back into Learning THROUGH the SoA Lance row:
+  converged residue persists into tenant lanes via the owner-stamped
+  envelope; the next cycle's standing template reads the row — the
+  persisted perturbation reshapes the next F landscape (The Click's
+  loop, carried by tenant lanes, never a cross-mailbox carrier).
