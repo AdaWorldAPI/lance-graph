@@ -438,3 +438,156 @@ tasks but manageable if done properly"):**
 5. **Per-consumer accommodation** — ruff + OGAR adaptations,
    lance-graph UnifiedBridge ↔ OGAR, AST contract evolution (the W5
    consumer wave, now with the fuse doctrine as its safety rail).
+
+### Addendum-12 2026-07-02 — the W2+W3b arc (operator: "can you handle those 2 lanes?" — yes; this session owns them)
+
+**Lanes confirmed:** (1) thinking ↔ substrate / V3 migration (W2), (2)
+orchestration rs-graph-llm (W3b). The parallel OGAR F17/DO-arm arc is
+fenced to another session (prompt issued; see the intake handover).
+
+**Execution order (probes first, W1 pattern):**
+
+1. **P-W2b** (in flight): KanbanActor spawned over the REAL
+   `cognitive_shader_driver::mailbox_soa::MailboxSoA` via
+   `MailboxSoaOwner::try_advance_phase` — dev-dep only (the structural-
+   owner proof gains no runtime dep). Gates: legal advances visible
+   through MailboxSoaView on real rows; illegal transition surfaces the
+   lifecycle-DAG error with the row unchanged.
+2. **P-W3b** (in flight): `KanbanSessionStorage` in graph-flow behind a
+   new optional `kanban` feature (graph-flow is the composer; the
+   envelope crate stays contract-only). Snapshot upsert + append-only
+   real-KanbanMove log; **V1 Rubicon mapping** (orchestrator-decided,
+   revisable, tests pin it): first-save→Planning, task-change→
+   CognitiveWork, waiting→Evaluation, completed→Commit, error→Prune.
+   Gate = the M25 kill-mid-graph replay test (resume identically; no
+   repeated/skipped tasks; move-log column sequence pinned). Storage
+   carries the mailbox (acts on behalf of one mailbox) — never the
+   Session (DTO purity). Live-oracle validation follows (keys present;
+   same spend discipline: few calls, small max_tokens).
+3. **W2a board-as-tenant SPEC** (envelope-auditor-gated before any
+   byte lands): per the frozen-row ruling the board mints NO new byte
+   lane — the mailbox's board is a **dedicated board ROW** (a NodeRow
+   whose classid marks board-of-mailbox; classid → ClassView resolves
+   the value-slab interpretation; per-row `KanbanTenant` stays
+   per-work-item; the board row's slab carries board-level aggregates).
+   "One mailbox = one kanban board as tenant" = the board is addressed
+   AS a row of the mailbox. Requires: field-isolation matrix, a board
+   classid allocation (BATCHED mint per the mint rule — goes through
+   the next allocation batch, never a solo edit), zero
+   ENVELOPE_LAYOUT_VERSION change (classid routing only — RESERVE,
+   DON'T RECLAIM). Auditor reviews the spec before implementation.
+4. **W2c symbiont arm**: one dependency-uncomment + ~10 min cold build
+   (BlockedColdBuild is deliberate); attempt in-container after 1–3,
+   disk permitting.
+5. **W2d** 550 ms budget via elevation/ (extend, don't shadow) — M12.
+6. **R-2 residual**: edges-only strided-read test over NODE_ROW_COLUMNS
+   (read-side; 16-of-512; no storage change) — rides with W2a's PR.
+
+### Addendum-12a 2026-07-02 — W2a envelope-audit ruling: LAYOUT-GATED (spec-stage)
+
+Verdict on the Addendum-12 §3 board-row sketch: **byte-sound, zero
+ENVELOPE_LAYOUT_VERSION change, NOT LAYOUT-BREAK — but the textbook
+I-LEGACY-API-FEATURE-GATED shape** (same stored bytes, meaning selected
+by routing). It lands only with:
+
+- **Crux resolved (orchestrator decision per the ruling):** board
+  aggregates take the **NEW append-only 10th `ValueTenant`
+  (`BoardAggregates`, row_offset 152)** + a board preset + a
+  `BUILTIN_READ_MODES` entry — NOT a reuse-reinterpretation of existing
+  tenant bytes (focus-lens reading inexpressible pre-P4). The sketch's
+  "no new lane" is CORRECTED: additive-at-the-end IS a lane and IS still
+  layout-clean/version-free; guardrails §2's original wording was right.
+- **Mandatory tests T1–T6:** field-isolation matrix; cross-classid
+  reinterpretation guard (paired observability); board-classid
+  registration — fall-through to ReadMode::DEFAULT=Full is FORBIDDEN;
+  mixed-batch zero-copy round-trip; fixed-offset-sweeper safety
+  (`nan_projection` Energy [134,138) + symbiont bridge/domino are the
+  two EXPOSED readers — gate via `schema.has()` or prove the board's
+  Energy slot dormant-zeroed); ENVELOPE_LAYOUT_VERSION==2 regression.
+- **Board classid via the next BATCHED allocation mint** (never solo);
+  implementation WAITS on the mint, tenant + tests prepared behind it.
+- STOP conditions 1–6 bind every implementer; ocr.rs's per-row
+  `schema.has()` reader is the SAFE pattern to copy.
+
+### Addendum-13 2026-07-02 — the 1BRC substrate probe (operator-requested; W2d/W2e load instrument)
+
+**Why:** the dispatch bench measured scheduler OVERHEAD on no-op tasks;
+kanban-concurrency tuning (W2d 550 ms budget, lane sizing) needs
+THROUGHPUT UNDER REAL WORK. The One Billion Row Challenge
+(automataIA/1brc-rs as reference baseline — REUSE-AS-REFERENCE, never a
+dep) stresses exactly the substrate's claims: SIMD scanning, zero-copy
+slicing (data-flow rule 1), owned-microcopy + commutative-merge
+aggregation (the borrow-strategy doc IS the 1BRC merge shape), and
+scheduling. Container scale: 100M rows (~1.4 GB; 1B = 13 GB does not
+fit); every contender runs the SAME seeded corpus, recipe+hash archived
+with every number (the archival convention). truth-architect reviews all
+numbers; baselines land before any tuned lane.
+
+**Crate:** `crates/onebrc-probe` (standalone, workspace-EXCLUDED,
+std-only for the baselines). Scaffold + lanes A/C in flight.
+
+**Lanes:**
+- **A** scalar single-thread (the honest floor).
+- **B** ndarray-SIMD scan (delimiter find + parse via the simd dispatch).
+- **C** threaded chunks + borrow-strategy merge (owned maps, commutative
+  merge at the end — never raw `=` on shared state).
+- **D** ractor actor-per-worker — QUANTIFIES the "ractor is a helper,
+  not a messaging path" ruling as a measured ratio vs C.
+- **E** kanban-scheduled chunks (casts through the W1b writer shape;
+  KanbanActor lanes) — the scheduling tax on real work; feeds W2d.
+- **F — the substrate-native lane (operator: "process it as cognitive
+  shader in a morton tile cascaded batch"):** station identity → key →
+  Morton-tile cascade position (HHTL prefix route); records bucketed
+  tile-cascaded so accumulation is prefix-local (cache-coherent SIMD
+  sweeps); aggregation = gated write-back into SoA-shaped accumulators
+  (bundle merge — the write masks the thinking); kanban lanes schedule
+  the tile batches. THE thesis test: group-by-identity as a prefix
+  ROUTE, aggregation as a gated write — the semantic OS doing raw OLAP.
+  **Honest framing:** the Morton route is radix bucketing wearing our
+  address; the fastest known 1BRC entries are radix/perfect-hash — so F
+  vs the classic map (A/C) vs a plain radix bucket isolates the
+  ADDRESSING TAX exactly. F winning or tying validates
+  addressing-is-aggregation; F losing prices the address layer — either
+  result tunes W2d and gives W2e its "winner owns the hot path" number.
+
+#### Addendum-13 status update (2026-07-02, t1)
+
+Lanes B + D SHIPPED (feature-gated `lane-b`/`lane-d`; A/C stay zero-dep —
+proven by the no-feature test run). t1 best-of-2 on the archived recipe
+corpus (hash re-verified): A 7.012 / B 7.455 (**1.06× vs A** — delimiter
+find alone is not the bottleneck; SWAR parse + hash swap are the next
+levers) / C 27.586 / D 22.078 Mrows/s (**0.80× vs C** — the "ractor is a
+helper, not a messaging path" ruling measured: ~20% actor tax incl. the
+forced one-time Arc corpus copy). Full tables + readings:
+`crates/onebrc-probe/README.md` §5.1. Remaining: lane E (E−D isolates the
+kanban journaling tax; feeds W2d), lane F (Morton-tile shader vs plain
+radix control — the addressing-tax isolator).
+
+#### Addendum-13 status update (2026-07-02, t2)
+
+Lane E SHIPPED (feature `lane-e`; one kanban card per batch — fresh
+`KanbanActor<ProbeBoard>` driven through the full Rubicon arc via 3×
+`drive_version_tick` around each real aggregation batch; journal asserted
+3 legal moves/batch). t2 (same recipe corpus, best-of-2): C 28.310 /
+D 22.381 / E(4 cards) 22.963 / E(64) 22.477 / E(256) 22.118 Mrows/s.
+**The W2d number lane E was sent to fetch: E−D ≈ 0 at chunk granularity
+(journaling floor within noise) and ≈ 66 µs per card at fine granularity
+(spawn + 3 ticks + join) — ~0.01% of the 550 ms Libet budget.** The board
+is not a scheduling threat; the actor-boundary copy remains the only real
+tax (unchanged ~20% vs C). Full tables: `crates/onebrc-probe/README.md`
+§5.2. Remaining: lane F (Morton-tile shader vs plain radix control).
+
+#### Addendum-13 status update (2026-07-02, t3 — PROBE COMPLETE)
+
+Lanes F (Morton-tile SoA) + R (plain-radix control) SHIPPED (std-only, no
+feature gate — the A/C zero-dep contract holds for all four std lanes).
+t3 medians @4 workers: C 28.3 / F 77.4 / R 86.3 Mrows/s. The three
+numbers the probe was sent to fetch: route-and-write beats the classic
+map **3×** (R−C, address-agnostic); the Morton address costs **~10%**
+over plain radix at ~400-group cardinality (F−R — the addressing tax,
+isolated exactly; high-cardinality prefix-local payoff remains untested
+by this corpus and unclaimed); the accumulator, not the SIMD scan, is
+where the win lives (B was 1.06×). All six lanes A–F + R now measured
+on one regenerable recipe corpus. Board: E-1BRC-ADDRESSING-1. The probe
+is COMPLETE; follow-ups (100M container-scale run, high-cardinality
+corpus, SWAR parse, mmap) are priced and parked in README §1/§5.3.

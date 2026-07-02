@@ -45,3 +45,8 @@ supervisor-lifecycle-audit = ["supervisor"]
 [dev-dependencies]
 tokio             = { version = "1", features = ["rt-multi-thread", "macros"] }
 static_assertions = "1"
+# D-V3-W2b integration probe ONLY: spawns KanbanActor over the REAL production
+# MailboxSoaOwner impl instead of the in-file TestBoard fake. dev-dependencies
+# never ship in the compiled crate/runtime dep graph — this proves the
+# structural-owner contract against real code without adding a runtime dep.
+cognitive-shader-driver = { path = "../cognitive-shader-driver" }

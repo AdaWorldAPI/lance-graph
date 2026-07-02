@@ -35,6 +35,20 @@
 
 ---
 
+## #632 lance-graph: Cross-session intake — RouteBucketTyped (C6) merged, emission_scan minted, OCR codebook mirror, GraphRAG-rs inventory + operator rulings
+
+**Status:** MERGED 2026-07-02 (merge commit `df367471`), branch `claude/v3-substrate-migration-review-o0yoxv`. Companion: OGAR #148 (merge `75d955b`) — the cross-repo fuses + serialized allocation batch; merged FIRST per the lockstep note; this post-merge commit carries the ogar-vocab lock bumps that cleared COUNT_FUSE (fired 65 vs 68 in the in-between state — first live demonstration of the fuse mechanism, then green 68 == 68, lance-graph-ogar 81 tests).
+
+**Added:** `codegen_spine::RouteBucketTyped` (kind-generic sibling + `?Sized` blanket bridge, merged verbatim from op-nexgen's vendored C6 diff); `contract::emission_scan` (TypedForm + classify_ddl_type + EmissionCounts; the scan family named as a contract pattern); `ogar_codebook` 0x08XX OCR rows (unicharset/recoder/charset — mirror of OGAR #148's mint; CODEBOOK 68); `.claude/knowledge/graphrag-rs-inventory.md`; the cross-session intake handover + appendices.
+
+**Locked:** per-consumer classid ownership + tripwires (operator ruling — fuses ARE the coordination mechanism; flip fuse + two-sided COUNT_FUSE are the pattern instances); R-1 naming CLOSED as phantom (`domain:appid:classview`; "concept" names the whole hi u16; the "app" homonym across halves caused the thread; both ledgers carry the line); R-2 CLOSED (512-byte SoA row frozen — kv-lance + batch-writer tested; edges read via the NODE_ROW_COLUMNS strided 16-of-512 view; no storage change); L3 new-Arrow-schema design KILLED ("we already have a working SoA schema" — extraction lands as SoA rows via the W1b cast path; survivors: minter@sha provenance + ndjson-as-golden); scan-family pattern (third counter mirrors, never a bespoke grep); emission_scan precedence global-not-first-token (codex P2 fix); RouteBucketTyped name collision deliberate + UFCS rule (codex P2 documented).
+
+**Deferred:** L4 DAG-materialization flag (M19/W5); OGAR fields_for(u32) ClassView routing; F17 body triage (most-agreed fleet next move); corpus proof vs a real bake (no classid-keyed corpora in-container); R-3 per-entry board files + R-4 probe-ledger Wave A (operator council queue); q2 APP_PREFIX row (mint when q2 renders classviews — not blocked).
+
+**Docs:** intake handover (5 appendices incl. rulings + vart mirror recipe), Addendum-10/11, E-V3-XSESSION-INTAKE-1(+RULINGS), E-V3-GRAPHRAG-INV-1, CROSS_SESSION_BROADCAST merge-event entry, OGAR D-CLASSID-HI-U16-SPELLING + D-TRUNCATION-DISALLOWED-SOC-REROUTE.
+
+**Confidence (2026-07-02):** HIGH — contract 792/792 at merge; lance-graph-ogar 81 green post lock-bump; OGAR vocab 96/96 + class-view 12/12 (flip fuse vs live main).
+
 ## #631 lance-graph: W1b LIVE — WAL batch writer implemented, M15 rename, temporal synthesis, live oracle measurements
 
 **Status:** MERGED 2026-07-02 (merge commit `c7149eab`), branch `claude/v3-substrate-migration-review-o0yoxv`.

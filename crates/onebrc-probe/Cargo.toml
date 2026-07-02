@@ -1,0 +1,53 @@
+[package]
+name = "onebrc-probe"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "1BRC (One Billion Row Challenge) substrate probe: measures the V3 SoA/mailbox substrate's groupby-aggregate throughput at container scale (100M rows). Lane A (single-thread scalar baseline), Lane C (std::thread parallel baseline), Lane B (ndarray SIMD, feature lane-b), Lane D (ractor actors, feature lane-d) and Lane E (kanban-scheduled batches, feature lane-e) ship here — see README.md."
+
+# Standalone, workspace-EXCLUDED crate (see root Cargo.toml `exclude`, same
+# precedent as crates/bgz17 and crates/deepnsm). Lanes A/C are zero-dependency
+# (std only); lanes B/D/E are opt-in via feature flags so the zero-dep contract
+# for A/C is never silently broken. Verify with:
+#   cargo test --manifest-path crates/onebrc-probe/Cargo.toml
+#   cargo test --manifest-path crates/onebrc-probe/Cargo.toml --features lane-b
+#   cargo test --manifest-path crates/onebrc-probe/Cargo.toml --features lane-d
+#   cargo test --manifest-path crates/onebrc-probe/Cargo.toml --features lane-e
+
+# Empty [workspace] table: this crate is `exclude`d from the parent
+# lance-graph workspace, but cargo's manifest auto-discovery would otherwise
+# walk up from a nested worktree and pick up the outer workspace root
+# (identical precedent/comment to crates/deepnsm/Cargo.toml).
+[workspace]
+
+[features]
+# Lanes A/C stay dependency-free; B, D, E are opt-in.
+lane-b = ["dep:ndarray"]
+lane-d = ["dep:ractor", "dep:tokio"]
+# Lane E (kanban-scheduled batches): reuses the lane-d ractor/tokio deps plus
+# the V3 kanban execution machinery (lance-graph-supervisor's KanbanActor +
+# drivers, lance-graph-contract's kanban/scheduler/soa_view contract types).
+lane-e = ["dep:lance-graph-supervisor", "dep:lance-graph-contract", "dep:ractor", "dep:tokio"]
+
+[dependencies]
+# AdaWorldAPI fork (workspace P0 rule: fork over crates.io, always — see
+# CLAUDE.md "P0 — AdaWorldAPI forks ONLY, NEVER crates.io upstream"). Same
+# path convention as crates/lance-graph/Cargo.toml's ndarray dep.
+# default-features = false + "std" exposes ndarray::simd (U8x32 etc.)
+# without dragging in hpc-extras.
+ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std"] }
+# AdaWorldAPI fork of ractor (same coordinates as lance-graph-supervisor;
+# fork carries the MessagingErr::Saturated non-exhaustive-match fix).
+ractor = { git = "https://github.com/AdaWorldAPI/ractor", optional = true, default-features = false, features = ["tokio_runtime"] }
+tokio = { version = "1", optional = true, default-features = false, features = ["rt-multi-thread", "macros"] }
+# Sibling in-tree crates (path deps, not the outer workspace — this crate is
+# workspace-excluded per the `[workspace]` table above). lance-graph-contract
+# is zero-dep; lance-graph-supervisor needs its own `supervisor` feature for
+# the KanbanActor + drive_version_tick surface lane E drives.
+lance-graph-contract = { path = "../lance-graph-contract", optional = true }
+lance-graph-supervisor = { path = "../lance-graph-supervisor", optional = true, features = [
+  "supervisor",
+] }
+
+[dev-dependencies]
