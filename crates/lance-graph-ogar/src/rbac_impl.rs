@@ -86,7 +86,9 @@ mod tests {
         }
     }
 
-    const ENCOUNTER: ClassId = 0x0000_0901;
+    // Full classid via the contract's flippable core-render composition
+    // (canon 0x0901 HIGH since the 2026-07-02 flip).
+    const ENCOUNTER: ClassId = lance_graph_contract::render_classid(0x0000, 0x0901);
 
     fn fixture() -> OgarRbac<FixtureGrants> {
         OgarRbac::new(FixtureGrants {

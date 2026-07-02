@@ -358,6 +358,34 @@ pub const fn classid_custom(classid: u32) -> u16 {
     split_classid(classid).1
 }
 
+/// **Mint-forward CANON reader** for surfaces that must serve BOTH stored
+/// forms — RBAC grant matching, read paths over corpora not yet re-baked to
+/// the post-flip order. Strict new-form-only surfaces use [`classid_canon`].
+///
+/// Returns the canon half under the active order when it is a *plausible*
+/// canon — a `0xDDCC` codebook id has domain byte `>= 0x01`, and the canon
+/// half never carries the `0x1000` V3 marker — otherwise re-reads the id
+/// under the legacy [`CanonLow`](ClassidOrder::CanonLow) order (where every
+/// pre-flip form keeps its canon in the LOW half: core `0x0000_0901`, render
+/// `0x0005_0901`, V3 `0x1000_0700` all resolve their true canon).
+///
+/// Documented limitation: a future canon exactly equal to `0x1000` (the
+/// domain-root slot of the currently-Unassigned domain `0x10`) would be
+/// indistinguishable from the V3 marker under this heuristic — that slot is
+/// reserved-unusable until the marker retires (plan §4 P4).
+#[inline]
+#[must_use]
+pub const fn classid_canon_compat(classid: u32) -> u16 {
+    let (canon, custom) = split_classid(classid);
+    if canon >= 0x0100 && canon != 0x1000 {
+        canon
+    } else if custom != 0 {
+        split_classid_with(ClassidOrder::CanonLow, classid).0
+    } else {
+        canon
+    }
+}
+
 /// Recompose a classid under the OTHER order — the flip itself. Involutive:
 /// `flip_classid(flip_classid(x)) == x` (probed below).
 #[inline]
@@ -830,6 +858,20 @@ mod tests {
                 assert_eq!(flip_classid(legacy), id);
             }
         }
+    }
+
+    #[test]
+    fn classid_canon_compat_reads_both_stored_forms() {
+        // New-form ids: compat == strict canon.
+        for id in [0x0901_0005u32, 0x0701_1000, 0x0102_0001, 0x0700_0000] {
+            assert_eq!(classid_canon_compat(id), classid_canon(id));
+        }
+        // Persisted pre-flip forms resolve their true canon via the legacy
+        // fallback: core, render, and V3-marked shapes.
+        assert_eq!(classid_canon_compat(0x0000_0901), 0x0901); // legacy core
+        assert_eq!(classid_canon_compat(0x0005_0901), 0x0901); // legacy render
+        assert_eq!(classid_canon_compat(0x1000_0700), 0x0700); // legacy V3
+        assert_eq!(classid_canon_compat(0x0000_0000), 0x0000); // default class
     }
 
     #[test]

@@ -1,3 +1,29 @@
+## 2026-07-02 — E-CLASSID-COMPAT-READER — the P0 sweep missed rbac.rs: `class as u16` in ClassGrant::permits; fixed via a mint-forward compat reader
+
+**Status:** SHIPPED (follow-up on the P1 flip commit, PR #628 arc).
+
+**Correction:** the D-CCF-0 route-through sweep covered ogar_codebook /
+hhtl / canonical_node but NOT `rbac.rs` — `ClassGrant::permits` derived its
+class discriminator via `class as u16` (the exact codex-P2 collapse
+pattern), and `lance-graph-rbac AuthProvider::classid()` hand-widened
+`u32::from(class_id)`, and `lance-graph-ogar` carried `0x0000_0B01`-form
+literals. All three surfaced only when the flip landed.
+
+**Mechanism added:** `ogar_codebook::classid_canon_compat` — the
+mint-forward CANON reader for surfaces that must serve BOTH stored forms
+(RBAC grant matching, reads over un-re-baked corpora): active canon when
+plausible (`>= 0x0100 && != 0x1000`), legacy-order fallback otherwise.
+Sound because real render prefixes are §2-allocated (`0x0000..0x0007`) and
+the marker is `0x1000`; documented limitation — the future canon slot
+exactly `0x1000` (domain-0x10 root) stays reserved-unusable until marker
+retirement (P4). RBAC now authorizes pre-flip persisted rows without
+re-bake (fails OPEN-to-correct-concept, never collapses classes).
+
+**Lesson (Rule-7 adjacent):** a route-through sweep's own coverage claim
+needs the same exhaustive-grep declaration as a negative-existence claim —
+"all sites routed" was asserted from the plan's §2 inventory, not from a
+whole-crate `as u16`/`u32::from` sweep.
+
 ## 2026-07-02 — E-CLASSID-FLIP-P1-LANDED — CanonHigh is live: canon HIGH / custom LOW, legacy aliases resolve persisted rows, OGAR#95 reconciled as the custom-half render catalogue
 
 **Status:** SHIPPED (PR #628 arc; P0 route-through fd9bf6b → P1 flip this commit).
