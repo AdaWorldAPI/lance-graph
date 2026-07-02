@@ -211,3 +211,17 @@ Two distinct concepts share the `ResonanceDto` name; the split is ruled
   envelope; the next cycle's standing template reads the row — the
   persisted perturbation reshapes the next F landscape (The Click's
   loop, carried by tenant lanes, never a cross-mailbox carrier).
+
+---
+
+## APPENDED (2026-07-02): the V3 work now has a dedicated home — `.claude/v3/`
+
+Everything this handover carries (and the rulings appended above) is
+consolidated under **`.claude/v3/`** — start there instead of stitching
+board entries: `README.md` (orientation) → `INTEGRATION-PLAN.md` (waves
+W0–W6) → `COMPONENT-MAP.md` / `MODULE-TABLE.md` (what maps/reuses/retires)
+→ `soa_layout/` (LE contract, tenants, consumer map, routing) →
+`knowledge/` + `agents/BOOT.md` (the V3 awareness layer; cards at
+`.claude/agents/v3-*.md`). Session shortcuts: `/v3` (bootload) and
+`/v3-audit` (pre-commit conformance greps). CLAUDE.md and `.claude/BOOT.md`
+now point here as the V3 entry point.

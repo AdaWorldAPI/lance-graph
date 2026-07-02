@@ -22,6 +22,37 @@ workspace is local — prefer the local/fork source over the registry, always.
 - crates.io is permitted ONLY for crates that have no AdaWorldAPI fork / no local
   source.
 
+## ★ V3 SUBSTRATE — NEW ENTRY POINT (2026-07-02): `.claude/v3/`
+
+**Any session touching SoA rows, tenants, mailbox ownership, kanban,
+thinking templates, classids, or the DTO ladder starts at
+`.claude/v3/README.md`** (or invokes the `/v3` skill — same bootload).
+The V3 folder is the consolidated home for what is NEW since the
+mailbox-kanban ruling + classid canon-high flip (both operator-ruled and
+fleet-shipped 2026-07-02):
+
+- `.claude/v3/README.md` — orientation + doc map (start here)
+- `.claude/v3/INTEGRATION-PLAN.md` — the W0–W6 wave plan
+- `.claude/v3/COMPONENT-MAP.md` — every subsystem: reuse / repurpose / retire
+- `.claude/v3/ENTROPY-MILESTONES.md` — the systematic N→1 collapse ledger
+- `.claude/v3/MODULE-TABLE.md` — per-file census of core / contract / planner
+- `.claude/v3/soa_layout/` — LE contract, tenant lanes, consumer map, routing
+- `.claude/v3/knowledge/` — V3 doctrine docs (`READ BY:` headers)
+- `.claude/v3/agents/BOOT.md` — the four V3 cards (`v3-mailbox-warden`,
+  `v3-envelope-auditor`, `v3-kanban-executor-engineer`, `v3-template-smith`)
+- `/v3-audit` command — mechanical conformance greps before any commit
+
+Headline rulings the folder carries (canonical text on the board):
+**no singleton CollapseGate** (one mailbox = one kanban board as tenant);
+**SoaEnvelope LE ownership** (`mailbox_owner()`, write-on-behalf iron rule);
+**compiled thinking templates** (elixir-template × StepMask, Rig as oracle);
+**classid canon-high** with the `0x1000` V3-adoption monitor;
+**PerturbationDto/Resonance split** (D-PERT-1). Sections of THIS file that
+predate these rulings (e.g. CollapseGate wording below) are read through
+`.claude/v3/knowledge/v3-substrate-primer.md` §6 "must not be reinvented".
+
+---
+
 > **Updated**: 2026-04-21 (categorical-algebraic inference click)
 > **Role**: The obligatory spine — query engine, codec stack, semantic transformer, and orchestration contract
 > **Status**: 22 crates, 7 in workspace, 15 excluded (standalone/DTO), Phases 1-2 DONE, Phases 6-7 DONE (grammar + governance), Phase 3 IN PROGRESS

@@ -1,0 +1,65 @@
+# Mailbox-Kanban Model — executors, ahead updates, delegation cache
+
+> READ BY: kanban-executor-engineer, mailbox-warden, integration-lead, and
+> any session touching lance-graph-planner strategies, lance-graph-supervisor,
+> symbiont, or a batch-writer path.
+
+## Status: FINDING (operator-ruled 2026-07-02 — E-MAILBOX-KANBAN-NO-COLLAPSEGATE)
+
+---
+
+## The unit: one Mailbox = one Kanban board (as a TENANT)
+
+Every mailbox carries its own Kanban board. The board is a **tenant** —
+per-mailbox state, a sibling of the per-row `KanbanTenant` — never a global
+singleton. Phases (Tier 2 of `docs/architecture/soa-three-tier-model.md`):
+
+```
+Planning → CognitiveWork → Evaluation → Commit → Plan → Prune
+```
+
+`MailboxSoaOwner::advance_phase(to)` is the SOLE mutator. Everything else
+proposes; the owner disposes.
+
+## The two executor arms + the structural owner
+
+| Arm | Where | Role |
+|---|---|---|
+| **Arm #1 — planner** | `lance-graph-planner/src/strategy/style_strategy.rs` | The D-MBX-A6 seam: the deferred `Outcome → Candidate/KanbanMove` adapter. Strategy outcomes (converged, cycle_count, gate verdicts) become kanban moves. |
+| **Arm #2 — symbiont** | `crates/symbiont` (`kanban_loop.rs` = POC) | SurrealDB-on-kv-lance executor: kanban updates as KV transactions on the same Lance substrate. Gated on the AdaWorldAPI surrealdb fork `kv-lance` feature. |
+| **Structural owner** | `lance-graph-supervisor/kanban_actor.rs` | ractor actor per mailbox. **ractor is a compile-time ownership dummy** — it spawns and proves single-ownership via move semantics; it is NOT a hot-path bus (ractor itself is too slow; it just spawns). |
+
+## The ahead-firing batch writer
+
+The batch writer is where thinking is masked behind persistence:
+
+1. Consumer/engine produces a commit (`BusDto`) + the envelope names its
+   owner (`SoaEnvelope::mailbox_owner()`).
+2. Batch writer **casts** the write:
+   `cast(on_behalf = envelope.mailbox_owner(), payload = BusDto)`.
+3. **At cast time** (not at write-landed time) it checks the **delegation
+   cache**: does the caster hold ownership, need delegation, or already have
+   it? Mismatch (cast id ≠ envelope stamp) is the cache-logic case.
+4. It fires the **AHEAD kanban update immediately on cast** — the kanban
+   board reflects intent before the write lands. No waiting.
+5. Lance's columnar I/O writes the LE bytes from the in-place backing store
+   (zero-copy; the store never serializes).
+
+## Standing async plans + the 550 ms budget
+
+Thinking cycles follow a **standing async plan** (the compiled template —
+see `compiled-templates.md`) whether or not an update arrived. They never
+block on being called. The 64k–256k SoA prioritizes / load-balances the
+cycle work within a **550 ms net budget** (minus load delays). Elevation
+(planner `elevation/`, L0→L5) is the cost model that smells resistance and
+is the natural budget allocator.
+
+## What the arms still need (gap list — see INTEGRATION-PLAN W2)
+
+- D-MBX-A6 adapter emit (Outcome→KanbanMove) implemented, not deferred.
+- Per-mailbox kanban board carried as a TENANT (type + lane).
+- The ahead-firing batch writer itself (cast pairing + delegation cache).
+- symbiont arm unblocked by surrealdb `kv-lance` fork coordinates.
+
+Cross-ref: `v3-substrate-primer.md` §1–2, `write-on-behalf.md`,
+`.claude/v3/soa_layout/tenants.md`, board `E-MAILBOX-KANBAN-NO-COLLAPSEGATE`.

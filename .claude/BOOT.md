@@ -26,6 +26,14 @@ Read these in order before proposing anything:
 These three files give you ~90 % of the context you need to avoid
 re-proposing what's shipped or violating a locked convention.
 
+4. **`.claude/v3/README.md`** — MANDATORY IF your work touches the V3
+   substrate (SoA rows/tenants, mailbox ownership, kanban, thinking
+   templates, classids, DTO ladder). The `/v3` skill performs this
+   bootload; `/v3-audit` runs the pre-commit conformance greps. The V3
+   folder supersedes older CollapseGate/baton framings wherever they
+   still appear in prose — see
+   `.claude/v3/knowledge/v3-substrate-primer.md` §6.
+
 Two companion dashboards (consult when deliverable status or plan
 version matters — typically mid-session, not at cold start):
 

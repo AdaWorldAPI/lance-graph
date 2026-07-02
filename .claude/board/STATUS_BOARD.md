@@ -1,3 +1,34 @@
+## v3-substrate-integration-v1 — the .claude/v3/ consolidation (W0–W6)
+
+Plan: `.claude/v3/INTEGRATION-PLAN.md` (stub: `.claude/plans/v3-substrate-integration-v1.md`). Adopts (does not re-mint) D-MBX-A6, D-PERT-1, D-CC-*, D-VCW-3/5/7, D-CCF-4.
+
+| D-id | Title | Crate(s) | Status | Evidence |
+|---|---|---|---|---|
+| D-V3-W0a | `.claude/v3/` tree (README, plan, COMPONENT-MAP, ENTROPY-MILESTONES, MODULE-TABLE, soa_layout/*) | docs | In progress (this PR) | doctrine docs + routing.md landed; data docs pending census/mapping fleets |
+| D-V3-W0b | V3 awareness layer (knowledge docs, v3-* agent cards, /v3 skill, /v3-audit command, CLAUDE.md+BOOT.md entrypoints) | docs | Shipped (this PR) | 4 knowledge docs, 4 cards, skill+command registered |
+| D-V3-W1a | SoaEnvelope::mailbox_owner() ownership stamp | lance-graph-contract | Shipped | this branch; 775 contract tests green |
+| D-V3-W1b | Ahead-firing batch writer (cast pairing + AHEAD KanbanMove at cast) | planner-adjacent | Queued | plan W1 |
+| D-V3-W1c | Delegation cache (cast id vs envelope stamp) | batch writer | Queued | plan W1 |
+| D-V3-W1d | MailboxId minting path (non-zero owners, uniqueness debug_assert) | contract | Queued | plan W1 |
+| D-V3-W1e | Probes: ahead-update ordering + delegation miss | contract/planner | Queued | probe-first gate for W2 |
+| D-V3-W2a | Per-mailbox kanban board as TENANT | contract | Queued | field-isolation matrix mandatory |
+| D-V3-W2b | Supervisor wiring: moves via MailboxSoaOwner::advance_phase | lance-graph-supervisor | Queued | plan W2 |
+| D-V3-W2c | symbiont SurrealDB-on-kv-lance arm | symbiont | Blocked (kv-lance fork coordinates) | POC = kanban_loop.rs |
+| D-V3-W2d | 550 ms budget hooks via planner elevation/ | lance-graph-planner | Queued | plan W2 |
+| D-V3-W3a | StepMask in contract (sibling of FieldMask) | lance-graph-contract | Queued | plan W3 |
+| D-V3-W3b | ElixirTemplate → graph-flow GraphBuilder adapter (ownership inheritance) | rs-graph-llm seam | Queued | plan W3 |
+| D-V3-W3c | Rig oracle node + equivalence-gated compile-down | cognitive-compiler + rig | Queued | D-VCW-7 lineage |
+| D-V3-W3d | Template catalogue keyed internally (classid keying deferred to P4) | template-runtime | Queued | plan W3 |
+| D-V3-W4a | BusDto cast-pairing call sites | cognitive-shader-driver | Queued | consumes W1b |
+| D-V3-W4b | L4 learning-loop end-to-end probe (residue → owner-stamped lane → next-cycle template read) | cross-crate | Queued | plan W4 |
+| D-V3-W5a | q2 CI re-bakes + body.soa re-release + drop FMA_V3_CLASSID_LEGACY | q2 | Queued | handover continuation §1 |
+| D-V3-W5b | cpic contract pull with mereology (kinds → cascade positions) | q2 + contract | Queued | handover F3 |
+| D-V3-W5c | Consumer write-on-behalf adoption (bakes annotated bootstrap; new online writes via batch writer) | fleet | Queued | write-on-behalf.md |
+| D-V3-W5e | ladybug-rs + smb-office-rs contract pulls | siblings | Queued | never bridges |
+| D-V3-W6a | Adoption/corpus scanner (ONE two-metric range-count tool) | lance-graph | Queued | E-V3-MARKER-IS-A-MONITOR |
+| D-V3-W6b | Legacy alias retirement (corpus-proof-gated) | contract + consumers | Blocked (corpus proof) | plan W6 |
+| D-V3-W6c | Custom half opens: render + template catalogue dispatch | contract | Blocked (P4 operator checkpoint) | completes F2 styles-as-lenses |
+
 ## classid-canon-custom-flip-v1 — the TRIGGERED §2.3 atomic flip
 
 Plan: `.claude/plans/classid-canon-custom-flip-v1.md`. Operator trigger 2026-07-02.

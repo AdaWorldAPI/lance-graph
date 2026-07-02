@@ -1,3 +1,11 @@
+## 2026-07-02 — main thread (Fable) + 2 workflow fleets — .claude/v3/ consolidation (W0)
+
+- **D-ids:** D-V3-W0a (in progress), D-V3-W0b (shipped), plan v3-substrate-integration-v1 registered.
+- **What:** Created `.claude/v3/` as the V3 entry point (operator directive): INTEGRATION-PLAN.md (W0–W6), knowledge/ (v3-substrate-primer, mailbox-kanban-model, compiled-templates, write-on-behalf), agents/BOOT.md + 4 harness-discoverable cards (`.claude/agents/v3-{mailbox-warden,envelope-auditor,kanban-executor-engineer,template-smith}.md`), `/v3` skill + `/v3-audit` command, soa_layout/routing.md, CLAUDE.md + .claude/BOOT.md entrypoint highlights, plans/ pointer stub.
+- **Fleets in flight:** (1) v3-substrate-mapping — 10 subsystem mappers + completeness critic (reuse/repurpose/retire with file:line); (2) v3-module-census — 21 Sonnet agents, per-file table of core/contract/planner (304 files). Results land as COMPONENT-MAP.md, ENTROPY-MILESTONES.md, MODULE-TABLE.md, soa_layout/{le-contract,tenants,consumer-map,README}.md in a follow-up commit on this branch.
+- **Model economy (operator):** Sonnet 5 grindwork / Fable decisions+plans — census fleet pinned to sonnet.
+- **Branch:** claude/v3-substrate-migration-review-o0yoxv (PR #629 arc).
+
 ## 2026-07-02 — Fleet flip EXECUTION (2× Sonnet edit agents + main thread) — 6 PRs open
 
 - **PRs:** lance-graph #628 (P0+P1+compat-reader), OGAR #147 (vocab flip +
