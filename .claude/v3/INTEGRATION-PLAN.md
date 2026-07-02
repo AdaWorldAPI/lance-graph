@@ -562,3 +562,17 @@ forced one-time Arc corpus copy). Full tables + readings:
 `crates/onebrc-probe/README.md` §5.1. Remaining: lane E (E−D isolates the
 kanban journaling tax; feeds W2d), lane F (Morton-tile shader vs plain
 radix control — the addressing-tax isolator).
+
+#### Addendum-13 status update (2026-07-02, t2)
+
+Lane E SHIPPED (feature `lane-e`; one kanban card per batch — fresh
+`KanbanActor<ProbeBoard>` driven through the full Rubicon arc via 3×
+`drive_version_tick` around each real aggregation batch; journal asserted
+3 legal moves/batch). t2 (same recipe corpus, best-of-2): C 28.310 /
+D 22.381 / E(4 cards) 22.963 / E(64) 22.477 / E(256) 22.118 Mrows/s.
+**The W2d number lane E was sent to fetch: E−D ≈ 0 at chunk granularity
+(journaling floor within noise) and ≈ 66 µs per card at fine granularity
+(spawn + 3 ticks + join) — ~0.01% of the 550 ms Libet budget.** The board
+is not a scheduling threat; the actor-boundary copy remains the only real
+tax (unchanged ~20% vs C). Full tables: `crates/onebrc-probe/README.md`
+§5.2. Remaining: lane F (Morton-tile shader vs plain radix control).

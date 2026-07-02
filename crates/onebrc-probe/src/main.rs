@@ -3,11 +3,12 @@
 //!
 //! ```text
 //! onebrc-probe gen <path> <rows> <seed>
-//! onebrc-probe run <path> <lane:a|b|c|d> [workers]
+//! onebrc-probe run <path> <lane:a|b|c|d|e> [workers] [batches]
 //! ```
 //!
-//! Lane `b` requires `--features lane-b`; lane `d` requires
-//! `--features lane-d` (see `README.md` §3/§4).
+//! Lane `b` requires `--features lane-b`; lane `d` and lane `e` require
+//! `--features lane-d` / `--features lane-e` respectively (see `README.md`
+//! §3/§4). `batches` is lane-`e`-only (optional, default `workers * 16`).
 
 use onebrc_probe::{gen::gen, lane_a_scalar, lane_c_threads};
 use std::env;
@@ -22,7 +23,7 @@ fn main() {
         Some("run") => cmd_run(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|b|c|d> [workers]"
+                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|b|c|d|e> [workers] [batches]"
             );
             std::process::exit(2);
         }
@@ -54,7 +55,7 @@ fn cmd_gen(args: &[String]) {
 fn cmd_run(args: &[String]) {
     let path = PathBuf::from(
         args.first()
-            .expect("usage: run <path> <lane:a|b|c|d> [workers]"),
+            .expect("usage: run <path> <lane:a|b|c|d|e> [workers] [batches]"),
     );
     let lane = args.get(1).map(String::as_str).unwrap_or("a");
     let workers: usize = args
@@ -65,6 +66,13 @@ fn cmd_run(args: &[String]) {
                 .map(|n| n.get())
                 .unwrap_or(1)
         });
+    // Lane-`e`-only: number of kanban-journaled batches the corpus splits
+    // into (default `workers * 16` — fine-grained batching prices per-card
+    // scheduling; see `lane_e.rs` module doc).
+    let batches: usize = args
+        .get(3)
+        .map(|s| s.parse().expect("batches must be a usize"))
+        .unwrap_or(workers * 16);
 
     // NOTE (mmap note): plain `std::fs::read`, NOT mmap. automataIA/1brc-rs
     // treats `memmap2::Mmap` as "the only path to break the 2-second
@@ -102,8 +110,19 @@ fn cmd_run(args: &[String]) {
                 std::process::exit(1);
             }
         }
+        "e" => {
+            #[cfg(feature = "lane-e")]
+            {
+                onebrc_probe::lane_e_kanban(&data, workers, batches)
+            }
+            #[cfg(not(feature = "lane-e"))]
+            {
+                eprintln!("lane e requires --features lane-e");
+                std::process::exit(1);
+            }
+        }
         other => {
-            eprintln!("unknown lane '{other}' (expected 'a', 'b', 'c', or 'd')");
+            eprintln!("unknown lane '{other}' (expected 'a', 'b', 'c', 'd', or 'e')");
             std::process::exit(2);
         }
     };
@@ -111,9 +130,18 @@ fn cmd_run(args: &[String]) {
     let elapsed_ms = elapsed.as_secs_f64() * 1000.0;
     let throughput_mrows_s = (rows as f64 / 1_000_000.0) / elapsed.as_secs_f64();
 
-    println!(
-        "lane={lane} rows={rows} workers={workers} elapsed_ms={elapsed_ms:.3} throughput_mrows_s={throughput_mrows_s:.3}"
-    );
+    // `batches=<B>` is appended ONLY for lane e (see README §4) — the other
+    // lanes don't have a batch concept, so the printed line stays identical
+    // for them.
+    if lane == "e" {
+        println!(
+            "lane={lane} rows={rows} workers={workers} batches={batches} elapsed_ms={elapsed_ms:.3} throughput_mrows_s={throughput_mrows_s:.3}"
+        );
+    } else {
+        println!(
+            "lane={lane} rows={rows} workers={workers} elapsed_ms={elapsed_ms:.3} throughput_mrows_s={throughput_mrows_s:.3}"
+        );
+    }
 
     // Correctness spot-check surface — first/last 3 stations by name (map
     // is a BTreeMap, so iteration order is the sorted station-name order).

@@ -82,7 +82,7 @@ regenerating with the same `(rows, seed)` and diffing the printed
 | **C** — `lane_c_threads` | `std::thread` parallel baseline: newline-aligned `chunk_bounds` split, per-worker owned `BTreeMap`, commutative `Stats::merge` combine | **Shipped** |
 | **B** — `lane_b::lane_b_simd` (feature `lane-b`) | Vectorized `;`/`\n` scanning via `ndarray::simd::U8x32::cmpeq_mask` (per the workspace's SIMD rule — never raw `pulp`/`wide`/hand intrinsics in a consumer crate; see `.claude/knowledge/ndarray-vertical-simd-alien-magic.md`), 32-byte-stride scan with cross-block `line_start`/`pending_semi` carry, scalar temp parse (SWAR/branchless parse deliberately still deferred). | **Shipped** |
 | **D** — `lane_d::lane_d_ractor` (feature `lane-d`) | Same groupby-aggregate workload as Lane C, but each `chunk_bounds` chunk is aggregated by a stateless `ractor` actor (actor-per-worker, ask-pattern reply, `lance-graph-supervisor`-style `Actor`/`RpcReplyPort` shape) instead of a bare `std::thread::scope` closure — identical chunking + commutative merge, only the worker primitive changes. | **Shipped** |
-| **E** — kanban | Routes the aggregation through the V3 kanban execution machinery (`v3-kanban-executor-engineer` domain — `KanbanPhase` lifecycle, ahead-firing batch writer) to measure the substrate's own scheduling/dispatch overhead against the bare-metal Lane A/C numbers as a ceiling reference. | **Not implemented** — orchestrator follow-up |
+| **E** — `lane_e::lane_e_kanban` (feature `lane-e`) | One kanban card per batch: the corpus splits into `batches` newline-aligned chunks (`batches >= workers`) pulled from a shared `AtomicUsize` queue by `workers` puller tasks; every batch is journaled by a fresh `lance-graph-supervisor::KanbanActor<ProbeBoard>` driven through the full Rubicon forward arc (`Planning->CognitiveWork->Evaluation->Commit`, `drive_version_tick` × 3) around the actual `lane_a_scalar` work. The combined journal is asserted to carry exactly `3 * batches` legal `KanbanMove`s. `batches == workers` vs Lane D isolates the kanban journaling cost (identical chunking + actor-model tax, only the actor type differs); fine-grained batching (`batches >> workers`) prices per-card scheduling overhead (feeds W2d, the 550 ms Libet budget question). | **Shipped** |
 
 ---
 
@@ -90,17 +90,25 @@ regenerating with the same `(rows, seed)` and diffing the printed
 
 ```text
 onebrc-probe gen <path> <rows> <seed>
-onebrc-probe run <path> <lane:a|b|c|d> [workers]
+onebrc-probe run <path> <lane:a|b|c|d|e> [workers] [batches]
 ```
 
-Lane `b` requires `--features lane-b`; lane `d` requires `--features lane-d`
-(see `Cargo.toml` `[features]`). Lanes A/C stay dependency-free either way:
+Lane `b` requires `--features lane-b`; lane `d` requires `--features lane-d`;
+lane `e` requires `--features lane-e` (see `Cargo.toml` `[features]`). Lanes
+A/C stay dependency-free either way. `batches` is **lane-`e`-only** (ignored
+by every other lane): the number of newline-aligned batches the corpus
+splits into, each journaled as one kanban card (`batches >= workers`,
+default `workers * 16`):
 
 ```bash
 cargo run --release --manifest-path crates/onebrc-probe/Cargo.toml \
   --features lane-b -- run /tmp/onebrc_10m.txt b
 cargo run --release --manifest-path crates/onebrc-probe/Cargo.toml \
   --features lane-d -- run /tmp/onebrc_10m.txt d 4
+cargo run --release --manifest-path crates/onebrc-probe/Cargo.toml \
+  --features lane-e -- run /tmp/onebrc_10m.txt e 4 4
+cargo run --release --manifest-path crates/onebrc-probe/Cargo.toml \
+  --features lane-e -- run /tmp/onebrc_10m.txt e 4 64
 ```
 
 `run` prints:
@@ -112,6 +120,9 @@ lane=<X> rows=<N> workers=<W> elapsed_ms=<T> throughput_mrows_s=<R>
 -- last 3 stations --
   ...
 ```
+
+For lane `e` the line carries an extra `batches=<B>` field between
+`workers=<W>` and `elapsed_ms=<T>` — every other lane's line is unchanged.
 
 The first/last-3-stations dump (map is a `BTreeMap`, so this is
 sorted-by-name order) is the correctness spot-check surface — a cheap
@@ -202,3 +213,42 @@ Readings:
 - Lane E (kanban scheduling tax, E−D isolates the journaling cost) is
   the next lane; lane F (Morton-tile cascaded shader vs plain radix
   control) closes the set per Addendum-13.
+
+### §5.2 — t2 (lane E) — measured 2026-07-02
+
+Same recipe corpus (hash re-verified byte-identical at regeneration),
+same 4-core container, release build `--features lane-b,lane-d,lane-e`.
+Two passes per configuration, best-of-2 (both listed). Lane C and D
+re-run in the same session as live comparators:
+
+| Lane | workers | batches | elapsed_ms (best) | throughput (Mrows/s) |
+|---|---|---|---|---|
+| C (threads) | 4 | — | 353.235 | 28.310 (28.3, 27.5) |
+| D (ractor)  | 4 | — | 446.805 | 22.381 (21.6, 22.4) |
+| E (kanban)  | 4 | 4   | 435.489 | 22.963 (22.8, 23.0) |
+| E (kanban)  | 4 | 64  | 444.903 | 22.477 (22.0, 22.5) |
+| E (kanban)  | 4 | 256 | 452.126 | 22.118 (21.8, 22.1) |
+
+Readings:
+
+- **The kanban journaling floor is within noise.** E at
+  `batches == workers` (one card per worker — lane D's chunking plus a
+  full Rubicon journal per chunk) measured *at or slightly above* lane D
+  (22.963 vs 22.381 best-of; the two interleave across passes). The
+  fresh-`KanbanActor`-per-card spawn + 3 `drive_version_tick` RPCs +
+  join are invisible next to the shared actor-boundary corpus copy both
+  lanes pay. E−D ≈ 0: journaling real work through the board costs
+  nothing measurable at chunk granularity.
+- **Fine-grained cards stay cheap.** 4 → 256 cards costs ~4%
+  (22.963 → 22.118). Per-card overhead from the E(256)−E(4) elapsed
+  delta: ≈ 16.6 ms / 252 extra cards ≈ **66 µs per card** (actor spawn +
+  3 Rubicon ticks + join + queue pull). Against W2d's 550 ms Libet
+  budget, a card's scheduling overhead is ~0.01% — the budget is spent
+  on thinking, not on the board. This is the number Addendum-13 sent
+  lane E to fetch.
+- The dominant tax in D and E alike remains the actor-model boundary
+  (one-time `Arc` corpus copy + task-vs-scoped-thread overhead) — the
+  ~20% D-vs-C gap carries over unchanged; the kanban layer adds nothing
+  material on top.
+- Lane F (Morton-tile cascaded shader vs a plain radix control — the
+  addressing-tax isolator) is the remaining lane.

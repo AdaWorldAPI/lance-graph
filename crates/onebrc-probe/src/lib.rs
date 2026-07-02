@@ -14,9 +14,12 @@
 //!   vectorized `;`/`\n` scan, scalar parse.
 //! - **Lane D** (`lane_d::lane_d_ractor`, feature `lane-d`) — `ractor`
 //!   actor-per-worker over the same `chunk_bounds` split as Lane C.
-//!
-//! Lane E (kanban) is follow-up work — see `README.md` for the stub section
-//! describing what it will measure.
+//! - **Lane E** (`lane_e::lane_e_kanban`, feature `lane-e`) — kanban-scheduled
+//!   batches: a shared `AtomicUsize` batch queue, one fresh `KanbanActor` per
+//!   batch driven through the full Rubicon forward arc
+//!   (Planning->CognitiveWork->Evaluation->Commit) around the actual work.
+//!   Measures the V3 kanban scheduling/journaling tax (E-D isolates the
+//!   journaling cost; fine-grained batching prices per-card scheduling).
 //!
 //! ## Reference inventory
 //!
@@ -39,12 +42,16 @@ pub mod gen;
 pub mod lane_b;
 #[cfg(feature = "lane-d")]
 pub mod lane_d;
+#[cfg(feature = "lane-e")]
+pub mod lane_e;
 pub mod sha256;
 
 #[cfg(feature = "lane-b")]
 pub use lane_b::lane_b_simd;
 #[cfg(feature = "lane-d")]
 pub use lane_d::lane_d_ractor;
+#[cfg(feature = "lane-e")]
+pub use lane_e::lane_e_kanban;
 
 use std::collections::BTreeMap;
 
@@ -448,6 +455,29 @@ mod tests {
         let a = lane_a_scalar(&data);
         let d = lane_d_ractor(&data, 3);
         assert_eq!(a, d, "lane A and lane D must produce identical aggregates");
+        assert!(!a.is_empty());
+    }
+
+    /// Lane A and Lane E must agree byte-for-byte on aggregate output — the
+    /// correctness spot check for the kanban-scheduled-batches path. Uses
+    /// `workers=3, batches=7` (odd, greater than workers) so the shared
+    /// `AtomicUsize` batch queue actually round-robins multiple batches per
+    /// puller, not just one batch per worker (the `batches == workers`
+    /// degenerate case lane D already covers via its own test).
+    #[cfg(feature = "lane-e")]
+    #[test]
+    fn lane_e_agrees_with_lane_a_on_generated_corpus() {
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!("onebrc_probe_test_e_{}.txt", std::process::id()));
+        let result = gen::gen(&path, 50_000, 21).expect("gen");
+        assert_eq!(result.rows, 50_000);
+
+        let data = std::fs::read(&path).expect("read generated corpus");
+        std::fs::remove_file(&path).ok();
+
+        let a = lane_a_scalar(&data);
+        let e = lane_e_kanban(&data, 3, 7);
+        assert_eq!(a, e, "lane A and lane E must produce identical aggregates");
         assert!(!a.is_empty());
     }
 }
