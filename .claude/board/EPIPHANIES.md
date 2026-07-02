@@ -1,3 +1,8 @@
+## 2026-07-02 — E-V3-KANBAN-SESSION-1: graph-flow SessionStorage backed by the mailbox kanban board = the replayable langgraph handler
+**Status:** FINDING (operator direction + Fable-5 synthesis; M25 + W3b sharpening in .claude/v3/)
+
+Operator: rs-graph-llm under lance-graph "might need some kanban integration to become the replayable langgraph handler." The convergence: graph-flow persists Session state through a SessionStorage trait; the V3 substrate persists write intent through the kanban board (M24: board = WAL). ONE surface: KanbanSessionStorage — task transitions = KanbanMoves cast through the W1b writer; replay = rebuild the Session from the board. Every langgraph execution becomes replayable by construction, ownership rides the cast pairing (never a DTO field), and the M18 sigma-chain/KanbanColumn mapping gains a concrete consumer. Bench worker measures graph-flow per-step overhead (batch 1/64/4096) for the W2e two-speed decision; rig is the W3c oracle-node client, never hot-path.
+
 ## 2026-07-02 — E-V3-PREFLIGHT-1: Fable-5 ten-point preflight over every V3 layer (operator-requested, pre-W1)
 **Status:** FINDING (plan deltas folded into INTEGRATION-PLAN.md Addendum 2026-07-02)
 

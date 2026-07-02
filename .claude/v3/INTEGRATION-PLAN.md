@@ -165,3 +165,22 @@ E-V3-PREFLIGHT-1 + session transcript). Plan deltas adopted:
 
 Nothing here invents machinery — every delta is a collapse or reorder of
 what the plan already carries (the V3-shape test, passed).
+
+### Addendum-2 2026-07-02 — operator direction: rs-graph-llm + rig parallel evaluation
+
+Operator: "test rs-graph-llm + rig in parallel for speed and ergonomics —
+under lance-graph it might need some kanban integration to become the
+replayable langgraph handler." Folded as:
+
+- **W3b sharpened → KanbanSessionStorage:** graph-flow's `SessionStorage`
+  gets a mailbox-kanban-board-backed impl — task transitions persist as
+  KanbanMoves through the W1b writer, so **replay = rebuild the Session
+  from the board**. This unifies M24 (board = WAL) with orchestration
+  persistence: one persistence surface, and every langgraph execution is
+  replayable by construction (M25). If graph-flow's save() is
+  whole-session-overwrite, a thin delta layer maps Session diffs to moves
+  (bench worker reports the trait shape).
+- **W2e gains a third measurement:** graph-flow per-step dispatch overhead
+  at batch 1/64/4096 (bench worker in rs-graph-llm, release mode) sits
+  beside the SurrealQL-on-kv-lance arm. rig = the oracle-node client (W3c)
+  — ergonomics assessed for Task-wrapping, never on the hot path.
