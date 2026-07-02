@@ -10,7 +10,7 @@ Plan: `.claude/v3/INTEGRATION-PLAN.md` (stub: `.claude/plans/v3-substrate-integr
 | D-V3-W1b | Ahead-firing batch writer (cast pairing + AHEAD KanbanMove at cast) | planner-adjacent | In progress | W1 STARTED 2026-07-02; WAL-shaped per preflight addendum (M24: cast = intent record) |
 | D-V3-W1c | Delegation cache (cast id vs envelope stamp) | batch writer | In progress | W1 STARTED 2026-07-02; collapses into W1b writer (M24) |
 | D-V3-W1d | MailboxId minting path (non-zero owners, uniqueness debug_assert) | contract | In progress | W1 STARTED 2026-07-02 |
-| D-V3-W1e | Probes: ahead-update ordering + delegation miss | contract/planner | In progress | W1 STARTED 2026-07-02; probe lands FIRST (probe-first gate) + kill-after-cast replay test (M24) |
+| D-V3-W1e | Probes: ahead-update ordering + delegation miss | contract/planner | In PR | W1 STARTED 2026-07-02; probe lands FIRST (probe-first gate) + kill-after-cast replay test (M24) |
 | D-V3-W2a | Per-mailbox kanban board as TENANT | contract | Queued | field-isolation matrix mandatory |
 | D-V3-W2b | Supervisor wiring: moves via MailboxSoaOwner::advance_phase | lance-graph-supervisor | Queued | plan W2 |
 | D-V3-W2c | symbiont SurrealDB-on-kv-lance arm | symbiont | Blocked (kv-lance fork coordinates) | POC = kanban_loop.rs |
