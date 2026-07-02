@@ -1,3 +1,15 @@
+## 2026-07-02 — Fleet flip EXECUTION (2× Sonnet edit agents + main thread) — 6 PRs open
+
+- **PRs:** lance-graph #628 (P0+P1+compat-reader), OGAR #147 (vocab flip +
+  18-file doc sweep, Sonnet agent), openproject-nexgen-rs #68, MedCare-rs
+  #180, woa-rs #177 (doc-only), q2 #71 (Sonnet agent: cockpit/osint-bake/
+  fma/cpic; cpic interim canon-high Genetics:q2 0x0E01_000N; SAMPLE_GUIDS
+  regenerated from real ingest).
+- **Zero-impact (no PR):** OGIT, tesseract-rs, openproject (Ruby).
+- **Deferred:** q2 .soa re-bakes (runtimed [patch] unfetchable in sandbox —
+  safe via legacy aliases + BodyV3 dual-accept; CI/dev follow-up) +
+  body.soa release re-upload. Merge order: #628 → #147 → consumers.
+
 ## 2026-07-02 — Fleet flip inventories (5× Sonnet, read-only) + P1 flip landed
 
 - **Agents:** q2 / OGAR+OGIT / MedCare-rs+openproject-nexgen-rs+openproject /
