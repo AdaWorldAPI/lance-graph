@@ -103,6 +103,11 @@ exclude = [
     # binary. Own [workspace] + git-deps (sibling of crates/symbiont). Verify via
     # `cargo build --manifest-path crates/cognitive-stack/Cargo.toml` or the Dockerfile.
     "crates/cognitive-stack",
+    # 1BRC substrate probe — standalone zero-dep groupby-aggregate throughput
+    # baseline (Lane A scalar / Lane C std::thread) at container scale. See
+    # crates/onebrc-probe/README.md. Verify via
+    # `cargo test --manifest-path crates/onebrc-probe/Cargo.toml`.
+    "crates/onebrc-probe",
 ]
 resolver = "2"
 
