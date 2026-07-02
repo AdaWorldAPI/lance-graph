@@ -1,3 +1,9 @@
+## 2026-07-02 — ractor ownership compile attestation + helper-scope ruling folded
+
+- Operator: "compile with ractor and call it owner so that the compiler believes it" — VERIFIED: `KanbanActor<O: MailboxSoaOwner>` has `type State = O`; the owner MOVES in at `pre_start(..., owner) -> Ok(owner)` (kanban_actor.rs:77,94,100-104). `cargo test -p lance-graph-supervisor --features supervisor` green against the AdaWorldAPI ractor fork (P0-compliant git dep): 15 kanban_actor unit tests + 7 integration tests (one-for-one restart, lifecycle audit, inert-G denies, Send/Sync compile proof) — 0 failures. The compiler and the runtime both attest mailbox-as-owner.
+- Operator scope ruling folded into mailbox-kanban-model.md: ractor is NOT for messaging (slow); it MAY serve as a HELPER where it makes sense (spawn, supervision, occasional serialized control RPC), always minding the speed difference — nothing on the hot path waits on ractor latency (hot dispatch = the D-V3-W2e-probed ExecTarget).
+- Ops: root FS hit 100% (overlay ~37G effective); freed by pruning agent transcripts + sibling targets + `cargo clean` (16G); post-build 57% used.
+
 ## 2026-07-02 — census fleet COMPLETE (21/21) — MODULE-TABLE.md shipped; D-V3-W0a Shipped
 
 - 304/304 files censused across lance-graph / lance-graph-contract / lance-graph-planner by the Sonnet census fleet (21 chunks, throttled re-dispatch after the rate-limit incident); assembled mechanically into `.claude/v3/MODULE-TABLE.md` (per file: visibility / consumes / emits / LE contract / function+benefit / tech debt / duplication / V3 wave).
