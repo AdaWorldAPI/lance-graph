@@ -10,8 +10,13 @@
 use super::{dk::DkPosition, homeostasis::FlowState, trust::TrustTexture, MulAssessment};
 
 /// Gate decision.
+///
+/// Renamed from `GateDecision` (M15) — this is the planner's
+/// Meta-Uncertainty-Layer verdict (Proceed/Sandbox/Compass), NOT the
+/// contract's kanban gate (`lance_graph_contract::mul::GateDecision
+/// {Flow, Hold, Block}`) which `KanbanColumn::advance_on_gate` consumes.
 #[derive(Debug, Clone)]
-pub enum GateDecision {
+pub enum MulGateDecision {
     /// All checks pass. Proceed with free will modifier applied.
     Proceed { free_will_modifier: f64 },
     /// Gate blocked. Need sandbox or human assistance.
@@ -20,25 +25,32 @@ pub enum GateDecision {
     Compass,
 }
 
+/// Renamed to `MulGateDecision` (M15); the unqualified name collided with
+/// `lance_graph_contract::mul::GateDecision`.
+#[deprecated(
+    note = "renamed to MulGateDecision (M15); the unqualified name collided with contract mul::GateDecision"
+)]
+pub type GateDecision = MulGateDecision;
+
 /// Check the gate conditions.
-pub fn check(assessment: &MulAssessment) -> GateDecision {
+pub fn check(assessment: &MulAssessment) -> MulGateDecision {
     // Check 1: Not Mount Stupid
     if assessment.dk_position == DkPosition::MountStupid {
-        return GateDecision::Sandbox {
+        return MulGateDecision::Sandbox {
             reason: "Dunning-Kruger: Mount Stupid detected. Learn first.".into(),
         };
     }
 
     // Check 2: Complexity mapped
     if !assessment.complexity_mapped {
-        return GateDecision::Sandbox {
+        return MulGateDecision::Sandbox {
             reason: "Complexity not mapped. Map dimensions before proceeding.".into(),
         };
     }
 
     // Check 3: Not depleted
     if assessment.homeostasis.needs_recovery {
-        return GateDecision::Sandbox {
+        return MulGateDecision::Sandbox {
             reason: "Depleted. Recover homeostasis first.".into(),
         };
     }
@@ -46,10 +58,10 @@ pub fn check(assessment: &MulAssessment) -> GateDecision {
     // Check 4: Trust not murky/dissonant
     match assessment.trust.texture {
         TrustTexture::Murky => {
-            return GateDecision::Compass; // Can navigate with compass
+            return MulGateDecision::Compass; // Can navigate with compass
         }
         TrustTexture::Dissonant => {
-            return GateDecision::Sandbox {
+            return MulGateDecision::Sandbox {
                 reason: "Trust dissonant. Resolve dissonance before proceeding.".into(),
             };
         }
@@ -58,11 +70,11 @@ pub fn check(assessment: &MulAssessment) -> GateDecision {
 
     // Check 5: If trust is fuzzy, use compass for navigation
     if assessment.trust.texture == TrustTexture::Fuzzy {
-        return GateDecision::Compass;
+        return MulGateDecision::Compass;
     }
 
     // All checks pass
-    GateDecision::Proceed {
+    MulGateDecision::Proceed {
         free_will_modifier: assessment.free_will_modifier,
     }
 }

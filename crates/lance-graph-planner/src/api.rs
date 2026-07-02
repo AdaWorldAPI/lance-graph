@@ -74,7 +74,7 @@ use crate::selector::StrategySelector;
 use crate::traits::*;
 
 // Re-export key types for ergonomic API
-pub use crate::mul::gate::GateDecision as Gate;
+pub use crate::mul::gate::MulGateDecision as Gate;
 pub use crate::mul::SituationInput;
 pub use crate::thinking::style::{FieldModulation, ScanParams, ThinkingCluster, ThinkingStyle};
 pub use crate::thinking::ThinkingContext;
