@@ -59,14 +59,21 @@ Before authoring any consumer write path:
 5. **Is the write idempotent per cycle?** `last_active_cycle` is the
    same-cycle guard — respect it, don't reinvent it.
 
-## Interim reality (audited 2026-07-02)
+## Interim reality (audited 2026-07-02; CORRECTED same day by the consumer audit)
 
 No consumer writes on-behalf yet — the batch writer does not exist
-(INTEGRATION-PLAN W1). Current consumer writes are **bake pipelines**
-(q2 `osint_scene.soa` / `fma.soa` / `body.soa`, OGAR mints): offline,
-single-writer, owner-less by construction. They are grandfathered as
-bootstrap-owner writes and migrate in W5. Do not add NEW online write
-paths without the stamp.
+(INTEGRATION-PLAN W1). Almost all consumer writes are **bake pipelines**
+(q2 `osint_scene.soa` / `fma.soa` / `body.soa`): offline, single-writer,
+owner-less by construction — grandfathered as bootstrap-owner writes,
+migrating in W5.
+
+**ONE exception, found by audit and named so it is never assumed away:**
+smb-office-rs `LanceConnector::upsert` (smb-bridge/lance.rs:176-201,
+live caller smb-woa/customer.rs:189-195) is an **online** Lance write —
+no stamp, no envelope, no classid. It is W5's first live migration
+target (`consumer-map.md` §2), explicitly flagged rather than silently
+grandfathered. Do not add NEW online write paths without the stamp; do
+not model new writers on the smb-office path.
 
 Cross-ref: `v3-substrate-primer.md` §2–3, `mailbox-kanban-model.md`,
 `.claude/v3/soa_layout/consumer-map.md`, board `E-DTO-LADDER-OWNERSHIP-SPLIT`.

@@ -62,7 +62,7 @@ writer's own paths; no serialization on the hot path (zero-copy invariant).
 | D-MBX-A6 | `Outcome → KanbanMove` adapter emit in `lance-graph-planner strategy/style_strategy.rs` (arm #1) | adopts existing STATUS_BOARD row; converged/cycle_count from BusDto feed it |
 | D-V3-W2a | **Per-mailbox kanban board as TENANT** (type + lane; sibling of per-row `KanbanTenant`) | envelope-auditor gate: field-isolation matrix |
 | D-V3-W2b | Supervisor wiring: `kanban_actor.rs` applies moves via `MailboxSoaOwner::advance_phase` (sole mutator); ractor stays spawn-only | structural-owner proof unchanged |
-| D-V3-W2c | symbiont arm (SurrealDB-on-kv-lance): kanban updates as KV transactions | **BLOCKED(C)**: AdaWorldAPI surrealdb fork `kv-lance` coordinates; POC = `symbiont/kanban_loop.rs` |
+| D-V3-W2c | symbiont arm (SurrealDB-on-kv-lance): kanban updates as KV transactions | **CORRECTED 2026-07-02:** coordinates RESOLVED 2026-06-16 — the remaining block is the deliberate cold-build gate (`BlockedColdBuild`, surreal_container Cargo.toml dep commented out to keep `cargo check` fast); arm #2 = one dependency-uncomment + ~10 min cold build away; POC = `symbiont/kanban_loop.rs`; read glove `SurrealMailboxView` compiles today |
 | D-V3-W2d | 550 ms budget: load-balancing hooks into planner `elevation/` (extend, don't shadow) + budget instrumentation | 64k–256k SoA prioritization |
 | D-V3-W2e | **Sub-µs dispatch speed probe**: rs-graph-llm (graph-flow) vs SurrealQL-on-kv-lance, same kanban/thinking hot path, measured | operator 2026-07-02: "the planner is too slow for sub-microsecond"; winner owns the hot-path `ExecTarget` (Native/Jit/SurrealQl/Elixir already coded, kanban.rs); planner = slow/plan path either way; truth-architect reviews the numbers |
 
@@ -96,7 +96,11 @@ Gate: replay equivalence green on every template change (template-smith rule).
 | D-V3-W5b | q2 cpic contract pull with mereology (kinds → cascade positions under `0x0E01_1000`) — dissolves interim `0x0E01_000N` + `ISS-Q2-CPIC-MIRROR` | handover F3 |
 | D-V3-W5c | Bake pipelines annotated bootstrap-owner; NEW online consumer writes route through the batch writer | per write-on-behalf.md interim rules |
 | D-V3-W5d | Probes D-VCW-3 (P7 render, bitmask→askama) + D-VCW-5 (cascade3 nibble falsifier) — q2 gate already WAIVED | validate V3 keys end-to-end |
-| D-V3-W5e | Stragglers: ladybug-rs (pre-V3/rustynum-era) + smb-office-rs contract pulls only | never bridges |
+| D-V3-W5e | Stragglers: ladybug-rs (pre-V3/rustynum-era) contract pulls only | never bridges |
+| D-V3-W5f | **smb-office-rs ORPHAN-WRITE migration**: `LanceConnector::upsert` (smb-bridge/lance.rs:176-201, live caller smb-woa/customer.rs:189) — the ONE online consumer write; stamp + batch-writer routing when W1 lands | consumer-map §2; until then explicitly flagged, never silently grandfathered |
+| D-V3-W5g | OGAR `emit.rs` post-flip fix: 3× `facet_classid() as u16` doc-label → `concept_of(...)` (emit_rust/csharp/python) + regen check | 1 line × 3; propagates into every generated SDK until fixed |
+| D-V3-W5h | MedCare-rs `medcare-soa` writer **born stamped** (design gate before first merge) | prevention half of M23 |
+| D-V3-W5i | q2 dual-bake collapse: retire/re-bake stale pre-flip `data/osint-v3` codebook into the canon-high osint-bake (M22) | latent I-LEGACY shape |
 
 ## W6 — Monitor & retirement (proof-gated)
 

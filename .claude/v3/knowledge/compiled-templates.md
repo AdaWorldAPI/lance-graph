@@ -38,9 +38,22 @@ deterministic template.*
 ## The execution + oracle split
 
 - **rs-graph-llm (graph-flow)** executes template INSTANCES as replayable
-  sessions. `NextAction` (Continue / ContinueAndExecute / WaitForInput /
-  End / GoTo) maps 1:1 onto `OgarAction` transitions and gen_statem
-  semantics — the template is a typed state machine.
+  sessions.
+
+  > **CORRECTED 2026-07-02 (ground-truthed by the mapping fleet):** the
+  > original "NextAction maps 1:1 onto OgarAction transitions" claim does
+  > NOT hold in code. `NextAction` has **6 variants** (Continue,
+  > ContinueAndExecute, GoTo, **GoBack** [documented no-op], End,
+  > WaitForInput — task.rs:243-303) while `template-runtime` executes an
+  > unconditional linear `Vec<CompiledStep>` with NO control-flow type at
+  > all. The HONEST 1:1 pairings are: `elixir_template::Step ↔
+  > graph_flow::Task` (unit of work) and `OgarAction::ogar_name() ↔
+  > Task::id()` (dispatch key). Closing the control-flow gap IS the W3
+  > work: either template-runtime grows a NextAction-shaped ControlSignal
+  > judged by StepMask, or the DSL grows branch/wait grammar the adapter
+  > translates into graph-flow conditional edges. Building the D-V3-W3b
+  > adapter while assuming the old 1:1 claim would silently drop
+  > End/WaitForInput/GoTo semantics — do not.
 - **Rig** is the optional **LLM API template oracle**: consulted when the
   deterministic template hits a FailureTicket (the <25% tail); a successful
   oracle run is graded by `template-equivalence` and, when it passes,

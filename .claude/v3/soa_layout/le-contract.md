@@ -177,13 +177,51 @@ move; jc pillars prove the READING preserves the semantics.
 - RESERVE-DON'T-RECLAIM: zeroed facets/lanes are dormant, never
   compacted; layouts are selected by classview, never by stride change.
 
-## §5 Code ground truth (PENDING — merged when the mapping fleet lands)
+## §5 Code ground truth (mapping fleet, 2026-07-02)
 
-This section will carry the file:line ColumnDescriptor inventory from
-`crates/lance-graph-contract/src/soa_envelope.rs` + the concrete
-`MailboxSoA` column offsets, reconciled against §1–§3. Until then: the
-operator spec above is the TARGET; where code disagrees, code carries a
-migration note here — the spec does not bend to the code.
+**The facet atom is CODED.** `facet.rs`: `FacetTier{lo,hi}` (2 B) +
+`FacetCascade{facet_classid: u32, tiers: [FacetTier;6]}` — 4+12=16 B,
+`size_of == 16` const-asserted (facet.rs:31-100); LE wire order
+`facet_classid@[0..4)` then 6×[lo,hi]. Slot purity is enforced by
+construction: the cascade is content-blind; only the ClassView interprets
+the 8:8.
+
+**Byte shapes vs the L1–L8 semantic catalogue:** the code implements
+exactly 3 shapes + 1 lane (facet.rs:394-546, 207-223):
+
+| Code | Shape | Covers |
+|---|---|---|
+| `CascadeShape::G6D2` | 6 groups × 2 levels (shift `>>1`) | L1–L4 — differentiated ONLY by ClassView (slot purity, as §2 demands) |
+| `CascadeShape::G4D3` | 4 × 3 (divide) | L5 triplets |
+| `CascadeShape::G3D4` | 3 × 4 (shift `>>2`) | L6 quads / canonical GUID tiers |
+| `hi_chain()/lo_chain()` | 2 × 48-bit | L7/L8 — "a SEPARATE lane … never dragged into ClassView shape selection" (module doc) |
+
+**Envelope:** `ENVELOPE_LAYOUT_VERSION = 2` (soa_envelope.rs:54; v2 =
+HelixResidue 48 B→6 B right-sizing). `ColumnKind` (8 width-only LE kinds),
+`ColumnDescriptor{name_id: u16, kind, elems_per_row: u16, row_offset: u32}`,
+`verify_layout()` with 6 error paths incl. wasm-overflow checks.
+`SoaEnvelope::mailbox_owner()` default 0 (soa_envelope.rs:170-197).
+Tenant catalogue + ValueSchema presets + ReadMode registry: `tenants.md`.
+
+**Honest discrepancies (carried, not hidden):**
+
+1. **`SoaEnvelope` has NO production implementor** — only a test-only
+   TestEnvelope. `MailboxSoA<N>` implements the sibling
+   `MailboxSoaView/MailboxSoaOwner` traits; `NodeRow` reads via the
+   `VALUE_TENANTS` table. Two parallel column-geometry systems share
+   ColumnDescriptor/ColumnKind by convention, not by trait
+   (ENTROPY-MILESTONES M7; W1 wiring decides the survivor).
+2. **L7 open item sharpened:** `hi_chain/lo_chain` interleave one byte per
+   tier ACROSS 6 tiers; the V1 key tail is two CONTIGUOUS u24s
+   (family/identity). Structurally different bit-groupings — the code does
+   NOT silently unify them; the reconciliation stays [H] as flagged in §3.
+3. **MailboxId ≠ NiblePath in code** — `MailboxId = u32`
+   (collapse_gate.rs:121), `NiblePath{path: u64, depth: u8}` (hhtl.rs:56);
+   no conversion, no shared trait, no code comment linking them. The
+   three-tier doc's "MailboxId IS the NiblePath" is a doc-only claim
+   awaiting a ruling or a wiring PR.
+4. Persisted-vs-hot width mismatches (Meta 8 B/4 B, Plasticity 4 B/1 B) —
+   see `tenants.md` §7; parity test required before any 1:1 sync.
 
 Cross-ref: board `E-V3-FACET-4-PLUS-12` (canonical ruling text),
 `routing.md` §1 (prefix routing), `tenants.md`, primer §2,

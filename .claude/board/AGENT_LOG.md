@@ -1,3 +1,11 @@
+## 2026-07-02 — subsystem mapping fleet COMPLETE (7/7) — COMPONENT-MAP + ENTROPY-MILESTONES + soa_layout ground truth shipped
+
+- **D-ids:** D-V3-W0a (nearly complete — MODULE-TABLE + README pending census), D-V3-W5f/g/h/i minted from audit findings.
+- **What landed:** `.claude/v3/COMPONENT-MAP.md` (all subsystems, verdict tables, file:line), `.claude/v3/ENTROPY-MILESTONES.md` (M1–M23 N→1 collapse ledger with mechanical gates), `soa_layout/tenants.md` (byte-accurate 10-tenant catalogue), `soa_layout/consumer-map.md` (6-consumer audit), le-contract.md §5 code ground truth, corrections to write-on-behalf.md + compiled-templates.md.
+- **Headline findings (all file:line-cited):** the 4+12 facet atom is CODED (facet.rs FacetCascade const-asserted 16 B; CascadeShape G6D2/G4D3/G3D4 = L1–L4/L5/L6; hi/lo_chain = L7/L8); the 550 ms budget is coded (KanbanMove.libet_offset_us = −550_000); SoaEnvelope trait has ZERO production implementors (M7); MailboxId ≠ NiblePath in code (doc-only claim); NextAction↔OgarAction "1:1" FALSIFIED (honest pairing = Step↔Task; control flow missing → W3a/b); surreal_container block is a deliberate cold-build gate, NOT missing coordinates (W2c corrected); smb-office-rs `LanceConnector::upsert` = the ONE live consumer ORPHAN-WRITE (W5f); OGAR emit.rs 3× `as u16` post-flip mislabel (W5g); q2 data/osint-v3 codebook stale pre-flip (W5i).
+- **Fleet:** 7 Sonnet mappers (workflow runner died rate-limited; re-dispatched as direct agents), census 8/21 chunks in, remainder draining in throttled batches.
+- **Branch:** claude/v3-substrate-migration-review-o0yoxv (PR #629 arc).
+
 ## 2026-07-02 — main thread (Fable) + 2 workflow fleets — .claude/v3/ consolidation (W0)
 
 - **D-ids:** D-V3-W0a (in progress), D-V3-W0b (shipped), plan v3-substrate-integration-v1 registered.
