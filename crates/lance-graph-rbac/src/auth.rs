@@ -84,13 +84,15 @@ impl AuthProvider {
             .find(|p| p.class_id() == id)
     }
 
-    /// As a full 32-bit `ClassId` (hi-`u16` core prefix `0x0000`, lo-`u16`
-    /// concept) — the form [`authorize`](crate::authorize::authorize) and the
-    /// `NodeGuid` classid take. Auth concepts are core (cross-app), so the
-    /// render prefix is `0x0000`.
+    /// As a full 32-bit `ClassId` under the core render lens (concept in the
+    /// CANON high `u16` since the 2026-07-02 half-order flip, prefix `0x0000`
+    /// in the custom low half) — the form
+    /// [`authorize`](crate::authorize::authorize) and the `NodeGuid` classid
+    /// take. Auth concepts are core (cross-app). Routed through the
+    /// contract's one flippable composition — never a local widening.
     #[must_use]
     pub fn classid(self) -> ClassId {
-        u32::from(self.class_id())
+        lance_graph_contract::render_classid(0x0000, self.class_id())
     }
 
     /// The claim-key grammar for this provider — which claim names carry the
@@ -204,8 +206,9 @@ mod tests {
         assert_eq!(AuthProvider::Zitadel.class_id(), 0x0B02);
         assert_eq!(AuthProvider::Zanzibar.class_id(), 0x0B03);
         assert_eq!(AuthProvider::OryKeto.class_id(), 0x0B04);
-        // Full classid is core-prefixed (hi u16 = 0x0000 — auth is cross-app).
-        assert_eq!(AuthProvider::Store.classid(), 0x0000_0B01);
+        // Full classid under the core lens: concept in the CANON high u16
+        // (post-flip form), custom prefix 0x0000 — auth is cross-app.
+        assert_eq!(AuthProvider::Store.classid(), 0x0B01_0000);
         // Round-trips.
         for p in [
             AuthProvider::Store,
@@ -244,7 +247,7 @@ mod tests {
         assert!(id.has_role("physician"));
         assert!(!id.has_role("admin"));
         assert_eq!(id.tenant.as_deref(), Some("clinic-7"));
-        assert_eq!(id.auth_classid(), 0x0000_0B02);
+        assert_eq!(id.auth_classid(), 0x0B02_0000);
     }
 
     #[test]

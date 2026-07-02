@@ -1,3 +1,60 @@
+## 2026-07-02 — E-CLASSID-COMPAT-READER — the P0 sweep missed rbac.rs: `class as u16` in ClassGrant::permits; fixed via a mint-forward compat reader
+
+**Status:** SHIPPED (follow-up on the P1 flip commit, PR #628 arc).
+
+**Correction:** the D-CCF-0 route-through sweep covered ogar_codebook /
+hhtl / canonical_node but NOT `rbac.rs` — `ClassGrant::permits` derived its
+class discriminator via `class as u16` (the exact codex-P2 collapse
+pattern), and `lance-graph-rbac AuthProvider::classid()` hand-widened
+`u32::from(class_id)`, and `lance-graph-ogar` carried `0x0000_0B01`-form
+literals. All three surfaced only when the flip landed.
+
+**Mechanism added:** `ogar_codebook::classid_canon_compat` — the
+mint-forward CANON reader for surfaces that must serve BOTH stored forms
+(RBAC grant matching, reads over un-re-baked corpora): active canon when
+plausible (`>= 0x0100 && != 0x1000`), legacy-order fallback otherwise.
+Sound because real render prefixes are §2-allocated (`0x0000..0x0007`) and
+the marker is `0x1000`; documented limitation — the future canon slot
+exactly `0x1000` (domain-0x10 root) stays reserved-unusable until marker
+retirement (P4). RBAC now authorizes pre-flip persisted rows without
+re-bake (fails OPEN-to-correct-concept, never collapses classes).
+
+**Lesson (Rule-7 adjacent):** a route-through sweep's own coverage claim
+needs the same exhaustive-grep declaration as a negative-existence claim —
+"all sites routed" was asserted from the plan's §2 inventory, not from a
+whole-crate `as u16`/`u32::from` sweep.
+
+## 2026-07-02 — E-CLASSID-FLIP-P1-LANDED — CanonHigh is live: canon HIGH / custom LOW, legacy aliases resolve persisted rows, OGAR#95 reconciled as the custom-half render catalogue
+
+**Status:** SHIPPED (PR #628 arc; P0 route-through fd9bf6b → P1 flip this commit).
+
+1. **`CLASSID_ORDER = CanonHigh`** — one-const flip per
+   `E-CLASSID-SPLIT-ORDER-IS-A-FLIP`. New mint surface: v1 classes
+   `0x0700_0000` (OSINT) / `0x0A01_0000` (FMA) / `0x0100_0000` (PROJECT) /
+   `0x0200_0000` (ERP); V3 classes `0x0701_1000` (OSINT:q2, appid
+   normalized) / `0x0A01_1000` (FMA:q2) / `0x0E01_1000` (CPIC Genetics:q2,
+   normalized `:00`→`:01` per the ruling).
+2. **Mint-forward boundary:** every pre-flip stored form stays registered as
+   a `CLASSID_*_LEGACY` read-only alias key in `BUILTIN_READ_MODES` —
+   persisted rows resolve forever until re-baked; retirement gated on corpus
+   proof (codex P2 #627). `hhtl::from_guid_prefix` (v1 fold) accepts BOTH
+   pure-canon stored forms and folds them to the IDENTICAL path; genuinely
+   marked classids (both halves nonzero) still refuse.
+3. **OGAR#95 reconciliation (plan P2) resolved by construction:** the app
+   prefix IS the custom half — `render_classid(prefix, concept)` composes
+   concept HIGH / prefix LOW (`patient` under Healthcare = `0x0901_0005`).
+   The #95 allocation table becomes the CUSTOM-half render catalogue; prefix
+   VALUES unchanged. OGAR `ogar_vocab::app` flips in lockstep (operator:
+   "also flip ogar to match").
+4. **Domain routing on legacy-form ids intentionally does NOT route** —
+   old rows resolve via concrete alias keys, not `classid_concept_domain`
+   (documented on the function). New mints route correctly off the canon.
+
+Gates: contract 773 (guid-v3-tail) / 759 (default) + doctests green; clippy
+-D warnings clean; dependents green (callcenter 163, cognitive-shader-driver
+104, planner 204). Fleet inventories (q2 / OGAR+OGIT / medcare+openproject /
+woa-rs / tesseract-rs) recorded in AGENT_LOG; consumer PRs follow.
+
 ## 2026-07-02 — E-CLASSID-CANON-HIGH-TRIGGERED — the operator pulled the flip trigger: canon (domain:appid) moves to the HIGH half, `0x1000` was a temporary reminder, OSINT low byte = appid space, q2 gate waived
 
 **Status:** DOCTRINE (operator ruling, verbatim anchors in the plan §0).

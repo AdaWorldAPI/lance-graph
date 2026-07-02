@@ -107,16 +107,19 @@ const AUTH_ZITADEL_ACTIONS: &[ActionDef] = &[
     },
 ];
 
-// The auth-family codebook ids (keystone §7 `0x0B` core domain). Written as
-// literals — NOT `ogar_vocab::class_ids::AUTH_STORE` — so this DO-arm provider is
-// strictly `lance_graph_contract`-dependent and does not couple to whichever
-// `ogar-vocab` git ref this crate pins (the action manifest is a contract-shaped
-// artifact, exactly as `contract::action::ClassActions` documents — "generated
-// downstream; the Core provides the type"). They MUST equal
-// `ogar_vocab::class_ids::{AUTH_STORE, AUTH_ZITADEL}`; the lib's `parity` guard is
-// what binds the codebook itself.
-const AUTH_STORE_CID: u32 = 0x0000_0B01;
-const AUTH_ZITADEL_CID: u32 = 0x0000_0B02;
+// The auth-family codebook ids (keystone §7 `0x0B` core domain). Concept
+// slots are literals — NOT `ogar_vocab::class_ids::AUTH_STORE` — so this
+// DO-arm provider is strictly `lance_graph_contract`-dependent and does not
+// couple to whichever `ogar-vocab` git ref this crate pins (the action
+// manifest is a contract-shaped artifact, exactly as
+// `contract::action::ClassActions` documents — "generated downstream; the
+// Core provides the type"). They MUST equal
+// `ogar_vocab::class_ids::{AUTH_STORE, AUTH_ZITADEL}`; the lib's `parity`
+// guard is what binds the codebook itself. The FULL-classid widening routes
+// through the contract's one flippable composition (core render lens,
+// prefix 0x0000) — canon HIGH since the 2026-07-02 half-order flip.
+const AUTH_STORE_CID: u32 = contract::render_classid(0x0000, 0x0B01);
+const AUTH_ZITADEL_CID: u32 = contract::render_classid(0x0000, 0x0B02);
 
 /// The registry: one [`ClassActions`] row per class with a DO surface. Seeded
 /// with the auth family (the worked hardcoded-RBAC example); other domains append

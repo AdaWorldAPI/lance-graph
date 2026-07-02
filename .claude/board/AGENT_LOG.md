@@ -1,3 +1,34 @@
+## 2026-07-02 — Fleet flip EXECUTION (2× Sonnet edit agents + main thread) — 6 PRs open
+
+- **PRs:** lance-graph #628 (P0+P1+compat-reader), OGAR #147 (vocab flip +
+  18-file doc sweep, Sonnet agent), openproject-nexgen-rs #68, MedCare-rs
+  #180, woa-rs #177 (doc-only), q2 #71 (Sonnet agent: cockpit/osint-bake/
+  fma/cpic; cpic interim canon-high Genetics:q2 0x0E01_000N; SAMPLE_GUIDS
+  regenerated from real ingest).
+- **Zero-impact (no PR):** OGIT, tesseract-rs, openproject (Ruby).
+- **Deferred:** q2 .soa re-bakes (runtimed [patch] unfetchable in sandbox —
+  safe via legacy aliases + BodyV3 dual-accept; CI/dev follow-up) +
+  body.soa release re-upload. Merge order: #628 → #147 → consumers.
+
+## 2026-07-02 — Fleet flip inventories (5× Sonnet, read-only) + P1 flip landed
+
+- **Agents:** q2 / OGAR+OGIT / MedCare-rs+openproject-nexgen-rs+openproject /
+  woa-rs / tesseract-rs — exhaustive classid half-order site inventories with
+  Rule-7 negative-existence declarations. Outcomes: OGIT zero; openproject
+  (Ruby) zero; tesseract-rs zero (contract dep is unichar-only; OCR domain
+  already allocated as ConceptDomain::Ocr 0x08); woa-rs one stale doc comment
+  (erp/canon.rs Phase-3 mint); MedCare-rs auth test literal 0x0000_0B01 +
+  docs; openproject-nexgen op-canon ~13 pinned literals (bit math lives
+  upstream in ogar_vocab); OGAR = the canonical flip site
+  (ogar_vocab::app 4 fns + mint.rs tests + large doc sweep) + flags
+  ruff_spo_address::Facet (AdaWorldAPI/ruff git dep) as companion; q2 =
+  osint-bake/cockpit-server compose+decompose sites, fma/ + cpic/ standalone
+  schemes, BAKED artifacts (osint_scene.soa, fma.soa, SAMPLE_GUIDS.tsv,
+  aiwar.codebook, release body.soa) needing re-bake.
+- **Main thread:** D-CCF-1 (P1 flip) implemented in lance-graph-contract —
+  CanonHigh live, new-form constants + legacy aliases, hhtl dual-form
+  boundary. Gates green (773/759 + doctests + clippy + dependents). PR #628.
+
 ## 2026-07-01 (cont.) — v3-convergence-wiring D1/D2 execution (2 Sonnet grindwork agents + Fable finish)
 
 **Main thread (Fable 5) + two Sonnet 5 agents (edit-only, shared checkout, no worktrees).** (1) **P6 agent (D-VCW-2, completed):** extended `markov_soa` tests with `p6_palette_join` — self-match exactly 1.0 under a real zero-diagonal 256×256 palette table + hand-computed table arithmetic == `best_guess_match` output; 6/6 module green; correctly refused a planner dep (the TABLE is the join object, dependency flows AriGraph→sensor never reverse). Flagged the pre-existing planner deprecation clippy debt (→ TD-DEPRECATED-ACCESSORS-BLOCK-DEP-CLIPPY). (2) **D1b agent (D-VCW-1b, killed mid-test by worker restart; Fable finished):** driver-persistent `RwLock<RungElevator>` on `ShaderDriver` (per-call-local would never accumulate a streak — the agent's own correct design call), base-change reset so streaks never leak across dispatch contexts, gate fed POST-decision (provenance never alters the gate), `materialize_provenance(…, rung)` replaces the `ctx.rung = 1` proxy, `wire.rs`/`grpc.rs` 10-arm matches deduped through `RungLevel::from_u8`. Fable finished the second test honestly: rung is a +1 tie-weight in tactic scoring, so inequality is asserted for the EMPIRICALLY-differentiating input (rung 1→tactic 17, rung 9→tactic 3 at authoring), not claimed universal. Gates: driver 100/100, contract 755 regression green, fmt clean, driver-own lints clean (dep-closure clippy blocked by the pre-existing deprecation debt, recorded). Commit: this one.
