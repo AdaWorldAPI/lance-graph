@@ -2,8 +2,13 @@
 
 > **READ BY:** integration-lead, truth-architect, core-first-architect,
 > family-codec-smith, baton-handoff-auditor
-> **Status:** CONJECTURE (design; the **carrier is now SHIPPED** — see V3
-> alignment below — only the rank-minter is unbuilt/unmeasured).
+> **Status:** PARTIALLY MEASURED (design; the **carrier is SHIPPED** — see V3
+> alignment below — and the **rank-minter brick-3 has now RUN** against a real
+> corpus. The naive 6-tier `(part_of:is_a)` mint was **falsified at scale**;
+> `mint_factored` is the corrected minter. The measured numbers are proprietary
+> and live **only** in the private `MedCare-rs`
+> `.claude/archive/ruff-spo-address-medcare-probe/` — this doc records the
+> *design* consequence, not the numbers.).
 > **Cross-ref:** `crates/lance-graph-contract/src/facet.rs` (the **SHIPPED**
 > `FacetCascade` substrate, #613/#614), `canonical_node.rs`
 > (`TailVariant::V3` / `mint_for` / `CLASSID_OSINT_V3`, #615),
@@ -155,19 +160,61 @@ across every consumer** — MedCare / WoA / SMB / Odoo / OpenProject-nexgen all 
 the *same* OGIT patterns (the regulatory `NTO/{Audit, Compliance, Legal}` set
 imported once; cf. boundary #1). That magnitude — "much cheaper than 500K LOC" —
 is precisely the CONJECTURE's payoff, and the brick-3 probe (MedCare harvest →
-mint → SoA → LSP query, MedCareV2 oracle) is what turns it from a claim into a
-measurement.
+mint → SoA → LSP query, MedCareV2 oracle) is what turned it from a claim into a
+first measurement.
 
-**Headline target (CONJECTURE — the probe measures it):** OpenProject + Odoo
-together as **~2 MB of GUID-encoded `(part_of:is_a)`** instead of ~20 MB / ~250K
-LOC — a ~10× collapse. Dimensionally credible: at 16 B/`FacetCascade`,
-2 MB ≈ **131K class/member/field nodes**, enough to hold both ERPs' structural
-skeleton. The honest caveat: that 2 MB is the **THINK-arm structure + classaction
-pointers**; the DO-arm `ActionDef` *bodies* don't vanish — they are minted **once**
-in OGAR and shared (amortized across every consumer), so the figure is the
-*per-consumer marginal* footprint over a shared primitive library, not the whole
-system reduced to 2 MB. The 10× ratio is the hypothesis the MedCare probe gives
-the first real datapoint for.
+**Headline target:** OpenProject + Odoo together as **~2 MB of GUID-encoded
+`(part_of:is_a)`** instead of ~20 MB / ~250K LOC — a ~10× collapse. Dimensionally
+credible: at 16 B/`FacetCascade`, 2 MB ≈ **131K class/member/field nodes**, enough
+to hold both ERPs' structural skeleton. The honest caveat: that 2 MB is the
+**THINK-arm structure + classaction pointers**; the DO-arm `ActionDef` *bodies*
+don't vanish — they are minted **once** in OGAR and shared (amortized across every
+consumer), so the figure is the *per-consumer marginal* footprint over a shared
+primitive library, not the whole system reduced to 2 MB.
+
+**What brick-3 actually measured (design consequence, numbers are private).**
+The rank-minter probe RAN — `ruff_csharp_spo` harvest of a real corpus →
+`ruff_spo_address::{mint, mint_factored}` → `medcare_probe`. Two findings that
+change this doc's design (the proprietary counts stay in the private MedCare-rs
+archive, cross-referenced below, never embedded here):
+
+1. **The naive 6-tier `(part_of:is_a)` mint was falsified at scale.** A packing
+   that maps each concept into a fixed 6-tier `(hi:lo)` cascade *truncates* a
+   large fraction of a real corpus and *collides* on god-classes (a WinForms
+   god-class exceeds the fixed per-tier 256-cap / 6-tier budget, so the naive
+   packer truncates and collides instead of rerouting). "2 MB" is not reachable
+   by naively bit-packing whatever the harvest emits.
+2. **`mint_factored` (base-255 positional path + `is_a`-from-`inherits`-only) is
+   the corrected minter** — it drives collisions **and** truncation to 0 by
+   construction, because the path is positional (not a fixed-width bitfield) and
+   `is_a` is derived only from real inheritance edges (killing the god-class
+   `is_a` redundancy).
+
+**Truncation is DISALLOWED; bucket overflow is a separation-of-concerns REROUTE
+trigger.** The falsification above is *not* "reduce truncation with a bigger
+packer." Per the OGAR `256-cap-is-a-lint` law (`scale = the next cascade level,
+never field-widening`; OGAR #130/#140), a tier/family that exceeds its capacity
+(the 256-cap, or the 6-tier depth) does **not** truncate and does **not**
+field-widen — the **overflow itself is the signal to reroute**: split the
+overflowing god-class into sub-concerns (SoC), or escalate to the next cascade
+level (a new family/basin). So the god-classes brick-3 surfaced are **flagged for
+SoC split**, not silently mangled — the overflow is a real transcode signal (a
+hundreds-of-members god-class *should* decompose), not a minter limitation. Division of
+labour: `mint_factored` handles **addressing precision**; overflow→SoC-reroute
+handles **structure**. Together: zero truncation, zero collision, god-classes
+flagged for split. The 10× headline is therefore a *design target reachable with
+`mint_factored` + overflow-reroute*, and the private archive holds the pre-policy
+falsification numbers that motivated the disallow-truncation rule.
+
+**Where the measured numbers live (privacy).** `MedCare-rs` is private; `ruff` is
+public. The proprietary corpus counts (triples/nodes/classes, truncation and
+collision figures) are recorded **only** in `MedCare-rs`
+`.claude/archive/ruff-spo-address-medcare-probe/` (`RESTORE-STATUS.md` +
+`medcare_probe.rs`). This doc, being in the (fork-)public lance-graph tree, states
+the *design* outcome and deliberately embeds **no** proprietary numbers. A
+re-fetch pass against the moved-forward public `ruff` (`origin/main` `b459ec3`+,
+carrying scrubbed `ruff_spo_address` + `ruff_csharp_spo`) will re-confirm the
+numbers on the current minter; treat the archive's figures as *last measured*.
 
 **What the primitives actually are: laws and regulations, not CRUD shapes —
 content stays with the consumer.** An ERP's hard value is *compliance* (tax law,
@@ -294,15 +341,23 @@ the FacetCascade carries the full address. The rank-minter therefore targets the
 allocation is left to ratify, and the only open ordering is the classid half-order
 above (Canon:Custom), which is orthogonal to per-tier packing.
 
-## The missing brick — a deterministic part_of/is_a rank-minter
+## The brick that ran — a deterministic part_of/is_a rank-minter (`mint_factored`)
 
 Between the SPO harvest and the GUID is the **one** genuinely-new component — the
-carrier (`FacetCascade`) is **already shipped**, so this is the only brick to
+carrier (`FacetCascade`) is **already shipped**, so this was the only brick to
 build: a pure-Rust, dependency-free rank-minter. Given the corpus's part_of edges
 + is_a edges, assign each node its `(po_rank, ia_rank)` at each tier and write
 them into the 6 `FacetCascade` tiers (`tier.hi = po_rank`, `tier.lo = ia_rank`);
 `FacetCascade::to_bytes()` is then the 16-byte facet and `hi_chain()`/`lo_chain()`
 the two prefix-routable hierarchies — no new layout, no new type.
+
+**This brick has now RUN** (brick-3, public `ruff_spo_address::mint_factored`,
+measured against a private corpus — see the "What brick-3 actually measured"
+section above). The naive fixed-width 6-tier packing (`mint`) was falsified;
+`mint_factored` (base-255 positional path + `is_a`-from-`inherits`-only) is the
+corrected form, and **truncation is disallowed** — bucket overflow triggers an
+SoC reroute, never a truncation or a field-widen. The description below is the
+`mint_factored` design as it now stands.
 
 - **part_of tree** (namespace → class → member): deterministic sibling/
   topological rank.
@@ -342,21 +397,41 @@ linter surface — it is a **language-agnostic semantic-navigation surface** ove
 whatever frontend filled the graph (Python / C++ / **C#-MedCare** / Ruby),
 because at that layer it is all the same `Model`/ClassView keyed by GUIDs.
 
-## Next bricks (ordered; each gated on the prior)
+## Next bricks (ordered; ✔ = done)
 
-1. **Slot allocation — LOCKED (shipped).** The 6-pair / 12-slot layout is the
+1. **Slot allocation — LOCKED (shipped).** ✔ The 6-pair / 12-slot layout is the
    shipped `FacetCascade` (#613/#614); no ratification needed. The ONLY remaining
    ordering decision is the classid `(part_of:is_a)` half-order (the operator's
-   Canon:Custom correction) — orthogonal to per-tier ranking, so it does **not**
-   block brick 2.
+   Canon:Custom correction) — orthogonal to per-tier ranking.
 2. **Build the deterministic rank-minter** (`ruff_spo_address`, pure std): SPO
-   graph → `(po_rank, ia_rank)` per level → packed slots. Verifiable in
-   isolation.
+   graph → `(po_rank, ia_rank)` per level → packed slots. ✔ **DONE** — shipped as
+   `mint` (naive, falsified) + `mint_factored` (corrected: positional path,
+   `is_a`-from-`inherits`-only, truncation-disallowed).
 3. **Probe on MedCare**: `ruff_csharp_spo` harvest → mint → lance SoA →
    `typeHierarchy`/`definition` query → diff the class graph against the C#
-   original, with `MedCareV2` as the parity oracle.
+   original, with `MedCareV2` as the parity oracle. ✔ **RAN** (brick-3) — the naive
+   mint falsified at scale, `mint_factored` corrects it, overflow→SoC-reroute
+   handles god-classes. Proprietary numbers in the private MedCare-rs archive.
 
-The per-tier layout is **locked** (the shipped `FacetCascade`), so brick 2 (the
-rank-minter) can proceed now — it writes into existing tiers, inventing no type.
-Only the classid half-order (Canon:Custom) remains a decision, and it is
-orthogonal to per-tier packing, so it does not gate the minter.
+**Remaining open bricks (post-brick-3):**
+
+- **Re-fetch pass** against the moved-forward public `ruff` (`origin/main`
+  `b459ec3`): diff RAN 2026-07-01 — `lib.rs` is **byte-identical** to the
+  archived snapshot; the forward movement is a **new `soc` module** (below).
+  The `medcare_probe` re-run on the current minter remains blocked on input
+  data (the harvest NDJSON is not in this container).
+- **Overflow→SoC-reroute — classification SHIPPED, reroute execution open.**
+  `ruff_spo_address::soc` now carries the reusable `256-cap-is-a-lint`
+  (`soc_findings` → `SocVerdict::{Duplication, Conflation,
+  DuplicationAndConflation, Counterexample}`, `law_holds` falsifier) promoted
+  from the probe's §[G] check, CI-runnable. Operator refinement recorded there
+  (2026-06-29): the ClassView cascade **shape is class-conditioned, inherited
+  from the class's format** — Rails → `6×2`, other frameworks → `4×3`, the
+  canonical GUID → `3×4` (all `G·D = 12`, 8-bit tiers); never lock one shape.
+  What is still NOT built: *executing* the reroute (the actual SoC split /
+  next-cascade-level escalation) inside the mint pipeline — the lint flags,
+  a human splits.
+- **classid half-order (Canon:Custom)**: still the one open ordering decision;
+  orthogonal to per-tier packing, so it did not gate the minter.
+- **LSP serve end** (`ruff-lsp` → lance store): the read surface is still a clean
+  slate (vanilla fork, no SPO/lance wiring).
