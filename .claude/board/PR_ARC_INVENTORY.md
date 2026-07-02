@@ -35,6 +35,22 @@
 
 ---
 
+## #628 lance-graph: classid canon:custom half-order flip — P0 route-through + P1 CanonHigh + mint-forward compat reader
+
+**Status:** MERGED 2026-07-02 (merge commit `6858118b`), branch `claude/v3-substrate-migration-review-o0yoxv`. Executes plan phases P0+P1 (+P2 by construction); the fleet consumer PRs rode the same arc.
+
+**Added:** `ogar_codebook::{ClassidOrder, CLASSID_ORDER = CanonHigh, compose_classid[_with], split_classid[_with], classid_canon, classid_custom, flip_classid, classid_canon_compat}` (the ONE flippable composition + the mint-forward CANON reader for both-stored-forms surfaces); new-form mint constants (v1 `0x0700_0000`/`0x0A01_0000`/`0x0100_0000`/`0x0200_0000`; V3 `0x0701_1000`/`0x0A01_1000`/`0x0E01_1000` — OSINT/CPIC appid normalized `:01`=q2) + `CLASSID_*_LEGACY` read-only aliases in `BUILTIN_READ_MODES`; hhtl v1 fold dual-form boundary (both pure-canon stored forms fold to the IDENTICAL path); probes (round-trip both orders, `flip(flip)==x`, legacy-boundary matrix, no-class-collapse, compat both-forms, RBAC both-forms grant test). Lock: ogar pin `a0c7936 → 19373a2` (OGAR #147, the lockstep vocab flip).
+
+**Locked:** class discriminators derive via `classid_canon(id)` (strict) or `classid_canon_compat(id)` (both-forms surfaces: RBAC grants, un-re-baked corpora) — NEVER `as u16`/`& 0xFFFF`/`>> 8` on the composed u32; OGAR#95 reconciliation = the app prefix IS the custom half (`render_classid` composes concept HIGH / prefix LOW; prefix VALUES unchanged); legacy keys demote-don't-retire (corpus proof gates retirement); the canon slot exactly `0x1000` stays reserved-unusable until marker retirement (P4).
+
+**Corrections shipped in-arc:** the P0 sweep missed `rbac.rs` `class as u16` + `lance-graph-rbac` `u32::from` widening + `lance-graph-ogar` pre-flip literals (E-CLASSID-COMPAT-READER — a route-through sweep's coverage claim needs the same exhaustive-grep declaration as a negative-existence claim).
+
+**Deferred:** `0x1000` marker retirement (P4, operator checkpoint); legacy-alias retirement (corpus proof); q2 `.soa` re-bakes (q2 #71, CI/dev — runtimed [patch] unfetchable in sandbox) + `body.soa` release re-upload.
+
+**Docs:** plan `classid-canon-custom-flip-v1.md` (phases now P0/P1/P2 DONE, P3 in q2 #71, P4 open); EPIPHANIES `E-CLASSID-FLIP-P1-LANDED` + `E-CLASSID-COMPAT-READER`; fleet inventories in AGENT_LOG. Sibling merges: OGAR #147, MedCare-rs #180, woa-rs #177; open: q2 #71, openproject-nexgen-rs #68 (lock bumped `ff3777b`, gate closed).
+
+**Confidence (2026-07-02):** HIGH — 774 contract tests (guid-v3-tail) + 759 default + doctests + dependents (callcenter/shader-driver/planner/rbac/ogar) green; clippy -D warnings; fleet verified per-repo.
+
 ## #627 lance-graph: classid canon:custom flip TRIGGERED — migration plan v1 + operator ruling record (doc-only)
 
 **Status:** MERGED 2026-07-02 (merge commit `c8e1ec4`), branch `claude/v3-substrate-migration-review-o0yoxv`. Doc-only: records the operator ruling arc and activates the §2.3 migration.

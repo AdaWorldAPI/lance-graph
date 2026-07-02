@@ -1,5 +1,16 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-RESONANCEDTO-DUPLICATE (2026-07-02)
+
+Two `ResonanceDto` definitions coexist in thinking-engine: `src/dto.rs`
+(Ψ ripple field) and `src/awareness_dto.rs` (perspectival gestalt).
+RESOLUTION RULED (2026-07-02, E-TWO-RESONANCES-SPLIT): a SPLIT, not a
+dedup — the two are distinct concepts wrongly sharing a name. D-PERT-1:
+rename `dto.rs::ResonanceDto` → `PerturbationDto` (~9 files, deprecated
+type alias for transition); `awareness_dto.rs` keeps Resonance (the
+perspectival phenomenon). "Cascade" (HEEL/HIP/TWIG key tiers) is NOT
+renamed — canon vocabulary.
+
 > **Append-only ledger** for knowingly-deferred work: TODOs, shortcuts,
 > workarounds, unsafe assumptions, missing probes, hardcoded
 > thresholds, stubs, and anything else we shipped with intentional

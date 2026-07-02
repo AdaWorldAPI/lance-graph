@@ -1,3 +1,308 @@
+## 2026-07-02 — E-V3-PLANNER-TWO-NATURES-AND-SPEED-PROBE (operator: planner too slow for sub-µs; resonance-based thinking is not DataFusion)
+**Status:** FINDING (operator-ruled; speed claim probe-gated per truth-architect discipline)
+
+Two coupled rulings. (1) **Speed:** the planner is believed too slow for sub-microsecond handling — so the hot dispatch path is PROBED, not assumed: **D-V3-W2e benchmarks rs-graph-llm (graph-flow) execution vs SurrealQL-on-kv-lance** on the same kanban/thinking workload; the winner owns the sub-µs `ExecTarget` (the enum already codes the split: Native/Jit/SurrealQl/Elixir — contract kanban.rs). The planner arm stays the SLOW/plan path (strategy selection, elevation, MUL) either way. (2) **Taxonomy:** lance-graph-planner's many methods have TWO natures — DataFusion-routed query strategies (parse→plan→execute) AND **resonance-based thinking**: the thinking style (elixir low-code compiled template) MATCHING against the **Gestalt resonance of the object** (perspectival `awareness_dto::ResonanceDto`; "was sagt das Objekt über sich selbst aus" = classid→ClassView) to reason at **rung level X** (RungLevel/RungElevator). No SQL involved; never force it through the DataFusion mold. This joins E-TWO-RESONANCES-SPLIT (the perspectival resonance is the MATCHING surface) and E-COMPILED-THINKING-TEMPLATES (the style is the compiled template being matched). Docs: `.claude/v3/knowledge/mailbox-kanban-model.md` § Execution speed tiers; plan W2e.
+
+Cross-ref: E-TWO-RESONANCES-SPLIT, E-COMPILED-THINKING-TEMPLATES, E-MAILBOX-KANBAN-NO-COLLAPSEGATE, contract kanban.rs ExecTarget.
+
+## 2026-07-02 — E-V3-TWO-LEVEL-LE-JC-GATE (operator: tenant LE contract nested in envelope LE contract; consumers certified by jc pillars)
+**Status:** FINDING (operator-ruled)
+
+"32-bit class, 96-bit data" — and the LE contract is TWO-LEVEL: **every tenant has an LE contract** (its facet layout per E-V3-FACET-4-PLUS-12) and **the SoA envelope has its LE contract** (ColumnDescriptor/verify_layout/ENVELOPE_LAYOUT_VERSION). The nesting ensures **scopedness to the single compile-inherited SoA write ownership**: a tenant lane can never acquire a writer the envelope doesn't know; an envelope never writes a lane whose tenant contract it doesn't carry (owner-borrows structural + mailbox_owner() nominal). **Validation gate:** every payload layout is so distinct that consumer READINGS are validated later against the `jc` crate pillars in lance-graph — ICC / Spearman ρ / Cronbach α etc. (certification-officer discipline: real bytes, deterministic sampling, 4-decimal reporting). The statistical mirror of the field-isolation matrix: layout tests prove bytes don't move; jc pillars prove the reading preserves semantics. Canonical doc: `.claude/v3/soa_layout/le-contract.md` §3b.
+
+Cross-ref: E-V3-FACET-4-PLUS-12, E-V3-CLASSVIEW-FOCUS-LENS, I-NOISE-FLOOR-JIRAK (the stats regime jc pillars operate under), crates/jc.
+
+## 2026-07-02 — E-V3-CLASSVIEW-FOCUS-LENS (operator: the lens follows the data shape; let go of the cramped 64-bit awareness register)
+**Status:** FINDING (operator-ruled)
+
+Two coupled rulings. (1) **ClassView = focus lens.** The choice among the V3 facet payload layouts (E-V3-FACET-4-PLUS-12 L1-L8 + the polymorphic (8:8) readings) must be made through the classview acting as the focus lens **that the data shape wants** — relational data focuses rails, positional data focuses hhtl/helix location, similarity data focuses palette256² pairs. The lens follows the data; the classview carries the focus; code never selects layouts by convention or payload inspection. (2) **Let go of the 64-bit cramp.** The prior pattern — a 64-bit packed edge register "hoping for a 3-bit mantissa to mean the whole awareness" (CausalEdge64 inference-mantissa lineage; the same bits that generated the I-LEGACY-API-FEATURE-GATED 5-instance defect catalogue) — is retired as the awareness carrier. Awareness/relation semantics get real width in 96-bit facet payloads, lens-selected per class. Consequence: never extend CausalEdge64 bit fields for new awareness semantics; new semantics land as facet layouts. [H] open: CausalEdge64 residual role (wire/protocol compat) vs full retirement — scoping ruling pending; the CANON node's edges[16B] one-byte-slot block is NOT touched by this ruling (slots, not mantissas). Canonical doc: `.claude/v3/soa_layout/le-contract.md` §3.
+
+Cross-ref: E-V3-FACET-4-PLUS-12, I-LEGACY-API-FEATURE-GATED, CLAUDE.md § CANON minimal SoA node.
+
+## 2026-07-02 — E-RUFF-ODOO-MULTI-ANCHOR-AST (operator-stated: AST resolution triangulates from six anchors)
+**Status:** FINDING (operator-stated method; [H] per-mechanism until ruff/odoo code ground-truthed)
+
+ruff + odoo together carry a new AST method: resolution triangulates from (1) **database layout** (ORM schema ground truth), (2) **duplication** (N duplicated routes VOTE for one canonical concept — duplication is signal, not noise), (3) **target adapters** to land on (OGAR classid-keyed), (4) **target ontologies** to land on (OGIT), (5) **ClassView stacking to reuse constructors** (never re-emit per duplicate — the constructor sibling of facet slot purity), and (6) **fuzzy matches from the target ontology** for the tail (e.g. "something that constructs an invoice from account in different duplicated routes" → the one canonical invoice-construction concept). V3 consequences: duplication anchor = mechanical N→1 entropy-milestone detector in consumer code; landing surfaces are the V3 address stack (OGIT node / classid / ClassView / tenant lanes / rails); fuzzy = the oracle tail — deterministic-first, and a successful fuzzy resolution MINTS so the next encounter is exact. Guardrails + full table: `.claude/v3/knowledge/multi-anchor-ast-resolution.md`. OGAR DISCOVERY-MAP mirror queued behind OGAR's 5+3 gate.
+
+Cross-ref: E-V3-FACET-4-PLUS-12, core-first-transcode-doctrine, OGAR-TRANSPILE-SUBSTRATE, E-COMPILED-THINKING-TEMPLATES.
+
+## 2026-07-02 — E-V3-FACET-4-PLUS-12 (operator-locked: the V3 atom is 4+12 bytes, 96-bit payload)
+**Status:** FINDING (operator-dictated spec, same-day correction applied: L4 = palette256² digital CAM_PQ)
+
+**The V3 unit is a 16-byte facet: a 4-byte address prefix + a 96-bit payload.** Prefix = the composed classid u32 spelled as bytes: `[1B class/domain][1B appid][2B classview]` — canon hi u16 = domain:appid (e.g. 0x07:01 OSINT:q2), custom lo u16 = the ClassView selector (today: 0x1000 V3 monitor + OGAR §2 app render prefixes + interim kind slots; post-P4: the 64k ClassView/template catalogue). **Slot purity: labels and positions come from the ClassView — never waste a payload slot on them.** Sanctioned 96-bit payload layouts (each exactly 12 B): L1 `6×(8:8) part_of:is_a` rails · L2 `6×(8:8) memberof:members` · L3 `6×(8:8) mereology:taxonomy` · L4 `6×(8:8) palette256²` = **CAM_PQ "digital" new style** (byte pairs index the 256×256 palette distance/compose tables; similarity = one LUT read) · L5 `4×(8:8:8)` triplets · L6 `3×(8:8:8:8)` odoo-shaped quads ([H] semantics open — operator marked "odoo ?") · L7 `2×48-bit hhtl++helix` = **absolute location, two hemispheres** (hhtl 48 = HEEL|HIP|TWIG; see q2 FMA usage) · L8 `2×48-bit helix++CAM_PQ` = **CAM_PQ "analog" old style** (the harvest facet helix-place(6)|cam-pq(6)). **CAM_PQ grounding:** the codebook is DeepNSM's 4096-word English-native-speaker (COCA) codebook — A,B distance-as-similarity via table lookup instead of float. **Same-day extension (operator): the (8:8) pair is polymorphic, classview-selected** — additional sanctioned readings: `area:location` in STACKED EXACTNESS (six pairs = a precision ladder); for a second GUID dedicated to relationships, 6 relations as `basin:relationtype`; OR if the basins are 12 STATIC, `relationtype:relationtype_orthogonal` (basin implied, both bytes carry orthogonal relation types). Open [H]: L7 helix(48) vs CANON key tail family|identity(48) — reconcile at envelope ground truth, never unify silently; L6 semantics await ruling. Canonical doc: `.claude/v3/soa_layout/le-contract.md`.
+
+Cross-ref: E-MAILBOX-KANBAN-NO-COLLAPSEGATE, soa-value-tenant-migration-v2 (the 16 B facet lineage), CLAUDE.md § CANON minimal SoA node, bgz17 palette tables, crates/deepnsm.
+
+## 2026-07-02 — E-TWO-RESONANCES-SPLIT — operator disambiguation confirmed: mechanical perturbation ≠ perspectival resonance; rename the Ψ DTO, keep the perspectival name; L4 perturbation feeds Learning through the SoA Lance row
+
+**Status:** DOCTRINE (operator question answered YES-with-precision,
+2026-07-02; naming ruling recorded, rename queued as D-PERT-1).
+
+**Confirmed — there are TWO resonances sharing one name, and the code
+already separates them:**
+
+1. **Mechanical (Ψ):** `thinking-engine/src/dto.rs::ResonanceDto` — the
+   f32 energy ripple field from `StreamDto` perturbations interfering.
+   YES, this is the Morton-tile cascade inverse-pyramid perturbation:
+   its addressed/tiled form is the OGAR perturbation pyramid
+   (256×256 nibble-interleaved centroid tiles, coarse→fine descent,
+   Walsh-Hadamard bipolar phase — the canon itself calls each cell "a
+   resonance field, not combinatorial selection"). It is field PHYSICS.
+2. **Perspectival:** `thinking-engine/src/awareness_dto.rs::ResonanceDto`
+   — and it is ALREADY the Piaget structure in code: `hdr: HdrResonance`
+   is a 3D subject/predicate/object agreement profile;
+   `dominant_perspective: Archetype`; `gestalt_state: GestaltState`;
+   `dissonance`; PLUS an inferred USER model (`user_style` /
+   `user_engagement` / `user_valence` / `user_depth`) — literally the
+   Three-Mountains awareness that the recipient's perspective differs
+   from the sender's and is relative to object perception. The Gestalt
+   line "was sagt das Objekt über sich selbst aus" IS the workspace's
+   canonical "The object speaks for itself" + `classid → ClassView`
+   (the object's self-description, prerendered by the key).
+   Familienaufstellung = the mailbox constellation (sea-star topology):
+   each mailbox holds its own kanban board and its own angle
+   (QualiaColumn) on shared canon objects. "Two renders, one concept"
+   IS the Three-Mountains theorem in the addressing: same canon (the
+   mountain), different custom-half lens (the viewpoint) — post-P4
+   literally addressable.
+
+**Naming ruling (differentiated):**
+- `dto.rs::ResonanceDto` → **`PerturbationDto`** (it IS
+  field-state-from-perturbations; matches the canon's perturbation-
+  pyramid vocabulary). TD-RESONANCEDTO-DUPLICATE resolves by SPLIT,
+  not dedup: the "duplicate" was two distinct concepts under one name.
+- `awareness_dto.rs::ResonanceDto` KEEPS the Resonance name — resonance
+  proper is the perspectival phenomenon (Subject's thinking resonating
+  with the Object's self-Gestalt).
+- **"Cascade" is NOT renamed.** HEEL/HIP/TWIG "3 cascade tiers" is
+  operator-locked GUID canon; only the mechanical DESCENT is called the
+  perturbation pyramid. Renaming the key-tier cascade would churn the
+  entire canon for no disambiguation gain (the collision was in the
+  DTO name, not in "cascade").
+- Rename ships as its own gated deliverable **D-PERT-1** (~9 files in
+  thinking-engine + engine_bridge; transition via a deprecated
+  `pub type ResonanceDto = PerturbationDto;` alias per I-LEGACY).
+
+**L4 feedback loop (operator recall, confirmed consistent):**
+Perturbation at L4 (Composition/orchestration) feeds back into Learning
+THROUGH THE SoA LANCE ROW — the converged perturbation residue persists
+into the value-tenant lanes (Energy/Qualia/Meta) via the owner-stamped
+LE envelope, and the next cycle's standing template READS that row: the
+persisted perturbation reshapes the next cycle's free-energy landscape.
+This is The Click's "global_context += fact → reshapes NEXT cycle's F
+landscape" arc, carried by tenant lanes instead of any singleton
+context — learning is the row, never a cross-mailbox carrier
+(StepDomain::Learning routes it; the envelope owns it).
+
+## 2026-07-02 — E-DTO-LADDER-OWNERSHIP-SPLIT — BusDto stays ownership-FREE; the envelope owns the write moment; StreamDto is the ancestor of the standing async plan
+
+**Status:** DOCTRINE (reconciliation of the operator's overlap question,
+2026-07-02 — the old `thinking-engine > p64 > cognitive-shader-driver`
+ladder vs the mailbox-ownership contract).
+
+**The old Φ/Ψ/B/Γ ladder survives with sharpened roles**
+(`thinking-engine/src/dto.rs`):
+
+- **Φ `StreamDto`** (sensor perturbation entering the field) — the
+  ANCESTOR of the standing-async-plan ruling: "cycles unable to stop
+  thinking, following the async template without waiting to be called"
+  IS StreamDto's semantics, now formalized: a cycle follows its compiled
+  template (`elixir-template` instance) continuously; kanban/ahead
+  updates arrive as StreamDto-shaped perturbations mid-flight — never as
+  a call/response invocation.
+- **Ψ `ResonanceDto`** (the f32[4096] ripple field) — INTRA-mailbox
+  computation carrier only; never crosses a mailbox boundary (same law
+  as Vsa16kF32). Known debt: TWO definitions exist (`dto.rs` +
+  `awareness_dto.rs`) — dedup tracked.
+- **B `BusDto`** (committed thought + cognitive provenance) — **the
+  overlap answer: same MOMENT as the ownership contract, orthogonal
+  CONTENT, and it stays clean under one pinned rule: BusDto NEVER grows
+  ownership fields.** BusDto answers "what was thought and how settled"
+  (peak, top_k, cycles, converged — verified: zero mailbox/owner fields
+  today); the envelope answers "whose lane and who may write"
+  (`SoaEnvelope::mailbox_owner` + write-on-behalf). At write time the
+  batch writer PAIRS them: `cast(on_behalf = envelope.mailbox_owner(),
+  payload = BusDto)` — one ownership source of truth (the envelope),
+  one cognitive-provenance source (the BusDto). Duplicating ownership
+  into BusDto would create the two-sources drift the operator sensed.
+- **Γ `ThoughtStruct`** — persists into the value tenants via the LE
+  envelope (Lance tombstone carries the owner stamp).
+
+**Bonus fit:** BusDto's `converged`/`cycle_count` are exactly the inputs
+the kanban advance policy reads — BusDto is the natural PAYLOAD of the
+D-MBX-A6 `Outcome → KanbanMove` emit: the committed thought that
+justifies the phase move, with ownership supplied by the envelope at
+cast time, never by the payload.
+
+**Old pipeline → new pipeline, one line:** sensors fire `StreamDto` →
+the mailbox's owned field computes `ResonanceDto` under its compiled
+template (the standing async plan) → convergence commits `BusDto` → the
+batch writer casts on-behalf + fires the AHEAD kanban update
+(`KanbanMove` justified by the BusDto) → `ThoughtStruct`/tenants persist
+through the envelope → Lance. p64 remains the convergence highway
+between thinking-engine and cognitive-shader-driver; nothing in the
+ladder is retired.
+
+## 2026-07-02 — E-V3-MARKER-IS-A-MONITOR — operator clarification: `0x1000` = V3-adoption telemetry, deprecated when nothing is left to monitor
+
+**Status:** DOCTRINE (operator, 2026-07-02).
+
+The `0x1000` custom-half marker is JUST a monitor: it marks classes that
+ARE on the V3 substrate, so one can watch which classes DON'T use V3 yet.
+Once the fleet is fully V3 there is nothing left to monitor and the
+marker is DEPRECATED — that IS the P4 trigger condition (previously an
+open operator checkpoint; now defined: P4 fires when the adoption monitor
+reads 100%). Consequences: (a) new V3 classes keep minting WITH the
+marker until full adoption; (b) the corpus-proof scanner and the adoption
+monitor are ONE tool with two metrics (marker-present range count = V3
+adoption; legacy-form range count = alias-retirement gate) — both are
+key-range counts thanks to canon-high clustering; (c) after P4 the
+custom half opens for the render/style catalogue (E-COMPILED-THINKING-
+TEMPLATES seed (e)).
+
+## 2026-07-02 — E-COMPILED-THINKING-TEMPLATES — operator design: orchestration compiles like askama↔ClassView×bitmask; the elixir-like DSL is the source, rs-graph-llm executes replays
+
+**Status:** DOCTRINE (operator directive, 2026-07-02 — extends
+E-MAILBOX-KANBAN-NO-COLLAPSEGATE item 7).
+
+**The ruling:** rs-graph-llm plus the elixir-LIKE low-code syntax (NOT
+Elixir — the `ogar-from-elixir` frontend's DSL arm) should COMPILE thinking
+orchestration exactly the way askama ↔ ClassView-with-bitmask compiles
+rendering: the orchestration graph is a compiled, replayable TEMPLATE; a
+bitmask selects which steps/arms are live per dispatch; execution is pure
+knowledge transfer — no runtime interpretation of orchestration config.
+
+**The exact analogy (each column already exists):**
+
+| Rendering (shipped)            | Thinking orchestration (this design)     |
+|--------------------------------|------------------------------------------|
+| askama template (compile-time checked) | compiled orchestration graph template (replayable) |
+| `ClassView` (per-app projection) | per-style "ThinkView" projection of the graph |
+| `FieldMask` bitmask (which fields render) | StepMask bitmask (which nodes/arms are active) |
+| classid custom half selects the render lens | (post-P4) custom half indexes the template catalogue — 64k ClassViews × bitmask, styles-as-lenses (F2) |
+| OGAR frontend lifts source → `Class` | `ogar-from-elixir` lifts the DSL → `Class`+`ActionDef` |
+
+**Why the lift is already 1:1:** `ogar-from-elixir` maps gen_statem-style
+lifecycle onto `ActionDef` (`state_enter`→`on_enter`, `[:postpone]`→
+`GuardFailurePolicy::Postponable`, `state_timeout`→`state_timeout_millis`,
+`next_state`→`EnterEffect::transition`) — and graph-flow's `NextAction`
+(`Continue`/`ContinueAndExecute`/`WaitForInput`/`GoTo`/`End`) is the SAME
+state-machine vocabulary. An orchestration graph IS a lifted state machine;
+the kanban phase arc (Planning→CognitiveWork→Evaluation→Commit) is itself
+one. One parser, two emitters (wide OGAR arm + narrow SPO arm), one
+compiled artifact.
+
+**Execution semantics (inherits the mailbox ruling):** rs-graph-llm
+executes template INSTANCES as replayable sessions (graph-flow sessions
+are already deterministic step records); every instance inherits ownership
+from its SoA (write-on-behalf of the ractor dummy owner, never state
+beside the SoA); Rig slots in as the optional LLM-API template ORACLE node
+for the escalation tail; the standing 550 ms async plan each thinking
+cycle follows IS a compiled template instance — the cycle replays its
+template whether or not a kanban update arrived.
+
+**Knowledge transfer, literally:** the compiled template is the
+transferable knowledge artifact — deterministic, maskable, replayable
+across sessions and mailboxes. Sessions exchange compiled orchestration,
+not prose plans. (Precedent: jitson "config IS the code" — thresholds
+become immediates; here graph configs become compiled templates.)
+
+**The DSL crate already ships IN lance-graph (operator pointer):**
+`crates/elixir-template` — "the declarative, replayable macro a
+successful LLM run compiles down to, whose steps bind to OGAR actions
+and run deterministically without the LLM" — with `crates/
+template-runtime` (deterministic reflex executor, OGAR-action dispatch)
+and `crates/template-equivalence` beside it. `ogar-from-elixir` is the
+eventual RICHER front-end, not the canonical shape. Note the compile
+DIRECTION the crate doc names: a successful LLM (Rig-oracle) run
+compiles DOWN to a template — knowledge transfer is literal (LLM run →
+deterministic replayable macro).
+
+**Deliverable seeds (next arc, corrected):** (a) StepMask bitmask on
+`ElixirTemplate`/`template-runtime` (sibling of `ClassView`/`FieldMask`);
+(b) extend the elixir-template/template-runtime pair (ogar-from-elixir
+stays the future richer frontend); (c) graph-flow adapter in
+rs-graph-llm: `ElixirTemplate` → `GraphBuilder`, session = replay,
+ownership inherited from the SoA; (d) Rig oracle node type (optional
+feature) + the run→template compile-down path; (e) post-P4: catalogue
+dispatch keyed by the classid custom half.
+
+## 2026-07-02 — E-MAILBOX-KANBAN-NO-COLLAPSEGATE — operator correction: no singleton-BindSpace CollapseGate; one mailbox = one kanban board (tenant-carried), writer fires AHEAD, consumers write on behalf of the ractor dummy owner
+
+**Status:** DOCTRINE (operator ruling, 2026-07-02 — corrects this session's
+"CollapseGate-gated write-back" continuation step, which used the superseded
+singleton-BindSpace sink-in bundle/bind pattern; consistent with the PR #477
+three-tier supersession).
+
+The ruled write/thinking model:
+
+1. **No CollapseGate as a singleton-BindSpace sink-in bundle/bind op.**
+   That pattern is dead. Merge algebra survives only INSIDE a mailbox's own
+   owned computation, never as a cross-boundary sink.
+2. **One Mailbox = its own Kanban board — and the board itself needs a
+   TENANT** (per-mailbox board state as a value-tenant lane, sibling of the
+   per-row `KanbanTenant`). Executed through kanban-update in
+   lance-graph-planner OR SurrealDB-on-kv-lance "symbiont mode" (the
+   `symbiont` crate's loop is the shipped POC shape).
+3. **ractor = compile-time ownership guarantee DUMMY.** ractor is too slow
+   as a bus — it just spawns; the mailbox actor exists so Rust move
+   semantics prove no-aliasing/no-race at compile time (E-CE64-MB-4).
+   Never a message handler in the hot path.
+4. **Thinking is masked behind the batch writer, which fires an AHEAD
+   update** — the kanban update fires on write CAST, not on write
+   completion (refines symbiont's current "writer fires after commit"
+   framing: don't wait). At write-cast the batch writer checks via cache
+   logic whether ownership needs to be delegated or already is.
+5. **Thinking cycles carry a standing ASYNC PLAN** they follow whether or
+   not an update arrived; the 64k–256k SoA prioritizes / load-balances
+   within the tight 550 ms NET budget (minus load delays).
+6. **Every consuming crate always writes ON BEHALF OF the ractor mailbox
+   dummy owner** — no direct writes, ever (fleet-wide consumer iron rule).
+7. **rs-graph-llm + rig as RAG:** graph-flow (LangGraph-shaped) =
+   REPLAYABLE TEMPLATES; Rig = optional LLM-API template ORACLE;
+   rs-graph-llm must always respect/inherit ownership from the respective
+   SoA (never own state beside it).
+
+Gap list vs shipped code (what the next arc builds), with the CONCRETE
+seams (operator-confirmed): (a) the per-mailbox kanban-board tenant;
+(b) the kanban STEP UPDATE emit — the deferred D-MBX-A6 `Outcome →
+Candidate/KanbanMove` adapter in `lance-graph-planner
+strategy/style_strategy.rs` (the planner computes outcomes but does not
+yet emit KanbanMoves) — with `lance-graph-supervisor kanban_actor.rs` as
+the ractor structural owner and `symbiont` as the SurrealDB-on-kv-lance
+executor arm; (c) the ahead-update batch writer + write-cast delegation
+cache; (d) the standing async plan + 550 ms SoA load balancer; (e) the
+write-on-behalf consumer rule enforced at the contract surface — now
+STARTED: `SoaEnvelope::mailbox_owner()` (the LE contract carries the
+ownership up and down; views are owner-borrows structurally, the stamp
+names the owner nominally for Lance-down and consumer-up); (f)
+rs-graph-llm/rig ownership-inheritance wiring.
+
+## 2026-07-02 — E-CLASSID-CANON-HIGH-IS-A-CLUSTERED-INDEX — the flip bought key-order domain locality, not just naming hygiene
+
+**Status:** FINDING (structural consequence, verifiable by construction).
+
+Nobody named this during the arc: with the canon in the HIGH u16, sorting
+or prefix-scanning by `classid` now clusters rows BY DOMAIN:APPID. Pre-flip,
+classid order clustered by the custom half (marker/render prefix — useless
+locality: all `0x1000_*` V3 rows interleaved across domains). Post-flip,
+`0x0701_*` (OSINT:q2), `0x0A01_*` (Anatomy:q2), `0x0E01_*` (Genetics:q2)
+are CONTIGUOUS key ranges. Consequences, all free:
+
+1. **Lance/columnar:** a domain-scoped scan is a key-range predicate on
+   bytes 0..4 of the NodeGuid — no value decode, no filter pass.
+2. **Radix/trie routing (HHTL, OGAR longest-prefix codebook binding):** the
+   first key nibbles now walk domain → appid → custom, matching the
+   16-ary-tree canon ("codebook scoping = the class routing prefix") —
+   the trie's discriminating information moved to the FRONT of the key.
+3. **The operator's mnemonic `0x07:01::1000` IS the sort order** — the
+   printed GUID is self-describing AND self-clustering at sight.
+
+Follow-on: when the corpus-proof scanner (alias retirement gate) runs, it
+can exploit this — old-form rows are exactly the keys whose high half is
+`0x0000`/`0x1000`-shaped, i.e. two narrow key ranges, so the scan is a
+range count, not a full sweep.
+
 ## 2026-07-02 — E-CLASSID-COMPAT-READER — the P0 sweep missed rbac.rs: `class as u16` in ClassGrant::permits; fixed via a mint-forward compat reader
 
 **Status:** SHIPPED (follow-up on the P1 flip commit, PR #628 arc).
@@ -9472,3 +9777,10 @@ Cross-ref: W2's sprint-2 deliverable (Tier-0 "what's shipped" index); `.claude/p
 **Practical consequence (do not let this drift back):** `surreal_container` (BLOCKED A/B/C/D — fork dep + Lance 6 pin) is **optional**, not on the critical path for D-MBX-6. D-MBX-6's hot/cold transparent view uses the LanceDB cold tier directly; the SurrealDB kanban is a *second* view over the same LanceDB rows.
 
 **Cross-ref:** `E-RUBICON-RACTOR` (current ruling), `E-MAILBOX-IS-BINDSPACE` (§2.7 of the plan it gates), `E-BATON-1` (the LE-contract anchor), `.claude/plans/causaledge64-mailbox-rename-soa-v1` (driver plan that subsumes the surreal POC), `.claude/handovers/2026-05-28-1200-pr-418-419-surreal-mailbox-baton-plan-map.md` §5 (the audit source for this entry).
+
+## 2026-07-02 — CORRECTION-OF 2026-07-02 (review #629 sharpenings: LE byte-order, legacy scan shapes, ractor wording)
+**Status:** FINDING
+
+Three review findings on the #629 doc arc, accepted and folded into the V3 docs (routing.md §1/§5, mailbox-kanban-model.md, INTEGRATION-PLAN W6a): (1) **Clustered-index caveat** — `NodeGuid` stores classid via `to_le_bytes`, so RAW key-byte prefixes order by the custom byte first; domain range-scans hold over the DECODED u32 (or an order-preserving big-endian rendering), never raw LE byte prefixes/tries (E-CLASSID-CANON-HIGH-IS-A-CLUSTERED-INDEX reads with this caveat). (2) **Corpus-proof scanner scope** — "old-form" = ALL THREE legacy shapes: `0x0000_DDCC`, `0x1000_DDCC`, AND `0xAAAA_DDCC` (legacy app/render prefix high, e.g. `0x0005_0901`) — exactly the set `classid_canon_compat` routes CanonLow; scanning only the first two can falsely prove the corpus clean (E-V3-MARKER-IS-A-MONITOR reads with this scope). (3) **ractor wording sharpened** — "compile-time ownership dummy / never a hot-path bus" scopes the DATA plane; the actor mailbox remains the runtime serialized single-writer CONTROL path (one-message Advance/MulAdvance serialization = the codex #578 atomicity mechanism). The operator ruling's meaning is unchanged; the wording now says both halves.
+
+Cross-ref: PR #629 review threads (2 codex P2 + 1 coderabbit); E-MAILBOX-KANBAN-NO-COLLAPSEGATE.

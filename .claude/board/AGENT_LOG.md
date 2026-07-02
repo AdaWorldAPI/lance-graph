@@ -1,3 +1,31 @@
+## 2026-07-02 — ractor ownership compile attestation + helper-scope ruling folded
+
+- Operator: "compile with ractor and call it owner so that the compiler believes it" — VERIFIED: `KanbanActor<O: MailboxSoaOwner>` has `type State = O`; the owner MOVES in at `pre_start(..., owner) -> Ok(owner)` (kanban_actor.rs:77,94,100-104). `cargo test -p lance-graph-supervisor --features supervisor` green against the AdaWorldAPI ractor fork (P0-compliant git dep): 15 kanban_actor unit tests + 7 integration tests (one-for-one restart, lifecycle audit, inert-G denies, Send/Sync compile proof) — 0 failures. The compiler and the runtime both attest mailbox-as-owner.
+- Operator scope ruling folded into mailbox-kanban-model.md: ractor is NOT for messaging (slow); it MAY serve as a HELPER where it makes sense (spawn, supervision, occasional serialized control RPC), always minding the speed difference — nothing on the hot path waits on ractor latency (hot dispatch = the D-V3-W2e-probed ExecTarget).
+- Ops: root FS hit 100% (overlay ~37G effective); freed by pruning agent transcripts + sibling targets + `cargo clean` (16G); post-build 57% used.
+
+## 2026-07-02 — census fleet COMPLETE (21/21) — MODULE-TABLE.md shipped; D-V3-W0a Shipped
+
+- 304/304 files censused across lance-graph / lance-graph-contract / lance-graph-planner by the Sonnet census fleet (21 chunks, throttled re-dispatch after the rate-limit incident); assembled mechanically into `.claude/v3/MODULE-TABLE.md` (per file: visibility / consumes / emits / LE contract / function+benefit / tech debt / duplication / V3 wave).
+- Rollup: 51 LE/byte surfaces · 146 files with cited tech debt · 78 with known duplication · waves CORE:206 HW:31 W1:22 W3:13 LEGACY:9 W5:8 W4:7 W2:6 W6:2.
+- D-V3-W0a transitioned to Shipped. The `.claude/v3/` consolidation (operator directive) is complete on branch claude/v3-substrate-migration-review-o0yoxv — PR #629 is MERGE-READY at this commit.
+
+## 2026-07-02 — subsystem mapping fleet COMPLETE (7/7) — COMPONENT-MAP + ENTROPY-MILESTONES + soa_layout ground truth shipped
+
+- **D-ids:** D-V3-W0a (nearly complete — MODULE-TABLE + README pending census), D-V3-W5f/g/h/i minted from audit findings.
+- **What landed:** `.claude/v3/COMPONENT-MAP.md` (all subsystems, verdict tables, file:line), `.claude/v3/ENTROPY-MILESTONES.md` (M1–M23 N→1 collapse ledger with mechanical gates), `soa_layout/tenants.md` (byte-accurate 10-tenant catalogue), `soa_layout/consumer-map.md` (6-consumer audit), le-contract.md §5 code ground truth, corrections to write-on-behalf.md + compiled-templates.md.
+- **Headline findings (all file:line-cited):** the 4+12 facet atom is CODED (facet.rs FacetCascade const-asserted 16 B; CascadeShape G6D2/G4D3/G3D4 = L1–L4/L5/L6; hi/lo_chain = L7/L8); the 550 ms budget is coded (KanbanMove.libet_offset_us = −550_000); SoaEnvelope trait has ZERO production implementors (M7); MailboxId ≠ NiblePath in code (doc-only claim); NextAction↔OgarAction "1:1" FALSIFIED (honest pairing = Step↔Task; control flow missing → W3a/b); surreal_container block is a deliberate cold-build gate, NOT missing coordinates (W2c corrected); smb-office-rs `LanceConnector::upsert` = the ONE live consumer ORPHAN-WRITE (W5f); OGAR emit.rs 3× `as u16` post-flip mislabel (W5g); q2 data/osint-v3 codebook stale pre-flip (W5i).
+- **Fleet:** 7 Sonnet mappers (workflow runner died rate-limited; re-dispatched as direct agents), census 8/21 chunks in, remainder draining in throttled batches.
+- **Branch:** claude/v3-substrate-migration-review-o0yoxv (PR #629 arc).
+
+## 2026-07-02 — main thread (Fable) + 2 workflow fleets — .claude/v3/ consolidation (W0)
+
+- **D-ids:** D-V3-W0a (in progress), D-V3-W0b (shipped), plan v3-substrate-integration-v1 registered.
+- **What:** Created `.claude/v3/` as the V3 entry point (operator directive): INTEGRATION-PLAN.md (W0–W6), knowledge/ (v3-substrate-primer, mailbox-kanban-model, compiled-templates, write-on-behalf), agents/BOOT.md + 4 harness-discoverable cards (`.claude/agents/v3-{mailbox-warden,envelope-auditor,kanban-executor-engineer,template-smith}.md`), `/v3` skill + `/v3-audit` command, soa_layout/routing.md, CLAUDE.md + .claude/BOOT.md entrypoint highlights, plans/ pointer stub.
+- **Fleets in flight:** (1) v3-substrate-mapping — 10 subsystem mappers + completeness critic (reuse/repurpose/retire with file:line); (2) v3-module-census — 21 Sonnet agents, per-file table of core/contract/planner (304 files). Results land as COMPONENT-MAP.md, ENTROPY-MILESTONES.md, MODULE-TABLE.md, soa_layout/{le-contract,tenants,consumer-map,README}.md in a follow-up commit on this branch.
+- **Model economy (operator):** Sonnet 5 grindwork / Fable decisions+plans — census fleet pinned to sonnet.
+- **Branch:** claude/v3-substrate-migration-review-o0yoxv (PR #629 arc).
+
 ## 2026-07-02 — Fleet flip EXECUTION (2× Sonnet edit agents + main thread) — 6 PRs open
 
 - **PRs:** lance-graph #628 (P0+P1+compat-reader), OGAR #147 (vocab flip +
