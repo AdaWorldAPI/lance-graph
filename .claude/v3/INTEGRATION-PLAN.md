@@ -216,3 +216,23 @@ Deltas:
    BEFORE any planner->kanban emission lands, or the wrong gate routes
    into advance_on_gate silently.
 Full inventory with file:line cites: E-V3-PLANNER-SOA-AUDIT-1 + AGENT_LOG.
+
+### Addendum-5 2026-07-02 — bench results land the W2e read + M25 design
+
+- **Numbers (release, steady-state batch 4096):** graph-flow ~408-471
+  ns/step (ContinueAndExecute) / ~512-538 ns/step (stepwise; delta = the
+  storage round-trip). Two-speed CONFIRMED with data: graph-flow = the
+  replayable orchestration layer; sub-us hot dispatch = ExecTarget.
+- **M25 design finalized:** SessionStorage is overwrite-semantics (all 3
+  impls upsert the whole Session) -> KanbanSessionStorage = Session
+  snapshot upsert + KanbanMove cast through the W1b writer; the append-only
+  move log ALREADY EXISTS as rs-graph-llm/graph-flow-kanban's
+  KanbanPlanEnvelope (consumes contract kanban types + GateDecision) —
+  wire it to the W1b writer, invent nothing. Replay = snapshot + move log.
+- **rig = oracle-frequency only** (2 full history clones + tool-def fetch
+  per call): W3c yes, per-transition no. Fork is upstream-faithful.
+- **Build wall (ops):** rs-graph-llm/rig workspace-root cargo 403s on the
+  AdaWorldAPI/burn git submodule via surreal-lance OPTIONAL deps (lock
+  resolution pulls manifests even when features are off). Sandboxed builds
+  use isolated path-dep crates until a lockfile/vendor lands. Bench file
+  committed to rs-graph-llm @ claude/v3-substrate-migration-review-o0yoxv.
