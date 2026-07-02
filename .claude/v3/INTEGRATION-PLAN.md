@@ -345,3 +345,96 @@ Operator: "check temporal.rs for a deeper understanding." Verified against
   the W3b role exactly; the thread's queue-vs-stateful debate is resolved
   in V3 by the kanban board being both (M24 WAL + state). GraphRAG-rs
   noted as RAG prior art (native LanceDB/Arrow, Leiden, LightRAG, cAST).
+
+### Addendum-10 2026-07-02 — GraphRAG-rs verdicts + cross-session convergence intake
+
+- **GraphRAG-rs inventory closed** (full doc:
+  `.claude/knowledge/graphrag-rs-inventory.md`; board:
+  E-V3-GRAPHRAG-INV-1): every component REUSE-AS-REFERENCE or IGNORE;
+  the Addendum-9 "native LanceDB/Arrow" note is hereby CORRECTED —
+  their LanceDBStore is a 100% `NotImplemented` stub (Qdrant is the
+  real default), "hierarchical" Leiden is single-level, cAST is
+  example-only. Steal-worthy for W2a/W3: the TypedBuilder type-state
+  pattern (`.build()` only exists on the fully-configured phantom
+  instantiation — a mailbox/tenant/kanban builder that cannot compile
+  until owner + layout version are set) and the sync/async trait-pair
+  + adapter-module bridge. Anti-exhibit: `InferenceEngine` (config-only
+  struct, graph as call parameter) is the inverse of Thinking-is-a-struct;
+  `AsyncGraphRAG` is the organ-owning analog.
+- **Cross-session intake executed** (three sibling wishlists + two
+  synthesis passes; dispositions:
+  `.claude/handovers/2026-07-02-cross-session-wishlist-intake.md`;
+  board: E-V3-XSESSION-INTAKE-1): C6 `RouteBucketTyped` MERGED into
+  `contract::codegen_spine` (nexgen retires its vendor diff);
+  `contract::emission_scan` MINTED (classid_scan sibling); OGAR
+  quick-win batch on the OGAR branch (flip fuse, COUNT_FUSE two-sided,
+  Genetics 0x0E + OCR 0x08XX + 0x1000-reservation as ONE batched
+  allocation-table arc per the convergence ruling "serialize the
+  mints", prose sweep, truncation-doctrine DISCOVERY-MAP mirror).
+- **The scan family is now a named contract pattern** (ratified by
+  3-session convergence): `Form` enum + `classify_*` + fold-to-counts,
+  zero-dep, in the contract — instances: `classid_scan` (V3 adoption),
+  `emission_scan` (typed-DDL adoption). The third counter (soc-verdict
+  counts, predicate-coverage, parity-fixture coverage) MIRRORS this
+  shape; inventing a bespoke grep instead is the drift signal.
+- **Interchange guard (L3/E5 fusion):** ONE Arrow schema family for
+  extraction interchange (triples batch s/p/o/f/c + facets batch),
+  provenance header carries `minter@sha`; ndjson STAYS as the
+  committed-golden/diffable layer (Arrow batches are opaque to PR
+  review); the ingestion side targets the W1b cast/descriptor shape —
+  no second envelope. W5 design item.
+- **Probe-corpus archival convention (unclaimed-gap fix):** every
+  measurement that will be quoted (F17 triage ratio, count_adoption
+  vs a real bake, medcare re-runs) archives input + generation recipe
+  + hash WITH the run, or it recreates "last measured, can't
+  re-verify".
+- **RULING-NEEDED queue for the operator** (recorded in the intake
+  handover §R): R-1 hi-u16 naming — evidence now strong for the
+  concept reading (`0x0102` shared by OP `0x0102_0001` + Redmine
+  `0x0102_0007` is inexpressible under an appid reading); deliver the
+  ruling as ACCESSOR RENAMES not prose (4 prose-rot instances this
+  arc). R-2 EdgeBlock canon → one const set + size asserts both repos
+  pin. R-3 per-entry board files + per-repo coordination dir as ONE
+  merged council proposal (X1 yielded). R-4 OGAR probe-ledger Wave A
+  green-light.
+- **CORRECTIONS (same day, operator rulings — canonical text in the
+  intake handover appendices + E-V3-XSESSION-INTAKE-1-RULINGS):**
+  R-1 was a PHANTOM (canon already exists: `domain:appid:classview`,
+  le-contract.md §prefix + primer §5 — "concept" names the whole hi
+  u16; the "app" homonym across the halves caused the thread; both
+  ledgers now carry the line, OGAR D-CLASSID-HI-U16-SPELLING). R-2
+  closed empirically (edges pull separately via the NODE_ROW_COLUMNS
+  strided view; the 512-byte row — tested against kv-lance AND the
+  batch writer, with time series wired into surrealdb from Lance
+  versioning — is NOT touched; residual = a read-side edges-only
+  test). L3 schema design KILLED ("defining arrow schemas is bullshit
+  and hallucination — we already have a working SoA schema"):
+  extraction interchange lands as SoA rows through the W1b cast path;
+  survivors are minter@sha provenance + ndjson-as-golden only.
+
+### Addendum-11 2026-07-02 — operator ruling: per-consumer classid ownership + tripwires; the five open workstreams
+
+**Ruling:** "everyone should be responsible for his own OGAR classids
+and trip the wire if not in sync." Distributed ownership + fuses IS the
+coordination mechanism — each consumer owns its classid allocations and
+wires a sync-tripping test (the flip fuse + two-sided COUNT_FUSE shipped
+this arc are the pattern instances; the serialized-mint-batch was the
+transitional vehicle, ownership+fuses is the steady state).
+
+**The open workstreams after the fuses (operator-enumerated; "huge
+tasks but manageable if done properly"):**
+
+1. **Thinking ↔ substrate + V3 migration** — this plan's W-waves
+   (W1 shipped #631; W2 kanban/board-as-tenant next).
+2. **Orchestration rs-graph-llm** — W3b KanbanSessionStorage +
+   graph-flow as the replayable handler (M25), oracle-frequency rig.
+3. **OGAR as transpiler + compile-time API** — askama + ClassView +
+   FieldMask bitmask (the Redmine ERB pattern), taking over from
+   SurrealQL AST DLL parsing (SURREAL-AST-AS-ADAPTER completes into
+   the compile-time render path).
+4. **The complete cross-repo inventory** (the ~300-crate census asset:
+   MODULE-TABLE + COMPONENT-MAP + consumer maps) — maintain and
+   complete it; it is the substrate for every wave's preflight.
+5. **Per-consumer accommodation** — ruff + OGAR adaptations,
+   lance-graph UnifiedBridge ↔ OGAR, AST contract evolution (the W5
+   consumer wave, now with the fuse doctrine as its safety rail).
