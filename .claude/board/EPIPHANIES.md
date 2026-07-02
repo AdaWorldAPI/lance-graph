@@ -1,3 +1,37 @@
+## 2026-07-01 — E-RUNG-LADDER-IS-DISPATCH-POLICY-OVER-CERTIFIED-MASKS — rung elevation needs zero new math; and there is ONE ladder with TWO signal sources (gate streaks + felt-parse delta)
+
+**Status:** FINDING (shipped: `RungLevel::{from_u8, elevate, de_elevate,
+pearl_level, causal_mask_bits}` + `RungElevator` in
+`contract::cognitive_shader`, 755 lib tests green).
+
+**Half 1 — no new math.** "Elevates on sustained BLOCK" (documented intent on
+`ShaderDispatch::rung` since the field landed; driver ran a `ctx.rung = 1`
+proxy) is purely a dispatch policy over algebra the P2/P3 probes already
+certified: rung → Pearl level (the enum names its own boundary —
+`Counterfactual = 6` is where Level 3 starts; 0–2 observe, 3–5 intervene,
+6–9 counterfactual) → SPO projection mask (`PO = 0b011` and `SPO = 0b111`
+probe-certified; `O = 0b001` for L1 is a labeled convention pending its own
+probe). The elevator is a ~40-line homeostatic state machine: sustained BLOCK
+elevates, sustained FLOW relaxes toward the dispatched base, HOLD resets
+streaks without ladder creep. Threshold 2 hand-tuned (disclosed per
+`I-NOISE-FLOOR-JIRAK`).
+
+**Half 2 — convergence catch (anti-invention applied to my own type):** the
+tree already had `escalation::rung_delta(emergence, coherence) → ±1` (the
+felt-parse System-1 rung hint, `CollapseHint::RungElevate`). NOT a duplicate —
+a second signal source. Resolution: `RungElevator::apply_delta(i8)` drives the
+SAME accumulator the gate streaks drive. One ladder, two inputs: gate streaks
+= System-2 stuck/converged evidence; qualia delta = System-1 felt hint; both
+respect the same base floor and Transcendent ceiling. The near-miss (almost
+shipping a parallel ladder) is the same reflex `E-V3-TENANTS-ALREADY-EXIST-
+WIRE-DONT-INVENT` names — caught this time by checking the test namespace
+collision before committing.
+
+Plan: `.claude/plans/v3-convergence-wiring-v1.md` (D-VCW-1a; D-VCW-1b threads
+it through the driver).
+
+---
+
 ## 2026-07-01 — E-V3-TENANTS-ALREADY-EXIST-WIRE-DONT-INVENT — the "V3 substrate for AriGraph-shaped SoA tenants" already exists in `canonical_node.rs`; Phase-2 work is certification, not invention
 
 **Status:** FINDING (probes green: `osint_v3_cognitive_tenant_carve_field_isolation_matrix` + `fma_cpic_v3_compressed_tenant_carve_field_isolation_matrix` — BOTH carves a Phase-1 V3 class materialises, Cognitive hot + Compressed cold, are now matrix-covered. 2026-07-01 addendum: lance-graph CORE now compiles in-sandbox — crates.io noProxy + local ndarray path patch + protoc — and `graph::arigraph` is 124/124 green incl. `markov_soa`'s 4, so the wave projector's "unverified-offline" caveat is cleared: the full wire classid → read-mode → certified tenants → AriGraph wave is probed end-to-end).

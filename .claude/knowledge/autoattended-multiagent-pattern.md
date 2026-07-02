@@ -191,6 +191,28 @@ Files >150 lines: write in chunks via `tee -a`, commit per chunk, push per chunk
 
 For ports / behavior-preserving rewrites: every commit message quotes the source file + line range for the function being ported. Reviewers can `grep -rn "Source: " src/` to find every port. Without this, behavior-drift creeps in invisibly.
 
+### Rule 7 — negative-existence claims require an exhaustive-search declaration
+
+Any claim of the form "X does not exist / is never called / has no call site"
+MUST be accompanied by the search that grounds it: the exact pattern, the scope,
+and an explicit statement that the search was **exhaustive** (no `head_limit` /
+`| head` truncation hit, or the truncation boundary was checked). A truncated
+grep that matches 20 hits in directory A and silently cuts before directory B
+produces a confident false negative — the worst kind, because it reads as
+diligence.
+
+Belegte (2026-07-01, lance-graph): a board entry claimed "no `new_v2` call
+site exists in q2" from a `head_limit 20` grep whose matches were exhausted by
+`cpic/` paths; `osint-bake/src/lib.rs:606,745` DID call `new_v2`. Cost: a
+published false claim + a dated correction commit
+(`ISS-Q2-CPIC-MIRROR-DIVERGES-FROM-CPIC-V3-REGISTRY`, correction `eb4be79`).
+
+Operational form for workers: before asserting absence, re-run the search
+unbounded (or with a count mode) and state `exhaustive: yes, N total matches,
+all accounted for`. A vague "I didn't find it" is honest and acceptable; a
+specific "it doesn't exist" without the declaration is a Lie-Detector trigger
+(LD-4 negative-knowledge class).
+
 ---
 
 ## 6. Memory-files pattern (the autopilot foundation)

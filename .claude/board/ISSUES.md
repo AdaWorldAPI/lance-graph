@@ -1,5 +1,29 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-01 — ISS-Q2-CASCADE3-NIBBLE-ANCESTRY — q2 `cascade3` FNV bytes are byte-hierarchical but NOT nibble-hierarchical; HHTL routing over bake mints is sound only at whole-tier granularity
+
+**Status:** OPEN (falsifier specified, not yet run — q2 is push-gated). Owner:
+q2 `cpic/src/lib.rs::cascade3` (+ any bake reusing it) vs the OGAR canon's
+256=4⁴ hierarchical-codebook condition. Plan: `v3-convergence-wiring-v1.md` §5.
+
+**The claim tension.** OGAR canon: each tier's 256-entry codebook is a 4-level
+4-ary centroid HIERARCHY so a byte's nibbles are the centroid's ancestry —
+`is_ancestor_of` = containment, prefix routing rigorous at nibble depth. q2's
+`cascade3` derives tier byte `i` as the FNV-1a low byte of the cumulative DN
+prefix at depth `i`: siblings share leading BYTES (per-tier prefix routing
+holds), but a hash byte's nibbles carry NO ancestry — below whole-byte
+granularity the tree structure is noise.
+
+**Falsifier (runnable in q2 when opened):** two DNs sharing a 3-deep prefix
+must show `common_prefix_depth` at nibble granularity ≈ random beyond the
+shared-byte boundary (vs the 4⁴ condition's prediction of structured nibble
+sharing). Confirmed ⇒ either (a) HHTL routing over bake mints clamps to tier
+granularity (document the boundary), or (b) the cascade generator moves to a
+hierarchical codebook (bigger change, operator call). No routing code should
+assume sub-byte ancestry on these mints until this runs.
+
+---
+
 ## 2026-07-01 — ISS-Q2-CPIC-MIRROR-DIVERGES-FROM-CPIC-V3-REGISTRY — q2's local `cpic::NodeGuid` mirror is V1-layout-parity-true but diverges from the registered CPIC-V3 read-mode on BOTH domain and tail shape
 
 **Status:** OPEN (record-only; resolve WITH the operator — q2 is push-gated and
@@ -67,6 +91,21 @@ declared registry-exempt (bake-only) and its parity comment is scoped to
 - **Option B (recommended) — `0x0700` IS the OSINT domain root/default class, not a counted concept.** This is exactly what the canon reserves `0x__00` for ("zero = fall through to the broader default"). OGAR drops `osint_system` from the *concept* `CODEBOOK`/`class_ids::ALL` (keep an `OSINT_SYSTEM = 0x0700` const documented as the domain-root class if useful); `ALL` → 66; mirror carries only `("osint_person", 0x0701)` → 66; the fuse balances at 66; q2 keeps `0x0700` as the renderable domain-default class (canon-legal: the root IS a real default class, just not a codebook *concept* row). No id moves; aligns with the user's "0x0701 is the frozen concept" framing.
 
 Both are OGAR-side follow-ups (OGAR #145 is merged) landed in parallel with the lance-graph mirror rows, per `E-OGAR-LANCEGRAPH-MOVE-IN-PARALLEL`.
+
+**ADDENDUM (2026-07-01, later session — ground-truth strengthening of Option B;
+still the operator's decision, no action taken):** the codebase ALREADY lives
+Option B's distinction. There are two id spaces aliasing in the lo u16: the
+**classid space** (what nodes mint under) and the **concept-vocabulary space**
+(what the codebook counts). Evidence: `canonical_node.rs` ships
+`CLASSID_OSINT = 0x0000_0700` as a LIVE registered class (`ReadMode::OSINT` in
+`BUILTIN_READ_MODES`) and q2 `osint-bake/src/lib.rs:606` mints real `0x0700`
+rows — while the mirror's zero-slot invariant only ever governed *vocabulary
+rows*. So `0xDD00` = "the ONE class per domain" (valid classid, exactly the
+operator's "OSINT is ONE class") and simultaneously "not a nameable concept"
+(no codebook row) — no contradiction once the spaces are named. Under this
+reading OGAR's `osint_system` mint was the same move lance-graph already made,
+just landed in the wrong space (a vocabulary row instead of a classid const).
+Option B resolves it without deleting the idea or moving any id.
 
 ## 2026-07-01 — ISS-OGAR-OSINT-MIRROR-PENDING — OGAR #145's OSINT mint (+2 to `class_ids::ALL`) breaks the contract-mirror `COUNT_FUSE` on merge; the paired lance-graph mirror rows must land in the same arc
 

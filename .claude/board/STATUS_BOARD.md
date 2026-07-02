@@ -1,3 +1,18 @@
+## v3-convergence-wiring-v1 — wire, don't invent (the seam list)
+
+Plan: `.claude/plans/v3-convergence-wiring-v1.md`. Sonnet-grindwork/Fable-decisions split.
+
+| D-id | Title | Crate(s) | Status | Evidence |
+|---|---|---|---|---|
+| D-VCW-1a | RungLevel arithmetic + RungElevator (sustained-BLOCK policy over certified mask algebra; converged with escalation::rung_delta) | lance-graph-contract | **Shipped** | 755 lib tests green incl. 6 new; clippy clean |
+| D-VCW-1b | Driver wiring: elevator through cycle loop, ctx.rung proxy retired, wire/grpc from_u8 dedup | cognitive-shader-driver | In progress | Sonnet agent in flight |
+| D-VCW-2 | P6 wave-convergence probe (wave dist == certified palette read) | lance-graph core (arigraph) | **Shipped** | markov_soa 6/6 green (2 new P6 tests) |
+| D-VCW-3 | P7 render probe (bitmask → askama; fields == masked tenants) | q2 (push-gated) | Queued | spec ready (plan §3) |
+| D-VCW-4 | One-row registry + read-mode parity fuse | contract (+OGAR Phase B) | Queued | plan §4; Phase B operator-gated |
+| D-VCW-5 | cascade3 nibble-ancestry falsifier | q2 (push-gated) | Recorded | ISS-Q2-CASCADE3-NIBBLE-ANCESTRY |
+| D-VCW-6 | Rule 7: negative-existence claims need exhaustive-search declaration | knowledge doc | **Shipped** | autoattended-multiagent-pattern.md §5 Rule 7 |
+| D-VCW-7 | rig/rs-graph-llm FailureTicket loop | rs-graph-llm (sibling) | Deferred | plan §6; probe-first when opened |
+
 ## cognitive-compilation-v1 — Elixir-template stack (LLM teaches, Lance-Graph runs)
 
 Plan: `.claude/plans/cognitive-compilation-v1.md`. The new idea is the
