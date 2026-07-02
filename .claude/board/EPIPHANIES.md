@@ -1,3 +1,28 @@
+## 2026-07-02 — E-CLASSID-CANON-HIGH-IS-A-CLUSTERED-INDEX — the flip bought key-order domain locality, not just naming hygiene
+
+**Status:** FINDING (structural consequence, verifiable by construction).
+
+Nobody named this during the arc: with the canon in the HIGH u16, sorting
+or prefix-scanning by `classid` now clusters rows BY DOMAIN:APPID. Pre-flip,
+classid order clustered by the custom half (marker/render prefix — useless
+locality: all `0x1000_*` V3 rows interleaved across domains). Post-flip,
+`0x0701_*` (OSINT:q2), `0x0A01_*` (Anatomy:q2), `0x0E01_*` (Genetics:q2)
+are CONTIGUOUS key ranges. Consequences, all free:
+
+1. **Lance/columnar:** a domain-scoped scan is a key-range predicate on
+   bytes 0..4 of the NodeGuid — no value decode, no filter pass.
+2. **Radix/trie routing (HHTL, OGAR longest-prefix codebook binding):** the
+   first key nibbles now walk domain → appid → custom, matching the
+   16-ary-tree canon ("codebook scoping = the class routing prefix") —
+   the trie's discriminating information moved to the FRONT of the key.
+3. **The operator's mnemonic `0x07:01::1000` IS the sort order** — the
+   printed GUID is self-describing AND self-clustering at sight.
+
+Follow-on: when the corpus-proof scanner (alias retirement gate) runs, it
+can exploit this — old-form rows are exactly the keys whose high half is
+`0x0000`/`0x1000`-shaped, i.e. two narrow key ranges, so the scan is a
+range count, not a full sweep.
+
 ## 2026-07-02 — E-CLASSID-COMPAT-READER — the P0 sweep missed rbac.rs: `class as u16` in ClassGrant::permits; fixed via a mint-forward compat reader
 
 **Status:** SHIPPED (follow-up on the P1 flip commit, PR #628 arc).
