@@ -12,7 +12,7 @@
 //! ```
 
 use crate::builder::BuiltEngine;
-use crate::dto::ResonanceDto;
+use crate::dto::PerturbationDto;
 
 /// Result of multi-model composition.
 pub struct CompositeResult {
@@ -111,7 +111,7 @@ impl CompositeEngine {
 
         for (name, engine) in &mut self.lenses {
             engine.think(max_cycles);
-            let res = ResonanceDto::from_energy_f32(engine.energy(), engine.cycles());
+            let res = PerturbationDto::from_energy_f32(engine.energy(), engine.cycles());
 
             for &(idx, energy) in &res.top_k {
                 if energy > 1e-10 {

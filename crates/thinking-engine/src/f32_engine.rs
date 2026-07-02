@@ -8,7 +8,7 @@
 //! Think cycle: signed MatVec with ReLU + normalization.
 //! No floor heuristic. No threshold. Full signed accumulation.
 
-use crate::dto::{BusDto, ResonanceDto};
+use crate::dto::{BusDto, PerturbationDto};
 
 /// F32 thinking engine. Distance table at full f32 precision.
 pub struct F32ThinkingEngine {
@@ -206,25 +206,29 @@ impl F32ThinkingEngine {
     }
 
     /// Think until convergence or max_cycles.
-    pub fn think(&mut self, max_cycles: usize) -> ResonanceDto {
+    pub fn think(&mut self, max_cycles: usize) -> PerturbationDto {
         for _ in 0..max_cycles {
             let delta = self.cycle();
             if delta < self.convergence_threshold {
                 break;
             }
         }
-        ResonanceDto::from_energy_f32(&self.energy, self.cycles)
+        PerturbationDto::from_energy_f32(&self.energy, self.cycles)
     }
 
     /// Think with temperature scaling (1/T applied to MatVec output before normalization).
-    pub fn think_with_temperature(&mut self, max_cycles: usize, temperature: f32) -> ResonanceDto {
+    pub fn think_with_temperature(
+        &mut self,
+        max_cycles: usize,
+        temperature: f32,
+    ) -> PerturbationDto {
         for _ in 0..max_cycles {
             let delta = self.cycle_with_temp(temperature);
             if delta < self.convergence_threshold {
                 break;
             }
         }
-        ResonanceDto::from_energy_f32(&self.energy, self.cycles)
+        PerturbationDto::from_energy_f32(&self.energy, self.cycles)
     }
 
     /// Access the energy distribution.
@@ -263,7 +267,7 @@ impl F32ThinkingEngine {
 
     /// Commit dominant peak as BusDto.
     pub fn commit(&self) -> BusDto {
-        let resonance = ResonanceDto::from_energy_f32(&self.energy, self.cycles);
+        let resonance = PerturbationDto::from_energy_f32(&self.energy, self.cycles);
         BusDto {
             codebook_index: resonance.top_k[0].0,
             energy: resonance.top_k[0].1,

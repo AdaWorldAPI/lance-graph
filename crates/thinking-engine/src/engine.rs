@@ -154,7 +154,7 @@
 //!   FIX 4: GPU Vulkan compute shader: ~10μs per cycle (see GPU design doc)
 //! ```
 
-use crate::dto::{BusDto, ResonanceDto};
+use crate::dto::{BusDto, PerturbationDto};
 use ndarray::hpc::heel_f64x8::cosine_f64_simd;
 use ndarray::simd::F32x16;
 use ndarray::simd_amx;
@@ -383,7 +383,11 @@ impl ThinkingEngine {
     /// Applies softmax(energy/T) after each cycle. This exponentiates
     /// small differences into large ones, breaking the attractor collapse
     /// on uniform tables. T=1.0 ≈ standard normalization.
-    pub fn think_with_temperature(&mut self, max_cycles: usize, temperature: f32) -> ResonanceDto {
+    pub fn think_with_temperature(
+        &mut self,
+        max_cycles: usize,
+        temperature: f32,
+    ) -> PerturbationDto {
         for _ in 0..max_cycles {
             let prev = self.energy.clone();
             self.cycle();
@@ -415,12 +419,12 @@ impl ThinkingEngine {
                 break;
             }
         }
-        ResonanceDto::from_energy_f32(&self.energy, self.cycles)
+        PerturbationDto::from_energy_f32(&self.energy, self.cycles)
     }
 
     /// Run until convergence. Returns the resonance state.
     /// Uses `cycle_auto` which tries VNNI first, falls back to F32x16.
-    pub fn think(&mut self, max_cycles: usize) -> ResonanceDto {
+    pub fn think(&mut self, max_cycles: usize) -> PerturbationDto {
         for _ in 0..max_cycles {
             let prev = self.energy.clone();
             self.cycle();
@@ -435,7 +439,7 @@ impl ThinkingEngine {
                 break;
             }
         }
-        ResonanceDto::from_energy_f32(&self.energy, self.cycles)
+        PerturbationDto::from_energy_f32(&self.energy, self.cycles)
     }
 
     /// ONE thinking cycle via AMX/VNNI dispatch path.
@@ -533,7 +537,7 @@ impl ThinkingEngine {
 
     /// Commit: dominant peak → BusDto.
     pub fn commit(&self) -> BusDto {
-        let resonance = ResonanceDto::from_energy_f32(&self.energy, self.cycles);
+        let resonance = PerturbationDto::from_energy_f32(&self.energy, self.cycles);
         BusDto {
             codebook_index: resonance.top_k[0].0,
             energy: resonance.top_k[0].1,

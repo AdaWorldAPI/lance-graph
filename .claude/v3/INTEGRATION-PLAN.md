@@ -126,3 +126,205 @@ Gate: replay equivalence green on every template change (template-smith rule).
 - Adopts (does not duplicate): D-MBX-A6, D-PERT-1, D-CC-RUNTIME/EQUIV/COMPILER rows, D-VCW-3/5/7, D-CCF-4.
 - Extends: `v3-convergence-wiring-v1` (its seam list is W1–W3's ancestry) and `soa-value-tenant-migration-v2` (Phase-2 tenant shaping proceeds under W2a's tenant discipline).
 - Supersedes in prose only: any remaining CollapseGate-as-singleton framing in older docs (primer §6 table governs).
+
+---
+
+## Addendum 2026-07-02 — Fable-5 preflight epiphanies (pre-W1, operator-requested)
+
+Ten-point pass over every layer before phase start (full text: EPIPHANIES
+E-V3-PREFLIGHT-1 + session transcript). Plan deltas adopted:
+
+1. **W1b/W1c collapse (WAL-shaped writer):** the cast IS the kanban move —
+   the AHEAD update is the write-intent record, Lance ack confirms it. The
+   board becomes the write-ahead log; crash recovery = replay unacked moves.
+   New entropy row M24. Gate: kill-after-cast-before-ack replay test.
+2. **M7 ruling recommendation:** re-scope `SoaEnvelope` as the spec/descriptor
+   certification surface (`verify_layout` + field-isolation matrix are the
+   value; trait polymorphism has zero production impls). Doc-line ruling,
+   unblocks W1 without refactor.
+3. **W6a scanner runs FIRST (baseline inversion):** build the two-metric
+   range-count tool at W1 start; record t0 old-form counts in the M1 row.
+   "Adoption 100%" is only falsifiable against a measured denominator.
+4. **W3 oracle ratchet metric:** oracle-hit rate per cycle vs catalogue size
+   must trend DOWN; flat = templates not generalizing = deterministic-first
+   silently dead. One counter, plotted per replay run.
+5. **W2 internal reorder:** W2e (dispatch probe) → W2d (budget) → W2a/b/c.
+   Budget constants come from measured µs; probe measures batch 1/64/4096
+   (sub-µs matters at batch 1); loser owns the slow/plan path (two-speed).
+6. **Ractor batching by construction:** actor boundary takes `Vec<KanbanMove>`
+   per message, never singles — helper-scope compliance enforced by API shape.
+7. **D-PERT-1 rides the first W1 PR** (7 files, mechanical; waiting grows
+   the blast radius).
+8. **M21 pull-forward:** zero-dep `canon-node-bytes` extraction lands in W1
+   (same LE work); byte-parity gate vs contract NodeGuid.
+9. **Gate-run rule:** every wave PR's final commit runs `/v3-audit` + the
+   touched M-row greps, results pasted into AGENT_LOG (self-updating ledger).
+10. **Supervisor stays thin forever:** the product is the compile-time
+    ownership attestation; restart policy is the only runtime duty. No
+    routing/registry/pub-sub creep (the trap arrives dressed as convenience).
+
+Nothing here invents machinery — every delta is a collapse or reorder of
+what the plan already carries (the V3-shape test, passed).
+
+### Addendum-2 2026-07-02 — operator direction: rs-graph-llm + rig parallel evaluation
+
+Operator: "test rs-graph-llm + rig in parallel for speed and ergonomics —
+under lance-graph it might need some kanban integration to become the
+replayable langgraph handler." Folded as:
+
+- **W3b sharpened → KanbanSessionStorage:** graph-flow's `SessionStorage`
+  gets a mailbox-kanban-board-backed impl — task transitions persist as
+  KanbanMoves through the W1b writer, so **replay = rebuild the Session
+  from the board**. This unifies M24 (board = WAL) with orchestration
+  persistence: one persistence surface, and every langgraph execution is
+  replayable by construction (M25). If graph-flow's save() is
+  whole-session-overwrite, a thin delta layer maps Session diffs to moves
+  (bench worker reports the trait shape).
+- **W2e gains a third measurement:** graph-flow per-step dispatch overhead
+  at batch 1/64/4096 (bench worker in rs-graph-llm, release mode) sits
+  beside the SurrealQL-on-kv-lance arm. rig = the oracle-node client (W3c)
+  — ergonomics assessed for Task-wrapping, never on the hot path.
+
+### Addendum-3 2026-07-02 — rig backend note (operator) + W1e landed red
+
+- Operator note folded: **rs-graph-llm vendors rig**, and rig's storage/LLM
+  backends span lancedb, SurrealDB-on-kv-lance (lance-graph-symbiont), and
+  Claude/OpenAI/Grok(xAI)/Gemini APIs. Consequence for W3c: the oracle node
+  is backend-plural behind ONE rig client surface — symbiont (arm #2) can be
+  BOTH the kanban KV arm and rig's vector store, which would collapse the
+  oracle's storage to the substrate itself (no second store). Verify when
+  the bench worker reports rig's provider/store traits.
+- W1e status: probes landed RED (probe-first honored); KanbanMove/KanbanColumn
+  already shipped in contract kanban.rs — the skeleton consumes them, zero mints.
+
+### Addendum-4 2026-07-02 — planner-SoA reality audit (operator question) → 3 wiring deltas
+
+Verdict: **type-level reality, wiring-level dormant.** KanbanMove already
+unifies mailbox/witness/libet/exec; supervisor + lance-graph core + symbiont
+are WIRED; the planner crate is the gap (zero MailboxSoaView references,
+zero classid awareness, style_strategy pass-through, mul-gate false friend).
+Deltas:
+1. **W2b += integration probe**: spawn KanbanActor over the REAL
+   MailboxSoA<N> (today: TestBoard-only — proven mechanics, unproven
+   integration).
+2. **W2 += classid-awareness wiring**: planner reads class_id through
+   MailboxSoaView (the getter already exists — wire, don't invent);
+   supervisor likewise if move-routing needs read modes.
+3. **M15 upgraded to BLOCKING-before-W2**: planner mul/gate.rs
+   GateDecision{Proceed,Sandbox,Compass} vs contract
+   mul::GateDecision{Flow,Hold,Block} — rename the planner-local one
+   BEFORE any planner->kanban emission lands, or the wrong gate routes
+   into advance_on_gate silently.
+Full inventory with file:line cites: E-V3-PLANNER-SOA-AUDIT-1 + AGENT_LOG.
+
+### Addendum-5 2026-07-02 — bench results land the W2e read + M25 design
+
+- **Numbers (release, steady-state batch 4096):** graph-flow ~408-471
+  ns/step (ContinueAndExecute) / ~512-538 ns/step (stepwise; delta = the
+  storage round-trip). Two-speed CONFIRMED with data: graph-flow = the
+  replayable orchestration layer; sub-us hot dispatch = ExecTarget.
+- **M25 design finalized:** SessionStorage is overwrite-semantics (all 3
+  impls upsert the whole Session) -> KanbanSessionStorage = Session
+  snapshot upsert + KanbanMove cast through the W1b writer; the append-only
+  move log ALREADY EXISTS as rs-graph-llm/graph-flow-kanban's
+  KanbanPlanEnvelope (consumes contract kanban types + GateDecision) —
+  wire it to the W1b writer, invent nothing. Replay = snapshot + move log.
+- **rig = oracle-frequency only** (2 full history clones + tool-def fetch
+  per call): W3c yes, per-transition no. Fork is upstream-faithful.
+- **Build wall (ops):** rs-graph-llm/rig workspace-root cargo 403s on the
+  AdaWorldAPI/burn git submodule via surreal-lance OPTIONAL deps (lock
+  resolution pulls manifests even when features are off). Sandboxed builds
+  use isolated path-dep crates until a lockfile/vendor lands. Bench file
+  committed to rs-graph-llm @ claude/v3-substrate-migration-review-o0yoxv.
+
+### Correction 2026-07-02 (codex #630 P2) — M7 premise was WRONG: SoaEnvelope HAS a production impl
+
+`NodeRowPacket<'a>` (canonical_node.rs:1275) implements `SoaEnvelope` in
+production — the Lance-facing zero-copy LE byte view over `&[NodeRow]`
+(NODE_ROW_COLUMNS / NODE_ROW_STRIDE / as_le_bytes with the repr(C,64)
+SAFETY argument). "Zero production impls" (preflight delta 2, inherited
+from the fleet's M7 row) is retracted. **Revised M7 ruling:** the two
+surfaces are COMPLEMENTARY, not duplicates — `SoaEnvelope` is the
+storage-boundary surface (certification + the canonical Lance byte path,
+with NodeRowPacket as its live impl); `MailboxSoaView/Owner` is the
+runtime read/mutate surface. W1 implementers MUST route storage bytes
+through the NodeRowPacket envelope path and preserve/test its
+owner/byte-layout behavior — the trait is NOT descriptor-only. M7's gate
+re-shapes accordingly (roles documented both ways + envelope path tested,
+rather than "≥1 impl or re-scope").
+
+### Addendum-6 2026-07-02 — operator ruling: zero-copy sink + mutual masking (W1b design closed)
+
+Operator: "it was always zerocopy and the write masks the thinking and
+vice versa so that the batch writer sinks the deltas asap." Pinned:
+
+1. **The cast carries a DESCRIPTOR, never bytes:** (mailbox, dirty
+   row-range, cycle) + intent moves. Deltas stay in the SoA backing
+   store; the sink reads them through `NodeRowPacket::as_le_bytes` at
+   flush time (the M7-corrected storage-boundary path). Zero-copy from
+   creation to Lance tombstone INCLUDING through the writer — the
+   payload-generic `P` in the skeleton is a descriptor type, never
+   owned bytes.
+2. **Mutual masking via the phase machine, not buffers:** while cycle
+   N's dirty rows sink, the owner refuses phase re-entry on those rows
+   (Rubicon arc = the mutation freeze); thinking proceeds on all other
+   rows/mailboxes. Compute masks I/O and I/O masks compute — the kanban
+   board IS the scheduler that makes the overlap race-free. No
+   double-buffering, no copies.
+3. **Eager drain:** the sink fires ASAP on cast (background), never
+   batch-until-full — the unacked window IS the replay surface; keep it
+   minimal. W2d's 550 ms budget may treat write latency as masked so
+   long as sink throughput >= delta production rate (instrument both).
+
+Gate added to W1b: a mutation-freeze test — a row in sink phase rejects
+advance_phase until ack (lands with the real-owner wiring, W2b probe
+extends it).
+
+### Addendum-7 2026-07-02 — operator correction of Addendum-6: NO refusal — "melden macht frei"
+
+The mutation-freeze point in Addendum-6 was over-design and contradicted
+the standing rule ("updates reprioritize, never gate"). Corrected:
+
+1. **Casting IS reporting, and reporting frees the thinker.** The writer
+   NEVER refuses a cast because earlier casts on the same row/mailbox are
+   unacked. Stacked writes (>=3) are stacked WAL entries: distinct ids,
+   full ordered move history, independent acks.
+2. **Coalescing is natural, not engineered:** the sink reads the LIVE
+   backing store at flush, so one physical flush of a row satisfies every
+   earlier stacked intent for it — last-state-wins is correct because the
+   replay target is the row's latest state, while the move log preserves
+   the full ordering history.
+3. M24 gate updated: the mutation-freeze test is REPLACED by the
+   stacked-casts test (probe 4, `probe_stacked_casts_never_refused` —
+   landed ignored with the other three).
+
+### Addendum-8 2026-07-02 — temporal.rs is the READ side of the WAL ruling (operator pointer)
+
+Operator: "check temporal.rs for a deeper understanding." Verified against
+`crates/lance-graph-planner/src/temporal.rs` (490 lines, read in full):
+
+1. **No-refusal is PROVABLE, not just permitted.** No reader ever reads raw
+   current state — `deinterlace()` classifies every row against the reader's
+   `QueryReference` (Contemporary/Anachronistic/Spoiler/Unknowable, admitted
+   per `EpistemicMode` rung policy Strict 0-4 / Aware 5-8 / Retro 9+). A
+   Strict thinker at `V_ref` cannot see frames past its horizon, so writers
+   stack freely: coherence is a READ-side property. "The write masks the
+   thinking and vice versa" — the mask IS the epistemic classification.
+2. **Replay = a read at a pinned reference.** `QueryReference::at(v, rung)`
+   + `deinterlace` IS crash-replay (M24), session-replay (M25), and
+   time-travel — ONE mechanism. KanbanSessionStorage's replay path
+   implements nothing new: it pins a Strict reader in the past over the
+   board + rows.
+3. **W1b ack carries the assigned LanceVersion**: `ack(cast, LanceVersion)`
+   is the CastId <-> LanceVersion join wiring the WAL into the temporal
+   classifier. Unacked casts = rows on NO reader's timeline yet (exactly
+   why unacked() is the replay surface). Probe file updates with the
+   signature in the W1b commit.
+4. **The ractor actor's payload is its V_ref** (temporal.rs frame table:
+   "ractor (awareness) — each actor's own V_ref reading-horizon") — the
+   helper carries the awareness horizon; one more reason it never needs
+   to be on the hot path.
+5. DATA-causal axis (DependsClosure/NoDeps) composes with the board:
+   dispatchable = time-admitted AND data-ready — the standing rule
+   "updates reprioritize, never gate" holds because a data-blocked row is
+   dropped from the PROJECTION, not refused at the writer.

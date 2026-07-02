@@ -4,7 +4,7 @@
 //! Same input, same perturbation, different encoding → measure disagreement.
 
 use crate::builder::BuiltEngine;
-use crate::dto::ResonanceDto;
+use crate::dto::PerturbationDto;
 
 /// Results from running both engines on the same input.
 pub struct DualResult {
@@ -105,8 +105,10 @@ impl DualEngine {
         self.engine_a.think(max_cycles);
         self.engine_b.think(max_cycles);
 
-        let res_a = ResonanceDto::from_energy_f32(self.engine_a.energy(), self.engine_a.cycles());
-        let res_b = ResonanceDto::from_energy_f32(self.engine_b.energy(), self.engine_b.cycles());
+        let res_a =
+            PerturbationDto::from_energy_f32(self.engine_a.energy(), self.engine_a.cycles());
+        let res_b =
+            PerturbationDto::from_energy_f32(self.engine_b.energy(), self.engine_b.cycles());
 
         let a_indices: Vec<u16> = res_a
             .top_k

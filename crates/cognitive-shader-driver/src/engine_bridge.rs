@@ -3,7 +3,7 @@
 //! Two DTO pipelines exist in isolation:
 //!
 //! ```text
-//! thinking-engine:           Φ StreamDto → Ψ ResonanceDto → B BusDto → Γ ThoughtStruct
+//! thinking-engine:           Φ StreamDto → Ψ PerturbationDto → B BusDto → Γ ThoughtStruct
 //! cognitive-shader-driver:   Φ ShaderDispatch → Ψ ShaderResonance → B ShaderBus → Γ ShaderCrystal
 //! ```
 //!
@@ -12,7 +12,7 @@
 //!
 //! ```text
 //! [1] StreamDto.codebook_indices  → populate BindSpace content fingerprints
-//! [2] ResonanceDto.top_k          → seed ShaderDispatch.rows (which rows to scan)
+//! [2] PerturbationDto.top_k       → seed ShaderDispatch.rows (which rows to scan)
 //! [3] ShaderBus.cycle_fingerprint → produce BusDto (top-1 hit = codebook_index)
 //! [4] ShaderCrystal               → produce ThoughtStruct with sensor provenance
 //! [5] Qualia17D                   → fill BindSpace QualiaColumn (17 → 18: pad 0)
@@ -88,7 +88,7 @@ pub fn ingest_codebook_indices(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ResonanceDto → ShaderDispatch (top-k seeds the scan window)
+// PerturbationDto → ShaderDispatch (top-k seeds the scan window)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Build a ShaderDispatch from resonance top-k.

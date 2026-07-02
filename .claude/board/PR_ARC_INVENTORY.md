@@ -35,6 +35,22 @@
 
 ---
 
+## #629 lance-graph: V3 SUBSTRATE consolidated entry point — `.claude/v3/` tree + mailbox-kanban doctrine + ractor ownership attestation
+
+**Status:** MERGED 2026-07-02 (merge commit `28f17cd7`), branch `claude/v3-substrate-migration-review-o0yoxv`.
+
+**Added:** `.claude/v3/` — README.md (orientation + doc map, the session entry point), INTEGRATION-PLAN.md (W0–W6 wave plan), COMPONENT-MAP.md (every subsystem: reuse / repurpose / retire), ENTROPY-MILESTONES.md (systematic N→1 collapse ledger), MODULE-TABLE.md (per-file census of core / contract / planner), soa_layout/ (LE contract, tenant lanes, consumer map, routing), knowledge/ (v3-substrate-primer, mailbox-kanban-model, sonnet-worker-guardrails — MANDATORY in every Sonnet worker brief), agents/BOOT.md (the four V3 cards: v3-mailbox-warden, v3-envelope-auditor, v3-kanban-executor-engineer, v3-template-smith); `/v3` skill (bootload) + `/v3-audit` command (mechanical conformance greps); CLAUDE.md + BOOT.md ★ V3 entrypoint sections.
+
+**Locked:** any session touching SoA rows / tenants / mailbox ownership / kanban / thinking templates / classids / the DTO ladder STARTS at `.claude/v3/README.md`; **no singleton CollapseGate** (one mailbox = one kanban board as tenant); SoaEnvelope LE ownership (`mailbox_owner()`, write-on-behalf iron rule); compiled thinking templates (elixir-template × StepMask, Rig as oracle, compile-down direction only); classid canon-high + the `0x1000` V3-adoption monitor; PerturbationDto/Resonance split (D-PERT-1); **ractor scope (operator-ruled): NOT for messaging (slow) — helper only** (spawn, supervision, occasional serialized control RPC), hot dispatch stays with the D-V3-W2e-probed ExecTarget; mailbox-as-owner is compiler-enforced — `KanbanActor<O: MailboxSoaOwner>` has `type State = O`, the owner MOVES into the actor at `pre_start` (attested: 22 supervisor tests green, `--features supervisor`, AdaWorldAPI ractor fork per P0).
+
+**Corrections shipped in-arc (review threads):** LE byte-order caveat — domain range-scans go over the DECODED u32 (or big-endian keys), never raw LE key-byte prefixes (`to_le_bytes` puts the custom byte first); legacy corpus scanner widened to all THREE legacy shapes incl. `0xAAAA_DDCC` render-prefix-high (the `classid_canon_compat` CanonLow set).
+
+**Deferred:** W1–W6 wave execution (plan is the map, not the work); template-catalogue dispatch (post-P4); `0x1000` marker retirement (P4, operator checkpoint — unchanged from #628).
+
+**Docs:** the `.claude/v3/` tree IS the doc deliverable; EPIPHANIES + AGENT_LOG entries in-arc (incl. the ractor helper-scope ruling + ownership compile attestation, and the disk-quota ops note).
+
+**Confidence (2026-07-02):** HIGH — doc/governance arc + supervisor crate attestation; 22 supervisor tests green; review threads resolved + reacted.
+
 ## #628 lance-graph: classid canon:custom half-order flip — P0 route-through + P1 CanonHigh + mint-forward compat reader
 
 **Status:** MERGED 2026-07-02 (merge commit `6858118b`), branch `claude/v3-substrate-migration-review-o0yoxv`. Executes plan phases P0+P1 (+P2 by construction); the fleet consumer PRs rode the same arc.
