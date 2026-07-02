@@ -35,6 +35,22 @@
 
 ---
 
+## #627 lance-graph: classid canon:custom flip TRIGGERED — migration plan v1 + operator ruling record (doc-only)
+
+**Status:** MERGED 2026-07-02 (merge commit `c8e1ec4`), branch `claude/v3-substrate-migration-review-o0yoxv`. Doc-only: records the operator ruling arc and activates the §2.3 migration.
+
+**Added:** `.claude/plans/classid-canon-custom-flip-v1.md` (the TRIGGERED atomic Canon:Custom half-order flip — canon `domain:appid` → HIGH u16, custom/marker → LOW; stored `0x0701_1000`, human-readable `0x07:01::1000`; ONE flippable `compose_classid/split_classid/CLASSID_CANON_HIGH`; mint-forward with an I-LEGACY version boundary; phases P0 route-through → P1 flip+coexist → P2 OGAR#95 app-prefix reconciliation [operator checkpoint] → P3 q2 re-mints → P4 `0x1000` retirement [operator checkpoint]). Board: EPIPHANIES `E-CLASSID-CANON-HIGH-TRIGGERED`, INTEGRATION_PLANS prepend, STATUS_BOARD `D-CCF-0..4`, ISSUES status flips ×4.
+
+**Locked:** OSINT low byte = APPID space domain-wise (`00` = domain, `01` = q2 — zero vocabulary rows, executed OGAR PR #146, codebook 67→65, COUNT_FUSE balanced with zero mirror changes); `0x1000` = temporary reminder, not a format bit; the SoA `class_id` discriminator derives via `split_classid(id).canon` NEVER `as u16` (codex P2 — post-flip `as u16` collapses every class to `0x1000`); legacy registry keys DEMOTE to read-only aliases, retirement only on corpus proof (codex P2 — mint-forward means persisted old-form rows resolve forever until re-baked).
+
+**Deferred:** P2 + P4 operator checkpoints; implementation phases (D-CCF-0 starts immediately post-merge).
+
+**Docs/board:** as Added; OGAR side in `DISCOVERY-MAP.md` `D-OSINT-APPID-NOT-CONCEPT` (OGAR #146, merged `a0c7936`).
+
+**Confidence (2026-07-02):** HIGH for the record (verbatim operator anchors in plan §0); the flip itself is unimplemented by design (doc-first). Both codex P2 findings amended pre-merge.
+
+**Cross-ref:** OGAR #146; #626 (V3 set completion that armed the trigger); `soa-value-tenant-migration-v2.md` §2.3; `E-CLASSID-SPLIT-ORDER-IS-A-FLIP`.
+
 ## #626 lance-graph: V3 convergence wiring — tenant-carve certification, RungElevator, P6 wave probe, seam-list plan
 
 **Status:** MERGED 2026-07-02 (merge commit `5aaee33`), branch `claude/v3-substrate-migration-review-o0yoxv`. The "wire, don't invent" arc: every deliverable a probe or a wiring of EXISTING types (`E-V3-TENANTS-ALREADY-EXIST-WIRE-DONT-INVENT`); operator all-in, Sonnet-grindwork/Fable-decisions model split.
