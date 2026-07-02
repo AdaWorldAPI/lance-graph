@@ -293,20 +293,23 @@ impl NiblePath {
     #[must_use]
     pub const fn from_guid_prefix(guid: &crate::canonical_node::NodeGuid) -> Option<Self> {
         let parts = guid.decode();
-        // In THIS v1 fold the high 4 classid nibbles must be zero — it folds
-        // classid_lo as the coarse tier, so a nonzero high u16 would make the
+        // In THIS v1 fold the CUSTOM half must be zero — it folds the CANON
+        // half as the coarse tier, so a nonzero custom half would make the
         // 20→16 nibble fold lossy. It is reported, not silently re-routed. (The
         // v3 fold does NOT fold classid — see from_guid_prefix_v3 — so this is a
-        // v1-fold constraint, not a global reserved-zero law.)
-        if (parts.classid >> 16) != 0 {
+        // v1-fold constraint, not a global reserved-zero law.) Halves come from
+        // the one flippable split (D-CCF-0) — identical to the historical
+        // `classid >> 16` / `& 0xFFFF` masks while CLASSID_ORDER is CanonLow.
+        let (canon, custom) = crate::ogar_codebook::split_classid(parts.classid);
+        if custom != 0 {
             return None;
         }
         // Pack root-first into 16 nibbles = 64 bits = the full u64 path:
-        //   nibbles 0..4  (high) = classid_lo  (basin = top nibble of classid_lo)
+        //   nibbles 0..4  (high) = canon half  (basin = top nibble of canon)
         //   nibbles 4..8         = HEEL
         //   nibbles 8..12        = HIP
         //   nibbles 12..16 (low) = TWIG        (leaf = low nibble of TWIG)
-        let classid_lo = (parts.classid & 0xFFFF) as u64;
+        let classid_lo = canon as u64;
         let path = (classid_lo << 48)
             | ((parts.heel as u64) << 32)
             | ((parts.hip as u64) << 16)

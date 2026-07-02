@@ -2374,7 +2374,9 @@ mod tests {
         //     read it back — on the V3 class it is still the Osint concept 0x0700
         //     (the high-u16 gen-marker never leaks into the entity discriminator).
         let o = ValueTenant::EntityType.value_offset();
-        row.value[o..o + 2].copy_from_slice(&(NodeGuid::CLASSID_OSINT_V3 as u16).to_le_bytes());
+        row.value[o..o + 2].copy_from_slice(
+            &crate::ogar_codebook::classid_canon(NodeGuid::CLASSID_OSINT_V3).to_le_bytes(),
+        );
         let et = u16::from_le_bytes([row.value[o], row.value[o + 1]]);
         assert_eq!(
             et, 0x0700,
@@ -2484,13 +2486,17 @@ mod tests {
         // cold classes too — Anatomy 0x0A01 / Genetics root 0x0E00, never the
         // 0x1000 gen-marker.
         let o = ValueTenant::EntityType.value_offset();
-        row.value[o..o + 2].copy_from_slice(&(NodeGuid::CLASSID_FMA_V3 as u16).to_le_bytes());
+        row.value[o..o + 2].copy_from_slice(
+            &crate::ogar_codebook::classid_canon(NodeGuid::CLASSID_FMA_V3).to_le_bytes(),
+        );
         assert_eq!(
             u16::from_le_bytes([row.value[o], row.value[o + 1]]),
             0x0A01,
             "EntityType tenant carries the canon Anatomy concept"
         );
-        row.value[o..o + 2].copy_from_slice(&(NodeGuid::CLASSID_CPIC_V3 as u16).to_le_bytes());
+        row.value[o..o + 2].copy_from_slice(
+            &crate::ogar_codebook::classid_canon(NodeGuid::CLASSID_CPIC_V3).to_le_bytes(),
+        );
         assert_eq!(
             u16::from_le_bytes([row.value[o], row.value[o + 1]]),
             0x0E00,

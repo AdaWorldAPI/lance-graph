@@ -107,15 +107,18 @@ pub fn canonical_concept_domain(id: u16) -> ConceptDomain {
 }
 
 /// Resolve a [`NodeGuid`](crate::NodeGuid) `classid` to its [`ConceptDomain`] (D-OVC-4). The
-/// codebook id is the low 16 bits of the classid (`0xDDCC` lives in the low u16);
-/// the high u16 is the canon-reserved zero-fallback prefix. So a domain route is
-/// `canonical_concept_domain(classid as u16)`. This is the coarse sibling of the
+/// codebook id is the CANON half of the classid (under the active
+/// [`CLASSID_ORDER`] — the low u16 while the order is `CanonLow`); the other
+/// half is the custom/render prefix. So a domain route is
+/// `canonical_concept_domain(classid_canon(classid))`. This is the coarse sibling of the
 /// per-family scope in [`codebook`](crate::codebook): classid (domain) selects the
 /// coarse codebook; `family` selects the sub-codebook (longest-prefix-wins).
 #[inline]
 #[must_use]
 pub fn classid_concept_domain(classid: u32) -> ConceptDomain {
-    canonical_concept_domain(classid as u16)
+    // Routes the CANON half via the one flippable split (D-CCF-0) — identical
+    // to the historical `classid as u16` while CLASSID_ORDER is CanonLow.
+    canonical_concept_domain(classid_canon(classid))
 }
 
 /// Map a coarse curator `source_domain` tag (`"project"`, `"erp"`, `"german-erp"`)
@@ -233,7 +236,12 @@ impl AppPrefix {
 #[inline]
 #[must_use]
 pub const fn render_classid(prefix: u16, concept: u16) -> u32 {
-    ((prefix as u32) << 16) | (concept as u32)
+    // The prefix is the CUSTOM half, the concept the CANON half — composed
+    // through the one flippable definition (D-CCF-0): identical to the
+    // historical `(prefix << 16) | concept` while CLASSID_ORDER is CanonLow.
+    // The OGAR#95 hi-u16 scheme ↔ CanonHigh reconciliation is the plan's P2
+    // operator checkpoint; this route-through is what makes it one-place.
+    compose_classid(concept, prefix)
 }
 
 /// Compose a render `classid` from an [`AppPrefix`] and a **canonical-concept
@@ -254,23 +262,121 @@ pub fn render_classid_for_concept(app: AppPrefix, concept: &str) -> Option<u32> 
     canonical_concept_id(concept).map(|id| app.render(id))
 }
 
-/// The APP / render-prefix half of a full `classid` (`classid >> 16`). Mirror
-/// of OGAR `ogar_vocab::app::app_of`. Pair with [`AppPrefix::from_prefix`] to
-/// recover the typed app.
+// ═══════════════════════════════════════════════════════════════════════════
+// The ONE flippable classid composition (D-CCF-0, `classid-canon-custom-flip-v1`)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Which u16 half of a stored `classid: u32` carries the CANON (`domain:appid`
+/// / concept) and which carries the CUSTOM (render prefix / the temporary
+/// `0x1000` V3 marker). This is the operator's "split order that later you can
+/// flip" made a type (`E-CLASSID-SPLIT-ORDER-IS-A-FLIP`): the Canon:Custom
+/// half-order migration (`.claude/plans/classid-canon-custom-flip-v1.md`,
+/// TRIGGERED 2026-07-02) is a one-place change of [`CLASSID_ORDER`], never
+/// per-site byte surgery.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ClassidOrder {
+    /// Legacy order: canon in the LOW u16, custom in the HIGH (the `0xDDCC`
+    /// low-half convention every wired classid uses today).
+    CanonLow,
+    /// Target order: canon in the HIGH u16, custom in the LOW — stored
+    /// `0x0701_1000`, human-readable `0x07:01::1000` (plan §0).
+    CanonHigh,
+}
+
+/// The active half-order. **P0 pins the legacy order** — every route-through
+/// below is behavior-identical to the direct masks it replaces (probed).
+/// Flipping this const to [`CanonHigh`](ClassidOrder::CanonHigh) IS Phase 1 of
+/// the migration; it is mint-forward with a version boundary — flipping alone
+/// must never reinterpret persisted ids (the registry keeps concrete-keyed
+/// legacy aliases; plan §4 P3, codex P2 on #627).
+pub const CLASSID_ORDER: ClassidOrder = ClassidOrder::CanonLow;
+
+/// Compose a classid under an explicit half-order.
+#[inline]
+#[must_use]
+pub const fn compose_classid_with(order: ClassidOrder, canon: u16, custom: u16) -> u32 {
+    match order {
+        ClassidOrder::CanonLow => ((custom as u32) << 16) | (canon as u32),
+        ClassidOrder::CanonHigh => ((canon as u32) << 16) | (custom as u32),
+    }
+}
+
+/// Split a classid under an explicit half-order → `(canon, custom)`.
+#[inline]
+#[must_use]
+pub const fn split_classid_with(order: ClassidOrder, classid: u32) -> (u16, u16) {
+    match order {
+        ClassidOrder::CanonLow => (classid as u16, (classid >> 16) as u16),
+        ClassidOrder::CanonHigh => ((classid >> 16) as u16, classid as u16),
+    }
+}
+
+/// Compose under the active [`CLASSID_ORDER`].
+#[inline]
+#[must_use]
+pub const fn compose_classid(canon: u16, custom: u16) -> u32 {
+    compose_classid_with(CLASSID_ORDER, canon, custom)
+}
+
+/// Split under the active [`CLASSID_ORDER`] → `(canon, custom)`.
+#[inline]
+#[must_use]
+pub const fn split_classid(classid: u32) -> (u16, u16) {
+    split_classid_with(CLASSID_ORDER, classid)
+}
+
+/// The CANON half under the active order — **the** source of the SoA
+/// `class_id`/`EntityType` discriminator. Post-flip, a naive `classid as u16`
+/// yields the CUSTOM half (`0x1000`) for every V3 class — total class
+/// collapse (codex P2 on #627) — so deriving a class discriminator any other
+/// way is a forbidden pattern.
+#[inline]
+#[must_use]
+pub const fn classid_canon(classid: u32) -> u16 {
+    split_classid(classid).0
+}
+
+/// The CUSTOM half under the active order (render prefix / marker).
+#[inline]
+#[must_use]
+pub const fn classid_custom(classid: u32) -> u16 {
+    split_classid(classid).1
+}
+
+/// Recompose a classid under the OTHER order — the flip itself. Involutive:
+/// `flip_classid(flip_classid(x)) == x` (probed below).
+#[inline]
+#[must_use]
+pub const fn flip_classid(classid: u32) -> u32 {
+    let (canon, custom) = split_classid(classid);
+    let other = match CLASSID_ORDER {
+        ClassidOrder::CanonLow => ClassidOrder::CanonHigh,
+        ClassidOrder::CanonHigh => ClassidOrder::CanonLow,
+    };
+    compose_classid_with(other, canon, custom)
+}
+
+/// The APP / render-prefix half of a full `classid` — since #627, the CUSTOM
+/// half under the active [`CLASSID_ORDER`] (identical to the historical
+/// `classid >> 16` while the order is [`CanonLow`](ClassidOrder::CanonLow)).
+/// Mirror of OGAR `ogar_vocab::app::app_of`. Pair with
+/// [`AppPrefix::from_prefix`] to recover the typed app.
 #[inline]
 #[must_use]
 pub const fn classid_app_prefix(classid: u32) -> u16 {
-    (classid >> 16) as u16
+    classid_custom(classid)
 }
 
-/// The canonical concept-id half of a full `classid` (`classid as u16`) — the
-/// shared RBAC + ontology + cross-app identity key, identical under every
+/// The canonical concept-id half of a full `classid` — since #627, the CANON
+/// half under the active [`CLASSID_ORDER`] (identical to the historical
+/// `classid as u16` while the order is [`CanonLow`](ClassidOrder::CanonLow)) —
+/// the shared RBAC + ontology + cross-app identity key, identical under every
 /// render prefix. Mirror of OGAR `ogar_vocab::app::concept_of`; the sibling of
 /// [`classid_concept_domain`], which routes this half to its [`ConceptDomain`].
 #[inline]
 #[must_use]
 pub const fn classid_concept(classid: u32) -> u16 {
-    classid as u16
+    classid_canon(classid)
 }
 
 /// The curated `(canonical_concept, u16)` codebook — wire-compatible mirror of
@@ -618,6 +724,107 @@ mod tests {
         assert_eq!(
             render_classid_for_concept(AppPrefix::Healthcare, "nope"),
             None
+        );
+    }
+
+    // ── D-CCF-0 probes — the one flippable classid composition ────────────
+
+    #[test]
+    fn classid_split_compose_round_trips_under_both_orders() {
+        let samples: &[(u16, u16)] = &[
+            (0x0700, 0x0000), // legacy OSINT domain classid halves
+            (0x0701, 0x1000), // post-flip OSINT:q2 halves
+            (0x0A01, 0x1000),
+            (0x0E01, 0x1000),
+            (0x0901, 0x0005), // Healthcare render pair
+            (0x0000, 0x0000),
+            (0xFFFF, 0xFFFF),
+        ];
+        for &(canon, custom) in samples {
+            for order in [ClassidOrder::CanonLow, ClassidOrder::CanonHigh] {
+                let id = compose_classid_with(order, canon, custom);
+                assert_eq!(
+                    split_classid_with(order, id),
+                    (canon, custom),
+                    "split∘compose must be identity under {order:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn classid_flip_is_involutive_and_p0_pins_legacy_order() {
+        // P0 pin: the active order is the legacy CanonLow — flipping this
+        // const IS the migration's Phase 1, never a drive-by.
+        assert_eq!(CLASSID_ORDER, ClassidOrder::CanonLow);
+        // flip(flip(x)) == x over every wired classid + the post-flip trio.
+        for id in [
+            0x0000_0700u32, // legacy OSINT domain class
+            0x1000_0700,    // pre-flip OSINT-V3
+            0x1000_0A01,
+            0x1000_0E00,
+            0x0701_1000, // post-flip forms (already valid u32s to flip back)
+            0x0A01_1000,
+            0x0E01_1000,
+            0x0005_0901, // Healthcare render classid
+            0x0000_0000,
+            0xFFFF_FFFF,
+        ] {
+            assert_eq!(
+                flip_classid(flip_classid(id)),
+                id,
+                "flip must be involutive"
+            );
+        }
+    }
+
+    #[test]
+    fn classid_route_through_is_behavior_identical_under_legacy_order() {
+        // The legacy-boundary matrix (plan §3): under CanonLow every routed
+        // reader equals the direct mask it replaced, for every codebook id
+        // under every app prefix — the P0 zero-behavior gate.
+        for &(_, concept) in CODEBOOK {
+            for prefix in [0x0000u16, 0x0001, 0x0005, 0x1000] {
+                let id = render_classid(prefix, concept);
+                assert_eq!(id, ((prefix as u32) << 16) | (concept as u32));
+                assert_eq!(classid_concept(id), concept);
+                assert_eq!(classid_app_prefix(id), prefix);
+                assert_eq!(classid_canon(id), id as u16);
+                assert_eq!(classid_custom(id), (id >> 16) as u16);
+                assert_eq!(
+                    classid_concept_domain(id),
+                    canonical_concept_domain(concept),
+                    "domain routing invariant under the route-through"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn no_class_collapse_under_canon_high() {
+        // codex P2 (#627): post-flip, a naive `as u16` reads the CUSTOM half —
+        // 0x1000 for ALL three V3 classes — collapsing the SoA class_id
+        // discriminator. The canon half stays distinct; `as u16` does not.
+        let osint = compose_classid_with(ClassidOrder::CanonHigh, 0x0701, 0x1000);
+        let fma = compose_classid_with(ClassidOrder::CanonHigh, 0x0A01, 0x1000);
+        let cpic = compose_classid_with(ClassidOrder::CanonHigh, 0x0E01, 0x1000);
+        assert_eq!((osint, fma, cpic), (0x0701_1000, 0x0A01_1000, 0x0E01_1000));
+
+        let canons = [
+            split_classid_with(ClassidOrder::CanonHigh, osint).0,
+            split_classid_with(ClassidOrder::CanonHigh, fma).0,
+            split_classid_with(ClassidOrder::CanonHigh, cpic).0,
+        ];
+        assert_eq!(
+            canons,
+            [0x0701, 0x0A01, 0x0E01],
+            "canon halves stay distinct"
+        );
+        // The forbidden pattern, demonstrated: `as u16` collapses all three.
+        assert_eq!(
+            [osint as u16, fma as u16, cpic as u16],
+            [0x1000, 0x1000, 0x1000],
+            "naive `as u16` post-flip = total class collapse (why it is forbidden)"
         );
     }
 }
