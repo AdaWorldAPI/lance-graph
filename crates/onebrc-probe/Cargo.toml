@@ -29,6 +29,25 @@ lane-d = ["dep:ractor", "dep:tokio"]
 # the V3 kanban execution machinery (lance-graph-supervisor's KanbanActor +
 # drivers, lance-graph-contract's kanban/scheduler/soa_view contract types).
 lane-e = ["dep:lance-graph-supervisor", "dep:lance-graph-contract", "dep:ractor", "dep:tokio"]
+# Lane G (kanban-update write path): the Morton-tile 64K SoA as owned state
+# behind shard mailbox actors, morsel casts witnessed with KanbanMoves —
+# ractor/tokio + the contract's kanban types (no supervisor needed: the
+# shard owner IS the probe's actor).
+lane-g = ["dep:lance-graph-contract", "dep:ractor", "dep:tokio"]
+# Lane H (orchestrated fine-grained ownership): router tier with lazy
+# owner activation + ahead-firing batched delivery over lane G's
+# one-mailbox-per-SoA substrate — same dep set as lane-g.
+lane-h = ["lane-g"]
+# Lane I (substrate batch pipeline): 65536 upfront mailboxes, codebook
+# CAM addressing, whole-table double-casts to ownership + lance sinks,
+# flush-cache interleaving - same dep set as lane-g.
+lane-i = ["dep:lance-graph-contract", "dep:ractor", "dep:tokio"]
+# Lane J (parameterized batch pipeline): lane I's shape with grid /
+# sink-lanes / registry knobs — needs lane-i's RowOwner.
+lane-j = ["lane-i"]
+# All 8 batching-method presets (src/presets.rs) — the lab-sweep surface;
+# see FINDINGS.md (agnostic record) + COMMENTARY.md (interpretation).
+presets = ["lane-g", "lane-h", "lane-i", "lane-j"]
 
 [dependencies]
 # AdaWorldAPI fork (workspace P0 rule: fork over crates.io, always — see

@@ -591,3 +591,120 @@ where the win lives (B was 1.06×). All six lanes A–F + R now measured
 on one regenerable recipe corpus. Board: E-1BRC-ADDRESSING-1. The probe
 is COMPLETE; follow-ups (100M container-scale run, high-cardinality
 corpus, SWAR parse, mmap) are priced and parked in README §1/§5.3.
+
+#### Addendum-13 status update (2026-07-02, t4 — lane G, operator follow-up)
+
+Operator: "compare morton and the kanban vs without — if 64k concurrent
+SoA vs Morton tile can help us understand the pros and cons of our
+architecture when using kanban update." Lane G SHIPPED (feature
+`lane-g`): the lane-F Morton-tile 64K SoA as OWNED state behind shard
+mailbox actors — prefix-routed morsel casts (64K rows, #227's morsel
+size, clear-by-undo extraction), every applied batch witnessed with a
+KanbanMove, journal==casts asserted. ndarray checkout rebased onto
+master (#227 merged — its Morton scatter/morsel probe is the sibling
+reference). t4 medians: F 79.5 / G(1 shard) 43.0 / G(4) 39.9 /
+G(16) 36.0 (one thrash collapse 11.7) / G(workers=3) strictly worse.
+**Ledger: kanban update = 0.54× at morsel granularity, and the tax is
+all boundary (corpus copy + oversubscription + messaging), not the
+witness (lane E: journal ~free). It buys live bounded-staleness state,
+witnessed replayable writes, single-writer safety, bounded worker
+memory. Do NOT shard ownership below contention — at ~400 groups one
+mailbox absorbs everything; shards scale with owner WORK, never with
+rows; the Morton prefix route itself is free (G(4)≈G(1)).** Tables +
+full readings: crates/onebrc-probe/README.md §5.4. Board follow-up
+appended to E-1BRC-ADDRESSING-1 thread as E-1BRC-KANBAN-UPDATE-1.
+
+#### Addendum-13 status update (2026-07-02, t4a — topology corrected, curve completed)
+
+Operator correction ratified: **one ractor mailbox per SoA** (canon).
+Lane G reworked — each owner's State is its OWN `OwnerSoa` sized to its
+tile span (no full-64K tables per owner, no "sharded one SoA" framing);
+flush grouping made sort-based (no dense per-shard vecs at 64K owners);
+parity test extended to 4096 mailboxes. Full ownership-granularity curve
+@4 workers, medians: G(1) 43.4 / G(16) 30.3 / G(256) 35.9 / G(4096) 18.3
+/ **G(65536, one mailbox per tile) 2.1 — a 20× collapse** (spawn ×64K +
+cast fragmentation ~150→~63K + 64K tasks on 4 cores). **Ruling: the
+ownership plateau spans 1–256 owners; Morton tile GROUPING is what makes
+mailbox-as-owner viable — mailbox = OWNER boundary, tile = ADDRESS
+boundary, never conflate 1:1 under load.** README §5.4a; board
+E-1BRC-KANBAN-UPDATE-1 correction appended as E-1BRC-OWNER-GRANULARITY-1.
+
+#### Addendum-13 status update (2026-07-02, t5 — orchestration sweet spot, operator follow-up)
+
+Operator: "the 65536 mailboxes had no Orchestration at all — find the
+sweet spot with rs-graph-llm or lance-graph-planner + kanban update."
+Lane H SHIPPED (feature `lane-h`): router tier with LAZY owner
+activation (live mailboxes track occupancy ~413, never the 64K address
+space) + AHEAD-FIRING batched delivery (batch_k=64) over lane G's
+unchanged one-mailbox-per-SoA substrate; witness discipline preserved
+(owner journals == router casts asserted). graph-flow stays the OUTER
+loop (task-granularity cursor; burn-submodule 403 blocks in-container
+builds anyway) — the in-loop mechanisms are the planner/kanban-executor
+domain's own. t5 medians @4 cores: H(16) 42.2 / H(256) 36.8 / H(4096)
+40.2 / **H(65536) 39.4 vs flat 1.7 same-session — 23× recovery, within
+~9% of G(1)=43.2; F=81.7.** RULING: orchestration FLATTENS the
+granularity curve — the sweet spot is not a shard count, it is the
+orchestration tier itself; fine-grained mailbox-as-owner is viable iff
+producers never address owners directly (the ahead-firing batch-writer
+is load-bearing, not an optimization; flat fan-out = the measured 20×
+anti-pattern). README §5.5; board E-1BRC-ORCHESTRATION-SWEETSPOT-1.
+
+#### Addendum-13 status update (2026-07-02, t6 — lane I, operator batch-pipeline spec)
+
+Operator spec implemented verbatim as lane I (feature `lane-i`): all
+65536 mailboxes UPFRONT (standing ownership registry; spawn measured
+separately: 1.1–2.7 s, 17–40 µs/actor); two fixed aligned indices
+(mailbox idx == SoA row idx — ownership guarantee is the
+`row_owner[i]==i` binding + write-on-behalf, never a message path);
+codebook-minted identity → direct CAM addressing (no probe in the hot
+loop; worker-local memo, ~400 global mint locks total); whole-table
+DOUBLE-CASTS (one Arc per 64K-row batch to BOTH the ownership-guarantee
+sink and the Lance row-address sink — 312 messages total vs 63K flat /
+2.6K orchestrated); flush cache interleaving flush and refill (peak 2–3
+tables/worker, worker never waits). Both ends journal every batch
+(ownership==lance==156 asserted) + one DatasetVersion tick per batch —
+the full double-WAL the W1b batch writer needs. t6: steady state ~20–22
+Mrows/s (≈½ of G(1) 43 — residency-footprint attribution CONJECTURE);
+total incl. spawn 3.2–6.1. RULING: the batch pipeline wins the
+messaging war outright (messages ∝ batches, independent of occupancy
+AND address space); the standing 64K registry is affordable
+infrastructure; the remaining surface is residency, not architecture.
+README §5.6; board E-1BRC-BATCH-PIPELINE-1.
+
+#### Addendum-13 status update (2026-07-02, t7 — lane J knob matrix, PROBE ARC COMPLETE)
+
+Lane J (feature `lane-j`) parameterizes lane I with the operator's four
+follow-up questions as knobs: grid (4096 gridlake vs 65536), sink lanes
+(1/8/64), registry (on/off). t7 @4 cores, same-session refs G(1)=46.3 /
+H=40.5 / F=70.1: **J(gridlake 4096, 1 lane, no registry) = 46.2–46.3 —
+the measured sweet spot: equals the best streamed topology while
+carrying the double-WAL.** Registry ON halves steady state net of spawn
+(t6 residency CONJECTURE → FINDING); grid 65536 → 40 (L2-busting
+table+memo); lanes 1≈8, 64 over-lanes (apply work is O(dirty) —
+lanes scale with APPLY work, never data). The composed recipe: 64×64
+gridlake batch SoA + codebook CAM + 1–8 lane pairs + whole-table
+double-cast + flush cache; ownership as the index-aligned guarantee
+table, NOT a standing per-cell actor registry; BF16 planes per ndarray
+#227's proven VDPBF16PS tier as the tile-GEMM continuation. README
+§5.7; board E-1BRC-GRIDLAKE-SWEETSPOT-1.
+
+#### Addendum-13 status update (2026-07-02, consolidation — findings/commentary split, 8 presets, simd_ops wiring)
+
+Operator-requested consolidation SHIPPED: (1) `crates/onebrc-probe/FINDINGS.md`
+— the AGNOSTIC record (environment, methods, all t0–t7 tables, all 11
+invariants WITH their code, reproduction commands; zero interpretation);
+(2) `crates/onebrc-probe/COMMENTARY.md` — this session's prime stored
+SEPARATELY (readings, rulings executed, composed recipe, flagged
+uncertainty, suggested lab sweeps) so another session can analyze the
+findings from its own angle; (3) `src/presets.rs` (feature `presets`) —
+the 8 batching methods frozen as named presets (map-private-merge /
+grid-private-merge / stream-single-owner / orchestrated-lazy-owners /
+batch-64k-registry / gridlake / gridlake-8-lanes / batch-64k-no-registry)
+sharing one signature + one parity harness (`all_presets_agree_with_lane_a`
+— every preset byte-identical to lane A); (4) honest answer to the simd
+question: lane B had used ONLY `U8x32::cmpeq_mask`; NOW also routes the
+stride walk through `ndarray::simd::array_chunks` (simd_ops.rs, the
+non-overlapping walker; `array_windows` is the overlapping GEMM sibling,
+deliberately unused); `simd_soa.rs::SoaBytes` remains an OPEN follow-up
+(natural carrier for vectorized sink sweeps + batch tables). Note: probe
+target/debug purged mid-round (disk full at 100%); gates re-run green.

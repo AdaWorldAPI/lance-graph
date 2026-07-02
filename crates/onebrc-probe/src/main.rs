@@ -73,6 +73,13 @@ fn cmd_run(args: &[String]) {
         .get(3)
         .map(|s| s.parse().expect("batches must be a usize"))
         .unwrap_or(workers * 16);
+    // Lane-`g`-only: the SAME 4th positional arg is the shard-owner count
+    // (Morton-tile-range mailboxes; default 4). Lanes e and g never share
+    // an invocation, so overloading the position is unambiguous.
+    let shards: usize = args
+        .get(3)
+        .map(|s| s.parse().expect("shards must be a usize"))
+        .unwrap_or(4);
 
     // NOTE (mmap note): plain `std::fs::read`, NOT mmap. automataIA/1brc-rs
     // treats `memmap2::Mmap` as "the only path to break the 2-second
@@ -125,6 +132,73 @@ fn cmd_run(args: &[String]) {
         // Morton-tile SoA lane and its plain-radix control (lane_f.rs).
         "f" => onebrc_probe::lane_f_morton(&data, workers),
         "r" => onebrc_probe::lane_r_radix(&data, workers),
+        "g" => {
+            #[cfg(feature = "lane-g")]
+            {
+                // 4th positional arg = shards for lane g (default 4).
+                onebrc_probe::lane_g_kanban_soa(&data, workers, shards)
+            }
+            #[cfg(not(feature = "lane-g"))]
+            {
+                eprintln!("lane g requires --features lane-g");
+                std::process::exit(1);
+            }
+        }
+        "i" => {
+            #[cfg(feature = "lane-i")]
+            {
+                // Fixed topology: all 65536 mailboxes upfront, 64K-row
+                // CAM batches (see lane_i.rs; breakdown on stderr).
+                onebrc_probe::lane_i_batch_pipeline(&data, workers)
+            }
+            #[cfg(not(feature = "lane-i"))]
+            {
+                eprintln!("lane i requires --features lane-i");
+                std::process::exit(1);
+            }
+        }
+        "j" => {
+            #[cfg(feature = "lane-j")]
+            {
+                // Positional knobs: [workers] [grid] [lanes] [registry 0|1]
+                // (defaults: gridlake 4096, 1 lane pair, no registry).
+                let grid: usize = args
+                    .get(3)
+                    .map(|s| s.parse().expect("grid must be a usize"))
+                    .unwrap_or(4096);
+                let lanes: usize = args
+                    .get(4)
+                    .map(|s| s.parse().expect("lanes must be a usize"))
+                    .unwrap_or(1);
+                let registry = args.get(5).map(String::as_str) == Some("1");
+                onebrc_probe::lane_j_grid_pipeline_with(
+                    &data,
+                    workers,
+                    grid,
+                    lanes,
+                    registry,
+                    1 << 16,
+                )
+            }
+            #[cfg(not(feature = "lane-j"))]
+            {
+                eprintln!("lane j requires --features lane-j");
+                std::process::exit(1);
+            }
+        }
+        "h" => {
+            #[cfg(feature = "lane-h")]
+            {
+                // 4th positional arg = NOMINAL owner granularity for lane h
+                // (lazy activation makes live owners track occupancy).
+                onebrc_probe::lane_h_orchestrated(&data, workers, shards)
+            }
+            #[cfg(not(feature = "lane-h"))]
+            {
+                eprintln!("lane h requires --features lane-h");
+                std::process::exit(1);
+            }
+        }
         other => {
             eprintln!("unknown lane '{other}' (expected 'a', 'b', 'c', 'd', 'e', 'f', or 'r')");
             std::process::exit(2);
@@ -140,6 +214,10 @@ fn cmd_run(args: &[String]) {
     if lane == "e" {
         println!(
             "lane={lane} rows={rows} workers={workers} batches={batches} elapsed_ms={elapsed_ms:.3} throughput_mrows_s={throughput_mrows_s:.3}"
+        );
+    } else if lane == "g" {
+        println!(
+            "lane={lane} rows={rows} workers={workers} shards={shards} elapsed_ms={elapsed_ms:.3} throughput_mrows_s={throughput_mrows_s:.3}"
         );
     } else {
         println!(

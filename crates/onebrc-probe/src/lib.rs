@@ -25,6 +25,12 @@
 //!   identity → Morton tile address → SoA-shaped flat accumulators (F);
 //!   identical pipeline with a plain-radix slot (R). F−R isolates the
 //!   addressing tax; R−C prices flat-table-vs-BTreeMap.
+//! - **Lane G** (`lane_g::lane_g_kanban_soa`, feature `lane-g`) — the
+//!   kanban-update write path: the same Morton-tile 64K SoA held as OWNED
+//!   state by shard mailbox actors (prefix-routed morsel casts, every
+//!   applied batch witnessed with a `KanbanMove`). G−F prices witnessed
+//!   streamed ownership vs private-merge-at-end; the `shards` sweep is
+//!   the 64K-concurrent-SoA-vs-Morton-tile ownership ledger.
 //!
 //! ## Reference inventory
 //!
@@ -50,6 +56,16 @@ pub mod lane_d;
 #[cfg(feature = "lane-e")]
 pub mod lane_e;
 pub mod lane_f;
+#[cfg(feature = "lane-g")]
+pub mod lane_g;
+#[cfg(feature = "lane-h")]
+pub mod lane_h;
+#[cfg(feature = "lane-i")]
+pub mod lane_i;
+#[cfg(feature = "lane-j")]
+pub mod lane_j;
+#[cfg(feature = "presets")]
+pub mod presets;
 pub mod sha256;
 
 #[cfg(feature = "lane-b")]
@@ -59,6 +75,14 @@ pub use lane_d::lane_d_ractor;
 #[cfg(feature = "lane-e")]
 pub use lane_e::lane_e_kanban;
 pub use lane_f::{lane_f_morton, lane_r_radix};
+#[cfg(feature = "lane-g")]
+pub use lane_g::{lane_g_kanban_soa, lane_g_kanban_soa_with_morsel};
+#[cfg(feature = "lane-h")]
+pub use lane_h::{lane_h_orchestrated, lane_h_orchestrated_with};
+#[cfg(feature = "lane-i")]
+pub use lane_i::{lane_i_batch_pipeline, lane_i_batch_pipeline_with};
+#[cfg(feature = "lane-j")]
+pub use lane_j::{lane_j_grid_pipeline, lane_j_grid_pipeline_with};
 
 use std::collections::BTreeMap;
 

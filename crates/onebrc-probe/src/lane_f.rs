@@ -62,11 +62,11 @@ use crate::{parse_temp_tenths, Stats};
 use std::collections::BTreeMap;
 
 /// Number of accumulator slots — the full 16-bit tile space (256×256).
-const SLOTS: usize = 1 << 16;
+pub(crate) const SLOTS: usize = 1 << 16;
 
 /// FNV-1a 64-bit over the station name bytes.
 #[inline(always)]
-fn fnv1a64(bytes: &[u8]) -> u64 {
+pub(crate) fn fnv1a64(bytes: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for &b in bytes {
         h ^= b as u64;
@@ -80,7 +80,7 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 /// the GUID canon (alternating-axis refinement; each byte's nibbles are the
 /// axis's coarse→fine ancestry).
 #[inline(always)]
-fn morton_slot(h: u64) -> u16 {
+pub(crate) fn morton_slot(h: u64) -> u16 {
     let x = (h & 0xFF) as u16;
     let y = ((h >> 8) & 0xFF) as u16;
     ((x & 0xF0) << 8) | ((y & 0xF0) << 4) | ((x & 0x0F) << 4) | (y & 0x0F)
@@ -98,24 +98,24 @@ fn radix_slot(h: u64) -> u16 {
 /// slot, open-addressed (linear probe) on collision. Single-writer by
 /// ownership — each worker builds its own table; cross-worker combination
 /// is the commutative BUNDLE merge in [`table_to_map`] + `merge_maps`.
-struct SoaTable {
+pub(crate) struct SoaTable {
     /// Full 64-bit hash tag per slot; `None`-ness is carried by `names`.
-    tags: Vec<u64>,
+    pub(crate) tags: Vec<u64>,
     /// Station name owned per occupied slot (empty vec = unoccupied).
     /// Verified byte-for-byte on every tag hit — see module doc "Hash".
-    names: Vec<Vec<u8>>,
+    pub(crate) names: Vec<Vec<u8>>,
     // SoA value arrays — the "SoA-shaped accumulators" of Addendum-13:
     // one field per column, indexed by slot, updated by gated indexed
     // writes (min/max/sum/count — each write is a fold, never a blind
     // overwrite of foreign state).
-    mins: Vec<i32>,
-    maxs: Vec<i32>,
-    sums: Vec<i64>,
-    counts: Vec<u32>,
+    pub(crate) mins: Vec<i32>,
+    pub(crate) maxs: Vec<i32>,
+    pub(crate) sums: Vec<i64>,
+    pub(crate) counts: Vec<u32>,
 }
 
 impl SoaTable {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             tags: vec![0; SLOTS],
             names: vec![Vec::new(); SLOTS],
@@ -127,9 +127,11 @@ impl SoaTable {
     }
 
     /// Route `name` to its slot (slot fn + linear probe) and fold one
-    /// observation into the SoA columns at that address.
+    /// observation into the SoA columns at that address. Returns the
+    /// RESOLVED slot index (post-probe) so callers that track dirty slots
+    /// (lane G's morsel extraction) can record it; lanes F/R ignore it.
     #[inline(always)]
-    fn observe(&mut self, slot0: u16, h: u64, name: &[u8], tenths: i32) {
+    pub(crate) fn observe(&mut self, slot0: u16, h: u64, name: &[u8], tenths: i32) -> usize {
         let mut s = slot0 as usize;
         loop {
             if self.counts[s] == 0 {
@@ -155,6 +157,7 @@ impl SoaTable {
         }
         self.sums[s] += tenths as i64;
         self.counts[s] += 1;
+        s
     }
 }
 
@@ -190,7 +193,7 @@ fn accumulate_table(data: &[u8], slot_of: impl Fn(u64) -> u16 + Copy) -> SoaTabl
 /// shape (occupied slots only) so cross-worker combination reuses the same
 /// commutative `merge_maps` BUNDLE step every other lane uses — and so the
 /// parity tests compare like with like.
-fn table_to_map(table: SoaTable) -> BTreeMap<String, Stats> {
+pub(crate) fn table_to_map(table: SoaTable) -> BTreeMap<String, Stats> {
     let mut out = BTreeMap::new();
     for s in 0..SLOTS {
         if table.counts[s] > 0 {

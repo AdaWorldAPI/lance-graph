@@ -43,7 +43,7 @@
 //! `line_start` / `pending_semi` state the SIMD pass left behind.
 
 use crate::{parse_temp_tenths, Stats};
-use ndarray::simd::U8x32;
+use ndarray::simd::{array_chunks, U8x32};
 use std::collections::BTreeMap;
 
 /// Lane B — SIMD delimiter scan. One pass over `data` in 32-byte strides
@@ -63,10 +63,15 @@ pub fn lane_b_simd(data: &[u8]) -> BTreeMap<String, Stats> {
     let nl_needle = U8x32::splat(b'\n');
     let semi_needle = U8x32::splat(b';');
 
+    // The non-overlapping 32-byte stride walk routes through
+    // `ndarray::simd::array_chunks` (simd_ops.rs) — the W1a batch-walk
+    // primitive; `array_windows` is its OVERLAPPING sibling (GEMM-style
+    // row windows) and is deliberately NOT used here: delimiter scanning
+    // never re-reads bytes.
     let aligned_end = (len / U8x32::LANES) * U8x32::LANES;
-    let mut pos = 0usize;
-    while pos < aligned_end {
-        let block = U8x32::from_slice(&data[pos..pos + U8x32::LANES]);
+    for (chunk_idx, chunk) in array_chunks::<u8, 32>(&data[..aligned_end]).enumerate() {
+        let pos = chunk_idx * U8x32::LANES;
+        let block = U8x32::from_slice(chunk);
         let nl_mask = block.cmpeq_mask(nl_needle);
         let semi_mask = block.cmpeq_mask(semi_needle);
         // `;` and `\n` never occupy the same byte, so OR-ing loses no
@@ -98,7 +103,6 @@ pub fn lane_b_simd(data: &[u8]) -> BTreeMap<String, Stats> {
             }
             combined &= combined - 1; // clear the lowest set bit
         }
-        pos += U8x32::LANES;
     }
 
     // Tail — fewer than 32 bytes remain. Finish with a plain scalar scan,
