@@ -35,6 +35,22 @@
 
 ---
 
+## #630 lance-graph: V3 W1 START — preflight deltas, WAL-shaped writer probes, adoption-scan baseline, D-PERT-1, temporal synthesis
+
+**Status:** MERGED 2026-07-02 (merge commit `9a6df2a1`), branch `claude/v3-substrate-migration-review-o0yoxv`.
+
+**Added:** `lance-graph-planner::batch_writer` skeleton (`BatchWriter<P>`, `CastId`; todo! bodies) + 4 ignored probes in `tests/w1_probes.rs` (ahead-ordering, kill-after-cast replay, delegation miss-then-hit, stacked-casts-never-refused) — W1b green = fill bodies + un-ignore; `contract::classid_scan` (`ClassidForm` mirroring `classid_canon_compat`, `count_adoption`, 10 tests, zero bit math); D-PERT-1 (`ResonanceDto` → `PerturbationDto`, 8 files, deprecated alias; perspectival awareness_dto untouched); plan Addenda 1-8 + entropy rows M24 (board = WAL) / M25 (KanbanSessionStorage); rs-graph-llm sibling branch carries `dispatch_bench.rs`.
+
+**Locked:** cast = DESCRIPTOR never bytes; sink flushes via `NodeRowPacket::as_le_bytes` (zero-copy incl. through the writer); **melden macht frei** — the writer NEVER refuses stacked casts (WAL entries, natural coalescing via live-store reads); **temporal.rs is the read side** — replay = `QueryReference::at(v, rung)` + `deinterlace` (M24 crash-replay = M25 session-replay = time-travel, ONE mechanism); W1b `ack` carries the assigned `LanceVersion` (CastId↔LanceVersion = the WAL↔temporal join); M15 GateDecision rename BLOCKING before any planner→kanban emission; rig = oracle-frequency only (2 history clones/call); graph-flow = replayable orchestration layer (~0.4-0.5 µs/step measured), ExecTarget keeps the hot path.
+
+**Corrections shipped in-arc:** M7 premise ("zero production SoaEnvelope impls") FALSE — `NodeRowPacket<'a>` (canonical_node.rs:1275) is the live Lance byte path (codex #630 P2; surfaces ruled complementary); Addendum-6 mutation-freeze retracted by operator ruling (Addendum-7).
+
+**Deferred:** W1b implementation (fill todo!s, un-ignore probes, ack-with-LanceVersion reshape); W6a CLI wrapper + real-corpus t₀ (no classid-keyed corpora in container); W2b real-owner KanbanActor probe; M21 canon-node-bytes extraction; KanbanSessionStorage impl (W3b).
+
+**Docs:** `.claude/v3/INTEGRATION-PLAN.md` Addenda 1-8; EPIPHANIES E-V3-PREFLIGHT-1 (+CORRECTION), E-V3-KANBAN-SESSION-1, E-V3-PLANNER-SOA-AUDIT-1, E-V3-GRAPHFLOW-BENCH-1, E-V3-TEMPORAL-DEINTERLACE-1; ops: AdaWorldAPI/burn 403 build wall on rs-graph-llm/rig workspace roots.
+
+**Confidence (2026-07-02):** HIGH — contract 771 + thinking-engine 362 + shader-driver 100 green; probes compile (4 ignored by design); codex threads resolved + reacted.
+
 ## #629 lance-graph: V3 SUBSTRATE consolidated entry point — `.claude/v3/` tree + mailbox-kanban doctrine + ractor ownership attestation
 
 **Status:** MERGED 2026-07-02 (merge commit `28f17cd7`), branch `claude/v3-substrate-migration-review-o0yoxv`.
