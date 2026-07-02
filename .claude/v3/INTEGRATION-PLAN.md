@@ -113,7 +113,7 @@ Gate: replay equivalence green on every template change (template-smith rule).
 1. **Probe-first** — mechanism lands after its failing probe (workspace rule).
 2. **Warden + auditor green** on any write-path / layout diff (`/v3-audit` is the cheap pre-check).
 3. **Board hygiene same-commit** (STATUS_BOARD row transitions, EPIPHANIES for findings).
-4. **Model economy** — Sonnet 5 grindwork, Fable/Opus decisions (operator ruling 2026-07-02).
+4. **Model economy** — Sonnet 5 grindwork, Fable/Opus decisions (operator ruling 2026-07-02). Every Sonnet brief carries the §1 preamble of `knowledge/sonnet-worker-guardrails.md` verbatim; §5 escalation triggers are STOP+report, never worker-resolved.
 5. **Wire, don't invent** — a new struct/trait/layer proposal must first fail the "existing machinery" search (COMPONENT-MAP is that search, precomputed).
 
 ## What this plan supersedes / adopts

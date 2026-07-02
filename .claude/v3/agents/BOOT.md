@@ -57,3 +57,11 @@ Every V3 card reads, in order:
 Sonnet 5 for grindwork (mechanical wiring, greps, censuses, doc stubs from
 spec); Fable/Opus tier for decisions, plans needing nuance, reviews, and
 anything accumulating multiple sources. Never Haiku.
+
+**Sonnet footgun-proofing (operator, 2026-07-02):** every Sonnet worker
+brief MUST paste the §1 preamble of
+`.claude/v3/knowledge/sonnet-worker-guardrails.md` verbatim, and every
+Sonnet worker reads that doc before its first tool call. The doc turns
+every V3 rule into a mechanical check (no judgment calls) and defines the
+STOP+report escalation triggers. Orchestrators: a worker that improvised
+past a §5 trigger produced an invalid result — re-dispatch.

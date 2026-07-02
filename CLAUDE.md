@@ -40,6 +40,9 @@ fleet-shipped 2026-07-02):
 - `.claude/v3/knowledge/` — V3 doctrine docs (`READ BY:` headers)
 - `.claude/v3/agents/BOOT.md` — the four V3 cards (`v3-mailbox-warden`,
   `v3-envelope-auditor`, `v3-kanban-executor-engineer`, `v3-template-smith`)
+- `.claude/v3/knowledge/sonnet-worker-guardrails.md` — MANDATORY in every
+  Sonnet worker brief (§1 preamble pasted verbatim; §2 vocabulary
+  disambiguation; §5 STOP+report triggers). No grindwork spawn without it.
 - `/v3-audit` command — mechanical conformance greps before any commit
 
 Headline rulings the folder carries (canonical text on the board):

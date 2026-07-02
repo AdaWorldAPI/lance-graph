@@ -30,6 +30,9 @@ You just entered V3 territory. Load, in this order, reading fully:
 5. `.claude/v3/agents/BOOT.md` — which V3 card to wake
    (`v3-mailbox-warden` / `v3-envelope-auditor` /
    `v3-kanban-executor-engineer` / `v3-template-smith`).
+6. Spawning Sonnet workers? Paste the §1 preamble of
+   `.claude/v3/knowledge/sonnet-worker-guardrails.md` verbatim into every
+   worker brief — non-negotiable (operator footgun-proofing directive).
 
 Then apply the two standing gates to your own diff before any commit:
 
