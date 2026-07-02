@@ -398,3 +398,54 @@ Readings — the completed pros-and-cons ledger:
 - Per-owner SoA memory is now ∝ tile span (the 64K-owner run holds
   64K × 64-slot tables — the collapse above is scheduling + messaging,
   not memory).
+
+### §5.5 — t5 (lane H: orchestration finds the sweet spot)
+
+Operator: *"the 65536 mailboxes had no Orchestration at all — check with
+rs-graph-llm or lance-graph-planner + kanban update to find the sweet
+spot."* Correct — t4a's fine end was the FLAT topology (64K eager
+spawns, ~63K owner-addressed casts, no orchestration tier). Lane H
+(feature `lane-h`) adds the two planner/kanban-executor mechanisms on
+top of lane G's unchanged one-mailbox-per-SoA substrate: **lazy
+activation** (a router tier spawns an owner only on first traffic —
+live mailboxes track OCCUPANCY ~413, never the 64K address space) and
+**ahead-firing batched delivery** (routers buffer per-owner entries,
+fire one batched `Apply` at `batch_k=64`; drain flushes remainders).
+Witness discipline unchanged: `Σ owner journals == Σ router casts`
+asserted. (graph-flow/rs-graph-llm orchestrates at TASK granularity —
+the M25 persisted-cursor shape; per-morsel it would put a session save
+on the hot path, and its in-container build is blocked by the
+pre-existing burn-submodule 403 — so it stays the OUTER loop; lane H
+measures the in-loop planner-domain mechanisms.)
+
+Same recipe corpus, 4 cores, 3 passes, medians; same-session flat
+references:
+
+| Nominal owners | flat (t4a lane G) | **orchestrated (lane H)** |
+|---|---|---|
+| 16    | 30.3 | **42.2** |
+| 256   | 35.9 | 36.8 |
+| 4096  | 18.3 | **40.2** |
+| 65536 | 2.1 (1.7 same-session) | **39.4** |
+| — G(1)=43.2 / F=81.7 same-session | | |
+
+Readings:
+
+- **Orchestration flattens the granularity curve.** Flat topology:
+  plateau then a 20× cliff. Orchestrated: ~37–43 Mrows/s at EVERY
+  nominal granularity — a **23× recovery at the 64K end**
+  (1.7 → 39.4), landing within ~9% of the best coarse topology.
+- **The sweet spot is not a shard count — it is the orchestration
+  tier itself.** With lazy activation + ahead-firing batching, the
+  live-mailbox population tracks occupancy (~413) and message count
+  tracks batches, both independent of nominal granularity. Ownership
+  granularity becomes a SEMANTIC choice (per-tile addressability,
+  per-owner WAL) rather than a performance gamble. The residual gap
+  to F (~2×) is the same boundary tax G(1) pays — orchestration adds
+  nothing measurable on top.
+- **Architecture consequence (W2d/W2e):** mailbox-as-owner at fine
+  semantic granularity is viable IF AND ONLY IF producers never
+  address owners directly — the router/delegation tier (the
+  ahead-firing batch-writer shape) is a load-bearing part of the
+  kanban-update architecture, not an optimization. Flat fan-out to
+  fine-grained owners is the measured anti-pattern (20×).

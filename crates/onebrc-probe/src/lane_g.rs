@@ -81,14 +81,14 @@ use std::sync::Arc;
 pub const DEFAULT_MORSEL_ROWS: usize = 1 << 16;
 
 /// One pre-reduced station aggregate extracted from a worker morsel.
-struct MorselEntry {
-    h: u64,
-    name: Vec<u8>,
-    stats: Stats,
+pub(crate) struct MorselEntry {
+    pub(crate) h: u64,
+    pub(crate) name: Vec<u8>,
+    pub(crate) stats: Stats,
 }
 
 /// Messages a shard owner accepts.
-enum ShardMsg {
+pub(crate) enum ShardMsg {
     /// One morsel's pre-reduced entries for THIS shard's tile range —
     /// fire-and-forget (`cast`): workers never wait on owners, owners
     /// drain their mailbox in arrival order (single-writer serialization).
@@ -111,7 +111,7 @@ enum ShardMsg {
 /// Local placement = `morton_slot & (capacity-1)` + linear probe with
 /// full `(h, name)` verification; the PREFIX routing to this mailbox
 /// already happened at the worker.
-struct OwnerSoa {
+pub(crate) struct OwnerSoa {
     capacity: usize, // power of two
     tags: Vec<u64>,
     names: Vec<Vec<u8>>,
@@ -122,7 +122,7 @@ struct OwnerSoa {
 }
 
 impl OwnerSoa {
-    fn for_span(span: usize) -> Self {
+    pub(crate) fn for_span(span: usize) -> Self {
         let capacity = span.clamp(64, 4096).next_power_of_two();
         Self {
             capacity,
@@ -188,7 +188,7 @@ impl OwnerSoa {
 }
 
 /// Owner state: THIS mailbox's own SoA + its kanban WAL.
-struct ShardState {
+pub(crate) struct ShardState {
     id: MailboxId,
     table: OwnerSoa,
     journal: Vec<KanbanMove>,
@@ -198,7 +198,7 @@ struct ShardState {
 /// one thing; `shards` is simply HOW MANY (mailbox, SoA) pairs the tile
 /// space is partitioned into, from 1 (one mailbox owns all tiles) to
 /// 65536 (one mailbox per tile — the literal "64K concurrent SoAs").
-struct ShardOwner;
+pub(crate) struct ShardOwner;
 
 impl Actor for ShardOwner {
     type Msg = ShardMsg;
@@ -356,6 +356,85 @@ fn worker_scan(
         }
     }
     flush_morsel(&mut table, &mut dirty, shards, owners, casts);
+}
+
+/// Lane H's worker variant: the SAME scan + morsel pre-reduction as
+/// [`worker_scan`], but the morsel flush GROUPS the dirty entries by a
+/// caller-defined group index (lane H: the router region,
+/// `slot * groups >> 16`) and hands each non-empty group to `sink`
+/// instead of casting to owners directly — the orchestration tier owns
+/// delivery from there (lazy activation + ahead-firing batching).
+pub(crate) fn worker_scan_grouped(
+    data: &[u8],
+    start: usize,
+    end: usize,
+    morsel_rows: usize,
+    groups: usize,
+    mut sink: impl FnMut(usize, Vec<MorselEntry>),
+) {
+    let groups = groups.max(1);
+    let mut table = SoaTable::new();
+    let mut dirty: Vec<usize> = Vec::with_capacity(1024);
+    let mut flush = |table: &mut SoaTable, dirty: &mut Vec<usize>| {
+        if dirty.is_empty() {
+            return;
+        }
+        let mut per_group: Vec<Vec<MorselEntry>> = (0..groups).map(|_| Vec::new()).collect();
+        for &s in dirty.iter() {
+            let h = table.tags[s];
+            let group = (morton_slot(h) as usize * groups) >> 16;
+            per_group[group].push(MorselEntry {
+                h,
+                name: std::mem::take(&mut table.names[s]),
+                stats: Stats {
+                    min: table.mins[s],
+                    max: table.maxs[s],
+                    sum: table.sums[s],
+                    count: table.counts[s],
+                },
+            });
+            table.tags[s] = 0;
+            table.mins[s] = i32::MAX;
+            table.maxs[s] = i32::MIN;
+            table.sums[s] = 0;
+            table.counts[s] = 0;
+        }
+        dirty.clear();
+        for (group, entries) in per_group.into_iter().enumerate() {
+            if !entries.is_empty() {
+                sink(group, entries);
+            }
+        }
+    };
+
+    let mut rows_in_morsel = 0usize;
+    let mut i = start;
+    while i < end {
+        let name_start = i;
+        while data[i] != b';' {
+            i += 1;
+        }
+        let name = &data[name_start..i];
+        i += 1; // skip ';'
+        let temp_start = i;
+        while data[i] != b'\n' {
+            i += 1;
+        }
+        let tenths = parse_temp_tenths(&data[temp_start..i]);
+        i += 1; // skip '\n'
+
+        let h = fnv1a64(name);
+        let s = table.observe(morton_slot(h), h, name, tenths);
+        if table.counts[s] == 1 {
+            dirty.push(s);
+        }
+        rows_in_morsel += 1;
+        if rows_in_morsel == morsel_rows {
+            flush(&mut table, &mut dirty);
+            rows_in_morsel = 0;
+        }
+    }
+    flush(&mut table, &mut dirty);
 }
 
 /// Lane G with an explicit morsel size (tests use a tiny morsel to force

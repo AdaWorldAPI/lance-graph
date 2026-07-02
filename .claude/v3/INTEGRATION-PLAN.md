@@ -628,3 +628,23 @@ ownership plateau spans 1–256 owners; Morton tile GROUPING is what makes
 mailbox-as-owner viable — mailbox = OWNER boundary, tile = ADDRESS
 boundary, never conflate 1:1 under load.** README §5.4a; board
 E-1BRC-KANBAN-UPDATE-1 correction appended as E-1BRC-OWNER-GRANULARITY-1.
+
+#### Addendum-13 status update (2026-07-02, t5 — orchestration sweet spot, operator follow-up)
+
+Operator: "the 65536 mailboxes had no Orchestration at all — find the
+sweet spot with rs-graph-llm or lance-graph-planner + kanban update."
+Lane H SHIPPED (feature `lane-h`): router tier with LAZY owner
+activation (live mailboxes track occupancy ~413, never the 64K address
+space) + AHEAD-FIRING batched delivery (batch_k=64) over lane G's
+unchanged one-mailbox-per-SoA substrate; witness discipline preserved
+(owner journals == router casts asserted). graph-flow stays the OUTER
+loop (task-granularity cursor; burn-submodule 403 blocks in-container
+builds anyway) — the in-loop mechanisms are the planner/kanban-executor
+domain's own. t5 medians @4 cores: H(16) 42.2 / H(256) 36.8 / H(4096)
+40.2 / **H(65536) 39.4 vs flat 1.7 same-session — 23× recovery, within
+~9% of G(1)=43.2; F=81.7.** RULING: orchestration FLATTENS the
+granularity curve — the sweet spot is not a shard count, it is the
+orchestration tier itself; fine-grained mailbox-as-owner is viable iff
+producers never address owners directly (the ahead-firing batch-writer
+is load-bearing, not an optimization; flat fan-out = the measured 20×
+anti-pattern). README §5.5; board E-1BRC-ORCHESTRATION-SWEETSPOT-1.

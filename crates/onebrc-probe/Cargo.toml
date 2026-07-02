@@ -34,6 +34,10 @@ lane-e = ["dep:lance-graph-supervisor", "dep:lance-graph-contract", "dep:ractor"
 # ractor/tokio + the contract's kanban types (no supervisor needed: the
 # shard owner IS the probe's actor).
 lane-g = ["dep:lance-graph-contract", "dep:ractor", "dep:tokio"]
+# Lane H (orchestrated fine-grained ownership): router tier with lazy
+# owner activation + ahead-firing batched delivery over lane G's
+# one-mailbox-per-SoA substrate — same dep set as lane-g.
+lane-h = ["lane-g"]
 
 [dependencies]
 # AdaWorldAPI fork (workspace P0 rule: fork over crates.io, always — see

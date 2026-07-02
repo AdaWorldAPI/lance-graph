@@ -144,6 +144,19 @@ fn cmd_run(args: &[String]) {
                 std::process::exit(1);
             }
         }
+        "h" => {
+            #[cfg(feature = "lane-h")]
+            {
+                // 4th positional arg = NOMINAL owner granularity for lane h
+                // (lazy activation makes live owners track occupancy).
+                onebrc_probe::lane_h_orchestrated(&data, workers, shards)
+            }
+            #[cfg(not(feature = "lane-h"))]
+            {
+                eprintln!("lane h requires --features lane-h");
+                std::process::exit(1);
+            }
+        }
         other => {
             eprintln!("unknown lane '{other}' (expected 'a', 'b', 'c', 'd', 'e', 'f', or 'r')");
             std::process::exit(2);
