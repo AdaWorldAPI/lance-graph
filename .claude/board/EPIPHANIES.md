@@ -1,3 +1,10 @@
+## 2026-07-02 — E-RUFF-ODOO-MULTI-ANCHOR-AST (operator-stated: AST resolution triangulates from six anchors)
+**Status:** FINDING (operator-stated method; [H] per-mechanism until ruff/odoo code ground-truthed)
+
+ruff + odoo together carry a new AST method: resolution triangulates from (1) **database layout** (ORM schema ground truth), (2) **duplication** (N duplicated routes VOTE for one canonical concept — duplication is signal, not noise), (3) **target adapters** to land on (OGAR classid-keyed), (4) **target ontologies** to land on (OGIT), (5) **ClassView stacking to reuse constructors** (never re-emit per duplicate — the constructor sibling of facet slot purity), and (6) **fuzzy matches from the target ontology** for the tail (e.g. "something that constructs an invoice from account in different duplicated routes" → the one canonical invoice-construction concept). V3 consequences: duplication anchor = mechanical N→1 entropy-milestone detector in consumer code; landing surfaces are the V3 address stack (OGIT node / classid / ClassView / tenant lanes / rails); fuzzy = the oracle tail — deterministic-first, and a successful fuzzy resolution MINTS so the next encounter is exact. Guardrails + full table: `.claude/v3/knowledge/multi-anchor-ast-resolution.md`. OGAR DISCOVERY-MAP mirror queued behind OGAR's 5+3 gate.
+
+Cross-ref: E-V3-FACET-4-PLUS-12, core-first-transcode-doctrine, OGAR-TRANSPILE-SUBSTRATE, E-COMPILED-THINKING-TEMPLATES.
+
 ## 2026-07-02 — E-V3-FACET-4-PLUS-12 (operator-locked: the V3 atom is 4+12 bytes, 96-bit payload)
 **Status:** FINDING (operator-dictated spec, same-day correction applied: L4 = palette256² digital CAM_PQ)
 
