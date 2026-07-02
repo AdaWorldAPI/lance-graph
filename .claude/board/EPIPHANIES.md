@@ -47,6 +47,33 @@ Operator: rs-graph-llm under lance-graph "might need some kanban integration to 
 **Status:** FINDING (plan deltas folded into INTEGRATION-PLAN.md Addendum 2026-07-02)
 
 Headline collapses: (1) the kanban board IS the write-ahead log — cast = move = intent, ack = confirmation; W1b/W1c are one object, crash recovery free (M24). (2) M7 ruling rec: SoaEnvelope re-scoped as spec/certification surface (verify_layout + field-isolation matrix are the value; zero production impls of the trait). (3) Baseline inversion: W6a scanner runs at W1 START — adoption-100% needs a measured t0 denominator. (4) W3 oracle ratchet: oracle-hit rate must trend down vs catalogue size or deterministic-first is silently dead. (5) W2 reorder probe→budget→arms; budget constants measured not guessed; probe at batch 1/64/4096; loser owns slow path. (6) Ractor batching by API shape (Vec<KanbanMove> per message). (7+8) Pull-forwards: D-PERT-1 and M21 canon-node-bytes ride W1. (9) Gate-run rule: wave PRs end with /v3-audit + touched M-row greps in AGENT_LOG. (10) Supervisor stays thin — the product is the compile-time ownership attestation, not runtime supervision. Test applied throughout: every item is a collapse/reorder of existing machinery, none invents a layer.
+## 2026-07-02 — E-BRICK3-CORRECTION-MINT-FACTORED-IS-SPLIT-BRAIN — the "corrected minter" exists only as the UNION of two diverged ruff branches; no branch carries both mint_factored AND soc.rs
+
+**Status:** CORRECTION (of `E-BRICK3-RAN-TRUNCATION-DISALLOWED` + PR #625's
+`ast-as-partof-isa-address.md` "brick that ran" section, both of which state
+`mint_factored` shipped).
+
+**The finding (review agent, ruff @ b459ec3, verified via git show/diffstat):**
+ruff main carries `ruff_spo_address::{mint, soc}` — the naive minter (with its
+own falsification recorded in its doc header) plus the 256-cap-is-a-lint
+classifier. **`mint_factored` + `RadixCodebook` + `ONTOLOGICAL-RADIX-TRIE.md`
+live ONLY on branch `claude/medcare-ruff-csharp-sync-4iahey` (tip `505fdc4`)**,
+which diverged BEFORE the soc promotion and therefore LACKS `soc.rs` (branch↔main
+diffstat: `soc.rs | 335 ---`). A naive merge of that branch would delete the
+lint. So: main ships the falsified minter; the corrected minter has never
+coexisted with the lint that motivated it.
+
+**Consequence:** the single highest-leverage small move in the address stack is
+rebasing `mint_factored`+`RadixCodebook` over main (conflict surface ≈ the
+`pub mod` line + doc header) so the corrected state exists on ONE branch.
+Until then, "brick-3's corrected form is shipped" is true only of the private
+probe run, not of public ruff main.
+
+**Process note:** my #625 record propagated the claim from the private archive's
+RESTORE-STATUS without re-verifying WHICH branch carried the code — the same
+verify-by-reading-not-by-inheriting failure mode as the stale-doc-comment
+episode (E-BRICK3 arc). Corrections cite their pass: surfaced by the 2026-07-02
+OGAR+ruff review fan-out.
 
 ## 2026-07-02 — E-V3-PLANNER-TWO-NATURES-AND-SPEED-PROBE (operator: planner too slow for sub-µs; resonance-based thinking is not DataFusion)
 **Status:** FINDING (operator-ruled; speed claim probe-gated per truth-architect discipline)
