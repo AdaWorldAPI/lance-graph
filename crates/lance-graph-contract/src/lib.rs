@@ -58,6 +58,10 @@ pub mod class_view;
 /// `classify_form`, `AdoptionCounts`, `count_adoption`). See
 /// `.claude/v3/soa_layout/routing.md` §5.
 pub mod classid_scan;
+/// D-V3-W6a — DDL typed-emission counting logic (`TypedForm`,
+/// `classify_ddl_type`, `EmissionCounts`, `count_emission`), sibling of
+/// [`classid_scan`]. Requested by the op-nexgen consumer session.
+pub mod emission_scan;
 /// D-GV2-2 — per-family codebook (`family → Codebook`), gated on the v2 tail.
 #[cfg(feature = "guid-v2-tail")]
 pub mod codebook;

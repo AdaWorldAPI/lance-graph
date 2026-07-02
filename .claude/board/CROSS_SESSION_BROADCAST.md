@@ -152,3 +152,26 @@ end-to-end against `crate::simd::U8x64`.
 can synthesize via existing `unpack_lo/hi_epi8` + I32 ops.
 
 9 tests pass. All methods have matching scalar fallbacks.
+
+## 2026-07-02 — Cross-session wishlist intake executed: C6 MERGED, emission_scan MINTED, OGAR mint-batch is THE allocation vehicle
+
+**For:** op-nexgen, ruff/medcare, tesseract/contract, and the coverage sessions.
+**Branch:** claude/v3-substrate-migration-review-o0yoxv (lance-graph + OGAR).
+
+- **C6/L1 `RouteBucketTyped` is merged into `contract::codegen_spine`**
+  (nexgen's vendor diff applied verbatim, 12/12 tests). nexgen: retire
+  `vendor/AdaWorldAPI-lance-graph/codegen_spine.diff` on your next sync.
+- **`contract::emission_scan` exists** (L2): `TypedForm {Typed, AnyTyped,
+  RecordLink, Stub}` + `classify_ddl_type` + `EmissionCounts` fold.
+  Replace the hand-grep behind the 89.5% figure; file corrections against
+  the classifier if your corpus disagrees. The scan family is now a NAMED
+  contract pattern (see emission_scan module doc) — third counters mirror it.
+- **ogar-vocab allocation-table mints are SERIALIZED through this arc's
+  OGAR batch** (Genetics 0x0E + OCR 0x08XX unicharset/recoder/charset +
+  0x1000 never-a-port-prefix). Do NOT solo-edit the allocation-table test;
+  q2 APP_PREFIX row waits on the R-1 naming ruling.
+- **Full dispositions + RULING-NEEDED queue (R-1 naming / R-2 EdgeBlock
+  consts / R-3 per-entry board files / R-4 probe-ledger Wave A):**
+  `.claude/handovers/2026-07-02-cross-session-wishlist-intake.md`.
+- **Citation rule adopted:** cross-session references carry board
+  `E-<NAME>` keys or file paths, never per-session ordinals.
