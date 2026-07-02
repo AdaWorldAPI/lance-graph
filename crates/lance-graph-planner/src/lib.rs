@@ -93,7 +93,7 @@ pub mod temporal;
 mod orchestration_impl;
 
 use ir::LogicalPlan;
-use mul::{GateDecision, MulAssessment};
+use mul::{MulAssessment, MulGateDecision};
 use selector::StrategySelector;
 use thinking::ThinkingContext;
 use traits::{PlanContext, PlanStrategy, QueryFeatures};
@@ -181,7 +181,7 @@ impl PlannerAwareness {
         let gate = mul::gate_check(&mul_assessment);
 
         match gate {
-            GateDecision::Proceed { free_will_modifier } => {
+            MulGateDecision::Proceed { free_will_modifier } => {
                 // === LAYER 2: THINKING ORCHESTRATION ===
                 let thinking_ctx =
                     thinking::orchestrate(query, &mul_assessment, &plan::PlannerConfig::default());
@@ -219,8 +219,8 @@ impl PlannerAwareness {
                     emitted_edges: Vec::new(),
                 })
             }
-            GateDecision::Sandbox { reason } => Err(PlanError::GateBlocked { reason }),
-            GateDecision::Compass => {
+            MulGateDecision::Sandbox { reason } => Err(PlanError::GateBlocked { reason }),
+            MulGateDecision::Compass => {
                 let compass = mul::compass::navigate(query, &mul_assessment);
                 match compass.decision {
                     mul::compass::CompassDecision::SurfaceToMeta => Err(PlanError::SurfaceToMeta {

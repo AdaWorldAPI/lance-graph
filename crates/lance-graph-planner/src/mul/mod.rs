@@ -23,7 +23,7 @@ pub mod trust;
 
 pub use compass::{CompassDecision, CompassResult};
 pub use dk::{DkDetector, DkPosition};
-pub use gate::GateDecision;
+pub use gate::MulGateDecision;
 pub use homeostasis::{FlowState, Homeostasis};
 pub use trust::{TrustQualia, TrustTexture};
 
@@ -123,7 +123,7 @@ pub fn assess(input: &SituationInput) -> MulAssessment {
 }
 
 /// Gate check: determine whether to proceed, sandbox, or use compass.
-pub fn gate_check(assessment: &MulAssessment) -> GateDecision {
+pub fn gate_check(assessment: &MulAssessment) -> MulGateDecision {
     gate::check(assessment)
 }
 
@@ -152,7 +152,7 @@ mod tests {
         let gate = gate_check(&assessment);
 
         // Mount Stupid should block
-        matches!(gate, GateDecision::Sandbox { .. });
+        matches!(gate, MulGateDecision::Sandbox { .. });
     }
 
     #[test]
@@ -171,6 +171,6 @@ mod tests {
         let assessment = assess(&input);
         let gate = gate_check(&assessment);
 
-        matches!(gate, GateDecision::Proceed { .. });
+        matches!(gate, MulGateDecision::Proceed { .. });
     }
 }

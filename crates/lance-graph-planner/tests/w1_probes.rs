@@ -1,9 +1,8 @@
-//! D-V3-W1e probe-first: three failing probes for the W1b ahead-firing batch
-//! writer + W1c delegation cache, pinned against
+//! D-V3-W1e probe-first: four probes for the W1b ahead-firing batch writer +
+//! W1c delegation cache, pinned against
 //! `lance_graph_planner::batch_writer::BatchWriter`.
 //!
-//! All three are `#[ignore]`d — the writer's methods are `todo!()` stubs.
-//! Un-ignore in the W1b implementation commit once the bodies are filled in.
+//! Live (W1b implementation landed) — all four run and pass.
 //!
 //! Uses the REAL shipped kanban contract types
 //! (`lance_graph_contract::kanban::{KanbanColumn, KanbanMove, ExecTarget}`,
@@ -29,7 +28,6 @@ fn make_move(mailbox: u32, from: KanbanColumn, to: KanbanColumn, witness: u32) -
 /// Probe 1 (W1b): cast() makes intent moves visible on the board AHEAD of any
 /// ack; ack() then removes the cast from unacked().
 #[test]
-#[ignore = "probe-first: W1b mechanism pending — un-ignore in the W1b implementation commit"]
 fn probe_ahead_update_ordering() {
     let mut writer: BatchWriter<()> = BatchWriter::new();
 
@@ -44,16 +42,18 @@ fn probe_ahead_update_ordering() {
     // AHEAD: intent is visible on the board BEFORE any ack.
     assert_eq!(writer.intent_moves(cast), Some(moves.as_slice()));
 
-    writer.ack(cast);
+    writer.ack(cast, 1);
 
     // After ack, the cast is no longer in the unacked (crash-replay) surface.
     assert!(!writer.unacked().contains(&cast));
+
+    // The CastId<->LanceVersion join: the ack recorded the assigned version.
+    assert_eq!(writer.acked_version(cast), Some(1));
 }
 
 /// Probe 2 (M24): a cast that is never acked stays on the crash-replay
 /// surface (`unacked()`), and its intent moves remain replayable.
 #[test]
-#[ignore = "probe-first: W1b mechanism pending — un-ignore in the W1b implementation commit"]
 fn probe_kill_after_cast_replay() {
     let mut writer: BatchWriter<()> = BatchWriter::new();
 
@@ -81,7 +81,6 @@ fn probe_kill_after_cast_replay() {
 /// a mailbox (cache miss) and skips it on the second lookup for the same
 /// mailbox (cache hit), returning the same owner both times.
 #[test]
-#[ignore = "probe-first: W1b mechanism pending — un-ignore in the W1b implementation commit"]
 fn probe_delegation_miss_then_hit() {
     let mut writer: BatchWriter<()> = BatchWriter::new();
 
@@ -113,7 +112,6 @@ fn probe_delegation_miss_then_hit() {
 /// for a row — is sink-side behavior, exercised in the W1b implementation
 /// tests, not at this API surface.)
 #[test]
-#[ignore = "probe-first: W1b mechanism pending — un-ignore in the W1b implementation commit"]
 fn probe_stacked_casts_never_refused() {
     let mut writer: BatchWriter<()> = BatchWriter::new();
 
@@ -135,9 +133,9 @@ fn probe_stacked_casts_never_refused() {
     assert!(writer.intent_moves(c3).is_some());
 
     // Acks retire independently and in any order.
-    writer.ack(c2);
+    writer.ack(c2, 1);
     assert_eq!(writer.unacked(), vec![c1, c3]);
-    writer.ack(c1);
-    writer.ack(c3);
+    writer.ack(c1, 2);
+    writer.ack(c3, 3);
     assert!(writer.unacked().is_empty());
 }

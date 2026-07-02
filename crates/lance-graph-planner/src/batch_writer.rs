@@ -1,6 +1,8 @@
 //! W1b ahead-firing batch writer — the kanban board IS the write-ahead log (M24).
 //!
-//! `cast()` records intent moves AHEAD of any storage ack; `ack()` confirms;
+//! `cast()` records intent moves AHEAD of any storage ack; `ack()` confirms
+//! at the `LanceVersion` the sink assigned (the CastId↔LanceVersion join
+//! wiring the WAL into the temporal classifier; see `crate::temporal`);
 //! `unacked()` is the crash-replay surface. Payload-generic: the writer never
 //! inspects `P` (DTO purity — ownership rides the cast pairing, never the DTO).
 //!
@@ -22,13 +24,19 @@
 //! mint a parallel `KanbanMove`; see the D-MBX-A6 Outcome adapter context in
 //! `crate::strategy::style_strategy`.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use lance_graph_contract::collapse_gate::MailboxId;
 use lance_graph_contract::kanban::KanbanMove;
 
+use crate::temporal::LanceVersion;
+
 /// Identity of one `cast()` — a write-ahead intent record on the kanban board.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+///
+/// `next_id` is monotonically increasing, so `CastId`'s derived `Ord` gives
+/// insertion order — this is what lets `board`/`acked` use `BTreeMap` and
+/// have `unacked()` iterate in cast order for free.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CastId(pub u64);
 
 /// Ahead-firing batch writer: intent (`cast`) is visible on the board before
@@ -40,10 +48,15 @@ pub struct BatchWriter<P> {
     /// Board: intent moves recorded per cast, keyed by `CastId`, alongside the
     /// mailbox the cast was recorded on behalf of. Visible between `cast()`
     /// and `ack()` (and beyond, for crash-replay via `unacked()`).
-    board: HashMap<CastId, (MailboxId, Vec<KanbanMove>)>,
-    /// Casts that have been confirmed (acked). A cast present in `board` but
-    /// absent from `acked` is the crash-replay surface (`unacked()`).
-    acked: std::collections::HashSet<CastId>,
+    /// `BTreeMap` (not `HashMap`) so iteration is in ascending `CastId` order
+    /// — i.e. cast (insertion) order, matching `unacked()`'s ordering contract.
+    board: BTreeMap<CastId, (MailboxId, Vec<KanbanMove>)>,
+    /// Casts that have been confirmed (acked), mapped to the `LanceVersion`
+    /// the sink assigned when it flushed — the CastId↔LanceVersion join
+    /// wiring the WAL into the temporal classifier (see `crate::temporal`).
+    /// A cast present in `board` but absent from `acked` is the crash-replay
+    /// surface (`unacked()`).
+    acked: BTreeMap<CastId, LanceVersion>,
     /// W1c delegation cache: `on_behalf` mailbox -> resolved owner mailbox.
     delegation_cache: HashMap<MailboxId, MailboxId>,
     /// Payloads recorded per cast (payload-generic; the writer never inspects `P`).
@@ -61,8 +74,8 @@ impl<P> BatchWriter<P> {
     pub fn new() -> Self {
         Self {
             next_id: 0,
-            board: HashMap::new(),
-            acked: std::collections::HashSet::new(),
+            board: BTreeMap::new(),
+            acked: BTreeMap::new(),
             delegation_cache: HashMap::new(),
             pending_payloads: Vec::new(),
         }
@@ -71,47 +84,58 @@ impl<P> BatchWriter<P> {
     /// AHEAD: records the intent (moves visible on the board) BEFORE any ack.
     /// Returns the cast id.
     ///
-    /// Probe-first skeleton (D-V3-W1e): body pending — see
-    /// `tests/w1_probes.rs::probe_ahead_update_ordering` /
-    /// `probe_kill_after_cast_replay`.
-    pub fn cast(&mut self, _on_behalf: MailboxId, _moves: Vec<KanbanMove>, _payload: P) -> CastId {
-        todo!("W1b")
+    /// "Melden macht frei" (plan Addendum-7): casting is REPORTING, never
+    /// refused because earlier casts on the same mailbox are still unacked —
+    /// stacked casts are stacked WAL entries, each with its own `CastId`.
+    pub fn cast(&mut self, on_behalf: MailboxId, moves: Vec<KanbanMove>, payload: P) -> CastId {
+        let cast = CastId(self.next_id);
+        self.next_id += 1;
+        self.board.insert(cast, (on_behalf, moves));
+        self.pending_payloads.push((cast, payload));
+        cast
     }
 
-    /// Confirmation — marks the cast acked.
-    ///
-    /// Probe-first skeleton (D-V3-W1e): body pending — see
-    /// `tests/w1_probes.rs::probe_ahead_update_ordering`.
-    pub fn ack(&mut self, _cast: CastId) {
-        todo!("W1b")
+    /// Confirmation — marks the cast acked at the Lance version the sink
+    /// assigned (the CastId↔LanceVersion join wiring the WAL into the
+    /// temporal classifier; see planner `temporal.rs`).
+    pub fn ack(&mut self, cast: CastId, version: LanceVersion) {
+        self.acked.insert(cast, version);
     }
 
-    /// Crash-replay surface (M24): casts recorded but not yet acked.
-    ///
-    /// Probe-first skeleton (D-V3-W1e): body pending — see
-    /// `tests/w1_probes.rs::probe_kill_after_cast_replay`.
+    /// The `LanceVersion` a cast was acked at, if it has been acked.
+    #[must_use]
+    pub fn acked_version(&self, cast: CastId) -> Option<LanceVersion> {
+        self.acked.get(&cast).copied()
+    }
+
+    /// Crash-replay surface (M24): casts recorded but not yet acked, in
+    /// ascending `CastId` (cast) order.
+    #[must_use]
     pub fn unacked(&self) -> Vec<CastId> {
-        todo!("W1b")
+        self.board
+            .keys()
+            .filter(|cast| !self.acked.contains_key(cast))
+            .copied()
+            .collect()
     }
 
     /// Board read: intent moves recorded for a cast (visible between cast and ack).
-    ///
-    /// Probe-first skeleton (D-V3-W1e): body pending — see
-    /// `tests/w1_probes.rs::probe_ahead_update_ordering` /
-    /// `probe_kill_after_cast_replay`.
-    pub fn intent_moves(&self, _cast: CastId) -> Option<&[KanbanMove]> {
-        todo!("W1b")
+    #[must_use]
+    pub fn intent_moves(&self, cast: CastId) -> Option<&[KanbanMove]> {
+        self.board.get(&cast).map(|(_, moves)| moves.as_slice())
     }
 
     /// W1c delegation cache: resolve an owner once, cache; returns `(owner, was_cache_hit)`.
-    ///
-    /// Probe-first skeleton (D-V3-W1e): body pending — see
-    /// `tests/w1_probes.rs::probe_delegation_miss_then_hit`.
     pub fn resolve_owner(
         &mut self,
-        _on_behalf: MailboxId,
-        _resolver: impl FnOnce(MailboxId) -> MailboxId,
+        on_behalf: MailboxId,
+        resolver: impl FnOnce(MailboxId) -> MailboxId,
     ) -> (MailboxId, bool) {
-        todo!("W1c")
+        if let Some(&owner) = self.delegation_cache.get(&on_behalf) {
+            return (owner, true);
+        }
+        let owner = resolver(on_behalf);
+        self.delegation_cache.insert(on_behalf, owner);
+        (owner, false)
     }
 }
