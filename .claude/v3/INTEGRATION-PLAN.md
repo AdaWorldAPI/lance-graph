@@ -184,3 +184,15 @@ replayable langgraph handler." Folded as:
   at batch 1/64/4096 (bench worker in rs-graph-llm, release mode) sits
   beside the SurrealQL-on-kv-lance arm. rig = the oracle-node client (W3c)
   — ergonomics assessed for Task-wrapping, never on the hot path.
+
+### Addendum-3 2026-07-02 — rig backend note (operator) + W1e landed red
+
+- Operator note folded: **rs-graph-llm vendors rig**, and rig's storage/LLM
+  backends span lancedb, SurrealDB-on-kv-lance (lance-graph-symbiont), and
+  Claude/OpenAI/Grok(xAI)/Gemini APIs. Consequence for W3c: the oracle node
+  is backend-plural behind ONE rig client surface — symbiont (arm #2) can be
+  BOTH the kanban KV arm and rig's vector store, which would collapse the
+  oracle's storage to the substrate itself (no second store). Verify when
+  the bench worker reports rig's provider/store traits.
+- W1e status: probes landed RED (probe-first honored); KanbanMove/KanbanColumn
+  already shipped in contract kanban.rs — the skeleton consumes them, zero mints.
