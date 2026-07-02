@@ -126,6 +126,8 @@
 
 **Cross-ref:** #616/#617 (the ast-address doc lineage); #623 (OGAR sink-in plan); OGAR #145/#146 (OSINT mint + zero-rows ruling); ruff `b459ec3` (`ruff_spo_address` + `soc`); `E-CODEBOOK-MINT-IS-A-CROSS-REPO-ARC`; MedCare-rs private archive (RESTORE-STATUS re-fetch log).
 
+**Correction (2026-07-02, from the OGAR+ruff review fan-out):** the Locked line's "`mint_factored` … is the corrected minter" overstates its location — on public ruff main only `mint` + `soc.rs` exist; `mint_factored`+`RadixCodebook` are stranded on branch `claude/medcare-ruff-csharp-sync-4iahey` (`505fdc4`), which predates and LACKS `soc.rs`. The corrected-minter state exists only as the union of two diverged branches. See `E-BRICK3-CORRECTION-MINT-FACTORED-IS-SPLIT-BRAIN`.
+
 ---
 
 ## #627 lance-graph: classid canon:custom flip TRIGGERED — migration plan v1 + operator ruling record (doc-only)
