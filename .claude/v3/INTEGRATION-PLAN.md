@@ -236,3 +236,19 @@ Full inventory with file:line cites: E-V3-PLANNER-SOA-AUDIT-1 + AGENT_LOG.
   resolution pulls manifests even when features are off). Sandboxed builds
   use isolated path-dep crates until a lockfile/vendor lands. Bench file
   committed to rs-graph-llm @ claude/v3-substrate-migration-review-o0yoxv.
+
+### Correction 2026-07-02 (codex #630 P2) — M7 premise was WRONG: SoaEnvelope HAS a production impl
+
+`NodeRowPacket<'a>` (canonical_node.rs:1275) implements `SoaEnvelope` in
+production — the Lance-facing zero-copy LE byte view over `&[NodeRow]`
+(NODE_ROW_COLUMNS / NODE_ROW_STRIDE / as_le_bytes with the repr(C,64)
+SAFETY argument). "Zero production impls" (preflight delta 2, inherited
+from the fleet's M7 row) is retracted. **Revised M7 ruling:** the two
+surfaces are COMPLEMENTARY, not duplicates — `SoaEnvelope` is the
+storage-boundary surface (certification + the canonical Lance byte path,
+with NodeRowPacket as its live impl); `MailboxSoaView/Owner` is the
+runtime read/mutate surface. W1 implementers MUST route storage bytes
+through the NodeRowPacket envelope path and preserve/test its
+owner/byte-layout behavior — the trait is NOT descriptor-only. M7's gate
+re-shapes accordingly (roles documented both ways + envelope path tested,
+rather than "≥1 impl or re-scope").

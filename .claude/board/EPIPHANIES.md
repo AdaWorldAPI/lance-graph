@@ -1,3 +1,8 @@
+## 2026-07-02 — E-V3-PREFLIGHT-1-CORRECTION: "SoaEnvelope has zero production impls" was FALSE — NodeRowPacket is live
+**Status:** CORRECTION (of E-V3-PREFLIGHT-1 delta 2 / M7; caught by codex on #630, verified canonical_node.rs:1275)
+
+`impl<'a> SoaEnvelope for NodeRowPacket<'a>` ships in production: the Lance-facing zero-copy envelope exposing `&[NodeRow]` as LE bytes (columns = NODE_ROW_COLUMNS, stride = NODE_ROW_STRIDE, as_le_bytes over repr(C, align(64)) with const size asserts). The preflight repeated the fleet M7 row's claim without an impl-grep — the same unverified-coverage-claim failure mode guardrails rule 10 exists for, now demonstrated on the orchestrator itself. Revised M7: SoaEnvelope (storage boundary: certification + canonical Lance byte path) and MailboxSoaView/Owner (runtime read/mutate) are COMPLEMENTARY surfaces; W1 routes storage bytes through the NodeRowPacket envelope path and tests its owner/byte-layout behavior. Process rule reinforced: negative-existence claims in rulings get the same exhaustive-grep declaration as worker reports.
+
 ## 2026-07-02 — E-V3-GRAPHFLOW-BENCH-1: graph-flow measured at ~0.4-0.5 us/step; KanbanSessionStorage needs the delta layer — which ALREADY EXISTS (graph-flow-kanban)
 **Status:** FINDING (bench + static inventory, file:line cites in AGENT_LOG; W2e input + M25 feasibility call)
 
