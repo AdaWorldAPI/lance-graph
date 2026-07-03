@@ -1,3 +1,21 @@
+## 2026-07-03 — E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1: 0x1000 is NOT a temporary adoption monitor to retire at 100% — v2 and v3 coexist PERMANENTLY by schema; D-CCF-4 (marker retirement) is RESCINDED
+**Status:** RULING (operator, 2026-07-03) — reverses the "temporary by declaration" framing carried in INTEGRATION-PLAN D-CCF-4, README §monitor, routing.md §29/96, v3-substrate-primer §98, sonnet-worker-guardrails row, compiled-templates §75
+
+**The ruling:** "0x1000 should absolutely not be retired because we said we make v2 and v3 by schema and keep both." V3 is NOT a converge-to-one-version-then-retire-the-marker migration. It is **permanent dual-schema coexistence**: v2 and v3 both live, selected by `ValueSchema` (Bootstrap/Cognitive/Compressed/Full) + `ENVELOPE_LAYOUT_VERSION`. `0x1000` is therefore a **permanent schema discriminator**, not transitional adoption telemetry.
+
+**What this reverses:**
+- **D-CCF-4** ("0x1000 marker retirement (P4), trigger = adoption reads 100%") — **RESCINDED.** There is no retirement trigger; 100% adoption is not a retirement event.
+- The "**temporary by declaration**" / "temporary adoption MONITOR" language in `README.md §24`, `v3-substrate-primer.md §98`, `sonnet-worker-guardrails.md` row, `compiled-templates.md §75`, `routing.md §29/96` — reframed: 0x1000 is a permanent discriminator that ALSO yields adoption telemetry, not a marker whose reason-to-exist ends at 100%.
+
+**What survives:**
+- **W6a scanner** stays (adoption% + old-form count) — but as PERMANENT telemetry, never a retirement gate. 100% is just a number, not a checkpoint.
+- **W6b** (legacy alias retirement) narrows to genuinely-dead pre-flip forms (`0x0000_DDCC` zero-prefix, `0xAAAA_DDCC` render-prefix-high), NOT the v2 schema path — v2-by-schema is kept.
+- **RESERVE-DON'T-RECLAIM + I-LEGACY-API-FEATURE-GATED** — this ruling IS those iron rules at the schema level: versions coexist by gate, never reclaimed. 0x1000 permanence = the same shape as the classid/family fixed-offset reservation.
+
+**Consequence for MODULE-TABLE §202:** "a future canon==0x1000 would be indistinguishable from the V3 marker" is now a PERMANENT design constraint (0x1000 in the canon half stays reserved-against), not a hazard that clears at retirement.
+
+**Cross-refs:** INTEGRATION-PLAN W6 (D-CCF-4 rescinded), soa_layout/routing.md, soa_layout/le-contract.md §32, README.md §24, knowledge/v3-substrate-primer.md §6, ENVELOPE_LAYOUT_VERSION + ValueSchema (canonical_node.rs). Supersedes the "temporary" framing everywhere it appears.
+
 ## 2026-07-03 — E-V3-CODEC-FIDELITY-IS-REPRESENTATION-NOT-CODEC-1: the stack's 0.96–0.998 codec anchors are properties of the ENGINEERED representation, NOT of the codec on raw vectors — proven with the real ndarray codec (Base17 on raw Jina = |ρ| 0.32)
 **Status:** FINDING (measured with the REAL codec algorithm — faithful port of `ndarray::hpc::jina::codec::Base17Token::from_f32` — against the Jina v3 fixed point; scratch python, Jina embeddings not committed) — the capstone/close of the codec-crawl thread (operator handed the sequence highheelbgz → bgz17 → codec-research → dn_tree/deepnsm → jina/codec + cam_pq; each confirmed the same mechanism)
 
