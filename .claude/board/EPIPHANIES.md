@@ -260,6 +260,47 @@ Two firsts + one correction: (1) FIRST binary format — `TFile` LE: `u32 count`
 **Pattern holds (E-CPP-KEYSTONE-1).** A new Core type, but the SAME shape: content-store tier (zero-dep, rides the keystone), one `diff` per mode, no Core gap. +10 contract tests. Consumed by `tesseract-core::{Recoder, recoded_to_text}` (codes→decode→ids→`ids_to_text`; +1 boundary test, 8/8). The recoder keystone (`invoke_recoder`, the E-CPP-KEYSTONE-1 analog) is UNBLOCKED — OGAR #148 minted concept `recoder`=0x0802 (mirrored in `ogar_codebook`) — but DEFERRED: the `classid→ClassView→content` dispatch is already proven generically, so a recoder keystone would re-prove a pattern with no new byte-parity information.
 
 Routing re-verified LIVE against OGAR (not the plan's cached answers): SURREAL-AST-TRAP-PREFLIGHT 5Q (data-shaped table, zero lifecycle vocabulary → content-store is honest) + OGAR-AS-IR §3 (adds no `Class`/`ActionDef`/`KausalSpec` → rerouted to the content tier, NOT `emit_rust`). ndarray and `ruff_cpp_spo` were correctly NOT used: the recoder is zero-SIMD data, and `UnicharCompress`/`RecodedCharID` have no inheritance/vtable for the harvest to resolve. Cross-ref: `E-CPP-PARITY-1..6`, `E-CPP-KEYSTONE-1`, `.claude/knowledge/core-first-transcode-doctrine.md`, OGAR #148 (0x08 OCR mint). Branch `claude/happy-hamilton-0azlw4`, lance-graph + tesseract-rs.
+## 2026-07-02 — E-FLEET-CADENCE-PROCESS-FINDINGS (F1-F7) — pin-propagation is the new bottleneck; unpinned envs falsify true states; claim-of-record prevents near-collisions
+
+**Status:** FINDING (process/meta; durable full text +
+wishlist claim-of-record ledger in
+`.claude/handovers/2026-07-02-entropy-reduction-and-epiphany-ledger.md`).
+Surfaced by the `medcare-bridge` session across the #625→#636 fleet arc.
+
+The bottleneck moved from analysis/implementation to **mechanical
+propagation** — the fleet executes forwarded wishlist items within hours,
+so the failure modes are now coordination-shaped:
+
+- **F1 — pin propagation is the third leg of the cross-repo arc.** OGAR
+  entry + contract mirror rows + **`Cargo.lock` pin** land in ONE arc.
+  An arc that ships the mirror-row change without bumping its own lock
+  pin ships a fuse-broken contract to every consumer while both sides'
+  own tests stay green. (Root of the recurring consumer-side E0080.)
+- **F2 — unpinned environments falsify TRUE states.** Verified live: a
+  local `origin/main` ref read #636→#631→#636 across three commands
+  (container re-provisioned to an older clone snapshot mid-turn). A
+  verification whose env isn't pinned can raise a false alarm on correct
+  state. Discipline: re-`fetch` + echo the resolved SHA before concluding.
+- **F3 — a gitignored lockfile is an *undecided* design.**
+  `lance-graph-ogar`'s untracked `Cargo.lock` builds its `COUNT_FUSE`
+  against OGAR HEAD (floating canary) while the workspace lock pins.
+  Canary or pin both fine; accidental is not — needs one doc sentence.
+- **F4 — executed wishlists need a claim-of-record.** Convergent
+  multi-session execution without shared done-marks risks double-work
+  AND silently-dropped halves. (The ledger handover is the fix.)
+- **F5 — CI-invisible fuses fire only in *consumers'* builds.** Main's CI
+  never compiles the `exclude`d `lance-graph-ogar`, so lance-graph learns
+  its own mirror broke the contract only when medcare (twice) hits E0080.
+  One CI job that `cargo check`s the excluded crate closes the asymmetry.
+- **F6 — rebase economics inverted.** At ~5 fleet-merges/day the
+  board-prepend conflicts (EPIPHANIES/LATEST_STATE/PR_ARC) are the only
+  recurring rebase cost — 30–60 min/day per parallel session. Per-entry
+  board files make the conflict structurally impossible.
+- **F7 — claim-of-record prevents near-collisions (proven).** Was one
+  command from re-doing the `mint_factored`+`RadixCodebook`+`soc.rs`
+  union — already unified on ruff `claude/medcare-ruff-csharp-sync-4iahey`
+  (`94f919a`, unmerged); only incidental fetch output revealed it.
+
 ## 2026-07-02 — E-1BRC-GRIDLAKE-SWEETSPOT-1: the 64×64 gridlake SoA is the measured sweet spot — the batch pipeline at tile scale equals the best streamed topology while carrying the double-WAL
 **Status:** FINDING (measured, onebrc-probe lane J t7; closes the operator's four follow-up questions and the t4→t7 kanban-update arc)
 
