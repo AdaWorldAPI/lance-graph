@@ -134,6 +134,7 @@ fn cmd_run(args: &[String]) {
         "r" => onebrc_probe::lane_r_radix(&data, workers),
         "t" => onebrc_probe::lane_t_trie(&data, workers),
         "t8" => onebrc_probe::lane_t_byte(&data, workers),
+        "s" => onebrc_probe::lane_s_swar(&data, workers),
         "g" => {
             #[cfg(feature = "lane-g")]
             {
