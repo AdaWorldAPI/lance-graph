@@ -132,6 +132,8 @@ fn cmd_run(args: &[String]) {
         // Morton-tile SoA lane and its plain-radix control (lane_f.rs).
         "f" => onebrc_probe::lane_f_morton(&data, workers),
         "r" => onebrc_probe::lane_r_radix(&data, workers),
+        "t" => onebrc_probe::lane_t_trie(&data, workers),
+        "t8" => onebrc_probe::lane_t_byte(&data, workers),
         "g" => {
             #[cfg(feature = "lane-g")]
             {
