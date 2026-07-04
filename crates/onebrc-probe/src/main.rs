@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! onebrc-probe gen <path> <rows> <seed>
-//! onebrc-probe run <path> <lane:a|b|c|d|e|f|r> [workers] [batches]
+//! onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s> [workers] [batches]
 //! ```
 //!
 //! Lane `b` requires `--features lane-b`; lane `d` and lane `e` require
@@ -23,7 +23,7 @@ fn main() {
         Some("run") => cmd_run(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r> [workers] [batches]"
+                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s> [workers] [batches]"
             );
             std::process::exit(2);
         }
@@ -55,7 +55,7 @@ fn cmd_gen(args: &[String]) {
 fn cmd_run(args: &[String]) {
     let path = PathBuf::from(
         args.first()
-            .expect("usage: run <path> <lane:a|b|c|d|e|f|r> [workers] [batches]"),
+            .expect("usage: run <path> <lane:a|b|c|d|e|f|r|s> [workers] [batches]"),
     );
     let lane = args.get(1).map(String::as_str).unwrap_or("a");
     let workers: usize = args
@@ -201,7 +201,7 @@ fn cmd_run(args: &[String]) {
             }
         }
         other => {
-            eprintln!("unknown lane '{other}' (expected 'a', 'b', 'c', 'd', 'e', 'f', or 'r')");
+            eprintln!("unknown lane '{other}' (expected 'a', 'b', 'c', 'd', 'e', 'f', 'r', or 's')");
             std::process::exit(2);
         }
     };
