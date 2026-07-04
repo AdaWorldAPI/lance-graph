@@ -81,7 +81,7 @@ message asserts it; not independently verified) · **OPEN** · **UNVERIFIED**.
 ### ruff-lane items (this session's kept work — HELD by operator "don't start yet")
 | # | Item | Status |
 |---|---|---|
-| E1 | `mint_factored`+`RadixCodebook`+`soc.rs` union | **DONE on branch** `94f919a` (F7) — UNMERGED to ruff main. Phase 1 shrinks to "verify + PR". |
+| E1 | `mint_factored`+`RadixCodebook`+`soc.rs` union | **DONE + MERGED** — ruff PR #39 landed `94f919a` onto main (`3dba017`); verified green (18 tests, 0 failed, 2026-07-02). Split-brain closed. |
 | E2-py | `inherits_from` emission in `ruff_python_spo` | OPEN (gates mint_factored is_a axis on Odoo) |
 | E2-ruby | ruby `extract_fields` | CEDED to op-nexgen R1 (migration-DSL column stratum is the better Rails truth source) |
 | E3 | predicate-manifest parity test + C# `Program.cs`-vs-`Predicate::ALL` golden | OPEN |
@@ -96,7 +96,15 @@ message asserts it; not independently verified) · **OPEN** · **UNVERIFIED**.
 - **F3** — `lance-graph-ogar` lockfile: canary or pin?
 
 ## This session's immediate next (guided by the epiphanies)
-1. ~~Commit this ledger~~ (durability-first under unstable env — F2).
-2. Rebase onto #636 (kills B1; F1 says verify+fix the lock IN the arc).
-3. Verify B4 (byte-parity test present?) + item-1/2/7 CLAIMED→VERIFIED.
-4. THEN await operator green-light on ruff Phase 1 (merge `94f919a`) vs W5.
+1. ~~Commit this ledger~~ ✓ · 2. ~~Rebase onto #636~~ ✓ (lock inherited #148).
+3. ~~Phase 1 (ruff mint_factored union)~~ ✓ **DONE+MERGED via ruff #39** —
+   verify-first caught it was already on main (avoided a redundant PR; F7).
+4. **Frontier = Phase 2:** `inherits_from` emission in `ruff_python_spo`
+   (`RawClass.inherits` already collected; vocab variant exists; fixes stale
+   doc header) — gates `mint_factored`'s is_a axis on Odoo. Then Phase 3
+   (predicate-manifest parity + C# golden), Phase 4 (`Mint` → ndjson into WAL).
+5. Open for operator: B4 (facet byte-parity test?), high-half naming ruling,
+   probe-ledger Wave A green-light, F3 lockfile decision.
+6. **F2/F3 note:** the local lance-graph + ruff checkouts churned to stale
+   snapshots repeatedly this arc; the REMOTE branch survived every time. Push
+   early, treat remote as truth, `git -C <abs>` + re-fetch before every read.
