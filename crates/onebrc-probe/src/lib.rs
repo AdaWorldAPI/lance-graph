@@ -67,6 +67,7 @@ pub mod lane_j;
 #[cfg(feature = "presets")]
 pub mod presets;
 pub mod sha256;
+pub mod lane_s;
 
 #[cfg(feature = "lane-b")]
 pub use lane_b::lane_b_simd;
@@ -75,6 +76,7 @@ pub use lane_d::lane_d_ractor;
 #[cfg(feature = "lane-e")]
 pub use lane_e::lane_e_kanban;
 pub use lane_f::{lane_f_morton, lane_r_radix};
+pub use lane_s::lane_s_swar;
 #[cfg(feature = "lane-g")]
 pub use lane_g::{lane_g_kanban_soa, lane_g_kanban_soa_with_morsel};
 #[cfg(feature = "lane-h")]
