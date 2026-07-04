@@ -4,8 +4,8 @@ Plan: `.claude/plans/deepnsm-v3-convergence-v1.md` (`E-V3-DEEPNSM-IS-THE-ENCODER
 
 | D-id | Title | Crate(s) | Status | Evidence |
 |---|---|---|---|---|
-| D-DNV-1 | Gridlake carrier: `GridBatch::as_gridlake_columns` → `ndarray::simd::MultiLaneColumn` (i32 min/max, i64 sum, u64 count); the carrier the COCA `Cell` also rides | onebrc-probe (+ndarray) | In PR | lane-j feature pulls ndarray; 2 tests green (LE roundtrip cell-for-cell + unaligned-grid reject); lane_j.rs clippy-clean |
-| D-DNV-2 | deepnsm `SpoTriple` → `CausalEdge64` S/P/O+freq/conf → `MaterializedEdges`; run `nars_engine.all_projections()` (2³) over the COCA distance matrix | deepnsm + planner | Queued | buildable; extends #624 P3b |
+| D-DNV-1 | Gridlake carrier: `GridBatch::as_gridlake_columns` → `ndarray::simd::MultiLaneColumn` (i32 min/max, i64 sum, u64 count); the carrier the COCA `Cell` also rides | onebrc-probe (+ndarray) | Shipped (#641, error-type follow-up #642) | lane-j pulls ndarray; LE roundtrip + unaligned reject + typed GridlakeCarrierError |
+| D-DNV-2 | deepnsm `SpoTriple` → `CausalEdge64` S/P/O+freq/conf → `SpoHead`; run `nars_engine.all_projections()` (2³) end-to-end from a real COCA FSM parse | deepnsm + planner + causal-edge (osint probe) | In PR | `p6_real_coca_2cube.rs`: 2 tests green — real-parse S/P/O round-trips the edge carrier (extends P2), and the 2³ ladder holds on a real-derived head (extends P3b); palette is the documented codebook stand-in |
 | D-DNV-3 | arm-discovery as the 2nd proposer leg into one SpoStore (shares palette256 oracle) | arm-discovery + deepnsm | Blocked (ARM-JIRAK-FLOOR) | D-ARM-7 Jirak noise floor is the hard prereq |
 | D-DNV-4 | Episodic-witness tenant + `basin=family` wake (`witness_tombstone` calcify chain) | contract + arigraph | Blocked (own wave + probe) | no episodic-witness ValueTenant; calcify chain is `todo!()`; basin=family doc-only |
 
