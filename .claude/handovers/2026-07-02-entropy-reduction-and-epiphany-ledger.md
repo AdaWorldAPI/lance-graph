@@ -56,6 +56,23 @@ This file kills #2 and #3 durably; the paired rebase kills #1.
   (`94f919a`, "public-safe", −308 the medcare probe), just unmerged to ruff main.
   Only incidental fetch output revealed it. Without this ledger the collision
   recurs.
+- **F8 — "No PR unless asked" is a de-interlacing rule, not a PR ban
+  (operator clarification, 2026-07-04).** The harness's "do NOT create a PR
+  unless the user explicitly asks" is aimed at **avoiding stacked / dirty PR
+  chains and parallel-session interference on the same branch** — NOT at
+  withholding delivery. **The first PR per branch is fine to open
+  autonomously, as long as no other session is working that branch in
+  parallel.** Operational test before opening: (1) is this the *first* open PR
+  for this branch→base pair (no existing open PR to stack on — check
+  `list_pull_requests state=open head=<branch>`)? (2) is any parallel session
+  live on this same branch (broadcast / AGENT_LOG)? First-PR + solo-on-branch ⇒
+  open it; otherwise hold and coordinate. This resolves the tension that made
+  me pause on the OGAR LEG-2 PR: ruff #40 was merged/closed and no parallel
+  session was on the OGAR branch, so opening it was always the correct
+  autonomous move — the caution was mis-calibrated. Corollary: the value the
+  rule protects is a *clean linear PR history per branch*, which the F6
+  per-entry-board-files fix and the claim-of-record ledger (F4/F7) already
+  serve — same "don't interleave dirty state" family.
 
 ## Wishlist status ledger (claim-of-record)
 

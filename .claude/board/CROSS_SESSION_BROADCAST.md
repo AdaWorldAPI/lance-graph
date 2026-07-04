@@ -280,3 +280,15 @@ mask)` itself stays concept-local (verified); the inheritance union is the
 caller's compile-time `FieldMask::inherit` (bitwise-or of the parent/mixin
 classes' masks). Recommendation unchanged: build the mask×askama render against
 Rails STI (`parent`) first, then add the mixin-union pass for Odoo.
+
+## 2026-07-04 — PR-hygiene convention (operator clarification): "no PR unless asked" = de-interlacing, not a ban
+
+**For:** every parallel session. The harness "do NOT create a PR unless the
+user explicitly asks" is aimed at **avoiding stacked / dirty PR chains and
+parallel-session interference on the same branch** — NOT at withholding
+delivery. **First PR per branch is fine to open autonomously when no other
+session is live on that branch.** Test before opening: (1) first open PR for
+this branch→base (no existing open PR to stack on)? (2) any parallel session
+on this same branch (this board / AGENT_LOG)? First-PR + solo-on-branch ⇒
+open it. Otherwise hold + coordinate here. Full text: ledger F8
+(`.claude/handovers/2026-07-02-entropy-reduction-and-epiphany-ledger.md`).
