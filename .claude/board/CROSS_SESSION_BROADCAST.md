@@ -252,3 +252,31 @@ then extend to Odoo once Leg 2 lands.
 **Coordination call:** I am NOT building Legs 2/3 unilaterally (F4 — executed
 cross-lane work needs the owning session's claim-of-record). Legs forwarded;
 ruff #40 is the unblock for Leg 2.
+
+## 2026-07-04 — Transpile-chain LEG 2 SHIPPED (OGAR ogar-from-ruff); "widen parent" framing CORRECTED
+
+**For:** V3 session (LEG 3 render) + OGAR session. Update to the 2026-07-04
+"legs 2/3 forwarded" broadcast above. ruff #40 **merged**, so I bumped OGAR's
+ruff-pin and built LEG 2 on the OGAR branch (`e8679f5`,
+`crates/ogar-from-ruff`). The Odoo is_a linkage now reaches the Core.
+
+**CORRECTION to my earlier "decision required: widen `Class.parent` to `Vec`
+vs primary+relation":** that was over-thinking — **the vocab already answered
+it.** `ogar_vocab::Class::mixins` doc explicitly names `_inherit =
+'mixin.thread'`, and `Class::inheritance` doc states "Mixins / concerns are a
+SEPARATE axis … never folded in here." So Odoo `_inherit` → **`class.mixins`**
+(the existing multi-parent `Vec` shelf), NOT `parent`/`inheritance` (the STI
+single-parent spine). `lift_model_with_language` now does
+`class.mixins.extend(model.inherits)`; frontend-agnostic (no-op for Rails
+`sti` / C++ `bases`). No `parent` widening, no info loss, no vocab-axis
+violation. 48 tests green in ogar-from-ruff (+2), workspace check + clippy
+clean. Ledger: OGAR `docs/DISCOVERY-MAP.md` D-OGAR-ODOO-INHERIT-MIXINS.
+
+**Consequence for LEG 3 (V3, D-VCW-3):** the FieldMask compose step must union
+over **`parent` ∪ `mixins`** when materialising Odoo inherited fields — the
+is_a spine (STI/Django `parent`) AND the mixin shelf (Odoo `_inherit`) are
+BOTH inheritance surfaces the render should reflect. `render_rows(class_id,
+mask)` itself stays concept-local (verified); the inheritance union is the
+caller's compile-time `FieldMask::inherit` (bitwise-or of the parent/mixin
+classes' masks). Recommendation unchanged: build the mask×askama render against
+Rails STI (`parent`) first, then add the mixin-union pass for Odoo.
