@@ -78,14 +78,21 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # against live in lance-graph-ontology (OGIT). OGIT does NOT depend on OGAR.
 lance-graph-ontology = { path = "../lance-graph-ontology" }
 
-# ── OGAR Active-Record forks: git deps @ main (the canonical superset; matches
+# ── OGAR Active-Record forks: git deps (the canonical superset; matches
 #    symbiont's pins so they resolve to ONE source in the golden image) ──
-ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
-ogar-class-view = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
-ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+#
+# TEMP-PIN to OGAR #152 rev (Geo/OSM + network_layer codebook mint:
+# class_ids::ALL 68→79). The mirror in lance-graph-contract carries the same
+# concepts, so COUNT_FUSE (mirror::CODEBOOK.len() == ogar_vocab::class_ids::ALL
+# .len()) requires BOTH sides at 79. OGAR main is still 68 until #152 merges —
+# pinning to the pushed rev keeps the lockstep green now. REVERT the four deps
+# to branch = "main" once OGAR #152 lands on main (one source in the golden image).
+ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", rev = "58a64d4701eaf70ff67fe53a5e2087d5d0c48c0d" }
+ogar-class-view = { git = "https://github.com/AdaWorldAPI/OGAR", rev = "58a64d4701eaf70ff67fe53a5e2087d5d0c48c0d" }
+ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", rev = "58a64d4701eaf70ff67fe53a5e2087d5d0c48c0d" }
 # default features only = the light emit() DDL formatter (no surrealdb tree);
 # the parser half is opt-in via this crate's `surrealql-parser` feature.
-ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", rev = "58a64d4701eaf70ff67fe53a5e2087d5d0c48c0d" }
 
 # Fold ogar-class-view's transitive `lance-graph-contract` (git
 # AdaWorldAPI/lance-graph#main) onto the SAME path copy this crate uses, so there
