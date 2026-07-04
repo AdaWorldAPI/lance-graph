@@ -82,7 +82,9 @@ message asserts it; not independently verified) · **OPEN** · **UNVERIFIED**.
 | # | Item | Status |
 |---|---|---|
 | E1 | `mint_factored`+`RadixCodebook`+`soc.rs` union | **DONE + MERGED** — ruff PR #39 landed `94f919a` onto main (`3dba017`); verified green (18 tests, 0 failed, 2026-07-02). Split-brain closed. |
-| E2-py | `inherits_from` emission in `ruff_python_spo` | OPEN (gates mint_factored is_a axis on Odoo) |
+| E2-py | `inherits_from` emission in `ruff_python_spo` | **SHIPPED — ruff PR #40 (2026-07-04).** Frontend-agnostic `Model.inherits: Vec<String>` on the shared IR + expander arm `(ns:model, InheritsFrom, ns:parent)` @Authoritative (0.95/0.90) + Odoo frontend wired (`_inherit` string/list via `walk.rs`); bare-`_inherit` reopen self-edge EXCLUDED. Reuses `Predicate::InheritsFrom` (62-lock intact); serde-skip-if-empty (ndjson byte-compat). 18+ tests green. **Gate moved to LEG 2 (OGAR lift).** |
+| E2-ogar | `ogar-from-ruff` lift `Model.inherits → Class.parent`/is_a facet | **OPEN — OGAR lane, forwarded (broadcast 2026-07-04).** Today maps only `sti.inherits_from → Class.parent` (Rails STI, single-parent); does NOT read `Model.inherits`; pins older ruff `48059c8`. Gated: ruff #40 merge → OGAR ruff-pin bump. **Decision:** `Class.parent` single-slot vs Odoo multi-parent `_inherit`. Until landed, Odoo is_a facet EMPTY at Core. |
+| E2-render | askama `ClassView × FieldMask → row view` (D-VCW-3) | **OPEN — V3 lane, spec forwarded (broadcast 2026-07-04).** Canonical `askama template ↔ ClassView × FieldMask`; `FieldMask::inherit` makes is_a load-bearing. Gated on LEG 2 for Odoo; V3 to build against Rails STI first (populated today). |
 | E2-ruby | ruby `extract_fields` | CEDED to op-nexgen R1 (migration-DSL column stratum is the better Rails truth source) |
 | E3 | predicate-manifest parity test + C# `Program.cs`-vs-`Predicate::ALL` golden | OPEN |
 | E5 | `Mint` → ndjson (now) / Arrow (after shared interchange-schema decision) | OPEN — landing zone is the #630/#631 WAL batch writer |
@@ -99,12 +101,22 @@ message asserts it; not independently verified) · **OPEN** · **UNVERIFIED**.
 1. ~~Commit this ledger~~ ✓ · 2. ~~Rebase onto #636~~ ✓ (lock inherited #148).
 3. ~~Phase 1 (ruff mint_factored union)~~ ✓ **DONE+MERGED via ruff #39** —
    verify-first caught it was already on main (avoided a redundant PR; F7).
-4. **Frontier = Phase 2:** `inherits_from` emission in `ruff_python_spo`
-   (`RawClass.inherits` already collected; vocab variant exists; fixes stale
-   doc header) — gates `mint_factored`'s is_a axis on Odoo. Then Phase 3
-   (predicate-manifest parity + C# golden), Phase 4 (`Mint` → ndjson into WAL).
+4. ~~Phase 2 (`inherits_from` emission in `ruff_python_spo`)~~ ✓ **SHIPPED via
+   ruff PR #40** — frontend-agnostic `Model.inherits` on the shared IR + Odoo
+   frontend wired; self-edge reopen guard; 62-lock intact.
+   **Frontier = the middle + render legs, both cross-lane (forwarded, not built
+   unilaterally — F4):**
+   - **LEG 2 (OGAR):** bump OGAR ruff-pin post-#40, map `Model.inherits →
+     Class.parent`/is_a facet, decide single-vs-multi-parent. Blocks the Odoo
+     is_a axis at the Core. Broadcast 2026-07-04.
+   - **LEG 3 (V3, D-VCW-3):** askama `ClassView × FieldMask → row view`;
+     build against Rails STI first (populated today), extend to Odoo after
+     LEG 2. Broadcast 2026-07-04.
+   Then ruff Phase 3 (predicate-manifest parity + C# golden), Phase 4
+   (`Mint` → ndjson into WAL).
 5. Open for operator: B4 (facet byte-parity test?), high-half naming ruling,
-   probe-ledger Wave A green-light, F3 lockfile decision.
+   probe-ledger Wave A green-light, F3 lockfile decision, LEG-2 single-vs-multi-
+   parent ruling (`Class.parent` widen to `Vec` or primary+relation).
 6. **F2/F3 note:** the local lance-graph + ruff checkouts churned to stale
    snapshots repeatedly this arc; the REMOTE branch survived every time. Push
    early, treat remote as truth, `git -C <abs>` + re-fetch before every read.

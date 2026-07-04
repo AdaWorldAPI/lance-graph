@@ -202,3 +202,53 @@ classid MUST come through the next batched mint (queue yours);
 `nan_projection` + symbiont fixed-offset readers are the two EXPOSED
 sweepers to gate. (4) R-2 residual closed (edges-only strided read
 proof). Capstone frame for all of it: E-SEMANTIC-OS-CONVERGENCE-1.
+
+## 2026-07-04 — Transpile-chain Increment 1 SHIPPED (ruff #40); Increments 2+3 forwarded (OGAR + V3 lanes)
+
+**For:** OGAR session + V3 session. The operator's directive was to build
+through the FULL transpile chain, not isolated edits:
+`ruff *_spo harvest → OGAR-as-transpiler (ogar-from-ruff lift ModelGraph →
+mint CompiledClass w/ classid) → ClassView(classid) × FieldMask bitmask →
+askama compile-time template → row view`. I own the **ruff input end** only;
+the middle (OGAR lift) and render end (askama) are your lanes. Status of
+each leg, honestly:
+
+**LEG 1 — ruff harvest (MINE, SHIPPED):** ruff PR #40 adds a
+frontend-agnostic `ruff_spo_triplet::Model.inherits: Vec<String>` +
+expander arm emitting `(ns:model, InheritsFrom, ns:parent)` @
+Provenance::Authoritative (0.95/0.90), and wires the Odoo frontend
+(`ruff_python_spo`) to populate it from `_inherit` (string OR list, via
+`walk.rs` `string_or_list`). **Key correctness point for your lift:** an
+Odoo `_inherit` with NO `_name` is a REOPEN — `resolve_name` falls back to
+`inherits.first()`, so `parent == model_name`; the frontend EXCLUDES that
+self-edge (a self is_a would poison the axis). New field is serde-skip-if-
+empty (ndjson byte-compat preserved); NO new Predicate variant (62-lock
+intact — reuses existing `Predicate::InheritsFrom`). 18 triplet tests +
+the new Odoo test green.
+
+**LEG 2 — OGAR lift (YOURS, GAP FOUND, gated):** `ogar-from-ruff`
+`lift_model_graph_*` currently maps only `sti.inherits_from → Class.parent`
+(Rails STI, single-parent). It does **NOT** read the new `Model.inherits`
+(Odoo path), and pins an older ruff rev (`48059c8`, predates the field).
+**Follow-up for the OGAR session:** after ruff #40 merges, bump the OGAR
+ruff-pin, then map `Model.inherits → Class.parent`/is_a facet. **Decision
+you must make:** `Class.parent` is a SINGLE slot but Odoo `_inherit` is
+MULTI-parent — either widen to `parents: Vec` or pick a primary + emit the
+rest as a distinct relation. Until this lands, the Odoo is_a facet is EMPTY
+at the Core regardless of how good the render is.
+
+**LEG 3 — askama render (V3's lane, D-VCW-3, SPEC ready):** the canonical
+relation is **`askama template ↔ ClassView × FieldMask`** — rendering a row
+= a masked projection over a class. Probe spec: given a `CompiledClass`
+(classid + FieldMask), `ClassView::render_rows(class, mask)` feeds an
+askama compile-time template producing a Rails-shaped row view; the
+FieldMask's `inherit(parent_delta) = self.0 | parent_delta.0` makes is_a
+inheritance load-bearing (child row shows parent's fields). **Gated on Leg 2**
+— an is_a-driven inherited-field render is untestable until OGAR's lift
+populates `Class.parent` from `Model.inherits`. Recommend V3 build the
+mask×template render against Rails STI FIRST (that path IS populated today),
+then extend to Odoo once Leg 2 lands.
+
+**Coordination call:** I am NOT building Legs 2/3 unilaterally (F4 — executed
+cross-lane work needs the owning session's claim-of-record). Legs forwarded;
+ruff #40 is the unblock for Leg 2.
