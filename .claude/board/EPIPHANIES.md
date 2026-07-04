@@ -299,6 +299,47 @@ Two firsts + one correction: (1) FIRST binary format — `TFile` LE: `u32 count`
 **Pattern holds (E-CPP-KEYSTONE-1).** A new Core type, but the SAME shape: content-store tier (zero-dep, rides the keystone), one `diff` per mode, no Core gap. +10 contract tests. Consumed by `tesseract-core::{Recoder, recoded_to_text}` (codes→decode→ids→`ids_to_text`; +1 boundary test, 8/8). The recoder keystone (`invoke_recoder`, the E-CPP-KEYSTONE-1 analog) is UNBLOCKED — OGAR #148 minted concept `recoder`=0x0802 (mirrored in `ogar_codebook`) — but DEFERRED: the `classid→ClassView→content` dispatch is already proven generically, so a recoder keystone would re-prove a pattern with no new byte-parity information.
 
 Routing re-verified LIVE against OGAR (not the plan's cached answers): SURREAL-AST-TRAP-PREFLIGHT 5Q (data-shaped table, zero lifecycle vocabulary → content-store is honest) + OGAR-AS-IR §3 (adds no `Class`/`ActionDef`/`KausalSpec` → rerouted to the content tier, NOT `emit_rust`). ndarray and `ruff_cpp_spo` were correctly NOT used: the recoder is zero-SIMD data, and `UnicharCompress`/`RecodedCharID` have no inheritance/vtable for the harvest to resolve. Cross-ref: `E-CPP-PARITY-1..6`, `E-CPP-KEYSTONE-1`, `.claude/knowledge/core-first-transcode-doctrine.md`, OGAR #148 (0x08 OCR mint). Branch `claude/happy-hamilton-0azlw4`, lance-graph + tesseract-rs.
+## 2026-07-02 — E-FLEET-CADENCE-PROCESS-FINDINGS (F1-F7) — pin-propagation is the new bottleneck; unpinned envs falsify true states; claim-of-record prevents near-collisions
+
+**Status:** FINDING (process/meta; durable full text +
+wishlist claim-of-record ledger in
+`.claude/handovers/2026-07-02-entropy-reduction-and-epiphany-ledger.md`).
+Surfaced by the `medcare-bridge` session across the #625→#636 fleet arc.
+
+The bottleneck moved from analysis/implementation to **mechanical
+propagation** — the fleet executes forwarded wishlist items within hours,
+so the failure modes are now coordination-shaped:
+
+- **F1 — pin propagation is the third leg of the cross-repo arc.** OGAR
+  entry + contract mirror rows + **`Cargo.lock` pin** land in ONE arc.
+  An arc that ships the mirror-row change without bumping its own lock
+  pin ships a fuse-broken contract to every consumer while both sides'
+  own tests stay green. (Root of the recurring consumer-side E0080.)
+- **F2 — unpinned environments falsify TRUE states.** Verified live: a
+  local `origin/main` ref read #636→#631→#636 across three commands
+  (container re-provisioned to an older clone snapshot mid-turn). A
+  verification whose env isn't pinned can raise a false alarm on correct
+  state. Discipline: re-`fetch` + echo the resolved SHA before concluding.
+- **F3 — a gitignored lockfile is an *undecided* design.**
+  `lance-graph-ogar`'s untracked `Cargo.lock` builds its `COUNT_FUSE`
+  against OGAR HEAD (floating canary) while the workspace lock pins.
+  Canary or pin both fine; accidental is not — needs one doc sentence.
+- **F4 — executed wishlists need a claim-of-record.** Convergent
+  multi-session execution without shared done-marks risks double-work
+  AND silently-dropped halves. (The ledger handover is the fix.)
+- **F5 — CI-invisible fuses fire only in *consumers'* builds.** Main's CI
+  never compiles the `exclude`d `lance-graph-ogar`, so lance-graph learns
+  its own mirror broke the contract only when medcare (twice) hits E0080.
+  One CI job that `cargo check`s the excluded crate closes the asymmetry.
+- **F6 — rebase economics inverted.** At ~5 fleet-merges/day the
+  board-prepend conflicts (EPIPHANIES/LATEST_STATE/PR_ARC) are the only
+  recurring rebase cost — 30–60 min/day per parallel session. Per-entry
+  board files make the conflict structurally impossible.
+- **F7 — claim-of-record prevents near-collisions (proven).** Was one
+  command from re-doing the `mint_factored`+`RadixCodebook`+`soc.rs`
+  union — already unified on ruff `claude/medcare-ruff-csharp-sync-4iahey`
+  (`94f919a`, unmerged); only incidental fetch output revealed it.
+
 ## 2026-07-02 — E-1BRC-GRIDLAKE-SWEETSPOT-1: the 64×64 gridlake SoA is the measured sweet spot — the batch pipeline at tile scale equals the best streamed topology while carrying the double-WAL
 **Status:** FINDING (measured, onebrc-probe lane J t7; closes the operator's four follow-up questions and the t4→t7 kanban-update arc)
 
@@ -381,6 +422,33 @@ Operator: rs-graph-llm under lance-graph "might need some kanban integration to 
 **Status:** FINDING (plan deltas folded into INTEGRATION-PLAN.md Addendum 2026-07-02)
 
 Headline collapses: (1) the kanban board IS the write-ahead log — cast = move = intent, ack = confirmation; W1b/W1c are one object, crash recovery free (M24). (2) M7 ruling rec: SoaEnvelope re-scoped as spec/certification surface (verify_layout + field-isolation matrix are the value; zero production impls of the trait). (3) Baseline inversion: W6a scanner runs at W1 START — adoption-100% needs a measured t0 denominator. (4) W3 oracle ratchet: oracle-hit rate must trend down vs catalogue size or deterministic-first is silently dead. (5) W2 reorder probe→budget→arms; budget constants measured not guessed; probe at batch 1/64/4096; loser owns slow path. (6) Ractor batching by API shape (Vec<KanbanMove> per message). (7+8) Pull-forwards: D-PERT-1 and M21 canon-node-bytes ride W1. (9) Gate-run rule: wave PRs end with /v3-audit + touched M-row greps in AGENT_LOG. (10) Supervisor stays thin — the product is the compile-time ownership attestation, not runtime supervision. Test applied throughout: every item is a collapse/reorder of existing machinery, none invents a layer.
+## 2026-07-02 — E-BRICK3-CORRECTION-MINT-FACTORED-IS-SPLIT-BRAIN — the "corrected minter" exists only as the UNION of two diverged ruff branches; no branch carries both mint_factored AND soc.rs
+
+**Status:** CORRECTION (of `E-BRICK3-RAN-TRUNCATION-DISALLOWED` + PR #625's
+`ast-as-partof-isa-address.md` "brick that ran" section, both of which state
+`mint_factored` shipped).
+
+**The finding (review agent, ruff @ b459ec3, verified via git show/diffstat):**
+ruff main carries `ruff_spo_address::{mint, soc}` — the naive minter (with its
+own falsification recorded in its doc header) plus the 256-cap-is-a-lint
+classifier. **`mint_factored` + `RadixCodebook` + `ONTOLOGICAL-RADIX-TRIE.md`
+live ONLY on branch `claude/medcare-ruff-csharp-sync-4iahey` (tip `505fdc4`)**,
+which diverged BEFORE the soc promotion and therefore LACKS `soc.rs` (branch↔main
+diffstat: `soc.rs | 335 ---`). A naive merge of that branch would delete the
+lint. So: main ships the falsified minter; the corrected minter has never
+coexisted with the lint that motivated it.
+
+**Consequence:** the single highest-leverage small move in the address stack is
+rebasing `mint_factored`+`RadixCodebook` over main (conflict surface ≈ the
+`pub mod` line + doc header) so the corrected state exists on ONE branch.
+Until then, "brick-3's corrected form is shipped" is true only of the private
+probe run, not of public ruff main.
+
+**Process note:** my #625 record propagated the claim from the private archive's
+RESTORE-STATUS without re-verifying WHICH branch carried the code — the same
+verify-by-reading-not-by-inheriting failure mode as the stale-doc-comment
+episode (E-BRICK3 arc). Corrections cite their pass: surfaced by the 2026-07-02
+OGAR+ruff review fan-out.
 
 ## 2026-07-02 — E-V3-PLANNER-TWO-NATURES-AND-SPEED-PROBE (operator: planner too slow for sub-µs; resonance-based thinking is not DataFusion)
 **Status:** FINDING (operator-ruled; speed claim probe-gated per truth-architect discipline)

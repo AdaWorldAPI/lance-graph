@@ -144,6 +144,8 @@ pub mod parity {
                 | (O::Auth, C::Auth)
                 | (O::Automation, C::Automation)
                 | (O::HR, C::HR)
+                | (O::Genetics, C::Genetics)
+                | (O::Geo, C::Geo)
                 | (O::Unassigned, C::Unassigned)
         )
     }

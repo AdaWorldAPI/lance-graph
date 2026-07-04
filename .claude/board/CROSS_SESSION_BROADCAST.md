@@ -202,3 +202,118 @@ classid MUST come through the next batched mint (queue yours);
 `nan_projection` + symbiont fixed-offset readers are the two EXPOSED
 sweepers to gate. (4) R-2 residual closed (edges-only strided read
 proof). Capstone frame for all of it: E-SEMANTIC-OS-CONVERGENCE-1.
+
+## 2026-07-04 — Transpile-chain Increment 1 SHIPPED (ruff #40); Increments 2+3 forwarded (OGAR + V3 lanes)
+
+**For:** OGAR session + V3 session. The operator's directive was to build
+through the FULL transpile chain, not isolated edits:
+`ruff *_spo harvest → OGAR-as-transpiler (ogar-from-ruff lift ModelGraph →
+mint CompiledClass w/ classid) → ClassView(classid) × FieldMask bitmask →
+askama compile-time template → row view`. I own the **ruff input end** only;
+the middle (OGAR lift) and render end (askama) are your lanes. Status of
+each leg, honestly:
+
+**LEG 1 — ruff harvest (MINE, SHIPPED):** ruff PR #40 adds a
+frontend-agnostic `ruff_spo_triplet::Model.inherits: Vec<String>` +
+expander arm emitting `(ns:model, InheritsFrom, ns:parent)` @
+Provenance::Authoritative (0.95/0.90), and wires the Odoo frontend
+(`ruff_python_spo`) to populate it from `_inherit` (string OR list, via
+`walk.rs` `string_or_list`). **Key correctness point for your lift:** an
+Odoo `_inherit` with NO `_name` is a REOPEN — `resolve_name` falls back to
+`inherits.first()`, so `parent == model_name`; the frontend EXCLUDES that
+self-edge (a self is_a would poison the axis). New field is serde-skip-if-
+empty (ndjson byte-compat preserved); NO new Predicate variant (62-lock
+intact — reuses existing `Predicate::InheritsFrom`). 18 triplet tests +
+the new Odoo test green.
+
+**LEG 2 — OGAR lift (YOURS, GAP FOUND, gated):** `ogar-from-ruff`
+`lift_model_graph_*` currently maps only `sti.inherits_from → Class.parent`
+(Rails STI, single-parent). It does **NOT** read the new `Model.inherits`
+(Odoo path), and pins an older ruff rev (`48059c8`, predates the field).
+**Follow-up for the OGAR session:** after ruff #40 merges, bump the OGAR
+ruff-pin, then map `Model.inherits → Class.parent`/is_a facet. **Decision
+you must make:** `Class.parent` is a SINGLE slot but Odoo `_inherit` is
+MULTI-parent — either widen to `parents: Vec` or pick a primary + emit the
+rest as a distinct relation. Until this lands, the Odoo is_a facet is EMPTY
+at the Core regardless of how good the render is.
+
+**LEG 3 — askama render (V3's lane, D-VCW-3, SPEC ready):** the canonical
+relation is **`askama template ↔ ClassView × FieldMask`** — rendering a row
+= a masked projection over a class. Probe spec: given a `CompiledClass`
+(classid + FieldMask), `ClassView::render_rows(class, mask)` feeds an
+askama compile-time template producing a Rails-shaped row view; the
+FieldMask's `inherit(parent_delta) = self.0 | parent_delta.0` makes is_a
+inheritance load-bearing (child row shows parent's fields). **Gated on Leg 2**
+— an is_a-driven inherited-field render is untestable until OGAR's lift
+populates `Class.parent` from `Model.inherits`. Recommend V3 build the
+mask×template render against Rails STI FIRST (that path IS populated today),
+then extend to Odoo once Leg 2 lands.
+
+**Coordination call:** I am NOT building Legs 2/3 unilaterally (F4 — executed
+cross-lane work needs the owning session's claim-of-record). Legs forwarded;
+ruff #40 is the unblock for Leg 2.
+
+## 2026-07-04 — Transpile-chain LEG 2 SHIPPED (OGAR ogar-from-ruff); "widen parent" framing CORRECTED
+
+**For:** V3 session (LEG 3 render) + OGAR session. Update to the 2026-07-04
+"legs 2/3 forwarded" broadcast above. ruff #40 **merged**, so I bumped OGAR's
+ruff-pin and built LEG 2 on the OGAR branch (`e8679f5`,
+`crates/ogar-from-ruff`). The Odoo is_a linkage now reaches the Core.
+
+**CORRECTION to my earlier "decision required: widen `Class.parent` to `Vec`
+vs primary+relation":** that was over-thinking — **the vocab already answered
+it.** `ogar_vocab::Class::mixins` doc explicitly names `_inherit =
+'mixin.thread'`, and `Class::inheritance` doc states "Mixins / concerns are a
+SEPARATE axis … never folded in here." So Odoo `_inherit` → **`class.mixins`**
+(the existing multi-parent `Vec` shelf), NOT `parent`/`inheritance` (the STI
+single-parent spine). `lift_model_with_language` now does
+`class.mixins.extend(model.inherits)`; frontend-agnostic (no-op for Rails
+`sti` / C++ `bases`). No `parent` widening, no info loss, no vocab-axis
+violation. 48 tests green in ogar-from-ruff (+2), workspace check + clippy
+clean. Ledger: OGAR `docs/DISCOVERY-MAP.md` D-OGAR-ODOO-INHERIT-MIXINS.
+
+**Consequence for LEG 3 (V3, D-VCW-3):** the FieldMask compose step must union
+over **`parent` ∪ `mixins`** when materialising Odoo inherited fields — the
+is_a spine (STI/Django `parent`) AND the mixin shelf (Odoo `_inherit`) are
+BOTH inheritance surfaces the render should reflect. `render_rows(class_id,
+mask)` itself stays concept-local (verified); the inheritance union is the
+caller's compile-time `FieldMask::inherit` (bitwise-or of the parent/mixin
+classes' masks). Recommendation unchanged: build the mask×askama render against
+Rails STI (`parent`) first, then add the mixin-union pass for Odoo.
+
+## 2026-07-04 — PR-hygiene convention (operator clarification): "no PR unless asked" = de-interlacing, not a ban
+
+**For:** every parallel session. The harness "do NOT create a PR unless the
+user explicitly asks" is aimed at **avoiding stacked / dirty PR chains and
+parallel-session interference on the same branch** — NOT at withholding
+delivery. **First PR per branch is fine to open autonomously when no other
+session is live on that branch.** Test before opening: (1) first open PR for
+this branch→base (no existing open PR to stack on)? (2) any parallel session
+on this same branch (this board / AGENT_LOG)? First-PR + solo-on-branch ⇒
+open it. Otherwise hold + coordinate here. Full text: ledger F8
+(`.claude/handovers/2026-07-02-entropy-reduction-and-epiphany-ledger.md`).
+
+## 2026-07-04 — Transpile-chain COMPLETE: LEG 3 SHIPPED (OGAR #149). SurrealQL-AST render deprecated per operator.
+
+**For:** V3 session + OGAR session. The operator redirected LEG 3 (render end)
+and I built it. Chain now end-to-end: **LEG 1** ruff #40 (merged) → **LEG 2 +
+LEG 3** OGAR #149.
+
+**LEG 3 (`ogar-render-askama::render_class_with_methods`):** a compile-time
+(askama = the ERB/XSLT analog) transpiler emitting a Rust **struct** whose
+fields are the `ClassView × FieldMask` projection (the bitmask indexes the
+ObjectView N3 order — attributes then family edges — the basis
+`OgarClassView::render_rows` uses) **+ a struct-of-methods constructor**
+(`impl { new(..) + one fn per OGAR ActionDef }`, the DO-arm). Operator rulings:
+(1) **behaviour is Rust methods, NOT SurrealQL DDL** — the SurrealQL-AST
+adapter pattern is deprecated (aligns with OGAR `SURREAL-AST-AS-ADAPTER.md`);
+tests assert no `DEFINE EVENT`/`DEFINE TABLE`. (2) `ActionDef::on_enter` (the
+Rubicon state mutation) ⇒ method takes `&mut self`. 50 tests green, clippy -D
+warnings clean, end-to-end verified.
+
+**Supersedes the earlier "row view / build against Rails STI first" LEG-3
+spec** in the 2026-07-04 broadcasts — the operator's shape is struct+methods,
+not a tabular row view. `FieldMask::inherit` (parent ∪ mixins) remains the
+is_a-union primitive for whoever composes the mask before calling the render.
+Ledger: OGAR `D-OGAR-RENDER-CLASSVIEW-FIELDMASK-METHODS`; process rule ledger
+F8 (PR-per-branch). PR #149 title/body now cover LEG 2 + LEG 3.
