@@ -47,9 +47,9 @@ fn main() {
 
     let mut palette: Vec<[[u8; 256]; 256]> = vec![[[0u8; 256]; 256]; PQ];
     for (s, t) in palette.iter_mut().enumerate() {
-        for a in 0..256 {
-            for b in 0..256 {
-                t[a][b] = ((a ^ b).wrapping_add(s * 37)) as u8;
+        for (a, row) in t.iter_mut().enumerate() {
+            for (b, cell) in row.iter_mut().enumerate() {
+                *cell = ((a ^ b).wrapping_add(s * 37)) as u8;
             }
         }
     }
