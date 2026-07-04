@@ -18,10 +18,15 @@
 //! This module transcodes the **load side only** — `DeSerialize` +
 //! `EncodeUnichar` + `DecodeUnichar` + `code_range` (the recognizer runtime
 //! surface). `ComputeEncoding` (the training-side table builder) is out of
-//! scope. `SetupDecoder`'s beam-search maps (`is_valid_start_` / `next_codes_` /
-//! `final_codes_`, `unicharcompress.cpp:396-434`) are the recognizer's, not the
-//! decode table's — they are deferred to the recognizer leaf; only the
-//! `decoder_` map (code → id) is built here.
+//! scope. `SetupDecoder`'s full state — the `decoder_` map (code → id) **and**
+//! the beam-search trie maps `is_valid_start_` / `final_codes_` / `next_codes_`
+//! (`unicharcompress.cpp:396-434`) — is built here: they are computed table
+//! state loaded alongside the encoder (data-shaped, no lifecycle), and the
+//! recognizer's `RecodeBeamSearch` *consumes* them read-only via
+//! [`UnicharCompress::is_valid_first_code`] / [`UnicharCompress::get_final_codes`]
+//! / [`UnicharCompress::get_next_codes`] (the C++ `IsValidFirstCode` /
+//! `GetFinalCodes` / `GetNextCodes` accessors). The maps are Core content; the
+//! beam *search* that walks them is recognizer compute (Leaf 7b).
 //!
 //! # Binary format (byte-parity surface)
 //!
@@ -141,6 +146,26 @@ impl RecodedCharId {
         self.self_normalized != 0
     }
 
+    /// The code value at `index` — the C++ `operator()(int)` (`unicharcompress.h:65`),
+    /// reading `code_[index]` directly. Out-of-range indices read `0` (the array is
+    /// zero-initialized and `SetupDecoder` only ever indexes `0..length`).
+    #[must_use]
+    pub fn code_at(&self, index: usize) -> i32 {
+        self.code.get(index).copied().unwrap_or(0)
+    }
+
+    /// A copy truncated to `len` codes — the C++ `Truncate(int)`
+    /// (`unicharcompress.h:40`, which only sets `length_`). The trailing `code`
+    /// slots are retained but drop out of identity ([`codes`](Self::codes) /
+    /// [`PartialEq`] / [`Hash`] read `code[0..length]`), exactly as C++ leaves
+    /// `code_` intact and compares only `code_[0..length_]`.
+    #[must_use]
+    fn truncated(&self, len: i32) -> Self {
+        let mut out = self.clone();
+        out.length = len;
+        out
+    }
+
     /// Read one `RecodedCharID` from the little-endian cursor. Rejects a
     /// `length` outside `0..=kMaxCodeLen` (the C++ UB guard) and a short buffer.
     fn read(r: &mut ByteReader<'_>) -> Result<Self, RecoderError> {
@@ -191,6 +216,18 @@ pub struct UnicharCompress {
     /// code → unichar-id, recomputed on load (`SetupDecoder`,
     /// `unicharcompress.cpp:400-402`). Last-writer-wins on a shared code.
     decoder: HashMap<RecodedCharId, u32>,
+    /// `is_valid_start_` (`unicharcompress.h:234`): indexed by code value in
+    /// `0..code_range`, `true` where some entry's first code is that value — the
+    /// beam search's valid-first-code gate (`IsValidFirstCode`).
+    is_valid_start: Vec<bool>,
+    /// `final_codes_` (`unicharcompress.h:241`): prefix (`code[0..len-1]`) → the
+    /// last codes that complete a full sequence from that prefix. Keyed by the
+    /// truncated [`RecodedCharId`]; the empty prefix maps every length-1 code.
+    final_codes: HashMap<RecodedCharId, Vec<i32>>,
+    /// `next_codes_` (`unicharcompress.h:237`): prefix → the valid *non-final*
+    /// continuation codes. Empty for a pass-through recoder (all length-1); only
+    /// multi-code scripts (Han/Hangul, length 3) populate it.
+    next_codes: HashMap<RecodedCharId, Vec<i32>>,
     /// `1 + max code value` (`ComputeCodeRange`, `unicharcompress.cpp:383-393`);
     /// the lattice width. `0` for an empty encoder (`-1 + 1`).
     code_range: i32,
@@ -224,6 +261,9 @@ impl UnicharCompress {
         let mut this = Self {
             encoder,
             decoder: HashMap::new(),
+            is_valid_start: Vec::new(),
+            final_codes: HashMap::new(),
+            next_codes: HashMap::new(),
             code_range: 0,
         };
         this.compute_code_range();
@@ -299,16 +339,100 @@ impl UnicharCompress {
         self.code_range = max + 1;
     }
 
-    /// The decode-map half of `SetupDecoder` (`unicharcompress.cpp:400-402`):
-    /// `decoder_[encoder_[id]] = id` in ascending id order, so **last writer
-    /// wins** when two ids share a code. The beam-search maps are the
-    /// recognizer's and are not built here (see module docs).
+    /// The full `SetupDecoder` (`unicharcompress.cpp:395-436`): in one ascending-id
+    /// pass over `encoder_`, build the `decoder_` map (code → id, **last writer
+    /// wins** on a shared code) **and** the beam-search trie maps —
+    /// `is_valid_start_` (`code(0)` is a valid first code), `final_codes_` (prefix
+    /// `code[0..len-1]` → the completing last codes), and `next_codes_` (prefix →
+    /// valid non-final continuations). The `while (--len >= 0)` prefix walk climbs
+    /// from the direct parent toward the empty prefix, stopping at the first
+    /// already-populated `next_codes_` entry (that prefix, and all shorter ones,
+    /// were seeded by an earlier entry).
+    ///
+    /// For the eng.lstm pass-through recoder (112 entries, all length-1) this is
+    /// `is_valid_start_[c0]=true` for each, `final_codes_[<empty>]` = every
+    /// distinct `code(0)` in id order, and an empty `next_codes_` (the `--len`
+    /// loop never runs). Multi-code scripts (Han/Hangul, length 3) exercise the
+    /// full trie.
     fn setup_decoder(&mut self) {
         self.decoder.clear();
         self.decoder.reserve(self.encoder.len());
-        for (id, code) in self.encoder.iter().enumerate() {
+        self.is_valid_start = vec![false; self.code_range.max(0) as usize];
+        self.final_codes.clear();
+        self.next_codes.clear();
+        // Iterate by index so the loop body can mutate the other maps without
+        // holding a borrow of `self.encoder` (C++ reads `encoder_[c]` by value).
+        for id in 0..self.encoder.len() {
+            let code = self.encoder[id].clone();
             self.decoder.insert(code.clone(), id as u32);
+            let length = code.length();
+            if length <= 0 {
+                // Trained recoders never carry an empty entry (the reader rejects
+                // `length < 0`, and `ComputeEncoding` emits length >= 1); the C++
+                // would degenerately index `is_valid_start_[code(0)=0]`. Skipping
+                // it cannot affect the byte-parity diff on real data.
+                continue;
+            }
+            let last = length - 1; // index of the final code, `code.length() - 1`
+            if let Some(slot) = self.is_valid_start.get_mut(code.code_at(0) as usize) {
+                *slot = true;
+            }
+            let prefix = code.truncated(last);
+            if let Some(list) = self.final_codes.get_mut(&prefix) {
+                let v = code.code_at(last as usize);
+                if !list.contains(&v) {
+                    list.push(v);
+                }
+            } else {
+                self.final_codes
+                    .insert(prefix, vec![code.code_at(last as usize)]);
+                let mut len = last;
+                loop {
+                    len -= 1;
+                    if len < 0 {
+                        break;
+                    }
+                    let p = code.truncated(len);
+                    let v = code.code_at(len as usize);
+                    if let Some(list) = self.next_codes.get_mut(&p) {
+                        // Reached via multiple code lengths: dedup, then stop —
+                        // this prefix (and all shorter) is already seeded.
+                        if !list.contains(&v) {
+                            list.push(v);
+                        }
+                        break;
+                    }
+                    self.next_codes.insert(p, vec![v]);
+                }
+            }
         }
+    }
+
+    /// Whether `code` is a valid start (or single) code — the C++
+    /// `IsValidFirstCode` (`unicharcompress.h:182`). Bounds-checked (C++ indexes
+    /// `is_valid_start_[code]` unchecked); an out-of-range code is not valid.
+    #[must_use]
+    pub fn is_valid_first_code(&self, code: i32) -> bool {
+        usize::try_from(code)
+            .ok()
+            .and_then(|i| self.is_valid_start.get(i))
+            .copied()
+            .unwrap_or(false)
+    }
+
+    /// The valid final codes that complete a sequence from `prefix`, or `None` —
+    /// the C++ `GetFinalCodes` (`unicharcompress.h:193`). `prefix` is a
+    /// [`RecodedCharId`] truncated to the codes seen so far.
+    #[must_use]
+    pub fn get_final_codes(&self, prefix: &RecodedCharId) -> Option<&[i32]> {
+        self.final_codes.get(prefix).map(Vec::as_slice)
+    }
+
+    /// The valid non-final continuation codes for `prefix`, or `None` — the C++
+    /// `GetNextCodes` (`unicharcompress.h:187`).
+    #[must_use]
+    pub fn get_next_codes(&self, prefix: &RecodedCharId) -> Option<&[i32]> {
+        self.next_codes.get(prefix).map(Vec::as_slice)
     }
 
     /// Render the id→code table as `"<id>\t<len>\t<c0>[,<c1>...]\n"` lines — the
@@ -349,6 +473,75 @@ impl UnicharCompress {
             out.push('\t');
             out.push_str(&self.decode(entry).to_string());
             out.push('\n');
+        }
+        out
+    }
+
+    /// Render the beam-search maps in a **deterministic order** (the C++
+    /// `unordered_map` iteration order is unspecified and differs from Rust's
+    /// [`HashMap`], so the dump drives itself off `encoder_` id-order instead):
+    ///
+    /// ```text
+    /// is_valid_start\t<code_range>
+    /// <code>\t<0|1>                       // for each code in 0..code_range
+    /// final\t<prefix csv>\t<final codes csv | ->   // each distinct prefix, once
+    /// next\t<prefix csv>\t<next codes csv | ->
+    /// ```
+    ///
+    /// Distinct prefixes are enumerated by walking every entry in id order and,
+    /// within each, truncation lengths `0..length` ascending, emitting each prefix
+    /// the first time it is seen. The C++ oracle's `beam` mode performs the
+    /// identical walk via `GetFinalCodes` / `GetNextCodes`, so the diff is
+    /// `diff oracle_recoder_beam.tsv rust_recoder_beam.tsv`. The per-prefix code
+    /// lists are already in push order (id-ascending, deduped) on both sides.
+    #[must_use]
+    pub fn dump_beam(&self) -> String {
+        fn csv(codes: &[i32]) -> String {
+            let mut s = String::new();
+            for (i, c) in codes.iter().enumerate() {
+                if i > 0 {
+                    s.push(',');
+                }
+                s.push_str(&c.to_string());
+            }
+            s
+        }
+        fn list_or_dash(list: Option<&[i32]>) -> String {
+            match list {
+                Some(l) => csv(l),
+                None => "-".to_string(),
+            }
+        }
+
+        let mut out = String::new();
+        out.push_str("is_valid_start\t");
+        out.push_str(&self.code_range.to_string());
+        out.push('\n');
+        for (i, &valid) in self.is_valid_start.iter().enumerate() {
+            out.push_str(&i.to_string());
+            out.push('\t');
+            out.push(if valid { '1' } else { '0' });
+            out.push('\n');
+        }
+
+        let mut seen: std::collections::HashSet<RecodedCharId> = std::collections::HashSet::new();
+        for code in &self.encoder {
+            for l in 0..code.length().max(0) {
+                let prefix = code.truncated(l);
+                if !seen.insert(prefix.clone()) {
+                    continue;
+                }
+                out.push_str("final\t");
+                out.push_str(&csv(prefix.codes()));
+                out.push('\t');
+                out.push_str(&list_or_dash(self.get_final_codes(&prefix)));
+                out.push('\n');
+                out.push_str("next\t");
+                out.push_str(&csv(prefix.codes()));
+                out.push('\t');
+                out.push_str(&list_or_dash(self.get_next_codes(&prefix)));
+                out.push('\n');
+            }
         }
         out
     }
@@ -519,6 +712,86 @@ mod tests {
             .expect("valid");
         // code_range = 6; id1 decodes to 2 (last-writer on shared code [5]).
         assert_eq!(rec.dump_decode(), "code_range\t6\n0\t0\n1\t2\n2\t2\n");
+    }
+
+    /// Build a `RecodedCharId` from a slice of codes — a beam-map query key.
+    fn rc(codes: &[i32]) -> RecodedCharId {
+        let mut code = [0_i32; K_MAX_CODE_LEN];
+        code[..codes.len()].copy_from_slice(codes);
+        RecodedCharId {
+            self_normalized: 1,
+            length: codes.len() as i32,
+            code,
+        }
+    }
+
+    #[test]
+    fn beam_maps_passthrough_all_length1() {
+        // 3 pass-through codes: every code is a valid start, the empty prefix maps
+        // all three final codes, and next_codes stays empty (the --len loop never
+        // runs) — the eng.lstm shape in miniature.
+        let rec =
+            UnicharCompress::from_le_bytes(&build(&[(1, &[0]), (1, &[1]), (1, &[2])])).expect("ok");
+        assert!(
+            rec.is_valid_first_code(0) && rec.is_valid_first_code(1) && rec.is_valid_first_code(2)
+        );
+        assert!(
+            !rec.is_valid_first_code(3),
+            "out-of-range code is not a start"
+        );
+        assert_eq!(
+            rec.get_final_codes(&RecodedCharId::default()),
+            Some(&[0, 1, 2][..])
+        );
+        assert_eq!(rec.get_next_codes(&RecodedCharId::default()), None);
+        assert_eq!(
+            rec.dump_beam(),
+            "is_valid_start\t3\n0\t1\n1\t1\n2\t1\nfinal\t\t0,1,2\nnext\t\t-\n"
+        );
+    }
+
+    #[test]
+    fn beam_maps_trie_multicode() {
+        // Length-3 (Han/Hangul-shaped) entries sharing prefixes exercise the full
+        // trie: the `while (--len >= 0)` walk, the dedup-then-`break` on an already
+        // seeded next prefix, and multiple finals under one prefix.
+        //   id0 [1]      id1 [2,3,4]   id2 [2,3,5]   id3 [2,6,7]
+        let rec = UnicharCompress::from_le_bytes(&build(&[
+            (1, &[1]),
+            (1, &[2, 3, 4]),
+            (1, &[2, 3, 5]),
+            (1, &[2, 6, 7]),
+        ]))
+        .expect("ok");
+        // final_codes: {} <- [1]; [2,3] <- [4,5]; [2,6] <- [7]
+        assert_eq!(
+            rec.get_final_codes(&RecodedCharId::default()),
+            Some(&[1][..])
+        );
+        assert_eq!(rec.get_final_codes(&rc(&[2, 3])), Some(&[4, 5][..]));
+        assert_eq!(rec.get_final_codes(&rc(&[2, 6])), Some(&[7][..]));
+        assert_eq!(
+            rec.get_final_codes(&rc(&[2])),
+            None,
+            "[2] is a next-prefix, not final"
+        );
+        // next_codes: {} <- [2] (from id1 only); [2] <- [3,6] (id1 seeds 3, id3 adds 6 then breaks)
+        assert_eq!(
+            rec.get_next_codes(&RecodedCharId::default()),
+            Some(&[2][..])
+        );
+        assert_eq!(rec.get_next_codes(&rc(&[2])), Some(&[3, 6][..]));
+        // is_valid_start: only the first codes 1 and 2 (code_range = 7+1 = 8).
+        assert!(rec.is_valid_first_code(1) && rec.is_valid_first_code(2));
+        assert!(!rec.is_valid_first_code(3) && !rec.is_valid_first_code(0));
+        assert_eq!(
+            rec.dump_beam(),
+            "is_valid_start\t8\n0\t0\n1\t1\n2\t1\n3\t0\n4\t0\n5\t0\n6\t0\n7\t0\n\
+             final\t\t1\nnext\t\t2\n\
+             final\t2\t-\nnext\t2\t3,6\n\
+             final\t2,3\t4,5\nnext\t2,3\t-\n\
+             final\t2,6\t7\nnext\t2,6\t-\n"
+        );
     }
 
     #[test]
