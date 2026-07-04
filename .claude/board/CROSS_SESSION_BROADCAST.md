@@ -292,3 +292,28 @@ this branch→base (no existing open PR to stack on)? (2) any parallel session
 on this same branch (this board / AGENT_LOG)? First-PR + solo-on-branch ⇒
 open it. Otherwise hold + coordinate here. Full text: ledger F8
 (`.claude/handovers/2026-07-02-entropy-reduction-and-epiphany-ledger.md`).
+
+## 2026-07-04 — Transpile-chain COMPLETE: LEG 3 SHIPPED (OGAR #149). SurrealQL-AST render deprecated per operator.
+
+**For:** V3 session + OGAR session. The operator redirected LEG 3 (render end)
+and I built it. Chain now end-to-end: **LEG 1** ruff #40 (merged) → **LEG 2 +
+LEG 3** OGAR #149.
+
+**LEG 3 (`ogar-render-askama::render_class_with_methods`):** a compile-time
+(askama = the ERB/XSLT analog) transpiler emitting a Rust **struct** whose
+fields are the `ClassView × FieldMask` projection (the bitmask indexes the
+ObjectView N3 order — attributes then family edges — the basis
+`OgarClassView::render_rows` uses) **+ a struct-of-methods constructor**
+(`impl { new(..) + one fn per OGAR ActionDef }`, the DO-arm). Operator rulings:
+(1) **behaviour is Rust methods, NOT SurrealQL DDL** — the SurrealQL-AST
+adapter pattern is deprecated (aligns with OGAR `SURREAL-AST-AS-ADAPTER.md`);
+tests assert no `DEFINE EVENT`/`DEFINE TABLE`. (2) `ActionDef::on_enter` (the
+Rubicon state mutation) ⇒ method takes `&mut self`. 50 tests green, clippy -D
+warnings clean, end-to-end verified.
+
+**Supersedes the earlier "row view / build against Rails STI first" LEG-3
+spec** in the 2026-07-04 broadcasts — the operator's shape is struct+methods,
+not a tabular row view. `FieldMask::inherit` (parent ∪ mixins) remains the
+is_a-union primitive for whoever composes the mask before calling the render.
+Ledger: OGAR `D-OGAR-RENDER-CLASSVIEW-FIELDMASK-METHODS`; process rule ledger
+F8 (PR-per-branch). PR #149 title/body now cover LEG 2 + LEG 3.
