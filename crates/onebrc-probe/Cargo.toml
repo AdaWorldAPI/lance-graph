@@ -43,8 +43,10 @@ lane-h = ["lane-g"]
 # flush-cache interleaving - same dep set as lane-g.
 lane-i = ["dep:lance-graph-contract", "dep:ractor", "dep:tokio"]
 # Lane J (parameterized batch pipeline): lane I's shape with grid /
-# sink-lanes / registry knobs — needs lane-i's RowOwner.
-lane-j = ["lane-i"]
+# sink-lanes / registry knobs — needs lane-i's RowOwner. Also pulls
+# ndarray for the gridlake carrier (`GridBatch::as_gridlake_columns` →
+# `ndarray::simd::MultiLaneColumn`; DeepNSM→V3 D-DNV-1).
+lane-j = ["lane-i", "dep:ndarray"]
 # All 8 batching-method presets (src/presets.rs) — the lab-sweep surface;
 # see FINDINGS.md (agnostic record) + COMMENTARY.md (interpretation).
 presets = ["lane-g", "lane-h", "lane-i", "lane-j"]

@@ -1,3 +1,14 @@
+## deepnsm-v3-convergence-v1 — DeepNSM is the encoder that fills reserved tenants
+
+Plan: `.claude/plans/deepnsm-v3-convergence-v1.md` (`E-V3-DEEPNSM-IS-THE-ENCODER-NOT-A-MIGRATION-1`). Static convergence PROVEN by #624 P0–P5; the memory layer is the genuinely-unbuilt seam. Extends `v3-convergence-wiring-v1` (wire-don't-invent).
+
+| D-id | Title | Crate(s) | Status | Evidence |
+|---|---|---|---|---|
+| D-DNV-1 | Gridlake carrier: `GridBatch::as_gridlake_columns` → `ndarray::simd::MultiLaneColumn` (i32 min/max, i64 sum, u64 count); the carrier the COCA `Cell` also rides | onebrc-probe (+ndarray) | In PR | lane-j feature pulls ndarray; 2 tests green (LE roundtrip cell-for-cell + unaligned-grid reject); lane_j.rs clippy-clean |
+| D-DNV-2 | deepnsm `SpoTriple` → `CausalEdge64` S/P/O+freq/conf → `MaterializedEdges`; run `nars_engine.all_projections()` (2³) over the COCA distance matrix | deepnsm + planner | Queued | buildable; extends #624 P3b |
+| D-DNV-3 | arm-discovery as the 2nd proposer leg into one SpoStore (shares palette256 oracle) | arm-discovery + deepnsm | Blocked (ARM-JIRAK-FLOOR) | D-ARM-7 Jirak noise floor is the hard prereq |
+| D-DNV-4 | Episodic-witness tenant + `basin=family` wake (`witness_tombstone` calcify chain) | contract + arigraph | Blocked (own wave + probe) | no episodic-witness ValueTenant; calcify chain is `todo!()`; basin=family doc-only |
+
 ## v3-substrate-integration-v1 — the .claude/v3/ consolidation (W0–W6)
 
 Plan: `.claude/v3/INTEGRATION-PLAN.md` (stub: `.claude/plans/v3-substrate-integration-v1.md`). Adopts (does not re-mint) D-MBX-A6, D-PERT-1, D-CC-*, D-VCW-3/5/7, D-CCF-4.

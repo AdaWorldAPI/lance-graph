@@ -43,6 +43,7 @@ use crate::lane_f::{fnv1a64, morton_slot};
 use crate::lane_i::RowOwner;
 use crate::{chunk_bounds, merge_maps, parse_temp_tenths, Stats};
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
+use ndarray::simd::MultiLaneColumn;
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -133,7 +134,7 @@ impl GridMemo {
 
 // ─── Grid batch table (the gridlake SoA unit at grid=4096: ~80 KB) ──────
 
-pub(crate) struct GridBatch {
+pub struct GridBatch {
     mins: Vec<i32>,
     maxs: Vec<i32>,
     sums: Vec<i64>,
@@ -177,6 +178,70 @@ impl GridBatch {
             self.counts[s] = 0;
         }
         self.dirty.clear();
+    }
+}
+
+// ─── Gridlake carrier: the batch table AS ndarray MultiLaneColumns ──────
+
+/// The lane-J `GridBatch` accumulators rendered as `ndarray::simd`
+/// [`MultiLaneColumn`] gridlake carriers — the SoA-contract carrier the
+/// proven 64×64 gridlake tile rides (`E-1BRC-GRIDLAKE-SWEETSPOT-1`), and the
+/// **same** `MultiLaneColumn` the COCA cognitive `Cell`
+/// (helix48/campq48/count/truth, `crates/deepnsm/examples/gridlake_coca_wire.rs`)
+/// composes from. This is the DeepNSM→V3 D-DNV-1 recognition
+/// (`.claude/plans/deepnsm-v3-convergence-v1.md`,
+/// `E-V3-DEEPNSM-IS-THE-ENCODER-NOT-A-MIGRATION-1`): the batch table is not a
+/// bespoke struct, it is typed lanes over one carrier — "wire, don't invent."
+///
+/// Lane widths follow the integer lanes ndarray added for exactly this
+/// (`iter_i32x16` "min/max tile columns", `iter_i64x8` "running sums"):
+/// min/max ride `I32x16`, sum rides `I64x8`, count (a non-negative
+/// accumulator) rides `U64x8`. Each column's backing buffer is a 64-byte
+/// multiple whenever `grid` is a multiple of 16 (i32·16 = i64·8 = u64·8 =
+/// 64 B), which the gridlake `grid = 4096` satisfies.
+pub struct GridlakeColumns {
+    pub mins: MultiLaneColumn,
+    pub maxs: MultiLaneColumn,
+    pub sums: MultiLaneColumn,
+    pub counts: MultiLaneColumn,
+}
+
+impl GridBatch {
+    /// Render the four accumulator columns as [`MultiLaneColumn`] gridlake
+    /// carriers (little-endian bytes, zero semantic change — a *reading*, not
+    /// a re-layout). `count` is widened `u32 → u64` to ride the unsigned
+    /// 64-bit accumulator lane. Returns `Err(())` if a column buffer is not
+    /// 64-byte aligned (i.e. `grid % 16 != 0`), mirroring
+    /// `MultiLaneColumn::new`'s own contract.
+    #[allow(clippy::result_unit_err)] // pass-through of MultiLaneColumn::new's Result<_, ()> alignment contract
+    pub fn as_gridlake_columns(&self) -> Result<GridlakeColumns, ()> {
+        fn col_i32(v: &[i32]) -> Result<MultiLaneColumn, ()> {
+            let mut b = Vec::with_capacity(v.len() * 4);
+            for &x in v {
+                b.extend_from_slice(&x.to_le_bytes());
+            }
+            MultiLaneColumn::new(Arc::from(b))
+        }
+        fn col_i64(v: &[i64]) -> Result<MultiLaneColumn, ()> {
+            let mut b = Vec::with_capacity(v.len() * 8);
+            for &x in v {
+                b.extend_from_slice(&x.to_le_bytes());
+            }
+            MultiLaneColumn::new(Arc::from(b))
+        }
+        fn col_u64_from_u32(v: &[u32]) -> Result<MultiLaneColumn, ()> {
+            let mut b = Vec::with_capacity(v.len() * 8);
+            for &x in v {
+                b.extend_from_slice(&(x as u64).to_le_bytes());
+            }
+            MultiLaneColumn::new(Arc::from(b))
+        }
+        Ok(GridlakeColumns {
+            mins: col_i32(&self.mins)?,
+            maxs: col_i32(&self.maxs)?,
+            sums: col_i64(&self.sums)?,
+            counts: col_u64_from_u32(&self.counts)?,
+        })
     }
 }
 
@@ -593,6 +658,74 @@ pub fn lane_j_grid_pipeline(data: &[u8], workers: usize) -> BTreeMap<String, Sta
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// D-DNV-1 carrier foundation: the gridlake `GridBatch` renders
+    /// losslessly through `ndarray::simd::MultiLaneColumn` — the LE bytes
+    /// roundtrip cell-for-cell against the source accumulators, and the typed
+    /// integer lanes (i32 min/max, i64 sum, u64 count) each yield the right
+    /// window count over the carrier. This is the "wire, don't invent" proof
+    /// that the batch table IS a MultiLaneColumn composition (the carrier the
+    /// COCA cognitive Cell also rides).
+    #[test]
+    fn gridlake_batch_rides_multilane_column_losslessly() {
+        let grid = 4096usize;
+        let mut batch = GridBatch::new(grid);
+        // A spread of cells with distinct signed extremes + running sums,
+        // incl. the i32x16 / lane boundaries (15|16) and the tile edge (4095).
+        for (k, &slot) in [0u16, 1, 15, 16, 255, 256, 4095].iter().enumerate() {
+            let k = k as i32;
+            batch.observe(slot, -(k * 10) - 3);
+            batch.observe(slot, k * 7 + 11);
+            batch.observe(slot, 5);
+        }
+        let cols = batch
+            .as_gridlake_columns()
+            .expect("grid=4096 columns are 64-byte aligned");
+
+        // Typed-lane views are wired: 4096 i32 = 256 × i32x16;
+        // 4096 i64/u64 = 512 × i64x8/u64x8 (the lanes ndarray added for this).
+        assert_eq!(cols.mins.len_i32x16(), grid / 16);
+        assert_eq!(cols.mins.iter_i32x16().count(), grid / 16);
+        assert_eq!(cols.maxs.len_i32x16(), grid / 16);
+        assert_eq!(cols.sums.len_i64x8(), grid / 8);
+        assert_eq!(cols.sums.iter_i64x8().count(), grid / 8);
+        assert_eq!(cols.counts.len_u64x8(), grid / 8);
+        assert_eq!(cols.counts.iter_u64x8().count(), grid / 8);
+
+        // LE roundtrip is cell-for-cell exact against the source accumulators.
+        let dec_i32 = |c: &MultiLaneColumn| -> Vec<i32> {
+            c.as_bytes()
+                .chunks_exact(4)
+                .map(|b| i32::from_le_bytes(b.try_into().expect("4-byte i32 chunk")))
+                .collect()
+        };
+        let dec_i64 = |c: &MultiLaneColumn| -> Vec<i64> {
+            c.as_bytes()
+                .chunks_exact(8)
+                .map(|b| i64::from_le_bytes(b.try_into().expect("8-byte i64 chunk")))
+                .collect()
+        };
+        let dec_u64 = |c: &MultiLaneColumn| -> Vec<u64> {
+            c.as_bytes()
+                .chunks_exact(8)
+                .map(|b| u64::from_le_bytes(b.try_into().expect("8-byte u64 chunk")))
+                .collect()
+        };
+        assert_eq!(dec_i32(&cols.mins), batch.mins);
+        assert_eq!(dec_i32(&cols.maxs), batch.maxs);
+        assert_eq!(dec_i64(&cols.sums), batch.sums);
+        let counts_u64: Vec<u64> = batch.counts.iter().map(|&c| c as u64).collect();
+        assert_eq!(dec_u64(&cols.counts), counts_u64);
+    }
+
+    /// The carrier refuses a mis-aligned grid (not a multiple of 16) rather
+    /// than silently producing a non-64-byte column — the `MultiLaneColumn`
+    /// contract surfaced at the batch boundary.
+    #[test]
+    fn gridlake_carrier_rejects_unaligned_grid() {
+        let batch = GridBatch::new(72); // 72 % 16 != 0 → i32 col = 288 B, not 64-mult
+        assert!(batch.as_gridlake_columns().is_err());
+    }
 
     /// Parity across the knob matrix corners: gridlake (4096) and full
     /// (65536) grids × 1 and 8 sink lanes × registry on/off, all with a
