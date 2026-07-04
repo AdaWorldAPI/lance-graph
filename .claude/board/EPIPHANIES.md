@@ -1,3 +1,15 @@
+## 2026-07-04 — E-OCR-GRAPHWALK-1 — recognizer Leaf 6: the graph walk (`Series`/`Reversed`/`Parallel`) is byte-parity green — the composition that chains the proven layer leaves into a network forward, with the inter-layer int8 requant
+**Status:** FINDING (byte-parity proven vs libtesseract 5.3.4; `tesseract-recognizer`, tested)
+
+The composition that turns the individual layer leaves into a network forward — the compute-side **execution tree**, the `invoke_network` counterpart (the Core's `lance_graph_contract::network` FacetCascade describes the tree *structure*; `tesseract_recognizer::graph::Layer` *runs* it). NOT a parallel object model: it is the runnable subset (the layers whose `Forward` this crate transcodes), built from the Core's tree by a consumer. `Layer { Lstm, FullyConnected, Reversed, Series, Parallel }`:
+- **`Series`** (`series.cpp:Forward`): run each sub-layer in turn, output of N → input of N+1. The recognizer runs int8, so the intermediate `NetworkScratch::IO` buffers inherit `int_mode` → the inter-layer conversion is the **int8 requant** (`quantize_i8` = `NetworkIO::WriteTimeStep`, proven Leaf 5). The final softmax is the `ResizeFloat` exception.
+- **`Reversed`** (XREVERSED, `reversed.cpp`): reverse the 1-D sequence → inner → reverse. (`Txy`/`YREVERSED` are 2-D front-end, deferred.)
+- **`Parallel`** (`parallel.cpp`): same input to each sub-layer, concatenate outputs.
+
+Byte-parity **GREEN**: `Series[LSTM, FC(tanh)]` across 4 shapes incl. `ns=96/ni=192/no=111` (eng.lstm's LSTM192→Fc111 tail) — diffing f32 bit-patterns vs a libtesseract oracle (`/tmp/graph_oracle.cpp`, `-DFAST_FLOAT`) that runs the REAL LSTM per-timestep body over all timesteps → the REAL `WriteTimeStep` int8 requant → the REAL `MatrixDotVector`+`FuncInplace` — the exact `Series::Forward` composition. Proves the chaining order + the inter-layer requant (the one debug: the SIMD `MatrixDotVector` over-writes `RoundOutputs` padding, so oracle output vectors need `+128`). +4 unit tests (27 total); clippy `-D warnings` + fmt clean.
+
+The recognizer now chains the proven layers into a **1-D network forward** from feature sequences → softmax logits. **Next Leaf 7 = `recodebeam`** — the CTC beam decode (needs the recoder's deferred `SetupDecoder` beam maps: `GetNextCodes`/`GetFinalCodes`/`is_valid_start_`) → the code lattice `recoded_to_text` (E-CPP-PARITY-7) eats → the text string. Then the 2-D front-end (`Convolve`/`Maxpool`/`XYTranspose` + the `NetworkIO`/`StrideMap` grid + leptonica image `Input`) closes image→text. Cross-ref: `E-OCR-LSTM-1` (Leaf 5), `E-OCR-FULLYCONNECTED-1` (Leaf 4), `E-CPP-PARITY-7` (the recoder `recoded_to_text` the lattice feeds). tesseract-rs PR #5 (recognizer Leaves 1-6). Branch `claude/happy-hamilton-0azlw4`.
+
 ## 2026-07-04 — E-OCR-LSTM-1 — recognizer Leaf 5: `LSTM::Forward` (1-D int8) is byte-parity green vs libtesseract — the recurrent layer, the hardest leaf, composes 4 Leaf-4 gates + the int8-quantized state recurrence
 **Status:** FINDING (byte-parity proven vs libtesseract 5.3.4; `tesseract-recognizer`, tested)
 
