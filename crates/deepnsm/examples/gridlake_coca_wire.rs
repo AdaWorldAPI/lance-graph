@@ -43,7 +43,11 @@ fn main() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("word_frequency");
     let vocab = Vocabulary::load(&dir).expect("load COCA word_frequency");
     println!("── COCA VOCAB ─────────────────────────────────────────────");
-    println!("  loaded {} entries (VOCAB_SIZE=4096) from {}", vocab.len(), dir.display());
+    println!(
+        "  loaded {} entries (VOCAB_SIZE=4096) from {}",
+        vocab.len(),
+        dir.display()
+    );
 
     let mut palette: Vec<[[u8; 256]; 256]> = vec![[[0u8; 256]; 256]; PQ];
     for (s, t) in palette.iter_mut().enumerate() {
@@ -103,7 +107,11 @@ fn main() {
         GRID,
         cell_bytes,
         GRID * cell_bytes / 1024,
-        if GRID * cell_bytes <= 80 * 1024 { "FITS ✓" } else { "EXCEEDS ✗" }
+        if GRID * cell_bytes <= 80 * 1024 {
+            "FITS ✓"
+        } else {
+            "EXCEEDS ✗"
+        }
     );
 
     // Throughput sweep over the REAL landed COCA ranks (cache-resident scatter+codec).

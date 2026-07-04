@@ -130,7 +130,10 @@ fn main() {
                     continue;
                 }
                 let Ok(w) = f[1].parse::<f32>() else { continue };
-                if let (Some(a), Some(b)) = (rank_of(&vocab, &f[ca].to_lowercase()), rank_of(&vocab, &f[cb].to_lowercase())) {
+                if let (Some(a), Some(b)) = (
+                    rank_of(&vocab, &f[ca].to_lowercase()),
+                    rank_of(&vocab, &f[cb].to_lowercase()),
+                ) {
                     if a != b {
                         adj[a * N + b] += w;
                         adj[b * N + a] += w;
@@ -142,7 +145,10 @@ fn main() {
     };
     ingest("v_the_n.txt", 2, 4, 5); // verb·noun
     ingest("n_n.txt", 2, 3, 4); // noun·noun
-    println!("SPO co-occurrence graph: {} edges over {N} COCA nodes", edges.len());
+    println!(
+        "SPO co-occurrence graph: {} edges over {N} COCA nodes",
+        edges.len()
+    );
 
     // degree-normalize: D^-1/2 A D^-1/2 (eigvec0 ~ trivial; eigvec1,2 = semantic axes)
     let mut deg = vec![0f32; N];
@@ -169,11 +175,15 @@ fn main() {
         evs.push(v);
     }
     println!("\n── (1) SPECTRAL GAP — CRUDE solver, ordering UNRELIABLE (see (3)) ──");
-    println!("  λ={:.4} {:.4} {:.4} {:.4}  (raw Rayleigh quotients; do NOT read as a gap)",
-        lambdas[0], lambdas[1], lambdas[2], lambdas[3]);
+    println!(
+        "  λ={:.4} {:.4} {:.4} {:.4}  (raw Rayleigh quotients; do NOT read as a gap)",
+        lambdas[0], lambdas[1], lambdas[2], lambdas[3]
+    );
 
     // ── (2) rank projection: (x,y) = (rank%64, rank/64) ──
-    let rank_pos: Vec<(f32, f32)> = (0..N).map(|r| ((r % SIDE) as f32, (r / SIDE) as f32)).collect();
+    let rank_pos: Vec<(f32, f32)> = (0..N)
+        .map(|r| ((r % SIDE) as f32, (r / SIDE) as f32))
+        .collect();
     let (rx, ry, rc, rlen) = edge_cov(&edges, &rank_pos);
     println!("\n── (2) RANK PROJECTION edge covariance ──");
     println!("  mean|Δx|={rx:.1} mean|Δy|={ry:.1}  corr(Δx,Δy)={rc:+.3}  mean‖Δ‖={rlen:.1} cells");

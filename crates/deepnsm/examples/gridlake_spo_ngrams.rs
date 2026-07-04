@@ -54,7 +54,9 @@ fn ingest(
             continue;
         }
         // format: rank \t freq \t w... — data rows start with a numeric rank.
-        let Ok(freq) = f[1].parse::<u64>() else { continue };
+        let Ok(freq) = f[1].parse::<u64>() else {
+            continue;
+        };
         rows += 1;
         for &col in &[ca, cb] {
             if let Some(w) = f.get(col) {
