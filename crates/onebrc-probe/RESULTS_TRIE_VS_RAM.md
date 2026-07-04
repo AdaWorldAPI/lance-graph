@@ -19,12 +19,12 @@
 > results are for THIS workload, THIS machine, ONE corpus — see "Scope" at
 > the end.
 >
-> **Lane S provenance.** Lane S (SWAR) is NOT in this PR's diff — it ships in
-> the companion PR (`onebrc-probe: lane S`). Its rows below were measured with
-> that PR applied; on **this branch alone**, the runnable lanes are
-> `a c r f t8 t` and the `lane_s_agrees_with_lane_a` parity test lives in the
-> companion PR. S is kept in the ladder because the report's whole point is the
-> full RAM-table-vs-trie comparison, and S is the fastest RAM-table method.
+> **Lane S provenance.** Lane S (SWAR) shipped separately (PR #637, merged to
+> `main`); this branch is rebased on top of it, so `lane_s` and its
+> `lane_s_agrees_with_lane_a` parity test are present here and all lanes in the
+> ladder — `a c r f t8 t s` — are runnable. S is kept in the ladder because the
+> report's whole point is the full RAM-table-vs-trie comparison, and S is the
+> fastest RAM-table method.
 
 ## The methods (group-by-aggregate, min/max/sum/count per station)
 
@@ -155,7 +155,7 @@ count (10M). Not a claim about other CPUs, other cardinalities, or the full
 cd crates/onebrc-probe
 cargo build --release
 target/release/onebrc-probe gen /tmp/brc10m.txt 10000000 42   # if absent
-for lane in a c r f t8 t; do   # add `s` once the companion lane-S PR is merged
+for lane in a c r f t8 t s; do
   for i in $(seq 1 11); do target/release/onebrc-probe run /tmp/brc10m.txt $lane 4; done
 done   # take median + min/max/sd per lane, not best-of-N
 # native: RUSTFLAGS="-C target-cpu=native" cargo build --release --target-dir target-native
