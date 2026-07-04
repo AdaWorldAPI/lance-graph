@@ -17,6 +17,12 @@
 //! diff /tmp/oracle_recoder_encode.tsv /tmp/rust_recoder_encode.tsv \
 //!   && diff /tmp/oracle_recoder_decode.tsv /tmp/rust_recoder_decode.tsv
 //! # both byte-identical => the recoder load-side is byte-parity green
+//!
+//! # The `beam` mode dumps the SetupDecoder trie maps (is_valid_start_ /
+//! # final_codes_ / next_codes_ — the RecodeBeamSearch surface, Leaf 7a):
+//! #   ./recoder_oracle /tmp/eng.lstm-unicharset /tmp/eng.lstm-recoder beam > /tmp/oracle_recoder_beam.tsv
+//! cargo run -p lance-graph-contract --example recoder_dump -- /tmp/eng.lstm-recoder beam > /tmp/rust_recoder_beam.tsv
+//! diff /tmp/oracle_recoder_beam.tsv /tmp/rust_recoder_beam.tsv   # byte-identical => 7a green
 //! ```
 
 #![allow(
@@ -39,6 +45,7 @@ fn main() -> ExitCode {
         Ok(recoder) => {
             match mode.as_str() {
                 "decode" => print!("{}", recoder.dump_decode()),
+                "beam" => print!("{}", recoder.dump_beam()),
                 _ => print!("{}", recoder.dump_encode()),
             }
             ExitCode::SUCCESS
