@@ -1,3 +1,26 @@
+## epiphany-integration-2026-07-04-v3 — membranes, parity, unified ruff phases
+
+Plan: `.claude/plans/epiphany-integration-2026-07-04-v3.md`. Full 13-agent review pipeline complete; execution queued behind D1→A1. Cross-repo (ruff/OGAR/lance-graph); consumer-side baton homes per BH-1/2/6.
+
+| D-id | Title | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-EPI-D1 | Broadcast entry: lane claims ruff work + plan announce | lance-graph | Queued | plan §2 Group D |
+| D-EPI-A1 | NEW ruff branch off origin/main@HEAD (never re-point shared name — BH-4) | ruff | Queued | plan §2 A1 |
+| D-EPI-D2 | Minimal ruff board file w/ plan pointer + A2b/A7 gate markers | ruff | Queued | plan §2 D2 (the consumer-side baton home) |
+| D-EPI-A2a | Predicate registry freeze (derived count 62; prose cites test) | ruff | Queued | S5: assert exists at triple.rs |
+| D-EPI-A2b | Opacity invariant into IR record (4-crate cascade) | ruff | Blocked (B1 council verdict) | plan §4 edge |
+| D-EPI-A3 | C# golden fixture (Python #40 + Ruby already emit inherits_from) | ruff | Queued | S5-D3 |
+| D-EPI-A4 | Reassembler generalization (FEATURE: per-predicate inverse logic) | ruff | Queued (own PR) | cascade-impact rescope |
+| D-EPI-A5 | Cross-language convergence gate (tests E-CONVERGENCE-GATE-FIRST-1 [CONJ]) | ruff | Queued | greenfield (S5) |
+| D-EPI-A6 | Mint→ndjson seam + registry-version stamp | ruff | Queued | iron-rule I-LEGACY consequence |
+| D-EPI-A7 | Falsifier-fence CI + genericize surviving medcare:* fixtures | ruff | Blocked (Q-A7) | BH-5 |
+| D-EPI-B1 | Council filing: 2 parents + 14 rows | lance-graph | Queued | plan §1 |
+| D-EPI-B2 | v3 census forward-ref convention + W6-AriGraph pointer | lance-graph (V3-owned) | Queued (broadcast-first, 7-day fallback) | BH-3 |
+| D-EPI-B3 | tenants.md registry columns (10 shipped + BoardAggregates PENDING-GATED) | lance-graph (V3-owned) | Queued (broadcast-first, 7-day fallback) | S1-D1/S2-D1 |
+| D-EPI-B4 | E-V3-RIG-ARM amendment (mounts-on; shell/organs) | lance-graph | Queued | S2-D2 trim |
+| D-EPI-C1 | OGAR falsifier-fence non-negotiable bullet | OGAR | Queued | S3 insertion point |
+| D-EPI-C2 | OGAR Türsteher-carry bullet (§1.6, cites capstone) | OGAR | Queued | S3 insertion point |
+
 ## deepnsm-v3-convergence-v1 — DeepNSM is the encoder that fills reserved tenants
 
 Plan: `.claude/plans/deepnsm-v3-convergence-v1.md` (`E-V3-DEEPNSM-IS-THE-ENCODER-NOT-A-MIGRATION-1`). Static convergence PROVEN by #624 P0–P5; the memory layer is the genuinely-unbuilt seam. Extends `v3-convergence-wiring-v1` (wire-don't-invent).
