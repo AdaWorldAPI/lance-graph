@@ -10,6 +10,12 @@
 
 ---
 
+## 2026-07-04 — branch `claude/happy-hamilton-0azlw4` — `contract::unicharcompress` — the Tesseract recoder load side (byte-parity vs libtesseract)
+
+**NEW** `lance_graph_contract::unicharcompress`: `UnicharCompress` (the LSTM recoder's code↔id table) + `RecodedCharId` + `RecoderError`, load side only (`from_le_bytes` / `load_from_file` = C++ `DeSerialize`; `encode` / `decode` / `code_range`; `dump_encode` / `dump_decode` parity surfaces). The FIRST binary-format leaf (`TFile` little-endian: `u32 count` + per-entry `[i8 self_normalized][i32 length][i32×length code]`). Byte-parity **GREEN** on real `/tmp/eng.lstm-recoder` — encode 112/112 + decode 112/112 + code_range=111 — via the committed `examples/recoder_dump.rs`, diffed vs a libtesseract 5.3.4 oracle (the 5.5.0-header ABI skew self-validated by the `Encode∘Decode` round-trip + `enc_size=112`). +10 contract tests; `-p lance-graph-contract` clippy `-D warnings` + fmt clean. Consumed by `tesseract-core::{Recoder, recoded_to_text}` (codes→decode→ids→`ids_to_text`; +1 boundary test, 8/8). Resolves the `recoder`=0x0802 concept (OGAR #148 mint, mirrored in the "0x08XX OCR rows" line below) to its content-store module. The recoder keystone (`invoke_recoder`) is UNBLOCKED but deferred (dispatch already proven generically by E-CPP-KEYSTONE-1). Refs: EPIPHANIES `E-CPP-PARITY-7`. Not yet a PR.
+
+---
+
 ## 2026-06-23 — IN PR (`claude/medcare-bridge-lance-graph-wmx76z`) — ActionHandler⟷RBAC⟷orchestration spine
 
 `contract::rbac`: `ScopeSpec` (axis-3 Copy token) + `ClassRbac` §4 default methods (`roles_reaching`/`row_scope`/`field_mask`; backward-compat, probe green). `contract::class_view::FieldMask::union`. `contract::action::ActionInvocation::commit_via<R: ClassRbac>` (no-admin-bypass convergence of the inline gate). `lance-graph-rbac::{authorize_scoped, ScopedDecision}` (§5 two-stage). `lance-graph-ogar::{OgarRbac<S: GrantSource>, GrantSource}` (Q5 local newtype, §6 evaporation seam). rs-graph-llm: `graph-flow-kanban::{run_cycle, CycleOutcome}` + `graph-flow-action::dispatch_via`. Plan: integration-actionhandler-rbac-orchestration-v1.

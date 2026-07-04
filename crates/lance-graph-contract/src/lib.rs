@@ -133,6 +133,7 @@ pub mod tax;
 pub mod tenant_counter;
 pub mod thinking;
 pub mod unichar;
+pub mod unicharcompress;
 pub mod unicharset;
 pub mod unicharset_adapter;
 pub mod view_angle;
