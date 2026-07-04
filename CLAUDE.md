@@ -1317,6 +1317,26 @@ All findings in `.claude/knowledge/session_autocomplete_cache.md`.
 > Operator-locked this session. Append-only. Wrapper `NodeGuid` (#480) is audited
 > against THIS, never the reverse. No RFC-9562 ceremony in the hot key.
 
+> **⊘ SUPERSEDED — MIGRATION MANDATORY (operator, 2026-07-04).** The
+> `10..13 family (u24)` / `13..16 identity (u24)` tail below — two
+> contiguous **u24** bit-groupings (`family:u24 ++ identity:u24`) — is
+> **V1-LEGACY and forbidden for new units.** A flat u24 has no axis: it
+> cannot carry a rail (`X:Y`), so it is a structurally retired shape, not a
+> width variant. Every new unit is the **V3 content-blind 4+12 facet**
+> (`classid(4) + 12-byte payload`, operator-locked `E-V3-FACET-4-PLUS-12`,
+> 2026-07-02; ruling `E-V1-TAIL-FORBIDDEN-V3-IS-CONTENT-BLIND-1`,
+> `.claude/board/EPIPHANIES.md`). The 12B is a **dumb byte register the
+> ClassView projects** — it holds every sanctioned reading at once, carved
+> per `.claude/v3/soa_layout/le-contract.md` §3 as `6×(u8:u8)` rails /
+> `4×(u8:u8:u8)` SPO triplets / `3×(u8:u8:u8:u8)` odoo quads
+> (`6·2 = 4·3 = 3·4 = 12`). **`u8:u8` = two separate bytes, NEVER widened
+> to u16 or u24.** Reads of the u24 tail on existing V1 rows survive
+> unchanged (I-LEGACY-API-FEATURE-GATED); only new **mints** are forbidden
+> — route them through `mint_for(classid_read_mode(c).tail_variant, …)`,
+> never `NodeGuid::new` (V1). Append-only: the pin below is NOT deleted;
+> read it as the retired V1 tail. Live residue tracked in
+> `.claude/board/ISSUES.md` `ISS-V1-TAIL-RESIDUE`.
+
 **Node = 4096 bit = 512 byte:** `key(16) | edges(16) | value(480)`.
 
 **Key (16 byte, little-endian):**
@@ -1325,11 +1345,12 @@ All findings in `.claude/knowledge/session_autocomplete_cache.md`.
  4..6   HEEL      (u16)   ┐
  6..8   HIP       (u16)   ├ 3 cascade tiers (HHTL path)
  8..10  TWIG      (u16)   ┘
-10..13  family    (u24)   ┐ trailing 6 bytes = basin-local key
-13..16  identity  (u24)   ┘ (masked load after the trie binds the prefix)
+10..13  family    (u24)   ┐ V1-LEGACY tail — read-only; new units mint the
+13..16  identity  (u24)   ┘ V3 4+12 facet (see ⊘ supersession above)
 ```
 `local_key()` = bytes 10..16 (family ++ identity), the only discriminator once
-the prefix is resolved.
+the prefix is resolved. **[V1-LEGACY — reads only; new mints use the V3
+content-blind facet.]**
 
 **Edge block (16 byte):** 12 in-family + 4 out-of-family, one byte per slot.
 Canonical, NOT mandatory — always reserved (zeroed when unused), never shrunk; a

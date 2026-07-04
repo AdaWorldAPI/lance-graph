@@ -1,5 +1,19 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-04 — ISS-V1-TAIL-RESIDUE — two pre-existing `NodeGuid::new` (V1 `u24+u24`) mint sites must migrate to V3 (`mint_for` / V3-marked classid)
+
+**Status:** OPEN — **MIGRATION MANDATORY** (operator ruling 2026-07-04, `E-V1-TAIL-FORBIDDEN-V3-IS-CONTENT-BLIND-1`). Deferred in *timing*, not in *obligation*; NOT to be churned into unrelated PRs. Owner: whoever next moves each output path onto a V3-marked classid.
+
+**The residue.** The flat V1 tail `family(u24) ++ identity(u24)` is forbidden for new units; V3 is the content-blind `classid(4)+12B` facet (`E-V3-FACET-4-PLUS-12`). A read-only conformance audit of the whole repo found the V1 tail *produced* at exactly two live sites, both hardcoding `NodeGuid::new(...)` instead of the canonical `mint_for(classid_read_mode(c).tail_variant, …)` dispatch:
+- `crates/lance-graph-contract/src/ocr.rs:121` — the #496 OCR→`NodeRow` keystone.
+- `crates/lance-graph-contract/src/aiwar.rs:104` — the aiwar `NodeRow` builder.
+
+Both currently target V1-default/OSINT classids, so they are **behaviorally correct today** — the defect is that they bypass the `mint_for` dispatch that is supposed to make a class's V1→V3 flip a one-line registry change. Everything else in the repo is either a test (`#[cfg(test)]`) or a legitimate legacy-compat *read* (`family()`/`identity()` fallback arms in `soa_graph.rs`, `hhtl.rs` prefix routing) — reads stay, per `I-LEGACY-API-FEATURE-GATED`; only new *mints* are forbidden.
+
+**Resolution (mandatory, when each output path is next touched).** Route each site through `mint_for(classid_read_mode(classid).tail_variant, …)` with a V3-marked classid; add a `/v3-audit` grep that forbids new `NodeGuid::new(` in non-test code so the guard is mechanical. Blocker to note: `mint_for`/`new_v2` sit behind `guid-v2-tail` (default-off) — un-gate `mint_for` (V1 arm unconditional, V2/V3 under the feature) before pointing production mints at it.
+
+**Cross-ref:** `EPIPHANIES.md` `E-V1-TAIL-FORBIDDEN-V3-IS-CONTENT-BLIND-1`, `E-V3-FACET-4-PLUS-12`, `canonical_node.rs` (`TailVariant`, `mint_for`, `new`), OGAR PR (canon supersession) + `D-V1-TAIL-RETIRED`.
+
 ## 2026-07-01 — ISS-Q2-CASCADE3-NIBBLE-ANCESTRY — q2 `cascade3` FNV bytes are byte-hierarchical but NOT nibble-hierarchical; HHTL routing over bake mints is sound only at whole-tier granularity
 
 **Status:** OPEN (falsifier specified, not yet run — q2 push gate WAIVED 2026-07-02, "temporary precaution … you can unarm that"; runnable now, D-VCW-5). Owner:
