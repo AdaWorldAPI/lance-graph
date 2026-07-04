@@ -118,6 +118,27 @@ impl Default for RecodedCharId {
 }
 
 impl RecodedCharId {
+    /// Construct a code from an explicit slice of code values — the beam-search
+    /// consumer's key builder (the C++ `RecodedCharID::Set` loop,
+    /// `unicharcompress.h:43`). `RecodeBeamSearch` builds a `prefix`
+    /// (`codes[0..length]`) to query [`Self::get_final_codes`](UnicharCompress::get_final_codes)
+    /// / [`get_next_codes`](UnicharCompress::get_next_codes) and a `full_code`
+    /// (`prefix ++ code`) to feed [`UnicharCompress::decode`]. Only the first
+    /// [`K_MAX_CODE_LEN`](struct@RecodedCharId) codes are kept; extras are dropped
+    /// (the C++ fixed `code_[9]`). `self_normalized` is the default `1` (it never
+    /// participates in identity).
+    #[must_use]
+    pub fn from_codes(codes: &[i32]) -> Self {
+        let mut code = [0_i32; K_MAX_CODE_LEN];
+        let len = codes.len().min(K_MAX_CODE_LEN);
+        code[..len].copy_from_slice(&codes[..len]);
+        Self {
+            self_normalized: 1,
+            length: len as i32,
+            code,
+        }
+    }
+
     /// The codes in use — `code[0..length]`. The only bytes that carry identity.
     #[must_use]
     pub fn codes(&self) -> &[i32] {
@@ -723,6 +744,20 @@ mod tests {
             length: codes.len() as i32,
             code,
         }
+    }
+
+    #[test]
+    fn from_codes_builds_identity_key() {
+        // The public beam-consumer constructor agrees with the private test `rc`
+        // (identity = length + code[0..length]); an empty slice is the empty
+        // prefix (== default); overflow past kMaxCodeLen is truncated.
+        assert_eq!(RecodedCharId::from_codes(&[2, 3]), rc(&[2, 3]));
+        assert_eq!(RecodedCharId::from_codes(&[2, 3]).codes(), &[2, 3]);
+        assert_eq!(RecodedCharId::from_codes(&[]), RecodedCharId::default());
+        assert_eq!(RecodedCharId::from_codes(&[7]).length(), 1);
+        let over = RecodedCharId::from_codes(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+        assert_eq!(over.length() as usize, K_MAX_CODE_LEN, "truncated to 9");
+        assert_eq!(over.codes(), &[1, 2, 3, 4, 5, 6, 7, 8, 9]);
     }
 
     #[test]
