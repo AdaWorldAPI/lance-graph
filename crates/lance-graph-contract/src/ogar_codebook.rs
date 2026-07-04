@@ -486,6 +486,12 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("unicharset", 0x0801),
     ("recoder", 0x0802),
     ("charset", 0x0803),
+    // `network_layer` = the KIND "a Tesseract recognizer network layer" (Series /
+    // LSTM / Convolve / …). ONE container slot: the specific subclass is the
+    // classid's custom-low half (the `NetworkType` ordinal, `network::NETWORK_LAYER`),
+    // not 27 slots — the layer graph sinks onto `FacetCascade` tenants (the
+    // ruff→OGAR network harvest lands here).
+    ("network_layer", 0x0804),
     // ── 0x09XX — Health domain (MedCare; OGIT NTO/Healthcare promotion) ──
     ("patient", 0x0901),
     ("diagnosis", 0x0902),
