@@ -206,15 +206,46 @@ pub struct GridlakeColumns {
     pub counts: MultiLaneColumn,
 }
 
+/// Failure rendering a [`GridBatch`] as gridlake [`MultiLaneColumn`]s.
+///
+/// A plain enum rather than a `snafu` type on purpose: `onebrc-probe` is a
+/// workspace-excluded standalone probe whose lanes A/C are dependency-free by
+/// design (see its `Cargo.toml`) — it carries no `snafu`. This surfaces the
+/// same alignment failure `MultiLaneColumn::new` reports, but with the
+/// offending `grid` for diagnostics instead of a bare `()`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GridlakeCarrierError {
+    /// A column buffer was not 64-byte aligned because `grid` is not a
+    /// multiple of 16 (i32·16 = i64·8 = u64·8 = 64 B), so
+    /// `MultiLaneColumn::new` rejected it.
+    UnalignedGrid { grid: usize },
+}
+
+impl std::fmt::Display for GridlakeCarrierError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnalignedGrid { grid } => write!(
+                f,
+                "gridlake carrier: grid {grid} is not a multiple of 16, so a \
+                 column buffer is not 64-byte aligned for MultiLaneColumn"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for GridlakeCarrierError {}
+
 impl GridBatch {
     /// Render the four accumulator columns as [`MultiLaneColumn`] gridlake
     /// carriers (little-endian bytes, zero semantic change — a *reading*, not
     /// a re-layout). `count` is widened `u32 → u64` to ride the unsigned
-    /// 64-bit accumulator lane. Returns `Err(())` if a column buffer is not
-    /// 64-byte aligned (i.e. `grid % 16 != 0`), mirroring
-    /// `MultiLaneColumn::new`'s own contract.
-    #[allow(clippy::result_unit_err)] // pass-through of MultiLaneColumn::new's Result<_, ()> alignment contract
-    pub fn as_gridlake_columns(&self) -> Result<GridlakeColumns, ()> {
+    /// 64-bit accumulator lane. Returns
+    /// [`GridlakeCarrierError::UnalignedGrid`] if a column buffer is not
+    /// 64-byte aligned (i.e. `grid % 16 != 0`), surfacing the alignment
+    /// contract `MultiLaneColumn::new` enforces with the offending grid size.
+    pub fn as_gridlake_columns(&self) -> Result<GridlakeColumns, GridlakeCarrierError> {
+        let grid = self.mins.len();
+        let unaligned = |_: ()| GridlakeCarrierError::UnalignedGrid { grid };
         fn col_i32(v: &[i32]) -> Result<MultiLaneColumn, ()> {
             let mut b = Vec::with_capacity(v.len() * 4);
             for &x in v {
@@ -237,10 +268,10 @@ impl GridBatch {
             MultiLaneColumn::new(Arc::from(b))
         }
         Ok(GridlakeColumns {
-            mins: col_i32(&self.mins)?,
-            maxs: col_i32(&self.maxs)?,
-            sums: col_i64(&self.sums)?,
-            counts: col_u64_from_u32(&self.counts)?,
+            mins: col_i32(&self.mins).map_err(unaligned)?,
+            maxs: col_i32(&self.maxs).map_err(unaligned)?,
+            sums: col_i64(&self.sums).map_err(unaligned)?,
+            counts: col_u64_from_u32(&self.counts).map_err(unaligned)?,
         })
     }
 }
@@ -724,7 +755,10 @@ mod tests {
     #[test]
     fn gridlake_carrier_rejects_unaligned_grid() {
         let batch = GridBatch::new(72); // 72 % 16 != 0 → i32 col = 288 B, not 64-mult
-        assert!(batch.as_gridlake_columns().is_err());
+        assert!(matches!(
+            batch.as_gridlake_columns(),
+            Err(GridlakeCarrierError::UnalignedGrid { grid: 72 })
+        ));
     }
 
     /// Parity across the knob matrix corners: gridlake (4096) and full
