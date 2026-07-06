@@ -358,6 +358,104 @@ pub trait ClassView {
             .collect()
     }
 
+    /// The **value render rows** for an instance — the value-projected sibling of
+    /// [`render_rows`](ClassView::render_rows): each populated field paired with the
+    /// byte it reads from the node's V3 content-blind 12-byte facet payload.
+    ///
+    /// Field position `i` binds to facet byte `i`
+    /// (`.claude/v3/soa_layout/le-contract.md` §3 — the 12-byte payload is a *dumb
+    /// byte register the ClassView projects*; the class picks which reading, never a
+    /// slot in the byte). A [`ValueRow`] is emitted for each position that is BOTH
+    /// mask-present (C2 presence) AND `< 12` (facet-backed).
+    ///
+    /// **Positions `>= 12` are value-slab fields, out of facet scope — skipped
+    /// here** (never folded onto a valid byte, mirroring the
+    /// [`FieldMask::MAX_FIELDS`] 64-guard style). A class whose field set exceeds the
+    /// 12 facet bytes carries the overflow fields in the 480-byte value slab
+    /// (`ValueSchema` tenants), read through a different surface; those never surface
+    /// as [`ValueRow`]s.
+    ///
+    /// Presence-only (C2): the `mask` gates which rows exist; the facet byte a row
+    /// carries is agnostic — its meaning is the late-resolved `label` / `predicate`,
+    /// never the byte itself. The SoA supplied only `(class, mask, facet)`.
+    fn facet_rows<'a>(
+        &'a self,
+        class: ClassId,
+        mask: FieldMask,
+        facet: &[u8; 12],
+    ) -> Vec<ValueRow<'a>> {
+        let mut rows = Vec::new();
+        for (i, f) in self.fields(class).iter().enumerate() {
+            // Facet-backed positions only (< 12), and only where the mask is set.
+            // `i >= 12` is a value-slab field: skipped, NEVER folded onto byte i&11.
+            if i < 12 && mask.has(i as u8) {
+                rows.push(ValueRow {
+                    label: f.label.as_str(),
+                    predicate: f.predicate_iri.as_str(),
+                    position: i as u8,
+                    value: facet[i],
+                });
+            }
+        }
+        rows
+    }
+
+    /// The `is_a` (subClassOf) parent of `class`, resolved by the implementor from
+    /// its taxonomy cache (OGIT / HHTL `subClassOf`). The taxonomy hop the
+    /// zero-fallback render ladder ([`resolve_render_class`](ClassView::resolve_render_class))
+    /// walks.
+    ///
+    /// Default `None` — **no taxonomy**: an implementor without a `subClassOf` cache
+    /// leaves every class an orphan, and `resolve_render_class` degenerates to
+    /// "return the class itself" (still monotonic — the ladder never fails).
+    #[inline]
+    fn is_a_parent(&self, _class: ClassId) -> Option<ClassId> {
+        None
+    }
+
+    /// Resolve the class whose card actually renders `class` — the **zero-fallback
+    /// render ladder**: bespoke card → nearest ancestor's card → (caller renders the
+    /// generic facet dump).
+    ///
+    /// Walks [`is_a_parent`](ClassView::is_a_parent) while the current class has an
+    /// EMPTY field set ([`fields`](ClassView::fields)`.is_empty()`), returning the
+    /// first class with a non-empty field set (its bespoke or inherited card). If the
+    /// walk reaches the taxonomy root (no parent) or hits the depth cap without
+    /// finding fields, it returns the ORIGINAL `class` — **monotonic: the ladder
+    /// never fails**. An empty field set on the returned class is the caller's signal
+    /// to render the generic facet dump (the last rung — dump the raw
+    /// [`facet_rows`](ClassView::facet_rows) with no bespoke labels).
+    ///
+    /// **Cycle- and depth-safe, zero-dep:** a hard cap of 16 hops bounds the walk,
+    /// and an on-stack visited array rejects a `subClassOf` cycle
+    /// (`A is_a B is_a A`) without a `HashSet`. Either guard hit → return the
+    /// original class (never an infinite loop, never a panic).
+    fn resolve_render_class(&self, class: ClassId) -> ClassId {
+        const MAX_HOPS: usize = 16;
+        // Seeded with `class` so an unwritten tail can never spuriously match.
+        let mut visited: [ClassId; MAX_HOPS] = [class; MAX_HOPS];
+        let mut current = class;
+        let mut depth = 0usize;
+        loop {
+            if !self.fields(current).is_empty() {
+                return current; // bespoke (depth 0) or nearest ancestor card
+            }
+            if depth >= MAX_HOPS {
+                return class; // depth cap → caller renders the generic facet dump
+            }
+            visited[depth] = current;
+            depth += 1;
+            let parent = match self.is_a_parent(current) {
+                Some(p) => p,
+                None => return class, // taxonomy root, no card → generic facet dump
+            };
+            if visited[..depth].contains(&parent) {
+                return class; // subClassOf cycle → generic facet dump
+            }
+            current = parent;
+        }
+    }
+
     /// Which edge-codec flavor this class reads its node edge block with.
     ///
     /// Default is
@@ -430,6 +528,31 @@ pub struct RenderRow<'a> {
     pub predicate: &'a str,
 }
 
+/// The **value-projected sibling of [`RenderRow`]** — one populated field paired
+/// with the byte it reads from the node's V3 content-blind 12-byte facet payload.
+///
+/// Where [`RenderRow`] carries only the late-resolved `(label, predicate)` of a
+/// present field, `ValueRow` additionally carries the raw facet byte at that field's
+/// position. Position `i` binds to facet byte `i` per
+/// `.claude/v3/soa_layout/le-contract.md` §3: the 12-byte payload is a **dumb byte
+/// register**, and the ClassView picks the reading — the byte's meaning is never in
+/// the byte, only in the class's field (`label` / `predicate`) at that position.
+///
+/// Presence-only C2 still holds: the [`FieldMask`] gates which rows *exist*, never
+/// what a byte *means*. Produced only for [`facet_rows`](ClassView::facet_rows)
+/// positions that are both mask-present and facet-backed (`< 12`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ValueRow<'a> {
+    /// The display label, resolved late from the OGIT cache (above the SoA).
+    pub label: &'a str,
+    /// The field's predicate IRI (the stable key behind the label).
+    pub predicate: &'a str,
+    /// The field position — binds to facet byte `position` (§3 dumb byte register).
+    pub position: u8,
+    /// The raw facet byte at `position` (agnostic; the class picks its reading).
+    pub value: u8,
+}
+
 /// An iterator over a class's fields paired with their presence bit — the
 /// projected view a render template consumes (off-bits are still yielded with
 /// `present = false` so the template can `{% if present %}`-skip them).
@@ -455,12 +578,22 @@ impl<'a> Iterator for ClassProjection<'a> {
 mod tests {
     use super::*;
     use crate::ontology::{DisplayTemplate, FieldRef};
+    use std::collections::HashMap;
 
     /// A tiny in-contract ClassView fake — proves the trait is satisfiable and the
     /// meta-DTO projects above an agnostic (class, mask) input, no labels stored.
+    ///
+    /// `extra` + `parents` extend it for the value-projection + is_a-walk surface:
+    /// `extra` holds field sets for classes other than the special-cased invoice
+    /// (class 7); `parents` is the `subClassOf` taxonomy `resolve_render_class` walks.
+    #[derive(Default)]
     struct FakeClasses {
         // class 7 = a 3-field shape ("invoice": amount, tax, partner)
         invoice: Vec<FieldRef>,
+        // per-class field sets for non-7 classes (empty vec / absent = empty shape).
+        extra: HashMap<ClassId, Vec<FieldRef>>,
+        // is_a (subClassOf) edges: child -> parent.
+        parents: HashMap<ClassId, ClassId>,
     }
 
     impl FakeClasses {
@@ -471,7 +604,20 @@ mod tests {
                     FieldRef::new("amount_tax", "Tax"),
                     FieldRef::new("partner_id", "Partner"),
                 ],
+                ..Default::default()
             }
+        }
+
+        /// Register a class's field set (test builder for the is_a / facet surface).
+        fn with_class(mut self, class: ClassId, fields: Vec<FieldRef>) -> Self {
+            self.extra.insert(class, fields);
+            self
+        }
+
+        /// Register an `is_a` (subClassOf) edge `child -> parent`.
+        fn with_isa(mut self, child: ClassId, parent: ClassId) -> Self {
+            self.parents.insert(child, parent);
+            self
         }
     }
 
@@ -479,7 +625,7 @@ mod tests {
         fn fields(&self, class: ClassId) -> &[FieldRef] {
             match class {
                 7 => &self.invoice,
-                _ => &[],
+                c => self.extra.get(&c).map_or(&[], |v| v.as_slice()),
             }
         }
         fn template(&self, _class: ClassId) -> DisplayTemplate {
@@ -487,6 +633,9 @@ mod tests {
         }
         fn dolce_category_id(&self, _class: ClassId) -> u8 {
             0 // Endurant, resolved from the cache in the real impl
+        }
+        fn is_a_parent(&self, class: ClassId) -> Option<ClassId> {
+            self.parents.get(&class).copied()
         }
     }
 
@@ -496,7 +645,10 @@ mod tests {
     /// fields for an unconfigured class).
     #[test]
     fn compute_dag_default_is_empty() {
-        let c = FakeClasses { invoice: vec![] };
+        let c = FakeClasses {
+            invoice: vec![],
+            ..Default::default()
+        };
         assert!(c.compute_dag(7).is_empty());
         assert!(c.compute_dag(0).is_empty());
     }
@@ -785,5 +937,184 @@ mod tests {
         assert_eq!(classes.edge_codec_flavor(0), EdgeCodecFlavor::CoarseOnly);
         // The TYPE-level default is unchanged: substrate zero-fallback stays Bootstrap.
         assert_eq!(ValueSchema::default(), ValueSchema::Bootstrap);
+    }
+
+    // ── facet value projection + is_a-walk (unified ClassView render) ────────────
+
+    /// `facet_rows` binds field position `i` to facet byte `i`, skips mask-off
+    /// positions, and skips value-slab positions `>= 12` (never folded onto byte
+    /// `i & 11`). A 14-field class with a mix of present positions proves all three.
+    #[test]
+    fn facet_rows_binds_position_to_byte_skips_off_and_over_twelve() {
+        // A 14-field class (positions 0..13) — 12 facet-backed + 2 value-slab.
+        let big: Vec<FieldRef> = (0u8..14)
+            .map(|n| FieldRef::new(format!("p{n}"), format!("L{n}")))
+            .collect();
+        let classes = FakeClasses::new().with_class(20, big);
+        // facet byte i = 100 + i, so the byte carried is unambiguous per position.
+        let facet: [u8; 12] = std::array::from_fn(|i| 100 + i as u8);
+        // Present: 0 and 2 (facet-backed), 1 is OFF, 12 and 13 are value-slab (>=12).
+        let mask = FieldMask::from_positions(&[0, 2, 12, 13]);
+        let rows = classes.facet_rows(20, mask, &facet);
+        // Only the two facet-backed present positions survive: 0 and 2.
+        assert_eq!(
+            rows.len(),
+            2,
+            "off-bit (1) and value-slab bits (12,13) skipped"
+        );
+        assert_eq!(
+            rows[0],
+            ValueRow {
+                label: "L0",
+                predicate: "p0",
+                position: 0,
+                value: 100
+            }
+        );
+        assert_eq!(
+            rows[1],
+            ValueRow {
+                label: "L2",
+                predicate: "p2",
+                position: 2,
+                value: 102
+            },
+            "position 2 reads facet byte 2, not folded/aliased"
+        );
+        // Empty mask → zero rows.
+        assert!(classes.facet_rows(20, FieldMask::EMPTY, &facet).is_empty());
+        // A mask of ONLY value-slab positions (>=12) → zero facet rows.
+        assert!(
+            classes
+                .facet_rows(20, FieldMask::from_positions(&[12, 13]), &facet)
+                .is_empty(),
+            "positions >= 12 are value-slab fields, out of facet scope"
+        );
+    }
+
+    /// FULL mask on a 3-field class yields exactly 3 value rows, each carrying its
+    /// own facet byte in class order (the bit basis).
+    #[test]
+    fn facet_rows_full_mask_three_field_class() {
+        let classes = FakeClasses::new(); // class 7 = invoice (3 fields)
+        let facet: [u8; 12] = std::array::from_fn(|i| (i as u8) * 3); // 0,3,6,9,...
+        let rows = classes.facet_rows(7, FieldMask::FULL, &facet);
+        assert_eq!(
+            rows.len(),
+            3,
+            "all three invoice fields are facet-backed & present"
+        );
+        assert_eq!(
+            rows.iter()
+                .map(|r| (r.label, r.position, r.value))
+                .collect::<Vec<_>>(),
+            vec![("Total", 0, 0), ("Tax", 1, 3), ("Partner", 2, 6)],
+        );
+    }
+
+    /// `resolve_render_class`: a child with an empty field set resolves UP the is_a
+    /// chain to the nearest ancestor that HAS a card (the middle rung of the ladder).
+    #[test]
+    fn resolve_render_class_walks_is_a_to_ancestor_card() {
+        // class 30 is empty; 30 is_a 7 (invoice, which has fields) → resolves to 7.
+        let classes = FakeClasses::new().with_isa(30, 7);
+        assert!(
+            classes.fields(30).is_empty(),
+            "child 30 has no bespoke card"
+        );
+        assert_eq!(
+            classes.resolve_render_class(30),
+            7,
+            "empty child falls through to its is_a ancestor's card"
+        );
+        // A class that ALREADY has a card resolves to itself (top rung, no walk).
+        assert_eq!(classes.resolve_render_class(7), 7);
+    }
+
+    /// An orphan (no is_a parent, no fields) resolves to ITSELF — the monotonic
+    /// bottom rung: the caller renders the generic facet dump.
+    #[test]
+    fn resolve_render_class_orphan_returns_itself() {
+        let classes = FakeClasses::new(); // no taxonomy edges for class 99
+        assert!(classes.fields(99).is_empty());
+        assert_eq!(
+            classes.resolve_render_class(99),
+            99,
+            "no parent + no card → return original (generic facet dump signal)"
+        );
+    }
+
+    /// A `subClassOf` cycle (A is_a B is_a A, both empty) terminates and returns the
+    /// ORIGINAL class — the ladder never loops, never fails.
+    #[test]
+    fn resolve_render_class_cycle_terminates_at_original() {
+        let classes = FakeClasses::new().with_isa(40, 41).with_isa(41, 40);
+        assert!(classes.fields(40).is_empty() && classes.fields(41).is_empty());
+        assert_eq!(
+            classes.resolve_render_class(40),
+            40,
+            "a 2-cycle of empty classes returns the original, no infinite loop"
+        );
+        // A self-loop (A is_a A, empty) likewise returns the original.
+        let selfloop = FakeClasses::new().with_isa(50, 50);
+        assert_eq!(selfloop.resolve_render_class(50), 50);
+    }
+
+    /// A chain of 20 empty parents exceeds the 16-hop cap: the walk stops and returns
+    /// the original class (depth cap respected, no panic).
+    #[test]
+    fn resolve_render_class_depth_cap_returns_original() {
+        // 200 is_a 201 is_a ... is_a 220 — 21 empty classes, 20 edges, none carry a card.
+        let mut classes = FakeClasses::new();
+        for c in 200u16..220 {
+            classes = classes.with_isa(c, c + 1);
+        }
+        assert_eq!(
+            classes.resolve_render_class(200),
+            200,
+            "> 16 hops of empty ancestors → cap hit → return original (generic dump)"
+        );
+    }
+
+    /// Regression canary: the additive facet-value / is_a surface must NOT perturb
+    /// `render_rows` (C2 presence-only, late label/predicate resolution). The
+    /// value-projected `facet_rows` surfaces the SAME present positions, plus bytes.
+    #[test]
+    fn render_rows_unchanged_by_facet_addition_regression_canary() {
+        let classes = FakeClasses::new();
+        let mask = FieldMask::from_positions(&[0, 2]); // Tax (pos 1) off
+                                                       // render_rows: exact pre-existing shape (label + predicate, off-bit skipped).
+        let rows = classes.render_rows(7, mask);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(
+            rows[0],
+            RenderRow {
+                label: "Total",
+                predicate: "amount_total"
+            }
+        );
+        assert_eq!(
+            rows[1],
+            RenderRow {
+                label: "Partner",
+                predicate: "partner_id"
+            }
+        );
+        // facet_rows is the value-projected sibling: same present set, same order.
+        let facet: [u8; 12] = std::array::from_fn(|i| i as u8);
+        let vrows = classes.facet_rows(7, mask, &facet);
+        assert_eq!(
+            vrows.iter().map(|r| r.label).collect::<Vec<_>>(),
+            rows.iter().map(|r| r.label).collect::<Vec<_>>(),
+            "facet_rows presents the identical present fields render_rows does"
+        );
+        assert_eq!(
+            vrows.iter().map(|r| r.position).collect::<Vec<_>>(),
+            vec![0, 2]
+        );
+        assert_eq!(
+            vrows.iter().map(|r| r.value).collect::<Vec<_>>(),
+            vec![0, 2]
+        );
     }
 }

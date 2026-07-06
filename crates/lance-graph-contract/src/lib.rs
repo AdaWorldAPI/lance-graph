@@ -150,7 +150,7 @@ pub use canonical_node::{
     KanbanTenant, NodeGuid, NodeRow, NodeRowPacket, ReadMode, ValueSchema, ValueTenant,
     VALUE_TENANTS,
 };
-pub use class_view::{ClassId, ClassProjection, ClassView, FieldMask, RenderRow};
+pub use class_view::{ClassId, ClassProjection, ClassView, FieldMask, RenderRow, ValueRow};
 pub use collapse_gate::{GateDecision, MailboxId, MergeMode};
 pub use episodic_edges::{EdgeRef, EpisodicEdges64};
 pub use head2head::{CompetitionOutcome, Head2Head, WinnerCriterion};
