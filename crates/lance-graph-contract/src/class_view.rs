@@ -43,6 +43,7 @@
 //!   template, skips off-bits.
 
 use crate::ontology::{DisplayTemplate, FieldRef};
+use std::hash::{Hash, Hasher};
 
 /// Per-row class discriminator — the Cognitive-RISC `class_id` / `shape_id`.
 ///
@@ -206,10 +207,20 @@ impl From<u64> for FieldMask {
 /// `FieldMask`, zero heap) until a position >= 64 is set, at which point it
 /// promotes once to `Wide(Box<[u64]>)` (chunk `k` = bits `64k..64k+63`). A
 /// mask that never crosses the 64 boundary never allocates.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+///
+/// **When to use which:** reach for [`FieldMask`] for classes with <= 64
+/// fields; reach for `WideFieldMask` only when a class's field count may
+/// exceed 64.
+///
+/// `PartialEq`/`Eq`/`Hash` are hand-written (see the impls below), NOT
+/// derived: equality must be representation-independent (a `Wide` value
+/// whose high chunks are all zero must compare equal to, and hash
+/// identically with, the equivalent `Small` value), which a structural
+/// derive over `WideRepr` cannot express.
+#[derive(Debug, Clone)]
 pub struct WideFieldMask(WideRepr);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone)]
 enum WideRepr {
     /// <= 64 positions — zero-allocation, bit-identical to `FieldMask(u64)`.
     Small(u64),
@@ -368,6 +379,12 @@ impl WideFieldMask {
 
     /// Chunk-wise fold across tiers (only reached when at least one side is
     /// already `Wide`, so the allocation is not new spend for that side).
+    ///
+    /// Normalizes the result before returning: trailing all-zero chunks are
+    /// trimmed, and a result that now fits in a single chunk demotes back to
+    /// `Small` (V-L P0: an un-normalized `Wide` result — e.g. intersecting a
+    /// mask that has bits >= 64 down to only bits < 64 — must still compare
+    /// equal to, and hash identically with, the equivalent `Small` mask).
     fn zip_fold(&self, other: &Self, f: impl Fn(u64, u64) -> u64) -> Self {
         let a = self.chunks_view();
         let b = other.chunks_view();
@@ -379,6 +396,12 @@ impl WideFieldMask {
                 b.get(i).copied().unwrap_or(0),
             );
         }
+        while v.last() == Some(&0) {
+            v.pop();
+        }
+        if v.len() <= 1 {
+            return Self(WideRepr::Small(v.first().copied().unwrap_or(0)));
+        }
         Self(WideRepr::Wide(v.into_boxed_slice()))
     }
 
@@ -386,6 +409,70 @@ impl WideFieldMask {
         match &self.0 {
             WideRepr::Small(bits) => vec![*bits],
             WideRepr::Wide(v) => v.to_vec(),
+        }
+    }
+
+    /// Chunk `i` of this mask, `0` past the end — the tier-agnostic accessor
+    /// the canonical-equality/hash impls fold over.
+    #[inline]
+    fn chunk_at(&self, i: usize) -> u64 {
+        match &self.0 {
+            WideRepr::Small(bits) => {
+                if i == 0 {
+                    *bits
+                } else {
+                    0
+                }
+            }
+            WideRepr::Wide(v) => v.get(i).copied().unwrap_or(0),
+        }
+    }
+
+    /// The number of chunks in this mask's *canonical* form: the raw chunk
+    /// count with trailing all-zero chunks trimmed. Two masks denote the same
+    /// field set, regardless of tier, iff they agree on this length AND on
+    /// every chunk below it — this is the representation-independent view
+    /// `PartialEq`/`Hash` are built over.
+    fn canonical_len(&self) -> usize {
+        let raw = match &self.0 {
+            WideRepr::Small(_) => 1,
+            WideRepr::Wide(v) => v.len(),
+        };
+        let mut n = raw;
+        while n > 0 && self.chunk_at(n - 1) == 0 {
+            n -= 1;
+        }
+        n
+    }
+}
+
+impl PartialEq for WideFieldMask {
+    /// Representation-independent equality: two masks are equal iff they
+    /// denote the same populated field set, regardless of whether either
+    /// side is `Small` or `Wide` (or, for two `Wide` values, regardless of
+    /// their chunk-vector lengths) — trailing all-zero chunks never affect
+    /// equality (V-L P0).
+    fn eq(&self, other: &Self) -> bool {
+        let len = self.canonical_len();
+        if len != other.canonical_len() {
+            return false;
+        }
+        (0..len).all(|i| self.chunk_at(i) == other.chunk_at(i))
+    }
+}
+
+impl Eq for WideFieldMask {}
+
+impl Hash for WideFieldMask {
+    /// Must stay consistent with [`PartialEq`]: hashes exactly the canonical
+    /// (trailing-zero-trimmed) chunk sequence, length-prefixed like a slice's
+    /// `Hash` impl, so `a == b` implies `hash(a) == hash(b)` regardless of
+    /// which tier either side happens to be stored in.
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let len = self.canonical_len();
+        len.hash(state);
+        for i in 0..len {
+            self.chunk_at(i).hash(state);
         }
     }
 }
@@ -1480,5 +1567,66 @@ mod tests {
         for i in 0..64u8 {
             assert_eq!(promoted.has(i), narrow.has(i), "bit {i} must round-trip");
         }
+    }
+
+    /// (V-L P0 regression) `intersect`/`union` results whose high chunks
+    /// collapse away (down to <= 64 populated positions, or fewer significant
+    /// chunks than either input) must compare equal to — and hash identically
+    /// with — the canonical `Small`/`Wide` mask built directly from the same
+    /// position set. Before this fix, `zip_fold` always returned an
+    /// un-normalized `Wide`, so e.g. `from_positions(&[2, 70]).intersect(&
+    /// from_positions(&[2]))` was logically `{2}` but compared UNEQUAL to
+    /// `from_positions(&[2])` and hashed differently — a footgun for any
+    /// `HashSet`/`HashMap` keyed on `WideFieldMask` (RBAC folds, DTO dedup).
+    #[test]
+    fn intersect_result_collapsing_to_small_equals_canonical_and_hashes_identically() {
+        use std::collections::hash_map::DefaultHasher;
+
+        fn hash_of(m: &WideFieldMask) -> u64 {
+            let mut h = DefaultHasher::new();
+            m.hash(&mut h);
+            h.finish()
+        }
+
+        // intersect: {2, 70} ∩ {2} = {2}, but the left side is Wide — the
+        // fold must not leave a phantom high chunk behind.
+        let wide = WideFieldMask::from_positions(&[2, 70]);
+        let small = WideFieldMask::from_positions(&[2]);
+        let inter = wide.intersect(&small);
+        let canonical = WideFieldMask::from_positions(&[2]);
+
+        assert!(matches!(inter.0, WideRepr::Small(_)), "collapsed intersect result must demote to Small, not stay a Wide value with an all-zero high chunk");
+        assert_eq!(inter, canonical);
+        assert_eq!(canonical, inter, "PartialEq must be symmetric");
+        assert_eq!(hash_of(&inter), hash_of(&canonical));
+
+        // union: also exercised, since it shares `zip_fold`.
+        let a = WideFieldMask::from_positions(&[70]);
+        let b = WideFieldMask::from_positions(&[70]);
+        // Force the fold path (both sides already Wide) rather than the
+        // Small/Small fast path in `union`.
+        let uni = a.union(&b);
+        let canonical_uni = WideFieldMask::from_positions(&[70]);
+        assert_eq!(uni, canonical_uni);
+        assert_eq!(hash_of(&uni), hash_of(&canonical_uni));
+
+        // Wide-vs-Wide with different underlying chunk-vector *lengths* that
+        // denote the same field set: {2, 70} built directly (2 chunks) vs a
+        // 3-chunk Wide value ({2, 70, 200} minus {200}) that collapses back
+        // down to the same 2 significant chunks.
+        let direct_two_chunks = WideFieldMask::from_positions(&[2, 70]);
+        let three_chunk_source = WideFieldMask::from_positions(&[2, 70, 200]);
+        let only_200 = WideFieldMask::from_positions(&[200]);
+        // {2, 70, 200} minus {200}, expressed as intersect-with-complement via
+        // union/xor-free construction: intersect against the union of the
+        // low two chunks' full range plus nothing at chunk 3, i.e. simply
+        // intersect the 3-chunk value against a mask that has {2, 70} set
+        // (which itself is 2 chunks) — this drives zip_fold's `len =
+        // a.len().max(b.len())` down from 4 chunks (chunk index 3 for
+        // position 200) to the 2 significant chunks that remain non-zero.
+        let three_chunk_minus_200 = three_chunk_source.intersect(&direct_two_chunks);
+        assert!(!only_200.is_empty()); // sanity: 200 really set a bit somewhere
+        assert_eq!(three_chunk_minus_200, direct_two_chunks);
+        assert_eq!(hash_of(&three_chunk_minus_200), hash_of(&direct_two_chunks));
     }
 }
