@@ -186,7 +186,7 @@ pub enum AppPrefix {
     Woa,
     /// `0x0004` — SMB-Office render lens.
     Smb,
-    /// `0x0005` — Healthcare / MedCare render lens.
+    /// `0x0005` — Healthcare render lens.
     Healthcare,
     /// `0x0007` — Redmine (project-mgmt render lens; OpenProject twin at the
     /// shared concept level).
@@ -248,7 +248,7 @@ impl AppPrefix {
 /// `compose_classid(concept, prefix)`. Wire-compat mirror of OGAR
 /// `ogar_vocab::app::render_classid` (which flips in lockstep).
 ///
-/// `render_classid(0x0005, 0x0901)` → `0x0901_0005` (MedCare's `patient`); the
+/// `render_classid(0x0005, 0x0901)` → `0x0901_0005` (the Healthcare lens over `patient`); the
 /// core form `render_classid(0x0000, id)` is `(id as u32) << 16` — the bare
 /// concept in the canon half under the core lens (pre-flip it equaled `id`
 /// widened; the flip moved the concept to the high half).
@@ -271,7 +271,7 @@ pub const fn render_classid(prefix: u16, concept: u16) -> u32 {
 ///
 /// ```
 /// use lance_graph_contract::{render_classid_for_concept, AppPrefix};
-/// // MedCare patient under the Healthcare render lens — the canonical example.
+/// // A patient under the Healthcare render lens — the canonical example.
 /// // Concept 0x0901 in the CANON (high) half, prefix 0x0005 in the CUSTOM (low).
 /// assert_eq!(render_classid_for_concept(AppPrefix::Healthcare, "patient"), Some(0x0901_0005));
 /// assert_eq!(render_classid_for_concept(AppPrefix::Healthcare, "not_a_concept"), None);
@@ -499,7 +499,7 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     // not 27 slots — the layer graph sinks onto `FacetCascade` tenants (the
     // ruff→OGAR network harvest lands here).
     ("network_layer", 0x0804),
-    // ── 0x09XX — Health domain (MedCare; OGIT NTO/Healthcare promotion) ──
+    // ── 0x09XX — Health domain (OGIT NTO/Healthcare promotion) ──
     ("patient", 0x0901),
     ("diagnosis", 0x0902),
     ("lab_value", 0x0903),
@@ -773,7 +773,7 @@ mod tests {
         assert_eq!(render_classid(0x0001, 0x0102), 0x0102_0001);
         assert_eq!(render_classid(0x0007, 0x0102), 0x0102_0007); // Redmine twin
 
-        // MedCare patient — the canonical worked example: 0x0901_0005.
+        // Healthcare patient — the canonical worked example: 0x0901_0005.
         let pat = render_classid_for_concept(AppPrefix::Healthcare, "patient").unwrap();
         assert_eq!(pat, 0x0901_0005);
         assert_eq!(classid_app_prefix(pat), 0x0005);
