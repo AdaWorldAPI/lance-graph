@@ -168,15 +168,17 @@ pub const ACCOUNT_ACCOUNT_DE: OdooEntity = OdooEntity {
             semantic_role: OdooSemanticRole::Policy,
         },
     ],
-    methods: &[OdooMethod {
-        // l10n_de override: raises UserError if any of the four conditions
-        // trigger (code in vals AND DE company AND code differs AND move
-        // lines exist).  Application-layer only — no DB constraint.
-        name: "write",
-        kind: OdooMethodKind::Override,
-        return_kind: OdooReturnKind::Boolean,
-        triggers: &[],
-    }],
+    methods: &[
+        OdooMethod {
+            // l10n_de override: raises UserError if any of the four conditions
+            // trigger (code in vals AND DE company AND code differs AND move
+            // lines exist).  Application-layer only — no DB constraint.
+            name: "write",
+            kind: OdooMethodKind::Override,
+            return_kind: OdooReturnKind::Boolean,
+            triggers: &[],
+        },
+    ],
     decorators: &[],
     state_machine: None,
     constraints: &[OdooConstraint {
@@ -546,14 +548,8 @@ mod tests {
     #[test]
     fn account_account_tag_identity() {
         assert_eq!(ACCOUNT_ACCOUNT_TAG.model_name, "account.account.tag");
-        assert_eq!(
-            ACCOUNT_ACCOUNT_TAG.provenance.confidence,
-            OdooConfidence::Curated
-        );
-        assert_eq!(
-            ACCOUNT_ACCOUNT_TAG.provenance.l_doc,
-            "L4-K8K9-REPORTS-DATEV.md"
-        );
+        assert_eq!(ACCOUNT_ACCOUNT_TAG.provenance.confidence, OdooConfidence::Curated);
+        assert_eq!(ACCOUNT_ACCOUNT_TAG.provenance.l_doc, "L4-K8K9-REPORTS-DATEV.md");
         // applicability field governs report-line routing vs tax-label role
         let applicability = ACCOUNT_ACCOUNT_TAG
             .fields
@@ -639,7 +635,8 @@ mod tests {
     fn all_entities_reference_l4_l_doc() {
         for e in ENTITIES {
             assert_eq!(
-                e.provenance.l_doc, "L4-K8K9-REPORTS-DATEV.md",
+                e.provenance.l_doc,
+                "L4-K8K9-REPORTS-DATEV.md",
                 "entity {} must reference L4 l_doc",
                 e.model_name
             );

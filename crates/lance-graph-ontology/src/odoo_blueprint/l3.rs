@@ -422,13 +422,7 @@ const ACCOUNT_TAX_METHODS: &[OdooMethod] = &[
 const ACCOUNT_TAX_DECORATORS: &[OdooDecorator] = &[
     OdooDecorator {
         kind: OdooDecoratorKind::ApiConstrains,
-        targets: &[
-            "company_id",
-            "name",
-            "type_tax_use",
-            "tax_scope",
-            "country_id",
-        ],
+        targets: &["company_id", "name", "type_tax_use", "tax_scope", "country_id"],
     },
     OdooDecorator {
         kind: OdooDecoratorKind::ApiConstrains,
@@ -1127,20 +1121,13 @@ mod tests {
             let (start, end) = entity.provenance.l_doc_lines;
             assert!(start > 0, "{} has zero start line", entity.model_name);
             assert!(end >= start, "{} has end < start", entity.model_name);
-            assert!(
-                end <= 1120,
-                "{} references line beyond doc length",
-                entity.model_name
-            );
+            assert!(end <= 1120, "{} references line beyond doc length", entity.model_name);
         }
     }
 
     #[test]
     fn tax_exigibility_field_is_selection_with_tax_role() {
-        let tax_entity = ENTITIES
-            .iter()
-            .find(|e| e.model_name == "account.tax")
-            .unwrap();
+        let tax_entity = ENTITIES.iter().find(|e| e.model_name == "account.tax").unwrap();
         let exig = tax_entity
             .fields
             .iter()
@@ -1179,14 +1166,8 @@ mod tests {
             .find(|e| e.model_name == "account.tax.group")
             .unwrap();
         assert!(tg.fields.iter().any(|f| f.name == "tax_payable_account_id"));
-        assert!(tg
-            .fields
-            .iter()
-            .any(|f| f.name == "tax_receivable_account_id"));
-        assert!(tg
-            .fields
-            .iter()
-            .any(|f| f.name == "advance_tax_payment_account_id"));
+        assert!(tg.fields.iter().any(|f| f.name == "tax_receivable_account_id"));
+        assert!(tg.fields.iter().any(|f| f.name == "advance_tax_payment_account_id"));
     }
 
     #[test]

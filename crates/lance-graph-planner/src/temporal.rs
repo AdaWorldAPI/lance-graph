@@ -79,9 +79,7 @@ impl EpistemicMode {
     pub fn admits(self, status: TemporalStatus) -> bool {
         match status {
             TemporalStatus::Contemporary => true,
-            TemporalStatus::Anachronistic => {
-                matches!(self, EpistemicMode::Aware | EpistemicMode::Retro)
-            }
+            TemporalStatus::Anachronistic => matches!(self, EpistemicMode::Aware | EpistemicMode::Retro),
             TemporalStatus::Spoiler => matches!(self, EpistemicMode::Retro),
             TemporalStatus::Unknowable => false,
         }
@@ -126,13 +124,7 @@ pub struct QueryReference {
 impl Default for QueryReference {
     fn default() -> Self {
         // The single-server reading: latest version, strict, rung 0, no HLC.
-        Self {
-            server_id: 0,
-            ref_version: u64::MAX,
-            hlc_tick: None,
-            mode: EpistemicMode::Strict,
-            rung: 0,
-        }
+        Self { server_id: 0, ref_version: u64::MAX, hlc_tick: None, mode: EpistemicMode::Strict, rung: 0 }
     }
 }
 
@@ -141,13 +133,7 @@ impl QueryReference {
     /// `rung` (single-server: no HLC, `server_id` 0).
     #[must_use]
     pub fn at(ref_version: LanceVersion, rung: u8) -> Self {
-        Self {
-            server_id: 0,
-            ref_version,
-            hlc_tick: None,
-            mode: EpistemicMode::for_rung(rung),
-            rung,
-        }
+        Self { server_id: 0, ref_version, hlc_tick: None, mode: EpistemicMode::for_rung(rung), rung }
     }
 }
 
@@ -158,11 +144,7 @@ impl QueryReference {
 /// `Contemporary` if in-phase; otherwise a future-frame row, which is a
 /// `Spoiler` under `Retro` (an intentional peek) and `Anachronistic` otherwise.
 #[must_use]
-pub fn classify(
-    row_version: LanceVersion,
-    knowable_from: LanceVersion,
-    v_ref: &QueryReference,
-) -> TemporalStatus {
+pub fn classify(row_version: LanceVersion, knowable_from: LanceVersion, v_ref: &QueryReference) -> TemporalStatus {
     if knowable_from > v_ref.ref_version {
         TemporalStatus::Unknowable
     } else if row_version <= v_ref.ref_version {
@@ -215,10 +197,7 @@ impl DepClosure {
     /// A satisfied, dependency-free closure — the trivial result.
     #[must_use]
     pub fn ready() -> Self {
-        Self {
-            edges: Vec::new(),
-            satisfied: true,
-        }
+        Self { edges: Vec::new(), satisfied: true }
     }
 }
 
@@ -327,14 +306,8 @@ where
     let mut out: Vec<R> = rows
         .iter()
         .filter(|r| {
-            classify_ready(
-                r.subject(),
-                r.lance_version(),
-                r.knowable_from(),
-                v_ref,
-                deps,
-            )
-            .dispatchable(v_ref.mode)
+            classify_ready(r.subject(), r.lance_version(), r.knowable_from(), v_ref, deps)
+                .dispatchable(v_ref.mode)
         })
         .cloned()
         .collect();
@@ -342,12 +315,7 @@ where
     // (single-server / legacy rows) — NOT to 0, which would force every
     // missing-HLC row ahead of all HLC rows regardless of its version (Codex
     // P2 on #468; honors the documented "fallback to lance_version").
-    out.sort_by_key(|r| {
-        (
-            r.hlc_tick().unwrap_or_else(|| r.lance_version()),
-            r.lance_version(),
-        )
-    });
+    out.sort_by_key(|r| (r.hlc_tick().unwrap_or_else(|| r.lance_version()), r.lance_version()));
     out
 }
 
@@ -364,12 +332,7 @@ mod tests {
     }
     impl Row {
         fn new(v: LanceVersion, knowable: LanceVersion, hlc: Option<u64>) -> Self {
-            Self {
-                subj: "ogit-erp/sale.order/1".into(),
-                v,
-                knowable,
-                hlc,
-            }
+            Self { subj: "ogit-erp/sale.order/1".into(), v, knowable, hlc }
         }
     }
     impl DeinterlaceRow for Row {
@@ -436,11 +399,7 @@ mod tests {
         assert!(!EpistemicMode::Aware.admits(TemporalStatus::Spoiler));
         assert!(EpistemicMode::Retro.admits(TemporalStatus::Spoiler));
         // Unknowable is never admitted.
-        for m in [
-            EpistemicMode::Strict,
-            EpistemicMode::Aware,
-            EpistemicMode::Retro,
-        ] {
+        for m in [EpistemicMode::Strict, EpistemicMode::Aware, EpistemicMode::Retro] {
             assert!(!m.admits(TemporalStatus::Unknowable));
         }
     }
@@ -479,10 +438,7 @@ mod tests {
     fn deinterlace_hlc_orders_across_frames() {
         // Two frames interlaced; HLC tick is the deinterlace key (cross-server
         // progressive scan). All contemporary, admitted under strict.
-        let v_ref = QueryReference {
-            ref_version: 1000,
-            ..QueryReference::default()
-        };
+        let v_ref = QueryReference { ref_version: 1000, ..QueryReference::default() };
         let rows = vec![
             Row::new(900, 1, Some(3)),
             Row::new(100, 1, Some(1)),
@@ -490,10 +446,7 @@ mod tests {
         ];
         let out = deinterlace(&rows, &v_ref, &NoDeps);
         // Ordered by hlc, NOT by per-frame lance_version.
-        assert_eq!(
-            out.iter().map(|r| r.hlc.unwrap()).collect::<Vec<_>>(),
-            vec![1, 2, 3]
-        );
+        assert_eq!(out.iter().map(|r| r.hlc.unwrap()).collect::<Vec<_>>(), vec![1, 2, 3]);
     }
 
     #[test]
@@ -511,10 +464,7 @@ mod tests {
     #[test]
     fn dep_closure_default_is_ready_not_blocking() {
         let d = DepClosure::default();
-        assert!(
-            d.satisfied,
-            "Default DepClosure must be ready (satisfied: true)"
-        );
+        assert!(d.satisfied, "Default DepClosure must be ready (satisfied: true)");
         assert!(d.edges.is_empty());
     }
 
@@ -523,10 +473,7 @@ mod tests {
     /// legacy rows ahead of all HLC rows during partial cross-server rollout).
     #[test]
     fn deinterlace_mixed_hlc_falls_back_to_lance_version() {
-        let v_ref = QueryReference {
-            ref_version: 1000,
-            ..QueryReference::default()
-        };
+        let v_ref = QueryReference { ref_version: 1000, ..QueryReference::default() };
         // Two HLC-bearing rows + one legacy row (no HLC, lance_version 750).
         // With the old `unwrap_or(0)` the legacy row would sort first; with
         // the fallback to lance_version it sorts between HLCs 500 and 900.
@@ -536,11 +483,8 @@ mod tests {
             Row::new(900, 1, Some(900)),
         ];
         let out = deinterlace(&rows, &v_ref, &NoDeps);
-        let order: Vec<u64> = out.iter().map(|r| r.hlc.unwrap_or(r.v)).collect();
-        assert_eq!(
-            order,
-            vec![500, 750, 900],
-            "legacy row must sort by its lance_version, not 0"
-        );
+        let order: Vec<u64> =
+            out.iter().map(|r| r.hlc.unwrap_or(r.v)).collect();
+        assert_eq!(order, vec![500, 750, 900], "legacy row must sort by its lance_version, not 0");
     }
 }

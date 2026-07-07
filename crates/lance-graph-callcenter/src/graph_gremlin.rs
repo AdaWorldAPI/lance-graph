@@ -229,10 +229,7 @@ mod tests {
     fn values_kind_projects_node_property() {
         let s = sample();
         // A's "member-of" neighbour is the family hub → kind "Family".
-        assert_eq!(
-            g(&s).v(&["A"]).out_e("member-of").values_kind(),
-            vec!["Family"]
-        );
+        assert_eq!(g(&s).v(&["A"]).out_e("member-of").values_kind(), vec!["Family"]);
     }
 
     #[test]

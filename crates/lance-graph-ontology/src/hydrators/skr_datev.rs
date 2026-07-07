@@ -38,7 +38,10 @@ pub fn hydrate_skr03(registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
     hydrate_skr03_from(&skr03_csv_path(), registry)
 }
 
-pub fn hydrate_skr03_from(csv_path: &Path, registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
+pub fn hydrate_skr03_from(
+    csv_path: &Path,
+    registry: &OntologyRegistry,
+) -> Result<u32, HydrateErr> {
     let h = SkrHydrator {
         g: OGIT::SKR03_V1.0,
         version: OGIT::SKR03_V1.1,
@@ -81,7 +84,10 @@ pub fn hydrate_skr04(registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
     hydrate_skr04_from(&skr04_csv_path(), registry)
 }
 
-pub fn hydrate_skr04_from(csv_path: &Path, registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
+pub fn hydrate_skr04_from(
+    csv_path: &Path,
+    registry: &OntologyRegistry,
+) -> Result<u32, HydrateErr> {
     let h = SkrHydrator {
         g: OGIT::SKR04_V1.0,
         version: OGIT::SKR04_V1.1,

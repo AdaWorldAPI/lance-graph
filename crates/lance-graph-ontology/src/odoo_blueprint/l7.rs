@@ -18,8 +18,8 @@
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
     OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
-    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef, OdooState, OdooStateMachine,
-    OdooStateSemantic, OdooTransition,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef, OdooState,
+    OdooStateMachine, OdooStateSemantic, OdooTransition,
 };
 
 // ─── stock.move state machine ─────────────────────────────────────────────────
@@ -27,108 +27,27 @@ use super::{
 const STOCK_MOVE_STATE_MACHINE: OdooStateMachine = OdooStateMachine {
     state_field: "state",
     states: &[
-        OdooState {
-            name: "draft",
-            semantic: OdooStateSemantic::Draft,
-        },
-        OdooState {
-            name: "waiting",
-            semantic: OdooStateSemantic::InProgress,
-        },
-        OdooState {
-            name: "confirmed",
-            semantic: OdooStateSemantic::InProgress,
-        },
-        OdooState {
-            name: "partially_available",
-            semantic: OdooStateSemantic::InProgress,
-        },
-        OdooState {
-            name: "assigned",
-            semantic: OdooStateSemantic::Active,
-        },
-        OdooState {
-            name: "done",
-            semantic: OdooStateSemantic::Completed,
-        },
-        OdooState {
-            name: "cancel",
-            semantic: OdooStateSemantic::Cancelled,
-        },
+        OdooState { name: "draft", semantic: OdooStateSemantic::Draft },
+        OdooState { name: "waiting", semantic: OdooStateSemantic::InProgress },
+        OdooState { name: "confirmed", semantic: OdooStateSemantic::InProgress },
+        OdooState { name: "partially_available", semantic: OdooStateSemantic::InProgress },
+        OdooState { name: "assigned", semantic: OdooStateSemantic::Active },
+        OdooState { name: "done", semantic: OdooStateSemantic::Completed },
+        OdooState { name: "cancel", semantic: OdooStateSemantic::Cancelled },
     ],
     transitions: &[
-        OdooTransition {
-            from: "draft",
-            to: "waiting",
-            trigger: "_action_confirm",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "draft",
-            to: "confirmed",
-            trigger: "_action_confirm",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "confirmed",
-            to: "partially_available",
-            trigger: "_action_assign",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "confirmed",
-            to: "assigned",
-            trigger: "_action_assign",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "waiting",
-            to: "assigned",
-            trigger: "_action_assign",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "partially_available",
-            to: "assigned",
-            trigger: "_action_assign",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "assigned",
-            to: "done",
-            trigger: "_action_done",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "partially_available",
-            to: "done",
-            trigger: "_action_done",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "confirmed",
-            to: "cancel",
-            trigger: "_action_cancel",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "waiting",
-            to: "cancel",
-            trigger: "_action_cancel",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "assigned",
-            to: "cancel",
-            trigger: "_action_cancel",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "partially_available",
-            to: "cancel",
-            trigger: "_action_cancel",
-            guards: &[],
-        },
+        OdooTransition { from: "draft", to: "waiting", trigger: "_action_confirm", guards: &[] },
+        OdooTransition { from: "draft", to: "confirmed", trigger: "_action_confirm", guards: &[] },
+        OdooTransition { from: "confirmed", to: "partially_available", trigger: "_action_assign", guards: &[] },
+        OdooTransition { from: "confirmed", to: "assigned", trigger: "_action_assign", guards: &[] },
+        OdooTransition { from: "waiting", to: "assigned", trigger: "_action_assign", guards: &[] },
+        OdooTransition { from: "partially_available", to: "assigned", trigger: "_action_assign", guards: &[] },
+        OdooTransition { from: "assigned", to: "done", trigger: "_action_done", guards: &[] },
+        OdooTransition { from: "partially_available", to: "done", trigger: "_action_done", guards: &[] },
+        OdooTransition { from: "confirmed", to: "cancel", trigger: "_action_cancel", guards: &[] },
+        OdooTransition { from: "waiting", to: "cancel", trigger: "_action_cancel", guards: &[] },
+        OdooTransition { from: "assigned", to: "cancel", trigger: "_action_cancel", guards: &[] },
+        OdooTransition { from: "partially_available", to: "cancel", trigger: "_action_cancel", guards: &[] },
     ],
 };
 
@@ -143,338 +62,66 @@ pub const STOCK_MOVE: OdooEntity = OdooEntity {
                   (K10, DOLCE Perdurant, FLAG-1). _recompute_state re-derives state \
                   live from quantity vs product_uom_qty — NOT a simple FSM.",
     fields: &[
-        OdooField {
-            name: "name",
-            kind: OdooFieldKind::Char,
-            target: None,
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Identity,
-        },
-        OdooField {
-            name: "state",
-            kind: OdooFieldKind::Selection,
-            target: None,
-            required: false,
-            computed: Some("_recompute_state"),
-            depends: &["quantity", "product_uom_qty", "move_orig_ids.state"],
-            semantic_role: OdooSemanticRole::Status,
-        },
-        OdooField {
-            name: "product_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("product.product"),
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
+        OdooField { name: "name", kind: OdooFieldKind::Char, target: None, required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Identity },
+        OdooField { name: "state", kind: OdooFieldKind::Selection, target: None, required: false, computed: Some("_recompute_state"), depends: &["quantity", "product_uom_qty", "move_orig_ids.state"], semantic_role: OdooSemanticRole::Status },
+        OdooField { name: "product_id", kind: OdooFieldKind::Many2one, target: Some("product.product"), required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
         // Demand qty in move UoM. Always write product_uom_qty, not product_qty.
-        OdooField {
-            name: "product_uom_qty",
-            kind: OdooFieldKind::Float,
-            target: None,
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Quantity,
-        },
+        OdooField { name: "product_uom_qty", kind: OdooFieldKind::Float, target: None, required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Quantity },
         // READ-ONLY computed — writes raise UserError. product_uom._compute_quantity(HALF-UP).
-        OdooField {
-            name: "product_qty",
-            kind: OdooFieldKind::Float,
-            target: None,
-            required: false,
-            computed: Some("_compute_product_qty"),
-            depends: &["product_uom_qty", "product_uom", "product_id.uom_id"],
-            semantic_role: OdooSemanticRole::Quantity,
-        },
-        OdooField {
-            name: "quantity",
-            kind: OdooFieldKind::Float,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Quantity,
-        },
-        OdooField {
-            name: "product_uom",
-            kind: OdooFieldKind::Many2one,
-            target: Some("uom.uom"),
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "location_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.location"),
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "location_dest_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.location"),
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "picking_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.picking"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "move_line_ids",
-            kind: OdooFieldKind::One2many,
-            target: Some("stock.move.line"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "move_orig_ids",
-            kind: OdooFieldKind::Many2many,
-            target: Some("stock.move"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "move_dest_ids",
-            kind: OdooFieldKind::Many2many,
-            target: Some("stock.move"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
+        OdooField { name: "product_qty", kind: OdooFieldKind::Float, target: None, required: false, computed: Some("_compute_product_qty"), depends: &["product_uom_qty", "product_uom", "product_id.uom_id"], semantic_role: OdooSemanticRole::Quantity },
+        OdooField { name: "quantity", kind: OdooFieldKind::Float, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Quantity },
+        OdooField { name: "product_uom", kind: OdooFieldKind::Many2one, target: Some("uom.uom"), required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "location_id", kind: OdooFieldKind::Many2one, target: Some("stock.location"), required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "location_dest_id", kind: OdooFieldKind::Many2one, target: Some("stock.location"), required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "picking_id", kind: OdooFieldKind::Many2one, target: Some("stock.picking"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "move_line_ids", kind: OdooFieldKind::One2many, target: Some("stock.move.line"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "move_orig_ids", kind: OdooFieldKind::Many2many, target: Some("stock.move"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "move_dest_ids", kind: OdooFieldKind::Many2many, target: Some("stock.move"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
         // 'make_to_stock'|'make_to_order'|'mts_else_mto'. Branch selector in _action_confirm/_action_assign.
-        OdooField {
-            name: "procure_method",
-            kind: OdooFieldKind::Selection,
-            target: None,
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Policy,
-        },
+        OdooField { name: "procure_method", kind: OdooFieldKind::Selection, target: None, required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Policy },
         // 'at_confirm'|'manual'|'by_date'. Gate for _should_assign_at_confirm.
-        OdooField {
-            name: "reservation_method",
-            kind: OdooFieldKind::Selection,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Policy,
-        },
-        OdooField {
-            name: "reservation_date",
-            kind: OdooFieldKind::Date,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Date,
-        },
+        OdooField { name: "reservation_method", kind: OdooFieldKind::Selection, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Policy },
+        OdooField { name: "reservation_date", kind: OdooFieldKind::Date, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Date },
         // '0' normal | '1' urgent. action_assign sorts by -int(priority) first.
-        OdooField {
-            name: "priority",
-            kind: OdooFieldKind::Selection,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Policy,
-        },
-        OdooField {
-            name: "date_deadline",
-            kind: OdooFieldKind::Datetime,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Date,
-        },
+        OdooField { name: "priority", kind: OdooFieldKind::Selection, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Policy },
+        OdooField { name: "date_deadline", kind: OdooFieldKind::Datetime, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Date },
         // True: cancel propagates to move_dest_ids when ALL siblings cancelled.
-        OdooField {
-            name: "propagate_cancel",
-            kind: OdooFieldKind::Boolean,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Policy,
-        },
-        OdooField {
-            name: "picked",
-            kind: OdooFieldKind::Boolean,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Status,
-        },
-        OdooField {
-            name: "price_unit",
-            kind: OdooFieldKind::Float,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Money,
-        },
+        OdooField { name: "propagate_cancel", kind: OdooFieldKind::Boolean, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Policy },
+        OdooField { name: "picked", kind: OdooFieldKind::Boolean, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Status },
+        OdooField { name: "price_unit", kind: OdooFieldKind::Float, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Money },
         // min(product_qty, quant.available_qty) or product_qty when state=done.
-        OdooField {
-            name: "availability",
-            kind: OdooFieldKind::Float,
-            target: None,
-            required: false,
-            computed: Some("_compute_product_availability"),
-            depends: &["state", "product_id", "product_uom_qty", "location_id"],
-            semantic_role: OdooSemanticRole::Quantity,
-        },
-        OdooField {
-            name: "rule_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.rule"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
+        OdooField { name: "availability", kind: OdooFieldKind::Float, target: None, required: false, computed: Some("_compute_product_availability"), depends: &["state", "product_id", "product_uom_qty", "location_id"], semantic_role: OdooSemanticRole::Quantity },
+        OdooField { name: "rule_id", kind: OdooFieldKind::Many2one, target: Some("stock.rule"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
     ],
     methods: &[
-        OdooMethod {
-            name: "_action_confirm",
-            kind: OdooMethodKind::Action,
-            return_kind: OdooReturnKind::Self_,
-            triggers: &["waiting", "confirmed"],
-        },
-        OdooMethod {
-            name: "_action_assign",
-            kind: OdooMethodKind::Action,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &["partially_available", "assigned"],
-        },
-        OdooMethod {
-            name: "_action_done",
-            kind: OdooMethodKind::Action,
-            return_kind: OdooReturnKind::Recordset,
-            triggers: &["done"],
-        },
-        OdooMethod {
-            name: "_action_cancel",
-            kind: OdooMethodKind::Action,
-            return_kind: OdooReturnKind::Self_,
-            triggers: &["cancel"],
-        },
-        OdooMethod {
-            name: "_recompute_state",
-            kind: OdooMethodKind::Compute,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_compute_product_qty",
-            kind: OdooMethodKind::Compute,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_compute_product_availability",
-            kind: OdooMethodKind::Compute,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_create_backorder",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Self_,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_split",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Record,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_get_available_quantity",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Number,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_update_reserved_quantity",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_should_bypass_reservation",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Boolean,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_trigger_assign",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_push_apply",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
+        OdooMethod { name: "_action_confirm", kind: OdooMethodKind::Action, return_kind: OdooReturnKind::Self_, triggers: &["waiting", "confirmed"] },
+        OdooMethod { name: "_action_assign", kind: OdooMethodKind::Action, return_kind: OdooReturnKind::Unit, triggers: &["partially_available", "assigned"] },
+        OdooMethod { name: "_action_done", kind: OdooMethodKind::Action, return_kind: OdooReturnKind::Recordset, triggers: &["done"] },
+        OdooMethod { name: "_action_cancel", kind: OdooMethodKind::Action, return_kind: OdooReturnKind::Self_, triggers: &["cancel"] },
+        OdooMethod { name: "_recompute_state", kind: OdooMethodKind::Compute, return_kind: OdooReturnKind::Unit, triggers: &[] },
+        OdooMethod { name: "_compute_product_qty", kind: OdooMethodKind::Compute, return_kind: OdooReturnKind::Unit, triggers: &[] },
+        OdooMethod { name: "_compute_product_availability", kind: OdooMethodKind::Compute, return_kind: OdooReturnKind::Unit, triggers: &[] },
+        OdooMethod { name: "_create_backorder", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Self_, triggers: &[] },
+        OdooMethod { name: "_split", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Record, triggers: &[] },
+        OdooMethod { name: "_get_available_quantity", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Number, triggers: &[] },
+        OdooMethod { name: "_update_reserved_quantity", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Unit, triggers: &[] },
+        OdooMethod { name: "_should_bypass_reservation", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Boolean, triggers: &[] },
+        OdooMethod { name: "_trigger_assign", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Unit, triggers: &[] },
+        OdooMethod { name: "_push_apply", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Unit, triggers: &[] },
     ],
     decorators: &[
-        OdooDecorator {
-            kind: OdooDecoratorKind::ApiDepends,
-            targets: &["product_uom_qty", "product_uom", "product_id.uom_id"],
-        },
-        OdooDecorator {
-            kind: OdooDecoratorKind::ApiDepends,
-            targets: &["quantity", "product_uom_qty", "move_orig_ids.state"],
-        },
+        OdooDecorator { kind: OdooDecoratorKind::ApiDepends, targets: &["product_uom_qty", "product_uom", "product_id.uom_id"] },
+        OdooDecorator { kind: OdooDecoratorKind::ApiDepends, targets: &["quantity", "product_uom_qty", "move_orig_ids.state"] },
     ],
     state_machine: Some(&STOCK_MOVE_STATE_MACHINE),
     constraints: &[
-        OdooConstraint {
-            kind: OdooConstraintKind::Python,
-            condition:
-                "product_qty is read-only; writing raises UserError — always write product_uom_qty",
-            source_method: None,
-        },
-        OdooConstraint {
-            kind: OdooConstraintKind::Python,
-            condition: "cancel blocked when state=done and location_dest_usage != 'inventory'",
-            source_method: Some("_action_cancel"),
-        },
+        OdooConstraint { kind: OdooConstraintKind::Python, condition: "product_qty is read-only; writing raises UserError — always write product_uom_qty", source_method: None },
+        OdooConstraint { kind: OdooConstraintKind::Python, condition: "cancel blocked when state=done and location_dest_usage != 'inventory'", source_method: Some("_action_cancel") },
     ],
     provenance: OdooProvenance {
         l_doc: "L7-STOCK.md",
         l_doc_lines: (31, 108),
-        odoo_source: &[OdooSourceRef {
-            path: "addons/stock/models/stock_move.py",
-            line_range: (107, 2503),
-        }],
+        odoo_source: &[OdooSourceRef { path: "addons/stock/models/stock_move.py", line_range: (107, 2503) }],
         confidence: OdooConfidence::Curated,
         regulation_iri: &[],
     },
@@ -489,119 +136,21 @@ pub const STOCK_MOVE_LINE: OdooEntity = OdooEntity {
                   _action_done drives quant mutation via stock.quant._update_available_quantity; \
                   serial products get one move line per unit (K10, DOLCE Perdurant).",
     fields: &[
-        OdooField {
-            name: "move_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.move"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "picking_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.picking"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "product_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("product.product"),
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "location_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.location"),
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "location_dest_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.location"),
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "lot_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.lot"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "package_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.quant.package"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "owner_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("res.partner"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "quantity",
-            kind: OdooFieldKind::Float,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Quantity,
-        },
-        OdooField {
-            name: "reserved_qty",
-            kind: OdooFieldKind::Float,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Quantity,
-        },
-        OdooField {
-            name: "picked",
-            kind: OdooFieldKind::Boolean,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Status,
-        },
+        OdooField { name: "move_id", kind: OdooFieldKind::Many2one, target: Some("stock.move"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "picking_id", kind: OdooFieldKind::Many2one, target: Some("stock.picking"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "product_id", kind: OdooFieldKind::Many2one, target: Some("product.product"), required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "location_id", kind: OdooFieldKind::Many2one, target: Some("stock.location"), required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "location_dest_id", kind: OdooFieldKind::Many2one, target: Some("stock.location"), required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "lot_id", kind: OdooFieldKind::Many2one, target: Some("stock.lot"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "package_id", kind: OdooFieldKind::Many2one, target: Some("stock.quant.package"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "owner_id", kind: OdooFieldKind::Many2one, target: Some("res.partner"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "quantity", kind: OdooFieldKind::Float, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Quantity },
+        OdooField { name: "reserved_qty", kind: OdooFieldKind::Float, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Quantity },
+        OdooField { name: "picked", kind: OdooFieldKind::Boolean, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Status },
     ],
     methods: &[
-        OdooMethod {
-            name: "_action_done",
-            kind: OdooMethodKind::Action,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_apply_putaway_strategy",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
+        OdooMethod { name: "_action_done", kind: OdooMethodKind::Action, return_kind: OdooReturnKind::Unit, triggers: &[] },
+        OdooMethod { name: "_apply_putaway_strategy", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Unit, triggers: &[] },
     ],
     decorators: &[],
     state_machine: None,
@@ -613,10 +162,7 @@ pub const STOCK_MOVE_LINE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "L7-STOCK.md",
         l_doc_lines: (77, 108),
-        odoo_source: &[OdooSourceRef {
-            path: "addons/stock/models/stock_move.py",
-            line_range: (1763, 1820),
-        }],
+        odoo_source: &[OdooSourceRef { path: "addons/stock/models/stock_move.py", line_range: (1763, 1820) }],
         confidence: OdooConfidence::Curated,
         regulation_iri: &[],
     },
@@ -634,60 +180,12 @@ pub const STOCK_QUANT: OdooEntity = OdooEntity {
                   in_date = min(incoming_dates) — FIFO invariant at quant level \
                   (K10, DOLCE Endurant, FLAG-3).",
     fields: &[
-        OdooField {
-            name: "product_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("product.product"),
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "location_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.location"),
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "lot_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.lot"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "package_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.quant.package"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "owner_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("res.partner"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "quantity",
-            kind: OdooFieldKind::Float,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Quantity,
-        },
+        OdooField { name: "product_id", kind: OdooFieldKind::Many2one, target: Some("product.product"), required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "location_id", kind: OdooFieldKind::Many2one, target: Some("stock.location"), required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "lot_id", kind: OdooFieldKind::Many2one, target: Some("stock.lot"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "package_id", kind: OdooFieldKind::Many2one, target: Some("stock.quant.package"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "owner_id", kind: OdooFieldKind::Many2one, target: Some("res.partner"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "quantity", kind: OdooFieldKind::Float, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Quantity },
         OdooField {
             name: "reserved_quantity",
             kind: OdooFieldKind::Float,
@@ -718,118 +216,32 @@ pub const STOCK_QUANT: OdooEntity = OdooEntity {
             // FEFO: domain filter removal_date >= threshold OR NULL in _get_gather_domain.
             semantic_role: OdooSemanticRole::Date,
         },
-        OdooField {
-            name: "inventory_quantity",
-            kind: OdooFieldKind::Float,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Quantity,
-        },
-        OdooField {
-            name: "inventory_quantity_set",
-            kind: OdooFieldKind::Boolean,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Status,
-        },
+        OdooField { name: "inventory_quantity", kind: OdooFieldKind::Float, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Quantity },
+        OdooField { name: "inventory_quantity_set", kind: OdooFieldKind::Boolean, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Status },
     ],
     methods: &[
-        OdooMethod {
-            name: "_get_available_quantity",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Number,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_gather",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Recordset,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_get_removal_strategy",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Dict,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_get_gather_domain",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Dict,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_get_reserve_quantity",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Dict,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_update_available_quantity",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Dict,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_apply_inventory",
-            kind: OdooMethodKind::Action,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_merge_quants",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_unlink_zero_quants",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_run_least_packages_removal_strategy_astar",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Recordset,
-            triggers: &[],
-        },
+        OdooMethod { name: "_get_available_quantity", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Number, triggers: &[] },
+        OdooMethod { name: "_gather", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Recordset, triggers: &[] },
+        OdooMethod { name: "_get_removal_strategy", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Dict, triggers: &[] },
+        OdooMethod { name: "_get_gather_domain", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Dict, triggers: &[] },
+        OdooMethod { name: "_get_reserve_quantity", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Dict, triggers: &[] },
+        OdooMethod { name: "_update_available_quantity", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Dict, triggers: &[] },
+        OdooMethod { name: "_apply_inventory", kind: OdooMethodKind::Action, return_kind: OdooReturnKind::Unit, triggers: &[] },
+        OdooMethod { name: "_merge_quants", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Unit, triggers: &[] },
+        OdooMethod { name: "_unlink_zero_quants", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Unit, triggers: &[] },
+        OdooMethod { name: "_run_least_packages_removal_strategy_astar", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Recordset, triggers: &[] },
     ],
-    decorators: &[OdooDecorator {
-        kind: OdooDecoratorKind::ApiAutovacuum,
-        targets: &[],
-    }],
+    decorators: &[OdooDecorator { kind: OdooDecoratorKind::ApiAutovacuum, targets: &[] }],
     state_machine: None,
     constraints: &[
-        OdooConstraint {
-            kind: OdooConstraintKind::Sql,
-            condition: "UNIQUE(product_id, location_id, lot_id, package_id, owner_id)",
-            source_method: None,
-        },
-        OdooConstraint {
-            kind: OdooConstraintKind::Python,
-            condition:
-                "reserved_quantity >= 0 (max(0, reserved + delta) in _update_available_quantity)",
-            source_method: Some("_update_available_quantity"),
-        },
-        OdooConstraint {
-            kind: OdooConstraintKind::Python,
-            condition:
-                "serial tracking: fractional reserve qty clamped to 0 (_get_reserve_quantity)",
-            source_method: Some("_get_reserve_quantity"),
-        },
+        OdooConstraint { kind: OdooConstraintKind::Sql, condition: "UNIQUE(product_id, location_id, lot_id, package_id, owner_id)", source_method: None },
+        OdooConstraint { kind: OdooConstraintKind::Python, condition: "reserved_quantity >= 0 (max(0, reserved + delta) in _update_available_quantity)", source_method: Some("_update_available_quantity") },
+        OdooConstraint { kind: OdooConstraintKind::Python, condition: "serial tracking: fractional reserve qty clamped to 0 (_get_reserve_quantity)", source_method: Some("_get_reserve_quantity") },
     ],
     provenance: OdooProvenance {
         l_doc: "L7-STOCK.md",
         l_doc_lines: (110, 415),
-        odoo_source: &[OdooSourceRef {
-            path: "addons/stock/models/stock_quant.py",
-            line_range: (617, 1138),
-        }],
+        odoo_source: &[OdooSourceRef { path: "addons/stock/models/stock_quant.py", line_range: (617, 1138) }],
         confidence: OdooConfidence::Curated,
         regulation_iri: &[],
     },
@@ -840,57 +252,19 @@ pub const STOCK_QUANT: OdooEntity = OdooEntity {
 const STOCK_PICKING_STATE_MACHINE: OdooStateMachine = OdooStateMachine {
     state_field: "state",
     states: &[
-        OdooState {
-            name: "draft",
-            semantic: OdooStateSemantic::Draft,
-        },
-        OdooState {
-            name: "waiting",
-            semantic: OdooStateSemantic::InProgress,
-        },
-        OdooState {
-            name: "confirmed",
-            semantic: OdooStateSemantic::InProgress,
-        },
+        OdooState { name: "draft", semantic: OdooStateSemantic::Draft },
+        OdooState { name: "waiting", semantic: OdooStateSemantic::InProgress },
+        OdooState { name: "confirmed", semantic: OdooStateSemantic::InProgress },
         // partially_available move → 'assigned' picking when move_type='direct' (_compute_state L858).
-        OdooState {
-            name: "assigned",
-            semantic: OdooStateSemantic::Active,
-        },
-        OdooState {
-            name: "done",
-            semantic: OdooStateSemantic::Completed,
-        },
-        OdooState {
-            name: "cancel",
-            semantic: OdooStateSemantic::Cancelled,
-        },
+        OdooState { name: "assigned", semantic: OdooStateSemantic::Active },
+        OdooState { name: "done", semantic: OdooStateSemantic::Completed },
+        OdooState { name: "cancel", semantic: OdooStateSemantic::Cancelled },
     ],
     transitions: &[
-        OdooTransition {
-            from: "draft",
-            to: "confirmed",
-            trigger: "action_confirm",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "confirmed",
-            to: "assigned",
-            trigger: "action_assign",
-            guards: &[],
-        },
-        OdooTransition {
-            from: "assigned",
-            to: "done",
-            trigger: "button_validate",
-            guards: &["_sanity_check"],
-        },
-        OdooTransition {
-            from: "confirmed",
-            to: "done",
-            trigger: "button_validate",
-            guards: &["_sanity_check"],
-        },
+        OdooTransition { from: "draft", to: "confirmed", trigger: "action_confirm", guards: &[] },
+        OdooTransition { from: "confirmed", to: "assigned", trigger: "action_assign", guards: &[] },
+        OdooTransition { from: "assigned", to: "done", trigger: "button_validate", guards: &["_sanity_check"] },
+        OdooTransition { from: "confirmed", to: "done", trigger: "button_validate", guards: &["_sanity_check"] },
     ],
 };
 
@@ -987,15 +361,7 @@ pub const STOCK_LOCATION: OdooEntity = OdooEntity {
                   should_bypass_reservation() short-circuits quant ops for \
                   virtual/supplier/customer locations (K10, DOLCE Endurant).",
     fields: &[
-        OdooField {
-            name: "name",
-            kind: OdooFieldKind::Char,
-            target: None,
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Identity,
-        },
+        OdooField { name: "name", kind: OdooFieldKind::Char, target: None, required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Identity },
         OdooField {
             name: "complete_name",
             kind: OdooFieldKind::Char,
@@ -1006,15 +372,7 @@ pub const STOCK_LOCATION: OdooEntity = OdooEntity {
             depends: &["name", "location_id.complete_name"],
             semantic_role: OdooSemanticRole::Identity,
         },
-        OdooField {
-            name: "location_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.location"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
+        OdooField { name: "location_id", kind: OdooFieldKind::Many2one, target: Some("stock.location"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
         OdooField {
             name: "usage",
             kind: OdooFieldKind::Selection,
@@ -1035,43 +393,14 @@ pub const STOCK_LOCATION: OdooEntity = OdooEntity {
             // RemovalStrategySelector dispatch. product.categ wins; walk hierarchy; default fifo.
             semantic_role: OdooSemanticRole::Policy,
         },
-        OdooField {
-            name: "active",
-            kind: OdooFieldKind::Boolean,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Status,
-        },
-        OdooField {
-            name: "last_inventory_date",
-            kind: OdooFieldKind::Date,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Audit,
-        },
+        OdooField { name: "active", kind: OdooFieldKind::Boolean, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Status },
+        OdooField { name: "last_inventory_date", kind: OdooFieldKind::Date, target: None, required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Audit },
     ],
     methods: &[
-        OdooMethod {
-            name: "should_bypass_reservation",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Boolean,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_compute_complete_name",
-            kind: OdooMethodKind::Compute,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
+        OdooMethod { name: "should_bypass_reservation", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Boolean, triggers: &[] },
+        OdooMethod { name: "_compute_complete_name", kind: OdooMethodKind::Compute, return_kind: OdooReturnKind::Unit, triggers: &[] },
     ],
-    decorators: &[OdooDecorator {
-        kind: OdooDecoratorKind::ApiDepends,
-        targets: &["name", "location_id.complete_name"],
-    }],
+    decorators: &[OdooDecorator { kind: OdooDecoratorKind::ApiDepends, targets: &["name", "location_id.complete_name"] }],
     state_machine: None,
     constraints: &[OdooConstraint {
         kind: OdooConstraintKind::Domain,
@@ -1081,10 +410,7 @@ pub const STOCK_LOCATION: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "L7-STOCK.md",
         l_doc_lines: (155, 207),
-        odoo_source: &[OdooSourceRef {
-            path: "addons/stock/models/stock_quant.py",
-            line_range: (617, 791),
-        }],
+        odoo_source: &[OdooSourceRef { path: "addons/stock/models/stock_quant.py", line_range: (617, 791) }],
         confidence: OdooConfidence::Curated,
         regulation_iri: &[],
     },
@@ -1100,42 +426,10 @@ pub const STOCK_WAREHOUSE: OdooEntity = OdooEntity {
                   proposed gs1:Location (K10, DOLCE Endurant, FLAG-4). \
                   TODO: alignment row needed before OGIT hydration.",
     fields: &[
-        OdooField {
-            name: "name",
-            kind: OdooFieldKind::Char,
-            target: None,
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Identity,
-        },
-        OdooField {
-            name: "code",
-            kind: OdooFieldKind::Char,
-            target: None,
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Identity,
-        },
-        OdooField {
-            name: "partner_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("res.partner"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Address,
-        },
-        OdooField {
-            name: "lot_stock_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("stock.location"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
+        OdooField { name: "name", kind: OdooFieldKind::Char, target: None, required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Identity },
+        OdooField { name: "code", kind: OdooFieldKind::Char, target: None, required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Identity },
+        OdooField { name: "partner_id", kind: OdooFieldKind::Many2one, target: Some("res.partner"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Address },
+        OdooField { name: "lot_stock_id", kind: OdooFieldKind::Many2one, target: Some("stock.location"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
         OdooField {
             name: "reception_steps",
             kind: OdooFieldKind::Selection,
@@ -1156,38 +450,12 @@ pub const STOCK_WAREHOUSE: OdooEntity = OdooEntity {
             // 'ship_only'|'pick_ship'|'pick_pack_ship'.
             semantic_role: OdooSemanticRole::Policy,
         },
-        OdooField {
-            name: "route_ids",
-            kind: OdooFieldKind::Many2many,
-            target: Some("stock.route"),
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
-        OdooField {
-            name: "company_id",
-            kind: OdooFieldKind::Many2one,
-            target: Some("res.company"),
-            required: true,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Reference,
-        },
+        OdooField { name: "route_ids", kind: OdooFieldKind::Many2many, target: Some("stock.route"), required: false, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
+        OdooField { name: "company_id", kind: OdooFieldKind::Many2one, target: Some("res.company"), required: true, computed: None, depends: &[], semantic_role: OdooSemanticRole::Reference },
     ],
     methods: &[
-        OdooMethod {
-            name: "_get_picking_type_create_edit",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Dict,
-            triggers: &[],
-        },
-        OdooMethod {
-            name: "_update_reception_delivery",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
+        OdooMethod { name: "_get_picking_type_create_edit", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Dict, triggers: &[] },
+        OdooMethod { name: "_update_reception_delivery", kind: OdooMethodKind::Helper, return_kind: OdooReturnKind::Unit, triggers: &[] },
     ],
     decorators: &[],
     state_machine: None,
@@ -1250,9 +518,7 @@ mod tests {
 
     #[test]
     fn stock_move_has_state_machine() {
-        let sm = STOCK_MOVE
-            .state_machine
-            .expect("stock.move must have a state machine");
+        let sm = STOCK_MOVE.state_machine.expect("stock.move must have a state machine");
         assert_eq!(sm.state_field, "state");
         assert_eq!(sm.states.len(), 7);
         assert!(!sm.transitions.is_empty());
@@ -1269,86 +535,53 @@ mod tests {
 
     #[test]
     fn stock_move_product_qty_is_computed() {
-        let f = STOCK_MOVE
-            .fields
-            .iter()
-            .find(|f| f.name == "product_qty")
-            .unwrap();
+        let f = STOCK_MOVE.fields.iter().find(|f| f.name == "product_qty").unwrap();
         assert_eq!(f.computed, Some("_compute_product_qty"));
         assert_eq!(f.kind, OdooFieldKind::Float);
     }
     #[test]
     fn stock_move_reservation_policy_fields_present() {
         let ns: Vec<&str> = STOCK_MOVE.fields.iter().map(|f| f.name).collect();
-        assert!(
-            ns.contains(&"reservation_method")
-                && ns.contains(&"reservation_date")
-                && ns.contains(&"procure_method")
-                && ns.contains(&"priority")
-        );
+        assert!(ns.contains(&"reservation_method") && ns.contains(&"reservation_date")
+            && ns.contains(&"procure_method") && ns.contains(&"priority"));
     }
     #[test]
     fn stock_quant_reservation_invariant_captured() {
-        let f = STOCK_QUANT
-            .fields
-            .iter()
-            .find(|f| f.name == "reserved_quantity")
-            .unwrap();
+        let f = STOCK_QUANT.fields.iter().find(|f| f.name == "reserved_quantity").unwrap();
         assert_eq!(f.semantic_role, OdooSemanticRole::Quantity);
         assert!(!STOCK_QUANT.constraints.is_empty());
     }
     #[test]
     fn stock_quant_has_removal_strategy_methods() {
         let ns: Vec<&str> = STOCK_QUANT.methods.iter().map(|m| m.name).collect();
-        assert!(
-            ns.contains(&"_gather")
-                && ns.contains(&"_get_removal_strategy")
-                && ns.contains(&"_get_reserve_quantity")
-                && ns.contains(&"_update_available_quantity")
-        );
+        assert!(ns.contains(&"_gather") && ns.contains(&"_get_removal_strategy")
+            && ns.contains(&"_get_reserve_quantity") && ns.contains(&"_update_available_quantity"));
     }
     #[test]
     fn stock_picking_state_is_computed() {
-        let f = STOCK_PICKING
-            .fields
-            .iter()
-            .find(|f| f.name == "state")
-            .unwrap();
+        let f = STOCK_PICKING.fields.iter().find(|f| f.name == "state").unwrap();
         assert_eq!(f.computed, Some("_compute_state"));
     }
     #[test]
     fn stock_picking_has_state_machine() {
-        let sm = STOCK_PICKING
-            .state_machine
-            .expect("stock.picking must have a state machine");
+        let sm = STOCK_PICKING.state_machine.expect("stock.picking must have a state machine");
         assert_eq!(sm.state_field, "state");
         assert_eq!(sm.states.len(), 6);
     }
     #[test]
     fn stock_picking_move_type_is_policy() {
-        let f = STOCK_PICKING
-            .fields
-            .iter()
-            .find(|f| f.name == "move_type")
-            .unwrap();
+        let f = STOCK_PICKING.fields.iter().find(|f| f.name == "move_type").unwrap();
         assert_eq!(f.semantic_role, OdooSemanticRole::Policy);
     }
     #[test]
     fn stock_location_removal_strategy_is_policy() {
-        let f = STOCK_LOCATION
-            .fields
-            .iter()
-            .find(|f| f.name == "removal_strategy_id")
-            .unwrap();
+        let f = STOCK_LOCATION.fields.iter().find(|f| f.name == "removal_strategy_id").unwrap();
         assert_eq!(f.kind, OdooFieldKind::Many2one);
         assert_eq!(f.semantic_role, OdooSemanticRole::Policy);
     }
     #[test]
     fn stock_location_has_bypass_method() {
-        assert!(STOCK_LOCATION
-            .methods
-            .iter()
-            .any(|m| m.name == "should_bypass_reservation"));
+        assert!(STOCK_LOCATION.methods.iter().any(|m| m.name == "should_bypass_reservation"));
     }
     #[test]
     fn stock_warehouse_has_steps_policy_fields() {
@@ -1358,22 +591,13 @@ mod tests {
     #[test]
     fn all_entities_are_curated() {
         for e in ENTITIES {
-            assert_eq!(
-                e.provenance.confidence,
-                OdooConfidence::Curated,
-                "{} must be Curated",
-                e.model_name
-            );
+            assert_eq!(e.provenance.confidence, OdooConfidence::Curated, "{} must be Curated", e.model_name);
         }
     }
     #[test]
     fn all_entities_cite_l7_doc() {
         for e in ENTITIES {
-            assert_eq!(
-                e.provenance.l_doc, "L7-STOCK.md",
-                "{} must cite L7 doc",
-                e.model_name
-            );
+            assert_eq!(e.provenance.l_doc, "L7-STOCK.md", "{} must cite L7 doc", e.model_name);
         }
     }
 }

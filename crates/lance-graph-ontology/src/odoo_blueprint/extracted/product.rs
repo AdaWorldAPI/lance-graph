@@ -8,26 +8,31 @@ pub const EXT_IR_ATTACHMENT: OdooEntity = OdooEntity {
     model_name: "ir.attachment",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[],
-    methods: &[OdooMethod {
-        name: "create",
-        kind: OdooMethodKind::ApiModelCreateMulti,
-        return_kind: OdooReturnKind::Record,
-        triggers: &[],
-    }],
-    decorators: &[OdooDecorator {
-        kind: OdooDecoratorKind::ApiModelCreateMulti,
-        targets: &[],
-    }],
+    fields: &[
+
+    ],
+    methods: &[
+        OdooMethod {
+            name: "create",
+            kind: OdooMethodKind::ApiModelCreateMulti,
+            return_kind: OdooReturnKind::Record,
+            triggers: &[],
+        },
+    ],
+    decorators: &[
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiModelCreateMulti,
+            targets: &[],
+        },
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/ir_attachment.py",
-            line_range: (6, 26),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/ir_attachment.py", line_range: (6, 26) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -186,10 +191,7 @@ pub const EXT_PRODUCT_ATTRIBUTE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &[
-                "attribute_line_ids.active",
-                "attribute_line_ids.product_tmpl_id",
-            ],
+            targets: &["attribute_line_ids.active", "attribute_line_ids.product_tmpl_id"],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiOnchange,
@@ -197,18 +199,17 @@ pub const EXT_PRODUCT_ATTRIBUTE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[OdooConstraint {
-        kind: OdooConstraintKind::Sql,
-        condition: "Multi-checkbox display type is not compatible with the creation of variants",
-        source_method: None,
-    }],
+    constraints: &[
+        OdooConstraint {
+            kind: OdooConstraintKind::Sql,
+            condition: "Multi-checkbox display type is not compatible with the creation of variants",
+            source_method: None,
+        },
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_attribute.py",
-            line_range: (7, 168),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_attribute.py", line_range: (7, 168) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -247,28 +248,28 @@ pub const EXT_PRODUCT_ATTRIBUTE_CUSTOM_VALUE: OdooEntity = OdooEntity {
             semantic_role: OdooSemanticRole::Other,
         },
     ],
-    methods: &[OdooMethod {
-        name: "_compute_name",
-        kind: OdooMethodKind::Compute,
-        return_kind: OdooReturnKind::Unit,
-        triggers: &[],
-    }],
-    decorators: &[OdooDecorator {
-        kind: OdooDecoratorKind::ApiDepends,
-        targets: &[
-            "custom_product_template_attribute_value_id.name",
-            "custom_value",
-        ],
-    }],
+    methods: &[
+        OdooMethod {
+            name: "_compute_name",
+            kind: OdooMethodKind::Compute,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+    ],
+    decorators: &[
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiDepends,
+            targets: &["custom_product_template_attribute_value_id.name", "custom_value"],
+        },
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_attribute_custom_value.py",
-            line_range: (6, 25),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_attribute_custom_value.py", line_range: (6, 25) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -480,14 +481,13 @@ pub const EXT_PRODUCT_ATTRIBUTE_VALUE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_attribute_value.py",
-            line_range: (9, 180),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_attribute_value.py", line_range: (9, 180) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -497,7 +497,9 @@ pub const EXT_PRODUCT_CATALOG_MIXIN: OdooEntity = OdooEntity {
     model_name: "product.catalog.mixin",
     kind: OdooEntityKind::Abstract,
     description: "Product Catalog Mixin",
-    fields: &[],
+    fields: &[
+
+    ],
     methods: &[
         OdooMethod {
             name: "action_add_from_catalog",
@@ -554,16 +556,17 @@ pub const EXT_PRODUCT_CATALOG_MIXIN: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[],
+    decorators: &[
+
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_catalog_mixin.py",
-            line_range: (7, 151),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_catalog_mixin.py", line_range: (7, 151) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -691,18 +694,17 @@ pub const EXT_PRODUCT_CATEGORY: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[OdooConstraint {
-        kind: OdooConstraintKind::Python,
-        condition: "Python constraint on parent_id",
-        source_method: Some("_check_category_recursion"),
-    }],
+    constraints: &[
+        OdooConstraint {
+            kind: OdooConstraintKind::Python,
+            condition: "Python constraint on parent_id",
+            source_method: Some("_check_category_recursion"),
+        },
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_category.py",
-            line_range: (8, 69),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_category.py", line_range: (8, 69) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -862,10 +864,7 @@ pub const EXT_PRODUCT_COMBO: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_combo.py",
-            line_range: (7, 79),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_combo.py", line_range: (7, 79) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -931,29 +930,32 @@ pub const EXT_PRODUCT_COMBO_ITEM: OdooEntity = OdooEntity {
             semantic_role: OdooSemanticRole::Other,
         },
     ],
-    methods: &[OdooMethod {
-        name: "_check_product_id_no_combo",
-        kind: OdooMethodKind::Constrain,
-        return_kind: OdooReturnKind::Unit,
-        triggers: &[],
-    }],
-    decorators: &[OdooDecorator {
-        kind: OdooDecoratorKind::ApiConstrains,
-        targets: &["product_id"],
-    }],
+    methods: &[
+        OdooMethod {
+            name: "_check_product_id_no_combo",
+            kind: OdooMethodKind::Constrain,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+    ],
+    decorators: &[
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiConstrains,
+            targets: &["product_id"],
+        },
+    ],
     state_machine: None,
-    constraints: &[OdooConstraint {
-        kind: OdooConstraintKind::Python,
-        condition: "Python constraint on product_id",
-        source_method: Some("_check_product_id_no_combo"),
-    }],
+    constraints: &[
+        OdooConstraint {
+            kind: OdooConstraintKind::Python,
+            condition: "Python constraint on product_id",
+            source_method: Some("_check_product_id_no_combo"),
+        },
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_combo_item.py",
-            line_range: (7, 33),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_combo_item.py", line_range: (7, 33) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1029,14 +1031,13 @@ pub const EXT_PRODUCT_DOCUMENT: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_document.py",
-            line_range: (8, 60),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_document.py", line_range: (8, 60) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1260,14 +1261,13 @@ pub const EXT_PRODUCT_PRICELIST: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_pricelist.py",
-            line_range: (9, 414),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_pricelist.py", line_range: (9, 414) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1740,17 +1740,7 @@ pub const EXT_PRODUCT_PRICELIST_ITEM: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &[
-                "compute_price",
-                "fixed_price",
-                "pricelist_id",
-                "percent_price",
-                "price_discount",
-                "price_markup",
-                "price_surcharge",
-                "base",
-                "base_pricelist_id",
-            ],
+            targets: &["compute_price", "fixed_price", "pricelist_id", "percent_price", "price_discount", "price_markup", "price_surcharge", "base", "base_pricelist_id"],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -1758,14 +1748,7 @@ pub const EXT_PRODUCT_PRICELIST_ITEM: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &[
-                "base",
-                "compute_price",
-                "price_discount",
-                "price_markup",
-                "price_round",
-                "price_surcharge",
-            ],
+            targets: &["base", "compute_price", "price_discount", "price_markup", "price_round", "price_surcharge"],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiConstrains,
@@ -1859,10 +1842,7 @@ pub const EXT_PRODUCT_PRICELIST_ITEM: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_pricelist_item.py",
-            line_range: (8, 684),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_pricelist_item.py", line_range: (8, 684) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/de/ustg/13"],
     },
@@ -2741,10 +2721,7 @@ pub const EXT_PRODUCT_PRODUCT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_product.py",
-            line_range: (16, 1197),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_product.py", line_range: (16, 1197) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -3012,14 +2989,13 @@ pub const EXT_PRODUCT_SUPPLIERINFO: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_supplierinfo.py",
-            line_range: (7, 119),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_supplierinfo.py", line_range: (7, 119) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -3135,23 +3111,24 @@ pub const EXT_PRODUCT_TAG: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[OdooDecorator {
-        kind: OdooDecoratorKind::ApiDepends,
-        targets: &["product_template_ids", "product_product_ids"],
-    }],
+    decorators: &[
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiDepends,
+            targets: &["product_template_ids", "product_product_ids"],
+        },
+    ],
     state_machine: None,
-    constraints: &[OdooConstraint {
-        kind: OdooConstraintKind::Sql,
-        condition: "Tag name already exists!",
-        source_method: None,
-    }],
+    constraints: &[
+        OdooConstraint {
+            kind: OdooConstraintKind::Sql,
+            condition: "Tag name already exists!",
+            source_method: None,
+        },
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_tag.py",
-            line_range: (7, 62),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_tag.py", line_range: (7, 62) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -4194,13 +4171,7 @@ pub const EXT_PRODUCT_TEMPLATE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &[
-                "attribute_line_ids",
-                "attribute_line_ids.value_ids",
-                "attribute_line_ids.attribute_id.create_variant",
-                "attribute_line_ids.attribute_id.display_type",
-                "attribute_line_ids.value_ids.is_custom",
-            ],
+            targets: &["attribute_line_ids", "attribute_line_ids.value_ids", "attribute_line_ids.attribute_id.create_variant", "attribute_line_ids.attribute_id.display_type", "attribute_line_ids.value_ids.is_custom"],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -4372,10 +4343,7 @@ pub const EXT_PRODUCT_TEMPLATE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_template.py",
-            line_range: (18, 1598),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_template.py", line_range: (18, 1598) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -4434,19 +4402,20 @@ pub const EXT_PRODUCT_TEMPLATE_ATTRIBUTE_EXCLUSION: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[OdooDecorator {
-        kind: OdooDecoratorKind::ApiModelCreateMulti,
-        targets: &[],
-    }],
+    decorators: &[
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiModelCreateMulti,
+            targets: &[],
+        },
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_template_attribute_exclusion.py",
-            line_range: (6, 47),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_template_attribute_exclusion.py", line_range: (6, 47) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -4602,18 +4571,17 @@ pub const EXT_PRODUCT_TEMPLATE_ATTRIBUTE_LINE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[OdooConstraint {
-        kind: OdooConstraintKind::Python,
-        condition: "Python constraint on active, value_ids, attribute_id",
-        source_method: Some("_check_valid_values"),
-    }],
+    constraints: &[
+        OdooConstraint {
+            kind: OdooConstraintKind::Python,
+            condition: "Python constraint on active, value_ids, attribute_id",
+            source_method: Some("_check_valid_values"),
+        },
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_template_attribute_line.py",
-            line_range: (8, 284),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_template_attribute_line.py", line_range: (8, 284) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -4864,10 +4832,7 @@ pub const EXT_PRODUCT_TEMPLATE_ATTRIBUTE_VALUE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_template_attribute_value.py",
-            line_range: (10, 198),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_template_attribute_value.py", line_range: (10, 198) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -4929,10 +4894,12 @@ pub const EXT_PRODUCT_UOM: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[OdooDecorator {
-        kind: OdooDecoratorKind::ApiConstrains,
-        targets: &["barcode"],
-    }],
+    decorators: &[
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiConstrains,
+            targets: &["barcode"],
+        },
+    ],
     state_machine: None,
     constraints: &[
         OdooConstraint {
@@ -4949,10 +4916,7 @@ pub const EXT_PRODUCT_UOM: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/product_uom.py",
-            line_range: (8, 32),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/product_uom.py", line_range: (8, 32) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -4962,7 +4926,9 @@ pub const EXT_RES_COMPANY: OdooEntity = OdooEntity {
     model_name: "res.company",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[],
+    fields: &[
+
+    ],
     methods: &[
         OdooMethod {
             name: "create",
@@ -4989,19 +4955,20 @@ pub const EXT_RES_COMPANY: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[OdooDecorator {
-        kind: OdooDecoratorKind::ApiModelCreateMulti,
-        targets: &[],
-    }],
+    decorators: &[
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiModelCreateMulti,
+            targets: &[],
+        },
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/res_company.py",
-            line_range: (6, 69),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/res_company.py", line_range: (6, 69) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -5081,19 +5048,20 @@ pub const EXT_RES_CONFIG_SETTINGS: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[OdooDecorator {
-        kind: OdooDecoratorKind::ApiOnchange,
-        targets: &["group_product_pricelist"],
-    }],
+    decorators: &[
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiOnchange,
+            targets: &["group_product_pricelist"],
+        },
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/res_config_settings.py",
-            line_range: (6, 43),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/res_config_settings.py", line_range: (6, 43) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -5103,26 +5071,31 @@ pub const EXT_RES_COUNTRY_GROUP: OdooEntity = OdooEntity {
     model_name: "res.country.group",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[OdooField {
-        name: "pricelist_ids",
-        kind: OdooFieldKind::Many2many,
-        target: Some("product.pricelist"),
-        required: false,
-        computed: None,
-        depends: &[],
-        semantic_role: OdooSemanticRole::Other,
-    }],
-    methods: &[],
-    decorators: &[],
+    fields: &[
+        OdooField {
+            name: "pricelist_ids",
+            kind: OdooFieldKind::Many2many,
+            target: Some("product.pricelist"),
+            required: false,
+            computed: None,
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+    ],
+    methods: &[
+
+    ],
+    decorators: &[
+
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/res_country_group.py",
-            line_range: (7, 15),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/res_country_group.py", line_range: (7, 15) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -5132,7 +5105,9 @@ pub const EXT_RES_CURRENCY: OdooEntity = OdooEntity {
     model_name: "res.currency",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[],
+    fields: &[
+
+    ],
     methods: &[
         OdooMethod {
             name: "_activate_group_multi_currency",
@@ -5147,16 +5122,17 @@ pub const EXT_RES_CURRENCY: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[],
+    decorators: &[
+
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/res_currency.py",
-            line_range: (7, 25),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/res_currency.py", line_range: (7, 25) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -5206,19 +5182,20 @@ pub const EXT_RES_PARTNER: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[OdooDecorator {
-        kind: OdooDecoratorKind::ApiDepends,
-        targets: &["country_id", "specific_property_product_pricelist"],
-    }],
+    decorators: &[
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiDepends,
+            targets: &["country_id", "specific_property_product_pricelist"],
+        },
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/res_partner.py",
-            line_range: (6, 51),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/res_partner.py", line_range: (6, 51) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -5228,15 +5205,17 @@ pub const EXT_UOM_UOM: OdooEntity = OdooEntity {
     model_name: "uom.uom",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[OdooField {
-        name: "product_uom_ids",
-        kind: OdooFieldKind::One2many,
-        target: Some("product.uom"),
-        required: false,
-        computed: None,
-        depends: &[],
-        semantic_role: OdooSemanticRole::Other,
-    }],
+    fields: &[
+        OdooField {
+            name: "product_uom_ids",
+            kind: OdooFieldKind::One2many,
+            target: Some("product.uom"),
+            required: false,
+            computed: None,
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+    ],
     methods: &[
         OdooMethod {
             name: "_domain_product_uoms",
@@ -5251,17 +5230,19 @@ pub const EXT_UOM_UOM: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[],
+    decorators: &[
+
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/product/models/uom_uom.py",
-            line_range: (8, 30),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/product/models/uom_uom.py", line_range: (8, 30) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
 };
+

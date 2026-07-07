@@ -795,8 +795,7 @@ pub const EXT_SKR03_0502: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_0503: OdooAccountTemplate = OdooAccountTemplate {
     code: "0503",
-    name:
-        "Anteile an herrschender oder mehrheitlich beteiligter Gesellschaft, Kapitalgesellschaften",
+    name: "Anteile an herrschender oder mehrheitlich beteiligter Gesellschaft, Kapitalgesellschaften",
     account_type: "asset_non_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_A_III_1"],
     chart: OdooSkrChart::Skr03,
@@ -850,8 +849,7 @@ pub const EXT_SKR03_0508: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_0509: OdooAccountTemplate = OdooAccountTemplate {
     code: "0509",
-    name:
-        "Anteile an herrschender oder mehrheitlich beteiligter Gesellschaft, Personengesellschaften",
+    name: "Anteile an herrschender oder mehrheitlich beteiligter Gesellschaft, Personengesellschaften",
     account_type: "asset_non_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_A_III_1"],
     chart: OdooSkrChart::Skr03,
@@ -950,8 +948,7 @@ pub const EXT_SKR03_0525: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_0530: OdooAccountTemplate = OdooAccountTemplate {
     code: "0530",
-    name:
-        "Wertpapiere mit Gewinnbeteiligungsansprüchen, die dem Teileinkünfteverfahren unterliegen",
+    name: "Wertpapiere mit Gewinnbeteiligungsansprüchen, die dem Teileinkünfteverfahren unterliegen",
     account_type: "asset_non_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_A_III_5"],
     chart: OdooSkrChart::Skr03,
@@ -1338,8 +1335,7 @@ pub const EXT_SKR03_0761: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_0764: OdooAccountTemplate = OdooAccountTemplate {
     code: "0764",
-    name:
-        "Verbindlichkeiten gegenüber typisch stillen Gesellschaftern - Restlaufzeit 1 bis 5 Jahre",
+    name: "Verbindlichkeiten gegenüber typisch stillen Gesellschaftern - Restlaufzeit 1 bis 5 Jahre",
     account_type: "liability_non_current",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_C_8"],
     chart: OdooSkrChart::Skr03,
@@ -1348,8 +1344,7 @@ pub const EXT_SKR03_0764: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_0767: OdooAccountTemplate = OdooAccountTemplate {
     code: "0767",
-    name:
-        "Verbindlichkeiten gegenüber typisch stillen Gesellschaftern - Restlaufzeit größer 5 Jahre",
+    name: "Verbindlichkeiten gegenüber typisch stillen Gesellschaftern - Restlaufzeit größer 5 Jahre",
     account_type: "liability_non_current",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_C_8"],
     chart: OdooSkrChart::Skr03,
@@ -1376,8 +1371,7 @@ pub const EXT_SKR03_0771: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_0774: OdooAccountTemplate = OdooAccountTemplate {
     code: "0774",
-    name:
-        "Verbindlichkeiten gegenüber atypisch stillen Gesellschaftern - Restlaufzeit 1 bis 5 Jahre",
+    name: "Verbindlichkeiten gegenüber atypisch stillen Gesellschaftern - Restlaufzeit 1 bis 5 Jahre",
     account_type: "liability_non_current",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_C_8"],
     chart: OdooSkrChart::Skr03,
@@ -1386,8 +1380,7 @@ pub const EXT_SKR03_0774: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_0777: OdooAccountTemplate = OdooAccountTemplate {
     code: "0777",
-    name:
-        "Verbindlichkeiten gegenüber atypisch stillen Gesellschaftern - Restlaufzeit größer 5 Jahre",
+    name: "Verbindlichkeiten gegenüber atypisch stillen Gesellschaftern - Restlaufzeit größer 5 Jahre",
     account_type: "liability_non_current",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_C_8"],
     chart: OdooSkrChart::Skr03,
@@ -1567,8 +1560,7 @@ pub const EXT_SKR03_0854: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_0857: OdooAccountTemplate = OdooAccountTemplate {
     code: "0857",
-    name:
-        "Gewinnrücklagen aus den Übergangsvorschriften BilMoG (Zuschreibung Finanzanlagevermögen)",
+    name: "Gewinnrücklagen aus den Übergangsvorschriften BilMoG (Zuschreibung Finanzanlagevermögen)",
     account_type: "equity",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_A_III_4"],
     chart: OdooSkrChart::Skr03,
@@ -2234,8 +2226,7 @@ pub const EXT_SKR03_1321: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_1322: OdooAccountTemplate = OdooAccountTemplate {
     code: "1322",
-    name:
-        "Bills receivable from other long-term investees and investors - Restlaufzeit größer 1 Jahr",
+    name: "Bills receivable from other long-term investees and investors - Restlaufzeit größer 1 Jahr",
     account_type: "asset_non_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_B_II_2"],
     chart: OdooSkrChart::Skr03,
@@ -2604,8 +2595,7 @@ pub const EXT_SKR03_1447: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_1448: OdooAccountTemplate = OdooAccountTemplate {
     code: "1448",
-    name:
-        "Forderungen aus Lieferungen und Leistungen nach Durchschnittssätzen nach § 24 UStG (EÜR)",
+    name: "Forderungen aus Lieferungen und Leistungen nach Durchschnittssätzen nach § 24 UStG (EÜR)",
     account_type: "asset_receivable",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_B_II_1"],
     chart: OdooSkrChart::Skr03,
@@ -2641,8 +2631,7 @@ pub const EXT_SKR03_1451: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_1455: OdooAccountTemplate = OdooAccountTemplate {
     code: "1455",
-    name:
-        "Forderungen aus Lieferungen und Leistungen ohne Kontokorrent - Restlaufzeit größer 1 Jahr",
+    name: "Forderungen aus Lieferungen und Leistungen ohne Kontokorrent - Restlaufzeit größer 1 Jahr",
     account_type: "asset_non_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_B_II_1"],
     chart: OdooSkrChart::Skr03,
@@ -2705,8 +2694,7 @@ pub const EXT_SKR03_1475: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_1478: OdooAccountTemplate = OdooAccountTemplate {
     code: "1478",
-    name:
-        "Wertberichtigungen auf Forderungen gegen verbundene Unternehmen - Restlaufzeit bis 1 Jahr",
+    name: "Wertberichtigungen auf Forderungen gegen verbundene Unternehmen - Restlaufzeit bis 1 Jahr",
     account_type: "asset_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_B_II_2"],
     chart: OdooSkrChart::Skr03,
@@ -2778,8 +2766,7 @@ pub const EXT_SKR03_1490: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_1491: OdooAccountTemplate = OdooAccountTemplate {
     code: "1491",
-    name:
-        "Forderungen aus Lieferungen und Leistungen gegen Gesellschafter - Restlaufzeit bis 1 Jahr",
+    name: "Forderungen aus Lieferungen und Leistungen gegen Gesellschafter - Restlaufzeit bis 1 Jahr",
     account_type: "asset_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_B_II_1"],
     chart: OdooSkrChart::Skr03,
@@ -3553,8 +3540,7 @@ pub const EXT_SKR03_1625: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_1626: OdooAccountTemplate = OdooAccountTemplate {
     code: "1626",
-    name:
-        "Trade payables, no separate receivables/payables accounting - Restlaufzeit 1 bis 5 Jahre",
+    name: "Trade payables, no separate receivables/payables accounting - Restlaufzeit 1 bis 5 Jahre",
     account_type: "liability_non_current",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_C_4"],
     chart: OdooSkrChart::Skr03,
@@ -3563,8 +3549,7 @@ pub const EXT_SKR03_1626: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_1628: OdooAccountTemplate = OdooAccountTemplate {
     code: "1628",
-    name:
-        "Trade payables, no separate receivables/payables accounting - Restlaufzeit größer 5 Jahre",
+    name: "Trade payables, no separate receivables/payables accounting - Restlaufzeit größer 5 Jahre",
     account_type: "liability_non_current",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_C_4"],
     chart: OdooSkrChart::Skr03,
@@ -3771,8 +3756,7 @@ pub const EXT_SKR03_1670: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_1671: OdooAccountTemplate = OdooAccountTemplate {
     code: "1671",
-    name:
-        "Verbindlichkeiten gegenüber persönlich haftenden Gesellschaftern - Restlaufzeit bis 1 Jahr",
+    name: "Verbindlichkeiten gegenüber persönlich haftenden Gesellschaftern - Restlaufzeit bis 1 Jahr",
     account_type: "liability_current",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_C_8"],
     chart: OdooSkrChart::Skr03,
@@ -4384,8 +4368,7 @@ pub const EXT_SKR03_1767: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_1768: OdooAccountTemplate = OdooAccountTemplate {
     code: "1768",
-    name:
-        "Umsatzsteuer aus im anderen EULand steuerpflichtigen sonstigen Leistungen/Werklieferungen",
+    name: "Umsatzsteuer aus im anderen EULand steuerpflichtigen sonstigen Leistungen/Werklieferungen",
     account_type: "liability_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_B_II_4"],
     chart: OdooSkrChart::Skr03,
@@ -5888,8 +5871,7 @@ pub const EXT_SKR03_2402: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_2403: OdooAccountTemplate = OdooAccountTemplate {
     code: "2403",
-    name:
-        "Forderungsverluste aus im Inland steuerpflichtigen EU-Lieferungen 7 % USt (übliche Höhe)",
+    name: "Forderungsverluste aus im Inland steuerpflichtigen EU-Lieferungen 7 % USt (übliche Höhe)",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_08_7"],
     chart: OdooSkrChart::Skr03,
@@ -5907,8 +5889,7 @@ pub const EXT_SKR03_2406: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_2408: OdooAccountTemplate = OdooAccountTemplate {
     code: "2408",
-    name:
-        "Forderungsverluste aus im Inland steuerpflichtigen EU-Lieferungen 19 % USt (übliche Höhe)",
+    name: "Forderungsverluste aus im Inland steuerpflichtigen EU-Lieferungen 19 % USt (übliche Höhe)",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_08_7"],
     chart: OdooSkrChart::Skr03,
@@ -7249,8 +7230,7 @@ pub const EXT_SKR03_3109: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_3110: OdooAccountTemplate = OdooAccountTemplate {
     code: "3110",
-    name:
-        "Bauleistungen eines im Inland ansässigen Unternehmers 7 % Vorsteuer und 7 % Umsatzsteuer",
+    name: "Bauleistungen eines im Inland ansässigen Unternehmers 7 % Vorsteuer und 7 % Umsatzsteuer",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_05"],
     chart: OdooSkrChart::Skr03,
@@ -7277,8 +7257,7 @@ pub const EXT_SKR03_3115: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_3120: OdooAccountTemplate = OdooAccountTemplate {
     code: "3120",
-    name:
-        "Bauleistungen eines im Inland ansässigen Unternehmers 19 % Vorsteuer und 19 % Umsatzsteuer",
+    name: "Bauleistungen eines im Inland ansässigen Unternehmers 19 % Vorsteuer und 19 % Umsatzsteuer",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_05"],
     chart: OdooSkrChart::Skr03,
@@ -7296,8 +7275,7 @@ pub const EXT_SKR03_3123: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_3125: OdooAccountTemplate = OdooAccountTemplate {
     code: "3125",
-    name:
-        "Leistungen eines im Ausland ansässigen Unternehmers 19 % Vorsteuer und 19 % Umsatzsteuer",
+    name: "Leistungen eines im Ausland ansässigen Unternehmers 19 % Vorsteuer und 19 % Umsatzsteuer",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_05"],
     chart: OdooSkrChart::Skr03,
@@ -7306,8 +7284,7 @@ pub const EXT_SKR03_3125: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_3130: OdooAccountTemplate = OdooAccountTemplate {
     code: "3130",
-    name:
-        "Bauleistungen eines im Inland ansässigen Unternehmers ohne Vorsteuer und 7 % Umsatzsteuer",
+    name: "Bauleistungen eines im Inland ansässigen Unternehmers ohne Vorsteuer und 7 % Umsatzsteuer",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_05"],
     chart: OdooSkrChart::Skr03,
@@ -7334,8 +7311,7 @@ pub const EXT_SKR03_3135: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_3140: OdooAccountTemplate = OdooAccountTemplate {
     code: "3140",
-    name:
-        "Bauleistungen eines im Inland ansässigen Unternehmers ohne Vorsteuer und 19 % Umsatzsteuer",
+    name: "Bauleistungen eines im Inland ansässigen Unternehmers ohne Vorsteuer und 19 % Umsatzsteuer",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_05"],
     chart: OdooSkrChart::Skr03,
@@ -7353,8 +7329,7 @@ pub const EXT_SKR03_3143: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_3145: OdooAccountTemplate = OdooAccountTemplate {
     code: "3145",
-    name:
-        "Leistungen eines im Ausland ansässigen Unternehmers ohne Vorsteuer und 19 % Umsatzsteuer",
+    name: "Leistungen eines im Ausland ansässigen Unternehmers ohne Vorsteuer und 19 % Umsatzsteuer",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_05"],
     chart: OdooSkrChart::Skr03,
@@ -9163,8 +9138,7 @@ pub const EXT_SKR03_4676: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_4678: OdooAccountTemplate = OdooAccountTemplate {
     code: "4678",
-    name:
-        "Fahrten zwischen Wohnung und Betriebsstätte und Familienheimfahrten (abziehbarer Anteil)",
+    name: "Fahrten zwischen Wohnung und Betriebsstätte und Familienheimfahrten (abziehbarer Anteil)",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_08_5"],
     chart: OdooSkrChart::Skr03,
@@ -9281,8 +9255,7 @@ pub const EXT_SKR03_4801: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_4805: OdooAccountTemplate = OdooAccountTemplate {
     code: "4805",
-    name:
-        "Reparaturen und Instandhaltungen von anderen Anlagen und Betriebsund Geschäftsausstattung",
+    name: "Reparaturen und Instandhaltungen von anderen Anlagen und Betriebsund Geschäftsausstattung",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_08_3"],
     chart: OdooSkrChart::Skr03,
@@ -9615,8 +9588,7 @@ pub const EXT_SKR03_4875: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_4876: OdooAccountTemplate = OdooAccountTemplate {
     code: "4876",
-    name:
-        "Abschreibungen auf Wertpapiere des Umlaufvermögens § 3 Nr. 40 EStG bzw. § 8b Abs. 3 KStG",
+    name: "Abschreibungen auf Wertpapiere des Umlaufvermögens § 3 Nr. 40 EStG bzw. § 8b Abs. 3 KStG",
     account_type: "expense_depreciation",
     tag_xmlids: &["l10n_de.tag_de_pl_12"],
     chart: OdooSkrChart::Skr03,
@@ -9886,8 +9858,7 @@ pub const EXT_SKR03_4963: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_4964: OdooAccountTemplate = OdooAccountTemplate {
     code: "4964",
-    name:
-        "Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen, Konzessionen)",
+    name: "Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen, Konzessionen)",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_08_7"],
     chart: OdooSkrChart::Skr03,
@@ -11066,8 +11037,7 @@ pub const EXT_SKR03_8818: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_8819: OdooAccountTemplate = OdooAccountTemplate {
     code: "8819",
-    name:
-        "Erlöse aus Verkäufen Finanzanlagen § 3 Nr. 40 EStG bzw. § 8b Abs. 3 KStG (bei Buchverlust)",
+    name: "Erlöse aus Verkäufen Finanzanlagen § 3 Nr. 40 EStG bzw. § 8b Abs. 3 KStG (bei Buchverlust)",
     account_type: "income_other",
     tag_xmlids: &["l10n_de.tag_de_pl_08_7"],
     chart: OdooSkrChart::Skr03,
@@ -11130,8 +11100,7 @@ pub const EXT_SKR03_8838: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_8839: OdooAccountTemplate = OdooAccountTemplate {
     code: "8839",
-    name:
-        "Erlöse aus Verkäufen Finanzanlagen § 3 Nr. 40 EStG bzw. § 8b Abs. 2 KStG (bei Buchgewinn)",
+    name: "Erlöse aus Verkäufen Finanzanlagen § 3 Nr. 40 EStG bzw. § 8b Abs. 2 KStG (bei Buchgewinn)",
     account_type: "income_other",
     tag_xmlids: &["l10n_de.tag_de_pl_04"],
     chart: OdooSkrChart::Skr03,
@@ -11167,8 +11136,7 @@ pub const EXT_SKR03_8852: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_8853: OdooAccountTemplate = OdooAccountTemplate {
     code: "8853",
-    name:
-        "Erlöse aus Verkäufen von Wirtschaftsgütern des Umlaufvermögens nach § 4 Abs 3 Satz 4 EStG",
+    name: "Erlöse aus Verkäufen von Wirtschaftsgütern des Umlaufvermögens nach § 4 Abs 3 Satz 4 EStG",
     account_type: "income_other",
     tag_xmlids: &["l10n_de.tag_de_pl_04"],
     chart: OdooSkrChart::Skr03,
@@ -11249,8 +11217,7 @@ pub const EXT_SKR03_8920: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_8921: OdooAccountTemplate = OdooAccountTemplate {
     code: "8921",
-    name:
-        "Verwendung von Gegenständen für Zwecke außerhalb des Unternehmens 19 % USt (Kfz-Nutzung)",
+    name: "Verwendung von Gegenständen für Zwecke außerhalb des Unternehmens 19 % USt (Kfz-Nutzung)",
     account_type: "income_other",
     tag_xmlids: &["l10n_de.tag_de_pl_04"],
     chart: OdooSkrChart::Skr03,
@@ -11268,8 +11235,7 @@ pub const EXT_SKR03_8922: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR03_8924: OdooAccountTemplate = OdooAccountTemplate {
     code: "8924",
-    name:
-        "Verwendung von Gegenständen für Zwecke außerhalb des Unternehmens ohne USt (Kfz-Nutzung)",
+    name: "Verwendung von Gegenständen für Zwecke außerhalb des Unternehmens ohne USt (Kfz-Nutzung)",
     account_type: "income_other",
     tag_xmlids: &["l10n_de.tag_de_pl_04"],
     chart: OdooSkrChart::Skr03,
@@ -12288,8 +12254,7 @@ pub const EXT_SKR04_0804: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_0805: OdooAccountTemplate = OdooAccountTemplate {
     code: "0805",
-    name:
-        "Anteile an herrschender oder mehrheitlich beteiligter Gesellschaft, Personengesellschaften",
+    name: "Anteile an herrschender oder mehrheitlich beteiligter Gesellschaft, Personengesellschaften",
     account_type: "asset_non_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_A_III_1"],
     chart: OdooSkrChart::Skr04,
@@ -12298,8 +12263,7 @@ pub const EXT_SKR04_0805: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_0808: OdooAccountTemplate = OdooAccountTemplate {
     code: "0808",
-    name:
-        "Anteile an herrschender oder mehrheitlich beteiligter Gesellschaft, Kapitalgesellschaften",
+    name: "Anteile an herrschender oder mehrheitlich beteiligter Gesellschaft, Kapitalgesellschaften",
     account_type: "asset_non_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_A_III_1"],
     chart: OdooSkrChart::Skr04,
@@ -12443,8 +12407,7 @@ pub const EXT_SKR04_0900: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_0910: OdooAccountTemplate = OdooAccountTemplate {
     code: "0910",
-    name:
-        "Wertpapiere mit Gewinnbeteiligungsansprüchen, die dem Teileinkünfteverfahren unterliegen",
+    name: "Wertpapiere mit Gewinnbeteiligungsansprüchen, die dem Teileinkünfteverfahren unterliegen",
     account_type: "asset_non_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_A_III_5"],
     chart: OdooSkrChart::Skr04,
@@ -12759,8 +12722,7 @@ pub const EXT_SKR04_1221: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_1225: OdooAccountTemplate = OdooAccountTemplate {
     code: "1225",
-    name:
-        "Forderungen aus Lieferungen und Leistungen ohne Kontokorrent - Restlaufzeit größer 1 Jahr",
+    name: "Forderungen aus Lieferungen und Leistungen ohne Kontokorrent - Restlaufzeit größer 1 Jahr",
     account_type: "asset_non_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_B_II_1"],
     chart: OdooSkrChart::Skr04,
@@ -12877,8 +12839,7 @@ pub const EXT_SKR04_1250: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_1251: OdooAccountTemplate = OdooAccountTemplate {
     code: "1251",
-    name:
-        "Forderungen aus Lieferungen und Leistungen gegen Gesellschafter - Restlaufzeit bis 1 Jahr",
+    name: "Forderungen aus Lieferungen und Leistungen gegen Gesellschafter - Restlaufzeit bis 1 Jahr",
     account_type: "asset_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_B_II_1"],
     chart: OdooSkrChart::Skr04,
@@ -12986,8 +12947,7 @@ pub const EXT_SKR04_1275: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_1276: OdooAccountTemplate = OdooAccountTemplate {
     code: "1276",
-    name:
-        "Wertberichtigungen auf Forderungen gegen verbundene Unternehmen – Restlaufzeit bis 1 Jahr",
+    name: "Wertberichtigungen auf Forderungen gegen verbundene Unternehmen – Restlaufzeit bis 1 Jahr",
     account_type: "asset_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_B_II_2"],
     chart: OdooSkrChart::Skr04,
@@ -14643,8 +14603,7 @@ pub const EXT_SKR04_2964: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_2965: OdooAccountTemplate = OdooAccountTemplate {
     code: "2965",
-    name:
-        "Gewinnrücklagen aus den Übergangsvorschriften BilMoG (Zuschreibung Finanzanlagevermögen)",
+    name: "Gewinnrücklagen aus den Übergangsvorschriften BilMoG (Zuschreibung Finanzanlagevermögen)",
     account_type: "equity",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_A_III_4"],
     chart: OdooSkrChart::Skr04,
@@ -15571,8 +15530,7 @@ pub const EXT_SKR04_3521: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_3524: OdooAccountTemplate = OdooAccountTemplate {
     code: "3524",
-    name:
-        "Verbindlichkeiten gegenüber typisch stillen Gesellschaftern - Restlaufzeit 1 bis 5 Jahre",
+    name: "Verbindlichkeiten gegenüber typisch stillen Gesellschaftern - Restlaufzeit 1 bis 5 Jahre",
     account_type: "liability_non_current",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_C_8"],
     chart: OdooSkrChart::Skr04,
@@ -15581,8 +15539,7 @@ pub const EXT_SKR04_3524: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_3527: OdooAccountTemplate = OdooAccountTemplate {
     code: "3527",
-    name:
-        "Verbindlichkeiten gegenüber typisch stillen Gesellschaftern - Restlaufzeit größer 5 Jahre",
+    name: "Verbindlichkeiten gegenüber typisch stillen Gesellschaftern - Restlaufzeit größer 5 Jahre",
     account_type: "liability_non_current",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_C_8"],
     chart: OdooSkrChart::Skr04,
@@ -15609,8 +15566,7 @@ pub const EXT_SKR04_3531: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_3534: OdooAccountTemplate = OdooAccountTemplate {
     code: "3534",
-    name:
-        "Verbindlichkeiten gegenüber atypisch stillen Gesellschaftern - Restlaufzeit 1 bis 5 Jahre",
+    name: "Verbindlichkeiten gegenüber atypisch stillen Gesellschaftern - Restlaufzeit 1 bis 5 Jahre",
     account_type: "liability_non_current",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_C_8"],
     chart: OdooSkrChart::Skr04,
@@ -15619,8 +15575,7 @@ pub const EXT_SKR04_3534: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_3537: OdooAccountTemplate = OdooAccountTemplate {
     code: "3537",
-    name:
-        "Verbindlichkeiten gegenüber atypisch stillen Gesellschaftern - Restlaufzeit größer 5 Jahre",
+    name: "Verbindlichkeiten gegenüber atypisch stillen Gesellschaftern - Restlaufzeit größer 5 Jahre",
     account_type: "liability_non_current",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_C_8"],
     chart: OdooSkrChart::Skr04,
@@ -15836,8 +15791,7 @@ pub const EXT_SKR04_3645: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_3646: OdooAccountTemplate = OdooAccountTemplate {
     code: "3646",
-    name:
-        "Verbindlichkeiten gegenüber persönlich haftenden Gesellschaftern - Restlaufzeit bis 1 Jahr",
+    name: "Verbindlichkeiten gegenüber persönlich haftenden Gesellschaftern - Restlaufzeit bis 1 Jahr",
     account_type: "liability_current",
     tag_xmlids: &["l10n_de.tag_de_liabilities_bs_C_8"],
     chart: OdooSkrChart::Skr04,
@@ -16287,8 +16241,7 @@ pub const EXT_SKR04_3817: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_3818: OdooAccountTemplate = OdooAccountTemplate {
     code: "3818",
-    name:
-        "Umsatzsteuer aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen/Werklieferungen",
+    name: "Umsatzsteuer aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen/Werklieferungen",
     account_type: "liability_current",
     tag_xmlids: &["l10n_de.tag_de_asset_bs_B_II_4"],
     chart: OdooSkrChart::Skr04,
@@ -16639,8 +16592,7 @@ pub const EXT_SKR04_4315: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_4320: OdooAccountTemplate = OdooAccountTemplate {
     code: "4320",
-    name:
-        "Erlöse aus im anderen EU-Land steuerbaren Leistungen, im Inland nicht steuerbare Umsätze",
+    name: "Erlöse aus im anderen EU-Land steuerbaren Leistungen, im Inland nicht steuerbare Umsätze",
     account_type: "income",
     tag_xmlids: &["l10n_de.tag_de_pl_01"],
     chart: OdooSkrChart::Skr04,
@@ -16694,8 +16646,7 @@ pub const EXT_SKR04_4338: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_4339: OdooAccountTemplate = OdooAccountTemplate {
     code: "4339",
-    name:
-        "Erlöse aus im anderen EU-Land steuerbaren Leistungen, im Inland nicht steuerbare Umsätze",
+    name: "Erlöse aus im anderen EU-Land steuerbaren Leistungen, im Inland nicht steuerbare Umsätze",
     account_type: "income",
     tag_xmlids: &["l10n_de.tag_de_pl_01"],
     chart: OdooSkrChart::Skr04,
@@ -16884,8 +16835,7 @@ pub const EXT_SKR04_4630: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_4639: OdooAccountTemplate = OdooAccountTemplate {
     code: "4639",
-    name:
-        "Verwendung von Gegenständen für Zwecke außerhalb des Unternehmens ohne USt (Kfz-Nutzung)",
+    name: "Verwendung von Gegenständen für Zwecke außerhalb des Unternehmens ohne USt (Kfz-Nutzung)",
     account_type: "income",
     tag_xmlids: &["l10n_de.tag_de_pl_04"],
     chart: OdooSkrChart::Skr04,
@@ -16903,8 +16853,7 @@ pub const EXT_SKR04_4640: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_4645: OdooAccountTemplate = OdooAccountTemplate {
     code: "4645",
-    name:
-        "Verwendung von Gegenständen für Zwecke außerhalb des Unternehmens 19 % USt (Kfz-Nutzung)",
+    name: "Verwendung von Gegenständen für Zwecke außerhalb des Unternehmens 19 % USt (Kfz-Nutzung)",
     account_type: "income",
     tag_xmlids: &["l10n_de.tag_de_pl_04"],
     chart: OdooSkrChart::Skr04,
@@ -17507,8 +17456,7 @@ pub const EXT_SKR04_4851: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_4852: OdooAccountTemplate = OdooAccountTemplate {
     code: "4852",
-    name:
-        "Erlöse aus Verkäufen Finanzanlagen § 3 Nr. 40 EStG bzw. § 8b Abs. 2 KStG (bei Buchgewinn)",
+    name: "Erlöse aus Verkäufen Finanzanlagen § 3 Nr. 40 EStG bzw. § 8b Abs. 2 KStG (bei Buchgewinn)",
     account_type: "income",
     tag_xmlids: &["l10n_de.tag_de_pl_04"],
     chart: OdooSkrChart::Skr04,
@@ -18633,8 +18581,7 @@ pub const EXT_SKR04_5909: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_5910: OdooAccountTemplate = OdooAccountTemplate {
     code: "5910",
-    name:
-        "Bauleistungen eines im Inland ansässigen Unternehmers 7 % Vorsteuer und 7 % Umsatzsteuer",
+    name: "Bauleistungen eines im Inland ansässigen Unternehmers 7 % Vorsteuer und 7 % Umsatzsteuer",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_05"],
     chart: OdooSkrChart::Skr04,
@@ -18661,8 +18608,7 @@ pub const EXT_SKR04_5915: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_5920: OdooAccountTemplate = OdooAccountTemplate {
     code: "5920",
-    name:
-        "Bauleistungen eines im Inland ansässigen Unternehmers 19 % Vorsteuer und 19 % Umsatzsteuer",
+    name: "Bauleistungen eines im Inland ansässigen Unternehmers 19 % Vorsteuer und 19 % Umsatzsteuer",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_05"],
     chart: OdooSkrChart::Skr04,
@@ -18680,8 +18626,7 @@ pub const EXT_SKR04_5923: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_5925: OdooAccountTemplate = OdooAccountTemplate {
     code: "5925",
-    name:
-        "Leistungen eines im Ausland ansässigen Unternehmers 19 % Vorsteuer und 19 % Umsatzsteuer",
+    name: "Leistungen eines im Ausland ansässigen Unternehmers 19 % Vorsteuer und 19 % Umsatzsteuer",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_05"],
     chart: OdooSkrChart::Skr04,
@@ -19842,8 +19787,7 @@ pub const EXT_SKR04_6460: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_6470: OdooAccountTemplate = OdooAccountTemplate {
     code: "6470",
-    name:
-        "Reparaturen und Instandhaltung von anderen Anlagen und Betriebs- und Geschäftsausstattung",
+    name: "Reparaturen und Instandhaltung von anderen Anlagen und Betriebs- und Geschäftsausstattung",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_08_3"],
     chart: OdooSkrChart::Skr04,
@@ -20212,8 +20156,7 @@ pub const EXT_SKR04_6680: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_6688: OdooAccountTemplate = OdooAccountTemplate {
     code: "6688",
-    name:
-        "Fahrten zwischen Wohnung und Betriebsstätte und Familienheimfahrten (abziehbarer Anteil)",
+    name: "Fahrten zwischen Wohnung und Betriebsstätte und Familienheimfahrten (abziehbarer Anteil)",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_08_5"],
     chart: OdooSkrChart::Skr04,
@@ -20447,8 +20390,7 @@ pub const EXT_SKR04_6835: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_6837: OdooAccountTemplate = OdooAccountTemplate {
     code: "6837",
-    name:
-        "Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen, Konzessionen)",
+    name: "Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen, Konzessionen)",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_08_7"],
     chart: OdooSkrChart::Skr04,
@@ -20664,8 +20606,7 @@ pub const EXT_SKR04_6891: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_6892: OdooAccountTemplate = OdooAccountTemplate {
     code: "6892",
-    name:
-        "Erlöse aus Verkäufen Finanzanlagen § 3 Nr. 40 EStG bzw. § 8b Abs. 3 KStG (bei Buchverlust)",
+    name: "Erlöse aus Verkäufen Finanzanlagen § 3 Nr. 40 EStG bzw. § 8b Abs. 3 KStG (bei Buchverlust)",
     account_type: "income",
     tag_xmlids: &["l10n_de.tag_de_pl_08_7"],
     chart: OdooSkrChart::Skr04,
@@ -20863,8 +20804,7 @@ pub const EXT_SKR04_6932: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_6933: OdooAccountTemplate = OdooAccountTemplate {
     code: "6933",
-    name:
-        "Forderungsverluste aus im Inland steuerpflichtigen EU-Lieferungen 7 % USt (übliche Höhe)",
+    name: "Forderungsverluste aus im Inland steuerpflichtigen EU-Lieferungen 7 % USt (übliche Höhe)",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_08_7"],
     chart: OdooSkrChart::Skr04,
@@ -20882,8 +20822,7 @@ pub const EXT_SKR04_6936: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_6938: OdooAccountTemplate = OdooAccountTemplate {
     code: "6938",
-    name:
-        "Forderungsverluste aus im Inland steuerpflichtigen EU-Lieferungen 19 % USt (übliche Höhe)",
+    name: "Forderungsverluste aus im Inland steuerpflichtigen EU-Lieferungen 19 % USt (übliche Höhe)",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_08_7"],
     chart: OdooSkrChart::Skr04,
@@ -21342,8 +21281,7 @@ pub const EXT_SKR04_7210: OdooAccountTemplate = OdooAccountTemplate {
 
 pub const EXT_SKR04_7214: OdooAccountTemplate = OdooAccountTemplate {
     code: "7214",
-    name:
-        "Abschreibungen auf Wertpapiere des Umlaufvermögens § 3 Nr. 40 EStG bzw. § 8b Abs. 3 KStG",
+    name: "Abschreibungen auf Wertpapiere des Umlaufvermögens § 3 Nr. 40 EStG bzw. § 8b Abs. 3 KStG",
     account_type: "expense",
     tag_xmlids: &["l10n_de.tag_de_pl_12"],
     chart: OdooSkrChart::Skr04,

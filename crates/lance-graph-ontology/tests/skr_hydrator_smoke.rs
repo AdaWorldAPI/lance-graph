@@ -136,15 +136,11 @@ fn skr03_and_skr04_are_separate_slots() {
 
     // Cross-resolve: SKR 03 / 1000 must NOT resolve in the SKR 04 slot.
     assert!(
-        skr04
-            .resolve_iri(&format!("{SKR03_IRI_PREFIX}/1000"))
-            .is_none(),
+        skr04.resolve_iri(&format!("{SKR03_IRI_PREFIX}/1000")).is_none(),
         "SKR 03 IRI must not resolve in SKR 04 bundle"
     );
     assert!(
-        skr03
-            .resolve_iri(&format!("{SKR04_IRI_PREFIX}/1000"))
-            .is_none(),
+        skr03.resolve_iri(&format!("{SKR04_IRI_PREFIX}/1000")).is_none(),
         "SKR 04 IRI must not resolve in SKR 03 bundle"
     );
 }
@@ -195,18 +191,12 @@ fn skr03_canonical_and_bau_coexist_in_one_registry() {
     hydrate_skr03(&registry).expect("canonical SKR 03");
     hydrate_skr03_bau(&registry).expect("SKR 03 Bau");
 
-    let canonical = registry
-        .bundle_for(OGIT::SKR03_V1.0)
-        .expect("canonical bundle");
-    let bau = registry
-        .bundle_for(OGIT::SKR03BAU_V1.0)
-        .expect("Bau bundle");
+    let canonical = registry.bundle_for(OGIT::SKR03_V1.0).expect("canonical bundle");
+    let bau = registry.bundle_for(OGIT::SKR03BAU_V1.0).expect("Bau bundle");
 
     // Canonical bundle: 4-digit IRI base, includes load-bearing accounts.
     assert!(
-        canonical
-            .resolve_iri(&format!("{SKR03_IRI_PREFIX}/1000"))
-            .is_some(),
+        canonical.resolve_iri(&format!("{SKR03_IRI_PREFIX}/1000")).is_some(),
         "canonical SKR 03 / 1000 Kasse must still resolve after Bau hydration"
     );
     assert!(
@@ -216,21 +206,17 @@ fn skr03_canonical_and_bau_coexist_in_one_registry() {
 
     // Bau bundle: 6-digit IRI base, includes trade-specific extensions.
     assert!(
-        bau.resolve_iri(&format!("{SKR03_BAU_IRI_PREFIX}/007510"))
-            .is_some(),
+        bau.resolve_iri(&format!("{SKR03_BAU_IRI_PREFIX}/007510")).is_some(),
         "Bau extension 007510 must resolve in Bau bundle"
     );
 
     // Cross-resolve: Bau IRI must NOT resolve in canonical bundle and vice versa.
     assert!(
-        canonical
-            .resolve_iri(&format!("{SKR03_BAU_IRI_PREFIX}/007510"))
-            .is_none(),
+        canonical.resolve_iri(&format!("{SKR03_BAU_IRI_PREFIX}/007510")).is_none(),
         "Bau IRI must not resolve in canonical SKR 03 bundle"
     );
     assert!(
-        bau.resolve_iri(&format!("{SKR03_IRI_PREFIX}/1000"))
-            .is_none(),
+        bau.resolve_iri(&format!("{SKR03_IRI_PREFIX}/1000")).is_none(),
         "canonical SKR 03 IRI must not resolve in Bau bundle"
     );
 }

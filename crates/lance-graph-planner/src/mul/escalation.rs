@@ -40,12 +40,12 @@ pub fn boot_checklist() -> Checklist {
         ChecklistItem::new("soa_floor_up", GateKind::Hard),        // SoaColumns, i4-32 unpack
         ChecklistItem::new("operational_store", GateKind::Hard),   // Lance / SQLite (not surreal)
         ChecklistItem::new("nars_tables_loaded", GateKind::Hard),  // NarsTables lookup hot
-        ChecklistItem::new("thresholds_loaded", GateKind::Hard), // MUL profile, SD_FLOW/BLOCK, rung thresholds
-        ChecklistItem::new("free_energy_wired", GateKind::Hard), // FreeEnergy::compose available
+        ChecklistItem::new("thresholds_loaded", GateKind::Hard),   // MUL profile, SD_FLOW/BLOCK, rung thresholds
+        ChecklistItem::new("free_energy_wired", GateKind::Hard),   // FreeEnergy::compose available
         // ── SOFT (degrade if red) ─────────────────────────────────────────
         ChecklistItem::new("capabilities_registered", GateKind::Soft), // ExpertCapability / actor / MCP
         ChecklistItem::new("wisdom_marker_store", GateKind::Soft),     // cold start → foot of curve
-        ChecklistItem::new("macro_eval_harness", GateKind::Soft), // run without offline updates if absent
+        ChecklistItem::new("macro_eval_harness", GateKind::Soft),      // run without offline updates if absent
     ])
 }
 

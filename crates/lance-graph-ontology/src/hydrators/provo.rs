@@ -54,7 +54,10 @@ pub fn hydrate_provo(registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
 }
 
 /// Test-friendly variant: hydrate PROV-O from an explicit path.
-pub fn hydrate_provo_from(ttl_path: &Path, registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
+pub fn hydrate_provo_from(
+    ttl_path: &Path,
+    registry: &OntologyRegistry,
+) -> Result<u32, HydrateErr> {
     let hydrator = OwlHydrator {
         g: OGIT::PROVO_V1.0,
         version: OGIT::PROVO_V1.1,

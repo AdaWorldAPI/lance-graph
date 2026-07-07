@@ -352,10 +352,9 @@ pub fn derive_style_recipe(entity: &OdooEntity, method: &OdooMethod) -> OdooStyl
 
     // 7. State-machine participation
     if let Some(sm) = entity.state_machine {
-        let participates = sm
-            .transitions
-            .iter()
-            .any(|t| t.trigger == method.name || t.guards.contains(&method.name));
+        let participates = sm.transitions.iter().any(|t| {
+            t.trigger == method.name || t.guards.contains(&method.name)
+        });
         if participates {
             bump(&mut weights, DAtom::FiscalCtx, 6);
             bump(&mut weights, DAtom::Event, 2);
@@ -368,11 +367,7 @@ pub fn derive_style_recipe(entity: &OdooEntity, method: &OdooMethod) -> OdooStyl
         .enumerate()
         .filter_map(|(i, &a)| {
             let w = weights[i];
-            if w > 0 {
-                Some((a, w))
-            } else {
-                None
-            }
+            if w > 0 { Some((a, w)) } else { None }
         })
         .collect();
 
@@ -396,7 +391,11 @@ pub fn derive_style_recipe(entity: &OdooEntity, method: &OdooMethod) -> OdooStyl
 pub fn derive_corpus_recipes(entities: &[&OdooEntity]) -> Vec<OdooStyleRecipe> {
     let mut recipes: Vec<OdooStyleRecipe> = entities
         .iter()
-        .flat_map(|e| e.methods.iter().map(move |m| derive_style_recipe(e, m)))
+        .flat_map(|e| {
+            e.methods
+                .iter()
+                .map(move |m| derive_style_recipe(e, m))
+        })
         .collect();
     recipes.sort_by(|a, b| a.method_id.cmp(&b.method_id));
     recipes
@@ -481,7 +480,9 @@ fn fnv1a_recipe(atoms: &[(DAtom, u8)]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::odoo_blueprint::{OdooConfidence, OdooEntityKind, OdooProvenance};
+    use crate::odoo_blueprint::{
+        OdooConfidence, OdooEntityKind, OdooProvenance,
+    };
 
     fn empty_entity() -> OdooEntity {
         OdooEntity {
@@ -575,11 +576,7 @@ mod tests {
     #[test]
     fn money_return_emits_both_money_and_emit_amount() {
         let e = empty_entity();
-        let m = method(
-            "_compute_total",
-            OdooMethodKind::Compute,
-            OdooReturnKind::Money,
-        );
+        let m = method("_compute_total", OdooMethodKind::Compute, OdooReturnKind::Money);
         let r = derive_style_recipe(&e, &m);
         assert_eq!(weight_of(&r, DAtom::Money), 6);
         assert_eq!(weight_of(&r, DAtom::EmitAmount), 7);
@@ -590,11 +587,7 @@ mod tests {
     fn action_return_boosts_action_atom() {
         let e = empty_entity();
         // Action method whose return is also an action dict.
-        let m = method(
-            "button_post",
-            OdooMethodKind::Action,
-            OdooReturnKind::Action,
-        );
+        let m = method("button_post", OdooMethodKind::Action, OdooReturnKind::Action);
         let r = derive_style_recipe(&e, &m);
         // 7 from kind + 2 from return, max-merged = 7 (max wins).
         assert_eq!(weight_of(&r, DAtom::Action), 7);
@@ -615,11 +608,7 @@ mod tests {
         let mut e = empty_entity();
         e.fields = FIELDS;
 
-        let m = method(
-            "_compute_amount",
-            OdooMethodKind::Compute,
-            OdooReturnKind::Unit,
-        );
+        let m = method("_compute_amount", OdooMethodKind::Compute, OdooReturnKind::Unit);
         let r = derive_style_recipe(&e, &m);
         // From Monetary kind on the field.
         assert_eq!(weight_of(&r, DAtom::EmitAmount), 7);
@@ -632,11 +621,7 @@ mod tests {
         let mut e = empty_entity();
         e.provenance.regulation_iri = IRIS;
 
-        let m = method(
-            "_compute_tax",
-            OdooMethodKind::Compute,
-            OdooReturnKind::Money,
-        );
+        let m = method("_compute_tax", OdooMethodKind::Compute, OdooReturnKind::Money);
         let r = derive_style_recipe(&e, &m);
         assert_eq!(weight_of(&r, DAtom::Law), 8);
         assert_eq!(r.regulation_iris.len(), 2);
@@ -747,7 +732,8 @@ mod tests {
             "no methods derived from chosen entities — extracted data missing?"
         );
 
-        let mut seen_atoms: std::collections::BTreeSet<DAtom> = std::collections::BTreeSet::new();
+        let mut seen_atoms: std::collections::BTreeSet<DAtom> =
+            std::collections::BTreeSet::new();
         for r in &recipes {
             for (a, _) in &r.atoms {
                 seen_atoms.insert(*a);

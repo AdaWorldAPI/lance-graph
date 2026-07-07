@@ -8,7 +8,9 @@ pub const EXT_ACCOUNT_JOURNAL: OdooEntity = OdooEntity {
     model_name: "account.journal",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[],
+    fields: &[
+
+    ],
     methods: &[
         OdooMethod {
             name: "_get_available_payment_method_lines",
@@ -23,16 +25,17 @@ pub const EXT_ACCOUNT_JOURNAL: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[],
+    decorators: &[
+
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/account_payment/models/account_journal.py",
-            line_range: (8, 25),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_payment/models/account_journal.py", line_range: (8, 25) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -169,14 +172,13 @@ pub const EXT_ACCOUNT_MOVE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/account_payment/models/account_move.py",
-            line_range: (13, 182),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_payment/models/account_move.py", line_range: (13, 182) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -334,14 +336,13 @@ pub const EXT_ACCOUNT_PAYMENT: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/account_payment/models/account_payment.py",
-            line_range: (7, 230),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_payment/models/account_payment.py", line_range: (7, 230) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -351,26 +352,31 @@ pub const EXT_ACCOUNT_PAYMENT_METHOD: OdooEntity = OdooEntity {
     model_name: "account.payment.method",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[],
-    methods: &[OdooMethod {
-        name: "_get_payment_method_information",
-        kind: OdooMethodKind::ApiModel,
-        return_kind: OdooReturnKind::Unit,
-        triggers: &[],
-    }],
-    decorators: &[OdooDecorator {
-        kind: OdooDecoratorKind::ApiModel,
-        targets: &[],
-    }],
+    fields: &[
+
+    ],
+    methods: &[
+        OdooMethod {
+            name: "_get_payment_method_information",
+            kind: OdooMethodKind::ApiModel,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+    ],
+    decorators: &[
+        OdooDecorator {
+            kind: OdooDecoratorKind::ApiModel,
+            targets: &[],
+        },
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/account_payment/models/account_payment_method.py",
-            line_range: (7, 20),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_payment/models/account_payment_method.py", line_range: (7, 20) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -437,14 +443,13 @@ pub const EXT_ACCOUNT_PAYMENT_METHOD_LINE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/account_payment/models/account_payment_method_line.py",
-            line_range: (7, 85),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_payment/models/account_payment_method_line.py", line_range: (7, 85) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -454,15 +459,17 @@ pub const EXT_PAYMENT_PROVIDER: OdooEntity = OdooEntity {
     model_name: "payment.provider",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[OdooField {
-        name: "journal_id",
-        kind: OdooFieldKind::Computed,
-        target: Some("account.journal"),
-        required: false,
-        computed: Some("_compute_journal_id"),
-        depends: &[],
-        semantic_role: OdooSemanticRole::Other,
-    }],
+    fields: &[
+        OdooField {
+            name: "journal_id",
+            kind: OdooFieldKind::Computed,
+            target: Some("account.journal"),
+            required: false,
+            computed: Some("_compute_journal_id"),
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+    ],
     methods: &[
         OdooMethod {
             name: "_ensure_payment_method_line",
@@ -542,14 +549,13 @@ pub const EXT_PAYMENT_PROVIDER: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/account_payment/models/payment_provider.py",
-            line_range: (7, 147),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_payment/models/payment_provider.py", line_range: (7, 147) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -643,15 +649,15 @@ pub const EXT_PAYMENT_TRANSACTION: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/account_payment/models/payment_transaction.py",
-            line_range: (6, 242),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/account_payment/models/payment_transaction.py", line_range: (6, 242) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
 };
+

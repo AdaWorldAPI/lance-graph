@@ -50,12 +50,7 @@ fn skos_core_classes_and_properties_resolve() {
     hydrate_skos(&registry).expect("SKOS hydrates");
     let g = OGIT::SKOS_V1.0;
     // SKOS Core classes
-    for name in &[
-        "Concept",
-        "ConceptScheme",
-        "Collection",
-        "OrderedCollection",
-    ] {
+    for name in &["Concept", "ConceptScheme", "Collection", "OrderedCollection"] {
         let iri = skos(name);
         assert!(
             registry.resolve_iri_in(g, &iri).is_some(),

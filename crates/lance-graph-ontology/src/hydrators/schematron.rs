@@ -76,7 +76,13 @@ impl SchematronHydrator {
                 path: path.to_path_buf(),
                 source: e,
             })?;
-            walk_sch(path, &bytes, &self.base_iri, &mut iri_to_id, &mut next_id)?;
+            walk_sch(
+                path,
+                &bytes,
+                &self.base_iri,
+                &mut iri_to_id,
+                &mut next_id,
+            )?;
         }
 
         let entity_count = iri_to_id.len() as u32;
@@ -359,13 +365,13 @@ mod tests {
         assert!(looks_like_business_rule_id("PEPPOL-EN16931-R008"));
         assert!(looks_like_business_rule_id("BR-DEC-19"));
         // Negatives.
-        assert!(!looks_like_business_rule_id("br-52")); // lowercase
-        assert!(!looks_like_business_rule_id("BR")); // no dash
-        assert!(!looks_like_business_rule_id("-BR")); // leading dash
-        assert!(!looks_like_business_rule_id("BR-")); // trailing dash
-        assert!(!looks_like_business_rule_id("BR--52")); // double dash
-        assert!(!looks_like_business_rule_id("BR 52")); // space
-        assert!(!looks_like_business_rule_id("1BR-2")); // leading digit
+        assert!(!looks_like_business_rule_id("br-52"));   // lowercase
+        assert!(!looks_like_business_rule_id("BR"));       // no dash
+        assert!(!looks_like_business_rule_id("-BR"));      // leading dash
+        assert!(!looks_like_business_rule_id("BR-"));      // trailing dash
+        assert!(!looks_like_business_rule_id("BR--52"));   // double dash
+        assert!(!looks_like_business_rule_id("BR 52"));    // space
+        assert!(!looks_like_business_rule_id("1BR-2"));    // leading digit
     }
 
     #[test]
@@ -419,29 +425,19 @@ mod tests {
         let bundle = reg.bundle_for(6666).expect("bundle");
 
         // Assert IDs from both the empty and the normal assert resolve.
-        assert!(bundle
-            .resolve_iri("urn:schematron:test/assert/A-EMPTY-001")
-            .is_some());
-        assert!(bundle
-            .resolve_iri("urn:schematron:test/assert/A-NORMAL-001")
-            .is_some());
-        assert!(bundle
-            .resolve_iri("urn:schematron:test/pattern/P-empty")
-            .is_some());
+        assert!(bundle.resolve_iri("urn:schematron:test/assert/A-EMPTY-001").is_some());
+        assert!(bundle.resolve_iri("urn:schematron:test/assert/A-NORMAL-001").is_some());
+        assert!(bundle.resolve_iri("urn:schematron:test/pattern/P-empty").is_some());
 
         // BR-42 from the NORMAL assert's body must resolve (positive control).
         assert!(
-            bundle
-                .resolve_iri("urn:schematron:test/rule/BR-42")
-                .is_some(),
+            bundle.resolve_iri("urn:schematron:test/rule/BR-42").is_some(),
             "BR-42 from the normal assert's message body must resolve"
         );
 
         // BR-99 from text OUTSIDE any assert/report must NOT resolve.
         assert!(
-            bundle
-                .resolve_iri("urn:schematron:test/rule/BR-99")
-                .is_none(),
+            bundle.resolve_iri("urn:schematron:test/rule/BR-99").is_none(),
             "BR-99 was in stray text outside an assert; must NOT have been \
              interned as a rule IRI (this was the P2 corruption case)"
         );

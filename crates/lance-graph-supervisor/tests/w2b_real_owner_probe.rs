@@ -33,9 +33,7 @@ mod w2b_real_owner_probe {
     /// followed by `set_populated` (W1c discipline). This mirrors the
     /// crate's own construction idiom, not an invented shape.
     fn real_mailbox() -> ProbeMailbox {
-        let mut mb = MailboxSoA::new(
-            /* mailbox_id */ 77, /* w_slot */ 3, /* threshold */ 1.0,
-        );
+        let mut mb = MailboxSoA::new(/* mailbox_id */ 77, /* w_slot */ 3, /* threshold */ 1.0);
         // Declare 1 populated row so MailboxSoaView::n_rows() is non-zero,
         // matching how a real spawn would declare its logical size
         // (`MailboxSoA::set_populated` docs: "mirrors fixing BindSpace::len

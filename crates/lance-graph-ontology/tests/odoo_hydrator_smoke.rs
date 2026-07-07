@@ -97,9 +97,7 @@ fn odoo_hydrator_smoke_canonical_paths() {
     let g = hydrate_odoo(&registry).expect("odoo hydrates from canonical paths");
     assert_eq!(g, OGIT::ODOO_V1.0);
 
-    let bundle = registry
-        .bundle_for(OGIT::ODOO_V1.0)
-        .expect("bundle registered");
+    let bundle = registry.bundle_for(OGIT::ODOO_V1.0).expect("bundle registered");
     // Seed alone is ~20 classes; with the FIBO + SKR alignment overlays the
     // interned count is strictly larger (pivot IRIs get interned too).
     assert!(

@@ -555,9 +555,7 @@ pub fn decode_row(encoded: &MatryoshkaRow, basis: &SvdBasis, profile: &BandProfi
         // Cap to the coeff buffer: the basis rank can be lower than the
         // profile's nominal max (e.g. fewer sample rows than requested
         // components), so a band may extend past the available coeffs.
-        let n = band
-            .n_components()
-            .min(coeffs.len().saturating_sub(band.start));
+        let n = band.n_components().min(coeffs.len().saturating_sub(band.start));
 
         match band.precision {
             BandPrecision::I16 => {

@@ -198,18 +198,17 @@ pub const EXT_ACCOUNT_ANALYTIC_ACCOUNT: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[OdooConstraint {
-        kind: OdooConstraintKind::Python,
-        condition: "Python constraint on company_id",
-        source_method: Some("_check_company_consistency"),
-    }],
+    constraints: &[
+        OdooConstraint {
+            kind: OdooConstraintKind::Python,
+            condition: "Python constraint on company_id",
+            source_method: Some("_check_company_consistency"),
+        },
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/analytic/models/analytic_account.py",
-            line_range: (11, 243),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_account.py", line_range: (11, 243) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/de/ustg/13"],
     },
@@ -308,18 +307,17 @@ pub const EXT_ACCOUNT_ANALYTIC_DISTRIBUTION_MODEL: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[OdooConstraint {
-        kind: OdooConstraintKind::Python,
-        condition: "Python constraint on company_id",
-        source_method: Some("_check_company_accounts"),
-    }],
+    constraints: &[
+        OdooConstraint {
+            kind: OdooConstraintKind::Python,
+            condition: "Python constraint on company_id",
+            source_method: Some("_check_company_accounts"),
+        },
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/analytic/models/analytic_distribution_model.py",
-            line_range: (9, 96),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_distribution_model.py", line_range: (9, 96) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -462,18 +460,17 @@ pub const EXT_ANALYTIC_PLAN_FIELDS_MIXIN: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[OdooConstraint {
-        kind: OdooConstraintKind::Python,
-        condition: "Python constraint",
-        source_method: Some("_check_account_id"),
-    }],
+    constraints: &[
+        OdooConstraint {
+            kind: OdooConstraintKind::Python,
+            condition: "Python constraint",
+            source_method: Some("_check_account_id"),
+        },
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/analytic/models/analytic_line.py",
-            line_range: (11, 160),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_line.py", line_range: (11, 160) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -628,16 +625,17 @@ pub const EXT_ACCOUNT_ANALYTIC_LINE: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[],
+    decorators: &[
+
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/analytic/models/analytic_line.py",
-            line_range: (163, 274),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_line.py", line_range: (163, 274) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -795,14 +793,13 @@ pub const EXT_ANALYTIC_MIXIN: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/analytic/models/analytic_mixin.py",
-            line_range: (12, 275),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_mixin.py", line_range: (12, 275) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1144,14 +1141,13 @@ pub const EXT_ACCOUNT_ANALYTIC_PLAN: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/analytic/models/analytic_plan.py",
-            line_range: (14, 390),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_plan.py", line_range: (14, 390) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1199,22 +1195,25 @@ pub const EXT_ACCOUNT_ANALYTIC_APPLICABILITY: OdooEntity = OdooEntity {
             semantic_role: OdooSemanticRole::Other,
         },
     ],
-    methods: &[OdooMethod {
-        name: "_get_score",
-        kind: OdooMethodKind::Helper,
-        return_kind: OdooReturnKind::Unit,
-        triggers: &[],
-    }],
-    decorators: &[],
+    methods: &[
+        OdooMethod {
+            name: "_get_score",
+            kind: OdooMethodKind::Helper,
+            return_kind: OdooReturnKind::Unit,
+            triggers: &[],
+        },
+    ],
+    decorators: &[
+
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/analytic/models/analytic_plan.py",
-            line_range: (393, 430),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/analytic_plan.py", line_range: (393, 430) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1224,23 +1223,28 @@ pub const EXT_IR_CONFIG_PARAMETER: OdooEntity = OdooEntity {
     model_name: "ir.config_parameter",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[],
-    methods: &[OdooMethod {
-        name: "write",
-        kind: OdooMethodKind::Override,
-        return_kind: OdooReturnKind::Boolean,
-        triggers: &[],
-    }],
-    decorators: &[],
+    fields: &[
+
+    ],
+    methods: &[
+        OdooMethod {
+            name: "write",
+            kind: OdooMethodKind::Override,
+            return_kind: OdooReturnKind::Boolean,
+            triggers: &[],
+        },
+    ],
+    decorators: &[
+
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/analytic/models/ir_config_parameter.py",
-            line_range: (7, 28),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/ir_config_parameter.py", line_range: (7, 28) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1250,27 +1254,33 @@ pub const EXT_RES_CONFIG_SETTINGS: OdooEntity = OdooEntity {
     model_name: "res.config.settings",
     kind: OdooEntityKind::Transient,
     description: "",
-    fields: &[OdooField {
-        name: "group_analytic_accounting",
-        kind: OdooFieldKind::Boolean,
-        target: None,
-        required: false,
-        computed: None,
-        depends: &[],
-        semantic_role: OdooSemanticRole::Other,
-    }],
-    methods: &[],
-    decorators: &[],
+    fields: &[
+        OdooField {
+            name: "group_analytic_accounting",
+            kind: OdooFieldKind::Boolean,
+            target: None,
+            required: false,
+            computed: None,
+            depends: &[],
+            semantic_role: OdooSemanticRole::Other,
+        },
+    ],
+    methods: &[
+
+    ],
+    decorators: &[
+
+    ],
     state_machine: None,
-    constraints: &[],
+    constraints: &[
+
+    ],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef {
-            path: "odoo/addons/analytic/models/res_config_settings.py",
-            line_range: (7, 10),
-        }],
+        odoo_source: &[OdooSourceRef { path: "odoo/addons/analytic/models/res_config_settings.py", line_range: (7, 10) }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
 };
+

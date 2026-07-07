@@ -57,8 +57,7 @@ pub static CURATED_EXTRACTED_PAIRS: &[OdooEntityPairing] = &[
     OdooEntityPairing {
         model_name: "account.analytic.distribution.model",
         curated: &crate::odoo_blueprint::l10::ANALYTIC_DISTRIBUTION_MODEL,
-        extracted:
-            &crate::odoo_blueprint::extracted::analytic::EXT_ACCOUNT_ANALYTIC_DISTRIBUTION_MODEL,
+        extracted: &crate::odoo_blueprint::extracted::analytic::EXT_ACCOUNT_ANALYTIC_DISTRIBUTION_MODEL,
     },
     // account.analytic.line  (curated: ANALYTIC_LINE in l10.rs  |  extracted: EXT_ACCOUNT_ANALYTIC_LINE in analytic.rs)
     // delta: fields=+2, methods=-1
@@ -372,12 +371,14 @@ mod tests {
     fn pairing_table_is_well_formed() {
         for pair in CURATED_EXTRACTED_PAIRS {
             assert_eq!(
-                pair.model_name, pair.curated.model_name,
+                pair.model_name,
+                pair.curated.model_name,
                 "Curated entity model_name mismatch for {}",
                 pair.model_name,
             );
             assert_eq!(
-                pair.model_name, pair.extracted.model_name,
+                pair.model_name,
+                pair.extracted.model_name,
                 "Extracted entity model_name mismatch for {}",
                 pair.model_name,
             );

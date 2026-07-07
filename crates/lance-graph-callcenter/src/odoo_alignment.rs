@@ -684,20 +684,14 @@ mod tests {
     #[test]
     fn resolve_odoo_style_chains_class_to_cluster() {
         // res.partner → SmbFoundryCustomer (0x80) → Empathic.
-        assert_eq!(
-            resolve_odoo_style("res.partner"),
-            Some(StyleCluster::Empathic)
-        );
+        assert_eq!(resolve_odoo_style("res.partner"), Some(StyleCluster::Empathic));
         // product.pricelist → ProductCatalog (0x64) → Analytical.
         assert_eq!(
             resolve_odoo_style("product.pricelist"),
             Some(StyleCluster::Analytical)
         );
         // hr.employee → HRFoundation (0x90) → Empathic.
-        assert_eq!(
-            resolve_odoo_style("hr.employee"),
-            Some(StyleCluster::Empathic)
-        );
+        assert_eq!(resolve_odoo_style("hr.employee"), Some(StyleCluster::Empathic));
         // unmapped class → None.
         assert_eq!(resolve_odoo_style("stock.move"), None);
     }

@@ -139,11 +139,7 @@ pub fn project_inherits_from(table: &[OdooInherits]) -> Vec<SpoTriple> {
     for row in table {
         let child = format!("odoo:{}", underscore(row.model));
         for base in row.bases {
-            out.push((
-                child.clone(),
-                "inherits_from",
-                format!("odoo:{}", underscore(base)),
-            ));
+            out.push((child.clone(), "inherits_from", format!("odoo:{}", underscore(base))));
         }
     }
     out
@@ -200,10 +196,7 @@ mod tests {
             .filter(|(s, _, _)| s == "odoo:account_move")
             .map(|(_, _, o)| o.as_str())
             .collect();
-        assert_eq!(
-            am_bases,
-            vec!["odoo:mail_activity_mixin", "odoo:sequence_mixin"]
-        );
+        assert_eq!(am_bases, vec!["odoo:mail_activity_mixin", "odoo:sequence_mixin"]);
     }
 
     #[test]

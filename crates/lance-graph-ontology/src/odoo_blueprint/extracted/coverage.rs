@@ -16,10 +16,10 @@
 /// When Stage 2 lands (extracts `hr` + `stock_account` + …), remove
 /// the corresponding entries from this list.
 pub const COVERAGE_EXEMPTIONS: &[(&str, &str)] = &[
-    ("hr.contract.type", "hr (Stage 2)"),
-    ("hr.department", "hr (Stage 2)"),
-    ("hr.employee", "hr (Stage 2)"),
-    ("hr.job", "hr (Stage 2)"),
+    ("hr.contract.type",      "hr (Stage 2)"),
+    ("hr.department",         "hr (Stage 2)"),
+    ("hr.employee",           "hr (Stage 2)"),
+    ("hr.job",                "hr (Stage 2)"),
     ("stock.valuation.layer", "stock_account (Stage 2)"),
 ];
 
@@ -59,10 +59,7 @@ mod tests {
     fn lane_of(l_doc: &str) -> u8 {
         // Strip the leading 'L', collect ASCII digits until the first '-'
         let stripped = l_doc.trim_start_matches('L');
-        let digits: String = stripped
-            .chars()
-            .take_while(|c| c.is_ascii_digit())
-            .collect();
+        let digits: String = stripped.chars().take_while(|c| c.is_ascii_digit()).collect();
         digits.parse().expect("l_doc must follow 'L{N}-...' format")
     }
 
@@ -77,7 +74,7 @@ mod tests {
     /// different lane.
     fn lane_of_exempt(model_name: &str) -> u8 {
         match model_name {
-            "stock.valuation.layer" => 13,
+            "stock.valuation.layer"                                         => 13,
             "hr.contract.type" | "hr.department" | "hr.employee" | "hr.job" => 14,
             _ => panic!("unknown exemption model_name: {}", model_name),
         }
@@ -94,10 +91,8 @@ mod tests {
         let exempt_names: std::collections::HashSet<&str> =
             COVERAGE_EXEMPTIONS.iter().map(|(n, _)| *n).collect();
         let curated = curated_entities();
-        let backed_names: std::collections::HashSet<&str> = CURATED_EXTRACTED_PAIRS
-            .iter()
-            .map(|p| p.model_name)
-            .collect();
+        let backed_names: std::collections::HashSet<&str> =
+            CURATED_EXTRACTED_PAIRS.iter().map(|p| p.model_name).collect();
 
         for lane in 1u8..=15 {
             let lane_entities: Vec<&str> = curated
@@ -117,10 +112,7 @@ mod tests {
                 continue;
             }
 
-            let backed = eligible
-                .iter()
-                .filter(|n| backed_names.contains(*n))
-                .count();
+            let backed = eligible.iter().filter(|n| backed_names.contains(*n)).count();
             let coverage = backed as f32 / eligible.len() as f32;
 
             assert!(
@@ -145,20 +137,11 @@ mod tests {
         let exempt_names: std::collections::HashSet<&str> =
             COVERAGE_EXEMPTIONS.iter().map(|(n, _)| *n).collect();
         let curated = curated_entities();
-        let eligible_total = curated
-            .iter()
-            .filter(|(n, _)| !exempt_names.contains(n))
-            .count();
+        let eligible_total = curated.iter().filter(|(n, _)| !exempt_names.contains(n)).count();
         let backed_total = CURATED_EXTRACTED_PAIRS.len();
 
         assert_eq!(curated.len(), 53, "Expected 53 curated entities total");
-        assert_eq!(
-            eligible_total, 48,
-            "Expected 48 eligible after 5 TIER-2 exemptions"
-        );
-        assert_eq!(
-            backed_total, 48,
-            "All 48 eligible should be backed for Stage 1"
-        );
+        assert_eq!(eligible_total, 48, "Expected 48 eligible after 5 TIER-2 exemptions");
+        assert_eq!(backed_total, 48, "All 48 eligible should be backed for Stage 1");
     }
 }

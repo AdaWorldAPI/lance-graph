@@ -704,26 +704,14 @@ mod tests {
         let model = &ANALYTIC_DISTRIBUTION_MODEL;
         assert_eq!(model.model_name, "account.analytic.distribution.model");
         // analytic_distribution is Char (nearest to fields.Json) with Policy role
-        let dist = model
-            .fields
-            .iter()
-            .find(|f| f.name == "analytic_distribution")
-            .unwrap();
+        let dist = model.fields.iter().find(|f| f.name == "analytic_distribution").unwrap();
         assert_eq!(dist.kind, OdooFieldKind::Char);
         assert_eq!(dist.semantic_role, OdooSemanticRole::Policy);
         // account_prefix is Policy (pattern-matching criterion)
-        let prefix = model
-            .fields
-            .iter()
-            .find(|f| f.name == "account_prefix")
-            .unwrap();
+        let prefix = model.fields.iter().find(|f| f.name == "account_prefix").unwrap();
         assert_eq!(prefix.semantic_role, OdooSemanticRole::Policy);
         // _get_distribution is the AXIS-B delegation point
-        let get_dist = model
-            .methods
-            .iter()
-            .find(|m| m.name == "_get_distribution")
-            .unwrap();
+        let get_dist = model.methods.iter().find(|m| m.name == "_get_distribution").unwrap();
         assert_eq!(get_dist.kind, OdooMethodKind::ApiModel);
     }
 
@@ -753,10 +741,7 @@ mod tests {
         assert!(line.methods.iter().any(|m| m.name == "create"));
         assert!(line.methods.iter().any(|m| m.name == "write"));
         assert!(line.methods.iter().any(|m| m.name == "unlink"));
-        assert!(line
-            .methods
-            .iter()
-            .any(|m| m.name == "_get_distribution_key"));
+        assert!(line.methods.iter().any(|m| m.name == "_get_distribution_key"));
     }
 
     #[test]
@@ -768,11 +753,8 @@ mod tests {
                 "{} should be Curated",
                 entity.model_name,
             );
-            assert_eq!(
-                entity.provenance.l_doc, "L10-ANALYTIC.md",
-                "{} must reference L10-ANALYTIC.md",
-                entity.model_name
-            );
+            assert_eq!(entity.provenance.l_doc, "L10-ANALYTIC.md",
+                "{} must reference L10-ANALYTIC.md", entity.model_name);
         }
     }
 }

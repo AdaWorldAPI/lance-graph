@@ -308,9 +308,43 @@ pub const KZ_37: OdooUstvaKennzahl = OdooUstvaKennzahl {
 
 /// All UStVA Kennzahlen — canonical iteration handle.
 pub static USTVA_KENNZAHLEN: &[OdooUstvaKennzahl] = &[
-    KZ_81, KZ_86, KZ_87, KZ_35, KZ_77, KZ_76, KZ_41, KZ_44, KZ_49, KZ_43, KZ_48, KZ_91, KZ_89,
-    KZ_93, KZ_90, KZ_95, KZ_94, KZ_46, KZ_73, KZ_84, KZ_42, KZ_60, KZ_21, KZ_45, KZ_66, KZ_61,
-    KZ_62, KZ_67, KZ_63, KZ_59, KZ_64, KZ_65, KZ_69, KZ_39, KZ_83, KZ_50, KZ_37,
+    KZ_81,
+    KZ_86,
+    KZ_87,
+    KZ_35,
+    KZ_77,
+    KZ_76,
+    KZ_41,
+    KZ_44,
+    KZ_49,
+    KZ_43,
+    KZ_48,
+    KZ_91,
+    KZ_89,
+    KZ_93,
+    KZ_90,
+    KZ_95,
+    KZ_94,
+    KZ_46,
+    KZ_73,
+    KZ_84,
+    KZ_42,
+    KZ_60,
+    KZ_21,
+    KZ_45,
+    KZ_66,
+    KZ_61,
+    KZ_62,
+    KZ_67,
+    KZ_63,
+    KZ_59,
+    KZ_64,
+    KZ_65,
+    KZ_69,
+    KZ_39,
+    KZ_83,
+    KZ_50,
+    KZ_37,
 ];
 
 // ─── GoBD audit-trail wiring ─────────────────────────────────────────────
@@ -337,34 +371,13 @@ mod tests {
     fn ustva_kennzahlen_cover_canonical_boxes() {
         let kz_codes: std::collections::HashSet<&str> =
             USTVA_KENNZAHLEN.iter().map(|k| k.kz).collect();
-        assert!(
-            kz_codes.contains("81"),
-            "Missing canonical UStVA Kennzahl Kz.81"
-        );
-        assert!(
-            kz_codes.contains("86"),
-            "Missing canonical UStVA Kennzahl Kz.86"
-        );
-        assert!(
-            kz_codes.contains("87"),
-            "Missing canonical UStVA Kennzahl Kz.87"
-        );
-        assert!(
-            kz_codes.contains("35"),
-            "Missing canonical UStVA Kennzahl Kz.35"
-        );
-        assert!(
-            kz_codes.contains("41"),
-            "Missing canonical UStVA Kennzahl Kz.41"
-        );
-        assert!(
-            kz_codes.contains("44"),
-            "Missing canonical UStVA Kennzahl Kz.44"
-        );
-        assert!(
-            kz_codes.contains("49"),
-            "Missing canonical UStVA Kennzahl Kz.49"
-        );
+        assert!(kz_codes.contains("81"), "Missing canonical UStVA Kennzahl Kz.81");
+        assert!(kz_codes.contains("86"), "Missing canonical UStVA Kennzahl Kz.86");
+        assert!(kz_codes.contains("87"), "Missing canonical UStVA Kennzahl Kz.87");
+        assert!(kz_codes.contains("35"), "Missing canonical UStVA Kennzahl Kz.35");
+        assert!(kz_codes.contains("41"), "Missing canonical UStVA Kennzahl Kz.41");
+        assert!(kz_codes.contains("44"), "Missing canonical UStVA Kennzahl Kz.44");
+        assert!(kz_codes.contains("49"), "Missing canonical UStVA Kennzahl Kz.49");
     }
 
     #[test]

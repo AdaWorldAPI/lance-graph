@@ -91,24 +91,15 @@ fn probe_delegation_miss_then_hit() {
         resolver_calls += 1;
         mailbox + 1000 // arbitrary deterministic "resolved owner" transform
     });
-    assert!(
-        !was_hit_first,
-        "first resolve for a mailbox must be a cache miss"
-    );
+    assert!(!was_hit_first, "first resolve for a mailbox must be a cache miss");
     assert_eq!(resolver_calls, 1);
 
     let (owner_second, was_hit_second) = writer.resolve_owner(on_behalf, |mailbox| {
         resolver_calls += 1;
         mailbox + 1000
     });
-    assert!(
-        was_hit_second,
-        "second resolve for the same mailbox must be a cache hit"
-    );
-    assert_eq!(
-        resolver_calls, 1,
-        "resolver must not be called again on cache hit"
-    );
+    assert!(was_hit_second, "second resolve for the same mailbox must be a cache hit");
+    assert_eq!(resolver_calls, 1, "resolver must not be called again on cache hit");
     assert_eq!(owner_first, owner_second);
 }
 

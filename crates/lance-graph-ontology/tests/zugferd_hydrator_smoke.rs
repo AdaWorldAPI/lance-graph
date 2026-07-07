@@ -8,8 +8,7 @@ use lance_graph_contract::manifest::OGIT;
 use lance_graph_ontology::{hydrate_zugferd, OntologyRegistry};
 
 const RSM: &str = "urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100";
-const RAM: &str =
-    "urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100";
+const RAM: &str = "urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100";
 const UDT: &str = "urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100";
 const QDT: &str = "urn:un:unece:uncefact:data:standard:QualifiedDataType:100";
 

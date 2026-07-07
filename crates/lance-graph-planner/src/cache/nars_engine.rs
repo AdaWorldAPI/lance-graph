@@ -161,13 +161,13 @@ impl SpoDistances {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Inference {
-    Deduction = 0,   // A→B, B→C ⊢ A→C
-    Induction = 1,   // A→B, A→C ⊢ B→C
-    Abduction = 2,   // A→B, C→B ⊢ A→C
-    Revision = 3,    // merge evidence
-    Analogy = 4,     // A→B, C≈A ⊢ C→B
-    Resemblance = 5, // A≈B, A≈C ⊢ B≈C
-    Synthesis = 6,   // complementary merge
+    Deduction = 0,      // A→B, B→C ⊢ A→C
+    Induction = 1,      // A→B, A→C ⊢ B→C
+    Abduction = 2,      // A→B, C→B ⊢ A→C
+    Revision = 3,       // merge evidence
+    Analogy = 4,        // A→B, C≈A ⊢ C→B
+    Resemblance = 5,    // A≈B, A≈C ⊢ B≈C
+    Synthesis = 6,      // complementary merge
     /// Pearl rung 2: do-calculus intervention.
     /// Surgically severs the causal mechanism and forces a variable to a value.
     /// Routes through MASK_PO (Predicate + Object planes) — the interventional

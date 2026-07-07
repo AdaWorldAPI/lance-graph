@@ -21,8 +21,8 @@
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
     OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
-    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef, OdooState, OdooStateMachine,
-    OdooStateSemantic, OdooTransition,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef, OdooState,
+    OdooStateMachine, OdooStateSemantic, OdooTransition,
 };
 
 // ─── account.payment ─────────────────────────────────────────────────────────
@@ -30,26 +30,11 @@ use super::{
 const PAYMENT_STATE_MACHINE: OdooStateMachine = OdooStateMachine {
     state_field: "state",
     states: &[
-        OdooState {
-            name: "draft",
-            semantic: OdooStateSemantic::Draft,
-        },
-        OdooState {
-            name: "in_process",
-            semantic: OdooStateSemantic::InProgress,
-        },
-        OdooState {
-            name: "paid",
-            semantic: OdooStateSemantic::Completed,
-        },
-        OdooState {
-            name: "canceled",
-            semantic: OdooStateSemantic::Cancelled,
-        },
-        OdooState {
-            name: "rejected",
-            semantic: OdooStateSemantic::Terminal,
-        },
+        OdooState { name: "draft", semantic: OdooStateSemantic::Draft },
+        OdooState { name: "in_process", semantic: OdooStateSemantic::InProgress },
+        OdooState { name: "paid", semantic: OdooStateSemantic::Completed },
+        OdooState { name: "canceled", semantic: OdooStateSemantic::Cancelled },
+        OdooState { name: "rejected", semantic: OdooStateSemantic::Terminal },
     ],
     transitions: &[
         OdooTransition {
@@ -188,10 +173,7 @@ pub const PAYMENT: OdooEntity = OdooEntity {
             target: Some("res.currency"),
             required: false,
             computed: Some("_compute_currency_id"),
-            depends: &[
-                "journal_id.currency_id",
-                "journal_id.company_id.currency_id",
-            ],
+            depends: &["journal_id.currency_id", "journal_id.company_id.currency_id"],
             semantic_role: OdooSemanticRole::Reference,
         },
         OdooField {
@@ -1075,9 +1057,7 @@ mod tests {
 
     #[test]
     fn payment_state_machine_is_populated() {
-        let sm = PAYMENT
-            .state_machine
-            .expect("account.payment must have a state machine");
+        let sm = PAYMENT.state_machine.expect("account.payment must have a state machine");
         assert_eq!(sm.state_field, "state");
         assert_eq!(sm.states.len(), 5);
         assert!(!sm.transitions.is_empty());
@@ -1087,10 +1067,7 @@ mod tests {
     fn payment_has_both_reconciliation_flags() {
         let is_reconciled = PAYMENT.fields.iter().find(|f| f.name == "is_reconciled");
         let is_matched = PAYMENT.fields.iter().find(|f| f.name == "is_matched");
-        assert!(
-            is_reconciled.is_some(),
-            "is_reconciled field must be present"
-        );
+        assert!(is_reconciled.is_some(), "is_reconciled field must be present");
         assert!(is_matched.is_some(), "is_matched field must be present");
     }
 
@@ -1149,7 +1126,8 @@ mod tests {
     fn all_entities_cite_l5_doc() {
         for entity in ENTITIES {
             assert_eq!(
-                entity.provenance.l_doc, "L5-PAY-TERMS-MATCH.md",
+                entity.provenance.l_doc,
+                "L5-PAY-TERMS-MATCH.md",
                 "entity {} must cite L5 doc",
                 entity.model_name
             );

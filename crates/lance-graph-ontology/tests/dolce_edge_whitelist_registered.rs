@@ -36,7 +36,9 @@ fn edge_whitelist_registered() {
     );
 
     // Load-bearing minimum: DnS classification + role-binding.
-    let dul = |name: &str| format!("http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#{name}");
+    let dul = |name: &str| {
+        format!("http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#{name}")
+    };
     for name in &["isClassifiedBy", "classifies", "hasRole", "hasParticipant"] {
         let iri = dul(name);
         assert!(

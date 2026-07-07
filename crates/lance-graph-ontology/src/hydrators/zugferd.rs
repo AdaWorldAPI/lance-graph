@@ -73,7 +73,10 @@ pub fn hydrate_zugferd(registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
 }
 
 /// Test-friendly variant: hydrate ZUGFeRD from an explicit directory.
-pub fn hydrate_zugferd_from(dir: &Path, registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
+pub fn hydrate_zugferd_from(
+    dir: &Path,
+    registry: &OntologyRegistry,
+) -> Result<u32, HydrateErr> {
     let files = collect_xsd_files(dir)?;
     let path_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
     let hydrator = XsdHydrator {

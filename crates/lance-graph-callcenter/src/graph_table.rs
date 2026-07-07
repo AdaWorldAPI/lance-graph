@@ -96,7 +96,10 @@ pub fn edges_table(snap: &GraphSnapshot) -> DfResult<MemTable> {
 pub fn graph_tables(
     snap: &GraphSnapshot,
 ) -> DfResult<(Arc<dyn TableProvider>, Arc<dyn TableProvider>)> {
-    Ok((Arc::new(nodes_table(snap)?), Arc::new(edges_table(snap)?)))
+    Ok((
+        Arc::new(nodes_table(snap)?),
+        Arc::new(edges_table(snap)?),
+    ))
 }
 
 /// Register `nodes` + `edges` into a DataFusion `SessionContext`, so a consumer
@@ -177,10 +180,7 @@ mod tests {
         let member_a = snap
             .nodes
             .iter()
-            .find(|n| {
-                n.kind == "OSINT/Gotham"
-                    && n.props.iter().any(|(k, v)| k == "family" && v == "00000a")
-            })
+            .find(|n| n.kind == "OSINT/Gotham" && n.props.iter().any(|(k, v)| k == "family" && v == "00000a"))
             .unwrap()
             .id
             .clone();
@@ -192,13 +192,13 @@ mod tests {
             .unwrap();
         let batches = df.collect().await.unwrap();
         let rows: usize = batches.iter().map(|b| b.num_rows()).sum();
-        assert_eq!(
-            rows, 1,
-            "the out-of-family adapter edge is queryable via SQL"
-        );
+        assert_eq!(rows, 1, "the out-of-family adapter edge is queryable via SQL");
 
         // GROUP BY over node kinds: 2 OSINT members + 2 family nodes.
-        let df = ctx.sql("SELECT count(*) AS n FROM nodes").await.unwrap();
+        let df = ctx
+            .sql("SELECT count(*) AS n FROM nodes")
+            .await
+            .unwrap();
         let batches = df.collect().await.unwrap();
         assert_eq!(batches[0].num_rows(), 1);
     }

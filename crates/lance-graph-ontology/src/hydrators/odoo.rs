@@ -77,10 +77,8 @@ const ODOO_EDGE_WHITELIST: &[&str] = &[
 /// cascade edge whitelist.
 pub fn hydrate_odoo(registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
     let core = odoo_core_path();
-    let alignments: Vec<PathBuf> = ODOO_ALIGNMENT_RELATIVE_PATHS
-        .iter()
-        .map(alignment_path)
-        .collect();
+    let alignments: Vec<PathBuf> =
+        ODOO_ALIGNMENT_RELATIVE_PATHS.iter().map(alignment_path).collect();
     let mut paths: Vec<&Path> = Vec::with_capacity(1 + alignments.len());
     paths.push(&core);
     for a in &alignments {
@@ -97,7 +95,10 @@ pub fn hydrate_odoo(registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
 /// [`super::owl::ContextBundle`] keyed by `OGIT::ODOO_V1.0`, then registers the
 /// cascade edge whitelist. Used by [`hydrate_odoo`] to merge the core seed with
 /// the alignment overlays, and by tests that compose a custom bundle.
-pub fn hydrate_odoo_from(paths: &[&Path], registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
+pub fn hydrate_odoo_from(
+    paths: &[&Path],
+    registry: &OntologyRegistry,
+) -> Result<u32, HydrateErr> {
     let hydrator = OwlHydrator {
         g: OGIT::ODOO_V1.0,
         version: OGIT::ODOO_V1.1,
@@ -148,11 +149,13 @@ mod tests {
     #[test]
     fn odoo_edge_whitelist_has_the_two_load_bearing_iris() {
         assert!(
-            ODOO_EDGE_WHITELIST.contains(&"http://www.w3.org/2000/01/rdf-schema#subClassOf"),
+            ODOO_EDGE_WHITELIST
+                .contains(&"http://www.w3.org/2000/01/rdf-schema#subClassOf"),
             "rdfs:subClassOf is load-bearing"
         );
         assert!(
-            ODOO_EDGE_WHITELIST.contains(&"http://www.w3.org/2002/07/owl#equivalentClass"),
+            ODOO_EDGE_WHITELIST
+                .contains(&"http://www.w3.org/2002/07/owl#equivalentClass"),
             "owl:equivalentClass is load-bearing"
         );
     }
