@@ -1,3 +1,16 @@
+## 2026-07-07 — pdf-to-text-ocr v1 (tesseract-rs) — ACTIVE
+
+**Plan:** `tesseract-rs/.claude/plans/pdf-to-text-ocr-v1.md`
+**Scope:** close the gap from the DONE byte-parity line recognizer
+(`E-OCR-IMAGE-TEXT-1` + `E-OCR-PIXSCALE-COMPLETE-1`) to **PDF in → text out**,
+in Opus-4.8-orchestrator / Sonnet-5-worker batches. Phases: P0 plateau PRs
+(ruff `claude/walk-free-functions` pushed, 1-click PR; OGAR mints
+0x0805..0x0809 banked as patch — the lance-graph `ogar_codebook` mirror +
+`lance-graph-ogar` COUNT_FUSE 79→84 is **D0.5, queued behind the OGAR merge**,
+two-sided drift fuse, never one side alone) · P1 dict/word-box accuracy ·
+P2 decode+Otsu input layer · P3 textord marathon (harvest-first) + marked-approx
+line finder · P4 renderers · P5 PDF front-end · P6 golden-corpus E2E.
+
 ## 2026-07-04 — epiphany-integration (membranes, parity, and the unified ruff phase sequence)
 
 Plan: `.claude/plans/epiphany-integration-2026-07-04-v3.md`. **The full review-pipeline product** (operator-directed: Fable-5 draft → 5× Sonnet PR-history drift audit across lance-graph #618–#645 / OGAR #139–#151 / ruff #33–#41 / ndarray → 5× Opus savant review (iron-rule / dto-soa / prior-art / cascade-impact / creative-explorer) → 3× Opus brutal review (overclaim RESTATE·10, dilution REPAIR·3, baton CATCH-CRITICAL·1) → all 20+ findings folded). **Registry (§1):** 2 new parent laws — `E-BOUNDARY-FUSE-1` (where the compiler's cross-boundary guarantee ends, a mechanical fuse begins: grep / pinned-literal test / serialized-allocation gate) + `E-REGISTRY-COMPLETENESS-ORACLE-1` (convergence/round-trip/classify failures reveal registry gaps) — plus 14 instance rows incl. the self-caught `E-PLAN-GROUND-STATE-IS-A-RANGE-1` (a multi-repo plan drifts faster than it's authored: ruff moved #39→#41 mid-draft and #40 WAS a plan item landing; cite the executable, never the prose). All keys PENDING the epiphany-brainstorm-council (deliverable B1). **Deliverables:** Group A = unified ruff phase sequence (A1 NEW-branch mint per BH-4 — never re-point the shared branch; A2a registry freeze at the *derived* count 62; A4 reassembler-generalization re-scoped as a FEATURE; A5 convergence gate; A7 falsifier fence blocked on Q-A7 after BH-5 killed naive structural regexes as a meta-membrane leak). Group B = council filing + broadcast-first V3-folder drafts with 7-day fallback. Group C = OGAR doctrine bullets (insertion points pinned). Group D = the consumer-side baton homes (ruff board file carries plan pointer + gate markers). Cross-refs mandated on 9 OVERLAPS rows; 2 rows filed [CONJ]. Doc-only. RATIFIED (execution queued behind D1→A1).
