@@ -310,6 +310,68 @@ impl NodeGuid {
     }
 }
 
+impl NodeGuid {
+    /// Mint a node by its **tail variant** — the carrier form of the Phase-1
+    /// symmetric spine: a consumer mints with
+    /// `mint_for(classid_read_mode(c).tail_variant, …)`, NEVER by hardcoding
+    /// `new` vs `new_v2`. Migrating a class's identity to V3 is then a one-line
+    /// flip of its `tail_variant` in the registry, with zero consumer rewrite.
+    ///
+    /// **Un-gated dispatch (`ISS-V1-TAIL-RESIDUE`):** `mint_for` itself is always
+    /// available so production mints (`ocr.rs`, `aiwar.rs`) route through it in
+    /// every build. The [`V1`](TailVariant::V1) arm is unconditional
+    /// ([`new`](NodeGuid::new)); the [`V2`](TailVariant::V2)/[`V3`](TailVariant::V3)
+    /// arms lower to `new_v2` only under `guid-v2-tail`. With the feature off no
+    /// classid registers a V2/V3 `tail_variant` ([`classid_read_mode`] returns
+    /// V1), so the fallback arm is dead — it exists purely so the crate compiles
+    /// `--no-default-features`.
+    ///
+    /// **No silent truncation:** the V2/V3 arm asserts `family`/`identity` fit
+    /// `u16`, mirroring [`new`](NodeGuid::new)'s own 24-bit guard.
+    #[allow(clippy::too_many_arguments)]
+    pub const fn mint_for(
+        tail_variant: TailVariant,
+        classid: u32,
+        heel: u16,
+        hip: u16,
+        twig: u16,
+        leaf: u16,
+        family: u32,
+        identity: u32,
+    ) -> Self {
+        match tail_variant {
+            TailVariant::V1 => Self::new(classid, heel, hip, twig, family, identity),
+            #[cfg(feature = "guid-v2-tail")]
+            TailVariant::V2 | TailVariant::V3 => {
+                assert!(
+                    family <= 0xFFFF,
+                    "v2/v3 family must fit in 16 bits (no silent truncation)"
+                );
+                assert!(
+                    identity <= 0xFFFF,
+                    "v2/v3 identity must fit in 16 bits (no silent truncation)"
+                );
+                Self::new_v2(
+                    classid,
+                    heel,
+                    hip,
+                    twig,
+                    leaf,
+                    family as u16,
+                    identity as u16,
+                )
+            }
+            #[cfg(not(feature = "guid-v2-tail"))]
+            TailVariant::V2 | TailVariant::V3 => {
+                // feature off ⇒ V2/V3 unreachable (no classid registers them);
+                // fall back to the V1 layout so the crate compiles.
+                let _ = leaf;
+                Self::new(classid, heel, hip, twig, family, identity)
+            }
+        }
+    }
+}
+
 // ── GUID v2 tail (leaf·family·identity, 3×u16) — D-GV2-1, feature-gated ────────
 //
 // The v2 basin tail repartitions bytes 10..16: leaf(u16) 10..12 (the 4th HHTL
@@ -353,63 +415,8 @@ impl NodeGuid {
         ])
     }
 
-    /// Mint a node by its **tail variant** — the carrier form of the Phase-1
-    /// symmetric spine (`soa-value-tenant-migration-v2.md` §2.1): a consumer
-    /// mints with `mint_for(classid_read_mode(c).tail_variant, …)`, NEVER by
-    /// hardcoding `new` vs `new_v2`. The key-side analog of the value-side
-    /// `to_node_row(classid_read_mode(c).value_schema, …)` — same
-    /// [`classid_read_mode`] lookup, sibling field. Migrating a class's identity
-    /// to V3 is then a one-line flip of its `tail_variant` in the registry, with
-    /// zero consumer rewrite (the "extend the one `ReadMode`, never a public
-    /// `new_v3`" litmus).
-    ///
-    /// Dispatch (all three [`TailVariant`] arms exist unconditionally as enum
-    /// values; only the constructors they call are gated):
-    /// - [`V1`](TailVariant::V1) → [`new`](NodeGuid::new): the canonical
-    ///   `family(u24)·identity(u24)` tail. `leaf` is not part of the V1 tail and
-    ///   is intentionally ignored (the V1 cascade is HEEL·HIP·TWIG only).
-    /// - [`V2`](TailVariant::V2) / [`V3`](TailVariant::V3) → [`new_v2`](NodeGuid::new_v2):
-    ///   the shared `leaf·family·identity` 3×u16 tail bytes. V3 differs from V2
-    ///   only in how those bytes are *read* (the `(part_of:is_a)` cascade tile),
-    ///   not how they are *stored* — so it mints through the same constructor.
-    ///
-    /// **No silent truncation** (the footgun v2 exists to remove): the V2/V3 arm
-    /// asserts `family`/`identity` fit `u16`, mirroring [`new`](NodeGuid::new)'s
-    /// own 24-bit guard. An out-of-range value is a loud panic, never a wrong key.
-    #[allow(clippy::too_many_arguments)]
-    pub const fn mint_for(
-        tail_variant: TailVariant,
-        classid: u32,
-        heel: u16,
-        hip: u16,
-        twig: u16,
-        leaf: u16,
-        family: u32,
-        identity: u32,
-    ) -> Self {
-        match tail_variant {
-            TailVariant::V1 => Self::new(classid, heel, hip, twig, family, identity),
-            TailVariant::V2 | TailVariant::V3 => {
-                assert!(
-                    family <= 0xFFFF,
-                    "v2/v3 family must fit in 16 bits (no silent truncation)"
-                );
-                assert!(
-                    identity <= 0xFFFF,
-                    "v2/v3 identity must fit in 16 bits (no silent truncation)"
-                );
-                Self::new_v2(
-                    classid,
-                    heel,
-                    hip,
-                    twig,
-                    leaf,
-                    family as u16,
-                    identity as u16,
-                )
-            }
-        }
-    }
+    // `mint_for` moved to the unconditional `impl NodeGuid` above (un-gated per
+    // ISS-V1-TAIL-RESIDUE): V1 arm always available, V2/V3 arms feature-gated.
 
     /// v2 `leaf` — bytes 10..12, the 4th HHTL routing tier (cascade terminal).
     #[inline]

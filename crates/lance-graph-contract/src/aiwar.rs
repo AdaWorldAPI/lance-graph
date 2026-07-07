@@ -13,7 +13,7 @@
 //! `GraphSnapshot` to the Quadro-2 visual. Run it on the real graph with
 //! `cargo run -p lance-graph-contract --example aiwar_family_poc`.
 
-use crate::canonical_node::{EdgeBlock, NodeGuid, NodeRow};
+use crate::canonical_node::{classid_read_mode, EdgeBlock, NodeGuid, NodeRow};
 use crate::literal_graph::LiteralGraph;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -72,6 +72,14 @@ impl AiwarClassView {
 /// projected graph links category hubs (Nation → System, etc.). Head-only — the
 /// 480-byte value slab stays zero.
 pub fn aiwar_node_rows(graph: &LiteralGraph) -> Vec<NodeRow> {
+    // Route through `mint_for` (ISS-V1-TAIL-RESIDUE) — never a hardcoded `new`.
+    // Kept on the V1 `CLASSID_OSINT` for now: flipping to `CLASSID_OSINT_V3`
+    // gives the V3 `leaf·family·identity` tail, but `project_snapshot` still
+    // reads `family` via the V1 `family()` u24 accessor, so the V3 flip is
+    // gated on making that consumer tail-aware (a follow-up). Once
+    // `CLASSID_OSINT`'s registry `tail_variant` flips, this mint auto-follows.
+    let osint_classid = NodeGuid::CLASSID_OSINT;
+
     let view = AiwarClassView::from_graph(graph);
     let ids = graph.all_node_ids();
     let fam_of =
@@ -101,8 +109,14 @@ pub fn aiwar_node_rows(graph: &LiteralGraph) -> Vec<NodeRow> {
                 edges.out_family[k] = b;
             }
             NodeRow {
-                key: NodeGuid::new(
-                    NodeGuid::CLASSID_OSINT,
+                // Route through `mint_for` so the classid's registered
+                // `tail_variant` drives the key layout (ISS-V1-TAIL-RESIDUE).
+                // V1 today ⇒ family/identity keep the u24 mask; a V3 registry
+                // flip would narrow them to u16 automatically.
+                key: NodeGuid::mint_for(
+                    classid_read_mode(osint_classid).tail_variant,
+                    osint_classid,
+                    0,
                     0,
                     0,
                     0,
