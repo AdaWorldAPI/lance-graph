@@ -86,6 +86,18 @@
 
 use std::path::Path;
 
+/// `NODE_REF` / `EDGE_REF` (`dawg.h:49-50`) — both are the same signed
+/// 64-bit edge-array index type in the C++; this module uses one alias for
+/// both, matching how `edge_char_of`'s `node` parameter and `next_node`'s
+/// return value are the same underlying type in the original.
+pub type NodeRef = i64;
+
+/// `NO_EDGE` (`dawg.h:37-41`, the GCC arm: `static_cast<int64_t>(0xffff...)`,
+/// i.e. all-ones as `int64_t` = `-1`) — the sentinel meaning "no such edge /
+/// node". Returned as [`None`] from [`SquishedDawg::edge_char_of`] rather
+/// than as a sentinel value.
+pub const NO_EDGE: NodeRef = -1;
+
 /// `Dawg::kDawgMagicNumber` (`dawg.h:113`) — the endian-detection magic
 /// every squished-dawg component opens with.
 const DAWG_MAGIC_NUMBER: i16 = 42;
@@ -109,6 +121,99 @@ const WERD_END_FLAG: u64 = 4;
 /// covers the real `eng.lstm-word-dawg` (461,848 edges).
 const MAX_PREALLOC_HINT: usize = 1 << 20;
 
+/// `DawgType` (`dawg.h:64-71`) — which kind of dictionary this dawg encodes.
+/// Discriminants match the C++ enum ordinals exactly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DawgType {
+    /// `DAWG_TYPE_PUNCTUATION` (0).
+    Punctuation = 0,
+    /// `DAWG_TYPE_WORD` (1).
+    Word = 1,
+    /// `DAWG_TYPE_NUMBER` (2).
+    Number = 2,
+    /// `DAWG_TYPE_PATTERN` (3).
+    Pattern = 3,
+}
+
+impl DawgType {
+    /// Maps a raw ordinal (0..3) to its `DawgType`, or `None` if out of
+    /// range (mirrors the bounds of the C++ `DAWG_TYPE_COUNT`-sized enum).
+    #[must_use]
+    pub fn from_i32(v: i32) -> Option<Self> {
+        match v {
+            0 => Some(Self::Punctuation),
+            1 => Some(Self::Word),
+            2 => Some(Self::Number),
+            3 => Some(Self::Pattern),
+            _ => None,
+        }
+    }
+}
+
+/// `PermuterType` (`ratngs.h:235-251`) — which permuter produced/should
+/// score a dictionary match. Discriminants match the C++ enum ordinals
+/// exactly, since `def_letter_is_okay` and friends compare permuter values
+/// numerically (`Ord`/`PartialOrd` derived for that reason).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PermuterType {
+    /// `NO_PERM` (0).
+    NoPerm = 0,
+    /// `PUNC_PERM` (1).
+    PuncPerm = 1,
+    /// `TOP_CHOICE_PERM` (2).
+    TopChoicePerm = 2,
+    /// `LOWER_CASE_PERM` (3).
+    LowerCasePerm = 3,
+    /// `UPPER_CASE_PERM` (4).
+    UpperCasePerm = 4,
+    /// `NGRAM_PERM` (5).
+    NgramPerm = 5,
+    /// `NUMBER_PERM` (6).
+    NumberPerm = 6,
+    /// `USER_PATTERN_PERM` (7).
+    UserPatternPerm = 7,
+    /// `SYSTEM_DAWG_PERM` (8).
+    SystemDawgPerm = 8,
+    /// `DOC_DAWG_PERM` (9).
+    DocDawgPerm = 9,
+    /// `USER_DAWG_PERM` (10).
+    UserDawgPerm = 10,
+    /// `FREQ_DAWG_PERM` (11).
+    FreqDawgPerm = 11,
+    /// `COMPOUND_PERM` (12).
+    CompoundPerm = 12,
+}
+
+impl PermuterType {
+    /// The C++ enum ordinal for this permuter.
+    #[must_use]
+    pub fn as_i32(self) -> i32 {
+        self as i32
+    }
+
+    /// Maps a raw ordinal (0..12) to its `PermuterType`, or `None` if out
+    /// of range.
+    #[must_use]
+    pub fn from_i32(v: i32) -> Option<Self> {
+        match v {
+            0 => Some(Self::NoPerm),
+            1 => Some(Self::PuncPerm),
+            2 => Some(Self::TopChoicePerm),
+            3 => Some(Self::LowerCasePerm),
+            4 => Some(Self::UpperCasePerm),
+            5 => Some(Self::NgramPerm),
+            6 => Some(Self::NumberPerm),
+            7 => Some(Self::UserPatternPerm),
+            8 => Some(Self::SystemDawgPerm),
+            9 => Some(Self::DocDawgPerm),
+            10 => Some(Self::UserDawgPerm),
+            11 => Some(Self::FreqDawgPerm),
+            12 => Some(Self::CompoundPerm),
+            _ => None,
+        }
+    }
+}
+
 /// A loaded `SquishedDawg` — the compacted edge array plus its derived bit
 /// masks, the transcription of tesseract's `SquishedDawg` load side
 /// (`dawg.{h,cpp}`).
@@ -128,6 +233,20 @@ pub struct SquishedDawg {
     letter_mask: u64,
     /// `next_node_mask_` (`dawg.h:310`).
     next_node_mask: u64,
+    /// `Dawg::type_` (`dawg.h:303`) — user-set role metadata; in the real
+    /// Tesseract this is a constructor argument, not stored in the file.
+    /// Defaults to [`DawgType::Word`] on load; set explicitly via
+    /// [`Self::with_type`] when wiring the file to a role.
+    dawg_type: DawgType,
+    /// `Dawg::perm_` (`dawg.h:305`) — user-set permuter metadata, same
+    /// caveat as `dawg_type`. Defaults to [`PermuterType::SystemDawgPerm`]
+    /// on load; set explicitly via [`Self::with_permuter`].
+    permuter: PermuterType,
+    /// `SquishedDawg::num_forward_edges_in_node0` (`dawg.h:569`) — computed
+    /// once at load time (`SquishedDawg::num_forward_edges(0)`,
+    /// `dawg.cpp:230-241`), the length of the binary-searchable run of
+    /// forward edges out of the root node.
+    num_forward_edges_in_node0: usize,
 }
 
 impl SquishedDawg {
@@ -168,6 +287,8 @@ impl SquishedDawg {
         }
         let (flag_start_bit, next_node_start_bit, letter_mask, next_node_mask) =
             Self::derive_masks(unicharset_size);
+        let num_forward_edges_in_node0 =
+            Self::count_forward_edges(&edges, next_node_mask, flag_start_bit, 0);
         Ok((
             Self {
                 unicharset_size,
@@ -176,9 +297,50 @@ impl SquishedDawg {
                 next_node_start_bit,
                 letter_mask,
                 next_node_mask,
+                dawg_type: DawgType::Word,
+                permuter: PermuterType::SystemDawgPerm,
+                num_forward_edges_in_node0,
             },
             r.pos(),
         ))
+    }
+
+    /// `SquishedDawg::num_forward_edges` (`dawg.cpp:230-241`), specialised
+    /// to the load-time call site `num_forward_edges(0)`. Free function
+    /// (not a method) because it runs before `Self` exists, over the raw
+    /// edge slice and derived masks.
+    ///
+    /// Mirrors the C++ walk: `forward_edge(edge)` (occupied and not
+    /// backward) at the start, then a contiguous count until `last_edge`
+    /// fires. The C++ trusts the on-disk format to keep a node's edge run
+    /// homogeneous once started; this version additionally re-checks
+    /// occupancy/backward/bounds on every step as a defensive guard against
+    /// malformed input (a no-op on well-formed data, where the C++ behaviour
+    /// and this behaviour coincide).
+    fn count_forward_edges(
+        edges: &[u64],
+        next_node_mask: u64,
+        flag_start_bit: u32,
+        node: usize,
+    ) -> usize {
+        let occupied = |i: usize| edges[i] != next_node_mask;
+        let is_backward = |i: usize| (edges[i] & (DIRECTION_FLAG << flag_start_bit)) != 0;
+        let is_last = |i: usize| (edges[i] & (MARKER_FLAG << flag_start_bit)) != 0;
+
+        let mut edge = node;
+        let mut count = 0usize;
+        loop {
+            if edge >= edges.len() || !occupied(edge) || is_backward(edge) {
+                break;
+            }
+            count += 1;
+            let last = is_last(edge);
+            edge += 1;
+            if last {
+                break;
+            }
+        }
+        count
     }
 
     /// Load a `SquishedDawg` from a `.lstm-*-dawg` file (a thin wrapper over
@@ -293,6 +455,185 @@ impl SquishedDawg {
     #[must_use]
     pub fn end_of_word(&self, edge: usize) -> bool {
         (self.edges[edge] & (WERD_END_FLAG << self.flag_start_bit)) != 0
+    }
+
+    /// Sets this dawg's [`DawgType`] role. In real Tesseract `type_` is a
+    /// constructor argument (`SquishedDawg::SquishedDawg`, `dawg.h:410-420`)
+    /// rather than something read from the file; callers wiring a loaded
+    /// file to a role (word/punc/number dawg) set it explicitly.
+    #[must_use]
+    pub fn with_type(mut self, t: DawgType) -> Self {
+        self.dawg_type = t;
+        self
+    }
+
+    /// Sets this dawg's [`PermuterType`]. Same constructor-argument caveat
+    /// as [`Self::with_type`].
+    #[must_use]
+    pub fn with_permuter(mut self, p: PermuterType) -> Self {
+        self.permuter = p;
+        self
+    }
+
+    /// This dawg's [`DawgType`] role (`Dawg::type()`, `dawg.h:119-121`).
+    #[must_use]
+    pub fn dawg_type(&self) -> DawgType {
+        self.dawg_type
+    }
+
+    /// This dawg's [`PermuterType`] (`Dawg::permuter()`, `dawg.h:125-127`).
+    #[must_use]
+    pub fn permuter(&self) -> PermuterType {
+        self.permuter
+    }
+
+    /// The number of edges counted into the binary-searchable forward run
+    /// out of the root node — `num_forward_edges_in_node0` (`dawg.h:569`),
+    /// computed once at load time.
+    #[must_use]
+    pub fn num_forward_edges_in_node0(&self) -> usize {
+        self.num_forward_edges_in_node0
+    }
+
+    /// Whether the edge slot at `edge` is occupied — the C++
+    /// `SquishedDawg::edge_occupied` (`dawg.h:538-540`):
+    /// `edges[edge] != next_node_mask_`. An empty slot is written by
+    /// `set_empty_edge` as exactly `next_node_mask_` (the write side is out
+    /// of scope for this loader, but the read-side test is needed by
+    /// [`Self::edge_char_of`]).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `edge >= self.num_edges()`.
+    #[must_use]
+    pub fn edge_occupied(&self, edge: usize) -> bool {
+        self.edges[edge] != self.next_node_mask
+    }
+
+    /// Whether `edge` is the last edge in its node's edge run — the C++
+    /// `SquishedDawg::last_edge` (`dawg.h:542-544`):
+    /// `edges[edge] & (MARKER_FLAG << flag_start_bit_) != 0`. Identical
+    /// formula to [`Self::marker_flag`] (the base-class accessor); this
+    /// method exists under the name the traversal code
+    /// (`edge_char_of`/`num_forward_edges`) actually calls it by.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `edge >= self.num_edges()`.
+    #[must_use]
+    pub fn last_edge(&self, edge: usize) -> bool {
+        self.marker_flag(edge)
+    }
+
+    /// `Dawg::given_greater_than_edge_rec` (`dawg.h:247-271`): tri-state
+    /// compare of `(next_node, word_end, unichar_id)` against `edge`'s
+    /// decoded fields. Returns `1` if the given values sort strictly after
+    /// `edge`, `0` if [`Self::edge_rec_match`] holds, `-1` otherwise.
+    fn given_greater_than_edge_rec(
+        &self,
+        next_node: NodeRef,
+        word_end: bool,
+        unichar_id: u32,
+        edge: usize,
+    ) -> i32 {
+        let curr_unichar_id = self.edge_letter(edge);
+        // `next_node()` is `u64`; on-disk node references are always small
+        // non-negative offsets, so the widen to `i64` mirrors the C++
+        // `NODE_REF` (signed) representation without loss for real data.
+        let curr_next_node = self.next_node(edge) as NodeRef;
+        let curr_word_end = self.end_of_word(edge);
+        if Self::edge_rec_match(
+            next_node,
+            word_end,
+            unichar_id,
+            curr_next_node,
+            curr_word_end,
+            curr_unichar_id,
+        ) {
+            return 0;
+        }
+        if unichar_id > curr_unichar_id {
+            return 1;
+        }
+        if unichar_id == curr_unichar_id {
+            if next_node > curr_next_node {
+                return 1;
+            }
+            if next_node == curr_next_node && word_end && !curr_word_end {
+                return 1;
+            }
+        }
+        -1
+    }
+
+    /// `Dawg::edge_rec_match` (`dawg.h:275-282`): true if all the given
+    /// values equal the decoded edge values (any value matches `next_node`
+    /// if `next_node == NO_EDGE`, any value matches `word_end` if
+    /// `word_end` is false).
+    #[allow(clippy::too_many_arguments)]
+    fn edge_rec_match(
+        next_node: NodeRef,
+        word_end: bool,
+        unichar_id: u32,
+        other_next_node: NodeRef,
+        other_word_end: bool,
+        other_unichar_id: u32,
+    ) -> bool {
+        unichar_id == other_unichar_id
+            && (next_node == NO_EDGE || next_node == other_next_node)
+            && (!word_end || word_end == other_word_end)
+    }
+
+    /// `SquishedDawg::edge_char_of` (`dawg.cpp:198-228`) — the beating heart
+    /// of the beam step: returns the edge out of `node` matching
+    /// `unichar_id` (and, if `word_end` is true, also marking end-of-word),
+    /// or `None` on the C++ `NO_EDGE` sentinel (not found).
+    ///
+    /// - `node == 0`: binary search over
+    ///   `edges[0..num_forward_edges_in_node0]` using
+    ///   [`Self::given_greater_than_edge_rec`] (`dawg.cpp:201-216`).
+    /// - `node != 0`: linear scan starting at `edge = node`, matching
+    ///   `edge_letter(edge) == unichar_id && (!word_end ||
+    ///   end_of_word(edge))`, advancing until [`Self::last_edge`] fires
+    ///   (`dawg.cpp:217-226`).
+    #[must_use]
+    pub fn edge_char_of(&self, node: NodeRef, unichar_id: u32, word_end: bool) -> Option<usize> {
+        if node == 0 {
+            if self.num_forward_edges_in_node0 == 0 {
+                return None;
+            }
+            let mut start: i64 = 0;
+            let mut end: i64 = self.num_forward_edges_in_node0 as i64 - 1;
+            while start <= end {
+                // (start + end) / 2, matching the C++ `>> 1`.
+                let edge = ((start + end) >> 1) as usize;
+                match self.given_greater_than_edge_rec(NO_EDGE, word_end, unichar_id, edge) {
+                    0 => return Some(edge),
+                    1 => start = edge as i64 + 1,
+                    _ => end = edge as i64 - 1,
+                }
+            }
+            None
+        } else {
+            if node == NO_EDGE || node < 0 {
+                return None;
+            }
+            let mut edge = node as usize;
+            if edge >= self.edges.len() || !self.edge_occupied(edge) {
+                return None;
+            }
+            loop {
+                if self.edge_letter(edge) == unichar_id && (!word_end || self.end_of_word(edge)) {
+                    return Some(edge);
+                }
+                let last = self.last_edge(edge);
+                let next_edge = edge + 1;
+                if last || next_edge >= self.edges.len() {
+                    return None;
+                }
+                edge = next_edge;
+            }
+        }
     }
 }
 
@@ -491,5 +832,143 @@ mod tests {
             SquishedDawg::from_le_bytes(&build(112, &[])).unwrap_err(),
             DawgError::Empty
         );
+    }
+
+    /// Packs one `EDGE_RECORD` for `unicharset_size=112`
+    /// (`flag_start_bit=7`, `next_node_start_bit=10`, matching the layout
+    /// comment on `parses_header_and_edges_with_hand_packed_records`).
+    fn pack_edge(letter: u64, marker: bool, backward: bool, eow: bool, next: u64) -> u64 {
+        letter
+            | (u64::from(marker) << 7)
+            | (u64::from(backward) << 8)
+            | (u64::from(eow) << 9)
+            | (next << 10)
+    }
+
+    #[test]
+    fn edge_char_of_binary_search_at_node_zero() {
+        // Two node-0 forward edges: letters 5 and 7, both end_of_word=true,
+        // last_edge set on the second (the marker that ends the run).
+        let edges = [
+            pack_edge(5, false, false, true, 0),
+            pack_edge(7, true, false, true, 0),
+        ];
+        let bytes = build(112, &edges);
+        let (dawg, _) = SquishedDawg::from_le_bytes(&bytes).expect("valid");
+        assert_eq!(dawg.num_forward_edges_in_node0(), 2);
+
+        assert_eq!(dawg.edge_char_of(0, 5, true), Some(0));
+        assert_eq!(dawg.edge_char_of(0, 6, true), None);
+        assert_eq!(dawg.edge_char_of(0, 7, true), Some(1));
+    }
+
+    #[test]
+    fn edge_char_of_linear_scan_at_nonzero_node() {
+        // edge0 is node 0's own (irrelevant here) forward edge, last_edge
+        // set so num_forward_edges_in_node0 == 1. Node 1's edge run starts
+        // at index 1: letters 20 (not last), 21 (last).
+        let edges = [
+            pack_edge(99, true, false, false, 0),
+            pack_edge(20, false, false, false, 0),
+            pack_edge(21, true, false, false, 0),
+        ];
+        let bytes = build(112, &edges);
+        let (dawg, _) = SquishedDawg::from_le_bytes(&bytes).expect("valid");
+        assert_eq!(dawg.num_forward_edges_in_node0(), 1);
+
+        assert!(!dawg.last_edge(1));
+        assert!(dawg.last_edge(2));
+        assert!(dawg.edge_occupied(1));
+
+        assert_eq!(dawg.edge_char_of(1, 20, false), Some(1));
+        assert_eq!(dawg.edge_char_of(1, 21, false), Some(2));
+        // last_edge fires at index 2 without a match -> stop, not found.
+        assert_eq!(dawg.edge_char_of(1, 22, false), None);
+    }
+
+    #[test]
+    fn num_forward_edges_in_node0_three_layouts() {
+        // All-forward: three edges, last_edge set only on the third.
+        let all_forward = [
+            pack_edge(1, false, false, false, 0),
+            pack_edge(2, false, false, false, 0),
+            pack_edge(3, true, false, false, 0),
+        ];
+        let (dawg, _) = SquishedDawg::from_le_bytes(&build(112, &all_forward)).expect("valid");
+        assert_eq!(dawg.num_forward_edges_in_node0(), 3);
+
+        // One backward edge mixed in at index 1: the count stops there
+        // (not counted), matching "forward edges only" at node 0.
+        let one_backward = [
+            pack_edge(1, false, false, false, 0),
+            pack_edge(2, false, true, false, 0),
+            pack_edge(3, true, false, false, 0),
+        ];
+        let (dawg, _) = SquishedDawg::from_le_bytes(&build(112, &one_backward)).expect("valid");
+        assert_eq!(dawg.num_forward_edges_in_node0(), 1);
+
+        // Single edge with last_edge set: a one-edge run.
+        let single_last = [pack_edge(9, true, false, false, 0)];
+        let (dawg, _) = SquishedDawg::from_le_bytes(&build(112, &single_last)).expect("valid");
+        assert_eq!(dawg.num_forward_edges_in_node0(), 1);
+    }
+
+    #[test]
+    fn dawg_type_and_permuter_round_trip() {
+        for (v, expected) in [
+            (0, Some(DawgType::Punctuation)),
+            (1, Some(DawgType::Word)),
+            (2, Some(DawgType::Number)),
+            (3, Some(DawgType::Pattern)),
+            (4, None),
+            (-1, None),
+        ] {
+            assert_eq!(DawgType::from_i32(v), expected, "v={v}");
+        }
+        for v in 0..=12 {
+            let p = PermuterType::from_i32(v).unwrap_or_else(|| panic!("v={v} should map"));
+            assert_eq!(p.as_i32(), v);
+        }
+        assert_eq!(PermuterType::from_i32(13), None);
+        assert_eq!(PermuterType::from_i32(-1), None);
+        assert!(PermuterType::NoPerm < PermuterType::CompoundPerm);
+
+        let bytes = build(112, &[pack_edge(1, true, false, false, 0)]);
+        let (dawg, _) = SquishedDawg::from_le_bytes(&bytes).expect("valid");
+        // Defaults on load.
+        assert_eq!(dawg.dawg_type(), DawgType::Word);
+        assert_eq!(dawg.permuter(), PermuterType::SystemDawgPerm);
+
+        let dawg = dawg
+            .with_type(DawgType::Punctuation)
+            .with_permuter(PermuterType::PuncPerm);
+        assert_eq!(dawg.dawg_type(), DawgType::Punctuation);
+        assert_eq!(dawg.permuter(), PermuterType::PuncPerm);
+    }
+
+    #[test]
+    fn edge_char_of_real_punc_dawg_matches_letters() {
+        // Spot check on real trained data: every node-0 forward edge must
+        // be re-discoverable via edge_char_of using its own decoded
+        // (letter, end_of_word) pair. Full byte-parity for the walker
+        // belongs to its own oracle, not this loader's unit tests.
+        let path = Path::new("/tmp/eng.lstm-punc-dawg");
+        if !path.exists() {
+            eprintln!("skipping: /tmp/eng.lstm-punc-dawg not present in this environment");
+            return;
+        }
+        let dawg = SquishedDawg::load_from_file(path).expect("load real punc dawg");
+        assert!(dawg.num_forward_edges_in_node0() > 0);
+        for i in 0..dawg.num_forward_edges_in_node0() {
+            let letter = dawg.edge_letter(i);
+            let word_end = dawg.end_of_word(i);
+            let found = dawg
+                .edge_char_of(0, letter, word_end)
+                .unwrap_or_else(|| panic!("edge {i} (letter {letter}) not found"));
+            assert_eq!(dawg.edge_letter(found), letter);
+            if word_end {
+                assert!(dawg.end_of_word(found));
+            }
+        }
     }
 }
