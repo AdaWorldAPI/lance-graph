@@ -281,6 +281,19 @@ impl SquishedDawg {
         if num_edges <= 0 {
             return Err(DawgError::Empty);
         }
+        // Preflight the declared payload against the actual buffer so a
+        // malformed header with a huge num_edges fails fast instead of
+        // growing the Vec until the truncated read finally errors.
+        let edge_bytes = (num_edges as usize)
+            .checked_mul(std::mem::size_of::<u64>())
+            .ok_or(DawgError::UnexpectedEof)?;
+        let required_len = r
+            .pos()
+            .checked_add(edge_bytes)
+            .ok_or(DawgError::UnexpectedEof)?;
+        if bytes.len() < required_len {
+            return Err(DawgError::UnexpectedEof);
+        }
         let mut edges = Vec::with_capacity((num_edges as usize).min(MAX_PREALLOC_HINT));
         for _ in 0..num_edges {
             edges.push(r.read_u64()?);

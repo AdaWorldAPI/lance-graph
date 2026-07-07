@@ -336,9 +336,9 @@ pub fn blobnbox_facet(
     leader_on_right: bool,
     area: i32,
 ) -> FacetCascade {
-    debug_assert!(region_type < 8, "BlobRegionType has 8 values (BRT_COUNT)");
-    debug_assert!(left_tab_type < 6, "TabType has 6 values (TT_VLINE max)");
-    debug_assert!(right_tab_type < 6, "TabType has 6 values (TT_VLINE max)");
+    assert!(region_type < 8, "BlobRegionType has 8 values (BRT_COUNT)");
+    assert!(left_tab_type < 6, "TabType has 6 values (TT_VLINE max)");
+    assert!(right_tab_type < 6, "TabType has 6 values (TT_VLINE max)");
 
     let tier4_hi = ((region_type & 0x07) << 5) | ((left_tab_type & 0x07) << 2);
     let flags5 = (u8::from(joined) << 4)
@@ -632,7 +632,7 @@ pub fn to_block_facet(
     pitch_decision: u8,
     baseline_offset: f32,
 ) -> FacetCascade {
-    debug_assert!(
+    assert!(
         pitch_decision < 7,
         "PITCH_TYPE has 7 values (PITCH_CORR_PROP max)"
     );
@@ -689,7 +689,7 @@ pub const fn poly_block_facet(
     top: i16,
     ty: u8,
 ) -> FacetCascade {
-    debug_assert!(ty < 15, "PolyBlockType has 15 values (PT_COUNT)");
+    assert!(ty < 15, "PolyBlockType has 15 values (PT_COUNT)");
     FacetCascade {
         facet_classid: PageShape::PolyBlock.classid(),
         tiers: [
