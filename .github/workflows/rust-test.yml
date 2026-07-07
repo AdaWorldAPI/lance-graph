@@ -113,6 +113,14 @@ jobs:
         run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --tests
       - name: Run contract doctests
         run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --doc
+      # lance-graph-ogar is the workspace-EXCLUDED armed tier: it owns the
+      # mirror<->live-vocab fuses (COUNT_FUSE, per-entry parity, the
+      # authoritative-table roundtrip green light) against the OGAR sibling
+      # checked out above. Without this step those fuses only ever ran on a
+      # developer machine — a same-sized codebook remap would ship green
+      # (codex/coderabbit finding on PR #658). One scoped step closes it.
+      - name: Run lance-graph-ogar fuse tests (armed tier, OGAR sibling)
+        run: cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml
       # deepnsm: standalone 0-dep codec crate, workspace-excluded, so the
       # lance-graph test steps above never reached it. ~217 lib + integration +
       # doctests, fast (no lance/datafusion/ndarray deps). Gating.
