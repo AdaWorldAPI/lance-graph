@@ -1,3 +1,22 @@
+## 2026-07-07 — E-OCR-DAWG-1 — recognizer C1 D1.1: `SquishedDawg` binary loader is byte-parity green on the REAL 3 eng.lstm dawgs (word / punc / number), incl. the 461,848-edge word-dawg
+**Status:** FINDING (byte-parity proven vs libtesseract 5.3.4; `lance-graph-contract::dawg`, tested)
+
+The dictionary-beam load leaf ships — the P1B/C1 gate. `SquishedDawg::from_le_bytes` transcodes `Dawg::init` (bit-mask derivation via `flag_start_bit = ceil(log2(unicharset_size + 1))`, computed in f64 to match the C `ceil(log(n+1)/log(2))` path exactly — 112 → 7 for eng) + `SquishedDawg::read_squished_dawg` (`dawg.cpp:313-352`, wire = `i16 magic=42, i32 unicharset_size, i32 num_edges, num_edges × u64 LE EDGE_RECORD`). Public accessors `edge_letter`/`next_node`/`marker_flag`/`is_backward`/`end_of_word` decode a record with `letter = rec & letter_mask`, `next_node = rec >> next_node_start_bit`, `flags = (rec & flags_mask) >> flag_start_bit`. Placed in the Core (`lance-graph-contract`, content-tier next to `unicharcompress`), not `tesseract-core` — dawgs are pure content-store tables, decoded once, walked read-only.
+
+Byte-parity **GREEN** on **3/3** real files: `hdr` + per-edge `letter next_node word_end` byte-identical to a public-API oracle (`SquishedDawg(type, "eng", perm, 0)` + `Load(TFile*)` — the exact pattern from tesseract's own `dawg2wordlist.cpp`, so no private-member access + no ABI-skew risk):
+
+| Dawg | edges | size = 10 + n·8 | Rust vs oracle |
+|---|---|---|---|
+| `eng.lstm-punc-dawg` | 539 | 4,322 | ✅ 540 lines identical |
+| `eng.lstm-number-dawg` | 591 | 4,738 | ✅ 592 lines identical |
+| `eng.lstm-word-dawg` | **461,848** | 3,694,794 | ✅ 461,849 lines identical |
+
+Letter bounds sanity: all edges have `letter < 113 = unicharset_size + 1` (0..109/84/111 max, matching the eng unicharset's 112 slots + the null-char convention). Oracle deviation note: the brief said "`num_edges_` is private" — the *member* is, but `SquishedDawg::NumEdges()` (dawg.h:444-446) is a public accessor above the split; the oracle uses it as a cross-check against its own header parse, all three files agreed silently. +5 unit tests (hand-computable bit-math, magic/size edge cases; `flag_start_bit` for {1→1, 63→6, 112→7, 255→8}). `cargo fmt` clean; `cargo clippy -p lance-graph-contract --lib --examples -- -D warnings` clean; 5/5 dawg tests green (+824 workspace unchanged).
+
+**Enables D1.2 (Dict-lite: the four beam-consulted methods)** — the ContinueDawg surface (`recodebeam.cpp:1026-1123`) needs exactly: `default_dawgs(&vec, false)` (initial active-set), `def_letter_is_okay(&DawgArgs, unicharset, uid, false) → PermuterType` (THE beam step over a `DawgPositionVector`), `IsSpaceDelimitedLang()` (eng: const true), `getUnicharset().IsSpaceDelimited(uid)`. No full `Dict` class port; the SPO harvest cut isolates exactly these leaves. Then D1.3 wires them into the currently-dormant dawg arms of the proven `RecodeBeamSearch` (`E-OCR-RECODEBEAM-1`), gated on with-dict image→text = libtesseract-with-dict.
+
+Cross-ref: `E-CPP-PARITY-1..7` (recoder/charset content-tier precedent), `E-OCR-RECODEBEAM-1` (the beam whose dict arms this unblocks), `E-OCR-RECOGNIZER-LOAD-1` (`null_char=110` config). Plan `tesseract-rs/.claude/plans/pdf-to-text-ocr-v1.md` P1A/D1.1 EXECUTED. Consumer wiring (tesseract-core re-export + a `dawg_dump` example there) comes in the D1.2 landing.
+
 ## 2026-07-07 — E-OCR-PIXSCALE-COMPLETE-1 — the grey `pixScale` transcode is COMPLETE + wired: image→text is now byte-exact at ANY line-image height (not just model-height), pure-Rust — the ruff-driven method carried all the way through
 **Status:** FINDING (byte-parity proven vs leptonica 1.82.0 + libtesseract 5.3.4; `tesseract-ocr`, tested) — completes `E-OCR-PIXSCALE-RUFF-1`, extends `E-OCR-IMAGE-TEXT-1`
 
