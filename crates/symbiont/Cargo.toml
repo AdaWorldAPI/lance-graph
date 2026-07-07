@@ -52,9 +52,9 @@ ractor = { git = "https://github.com/AdaWorldAPI/ractor", branch = "claude/jirak
 surrealdb-core = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "main", default-features = false, features = ["kv-lance"] }
 # OGAR tracks `main` (its jirak commit 3016c78 is an ancestor of main — main is a
 # strict superset; there is no separate OGAR jirak branch on github).
-ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
-ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
-ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main", features = ["surrealdb-parser"] }
+ogar-vocab = { path = "../../../OGAR/crates/ogar-vocab" }
+ogar-ontology = { path = "../../../OGAR/crates/ogar-ontology" }
+ogar-adapter-surrealql = { path = "../../../OGAR/crates/ogar-adapter-surrealql", features = ["surrealdb-parser"] }
 
 # The OGAR activation crate (in-repo, path) — the golden image's whole point is to
 # prove the FULL AR surface links: ogar-class-view's `impl lance_graph_contract::

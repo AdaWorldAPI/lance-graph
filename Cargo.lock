@@ -4925,6 +4925,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "glob",
+ "ogar-vocab",
  "serde",
  "serde_yaml",
 ]
@@ -6043,7 +6044,6 @@ dependencies = [
 [[package]]
 name = "ogar-adapter-surrealql"
 version = "0.1.0"
-source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#46d2d2ef0144c3a7e86dbad688893d611cd1171c"
 dependencies = [
  "ogar-vocab",
 ]
@@ -6051,7 +6051,6 @@ dependencies = [
 [[package]]
 name = "ogar-class-view"
 version = "0.1.0"
-source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#46d2d2ef0144c3a7e86dbad688893d611cd1171c"
 dependencies = [
  "lance-graph-contract 0.1.0 (git+https://github.com/AdaWorldAPI/lance-graph?branch=main)",
  "ogar-vocab",
@@ -6060,12 +6059,10 @@ dependencies = [
 [[package]]
 name = "ogar-ontology"
 version = "0.1.0"
-source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#46d2d2ef0144c3a7e86dbad688893d611cd1171c"
 
 [[package]]
 name = "ogar-vocab"
 version = "0.1.0"
-source = "git+https://github.com/AdaWorldAPI/OGAR?branch=main#46d2d2ef0144c3a7e86dbad688893d611cd1171c"
 
 [[package]]
 name = "once_cell"

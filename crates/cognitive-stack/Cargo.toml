@@ -52,9 +52,9 @@ ndarray = { path = "../../../ndarray" }
 # surrealdb to main matches OGAR's own surrealdb pin so they resolve to ONE source.
 ractor = { git = "https://github.com/AdaWorldAPI/ractor", branch = "claude/jirak-math-theorems-harvest-rfii13" }
 surrealdb-core = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "main", default-features = false, features = ["kv-lance"] }
-ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
-ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
-ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main", features = ["surrealdb-parser"] }
+ogar-vocab = { path = "../../../OGAR/crates/ogar-vocab" }
+ogar-ontology = { path = "../../../OGAR/crates/ogar-ontology" }
+ogar-adapter-surrealql = { path = "../../../OGAR/crates/ogar-adapter-surrealql", features = ["surrealdb-parser"] }
 
 # The OGAR activation crate (in-repo, path) — links the full Active-Record surface
 # (ogar-class-view's `impl lance_graph_contract::ClassView` + codebook parity-guard).
