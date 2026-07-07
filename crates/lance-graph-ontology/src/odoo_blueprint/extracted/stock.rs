@@ -8,31 +8,26 @@ pub const EXT_BARCODE_RULE: OdooEntity = OdooEntity {
     model_name: "barcode.rule",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[
-        OdooField {
-            name: "type",
-            kind: OdooFieldKind::Selection,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Other,
-        },
-    ],
-    methods: &[
-
-    ],
-    decorators: &[
-
-    ],
+    fields: &[OdooField {
+        name: "type",
+        kind: OdooFieldKind::Selection,
+        target: None,
+        required: false,
+        computed: None,
+        depends: &[],
+        semantic_role: OdooSemanticRole::Other,
+    }],
+    methods: &[],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/barcode.py", line_range: (7, 20) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/barcode.py",
+            line_range: (7, 20),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -42,28 +37,23 @@ pub const EXT_IR_ACTIONS_REPORT: OdooEntity = OdooEntity {
     model_name: "ir.actions.report",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[
-
-    ],
-    methods: &[
-        OdooMethod {
-            name: "_get_rendering_context",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-    ],
-    decorators: &[
-
-    ],
+    fields: &[],
+    methods: &[OdooMethod {
+        name: "_get_rendering_context",
+        kind: OdooMethodKind::Helper,
+        return_kind: OdooReturnKind::Unit,
+        triggers: &[],
+    }],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/ir_actions_report.py", line_range: (4, 16) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/ir_actions_report.py",
+            line_range: (4, 16),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -530,7 +520,11 @@ pub const EXT_PRODUCT_PRODUCT: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["stock_move_ids.product_qty", "stock_move_ids.state", "stock_move_ids.quantity"],
+            targets: &[
+                "stock_move_ids.product_qty",
+                "stock_move_ids.state",
+                "stock_move_ids.quantity",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiOnchange,
@@ -554,13 +548,14 @@ pub const EXT_PRODUCT_PRODUCT: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product.py", line_range: (47, 810) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/product.py",
+            line_range: (47, 810),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1066,7 +1061,13 @@ pub const EXT_PRODUCT_TEMPLATE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["product_variant_ids.qty_available", "product_variant_ids.virtual_available", "product_variant_ids.incoming_qty", "product_variant_ids.outgoing_qty", "tracking"],
+            targets: &[
+                "product_variant_ids.qty_available",
+                "product_variant_ids.virtual_available",
+                "product_variant_ids.incoming_qty",
+                "product_variant_ids.outgoing_qty",
+                "tracking",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiModel,
@@ -1090,13 +1091,14 @@ pub const EXT_PRODUCT_TEMPLATE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product.py", line_range: (813, 1271) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/product.py",
+            line_range: (813, 1271),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1208,13 +1210,14 @@ pub const EXT_PRODUCT_CATEGORY: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product.py", line_range: (1274, 1335) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/product.py",
+            line_range: (1274, 1335),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1258,17 +1261,16 @@ pub const EXT_UOM_UOM: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-
-    ],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product.py", line_range: (1338, 1389) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/product.py",
+            line_range: (1338, 1389),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1278,9 +1280,7 @@ pub const EXT_PRODUCT_CATALOG_MIXIN: OdooEntity = OdooEntity {
     model_name: "product.catalog.mixin",
     kind: OdooEntityKind::Abstract,
     description: "",
-    fields: &[
-
-    ],
+    fields: &[],
     methods: &[
         OdooMethod {
             name: "_get_action_add_from_catalog_extra_context",
@@ -1295,17 +1295,16 @@ pub const EXT_PRODUCT_CATALOG_MIXIN: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-
-    ],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product_catalog_mixin.py", line_range: (6, 16) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/product_catalog_mixin.py",
+            line_range: (6, 16),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1335,20 +1334,17 @@ pub const EXT_PRODUCT_REMOVAL: OdooEntity = OdooEntity {
             semantic_role: OdooSemanticRole::Other,
         },
     ],
-    methods: &[
-
-    ],
-    decorators: &[
-
-    ],
+    methods: &[],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product_strategy.py", line_range: (8, 13) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/product_strategy.py",
+            line_range: (8, 13),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1537,13 +1533,14 @@ pub const EXT_STOCK_PUTAWAY_RULE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/product_strategy.py", line_range: (16, 183) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/product_strategy.py",
+            line_range: (16, 183),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -1774,13 +1771,14 @@ pub const EXT_RES_COMPANY: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/res_company.py", line_range: (6, 215) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/res_company.py",
+            line_range: (6, 215),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2197,13 +2195,14 @@ pub const EXT_RES_CONFIG_SETTINGS: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/res_config_settings.py", line_range: (8, 139) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/res_config_settings.py",
+            line_range: (8, 139),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2242,25 +2241,22 @@ pub const EXT_RES_PARTNER: OdooEntity = OdooEntity {
             semantic_role: OdooSemanticRole::Other,
         },
     ],
-    methods: &[
-        OdooMethod {
-            name: "action_view_stock_serial",
-            kind: OdooMethodKind::Action,
-            return_kind: OdooReturnKind::Action,
-            triggers: &[],
-        },
-    ],
-    decorators: &[
-
-    ],
+    methods: &[OdooMethod {
+        name: "action_view_stock_serial",
+        kind: OdooMethodKind::Action,
+        return_kind: OdooReturnKind::Action,
+        triggers: &[],
+    }],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/res_partner.py", line_range: (7, 25) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/res_partner.py",
+            line_range: (7, 25),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2270,28 +2266,23 @@ pub const EXT_RES_USERS: OdooEntity = OdooEntity {
     model_name: "res.users",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[
-
-    ],
-    methods: &[
-        OdooMethod {
-            name: "_get_default_warehouse_id",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-    ],
-    decorators: &[
-
-    ],
+    fields: &[],
+    methods: &[OdooMethod {
+        name: "_get_default_warehouse_id",
+        kind: OdooMethodKind::Helper,
+        return_kind: OdooReturnKind::Unit,
+        triggers: &[],
+    }],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/res_users.py", line_range: (6, 12) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/res_users.py",
+            line_range: (6, 12),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2697,7 +2688,16 @@ pub const EXT_STOCK_LOCATION: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["outgoing_move_line_ids.quantity_product_uom", "incoming_move_line_ids.quantity_product_uom", "outgoing_move_line_ids.state", "incoming_move_line_ids.state", "outgoing_move_line_ids.product_id.weight", "outgoing_move_line_ids.product_id.weight", "quant_ids.quantity", "quant_ids.product_id.weight"],
+            targets: &[
+                "outgoing_move_line_ids.quantity_product_uom",
+                "incoming_move_line_ids.quantity_product_uom",
+                "outgoing_move_line_ids.state",
+                "incoming_move_line_ids.state",
+                "outgoing_move_line_ids.product_id.weight",
+                "outgoing_move_line_ids.product_id.weight",
+                "quant_ids.quantity",
+                "quant_ids.product_id.weight",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -2705,7 +2705,12 @@ pub const EXT_STOCK_LOCATION: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["cyclic_inventory_frequency", "last_inventory_date", "usage", "company_id"],
+            targets: &[
+                "cyclic_inventory_frequency",
+                "last_inventory_date",
+                "usage",
+                "company_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -2762,7 +2767,10 @@ pub const EXT_STOCK_LOCATION: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_location.py", line_range: (13, 514) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_location.py",
+            line_range: (13, 514),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -2972,17 +2980,18 @@ pub const EXT_STOCK_ROUTE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-        OdooConstraint {
-            kind: OdooConstraintKind::Python,
-            condition: "Python constraint on company_id",
-            source_method: Some("_check_company_consistency"),
-        },
-    ],
+    constraints: &[OdooConstraint {
+        kind: OdooConstraintKind::Python,
+        condition: "Python constraint on company_id",
+        source_method: Some("_check_company_consistency"),
+    }],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_location.py", line_range: (517, 595) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_location.py",
+            line_range: (517, 595),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -3313,17 +3322,18 @@ pub const EXT_STOCK_LOT: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-        OdooConstraint {
-            kind: OdooConstraintKind::Python,
-            condition: "Python constraint on name, product_id, company_id",
-            source_method: Some("_check_unique_lot"),
-        },
-    ],
+    constraints: &[OdooConstraint {
+        kind: OdooConstraintKind::Python,
+        condition: "Python constraint on name, product_id, company_id",
+        source_method: Some("_check_unique_lot"),
+    }],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_lot.py", line_range: (24, 431) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_lot.py",
+            line_range: (24, 431),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -4786,7 +4796,13 @@ pub const EXT_STOCK_MOVE: OdooEntity = OdooEntity {
     decorators: &[
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["product_id", "product_id.uom_id", "product_id.uom_ids", "product_id.seller_ids", "product_id.seller_ids.product_uom_id"],
+            targets: &[
+                "product_id",
+                "product_id.uom_id",
+                "product_id.uom_ids",
+                "product_id.seller_ids",
+                "product_id.seller_ids.product_uom_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -4802,7 +4818,12 @@ pub const EXT_STOCK_MOVE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["has_tracking", "picking_type_id.use_create_lots", "picking_type_id.use_existing_lots", "product_id"],
+            targets: &[
+                "has_tracking",
+                "picking_type_id.use_create_lots",
+                "picking_type_id.use_existing_lots",
+                "product_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -4810,7 +4831,11 @@ pub const EXT_STOCK_MOVE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["move_line_ids", "move_line_ids.result_package_id", "move_line_ids.result_package_id.outermost_package_id"],
+            targets: &[
+                "move_line_ids",
+                "move_line_ids.result_package_id",
+                "move_line_ids.result_package_id.outermost_package_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -4842,7 +4867,13 @@ pub const EXT_STOCK_MOVE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["picking_id.name", "scrap_id.name", "location_dest_usage", "is_inventory", "inventory_name"],
+            targets: &[
+                "picking_id.name",
+                "scrap_id.name",
+                "location_dest_usage",
+                "is_inventory",
+                "inventory_name",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -4870,7 +4901,16 @@ pub const EXT_STOCK_MOVE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["product_id", "product_qty", "picking_type_id", "quantity", "priority", "state", "product_uom_qty", "location_id"],
+            targets: &[
+                "product_id",
+                "product_qty",
+                "picking_type_id",
+                "quantity",
+                "priority",
+                "state",
+                "product_uom_qty",
+                "location_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -4890,7 +4930,15 @@ pub const EXT_STOCK_MOVE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["has_tracking", "picking_type_id.use_create_lots", "picking_type_id.use_existing_lots", "state", "origin_returned_move_id", "product_id.type", "picking_code"],
+            targets: &[
+                "has_tracking",
+                "picking_type_id.use_create_lots",
+                "picking_type_id.use_existing_lots",
+                "state",
+                "origin_returned_move_id",
+                "product_id.type",
+                "picking_code",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiModel,
@@ -4898,11 +4946,20 @@ pub const EXT_STOCK_MOVE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["picking_id", "product_id", "location_id", "location_dest_id"],
+            targets: &[
+                "picking_id",
+                "product_id",
+                "location_id",
+                "location_dest_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["product_id", "picking_type_id", "description_picking_manual"],
+            targets: &[
+                "product_id",
+                "picking_type_id",
+                "description_picking_manual",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiModelCreateMulti,
@@ -4930,26 +4987,47 @@ pub const EXT_STOCK_MOVE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: Some(&OdooStateMachine {
-            state_field: "state",
-            states: &[
-                OdooState { name: "draft", semantic: OdooStateSemantic::Draft },
-                OdooState { name: "waiting", semantic: OdooStateSemantic::Active },
-                OdooState { name: "confirmed", semantic: OdooStateSemantic::Active },
-                OdooState { name: "partially_available", semantic: OdooStateSemantic::Active },
-                OdooState { name: "assigned", semantic: OdooStateSemantic::Active },
-                OdooState { name: "done", semantic: OdooStateSemantic::Completed },
-                OdooState { name: "cancel", semantic: OdooStateSemantic::Cancelled },
-            ],
-            transitions: &[
-            ],
-        }),
-    constraints: &[
-
-    ],
+        state_field: "state",
+        states: &[
+            OdooState {
+                name: "draft",
+                semantic: OdooStateSemantic::Draft,
+            },
+            OdooState {
+                name: "waiting",
+                semantic: OdooStateSemantic::Active,
+            },
+            OdooState {
+                name: "confirmed",
+                semantic: OdooStateSemantic::Active,
+            },
+            OdooState {
+                name: "partially_available",
+                semantic: OdooStateSemantic::Active,
+            },
+            OdooState {
+                name: "assigned",
+                semantic: OdooStateSemantic::Active,
+            },
+            OdooState {
+                name: "done",
+                semantic: OdooStateSemantic::Completed,
+            },
+            OdooState {
+                name: "cancel",
+                semantic: OdooStateSemantic::Cancelled,
+            },
+        ],
+        transitions: &[],
+    }),
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_move.py", line_range: (18, 2682) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_move.py",
+            line_range: (18, 2682),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/de/ustg/13"],
     },
@@ -5662,7 +5740,13 @@ pub const EXT_STOCK_MOVE_LINE: OdooEntity = OdooEntity {
     decorators: &[
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["product_id", "product_id.uom_id", "product_id.uom_ids", "product_id.seller_ids", "product_id.seller_ids.product_uom_id"],
+            targets: &[
+                "product_id",
+                "product_id.uom_id",
+                "product_id.uom_ids",
+                "product_id.seller_ids",
+                "product_id.seller_ids.product_uom_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -5682,7 +5766,12 @@ pub const EXT_STOCK_MOVE_LINE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["move_id", "move_id.location_id", "move_id.location_dest_id", "picking_id"],
+            targets: &[
+                "move_id",
+                "move_id.location_id",
+                "move_id.location_dest_id",
+                "picking_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -5714,7 +5803,12 @@ pub const EXT_STOCK_MOVE_LINE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiOnchange,
-            targets: &["result_package_id", "product_id", "product_uom_id", "quantity"],
+            targets: &[
+                "result_package_id",
+                "product_id",
+                "product_uom_id",
+                "quantity",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiModelCreateMulti,
@@ -5741,7 +5835,10 @@ pub const EXT_STOCK_MOVE_LINE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_move_line.py", line_range: (15, 1239) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_move_line.py",
+            line_range: (15, 1239),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -6359,15 +6456,37 @@ pub const EXT_STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["location_id", "product_min_qty", "route_id", "product_id.route_ids", "product_id.stock_move_ids.date", "product_id.stock_move_ids.state", "product_id.seller_ids", "product_id.seller_ids.delay", "company_id.horizon_days"],
+            targets: &[
+                "location_id",
+                "product_min_qty",
+                "route_id",
+                "product_id.route_ids",
+                "product_id.stock_move_ids.date",
+                "product_id.stock_move_ids.state",
+                "product_id.seller_ids",
+                "product_id.seller_ids.delay",
+                "company_id.horizon_days",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["rule_ids", "product_id.seller_ids", "product_id.seller_ids.delay", "company_id.horizon_days"],
+            targets: &[
+                "rule_ids",
+                "product_id.seller_ids",
+                "product_id.seller_ids.delay",
+                "company_id.horizon_days",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["route_id", "product_id", "location_id", "company_id", "warehouse_id", "product_id.route_ids"],
+            targets: &[
+                "route_id",
+                "product_id",
+                "location_id",
+                "company_id",
+                "warehouse_id",
+                "product_id.route_ids",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -6375,7 +6494,12 @@ pub const EXT_STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["route_id", "product_id", "product_id.seller_ids", "product_id.seller_ids.product_uom_id"],
+            targets: &[
+                "route_id",
+                "product_id",
+                "product_id.seller_ids",
+                "product_id.seller_ids.product_uom_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -6383,11 +6507,24 @@ pub const EXT_STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["product_id", "product_id.categ_id", "product_id.route_ids", "product_id.categ_id.route_ids", "location_id"],
+            targets: &[
+                "product_id",
+                "product_id.categ_id",
+                "product_id.route_ids",
+                "product_id.categ_id.route_ids",
+                "location_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["route_id", "product_id", "product_id.categ_id", "product_id.route_ids", "product_id.categ_id.route_ids", "location_id"],
+            targets: &[
+                "route_id",
+                "product_id",
+                "product_id.categ_id",
+                "product_id.route_ids",
+                "product_id.categ_id.route_ids",
+                "location_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -6423,7 +6560,15 @@ pub const EXT_STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["product_id", "location_id", "product_id.stock_move_ids", "product_id.stock_move_ids.state", "product_id.stock_move_ids.date", "product_id.stock_move_ids.product_uom_qty", "product_id.seller_ids.delay"],
+            targets: &[
+                "product_id",
+                "location_id",
+                "product_id.stock_move_ids",
+                "product_id.stock_move_ids.state",
+                "product_id.stock_move_ids.date",
+                "product_id.stock_move_ids.product_uom_qty",
+                "product_id.seller_ids.delay",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -6431,7 +6576,15 @@ pub const EXT_STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["replenishment_uom_id", "product_min_qty", "product_max_qty", "product_id", "location_id", "product_id.seller_ids.delay", "company_id.horizon_days"],
+            targets: &[
+                "replenishment_uom_id",
+                "product_min_qty",
+                "product_max_qty",
+                "product_id",
+                "location_id",
+                "product_id.seller_ids.delay",
+                "company_id.horizon_days",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiModel,
@@ -6458,7 +6611,10 @@ pub const EXT_STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_orderpoint.py", line_range: (21, 817) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_orderpoint.py",
+            line_range: (21, 817),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -6917,7 +7073,12 @@ pub const EXT_STOCK_PACKAGE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["complete_name", "package_type_id.packaging_length", "package_type_id.width", "package_type_id.height"],
+            targets: &[
+                "complete_name",
+                "package_type_id.packaging_length",
+                "package_type_id.width",
+                "package_type_id.height",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -6945,7 +7106,11 @@ pub const EXT_STOCK_PACKAGE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["child_package_ids", "child_package_ids.location_id", "quant_ids"],
+            targets: &[
+                "child_package_ids",
+                "child_package_ids.location_id",
+                "quant_ids",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -6969,13 +7134,14 @@ pub const EXT_STOCK_PACKAGE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_package.py", line_range: (16, 558) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_package.py",
+            line_range: (16, 558),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -7118,17 +7284,16 @@ pub const EXT_STOCK_PACKAGE_HISTORY: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-
-    ],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_package_history.py", line_range: (6, 42) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_package_history.py",
+            line_range: (6, 42),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -7396,7 +7561,10 @@ pub const EXT_STOCK_PACKAGE_TYPE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_package_type.py", line_range: (7, 131) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_package_type.py",
+            line_range: (7, 131),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -8118,13 +8286,14 @@ pub const EXT_STOCK_PICKING_TYPE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_picking.py", line_range: (20, 535) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_picking.py",
+            line_range: (20, 535),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -9252,11 +9421,23 @@ pub const EXT_STOCK_PICKING: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["state", "picking_type_code", "scheduled_date", "move_ids", "move_ids.forecast_availability", "move_ids.forecast_expected_date"],
+            targets: &[
+                "state",
+                "picking_type_code",
+                "scheduled_date",
+                "move_ids",
+                "move_ids.forecast_availability",
+                "move_ids.forecast_expected_date",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["move_line_ids", "picking_type_id.use_create_lots", "picking_type_id.use_existing_lots", "state"],
+            targets: &[
+                "move_line_ids",
+                "picking_type_id.use_create_lots",
+                "picking_type_id.use_existing_lots",
+                "state",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -9268,11 +9449,24 @@ pub const EXT_STOCK_PICKING: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["move_line_ids", "move_line_ids.result_package_id", "move_line_ids.product_uom_id", "move_line_ids.quantity"],
+            targets: &[
+                "move_line_ids",
+                "move_line_ids.result_package_id",
+                "move_line_ids.product_uom_id",
+                "move_line_ids.quantity",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["move_line_ids.result_package_id", "move_line_ids.result_package_id.package_type_id", "move_line_ids.result_package_id.shipping_weight", "move_line_ids.result_package_id.outermost_package_id", "move_line_ids.result_package_id.outermost_package_id.package_type_id", "move_line_ids.result_package_id.outermost_package_id.shipping_weight", "weight_bulk"],
+            targets: &[
+                "move_line_ids.result_package_id",
+                "move_line_ids.result_package_id.package_type_id",
+                "move_line_ids.result_package_id.shipping_weight",
+                "move_line_ids.result_package_id.outermost_package_id",
+                "move_line_ids.result_package_id.outermost_package_id.package_type_id",
+                "move_line_ids.result_package_id.outermost_package_id.shipping_weight",
+                "weight_bulk",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -9348,29 +9542,47 @@ pub const EXT_STOCK_PICKING: OdooEntity = OdooEntity {
         },
     ],
     state_machine: Some(&OdooStateMachine {
-            state_field: "state",
-            states: &[
-                OdooState { name: "draft", semantic: OdooStateSemantic::Draft },
-                OdooState { name: "waiting", semantic: OdooStateSemantic::Active },
-                OdooState { name: "confirmed", semantic: OdooStateSemantic::Active },
-                OdooState { name: "assigned", semantic: OdooStateSemantic::Active },
-                OdooState { name: "done", semantic: OdooStateSemantic::Completed },
-                OdooState { name: "cancel", semantic: OdooStateSemantic::Cancelled },
-            ],
-            transitions: &[
-            ],
-        }),
-    constraints: &[
-        OdooConstraint {
-            kind: OdooConstraintKind::Sql,
-            condition: "Reference must be unique per company!",
-            source_method: None,
-        },
-    ],
+        state_field: "state",
+        states: &[
+            OdooState {
+                name: "draft",
+                semantic: OdooStateSemantic::Draft,
+            },
+            OdooState {
+                name: "waiting",
+                semantic: OdooStateSemantic::Active,
+            },
+            OdooState {
+                name: "confirmed",
+                semantic: OdooStateSemantic::Active,
+            },
+            OdooState {
+                name: "assigned",
+                semantic: OdooStateSemantic::Active,
+            },
+            OdooState {
+                name: "done",
+                semantic: OdooStateSemantic::Completed,
+            },
+            OdooState {
+                name: "cancel",
+                semantic: OdooStateSemantic::Cancelled,
+            },
+        ],
+        transitions: &[],
+    }),
+    constraints: &[OdooConstraint {
+        kind: OdooConstraintKind::Sql,
+        condition: "Reference must be unique per company!",
+        source_method: None,
+    }],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_picking.py", line_range: (538, 2148) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_picking.py",
+            line_range: (538, 2148),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &["ogit:regulation/de/ustg/13"],
     },
@@ -10156,7 +10368,13 @@ pub const EXT_STOCK_QUANT: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiOnchange,
-            targets: &["location_id", "product_id", "lot_id", "package_id", "owner_id"],
+            targets: &[
+                "location_id",
+                "product_id",
+                "lot_id",
+                "package_id",
+                "owner_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiOnchange,
@@ -10236,7 +10454,10 @@ pub const EXT_STOCK_QUANT: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_quant.py", line_range: (19, 1563) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_quant.py",
+            line_range: (19, 1563),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -10275,25 +10496,22 @@ pub const EXT_STOCK_REFERENCE: OdooEntity = OdooEntity {
             semantic_role: OdooSemanticRole::Other,
         },
     ],
-    methods: &[
-        OdooMethod {
-            name: "_compute_picking_ids",
-            kind: OdooMethodKind::Compute,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-    ],
-    decorators: &[
-
-    ],
+    methods: &[OdooMethod {
+        name: "_compute_picking_ids",
+        kind: OdooMethodKind::Compute,
+        return_kind: OdooReturnKind::Unit,
+        triggers: &[],
+    }],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_reference.py", line_range: (4, 15) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_reference.py",
+            line_range: (4, 15),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -10337,20 +10555,19 @@ pub const EXT_STOCK_REPLENISH_MIXIN: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-        OdooDecorator {
-            kind: OdooDecoratorKind::ApiDepends,
-            targets: &["product_id", "product_tmpl_id"],
-        },
-    ],
+    decorators: &[OdooDecorator {
+        kind: OdooDecoratorKind::ApiDepends,
+        targets: &["product_id", "product_tmpl_id"],
+    }],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_replenish_mixin.py", line_range: (7, 40) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_replenish_mixin.py",
+            line_range: (7, 40),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -10767,7 +10984,14 @@ pub const EXT_STOCK_RULE: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["action", "location_dest_id", "location_src_id", "picking_type_id", "procure_method", "location_dest_from_rule"],
+            targets: &[
+                "action",
+                "location_dest_id",
+                "location_src_id",
+                "picking_type_id",
+                "procure_method",
+                "location_dest_from_rule",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -10827,17 +11051,18 @@ pub const EXT_STOCK_RULE: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-        OdooConstraint {
-            kind: OdooConstraintKind::Python,
-            condition: "Python constraint on company_id",
-            source_method: Some("_check_company_consistency"),
-        },
-    ],
+    constraints: &[OdooConstraint {
+        kind: OdooConstraintKind::Python,
+        condition: "Python constraint on company_id",
+        source_method: Some("_check_company_consistency"),
+    }],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_rule.py", line_range: (42, 747) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_rule.py",
+            line_range: (42, 747),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -11121,7 +11346,13 @@ pub const EXT_STOCK_SCRAP: OdooEntity = OdooEntity {
     decorators: &[
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["product_id", "product_id.uom_id", "product_id.uom_ids", "product_id.seller_ids", "product_id.seller_ids.product_uom_id"],
+            targets: &[
+                "product_id",
+                "product_id.uom_id",
+                "product_id.uom_ids",
+                "product_id.seller_ids",
+                "product_id.seller_ids.product_uom_id",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -11145,21 +11376,27 @@ pub const EXT_STOCK_SCRAP: OdooEntity = OdooEntity {
         },
     ],
     state_machine: Some(&OdooStateMachine {
-            state_field: "state",
-            states: &[
-                OdooState { name: "draft", semantic: OdooStateSemantic::Draft },
-                OdooState { name: "done", semantic: OdooStateSemantic::Completed },
-            ],
-            transitions: &[
-            ],
-        }),
-    constraints: &[
-
-    ],
+        state_field: "state",
+        states: &[
+            OdooState {
+                name: "draft",
+                semantic: OdooStateSemantic::Draft,
+            },
+            OdooState {
+                name: "done",
+                semantic: OdooStateSemantic::Completed,
+            },
+        ],
+        transitions: &[],
+    }),
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_scrap.py", line_range: (10, 234) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_scrap.py",
+            line_range: (10, 234),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -11198,24 +11435,21 @@ pub const EXT_STOCK_SCRAP_REASON_TAG: OdooEntity = OdooEntity {
             semantic_role: OdooSemanticRole::Other,
         },
     ],
-    methods: &[
-
-    ],
-    decorators: &[
-
-    ],
+    methods: &[],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-        OdooConstraint {
-            kind: OdooConstraintKind::Sql,
-            condition: "Tag name already exists!",
-            source_method: None,
-        },
-    ],
+    constraints: &[OdooConstraint {
+        kind: OdooConstraintKind::Sql,
+        condition: "Tag name already exists!",
+        source_method: None,
+    }],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_scrap.py", line_range: (237, 249) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_scrap.py",
+            line_range: (237, 249),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -11334,24 +11568,23 @@ pub const EXT_STOCK_STORAGE_CATEGORY: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-        OdooDecorator {
-            kind: OdooDecoratorKind::ApiDepends,
-            targets: &["capacity_ids"],
-        },
-    ],
+    decorators: &[OdooDecorator {
+        kind: OdooDecoratorKind::ApiDepends,
+        targets: &["capacity_ids"],
+    }],
     state_machine: None,
-    constraints: &[
-        OdooConstraint {
-            kind: OdooConstraintKind::Sql,
-            condition: "Max weight should be a positive number.",
-            source_method: None,
-        },
-    ],
+    constraints: &[OdooConstraint {
+        kind: OdooConstraintKind::Sql,
+        condition: "Max weight should be a positive number.",
+        source_method: None,
+    }],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_storage_category.py", line_range: (7, 45) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_storage_category.py",
+            line_range: (7, 45),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -11417,12 +11650,8 @@ pub const EXT_STOCK_STORAGE_CATEGORY_CAPACITY: OdooEntity = OdooEntity {
             semantic_role: OdooSemanticRole::Other,
         },
     ],
-    methods: &[
-
-    ],
-    decorators: &[
-
-    ],
+    methods: &[],
+    decorators: &[],
     state_machine: None,
     constraints: &[
         OdooConstraint {
@@ -11444,7 +11673,10 @@ pub const EXT_STOCK_STORAGE_CATEGORY_CAPACITY: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_storage_category.py", line_range: (48, 75) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_storage_category.py",
+            line_range: (48, 75),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -12012,9 +12244,11 @@ pub const EXT_STOCK_WAREHOUSE: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/stock/models/stock_warehouse.py", line_range: (23, 1162) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/stock/models/stock_warehouse.py",
+            line_range: (23, 1162),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
 };
-

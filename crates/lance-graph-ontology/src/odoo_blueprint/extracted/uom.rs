@@ -196,7 +196,11 @@ pub const EXT_UOM_UOM: OdooEntity = OdooEntity {
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["relative_factor", "relative_uom_id", "relative_uom_id.factor"],
+            targets: &[
+                "relative_factor",
+                "relative_uom_id",
+                "relative_uom_id.factor",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiOnchange,
@@ -227,9 +231,11 @@ pub const EXT_UOM_UOM: OdooEntity = OdooEntity {
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/uom/models/uom_uom.py", line_range: (17, 230) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/uom/models/uom_uom.py",
+            line_range: (17, 230),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
 };
-

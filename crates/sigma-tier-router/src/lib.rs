@@ -31,7 +31,7 @@
 //! The prior hand-tuned values are preserved as `SigmaTierBands::hand_tuned()` for
 //! backwards comparison.
 
-use lance_graph_contract::mul::{GateDecision, i4_eval::gate_decision_i4};
+use lance_graph_contract::mul::{i4_eval::gate_decision_i4, GateDecision};
 use lance_graph_contract::qualia::QualiaI4_16D;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -437,10 +437,10 @@ mod tests {
     /// → Calibrated trust + Flow state → GateDecision::Flow.
     fn flow_qualia() -> QualiaI4_16D {
         QualiaI4_16D::ZERO
-            .with(9, 5)  // coherence (DIM_COHERENCE)
-            .with(1, 3)  // valence
-            .with(2, 0)  // tension (low)
-            .with(3, 5)  // warmth
+            .with(9, 5) // coherence (DIM_COHERENCE)
+            .with(1, 3) // valence
+            .with(2, 0) // tension (low)
+            .with(3, 5) // warmth
             .with(14, 4) // groundedness
     }
 
@@ -449,8 +449,8 @@ mod tests {
     /// Low coherence + high tension → Uncertain trust → Block.
     fn block_qualia() -> QualiaI4_16D {
         QualiaI4_16D::ZERO
-            .with(9, -5)  // coherence (very low)
-            .with(2, 5)   // tension (high)
+            .with(9, -5) // coherence (very low)
+            .with(2, 5) // tension (high)
     }
 
     // ── Test 1: default band thresholds are strictly monotonic ────────────────
@@ -470,7 +470,10 @@ mod tests {
             assert!(
                 t[i] > t[i - 1],
                 "threshold[{}]={} must be > threshold[{}]={}",
-                i, t[i], i - 1, t[i - 1]
+                i,
+                t[i],
+                i - 1,
+                t[i - 1]
             );
         }
     }
@@ -484,15 +487,15 @@ mod tests {
         // F values just at/below each threshold should give the correct tier.
         // Default: Σk upper bound = k * 0.10
         let cases: &[(f32, u8)] = &[
-            (0.05, 1),   // below Σ1 threshold (0.10)
-            (0.10, 1),   // exactly at Σ1 threshold
-            (0.15, 2),   // between Σ1 and Σ2
-            (0.20, 2),   // exactly at Σ2 threshold
-            (0.55, 6),   // between Σ5 and Σ6
-            (0.90, 9),   // exactly at Σ9 threshold
-            (0.95, 10),  // between Σ9 and Σ10 → tier 10
-            (1.00, 10),  // exactly at Σ10 threshold
-            (1.10, 10),  // above all thresholds → clamp to 10
+            (0.05, 1),  // below Σ1 threshold (0.10)
+            (0.10, 1),  // exactly at Σ1 threshold
+            (0.15, 2),  // between Σ1 and Σ2
+            (0.20, 2),  // exactly at Σ2 threshold
+            (0.55, 6),  // between Σ5 and Σ6
+            (0.90, 9),  // exactly at Σ9 threshold
+            (0.95, 10), // between Σ9 and Σ10 → tier 10
+            (1.00, 10), // exactly at Σ10 threshold
+            (1.10, 10), // above all thresholds → clamp to 10
         ];
         for &(f, expected_tier) in cases {
             let actual = bands.tier_for(f);
@@ -573,7 +576,13 @@ mod tests {
         assert!(router.state.last_delta < 0.0, "expected F-falling delta");
         let outcome = router.dispatch(&flow_qualia(), 3);
         assert!(
-            matches!(outcome, DispatchOutcome::Commit { tier_reached: 10, .. }),
+            matches!(
+                outcome,
+                DispatchOutcome::Commit {
+                    tier_reached: 10,
+                    ..
+                }
+            ),
             "Σ10 + F-falling should Commit, got {:?}",
             outcome
         );
@@ -637,9 +646,15 @@ mod tests {
     fn test_tick_updates_delta() {
         let mut router = make_router(0.0);
         let d1 = router.tick(0.5);
-        assert!((d1 - 0.5).abs() < 1e-6, "first tick delta should be 0.5 - 0.0 = 0.5");
+        assert!(
+            (d1 - 0.5).abs() < 1e-6,
+            "first tick delta should be 0.5 - 0.0 = 0.5"
+        );
         let d2 = router.tick(0.3);
-        assert!((d2 - (-0.2)).abs() < 1e-6, "second tick delta should be 0.3 - 0.5 = -0.2");
+        assert!(
+            (d2 - (-0.2)).abs() < 1e-6,
+            "second tick delta should be 0.3 - 0.5 = -0.2"
+        );
         assert!((router.state.last_delta - (-0.2)).abs() < 1e-6);
         assert!((router.state.current_f - 0.3).abs() < 1e-6);
         assert!((router.state.last_f - 0.5).abs() < 1e-6);
@@ -655,7 +670,10 @@ mod tests {
         assert!((s.last_delta).abs() < 1e-9);
 
         s.update(0.7);
-        assert!((s.last_f).abs() < 1e-9, "last_f should be 0.0 after first update");
+        assert!(
+            (s.last_f).abs() < 1e-9,
+            "last_f should be 0.0 after first update"
+        );
         assert!((s.current_f - 0.7).abs() < 1e-6);
         assert!((s.last_delta - 0.7).abs() < 1e-6);
 
@@ -694,7 +712,13 @@ mod tests {
         assert!(router.state.last_delta < 0.0);
         let outcome = router.dispatch(&flow_qualia(), 4);
         assert!(
-            matches!(outcome, DispatchOutcome::Commit { tier_reached: 10, .. }),
+            matches!(
+                outcome,
+                DispatchOutcome::Commit {
+                    tier_reached: 10,
+                    ..
+                }
+            ),
             "floor=0.0 + Σ10 + F-falling must Commit, got {:?}",
             outcome
         );
@@ -738,7 +762,10 @@ mod tests {
             assert!(
                 deltas[i + 1] > deltas[i],
                 "Jirak default must be convex: delta[{}]={:.6} must be < delta[{}]={:.6}",
-                i, deltas[i], i + 1, deltas[i + 1]
+                i,
+                deltas[i],
+                i + 1,
+                deltas[i + 1]
             );
         }
     }
@@ -755,7 +782,8 @@ mod tests {
         assert!(
             (t[0] - expected_sigma1).abs() < 1e-6,
             "Σ1 should be ≈ {:.7} (k^1.5/10^1.5), got {:.7}",
-            expected_sigma1, t[0]
+            expected_sigma1,
+            t[0]
         );
         // Σ10 = 1.0 exactly (anchored)
         assert_eq!(t[9], 1.0_f32, "Σ10 must be exactly 1.0");
@@ -766,7 +794,9 @@ mod tests {
     #[test]
     fn test_hand_tuned_preserves_old_values() {
         let bands = SigmaTierBands::hand_tuned();
-        let expected = [0.10_f32, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.00];
+        let expected = [
+            0.10_f32, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.00,
+        ];
         assert_eq!(
             bands.sigma1_to_sigma10, expected,
             "hand_tuned() must return exactly the sprint-11 linear baseline"
@@ -813,7 +843,8 @@ mod tests {
             var_p4 > var_p3,
             "jirak_p(4.0) should have higher delta variance ({:.8}) than jirak_p(3.0) ({:.8}); \
              p=4 has a larger Jirak tail correction (more convex spacing)",
-            var_p4, var_p3
+            var_p4,
+            var_p3
         );
     }
 
@@ -862,7 +893,10 @@ mod tests {
             assert!(
                 t[i] < t[i + 1],
                 "Jirak band: t[{}]={:.6} must be < t[{}]={:.6}",
-                i, t[i], i + 1, t[i + 1]
+                i,
+                t[i],
+                i + 1,
+                t[i + 1]
             );
         }
     }

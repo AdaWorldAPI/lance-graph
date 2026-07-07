@@ -19,9 +19,9 @@ use crate::error::{Error, Result};
 use crate::namespace::{NamespaceId, OgitUri, SchemaKind, SchemaPtr};
 use crate::proposal::{AttributeProvenance, IdentityCodec, MappingRow, QualiaMeta};
 use arrow::array::{
-    Array, ArrayRef, BooleanArray, FixedSizeBinaryArray, FixedSizeBinaryBuilder, FixedSizeListArray,
-    FixedSizeListBuilder, Float32Array, Float32Builder, RecordBatch, StringArray,
-    TimestampMicrosecondArray, UInt32Array, UInt64Array, UInt8Array,
+    Array, ArrayRef, BooleanArray, FixedSizeBinaryArray, FixedSizeBinaryBuilder,
+    FixedSizeListArray, FixedSizeListBuilder, Float32Array, Float32Builder, RecordBatch,
+    StringArray, TimestampMicrosecondArray, UInt32Array, UInt64Array, UInt8Array,
 };
 use arrow_schema::{DataType, Field, Schema as ArrowSchema, TimeUnit};
 use lance::dataset::{Dataset, WriteMode, WriteParams};
@@ -289,10 +289,7 @@ fn dictionary_schema() -> Arc<ArrowSchema> {
         // to accept the column. The outer list field stays non-null.
         Field::new(
             "qualia",
-            DataType::FixedSizeList(
-                Arc::new(Field::new("item", DataType::Float32, true)),
-                18,
-            ),
+            DataType::FixedSizeList(Arc::new(Field::new("item", DataType::Float32, true)), 18),
             false,
         ),
         Field::new("codec_meta", DataType::UInt32, false),
@@ -334,10 +331,7 @@ fn rows_to_record_batch(rows: &[MappingRow]) -> Result<RecordBatch> {
     // ── D-CASCADE-V1-7: IdentityCodec ──────────────────────────────────────
     let mut cam_pq_code_builder = FixedSizeBinaryBuilder::new(6);
     let mut base17_head_builder = FixedSizeBinaryBuilder::new(8);
-    let palette_key: Vec<u32> = rows
-        .iter()
-        .map(|r| r.identity_codec.palette_key)
-        .collect();
+    let palette_key: Vec<u32> = rows.iter().map(|r| r.identity_codec.palette_key).collect();
     let scent: Vec<u8> = rows.iter().map(|r| r.identity_codec.scent).collect();
     for r in rows {
         cam_pq_code_builder
@@ -471,14 +465,13 @@ fn record_batch_to_rows(batch: &RecordBatch) -> Result<Vec<MappingRow>> {
             meta: codec_meta_arr.map(|a| a.value(i)).unwrap_or(0),
             edge: codec_edge_arr.map(|a| a.value(i)).unwrap_or(0),
         };
-        let thinking_style = thinking_style_arr
-            .and_then(|a| {
-                if a.is_null(i) || a.value(i).is_empty() {
-                    None
-                } else {
-                    parse_thinking_style_label(a.value(i))
-                }
-            });
+        let thinking_style = thinking_style_arr.and_then(|a| {
+            if a.is_null(i) || a.value(i).is_empty() {
+                None
+            } else {
+                parse_thinking_style_label(a.value(i))
+            }
+        });
         let attribute_sources = attr_src_enc_arr
             .map(|a| decode_attribute_sources(a.value(i)))
             .unwrap_or_default();
@@ -823,8 +816,8 @@ mod tests {
             },
             qualia_meta: QualiaMeta {
                 qualia: [
-                    0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5,
-                    1.6, 1.7, 1.8,
+                    0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6,
+                    1.7, 1.8,
                 ],
                 meta: 0xDEAD_BEEF,
                 edge: 0x0102_0304_0506_0708,
@@ -858,46 +851,45 @@ mod tests {
 
         // IdentityCodec
         assert_eq!(
-            r.identity_codec.cam_pq_code,
-            row.identity_codec.cam_pq_code,
+            r.identity_codec.cam_pq_code, row.identity_codec.cam_pq_code,
             "cam_pq_code mismatch"
         );
         assert_eq!(
-            r.identity_codec.base17_head,
-            row.identity_codec.base17_head,
+            r.identity_codec.base17_head, row.identity_codec.base17_head,
             "base17_head mismatch"
         );
         assert_eq!(
-            r.identity_codec.palette_key,
-            row.identity_codec.palette_key,
+            r.identity_codec.palette_key, row.identity_codec.palette_key,
             "palette_key mismatch"
         );
         assert_eq!(
-            r.identity_codec.scent,
-            row.identity_codec.scent,
+            r.identity_codec.scent, row.identity_codec.scent,
             "scent mismatch"
         );
 
         // QualiaMeta
         assert_eq!(
-            r.qualia_meta.qualia,
-            row.qualia_meta.qualia,
+            r.qualia_meta.qualia, row.qualia_meta.qualia,
             "qualia mismatch"
         );
-        assert_eq!(r.qualia_meta.meta, row.qualia_meta.meta, "codec_meta mismatch");
-        assert_eq!(r.qualia_meta.edge, row.qualia_meta.edge, "codec_edge mismatch");
+        assert_eq!(
+            r.qualia_meta.meta, row.qualia_meta.meta,
+            "codec_meta mismatch"
+        );
+        assert_eq!(
+            r.qualia_meta.edge, row.qualia_meta.edge,
+            "codec_edge mismatch"
+        );
 
         // ThinkingStyle
         assert_eq!(
-            r.thinking_style,
-            row.thinking_style,
+            r.thinking_style, row.thinking_style,
             "thinking_style mismatch"
         );
 
         // AttributeProvenance
         assert_eq!(
-            r.attribute_sources,
-            row.attribute_sources,
+            r.attribute_sources, row.attribute_sources,
             "attribute_sources mismatch"
         );
 
@@ -905,8 +897,7 @@ mod tests {
         assert_eq!(r.subject_type, row.subject_type, "subject_type mismatch");
         assert_eq!(r.object_type, row.object_type, "object_type mismatch");
         assert_eq!(
-            r.entity_type_ref,
-            row.entity_type_ref,
+            r.entity_type_ref, row.entity_type_ref,
             "entity_type_ref mismatch"
         );
     }
@@ -944,8 +935,14 @@ mod tests {
             .expect("rows_to_record_batch must not fail");
         let mut back = record_batch_to_rows(&batch).expect("record_batch_to_rows must not fail");
         let r = back.remove(0);
-        assert_eq!(r.thinking_style, None, "None thinking_style must survive round-trip");
-        assert!(r.attribute_sources.is_empty(), "empty attribute_sources must survive round-trip");
+        assert_eq!(
+            r.thinking_style, None,
+            "None thinking_style must survive round-trip"
+        );
+        assert!(
+            r.attribute_sources.is_empty(),
+            "empty attribute_sources must survive round-trip"
+        );
     }
 
     // Pins the schema field-set against `SCHEMA_VERSION`. If you change
@@ -959,7 +956,13 @@ mod tests {
         let actual: Vec<(String, String, bool)> = schema
             .fields()
             .iter()
-            .map(|f| (f.name().clone(), format!("{:?}", f.data_type()), f.is_nullable()))
+            .map(|f| {
+                (
+                    f.name().clone(),
+                    format!("{:?}", f.data_type()),
+                    f.is_nullable(),
+                )
+            })
             .collect();
         // Pinned to SCHEMA_VERSION = 2.
         let expected: Vec<(&str, &str, bool)> = vec![
@@ -1022,10 +1025,8 @@ mod tests {
     // from TTL. Same path covers "future v3 wrote columns we don't know".
     #[tokio::test]
     async fn stale_meta_invalidates_cache_dir() {
-        let tmp = std::env::temp_dir().join(format!(
-            "lance_cache_invalidate_{}",
-            std::process::id()
-        ));
+        let tmp =
+            std::env::temp_dir().join(format!("lance_cache_invalidate_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&tmp);
         std::fs::create_dir_all(&tmp).unwrap();
         let writer = LanceWriter::open_or_create(&tmp).await.unwrap();

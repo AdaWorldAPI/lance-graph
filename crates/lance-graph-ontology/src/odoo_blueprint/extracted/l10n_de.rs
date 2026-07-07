@@ -10,28 +10,23 @@ pub const EXT_ACCOUNT_ACCOUNT: OdooEntity = OdooEntity {
     model_name: "account.account",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[
-
-    ],
-    methods: &[
-        OdooMethod {
-            name: "write",
-            kind: OdooMethodKind::Override,
-            return_kind: OdooReturnKind::Boolean,
-            triggers: &[],
-        },
-    ],
-    decorators: &[
-
-    ],
+    fields: &[],
+    methods: &[OdooMethod {
+        name: "write",
+        kind: OdooMethodKind::Override,
+        return_kind: OdooReturnKind::Boolean,
+        triggers: &[],
+    }],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/account_account.py", line_range: (5, 19) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/l10n_de/models/account_account.py",
+            line_range: (5, 19),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -41,31 +36,26 @@ pub const EXT_ACCOUNT_JOURNAL: OdooEntity = OdooEntity {
     model_name: "account.journal",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[
-
-    ],
-    methods: &[
-        OdooMethod {
-            name: "_prepare_liquidity_account_vals",
-            kind: OdooMethodKind::ApiModel,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-    ],
-    decorators: &[
-        OdooDecorator {
-            kind: OdooDecoratorKind::ApiModel,
-            targets: &[],
-        },
-    ],
+    fields: &[],
+    methods: &[OdooMethod {
+        name: "_prepare_liquidity_account_vals",
+        kind: OdooMethodKind::ApiModel,
+        return_kind: OdooReturnKind::Unit,
+        triggers: &[],
+    }],
+    decorators: &[OdooDecorator {
+        kind: OdooDecoratorKind::ApiModel,
+        targets: &[],
+    }],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/account_journal.py", line_range: (6, 18) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/l10n_de/models/account_journal.py",
+            line_range: (6, 18),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -75,9 +65,7 @@ pub const EXT_ACCOUNT_MOVE: OdooEntity = OdooEntity {
     model_name: "account.move",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[
-
-    ],
+    fields: &[],
     methods: &[
         OdooMethod {
             name: "_compute_show_delivery_date",
@@ -92,20 +80,19 @@ pub const EXT_ACCOUNT_MOVE: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-        OdooDecorator {
-            kind: OdooDecoratorKind::ApiDepends,
-            targets: &["country_code", "move_type"],
-        },
-    ],
+    decorators: &[OdooDecorator {
+        kind: OdooDecoratorKind::ApiDepends,
+        targets: &["country_code", "move_type"],
+    }],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/account_move.py", line_range: (4, 19) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/l10n_de/models/account_move.py",
+            line_range: (4, 19),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -115,9 +102,7 @@ pub const EXT_ACCOUNT_CHART_TEMPLATE: OdooEntity = OdooEntity {
     model_name: "account.chart.template",
     kind: OdooEntityKind::Abstract,
     description: "",
-    fields: &[
-
-    ],
+    fields: &[],
     methods: &[
         OdooMethod {
             name: "_get_de_skr03_template_data",
@@ -144,17 +129,16 @@ pub const EXT_ACCOUNT_CHART_TEMPLATE: OdooEntity = OdooEntity {
             triggers: &[],
         },
     ],
-    decorators: &[
-
-    ],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/template_de_skr03.py", line_range: (6, 149) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/l10n_de/models/template_de_skr03.py",
+            line_range: (6, 149),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -164,31 +148,26 @@ pub const EXT_ACCOUNT_TAX: OdooEntity = OdooEntity {
     model_name: "account.tax",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[
-        OdooField {
-            name: "l10n_de_datev_code",
-            kind: OdooFieldKind::Char,
-            target: None,
-            required: false,
-            computed: None,
-            depends: &[],
-            semantic_role: OdooSemanticRole::Other,
-        },
-    ],
-    methods: &[
-
-    ],
-    decorators: &[
-
-    ],
+    fields: &[OdooField {
+        name: "l10n_de_datev_code",
+        kind: OdooFieldKind::Char,
+        target: None,
+        required: false,
+        computed: None,
+        depends: &[],
+        semantic_role: OdooSemanticRole::Other,
+    }],
+    methods: &[],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/datev.py", line_range: (4, 7) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/l10n_de/models/datev.py",
+            line_range: (4, 7),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -198,28 +177,23 @@ pub const EXT_PRODUCT_TEMPLATE: OdooEntity = OdooEntity {
     model_name: "product.template",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[
-
-    ],
-    methods: &[
-        OdooMethod {
-            name: "_get_product_accounts",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-    ],
-    decorators: &[
-
-    ],
+    fields: &[],
+    methods: &[OdooMethod {
+        name: "_get_product_accounts",
+        kind: OdooMethodKind::Helper,
+        return_kind: OdooReturnKind::Unit,
+        triggers: &[],
+    }],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/datev.py", line_range: (10, 37) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/l10n_de/models/datev.py",
+            line_range: (10, 37),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -229,28 +203,23 @@ pub const EXT_IR_ACTIONS_REPORT: OdooEntity = OdooEntity {
     model_name: "ir.actions.report",
     kind: OdooEntityKind::Model,
     description: "",
-    fields: &[
-
-    ],
-    methods: &[
-        OdooMethod {
-            name: "_get_rendering_context",
-            kind: OdooMethodKind::Helper,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-    ],
-    decorators: &[
-
-    ],
+    fields: &[],
+    methods: &[OdooMethod {
+        name: "_get_rendering_context",
+        kind: OdooMethodKind::Helper,
+        return_kind: OdooReturnKind::Unit,
+        triggers: &[],
+    }],
+    decorators: &[],
     state_machine: None,
-    constraints: &[
-
-    ],
+    constraints: &[],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/ir_actions_report.py", line_range: (4, 10) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/l10n_de/models/ir_actions_report.py",
+            line_range: (4, 10),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
@@ -317,19 +286,19 @@ pub const EXT_RES_COMPANY: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-        OdooConstraint {
-            kind: OdooConstraintKind::Python,
-            condition: "Python constraint on state_id, l10n_de_stnr",
-            source_method: Some("_validate_l10n_de_stnr"),
-        },
-    ],
+    constraints: &[OdooConstraint {
+        kind: OdooConstraintKind::Python,
+        condition: "Python constraint on state_id, l10n_de_stnr",
+        source_method: Some("_validate_l10n_de_stnr"),
+    }],
     provenance: OdooProvenance {
         l_doc: "",
         l_doc_lines: (0, 0),
-        odoo_source: &[OdooSourceRef { path: "odoo/addons/l10n_de/models/res_company.py", line_range: (10, 60) }],
+        odoo_source: &[OdooSourceRef {
+            path: "odoo/addons/l10n_de/models/res_company.py",
+            line_range: (10, 60),
+        }],
         confidence: OdooConfidence::Extracted,
         regulation_iri: &[],
     },
 };
-

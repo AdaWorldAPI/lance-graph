@@ -36,7 +36,11 @@ fn full_rubicon_arc_lowers_to_legal_successors() {
     ];
     for (i, (from, want_to)) in arc.iter().enumerate() {
         let mv = scheduler
-            .on_version(&view_at(*from), DatasetVersion(i as u64 + 1), ExecTarget::Native)
+            .on_version(
+                &view_at(*from),
+                DatasetVersion(i as u64 + 1),
+                ExecTarget::Native,
+            )
             .unwrap_or_else(|| panic!("{from:?} must schedule a forward move"));
         assert_eq!(mv.from, *from, "move.from must echo the observed phase");
         assert_eq!(mv.to, *want_to, "{from:?} must lower to {want_to:?}");
@@ -56,7 +60,10 @@ fn full_rubicon_arc_lowers_to_legal_successors() {
 fn absorbing_columns_schedule_no_move() {
     let scheduler = NextPhaseScheduler;
     for phase in [KanbanColumn::Commit, KanbanColumn::Prune] {
-        assert!(phase.is_absorbing(), "{phase:?} must be absorbing (precondition)");
+        assert!(
+            phase.is_absorbing(),
+            "{phase:?} must be absorbing (precondition)"
+        );
         assert!(
             scheduler
                 .on_version(&view_at(phase), DatasetVersion(99), ExecTarget::Native)
@@ -75,7 +82,11 @@ fn libet_anchor_only_on_sigma_commit_crossing() {
     let scheduler = NextPhaseScheduler;
 
     let crossing = scheduler
-        .on_version(&view_at(KanbanColumn::Planning), DatasetVersion(1), ExecTarget::Native)
+        .on_version(
+            &view_at(KanbanColumn::Planning),
+            DatasetVersion(1),
+            ExecTarget::Native,
+        )
         .expect("Planning advances");
     assert_eq!(crossing.to, KanbanColumn::CognitiveWork);
     assert_eq!(
@@ -83,7 +94,11 @@ fn libet_anchor_only_on_sigma_commit_crossing() {
         "the Σ-commit crossing must carry the -550ms Libet anchor"
     );
 
-    for from in [KanbanColumn::CognitiveWork, KanbanColumn::Evaluation, KanbanColumn::Plan] {
+    for from in [
+        KanbanColumn::CognitiveWork,
+        KanbanColumn::Evaluation,
+        KanbanColumn::Plan,
+    ] {
         let mv = scheduler
             .on_version(&view_at(from), DatasetVersion(2), ExecTarget::Native)
             .expect("non-absorbing column advances");
@@ -102,12 +117,23 @@ fn libet_anchor_only_on_sigma_commit_crossing() {
 fn lowering_is_deterministic() {
     let scheduler = NextPhaseScheduler;
     let a = scheduler
-        .on_version(&view_at(KanbanColumn::CognitiveWork), DatasetVersion(7), ExecTarget::Jit)
+        .on_version(
+            &view_at(KanbanColumn::CognitiveWork),
+            DatasetVersion(7),
+            ExecTarget::Jit,
+        )
         .expect("advances");
     let b = scheduler
-        .on_version(&view_at(KanbanColumn::CognitiveWork), DatasetVersion(7), ExecTarget::Jit)
+        .on_version(
+            &view_at(KanbanColumn::CognitiveWork),
+            DatasetVersion(7),
+            ExecTarget::Jit,
+        )
         .expect("advances");
-    assert_eq!(a, b, "same (view, version, exec) must lower to the same move");
+    assert_eq!(
+        a, b,
+        "same (view, version, exec) must lower to the same move"
+    );
 }
 
 /// KILL-CONDITION: the `exec` backend selector must ride through the lowering
@@ -116,7 +142,12 @@ fn lowering_is_deterministic() {
 #[test]
 fn exec_target_rides_onto_the_move() {
     let scheduler = NextPhaseScheduler;
-    for exec in [ExecTarget::Native, ExecTarget::Jit, ExecTarget::SurrealQl, ExecTarget::Elixir] {
+    for exec in [
+        ExecTarget::Native,
+        ExecTarget::Jit,
+        ExecTarget::SurrealQl,
+        ExecTarget::Elixir,
+    ] {
         let mv = scheduler
             .on_version(&view_at(KanbanColumn::Planning), DatasetVersion(3), exec)
             .expect("advances");

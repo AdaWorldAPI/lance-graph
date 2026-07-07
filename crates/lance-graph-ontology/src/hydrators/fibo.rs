@@ -91,10 +91,7 @@ pub fn hydrate_fibo_fnd(registry: &OntologyRegistry) -> Result<u32, HydrateErr> 
 }
 
 /// Test-friendly variant: hydrate FIBO-FND from an explicit directory.
-pub fn hydrate_fibo_fnd_from(
-    dir: &Path,
-    registry: &OntologyRegistry,
-) -> Result<u32, HydrateErr> {
+pub fn hydrate_fibo_fnd_from(dir: &Path, registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
     let files = collect_rdf_files(dir)?;
     let path_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
     let hydrator = OwlHydrator {
@@ -120,10 +117,7 @@ pub fn hydrate_fibo_be(registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
 }
 
 /// Test-friendly variant: hydrate FIBO-BE from an explicit directory.
-pub fn hydrate_fibo_be_from(
-    dir: &Path,
-    registry: &OntologyRegistry,
-) -> Result<u32, HydrateErr> {
+pub fn hydrate_fibo_be_from(dir: &Path, registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
     let files = collect_rdf_files(dir)?;
     let path_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
     let hydrator = OwlHydrator {

@@ -39,11 +39,8 @@ use crate::registry::OntologyRegistry;
 
 /// Closure type for the IRI interning callback. Factored out to keep
 /// `walk_xsd`'s signature inside clippy's `type_complexity` budget.
-type InternFn<'a> = &'a mut dyn FnMut(
-    String,
-    &mut HashMap<String, EntityId>,
-    &mut EntityId,
-) -> EntityId;
+type InternFn<'a> =
+    &'a mut dyn FnMut(String, &mut HashMap<String, EntityId>, &mut EntityId) -> EntityId;
 
 /// XSD hydrator. Reusable for every XSD-shaped business-document schema.
 pub struct XsdHydrator {
@@ -67,18 +64,16 @@ impl XsdHydrator {
         let mut iri_to_id: HashMap<String, EntityId> = HashMap::new();
         let mut next_id: EntityId = self.starting_entity_id;
 
-        let mut intern = |iri: String,
-                          map: &mut HashMap<String, EntityId>,
-                          n: &mut EntityId|
-         -> EntityId {
-            if let Some(&id) = map.get(&iri) {
-                return id;
-            }
-            let id = *n;
-            *n += 1;
-            map.insert(iri, id);
-            id
-        };
+        let mut intern =
+            |iri: String, map: &mut HashMap<String, EntityId>, n: &mut EntityId| -> EntityId {
+                if let Some(&id) = map.get(&iri) {
+                    return id;
+                }
+                let id = *n;
+                *n += 1;
+                map.insert(iri, id);
+                id
+            };
 
         for path in xsd_paths {
             let bytes = fs::read(path).map_err(|e| HydrateErr::Io {
@@ -260,17 +255,9 @@ mod tests {
         // Foo (element) + BarType (complexType) + baz (nested element) +
         // Quux (simpleType) + anAttr (attribute) = 5 names.
         assert!(bundle.entity_count() >= 5);
-        assert!(bundle
-            .resolve_iri("urn:example:test#Foo")
-            .is_some());
-        assert!(bundle
-            .resolve_iri("urn:example:test#BarType")
-            .is_some());
-        assert!(bundle
-            .resolve_iri("urn:example:test#baz")
-            .is_some());
-        assert!(bundle
-            .resolve_iri("urn:example:test#anAttr")
-            .is_some());
+        assert!(bundle.resolve_iri("urn:example:test#Foo").is_some());
+        assert!(bundle.resolve_iri("urn:example:test#BarType").is_some());
+        assert!(bundle.resolve_iri("urn:example:test#baz").is_some());
+        assert!(bundle.resolve_iri("urn:example:test#anAttr").is_some());
     }
 }

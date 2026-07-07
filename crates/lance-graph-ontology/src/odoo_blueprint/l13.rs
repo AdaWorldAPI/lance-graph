@@ -159,14 +159,12 @@ const STOCK_VALUATION_LAYER: OdooEntity = OdooEntity {
     ],
     decorators: &[],
     state_machine: None,
-    constraints: &[
-        OdooConstraint {
-            kind: OdooConstraintKind::Python,
-            // value must equal quantity × unit_cost at currency rounding precision.
-            condition: "value = round(quantity × unit_cost, currency.decimal_places) — Decimal HALF_UP",
-            source_method: None,
-        },
-    ],
+    constraints: &[OdooConstraint {
+        kind: OdooConstraintKind::Python,
+        // value must equal quantity × unit_cost at currency rounding precision.
+        condition: "value = round(quantity × unit_cost, currency.decimal_places) — Decimal HALF_UP",
+        source_method: None,
+    }],
     provenance: OdooProvenance {
         l_doc: "L13-STOCK-VALUATION-PROCUREMENT.md",
         // Specced from SVL interface contract block + R1/R2 (lines 33-36, 85-91).
@@ -256,7 +254,12 @@ pub const STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
             target: None,
             required: false,
             computed: Some("_compute_qty_to_order"),
-            depends: &["product_id", "location_id", "product_min_qty", "product_max_qty"],
+            depends: &[
+                "product_id",
+                "location_id",
+                "product_min_qty",
+                "product_max_qty",
+            ],
             // Rounded UP to replenishment_uom multiple; overridden by qty_to_order_manual.
             semantic_role: OdooSemanticRole::Quantity,
         },
@@ -384,7 +387,12 @@ pub const STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
     decorators: &[
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
-            targets: &["product_id", "location_id", "product_min_qty", "product_max_qty"],
+            targets: &[
+                "product_id",
+                "location_id",
+                "product_min_qty",
+                "product_max_qty",
+            ],
         },
         OdooDecorator {
             kind: OdooDecoratorKind::ApiDepends,
@@ -392,13 +400,11 @@ pub const STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
         },
     ],
     state_machine: None,
-    constraints: &[
-        OdooConstraint {
-            kind: OdooConstraintKind::Python,
-            condition: "product_min_qty <= product_max_qty",
-            source_method: None,
-        },
-    ],
+    constraints: &[OdooConstraint {
+        kind: OdooConstraintKind::Python,
+        condition: "product_min_qty <= product_max_qty",
+        source_method: None,
+    }],
     provenance: OdooProvenance {
         l_doc: "L13-STOCK-VALUATION-PROCUREMENT.md",
         l_doc_lines: (55, 79),
@@ -848,8 +854,7 @@ mod tests {
     fn all_entities_cite_l13_doc() {
         for entity in ENTITIES {
             assert_eq!(
-                entity.provenance.l_doc,
-                "L13-STOCK-VALUATION-PROCUREMENT.md",
+                entity.provenance.l_doc, "L13-STOCK-VALUATION-PROCUREMENT.md",
                 "entity {} must cite L13 doc",
                 entity.model_name
             );
@@ -946,7 +951,10 @@ mod tests {
             .constraints
             .iter()
             .find(|c| c.kind == OdooConstraintKind::Sql);
-        assert!(sql_c.is_some(), "stock.lot must have a SQL unique constraint");
+        assert!(
+            sql_c.is_some(),
+            "stock.lot must have a SQL unique constraint"
+        );
     }
 
     #[test]

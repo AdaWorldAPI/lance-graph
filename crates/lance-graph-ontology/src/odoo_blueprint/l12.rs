@@ -338,7 +338,8 @@ pub const RES_CURRENCY: OdooEntity = OdooEntity {
 pub const RES_CURRENCY_RATE: OdooEntity = OdooEntity {
     model_name: "res.currency.rate",
     kind: OdooEntityKind::Model,
-    description: "One dated FX exchange rate: foreign units per 1 base currency (technical `rate`). \
+    description:
+        "One dated FX exchange rate: foreign units per 1 base currency (technical `rate`). \
                   Lookup uses root_id, not company_id — branches inherit root rates. \
                   Only root companies may have dedicated rate records (no branch-level rates). \
                   Company-specific rates win over global (company_id=NULL) ones.",
@@ -777,7 +778,10 @@ mod tests {
     fn res_currency_identity() {
         assert_eq!(RES_CURRENCY.model_name, "res.currency");
         assert_eq!(RES_CURRENCY.provenance.confidence, OdooConfidence::Curated);
-        assert_eq!(RES_CURRENCY.provenance.l_doc, "L12-MULTICOMPANY-CURRENCY.md");
+        assert_eq!(
+            RES_CURRENCY.provenance.l_doc,
+            "L12-MULTICOMPANY-CURRENCY.md"
+        );
         assert!(RES_CURRENCY.state_machine.is_none());
     }
 
@@ -796,8 +800,14 @@ mod tests {
     fn res_currency_has_three_rate_fields() {
         let names: Vec<&str> = RES_CURRENCY.fields.iter().map(|f| f.name).collect();
         assert!(names.contains(&"rate"), "rate field must be present");
-        assert!(names.contains(&"company_rate"), "company_rate field must be present");
-        assert!(names.contains(&"inverse_company_rate"), "inverse_company_rate must be present");
+        assert!(
+            names.contains(&"company_rate"),
+            "company_rate field must be present"
+        );
+        assert!(
+            names.contains(&"inverse_company_rate"),
+            "inverse_company_rate must be present"
+        );
     }
 
     #[test]
@@ -824,7 +834,10 @@ mod tests {
     #[test]
     fn res_currency_rate_identity() {
         assert_eq!(RES_CURRENCY_RATE.model_name, "res.currency.rate");
-        assert_eq!(RES_CURRENCY_RATE.provenance.confidence, OdooConfidence::Curated);
+        assert_eq!(
+            RES_CURRENCY_RATE.provenance.confidence,
+            OdooConfidence::Curated
+        );
     }
 
     #[test]
@@ -862,7 +875,11 @@ mod tests {
 
     #[test]
     fn res_company_multicompany_has_exchange_account_fields() {
-        let names: Vec<&str> = RES_COMPANY_MULTICOMPANY.fields.iter().map(|f| f.name).collect();
+        let names: Vec<&str> = RES_COMPANY_MULTICOMPANY
+            .fields
+            .iter()
+            .map(|f| f.name)
+            .collect();
         assert!(
             names.contains(&"income_currency_exchange_account_id"),
             "income exchange account must be present"
@@ -938,8 +955,7 @@ mod tests {
     fn all_entities_reference_l12_l_doc() {
         for e in ENTITIES {
             assert_eq!(
-                e.provenance.l_doc,
-                "L12-MULTICOMPANY-CURRENCY.md",
+                e.provenance.l_doc, "L12-MULTICOMPANY-CURRENCY.md",
                 "entity {} must reference L12 l_doc",
                 e.model_name
             );

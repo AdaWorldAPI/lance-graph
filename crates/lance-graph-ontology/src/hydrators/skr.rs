@@ -56,11 +56,7 @@ pub struct SkrHydrator {
 impl SkrHydrator {
     /// Read the CSV at `csv_path` and intern each row's account number as
     /// `{iri_prefix}/{account_number}`.
-    pub fn hydrate(
-        &self,
-        csv_path: &Path,
-        registry: &OntologyRegistry,
-    ) -> Result<u32, HydrateErr> {
+    pub fn hydrate(&self, csv_path: &Path, registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
         let bytes = fs::read(csv_path).map_err(|e| HydrateErr::Io {
             path: csv_path.to_path_buf(),
             source: e,

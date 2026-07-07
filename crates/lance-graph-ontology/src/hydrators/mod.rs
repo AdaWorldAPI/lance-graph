@@ -38,7 +38,9 @@ pub use dolce::{hydrate_dolce, hydrate_dolce_from, hydrate_dolce_from_many};
 pub use dolce_odoo::{classify_odoo, DolceCategory};
 pub use fibo::{hydrate_fibo_be, hydrate_fibo_be_from, hydrate_fibo_fnd, hydrate_fibo_fnd_from};
 pub use odoo::{hydrate_odoo, hydrate_odoo_from};
-pub use owl::{ContextBundle, EntityId, HydrateErr, MetaStructureHydrator, OntologySlot, OwlHydrator};
+pub use owl::{
+    ContextBundle, EntityId, HydrateErr, MetaStructureHydrator, OntologySlot, OwlHydrator,
+};
 pub use owltime::{hydrate_owltime, hydrate_owltime_from};
 pub use provo::{hydrate_provo, hydrate_provo_from};
 pub use qudt::{hydrate_qudt, hydrate_qudt_from};

@@ -12,8 +12,8 @@
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
     OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
-    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef, OdooState,
-    OdooStateMachine, OdooStateSemantic, OdooTransition,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef, OdooState, OdooStateMachine,
+    OdooStateSemantic, OdooTransition,
 };
 
 // ─── account.move.line (reconciliation fields) ───────────────────────────────
@@ -27,9 +27,18 @@ use super::{
 const ACCOUNT_MOVE_LINE_SM: OdooStateMachine = OdooStateMachine {
     state_field: "parent_state",
     states: &[
-        OdooState { name: "draft", semantic: OdooStateSemantic::Draft },
-        OdooState { name: "posted", semantic: OdooStateSemantic::Posted },
-        OdooState { name: "cancel", semantic: OdooStateSemantic::Cancelled },
+        OdooState {
+            name: "draft",
+            semantic: OdooStateSemantic::Draft,
+        },
+        OdooState {
+            name: "posted",
+            semantic: OdooStateSemantic::Posted,
+        },
+        OdooState {
+            name: "cancel",
+            semantic: OdooStateSemantic::Cancelled,
+        },
     ],
     transitions: &[OdooTransition {
         from: "draft",
@@ -518,8 +527,11 @@ pub const ACCOUNT_FULL_RECONCILE: OdooEntity = OdooEntity {
 ///   (FLAG-4 in L2 doc, lines 871-873).
 /// - `account.bank.statement` / `account.bank.statement.line` — not documented
 ///   in the L2 prose; belong in a dedicated bank-statement lane.
-pub const ENTITIES: &[OdooEntity] =
-    &[ACCOUNT_MOVE_LINE, ACCOUNT_PARTIAL_RECONCILE, ACCOUNT_FULL_RECONCILE];
+pub const ENTITIES: &[OdooEntity] = &[
+    ACCOUNT_MOVE_LINE,
+    ACCOUNT_PARTIAL_RECONCILE,
+    ACCOUNT_FULL_RECONCILE,
+];
 
 #[cfg(test)]
 mod tests {
@@ -535,7 +547,11 @@ mod tests {
     fn account_move_line_residual_fields_are_computed() {
         let aml = &ACCOUNT_MOVE_LINE;
         assert_eq!(aml.model_name, "account.move.line");
-        let residual = aml.fields.iter().find(|f| f.name == "amount_residual").unwrap();
+        let residual = aml
+            .fields
+            .iter()
+            .find(|f| f.name == "amount_residual")
+            .unwrap();
         assert_eq!(residual.computed, Some("_compute_amount_residual"));
         assert!(residual.depends.contains(&"matched_debit_ids"));
         assert_eq!(residual.kind, OdooFieldKind::Monetary);
@@ -546,9 +562,17 @@ mod tests {
     fn account_partial_reconcile_required_fields() {
         let pr = &ACCOUNT_PARTIAL_RECONCILE;
         assert_eq!(pr.model_name, "account.partial.reconcile");
-        let debit = pr.fields.iter().find(|f| f.name == "debit_move_id").unwrap();
+        let debit = pr
+            .fields
+            .iter()
+            .find(|f| f.name == "debit_move_id")
+            .unwrap();
         assert!(debit.required);
-        let credit = pr.fields.iter().find(|f| f.name == "credit_move_id").unwrap();
+        let credit = pr
+            .fields
+            .iter()
+            .find(|f| f.name == "credit_move_id")
+            .unwrap();
         assert!(credit.required);
     }
 
@@ -570,8 +594,11 @@ mod tests {
                 "{} should be Curated",
                 entity.model_name
             );
-            assert!(!entity.provenance.odoo_source.is_empty(),
-                "{} must have at least one odoo_source ref", entity.model_name);
+            assert!(
+                !entity.provenance.odoo_source.is_empty(),
+                "{} must have at least one odoo_source ref",
+                entity.model_name
+            );
         }
     }
 }

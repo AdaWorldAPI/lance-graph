@@ -20,8 +20,8 @@
 //! No serialization anywhere in this module. JSON exists only at the
 //! callcenter ↔ MedCareV2 FFI boundary, never on these types.
 
-use std::borrow::Cow;
 use core::future::Future;
+use std::borrow::Cow;
 
 use lance_graph_contract::exploration::NarsTruth;
 use lance_graph_contract::nars::QueryStrategy;
@@ -91,30 +91,56 @@ pub enum SavantSuggestion {
 fn suggestion_for(savant: &Savant) -> SavantSuggestion {
     use SavantSuggestion::*;
     match savant.id {
-        1 => SelectFromTable { candidate_table: Cow::Borrowed("account_fiscal_position") },
+        1 => SelectFromTable {
+            candidate_table: Cow::Borrowed("account_fiscal_position"),
+        },
         2 => PolicyChoice,
-        3 => SelectFromTable { candidate_table: Cow::Borrowed("product.pricelist") },
-        4 => Distribution { over_table: Cow::Borrowed("account.analytic.distribution.model") },
-        5 => SelectFromTable { candidate_table: Cow::Borrowed("account.analytic.distribution.model") },
+        3 => SelectFromTable {
+            candidate_table: Cow::Borrowed("product.pricelist"),
+        },
+        4 => Distribution {
+            over_table: Cow::Borrowed("account.analytic.distribution.model"),
+        },
+        5 => SelectFromTable {
+            candidate_table: Cow::Borrowed("account.analytic.distribution.model"),
+        },
         6 => Anomaly,
-        7 => SelectFromTable { candidate_table: Cow::Borrowed("account.account") },
+        7 => SelectFromTable {
+            candidate_table: Cow::Borrowed("account.account"),
+        },
         8 => PolicyChoice,
-        9 => RankedSet { from_table: Cow::Borrowed("res.currency") },
+        9 => RankedSet {
+            from_table: Cow::Borrowed("res.currency"),
+        },
         10 => PolicyChoice,
-        11 => SelectFromTable { candidate_table: Cow::Borrowed("stock.rule") },
+        11 => SelectFromTable {
+            candidate_table: Cow::Borrowed("stock.rule"),
+        },
         12 => AdvancePeriod,
-        13 => Distribution { over_table: Cow::Borrowed("stock.warehouse.orderpoint") },
-        14 => SelectFromTable { candidate_table: Cow::Borrowed("stock.route") },
+        13 => Distribution {
+            over_table: Cow::Borrowed("stock.warehouse.orderpoint"),
+        },
+        14 => SelectFromTable {
+            candidate_table: Cow::Borrowed("stock.route"),
+        },
         15 => PolicyChoice,
         17 => Gate,
         18 => AdvancePeriod,
-        19 => RankedSet { from_table: Cow::Borrowed("account.move.line") },
-        20 => SelectFromTable { candidate_table: Cow::Borrowed("account.reconcile.model") },
+        19 => RankedSet {
+            from_table: Cow::Borrowed("account.move.line"),
+        },
+        20 => SelectFromTable {
+            candidate_table: Cow::Borrowed("account.reconcile.model"),
+        },
         21 => Gate,
         22 => Gate,
-        23 => SelectFromTable { candidate_table: Cow::Borrowed("product.pricelist.item") },
+        23 => SelectFromTable {
+            candidate_table: Cow::Borrowed("product.pricelist.item"),
+        },
         24 => PolicyChoice,
-        25 => RankedSet { from_table: Cow::Borrowed("stock.move") },
+        25 => RankedSet {
+            from_table: Cow::Borrowed("stock.move"),
+        },
         26 => Gate,
         _ => PolicyChoice,
     }
@@ -174,8 +200,10 @@ fn kind_matches(a: ReasoningKind, b: ReasoningKind) -> bool {
 /// A kind with a single roster savant ignores the namespace; a kind with
 /// several resolves via [`DISPATCH_NS`] first, then by `namespace == savant.name`.
 pub fn resolve_savant(kind: ReasoningKind, namespace: &str) -> Option<&'static Savant> {
-    let candidates: Vec<&'static Savant> =
-        SAVANTS.iter().filter(|s| kind_matches(s.kind, kind)).collect();
+    let candidates: Vec<&'static Savant> = SAVANTS
+        .iter()
+        .filter(|s| kind_matches(s.kind, kind))
+        .collect();
     match candidates.len() {
         0 => None,
         1 => Some(candidates[0]),
@@ -339,19 +367,37 @@ mod tests {
     }
 
     fn budget() -> Budget {
-        Budget { max_tokens: 1000, max_ms: 100, max_evidence_rows: 100 }
+        Budget {
+            max_tokens: 1000,
+            max_ms: 100,
+            max_evidence_rows: 100,
+        }
     }
     fn ev(table: &'static str, rows: u64) -> EvidenceRef<'static> {
-        EvidenceRef { table, schema_fingerprint: 0, rows }
+        EvidenceRef {
+            table,
+            schema_fingerprint: 0,
+            rows,
+        }
     }
-    fn ctx<'a>(kind: ReasoningKind, ns: &'a str, evidence: &'a [EvidenceRef<'a>]) -> ReasoningContext<'a> {
-        ReasoningContext { namespace: ns, kind, evidence, budget: budget() }
+    fn ctx<'a>(
+        kind: ReasoningKind,
+        ns: &'a str,
+        evidence: &'a [EvidenceRef<'a>],
+    ) -> ReasoningContext<'a> {
+        ReasoningContext {
+            namespace: ns,
+            kind,
+            evidence,
+            budget: budget(),
+        }
     }
 
     #[test]
     fn resolves_ambiguous_kind_by_savant_name() {
         // PostingAnomaly has 3 savants → namespace=name disambiguates.
-        let s = resolve_savant(ReasoningKind::PostingAnomaly, "SequenceGapAnomalyDetector").unwrap();
+        let s =
+            resolve_savant(ReasoningKind::PostingAnomaly, "SequenceGapAnomalyDetector").unwrap();
         assert_eq!(s.id, 6);
         let s2 = resolve_savant(ReasoningKind::PostingAnomaly, "LockDateAdvancer").unwrap();
         assert_eq!(s2.id, 18);
@@ -359,8 +405,16 @@ mod tests {
 
     #[test]
     fn other_reconcile_match_splits_by_namespace() {
-        let a = resolve_savant(ReasoningKind::Other(other_kind::RECONCILE_MATCH), "erp.k3.reconcile_match").unwrap();
-        let b = resolve_savant(ReasoningKind::Other(other_kind::RECONCILE_MATCH), "erp.k3.payment_reconcile").unwrap();
+        let a = resolve_savant(
+            ReasoningKind::Other(other_kind::RECONCILE_MATCH),
+            "erp.k3.reconcile_match",
+        )
+        .unwrap();
+        let b = resolve_savant(
+            ReasoningKind::Other(other_kind::RECONCILE_MATCH),
+            "erp.k3.payment_reconcile",
+        )
+        .unwrap();
         assert_eq!(a.id, 19, "ReconcileMatchSelector");
         assert_eq!(b.id, 21, "PaymentToInvoiceMatcher");
     }
@@ -368,14 +422,25 @@ mod tests {
     #[test]
     fn other_single_candidate_ignores_namespace() {
         // PRICELIST_ASSIGNMENT (code 1) has one savant — namespace irrelevant.
-        let s = resolve_savant(ReasoningKind::Other(other_kind::PRICELIST_ASSIGNMENT), "whatever").unwrap();
+        let s = resolve_savant(
+            ReasoningKind::Other(other_kind::PRICELIST_ASSIGNMENT),
+            "whatever",
+        )
+        .unwrap();
         assert_eq!(s.id, 3, "PricelistAssignmentAgent");
     }
 
     #[test]
     fn conclusion_strategy_follows_inference_type() {
         let fiscal = savant_by_name("FiscalPositionResolver").unwrap();
-        let c = build_conclusion(fiscal, &ctx(ReasoningKind::CustomerCategory, "FiscalPositionResolver", &[ev("account_fiscal_position", 3)]));
+        let c = build_conclusion(
+            fiscal,
+            &ctx(
+                ReasoningKind::CustomerCategory,
+                "FiscalPositionResolver",
+                &[ev("account_fiscal_position", 3)],
+            ),
+        );
         assert_eq!(c.savant_id, 1);
         // Deduction → CamExact.
         assert_eq!(c.query_strategy, QueryStrategy::CamExact);
@@ -384,11 +449,28 @@ mod tests {
     #[test]
     fn confidence_is_monotone_in_evidence() {
         let s = savant_by_name("AutopostRecommender").unwrap();
-        let low = build_conclusion(s, &ctx(ReasoningKind::PostingAnomaly, "AutopostRecommender", &[ev("account_move", 1)]));
-        let hi = build_conclusion(s, &ctx(ReasoningKind::PostingAnomaly, "AutopostRecommender", &[ev("account_move", 50)]));
+        let low = build_conclusion(
+            s,
+            &ctx(
+                ReasoningKind::PostingAnomaly,
+                "AutopostRecommender",
+                &[ev("account_move", 1)],
+            ),
+        );
+        let hi = build_conclusion(
+            s,
+            &ctx(
+                ReasoningKind::PostingAnomaly,
+                "AutopostRecommender",
+                &[ev("account_move", 50)],
+            ),
+        );
         assert!(hi.confidence.frequency >= low.confidence.frequency);
         assert!(hi.confidence.confidence > low.confidence.confidence);
-        assert!(hi.confidence.confidence <= 0.99, "NarsTruth caps confidence");
+        assert!(
+            hi.confidence.confidence <= 0.99,
+            "NarsTruth caps confidence"
+        );
     }
 
     #[test]
@@ -406,13 +488,16 @@ mod tests {
 
     #[test]
     fn other_reasoner_rejects_non_other_kind() {
-        let err = block_on(OtherReasoner.reason(ctx(ReasoningKind::CustomerCategory, "x", &[]))).unwrap_err();
+        let err = block_on(OtherReasoner.reason(ctx(ReasoningKind::CustomerCategory, "x", &[])))
+            .unwrap_err();
         assert_eq!(err, SavantError::KindMismatch);
     }
 
     #[test]
     fn wrong_reasoner_for_kind_is_mismatch() {
-        let err = block_on(PostingAnomalyReasoner.reason(ctx(ReasoningKind::NextBestAction, "x", &[]))).unwrap_err();
+        let err =
+            block_on(PostingAnomalyReasoner.reason(ctx(ReasoningKind::NextBestAction, "x", &[])))
+                .unwrap_err();
         assert_eq!(err, SavantError::KindMismatch);
     }
 
@@ -422,7 +507,11 @@ mod tests {
         // named in slot 1 of its spec (`account_fiscal_position`).
         let fiscal = build_conclusion(
             savant_by_name("FiscalPositionResolver").unwrap(),
-            &ctx(ReasoningKind::CustomerCategory, "FiscalPositionResolver", &[]),
+            &ctx(
+                ReasoningKind::CustomerCategory,
+                "FiscalPositionResolver",
+                &[],
+            ),
         );
         assert!(matches!(
             &fiscal.suggestion,
@@ -431,7 +520,11 @@ mod tests {
         // SequenceGapAnomalyDetector → Anomaly.
         let gap = build_conclusion(
             savant_by_name("SequenceGapAnomalyDetector").unwrap(),
-            &ctx(ReasoningKind::PostingAnomaly, "SequenceGapAnomalyDetector", &[]),
+            &ctx(
+                ReasoningKind::PostingAnomaly,
+                "SequenceGapAnomalyDetector",
+                &[],
+            ),
         );
         assert_eq!(gap.suggestion, SavantSuggestion::Anomaly);
         // AutopostRecommender / PaymentToInvoiceMatcher → Gate.

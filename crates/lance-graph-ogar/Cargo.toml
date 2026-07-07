@@ -70,10 +70,11 @@ serde = ["ogar-vocab/serde", "ogar-adapter-surrealql/serde"]
 # ogar_codebook wire-compat mirror the parity-guard checks. PATH copy = the
 # canonical in-repo source (same as lance-graph / symbiont); the [patch] below
 # folds ogar-class-view's transitive git contract onto it = ONE source.
-# `features = ["ogar"]` ARMS the contract: it pulls ogar-vocab (sibling path,
-# no pin) transitively and activates the contract-side compile-time COUNT_FUSE
-# — plug-and-play drift detection in every binary that links this crate.
-lance-graph-contract = { path = "../lance-graph-contract", features = ["ogar"] }
+# THIS crate is the armed tier (workspace-EXCLUDED, so its ogar-vocab path
+# dep cannot break workspace load in CI): it owns the COUNT_FUSE + per-entry
+# mirror parity + the authoritative-table roundtrip green light. The contract
+# stays strictly zero-dep.
+lance-graph-contract = { path = "../lance-graph-contract" }
 
 # OGIT spine (the NamespaceBridge trait + registry + namespace/error types the
 # OGAR-driven port bridges build on). The OGIT/OGAR seam: the bridges live HERE
