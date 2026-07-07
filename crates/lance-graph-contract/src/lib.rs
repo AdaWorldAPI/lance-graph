@@ -136,7 +136,6 @@ pub mod splat;
 pub mod tax;
 /// Per-tenant SoA update counters — debug instrumentation (feature `tenant-counters`).
 pub mod tenant_counter;
-pub mod textord_facet;
 pub mod thinking;
 pub mod unichar;
 pub mod unicharcompress;

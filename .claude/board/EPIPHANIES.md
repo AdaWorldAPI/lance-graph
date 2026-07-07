@@ -1,3 +1,14 @@
+## 2026-07-07 — E-OCR-FACET-HOME-CORRECTION-1 — operator ruling: domain substrate does NOT live in agnostic lance-graph — textord facets removed; the facet producer is ruff→OGAR
+**Status:** RULING (operator-corrected same day; code removed in this commit)
+
+`textord_facet.rs` (E-OCR-TEXTORD-FACET-1, Batch 3D) violated TWO canons and is removed from `lance-graph-contract`:
+
+1. **Wrong home.** lance-graph is the AGNOSTIC spine; Tesseract-domain substrate belongs in OGAR (the codebook/ClassView/facet producer — `ogar-vocab`, `ogar-class-view`, `ogar-from-ruff`) or in tesseract-rs (the consumer). All four repos (lance-graph + tesseract-rs + OGAR + ndarray) compile into the same binary, so there is no linking excuse for parking domain code in the agnostic layer. Likewise domain HARVESTS stay in the consumer repo (tesseract-rs `.claude/harvest/`), never dumped into lance-graph.
+2. **Canon-low misuse.** The facets used the classid low u16 as a shape ordinal (`0x0806_0001` = "BLOBNBOX"). Per the canon-high flip (OGAR `APP-CLASS-CODEBOOK-LAYOUT`, `ogar-from-ruff::mint`), the low u16 is the APP render prefix (`PortSpec::APP_PREFIX`) — `0x0806_0001` canonically means "concept blob, rendered by app 0x0001", a real collision. Distinct shapes are distinct CONCEPTS (hi u16, minted in `ogar-vocab`) or ClassView readings of the payload — never low-half ordinals.
+3. **Hand-rolled what ruff already provides.** `ruff_spo_address::{Facet, Mint, mint_with_classid}` + `ogar-from-ruff` mint/emit are the existing producer path ("never hand roll — use ruff; if anything is missing, expand ruff"). The redo goes through that machinery, in OGAR, driven by the banked tesseract-rs textord manifest.
+
+The dict wire-format leaves (`dawg.rs`) stay for now — they follow the already-merged unicharset/recoder/network precedent — but the same ruling marks that precedent for review: Tesseract-domain content shapes may migrate from lance-graph-contract to tesseract-core/OGAR in a dedicated follow-up. Cross-ref: E-OCR-NETWORK-SINK-1 (compose_classid(0x0804, ntype) has the same low-half pattern — audit alongside).
+
 ## 2026-07-07 — E-OCR-SEARCHABLE-PDF-1 — D4.5 searchable-PDF renderer round-trip green; Batch-3E makerow harvest banked — P4+P5 output surfaces COMPLETE, the textord marathon is cut
 **Status:** FINDING (round-trip proven with our own extractor; `tesseract-ocr-pdf`, tested)
 
@@ -8,7 +19,7 @@
 Pipeline state: **PDF (digital or scanned) → text/TSV/hOCR/searchable-PDF, pure Rust end-to-end.** Remaining for parity depth: 3E makerow port (replaces seg-approx), P6 golden corpus. Plan `tesseract-rs/.claude/plans/pdf-to-text-ocr-v1.md`. Branch `claude/happy-hamilton-0azlw4`.
 
 ## 2026-07-07 — E-OCR-TEXTORD-FACET-1 + E-OCR-SCANNED-PDF-1 — Batch 3D ccstruct facets on V3 SoA; D5.2 embedded-image extraction — **scanned PDF → OCR text is CLOSED, pure Rust**
-**Status:** FINDING (3D: 849 contract tests green, field mappings header-cited; D5.2: 12/12 tests, E2E proven; lance-graph `4af7e8d5`, tesseract-rs `52fcf73`)
+**Status:** SUPERSEDED (operator, 2026-07-07 — see E-OCR-FACET-HOME-CORRECTION-1: canon-low misuse + wrong home; code removed from lance-graph-contract)
 
 **3D (`lance-graph-contract/src/textord_facet.rs`):** the 7 textord data shapes (TBOX, BLOBNBOX, ROW, TO_ROW, BLOCK, TO_BLOCK, POLY_BLOCK) sunk onto `facet::FacetCascade` per the network-sink precedent — classid = minted 0x0805 (textline) / 0x0806 (blob) / 0x0807 (page_layout) canons × shape-ordinal custom-low; NO new mints. Field→rail tables per shape with header citations (i16 box coords lossless on rails; floats rounded/fixed-point with documented loss, TO_ROW baseline slope ×10000); intrusive ELIST links + pointers routed to EdgeBlock per doctrine, list content stays content-store. The banked 239-class manifest confirmed these are containers, not a vtable hierarchy — the sink is field inventory. 10 new tests.
 
