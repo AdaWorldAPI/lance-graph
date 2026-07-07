@@ -1,3 +1,12 @@
+## 2026-07-07 — E-OCR-TEXTORD-FACET-1 + E-OCR-SCANNED-PDF-1 — Batch 3D ccstruct facets on V3 SoA; D5.2 embedded-image extraction — **scanned PDF → OCR text is CLOSED, pure Rust**
+**Status:** FINDING (3D: 849 contract tests green, field mappings header-cited; D5.2: 12/12 tests, E2E proven; lance-graph `4af7e8d5`, tesseract-rs `52fcf73`)
+
+**3D (`lance-graph-contract/src/textord_facet.rs`):** the 7 textord data shapes (TBOX, BLOBNBOX, ROW, TO_ROW, BLOCK, TO_BLOCK, POLY_BLOCK) sunk onto `facet::FacetCascade` per the network-sink precedent — classid = minted 0x0805 (textline) / 0x0806 (blob) / 0x0807 (page_layout) canons × shape-ordinal custom-low; NO new mints. Field→rail tables per shape with header citations (i16 box coords lossless on rails; floats rounded/fixed-point with documented loss, TO_ROW baseline slope ×10000); intrusive ELIST links + pointers routed to EdgeBlock per doctrine, list content stays content-store. The banked 239-class manifest confirmed these are containers, not a vtable hierarchy — the sink is field inventory. 10 new tests.
+
+**D5.2 (`tesseract-ocr-pdf`):** scanned-PDF arm WITHOUT pdfium — scanned pages are one embedded image XObject; `extract_page_image` decodes DCTDecode (zune-jpeg; RGB→grey through the byte-parity-proven `rgb_to_gray`) + FlateDecode DeviceGray 8/1-bit + DeviceRGB 8 (ISO 32000-1 Table 89/90, MSB-first 1bpc rows; CCITTFax/Indexed/SMask/non-default-Decode = typed unsupported errors naming future leaves). Bin: text-layer → else page-image → OcrPipeline. **E2E: a FlateDecode-embedded line36 scan-PDF OCRs to `Ly,`** — the proven dict result.
+
+**The plan's headline goal is functionally CLOSED: `PDF → text` runs end-to-end pure-Rust for both digital (text-layer) and scanned (embedded-image → OCR) PDFs**, with the line-segmentation stage still the marked seg-approx (Batch 3E makerow is the parity replacement) and CCITT/Indexed/vector-page rasterization as named future leaves. Remaining accuracy/fidelity batches: 3E makerow, D4.5 searchable-PDF renderer, P6 golden corpus + performance. Plan `tesseract-rs/.claude/plans/pdf-to-text-ocr-v1.md`. Branch `claude/happy-hamilton-0azlw4`.
+
 ## 2026-07-07 — E-OCR-MORPH-1 + E-OCR-HOCR-1 + E-OCR-PDF-FRONTEND-1 — Batch 3C brick morphology 11/11; P4b hOCR renderer; P5 `tesseract-ocr-pdf` crate (text-layer fast path + OCR arm) — **the pipeline now reads PDFs**
 **Status:** FINDING (morphology byte-parity proven vs real leptonica; hOCR line-cited transcode; PDF crate tested; tesseract-rs `da26ab8`)
 
