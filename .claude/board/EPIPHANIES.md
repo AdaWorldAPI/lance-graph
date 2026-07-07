@@ -1,3 +1,12 @@
+## 2026-07-07 — E-OCR-CONNCOMP-1 + E-OCR-TSV-1 — Batch 3B `pixConnCompBB` byte-parity 6/6; P4a text/TSV renderers transcoded — the blob source + the output surface land in one wave
+**Status:** FINDING (conncomp byte-parity proven vs real leptonica; renderers line-cited format transcode with documented APPROX placeholders; `tesseract-ocr`, tested)
+
+**3B (`conncomp.rs`):** `conn_comp_bb` transcodes `pixConnCompBB → pixSeedfill{4,8}BB` + the FILLSEG stack + `nextOnPixelInRaster` from the banked ruff manifest. The C's 32-bit-word skip scan and `GET/CLEAR_DATA_BIT` become per-pixel byte ops with IDENTICAL raster order (pure-optimization tricks, C line ranges cited); the `goto skip` into the do-while body is a one-shot `skip_first` flag. **Byte-parity 6/6** vs real `pixConnCompBB` (connectivity 4+8 × 3 sizes + Otsu-binarized line36.pgm; box emission order = raster seed order, exact). This is the blob source Batch 3D/3E consume. Oracle banked (`tesseract-rs/.claude/harvest/oracles/conncomp_oracle.cpp`).
+
+**P4a (`renderer.rs`):** `render_text` (the `ResultIterator::IterateAndAppendUTF8TextlineText` walk, `preserve_interword_spaces` arm — `word->space()` IS `WordResult::leading_space`) + `render_tsv` (`GetTSVText` level-1..5 rows `baseapi.cpp:1350-1463`, `AddBoxToTSV` columns, `BoundingBox` bottom-up→top-down flip+clip, `Confidence = clip(100 + 5·min(certs), 0, 100)` — the min comes from `WERD_CHOICE::certainty_` seeded FLT_MAX, exactly what `FakeWordFromRatings` produces from our proven `WordResult.certs`; `{:.6}` float formatting = `std::to_string`). `block_num`/`par_num`/page-box are documented APPROX-until-textord placeholders. Real output on line36: `"Ly,"` at conf `91.290359` in a well-formed 5-level TSV.
+
+35/35 lib tests; regressions untouched. tesseract-rs `2dcaae2`. **Pipeline state: page image → lines (approx) → dict words+boxes (parity) → text/TSV files.** Next: Batch 3C (morphology kernels — the raw dilate/erode TU harvest), 3D (ccstruct facets onto V3 SoA, classids 0x0805-0x0809), hOCR renderer (P4b), PDF front-end (P5). Plan `tesseract-rs/.claude/plans/pdf-to-text-ocr-v1.md`. Branch `claude/happy-hamilton-0azlw4`.
+
 ## 2026-07-07 — E-OCR-PAGE-APPROX-1 — P3-alt (D3.0): projection-profile line finder + `recognize_page` — the first END-TO-END page→text runs, pure Rust (marked approx); P3 harvest manifests banked (D3.1+D3.2)
 **Status:** FINDING (functional E2E, deterministic; explicitly a MARKED APPROXIMATION — not a transcode; replaced by the textord batches, plan §P3)
 
