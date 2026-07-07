@@ -58,7 +58,7 @@ Every 12-byte payload is exactly one of these; the classview selects which.
 | L3 | rails | 6 × (8:8) | `mereology : taxonomy` | generic mereology:taxonomy plane (as dictated) |
 | L4 | palette pairs | 6 × (8:8) | `palette256²` — **CAM_PQ "digital" new style** | each byte pair indexes the 256×256 palette distance/compose tables (bgz17 lineage); similarity = ONE table read |
 | L5 | triplets | 4 × (8:8:8) | SPO-style triplets | four 3-byte triples |
-| L6 | quads | 3 × (8:8:8:8) | odoo-shaped relations | **[H] semantics open** — operator marked "odoo ?"; do not implement semantics before a ruling |
+| L6 | quads | 3 × (8:8:8:8) | **SPOG** — three subject:predicate:object:graph quads (the Odoo factoring) | **RULED** (operator, 2026-07-06, odoo-transpile briefing §A3: "3×(8:8:8:8) SPOG (ODOO)"; consumed by odoo-rs — the former "odoo ?" mark is resolved). Byte shape = `CascadeShape::G3D4`; the attribute→byte-position assignor is the named remaining code (no owner yet, odoo-rs council 2026-07-07) |
 | L7 | absolute location | 2 × 48-bit | `hhtl ++ helix` | hhtl(48) = HEEL\|HIP\|TWIG (3×u16); helix(48) = helix place code. Together = absolute location, **two hemispheres** — see q2 FMA for usage |
 | L8 | location, old style | 2 × 48-bit | `helix ++ CAM_PQ` — **CAM_PQ "analog" old style** | the harvest facet `helix-place(6) \| cam-pq(6)` — the 6-byte canonical CAM-PQ, NOT the 16-byte turbovec residue |
 
@@ -130,7 +130,7 @@ similarity function. Two styles coexist:
   key is literally an L7 facet (payload = absolute location) or a sibling
   layout is a ground-truth question for the envelope reconciliation —
   do not unify silently in code.
-- **L6 semantics** await an operator ruling (the "odoo ?" mark).
+- ~~**L6 semantics** await an operator ruling (the "odoo ?" mark).~~ **RULED 2026-07-06**: L6 = 3×SPOG quads (subject:predicate:object:graph), the Odoo factoring — see the regraded table row above. Open residue: the attribute→byte-position assignor (name→slot projection rule per §2 slot-purity) does not exist yet for any layout.
 
 ## §3b Two-level LE contract + the jc-pillar validation gate (operator, 2026-07-02)
 
