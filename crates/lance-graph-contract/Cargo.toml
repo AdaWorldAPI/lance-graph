@@ -8,8 +8,13 @@ keywords = ["lance", "graph", "contract", "orchestration", "thinking"]
 build = "build.rs"
 
 [dependencies]
-# Zero dependencies by design — this is a trait-only crate.
-# Consumers depend on this; implementations depend on lance-graph-planner.
+# Zero dependencies by design — this is a trait-only crate, and it MUST stay
+# dependency-free even of optional path deps: as a WORKSPACE MEMBER, any path
+# dep here (optional or not) is resolved at workspace-load time, so a missing
+# sibling checkout breaks EVERY cargo invocation in CI (learned 2026-07-07:
+# an optional ../../../OGAR dep killed the whole PR pipeline). The armed
+# mirror↔vocab fuse + live-vocab re-export live in the workspace-EXCLUDED
+# `lance-graph-ogar` crate instead, which already path-deps ogar-vocab.
 
 [build-dependencies]
 # serde_yaml: used ONLY in build.rs to parse modules/*/manifest.yaml.

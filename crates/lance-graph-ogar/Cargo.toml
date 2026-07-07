@@ -70,6 +70,10 @@ serde = ["ogar-vocab/serde", "ogar-adapter-surrealql/serde"]
 # ogar_codebook wire-compat mirror the parity-guard checks. PATH copy = the
 # canonical in-repo source (same as lance-graph / symbiont); the [patch] below
 # folds ogar-class-view's transitive git contract onto it = ONE source.
+# THIS crate is the armed tier (workspace-EXCLUDED, so its ogar-vocab path
+# dep cannot break workspace load in CI): it owns the COUNT_FUSE + per-entry
+# mirror parity + the authoritative-table roundtrip green light. The contract
+# stays strictly zero-dep.
 lance-graph-contract = { path = "../lance-graph-contract" }
 
 # OGIT spine (the NamespaceBridge trait + registry + namespace/error types the
@@ -82,17 +86,20 @@ lance-graph-ontology = { path = "../lance-graph-ontology" }
 #    symbiont's + cognitive-stack's pins so ALL golden-image roots resolve to
 #    ONE OGAR source) ──
 #
-# Back to branch = "main" now that OGAR #152 (Geo/OSM + network_layer, ALL=79)
-# has merged: main == the temp-pinned rev, so the contract mirror (79) and
-# ogar_vocab::class_ids::ALL (84 since the 0x0805..0x0809 OCR plan mints, OGAR #172) agree via COUNT_FUSE, and symbiont /
-# cognitive-stack (which also `branch = "main"` these crates) resolve the SAME
-# single OGAR copy instead of a second one at a rev (codex P2 on #648).
-ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
-ogar-class-view = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
-ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+# NO PINS — operator policy (2026-07-07): OGAR resolves as a PATH dep to the
+# local sibling checkout /home/user/OGAR (clone of AdaWorldAPI/OGAR main), the
+# same pattern as the ndarray path dep. A git dep always writes a rev pin into
+# Cargo.lock; a path dep never does — the fuse (COUNT_FUSE) then always checks
+# against the sibling's CURRENT state. symbiont / cognitive-stack use the same
+# sibling paths, so all three resolve ONE OGAR copy (codex P2 on #648 intent
+# preserved). CI that builds these excluded crates must sibling-check-out OGAR
+# (tesseract-rs CI precedent for lance-graph/ndarray).
+ogar-vocab = { path = "../../../OGAR/crates/ogar-vocab" }
+ogar-class-view = { path = "../../../OGAR/crates/ogar-class-view" }
+ogar-ontology = { path = "../../../OGAR/crates/ogar-ontology" }
 # default features only = the light emit() DDL formatter (no surrealdb tree);
 # the parser half is opt-in via this crate's `surrealql-parser` feature.
-ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-adapter-surrealql = { path = "../../../OGAR/crates/ogar-adapter-surrealql" }
 
 # Fold ogar-class-view's transitive `lance-graph-contract` (git
 # AdaWorldAPI/lance-graph#main) onto the SAME path copy this crate uses, so there

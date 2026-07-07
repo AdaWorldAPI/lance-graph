@@ -206,6 +206,41 @@ pub mod parity {
 mod tests {
     use super::*;
 
+    /// The ROUNDTRIP GREEN LIGHT (operator, 2026-07-07): lance-graph does NOT
+    /// carry ontologies — it only flips this fuse. For every authoritative
+    /// OGAR capability table (OCR today), assert at ID level that (a) the
+    /// authority named at least one expected executor ("die Ontologie wurde
+    /// nicht vergessen"), (b) every subject classid the table binds exists in
+    /// the wire mirror this crate already guards, (c) the table itself is
+    /// internally consistent (names unique, non-empty). The consumer-side
+    /// half of the loop (registration + coverage + classid activation) is
+    /// asserted in the consumer's own binary via
+    /// `ogar_vocab::capability_registry::verify_registration`.
+    #[test]
+    fn authoritative_ocr_table_roundtrip_is_green() {
+        use ogar_vocab::ocr_actions;
+
+        assert!(
+            !ocr_actions::OCR_EXPECTED_EXECUTORS.is_empty(),
+            "authority declared no expected executor for the OCR table"
+        );
+        let mirror: std::collections::BTreeMap<&str, u16> =
+            lance_graph_contract::ogar_codebook::CODEBOOK
+                .iter()
+                .copied()
+                .collect();
+        for &id in ocr_actions::OCR_SUBJECT_CLASSIDS {
+            assert!(
+                mirror.values().any(|&v| v == id),
+                "OCR table subject 0x{id:04X} missing from the wire mirror"
+            );
+        }
+        let names = ocr_actions::OCR_ACTION_NAMES;
+        assert!(!names.is_empty());
+        let set: std::collections::BTreeSet<&str> = names.iter().copied().collect();
+        assert_eq!(set.len(), names.len(), "duplicate capability names");
+    }
+
     #[test]
     fn ogar_class_view_implements_contract_class_view() {
         // The activation in one line: an OgarClassView IS a contract ClassView,
@@ -214,5 +249,73 @@ mod tests {
         use lance_graph_contract::class_view::ClassView;
         let view = OgarClassView::new();
         let _as_trait: &dyn ClassView = &view;
+    }
+}
+
+/// The generic hot-plug bridge (operator, 2026-07-07): "lance-graph-contract
+/// pulling into OGAR with a generic activation." The contract defines the
+/// zero-dep SOCKET ([`lance_graph_contract::hotplug`]); OGAR owns the data
+/// resolution (`ogar_vocab::capability_registry::resolve_hotplug`); THIS
+/// workspace-excluded crate is where the two meet in one binary. A consumer
+/// declares a [`lance_graph_contract::hotplug::HotPlug`] const and activates
+/// it through this authority (or calls `resolve_hotplug` directly — same
+/// data path, same drift arms).
+pub struct OgarAuthority;
+
+impl lance_graph_contract::hotplug::CapabilityAuthority for OgarAuthority {
+    fn activate(
+        &self,
+        plug: &lance_graph_contract::hotplug::HotPlug,
+    ) -> Result<
+        lance_graph_contract::hotplug::Activation,
+        lance_graph_contract::hotplug::ActivationDrift,
+    > {
+        use lance_graph_contract::hotplug::{Activation, ActivationDrift};
+        use ogar_vocab::capability_registry::{resolve_hotplug, HotplugDrift};
+
+        match resolve_hotplug(plug.consumer, plug.classids, plug.covered) {
+            Ok((concepts, capabilities)) => Ok(Activation {
+                concepts: concepts
+                    .into_iter()
+                    .map(|(name, id)| (name.to_string(), id))
+                    .collect(),
+                capabilities,
+            }),
+            Err(HotplugDrift::UnknownClassid(id)) => Err(ActivationDrift::UnknownClassid(id)),
+            Err(HotplugDrift::NoCapabilitiesFor(id)) => Err(ActivationDrift::NoCapabilitiesFor(id)),
+            Err(HotplugDrift::UnexpectedConsumer(c)) => Err(ActivationDrift::UnexpectedConsumer(c)),
+            Err(HotplugDrift::Uncovered(c)) => Err(ActivationDrift::Uncovered(c)),
+            Err(HotplugDrift::Undeclared(c)) => Err(ActivationDrift::Undeclared(c)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod hotplug_bridge_tests {
+    use lance_graph_contract::hotplug::{CapabilityAuthority, HotPlug};
+
+    /// The generic activation, end to end through the contract socket: the
+    /// OCR consumer's plug resolves to the 3 vocab rows + 8 capabilities.
+    #[test]
+    fn ocr_hotplug_activates_through_the_contract_socket() {
+        let plug = HotPlug {
+            consumer: "tesseract-ogar",
+            classids: &[0x0805, 0x0808, 0x0809],
+            covered: &[
+                "extract_page_image",
+                "extract_text_layer",
+                "recognize_line",
+                "recognize_page",
+                "render_hocr",
+                "render_searchable_pdf",
+                "render_text",
+                "render_tsv",
+            ],
+        };
+        let auth: &dyn CapabilityAuthority = &super::OgarAuthority;
+        let act = auth.activate(&plug).expect("green activation");
+        assert_eq!(act.concepts.len(), 3);
+        assert!(act.concepts.contains(&("textline".to_string(), 0x0805)));
+        assert_eq!(act.capabilities.len(), 8);
     }
 }

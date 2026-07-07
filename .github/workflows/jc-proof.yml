@@ -23,6 +23,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - name: Clone AdaWorldAPI/OGAR as parent-level sibling (NO-PIN path deps)
+        run: git clone --depth 1 https://github.com/AdaWorldAPI/OGAR ../OGAR
       - name: Setup Rust
         run: |
           rustup toolchain install stable

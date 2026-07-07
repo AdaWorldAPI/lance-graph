@@ -52,6 +52,10 @@ jobs:
         with:
           repository: AdaWorldAPI/ndarray
           path: ndarray
+      - uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/OGAR
+          path: OGAR
       - name: Setup rust toolchain
         run: |
           rustup toolchain install ${{ matrix.toolchain }}

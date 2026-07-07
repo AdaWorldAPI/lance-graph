@@ -49,6 +49,11 @@ jobs:
           # dequantize_i8_to_f32, quantize_f32_to_i2, dequantize_i2_to_f32
           # publicly (ndarray PR #115, merged 2026-04-30). Pin retired.
           path: ndarray
+      - name: Checkout AdaWorldAPI/OGAR (sibling dependency, NO-PIN path deps)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/OGAR
+          path: OGAR
       - name: Setup rust toolchain
         run: |
           rustup toolchain install stable
@@ -101,6 +106,11 @@ jobs:
           # dequantize_i8_to_f32, quantize_f32_to_i2, dequantize_i2_to_f32
           # publicly (ndarray PR #115, merged 2026-04-30). Pin retired.
           path: ndarray
+      - name: Checkout AdaWorldAPI/OGAR (sibling dependency, NO-PIN path deps)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/OGAR
+          path: OGAR
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: rustfmt
