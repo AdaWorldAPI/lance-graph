@@ -70,6 +70,9 @@ pub mod content_store;
 pub mod counterfactual;
 pub mod crystal;
 pub mod cycle_accumulator;
+/// `SquishedDawg` (dict/dawg binary loader) — Tesseract dictionary word-graph
+/// content store. See module docs for the `dawg.{h,cpp}` byte-parity scope.
+pub mod dawg;
 pub mod distance;
 /// D-V3-W6a — DDL typed-emission counting logic (`TypedForm`,
 /// `classify_ddl_type`, `EmissionCounts`, `count_emission`), sibling of
