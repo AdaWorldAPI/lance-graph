@@ -1,3 +1,13 @@
+## 2026-07-07 — E-OCR-INPUT-LAYER-1 — P2 (input layer) COMPLETE: `pixConvertRGBToGray` + `OtsuThreshold` byte-parity green (3/3 + 3/3) — colour page → grey → binary decision chain proven, ruff-harvest-driven
+**Status:** FINDING (byte-parity proven vs real leptonica + libtesseract 5.3.4; `tesseract-ocr`, tested)
+
+Two leaves, both structure-from-ruff (the extended `harvest_leptonica_scale` — now `LANG_MODE=c++` + `EXTRA_INC` capable, ruff session branch `ee030a0`): the pixconv manifest (`pixConvertTo8 → pixConvertRGBToLuminance → pixConvertRGBToGray` LEAF) and the otsu manifest (`OtsuThreshold → {HistogramRect, OtsuStats}` both LEAF; otsuthr.cpp lives in `ccstruct/`, not textord/ — a real path surprise the harvest caught).
+
+- **pixconv** (`image_input::rgb_to_gray`/`rgb_to_luminance`, `pixconv.c:741-885`): f32 weighted sum with the `+0.5` **f64 promotion** (the same per-subexpression precision pattern as E-OCR-PIXSCALE-COMPLETE-1's area-map corner); weights `0,0,0` select the default `L_RED/GREEN/BLUE_WEIGHT = 0.3/0.5/0.2` trio internally — exactly what `pixConvertRGBToLuminance` calls. Parity **3/3** (24×36, 33×50, explicit 0.5/0.3/0.2) vs the REAL `pixConvertRGBToGray`.
+- **Otsu** (`threshold.rs`; `otsuthr.cpp:34/88/118` + `thresholder.cpp:394-421`): `histogram_rect_*`, `otsu_stats` (**i32 counts, f64 mu/variance** — the mixed-precision audit again), `otsu_threshold_gray/_channels` with the cross-channel best-of-the-bad-lot bookkeeping and the `hi_value` -1/0/255 decision branches, `threshold_rect_to_binary` (per-pixel `white_result` predicate verbatim). Parity **3/3** (24×36, 64×36, 37×29) vs the REAL `tesseract::OtsuThreshold`. Parity note: the oracle's first dump rendered the raw 1bpp bit (CLEAR=0) — but bit=1 means BLACK in 1bpp, so the grey rendering of white is 255; one polarity fix in the DUMP (decision predicate untouched) and the rows went byte-identical.
+
+Oracles banked at `tesseract-rs/.claude/harvest/oracles/{pixconv,otsu}_oracle.cpp` (rebuild commands in the plan's P2 EXECUTED block). Regression untouched (`qLLiy,,`); 26/26 lib tests; tesseract-rs `00db817`. Next per plan: **P3-alt** (projection-profile line finder, feature `seg-approx`, marked-approx) → the first E2E page→text demo; then P3 textord marathon / P4 renderers. Plan `tesseract-rs/.claude/plans/pdf-to-text-ocr-v1.md`. Branch `claude/happy-hamilton-0azlw4`.
+
 ## 2026-07-07 — E-OCR-WORDS-1 — recognizer B3-full: `ExtractBestPathAsWords` (word boxes) byte-parity green 4/4 — **P1 (accuracy batch) COMPLETE**: dict beam + word/box output, every leaf proven
 **Status:** FINDING (byte-parity proven vs libtesseract 5.3.4; `tesseract-core` + `tesseract-ocr`, tested)
 
