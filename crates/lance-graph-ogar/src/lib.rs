@@ -206,6 +206,41 @@ pub mod parity {
 mod tests {
     use super::*;
 
+    /// The ROUNDTRIP GREEN LIGHT (operator, 2026-07-07): lance-graph does NOT
+    /// carry ontologies — it only flips this fuse. For every authoritative
+    /// OGAR capability table (OCR today), assert at ID level that (a) the
+    /// authority named at least one expected executor ("die Ontologie wurde
+    /// nicht vergessen"), (b) every subject classid the table binds exists in
+    /// the wire mirror this crate already guards, (c) the table itself is
+    /// internally consistent (names unique, non-empty). The consumer-side
+    /// half of the loop (registration + coverage + classid activation) is
+    /// asserted in the consumer's own binary via
+    /// `ogar_vocab::capability_registry::verify_registration`.
+    #[test]
+    fn authoritative_ocr_table_roundtrip_is_green() {
+        use ogar_vocab::ocr_actions;
+
+        assert!(
+            !ocr_actions::OCR_EXPECTED_EXECUTORS.is_empty(),
+            "authority declared no expected executor for the OCR table"
+        );
+        let mirror: std::collections::BTreeMap<&str, u16> =
+            lance_graph_contract::ogar_codebook::CODEBOOK
+                .iter()
+                .copied()
+                .collect();
+        for &id in ocr_actions::OCR_SUBJECT_CLASSIDS {
+            assert!(
+                mirror.values().any(|&v| v == id),
+                "OCR table subject 0x{id:04X} missing from the wire mirror"
+            );
+        }
+        let names = ocr_actions::OCR_ACTION_NAMES;
+        assert!(!names.is_empty());
+        let set: std::collections::BTreeSet<&str> = names.iter().copied().collect();
+        assert_eq!(set.len(), names.len(), "duplicate capability names");
+    }
+
     #[test]
     fn ogar_class_view_implements_contract_class_view() {
         // The activation in one line: an OgarClassView IS a contract ClassView,
