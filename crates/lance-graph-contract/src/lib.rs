@@ -91,6 +91,7 @@ pub mod hash;
 pub mod head2head;
 pub mod hhtl;
 pub mod high_heel;
+pub mod hotplug;
 pub mod jit;
 pub mod kanban;
 pub mod literal_graph;
