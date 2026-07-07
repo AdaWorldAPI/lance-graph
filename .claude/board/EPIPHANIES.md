@@ -1,3 +1,12 @@
+## 2026-07-07 — E-OCR-MAKEROW-2 — 3E wave 2: the makerow row-assignment + cleanup chain byte-parity 4/4 — and the TIE-ORDER finding (unspecified in real Tesseract, pinned in the probe)
+**Status:** FINDING (byte-parity proven vs source-compiled C++ leaves; `tesseract-ocr`, tested)
+
+The chain `assign_blobs_to_rows`/`most_overlapping_row` (pass semantics, skew interpolation, the merge branch's iterator bookkeeping mapped to indices) → `fit_parallel_rows`/`fit_parallel_lms` (wave-1 ConstrainedFit) → `delete_non_dropout_rows` (the proven occupation leaves wired into the real prune decision) → `expand_rows`/`adjust_row_limits`/`compute_row_stats` → `make_rows` + REAL `compute_page_skew` lands on the wave-1 leaves (tesseract-rs `ad71e01`), with `ToRow`/`ToBlockCtx` as documented working-set carriers (TO_ROW ctor/add_blob/set_limits verbatim, `blobbox.cpp:685-766`). **Byte-parity 4/4** (2 seeds × clean/noise, per-stage f32-hex dumps) vs an oracle compiling `statistc.cpp`/`detlinefit.cpp` from source.
+
+**The transferable finding:** real Tesseract's `blob_x_order` sort and `row_spacing_order` `nth_element` leave TIE ORDER UNSPECIFIED (qsort/introselect semantics) — and `TO_ROW::add_blob`'s expansion is ORDER-DEPENDENT, so two faithful shells can diverge on equal-key inputs while both being "correct". The probe pins identical total orders on BOTH sides (full box tuple; spacing→intercept→min_y), documented in-code as PARITY PINs. Any future textord leaf with a sort/nth_element must get the same treatment up front. (Wave note: the porting agent was stopped mid-run; the orchestrator finished from its working tree — state was 90% complete and correct, the last 10% was exactly this tie-order class.)
+
+Next: 3E wave 3 (the xheight chain — `compute_block_xheight`/`compute_row_xheight`/`correct_row_xheight` + straight-baseline fallback), now harvestable FIRST-CLASS: ruff #57 (merged) made the out-of-line `Textord::` methods visible with class-qualified dispatch edges. Then the parity line finder replaces `seg-approx`, then P6. Plan `tesseract-rs/.claude/plans/pdf-to-text-ocr-v1.md`. Branch `claude/happy-hamilton-0azlw4`.
+
 ## 2026-07-07 — E-HOTPLUG-MIGRATION-1 — the generic hot-plug pattern is the migration target for ALL consumers; migration doc is board discipline
 **Status:** RULING (operator, 2026-07-07; shipped OGAR #174/#175 + lance-graph #658 + tesseract-rs #13/#14)
 
