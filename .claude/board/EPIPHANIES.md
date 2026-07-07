@@ -1,3 +1,14 @@
+## 2026-07-07 — E-OCR-LINEFINDER-1 — 3F₂ COMPLETE: the REAL makerow line finder replaces the projection approximation — CC pixel counts (no outline tracer needed) + filter_noise_blobs byte-parity 14/14 + the full composition wired
+**Status:** FINDING (leaves byte-parity proven; composition functional with two DOCUMENTED boundaries; `tesseract-ocr`, tested)
+
+**The Green's-theorem shortcut that killed a ~1000-line port:** `BLOBNBOX::enclosed_area()` = `C_OUTLINE::area()` + children, whose crack-boundary fold (outer minus holes) nets to the component's **ink pixel count** — so the proven 3B seedfill just counts clears during the fill, and the feared `scanedg`/`edgblob` edge-tracer port evaporates. `conn_comp_areas` 5/5 vs `pixConnCompPixa`+`pixCountPixels`; `conn_comp_bb` is now a thin `.map(bb)` (3B identity by construction + re-proven). Documented boundary #1: island-in-hole components (separate CC vs edge-blob fold-back) — nonexistent in Latin corpora.
+
+**`filter_noise_blobs` + block setup** (`tordmain.cpp:238-360`) byte-parity **4/4** vs a source-compiled-STATS oracle: the noise/small/large partition (height<7; density≥0.7 → small — HIGH density is the small-flag, real glyphs are <70% fill), `ile(0.75)`/`ile(0.90)` percentiles, the CCStruct-fraction f64 formulas, then `line_spacing`/`×1.25`/`×1.3`. Precision finding: `min_y = floor(initial_x/2)` stays PURE f32 (literal `2` promotes to float → C++ picks `float floor`), unlike the f64-promoted `max_y`/`max_x` paths. No sort/nth_element → no tie pin; the elst splice-order divergence is documented order-invariant.
+
+**The wire-in** (`recognize_page_makerow`, tesseract-rs `1516ce8` on top of `29be47a`): Otsu → components+areas → filter → `make_rows` → `compute_block_xheight` → per-row band → the proven A6b line path. Ungated (the real-path composition); `seg-approx` stays as the feature-gated comparator. E2E: the stacked page segments into exactly 2 deterministic rows. Documented boundary #2 (line FEEDING, not FINDING): raw expanded bands are rescaled by A6b, and `expand_rows` limits are FAITHFULLY asymmetric about the baseline (~0.75 asc vs 0.25 desc) so band heights vary — the real pipeline feeds baseline-NORMALIZED line images (`ccmain/linerec.cpp`), which is the next fidelity step. **P3's parity line-FINDING chain is closed**; what remains for full-pipeline output parity is baseline-normalized feeding + P6 golden corpus.
+
+Oracles + fixtures banked. 79/79 lib tests; `qLLiy,,` intact. Plan `tesseract-rs/.claude/plans/pdf-to-text-ocr-v1.md` §3F. Branch `claude/happy-hamilton-0azlw4`.
+
 ## 2026-07-07 — E-OCR-MAKEROW-3 — 3E wave 3: the x-height chain byte-parity 4/4 — the fixed ruff (#57) made the `Textord::` methods harvestable first-class, closing the make_rows textline stage
 **Status:** FINDING (byte-parity proven vs source-compiled C++ x-height chain; `tesseract-ocr`, tested)
 
