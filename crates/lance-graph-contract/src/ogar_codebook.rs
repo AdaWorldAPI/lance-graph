@@ -499,6 +499,14 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     // not 27 slots — the layer graph sinks onto `FacetCascade` tenants (the
     // ruff→OGAR network harvest lands here).
     ("network_layer", 0x0804),
+    // PDF→text plan mints (tesseract-rs `pdf-to-text-ocr-v1.md` Phase 0 D0.3/D0.5;
+    // OGAR PR #172 is the authoritative side — this mirror lands PAIRED with its
+    // merge per the two-sided drift fuse). Each row names its consumer phase.
+    ("textline", 0x0805),
+    ("blob", 0x0806),
+    ("page_layout", 0x0807),
+    ("page_image", 0x0808),
+    ("ocr_renderer", 0x0809),
     // ── 0x09XX — Health domain (MedCare; OGIT NTO/Healthcare promotion) ──
     ("patient", 0x0901),
     ("diagnosis", 0x0902),

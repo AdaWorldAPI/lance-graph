@@ -84,7 +84,7 @@ lance-graph-ontology = { path = "../lance-graph-ontology" }
 #
 # Back to branch = "main" now that OGAR #152 (Geo/OSM + network_layer, ALL=79)
 # has merged: main == the temp-pinned rev, so the contract mirror (79) and
-# ogar_vocab::class_ids::ALL (79) agree via COUNT_FUSE, and symbiont /
+# ogar_vocab::class_ids::ALL (84 since the 0x0805..0x0809 OCR plan mints, OGAR #172) agree via COUNT_FUSE, and symbiont /
 # cognitive-stack (which also `branch = "main"` these crates) resolve the SAME
 # single OGAR copy instead of a second one at a rev (codex P2 on #648).
 ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
