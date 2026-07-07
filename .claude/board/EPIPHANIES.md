@@ -1,3 +1,12 @@
+## 2026-07-07 — E-OCR-SEARCHABLE-PDF-1 — D4.5 searchable-PDF renderer round-trip green; Batch-3E makerow harvest banked — P4+P5 output surfaces COMPLETE, the textord marathon is cut
+**Status:** FINDING (round-trip proven with our own extractor; `tesseract-ocr-pdf`, tested)
+
+**D4.5** (tesseract-rs `fc10e2e`): `render_searchable_pdf` = page grey image as FlateDecode DeviceGray XObject + invisible text layer per the `pdfrenderer.cpp` model (`3 Tr`, per-word `Tm` at box-left/baseline, `Tf` from box height, `Tz = 100·box_w/natural_w` from an embedded Helvetica AFM table — the C++'s glyphless CID font swapped for a built-in font with identical geometry, documented). **Round-trip acceptance:** OCR a scanned PDF → `--searchable-pdf` → re-reading the output through our own `extract_text_layer` prints `Ly,` via the FAST path, no OCR. With this, **P4 (txt/TSV/hOCR/searchable-PDF) + P5 (text-layer + scanned arm) are both functionally complete** — every plan output surface exists.
+
+**Batch-3E harvest banked** (tesseract-rs `1fafffb`, `makerow-callgraph.txt` + `statistc-manifest.txt`): makerow.cpp 90 free fns, full dispatch trees for `make_rows` → assign/fit/cleanup and the xheight/baseline stage, the 38-param `textord_*` inventory (incl. `textord_biased_skewcalc`'s verbatim double-divide — must replicate, not fix), the minimal single-column leaf chain (STATS general port → LMS fits → assign_blobs_to_rows → cleanup → xheight modes → straight-baseline fallback) vs named deferrables (underlines, dot-of-i, spline path, skew interpolation). **Ruff tool findings for the next expansion:** `walk_free_functions` misses out-of-line class methods + one `dispatches_to` false negative; `harvest_textord` silently drops classes on unresolved includes (scrollview.h).
+
+Pipeline state: **PDF (digital or scanned) → text/TSV/hOCR/searchable-PDF, pure Rust end-to-end.** Remaining for parity depth: 3E makerow port (replaces seg-approx), P6 golden corpus. Plan `tesseract-rs/.claude/plans/pdf-to-text-ocr-v1.md`. Branch `claude/happy-hamilton-0azlw4`.
+
 ## 2026-07-07 — E-OCR-TEXTORD-FACET-1 + E-OCR-SCANNED-PDF-1 — Batch 3D ccstruct facets on V3 SoA; D5.2 embedded-image extraction — **scanned PDF → OCR text is CLOSED, pure Rust**
 **Status:** FINDING (3D: 849 contract tests green, field mappings header-cited; D5.2: 12/12 tests, E2E proven; lance-graph `4af7e8d5`, tesseract-rs `52fcf73`)
 
