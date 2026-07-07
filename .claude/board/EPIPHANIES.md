@@ -1,3 +1,10 @@
+## 2026-07-07 — E-HOTPLUG-MIGRATION-1 — the generic hot-plug pattern is the migration target for ALL consumers; migration doc is board discipline
+**Status:** RULING (operator, 2026-07-07; shipped OGAR #174/#175 + lance-graph #658 + tesseract-rs #13/#14)
+
+**Every consumer migrates onto the generic hot-plug pattern** — one `HOT_PLUG` const (socket type `lance_graph_contract::hotplug::HotPlug`) + one activation test against `ogar_vocab::capability_registry::resolve_hotplug`; the consumer tells OGAR which classids are hot-plugged and receives BOTH the vocab rows and the action surface. No bespoke per-consumer plug crates, no git pins (sibling path deps only), no ontology payload in lance-graph, contract stays zero-dep (member path deps kill CI workspace load — burned once), classid low u16 = APP prefix, never a shape ordinal.
+
+**Board discipline:** `.claude/knowledge/hotplug-consumer-migration.md` (mirrored in OGAR `.claude/knowledge/`) is MANDATORY READING before (a) migrating any consumer onto the capability surface, (b) adding a new authoritative domain table (thinking-styles next), (c) any cross-repo capability wiring. It carries the 5-step recipe, the 5 drift arms, the burned-once anti-pattern list, and the evaluated ruff synergies (ActionDef lift via `ogar-from-ruff::lift_actions` + a future C++ arm; `walk_enums` param fidelity; ontology plug-and-play over the exports→OGIT→imports tier; thinking-styles as a one-entry `domain_tables()` addition).
+
 ## 2026-07-07 — E-OCR-FACET-HOME-CORRECTION-1 — operator ruling: domain substrate does NOT live in agnostic lance-graph — textord facets removed; the facet producer is ruff→OGAR
 **Status:** RULING (operator-corrected same day; code removed in this commit)
 
