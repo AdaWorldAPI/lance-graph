@@ -22,6 +22,12 @@
 
 ---
 
+## 2026-07-08 — branch `claude/medcare-rs-transcode-ruff-3y2olh` — `contract::class_view`: the JUMP connector — `screens_reachable_from` + `nav_is_fully_connected` (Klickweg reachability, cycles allowed)
+
+### Current Contract Inventory — new entry
+
+- **`class_view::{screens_reachable_from, nav_is_fully_connected}`** (NEW; two free fns, additive, zero new deps, zero signature changes). The **jump** half of the stackable-topology Lego kit — the `navigates_to` navigation graph (screens = `ClassView` nodes, clicks = edges). Reuses `ComputeEdge` as the edge *representation* (`target` = destination screen, `inputs` = source screens) and returns a plain `WideFieldMask` of reached positions — **one more brick, not a parallel path**. The invariant deliberately differs from the compute DAG: **stack** composition (a screen composes sub-views, in-family) is acyclic and reuses `compute_dag_is_acyclic` (#539) verbatim, with the stacked-fields mask minted via the sanctioned `WideFieldMask::from_universe_present(basis, skin)` brick (#669) so it is interchangeable across consumers + carries the 256-SoC guard; **jump** navigation (out-of-family) is a **reachability closure with cycles ALLOWED** (`A→B→A` = ordinary back-navigation), so `screens_reachable_from` is a forward `WideFieldMask` fixpoint (cycle-safe: the reached set only grows) and `nav_is_fully_connected(root, edges, screens)` = `screens ⊆ reached` (no orphan lane — the level-editor/Mario-editor validator at the Core layer; `screens` itself minted via `from_universe_present`). Paired with the ruff harvest half (`ruff_spo_triplet::Predicate::NavigatesTo` + `ruff_csharp_spo::EmitNavArm`, verified end-to-end on a synthetic WinForms fixture). +3 class_view tests (forward closure; cycle-does-not-reject-connectivity; orphan-fails-connectivity); class_view 33/33, contract lib green; clippy `-D warnings` clean. Consumer: medcare-rs Klickweg 1:1 parity check (`screens_reachable_from` over the harvested `navigates_to` edges vs the rendered nav graph). See EPIPHANIES `E-KLICKWEG-1`.
+
 ## 2026-07-06 — MERGED #651 (merge `16c9e0c`) — `contract::class_view::WideFieldMask`: backward-compatible >64-field masks (canonical form, repr-independent Eq/Hash)
 
 (Post-merge inventory entry, L-1 of the criticals wave — operator ruling (c), 2026-07-06. Also records: the `claude/classview-unified-render` work in the entry below MERGED as **PR #650**, merge `598f872` — its "not yet a PR" line is superseded.)
