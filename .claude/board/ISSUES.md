@@ -1,16 +1,19 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
-## 2026-07-07 — ISS-V1-TAIL-RESIDUE PROGRESS — structural fix landed; aiwar V3-classid flip now blocked on a consumer, not the feature gate
+## 2026-07-07 — ISS-V1-TAIL-RESIDUE — RESOLVED (un-gate + default-on + both mint sites V3-routed; aiwar mints real V3)
 
-**Status:** PARTIALLY RESOLVED. The mandatory *structural* half of ISS-V1-TAIL-RESIDUE (below) is done in one PR:
+**Status:** RESOLVED. Landed in one PR (#663):
 - **`mint_for` un-gated** (`canonical_node.rs`): moved to an unconditional `impl NodeGuid` — V1 arm always available, V2/V3 arms feature-gated with a dead V1 fallback so `--no-default-features` still compiles.
-- **`guid-v3-tail` default-on** (`lance-graph-contract/Cargo.toml`), per the operator ruling. 854 lib tests green on default; `--no-default-features` still compiles; downstream `lance-graph` + `lance-graph-planner` check clean.
-- **Both mint sites route through `mint_for`** now — `ocr.rs` (`mint_for(classid_read_mode(classid).tail_variant, …)`, classid-param-driven) and `aiwar.rs` (`osint_classid`, still `CLASSID_OSINT`). No hardcoded `NodeGuid::new` remains in either production path.
-- **`/v3-audit` check #6** added: forbids `NodeGuid::new(` in non-test production code (the mechanical guard).
+- **`guid-v3-tail` default-on** (`lance-graph-contract/Cargo.toml`), per the operator ruling.
+- **Both mint sites route through `mint_for`** — `ocr.rs` (classid-param-driven) and `aiwar.rs` (`CLASSID_OSINT_V3` in a normal build; V1 fallback under `--no-default-features`). No hardcoded `NodeGuid::new` remains in either production path.
+- **`OSINT_GOTHAM` flipped to the V3 classid** (`soa_graph.rs`), so the projector's exact-classid filter matches the V3-minted aiwar rows; the `node()` test helper now mints via `mint_for` too.
+- **`/v3-audit` check #6** forbids `NodeGuid::new(` in non-test production code.
 
-**Newly discovered blocker (was NOT in the original issue).** Flipping `aiwar` to `CLASSID_OSINT_V3` (a real V3 mint) **broke `aiwar::tests::projects_to_family_node_graph`**: the V3 tail lays `family` at bytes 12..14 (u16), but `soa_graph::project_snapshot` reads `family` via the **V1 `family()` u24 accessor** (bytes 10..13) → family grouping reads garbage (leaf-dominated). So aiwar stays on the V1 `CLASSID_OSINT` (behavior-preserving via `mint_for`); its V3-classid flip is now gated on making `project_snapshot` (and any `family()`-reading consumer) **tail-aware** — an I-LEGACY-API-FEATURE-GATED consumer migration, not the feature gate the original issue named. Once `CLASSID_OSINT`'s registry `tail_variant` flips, the aiwar mint auto-follows.
+**Correction of the mid-work diagnosis (recorded so it doesn't mislead).** An interim note in this entry claimed the aiwar V3 flip was blocked because `soa_graph::project_snapshot` reads `family` via the V1 `family()` u24 accessor. **That was WRONG** — `soa_graph`'s read path is already tail-aware (`family_of`/`identity_of` route through `classid_read_mode(guid.classid()).tail_variant` → `family_v2`/`identity_v2` for V3; proven by `v3_rows_decode_family_and_identity_via_tail_variant`). The *actual* blocker was a one-line domain-spec pin: `OSINT_GOTHAM.classid = CLASSID_OSINT` (V1), and `project_snapshot` filters rows by **exact** classid, so V3-minted rows were dropped (empty snapshot). Flipping the domain spec to the V3 classid fixed it. Consumers were V3-ready; the straggler was the domain constant, not the read path.
 
-**Remaining (still OPEN):** (1) make `project_snapshot`/`OSINT_GOTHAM` read family tail-aware; (2) then flip `CLASSID_OSINT` (or point aiwar/ocr at a V3-marked classid). ocr is already V3-ready (classid-param-driven through `mint_for`).
+**Verification:** default build **854** lib tests green (V3), `--no-default-features` **840** green (V1 fallback), downstream `lance-graph` + `lance-graph-planner` check clean, fmt + clippy clean.
+
+**Follow-up (separate, non-blocking):** `CLASSID_OSINT` (V1, `0x0700_0000`) remains a registered legacy alias — its retirement is corpus-proof-gated (W6), not part of this issue.
 
 ## 2026-07-04 — ISS-V1-TAIL-RESIDUE — two pre-existing `NodeGuid::new` (V1 `u24+u24`) mint sites must migrate to V3 (`mint_for` / V3-marked classid)
 
