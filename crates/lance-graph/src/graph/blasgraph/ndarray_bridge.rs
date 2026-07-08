@@ -130,7 +130,7 @@ impl From<&ndarray::hpc::fingerprint::Fingerprint<256>> for BitVec {
 // ---------------------------------------------------------------------------
 // SIMD dispatch — routed through ndarray under `ndarray-hpc`, else 4-tier
 // in-crate fallback. Per the "all SIMD from ndarray" doctrine the canonical
-// SIMD dispatch lives in `ndarray::hpc::bitwise`; the hand-rolled intrinsics
+// SIMD dispatch lives in `ndarray::simd::bitwise`; the hand-rolled intrinsics
 // below survive only as the `#[cfg(not(feature = "ndarray-hpc"))]` fallback
 // for minimal / non-x86 builds (CI, wasm, embedded).
 // ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ impl From<&ndarray::hpc::fingerprint::Fingerprint<256>> for BitVec {
 /// SIMD-dispatched Hamming distance between two byte slices.
 ///
 /// Computes `popcount(a XOR b)`. Under `ndarray-hpc` this routes through
-/// `ndarray::hpc::bitwise::hamming_distance_raw` (VPOPCNTDQ → AVX-512BW →
+/// `ndarray::simd::hamming_distance_raw` (VPOPCNTDQ → AVX-512BW →
 /// AVX2 → scalar). Without the feature it uses the in-crate 4-tier fallback
 /// (VPOPCNTDQ → AVX-512BW → AVX2 → scalar).
 ///
@@ -149,7 +149,7 @@ pub fn dispatch_hamming(a: &[u8], b: &[u8]) -> u64 {
     #[cfg(feature = "ndarray-hpc")]
     {
         // Lengths are equal (asserted above), so ndarray's `min(len)` is exact.
-        ndarray::hpc::bitwise::hamming_distance_raw(a, b)
+        ndarray::simd::hamming_distance_raw(a, b)
     }
 
     #[cfg(not(feature = "ndarray-hpc"))]
@@ -176,13 +176,12 @@ pub fn dispatch_hamming(a: &[u8], b: &[u8]) -> u64 {
 
 /// SIMD-dispatched population count over a byte slice.
 ///
-/// Under `ndarray-hpc` this routes through `ndarray::hpc::bitwise::
-/// popcount_raw`. Without the feature it uses the same in-crate 4-tier
+/// Under `ndarray-hpc` this routes through `ndarray::simd::popcount_raw`. Without the feature it uses the same in-crate 4-tier
 /// fallback as `dispatch_hamming` (VPOPCNTDQ → AVX-512BW → AVX2 → scalar).
 pub fn dispatch_popcount(a: &[u8]) -> u64 {
     #[cfg(feature = "ndarray-hpc")]
     {
-        ndarray::hpc::bitwise::popcount_raw(a)
+        ndarray::simd::popcount_raw(a)
     }
 
     #[cfg(not(feature = "ndarray-hpc"))]
@@ -209,6 +208,7 @@ pub fn dispatch_popcount(a: &[u8]) -> u64 {
 // ---------------------------------------------------------------------------
 
 /// Scalar Hamming distance: XOR each u64 pair and sum `count_ones()`.
+#[cfg(not(feature = "ndarray-hpc"))]
 fn hamming_scalar(a: &[u8], b: &[u8]) -> u64 {
     // Process 8 bytes at a time as u64 words for efficiency.
     let chunks = a.len() / 8;
@@ -234,6 +234,7 @@ fn hamming_scalar(a: &[u8], b: &[u8]) -> u64 {
 }
 
 /// Scalar popcount: process as u64 words then handle remainder.
+#[cfg(not(feature = "ndarray-hpc"))]
 fn popcount_scalar(a: &[u8]) -> u64 {
     let chunks = a.len() / 8;
     let mut total = 0u64;
@@ -259,7 +260,7 @@ fn popcount_scalar(a: &[u8]) -> u64 {
 // AVX2 — 256-bit SIMD via shuffle-based popcount LUT
 // ---------------------------------------------------------------------------
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", not(feature = "ndarray-hpc")))]
 #[target_feature(enable = "avx2")]
 unsafe fn hamming_avx2(a: &[u8], b: &[u8]) -> u64 {
     use std::arch::x86_64::*;
@@ -307,7 +308,7 @@ unsafe fn hamming_avx2(a: &[u8], b: &[u8]) -> u64 {
     total
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", not(feature = "ndarray-hpc")))]
 #[target_feature(enable = "avx2")]
 unsafe fn popcount_avx2(a: &[u8]) -> u64 {
     use std::arch::x86_64::*;
@@ -352,7 +353,7 @@ unsafe fn popcount_avx2(a: &[u8]) -> u64 {
 // AVX-512BW — 512-bit SIMD via shuffle-based popcount LUT
 // ---------------------------------------------------------------------------
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", not(feature = "ndarray-hpc")))]
 #[target_feature(enable = "avx512f", enable = "avx512bw")]
 unsafe fn hamming_avx512bw(a: &[u8], b: &[u8]) -> u64 {
     use std::arch::x86_64::*;
@@ -395,7 +396,7 @@ unsafe fn hamming_avx512bw(a: &[u8], b: &[u8]) -> u64 {
     total
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", not(feature = "ndarray-hpc")))]
 #[target_feature(enable = "avx512f", enable = "avx512bw")]
 unsafe fn popcount_avx512bw(a: &[u8]) -> u64 {
     use std::arch::x86_64::*;
@@ -440,7 +441,7 @@ unsafe fn popcount_avx512bw(a: &[u8]) -> u64 {
 // AVX-512 VPOPCNTDQ — native 512-bit popcount
 // ---------------------------------------------------------------------------
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", not(feature = "ndarray-hpc")))]
 #[target_feature(enable = "avx512f", enable = "avx512vpopcntdq")]
 unsafe fn hamming_avx512_vpopcntdq(a: &[u8], b: &[u8]) -> u64 {
     use std::arch::x86_64::*;
@@ -469,7 +470,7 @@ unsafe fn hamming_avx512_vpopcntdq(a: &[u8], b: &[u8]) -> u64 {
     total
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", not(feature = "ndarray-hpc")))]
 #[target_feature(enable = "avx512f", enable = "avx512vpopcntdq")]
 unsafe fn popcount_avx512_vpopcntdq(a: &[u8]) -> u64 {
     use std::arch::x86_64::*;
