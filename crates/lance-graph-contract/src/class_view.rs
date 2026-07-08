@@ -477,6 +477,78 @@ impl Hash for WideFieldMask {
     }
 }
 
+/// Positions in [`WideFieldMask`] are `u8`, so a mask can address at most 256
+/// fields. The doctrine (lance-graph #651 body) is explicit: capacity beyond
+/// 256 is headroom, never license — a class whose universe genuinely exceeds
+/// 256 fields is an OGAR-SOC (separation-of-concerns) split signal, not a case
+/// to widen the mask type further. [`WideFieldMask::from_universe_present`]
+/// refuses loudly rather than silently truncating or wrapping such a universe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WideMaskCapError {
+    /// `universe.len()` exceeded the 256-position cap that `u8` positions
+    /// impose on [`WideFieldMask`].
+    UniverseExceedsSocCap {
+        /// The offending universe size.
+        fields: usize,
+    },
+}
+
+impl std::fmt::Display for WideMaskCapError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UniverseExceedsSocCap { fields } => write!(
+                f,
+                "universe of {fields} fields exceeds the 256-field cap (u8 positions) \
+                 — an OGAR-SOC split signal, not a mask to widen further"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for WideMaskCapError {}
+
+impl WideFieldMask {
+    /// Mint the projection mask from a domain-blind `universe`/`present` pair:
+    /// bit `i` is set iff `universe[i]` ∈ `present` — the same sort-agnostic
+    /// membership rule odoo-rs's `od_ontology::view_mask::mint_wide_mask` uses,
+    /// so any consumer (Rails/ERB `ViewFieldSet` included) mints the identical
+    /// mask from the identical inputs. Positions are the universe index (`u8`).
+    ///
+    /// **One more brick, not a parallel path.** This is a plain constructor
+    /// stacked on top of the existing kit — it computes the populated
+    /// positions and hands them to [`Self::from_positions`] (which itself
+    /// folds [`Self::with`] over the slice); no bit-fiddling is reimplemented
+    /// here. The `Self` it returns composes exactly like any other
+    /// `WideFieldMask`: keep stacking `.with(...)`, [`Self::union`],
+    /// [`Self::intersect`], etc. on the result.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WideMaskCapError::UniverseExceedsSocCap`] if
+    /// `universe.len() > 256` — `WideFieldMask` positions are `u8`, so a larger
+    /// universe cannot be addressed at all. This is a loud refusal, never a
+    /// silent drop or truncation.
+    pub fn from_universe_present(
+        universe: &[&str],
+        present: &[&str],
+    ) -> Result<Self, WideMaskCapError> {
+        if universe.len() > 256 {
+            return Err(WideMaskCapError::UniverseExceedsSocCap {
+                fields: universe.len(),
+            });
+        }
+        let present_set: std::collections::BTreeSet<&str> = present.iter().copied().collect();
+        #[allow(clippy::cast_possible_truncation)] // guarded: universe.len() <= 256 above
+        let positions: Vec<u8> = universe
+            .iter()
+            .enumerate()
+            .filter(|(_, field)| present_set.contains(*field))
+            .map(|(i, _)| i as u8)
+            .collect();
+        Ok(Self::from_positions(&positions))
+    }
+}
+
 /// One recompute edge in a class's **compute DAG**: field position `target` is
 /// (re)computed from the field positions in `inputs`.
 ///
@@ -1628,5 +1700,37 @@ mod tests {
         assert!(!only_200.is_empty()); // sanity: 200 really set a bit somewhere
         assert_eq!(three_chunk_minus_200, direct_two_chunks);
         assert_eq!(hash_of(&three_chunk_minus_200), hash_of(&direct_two_chunks));
+    }
+
+    // ── from_universe_present minter (Q6, odoo-rs view_mask relocation) ──────
+
+    /// A universe of 257 fields exceeds the `u8`-position cap — refused loudly,
+    /// mirroring odoo-rs's `mint_wide_mask` cap error.
+    #[test]
+    fn from_universe_present_rejects_universe_over_256() {
+        let universe: Vec<String> = (0..257).map(|i| format!("f{i:03}")).collect();
+        let universe_refs: Vec<&str> = universe.iter().map(String::as_str).collect();
+        let err = WideFieldMask::from_universe_present(&universe_refs, &[]).unwrap_err();
+        assert_eq!(err, WideMaskCapError::UniverseExceedsSocCap { fields: 257 });
+    }
+
+    /// Membership agrees with the raw `from_positions` construction on a mixed
+    /// 70-field universe — mirrors `wide_mask_agrees_with_mask_words` in
+    /// odoo-rs's `view_mask.rs`.
+    #[test]
+    fn from_universe_present_agrees_with_from_positions() {
+        let universe: Vec<String> = (0..70).map(|i| format!("f{i:02}")).collect();
+        let universe_refs: Vec<&str> = universe.iter().map(String::as_str).collect();
+        let present = ["f00", "f63", "f69"];
+
+        let minted = WideFieldMask::from_universe_present(&universe_refs, &present)
+            .expect("universe within cap");
+        let direct = WideFieldMask::from_positions(&[0, 63, 69]);
+
+        assert_eq!(minted, direct);
+        assert_eq!(minted.count(), 3);
+        for i in 0..universe.len() as u8 {
+            assert_eq!(minted.has(i), direct.has(i));
+        }
     }
 }
