@@ -108,8 +108,18 @@ pub const OSINT_GOTHAM: DomainSpec = DomainSpec {
 /// structural entities, family = body region, `out_family` = part-of. Anchor
 /// families are the *bones* (the skeleton the soft tissue hangs off); the
 /// default declares none — a caller supplies the bone families.
+/// The FMA domain classid: the V3 anatomy class (`CLASSID_FMA_V3`) in a normal
+/// build; the legacy V1 `CLASSID_FMA` only under `--no-default-features`.
+/// Matches q2's `osint-bake/body` (`/helix` substrate) which already mints
+/// `CLASSID_FMA_V3`. V3 routes on the `from_guid_prefix_v3` fold (classid not
+/// folded) — `hhtl_path`/`nearest_anchor` are already tail-aware.
+#[cfg(feature = "guid-v3-tail")]
+const FMA_ANATOMY_CLASSID: u32 = NodeGuid::CLASSID_FMA_V3;
+#[cfg(not(feature = "guid-v3-tail"))]
+const FMA_ANATOMY_CLASSID: u32 = NodeGuid::CLASSID_FMA;
+
 pub const FMA_ANATOMY: DomainSpec = DomainSpec {
-    classid: NodeGuid::CLASSID_FMA,
+    classid: FMA_ANATOMY_CLASSID,
     name: "FMA-Anatomy",
     anchor_families: &[],
     in_family_edge: "adjacent-to",
@@ -117,12 +127,20 @@ pub const FMA_ANATOMY: DomainSpec = DomainSpec {
     member_edge: "part-of",
 };
 
-/// The **project-management** domain (classid [`NodeGuid::CLASSID_PROJECT`],
+/// The project-management domain classid: the V3 class
+/// [`NodeGuid::CLASSID_PROJECT_V3`] in a normal build; the legacy V1
+/// [`NodeGuid::CLASSID_PROJECT`] only under `--no-default-features`.
+#[cfg(feature = "guid-v3-tail")]
+const PROJECT_CLASSID: u32 = NodeGuid::CLASSID_PROJECT_V3;
+#[cfg(not(feature = "guid-v3-tail"))]
+const PROJECT_CLASSID: u32 = NodeGuid::CLASSID_PROJECT;
+
+/// The **project-management** domain (V3 class [`NodeGuid::CLASSID_PROJECT_V3`],
 /// OGAR `0x01XX`): OpenProject ↔ Redmine work items. Family = project / version;
 /// `in_family` = relates-to, `out_family` = blocks (cross-project dependency).
 /// Anchor families are caller-supplied (the milestone / release hubs).
 pub const PROJECT: DomainSpec = DomainSpec {
-    classid: NodeGuid::CLASSID_PROJECT,
+    classid: PROJECT_CLASSID,
     name: "Project",
     anchor_families: &[],
     in_family_edge: "relates-to",
@@ -130,12 +148,20 @@ pub const PROJECT: DomainSpec = DomainSpec {
     member_edge: "in-project",
 };
 
-/// The **commerce / ERP** domain (classid [`NodeGuid::CLASSID_ERP`], OGAR
+/// The commerce/ERP domain classid: the V3 class [`NodeGuid::CLASSID_ERP_V3`]
+/// in a normal build; the legacy V1 [`NodeGuid::CLASSID_ERP`] only under
+/// `--no-default-features`.
+#[cfg(feature = "guid-v3-tail")]
+const ERP_CLASSID: u32 = NodeGuid::CLASSID_ERP_V3;
+#[cfg(not(feature = "guid-v3-tail"))]
+const ERP_CLASSID: u32 = NodeGuid::CLASSID_ERP;
+
+/// The **commerce / ERP** domain (V3 class [`NodeGuid::CLASSID_ERP_V3`], OGAR
 /// `0x02XX`): Odoo ↔ OSB invoices / partners / taxes. Family = partner / journal;
 /// `in_family` = line-of, `out_family` = paid-by (cross-partner settlement).
 /// Anchor families are caller-supplied (the key accounts / journals).
 pub const ERP: DomainSpec = DomainSpec {
-    classid: NodeGuid::CLASSID_ERP,
+    classid: ERP_CLASSID,
     name: "ERP",
     anchor_families: &[],
     in_family_edge: "line-of",
@@ -622,9 +648,24 @@ mod tests {
             hops[2].hops,
             hops[3].hops
         );
-        // The exact fixed-depth-16 values: 2·(16−7)=18 and 2·(16−4)=24.
-        assert_eq!(hops[2].hops, 18);
-        assert_eq!(hops[3].hops, 24);
+        // The exact fixed-depth-16 values depend on the fold:
+        // - V3 (default, `from_guid_prefix_v3`): folds HEEL·HIP·TWIG·LEAF, classid
+        //   NOT folded, so lcp counts only the shared HEEL nibbles. node2 HEEL
+        //   0x1009 shares 0x100 (lcp 3) ⇒ 2·(16−3)=26; node3 HEEL 0xF000 diverges
+        //   at nibble 0 (lcp 0) ⇒ 2·(16−0)=32.
+        // - V1 (`--no-default-features`, `from_guid_prefix`): folds
+        //   classid_lo·HEEL·HIP·TWIG; the shared classid_lo adds 4 to the lcp ⇒
+        //   lcp 7 ⇒ 18 and lcp 4 ⇒ 24.
+        #[cfg(feature = "guid-v3-tail")]
+        {
+            assert_eq!(hops[2].hops, 26);
+            assert_eq!(hops[3].hops, 32);
+        }
+        #[cfg(not(feature = "guid-v3-tail"))]
+        {
+            assert_eq!(hops[2].hops, 18);
+            assert_eq!(hops[3].hops, 24);
+        }
     }
 
     #[test]

@@ -156,6 +156,42 @@ impl NodeGuid {
     #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_CPIC_V3_LEGACY: u32 = 0x1000_0E00;
 
+    /// **PROJECT-V3** — project-management (OpenProject ↔ Redmine) on a
+    /// [`TailVariant::V3`] cascade tail, minted for **OpenProject** (appid
+    /// `0x01` — the consumer's OWN appid, operator ruling 2026-07-08: "consumers
+    /// own their own appid … they do NOT ride q2's 0x01"). Canon `0x0101` HIGH
+    /// (project-mgmt domain `0x01`, appid `0x01`); the V3 marker `0x1000` in the
+    /// LOW/custom u16 — `0x01:01::1000`. Same encoding shape as
+    /// [`CLASSID_OSINT_V3`] (domain:appid canon-HIGH, fixed `0x1000` marker
+    /// custom-LOW) — NOT the `render_classid`/`AppPrefix` render-lens layout
+    /// (concept-HIGH, app-prefix-LOW): the V3 mint tail and the OGAR render
+    /// lens are two independent composition axes that happen to share the
+    /// `0x01`/`0x02` app byte values here.
+    /// [`classid_concept_domain`](crate::ogar_codebook::classid_concept_domain)
+    /// routes [`ProjectMgmt`](crate::ogar_codebook::ConceptDomain::ProjectMgmt).
+    /// Resolves to [`ReadMode::PROJECT_V3`] (same hot `Cognitive` model as legacy PROJECT).
+    #[cfg(feature = "guid-v3-tail")]
+    pub const CLASSID_PROJECT_V3: u32 = 0x0101_1000;
+    /// Pre-flip stored form of [`CLASSID_PROJECT_V3`] (marker HIGH, canon
+    /// `0x0100` LOW — pre-normalization appid `:00`) — read-only legacy alias.
+    #[cfg(feature = "guid-v3-tail")]
+    pub const CLASSID_PROJECT_V3_LEGACY: u32 = 0x1000_0100;
+
+    /// **ERP-V3** — commerce/ERP (Odoo ↔ OSB) on a [`TailVariant::V3`] cascade
+    /// tail, minted for **Odoo** (appid `0x02` — the consumer's OWN appid, same
+    /// 2026-07-08 ruling as [`CLASSID_PROJECT_V3`]). Canon `0x0202` HIGH
+    /// (commerce domain `0x02`, appid `0x02`); the V3 marker `0x1000` in the
+    /// LOW/custom u16 — `0x02:02::1000`.
+    /// [`classid_concept_domain`](crate::ogar_codebook::classid_concept_domain)
+    /// routes [`Commerce`](crate::ogar_codebook::ConceptDomain::Commerce).
+    /// Resolves to [`ReadMode::ERP_V3`] (same hot `Cognitive` model as legacy ERP).
+    #[cfg(feature = "guid-v3-tail")]
+    pub const CLASSID_ERP_V3: u32 = 0x0202_1000;
+    /// Pre-flip stored form of [`CLASSID_ERP_V3`] (marker HIGH, canon `0x0200`
+    /// LOW — pre-normalization appid `:00`) — read-only legacy alias.
+    #[cfg(feature = "guid-v3-tail")]
+    pub const CLASSID_ERP_V3_LEGACY: u32 = 0x1000_0200;
+
     /// Construct from the six canonical groups. `family`/`identity` use their low 3 bytes.
     ///
     /// Panics (incl. const-eval) when `family` or `identity` exceed 24 bits — the
@@ -1155,6 +1191,26 @@ impl ReadMode {
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
 
+    /// The **PROJECT-V3** read-mode ([`NodeGuid::CLASSID_PROJECT_V3`]): the same
+    /// hot [`ValueSchema::Cognitive`] value model as legacy [`PROJECT`](ReadMode::PROJECT),
+    /// read through the new-generation [`TailVariant::V3`] cascade tail.
+    #[cfg(feature = "guid-v3-tail")]
+    pub const PROJECT_V3: ReadMode = ReadMode {
+        tail_variant: TailVariant::V3,
+        value_schema: ValueSchema::Cognitive,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
+    /// The **ERP-V3** read-mode ([`NodeGuid::CLASSID_ERP_V3`]): the same hot
+    /// [`ValueSchema::Cognitive`] value model as legacy [`ERP`](ReadMode::ERP),
+    /// read through the new-generation [`TailVariant::V3`] cascade tail.
+    #[cfg(feature = "guid-v3-tail")]
+    pub const ERP_V3: ReadMode = ReadMode {
+        tail_variant: TailVariant::V3,
+        value_schema: ValueSchema::Cognitive,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
     /// All three axes are layout-preserving (a tail-variant/preset/flavor
     /// re-interprets reserved bytes, never a stride change), so adopting any
     /// read-mode needs no `ENVELOPE_LAYOUT_VERSION` bump.
@@ -1218,9 +1274,13 @@ static BUILTIN_READ_MODES: LazyLock<HashMap<u32, ReadMode>> = LazyLock::new(|| {
         m.insert(NodeGuid::CLASSID_OSINT_V3, ReadMode::OSINT_V3);
         m.insert(NodeGuid::CLASSID_FMA_V3, ReadMode::FMA_V3);
         m.insert(NodeGuid::CLASSID_CPIC_V3, ReadMode::CPIC_V3);
+        m.insert(NodeGuid::CLASSID_PROJECT_V3, ReadMode::PROJECT_V3);
+        m.insert(NodeGuid::CLASSID_ERP_V3, ReadMode::ERP_V3);
         m.insert(NodeGuid::CLASSID_OSINT_V3_LEGACY, ReadMode::OSINT_V3);
         m.insert(NodeGuid::CLASSID_FMA_V3_LEGACY, ReadMode::FMA_V3);
         m.insert(NodeGuid::CLASSID_CPIC_V3_LEGACY, ReadMode::CPIC_V3);
+        m.insert(NodeGuid::CLASSID_PROJECT_V3_LEGACY, ReadMode::PROJECT_V3);
+        m.insert(NodeGuid::CLASSID_ERP_V3_LEGACY, ReadMode::ERP_V3);
     }
     m
 });

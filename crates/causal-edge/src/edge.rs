@@ -30,6 +30,10 @@ pub enum InferenceType {
 }
 
 impl InferenceType {
+    // Used only on the v1 (non-`causal-edge-v2-layout`) read path; under v2 the
+    // 4-bit signed mantissa decode (`from_mantissa`) supersedes it. Dead under
+    // the default v2 feature, live under `--no-default-features`.
+    #[allow(dead_code)]
     #[inline]
     fn from_bits(v: u8) -> Self {
         match v & 0b111 {
@@ -165,6 +169,9 @@ const CONF_SHIFT: u32 = 32;
 const CAUSAL_SHIFT: u32 = 40;
 const DIR_SHIFT: u32 = 43;
 const INFER_SHIFT: u32 = 46;
+// v1 plasticity bit position; under v2 plasticity moves to `crate::layout::PLAST_SHIFT`.
+// Live on the v1 pack/read paths, dead under the default v2 feature.
+#[allow(dead_code)]
 const PLAST_SHIFT: u32 = 49;
 const TEMPORAL_SHIFT: u32 = 52;
 
@@ -639,6 +646,7 @@ impl CausalEdge64 {
         // weight.inference_type() is the v1 fallback below; v2 uses mantissa
         let resolved_infer = InferenceType::from_mantissa(weight.inference_mantissa());
         #[cfg(not(feature = "causal-edge-v2-layout"))]
+        #[allow(deprecated)] // v1 layout: 3-bit unsigned inference type is the canonical read
         let resolved_infer = weight.inference_type();
         let (f_out, c_out) = match resolved_infer {
             InferenceType::Deduction => {
@@ -679,7 +687,8 @@ impl CausalEdge64 {
         let mask_out =
             CausalMask::from_bits((self.causal_mask() as u8) & (weight.causal_mask() as u8));
 
-        // 4. Temporal: latest of the two
+        // 4. Temporal: latest of the two (v1 read; the pack() below drops it under v2)
+        #[allow(deprecated)]
         let t_out = self.temporal().max(weight.temporal());
 
         // 5. Inherit plasticity from weight (the "learned" edge)
@@ -1082,6 +1091,9 @@ impl CausalEdge64 {
 }
 
 impl std::fmt::Debug for CausalEdge64 {
+    // Debug prints the v1 views (`inference_type`/`temporal`) for readability; under
+    // v2 these are deprecated accessors but harmless for a diagnostic dump.
+    #[allow(deprecated)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CausalEdge64")
             .field("spo", &(self.s_idx(), self.p_idx(), self.o_idx()))
