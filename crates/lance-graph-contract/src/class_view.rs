@@ -673,6 +673,70 @@ pub fn compute_dag_topo_order(edges: &[ComputeEdge]) -> Option<Vec<u8>> {
     }
 }
 
+/// Which screens are reachable from `root` by following navigation edges —
+/// the **jump** half of the stackable-topology Lego kit (the `navigates_to`
+/// Klickweg harvested by `ruff_csharp_spo`).
+///
+/// **One more brick, not a parallel path.** A navigation graph reuses the
+/// existing [`ComputeEdge`] shape (`target` = the destination screen, `inputs`
+/// = the source screens that navigate to it) and returns a plain
+/// [`WideFieldMask`] of reached screen positions — no new edge type, no new
+/// mask type. The *representation* is shared with the compute DAG; only the
+/// *invariant* differs, and deliberately so:
+///
+/// - **Stack** (a screen composing sub-views) is acyclic — a screen cannot
+///   compose itself — so composition edges go through
+///   [`compute_dag_is_acyclic`] verbatim.
+/// - **Jump** (this function) is a **reachability closure, cycles allowed**:
+///   `A → B → A` is ordinary back-navigation, so running `compute_dag_is_acyclic`
+///   on nav edges would wrongly reject every back-link. A forward fixpoint over
+///   [`WideFieldMask`] (`.with` / `.has`) is the right check — cycle-safe by
+///   construction (the reached set only grows, so it terminates).
+///
+/// Positions are `u8`, capped at 256 like every other mask (lance-graph #651
+/// SoC doctrine). Out-of-range targets/inputs are ignored by
+/// [`WideFieldMask::with`] / [`WideFieldMask::has`], mirroring
+/// [`FieldMask::from_positions`].
+#[must_use]
+pub fn screens_reachable_from(root: u8, edges: &[ComputeEdge]) -> WideFieldMask {
+    let mut reached = WideFieldMask::EMPTY.with(root);
+    loop {
+        let mut next = reached.clone();
+        for e in edges {
+            // edge means: any source in `e.inputs` navigates to `e.target`.
+            if e.inputs.iter().any(|&src| reached.has(src)) {
+                next = next.with(e.target);
+            }
+        }
+        if next == reached {
+            return reached; // fixpoint — the reached set stopped growing
+        }
+        reached = next;
+    }
+}
+
+/// Whether **every** screen in `screens` is reachable from `root` — the
+/// canonical "does every pipe lead somewhere, and is the level fully
+/// connected" check (the level-editor validator, at the Core layer).
+///
+/// `true` iff `screens ⊆ screens_reachable_from(root, edges)`: no orphaned
+/// lane, every screen has a click-path from the root. This is the acyclicity
+/// check's sibling for the jump connector — it does NOT reject cycles (nav is
+/// legitimately cyclic), it rejects **disconnection**.
+///
+/// `screens` is the universe-of-screens mask, and the SANCTIONED way to mint it
+/// is [`WideFieldMask::from_universe_present`]`(universe = all screen ids,
+/// present = the screens the app actually serves)` — the same membership brick
+/// every other consumer uses, so the mask is byte-for-byte interchangeable and
+/// carries the 256-field SoC-split guard. Do NOT hand-roll it via ad-hoc
+/// `from_positions(mask_positions(..))` — that is off-brick and skips the guard.
+#[must_use]
+pub fn nav_is_fully_connected(root: u8, edges: &[ComputeEdge], screens: &WideFieldMask) -> bool {
+    let reached = screens_reachable_from(root, edges);
+    // screens ⊆ reached  ⟺  screens ∩ reached == screens
+    &screens.intersect(&reached) == screens
+}
+
 /// The class as a **meta lookup that flies above the SoA** — the resolver trait.
 ///
 /// An implementor (in `lance-graph-ontology`, over the OGIT cache) is the
@@ -1174,6 +1238,76 @@ mod tests {
             "both precedents before the join"
         );
         assert_eq!(order.len(), 3);
+    }
+
+    // ── screen-graph jump connector (navigates_to Klickweg) ──────────────────
+
+    #[test]
+    fn nav_reachability_is_a_forward_closure() {
+        // root(0) -> orders(1) -> lines(2);  root -> settings(3)
+        let edges = &[
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+            ComputeEdge {
+                target: 2,
+                inputs: &[1],
+            },
+            ComputeEdge {
+                target: 3,
+                inputs: &[0],
+            },
+        ];
+        let reached = screens_reachable_from(0, edges);
+        assert!(reached.has(0) && reached.has(1) && reached.has(2) && reached.has(3));
+        assert_eq!(reached.count(), 4);
+        assert!(nav_is_fully_connected(
+            0,
+            edges,
+            &WideFieldMask::from_positions(&[0, 1, 2, 3])
+        ));
+    }
+
+    #[test]
+    fn nav_cycle_does_not_reject_connectivity() {
+        // A(0) -> B(1) -> A(0): ordinary back-navigation. compute_dag_is_acyclic
+        // WOULD reject this; the jump connector must NOT — the whole point of the
+        // reachability-vs-acyclicity split. Every screen is still reachable.
+        let edges = &[
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+            ComputeEdge {
+                target: 0,
+                inputs: &[1],
+            },
+        ];
+        assert!(!compute_dag_is_acyclic(edges), "the nav graph IS cyclic");
+        let reached = screens_reachable_from(0, edges);
+        assert!(reached.has(0) && reached.has(1));
+        assert!(nav_is_fully_connected(
+            0,
+            edges,
+            &WideFieldMask::from_positions(&[0, 1])
+        ));
+    }
+
+    #[test]
+    fn nav_orphan_screen_fails_connectivity() {
+        // root(0) -> orders(1); settings(2) has NO click-path from root — a dead
+        // lane. This is the dead-link/orphan the level-editor validator catches.
+        let edges = &[ComputeEdge {
+            target: 1,
+            inputs: &[0],
+        }];
+        let reached = screens_reachable_from(0, edges);
+        assert!(reached.has(0) && reached.has(1) && !reached.has(2));
+        assert!(
+            !nav_is_fully_connected(0, edges, &WideFieldMask::from_positions(&[0, 1, 2])),
+            "orphan screen 2 must break connectivity"
+        );
     }
 
     #[test]
