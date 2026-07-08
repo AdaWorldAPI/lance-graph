@@ -127,12 +127,20 @@ pub const FMA_ANATOMY: DomainSpec = DomainSpec {
     member_edge: "part-of",
 };
 
-/// The **project-management** domain (classid [`NodeGuid::CLASSID_PROJECT`],
+/// The project-management domain classid: the V3 class
+/// [`NodeGuid::CLASSID_PROJECT_V3`] in a normal build; the legacy V1
+/// [`NodeGuid::CLASSID_PROJECT`] only under `--no-default-features`.
+#[cfg(feature = "guid-v3-tail")]
+const PROJECT_CLASSID: u32 = NodeGuid::CLASSID_PROJECT_V3;
+#[cfg(not(feature = "guid-v3-tail"))]
+const PROJECT_CLASSID: u32 = NodeGuid::CLASSID_PROJECT;
+
+/// The **project-management** domain (V3 class [`NodeGuid::CLASSID_PROJECT_V3`],
 /// OGAR `0x01XX`): OpenProject ↔ Redmine work items. Family = project / version;
 /// `in_family` = relates-to, `out_family` = blocks (cross-project dependency).
 /// Anchor families are caller-supplied (the milestone / release hubs).
 pub const PROJECT: DomainSpec = DomainSpec {
-    classid: NodeGuid::CLASSID_PROJECT,
+    classid: PROJECT_CLASSID,
     name: "Project",
     anchor_families: &[],
     in_family_edge: "relates-to",
@@ -140,12 +148,20 @@ pub const PROJECT: DomainSpec = DomainSpec {
     member_edge: "in-project",
 };
 
-/// The **commerce / ERP** domain (classid [`NodeGuid::CLASSID_ERP`], OGAR
+/// The commerce/ERP domain classid: the V3 class [`NodeGuid::CLASSID_ERP_V3`]
+/// in a normal build; the legacy V1 [`NodeGuid::CLASSID_ERP`] only under
+/// `--no-default-features`.
+#[cfg(feature = "guid-v3-tail")]
+const ERP_CLASSID: u32 = NodeGuid::CLASSID_ERP_V3;
+#[cfg(not(feature = "guid-v3-tail"))]
+const ERP_CLASSID: u32 = NodeGuid::CLASSID_ERP;
+
+/// The **commerce / ERP** domain (V3 class [`NodeGuid::CLASSID_ERP_V3`], OGAR
 /// `0x02XX`): Odoo ↔ OSB invoices / partners / taxes. Family = partner / journal;
 /// `in_family` = line-of, `out_family` = paid-by (cross-partner settlement).
 /// Anchor families are caller-supplied (the key accounts / journals).
 pub const ERP: DomainSpec = DomainSpec {
-    classid: NodeGuid::CLASSID_ERP,
+    classid: ERP_CLASSID,
     name: "ERP",
     anchor_families: &[],
     in_family_edge: "line-of",
