@@ -719,10 +719,23 @@ pub fn screens_reachable_from(root: u8, edges: &[ComputeEdge]) -> WideFieldMask 
 /// canonical "does every pipe lead somewhere, and is the level fully
 /// connected" check (the level-editor validator, at the Core layer).
 ///
-/// `true` iff `screens ⊆ screens_reachable_from(root, edges)`: no orphaned
-/// lane, every screen has a click-path from the root. This is the acyclicity
-/// check's sibling for the jump connector — it does NOT reject cycles (nav is
-/// legitimately cyclic), it rejects **disconnection**.
+/// `true` iff `screens_reachable_from(root, edges) == screens` — the reached
+/// set is **exactly** the declared screen universe. That single equality
+/// catches all three failure modes a level editor must reject, and it does NOT
+/// reject cycles (nav is legitimately cyclic):
+///
+/// - **orphan** — a declared screen with no click-path from `root`
+///   (`screens ⊄ reached`);
+/// - **dangling click** — a navigation edge whose target is NOT a declared
+///   screen (`reached ⊄ screens`): a pipe that leads nowhere served, e.g.
+///   `screens={0,1}`, `1→99` must FAIL despite every declared screen being
+///   reachable;
+/// - **unserved root** — `root` is always in `reached`, so if `root ∉ screens`
+///   the equality fails: you can't enter a level whose entry screen isn't
+///   served.
+///
+/// (A plain `screens ⊆ reached` subset test — the pre-#670-review form — passed
+/// the last two; codex P2 on #670 caught it. Exact equality is the fix.)
 ///
 /// `screens` is the universe-of-screens mask, and the SANCTIONED way to mint it
 /// is [`WideFieldMask::from_universe_present`]`(universe = all screen ids,
@@ -732,9 +745,9 @@ pub fn screens_reachable_from(root: u8, edges: &[ComputeEdge]) -> WideFieldMask 
 /// `from_positions(mask_positions(..))` — that is off-brick and skips the guard.
 #[must_use]
 pub fn nav_is_fully_connected(root: u8, edges: &[ComputeEdge], screens: &WideFieldMask) -> bool {
-    let reached = screens_reachable_from(root, edges);
-    // screens ⊆ reached  ⟺  screens ∩ reached == screens
-    &screens.intersect(&reached) == screens
+    // Exact equality: no orphan (screens ⊆ reached) AND no dangling click /
+    // unserved root (reached ⊆ screens). `reached` always contains `root`.
+    &screens_reachable_from(root, edges) == screens
 }
 
 /// The class as a **meta lookup that flies above the SoA** — the resolver trait.
@@ -1307,6 +1320,42 @@ mod tests {
         assert!(
             !nav_is_fully_connected(0, edges, &WideFieldMask::from_positions(&[0, 1, 2])),
             "orphan screen 2 must break connectivity"
+        );
+    }
+
+    #[test]
+    fn nav_dangling_click_fails_connectivity() {
+        // screens {0,1} declared; edge 1->99 clicks to a screen that is NOT
+        // served (a dead link). Every DECLARED screen is reachable, but the
+        // reached set {0,1,99} != {0,1}, so the level is not fully connected.
+        // (codex P2 on #670: the old `screens ⊆ reached` subset test passed this.)
+        let edges = &[
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+            ComputeEdge {
+                target: 99,
+                inputs: &[1],
+            },
+        ];
+        assert!(
+            !nav_is_fully_connected(0, edges, &WideFieldMask::from_positions(&[0, 1])),
+            "a click to an undeclared screen (99) must break connectivity"
+        );
+    }
+
+    #[test]
+    fn nav_unserved_root_fails_connectivity() {
+        // root 0 is NOT among the declared screens {1}; you can't enter a level
+        // whose entry screen isn't served. reached {0,1} != {1}.
+        let edges = &[ComputeEdge {
+            target: 1,
+            inputs: &[0],
+        }];
+        assert!(
+            !nav_is_fully_connected(0, edges, &WideFieldMask::from_positions(&[1])),
+            "an unserved root must break connectivity"
         );
     }
 
