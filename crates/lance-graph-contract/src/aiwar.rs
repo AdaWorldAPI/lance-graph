@@ -13,7 +13,7 @@
 //! `GraphSnapshot` to the Quadro-2 visual. Run it on the real graph with
 //! `cargo run -p lance-graph-contract --example aiwar_family_poc`.
 
-use crate::canonical_node::{EdgeBlock, NodeGuid, NodeRow};
+use crate::canonical_node::{classid_read_mode, EdgeBlock, NodeGuid, NodeRow};
 use crate::literal_graph::LiteralGraph;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -72,6 +72,16 @@ impl AiwarClassView {
 /// projected graph links category hubs (Nation → System, etc.). Head-only — the
 /// 480-byte value slab stays zero.
 pub fn aiwar_node_rows(graph: &LiteralGraph) -> Vec<NodeRow> {
+    // ONE OSINT class, minted V3 (ISS-V1-TAIL-RESIDUE): route through `mint_for`
+    // so the classid's registered `tail_variant` drives the tail. `OSINT_GOTHAM`
+    // filters on the SAME selector, and `family_of`/`identity_of` decode the V3
+    // basin tail-aware — so the round-trip is consistent. `--no-default-features`
+    // falls back to the V1 `CLASSID_OSINT` (the V3 class is gated out there).
+    #[cfg(feature = "guid-v3-tail")]
+    let osint_classid = NodeGuid::CLASSID_OSINT_V3;
+    #[cfg(not(feature = "guid-v3-tail"))]
+    let osint_classid = NodeGuid::CLASSID_OSINT;
+
     let view = AiwarClassView::from_graph(graph);
     let ids = graph.all_node_ids();
     let fam_of =
@@ -101,13 +111,19 @@ pub fn aiwar_node_rows(graph: &LiteralGraph) -> Vec<NodeRow> {
                 edges.out_family[k] = b;
             }
             NodeRow {
-                key: NodeGuid::new(
-                    NodeGuid::CLASSID_OSINT,
+                // Route through `mint_for` so the classid's registered
+                // `tail_variant` drives the key layout (ISS-V1-TAIL-RESIDUE).
+                // Masked to u16 — fits both the V3 basin tail and the V1 fallback
+                // (POC cardinalities are tiny: category count + node count).
+                key: NodeGuid::mint_for(
+                    classid_read_mode(osint_classid).tail_variant,
+                    osint_classid,
                     0,
                     0,
                     0,
-                    fam & 0x00FF_FFFF,
-                    (i as u32) & 0x00FF_FFFF,
+                    0,
+                    fam & 0xFFFF,
+                    (i as u32) & 0xFFFF,
                 ),
                 edges,
                 value: [0u8; 480],
@@ -185,9 +201,15 @@ mod tests {
 
     #[test]
     fn rows_are_osint_class_and_head_only() {
+        // ONE OSINT class: V3 in a normal build, V1 under `--no-default-features`
+        // (mirrors `aiwar_node_rows` + `OSINT_GOTHAM`).
+        #[cfg(feature = "guid-v3-tail")]
+        let expected_classid = NodeGuid::CLASSID_OSINT_V3;
+        #[cfg(not(feature = "guid-v3-tail"))]
+        let expected_classid = NodeGuid::CLASSID_OSINT;
         let g = ingest_aiwar_json(SAMPLE).unwrap();
         for row in aiwar_node_rows(&g) {
-            assert_eq!(row.key.classid(), NodeGuid::CLASSID_OSINT);
+            assert_eq!(row.key.classid(), expected_classid);
             assert_eq!(row.value, [0u8; 480], "head-only: value slab stays zero");
         }
     }

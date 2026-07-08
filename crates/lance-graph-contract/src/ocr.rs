@@ -116,9 +116,20 @@ impl<'a> LayoutBlock<'a> {
 
         NodeRow {
             // HHT unbound (0) and default basin for the POC — only `identity`
-            // discriminates (the canon bootstrap address); `classid` still selects
-            // the read-mode. Minting HEEL/HIP/TWIG + family is the OGAR follow-up.
-            key: NodeGuid::new(classid, 0, 0, 0, NodeGuid::FAMILY_DEFAULT, identity),
+            // discriminates (the canon bootstrap address). Route through
+            // `mint_for` so the classid's registered `tail_variant` (V1 or V3)
+            // drives the key layout — never a hardcoded `new` (ISS-V1-TAIL-RESIDUE).
+            // Minting HEEL/HIP/TWIG + family is the OGAR follow-up.
+            key: NodeGuid::mint_for(
+                classid_read_mode(classid).tail_variant,
+                classid,
+                0,
+                0,
+                0,
+                0,
+                NodeGuid::FAMILY_DEFAULT,
+                identity,
+            ),
             edges: EdgeBlock::default(),
             value,
         }

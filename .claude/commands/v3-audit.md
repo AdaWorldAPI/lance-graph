@@ -36,6 +36,12 @@ every hit with file:line and a one-line disposition
    — verify const size asserts unchanged or `ENVELOPE_LAYOUT_VERSION`
    bumped, and that no `_LEGACY` read-mode key was removed (retirement is
    corpus-proof-gated).
+6. **V1-mint forbid** (ISS-V1-TAIL-RESIDUE): pattern `NodeGuid::new\(`
+   in non-test production code is a violation — new mints route through
+   `NodeGuid::mint_for(classid_read_mode(c).tail_variant, …)` so the
+   class registry drives the tail. Sanctioned: `#[cfg(test)]` modules,
+   `mint_for`'s own V1 arm (`canonical_node.rs`), and legacy-compat
+   *reads* (`family()`/`identity()` accessors are reads, not mints).
 
 End with a verdict per the v3-mailbox-warden vocabulary (OWNED /
 BOOTSTRAP-OK / ORPHAN-WRITE / RESURRECTION) plus LAYOUT-CLEAN /

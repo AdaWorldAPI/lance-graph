@@ -36,6 +36,11 @@ name = "i4_batch"
 harness = false
 
 [features]
+# default-on `guid-v3-tail` (operator ruling 2026-07-04, ISS-V1-TAIL-RESIDUE):
+# every normal build mints real V3 keys via `mint_for`. `--no-default-features`
+# still compiles (mint_for's V1 arm is un-gated; V2/V3 arms fall back to V1).
+default = ["guid-v3-tail"]
+
 # A-unlock-stepdomain — `step_trajectory_hash` forward stub for the E4
 # cross-PR bridge between PR #278 audit log + PR #279 grammar trajectory.
 # No-op alias today; concrete impl lands once the bridge PR ships.

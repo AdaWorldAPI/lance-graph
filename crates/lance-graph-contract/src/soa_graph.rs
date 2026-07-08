@@ -83,11 +83,20 @@ pub struct DomainSpec {
     pub member_edge: &'static str,
 }
 
-/// The **OSINT / Palantir-Gotham** domain (classid [`NodeGuid::CLASSID_OSINT`]):
+/// The OSINT domain classid: the V3 OSINT class (`CLASSID_OSINT_V3`) in a
+/// normal build; the legacy V1 `CLASSID_OSINT` only under
+/// `--no-default-features` (where the V3 class is gated out). aiwar mints under
+/// the same selector, so its rows always match this domain's projector filter.
+#[cfg(feature = "guid-v3-tail")]
+const OSINT_GOTHAM_CLASSID: u32 = NodeGuid::CLASSID_OSINT_V3;
+#[cfg(not(feature = "guid-v3-tail"))]
+const OSINT_GOTHAM_CLASSID: u32 = NodeGuid::CLASSID_OSINT;
+
+/// The **OSINT / Palantir-Gotham** domain (V3 class [`NodeGuid::CLASSID_OSINT_V3`]):
 /// a neo4j-emulation entity graph. Anchor families are caller-supplied (the key
 /// entities of an investigation); the default declares none.
 pub const OSINT_GOTHAM: DomainSpec = DomainSpec {
-    classid: NodeGuid::CLASSID_OSINT,
+    classid: OSINT_GOTHAM_CLASSID,
     name: "OSINT/Gotham",
     anchor_families: &[],
     in_family_edge: "linked",
@@ -401,6 +410,7 @@ mod tests {
         in_fam: &[u8],
         out_fam: &[u8],
     ) -> NodeRow {
+        use crate::canonical_node::classid_read_mode;
         let mut edges = EdgeBlock::default();
         for (i, &b) in in_fam.iter().enumerate().take(12) {
             edges.in_family[i] = b;
@@ -409,7 +419,20 @@ mod tests {
             edges.out_family[i] = b;
         }
         NodeRow {
-            key: NodeGuid::new(domain.classid, hht.0, hht.1, hht.2, family, identity),
+            // Route through `mint_for` so the domain classid's `tail_variant`
+            // drives the tail layout (V3 domains lay family/identity as u16 at
+            // 12..16; V1 as u24 at 10..16) — matching how `family_of`/`identity_of`
+            // decode them (ISS-V1-TAIL-RESIDUE).
+            key: NodeGuid::mint_for(
+                classid_read_mode(domain.classid).tail_variant,
+                domain.classid,
+                hht.0,
+                hht.1,
+                hht.2,
+                0,
+                family,
+                identity,
+            ),
             edges,
             value: [0u8; 480],
         }

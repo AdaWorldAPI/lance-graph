@@ -1,5 +1,20 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-07 — ISS-V1-TAIL-RESIDUE — RESOLVED (un-gate + default-on + both mint sites V3-routed; aiwar mints real V3)
+
+**Status:** RESOLVED. Landed in one PR (#663):
+- **`mint_for` un-gated** (`canonical_node.rs`): moved to an unconditional `impl NodeGuid` — V1 arm always available, V2/V3 arms feature-gated with a dead V1 fallback so `--no-default-features` still compiles.
+- **`guid-v3-tail` default-on** (`lance-graph-contract/Cargo.toml`), per the operator ruling.
+- **Both mint sites route through `mint_for`** — `ocr.rs` (classid-param-driven) and `aiwar.rs` (`CLASSID_OSINT_V3` in a normal build; V1 fallback under `--no-default-features`). No hardcoded `NodeGuid::new` remains in either production path.
+- **`OSINT_GOTHAM` flipped to the V3 classid** (`soa_graph.rs`), so the projector's exact-classid filter matches the V3-minted aiwar rows; the `node()` test helper now mints via `mint_for` too.
+- **`/v3-audit` check #6** forbids `NodeGuid::new(` in non-test production code.
+
+**Correction of the mid-work diagnosis (recorded so it doesn't mislead).** An interim note in this entry claimed the aiwar V3 flip was blocked because `soa_graph::project_snapshot` reads `family` via the V1 `family()` u24 accessor. **That was WRONG** — `soa_graph`'s read path is already tail-aware (`family_of`/`identity_of` route through `classid_read_mode(guid.classid()).tail_variant` → `family_v2`/`identity_v2` for V3; proven by `v3_rows_decode_family_and_identity_via_tail_variant`). The *actual* blocker was a one-line domain-spec pin: `OSINT_GOTHAM.classid = CLASSID_OSINT` (V1), and `project_snapshot` filters rows by **exact** classid, so V3-minted rows were dropped (empty snapshot). Flipping the domain spec to the V3 classid fixed it. Consumers were V3-ready; the straggler was the domain constant, not the read path.
+
+**Verification:** default build **854** lib tests green (V3), `--no-default-features` **840** green (V1 fallback), downstream `lance-graph` + `lance-graph-planner` check clean, fmt + clippy clean.
+
+**Follow-up (separate, non-blocking):** `CLASSID_OSINT` (V1, `0x0700_0000`) remains a registered legacy alias — its retirement is corpus-proof-gated (W6), not part of this issue.
+
 ## 2026-07-04 — ISS-V1-TAIL-RESIDUE — two pre-existing `NodeGuid::new` (V1 `u24+u24`) mint sites must migrate to V3 (`mint_for` / V3-marked classid)
 
 **Status:** OPEN — **MIGRATION MANDATORY** (operator ruling 2026-07-04, `E-V1-TAIL-FORBIDDEN-V3-IS-CONTENT-BLIND-1`). Deferred in *timing*, not in *obligation*; NOT to be churned into unrelated PRs. Owner: whoever next moves each output path onto a V3-marked classid.
