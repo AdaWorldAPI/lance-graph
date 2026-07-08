@@ -1,5 +1,40 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-08 — ISS-V1-TAIL-RESIDUE — woa-rs arm — RESOLVED (`make_account_guid_bytes` migrated to the V3 tail)
+
+**Status:** RESOLVED (operator ruling 2026-07-08, landed in woa-rs — sibling repo,
+not this branch). This is a THIRD residue arm under the `ISS-V1-TAIL-RESIDUE`
+umbrella, alongside the two lance-graph-contract mint sites (`ocr.rs`/`aiwar.rs`,
+resolved 2026-07-07 below) — woa-rs's ERP account-GUID minter carried its own
+independent V1-tail residue (`family` hash stuffing the Personenkonten trailing
+digits) that the lance-graph-side fix did not touch.
+
+**Landed:** woa-rs `src/erp/canon.rs::make_account_guid_bytes` now produces
+`leaf(u16)/family(u16)/identity(u16)` byte-identical to `NodeGuid::new_v2`/
+`mint_for(TailVariant::V3, …)` — the V1→V3 semantic move: the Personenkonten
+trailing digits (SKR03 70000-99999) that V1 stuffed into the `family` **hash**
+now live in the **LEAF tier** as a real `(ten_bucket:final_digit)` `(part_of:is_a)`
+rail (`skr_leaf()` decomposes `70123` → LEAF `(2,3)`), matching the same
+canonical `HEEL·HIP·TWIG·LEAF·family·identity` cascade shape this branch's
+`mint_for` dispatch uses. **Parallelbetrieb invariant pinned** (doc block
+"READ THIS FIRST" in `canon.rs`): the MySQL ORM mapping stays authoritative —
+`identity` = the MySQL `erp_accounts` row id, converted `u16`-by-signature with
+a loud `try_from` (`.expect("Parallelbetrieb: erp_accounts row id must …")`) at
+every call site, never a silent `as` alias/truncation. **11/11 tests green** in
+woa-rs (`src/erp/canon.rs` — 4-digit accounts, Personenkonten LEAF decompose,
+round-trip byte layout, MySQL-id round-trip).
+
+**Scope note:** woa-rs is a sibling repo (not this lance-graph worktree) —
+this entry is board-hygiene bookkeeping only, landed same-commit as any other
+ISSUES.md bookkeeping in this session per the V3 plan's standing gate 3
+("board hygiene same-commit"). No lance-graph-contract code changed for this
+arm.
+
+Cross-ref: woa-rs `src/erp/canon.rs` (`make_account_guid_bytes`, `skr_leaf`);
+this file's `ISS-V1-TAIL-RESIDUE` 2026-07-07 / 2026-07-04 entries (the
+lance-graph-contract arms of the same residue umbrella); `.claude/v3/INTEGRATION-PLAN.md`
+standing gate 3.
+
 ## 2026-07-07 — ISS-V1-TAIL-RESIDUE — RESOLVED (un-gate + default-on + both mint sites V3-routed; aiwar mints real V3)
 
 **Status:** RESOLVED. Landed in one PR (#663):
