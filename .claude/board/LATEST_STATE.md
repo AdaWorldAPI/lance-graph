@@ -22,6 +22,12 @@
 
 ---
 
+## 2026-07-10 — branch `claude/review-claude-board-files-nhqgx1` — `contract::step_mask::StepMask` — the compiled-template live-step selector (D-V3-W3a)
+
+### Current Contract Inventory — new entry
+
+- **`step_mask::StepMask`** (NEW; one zero-dep `u64` newtype module, additive, re-exported from `lib.rs`). The thinking sibling of `class_view::FieldMask` per the V3 compiled-templates ruling (`E-COMPILED-THINKING-TEMPLATES`): `askama ↔ ClassView × FieldMask :: elixir DSL ↔ Template × StepMask`. Bit `N` = the `N`-th step of a compiled template's ordered step list is LIVE for the current style/dispatch; positions are stable + append-only (the N3 rule — retire by template `version` bump, never by bit reuse). **Selection, NEVER control flow** — the module doc pins the 2026-07-02 ground-truth correction (`Step ↔ graph_flow::Task`, `ogar_name() ↔ Task::id()`; GoTo/End/WaitForInput belong to a future `ControlSignal` surface, not to mask bits). API mirrors `FieldMask` verbatim (`EMPTY`/`FULL`/`MAX_STEPS=64`/`from_positions` with the ignore-never-fold ≥64 rule/`with`/`is_live`/`count`/`intersect`/`union`/`is_disjoint`) plus three template-shaped additions: `without` (mask a step off — skipped, not awaited, per the standing-async-plan ruling: a kanban update reprioritizes the live set, it never gates the cycle), `full_for(step_count)` (live-set default, saturating at 64 — a >64-step template is a split signal, mirroring `WideFieldMask::full_for`), and `next_live(from)` (the executor's O(1) trailing-zeros ordered-walk primitive). +5 tests incl. the style-lens ∩ board-admission compose and the ordered-walk skip; contract lib **866** green (861+5); clippy `--all-targets -D warnings` clean; fmt clean. Consumer: D-V3-W3b's ElixirTemplate → graph-flow adapter judges its live set with this mask; W3d catalogue keying stays internal (P4-gated). STATUS_BOARD D-V3-W3a flipped same-commit.
+
 ## 2026-07-08 — branch `claude/medcare-rs-transcode-ruff-3y2olh` — `contract::class_view`: the JUMP connector — `screens_reachable_from` + `nav_is_fully_connected` (Klickweg reachability, cycles allowed)
 
 ### Current Contract Inventory — new entry
