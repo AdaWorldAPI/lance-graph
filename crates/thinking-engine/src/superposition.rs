@@ -27,7 +27,7 @@ pub struct SuperpositionField {
 
 /// Detected thinking style based on superposition pattern.
 #[derive(Clone, Debug, PartialEq)]
-pub enum ThinkingStyle {
+pub enum DetectedStyle {
     /// Gate opens early, few atoms, high confidence.
     /// The thought is focused and decisive.
     Analytical,
@@ -43,8 +43,13 @@ pub enum ThinkingStyle {
     /// No clear pattern — mixed or neutral.
     Diffuse,
 }
+/// Legacy name for the detected-style enum.
+#[deprecated(
+    note = "this is a runtime detection RESULT, not a taxonomy card; renamed DetectedStyle (M9)"
+)]
+pub type ThinkingStyle = DetectedStyle;
 
-impl std::fmt::Display for ThinkingStyle {
+impl std::fmt::Display for DetectedStyle {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::Analytical => write!(f, "analytical (focused, decisive)"),
@@ -158,7 +163,7 @@ pub fn detect_style(
     n_atoms: usize,
     avg_dissonance: f32,
     thresholds: &StyleThresholds,
-) -> ThinkingStyle {
+) -> DetectedStyle {
     let _resonant_fraction = field.n_resonant as f32 / n_atoms.max(1) as f32;
 
     // Gate: only count atoms above threshold
@@ -170,15 +175,15 @@ pub fn detect_style(
     let gated_fraction = gated_count as f32 / n_atoms.max(1) as f32;
 
     if gated_fraction < thresholds.analytical_sparsity && gated_count > 0 {
-        ThinkingStyle::Analytical
+        DetectedStyle::Analytical
     } else if avg_dissonance > thresholds.emotional_dissonance {
-        ThinkingStyle::Emotional
+        DetectedStyle::Emotional
     } else if gated_fraction > thresholds.creative_density {
-        ThinkingStyle::Creative
+        DetectedStyle::Creative
     } else if gated_count > 0 {
-        ThinkingStyle::Intuitive
+        DetectedStyle::Intuitive
     } else {
-        ThinkingStyle::Diffuse
+        DetectedStyle::Diffuse
     }
 }
 
@@ -192,7 +197,7 @@ pub fn superposition_cascade(
     n_atoms: usize,
     avg_dissonance: f32,
     thresholds: &StyleThresholds,
-) -> (SuperpositionField, ThinkingStyle, Vec<u16>) {
+) -> (SuperpositionField, DetectedStyle, Vec<u16>) {
     // Build visit maps from cascade stages
     let visit_maps: Vec<HashMap<u16, u32>> = lens_stages
         .iter()
@@ -260,7 +265,7 @@ mod tests {
             n_resonant: 2,
         };
         let style = detect_style(&field, 256, 0.0, &StyleThresholds::default());
-        assert_eq!(style, ThinkingStyle::Analytical); // 2/256 < 5% = analytical
+        assert_eq!(style, DetectedStyle::Analytical); // 2/256 < 5% = analytical
     }
 
     #[test]
@@ -272,7 +277,7 @@ mod tests {
             n_resonant: 50,
         };
         let style = detect_style(&field, 256, 0.5, &StyleThresholds::default());
-        assert_eq!(style, ThinkingStyle::Emotional); // high dissonance
+        assert_eq!(style, DetectedStyle::Emotional); // high dissonance
     }
 
     #[test]
@@ -284,17 +289,17 @@ mod tests {
             n_resonant: 100,
         };
         let style = detect_style(&field, 256, 0.05, &StyleThresholds::default());
-        assert_eq!(style, ThinkingStyle::Creative); // 100/256 > 25%
+        assert_eq!(style, DetectedStyle::Creative); // 100/256 > 25%
     }
 
     #[test]
     fn style_display() {
         assert_eq!(
-            format!("{}", ThinkingStyle::Analytical),
+            format!("{}", DetectedStyle::Analytical),
             "analytical (focused, decisive)"
         );
         assert_eq!(
-            format!("{}", ThinkingStyle::Emotional),
+            format!("{}", DetectedStyle::Emotional),
             "emotional (tension-engaged)"
         );
     }

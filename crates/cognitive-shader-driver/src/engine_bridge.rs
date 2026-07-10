@@ -520,7 +520,10 @@ pub fn read_qualia_17d(bs: &BindSpace, row: usize) -> [f32; 17] {
 /// StyleParams (layer_mask, combine, contra, density_target) plus
 /// the thinking-engine style parameters (resonance_threshold, fan_out, etc.).
 ///
-/// This is THE canonical mapping. Three type systems, one ordinal.
+/// The canonical ORDINAL authority is `lance_graph_contract::StyleFamily`
+/// (M9 dedup) — this table carries the fused per-family PARAMS at those
+/// ordinals; name/ordinal alignment with `StyleFamily::ALL` is pinned by
+/// `unified_styles_align_with_style_family`.
 pub struct UnifiedStyle {
     pub ordinal: u8,
     pub name: &'static str,
@@ -768,6 +771,20 @@ mod tests {
     use crate::auto_style;
     use lance_graph_contract::cognitive_shader::ShaderHit;
     use lance_graph_contract::collapse_gate::GateDecision;
+
+    /// G3 (D-TSC-1): UNIFIED_STYLES is keyed by the canonical StyleFamily
+    /// ordinal space — names, ordinals, and lengths all pinned (also
+    /// guards the `% 12` indexing at unified_style_for/driver sites).
+    #[test]
+    fn unified_styles_align_with_style_family() {
+        use lance_graph_contract::style_family::StyleFamily;
+        assert_eq!(UNIFIED_STYLES.len(), StyleFamily::ALL.len());
+        for (i, us) in UNIFIED_STYLES.iter().enumerate() {
+            let f = StyleFamily::from_ordinal(i as u8).unwrap();
+            assert_eq!(us.ordinal, i as u8, "ordinal drift at {i}");
+            assert_eq!(us.name, f.name(), "name drift at {i}");
+        }
+    }
 
     #[test]
     fn ingest_sets_bits() {

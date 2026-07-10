@@ -54,23 +54,25 @@ impl LayerId {
     }
 }
 
-/// 12 thinking styles with calibrated parameters.
-/// From ladybug-rs/src/cognitive/unified_stack.rs.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
-pub enum ThinkingStyle {
-    #[default]
-    Deliberate, // balanced default
-    Analytical,    // tight focus, few branches
-    Convergent,    // narrowing toward answer
-    Systematic,    // methodical coverage
-    Creative,      // wide exploration, many branches
-    Divergent,     // actively seeking alternatives
-    Exploratory,   // maximum breadth
-    Focused,       // single-point attention
-    Diffuse,       // soft attention, peripheral
-    Peripheral,    // edge detection, anomalies
-    Intuitive,     // fast pattern match, trust experience
-    Metacognitive, // thinking about thinking
+/// The 12-family orchestration space — canonical type lives in the
+/// contract (M9 dedup, D-TSC-1). The engine keeps its calibrated
+/// per-family parameters locally (`EngineStyleExt`).
+pub use lance_graph_contract::style_family::StyleFamily;
+
+/// Legacy name for the 12-space.
+#[deprecated(note = "the 12-space is StyleFamily (orchestration families); \
+            StyleFamily is the 36-runbook space in lance_graph_contract::thinking")]
+pub type ThinkingStyle = StyleFamily;
+
+/// Engine-local calibrated semantics on the shared `StyleFamily` taxonomy.
+/// An extension trait because `StyleFamily` is a foreign (contract) type.
+pub trait EngineStyleExt {
+    /// Get calibrated cascade parameters for this family.
+    fn params(&self) -> StyleParams;
+    /// Butterfly sensitivity: noise tolerance (low = sensitive to small changes).
+    fn butterfly_sensitivity(&self) -> f32;
+    /// All 12 families in frozen ordinal order.
+    fn all() -> &'static [StyleFamily];
 }
 
 /// Parameters that modulate cascade behavior per style.
@@ -88,9 +90,8 @@ pub struct StyleParams {
     pub collapse_bias: f32,
 }
 
-impl ThinkingStyle {
-    /// Get calibrated parameters for this style.
-    pub fn params(&self) -> StyleParams {
+impl EngineStyleExt for StyleFamily {
+    fn params(&self) -> StyleParams {
         match self {
             Self::Analytical => StyleParams {
                 resonance_threshold: 0.85,
@@ -179,8 +180,7 @@ impl ThinkingStyle {
         }
     }
 
-    /// Butterfly sensitivity: noise tolerance (low = sensitive to small changes).
-    pub fn butterfly_sensitivity(&self) -> f32 {
+    fn butterfly_sensitivity(&self) -> f32 {
         match self {
             Self::Peripheral => 0.10,
             Self::Exploratory => 0.15,
@@ -197,7 +197,7 @@ impl ThinkingStyle {
         }
     }
 
-    pub fn all() -> &'static [ThinkingStyle] {
+    fn all() -> &'static [StyleFamily] {
         &[
             Self::Deliberate,
             Self::Analytical,
@@ -212,12 +212,6 @@ impl ThinkingStyle {
             Self::Intuitive,
             Self::Metacognitive,
         ]
-    }
-}
-
-impl std::fmt::Display for ThinkingStyle {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self)
     }
 }
 
@@ -249,7 +243,7 @@ impl GateState {
     }
 
     /// Evaluate with style bias.
-    pub fn from_sd_styled(sd: f32, style: &ThinkingStyle) -> Self {
+    pub fn from_sd_styled(sd: f32, style: &StyleFamily) -> Self {
         let biased_sd = sd + style.params().collapse_bias;
         Self::from_sd(biased_sd)
     }
@@ -403,12 +397,12 @@ mod tests {
 
     #[test]
     fn all_12_styles() {
-        assert_eq!(ThinkingStyle::all().len(), 12);
+        assert_eq!(StyleFamily::all().len(), 12);
     }
 
     #[test]
     fn style_params_consistent() {
-        for style in ThinkingStyle::all() {
+        for style in StyleFamily::all() {
             let p = style.params();
             assert!(p.resonance_threshold >= 0.0 && p.resonance_threshold <= 1.0);
             assert!(p.fan_out >= 1);
@@ -426,10 +420,10 @@ mod tests {
     #[test]
     fn gate_styled_creative_holds_longer() {
         // Creative has collapse_bias = 0.15 → SD appears higher → holds longer
-        let gate = GateState::from_sd_styled(0.10, &ThinkingStyle::Creative);
+        let gate = GateState::from_sd_styled(0.10, &StyleFamily::Creative);
         assert_eq!(gate, GateState::Hold); // 0.10 + 0.15 = 0.25 → Hold
 
-        let gate = GateState::from_sd_styled(0.10, &ThinkingStyle::Focused);
+        let gate = GateState::from_sd_styled(0.10, &StyleFamily::Focused);
         assert_eq!(gate, GateState::Flow); // 0.10 + (-0.15) = -0.05 → Flow
     }
 
@@ -465,8 +459,8 @@ mod tests {
     #[test]
     fn butterfly_ordering() {
         assert!(
-            ThinkingStyle::Peripheral.butterfly_sensitivity()
-                < ThinkingStyle::Focused.butterfly_sensitivity()
+            StyleFamily::Peripheral.butterfly_sensitivity()
+                < StyleFamily::Focused.butterfly_sensitivity()
         );
     }
 }

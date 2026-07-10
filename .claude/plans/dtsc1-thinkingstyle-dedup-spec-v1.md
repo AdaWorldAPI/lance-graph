@@ -437,3 +437,18 @@ enum-variant paths through `type` aliases compile on the pinned toolchain
      are doc-comments or contract-36 usage, NOT I2 consumers
      (overclaim §2 FIX-P2 — the unstated assumption stated).
   Execution may begin: gates G1-G7 are the acceptance surface.
+- **v3-impl note** (2026-07-10, post-execution) — SHIPPED, all gates
+  green (G1 = 1 enum + 3 deprecated aliases; 1549 tests across the four
+  crates; no new clippy warnings; fmt clean). Implementation surfaced a
+  **FIFTH divergent table**: thinking-engine `contract_style_to_engine`'s
+  36→12 ordinal-RANGE mapping (S4 always prescribed routing it through
+  `family()`, so the change was in-spec, but the divergence magnitude —
+  e.g. id 0 Logical→Analytical vs canonical Convergent, Empathic→Intuitive
+  vs Diffuse — was unquantified until the code was opened; its 3 pinned
+  test arms flipped to canonical as documented witnesses). Finding banked
+  as `E-FIVE-STYLE-TABLES-1`. Minor deviations from the letter of the
+  spec, all in its spirit: engine `Display for StyleFamily` moved into
+  contract (orphan rule; prints the Debug form to preserve engine call
+  sites); `EngineStyleExt` extension trait (params/butterfly_sensitivity/
+  all) mirrors `PlannerStyleExt` for the engine's calibrated values —
+  no new dispatch machinery (F2 intact).

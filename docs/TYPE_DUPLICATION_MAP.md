@@ -157,6 +157,18 @@ Plus related types:
 
 **Critical**: The contract crate (copy #1) exists specifically to replace copies #2-4, but **none of them actually depend on it yet.**
 
+> **ADDENDUM 2026-07-10 (D-TSC-1 / M9 — RESOLVED for lance-graph):** the
+> 12-space now has ONE canonical type, `lance-graph-contract/src/style_family.rs`
+> `StyleFamily` (12 orchestration families; 36 = NARS runbooks stay
+> `thinking::ThinkingStyle` — E-STYLE-FAMILY-VS-RUNBOOK-1). Copy #2 (planner)
+> and the post-ledger copies in thinking-engine (`cognitive_stack.rs`,
+> `superposition.rs` → renamed `DetectedStyle`) are deprecated aliases with all
+> in-crate call sites migrated. Copies #3/#4 were mooted by the n8n-rs eviction
+> (2026-06-21). FIVE divergent hand-rolled mapping tables were found and
+> replaced by `StyleFamily::default_runbook()` / `ThinkingStyle::family()`.
+> The ndarray `PaletteStyle` ↔ `p64::ThinkingStyle` pair remains open
+> (TECH_DEBT, other repo).
+
 ## 7. FieldModulation (Thinking Style → Scan Parameters)
 
 **Three definitions.**

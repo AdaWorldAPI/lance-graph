@@ -137,6 +137,7 @@ pub mod splat;
 /// D-V3-W3a — compiled-template live-step selector (`Template × StepMask`),
 /// sibling of `class_view::FieldMask`. Selection, never control flow.
 pub mod step_mask;
+pub mod style_family;
 pub mod tax;
 /// Per-tenant SoA update counters — debug instrumentation (feature `tenant-counters`).
 pub mod tenant_counter;
@@ -176,4 +177,5 @@ pub use soa_graph::{
 };
 pub use soa_view::{MailboxSoaOwner, MailboxSoaView};
 pub use step_mask::StepMask;
+pub use style_family::StyleFamily;
 pub use view_angle::ViewAngle;

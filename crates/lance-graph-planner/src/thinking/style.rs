@@ -10,27 +10,17 @@ use crate::mul::homeostasis::FlowState;
 use crate::mul::trust::TrustTexture;
 use crate::mul::MulAssessment;
 
-/// The 12 base thinking styles (ladybug-rs canonical set).
-/// Runtime YAML templates can extend to 36+ via StyleOverride.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ThinkingStyle {
-    // Convergent cluster
-    Analytical,
-    Convergent,
-    Systematic,
-    // Divergent cluster
-    Creative,
-    Divergent,
-    Exploratory,
-    // Attention cluster
-    Focused,
-    Diffuse,
-    Peripheral,
-    // Speed cluster
-    Intuitive,
-    Deliberate,
-    Metacognitive,
-}
+/// The 12-family orchestration space — canonical type lives in the
+/// contract (M9 dedup, D-TSC-1). This module keeps the planner-local
+/// semantics (`PlannerStyleExt`: clusters, τ addresses, modulation).
+pub use lance_graph_contract::style_family::StyleFamily;
+
+/// Legacy name for the 12-space.
+#[deprecated(
+    note = "the 12-space is StyleFamily (orchestration families); \
+            ThinkingStyle is the 36-runbook space in lance_graph_contract::thinking"
+)]
+pub type ThinkingStyle = StyleFamily;
 
 /// Cluster that a thinking style belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,8 +35,19 @@ pub enum ThinkingCluster {
     Speed,
 }
 
-impl ThinkingStyle {
-    pub fn cluster(&self) -> ThinkingCluster {
+/// Planner-local semantics on the shared `StyleFamily` taxonomy:
+/// 4-cluster grouping, τ addresses, and default field modulation.
+/// An extension trait because `StyleFamily` is a foreign (contract) type.
+pub trait PlannerStyleExt {
+    fn cluster(&self) -> ThinkingCluster;
+    /// τ (tau) macro address for JIT compilation (0x20–0xC5).
+    fn tau_address(&self) -> u8;
+    /// Default field modulation for this style.
+    fn default_modulation(&self) -> FieldModulation;
+}
+
+impl PlannerStyleExt for StyleFamily {
+    fn cluster(&self) -> ThinkingCluster {
         match self {
             Self::Analytical | Self::Convergent | Self::Systematic => ThinkingCluster::Convergent,
             Self::Creative | Self::Divergent | Self::Exploratory => ThinkingCluster::Divergent,
@@ -55,8 +56,7 @@ impl ThinkingStyle {
         }
     }
 
-    /// τ (tau) macro address for JIT compilation (0x20–0xC5).
-    pub fn tau_address(&self) -> u8 {
+    fn tau_address(&self) -> u8 {
         match self {
             Self::Analytical => 0x40,
             Self::Convergent => 0x41,
@@ -73,8 +73,7 @@ impl ThinkingStyle {
         }
     }
 
-    /// Default field modulation for this style.
-    pub fn default_modulation(&self) -> FieldModulation {
+    fn default_modulation(&self) -> FieldModulation {
         match self {
             Self::Analytical => FieldModulation {
                 resonance_threshold: 0.85,
@@ -224,27 +223,27 @@ pub struct ScanParams {
 }
 
 /// Select thinking style from MUL assessment.
-pub fn select_from_mul(mul: &MulAssessment) -> ThinkingStyle {
+pub fn select_from_mul(mul: &MulAssessment) -> StyleFamily {
     // DK position influences style selection
     match mul.dk_position {
-        DkPosition::MountStupid => ThinkingStyle::Metacognitive, // Force self-reflection
-        DkPosition::ValleyOfDespair => ThinkingStyle::Systematic, // Careful, methodical
+        DkPosition::MountStupid => StyleFamily::Metacognitive, // Force self-reflection
+        DkPosition::ValleyOfDespair => StyleFamily::Systematic, // Careful, methodical
         DkPosition::SlopeOfEnlightenment => {
             // Choose based on flow state
             match mul.homeostasis.state {
-                FlowState::Flow => ThinkingStyle::Analytical,
-                FlowState::Anxiety => ThinkingStyle::Deliberate,
-                FlowState::Boredom => ThinkingStyle::Creative,
-                FlowState::Apathy => ThinkingStyle::Exploratory,
+                FlowState::Flow => StyleFamily::Analytical,
+                FlowState::Anxiety => StyleFamily::Deliberate,
+                FlowState::Boredom => StyleFamily::Creative,
+                FlowState::Apathy => StyleFamily::Exploratory,
             }
         }
         DkPosition::PlateauOfMastery => {
             // Full range available — choose based on trust texture
             match mul.trust.texture {
-                TrustTexture::Crystalline => ThinkingStyle::Intuitive, // Trust the gut
-                TrustTexture::Solid => ThinkingStyle::Analytical,
-                TrustTexture::Fuzzy => ThinkingStyle::Exploratory,
-                _ => ThinkingStyle::Deliberate,
+                TrustTexture::Crystalline => StyleFamily::Intuitive, // Trust the gut
+                TrustTexture::Solid => StyleFamily::Analytical,
+                TrustTexture::Fuzzy => StyleFamily::Exploratory,
+                _ => StyleFamily::Deliberate,
             }
         }
     }

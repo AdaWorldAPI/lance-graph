@@ -1,5 +1,11 @@
 # LATEST_STATE — What Just Shipped (read this FIRST)
 
+## 2026-07-10 — branch `claude/review-claude-board-files-nhqgx1` — `contract::style_family::StyleFamily` — M9 ThinkingStyle dedup shipped (D-TSC-1, first 5+3 council run)
+
+### Current Contract Inventory — new entry
+
+- **`style_family::StyleFamily`** (NEW; zero-dep `#[repr(u8)]` 12-variant enum, re-exported from `lib.rs`). The 12 abstract orchestration FAMILIES per `E-STYLE-FAMILY-VS-RUNBOOK-1` (12 = families; 36 `thinking::ThinkingStyle` = literal NARS runbooks → rung ladder / rs-graph-llm replayable chaining unit). Ordinals FROZEN to the driver `UNIFIED_STYLES` order (Deliberate=0…Metacognitive=11, discriminant-pinned). Surface: `ALL`, `name()` (= deepnsm YAML card names), `from_name`, `from_ordinal`, `default_runbook() -> ThinkingStyle` and `ThinkingStyle::family()` (total; round-trip `f.default_runbook().family()==f` pinned), `Display`. **Replaces FIVE divergent hand-rolled style tables**: planner `planner_style_to_contract` (drifted at cells 9/10/11), driver `ord_to_thinking_style` (8/9/10), contract `parse_style_name` (8/9/10 — caught by the council's overclaim reviewer as a Phase-3 BLOCK-P0), the `THINKING_RECONCILIATION.md` exemplars, and thinking-engine `contract_style_to_engine`'s 36→12 ordinal ranges. Consumers migrated same-commit: planner `thinking/style.rs` = re-export + deprecated alias + `PlannerStyleExt` (cluster/τ/modulation); thinking-engine `cognitive_stack.rs` = re-export + deprecated alias + `EngineStyleExt` (params/butterfly/all) + NEW `lance-graph-contract` path dep; `superposition.rs` enum renamed `DetectedStyle` (detection RESULT, not a card); driver keyed by `StyleFamily::from_ordinal` + G3 parity test; `nars_engine::style_vector_for` runbook-keyed accessor. Gates: G1 grep = 1 enum + 3 deprecated aliases; tests 874+212+362+101 = **1549 green**; no new clippy warnings; fmt clean. Behavior changes (documented, G7-pinned): planner arms 9/10/11, driver arms 8/9/10 (awareness bootstrap), parse arms diffuse/peripheral/intuitive, engine 36→12 ranges → canonical `family()`. Spec: `.claude/plans/dtsc1-thinkingstyle-dedup-spec-v1.md` (v3 ratified; 5+3 council per `.claude/agents/5plus3-council.md`).
+
 
 > **2026-07-07 — NO-PIN + plug-and-play OGAR arming:** all OGAR deps
 > (symbiont / lance-graph-ogar / cognitive-stack) switched from

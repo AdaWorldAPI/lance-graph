@@ -19,9 +19,10 @@ pub mod style;
 pub use nars_dispatch::{NarsInferenceType, QueryStrategy};
 pub use semiring_selection::SemiringChoice;
 pub use sigma_chain::{SigmaStage, ThinkingAtom};
-pub use style::{FieldModulation, ThinkingCluster, ThinkingStyle};
+pub use style::{FieldModulation, ThinkingCluster, StyleFamily};
 
 use crate::mul::MulAssessment;
+use style::PlannerStyleExt;
 use crate::plan::PlannerConfig;
 use lance_graph_contract::cognitive_shader::RungLevel;
 
@@ -30,7 +31,7 @@ use lance_graph_contract::cognitive_shader::RungLevel;
 #[derive(Debug, Clone)]
 pub struct ThinkingContext {
     /// Selected thinking style.
-    pub style: ThinkingStyle,
+    pub style: StyleFamily,
     /// Field modulation parameters (control planner behavior).
     pub modulation: FieldModulation,
     /// NARS inference type for this query.
@@ -56,7 +57,7 @@ impl ThinkingContext {
         self.modulation.exploration = 1.0;
         self.modulation.noise_tolerance = 0.8;
         self.modulation.fan_out = 20;
-        self.style = ThinkingStyle::Exploratory;
+        self.style = StyleFamily::Exploratory;
     }
 }
 

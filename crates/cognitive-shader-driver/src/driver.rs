@@ -952,6 +952,11 @@ fn style_ord_to_inference(ord: u8) -> InferenceType {
     // focused/diffuse/peripheral       → Abduction
     // intuitive/deliberate             → Revision
     // metacognitive                    → Synthesis
+    //
+    // Driver policy, deliberately local. The ordinal RANGES below encode
+    // family clusters and are safe ONLY because StyleFamily's
+    // discriminants are frozen (pinned in contract tests) — never
+    // re-order the families without revisiting these ranges.
     match ord {
         1..=3 => InferenceType::Deduction,
         4..=6 => InferenceType::Induction,
@@ -961,24 +966,16 @@ fn style_ord_to_inference(ord: u8) -> InferenceType {
     }
 }
 
-/// Map shader ordinal (0..11, UNIFIED_STYLES) to a representative
-/// 36-style ThinkingStyle for awareness bootstrap. The mapping picks
-/// the closest semantic match per cluster.
+/// Map shader ordinal (0..11, UNIFIED_STYLES) to the family's default
+/// 36-runbook for awareness bootstrap — routed through THE canonical
+/// `StyleFamily::default_runbook()` (M9 dedup). The local table this fn
+/// carried had drifted at ords 8/9/10 (diffuse/peripheral/intuitive →
+/// Speculative/Curious/Reflective vs canonical Gentle/Speculative/Poetic);
+/// adjudication in dtsc1-thinkingstyle-dedup-spec-v1.md §3 S1/S6.
 fn ord_to_thinking_style(ord: u8) -> ThinkingStyle {
-    match ord {
-        0 => ThinkingStyle::Methodical,    // deliberate
-        1 => ThinkingStyle::Analytical,    // analytical
-        2 => ThinkingStyle::Logical,       // convergent
-        3 => ThinkingStyle::Systematic,    // systematic
-        4 => ThinkingStyle::Creative,      // creative
-        5 => ThinkingStyle::Imaginative,   // divergent
-        6 => ThinkingStyle::Exploratory,   // exploratory
-        7 => ThinkingStyle::Precise,       // focused
-        8 => ThinkingStyle::Speculative,   // diffuse
-        9 => ThinkingStyle::Curious,       // peripheral
-        10 => ThinkingStyle::Reflective,   // intuitive
-        _ => ThinkingStyle::Metacognitive, // metacognitive
-    }
+    lance_graph_contract::style_family::StyleFamily::from_ordinal(ord)
+        .unwrap_or_default()
+        .default_runbook()
 }
 
 /// Map FreeEnergy outcome to ParseOutcome for NARS revision.

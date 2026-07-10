@@ -24,8 +24,9 @@ pub mod temporal;
 
 #[allow(unused_imports)] // PatienceBudget intended for budget-aware prediction wiring
 use crate::elevation::budget::{budget_for_cluster, PatienceBudget};
+use crate::thinking::style::PlannerStyleExt;
 #[allow(unused_imports)] // ThinkingCluster intended for cluster-based prediction wiring
-use crate::thinking::style::{ThinkingCluster, ThinkingStyle};
+use crate::thinking::style::{ThinkingCluster, StyleFamily};
 
 /// A prediction scenario — one possible future outcome.
 #[derive(Debug, Clone)]
@@ -39,7 +40,7 @@ pub struct Scenario {
     /// Overall confidence (product of step confidences).
     pub confidence: f64,
     /// Which thinking style generated this scenario.
-    pub style: ThinkingStyle,
+    pub style: StyleFamily,
     /// Estimated time horizon (in abstract "rounds").
     pub time_horizon: usize,
     /// Blind spots — what this scenario doesn't account for.
@@ -115,7 +116,7 @@ pub struct PredictionResult {
     /// Total execution time in microseconds.
     pub elapsed_us: u64,
     /// Thinking styles that were used.
-    pub styles_used: Vec<ThinkingStyle>,
+    pub styles_used: Vec<StyleFamily>,
 }
 
 /// Multi-style prediction: run the same question through multiple thinking styles
@@ -123,7 +124,7 @@ pub struct PredictionResult {
 pub fn predict_multi_style(
     question: &str,
     seed_edges: &[(String, String, String, f64, f64)], // (src, rel, tgt, freq, conf)
-    styles: &[ThinkingStyle],
+    styles: &[StyleFamily],
 ) -> PredictionResult {
     let t0 = std::time::Instant::now();
     let mut all_scenarios = Vec::new();
@@ -207,9 +208,9 @@ mod tests {
         ];
 
         let styles = vec![
-            ThinkingStyle::Analytical,
-            ThinkingStyle::Creative,
-            ThinkingStyle::Focused,
+            StyleFamily::Analytical,
+            StyleFamily::Creative,
+            StyleFamily::Focused,
         ];
 
         let result = predict_multi_style(

@@ -94,7 +94,7 @@ impl GhostField {
     pub fn imprint(
         &mut self,
         resonant_atoms: &[(u16, f32)],
-        style: &crate::superposition::ThinkingStyle,
+        style: &crate::superposition::DetectedStyle,
         staunen: f32,
         wisdom: f32,
         dissonance: f32,
@@ -112,11 +112,11 @@ impl GhostField {
                 GhostType::Grief // unresolved tension becomes grief-ghost
             } else {
                 match style {
-                    crate::superposition::ThinkingStyle::Emotional => GhostType::Somatic,
-                    crate::superposition::ThinkingStyle::Intuitive => GhostType::Affinity,
-                    crate::superposition::ThinkingStyle::Analytical => GhostType::Thought,
-                    crate::superposition::ThinkingStyle::Creative => GhostType::Epiphany,
-                    crate::superposition::ThinkingStyle::Diffuse => GhostType::Boundary,
+                    crate::superposition::DetectedStyle::Emotional => GhostType::Somatic,
+                    crate::superposition::DetectedStyle::Intuitive => GhostType::Affinity,
+                    crate::superposition::DetectedStyle::Analytical => GhostType::Thought,
+                    crate::superposition::DetectedStyle::Creative => GhostType::Epiphany,
+                    crate::superposition::DetectedStyle::Diffuse => GhostType::Boundary,
                 }
             };
 
@@ -249,7 +249,7 @@ mod tests {
         let mut field = GhostField::new();
         field.imprint(
             &[(42, 0.8)],
-            &crate::superposition::ThinkingStyle::Intuitive,
+            &crate::superposition::DetectedStyle::Intuitive,
             0.0,
             0.0,
             0.0,
@@ -270,7 +270,7 @@ mod tests {
         let mut field = GhostField::new();
         field.imprint(
             &[(10, 0.9), (20, 0.7), (30, 0.5)],
-            &crate::superposition::ThinkingStyle::Creative,
+            &crate::superposition::DetectedStyle::Creative,
             0.0,
             0.0,
             0.0,
@@ -287,7 +287,7 @@ mod tests {
         let mut field = GhostField::new();
         field.imprint(
             &[(10, 1.0)],
-            &crate::superposition::ThinkingStyle::Analytical,
+            &crate::superposition::DetectedStyle::Analytical,
             0.0,
             0.0,
             0.0,
@@ -311,7 +311,7 @@ mod tests {
         let mut field = GhostField::new();
         field.imprint(
             &[(42, 0.8)],
-            &crate::superposition::ThinkingStyle::Diffuse,
+            &crate::superposition::DetectedStyle::Diffuse,
             0.8,
             0.0,
             0.0,
@@ -326,7 +326,7 @@ mod tests {
         let mut field = GhostField::new();
         field.imprint(
             &[(42, 0.01)], // very weak
-            &crate::superposition::ThinkingStyle::Diffuse,
+            &crate::superposition::DetectedStyle::Diffuse,
             0.0,
             0.0,
             0.0,

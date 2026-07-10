@@ -331,3 +331,16 @@ cited tech debt · 78 carry known duplication · wave mix: CORE:206, HW:31, W1:2
 | `thinking/sigma_chain.rs` | pub | none external (self-contained; ported from bighorn/extensions/agi_stack thinking_atom.py) | SigmaStage enum (Ω/Δ/Φ/Θ/Λ), ThinkingAtom struct, Proposition struct, escalate()/revise() | none | Tracks epistemic lifecycle of a thinking atom through 5 sigma stages with NARS-style confidence revision merge | none | NARS revision formula (f_revised/c_revised) mirrors truth revision logic likely also in crate::nars::truth | W3 sigma-chain epistemic lifecycle |
 | `thinking/style.rs` | pub | crate::mul::dk::DkPosition, crate::mul::homeostasis::FlowState, crate::mul::trust::TrustTexture, crate::mul::… | ThinkingStyle (12 variants/4 clusters), ThinkingCluster, FieldModulation, ScanParams, select_from_mul() | none | Defines 12 base thinking styles w/ tau JIT addresses, default field modulation, converts to ScanParams for ndarray SIMD kernels | doc comment admits only 12 base styles here vs 36 canonical (runtime YAML StyleOverride extends it) | ThinkingStyle is one of 4 known copies; this 12-style/4-cluster set is a subset of contract's 36-style/6-clus… | W3 thinking styles + JIT tau addresses |
 | `traits.rs` | pub | ir::{Arena,LogicalOp,LogicalPlan,Node}, PlanError | PlanCapability, PipelinePhase, PlanContext, QueryFeatures, PlanInput, PlanStrategy trait | none | Defines the core composable-strategy trait (name/capability/affinity/plan) and the phase-ordering enum all 16 strategies implement | none | none | CORE (V3-neutral query engine) - strategy trait contract |
+
+
+---
+
+## ADDENDUM 2026-07-10 — M9 resolved (D-TSC-1)
+
+Rows for `thinking.rs` (contract), `grammar/thinking_styles.rs`,
+`thinking/style.rs` (planner), `cache/nars_engine.rs` read through this note:
+the 12-space is now contract `style_family.rs::StyleFamily` (NEW module, not
+yet censused); planner style.rs = re-export + `PlannerStyleExt`;
+`parse_style_name` routes the 12 family names through
+`StyleFamily::default_runbook()` (3 arms changed — the fourth divergent
+table); `nars_engine.rs` gained the runbook-keyed `style_vector_for`.

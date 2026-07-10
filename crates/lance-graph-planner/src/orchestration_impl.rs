@@ -182,25 +182,12 @@ fn thinking_to_contract(p: &crate::thinking::ThinkingContext) -> ContractThinkin
     }
 }
 
-/// Planner's 12-style enum → contract's 36-style enum.
-///
-/// Mapping from `THINKING_RECONCILIATION.md`.
-fn planner_style_to_contract(s: crate::thinking::ThinkingStyle) -> ContractThinkingStyle {
-    use crate::thinking::ThinkingStyle as P;
-    match s {
-        P::Analytical => ContractThinkingStyle::Analytical,
-        P::Convergent => ContractThinkingStyle::Logical,
-        P::Systematic => ContractThinkingStyle::Systematic,
-        P::Creative => ContractThinkingStyle::Creative,
-        P::Divergent => ContractThinkingStyle::Imaginative,
-        P::Exploratory => ContractThinkingStyle::Exploratory,
-        P::Focused => ContractThinkingStyle::Precise,
-        P::Diffuse => ContractThinkingStyle::Gentle,
-        P::Peripheral => ContractThinkingStyle::Poetic,
-        P::Intuitive => ContractThinkingStyle::Curious,
-        P::Deliberate => ContractThinkingStyle::Methodical,
-        P::Metacognitive => ContractThinkingStyle::Reflective,
-    }
+/// Planner's 12-family space → contract's 36-runbook space.
+fn planner_style_to_contract(s: crate::thinking::StyleFamily) -> ContractThinkingStyle {
+    // THE canonical 12->36 mapping (M9 dedup) — the local table this fn
+    // carried had drifted at Peripheral/Intuitive/Metacognitive; see
+    // .claude/plans/dtsc1-thinkingstyle-dedup-spec-v1.md S1/S3.
+    s.default_runbook()
 }
 
 /// Planner's NARS inference type → contract's.

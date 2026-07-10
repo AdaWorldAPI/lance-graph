@@ -76,7 +76,9 @@ impl CascadeChannels8 {
     /// Set one channel's i8 net_strength. Out-of-range idx is a no-op.
     #[inline]
     pub fn set_channel(&mut self, idx: usize, value: i8) {
-        if idx >= 8 { return; }
+        if idx >= 8 {
+            return;
+        }
         let mask = 0xFFu64 << (idx * 8);
         self.0 = (self.0 & !mask) | ((value as u8 as u64) << (idx * 8));
     }
@@ -127,8 +129,14 @@ impl Default for CascadeChannels8 {
 impl CascadeChannels8 {
     /// 8 channel labels for diagnostics + tests.
     pub const CHANNEL_NAMES: [&'static str; 8] = [
-        "BECOMES", "CAUSES", "SUPPORTS", "REFINES",
-        "GROUNDS", "ABSTRACTS", "RELATES", "CONTRADICTS",
+        "BECOMES",
+        "CAUSES",
+        "SUPPORTS",
+        "REFINES",
+        "GROUNDS",
+        "ABSTRACTS",
+        "RELATES",
+        "CONTRADICTS",
     ];
 
     /// Index of the dominant channel (max |net_strength|). Ties break to
@@ -154,7 +162,11 @@ impl CascadeChannels8 {
     #[inline]
     pub fn active_channel_count(&self) -> u8 {
         let mut n = 0u8;
-        for i in 0..8 { if self.channel(i) != 0 { n += 1; } }
+        for i in 0..8 {
+            if self.channel(i) != 0 {
+                n += 1;
+            }
+        }
         n
     }
 
@@ -190,8 +202,17 @@ impl CascadeChannels8 {
         } else {
             -(mantissa_magnitude as i8)
         };
-        SpoEdge::pack_v2(s_idx, p_idx, o_idx, freq_u8, conf_u8, causal_mask, 0, causal_edge::PlasticityState::ALL_FROZEN)
-            .with_inference_mantissa(mantissa_signed)
+        SpoEdge::pack_v2(
+            s_idx,
+            p_idx,
+            o_idx,
+            freq_u8,
+            conf_u8,
+            causal_mask,
+            0,
+            causal_edge::PlasticityState::ALL_FROZEN,
+        )
+        .with_inference_mantissa(mantissa_signed)
     }
 
     /// Inverse: project an SPO-palette edge into the 8-channel form
@@ -203,7 +224,13 @@ impl CascadeChannels8 {
         let mag = mantissa.unsigned_abs();
         let dom = match mag {
             0 => 6, // RELATES (neutral)
-            1 => if mantissa >= 0 { 0 } else { 7 }, // BECOMES vs CONTRADICTS
+            1 => {
+                if mantissa >= 0 {
+                    0
+                } else {
+                    7
+                }
+            } // BECOMES vs CONTRADICTS
             2 => 5, // ABSTRACTS
             3 => 5, // (Synthesis tilts ABSTRACTS) — matches the table tilt
             4 => 2, // SUPPORTS
@@ -715,7 +742,7 @@ mod transcoder_tests {
     #[test]
     fn test_dominant_channel_picks_max_abs() {
         let mut e = CascadeChannels8::default();
-        e.set_channel(2, 30);   // SUPPORTS
+        e.set_channel(2, 30); // SUPPORTS
         e.set_channel(5, -100); // ABSTRACTS, larger magnitude
         e.set_channel(7, 10);
         assert_eq!(e.dominant_channel(), 5);
@@ -729,7 +756,11 @@ mod transcoder_tests {
         assert_eq!(spo.s_idx(), 10);
         assert_eq!(spo.p_idx(), 20);
         assert_eq!(spo.o_idx(), 30);
-        assert_eq!(spo.inference_mantissa(), 1, "BECOMES → mantissa +1 Deduction");
+        assert_eq!(
+            spo.inference_mantissa(),
+            1,
+            "BECOMES → mantissa +1 Deduction"
+        );
         assert!(spo.frequency_u8() > 0, "non-zero net → non-zero frequency");
     }
 
@@ -737,14 +768,22 @@ mod transcoder_tests {
     fn test_to_spo_causes_negative_is_counterfactual() {
         let e = build_8ch_with(1, -32); // CAUSES, negative magnitude
         let spo = e.to_spo(1, 2, 3);
-        assert_eq!(spo.inference_mantissa(), -6, "CAUSES negative → mantissa -6 Counterfactual");
+        assert_eq!(
+            spo.inference_mantissa(),
+            -6,
+            "CAUSES negative → mantissa -6 Counterfactual"
+        );
     }
 
     #[test]
     fn test_to_spo_relates_neutral_mantissa_zero() {
-        let e = build_8ch_with(6, 100);  // RELATES dominant
+        let e = build_8ch_with(6, 100); // RELATES dominant
         let spo = e.to_spo(0, 0, 0);
-        assert_eq!(spo.inference_mantissa(), 0, "RELATES → mantissa 0 (Identity)");
+        assert_eq!(
+            spo.inference_mantissa(),
+            0,
+            "RELATES → mantissa 0 (Identity)"
+        );
     }
 
     #[test]
@@ -770,12 +809,12 @@ mod transcoder_tests {
                     // lossy collapse: negative-BECOMES/GROUNDS is semantically CONTRADICTS
                     // in the SPO lattice (both carry |mantissa|=1 in the backward slot).
                     0 | 4 => &[0, 7],
-                    1 => &[1],         // CAUSES → mantissa ±6 → CAUSES
-                    2 => &[2],         // SUPPORTS → mantissa +4 → SUPPORTS
-                    3 => &[3, 5],      // REFINES → mantissa +5 → REFINES (or ABSTRACTS in tilt)
-                    5 => &[5],         // ABSTRACTS → mantissa +2 → ABSTRACTS
-                    6 => &[6],         // RELATES → mantissa 0 → RELATES
-                    7 => &[7, 0],      // CONTRADICTS → mantissa ±1 (sign distinguishes)
+                    1 => &[1],    // CAUSES → mantissa ±6 → CAUSES
+                    2 => &[2],    // SUPPORTS → mantissa +4 → SUPPORTS
+                    3 => &[3, 5], // REFINES → mantissa +5 → REFINES (or ABSTRACTS in tilt)
+                    5 => &[5],    // ABSTRACTS → mantissa +2 → ABSTRACTS
+                    6 => &[6],    // RELATES → mantissa 0 → RELATES
+                    7 => &[7, 0], // CONTRADICTS → mantissa ±1 (sign distinguishes)
                     _ => &[],
                 };
                 assert!(
