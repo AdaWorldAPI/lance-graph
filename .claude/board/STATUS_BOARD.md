@@ -48,7 +48,7 @@ Plan: `.claude/v3/INTEGRATION-PLAN.md` (stub: `.claude/plans/v3-substrate-integr
 | D-V3-W2a | Per-mailbox kanban board as TENANT | contract | Queued | field-isolation matrix mandatory |
 | D-V3-W2b | Supervisor wiring: moves via MailboxSoaOwner::advance_phase | lance-graph-supervisor | Queued | plan W2 |
 | D-V3-W2c | symbiont SurrealDB-on-kv-lance arm | symbiont | Blocked (kv-lance fork coordinates) | POC = kanban_loop.rs |
-| D-V3-W2d | 550 ms budget hooks via planner elevation/ | lance-graph-planner | Queued | plan W2 |
+| D-V3-W2d | 550 ms budget hooks via planner elevation/ | lance-graph-planner | In PR (2026-07-10, branch `claude/review-claude-board-files-nhqgx1`) | `elevation::cycle::CycleBudget` (M12 allocator): reads the Libet anchor, advisory `admits` (reprioritize-never-gate), measured consts (66µs/card lane-E, ~0.5µs/step), +5 tests; load-balancer consumption = W2 residue |
 | D-V3-W3a | StepMask in contract (sibling of FieldMask) | lance-graph-contract | In PR (2026-07-10, branch `claude/review-claude-board-files-nhqgx1`) | `contract::step_mask::StepMask`, +5 tests (866 lib green), selection-never-control-flow doc'd |
 | D-V3-W3b | ElixirTemplate → graph-flow GraphBuilder adapter (ownership inheritance) | rs-graph-llm seam | Queued | plan W3 |
 | D-V3-W3c | Rig oracle node + equivalence-gated compile-down | cognitive-compiler + rig | Queued | D-VCW-7 lineage |

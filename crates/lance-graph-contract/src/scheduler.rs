@@ -69,6 +69,12 @@ pub trait VersionScheduler {
 /// This is the substrate-free reference: real schedulers may gate on the
 /// `DatasetVersion` delta, choose `Plan`/`Prune` over the forward arc, or batch
 /// ticks — they implement [`VersionScheduler`] with their own policy.
+///
+/// Budget consumption (M12, D-V3-W2d): the stamped anchor is the READ source
+/// for the planner's per-cycle allocator — `lance-graph-planner`
+/// `elevation::cycle::CycleBudget::from_move` opens a 550 ms window from the
+/// Σ-commit move and carves every per-strategy `PatienceBudget` slice from
+/// its remainder (one budget source, no drift).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct NextPhaseScheduler;
 
