@@ -35,6 +35,31 @@
 
 ---
 
+## #676 lance-graph: Post-#674 doc arc — E-NOBODY-WAITS-1 + VISION.md (graded AGI canon) + ancestry census + D-MTS-1 design inputs
+
+**Status:** MERGED 2026-07-10 (merge commit `001839e`), branch `claude/review-claude-board-files-nhqgx1` (restarted from #674's merge), 4 commits, doc-only.
+
+**Added**
+- `.claude/v3/VISION.md` — the AGI-aspiring canon re-grounded on the measured substrate; every claim graded [G] / [G-on-proxies] / [RULING] / [ASPIRATION]; §0 thesis carries the proxy fence on the sentence; organ table (Think fields → V3 homes incl. free_energy/Kausal + global_context); five-axis projection (bytes / readings / time / scale / bits); families→runbooks→templates ladder; Rubicon heart under nobody-waits; anti-dilution laws; the road in dependency order (D-MTS-1 keystone first). Provenance: 2 Sonnet preflights + 2 Opus filigree reviewers (dilution-collapse-sentinel + overclaim-auditor charters), all 9 findings applied.
+- MODULE-TABLE ADDENDUM (2): ancestry-pipeline census — thinking-engine (51 files) + p64-bridge (1) + cognitive-shader-driver (22 src + build.rs), gem-status column (WIRED-HOT-PATH / UNWIRED-GEM / CALIBRATION-ONLY / LAB-ONLY / RESIDUE); LAB-ONLY = 12 of 22 driver src files.
+- Plan addendum (third wave, operator design input for D-MTS-1): AriGraph context V3-TENANT-SHAPED; ingest legs `lance-graph-arm-discovery` (Aerial+, palette256 integer oracle ρ=0.9973) + DeepNSM (4096 COCA = CAM index codebook); frozen comparison CAM-PQ 6×8 = 48-bit path codes (address side, = OGAR HEEL+HIP+TWIG) vs 6×palette256:palette256 = 12 B = ONE V3 tenant (value side); likely "key addresses, tenant carries" — probed, not assumed.
+
+**Locked**
+- **E-NOBODY-WAITS-1** (operator ruling, canonical in EPIPHANIES): no messages, no actors anywhere; ractor = compile-time ownership guarantee ONLY; `&mut` IS the serialization; prime invariant "nobody waits for anything or any scheduling". Ack-pump (`ack_and_propose` → `try_advance_phase(&mut)`) is the canonical kanban trigger; supervisor `KanbanMsg`/`call!` drivers are documented redundancy (TD-MESSAGE-RESIDUE, leave-as-is per operator; drift signal = NEW code reaching for messages).
+- VISION.md is the WHY reference for V3 (README doc-map row + FUTURE-DESIGN header pointer); design PRs cite EPIPHANIES for rulings, VISION for the graded rationale.
+
+**Deferred**
+- TD-STYLE-TABLE-RESIDUE census extension (auto_style consts, UNIFIED_STYLES params, p64-bridge StyleParams, GestaltState ×2, lens triplet, wire.rs LAB-ONLY-but-largest) — follow-up grep queued behind D-TSC-1's shipped fleet run.
+- TD-MESSAGE-RESIDUE — permanently parked by ruling (document, don't retire).
+
+**Docs** — VISION.md; FUTURE-DESIGN + README pointers; EPIPHANIES E-NOBODY-WAITS-1; TECH_DEBT TD-MESSAGE-RESIDUE + TD-STYLE-TABLE-RESIDUE extension; AGENT_LOG census-worker + vision-keeper entries.
+
+**Review** — coderabbit 5/5 findings verified against the tree and fixed in `093489c` (census headings 49→51 / 23→22; LAB-ONLY stat corrected to 12-of-22 — the rabbit's own suggested "11 of 22" was still wrong, its list missed `auto_detect.rs`; workspace-scope note: both crates under `workspace.exclude`; AGENT_LOG post-commit metadata; MD040 fence). Bugbot did not run (Cursor usage limit).
+
+**Confidence (2026-07-10):** doc-only; no runtime claims beyond what #674 measured.
+
+---
+
 ## #674 lance-graph: V3 W2–W6 continuation + comma quorum/awareness measured + 5+3 council + StyleFamily dedup (D-TSC-1)
 
 **Status:** MERGED 2026-07-10 (merge commit `cd5178e`), branch `claude/review-claude-board-files-nhqgx1`, 16 commits. Companion: rs-graph-llm `8ef18b9` (same branch name there, not yet PR'd) — `run_cycle` explicit `on_behalf` (owner ≠ classid).
