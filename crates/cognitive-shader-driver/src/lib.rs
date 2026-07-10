@@ -180,7 +180,11 @@ pub mod cypher_bridge;
 // Planner bridge — lab test-shortcut for the per-op WirePlan DTOs.
 // PlannerAwareness implements OrchestrationBridge directly in the
 // planner crate; that's the canonical path. LAB-ONLY.
-#[cfg(feature = "with-planner")]
+// Gated on a transport too (its DTOs live in `wire`, which is
+// `any(serve, grpc)`): `with-planner` ALONE means "planner dep
+// available" (e.g. the W4a cast pairing in `mailbox_soa`), not the
+// lab adapter — standalone `with-planner` used to fail E0432 here.
+#[cfg(all(feature = "with-planner", any(feature = "serve", feature = "grpc")))]
 pub mod planner_bridge;
 
 pub use lance_graph_contract::cognitive_shader::{

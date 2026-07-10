@@ -5,7 +5,7 @@
 
 use crate::domino::StageResult;
 use crate::qualia::Qualia17D;
-use crate::superposition::{SuperpositionField, ThinkingStyle};
+use crate::superposition::{DetectedStyle, SuperpositionField};
 
 /// One SPO triple extracted from the superposition field.
 #[derive(Clone, Debug)]
@@ -33,7 +33,7 @@ pub struct CognitiveTrace {
     /// Superposition field from multi-lens interference.
     pub superposition: SuperpositionField,
     /// Detected thinking style.
-    pub style: ThinkingStyle,
+    pub style: DetectedStyle,
     /// Gated survivors (atoms that pass the interference filter).
     pub gated_atoms: Vec<u16>,
 

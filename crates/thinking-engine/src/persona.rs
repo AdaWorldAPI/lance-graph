@@ -17,7 +17,8 @@
 //! }
 //! ```
 
-use crate::cognitive_stack::{GateState, RungLevel, ThinkingStyle};
+use crate::cognitive_stack::EngineStyleExt;
+use crate::cognitive_stack::{GateState, RungLevel, StyleFamily};
 use crate::contract_bridge::{CascadeConfig, FastBusDto};
 use crate::ghosts::GhostField;
 use crate::meaning_axes::{Archetype, CouncilWeights, Viscosity};
@@ -100,7 +101,7 @@ pub struct PersonaProfile {
     pub collapse_bias: f32,
     pub affect_weight: f32,
     pub coherence_weight: f32,
-    pub default_style: ThinkingStyle,
+    pub default_style: StyleFamily,
     pub priors: CognitiveBaseline,
 }
 
@@ -116,7 +117,7 @@ impl PersonaProfile {
             collapse_bias: -0.15,
             affect_weight: 0.1,
             coherence_weight: 0.9,
-            default_style: ThinkingStyle::Analytical,
+            default_style: StyleFamily::Analytical,
             priors: CognitiveBaseline {
                 precision_drive: 0.90,
                 self_awareness: 0.80,
@@ -138,7 +139,7 @@ impl PersonaProfile {
             collapse_bias: 0.20,
             affect_weight: 0.8,
             coherence_weight: 0.2,
-            default_style: ThinkingStyle::Creative,
+            default_style: StyleFamily::Creative,
             priors: CognitiveBaseline {
                 warmth: 0.70,
                 depth: 0.65,
@@ -164,7 +165,7 @@ impl PersonaProfile {
             collapse_bias: 0.0,
             affect_weight: 0.4,
             coherence_weight: 0.6,
-            default_style: ThinkingStyle::Deliberate,
+            default_style: StyleFamily::Deliberate,
             priors: CognitiveBaseline {
                 warmth: 0.70,
                 depth: 0.70,
@@ -203,7 +204,7 @@ pub struct Agent {
     pub persona: PersonaProfile,
     pub ghosts: GhostField,
     pub council: CouncilWeights,
-    pub current_style: ThinkingStyle,
+    pub current_style: StyleFamily,
     pub current_rung: RungLevel,
     pub thought_count: u64,
 }
@@ -293,7 +294,7 @@ impl Agent {
 pub struct AgentDto {
     pub id: String,
     pub mode: PersonaMode,
-    pub style: ThinkingStyle,
+    pub style: StyleFamily,
     pub rung: u8,
     pub warmth: f32,
     pub depth: f32,
@@ -335,7 +336,7 @@ pub struct A2AMessage {
     /// Higher = more dominant in XOR superposition.
     pub resonance_weight: f32,
     /// Thinking style hint: suggests which style the receiver should use.
-    pub style_hint: Option<ThinkingStyle>,
+    pub style_hint: Option<StyleFamily>,
     /// Timestamp.
     pub timestamp: u64,
 }
@@ -395,7 +396,7 @@ pub struct SelfModelDto {
     pub mode: PersonaMode,
 
     /// Current cognitive state.
-    pub style: ThinkingStyle,
+    pub style: StyleFamily,
     pub rung: RungLevel,
     pub gate: GateState,
 
@@ -416,7 +417,7 @@ pub struct SelfModelDto {
     pub balanced_weight: f32,
 
     /// Thinking trajectory (last N styles used).
-    pub recent_styles: Vec<ThinkingStyle>,
+    pub recent_styles: Vec<StyleFamily>,
 
     /// Emotional color of current state.
     pub qualia_family: String,
@@ -501,7 +502,7 @@ mod tests {
         let agent = Agent::new("test", PersonaProfile::hybrid());
         assert_eq!(agent.id, "test");
         assert_eq!(agent.persona.mode, PersonaMode::Hybrid);
-        assert_eq!(agent.current_style, ThinkingStyle::Deliberate);
+        assert_eq!(agent.current_style, StyleFamily::Deliberate);
     }
 
     #[test]

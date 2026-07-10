@@ -11,7 +11,7 @@
 //! }
 //! ```
 
-use crate::cognitive_stack::{GateState, ThinkingStyle};
+use crate::cognitive_stack::{GateState, StyleFamily};
 use crate::ghosts::GhostType;
 use crate::meaning_axes::{Archetype, HdrResonance, Viscosity};
 
@@ -23,7 +23,7 @@ use crate::meaning_axes::{Archetype, HdrResonance, Viscosity};
 #[derive(Clone, Copy, Debug)]
 pub struct SelfState {
     /// Current thinking style.
-    pub style: ThinkingStyle,
+    pub style: StyleFamily,
     /// Semantic depth level (0–9).
     pub rung: u8,
     /// Collapse gate state.
@@ -53,7 +53,7 @@ pub struct SelfState {
 #[derive(Clone, Copy, Debug)]
 pub struct UserState {
     /// Inferred cognitive style.
-    pub style: ThinkingStyle,
+    pub style: StyleFamily,
     /// Engagement level (0.0 = disengaged, 1.0 = fully engaged).
     pub engagement: f32,
     /// Sentiment (-1.0 = negative, 1.0 = positive).
@@ -210,11 +210,11 @@ impl WorldModelDto {
             },
             user_state: UserState {
                 style: if dissonance < 0.1 {
-                    ThinkingStyle::Analytical
+                    StyleFamily::Analytical
                 } else if dissonance > 0.3 {
-                    ThinkingStyle::Creative
+                    StyleFamily::Creative
                 } else {
-                    ThinkingStyle::Deliberate
+                    StyleFamily::Deliberate
                 },
                 engagement: lens_agreement,
                 valence: (1.0 - dissonance * 2.0).clamp(-1.0, 1.0),
@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn self_state_copy() {
         let s = SelfState {
-            style: ThinkingStyle::Analytical,
+            style: StyleFamily::Analytical,
             rung: 3,
             gate: GateState::Flow,
             viscosity: Viscosity::Oil,
@@ -297,7 +297,7 @@ mod tests {
     #[test]
     fn user_state_copy() {
         let u = UserState {
-            style: ThinkingStyle::Creative,
+            style: StyleFamily::Creative,
             engagement: 0.9,
             valence: 0.5,
             depth: 5,
@@ -311,7 +311,7 @@ mod tests {
     fn display_format() {
         let w = WorldModelDto {
             self_state: SelfState {
-                style: ThinkingStyle::Deliberate,
+                style: StyleFamily::Deliberate,
                 rung: 2,
                 gate: GateState::Hold,
                 viscosity: Viscosity::Honey,
@@ -323,7 +323,7 @@ mod tests {
                 thought_count: 100,
             },
             user_state: UserState {
-                style: ThinkingStyle::Analytical,
+                style: StyleFamily::Analytical,
                 engagement: 0.8,
                 valence: 0.3,
                 depth: 4,

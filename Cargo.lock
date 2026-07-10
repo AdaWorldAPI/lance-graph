@@ -8673,6 +8673,7 @@ dependencies = [
  "bgz-tensor",
  "causal-edge",
  "highheelbgz",
+ "lance-graph-contract 0.1.0",
  "ndarray 0.17.2",
  "serde",
  "serde_json",

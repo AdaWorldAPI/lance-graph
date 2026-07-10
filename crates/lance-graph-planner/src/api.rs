@@ -38,7 +38,7 @@
 //! // With thinking style override
 //! let result = planner.plan_with_style(
 //!     "MATCH (n)-[r]->(m) RETURN n, r, m",
-//!     ThinkingStyle::Analytical,
+//!     StyleFamily::Analytical,
 //! )?;
 //!
 //! // Full MUL pipeline (for AGI-aware planning)
@@ -71,12 +71,13 @@
 use crate::physical::cam_pq_scan::CamPqStrategy;
 use crate::physical::CamPqScanOp;
 use crate::selector::StrategySelector;
+use crate::thinking::style::PlannerStyleExt;
 use crate::traits::*;
 
 // Re-export key types for ergonomic API
 pub use crate::mul::gate::MulGateDecision as Gate;
 pub use crate::mul::SituationInput;
-pub use crate::thinking::style::{FieldModulation, ScanParams, ThinkingCluster, ThinkingStyle};
+pub use crate::thinking::style::{FieldModulation, ScanParams, StyleFamily, ThinkingCluster};
 pub use crate::thinking::ThinkingContext;
 pub use crate::PlanError;
 pub use crate::PlanResult;
@@ -129,7 +130,7 @@ impl Planner {
     pub fn plan_with_style(
         &self,
         query: &str,
-        style: ThinkingStyle,
+        style: StyleFamily,
     ) -> Result<PlanResult, PlanError> {
         let modulation = style.default_modulation();
         let style_vec = modulation
@@ -602,11 +603,11 @@ mod tests {
     fn test_plan_with_style() {
         let planner = Planner::new();
         let result =
-            planner.plan_with_style("MATCH (n)-[r]->(m) RETURN n", ThinkingStyle::Analytical);
+            planner.plan_with_style("MATCH (n)-[r]->(m) RETURN n", StyleFamily::Analytical);
         assert!(result.is_ok());
         let output = result.unwrap();
         assert!(output.thinking.is_some());
-        assert_eq!(output.thinking.unwrap().style, ThinkingStyle::Analytical);
+        assert_eq!(output.thinking.unwrap().style, StyleFamily::Analytical);
     }
 
     #[test]

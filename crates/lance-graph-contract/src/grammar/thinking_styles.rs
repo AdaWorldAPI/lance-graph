@@ -627,23 +627,16 @@ fn collect_yaml_pairs(yaml: &str) -> Result<Vec<(String, String)>, String> {
 }
 
 fn parse_style_name(s: &str) -> Result<ThinkingStyle, String> {
-    // Spec ships 12 starter styles; map each to the closest entry in the
-    // canonical 36-style taxonomy. Any genuine ThinkingStyle variant name
-    // (case-insensitive) is also accepted as a passthrough.
+    // The 12 family names route through THE canonical mapping
+    // (StyleFamily::default_runbook — M9 dedup); this replaced a local
+    // table that had drifted at diffuse/peripheral/intuitive (the fourth
+    // divergent 12→36 table). Any genuine ThinkingStyle variant name
+    // (case-insensitive) is still accepted as a passthrough.
     let lower = s.trim().to_ascii_lowercase();
+    if let Some(family) = crate::style_family::StyleFamily::from_name(&lower) {
+        return Ok(family.default_runbook());
+    }
     Ok(match lower.as_str() {
-        "analytical" => ThinkingStyle::Analytical,
-        "convergent" => ThinkingStyle::Logical,
-        "systematic" => ThinkingStyle::Systematic,
-        "creative" => ThinkingStyle::Creative,
-        "divergent" => ThinkingStyle::Imaginative,
-        "exploratory" => ThinkingStyle::Exploratory,
-        "focused" => ThinkingStyle::Precise,
-        "diffuse" => ThinkingStyle::Reflective,
-        "peripheral" => ThinkingStyle::Curious,
-        "intuitive" => ThinkingStyle::Empathetic,
-        "deliberate" => ThinkingStyle::Methodical,
-        "metacognitive" => ThinkingStyle::Metacognitive,
         // Passthrough for canonical names.
         "logical" => ThinkingStyle::Logical,
         "critical" => ThinkingStyle::Critical,
@@ -1109,6 +1102,48 @@ coverage:
         assert_eq!(cfg.markov.kernel, WeightingKernel::MexicanHat);
         assert_eq!(cfg.markov.replay, ReplayStrategy::BothAndCompare);
         assert_eq!(cfg.spo_causal.pearl_mask, 0xFF);
+    }
+
+    /// G4 (D-TSC-1): parse_style_name output pinned LITERALLY for all 12
+    /// family names — routed through StyleFamily::default_runbook, the
+    /// canonical mapping. Three arms CHANGED vs the pre-M9 local table
+    /// (diffuse: Reflective→Gentle, peripheral: Curious→Speculative,
+    /// intuitive: Empathetic→Poetic) — documented behavior change; the
+    /// old arms were the fourth divergent 12→36 table.
+    #[test]
+    fn parse_style_name_family_arms_pinned() {
+        let pins = [
+            ("deliberate", ThinkingStyle::Methodical),
+            ("analytical", ThinkingStyle::Analytical),
+            ("convergent", ThinkingStyle::Logical),
+            ("systematic", ThinkingStyle::Systematic),
+            ("creative", ThinkingStyle::Creative),
+            ("divergent", ThinkingStyle::Imaginative),
+            ("exploratory", ThinkingStyle::Exploratory),
+            ("focused", ThinkingStyle::Precise),
+            ("diffuse", ThinkingStyle::Gentle),
+            ("peripheral", ThinkingStyle::Speculative),
+            ("intuitive", ThinkingStyle::Poetic),
+            ("metacognitive", ThinkingStyle::Metacognitive),
+        ];
+        for (name, expected) in pins {
+            assert_eq!(parse_style_name(name).unwrap(), expected, "arm: {name}");
+        }
+    }
+
+    /// G4: the canonical-36-name passthrough survives the family routing.
+    #[test]
+    fn parse_style_name_passthrough_pinned() {
+        for (name, expected) in [
+            ("logical", ThinkingStyle::Logical),
+            ("empathetic", ThinkingStyle::Empathetic),
+            ("poetic", ThinkingStyle::Poetic),
+            ("reflective", ThinkingStyle::Reflective),
+            ("sovereign", ThinkingStyle::Sovereign),
+        ] {
+            assert_eq!(parse_style_name(name).unwrap(), expected, "passthrough: {name}");
+        }
+        assert!(parse_style_name("nonsensestyle").is_err());
     }
 
     #[test]
