@@ -132,6 +132,16 @@ impl<P> BatchWriter<P> {
     /// error). A `Planning → CognitiveWork` proposal carries the Libet
     /// anchor, so `elevation::cycle::CycleBudget::from_move` opens the next
     /// cycle's window from this same proposal (M12).
+    ///
+    /// **At-least-once delivery (codex P2 on #674):** only the FIRST
+    /// unacked→acked transition pumps a proposal. A duplicate ack (async
+    /// sink retry, version-watcher replaying the same `CastId`) returns
+    /// `None` WITHOUT overwriting the first recorded version — first ack
+    /// wins, keeping the CastId↔LanceVersion temporal join stable. A stray
+    /// `CastId` (never cast on this board) also returns `None` and records
+    /// nothing. The low-level [`ack`](Self::ack) stays the unconditional
+    /// recording primitive; dedup lives at the pump, because the pump is
+    /// what would otherwise multiply lifecycle moves.
     pub fn ack_and_propose<S, V>(
         &mut self,
         cast: CastId,
@@ -144,6 +154,9 @@ impl<P> BatchWriter<P> {
         S: VersionScheduler,
         V: MailboxSoaView,
     {
+        if !self.board.contains_key(&cast) || self.acked.contains_key(&cast) {
+            return None;
+        }
         self.ack(cast, version);
         scheduler.on_version(view, DatasetVersion(version), exec)
     }
@@ -302,5 +315,49 @@ mod tests {
         );
         assert!(rest.is_none(), "absorbing view: the loop rests");
         assert_eq!(w.acked_version(last), Some(99));
+    }
+
+    /// codex P2 on #674: at-least-once sink delivery must not multiply
+    /// lifecycle moves — only the FIRST unacked→acked transition proposes;
+    /// duplicate acks keep the first version; stray casts record nothing.
+    #[test]
+    fn duplicate_and_stray_acks_never_pump_twice() {
+        let mut w: BatchWriter<u8> = BatchWriter::new();
+        let c1 = w.cast(7, vec![], 0);
+
+        // First transition: proposes.
+        let first = w.ack_and_propose(
+            c1,
+            41,
+            &NextPhaseScheduler,
+            &PhaseView(KanbanColumn::Planning),
+            ExecTarget::Native,
+        );
+        assert!(first.is_some(), "first unacked->acked transition pumps");
+
+        // Sink retry / watcher replay of the same CastId: NO second
+        // proposal, and the first recorded version wins (the temporal
+        // join stays stable even if the retry carries a later version).
+        let dup = w.ack_and_propose(
+            c1,
+            42,
+            &NextPhaseScheduler,
+            &PhaseView(KanbanColumn::Planning),
+            ExecTarget::Native,
+        );
+        assert!(dup.is_none(), "duplicate ack must not pump a second move");
+        assert_eq!(w.acked_version(c1), Some(41), "first ack wins");
+
+        // Stray CastId (never cast on this board): no proposal, no record.
+        let stray = CastId(9999);
+        let ghost = w.ack_and_propose(
+            stray,
+            77,
+            &NextPhaseScheduler,
+            &PhaseView(KanbanColumn::Planning),
+            ExecTarget::Native,
+        );
+        assert!(ghost.is_none(), "stray cast id is ignored");
+        assert_eq!(w.acked_version(stray), None, "nothing recorded for it");
     }
 }
