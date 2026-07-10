@@ -33,6 +33,18 @@ each with its own closing condition):
    with no `mod cognitive` — dormant behind `#[cfg(feature = "wip")]`.
    Close: point them at contract StyleFamily/ThinkingStyle when the wip
    modules wake, or delete.
+3a. **Census extension (2026-07-10, ancestry census):** three MORE
+   independent 12-slot style tables beyond the D-TSC-1 sweep —
+   `cognitive-shader-driver/src/auto_style.rs` bare u8 consts,
+   `engine_bridge.rs::UNIFIED_STYLES` params (parity-tested but its
+   PARAMS are a hand table), `p64-bridge StyleParams[12]` (historical
+   order). Also: `GestaltState` defined independently in thinking-engine
+   `awareness_dto.rs` AND `world_model.rs`; the jina/bge_m3/reranker
+   lens triplet is near-identical; `wire.rs` (1852 lines) is the
+   largest driver file while LAB-ONLY. All documented in the
+   MODULE-TABLE ancestry addendum; close via M8/M9-style follow-ups
+   when Track B lands.
+
 3. **p64-bridge ordinal-order probe (spec I15):** `crates/p64-bridge/src/
    lib.rs STYLES[ord % 12]` uses the HISTORICAL order (Analytical=0), NOT
    StyleFamily order (Deliberate=0). Doc comment now warns (convert by

@@ -15,10 +15,14 @@
 **A mind is a deterministic substrate that cannot stop thinking, never waits
 for anything, and reconstructs more than it stores.**
 
-Each clause is now load-bearing: *cannot stop thinking* — active inference as
-the dispatch mechanism (CLAUDE.md "the shader can't resist the thinking");
-*never waits* — the prime invariant E-NOBODY-WAITS-1 [RULING]; *reconstructs
-more than it stores* — measured twice in one day (D-MTS-5, D-MTS-6) [G].
+Each clause is graded where it stands: *cannot stop thinking* — active
+inference as the dispatch mechanism (CLAUDE.md "the shader can't resist the
+thinking") [ASPIRATION-in-operation: the doctrine is designed and partially
+wired, not yet measured as a closed loop]; *never waits* — the prime
+invariant E-NOBODY-WAITS-1 [RULING]; *reconstructs more than it stores* —
+measured twice in one day **on proxies and synthetic fields** (D-MTS-5,
+D-MTS-6) [G-on-proxies; the in-driver validation is D-MTS-6b — the fence
+rides the thesis, not just the footnotes].
 
 ## 1. The Click survived every carrier — because it was never about the carrier
 
@@ -40,8 +44,9 @@ three times, each move recorded as a dated supersession rather than a rewrite:
    I-VSA-IDENTITIES niche (≤32 lossless role superposition, one compartment)
    with the bundle algebra untouched.
 
-The lesson the three moves teach: **the Click is the LOOP, not the algebra
-that hosts it** — the loop that resolves each input against everything it has
+The lesson the three moves teach: **the Click's invariant is the LOOP; the
+algebra is its theorem-grounded carrier, exact within its niche** — the loop
+that resolves each input against everything it has
 committed (graph), recently seen (episodic), believes about its own competence
 (awareness), and currently expects (prior), then commits the result back into
 the tissue it just read. Cut any organ and a specific cognitive capacity
@@ -64,6 +69,8 @@ the row**:
 | episodic | Lance versions — the OGAR D-DELTA mapping made primary; basins = `part_of:is_a` rails |
 | graph | SPO quads / AriGraph |
 | codec | palette 256×256 LUTs (1.8 ns measured) |
+| free_energy (the Kausal — why this thought) | the F-descent over the cycle; the homeostasis floor is the REST condition (F below floor → awareness bits clear → the shader rests); MUL (DK position, trust texture, homeostasis, gate) is the self-competence organ reading it |
+| global_context (the ambient prior) | the committed-fact surface each cycle reshapes — SPO store + the current version horizon; superposition only within the VSA niche |
 | resolution | the kanban card's Rubicon position (§5) |
 
 AGI-as-glove (The Stance) holds unchanged: AGI = (topic, angle, thinking,
@@ -81,13 +88,16 @@ The 2026-07-10 arc closed it into measurement across five axes:
 |---|---|---|
 | **bytes** | RESERVE-DON'T-RECLAIM (zero tier = not consulted, never compacted) | [RULING], canon ladder |
 | **readings** | classid → ClassView projects the content-blind 4+12 facet; every sanctioned reading coexists in the same 12 bytes | [RULING E-V3-FACET-4-PLUS-12] |
-| **time** | temporal replay: `QueryReference::at(v, rung)` + deinterlace — crash-replay = session-replay = time-travel, ONE mechanism | [G] W1b probes |
+| **time** | temporal replay: `QueryReference::at(v, rung)` + deinterlace — crash-replay = session-replay = time-travel, ONE mechanism | [G] the four W1b probes, PR #631 (the replay MECHANISM); its Markov-parity USE is D-MTS-1, un-run [next] |
 | **scale** | comma replay: upper pyramid bounds (64×64…256k×256k) regenerated transiently from (GUID, envelope) — **N_eff 11.00/12 witnesses vs strict alignment's 1.00; replay bit-identical any order; 82 KB touched vs ~69 GB dense** | **[G] D-MTS-5** (`comma_quorum.rs`) |
-| **bits** | comma-dithered reconstruction: **one stored truth bit per level matches full-CausalEdge64 awareness proxies (k\*=1 vs aligned k\*=4; the lattice buys ≈log₂ L effective bits)** | **[G] D-MTS-6** (`comma_awareness.rs`) |
+| **bits** | comma-dithered reconstruction: **one stored truth bit per level matches full-CausalEdge64 awareness PROXIES (k\*=1 vs aligned k\*=4; the lattice buys ≈log₂ L effective bits)** | **[G-on-proxies] D-MTS-6** (`comma_awareness.rs`); [ASPIRATION until D-MTS-6b] |
 
-The fifth axis is the deepest AGI-aspiring result the substrate owns: **the
-awareness payload is mostly reconstructible from the address plus a tiny
-envelope.** The comma (an irrational-progression coprime walk, generated from
+The fifth axis is the deepest AGI-aspiring result the substrate owns —
+stated with its fence attached: **the NARS-proxy payload measured is mostly
+reconstructible from the address plus a tiny envelope; whether the REAL
+awareness loop inherits this is precisely D-MTS-6b** (the probe's own header
+names these proxies, not the ShaderDriver loop — the overclaim lesson,
+honored here on the claim sentence itself). The comma (an irrational-progression coprime walk, generated from
 the address, never stored) makes L pyramid levels *independent witnesses* —
 stratified, not redundant. Boundary condition, measured honestly:
 N_eff = min(L, spectral participation of the detail) — broadband content gets
@@ -115,7 +125,8 @@ The style stack resolved into a ladder with distinct KINDS at each rung
   conflate them.
 - **Compiled templates** — the elixir-like notation × StepMask: runbooks
   compile down; the oracle (rig, 1–2 ms framework vs 8.4 s LLM measured —
-  orchestration is FREE) ratchet-shrinks its own involvement.
+  orchestration overhead is negligible against the oracle, not zero)
+  ratchet-shrinks its own involvement.
 
 The endgame this ladder points at [ASPIRATION, the honest crown]: **thinking
 that compiles its own thinking** — traces become templates, templates carry
@@ -132,7 +143,9 @@ The kanban is not a task board — it is **volition, typed**
 conscious act); Planning → Prune is the pre-Rubicon veto ("free won't");
 Evaluation's 3-way is the postactional reckoning; Plan → Planning
 re-deliberates carrying the witness. The cast records intent AHEAD of the ack
-— crossing at intent formation, exactly Rubicon-conformant.
+— crossing at intent formation: Rubicon-conformant **by construction of the
+mapping** [RULING] (the −550 ms is Libet's literature value stamped onto the
+transition as the budget anchor, not a quantity measured on this system).
 
 And beneath it, the prime invariant [RULING E-NOBODY-WAITS-1]: **nobody waits
 for anything or any scheduling.** Writes are fire-and-forget ("melden macht
@@ -190,10 +203,16 @@ envelope-auditor gate — never as ad-hoc lanes.**
    computing-in-superposition). The niche VSA kept is the niche the papers
    actually prove.
 5. **The measured numbers are the vision's spine**, not its decoration:
-   611M SPO lookups/sec · 1.8 ns palette distance · 17K tokens/sec ·
-   1–2 ms orchestration vs 8.4 s oracle · N_eff 11.00/12 · k\*=1 ·
-   1549 tests green at the M9 merge. When a future session doubts the
-   aspiration, it should re-run the probes, not re-read the prose.
+   N_eff 11.00/12 · k\*=1 · 1549 tests green at the M9 merge ·
+   1–2 ms orchestration vs 8.4 s oracle (2026-07) · and, from the
+   2026-03-31 benchmark arc (dated, not re-run since): 611M SPO
+   lookups/sec and 1.8 ns palette distance (two distinct metrics),
+   17K tokens/sec. The boldest spine claim stays named: **DeepNSM
+   replaces transformer inference for its scope — 680 GB model →
+   16.5 MB, 50 ms/token → <10 µs/sentence** (the crate's measured
+   claim; its parity against the temporal-stream lane is exactly what
+   D-MTS-1 tests). When a future session doubts the aspiration, it
+   should re-run the probes, not re-read the prose.
 
 ## 8. The road (in dependency order)
 
