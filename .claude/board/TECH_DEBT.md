@@ -17,6 +17,21 @@ that, not the existing residue, is what a reviewer blocks. The prime
 invariant every change on this surface is judged against: **nobody
 waits for anything or any scheduling.**
 
+*Extension (2026-07-10, per E-KANBANSTEP-IS-THE-TRIGGER-1):* two
+corrections to the entry above. (a) The phrase "canonical message-free
+loop (`BatchWriter::ack_and_propose` …)" over-ranked the ack-pump: the
+CANONICAL advance is the pre-existing **kanbanstep** — the in-stream
+synchronous fire `VersionScheduler::on_version → try_advance_phase(&mut)`
+(the writer already knows the version it committed; reference loop
+`symbiont::kanban_loop::SymbiontBoard::step()`); `ack_and_propose` is
+demoted to crash-replay/durability bookkeeping (`unacked()`), never a
+pacing mechanism — waiting on an ack is more expensive than the 550 ms
+cycle budget allows. (b) `supervisor::deliver_kanban_step`'s
+`cast(Advance)` delivery is added to this residue catalogue — the
+`step_type "kanban.*"` SHAPE (StepDomain::Kanban, D-MBX-A6) is canonical;
+the message DELIVERY behind it is the redundancy. Same disposition:
+leave as is, documented.
+
 ## TD-STYLE-TABLE-RESIDUE (2026-07-10, D-TSC-1 follow-ups)
 
 Three residues from the M9 ThinkingStyle dedup (all OUT of D-TSC-1 scope,

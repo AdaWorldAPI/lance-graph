@@ -1,3 +1,22 @@
+## 2026-07-10 — E-KANBANSTEP-IS-THE-TRIGGER-1 — the CANONICAL kanban advance is the in-stream synchronous step (the pre-existing "kanbanstep"); the ack is bookkeeping, never a pacing mechanism
+**Status:** RULING + genealogy CORRECTION (operator, 2026-07-10: "the doctrine was cognitive-shader-driver can't stop thinking … the SoA budgets of 550ms make it more expensive to wait for any stupid ack; the old already existing system was called kanbanstep and it was removed beyond recognition when removing the SurrealQL AST DLL shape"). Corrects the trigger-RANKING in E-ACK-IS-THE-KANBAN-TRIGGER-1 (whose "the driver never waits" clause STANDS); reads with E-NOBODY-WAITS-1.
+
+**The doctrine (operator):** cognitive-shader-driver **can't stop thinking** — cycles continue as a STREAM over reasoning; the 550 ms SoA cycle budget makes waiting for ANY ack **more expensive than continuing**. The ack's only legitimate job is durability bookkeeping (the `unacked()` crash-replay surface); it never schedules, never paces, never gates the next move.
+
+**The pre-existing system ("kanbanstep") — archaeology, verified in-tree 2026-07-10:** the synchronous in-stream kanban advance survives in three artifacts:
+1. `contract::scheduler::VersionScheduler::on_version(view, DatasetVersion, exec) -> Option<KanbanMove>` — a **sync pure function**; a batch writer that commits a SoA batch **already knows the version it wrote** and fires the advance INLINE: `on_version → try_advance_phase(&mut)`, no async, no round trip (`scheduler.rs` §IN; `surreal_container/tests/scheduler_seam.rs` drives the whole Rubicon arc this way).
+2. `symbiont::kanban_loop::SymbiontBoard::step()` — the pure-SoA reference loop; its doc-comment carries the doctrine verbatim: *"THE TRIGGER IS SYNCHRONOUS — the writer fires it … with NO async"* and *"`step()` drives the loop by direct owned mutation, never by sending a message."*
+3. `supervisor::{parse_kanban_step, deliver_kanban_step}` — the `UnifiedStep { step_type: "kanban.<mailbox>.<phase>" }` delivery edge (`StepDomain::Kanban`, D-MBX-A6) — the step-in-the-plan-stream shape; its current DELIVERY is the message shim (`cast(Advance)` — TD-MESSAGE-RESIDUE).
+
+**What happened (the "removed beyond recognition"):** during the SurrealQL-AST/DLL carve-out (symbiont W2c re-scope to storage/read-glove-only; "render is struct+methods not SurrealQL", OGAR #149 arc), the kanbanstep loop lost its prominence — the reference loop lived on the symbiont/surreal_container side being demoted, and subsequent sessions (including the E-ACK-IS-THE-KANBAN-TRIGGER-1 arc) rebuilt the trigger as the **ack-pump** (`BatchWriter::ack_and_propose`) and mis-ranked IT canonical. The pump couples the next-move PROPOSAL to an ack event that arrives later — a wait-shaped scheduler by construction, exactly what the 550 ms budget forbids.
+
+**Corrected canonicality:**
+- **CANONICAL:** the in-stream synchronous step — the writer/stream fires `on_version → try_advance_phase(&mut)` inline at commit with the version it already holds. The stream is the trigger; thinking never pauses for storage.
+- **DEMOTED:** `ack_and_propose` = reconciliation/crash-replay bookkeeping for async-sink shapes (WAL `unacked()` accounting). Correct code, wrong rank — it must never be the thing that pumps cognition.
+- **RESIDUE:** `deliver_kanban_step`'s `cast(Advance)` delivery joins TD-MESSAGE-RESIDUE (the step_type SHAPE is canonical; the message DELIVERY is the redundancy).
+
+**Disposition:** doc-only per the standing ruling (LEAVE AS IS AND DOCUMENT). Drift signal: any NEW code that paces a cycle on an ack event, or that awaits storage before advancing a KanbanColumn.
+
 ## 2026-07-10 — E-COMMA-AWARENESS-MEASURED-1 — D-MTS-6 ran GREEN: ONE stored truth bit per comma level matches the full CausalEdge64's awareness proxies (k*=1 vs aligned k*=4); the comma lattice buys ≈ log₂(L) effective bits
 **Status:** FINDING (measured 2026-07-10; probe `perturbation-sim/examples/comma_awareness.rs`, pre-registered gates, run chronicle in the header; realizes the falsifiable shape of E-THINKING-TENANTS-V3-1's second half)
 
