@@ -42,6 +42,19 @@ signed mantissa slot) — D-MTS-2's design names it explicitly. Vertical
 level offsets follow the comma progression (generated from the address,
 never stored); per-level content = palette-quantized magnitude envelope only.
 
+> **Addendum (operator, 2026-07-10, second wave — three rulings):**
+> (1) **E-STYLE-FAMILY-VS-RUNBOOK-1** — 12 = abstract FAMILIES for
+> orchestration; 36 = literal NARS RUNBOOKS; runbooks seed the rung ladder;
+> rs-graph-llm chaining consumes runbooks as its replayable unit; runbooks
+> later feed the elixir-LIKE notation (compiled templates, M10). D-TSC-1's
+> canonical 12-type is therefore `StyleFamily` with `default_runbook()` /
+> `ThinkingStyle::family()`.
+> (2) **E-THINKING-TENANTS-V3-1** — thinking tenants migrate to V3
+> (**D-TTV-1**); old CausalEdge64 kept as perturbation baseline.
+> (3) **D-MTS-6** — measure the smaller-CE64 × comma awareness curve vs
+> that baseline (the bits-as-projection-axis twin of E-COMMA-REPLAY-1).
+> Execution spec for D-TSC-1: `.claude/plans/dtsc1-thinkingstyle-dedup-spec-v1.md`.
+
 ## Track B — Thinking styles as classes (domain:appid:classview)
 
 Ruling: styles move entirely under the classid umbrella. A style class

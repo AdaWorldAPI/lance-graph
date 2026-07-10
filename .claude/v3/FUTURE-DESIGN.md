@@ -10,6 +10,18 @@
 
 ---
 
+## 2026-07-10 (second wave) — families vs runbooks; thinking tenants → V3; the smaller-CE64 × comma awareness probe
+
+| Ruling | One line | Wiring queue |
+|---|---|---|
+| E-STYLE-FAMILY-VS-RUNBOOK-1 | 12 = abstract orchestration FAMILIES (`StyleFamily`); 36 = literal NARS RUNBOOKS → seed the rung ladder → replayable unit for rs-graph-llm chaining → feed the elixir-like notation (M10) | D-TSC-1 absorbs naming/semantics (spec `dtsc1-thinkingstyle-dedup-spec-v1.md`); runbook content attaches in D-TSC-3 |
+| E-THINKING-TENANTS-V3-1 | thinking tenants → V3 substrate; old CausalEdge64 KEPT as perturbation baseline | D-TTV-1 (engineering, envelope-auditor gated) |
+| (probe) | smaller CausalEdge64 × comma vs old-CE64 baseline: find the awareness knee (bits as a projection axis — the storage twin of comma-replay's scale axis) | D-MTS-6; joins D-MTS-5 measured + CascadeChannels8 |
+
+Process note: this wave ran under the new **5+3 council** harness
+(`.claude/agents/5plus3-council.md`, `/5plus3` skill) — first live run =
+D-TSC-1; the 5-savant fan-out surfaced the three-divergent-tables finding.
+
 ## 2026-07-10 — the ratified cognition arc (four rulings + one measured probe)
 
 **Rulings** (canonical: EPIPHANIES — measured results in
