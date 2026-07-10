@@ -99,7 +99,11 @@ fn main() {
     let all: Vec<usize> = (0..n).collect();
     let seam: Vec<usize> = seam_nodes.iter().copied().collect();
     let (anom_seam, anom_all) = (mean(&seam), mean(&all));
-    let anom_ratio = if anom_all > 0.0 { anom_seam / anom_all } else { 0.0 };
+    let anom_ratio = if anom_all > 0.0 {
+        anom_seam / anom_all
+    } else {
+        0.0
+    };
 
     // Top-quartile anomalies: are seam nodes over-represented?
     let mut ranked: Vec<usize> = (0..n).collect();
