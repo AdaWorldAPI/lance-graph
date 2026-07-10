@@ -1,3 +1,9 @@
+> **⊘ SUPERSEDED 2026-07-10 (D-TSC-1 / M9).** This pre-eviction doc still
+> cites crewai-rust/n8n-rs as live consumers (evicted 2026-06-21) and predates
+> the family/runbook split (E-STYLE-FAMILY-VS-RUNBOOK-1). Canonical: contract
+> `style_family.rs` (12 families) + `thinking.rs` (36 runbooks). Kept for
+> history; do not cite as source of truth.
+
 # Thinking Styles — Canonical 36 Styles in 6 Clusters
 
 **Source of Truth**: `crates/lance-graph-contract/src/thinking.rs` (commit b4b43399)

@@ -41,27 +41,47 @@ Plan: `.claude/v3/INTEGRATION-PLAN.md` (stub: `.claude/plans/v3-substrate-integr
 | D-V3-W0a | `.claude/v3/` tree (README, plan, COMPONENT-MAP, ENTROPY-MILESTONES, MODULE-TABLE, soa_layout/*) | docs | Shipped (this PR) | complete: 7/7 mappers synthesized; MODULE-TABLE = 304/304 files (21/21 census chunks); soa_layout 5/5 docs |
 | D-V3-W0b | V3 awareness layer (knowledge docs, v3-* agent cards, /v3 skill, /v3-audit command, CLAUDE.md+BOOT.md entrypoints) | docs | Shipped (this PR) | 4 knowledge docs, 4 cards, skill+command registered |
 | D-V3-W1a | SoaEnvelope::mailbox_owner() ownership stamp | lance-graph-contract | Shipped | this branch; 775 contract tests green |
-| D-V3-W1b | Ahead-firing batch writer (cast pairing + AHEAD KanbanMove at cast) | planner-adjacent | In PR | W1 STARTED 2026-07-02; WAL-shaped per preflight addendum (M24: cast = intent record) |
-| D-V3-W1c | Delegation cache (cast id vs envelope stamp) | batch writer | In PR | W1 STARTED 2026-07-02; collapses into W1b writer (M24) |
+| D-V3-W1b | Ahead-firing batch writer (cast pairing + AHEAD KanbanMove at cast) | planner-adjacent | Shipped (#631, 2026-07-02; row flipped 2026-07-10 hygiene) | W1 STARTED 2026-07-02; WAL-shaped per preflight addendum (M24: cast = intent record) |
+| D-V3-W1c | Delegation cache (cast id vs envelope stamp) | batch writer | Shipped (#631, 2026-07-02, collapsed into W1b per M24; row flipped 2026-07-10 hygiene) | W1 STARTED 2026-07-02; collapses into W1b writer (M24) |
 | D-V3-W1d | MailboxId minting path (non-zero owners, uniqueness debug_assert) | contract | In progress | W1 STARTED 2026-07-02 |
-| D-V3-W1e | Probes: ahead-update ordering + delegation miss | contract/planner | In PR | W1 STARTED 2026-07-02; probe lands FIRST (probe-first gate) + kill-after-cast replay test (M24) |
-| D-V3-W2a | Per-mailbox kanban board as TENANT | contract | Queued | field-isolation matrix mandatory |
-| D-V3-W2b | Supervisor wiring: moves via MailboxSoaOwner::advance_phase | lance-graph-supervisor | Queued | plan W2 |
-| D-V3-W2c | symbiont SurrealDB-on-kv-lance arm | symbiont | Blocked (kv-lance fork coordinates) | POC = kanban_loop.rs |
-| D-V3-W2d | 550 ms budget hooks via planner elevation/ | lance-graph-planner | Queued | plan W2 |
-| D-V3-W3a | StepMask in contract (sibling of FieldMask) | lance-graph-contract | Queued | plan W3 |
+| D-V3-W1e | Probes: ahead-update ordering + delegation miss | contract/planner | Shipped (#631, 4/4 green; verified live un-ignored 2026-07-10) | W1 STARTED 2026-07-02; probe lands FIRST (probe-first gate) + kill-after-cast replay test (M24) |
+| D-V3-W2a | Per-mailbox kanban board as TENANT | contract | Queued (GATED: Addendum-12a — BoardAggregates 10th ValueTenant @152 + T1-T6 + board classid via next BATCHED mint, never solo; deliberately deferred 2026-07-10) | field-isolation matrix mandatory |
+| D-V3-W2b | Supervisor wiring: moves via MailboxSoaOwner::advance_phase | lance-graph-supervisor | Shipped (kanban_actor.rs + tests/w2b_real_owner_probe.rs; re-verified 3/3 green 2026-07-10 — row was stale) | plan W2 |
+| D-V3-W2c | symbiont SurrealDB-on-kv-lance arm | symbiont | RE-SCOPED (E-ORCHESTRATION-ORGANS-1, 2026-07-10): storage + SurrealQL read-glove + ExecTarget lowering ONLY — never orchestration; kanban-updates-as-KV-transactions dropped | POC = kanban_loop.rs (read glove); resolves the W2c/D-PG-6 dual-row contradiction |
+| D-V3-W2d | 550 ms budget hooks via planner elevation/ | lance-graph-planner | In PR (2026-07-10, branch `claude/review-claude-board-files-nhqgx1`) | `elevation::cycle::CycleBudget` (M12 allocator): reads the Libet anchor, advisory `admits` (reprioritize-never-gate), measured consts (66µs/card lane-E, ~0.5µs/step), +5 tests; load-balancer consumption = W2 residue |
+| D-V3-W3a | StepMask in contract (sibling of FieldMask) | lance-graph-contract | In PR (2026-07-10, branch `claude/review-claude-board-files-nhqgx1`) | `contract::step_mask::StepMask`, +5 tests (866 lib green), selection-never-control-flow doc'd |
 | D-V3-W3b | ElixirTemplate → graph-flow GraphBuilder adapter (ownership inheritance) | rs-graph-llm seam | Queued | plan W3 |
 | D-V3-W3c | Rig oracle node + equivalence-gated compile-down | cognitive-compiler + rig | Queued | D-VCW-7 lineage |
 | D-V3-W3d | Template catalogue keyed internally (classid keying deferred to P4) | template-runtime | Queued | plan W3 |
-| D-V3-W4a | BusDto cast-pairing call sites | cognitive-shader-driver | Queued | consumes W1b |
+| D-V3-W4a | BusDto cast-pairing call sites | cognitive-shader-driver | In PR (2026-07-10, branch `claude/review-claude-board-files-nhqgx1`) | `MailboxSoA::cast_on_behalf` (owner from the CARRIER — mispair unrepresentable) + `BatchWriter::on_behalf_of` audit getter; 3 tests incl. literal BusDto arm; fixed pre-existing standalone `with-planner` E0432 (planner_bridge gated onto its wire transport) |
 | D-V3-W4b | L4 learning-loop end-to-end probe (residue → owner-stamped lane → next-cycle template read) | cross-crate | Queued | plan W4 |
 | D-V3-W5a | q2 CI re-bakes + body.soa re-release + drop FMA_V3_CLASSID_LEGACY | q2 | Queued | handover continuation §1 |
 | D-V3-W5b | cpic contract pull with mereology (kinds → cascade positions) | q2 + contract | Queued | handover F3 |
 | D-V3-W5c | Consumer write-on-behalf adoption (bakes annotated bootstrap; new online writes via batch writer) | fleet | Queued | write-on-behalf.md |
 | D-V3-W5e | ladybug-rs + smb-office-rs contract pulls | siblings | Queued | never bridges |
-| D-V3-W6a | Adoption/corpus scanner (ONE two-metric range-count tool) | lance-graph | Queued | E-V3-MARKER-IS-A-MONITOR |
+| D-V3-W6a | Adoption/corpus scanner (ONE two-metric range-count tool) | lance-graph | In PR (counting logic shipped 9c55646 2026-07-02 — row was stale; runnable examples/adoption_scan.rs added 2026-07-10; Lance-dataset sweep = residue) | E-V3-MARKER-IS-A-MONITOR; note: 0x1000 PERMANENT per E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1 — scanner counts forms, monitor never retires |
 | D-V3-W6b | Legacy alias retirement (corpus-proof-gated) | contract + consumers | Blocked (corpus proof) | plan W6 |
 | D-V3-W6c | Custom half opens: render + template catalogue dispatch | contract | Blocked (P4 operator checkpoint) | completes F2 styles-as-lenses |
+
+## temporal-markov-and-style-classes-v1 — the ratified 2026-07-10 cognition arc
+
+Plan: `.claude/plans/temporal-markov-and-style-classes-v1.md`. Rulings: E-MARKOV-TEMPORAL-STREAM-1 / E-THINKING-STYLES-ARE-CLASSES-1 / E-ORCHESTRATION-ORGANS-1 / E-ACK-IS-THE-KANBAN-TRIGGER-1.
+
+| D-id | Deliverable | Owner | Status | Notes |
+|---|---|---|---|---|
+| D-MTS-1 | Markov-as-stream parity probe (temporal version-range vs VSA ±5 braid, DeepNSM corpus) | lance-graph | Queued | gates ALL VSA-path removal; truth-architect reviews |
+| D-MTS-2 | L4 palette256² shader fidelity certification (vs 0.96–0.998 anchors; representation engineered first) | cognitive-shader-driver | Queued | certification-officer battery |
+| D-MTS-3 | Hierarchical-4⁴ vs flat-256 codebook fidelity (OGAR F11-adjacent) | ndarray/bgz17 | Queued | 2bit×2bit cascade prefix rigor |
+| D-MTS-4 | M4 cutover target sharpened: MailboxSoA + temporal stream + palette tenants | driver | Queued | rides M4 parity gate |
+| D-MTS-5 | Pythagorean-comma vertical-quorum probe (comma-offset vs aligned pyramid; coprime-walk quantization per D-QUANTGATE; Jirak significance) | shader/ndarray | **Measured GREEN 2026-07-10** | `perturbation-sim/examples/comma_quorum.rs`, all pre-registered gates PASS: comma N_eff 11.00/12 vs strict 1.00 / unit 2.49 / rational 3.92; replay bit-identical any order; fresh level-12 +0.83 witnesses at max\|ρ\|=0.156; 82 KB touched vs ~69 GB dense. Bonus measured boundary: N_eff(comma) = min(L, spectral participation) — run #1 FAIL 3.24 kept in the chronicle. See E-COMMA-QUORUM-MEASURED-1 |
+| D-TSC-1 | M9 ThinkingStyle dedup (5+ copies → contract taxonomy) | workspace | **Shipped 2026-07-10** (first 5+3 council run: spec v1→v2→v3 ratified; `contract::style_family::StyleFamily` + `default_runbook()`/`family()`; FIVE divergent tables replaced — E-FIVE-STYLE-TABLES-1; G1 grep = 1 enum + 3 deprecated aliases; 1549 tests green across 4 crates) | UNBLOCKS D-TSC-2..4 + StepMask catalogue (M9 gate); behavior changes documented + G7-pinned |
+| D-TTV-1 | Thinking-related tenants → V3 value-tenant substrate (keep old CausalEdge64 as perturbation baseline) | driver/contract | Queued | E-THINKING-TENANTS-V3-1; envelope-auditor gated; batched mints only |
+| D-MTS-6 | Smaller-CausalEdge64 × comma awareness curve vs old-CE64 baseline (find the knee: how many stored bits the comma reconstruction replaces before awareness degrades) | shader/perturbation-sim | **Measured GREEN 2026-07-10** | `perturbation-sim/examples/comma_awareness.rs`, all pre-registered gates PASS: **k\*=1** (2 explicit truth bits/edge vs baseline 16) matches all three awareness proxies; aligned control needs k\*=4; the comma lattice buys ≈3.4 effective bits ≈ log₂(12); replay bit-identical; run-#1 G1 mis-registration diagnosed (max flip margin 1.7e-5 = boundary noise) — see E-COMMA-AWARENESS-MEASURED-1. **D-MTS-6b** (driver-integrated fixture) gates any real CE64 shrink |
+| D-TSC-2 | Batched cognition-domain mint in OGAR (+ classify_form reconciliation if 0xFFFF) | OGAR | Queued (blocked by D-TSC-1) | never solo; COUNT_FUSE |
+| D-TSC-3 | Style masks + rung set + KausalSpec as class-record properties | contract + OGAR | Queued (blocked by D-TSC-1/2) | dispatch stays MetaWord bits |
+| D-TSC-4 | W6c coexistence re-ruling (catalogue shares custom half with PERMANENT 0x1000) | operator | ESCALATED | ruling needed, not assumed |
+| D-ORG-1 | BatchWriter::ack_and_propose self-pumping loop + probes | planner | Shipped (2026-07-10, 2 tests green) | E-ACK-IS-THE-KANBAN-TRIGGER-1 |
+| D-ORG-2 | W2c re-scope to storage/read-glove | board | Shipped (2026-07-10) | row above updated |
 
 ## classid-canon-custom-flip-v1 — the TRIGGERED §2.3 atomic flip
 
@@ -73,8 +93,8 @@ Plan: `.claude/plans/classid-canon-custom-flip-v1.md`. Operator trigger 2026-07-
 | D-CCF-1 | Flip + mint new-form classids (0x0701_1000 / 0x0A01_1000 / 0x0E01_1000) coexisting | lance-graph-contract | In PR (#628) | gated on P0 probes |
 | D-CCF-2 | OGAR#95 hi-u16 app-prefix reconciliation | contract + OGAR | In PR (OGAR #147; prefix = custom half) | plan §2 row / §4 P2 |
 | D-CCF-3 | q2 re-mints (osint-bake + cpic via contract pull; dissolves ISS-Q2-CPIC-MIRROR) | q2 (gate WAIVED) | In PR (q2 #71; .soa re-bakes deferred to CI/dev; cpic interim 0x0E01_000N, full contract pull tracked) | plan §4 P3 |
-| D-CCF-4 | 0x1000 marker retirement | all | Blocked (operator checkpoint) | plan §4 P4 |
-| D-PERT-1 | Rename dto.rs ResonanceDto → PerturbationDto (split, not dedup; deprecated alias; awareness_dto keeps Resonance) | thinking-engine + engine_bridge | Queued | E-TWO-RESONANCES-SPLIT |
+| D-CCF-4 | 0x1000 marker retirement | all | RESCINDED (operator 2026-07-03, E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1: v2/v3 coexist permanently by schema — retirement off the table) | plan §4 P4 (superseded) |
+| D-PERT-1 | Rename dto.rs ResonanceDto → PerturbationDto (split, not dedup; deprecated alias; awareness_dto keeps Resonance) | thinking-engine + engine_bridge | Shipped (#630, 2026-07-02; verified in-code 2026-07-10 — row was stale) | E-TWO-RESONANCES-SPLIT |
 
 ## v3-convergence-wiring-v1 — wire, don't invent (the seam list)
 

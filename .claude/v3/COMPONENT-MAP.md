@@ -143,3 +143,16 @@ FALSIFIED by smb-office-rs (write-on-behalf.md corrected accordingly).
 - **Vocabulary debt is the top footgun class**: CollapseGate×3,
   GateDecision×2, BindSpace×3, OGAR×2, Blackboard×2, ThinkingStyle
   12-vs-36 — see ENTROPY-MILESTONES for the collapse ledger.
+
+
+---
+
+## ADDENDUM 2026-07-10 — M9 resolved (D-TSC-1)
+
+The "5th ThinkingStyle copy / reconcile before M9" rows above are RESOLVED:
+the 12-space canonical type is `lance-graph-contract/src/style_family.rs`
+`StyleFamily` (families = orchestration; 36 `ThinkingStyle` = NARS runbooks,
+E-STYLE-FAMILY-VS-RUNBOOK-1). planner `thinking/style.rs` and thinking-engine
+`cognitive_stack.rs` carry deprecated aliases only; `superposition.rs`'s
+5-variant enum is renamed `DetectedStyle` (a detection result, not a card).
+Duplication counts citing 5+ ThinkingStyle copies read through this note.

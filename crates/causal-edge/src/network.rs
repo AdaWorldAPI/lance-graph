@@ -156,6 +156,10 @@ impl CausalNetwork {
             .filter(|e| e.s_idx() == s && e.p_idx() == p && e.o_idx() == o)
             .collect();
 
+        // v1 temporal ordering; under v2 `temporal()` is deprecated (temporal is
+        // structural — chain position + Triplet.timestamp — so the sort degrades to
+        // a stable no-op there). Kept for v1 evidence-trail parity.
+        #[allow(deprecated)]
         trail.sort_by_key(|e| e.temporal());
         trail
     }

@@ -692,6 +692,43 @@ impl<const N: usize> MailboxSoA<N> {
     }
 }
 
+// ── W4a cast pairing (feature `with-planner`): write-on-behalf at the source ──
+//
+// The V3 iron rule (`write-on-behalf.md`): every write names its owner via
+// the pairing `cast(on_behalf = <owner>, payload = DTO)` — cognitive
+// provenance (BusDto: what was thought, how settled) and write provenance
+// (whose lane) are ORTHOGONAL and pair AT CAST, never merged into one type.
+// Putting the pairing ON the carrier makes a mispair unrepresentable: the
+// `on_behalf` mailbox is read from `self`, so a call site cannot name a
+// different owner than the SoA it writes.
+//
+// ractor context: ownership is a COMPILE-TIME declaration (the KanbanActor
+// owns the `MailboxSoA`; spawn-only, never a message path). This method
+// runs inside the owner's context (`&self` borrow of the owned SoA) — the
+// cast is a WAL report to the ahead-firing writer ("melden macht frei",
+// never refused), not a message to another actor.
+#[cfg(feature = "with-planner")]
+impl<const N: usize> MailboxSoA<N> {
+    /// Record a write intent ON BEHALF OF this mailbox through the W1b
+    /// ahead-firing batch writer — the W4a cast pairing
+    /// (`cast(on_behalf = self.mailbox_id(), payload = P)`).
+    ///
+    /// Payload-generic like the writer itself (DTO purity: the writer never
+    /// inspects `P`; `P` carries NO ownership fields — `BusDto` is the
+    /// canonical rung-B payload in `with-engine` builds). The intent is
+    /// visible on the board AHEAD of any storage ack; deltas stay in this
+    /// SoA's backing store and the sink reads them at flush (zero-copy,
+    /// Addendum-6).
+    pub fn cast_on_behalf<P>(
+        &self,
+        writer: &mut lance_graph_planner::batch_writer::BatchWriter<P>,
+        moves: Vec<KanbanMove>,
+        payload: P,
+    ) -> lance_graph_planner::batch_writer::CastId {
+        writer.cast(self.mailbox_id(), moves, payload)
+    }
+}
+
 // ── Contract trait impls: MailboxSoA IS the in-RAM Rubicon owner ──────────────
 //
 // `MailboxSoaView` (read) + `MailboxSoaOwner` (write) make `MailboxSoA<N>` the
@@ -1549,5 +1586,96 @@ mod tests {
             "mailbox hot row ({per_row_dense} B) must be >10× lighter than a \
              BindSpace row ({BINDSPACE_PER_ROW} B) — the dropped 64 KB cycle plane"
         );
+    }
+}
+
+// W4a cast-pairing tests — feature `with-planner` (the writer lives in the
+// planner). The BusDto arm additionally needs `with-engine` (the DTO lives
+// in thinking-engine).
+#[cfg(all(test, feature = "with-planner"))]
+mod w4a_cast_pairing_tests {
+    use super::*;
+    use lance_graph_planner::batch_writer::BatchWriter;
+
+    /// Zero-copy descriptor payload (Addendum-6 shape): the cast names the
+    /// dirty range; delta bytes stay in the SoA backing store.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    struct DirtyRange {
+        first_row: u32,
+        rows: u32,
+        cycle: u32,
+    }
+
+    #[test]
+    fn pairing_takes_the_owner_from_the_carrier_never_the_call_site() {
+        // The mailbox IS the on_behalf: a call site cannot name a different
+        // owner than the SoA it writes (the W4a mispair-unrepresentable rule).
+        let mb: MailboxSoA<8> = MailboxSoA::new(77, 3, 1.0);
+        let mut writer: BatchWriter<DirtyRange> = BatchWriter::new();
+
+        let cast = mb.cast_on_behalf(
+            &mut writer,
+            vec![],
+            DirtyRange {
+                first_row: 0,
+                rows: 2,
+                cycle: 1,
+            },
+        );
+
+        assert_eq!(
+            writer.on_behalf_of(cast),
+            Some(77),
+            "on_behalf must be the carrier's mailbox_id, read from &self"
+        );
+        // AHEAD semantics: the intent is on the board before any ack.
+        assert_eq!(writer.unacked(), vec![cast]);
+        writer.ack(cast, 41);
+        assert!(writer.unacked().is_empty(), "acked cast leaves the WAL");
+        assert_eq!(writer.acked_version(cast), Some(41));
+    }
+
+    #[test]
+    fn stacked_casts_never_refused_melden_macht_frei() {
+        // Addendum-7: casting is reporting — a second cast on the same
+        // mailbox while the first is unacked is a stacked WAL entry with its
+        // own id, never a refusal.
+        let mb: MailboxSoA<8> = MailboxSoA::new(9, 1, 1.0);
+        let mut writer: BatchWriter<DirtyRange> = BatchWriter::new();
+        let d = DirtyRange {
+            first_row: 0,
+            rows: 1,
+            cycle: 7,
+        };
+        let c1 = mb.cast_on_behalf(&mut writer, vec![], d);
+        let c2 = mb.cast_on_behalf(&mut writer, vec![], d);
+        assert_ne!(c1, c2);
+        assert_eq!(writer.unacked(), vec![c1, c2], "stacked, in cast order");
+        assert_eq!(writer.on_behalf_of(c2), Some(9));
+    }
+
+    /// The canonical rung-B pairing: `cast(on_behalf = owner, payload = BusDto)`.
+    /// BusDto carries cognitive provenance ONLY (codebook_index / energy /
+    /// top_k / cycle_count / converged) — zero ownership fields (warden
+    /// check 2); ownership rides the pairing.
+    #[cfg(feature = "with-engine")]
+    #[test]
+    fn busdto_rides_the_pairing_with_no_ownership_fields() {
+        use thinking_engine::dto::BusDto;
+
+        let mb: MailboxSoA<8> = MailboxSoA::new(1024, 5, 1.0);
+        let mut writer: BatchWriter<BusDto> = BatchWriter::new();
+
+        let bus = BusDto {
+            codebook_index: 42,
+            energy: 0.75,
+            top_k: [(42, 0.75); 8],
+            cycle_count: 3,
+            converged: true,
+        };
+        let cast = mb.cast_on_behalf(&mut writer, vec![], bus);
+
+        assert_eq!(writer.on_behalf_of(cast), Some(1024));
+        assert_eq!(writer.unacked(), vec![cast], "intent AHEAD of ack");
     }
 }

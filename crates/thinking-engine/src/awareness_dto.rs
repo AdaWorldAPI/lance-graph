@@ -6,7 +6,7 @@
 //! MomentDto     — complete snapshot: resonance + qualia + agent state
 //! ```
 
-use crate::cognitive_stack::{GateState, RungLevel, ThinkingStyle};
+use crate::cognitive_stack::{GateState, RungLevel, StyleFamily};
 use crate::ghosts::GhostType;
 use crate::meaning_axes::{Archetype, AxisActivation, HdrResonance, Viscosity};
 
@@ -43,7 +43,7 @@ pub struct ResonanceDto {
 
     // ── Inferred user state ──
     /// Inferred user cognitive style (from conversation pattern).
-    pub user_style: ThinkingStyle,
+    pub user_style: StyleFamily,
     /// Inferred user engagement level (0.0–1.0).
     pub user_engagement: f32,
     /// Inferred user sentiment (-1.0 negative, 1.0 positive).
@@ -93,11 +93,11 @@ impl ResonanceDto {
 
         // User model: infer from the resonance pattern
         let user_style = if dissonance < 0.1 {
-            ThinkingStyle::Analytical
+            StyleFamily::Analytical
         } else if dissonance > 0.3 {
-            ThinkingStyle::Creative
+            StyleFamily::Creative
         } else {
-            ThinkingStyle::Deliberate
+            StyleFamily::Deliberate
         };
         let user_engagement = lens_agreement;
         let user_valence = 1.0 - dissonance * 2.0;
@@ -248,7 +248,7 @@ pub struct MomentDto {
     pub qualia: QualiaDto,
 
     /// Thinking style active in this moment.
-    pub style: ThinkingStyle,
+    pub style: StyleFamily,
     /// Semantic depth.
     pub rung: RungLevel,
     /// Free energy (surprise level).

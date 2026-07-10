@@ -477,6 +477,78 @@ impl Hash for WideFieldMask {
     }
 }
 
+/// Positions in [`WideFieldMask`] are `u8`, so a mask can address at most 256
+/// fields. The doctrine (lance-graph #651 body) is explicit: capacity beyond
+/// 256 is headroom, never license — a class whose universe genuinely exceeds
+/// 256 fields is an OGAR-SOC (separation-of-concerns) split signal, not a case
+/// to widen the mask type further. [`WideFieldMask::from_universe_present`]
+/// refuses loudly rather than silently truncating or wrapping such a universe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WideMaskCapError {
+    /// `universe.len()` exceeded the 256-position cap that `u8` positions
+    /// impose on [`WideFieldMask`].
+    UniverseExceedsSocCap {
+        /// The offending universe size.
+        fields: usize,
+    },
+}
+
+impl std::fmt::Display for WideMaskCapError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UniverseExceedsSocCap { fields } => write!(
+                f,
+                "universe of {fields} fields exceeds the 256-field cap (u8 positions) \
+                 — an OGAR-SOC split signal, not a mask to widen further"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for WideMaskCapError {}
+
+impl WideFieldMask {
+    /// Mint the projection mask from a domain-blind `universe`/`present` pair:
+    /// bit `i` is set iff `universe[i]` ∈ `present` — the same sort-agnostic
+    /// membership rule odoo-rs's `od_ontology::view_mask::mint_wide_mask` uses,
+    /// so any consumer (Rails/ERB `ViewFieldSet` included) mints the identical
+    /// mask from the identical inputs. Positions are the universe index (`u8`).
+    ///
+    /// **One more brick, not a parallel path.** This is a plain constructor
+    /// stacked on top of the existing kit — it computes the populated
+    /// positions and hands them to [`Self::from_positions`] (which itself
+    /// folds [`Self::with`] over the slice); no bit-fiddling is reimplemented
+    /// here. The `Self` it returns composes exactly like any other
+    /// `WideFieldMask`: keep stacking `.with(...)`, [`Self::union`],
+    /// [`Self::intersect`], etc. on the result.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WideMaskCapError::UniverseExceedsSocCap`] if
+    /// `universe.len() > 256` — `WideFieldMask` positions are `u8`, so a larger
+    /// universe cannot be addressed at all. This is a loud refusal, never a
+    /// silent drop or truncation.
+    pub fn from_universe_present(
+        universe: &[&str],
+        present: &[&str],
+    ) -> Result<Self, WideMaskCapError> {
+        if universe.len() > 256 {
+            return Err(WideMaskCapError::UniverseExceedsSocCap {
+                fields: universe.len(),
+            });
+        }
+        let present_set: std::collections::BTreeSet<&str> = present.iter().copied().collect();
+        #[allow(clippy::cast_possible_truncation)] // guarded: universe.len() <= 256 above
+        let positions: Vec<u8> = universe
+            .iter()
+            .enumerate()
+            .filter(|(_, field)| present_set.contains(*field))
+            .map(|(i, _)| i as u8)
+            .collect();
+        Ok(Self::from_positions(&positions))
+    }
+}
+
 /// One recompute edge in a class's **compute DAG**: field position `target` is
 /// (re)computed from the field positions in `inputs`.
 ///
@@ -599,6 +671,83 @@ pub fn compute_dag_topo_order(edges: &[ComputeEdge]) -> Option<Vec<u8>> {
             return None; // cycle
         }
     }
+}
+
+/// Which screens are reachable from `root` by following navigation edges —
+/// the **jump** half of the stackable-topology Lego kit (the `navigates_to`
+/// Klickweg harvested by `ruff_csharp_spo`).
+///
+/// **One more brick, not a parallel path.** A navigation graph reuses the
+/// existing [`ComputeEdge`] shape (`target` = the destination screen, `inputs`
+/// = the source screens that navigate to it) and returns a plain
+/// [`WideFieldMask`] of reached screen positions — no new edge type, no new
+/// mask type. The *representation* is shared with the compute DAG; only the
+/// *invariant* differs, and deliberately so:
+///
+/// - **Stack** (a screen composing sub-views) is acyclic — a screen cannot
+///   compose itself — so composition edges go through
+///   [`compute_dag_is_acyclic`] verbatim.
+/// - **Jump** (this function) is a **reachability closure, cycles allowed**:
+///   `A → B → A` is ordinary back-navigation, so running `compute_dag_is_acyclic`
+///   on nav edges would wrongly reject every back-link. A forward fixpoint over
+///   [`WideFieldMask`] (`.with` / `.has`) is the right check — cycle-safe by
+///   construction (the reached set only grows, so it terminates).
+///
+/// Positions are `u8`, capped at 256 like every other mask (lance-graph #651
+/// SoC doctrine). Out-of-range targets/inputs are ignored by
+/// [`WideFieldMask::with`] / [`WideFieldMask::has`], mirroring
+/// [`FieldMask::from_positions`].
+#[must_use]
+pub fn screens_reachable_from(root: u8, edges: &[ComputeEdge]) -> WideFieldMask {
+    let mut reached = WideFieldMask::EMPTY.with(root);
+    loop {
+        let mut next = reached.clone();
+        for e in edges {
+            // edge means: any source in `e.inputs` navigates to `e.target`.
+            if e.inputs.iter().any(|&src| reached.has(src)) {
+                next = next.with(e.target);
+            }
+        }
+        if next == reached {
+            return reached; // fixpoint — the reached set stopped growing
+        }
+        reached = next;
+    }
+}
+
+/// Whether **every** screen in `screens` is reachable from `root` — the
+/// canonical "does every pipe lead somewhere, and is the level fully
+/// connected" check (the level-editor validator, at the Core layer).
+///
+/// `true` iff `screens_reachable_from(root, edges) == screens` — the reached
+/// set is **exactly** the declared screen universe. That single equality
+/// catches all three failure modes a level editor must reject, and it does NOT
+/// reject cycles (nav is legitimately cyclic):
+///
+/// - **orphan** — a declared screen with no click-path from `root`
+///   (`screens ⊄ reached`);
+/// - **dangling click** — a navigation edge whose target is NOT a declared
+///   screen (`reached ⊄ screens`): a pipe that leads nowhere served, e.g.
+///   `screens={0,1}`, `1→99` must FAIL despite every declared screen being
+///   reachable;
+/// - **unserved root** — `root` is always in `reached`, so if `root ∉ screens`
+///   the equality fails: you can't enter a level whose entry screen isn't
+///   served.
+///
+/// (A plain `screens ⊆ reached` subset test — the pre-#670-review form — passed
+/// the last two; codex P2 on #670 caught it. Exact equality is the fix.)
+///
+/// `screens` is the universe-of-screens mask, and the SANCTIONED way to mint it
+/// is [`WideFieldMask::from_universe_present`]`(universe = all screen ids,
+/// present = the screens the app actually serves)` — the same membership brick
+/// every other consumer uses, so the mask is byte-for-byte interchangeable and
+/// carries the 256-field SoC-split guard. Do NOT hand-roll it via ad-hoc
+/// `from_positions(mask_positions(..))` — that is off-brick and skips the guard.
+#[must_use]
+pub fn nav_is_fully_connected(root: u8, edges: &[ComputeEdge], screens: &WideFieldMask) -> bool {
+    // Exact equality: no orphan (screens ⊆ reached) AND no dangling click /
+    // unserved root (reached ⊆ screens). `reached` always contains `root`.
+    &screens_reachable_from(root, edges) == screens
 }
 
 /// The class as a **meta lookup that flies above the SoA** — the resolver trait.
@@ -1102,6 +1251,112 @@ mod tests {
             "both precedents before the join"
         );
         assert_eq!(order.len(), 3);
+    }
+
+    // ── screen-graph jump connector (navigates_to Klickweg) ──────────────────
+
+    #[test]
+    fn nav_reachability_is_a_forward_closure() {
+        // root(0) -> orders(1) -> lines(2);  root -> settings(3)
+        let edges = &[
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+            ComputeEdge {
+                target: 2,
+                inputs: &[1],
+            },
+            ComputeEdge {
+                target: 3,
+                inputs: &[0],
+            },
+        ];
+        let reached = screens_reachable_from(0, edges);
+        assert!(reached.has(0) && reached.has(1) && reached.has(2) && reached.has(3));
+        assert_eq!(reached.count(), 4);
+        assert!(nav_is_fully_connected(
+            0,
+            edges,
+            &WideFieldMask::from_positions(&[0, 1, 2, 3])
+        ));
+    }
+
+    #[test]
+    fn nav_cycle_does_not_reject_connectivity() {
+        // A(0) -> B(1) -> A(0): ordinary back-navigation. compute_dag_is_acyclic
+        // WOULD reject this; the jump connector must NOT — the whole point of the
+        // reachability-vs-acyclicity split. Every screen is still reachable.
+        let edges = &[
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+            ComputeEdge {
+                target: 0,
+                inputs: &[1],
+            },
+        ];
+        assert!(!compute_dag_is_acyclic(edges), "the nav graph IS cyclic");
+        let reached = screens_reachable_from(0, edges);
+        assert!(reached.has(0) && reached.has(1));
+        assert!(nav_is_fully_connected(
+            0,
+            edges,
+            &WideFieldMask::from_positions(&[0, 1])
+        ));
+    }
+
+    #[test]
+    fn nav_orphan_screen_fails_connectivity() {
+        // root(0) -> orders(1); settings(2) has NO click-path from root — a dead
+        // lane. This is the dead-link/orphan the level-editor validator catches.
+        let edges = &[ComputeEdge {
+            target: 1,
+            inputs: &[0],
+        }];
+        let reached = screens_reachable_from(0, edges);
+        assert!(reached.has(0) && reached.has(1) && !reached.has(2));
+        assert!(
+            !nav_is_fully_connected(0, edges, &WideFieldMask::from_positions(&[0, 1, 2])),
+            "orphan screen 2 must break connectivity"
+        );
+    }
+
+    #[test]
+    fn nav_dangling_click_fails_connectivity() {
+        // screens {0,1} declared; edge 1->99 clicks to a screen that is NOT
+        // served (a dead link). Every DECLARED screen is reachable, but the
+        // reached set {0,1,99} != {0,1}, so the level is not fully connected.
+        // (codex P2 on #670: the old `screens ⊆ reached` subset test passed this.)
+        let edges = &[
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+            ComputeEdge {
+                target: 99,
+                inputs: &[1],
+            },
+        ];
+        assert!(
+            !nav_is_fully_connected(0, edges, &WideFieldMask::from_positions(&[0, 1])),
+            "a click to an undeclared screen (99) must break connectivity"
+        );
+    }
+
+    #[test]
+    fn nav_unserved_root_fails_connectivity() {
+        // root 0 is NOT among the declared screens {1}; you can't enter a level
+        // whose entry screen isn't served. reached {0,1} != {1}.
+        let edges = &[ComputeEdge {
+            target: 1,
+            inputs: &[0],
+        }];
+        assert!(
+            !nav_is_fully_connected(0, edges, &WideFieldMask::from_positions(&[1])),
+            "an unserved root must break connectivity"
+        );
     }
 
     #[test]
@@ -1628,5 +1883,37 @@ mod tests {
         assert!(!only_200.is_empty()); // sanity: 200 really set a bit somewhere
         assert_eq!(three_chunk_minus_200, direct_two_chunks);
         assert_eq!(hash_of(&three_chunk_minus_200), hash_of(&direct_two_chunks));
+    }
+
+    // ── from_universe_present minter (Q6, odoo-rs view_mask relocation) ──────
+
+    /// A universe of 257 fields exceeds the `u8`-position cap — refused loudly,
+    /// mirroring odoo-rs's `mint_wide_mask` cap error.
+    #[test]
+    fn from_universe_present_rejects_universe_over_256() {
+        let universe: Vec<String> = (0..257).map(|i| format!("f{i:03}")).collect();
+        let universe_refs: Vec<&str> = universe.iter().map(String::as_str).collect();
+        let err = WideFieldMask::from_universe_present(&universe_refs, &[]).unwrap_err();
+        assert_eq!(err, WideMaskCapError::UniverseExceedsSocCap { fields: 257 });
+    }
+
+    /// Membership agrees with the raw `from_positions` construction on a mixed
+    /// 70-field universe — mirrors `wide_mask_agrees_with_mask_words` in
+    /// odoo-rs's `view_mask.rs`.
+    #[test]
+    fn from_universe_present_agrees_with_from_positions() {
+        let universe: Vec<String> = (0..70).map(|i| format!("f{i:02}")).collect();
+        let universe_refs: Vec<&str> = universe.iter().map(String::as_str).collect();
+        let present = ["f00", "f63", "f69"];
+
+        let minted = WideFieldMask::from_universe_present(&universe_refs, &present)
+            .expect("universe within cap");
+        let direct = WideFieldMask::from_positions(&[0, 63, 69]);
+
+        assert_eq!(minted, direct);
+        assert_eq!(minted.count(), 3);
+        for i in 0..universe.len() as u8 {
+            assert_eq!(minted.has(i), direct.has(i));
+        }
     }
 }

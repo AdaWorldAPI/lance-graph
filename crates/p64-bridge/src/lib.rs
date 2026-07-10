@@ -159,11 +159,17 @@ pub mod contra {
 }
 
 /// All 12 base thinking styles, frozen via LazyLock.
-/// Ordinal matches lance-graph-planner `ThinkingStyle` enum order:
+/// ⚠ p64-bridge INTERNAL historical order — NOT the canonical
+/// `lance_graph_contract::StyleFamily` order (Deliberate=0 …
+/// Metacognitive=11). Convert by NAME, never by ordinal:
 /// Analytical(0), Convergent(1), Systematic(2),
 /// Creative(3), Divergent(4), Exploratory(5),
 /// Focused(6), Diffuse(7), Peripheral(8),
 /// Intuitive(9), Deliberate(10), Metacognitive(11).
+/// (Pre-M9 this matched the planner enum's order; the planner now
+/// re-exports StyleFamily, so this ordering survives ONLY here.
+/// TECH_DEBT tracks whether any caller feeds StyleFamily ordinals
+/// into `STYLES[ord % 12]`.)
 static STYLES: LazyLock<[StyleParams; 12]> = LazyLock::new(|| {
     [
         // ── Convergent cluster ──

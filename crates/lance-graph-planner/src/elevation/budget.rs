@@ -2,6 +2,11 @@
 //!
 //! Each thinking cluster has different tolerance for latency, fan-out,
 //! and memory before elevating to a more expensive execution level.
+//!
+//! Per-cycle framing (M12): a strategy's patience is a SLICE of the cycle's
+//! Libet window — carve it via [`super::cycle::CycleBudget::slice_for`]
+//! rather than consuming `budget_for_cluster` raw, so the per-strategy and
+//! per-cycle budgets cannot drift apart (D-V3-W2d).
 
 use super::ElevationLevel;
 use crate::thinking::style::ThinkingCluster;

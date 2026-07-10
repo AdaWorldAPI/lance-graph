@@ -7,33 +7,21 @@
 //!
 //! The CollapseGate from the planner controls cascade termination.
 
-use crate::cognitive_stack::{self, GateState, RungLevel};
+use crate::cognitive_stack::EngineStyleExt;
+use crate::cognitive_stack::{self, GateState, RungLevel, StyleFamily};
 use crate::meaning_axes::{Archetype, CouncilWeights, Viscosity};
 
-/// Map contract's 36 styles to the engine's 12 styles.
-/// The 36 are grouped into 6 clusters of 6. Each cluster maps to
-/// 1-2 of our 12 styles, selecting the closest match.
-pub fn contract_style_to_engine(contract_style_id: u8) -> cognitive_stack::ThinkingStyle {
-    match contract_style_id {
-        // Analytical cluster (0-5): Logical, Analytical, Critical, Systematic, Methodical, Precise
-        0..=2 => cognitive_stack::ThinkingStyle::Analytical,
-        3..=5 => cognitive_stack::ThinkingStyle::Systematic,
-        // Creative cluster (6-11): Creative, Imaginative, Innovative, Artistic, Poetic, Playful
-        6..=8 => cognitive_stack::ThinkingStyle::Creative,
-        9..=11 => cognitive_stack::ThinkingStyle::Exploratory,
-        // Empathic cluster (12-17): Empathetic, Compassionate, Supportive, Nurturing, Gentle, Warm
-        12..=17 => cognitive_stack::ThinkingStyle::Intuitive,
-        // Direct cluster (18-23): Direct, Concise, Efficient, Pragmatic, Blunt, Frank
-        18..=20 => cognitive_stack::ThinkingStyle::Focused,
-        21..=23 => cognitive_stack::ThinkingStyle::Convergent,
-        // Exploratory cluster (24-29): Curious, Exploratory, Questioning, Investigative, Speculative, Philosophical
-        24..=26 => cognitive_stack::ThinkingStyle::Divergent,
-        27..=29 => cognitive_stack::ThinkingStyle::Peripheral,
-        // Meta cluster (30-35): Reflective, Contemplative, Metacognitive, Wise, Transcendent, Sovereign
-        30..=32 => cognitive_stack::ThinkingStyle::Metacognitive,
-        33..=35 => cognitive_stack::ThinkingStyle::Deliberate, // Wise/Transcendent/Sovereign = deliberate
-        _ => cognitive_stack::ThinkingStyle::Deliberate,
-    }
+/// Map a contract 36-runbook style id to the engine's 12-family space.
+///
+/// Routes through THE canonical `ThinkingStyle::family()` mapping (M9
+/// dedup) — the ordinal-range table this fn carried was the FIFTH
+/// divergent style table found in the tree; several arms changed when it
+/// was replaced (documented in dtsc1-thinkingstyle-dedup-spec-v1.md).
+pub fn contract_style_to_engine(contract_style_id: u8) -> StyleFamily {
+    lance_graph_contract::thinking::ThinkingStyle::ALL
+        .get(contract_style_id as usize)
+        .map(|rb| rb.family())
+        .unwrap_or_default()
 }
 
 /// Map contract's 6 clusters to council archetypes.
@@ -52,7 +40,7 @@ pub fn cluster_to_archetype(cluster_id: u8) -> Archetype {
 /// Full cascade configuration derived from style + rung + gate.
 #[derive(Clone, Debug)]
 pub struct CascadeConfig {
-    pub style: cognitive_stack::ThinkingStyle,
+    pub style: StyleFamily,
     pub params: cognitive_stack::StyleParams,
     pub rung: RungLevel,
     pub gate: GateState,
@@ -102,24 +90,17 @@ impl CascadeConfig {
     /// Build from the superposition field state directly.
     pub fn from_superposition(
         field: &crate::superposition::SuperpositionField,
-        style: &crate::superposition::ThinkingStyle,
+        style: &crate::superposition::DetectedStyle,
         free_energy: f32,
     ) -> Self {
-        // Map our 5 detected styles to the 12 cognitive_stack styles
+        // Map the 5 DETECTED styles to the 12 families (identical arm
+        // choices as pre-M9; Emotional collapses to Intuitive as before).
         let engine_style = match style {
-            crate::superposition::ThinkingStyle::Analytical => {
-                cognitive_stack::ThinkingStyle::Analytical
-            }
-            crate::superposition::ThinkingStyle::Creative => {
-                cognitive_stack::ThinkingStyle::Creative
-            }
-            crate::superposition::ThinkingStyle::Emotional => {
-                cognitive_stack::ThinkingStyle::Intuitive
-            }
-            crate::superposition::ThinkingStyle::Intuitive => {
-                cognitive_stack::ThinkingStyle::Intuitive
-            }
-            crate::superposition::ThinkingStyle::Diffuse => cognitive_stack::ThinkingStyle::Diffuse,
+            crate::superposition::DetectedStyle::Analytical => StyleFamily::Analytical,
+            crate::superposition::DetectedStyle::Creative => StyleFamily::Creative,
+            crate::superposition::DetectedStyle::Emotional => StyleFamily::Intuitive,
+            crate::superposition::DetectedStyle::Intuitive => StyleFamily::Intuitive,
+            crate::superposition::DetectedStyle::Diffuse => StyleFamily::Diffuse,
         };
 
         let params = engine_style.params();
@@ -245,28 +226,19 @@ mod tests {
     fn contract_style_mapping() {
         assert_eq!(
             contract_style_to_engine(0),
-            cognitive_stack::ThinkingStyle::Analytical
+            StyleFamily::Convergent // id 0 = Logical -> Convergent (canonical; was Analytical pre-M9)
         );
-        assert_eq!(
-            contract_style_to_engine(6),
-            cognitive_stack::ThinkingStyle::Creative
-        );
+        assert_eq!(contract_style_to_engine(6), StyleFamily::Creative);
         assert_eq!(
             contract_style_to_engine(12),
-            cognitive_stack::ThinkingStyle::Intuitive
+            StyleFamily::Diffuse // Empathic cluster -> Diffuse (canonical; was Intuitive pre-M9)
         );
-        assert_eq!(
-            contract_style_to_engine(18),
-            cognitive_stack::ThinkingStyle::Focused
-        );
+        assert_eq!(contract_style_to_engine(18), StyleFamily::Focused);
         assert_eq!(
             contract_style_to_engine(24),
-            cognitive_stack::ThinkingStyle::Divergent
+            StyleFamily::Exploratory // id 24 = Curious -> Exploratory (canonical; was Divergent pre-M9)
         );
-        assert_eq!(
-            contract_style_to_engine(30),
-            cognitive_stack::ThinkingStyle::Metacognitive
-        );
+        assert_eq!(contract_style_to_engine(30), StyleFamily::Metacognitive);
     }
 
     #[test]
@@ -282,7 +254,7 @@ mod tests {
     #[test]
     fn cascade_config_from_state() {
         let config = CascadeConfig::from_contract(6, RungLevel::Surface, 0.1, 0.05);
-        assert_eq!(config.style, cognitive_stack::ThinkingStyle::Creative);
+        assert_eq!(config.style, StyleFamily::Creative);
         assert_eq!(config.gate, GateState::Hold); // Creative biases toward Hold
     }
 }

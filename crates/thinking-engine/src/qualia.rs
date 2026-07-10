@@ -183,7 +183,7 @@ impl Qualia17D {
     /// Low amplitude → mystery, depth
     pub fn from_superposition(
         field: &crate::superposition::SuperpositionField,
-        style: &crate::superposition::ThinkingStyle,
+        style: &crate::superposition::DetectedStyle,
         avg_dissonance: f32,
         lens_agreement: f32, // 0.0 = fully disagree, 1.0 = fully agree
     ) -> Self {
@@ -218,11 +218,11 @@ impl Qualia17D {
 
         // Style modulation
         let assertion = match style {
-            crate::superposition::ThinkingStyle::Analytical => 0.9,
-            crate::superposition::ThinkingStyle::Creative => 0.3,
-            crate::superposition::ThinkingStyle::Emotional => 0.6,
-            crate::superposition::ThinkingStyle::Intuitive => 0.7,
-            crate::superposition::ThinkingStyle::Diffuse => 0.2,
+            crate::superposition::DetectedStyle::Analytical => 0.9,
+            crate::superposition::DetectedStyle::Creative => 0.3,
+            crate::superposition::DetectedStyle::Emotional => 0.6,
+            crate::superposition::DetectedStyle::Intuitive => 0.7,
+            crate::superposition::DetectedStyle::Diffuse => 0.2,
         };
 
         let dims = [

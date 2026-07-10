@@ -161,13 +161,13 @@ impl SpoDistances {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Inference {
-    Deduction = 0,      // A→B, B→C ⊢ A→C
-    Induction = 1,      // A→B, A→C ⊢ B→C
-    Abduction = 2,      // A→B, C→B ⊢ A→C
-    Revision = 3,       // merge evidence
-    Analogy = 4,        // A→B, C≈A ⊢ C→B
-    Resemblance = 5,    // A≈B, A≈C ⊢ B≈C
-    Synthesis = 6,      // complementary merge
+    Deduction = 0,   // A→B, B→C ⊢ A→C
+    Induction = 1,   // A→B, A→C ⊢ B→C
+    Abduction = 2,   // A→B, C→B ⊢ A→C
+    Revision = 3,    // merge evidence
+    Analogy = 4,     // A→B, C≈A ⊢ C→B
+    Resemblance = 5, // A≈B, A≈C ⊢ B≈C
+    Synthesis = 6,   // complementary merge
     /// Pearl rung 2: do-calculus intervention.
     /// Surgically severs the causal mechanism and forces a variable to a value.
     /// Routes through MASK_PO (Predicate + Object planes) — the interventional
@@ -296,6 +296,25 @@ pub fn metacognitive_style() -> StyleVector {
         weights: [0.1, 0.1, 0.15, 0.1, 0.2, 0.1, 0.1, 0.15],
     }
     // Confounder (SP_) weighted — am I confusing correlation with causation?
+}
+
+/// Enum-keyed accessor over the predefined Pearl-mask vectors (D-TSC-1 S8).
+///
+/// Keyed by the 36-runbook space — `Empathetic` is a runbook name, not a
+/// family name (StyleVector is runbook content). Runbooks without a
+/// dedicated vector return `None` (callers fall back to their default).
+pub fn style_vector_for(
+    style: lance_graph_contract::thinking::ThinkingStyle,
+) -> Option<StyleVector> {
+    use lance_graph_contract::thinking::ThinkingStyle as T;
+    Some(match style {
+        T::Analytical => analytical_style(),
+        T::Creative => creative_style(),
+        T::Empathetic => empathetic_style(),
+        T::Precise => focused_style(),
+        T::Metacognitive => metacognitive_style(),
+        _ => return None,
+    })
 }
 
 /// Intervention style: Pearl rung 2 — do-calculus traversal.
@@ -588,6 +607,23 @@ impl NarsEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// D-TSC-1 S8: the enum-keyed accessor resolves the 5 predefined
+    /// vectors by runbook and returns None for uncovered runbooks.
+    #[test]
+    fn style_vector_for_runbook_keyed() {
+        use lance_graph_contract::thinking::ThinkingStyle as T;
+        for (rb, name) in [
+            (T::Analytical, "analytical"),
+            (T::Creative, "creative"),
+            (T::Empathetic, "empathetic"),
+            (T::Precise, "focused"),
+            (T::Metacognitive, "metacognitive"),
+        ] {
+            assert_eq!(style_vector_for(rb).unwrap().name, name);
+        }
+        assert!(style_vector_for(T::Sovereign).is_none());
+    }
 
     #[test]
     fn test_spo_head_truth_roundtrip() {

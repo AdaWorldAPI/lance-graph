@@ -16,6 +16,7 @@
 //! ```
 
 pub mod budget;
+pub mod cycle;
 pub mod decompose;
 pub mod homeostasis;
 pub mod learning;

@@ -8,13 +8,14 @@
 
 use super::{CausalStep, Derivation, Scenario};
 use crate::elevation::budget::PatienceBudget;
-use crate::thinking::style::{ThinkingCluster, ThinkingStyle};
+use crate::thinking::style::PlannerStyleExt;
+use crate::thinking::style::{StyleFamily, ThinkingCluster};
 
 /// Generate scenarios from seed edges through a specific thinking style lens.
 pub fn generate_scenarios(
     question: &str,
     seed_edges: &[(String, String, String, f64, f64)], // (src, rel, tgt, freq, conf)
-    style: ThinkingStyle,
+    style: StyleFamily,
     budget: &PatienceBudget,
 ) -> Vec<Scenario> {
     let cluster = style.cluster();
@@ -45,7 +46,7 @@ pub fn generate_scenarios(
 fn generate_deep_chains(
     question: &str,
     steps: &[CausalStep],
-    style: ThinkingStyle,
+    style: StyleFamily,
     budget: &PatienceBudget,
 ) -> Vec<Scenario> {
     let min_confidence = 0.5;
@@ -143,7 +144,7 @@ fn generate_deep_chains(
 fn generate_lateral_scenarios(
     question: &str,
     steps: &[CausalStep],
-    style: ThinkingStyle,
+    style: StyleFamily,
     _budget: &PatienceBudget,
 ) -> Vec<Scenario> {
     let min_confidence = 0.2; // Low threshold — find weak signals
@@ -251,7 +252,7 @@ fn generate_lateral_scenarios(
 fn generate_focused_chain(
     question: &str,
     steps: &[CausalStep],
-    style: ThinkingStyle,
+    style: StyleFamily,
     _budget: &PatienceBudget,
 ) -> Vec<Scenario> {
     if steps.is_empty() {
@@ -308,7 +309,7 @@ fn generate_focused_chain(
 fn generate_heuristic_scenario(
     question: &str,
     steps: &[CausalStep],
-    style: ThinkingStyle,
+    style: StyleFamily,
     _budget: &PatienceBudget,
 ) -> Vec<Scenario> {
     // Just pick the highest confidence step
@@ -437,7 +438,7 @@ mod tests {
         let scenarios = generate_scenarios(
             "Iran strike scenario",
             &edges,
-            ThinkingStyle::Analytical,
+            StyleFamily::Analytical,
             &budget,
         );
         assert!(!scenarios.is_empty());
@@ -452,7 +453,7 @@ mod tests {
         let scenarios = generate_scenarios(
             "What connections does everyone miss?",
             &edges,
-            ThinkingStyle::Creative,
+            StyleFamily::Creative,
             &budget,
         );
         // Creative should find abductive/inductive links
@@ -467,7 +468,7 @@ mod tests {
     fn test_focused_produces_single_chain() {
         let edges = kill_chain_edges();
         let budget = budget_for_cluster(ThinkingCluster::Attention);
-        let scenarios = generate_scenarios("Kill chain", &edges, ThinkingStyle::Focused, &budget);
+        let scenarios = generate_scenarios("Kill chain", &edges, StyleFamily::Focused, &budget);
         assert_eq!(scenarios.len(), 1);
     }
 
@@ -475,7 +476,7 @@ mod tests {
     fn test_intuitive_is_fast() {
         let edges = kill_chain_edges();
         let budget = budget_for_cluster(ThinkingCluster::Speed);
-        let scenarios = generate_scenarios("Quick read", &edges, ThinkingStyle::Intuitive, &budget);
+        let scenarios = generate_scenarios("Quick read", &edges, StyleFamily::Intuitive, &budget);
         assert_eq!(scenarios.len(), 1);
         assert_eq!(scenarios[0].chain.len(), 1); // Single step
         assert!(!scenarios[0].blind_spots.is_empty()); // Acknowledges limitations
@@ -487,13 +488,13 @@ mod tests {
         let analytical = generate_scenarios(
             "test",
             &edges,
-            ThinkingStyle::Analytical,
+            StyleFamily::Analytical,
             &budget_for_cluster(ThinkingCluster::Convergent),
         );
         let creative = generate_scenarios(
             "test",
             &edges,
-            ThinkingStyle::Creative,
+            StyleFamily::Creative,
             &budget_for_cluster(ThinkingCluster::Divergent),
         );
 

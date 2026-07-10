@@ -4,7 +4,7 @@
 //! than being hardcoded per backend.
 
 use super::nars_dispatch::NarsInferenceType;
-use super::style::ThinkingStyle;
+use super::style::StyleFamily;
 use crate::ir::logical_op::SemiringType;
 
 /// Semiring choice with rationale.
@@ -15,7 +15,7 @@ pub struct SemiringChoice {
 }
 
 /// Select the optimal semiring based on query shape, thinking style, and NARS type.
-pub fn select(query: &str, style: &ThinkingStyle, nars_type: &NarsInferenceType) -> SemiringChoice {
+pub fn select(query: &str, style: &StyleFamily, nars_type: &NarsInferenceType) -> SemiringChoice {
     let q = query.to_uppercase();
 
     // 1. RESONATE queries → XorBundle (superposition algebra)
@@ -64,7 +64,7 @@ pub fn select(query: &str, style: &ThinkingStyle, nars_type: &NarsInferenceType)
     // 6. Creative/exploratory thinking styles → XorBundle (supports superposition)
     if matches!(
         style,
-        ThinkingStyle::Creative | ThinkingStyle::Exploratory | ThinkingStyle::Divergent
+        StyleFamily::Creative | StyleFamily::Exploratory | StyleFamily::Divergent
     ) {
         return SemiringChoice {
             semiring: SemiringType::XorBundle,
@@ -87,7 +87,7 @@ mod tests {
     fn test_resonate_selects_xor() {
         let choice = select(
             "MATCH (n) WHERE RESONATE(n.fp, $query, 0.7) RETURN n",
-            &ThinkingStyle::Analytical,
+            &StyleFamily::Analytical,
             &NarsInferenceType::Deduction,
         );
         assert_eq!(choice.semiring, SemiringType::XorBundle);
@@ -97,7 +97,7 @@ mod tests {
     fn test_shortest_path_selects_tropical() {
         let choice = select(
             "MATCH p = shortestPath((a)-[*]->(b)) RETURN p",
-            &ThinkingStyle::Analytical,
+            &StyleFamily::Analytical,
             &NarsInferenceType::Abduction,
         );
         assert_eq!(choice.semiring, SemiringType::Tropical);
@@ -107,7 +107,7 @@ mod tests {
     fn test_revision_selects_truth() {
         let choice = select(
             "MATCH (n) SET n.belief = 0.7",
-            &ThinkingStyle::Deliberate,
+            &StyleFamily::Deliberate,
             &NarsInferenceType::Revision,
         );
         assert_eq!(choice.semiring, SemiringType::TruthPropagating);

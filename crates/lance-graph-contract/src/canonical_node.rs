@@ -156,6 +156,42 @@ impl NodeGuid {
     #[cfg(feature = "guid-v3-tail")]
     pub const CLASSID_CPIC_V3_LEGACY: u32 = 0x1000_0E00;
 
+    /// **PROJECT-V3** — project-management (OpenProject ↔ Redmine) on a
+    /// [`TailVariant::V3`] cascade tail, minted for **OpenProject** (appid
+    /// `0x01` — the consumer's OWN appid, operator ruling 2026-07-08: "consumers
+    /// own their own appid … they do NOT ride q2's 0x01"). Canon `0x0101` HIGH
+    /// (project-mgmt domain `0x01`, appid `0x01`); the V3 marker `0x1000` in the
+    /// LOW/custom u16 — `0x01:01::1000`. Same encoding shape as
+    /// [`CLASSID_OSINT_V3`] (domain:appid canon-HIGH, fixed `0x1000` marker
+    /// custom-LOW) — NOT the `render_classid`/`AppPrefix` render-lens layout
+    /// (concept-HIGH, app-prefix-LOW): the V3 mint tail and the OGAR render
+    /// lens are two independent composition axes that happen to share the
+    /// `0x01`/`0x02` app byte values here.
+    /// [`classid_concept_domain`](crate::ogar_codebook::classid_concept_domain)
+    /// routes [`ProjectMgmt`](crate::ogar_codebook::ConceptDomain::ProjectMgmt).
+    /// Resolves to [`ReadMode::PROJECT_V3`] (same hot `Cognitive` model as legacy PROJECT).
+    #[cfg(feature = "guid-v3-tail")]
+    pub const CLASSID_PROJECT_V3: u32 = 0x0101_1000;
+    /// Pre-flip stored form of [`CLASSID_PROJECT_V3`] (marker HIGH, canon
+    /// `0x0100` LOW — pre-normalization appid `:00`) — read-only legacy alias.
+    #[cfg(feature = "guid-v3-tail")]
+    pub const CLASSID_PROJECT_V3_LEGACY: u32 = 0x1000_0100;
+
+    /// **ERP-V3** — commerce/ERP (Odoo ↔ OSB) on a [`TailVariant::V3`] cascade
+    /// tail, minted for **Odoo** (appid `0x02` — the consumer's OWN appid, same
+    /// 2026-07-08 ruling as [`CLASSID_PROJECT_V3`]). Canon `0x0202` HIGH
+    /// (commerce domain `0x02`, appid `0x02`); the V3 marker `0x1000` in the
+    /// LOW/custom u16 — `0x02:02::1000`.
+    /// [`classid_concept_domain`](crate::ogar_codebook::classid_concept_domain)
+    /// routes [`Commerce`](crate::ogar_codebook::ConceptDomain::Commerce).
+    /// Resolves to [`ReadMode::ERP_V3`] (same hot `Cognitive` model as legacy ERP).
+    #[cfg(feature = "guid-v3-tail")]
+    pub const CLASSID_ERP_V3: u32 = 0x0202_1000;
+    /// Pre-flip stored form of [`CLASSID_ERP_V3`] (marker HIGH, canon `0x0200`
+    /// LOW — pre-normalization appid `:00`) — read-only legacy alias.
+    #[cfg(feature = "guid-v3-tail")]
+    pub const CLASSID_ERP_V3_LEGACY: u32 = 0x1000_0200;
+
     /// Construct from the six canonical groups. `family`/`identity` use their low 3 bytes.
     ///
     /// Panics (incl. const-eval) when `family` or `identity` exceed 24 bits — the
@@ -310,6 +346,68 @@ impl NodeGuid {
     }
 }
 
+impl NodeGuid {
+    /// Mint a node by its **tail variant** — the carrier form of the Phase-1
+    /// symmetric spine: a consumer mints with
+    /// `mint_for(classid_read_mode(c).tail_variant, …)`, NEVER by hardcoding
+    /// `new` vs `new_v2`. Migrating a class's identity to V3 is then a one-line
+    /// flip of its `tail_variant` in the registry, with zero consumer rewrite.
+    ///
+    /// **Un-gated dispatch (`ISS-V1-TAIL-RESIDUE`):** `mint_for` itself is always
+    /// available so production mints (`ocr.rs`, `aiwar.rs`) route through it in
+    /// every build. The [`V1`](TailVariant::V1) arm is unconditional
+    /// ([`new`](NodeGuid::new)); the [`V2`](TailVariant::V2)/[`V3`](TailVariant::V3)
+    /// arms lower to `new_v2` only under `guid-v2-tail`. With the feature off no
+    /// classid registers a V2/V3 `tail_variant` ([`classid_read_mode`] returns
+    /// V1), so the fallback arm is dead — it exists purely so the crate compiles
+    /// `--no-default-features`.
+    ///
+    /// **No silent truncation:** the V2/V3 arm asserts `family`/`identity` fit
+    /// `u16`, mirroring [`new`](NodeGuid::new)'s own 24-bit guard.
+    #[allow(clippy::too_many_arguments)]
+    pub const fn mint_for(
+        tail_variant: TailVariant,
+        classid: u32,
+        heel: u16,
+        hip: u16,
+        twig: u16,
+        leaf: u16,
+        family: u32,
+        identity: u32,
+    ) -> Self {
+        match tail_variant {
+            TailVariant::V1 => Self::new(classid, heel, hip, twig, family, identity),
+            #[cfg(feature = "guid-v2-tail")]
+            TailVariant::V2 | TailVariant::V3 => {
+                assert!(
+                    family <= 0xFFFF,
+                    "v2/v3 family must fit in 16 bits (no silent truncation)"
+                );
+                assert!(
+                    identity <= 0xFFFF,
+                    "v2/v3 identity must fit in 16 bits (no silent truncation)"
+                );
+                Self::new_v2(
+                    classid,
+                    heel,
+                    hip,
+                    twig,
+                    leaf,
+                    family as u16,
+                    identity as u16,
+                )
+            }
+            #[cfg(not(feature = "guid-v2-tail"))]
+            TailVariant::V2 | TailVariant::V3 => {
+                // feature off ⇒ V2/V3 unreachable (no classid registers them);
+                // fall back to the V1 layout so the crate compiles.
+                let _ = leaf;
+                Self::new(classid, heel, hip, twig, family, identity)
+            }
+        }
+    }
+}
+
 // ── GUID v2 tail (leaf·family·identity, 3×u16) — D-GV2-1, feature-gated ────────
 //
 // The v2 basin tail repartitions bytes 10..16: leaf(u16) 10..12 (the 4th HHTL
@@ -353,63 +451,8 @@ impl NodeGuid {
         ])
     }
 
-    /// Mint a node by its **tail variant** — the carrier form of the Phase-1
-    /// symmetric spine (`soa-value-tenant-migration-v2.md` §2.1): a consumer
-    /// mints with `mint_for(classid_read_mode(c).tail_variant, …)`, NEVER by
-    /// hardcoding `new` vs `new_v2`. The key-side analog of the value-side
-    /// `to_node_row(classid_read_mode(c).value_schema, …)` — same
-    /// [`classid_read_mode`] lookup, sibling field. Migrating a class's identity
-    /// to V3 is then a one-line flip of its `tail_variant` in the registry, with
-    /// zero consumer rewrite (the "extend the one `ReadMode`, never a public
-    /// `new_v3`" litmus).
-    ///
-    /// Dispatch (all three [`TailVariant`] arms exist unconditionally as enum
-    /// values; only the constructors they call are gated):
-    /// - [`V1`](TailVariant::V1) → [`new`](NodeGuid::new): the canonical
-    ///   `family(u24)·identity(u24)` tail. `leaf` is not part of the V1 tail and
-    ///   is intentionally ignored (the V1 cascade is HEEL·HIP·TWIG only).
-    /// - [`V2`](TailVariant::V2) / [`V3`](TailVariant::V3) → [`new_v2`](NodeGuid::new_v2):
-    ///   the shared `leaf·family·identity` 3×u16 tail bytes. V3 differs from V2
-    ///   only in how those bytes are *read* (the `(part_of:is_a)` cascade tile),
-    ///   not how they are *stored* — so it mints through the same constructor.
-    ///
-    /// **No silent truncation** (the footgun v2 exists to remove): the V2/V3 arm
-    /// asserts `family`/`identity` fit `u16`, mirroring [`new`](NodeGuid::new)'s
-    /// own 24-bit guard. An out-of-range value is a loud panic, never a wrong key.
-    #[allow(clippy::too_many_arguments)]
-    pub const fn mint_for(
-        tail_variant: TailVariant,
-        classid: u32,
-        heel: u16,
-        hip: u16,
-        twig: u16,
-        leaf: u16,
-        family: u32,
-        identity: u32,
-    ) -> Self {
-        match tail_variant {
-            TailVariant::V1 => Self::new(classid, heel, hip, twig, family, identity),
-            TailVariant::V2 | TailVariant::V3 => {
-                assert!(
-                    family <= 0xFFFF,
-                    "v2/v3 family must fit in 16 bits (no silent truncation)"
-                );
-                assert!(
-                    identity <= 0xFFFF,
-                    "v2/v3 identity must fit in 16 bits (no silent truncation)"
-                );
-                Self::new_v2(
-                    classid,
-                    heel,
-                    hip,
-                    twig,
-                    leaf,
-                    family as u16,
-                    identity as u16,
-                )
-            }
-        }
-    }
+    // `mint_for` moved to the unconditional `impl NodeGuid` above (un-gated per
+    // ISS-V1-TAIL-RESIDUE): V1 arm always available, V2/V3 arms feature-gated.
 
     /// v2 `leaf` — bytes 10..12, the 4th HHTL routing tier (cascade terminal).
     #[inline]
@@ -1148,6 +1191,26 @@ impl ReadMode {
         edge_codec: EdgeCodecFlavor::CoarseOnly,
     };
 
+    /// The **PROJECT-V3** read-mode ([`NodeGuid::CLASSID_PROJECT_V3`]): the same
+    /// hot [`ValueSchema::Cognitive`] value model as legacy [`PROJECT`](ReadMode::PROJECT),
+    /// read through the new-generation [`TailVariant::V3`] cascade tail.
+    #[cfg(feature = "guid-v3-tail")]
+    pub const PROJECT_V3: ReadMode = ReadMode {
+        tail_variant: TailVariant::V3,
+        value_schema: ValueSchema::Cognitive,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
+    /// The **ERP-V3** read-mode ([`NodeGuid::CLASSID_ERP_V3`]): the same hot
+    /// [`ValueSchema::Cognitive`] value model as legacy [`ERP`](ReadMode::ERP),
+    /// read through the new-generation [`TailVariant::V3`] cascade tail.
+    #[cfg(feature = "guid-v3-tail")]
+    pub const ERP_V3: ReadMode = ReadMode {
+        tail_variant: TailVariant::V3,
+        value_schema: ValueSchema::Cognitive,
+        edge_codec: EdgeCodecFlavor::CoarseOnly,
+    };
+
     /// All three axes are layout-preserving (a tail-variant/preset/flavor
     /// re-interprets reserved bytes, never a stride change), so adopting any
     /// read-mode needs no `ENVELOPE_LAYOUT_VERSION` bump.
@@ -1211,9 +1274,13 @@ static BUILTIN_READ_MODES: LazyLock<HashMap<u32, ReadMode>> = LazyLock::new(|| {
         m.insert(NodeGuid::CLASSID_OSINT_V3, ReadMode::OSINT_V3);
         m.insert(NodeGuid::CLASSID_FMA_V3, ReadMode::FMA_V3);
         m.insert(NodeGuid::CLASSID_CPIC_V3, ReadMode::CPIC_V3);
+        m.insert(NodeGuid::CLASSID_PROJECT_V3, ReadMode::PROJECT_V3);
+        m.insert(NodeGuid::CLASSID_ERP_V3, ReadMode::ERP_V3);
         m.insert(NodeGuid::CLASSID_OSINT_V3_LEGACY, ReadMode::OSINT_V3);
         m.insert(NodeGuid::CLASSID_FMA_V3_LEGACY, ReadMode::FMA_V3);
         m.insert(NodeGuid::CLASSID_CPIC_V3_LEGACY, ReadMode::CPIC_V3);
+        m.insert(NodeGuid::CLASSID_PROJECT_V3_LEGACY, ReadMode::PROJECT_V3);
+        m.insert(NodeGuid::CLASSID_ERP_V3_LEGACY, ReadMode::ERP_V3);
     }
     m
 });

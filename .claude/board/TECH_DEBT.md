@@ -1,5 +1,29 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-STYLE-TABLE-RESIDUE (2026-07-10, D-TSC-1 follow-ups)
+
+Three residues from the M9 ThinkingStyle dedup (all OUT of D-TSC-1 scope,
+each with its own closing condition):
+
+1. **ndarray pair (spec I13):** `ndarray src/hpc/causal_diff.rs:974
+   PaletteStyle` ↔ `ndarray crates/p64/src/lib.rs:682 p64::ThinkingStyle` —
+   identical 6-name taxonomy, zero conversion code, doc-comment linkage
+   only. Close: a `From` impl or thin newtype in ndarray (other repo;
+   build red there as of 2026-07-10).
+2. **wip-gated dangling imports (spec I14):** `crates/learning/src/{session,
+   moment}.rs` + `crates/lance-graph-cognitive/src/{spectroscopy/detector,
+   fabric/mrna, fabric/butterfly}.rs` import `crate::cognitive::ThinkingStyle`
+   with no `mod cognitive` — dormant behind `#[cfg(feature = "wip")]`.
+   Close: point them at contract StyleFamily/ThinkingStyle when the wip
+   modules wake, or delete.
+3. **p64-bridge ordinal-order probe (spec I15):** `crates/p64-bridge/src/
+   lib.rs STYLES[ord % 12]` uses the HISTORICAL order (Analytical=0), NOT
+   StyleFamily order (Deliberate=0). Doc comment now warns (convert by
+   name, never ordinal). Close: a probe verifying no caller feeds
+   StyleFamily/UNIFIED ordinals into p64-bridge's ordinal lookups
+   (`driver.rs`/`decode_kernel.rs` are the suspects) — if one does, that
+   is a LIVE cross-order bug predating M9.
+
 ## TD-RESONANCEDTO-DUPLICATE (2026-07-02)
 
 Two `ResonanceDto` definitions coexist in thinking-engine: `src/dto.rs`
