@@ -1,5 +1,22 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-MESSAGE-RESIDUE (2026-07-10, operator-ruled LEAVE-AS-IS)
+
+Per E-NOBODY-WAITS-1: no messages, no actors anywhere — ractor is only
+the compile-time ownership guarantee. The message-based arm in
+`lance-graph-supervisor` (`KanbanMsg::{Tick,Advance}`, `ractor::call!`,
+`drive_version_tick`, `drive_scheduled_tick`; consumers: supervisor
+tests + onebrc-probe lane E) is REDUNDANCY relative to the canonical
+message-free loop (`BatchWriter::ack_and_propose` proposal →
+`MailboxSoaOwner::try_advance_phase(&mut)` — `&mut` is the
+serialization). **Disposition: left as is, documented — NO retirement
+work queued** (operator, 2026-07-10). Not a bug: the code is correct in
+its own model; it is a second model. Drift signal: NEW code reaching
+for `KanbanMsg`/`ractor::call!` instead of the `&mut` owner surface —
+that, not the existing residue, is what a reviewer blocks. The prime
+invariant every change on this surface is judged against: **nobody
+waits for anything or any scheduling.**
+
 ## TD-STYLE-TABLE-RESIDUE (2026-07-10, D-TSC-1 follow-ups)
 
 Three residues from the M9 ThinkingStyle dedup (all OUT of D-TSC-1 scope,

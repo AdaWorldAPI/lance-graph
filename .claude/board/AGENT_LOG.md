@@ -1,3 +1,10 @@
+## 2026-07-10 — fable-674-postmerge — #674 MERGED; E-NOBODY-WAITS-1 banked (doc-only, operator: "leave it as is and just document")
+
+- **#674 merged** (`cd5178e`); branch restarted from main; PR_ARC_INVENTORY #674 entry prepended (the deferred post-merge hygiene, now done).
+- **Operator audit resolved:** "kanban step vs ack pump — duplicate route? Rubicon ignored?" → grounded answer: Rubicon intact and owner-side (KanbanColumn IS the 4-phase model; cast records intent AHEAD of ack — crossing at intent formation); the ack-pump is the canonical MESSAGE-FREE route (`ack_and_propose` proposal → `try_advance_phase(&mut)`; `&mut` is the serialization — codex #578's race and #579's overlay both dissolve); rs-graph-llm has zero ack code (storage-side concern only). The redundancy runs the OTHER way: supervisor `KanbanMsg`/`ractor::call!` drivers are a second, message-based model.
+- **Ruling banked:** E-NOBODY-WAITS-1 (no messages, no actors anywhere; ractor = compile-time ownership guarantee only; **prime invariant: nobody waits for anything or any scheduling**). Disposition per operator: LEAVE AS IS — TD-MESSAGE-RESIDUE documents the residue, no retirement queued; drift signal = NEW code reaching for KanbanMsg/call!.
+- Doc-only commit: EPIPHANIES + TECH_DEBT + PR_ARC + this entry. No code touched.
+
 ## 2026-07-10 — fable-dmts6-probe — D-MTS-6 measured GREEN + PR #674 opened + codex P2 ack-dedup fix
 
 - **PR #674 opened** (operator ask): the full 14-commit branch arc; session subscribed to PR activity; hourly self check-in armed.
