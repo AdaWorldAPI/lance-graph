@@ -508,8 +508,9 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("page_image", 0x0808),
     ("ocr_renderer", 0x0809),
     // ── 0x09XX — Health domain (MedCare; 0x0901..0x0907 = OGIT
-    // NTO/Healthcare promotion; 0x0908..0x090B = harvest-derived mints,
-    // furnace-exam round 2 — no OGIT entity, no port alias yet) ──
+    // NTO/Healthcare promotion; 0x0908..0x090C = harvest-derived mints,
+    // furnace-exam rounds 2 & 4 — no OGIT entity, no port alias yet;
+    // 0x090C external_practice is three-axis-witnessed, FHIR Organization) ──
     ("patient", 0x0901),
     ("diagnosis", 0x0902),
     ("lab_value", 0x0903),
@@ -521,6 +522,7 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("investigation", 0x0909),
     ("examination", 0x090A),
     ("practitioner", 0x090B),
+    ("external_practice", 0x090C),
     // ── 0x0AXX — Anatomy domain (FMA reference ontology; public, not PHI) ──
     // FMA anatomy lives HERE, not in Health 0x09 — reference structure is
     // public, a clinical finding *about* it is PHI. `CLASSID_FMA` retargets to

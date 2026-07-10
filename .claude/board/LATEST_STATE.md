@@ -22,6 +22,10 @@
 
 ---
 
+## 2026-07-10 — branch `claude/medcare-ruff-codebook-handover-5ulx0i` — `contract::ogar_codebook` +`external_practice` (`0x090C`, round-4b Health mint)
+
+Paired mirror of OGAR `13e1b0f` (COUNT_FUSE 88->89, `lance-graph-ogar` compile-time equality green). **NEW row:** `external_practice 0x090C` — a referral-partner organization (FHIR `Organization`), the round-4b furnace mint. Hardened by a staged 5+3 council **and** an operator-directed three-axis grounding gate (method + storage + navigation-structure witnesses all present -> grounded [G]); the round's second candidate was refused a mint by the same gate for lacking a navigational home. No OGIT entity -> no port alias. **Verified:** `cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml` (fuse green, 62+ tests), `cargo test -p lance-graph-contract` (840 lib tests). Consumer side: medcare-analytics extends `MINTED_UNSERVED_HEALTH_CONCEPTS` with `0x090C`. Merge train: OGAR -> this mirror -> medcare gate, back-to-back (W1 fuse window universal, W2 medcare-gate window present).
+
 ## 2026-07-10 — branch `claude/medcare-ruff-codebook-handover-5ulx0i` — `contract::ogar_codebook` synced to the OGAR round-2 Health mints (`0x0908..0x090B`)
 
 Paired mirror of OGAR `2c8836f` (two-sided COUNT_FUSE: `lance-graph-ogar` compile-time assert now 88 == 88). **NEW rows:** `anamnesis 0x0908` / `investigation 0x0909` / `examination 0x090A` / `practitioner 0x090B` — harvest-derived mints surfaced by the MedCare transcode furnace exam's slag ledger (council-hardened 5+3, spec in the consumer repo), NO OGIT entity → no port alias; the 0x09 section comment now names the two provenance classes (7 OGIT-promoted + 4 harvest-derived). **Verified:** `cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml` (COUNT_FUSE green, 62+ tests), `cargo test -p lance-graph-contract` (840 lib tests green). Consumer side: medcare-analytics lands the `MINTED_UNSERVED_HEALTH_CONCEPTS` fail-closed exemption ledger in the same window (its RLS boot gate derives coverage from `concepts_in_domain(Health)`). Merge train: OGAR first, this mirror immediately after, medcare gate immediately after that.
