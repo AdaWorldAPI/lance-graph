@@ -160,7 +160,7 @@ this surface is judged against the invariant's sentence first.
 
 ## 6. The body plan — the ancestry pipeline
 
-```
+```text
 ladybug-rs → thinking-engine → p64 (the DTO ladder:
   StreamDto Φ / PerturbationDto Ψ / BusDto B / ThoughtStruct Γ)
   → cognitive-shader-driver → SoA (MailboxSoA, value tenants)

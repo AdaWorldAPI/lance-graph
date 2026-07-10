@@ -355,12 +355,15 @@ table); `nars_engine.rs` gained the runbook-keyed `style_vector_for`.
 > previously named.
 >
 > **Note on scope:** a bare `crates/p64` does not exist in this workspace —
-> only `crates/p64-bridge` is a workspace member (`Cargo.toml` line 33). p64
+> only `crates/p64-bridge` exists locally, and both it and
+> `crates/thinking-engine` are listed under `workspace.exclude`
+> (`Cargo.toml` lines 33/36), NOT `workspace.members` — censused here as
+> local crates, not workspace members. p64
 > itself is presumably the sibling `ndarray`-hosted crate consumed by name
 > (`p64_bridge::CognitiveShader` docstrings reference "p64 (ndarray)" as the
 > topology host) — not censused here since no local crate dir exists to walk.
 
-### thinking-engine (49 files, `crates/thinking-engine/src/*.rs`)
+### thinking-engine (51 files, `crates/thinking-engine/src/*.rs`)
 
 | File | Consumes | Emits (key types) | LE contract | Function | Tech debt / duplication | gem-status |
 |---|---|---|---|---|---|---|
@@ -438,7 +441,7 @@ p64-side topology object that `cognitive-shader-driver::driver.rs` wraps —
 i.e. this crate is genuinely load-bearing hot path, not a lab artifact, despite
 having zero tests visible in this header/pub-surface pass.
 
-### cognitive-shader-driver (23 `src/*.rs` files + `build.rs`; tests/examples not censused)
+### cognitive-shader-driver (22 `src/*.rs` files + `build.rs`; tests/examples not censused)
 
 | File | Consumes | Emits | LE contract | Function | Tech debt / duplication | gem-status |
 |---|---|---|---|---|---|---|
@@ -479,9 +482,9 @@ having zero tests visible in this header/pub-surface pass.
    cognitive-shader-driver: safetensors config→codec JIT defaults) — same
    filename, unrelated purpose, easy to grep-confuse across crates.
 3. **LAB-ONLY is the majority shape** in this crate's non-hot-path files
-   (codec_bridge, codec_kernel_cache, codec_research, cypher_bridge,
-   decode_kernel, grpc, planner_bridge, rotation_kernel, serve, token_agreement,
-   wire = 11 of 23 files) — consistent with the `lab-vs-canonical-surface.md`
+   (auto_detect, codec_bridge, codec_kernel_cache, codec_research,
+   cypher_bridge, decode_kernel, grpc, planner_bridge, rotation_kernel, serve,
+   token_agreement, wire = 12 of 22 files) — consistent with the `lab-vs-canonical-surface.md`
    doctrine; all self-declare LAB-ONLY in their own doc comments, so this is
    disciplined, not drift.
 4. `mailbox_soa.rs` and `driver.rs` and `wire.rs` are the three largest files
