@@ -1,3 +1,8 @@
+## 2026-07-10 — fable-5plus3-harness — the 5+3 council codified (operator directive: spec-first, cast-5 → consolidate-first → run-3 → fix → consolidate)
+
+- **New process infrastructure:** `.claude/agents/5plus3-council.md` (canonical harness: when to convene, the iron sequencing with the mush-failure table, the Phase-0 spec bar — frozen decisions / input inventory / committed resolution / non-goals / pre-registered gates / per-savant question sets, default 5+3 panel with output contracts, token-economy table: Sonnet savants by default, main-thread consolidation) + `.claude/skills/5plus3/SKILL.md` (invocation stub, 7-step checklist). Prior art synthesized: OGAR `.claude/agents/README.md` (the original 5+3) + this repo's `epiphany-brainstorm-council.md` (panel selection). The sequencing hardening (consolidate BEFORE any reviewer sees anything; reviewers see draft v2 only, never raw fan-out) is the new contribution.
+- **First application queued:** D-TSC-1 (M9 ThinkingStyle dedup) — inventory Explore agent dispatched; council runs on the Phase-0 spec next.
+
 ## 2026-07-10 — fable-comma-probe — D-MTS-5 measured GREEN + the FUTURE-DESIGN landing zone (continuation of fable-cognition-rulings, same branch)
 
 - **Probe shipped:** `crates/perturbation-sim/examples/comma_quorum.rs` — pre-registered gates, ALL PASS: comma N_eff **11.00/12** vs strict 1.00 / unit 2.49 / rational 3.92; envelope common-mode 10.70; regime-B ceiling 2.55 (≤6 gate); replay bit-identical in any level order; never-computed level-12 first projection max|ρ|=0.156 with ΔN_eff +0.83; 82,176 B touched vs ~69 GB dense (never allocated). Constants: seed 0x9E3779B97F4A7C15, M=4096, COMMA_STRIDE=2395 (coprime, D-QUANTGATE), L=12, W=512.
