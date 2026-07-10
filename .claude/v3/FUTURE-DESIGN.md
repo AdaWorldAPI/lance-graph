@@ -11,6 +11,12 @@
 
 ---
 
+## 2026-07-10 (fourth wave) — the chess arc: E-CHESS gets its measured instantiation (sibling repo)
+
+| Seed | One line | Wiring queue |
+|---|---|---|
+| operator suggestion → `stockfish-rs` bootstrap (`b987c4b`) | shakmaty (rules, consumed never re-implemented) × ruff_cpp_spo Stockfish harvest (oracle-only) × the 64×64=4096 cascade — from×to move matrix / ButterflyHistory / NNUE HalfKAv2_hm are natively the gridlake shape; NNUE's incremental accumulator = **E-CHESS (#539) made literal and measurable**; int8 GEMM reuses the Tesseract-proven `ndarray::simd` primitives | Plan: `stockfish-rs/.claude/plans/stockfish-harvest-64x64-v1.md` (P0 oracle → L1 net loader → L2 index parity → L3 refresh → L4 incremental keystone → L5 evaluate() parity → L6 search on the 64×64 butterfly SoA lane, measured-not-parity; later UCI + Lichess-API arm). L4's incremental-vs-refresh speedup = the compute_dag receipt E-CHESS has been waiting for |
+
 ## 2026-07-10 (third wave) — the two-tier advance split: hard gate (OGAR tickets) vs stream (kanbanstep)
 
 | Ruling | One line | Wiring queue |
