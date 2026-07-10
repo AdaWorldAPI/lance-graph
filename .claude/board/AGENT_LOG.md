@@ -1,3 +1,9 @@
+## 2026-07-10 — census-worker-ancestry-pipeline — V3 census extended to thinking-engine / p64-bridge / cognitive-shader-driver (doc-only)
+
+- **Census worker (Sonnet, doc-only, edit-only fleet rule honored):** appended `.claude/v3/MODULE-TABLE.md` ADDENDUM covering 49 thinking-engine files + p64-bridge/lib.rs + 23 cognitive-shader-driver src files (bare `crates/p64` does not exist as a workspace member — only `p64-bridge`). Added a `gem-status` column (WIRED-HOT-PATH / UNWIRED-GEM / CALIBRATION-ONLY / LAB-ONLY / RESIDUE) per FUTURE-DESIGN.md's wiring-queue framing.
+- **Notable finds:** style-table proliferation is WORSE than FUTURE-DESIGN/D-TSC-1 tracked — `superposition.rs::ThinkingStyle = DetectedStyle` collides in name (not value) with `cognitive_stack.rs::ThinkingStyle = StyleFamily` in the SAME crate; `auto_style.rs` (bare consts) + `engine_bridge.rs::UNIFIED_STYLES` + p64-bridge's `StyleParams` are 3 MORE independent 12-slot tables beyond what D-TSC-1's fleet-run addressed — worth a follow-up grep to confirm `UNIFIED_STYLES`'s definition site (not just callers) was routed. Also: `GestaltState` independently defined in both `awareness_dto.rs` and `world_model.rs`; 3 near-identical lens modules (jina/bge_m3/reranker_lens); `signed_domino.rs`/`branching.rs` extend the M8 near-duplicate-engine count beyond the 3 FUTURE-DESIGN names. `splat_ops.rs` is RESIDUE (self-declared deprecated, scheduled sprint-15+ removal, do not touch per §1 rule 8).
+- **No code changed.** Working tree has the MODULE-TABLE.md addendum only; not committed.
+
 ## 2026-07-10 — fable-674-postmerge — #674 MERGED; E-NOBODY-WAITS-1 banked (doc-only, operator: "leave it as is and just document")
 
 - **#674 merged** (`cd5178e`); branch restarted from main; PR_ARC_INVENTORY #674 entry prepended (the deferred post-merge hygiene, now done).

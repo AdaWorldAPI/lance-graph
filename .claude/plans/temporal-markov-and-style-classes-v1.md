@@ -59,6 +59,31 @@ never stored); per-level content = palette-quantized magnitude envelope only.
 > E-COMMA-AWARENESS-MEASURED-1.
 > Execution spec for D-TSC-1: `.claude/plans/dtsc1-thinkingstyle-dedup-spec-v1.md`.
 
+> **Addendum (operator, 2026-07-10, third wave — D-MTS-1 context-building
+> design input):** the **AriGraph context, V3-TENANT-SHAPED, is most
+> probably essential for Markov-chain context building while streaming
+> text.** The ingest legs feeding it: **`lance-graph-arm-discovery`**
+> (the Aerial+ transcode — float-free association-rule discovery via the
+> palette256 integer distance oracle, ρ=0.9973, → `{s,p,o,f,c}` ndjson →
+> SPO loader) and **DeepNSM** (text→SPO via the 6-state PoS FSM; the
+> **64×64 = 4096 COCA vocabulary IS the CAM index codebook**, 4096² u8
+> LUT). The representational comparison the D-MTS-1 spec MUST weigh for
+> the streamed context items:
+>
+> - **CAM-PQ `6×8 = 48-bit` codes** — 6 subspaces × 1 byte = 6 bytes =
+>   exactly the OGAR GUID path (HEEL+HIP+TWIG): the ADDRESS-side coding.
+> - **`6× palette256:palette256` = 12 bytes = ONE V3 tenant** — 6
+>   subspaces × an X:Y byte PAIR each (the 256×256 centroid-tile
+>   reading, le-contract L4 carve): the VALUE-tenant-side coding —
+>   exactly one content-blind facet payload.
+>
+> The likely resolution (to be probed, not assumed): key addresses,
+> tenant carries — the 48-bit path codes route/dedupe the streamed SPO
+> items, while the palette² tenant is the projection surface the
+> perturbation shader attends per cycle. This joins D-TTV-1 (the
+> AriGraph-context lane is a thinking tenant) and instantiates the L4
+> carrier named in E-MARKOV-TEMPORAL-STREAM-1.
+
 ## Track B — Thinking styles as classes (domain:appid:classview)
 
 Ruling: styles move entirely under the classid umbrella. A style class
