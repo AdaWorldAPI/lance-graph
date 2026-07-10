@@ -14,12 +14,16 @@
 - **F2** — Dispatch stays MetaWord bits; NO new `StyleClass`-like trait; this
   dedup mints no classids (that is D-TSC-2, gated on the batched OGAR mint).
   Source: `E-THINKING-STYLES-ARE-CLASSES-1` (EPIPHANIES 2026-07-10).
-- **F3** — The 36-space and the 12-space are BOTH kept: contract-36 keeps the
-  name `ThinkingStyle`; the 12-space gets ONE canonical type with a DISTINCT
-  name (`CascadeStyle`), related to the 36 by explicit total mappings. Basis:
-  `THINKING_RECONCILIATION.md` (36 = persona clusters, 12 = cascade-parameter
-  clusters — different granularities, not the same taxonomy); deleting either
-  leg would be collapse, merging them into one enum would be dilution.
+- **F3** *(amended v2 per operator ruling E-STYLE-FAMILY-VS-RUNBOOK-1)* —
+  The 36-space and the 12-space are BOTH kept and are DIFFERENT KINDS:
+  **12 = abstract FAMILIES for orchestration** (canonical type
+  **`StyleFamily`** — the operator's own vocabulary; grep-verified
+  unclaimed), **36 = literal NARS RUNBOOKS** (contract keeps the name
+  `ThinkingStyle`). Related by `StyleFamily::default_runbook() ->
+  ThinkingStyle` and `ThinkingStyle::family() -> StyleFamily`. Runbook
+  content (rung sets, KausalSpec, templates) attaches at 36-level in
+  D-TSC-3 — families carry NO runbook logic. Deleting either leg is
+  collapse; merging them is dilution.
 - **F4** — `I-LEGACY-API-FEATURE-GATED`: every retired definition leaves a
   deprecated re-export/alias at its old path; no call site silently changes
   semantics; behavior-pinning tests accompany every routing change.
@@ -51,6 +55,15 @@
 | I11 | 12 YAML style cards (the data-level 12-name source) | `crates/deepnsm/assets/grammar_styles/*.yaml` | data |
 | I12 | `StyleRegistry` trait, ORPHANED (n8n-era) | `crates/lance-graph-contract/src/jit.rs:63` | trait, zero impls — **M10's row, untouched here** |
 | I13 | `PaletteStyle`(6) ↔ `p64::ThinkingStyle`(6 consts) — identical names/order, zero conversion code | ndarray `src/hpc/causal_diff.rs:974` / `crates/p64/src/lib.rs:682` | **OTHER REPO — non-goal, filed** |
+| I14 *(v2)* | Dangling `crate::cognitive::ThinkingStyle` imports — DORMANT: behind `#[cfg(feature = "wip")]`, no `mod cognitive` exists | `crates/learning/src/{session.rs:6, moment.rs:3}`, `crates/lance-graph-cognitive/src/{spectroscopy/detector.rs:16, fabric/mrna.rs:10, fabric/butterfly.rs:9}` | wip-gated, never compiled — **non-goal, TECH_DEBT line in S9** |
+| I15 *(v2)* | p64-bridge `STYLES: [StyleParams; 12]` in the OLD planner order (Analytical=0…Metacognitive=11) + doc comment claiming "matches lance-graph-planner ThinkingStyle enum order"; indexed `STYLES[ord % 12]` | `crates/p64-bridge/src/lib.rs:162,263` | S2 stales the doc claim; potential live ordinal mismatch vs UNIFIED ords → S2b + TECH_DEBT probe |
+
+**The ordering fact (v2, grounded):** two 12-orderings coexist today —
+{planner I2, p64-bridge I15} start at **Analytical=0**; {cognitive_stack I3,
+UNIFIED_STYLES I5, auto_style consts} start at **Deliberate=0**.
+`StyleFamily` freezes the Deliberate=0 order (I5), so S2's re-export CHANGES
+the planner declaration order — safe in planner itself (zero `as u8` casts,
+name-matched mapping only; savant-verified) but it invalidates I15's doc claim.
 
 The 12-name set (identical across I2/I3/I5/I10/I11): deliberate, analytical,
 convergent, systematic, creative, divergent, exploratory, focused, diffuse,
@@ -61,15 +74,17 @@ peripheral, intuitive, metacognitive.
 **One new zero-dep contract type; every 12-space definition becomes a
 re-export or a keyed consumer of it; the 36 stays untouched as ThinkingStyle.**
 
-### S1 — contract: `crates/lance-graph-contract/src/cascade_style.rs` (NEW)
+### S1 *(amended v2)* — contract: `crates/lance-graph-contract/src/style_family.rs` (NEW)
 
 ```rust
-/// The canonical 12-style CASCADE taxonomy (coarse, parameter-cluster space).
-/// Distinct from `thinking::ThinkingStyle` (36, persona space) — related by
-/// the explicit total mappings below, never merged (spec F3).
+/// The 12 abstract style FAMILIES for orchestration (coarse dispatch:
+/// which KIND of thinking a cycle runs). Distinct in KIND from
+/// `thinking::ThinkingStyle` (36 — literal NARS runbooks): families
+/// orchestrate, runbooks execute (E-STYLE-FAMILY-VS-RUNBOOK-1).
+/// Related by default_runbook()/family(), never merged (spec F3).
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum CascadeStyle {
+pub enum StyleFamily {
     #[default]
     Deliberate = 0, Analytical = 1, Convergent = 2, Systematic = 3,
     Creative = 4, Divergent = 5, Exploratory = 6, Focused = 7,
@@ -77,64 +92,122 @@ pub enum CascadeStyle {
 }
 ```
 
-Ordinal order is FROZEN to I5's `UNIFIED_STYLES` order (the driver already
-ships it; changing it would silently re-key the driver's const table).
-Surface: `ALL: [CascadeStyle; 12]`; `name() -> &'static str` (== the YAML
-card names, I11); `from_name(&str) -> Option<Self>`;
-`from_ordinal(u8) -> Option<Self>`; `to_contract_style() -> ThinkingStyle`
-(the 12→36 mapping MOVED from I6 — one authoritative table); and
-`ThinkingStyle::to_cascade() -> CascadeStyle` (36→12, total — formalizing
-I7's ordinal arithmetic as an explicit match). Registered in `lib.rs`.
-Tests in-module: 12→36→12 identity; 36→12 totality; ordinal/name round-trips;
-the 12-name set pinned literally.
+Ordinal order FROZEN to I5's `UNIFIED_STYLES` order (Deliberate=0; the
+driver ships it; re-keying would corrupt the const table). Surface:
+`ALL: [StyleFamily; 12]`; `name()` (== YAML card names, I11);
+`from_name()`; `from_ordinal(u8) -> Option<Self>`;
+`default_runbook() -> ThinkingStyle`; `ThinkingStyle::family() ->
+StyleFamily` (total). Registered in `lib.rs`.
 
-### S2 — planner: I2 becomes re-export + extension trait
+**THE CANONICAL 12-ARM TABLE (v2 — the three-tables finding).** Grounded
+reads found THREE mutually divergent 12→36 tables in the tree:
+`THINKING_RECONCILIATION.md:27-44` (36→12 collapse EXEMPLARS, one per
+cell), planner I6 (shifted from the doc at cells 9/10/11), driver
+`ord_to_thinking_style` (shifted at 8/9/10/11). Duplication had already
+produced live semantic drift — the M9 payoff made concrete. The canonical
+`default_runbook()` arms, decided by **exact-runbook-name-first, doc
+collapse-exemplar otherwise**:
+
+| ord | family | default_runbook | rationale | planner I6 today | driver today |
+|---|---|---|---|---|---|
+| 0 | Deliberate | Methodical | doc exemplar | same | same |
+| 1 | Analytical | Analytical | exact name | same | same |
+| 2 | Convergent | Logical | doc exemplar | same | same |
+| 3 | Systematic | Systematic | exact name | same | same |
+| 4 | Creative | Creative | exact name | same | same |
+| 5 | Divergent | Imaginative | doc exemplar | same | same |
+| 6 | Exploratory | Exploratory | exact name | same | same |
+| 7 | Focused | Precise | doc exemplar | same | same |
+| 8 | Diffuse | Gentle | doc exemplar | same | **Speculative → changes** |
+| 9 | Peripheral | Speculative | doc exemplar | **Poetic → changes** | **Curious → changes** |
+| 10 | Intuitive | Poetic | doc exemplar | **Curious → changes** | **Reflective → changes** |
+| 11 | Metacognitive | Metacognitive | exact name | **Reflective → changes** | same |
+
+`ThinkingStyle::family()` (36→12) must satisfy
+`f.default_runbook().family() == f` for all 12 (G2); the full 36→12
+assignment follows the reconciliation doc's cell semantics with each
+default runbook in its own family's cell. The planner/driver arm changes
+are DOCUMENTED behavior changes (not silent — G7 pins all 12 arms; the
+commit message and the EPIPHANIES finding entry name them).
+Tests in-module: G2 identity; 36→12 totality; ordinal/name round-trips;
+the 12-name set pinned literally; discriminant pins
+(`StyleFamily::Deliberate as u8 == 0` … `Metacognitive as u8 == 11` —
+protects I3's `as u8` cast site, savant-2 RISK).
+
+### S2 *(amended v2)* — planner: I2 becomes re-export + extension trait
 
 Delete the enum in `thinking/style.rs`; add
-`pub use lance_graph_contract::cascade_style::CascadeStyle as ThinkingStyle;`
-plus `pub trait PlannerStyleExt` (impl for `CascadeStyle`) carrying the
-planner-local semantics: `.cluster() -> ThinkingCluster` (the 4-cluster
-grouping stays planner-owned), `.tau_address()`, `.to_scan_params()` (the
-×2000+100 formula UNCHANGED — F8). Existing call sites keep compiling via
-the re-export + trait import. `ThinkingCluster` and planner `FieldModulation`
-stay where they are.
+`pub use lance_graph_contract::style_family::StyleFamily as ThinkingStyle;`
+plus `pub trait PlannerStyleExt` (impl for `StyleFamily`) carrying the
+planner-local semantics: `.cluster() -> ThinkingCluster` (stays
+planner-owned), `.tau_address()`, `.to_scan_params()` (×2000+100 formula
+UNCHANGED — F8). Safe re declaration-order change: planner has zero
+`as u8`/discriminant casts and I6 matches by name (savant-2 verified).
+**S2b (v2):** fix I15's doc comment in `crates/p64-bridge/src/lib.rs:162`
+— it claims the OLD planner order; after S2 it must say "p64-bridge
+internal historical order (Analytical=0) — NOT StyleFamily order; convert
+by name". The potential live mismatch between UNIFIED ords and p64-bridge
+`STYLES[ord % 12]` indexing is filed as its own TECH_DEBT probe (S9), not
+fixed here.
 
 ### S3 — planner: I6 delegates
 
-`planner_style_to_contract(s)` body becomes `s.to_contract_style()`.
-(Internal fn; callers unchanged; the mapping table lives in contract now.)
+`planner_style_to_contract(s)` body becomes `s.default_runbook()`.
+Arm changes at cells 9/10/11 per the S1 canonical table — DOCUMENTED
+behavior change, pinned by G7.
 
-### S4 — thinking-engine: I3 becomes re-export; StyleParams stays engine-owned
+### S4 *(amended v2)* — thinking-engine: I3 becomes re-export; StyleParams stays engine-owned
 
-Delete the enum in `cognitive_stack.rs`; re-export `CascadeStyle as
-ThinkingStyle`. `StyleParams` + its calibrated per-style values remain
-engine-local (calibration data, not taxonomy), keyed via a
-`StyleParams::for_style(CascadeStyle)` match. `contract_bridge.rs`:
-`contract_style_to_engine` routes through
-`ThinkingStyle36::to_cascade()`; the superposition 5→12 mapping (I7 :103)
-retargets `CascadeStyle` with identical arm choices.
+**Pre-step (savant-3 GAP): add `lance-graph-contract = { path =
+"../lance-graph-contract" }` to `crates/thinking-engine/Cargo.toml`** —
+the dep does NOT exist today (contract_bridge takes raw `u8` precisely
+because of this). Contract is zero-dep, so no tree bloat; this is the
+intended dependency direction. Then: delete the enum in
+`cognitive_stack.rs`; re-export `StyleFamily as ThinkingStyle`.
+`StyleParams` + calibrated values stay engine-local, keyed via
+`StyleParams::for_style(StyleFamily)`. `contract_bridge.rs`:
+`contract_style_to_engine` routes through 36-`ThinkingStyle::family()`;
+the 5→12 mapping (I7 :103) retargets `StyleFamily`, identical arm choices.
+The `config.style as u8` cast at :216 is protected by S1's discriminant
+pins (I3's current declaration order == the frozen order, verified).
 
-### S5 — thinking-engine: I4 renamed to what it is
+### S5 *(amended v2)* — thinking-engine: I4 renamed to what it is
 
-`superposition.rs` `ThinkingStyle` → **`DetectedStyle`** (it is a runtime
-detection RESULT, not a taxonomy card; keeping the name violates M9's gate).
-`#[deprecated] pub type ThinkingStyle = DetectedStyle;` at the old path
-(variant paths through type aliases compile since Rust 1.37).
+`superposition.rs` `ThinkingStyle` → **`DetectedStyle`** (a runtime
+detection RESULT, not a taxonomy card). `#[deprecated] pub type
+ThinkingStyle = DetectedStyle;` at the old path (alias variant-paths OK
+since 1.37; toolchain is 1.95). **ALL in-crate call sites migrate to
+`DetectedStyle` in the SAME commit** — savant-2 VIOLATES: under `-D
+warnings` a surviving in-crate use of the deprecated alias
+(`contract_bridge.rs:105-123 from_superposition`) is a hard build error,
+not a soft warning. The alias exists only for out-of-crate compat (none
+known).
 
-### S6 — driver: I5/I8 keyed by the canonical ordinal
+### S6 *(amended v2)* — driver: I5/I8 keyed by the canonical ordinal
 
-`UNIFIED_STYLES` struct/table unchanged (hot path, minimal diff); ADD a
-parity test: `UNIFIED_STYLES[i].name == CascadeStyle::from_ordinal(i).name()`
-and `.ordinal == i` for all 12. `driver.rs` `ord_to_thinking_style()` body
-becomes `CascadeStyle::from_ordinal(ord).map(|c| c.to_contract_style())`
-(delete the local 12→36 match). `style_ord_to_inference()` (12→5 NARS)
-stays driver-local (a driver policy, not taxonomy).
+`UNIFIED_STYLES` struct/table values unchanged (hot path, minimal diff);
+its "THE canonical mapping" doc comment updated to defer to `StyleFamily`
+as the canonical ordinal authority. ADD parity test:
+`UNIFIED_STYLES[i].name == StyleFamily::from_ordinal(i).name()`,
+`.ordinal == i`, and `UNIFIED_STYLES.len() == StyleFamily::ALL.len()`
+(pins the `% 12` at engine_bridge.rs:726 and driver-side modulo sites —
+savant-5). `driver.rs` `ord_to_thinking_style()` body becomes
+`StyleFamily::from_ordinal(ord)`-then-`default_runbook()` (delete the
+local match). **Behavior change at ords 8/9/10** (Speculative→Gentle,
+Curious→Speculative, Reflective→Poetic; ord 11 unchanged) — documented,
+G7-pinned; this is a RUNTIME path (`ShaderDriver::new` → awareness
+bootstrap, savant-2), so the commit message names it explicitly.
+`style_ord_to_inference()` stays driver-local; add one doc-comment line
+noting its ordinal-range grouping is safe ONLY because StyleFamily
+discriminants are frozen (savant-5 RISK, accepted).
 
 ### S7 — contract: I10 routes through the one mapping
 
 `parse_style_name()` body becomes
-`CascadeStyle::from_name(s).map(|c| c.to_contract_style())` — output must be
-IDENTICAL to today (existing tests pass unmodified = the parity pin).
+`StyleFamily::from_name(s).map(|f| f.default_runbook())` — output
+IDENTICAL to today for all 12 names (existing tests pass unmodified = the
+parity pin; verified compatible: parse_style_name's 12 arms match the
+canonical table — confirm during implementation, G4).
 
 ### S8 — planner: I9 gains an enum-keyed accessor
 
@@ -143,13 +216,26 @@ Option<StyleVector>` matching the 5 existing vectors (`Empathetic →
 empathetic_style()` etc. — 36-space because `empathetic` is not a 12-name).
 String fns stay (deprecation optional, savant #4 advises).
 
-### S9 — ledger + board (same commit)
+### S8b *(v2 note)* — S8 unchanged, keyed by the 36 (runbook space) since
+`empathetic` is a runbook name, not a family name — consistent with
+E-STYLE-FAMILY-VS-RUNBOOK-1 (StyleVector is runbook content).
 
-M9 row → RESOLVED-for-lance-graph (gate output pasted);
-`docs/TYPE_DUPLICATION_MAP.md` §6 dated addendum (append, don't rewrite);
-I13 (ndarray PaletteStyle/p64 pair) filed in `.claude/board/TECH_DEBT.md`;
-STATUS_BOARD D-TSC-1 flip; AGENT_LOG council entry; EPIPHANIES only if the
-council surfaces a genuine finding.
+### S9 *(amended v2)* — ledger + board (same commit)
+
+M9 row → RESOLVED-for-lance-graph (gate output pasted), citing
+**E-THINKING-STYLES-ARE-CLASSES-1 + E-STYLE-FAMILY-VS-RUNBOOK-1** (savant-1
+GAP); `docs/TYPE_DUPLICATION_MAP.md` §6 dated addendum;
+**`.claude/v3/COMPONENT-MAP.md` (rows :66, :144) + `MODULE-TABLE.md`
+(rows :182, :231, :263, :332) dated addenda** (savant-4 — duplication
+counts and "reconcile before M9" notes resolve); superseded banner on
+`.grok/03_cognitive_layers/thinking_styles.md` (savant-1 — stale
+pre-eviction doc); TECH_DEBT rows for I13 (ndarray pair), I14 (wip-gated
+dangling imports), I15 (p64-bridge ordinal-mismatch probe: do UNIFIED ords
+ever flow into `STYLES[ord % 12]`?); STATUS_BOARD D-TSC-1 flip; AGENT_LOG
+council entry (which 5, which 3, verdict counts, v1→v2→v3);
+**EPIPHANIES finding entry: the three-divergent-tables discovery**
+(reconciliation doc vs planner I6 vs driver — duplication had already
+produced live semantic drift; the canonical table + the arm-change list).
 
 ## 4. NON-GOALS (each with why)
 
@@ -165,16 +251,24 @@ council surfaces a genuine finding.
 ## 5. PRE-REGISTERED GATES
 
 - **G1 (the M9 gate):** `grep -rn "enum ThinkingStyle" crates/` → contract
-  `thinking.rs` ONLY; all other hits are re-exports/aliases.
-- **G2:** 12→36→12 identity test green; 36→12 total (every variant mapped).
-- **G3:** UNIFIED_STYLES↔CascadeStyle parity test green (names + ordinals).
+  `thinking.rs` ONLY; all other hits are re-exports/aliases (I14's wip-gated
+  dangling imports are `use` statements, not defs — they don't trip G1).
+- **G2 (v2):** `f.default_runbook().family() == f` for all 12 families;
+  `ThinkingStyle::family()` total (every 36-runbook mapped).
+- **G3 (v2):** UNIFIED_STYLES↔StyleFamily parity test green (names +
+  ordinals + lengths).
 - **G4:** `parse_style_name` existing tests pass UNMODIFIED.
 - **G5:** `cargo test -p lance-graph-contract -p lance-graph-planner` and
   `cargo test -p thinking-engine -p cognitive-shader-driver` green; no NEW
   clippy warnings (stash-compare); fmt clean.
-- **G6:** contract `Cargo.toml` dependency section diff = empty.
+- **G6:** contract `Cargo.toml` dependency section diff = empty
+  (thinking-engine's Cargo.toml GAINS the contract dep per S4 — that diff
+  is expected and G6 does not cover it).
+- **G7 (NEW, v2):** the canonical 12-arm `default_runbook` table pinned by
+  an explicit contract test (all 12 arms asserted literally); discriminant
+  pins `StyleFamily::X as u8` for all 12.
 
-## 6. PER-SAVANT QUESTION SETS (Phase 1; output contract per council card)
+## 6. PER-SAVANT QUESTION SETS (Phase 1 — ANSWERED 2026-07-10; kept verbatim as the historical record; findings consolidated into the v2 change ledger §7. References to `CascadeStyle` below predate the v2 rename to `StyleFamily`.)
 
 **Savant 1 — prior art** (`prior-art-savant` charter):
 1. Does any type named `CascadeStyle` / `StyleOrdinal` / `Style12` already
@@ -219,8 +313,45 @@ enum-variant paths through `type` aliases compile on the pinned toolchain
    off 0..12 implicitly?). 4. What does D-TSC-2 need from this type that
    would be painful to retrofit (one RISK max)?
 
+## 6b. FORWARD NOTES (v2 — recorded for D-TSC-2/3, no action this PR)
+
+- `StyleOrdinal` is doc-reserved in `.claude/contracts/ripple-dto-contracts.md:95,127`
+  (uncoded proposal) — D-TSC-2/3 naming must not collide (savant-1).
+- D-TSC-3 may need `.cluster()` (12→4) promoted from `PlannerStyleExt`
+  into contract — additive, non-breaking retrofit; accepted (savant-5).
+- Out-of-workspace taxonomies (bighorn 36-op, agi-chat) remain unreconciled
+  (repos absent) — N6 stands.
+
 ## 7. VERSION LEDGER
 
-- **v1** (2026-07-10) — this document; authored pre-council.
-- v2 — post-Phase-2 consolidation (change ledger appended below).
+- **v1** (2026-07-10) — authored pre-council; committed `da5c68c`.
+- **v2** (2026-07-10) — Phase-2 consolidation of the 5-savant fan-out
+  (fan-out: prior-art / iron-rules / code-truth / cascade-impact /
+  different-views, all Sonnet, parallel; raw outputs banked in AGENT_LOG
+  summary form) + two mid-session operator rulings. **Change ledger:**
+  1. `CascadeStyle` → **`StyleFamily`** + `default_runbook()`/`family()`
+     (operator ruling E-STYLE-FAMILY-VS-RUNBOOK-1; savant-5's naming
+     concern independently pointed the same direction).
+  2. **The three-tables finding** (consolidator grounding): reconciliation
+     doc vs planner I6 vs driver diverge; canonical 12-arm table added to
+     S1 with per-arm rationale + the explicit arm-change lists; new G7.
+  3. S4 pre-step: thinking-engine LACKS the contract dep — add it
+     (savant-3 GAP 2a).
+  4. S5: in-crate call-site migration mandatory same-commit — deprecated
+     alias would hard-fail `-D warnings` (savant-2 VIOLATES).
+  5. S6: driver mapping change acknowledged as RUNTIME behavior change
+     (awareness bootstrap path), named in commit + G7-pinned (savant-2
+     VIOLATES resolved by documentation + gate, not avoidance).
+  6. S1: discriminant pins added (savant-2 RISK re `as u8` cast).
+  7. S2b: p64-bridge doc-comment fix + I15 TECH_DEBT probe (savant-4 RISK
+     + consolidator grounding of the two-orderings fact).
+  8. I14 added (wip-gated dangling imports — dormant, out of scope).
+  9. S9 extended: E-id citations, COMPONENT-MAP/MODULE-TABLE addenda,
+     .grok superseded banner, three TECH_DEBT rows, EPIPHANIES
+     three-tables finding entry (savants 1+4).
+  10. G3 extended with length assert (savant-5's `% 12` catch).
+  Conflicts resolved: savant-1 "reconciliation matches spec" vs
+  consolidator's divergence finding — savant-1 verified ordinal ORDER
+  (correct), not the 12→36 arms (spec v1 hadn't enumerated them); both
+  observations stand (anti-collapse: neither deleted).
 - v3 — ratified post-Phase-4.
