@@ -26,7 +26,7 @@ pub mod temporal;
 use crate::elevation::budget::{budget_for_cluster, PatienceBudget};
 use crate::thinking::style::PlannerStyleExt;
 #[allow(unused_imports)] // ThinkingCluster intended for cluster-based prediction wiring
-use crate::thinking::style::{ThinkingCluster, StyleFamily};
+use crate::thinking::style::{StyleFamily, ThinkingCluster};
 
 /// A prediction scenario — one possible future outcome.
 #[derive(Debug, Clone)]

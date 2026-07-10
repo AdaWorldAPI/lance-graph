@@ -19,12 +19,12 @@ pub mod style;
 pub use nars_dispatch::{NarsInferenceType, QueryStrategy};
 pub use semiring_selection::SemiringChoice;
 pub use sigma_chain::{SigmaStage, ThinkingAtom};
-pub use style::{FieldModulation, ThinkingCluster, StyleFamily};
+pub use style::{FieldModulation, StyleFamily, ThinkingCluster};
 
 use crate::mul::MulAssessment;
-use style::PlannerStyleExt;
 use crate::plan::PlannerConfig;
 use lance_graph_contract::cognitive_shader::RungLevel;
+use style::PlannerStyleExt;
 
 /// Complete thinking context produced by orchestration.
 /// This is what the query planner receives as input alongside the query.

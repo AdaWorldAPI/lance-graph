@@ -53,6 +53,10 @@ never stored); per-level content = palette-quantized magnitude envelope only.
 > (**D-TTV-1**); old CausalEdge64 kept as perturbation baseline.
 > (3) **D-MTS-6** — measure the smaller-CE64 × comma awareness curve vs
 > that baseline (the bits-as-projection-axis twin of E-COMMA-REPLAY-1).
+> **MEASURED GREEN 2026-07-10** (`comma_awareness.rs`): k*=1 vs aligned
+> k*=4; the comma lattice buys ≈ log₂(12) effective bits; D-MTS-6b
+> (driver-integrated fixture) gates any real CE64 shrink — see
+> E-COMMA-AWARENESS-MEASURED-1.
 > Execution spec for D-TSC-1: `.claude/plans/dtsc1-thinkingstyle-dedup-spec-v1.md`.
 
 ## Track B — Thinking styles as classes (domain:appid:classview)

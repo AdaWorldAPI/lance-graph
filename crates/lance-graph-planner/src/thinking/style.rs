@@ -16,10 +16,8 @@ use crate::mul::MulAssessment;
 pub use lance_graph_contract::style_family::StyleFamily;
 
 /// Legacy name for the 12-space.
-#[deprecated(
-    note = "the 12-space is StyleFamily (orchestration families); \
-            ThinkingStyle is the 36-runbook space in lance_graph_contract::thinking"
-)]
+#[deprecated(note = "the 12-space is StyleFamily (orchestration families); \
+            ThinkingStyle is the 36-runbook space in lance_graph_contract::thinking")]
 pub type ThinkingStyle = StyleFamily;
 
 /// Cluster that a thinking style belongs to.

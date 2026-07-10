@@ -7,9 +7,9 @@
 //! - Intuitive/Speed: fast heuristic, top-1 most likely
 
 use super::{CausalStep, Derivation, Scenario};
-use crate::thinking::style::PlannerStyleExt;
 use crate::elevation::budget::PatienceBudget;
-use crate::thinking::style::{ThinkingCluster, StyleFamily};
+use crate::thinking::style::PlannerStyleExt;
+use crate::thinking::style::{StyleFamily, ThinkingCluster};
 
 /// Generate scenarios from seed edges through a specific thinking style lens.
 pub fn generate_scenarios(

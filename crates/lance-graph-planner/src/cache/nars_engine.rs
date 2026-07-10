@@ -303,7 +303,9 @@ pub fn metacognitive_style() -> StyleVector {
 /// Keyed by the 36-runbook space — `Empathetic` is a runbook name, not a
 /// family name (StyleVector is runbook content). Runbooks without a
 /// dedicated vector return `None` (callers fall back to their default).
-pub fn style_vector_for(style: lance_graph_contract::thinking::ThinkingStyle) -> Option<StyleVector> {
+pub fn style_vector_for(
+    style: lance_graph_contract::thinking::ThinkingStyle,
+) -> Option<StyleVector> {
     use lance_graph_contract::thinking::ThinkingStyle as T;
     Some(match style {
         T::Analytical => analytical_style(),

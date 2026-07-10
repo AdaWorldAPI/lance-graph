@@ -69,15 +69,15 @@
 
 #[allow(unused_imports)] // intended for CAM-PQ strategy selection wiring
 use crate::physical::cam_pq_scan::CamPqStrategy;
-use crate::thinking::style::PlannerStyleExt;
 use crate::physical::CamPqScanOp;
 use crate::selector::StrategySelector;
+use crate::thinking::style::PlannerStyleExt;
 use crate::traits::*;
 
 // Re-export key types for ergonomic API
 pub use crate::mul::gate::MulGateDecision as Gate;
 pub use crate::mul::SituationInput;
-pub use crate::thinking::style::{FieldModulation, ScanParams, ThinkingCluster, StyleFamily};
+pub use crate::thinking::style::{FieldModulation, ScanParams, StyleFamily, ThinkingCluster};
 pub use crate::thinking::ThinkingContext;
 pub use crate::PlanError;
 pub use crate::PlanResult;

@@ -1,3 +1,11 @@
+## 2026-07-10 — fable-dmts6-probe — D-MTS-6 measured GREEN + PR #674 opened + codex P2 ack-dedup fix
+
+- **PR #674 opened** (operator ask): the full 14-commit branch arc; session subscribed to PR activity; hourly self check-in armed.
+- **Probe shipped:** `perturbation-sim/examples/comma_awareness.rs` (zero-dep, D-MTS-5 machinery + NARS revision/deduction proxies). ALL GATES PASS: **k\*=1** — one stored truth bit per comma level (2 explicit truth bits/edge vs the CausalEdge64 baseline's 16) matches all three awareness proxies (|ΔE| 0.0084, surprise agreement 0.9688, descent ρ 0.9792); aligned control k\*=4; comma k=1 RMSE 0.0244 vs aligned 0.2503 (10×) — the lattice buys ≈3.4 effective bits ≈ log₂(12) (low-discrepancy stratification, the D-MTS-5 quorum as dither). Replay bit-identical.
+- **Honesty chronicle:** run #1 G1 FAIL — mis-registered gate (exact agreement demanded of a dithered-reconstruction path); fixed by a diagnosis MEASUREMENT (max disagree margin-to-threshold = 1.7e-5 → boundary noise proven), G1′ re-registered stricter, run #2 all green. Chronicle in the probe header.
+- **Codex P2 on #674 fixed:** `BatchWriter::ack_and_propose` now pumps ONLY on the first unacked→acked transition — duplicate acks (sink retry/watcher replay) return None with first-ack-wins version stability; stray CastIds ignored; +1 regression test (3/3 batch_writer green).
+- **Board:** EPIPHANIES `E-COMMA-AWARENESS-MEASURED-1`; STATUS_BOARD D-MTS-6 → Measured GREEN (D-MTS-6b = the driver-integrated gate before any real CE64 shrink); FUTURE-DESIGN + plan rows updated.
+
 ## 2026-07-10 — fable-dtsc1-council — D-TSC-1 SHIPPED: the first 5+3 council run, end to end (M9 ThinkingStyle dedup)
 
 - **The council run** (protocol `.claude/agents/5plus3-council.md`, all phases honored in order):
