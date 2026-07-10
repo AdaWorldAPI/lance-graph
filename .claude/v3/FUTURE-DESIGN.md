@@ -16,7 +16,7 @@
 | Ruling | One line | Wiring queue |
 |---|---|---|
 | E-ACK-HARD-GATE-VS-KANBANSTEP-STREAM-1 | `ack_and_propose` = the low-level orchestration **HARD GATE** → belongs to OGAR ticket orchestration (explicit SLA + auditable goalstate; WAL board + `acked` map = the audit trail; waiting is a FEATURE for tickets); **kanbanstep** = the stream reasoning (in-stream synchronous `on_version → try_advance_phase(&mut)`; nobody waits, 550 ms budget) | **D-AHG-1**: move/mirror propose-on-ack into OGAR's ticket-orchestration surface — rides the batched-mint discipline, NEVER a solo OGAR PR; planner `BatchWriter` keeps the WAL/ack durability bookkeeping. Tier test for reviews: ticket (SLA/audit) → hard gate; thought (cycle budget) → stream; never cross-route |
-| E-KANBANSTEP-IS-THE-TRIGGER-1 | genealogy corrected: kanbanstep (contract `scheduler.rs` §IN + symbiont `kanban_loop.rs` + supervisor `deliver_kanban_step` step shape) predates and outranks the ack-pump; it was obscured in the SurrealQL-AST carve-out | doc-only (leave-as-is ruling stands); drift signal = new code pacing a cycle on an ack |
+| E-KANBANSTEP-IS-THE-TRIGGER-1 | genealogy corrected: kanbanstep (contract `scheduler.rs` §IN + symbiont `kanban_loop.rs` + supervisor `deliver_kanban_step` step shape) predates and outranks the ack-gated advance; it was obscured in the SurrealQL-AST carve-out | doc-only (leave-as-is ruling stands); drift signal = new code pacing a cycle on an ack |
 
 ## 2026-07-10 (second wave) — families vs runbooks; thinking tenants → V3; the smaller-CE64 × comma awareness probe
 

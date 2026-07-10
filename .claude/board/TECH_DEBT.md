@@ -19,7 +19,7 @@ waits for anything or any scheduling.**
 
 *Extension (2026-07-10, per E-KANBANSTEP-IS-THE-TRIGGER-1):* two
 corrections to the entry above. (a) The phrase "canonical message-free
-loop (`BatchWriter::ack_and_propose` …)" over-ranked the ack-pump: the
+loop (`BatchWriter::ack_and_propose` …)" over-ranked the ack-gated advance: the
 CANONICAL advance is the pre-existing **kanbanstep** — the in-stream
 synchronous fire `VersionScheduler::on_version → try_advance_phase(&mut)`
 (the writer already knows the version it committed; reference loop

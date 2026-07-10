@@ -45,7 +45,7 @@
 - Plan addendum (third wave, operator design input for D-MTS-1): AriGraph context V3-TENANT-SHAPED; ingest legs `lance-graph-arm-discovery` (Aerial+, palette256 integer oracle ρ=0.9973) + DeepNSM (4096 COCA = CAM index codebook); frozen comparison CAM-PQ 6×8 = 48-bit path codes (address side, = OGAR HEEL+HIP+TWIG) vs 6×palette256:palette256 = 12 B = ONE V3 tenant (value side); likely "key addresses, tenant carries" — probed, not assumed.
 
 **Locked**
-- **E-NOBODY-WAITS-1** (operator ruling, canonical in EPIPHANIES): no messages, no actors anywhere; ractor = compile-time ownership guarantee ONLY; `&mut` IS the serialization; prime invariant "nobody waits for anything or any scheduling". Ack-pump (`ack_and_propose` → `try_advance_phase(&mut)`) is the canonical kanban trigger; supervisor `KanbanMsg`/`call!` drivers are documented redundancy (TD-MESSAGE-RESIDUE, leave-as-is per operator; drift signal = NEW code reaching for messages).
+- **E-NOBODY-WAITS-1** (operator ruling, canonical in EPIPHANIES): no messages, no actors anywhere; ractor = compile-time ownership guarantee ONLY; `&mut` IS the serialization; prime invariant "nobody waits for anything or any scheduling". The ack-gated advance (`ack_and_propose` → `try_advance_phase(&mut)`) was ranked the canonical kanban trigger (since re-tiered: E-ACK-HARD-GATE-VS-KANBANSTEP-STREAM-1); supervisor `KanbanMsg`/`call!` drivers are documented redundancy (TD-MESSAGE-RESIDUE, leave-as-is per operator; drift signal = NEW code reaching for messages).
 - VISION.md is the WHY reference for V3 (README doc-map row + FUTURE-DESIGN header pointer); design PRs cite EPIPHANIES for rulings, VISION for the graded rationale.
 
 **Deferred**
