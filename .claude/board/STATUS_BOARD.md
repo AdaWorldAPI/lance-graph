@@ -53,7 +53,7 @@ Plan: `.claude/v3/INTEGRATION-PLAN.md` (stub: `.claude/plans/v3-substrate-integr
 | D-V3-W3b | ElixirTemplate → graph-flow GraphBuilder adapter (ownership inheritance) | rs-graph-llm seam | Queued | plan W3 |
 | D-V3-W3c | Rig oracle node + equivalence-gated compile-down | cognitive-compiler + rig | Queued | D-VCW-7 lineage |
 | D-V3-W3d | Template catalogue keyed internally (classid keying deferred to P4) | template-runtime | Queued | plan W3 |
-| D-V3-W4a | BusDto cast-pairing call sites | cognitive-shader-driver | Queued | consumes W1b |
+| D-V3-W4a | BusDto cast-pairing call sites | cognitive-shader-driver | In PR (2026-07-10, branch `claude/review-claude-board-files-nhqgx1`) | `MailboxSoA::cast_on_behalf` (owner from the CARRIER — mispair unrepresentable) + `BatchWriter::on_behalf_of` audit getter; 3 tests incl. literal BusDto arm; fixed pre-existing standalone `with-planner` E0432 (planner_bridge gated onto its wire transport) |
 | D-V3-W4b | L4 learning-loop end-to-end probe (residue → owner-stamped lane → next-cycle template read) | cross-crate | Queued | plan W4 |
 | D-V3-W5a | q2 CI re-bakes + body.soa re-release + drop FMA_V3_CLASSID_LEGACY | q2 | Queued | handover continuation §1 |
 | D-V3-W5b | cpic contract pull with mereology (kinds → cascade positions) | q2 + contract | Queued | handover F3 |

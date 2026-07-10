@@ -125,6 +125,14 @@ impl<P> BatchWriter<P> {
         self.board.get(&cast).map(|(_, moves)| moves.as_slice())
     }
 
+    /// Board read: the mailbox a cast was recorded ON BEHALF OF — the
+    /// delegation-audit surface (W4a cast pairing: consumers pair the owner
+    /// at cast; wardens verify the pairing here, never on the DTO).
+    #[must_use]
+    pub fn on_behalf_of(&self, cast: CastId) -> Option<MailboxId> {
+        self.board.get(&cast).map(|(on_behalf, _)| *on_behalf)
+    }
+
     /// W1c delegation cache: resolve an owner once, cache; returns `(owner, was_cache_hit)`.
     pub fn resolve_owner(
         &mut self,

@@ -22,6 +22,11 @@
 
 ---
 
+## 2026-07-10 — branch `claude/review-claude-board-files-nhqgx1` — W2d `elevation::cycle::CycleBudget` + W4a `MailboxSoA::cast_on_behalf` (the M12 allocator + the write-on-behalf pairing at the carrier)
+
+- **W2d / M12** — `lance-graph-planner::elevation::cycle::CycleBudget`: the ONE per-cycle budget allocator. Reads the Libet anchor from the stamped Σ-commit `KanbanMove` (`from_move`; parity test pins `LIBET_CYCLE_BUDGET_US = 550_000` against the REAL `NextPhaseScheduler` stamp), carves every per-strategy `PatienceBudget` from the cycle remainder (`slice_for` — extend-don't-shadow), advisory `admits` (updates reprioritize, never gate), measured consts with provenance (66 µs/card lane-E t2; ~0.5 µs/step Addendum-5). Doc cross-refs both ways (budget.rs ↔ cycle.rs ↔ contract scheduler.rs). Planner lib 209 green. M12 → IN-FLIGHT.
+- **W4a** — `cognitive-shader-driver::MailboxSoA::cast_on_behalf<P>` (feature `with-planner`): the write-on-behalf cast pairing ON the carrier — `on_behalf` is read from `self.mailbox_id()`, so a call site cannot mispair owner and payload; payload-generic per the writer's DTO purity, `BusDto` is the canonical rung-B payload (verified ownership-field-free, warden check 2). + `BatchWriter::on_behalf_of(cast)` delegation-audit getter (planner). 3 tests green incl. the literal `BusDto` arm (`with-planner,with-engine`) + stacked-casts never-refused. **Fixed pre-existing:** standalone `with-planner` failed E0432 (`planner_bridge` imports lab-only `wire`); the module is now gated `all(with-planner, any(serve, grpc))` matching its LAB-ONLY role — `with-planner` alone now means "planner dep available". ractor note per operator: ownership is a compile-time delegation declaration, never a message path — the cast is a WAL report from within the owner's context.
+
 ## 2026-07-10 — branch `claude/review-claude-board-files-nhqgx1` — `contract::step_mask::StepMask` — the compiled-template live-step selector (D-V3-W3a)
 
 ### Current Contract Inventory — new entry
