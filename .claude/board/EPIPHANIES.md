@@ -1,3 +1,15 @@
+## 2026-07-10 — E-ACK-HARD-GATE-VS-KANBANSTEP-STREAM-1 — ack_and_propose belongs to OGAR ticket orchestration (the low-level orchestration HARD GATE: explicit SLA + auditable goalstate); kanbanstep is the stream reasoning
+**Status:** RULING (operator, 2026-07-10: "ack and propose should be in OGAR for ticket orchestration stuff that want more explicit SLA and auditable goalstate — we could say it's the low level Orchestration hard gate and Kanbanstep the stream reasoning"). Completes E-KANBANSTEP-IS-THE-TRIGGER-1 (below): the propose-on-ack pattern is not merely demoted bookkeeping — it has a proper HOME.
+
+**The two-tier split, ratified:**
+- **kanbanstep = stream reasoning** (lance-graph cognitive substrate): the in-stream synchronous advance (`VersionScheduler::on_version → try_advance_phase(&mut)`), fired inline by the writer with the version it already holds. Cognition never waits — the 550 ms SoA budget + can't-stop-thinking govern this tier. E-NOBODY-WAITS-1 is this tier's prime invariant.
+- **ack_and_propose = the low-level orchestration HARD GATE** (OGAR ticket orchestration): for work items that WANT explicit SLA and an auditable goalstate, propose-on-ack is the correct semantics — a ticket does not advance until durability is confirmed, and the WAL board + `acked: BTreeMap<CastId, LanceVersion>` + `unacked()` surface IS the audit trail (cast order preserved, crash-replay = the unacked set, goalstate = the acked version per cast). Waiting is a FEATURE here, not a bug: tickets may wait; thinking may not.
+
+**Consequences:**
+- The "correct code, wrong rank" verdict on `BatchWriter::ack_and_propose` resolves to "correct code, wrong TIER": the pattern migrates to (or is mirrored into) OGAR's ticket-orchestration surface; lance-graph keeps kanbanstep as the reasoning-stream advance.
+- Tier test for any future advance-path design: *does this unit of work carry an SLA/audit obligation (ticket) or a cycle budget (thought)?* Ticket → hard gate (ack-gated, auditable). Thought → stream (inline, nobody waits). A thought must never be routed through the hard gate; a ticket must never skip it.
+- Wiring queued in FUTURE-DESIGN (OGAR changes ride the batched-mint discipline — never a solo OGAR PR): move/mirror the propose-on-ack pattern to OGAR ticket orchestration; the planner-side `BatchWriter` WAL/ack bookkeeping stays as the storage-durability surface it already is.
+
 ## 2026-07-10 — E-KANBANSTEP-IS-THE-TRIGGER-1 — the CANONICAL kanban advance is the in-stream synchronous step (the pre-existing "kanbanstep"); the ack is bookkeeping, never a pacing mechanism
 **Status:** RULING + genealogy CORRECTION (operator, 2026-07-10: "the doctrine was cognitive-shader-driver can't stop thinking … the SoA budgets of 550ms make it more expensive to wait for any stupid ack; the old already existing system was called kanbanstep and it was removed beyond recognition when removing the SurrealQL AST DLL shape"). Corrects the trigger-RANKING in E-ACK-IS-THE-KANBAN-TRIGGER-1 (whose "the driver never waits" clause STANDS); reads with E-NOBODY-WAITS-1.
 
