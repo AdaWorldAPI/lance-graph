@@ -507,7 +507,9 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("page_layout", 0x0807),
     ("page_image", 0x0808),
     ("ocr_renderer", 0x0809),
-    // ── 0x09XX — Health domain (MedCare; OGIT NTO/Healthcare promotion) ──
+    // ── 0x09XX — Health domain (MedCare; 0x0901..0x0907 = OGIT
+    // NTO/Healthcare promotion; 0x0908..0x090B = harvest-derived mints,
+    // furnace-exam round 2 — no OGIT entity, no port alias yet) ──
     ("patient", 0x0901),
     ("diagnosis", 0x0902),
     ("lab_value", 0x0903),
@@ -515,6 +517,10 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("treatment", 0x0905),
     ("visit", 0x0906),
     ("vital_sign", 0x0907),
+    ("anamnesis", 0x0908),
+    ("investigation", 0x0909),
+    ("examination", 0x090A),
+    ("practitioner", 0x090B),
     // ── 0x0AXX — Anatomy domain (FMA reference ontology; public, not PHI) ──
     // FMA anatomy lives HERE, not in Health 0x09 — reference structure is
     // public, a clinical finding *about* it is PHI. `CLASSID_FMA` retargets to
