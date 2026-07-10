@@ -1,3 +1,18 @@
+## 2026-07-10 — fable-w2-w6-continuation — the unwired W2..W6 arc (4 lance-graph commits + 1 rs-graph-llm commit + 1 Sonnet worker)
+
+- **Agent:** main thread (Fable) + 1 Sonnet grindworker (guardrails §1 pasted verbatim). **Branch:** `claude/review-claude-board-files-nhqgx1` (lance-graph + rs-graph-llm).
+- **Shipped this session:**
+  - **W3a** `contract::step_mask::StepMask` (`0f07cf5`) — FieldMask sibling, selection-never-control-flow, +5 tests, contract lib 866 green.
+  - **W2d/M12** `planner::elevation::cycle::CycleBudget` (`b5b5802`) — the one per-cycle allocator; reads the Libet anchor (`from_move`), parity test pins −550_000 vs the REAL scheduler stamp; `slice_for` carves PatienceBudget from the remainder; advisory `admits`; measured consts (66 µs/card lane-E, ~0.5 µs/step). M12 → IN-FLIGHT.
+  - **W4a** `driver::MailboxSoA::cast_on_behalf<P>` + `planner::BatchWriter::on_behalf_of` (`b13a23b`) — owner read from the CARRIER (mispair unrepresentable); 3 tests incl. the literal BusDto arm; **fixed pre-existing E0432** (standalone `with-planner` never compiled — planner_bridge now gated onto its wire transport).
+  - **rs-graph-llm** `graph-flow-kanban::run_cycle` ownership fix (`8ef18b9`) — was `mailbox = classid` (owner conflated with class discriminator); now explicit `on_behalf: MailboxId` per the operator direction (ractor = compile-time ownership delegation, never messaging; stages act on behalf of the SoA); 12/12 green, ownership pin test.
+  - **W6a** `contract/examples/adoption_scan.rs` (Sonnet worker; verified centrally) — runnable two-metric scan over the EXISTING `classid_scan` logic, all three legacy shapes named, composers-only demo set; clippy clean.
+- **Verified, no change needed:** **W2b** real-owner probe pre-existed (`tests/w2b_real_owner_probe.rs`, re-run 3/3 green); **W5g** OGAR emit labels already fixed upstream (emit.rs 305/381/462 via `concept_of`/`app_of` + regression test — plan row was stale).
+- **Deliberately deferred:** **W2a** board-as-tenant — GATED by Addendum-12a on the next BATCHED board-classid mint (never solo) + T1-T6; not half-landed. **W2c** symbiont cold build (disk risk). W3b/W3c/W3d, W4b, W5 consumer fleet: untouched.
+- **Board hygiene (this commit):** 8 stale STATUS_BOARD rows flipped with provenance (W1b/W1c/W1e → Shipped #631; W2b → Shipped; W6a → In PR; D-PERT-1 → Shipped #630; **D-CCF-4 → RESCINDED** per E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1; W2a gate note). LATEST_STATE entries prepended per commit. Known residual gap NOT closed here: PR_ARC_INVENTORY backfill #633–#673 (bigger than this session).
+- **/v3-audit (gate-run rule):** check 1 — 3 hits, all pre-existing test-value literals in mailbox_soa.rs tests (MetaWord/entity-type, not composed classids) → false-positive/test-only OK; check 2 resurrection — 0 hits in session files; check 3 — BusDto untouched, no ownership fields; check 4 — no new Lance/SoA write paths (cast pairing is WAL intent, not a byte write); check 5 — **LAYOUT-CLEAN** (no soa_envelope/canonical_node byte diffs; scheduler.rs doc-only); check 6 — `NodeGuid::new(` in `#[cfg(test)]` modules only (action.rs:384/579, canonical_node.rs:1540). **Verdict: OWNED / LAYOUT-CLEAN.**
+- **Pre-existing debt encountered (tracked, not fixed):** planner `cache/nars_engine.rs` deprecated CausalEdge64 accessors fail clippy `-D warnings` (TECH_DEBT line ~35); TD-ONTOLOGY-LINT (oxrdf deprecations + doc lints); `lab` feature unbuildable in-container (missing protoc — pre-existing on HEAD).
+
 ## 2026-07-06 — opus-filigrane-contract — unified ClassView render (facet value projection + is_a walk)
 
 - **Agent:** opus-filigrane-contract (single Opus filigrane worker). **Branch:** `claude/classview-unified-render` (off origin/main; committed, NOT pushed).

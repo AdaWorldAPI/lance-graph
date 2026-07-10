@@ -41,12 +41,12 @@ Plan: `.claude/v3/INTEGRATION-PLAN.md` (stub: `.claude/plans/v3-substrate-integr
 | D-V3-W0a | `.claude/v3/` tree (README, plan, COMPONENT-MAP, ENTROPY-MILESTONES, MODULE-TABLE, soa_layout/*) | docs | Shipped (this PR) | complete: 7/7 mappers synthesized; MODULE-TABLE = 304/304 files (21/21 census chunks); soa_layout 5/5 docs |
 | D-V3-W0b | V3 awareness layer (knowledge docs, v3-* agent cards, /v3 skill, /v3-audit command, CLAUDE.md+BOOT.md entrypoints) | docs | Shipped (this PR) | 4 knowledge docs, 4 cards, skill+command registered |
 | D-V3-W1a | SoaEnvelope::mailbox_owner() ownership stamp | lance-graph-contract | Shipped | this branch; 775 contract tests green |
-| D-V3-W1b | Ahead-firing batch writer (cast pairing + AHEAD KanbanMove at cast) | planner-adjacent | In PR | W1 STARTED 2026-07-02; WAL-shaped per preflight addendum (M24: cast = intent record) |
-| D-V3-W1c | Delegation cache (cast id vs envelope stamp) | batch writer | In PR | W1 STARTED 2026-07-02; collapses into W1b writer (M24) |
+| D-V3-W1b | Ahead-firing batch writer (cast pairing + AHEAD KanbanMove at cast) | planner-adjacent | Shipped (#631, 2026-07-02; row flipped 2026-07-10 hygiene) | W1 STARTED 2026-07-02; WAL-shaped per preflight addendum (M24: cast = intent record) |
+| D-V3-W1c | Delegation cache (cast id vs envelope stamp) | batch writer | Shipped (#631, 2026-07-02, collapsed into W1b per M24; row flipped 2026-07-10 hygiene) | W1 STARTED 2026-07-02; collapses into W1b writer (M24) |
 | D-V3-W1d | MailboxId minting path (non-zero owners, uniqueness debug_assert) | contract | In progress | W1 STARTED 2026-07-02 |
-| D-V3-W1e | Probes: ahead-update ordering + delegation miss | contract/planner | In PR | W1 STARTED 2026-07-02; probe lands FIRST (probe-first gate) + kill-after-cast replay test (M24) |
-| D-V3-W2a | Per-mailbox kanban board as TENANT | contract | Queued | field-isolation matrix mandatory |
-| D-V3-W2b | Supervisor wiring: moves via MailboxSoaOwner::advance_phase | lance-graph-supervisor | Queued | plan W2 |
+| D-V3-W1e | Probes: ahead-update ordering + delegation miss | contract/planner | Shipped (#631, 4/4 green; verified live un-ignored 2026-07-10) | W1 STARTED 2026-07-02; probe lands FIRST (probe-first gate) + kill-after-cast replay test (M24) |
+| D-V3-W2a | Per-mailbox kanban board as TENANT | contract | Queued (GATED: Addendum-12a — BoardAggregates 10th ValueTenant @152 + T1-T6 + board classid via next BATCHED mint, never solo; deliberately deferred 2026-07-10) | field-isolation matrix mandatory |
+| D-V3-W2b | Supervisor wiring: moves via MailboxSoaOwner::advance_phase | lance-graph-supervisor | Shipped (kanban_actor.rs + tests/w2b_real_owner_probe.rs; re-verified 3/3 green 2026-07-10 — row was stale) | plan W2 |
 | D-V3-W2c | symbiont SurrealDB-on-kv-lance arm | symbiont | Blocked (kv-lance fork coordinates) | POC = kanban_loop.rs |
 | D-V3-W2d | 550 ms budget hooks via planner elevation/ | lance-graph-planner | In PR (2026-07-10, branch `claude/review-claude-board-files-nhqgx1`) | `elevation::cycle::CycleBudget` (M12 allocator): reads the Libet anchor, advisory `admits` (reprioritize-never-gate), measured consts (66µs/card lane-E, ~0.5µs/step), +5 tests; load-balancer consumption = W2 residue |
 | D-V3-W3a | StepMask in contract (sibling of FieldMask) | lance-graph-contract | In PR (2026-07-10, branch `claude/review-claude-board-files-nhqgx1`) | `contract::step_mask::StepMask`, +5 tests (866 lib green), selection-never-control-flow doc'd |
@@ -59,7 +59,7 @@ Plan: `.claude/v3/INTEGRATION-PLAN.md` (stub: `.claude/plans/v3-substrate-integr
 | D-V3-W5b | cpic contract pull with mereology (kinds → cascade positions) | q2 + contract | Queued | handover F3 |
 | D-V3-W5c | Consumer write-on-behalf adoption (bakes annotated bootstrap; new online writes via batch writer) | fleet | Queued | write-on-behalf.md |
 | D-V3-W5e | ladybug-rs + smb-office-rs contract pulls | siblings | Queued | never bridges |
-| D-V3-W6a | Adoption/corpus scanner (ONE two-metric range-count tool) | lance-graph | Queued | E-V3-MARKER-IS-A-MONITOR |
+| D-V3-W6a | Adoption/corpus scanner (ONE two-metric range-count tool) | lance-graph | In PR (counting logic shipped 9c55646 2026-07-02 — row was stale; runnable examples/adoption_scan.rs added 2026-07-10; Lance-dataset sweep = residue) | E-V3-MARKER-IS-A-MONITOR; note: 0x1000 PERMANENT per E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1 — scanner counts forms, monitor never retires |
 | D-V3-W6b | Legacy alias retirement (corpus-proof-gated) | contract + consumers | Blocked (corpus proof) | plan W6 |
 | D-V3-W6c | Custom half opens: render + template catalogue dispatch | contract | Blocked (P4 operator checkpoint) | completes F2 styles-as-lenses |
 
@@ -73,8 +73,8 @@ Plan: `.claude/plans/classid-canon-custom-flip-v1.md`. Operator trigger 2026-07-
 | D-CCF-1 | Flip + mint new-form classids (0x0701_1000 / 0x0A01_1000 / 0x0E01_1000) coexisting | lance-graph-contract | In PR (#628) | gated on P0 probes |
 | D-CCF-2 | OGAR#95 hi-u16 app-prefix reconciliation | contract + OGAR | In PR (OGAR #147; prefix = custom half) | plan §2 row / §4 P2 |
 | D-CCF-3 | q2 re-mints (osint-bake + cpic via contract pull; dissolves ISS-Q2-CPIC-MIRROR) | q2 (gate WAIVED) | In PR (q2 #71; .soa re-bakes deferred to CI/dev; cpic interim 0x0E01_000N, full contract pull tracked) | plan §4 P3 |
-| D-CCF-4 | 0x1000 marker retirement | all | Blocked (operator checkpoint) | plan §4 P4 |
-| D-PERT-1 | Rename dto.rs ResonanceDto → PerturbationDto (split, not dedup; deprecated alias; awareness_dto keeps Resonance) | thinking-engine + engine_bridge | Queued | E-TWO-RESONANCES-SPLIT |
+| D-CCF-4 | 0x1000 marker retirement | all | RESCINDED (operator 2026-07-03, E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1: v2/v3 coexist permanently by schema — retirement off the table) | plan §4 P4 (superseded) |
+| D-PERT-1 | Rename dto.rs ResonanceDto → PerturbationDto (split, not dedup; deprecated alias; awareness_dto keeps Resonance) | thinking-engine + engine_bridge | Shipped (#630, 2026-07-02; verified in-code 2026-07-10 — row was stale) | E-TWO-RESONANCES-SPLIT |
 
 ## v3-convergence-wiring-v1 — wire, don't invent (the seam list)
 
