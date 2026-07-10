@@ -301,21 +301,33 @@ mod hotplug_bridge_tests {
         let plug = HotPlug {
             consumer: "tesseract-ogar",
             classids: &[0x0805, 0x0808, 0x0809],
+            // Exactly the actions the three requested classids declare
+            // (OGAR `ocr_actions`, grown by OGAR #188's structured-document
+            // v2): textline(0x0805)=1, page_image(0x0808)=7,
+            // ocr_renderer(0x0809)=4 = 12. `harvest_fields` /
+            // `detect_page_furniture` are `page_layout`(0x0807), NOT
+            // requested here, so they stay out. `covered` must match the
+            // requested classids' action set exactly (activate rejects both
+            // Uncovered and Undeclared).
             covered: &[
-                "extract_page_image",
-                "extract_text_layer",
                 "recognize_line",
                 "recognize_page",
-                "render_hocr",
-                "render_searchable_pdf",
+                "extract_text_layer",
+                "extract_page_image",
+                "recognize_page_words",
+                "recognize_document",
+                "segment_page",
+                "detect_halftone_regions",
                 "render_text",
                 "render_tsv",
+                "render_hocr",
+                "render_searchable_pdf",
             ],
         };
         let auth: &dyn CapabilityAuthority = &super::OgarAuthority;
         let act = auth.activate(&plug).expect("green activation");
         assert_eq!(act.concepts.len(), 3);
         assert!(act.concepts.contains(&("textline".to_string(), 0x0805)));
-        assert_eq!(act.capabilities.len(), 8);
+        assert_eq!(act.capabilities.len(), 12);
     }
 }
