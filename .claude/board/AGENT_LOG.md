@@ -1,3 +1,11 @@
+## 2026-07-10 — fable-cognition-rulings — four operator rulings banked + the ack-pump shipped (continuation of fable-w2-w6-continuation, same branch)
+
+- **Rulings banked (EPIPHANIES, canonical text there):** `E-ACK-IS-THE-KANBAN-TRIGGER-1` (write fire-and-forget; the Lance ack pumps the next KanbanMove; driver never waits — StreamDto can't-stop-thinking), `E-ORCHESTRATION-ORGANS-1` (rs-graph-llm = consumer shell + slow path; rig = oracle-frequency; surrealdb = storage/read-glove/lowering, never orchestration; ONE board interconnects), `E-THINKING-STYLES-ARE-CLASSES-1` (style = class under domain:appid:classview; StepMask × WideFieldMask + rung set + KausalSpec resolved by classid; NOT 0x0000; dispatch stays MetaWord bits), `E-MARKOV-TEMPORAL-STREAM-1` (Markov = temporal.rs sorted stream; VSA demoted to the four-test niche; L4 palette² tenant in the Morton 2bit×2bit cascade; 4096 COCA=CAM=gridlake anchor; [FORMAL-SCAFFOLD] consult recorded).
+- **Code:** `BatchWriter::ack_and_propose` + 2 probe tests green (never-waited pin; self-pumping arc walk — the board walks Planning→…→Commit off write completions alone; absorbing view rests). Planner lib green.
+- **Docs/board:** CLAUDE.md Click supersession note #3 (temporal-stream Markov; diagram read through it); plan `temporal-markov-and-style-classes-v1` + INTEGRATION_PLANS prepend; STATUS_BOARD new section (D-MTS-1..4 / D-TSC-1..4 / D-ORG-1..2) + **W2c RE-SCOPED** to storage/read-glove; M4 target sharpened in ENTROPY-MILESTONES.
+- **Escalated to operator (not assumed):** D-TSC-4 — W6c catalogue coexistence with the PERMANENT 0x1000 marker needs an explicit ruling.
+- **Gate:** probes D-MTS-1..3 gate ALL VSA-path removal and L4 shader migration — nothing ripped out this arc; probe-first honored.
+
 ## 2026-07-10 — fable-w2-w6-continuation — the unwired W2..W6 arc (4 lance-graph commits + 1 rs-graph-llm commit + 1 Sonnet worker)
 
 - **Agent:** main thread (Fable) + 1 Sonnet grindworker (guardrails §1 pasted verbatim). **Branch:** `claude/review-claude-board-files-nhqgx1` (lance-graph + rs-graph-llm).

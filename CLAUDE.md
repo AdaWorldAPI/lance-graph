@@ -108,6 +108,24 @@ VSA carrier).
 > What survives from this block: Vsa16kF32-never-crosses-boundaries, the
 > mailbox-as-owner compile-time safety argument (E-CE64-MB-4), and the bundle
 > math — all untouched.
+>
+> **2026-07-10 supersession (operator ruling `E-MARKOV-TEMPORAL-STREAM-1`):**
+> in most cases the singleton-BindSpace VSA substrate is NOT used, and the
+> **Markov trajectory below moves off the VSA braid onto the `temporal.rs`
+> sorted stream** — grammar-resolver ambiguities are resolved live and
+> granularly against a version-range read (`QueryReference::at(v, rung)` +
+> deinterlace), which generalizes the ±5 window (any width, per-reader rung,
+> no N≤32 bundle-SNR ceiling, replayable — still a projection, zero copies).
+> Episodic = Lance versions (the OGAR D-DELTA mapping, now primary); episodic
+> basins = `part_of:is_a` rails (le-contract L1–L3); the perturbation shader's
+> carrier is the L4 `6× palette256:palette256` tenant over the Morton
+> 2bit×2bit 4×4 cascade. **VSA is demoted to its I-VSA-IDENTITIES four-test
+> niche** (≤32 lossless role superposition within one compartment) — the
+> bundle ALGEBRA below stays valid in that niche; the [FORMAL-SCAFFOLD]
+> consult is recorded in the board entry (Chapman-Kolmogorov now holds
+> exactly by stream order, a strengthening). Diagram + "three things" §1
+> below are read through this note. Probes D-MTS-1..3 (plan
+> `temporal-markov-and-style-classes-v1`) gate the code migration.
 
 ```
   Sentence → FSM → RoleKey_fp × content_fp   → vsa_bundle (Σ) with ρ^d braiding

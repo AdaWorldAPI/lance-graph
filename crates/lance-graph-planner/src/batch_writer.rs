@@ -27,7 +27,9 @@
 use std::collections::{BTreeMap, HashMap};
 
 use lance_graph_contract::collapse_gate::MailboxId;
-use lance_graph_contract::kanban::KanbanMove;
+use lance_graph_contract::kanban::{ExecTarget, KanbanMove};
+use lance_graph_contract::scheduler::{DatasetVersion, VersionScheduler};
+use lance_graph_contract::soa_view::MailboxSoaView;
 
 use crate::temporal::LanceVersion;
 
@@ -102,6 +104,50 @@ impl<P> BatchWriter<P> {
         self.acked.insert(cast, version);
     }
 
+    /// **The self-updating orchestration pump (operator ruling, 2026-07-10):
+    /// the ack IS the next kanban trigger.** Records the ack, then lowers the
+    /// assigned `LanceVersion` to the next legal [`KanbanMove`] proposal via
+    /// the provided [`VersionScheduler`] over `view`.
+    ///
+    /// The loop this closes — the StreamDto "can't stop thinking" lineage:
+    ///
+    /// ```text
+    /// think → cast (fire-and-forget: the thinker is freed at once)
+    ///       → sink drains async → Lance ack
+    ///       → THIS method: ack ⇒ next-move proposal (version tick)
+    ///       → owner disposes it → the board reprioritizes the live set
+    ///       → thinking, which never stopped, sees the new priorities
+    /// ```
+    ///
+    /// The cognitive-shader-driver NEVER waits on scheduling or writing:
+    /// `cast` returns immediately ("melden macht frei"), the write is async,
+    /// and the board update is a *consequence of the write completing*, not
+    /// something the thinker schedules. Orchestration is self-updating —
+    /// every completed write pumps the next kanban update.
+    ///
+    /// Propose-don't-dispose is preserved: the writer only PROPOSES; the
+    /// owner (`MailboxSoaOwner` / the KanbanActor) applies the move — the
+    /// sole-mutator proof is untouched. `None` = the view is absorbing or
+    /// policy-filtered (the loop rests; a no-op tick is suppressed, never an
+    /// error). A `Planning → CognitiveWork` proposal carries the Libet
+    /// anchor, so `elevation::cycle::CycleBudget::from_move` opens the next
+    /// cycle's window from this same proposal (M12).
+    pub fn ack_and_propose<S, V>(
+        &mut self,
+        cast: CastId,
+        version: LanceVersion,
+        scheduler: &S,
+        view: &V,
+        exec: ExecTarget,
+    ) -> Option<KanbanMove>
+    where
+        S: VersionScheduler,
+        V: MailboxSoaView,
+    {
+        self.ack(cast, version);
+        scheduler.on_version(view, DatasetVersion(version), exec)
+    }
+
     /// The `LanceVersion` a cast was acked at, if it has been acked.
     #[must_use]
     pub fn acked_version(&self, cast: CastId) -> Option<LanceVersion> {
@@ -145,5 +191,116 @@ impl<P> BatchWriter<P> {
         let owner = resolver(on_behalf);
         self.delegation_cache.insert(on_behalf, owner);
         (owner, false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lance_graph_contract::kanban::KanbanColumn;
+    use lance_graph_contract::scheduler::NextPhaseScheduler;
+
+    /// Minimal view at a given phase (mirrors elevation::cycle's PhaseView).
+    struct PhaseView(KanbanColumn);
+    impl MailboxSoaView for PhaseView {
+        fn mailbox_id(&self) -> MailboxId {
+            7
+        }
+        fn n_rows(&self) -> usize {
+            0
+        }
+        fn w_slot(&self) -> u8 {
+            7
+        }
+        fn current_cycle(&self) -> u32 {
+            0
+        }
+        fn phase(&self) -> KanbanColumn {
+            self.0
+        }
+        fn energy(&self) -> &[f32] {
+            &[]
+        }
+        fn edges_raw(&self) -> &[u64] {
+            &[]
+        }
+        fn meta_raw(&self) -> &[u32] {
+            &[]
+        }
+        fn entity_type(&self) -> &[u16] {
+            &[]
+        }
+    }
+
+    #[test]
+    fn ack_is_the_next_kanban_trigger_and_the_thinker_never_waited() {
+        let mut w: BatchWriter<u8> = BatchWriter::new();
+
+        // Fire-and-forget: the thinker casts and is freed at once — no ack
+        // exists yet, nothing to wait on, and further casts stack freely.
+        let c1 = w.cast(7, vec![], 0);
+        let c2 = w.cast(7, vec![], 1);
+        assert_eq!(w.unacked(), vec![c1, c2], "thinking never blocked on I/O");
+
+        // The async sink completes c1: the ack ITSELF proposes the next
+        // kanban update (Planning → CognitiveWork), carrying the Libet
+        // anchor — orchestration pumps itself off write completions.
+        let mv = w
+            .ack_and_propose(
+                c1,
+                41,
+                &NextPhaseScheduler,
+                &PhaseView(KanbanColumn::Planning),
+                ExecTarget::Native,
+            )
+            .expect("write completion triggers the next board update");
+        assert_eq!(mv.from, KanbanColumn::Planning);
+        assert_eq!(mv.to, KanbanColumn::CognitiveWork);
+        assert!(mv.libet_offset_us < 0, "Σ-commit opens the next window");
+        assert_eq!(w.acked_version(c1), Some(41), "the ack was recorded");
+        assert_eq!(w.unacked(), vec![c2], "c2 still in flight, still no wait");
+    }
+
+    #[test]
+    fn self_pumping_chain_walks_the_arc_off_write_completions_alone() {
+        // Three async write completions, each triggering the next update:
+        // the board walks Planning → CognitiveWork → Evaluation → Commit
+        // with NO scheduler call from the thinker's side.
+        let mut w: BatchWriter<u8> = BatchWriter::new();
+        let mut phase = KanbanColumn::Planning;
+        for (i, expected) in [
+            KanbanColumn::CognitiveWork,
+            KanbanColumn::Evaluation,
+            KanbanColumn::Commit,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let cast = w.cast(7, vec![], i as u8);
+            let mv = w
+                .ack_and_propose(
+                    cast,
+                    i as u64 + 1,
+                    &NextPhaseScheduler,
+                    &PhaseView(phase),
+                    ExecTarget::Native,
+                )
+                .expect("non-absorbing view advances");
+            assert_eq!(mv.to, expected);
+            phase = mv.to; // the owner disposed the proposal; next view reflects it
+        }
+
+        // At the absorbing column the pump rests: ack recorded, no proposal,
+        // no error — the no-op tick is suppressed, never a deadlock.
+        let last = w.cast(7, vec![], 9);
+        let rest = w.ack_and_propose(
+            last,
+            99,
+            &NextPhaseScheduler,
+            &PhaseView(KanbanColumn::Commit),
+            ExecTarget::Native,
+        );
+        assert!(rest.is_none(), "absorbing view: the loop rests");
+        assert_eq!(w.acked_version(last), Some(99));
     }
 }

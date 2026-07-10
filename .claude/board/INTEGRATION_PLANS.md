@@ -1,3 +1,18 @@
+## 2026-07-10 — temporal-markov-and-style-classes v1 — ACTIVE
+
+**Plan:** `.claude/plans/temporal-markov-and-style-classes-v1.md`
+**Scope:** the operator-ratified cognition arc: Track A — Markov as
+`temporal.rs` sorted stream over grammar ambiguities, VSA demoted to the
+I-VSA-IDENTITIES four-test niche, L4 palette256² tenant in the Morton
+2bit×2bit cascade shader (probes D-MTS-1..3 gate ALL removal/implementation;
+D-MTS-4 sharpens M4's target). Track B — thinking styles as classes under
+domain:appid:classview (StepMask × WideFieldMask + rung set + KausalSpec as
+class-record properties; D-TSC-1 M9 dedup BLOCKS the rest; D-TSC-4 W6c
+coexistence re-ruling escalated to operator). Track C — orchestration organs
+(ack-pump shipped; W2c re-scoped to storage/read-glove). Canonical rulings:
+EPIPHANIES `E-MARKOV-TEMPORAL-STREAM-1` / `E-THINKING-STYLES-ARE-CLASSES-1`
+/ `E-ORCHESTRATION-ORGANS-1` / `E-ACK-IS-THE-KANBAN-TRIGGER-1`.
+
 ## 2026-07-07 — pdf-to-text-ocr v1 (tesseract-rs) — ACTIVE
 
 **Plan:** `tesseract-rs/.claude/plans/pdf-to-text-ocr-v1.md`

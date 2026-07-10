@@ -47,7 +47,7 @@ Plan: `.claude/v3/INTEGRATION-PLAN.md` (stub: `.claude/plans/v3-substrate-integr
 | D-V3-W1e | Probes: ahead-update ordering + delegation miss | contract/planner | Shipped (#631, 4/4 green; verified live un-ignored 2026-07-10) | W1 STARTED 2026-07-02; probe lands FIRST (probe-first gate) + kill-after-cast replay test (M24) |
 | D-V3-W2a | Per-mailbox kanban board as TENANT | contract | Queued (GATED: Addendum-12a — BoardAggregates 10th ValueTenant @152 + T1-T6 + board classid via next BATCHED mint, never solo; deliberately deferred 2026-07-10) | field-isolation matrix mandatory |
 | D-V3-W2b | Supervisor wiring: moves via MailboxSoaOwner::advance_phase | lance-graph-supervisor | Shipped (kanban_actor.rs + tests/w2b_real_owner_probe.rs; re-verified 3/3 green 2026-07-10 — row was stale) | plan W2 |
-| D-V3-W2c | symbiont SurrealDB-on-kv-lance arm | symbiont | Blocked (kv-lance fork coordinates) | POC = kanban_loop.rs |
+| D-V3-W2c | symbiont SurrealDB-on-kv-lance arm | symbiont | RE-SCOPED (E-ORCHESTRATION-ORGANS-1, 2026-07-10): storage + SurrealQL read-glove + ExecTarget lowering ONLY — never orchestration; kanban-updates-as-KV-transactions dropped | POC = kanban_loop.rs (read glove); resolves the W2c/D-PG-6 dual-row contradiction |
 | D-V3-W2d | 550 ms budget hooks via planner elevation/ | lance-graph-planner | In PR (2026-07-10, branch `claude/review-claude-board-files-nhqgx1`) | `elevation::cycle::CycleBudget` (M12 allocator): reads the Libet anchor, advisory `admits` (reprioritize-never-gate), measured consts (66µs/card lane-E, ~0.5µs/step), +5 tests; load-balancer consumption = W2 residue |
 | D-V3-W3a | StepMask in contract (sibling of FieldMask) | lance-graph-contract | In PR (2026-07-10, branch `claude/review-claude-board-files-nhqgx1`) | `contract::step_mask::StepMask`, +5 tests (866 lib green), selection-never-control-flow doc'd |
 | D-V3-W3b | ElixirTemplate → graph-flow GraphBuilder adapter (ownership inheritance) | rs-graph-llm seam | Queued | plan W3 |
@@ -62,6 +62,23 @@ Plan: `.claude/v3/INTEGRATION-PLAN.md` (stub: `.claude/plans/v3-substrate-integr
 | D-V3-W6a | Adoption/corpus scanner (ONE two-metric range-count tool) | lance-graph | In PR (counting logic shipped 9c55646 2026-07-02 — row was stale; runnable examples/adoption_scan.rs added 2026-07-10; Lance-dataset sweep = residue) | E-V3-MARKER-IS-A-MONITOR; note: 0x1000 PERMANENT per E-V3-DUAL-SCHEMA-0x1000-IS-PERMANENT-1 — scanner counts forms, monitor never retires |
 | D-V3-W6b | Legacy alias retirement (corpus-proof-gated) | contract + consumers | Blocked (corpus proof) | plan W6 |
 | D-V3-W6c | Custom half opens: render + template catalogue dispatch | contract | Blocked (P4 operator checkpoint) | completes F2 styles-as-lenses |
+
+## temporal-markov-and-style-classes-v1 — the ratified 2026-07-10 cognition arc
+
+Plan: `.claude/plans/temporal-markov-and-style-classes-v1.md`. Rulings: E-MARKOV-TEMPORAL-STREAM-1 / E-THINKING-STYLES-ARE-CLASSES-1 / E-ORCHESTRATION-ORGANS-1 / E-ACK-IS-THE-KANBAN-TRIGGER-1.
+
+| D-id | Deliverable | Owner | Status | Notes |
+|---|---|---|---|---|
+| D-MTS-1 | Markov-as-stream parity probe (temporal version-range vs VSA ±5 braid, DeepNSM corpus) | lance-graph | Queued | gates ALL VSA-path removal; truth-architect reviews |
+| D-MTS-2 | L4 palette256² shader fidelity certification (vs 0.96–0.998 anchors; representation engineered first) | cognitive-shader-driver | Queued | certification-officer battery |
+| D-MTS-3 | Hierarchical-4⁴ vs flat-256 codebook fidelity (OGAR F11-adjacent) | ndarray/bgz17 | Queued | 2bit×2bit cascade prefix rigor |
+| D-MTS-4 | M4 cutover target sharpened: MailboxSoA + temporal stream + palette tenants | driver | Queued | rides M4 parity gate |
+| D-TSC-1 | M9 ThinkingStyle dedup (5+ copies → contract taxonomy) | workspace | Queued | BLOCKS D-TSC-2..4 |
+| D-TSC-2 | Batched cognition-domain mint in OGAR (+ classify_form reconciliation if 0xFFFF) | OGAR | Queued (blocked by D-TSC-1) | never solo; COUNT_FUSE |
+| D-TSC-3 | Style masks + rung set + KausalSpec as class-record properties | contract + OGAR | Queued (blocked by D-TSC-1/2) | dispatch stays MetaWord bits |
+| D-TSC-4 | W6c coexistence re-ruling (catalogue shares custom half with PERMANENT 0x1000) | operator | ESCALATED | ruling needed, not assumed |
+| D-ORG-1 | BatchWriter::ack_and_propose self-pumping loop + probes | planner | Shipped (2026-07-10, 2 tests green) | E-ACK-IS-THE-KANBAN-TRIGGER-1 |
+| D-ORG-2 | W2c re-scope to storage/read-glove | board | Shipped (2026-07-10) | row above updated |
 
 ## classid-canon-custom-flip-v1 — the TRIGGERED §2.3 atomic flip
 
