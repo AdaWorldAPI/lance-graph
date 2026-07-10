@@ -33,6 +33,14 @@ consult; Click supersession #3 in CLAUDE.md).
 | D-MTS-2 | L4 palette² shader fidelity: certification battery (Pearson/Spearman/Cronbach) vs the 0.96–0.998 anchors; representation engineered FIRST (E-V3-CODEC-FIDELITY lesson — Base17-on-raw-Jina \|ρ\|=0.32) | certification-officer battery green |
 | D-MTS-3 | Hierarchical-4⁴ vs flat-256 codebook fidelity (OGAR F11-adjacent named test) — the 2bit×2bit cascade's prefix rigor stands or falls on it | ρ vs the 0.9973/0.965 anchors |
 | D-MTS-4 | M4 target sharpened: singleton BindSpace cutover targets MailboxSoA + temporal stream + palette tenants (not "MailboxSoA carrying the same VSA planes") | rides M4's existing parity gate |
+| D-MTS-5 | Pythagorean-comma vertical-quorum probe (E-COMMA-QUORUM-1): comma-offset vs aligned 4×4 pyramid — inter-level correlation/rank preservation; aligned must collapse, comma must hold L independent witnesses; quantized as a coprime integer walk (D-QUANTGATE, CurveRuler precedent); significance via Jirak | gates the no-materialization claim (64×64…256k×256k never dense) |
+
+**Addendum (operator nudge, 2026-07-10):** the per-level cognitive-mantissa
+carrier in the shader is `thinking_engine::layered::CascadeChannels8(u64)`
+(the renamed thinking-engine twin; collapses into `causal_edge::CausalEdge64`'s
+signed mantissa slot) — D-MTS-2's design names it explicitly. Vertical
+level offsets follow the comma progression (generated from the address,
+never stored); per-level content = palette-quantized magnitude envelope only.
 
 ## Track B — Thinking styles as classes (domain:appid:classview)
 

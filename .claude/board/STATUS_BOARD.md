@@ -73,6 +73,7 @@ Plan: `.claude/plans/temporal-markov-and-style-classes-v1.md`. Rulings: E-MARKOV
 | D-MTS-2 | L4 palette256² shader fidelity certification (vs 0.96–0.998 anchors; representation engineered first) | cognitive-shader-driver | Queued | certification-officer battery |
 | D-MTS-3 | Hierarchical-4⁴ vs flat-256 codebook fidelity (OGAR F11-adjacent) | ndarray/bgz17 | Queued | 2bit×2bit cascade prefix rigor |
 | D-MTS-4 | M4 cutover target sharpened: MailboxSoA + temporal stream + palette tenants | driver | Queued | rides M4 parity gate |
+| D-MTS-5 | Pythagorean-comma vertical-quorum probe (comma-offset vs aligned pyramid; coprime-walk quantization per D-QUANTGATE; Jirak significance) | shader/ndarray | Queued | E-COMMA-QUORUM-1; gates the no-dense-materialization claim; CascadeChannels8 named as the per-level mantissa carrier |
 | D-TSC-1 | M9 ThinkingStyle dedup (5+ copies → contract taxonomy) | workspace | Queued | BLOCKS D-TSC-2..4 |
 | D-TSC-2 | Batched cognition-domain mint in OGAR (+ classify_form reconciliation if 0xFFFF) | OGAR | Queued (blocked by D-TSC-1) | never solo; COUNT_FUSE |
 | D-TSC-3 | Style masks + rung set + KausalSpec as class-record properties | contract + OGAR | Queued (blocked by D-TSC-1/2) | dispatch stays MetaWord bits |
