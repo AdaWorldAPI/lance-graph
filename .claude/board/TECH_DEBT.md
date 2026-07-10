@@ -1,5 +1,22 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-MESSAGE-RESIDUE (2026-07-10, operator-ruled LEAVE-AS-IS)
+
+Per E-NOBODY-WAITS-1: no messages, no actors anywhere — ractor is only
+the compile-time ownership guarantee. The message-based arm in
+`lance-graph-supervisor` (`KanbanMsg::{Tick,Advance}`, `ractor::call!`,
+`drive_version_tick`, `drive_scheduled_tick`; consumers: supervisor
+tests + onebrc-probe lane E) is REDUNDANCY relative to the canonical
+message-free loop (`BatchWriter::ack_and_propose` proposal →
+`MailboxSoaOwner::try_advance_phase(&mut)` — `&mut` is the
+serialization). **Disposition: left as is, documented — NO retirement
+work queued** (operator, 2026-07-10). Not a bug: the code is correct in
+its own model; it is a second model. Drift signal: NEW code reaching
+for `KanbanMsg`/`ractor::call!` instead of the `&mut` owner surface —
+that, not the existing residue, is what a reviewer blocks. The prime
+invariant every change on this surface is judged against: **nobody
+waits for anything or any scheduling.**
+
 ## TD-STYLE-TABLE-RESIDUE (2026-07-10, D-TSC-1 follow-ups)
 
 Three residues from the M9 ThinkingStyle dedup (all OUT of D-TSC-1 scope,
@@ -16,6 +33,18 @@ each with its own closing condition):
    with no `mod cognitive` — dormant behind `#[cfg(feature = "wip")]`.
    Close: point them at contract StyleFamily/ThinkingStyle when the wip
    modules wake, or delete.
+3a. **Census extension (2026-07-10, ancestry census):** three MORE
+   independent 12-slot style tables beyond the D-TSC-1 sweep —
+   `cognitive-shader-driver/src/auto_style.rs` bare u8 consts,
+   `engine_bridge.rs::UNIFIED_STYLES` params (parity-tested but its
+   PARAMS are a hand table), `p64-bridge StyleParams[12]` (historical
+   order). Also: `GestaltState` defined independently in thinking-engine
+   `awareness_dto.rs` AND `world_model.rs`; the jina/bge_m3/reranker
+   lens triplet is near-identical; `wire.rs` (1852 lines) is the
+   largest driver file while LAB-ONLY. All documented in the
+   MODULE-TABLE ancestry addendum; close via M8/M9-style follow-ups
+   when Track B lands.
+
 3. **p64-bridge ordinal-order probe (spec I15):** `crates/p64-bridge/src/
    lib.rs STYLES[ord % 12]` uses the HISTORICAL order (Analytical=0), NOT
    StyleFamily order (Deliberate=0). Doc comment now warns (convert by

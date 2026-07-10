@@ -35,6 +35,22 @@
 
 ---
 
+## #674 lance-graph: V3 W2–W6 continuation + comma quorum/awareness measured + 5+3 council + StyleFamily dedup (D-TSC-1)
+
+**Status:** MERGED 2026-07-10 (merge commit `cd5178e`), branch `claude/review-claude-board-files-nhqgx1`, 16 commits. Companion: rs-graph-llm `8ef18b9` (same branch name there, not yet PR'd) — `run_cycle` explicit `on_behalf` (owner ≠ classid).
+
+**Added:** `contract::step_mask::StepMask` (W3a); `planner::elevation::cycle::CycleBudget` (W2d/M12); `MailboxSoA::cast_on_behalf` (W4a) + standalone `with-planner` E0432 fix; `contract examples/adoption_scan` (W6a); `BatchWriter::ack_and_propose` (D-ORG-1, first-transition-dedup'd per codex P2); `contract::style_family::StyleFamily` + `default_runbook()`/`ThinkingStyle::family()` (D-TSC-1/M9); `PlannerStyleExt`/`EngineStyleExt`; `superposition::DetectedStyle` rename; thinking-engine gains the lance-graph-contract dep; probes `perturbation-sim/examples/{comma_quorum,comma_awareness}.rs` (D-MTS-5/6); `.claude/agents/5plus3-council.md` + `/5plus3` skill; `.claude/v3/FUTURE-DESIGN.md`.
+
+**Locked:** the seven 2026-07-10 rulings (E-ACK-IS-THE-KANBAN-TRIGGER-1, E-ORCHESTRATION-ORGANS-1, E-THINKING-STYLES-ARE-CLASSES-1, E-MARKOV-TEMPORAL-STREAM-1, E-COMMA-QUORUM-1/E-COMMA-REPLAY-1, E-STYLE-FAMILY-VS-RUNBOOK-1, E-THINKING-TENANTS-V3-1); measured findings E-COMMA-QUORUM-MEASURED-1 (N_eff 11.00/12; boundary condition N_eff = min(L, spectral participation)), E-COMMA-AWARENESS-MEASURED-1 (k*=1 vs aligned k*=4; ≈log2(12) effective bits), E-FIVE-STYLE-TABLES-1 (five divergent style tables — the M9 payoff made concrete); M9 RESOLVED with G1 = 1 enum + 3 deprecated aliases; the 5+3 anti-mush sequencing (spec-first, consolidate-before-review); style behavior changes documented + G7 literal-pinned (planner arms 9/10/11, driver 8/9/10, parse 8/9/10, engine 36→12 ranges).
+
+**Deferred:** D-MTS-6b (driver-integrated awareness fixture — gates ANY real CausalEdge64 shrink); D-MTS-1..3 (gate ALL VSA-path removal); D-TTV-1 (thinking tenants → V3); D-TSC-2/3 (batched OGAR mint, never solo); D-TSC-4 (W6c/0x1000 coexistence — ESCALATED, operator ruling needed); W2a BoardAggregates (batched-mint gate); TD-STYLE-TABLE-RESIDUE (ndarray pair / wip imports / p64-bridge ordinal probe).
+
+**Docs:** spec `dtsc1-thinkingstyle-dedup-spec-v1.md` (v1→v2→v3, full council fix ledgers); plan `temporal-markov-and-style-classes-v1.md`; FUTURE-DESIGN landing zone; TYPE_DUPLICATION_MAP/COMPONENT-MAP/MODULE-TABLE addenda; .grok thinking_styles superseded banner.
+
+**Post-merge ruling (2026-07-10, same day):** E-NOBODY-WAITS-1 — no messages/no actors anywhere (ractor = compile-time ownership guarantee only); the ack-pump is the canonical message-free route; supervisor KanbanMsg drivers regraded documented redundancy (TD-MESSAGE-RESIDUE, leave-as-is); prime invariant: nobody waits for anything or any scheduling.
+
+**Confidence (2026-07-10):** HIGH — all 6 CI checks green at merge; 1549 lib tests across the four touched crates; both probes ALL GATES PASS with honest run chronicles.
+
 ## #632 lance-graph: Cross-session intake — RouteBucketTyped (C6) merged, emission_scan minted, OCR codebook mirror, GraphRAG-rs inventory + operator rulings
 
 **Status:** MERGED 2026-07-02 (merge commit `df367471`), branch `claude/v3-substrate-migration-review-o0yoxv`. Companion: OGAR #148 (merge `75d955b`) — the cross-repo fuses + serialized allocation batch; merged FIRST per the lockstep note; this post-merge commit carries the ogar-vocab lock bumps that cleared COUNT_FUSE (fired 65 vs 68 in the in-between state — first live demonstration of the fuse mechanism, then green 68 == 68, lance-graph-ogar 81 tests).

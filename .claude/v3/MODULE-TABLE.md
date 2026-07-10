@@ -344,3 +344,150 @@ yet censused); planner style.rs = re-export + `PlannerStyleExt`;
 `parse_style_name` routes the 12 family names through
 `StyleFamily::default_runbook()` (3 arms changed — the fourth divergent
 table); `nars_engine.rs` gained the runbook-keyed `style_vector_for`.
+
+## ADDENDUM 2026-07-10 (2) — ancestry-pipeline census: thinking-engine / p64 / p64-bridge / cognitive-shader-driver
+
+> Sonnet census worker. Depth: header doc-comment + `pub` surface grep per
+> file (no deep body reads). Same columns as MODULE-TABLE.md rollup, plus
+> **gem-status**: WIRED-HOT-PATH / UNWIRED-GEM / CALIBRATION-ONLY /
+> LAB-ONLY / RESIDUE. Cross-ref `FUTURE-DESIGN.md` § "the migration arc" for
+> the prior gems queue — this census confirms those and adds several not
+> previously named.
+>
+> **Note on scope:** a bare `crates/p64` does not exist in this workspace —
+> only `crates/p64-bridge` exists locally, and both it and
+> `crates/thinking-engine` are listed under `workspace.exclude`
+> (`Cargo.toml` lines 33/36), NOT `workspace.members` — censused here as
+> local crates, not workspace members. p64
+> itself is presumably the sibling `ndarray`-hosted crate consumed by name
+> (`p64_bridge::CognitiveShader` docstrings reference "p64 (ndarray)" as the
+> topology host) — not censused here since no local crate dir exists to walk.
+
+### thinking-engine (51 files, `crates/thinking-engine/src/*.rs`)
+
+| File | Consumes | Emits (key types) | LE contract | Function | Tech debt / duplication | gem-status |
+|---|---|---|---|---|---|---|
+| `lib.rs` | all submodules | module wiring | none | crate root, doc: "16M RISC Thought Engine" | none | WIRED-HOT-PATH |
+| `auto_detect.rs` | config.json / GGUF metadata | `Architecture`, `DetectedModel` | none | routes model config → codebook/tokenizer/lens choice | none | CALIBRATION-ONLY |
+| `awareness_dto.rs` | superposition/qualia results | `ResonanceDto`, `QualiaDto`, `MomentDto`, `GestaltState` | none | structured cognitive-state DTOs (perspectival Resonance — KEEPS its name per CLAUDE.md D-PERT-1 split) | none | WIRED-HOT-PATH (DTO ladder) |
+| `bf16_engine.rs` | `bgz_tensor::stacked_n::ClamCodebook` | `BF16ThinkingEngine` | BF16 u16 table, lossless bit-shift decode | one-MatVec-per-cycle engine at BF16 precision | none | WIRED-HOT-PATH |
+| `bge_m3_lens.rs` | baked 256×256 BF16 table (XLM-R/BGE-M3) | `bge_m3_lookup/_many`, `bge_m3_distance`, `bge_m3_engine` | none | one of 3 near-identical per-model lens modules (see jina_lens/reranker_lens) | duplication: shares N_CENTROIDS/VOCAB_SIZE/lookup/distance/engine shape verbatim with `jina_lens.rs` + `reranker_lens.rs` — not in FUTURE-DESIGN's gem list, candidate for a `Lens<Model>` generic | WIRED-HOT-PATH |
+| `branching.rs` | none (self-contained) | `BranchingEngine`, `BranchResult`, L1/L2/L3 consts | none | 4×4 branching parallel-vector cascade (NOT filtering, spawns not survives) — a 4th cascade shape alongside domino/signed_domino/layered | not named in FUTURE-DESIGN's engine-collapse list; likely 5th near-duplicate cascade candidate | UNWIRED-GEM (not referenced by FUTURE-DESIGN's M8 list) |
+| `bridge.rs` | `highheelbgz::SpiralAddress` | `spiral_to_table_index`, `build_spiral_distance_table`, `hydrate_and_cosine` | none | maps SpiralAddress → flat NxN table index, hydrated cosine refinement | none | CALIBRATION-ONLY |
+| `bridge_gate.rs` | none (trait-only) | `CognitiveBridgeGate` trait, `PassthroughGate`, `DenyAllGate`, `CognitiveOpKind` | none | cross-tenant authorization injection point; production impl lives in lance-graph-callcenter | doc explicitly says "lives here so thinking-engine remains lower-level" — RBAC-adjacent, not cited in FUTURE-DESIGN | UNWIRED-GEM (auth seam, not yet in migration arc docs) |
+| `builder.rs` | `Lens`, `TableType`, `Pooling` | `ThinkingEngineBuilder`(implied), `BuiltEngine`, `Temperature`, `ThinkingPreset`, `CommitSink` | none | fluent construction API composing lens/table-type/pooling | none | WIRED-HOT-PATH |
+| `centroid_labels.rs` | none (data-only) | `JINA_CENTROID_LABELS: [&str; 256]` | none | auto-generated English labels for 256 CLAM centroids | none | CALIBRATION-ONLY |
+| `codebook_index.rs` | none | `CodebookIndex` | none | token_id → centroid-row index, save/load | none | WIRED-HOT-PATH |
+| `cognitive_stack.rs` | `StyleFamily` (contract, post D-TSC-1) | `LayerId`(L1-L10), `ThinkingStyle = StyleFamily` alias, `EngineStyleExt`, `StyleParams`, `GateState`, `RungLevel`, `MetaCognition` | none | 10-layer cognitive stack + 12-style dispatch, migrated from ladybug-rs | `ThinkingStyle = StyleFamily` type alias — post-council canonical routing | WIRED-HOT-PATH |
+| `cognitive_trace.rs` | superposition field | `SpoTriple`, `CognitiveTrace`, `LensTrace` | none | full provenance chain text→thought, appendable to KG | none | UNWIRED-GEM (provenance/debug tooling, not cited elsewhere) |
+| `composite_engine.rs` | `BuiltEngine` (builder.rs) | `CompositeEngine`, `CompositeResult` | none | multi-lens composition via energy superposition | one of 4 near-duplicate engines (FUTURE-DESIGN M8) | UNWIRED-GEM (named in FUTURE-DESIGN) |
+| `contract_bridge.rs` | `lance-graph-contract` 36-style taxonomy | `contract_style_to_engine`, `cluster_to_archetype`, `CascadeConfig`, `FastBusDto` | `FastBusDto::SIZE` (mem::size_of) | bridges contract's 36 ThinkingStyles → engine's 12 + cascade params | `contract_style_to_engine` was the FIFTH divergent style table found during D-TSC-1 impl (per AGENT_LOG); now routes via `StyleFamily::family()` | WIRED-HOT-PATH (post D-TSC-1 fix) |
+| `contrastive_learner.rs` | static distance table | `ContrastiveLearner`, `LearnerStats` | none | online EMA table update from real cosine pairs (Stage 2A) | none | UNWIRED-GEM (online-learning path, no driver caller found in this census pass) |
+| `cronbach.rs` | multi-lens distance vectors | `cronbach_alpha`, `CronbachResult`, `QuorumLevel` | none | Cronbach α multi-lens internal-consistency calibration | none | CALIBRATION-ONLY (confirmed FUTURE-DESIGN gem) |
+| `domino.rs` | `ThinkingEngine` | `DominoCascade`, `CascadeAtom`, `Transition`, `DissonanceProfile`, 8 `CH_*` channel consts | none | top-K NARS-context cascade (unsigned); 1 of 4 near-dup engines | FUTURE-DESIGN M8 named | UNWIRED-GEM |
+| `dto.rs` | engine outputs | `SourceType`, `ThinkingScale`, `StreamDto`, `PerturbationDto`, `ResonanceDto = PerturbationDto` (alias), `BusDto`, `ThoughtStruct`, `ThoughtIndex` | none | the canonical Φ/Ψ/B/Γ DTO ladder (CLAUDE.md "Thinking is a struct") | note: `ResonanceDto` alias here is the PERTURBATION one (Ψ), distinct from `awareness_dto.rs::ResonanceDto` (perspectival) — the exact D-PERT-1 split named in workspace CLAUDE.md | WIRED-HOT-PATH |
+| `dual_engine.rs` | two `BuiltEngine`s | `DualEngine`, `DualResult` | none | side-by-side u8-CDF vs BF16 disagreement measurement | 1 of 4 near-dup engines (FUTURE-DESIGN M8) | UNWIRED-GEM |
+| `engine.rs` | codebook centroids | `ThinkingEngine`, `CODEBOOK_SIZE`=4096, `TABLE_SIZE`, `quantize_energy_f32_to_i8` | none | the canonical u8 MatVec engine, incl. `cycle_vnni`/`cycle_auto` SIMD dispatch tiers | none | WIRED-HOT-PATH |
+| `f32_engine.rs` | f32 codebook centroids | `F32ThinkingEngine`, `SparseBranchGraph` | none | full-precision (r=0.9999) signed MatVec, no quantization loss | none | WIRED-HOT-PATH |
+| `ghosts.rs` | past thought peaks | `GhostType`, `Ghost`, `GhostField` | none | Friston free-energy persistent priors biasing future cascades | FUTURE-DESIGN gem: persona/archetype Layer-2 role-catalogue candidate | UNWIRED-GEM |
+| `ground_truth.rs` | candle forward pass (Jina v5/BERT) | `calibration::{GroundTruthEmbedding, CalibrationCorpus, GroundTruthSource}`, `spearman_rank_correlation` | none | RAW ground-truth embeddings for calibrating baked tables | none | CALIBRATION-ONLY (confirmed FUTURE-DESIGN gem) |
+| `inference_backend.rs` | none (trait registry) | `InferenceBackend` trait, `EncodedState`, `BackendGrade`, 7 backend structs (Passthrough/RaBitQ/Spiral/I8Hybrid/HhtlF32/Cascade/Base17Signature), `all_backends()` | none | runtime-switchable dispatch across ALL research codec paths simultaneously; explicit "nothing is killed, deprecation is data-driven" doctrine | none | UNWIRED-GEM (R&D bench registry, not cited in FUTURE-DESIGN) |
+| `jina_lens.rs` | baked 256×256 table (Jina v3/XLM-R) | `jina_lookup`, `jina_distance`, `jina_engine`, `jina_think` | none | RESEARCH-ONLY legacy lens (doc explicitly says do not use for new production wiring; Jina v5 is ground truth) | doc self-flags as superseded; same shape as bge_m3_lens/reranker_lens | RESIDUE (self-declared legacy) |
+| `l4.rs` | centroid vectors | `L4Experience`, `ACCUM_LEN`=16384, `BIN_BYTES`=2048, `xor_bind`, `recognize`, `bias_sensor` | XOR-bound i8 accumulator, save/load byte format | mutable "particle" personality layer outside L1-L3 wave cascade | none | UNWIRED-GEM (not named in FUTURE-DESIGN, but is the referent of `l4_bridge.rs`) |
+| `l4_bridge.rs` | `l4::L4Experience`, L3 commit peaks | `commit_to_l4`, `recognize_thought`, `bias_from_l4` | none | L3→L4 learning-signal bridge; doc flags itself as a LOSSY approximation (uses table rows as centroid proxies, not real centroid vectors) | explicit LIMITATION note: only Qwopus has real centroid vectors available | UNWIRED-GEM (confirmed FUTURE-DESIGN W4b seam) |
+| `layered.rs` | `CascadeChannels8`, causal edges | `CascadeChannels8(u64)`, 8 `CHANNEL_*` consts, `dominant_channel` | u64 packed 8×u8 channel bytes | 3-tier L1→L2→L3 layered cascade w/ upstream channel propagation | none | UNWIRED-GEM (CascadeChannels8 = confirmed FUTURE-DESIGN "first wiring target", collapses into `CausalEdge64` signed mantissa) |
+| `lookup.rs` | tokenizer + `codebook_index` + `engine` | `TextToThought`, `ThoughtResult` | none | complete text→thought pipeline, no forward pass, pure lookup+MatVec | none | WIRED-HOT-PATH |
+| `meaning_axes.rs` | ladybug-rs migration | `AXES_48`, `AxisActivation`, `Viscosity`, `Archetype`, `CouncilWeights`, `VolitionalAct`, `GestaltRole`, `HdrResonance` | none | 48 bipolar semantic axes + Gestalt I/Thou/It + volition + council; r=0.9913 vs Jina cosine | none | UNWIRED-GEM (persona/archetype candidate, adjacent to ghosts.rs/persona.rs) |
+| `osint_bridge.rs` | lance-graph-osint (spider crawl output) | `ThoughtResult`, `OsintThinkingBridge` | none | crawled-text → tokenize → centroid → F32 engine → contrastive learner pipeline | none | UNWIRED-GEM |
+| `persona.rs` | ghosts/council/style/rung | `PersonaMode`, `CognitiveBaseline`, `PersonaProfile`, `Agent`, `AgentDto`, `A2APayload`, `A2AMessage`, `SelfModelDto` | none | Agent+Persona+A2A protocol; identity-carrying inter-agent messages | none | UNWIRED-GEM (confirmed FUTURE-DESIGN Track-B style-class candidate) |
+| `pooling.rs` | energy vector | `Pooling` enum (ArgMax/Mean/TopK/Weighted), `PooledResult` | none | energy-vector pooling strategies mapped to qualia ("steelwind"/"woodwarm"/etc) | none | WIRED-HOT-PATH |
+| `prime_fingerprint.rs` | weight vectors | `prime_fingerprint_64`, `prime_fingerprint_additive`, `prime_hamming`, `bundle_perturb`, `BundlePattern` | u64 prime-DFT bit fingerprint (computed, not stored) | prime-frequency Fourier fingerprint, orthogonal bits by construction (no prime divides another) | none | UNWIRED-GEM (confirmed FUTURE-DESIGN VSA-niche re-scope candidate) |
+| `qualia.rs` | convergence patterns (L1-L4) | `DIMS_17D`, `Qualia17D`, `ConvergenceSnapshot`, `Viscosity`(dup? see meaning_axes), `VOCAL_QUALITY_MAP`, `FAMILY_CENTROIDS` | none | 17D qualia AS convergence pattern (not "represents" — doc insists IS) | largest file after driver/wire/mailbox_soa (1011 lines) — dense central type | WIRED-HOT-PATH |
+| `reencode_safety.rs` | BF16/gamma-phi/full-chain codecs | `ReencodeSafety`, `test_bf16_reencode`, `test_gamma_phi_reencode`, `test_zipper_offsets` | none | encode→decode→re-encode drift measurement (x256 re-encode safety proof) | none | CALIBRATION-ONLY (confirmed FUTURE-DESIGN gem) |
+| `reranker_lens.rs` | baked 256×256 table (Reranker v3/Qwen2) | `reranker_lookup`, `reranker_distance`, `reranker_relevance`, `cross_model_eval`, `CrossModelResult` | none | 3rd of the near-identical lens modules; widest signed cosine range | same duplication shape as jina_lens/bge_m3_lens | WIRED-HOT-PATH |
+| `role_tables.rs` | `bgz_tensor::stacked_n::ClamCodebook` | `gate_modulate`, `build_raw_table`, `build_gate_modulated_table`, `LayerTables`, `GateModulationStats` | none | per-role (Q/K/V/Gate/Up) BF16 tables with SiLU gate modulation | none | CALIBRATION-ONLY |
+| `semantic_chunker.rs` | `ThinkingEngine` convergence | `SemanticBoundary`, `SemanticChunk`, `ChunkerConfig`, `find_boundaries`, `chunk` | none | convergence-jump detection as chunking (no forward pass needed) | none | UNWIRED-GEM (not cited in FUTURE-DESIGN, plausible product feature) |
+| `sensor.rs` | embeddings/tokens/distance rows | `Sensor`, `SensorBank` | none | maps external signals → `(atom_index, weight)` activation pairs for `perturb()` | none | WIRED-HOT-PATH |
+| `signed_domino.rs` | `SignedThinkingEngine` | `SignedDominoCascade` | none | i8-table cascade variant of domino.rs w/ natural inhibition (no artificial floor) | the likely 4th of FUTURE-DESIGN's "4 near-duplicate engines" (domino/composite/dual + this) | UNWIRED-GEM |
+| `signed_engine.rs` | i8 centroid tables | `SignedThinkingEngine`, `build_signed_table` | none | i8 excitation/inhibition engine (competitive dynamics, negative energy clamped) | none | WIRED-HOT-PATH |
+| `silu_correction.rs` | GGUF gate+up rows | `silu`, `GatePolicy`, `CorrectionSample`, `generate_training_data`, `apply_corrections`, `CorrectionStats` | none | tiny-MLP correction for missing SiLU×Gate nonlinear interaction in baked tables | none | CALIBRATION-ONLY |
+| `spiral_segment.rs` | distance-table rows | `SpiralSegment`, `SpiralRow`, `SpiralTable`, `BYTE_SIZE`=8 | 4×BF16 (anfang/ende/stride/gamma) = 8B/row generative param encoding | 51× compression via generative reconstruction instead of storing all 256 values/row | none | UNWIRED-GEM (confirmed FUTURE-DESIGN VSA-niche re-scope candidate) |
+| `splat_ops.rs` | `SplatField` | `SplatField`, `splat_gaussian`, `score_hole_closure`, `replay_coherence`, `emit_if_epiphany` (all DEPRECATED free fns) | none | Sprint-12 D-CSV-12 scalar impl; superseded by `Think` methods in `think.rs` per D-CSV-14 | doc self-declares: deprecated, removal scheduled sprint-15+, canonical surface is now `Think::*` | RESIDUE (self-declared, scheduled removal — LEGACY-marked, do not touch per §1 rule 8) |
+| `superposition.rs` | two lens ripples | `SuperpositionField`, `DetectedStyle`, `ThinkingStyle = DetectedStyle`(!) alias, `StyleThresholds`, `compute_superposition`, `detect_style` | none | multi-lens interference gate; style detection from superposition amplitude | **potential 6th-ish style artifact**: `pub type ThinkingStyle = DetectedStyle;` here COLLIDES in name (not necessarily in value) with `cognitive_stack.rs`'s `pub type ThinkingStyle = StyleFamily;` — two different modules both alias the name `ThinkingStyle` to two different enums in the SAME crate | WIRED-HOT-PATH (verify D-TSC-1 touched this file — not in the AGENT_LOG list of files changed) |
+| `tensor_bridge.rs` | candle Tensor / f32 / i8 slices | `EmbeddingOutput`, `EmbeddingBatch` | none | unified embedding-output type across frameworks (candle/ndarray/raw) | none | UNWIRED-GEM (confirmed FUTURE-DESIGN W4b seam) |
+| `think.rs` | `SplatField` | `Think` struct, `splat_gaussian`, `score_hole_closure`, `replay_coherence`, `emit_if_epiphany` | none | THE doctrinal carrier (CLAUDE.md "Thinking is a struct"); Sprint-13 minimum scope; doc names the FULL future field list (trajectory/awareness/free_energy/resolution/episodic/graph/global_context/codec) as not-yet-accreted | doc is explicit this is a stepping-stone toward the full `Think` struct in workspace CLAUDE.md | WIRED-HOT-PATH (the canonical carrier, still growing) |
+| `tokenizer_registry.rs` | per-model tokenizer files | `ModelId`, `TokenizerRegistry`, `CrossModelTokens`, `tokenize_corpus` | none | uniform tokenizer access across Jina v3/v5, BGE-M3, Reranker, Qwopus | none | CALIBRATION-ONLY |
+| `world_model.rs` | engine state | `SelfState`, `UserState`, `FieldState`, `GestaltState`(again — 3rd `GestaltState` def in crate, see awareness_dto.rs), `ContextState`, `WorldModelDto` | none | agent's full situational-awareness DTO (self/user/field/context) | `GestaltState` appears defined independently in BOTH `awareness_dto.rs` and `world_model.rs` — worth a dedup check | UNWIRED-GEM (confirmed FUTURE-DESIGN Track-B candidate) |
+
+**thinking-engine notable duplication tally beyond what's already tracked:** (1)
+three near-identical lens modules (jina/bge_m3/reranker) sharing lookup/distance/
+engine shape; (2) `GestaltState` defined independently in both `awareness_dto.rs`
+and `world_model.rs`; (3) `pub type ThinkingStyle = ...` aliased to TWO different
+enums in two different files (`cognitive_stack.rs` → `StyleFamily`,
+`superposition.rs` → `DetectedStyle`) — same name, same crate, different types;
+(4) `signed_domino.rs` completes the "4 near-duplicate engines" FUTURE-DESIGN
+already flagged (domino/composite/dual + signed_domino); (5) `branching.rs` is a
+5th cascade-shaped engine not mentioned in the M8 collapse list at all.
+
+### p64-bridge (1 file, `crates/p64-bridge/src/lib.rs`, 759 lines)
+
+| File | Consumes | Emits | LE contract | Function | Tech debt / duplication | gem-status |
+|---|---|---|---|---|---|---|
+| `lib.rs` | `CausalEdge64` (lance-graph), p64 palette ops (ndarray, no direct dep — doc says "No p64 dependency", consumer wires both at call site) | `edge_to_block`, `edge_nars_f32`, `edge_to_layer_mask`, `edges_to_palette_rows`, `edges_to_layered_rows`, `StyleParams` + 12-entry `style_by_ordinal`/`style_by_name`/`all_styles`, `combine::{UNION,INTERSECTION,MAJORITY,WEIGHTED}`, `contra::{SUPPRESS,IGNORE,INVERT,TENSION}`, `cognitive_shader::{CognitiveShader, CascadeHit}` | `[u64;64]` palette rows / `[[u64;64];8]` layered rows (8-channel plane packing) | maps CausalEdge64 + ThinkingStyle + HdrSemiring → p64 palette addressing/layer-mask/combine-mode without a hard p64 dep | own 12-entry `StyleParams` table is a **THIRD/FOURTH style enumeration surface** distinct from thinking-engine's `StyleFamily`/`DetectedStyle`/`UnifiedStyle` — AGENT_LOG already notes "p64-bridge order-warning doc fix" from D-TSC-1, i.e. this was touched but the table itself (ordinal→params) still exists as its own source of truth, not re-exported from contract's `StyleFamily` | WIRED-HOT-PATH (the `cognitive_shader::CognitiveShader::cascade` referenced by `decode_kernel.rs` doc as "Layer 2" of the inference cascade) |
+
+**Notable:** `cognitive_shader` submodule here (lines 326-521: `CognitiveShader`,
+`CascadeHit`, `cascade()`, `deduce_path()`, `layer_densities()`) is the actual
+p64-side topology object that `cognitive-shader-driver::driver.rs` wraps —
+i.e. this crate is genuinely load-bearing hot path, not a lab artifact, despite
+having zero tests visible in this header/pub-surface pass.
+
+### cognitive-shader-driver (22 `src/*.rs` files + `build.rs`; tests/examples not censused)
+
+| File | Consumes | Emits | LE contract | Function | Tech debt / duplication | gem-status |
+|---|---|---|---|---|---|---|
+| `lib.rs` | all submodules, `lance-graph-contract::cognitive_shader` | module wiring | none | crate root: "the shader IS the driver" — wires BindSpace + p64_bridge::CognitiveShader + optional thinking-engine hook | none | WIRED-HOT-PATH |
+| `driver.rs` (1781 lines, largest src file) | `BindSpace`, `p64_bridge::CognitiveShader`, `PaletteSemiring`, `NarsTables`, `MailboxSoA` | `ShaderDriver`, `CognitiveShaderBuilder`, `alpha_front_to_back_composite` | none | THE dispatch loop: meta-prefilter → style resolve → shader cascade → cycle signature | none | WIRED-HOT-PATH |
+| `bindspace.rs` (830 lines) | `Fingerprint<256>`, `Vsa16kF32` | `FingerprintColumns`, `EdgeColumn`, `QualiaColumn`, `WORDS_PER_FP`=256, `QUALIA_DIMS`=18, `FLOATS_PER_VSA`=16384 | u64×256 fixed-width fingerprint planes; f32×16384 VSA cycle column | the genius-typed SoA: one row per cognitive atom, column-per-field | none | WIRED-HOT-PATH (I-VSA-IDENTITIES / the 4 SoA columns from CLAUDE.md AGI-as-glove doctrine) |
+| `mailbox_soa.rs` (1681 lines, 2nd largest) | `CausalEdge64` deliveries | `MailboxSoA<const N>`, `DefaultMailboxSoA = MailboxSoA<1024>`, `WriteOutcome`, `WriteCell` | zero-copy PR #477 three-tier model (doc-cited) | per-row spatial-temporal accumulator; rows = neurons w/ multi-source synapse deliveries via `apply_edges` | doc explicitly scopes OUT AttentionMask/LRU/cross-cycle-rollup as "W6's orthogonal concerns" — i.e. self-documents its own incompleteness boundary | WIRED-HOT-PATH |
+| `attention_mask.rs` | `MailboxId` (contract::collapse_gate) | `AttentionMaskEntry`, `AttentionMaskSoA` | none | W6 §2: LRU-evicted flat SoA of `(mailbox_id, w_slot)` activity | doc flags `!Send` by design | WIRED-HOT-PATH (W6) |
+| `attention_mask_actor.rs` | `AttentionMaskBackend` trait (generic, avoids import of sibling AttentionMaskSoA per comment) | `AttentionMaskMsg`, `AttentionMaskOutcome`, `AttentionMaskActor<B>` | none | W6 §3 actor scaffold; doc says "concrete ractor binding is sprint-12+ work" | explicitly deferred ractor wiring — STOP-worthy if touched | UNWIRED-GEM (scaffold awaiting ractor binding) |
+| `auto_detect.rs` | `config.json` next to safetensors | `ModelFingerprint`, `DetectError`, `detect()` | none | **LAB-ONLY**; D0.5 auto-detect for codec JIT defaults | **name-collides with thinking-engine's `auto_detect.rs`** — same module name, different purpose (this one: safetensors config; that one: GGUF/tokenizer routing) — both exist in the same ancestry pipeline, worth disambiguating in any future cross-crate doc | LAB-ONLY |
+| `auto_style.rs` | 18D qualia vector | 12 style-ordinal consts (`DELIBERATE`=0 .. `METACOGNITIVE`=11), `style_from_qualia`, `resolve` | none | qualia-shape → style ordinal (0..12), no forward pass | **yet another independent 12-entry style table**, third naming scheme in this census alone (thinking-engine `StyleFamily`/`DetectedStyle`, p64-bridge `StyleParams`, this file's bare u8 consts) — candidate for D-TSC-1-style consolidation sweep into this crate | WIRED-HOT-PATH |
+| `backing.rs` | `BindSpace`, `MailboxSoA` | `BackingStore` enum | none | read/write shim letting `driver.run()` keep one body across the BindSpace→MailboxSoA migration; doc explains enum-not-trait choice (monomorphized dispatch, no `dyn`) | doc names "C2 — the load-bearing invariant": the two arms must agree byte-for-byte | WIRED-HOT-PATH (migration seam) |
+| `codec_bridge.rs` | `StepDomain::Ndarray` (contract) | `CodecResearchBridge` | none | LAB-ONLY `OrchestrationBridge` impl for codec research | doc explicit: "architecture does not revolve around this consumer" | LAB-ONLY |
+| `codec_kernel_cache.rs` | `CodecParams::kernel_signature()` | `CodecKernelCache<H>`, `StubKernel` | none | LAB-ONLY D1.1 JIT kernel cache; doc ties kernel signature = sweep-grid axis (EPIPHANIES 2026-04-20) | none | LAB-ONLY |
+| `codec_research.rs` | `ndarray::hpc::cam_pq`/`safetensors`/`gguf`, `contract::cam::route_tensor` | `list_tensors`, `calibrate_tensor`, `row_count_probe` | none | LAB-ONLY backing logic for Wire DTOs; canonical path is UnifiedStep | none | LAB-ONLY |
+| `cypher_bridge.rs` | AriGraph SPO / BindSpace | `CypherBridge`, `disambiguate_parse_candidates` | none | LAB-ONLY `OrchestrationBridge` for `lg.cypher`; Phase-1 regex/prefix stub, doc defers real `lance_graph::parser` wiring to avoid pulling arrow+datafusion+lance into this crate | explicit scope-deferral note | LAB-ONLY |
+| `decode_kernel.rs` | `CodecKernelCache<H>` | `DecodeKernel` trait, `DecodeError`, `StubDecodeKernel`, `ResidualComposer` | none | LAB-ONLY D1.3 residual PQ; doc explicitly distinguishes hydration/calibration path from `p64_bridge::CognitiveShader::cascade`'s inference path | doc: "codec that passes token-agreement cert gate runs at weight hydration time, never per-inference" | LAB-ONLY |
+| `engine_bridge.rs` (957 lines) | thinking-engine DTOs (`BusDto`, `StreamDto`), `BindSpace` | `ingest_codebook_indices`, `dispatch_busdto`, `unbind_busdto`, `UnifiedStyle`, `UNIFIED_STYLES: [UnifiedStyle; 12]`, `write_qualia_17d`/`read_qualia_17d` | `DIM_CLASSIFICATION_DISTANCE`=17 | wires the TWO isolated DTO pipelines (thinking-engine Φ/Ψ/B/Γ ↔ shader-driver Φ/Ψ/B/Γ) together | **`UNIFIED_STYLES` is a FOURTH-or-later 12-entry style table** in this pipeline, distinct in shape from thinking-engine's tables and `auto_style.rs`'s consts — the D-TSC-1 sweep (per AGENT_LOG "driver `ord_to_thinking_style` via canonical") may have already routed THIS file through the canonical `StyleFamily`; worth confirming `UNIFIED_STYLES` itself was collapsed rather than just its callers | WIRED-HOT-PATH (the DTO-ladder bridge) |
+| `grpc.rs` | `ShaderDriver` | `ShaderGrpcService`, `pb` (protobuf mod) | none | LAB-ONLY tonic/prost gRPC service, feature-gated `grpc`/`lab`, doc: "Not shipped to consumers" | none | LAB-ONLY |
+| `planner_bridge.rs` | `lance-graph-planner::PlannerAwareness` | `build_planner`, `plan`, `registered_strategies`, `default_selector` | none | LAB-ONLY test-shortcut adapter; doc says `PlannerAwareness` already implements `OrchestrationBridge` directly, this is redundant for lab REST/gRPC only | doc self-declares near-redundant | LAB-ONLY |
+| `rotation_kernel.rs` | `contract::cam::Rotation` | `RotationKernel` trait, `RotationError`, `IdentityRotation`, `HadamardRotation`, `OpqRotationStub` | none | LAB-ONLY D1.2; Hadamard = real Sylvester butterfly (no JIT), OPQ = stub pending Cranelift wiring | `OpqRotationStub` explicitly a stub | LAB-ONLY |
+| `serve.rs` | `ShaderDriver` | `router()` (Axum Router) | none | LAB-ONLY REST server, per-op endpoints are thin `UnifiedStep` adapters, canonical is `/v1/shader/route` | none | LAB-ONLY |
+| `sigma_rosetta.rs` (982 lines) | none (self-contained data) | `VERB_ROOTS`/`VERB_TENSES` (12×12=144 verbs), `QualiaGlyph`, `GLYPHS: [QualiaGlyph;64]`, `SigmaState`, `TriangleGestalt` | none | 17D sparse Hamming-native encoding: 64 glyphs × 144 verbs = 9216 atoms — the LLM-token↔fingerprint translation layer | none | WIRED-HOT-PATH (the Membrane's sparse encoding) |
+| `token_agreement.rs` | reference model / stub | `ReferenceModel`, `TopKAgreement`, `TokenAgreementHarness`, `TokenAgreementError` | none | LAB-ONLY D2.1 token-agreement cert-gate harness (I11, top-k match vs Passthrough baseline) | none | LAB-ONLY |
+| `wire.rs` (1852 lines, largest file in crate) | serde/prost | `WireDispatch`, `WireStyleSelector`, `WireCalibrateRequest/Response`, `WireCodecParams`, `WireTensorView`, `AlignedBytes`, ~15 more Wire* types | none | LAB-ONLY external (serde+prost, owned) DTO conversion layer for REST/protobuf transports | doc explicit: "these are test-convenience scaffolding" per lab-vs-canonical-surface doctrine | LAB-ONLY |
+| `build.rs` | (not censused — build script, out of `src/` scope) | — | — | — | — | — |
+
+**cognitive-shader-driver notable finds:**
+1. **Style-table proliferation continues INTO this crate**: `auto_style.rs` (bare
+   u8 consts), `engine_bridge.rs::UNIFIED_STYLES` (12-entry struct array), and
+   p64-bridge's `StyleParams` are three MORE independent 12-slot style
+   surfaces beyond the thinking-engine ones D-TSC-1 already addressed. Whether
+   D-TSC-1's sweep touched `UNIFIED_STYLES` itself (vs. just its callers) is
+   worth a follow-up grep — AGENT_LOG only names "driver `ord_to_thinking_style`
+   via canonical" as touched, not `UNIFIED_STYLES`'s definition site.
+2. **Name collision**: two different `auto_detect.rs` modules exist in this
+   ancestry pipeline (thinking-engine: GGUF/config→lens routing;
+   cognitive-shader-driver: safetensors config→codec JIT defaults) — same
+   filename, unrelated purpose, easy to grep-confuse across crates.
+3. **LAB-ONLY is the majority shape** in this crate's non-hot-path files
+   (auto_detect, codec_bridge, codec_kernel_cache, codec_research,
+   cypher_bridge, decode_kernel, grpc, planner_bridge, rotation_kernel, serve,
+   token_agreement, wire = 12 of 22 files) — consistent with the `lab-vs-canonical-surface.md`
+   doctrine; all self-declare LAB-ONLY in their own doc comments, so this is
+   disciplined, not drift.
+4. `mailbox_soa.rs` and `driver.rs` and `wire.rs` are the three largest files
+   (1681 / 1781 / 1852 lines) — `wire.rs` being LAB-ONLY yet the single
+   largest file in the crate is notable: the lab scaffolding outweighs the
+   hot-path dispatch code in raw LOC.

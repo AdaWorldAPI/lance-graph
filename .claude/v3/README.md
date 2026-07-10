@@ -42,6 +42,7 @@ render/template catalogue.
 | ruff/odoo transcode landings | `knowledge/multi-anchor-ast-resolution.md` |
 | waking an agent | `agents/BOOT.md` (the four `v3-*` cards + trigger routing) |
 | landing future design / post-V3 rulings | `FUTURE-DESIGN.md` (the meta board: ruling index, migration arc, thinking-engine gem wiring queue) |
+| keeping the vision (the WHY, graded) | `VISION.md` — the AGI-aspiring canon re-grounded 2026-07-10; every claim [G]/[RULING]/[ASPIRATION]; filigree-reviewed |
 
 Shortcuts: `/v3` (bootload), `/v3-audit` (pre-commit conformance greps).
 Canonical ruling texts live on the board (`.claude/board/EPIPHANIES.md`,

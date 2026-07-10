@@ -4,6 +4,7 @@
 > landing zone the operator asked for (2026-07-10): future substrate design
 > lands HERE first, referencing the V3 inventory (`COMPONENT-MAP.md`,
 > `MODULE-TABLE.md`, `soa_layout/*`) so design converges on what exists.
+> **The WHY lives in `VISION.md`** (same folder — the graded canon synthesis).
 > Canonical ruling text lives on the board (`.claude/board/EPIPHANIES.md`);
 > this file is the design-side index + the wiring queue. Read AFTER the V3
 > README; cite EPIPHANIES entries in PRs, not this mirror.
