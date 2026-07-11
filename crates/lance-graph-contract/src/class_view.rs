@@ -915,6 +915,48 @@ pub trait ClassView {
         }
     }
 
+    /// The **menu address** of `class` — the radix-trie path lowered from the
+    /// `is_a` rail, root-first: `[root_ancestor, …, parent, class]`.
+    ///
+    /// This is the runtime projection of the harvest-side `nav_digest`
+    /// `[menu-quad]` `loc=` field (ruff `ruff_spo_triplet::nav_digest`): the
+    /// existing classid ontology **is** the radix trie, and a node's menu
+    /// LOCATION is a path through it — walking [`is_a_parent`](ClassView::is_a_parent),
+    /// never a stored ordinal (V3 LE-contract §3 forbids a position slot). A
+    /// renderer lays out the menu by prefix from this path alone, with zero
+    /// value decode (OGAR "the key prerenders nodes"). A root class (no
+    /// `is_a_parent`) returns `[class]` — its own single-element address.
+    ///
+    /// **Cycle- and depth-safe, zero-dep:** the SAME 16-hop cap + on-stack
+    /// visited guard as [`resolve_render_class`](ClassView::resolve_render_class).
+    /// A `subClassOf` cycle terminates at the first repeat (never loops, never
+    /// panics); the only allocation is the returned path.
+    fn menu_address(&self, class: ClassId) -> Vec<ClassId> {
+        const MAX_HOPS: usize = 16;
+        let mut path: Vec<ClassId> = Vec::new();
+        let mut visited: [ClassId; MAX_HOPS] = [class; MAX_HOPS];
+        let mut current = class;
+        let mut depth = 0usize;
+        loop {
+            path.push(current);
+            if depth >= MAX_HOPS {
+                break; // depth cap → truncated (still root-first, monotonic)
+            }
+            visited[depth] = current;
+            depth += 1;
+            let parent = match self.is_a_parent(current) {
+                Some(p) => p,
+                None => break, // taxonomy root
+            };
+            if visited[..depth].contains(&parent) {
+                break; // subClassOf cycle → stop at the first repeat
+            }
+            current = parent;
+        }
+        path.reverse(); // root-first: the radix-trie address
+        path
+    }
+
     /// Which edge-codec flavor this class reads its node edge block with.
     ///
     /// Default is
@@ -1594,6 +1636,34 @@ mod tests {
         );
         // A class that ALREADY has a card resolves to itself (top rung, no walk).
         assert_eq!(classes.resolve_render_class(7), 7);
+    }
+
+    /// `menu_address`: the radix-trie path lowered from the `is_a` rail,
+    /// root-first — the runtime twin of the nav_digest `[menu-quad]` `loc=`.
+    #[test]
+    fn menu_address_walks_is_a_root_first() {
+        // 30 is_a 20 is_a 7 → the menu address is [7, 20, 30] (root-first).
+        let classes = FakeClasses::new().with_isa(30, 20).with_isa(20, 7);
+        assert_eq!(
+            classes.menu_address(30),
+            vec![7, 20, 30],
+            "the address is the is_a ancestor chain, broadest-first"
+        );
+        // A root class (no is_a parent) is its own single-element address.
+        assert_eq!(classes.menu_address(7), vec![7]);
+    }
+
+    /// A `subClassOf` cycle terminates: the path is the bounded chain up to the
+    /// first repeat, never an infinite loop (same guard as the render ladder).
+    #[test]
+    fn menu_address_cycle_terminates() {
+        let classes = FakeClasses::new().with_isa(40, 41).with_isa(41, 40);
+        let addr = classes.menu_address(40);
+        // 40 → 41 → (41's parent is 40, already visited) stop: path = [41, 40].
+        assert_eq!(addr, vec![41, 40], "cycle stops at the first repeat");
+        // A self-loop likewise terminates with a single element.
+        let selfloop = FakeClasses::new().with_isa(50, 50);
+        assert_eq!(selfloop.menu_address(50), vec![50]);
     }
 
     /// An orphan (no is_a parent, no fields) resolves to ITSELF — the monotonic

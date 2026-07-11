@@ -1,5 +1,11 @@
 # LATEST_STATE — What Just Shipped (read this FIRST)
 
+## 2026-07-11 — branch `claude/medcare-ruff-codebook-handover-5ulx0i` — `ClassView::menu_address` — the runtime Klickwege-menu radix projection
+
+### Current Contract Inventory — new entry
+
+- **`class_view::ClassView::menu_address(class) -> Vec<ClassId>`** (NEW default trait method). The RUNTIME projection of the harvest-side ruff `nav_digest` `[menu-quad]` `loc=` field: walks [`is_a_parent`] root-first to lower a class's menu LOCATION into the existing classid ontology as a radix-trie path `[root, …, parent, class]` — the concept ontology **is** the radix trie; the menu address is a path through it, never a stored ordinal (V3 LE-contract §3). A renderer lays out the menu by prefix from the path alone, zero value decode. Same 16-hop cap + on-stack visited cycle guard as the sibling `resolve_render_class` (never loops/panics; only alloc is the returned path). Default method → every existing `ClassView` impl gains it for free. Tests: `menu_address_walks_is_a_root_first` (30 is_a 20 is_a 7 → `[7,20,30]`; root → `[7]`), `menu_address_cycle_terminates` (2-cycle + self-loop bounded). Completes the "digest-now-ClassView-after" plan (ruff #82 = digest lowering; this = runtime projection). No new type/module; pure additive trait surface.
+
 ## 2026-07-10 — branch `claude/review-claude-board-files-nhqgx1` — `contract::style_family::StyleFamily` — M9 ThinkingStyle dedup shipped (D-TSC-1, first 5+3 council run)
 
 ### Current Contract Inventory — new entry
