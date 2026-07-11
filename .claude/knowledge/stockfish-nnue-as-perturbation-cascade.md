@@ -138,11 +138,96 @@ gradeable precisely because the net is frozen.
 3. No deliverable here ships without its probe green (the workspace's own §5
    quorum-or-escalate discipline turned on our own claims).
 
+## The temporal/episodic layer — a chess game IS a Markov version-stream
+
+The operator's extension: *"we could wire the AriGraph episodic and SurrealQL
+AST time series and/or episodic basins = opening variants."* The chess workload
+witnesses the **temporal** substrate as cleanly as it witnesses the spatial one —
+and the two are the SAME operation seen from two axes.
+
+**The key unification.** The NNUE incremental update
+(`incremental.rs::apply_move`) is BOTH:
+- a **spatial** perturbation — the L4 delta over the 64×64 board grid
+  (add/remove piece features, king-refresh on escalation); AND
+- one **temporal** Markov step — ply *n* → ply *n+1* along the game stream.
+
+There is no separate "temporal engine." A game is the accumulator's own trajectory
+through version-space, and each `apply_move` is exactly one `temporal.rs` stream
+entry. The spatial cascade and the temporal stream are one accumulator, read on
+two axes.
+
+| Chess object | Temporal substrate | Grade |
+|---|---|---|
+| A game (ply sequence) | a `temporal.rs` sorted version-stream; ply *v* = one Lance version | **[G]** — moves already carry a total order; `apply_move` IS the step |
+| "position after ply *v*" | `QueryReference::at(v, rung)` + deinterlace — a zero-copy projection, no replay | **[H]** — the read is [G]; that it needs no recomputation is the D-SF-EPISODIC-1 gate |
+| Analysis horizon (present vs hindsight) | the **rung**: low rung = reason strictly at ply *v*; high rung = spoiler-read the game's outcome to label the move (training-target labeling) | **[H]** — rung semantics are shipped; the chess *use* (hindsight = eval-vs-result delta) is the D-SF-RUNG-1 probe |
+| Opening variants (e4/d4/…) | **episodic basins** = le-contract **L1 `part_of:is_a`** rails (a variant is-a line is-a opening) | **[H]** — rails are [G]; that opening-trees fit the L1 rail shape is the D-SF-BASIN-1 probe |
+| Transpositions (same position, different move-order) | **L2 `memberof:members`** — one position node, member-of many variant basins | **[H]** — the many-basins-one-node shape is exactly L2; the probe confirms it round-trips |
+| Episodic recall ("games that reached this pawn structure") | AriGraph `EpisodicMemory` / `markov_soa` — retrieve-similar over position fingerprints | **[G]** for the store; **[H]** that chess positions are good episodic keys (D-SF-ARIGRAPH-1) |
+| Time-series query over games | SurrealQL AST — a **query adapter** over the version-stream | **[G]** — adapter only; see the fence |
+
+### Fence — SurrealQL AST is the query adapter, NOT the episodic spine
+
+The episodic logic (basins, transpositions, rung-selection, the Markov step) lives
+in the accumulator trajectory + the le-contract rails + AriGraph. **SurrealQL AST
+is only the read/time-series *adapter* over that stream** — per the OGAR
+SURREAL-AST-TRAP: behavior never lives in DDL, and a `DEFINE EVENT … WHEN … THEN`
+carrying game-lifecycle logic is the negative-beauty hijack the doctrine rejects.
+Games flow: `apply_move` → temporal-stream version → le-contract basin →
+(optionally) a SurrealQL SELECT projects it. Never: SurrealQL DDL *drives* the game.
+
+### Probe-gated deliverables (temporal)
+
+- **D-SF-EPISODIC-1 — a game as a temporal version-stream.** Model an N-ply game
+  as N `temporal.rs` entries; read position-at-ply-*v* via `QueryReference::at`.
+  **Gate:** the projected accumulator at ply *v* == the accumulator freshly
+  computed from the ply-*v* FEN, byte-for-byte — *reusing the L4 chained oracle
+  already green in `incremental.rs`*. This is the **strongest temporal probe**:
+  it turns the existing incremental oracle into a temporal-replay oracle at zero
+  new ground-truth cost. If it passes, "position-at-version is a zero-copy
+  projection" is [H]→[G].
+- **D-SF-BASIN-1 — opening variants as L1 basins.** Encode a small opening tree
+  (e.g. 3 openings × 2 variants) as L1 `part_of:is_a` rails; assert a position
+  resolves to its basin set. **Gate:** transposition (same FEN via two move-orders)
+  lands on ONE position node that is `memberof` both variant basins (L2) — the
+  many-basins-one-node round-trip.
+- **D-SF-RUNG-1 — hindsight labeling via rung.** For a decided game, read each
+  move at a **low rung** (eval as-of that ply) and at a **high rung** (spoiler-read
+  the result); the low↔high delta = the "was this move objectively good given the
+  outcome?" signal. **Gate:** the two reads differ exactly where eval and result
+  disagree (blunders that won, brilliancies that lost) — proving rungs carry the
+  present/hindsight horizon, not just a version index.
+- **D-SF-ARIGRAPH-1 — positions as episodic keys.** Store game positions in
+  AriGraph `EpisodicMemory`; `retrieve_similar(position_fp)` returns games that
+  reached a near structure. **Gate:** retrieval precision above the Jirak noise
+  floor on a labeled set (e.g. all games with an isolated queen's-pawn) — MEASURED,
+  never asserted.
+
+### Why this closes the loop
+
+Spatial (the board), temporal (the game), and episodic (the archive of games) are
+**three reads of one accumulator trajectory** — the same `apply_move` delta,
+projected on the square axis (perturbation cascade), the version axis (Markov
+stream), and the similarity axis (episodic recall). The frozen 90 MB net keeps all
+three honest: every temporal projection has the same byte-exact yes/no oracle the
+spatial cascade has, because replay-to-ply-*v* and compute-from-ply-*v*-FEN must
+agree to the bit. That is the whole reason chess is the learning vehicle — it is
+the only workload in the building where *all three axes* answer to one frozen
+ground truth.
+
 ## Cross-refs
 
 - ndarray `guid-prefix-shape-routing.md` §4 (perturbation pyramid), §4b
   (Walsh-Hadamard), §5 (φ-quorum / anti-theater).
-- V3 `soa_layout/le-contract.md` (L1–L4 tenant ladder; L4 = 6×palette256²).
+- V3 `soa_layout/le-contract.md` (L1–L4 tenant ladder; L1 `part_of:is_a` +
+  L2 `memberof:members` = episodic basins/transpositions; L4 = 6×palette256²).
+- `temporal.rs` — `QueryReference::at(v, rung)` + deinterlace (the game
+  version-stream); `E-MARKOV-TEMPORAL-STREAM-1` (Markov moves off the VSA braid
+  onto the sorted stream — the ruling the temporal layer here rides on).
+- AriGraph — `EpisodicMemory` / `markov_soa` / `triplet_graph` (the episodic
+  store; positions as episodic keys).
+- OGAR `SURREAL-AST-TRAP-PREFLIGHT.md` — SurrealQL AST is a query adapter, not
+  the episodic spine (behavior never in DDL).
 - OGAR `CLAUDE.md` — "Perturbation encoding — DETERMINISTIC PHASE",
   "Bipolar-phase pyramid", "256×256 CENTROID TILE", "256 = 4⁴ hierarchy".
 - Board: `E-CHESS-TRANSCODE-COMPLETE-1`, `E-CHESS` #539.
