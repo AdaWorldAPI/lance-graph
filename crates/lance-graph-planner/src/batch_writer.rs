@@ -104,19 +104,23 @@ impl<P> BatchWriter<P> {
         self.acked.insert(cast, version);
     }
 
-    /// **The low-level orchestration HARD GATE (operator rulings, 2026-07-10):
+    /// **The SLA gate (operator rulings, 2026-07-10/11):
     /// an ack-gated advance for SLA/audit-bearing work.** Records the ack,
     /// then lowers the assigned `LanceVersion` to the next legal
     /// [`KanbanMove`] proposal via the provided [`VersionScheduler`] over
     /// `view`.
     ///
-    /// **Tier note (E-ACK-HARD-GATE-VS-KANBANSTEP-STREAM-1):** this is the
-    /// TICKET tier — work items that want an explicit SLA and an auditable
-    /// goalstate advance only on confirmed durability, and the WAL board +
-    /// `acked` map is their audit trail. The STREAM/reasoning tier (the
-    /// kanbanstep) never routes through here: a writer that already holds
-    /// the version it committed fires `on_version → try_advance_phase(&mut)`
-    /// inline — thinking never waits on an ack.
+    /// **Tier note (E-ACK-HARD-GATE-VS-KANBANSTEP-STREAM-1; name refined to
+    /// "SLA gate" 2026-07-11):** this is the TICKET tier — work items that
+    /// want an explicit SLA and an auditable goalstate advance only on
+    /// confirmed durability, and the WAL board + `acked` map is their audit
+    /// trail. The STREAM/reasoning tier (the kanbanstep) never routes through
+    /// here: a writer that already holds the version it committed fires
+    /// `on_version → try_advance_phase(&mut)` inline — thinking never waits on
+    /// an ack. This SLA-gate mechanism is preserved (not retired) and is
+    /// repurposed on the OGAR consumer side as the **actionhandler queue** —
+    /// where action handlers (tickets, e-mails, …) wait for their durability
+    /// ack before advancing.
     ///
     /// The loop this closes — the StreamDto "can't stop thinking" lineage:
     ///

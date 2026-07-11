@@ -1,3 +1,14 @@
+## 2026-07-11 — E-ACK-SLA-GATE-ACTIONHANDLER-QUEUE-1 — naming refinement: the ack tier is the "SLA gate"; the ack mechanism is NOT retired — it is repurposed OGAR-consumer-side as the "actionhandler queue"
+**Status:** RULING (operator, 2026-07-11) — naming refinement of E-ACK-HARD-GATE-VS-KANBANSTEP-STREAM-1 (below), which stands in substance; only the sanctioned names change. Append-only: the prior entry is not edited.
+
+**Two corrections, both operator-directed:**
+1. **The ack tier's sanctioned name is the "SLA gate"** (not "the orchestration hard gate"). It is the ack-gated advance for work that carries an explicit SLA + auditable goalstate — the ticket tier, where waiting on a confirmed durability ack is a feature, not a stall. (The prior "hard gate" phrasing is superseded as a name; the mechanism is unchanged.)
+2. **The ack mechanism is NOT retired — it is repurposed.** Earlier framing that read the `ack_and_propose` pattern as demoted/retired is corrected: the mechanism moves to the **OGAR consumer side as the "actionhandler queue"** — the queue where action handlers (tickets, e-mails, …) wait for their durability ack before advancing. The intuition is a plain queue: "the ticket actionhandler queue vs the email actionhandler queue has 200 items waiting." The informal "pump"/"ack-pump" term is retired in favor of "SLA gate" (mechanism) + "actionhandler queue" (the OGAR-consumer-side queue).
+
+**Unchanged:** the two-tier split itself — kanbanstep = the in-stream synchronous reasoning advance (nobody waits, 550 ms SoA budget); the SLA gate = the ack-gated ticket-tier advance. The tier test is unchanged (SLA/audit obligation → SLA gate / actionhandler queue; cycle budget → stream).
+
+**Applied:** `crates/lance-graph-planner/src/batch_writer.rs` `ack_and_propose` doc-comment renamed to "SLA gate" + the actionhandler-queue repurposing note (naming/doc only; no behavior change).
+
 ## 2026-07-11 — E-CHESS-TRANSCODE-COMPLETE-1 — the stockfish-rs NNUE evaluator is a COMPLETE byte-exact pure-Rust transcode (L1–L5 green); E-CHESS #539 HalfKA incrementality is now SHIPPED code, not a claim
 **Status:** FINDING (shipped, `AdaWorldAPI/stockfish-rs` branch `claude/review-claude-board-files-nhqgx1`, 2026-07-11). Follows through the E-CHESS #539 NNUE-incrementality ruling with executed, parity-proven Rust. Reads with the tesseract-rs oracle discipline (the same method transplanted) and the ndarray `simd-savant` "all SIMD from `ndarray::simd`" invariant.
 
