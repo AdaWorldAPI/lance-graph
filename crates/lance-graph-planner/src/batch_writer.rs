@@ -104,10 +104,23 @@ impl<P> BatchWriter<P> {
         self.acked.insert(cast, version);
     }
 
-    /// **The self-updating orchestration pump (operator ruling, 2026-07-10):
-    /// the ack IS the next kanban trigger.** Records the ack, then lowers the
-    /// assigned `LanceVersion` to the next legal [`KanbanMove`] proposal via
-    /// the provided [`VersionScheduler`] over `view`.
+    /// **The SLA gate (operator rulings, 2026-07-10/11):
+    /// an ack-gated advance for SLA/audit-bearing work.** Records the ack,
+    /// then lowers the assigned `LanceVersion` to the next legal
+    /// [`KanbanMove`] proposal via the provided [`VersionScheduler`] over
+    /// `view`.
+    ///
+    /// **Tier note (E-ACK-HARD-GATE-VS-KANBANSTEP-STREAM-1; name refined to
+    /// "SLA gate" 2026-07-11):** this is the TICKET tier — work items that
+    /// want an explicit SLA and an auditable goalstate advance only on
+    /// confirmed durability, and the WAL board + `acked` map is their audit
+    /// trail. The STREAM/reasoning tier (the kanbanstep) never routes through
+    /// here: a writer that already holds the version it committed fires
+    /// `on_version → try_advance_phase(&mut)` inline — thinking never waits on
+    /// an ack. This SLA-gate mechanism is preserved (not retired) and is
+    /// repurposed on the OGAR consumer side as the **actionhandler queue** —
+    /// where action handlers (tickets, e-mails, …) wait for their durability
+    /// ack before advancing.
     ///
     /// The loop this closes — the StreamDto "can't stop thinking" lineage:
     ///
@@ -123,7 +136,8 @@ impl<P> BatchWriter<P> {
     /// `cast` returns immediately ("melden macht frei"), the write is async,
     /// and the board update is a *consequence of the write completing*, not
     /// something the thinker schedules. Orchestration is self-updating —
-    /// every completed write pumps the next kanban update.
+    /// every completed write releases the next kanban update through the
+    /// gate.
     ///
     /// Propose-don't-dispose is preserved: the writer only PROPOSES; the
     /// owner (`MailboxSoaOwner` / the KanbanActor) applies the move — the
@@ -134,13 +148,13 @@ impl<P> BatchWriter<P> {
     /// cycle's window from this same proposal (M12).
     ///
     /// **At-least-once delivery (codex P2 on #674):** only the FIRST
-    /// unacked→acked transition pumps a proposal. A duplicate ack (async
+    /// unacked→acked transition releases a proposal. A duplicate ack (async
     /// sink retry, version-watcher replaying the same `CastId`) returns
     /// `None` WITHOUT overwriting the first recorded version — first ack
     /// wins, keeping the CastId↔LanceVersion temporal join stable. A stray
     /// `CastId` (never cast on this board) also returns `None` and records
     /// nothing. The low-level [`ack`](Self::ack) stays the unconditional
-    /// recording primitive; dedup lives at the pump, because the pump is
+    /// recording primitive; dedup lives at the gate, because the gate is
     /// what would otherwise multiply lifecycle moves.
     pub fn ack_and_propose<S, V>(
         &mut self,
@@ -257,7 +271,7 @@ mod tests {
 
         // The async sink completes c1: the ack ITSELF proposes the next
         // kanban update (Planning → CognitiveWork), carrying the Libet
-        // anchor — orchestration pumps itself off write completions.
+        // anchor — orchestration self-updates off write completions.
         let mv = w
             .ack_and_propose(
                 c1,
@@ -275,7 +289,7 @@ mod tests {
     }
 
     #[test]
-    fn self_pumping_chain_walks_the_arc_off_write_completions_alone() {
+    fn ack_gated_chain_walks_the_arc_off_write_completions_alone() {
         // Three async write completions, each triggering the next update:
         // the board walks Planning → CognitiveWork → Evaluation → Commit
         // with NO scheduler call from the thinker's side.
@@ -303,7 +317,7 @@ mod tests {
             phase = mv.to; // the owner disposed the proposal; next view reflects it
         }
 
-        // At the absorbing column the pump rests: ack recorded, no proposal,
+        // At the absorbing column the gate rests: ack recorded, no proposal,
         // no error — the no-op tick is suppressed, never a deadlock.
         let last = w.cast(7, vec![], 9);
         let rest = w.ack_and_propose(
@@ -321,7 +335,7 @@ mod tests {
     /// lifecycle moves — only the FIRST unacked→acked transition proposes;
     /// duplicate acks keep the first version; stray casts record nothing.
     #[test]
-    fn duplicate_and_stray_acks_never_pump_twice() {
+    fn duplicate_and_stray_acks_never_release_twice() {
         let mut w: BatchWriter<u8> = BatchWriter::new();
         let c1 = w.cast(7, vec![], 0);
 
@@ -333,7 +347,7 @@ mod tests {
             &PhaseView(KanbanColumn::Planning),
             ExecTarget::Native,
         );
-        assert!(first.is_some(), "first unacked->acked transition pumps");
+        assert!(first.is_some(), "first unacked->acked transition releases");
 
         // Sink retry / watcher replay of the same CastId: NO second
         // proposal, and the first recorded version wins (the temporal
@@ -345,7 +359,7 @@ mod tests {
             &PhaseView(KanbanColumn::Planning),
             ExecTarget::Native,
         );
-        assert!(dup.is_none(), "duplicate ack must not pump a second move");
+        assert!(dup.is_none(), "duplicate ack must not release a second move");
         assert_eq!(w.acked_version(c1), Some(41), "first ack wins");
 
         // Stray CastId (never cast on this board): no proposal, no record.

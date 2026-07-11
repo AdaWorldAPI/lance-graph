@@ -11,6 +11,19 @@
 
 ---
 
+## 2026-07-10 (fourth wave) — the chess arc: E-CHESS gets its measured instantiation (sibling repo)
+
+| Seed | One line | Wiring queue |
+|---|---|---|
+| operator suggestion → `stockfish-rs` bootstrap (`b987c4b`) | shakmaty (rules, consumed never re-implemented) × ruff_cpp_spo Stockfish harvest (oracle-only) × the 64×64=4096 cascade — from×to move matrix / ButterflyHistory / NNUE HalfKAv2_hm are natively the gridlake shape; NNUE's incremental accumulator = **E-CHESS (#539) made literal and measurable**; int8 GEMM reuses the Tesseract-proven `ndarray::simd` primitives | Plan: `stockfish-rs/.claude/plans/stockfish-harvest-64x64-v1.md` (P0 oracle → L1 net loader → L2 index parity → L3 refresh → L4 incremental keystone → L5 evaluate() parity → L6 search on the 64×64 butterfly SoA lane, measured-not-parity; later UCI + Lichess-API arm). L4's incremental-vs-refresh speedup = the compute_dag receipt E-CHESS has been waiting for |
+
+## 2026-07-10 (third wave) — the two-tier advance split: hard gate (OGAR tickets) vs stream (kanbanstep)
+
+| Ruling | One line | Wiring queue |
+|---|---|---|
+| E-ACK-HARD-GATE-VS-KANBANSTEP-STREAM-1 | `ack_and_propose` = the low-level orchestration **HARD GATE** → belongs to OGAR ticket orchestration (explicit SLA + auditable goalstate; WAL board + `acked` map = the audit trail; waiting is a FEATURE for tickets); **kanbanstep** = the stream reasoning (in-stream synchronous `on_version → try_advance_phase(&mut)`; nobody waits, 550 ms budget) | **D-AHG-1**: move/mirror propose-on-ack into OGAR's ticket-orchestration surface — rides the batched-mint discipline, NEVER a solo OGAR PR; planner `BatchWriter` keeps the WAL/ack durability bookkeeping. Tier test for reviews: ticket (SLA/audit) → hard gate; thought (cycle budget) → stream; never cross-route |
+| E-KANBANSTEP-IS-THE-TRIGGER-1 | genealogy corrected: kanbanstep (contract `scheduler.rs` §IN + symbiont `kanban_loop.rs` + supervisor `deliver_kanban_step` step shape) predates and outranks the ack-gated advance; it was obscured in the SurrealQL-AST carve-out | doc-only (leave-as-is ruling stands); drift signal = new code pacing a cycle on an ack |
+
 ## 2026-07-10 (second wave) — families vs runbooks; thinking tenants → V3; the smaller-CE64 × comma awareness probe
 
 | Ruling | One line | Wiring queue |

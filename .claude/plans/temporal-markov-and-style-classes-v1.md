@@ -42,6 +42,20 @@ signed mantissa slot) — D-MTS-2's design names it explicitly. Vertical
 level offsets follow the comma progression (generated from the address,
 never stored); per-level content = palette-quantized magnitude envelope only.
 
+**Technique input queued (operator, 2026-07-10, from the stockfish-rs
+sibling arc):** `stockfish-rs/.claude/knowledge/stockfish-pext-morton-adjacency.md`
+— read while harvesting real Stockfish source. Honest finding: Stockfish
+has NO Morton/pyramid/palette/comma code (verified, zero hits); what DOES
+transfer is the `Magic` struct's `pext`/`pdep` gather→table-lookup→scatter
+pattern (`attacks.h:130-159`) as a candidate AVX-512/BMI2 fast path for
+the 2bit×2bit 4×4 tile pack/unpack (same hardware primitive family the
+standard Morton bit-interleave trick uses — different mask content), plus
+the three-tier CPU-family dispatch lesson (BMI2 PEXT is known-slow on
+some AMD families; ship a portable fallback, don't trust ISA presence
+alone) as independent confirmation of the `ndarray::simd` multi-tier
+dispatch discipline already in force here. CONJECTURE until D-MTS-2
+actually builds and measures the tile primitive this way.
+
 > **Addendum (operator, 2026-07-10, second wave — three rulings):**
 > (1) **E-STYLE-FAMILY-VS-RUNBOOK-1** — 12 = abstract FAMILIES for
 > orchestration; 36 = literal NARS RUNBOOKS; runbooks seed the rung ladder;

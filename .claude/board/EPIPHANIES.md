@@ -1,3 +1,60 @@
+## 2026-07-11 — E-ACK-SLA-GATE-ACTIONHANDLER-QUEUE-1 — naming refinement: the ack tier is the "SLA gate"; the ack mechanism is NOT retired — it is repurposed OGAR-consumer-side as the "actionhandler queue"
+**Status:** RULING (operator, 2026-07-11) — naming refinement of E-ACK-HARD-GATE-VS-KANBANSTEP-STREAM-1 (below), which stands in substance; only the sanctioned names change. Append-only: the prior entry is not edited.
+
+**Two corrections, both operator-directed:**
+1. **The ack tier's sanctioned name is the "SLA gate"** (not "the orchestration hard gate"). It is the ack-gated advance for work that carries an explicit SLA + auditable goalstate — the ticket tier, where waiting on a confirmed durability ack is a feature, not a stall. (The prior "hard gate" phrasing is superseded as a name; the mechanism is unchanged.)
+2. **The ack mechanism is NOT retired — it is repurposed.** Earlier framing that read the `ack_and_propose` pattern as demoted/retired is corrected: the mechanism moves to the **OGAR consumer side as the "actionhandler queue"** — the queue where action handlers (tickets, e-mails, …) wait for their durability ack before advancing. The intuition is a plain queue: "the ticket actionhandler queue vs the email actionhandler queue has 200 items waiting." The informal "pump"/"ack-pump" term is retired in favor of "SLA gate" (mechanism) + "actionhandler queue" (the OGAR-consumer-side queue).
+
+**Unchanged:** the two-tier split itself — kanbanstep = the in-stream synchronous reasoning advance (nobody waits, 550 ms SoA budget); the SLA gate = the ack-gated ticket-tier advance. The tier test is unchanged (SLA/audit obligation → SLA gate / actionhandler queue; cycle budget → stream).
+
+**Applied:** `crates/lance-graph-planner/src/batch_writer.rs` `ack_and_propose` doc-comment renamed to "SLA gate" + the actionhandler-queue repurposing note (naming/doc only; no behavior change).
+
+## 2026-07-11 — E-CHESS-TRANSCODE-COMPLETE-1 — the stockfish-rs NNUE evaluator is a COMPLETE byte-exact pure-Rust transcode (L1–L5 green); E-CHESS #539 HalfKA incrementality is now SHIPPED code, not a claim
+**Status:** FINDING (shipped, `AdaWorldAPI/stockfish-rs` branch `claude/review-claude-board-files-nhqgx1`, 2026-07-11). Follows through the E-CHESS #539 NNUE-incrementality ruling with executed, parity-proven Rust. Reads with the tesseract-rs oracle discipline (the same method transplanted) and the ndarray `simd-savant` "all SIMD from `ndarray::simd`" invariant.
+
+**What shipped — the whole NNUE evaluation pipeline, each leaf byte-exact vs the REAL Stockfish (fork `9d2ba2b`, net `nn-1b6a82263149`, sse41-popcnt binary as oracle):**
+- **L1** — `.nnue` container loader, walks to EOF byte-exact (90 536 680 B); FT biases + threat/psqt/weight blocks (COMPRESSED_LEB128 + plain-LE), 8 layer stacks. Independent Python-walker cross-check.
+- **L2** — `HalfKAv2_hm::make_index` proven EXHAUSTIVELY (all 131 072 tuples) + `FullThreats::make_index` (6.29 M tuples, DIMENSIONS-as-exclusion-sentinel), both net-free; shakmaty `Position → active feature list` for both feature sets (color-flip + piece/square conventions handled explicitly).
+- **L3** — accumulator refresh (feature-major FT forward: biases + Σ halfka + Σ threat weight columns, i16-wrapping; psqt i32). Independent oracle, 10/10 (FEN × perspective) digests.
+- **L4** — **incremental HalfKA update = the E-CHESS keystone made literal.** `DirtyPiece` delta (`append_changed_indices` + `requires_refresh`), king-move → per-perspective refresh; byte-exact by the group identity `refresh(after) = refresh(before) − removed + added` over `(ℤ/2¹⁶,+)`. Self-oracle CHAINED gate (incremental fed as next base) across normal/capture/castle/en-passant/promotion — byte-exact every ply. Receipt: ≤3 columns/move vs 32/refresh. (FullThreats `DirtyThreats` incremental honestly deferred — a separate larger leaf.)
+- **L5** — `evaluate()` end-to-end: transform (pairwise `clamp²/512`, provably == the sse41 SIMD path) → fc_0 → sqr/clipped → fc_1 → clipped → fc_2 → scale → `psqt/16 + positional/16`. The three int8 affines route through **`ndarray::simd::matmul_i8_to_i32`** (the SAME primitive the Tesseract recognizer consumes; activations all in `[0,127]` so i8≡u8 dpbusd). Gate: reproduces the engine's `"NNUE evaluation … internal units"` integer byte-exact across a 5-FEN corpus spanning buckets 7/2/0 — startpos `+21`, kiwipete `-316`, KP-endgame `+114`, midgame `+69`, bare-kings `+2`.
+
+**Goal-stack tie-in (`/goal transcode stockfish … using ruff codegen ogar lance-graph ndarray`):** ndarray = the L5 GEMM (integrated); ruff codegen = the `ruff_cpp_spo --example harvest_nnue` method-resolution manifest (50 classes, 1943 triples) that drove the leaf checklist; lance-graph = this board ruling (E-CHESS) + the Core-First transcode doctrine the crate follows. Remaining: L6 search (explicitly a NON-GOAL for parity — measured strength only, per the plan).
+
+**Consequence:** E-CHESS incrementality is no longer a design claim — it is executed, self-oracle-gated Rust. The 64×64=4096 substrate now carries a full, byte-exact NNUE evaluator as a worked reference for the gridlake tenant shape.
+
+## 2026-07-10 — E-ACK-HARD-GATE-VS-KANBANSTEP-STREAM-1 — ack_and_propose belongs to OGAR ticket orchestration (the low-level orchestration HARD GATE: explicit SLA + auditable goalstate); kanbanstep is the stream reasoning
+**Status:** RULING (operator, 2026-07-10: "ack and propose should be in OGAR for ticket orchestration stuff that want more explicit SLA and auditable goalstate — we could say it's the low level Orchestration hard gate and Kanbanstep the stream reasoning"). Completes E-KANBANSTEP-IS-THE-TRIGGER-1 (below): the propose-on-ack pattern is not merely demoted bookkeeping — it has a proper HOME.
+
+**The two-tier split, ratified:**
+- **kanbanstep = stream reasoning** (lance-graph cognitive substrate): the in-stream synchronous advance (`VersionScheduler::on_version → try_advance_phase(&mut)`), fired inline by the writer with the version it already holds. Cognition never waits — the 550 ms SoA budget + can't-stop-thinking govern this tier. E-NOBODY-WAITS-1 is this tier's prime invariant.
+- **ack_and_propose = the low-level orchestration HARD GATE** (OGAR ticket orchestration): for work items that WANT explicit SLA and an auditable goalstate, propose-on-ack is the correct semantics — a ticket does not advance until durability is confirmed, and the WAL board + `acked: BTreeMap<CastId, LanceVersion>` + `unacked()` surface IS the audit trail (cast order preserved, crash-replay = the unacked set, goalstate = the acked version per cast). Waiting is a FEATURE here, not a bug: tickets may wait; thinking may not.
+
+**Consequences:**
+- The "correct code, wrong rank" verdict on `BatchWriter::ack_and_propose` resolves to "correct code, wrong TIER": the pattern migrates to (or is mirrored into) OGAR's ticket-orchestration surface; lance-graph keeps kanbanstep as the reasoning-stream advance.
+- Tier test for any future advance-path design: *does this unit of work carry an SLA/audit obligation (ticket) or a cycle budget (thought)?* Ticket → hard gate (ack-gated, auditable). Thought → stream (inline, nobody waits). A thought must never be routed through the hard gate; a ticket must never skip it.
+- Wiring queued in FUTURE-DESIGN (OGAR changes ride the batched-mint discipline — never a solo OGAR PR): move/mirror the propose-on-ack pattern to OGAR ticket orchestration; the planner-side `BatchWriter` WAL/ack bookkeeping stays as the storage-durability surface it already is.
+- **Vocabulary (operator, 2026-07-10):** the informal term "pump"/"ack-pump" is RETIRED. Sanctioned names: **the orchestration hard gate** (the mechanism) / **ack-gated advance** (the action). Historical board entries carrying the old term stay per append-only; live surfaces (code doc-comments, test names, new entries) use the sanctioned names.
+
+## 2026-07-10 — E-KANBANSTEP-IS-THE-TRIGGER-1 — the CANONICAL kanban advance is the in-stream synchronous step (the pre-existing "kanbanstep"); the ack is bookkeeping, never a pacing mechanism
+**Status:** RULING + genealogy CORRECTION (operator, 2026-07-10: "the doctrine was cognitive-shader-driver can't stop thinking … the SoA budgets of 550ms make it more expensive to wait for any stupid ack; the old already existing system was called kanbanstep and it was removed beyond recognition when removing the SurrealQL AST DLL shape"). Corrects the trigger-RANKING in E-ACK-IS-THE-KANBAN-TRIGGER-1 (whose "the driver never waits" clause STANDS); reads with E-NOBODY-WAITS-1.
+
+**The doctrine (operator):** cognitive-shader-driver **can't stop thinking** — cycles continue as a STREAM over reasoning; the 550 ms SoA cycle budget makes waiting for ANY ack **more expensive than continuing**. The ack's only legitimate job is durability bookkeeping (the `unacked()` crash-replay surface); it never schedules, never paces, never gates the next move.
+
+**The pre-existing system ("kanbanstep") — archaeology, verified in-tree 2026-07-10:** the synchronous in-stream kanban advance survives in three artifacts:
+1. `contract::scheduler::VersionScheduler::on_version(view, DatasetVersion, exec) -> Option<KanbanMove>` — a **sync pure function**; a batch writer that commits a SoA batch **already knows the version it wrote** and fires the advance INLINE: `on_version → try_advance_phase(&mut)`, no async, no round trip (`scheduler.rs` §IN; `surreal_container/tests/scheduler_seam.rs` drives the whole Rubicon arc this way).
+2. `symbiont::kanban_loop::SymbiontBoard::step()` — the pure-SoA reference loop; its doc-comment carries the doctrine verbatim: *"THE TRIGGER IS SYNCHRONOUS — the writer fires it … with NO async"* and *"`step()` drives the loop by direct owned mutation, never by sending a message."*
+3. `supervisor::{parse_kanban_step, deliver_kanban_step}` — the `UnifiedStep { step_type: "kanban.<mailbox>.<phase>" }` delivery edge (`StepDomain::Kanban`, D-MBX-A6) — the step-in-the-plan-stream shape; its current DELIVERY is the message shim (`cast(Advance)` — TD-MESSAGE-RESIDUE).
+
+**What happened (the "removed beyond recognition"):** during the SurrealQL-AST/DLL carve-out (symbiont W2c re-scope to storage/read-glove-only; "render is struct+methods not SurrealQL", OGAR #149 arc), the kanbanstep loop lost its prominence — the reference loop lived on the symbiont/surreal_container side being demoted, and subsequent sessions (including the E-ACK-IS-THE-KANBAN-TRIGGER-1 arc) rebuilt the trigger as the **ack-gated advance** (`BatchWriter::ack_and_propose`) and mis-ranked IT canonical. That gate couples the next-move PROPOSAL to an ack event that arrives later — a wait-shaped scheduler by construction, exactly what the 550 ms budget forbids.
+
+**Corrected canonicality:**
+- **CANONICAL:** the in-stream synchronous step — the writer/stream fires `on_version → try_advance_phase(&mut)` inline at commit with the version it already holds. The stream is the trigger; thinking never pauses for storage.
+- **DEMOTED:** `ack_and_propose` = reconciliation/crash-replay bookkeeping for async-sink shapes (WAL `unacked()` accounting). Correct code, wrong rank — it must never be the thing that drives cognition.
+- **RESIDUE:** `deliver_kanban_step`'s `cast(Advance)` delivery joins TD-MESSAGE-RESIDUE (the step_type SHAPE is canonical; the message DELIVERY is the redundancy).
+
+**Disposition:** doc-only per the standing ruling (LEAVE AS IS AND DOCUMENT). Drift signal: any NEW code that paces a cycle on an ack event, or that awaits storage before advancing a KanbanColumn.
+
 ## 2026-07-10 — E-COMMA-AWARENESS-MEASURED-1 — D-MTS-6 ran GREEN: ONE stored truth bit per comma level matches the full CausalEdge64's awareness proxies (k*=1 vs aligned k*=4); the comma lattice buys ≈ log₂(L) effective bits
 **Status:** FINDING (measured 2026-07-10; probe `perturbation-sim/examples/comma_awareness.rs`, pre-registered gates, run chronicle in the header; realizes the falsifiable shape of E-THINKING-TENANTS-V3-1's second half)
 
