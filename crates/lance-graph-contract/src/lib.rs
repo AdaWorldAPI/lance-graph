@@ -139,6 +139,10 @@ pub mod splat;
 pub mod step_mask;
 pub mod style_family;
 pub mod tax;
+/// Zero-dep temporal point-of-view range filter (`VersionRange` + `TemporalPov`)
+/// — the consumer-facing mirror of `lance-graph-planner::temporal`'s
+/// `QueryReference`/`deinterlace` version-range vocabulary.
+pub mod temporal_pov;
 /// Per-tenant SoA update counters — debug instrumentation (feature `tenant-counters`).
 pub mod tenant_counter;
 pub mod thinking;
