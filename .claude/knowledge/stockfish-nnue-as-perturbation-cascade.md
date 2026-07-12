@@ -120,6 +120,46 @@ Stated as deliverables so it can be executed and falsified, never hand-waved:
   Probe: `bgz-tensor examples/nnue_palette_cosine.rs` (+ `stockfish-rs
   examples/export_ft_columns.rs` for the FT-column fixture).
 
+  **D-PALETTE-NNUE-VEC — the tenant-SHAPE ladder. ✅ GREEN at the Base17 anchor
+  (2026-07-12, MEASURED, held-out).** Escalation from the distance codec (above) to
+  the actual VECTOR tenant shapes: codebooks trained on 2048 FT columns, measured
+  on 256 DISJOINT held-out columns (32 640 pairs — no memorization degeneracy; an
+  earlier same-set run gave a degenerate ρ=1.0 and was discarded):
+  | lane | bytes/col | ρ_all | near-orth ρ | MAE |
+  |---|---|---|---|---|
+  | cam_pq 48-bit (6×256, `CamCodebook`) | 6 B (341×) | 0.929 | 0.823 | 0.083 |
+  | **V3-L4 96-bit (6×256², the le-contract `6×(u8:u8)` ²centroid pairs)** | 12 B (170×) | **0.966** | 0.881 | 0.053 |
+  | 64×256 512-bit (64 subspaces × 16d — "one centroid per square", board-shaped) | 64 B (32×) | 0.977 | 0.918 | 0.042 |
+  | + turbovec-style n×4bit edge residue (uniform FLOOR) | ~526 B (3.9×) | **0.998** | **0.994** | 0.009 |
+  **Operator ruling confirmed by measurement: the full 96-bit `6×(256×256)` V3
+  tenant is strictly better than 48-bit cam_pq** (it is the faithful/"perfect"
+  tenant shape; cam_pq is the lossy approximation). The 96-bit tenant clears the
+  **Base17 vector-compression anchor (ρ=0.965)** — the correct reference class for
+  vector compression; the 0.999 Fisher-z lane is a DISTANCE codec (in-sample
+  quantization of the pairwise answer, a strictly easier operation) and was the
+  wrong pre-registered gate (corrected in-file). The near-orthogonal loss (0.881)
+  concentrates where quantization hurts — and the **turbovec n×4bit edge residue
+  recovers it to the 0.999 class even at the uniform floor** (real Lloyd-Max ≥
+  uniform; the `lance-graph-turbovec` crate needs its sibling checkout to wire the
+  real lane). Probe: `stockfish-rs examples/palette_nnue_vec.rs`.
+  *Design-space alternatives (operator-named):* **64×256 "one centroid per
+  piece-square"** — measured above (board-shaped: 64 squares ↔ 64 subspaces; beats
+  the 96-bit tenant at 32×, but near-orth 0.918 still wants the residue lane for the
+  0.99 class); **classid × wide-FieldMask in-memory filtering** — filter what is
+  already resident by classid prefix + mask tenant lanes per focus with the contract
+  `FieldMask` (ClassView-projection doctrine applied to resident rows: ZERO
+  serialization, per-focus reasoning masks) — design note, queued; **holograph 7×7×7
+  signed bits** — information-theoretically roomy but consumer-UNPROVEN, stays [H]
+  until a consumer probe; **Pythagorean-comma Morton-cascade inverse-pyramid,
+  NON-collapsing** — the D-MTS-5 comma result (N_eff 11/12 independent witnesses,
+  replay bit-identical, pyramid never materialized) is the anti-mush mechanism for
+  the perturbation-shader cascade, scaling upstream 64×64=4096 → 256k×256k
+  replayability without materialization; operator-recalled precedent: the comma
+  stride carried a gaussian-splat 3DGS top-k over 10000×10000 at ~440 ms
+  unoptimized — [S] here (the `perturbation-sim` `splat.rs`/`morton2`/`ewa_coarsen`
+  substrate is shipped, but that figure is not reproduced in this repo's source) —
+  orthogonal to (and composable with) the tenant compression above.
+
   > **Correction (why the first cut was wrong).** The 2026-07-11 scalar-256 result
   > (Lloyd/k-means codebook over the raw i16 weights, then reconstruct + re-run
   > eval → ρ_quiet 0.7812, "FENCED") measured the WRONG thing with the WRONG tool:
@@ -149,9 +189,19 @@ Stated as deliverables so it can be executed and falsified, never hand-waved:
   exact 2-D adjacency; Morton is a 1-D locality map preserving ~79% of board's
   signal); the modest absolute ρ (~0.33) says the addressing is *locality-
   preserving*, not a perfect isometry. Probe: `stockfish-rs examples/morton_ka.rs`.
-- **D-SF-V3-4 — the escalation identity.** Assert (test) that NNUE's
-  king-move-refresh == `RouteAction::Escalate` at a named tier — the first place
-  the chess reference and the HHTL cache share a code path.
+- **D-SF-V3-4 — the escalation identity. ✅ GREEN (structure) + FENCE (2026-07-12,
+  MEASURED).** The structural half is exact: over 75 080 (move × node) pairs of
+  deterministic playouts, a king move ⟺ coarsest-tier (king) change ⟺ EVERY
+  feature of the mover's perspective re-indexed ⟺ full refresh — **4851/4851**
+  king moves re-index the sentinel feature, **0/70 229** non-king moves do, 0
+  cross-tab mismatches. A change at the coarsest HalfKA address tier forces full
+  recompute — the escalation STRUCTURE the identity rests on, proven.
+  **FENCE (the literal name-match is a rhyme):** the shipped bgz-tensor
+  `RouteAction::Escalate` (`hhtl_cache.rs`) fires on *distance-percentile
+  ambiguity* (a HIP-band pair drops to the finer TWIG tier), NOT on a
+  coarsest-tier-change event — so "king-refresh == `RouteAction::Escalate`" is
+  NOT claimed; the two escalations share structure (drop to finer/full work),
+  not a code path. Probe: `stockfish-rs examples/escalation_identity.rs` (no net).
 
 ## What the frozen 90 MB net buys us (the operator's point, made precise)
 
@@ -196,10 +246,10 @@ two axes.
 |---|---|---|
 | A game (ply sequence) | a `temporal.rs` sorted version-stream; ply *v* = one Lance version | **[G]** — moves already carry a total order; `apply_move` IS the step |
 | "position after ply *v*" | `QueryReference::at(v, rung)` + deinterlace — a zero-copy projection, no replay | **[G]** (2026-07-11) — D-SF-EPISODIC-1 ran GREEN: the accumulator projected at ply *v* is byte-identical to the fresh-from-FEN computation (34/34), and to an out-of-order replay (11/11); see the deliverable below |
-| Analysis horizon (present vs hindsight) | the **rung**: low rung = reason strictly at ply *v*; high rung = spoiler-read the game's outcome to label the move (training-target labeling) | **[H]** — rung semantics are shipped; the chess *use* (hindsight = eval-vs-result delta) is the D-SF-RUNG-1 probe |
+| Analysis horizon (present vs hindsight) | the **rung**: low rung = reason strictly at ply *v*; high rung = spoiler-read the game's outcome to label the move (training-target labeling) | **[H]** — D-SF-RUNG-1 ran INCONCLUSIVE (2026-07-12): the NNUE-eval-only oracle is not mate-aware (inverts on sacrificial mates) and random playouts never settle; needs a real outcome oracle. Stays [H] |
 | Opening variants (e4/d4/…) | **episodic basins** = le-contract **L1 `part_of:is_a`** rails (a variant is-a line is-a opening) | **[G]** (2026-07-12) — D-SF-BASIN-1 GREEN: opening trees fit the L1 rail shape; the `part_of:is_a` `hi_distance` clusters lines by opening (5 same-opening < 6 cross) |
 | Transpositions (same position, different move-order) | **L2 `memberof:members`** — one position node, member-of many variant basins | **[G]** (2026-07-12) — D-SF-BASIN-1 GREEN: a 1.d4/1.c4 transposition to the same QGD position collapses to ONE `NodeGuid` carried in a probe-local facet-L2-rail multimap over both basins. NB: this is the **facet L2 rails** (up to 6 basin pairs, not yet persisted), NOT the shipped graph `memberof` in `mailbox_scan.rs`, which is HHTL-tier **many-to-one** (`Option<BasinOf>`, a single parent) |
-| Episodic recall ("games that reached this pawn structure") | AriGraph `EpisodicMemory` / `markov_soa` — retrieve-similar over position fingerprints | **[G]** for the store; **[H]** that chess positions are good episodic keys (D-SF-ARIGRAPH-1) |
+| Episodic recall ("games that reached this pawn structure") | AriGraph `EpisodicMemory` / `markov_soa` — retrieve-similar over position fingerprints | **[G]** (2026-07-12) for the REPRESENTATION — D-SF-ARIGRAPH-1 GREEN: positions cluster by opening at 3.7× chance under SimHash-Hamming (96% of raw cosine) in the store's own `[u64;8]`/Hamming shape. The STORE has a named GAP: string-only FNV `label_fp`, no fingerprint-in `retrieve_similar` |
 | Time-series query over games | SurrealQL AST — a **query adapter** over the version-stream | **[G]** — adapter only; see the fence |
 
 ### Fence — SurrealQL AST is the query adapter, NOT the episodic spine
@@ -254,17 +304,31 @@ Games flow: `apply_move` → temporal-stream version → le-contract basin →
   Top). The many-basins-one-node relation therefore rides the facet L2 rails, NOT the
   graph HHTL `memberof`; the *encoding* is proven, the *persistence* is future work.
   Probe: `stockfish-rs examples/basin_transposition.rs`.
-- **D-SF-RUNG-1 — hindsight labeling via rung.** For a decided game, read each
-  move at a **low rung** (eval as-of that ply) and at a **high rung** (spoiler-read
-  the result); the low↔high delta = the "was this move objectively good given the
-  outcome?" signal. **Gate:** the two reads differ exactly where eval and result
-  disagree (blunders that won, brilliancies that lost) — proving rungs carry the
-  present/hindsight horizon, not just a version index.
-- **D-SF-ARIGRAPH-1 — positions as episodic keys.** Store game positions in
-  AriGraph `EpisodicMemory`; `retrieve_similar(position_fp)` returns games that
-  reached a near structure. **Gate:** retrieval precision above the Jirak noise
-  floor on a labeled set (e.g. all games with an isolated queen's-pawn) — MEASURED,
-  never asserted.
+- **D-SF-RUNG-1 — hindsight labeling via rung. ⚠ INCONCLUSIVE — stays [H]
+  (2026-07-12, MEASURED; the ORACLE failed, not the thesis).** With an
+  NNUE-eval-only hindsight oracle (`sign(eval@final)`) the rung split does NOT
+  land: mean first-third agreement 0.53 ≈ last-third 0.54, 0/25 games pass. Two
+  identified oracle defects: (1) **NNUE is not mate-aware** — a game ending in a
+  SACRIFICIAL mate (the Opera Game: Qxb8+ Nxb8 Rd8#) reads as the mating side
+  DOWN material at the final ply, inverting the hindsight label exactly on the
+  most decisive games; (2) random playouts never settle to a legible verdict.
+  Recorded as a measured negative on the ORACLE; the probe needs a REAL outcome
+  oracle (played-out game-result labels or a mate-aware search) before the rung
+  thesis can be graded. Probe: `stockfish-rs examples/rung_hindsight.rs`.
+- **D-SF-ARIGRAPH-1 — positions as episodic keys. ✅ GREEN (representation) + GAP
+  named (2026-07-12, MEASURED).** The gap first (grindwork finding, honest): the
+  shipped `EpisodicMemory` has **no** `retrieve_similar` — its only fingerprint
+  path is `label_fp(&str)`, an FNV avalanche hash of STRINGS with **no locality**,
+  so position-similarity recall is structurally impossible with the store as-is.
+  The probe supplies the missing primitive — a SimHash of the NNUE accumulator
+  into the store's own `[u64;8]`/Hamming shape — and measures the representation:
+  over 96 positions from 4 structurally-distinct openings (Ruy/QGD/KID/English),
+  **precision@5 = 0.894 under SimHash-Hamming vs chance 0.242 (3.7× chance),
+  retaining 96% of the raw-cosine clustering (0.935)**. Positions ARE good
+  episodic keys, in exactly the store's own metric. **GAP (queued as the store's
+  next leaf):** a locality-preserving vector→`Fingerprint` constructor + a
+  fingerprint-keyed top-k — this probe is that primitive's reference impl.
+  Probe: `stockfish-rs examples/episodic_recall.rs`.
 
 ### Why this closes the loop
 
