@@ -1,3 +1,10 @@
+## 2026-07-12 — stockfish-wave2-fleet — D-SF-TRAP-1 GREEN + holes/palette/lichess partials + TemporalPov + lichess-rs scaffold
+
+- **Fleet:** 5 Sonnet grindwork probe/scaffold builders (stockfish-rs trap/holes/piece-palette/lichess-ladder, lichess-rs scaffold) + 1 Sonnet contract worker (`TemporalPov`) + 1 Sonnet doc applier (this repo).
+- **Deliverables:** D-SF-TRAP-1 (`4c47ce1`, GREEN), D-SF-HOLES-1 (`eaa902b`, partial), D-SF-PIECEPALETTE-1 (`f028442`, partial), D-SF-LICHESS-1 (`1c9418f`, informative negative), `TemporalPov` contract (`0ed93b59`), `lichess-rs` scaffold (`ce44ada`) — stockfish-rs PR #10 open.
+- **Outcome:** lure synthesis works; opponent-model style inference is the measured bottleneck — see `EPIPHANIES.md` `E-SF-TRAP-LURE-GREEN-1`.
+- **Board:** knowledge doc `stockfish-nnue-as-perturbation-cascade.md` § "Wave 2" appended; EPIPHANIES prepended.
+
 ## 2026-07-12 — stockfish-awareness-arc-fleet — D-SF-OPPONENT-1/2/3 + D-SF-PHASE-1 measured, board applied
 
 - **Fleet:** 4 Sonnet grindwork probe builders (stockfish-rs) + 1 Sonnet doc applier (this repo).

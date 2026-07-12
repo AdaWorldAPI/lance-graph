@@ -464,3 +464,99 @@ static-NNUE rational-best climbs with Elo (simultaneously calibrating our L1 aga
 the human strength ladder); (b) per-player tendency/residue identification on real
 style structure (the decisive OPPONENT-3 test); (c) embedded `[%eval]` census +
 wedge/surprise cross-check against the external oracle where coverage allows.
+
+## Wave 2: traps, holes, piece palettes, real data, temporal contract (2026-07-12, later)
+
+Second same-day wave on further operator design inputs. All probes in stockfish-rs
+(PR #10), net-gated/deterministic/exit-0. Companion artifacts: the zero-dep
+`TemporalPov` contract type (this repo, `0ed93b59`) and the new
+`AdaWorldAPI/lichess-rs` repo (initial scaffold `ce44ada`).
+
+**D-SF-TRAP-1 — opponent-aware lures. ✅ GREEN (commit `4c47ce1`).** Operator
+conjecture: traps as distractions — lure the opponent through its hammer×nail blind
+spot ("a first for game engines" recorded as [H], priority claim unverified). Against
+styled opponents whose bias is KNOWN ground truth: trap-aware mover scores candidates
+by own eval + 0.5 × lure (the gain when the styled reply diverges from rational). All
+three pre-registered gates green: bait rate 0.767 (43 lure points; the probe fixed a
+self-match bug so the bait resolves against the opponent's actual tie-noise choice),
+lure payoff +1592 cp pooled vs a rational baseline (Aggro: −202→+2120; Greedy:
++454→+1316; predicted baits hand-inspected as style-consistent material grabs), and
+the safety clause (no self-harm vs a rational opponent). **Honest scope: mechanism
+demo with ground-truth style models; the real-opponent version chains behind style
+INFERENCE, which is the currently-measured weak link (OPPONENT-1/3, LICHESS-1). Lure
+synthesis works; opponent-model inference is the bottleneck.**
+
+**D-SF-HOLES-1 — weak-square detection + splat-style ranking (PARTIAL, commit
+`eaa902b`).** Holes = empty pawn-indefensible squares with non-negative control
+deficit, ranked weakness × impact × access × stakes (hand-tuned, flagged). Detector
+sane (start position 0/0 after the empty-square refinement; worked example matches
+pawn-cover theory). Gates miss: Opera yielded only 2 occupation events (below the ≥3
+floor — Morphy attacked through pins/files, not square infiltration; an honest
+game/metric mismatch) and the styled corpus shows ρ=−0.035 (synthetic-corpus
+limitation, fourth appearance). The 3DGS 10000×10000 top-k precedent stays [S]-here:
+a 64×64 board needs the ranking semantics, not splat throughput; the splat machinery
+is the scale-out path for 256k×256k upstream fields. Ranking semantics unfalsified
+but unsupported — needs strong real games where positional squeezes occur.
+
+**D-SF-PIECEPALETTE-1 — per-piece threat/influence 256-palette (PARTIAL, commit
+`f028442`).** 12-dim per-piece descriptors → one 256-codebook (healthy: max code
+occupancy 1.7%) + 4-bit uniform edge residue. Retrieval 0.494 vs SimHash baseline
+0.660 — the MULTISET histogram of piece codes discards cross-piece structure, which
+is evidence FOR the unimplemented half of the operator input ("per piece **+
+edges**"): the pairwise/geometric part is exactly what the histogram threw away.
+Eval read honestly under-determined (257 ridge params on 240 train rows; MAE worse
+than a mean predictor — diagnosed in-run with a mean-baseline print, not left as
+anomaly). Keeper: the 4-bit residue lane preserves code identity at **0.965**
+reassignment fidelity. Follow-up: piece codes × Morton square context × pairwise
+edges, larger corpus, stronger ridge.
+
+**D-SF-LICHESS-1 — the ladder on real ratings (PARTIAL, informative negative;
+commit `1c9418f`).** 1500 kept games / 33,524 sampled decisions from the 2013-01
+lichess dump (CC0, 17 MB; decompressed via pip zstandard). L1-agreement by Elo band:
+0.259 / 0.247 / 0.258 / 0.262 / **0.294** (≥2000) — top band points the right way,
+continuous Spearman +0.045 (259 players), but non-monotone and spread only +0.035
+(gate 0.05). Real humans agree with a 1-ply static argmax at ~25–30% vs ~60% for
+synthetic rational bots — a useful calibration gap. Tendency identification on real
+players ≈ chance (0.026 vs 0.025, 65 players): the feature basis carries no
+per-player signal on fast games either — BOTH L2 models are now honestly at zero on
+real data; the discriminating test stays open. `[%eval]` census 14/1500 (2013
+predates fishnet). Named confounders → next-iteration knobs: TimeControl filter
+(classical/rapid), post-2016 month for eval coverage, book-ply exclusion, more games
+per player. The distinction to preserve: "the ladder doesn't exist" vs "this dataset
+can't see it" — the probe's own numbers suggest the latter.
+
+**Contract: `TemporalPov` time-range filter (this repo, `0ed93b59`,
+operator-directed).** Zero-dep mirror in `lance-graph-contract::temporal_pov`:
+`LanceVersion`, `VersionRange` (half-open; contains/intersect/len), `TemporalPov {
+range, rung }` with `at(ref_version, rung)` mirroring the planner's
+`QueryReference::at`. Deliberately does NOT duplicate the planner's
+`EpistemicMode`/`classify`/`deinterlace` (the 4×-Fingerprint anti-pattern). 11 tests
++ doctest; LATEST_STATE inventory updated same-commit.
+
+**lichess-rs scaffold (new repo, `ce44ada` on main) — the BOT ELO endgame
+vehicle.** GPL-3.0 (consumes stockfish-rs); event-loop skeleton with typed ndjson
+shapes + Engine trait; the stockfish adapter is a DETACHED excluded crate (measured:
+a feature-gated missing optional path dep breaks even default `cargo check`) bridging
+two shakmaty versions (fork 0.30.1 vs registry 0.30.0) via FEN/UCI with
+re-validation; the net-gated test ran against the real pinned net and passed
+(L1Static takes a hanging queen — the POV sign chain proven at scaffold time). README
+records the operator-directed game-database layer design: categorized DBs
+lazy-loaded from baked release files (bgz-tensor `hydrate.rs` + sha256 manifest
+precedent), eventually JIT/jitson via lance-graph-planner. ELO is measured, never
+asserted (CLAUDE.md iron rule).
+
+**Statistical toolbox rule (standing, operator pointer):** future probes consume
+`ndarray::hpc::reliability::{pearson, spearman, icc_a1, cronbach_alpha}` instead of
+hand-rolled rank correlation, and route significance claims on fingerprint-derived
+quantities through `lance-graph/crates/jc` (the Jirak pillar, per
+I-NOISE-FLOOR-JIRAK). Per-player style STABILITY is an ICC question — the right
+statistic for "does this player have a measurable style," which LICHESS-1
+approximated crudely with nearest-neighbour ID. Queued migration: swap probe-local
+Spearman copies for the reliability imports with identical-number re-emission as the
+check.
+
+**Queued next:** D-SF-FILTER-1 — awareness-filter switching between spatial
+wide-angle (perturbation-field read) and temporal tele (k-ply rollout read), switched
+on the contact/wedge signal, gated on beating both pure reads at predicting strong
+play. Plus the lichess iteration knobs above, the piece-palette + edges follow-up,
+and traps-on-INFERRED-models (chains behind a working style inference).

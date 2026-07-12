@@ -1,3 +1,11 @@
+## 2026-07-12 — E-SF-TRAP-LURE-GREEN-1 — opponent-aware lure synthesis works; opponent-model inference is the bottleneck (wave-2 arc: 4 probes + contract type + lichess-rs scaffold)
+
+**Status:** MEASURED (stockfish-rs `4c47ce1`/`eaa902b`/`f028442`/`1c9418f`, PR #10; lance-graph `0ed93b59`; lichess-rs `ce44ada`).
+**Headline GREEN:** D-SF-TRAP-1 — traps as distractions via the opponent's hammer×nail blind spot: bait rate 0.767, +1592 cp pooled payoff vs rational baseline, no self-harm vs rational opponents. Scope honest: KNOWN ground-truth style models; the "first for game engines" phrasing is an [H] operator conjecture (priority unverified). The composite finding: **lure synthesis is the easy half; per-opponent style INFERENCE is the hard half** — feature-basis and diversion-vector L2 both measure ≈ zero on real 2013 blitz data (LICHESS-1) and the synthetic corpus can't discriminate them.
+**Supporting measurements:** holes detector sane but unsupported on available corpora (Opera: 2 occupation events, insufficient; styled: ρ=−0.035); per-piece palette loses cross-piece structure exactly where the operator input said "+ edges" (0.494 vs SimHash 0.660; residue lane 0.965 fidelity keeper); real-rating ladder non-monotone at 2013-blitz noise (top band 0.294 points right; humans ≈25–30% agreement with 1-ply static argmax vs 60% synthetic — calibration gap banked).
+**Standing rule added:** statistics via `ndarray::hpc::reliability` (pearson/spearman/icc_a1/cronbach_alpha) + `crates/jc` Jirak pillar for significance; per-player style stability is an ICC question.
+**Cross-ref:** E-SF-AWARENESS-OPPONENT-ARC-1 (wave 1, same day); knowledge doc § "Wave 2"; `TemporalPov` in LATEST_STATE contract inventory; lichess-rs README (baked-release + JIT game-DB design).
+
 ## 2026-07-12 — E-SF-AWARENESS-OPPONENT-ARC-1 — stacked-awareness/opponent-modeling arc: real-play clauses green, synthetic-style clauses fail; L0 egocentrism IS the POV defect
 
 **Status:** MEASURED (5 probes, stockfish-rs `7a8381e`/`c263ac0`/`6f7f7bc`/`ab7d9f4`).
