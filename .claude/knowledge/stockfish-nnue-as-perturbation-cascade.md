@@ -125,12 +125,14 @@ Stated as deliverables so it can be executed and falsified, never hand-waved:
   the actual VECTOR tenant shapes: codebooks trained on 2048 FT columns, measured
   on 256 DISJOINT held-out columns (32 640 pairs — no memorization degeneracy; an
   earlier same-set run gave a degenerate ρ=1.0 and was discarded):
+
   | lane | bytes/col | ρ_all | near-orth ρ | MAE |
   |---|---|---|---|---|
   | cam_pq 48-bit (6×256, `CamCodebook`) | 6 B (341×) | 0.929 | 0.823 | 0.083 |
   | **V3-L4 96-bit (6×256², the le-contract `6×(u8:u8)` ²centroid pairs)** | 12 B (170×) | **0.966** | 0.881 | 0.053 |
   | 64×256 512-bit (64 subspaces × 16d — "one centroid per square", board-shaped) | 64 B (32×) | 0.977 | 0.918 | 0.042 |
   | + turbovec-style n×4bit edge residue (uniform FLOOR) | ~526 B (3.9×) | **0.998** | **0.994** | 0.009 |
+
   **Operator ruling confirmed by measurement: the full 96-bit `6×(256×256)` V3
   tenant is strictly better than 48-bit cam_pq** (it is the faithful/"perfect"
   tenant shape; cam_pq is the lossy approximation). The 96-bit tenant clears the
@@ -307,8 +309,12 @@ Games flow: `apply_move` → temporal-stream version → le-contract basin →
 - **D-SF-RUNG-1 — hindsight labeling via rung. ⚠ INCONCLUSIVE — stays [H]
   (2026-07-12, MEASURED; the ORACLE failed, not the thesis).** With an
   NNUE-eval-only hindsight oracle (`sign(eval@final)`) the rung split does NOT
-  land: mean first-third agreement 0.53 ≈ last-third 0.54, 0/25 games pass. Two
-  identified oracle defects: (1) **NNUE is not mate-aware** — a game ending in a
+  land. THREE identified oracle defects — the third found by codex on PR #8 and
+  fixed: (0) **`evaluate()` is side-to-move POV**, so the first cut's cross-ply
+  sign comparison was move-parity noise (flat 0.53 ≈ 0.54); with fixed-White-POV
+  normalization a REAL convergence gradient appears — mean first-third 0.48 →
+  last-third 0.74, 13/25 games — but still below the pre-registered 0.75/0.9
+  gate; (1) **NNUE is not mate-aware** — a game ending in a
   SACRIFICIAL mate (the Opera Game: Qxb8+ Nxb8 Rd8#) reads as the mating side
   DOWN material at the final ply, inverting the hindsight label exactly on the
   most decisive games; (2) random playouts never settle to a legible verdict.
