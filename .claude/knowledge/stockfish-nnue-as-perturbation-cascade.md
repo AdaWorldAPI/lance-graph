@@ -159,7 +159,7 @@ two axes.
 | Chess object | Temporal substrate | Grade |
 |---|---|---|
 | A game (ply sequence) | a `temporal.rs` sorted version-stream; ply *v* = one Lance version | **[G]** — moves already carry a total order; `apply_move` IS the step |
-| "position after ply *v*" | `QueryReference::at(v, rung)` + deinterlace — a zero-copy projection, no replay | **[H]** — the read is [G]; that it needs no recomputation is the D-SF-EPISODIC-1 gate |
+| "position after ply *v*" | `QueryReference::at(v, rung)` + deinterlace — a zero-copy projection, no replay | **[G]** (2026-07-11) — D-SF-EPISODIC-1 ran GREEN: the accumulator projected at ply *v* is byte-identical to the fresh-from-FEN computation (34/34), and to an out-of-order replay (11/11); see the deliverable below |
 | Analysis horizon (present vs hindsight) | the **rung**: low rung = reason strictly at ply *v*; high rung = spoiler-read the game's outcome to label the move (training-target labeling) | **[H]** — rung semantics are shipped; the chess *use* (hindsight = eval-vs-result delta) is the D-SF-RUNG-1 probe |
 | Opening variants (e4/d4/…) | **episodic basins** = le-contract **L1 `part_of:is_a`** rails (a variant is-a line is-a opening) | **[H]** — rails are [G]; that opening-trees fit the L1 rail shape is the D-SF-BASIN-1 probe |
 | Transpositions (same position, different move-order) | **L2 `memberof:members`** — one position node, member-of many variant basins | **[H]** — the many-basins-one-node shape is exactly L2; the probe confirms it round-trips |
@@ -178,14 +178,23 @@ Games flow: `apply_move` → temporal-stream version → le-contract basin →
 
 ### Probe-gated deliverables (temporal)
 
-- **D-SF-EPISODIC-1 — a game as a temporal version-stream.** Model an N-ply game
-  as N `temporal.rs` entries; read position-at-ply-*v* via `QueryReference::at`.
-  **Gate:** the projected accumulator at ply *v* == the accumulator freshly
-  computed from the ply-*v* FEN, byte-for-byte — *reusing the L4 chained oracle
-  already green in `incremental.rs`*. This is the **strongest temporal probe**:
-  it turns the existing incremental oracle into a temporal-replay oracle at zero
-  new ground-truth cost. If it passes, "position-at-version is a zero-copy
-  projection" is [H]→[G].
+- **D-SF-EPISODIC-1 — a game as a temporal version-stream. ✅ GREEN (2026-07-11,
+  MEASURED).** Modelled the Opera Game (33 plies, captures + queenside castling)
+  as a `temporal.rs`-shaped version-stream over `HalfKaAccumulator` (the
+  incrementally-updated carrier — the temporal analog of the spatial L4 delta),
+  and measured two gates on the pinned net `nn-1b6a82263149`:
+  - **GATE A (projection):** fresh `refresh(pos@v)` == the incrementally-maintained
+    version-*v* accumulator, byte-for-byte — **34/34** plies. `QueryReference::at(v)`
+    reproduces from the version's own FEN identity, no recomputation of the stream.
+  - **GATE B (order-independent replay):** an out-of-order / random-access read to
+    ply *v* (independent incremental walk from the start) == the forward-walk
+    version-*v* — **11/11** queries. The stream is replayable.
+  Together these promote "position-at-version is a zero-copy projection" **[H]→[G]**.
+  Reused the L4 byte-exact oracle as a temporal-replay oracle at zero new
+  ground-truth cost, exactly as designed. Honest scope: proven for the HalfKA
+  incremental carrier; the full eval's threats term is refresh-only in current
+  code (does not affect the version-stream claim). Probe:
+  `stockfish-rs examples/temporal_replay.rs` (PR #5); net-gated, CI-safe.
 - **D-SF-BASIN-1 — opening variants as L1 basins.** Encode a small opening tree
   (e.g. 3 openings × 2 variants) as L1 `part_of:is_a` rails; assert a position
   resolves to its basin set. **Gate:** transposition (same FEN via two move-orders)
