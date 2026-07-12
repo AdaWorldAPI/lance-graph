@@ -1,3 +1,10 @@
+## 2026-07-12 — stockfish-awareness-arc-fleet — D-SF-OPPONENT-1/2/3 + D-SF-PHASE-1 measured, board applied
+
+- **Fleet:** 4 Sonnet grindwork probe builders (stockfish-rs) + 1 Sonnet doc applier (this repo).
+- **Deliverables:** D-SF-OPPONENT-1 (awareness ladder, `7a8381e`), D-SF-OPPONENT-3 (diversion-vector L2, `c263ac0`), D-SF-OPPONENT-2 (Raumgewinn/sacrifice/wedge/counterfactual, `6f7f7bc`), D-SF-PHASE-1 (classid×wide-mask, `ab7d9f4`), all in `AdaWorldAPI/stockfish-rs`.
+- **Outcome:** real-play (Opera Game) clauses all GREEN; synthetic-styled-opponent clauses fail (noise-dominated) — see `EPIPHANIES.md` `E-SF-AWARENESS-OPPONENT-ARC-1`.
+- **Board:** knowledge doc `stockfish-nnue-as-perturbation-cascade.md` appended; EPIPHANIES prepended. **D-SF-LICHESS-1 in flight** (lichess 2013-01 dump, decisive next probe).
+
 ## 2026-07-10 — fable-vision-keeper — VISION.md synthesized, filigree-reviewed, ratified (operator: "pull back in anything from the AGI aspiring... you keep the vision alive")
 
 - **The artifact:** `.claude/v3/VISION.md` — the AGI-aspiring canon re-grounded through the 2026-07-10 substrate: the Click's three carrier moves and the loop-invariant lesson; thinking-is-a-struct → thinking-is-a-ROW (full organ table incl. free_energy/Kausal + global_context); projection as a FIVE-axis fact (bytes/readings/time/scale/bits — the fifth measured on proxies, fence riding the thesis sentence); families→runbooks→templates ladder; the Rubicon heart under E-NOBODY-WAITS-1; the anti-dilution laws; the road in dependency order. Every claim graded [G]/[G-on-proxies]/[RULING]/[ASPIRATION].

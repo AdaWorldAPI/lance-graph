@@ -367,3 +367,100 @@ ground truth.
 - `AdaWorldAPI/stockfish-rs`: L3 `src/eval/accumulator.rs`, L4
   `src/eval/incremental.rs` (the reference kernel to lift), L5 `network_eval.rs`
   (the int8 GEMM consumer).
+
+## Stacked awareness / opponent-modeling arc (2026-07-12, operator design inputs + 5 probes)
+
+**Operator design inputs (recorded verbatim in intent, graded honestly):** rung levels
+as STACKED AWARENESS (cognitive Maslow pyramid; Piaget's stages; the Three-Mountains
+perspective test); Go's Raumgewinn vs infight as CONCURRENTLY COMPLEMENTARY strategies;
+sacrifices in the infight buying freed piece influence + development-time momentum;
+pros waiting solid, storing momentum, then driving the wedge unexpectedly; L2 opponent
+modeling as a DIVERSION VECTOR from one's own L1 (the "(w)edge residue") rather than a
+coarse hand-picked feature basis; prehydrated opening/middlegame/endgame strategy
+memory behind a classid × wide-FieldMask attention filter (zero-serialization in-memory
+masking for per-focus reasoning); positions/strategies as AriGraph V3 substrate (V3
+4+12 facet nodes, Lance-version time series per D-SF-EPISODIC-1, chess-specific
+markers); and rung decomposition applied to chess causality trajectories. The analogies
+are framing; every mechanism claim below carries a measured gate. All probes:
+stockfish-rs examples, net-gated, deterministic, exit-0 measurement style.
+
+**D-SF-OPPONENT-1 — the awareness ladder (PARTIAL, commit `7a8381e`).** Observer
+predicts styled opponents' moves at three rungs. n=511 decision points, 4 synthetic
+styles (Aggro/Solid/Greedy/Drifty):
+
+| rung | model | top-1 | top-3 |
+|---|---|---|---|
+| L0 egocentric (predict what's best FOR the observer) | raw `evaluate(after)` un-negated | 0.006 | 0.035 |
+| L1 perspective (Three Mountains passed) | mover-POV `-evaluate(after)` | 0.616 | 0.937 |
+| L2 naive tendency (hand-picked capture/check/greed basis) | L1 + feature bias | 0.591 | 0.861 |
+
+The L0→L1 jump is ~100× — perspective-taking is THE awareness step, and **L0 is
+structurally identical to the codex POV defect fixed on stockfish-rs PR #8**: the
+egocentric read of the opponent's position is the same failure mode, now measured at
+0.006 predictive power. L2-naive FAILED its gates (worse than L1 on 3/4 styles; style
+identification 0.375 vs chance 0.217, short of the 2× bar). Root cause measured, not
+assumed: in a random-playout corpus, base-eval swings span thousands of cp and dwarf
+the 90–140cp injected style biases — the behavioral signal is thin by construction.
+
+**D-SF-OPPONENT-3 — diversion-vector L2 (NEGATIVE on synthetic, stays [H]; commit
+`c263ac0`).** Operator correction under test: opponent model = own L1 + measured
+residue of their choices against it, in accumulator space (mover-perspective HalfKA
+slice, unit-normalized deltas, online, no peeking), instead of the hand-picked basis.
+Same corpus/seeds as OPPONENT-1 (census + L0/L1 reproduced exactly). Result: L2-residue
+0.589/0.534/0.491 at λ=1/3/6 (vs naive 0.591, L1 0.616) — monotonically worse with λ;
+residue-direction identification 1.5× chance vs the feature basis's 1.7×. **Honest
+localization, not a kill:** on a corpus whose deviations ARE three scalar biases, the
+hand-picked basis is the generating basis and cannot lose, while the raw 1024-d
+deviation direction is noise-dominated (style-centroid cosines: Solid–Aggro +0.02). The
+diversion-vector claim is about REAL opponents with structured deviations — decisive
+test = D-SF-LICHESS-1 (below). Mechanical note banked: raw accumulator deltas carry
+material/placement mass; whiten/normalize before direction on real data.
+
+**D-SF-OPPONENT-2 — Raumgewinn/infight, sacrifice economics, wedge, counterfactual
+rung (PARTIAL 5/7, commit `6f7f7bc`).**
+
+| clause | gate | result |
+|---|---|---|
+| 1a style separation (Territory/Fighter LOO classification ≥0.75) | ✗ 0.25 | synthetic-style SNR again |
+| 1b axes complementary (cross-axis pearson &lt;0.5) | ✓ r=0.069 | orthogonal, not antipodal |
+| 2a ≥1 sacrifice detected (Opera) | ✓ 5 detected | — |
+| 2b all detected show influence/tempo compensation | ✗ 1/5 | the 1 passer is the REAL Qxb8+!! (ply 31); the 4 fails are false positives of the shallow 1-ply greedy-reply material oracle (cannot see recaptures) |
+| 3 NNUE residual (eval − material) loads on space/influence/development (≥2/3 Spearman ρ ≥ +0.3) | ✓ 2/3 | **the net PRICES the compensation** — the "positional perturbation" layer has a measured interpretation |
+| 4 wedge detection (quiet ≥6 plies → capture burst; stored momentum + surprise concentration) | ✓ 8/9 games wedge; Opera wedge = **Nxb5 ply 19, the pre-registered prediction, hit exactly**; 6/8 satisfy both sub-gates | waiting-then-conversion is detectable |
+| 5 counterfactual rung (Pearl Rung 3, model-based rational-L1 replay of the material-preserving alternative, 8 plies) | ✓ 5/5 | every sacrifice's actual line beats its counterfactual on influence or development — "bought momentum" is a measured trajectory divergence |
+
+**D-SF-PHASE-1 — classid × wide-mask phase filter (O3: MASK HURTS at retrieval;
+commit `ab7d9f4`).** 271 positions, 4 families × 3 phases (80/120/71). Unmasked
+family-precision@5 0.697; phase-masked 0.654 — the filter removed cross-phase
+same-family neighbours that were correct. Cross-phase contamination 21.2% (Middle
+36.8%, Opening 1.7%); phase is readable off the unmasked top-5 neighbourhood at 0.815
+(Opening 0.988, End 0.887) — **phase is emergent in accumulator geometry; prehydrated
+basins should be family-keyed with phase as a soft read, not a hard partition.** The
+classid × wide-mask filter earns its keep as SCOPING (zero-serialization ~3× candidate
+reduction at −0.04 precision), not as an accuracy device. Contract ground truth: the
+real `lance_graph_contract::class_view::FieldMask` is a field-PRESENCE mask (has(n)) —
+a different semantic axis than a classid phase-equality filter; the probe rendered the
+pattern locally and says so rather than force-fitting.
+
+**Meta-finding of the arc (first-class):** every mechanism clause anchored on REAL play
+(the Opera Game) went green — sacrifice compensation, NNUE pricing, wedge at Nxb5,
+counterfactual rung — while every clause requiring SYNTHETIC styled opponents to carry
+behavioral signal failed (style classification, tendency prediction, residue
+identification). Synthetic 90–140cp biases drown in playout eval noise three probes in
+a row. The corpus, not the mechanisms, is the binding constraint.
+
+**Measurement landscape (operator, recorded):** the stack can only be measured against
+open/offline anchors — the lichess open database (CC0 PGN dumps WITH player ratings;
+partial fishnet `[%eval]` annotations), the lichess bot API (the only live rating
+anchor open to engines), and fishnet as the external analysis oracle. chess.com is
+gated to players. Reachability from this environment verified (2013-01 dump: 17 MB,
+~120k rated games, HTTP 200 + range requests). Search-strength/ELO claims remain a
+non-goal per the stockfish-rs plan; the lichess data buys external falsification of
+the SUBSTRATE claims on real opponents at known strength.
+
+**Queued: D-SF-LICHESS-1** (`examples/lichess_ladder.rs`, in flight at writing): (a)
+L1-agreement per rating band — if the awareness ladder is real, agreement with our
+static-NNUE rational-best climbs with Elo (simultaneously calibrating our L1 against
+the human strength ladder); (b) per-player tendency/residue identification on real
+style structure (the decisive OPPONENT-3 test); (c) embedded `[%eval]` census +
+wedge/surprise cross-check against the external oracle where coverage allows.
