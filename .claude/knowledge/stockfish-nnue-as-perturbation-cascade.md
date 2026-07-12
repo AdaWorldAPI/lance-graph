@@ -101,29 +101,39 @@ Stated as deliverables so it can be executed and falsified, never hand-waved:
   stockfish-rs re-expresses its L3/L4 as the chess instantiation. **Gate:** the
   existing L3/L4 byte-exact oracles STILL pass through the generic kernel (no
   regression — the reference stays green).
-- **D-SF-V3-2 — the NNUE accumulator AS a V3 SoA tenant. ⚠ SCALAR-256 FENCED
-  (2026-07-11, MEASURED).** Probe D-PALETTE-NNUE asked: does palette-quantizing
-  the FT weights preserve the eval within the ρ anchor? Measured a Lloyd/k-means
-  **scalar-256** codebook over `ft.weights` (23 M i16, feature-major),
-  reconstructed in place, Spearman ρ of palette-eval vs exact-eval over a
-  677-position corpus on `nn-1b6a82263149`:
-  - ρ_all (wide-spread corpus) = **0.9934** — but this is an ARTIFACT of material
-    imbalance (gross material dominates ranking, so ρ stays high cheaply).
-  - ρ_quiet (146 near-equal positions, |eval| ≤ 200 cp — the fine-discrimination
-    bar where an engine actually lives) = **0.7812**; eval MAE **100 cp**.
-  **Verdict: the scalar-256 palette is FENCED** — on near-equal positions a scalar
-  256-level codebook does NOT preserve eval ranking; the FT carries fine magnitude
-  a scalar palette destroys, so it needs a **raw-magnitude lane**, not a scalar
-  palette tenant. This is the doc's predicted NO branch, now measured. **The
-  wide-corpus ρ trap is the finding's teeth:** a single naive ρ would have
-  greenlit "palette tenant" — the near-equal cut caught it. *Escalation queued —*
-  **D-PALETTE-NNUE-VEC:** vector palette256² / CAM-PQ (product-quantized 1024-dim
-  subspaces, each a 256-centroid codebook) exploits inter-dimension correlation a
-  scalar codebook cannot and is a strictly stronger representation; it is a
-  SEPARATE probe (the L4 tenant is `6×palette256:palette256` — pairs, not
-  scalars — so the vector probe is the faithful test of the tenant shape). Probe:
-  `stockfish-rs examples/palette_nnue.rs`. Honest scope: measured for the FT
-  weight matrix; the threat-weight lane (i8) is a further probe.
+- **D-SF-V3-2 — the NNUE accumulator AS a V3 SoA tenant. ✅ GREEN (2026-07-12,
+  MEASURED with the CERTIFIED codec — supersedes the 2026-07-11 scalar-256 fence).**
+  The question is whether the FT weights are a palette256 tenant — i.e. whether
+  the workspace's **certified Fisher-z cosine-replacement** (`bgz-tensor::fisher_z::
+  FisherZTable`, per-family 3σ gamma; certified ρ≥0.999 on 21 Qwen3-TTS roles /
+  256 Jina-v5 centroids) preserves the **pairwise-cosine ranking** of the FT
+  columns, read off the i8 table with **no materialization**. Measured on 256 FT
+  columns sampled from `nn-1b6a82263149` (32 640 off-diagonal pairs — the Jina-v5
+  cert setup):
+  - ρ_all = **0.99971** (Pearson r 0.99993); cosine MAE 0.00655, 64 KB one-table-read.
+  - ρ_mid = **0.99873** on the hard **near-orthogonal** band (|cos| ≤ 0.3, 19 126
+    pairs — where Fisher-z stretch is smallest and discrimination is hardest).
+  **Verdict: the FT columns ARE a palette256 tenant** — the certified cosine-
+  replacement preserves one-table-read similarity ranking, clearing the ρ≥0.999
+  anchor even on the hard cut. Fisher-z (`arctanh`) is monotone → rank-preserving
+  by construction; only the i8 3σ quantization is lossy, and it is negligible here.
+  Probe: `bgz-tensor examples/nnue_palette_cosine.rs` (+ `stockfish-rs
+  examples/export_ft_columns.rs` for the FT-column fixture).
+
+  > **Correction (why the first cut was wrong).** The 2026-07-11 scalar-256 result
+  > (Lloyd/k-means codebook over the raw i16 weights, then reconstruct + re-run
+  > eval → ρ_quiet 0.7812, "FENCED") measured the WRONG thing with the WRONG tool:
+  > (a) a hand-rolled scalar k-means codebook is NOT the workspace's palette256
+  > (which is the Fisher-z cosine-replacement — `encoding-ecosystem.md` is the
+  > MANDATORY map that was skipped); (b) it MATERIALIZED (reconstructed weights and
+  > re-evaluated) when for RANKING you never materialize — you read off the Fisher-z
+  > distance directly. Both errors inflated a real similarity codec into an eval-
+  > reconstruction failure. The scalar-256 numbers stand only as "naive scalar
+  > k-means reconstructs eval poorly" — a true statement about a tool nobody uses,
+  > NOT about the palette tenant. Honest scope of the GREEN: proven for FT-column
+  > pairwise-cosine SIMILARITY (the one-table-read tenant claim); it does NOT claim
+  > byte-exact eval from palette codes (that remains the raw net's job — the palette
+  > is a similarity/routing tenant, not an exact-eval substitute).
 - **D-SF-V3-3 — make_index → HHTL/Morton route.** Probe D-MORTON-KA: re-project
   HalfKA's king-bucket × piece-square addressing onto a Morton 2bit×2bit tile and
   measure whether nearest-in-Morton ⇒ nearest-in-feature (the quorum τ). Confirms
