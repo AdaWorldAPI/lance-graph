@@ -101,14 +101,29 @@ Stated as deliverables so it can be executed and falsified, never hand-waved:
   stockfish-rs re-expresses its L3/L4 as the chess instantiation. **Gate:** the
   existing L3/L4 byte-exact oracles STILL pass through the generic kernel (no
   regression — the reference stays green).
-- **D-SF-V3-2 — the NNUE accumulator AS a V3 SoA tenant.** Map `[[i16;1024];2]`
-  onto a V3 tenant lane (le-contract): is it an L4 palette pair carrier, or a new
-  raw-i16 lane? **Probe D-PALETTE-NNUE:** does palette256²-quantizing the FT
-  weight columns preserve the eval within the ρ anchor (Pflug-10 / Jirak floor)?
-  If YES → NNUE weights are a genuine L4 tenant (huge: 90 MB → palette-compressed
-  + one-table-read similarity). If NO → NNUE needs a raw-magnitude lane and the
-  palette-tenant rhyme is fenced. *This is the single highest-value probe — it
-  tells us whether the frozen 90 MB net is a palette tenant or not.*
+- **D-SF-V3-2 — the NNUE accumulator AS a V3 SoA tenant. ⚠ SCALAR-256 FENCED
+  (2026-07-11, MEASURED).** Probe D-PALETTE-NNUE asked: does palette-quantizing
+  the FT weights preserve the eval within the ρ anchor? Measured a Lloyd/k-means
+  **scalar-256** codebook over `ft.weights` (23 M i16, feature-major),
+  reconstructed in place, Spearman ρ of palette-eval vs exact-eval over a
+  677-position corpus on `nn-1b6a82263149`:
+  - ρ_all (wide-spread corpus) = **0.9934** — but this is an ARTIFACT of material
+    imbalance (gross material dominates ranking, so ρ stays high cheaply).
+  - ρ_quiet (146 near-equal positions, |eval| ≤ 200 cp — the fine-discrimination
+    bar where an engine actually lives) = **0.7812**; eval MAE **100 cp**.
+  **Verdict: the scalar-256 palette is FENCED** — on near-equal positions a scalar
+  256-level codebook does NOT preserve eval ranking; the FT carries fine magnitude
+  a scalar palette destroys, so it needs a **raw-magnitude lane**, not a scalar
+  palette tenant. This is the doc's predicted NO branch, now measured. **The
+  wide-corpus ρ trap is the finding's teeth:** a single naive ρ would have
+  greenlit "palette tenant" — the near-equal cut caught it. *Escalation queued —*
+  **D-PALETTE-NNUE-VEC:** vector palette256² / CAM-PQ (product-quantized 1024-dim
+  subspaces, each a 256-centroid codebook) exploits inter-dimension correlation a
+  scalar codebook cannot and is a strictly stronger representation; it is a
+  SEPARATE probe (the L4 tenant is `6×palette256:palette256` — pairs, not
+  scalars — so the vector probe is the faithful test of the tenant shape). Probe:
+  `stockfish-rs examples/palette_nnue.rs`. Honest scope: measured for the FT
+  weight matrix; the threat-weight lane (i8) is a further probe.
 - **D-SF-V3-3 — make_index → HHTL/Morton route.** Probe D-MORTON-KA: re-project
   HalfKA's king-bucket × piece-square addressing onto a Morton 2bit×2bit tile and
   measure whether nearest-in-Morton ⇒ nearest-in-feature (the quorum τ). Confirms
@@ -159,7 +174,7 @@ two axes.
 | Chess object | Temporal substrate | Grade |
 |---|---|---|
 | A game (ply sequence) | a `temporal.rs` sorted version-stream; ply *v* = one Lance version | **[G]** — moves already carry a total order; `apply_move` IS the step |
-| "position after ply *v*" | `QueryReference::at(v, rung)` + deinterlace — a zero-copy projection, no replay | **[H]** — the read is [G]; that it needs no recomputation is the D-SF-EPISODIC-1 gate |
+| "position after ply *v*" | `QueryReference::at(v, rung)` + deinterlace — a zero-copy projection, no replay | **[G]** (2026-07-11) — D-SF-EPISODIC-1 ran GREEN: the accumulator projected at ply *v* is byte-identical to the fresh-from-FEN computation (34/34), and to an out-of-order replay (11/11); see the deliverable below |
 | Analysis horizon (present vs hindsight) | the **rung**: low rung = reason strictly at ply *v*; high rung = spoiler-read the game's outcome to label the move (training-target labeling) | **[H]** — rung semantics are shipped; the chess *use* (hindsight = eval-vs-result delta) is the D-SF-RUNG-1 probe |
 | Opening variants (e4/d4/…) | **episodic basins** = le-contract **L1 `part_of:is_a`** rails (a variant is-a line is-a opening) | **[H]** — rails are [G]; that opening-trees fit the L1 rail shape is the D-SF-BASIN-1 probe |
 | Transpositions (same position, different move-order) | **L2 `memberof:members`** — one position node, member-of many variant basins | **[H]** — the many-basins-one-node shape is exactly L2; the probe confirms it round-trips |
@@ -178,14 +193,23 @@ Games flow: `apply_move` → temporal-stream version → le-contract basin →
 
 ### Probe-gated deliverables (temporal)
 
-- **D-SF-EPISODIC-1 — a game as a temporal version-stream.** Model an N-ply game
-  as N `temporal.rs` entries; read position-at-ply-*v* via `QueryReference::at`.
-  **Gate:** the projected accumulator at ply *v* == the accumulator freshly
-  computed from the ply-*v* FEN, byte-for-byte — *reusing the L4 chained oracle
-  already green in `incremental.rs`*. This is the **strongest temporal probe**:
-  it turns the existing incremental oracle into a temporal-replay oracle at zero
-  new ground-truth cost. If it passes, "position-at-version is a zero-copy
-  projection" is [H]→[G].
+- **D-SF-EPISODIC-1 — a game as a temporal version-stream. ✅ GREEN (2026-07-11,
+  MEASURED).** Modelled the Opera Game (33 plies, captures + queenside castling)
+  as a `temporal.rs`-shaped version-stream over `HalfKaAccumulator` (the
+  incrementally-updated carrier — the temporal analog of the spatial L4 delta),
+  and measured two gates on the pinned net `nn-1b6a82263149`:
+  - **GATE A (projection):** fresh `refresh(pos@v)` == the incrementally-maintained
+    version-*v* accumulator, byte-for-byte — **34/34** plies. `QueryReference::at(v)`
+    reproduces from the version's own FEN identity, no recomputation of the stream.
+  - **GATE B (order-independent replay):** an out-of-order / random-access read to
+    ply *v* (independent incremental walk from the start) == the forward-walk
+    version-*v* — **11/11** queries. The stream is replayable.
+  Together these promote "position-at-version is a zero-copy projection" **[H]→[G]**.
+  Reused the L4 byte-exact oracle as a temporal-replay oracle at zero new
+  ground-truth cost, exactly as designed. Honest scope: proven for the HalfKA
+  incremental carrier; the full eval's threats term is refresh-only in current
+  code (does not affect the version-stream claim). Probe:
+  `stockfish-rs examples/temporal_replay.rs` (PR #5); net-gated, CI-safe.
 - **D-SF-BASIN-1 — opening variants as L1 basins.** Encode a small opening tree
   (e.g. 3 openings × 2 variants) as L1 `part_of:is_a` rails; assert a position
   resolves to its basin set. **Gate:** transposition (same FEN via two move-orders)
