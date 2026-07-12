@@ -1,3 +1,32 @@
+## 2026-07-12 — E-CHESS-ARC-TO-V3-TRANSFER-1 — the chess-signature arc distilled into V3 muscle memory (4 validations + 1 probe-gated method + 3 rejected rhymes)
+
+**Status:** SYNTHESIS (distillation of E-CHESS-SIGNATURE-ARC-1; grades explicit; the novel method is CONJECTURE, probe-gated).
+**Frame:** the chess arc was a probe of THINKING itself (identity, adaptation, hindsight, epiphany, the rare belief-update). What transfers to the V3 substrate, graded mechanism-vs-rhyme:
+
+**Four validations of already-ruled V3 directions (chess arc supplied the evidence):**
+
+1. **Identity is a response-function, not a stored trait [H, strong].** Personality measured 98% INTER (opponent-driven) / 2% INTRA (trait) — a constant-vector model mis-specifies it. This IS the mailbox-as-owner / no-singleton ruling (cognition = dispatch-response-to-casts, `E-MAILBOX-KANBAN-NO-COLLAPSEGATE`), measured: a stored-BindSpace-singleton would have been the 2% model; the response-to-casts substrate is the correctly-specified one. The aggregate chess negatives (~1.3×) are the empirical cost of the architecture V3 already rejected.
+
+2. **The temporal rung IS the learning-strategy dial [G enforcement / H framing].** D-SF-HINDSIGHT-1 proved `TemporalPov::at(v, Strict)` enforces zero future-ply access (0/521,630 reads). So `temporal.rs`'s Strict/Aware/Retro rungs are not only a read-coherence selector (INTEGRATION-PLAN Addendum-8) — they are a LEARNING-REGIME selector: Strict = causal/online (no leak), Retro = hindsight/credit-assignment. The rung chooses whether a NARS revision pass may see the settled outcome. Muscle-memory addition to the WAL-read ruling; no new mechanism.
+
+3. **Episodic basins and signature moments need DIFFERENT storage [H].** Basins (the recurring `part_of:is_a` rails, le-contract L1–L3) are averaged context — and the MEAN does not identify (comfort-basin probe 1.1×). Signature moments (rare tail) carry identity (delayed-gratification-sac rate 9.70×) and must be preserved INDIVIDUALLY, not bundled into the rail. Rule: bundle the basin, anomaly-detect-and-preserve the signature. Refines the memory model; does not replace it.
+
+4. **When the signal is a rare event, bundling destroys it [G].** A mean's SNR is bounded by the event rate; a ~1% needle cannot survive averaging (measured: every averaged probe ~1.1–1.3×). I-VSA-IDENTITIES / CollapseGate discipline stated as a detection rule: `MergeMode::Bundle` is right for the Markov-context basin, WRONG for the discriminating rare event — route the needle to anomaly detection (ndarray CLAM/CHAODA), never into the bundle.
+
+**The standout — one genuinely new, probe-gated method [H / CONJECTURE]:**
+
+**D-EPIPHANY-SIG-1 — Hambly–Lyons as an epiphany-vs-rumination detector for NARS reasoning.** Hambly–Lyons (jc pillar #11): a path's signature is trivial IFF the path is tree-like (a detour-and-return collapsing to its start). Map onto a thinking trajectory (the `Think` struct's path over a cycle: `FreeEnergy` F descending, `awareness` divergence, contradiction-depth):
+- RUMINATION = out-and-back — F oscillates, no belief net-moves — path is tree-like — signature ≈ identity, Lévy area ≈ 0.
+- EPIPHANY = area swept — F net-descends, a Contradiction commits, awareness revises — path non-tree-like — signature ≠ identity, Lévy area ≠ 0.
+So the LÉVY AREA of the belief-trajectory is a principled "did this reasoning actually update anything" test — the operator's `epiphany-detection ↔ NARS reasoning` link. A NARS revision that returns a belief to its prior conveys no net information (tree-like); one that displaces it sweeps area. Every piece is in-tree: `sigker::signature_truncated` (signature) + `jc/hambly_lyons` (certificate) + the `Think`/`FreeEnergy`/NARS model + `temporal.rs` (the stream the path rides). **Probe (probe-first, mechanism lands after its failing probe):** take recorded Think cycles labeled epiphany (ΔF<0.05, both-triples-commit) vs rumination (F oscillates, no commit), compute the depth-2 signature of the `(ΔF, awareness-divergence, contradiction-depth)` path, test whether the Lévy area / signature norm separates them ≥2× a shuffled-order control. Stays [H] until it runs. Caveat: use `sigker::signature_kernel`, never `signature_kernel_pde` (jc-flagged bug).
+
+**Three rejected rhymes (anti-dilution — do NOT build):**
+- ✗ "the perturbation shader IS the signature transform" — the shader is VSA bind+braid+bundle; the signature is iterated integrals; different algebras. Braiding-by-position rhymes with order-encoding but is [S], do-not-build until measured.
+- ✗ "personality = the QualiaColumn" — a rhyme; do not force the 18×f32 to carry it.
+- ✗ treating the ~1.3× aggregate results as "signal" — they are the honest null; never launder them into canon as a win.
+
+**Cross-ref:** E-CHESS-SIGNATURE-ARC-1 (the arc); INTEGRATION-PLAN Addendum-8 (temporal rungs); `E-MAILBOX-KANBAN-NO-COLLAPSEGATE`; I-VSA-IDENTITIES; jc pillar #11 (`hambly_lyons.rs`); `.claude/v3/FUTURE-DESIGN.md` (D-EPIPHANY-SIG-1 queued to the thinking-engine gem wiring queue).
+
 ## 2026-07-12 — E-CHESS-SIGNATURE-ARC-1 — personality is the opponent-response function (inter 98% / intra 2%); Turk-Polson substrate already in-tree
 
 **Status:** MEASURED (stockfish-rs `79ce78f`/`57ae59f`/`654a605`/`2c54e1a`/`64b8aa3`/`5d74b6c`/`2f73686`/`fa7beff`; lance-graph `505b989e`).

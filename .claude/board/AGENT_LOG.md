@@ -1,3 +1,9 @@
+## 2026-07-12 — chess-arc-v3-transfer-carve — E-CHESS-ARC-TO-V3-TRANSFER-1 distilled (4 validations + D-EPIPHANY-SIG-1 probe-gated + 3 rejected rhymes)
+
+- **Deliverable:** `EPIPHANIES.md` `E-CHESS-ARC-TO-V3-TRANSFER-1` — chess-signature arc (`E-CHESS-SIGNATURE-ARC-1`) distilled into V3 muscle memory: 4 validations of already-ruled directions + 1 novel probe-gated method (D-EPIPHANY-SIG-1, Hambly–Lyons epiphany-vs-rumination detector) + 3 rejected rhymes named explicitly.
+- **Board:** EPIPHANIES prepended; FUTURE-DESIGN.md wiring-queue bullet added (D-EPIPHANY-SIG-1).
+- **Outcome:** distillation carved, rides PR #687. No code changed (doc-only).
+
 ## 2026-07-12 — stockfish-wave3-fleet — chess-signature arc capstone: no-hindsight GREEN, needle 9.70×, personality 98% inter, Turk-Polson substrate in-tree
 
 - **Fleet:** Sonnet workers for D-SF-HINDSIGHT-1, PERSONALITY-1..4, BLITZ-1, SIGNATURE-1, NEEDLE-1 (CHAODA) + temporal-test worker (lance-graph-planner) + this doc applier.

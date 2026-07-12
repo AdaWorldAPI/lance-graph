@@ -79,6 +79,7 @@ wiring; some are calibration-only by design):
 - `domino.rs` / `composite_engine.rs` / `dual_engine.rs` — M8's collapse
   surface (4 near-duplicate engines → one dispatched engine).
 - `l4_bridge.rs` / `tensor_bridge.rs` — the L4 learning-loop seam (W4b).
+- **D-EPIPHANY-SIG-1 (queued, [H]/CONJECTURE)** — Hambly–Lyons epiphany-vs-rumination detector: the Lévy area of the `Think` belief-trajectory signature distinguishes real belief-update (non-tree, area swept) from circular rumination (tree-like, collapses). In-tree parts: `sigker` + `jc/hambly_lyons` + `Think`/NARS + `temporal.rs`. Probe-gated; full text EPIPHANIES `E-CHESS-ARC-TO-V3-TRANSFER-1`.
 
 **Standing constraint:** the value-tenant migration is MID-FLIGHT (10 lanes,
 `ENVELOPE_LAYOUT_VERSION=2`, BoardAggregates gated on the batched mint +
