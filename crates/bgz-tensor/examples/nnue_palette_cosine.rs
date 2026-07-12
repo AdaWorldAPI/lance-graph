@@ -17,7 +17,9 @@
 //!
 //! Gate (anchor: certified Fisher-z lane ρ≥0.999): ρ_all ≥ 0.999 AND the hard
 //! near-orthogonal cut ρ_mid ≥ 0.99 → GREEN (FT columns ARE a palette256 tenant:
-//! one-table-read cosine similarity preserved).
+//! one-table-read cosine similarity preserved). The **exit code IS the gate**:
+//! 0 only on GREEN; non-zero on fenced OR insufficient (a missing hard cut is
+//! withheld, never an auto-pass). The input-absent path exits 0 (CI-safe).
 //!
 //! Run: cargo run --manifest-path crates/bgz-tensor/Cargo.toml --release \
 //!        --example nnue_palette_cosine -- /path/to/ft_columns.bin
@@ -186,28 +188,39 @@ fn main() -> ExitCode {
         rho_mid
     );
 
-    let primary = if rho_mid.is_nan() {
-        rho_all
-    } else {
-        rho_all.min(rho_mid)
-    };
-    if rho_all >= 0.999 && (rho_mid.is_nan() || rho_mid >= 0.99) {
+    // The gate is explicit: ρ_all ≥ 0.999 AND the hard near-orthogonal cut
+    // ρ_mid ≥ 0.99. A missing hard cut (too few near-orthogonal pairs → ρ_mid
+    // undefined) is NOT a pass — GREEN is withheld. Exit code IS the gate: 0 only
+    // on GREEN; non-zero on fenced or insufficient, so automation can distinguish
+    // a certified tenant from one where the fine-discrimination bar failed or was
+    // never measured. (The input-absent path above still exits 0 — CI-safe.)
+    let hard_cut_ok = rho_mid.is_finite() && rho_mid >= 0.99;
+    if rho_all >= 0.999 && hard_cut_ok {
         println!(
             "D-PALETTE-NNUE (corrected): GREEN — ρ_all {:.5} ≥ 0.999 and near-orthogonal ρ {:.5} ≥ 0.99.\n\
              The NNUE FT columns ARE a palette256 tenant: the certified Fisher-z cosine-replacement\n\
              preserves pairwise-cosine ranking (one-table-read similarity), no materialization.\n\
              The earlier scalar-k-means FENCE was an artifact of the wrong codec + eval-reconstruction.",
-            rho_all, if rho_mid.is_nan() { rho_all } else { rho_mid }
+            rho_all, rho_mid
         );
         ExitCode::SUCCESS
-    } else {
+    } else if !rho_mid.is_finite() {
         println!(
-            "D-PALETTE-NNUE (corrected): AMBER/FENCED — min(ρ_all, ρ_mid) {:.5} below bar. The certified\n\
-             cosine-replacement does not clear the ρ≥0.999 / near-orthogonal-0.99 anchor on FT columns;\n\
-             the tenant holds only coarsely. (Still far above the scalar-k-means artifact — a real,\n\
-             measured result, not a probe error.)",
+            "D-PALETTE-NNUE (corrected): INSUFFICIENT — the near-orthogonal hard cut had < 8 pairs\n\
+             (ρ_mid undefined), so the gate (ρ_all ≥ 0.999 AND ρ_mid ≥ 0.99) was never fully exercised.\n\
+             GREEN is withheld — supply an FT-column fixture with near-orthogonal pairs. (ρ_all = {:.5}.)",
+            rho_all
+        );
+        ExitCode::FAILURE
+    } else {
+        let primary = rho_all.min(rho_mid);
+        println!(
+            "D-PALETTE-NNUE (corrected): AMBER/FENCED — min(ρ_all, ρ_mid) {:.5} below the gate. The\n\
+             certified cosine-replacement does not clear the ρ_all≥0.999 / near-orthogonal-0.99 anchor\n\
+             on these FT columns; the tenant holds only coarsely. A real measured result — the gate\n\
+             returns non-zero so automation can distinguish it from GREEN.",
             primary
         );
-        ExitCode::SUCCESS
+        ExitCode::FAILURE
     }
 }
