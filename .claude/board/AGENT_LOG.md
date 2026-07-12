@@ -1,3 +1,17 @@
+## 2026-07-12 — stockfish-wave2-fleet — D-SF-TRAP-1 GREEN + holes/palette/lichess partials + TemporalPov + lichess-rs scaffold
+
+- **Fleet:** 5 Sonnet grindwork probe/scaffold builders (stockfish-rs trap/holes/piece-palette/lichess-ladder, lichess-rs scaffold) + 1 Sonnet contract worker (`TemporalPov`) + 1 Sonnet doc applier (this repo).
+- **Deliverables:** D-SF-TRAP-1 (`4c47ce1`, GREEN), D-SF-HOLES-1 (`eaa902b`, partial), D-SF-PIECEPALETTE-1 (`f028442`, partial), D-SF-LICHESS-1 (`1c9418f`, informative negative), `TemporalPov` contract (`0ed93b59`), `lichess-rs` scaffold (`ce44ada`) — stockfish-rs PR #10 open.
+- **Outcome:** lure synthesis works; opponent-model style inference is the measured bottleneck — see `EPIPHANIES.md` `E-SF-TRAP-LURE-GREEN-1`.
+- **Board:** knowledge doc `stockfish-nnue-as-perturbation-cascade.md` § "Wave 2" appended; EPIPHANIES prepended.
+
+## 2026-07-12 — stockfish-awareness-arc-fleet — D-SF-OPPONENT-1/2/3 + D-SF-PHASE-1 measured, board applied
+
+- **Fleet:** 4 Sonnet grindwork probe builders (stockfish-rs) + 1 Sonnet doc applier (this repo).
+- **Deliverables:** D-SF-OPPONENT-1 (awareness ladder, `7a8381e`), D-SF-OPPONENT-3 (diversion-vector L2, `c263ac0`), D-SF-OPPONENT-2 (Raumgewinn/sacrifice/wedge/counterfactual, `6f7f7bc`), D-SF-PHASE-1 (classid×wide-mask, `ab7d9f4`), all in `AdaWorldAPI/stockfish-rs`.
+- **Outcome:** real-play (Opera Game) clauses all GREEN; synthetic-styled-opponent clauses fail (noise-dominated) — see `EPIPHANIES.md` `E-SF-AWARENESS-OPPONENT-ARC-1`.
+- **Board:** knowledge doc `stockfish-nnue-as-perturbation-cascade.md` appended; EPIPHANIES prepended. **D-SF-LICHESS-1 in flight** (lichess 2013-01 dump, decisive next probe).
+
 ## 2026-07-10 — fable-vision-keeper — VISION.md synthesized, filigree-reviewed, ratified (operator: "pull back in anything from the AGI aspiring... you keep the vision alive")
 
 - **The artifact:** `.claude/v3/VISION.md` — the AGI-aspiring canon re-grounded through the 2026-07-10 substrate: the Click's three carrier moves and the loop-invariant lesson; thinking-is-a-struct → thinking-is-a-ROW (full organ table incl. free_energy/Kausal + global_context); projection as a FIVE-axis fact (bytes/readings/time/scale/bits — the fifth measured on proxies, fence riding the thesis sentence); families→runbooks→templates ladder; the Rubicon heart under E-NOBODY-WAITS-1; the anti-dilution laws; the road in dependency order. Every claim graded [G]/[G-on-proxies]/[RULING]/[ASPIRATION].

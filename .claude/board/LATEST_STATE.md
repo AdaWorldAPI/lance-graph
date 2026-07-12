@@ -1,5 +1,11 @@
 # LATEST_STATE — What Just Shipped (read this FIRST)
 
+## 2026-07-12 — branch `claude/review-claude-board-files-nhqgx1` — `contract::temporal_pov::{VersionRange, TemporalPov}` — zero-dep temporal POV range filter (operator-directed)
+
+### Current Contract Inventory — new entry
+
+- **`temporal_pov::{VersionRange, TemporalPov}`** (NEW; one zero-dep module, additive, re-exported nowhere new — accessed via `lance_graph_contract::temporal_pov::*`). Operator directive (2026-07-12): "add a time range filter to lance-graph-contract for temporal POV using our temporal.rs research." **`VersionRange { from, to }`** is a plain half-open `[from, to)` interval over `LanceVersion` (`u64`, zero-dep mirror of `lance_graph_planner::temporal::LanceVersion`) with `contains`/`intersect`/`is_empty`/`len`/`full()` (the `[0, u64::MAX)` "latest" window). **`TemporalPov { range, rung }`** pairs the range with the reader's `rung: u8` (mirrors `QueryReference::rung`, `crates/lance-graph-planner/src/temporal.rs:122-124`) and provides `TemporalPov::at(ref_version, rung)` (mirrors `QueryReference::at`, temporal.rs:139-151 — pins the contemporary window `row_version <= ref_version` as `[0, ref_version+1)`) + `admits(version)` (the version-range half of admission only, quoting `EpistemicMode::Strict`'s doc temporal.rs:53-55). **Deliberately does NOT reimplement** `EpistemicMode`/`TemporalStatus`/`classify`/`deinterlace` — those stay in `lance-graph-planner` (downstream of this crate; re-deriving them here would be exactly the duplication this file's Type Duplication table warns against). Instantiates `E-MARKOV-TEMPORAL-STREAM-1`'s "version-range read generalizes the VSA ±5 braid" ruling and its measured worked example `D-SF-EPISODIC-1` (`stockfish-rs` — position-at-ply-*v* as a zero-copy `QueryReference::at`+deinterlace projection, 34/34 + 11/11 GREEN). +11 unit tests (range contains/empty/full/intersect incl. touching-ranges-empty; POV admits/at/rung-boundary-roundtrip/latest-sentinel edge case) + 1 doctest; `cargo test -p lance-graph-contract temporal_pov` and `cargo clippy -p lance-graph-contract -- -D warnings` both clean (scoped, no `--workspace`).
+
 ## 2026-07-11 — branch `claude/medcare-ruff-codebook-handover-5ulx0i` — `ClassView::menu_address` — the runtime Klickwege-menu radix projection
 
 ### Current Contract Inventory — new entry

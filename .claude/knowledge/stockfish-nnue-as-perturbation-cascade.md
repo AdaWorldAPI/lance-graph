@@ -367,3 +367,196 @@ ground truth.
 - `AdaWorldAPI/stockfish-rs`: L3 `src/eval/accumulator.rs`, L4
   `src/eval/incremental.rs` (the reference kernel to lift), L5 `network_eval.rs`
   (the int8 GEMM consumer).
+
+## Stacked awareness / opponent-modeling arc (2026-07-12, operator design inputs + 5 probes)
+
+**Operator design inputs (recorded verbatim in intent, graded honestly):** rung levels
+as STACKED AWARENESS (cognitive Maslow pyramid; Piaget's stages; the Three-Mountains
+perspective test); Go's Raumgewinn vs infight as CONCURRENTLY COMPLEMENTARY strategies;
+sacrifices in the infight buying freed piece influence + development-time momentum;
+pros waiting solid, storing momentum, then driving the wedge unexpectedly; L2 opponent
+modeling as a DIVERSION VECTOR from one's own L1 (the "(w)edge residue") rather than a
+coarse hand-picked feature basis; prehydrated opening/middlegame/endgame strategy
+memory behind a classid × wide-FieldMask attention filter (zero-serialization in-memory
+masking for per-focus reasoning); positions/strategies as AriGraph V3 substrate (V3
+4+12 facet nodes, Lance-version time series per D-SF-EPISODIC-1, chess-specific
+markers); and rung decomposition applied to chess causality trajectories. The analogies
+are framing; every mechanism claim below carries a measured gate. All probes:
+stockfish-rs examples, net-gated, deterministic, exit-0 measurement style.
+
+**D-SF-OPPONENT-1 — the awareness ladder (PARTIAL, commit `7a8381e`).** Observer
+predicts styled opponents' moves at three rungs. n=511 decision points, 4 synthetic
+styles (Aggro/Solid/Greedy/Drifty):
+
+| rung | model | top-1 | top-3 |
+|---|---|---|---|
+| L0 egocentric (predict what's best FOR the observer) | raw `evaluate(after)` un-negated | 0.006 | 0.035 |
+| L1 perspective (Three Mountains passed) | mover-POV `-evaluate(after)` | 0.616 | 0.937 |
+| L2 naive tendency (hand-picked capture/check/greed basis) | L1 + feature bias | 0.591 | 0.861 |
+
+The L0→L1 jump is ~100× — perspective-taking is THE awareness step, and **L0 is
+structurally identical to the codex POV defect fixed on stockfish-rs PR #8**: the
+egocentric read of the opponent's position is the same failure mode, now measured at
+0.006 predictive power. L2-naive FAILED its gates (worse than L1 on 3/4 styles; style
+identification 0.375 vs chance 0.217, short of the 2× bar). Root cause measured, not
+assumed: in a random-playout corpus, base-eval swings span thousands of cp and dwarf
+the 90–140cp injected style biases — the behavioral signal is thin by construction.
+
+**D-SF-OPPONENT-3 — diversion-vector L2 (NEGATIVE on synthetic, stays [H]; commit
+`c263ac0`).** Operator correction under test: opponent model = own L1 + measured
+residue of their choices against it, in accumulator space (mover-perspective HalfKA
+slice, unit-normalized deltas, online, no peeking), instead of the hand-picked basis.
+Same corpus/seeds as OPPONENT-1 (census + L0/L1 reproduced exactly). Result: L2-residue
+0.589/0.534/0.491 at λ=1/3/6 (vs naive 0.591, L1 0.616) — monotonically worse with λ;
+residue-direction identification 1.5× chance vs the feature basis's 1.7×. **Honest
+localization, not a kill:** on a corpus whose deviations ARE three scalar biases, the
+hand-picked basis is the generating basis and cannot lose, while the raw 1024-d
+deviation direction is noise-dominated (style-centroid cosines: Solid–Aggro +0.02). The
+diversion-vector claim is about REAL opponents with structured deviations — decisive
+test = D-SF-LICHESS-1 (below). Mechanical note banked: raw accumulator deltas carry
+material/placement mass; whiten/normalize before direction on real data.
+
+**D-SF-OPPONENT-2 — Raumgewinn/infight, sacrifice economics, wedge, counterfactual
+rung (PARTIAL 5/7, commit `6f7f7bc`).**
+
+| clause | gate | result |
+|---|---|---|
+| 1a style separation (Territory/Fighter LOO classification ≥0.75) | ✗ 0.25 | synthetic-style SNR again |
+| 1b axes complementary (cross-axis pearson &lt;0.5) | ✓ r=0.069 | orthogonal, not antipodal |
+| 2a ≥1 sacrifice detected (Opera) | ✓ 5 detected | — |
+| 2b all detected show influence/tempo compensation | ✗ 1/5 | the 1 passer is the REAL Qxb8+!! (ply 31); the 4 fails are false positives of the shallow 1-ply greedy-reply material oracle (cannot see recaptures) |
+| 3 NNUE residual (eval − material) loads on space/influence/development (≥2/3 Spearman ρ ≥ +0.3) | ✓ 2/3 | **the net PRICES the compensation** — the "positional perturbation" layer has a measured interpretation |
+| 4 wedge detection (quiet ≥6 plies → capture burst; stored momentum + surprise concentration) | ✓ 8/9 games wedge; Opera wedge = **Nxb5 ply 19, the pre-registered prediction, hit exactly**; 6/8 satisfy both sub-gates | waiting-then-conversion is detectable |
+| 5 counterfactual rung (Pearl Rung 3, model-based rational-L1 replay of the material-preserving alternative, 8 plies) | ✓ 5/5 | every sacrifice's actual line beats its counterfactual on influence or development — "bought momentum" is a measured trajectory divergence |
+
+**D-SF-PHASE-1 — classid × wide-mask phase filter (O3: MASK HURTS at retrieval;
+commit `ab7d9f4`).** 271 positions, 4 families × 3 phases (80/120/71). Unmasked
+family-precision@5 0.697; phase-masked 0.654 — the filter removed cross-phase
+same-family neighbours that were correct. Cross-phase contamination 21.2% (Middle
+36.8%, Opening 1.7%); phase is readable off the unmasked top-5 neighbourhood at 0.815
+(Opening 0.988, End 0.887) — **phase is emergent in accumulator geometry; prehydrated
+basins should be family-keyed with phase as a soft read, not a hard partition.** The
+classid × wide-mask filter earns its keep as SCOPING (zero-serialization ~3× candidate
+reduction at −0.04 precision), not as an accuracy device. Contract ground truth: the
+real `lance_graph_contract::class_view::FieldMask` is a field-PRESENCE mask (has(n)) —
+a different semantic axis than a classid phase-equality filter; the probe rendered the
+pattern locally and says so rather than force-fitting.
+
+**Meta-finding of the arc (first-class):** every mechanism clause anchored on REAL play
+(the Opera Game) went green — sacrifice compensation, NNUE pricing, wedge at Nxb5,
+counterfactual rung — while every clause requiring SYNTHETIC styled opponents to carry
+behavioral signal failed (style classification, tendency prediction, residue
+identification). Synthetic 90–140cp biases drown in playout eval noise three probes in
+a row. The corpus, not the mechanisms, is the binding constraint.
+
+**Measurement landscape (operator, recorded):** the stack can only be measured against
+open/offline anchors — the lichess open database (CC0 PGN dumps WITH player ratings;
+partial fishnet `[%eval]` annotations), the lichess bot API (the only live rating
+anchor open to engines), and fishnet as the external analysis oracle. chess.com is
+gated to players. Reachability from this environment verified (2013-01 dump: 17 MB,
+~120k rated games, HTTP 200 + range requests). Search-strength/ELO claims remain a
+non-goal per the stockfish-rs plan; the lichess data buys external falsification of
+the SUBSTRATE claims on real opponents at known strength.
+
+**Queued: D-SF-LICHESS-1** (`examples/lichess_ladder.rs`, in flight at writing): (a)
+L1-agreement per rating band — if the awareness ladder is real, agreement with our
+static-NNUE rational-best climbs with Elo (simultaneously calibrating our L1 against
+the human strength ladder); (b) per-player tendency/residue identification on real
+style structure (the decisive OPPONENT-3 test); (c) embedded `[%eval]` census +
+wedge/surprise cross-check against the external oracle where coverage allows.
+
+## Wave 2: traps, holes, piece palettes, real data, temporal contract (2026-07-12, later)
+
+Second same-day wave on further operator design inputs. All probes in stockfish-rs
+(PR #10), net-gated/deterministic/exit-0. Companion artifacts: the zero-dep
+`TemporalPov` contract type (this repo, `0ed93b59`) and the new
+`AdaWorldAPI/lichess-rs` repo (initial scaffold `ce44ada`).
+
+**D-SF-TRAP-1 — opponent-aware lures. ✅ GREEN (commit `4c47ce1`).** Operator
+conjecture: traps as distractions — lure the opponent through its hammer×nail blind
+spot ("a first for game engines" recorded as [H], priority claim unverified). Against
+styled opponents whose bias is KNOWN ground truth: trap-aware mover scores candidates
+by own eval + 0.5 × lure (the gain when the styled reply diverges from rational). All
+three pre-registered gates green: bait rate 0.767 (43 lure points; the probe fixed a
+self-match bug so the bait resolves against the opponent's actual tie-noise choice),
+lure payoff +1592 cp pooled vs a rational baseline (Aggro: −202→+2120; Greedy:
++454→+1316; predicted baits hand-inspected as style-consistent material grabs), and
+the safety clause (no self-harm vs a rational opponent). **Honest scope: mechanism
+demo with ground-truth style models; the real-opponent version chains behind style
+INFERENCE, which is the currently-measured weak link (OPPONENT-1/3, LICHESS-1). Lure
+synthesis works; opponent-model inference is the bottleneck.**
+
+**D-SF-HOLES-1 — weak-square detection + splat-style ranking (PARTIAL, commit
+`eaa902b`).** Holes = empty pawn-indefensible squares with non-negative control
+deficit, ranked weakness × impact × access × stakes (hand-tuned, flagged). Detector
+sane (start position 0/0 after the empty-square refinement; worked example matches
+pawn-cover theory). Gates miss: Opera yielded only 2 occupation events (below the ≥3
+floor — Morphy attacked through pins/files, not square infiltration; an honest
+game/metric mismatch) and the styled corpus shows ρ=−0.035 (synthetic-corpus
+limitation, fourth appearance). The 3DGS 10000×10000 top-k precedent stays [S]-here:
+a 64×64 board needs the ranking semantics, not splat throughput; the splat machinery
+is the scale-out path for 256k×256k upstream fields. Ranking semantics unfalsified
+but unsupported — needs strong real games where positional squeezes occur.
+
+**D-SF-PIECEPALETTE-1 — per-piece threat/influence 256-palette (PARTIAL, commit
+`f028442`).** 12-dim per-piece descriptors → one 256-codebook (healthy: max code
+occupancy 1.7%) + 4-bit uniform edge residue. Retrieval 0.494 vs SimHash baseline
+0.660 — the MULTISET histogram of piece codes discards cross-piece structure, which
+is evidence FOR the unimplemented half of the operator input ("per piece **+
+edges**"): the pairwise/geometric part is exactly what the histogram threw away.
+Eval read honestly under-determined (257 ridge params on 240 train rows; MAE worse
+than a mean predictor — diagnosed in-run with a mean-baseline print, not left as
+anomaly). Keeper: the 4-bit residue lane preserves code identity at **0.965**
+reassignment fidelity. Follow-up: piece codes × Morton square context × pairwise
+edges, larger corpus, stronger ridge.
+
+**D-SF-LICHESS-1 — the ladder on real ratings (PARTIAL, informative negative;
+commit `1c9418f`).** 1500 kept games / 33,524 sampled decisions from the 2013-01
+lichess dump (CC0, 17 MB; decompressed via pip zstandard). L1-agreement by Elo band:
+0.259 / 0.247 / 0.258 / 0.262 / **0.294** (≥2000) — top band points the right way,
+continuous Spearman +0.045 (259 players), but non-monotone and spread only +0.035
+(gate 0.05). Real humans agree with a 1-ply static argmax at ~25–30% vs ~60% for
+synthetic rational bots — a useful calibration gap. Tendency identification on real
+players ≈ chance (0.026 vs 0.025, 65 players): the feature basis carries no
+per-player signal on fast games either — BOTH L2 models are now honestly at zero on
+real data; the discriminating test stays open. `[%eval]` census 14/1500 (2013
+predates fishnet). Named confounders → next-iteration knobs: TimeControl filter
+(classical/rapid), post-2016 month for eval coverage, book-ply exclusion, more games
+per player. The distinction to preserve: "the ladder doesn't exist" vs "this dataset
+can't see it" — the probe's own numbers suggest the latter.
+
+**Contract: `TemporalPov` time-range filter (this repo, `0ed93b59`,
+operator-directed).** Zero-dep mirror in `lance-graph-contract::temporal_pov`:
+`LanceVersion`, `VersionRange` (half-open; contains/intersect/len), `TemporalPov {
+range, rung }` with `at(ref_version, rung)` mirroring the planner's
+`QueryReference::at`. Deliberately does NOT duplicate the planner's
+`EpistemicMode`/`classify`/`deinterlace` (the 4×-Fingerprint anti-pattern). 11 tests
++ doctest; LATEST_STATE inventory updated same-commit.
+
+**lichess-rs scaffold (new repo, `ce44ada` on main) — the BOT ELO endgame
+vehicle.** GPL-3.0 (consumes stockfish-rs); event-loop skeleton with typed ndjson
+shapes + Engine trait; the stockfish adapter is a DETACHED excluded crate (measured:
+a feature-gated missing optional path dep breaks even default `cargo check`) bridging
+two shakmaty versions (fork 0.30.1 vs registry 0.30.0) via FEN/UCI with
+re-validation; the net-gated test ran against the real pinned net and passed
+(L1Static takes a hanging queen — the POV sign chain proven at scaffold time). README
+records the operator-directed game-database layer design: categorized DBs
+lazy-loaded from baked release files (bgz-tensor `hydrate.rs` + sha256 manifest
+precedent), eventually JIT/jitson via lance-graph-planner. ELO is measured, never
+asserted (CLAUDE.md iron rule).
+
+**Statistical toolbox rule (standing, operator pointer):** future probes consume
+`ndarray::hpc::reliability::{pearson, spearman, icc_a1, cronbach_alpha}` instead of
+hand-rolled rank correlation, and route significance claims on fingerprint-derived
+quantities through `lance-graph/crates/jc` (the Jirak pillar, per
+I-NOISE-FLOOR-JIRAK). Per-player style STABILITY is an ICC question — the right
+statistic for "does this player have a measurable style," which LICHESS-1
+approximated crudely with nearest-neighbour ID. Queued migration: swap probe-local
+Spearman copies for the reliability imports with identical-number re-emission as the
+check.
+
+**Queued next:** D-SF-FILTER-1 — awareness-filter switching between spatial
+wide-angle (perturbation-field read) and temporal tele (k-ply rollout read), switched
+on the contact/wedge signal, gated on beating both pure reads at predicting strong
+play. Plus the lichess iteration knobs above, the piece-palette + edges follow-up,
+and traps-on-INFERRED-models (chains behind a working style inference).

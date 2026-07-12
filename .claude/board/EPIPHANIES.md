@@ -1,3 +1,36 @@
+## 2026-07-12 — E-SF-TRAP-LURE-GREEN-1 — opponent-aware lure synthesis works; opponent-model inference is the bottleneck (wave-2 arc: 4 probes + contract type + lichess-rs scaffold)
+
+**Status:** MEASURED (stockfish-rs `4c47ce1`/`eaa902b`/`f028442`/`1c9418f`, PR #10; lance-graph `0ed93b59`; lichess-rs `ce44ada`).
+**Headline GREEN:** D-SF-TRAP-1 — traps as distractions via the opponent's hammer×nail blind spot: bait rate 0.767, +1592 cp pooled payoff vs rational baseline, no self-harm vs rational opponents. Scope honest: KNOWN ground-truth style models; the "first for game engines" phrasing is an [H] operator conjecture (priority unverified). The composite finding: **lure synthesis is the easy half; per-opponent style INFERENCE is the hard half** — feature-basis and diversion-vector L2 both measure ≈ zero on real 2013 blitz data (LICHESS-1) and the synthetic corpus can't discriminate them.
+**Supporting measurements:** holes detector sane but unsupported on available corpora (Opera: 2 occupation events, insufficient; styled: ρ=−0.035); per-piece palette loses cross-piece structure exactly where the operator input said "+ edges" (0.494 vs SimHash 0.660; residue lane 0.965 fidelity keeper); real-rating ladder non-monotone at 2013-blitz noise (top band 0.294 points right; humans ≈25–30% agreement with 1-ply static argmax vs 60% synthetic — calibration gap banked).
+**Standing rule added:** statistics via `ndarray::hpc::reliability` (pearson/spearman/icc_a1/cronbach_alpha) + `crates/jc` Jirak pillar for significance; per-player style stability is an ICC question.
+**Cross-ref:** E-SF-AWARENESS-OPPONENT-ARC-1 (wave 1, same day); knowledge doc § "Wave 2"; `TemporalPov` in LATEST_STATE contract inventory; lichess-rs README (baked-release + JIT game-DB design).
+
+## 2026-07-12 — E-SF-AWARENESS-OPPONENT-ARC-1 — stacked-awareness/opponent-modeling arc: real-play clauses green, synthetic-style clauses fail; L0 egocentrism IS the POV defect
+
+**Status:** MEASURED (5 probes, stockfish-rs `7a8381e`/`c263ac0`/`6f7f7bc`/`ab7d9f4`).
+**What:** Operator design inputs (Maslow/Piaget/Three-Mountains stacked awareness; Go
+Raumgewinn-vs-infight; sacrifice-buys-influence+tempo; solid-waiting wedge; L2 as
+diversion vector from own L1; classid × wide-FieldMask phase prehydration; AriGraph-V3
+substrate; rung-decomposed causality trajectories) run as five gated probes.
+**Green:** L0→L1 perspective jump ~100× (0.006→0.616 top-1) — and L0 is structurally
+the codex POV defect from stockfish-rs #8, i.e. Piaget egocentrism measured; NNUE
+residual prices influence/development (2/3 ρ≥0.3); wedge detection hits the
+pre-registered Nxb5 (Opera ply 19), 8/9 games; counterfactual rung 5/5 — every real
+sacrifice's line beats its material-preserving counterfactual on influence/development.
+**Negative/partial (honest):** naive feature-basis L2 and diversion-vector L2 both fail
+on the synthetic corpus (residue 0.534@λ=3 vs L1 0.616; ID 1.5× chance) — feature basis
+wins only because it IS the generator; phase-mask filter HURTS retrieval (0.697→0.654)
+while phase proves emergent in accumulator geometry (0.815 neighbourhood read) — the
+classid×widemask filter is SCOPING, not accuracy.
+**Meta-lesson (binding):** three probes in a row, synthetic styled opponents (90–140cp
+biases) drown in playout eval noise; every real-play (Opera) clause went green. The
+corpus is the constraint → D-SF-LICHESS-1 (lichess 2013-01 dump, real ratings,
+reachability verified) is the decisive next probe for the residue/ladder claims.
+**Cross-ref:** knowledge doc `stockfish-nnue-as-perturbation-cascade.md` § "Stacked
+awareness / opponent-modeling arc"; E-RUNG-POV-CORRECTION-1 (the defect L0 renders as a
+rung); tenant-ladder entry (turbovec base+residue pattern, behavioral analogue).
+
 ## 2026-07-12 — E-RUNG-POV-CORRECTION-1 — codex found a third rung-oracle defect (evaluate() is side-to-move POV); fix reveals a real 0.48→0.74 convergence gradient previously erased by parity noise; verdict stays INCONCLUSIVE/[H]
 **Status:** CORRECTION (MEASURED, `AdaWorldAPI/stockfish-rs` commit 8e563ab, 2026-07-12). Refines the D-SF-RUNG-1 numbers in E-CHESS-PROBE-SWEEP-COMPLETE-1 (below); the verdict is unchanged, the mechanism understanding is sharper.
 
