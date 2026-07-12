@@ -101,14 +101,29 @@ Stated as deliverables so it can be executed and falsified, never hand-waved:
   stockfish-rs re-expresses its L3/L4 as the chess instantiation. **Gate:** the
   existing L3/L4 byte-exact oracles STILL pass through the generic kernel (no
   regression — the reference stays green).
-- **D-SF-V3-2 — the NNUE accumulator AS a V3 SoA tenant.** Map `[[i16;1024];2]`
-  onto a V3 tenant lane (le-contract): is it an L4 palette pair carrier, or a new
-  raw-i16 lane? **Probe D-PALETTE-NNUE:** does palette256²-quantizing the FT
-  weight columns preserve the eval within the ρ anchor (Pflug-10 / Jirak floor)?
-  If YES → NNUE weights are a genuine L4 tenant (huge: 90 MB → palette-compressed
-  + one-table-read similarity). If NO → NNUE needs a raw-magnitude lane and the
-  palette-tenant rhyme is fenced. *This is the single highest-value probe — it
-  tells us whether the frozen 90 MB net is a palette tenant or not.*
+- **D-SF-V3-2 — the NNUE accumulator AS a V3 SoA tenant. ⚠ SCALAR-256 FENCED
+  (2026-07-11, MEASURED).** Probe D-PALETTE-NNUE asked: does palette-quantizing
+  the FT weights preserve the eval within the ρ anchor? Measured a Lloyd/k-means
+  **scalar-256** codebook over `ft.weights` (23 M i16, feature-major),
+  reconstructed in place, Spearman ρ of palette-eval vs exact-eval over a
+  677-position corpus on `nn-1b6a82263149`:
+  - ρ_all (wide-spread corpus) = **0.9934** — but this is an ARTIFACT of material
+    imbalance (gross material dominates ranking, so ρ stays high cheaply).
+  - ρ_quiet (146 near-equal positions, |eval| ≤ 200 cp — the fine-discrimination
+    bar where an engine actually lives) = **0.7812**; eval MAE **100 cp**.
+  **Verdict: the scalar-256 palette is FENCED** — on near-equal positions a scalar
+  256-level codebook does NOT preserve eval ranking; the FT carries fine magnitude
+  a scalar palette destroys, so it needs a **raw-magnitude lane**, not a scalar
+  palette tenant. This is the doc's predicted NO branch, now measured. **The
+  wide-corpus ρ trap is the finding's teeth:** a single naive ρ would have
+  greenlit "palette tenant" — the near-equal cut caught it. *Escalation queued —*
+  **D-PALETTE-NNUE-VEC:** vector palette256² / CAM-PQ (product-quantized 1024-dim
+  subspaces, each a 256-centroid codebook) exploits inter-dimension correlation a
+  scalar codebook cannot and is a strictly stronger representation; it is a
+  SEPARATE probe (the L4 tenant is `6×palette256:palette256` — pairs, not
+  scalars — so the vector probe is the faithful test of the tenant shape). Probe:
+  `stockfish-rs examples/palette_nnue.rs`. Honest scope: measured for the FT
+  weight matrix; the threat-weight lane (i8) is a further probe.
 - **D-SF-V3-3 — make_index → HHTL/Morton route.** Probe D-MORTON-KA: re-project
   HalfKA's king-bucket × piece-square addressing onto a Morton 2bit×2bit tile and
   measure whether nearest-in-Morton ⇒ nearest-in-feature (the quorum τ). Confirms

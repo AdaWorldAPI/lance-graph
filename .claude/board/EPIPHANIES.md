@@ -1,3 +1,16 @@
+## 2026-07-11 — E-PALETTE-NNUE-SCALAR-FENCED-1 — MEASURED: scalar-256 palette of the NNUE FT weights is FENCED; the wide-corpus ρ trap (0.99 vs 0.78 near-equal) nearly greenlit a wrong "palette tenant" conclusion
+**Status:** FINDING (MEASURED, `AdaWorldAPI/stockfish-rs` PR #5, 2026-07-11). Spatial-axis probe of the perturbation-cascade synthesis (`.claude/knowledge/stockfish-nnue-as-perturbation-cascade.md`, D-SF-V3-2 / D-PALETTE-NNUE — flagged there as "the single highest-value probe: is the frozen 90 MB net a palette tenant?"). Reads with the probe-first / truth-architect discipline — this is a worked example of a naive metric caught by an adversarial cut.
+
+**What was measured:** a Lloyd/k-means **scalar-256** codebook fit over `ft.weights` (23 M i16, feature-major), reconstructed in place; Spearman ρ of palette-eval vs exact-eval over a 677-position corpus on `nn-1b6a82263149`.
+- ρ_all (677 pos, wide spread) = **0.9934** — misleadingly high.
+- ρ_quiet (146 pos, |eval| ≤ 200 cp — the fine-discrimination bar) = **0.7812**; eval MAE **100 cp**, max |Δ| 449 cp.
+
+**The finding has two halves:**
+1. **Scalar-256 palette is FENCED.** On near-equal positions (where an engine's discrimination lives) a scalar 256-level codebook does NOT preserve eval ranking. The FT carries fine magnitude a scalar palette destroys → it needs a **raw-magnitude lane**, not a scalar palette tenant. This is the doc's predicted NO branch, now measured — the scalar-palette rhyme is fenced.
+2. **The wide-corpus ρ trap (methodological).** ρ_all = 0.99 is an ARTIFACT of material imbalance: gross material dominates ranking on a random-playout corpus, keeping ρ high cheaply. A single naive ρ would have greenlit "the net IS a palette tenant." The near-equal cut (|eval| ≤ 200 cp) is the honest bar and it fails. **Lesson for any palette/quantization/ρ-preservation probe: gate on the near-equal / quiet subset, never the full wide-spread corpus.**
+
+**Consequence:** D-SF-V3-2 stays [H] (NOT promoted); the scalar branch is fenced. **D-PALETTE-NNUE-VEC queued:** vector palette256² / CAM-PQ (product-quantized 1024-dim subspaces, each a 256-centroid codebook) is the faithful test of the L4 tenant shape (`6×palette256:palette256` = pairs, not scalars) and exploits inter-dimension correlation a scalar codebook cannot — a strictly stronger representation, separate probe. Probe: `stockfish-rs examples/palette_nnue.rs` (net-gated, CI-safe, exits 0 — a measurement, not a gate). The synthesis doc remains SYNTHESIS-not-canon; this probe FENCES one row rather than promoting it.
+
 ## 2026-07-11 — E-SF-EPISODIC-1-GREEN-1 — MEASURED: a chess game is a byte-exact, replayable temporal version-stream (D-SF-EPISODIC-1 GREEN); position-at-ply-v is a zero-copy projection [H]→[G]
 **Status:** FINDING (MEASURED, `AdaWorldAPI/stockfish-rs` PR #5, 2026-07-11). First measured probe of the temporal axis of the perturbation-cascade synthesis (`.claude/knowledge/stockfish-nnue-as-perturbation-cascade.md`). Reads with E-CHESS-TRANSCODE-COMPLETE-1 (the spatial L4 oracle this probe reuses) and E-MARKOV-TEMPORAL-STREAM-1 (the temporal-stream ruling it instantiates).
 
