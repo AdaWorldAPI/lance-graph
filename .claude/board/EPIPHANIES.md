@@ -1,3 +1,9 @@
+## 2026-07-12 — E-THINKING-SPINE-CHESS-EVIDENCE-1 — chess arc mapped onto the temporal-markov spine (Track A/B evidence layer)
+
+**Status:** SYNTHESIS (session evidence addendum on `.claude/plans/temporal-markov-and-style-classes-v1.md`; grades explicit; no ruling changed).
+**What:** the chess-signature arc is the evidence layer under the ratified cognition spine. Six graded mappings: (1) thinking-is-a-moving-wave = the temporal.rs Markov stream, sigker its featurizer [G/H]; (2) sender→receiver meta-awareness = the CausalEdge/PREDICATE, not the S/O nodes — 98% inter measured [H strong]; (3) basins GROUND / SPO-2³ facts ANCHOR / the WAVE IDENTIFIES (mean 1.1× vs tail 9.70×) [H]; (4) macro/wide-angle vs tele = WideFieldMask-breadth vs version-range-depth [S, D-SF-FILTER un-run — conjecture, not fact]; (5) needle discipline = don't Bundle the rare event, anomaly-detect it [G]; (6) epiphany = non-tree Lévy sweep (D-EPIPHANY-SIG-1) [H probe-gated].
+**Cross-ref:** E-CHESS-SIGNATURE-ARC-1, E-CHESS-ARC-TO-V3-TRANSFER-1, E-MARKOV-TEMPORAL-STREAM-1, the temporal-markov-and-style-classes-v1 addendum (2026-07-12).
+
 ## 2026-07-12 — E-CHESS-ARC-TO-V3-TRANSFER-1 — the chess-signature arc distilled into V3 muscle memory (4 validations + 1 probe-gated method + 3 rejected rhymes)
 
 **Status:** SYNTHESIS (distillation of E-CHESS-SIGNATURE-ARC-1; grades explicit; the novel method is CONJECTURE, probe-gated).
