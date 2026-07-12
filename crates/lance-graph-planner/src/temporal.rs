@@ -543,4 +543,121 @@ mod tests {
             "legacy row must sort by its lance_version, not 0"
         );
     }
+
+    /// No-hindsight guarantee, demonstrated on a streamed known game.
+    ///
+    /// A known game is modelled as a Lance version stream: N plies, one row
+    /// per ply, `lance_version == ply index`. The game's *class* (that a
+    /// game is being observed at all) was knowable from the start
+    /// (`knowable_from = 0`) — only the individual ply rows arrive later, one
+    /// per streamed version, exactly as `temporal.rs`'s doc comment describes
+    /// four independently-clocked producers merge-sorting onto one timeline.
+    ///
+    /// A `Strict`-mode reader (rung 0) pinned at ply `v` — the "present" —
+    /// must be structurally unable to see the game's outcome or any future
+    /// ply: [`classify`] marks every row with `row_version > v` as
+    /// [`TemporalStatus::Anachronistic`], and [`EpistemicMode::Strict`]
+    /// refuses (`admits` returns `false`) to dispatch on that status. The
+    /// hindsight leak `temporal.rs` refuses is therefore `Anachronistic`
+    /// under `Strict`, not silently-readable — so [`deinterlace`]'s
+    /// dispatchable projection for a `Strict` reader excludes every future
+    /// ply outright, by construction, not by convention.
+    ///
+    /// **Surprise vs. the naive expectation going in:** the "hindsight leak"
+    /// `Strict` refuses is [`TemporalStatus::Anachronistic`], **not**
+    /// [`TemporalStatus::Spoiler`]. Per [`classify`], `Spoiler` only ever
+    /// appears when the reader's own `mode` is already `Retro` — it is the
+    /// label for an *intentional* peek past one's own horizon, not the
+    /// default label a `Strict` reader sees on a future row. This test
+    /// demonstrates both: a `Strict` present-reader's future rows classify
+    /// `Anachronistic` and are refused; a contrasting `Retro` reader (rung
+    /// 9+) at the *same* `v_ref` sees the identical future row classify
+    /// `Spoiler` and admits it — the difference between structural
+    /// blindness (default) and a deliberate, opted-in horizon break, never
+    /// an accidental leak.
+    ///
+    /// Cross-ref: `AdaWorldAPI/stockfish-rs` `examples/hindsight_stream.rs`
+    /// (`D-SF-HINDSIGHT-1`) consumes the zero-dep `TemporalPov` mirror of
+    /// this exact machinery to re-run the rung/ladder reads under `Strict`
+    /// discipline over real lichess games.
+    #[test]
+    fn no_hindsight_streamed_known_game() {
+        // A tiny synthetic move-label sequence — illustrative only. Row's
+        // fixed `subj` field carries no move text; the semantics under test
+        // are purely temporal (version-indexed), so the labels are not
+        // stored, only used to anchor "known game" in the reader's mind.
+        const MOVES: [&str; 10] = [
+            "e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6", "O-O", "Be7",
+        ];
+        let rows: Vec<Row> = (0..MOVES.len() as u64)
+            .map(|ply| Row::new(ply, 0, None))
+            .collect();
+
+        // Representative "present" readers: early, mid, near-end.
+        for &v in &[2u64, 5, 8] {
+            let strict = QueryReference::at(v, 0); // rung 0 -> Strict
+            assert_eq!(strict.mode, EpistemicMode::Strict);
+
+            for (ply, row) in rows.iter().enumerate() {
+                let ply = ply as u64;
+                let status = classify(row.lance_version(), row.knowable_from(), &strict);
+                if ply <= v {
+                    assert_eq!(
+                        status,
+                        TemporalStatus::Contemporary,
+                        "ply {ply} must be Contemporary for a present-reader at v_ref {v}"
+                    );
+                } else {
+                    // The future is structurally flagged...
+                    assert_eq!(
+                        status,
+                        TemporalStatus::Anachronistic,
+                        "ply {ply} (future of v_ref {v}) must classify Anachronistic under Strict"
+                    );
+                    // ...and refused, not silently readable, under Strict.
+                    assert!(
+                        !strict.mode.admits(status),
+                        "ply {ply} must NOT be admitted under Strict at v_ref {v} — this is the no-hindsight gate"
+                    );
+                }
+            }
+
+            // The hindsight-free projection: deinterlace's dispatchable view
+            // excludes every future ply outright — not merely flags it.
+            let visible = deinterlace(&rows, &strict, &NoDeps);
+            let visible_versions: Vec<u64> = visible.iter().map(|r| r.lance_version()).collect();
+            let expected: Vec<u64> = (0..=v).collect();
+            assert_eq!(
+                visible_versions, expected,
+                "Strict projection at v_ref {v} must be exactly plies 0..={v}, no future ply visible"
+            );
+
+            // Contrast: an intentional Retro peek (rung 9+) at the SAME
+            // v_ref sees the future too — Spoiler, admitted — showing the
+            // difference between structural blindness (Strict, above) and a
+            // deliberate horizon break (Retro), never an accidental leak.
+            if (v as usize) + 1 < MOVES.len() {
+                let retro = QueryReference::at(v, 9);
+                assert_eq!(retro.mode, EpistemicMode::Retro);
+
+                let future_ply = v + 1;
+                let future_row = &rows[future_ply as usize];
+                let retro_status = classify(
+                    future_row.lance_version(),
+                    future_row.knowable_from(),
+                    &retro,
+                );
+                assert_eq!(retro_status, TemporalStatus::Spoiler);
+                assert!(retro.mode.admits(retro_status));
+
+                let retro_visible = deinterlace(&rows, &retro, &NoDeps);
+                assert!(
+                    retro_visible
+                        .iter()
+                        .any(|r| r.lance_version() == future_ply),
+                    "Retro must be able to see future ply {future_ply} when explicitly requested"
+                );
+            }
+        }
+    }
 }

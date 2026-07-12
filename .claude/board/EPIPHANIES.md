@@ -1,3 +1,22 @@
+## 2026-07-12 — E-CHESS-SIGNATURE-ARC-1 — personality is the opponent-response function (inter 98% / intra 2%); Turk-Polson substrate already in-tree
+
+**Status:** MEASURED (stockfish-rs `79ce78f`/`57ae59f`/`654a605`/`2c54e1a`/`64b8aa3`/`5d74b6c`/`2f73686`/`fa7beff`; lance-graph `505b989e`).
+**Arc:** reconstructed Turk & Polson "Chess Signatures of Play" (arXiv 2606.18544, June 2026) from first principles, then found its full math substrate already in-tree.
+**Capstone finding (D-SF-NEEDLE-1):** needle-rate variance decomposition — between-player (trait) 0.021 vs player×opponent (adaptation) 0.979 → personality is **~98% INTER (adaptive), not INTRA (trait)**. Karpov-Kasparov head-to-head (66 mutual games, opponent fixed): +1.26 needles/100 — a modest trait residual survives. Unifies the personality arc with the opponent-modeling arc (D-SF-OPPONENT-1/2/3): same object.
+**Why every averaged probe failed (~1.1-1.3×):** (a) needle-in-haystack SNR (a ~1% signature can't be lifted by a mean at ~5k moves/player); (b) trait-model misspecification on a 98%-adaptive process.
+**The one positive:** delayed-gratification (Belohnungsaufschub) sacrifice RATE 9.70× reputation-correct — a NAMED rare event, whereas CHAODA generic anomaly over the same features stayed at chance (1.19×). Style is in the specific tail event, not statistical outliers, not the mean.
+**Signature (D-SF-SIGNATURE-1):** consumed in-tree `sigker`; signature > aggregate and Lévy-interaction > level (both directions per the paper); magnitude ~1.3-1.4× (gap = missing clock channel / deep-search accuracy / depth).
+**No-hindsight (GREEN):** D-SF-HINDSIGHT-1 fixed RUNG-1 via `TemporalPov` Strict-gating (0/521k future accesses) + real-Result oracle; convergence 0.631→0.818.
+**Impulsivity refuted:** D-SF-BLITZ-1 — classical most identifiable (length/strength-confounded).
+**Meta:** `sigker` (Chen-Lyons signature + kernel), `jc/hambly_lyons` (uniqueness certificate), `temporal.rs` (stream), CLAM/CHAODA (anomaly) = Turk-Polson's pipeline, composable from in-tree parts. Use `signature_kernel` not `signature_kernel_pde` (jc-flagged bug).
+**Cross-ref:** knowledge doc § "Wave 3 (final)"; E-SF-AWARENESS-OPPONENT-ARC-1, E-SF-TRAP-LURE-GREEN-1, E-TEMPORAL-NO-HINDSIGHT-1.
+
+## 2026-07-12 — E-TEMPORAL-NO-HINDSIGHT-1 — temporal.rs's Spoiler/Anachronistic classification IS the no-hindsight gate, demonstrated on a streamed known-game version series
+
+**Status:** MEASURED (test, `crates/lance-graph-planner/src/temporal.rs::tests::no_hindsight_streamed_known_game`, 16/16 green in `temporal::tests`).
+A short known game modelled as N plies -> N rows (`lance_version == ply`, `knowable_from = 0`); a `Strict` reader (`QueryReference::at(v, 0)`) pinned at ply `v` sees every future row classify `Anachronistic` (NOT `Spoiler`) and `EpistemicMode::Strict::admits` refuses it, so `deinterlace`'s projection is exactly plies `0..=v` — the future is structurally excluded, not silently readable. **Surprise vs. the brief's assumption:** `Spoiler` is what `Retro` mode (rung 9+) produces on an *intentional* peek past the horizon, not what `Strict` produces on an ordinary future row — the no-hindsight gate a default present-reader hits is `Anachronistic`-refused, and `Spoiler`-admitted is its deliberate opt-in contrast (both asserted in the same test).
+**Cross-ref:** `AdaWorldAPI/stockfish-rs` `examples/hindsight_stream.rs` (`D-SF-HINDSIGHT-1`) consumes the zero-dep `TemporalPov` contract mirror of this machinery to re-run the rung/ladder reads under `Strict` discipline over real lichess games, fixing D-SF-RUNG-1's leaked-outcome oracle with real game `Result`s.
+
 ## 2026-07-12 — E-SF-TRAP-LURE-GREEN-1 — opponent-aware lure synthesis works; opponent-model inference is the bottleneck (wave-2 arc: 4 probes + contract type + lichess-rs scaffold)
 
 **Status:** MEASURED (stockfish-rs `4c47ce1`/`eaa902b`/`f028442`/`1c9418f`, PR #10; lance-graph `0ed93b59`; lichess-rs `ce44ada`).
