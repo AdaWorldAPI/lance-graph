@@ -134,10 +134,21 @@ Stated as deliverables so it can be executed and falsified, never hand-waved:
   > pairwise-cosine SIMILARITY (the one-table-read tenant claim); it does NOT claim
   > byte-exact eval from palette codes (that remains the raw net's job — the palette
   > is a similarity/routing tenant, not an exact-eval substitute).
-- **D-SF-V3-3 — make_index → HHTL/Morton route.** Probe D-MORTON-KA: re-project
-  HalfKA's king-bucket × piece-square addressing onto a Morton 2bit×2bit tile and
-  measure whether nearest-in-Morton ⇒ nearest-in-feature (the quorum τ). Confirms
-  or kills the "NNUE 4096 = gridlake 4096" identity ([H] → [G] or dropped).
+- **D-SF-V3-3 — make_index → HHTL/Morton route. ✅ GREEN (2026-07-12, MEASURED).**
+  Probe D-MORTON-KA re-projected HalfKA's piece-square axis onto the CERTIFIED
+  workspace Morton primitive (`lance_graph_contract::facet::FacetTier::morton`,
+  2bit×2bit Z-order — reused, not hand-rolled) and measured nearest-in-Morton vs
+  nearest-in-feature over 24 (king × piece) configs of the FT columns on
+  `nn-1b6a82263149`:
+  - feature locality IS spatial: **board recall@8 = 0.440 (3.5× chance)**, ρ 0.407;
+  - Morton preserves a majority of it: **Morton recall@8 = 0.347 (2.7× chance)**,
+    ρ 0.328 (recall@4: Morton 0.217 = 3.4×, board 0.258 = 4.1×).
+  **Verdict: the NNUE HalfKA square addressing IS a Morton-preserved gridlake** —
+  nearest-in-Morton ⇒ nearest-in-feature well above chance. "NNUE 4096 = gridlake
+  4096" [H]→[G]. Honest scope: Morton ≤ board is expected and observed (board is
+  exact 2-D adjacency; Morton is a 1-D locality map preserving ~79% of board's
+  signal); the modest absolute ρ (~0.33) says the addressing is *locality-
+  preserving*, not a perfect isometry. Probe: `stockfish-rs examples/morton_ka.rs`.
 - **D-SF-V3-4 — the escalation identity.** Assert (test) that NNUE's
   king-move-refresh == `RouteAction::Escalate` at a named tier — the first place
   the chess reference and the HHTL cache share a code path.
@@ -186,8 +197,8 @@ two axes.
 | A game (ply sequence) | a `temporal.rs` sorted version-stream; ply *v* = one Lance version | **[G]** — moves already carry a total order; `apply_move` IS the step |
 | "position after ply *v*" | `QueryReference::at(v, rung)` + deinterlace — a zero-copy projection, no replay | **[G]** (2026-07-11) — D-SF-EPISODIC-1 ran GREEN: the accumulator projected at ply *v* is byte-identical to the fresh-from-FEN computation (34/34), and to an out-of-order replay (11/11); see the deliverable below |
 | Analysis horizon (present vs hindsight) | the **rung**: low rung = reason strictly at ply *v*; high rung = spoiler-read the game's outcome to label the move (training-target labeling) | **[H]** — rung semantics are shipped; the chess *use* (hindsight = eval-vs-result delta) is the D-SF-RUNG-1 probe |
-| Opening variants (e4/d4/…) | **episodic basins** = le-contract **L1 `part_of:is_a`** rails (a variant is-a line is-a opening) | **[H]** — rails are [G]; that opening-trees fit the L1 rail shape is the D-SF-BASIN-1 probe |
-| Transpositions (same position, different move-order) | **L2 `memberof:members`** — one position node, member-of many variant basins | **[H]** — the many-basins-one-node shape is exactly L2; the probe confirms it round-trips |
+| Opening variants (e4/d4/…) | **episodic basins** = le-contract **L1 `part_of:is_a`** rails (a variant is-a line is-a opening) | **[G]** (2026-07-12) — D-SF-BASIN-1 GREEN: opening trees fit the L1 rail shape; the `part_of:is_a` `hi_distance` clusters lines by opening (5 same-opening < 6 cross) |
+| Transpositions (same position, different move-order) | **L2 `memberof:members`** — one position node, member-of many variant basins | **[G]** (2026-07-12) — D-SF-BASIN-1 GREEN: a 1.d4/1.c4 transposition to the same QGD position collapses to ONE `NodeGuid` that is `memberof` both basins — the many-basins-one-node round-trip, on the shipped facet types |
 | Episodic recall ("games that reached this pawn structure") | AriGraph `EpisodicMemory` / `markov_soa` — retrieve-similar over position fingerprints | **[G]** for the store; **[H]** that chess positions are good episodic keys (D-SF-ARIGRAPH-1) |
 | Time-series query over games | SurrealQL AST — a **query adapter** over the version-stream | **[G]** — adapter only; see the fence |
 
@@ -220,11 +231,23 @@ Games flow: `apply_move` → temporal-stream version → le-contract basin →
   incremental carrier; the full eval's threats term is refresh-only in current
   code (does not affect the version-stream claim). Probe:
   `stockfish-rs examples/temporal_replay.rs` (PR #5); net-gated, CI-safe.
-- **D-SF-BASIN-1 — opening variants as L1 basins.** Encode a small opening tree
-  (e.g. 3 openings × 2 variants) as L1 `part_of:is_a` rails; assert a position
-  resolves to its basin set. **Gate:** transposition (same FEN via two move-orders)
-  lands on ONE position node that is `memberof` both variant basins (L2) — the
-  many-basins-one-node round-trip.
+- **D-SF-BASIN-1 — opening variants as L1 basins. ✅ GREEN (2026-07-12, MEASURED).**
+  Encoded a small opening forest on the SHIPPED contract facet types
+  (`lance_graph_contract::{facet::FacetCascade, canonical_node::NodeGuid}` — reused,
+  not reimplemented) over real chess rules (shakmaty). Three gates, all PASS:
+  - **G1 transposition:** the QGD position reached via 1.d4 (d4 d5 c4 e6 Nc3 Nf6)
+    and via 1.c4 (c4 e6 Nc3 d5 d4 Nf6) has a move-order-independent identity
+    (board+turn+castling+ep) that collapses to ONE `NodeGuid`; a non-transposing
+    English line maps to a distinct node.
+  - **G2 many-basins-one-node:** that single node is `memberof` BOTH basins
+    {Queen's-Pawn, English} (its L2 membership set) — the round-trip.
+  - **G3 L1 taxonomy:** the `part_of:is_a` rails cluster lines by opening —
+    `FacetCascade::hi_distance` = 5 (same-opening) < 6 (cross-opening).
+  **Verdict: opening variants ARE le-contract episodic basins; a transposition is
+  the many-basins-one-node round-trip.** Honest scope: the facet lane is not yet a
+  persisted `ValueTenant` (Phase-2), so membership is an in-memory `HashMap<NodeGuid,
+  …>` alongside the shipped facet/NodeGuid types — the *encoding* is proven, the
+  *persistence* is future work. Probe: `stockfish-rs examples/basin_transposition.rs`.
 - **D-SF-RUNG-1 — hindsight labeling via rung.** For a decided game, read each
   move at a **low rung** (eval as-of that ply) and at a **high rung** (spoiler-read
   the result); the low↔high delta = the "was this move objectively good given the
