@@ -198,7 +198,7 @@ two axes.
 | "position after ply *v*" | `QueryReference::at(v, rung)` + deinterlace — a zero-copy projection, no replay | **[G]** (2026-07-11) — D-SF-EPISODIC-1 ran GREEN: the accumulator projected at ply *v* is byte-identical to the fresh-from-FEN computation (34/34), and to an out-of-order replay (11/11); see the deliverable below |
 | Analysis horizon (present vs hindsight) | the **rung**: low rung = reason strictly at ply *v*; high rung = spoiler-read the game's outcome to label the move (training-target labeling) | **[H]** — rung semantics are shipped; the chess *use* (hindsight = eval-vs-result delta) is the D-SF-RUNG-1 probe |
 | Opening variants (e4/d4/…) | **episodic basins** = le-contract **L1 `part_of:is_a`** rails (a variant is-a line is-a opening) | **[G]** (2026-07-12) — D-SF-BASIN-1 GREEN: opening trees fit the L1 rail shape; the `part_of:is_a` `hi_distance` clusters lines by opening (5 same-opening < 6 cross) |
-| Transpositions (same position, different move-order) | **L2 `memberof:members`** — one position node, member-of many variant basins | **[G]** (2026-07-12) — D-SF-BASIN-1 GREEN: a 1.d4/1.c4 transposition to the same QGD position collapses to ONE `NodeGuid` that is `memberof` both basins — the many-basins-one-node round-trip, on the shipped facet types |
+| Transpositions (same position, different move-order) | **L2 `memberof:members`** — one position node, member-of many variant basins | **[G]** (2026-07-12) — D-SF-BASIN-1 GREEN: a 1.d4/1.c4 transposition to the same QGD position collapses to ONE `NodeGuid` carried in a probe-local facet-L2-rail multimap over both basins. NB: this is the **facet L2 rails** (up to 6 basin pairs, not yet persisted), NOT the shipped graph `memberof` in `mailbox_scan.rs`, which is HHTL-tier **many-to-one** (`Option<BasinOf>`, a single parent) |
 | Episodic recall ("games that reached this pawn structure") | AriGraph `EpisodicMemory` / `markov_soa` — retrieve-similar over position fingerprints | **[G]** for the store; **[H]** that chess positions are good episodic keys (D-SF-ARIGRAPH-1) |
 | Time-series query over games | SurrealQL AST — a **query adapter** over the version-stream | **[G]** — adapter only; see the fence |
 
@@ -239,15 +239,21 @@ Games flow: `apply_move` → temporal-stream version → le-contract basin →
     and via 1.c4 (c4 e6 Nc3 d5 d4 Nf6) has a move-order-independent identity
     (board+turn+castling+ep) that collapses to ONE `NodeGuid`; a non-transposing
     English line maps to a distinct node.
-  - **G2 many-basins-one-node:** that single node is `memberof` BOTH basins
-    {Queen's-Pawn, English} (its L2 membership set) — the round-trip.
+  - **G2 many-basins-one-node:** that single node belongs to BOTH basins
+    {Queen's-Pawn, English} in the probe-local facet-L2-rail multimap — the round-trip.
   - **G3 L1 taxonomy:** the `part_of:is_a` rails cluster lines by opening —
     `FacetCascade::hi_distance` = 5 (same-opening) < 6 (cross-opening).
   **Verdict: opening variants ARE le-contract episodic basins; a transposition is
-  the many-basins-one-node round-trip.** Honest scope: the facet lane is not yet a
-  persisted `ValueTenant` (Phase-2), so membership is an in-memory `HashMap<NodeGuid,
-  …>` alongside the shipped facet/NodeGuid types — the *encoding* is proven, the
-  *persistence* is future work. Probe: `stockfish-rs examples/basin_transposition.rs`.
+  the many-basins-one-node round-trip.** Honest scope — two distinct `memberof`
+  notions, do not conflate: (1) the **facet L2 `memberof:members` rails** carry up
+  to 6 basins per node and are what this probe exercises, but the facet lane is not
+  yet a persisted `ValueTenant` (Phase-2), so the probe holds the multi-basin set in
+  an in-memory `HashMap<NodeGuid, HashSet<basin>>` alongside the shipped facet/NodeGuid
+  types; (2) the **shipped graph `memberof`** (`crates/lance-graph/src/graph/mailbox_scan.rs`)
+  is HHTL-tier **many-to-one** — `Option<BasinOf>`, a single parent basin (Local/Route/
+  Top). The many-basins-one-node relation therefore rides the facet L2 rails, NOT the
+  graph HHTL `memberof`; the *encoding* is proven, the *persistence* is future work.
+  Probe: `stockfish-rs examples/basin_transposition.rs`.
 - **D-SF-RUNG-1 — hindsight labeling via rung.** For a decided game, read each
   move at a **low rung** (eval as-of that ply) and at a **high rung** (spoiler-read
   the result); the low↔high delta = the "was this move objectively good given the
