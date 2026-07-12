@@ -560,3 +560,84 @@ wide-angle (perturbation-field read) and temporal tele (k-ply rollout read), swi
 on the contact/wedge signal, gated on beating both pure reads at predicting strong
 play. Plus the lichess iteration knobs above, the piece-palette + edges follow-up,
 and traps-on-INFERRED-models (chains behind a working style inference).
+
+## Wave 3 (final): the chess-signature arc — Turk-Polson convergence, intra vs inter, the needle
+
+Closing wave of the chess-as-substrate program. Operator-steered from first principles to
+a formal result: **Turk & Polson, "Chess Signatures of Play" (arXiv 2606.18544, June 2026)** —
+game-as-multivariate-path, the Lyons signature transform, style identifiable from the expected
+signature up to tree-like equivalence (Hambly-Lyons 2010), discriminating info in the Lévy
+areas (accuracy×complexity interaction), cheating detection as an anytime-valid signature-kernel
+conformance test. All probes: stockfish-rs examples, net/data-gated, deterministic, exit-0.
+
+**The no-hindsight discipline (GREEN).** D-SF-HINDSIGHT-1 (stockfish `79ce78f`) streams real
+decisive lichess games as a version series and reads them under `TemporalPov::at(v, Strict)` —
+0/521,630 future-ply accesses admitted (causal window enforced by `VersionRange::contains`, not
+discipline). It FIXES D-SF-RUNG-1's leaked-outcome oracle (real game Result replaces NNUE-final-eval):
+present-rung agreement rises monotonically toward the settled result (far 0.631 → end 0.818), the
+honest convergence RUNG-1 could not produce. Companion: lance-graph-planner `temporal.rs`
+no-hindsight test (`505b989e`, `E-TEMPORAL-NO-HINDSIGHT-1`) — a Strict reader classifies future
+plies `Anachronistic` and refuses them (Spoiler is reserved for a Retro reader's deliberate peek).
+
+**The personality question — six probes, one honest answer.** "Can we measure a player's style
+(Carlsen/Karpov/Kasparov/Tal, 120 games/player, pgnmentor)?" Every AVERAGED measure converged at
+~1.1-1.3× chance:
+
+| probe | measure | result |
+|---|---|---|
+| D-SF-PERSONALITY-1 (`57ae59f`) | mean move-delta vs 1-ply rational | 1.18× |
+| D-SF-PERSONALITY-2 (`654a605`) | anomaly-corrected delta, ICC(1) | 1.17× (0/3 gates) |
+| D-SF-PERSONALITY-3 (`2c54e1a`) | intrinsic NNUE-fingerprint readout | 1.28× (no confound) |
+| D-SF-PERSONALITY-4 Arm A (`64b8aa3`) | comfort-zone situation MEAN | 1.1× |
+| D-SF-NEEDLE-1 CHAODA (`fa7beff`) | manifold-anomaly over deviation feats | 1.19× |
+| D-SF-SIGNATURE-1 (`2f73686`) | Lyons path-signature (Turk-Polson) | 1.31× / 1.39× kernel-MMD |
+
+Two compounding reasons, BOTH measured: (a) **needle-in-haystack SNR** — a signature move is ~1%
+of decisions; a mean estimator's SNR is bounded by the signature rate, so at ~5k moves/player the
+needle sits inside the noise band (would need ~100× the games to lift it out). (b) **trait-vs-adaptive
+misspecification** — see intra/inter below.
+
+**The one POSITIVE — the needle is a NAMED event, not a statistical outlier.** D-SF-PERSONALITY-4
+Arm B: the **delayed-gratification (Belohnungsaufschub) sacrifice rate** separated players **9.70×**,
+reputation-correct (Tal 1.197/100dec ≫ Karpov 0.123), on events that are 0.12-1.20% of decisions —
+material given for LONG-term positional comp, which engines rarely do (maximally diagnostic). CRUCIAL
+contrast: CHAODA generic anomaly detection over the SAME deviation features stayed at chance (1.19×) —
+so the signal is NOT "statistically anomalous move," it is a **specific, domain-meaningful rare event**.
+Reputation shows up in the tail, not the mean.
+
+**INTRA vs INTER — the capstone finding.** D-SF-NEEDLE-1 variance decomposition on needle rate over
+258 player×opponent cells (900-game corpus): SSB (between-player, TRAIT) = **0.021**, SSW
+(player×opponent, ADAPTATION) = **0.979**, ratio 0.021 — needle rate is **~98% opponent-driven**.
+Personality is overwhelmingly INTER (adaptive), not INTRA (a fixed trait). Karpov-Kasparov head-to-head
+control (66 mutual games, opponent+era fixed): Karpov 5.55 vs Kasparov 4.29 needles/100 (+1.26) — a
+real but modest trait signal survives once the opponent is held constant, exactly as an inter-dominant
+world predicts. **This unifies the two halves of the program: personality IS the opponent-response
+function — the personality arc and the opponent-modeling arc (D-SF-OPPONENT-1/2/3) are the same object.**
+
+**Impulsivity refuted.** D-SF-BLITZ-1 (`5d74b6c`, 115k lichess games): classical is the MOST
+identifiable time control (3.43×/3.85×), not the least — opposite to "faster play reveals the habitual
+self." Confounded by game-length (longer games → tighter fingerprint) and rating heterogeneity
+(strength, not style); an honest refutation of the specific gradient, not a clean disproof. The
+signature (reparametrization/length-invariant) is the tool that sidesteps this confound.
+
+**Signature: mechanism-confirmed, magnitude-honest.** D-SF-SIGNATURE-1 consumed the workspace's OWN
+certified `sigker` (not a hand-roll): `signature_truncated(path, 2)` + `signature_kernel_normalized`
+(MMD). All signature readouts (1.11-1.44×) BEAT the aggregate baselines, and Lévy-areas-only (1.25×)
+beat level-1-only (1.11×) — both DIRECTIONS as Turk-Polson predict. Absolute magnitude stayed ~1.3-1.4×
+because our setup lacks the paper's ingredients: no clock channel (OTB PGN), 1-ply-NNUE accuracy (not
+deep-search), depth-2, 4 players. Mechanism validated; magnitude gap fully attributable to listable
+missing ingredients.
+
+**The meta-finding.** The workspace already contained Turk-Polson's entire mathematical substrate,
+built independently: **`sigker`** (Chen-Lyons `signature_truncated` / `log_signature_truncated` /
+`signature_kernel[_normalized]`, zero-dep), **`jc/hambly_lyons.rs`** (pillar #11 — the tree-like-
+equivalence uniqueness certificate the paper's identifiability rests on), **`temporal.rs`** (the stream),
+**ndarray CLAM/CHAODA** (the anomaly layer). The paper's pipeline (path → signature → kernel two-sample /
+conformance) is composable from in-tree parts today. Caveat: use `signature_kernel` (tensor-algebra,
+correct), NOT `signature_kernel_pde` (documented divergence from the true I₀ kernel; jc flags it).
+
+**Net honest verdict of the arc:** style at the statistical-mass level is (1) a ~1% needle averaging
+cannot see, (2) a specific named rare event (delayed-grat sacrifice) when detected directly, and (3)
+~98% adaptive (opponent-driven), not a fixed trait — with a modest trait residual surviving under
+opponent control. The Lyons signature is the right featurization (mechanism confirmed) and its
+substrate already lives in-tree.

@@ -1,3 +1,10 @@
+## 2026-07-12 — stockfish-wave3-fleet — chess-signature arc capstone: no-hindsight GREEN, needle 9.70×, personality 98% inter, Turk-Polson substrate in-tree
+
+- **Fleet:** Sonnet workers for D-SF-HINDSIGHT-1, PERSONALITY-1..4, BLITZ-1, SIGNATURE-1, NEEDLE-1 (CHAODA) + temporal-test worker (lance-graph-planner) + this doc applier.
+- **Deliverables:** stockfish-rs `79ce78f`/`57ae59f`/`654a605`/`2c54e1a`/`64b8aa3`/`5d74b6c`/`2f73686`/`fa7beff`; lance-graph `505b989e` (`temporal.rs` no-hindsight test).
+- **Outcome:** no-hindsight discipline GREEN (0/521k future accesses admitted); delayed-gratification needle rate 9.70× reputation-correct; needle-rate variance decomposition shows personality ~98% opponent-driven (inter) vs ~2% trait (intra); Lyons signature mechanism-confirmed via in-tree `sigker` — see `EPIPHANIES.md` `E-CHESS-SIGNATURE-ARC-1`. PRs pending.
+- **Board:** knowledge doc `stockfish-nnue-as-perturbation-cascade.md` § "Wave 3 (final)" appended; EPIPHANIES prepended.
+
 ## 2026-07-12 — stockfish-wave2-fleet — D-SF-TRAP-1 GREEN + holes/palette/lichess partials + TemporalPov + lichess-rs scaffold
 
 - **Fleet:** 5 Sonnet grindwork probe/scaffold builders (stockfish-rs trap/holes/piece-palette/lichess-ladder, lichess-rs scaffold) + 1 Sonnet contract worker (`TemporalPov`) + 1 Sonnet doc applier (this repo).
