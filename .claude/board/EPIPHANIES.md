@@ -1,3 +1,12 @@
+## 2026-07-12 — E-RUNG-POV-CORRECTION-1 — codex found a third rung-oracle defect (evaluate() is side-to-move POV); fix reveals a real 0.48→0.74 convergence gradient previously erased by parity noise; verdict stays INCONCLUSIVE/[H]
+**Status:** CORRECTION (MEASURED, `AdaWorldAPI/stockfish-rs` commit 8e563ab, 2026-07-12). Refines the D-SF-RUNG-1 numbers in E-CHESS-PROBE-SWEEP-COMPLETE-1 (below); the verdict is unchanged, the mechanism understanding is sharper.
+
+**The defect (codex on stockfish-rs #8):** `evaluate()` returns side-to-move-POV internal units, so the probe's cross-ply `signum()` comparisons alternated perspective every ply — the flat "no convergence" (0.53 ≈ 0.54) was move-parity noise, and the hindsight sign came from whichever side moved last. Fix: normalize every eval to a fixed White POV before `signum()`.
+
+**Post-fix measurement (not tuned, just measured):** mean first-third agreement 0.48 → last-third 0.74, 13/25 games show the split — a REAL convergence gradient in the direction the rung thesis predicts, previously erased. Still below the pre-registered gate (pass 0.75 / mean-last 0.9), so D-SF-RUNG-1 remains INCONCLUSIVE and stays [H]: the two remaining oracle defects bind (NNUE not mate-aware — sacrificial mates invert the label; random playouts never settle). The path to a gradeable verdict is unchanged: played-out game-result labels or a mate-aware search.
+
+**Standing lesson:** any probe comparing NNUE evals ACROSS plies must normalize POV first — `evaluate()` is stm-relative; the banked L5 parity corpus never caught this because all five FENs are White-to-move (the two conventions are indistinguishable there).
+
 ## 2026-07-12 — E-CHESS-PROBE-SWEEP-COMPLETE-1 — MEASURED ×4 (parallel): escalation structure GREEN+fence, episodic-keys GREEN+gap, vector-palette ladder GREEN at Base17 anchor (96-bit pair-tenant > cam_pq, operator-confirmed), rung INCONCLUSIVE (oracle, stays [H])
 **Status:** FINDING (MEASURED, `AdaWorldAPI/stockfish-rs`, 2026-07-12). The final four probes of the perturbation-cascade synthesis queue, run in parallel; every negative is a finding, not a force. Reads with E-CHESS-GRIDLAKE-BASIN-GREEN-1 (below) and E-PALETTE-NNUE-COSINE-GREEN-1.
 
