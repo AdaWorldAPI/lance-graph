@@ -1,3 +1,9 @@
+## 2026-07-12 — E-TEMPORAL-NO-HINDSIGHT-1 — temporal.rs's Spoiler/Anachronistic classification IS the no-hindsight gate, demonstrated on a streamed known-game version series
+
+**Status:** MEASURED (test, `crates/lance-graph-planner/src/temporal.rs::tests::no_hindsight_streamed_known_game`, 16/16 green in `temporal::tests`).
+A short known game modelled as N plies -> N rows (`lance_version == ply`, `knowable_from = 0`); a `Strict` reader (`QueryReference::at(v, 0)`) pinned at ply `v` sees every future row classify `Anachronistic` (NOT `Spoiler`) and `EpistemicMode::Strict::admits` refuses it, so `deinterlace`'s projection is exactly plies `0..=v` — the future is structurally excluded, not silently readable. **Surprise vs. the brief's assumption:** `Spoiler` is what `Retro` mode (rung 9+) produces on an *intentional* peek past the horizon, not what `Strict` produces on an ordinary future row — the no-hindsight gate a default present-reader hits is `Anachronistic`-refused, and `Spoiler`-admitted is its deliberate opt-in contrast (both asserted in the same test).
+**Cross-ref:** `AdaWorldAPI/stockfish-rs` `examples/hindsight_stream.rs` (`D-SF-HINDSIGHT-1`) consumes the zero-dep `TemporalPov` contract mirror of this machinery to re-run the rung/ladder reads under `Strict` discipline over real lichess games, fixing D-SF-RUNG-1's leaked-outcome oracle with real game `Result`s.
+
 ## 2026-07-12 — E-SF-TRAP-LURE-GREEN-1 — opponent-aware lure synthesis works; opponent-model inference is the bottleneck (wave-2 arc: 4 probes + contract type + lichess-rs scaffold)
 
 **Status:** MEASURED (stockfish-rs `4c47ce1`/`eaa902b`/`f028442`/`1c9418f`, PR #10; lance-graph `0ed93b59`; lichess-rs `ce44ada`).
