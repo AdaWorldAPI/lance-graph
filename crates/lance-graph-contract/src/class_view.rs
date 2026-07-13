@@ -750,6 +750,79 @@ pub fn nav_is_fully_connected(root: u8, edges: &[ComputeEdge], screens: &WideFie
     &screens_reachable_from(root, edges) == screens
 }
 
+/// Why [`execute_compute_dag`] refused or aborted a recompute.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecuteComputeError<E> {
+    /// The DAG is cyclic — no topological order exists. The registry-build
+    /// gate ([`compute_dag_is_acyclic`]) should have rejected this class;
+    /// hitting it at execute time means an unvalidated manifest.
+    Cyclic,
+    /// The consumer's compute closure failed at this target position. No
+    /// later targets were computed (abort-at-target — the partial recompute
+    /// is visible to the store owner, matching cycle-aware `write_row`
+    /// gating; earlier targets in the returned order remain written).
+    Compute {
+        /// The field position whose recompute failed.
+        target: u8,
+        /// The consumer's error.
+        source: E,
+    },
+}
+
+impl<E: core::fmt::Display> core::fmt::Display for ExecuteComputeError<E> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Cyclic => write!(f, "compute dag is cyclic — no topological order"),
+            Self::Compute { target, source } => {
+                write!(f, "recompute of field {target} failed: {source}")
+            }
+        }
+    }
+}
+
+impl<E: std::error::Error + 'static> std::error::Error for ExecuteComputeError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Cyclic => None,
+            Self::Compute { source, .. } => Some(source),
+        }
+    }
+}
+
+/// Execute a class's **recompute DAG** over a consumer-owned store — the
+/// ORDER half of the ActionDef value executor (the medcare transpile arc's
+/// lane-3a increment 1).
+///
+/// Split of responsibilities (commitment: thinking lives upstream, values
+/// live with the row owner): this function owns *sequencing* — targets run
+/// in a valid topological order ([`compute_dag_topo_order`]) so every
+/// precedent is recomputed before its dependents — while `compute_target`
+/// owns *value semantics*: it recomputes field position `t` on `store`
+/// (e.g. a hand-ported score formula; the sono `Recal_*` family is the
+/// first parity witness). Leaves are never passed to `compute_target` —
+/// they are the already-present inputs.
+///
+/// Returns the executed order (the same positions
+/// [`compute_dag_topo_order`] yields).
+///
+/// # Errors
+///
+/// [`ExecuteComputeError::Cyclic`] when the DAG has no topological order;
+/// [`ExecuteComputeError::Compute`] wrapping the consumer's error at the
+/// failing target (later targets are not attempted).
+pub fn execute_compute_dag<S, E>(
+    edges: &[ComputeEdge],
+    store: &mut S,
+    mut compute_target: impl FnMut(&mut S, u8) -> Result<(), E>,
+) -> Result<Vec<u8>, ExecuteComputeError<E>> {
+    let order = compute_dag_topo_order(edges).ok_or(ExecuteComputeError::Cyclic)?;
+    for &t in &order {
+        compute_target(store, t)
+            .map_err(|source| ExecuteComputeError::Compute { target: t, source })?;
+    }
+    Ok(order)
+}
+
 /// The class as a **meta lookup that flies above the SoA** — the resolver trait.
 ///
 /// An implementor (in `lance-graph-ontology`, over the OGIT cache) is the
@@ -1296,6 +1369,86 @@ mod tests {
     }
 
     // ── screen-graph jump connector (navigates_to Klickweg) ──────────────────
+
+    // ── execute_compute_dag (lane-3a increment 1: the ORDER half) ────────────
+
+    /// Chain f0→f1→f2 executes in dependency order and the consumer closure
+    /// sees precedents already recomputed (value semantics stay consumer-side).
+    #[test]
+    fn execute_compute_dag_runs_targets_in_order() {
+        let mut row = [10i32, 0, 0]; // f0 = leaf input
+        let order = execute_compute_dag(SAMPLE_DAG, &mut row, |r, t| {
+            match t {
+                1 => r[1] = r[0] + 1, // f1 = f0 + 1
+                2 => r[2] = r[1] * 2, // f2 = f1 * 2
+                _ => unreachable!("leaves are never computed"),
+            }
+            Ok::<(), core::convert::Infallible>(())
+        })
+        .expect("acyclic dag executes");
+        assert_eq!(order, compute_dag_topo_order(SAMPLE_DAG).unwrap());
+        assert_eq!(row, [10, 11, 22], "each target saw its precedent's value");
+    }
+
+    /// A cyclic manifest is refused before any target runs.
+    #[test]
+    fn execute_compute_dag_refuses_cycle_untouched_store() {
+        let two_cycle = &[
+            ComputeEdge {
+                target: 0,
+                inputs: &[1],
+            },
+            ComputeEdge {
+                target: 1,
+                inputs: &[0],
+            },
+        ];
+        let mut row = [1i32, 2];
+        let err = execute_compute_dag(two_cycle, &mut row, |_, _| {
+            Ok::<(), core::convert::Infallible>(())
+        })
+        .unwrap_err();
+        assert_eq!(err, ExecuteComputeError::Cyclic);
+        assert_eq!(row, [1, 2], "store untouched on cycle refusal");
+    }
+
+    /// A failing consumer closure aborts at the failing target: earlier
+    /// targets stay written, later targets never run.
+    #[test]
+    fn execute_compute_dag_aborts_at_failing_target() {
+        let mut row = [10i32, 0, 0];
+        let err = execute_compute_dag(SAMPLE_DAG, &mut row, |r, t| match t {
+            1 => {
+                r[1] = r[0] + 1;
+                Ok(())
+            }
+            _ => Err("boom"),
+        })
+        .unwrap_err();
+        assert_eq!(
+            err,
+            ExecuteComputeError::Compute {
+                target: 2,
+                source: "boom"
+            }
+        );
+        assert_eq!(row, [10, 11, 0], "f1 written, f2 aborted");
+    }
+
+    /// Empty manifest = empty order (zero-fallback: nothing to recompute).
+    #[test]
+    fn execute_compute_dag_empty_is_noop() {
+        let mut row = [1i32];
+        let order =
+            execute_compute_dag(
+                &[],
+                &mut row,
+                |_, _| Ok::<(), core::convert::Infallible>(()),
+            )
+            .unwrap();
+        assert!(order.is_empty());
+        assert_eq!(row, [1]);
+    }
 
     #[test]
     fn nav_reachability_is_a_forward_closure() {
