@@ -19,12 +19,22 @@ pub mod style;
 pub use nars_dispatch::{NarsInferenceType, QueryStrategy};
 pub use semiring_selection::SemiringChoice;
 pub use sigma_chain::{SigmaStage, ThinkingAtom};
-pub use style::{FieldModulation, StyleFamily, ThinkingCluster};
+// `ThinkingStyle` is the deprecated compat alias for `StyleFamily` (D-TSC-1);
+// re-exported here so pre-1a11038 consumers importing
+// `lance_graph_planner::thinking::ThinkingStyle` keep compiling (with the
+// deprecation warning steering them to `StyleFamily`), instead of hard-breaking.
+#[allow(deprecated)]
+pub use style::{FieldModulation, StyleFamily, ThinkingCluster, ThinkingStyle};
 
 use crate::mul::MulAssessment;
 use crate::plan::PlannerConfig;
 use lance_graph_contract::cognitive_shader::RungLevel;
-use style::PlannerStyleExt;
+// Lifted (not just `use`d internally): the cluster/τ/modulation methods that
+// used to be inherent on the old `ThinkingStyle` enum now live on this ext
+// trait. Re-exporting it at the module root means a pre-1a11038 consumer whose
+// `style.cluster()` broke needs one obvious `use thinking::PlannerStyleExt`,
+// not a hunt into the `style` submodule.
+pub use style::PlannerStyleExt;
 
 /// Complete thinking context produced by orchestration.
 /// This is what the query planner receives as input alongside the query.
