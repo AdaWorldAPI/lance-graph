@@ -1,3 +1,11 @@
+## 2026-07-13 — E-V3-GRACE-WIDE-CARVINGS-1 — V1 migration gets a discouraged waiting room, not a crash (operator ruling)
+
+**Status:** RULED (operator, 2026-07-13). Recorded in `.claude/v3/soa_layout/le-contract.md` §3a.
+**Frame:** the V3 12-byte payload is a content-blind register the ClassView projects — there is **no tail**; "V3 tail" is a category error, and modeling V3 as a `TailVariant::V3` inside `mint_for(tail_variant, …)` imported the dead V1 suffix-discriminator model into the new substrate (the poison). L1–L8 are all **byte-axis** projections (8:8 / 8:8:8 / 8:8:8:8).
+**The ruling:** rather than hard-crash un-migrated classes, add three **wide contiguous** grace carvings as a documented, strongly-discouraged waiting room — G1 `3×16 + 2×24`, G2 `4×24`, G3 `3×32` (all 96-bit). Tagged *"strongly discouraged if god-object-related or lacking proper bucket rollover; migrate to cosine-replacement palette256 (L4)"* — the conditions ARE the diagnosis (god object → decompose; no bucket rollover → saturates silently; exit → L4 `6×(8:8)` palette256²). The V1 `family:identity` u24 fragment is the degenerate G1/G2 case. **Not** a tail revival (one register read coarsely, no path/tail split); `CascadeShape` gains **no** variants (stays byte-axis-only — a wide carving is what it refuses to bless). New classes MUST NOT be born into G1–G3.
+**Code home:** `lance_graph_contract::legacy_outliers` (`legacy_outliers.rs`) — bluntly named per operator; `LegacyOutlier::{WideMixed/WideTriple/WideQuad}`, a *separate* module from `facet::CascadeShape` (never a variant), LE read/write + 5 tests incl. the V1 `family:identity` degenerate-case proof.
+**Cross-ref:** le-contract.md §3a; E-V3-FACET-4-PLUS-12; the CANON supersession note (the `mint_for(tail_variant, …)` / "V3 tail" wording is the poison this reframes away from).
+
 ## 2026-07-13 — E-COMPAT-ALIAS-MUST-BE-LIFTED-1 — a compat alias left in a leaf module but not re-exported at the consumer import path is a hard break, not a shim (D-TSC-1 regression, fixed)
 
 **Status:** CORRECTION (fixes a real consumer-facing regression shipped in `1a11038` / D-TSC-1; grade [G] — reproduced by compile).
