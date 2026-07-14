@@ -51,7 +51,10 @@ const fn u24_le(a: u8, b: u8, c: u8) -> u32 {
 /// the same no-silent-truncation guard `NodeGuid::new` uses for its u24 groups.
 #[inline]
 fn put_u24_le(dst: &mut [u8], v: u32) {
-    debug_assert!(v <= 0x00FF_FFFF, "legacy outlier u24 field must fit 24 bits");
+    debug_assert!(
+        v <= 0x00FF_FFFF,
+        "legacy outlier u24 field must fit 24 bits"
+    );
     dst[0] = (v & 0xFF) as u8;
     dst[1] = ((v >> 8) & 0xFF) as u8;
     dst[2] = ((v >> 16) & 0xFF) as u8;

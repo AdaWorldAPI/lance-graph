@@ -1,3 +1,13 @@
+## 2026-07-14 — E-LAYER-CONFUSION-OGAR-VS-SPINE-1 — a session-wide OGAR-vs-lance-graph layer conflation, caught by a 5+3 council; contract doc-comment label-bleed cleaned
+
+**Status:** FINDING (5+3 council, source-receipted; MedCare-rs E-MEDCARE-30 carries the full grades).
+
+A cross-arc session conflated **OGAR** (the V3 assembler substrate — owns `Class`/`ActionDef` IR, the live active-record graph) with **lance-graph** (the query/storage spine + the zero-dep contract). It filed a Klickwege live-edge ingest issue at lance-graph (#691) when the landing is OGAR's job (Lance persistence is the substrate's own *calcification*, never an ingest API — "nobody runs the compiler on the hard disk"). #691 closed → OGAR #208.
+
+A 5+3 falsification council then audited the session's downstream claims. Load-bearing result for THIS repo: **#690's `execute_defaults` is CORRECTLY placed** — OGAR's `ogar-class-view` *consumes* `lance_graph_contract::class_view::ClassView` (`ogar-class-view/lib.rs:62,364`); the primitives are pure sequencing (delegate all value semantics to a consumer closure, import no `ActionDef`). It is NOT OGAR-Core reimplementation and NOT the same fault as #691. **What WAS wrong (this commit fixes it):** the `execute_compute_dag`/`execute_defaults` doc-comments branded them "the ActionDef value executor" and baked one consumer's provenance ("the medcare transpile arc's lane-3a increment", "the sono `Recal_*` family") into the ZERO-DEP contract that every consumer inherits — label-bleed. They are generic sequencing primitives, not an `ActionDef`-body interpreter (that is OGAR's `ACTIONDEF-VALUE-DISPATCH-PROPOSAL.md`). Doc-comments reworded to describe the primitive generically + scope-note the ActionDef-interpreter boundary. **Highest residual (filed #692, not fixed here):** `contract::action::{ActionDef,ActionInvocation,ActionState}` re-declare OGAR IR names with no shape-parity fuse while the sibling codebook mirror has one.
+
+**Meta-lesson:** confident architectural claims written fast off spot-reads are the Lie-Detector failure signature; the fix is the council BEFORE a claim enters canon. Cross-refs: MedCare-rs E-MEDCARE-30, OGAR #208, lance-graph #692, a2ui-rs CROSS-SESSION-SEAMS.md (retracted-in-part).
+
 ## 2026-07-14 — E-RUNG-CONTENT-LADDER-1 — the rung-content ladder ruled; persona-36 demarcated as a separate storyline (corrects E-STYLE-FAMILY-VS-RUNBOOK-1's "runbook" label)
 
 **Status:** RULED (operator, 2026-07-14). Canonical text: `.claude/v3/knowledge/persona-vs-rung-ladder.md` (linked from CLAUDE.md § V3 SUBSTRATE).
