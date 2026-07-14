@@ -105,6 +105,31 @@
 
 ---
 
+## #689 lance-graph: Rung-content ladder + persona demarcation, FacetCascade bridge, legacy_outliers, D-TSC-1 alias fix, chess-arc bank
+
+**Status:** MERGED 2026-07-14 (merge `a260ff98`), branch `claude/review-claude-board-files-nhqgx1` (rebased onto post-#688 main after the four-repo restart), 6 commits. Companion: **OGAR #201** (D‑V1‑GRACE‑CARVINGS canon mirror, merged same day — paired-merge discipline).
+
+**Added:**
+- `.claude/v3/knowledge/persona-vs-rung-ladder.md` — the operator-ruled **rung-content ladder** (0–1 observation / 2 = 144 verb atoms / 3 = the 34 NARS tactic **recipes = THE runbooks** / 4 = StyleFamily macros + frozen×learned×exploration triangle) + the **persona demarcation** (the adjective-36 in `contract::thinking` = separate unwired persona-modeling storyline, never rung 3). Linked as MANDATORY read from CLAUDE.md § V3 SUBSTRATE. Open items O1–O6.
+- `contract::legacy_outliers` — `LegacyOutlier::{WideMixed (3×u16+2×u24), WideTriple (4×u24), WideQuad (3×u32)}`, the strongly-discouraged 96-bit grace carvings (le-contract §3a); LE round-trip + V1-degenerate-case tests.
+- `NodeGuid ↔ FacetCascade` byte-identical `From` impls + `NodeGuid::facet()` — the missing bridge to the content-blind surface (adoption had voted: facet:: 8 files/28 uses vs mint_for 3 apologetic sites).
+- planner `thinking/mod.rs`: re-export of the deprecated `ThinkingStyle` alias + `PlannerStyleExt` lift (D-TSC-1 regression fix — the alias was stranded in the leaf module while the old import path hard-broke).
+
+**Locked:**
+- **The rung ladder's content reading is ruled** (ladybug-rs → thinking-engine lineage); the shipped `RungLevel` Pearl reading is causal-depth, coexisting, NOT the content wiring.
+- **"Runbooks" = the 34 tactics** (`contract::recipes` + ndarray `hpc/styles`), NOT the persona-36. `E-STYLE-FAMILY-VS-RUNBOOK-1`'s label corrected append-only via `E-RUNG-CONTENT-LADDER-1`.
+- **Compat aliases must be lifted to every module level the old name was reachable from** (`E-COMPAT-ALIAS-MUST-BE-LIFTED-1`); an alias-token grep is not a compat gate — the old import path must compile.
+- **Wide contiguous carvings are sanctioned-but-discouraged grace shapes, never `CascadeShape` variants** (`E-V3-GRACE-WIDE-CARVINGS-1`).
+- p64-bridge `STYLES[ord % 12]` **probed DORMANT** (TD-STYLE-TABLE-RESIDUE item 3 flipped); `UNIFIED_STYLES` tethered-not-collapsed (census question closed).
+
+**Deferred:** O1 rung↔content wiring; O2 the true `StyleFamily → recipes` edge (retarget/twin `default_runbook`, rename the persona bridge); O4 remaining D-TSC-1 residue (`api::` re-export of `PlannerStyleExt`, the self-contradictory `#[deprecated]` note wording, `wire.rs`/`auto_style.rs` tethers); O5 free `style_by_ordinal` deprecation; O6 the composed triangle macro (FUTURE-DESIGN landing zone).
+
+**Docs:** persona-vs-rung-ladder.md (v3/knowledge); le-contract.md §3a; CLAUDE.md V3-section link; EPIPHANIES `E-RUNG-CONTENT-LADDER-1` / `E-V3-GRACE-WIDE-CARVINGS-1` / `E-COMPAT-ALIAS-MUST-BE-LIFTED-1`; TECH_DEBT TD-STYLE-TABLE-RESIDUE item-3 flip; chess-arc bank (`E-CHESS-ARC-TO-V3-TRANSFER-1`, `E-THINKING-SPINE-CHESS-EVIDENCE-1` + spine-plan addendum).
+
+**Confidence (2026-07-14):** working — contract lib tests green (legacy_outliers 5, facet_bridge 1), planner builds clean, clippy clean; doc/board rulings are operator-verbatim.
+
+---
+
 ## #676 lance-graph: Post-#674 doc arc — E-NOBODY-WAITS-1 + VISION.md (graded AGI canon) + ancestry census + D-MTS-1 design inputs
 
 **Status:** MERGED 2026-07-10 (merge commit `001839e`), branch `claude/review-claude-board-files-nhqgx1` (restarted from #674's merge), 4 commits, doc-only.
