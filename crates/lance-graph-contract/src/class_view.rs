@@ -823,6 +823,70 @@ pub fn execute_compute_dag<S, E>(
     Ok(order)
 }
 
+/// Execute a class's **default targets** over a consumer-owned store — the
+/// Default-recipe half of the ActionDef value executor (the medcare transpile
+/// arc's lane-3a increment 2, following the Compute half above).
+///
+/// A *Default* recipe is write-if-blank (`this.Name ??= "unknown"` — the
+/// `RecipeCentroid::Default` centroid): the value fires ONLY where the field
+/// is not already populated. Same split of responsibilities as
+/// [`execute_compute_dag`]: this function owns the *fire/skip decision*
+/// (presence-gated, slice order), while `apply_default` owns *value
+/// semantics* — it writes field position `t`'s default onto `store` (a
+/// hand-ported default expression; never a formula invented here).
+///
+/// One more brick, not a parallel path (the [`screens_reachable_from`]
+/// precedent): the presence gate is the existing [`WideFieldMask`] — every
+/// `u8` position is addressable, so there is no 64-field ceiling to skip
+/// around (the wide-mask lesson the screen-addressing charter's #205
+/// correction paid for). The error is the existing [`ExecuteComputeError`]
+/// so a defaults-then-recompute pipeline threads ONE error type;
+/// [`ExecuteComputeError::Cyclic`] is unreachable from this function
+/// (defaults have no dependency order — a default that reads another
+/// computed field is a Compute recipe, not a Default).
+///
+/// Fire rules, in order, per target in **slice order**:
+///
+/// - `present.has(t)` → **skip** (the field is populated; a default never
+///   overwrites);
+/// - `t` already fired earlier in this call (duplicate manifest entry) →
+///   **skip** (after firing, the field IS populated — a second entry sees
+///   it present);
+/// - otherwise → `apply_default(store, t)`; on error, abort-at-target
+///   (earlier fired defaults remain written, matching
+///   [`execute_compute_dag`]'s abort semantics).
+///
+/// Returns the fired positions, in fire order (unique). The caller folds
+/// them into its presence mask (`fired.iter().fold(present, |m, &p|
+/// m.with(p))`) before running [`execute_compute_dag`] — **defaults run
+/// BEFORE the recompute DAG** (a recompute reads post-default inputs), the
+/// phase rule this increment documents but does not interleave.
+///
+/// # Errors
+///
+/// [`ExecuteComputeError::Compute`] wrapping the consumer's error at the
+/// failing target (later targets are not attempted). Never
+/// [`ExecuteComputeError::Cyclic`].
+pub fn execute_defaults<S, E>(
+    targets: &[u8],
+    present: &WideFieldMask,
+    store: &mut S,
+    mut apply_default: impl FnMut(&mut S, u8) -> Result<(), E>,
+) -> Result<Vec<u8>, ExecuteComputeError<E>> {
+    let mut fired_mask = WideFieldMask::EMPTY;
+    let mut fired = Vec::new();
+    for &t in targets {
+        if present.has(t) || fired_mask.has(t) {
+            continue;
+        }
+        apply_default(store, t)
+            .map_err(|source| ExecuteComputeError::Compute { target: t, source })?;
+        fired_mask = fired_mask.with(t);
+        fired.push(t);
+    }
+    Ok(fired)
+}
+
 /// The class as a **meta lookup that flies above the SoA** — the resolver trait.
 ///
 /// An implementor (in `lance-graph-ontology`, over the OGIT cache) is the
@@ -1087,6 +1151,23 @@ pub trait ClassView {
     /// cycle-aware `write_row` (`E-SOA-CYCLE-OWNERSHIP`).
     #[inline]
     fn compute_dag(&self, _class: ClassId) -> &[ComputeEdge] {
+        &[]
+    }
+
+    /// The class's **default targets** — the field positions carrying a
+    /// write-if-blank default (the `RecipeCentroid::Default` harvest:
+    /// `this.Name ??= …`, the C# lazy-init `if (field == null) field = new …`
+    /// idiom), in declaration order. The manifest [`execute_defaults`]
+    /// consumes — same layering as [`compute_dag`](ClassView::compute_dag):
+    /// resolution metadata above the SoA, stores nothing on the row.
+    ///
+    /// Default `&[]` — the zero-fallback: an unconfigured class has no
+    /// defaulted fields. An implementor returns a generated `const &[u8]`;
+    /// no build-time validation is needed (defaults are order-free and
+    /// duplicate-safe — [`execute_defaults`] fires each position at most
+    /// once). Phase rule: defaults run BEFORE the recompute DAG.
+    #[inline]
+    fn default_targets(&self, _class: ClassId) -> &[u8] {
         &[]
     }
 }
@@ -1448,6 +1529,133 @@ mod tests {
             .unwrap();
         assert!(order.is_empty());
         assert_eq!(row, [1]);
+    }
+
+    // ── execute_defaults (lane-3a increment 2: the Default-recipe half) ──────
+
+    /// An empty presence mask fires every target, in SLICE order (declaration
+    /// order — defaults have no dependency order to reorder by).
+    #[test]
+    fn execute_defaults_fires_absent_targets_in_slice_order() {
+        let mut row = [0i32; 8];
+        let fired = execute_defaults(&[3, 1, 7], &WideFieldMask::EMPTY, &mut row, |r, t| {
+            r[t as usize] = 100 + i32::from(t);
+            Ok::<(), core::convert::Infallible>(())
+        })
+        .expect("defaults fire");
+        assert_eq!(fired, vec![3, 1, 7], "slice order, not sorted");
+        assert_eq!(row[3], 103);
+        assert_eq!(row[1], 101);
+        assert_eq!(row[7], 107);
+    }
+
+    /// A present field is skipped — a default never overwrites (the
+    /// write-if-blank contract; the C# `if (field == null)` guard).
+    #[test]
+    fn execute_defaults_skips_present_targets() {
+        let mut row = [0i32; 8];
+        row[1] = 999; // already populated
+        let present = WideFieldMask::from_positions(&[1]);
+        let fired = execute_defaults(&[3, 1, 7], &present, &mut row, |r, t| {
+            r[t as usize] = 100 + i32::from(t);
+            Ok::<(), core::convert::Infallible>(())
+        })
+        .unwrap();
+        assert_eq!(fired, vec![3, 7], "present target 1 not fired");
+        assert_eq!(row[1], 999, "populated value untouched");
+    }
+
+    /// A failing default aborts at its target: earlier fired defaults stay
+    /// written, later targets never run (matching execute_compute_dag).
+    #[test]
+    fn execute_defaults_abort_at_target_keeps_earlier_writes() {
+        let mut row = [0i32; 8];
+        let err = execute_defaults(
+            &[3, 1, 7],
+            &WideFieldMask::EMPTY,
+            &mut row,
+            |r, t| match t {
+                3 => {
+                    r[3] = 103;
+                    Ok(())
+                }
+                _ => Err("boom"),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            ExecuteComputeError::Compute {
+                target: 1,
+                source: "boom"
+            }
+        );
+        assert_eq!(row[3], 103, "earlier default stays written");
+        assert_eq!(row[7], 0, "later target never ran");
+    }
+
+    /// Empty target manifest = nothing fired (zero-fallback, mirrors
+    /// `compute_dag`'s empty default).
+    #[test]
+    fn execute_defaults_empty_targets_is_noop() {
+        let mut row = [5i32];
+        let fired = execute_defaults(&[], &WideFieldMask::EMPTY, &mut row, |_, _| {
+            Ok::<(), core::convert::Infallible>(())
+        })
+        .unwrap();
+        assert!(fired.is_empty());
+        assert_eq!(row, [5]);
+    }
+
+    /// Positions past 64 fire natively — the presence gate is the WIDE mask,
+    /// so there is no 64-field ceiling (the wide-mask lesson the
+    /// screen-addressing charter's #205 correction paid for; every u8
+    /// position is addressable).
+    #[test]
+    fn execute_defaults_fires_wide_positions_past_64() {
+        let mut hits: Vec<u8> = Vec::new();
+        let fired = execute_defaults(&[133, 200], &WideFieldMask::EMPTY, &mut hits, |h, t| {
+            h.push(t);
+            Ok::<(), core::convert::Infallible>(())
+        })
+        .unwrap();
+        assert_eq!(fired, vec![133, 200], "wide positions fire");
+        // ...and a wide presence bit skips exactly its position.
+        let present = WideFieldMask::from_positions(&[133]);
+        let fired = execute_defaults(&[133, 200], &present, &mut hits, |h, t| {
+            h.push(t);
+            Ok::<(), core::convert::Infallible>(())
+        })
+        .unwrap();
+        assert_eq!(fired, vec![200], "wide present bit 133 skips");
+    }
+
+    /// A duplicate manifest entry fires at most once: after a default fires,
+    /// the field IS populated — the second entry sees it present. (The C#
+    /// GetOrCreateChartPanel quirk: create+init run only in the absent
+    /// branch; a present panel is returned untouched.)
+    #[test]
+    fn execute_defaults_duplicate_target_fires_once() {
+        let mut count = 0u32;
+        let fired = execute_defaults(&[5, 5, 5], &WideFieldMask::EMPTY, &mut count, |c, _| {
+            *c += 1;
+            Ok::<(), core::convert::Infallible>(())
+        })
+        .unwrap();
+        assert_eq!(fired, vec![5], "unique fire list");
+        assert_eq!(count, 1, "closure ran exactly once");
+    }
+
+    /// Default `default_targets` is the zero-fallback empty manifest (no
+    /// defaulted fields for an unconfigured class).
+    #[test]
+    fn default_targets_default_is_empty() {
+        let c = FakeClasses {
+            invoice: vec![],
+            ..Default::default()
+        };
+        assert!(c.default_targets(7).is_empty());
+        assert!(c.default_targets(0).is_empty());
     }
 
     #[test]

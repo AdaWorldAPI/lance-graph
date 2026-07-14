@@ -33,6 +33,14 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## PR (pending) — `claude/review-medcare-rust-dt7MS` — lane-3a inc 2: `execute_defaults` (Default-recipe half)
+
+- **Added:** `class_view::execute_defaults` (fire-if-absent runner over `WideFieldMask` presence, ~40 LOC + docs); `ClassView::default_targets` (zero-fallback default trait method); 7 unit tests.
+- **Locked:** (1) Default-recipe presence gate is the WIDE mask from birth — no 64-field ceiling anywhere in the Default path (a2ui #205 lesson applied preemptively). (2) `ExecuteComputeError` is the ONE error type for the value-executor phase family (defaults + recompute thread one error; `Cyclic` documented-unreachable for defaults). (3) Duplicate manifest entries fire at most once — post-fire, a position IS present (the C# GetOrCreateChartPanel init-only-on-create quirk, pinned by test). (4) Phase rule: defaults BEFORE recompute DAG; documented, not interleaved (no combined runner in inc 2). (5) The consumer trait seam (`ActionDefExecutor`, serde-shaped) STAYS in medcare-rs — the zero-dep contract carries recipe-kind execution primitives only (the inc-1 precedent, ratified reading of medcare commitment #5's "upstream executor").
+- **Deferred:** Guard recipe (needs pre-write validation phase + `ClassView::constraints`, explicitly deferred since probe-excel-compute-dag-v1 Inc 0); Cascade recipe (cross-row addressing, dirty-set, reverse closure); a combined defaults-then-recompute runner; Normalize (1 corpus method — coverage worthless until Guard lands).
+- **Docs:** this entry; medcare-rs side documents the corpus enumeration (56 Defaults, `DEFAULT-RECIPE-TARGETS.md`).
+- **Confidence (2026-07-14):** shipped-in-PR; 898 contract tests green.
+
 ---
 
 ## #676 lance-graph: Post-#674 doc arc — E-NOBODY-WAITS-1 + VISION.md (graded AGI canon) + ancestry census + D-MTS-1 design inputs

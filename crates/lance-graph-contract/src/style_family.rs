@@ -186,7 +186,11 @@ mod tests {
     #[test]
     fn default_runbook_round_trips_to_its_family() {
         for f in StyleFamily::ALL {
-            assert_eq!(f.default_runbook().family(), f, "round-trip broke for {f:?}");
+            assert_eq!(
+                f.default_runbook().family(),
+                f,
+                "round-trip broke for {f:?}"
+            );
         }
     }
 
@@ -271,7 +275,10 @@ mod tests {
         for (i, f) in StyleFamily::ALL.into_iter().enumerate() {
             assert_eq!(StyleFamily::from_ordinal(i as u8), Some(f));
             assert_eq!(StyleFamily::from_name(f.name()), Some(f));
-            assert_eq!(StyleFamily::from_name(&f.name().to_ascii_uppercase()), Some(f));
+            assert_eq!(
+                StyleFamily::from_name(&f.name().to_ascii_uppercase()),
+                Some(f)
+            );
         }
         assert_eq!(StyleFamily::from_ordinal(12), None);
         assert_eq!(StyleFamily::from_name("empathetic"), None); // a runbook name, not a family
