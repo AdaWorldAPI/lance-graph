@@ -408,6 +408,60 @@ impl NodeGuid {
     }
 }
 
+// ── FacetCascade bridge — the content-blind surface the workspace reaches for ──
+//
+// `NodeGuid` and [`crate::facet::FacetCascade`] are the SAME 16 bytes:
+// `classid(4) | 6×(8:8)`. `NodeGuid` is the (legacy) tail lens; `FacetCascade`
+// is the content-blind register lens — and adoption measured 8 files / 28 uses
+// of `facet::` vs 3 apologetic `mint_for` call sites, because there was no
+// bridge letting a mint reach the good surface. These conversions are
+// **byte-identical** (no reinterpretation): build the ergonomic `FacetCascade`,
+// `.into()` it, and get the node key with zero
+// `mint_for(classid_read_mode(c).tail_variant, …)` incantation.
+impl From<crate::facet::FacetCascade> for NodeGuid {
+    #[inline]
+    fn from(f: crate::facet::FacetCascade) -> Self {
+        Self(f.to_bytes())
+    }
+}
+
+impl From<NodeGuid> for crate::facet::FacetCascade {
+    #[inline]
+    fn from(g: NodeGuid) -> Self {
+        crate::facet::FacetCascade::from_bytes(g.as_bytes())
+    }
+}
+
+impl NodeGuid {
+    /// This key read as the content-blind
+    /// [`FacetCascade`](crate::facet::FacetCascade) — the same 16 bytes under the
+    /// register lens the workspace reaches for. Prefer building a `FacetCascade`
+    /// and `.into()`-ing it over `mint_for`.
+    #[inline]
+    pub const fn facet(&self) -> crate::facet::FacetCascade {
+        crate::facet::FacetCascade::from_bytes(&self.0)
+    }
+}
+
+#[cfg(test)]
+mod facet_bridge_tests {
+    use super::*;
+
+    #[test]
+    fn nodeguid_facet_bridge_is_byte_identical() {
+        let g = NodeGuid::new(0x0A0B_0C0D, 0x1111, 0x2222, 0x3333, 0x44_5566, 0x77_8899);
+        let f: crate::facet::FacetCascade = g.into();
+        // classid agrees across the lens; the 6 tiers ARE HEEL/HIP/TWIG/…
+        assert_eq!(f.facet_classid, g.classid());
+        // facet bytes == guid bytes, and the round-trip is byte-identical
+        assert_eq!(f.to_bytes(), *g.as_bytes());
+        let back: NodeGuid = f.into();
+        assert_eq!(g.as_bytes(), back.as_bytes());
+        // the `.facet()` accessor is the same view
+        assert_eq!(g.facet().to_bytes(), *g.as_bytes());
+    }
+}
+
 // ── GUID v2 tail (leaf·family·identity, 3×u16) — D-GV2-1, feature-gated ────────
 //
 // The v2 basin tail repartitions bytes 10..16: leaf(u16) 10..12 (the 4th HHTL

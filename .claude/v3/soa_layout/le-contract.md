@@ -66,6 +66,50 @@ Byte accounting: every layout is exactly 12 bytes — 6×2, 4×3, 3×4, 2×6.
 The 16-byte facet stride never changes; layouts differ only in how the
 96 payload bits subdivide.
 
+### §3a Grace-period wide carvings — strongly discouraged (the V1 migration waiting room) (operator, 2026-07-13)
+
+L1–L8 are the **axis-grouped byte-tile** catalogue: every tier is a *byte*
+(8:8 pairs / 8:8:8 triplets / 8:8:8:8 quads), so the classview projects
+real rails and `group_of` is a pure shift. A class that has **not yet
+decomposed into byte-axis tiles** may sit *temporarily* in one of these
+**wide contiguous carvings** — still exactly 96 bits, still one
+content-blind register, **but not a tail and not first-class**:
+
+| # | Layout | Shape | 96-bit? |
+|---|---|---|---|
+| G1 | wide-mixed | 3 × 16-bit + 2 × 24-bit | 48 + 48 ✓ |
+| G2 | wide-triple | 4 × 24-bit (contiguous — **NOT** the axis-grouped `4×(8:8:8)`) | 96 ✓ |
+| G3 | wide-quad | 3 × 32-bit (contiguous — **NOT** the axis-grouped `3×(8:8:8:8)`) | 96 ✓ |
+
+**Strongly discouraged if god-object-related or lacking proper bucket
+rollover; migrate to cosine-replacement palette256 (L4).** The conditions
+are the diagnosis, not decoration:
+
+- **god-object-related** → a wide field is a symptom of a class carrying too
+  many concerns; you owe a **decomposition** (split the class / focus the
+  lens), never a wider field.
+- **lacking proper bucket rollover** → a wide contiguous field with no HHTL
+  cascade spill has nothing to overflow *into*; it saturates silently. Give
+  it rollover, or narrow it.
+- **the exit** → the real destination is **L4 `6×(8:8)` palette256²**
+  (each byte pair indexes the 256×256 palette LUT — cosine-replacement),
+  the axis-grouped shape the wide field is standing in for.
+
+These carvings exist **only** to give an un-migrated class a legal V3 home
+during migration instead of crashing — the V1 `family:identity` u24 fragment
+is the degenerate G1/G2 case. They are **not** a revival of the V1 *tail*
+model (there is no path/tail split; this is one content-blind register read
+coarsely), and **`CascadeShape` gains no variants for them** — that enum
+stays byte-axis-only, and a wide carving is precisely what it refuses to
+bless. New classes MUST NOT be born into G1–G3; the waiting room is not a
+destination.
+
+Code home: **`lance_graph_contract::legacy_outliers`** (`legacy_outliers.rs`)
+— bluntly named so it announces its own status. `LegacyOutlier::{WideMixed
+(G1), WideTriple (G2), WideQuad (G3)}` with LE read/write over the 12-byte
+payload; deliberately a *separate* module from `facet::CascadeShape`, never a
+variant of it.
+
 ### The (8:8) pair is polymorphic — the classview selects the reading
 
 Beyond L1–L4, a `6×(8:8)` plane admits these operator-sanctioned readings

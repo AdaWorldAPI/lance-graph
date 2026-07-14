@@ -139,3 +139,83 @@ explicit `on_behalf` (owner ≠ classid, rs-graph-llm `8ef18b9`).
 |---|---|---|
 | D-ORG-1 | `BatchWriter::ack_and_propose` self-pumping loop + probes | SHIPPED this arc (2 tests green) |
 | D-ORG-2 | W2c re-scope: symbiont arm = storage/read-glove only | STATUS_BOARD row updated this arc |
+
+## Addendum (session evidence, 2026-07-12) — the chess-signature arc as the evidence layer under this spine
+
+NOT a ruling change — session evidence that VALIDATES Track A/B with measured
+numbers, plus honestly-graded conjectures. Full arc: EPIPHANIES
+`E-CHESS-SIGNATURE-ARC-1`; the V3 transfer + rejected rhymes + the one new
+method: `E-CHESS-ARC-TO-V3-TRANSFER-1`. Grades explicit ([G]/[H]/[S]);
+probe-first honored.
+
+**1. Thinking is a moving wave — the wave IS this plan's temporal.rs Markov
+stream [G/H].** Turk & Polson, "Chess Signatures of Play" (arXiv 2606.18544,
+June 2026), model a game (a thought) as a multivariate PATH; the Lyons
+signature is its reparametrization-invariant featurization, discriminating
+info in the LÉVY AREAS (order-interaction). This is external evidence FOR
+Track A's ruling (`E-MARKOV-TEMPORAL-STREAM-1`): the Markov trajectory lives
+on the temporal.rs sorted STREAM, not the VSA braid — because the
+discriminating structure is in the wave's ORDER, which means/aggregates
+DESTROY. Measured: every averaged chess style-measure landed ~1.1–1.3×
+chance; the order-preserving stream is the correct carrier. The workspace
+already owns the featurizer: `sigker::signature_truncated` (Chen–Lyons),
+certified by jc pillar #11 (`hambly_lyons.rs`) against the exact tree-like-
+equivalence uniqueness theorem the paper's identifiability rests on.
+
+**2. Sender→receiver meta-awareness lives in the PREDICATE (edge), not the
+nodes [H, strong].** Chess personality measured **98% INTER (interaction) /
+2% INTRA (trait)** — identity is the opponent-response, not a stored vector.
+In SPO that is S(self)—**P(interaction)**—O(other): the **CausalEdge /
+EdgeColumn (P)** carries the adaptive identity; `FingerprintColumns` (S/O
+nodes) carry the ~2% invariant. The mailbox **cast→response IS
+sender→receiver**. Consequence for Track B's `WideFieldMask` (which projects
+SPO / Pearl 2³ rung set / CausalEdge / qualia over the SoA row): the
+**CausalEdge projection is the measured seat of meta-awareness** — weight it
+accordingly. This is also why the constant-vector chess probes failed: they
+fit an INTRA model to a 98%-INTER process.
+
+**3. Three reasoning surfaces — and which one carries identity [H].** The
+`Think` struct resolves against three tissues; the chess arc measured their
+division of labor. **Episodic basins** (`part_of:is_a` rails, le-contract
+L1–L3) = averaged CONTEXT — the mean, measured NOT to identify (comfort-basin
+probe 1.1×). **SPO 2³ rung-decomposed facts** = what is BELIEVED (Pearl-
+laddered; the chess awareness ladder L0-egocentric/L1-perspective/L2-gestalt +
+the counterfactual clause ARE Pearl rungs 1/2/3, `E-SF-AWARENESS-OPPONENT-ARC-1`).
+**The temporal.rs wave** = the moving TRAJECTORY, where the signature — and
+identity — lives (delayed-gratification-sac rate 9.70× reputation-correct, in
+the TAIL not the mean). So: **basins GROUND, facts ANCHOR, the WAVE
+IDENTIFIES.** Validates Track A third-wave addendum (AriGraph context,
+V3-tenant-shaped, essential for Markov context-building) with the sharpening
+that the CHAINING (the wave), not the BASIN (the mean), is the discriminating
+surface.
+
+**4. Macro/wide-angle vs tele = WideFieldMask breadth vs version-range depth
+[S — CONJECTURE, PROBE UN-RUN].** The spatial wide-angle (attention over the
+current SoA row = `WideFieldMask`) vs the temporal tele (k-ply version-range
+deinterlace depth, `QueryReference::at(v, rung)`) is a candidate reasoning-mode
+dial, RHYMING with NARS breadth-vs-depth inference. **Graded [S]: the chess
+D-SF-FILTER probe (spatial-field read vs k-ply rollout read, switched on the
+contact/wedge signal) was queued but NEVER RUN** — this is a conjecture, NOT
+evidence, and must not calcify as fact. Probe it before wiring.
+
+**5. The needle discipline for the L4 perturbation shader [G].** When the
+discriminating signal is a RARE event, bundling (`CollapseGate
+MergeMode::Bundle`, and the L4 palette² shader accumulation) destroys it — a
+mean's SNR is bounded by the event rate (a ~1% needle cannot survive
+averaging; measured across every aggregate probe). Route the needle to
+anomaly-detection (ndarray CLAM/CHAODA); `MergeMode::Bundle` is correct for
+the Markov-context BASIN, wrong for the discriminating rare event. This is
+I-VSA-IDENTITIES stated as a merge-mode selection rule for the shader.
+
+**6. Epiphany = non-tree Lévy sweep [H, probe-gated].** D-EPIPHANY-SIG-1
+(carved in `E-CHESS-ARC-TO-V3-TRANSFER-1`): the Lévy area of the `Think`
+belief-trajectory signature distinguishes real belief-update (non-tree, area
+swept) from circular rumination (tree-like, collapses) — the operator's
+`epiphany ↔ NARS` link. In-tree parts: `sigker` + jc/hambly_lyons + Think/NARS
++ temporal.rs. Probe-first; stays [H] until run. Cross-ref, not repeated here.
+
+**Rejected rhymes (anti-dilution, do NOT build):** ✗ "the perturbation shader
+IS the signature transform" (different algebras: VSA bind+braid+bundle vs
+iterated integrals — braiding-by-position rhymes with order-encoding but is
+[S] until measured); ✗ "personality = the QualiaColumn"; ✗ treating the ~1.3×
+aggregate nulls as signal. Full text: `E-CHESS-ARC-TO-V3-TRANSFER-1`.

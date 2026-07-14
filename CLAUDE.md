@@ -38,6 +38,15 @@ fleet-shipped 2026-07-02):
 - `.claude/v3/MODULE-TABLE.md` — per-file census of core / contract / planner
 - `.claude/v3/soa_layout/` — LE contract, tenant lanes, consumer map, routing
 - `.claude/v3/knowledge/` — V3 doctrine docs (`READ BY:` headers)
+- `.claude/v3/knowledge/persona-vs-rung-ladder.md` — MANDATORY before
+  touching StyleFamily / ThinkingStyle / runbooks / recipes / the 144
+  verbs / RungLevel semantics / persona modeling: the operator-ruled
+  rung-content ladder (0–1 observation, 2 = 144 verb atoms, 3 = the 34
+  NARS tactic recipes = THE runbooks, 4 = StyleFamily macros +
+  autopoiesis triangle) and the demarcation that the adjective-36 in
+  `contract::thinking` is the SEPARATE, unwired persona-modeling
+  storyline — never rung 3, never "NARS runbooks" (corrects
+  E-STYLE-FAMILY-VS-RUNBOOK-1's label). Open items O1–O6 tracked there.
 - `.claude/v3/agents/BOOT.md` — the four V3 cards (`v3-mailbox-warden`,
   `v3-envelope-auditor`, `v3-kanban-executor-engineer`, `v3-template-smith`)
 - `.claude/v3/knowledge/sonnet-worker-guardrails.md` — MANDATORY in every

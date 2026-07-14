@@ -94,6 +94,7 @@ pub mod high_heel;
 pub mod hotplug;
 pub mod jit;
 pub mod kanban;
+pub mod legacy_outliers;
 pub mod literal_graph;
 pub mod mail;
 pub mod manifest;
