@@ -1,3 +1,11 @@
+## 2026-07-14 — E-RUNG-CONTENT-LADDER-1 — the rung-content ladder ruled; persona-36 demarcated as a separate storyline (corrects E-STYLE-FAMILY-VS-RUNBOOK-1's "runbook" label)
+
+**Status:** RULED (operator, 2026-07-14). Canonical text: `.claude/v3/knowledge/persona-vs-rung-ladder.md` (linked from CLAUDE.md § V3 SUBSTRATE).
+**The ladder (content reading of the 0–9 rungs, from the ladybug-rs → thinking-engine lineage):** rung 0–1 = observation; rung 2 = the 144 thinking atoms (12 verb families × 12 tenses — `sigma_rosetta.rs` + `grammar/verb_table.rs`); rung 3 = the **34 NARS reasoning tactics** = THE runbooks (`lance_graph_contract::recipes::RECIPES [Recipe; 34]`, primitives in `ndarray::hpc::styles`); rung 4 = `StyleFamily`-12 thinking macros, autopoiesis through the triangle frozen × learned × exploration. The shipped `RungLevel` carries only the Pearl causal-depth reading — the content wiring (O1) and the rung-4→rung-3 edge (O2, the TRUE default_runbook semantics) are OPEN.
+**The demarcation:** the adjective-36 in `contract::thinking` (Empathetic/Warm/Blunt/Poetic…) is the **persona-modeling storyline** — off-ladder, unwired by design, NOT rung 3, NOT "literal NARS runbooks." `E-STYLE-FAMILY-VS-RUNBOOK-1`'s label is corrected through this entry (append-only; the original stands as written): `default_runbook()` bridges rung-4 macros to the persona vocabulary while wearing the rung-3 tactics' name.
+**Probe results banked with the ruling (2026-07-14 session):** p64-bridge `STYLES[ord % 12]` = DORMANT (zero external callers; TD-STYLE-TABLE-RESIDUE item 3 flipped below); `UNIFIED_STYLES` = TETHERED-not-collapsed (parity test; answers the MODULE-TABLE census open question).
+**Cross-ref:** persona-vs-rung-ladder.md (O1–O6 open items), E-FIVE-STYLE-TABLES-1, E-THINKING-STYLES-ARE-CLASSES-1 (FUTURE-DESIGN), MODULE-TABLE ADDENDUM 2026-07-10 (2).
+
 ## 2026-07-13 — E-V3-GRACE-WIDE-CARVINGS-1 — V1 migration gets a discouraged waiting room, not a crash (operator ruling)
 
 **Status:** RULED (operator, 2026-07-13). Recorded in `.claude/v3/soa_layout/le-contract.md` §3a.

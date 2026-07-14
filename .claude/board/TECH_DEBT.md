@@ -1,5 +1,24 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-STYLE-TABLE-RESIDUE item 3 — PROBED, downgraded (2026-07-14)
+
+The "does any caller feed StyleFamily ordinals into p64-bridge
+`STYLES[ord % 12]`" probe ran (this session): **DORMANT — no live bug.**
+`STYLES` is reachable only via `style_by_ordinal`/`style_by_name`/
+`all_styles`; repo-wide, the only `style_by_ordinal` caller is
+p64-bridge's own 0..12 test loop; the three Cargo dependents
+(driver/planner/osint) import only `cognitive_shader::CognitiveShader`,
+never the styles surface; p64-bridge never imports `StyleFamily`.
+Residual hazard is **latent-API only**: `style_by_ordinal(family as
+usize)` by a future caller would scramble the predicate chain silently.
+Free hardening queued (zero external callers = zero breakage):
+`#[deprecated]` on `style_by_ordinal` steering to by-name conversion.
+Companion answer for the MODULE-TABLE census: driver `UNIFIED_STYLES`
+was TETHERED (names/ordinals/len parity test), not collapsed — a
+legitimate close of that open question. Ruling context:
+`E-RUNG-CONTENT-LADDER-1`; demarcation doc:
+`.claude/v3/knowledge/persona-vs-rung-ladder.md`.
+
 ## TD-MESSAGE-RESIDUE (2026-07-10, operator-ruled LEAVE-AS-IS)
 
 Per E-NOBODY-WAITS-1: no messages, no actors anywhere — ractor is only
