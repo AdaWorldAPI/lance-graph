@@ -1,5 +1,11 @@
 # LATEST_STATE — What Just Shipped (read this FIRST)
 
+## 2026-07-14 — branch `claude/review-medcare-rust-dt7MS` — `class_view::execute_defaults` + `ClassView::default_targets` — the Default-recipe half of the ActionDef value executor (lane-3a inc 2)
+
+### Current Contract Inventory — new entry
+
+- **`class_view::execute_defaults(targets, present, store, apply_default)`** (NEW free fn next to `execute_compute_dag`) + **`ClassView::default_targets(class) -> &[u8]`** (NEW default trait method, zero-fallback `&[]`, next to `compute_dag`). The **Default-recipe** (write-if-blank, `RecipeCentroid::Default` — the C# `if (field == null) field = new …` lazy-init idiom, 56 methods in the MedCare corpus) execution primitive: fires `apply_default(store, t)` for each target whose presence bit is CLEAR, in slice order; skips present AND already-fired positions (duplicate-safe — after a default fires the field IS populated; pins the C# `GetOrCreateChartPanel` init-only-on-create quirk, devcomponent_chart.cs:161-180); abort-at-target reusing `ExecuteComputeError::Compute` (`Cyclic` unreachable — defaults have no dependency order; a default reading a computed field is a Compute recipe). **Presence gate = `WideFieldMask`** (not `FieldMask`): every u8 position addressable, no 64-field ceiling — the wide-mask lesson the a2ui screen-addressing #205 correction paid for, applied at birth. Phase rule documented (not interleaved): defaults run BEFORE `execute_compute_dag`; the caller folds the fired list into its presence mask. One more brick, not a parallel path (the `screens_reachable_from` precedent): existing mask, existing error, same abort semantics as the Compute half. +7 unit tests (slice-order fire, present-skip, abort-keeps-earlier, empty-noop, wide-fire-past-64, duplicate-fires-once, hook-default-empty); 898 contract tests green; fmt + clippy clean (also carries the pending rustfmt reflow on `grammar/thinking_styles.rs` + `style_family.rs` — main was fmt-dirty on those two test files). Consumer witness lands in MedCare-rs (`chart_default_parity`, same arc).
+
 ## 2026-07-12 — branch `claude/review-claude-board-files-nhqgx1` — `contract::temporal_pov::{VersionRange, TemporalPov}` — zero-dep temporal POV range filter (operator-directed)
 
 ### Current Contract Inventory — new entry

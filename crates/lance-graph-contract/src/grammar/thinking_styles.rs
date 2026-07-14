@@ -1141,7 +1141,11 @@ coverage:
             ("reflective", ThinkingStyle::Reflective),
             ("sovereign", ThinkingStyle::Sovereign),
         ] {
-            assert_eq!(parse_style_name(name).unwrap(), expected, "passthrough: {name}");
+            assert_eq!(
+                parse_style_name(name).unwrap(),
+                expected,
+                "passthrough: {name}"
+            );
         }
         assert!(parse_style_name("nonsensestyle").is_err());
     }
