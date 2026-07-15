@@ -1,3 +1,10 @@
+## 2026-07-15 — cross-repo forensic audit (q2 session) — rung-2 two-144s split + third 0–9 ladder filed as deltas onto E-RUNG-CONTENT-LADDER-1
+
+- **Fleet:** 5-agent read-only evidence sweep (before/after `1a11038` API shape, contract StyleFamily design, D-TSC-1 spec/governance coverage, five-tables divergence reconstruction, cross-repo consumer+CI survey) + main-thread verification greps. A second 4-agent sweep (per-hunk claim audit) was lost to a token wall — its two open checks (FieldModulation→plan-shape functional trace; full 38-file claim audit) remain UNRUN, not asserted.
+- **Dedup discipline:** audit initially ran against pre-ruling `757c3e8`; after fetching main, findings were deduped against `E-RUNG-CONTENT-LADDER-1`, `E-COMPAT-ALIAS-MUST-BE-LIFTED-1`, TD-STYLE-TABLE-RESIDUE item-3 probe, and the existing RungLevel byte-dup TD paragraph — only two genuinely unfiled findings shipped.
+- **Deliverables (doc-only, this commit):** `EPIPHANIES.md` `E-RUNG2-TWO-144S-1` prepended; `TECH_DEBT.md` `TD-RUNG2-144-VOCAB-SPLIT` + `TD-THIRD-RUNG-LADDER-LEARNING` prepended; `persona-vs-rung-ladder.md` O7/O8 appended.
+- **Outcome:** rung-2 wiring (O1) now has its gating adjudication named; no ruling changed, no code changed.
+
 ## 2026-07-14 — 5+3 council: OGAR-vs-lance-graph layer-confusion audit + contract doc-label cleanup
 - **Deliverable:** doc-comment label-bleed removed from `contract::class_view::{execute_compute_dag, execute_defaults}` (were branded "the ActionDef value executor" + carried MedCare/sono provenance in the zero-dep contract). E-LAYER-CONFUSION-OGAR-VS-SPINE-1 prepended. New issue #692 (contract::action shape-parity fuse gap).
 - **Council:** 5 falsification savants (Sonnet ×4 / Opus ×1) + 3 brutal reviewers (Sonnet). Grades: 3 WRONG, 1 UNSOUND, 1 WRONG-not-catastrophic. Reviewers raised 2 BLOCK + 6 FIX against the orchestrator's own remediation (all accepted). #690 placement verified CORRECT (not reverted).

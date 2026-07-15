@@ -103,6 +103,23 @@ its "runbook" naming and the board label cross storylines.
   macro object. `FUTURE-DESIGN.md` E-THINKING-STYLES-ARE-CLASSES-1
   ("style = class: StepMask × WideFieldMask + rung set + KausalSpec")
   is the landing zone.
+- **O7 — the two 144s of rung 2 are divergent (added 2026-07-15,
+  cross-repo audit; gates O1).** The rung-2 row above cites
+  `sigma_rosetta` + `verb_table` jointly, but their vocabularies
+  disagree: ~2/12 root/family overlap (become, transform), different
+  tense membership (subjunctive/gerund vs 3×continuous +
+  Potential-as-Subjunctive), and skewed ordinals on shared tense names
+  (habitual 7 vs 9, imperative 9 vs 11). Both ordinal-indexed — a naive
+  bridge silently mis-maps. Rung-2 wiring needs either a parity-tested
+  mapping or an explicit "atom vocabulary vs parse projection"
+  demarcation first. Receipts: `E-RUNG2-TWO-144S-1`; debt row:
+  `TD-RUNG2-144-VOCAB-SPLIT`.
+- **O8 — a third 0–9 ladder, off-canon (added 2026-07-15).**
+  `learning::cognitive_frameworks::Rung` (Noise=0 … Transcendent=9) is a
+  meaning-granularity ladder whose interior ordinals all diverge from
+  `RungLevel` while the endpoints deceptively agree. Needs the persona-36
+  treatment: demarcate as its own storyline or rename. Debt row:
+  `TD-THIRD-RUNG-LADDER-LEARNING`.
 
 ## Cross-refs
 
