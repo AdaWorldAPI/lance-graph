@@ -789,18 +789,21 @@ impl<E: std::error::Error + 'static> std::error::Error for ExecuteComputeError<E
     }
 }
 
-/// Execute a class's **recompute DAG** over a consumer-owned store — the
-/// ORDER half of the ActionDef value executor (the medcare transpile arc's
-/// lane-3a increment 1).
+/// Execute a class's **recompute DAG** over a consumer-owned store — a
+/// pure *sequencing* primitive over [`ComputeEdge`] positions.
 ///
-/// Split of responsibilities (commitment: thinking lives upstream, values
-/// live with the row owner): this function owns *sequencing* — targets run
-/// in a valid topological order ([`compute_dag_topo_order`]) so every
-/// precedent is recomputed before its dependents — while `compute_target`
-/// owns *value semantics*: it recomputes field position `t` on `store`
-/// (e.g. a hand-ported score formula; the sono `Recal_*` family is the
-/// first parity witness). Leaves are never passed to `compute_target` —
-/// they are the already-present inputs.
+/// This owns ORDERING ONLY, never value semantics: targets run in a valid
+/// topological order ([`compute_dag_topo_order`]) so every precedent is
+/// recomputed before its dependents, while the caller-supplied
+/// `compute_target` closure owns the actual recompute of field position `t`
+/// on `store` (e.g. a hand-ported formula on the consumer side). Leaves are
+/// never passed to `compute_target` — they are the already-present inputs.
+///
+/// Scope note: this is the topological-order half only. It is NOT an
+/// `ActionDef`-body interpreter — it takes no `ActionDef`, reads no
+/// `kausal`/`EnterEffect`; a value-reproducing interpreter over a populated
+/// `ActionDef` is a separate (OGAR-owned) concern. Consumers pair this
+/// ordering with their own value closure.
 ///
 /// Returns the executed order (the same positions
 /// [`compute_dag_topo_order`] yields).
@@ -823,13 +826,12 @@ pub fn execute_compute_dag<S, E>(
     Ok(order)
 }
 
-/// Execute a class's **default targets** over a consumer-owned store — the
-/// Default-recipe half of the ActionDef value executor (the medcare transpile
-/// arc's lane-3a increment 2, following the Compute half above).
+/// Execute a class's **default targets** over a consumer-owned store — a
+/// presence-gated *fire-if-absent* sequencing primitive (the write-if-blank
+/// shape, `this.Name ??= "unknown"`), sibling to [`execute_compute_dag`].
 ///
-/// A *Default* recipe is write-if-blank (`this.Name ??= "unknown"` — the
-/// `RecipeCentroid::Default` centroid): the value fires ONLY where the field
-/// is not already populated. Same split of responsibilities as
+/// Fires each target ONLY where the field is not already populated. Same
+/// split of responsibilities as
 /// [`execute_compute_dag`]: this function owns the *fire/skip decision*
 /// (presence-gated, slice order), while `apply_default` owns *value
 /// semantics* — it writes field position `t`'s default onto `store` (a
@@ -1155,11 +1157,11 @@ pub trait ClassView {
     }
 
     /// The class's **default targets** — the field positions carrying a
-    /// write-if-blank default (the `RecipeCentroid::Default` harvest:
-    /// `this.Name ??= …`, the C# lazy-init `if (field == null) field = new …`
-    /// idiom), in declaration order. The manifest [`execute_defaults`]
-    /// consumes — same layering as [`compute_dag`](ClassView::compute_dag):
-    /// resolution metadata above the SoA, stores nothing on the row.
+    /// write-if-blank default (`this.Name ??= …`; the lazy-init
+    /// `if (field == null) field = new …` idiom), in declaration order. The
+    /// manifest [`execute_defaults`] consumes — same layering as
+    /// [`compute_dag`](ClassView::compute_dag): resolution metadata above the
+    /// SoA, stores nothing on the row.
     ///
     /// Default `&[]` — the zero-fallback: an unconfigured class has no
     /// defaulted fields. An implementor returns a generated `const &[u8]`;
@@ -1451,7 +1453,7 @@ mod tests {
 
     // ── screen-graph jump connector (navigates_to Klickweg) ──────────────────
 
-    // ── execute_compute_dag (lane-3a increment 1: the ORDER half) ────────────
+    // ── execute_compute_dag (topological-order sequencing primitive) ─────────
 
     /// Chain f0→f1→f2 executes in dependency order and the consumer closure
     /// sees precedents already recomputed (value semantics stay consumer-side).
@@ -1531,7 +1533,7 @@ mod tests {
         assert_eq!(row, [1]);
     }
 
-    // ── execute_defaults (lane-3a increment 2: the Default-recipe half) ──────
+    // ── execute_defaults (presence-gated fire-if-absent primitive) ───────────
 
     /// An empty presence mask fires every target, in SLICE order (declaration
     /// order — defaults have no dependency order to reorder by).

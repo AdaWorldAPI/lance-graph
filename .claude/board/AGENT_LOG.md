@@ -1,3 +1,8 @@
+## 2026-07-14 — 5+3 council: OGAR-vs-lance-graph layer-confusion audit + contract doc-label cleanup
+- **Deliverable:** doc-comment label-bleed removed from `contract::class_view::{execute_compute_dag, execute_defaults}` (were branded "the ActionDef value executor" + carried MedCare/sono provenance in the zero-dep contract). E-LAYER-CONFUSION-OGAR-VS-SPINE-1 prepended. New issue #692 (contract::action shape-parity fuse gap).
+- **Council:** 5 falsification savants (Sonnet ×4 / Opus ×1) + 3 brutal reviewers (Sonnet). Grades: 3 WRONG, 1 UNSOUND, 1 WRONG-not-catastrophic. Reviewers raised 2 BLOCK + 6 FIX against the orchestrator's own remediation (all accepted). #690 placement verified CORRECT (not reverted).
+- **Board:** EPIPHANIES prepended; companion corrections in MedCare-rs (E-MEDCARE-30, PR #211), a2ui-rs (CROSS-SESSION-SEAMS retracted-in-part), OGAR #208.
+
 ## 2026-07-12 — chess-arc-spine-evidence-carve — E-THINKING-SPINE-CHESS-EVIDENCE-1 + temporal-markov plan addendum
 
 - **Deliverable:** `.claude/plans/temporal-markov-and-style-classes-v1.md` addendum (6 graded mappings of the chess arc onto Track A/B) + `EPIPHANIES.md` `E-THINKING-SPINE-CHESS-EVIDENCE-1` pointer entry.
