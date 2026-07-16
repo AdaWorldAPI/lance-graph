@@ -1,5 +1,9 @@
 # LATEST_STATE — What Just Shipped (read this FIRST)
 
+## 2026-07-16 — branch `claude/x265-x266-plans-review-h9osnl` (v2, post-#695) — H.268 codename + graded Morton/wgpu synergy matrix pointer
+
+Doc-only. #695 (standards-watch + E-PRX12-STANDARDS-GROUNDING-1) MERGED same day; this follow-up branch (restarted from main per merged-branch rule) adds: the **H.268 internal codename** ruling for the ex-"x266" PR-X12 3DGS scene codec (INTERNAL ONLY, never an ITU designation), the capstone pointer to ndarray's adversarially-graded feasibility matrix (`pr-x12-h268-morton-wgpu-synergies.md` — 1× FEASIBLE-NOW / 2× NEEDS-PROBE / 7× OVERCLAIM-CORRECTED, incl. bgz17's 256×256 distance table being texture-isomorphic today with PROBE-GPU-LUT as the named gate), EPIPHANIES `E-H268-GRADED-SYNERGY-1`, and the #695 post-merge PR_ARC entry. No contract types touched.
+
 ## 2026-07-14 — branch `claude/review-medcare-rust-dt7MS` — `class_view::execute_defaults` + `ClassView::default_targets` — the Default-recipe half of the ActionDef value executor (lane-3a inc 2)
 
 ### Current Contract Inventory — new entry
