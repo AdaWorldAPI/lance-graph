@@ -54,6 +54,31 @@ structured source
 | PR-X12 anti-neural | frozen lookup tables instead of NN hot loops | deterministic low-latency runtime |
 | SplatShaderBlas | tiered bitpacked / palette / 3DGS execution | unified execution naming |
 | Datalake HHTL | certified block pruning and hydration | non-visual generalization |
+| JVET standards track (H.266/VVC → ECM → NNVC → H.267) | public beyond-VVC trajectory: ECM tool accretion, NN-in-loop, ≥40%-over-VVC requirement | external benchmark axis + the complexity/determinism counter-examples |
+
+## Standards watch (added 2026-07-16)
+
+The public trajectory the codec line must track — grounded with sources in
+ndarray `.claude/knowledge/pr-x12-h266-h267-standards-landscape.md`:
+
+```text
+H.266/VVC  finalized 2020; ~40-50% over HEVC; decoder 1.5-2x, encoder ~10x
+ECM-16.1   ~27% BD-rate over VTM-11 (RA), ~40% screen content;
+           complexity industry-flagged impractical -> cautionary anchor
+           for the codec-body LoC envelope (R-3)
+NNVC v7    NN in-loop filters ~9% RA each -> the public ANTITHESIS of the
+           anti-neural rule; determinism is our moat (evidentiary /
+           medical / scientific video); mobile decoder-complexity
+           pushback (Samsung, ITU 2025) is evidence for the inversion
+H.267      requirement >=40% over VVC Main 10 at 4K+;
+           CfP Jul 2026 -> submissions Nov 2026 -> evaluation Jan 2027
+           -> finalize ~2028 -> deploy ~2034+
+```
+
+Naming rule: "x266" in workspace docs = the PR-X12 3DGS scene codec, never
+H.266/VVC. blasgraph remains the bit-exact canonical kernel home; bgz17 and
+siblings are lossy adapters (ndarray audit, corrections applied 2026-07-16).
+Watch dates: November 2026 (CfP submissions), January 2027 (evaluation).
 
 ## General substrate shape
 
