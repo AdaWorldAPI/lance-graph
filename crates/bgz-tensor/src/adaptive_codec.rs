@@ -533,11 +533,7 @@ mod probe_wh_mag {
         let n = v.len();
         let (i4_codes, i4_params) = quantize_f32_to_i4(v);
         let dequant1 = dequantize_i4_to_f32(&i4_codes, &i4_params, n);
-        let res2: Vec<f32> = v
-            .iter()
-            .zip(dequant1.iter())
-            .map(|(a, b)| a - b)
-            .collect();
+        let res2: Vec<f32> = v.iter().zip(dequant1.iter()).map(|(a, b)| a - b).collect();
         let (i2_codes, i2_params) = quantize_f32_to_i2(&res2);
         let dequant2 = dequantize_i2_to_f32(&i2_codes, &i2_params, n);
         dequant1

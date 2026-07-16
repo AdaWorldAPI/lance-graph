@@ -71,7 +71,13 @@ fn walk_residue(start: u8, k: usize) -> u8 {
 /// `±1` sign sequence from the parity of the walk residue.
 fn walk_signs(start: u8, n: usize) -> Vec<i32> {
     (0..n)
-        .map(|k| if walk_residue(start, k) % 2 == 0 { 1 } else { -1 })
+        .map(|k| {
+            if walk_residue(start, k) % 2 == 0 {
+                1
+            } else {
+                -1
+            }
+        })
         .collect()
 }
 
@@ -89,7 +95,13 @@ fn lcg_next(state: &mut u64) -> u64 {
 fn lcg_signs(seed: u64, n: usize) -> Vec<i32> {
     let mut state = seed;
     (0..n)
-        .map(|_| if (lcg_next(&mut state) >> 63) & 1 == 1 { 1 } else { -1 })
+        .map(|_| {
+            if (lcg_next(&mut state) >> 63) & 1 == 1 {
+                1
+            } else {
+                -1
+            }
+        })
         .collect()
 }
 
@@ -133,7 +145,9 @@ fn probe_walk_spectrum() {
         eprintln!("  tau={tau:4}  R={r:+.6}  |R|={:.6}", r.abs());
     }
 
-    eprintln!("-- walk |R(tau)| at palette-lattice periods (gcd(17,tau)=1, expected ~ noise floor) --");
+    eprintln!(
+        "-- walk |R(tau)| at palette-lattice periods (gcd(17,tau)=1, expected ~ noise floor) --"
+    );
     let mut walk_lattice_max: f64 = 0.0;
     for &tau in &lattice {
         let r = autocorrelation(&walk, tau);
@@ -154,9 +168,7 @@ fn probe_walk_spectrum() {
         lcg_overall_max = lcg_overall_max.max(autocorrelation(&lcg, tau).abs());
     }
 
-    eprintln!(
-        "-- context: LCG baseline max|R| over tau in 1..={TAU_MAX} = {lcg_overall_max:.6}"
-    );
+    eprintln!("-- context: LCG baseline max|R| over tau in 1..={TAU_MAX} = {lcg_overall_max:.6}");
     eprintln!(
         "walk lattice max|R| = {walk_lattice_max:.6}, LCG lattice max|R| = {lcg_lattice_max:.6}, ratio = {:.3}",
         walk_lattice_max / lcg_lattice_max.max(1e-12)
