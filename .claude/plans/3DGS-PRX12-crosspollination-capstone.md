@@ -76,9 +76,22 @@ H.267      requirement >=40% over VVC Main 10 at 4K+;
 ```
 
 Naming rule: "x266" in workspace docs = the PR-X12 3DGS scene codec, never
-H.266/VVC. blasgraph remains the bit-exact canonical kernel home; bgz17 and
-siblings are lossy adapters (ndarray audit, corrections applied 2026-07-16).
+H.266/VVC. **Internal codename since 2026-07-16: H.268** (INTERNAL ONLY,
+never an ITU designation — H.267 itself is still prospective). blasgraph
+remains the bit-exact canonical kernel home; bgz17 and siblings are lossy
+adapters (ndarray audit, corrections applied 2026-07-16).
 Watch dates: November 2026 (CfP submissions), January 2027 (evaluation).
+
+Graded feasibility matrix (2026-07-16, adversarially verified with
+receipts): ndarray `.claude/knowledge/pr-x12-h268-morton-wgpu-synergies.md`
+— Morton-cascade / perturbation-pyramid / wgpu-wasm synergies, each claim
+FEASIBLE-NOW / NEEDS-PROBE / OVERCLAIM-CORRECTED. Load-bearing for this
+repo: bgz17's 256×256 distance table is texture-isomorphic (dense u16,
+R16Uint-ready — PROBE-GPU-LUT names the parity gate vs
+`batch_palette_distance`); the shipped Morton 2bit primitives
+(`FacetTier::morton`, symbiont `morton4`) prove the address algebra but the
+ndarray CTU codec does not use it yet; D-PHASE/D-WHP stay [H] probe-gated
+(J2 kill: dither-only).
 
 ## General substrate shape
 

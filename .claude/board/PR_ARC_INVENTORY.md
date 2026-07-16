@@ -33,6 +33,27 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## #695 lance-graph: PR-X12 standards-watch + E-PRX12-STANDARDS-GROUNDING-1 (docs-only)
+
+**Status:** MERGED 2026-07-16 (merge commit `364a1d5`), branch `claude/x265-x266-plans-review-h9osnl`, 2 commits, doc-only. Sibling: ndarray PR #242 (open) carries the audit corrections + standards landscape.
+
+**Added**
+- `3DGS-PRX12-crosspollination-capstone.md` § Standards watch — JVET trajectory row (H.266/VVC facts; ECM-16.1 ~27% over VTM-11 at industry-flagged-impractical complexity; NNVC v7 ≈9% RA/filter; H.267 ≥40%-over-VVC requirement, CfP Jul 2026 → finalize ~2028) + naming rule ("x266" = PR-X12 3DGS scene codec, never H.266/VVC).
+- EPIPHANIES `E-PRX12-STANDARDS-GROUNDING-1` (with same-day codex-review scope note).
+- Re-corrected `3DGS-SplatShaderBlas-BLASGraph-crosspollination-plan.md` "BLASGraph correction" section — it had carried the inverted canon verbatim (bgz17-as-current-home + the nonexistent `tropical_spmv` free function).
+
+**Locked** — blasgraph = canonical bit-exact kernel home (f32 min-plus kernel unwritten until A6); shipped min-plus = the method `bgz17::ScalarCsr::spmv_min_plus` (lossy sibling, prototype only); future `tropical_gemm|tropical_spmv` grep hits are actionable cleanup, not settled history.
+
+**Deferred** — ndarray Tier-1 quarantined docs' full rewrites; all Plan G / probe work (unchanged).
+
+**Docs** — this entry; ndarray `pr-x12-h266-h267-standards-landscape.md` (sources).
+
+**Review** — codex P2 (stale symbols + board-entry overreach) fixed in `1a05817` + thread reply; CodeRabbit rate-limited (did not review); Bugbot usage-limited.
+
+**Confidence (2026-07-16):** doc-only; grounded against web sources + shipped code greps.
+
+---
+
 ## PR (pending) — `claude/review-medcare-rust-dt7MS` — lane-3a inc 2: `execute_defaults` (Default-recipe half)
 
 - **Added:** `class_view::execute_defaults` (fire-if-absent runner over `WideFieldMask` presence, ~40 LOC + docs); `ClassView::default_targets` (zero-fallback default trait method); 7 unit tests.
