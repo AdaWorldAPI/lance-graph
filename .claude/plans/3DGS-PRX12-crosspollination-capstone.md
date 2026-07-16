@@ -87,11 +87,36 @@ receipts): ndarray `.claude/knowledge/pr-x12-h268-morton-wgpu-synergies.md`
 — Morton-cascade / perturbation-pyramid / wgpu-wasm synergies, each claim
 FEASIBLE-NOW / NEEDS-PROBE / OVERCLAIM-CORRECTED. Load-bearing for this
 repo: bgz17's 256×256 distance table is texture-isomorphic (dense u16,
-R16Uint-ready — PROBE-GPU-LUT names the parity gate vs
-`batch_palette_distance`); the shipped Morton 2bit primitives
-(`FacetTier::morton`, symbiont `morton4`) prove the address algebra but the
-ndarray CTU codec does not use it yet; D-PHASE/D-WHP stay [H] probe-gated
-(J2 kill: dither-only).
+R16Uint-ready — PROBE-GPU-LUT is the parity gate); the shipped Morton 2bit
+primitives (`FacetTier::morton`, symbiont `morton4`) prove the address
+algebra but the ndarray CTU codec does not use it yet; D-PHASE/D-WHP stay
+[H] probe-gated (J2 kill: dither-only).
+
+**PROBE-GPU-LUT oracle spec (pinned 2026-07-16, codex P2 on #696 —
+supersedes the looser "parity vs `batch_palette_distance`" wording here
+and in the ndarray matrix doc's probe table):** bgz17 ships THREE distinct
+conventions and a naive cross-comparison tests layout drift, not parity —
+`PaletteDistanceTable` is **fixed-stride-256, raw `l1 as u16`**
+(`palette.rs:77-88`); `batch_palette_distance` indexes a **compact k×k**
+buffer (`row_offset = query*k`, `simd.rs:47-79`); `DistanceMatrix::build`
+produces **compact k×k, SCALED** values (`d·65535/(17·65535)`,
+`distance_matrix.rs:24-40`). The probe must pin ONE buffer + stride +
+scale on BOTH sides: **arm A (256-stride)** — the upload buffer is built
+through the PUBLIC accessor (`PaletteDistanceTable.table` is a private
+field with no slice export — codex P2 on #697): the probe materializes
+`buf[a*256 + b] = table.distance(a, b)` for all `(a, b)` in `0..256²`,
+which is bit-identical to the private buffer by construction
+(`distance` is the direct indexed read `table[a*256 + b]`,
+`palette.rs:275-277`); upload `buf` as the R16Uint texture; CPU oracle =
+the same `table.distance(q, c)` calls (equivalently
+`batch_palette_distance(&buf, 256, …)`, valid because stride==k==256 with
+zero-padding). If the probe PR prefers zero-copy, it adds a one-line
+`pub fn as_slice(&self) -> &[u16]` to bgz17 in the SAME PR — never
+assumes it exists. **arm B (compact)** — upload `DistanceMatrix.data` as
+a k×k texture; CPU oracle = `batch_palette_distance(&dm.data, k, …)`.
+Never mix arms: for k<256 the strides differ and raw-vs-scaled values
+differ, so a mixed comparison is meaningless. Probe results that don't
+name their arm are not trusted.
 
 ## General substrate shape
 
