@@ -101,11 +101,18 @@ conventions and a naive cross-comparison tests layout drift, not parity —
 buffer (`row_offset = query*k`, `simd.rs:47-79`); `DistanceMatrix::build`
 produces **compact k×k, SCALED** values (`d·65535/(17·65535)`,
 `distance_matrix.rs:24-40`). The probe must pin ONE buffer + stride +
-scale on BOTH sides: **arm A (256-stride)** — upload
-`PaletteDistanceTable.table` as the R16Uint texture; CPU oracle = direct
-reads `table[q*256+c]` of the SAME buffer (equivalently
-`batch_palette_distance(&table, 256, …)`, valid because stride==k==256
-with zero-padding); **arm B (compact)** — upload `DistanceMatrix.data` as
+scale on BOTH sides: **arm A (256-stride)** — the upload buffer is built
+through the PUBLIC accessor (`PaletteDistanceTable.table` is a private
+field with no slice export — codex P2 on #697): the probe materializes
+`buf[a*256 + b] = table.distance(a, b)` for all `(a, b)` in `0..256²`,
+which is bit-identical to the private buffer by construction
+(`distance` is the direct indexed read `table[a*256 + b]`,
+`palette.rs:275-277`); upload `buf` as the R16Uint texture; CPU oracle =
+the same `table.distance(q, c)` calls (equivalently
+`batch_palette_distance(&buf, 256, …)`, valid because stride==k==256 with
+zero-padding). If the probe PR prefers zero-copy, it adds a one-line
+`pub fn as_slice(&self) -> &[u16]` to bgz17 in the SAME PR — never
+assumes it exists. **arm B (compact)** — upload `DistanceMatrix.data` as
 a k×k texture; CPU oracle = `batch_palette_distance(&dm.data, k, …)`.
 Never mix arms: for k<256 the strides differ and raw-vs-scaled values
 differ, so a mixed comparison is meaningless. Probe results that don't
