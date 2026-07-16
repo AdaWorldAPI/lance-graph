@@ -1,5 +1,44 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-RUNG2-144-VOCAB-SPLIT — the two 144s of rung 2 are divergent vocabularies (2026-07-15)
+
+**Open.** `E-RUNG-CONTENT-LADDER-1`'s rung-2 row cites `sigma_rosetta.rs`
+(`VERB_ROOTS`/`VERB_TENSES`, the wired-hot-path Membrane atoms) and contract
+`grammar/verb_table.rs` (`VerbFamily`×`Tense` → TEKAMOLO `SlotPrior`, the
+parse-side priors) jointly as "the 144 thinking atoms" — but the two tables
+share only ~2/12 roots (become, transform), differ in tense MEMBERSHIP
+(subjunctive+gerund+1×continuous vs 3×continuous, no gerund, Potential as
+Subjunctive stand-in) and in tense ORDINALS on the shared names (habitual
+7 vs 9, potential 8 vs 10, imperative 9 vs 11). Both are ordinal-indexed
+(`root % 12` / `tense as usize`), so any naive rung-2 bridge silently
+mis-maps — the pre-M9 five-tables signature one layer down. **This gates
+O1** (rung↔content wiring) in `persona-vs-rung-ladder.md`. **Pay by** one
+of: (a) unify on one vocabulary (heavy — sigma is a baked wire format);
+(b) an explicit sigma↔verb_table mapping table in contract with a
+literal-pin parity test on both axes (the D-TSC-1 treatment); (c) operator
+demarcation "two KINDS" (atom vocabulary vs parse projection) recorded in
+the demarcation doc + a doc-comment cross-warning at BOTH tables that the
+other exists and ordinals do NOT transfer. Receipts + full diff:
+`E-RUNG2-TWO-144S-1`.
+
+## TD-THIRD-RUNG-LADDER-LEARNING — `learning::Rung` is a third, semantically divergent 0–9 ladder (2026-07-15)
+
+**Open.** `learning/src/cognitive_frameworks.rs:699-713` defines
+`pub enum Rung` — Noise=0, Token, Phrase, Proposition, Argument, Narrative,
+Worldview, Paradigm, Episteme, Transcendent=9 — a meaning-granularity
+ladder sharing the 0–9 shape and the `Transcendent=9` endpoint with
+`contract::cognitive_shader::RungLevel`, while EVERY interior ordinal
+means something different (4 = "reasoning chain" vs "generalized
+patterns"). Endpoints deceptively agree; interiors diverge. The existing
+RungLevel byte-dup entry (below) covers only the contract↔engine verbatim
+pair — this third ladder has no row and no demarcation, and any code
+exchanging rung ordinals with `learning` mis-means rungs 1–8 silently.
+**Pay by** operator adjudication: (a) demarcate as a separate storyline
+(à la persona-36 in `persona-vs-rung-ladder.md`) with a doc-comment
+cross-warning, or (b) rename (`MeaningGrain`?) so "rung" stops meaning two
+ladders. Cross-ref: `E-RUNG2-TWO-144S-1` Finding 2;
+`E-RUNG-CONTENT-LADDER-1`.
+
 ## TD-STYLE-TABLE-RESIDUE item 3 — PROBED, downgraded (2026-07-14)
 
 The "does any caller feed StyleFamily ordinals into p64-bridge
