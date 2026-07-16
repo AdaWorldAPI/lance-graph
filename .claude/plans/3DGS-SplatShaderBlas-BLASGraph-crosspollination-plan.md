@@ -41,21 +41,23 @@ SplatShaderBlas-3DGS
   workloads: maps, ultrasound, raw-field kernels, certified visualization
 ```
 
-## BLASGraph correction
+## BLASGraph correction (re-corrected 2026-07-16 per the ndarray audit)
 
-Older docs sometimes said:
+The earlier version of this section had the canon/adapter relationship
+**inverted** — it presented bgz17 as the current kernel home and blasgraph
+as "the future abstraction name." Per the ndarray `PR-X12-docs-audit.md`
+(ground truths #3/#5, corrections applied 2026-07-16):
 
-```text
-lance-graph::blasgraph::tropical_gemm
-```
-
-Newer PR-X12 follow-up corrected the current location:
-
-```text
-lance-graph::bgz17::scalar_sparse::tropical_spmv
-```
-
-Treat `blasgraph` as the future abstraction name, not necessarily the current symbol path.
+- **`lance-graph::blasgraph` is the canonical, bit-exact kernel home.**
+  The symbol `blasgraph::tropical_gemm` does not exist; the numerical f32
+  min-plus (tropical-GEMM) kernel is **unwritten** and lands in blasgraph
+  when the codec's A6 RDO wires it.
+- The free-function path `lance-graph::bgz17::scalar_sparse::tropical_spmv`
+  **never existed**. The only shipped min-plus is the method
+  `bgz17::ScalarCsr::spmv_min_plus`
+  (`crates/bgz17/src/scalar_sparse.rs:98`, `fn(&self, x: &[f32]) -> Vec<f32>`).
+- bgz17 is a **lossy sibling encoding stack** — usable as a prototype
+  adapter, never a substitute for the bit-exact blasgraph canon.
 
 ## Responsibility split
 
@@ -174,8 +176,8 @@ Patch or reference these plans:
 ## Acceptance criteria
 
 - New 3DGS plans clearly reference the older SplatShaderBlas / PR-X12 line.
-- BLASGraph is treated as a future abstraction unless the current symbol exists.
-- Current path `bgz17::scalar_sparse::tropical_spmv` is recorded as the known implementation anchor.
+- blasgraph is treated as the canonical bit-exact kernel home (the tropical-GEMM kernel itself is unwritten until A6 wires it).
+- The method `bgz17::ScalarCsr::spmv_min_plus` is recorded as the only shipped min-plus — a lossy-sibling prototype anchor, never the canon (re-corrected 2026-07-16).
 - The three tiers are named separately to avoid bitpacked/palette/3DGS conflation.
 - Tile/render/query decisions can consume SplatShaderBlas-style reports.
 
