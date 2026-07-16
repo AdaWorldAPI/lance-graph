@@ -118,6 +118,13 @@ Never mix arms: for k<256 the strides differ and raw-vs-scaled values
 differ, so a mixed comparison is meaningless. Probe results that don't
 name their arm are not trusted.
 
+Addendum §7-§10 (2026-07-16): the ndarray matrix doc now carries the
+comma-closure/constants correction, the 96-bit facet carving (48 CAM-PQ
++ 24 helix + 24 turbovec = the V3 12-byte payload), the kernel-shape
+rule (turbovec 11.4× LUT-vs-GEMM receipt), and the replayable-tile
+synergy set (H.268 × cognitive shaders) — all probe-gated; see
+E-H268-REPLAYABLE-TILE-1.
+
 ## General substrate shape
 
 ```text
