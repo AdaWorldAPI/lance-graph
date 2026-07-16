@@ -1,5 +1,18 @@
 # LATEST_STATE — What Just Shipped (read this FIRST)
 
+## 2026-07-16 — branch `claude/x265-x266-plans-review-h9osnl` (v5, post-#702) — probe-wave verdicts on main
+
+#702 MERGED (autonomous merge under the operator-granted authority):
+the h268-probe-wave — PROBE-WH-MAG (NEUTRAL, bare-tile WH leg closed
+not-transferring), PROBE-SIG-CHECKSUM (PASS, depth-2 parallel-chord
+blind-spot bound), PROBE-WALK-SPECTRUM (KILL of §10(g)'s "decorrelated
+by construction"; period-17 structure confirmed; D-QUANTGATE
+unaffected). Probes live in bgz-tensor/jc/helix; verdicts canonical in
+EPIPHANIES `E-H268-PROBE-WAVE-1-RESULTS` + plan `h268-probe-wave-v1.md`.
+Companion ndarray #246 MERGED same day. This entry + the #702 PR_ARC
+entry are the post-merge hygiene. Next plateau (same goal):
+TD-BGZ-TENSOR-PRE-LANE-REVIEW.
+
 ## 2026-07-16 — branch `claude/x265-x266-plans-review-h9osnl` (v4, post-#699) — Hadamard-residual-ladder honourable mention on the V3 substrate
 
 Doc-only. #698 and #699 MERGED same day; this follow-up adds: the
