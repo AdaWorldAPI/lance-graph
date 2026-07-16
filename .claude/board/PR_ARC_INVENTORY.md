@@ -33,6 +33,27 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## #702 lance-graph: h268-probe-wave-v1 — three probes with measured verdicts (code + board)
+
+**Status:** MERGED 2026-07-16 (merge commit `6d4acf2`), branch `claude/x265-x266-plans-review-h9osnl`, 7 commits, autonomously merged under the operator-granted merge authority for this arc.
+
+**Added**
+- Three deterministic CPU-only probes: `crates/bgz-tensor/src/adaptive_codec.rs` `mod probe_wh_mag` (WHT₁₆ vs direct i4+i2, three seeded tile classes); `crates/jc/src/sig_checksum.rs` (depth-2 signature digest, behind `hambly-lyons`, NOT a 12th pillar); `crates/helix/src/walk_spectrum.rs` (walk-parity autocorrelation via the canonical `CurveRuler`, test-only).
+- Verdicts (Opus-adjudicated, math hand-verified): **WH-MAG NEUTRAL** (bare-tile leg CLOSED not-transferring, B/A 0.929/1.317/1.869; PROBE-WH-MAG-2 named+deferred); **SIG-CHECKSUM PASS** (with the depth-2 parallel-chord blind-spot bound — digest null space exceeds tree-like equivalence); **WALK-SPECTRUM KILL** of §10(g)'s "decorrelated by construction" half (lattice |R| 0.875, C(13)=−15 sidelobe; known-structure half CONFIRMED, R(17m)=1−8m/N).
+- Board: EPIPHANIES `E-H268-PROBE-WAVE-1-RESULTS`; plan `h268-probe-wave-v1.md` (bands + Results); INTEGRATION_PLANS entry.
+
+**Locked** — graded probes assert only structural sanity (never their verdict); the LCG baseline is DESCRIPTIVE only (Jirak rates required for any future significance phrasing, I-NOISE-FLOOR-JIRAK); D-QUANTGATE / walk bijectivity untouched by the KILL; jc default build stays zero-dep.
+
+**Deferred** — PROBE-WH-MAG-2 (WH + per-tile escape tier + centroid residual, awaits a per-tile-codec consumer); the heavier gates (PROBE-GPU-LUT wgpu harness, OGAR PHASE-1/PERT-RHO/PYR-1, A8) explicitly out of the wave.
+
+**Docs** — the plan file; ndarray companion #246 (MERGED same day: §10(g) correction, §10 RESULT lines, §5 results sub-table).
+
+**Review** — CodeRabbit full round: 8 actionable, 6 fixed + 1 nitpick folded in `b387f80` (distinct outlier indices — shifted heavy-tailed B/A 1.411→1.317, verdict unchanged; finite-ratio gate; canonical CurveRuler; descriptive-LCG relabel; level-1 assert; band precedence; reproducibility note), 1 skipped with reason (model-tier names are lance-graph house style per its own Model Policy). All threads self-marked addressed. Bugbot usage-limited; Codex did not post.
+
+**Confidence (2026-07-16):** probes deterministic and green (bgz-tensor 202 / jc 64+60 / helix 74+4+7); verdict numbers reproduce exactly on re-run.
+
+---
+
 ## #697 lance-graph: PROBE-GPU-LUT oracle spec pinned on the crosspollination capstone (docs-only)
 
 **Status:** MERGED 2026-07-16 (merge commit `75d5dca`), branch `claude/x265-x266-plans-review-h9osnl`, 2 commits, doc-only.
