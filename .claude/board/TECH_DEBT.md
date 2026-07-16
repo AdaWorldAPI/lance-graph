@@ -1,5 +1,34 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-BGZ-TENSOR-PRE-LANE-REVIEW — bgz-tensor's adaptive codec predates turbovec/PolarQuant/helix; engineering follow-up review queued (2026-07-16)
+
+**Open.** Operator nudge: `bgz-tensor` (incl. `adaptive_codec.rs`'s
+Passthrough/i8/i4+i2 residual ladder and the Hadamard rotation, honoured
+on the V3 substrate per `E-PALETTE-RESIDUAL-LADDER-1`) was engineered
+BEFORE turbovec/PolarQuant and helix existed — its design choices were
+made without today's lane inventory. The honourable mention records what
+ships; it does NOT certify that what ships is what we would build now.
+**Review scope (pay by an engineering follow-up review, then reconcile or
+demarcate):**
+(a) the i4+i2 residual cascade vs turbovec's Lloyd-Max 2/3/4-bit
+quantizers + `NativeLut` (the measured 11.4× kernel-shape receipt) — is
+the cascade a pre-turbovec reinvention that should consume the turbovec
+lane?
+(b) the Hadamard rotation vs the PolarQuant rotation-vs-error-correction
+findings (`docs/ROTATION_VS_ERROR_CORRECTION.md`, thinking-engine
+`polarquant_hip_probe.rs` / `turboquant_correction_probe.rs`) — same
+job, two mechanisms; which survives?
+(c) residual/location coding vs helix `ResidueEdge`/`Signed360` + the
+`CurveRuler` coprime walk — bgz-tensor stores what helix can partly
+derive;
+(d) whether the Passthrough top-10% tier's cases could route to an
+existing full-precision/`Signed360`-style lane instead of a bespoke
+escape.
+Outcome shapes: consume-the-lane refactor / explicit demarcation
+doc-comment ("predates X, kept because Y") / retirement of the redundant
+half. Cross-ref: `E-PALETTE-RESIDUAL-LADDER-1`, le-contract §3
+honourable-mention subsection (carries a pointer to this entry).
+
 ## TD-RUNG2-144-VOCAB-SPLIT — the two 144s of rung 2 are divergent vocabularies (2026-07-15)
 
 **Open.** `E-RUNG-CONTENT-LADDER-1`'s rung-2 row cites `sigma_rosetta.rs`

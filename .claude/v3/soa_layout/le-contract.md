@@ -167,6 +167,72 @@ similarity function. Two styles coexist:
 - **"analog" old style (L8):** 48-bit helix place codes + 6-byte CAM-PQ
   codes; continuous-flavored place geometry, table-compared.
 
+### Honourable mention — the bgz-tensor Hadamard-residual ladder (index + residual; out-of-row) (operator, 2026-07-16)
+
+Next to the three flavours of 256 (CAM-PQ = 6×256² compressed to per-query
+6×256 ADC rows; bgz17/L4 = the explicit materialized 256²; the V3 facet's
+`6×(8:8)` rails = codec-agnostic 6×256² ADDRESS, classview-switched), a
+fourth **operational mode** deserves explicit mention — shipped in
+`crates/bgz-tensor/src/adaptive_codec.rs`: **index + residual**.
+`AdaptiveRow { centroid_idx: u16, scale_bf16, scale2_bf16, … }` keeps the
+palette/CLAM centroid as the coarse deterministic PLACE and stores a
+**Hadamard-rotated residual** in a three-tier LFD split (corrected
+2026-07-16, codex P2 on #700 — `classify_rows_by_lfd`): the **hardest
+~top-10% LFD rows escape to `RowPrecision::Passthrough`** (the exact
+original vector is stored; NO centroid/residual representation — the
+codec's own refuse-to-force-the-mold tier), the **next ~20%** get an i8
+residual, and the **bottom ~70%** the i4+i2 cascade. Index PLACES,
+residual CORRECTS — the same place/magnitude decomposition as the
+perturbation pyramid, with the magnitude side stored as a graded ladder;
+consumers must NOT assume every row has an index+residual representation
+(the Passthrough tier does not).
+
+Why it earns the mention here: it is the **continuous-field exit** that
+flat L4 cannot provide. A bare 256-level index terraces a continuous field
+(first consumer instance, geo arc 2026-07-16: 256 levels over ~1500 m of
+relief ≈ 6 m elevation terraces), while categorical/narrow surfaces
+(`Signed360` normals, harmonized colour) stay flat L4. Placement
+discipline: this is **NOT a ninth 12-byte layout** — the residual ladder is
+**out-of-row** (same status as `Signed360` in the 96-bit carving); the
+sanctioned in-row refinement budget remains the turbovec 6×4-bit nibble
+lane. L4 byte pairs stay the index; the ladder rides beside the row when a
+class's classview focuses a continuous field.
+
+Formal anchor: **Hambly–Lyons 2010** (Annals of Mathematics 171,
+"Uniqueness for the signature of a path of bounded variation and the
+reduced path group"): a bounded-variation path is determined by its
+**signature** — the graded cascade of its iterated integrals — up to
+tree-like equivalence. That is the theorem-shaped version of the ladder's
+promise (a graded residual cascade determines the continuous field up to
+negligible equivalence) and of the replayable-trajectory framing (store
+the graded cascade, recover the path). **The theorem side is already
+in-workspace, not an external citation** (corrected 2026-07-16, operator
+pointer): **jc Pillar 11** (`crates/jc/src/hambly_lyons.rs`, feature
+`hambly-lyons` → the `sigker` sibling; forward probe = tree-equivalent
+excursion collapses to the identity signature via Chen's identity,
+converse probe = triangle's non-zero level-2 signed area; deliberately
+uses `sigker::signature_truncated`, not the known-buggy
+`signature_kernel_pde`) and **ndarray `src/hpc/pillar/signature.rs`**
+(B7: signature transform + Hambly–Lyons sig-kernel, Gram-matrix
+positive-semidefiniteness check, certification probe over 1 000 Lévy
+paths). What stays **[S — analogy-grade; consult [FORMAL-SCAFFOLD] before
+promotion]** is only the **ladder-levels → signature-levels mapping** for
+the residual cascade; its probe can be built directly on the existing
+Pillar-11 harnesses rather than from scratch.
+
+**Provenance caveat (operator, 2026-07-16):** bgz-tensor predates
+turbovec/PolarQuant and helix — the ladder's mechanisms (Hadamard
+rotation, the bespoke i4+i2 cascade, the Passthrough escape) were chosen
+before today's lane inventory existed. This mention records what SHIPS,
+not what we would build now; an **engineering follow-up review is
+queued** as `TD-BGZ-TENSOR-PRE-LANE-REVIEW` (reconcile vs turbovec
+Lloyd-Max+NativeLut, PolarQuant rotation findings, helix
+residue/`CurveRuler`; outcome = consume-the-lane / demarcate / retire).
+
+Cross-ref: ndarray `pr-x12-h268-morton-wgpu-synergies.md` §8 (the three
+flavours + this mention), `E-PALETTE-RESIDUAL-LADDER-1` (EPIPHANIES),
+`E-H268-REPLAYABLE-TILE-1`, `TD-BGZ-TENSOR-PRE-LANE-REVIEW` (TECH_DEBT).
+
 ### Open reconciliation items ([H] — flag, don't resolve locally)
 
 - **L7 helix(48) vs the CANON key tail `family(u24)++identity(u24)`:**

@@ -923,7 +923,7 @@ exclude = [
 - 512-bit VSA encoder: XOR bind + majority bundle (word order sensitive)
 - 6-state PoS FSM → SPO triples (36-bit packed)
 
-**bgz-tensor** (standalone, ~1,300 LOC, 0 deps) — `crates/bgz-tensor/`
+**bgz-tensor** (workspace-excluded; deps: `ndarray` + `holograph`, both path — the old "0 deps" note was stale, corrected 2026-07-16) — `crates/bgz-tensor/`
 - Attention via table lookup: Q·K^T/√d → table[q_idx][k_idx] in O(1)
 - Weight matrix 64MB → Base17 136KB → 256 archetypes 8.5KB → distance table 128KB
 - AttentionSemiring: distance table (u16) + compose table (u8) = multi-hop in O(1)
