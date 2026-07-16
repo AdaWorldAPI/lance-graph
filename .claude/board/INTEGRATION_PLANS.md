@@ -1,3 +1,18 @@
+## 2026-07-16 — h268-probe-wave v1 — ACTIVE
+
+**Plan:** `.claude/plans/h268-probe-wave-v1.md`
+**Scope:** convert three cheap conjectures from the merged H.268 arc
+(ndarray #242-#245 / lance-graph #695-#701) into measured verdicts,
+CPU-only, no new deps: PROBE-WH-MAG (WHT₁₆ magnitude preconditioner vs
+direct i4+i2, in bgz-tensor — grades E-WH-TWO-SIDES-SIG-CHECKSUM-1 leg 1),
+PROBE-SIG-CHECKSUM (depth-2 signature as replayable trajectory digest, in
+jc behind `hambly-lyons` — leg 2), PROBE-WALK-SPECTRUM (stride-4-mod-17
+autocorrelation vs PRNG baseline at palette-lattice periods, in helix —
+grades §10(g) anti-confabulation). Explicit non-scope: PROBE-GPU-LUT
+(wgpu), OGAR PHASE-1/PERT-RHO/PYR-1, A8. Sonnet drafters + Opus
+adjudication; autonomous merge after clean CI/review (operator-granted
+this goal).
+
 ## 2026-07-10 — temporal-markov-and-style-classes v1 — ACTIVE
 
 **Plan:** `.claude/plans/temporal-markov-and-style-classes-v1.md`
