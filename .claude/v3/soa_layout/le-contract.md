@@ -167,6 +167,47 @@ similarity function. Two styles coexist:
 - **"analog" old style (L8):** 48-bit helix place codes + 6-byte CAM-PQ
   codes; continuous-flavored place geometry, table-compared.
 
+### Honourable mention — the bgz-tensor Hadamard-residual ladder (index + residual; out-of-row) (operator, 2026-07-16)
+
+Next to the three flavours of 256 (CAM-PQ = 6×256² compressed to per-query
+6×256 ADC rows; bgz17/L4 = the explicit materialized 256²; the V3 facet's
+`6×(8:8)` rails = codec-agnostic 6×256² ADDRESS, classview-switched), a
+fourth **operational mode** deserves explicit mention — shipped in
+`crates/bgz-tensor/src/adaptive_codec.rs`: **index + residual**.
+`AdaptiveRow { centroid_idx: u16, scale_bf16, scale2_bf16, … }` keeps the
+palette/CLAM centroid as the coarse deterministic PLACE and stores only a
+**Hadamard-rotated residual**, quantized i8 (outlier rows, ~top 30%) or as
+an i4+i2 cascade (regular rows, ~bottom 70%). Index PLACES, residual
+CORRECTS — the same place/magnitude decomposition as the perturbation
+pyramid, with the magnitude side stored as a graded ladder.
+
+Why it earns the mention here: it is the **continuous-field exit** that
+flat L4 cannot provide. A bare 256-level index terraces a continuous field
+(first consumer instance, geo arc 2026-07-16: 256 levels over ~1500 m of
+relief ≈ 6 m elevation terraces), while categorical/narrow surfaces
+(`Signed360` normals, harmonized colour) stay flat L4. Placement
+discipline: this is **NOT a ninth 12-byte layout** — the residual ladder is
+**out-of-row** (same status as `Signed360` in the 96-bit carving); the
+sanctioned in-row refinement budget remains the turbovec 6×4-bit nibble
+lane. L4 byte pairs stay the index; the ladder rides beside the row when a
+class's classview focuses a continuous field.
+
+Formal anchor **[S — analogy-grade; consult [FORMAL-SCAFFOLD] before any
+promotion]**: **Hambly–Lyons 2010** (Annals of Mathematics 171,
+"Uniqueness for the signature of a path of bounded variation and the
+reduced path group"): a bounded-variation path is determined by its
+**signature** — the graded cascade of its iterated integrals — up to
+tree-like equivalence. That is the theorem-shaped version of the ladder's
+promise (a graded residual cascade determines the continuous field up to
+negligible equivalence) and of the replayable-trajectory framing (store
+the graded cascade, recover the path). The mapping ladder-levels →
+signature-levels is unproven in this workspace; the grade stays [S] until
+a probe exists.
+
+Cross-ref: ndarray `pr-x12-h268-morton-wgpu-synergies.md` §8 (the three
+flavours + this mention), `E-PALETTE-RESIDUAL-LADDER-1` (EPIPHANIES),
+`E-H268-REPLAYABLE-TILE-1`.
+
 ### Open reconciliation items ([H] — flag, don't resolve locally)
 
 - **L7 helix(48) vs the CANON key tail `family(u24)++identity(u24)`:**

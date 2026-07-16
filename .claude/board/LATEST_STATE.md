@@ -1,5 +1,16 @@
 # LATEST_STATE — What Just Shipped (read this FIRST)
 
+## 2026-07-16 — branch `claude/x265-x266-plans-review-h9osnl` (v4, post-#699) — Hadamard-residual-ladder honourable mention on the V3 substrate
+
+Doc-only. #698 and #699 MERGED same day; this follow-up adds: the
+le-contract §3 "Honourable mention" subsection (bgz-tensor's index +
+Hadamard-residual ladder as the fourth operational mode next to the three
+flavours of 256, out-of-row, with the Hambly–Lyons 2010 signature theorem
+as the [S] formal anchor), EPIPHANIES `E-PALETTE-RESIDUAL-LADDER-1`, and
+the CLAUDE.md stale "bgz-tensor 0 deps" row correction (it path-deps
+ndarray + holograph). No layout added to the §3 catalogue; no contract
+types touched.
+
 ## 2026-07-16 — branch `claude/x265-x266-plans-review-h9osnl` (v3, post-#697) — comma-closure/96-bit facet/replayable-tile addendum
 
 Doc-only. #697 (PROBE-GPU-LUT oracle spec pinned) MERGED same day; this
