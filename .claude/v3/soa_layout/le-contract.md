@@ -220,9 +220,18 @@ promotion]** is only the **ladder-levels → signature-levels mapping** for
 the residual cascade; its probe can be built directly on the existing
 Pillar-11 harnesses rather than from scratch.
 
+**Provenance caveat (operator, 2026-07-16):** bgz-tensor predates
+turbovec/PolarQuant and helix — the ladder's mechanisms (Hadamard
+rotation, the bespoke i4+i2 cascade, the Passthrough escape) were chosen
+before today's lane inventory existed. This mention records what SHIPS,
+not what we would build now; an **engineering follow-up review is
+queued** as `TD-BGZ-TENSOR-PRE-LANE-REVIEW` (reconcile vs turbovec
+Lloyd-Max+NativeLut, PolarQuant rotation findings, helix
+residue/`CurveRuler`; outcome = consume-the-lane / demarcate / retire).
+
 Cross-ref: ndarray `pr-x12-h268-morton-wgpu-synergies.md` §8 (the three
 flavours + this mention), `E-PALETTE-RESIDUAL-LADDER-1` (EPIPHANIES),
-`E-H268-REPLAYABLE-TILE-1`.
+`E-H268-REPLAYABLE-TILE-1`, `TD-BGZ-TENSOR-PRE-LANE-REVIEW` (TECH_DEBT).
 
 ### Open reconciliation items ([H] — flag, don't resolve locally)
 
