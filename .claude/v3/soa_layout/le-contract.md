@@ -154,6 +154,25 @@ facet payloads, lens-selected per class. Consequences:
   `edges[16B]` block in the CANON node is untouched by this (it is
   one-byte SLOT refs, not packed mantissas).
 
+### The canonical cosine/centroid replacement is ANALYTIC (operator, 2026-07-16)
+
+L4's "cosine-replacement palette256" reads through the **analytic Fisher-z
+codec** (`bgz-tensor::fisher_z::{FamilyGamma, FisherZTable}` — cosine →
+`atanh` → 8-byte per-family affine → normalized i8; hydrate via `tanh`;
+certified ρ≥0.999, E-PALETTE-NNUE-COSINE-GREEN-1). **A materialized k×k
+table is a CACHE of the formula, never the canon**: ranking compares raw
+i8 (monotone), distance is `|Δi8|·(z_range/254)`, and hydration is one
+affine + `tanh` — so an L4 ClassView may declare an analytic codebook
+(the 8-byte gamma) with zero table materialization. Boundary: this
+replaces the distance/rank READ; the semiring COMPOSE keeps its table
+(z-addition does not compose cosines). The location-side sibling, one
+rung up: **helix is to Fisher-2z what the cosine-replacement is to
+Fisher-z** — helix pins `hyperbolic_depth = 2·fisher_z` as a tested
+identity (`crates/helix/src/fisher_z.rs:110-121`) and runs its residue
+pipeline on that doubled scale (`Signed360` = the hemisphere-doubled
+register). Canonical ruling text: EPIPHANIES
+`E-FISHERZ-CANONICAL-COSINE-REPLACEMENT-1`.
+
 ### CAM_PQ grounding (digital vs analog)
 
 CAM_PQ's codebook is the **DeepNSM 4096-word English-native-speaker
