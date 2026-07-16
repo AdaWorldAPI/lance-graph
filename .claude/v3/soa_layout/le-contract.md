@@ -192,17 +192,27 @@ sanctioned in-row refinement budget remains the turbovec 6×4-bit nibble
 lane. L4 byte pairs stay the index; the ladder rides beside the row when a
 class's classview focuses a continuous field.
 
-Formal anchor **[S — analogy-grade; consult [FORMAL-SCAFFOLD] before any
-promotion]**: **Hambly–Lyons 2010** (Annals of Mathematics 171,
+Formal anchor: **Hambly–Lyons 2010** (Annals of Mathematics 171,
 "Uniqueness for the signature of a path of bounded variation and the
 reduced path group"): a bounded-variation path is determined by its
 **signature** — the graded cascade of its iterated integrals — up to
 tree-like equivalence. That is the theorem-shaped version of the ladder's
 promise (a graded residual cascade determines the continuous field up to
 negligible equivalence) and of the replayable-trajectory framing (store
-the graded cascade, recover the path). The mapping ladder-levels →
-signature-levels is unproven in this workspace; the grade stays [S] until
-a probe exists.
+the graded cascade, recover the path). **The theorem side is already
+in-workspace, not an external citation** (corrected 2026-07-16, operator
+pointer): **jc Pillar 11** (`crates/jc/src/hambly_lyons.rs`, feature
+`hambly-lyons` → the `sigker` sibling; forward probe = tree-equivalent
+excursion collapses to the identity signature via Chen's identity,
+converse probe = triangle's non-zero level-2 signed area; deliberately
+uses `sigker::signature_truncated`, not the known-buggy
+`signature_kernel_pde`) and **ndarray `src/hpc/pillar/signature.rs`**
+(B7: signature transform + Hambly–Lyons sig-kernel, Gram-matrix
+positive-semidefiniteness check, certification probe over 1 000 Lévy
+paths). What stays **[S — analogy-grade; consult [FORMAL-SCAFFOLD] before
+promotion]** is only the **ladder-levels → signature-levels mapping** for
+the residual cascade; its probe can be built directly on the existing
+Pillar-11 harnesses rather than from scratch.
 
 Cross-ref: ndarray `pr-x12-h268-morton-wgpu-synergies.md` §8 (the three
 flavours + this mention), `E-PALETTE-RESIDUAL-LADDER-1` (EPIPHANIES),
