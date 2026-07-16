@@ -87,11 +87,29 @@ receipts): ndarray `.claude/knowledge/pr-x12-h268-morton-wgpu-synergies.md`
 — Morton-cascade / perturbation-pyramid / wgpu-wasm synergies, each claim
 FEASIBLE-NOW / NEEDS-PROBE / OVERCLAIM-CORRECTED. Load-bearing for this
 repo: bgz17's 256×256 distance table is texture-isomorphic (dense u16,
-R16Uint-ready — PROBE-GPU-LUT names the parity gate vs
-`batch_palette_distance`); the shipped Morton 2bit primitives
-(`FacetTier::morton`, symbiont `morton4`) prove the address algebra but the
-ndarray CTU codec does not use it yet; D-PHASE/D-WHP stay [H] probe-gated
-(J2 kill: dither-only).
+R16Uint-ready — PROBE-GPU-LUT is the parity gate); the shipped Morton 2bit
+primitives (`FacetTier::morton`, symbiont `morton4`) prove the address
+algebra but the ndarray CTU codec does not use it yet; D-PHASE/D-WHP stay
+[H] probe-gated (J2 kill: dither-only).
+
+**PROBE-GPU-LUT oracle spec (pinned 2026-07-16, codex P2 on #696 —
+supersedes the looser "parity vs `batch_palette_distance`" wording here
+and in the ndarray matrix doc's probe table):** bgz17 ships THREE distinct
+conventions and a naive cross-comparison tests layout drift, not parity —
+`PaletteDistanceTable` is **fixed-stride-256, raw `l1 as u16`**
+(`palette.rs:77-88`); `batch_palette_distance` indexes a **compact k×k**
+buffer (`row_offset = query*k`, `simd.rs:47-79`); `DistanceMatrix::build`
+produces **compact k×k, SCALED** values (`d·65535/(17·65535)`,
+`distance_matrix.rs:24-40`). The probe must pin ONE buffer + stride +
+scale on BOTH sides: **arm A (256-stride)** — upload
+`PaletteDistanceTable.table` as the R16Uint texture; CPU oracle = direct
+reads `table[q*256+c]` of the SAME buffer (equivalently
+`batch_palette_distance(&table, 256, …)`, valid because stride==k==256
+with zero-padding); **arm B (compact)** — upload `DistanceMatrix.data` as
+a k×k texture; CPU oracle = `batch_palette_distance(&dm.data, k, …)`.
+Never mix arms: for k<256 the strides differ and raw-vs-scaled values
+differ, so a mixed comparison is meaningless. Probe results that don't
+name their arm are not trusted.
 
 ## General substrate shape
 
