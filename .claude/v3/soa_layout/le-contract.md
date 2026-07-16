@@ -175,11 +175,17 @@ Next to the three flavours of 256 (CAM-PQ = 6×256² compressed to per-query
 fourth **operational mode** deserves explicit mention — shipped in
 `crates/bgz-tensor/src/adaptive_codec.rs`: **index + residual**.
 `AdaptiveRow { centroid_idx: u16, scale_bf16, scale2_bf16, … }` keeps the
-palette/CLAM centroid as the coarse deterministic PLACE and stores only a
-**Hadamard-rotated residual**, quantized i8 (outlier rows, ~top 30%) or as
-an i4+i2 cascade (regular rows, ~bottom 70%). Index PLACES, residual
-CORRECTS — the same place/magnitude decomposition as the perturbation
-pyramid, with the magnitude side stored as a graded ladder.
+palette/CLAM centroid as the coarse deterministic PLACE and stores a
+**Hadamard-rotated residual** in a three-tier LFD split (corrected
+2026-07-16, codex P2 on #700 — `classify_rows_by_lfd`): the **hardest
+~top-10% LFD rows escape to `RowPrecision::Passthrough`** (the exact
+original vector is stored; NO centroid/residual representation — the
+codec's own refuse-to-force-the-mold tier), the **next ~20%** get an i8
+residual, and the **bottom ~70%** the i4+i2 cascade. Index PLACES,
+residual CORRECTS — the same place/magnitude decomposition as the
+perturbation pyramid, with the magnitude side stored as a graded ladder;
+consumers must NOT assume every row has an index+residual representation
+(the Passthrough tier does not).
 
 Why it earns the mention here: it is the **continuous-field exit** that
 flat L4 cannot provide. A bare 256-level index terraces a continuous field
