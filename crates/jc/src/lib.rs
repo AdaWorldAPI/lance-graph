@@ -43,6 +43,14 @@ pub mod ewa_sandwich_3d;
 pub mod pflug;
 pub mod hambly_lyons;
 
+// PROBE-SIG-CHECKSUM — depth-2 truncated signature as a replayable
+// trajectory digest (H.268 probe wave, grades E-WH-TWO-SIDES-SIG-CHECKSUM-1
+// leg 2). A probe, not a 12th pillar: intentionally NOT added to the
+// `run_all_pillars` registry below. Gated by the same `hambly-lyons`
+// feature as Pillar 11; see `src/sig_checksum.rs` for the probe design.
+#[cfg(feature = "hambly-lyons")]
+pub mod sig_checksum;
+
 // Diagnostic probe (not a theorem proof). Run via:
 //   cargo run --manifest-path crates/jc/Cargo.toml --release --example sigma_probe
 pub mod sigma_codebook_probe;

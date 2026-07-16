@@ -66,6 +66,8 @@ pub mod prove;
 pub mod quantize;
 pub mod residue;
 pub mod simd;
+#[cfg(test)]
+mod walk_spectrum;
 
 pub use constants::{
     E, EULER_GAMMA, GOLDEN_ANGLE, GOLDEN_RATIO, GOLDEN_RATIO_INV, LN_17, MODULUS, PALETTE_SIZE,

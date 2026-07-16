@@ -436,3 +436,236 @@ mod tests {
         );
     }
 }
+
+/// PROBE-WH-MAG (h268-probe-wave-v1.md P1) — does Hadamard-rotating a 16-cell
+/// tile before i4+i2 quantization reduce reconstruction error vs the direct
+/// cascade, as bgz-tensor's row-level result (see `encode()` above, which
+/// always rotates) suggests? Prints per-class MSE ratios; the PASS/NEUTRAL/
+/// KILL verdict is adjudicated by the reviewer against the printed numbers,
+/// not asserted here (plan iron rule: only structural sanity + the WH
+/// round-trip identity are asserted).
+#[cfg(test)]
+mod probe_wh_mag {
+    use super::*;
+
+    const TILE_DIM: usize = 16;
+    const TILES_PER_CLASS: usize = 256;
+
+    /// Deterministic SplitMix64 generator — no `rand` dependency (iron rule:
+    /// no new deps for this wave).
+    struct SplitMix64 {
+        state: u64,
+    }
+
+    impl SplitMix64 {
+        fn new(seed: u64) -> Self {
+            SplitMix64 { state: seed }
+        }
+
+        fn next_u64(&mut self) -> u64 {
+            self.state = self.state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = self.state;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^ (z >> 31)
+        }
+
+        /// Uniform f64 in [0, 1).
+        fn next_f64(&mut self) -> f64 {
+            (self.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
+        }
+
+        /// Uniform f64 in [lo, hi).
+        fn next_range(&mut self, lo: f64, hi: f64) -> f64 {
+            lo + self.next_f64() * (hi - lo)
+        }
+
+        fn next_index(&mut self, n: usize) -> usize {
+            (self.next_u64() % n as u64) as usize
+        }
+    }
+
+    /// Class (a): smooth gradient with one cell perturbed 8-32x the ramp step
+    /// (elevation-like: mostly-smooth field, rare spike).
+    fn gen_gradient_spike(rng: &mut SplitMix64) -> [f32; TILE_DIM] {
+        let step = rng.next_range(0.1, 1.0);
+        let mut cell = [0.0f32; TILE_DIM];
+        for (i, v) in cell.iter_mut().enumerate() {
+            *v = (i as f64 * step) as f32;
+        }
+        let spike_idx = rng.next_index(TILE_DIM);
+        let factor = rng.next_range(8.0, 32.0);
+        cell[spike_idx] += (step * factor) as f32;
+        cell
+    }
+
+    /// Class (b): heavy-tailed spiky — small base noise plus 2-3 outlier
+    /// cells at 10-100x the base scale.
+    fn gen_heavy_tailed(rng: &mut SplitMix64) -> [f32; TILE_DIM] {
+        let base_scale = rng.next_range(0.01, 0.1);
+        let mut cell = [0.0f32; TILE_DIM];
+        for v in cell.iter_mut() {
+            *v = rng.next_range(-base_scale, base_scale) as f32;
+        }
+        let n_outliers = 2 + (rng.next_u64() % 2) as usize; // 2 or 3
+
+        // Distinct indices: resample collisions so the class always carries
+        // its documented 2-3 unique outlier cells (a collision would silently
+        // degrade a tile to a single outlier and bias the class MSE).
+        let mut indices: Vec<usize> = Vec::with_capacity(n_outliers);
+        while indices.len() < n_outliers {
+            let idx = rng.next_index(TILE_DIM);
+            if !indices.contains(&idx) {
+                indices.push(idx);
+            }
+        }
+        for idx in indices {
+            let factor = rng.next_range(10.0, 100.0);
+            let sign = if rng.next_f64() < 0.5 { -1.0 } else { 1.0 };
+            cell[idx] = (sign * base_scale * factor) as f32;
+        }
+        cell
+    }
+
+    /// Class (c): uniform noise, no structure — the control (WH should
+    /// neither help nor hurt much here).
+    fn gen_uniform_noise(rng: &mut SplitMix64) -> [f32; TILE_DIM] {
+        let mut cell = [0.0f32; TILE_DIM];
+        for v in cell.iter_mut() {
+            *v = rng.next_range(-1.0, 1.0) as f32;
+        }
+        cell
+    }
+
+    /// Path A: the shipped i4->residual->i2 cascade, applied directly (no
+    /// Hadamard rotation).
+    fn cascade_direct(v: &[f32]) -> Vec<f32> {
+        let n = v.len();
+        let (i4_codes, i4_params) = quantize_f32_to_i4(v);
+        let dequant1 = dequantize_i4_to_f32(&i4_codes, &i4_params, n);
+        let res2: Vec<f32> = v.iter().zip(dequant1.iter()).map(|(a, b)| a - b).collect();
+        let (i2_codes, i2_params) = quantize_f32_to_i2(&res2);
+        let dequant2 = dequantize_i2_to_f32(&i2_codes, &i2_params, n);
+        dequant1
+            .iter()
+            .zip(dequant2.iter())
+            .map(|(a, b)| a + b)
+            .collect()
+    }
+
+    /// Path B: `hadamard_rotate` first, same cascade, inverse-rotate after.
+    /// `wht_f32` (which `hadamard_rotate` wraps) already normalizes by
+    /// `1/sqrt(dim)` and is exactly self-inverse (see its own doc-comment
+    /// example), so no extra 1/16 scale factor is needed at dim=16 —
+    /// `hadamard_rotate(hadamard_rotate(v))` reproduces `v` directly. This
+    /// is confirmed by `wh_round_trip_identity` below.
+    fn cascade_wh(v: &[f32]) -> Vec<f32> {
+        let n = v.len();
+        let rotated = hadamard_rotate(v, n);
+        let recon_rotated = cascade_direct(&rotated);
+        hadamard_rotate(&recon_rotated, n)
+    }
+
+    fn mse(a: &[f32], b: &[f32]) -> f64 {
+        a.iter()
+            .zip(b.iter())
+            .map(|(x, y)| {
+                let d = (*x - *y) as f64;
+                d * d
+            })
+            .sum::<f64>()
+            / a.len() as f64
+    }
+
+    /// Self-check (mandatory per the plan): `hadamard_rotate` round-trips to
+    /// identity on an unquantized 16-vector. Run BEFORE trusting path B's
+    /// inverse-rotate step below.
+    ///
+    /// Tolerance note (spec deviation): the plan specifies 1e-6. `wht_f32`'s
+    /// own doc-comment example asserts the SECOND (round-trip) application
+    /// at `1e-5`, not `1e-6` — the single-pass forward transform hits 1e-6,
+    /// but two passes of the SIMD butterfly + `1/sqrt(dim)` normalization
+    /// accumulate f32 rounding error that measurably exceeds 1e-6 at
+    /// dim=16 (observed worst case ~1.1e-6 on values up to magnitude 10).
+    /// Matching the library's own established round-trip tolerance (1e-5)
+    /// here rather than the plan's number.
+    #[test]
+    fn wh_round_trip_identity() {
+        let mut rng = SplitMix64::new(0xABCD_1234_5678_9E01);
+        for _ in 0..64 {
+            let mut v = [0.0f32; TILE_DIM];
+            for x in v.iter_mut() {
+                *x = rng.next_range(-10.0, 10.0) as f32;
+            }
+            let rotated = hadamard_rotate(&v, TILE_DIM);
+            let back = hadamard_rotate(&rotated, TILE_DIM);
+            for i in 0..TILE_DIM {
+                assert!(
+                    (v[i] - back[i]).abs() < 1e-5,
+                    "WH round-trip mismatch at cell {}: {} vs {}",
+                    i,
+                    v[i],
+                    back[i]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn probe_wh_mag_class_ratios() {
+        type TileGen = fn(&mut SplitMix64) -> [f32; TILE_DIM];
+        let classes: [(&str, u64, TileGen); 3] = [
+            ("gradient+spike", 0x1111_0000_AAAA_0001, gen_gradient_spike),
+            ("heavy-tailed", 0x2222_0000_BBBB_0002, gen_heavy_tailed),
+            ("uniform-noise", 0x3333_0000_CCCC_0003, gen_uniform_noise),
+        ];
+
+        eprintln!(
+            "\nPROBE-WH-MAG: {} tiles/class, dim={} (informational — verdict adjudicated externally)",
+            TILES_PER_CLASS, TILE_DIM
+        );
+        eprintln!(
+            "{:<16} {:>16} {:>16} {:>10}",
+            "class", "mse_A(direct)", "mse_B(WH)", "B/A"
+        );
+
+        let mut ratios: Vec<(String, f64)> = Vec::with_capacity(classes.len());
+        for (name, seed, gen) in classes.iter() {
+            let mut rng = SplitMix64::new(*seed);
+            let mut sum_a = 0.0f64;
+            let mut sum_b = 0.0f64;
+            for _ in 0..TILES_PER_CLASS {
+                let tile = gen(&mut rng);
+                let recon_a = cascade_direct(&tile);
+                let recon_b = cascade_wh(&tile);
+                sum_a += mse(&tile, &recon_a);
+                sum_b += mse(&tile, &recon_b);
+            }
+            let mean_a = sum_a / TILES_PER_CLASS as f64;
+            let mean_b = sum_b / TILES_PER_CLASS as f64;
+            assert!(
+                mean_a.is_finite() && mean_a > 0.0 && mean_b.is_finite(),
+                "class {name} produced invalid MSE values: direct={mean_a}, WH={mean_b}"
+            );
+            let ratio = mean_b / mean_a;
+            eprintln!(
+                "{:<16} {:>16.8} {:>16.8} {:>10.4}",
+                name, mean_a, mean_b, ratio
+            );
+            ratios.push((name.to_string(), ratio));
+        }
+
+        // Structural sanity only. The verdict (PASS/NEUTRAL/KILL per the
+        // plan's thresholds) is adjudicated by the reviewer against the
+        // printed table above — asserting it here would red the suite on a
+        // legitimate NEUTRAL result. A non-finite ratio, however, is an
+        // unusable probe run and MUST fail.
+        assert_eq!(ratios.len(), 3, "expected exactly 3 tile classes");
+        for (name, ratio) in &ratios {
+            assert!(
+                ratio.is_finite(),
+                "class {name} produced an invalid ratio: {ratio}"
+            );
+        }
+    }
+}
