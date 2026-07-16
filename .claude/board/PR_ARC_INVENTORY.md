@@ -33,6 +33,26 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## #697 lance-graph: PROBE-GPU-LUT oracle spec pinned on the crosspollination capstone (docs-only)
+
+**Status:** MERGED 2026-07-16 (merge commit `75d5dca`), branch `claude/x265-x266-plans-review-h9osnl`, 2 commits, doc-only.
+
+**Added**
+- The pinned PROBE-GPU-LUT oracle spec on `3DGS-PRX12-crosspollination-capstone.md`: two arms — **arm A (256-stride)** via the PUBLIC accessor reconstruction `buf[a*256+b] = table.distance(a,b)`, since `PaletteDistanceTable.table` is a private field (`palette.rs:267-277`); **arm B (compact)** via `DistanceMatrix.data` + `batch_palette_distance`.
+- The scope note on `E-PRX12-STANDARDS-GROUNDING-1`.
+
+**Locked** — never mix probe arms; probe results that don't name their arm are not trusted; a bgz17 `as_slice()` accessor may be added in the probe PR itself, never assumed.
+
+**Deferred** — running PROBE-GPU-LUT itself (needs a wgpu harness).
+
+**Docs** — this entry; the capstone oracle-spec block.
+
+**Review** — two codex P2 rounds (three-convention mismatch, `94dba7e`; private-field construction path, `4cb541c`), both fixed same-day with thread replies; CodeRabbit rate-limited throughout; Bugbot usage-limited.
+
+**Confidence (2026-07-16):** doc-only; conventions verified against bgz17 source.
+
+---
+
 ## #695 lance-graph: PR-X12 standards-watch + E-PRX12-STANDARDS-GROUNDING-1 (docs-only)
 
 **Status:** MERGED 2026-07-16 (merge commit `364a1d5`), branch `claude/x265-x266-plans-review-h9osnl`, 2 commits, doc-only. Sibling: ndarray PR #242 (open) carries the audit corrections + standards landscape.

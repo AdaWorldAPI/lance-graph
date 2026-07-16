@@ -1,5 +1,15 @@
 # LATEST_STATE — What Just Shipped (read this FIRST)
 
+## 2026-07-16 — branch `claude/x265-x266-plans-review-h9osnl` (v3, post-#697) — comma-closure/96-bit facet/replayable-tile addendum
+
+Doc-only. #697 (PROBE-GPU-LUT oracle spec pinned) MERGED same day; this
+follow-up branch adds: EPIPHANIES `E-H268-REPLAYABLE-TILE-1` (prepended —
+the replayable Morton 2bit×2bit 4×4 tile serving both H.268 mode-decision
+and cognitive-shader dispatch, plus the D-QUANTGATE rationale restatement),
+the capstone addendum pointer (§7-§10 of the ndarray matrix doc), and the
+#697 post-merge PR_ARC_INVENTORY entry. No contract types touched.
+Companion ndarray branch carries the matrix-doc §7-§10 addendum itself.
+
 ## 2026-07-16 — branch `claude/x265-x266-plans-review-h9osnl` (v2, post-#695) — H.268 codename + graded Morton/wgpu synergy matrix pointer
 
 Doc-only. #695 (standards-watch + E-PRX12-STANDARDS-GROUNDING-1) MERGED same day; this follow-up branch (restarted from main per merged-branch rule) adds: the **H.268 internal codename** ruling for the ex-"x266" PR-X12 3DGS scene codec (INTERNAL ONLY, never an ITU designation), the capstone pointer to ndarray's adversarially-graded feasibility matrix (`pr-x12-h268-morton-wgpu-synergies.md` — 1× FEASIBLE-NOW / 2× NEEDS-PROBE / 7× OVERCLAIM-CORRECTED, incl. bgz17's 256×256 distance table being texture-isomorphic today with PROBE-GPU-LUT as the named gate), EPIPHANIES `E-H268-GRADED-SYNERGY-1`, and the #695 post-merge PR_ARC entry. No contract types touched.
