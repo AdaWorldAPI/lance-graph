@@ -120,6 +120,47 @@ CodeRabbit round demanded for the I-NOISE-FLOOR-JIRAK-friendliness claim?
 
 ## Results (filled post-run)
 
-- PROBE-WH-MAG: _pending_
-- PROBE-SIG-CHECKSUM: _pending_
-- PROBE-WALK-SPECTRUM: _pending_
+Run 2026-07-16 against shipped code (deterministic seeds; Opus reviewer
+adjudicated the printed numbers vs the PASS/NEUTRAL/KILL bands above).
+All three test modules green; the graded probes (P1, P3) assert only
+structural sanity, so a NEUTRAL/KILL verdict does not red the suite
+(P2's asserts are a deterministic identity, correct to assert).
+
+- **PROBE-WH-MAG → NEUTRAL (negative-leaning); [H] bare-tile leg CLOSED
+  NOT-TRANSFERRING.** B/A = gradient+spike 0.929, heavy-tailed 1.411,
+  uniform-noise 1.869 (the probe isolates WH pre-rotation as the only
+  variable — a uniform cascade on both paths, not the shipped I4I2
+  branch). Misses the <0.9 PASS bar everywhere; regresses past 1.1 on
+  (b)+(c); (a) not >1.1 so not a strict KILL → NEUTRAL. WHT₁₆ spreads
+  outlier energy tile-wide, inflating the per-cell quantization floor
+  where the direct cascade got 13-14 near-zero cells for free. The
+  row-level win (E-PALETTE-RESIDUAL-LADDER-1) does not transfer to bare
+  16-cell tiles because the probe has neither the passthrough escape
+  tier nor the centroid residual the shipped row codec pairs WH with;
+  the shipped codec is untouched. Follow-up PROBE-WH-MAG-2 (WH + escape
+  tier + centroid residual) named, deferred to a per-tile-codec
+  consumer.
+- **PROBE-SIG-CHECKSUM → PASS (with a depth-2 blind-spot bound).**
+  replay bit-exact (0.0); tree-like mid-path excursion invisible
+  (0.0 < 1e-9); non-tree interior displacement caught (11.31 > 0.05,
+  level-1 delta 0.0). Caveat: at DEPTH=2 an interior displacement
+  PARALLEL to the neighbor chord is EXACTLY signature-invisible (the
+  signed-area term vanishes) — the digest's null space exceeds
+  tree-like equivalence, so it does NOT catch all non-tree edits. The
+  probe uses a perpendicular offset by design. Mitigable by depth 3 or
+  a paired second digest.
+- **PROBE-WALK-SPECTRUM → KILL (of §10(g)'s "decorrelated by
+  construction" half; period-17-structure half CONFIRMED).** Period-17
+  harmonics |R| = 0.998/0.996/0.994 (R(17m)=1−8m/N). Lattice-period
+  walk |R| max 0.875 (τ=64) vs LCG 0.0205 → 42.7× ≫ 3× KILL bar.
+  R(64) verified: 64 mod 17 = 13, C(13)=C(4)=−15, −15/17 ≈ −0.882 ≈
+  −0.875 — an intrinsic period-17 sidelobe, not lattice aliasing.
+  Coprimality ≠ decorrelation. Corrected claim: the walk gives
+  KNOWN/replayable structure (auditability), NOT low lattice
+  correlation; decorrelation would need a designed low-autocorrelation
+  sequence (Legendre/Paley over p≫17, or an m-sequence). D-QUANTGATE /
+  bijectivity unaffected — only the anti-moiré-in-concept-space
+  consequence dies.
+
+Verdicts: EPIPHANIES `E-H268-PROBE-WAVE-1-RESULTS`; ndarray matrix doc
+§5 results sub-table + §10 re-grades + §10(g) correction (companion PR).
