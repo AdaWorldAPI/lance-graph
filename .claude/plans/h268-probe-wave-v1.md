@@ -32,11 +32,13 @@ i4+i2, as bgz-tensor's row-level result suggests?
   (WH is self-inverse up to 1/16 scale — get the scaling right; verify
   round-trip on an unquantized tile first as a self-check assertion).
   Metric: per-class mean squared reconstruction error ratio B/A.
-- **PASS:** B/A < 0.9 on class (a) or (b) (WH materially helps where
-  outliers exist). **NEUTRAL:** 0.9 ≤ B/A ≤ 1.1 everywhere (record; the
-  conjecture stays open, tile-transfer unproven). **KILL:** B/A > 1.1 on
-  ALL classes (WH hurts at 16-cell granularity; the row-level win does
-  not transfer).
+- **Verdict bands (explicit precedence — amended per review, mixed
+  outcomes were uncategorized as first written):** **PASS** if ANY of
+  class (a)/(b) has B/A < 0.9 (WH materially helps where outliers
+  exist); else **KILL** if B/A > 1.1 on ALL classes (WH hurts at 16-cell
+  granularity); else **NEUTRAL** (every remaining combination, including
+  mixed results — record, conjecture stays open, tile-transfer
+  unproven).
 - Print the three ratios in the test output (`--nocapture`-friendly
   `eprintln!`) AND assert the self-check; the verdict assertion itself is
   informational (assert only the round-trip identity, not the pass/kill —
@@ -118,6 +120,22 @@ CodeRabbit round demanded for the I-NOISE-FLOOR-JIRAK-friendliness claim?
   green + external review comments resolved, the PR is merged by the
   session (squash/merge per repo default), then the wave continues.
 
+**Reproducibility note (amended per review):** every generator constant
+is pinned IN the probe code, which is the normative source — WH-MAG:
+per-class SplitMix64 seeds in `probe_wh_mag` (`adaptive_codec.rs`);
+SIG-CHECKSUM: the seeded integer walk in `sig_checksum.rs`;
+WALK-SPECTRUM: `WALK_START = 0`, `LCG_SEED = 0x9E37_79B9_7F4A_7C15`,
+PCG multiplier/increment pair, N = 4096, τ_max = 512
+(`walk_spectrum.rs`). The plan intentionally does not duplicate the
+constants; reproduce by running the named test modules.
+
+**LCG-baseline scope note (amended per review):** the P3 "vs baseline"
+comparison is DESCRIPTIVE — the binding evidence for the verdict is the
+closed-form C(τ mod 17) structure (exact integer arithmetic), not a
+statistical significance test; any future significance phrasing must
+derive its threshold via Jirak 2016 weak-dependence rates per
+I-NOISE-FLOOR-JIRAK.
+
 ## Results (filled post-run)
 
 Run 2026-07-16 against shipped code (deterministic seeds; Opus reviewer
@@ -127,7 +145,7 @@ structural sanity, so a NEUTRAL/KILL verdict does not red the suite
 (P2's asserts are a deterministic identity, correct to assert).
 
 - **PROBE-WH-MAG → NEUTRAL (negative-leaning); [H] bare-tile leg CLOSED
-  NOT-TRANSFERRING.** B/A = gradient+spike 0.929, heavy-tailed 1.411,
+  NOT-TRANSFERRING.** B/A = gradient+spike 0.929, heavy-tailed 1.317,
   uniform-noise 1.869 (the probe isolates WH pre-rotation as the only
   variable — a uniform cascade on both paths, not the shipped I4I2
   branch). Misses the <0.9 PASS bar everywhere; regresses past 1.1 on

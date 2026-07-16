@@ -508,8 +508,18 @@ mod probe_wh_mag {
             *v = rng.next_range(-base_scale, base_scale) as f32;
         }
         let n_outliers = 2 + (rng.next_u64() % 2) as usize; // 2 or 3
-        for _ in 0..n_outliers {
+
+        // Distinct indices: resample collisions so the class always carries
+        // its documented 2-3 unique outlier cells (a collision would silently
+        // degrade a tile to a single outlier and bias the class MSE).
+        let mut indices: Vec<usize> = Vec::with_capacity(n_outliers);
+        while indices.len() < n_outliers {
             let idx = rng.next_index(TILE_DIM);
+            if !indices.contains(&idx) {
+                indices.push(idx);
+            }
+        }
+        for idx in indices {
             let factor = rng.next_range(10.0, 100.0);
             let sign = if rng.next_f64() < 0.5 { -1.0 } else { 1.0 };
             cell[idx] = (sign * base_scale * factor) as f32;
@@ -633,11 +643,11 @@ mod probe_wh_mag {
             }
             let mean_a = sum_a / TILES_PER_CLASS as f64;
             let mean_b = sum_b / TILES_PER_CLASS as f64;
-            let ratio = if mean_a > 0.0 {
-                mean_b / mean_a
-            } else {
-                f64::NAN
-            };
+            assert!(
+                mean_a.is_finite() && mean_a > 0.0 && mean_b.is_finite(),
+                "class {name} produced invalid MSE values: direct={mean_a}, WH={mean_b}"
+            );
+            let ratio = mean_b / mean_a;
             eprintln!(
                 "{:<16} {:>16.8} {:>16.8} {:>10.4}",
                 name, mean_a, mean_b, ratio
@@ -648,14 +658,13 @@ mod probe_wh_mag {
         // Structural sanity only. The verdict (PASS/NEUTRAL/KILL per the
         // plan's thresholds) is adjudicated by the reviewer against the
         // printed table above — asserting it here would red the suite on a
-        // legitimate NEUTRAL result.
+        // legitimate NEUTRAL result. A non-finite ratio, however, is an
+        // unusable probe run and MUST fail.
         assert_eq!(ratios.len(), 3, "expected exactly 3 tile classes");
         for (name, ratio) in &ratios {
             assert!(
-                ratio.is_finite() || ratio.is_nan(),
-                "class {} produced a non-real ratio: {}",
-                name,
-                ratio
+                ratio.is_finite(),
+                "class {name} produced an invalid ratio: {ratio}"
             );
         }
     }

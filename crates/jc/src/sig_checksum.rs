@@ -319,6 +319,12 @@ mod active {
                 .map(|(a, b)| (a - b) * (a - b))
                 .sum::<f64>()
                 .sqrt();
+            assert!(
+                level1_delta < FORWARD_TOLERANCE,
+                "interior-only displacement unexpectedly changed level 1 \
+                 ({level1_delta:e}) — the probe's level-2-discrimination \
+                 conclusion would be unsound"
+            );
 
             eprintln!(
                 "[PROBE-SIG-CHECKSUM] (c) non_tree_edit_caught: \
