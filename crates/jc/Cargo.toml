@@ -60,3 +60,6 @@ name = "splat_perturbationslernen"
 
 [[example]]
 name = "ontology_locality_probe"
+
+[[example]]
+name = "style_table_agreement"
