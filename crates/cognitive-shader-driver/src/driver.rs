@@ -551,6 +551,32 @@ impl ShaderDriver {
             None
         };
 
+        // Advance the persistent per-driver `RungElevator` with THIS cycle's
+        // already-decided `gate`, BEFORE the sink callbacks. The sink early
+        // returns (`on_resonance` / `on_bus` returning false) must NOT bypass
+        // the rung transition — a sink that stops processing would otherwise
+        // freeze the ascent ladder, now that the elevator drives the cascade
+        // (CodeRabbit #708). Sustained BLOCK elevates over the dispatched base;
+        // sustained FLOW relaxes back to it. The base-reset is REPEATED here,
+        // inside the SAME critical section as `on_gate` (not only at the
+        // top-of-`run()` read): the elevator is a `&self` per-driver `RwLock`
+        // singleton, so a concurrent dispatch with a different `req.rung` may
+        // have reset `base` in the window since the top read; re-validating here
+        // keeps reset+advance atomic, so this cycle's gate is never counted
+        // against another request's base (codex r3603015026). The resulting
+        // level is what the NEXT dispatch on this base consults — closing the
+        // ascent loop across cycles.
+        let elevated_rung: u8 = {
+            let mut elevator = self
+                .rung_elevator
+                .write()
+                .expect("rung_elevator RwLock poisoned");
+            if elevator.base != req.rung {
+                *elevator = RungElevator::new(req.rung);
+            }
+            elevator.on_gate(gate) as u8
+        };
+
         // [7] Sink callbacks.
         if !sink.on_resonance(&resonance_dto) {
             return ShaderCrystal {
@@ -597,28 +623,6 @@ impl ShaderDriver {
         let persisted_row = match req.emit {
             EmitMode::Persist => Some(resonance_dto.top_k[0].row),
             _ => None,
-        };
-
-        // Advance the persistent per-driver `RungElevator` with THIS cycle's
-        // already-decided `gate` (sustained-BLOCK elevates over the dispatched
-        // base; sustained-FLOW relaxes back to it). The base-reset is REPEATED
-        // here, inside the SAME critical section as `on_gate` — not only at the
-        // top-of-`run()` read. The elevator is a `&self` per-driver singleton
-        // behind a `RwLock`, so a concurrent dispatch with a different `req.rung`
-        // may have reset `base` in the window since the top read; re-validating
-        // here keeps reset+advance atomic, so this cycle's gate is never counted
-        // against another request's base (codex #708 r3603015026). The resulting
-        // level is what the NEXT dispatch on this base consults — closing the
-        // ascent loop across cycles.
-        let elevated_rung: u8 = {
-            let mut elevator = self
-                .rung_elevator
-                .write()
-                .expect("rung_elevator RwLock poisoned");
-            if elevator.base != req.rung {
-                *elevator = RungElevator::new(req.rung);
-            }
-            elevator.on_gate(gate) as u8
         };
 
         // Materialized-awareness provenance — runs the F→34→F loop + HHTL fork as

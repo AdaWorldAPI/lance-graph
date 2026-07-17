@@ -500,14 +500,20 @@ impl NarsEngine {
     }
 
     /// Hot path: CausalEdge64 → SpoHead for local processing.
-    // v1-API SpoHead round-trip (I-LEGACY-API-FEATURE-GATED): under the
-    // planner's default `causal-edge-v2-layout`, `inference_type()` already
-    // routes through the canonical `InferenceType::from_mantissa(...)` mapping
-    // (correct value, not the aliased 3-bit read), and `temporal()` is
-    // structural under v2 — its value is inert here because `to_causal_edge`
-    // packs it through the v2 no-op write-back. No non-deprecated public
-    // accessor exists for either field, so the deprecation is silenced at this
-    // single round-trip site.
+    //
+    // I-LEGACY-API-FEATURE-GATED — two deprecated accessors, handled differently:
+    //   * `inference_type()` is deprecated only as an API nudge but returns the
+    //     CORRECT value under the default `causal-edge-v2-layout` (it routes
+    //     internally through `InferenceType::from_mantissa(...)`, not the aliased
+    //     3-bit read) — so it is silenced with `#[allow(deprecated)]`.
+    //   * `temporal()` is NOT round-tripped. `causal-edge` defaults to
+    //     `causal-edge-v2-layout`, where bits 52-63 are RECLAIMED (W-slot / lens
+    //     / spare) and `temporal()` returns GARBAGE for v2 edges (edge.rs:551).
+    //     Copying it into `SpoHead.temporal` would carry an unspecified value.
+    //     Temporal causality is structural now (SpoWitnessChain chain-position /
+    //     AriGraph `Triplet.timestamp`, edge.rs L-2), so the field is the
+    //     documented `0` sentinel here — proven by
+    //     `from_causal_edge_temporal_is_v2_sentinel_not_reclaimed_bits`.
     #[allow(deprecated)]
     pub fn from_causal_edge(&self, edge: CausalEdge64) -> SpoHead {
         SpoHead {
@@ -518,7 +524,8 @@ impl NarsEngine {
             conf: edge.confidence_u8(),
             pearl: edge.causal_mask() as u8,
             inference: edge.inference_type() as u8,
-            temporal: edge.temporal() as u8,
+            // v2 sentinel — do NOT read the reclaimed bits 52-63 (see fn doc).
+            temporal: 0,
         }
     }
 
@@ -982,6 +989,28 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn from_causal_edge_temporal_is_v2_sentinel_not_reclaimed_bits() {
+        // Bits 52-63 are the v2 reclaim zone (W-slot/lens/spare). An edge with
+        // non-zero bits there makes the deprecated `temporal()` read GARBAGE
+        // (edge.rs:551). `from_causal_edge` must isolate `SpoHead.temporal` from
+        // those bits — it is the documented 0 sentinel (temporal is structural).
+        // Raw-construct so the reclaim-zone bits are set regardless of feature.
+        let engine = NarsEngine::new(SpoDistances::new_zero());
+        let dirty = CausalEdge64(0xABC_u64 << 52);
+        assert_ne!(
+            dirty.temporal(),
+            0,
+            "precondition: reclaim-zone bits make temporal() non-zero garbage"
+        );
+        let head = engine.from_causal_edge(dirty);
+        assert_eq!(
+            head.temporal, 0,
+            "SpoHead.temporal must be the v2 sentinel, never the reclaimed bits"
+        );
     }
 
     #[test]
