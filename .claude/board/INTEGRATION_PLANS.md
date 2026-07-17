@@ -1,3 +1,26 @@
+## 2026-07-17 — graphrag-doc-retrieval-soa-integration v1 — DESIGN (probe-gated)
+
+**Plan:** `.claude/plans/graphrag-doc-retrieval-soa-integration-v1.md`
+**Scope:** evaluation + wave plan for a query-side `crates/graphrag` (retrieval
+orchestrator) + a `DocGraphQuery` contract surface, both reading the *calcified*
+document-graph substrate. Reframes the task's "lance-graph feeds ogar-doc": OGAR
+owns doc ingestion + the `document 0x080B` mint (`ogar-from-docv1` →
+`ogar-doc-ir` → `ogar-doc`, all built); lance-graph provides the contract types
+OGAR consumes + query capability. graphrag is query-side ONLY — never ingests
+(door-knocking-compiler test; assembler-vs-storage boundary). REUSE:
+`causal_edge::CausalEdge64` (SPO edge), native NARS `(freq,conf)`,
+`WitnessTable`/`EpisodicEdges64` (provenance; `EpisodicWitness64` = a *queued*
+column), AriGraph `TripletGraph`+`spo_bridge` (fact store), `MailboxSoaView`,
+CAM-PQ, `lance-graph-arm-discovery` (extraction proposer). BUILD only the 3
+gaps: hierarchical Leiden, HippoRAG-PPR reset-distribution, BM25. **Retrieval =
+rung ascent** (#708 / D-TRI-6 `RungElevator` + canonical `RungLevel` +
+predicate-plane widen; BLOCK ascends, FLOW at base) up the §3a Maslow pyramid.
+Probe-first: **G0 P-GRAPH-LOADBEARING** (graph beats vector-only?) gates all
+Leiden/PPR code. graphrag-rs (automataIA) = REUSE-AS-REFERENCE
+(`E-V3-GRAPHRAG-INV-1`). Composes atop
+`oxigraph-arigraph-cognitive-shader-soa-merge-v1`. D-GR-1..5; D-GR-5 (OGAR seam)
+mint-gated + baton-audited. No bytes land.
+
 ## 2026-07-17 — triangle-tenants-gestalt-separation v1 — DESIGN (mint-gated)
 
 **Plan:** `.claude/plans/triangle-tenants-gestalt-separation-v1.md`
