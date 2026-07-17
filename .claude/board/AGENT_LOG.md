@@ -1,3 +1,11 @@
+## 2026-07-17 — D-TSC-1b style-table agreement probe + D-TRI-2 NO-GO scoping — measurement, shipped
+
+- **Task:** the next unblocked slice after #711. Scoped D-TRI-2 (12-step ↔ 12-family agreement) → **NO-GO, mint-blocked** (both vectors are codebook views of the unbuilt minted register — one Opus scoping agent, file:line evidence). Pivoted to the genuinely-unblocked cousin: measure the 3 shipped 12-family param tables' agreement with the `jc::reliability` battery (closes the loop on #709/#710).
+- **Fleet:** 1 Opus scoping agent (D-TRI-2 GO/NO-GO + alternative) → 1 Sonnet worker (transcribe 3 tables faithfully + author the jc example + run). Main thread verified transcription against all three sources (A/B/C + `FieldModulation::default`) and re-ran the probe.
+- **Deliverable:** `crates/jc/examples/style_table_agreement.rs` (+ `[[example]]` in `crates/jc/Cargo.toml`). Runs ICC(2,1)/ICC(3,1)/Cronbach α/pairwise Pearson-Spearman per shared dim (resonance/fan_out/exploration) in all-12 and 7-explicit modes; pre-registered ICC bands (0.75/0.50); exit-0 (DISTINCT is a valid finding, never a build failure).
+- **Measured verdict:** A(`UNIFIED_STYLES`)≡B(thinking-engine `StyleParams`) PERFECT (r=ρ=1.0 — M9-dedup confirmed); planner C's 7 explicit families IDENTITY (ICC 0.90–0.98); ONLY the 5 planner `default_modulation` fallbacks drift (all-12 ICC 0.71 AMBIGUOUS) → TD-PLANNER-STYLE-DEFAULT-DRIFT-1 (fill the 5 arms from canonical). Retires numeric half of O5.
+- **Board:** EPIPHANIES `E-D-TRI-2-MINT-BLOCKED-1` (NO-GO + measured verdict); STATUS_BOARD `D-TSC-1b` row; TECH_DEBT `TD-PLANNER-STYLE-DEFAULT-DRIFT-1`; triangle plan §6 D-TRI-2 annotation. Branch `claude/review-claude-board-files-nhqgx1`; PR pending. NOTE `D-TSC-1b` id chosen to avoid collision with the pre-existing OGAR-mint `D-TSC-2`.
+
 ## 2026-07-17 — D-MBX-A6-P3b output-overhaul carrier (StrategyOutcome on PlanInput) — planner-internal, shipped
 
 - **Task:** retire the `StyleStrategy::plan()` dead-store `_reliability` onto an honest carrier (the D-MBX-A6 output overhaul), the next unblocked plateau after P5a (jc battery, #709/#710).
