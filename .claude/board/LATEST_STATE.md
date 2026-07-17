@@ -9,9 +9,9 @@ lance-graph core (non-contract, same PR): `graph::arigraph::{ppr::{PersonalizedP
 
 ## 2026-07-17 — branch `claude/review-claude-board-files-nhqgx1` — D-TRI-1 value-tenant half: the autopoiesis triangle lands as 3 SoA lanes
 
-**IN PR.** The value-tenant half of the D-TRI-1 batched mint
-(`triangle-tenants-gestalt-separation-v1.md` §1). Three NEW append-only
-`ValueTenant`s — `FrozenStyle = 10`, `LearnedStyle = 11`, `ExploreStyle = 12`
+**MERGED #717 (2026-07-17, main `74d16f92`).** The value-tenant half of the
+D-TRI-1 batched mint (`triangle-tenants-gestalt-separation-v1.md` §1). Three NEW
+append-only `ValueTenant`s — `FrozenStyle = 10`, `LearnedStyle = 11`, `ExploreStyle = 12`
 — each `ColumnKind::U8 × 12` (12 palette256 atoms), contiguous at `row_offset`
 152 / 164 / 176 (value-slab `[120,156)`), appended **after Kanban** per the
 2026-07-17 operator ruling ("triangle right after the kanban board").
