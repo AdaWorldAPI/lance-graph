@@ -43,6 +43,34 @@ every hit with file:line and a one-line disposition
    `mint_for`'s own V1 arm (`canonical_node.rs`), and legacy-compat
    *reads* (`family()`/`identity()` accessors are reads, not mints).
 
+7. **Elimination scan — the ack mechanism does not exist**
+   (E-ACK-ELIMINATED-1, operator 2026-07-17; after E-ACK-VIOLATION-REGRADE-1
+   + E-SOA-OWN-BOARD-NO-SIDECAR-1). The mechanism is gone from source; the
+   scan prevents it regrowing. Two sub-checks, different because the tokens
+   legitimately appear in prose that DOCUMENTS the removal. **This file
+   (`.claude/commands/v3-audit.md`) is itself exempt — it defines the
+   patterns, so its matches are rule text, not findings.**
+   - **Code (`crates/**/*.rs` only):** literal patterns `ack_and_propose`,
+     `\bunacked\b`, `\bbacked\b`, `fn ack\b`, `\.ack\(`, `ack-gated`,
+     `actionhandler`, `SLA gate` — ANY hit is a violation (no sanctioned
+     home; durability evidence is the row's own LanceVersion via
+     temporal.rs). **Structural check (not keyword):** flag any NEW writer
+     field that is a persisted `CastId`/id → version map (a confirmation
+     ledger by SHAPE, whatever it is named). **Await check:** flag a
+     `ractor::call!` or an `.await` on a response that a cycle-advance path
+     (`advance_phase|KanbanColumn|cycle`) then depends on — NOT a bare
+     `ractor::cast` or the sanctioned fire-and-forget `BatchWriter::cast`
+     (owner-stamped intent recording, which never waits and is allowed).
+   - **Doctrine (`.claude/**/*.md`):** the tokens appear legitimately in
+     board history AND in the docs that document the elimination itself
+     (FUTURE-DESIGN / INTEGRATION-PLAN / mailbox-kanban-model / VISION rows
+     describing what was removed and why). Do NOT flag those. Flag only
+     NEW doctrine that **prescribes** the mechanism — text designing an
+     advance that waits on a completion/confirmation event, or a stored
+     confirmation ledger. The test is **prescription, not mention**: a row
+     saying "the ack is eliminated / retired unbuilt" is compliant; a row
+     saying "advance the cycle when the write acks" is a violation.
+
 End with a verdict per the v3-mailbox-warden vocabulary (OWNED /
 BOOTSTRAP-OK / ORPHAN-WRITE / RESURRECTION) plus LAYOUT-CLEAN /
 LAYOUT-GATED / LAYOUT-BREAK for check 5, and a one-paragraph summary.

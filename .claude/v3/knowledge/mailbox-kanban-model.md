@@ -27,7 +27,44 @@ proposes; the owner disposes.
 |---|---|---|
 | **Arm #1 — planner** | `lance-graph-planner/src/strategy/style_strategy.rs` | The D-MBX-A6 seam: the deferred `Outcome → Candidate/KanbanMove` adapter. Strategy outcomes (converged, cycle_count, gate verdicts) become kanban moves. |
 | **Arm #2 — symbiont** | `crates/symbiont` (`kanban_loop.rs` = POC) | SurrealDB-on-kv-lance executor: kanban updates as KV transactions on the same Lance substrate. Gated on the AdaWorldAPI surrealdb fork `kv-lance` feature. |
-| **Structural owner** | `lance-graph-supervisor/kanban_actor.rs` | ractor actor per mailbox. **ractor is a compile-time ownership dummy** — it spawns and proves single-ownership via move semantics (`KanbanActor<O>` with `type State = O`; the owner MOVES in at `pre_start`); it is NOT a data-plane bus and **not for messaging — it is slow** (operator, 2026-07-02). **It MAY serve as a HELPER where it makes sense** — spawn, supervision, occasional control RPC like the serialized Advance/MulAdvance (the codex #578 atomicity mechanism) — always keeping the speed difference in mind: nothing on the hot path may wait on ractor latency; hot-path dispatch belongs to the D-V3-W2e-probed ExecTarget. |
+| **Structural owner** | `lance-graph-supervisor/kanban_actor.rs` | ractor actor per mailbox. **ractor is SOLELY the compile-time ownership guarantee** (name the role — the attestation must stay authoritative to the compiler; operator, 2026-07-17) — it spawns and proves single-ownership via move semantics (`KanbanActor<O>` with `type State = O`; the owner MOVES in at `pre_start`); it is NOT a data-plane bus and **not for messaging — it is slow** (operator, 2026-07-02). **It MAY serve as a HELPER where it makes sense** — spawn, supervision, occasional control RPC like the serialized Advance/MulAdvance (the codex #578 atomicity mechanism) — always keeping the speed difference in mind: nothing on the hot path may wait on ractor latency; hot-path dispatch belongs to the D-V3-W2e-probed ExecTarget. |
+
+## The trigger: kanbanstep. There is no ack — the concept is ELIMINATED (operator, 2026-07-10/17)
+
+**The canonical kanban advance is the in-stream synchronous step
+("kanbanstep")**: the writer/stream fires `on_version →
+try_advance_phase(&mut)` inline with the version it already holds —
+auto-progression on the Rubicon **aktionale** phase (Heckhausen's model
+supplies the goalstate; Libet timing governs planning and
+Bewerten→Commit; 550→200 ms window). The cognitive-shader-driver
+**can't stop thinking**: cycles progress continuously over
+StreamDto → BusDto → PerturbationDto; the SPO 2³ rung ladder amortizes
+ONE SPO cache load over ≤8 back-to-back L1-resident cycles emitting
+`CausalEdge64` NARS candidates — 40 ns-class operations.
+
+**The ack concept does not exist in this architecture** (operator
+directive 2026-07-17, `E-ACK-ELIMINATED-1` — expelled from code,
+doctrine, and vocabulary after it twice produced tier-crossing designs).
+There is no confirmation bookkeeping anywhere: **durability evidence is
+the written row's own `LanceVersion` in Lance**, read through
+`temporal.rs` (`QueryReference::at` + deinterlace). The `BatchWriter`'s
+intent list is **ephemeral staging, not a durable WAL** — after a
+process restart it is gone, and there is nothing to "replay" from it.
+The durable record IS the Lance row: a crash mid-write leaves the row at
+an older `LanceVersion`, and recovery is simply a pinned-reference read
+of what Lance actually holds. Reconciliation is Lance's, never the
+writer's.
+Nothing advances on a completion event: not a thought (a stall of
+250×–10,000× on a 40 ns op, and the death of the ladder amortization),
+and not anything else — the batch writer records intent and nothing
+more. The membrane (lance-graph-callcenter) admits, serializes, and
+splits incoming tasks into reasoning SoAs using the transcode's own
+native semantics (Supabase-realtime); we build no confirmation
+abstraction for it. Do not reintroduce the mechanism under any name —
+"retire", "confirm", "settle" wrapping a stored completion ledger is
+the same thing wearing a new word. History: `E-KANBANSTEP-IS-THE-TRIGGER-1`,
+`E-ACK-VIOLATION-REGRADE-1`, `E-SOA-OWN-BOARD-NO-SIDECAR-1`,
+`E-ACK-ELIMINATED-1`.
 
 ## The ahead-firing batch writer
 
@@ -40,8 +77,11 @@ The batch writer is where thinking is masked behind persistence:
 3. **At cast time** (not at write-landed time) it checks the **delegation
    cache**: does the caster hold ownership, need delegation, or already have
    it? Mismatch (cast id ≠ envelope stamp) is the cache-logic case.
-4. It fires the **AHEAD kanban update immediately on cast** — the kanban
-   board reflects intent before the write lands. No waiting.
+4. It **records the proposed `KanbanMove` intent immediately on cast**
+   (before the write lands), where it is visible for reading. It does NOT
+   mutate the board or the tenant — `MailboxSoaOwner::advance_phase` is the
+   sole mutator (kanbanstep applies the move inline); the writer only
+   stages the proposal. No waiting.
 5. Lance's columnar I/O writes the LE bytes from the in-place backing store
    (zero-copy; the store never serializes).
 

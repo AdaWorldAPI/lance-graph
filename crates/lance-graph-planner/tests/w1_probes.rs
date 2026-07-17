@@ -1,8 +1,13 @@
-//! D-V3-W1e probe-first: four probes for the W1b ahead-firing batch writer +
+//! D-V3-W1e probe-first: probes for the W1b ahead-firing batch writer +
 //! W1c delegation cache, pinned against
 //! `lance_graph_planner::batch_writer::BatchWriter`.
 //!
-//! Live (W1b implementation landed) — all four run and pass.
+//! There is no confirmation bookkeeping in the writer (operator ruling
+//! 2026-07-17, E-ACK-ELIMINATED-1): durability evidence is the written
+//! row's own `LanceVersion` in Lance, read through `temporal.rs`; replay
+//! is a temporal READ comparing recorded intents against what Lance holds.
+//! These probes therefore pin exactly two things: intent recording and
+//! delegation caching.
 //!
 //! Uses the REAL shipped kanban contract types
 //! (`lance_graph_contract::kanban::{KanbanColumn, KanbanMove, ExecTarget}`,
@@ -25,8 +30,8 @@ fn make_move(mailbox: u32, from: KanbanColumn, to: KanbanColumn, witness: u32) -
     }
 }
 
-/// Probe 1 (W1b): cast() makes intent moves visible on the board AHEAD of any
-/// ack; ack() then removes the cast from unacked().
+/// Probe 1 (W1b): cast() makes intent moves visible immediately — AHEAD of
+/// any storage write completing.
 #[test]
 fn probe_ahead_update_ordering() {
     let mut writer: BatchWriter<()> = BatchWriter::new();
@@ -39,20 +44,15 @@ fn probe_ahead_update_ordering() {
 
     let cast = writer.cast(7, moves.clone(), ());
 
-    // AHEAD: intent is visible on the board BEFORE any ack.
+    // AHEAD: intent is visible immediately.
     assert_eq!(writer.intent_moves(cast), Some(moves.as_slice()));
-
-    writer.ack(cast, 1);
-
-    // After ack, the cast is no longer in the unacked (crash-replay) surface.
-    assert!(!writer.unacked().contains(&cast));
-
-    // The CastId<->LanceVersion join: the ack recorded the assigned version.
-    assert_eq!(writer.acked_version(cast), Some(1));
+    assert_eq!(writer.casts(), vec![cast]);
 }
 
-/// Probe 2 (M24): a cast that is never acked stays on the crash-replay
-/// surface (`unacked()`), and its intent moves remain replayable.
+/// Probe 2 (M24): recorded intents stay readable after a simulated crash —
+/// replay compares them against what Lance holds (a temporal READ, done
+/// elsewhere); the writer's only obligation is that the intent record
+/// survives and stays readable.
 #[test]
 fn probe_kill_after_cast_replay() {
     let mut writer: BatchWriter<()> = BatchWriter::new();
@@ -65,14 +65,12 @@ fn probe_kill_after_cast_replay() {
     )];
 
     let cast = writer.cast(11, moves.clone(), ());
-    // Deliberately no ack() — simulates a crash between cast and ack.
+    // Simulates a crash right after cast: nothing else happens.
 
-    let unacked = writer.unacked();
-    assert_eq!(unacked, vec![cast]);
-
+    assert_eq!(writer.casts(), vec![cast]);
     let replayed = writer
         .intent_moves(cast)
-        .expect("unacked cast must still have replayable intent moves");
+        .expect("cast must still have replayable intent moves");
     assert!(!replayed.is_empty());
     assert_eq!(replayed, moves.as_slice());
 }
@@ -112,39 +110,30 @@ fn probe_delegation_miss_then_hit() {
     assert_eq!(owner_first, owner_second);
 }
 
-/// Probe 4 (M24 / operator ruling "melden macht frei", plan Addendum-7):
+/// Probe 4 (operator ruling "melden macht frei", plan Addendum-7):
 /// casting is REPORTING, and reporting frees the thinker — the writer NEVER
-/// refuses a cast because earlier casts on the same mailbox are still
-/// unacked. Three stacked casts are three WAL entries: distinct ids, full
-/// ordered history retained, acks retire independently. (Physical sink
+/// refuses a cast. Three stacked casts on the same mailbox are three intent
+/// records: distinct ids, full ordered history retained. (Physical sink
 /// coalescing — one flush of the live store satisfying all earlier intents
-/// for a row — is sink-side behavior, exercised in the W1b implementation
-/// tests, not at this API surface.)
+/// for a row — is sink-side behavior, not at this API surface.)
 #[test]
 fn probe_stacked_casts_never_refused() {
     let mut writer: BatchWriter<()> = BatchWriter::new();
 
     let mv = |w| make_move(7, KanbanColumn::Planning, KanbanColumn::CognitiveWork, w);
 
-    // Three stacked writes on the SAME mailbox, zero acks in between.
+    // Three stacked writes on the SAME mailbox, nothing in between.
     let c1 = writer.cast(7, vec![mv(0)], ());
     let c2 = writer.cast(7, vec![mv(1)], ());
     let c3 = writer.cast(7, vec![mv(2)], ());
 
-    // No refusal: three distinct WAL entries, cast order preserved.
+    // No refusal: three distinct intent records, cast order preserved.
     assert_ne!(c1, c2);
     assert_ne!(c2, c3);
-    assert_eq!(writer.unacked(), vec![c1, c2, c3]);
+    assert_eq!(writer.casts(), vec![c1, c2, c3]);
 
     // Every stacked intent stays independently replayable.
     assert!(writer.intent_moves(c1).is_some());
     assert!(writer.intent_moves(c2).is_some());
     assert!(writer.intent_moves(c3).is_some());
-
-    // Acks retire independently and in any order.
-    writer.ack(c2, 1);
-    assert_eq!(writer.unacked(), vec![c1, c3]);
-    writer.ack(c1, 2);
-    writer.ack(c3, 3);
-    assert!(writer.unacked().is_empty());
 }

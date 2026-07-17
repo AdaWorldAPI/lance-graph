@@ -11,6 +11,21 @@
 
 ---
 
+## 2026-07-17 (sixth wave) — ACK ELIMINATED everywhere (operator directive)
+
+| Ruling | One line | Wiring queue |
+|---|---|---|
+| E-ACK-ELIMINATED-1 | "remove the ack from everywhere, completely eliminate it" — the concept is expelled from code, doctrine, and vocabulary (it twice produced tier-crossing designs and became a lens distorting every session). SHIPPED: `batch_writer.rs` = pure intent recorder (`ack`/`ack_and_propose`/`acked`/`unacked`/`acked_version` deleted; zero production callers existed); probes + driver tests rewritten; durability evidence = the written row's own LanceVersion via temporal.rs; crash-replay = a temporal READ of intents vs Lance. D-AHG-1 is DEAD; the SLA-gate / actionhandler-queue concepts are retired UNBUILT; the membrane admits/serializes/splits tasks with the transcode's own native semantics (no confirmation abstraction of ours). /v3-audit check 7 = the elimination scan; guardrails trigger 7 bans rebuilding the mechanism under any name | none — the elimination is the wiring. Rows below referencing ack/SLA-gate/actionhandler are HISTORY, read through this row |
+
+## 2026-07-17 (fifth wave) — ack-violation regrade + the stream tier's economics named
+
+| Ruling | One line | Wiring queue |
+|---|---|---|
+| E-ACK-VIOLATION-REGRADE-1 | the ack-gated advance regraded from "correct code, wrong tier" to a hard architecture violation (duplicate of batch-writer→kanbanstep, operator hard-break + internal reversal); quantified: 40 ns-class stream ops vs 10–400 µs acks (250×–10,000× stall), ractor messaging = Tokio = 10⁴–10⁷× — ractor stays compile-time-ownership-only; NEW mechanism banked: SPO 2³ rung ladder = one SPO cache load + ≤8 L1-resident cycles → CE64 NARS candidates; kanbanstep = auto-progression on the Rubicon aktionale phase (550→200 ms window); the ONLY ack home = the external ontology membrane (callcenter Supabase-realtime tickets/SLA + OGAR actionhandler queues) | doc-only here; chess/expert-iteration Phase-1 wording corrected before start (episode casts fire-and-forget at the storage boundary; teacher/NARS loop paces on nothing); drift signal unchanged |
+| E-SOA-OWN-BOARD-NO-SIDECAR-1 | the SECOND ack-model violation: BatchWriter's `board`/`acked` BTreeMaps = a sidecar kanban state OUTSIDE the SoA — M24's own gate ("grep writer-internal intent queues = zero") already forbids the shape; the ruled model is the self-controlling actor-SoA (board INSIDE the SoA: ownership proof + board + budget in the owned rows); `ack_and_propose` = zero production callers, kanbanstep primitive still wired inside the ack path (b49ccf3f) | **Stage A (unblocked):** excise ack_and_propose from batch_writer.rs (pure WAL restored) → SLA gate re-homes at the callcenter membrane; /v3-audit check-7 exemption narrows. **Stage B (gated on the W2a board-tenant mint, T1–T6):** sidecar maps migrate into board-tenant rows (ack = the row's LanceVersion; unacked = a temporal.rs Strict projection); M24 goes green. **W2a priority RAISED — it now gates closing both violations** |
+| E-TASKS-SOA-AT-THE-MEMBRANE-1 (⊘ partially retracted — see next row) | ack's POSITIVE role: the outer serialization boundary of INCOMING tasks, which split into SoAs; multi-SoA reasoning first-class (chess opponent "mirror neuron" SoA; Odoo multi-loop business logic never evicted from its reasoning loops); the membrane state = a **Tasks SoA** at lance-graph-callcenter (task = V3 row, 32-bit classid + 96-bit payload; SLA audit = Lance versions + temporal.rs — no bespoke acked map); P64's 64×64-tenant era superseded by the 4+12 facet cast (gridlake stays a measured batch topology, not the tenant atom) | REVISES Stage A's membrane home: Tasks SoA design (envelope-auditor + batched-mint gated — task-row classid rides the next mint), not a module with relocated maps; chess arc gains the opponent-model sibling SoA as a named Phase-1/3 element; P64-doc read-through sweep queued (low priority) |
+| E-KANBAN-STAYS-INTERIOR-MEMBRANE-IS-ACK-ONLY-1 (CORRECTION) | kanban does NOT move to the membrane — it is the Rubicon reasoning advance, **reasoning-interior ONLY**. RETRACTS the previous row's "kanban board on the task row" clause: the membrane does ACK-serialization only; the Tasks SoA holds admission + SLA/ack ledger + fan-out edges (no sidecar) — the SLA-gate/actionhandler-queue tier, categorically NOT the Rubicon kanban. Cross-routing either way is the prime violation (thought→ack = E-ACK-VIOLATION-REGRADE-1; task→kanban = this) | Tasks SoA spec carries task lifecycle as an ack-gated SLA ledger, NEVER a Rubicon KanbanColumn; the reasoning kanban stays inside the child SoAs the task splits into |
+
 ## 2026-07-10 (fourth wave) — the chess arc: E-CHESS gets its measured instantiation (sibling repo)
 
 | Seed | One line | Wiring queue |
@@ -37,6 +52,17 @@ Process note: this wave ran under the new **5+3 council** harness
 D-TSC-1; the 5-savant fan-out surfaced the three-divergent-tables finding.
 
 ## 2026-07-10 — the ratified cognition arc (four rulings + one measured probe)
+
+> **⊘ READ-THROUGH (2026-07-17):** the first row below
+> (E-ACK-IS-THE-KANBAN-TRIGGER-1, "the Lance ack pumps the next
+> KanbanMove") is read THROUGH E-KANBANSTEP-IS-THE-TRIGGER-1 and
+> E-ACK-VIOLATION-REGRADE-1 (fifth wave, top of this file): the
+> ack-trigger framing was a hard architecture violation, reversed —
+> kanbanstep is the only reasoning advance; acks are durability
+> bookkeeping (and since 2026-07-17, E-ACK-ELIMINATED-1: no such
+> bookkeeping exists at all); SLA-gated waiting lives only at the callcenter/OGAR
+> membrane. The row's fire-and-forget clause stands; its trigger
+> ranking does not. Append-only: the row is not edited.
 
 **Rulings** (canonical: EPIPHANIES — measured results in
 `E-COMMA-QUORUM-MEASURED-1`; plan: `temporal-markov-and-style-classes-v1`):
