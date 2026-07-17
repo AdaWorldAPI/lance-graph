@@ -1,3 +1,10 @@
+## 2026-07-17 — branch `claude/happy-hamilton-0azlw4` (post-#714) — D-GR-1 `contract::doc_graph::{DocGraphQuery, ScoredId}` + D-GR-3b AriGraph capabilities (PPR, Leiden refinement, BM25) + G0 harness
+
+### Current Contract Inventory — new entry
+- `lance_graph_contract::doc_graph::{DocGraphQuery, ScoredId}` — zero-dep rung-aware document-graph read surface (D-GR-1). `DocGraphQuery`: `community_of` / `community_ids` / `community_members` / `neighbours` / `similar_by_ranking`, plus a provided `retrieve(seeds, RungLevel, top_k)` default carrying the rung→walk dispatch (0–1 ranking / 2 SPO-G hop / 3+ wider community-scoped walk). `ScoredId {id, score, depth}`. Impl target = AriGraph `OsintRetriever` (D-GR-2, gated on G0). 9 tests. Only in-crate dep is `cognitive_shader::RungLevel`.
+
+lance-graph core (non-contract, same PR): `graph::arigraph::{ppr::{PersonalizedPageRank, personalized_pagerank}, bm25::Bm25Index}`; `community::refine_connected` (Leiden connectivity); `examples/g0_graph_loadbearing.rs` (P-GRAPH-LOADBEARING scaffold).
+
 # LATEST_STATE — What Just Shipped (read this FIRST)
 
 ## 2026-07-16 — branch `claude/x265-x266-plans-review-h9osnl` (v5, post-#702) — probe-wave verdicts on main

@@ -1,3 +1,11 @@
+## 2026-07-17 — D-GR-1 + D-GR-3b + G0 shipped (3 background agents: 1 Opus filigree + 2 Sonnet grindwork; Opus orchestrator wired mod.rs + compiled centrally, one shared target)
+
+- **Task:** "Finish D-GR-*, Opus agents for filigree + Sonnet 5 for grindwork" — the graphrag plan's buildable/ungated deliverables.
+- **Fleet:** 1 Opus → `contract/doc_graph.rs` (DocGraphQuery trait + D-GR-2 design), standalone rustc 9/9. 2 Sonnet (edit-only, no per-agent cold build) → `arigraph/ppr.rs` (PPR); `community.rs` Leiden `refine_connected` + `arigraph/bm25.rs`. Disjoint files, no write races; mod.rs wired centrally by the orchestrator.
+- **Verified centrally (Opus, one shared target, PROTOC=/usr/bin/protoc):** `cargo test -p lance-graph --lib` 945 + 18 D-GR module tests green; `cargo test -p lance-graph-contract` 10 green; clippy `-D warnings` clean on all four new files (the 8 pre-existing warnings are `blasgraph/ndarray_bridge.rs` SIMD dead-code, not mine); G0 harness runs.
+- **Operator sharpenings absorbed:** (a) cosine-replacement EXISTS — grep it (certified `bgz-tensor::fisher_z`/`helix`), don't build; popcount is the retired path. (b) part_of:is_a ≡ Leiden community ≡ episodic basin — one concept; P-COMMUNITY-BASIN-AGREE tests the identity. Plan §3a/§3b + EPIPHANIES `E-GRAPHRAG-DGR3B-1`.
+- **Gate held:** all shipped capabilities are pure/reversible/no-write-path (land ahead of G0 like D-GR-3a #714); D-GR-2 retrieval WIRING stays gated on the G0 real-corpus verdict. Branch `claude/happy-hamilton-0azlw4` (fresh post-#714 main); PR pending.
+
 ## 2026-07-17 — TD-PLANNER-STYLE-DEFAULT-DRIFT-1 PAID — fill the 5 planner default_modulation families from canonical (main thread, no subagents)
 
 - **Task:** pay the debt D-TSC-1b measured — the planner's 5 `_ => FieldModulation::default()` style families diverge from the canonical `UNIFIED_STYLES`≡`StyleParams` tables on resonance/fan_out/exploration.
