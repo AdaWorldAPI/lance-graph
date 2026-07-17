@@ -601,15 +601,23 @@ impl ShaderDriver {
 
         // Advance the persistent per-driver `RungElevator` with THIS cycle's
         // already-decided `gate` (sustained-BLOCK elevates over the dispatched
-        // base; sustained-FLOW relaxes back to it). The base-reset already ran
-        // at the top of `run()` where the level was read for the cascade, so
-        // `elevator.base == req.rung` holds here. The resulting level is what the
-        // NEXT dispatch's cascade consults — closing the ascent loop across cycles.
+        // base; sustained-FLOW relaxes back to it). The base-reset is REPEATED
+        // here, inside the SAME critical section as `on_gate` — not only at the
+        // top-of-`run()` read. The elevator is a `&self` per-driver singleton
+        // behind a `RwLock`, so a concurrent dispatch with a different `req.rung`
+        // may have reset `base` in the window since the top read; re-validating
+        // here keeps reset+advance atomic, so this cycle's gate is never counted
+        // against another request's base (codex #708 r3603015026). The resulting
+        // level is what the NEXT dispatch on this base consults — closing the
+        // ascent loop across cycles.
         let elevated_rung: u8 = {
             let mut elevator = self
                 .rung_elevator
                 .write()
                 .expect("rung_elevator RwLock poisoned");
+            if elevator.base != req.rung {
+                *elevator = RungElevator::new(req.rung);
+            }
             elevator.on_gate(gate) as u8
         };
 
@@ -1860,7 +1868,10 @@ mod rung_ascent_tests {
         let mut e = RungElevator::new(RungLevel::Surface);
 
         // (i) at base: mask is EXACTLY the dispatch mask — no regression.
-        assert_eq!(rung_widened_layer_mask(e.base, e.level, BASE_MASK), BASE_MASK);
+        assert_eq!(
+            rung_widened_layer_mask(e.base, e.level, BASE_MASK),
+            BASE_MASK
+        );
 
         // sustained BLOCK ascends. threshold = 2, so 6 BLOCKs climb 3 rungs:
         // Surface(0) → Shallow(1) → Contextual(2) → Analogical(3, Pearl L2).
@@ -1873,7 +1884,10 @@ mod rung_ascent_tests {
         // (ii) elevated across a Pearl boundary → strict SUPERSET of the dispatch
         // mask (widened, changed, never narrowed).
         let widened = rung_widened_layer_mask(e.base, e.level, BASE_MASK);
-        assert_ne!(widened, BASE_MASK, "elevation must change the consulted mask");
+        assert_ne!(
+            widened, BASE_MASK,
+            "elevation must change the consulted mask"
+        );
         assert_eq!(widened & BASE_MASK, BASE_MASK, "must be a superset");
         assert!(widened.count_ones() > BASE_MASK.count_ones(), "must widen");
 
@@ -1886,7 +1900,10 @@ mod rung_ascent_tests {
         assert_eq!(e.level, RungLevel::Surface);
 
         // back at base → mask returns to identity.
-        assert_eq!(rung_widened_layer_mask(e.base, e.level, BASE_MASK), BASE_MASK);
+        assert_eq!(
+            rung_widened_layer_mask(e.base, e.level, BASE_MASK),
+            BASE_MASK
+        );
     }
 
     #[test]
