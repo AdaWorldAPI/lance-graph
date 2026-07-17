@@ -1,3 +1,44 @@
+## 2026-07-17 — graphrag-doc-retrieval-soa-integration v1 — DESIGN + FIRST CODE (probe-gated)
+
+**Plan:** `.claude/plans/graphrag-doc-retrieval-soa-integration-v1.md`
+**v1.2 (2026-07-17, operator-directed):** (a) the base is a *meaning measurement* —
+COCA + NARS are co-equal core faculties; agnosticism is scoped to raw data +
+consumer modelling only; the 12-byte facet is `6×2×8bit` (CLAM), never f32; 256 =
+ranking (needs cosine-replacement), 256² = distribution (as accurate as
+content-blind f32); the `6×(8:8)` register is polymorphically `part_of:is_a`
+family-identity OR palette256² centroid (§3a). (b) Leiden community synergies —
+distributional-meaning modes, NARS-truth-weighted (§3b). (c) the DocumentID-KV /
+witness-handle seam (§4a). **FIRST CODE SHIPPED (D-GR-3a):** `arigraph/community.rs`
+— `TripletGraph::communities()`, multi-level Louvain, deterministic, 5 tests.
+**v1.1 (2026-07-17, operator-directed):** NO standalone `crates/graphrag` —
+**expand AriGraph in place** (`arigraph/community.rs` Leiden + PPR into the
+existing `arigraph/retrieval.rs`), complementing the episodic-witness basins
+AriGraph already owns (`witness_corpus.rs`/`episodic.rs`). A crate would be a
+free-function-on-carrier's-state (litmus reject) + a parallel retrieval layer
+beside the existing one; AriGraph has no community/partition type today, so
+Leiden fills the gap. Dissolves the §10 dep-weight feature-gate. The
+`DocGraphQuery` contract trait + a small out-of-graph BM25 leg are the only
+zero-dep additions.
+**Scope (v1):** evaluation + wave plan for a query-side retrieval surface + a
+`DocGraphQuery` contract surface, both reading the *calcified*
+document-graph substrate. Reframes the task's "lance-graph feeds ogar-doc": OGAR
+owns doc ingestion + the `document 0x080B` mint (`ogar-from-docv1` →
+`ogar-doc-ir` → `ogar-doc`, all built); lance-graph provides the contract types
+OGAR consumes + query capability. graphrag is query-side ONLY — never ingests
+(door-knocking-compiler test; assembler-vs-storage boundary). REUSE:
+`causal_edge::CausalEdge64` (SPO edge), native NARS `(freq,conf)`,
+`WitnessTable`/`EpisodicEdges64` (provenance; `EpisodicWitness64` = a *queued*
+column), AriGraph `TripletGraph`+`spo_bridge` (fact store), `MailboxSoaView`,
+CAM-PQ, `lance-graph-arm-discovery` (extraction proposer). BUILD only the 3
+gaps: hierarchical Leiden, HippoRAG-PPR reset-distribution, BM25. **Retrieval =
+rung ascent** (#708 / D-TRI-6 `RungElevator` + canonical `RungLevel` +
+predicate-plane widen; BLOCK ascends, FLOW at base) up the §3a Maslow pyramid.
+Probe-first: **G0 P-GRAPH-LOADBEARING** (graph beats vector-only?) gates all
+Leiden/PPR code. graphrag-rs (automataIA) = REUSE-AS-REFERENCE
+(`E-V3-GRAPHRAG-INV-1`). Composes atop
+`oxigraph-arigraph-cognitive-shader-soa-merge-v1`. D-GR-1..5; D-GR-5 (OGAR seam)
+mint-gated + baton-audited. No bytes land.
+
 ## 2026-07-17 — triangle-tenants-gestalt-separation v1 — DESIGN (mint-gated)
 
 **Plan:** `.claude/plans/triangle-tenants-gestalt-separation-v1.md`
