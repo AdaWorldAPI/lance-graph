@@ -4,7 +4,7 @@
 //!
 //! # Why this lives in `jc`
 //!
-//! `jc` is otherwise a proof-in-code harness (the ten pillars). But the
+//! `jc` is otherwise a proof-in-code harness (the registered pillars). But the
 //! workspace repeatedly asks the SAME empirical question — "do two
 //! representations measure the same construct, reliably?" — and until now each
 //! caller rolled its own (e.g. a private `spearman_rho` on rankings in
@@ -62,6 +62,16 @@ fn mean(xs: &[f64]) -> Option<f64> {
     Some(xs.iter().sum::<f64>() / xs.len() as f64)
 }
 
+/// Whether every element is finite (no `NaN`, no `±∞`). The no-`NaN` API
+/// contract is enforced by rejecting non-finite INPUTS up front: a `NaN` sorts
+/// as "equal" in the rank step and would otherwise receive an ordinary rank,
+/// silently producing a finite-but-garbage Spearman ρ (and `Some(NaN)` for the
+/// other three). Every public metric guards on this before computing.
+#[inline]
+fn all_finite(xs: &[f64]) -> bool {
+    xs.iter().all(|v| v.is_finite())
+}
+
 /// Pearson product-moment correlation coefficient of two equal-length series.
 ///
 /// Returns `None` if the series differ in length, have fewer than 2 elements,
@@ -76,6 +86,9 @@ fn mean(xs: &[f64]) -> Option<f64> {
 pub fn pearson(x: &[f64], y: &[f64]) -> Option<f64> {
     if x.len() != y.len() || x.len() < 2 {
         return None;
+    }
+    if !all_finite(x) || !all_finite(y) {
+        return None; // NaN / ±∞ input → undefined (no-NaN contract)
     }
     let mx = mean(x)?;
     let my = mean(y)?;
@@ -93,7 +106,10 @@ pub fn pearson(x: &[f64], y: &[f64]) -> Option<f64> {
     if denom == 0.0 {
         return None; // at least one series is constant
     }
-    Some(sxy / denom)
+    let r = sxy / denom;
+    // Even with finite inputs, large magnitudes can overflow the squared
+    // deviations to ±∞, making the ratio non-finite — reject that too.
+    r.is_finite().then_some(r)
 }
 
 /// Average (fractional) ranks of a series, tie-corrected: tied values receive
@@ -144,6 +160,13 @@ pub fn spearman(x: &[f64], y: &[f64]) -> Option<f64> {
     if x.len() != y.len() || x.len() < 2 {
         return None;
     }
+    if !all_finite(x) || !all_finite(y) {
+        // Guard here, not just in the delegated `pearson`: `average_ranks`
+        // maps a NaN to an ordinary finite rank (partial_cmp → Equal), so the
+        // ranks handed to `pearson` are all finite and the NaN would slip
+        // through as a finite-but-garbage ρ. Reject non-finite input up front.
+        return None;
+    }
     let rx = average_ranks(x);
     let ry = average_ranks(y);
     pearson(&rx, &ry)
@@ -187,6 +210,9 @@ pub fn cronbach_alpha(items: &[Vec<f64>]) -> Option<f64> {
     if n == 0 || items.iter().any(|it| it.len() != n) {
         return None;
     }
+    if items.iter().any(|it| !all_finite(it)) {
+        return None; // NaN / ±∞ input → undefined (no-NaN contract)
+    }
     let sum_item_var: f64 = items.iter().filter_map(|it| pop_var(it)).sum();
     if items.iter().any(|it| pop_var(it).is_none()) {
         return None;
@@ -200,7 +226,10 @@ pub fn cronbach_alpha(items: &[Vec<f64>]) -> Option<f64> {
         return None;
     }
     let kf = k as f64;
-    Some((kf / (kf - 1.0)) * (1.0 - sum_item_var / total_var))
+    let alpha = (kf / (kf - 1.0)) * (1.0 - sum_item_var / total_var);
+    // Even with finite inputs, large magnitudes can overflow the variance
+    // sums to ±∞, making α non-finite — reject that too.
+    alpha.is_finite().then_some(alpha)
 }
 
 /// The single-measure ICC forms of Shrout & Fleiss (1979).
@@ -245,6 +274,9 @@ pub fn icc(ratings: &[Vec<f64>], form: IccForm) -> Option<f64> {
     if k < 2 || ratings.iter().any(|r| r.len() != k) {
         return None;
     }
+    if ratings.iter().any(|r| !all_finite(r)) {
+        return None; // NaN / ±∞ input → undefined (no-NaN contract)
+    }
     let nf = n as f64;
     let kf = k as f64;
 
@@ -284,7 +316,10 @@ pub fn icc(ratings: &[Vec<f64>], form: IccForm) -> Option<f64> {
     if denom == 0.0 {
         return None;
     }
-    Some((ms_r - ms_e) / denom)
+    let v = (ms_r - ms_e) / denom;
+    // Overflow of the mean-square sums to ±∞ can make the ratio non-finite
+    // even for finite inputs — reject that too.
+    v.is_finite().then_some(v)
 }
 
 #[cfg(test)]
@@ -426,5 +461,43 @@ mod tests {
         assert_eq!(icc(&[vec![1.0, 2.0]], IccForm::Icc2_1), None); // n < 2
         assert_eq!(icc(&[vec![1.0], vec![2.0]], IccForm::Icc2_1), None); // k < 2
         assert_eq!(icc(&[vec![1.0, 2.0], vec![1.0]], IccForm::Icc2_1), None); // ragged
+    }
+
+    #[test]
+    fn non_finite_inputs_return_none() {
+        // The no-NaN API contract: any NaN / ±∞ in the input yields None, never
+        // a finite-but-garbage estimate or Some(NaN). The Spearman case is the
+        // one two independent reviewers flagged: `average_ranks` maps NaN to a
+        // finite rank, so without the up-front guard it would return Some(1.0).
+        assert_eq!(spearman(&[1.0, f64::NAN, 2.0], &[1.0, 2.0, 3.0]), None);
+        assert_eq!(spearman(&[1.0, 2.0, 3.0], &[1.0, f64::INFINITY, 3.0]), None);
+        assert_eq!(pearson(&[1.0, f64::NAN, 3.0], &[1.0, 2.0, 3.0]), None);
+        assert_eq!(pearson(&[1.0, 2.0, 3.0], &[f64::NEG_INFINITY, 2.0, 3.0]), None);
+
+        let nan_items = vec![vec![1.0, 2.0, f64::NAN], vec![1.0, 2.0, 3.0]];
+        assert_eq!(cronbach_alpha(&nan_items), None);
+        let inf_items = vec![vec![1.0, 2.0, 3.0], vec![1.0, f64::INFINITY, 3.0]];
+        assert_eq!(cronbach_alpha(&inf_items), None);
+
+        let nan_ratings = vec![vec![1.0, 2.0], vec![f64::NAN, 4.0], vec![5.0, 6.0]];
+        assert_eq!(icc(&nan_ratings, IccForm::Icc2_1), None);
+        assert_eq!(icc(&nan_ratings, IccForm::Icc3_1), None);
+    }
+
+    #[test]
+    fn overflowing_large_finite_inputs_return_none_not_nan() {
+        // Finite but astronomically large magnitudes overflow the squared
+        // deviations / mean-square sums to ±∞, whose ratio is NaN. The result
+        // guards must catch that and return None, never Some(NaN).
+        let big = 1e308;
+        for r in [pearson(&[big, -big, big], &[big, big, -big]), spearman(&[big, -big, big], &[big, big, -big])] {
+            assert!(r.map(|v| v.is_finite()).unwrap_or(true), "expected finite or None, got {r:?}");
+        }
+        let big_items = vec![vec![big, -big, big], vec![-big, big, -big]];
+        let a = cronbach_alpha(&big_items);
+        assert!(a.map(|v| v.is_finite()).unwrap_or(true), "cronbach: expected finite or None, got {a:?}");
+        let big_ratings = vec![vec![big, -big], vec![-big, big], vec![big, big]];
+        let v = icc(&big_ratings, IccForm::Icc2_1);
+        assert!(v.map(|x| x.is_finite()).unwrap_or(true), "icc: expected finite or None, got {v:?}");
     }
 }

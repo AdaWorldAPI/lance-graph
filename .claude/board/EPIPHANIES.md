@@ -1,3 +1,12 @@
+## 2026-07-17 — E-JC-BATTERY-NO-NAN-CONTRACT-1 — the reliability battery's documented no-NaN contract was not enforced for non-finite input; two reviewers caught `Some(NaN)`/finite-garbage (follow-up to P5a)
+
+**Status:** SHIPPED (follow-up PR to #709; `crates/jc/src/reliability.rs`, +2 regression tests, 14 lib + 3 doctests green). Corrects a real gap in E-JC-IS-NOT-A-METRIC-BATTERY-1's shipped code, not that entry's framing (append-only — the merged entry stands).
+
+- **The finding (CodeRabbit Major + Codex, independently):** the module doc promised "`None` … rather than panicking or returning `NaN`", but `spearman(&[1.0, NAN, 2.0], &[1.0, 2.0, 3.0])` returned `Some(1.0)` and `pearson`/`cronbach_alpha`/`icc` returned `Some(NaN)` for non-finite input. Spearman was the sharpest case: `average_ranks` maps `NaN` (via `partial_cmp → Equal`) to an ordinary FINITE rank, so the NaN never reached the delegated `pearson` guard — it produced a finite-but-garbage ρ that would silently poison the D-TRI agreement gates.
+- **The fix:** an `all_finite` helper + an up-front `if !all_finite(..) { return None }` guard on all four public APIs (spearman guards on the RAW values before ranking, not just via `pearson`), plus a trailing `x.is_finite().then_some(x)` result guard so finite-but-overflowing magnitudes (deviations → ±∞ → ratio NaN) also return `None`. Two regression tests: `non_finite_inputs_return_none` (NaN/±∞ across all four, incl. the Codex reproducer) and `overflowing_large_finite_inputs_return_none_not_nan` (1e308 magnitudes).
+- **Doc-count fix:** the "the ten pillars" aside in the module doc became "the registered pillars" (the registry holds 12; a hard count in a doc-comment is a drift magnet — the merged EPIPHANIES entry's "ten pillar-provers" text is append-only and left as-is).
+- Credit: CodeRabbit (thread on #709) + Codex (chatgpt-codex-connector) both flagged it post-merge; the fix ships as a distinct follow-up PR, not a reopen of #709.
+
 ## 2026-07-17 — E-JC-IS-NOT-A-METRIC-BATTERY-1 — `jc` was a FORMAL-SCAFFOLD pillar-prover, NOT a callable reliability/validity battery; the four D-TRI measurement gates had nothing to call (plateau P5a)
 
 **Status:** SHIPPED (plateau P5a; `crates/jc/src/reliability.rs`, 12 tests + 3 doctests green). Corrects the assumption (in the triangle plan §4/§6 and the operator brief "measure with lance-graph/crates/JC ICC Pearson Cronbach alpha spearman") that jc already exposes these.
