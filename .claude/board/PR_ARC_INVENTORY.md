@@ -33,6 +33,27 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## #717 lance-graph: D-TRI-1 value-tenant half — the autopoiesis triangle (3 SoA lanes)
+
+**Status:** MERGED 2026-07-17 (merge commit `74d16f92`), branch `claude/review-claude-board-files-nhqgx1`, 3 commits, autonomously merged under the operator's standing merge authority.
+
+**Added**
+- `ValueTenant::{FrozenStyle=10, LearnedStyle=11, ExploreStyle=12}` in `lance-graph-contract::canonical_node` — three `U8×12` palette256-atom lanes, contiguous at `row_offset` 152/164/176 (value-slab `[120,156)`), appended after `Kanban` per the 2026-07-17 operator ruling.
+- `NodeRow::{style_lane, set_style_lane, triangle_for}` accessors (`triangle_for(f) → (frozen[f], learned[f], explore[f])`, the one-glance per-family read; out-of-range slots + non-triangle tenants are release-safe null/no-op — Codex P2 fix).
+- Field-isolation matrix test `thinking_style_triangle_tenant_carve_field_isolation_matrix`; `TD-TRI-1-P4-OBLIGATIONS` (two P4 forward obligations).
+
+**Locked**
+- Triangle in `ValueSchema::Full` ONLY — deliberately NOT `Cognitive` (entity classes OSINT/PROJECT/ERP keep their carve; the thinking-row schema decision is P4's). Additive / reserve-don't-reclaim / layout-preserving: Full carve 120→156 B, `NODE_ROW_STRIDE` 512 unchanged, **zero `ENVELOPE_LAYOUT_VERSION` bump** (v3-envelope-auditor: LAYOUT-CLEAN).
+- Slot `f` = `StyleFamily` ordinal 0..11 OR compiled-template step 0..11 (one content-blind register, ClassView-selected reading). Atom 0 = null default (zero-fallback).
+
+**Deferred**
+- The **classid half** of the batched mint — chess domain `0x06` (confirmed free in `ogar-vocab`), the Tasks-SoA cognitive-task concepts, and BoardAggregates @ row_offset 188 — one OGAR-originated batched mint (never solo). P4 (ancestry pipeline) wires the pipeline gems into these lanes.
+- Two P4 obligations (`TD-TRI-1-P4-OBLIGATIONS`): the palette256 codebook must reserve index 0 = null atom; the P4 thinking-row `ValueSchema` must include the triangle (or thinking rows resolve to `Full`).
+
+**Docs** — plan `triangle-tenants-gestalt-separation-v1.md` §1/§5/§6; LATEST_STATE + STATUS_BOARD D-TRI-1 + TECH_DEBT.
+
+**Confidence (2026-07-17):** working — merged clean; 906 contract lib tests green, auditor LAYOUT-CLEAN, Codex P2 resolved.
+
 ## #702 lance-graph: h268-probe-wave-v1 — three probes with measured verdicts (code + board)
 
 **Status:** MERGED 2026-07-16 (merge commit `6d4acf2`), branch `claude/x265-x266-plans-review-h9osnl`, 7 commits, autonomously merged under the operator-granted merge authority for this arc.
