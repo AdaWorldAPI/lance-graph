@@ -1,3 +1,19 @@
+## 2026-07-17 — dtri1-classid-mint-spec v1 — SPEC (ratifiable, mint-gated)
+
+**Plan:** `.claude/plans/dtri1-classid-mint-spec-v1.md`
+The classid half of D-TRI-1, spec'd to the handoff boundary after the
+value-tenant half shipped (#717). Byte-precise proposals for the batched
+OGAR mint: **chess `0x06`** (episode/candidate/iteration/event — operator-
+ruled byte), **Cognition task domain `0x03`** (fan-out/counterfactual/
+synthesis/inference/deduction/extrapolation/syllogism — operator-ruled
+canonical; byte proposed, operator knob), **BoardAggregates** value tenant
+@ row_offset 188 (`U8×8` proposed). Execution sequence (OGAR originates →
+lance-graph mirrors + parity tests → read-modes → BoardAggregates lane),
+the P4 `ValueSchema::Thinking` proposal (TD-TRI-1-P4 #2), and the S1/S3/S5
+coordination with the graphrag arc. **No bytes land** — the doc-W4 council
+executes post-S1 (community-id gate). Two open knobs flagged: Cognition
+byte `0x03`, BoardAggregates width. Ties task #15 (P2).
+
 ## 2026-07-17 — graphrag-doc-retrieval-soa-integration v1 — DESIGN + FIRST CODE (probe-gated)
 
 **Plan:** `.claude/plans/graphrag-doc-retrieval-soa-integration-v1.md`
