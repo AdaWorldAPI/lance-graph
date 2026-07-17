@@ -29,12 +29,13 @@
 //! Deferred: `Outcome`→`Candidate`/`KanbanMove` adapter, the JIT compile call, and the
 //! membrane commit path (see the D-MBX-COMPLETION-MAP / board).
 
+use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
 use lance_graph_contract::recipe_kernels::{kernel, ThoughtCtx};
 use lance_graph_contract::recipes::{Mechanism, Recipe, RECIPES};
 use lance_graph_contract::thinking::{StyleCluster, ThinkingStyle};
 
 use crate::ir::{Arena, LogicalOp};
-use crate::traits::{PlanCapability, PlanContext, PlanInput, PlanStrategy};
+use crate::traits::{PlanCapability, PlanContext, PlanInput, PlanStrategy, StrategyOutcome};
 use crate::PlanError;
 
 /// Default thinking style when the `PlanContext` carries no explicit style.
@@ -137,16 +138,22 @@ impl PlanStrategy for StyleStrategy {
 
     fn plan(
         &self,
-        input: PlanInput,
+        mut input: PlanInput,
         _arena: &mut Arena<LogicalOp>,
     ) -> Result<PlanInput, PlanError> {
-        // The style-conditioned reliability is the substrate output this strategy
-        // computes. It is NOT yet emitted as a KanbanMove — the planner cannot construct
-        // one until the D-MBX-A6 output overhaul; faking one here would be theatre (the
-        // exact dead-store the council flagged). So this slice computes the measurable
-        // honestly and leaves the plan untouched; the emit edge is the next, separate slice.
-        let _reliability =
-            Self::reliability_of(Self::resolve_style(&input.context), &input.context);
+        // Surface the style-conditioned reliability AND the lifecycle transition this
+        // planning-substrate strategy INTENDS — honestly, on the D-MBX-A6 carrier. This
+        // is NOT a commit and NOT a plan mutation: `input.plan` is left exactly as
+        // received, and the intended move is a *bootstrap intent* (owner 0, cycle 0,
+        // the zero-fallback ladder) that no one consumes to advance a live mailbox in
+        // this slice. It replaces the dead-store `let _reliability = …` the council
+        // flagged — the value now has an honest home instead of `_`.
+        let style = Self::resolve_style(&input.context);
+        let reliability = Self::reliability_of(style, &input.context);
+        input.outcome = Some(StrategyOutcome {
+            reliability,
+            intended_move: Some(Self::intended_move(style)),
+        });
         Ok(input)
     }
 }
@@ -176,6 +183,32 @@ impl StyleStrategy {
             }
         }
         tc.confidence.clamp(0.0, 1.0)
+    }
+
+    /// The lifecycle transition a style-substrate strategy INTENDS, as a **bootstrap
+    /// intent** (not an emission). StyleStrategy runs in the Planning column (the
+    /// spawn/default state, [`KanbanColumn::default`]); having selected the style and
+    /// measured its reliability, the honest intent is the forward Rubicon crossing
+    /// `Planning → CognitiveWork` (a legal edge:
+    /// `KanbanColumn::Planning.can_transition_to(CognitiveWork)`), carrying the −550 ms
+    /// Σ-commit anchor (matches `soa_view` `advance_phase`, contract).
+    ///
+    /// Honestly-fillable fields: `from`/`to`/`libet_offset_us` (structural constants of
+    /// the crossing) and `exec` (the backend `reliability_of` actually ran = the
+    /// interpreted `recipe_kernels` layer = [`ExecTarget::Elixir`], per this module's
+    /// doc header). Bootstrap-sentinel fields: `mailbox = 0` (write-on-behalf of the
+    /// documented bootstrap owner, NOT as ourselves — the live owner rebinds it) and
+    /// `witness_chain_position = 0` (no live `current_cycle` exists at plan time; 0 is
+    /// the zero-fallback pre-cycle stamp the owner overwrites on adoption).
+    fn intended_move(_style: ThinkingStyle) -> KanbanMove {
+        KanbanMove {
+            mailbox: 0,
+            from: KanbanColumn::Planning,
+            to: KanbanColumn::CognitiveWork,
+            witness_chain_position: 0,
+            libet_offset_us: -550_000,
+            exec: ExecTarget::Elixir,
+        }
     }
 }
 
@@ -286,10 +319,11 @@ mod tests {
     }
 
     #[test]
-    fn plan_is_pure_passthrough_until_emit_edge_lands() {
-        // Honest test: plan() computes reliability but does NOT yet mutate the plan
-        // (no KanbanMove emit until the D-MBX-A6 output overhaul). It must not error,
-        // and — explicitly — must leave the plan None as it received it (no theatre).
+    fn plan_surfaces_outcome_without_mutating_the_plan() {
+        // The plan itself stays a pure pass-through (no KanbanMove is *emitted*, no
+        // Rubicon advance) — but the reliability + intended move are now SURFACED on
+        // the D-MBX-A6 carrier instead of dead-stored (the `_reliability` the council
+        // flagged now has an honest home).
         let s = StyleStrategy;
         let mut arena = Arena::new();
         let out = s
@@ -298,9 +332,37 @@ mod tests {
                 &mut arena,
             )
             .expect("style strategy plan() must not error");
+        // Plan untouched (no mutation, no theatre).
         assert!(
             out.plan.is_none(),
-            "plan() is a pure pass-through this slice — it computes reliability, emits nothing yet"
+            "plan() must not mutate the plan this slice"
+        );
+        // Outcome surfaced honestly.
+        let o = out.outcome.expect("plan() must surface a StrategyOutcome");
+        assert!((0.0..=1.0).contains(&o.reliability), "reliability in [0,1]");
+        let mv = o
+            .intended_move
+            .expect("StyleStrategy intends a lifecycle move");
+        // Bootstrap intent — not a live mailbox advance.
+        assert_eq!(mv.mailbox, 0, "write-on-behalf of the bootstrap owner (0)");
+        assert_eq!(
+            mv.witness_chain_position, 0,
+            "no live cycle at plan time (zero-fallback)"
+        );
+        assert_eq!(mv.from, KanbanColumn::Planning);
+        assert_eq!(mv.to, KanbanColumn::CognitiveWork);
+        assert!(
+            mv.from.can_transition_to(mv.to),
+            "intended edge must be a legal Rubicon transition"
+        );
+        assert_eq!(
+            mv.libet_offset_us, -550_000,
+            "Σ-commit anchor on the crossing"
+        );
+        assert_eq!(
+            mv.exec,
+            ExecTarget::Elixir,
+            "the backend reliability_of ran"
         );
     }
 
@@ -308,6 +370,7 @@ mod tests {
         PlanInput {
             plan: None,
             context,
+            outcome: None,
         }
     }
 }

@@ -79,3 +79,6 @@
 3. **D-MBX-10** (version byte) — the foundation every cold/view consumer reads; pairs with OQ-11.5.
 4. Then A2→A3 (hot-path expressivity + witness arc), surfacing OQ-1/OQ-2/OQ-11.2 for ratification as reached.
 5. **D-MBX-9** stays BLOCKED on OQ-11.6 (surreal fork) — flag for user unblock; the `MailboxSoaView` borrow trait already lets it land with zero contract change once unblocked.
+
+## 2026-07-17 update — D-MBX-A6-P3b (output-overhaul carrier) SHIPPED
+- **D-MBX-A6-P3b** — `StrategyOutcome { reliability, intended_move: Option<KanbanMove> }` carrier landed on `PlanInput.outcome` (planner-internal, additive). `StyleStrategy` retires the dead-store `_reliability` and SURFACES reliability + a **bootstrap** intended move (`Planning→CognitiveWork`, owner 0 / cycle 0, warden-BOOTSTRAP-OK) — no mutation, no commit, no advance. 216 lib + 4 probe tests green. **UNBLOCKED** (no mint, not the OQ-11.7 cutover). Next nodes still open: thread the outcome OUT of `compose_and_execute` (`compose_and_collect()` sibling), promote `StrategyOutcome` to `contract::kanban` on first cross-bridge read, and the owner-consume/advance edge (OQ-11.7). See EPIPHANIES `E-STRATEGY-OUTCOME-CARRIER-1`.
