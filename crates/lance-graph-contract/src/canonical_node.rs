@@ -853,6 +853,28 @@ pub enum ValueTenant {
     /// Pins SoA↔kanban in the LE blob at value-slab `[112,120)` (subsumes the
     /// envelope-pointer G1: the node carries its own phase + cycle).
     Kanban = 9,
+    /// **Autopoiesis-triangle FROZEN lane** — 12 palette256 atoms (12 B, one per
+    /// [`StyleFamily`](crate::style_family::StyleFamily) ordinal 0..11, OR per
+    /// compiled-template step 0..11; one content-blind register, the reading is
+    /// ClassView-selected). The row's CHECKPOINT policy — the atom the
+    /// can't-stop-thinking dispatch runs off, no lookup beyond the row. **Atom 0
+    /// = null default** (zero-fallback: an un-populated lane reads all-null, never
+    /// a wrong policy — additive lane, reserve-don't-reclaim). Appended after
+    /// `Kanban` per the 2026-07-17 operator ruling ("triangle right after the
+    /// kanban board"); triangle plan `.claude/plans/triangle-tenants-gestalt-separation-v1.md` §1.
+    FrozenStyle = 10,
+    /// **Autopoiesis-triangle LEARNED lane** — same 12-slot palette256 shape; the
+    /// NARS-revision-updated policy the L4 learning seam writes (owner `&mut` on
+    /// the row's own lane, `l4_bridge` outcome-driven — resolves the W4b
+    /// ORPHAN-WRITE flag). `learned[f]` promotes to `frozen[f]` only after winning
+    /// the held-out arm (a kanbanstep-interior act, no events).
+    LearnedStyle = 11,
+    /// **Autopoiesis-triangle EXPLORE lane** — same 12-slot palette256 shape; the
+    /// exploration variant fed by the P64 perturbation ladder
+    /// (`StreamDto → PerturbationDto`). Deterministic address-derived jitter (the
+    /// D-QUANTGATE coprime walk — never RNG, replay holds), so a re-run yields the
+    /// identical explore atom for the same address.
+    ExploreStyle = 12,
 }
 
 impl ValueTenant {
@@ -938,11 +960,35 @@ pub const VALUE_TENANTS: &[ColumnDescriptor] = &[
     },
     ColumnDescriptor {
         // kanban×Rubicon cursor: 8 B contiguous at row_offset 144 (value-slab
-        // [112,120)); reserve-don't-reclaim, layout-preserving (Full ends 152 ≤ 480).
+        // [112,120)); reserve-don't-reclaim, layout-preserving (Kanban ends 152 ≤ 480).
         name_id: ValueTenant::Kanban as u16,
         kind: ColumnKind::U64,
         elems_per_row: 1,
         row_offset: 144,
+    },
+    // ── Autopoiesis triangle: three 12-byte palette256-atom lanes, appended after
+    //    Kanban per the operator ruling. 3 × 12 = 36 B contiguous [152,188)
+    //    (value-slab [120,156)); additive, reserve-don't-reclaim, layout-preserving
+    //    (Full now ends 188 ≤ 480, NODE_ROW_STRIDE unchanged → no
+    //    ENVELOPE_LAYOUT_VERSION bump). BoardAggregates (W2a) reserves row_offset
+    //    188 next in the same batched mint.
+    ColumnDescriptor {
+        name_id: ValueTenant::FrozenStyle as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 12,
+        row_offset: 152,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::LearnedStyle as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 12,
+        row_offset: 164,
+    },
+    ColumnDescriptor {
+        name_id: ValueTenant::ExploreStyle as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 12,
+        row_offset: 176,
     },
 ];
 
@@ -1033,6 +1079,15 @@ impl ValueSchema {
                 ValueTenant::Plasticity as u8,
                 ValueTenant::EntityType as u8,
                 ValueTenant::Kanban as u8,
+                // Autopoiesis triangle — Full is the densest node, so it carries
+                // every tenant (the `Full covers every tenant` compile assert). The
+                // thinking-row schema that materialises the triangle for hot
+                // dispatch is P4's (ancestry-pipeline) call; Cognitive is left
+                // unchanged so entity classes (OSINT/PROJECT/ERP …) do not inherit
+                // a style triangle they have no use for.
+                ValueTenant::FrozenStyle as u8,
+                ValueTenant::LearnedStyle as u8,
+                ValueTenant::ExploreStyle as u8,
             ]),
         }
     }
@@ -1589,6 +1644,70 @@ impl NodeRow {
         let gate = crate::mul::i4_eval::gate_decision_i4(&self.qualia(), mantissa);
         self.kanban().phase.advance_on_gate(&gate)
     }
+
+    /// Read a 12-byte thinking-style triangle lane — the raw palette256 atoms,
+    /// zero-copy decode. `tenant` MUST be one of [`ValueTenant::FrozenStyle`] /
+    /// [`LearnedStyle`](ValueTenant::LearnedStyle) /
+    /// [`ExploreStyle`](ValueTenant::ExploreStyle) (`byte_len() == 12`,
+    /// debug-asserted). Slot `f` is the [`StyleFamily`](crate::style_family::StyleFamily)
+    /// ordinal 0..11 (or the compiled-template step, ClassView-selected). Atom 0 =
+    /// null default, so an un-populated lane reads all-zero. **Pure read** (no
+    /// `&mut` during compute, per the borrow-strategy rule).
+    #[inline]
+    #[must_use]
+    pub fn style_lane(&self, tenant: ValueTenant) -> [u8; 12] {
+        // `tenant` MUST be a 12-byte triangle lane; any other tenant returns the
+        // null lane (a non-12-byte tenant would otherwise read past its lane into
+        // the next tenant's bytes — release-safe by construction, not a
+        // debug-only guard).
+        if tenant.byte_len() != 12 {
+            return [0u8; 12];
+        }
+        let o = tenant.value_offset();
+        let mut b = [0u8; 12];
+        b.copy_from_slice(&self.value[o..o + 12]);
+        b
+    }
+
+    /// Write a 12-byte thinking-style triangle lane. **Owner-only by convention**
+    /// (the `MailboxSoaOwner` learning/promotion path — the write lands on the
+    /// row's own lane, resolving the W4b orphan-write flag); reads stay zero-copy.
+    /// Bumps the per-tenant update counter (no-op unless `tenant-counters`).
+    #[inline]
+    pub fn set_style_lane(&mut self, tenant: ValueTenant, atoms: [u8; 12]) {
+        // `tenant` MUST be a 12-byte triangle lane; for any other tenant this is
+        // a no-op (stamping 12 bytes onto a shorter tenant would corrupt the
+        // adjacent tenants — release-safe by construction).
+        if tenant.byte_len() != 12 {
+            return;
+        }
+        let o = tenant.value_offset();
+        self.value[o..o + 12].copy_from_slice(&atoms);
+        crate::tenant_counter::tenant_update(tenant);
+    }
+
+    /// The autopoiesis triangle for one style family: `(frozen, learned, explore)`
+    /// palette256 atoms — three bytes, one glance, zero decode (triangle plan §1
+    /// per-family read). `family_ordinal` is the [`StyleFamily`](crate::style_family::StyleFamily)
+    /// ordinal 0..11 (values ≥ 12 read the reserved slots). This is the read the
+    /// dispatch/perturbation/learning ancestry pipeline resolves against.
+    #[inline]
+    #[must_use]
+    pub fn triangle_for(&self, family_ordinal: u8) -> (u8, u8, u8) {
+        // Out-of-range slots (≥ 12 — a malformed template step or a future
+        // StyleFamily ordinal) return the null triangle (atom 0 everywhere) —
+        // the zero-fallback "never a wrong policy" contract. Without this guard
+        // the debug_assert vanishes in release and the index runs past each
+        // 12-byte lane, aliasing the next tenant's bytes (Codex P2 on #717).
+        if family_ordinal >= 12 {
+            return (0, 0, 0);
+        }
+        let i = family_ordinal as usize;
+        let fo = ValueTenant::FrozenStyle.value_offset();
+        let lo = ValueTenant::LearnedStyle.value_offset();
+        let eo = ValueTenant::ExploreStyle.value_offset();
+        (self.value[fo + i], self.value[lo + i], self.value[eo + i])
+    }
 }
 
 #[cfg(test)]
@@ -2093,8 +2212,8 @@ mod tests {
         assert!(prev_end <= NODE_ROW_STRIDE);
         assert_eq!(
             prev_end - VALUE_SLAB_ROW_OFFSET,
-            120,
-            "current Full carve uses 120 of 480 B (helix 6 + kanban×Rubicon tenant 8)"
+            156,
+            "current Full carve uses 156 of 480 B (kanban×Rubicon 8 + autopoiesis triangle 3×12=36)"
         );
         assert!(prev_end - VALUE_SLAB_ROW_OFFSET <= VALUE_SLAB_LEN);
     }
@@ -2129,11 +2248,12 @@ mod tests {
     #[test]
     fn value_schema_byte_budgets_are_locked() {
         assert_eq!(ValueSchema::Bootstrap.tenant_bytes(), 0);
-        // Cognitive 58 + Kanban 8 = 66; Full 112 + Kanban 8 = 120 (kanban×Rubicon
-        // tenant added — reserve-don't-reclaim, still ≤ 480, stride unchanged).
+        // Cognitive 58 + Kanban 8 = 66 (triangle NOT in Cognitive — entity classes
+        // keep their carve); Full 120 + 3×12 triangle = 156 (autopoiesis triangle
+        // added — reserve-don't-reclaim, still ≤ 480, stride unchanged).
         assert_eq!(ValueSchema::Cognitive.tenant_bytes(), 66);
         assert_eq!(ValueSchema::Compressed.tenant_bytes(), 56);
-        assert_eq!(ValueSchema::Full.tenant_bytes(), 120);
+        assert_eq!(ValueSchema::Full.tenant_bytes(), 156);
         for s in [
             ValueSchema::Bootstrap,
             ValueSchema::Cognitive,
@@ -2241,7 +2361,7 @@ mod tests {
     #[test]
     fn default_class_node_materialises_full_slab() {
         // End-to-end connect: a bootstrap NodeRow → its classid resolves to Full →
-        // the Full preset covers every tenant and uses the locked 120-byte carve.
+        // the Full preset covers every tenant and uses the locked 156-byte carve.
         let row = sample_row(NodeGuid::CLASSID_DEFAULT, 0x00_00CD);
         let rm = row.key.read_mode();
         assert_eq!(rm.value_schema, ValueSchema::Full);
@@ -2250,10 +2370,123 @@ mod tests {
             VALUE_TENANTS.len(),
             "Full read-mode materialises every value tenant"
         );
-        assert_eq!(rm.value_schema.tenant_bytes(), 120);
-        // The slab has room (120 ≤ 480) and the choice never grows the stride.
+        assert_eq!(rm.value_schema.tenant_bytes(), 156);
+        // The slab has room (156 ≤ 480) and the choice never grows the stride.
         assert!(rm.value_schema.tenant_bytes() <= VALUE_SLAB_LEN);
         assert!(rm.is_layout_preserving());
+    }
+
+    #[test]
+    fn thinking_style_triangle_tenant_carve_field_isolation_matrix() {
+        // The autopoiesis triangle — three 12-byte palette256 lanes appended after
+        // Kanban per the 2026-07-17 operator ruling (plan §1). Certifies: (1) the
+        // contiguous carve [152,188); (2) Full carries it, entity carves do NOT;
+        // (3) the I-LEGACY field-isolation matrix; (4) typed-accessor round-trip +
+        // atom-0 zero-fallback; (5) key/edges/other-tenant isolation.
+        use ValueTenant::{ExploreStyle, FrozenStyle, LearnedStyle};
+
+        // (1) Contiguous, 12 B each, right after Kanban (ends 152); triangle ends
+        //     188 ≤ 480, so BoardAggregates (W2a) reserves row_offset 188 next.
+        assert_eq!(FrozenStyle.value_offset(), 152 - VALUE_SLAB_ROW_OFFSET);
+        assert_eq!(LearnedStyle.value_offset(), 164 - VALUE_SLAB_ROW_OFFSET);
+        assert_eq!(ExploreStyle.value_offset(), 176 - VALUE_SLAB_ROW_OFFSET);
+        for t in [FrozenStyle, LearnedStyle, ExploreStyle] {
+            assert_eq!(t.byte_len(), 12, "{t:?} lane is 12 palette256 atoms");
+        }
+        assert_eq!(
+            ExploreStyle.value_offset() + 12,
+            188 - VALUE_SLAB_ROW_OFFSET
+        );
+
+        // (2) Full carries the triangle (densest node); Cognitive/Compressed do
+        //     NOT — entity classes (OSINT/PROJECT/ERP …) keep their carve.
+        for t in [FrozenStyle, LearnedStyle, ExploreStyle] {
+            assert!(ValueSchema::Full.has(t), "Full materialises {t:?}");
+            assert!(
+                !ValueSchema::Cognitive.has(t),
+                "Cognitive must NOT carry {t:?}"
+            );
+            assert!(
+                !ValueSchema::Compressed.has(t),
+                "Compressed must NOT carry {t:?}"
+            );
+        }
+
+        // (3) THE MATRIX: flip each lane; assert only its 12 bytes changed. Uses
+        //     the shared carve-order snapshot logic (no restore between lanes —
+        //     each lane checks against its own pre-flip snapshot).
+        let mut row = sample_row(NodeGuid::CLASSID_DEFAULT, 0x00_00CD);
+        let key_before = row.key;
+        let edges_before = row.edges;
+        for t in [FrozenStyle, LearnedStyle, ExploreStyle] {
+            let before = row.value;
+            let (o, n) = (t.value_offset(), t.byte_len());
+            for b in &mut row.value[o..o + n] {
+                *b ^= 0xFF;
+            }
+            for (i, (&now, &was)) in row.value.iter().zip(before.iter()).enumerate() {
+                if (o..o + n).contains(&i) {
+                    assert_ne!(now, was, "{t:?} lane byte {i} must have flipped");
+                } else {
+                    assert_eq!(now, was, "byte {i} outside {t:?} lane must not change");
+                }
+            }
+        }
+        assert_eq!(row.key, key_before, "key untouched by triangle writes");
+        assert_eq!(
+            row.edges, edges_before,
+            "edges untouched by triangle writes"
+        );
+
+        // (4) Typed accessors round-trip; atom 0 = null default (zero-fallback).
+        let mut row = sample_row(NodeGuid::CLASSID_DEFAULT, 0x00_00CD);
+        assert_eq!(
+            row.style_lane(FrozenStyle),
+            [0u8; 12],
+            "un-populated lane reads all-null"
+        );
+        assert_eq!(
+            row.triangle_for(3),
+            (0, 0, 0),
+            "family-3 triangle null by default"
+        );
+        let frozen: [u8; 12] = core::array::from_fn(|i| (i as u8) + 1);
+        let learned: [u8; 12] = core::array::from_fn(|i| (i as u8) + 20);
+        let explore: [u8; 12] = core::array::from_fn(|i| (i as u8) + 40);
+        row.set_style_lane(FrozenStyle, frozen);
+        row.set_style_lane(LearnedStyle, learned);
+        row.set_style_lane(ExploreStyle, explore);
+        assert_eq!(row.style_lane(FrozenStyle), frozen);
+        assert_eq!(row.style_lane(LearnedStyle), learned);
+        assert_eq!(row.style_lane(ExploreStyle), explore);
+        // Per-family read: (frozen[f], learned[f], explore[f]) — one glance.
+        assert_eq!(row.triangle_for(0), (1, 20, 40));
+        assert_eq!(row.triangle_for(11), (12, 31, 51));
+        // Out-of-range ordinal returns the null triangle — never a wrong-lane
+        // atom, even with the lanes populated (Codex P2 regression: slot 12
+        // would otherwise alias LearnedStyle[0]/ExploreStyle[0]/reserved).
+        assert_eq!(row.triangle_for(12), (0, 0, 0));
+        assert_eq!(row.triangle_for(255), (0, 0, 0));
+        // A non-triangle tenant is release-safe: null read, no-op write.
+        assert_eq!(row.style_lane(ValueTenant::EntityType), [0u8; 12]);
+        let snapshot = row.value;
+        row.set_style_lane(ValueTenant::EntityType, [9u8; 12]);
+        assert_eq!(
+            row.value, snapshot,
+            "set_style_lane on a non-triangle tenant is a no-op"
+        );
+
+        // (5) Writing the triangle never disturbs an adjacent tenant (Kanban) or
+        //     the key/edges.
+        assert_eq!(
+            row.kanban(),
+            KanbanTenant::default(),
+            "kanban lane untouched"
+        );
+        assert_eq!(
+            row.key, key_before,
+            "key untouched by triangle accessor writes"
+        );
     }
 
     #[test]

@@ -19,7 +19,7 @@ Plan: `.claude/plans/triangle-tenants-gestalt-separation-v1.md`. Design shipped;
 
 | D-id | Title | Repo | Status | Evidence |
 |---|---|---|---|---|
-| D-TRI-1 | Triangle tenant spec (Frozen/Learned/Explore, 12 slots x palette256) through envelope-auditor T1-T6, behind the batched mint | lance-graph | Queued (LAYOUT-GATED) | plan §1, §6 |
+| D-TRI-1 | Triangle tenant spec (Frozen/Learned/Explore, 12 slots x palette256) through envelope-auditor T1-T6, behind the batched mint | lance-graph | **VALUE-TENANT HALF IN PR** — 3 lanes `ValueTenant::{FrozenStyle=10,LearnedStyle=11,ExploreStyle=12}` U8×12 at row_offset 152/164/176 (value-slab [120,156)), additive after Kanban per operator ruling; in `Full` only (NOT Cognitive — entity classes keep their carve), zero ENVELOPE_LAYOUT_VERSION bump; `NodeRow::{style_lane,set_style_lane,triangle_for}` + field-isolation matrix test; v3-envelope-auditor gated. **classid half (chess 0x06 + Tasks-SoA + BoardAggregates @188) still queued — the cross-repo OGAR mint.** | plan §1, §6 |
 | D-TRI-2 | 12-family vs 12-step reading agreement: jc battery (ICC, Pearson/Spearman, Cronbach alpha) over real shader cycles; collapse only on measured identity | lance-graph | Queued | plan §4, §6 |
 | D-TRI-3 | Nail->hammer dispatch probe: object resonance -> atom retrieval vs inverted baseline; no inverted read path exists structurally | lance-graph | Queued | plan §3, §6 |
 | D-TRI-4 | Chess<->thinking transfer measurement (validity + reliability) — the quarantine-lift gate | lance-graph + stockfish-rs | Queued | plan §5, §6 |
