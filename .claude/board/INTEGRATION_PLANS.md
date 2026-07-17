@@ -1,3 +1,20 @@
+## 2026-07-17 — triangle-tenants-gestalt-separation v1 — DESIGN (mint-gated)
+
+**Plan:** `.claude/plans/triangle-tenants-gestalt-separation-v1.md`
+**Scope (operator-directed):** the autopoiesis triangle as THREE value
+tenants (Frozen/Learned/Explore Style — 12 slots x palette256 atom each,
+slot = StyleFamily ordinal OR template step, ClassView-selected: one
+register, two readings); four awareness surfaces kept apart (triangle =
+policy; episodic witness + basins = memory; gestalt awareness =
+ResonanceDto/palette resonance incl. the opponent mirror-SoA meta; chess
+tenants = quarantined domain corpus); the nail->hammer dispatch
+direction (object resonance fetches the tool, never the inverse); the
+12-slot redundancy landed old+new and MEASURED with the jc battery
+before any collapse. Probes D-TRI-1..4. NO bytes land — everything
+rides the next batched mint + envelope-auditor gate (with W2a
+BoardAggregates, the Tasks-SoA task classid, and the chess classids as
+ONE batch).
+
 ## 2026-07-16 — h268-probe-wave v1 — ACTIVE
 
 **Plan:** `.claude/plans/h268-probe-wave-v1.md`

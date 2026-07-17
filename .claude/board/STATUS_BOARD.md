@@ -1,3 +1,14 @@
+## triangle-tenants-gestalt-separation-v1 — triangle tenants, surface separation, chess quarantine
+
+Plan: `.claude/plans/triangle-tenants-gestalt-separation-v1.md`. Design shipped; ALL layout work mint-gated (rides the same batched mint as W2a BoardAggregates + Tasks-SoA task classid + chess classids).
+
+| D-id | Title | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-TRI-1 | Triangle tenant spec (Frozen/Learned/Explore, 12 slots x palette256) through envelope-auditor T1-T6, behind the batched mint | lance-graph | Queued (LAYOUT-GATED) | plan §1, §6 |
+| D-TRI-2 | 12-family vs 12-step reading agreement: jc battery (ICC, Pearson/Spearman, Cronbach alpha) over real shader cycles; collapse only on measured identity | lance-graph | Queued | plan §4, §6 |
+| D-TRI-3 | Nail->hammer dispatch probe: object resonance -> atom retrieval vs inverted baseline; no inverted read path exists structurally | lance-graph | Queued | plan §3, §6 |
+| D-TRI-4 | Chess<->thinking transfer measurement (validity + reliability) — the quarantine-lift gate | lance-graph + stockfish-rs | Queued | plan §5, §6 |
+
 ## epiphany-integration-2026-07-04-v3 — membranes, parity, unified ruff phases
 
 Plan: `.claude/plans/epiphany-integration-2026-07-04-v3.md`. Full 13-agent review pipeline complete; execution queued behind D1→A1. Cross-repo (ruff/OGAR/lance-graph); consumer-side baton homes per BH-1/2/6.
