@@ -1,3 +1,12 @@
+## 2026-07-17 — D-MBX-A6-P3b output-overhaul carrier (StrategyOutcome on PlanInput) — planner-internal, shipped
+
+- **Task:** retire the `StyleStrategy::plan()` dead-store `_reliability` onto an honest carrier (the D-MBX-A6 output overhaul), the next unblocked plateau after P5a (jc battery, #709/#710).
+- **Design:** one background Opus design agent produced the apply-ready spec (carrier type + exact 6-site edit list + backward-compat proof for the other ~15 `plan()` impls + gating verdict UNBLOCKED). Implemented on the main thread.
+- **Deliverable:** `StrategyOutcome{reliability: f32, intended_move: Option<KanbanMove>}` in `planner::traits`; additive `PlanInput.outcome: Option<…>` (default None); `StyleStrategy::plan()` surfaces reliability + a bootstrap intended move (`Planning→CognitiveWork`, mailbox 0 / cycle 0, `libet -550_000`, `exec Elixir`) without mutating the plan. 6 in-crate `PlanInput{}` literals updated; all other strategies pass-through untouched.
+- **Tests:** `plan_is_pure_passthrough…` rewritten → `plan_surfaces_outcome_without_mutating_the_plan` (plan still None; outcome shape + legal-edge asserted). `cargo test -p lance-graph-planner` 216 lib + 4 probes green; `cargo clippy -p lance-graph-planner -- -D warnings` exit 0; fmt clean.
+- **Gating:** UNBLOCKED (no classid mint; not the OQ-11.7 five-phase cutover). Deferred: compose thread-out, contract-promote of `StrategyOutcome`, owner-consume/advance.
+- **Board:** EPIPHANIES `E-STRATEGY-OUTCOME-CARRIER-1` prepended; STATUS_BOARD `D-MBX-A6-P3b` row; D-MBX-COMPLETION-MAP tee-append. Branch `claude/review-claude-board-files-nhqgx1`; PR pending.
+
 ## 2026-07-15 — cross-repo forensic audit (q2 session) — rung-2 two-144s split + third 0–9 ladder filed as deltas onto E-RUNG-CONTENT-LADDER-1
 
 - **Fleet:** 5-agent read-only evidence sweep (before/after `1a11038` API shape, contract StyleFamily design, D-TSC-1 spec/governance coverage, five-tables divergence reconstruction, cross-repo consumer+CI survey) + main-thread verification greps. A second 4-agent sweep (per-hunk claim audit) was lost to a token wall — its two open checks (FieldModulation→plan-shape functional trace; full 38-file claim audit) remain UNRUN, not asserted.

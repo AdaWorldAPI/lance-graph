@@ -14,6 +14,7 @@ pub fn compose_and_execute(
     let mut current = PlanInput {
         plan: None,
         context,
+        outcome: None,
     };
 
     tracing::info!(

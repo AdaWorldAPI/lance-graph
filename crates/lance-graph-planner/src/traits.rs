@@ -3,6 +3,7 @@
 #[allow(unused_imports)] // Node intended for strategy result wiring
 use crate::ir::{Arena, LogicalOp, LogicalPlan, Node};
 use crate::PlanError;
+use lance_graph_contract::kanban::KanbanMove;
 
 /// What kind of planning problem a strategy solves.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -96,6 +97,27 @@ pub struct QueryFeatures {
     pub estimated_complexity: f64,
 }
 
+/// The honest cognitive outcome a strategy SURFACES alongside the plan — the
+/// D-MBX-A6 carrier. Additive: rides [`PlanInput`] (default `None`). A strategy
+/// that computes a cognitive measurable writes it here instead of dead-storing it
+/// (the `let _reliability = …` the council flagged, `style_strategy.rs`).
+///
+/// This is a SURFACE, never a commit: `intended_move` is an *intent*, not an
+/// advance of a live mailbox — the mailbox lifecycle is mutated only by the
+/// owner's [`try_advance_phase`](lance_graph_contract::soa_view::MailboxSoaOwner::try_advance_phase),
+/// a separate cognitive-shader-driver slice. Reliability is settledness
+/// (NARS confidence family), NOT validity — see `E-RELIABILITY-NOT-VALIDITY`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StrategyOutcome {
+    /// Style-conditioned RELIABILITY of crystallising at this context, in `[0,1]`.
+    pub reliability: f32,
+    /// The lifecycle transition this strategy INTENDS (never emits). `None` when the
+    /// strategy has no lifecycle intent. A **bootstrap intent** (`mailbox 0`,
+    /// `cycle 0` — the zero-fallback ladder) is rebound to a live mailbox by the
+    /// D-MBX-A6 owner adapter; nothing consumes it to mutate a mailbox in this slice.
+    pub intended_move: Option<KanbanMove>,
+}
+
 /// Input/output for a strategy in the pipeline.
 #[derive(Debug)]
 pub struct PlanInput {
@@ -103,6 +125,10 @@ pub struct PlanInput {
     pub plan: Option<LogicalPlan>,
     /// Context (accumulated through pipeline).
     pub context: PlanContext,
+    /// Cognitive outcome accumulated through the pipeline (D-MBX-A6 carrier).
+    /// `None` until a strategy surfaces one; threaded unchanged by pass-through
+    /// strategies. Writing this NEVER mutates `plan`.
+    pub outcome: Option<StrategyOutcome>,
 }
 
 /// A composable planning strategy.

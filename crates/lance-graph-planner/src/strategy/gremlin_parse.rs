@@ -831,6 +831,7 @@ mod tests {
                 thinking_style: None,
                 nars_hint: None,
             },
+            outcome: None,
         };
 
         let result = gremlin.plan(input, &mut arena).unwrap();
