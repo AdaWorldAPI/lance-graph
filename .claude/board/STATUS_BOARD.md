@@ -4,14 +4,15 @@ Plan: `.claude/plans/graphrag-doc-retrieval-soa-integration-v1.md` (v1.2). Pure/
 
 | D-id | Title | Repo | Status | Evidence |
 |---|---|---|---|---|
-| D-GR-1 | `DocGraphQuery` zero-dep contract trait + `ScoredId` (rung→walk dispatch) + D-GR-2 design | lance-graph | Shipped (this PR) — `doc_graph.rs`, 9 tests | plan §5 |
+| D-GR-1 | `DocGraphQuery` zero-dep contract trait + `ScoredId` (rung→walk dispatch) + D-GR-2 design | lance-graph | Shipped (#716) — `doc_graph.rs`, 9 tests | plan §5 |
 | D-GR-3a | `TripletGraph::communities()` multi-level Louvain, deterministic | lance-graph | Shipped (#714) | plan §3b |
-| D-GR-3b | PPR (`personalized_pagerank`) + Leiden `refine_connected` + BM25 (`Bm25Index`) — pure capabilities | lance-graph | Shipped (this PR) — 13 tests | plan §3b, §5 |
-| G0 | P-GRAPH-LOADBEARING harness (vector-only vs vector+PPR+community) | lance-graph | Harness shipped (this PR); real-corpus verdict OPEN | plan §5, §6 |
+| D-GR-3b | PPR (`personalized_pagerank`) + Leiden `refine_connected` + BM25 (`Bm25Index`) — pure capabilities | lance-graph | Shipped (#716) — 13 tests | plan §3b, §5 |
+| G0 | P-GRAPH-LOADBEARING harness (vector-only vs vector+PPR+community) | lance-graph | Harness shipped (#716); real-corpus verdict OPEN | plan §5, §6 |
 | D-GR-2 | Fuse CAM-PQ+SPO-G+PPR+community into `retrieval.rs` under the #708 RungElevator | lance-graph | Design done (in `doc_graph.rs` module-doc); impl GATED on G0 | plan §5 |
 | D-GR-4 | Community summaries (no-LLM DeepNSM; Rig-oracle tail) | lance-graph | Deferred (W3-coupled) | plan §5 |
 | D-GR-5 | `ogar-doc` reconstruct/related-docs → `DocGraphQuery` seam | lance-graph + OGAR | Deferred (mint-gated, doc-W4 council) | plan §5 |
 | D-GR-6 | Witness-KV separation (DocumentID handle → consumer KV) | lance-graph | Deferred (doc-W4 council) | plan §4a, §5 |
+| P-COMMUNITY-BASIN-AGREE (S1) | Empirical probe: Leiden community vs `is_a`-basin agreement, φ via `jc::pearson` (consumes jc science, doesn't extend it) | lance-graph | Harness SHIPPED — φ=1.0 aligned / 0.55 bridged (`robot` = the bridge); real-corpus verdict OPEN, **gates the D-TRI-1 community-id mint** | plan §6, #719 |
 
 ## triangle-tenants-gestalt-separation-v1 — triangle tenants, surface separation, chess quarantine
 
