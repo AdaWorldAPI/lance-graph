@@ -4,16 +4,21 @@
 **Scope (operator-directed):** the autopoiesis triangle as THREE value
 tenants (Frozen/Learned/Explore Style — 12 slots x palette256 atom each,
 slot = StyleFamily ordinal OR template step, ClassView-selected: one
-register, two readings); four awareness surfaces kept apart (triangle =
+register, two readings); awareness surfaces kept apart (triangle =
 policy; episodic witness + basins = memory; gestalt awareness =
-ResonanceDto/palette resonance incl. the opponent mirror-SoA meta; chess
-tenants = quarantined domain corpus); the nail->hammer dispatch
-direction (object resonance fetches the tool, never the inverse); the
-12-slot redundancy landed old+new and MEASURED with the jc battery
-before any collapse. Probes D-TRI-1..4. NO bytes land — everything
-rides the next batched mint + envelope-auditor gate (with W2a
-BoardAggregates, the Tasks-SoA task classid, and the chess classids as
-ONE batch).
+ResonanceDto/palette resonance; opponent mirror-SoA = counterfactual-
+goalstate EMULATION, a sibling compartment at the pyramid apex — NOT a
+gestalt read, operator correction §2a; chess tenants = quarantined
+domain corpus); the nail->hammer dispatch direction (object resonance
+fetches the tool, never the inverse); the §3a Maslow pyramid of
+cognition (observation/gestalt first -> SPO 2^3 -> CausalEdge64 NARS
+candidates -> NARS candidate DESIGN/revision -> counterfactual apex;
+RungElevator wiring design, audit receipts — the ladder is shipped, the
+stateful ascent loop is the missing wiring); the 12-slot
+redundancy landed old+new and MEASURED with the jc battery before any
+collapse. Probes D-TRI-1..6. NO bytes land — everything rides the next
+batched mint + envelope-auditor gate (with W2a BoardAggregates, the
+Tasks-SoA task classid, and the chess classids as ONE batch).
 
 ## 2026-07-16 — h268-probe-wave v1 — ACTIVE
 

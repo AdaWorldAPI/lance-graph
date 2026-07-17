@@ -8,6 +8,8 @@ Plan: `.claude/plans/triangle-tenants-gestalt-separation-v1.md`. Design shipped;
 | D-TRI-2 | 12-family vs 12-step reading agreement: jc battery (ICC, Pearson/Spearman, Cronbach alpha) over real shader cycles; collapse only on measured identity | lance-graph | Queued | plan §4, §6 |
 | D-TRI-3 | Nail->hammer dispatch probe: object resonance -> atom retrieval vs inverted baseline; no inverted read path exists structurally | lance-graph | Queued | plan §3, §6 |
 | D-TRI-4 | Chess<->thinking transfer measurement (validity + reliability) — the quarantine-lift gate | lance-graph + stockfish-rs | Queued | plan §5, §6 |
+| D-TRI-5 | Emulation != resonance: counterfactual-goalstate emulation vs resonance-only baseline on opponent move prediction (operator correction §2a; builds on D-SF-OPPONENT-1/3) | lance-graph + stockfish-rs | Queued | plan §2a, §6 |
+| D-TRI-6 | Pyramid settlement: settle-rung distribution over real shader cycles (base-heavy expected); homeostatic descent verified; elevator threshold jc-calibrated | lance-graph | Queued | plan §3a, §6 |
 
 ## epiphany-integration-2026-07-04-v3 — membranes, parity, unified ruff phases
 
