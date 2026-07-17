@@ -78,7 +78,7 @@ operator confirm of the byte**).
 
 | concept | id | verb |
 |---|---|---|
-| `cognitive_task` | `0x0300` | domain-root: the Tasks-SoA task row itself |
+| _(reserved)_ | `0x0300` | **Cognition domain root — `CC==0x00`, NOT a CODEBOOK entry** (`ogar_codebook.rs:4-6` convention: `CC==0x00` is the domain root; `canonical_concept_domain` returns the tag). Every promoted concept starts at `0x??01`. |
 | `cognitive_fanout` | `0x0301` | fan-out |
 | `cognitive_counterfactual` | `0x0302` | counterfactual |
 | `cognitive_synthesis` | `0x0303` | synthesis |
@@ -86,6 +86,13 @@ operator confirm of the byte**).
 | `cognitive_deduction` | `0x0305` | deduction |
 | `cognitive_extrapolation` | `0x0306` | extrapolation |
 | `cognitive_syllogism` | `0x0307` | syllogism |
+| `cognitive_task` | `0x0308` | the generic Tasks-SoA task-row concept (an explicit slot, never the reserved root) |
+
+**Codebook-root convention (Codex P2 on #719, applied):** slot `CC==0x00`
+is the reserved domain root in every `0xDDCC` block — never a concept. The
+chess block (§1) already starts at `0x0601`; this Cognition block now does
+too (`0x0301`), with the generic task-row concept at `0x0308`. The council
+must NOT emit a `0x??00` CODEBOOK row for any domain.
 
 **Note on the noun/verb axis:** these are verb-shaped, but they enter the
 codebook as concept **nouns** (`cognitive_<verb>`) — the OGAR codebook is
