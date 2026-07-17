@@ -11,6 +11,12 @@
 
 ---
 
+## 2026-07-17 (fifth wave) — ack-violation regrade + the stream tier's economics named
+
+| Ruling | One line | Wiring queue |
+|---|---|---|
+| E-ACK-VIOLATION-REGRADE-1 | the ack-gated advance regraded from "correct code, wrong tier" to a hard architecture violation (duplicate of batch-writer→kanbanstep, operator hard-break + internal reversal); quantified: 40 ns-class stream ops vs 10–400 µs acks (250×–10,000× stall), ractor messaging = Tokio = 10⁴–10⁷× — ractor stays compile-time-ownership-only; NEW mechanism banked: SPO 2³ rung ladder = one SPO cache load + ≤8 L1-resident cycles → CE64 NARS candidates; kanbanstep = auto-progression on the Rubicon aktionale phase (550→200 ms window); the ONLY ack home = the external ontology membrane (callcenter Supabase-realtime tickets/SLA + OGAR actionhandler queues) | doc-only here; chess/expert-iteration Phase-1 wording corrected before start (episode casts fire-and-forget at the storage boundary; teacher/NARS loop paces on nothing); drift signal unchanged |
+
 ## 2026-07-10 (fourth wave) — the chess arc: E-CHESS gets its measured instantiation (sibling repo)
 
 | Seed | One line | Wiring queue |
