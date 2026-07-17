@@ -500,6 +500,15 @@ impl NarsEngine {
     }
 
     /// Hot path: CausalEdge64 → SpoHead for local processing.
+    // v1-API SpoHead round-trip (I-LEGACY-API-FEATURE-GATED): under the
+    // planner's default `causal-edge-v2-layout`, `inference_type()` already
+    // routes through the canonical `InferenceType::from_mantissa(...)` mapping
+    // (correct value, not the aliased 3-bit read), and `temporal()` is
+    // structural under v2 — its value is inert here because `to_causal_edge`
+    // packs it through the v2 no-op write-back. No non-deprecated public
+    // accessor exists for either field, so the deprecation is silenced at this
+    // single round-trip site.
+    #[allow(deprecated)]
     pub fn from_causal_edge(&self, edge: CausalEdge64) -> SpoHead {
         SpoHead {
             s_idx: edge.s_idx(),
@@ -976,6 +985,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_to_causal_edge_maps_intervention_and_counterfactual() {
         let dist = SpoDistances::new_zero();
         let engine = NarsEngine::new(dist);

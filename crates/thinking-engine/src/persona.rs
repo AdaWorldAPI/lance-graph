@@ -205,7 +205,6 @@ pub struct Agent {
     pub ghosts: GhostField,
     pub council: CouncilWeights,
     pub current_style: StyleFamily,
-    pub current_rung: RungLevel,
     pub thought_count: u64,
 }
 
@@ -226,7 +225,6 @@ impl Agent {
             ghosts,
             council,
             current_style: style,
-            current_rung: RungLevel::Surface,
             thought_count: 0,
         }
     }
@@ -237,7 +235,7 @@ impl Agent {
             id: self.id.clone(),
             mode: self.persona.mode,
             style: self.current_style,
-            rung: self.current_rung.as_u8(),
+            rung: RungLevel::Surface.as_u8(),
             warmth: self.persona.priors.warmth,
             depth: self.persona.priors.depth,
             presence: self.persona.priors.presence,
@@ -455,7 +453,7 @@ impl Agent {
             agent_id: self.id.clone(),
             mode: self.persona.mode,
             style: self.current_style,
-            rung: self.current_rung,
+            rung: RungLevel::Surface,
             gate,
             calibration_error,
             should_admit_ignorance: calibration_error > 0.2 && dissonance > 0.3,

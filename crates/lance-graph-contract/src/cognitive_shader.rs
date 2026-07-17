@@ -189,6 +189,14 @@ impl RungLevel {
         }
     }
 
+    /// The wire ordinal for this rung (`0..=9`) — the inverse of [`from_u8`].
+    /// The (now-deduped) thinking-engine call sites read a rung as `u8` for DTO
+    /// fields and damping factors through this.
+    #[inline]
+    pub const fn as_u8(self) -> u8 {
+        self as u8
+    }
+
     /// One rung up, saturating at [`Transcendent`](RungLevel::Transcendent).
     #[inline]
     pub const fn elevate(self) -> Self {
@@ -772,6 +780,32 @@ mod tests {
             let planes = RungLevel::from_u8(v).causal_mask_bits().count_ones();
             assert!(planes >= prev, "plane count must not shrink as rung rises");
             prev = planes;
+        }
+    }
+
+    #[test]
+    fn rung_discriminant_parity_with_deduped_thinking_engine_enum() {
+        // D-TRI-6 dedup guard: thinking-engine's RungLevel (deleted; now a
+        // re-export of THIS type) carried the identical #[repr(u8)] discriminants
+        // Surface=0 … Transcendent=9. A repr(u8) variant-identical enum is
+        // provably substitutable by a discriminant equality assertion — this IS
+        // the "measure" step (there is no jc metric API).
+        let expected = [
+            (RungLevel::Surface, 0u8),
+            (RungLevel::Shallow, 1),
+            (RungLevel::Contextual, 2),
+            (RungLevel::Analogical, 3),
+            (RungLevel::Abstract, 4),
+            (RungLevel::Structural, 5),
+            (RungLevel::Counterfactual, 6),
+            (RungLevel::Meta, 7),
+            (RungLevel::Recursive, 8),
+            (RungLevel::Transcendent, 9),
+        ];
+        for (rung, ord) in expected {
+            assert_eq!(rung as u8, ord, "variant discriminant drift");
+            assert_eq!(rung.as_u8(), ord, "as_u8 must equal the discriminant");
+            assert_eq!(RungLevel::from_u8(ord), rung, "from_u8 roundtrip");
         }
     }
 

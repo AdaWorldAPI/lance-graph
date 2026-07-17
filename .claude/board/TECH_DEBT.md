@@ -1,5 +1,13 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-THINKING-ENGINE-EXCLUDED-DEBT-1 — thinking-engine (excluded, off-CI) carries ~40 pre-existing clippy lints + test-compile failures (2026-07-17)
+
+**Surfaced during P3** (rung dedup). thinking-engine is a workspace-EXCLUDED crate (root Cargo.toml `exclude`), so no CI/clippy gate runs on it — it has accumulated ~40 `clippy -D warnings` lints (loop-index, `map_or` simplify, too-many-args, missing-Default; all in modules P3 never touched — e.g. `cognitive_stack.rs:242` MetaCognition::new, `world_model.rs:154` from_engine_state) and at least one test-compile break (`DualResult` missing `convergence_signed`/`convergence_unsigned` fields, a stale test). The **lib builds clean**; only `--tests` and `clippy -D warnings` fail. Correlates with E-RUNG-ASCENT-WIRED-1's finding that the whole crate is orphaned from the production spine (only bridge_gate→callcenter + dto→driver[feature] are external wires). PAYOFF: gated on the P4 ancestry-consolidation decision (wire the gems into the spine → then it earns a CI slot and the debt gets paid; or retire the orphaned cluster). Not paid in P3 (out of scope; excluded crate).
+
+## TD-ONTOLOGY-CLIPPY-DEBT-1 — lance-graph-ontology (member) has pre-existing clippy -D warnings errors that block dependent `-p` clippy (2026-07-17)
+
+**Surfaced during P3.** `cargo clippy -p cognitive-shader-driver -- -D warnings` fails (exit 101) entirely inside `lance-graph-ontology` (a transitive dep): `doc-lazy-continuation` ×N, `iter-cloned-collect` (`.iter().copied().collect()` → `to_vec()`), and deprecated `oxrdf::Subject` type-alias uses (ttl_parse.rs, owl.rs, op_emitter.rs, lib.rs). P3 touches none of ontology; the driver's OWN code is clippy-clean (0 findings in driver.rs). Pre-existing by construction (not in P3's diff). PAYOFF: mechanical (doc reflow + `to_vec()` + `NamedOrBlankNode` migration), its own small PR — not P3 scope. Flags that repo CI likely does not run full-workspace `clippy -D warnings`, or main is already red there.
+
 ## TD-BGZ-TENSOR-PRE-LANE-REVIEW — bgz-tensor's adaptive codec predates turbovec/PolarQuant/helix; engineering follow-up review queued (2026-07-16)
 
 **Open.** Operator nudge: `bgz-tensor` (incl. `adaptive_codec.rs`'s

@@ -9,7 +9,7 @@ Plan: `.claude/plans/triangle-tenants-gestalt-separation-v1.md`. Design shipped;
 | D-TRI-3 | Nail->hammer dispatch probe: object resonance -> atom retrieval vs inverted baseline; no inverted read path exists structurally | lance-graph | Queued | plan §3, §6 |
 | D-TRI-4 | Chess<->thinking transfer measurement (validity + reliability) — the quarantine-lift gate | lance-graph + stockfish-rs | Queued | plan §5, §6 |
 | D-TRI-5 | Emulation != resonance: counterfactual-goalstate emulation vs resonance-only baseline on opponent move prediction (operator correction §2a; builds on D-SF-OPPONENT-1/3) | lance-graph + stockfish-rs | Queued | plan §2a, §6 |
-| D-TRI-6 | Pyramid settlement: settle-rung distribution over real shader cycles (base-heavy expected); homeostatic descent verified; elevator threshold jc-calibrated | lance-graph | Queued | plan §3a, §6 |
+| D-TRI-6 | Pyramid settlement: settle-rung distribution over real shader cycles (base-heavy expected); homeostatic descent verified; elevator threshold jc-calibrated | lance-graph | In PR (P3) — ascent loop WIRED (driver rung→predicate-plane widen; identity-at-base, superset-monotone); settlement probe green; real-cycle distribution + jc threshold calibration still open | plan §3a, §6 |
 
 ## epiphany-integration-2026-07-04-v3 — membranes, parity, unified ruff phases
 
