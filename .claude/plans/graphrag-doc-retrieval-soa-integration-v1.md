@@ -1,6 +1,8 @@
 # graphrag + doc-retrieval on the V3 SoA — integration plan v1
 
-> **Status:** DESIGN — evaluation + wave plan (no bytes land here). Aligned to
+> **Status:** DESIGN — evaluation + wave plan (no bytes land here). **v1.1
+> (2026-07-17): expand AriGraph in place — NO standalone `crates/graphrag` (§1).**
+> Aligned to
 > **#708 / D-TRI-6 — now MERGED (`8d3209c`; `E-RUNG-ASCENT-WIRED-1` SHIPPED)** +
 > `E-MASLOW-PYRAMID-OF-COGNITION-1` and the `triangle-tenants-gestalt-separation-v1`
 > Maslow pyramid. The rung-ascent loop is landed code (D-GR-2's dependency is
@@ -43,16 +45,34 @@ the impl. **Neither ingests; both read.**
 
 ## §1. Evaluation — what to build, what to reject
 
-| Candidate crate | Verdict | Why |
+> **★ v1.1 REVISION (2026-07-17, operator-directed): NO `crates/graphrag`.**
+> Expand **AriGraph** in place instead. AriGraph already owns `retrieval.rs`
+> (OsintRetriever — BFS+episodic fusion), `witness_corpus.rs`, `episodic.rs`,
+> `spo_bridge.rs`, `markov_soa.rs` — the retrieval brain + the episodic-witness
+> basins are already there. A separate crate is a **free function on AriGraph's
+> state** (the litmus-test reject) and a **parallel retrieval layer** beside an
+> existing one. There is **no** community/basin/cluster/Leiden/partition type in
+> AriGraph today (grep-confirmed) — so Leiden fills the one *structural-partition*
+> gap that **complements** the episodic-witness partition AriGraph owns. This
+> dissolves the §10 dep-weight feature-gate: the graph capabilities live where the
+> graph lives (core). §4/§10 updated; the #708 rung-ascent alignment (§3), the
+> reuse census (§2), the boundary (§0), and the probes (§6) all carry over.
+
+| Candidate | Verdict | Why |
 |---|---|---|
 | lance-graph doc-transcode / perceptual-IR / `document`-mint crate | **REJECT** | Duplicates OGAR `ogar-from-docv1`/`ogar-doc-ir`/`ogar-doc`; inverts the dep; WRONG-SHELF. Doc ingestion is assembler-side. |
-| Monolithic `graphrag` (extraction→graph→retrieval from scratch, à la graphrag-rs) | **REJECT** | Extraction, SPO edges, fact store, vector/CAM-PQ retrieval already EXIST (§2). Violates *wire-don't-invent*. graphrag-rs = REUSE-AS-REFERENCE only (`graphrag-rs-inventory.md`); its `LanceDBStore` is a stub, its `InferenceEngine` is the no-singleton anti-exhibit. |
-| **`crates/graphrag`** — thin retrieval **orchestrator**, query-side only | **BUILD** | Binds existing legs onto the #708 rung-ascent loop; BUILDS only the 3 genuine gaps (§2). Reads calcified substrate; never ingests. |
-| **`DocGraphQuery` trait** in `lance-graph-contract` + a `DocGraphView` read projection | **BUILD (thin)** | The shared surface both graphrag and `ogar-doc` consume. Keeps OGAR on the contract, not the impl. |
-| New lance-graph OGAR-seam crate | **REJECT** | `lance-graph-ogar` already IS the seam (re-exports ogar-vocab Class/codebook + `ClassView` impl). Extend it if needed. |
+| Monolithic `graphrag` (extraction→graph→retrieval from scratch, à la graphrag-rs) | **REJECT** | Extraction, SPO edges, fact store, vector/CAM-PQ retrieval already EXIST (§2). graphrag-rs = REUSE-AS-REFERENCE only; its `LanceDBStore` is a stub, its `InferenceEngine` is the no-singleton anti-exhibit. |
+| **`crates/graphrag`** — thin retrieval orchestrator crate | **REJECT (v1.1)** | Duplicates AriGraph's existing `retrieval.rs`; a free-function-on-carrier's-state (litmus reject); a new *layer* where the rule is new *method*. **Expand AriGraph instead.** |
+| **Leiden community → `arigraph/community.rs`** (NEW module) | **BUILD** | The structural partition; complements `witness_corpus`/`episodic` basins. First partition type in AriGraph — fills the gap, doesn't clutter. |
+| **PPR / HippoRAG → extend `arigraph/retrieval.rs`** | **BUILD** | A graph-ranking sibling of the existing `find_path`/`get_associated`/BFS+episodic fusion; community = a third fusion signal. Backed by in-core `blasgraph::hdr_pagerank`. |
+| **`DocGraphQuery` trait** in `lance-graph-contract` (impl = AriGraph methods) | **BUILD (thin)** | The zero-dep read surface `ogar-doc` consumes; keeps OGAR on the contract, not the impl. |
+| BM25 / lexical leg | **BUILD (small, OUT of AriGraph)** | Text-index, not a graph op; a tiny module elsewhere (or reuse existing). |
+| New lance-graph OGAR-seam crate | **REJECT** | `lance-graph-ogar` already IS the seam. Extend if needed. |
 
-**Net: two BUILD targets** — `crates/graphrag` (the orchestrator + the 3 gaps) and
-a thin `DocGraphQuery` contract surface. Everything else is wiring.
+**Net (v1.1): expand AriGraph** — `arigraph/community.rs` (Leiden) + PPR into
+`arigraph/retrieval.rs`, complementing the witness/episodic basins it already
+owns; a thin `DocGraphQuery` contract trait (impl = those methods); a small
+out-of-graph BM25 leg. **No new crate.** Everything else is wiring.
 
 ## §2. Substrate reuse — the census (build only the gaps)
 
@@ -140,37 +160,40 @@ graphrag never re-decides the level — it reads the driver's `RungLevel` and
 supplies the wider graph walk. This is the anti-decorative-graph guarantee (vs
 the graph-librarian-rs anti-pattern where the graph is built but never traversed).
 
-## §4. Crate topology (recommended)
+## §4. Topology (v1.1 — expand AriGraph, no new crate)
 
 ```
-crates/graphrag/                 (NEW, lance-graph, W5 query consumer)
-  src/
-    lib.rs
-    retrieve.rs      # rung-ascent orchestrator; consumes contract RungElevator/RungLevel (#708); the load-bearing walk
-    community.rs     # BUILD: hierarchical Leiden over CE64/SPO-G
-    ppr.rs           # BUILD: HippoRAG reset-distribution PPR (atop hdr_pagerank/spmv)
-    keyword.rs       # BUILD: BM25
-    summarize.rs     # community summaries via Rig oracle → compiled template (W3 dep)
-  deps (feature-gated per §10 caveat 1):
-    default (LIGHT, zero-dep): lance-graph-contract (RungElevator/RungLevel/
-      GateDecision/MailboxSoaView — #708) + causal-edge (CausalEdge64).
-      → rung-ascent orchestration + BM25 + in-memory PPR + the G0 probe.
-    feature "graphrag-lance" (HEAVY, drags datafusion/lance/arrow): lance-graph
-      (TripletGraph::{get_associated,intervene_on,detect_contradictions},
-      spo_bridge, hdr_pagerank, cam_pq) + bgz-tensor.
-    widen: rung_widened_layer_mask is PRIVATE (driver.rs:701) → make pub / move to
-      contract, or replicate (§10 caveat 2).
-  NO ingest; NO OGAR dep; reads calcified substrate.
+crates/lance-graph/src/graph/arigraph/     (EXPAND — the graph owns its own structure)
+  community.rs   # NEW: hierarchical Leiden over the TripletGraph adjacency
+                 #      (triplets + entity_index; backed by in-core blasgraph CSR).
+                 #      The structural partition beside witness_corpus/episodic basins.
+  retrieval.rs   # EXTEND OsintRetriever: + PPR/HippoRAG (reset-distribution atop
+                 #      blasgraph::hdr_pagerank), + community as a THIRD fusion signal
+                 #      (beside BFS + episodic). Driven by the #708 RungElevator:
+                 #      detect_contradictions → BLOCK → wider community/PPR walk.
+  # reuse in place: triplet_graph.rs (get_associated/intervene_on/detect_contradictions/
+  #   revise_with_evidence), spo_bridge.rs (promote_to_spo), witness_corpus.rs,
+  #   episodic.rs, markov_soa.rs. NO new Edge/Provenance/Graph type.
 
-lance-graph-contract/            (EXTEND)
-  src/doc_graph.rs   # DocGraphQuery trait + DocGraphView read projection (the shared surface)
+crates/lance-graph-contract/               (EXTEND, zero-dep)
+  src/doc_graph.rs   # DocGraphQuery trait (impl = AriGraph's retrieval methods) — the
+                     #   read surface ogar-doc consumes. NO DocGraphView duplicate carrier.
 
-lance-graph-ogar/                (EXISTING seam — extend only if the trait needs OGAR ClassView glue)
+<small out-of-graph leg>                   (BM25 lexical — NOT in AriGraph)
+  a tiny keyword module (or reuse an existing text index); text-index ≠ fact graph.
 ```
 
-`ogar-doc` (OGAR) consumes `DocGraphQuery` **via the contract** — that is the
-correct "feeds ogar-doc": ogar-doc is a **caller** of graphrag's query surface,
-never fed data by a lance-graph crate.
+**Dep note (v1.1 — the feature-gate is DISSOLVED):** the community/PPR code lives
+in `arigraph/` = lance-graph **core**, which already has the graph + datafusion/
+lance/arrow. There is no separate light crate to gate — the graph capabilities
+live where the graph lives. The only zero-dep additions are the `DocGraphQuery`
+trait (contract) and the BM25 leg. The `RungElevator` (contract, #708) is reached
+from `retrieval.rs` in-core; `rung_widened_layer_mask` (still private,
+`driver.rs:701`) is either made pub / moved to the contract, or replicated (§10).
+
+`ogar-doc` (OGAR) consumes `DocGraphQuery` **via the contract** — the correct
+"feeds ogar-doc": ogar-doc is a **caller** of AriGraph's query surface (through
+the contract trait), never fed data by a lance-graph crate.
 
 ## §5. Wave sequencing (aligned to v3 W0–W6 + D-TRI)
 
@@ -298,14 +321,18 @@ clean fixes; **no circular deps**.
 - **PPR base — pub** (`hdr_pagerank`, `blasgraph/ops.rs:275`; `ScentCsr::spmv`,
   `neighborhood/sparse.rs:98`). **CAM-PQ — pub** (`cam_pq/{ivf,storage}`).
 
-**Caveat 1 — dep-weight split (→ the crate is feature-gated; §4 updated).** The
-graph legs (`TripletGraph`, `spo_bridge`, `hdr_pagerank`, CAM-PQ) live in
-**lance-graph core**, which drags the full datafusion/lance/arrow stack (19
-heavy-dep lines); the rung-ascent core + `CausalEdge64` + read trait are
-zero-dep. → **default `graphrag` = light** (rung ascent + BM25 + in-memory PPR
-over `CausalEdge64` adjacency + the G0 probe); **feature `graphrag-lance` =
-heavy** graph legs. Mirrors lance-graph's own `ndarray-hpc` gate. **G0 + D-GR-2
-build with ZERO heavy deps.**
+**Caveat 1 — ~~dep-weight split~~ DISSOLVED by v1.1 (expand AriGraph).** Original
+finding: the graph legs (`TripletGraph`, `spo_bridge`, `hdr_pagerank`, CAM-PQ)
+live in lance-graph core (drags datafusion/lance/arrow), so a standalone crate
+would need a light/heavy feature gate. **v1.1 removes the crate** — Leiden/PPR
+land as `arigraph/` modules, which are already in core with the graph, so there
+is nothing to gate. The only zero-dep additions are the `DocGraphQuery` contract
+trait and the BM25 leg. **New design constraint (replaces the gate concern):**
+`no-singleton` + `write-on-behalf` — community detection reads the graph the
+mailbox owns and must NOT materialize a *global* partition singleton; a persisted
+community-membership is a value-tenant lane, **born-stamped** via the batch
+writer (v3-mailbox-warden gate). Confirm `TripletGraph`'s ownership model before
+adding a persisting method.
 
 **Caveat 2 — `rung_widened_layer_mask` is private** (`driver.rs:701`, bare `fn`)
 — the predicate-plane widen can't be called directly. It is a SECONDARY leg (the
@@ -315,10 +342,14 @@ cognitive-shader-driver owner) — recommended; or replicate the pure
 `(base, level, mask) -> u8`.
 
 **Genuine BUILD (confirmed):** hierarchical Leiden — `jc`'s louvain is
-**example-only** (nothing in `jc/src`), so `community.rs` promotes it to a lib;
-HippoRAG-PPR = reset-distribution atop `hdr_pagerank`; BM25 = a pure fn. All
-build on reachable primitives.
+**example-only** (nothing in `jc/src`), so `arigraph/community.rs` promotes it to
+a lib over the `TripletGraph` adjacency; HippoRAG-PPR = reset-distribution atop
+`hdr_pagerank`, added to `arigraph/retrieval.rs`; BM25 = a small out-of-graph fn.
+All build on reachable primitives. AriGraph fit confirmed: it owns `retrieval.rs`
++ `witness_corpus.rs` + `episodic.rs` + `spo_bridge.rs` + `markov_soa.rs` today,
+and has **no** community/partition type — Leiden fills the gap, does not clutter.
 
-**Immediate next step (no upstream change):** scaffold the light
-`crates/graphrag` (contract + causal-edge) + a `cargo check` compile-proof of
-the rung-ascent + read legs, then the G0 `P-GRAPH-LOADBEARING` probe.
+**Immediate next step (v1.1, no upstream change):** add `arigraph/community.rs`
+(Leiden over `TripletGraph`) + a `cargo check -p lance-graph`; then extend
+`arigraph/retrieval.rs` with PPR + community fusion under the #708 `RungElevator`;
+then the G0 `P-GRAPH-LOADBEARING` probe (jc::reliability battery). No new crate.

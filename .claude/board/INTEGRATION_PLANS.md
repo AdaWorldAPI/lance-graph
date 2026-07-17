@@ -1,8 +1,17 @@
 ## 2026-07-17 — graphrag-doc-retrieval-soa-integration v1 — DESIGN (probe-gated)
 
 **Plan:** `.claude/plans/graphrag-doc-retrieval-soa-integration-v1.md`
-**Scope:** evaluation + wave plan for a query-side `crates/graphrag` (retrieval
-orchestrator) + a `DocGraphQuery` contract surface, both reading the *calcified*
+**v1.1 (2026-07-17, operator-directed):** NO standalone `crates/graphrag` —
+**expand AriGraph in place** (`arigraph/community.rs` Leiden + PPR into the
+existing `arigraph/retrieval.rs`), complementing the episodic-witness basins
+AriGraph already owns (`witness_corpus.rs`/`episodic.rs`). A crate would be a
+free-function-on-carrier's-state (litmus reject) + a parallel retrieval layer
+beside the existing one; AriGraph has no community/partition type today, so
+Leiden fills the gap. Dissolves the §10 dep-weight feature-gate. The
+`DocGraphQuery` contract trait + a small out-of-graph BM25 leg are the only
+zero-dep additions.
+**Scope (v1):** evaluation + wave plan for a query-side retrieval surface + a
+`DocGraphQuery` contract surface, both reading the *calcified*
 document-graph substrate. Reframes the task's "lance-graph feeds ogar-doc": OGAR
 owns doc ingestion + the `document 0x080B` mint (`ogar-from-docv1` →
 `ogar-doc-ir` → `ogar-doc`, all built); lance-graph provides the contract types
