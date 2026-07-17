@@ -3,11 +3,14 @@
 > **Status:** SPEC (ratifiable), 2026-07-17. The value-tenant half of
 > D-TRI-1 shipped (#717, autopoiesis triangle). This doc specs the
 > **classid half** — the remaining batched mint — to the **handoff
-> boundary**: everything is design-complete and byte-precise so the
-> doc-W4 council can execute it mechanically once the gate clears. **No
-> bytes land with this doc.** Every id below is a PROPOSAL for
-> council/operator ratification (RESERVE-DON'T-RECLAIM = permanent once
-> minted).
+> boundary**. It is byte-precise **except two open ratification knobs**
+> (§0: the Cognition domain byte `0x03`, and the BoardAggregates lane
+> width) — so mechanical council execution is **conditional on ratifying
+> those two decisions**; everything else (chess `0x06`, the concept
+> layouts, the read-mode contract, the execution sequence) is
+> execution-ready. **No bytes land with this doc.** Every id below is a
+> PROPOSAL for council/operator ratification (RESERVE-DON'T-RECLAIM =
+> permanent once minted).
 > **Plan:** `triangle-tenants-gestalt-separation-v1.md` §5 (mint discipline).
 > **Index:** `.claude/board/INTEGRATION_PLANS.md` (prepended same commit).
 
@@ -37,6 +40,34 @@ Unassigned spans `0x03`–`0x06`, `0x10`+), the operator named this the one
 they may want to set; (b) the **BoardAggregates lane width** (§3).
 
 ---
+
+## §0c Concept-id vs classid — the two are NOT the same (CodeRabbit #719)
+
+The `0xDDCC` values in §1–§2 are **u16 CANON concept ids** (the codebook
+key). A **classid** is the 32-bit node key = `compose_classid(canon,
+appid)` = canon-high `(canon << 16) | appid`. Internal cognitive/chess
+concepts carry **no per-app render skin**, so propose **appid `0x0000`**
+(canon-only; a specific app — e.g. q2 `0x01` — stamps its appid at its own
+render membrane, NEVER here). Read-mode = `{tail_variant, value_schema,
+edge_codec}` from `BUILTIN_READ_MODES`. **This table is authoritative — every
+parity test + the OGAR and lance-graph impls reference it; no impl guesses a
+classid or a read-mode.**
+
+| concept (u16) | classid (`canon<<16 \| 0x0000`) | read-mode `{tail, value_schema, edge_codec}` |
+|---|---|---|
+| `cognitive_task` `0x0308` | `0x0308_0000` | `{V3, Thinking (§5), CoarseOnly}` — the generic task row |
+| `cognitive_fanout`…`cognitive_syllogism` `0x0301..0x0307` | `0x0301_0000`..`0x0307_0000` | `{V3, Thinking, CoarseOnly}` — the 7 task-type rows |
+| `chess_episode` `0x0601` | `0x0601_0000` | `{V3, Compressed (Fingerprint+residues: FEN print + move edges), CoarseOnly}` — quarantined corpus |
+| `chess_candidate`/`iteration`/`event` `0x0602..0x0604` | `0x0602_0000`..`0x0604_0000` | `{V3, Compressed, CoarseOnly}` |
+| **board row** `cognitive_board` `0x0309` (proposed) | `0x0309_0000` | `{V3, Board (Cognitive ∪ BoardAggregates lane @188), CoarseOnly}` |
+
+**BoardAggregates is two things** (CodeRabbit): a value **tenant** (the
+lane @ row_offset 188, §3) AND a **board-row classid** whose schema
+materializes that lane. The board concept (`cognitive_board 0x0309`) is
+proposed in the Cognition domain; the council confirms the slot. Its
+read-mode MUST NOT fall through to `ReadMode::DEFAULT` (Addendum-12a T3).
+The `appid 0x0000` choice and the chess `Compressed`/board `Board` schemas
+are proposals for council ratification (added to the §0 knob list).
 
 ## §1 Chess domain `0x06` (operator-ruled exact byte)
 
@@ -153,11 +184,33 @@ through to `ReadMode::DEFAULT` is FORBIDDEN — Addendum-12a T-gate).
 
 The triangle is in `Full` only (#717). P4 wires thinking rows to read the
 triangle lanes; those rows need a schema that materialises Frozen/Learned/
-Explore. **Proposal:** a NEW `ValueSchema::Thinking` = the `Cognitive` hot
-set ∪ the three triangle lanes — so entity classes keep plain `Cognitive`
-(no triangle) and thinking/task classids resolve to `Thinking`. Lands
-**with** this batch (the Tasks-SoA task classid routes to `Thinking`), not
-before — a schema with no classid routing to it would be dead until the
+Explore. **Proposal:** a NEW `ValueSchema::Thinking` with the EXACT field
+mask = the `Cognitive` hot set **∪** the three triangle lanes — the
+`ValueTenant` set:
+
+```
+{ Meta, Qualia, Fingerprint, Energy, Plasticity, EntityType, Kanban,
+  FrozenStyle, LearnedStyle, ExploreStyle }   // 10 tenants
+```
+
+(NOT `MaterializedEdges` / `HelixResidue` / `TurbovecResidue`).
+`tenant_bytes()` = Cognitive's 66 + 3×12 = **102 B** (≤ 480, layout-
+preserving, zero `ENVELOPE_LAYOUT_VERSION` bump).
+
+**Routing requirement (mandatory):** EVERY thinking/task classid — every
+`cognitive_*` classid in §0c, and any future thinking-row class — resolves
+to `Thinking` in `BUILTIN_READ_MODES`, **NEVER** to `Cognitive`. Entity
+classes (OSINT/PROJECT/ERP/Commerce) keep plain `Cognitive` (no triangle).
+This is the concrete form of `TD-TRI-1-P4` obligation #2.
+
+**Persist-side test (mandatory):** a round-trip test that populates the
+triangle lanes on a `Thinking`-schema row, bakes it through the
+`field_mask`-driven persist, and asserts the triangle bytes **survive** (are
+not dropped) — the exact failure obligation #2 names (a `Cognitive`-resolving
+thinking row would drop them).
+
+Lands **with** this batch (the Tasks-SoA task classid routes to `Thinking`),
+not before — a schema with no classid routing to it would be dead until the
 mint. Gated by `v3-envelope-auditor`.
 
 ---
