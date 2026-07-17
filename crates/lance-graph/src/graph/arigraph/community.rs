@@ -75,7 +75,13 @@ impl Communities {
         self.entities
             .iter()
             .zip(self.labels.iter())
-            .filter_map(|(e, &c)| if c == community { Some(e.as_str()) } else { None })
+            .filter_map(|(e, &c)| {
+                if c == community {
+                    Some(e.as_str())
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 }
@@ -111,7 +117,13 @@ impl TripletGraph {
             s.dedup();
             s.len()
         };
-        Communities { entities, labels, levels, modularity: q, num_communities }
+        Communities {
+            entities,
+            labels,
+            levels,
+            modularity: q,
+            num_communities,
+        }
     }
 
     /// Dense entity index: a stable `Vec<String>` (sorted for determinism) and
@@ -119,19 +131,18 @@ impl TripletGraph {
     fn entity_index_dense(&self) -> (Vec<String>, HashMap<String, usize>) {
         let mut names: Vec<String> = self.entity_index.keys().cloned().collect();
         names.sort_unstable();
-        let index: HashMap<String, usize> =
-            names.iter().enumerate().map(|(i, e)| (e.clone(), i)).collect();
+        let index: HashMap<String, usize> = names
+            .iter()
+            .enumerate()
+            .map(|(i, e)| (e.clone(), i))
+            .collect();
         (names, index)
     }
 
     /// Weighted undirected adjacency (both endpoints), weight = summed NARS
     /// confidence over the triplets joining two entities. Deleted triplets and
     /// self-loops are skipped.
-    fn build_adjacency(
-        &self,
-        index: &HashMap<String, usize>,
-        n: usize,
-    ) -> Vec<Vec<(usize, f64)>> {
+    fn build_adjacency(&self, index: &HashMap<String, usize>, n: usize) -> Vec<Vec<(usize, f64)>> {
         // Accumulate undirected weights in a per-node BTreeMap for determinism.
         let mut acc: Vec<BTreeMap<usize, f64>> = vec![BTreeMap::new(); n];
         for t in &self.triplets {
@@ -176,7 +187,12 @@ fn build(adj: Vec<Vec<(usize, f64)>>, self_loop: Vec<f64>) -> WGraph {
         degree[u] = d + 2.0 * self_loop[u];
     }
     let two_m: f64 = degree.iter().sum();
-    WGraph { adj, self_loop, degree, two_m }
+    WGraph {
+        adj,
+        self_loop,
+        degree,
+        two_m,
+    }
 }
 
 /// First-appearance dense relabel — deterministic given node order.
@@ -267,8 +283,10 @@ fn aggregate(g: &WGraph, label: &[usize]) -> WGraph {
             }
         }
     }
-    let adj: Vec<Vec<(usize, f64)>> =
-        super_adj.into_iter().map(|m| m.into_iter().collect()).collect();
+    let adj: Vec<Vec<(usize, f64)>> = super_adj
+        .into_iter()
+        .map(|m| m.into_iter().collect())
+        .collect();
     build(adj, self_w)
 }
 
@@ -298,10 +316,7 @@ fn modularity(g: &WGraph, label: &[usize]) -> f64 {
 
 /// Multi-level Louvain. Returns (hierarchy over ORIGINAL nodes, coarsest
 /// labels, `Q` of the coarsest partition on the original graph).
-fn detect(
-    adj0: Vec<Vec<(usize, f64)>>,
-    self0: Vec<f64>,
-) -> (Vec<Vec<usize>>, Vec<usize>, f64) {
+fn detect(adj0: Vec<Vec<(usize, f64)>>, self0: Vec<f64>) -> (Vec<Vec<usize>>, Vec<usize>, f64) {
     let n0 = adj0.len();
     let g0 = build(adj0.clone(), self0.clone());
     let mut g = build(adj0, self0);
@@ -345,8 +360,12 @@ mod tests {
     fn two_triangles_bridge_yields_two_communities() {
         // {a,b,c} triangle, {d,e,f} triangle, single a-d bridge.
         let g = tg(&[
-            ("a", "b"), ("b", "c"), ("c", "a"),
-            ("d", "e"), ("e", "f"), ("f", "d"),
+            ("a", "b"),
+            ("b", "c"),
+            ("c", "a"),
+            ("d", "e"),
+            ("e", "f"),
+            ("f", "d"),
             ("a", "d"),
         ]);
         let c = g.communities();
@@ -360,13 +379,28 @@ mod tests {
 
     #[test]
     fn deterministic() {
-        let g = tg(&[("a", "b"), ("b", "c"), ("c", "a"), ("d", "e"), ("e", "f"), ("f", "d"), ("a", "d")]);
+        let g = tg(&[
+            ("a", "b"),
+            ("b", "c"),
+            ("c", "a"),
+            ("d", "e"),
+            ("e", "f"),
+            ("f", "d"),
+            ("a", "d"),
+        ]);
         assert_eq!(g.communities().labels, g.communities().labels);
     }
 
     #[test]
     fn clique_is_one_community() {
-        let g = tg(&[("a", "b"), ("a", "c"), ("a", "d"), ("b", "c"), ("b", "d"), ("c", "d")]);
+        let g = tg(&[
+            ("a", "b"),
+            ("a", "c"),
+            ("a", "d"),
+            ("b", "c"),
+            ("b", "d"),
+            ("c", "d"),
+        ]);
         assert_eq!(g.communities().num_communities, 1);
     }
 
@@ -385,7 +419,13 @@ mod tests {
             Triplet::new("a", "b", "rel", 0),
             Triplet::new("b", "c", "rel", 1),
             Triplet::new("c", "a", "rel", 2),
-            Triplet::with_truth("c", "d", "rel", crate::graph::spo::truth::TruthValue::new(1.0, 0.05), 3),
+            Triplet::with_truth(
+                "c",
+                "d",
+                "rel",
+                crate::graph::spo::truth::TruthValue::new(1.0, 0.05),
+                3,
+            ),
         ];
         g.add_triplets(&ts);
         let c = g.communities();
