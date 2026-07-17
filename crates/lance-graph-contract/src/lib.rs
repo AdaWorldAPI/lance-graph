@@ -74,6 +74,11 @@ pub mod cycle_accumulator;
 /// content store. See module docs for the `dawg.{h,cpp}` byte-parity scope.
 pub mod dawg;
 pub mod distance;
+/// D-GR-1 — `DocGraphQuery`, the zero-dep read surface over the calcified
+/// document / fact graph. Implemented by the AriGraph carrier (graphrag
+/// retrieval); consumed by OGAR `ogar-doc` through the contract. Carries the
+/// D-GR-2 elevator-binding spec in its module docs.
+pub mod doc_graph;
 /// D-V3-W6a — DDL typed-emission counting logic (`TypedForm`,
 /// `classify_ddl_type`, `EmissionCounts`, `count_emission`), sibling of
 /// [`classid_scan`]. Requested by the op-nexgen consumer session.
@@ -167,6 +172,7 @@ pub use class_view::{
     ClassId, ClassProjection, ClassView, FieldMask, RenderRow, ValueRow, WideFieldMask,
 };
 pub use collapse_gate::{GateDecision, MailboxId, MergeMode};
+pub use doc_graph::{DocGraphQuery, ScoredId};
 pub use episodic_edges::{EdgeRef, EpisodicEdges64};
 pub use head2head::{CompetitionOutcome, Head2Head, WinnerCriterion};
 pub use kanban::{ExecTarget, KanbanColumn, KanbanMove, RubiconTransitionError};

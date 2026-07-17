@@ -1,3 +1,18 @@
+## graphrag-doc-retrieval-soa-integration-v1 — retrieval over AriGraph (expand-in-place, no new crate)
+
+Plan: `.claude/plans/graphrag-doc-retrieval-soa-integration-v1.md` (v1.2). Pure/reversible capabilities land ahead of G0; the D-GR-2 retrieval WIRING is gated on the G0 real-corpus verdict.
+
+| D-id | Title | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-GR-1 | `DocGraphQuery` zero-dep contract trait + `ScoredId` (rung→walk dispatch) + D-GR-2 design | lance-graph | Shipped (this PR) — `doc_graph.rs`, 9 tests | plan §5 |
+| D-GR-3a | `TripletGraph::communities()` multi-level Louvain, deterministic | lance-graph | Shipped (#714) | plan §3b |
+| D-GR-3b | PPR (`personalized_pagerank`) + Leiden `refine_connected` + BM25 (`Bm25Index`) — pure capabilities | lance-graph | Shipped (this PR) — 13 tests | plan §3b, §5 |
+| G0 | P-GRAPH-LOADBEARING harness (vector-only vs vector+PPR+community) | lance-graph | Harness shipped (this PR); real-corpus verdict OPEN | plan §5, §6 |
+| D-GR-2 | Fuse CAM-PQ+SPO-G+PPR+community into `retrieval.rs` under the #708 RungElevator | lance-graph | Design done (in `doc_graph.rs` module-doc); impl GATED on G0 | plan §5 |
+| D-GR-4 | Community summaries (no-LLM DeepNSM; Rig-oracle tail) | lance-graph | Deferred (W3-coupled) | plan §5 |
+| D-GR-5 | `ogar-doc` reconstruct/related-docs → `DocGraphQuery` seam | lance-graph + OGAR | Deferred (mint-gated, doc-W4 council) | plan §5 |
+| D-GR-6 | Witness-KV separation (DocumentID handle → consumer KV) | lance-graph | Deferred (doc-W4 council) | plan §4a, §5 |
+
 ## triangle-tenants-gestalt-separation-v1 — triangle tenants, surface separation, chess quarantine
 
 Plan: `.claude/plans/triangle-tenants-gestalt-separation-v1.md`. Design shipped; ALL layout work mint-gated (rides the same batched mint as W2a BoardAggregates + Tasks-SoA task classid + chess classids).

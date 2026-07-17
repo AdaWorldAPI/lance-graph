@@ -38,10 +38,13 @@
 //! index order and candidate communities in `BTreeMap` order, so the same graph
 //! always yields the same partition — a property an LLM-based clustering cannot
 //! offer, and the precondition for certifying it with the jc reliability
-//! battery. The Leiden *refinement* pass (guaranteeing internally-connected
-//! communities) is the next increment; Louvain is the core it refines.
+//! battery. A **Leiden connectivity refinement** pass (`refine_connected`)
+//! follows: any coarsest-level community whose induced subgraph is internally
+//! disconnected is split into its connected components, guaranteeing every
+//! returned community is internally connected — Leiden's defining property
+//! over plain Louvain. Louvain remains the core the refinement operates on.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 
 use super::triplet_graph::TripletGraph;
 
@@ -88,10 +91,20 @@ impl Communities {
 
 impl TripletGraph {
     /// Detect structural communities over this graph's entities via multi-level
-    /// Louvain modularity. Edges are the non-deleted triplets (subject↔object),
-    /// weighted by NARS **confidence**; self-loops (`subject == object`) are
-    /// dropped. Deterministic and dependency-free (reads the graph the mailbox
-    /// already owns; never a global partition singleton).
+    /// Louvain modularity, followed by a Leiden connectivity refinement pass.
+    /// Edges are the non-deleted triplets (subject↔object), weighted by NARS
+    /// **confidence**; self-loops (`subject == object`) are dropped.
+    /// Deterministic and dependency-free (reads the graph the mailbox already
+    /// owns; never a global partition singleton).
+    ///
+    /// `labels` on the returned [`Communities`] is the **connectivity-refined**
+    /// coarsest partition: any community whose induced subgraph came out of
+    /// Louvain internally disconnected is split into its connected components,
+    /// so every returned community is guaranteed internally connected (Leiden's
+    /// defining property over plain Louvain). `levels.last()` is the
+    /// **pre-refinement** Louvain partition — the raw coarsest level from
+    /// local-moving + aggregation, which may still contain an
+    /// internally-disconnected community.
     pub fn communities(&self) -> Communities {
         let (entities, index) = self.entity_index_dense();
         let n = entities.len();
@@ -105,8 +118,9 @@ impl TripletGraph {
             };
         }
         let adj = self.build_adjacency(&index, n);
-        let (levels_u, labels_u, q) = detect(adj, vec![0.0; n]);
-        let labels: Vec<u32> = labels_u.iter().map(|&x| x as u32).collect();
+        let (levels_u, labels_u, q) = detect(adj.clone(), vec![0.0; n]);
+        let louvain_labels: Vec<u32> = labels_u.iter().map(|&x| x as u32).collect();
+        let labels = refine_connected(&adj, &louvain_labels);
         let levels: Vec<Vec<u32>> = levels_u
             .iter()
             .map(|lv| lv.iter().map(|&x| x as u32).collect())
@@ -340,6 +354,39 @@ fn detect(adj0: Vec<Vec<(usize, f64)>>, self0: Vec<f64>) -> (Vec<Vec<usize>>, Ve
     (levels, coarsest, q)
 }
 
+/// Split any internally-disconnected community into its connected components
+/// (the Leiden connectivity guarantee over Louvain). Deterministic: nodes are
+/// visited in dense-index order and components are relabeled by first appearance.
+fn refine_connected(adj: &[Vec<(usize, f64)>], labels: &[u32]) -> Vec<u32> {
+    let n = adj.len();
+    let mut component: Vec<Option<u32>> = vec![None; n];
+    let mut next_id: u32 = 0;
+    for start in 0..n {
+        if component[start].is_some() {
+            continue;
+        }
+        let mut queue: VecDeque<usize> = VecDeque::new();
+        queue.push_back(start);
+        component[start] = Some(next_id);
+        while let Some(u) = queue.pop_front() {
+            for &(v, _w) in &adj[u] {
+                if v == u || component[v].is_some() {
+                    continue;
+                }
+                if labels[v] == labels[u] {
+                    component[v] = Some(next_id);
+                    queue.push_back(v);
+                }
+            }
+        }
+        next_id += 1;
+    }
+    component
+        .into_iter()
+        .map(|c| c.expect("every node visited exactly once"))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -431,5 +478,57 @@ mod tests {
         let c = g.communities();
         assert_eq!(c.community_of("a"), c.community_of("b"));
         assert_eq!(c.community_of("b"), c.community_of("c"));
+    }
+
+    #[test]
+    fn refine_connected_splits_disconnected_community() {
+        // Two disjoint edges 0-1 and 2-3, no edge between the pairs, but a
+        // (deliberately wrong) Louvain-style label lumps all four into
+        // community 0 — the case a real aggregation step can produce.
+        let adj: Vec<Vec<(usize, f64)>> = vec![
+            vec![(1, 1.0)],
+            vec![(0, 1.0)],
+            vec![(3, 1.0)],
+            vec![(2, 1.0)],
+        ];
+        let labels = vec![0u32, 0, 0, 0];
+        let refined = refine_connected(&adj, &labels);
+        assert_eq!(refined[0], refined[1], "0 and 1 share an edge: {refined:?}");
+        assert_eq!(refined[2], refined[3], "2 and 3 share an edge: {refined:?}");
+        assert_ne!(
+            refined[0], refined[2],
+            "0-1 and 2-3 are disconnected: {refined:?}"
+        );
+        let mut distinct = refined.clone();
+        distinct.sort_unstable();
+        distinct.dedup();
+        assert_eq!(
+            distinct.len(),
+            2,
+            "expected exactly 2 components: {refined:?}"
+        );
+    }
+
+    #[test]
+    fn refine_connected_is_idempotent_on_connected_community() {
+        // A single connected triangle, already one label - refinement must
+        // not introduce a spurious split.
+        let adj: Vec<Vec<(usize, f64)>> = vec![
+            vec![(1, 1.0), (2, 1.0)],
+            vec![(0, 1.0), (2, 1.0)],
+            vec![(0, 1.0), (1, 1.0)],
+        ];
+        let labels = vec![0u32, 0, 0];
+        let refined = refine_connected(&adj, &labels);
+        let mut distinct = refined.clone();
+        distinct.sort_unstable();
+        distinct.dedup();
+        assert_eq!(
+            distinct.len(),
+            1,
+            "connected community must stay one component: {refined:?}"
+        );
+        assert_eq!(refined[0], refined[1]);
+        assert_eq!(refined[1], refined[2]);
     }
 }

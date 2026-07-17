@@ -208,6 +208,26 @@ identity AND the centroid — one register, two lenses; this is *why* communitie
 | answers | "how similar / what order" | "how it relates / composes / transitions" |
 | a word/doc | a scalar position | its **relational profile = its distribution** |
 
+**Distance is the stacked cosine-replacement, NOT popcount — and it ALREADY EXISTS
+(operator, 2026-07-17: "grep it, don't build it").** The cosine-replacement is the
+Fisher-Z `arctanh` map `z = ½(ln(1+s)−ln(1−s))`, shipped and **certified** as
+`bgz-tensor::fisher_z::{FamilyGamma, Base17Fz}` (ρ≥0.999, 21 roles, the `arctanh→i8`
+table), with the clean-room `helix::fisher_z::Similarity` + `helix`'s place/residue
+256-palette ladder (`crates/helix/src/{fisher_z,placement,residue,distance,simd}.rs`
++ `KNOWLEDGE.md`) and the `lance-graph-contract::distance` surface; the map is
+`.claude/DISTANCE_METRIC_INVENTORY.md`. A node-to-node distance is **6 of those
+cosine-replacement rankings stacked** — one 256-axis per subspace, `atanh`→i8,
+L1-metric-safe over the 256×256 LUT — assembled into the HHTL family identity
+(`6×256`; the stacking IS the HHTL cascade / `bgz-tensor::hhtl_d`, §3b's hierarchy).
+That *is* the CAM-PQ ADC, and it **retires the Hamming/popcount path**:
+XOR-then-popcount (`blasgraph/ndarray_bridge.rs` `hamming_*`/`popcount_*`,
+dead-code) is brute-force bit-counting — a coarse tally where the certified `atanh`
+axis is cheaper and monotone-exact. So the distance work is **WIRING the existing
+certified cosine-replacement into the graph/PPR distance path** (helix graduates
+from clean-room per its KNOWLEDGE.md §Consolidation: re-export `bgz-tensor`'s
+`FamilyGamma`), gated by the encoding-ecosystem naive-u8 floor (≥0.9980 Pearson) /
+P-PQ-RANK — **not building a new kernel.**
+
 **This is a MEASUREMENT, not a judgment — and that is the point.** COCA ×
 6×256:256 is **deterministic** (integer/table, bit-reproducible, 0 learned
 params, <10 µs/sentence; an LLM is stochastic even at T=0), **agnostic** as a
@@ -250,6 +270,19 @@ already carries, and they are **distributional-meaning modes, NARS-truth-weighte
    a discovered bridge; basin-without-community ⇒ a revision candidate. A NEW
    partition beside the family rail, never a re-carving of it (measure agreement:
    P-COMMUNITY-BASIN-AGREE).
+   **Sharpening (operator, 2026-07-17) — the identity hypothesis.** "Part of"
+   presupposes a *category* to be part **of**, and that category IS the community
+   = the basin = the HHTL family identity (the same `6×(8:8)` register read as the
+   L1 `is_a` rail, §3a). The two partitions are *computed* differently (Leiden over
+   structure vs the experiential family rail) but may resolve to the **same
+   categories** — community detection is **constitutive** of the `is_a` category,
+   not a decoration on it: you detect the community/basin first, then `part_of`
+   points into it and membership **is** `is_a`. So P-COMMUNITY-BASIN-AGREE tests an
+   **identity**, not merely a correlation — community ≡ basin ⇒ agreement → 1.0;
+   high-but-<1.0 ⇒ correlated-but-distinct, and the disagreements are exactly the
+   bridges / revision candidates. Either way a finding; the identity is the
+   *hypothesis*, the probe is the *falsifier* (the "same concept at the same time"
+   claim made precise).
 2. **× the 256² distribution — Leiden clusters the distribution, not the
    ranking.** Modularity runs over the compose/distribution graph (256²
    palette-compose + `CausalEdge64` SPO edges), NOT the 256 rank. A community IS
@@ -286,9 +319,35 @@ same object seen twice.
 `TripletGraph` adjacency (NARS-confidence-weighted), the carrier method
 `TripletGraph::communities()`, deterministic (BTreeMap-ordered moves,
 sorted-entity index), 5 inline tests (two-triangle→2, clique→1, determinism,
-empty-safe, weighted-cohesion). The Leiden *refinement* pass (well-connected
-communities) is the next increment; PPR + community fusion into `retrieval.rs`
-is D-GR-3b.
+empty-safe, weighted-cohesion).
+
+**Shipped (D-GR-3b, this PR — all pure / reversible / no-write-path, so they
+land ahead of G0 exactly as D-GR-3a did):**
+- `arigraph/ppr.rs` — `TripletGraph::personalized_pagerank(seeds, damping, iters)`,
+  HippoRAG spread over the confidence-weighted graph, deterministic, unit-sum,
+  6 tests (near-triangle-outranks-far, sum≈1, determinism, empty-safe,
+  unmatched-seed-fallback, seed-top-ranked).
+- `community.rs` **Leiden connectivity refinement** (`refine_connected`) — splits
+  any internally-disconnected Louvain community into its connected components
+  (Leiden's guarantee), deterministic BFS over intra-community edges, +2 tests;
+  `labels` is now the refined coarsest partition, `levels.last()` the raw Louvain.
+- `arigraph/bm25.rs` — Okapi BM25 lexical leg (`Bm25Index`, k1=1.2/b=0.75),
+  the rung-0/1 baseline beside CAM-PQ ranking, deterministic, 5 tests.
+- **D-GR-1** `lance-graph-contract/src/doc_graph.rs` — the zero-dep `DocGraphQuery`
+  trait + `ScoredId`, carrying the rung→walk dispatch as a default method; 9 tests.
+  The D-GR-2 design (OsintRetriever ↔ #708 RungElevator) is embedded as its module-doc.
+- **G0** `examples/g0_graph_loadbearing.rs` — the P-GRAPH-LOADBEARING harness:
+  vector-only (BM25) vs vector+PPR+community on a synthetic multi-hop fixture,
+  prints the with-vs-without delta (gold `turbines`: vector-only rank 8/8 @ 0.0,
+  graph rank 6 @ 0.146). Synthetic **scaffold**, not the verdict — the real
+  KILL/PASS needs a labeled corpus + jc::reliability.
+
+**Still gated on G0:** the **D-GR-2 wiring** — fusing CAM-PQ + SPO-G + PPR +
+community into `retrieval.rs` under the RungElevator (design done, impl gated).
+The cosine-replacement distance that retires popcount is a separate
+P-PQ-RANK-gated **wiring** (the primitive already exists — certified
+`bgz-tensor::fisher_z::{FamilyGamma, Base17Fz}` ρ≥0.999 + `helix`, §3a — route it
+into the graph/PPR distance path; do not rebuild it).
 
 ## §4. Topology (v1.1 — expand AriGraph, no new crate)
 
@@ -364,14 +423,18 @@ rendering over ClassView×WideFieldMask. Grounded:
 Neither crate is a new W-wave. Sequenced **after the W1 keystone**
 (`mailbox_owner()` shipped #631; batch-writer W1b in-PR):
 
-- **G0 — baseline probe (FIRST, no code): P-GRAPH-LOADBEARING** (§6). Gate on
-  truth-architect / measurement-before-synthesis.
+- **G0 — P-GRAPH-LOADBEARING — HARNESS SHIPPED** (`examples/g0_graph_loadbearing.rs`).
+  The with-vs-without measurement *mechanism* runs (synthetic multi-hop scaffold,
+  prints the delta); the real KILL/PASS **verdict** still needs a labeled corpus +
+  jc::reliability. Gate on truth-architect / measurement-before-synthesis — the
+  **D-GR-2 wiring stays blocked on the real-corpus verdict**, not on the scaffold.
 - **D-GR-3a — SHIPPED** — `arigraph/community.rs` (`TripletGraph::communities()`,
   multi-level Louvain, deterministic, 5 tests). Landed ahead of G0 as a *pure,
   reversible* capability with no write path — it computes a partition, gates
   nothing. G0 still gates whether it is *wired into retrieval*.
-- **D-GR-1** — `DocGraphQuery` trait in `lance-graph-contract` (impl = AriGraph's
-  retrieval methods). Zero SoA writes.
+- **D-GR-1 — SHIPPED** — `DocGraphQuery` trait + `ScoredId` in `lance-graph-contract`
+  (`doc_graph.rs`, zero-dep, 9 tests, rung→walk dispatch as a default method; the
+  D-GR-2 design lives in its module-doc). Zero SoA writes.
 - **D-GR-2** — extend `arigraph/retrieval.rs` to bind **existing** CAM-PQ + SPO-G
   hops onto the canonical `RungLevel`/`RungElevator` (**#708 merged `8d3209c`**;
   advance-before-sinks ordering per `17368ea`). Mirrors the #708 settlement probe
