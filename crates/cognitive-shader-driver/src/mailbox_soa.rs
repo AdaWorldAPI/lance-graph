@@ -716,9 +716,9 @@ impl<const N: usize> MailboxSoA<N> {
     /// Payload-generic like the writer itself (DTO purity: the writer never
     /// inspects `P`; `P` carries NO ownership fields — `BusDto` is the
     /// canonical rung-B payload in `with-engine` builds). The intent is
-    /// visible on the board AHEAD of any storage ack; deltas stay in this
-    /// SoA's backing store and the sink reads them at flush (zero-copy,
-    /// Addendum-6).
+    /// visible immediately — AHEAD of any storage write completing; deltas
+    /// stay in this SoA's backing store and the sink reads them at flush
+    /// (zero-copy, Addendum-6).
     pub fn cast_on_behalf<P>(
         &self,
         writer: &mut lance_graph_planner::batch_writer::BatchWriter<P>,
@@ -1628,18 +1628,15 @@ mod w4a_cast_pairing_tests {
             Some(77),
             "on_behalf must be the carrier's mailbox_id, read from &self"
         );
-        // AHEAD semantics: the intent is on the board before any ack.
-        assert_eq!(writer.unacked(), vec![cast]);
-        writer.ack(cast, 41);
-        assert!(writer.unacked().is_empty(), "acked cast leaves the WAL");
-        assert_eq!(writer.acked_version(cast), Some(41));
+        // AHEAD semantics: the intent is recorded immediately.
+        assert_eq!(writer.casts(), vec![cast]);
     }
 
     #[test]
     fn stacked_casts_never_refused_melden_macht_frei() {
         // Addendum-7: casting is reporting — a second cast on the same
-        // mailbox while the first is unacked is a stacked WAL entry with its
-        // own id, never a refusal.
+        // mailbox is a stacked intent record with its own id, never a
+        // refusal.
         let mb: MailboxSoA<8> = MailboxSoA::new(9, 1, 1.0);
         let mut writer: BatchWriter<DirtyRange> = BatchWriter::new();
         let d = DirtyRange {
@@ -1650,7 +1647,7 @@ mod w4a_cast_pairing_tests {
         let c1 = mb.cast_on_behalf(&mut writer, vec![], d);
         let c2 = mb.cast_on_behalf(&mut writer, vec![], d);
         assert_ne!(c1, c2);
-        assert_eq!(writer.unacked(), vec![c1, c2], "stacked, in cast order");
+        assert_eq!(writer.casts(), vec![c1, c2], "stacked, in cast order");
         assert_eq!(writer.on_behalf_of(c2), Some(9));
     }
 
@@ -1676,6 +1673,6 @@ mod w4a_cast_pairing_tests {
         let cast = mb.cast_on_behalf(&mut writer, vec![], bus);
 
         assert_eq!(writer.on_behalf_of(cast), Some(1024));
-        assert_eq!(writer.unacked(), vec![cast], "intent AHEAD of ack");
+        assert_eq!(writer.casts(), vec![cast], "intent recorded AHEAD");
     }
 }

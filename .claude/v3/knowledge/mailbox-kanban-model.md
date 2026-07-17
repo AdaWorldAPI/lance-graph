@@ -29,7 +29,7 @@ proposes; the owner disposes.
 | **Arm #2 — symbiont** | `crates/symbiont` (`kanban_loop.rs` = POC) | SurrealDB-on-kv-lance executor: kanban updates as KV transactions on the same Lance substrate. Gated on the AdaWorldAPI surrealdb fork `kv-lance` feature. |
 | **Structural owner** | `lance-graph-supervisor/kanban_actor.rs` | ractor actor per mailbox. **ractor is SOLELY the compile-time ownership guarantee** (name the role — the attestation must stay authoritative to the compiler; operator, 2026-07-17) — it spawns and proves single-ownership via move semantics (`KanbanActor<O>` with `type State = O`; the owner MOVES in at `pre_start`); it is NOT a data-plane bus and **not for messaging — it is slow** (operator, 2026-07-02). **It MAY serve as a HELPER where it makes sense** — spawn, supervision, occasional control RPC like the serialized Advance/MulAdvance (the codex #578 atomicity mechanism) — always keeping the speed difference in mind: nothing on the hot path may wait on ractor latency; hot-path dispatch belongs to the D-V3-W2e-probed ExecTarget. |
 
-## The trigger: kanbanstep, never an ack (operator-ruled, 2026-07-10/17)
+## The trigger: kanbanstep. There is no ack — the concept is ELIMINATED (operator, 2026-07-10/17)
 
 **The canonical kanban advance is the in-stream synchronous step
 ("kanbanstep")**: the writer/stream fires `on_version →
@@ -42,18 +42,24 @@ StreamDto → BusDto → PerturbationDto; the SPO 2³ rung ladder amortizes
 ONE SPO cache load over ≤8 back-to-back L1-resident cycles emitting
 `CausalEdge64` NARS candidates — 40 ns-class operations.
 
-**An ack NEVER paces a cycle.** A durability ack is 10–400 µs away —
-pacing a 40 ns thinking op on it stalls 250×–10,000× and destroys the
-ladder amortization (and the Morton-tile cascade streaming with it).
-The ack's only job is durability bookkeeping (`unacked()` crash-replay).
-The ONLY tier where waiting on an ack is a feature is the **external
-ontology membrane**: lance-graph-callcenter's Supabase-realtime
-transcode shape (tickets, business-logic SLA) + OGAR actionhandler
-queues. Tier test before any advance-path design: *SLA/audit obligation
-(ticket) → SLA gate; cycle budget (thought) → kanbanstep stream.* Never
-cross-route. History + severity: `E-KANBANSTEP-IS-THE-TRIGGER-1`,
-`E-ACK-VIOLATION-REGRADE-1` (the ack-gated advance was a hard
-architecture violation, operator-reversed — do not rebuild it).
+**The ack concept does not exist in this architecture** (operator
+directive 2026-07-17, `E-ACK-ELIMINATED-1` — expelled from code,
+doctrine, and vocabulary after it twice produced tier-crossing designs).
+There is no confirmation bookkeeping anywhere: **durability evidence is
+the written row's own `LanceVersion` in Lance**, read through
+`temporal.rs` (`QueryReference::at` + deinterlace); crash-replay is a
+temporal READ comparing recorded intents against what Lance holds.
+Nothing advances on a completion event: not a thought (a stall of
+250×–10,000× on a 40 ns op, and the death of the ladder amortization),
+and not anything else — the batch writer records intent and nothing
+more. The membrane (lance-graph-callcenter) admits, serializes, and
+splits incoming tasks into reasoning SoAs using the transcode's own
+native semantics (Supabase-realtime); we build no confirmation
+abstraction for it. Do not reintroduce the mechanism under any name —
+"retire", "confirm", "settle" wrapping a stored completion ledger is
+the same thing wearing a new word. History: `E-KANBANSTEP-IS-THE-TRIGGER-1`,
+`E-ACK-VIOLATION-REGRADE-1`, `E-SOA-OWN-BOARD-NO-SIDECAR-1`,
+`E-ACK-ELIMINATED-1`.
 
 ## The ahead-firing batch writer
 

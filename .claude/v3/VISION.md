@@ -142,16 +142,17 @@ The kanban is not a task board — it is **volition, typed**
 Σ-commit (the Rubicon crossing, Libet-anchored — intention forms before the
 conscious act); Planning → Prune is the pre-Rubicon veto ("free won't");
 Evaluation's 3-way is the postactional reckoning; Plan → Planning
-re-deliberates carrying the witness. The cast records intent AHEAD of the ack
-— crossing at intent formation: Rubicon-conformant **by construction of the
-mapping** [RULING] (the −550 ms is Libet's literature value stamped onto the
-transition as the budget anchor, not a quantity measured on this system).
+re-deliberates carrying the witness. The cast records intent at intent
+formation, ahead of any storage write completing: Rubicon-conformant **by
+construction of the mapping** [RULING] (the −550 ms is Libet's literature
+value stamped onto the transition as the budget anchor, not a quantity
+measured on this system).
 
 And beneath it, the prime invariant [RULING E-NOBODY-WAITS-1]: **nobody waits
 for anything or any scheduling.** Writes are fire-and-forget ("melden macht
-frei"); the Lance ack itself proposes the next move (`ack_and_propose` —
-orchestration is self-updating, postactional evidence of cycle N seeding the
-deliberation of cycle N+1); updates reprioritize, never gate; absorbing views
+frei"); durability evidence is the written row's own LanceVersion, read
+through temporal.rs — no confirmation bookkeeping exists anywhere
+[RULING E-ACK-ELIMINATED-1, 2026-07-17]; updates reprioritize, never gate; absorbing views
 rest the loop, never deadlock it; ractor exists solely as the compile-time
 ownership guarantee — `&mut` IS the serialization, no messages, no actors, no
 scheduler anyone blocks on. Any message path found in the tree is redundancy

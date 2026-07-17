@@ -219,3 +219,14 @@ IS the signature transform" (different algebras: VSA bind+braid+bundle vs
 iterated integrals — braiding-by-position rhymes with order-encoding but is
 [S] until measured); ✗ "personality = the QualiaColumn"; ✗ treating the ~1.3×
 aggregate nulls as signal. Full text: `E-CHESS-ARC-TO-V3-TRANSFER-1`.
+
+---
+
+## Correction 2026-07-17 — ACK ELIMINATED (E-ACK-ELIMINATED-1)
+
+The "ack-pump / `ack_and_propose` self-pumping loop" described above
+(and the D-ORG-1 row) is DELETED from source per operator directive —
+the mechanism twice produced tier-crossing designs. `batch_writer.rs`
+is a pure intent recorder; durability evidence is the row's own
+`LanceVersion` via `temporal.rs`; the kanban advance is kanbanstep
+only. Read the above as history.

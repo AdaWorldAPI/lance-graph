@@ -43,16 +43,19 @@ every hit with file:line and a one-line disposition
    `mint_for`'s own V1 arm (`canonical_node.rs`), and legacy-compat
    *reads* (`family()`/`identity()` accessors are reads, not mints).
 
-7. **Ack-paced advance scan** (E-ACK-VIOLATION-REGRADE-1 — the ack-gated
-   advance was a hard architecture violation; do not let it regrow):
-   pattern `ack` co-occurring with `advance_phase|try_advance|KanbanMove`
-   in the same file, plus `\.await` or `ractor::(call!|cast)` on any path
-   that also matches `advance_phase|KanbanColumn|cycle`. Sanctioned:
-   `batch_writer.rs` (durability bookkeeping + the SLA-gate doc),
-   callcenter/OGAR SLA-membrane surfaces, tests, TD-MESSAGE-RESIDUE
-   sites already ledgered. Any NEW hit that paces a reasoning cycle on
-   an awaited event is a violation (kanbanstep is the only reasoning
-   advance).
+7. **Elimination scan — the ack mechanism does not exist**
+   (E-ACK-ELIMINATED-1, operator 2026-07-17; after E-ACK-VIOLATION-REGRADE-1
+   + E-SOA-OWN-BOARD-NO-SIDECAR-1): patterns `ack_and_propose`,
+   `\bunacked\b`, `\backed\b`, `fn ack\b`, `\.ack\(`, `ack-gated`,
+   `actionhandler`, `SLA gate` in code or live doctrine — ANY hit is a
+   violation (there is no sanctioned home; durability evidence is the
+   row's own LanceVersion via temporal.rs). Also flag any NEW stored
+   confirmation ledger in a writer regardless of its name ("retire",
+   "confirm", "settle" + version map = the same mechanism), and any
+   `\.await`/`ractor::(call!|cast)` on a path that also matches
+   `advance_phase|KanbanColumn|cycle` (kanbanstep is the only advance).
+   Exempt: board-history entries (`E-ACK-*` names in EPIPHANIES /
+   PR_ARC / TECH_DEBT / plan addenda) — history is append-only.
 
 End with a verdict per the v3-mailbox-warden vocabulary (OWNED /
 BOOTSTRAP-OK / ORPHAN-WRITE / RESURRECTION) plus LAYOUT-CLEAN /

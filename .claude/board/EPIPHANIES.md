@@ -1,3 +1,13 @@
+## 2026-07-17 — E-ACK-ELIMINATED-1 — the ack is removed from everywhere, completely eliminated (operator directive)
+
+**Status:** RULING + SHIPPED same day. Operator: "remove the ack from everywhere, completely eliminate it" — after the concept twice produced tier-crossing designs and, worse, became a lens every session saw everything through. Expelled from code, doctrine, and vocabulary; not relocated, not renamed.
+
+- **Code:** `batch_writer.rs` = pure intent recorder (`ack`/`ack_and_propose`/`acked`/`unacked`/`acked_version` deleted; zero production callers existed). W1e probes + driver cast-pairing tests rewritten (all green; the two pre-existing nars_engine clippy deprecation errors on main are untouched).
+- **Semantics:** durability evidence = the written row's own `LanceVersion` in Lance, read through `temporal.rs`; crash-replay = a temporal READ of recorded intents vs what Lance holds — never a stored ledger.
+- **Dead with it:** D-AHG-1; the "SLA gate" / "actionhandler queue" concepts (retired UNBUILT). The membrane admits/serializes/splits tasks with the transcode's own native semantics.
+- **Guards:** `/v3-audit` check 7 = the elimination scan; guardrails STOP trigger 7 bans rebuilding the mechanism under any name ("retire"/"confirm"/"settle" + version map = the same thing).
+- Prior `E-ACK-*` entries below are history of how it got here; live doctrine (mailbox-kanban-model, VISION §5, INTEGRATION-PLAN Addendum-14, M24 status, FUTURE-DESIGN sixth wave) now teaches the post-elimination world.
+
 ## 2026-07-17 — E-KANBAN-STAYS-INTERIOR-MEMBRANE-IS-ACK-ONLY-1 — CORRECTION of E-TASKS-SOA-AT-THE-MEMBRANE-1: kanban does NOT move to the membrane; it is reasoning-interior ONLY. The membrane does ACK-serialization; the Tasks SoA holds admission + SLA + fan-out state (no sidecar) — the SLA-gate/actionhandler-queue tier, categorically NOT the Rubicon reasoning kanban
 
 **Status:** CORRECTION (operator, 2026-07-17: "Why did you move kanban to the outer membrane that's unacceptable"). Retracts TWO body clauses of E-TASKS-SOA-AT-THE-MEMBRANE-1 (below); the rest of that entry STANDS. Append-only: the original is not edited — this entry supersedes the retracted clauses.

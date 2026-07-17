@@ -94,7 +94,7 @@ exactly the row below, never a neighbor.
 | F12 | Test literals that only work in one classid order / one layout version (synthetic 0xAB12-style values) | test values come from the §2-sanctioned composers + realistic allocations; never hand-rolled hex composites |
 | F13 | Worker "fixes" a failing unrelated test to get green | out of scope (§1 rule 1): report the failure, touch nothing |
 | F14 | German PII labels or model identifiers in committed artifacts | never emit either in any file/commit (workspace-wide rule); chat-only |
-| F15 | A cycle/phase advance paced on an ack, message, or awaited event (the ack-gated advance — a hard architecture violation, operator-reversed; E-ACK-VIOLATION-REGRADE-1) | kanbanstep is the ONLY reasoning advance (inline `on_version → try_advance_phase(&mut)`); acks = durability bookkeeping; SLA-gated waiting exists ONLY at the callcenter/OGAR membrane; ractor = compile-time ownership guarantee, never messaging (10⁴–10⁷× tax). A worker asked to await anything before an advance = STOP+report |
+| F15 | A cycle/phase advance paced on a completion/confirmation event, message, or awaited anything — or a stored confirmation ledger added to a writer (the eliminated ack mechanism; E-ACK-VIOLATION-REGRADE-1 → E-ACK-ELIMINATED-1) | kanbanstep is the ONLY advance (inline `on_version → try_advance_phase(&mut)`); the ack concept DOES NOT EXIST — durability evidence is the row's own LanceVersion via temporal.rs; ractor = compile-time ownership guarantee, never messaging (10⁴–10⁷× tax). A worker asked to await anything before an advance, or to add confirmation bookkeeping under ANY name = STOP+report |
 
 ## §4 — Sanctioned command palette (copy these, don't improvise)
 
@@ -124,10 +124,12 @@ appears, because each requires accumulation-tier judgment:
 5. The change would add/modify a write path's ownership routing (needs
    v3-mailbox-warden).
 6. Anything RBAC, PII-adjacent, or externally visible.
-7. The change would make ANY cycle/phase advance wait on an ack, a
-   message, a `ractor::call!`/`cast`, or any awaited event (F15 — the
-   tier test is the orchestrator's call, not the worker's; the only
-   sanctioned waiting tier is the callcenter/OGAR SLA membrane).
+7. The change would make ANY cycle/phase advance wait on a completion
+   or confirmation event, a message, a `ractor::call!`/`cast`, or any
+   awaited event — or would add ANY stored confirmation ledger to a
+   writer (the eliminated mechanism, E-ACK-ELIMINATED-1; durability
+   evidence is the row's own LanceVersion read via temporal.rs, and no
+   equivalent may be rebuilt under any name).
 
 Cross-ref: `.claude/knowledge/autoattended-multiagent-pattern.md` (the
 4-savant wave pattern these rules slot into), `v3-substrate-primer.md`

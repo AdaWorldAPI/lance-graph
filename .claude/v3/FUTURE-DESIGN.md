@@ -11,6 +11,12 @@
 
 ---
 
+## 2026-07-17 (sixth wave) — ACK ELIMINATED everywhere (operator directive)
+
+| Ruling | One line | Wiring queue |
+|---|---|---|
+| E-ACK-ELIMINATED-1 | "remove the ack from everywhere, completely eliminate it" — the concept is expelled from code, doctrine, and vocabulary (it twice produced tier-crossing designs and became a lens distorting every session). SHIPPED: `batch_writer.rs` = pure intent recorder (`ack`/`ack_and_propose`/`acked`/`unacked`/`acked_version` deleted; zero production callers existed); probes + driver tests rewritten; durability evidence = the written row's own LanceVersion via temporal.rs; crash-replay = a temporal READ of intents vs Lance. D-AHG-1 is DEAD; the SLA-gate / actionhandler-queue concepts are retired UNBUILT; the membrane admits/serializes/splits tasks with the transcode's own native semantics (no confirmation abstraction of ours). /v3-audit check 7 = the elimination scan; guardrails trigger 7 bans rebuilding the mechanism under any name | none — the elimination is the wiring. Rows below referencing ack/SLA-gate/actionhandler are HISTORY, read through this row |
+
 ## 2026-07-17 (fifth wave) — ack-violation regrade + the stream tier's economics named
 
 | Ruling | One line | Wiring queue |
@@ -53,7 +59,8 @@ D-TSC-1; the 5-savant fan-out surfaced the three-divergent-tables finding.
 > E-ACK-VIOLATION-REGRADE-1 (fifth wave, top of this file): the
 > ack-trigger framing was a hard architecture violation, reversed —
 > kanbanstep is the only reasoning advance; acks are durability
-> bookkeeping; SLA-gated waiting lives only at the callcenter/OGAR
+> bookkeeping (and since 2026-07-17, E-ACK-ELIMINATED-1: no such
+> bookkeeping exists at all); SLA-gated waiting lives only at the callcenter/OGAR
 > membrane. The row's fire-and-forget clause stands; its trigger
 > ranking does not. Append-only: the row is not edited.
 

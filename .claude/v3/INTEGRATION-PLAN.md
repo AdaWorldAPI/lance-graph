@@ -708,3 +708,21 @@ non-overlapping walker; `array_windows` is the overlapping GEMM sibling,
 deliberately unused); `simd_soa.rs::SoaBytes` remains an OPEN follow-up
 (natural carrier for vectorized sink sweeps + batch tables). Note: probe
 target/debug purged mid-round (disk full at 100%); gates re-run green.
+
+### Addendum-14 2026-07-17 — ACK ELIMINATED (operator directive; E-ACK-ELIMINATED-1)
+
+"Remove the ack from everywhere, completely eliminate it." Shipped same
+day: `batch_writer.rs` is a pure intent recorder (`ack` /
+`ack_and_propose` / `acked` / `unacked` / `acked_version` deleted — zero
+production callers existed); W1e probes + driver cast-pairing tests
+rewritten to pin intent recording + delegation caching only. Durability
+evidence is the written row's own `LanceVersion` in Lance, read through
+`temporal.rs`; crash-replay is a temporal READ comparing recorded
+intents against what Lance holds — never a stored ledger. D-AHG-1 is
+dead; the SLA-gate / actionhandler-queue concepts are retired unbuilt;
+the membrane admits/serializes/splits incoming tasks with the
+transcode's own native semantics. Every ack/unacked reference in the
+addenda above (Addendum-1 W1e row, Addendum-6 §3, Addendum-7, Addendum-8
+§3) is HISTORY read through this addendum. Guardrails STOP trigger 7 +
+`/v3-audit` check 7 enforce that the mechanism is not rebuilt under any
+name.
