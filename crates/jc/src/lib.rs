@@ -30,18 +30,24 @@
 //!
 //! Run: `cargo run --manifest-path crates/jc/Cargo.toml --example prove_it`
 
-pub mod substrate;
-pub mod weyl;
-pub mod jirak;
-pub mod pearl;
 pub mod cartan;
-pub mod precond;
-pub mod koestenberger;
 pub mod dueker_zoubouloglou;
 pub mod ewa_sandwich;
 pub mod ewa_sandwich_3d;
-pub mod pflug;
 pub mod hambly_lyons;
+pub mod jirak;
+pub mod koestenberger;
+pub mod pearl;
+pub mod pflug;
+pub mod precond;
+pub mod substrate;
+pub mod weyl;
+
+// Reliability & validity metric battery (Pearson / Spearman / Cronbach α / ICC).
+// NOT a pillar — a consolidated toolkit the D-TRI-2/4/5 agreement gates call.
+// Point estimates only; significance calibration is `jirak`'s job
+// (I-NOISE-FLOOR-JIRAK). See `src/reliability.rs`.
+pub mod reliability;
 
 // PROBE-SIG-CHECKSUM — depth-2 truncated signature as a replayable
 // trajectory digest (H.268 probe wave, grades E-WH-TWO-SIDES-SIG-CHECKSUM-1
@@ -92,26 +98,61 @@ impl PillarResult {
         } else {
             "✗ FAIL"
         };
-        println!("  {status}  measured={:.6}  predicted={:.6}  ({} ms)",
-            self.measured, self.predicted, self.runtime_ms);
+        println!(
+            "  {status}  measured={:.6}  predicted={:.6}  ({} ms)",
+            self.measured, self.predicted, self.runtime_ms
+        );
         println!("  {}", self.detail);
     }
 }
 
 pub fn run_all_pillars() -> Vec<PillarResult> {
     let pillars: Vec<(&str, fn() -> PillarResult)> = vec![
-        ("E-SUBSTRATE-1: bundle associativity @ d=10000", substrate::prove),
-        ("Cartan-Kuranishi: role_keys ≡ Cartan characters", cartan::prove),
+        (
+            "E-SUBSTRATE-1: bundle associativity @ d=10000",
+            substrate::prove,
+        ),
+        (
+            "Cartan-Kuranishi: role_keys ≡ Cartan characters",
+            cartan::prove,
+        ),
         ("φ-Weyl: 144-verb collocation coverage", weyl::prove),
-        ("γ+φ preconditioner: prolongation step reduction", precond::prove),
-        ("Jirak Berry-Esseen: weak-dep noise floor @ d=16384", jirak::prove),
-        ("Pearl 2³ mask-accuracy: three-plane vs bundled @ d=16384", pearl::prove),
-        ("Köstenberger-Stark: inductive mean on Hadamard 2×2 SPD", koestenberger::prove),
-        ("Düker-Zoubouloglou: Hilbert-space CLT for AR(1) in ℝ^16384", dueker_zoubouloglou::prove),
-        ("EWA-Sandwich: Σ-push-forward along multi-hop edge paths", ewa_sandwich::prove),
-        ("EWA-Sandwich 3D: Σ-push-forward on symmetric 3×3 SPD covariances", ewa_sandwich_3d::prove),
-        ("Pflug-Pichler: nested-distance Lipschitz on Sigma DN-trees", pflug::prove),
-        ("Hambly-Lyons: signature uniqueness on tree-quotient", hambly_lyons::prove),
+        (
+            "γ+φ preconditioner: prolongation step reduction",
+            precond::prove,
+        ),
+        (
+            "Jirak Berry-Esseen: weak-dep noise floor @ d=16384",
+            jirak::prove,
+        ),
+        (
+            "Pearl 2³ mask-accuracy: three-plane vs bundled @ d=16384",
+            pearl::prove,
+        ),
+        (
+            "Köstenberger-Stark: inductive mean on Hadamard 2×2 SPD",
+            koestenberger::prove,
+        ),
+        (
+            "Düker-Zoubouloglou: Hilbert-space CLT for AR(1) in ℝ^16384",
+            dueker_zoubouloglou::prove,
+        ),
+        (
+            "EWA-Sandwich: Σ-push-forward along multi-hop edge paths",
+            ewa_sandwich::prove,
+        ),
+        (
+            "EWA-Sandwich 3D: Σ-push-forward on symmetric 3×3 SPD covariances",
+            ewa_sandwich_3d::prove,
+        ),
+        (
+            "Pflug-Pichler: nested-distance Lipschitz on Sigma DN-trees",
+            pflug::prove,
+        ),
+        (
+            "Hambly-Lyons: signature uniqueness on tree-quotient",
+            hambly_lyons::prove,
+        ),
     ];
 
     let total = pillars.len();
