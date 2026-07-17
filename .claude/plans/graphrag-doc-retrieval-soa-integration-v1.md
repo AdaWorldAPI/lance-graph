@@ -1,7 +1,11 @@
 # graphrag + doc-retrieval on the V3 SoA — integration plan v1
 
-> **Status:** DESIGN — evaluation + wave plan (no bytes land here). **v1.1
-> (2026-07-17): expand AriGraph in place — NO standalone `crates/graphrag` (§1).**
+> **Status:** DESIGN + FIRST CODE. **v1.2 (2026-07-17):** the base is a *meaning
+> measurement* — COCA + NARS are co-equal core faculties, agnosticism is scoped to
+> raw data + consumer modelling only (§3a); Leiden community synergies (§3b); the
+> DocumentID-KV / witness-handle seam (§4a). **v1.1:** expand AriGraph in place —
+> NO standalone `crates/graphrag` (§1). **First code shipped: `arigraph/community.rs`
+> (D-GR-3a) — `TripletGraph::communities()`, multi-level Louvain, deterministic.**
 > Aligned to
 > **#708 / D-TRI-6 — now MERGED (`8d3209c`; `E-RUNG-ASCENT-WIRED-1` SHIPPED)** +
 > `E-MASLOW-PYRAMID-OF-COGNITION-1` and the `triangle-tenants-gestalt-separation-v1`
@@ -160,13 +164,140 @@ graphrag never re-decides the level — it reads the driver's `RungLevel` and
 supplies the wider graph walk. This is the anti-decorative-graph guarantee (vs
 the graph-librarian-rs anti-pattern where the graph is built but never traversed).
 
+## §3a. The base — a meaning MEASUREMENT: tokenization, ranking (256), distribution (256²)
+
+The substrate is a **meaning substrate, not a meaning-agnostic one** (operator,
+2026-07-17). Two **co-equal core faculties** carry it: **COCA** (distributional
+semantics / syntax / pragmatics — the meaning layer) and **NARS** (truth /
+reasoning). Agnosticism is scoped ONLY to **raw data** (bytes → the KV, §4a) and
+**consumer modelling** (app schema); the graph is the *opposite* of agnostic
+about meaning — it **measures** it. The `markov_soa` "vocabulary-agnostic" hot
+loop is codebook-*parametric* for cross-domain SIMD reuse (an injected
+`Fn(u16,u16)->u8`); for language/document content the injected distance IS the
+core COCA meaning — correct, not a "language lens." *(Correction target: the
+shipped `markov_soa.rs:16,28` "keep language out" comment reflects the older
+framing; the COCA meaning codebook wants a core-reachable home, not quarantine in
+the downstream `deepnsm` crate — board follow-up.)*
+
+**Tokenization = the L4 facet tenant.** CAM-PQ = 6 subspaces × 256 centroids
+(`cam_pq/udf.rs:27,37`); DeepNSM IS that same PQ, trained from the 96D **f32**
+COCA vectors *at build time* (`deepnsm/codebook.rs:3-4` — `NUM_SUBSPACES=6`, 256
+centroids) but emitting the **8-bit** code. Content → a `6×2×8bit` code = the
+node's **L4 `6×(8:8)` facet tenant** (`le-contract.md:59`).
+Quantizing to one centroid per subspace *is* tokenization; the token IS the
+facet, no separate index. COCA ≈ 98.4 % English → the code is "as good as
+agnostic" (a near-universal meaning basis, a *measurement*, not a narrowing bias).
+
+**Everything is 8-bit (CLAM), never f32.** The 12-byte facet is **`6×2×8bit`** —
+six subspaces, each a two-byte pair — and the CLAM tree indexes those 8-bit codes;
+**f32 is a build-time source only** (the codebook is trained from f32, the runtime
+register is not). The same `6×(8:8)` register is **polymorphic** (classview-selected):
+read as **`part_of:is_a` family identity** (L1 — the HHTL family/basin rail) OR as
+the **palette256² centroid** (L4 CAM-PQ). So "6×256:256" is the is_a family
+identity AND the centroid — one register, two lenses; this is *why* communities
+(structural) and is_a basins (family) couple so tightly (§3b.1).
+
+**256 = ranking; 256² = distribution** (the le-contract distance-vs-compose split,
+`:163-167`):
+
+| | **256 (single 8-bit) = ranking** | **256² (2×8bit pair) = distribution** |
+|---|---|---|
+| shape | one monotone axis | the full joint pairwise |
+| accuracy | the cosine axis only — **REQUIRES the cosine-replacement** (Fisher-z: cosine→`atanh`→i8; a raw byte is not cosine) | **as accurate as content-blind f32** — the pair recovers full f32 fidelity at 8-bit (the claim P-PQ-RANK certifies) |
+| read | `\|Δi8\|·(z_range/254)`, table-free | the semiring COMPOSE table (kept — "z-addition does not compose cosines", `:167`) |
+| answers | "how similar / what order" | "how it relates / composes / transitions" |
+| a word/doc | a scalar position | its **relational profile = its distribution** |
+
+**This is a MEASUREMENT, not a judgment — and that is the point.** COCA ×
+6×256:256 is **deterministic** (integer/table, bit-reproducible, 0 learned
+params, <10 µs/sentence; an LLM is stochastic even at T=0), **agnostic** as a
+*fixed, transparent, empirical* basis (vs an LLM's opaque, RLHF-shaped,
+version-drifting one), and **auditable/falsifiable** — a fixed inspectable table
+you can *certify* with the jc battery (ρ≥0.999). Determinism is the
+**precondition** for the probe-first spine: you cannot run a reproducible
+falsification against a stochastic oracle. The architecture therefore **demotes
+the LLM to the escalation tail** (the "<25 %" the stack routes to an oracle only
+when measurement runs out); everything in the hot loop is a certifiable
+measurement.
+
+**The rung ascent IS ranking → distribution.** Rung 0–1 = 256-ranking; rung 2+ =
+256²-distribution (SPO-G compose, PPR, community). BLOCK/surprise escalates from
+"sort by similarity" to "reason over the relational field." **Exactness escape
+hatch:** the bgz-tensor **index+residual ladder** (`adaptive_codec.rs`,
+`:189-207`) — centroid PLACES, a Hadamard residual CORRECTS in a 3-tier LFD
+split, hardest ~10 % → `Passthrough` (exact vector).
+
+**DeepNSM is the no-LLM tokenizer + SPO sensor — an UPSTREAM leg.** text →
+COCA-4096 tokenize → PoS-FSM → 36-bit SPO → ±5 VSA context (`deepnsm/pipeline.rs`).
+**Crate-layering constraint (mechanical, not semantic):** AriGraph core cannot
+Cargo-depend on the `deepnsm` crate (downstream). So `community.rs`/`retrieval.rs`
+consume the **in-core `crates/lance-graph/src/nsm/` copy** or receive SPO
+produced upstream (osint) — the *meaning* (COCA) is core; only the *sensor
+packaging* is downstream. DeepNSM's `BasinClassification` (`episodic_spo.rs:216`)
+is a per-sentence basin proposer — the design reference for §3b's
+community/basin cross-validation.
+
+## §3b. Leiden community synergies (why AriGraph, not a crate)
+
+Communities are the **structural partition** completing the partitions AriGraph
+already carries, and they are **distributional-meaning modes, NARS-truth-weighted**
+— not agnostic clustering of opaque ranks. Six synergies:
+
+1. **× episodic/family basins — orthogonal partitions that cross-validate.** The
+   basin = `part_of:is_a` rail / `EpisodicEdges64` family (`family==0`
+   intra-basin) — the *inherited/experiential* grouping; a community = the
+   *computed structural* grouping. Coincide ⇒ high-confidence structure; cross ⇒
+   a discovered bridge; basin-without-community ⇒ a revision candidate. A NEW
+   partition beside the family rail, never a re-carving of it (measure agreement:
+   P-COMMUNITY-BASIN-AGREE).
+2. **× the 256² distribution — Leiden clusters the distribution, not the
+   ranking.** Modularity runs over the compose/distribution graph (256²
+   palette-compose + `CausalEdge64` SPO edges), NOT the 256 rank. A community IS
+   a mode of the relational field — inexpressible as a scalar rank; this is why
+   §3a's pairwise is load-bearing.
+3. **× COCA meaning / NARS truth — communities = topics, truth-weighted, no
+   LLM.** A word/doc's meaning IS its distribution (its 256²/4096² row); Leiden
+   over it = semantic communities = topics — the **no-LLM community-summary** leg
+   (vs graphrag-rs's LLM summaries). Edges are NARS-weighted (`community.rs` uses
+   `truth.confidence`; expectation-weighting is the refinement) — a community is
+   a *truth-weighted meaning mode*, COCA + NARS together.
+4. **× the rung ascent — community IS the rung-3 layer.** 0–1 ranking → 2 SPO-hop
+   → **3 community-scoped expansion** (community bounds the PPR restart set; the
+   summary is the coarse answer) → 4 `intervene_on` apex. `detect_contradictions`
+   → BLOCK widens the community scope.
+5. **× PPR — community-scoped personalized PageRank.** Restart-within-community =
+   HippoRAG passage-community scoping: cheaper (bounded) + more relevant. Community
+   picks the subgraph; PPR ranks within it.
+6. **× the witness/KV/document layer — communities of DOCUMENTS.** Documents are
+   witnessed nodes (DocumentID handles, §4a). Leiden over the document-graph =
+   document communities = topic clusters — the "documents in this community" seam
+   `ogar-doc`'s reconstruct/related-docs path consumes.
+
+**Hierarchical Leiden ↔ the existing hierarchy.** Leiden is hierarchical; the
+substrate is already hierarchical (256 = 4⁴ centroid tree; HHTL cascade;
+`part_of:is_a` taxonomy). A super-community SHOULD align with a coarse HHTL tier
+/ taxonomy parent — **register and measure agreement** (P-HIER-LEIDEN-HHTL), not
+bolt on a foreign hierarchy; disagreement = discovered structure. **The LFD-hard
+tier = community boundaries** — the ~10 % Passthrough nodes are the bridges where
+assignment is ambiguous; the exactness ladder and the community geometry are the
+same object seen twice.
+
+**Shipped (D-GR-3a):** `arigraph/community.rs` — multi-level Louvain over the
+`TripletGraph` adjacency (NARS-confidence-weighted), the carrier method
+`TripletGraph::communities()`, deterministic (BTreeMap-ordered moves,
+sorted-entity index), 5 inline tests (two-triangle→2, clique→1, determinism,
+empty-safe, weighted-cohesion). The Leiden *refinement* pass (well-connected
+communities) is the next increment; PPR + community fusion into `retrieval.rs`
+is D-GR-3b.
+
 ## §4. Topology (v1.1 — expand AriGraph, no new crate)
 
 ```
 crates/lance-graph/src/graph/arigraph/     (EXPAND — the graph owns its own structure)
-  community.rs   # NEW: hierarchical Leiden over the TripletGraph adjacency
-                 #      (triplets + entity_index; backed by in-core blasgraph CSR).
-                 #      The structural partition beside witness_corpus/episodic basins.
+  community.rs   # SHIPPED (D-GR-3a): TripletGraph::communities() — multi-level Louvain
+                 #      over the triplet adjacency (NARS-confidence-weighted), deterministic,
+                 #      5 tests. The structural partition beside witness_corpus/episodic basins.
+                 #      Next: Leiden refinement pass; PPR/community fusion (D-GR-3b).
   retrieval.rs   # EXTEND OsintRetriever: + PPR/HippoRAG (reset-distribution atop
                  #      blasgraph::hdr_pagerank), + community as a THIRD fusion signal
                  #      (beside BFS + episodic). Driven by the #708 RungElevator:
@@ -195,6 +326,39 @@ from `retrieval.rs` in-core; `rung_widened_layer_mask` (still private,
 "feeds ogar-doc": ogar-doc is a **caller** of AriGraph's query surface (through
 the contract trait), never fed data by a lance-graph crate.
 
+## §4a. The document-identity KV seam — witness holds a handle, never raw
+
+Operator threads (v1.2): a separate KV so the episodic witness doesn't carry raw
+data, keyed by DocumentPath/DocumentID, related to `ogar-doc`/tesseract-rs
+rendering over ClassView×WideFieldMask. Grounded:
+
+- **DocumentID/DocumentPath is NEW and the RIGHT key.** It doesn't exist yet (no
+  KV table; no `DocumentPort` in tesseract-rs). Do NOT reuse `content_sha256`
+  (per-acquisition DEDUP key — scan vs HTML of the same invoice differ,
+  `ogar-doc-ir/lib.rs:308`) or expose `kv_key` (storage-opaque). A stable
+  DocumentID gives the **witness ↔ node ↔ KV** triangle one handle independent of
+  retina and blob store — make the raw-ref's `kv_key` field CARRY the DocumentID.
+- **The three-tier handle chain (no raw embedding):** (1) AriGraph **witness** =
+  `WitnessEntry{mailbox_ref, spo_fact_ref}` (hot path) — already **handle-only**
+  ✅; (2) **`document 0x080B` node value** = raw-ref `{sha256 digest,
+  kv_key=DocumentID, mime, counts}` — the SINGLE place DocumentID↔kv_key lives,
+  calcifies to Lance as SoA value bits; (3) **consumer KV** keyed by DocumentID =
+  the actual bytes/raster (S3 / MedCare `file_filelist` / a *passive* Lance blob
+  column). The render leg **late-binds** the raster only at render time.
+- **The change your KV idea targets is real + localized (D-GR-6).** The hot-path
+  witness is already raw-free; but the **cold-path `witness_corpus::WitnessEntry`
+  embeds `evidence_blob: Bytes`** and **`episodic::Episode` embeds `observation:
+  String`** — replace those with a DocumentID handle → KV. A scoped AriGraph
+  change, not a rewrite.
+- **Boundary + rendering:** the KV is **consumer/blob-store side, never a Lance
+  ingest endpoint**. OGAR assembles; lance calcifies handles; tesseract-rs stays
+  untouched (`doc.v1` seam). Rendering reuses the shipped `ClassView ×
+  WideFieldMask` brick (`render_field_view` / `render_class_with_methods_wide` /
+  a2ui `project_node`; PDF = the unbuilt `ogar-doc reconstruct_document`), RBAC
+  `template ∩ role` fail-closed. **Sequencing:** the `0x080B`/`0x080A` mints +
+  persist/reconstruct are BLUEPRINT-ONLY, council/mint-gated — D-GR-5/6 sequence
+  AFTER the doc-W4 council.
+
 ## §5. Wave sequencing (aligned to v3 W0–W6 + D-TRI)
 
 Neither crate is a new W-wave. Sequenced **after the W1 keystone**
@@ -202,20 +366,30 @@ Neither crate is a new W-wave. Sequenced **after the W1 keystone**
 
 - **G0 — baseline probe (FIRST, no code): P-GRAPH-LOADBEARING** (§6). Gate on
   truth-architect / measurement-before-synthesis.
-- **D-GR-1** — `DocGraphQuery` trait + `DocGraphView` read projection in the
-  contract (both consumers build against it). Zero SoA writes.
-- **D-GR-2** — `crates/graphrag` scaffold + `retrieve.rs` binding **existing**
-  CAM-PQ + SPO-G hops onto the canonical `RungLevel` / `RungElevator` (**#708
-  merged `8d3209c` — dependency satisfied**; advance-before-sinks ordering per
-  `17368ea`). Mirrors the #708 settlement probe (BLOCK ascends → wider walk;
-  FLOW at base).
-- **D-GR-3** — BUILD the 3 gaps (`community.rs` Leiden, `ppr.rs` HippoRAG,
-  `keyword.rs` BM25), **each individually gated** on G0 showing it beats
-  vector-only.
-- **D-GR-4** — `summarize.rs` community summaries via the Rig oracle → compiled
-  template (depends on W3 `template-runtime`).
-- **D-GR-5** — wire `ogar-doc` `reconstruct_document` + "similar/related
-  documents" to `DocGraphQuery` (cross-repo; baton-audited classid handshake).
+- **D-GR-3a — SHIPPED** — `arigraph/community.rs` (`TripletGraph::communities()`,
+  multi-level Louvain, deterministic, 5 tests). Landed ahead of G0 as a *pure,
+  reversible* capability with no write path — it computes a partition, gates
+  nothing. G0 still gates whether it is *wired into retrieval*.
+- **D-GR-1** — `DocGraphQuery` trait in `lance-graph-contract` (impl = AriGraph's
+  retrieval methods). Zero SoA writes.
+- **D-GR-2** — extend `arigraph/retrieval.rs` to bind **existing** CAM-PQ + SPO-G
+  hops onto the canonical `RungLevel`/`RungElevator` (**#708 merged `8d3209c`**;
+  advance-before-sinks ordering per `17368ea`). Mirrors the #708 settlement probe
+  (BLOCK ascends → wider walk; FLOW at base).
+- **D-GR-3b** — the remaining BUILD gaps: **Leiden refinement** (well-connected
+  communities) on `community.rs`; **`ppr.rs` HippoRAG** (reset-distribution atop
+  `blasgraph::hdr_pagerank`) + **community-scoped PPR** fused into `retrieval.rs`
+  as a third signal beside BFS+episodic; **BM25** (small, out-of-graph). Each
+  gated on G0 beating vector-only.
+- **D-GR-4** — community summaries via the Rig oracle → compiled template (W3
+  `template-runtime`). No-LLM path preferred (DeepNSM distributional summary);
+  LLM only at the escalation tail.
+- **D-GR-5** — wire `ogar-doc` `reconstruct_document` + "documents in this
+  community" to `DocGraphQuery` (cross-repo; baton-audited; AFTER doc-W4 council).
+- **D-GR-6** — the witness-KV separation (§4a): replace the **cold-path**
+  `witness_corpus::WitnessEntry.evidence_blob` + `episodic::Episode.observation`
+  raw embeds with a **DocumentID handle → consumer KV**. Scoped AriGraph change;
+  born-stamped if it persists; AFTER doc-W4 council (DocumentID is the raw-ref key).
 
 Depends-on: W1b (any persisted result is born-stamped), W2 (retrieval cycles =
 kanban lanes if a cycle persists), W3 (summaries = compiled templates). Composes
@@ -235,6 +409,22 @@ unified SoA context; graphrag is the retrieval layer over it — §8).
 - **P-PPR-MULTIHOP.** HippoRAG-PPR beats vector-only on 2+-hop questions.
 - **P-COMMUNITY-GLOBAL.** Leiden community summaries beat flat chunk-concat on
   global/thematic questions (the LightRAG dual-level claim).
+- **P-COMMUNITY-BASIN-AGREE (new, v1.2).** Leiden communities vs the
+  `part_of:is_a`/`EpisodicEdges64` family basins — measure agreement
+  (jc::reliability). High agreement ⇒ structure confirms experience; the
+  disagreements are the discovered bridges / revision candidates (§3b.1).
+- **P-HIER-LEIDEN-HHTL (new, v1.2).** Hierarchical Leiden super-communities vs the
+  coarse HHTL tiers / taxonomy parents — measure agreement; disagreement =
+  structure the taxonomy lacks (§3b hierarchy note).
+- **P-MEASUREMENT-DETERMINISM (new, v1.2).** `community.rs` (and every base read)
+  is bit-reproducible: same graph → identical partition across runs/machines
+  (the property that makes the jc certifications *possible*, and that an
+  LLM-based clustering cannot offer). Asserted by the `deterministic` unit test;
+  the substrate-wide claim of §3a.
+- **P-PQ-RANK (new, v1.2).** Spearman ρ of the `6×256:256` node-to-node distance
+  vs the `4096²` reference on COCA pairs (jc::reliability). ρ≥0.99 ⇒ 256 centroids
+  suffice for the base; else escalate hard pairs to the index+residual /
+  Passthrough tier (§3a).
 - **jc battery** (ICC / Spearman / Cronbach) before any new lane-reading backs a
   claim (v3 standing gate). **Landed #709** as `jc::reliability::{pearson,
   spearman, cronbach_alpha, icc(IccForm)}` — every probe above computes its
@@ -264,6 +454,15 @@ unified SoA context; graphrag is the retrieval layer over it — §8).
 5. **CausalEdge64 duplication + cross-repo baton.** Always qualify
    `causal_edge::CausalEdge64`. Any OGAR classid for the D-GR-5 seam is a
    **batched** mint + sync-fuse, baton-handoff-auditor gated.
+6. **Meaning-substrate, NOT meaning-agnostic (v1.2 correction).** Do NOT
+   reintroduce the "keep language out of the agnostic graph" framing. COCA
+   distributional meaning is a **core faculty** (co-equal with NARS); the
+   `markov_soa` hot loop is codebook-*parametric* for cross-domain reuse, and for
+   language content the injected COCA distance is correct, not a "language lens."
+   Agnosticism = raw data + consumer modelling only (§3a). Only the *crate
+   layering* is a real constraint: AriGraph core can't Cargo-dep the downstream
+   `deepnsm` crate — use the in-core `nsm/` copy. (The shipped
+   `markov_soa.rs:16,28` comment is a correction target, not a rule to obey.)
 
 ## §8. Relationship to existing plans
 
@@ -349,7 +548,10 @@ All build on reachable primitives. AriGraph fit confirmed: it owns `retrieval.rs
 + `witness_corpus.rs` + `episodic.rs` + `spo_bridge.rs` + `markov_soa.rs` today,
 and has **no** community/partition type — Leiden fills the gap, does not clutter.
 
-**Immediate next step (v1.1, no upstream change):** add `arigraph/community.rs`
-(Leiden over `TripletGraph`) + a `cargo check -p lance-graph`; then extend
-`arigraph/retrieval.rs` with PPR + community fusion under the #708 `RungElevator`;
-then the G0 `P-GRAPH-LOADBEARING` probe (jc::reliability battery). No new crate.
+**Next step (v1.2):** `arigraph/community.rs` is **DONE (D-GR-3a)** —
+`TripletGraph::communities()`, multi-level Louvain, deterministic, 5 tests
+(Louvain core verified standalone before the core build). Remaining, in order:
+(1) `ppr.rs` HippoRAG + community-scoped PPR fused into `arigraph/retrieval.rs`
+under the #708 `RungElevator` (D-GR-3b); (2) the `DocGraphQuery` contract trait
+(D-GR-1); (3) the G0 `P-GRAPH-LOADBEARING` probe + P-PQ-RANK / P-COMMUNITY-BASIN-AGREE
+(jc::reliability). No new crate; no upstream change for (1)-(3).
