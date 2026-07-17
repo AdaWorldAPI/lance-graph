@@ -192,7 +192,7 @@ impl WorldModelDto {
         Self {
             self_state: SelfState {
                 style: agent.current_style,
-                rung: agent.current_rung.as_u8(),
+                rung: 0,
                 gate: hdr.gate(),
                 viscosity: if free_energy < 0.05 {
                     Viscosity::Ice

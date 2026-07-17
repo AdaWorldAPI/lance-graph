@@ -16,44 +16,6 @@
 //! L1  Recognition       — tokenize → codebook lookup
 //! ```
 
-/// 10 cognitive layers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum LayerId {
-    L1,  // Recognition
-    L2,  // Resonance
-    L3,  // Appraisal
-    L4,  // Routing (autopoiesis)
-    L5,  // Execution
-    L6,  // Delegation
-    L7,  // Contingency
-    L8,  // Integration
-    L9,  // Validation
-    L10, // Crystallization
-}
-
-impl LayerId {
-    pub fn as_u8(&self) -> u8 {
-        match self {
-            Self::L1 => 1,
-            Self::L2 => 2,
-            Self::L3 => 3,
-            Self::L4 => 4,
-            Self::L5 => 5,
-            Self::L6 => 6,
-            Self::L7 => 7,
-            Self::L8 => 8,
-            Self::L9 => 9,
-            Self::L10 => 10,
-        }
-    }
-    pub fn is_single_agent(&self) -> bool {
-        self.as_u8() <= 5
-    }
-    pub fn is_multi_agent(&self) -> bool {
-        self.as_u8() > 5
-    }
-}
-
 /// The 12-family orchestration space — canonical type lives in the
 /// contract (M9 dedup, D-TSC-1). The engine keeps its calibrated
 /// per-family parameters locally (`EngineStyleExt`).
@@ -249,64 +211,12 @@ impl GateState {
     }
 }
 
-/// Semantic depth levels (0-9). Rung elevation happens on:
-/// - Sustained BLOCK state
-/// - Predictive failure (free energy spike)
-/// - Structural mismatch (no parse)
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[repr(u8)]
-pub enum RungLevel {
-    #[default]
-    Surface = 0, // literal, immediate
-    Shallow = 1,        // simple inference
-    Contextual = 2,     // situation-dependent
-    Analogical = 3,     // metaphor, similarity
-    Abstract = 4,       // generalized patterns
-    Structural = 5,     // schema-level
-    Counterfactual = 6, // what-if reasoning
-    Meta = 7,           // reasoning about reasoning
-    Recursive = 8,      // self-referential loops
-    Transcendent = 9,   // beyond normal bounds
-}
-
-impl RungLevel {
-    pub fn as_u8(&self) -> u8 {
-        *self as u8
-    }
-
-    pub fn from_u8(n: u8) -> Self {
-        match n {
-            0 => Self::Surface,
-            1 => Self::Shallow,
-            2 => Self::Contextual,
-            3 => Self::Analogical,
-            4 => Self::Abstract,
-            5 => Self::Structural,
-            6 => Self::Counterfactual,
-            7 => Self::Meta,
-            8 => Self::Recursive,
-            _ => Self::Transcendent,
-        }
-    }
-
-    /// Band for bucket addressing: Low(0-2), Mid(3-5), High(6-9).
-    pub fn band(&self) -> &'static str {
-        match self.as_u8() {
-            0..=2 => "low",
-            3..=5 => "mid",
-            _ => "high",
-        }
-    }
-
-    /// Should elevate rung based on cascade behavior?
-    pub fn should_elevate(
-        consecutive_blocks: usize,
-        free_energy: f32,
-        cascade_depth: usize,
-    ) -> bool {
-        consecutive_blocks >= 3 || free_energy > 0.15 || cascade_depth >= 4
-    }
-}
+/// Semantic depth levels (0–9) — canonical zero-dep type in the contract
+/// (D-TRI-6 dedup). Re-exported so `crate::cognitive_stack::RungLevel` keeps
+/// resolving for every existing consumer; variants, `from_u8`, and `as_u8` are
+/// identical. The stateless `should_elevate` heuristic is retired in favour of
+/// the stateful `RungElevator` (contract) that the shader driver actually drives.
+pub use lance_graph_contract::cognitive_shader::RungLevel;
 
 /// Meta-cognition: calibration of confidence estimates.
 /// Brier score tracks how well-calibrated predictions are.
@@ -425,14 +335,6 @@ mod tests {
 
         let gate = GateState::from_sd_styled(0.10, &StyleFamily::Focused);
         assert_eq!(gate, GateState::Flow); // 0.10 + (-0.15) = -0.05 → Flow
-    }
-
-    #[test]
-    fn rung_elevation() {
-        assert!(RungLevel::should_elevate(3, 0.0, 0)); // sustained block
-        assert!(RungLevel::should_elevate(0, 0.2, 0)); // high free energy
-        assert!(RungLevel::should_elevate(0, 0.0, 5)); // deep cascade
-        assert!(!RungLevel::should_elevate(1, 0.05, 2)); // none triggered
     }
 
     #[test]

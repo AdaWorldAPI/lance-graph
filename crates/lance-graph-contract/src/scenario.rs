@@ -16,7 +16,7 @@
 //!    iron rule. Scenario identity is *meta about which content version*,
 //!    not content itself.
 //! 2. **A new `lance-graph-scenario` crate.** Rejected: the four pieces
-//!    that a scenario needs already exist (Pearl Rung 3 intervention in
+//!    that a scenario needs already exist (Pearl Rung 2 intervention in
 //!    `lance-graph-cognitive::world::counterfactual`; dataset versioning
 //!    plus diff in `lance-graph::graph::versioned::VersionedGraph`;
 //!    archetype meta-state in `lance-graph-archetype::world::World`;
@@ -27,7 +27,7 @@
 //!
 //! | Piece | Where | Role in scenario |
 //! |---|---|---|
-//! | `Intervention` (Pearl Rung 3) | `lance-graph-cognitive::world::counterfactual` | The "what if X were x'?" math via `bind/unbind` |
+//! | `Intervention` (Pearl Rung 2) | `lance-graph-cognitive::world::counterfactual` | The "what if X were x'?" math via `bind/unbind` |
 //! | `World { dataset_uri, tick }` | `lance-graph-archetype::world` | Named branch handle wrapping Lance dataset path + version |
 //! | `VersionedGraph` (tag, at_version, diff) | `lance-graph::graph::versioned` | The actual storage substrate — ACID branching, time travel, diff |
 //! | `WorldModelDto` (gestalt, qualia, ripple state) | `contract::world_model` | The situational snapshot a scenario is reasoning about |
@@ -75,7 +75,7 @@
 /// - A parent identifier (Lance version + tag) that locates the fork point.
 /// - An optional archetype prior bundled into the trajectory.
 /// - A captured RNG seed for deterministic replay.
-/// - A list of interventions (Pearl Rung 3) applied in order.
+/// - A list of interventions (Pearl Rung 2) applied in order.
 /// - A default inference mode (typically `CounterfactualSynthesis`).
 ///
 /// The branch itself does not own the storage. It is a descriptor that
@@ -121,7 +121,7 @@ pub struct ScenarioBranch {
     /// inference type, slot `[9996..10000)` in role_keys).
     pub inference_mode: u8,
 
-    /// Pearl Rung 3 interventions applied to the parent state to
+    /// Pearl Rung 2 interventions applied to the parent state to
     /// define this branch's "what if?" hypothesis. Order matters
     /// (later interventions operate on already-modified state per
     /// `cognitive::world::counterfactual::multi_intervene`).

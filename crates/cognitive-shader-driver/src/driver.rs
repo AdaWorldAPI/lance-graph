@@ -229,6 +229,25 @@ impl ShaderDriver {
         // below is written ONCE against `backing` — no `#[cfg]` branches here.
         let backing = self.backing();
 
+        // ── Rung ascent loop (D-TRI-6) ──────────────────────────────────────
+        // The persistent per-driver RungElevator's CURRENT level — advanced by
+        // the PREVIOUS cycle's gate via `on_gate` at the end of this fn — selects
+        // THIS cycle's cascade plane breadth. A dispatch whose requested base
+        // rung differs from the elevator's tracked base resets the elevator
+        // first, so streaks never leak across unrelated dispatch bases. At base
+        // the mask is unchanged (no regression); above base it widens by union
+        // (see `rung_widened_layer_mask` + its HAZARD(a) note).
+        let effective_layer_mask = {
+            let mut elevator = self
+                .rung_elevator
+                .write()
+                .expect("rung_elevator RwLock poisoned");
+            if elevator.base != req.rung {
+                *elevator = RungElevator::new(req.rung);
+            }
+            rung_widened_layer_mask(elevator.base, elevator.level, req.layer_mask)
+        };
+
         // [1] Cheap meta prefilter (u32 column sweep).
         let passed_rows = backing.prefilter(req.rows, &req.meta_prefilter);
 
@@ -303,7 +322,7 @@ impl ShaderDriver {
             // Rows with edge=0 default to palette 0 (identity probe).
             let edge = backing.edge(row as usize);
             let query = edge.s_idx();
-            let raw = shader.cascade(query, req.radius, req.layer_mask);
+            let raw = shader.cascade(query, req.radius, effective_layer_mask);
             for hit in raw.into_iter().take(4) {
                 let resonance = 1.0 / (1.0 + (hit.distance as f32 / max_dist));
 
@@ -532,6 +551,32 @@ impl ShaderDriver {
             None
         };
 
+        // Advance the persistent per-driver `RungElevator` with THIS cycle's
+        // already-decided `gate`, BEFORE the sink callbacks. The sink early
+        // returns (`on_resonance` / `on_bus` returning false) must NOT bypass
+        // the rung transition — a sink that stops processing would otherwise
+        // freeze the ascent ladder, now that the elevator drives the cascade
+        // (CodeRabbit #708). Sustained BLOCK elevates over the dispatched base;
+        // sustained FLOW relaxes back to it. The base-reset is REPEATED here,
+        // inside the SAME critical section as `on_gate` (not only at the
+        // top-of-`run()` read): the elevator is a `&self` per-driver `RwLock`
+        // singleton, so a concurrent dispatch with a different `req.rung` may
+        // have reset `base` in the window since the top read; re-validating here
+        // keeps reset+advance atomic, so this cycle's gate is never counted
+        // against another request's base (codex r3603015026). The resulting
+        // level is what the NEXT dispatch on this base consults — closing the
+        // ascent loop across cycles.
+        let elevated_rung: u8 = {
+            let mut elevator = self
+                .rung_elevator
+                .write()
+                .expect("rung_elevator RwLock poisoned");
+            if elevator.base != req.rung {
+                *elevator = RungElevator::new(req.rung);
+            }
+            elevator.on_gate(gate) as u8
+        };
+
         // [7] Sink callbacks.
         if !sink.on_resonance(&resonance_dto) {
             return ShaderCrystal {
@@ -578,23 +623,6 @@ impl ShaderDriver {
         let persisted_row = match req.emit {
             EmitMode::Persist => Some(resonance_dto.top_k[0].row),
             _ => None,
-        };
-
-        // Feed this cycle's already-decided `gate` into the persistent
-        // per-driver `RungElevator` (sustained-BLOCK elevation over the
-        // dispatched base — see the field doc on `ShaderDriver::rung_elevator`).
-        // A dispatch requesting a different base rung than the elevator
-        // currently tracks resets it to that new base first, so streaks
-        // never leak across unrelated dispatch contexts.
-        let elevated_rung: u8 = {
-            let mut elevator = self
-                .rung_elevator
-                .write()
-                .expect("rung_elevator RwLock poisoned");
-            if elevator.base != req.rung {
-                *elevator = RungElevator::new(req.rung);
-            }
-            elevator.on_gate(gate) as u8
         };
 
         // Materialized-awareness provenance — runs the F→34→F loop + HHTL fork as
@@ -644,6 +672,54 @@ impl ShaderDriver {
         sink.on_crystal(&crystal);
         crystal
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Rung ascent loop — rung → predicate-plane widening (D-TRI-6)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Combine the dispatch's 8-bit predicate-plane mask with the CURRENT rung.
+/// At (or below) the dispatched base rung this returns `req_mask` UNCHANGED —
+/// zero behaviour change for a thought sitting at its requested depth. Above
+/// base, each Pearl level the rung has climbed UNIONs in additional predicate
+/// planes, so the consulted set is a strict SUPERSET of `req_mask`: elevation
+/// only ever WIDENS the cascade, never narrows it.
+///
+/// HAZARD (a) — axis translation (CORRECTNESS GATE). The p64
+/// `CognitiveShader::cascade` `layer_mask` is an 8-bit PREDICATE-PLANE mask
+/// (CAUSES..BECOMES; bit `z` gates plane `z`), NOT the 3-bit SPO projection
+/// mask `RungLevel::causal_mask_bits()` returns. Feeding `causal_mask_bits()`
+/// raw would be a category error AND, at base Surface (0b001), would collapse
+/// the cascade to plane 0 only — a severe regression. So the rung's *Pearl
+/// level* selects a predicate-plane widen-set, mirroring the Pearl→predicate
+/// routing already in `p64_bridge::edge_to_layer_mask`. Because the widen is a
+/// UNION, a caller that already asked for all planes (`0xFF`, the
+/// `ShaderDispatch` default) sees no change — you cannot consult more than every
+/// plane. The specific planes each Pearl level unlocks are a calibration a later
+/// probe may retune; the identity-at-base and superset-monotone properties are
+/// invariant.
+fn rung_widened_layer_mask(base: RungLevel, level: RungLevel, req_mask: u8) -> u8 {
+    if (level as u8) <= (base as u8) {
+        return req_mask;
+    }
+    // p64 predicate-plane bit positions (mirror p64_bridge::{CAUSES..BECOMES}):
+    // CAUSES=0 ENABLES=1 SUPPORTS=2 CONTRADICTS=3 REFINES=4 ABSTRACTS=5
+    // GROUNDS=6 BECOMES=7.
+    const ENABLES: u8 = 1 << 1;
+    const CONTRADICTS: u8 = 1 << 3;
+    const REFINES: u8 = 1 << 4;
+    const ABSTRACTS: u8 = 1 << 5;
+    const BECOMES: u8 = 1 << 7;
+    // Pearl-level → predicate widen-set (superset-monotone):
+    //   L1 observation    → nothing beyond req_mask,
+    //   L2 intervention   → +ENABLES +REFINES,
+    //   L3 counterfactual → also +CONTRADICTS +ABSTRACTS +BECOMES.
+    let widen = match level.pearl_level() {
+        1 => 0,
+        2 => ENABLES | REFINES,
+        _ => ENABLES | REFINES | CONTRADICTS | ABSTRACTS | BECOMES,
+    };
+    req_mask | widen
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1777,5 +1853,70 @@ mod tests {
         assert_eq!(hit_inf.confidence_to_alpha(), 0.0);
         assert_eq!(hit_neg.confidence_to_alpha(), 0.0);
         assert_eq!(hit_big.confidence_to_alpha(), 1.0);
+    }
+}
+
+#[cfg(test)]
+mod rung_ascent_tests {
+    use super::rung_widened_layer_mask;
+    use lance_graph_contract::cognitive_shader::{RungElevator, RungLevel};
+    use lance_graph_contract::collapse_gate::GateDecision;
+
+    // A narrow dispatch mask so union-widening is observable. The production
+    // default is 0xFF (all 8 planes); at 0xFF elevation cannot widen further,
+    // so the probe uses a single-plane base — mimics a Surface observation.
+    const BASE_MASK: u8 = 0b0000_0001; // CAUSES only
+
+    #[test]
+    fn d_tri_6_rung_ascends_relaxes_and_cascade_mask_tracks() {
+        let mut e = RungElevator::new(RungLevel::Surface);
+
+        // (i) at base: mask is EXACTLY the dispatch mask — no regression.
+        assert_eq!(
+            rung_widened_layer_mask(e.base, e.level, BASE_MASK),
+            BASE_MASK
+        );
+
+        // sustained BLOCK ascends. threshold = 2, so 6 BLOCKs climb 3 rungs:
+        // Surface(0) → Shallow(1) → Contextual(2) → Analogical(3, Pearl L2).
+        for _ in 0..6 {
+            e.on_gate(GateDecision::BLOCK);
+        }
+        assert_eq!(e.level, RungLevel::Analogical);
+        assert_eq!(e.level.pearl_level(), 2);
+
+        // (ii) elevated across a Pearl boundary → strict SUPERSET of the dispatch
+        // mask (widened, changed, never narrowed).
+        let widened = rung_widened_layer_mask(e.base, e.level, BASE_MASK);
+        assert_ne!(
+            widened, BASE_MASK,
+            "elevation must change the consulted mask"
+        );
+        assert_eq!(widened & BASE_MASK, BASE_MASK, "must be a superset");
+        assert!(widened.count_ones() > BASE_MASK.count_ones(), "must widen");
+
+        // sustained FLOW relaxes back to base (never below): Analogical(3) → base
+        // Surface is 3 de-elevations = 6 FLOWs.
+        for _ in 0..6 {
+            e.on_gate(GateDecision::FLOW_BUNDLE);
+        }
+        assert_eq!(e.level, e.base);
+        assert_eq!(e.level, RungLevel::Surface);
+
+        // back at base → mask returns to identity.
+        assert_eq!(
+            rung_widened_layer_mask(e.base, e.level, BASE_MASK),
+            BASE_MASK
+        );
+    }
+
+    #[test]
+    fn all_planes_dispatch_mask_saturates_widening_to_noop() {
+        // At the ShaderDispatch default (0xFF), elevation can't widen further.
+        let mut e = RungElevator::new(RungLevel::Surface);
+        for _ in 0..8 {
+            e.on_gate(GateDecision::BLOCK); // climb well past Pearl L3
+        }
+        assert_eq!(rung_widened_layer_mask(e.base, e.level, 0xFF), 0xFF);
     }
 }
