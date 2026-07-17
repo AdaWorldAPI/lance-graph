@@ -1,5 +1,34 @@
 # LATEST_STATE — What Just Shipped (read this FIRST)
 
+## 2026-07-17 — branch `claude/review-claude-board-files-nhqgx1` — D-TRI-1 value-tenant half: the autopoiesis triangle lands as 3 SoA lanes
+
+**IN PR.** The value-tenant half of the D-TRI-1 batched mint
+(`triangle-tenants-gestalt-separation-v1.md` §1). Three NEW append-only
+`ValueTenant`s — `FrozenStyle = 10`, `LearnedStyle = 11`, `ExploreStyle = 12`
+— each `ColumnKind::U8 × 12` (12 palette256 atoms), contiguous at `row_offset`
+152 / 164 / 176 (value-slab `[120,156)`), appended **after Kanban** per the
+2026-07-17 operator ruling ("triangle right after the kanban board").
+**Additive, reserve-don't-reclaim, layout-preserving** (Full carve 120→156 B,
+`NODE_ROW_STRIDE` 512 untouched, no `ENVELOPE_LAYOUT_VERSION` bump). Added to
+`ValueSchema::Full` **only** — deliberately NOT `Cognitive`, so entity classes
+(OSINT/PROJECT/ERP/Commerce, which resolve to Cognitive) do **not** inherit a
+thinking-style triangle; the thinking-row schema decision is deferred to P4
+(ancestry pipeline). Slot `f` = `StyleFamily` ordinal 0..11 **or** compiled-
+template step 0..11 (one content-blind register, ClassView-selected reading,
+plan §4). **Atom 0 = null default** (zero-fallback: an un-populated lane reads
+all-null, never a wrong policy). Accessors `NodeRow::{style_lane, set_style_lane,
+triangle_for}` (`triangle_for(f) -> (frozen[f], learned[f], explore[f])`, the
+one-glance per-family read the dispatch/perturbation/learning ancestry pipeline
+resolves against; `set_style_lane` is the owner-`&mut` write that resolves the
+W4b orphan-write flag). **The I-LEGACY field-isolation matrix**
+(`thinking_style_triangle_tenant_carve_field_isolation_matrix`) certifies each
+lane's 12 bytes flip in isolation, key/edges/other-tenant untouched.
+**906 contract lib tests green; clippy `-D warnings` + fmt clean.**
+**Still queued (the classid half — cross-repo OGAR mint):** chess domain 0x06
+concepts, the Tasks-SoA task-row classid (cognitive-task concepts), and
+BoardAggregates @ row_offset 188 — one batched OGAR-originated mint (never solo).
+Refs: STATUS_BOARD D-TRI-1, plan §1/§5/§6, v3-envelope-auditor gate.
+
 ## 2026-07-16 — branch `claude/x265-x266-plans-review-h9osnl` (v5, post-#702) — probe-wave verdicts on main
 
 #702 MERGED (autonomous merge under the operator-granted authority):
