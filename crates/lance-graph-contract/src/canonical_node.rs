@@ -1656,11 +1656,13 @@ impl NodeRow {
     #[inline]
     #[must_use]
     pub fn style_lane(&self, tenant: ValueTenant) -> [u8; 12] {
-        debug_assert_eq!(
-            tenant.byte_len(),
-            12,
-            "style_lane requires a 12-byte triangle tenant (Frozen/Learned/Explore)"
-        );
+        // `tenant` MUST be a 12-byte triangle lane; any other tenant returns the
+        // null lane (a non-12-byte tenant would otherwise read past its lane into
+        // the next tenant's bytes — release-safe by construction, not a
+        // debug-only guard).
+        if tenant.byte_len() != 12 {
+            return [0u8; 12];
+        }
         let o = tenant.value_offset();
         let mut b = [0u8; 12];
         b.copy_from_slice(&self.value[o..o + 12]);
@@ -1673,11 +1675,12 @@ impl NodeRow {
     /// Bumps the per-tenant update counter (no-op unless `tenant-counters`).
     #[inline]
     pub fn set_style_lane(&mut self, tenant: ValueTenant, atoms: [u8; 12]) {
-        debug_assert_eq!(
-            tenant.byte_len(),
-            12,
-            "set_style_lane requires a 12-byte triangle tenant (Frozen/Learned/Explore)"
-        );
+        // `tenant` MUST be a 12-byte triangle lane; for any other tenant this is
+        // a no-op (stamping 12 bytes onto a shorter tenant would corrupt the
+        // adjacent tenants — release-safe by construction).
+        if tenant.byte_len() != 12 {
+            return;
+        }
         let o = tenant.value_offset();
         self.value[o..o + 12].copy_from_slice(&atoms);
         crate::tenant_counter::tenant_update(tenant);
@@ -1691,8 +1694,15 @@ impl NodeRow {
     #[inline]
     #[must_use]
     pub fn triangle_for(&self, family_ordinal: u8) -> (u8, u8, u8) {
+        // Out-of-range slots (≥ 12 — a malformed template step or a future
+        // StyleFamily ordinal) return the null triangle (atom 0 everywhere) —
+        // the zero-fallback "never a wrong policy" contract. Without this guard
+        // the debug_assert vanishes in release and the index runs past each
+        // 12-byte lane, aliasing the next tenant's bytes (Codex P2 on #717).
+        if family_ordinal >= 12 {
+            return (0, 0, 0);
+        }
         let i = family_ordinal as usize;
-        debug_assert!(i < 12, "triangle slot {i} out of range (0..12)");
         let fo = ValueTenant::FrozenStyle.value_offset();
         let lo = ValueTenant::LearnedStyle.value_offset();
         let eo = ValueTenant::ExploreStyle.value_offset();
@@ -2452,6 +2462,19 @@ mod tests {
         // Per-family read: (frozen[f], learned[f], explore[f]) — one glance.
         assert_eq!(row.triangle_for(0), (1, 20, 40));
         assert_eq!(row.triangle_for(11), (12, 31, 51));
+        // Out-of-range ordinal returns the null triangle — never a wrong-lane
+        // atom, even with the lanes populated (Codex P2 regression: slot 12
+        // would otherwise alias LearnedStyle[0]/ExploreStyle[0]/reserved).
+        assert_eq!(row.triangle_for(12), (0, 0, 0));
+        assert_eq!(row.triangle_for(255), (0, 0, 0));
+        // A non-triangle tenant is release-safe: null read, no-op write.
+        assert_eq!(row.style_lane(ValueTenant::EntityType), [0u8; 12]);
+        let snapshot = row.value;
+        row.set_style_lane(ValueTenant::EntityType, [9u8; 12]);
+        assert_eq!(
+            row.value, snapshot,
+            "set_style_lane on a non-triangle tenant is a no-op"
+        );
 
         // (5) Writing the triangle never disturbs an adjacent tenant (Kanban) or
         //     the key/edges.
