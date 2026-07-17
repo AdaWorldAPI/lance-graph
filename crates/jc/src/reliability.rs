@@ -103,12 +103,17 @@ pub fn pearson(x: &[f64], y: &[f64]) -> Option<f64> {
         syy += dy * dy;
     }
     let denom = (sxx * syy).sqrt();
-    if denom == 0.0 {
-        return None; // at least one series is constant
+    if denom == 0.0 || !denom.is_finite() {
+        // `denom == 0` → at least one series is constant. `denom == ∞` → the
+        // squared-deviation product overflowed on large finite input; then
+        // `sxy / ∞ = 0.0` is FINITE-but-wrong, so the trailing `is_finite`
+        // guard would miss it (e.g. `pearson(&[1e100,-1e100],&[1e100,-1e100])`
+        // is perfectly correlated but the ratio collapses to 0.0). Reject here.
+        return None;
     }
     let r = sxy / denom;
-    // Even with finite inputs, large magnitudes can overflow the squared
-    // deviations to ±∞, making the ratio non-finite — reject that too.
+    // With a finite non-zero denom, `sxy` can still be ±∞/NaN on overflow —
+    // reject a non-finite ratio too.
     r.is_finite().then_some(r)
 }
 
@@ -222,7 +227,10 @@ pub fn cronbach_alpha(items: &[Vec<f64>]) -> Option<f64> {
         .map(|s| items.iter().map(|it| it[s]).sum::<f64>())
         .collect();
     let total_var = pop_var(&totals)?;
-    if total_var == 0.0 {
+    if total_var == 0.0 || !total_var.is_finite() {
+        // 0 → no between-subject variance (α undefined). ∞ → the totals
+        // overflowed on large finite input; `sum_item_var / ∞ = 0.0` would
+        // yield a finite-but-wrong α, so reject the overflowed denominator.
         return None;
     }
     let kf = k as f64;
@@ -313,12 +321,15 @@ pub fn icc(ratings: &[Vec<f64>], form: IccForm) -> Option<f64> {
         IccForm::Icc3_1 => ms_r + (kf - 1.0) * ms_e,
         IccForm::Icc2_1 => ms_r + (kf - 1.0) * ms_e + (kf / nf) * (ms_c - ms_e),
     };
-    if denom == 0.0 {
+    if denom == 0.0 || !denom.is_finite() {
+        // 0 → zero-variance degenerate. ∞ → the mean-square sums overflowed on
+        // large finite input; `(ms_r - ms_e) / ∞ = 0.0` would be finite-but-
+        // wrong, so reject the overflowed denominator here.
         return None;
     }
     let v = (ms_r - ms_e) / denom;
-    // Overflow of the mean-square sums to ±∞ can make the ratio non-finite
-    // even for finite inputs — reject that too.
+    // A finite non-zero denom can still pair with a non-finite numerator on
+    // overflow — reject a non-finite ratio too.
     v.is_finite().then_some(v)
 }
 
@@ -486,9 +497,17 @@ mod tests {
 
     #[test]
     fn overflowing_large_finite_inputs_return_none_not_nan() {
+        // The Codex reproducer: perfectly-correlated large-magnitude data whose
+        // squared-deviation product overflows the denominator to ∞, so `sxy/∞`
+        // collapses to a FINITE-but-wrong 0.0 that a trailing `is_finite` guard
+        // misses. Must be None (the denom-finiteness guard catches it).
+        assert_eq!(pearson(&[1e100, -1e100], &[1e100, -1e100]), None);
+        // (spearman is immune to this: it Pearson's the tiny 1..n ranks, which
+        // never overflow — `spearman(&[1e100,-1e100],&[1e100,-1e100])` is a
+        // correct `Some(1.0)`, so it is not asserted here.)
         // Finite but astronomically large magnitudes overflow the squared
-        // deviations / mean-square sums to ±∞, whose ratio is NaN. The result
-        // guards must catch that and return None, never Some(NaN).
+        // deviations / mean-square sums to ±∞, whose ratio is NaN or a
+        // finite-but-wrong 0.0. The denom + result guards must return None.
         let big = 1e308;
         for r in [pearson(&[big, -big, big], &[big, big, -big]), spearman(&[big, -big, big], &[big, big, -big])] {
             assert!(r.map(|v| v.is_finite()).unwrap_or(true), "expected finite or None, got {r:?}");
