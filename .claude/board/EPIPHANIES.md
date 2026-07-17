@@ -1,3 +1,12 @@
+## 2026-07-17 — E-THERMOMETER-ENCODE-OVERFLOW-1 — `thermometer_encode(1.0)` overflowed u8 (`1u8 << 8`) — `to_fingerprint()` panicked in debug for any full-scale modulation dim; pre-existing, surfaced by Codex on #713
+
+**Status:** SHIPPED (`crates/lance-graph-planner/src/thinking/style.rs`, +2 tests, 220 planner lib green, clippy exit 0). A pre-existing latent bug the D-TSC-1b follow-through (E-PLANNER-STYLE-DRIFT-PAID-1) made more prevalent and Codex (P2, #713) caught.
+
+- **The bug:** `thermometer_encode` computed `(1u8 << levels).wrapping_sub(1)` where `levels = (value.clamp(0,1) * 8.0) as u8 ∈ 0..=8`. At `value == 1.0`, `levels == 8` and `1u8 << 8` is a **shift overflow** — PANIC in debug, mis-encode to `0` in release (shift masked to `8 & 7 = 0`). The intended top-bin code is `2^8 - 1 = 0xFF`.
+- **Already live before this PR:** `to_fingerprint()` (the real `api.rs::plan_with_style` path) feeds several shipped families' full-scale dims through it — `Exploratory` `exploration = 1.0` / `fan_out = 20` (→ 20/20 = 1.0), `Focused` `depth_bias = 1.0`, `Exploratory` `breadth_bias = 1.0`. So `plan_with_style(Exploratory)` already panicked in debug; nobody had exercised the path. Filling `Peripheral fan_out = 20` (E-PLANNER-STYLE-DRIFT-PAID-1) added another trigger on the line Codex reviewed.
+- **The fix:** compute the thermometer code in `u16` (`((1u16 << levels) - 1) as u8`) so `levels == 8 → 0xFF`. Regression tests: `thermometer_encode_saturates_at_full_scale` (0.0→0x00, 1.0→0xFF, over-range clamps, monotone) + `to_fingerprint_never_panics_for_any_family` (the user-visible path across all 12). The second test would have caught the pre-existing bug.
+- Lesson: a full-scale (`1.0`) input is a boundary the `× N as uN then shift` idiom silently overflows; the safe form computes `2^k − 1` one width up. Cross-ref E-PLANNER-STYLE-DRIFT-PAID-1 (same PR).
+
 ## 2026-07-17 — E-PLANNER-STYLE-DRIFT-PAID-1 — the D-TSC-1b measured drift is retired: the planner's 5 silent-default style families now carry canonical values, and the match is exhaustive (TD-PLANNER-STYLE-DEFAULT-DRIFT-1 PAID)
 
 **Status:** SHIPPED (`crates/lance-graph-planner/src/thinking/style.rs`, +2 regression tests, 218 planner lib green, clippy `-D warnings` exit 0). The measurement→fix loop closed same-day: D-TSC-1b (E-D-TRI-2-MINT-BLOCKED-1) MEASURED the drift; this pays it.

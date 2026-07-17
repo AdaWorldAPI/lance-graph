@@ -288,8 +288,15 @@ pub fn select_from_mul(mul: &MulAssessment) -> StyleFamily {
 }
 
 fn thermometer_encode(value: f64) -> u8 {
-    let clamped = (value.clamp(0.0, 1.0) * 8.0) as u8;
-    (1u8 << clamped).wrapping_sub(1)
+    // Number of "on" bits, 0..=8. `value == 1.0` yields 8 (the top bin).
+    let levels = (value.clamp(0.0, 1.0) * 8.0) as u8;
+    // Thermometer code for `levels` set bits = `2^levels - 1` (0x00..=0xFF).
+    // At `levels == 8` this is 0xFF, but `1u8 << 8` overflows u8 — it PANICS in
+    // debug (shift overflow) and mis-encodes in release (shift masked to 0 → 0).
+    // Any modulation dim of exactly 1.0 hits this: e.g. Exploratory's
+    // `exploration = 1.0` / `fan_out = 20` (→ 20/20 = 1.0) and Focused's
+    // `depth_bias = 1.0`. Compute in u16 so the top bin is a correct 0xFF.
+    ((1u16 << levels) - 1) as u8
 }
 
 #[cfg(test)]
@@ -357,6 +364,42 @@ mod tests {
         // Just calling it for all 12 must not panic and every family resolves.
         for fam in StyleFamily::ALL {
             let _ = fam.default_modulation();
+        }
+    }
+
+    /// `thermometer_encode` must not overflow at the top bin (`value == 1.0`),
+    /// where the intended code is a full `0xFF` (8 set bits). The old
+    /// `1u8 << 8` panicked in debug / mis-encoded to 0 in release. (Codex P2
+    /// on #713 — surfaced by Peripheral's canonical `fan_out = 20`, but already
+    /// latent for Exploratory `exploration = 1.0` / Focused `depth_bias = 1.0`.)
+    #[test]
+    fn thermometer_encode_saturates_at_full_scale() {
+        assert_eq!(thermometer_encode(0.0), 0x00);
+        assert_eq!(
+            thermometer_encode(1.0),
+            0xFF,
+            "top bin must be all bits set"
+        );
+        assert_eq!(thermometer_encode(2.0), 0xFF, "over-range clamps to 0xFF");
+        // Monotone non-decreasing across the range (thermometer property).
+        let mut prev = 0u8;
+        for i in 0..=16 {
+            let code = thermometer_encode(i as f64 / 16.0);
+            assert!(
+                code >= prev,
+                "thermometer must be monotone: {code} < {prev}"
+            );
+            prev = code;
+        }
+    }
+
+    /// `to_fingerprint()` must not panic for ANY family's default modulation —
+    /// the real user-visible path (`api.rs::plan_with_style`) that the encoder
+    /// overflow would have crashed in debug builds.
+    #[test]
+    fn to_fingerprint_never_panics_for_any_family() {
+        for fam in StyleFamily::ALL {
+            let _fp = fam.default_modulation().to_fingerprint();
         }
     }
 }
