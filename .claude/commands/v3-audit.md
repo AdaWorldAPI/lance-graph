@@ -43,6 +43,17 @@ every hit with file:line and a one-line disposition
    `mint_for`'s own V1 arm (`canonical_node.rs`), and legacy-compat
    *reads* (`family()`/`identity()` accessors are reads, not mints).
 
+7. **Ack-paced advance scan** (E-ACK-VIOLATION-REGRADE-1 — the ack-gated
+   advance was a hard architecture violation; do not let it regrow):
+   pattern `ack` co-occurring with `advance_phase|try_advance|KanbanMove`
+   in the same file, plus `\.await` or `ractor::(call!|cast)` on any path
+   that also matches `advance_phase|KanbanColumn|cycle`. Sanctioned:
+   `batch_writer.rs` (durability bookkeeping + the SLA-gate doc),
+   callcenter/OGAR SLA-membrane surfaces, tests, TD-MESSAGE-RESIDUE
+   sites already ledgered. Any NEW hit that paces a reasoning cycle on
+   an awaited event is a violation (kanbanstep is the only reasoning
+   advance).
+
 End with a verdict per the v3-mailbox-warden vocabulary (OWNED /
 BOOTSTRAP-OK / ORPHAN-WRITE / RESURRECTION) plus LAYOUT-CLEAN /
 LAYOUT-GATED / LAYOUT-BREAK for check 5, and a one-paragraph summary.

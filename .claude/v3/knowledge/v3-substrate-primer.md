@@ -24,9 +24,13 @@ sense. The unit of cognition ownership is the **Mailbox**:
   **SurrealDB-on-kv-lance symbiont mode** (arm #2, `crates/symbiont` is the
   POC shape). `lance-graph-supervisor kanban_actor.rs` is the ractor
   structural owner.
-- **ractor is a compile-time ownership dummy** — spawn-only, never a
-  hot-path bus. Rust move semantics through the actor model prove
-  single-ownership at compile time; that proof is the point, not the runtime.
+- **ractor is SOLELY the compile-time ownership guarantee** — spawn-only,
+  never a hot-path bus (name the role; the attestation must stay
+  authoritative to the compiler — operator, 2026-07-17). Rust move
+  semantics through the actor model prove single-ownership at compile
+  time; that proof is the point, not the runtime. Messaging through it
+  would ride Tokio at 10⁴–10⁷× the `&mut` owner surface — hence the
+  workspace hardly ever messages (E-ACK-VIOLATION-REGRADE-1).
 - The **batch writer fires an AHEAD kanban update on write CAST** — it does
   not wait for the write to land. Ownership delegation is checked via cache
   logic at cast time (cast id vs envelope stamp).
@@ -45,7 +49,8 @@ inherits mailbox ownership **up and down**:
   (default `0` = bootstrap per the zero-fallback ladder) stamps the owner
   for Lance-down provenance and consumer-up write-on-behalf.
 - **Iron rule (fleet-wide): every consuming crate writes ON BEHALF OF the
-  ractor dummy-owner mailbox.** See `write-on-behalf.md`.
+  ractor owner mailbox** (the compile-time ownership guarantee). See
+  `write-on-behalf.md`.
 - **The V3 atom is the 4+12 facet** (E-V3-FACET-4-PLUS-12): 4-byte prefix
   `[domain|appid|classview u16]` + a 96-bit payload from the sanctioned
   L1–L8 catalogue (rails / palette256² digital CAM_PQ / triplets / quads /

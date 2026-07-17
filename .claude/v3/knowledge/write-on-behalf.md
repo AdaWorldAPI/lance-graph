@@ -11,8 +11,8 @@
 
 ## The rule
 
-**Every consuming crate writes ON BEHALF OF the ractor dummy-owner mailbox.
-Always.** No consumer writes a SoA row, tenant lane, or Lance dataset as
+**Every consuming crate writes ON BEHALF OF the ractor owner mailbox (the
+compile-time ownership guarantee). Always.** No consumer writes a SoA row, tenant lane, or Lance dataset as
 itself. The write names its owner via the envelope stamp:
 
 ```rust

@@ -44,6 +44,16 @@ D-TSC-1; the 5-savant fan-out surfaced the three-divergent-tables finding.
 
 ## 2026-07-10 — the ratified cognition arc (four rulings + one measured probe)
 
+> **⊘ READ-THROUGH (2026-07-17):** the first row below
+> (E-ACK-IS-THE-KANBAN-TRIGGER-1, "the Lance ack pumps the next
+> KanbanMove") is read THROUGH E-KANBANSTEP-IS-THE-TRIGGER-1 and
+> E-ACK-VIOLATION-REGRADE-1 (fifth wave, top of this file): the
+> ack-trigger framing was a hard architecture violation, reversed —
+> kanbanstep is the only reasoning advance; acks are durability
+> bookkeeping; SLA-gated waiting lives only at the callcenter/OGAR
+> membrane. The row's fire-and-forget clause stands; its trigger
+> ranking does not. Append-only: the row is not edited.
+
 **Rulings** (canonical: EPIPHANIES — measured results in
 `E-COMMA-QUORUM-MEASURED-1`; plan: `temporal-markov-and-style-classes-v1`):
 
