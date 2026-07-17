@@ -47,8 +47,13 @@ directive 2026-07-17, `E-ACK-ELIMINATED-1` — expelled from code,
 doctrine, and vocabulary after it twice produced tier-crossing designs).
 There is no confirmation bookkeeping anywhere: **durability evidence is
 the written row's own `LanceVersion` in Lance**, read through
-`temporal.rs` (`QueryReference::at` + deinterlace); crash-replay is a
-temporal READ comparing recorded intents against what Lance holds.
+`temporal.rs` (`QueryReference::at` + deinterlace). The `BatchWriter`'s
+intent list is **ephemeral staging, not a durable WAL** — after a
+process restart it is gone, and there is nothing to "replay" from it.
+The durable record IS the Lance row: a crash mid-write leaves the row at
+an older `LanceVersion`, and recovery is simply a pinned-reference read
+of what Lance actually holds. Reconciliation is Lance's, never the
+writer's.
 Nothing advances on a completion event: not a thought (a stall of
 250×–10,000× on a 40 ns op, and the death of the ladder amortization),
 and not anything else — the batch writer records intent and nothing
@@ -72,8 +77,11 @@ The batch writer is where thinking is masked behind persistence:
 3. **At cast time** (not at write-landed time) it checks the **delegation
    cache**: does the caster hold ownership, need delegation, or already have
    it? Mismatch (cast id ≠ envelope stamp) is the cache-logic case.
-4. It fires the **AHEAD kanban update immediately on cast** — the kanban
-   board reflects intent before the write lands. No waiting.
+4. It **records the proposed `KanbanMove` intent immediately on cast**
+   (before the write lands), where it is visible for reading. It does NOT
+   mutate the board or the tenant — `MailboxSoaOwner::advance_phase` is the
+   sole mutator (kanbanstep applies the move inline); the writer only
+   stages the proposal. No waiting.
 5. Lance's columnar I/O writes the LE bytes from the in-place backing store
    (zero-copy; the store never serializes).
 

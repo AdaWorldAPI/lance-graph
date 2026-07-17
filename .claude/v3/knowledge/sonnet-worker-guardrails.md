@@ -94,7 +94,7 @@ exactly the row below, never a neighbor.
 | F12 | Test literals that only work in one classid order / one layout version (synthetic 0xAB12-style values) | test values come from the §2-sanctioned composers + realistic allocations; never hand-rolled hex composites |
 | F13 | Worker "fixes" a failing unrelated test to get green | out of scope (§1 rule 1): report the failure, touch nothing |
 | F14 | German PII labels or model identifiers in committed artifacts | never emit either in any file/commit (workspace-wide rule); chat-only |
-| F15 | A cycle/phase advance paced on a completion/confirmation event, message, or awaited anything — or a stored confirmation ledger added to a writer (the eliminated ack mechanism; E-ACK-VIOLATION-REGRADE-1 → E-ACK-ELIMINATED-1) | kanbanstep is the ONLY advance (inline `on_version → try_advance_phase(&mut)`); the ack concept DOES NOT EXIST — durability evidence is the row's own LanceVersion via temporal.rs; ractor = compile-time ownership guarantee, never messaging (10⁴–10⁷× tax). A worker asked to await anything before an advance, or to add confirmation bookkeeping under ANY name = STOP+report |
+| F15 | A cycle/phase advance paced on a completion/confirmation event, an awaited `ractor::call!` response, or any awaited I/O — or a persisted id→version confirmation ledger added to a writer (the eliminated ack mechanism; E-ACK-VIOLATION-REGRADE-1 → E-ACK-ELIMINATED-1). NOT this: the sanctioned fire-and-forget `BatchWriter::cast` (owner-stamped intent recording — it never waits and is the allowed contract) | kanbanstep is the ONLY advance (inline `on_version → try_advance_phase(&mut)`); the ack concept DOES NOT EXIST — durability evidence is the row's own LanceVersion via temporal.rs; ractor = compile-time ownership guarantee, never messaging (10⁴–10⁷× tax). A worker asked to await a response before an advance, or to add id→version confirmation bookkeeping = STOP+report |
 
 ## §4 — Sanctioned command palette (copy these, don't improvise)
 
@@ -125,11 +125,13 @@ appears, because each requires accumulation-tier judgment:
    v3-mailbox-warden).
 6. Anything RBAC, PII-adjacent, or externally visible.
 7. The change would make ANY cycle/phase advance wait on a completion
-   or confirmation event, a message, a `ractor::call!`/`cast`, or any
-   awaited event — or would add ANY stored confirmation ledger to a
-   writer (the eliminated mechanism, E-ACK-ELIMINATED-1; durability
+   or confirmation event, an awaited `ractor::call!` response, or any
+   awaited I/O — or would add a persisted id→version confirmation ledger
+   to a writer (the eliminated mechanism, E-ACK-ELIMINATED-1; durability
    evidence is the row's own LanceVersion read via temporal.rs, and no
-   equivalent may be rebuilt under any name).
+   equivalent may be rebuilt whatever it is named). A bare fire-and-forget
+   `BatchWriter::cast` / `ractor::cast` that nothing awaits is NOT this —
+   it is the sanctioned intent-recording contract.
 
 Cross-ref: `.claude/knowledge/autoattended-multiagent-pattern.md` (the
 4-savant wave pattern these rules slot into), `v3-substrate-primer.md`

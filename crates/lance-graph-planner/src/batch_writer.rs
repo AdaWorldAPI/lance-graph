@@ -7,9 +7,13 @@
 //! **There is no confirmation bookkeeping here — by ruling (operator,
 //! 2026-07-17, E-ACK-ELIMINATED-1).** Durability evidence is the written
 //! row's own `LanceVersion` in Lance, read through `crate::temporal`
-//! (`QueryReference::at` + deinterlace). Crash-replay is a temporal READ —
-//! compare recorded intents against what Lance holds — never a stored
-//! ledger in this struct. Do not add a confirmation method under any name.
+//! (`QueryReference::at` + deinterlace). The intent records in this struct
+//! are **ephemeral staging, not a durable WAL**: after a restart they are
+//! gone and there is nothing to replay from them. The durable record is
+//! the Lance row — a crash mid-write leaves it at an older `LanceVersion`,
+//! and recovery is a pinned-reference read of what Lance holds, never a
+//! replay from this struct. Do not add a confirmation ledger (a persisted
+//! id→version map) under any name.
 //!
 //! **Zero-copy sink (operator ruling, plan Addendum-6):** `P` is a DESCRIPTOR
 //! — (mailbox, dirty row-range, cycle) — never owned delta bytes. Deltas stay
@@ -126,6 +130,15 @@ impl<P> BatchWriter<P> {
         self.delegation_cache.insert(on_behalf, owner);
         (owner, false)
     }
+
+    /// Hand the staged payloads to the sink and clear them, preserving
+    /// cast order. This is the eager-drain handoff (module doc): the sink
+    /// reads the LIVE backing store for the bytes, so draining a payload
+    /// only releases the descriptor — it never serializes or copies the
+    /// deltas. Without this the staging vector would grow unbounded.
+    pub fn drain_pending_payloads(&mut self) -> impl Iterator<Item = (CastId, P)> + '_ {
+        self.pending_payloads.drain(..)
+    }
 }
 
 #[cfg(test)]
@@ -163,5 +176,18 @@ mod tests {
         assert_eq!((owner, hit), (11, false), "first resolve is a miss");
         let (owner, hit) = w.resolve_owner(3, |_| unreachable!("cached"));
         assert_eq!((owner, hit), (11, true), "second resolve is a cache hit");
+    }
+
+    #[test]
+    fn draining_payloads_hands_them_off_in_cast_order_and_clears() {
+        let mut w: BatchWriter<u8> = BatchWriter::new();
+        let c0 = w.cast(7, vec![], 10);
+        let c1 = w.cast(7, vec![], 20);
+        let drained: Vec<_> = w.drain_pending_payloads().collect();
+        assert_eq!(drained, vec![(c0, 10), (c1, 20)], "cast order preserved");
+        // Second drain is empty — the staging vector was cleared.
+        assert_eq!(w.drain_pending_payloads().count(), 0, "drain clears");
+        // Intent records are independent of payload staging and survive.
+        assert_eq!(w.casts(), vec![c0, c1]);
     }
 }
