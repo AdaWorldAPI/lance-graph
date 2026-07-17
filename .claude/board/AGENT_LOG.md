@@ -1,3 +1,10 @@
+## 2026-07-17 — TD-PLANNER-STYLE-DEFAULT-DRIFT-1 PAID — fill the 5 planner default_modulation families from canonical (main thread, no subagents)
+
+- **Task:** pay the debt D-TSC-1b measured — the planner's 5 `_ => FieldModulation::default()` style families diverge from the canonical `UNIFIED_STYLES`≡`StyleParams` tables on resonance/fan_out/exploration.
+- **Deliverable:** `style.rs` `default_modulation` — 5 explicit arms (`Convergent`/`Systematic`/`Divergent`/`Diffuse`/`Peripheral`) with canonical values on the 3 measured dims, `..FieldModulation::default()` for the 4 planner-specific dims (no canonical source → not fabricated); `_` fallback REMOVED → exhaustive match (future variant = compile error, no more silent default). +2 regression tests.
+- **Verified:** `cargo test -p lance-graph-planner` 218 lib (+2) green; `cargo clippy -p lance-graph-planner --all-targets -D warnings` exit 0; fmt clean. Reverted an accidental Metacognitive `speed_bias` edit before commit (kept existing arms byte-identical).
+- **Board:** TECH_DEBT TD-PLANNER-STYLE-DEFAULT-DRIFT-1 marked PAID; EPIPHANIES `E-PLANNER-STYLE-DRIFT-PAID-1`. Behavior change (correctness): the 5 families now search with real per-family params. Branch `claude/review-claude-board-files-nhqgx1`; PR pending.
+
 ## 2026-07-17 — D-TSC-1b style-table agreement probe + D-TRI-2 NO-GO scoping — measurement, shipped
 
 - **Task:** the next unblocked slice after #711. Scoped D-TRI-2 (12-step ↔ 12-family agreement) → **NO-GO, mint-blocked** (both vectors are codebook views of the unbuilt minted register — one Opus scoping agent, file:line evidence). Pivoted to the genuinely-unblocked cousin: measure the 3 shipped 12-family param tables' agreement with the `jc::reliability` battery (closes the loop on #709/#710).

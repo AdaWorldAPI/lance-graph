@@ -136,8 +136,48 @@ impl PlannerStyleExt for StyleFamily {
                 speed_bias: 0.3,
                 exploration: 0.5,
             },
-            // Defaults for remaining styles
-            _ => FieldModulation::default(),
+            // The 5 families below were silently `FieldModulation::default()`
+            // (flat 0.7/6/0.3) until D-TSC-1b (TD-PLANNER-STYLE-DEFAULT-DRIFT-1)
+            // measured that this diverged from the canonical `UNIFIED_STYLES` /
+            // thinking-engine `StyleParams` tables (which the driver + engine
+            // agree on perfectly, and the planner's own 7 explicit arms match at
+            // IDENTITY level). The three MEASURED dims (resonance_threshold,
+            // fan_out, exploration) are now sourced from that canonical table;
+            // the 4 planner-specific dims (depth/breadth/noise/speed bias) have
+            // NO canonical source, so they stay at `FieldModulation::default()`
+            // via struct-update rather than being fabricated. The match is now
+            // exhaustive (no `_` fallback) so a future `StyleFamily` variant is a
+            // compile error here instead of another silent default.
+            Self::Convergent => FieldModulation {
+                resonance_threshold: 0.75,
+                fan_out: 4,
+                exploration: 0.10,
+                ..FieldModulation::default()
+            },
+            Self::Systematic => FieldModulation {
+                resonance_threshold: 0.70,
+                fan_out: 5,
+                exploration: 0.10,
+                ..FieldModulation::default()
+            },
+            Self::Divergent => FieldModulation {
+                resonance_threshold: 0.40,
+                fan_out: 10,
+                exploration: 0.70,
+                ..FieldModulation::default()
+            },
+            Self::Diffuse => FieldModulation {
+                resonance_threshold: 0.45,
+                fan_out: 8,
+                exploration: 0.40,
+                ..FieldModulation::default()
+            },
+            Self::Peripheral => FieldModulation {
+                resonance_threshold: 0.20,
+                fan_out: 20,
+                exploration: 0.60,
+                ..FieldModulation::default()
+            },
         }
     }
 }
@@ -248,6 +288,118 @@ pub fn select_from_mul(mul: &MulAssessment) -> StyleFamily {
 }
 
 fn thermometer_encode(value: f64) -> u8 {
-    let clamped = (value.clamp(0.0, 1.0) * 8.0) as u8;
-    (1u8 << clamped).wrapping_sub(1)
+    // Number of "on" bits, 0..=8. `value == 1.0` yields 8 (the top bin).
+    let levels = (value.clamp(0.0, 1.0) * 8.0) as u8;
+    // Thermometer code for `levels` set bits = `2^levels - 1` (0x00..=0xFF).
+    // At `levels == 8` this is 0xFF, but `1u8 << 8` overflows u8 — it PANICS in
+    // debug (shift overflow) and mis-encodes in release (shift masked to 0 → 0).
+    // Any modulation dim of exactly 1.0 hits this: e.g. Exploratory's
+    // `exploration = 1.0` / `fan_out = 20` (→ 20/20 = 1.0) and Focused's
+    // `depth_bias = 1.0`. Compute in u16 so the top bin is a correct 0xFF.
+    ((1u16 << levels) - 1) as u8
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lance_graph_contract::style_family::StyleFamily;
+
+    /// Regression for TD-PLANNER-STYLE-DEFAULT-DRIFT-1 (surfaced by the D-TSC-1b
+    /// agreement probe): the 5 families that were silently
+    /// `FieldModulation::default()` (flat 0.7/6/0.3) now carry the canonical
+    /// `UNIFIED_STYLES` / thinking-engine `StyleParams` values on the three
+    /// MEASURED dims (resonance_threshold, fan_out, exploration). The 4
+    /// planner-specific dims have no canonical source and stay at default.
+    #[test]
+    fn formerly_defaulted_families_match_canonical_on_measured_dims() {
+        // (family, resonance_threshold, fan_out, exploration) — from
+        // engine_bridge.rs UNIFIED_STYLES == cognitive_stack.rs StyleParams
+        // (D-TSC-1b proved these two are byte-identical).
+        let cases: [(StyleFamily, f64, usize, f64); 5] = [
+            (StyleFamily::Convergent, 0.75, 4, 0.10),
+            (StyleFamily::Systematic, 0.70, 5, 0.10),
+            (StyleFamily::Divergent, 0.40, 10, 0.70),
+            (StyleFamily::Diffuse, 0.45, 8, 0.40),
+            (StyleFamily::Peripheral, 0.20, 20, 0.60),
+        ];
+        let default = FieldModulation::default();
+        for (fam, res, fan, expl) in cases {
+            let m = fam.default_modulation();
+            assert!(
+                (m.resonance_threshold - res).abs() < 1e-9,
+                "{fam:?} resonance_threshold = {} != canonical {res}",
+                m.resonance_threshold
+            );
+            assert_eq!(m.fan_out, fan, "{fam:?} fan_out");
+            assert!(
+                (m.exploration - expl).abs() < 1e-9,
+                "{fam:?} exploration = {} != canonical {expl}",
+                m.exploration
+            );
+            // No longer the flat default triple (the drift D-TSC-1b measured).
+            assert!(
+                (m.resonance_threshold, m.fan_out, m.exploration)
+                    != (
+                        default.resonance_threshold,
+                        default.fan_out,
+                        default.exploration
+                    ),
+                "{fam:?} still equals the flat default triple"
+            );
+            // The 4 unmeasured planner-specific dims correctly stay at default.
+            assert_eq!(m.depth_bias, default.depth_bias, "{fam:?} depth_bias");
+            assert_eq!(m.breadth_bias, default.breadth_bias, "{fam:?} breadth_bias");
+            assert_eq!(
+                m.noise_tolerance, default.noise_tolerance,
+                "{fam:?} noise_tolerance"
+            );
+            assert_eq!(m.speed_bias, default.speed_bias, "{fam:?} speed_bias");
+        }
+    }
+
+    /// The match in `default_modulation` is now exhaustive over all 12
+    /// `StyleFamily` variants — none falls through to a silent default.
+    #[test]
+    fn every_family_has_a_nondefault_or_explicit_modulation() {
+        // Just calling it for all 12 must not panic and every family resolves.
+        for fam in StyleFamily::ALL {
+            let _ = fam.default_modulation();
+        }
+    }
+
+    /// `thermometer_encode` must not overflow at the top bin (`value == 1.0`),
+    /// where the intended code is a full `0xFF` (8 set bits). The old
+    /// `1u8 << 8` panicked in debug / mis-encoded to 0 in release. (Codex P2
+    /// on #713 — surfaced by Peripheral's canonical `fan_out = 20`, but already
+    /// latent for Exploratory `exploration = 1.0` / Focused `depth_bias = 1.0`.)
+    #[test]
+    fn thermometer_encode_saturates_at_full_scale() {
+        assert_eq!(thermometer_encode(0.0), 0x00);
+        assert_eq!(
+            thermometer_encode(1.0),
+            0xFF,
+            "top bin must be all bits set"
+        );
+        assert_eq!(thermometer_encode(2.0), 0xFF, "over-range clamps to 0xFF");
+        // Monotone non-decreasing across the range (thermometer property).
+        let mut prev = 0u8;
+        for i in 0..=16 {
+            let code = thermometer_encode(i as f64 / 16.0);
+            assert!(
+                code >= prev,
+                "thermometer must be monotone: {code} < {prev}"
+            );
+            prev = code;
+        }
+    }
+
+    /// `to_fingerprint()` must not panic for ANY family's default modulation —
+    /// the real user-visible path (`api.rs::plan_with_style`) that the encoder
+    /// overflow would have crashed in debug builds.
+    #[test]
+    fn to_fingerprint_never_panics_for_any_family() {
+        for fam in StyleFamily::ALL {
+            let _fp = fam.default_modulation().to_fingerprint();
+        }
+    }
 }
