@@ -151,10 +151,16 @@ crates/graphrag/                 (NEW, lance-graph, W5 query consumer)
     ppr.rs           # BUILD: HippoRAG reset-distribution PPR (atop hdr_pagerank/spmv)
     keyword.rs       # BUILD: BM25
     summarize.rs     # community summaries via Rig oracle → compiled template (W3 dep)
-  deps: lance-graph-contract (RungElevator/RungLevel/cognitive_shader — #708),
-        causal-edge, cognitive-shader-driver (the rung_widened_layer_mask widen),
-        lance-graph (arigraph query surface), bgz-tensor/cam_pq (vector), ndarray.
-        NO ingest; NO OGAR dep; reads calcified substrate.
+  deps (feature-gated per §10 caveat 1):
+    default (LIGHT, zero-dep): lance-graph-contract (RungElevator/RungLevel/
+      GateDecision/MailboxSoaView — #708) + causal-edge (CausalEdge64).
+      → rung-ascent orchestration + BM25 + in-memory PPR + the G0 probe.
+    feature "graphrag-lance" (HEAVY, drags datafusion/lance/arrow): lance-graph
+      (TripletGraph::{get_associated,intervene_on,detect_contradictions},
+      spo_bridge, hdr_pagerank, cam_pq) + bgz-tensor.
+    widen: rung_widened_layer_mask is PRIVATE (driver.rs:701) → make pub / move to
+      contract, or replicate (§10 caveat 2).
+  NO ingest; NO OGAR dep; reads calcified substrate.
 
 lance-graph-contract/            (EXTEND)
   src/doc_graph.rs   # DocGraphQuery trait + DocGraphView read projection (the shared surface)
@@ -207,7 +213,11 @@ unified SoA context; graphrag is the retrieval layer over it — §8).
 - **P-COMMUNITY-GLOBAL.** Leiden community summaries beat flat chunk-concat on
   global/thematic questions (the LightRAG dual-level claim).
 - **jc battery** (ICC / Spearman / Cronbach) before any new lane-reading backs a
-  claim (v3 standing gate).
+  claim (v3 standing gate). **Landed #709** as `jc::reliability::{pearson,
+  spearman, cronbach_alpha, icc(IccForm)}` — every probe above computes its
+  with-vs-without delta + significance through this crate, not a hand-rolled
+  metric (and per `I-NOISE-FLOOR-JIRAK`, cites Jirak's weak-dependence rate for
+  σ-claims).
 
 ## §7. Alignment hazards (and how this plan avoids each)
 
@@ -262,3 +272,53 @@ unified SoA context; graphrag is the retrieval layer over it — §8).
   `EpisodicWitness64` column now (helps PPR recency) or stay on
   `EpisodicEdges64`+`WitnessTable`? (probe). (O3) reconcile the §3 rung mapping
   with `entropy-ladder-spo-rung-v1`'s entropy levels — same ladder or two?
+
+## §10. Feasibility — verified against the code (`8d3209c`, #708 merged)
+
+Checked every reuse/build assumption against the tree. **Verdict: FEASIBLE.**
+Load-bearing legs reach from **zero-dep** crates; two small caveats, both with
+clean fixes; **no circular deps**.
+
+**Confirmed reachable (pub, verified):**
+- **Rung ascent (the #708 core) — zero upstream change.** `RungElevator` is a
+  pub struct with **pub fields** + `const fn new(base)` + `on_gate(&mut self,
+  GateDecision) -> RungLevel` (pure transition), all in **zero-dep**
+  `lance-graph-contract::cognitive_shader` (`:272`). graphrag holds its own
+  elevator; retrieval-surprise → `GateDecision` → `on_gate` → `RungLevel`.
+- **SPO edge + NARS truth — zero-dep** (`causal_edge::CausalEdge64`).
+- **Read surface — zero-dep** (`MailboxSoaView`, contract `soa_view.rs:42`).
+- **Fact-store traversal — richer than assumed (closes the §9 arigraph
+  question).** `TripletGraph` (arigraph) exposes, all pub: `get_associated(
+  entities, steps)` (`:141`, the multi-hop SPO-G walk), `find_path` (`:193`),
+  `intervene_on` (`:714`, Pearl-2 apex), `infer_deductions` (`:755`),
+  **`detect_contradictions(conf)` (`:805` — the natural BLOCK trigger)**,
+  `revise_with_evidence` (`:829`), `with_truth`. Plus `spo_bridge::promote_to_spo`
+  (`:110`). The rung loop maps 1:1: `detect_contradictions` → BLOCK → `on_gate`
+  ascends → `get_associated` widens the hop → `intervene_on` at the apex.
+- **PPR base — pub** (`hdr_pagerank`, `blasgraph/ops.rs:275`; `ScentCsr::spmv`,
+  `neighborhood/sparse.rs:98`). **CAM-PQ — pub** (`cam_pq/{ivf,storage}`).
+
+**Caveat 1 — dep-weight split (→ the crate is feature-gated; §4 updated).** The
+graph legs (`TripletGraph`, `spo_bridge`, `hdr_pagerank`, CAM-PQ) live in
+**lance-graph core**, which drags the full datafusion/lance/arrow stack (19
+heavy-dep lines); the rung-ascent core + `CausalEdge64` + read trait are
+zero-dep. → **default `graphrag` = light** (rung ascent + BM25 + in-memory PPR
+over `CausalEdge64` adjacency + the G0 probe); **feature `graphrag-lance` =
+heavy** graph legs. Mirrors lance-graph's own `ndarray-hpc` gate. **G0 + D-GR-2
+build with ZERO heavy deps.**
+
+**Caveat 2 — `rung_widened_layer_mask` is private** (`driver.rs:701`, bare `fn`)
+— the predicate-plane widen can't be called directly. It is a SECONDARY leg (the
+rung ASCENT works without it). Fix (small): promote it `pub` / move it to the
+contract beside `RungElevator` (~1-line upstream tweak, baton to the
+cognitive-shader-driver owner) — recommended; or replicate the pure
+`(base, level, mask) -> u8`.
+
+**Genuine BUILD (confirmed):** hierarchical Leiden — `jc`'s louvain is
+**example-only** (nothing in `jc/src`), so `community.rs` promotes it to a lib;
+HippoRAG-PPR = reset-distribution atop `hdr_pagerank`; BM25 = a pure fn. All
+build on reachable primitives.
+
+**Immediate next step (no upstream change):** scaffold the light
+`crates/graphrag` (contract + causal-edge) + a `cargo check` compile-proof of
+the rung-ascent + read legs, then the G0 `P-GRAPH-LOADBEARING` probe.
