@@ -1,3 +1,12 @@
+## 2026-07-17 — E-JC-IS-NOT-A-METRIC-BATTERY-1 — `jc` was a FORMAL-SCAFFOLD pillar-prover, NOT a callable reliability/validity battery; the four D-TRI measurement gates had nothing to call (plateau P5a)
+
+**Status:** SHIPPED (plateau P5a; `crates/jc/src/reliability.rs`, 12 tests + 3 doctests green). Corrects the assumption (in the triangle plan §4/§6 and the operator brief "measure with lance-graph/crates/JC ICC Pearson Cronbach alpha spearman") that jc already exposes these.
+
+- **The finding:** `jc` is ten pillar-provers (`substrate`/`weyl`/`jirak`/`pearl`/`koestenberger`/`dueker_zoubouloglou`/`ewa_sandwich`/`pflug`/`hambly_lyons` + probes), each a `prove() -> PillarResult`. There was **no callable ICC / Pearson / Cronbach-α / Spearman** — only a private `spearman_rho` on *rankings* inside `probe_p1_gamma_phase.rs`, and a separately hand-rolled `spearman_rho` in the stockfish-rs chess probe. So D-TRI-2 (12-family ↔ 12-step agreement), D-TRI-4 (chess↔thinking transfer) and D-TRI-5 (emulation vs resonance) all named a battery that did not exist as an API.
+- **The fix:** `jc::reliability` — `pearson`, `spearman` (average-rank tie-corrected), `cronbach_alpha`, and `icc(_, IccForm::{Icc2_1, Icc3_1})` (Shrout-Fleiss 1979 two-way ANOVA; absolute-agreement + consistency). All return `Option<f64>` (`None` on degenerate input — no panics/NaN, per the no-unwrap guideline). Formula correctness pinned to reference values: Shrout-Fleiss worked example ICC(2,1)=0.290 / ICC(3,1)=0.715 (matches R `psych::ICC` / `pingouin`), plus Pearson/Spearman/Cronbach textbook checks. Point estimates ONLY — significance calibration stays `jc::jirak`'s job under I-NOISE-FLOOR-JIRAK (weak dependence, not IID Berry-Esseen).
+- **Not consolidated yet (follow-up):** the two existing hand-rolled `spearman_rho` copies (probe_p1, stockfish-rs) can now migrate to `jc::reliability::spearman`; `thinking-engine/src/cronbach.rs` (excluded crate) is separate prior art. Left as a TECH_DEBT-style follow-up, not forced in this plateau.
+- Unblocks the measurement half of P4 (D-TRI-2) and P5 (D-TRI-4/5); the mint-gated tenant half stays blocked on the P2 operator decisions (Q1–Q5).
+
 ## 2026-07-17 — E-RUNG-ASCENT-WIRED-1 — the rung ascent loop is now WIRED in the shader driver (D-TRI-6, plateau P3); RungLevel deduped to the contract; the correctness gate was an axis mismatch, not the ladder
 
 **Status:** SHIPPED (plateau P3, PR pending). Executes the §3a wiring E-MASLOW-PYRAMID-OF-COGNITION-1 named as "the missing wiring". Four deliverables, all green.
