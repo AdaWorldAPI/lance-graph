@@ -217,6 +217,33 @@ pub trait MailboxSoaView {
         Some((f[i], l[i], e[i]))
     }
 
+    /// `row`'s style `lane` read as the **6×(8:8) orchestration register** — the six
+    /// `(u8, u8)` rails of the same 12-byte content-blind register
+    /// (`.claude/v3/soa_layout/le-contract.md` §3: `12 = 6×2`). This is the "anything
+    /// else" reading (operator ruling 2026-07-18): where
+    /// [`style_lane_at`](MailboxSoaView::style_lane_at) reads the `12×u8` FROZEN
+    /// atoms (indices into the 226-atom [`cognitive_palette`](crate::cognitive_palette)),
+    /// this reads the SAME bytes as 6 two-byte rails for **V3-replayable
+    /// orchestration** (le-contract §3 L1 `part_of:is_a` / L4 `palette256²`,
+    /// `E-H268-REPLAYABLE-TILE-1`). One register, two ClassView-selected readings —
+    /// the byte storage is identical; only the interpretation differs.
+    ///
+    /// Default composes [`style_lane_at`](MailboxSoaView::style_lane_at) (so any owner
+    /// that materializes the lane gets this reading for free); `None` if the lane is
+    /// not materialized.
+    #[inline]
+    fn style_rails_at(&self, row: usize, lane: StyleLane) -> Option<[(u8, u8); 6]> {
+        let b = self.style_lane_at(row, lane)?;
+        Some([
+            (b[0], b[1]),
+            (b[2], b[3]),
+            (b[4], b[5]),
+            (b[6], b[7]),
+            (b[8], b[9]),
+            (b[10], b[11]),
+        ])
+    }
+
     // NOTE (follow-up): the qualia column (`QualiaI4_16D`) accessor is intentionally omitted —
     // add `fn qualia(&self) -> &[crate::qualia::QualiaI4_16D]` when the first consumer
     // (planner strategy selection) needs it; keep the read surface minimal until then.
@@ -493,5 +520,26 @@ mod tests {
         assert_eq!(soa.triangle_at(0, u8::MAX), None);
         // The whole lane reads through.
         assert_eq!(soa.style_lane_at(0, StyleLane::Learned).unwrap()[5], 35);
+
+        // The 6×(8:8) orchestration reading carves the SAME 12 bytes as 6 rails
+        // (le-contract §3; the "anything else" reading). Frozen bytes 10..21 →
+        // (10,11),(12,13),...,(20,21).
+        assert_eq!(
+            soa.style_rails_at(0, StyleLane::Frozen),
+            Some([(10, 11), (12, 13), (14, 15), (16, 17), (18, 19), (20, 21)])
+        );
+        // Same register, two readings: rail k = (lane[2k], lane[2k+1]).
+        let learned = soa.style_lane_at(0, StyleLane::Learned).unwrap();
+        let rails = soa.style_rails_at(0, StyleLane::Learned).unwrap();
+        for (k, &(lo, hi)) in rails.iter().enumerate() {
+            assert_eq!((lo, hi), (learned[2 * k], learned[2 * k + 1]));
+        }
+    }
+
+    #[test]
+    fn style_rails_defaults_to_none_when_lane_unmaterialized() {
+        // The 6×(8:8) reading composes style_lane_at, so a view with no triangle
+        // returns None (same deferred-binding discipline).
+        assert_eq!(sample().style_rails_at(0, StyleLane::Explore), None);
     }
 }
