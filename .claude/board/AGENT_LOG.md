@@ -1,3 +1,10 @@
+## 2026-07-18 — Chained episodic_search (D-GR-2b, AriGraph Eq. 1) — closes "AriGraph in name, RAG in retrieval" — main thread
+
+- **Task:** the inventory + AriGraph fidelity audit found the crate runs a *parallel* Hamming top-k for episodic recall (the RAG baseline AriGraph beats), missing the paper's *chained* semantic→episodic search. Landed the pure primitive (next after RRF #724), ahead of G0.
+- **Change:** `arigraph/episodic.rs` — `EpisodicMemory::episodic_search(semantic_hits: &BTreeSet<String>, k) -> Vec<(&Episode, f64)>`: seeds episodic recall from the semantic (triplet) hits and ranks episodes by AriGraph Eq. 1 — `rel = n/(N·ln N)` for N≥2 else 0 (n = hit triplets incident, N = episode size). `N·ln N` down-weights large episodes; `ln 1 = 0` zeroes single-triplet episodes (paper's intent); no-incidence episodes dropped; sorted rel-desc (stable), truncated to k. Module-private `episode_relevance` helper.
+- **Pure/reversible:** reads only `Episode::triplets`. The WIRING (chaining it after semantic search in `OsintRetriever::retrieve`, replacing the parallel Hamming top-k) stays GATED on G0.
+- **Commit / Tests / Outcome:** `cargo test -p lance-graph --lib -- graph::arigraph::episodic` 22/22 (6 new: ranks-by-incidence, downweights-large, single-triplet-zero-weight, drops-no-incidence, empty-safe, respects-k); fmt + clippy clean. Branch `claude/happy-hamilton-0azlw4` (restarted from post-#724 main).
+
 ## 2026-07-18 — RRF fusion primitive (D-GR-2a) — the retrieval keystone, pure capability ahead of G0 — main thread
 
 - **Task:** the inventory (#723) named RRF fusion as the D-GR-2 retrieval keystone — every ranked leg exists (`Bm25Index::rank`, `PersonalizedPageRank::ranked`, CAM-PQ) but nothing fused them. Landed the pure fusion primitive (the SAP "Practical GraphRAG" gap), ahead of G0 like `Bm25Index`/`PersonalizedPageRank`/`Communities`.
