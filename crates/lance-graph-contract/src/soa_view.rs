@@ -219,14 +219,19 @@ pub trait MailboxSoaView {
 
     /// `row`'s style `lane` read as the **6×(8:8) orchestration register** — the six
     /// `(u8, u8)` rails of the same 12-byte content-blind register
-    /// (`.claude/v3/soa_layout/le-contract.md` §3: `12 = 6×2`). This is the "anything
-    /// else" reading (operator ruling 2026-07-18): where
-    /// [`style_lane_at`](MailboxSoaView::style_lane_at) reads the `12×u8` FROZEN
-    /// atoms (indices into the 226-atom [`cognitive_palette`](crate::cognitive_palette)),
-    /// this reads the SAME bytes as 6 two-byte rails for **V3-replayable
-    /// orchestration** (le-contract §3 L1 `part_of:is_a` / L4 `palette256²`,
-    /// `E-H268-REPLAYABLE-TILE-1`). One register, two ClassView-selected readings —
-    /// the byte storage is identical; only the interpretation differs.
+    /// (`.claude/v3/soa_layout/le-contract.md` §3: `12 = 6×2`).
+    ///
+    /// **This is the ALTERNATE reading of the SAME bytes, ClassView-selected per
+    /// ROW/CLASS — never per lane.** A **policy / thinking-class** row reads all
+    /// three lanes as `12×u8` palette atoms
+    /// ([`style_lane_at`](MailboxSoaView::style_lane_at) →
+    /// [`cognitive_palette`](crate::cognitive_palette)); an **orchestration-class**
+    /// row reads all three lanes as these `6×(8:8)` rails (V3-replayable — le-contract
+    /// §3 L1 `part_of:is_a` / L4 `palette256²`, `E-H268-REPLAYABLE-TILE-1`). Frozen,
+    /// Learned, and Explore therefore never disagree on representation within a row,
+    /// which is what keeps the autopoiesis promotion coherent. This accessor exposes
+    /// the rails reading mechanically (`rail k = (lane[2k], lane[2k+1])`); whether a
+    /// given row's class actually uses it is the ClassView's call, not this lane's.
     ///
     /// Default composes [`style_lane_at`](MailboxSoaView::style_lane_at) (so any owner
     /// that materializes the lane gets this reading for free); `None` if the lane is

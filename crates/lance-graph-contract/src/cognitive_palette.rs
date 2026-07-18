@@ -13,11 +13,19 @@
 //! (a [`StyleFamily`](crate::style_family::StyleFamily) ordinal) holds ONE
 //! **`AtomId`** — a palette256 index into this 226-atom catalogue.
 //!
-//! The **other** reading — the LEARNED / EXPLORE orchestration lane — is the
-//! `6×(8:8)` register (le-contract §3 L1/L4, replayable per `E-H268-REPLAYABLE-TILE-1`);
-//! that reading does NOT index this catalogue. One register, two ClassView-selected
-//! readings (the triangle plan `.claude/plans/triangle-tenants-gestalt-separation-v1.md`
-//! §4 "12 families | 12 template steps").
+//! **The reading is ClassView-selected PER ROW/CLASS, never per lane** (the
+//! le-contract §3 content-blind-register rule). Within a **policy / thinking-class**
+//! row, ALL THREE triangle lanes — Frozen, Learned, Explore — are read as `12×u8`
+//! palette atoms into THIS catalogue; that uniformity is what makes the autopoiesis
+//! promotion `learned[f] → frozen[f]` a coherent `AtomId` copy (both operands are
+//! palette atoms, never a byte reinterpreted across representations). The **other**
+//! reading of the same 12 bytes — `6×(8:8)` (le-contract §3 L1/L4, replayable per
+//! `E-H268-REPLAYABLE-TILE-1`) — is what an **orchestration-class** row selects for
+//! ALL its lanes; it does NOT index this catalogue. One register, two ClassView-
+//! selected readings (the triangle plan
+//! `.claude/plans/triangle-tenants-gestalt-separation-v1.md` §4 "12 families | 12
+//! template steps") — the discriminant is the ROW's class, so Frozen/Learned/Explore
+//! never disagree on representation.
 //!
 //! # This is an ADDRESSING table, not a content store
 //!

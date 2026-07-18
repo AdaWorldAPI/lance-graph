@@ -157,9 +157,14 @@ pub struct MailboxSoA<const N: usize> {
     // `NodeRow` value slab (`ValueTenant::{FrozenStyle, LearnedStyle,
     // ExploreStyle}`, offsets 152/164/176). Held here as SoA columns so a
     // `KanbanActor`'s owned advance reads/writes them `&mut` (E-CE64-MB-4, ractor
-    // sole-mutator) — NOT a deprecated symbiont `Vec<NodeRow>`. Index `f` =
-    // `StyleFamily` ordinal 0..11; value = a palette256 atom (atom 0 = null
-    // default, so a zeroed lane reads all-null, never a wrong policy).
+    // sole-mutator) — NOT a deprecated symbiont `Vec<NodeRow>`. Each lane is a
+    // 12-byte content-blind register whose reading is ClassView-selected per
+    // ROW/CLASS (never per lane): a policy row reads all three as 12 palette atoms
+    // (index `f` = `StyleFamily` ordinal 0..11, value = a
+    // `cognitive_palette::AtomId`); an orchestration row reads all three as the
+    // 6×(8:8) rails (`soa_view::style_rails_at`). Atom 0 = null default (a zeroed
+    // lane reads all-null, never a wrong policy). The write ops below are byte-level
+    // and representation-agnostic; the reading is the caller's ClassView decision.
     /// Per-row FROZEN policy lane — the checkpoint the can't-stop-thinking dispatch
     /// runs off (read during `CognitiveWork`).
     pub frozen_style: [[u8; 12]; N],
@@ -810,6 +815,15 @@ impl<const N: usize> MailboxSoA<N> {
     /// events, no waiting. Returns `true` if a promotion occurred (the byte
     /// changed), `false` if it was a no-op (already equal, or out of range). No-op if
     /// `row >= populated` or `family >= 12`.
+    ///
+    /// **Representation-preserving by construction:** the copy is coherent because
+    /// the Frozen and Learned lanes ALWAYS share the row's ClassView-selected reading
+    /// (`12×u8` palette for a policy row, `6×(8:8)` for an orchestration row — the
+    /// reading is per-row/class, never per-lane; `soa_view::StyleLane`). So a copied
+    /// byte is the same kind on both sides — an `AtomId` stays an `AtomId`, a rail
+    /// byte stays a rail byte — never an orchestration byte reinterpreted as a
+    /// palette atom. `family` indexes the slot uniformly regardless of which reading
+    /// the row uses.
     #[inline]
     pub fn promote_family(&mut self, row: usize, family: u8) -> bool {
         if row >= self.populated || family >= 12 {
