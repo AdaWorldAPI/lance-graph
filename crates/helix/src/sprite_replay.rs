@@ -418,7 +418,10 @@ fn probe_sprite_replay_core() {
     for r in &run_a {
         assert_eq!(r.anchors_true.len(), NUM_ANCHORS);
         assert_eq!(r.b_bidir_edge.len(), (NUM_ANCHORS - 1) * B_FRACTIONS.len());
-        assert_eq!(r.b_bidir_signed.len(), (NUM_ANCHORS - 1) * B_FRACTIONS.len());
+        assert_eq!(
+            r.b_bidir_signed.len(),
+            (NUM_ANCHORS - 1) * B_FRACTIONS.len()
+        );
         for &v in r
             .pos_err_edge
             .iter()
@@ -440,9 +443,7 @@ fn probe_sprite_replay_core() {
          NUM_ANCHORS={NUM_ANCHORS} [I+5P], ANCHOR_STEP={ANCHOR_STEP}, GOP=I B B P ...) ==="
     );
 
-    eprintln!(
-        "-- per-sprite P/I-anchor motion fidelity (world-unit Euclidean position error) --"
-    );
+    eprintln!("-- per-sprite P/I-anchor motion fidelity (world-unit Euclidean position error) --");
     eprintln!(
         "{:<4} {:<5} {:<8} {:>10} {:>10} {:>10} {:>10}",
         "spr", "sign", "anchor", "n_true", "n_edge", "n_s360", "sign_s360"
@@ -460,7 +461,9 @@ fn probe_sprite_replay_core() {
             let kind = if k == 0 { "I" } else { "P" };
             eprintln!(
                 "{i:<4} {sign_label:<5} {kind:<8} {:>10} {:>10} {:>10} {:>10?}",
-                r.anchors_true[k], r.anchors_dec_edge[k], r.anchors_dec_signed[k],
+                r.anchors_true[k],
+                r.anchors_dec_edge[k],
+                r.anchors_dec_signed[k],
                 r.anchors_dec_sign[k]
             );
             eprintln!(
