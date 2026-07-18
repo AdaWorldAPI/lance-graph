@@ -63,6 +63,7 @@ pub mod classid_scan;
 pub mod codebook;
 pub mod codegen_manifest;
 pub mod codegen_spine;
+pub mod cognitive_palette;
 pub mod cognitive_shader;
 pub mod collapse_gate;
 pub mod container;

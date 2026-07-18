@@ -1,3 +1,11 @@
+## 2026-07-18 — branch `claude/review-claude-board-files-nhqgx1` (PR #729) — P4 ancestry pipeline on the SoA/ractor carrier: triangle read seam + owned columns + the 226-atom FROZEN palette256 codebook
+
+### Current Contract Inventory — new entry
+- `lance_graph_contract::soa_view::StyleLane {Frozen, Learned, Explore}` + `MailboxSoaView::{style_lane_at(row, lane) -> Option<[u8;12]>, triangle_at(row, family) -> Option<(u8,u8,u8)>}` — the deferred-binding triangle read seam (default `None`, owner overrides; `family >= 12` guard). The SoA-native replacement for the symbiont-`Vec<NodeRow>` path (symbiont deprecated; the triangle is owned by the ractor `KanbanActor`, compile-time sole-mutator E-CE64-MB-4). (P4 Brick 1.)
+- `lance_graph_contract::cognitive_palette::{AtomId, AtomCatalogue, VERB/RECIPE/PERSONA/FAMILY_{COUNT,BASE}, RESERVED_BASE, ATOM_COUNT}` — the **226-atom palette256 FROZEN value codebook** (operator ruling 2026-07-18 "226 ARE the frozen"). A zero-dep ADDRESSING table (I-VSA-IDENTITIES: address only, content in registries): `0` null, `1..=144` Verb (dntree), `145..=178` Recipe, `179..=214` Persona (ThinkingStyle), `215..=226` Family (StyleFamily; local == ordinal), `227..=255` reserved (RESERVE-DON'T-RECLAIM). `resolve()` total over 256; const-asserted layout. The `12×u8` FROZEN reading of the content-blind triangle register; the LEARNED/EXPLORE orchestration reading is the `6×(8:8)` le-contract §3 register (replayable). 6 tests.
+
+lance-graph core (non-contract, same PR — cognitive-shader-driver): three `[[u8;12];N]` triangle columns on `MailboxSoA<N>` + `style_lane_at` override + owned write ops (`set_style_lane`/`set_style_atom`/`promote_family`, `&mut self`) + `reset_row` clears them (codex #729 P2). (P4 Brick 2.)
+
 ## 2026-07-17 — branch `claude/happy-hamilton-0azlw4` (post-#714) — D-GR-1 `contract::doc_graph::{DocGraphQuery, ScoredId}` + D-GR-3b AriGraph capabilities (PPR, Leiden refinement, BM25) + G0 harness
 
 ### Current Contract Inventory — new entry
