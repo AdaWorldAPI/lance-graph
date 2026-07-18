@@ -66,6 +66,18 @@ impl Triplet {
     }
 }
 
+/// Render an evidence chain (from [`TripletGraph::associated_paths`]) as a
+/// human/LLM-readable trail: each triplet in `subject - relation - object`
+/// form, joined in traversal order by `  ⇒  `. Empty chain ⇒ empty string.
+#[must_use]
+pub fn render_chain(chain: &[&Triplet]) -> String {
+    chain
+        .iter()
+        .map(|t| t.to_string_repr())
+        .collect::<Vec<_>>()
+        .join("  ⇒  ")
+}
+
 /// A knowledge graph built from triplets with entity indexing and spatial edges.
 ///
 /// Supports BFS-based association retrieval (multi-hop entity expansion)
@@ -176,6 +188,69 @@ impl TripletGraph {
         }
 
         result
+    }
+
+    /// Evidence chains (StepChain `Πsᵤ`): the ordered triplet path that FIRST
+    /// reaches each entity within `steps` BFS hops from the seed set.
+    ///
+    /// The complement to [`get_associated`], which returns the reachable
+    /// triplets as a flat set and discards the path structure that IS the
+    /// evidence trail (the audit chain a NARS-truth substrate exists to
+    /// surface). One chain per newly-reached entity — the **shortest** chain to
+    /// it (BFS + a visited-set), NOT the combinatorial all-paths set (which
+    /// explodes through hubs); this mirrors [`find_path`]. Each chain is the
+    /// sequence of triplets traversed, seed→frontier, in order; a triplet is
+    /// never revisited within one chain. Seeds contribute no chain. Render a
+    /// chain as `s - r - o  ⇒  s - r - o` with [`render_chain`].
+    ///
+    /// Pure: reads only the triplet store + entity index.
+    #[must_use]
+    pub fn associated_paths(&self, entities: &HashSet<String>, steps: usize) -> Vec<Vec<&Triplet>> {
+        let mut visited: HashSet<String> = entities.iter().map(|e| e.to_lowercase()).collect();
+        // (frontier entity, the triplet-index path that reached it)
+        let mut frontier: Vec<(String, Vec<usize>)> =
+            visited.iter().cloned().map(|e| (e, Vec::new())).collect();
+        // deterministic order of the seed frontier
+        frontier.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut chains: Vec<Vec<usize>> = Vec::new();
+
+        for _step in 0..steps {
+            let mut next: Vec<(String, Vec<usize>)> = Vec::new();
+            for (entity, path) in &frontier {
+                let Some(indices) = self.entity_index.get(entity) else {
+                    continue;
+                };
+                for &idx in indices {
+                    let triplet = &self.triplets[idx];
+                    if triplet.is_deleted() || path.contains(&idx) {
+                        continue;
+                    }
+                    let subj = triplet.subject.to_lowercase();
+                    let obj = triplet.object.to_lowercase();
+                    // the entity at the other end of this triplet
+                    let other = if subj == *entity && obj != "itself" {
+                        obj
+                    } else if obj == *entity && subj != "itself" {
+                        subj
+                    } else {
+                        continue;
+                    };
+                    if visited.insert(other.clone()) {
+                        let mut new_path = path.clone();
+                        new_path.push(idx);
+                        chains.push(new_path.clone());
+                        next.push((other, new_path));
+                    }
+                }
+            }
+            next.sort_by(|a, b| a.0.cmp(&b.0)); // deterministic expansion order
+            frontier = next;
+        }
+
+        chains
+            .into_iter()
+            .map(|p| p.into_iter().map(|i| &self.triplets[i]).collect())
+            .collect()
     }
 
     /// Add a spatial (navigational) edge between two locations.
@@ -1106,6 +1181,90 @@ mod tests {
         let assoc = g.get_associated(&seed, 2);
         // Two hops from alice: alice-bob, then bob-carol
         assert_eq!(assoc.len(), 2);
+    }
+
+    // ── evidence-chain path structure (associated_paths + render_chain) ──
+
+    #[test]
+    fn associated_paths_single_hop() {
+        let mut g = TripletGraph::new();
+        g.add_triplets(&[
+            make_triplet("alice", "bob", "knows"),
+            make_triplet("bob", "carol", "knows"),
+        ]);
+        let seed: HashSet<String> = ["alice".to_string()].into_iter().collect();
+        let paths = g.associated_paths(&seed, 1);
+        assert_eq!(paths.len(), 1); // reaches bob only at one hop
+        assert_eq!(paths[0].len(), 1);
+        assert_eq!(render_chain(&paths[0]), "alice - knows - bob");
+    }
+
+    #[test]
+    fn associated_paths_two_hops_one_chain_per_entity() {
+        let mut g = TripletGraph::new();
+        g.add_triplets(&[
+            make_triplet("alice", "bob", "knows"),
+            make_triplet("bob", "carol", "knows"),
+            make_triplet("dave", "eve", "knows"), // disconnected component
+        ]);
+        let seed: HashSet<String> = ["alice".to_string()].into_iter().collect();
+        let paths = g.associated_paths(&seed, 2);
+        // reaches bob (1-chain) and carol (2-chain); dave/eve unreached
+        assert_eq!(paths.len(), 2);
+        let longest = paths.iter().max_by_key(|p| p.len()).unwrap();
+        assert_eq!(longest.len(), 2);
+        assert_eq!(
+            render_chain(longest),
+            "alice - knows - bob  ⇒  bob - knows - carol"
+        );
+    }
+
+    #[test]
+    fn associated_paths_no_match_is_empty() {
+        let mut g = TripletGraph::new();
+        g.add_triplets(&[make_triplet("alice", "bob", "knows")]);
+        let seed: HashSet<String> = ["nobody".to_string()].into_iter().collect();
+        assert!(g.associated_paths(&seed, 3).is_empty());
+    }
+
+    #[test]
+    fn associated_paths_terminates_on_cycle() {
+        let mut g = TripletGraph::new();
+        g.add_triplets(&[
+            make_triplet("a", "b", "knows"),
+            make_triplet("b", "a", "knows"),
+        ]);
+        let seed: HashSet<String> = ["a".to_string()].into_iter().collect();
+        // must terminate; only `b` is newly reached (`a` is a seed).
+        assert_eq!(g.associated_paths(&seed, 5).len(), 1);
+    }
+
+    #[test]
+    fn render_chain_empty_is_empty_string() {
+        let empty: Vec<&Triplet> = Vec::new();
+        assert_eq!(render_chain(&empty), "");
+    }
+
+    #[test]
+    fn associated_paths_deterministic() {
+        let mut g = TripletGraph::new();
+        g.add_triplets(&[
+            make_triplet("alice", "bob", "knows"),
+            make_triplet("bob", "carol", "knows"),
+            make_triplet("alice", "dave", "knows"),
+        ]);
+        let seed: HashSet<String> = ["alice".to_string()].into_iter().collect();
+        let a: Vec<String> = g
+            .associated_paths(&seed, 3)
+            .iter()
+            .map(|p| render_chain(p))
+            .collect();
+        let b: Vec<String> = g
+            .associated_paths(&seed, 3)
+            .iter()
+            .map(|p| render_chain(p))
+            .collect();
+        assert_eq!(a, b);
     }
 
     #[test]
