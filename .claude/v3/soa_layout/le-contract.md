@@ -149,10 +149,13 @@ facet payloads, lens-selected per class. Consequences:
 
 - Do NOT extend CausalEdge64 bit fields to carry new awareness semantics;
   new semantics land as facet layouts (L1–L8 + sanctioned readings).
-- **[H] open:** CausalEdge64's residual role (wire/protocol/EdgeBlock
-  compatibility) vs full retirement — needs a scoping ruling; the
-  `edges[16B]` block in the CANON node is untouched by this (it is
-  one-byte SLOT refs, not packed mantissas).
+- **[H] → RESOLVED 2026-07-18:** CausalEdge64's residual role is NOT
+  open-ended — it survives as exactly THREE concrete carriers: (1) the
+  MailboxSoA per-row baton edge (`mailbox_soa.rs:92`), (2) the perturbation
+  baseline (E-THINKING-TENANTS-V3-1), (3) the p64 palette address
+  (`p64-bridge/src/lib.rs:30`). Only the awareness-mantissa is retired (M20);
+  the `edges[16B]` block in the CANON node is untouched (one-byte SLOT refs,
+  not packed mantissas). See ENTROPY-MILESTONES M20 + `.claude/knowledge/graphrag-industry-comparison.md` H4.
 
 ### The canonical cosine/centroid replacement is ANALYTIC (operator, 2026-07-16)
 
