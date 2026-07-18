@@ -1,3 +1,10 @@
+## 2026-07-17 — E-CONTEXT-ROLE-TISSUE-1 capture — connecting-tissue traversal doctrine (main thread, no subagents)
+
+- **Task:** capture the operator's context:role generalization (vertical HHTL / horizontal 6-context) and find the clean cross-domain reuse (screens, documents, time series, AriGraph) with classid+appid+ClassView/WideFieldMask.
+- **Consulted first (no guessing):** le-contract §3 (polymorphic (8:8), classview-selects); `class_view.rs` (`FieldMask:70`, `WideFieldMask:221`, `screens_reachable_from:701`, `menu_address:1073/2004`); `view_angle.rs` (presence=attention doctrine); `hhtl.rs` (`NiblePath`); `temporal_pov.rs`; `ogar_codebook.rs` (`AppPrefix`/`render_classid`). No prior traversal-tissue doc existed (verified).
+- **Deliverable:** `.claude/knowledge/context-role-traversal-tissue.md` — the lens-stack inventory, the two axes, the per-domain instantiation table, 6 reuse rules (unify at the REGISTER never the API — no `Traversal` trait), probe pair (P-HIER-LEIDEN-HHTL vertical / S1-on-basin:role horizontal). Plan §3b.1 pointer added.
+- **Board:** EPIPHANIES `E-CONTEXT-ROLE-TISSUE-1`. Branch restarted from post-#720 main; PR pending.
+
 ## 2026-07-17 — D-GR-1 + D-GR-3b + G0 shipped (3 background agents: 1 Opus filigree + 2 Sonnet grindwork; Opus orchestrator wired mod.rs + compiled centrally, one shared target)
 
 - **Task:** "Finish D-GR-*, Opus agents for filigree + Sonnet 5 for grindwork" — the graphrag plan's buildable/ungated deliverables.

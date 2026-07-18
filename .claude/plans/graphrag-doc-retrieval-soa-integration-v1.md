@@ -282,7 +282,18 @@ already carries, and they are **distributional-meaning modes, NARS-truth-weighte
    high-but-<1.0 ⇒ correlated-but-distinct, and the disagreements are exactly the
    bridges / revision candidates. Either way a finding; the identity is the
    *hypothesis*, the probe is the *falsifier* (the "same concept at the same time"
-   claim made precise).
+   claim made precise). **[S1 harness SHIPPED #720** —
+   `examples/p_community_basin_agree.rs`, φ via `jc::pearson`: aligned 1.0000 /
+   bridged 0.5500 with the bridge named; real-corpus verdict OPEN.]
+   **Orientation generalization (operator, 2026-07-17 — captured in
+   `.claude/knowledge/context-role-traversal-tissue.md`):** `part_of:is_a` ≡
+   **context:role**, one polymorphic `(8:8)` register with two orientations —
+   **vertical** (stacked exactness = HHTL family identity; falsifier =
+   P-HIER-LEIDEN-HHTL over `Communities.levels`) and **horizontal** (6-context
+   episodic-witness `basin:role`; falsifier = the shipped S1 harness re-fed from
+   the 6-slot frame). The S1 identity is the register-level invariant both
+   orientations test; the same tissue is the reuse spine for screens
+   (`menu_address`/`WideFieldMask`), documents, and time series.
 2. **× the 256² distribution — Leiden clusters the distribution, not the
    ranking.** Modularity runs over the compose/distribution graph (256²
    palette-compose + `CausalEdge64` SPO edges), NOT the 256 rank. A community IS
