@@ -22,7 +22,7 @@ pub mod xai_client;
 
 pub use bm25::Bm25Index;
 pub use community::Communities;
-pub use episodic::EpisodicBasins;
+pub use episodic::{EpisodeTheses, EpisodicBasins};
 pub use ppr::PersonalizedPageRank;
 pub use rrf::{reciprocal_rank_fusion, DEFAULT_RRF_K};
 pub use witness_corpus::{WitnessCorpus, WitnessEntry, WitnessId, WitnessIndexHashMap};

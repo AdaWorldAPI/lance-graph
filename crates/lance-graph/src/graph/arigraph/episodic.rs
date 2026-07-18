@@ -104,6 +104,41 @@ impl EpisodicBasins {
     }
 }
 
+/// A **thesis partition** of one episode's triplets.
+///
+/// A *thesis* (PersonalAI, Menschikov et al. 2025) is a "complete atomic
+/// thought" — a proposition — that hyper-links the entities it mentions. This
+/// carrier partitions one episode's stored triplets into theses computed as a
+/// pure **structural heuristic**: maximal clusters of triplets connected by a
+/// shared entity (subject/object). It is NOT the paper's LLM-identified thesis
+/// — it is the deterministic, no-LLM approximation (a *community-within-one-
+/// episode*, the middle tier between the structural
+/// [`Communities`](super::community::Communities) and the experiential
+/// [`EpisodicBasins`]). Two triplets in the same episode share a thesis iff a
+/// chain of shared entities links them.
+#[derive(Debug, Clone)]
+pub struct EpisodeTheses {
+    /// The episode's observation text (provenance).
+    pub observation: String,
+    /// The episode's logical step.
+    pub step: u64,
+    /// Thesis id per triplet, parallel to the episode's stored `triplets`.
+    pub labels: Vec<u32>,
+    /// Number of distinct theses in this episode.
+    pub num_theses: usize,
+}
+
+impl EpisodeTheses {
+    /// The 0-based indices (into the episode's `triplets`) belonging to `thesis`.
+    pub fn triplet_indices(&self, thesis: u32) -> Vec<usize> {
+        self.labels
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &t)| (t == thesis).then_some(i))
+            .collect()
+    }
+}
+
 /// AriGraph Eq. 1 episode relevance: `n / (N · ln N)` for `N ≥ 2`, else `0`.
 ///
 /// `n` = hit triplets incident to the episode, `N` = its total triplets. The
@@ -329,6 +364,79 @@ impl EpisodicMemory {
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         scored.truncate(k);
         scored
+    }
+
+    /// Partition each stored episode's triplets into **theses** — propositions,
+    /// computed as maximal triplet clusters connected by a shared entity.
+    ///
+    /// One [`EpisodeTheses`] per stored episode (in insertion order). Within an
+    /// episode, two triplets share a thesis iff a chain of shared subjects/
+    /// objects links them; a malformed or entity-disjoint triplet is its own
+    /// thesis. This is the pure structural heuristic for PersonalAI's thesis
+    /// hyper-edge (a *community-within-one-episode*), the tier between
+    /// [`TripletGraph::communities`](super::triplet_graph::TripletGraph::communities)
+    /// (structural, cross-corpus) and [`EpisodicBasins`] (experiential,
+    /// cross-episode). Deterministic: the connectivity is order-independent and
+    /// thesis ids densify by first triplet index.
+    ///
+    /// Pure: reads only `Episode::{observation, step, triplets}`.
+    #[must_use]
+    pub fn theses(&self) -> Vec<EpisodeTheses> {
+        self.episodes
+            .iter()
+            .map(|ep| {
+                let m = ep.triplets.len();
+                // entity -> the triplet indices that mention it (subject or object)
+                let mut by_entity: HashMap<&str, Vec<usize>> = HashMap::new();
+                for (i, triplet) in ep.triplets.iter().enumerate() {
+                    let parts: Vec<&str> = triplet.split(" - ").collect();
+                    if parts.len() == 3 {
+                        for raw in [parts[0].trim(), parts[2].trim()] {
+                            if !raw.is_empty() {
+                                by_entity.entry(raw).or_default().push(i);
+                            }
+                        }
+                    }
+                }
+                // union-find over triplet indices; triplets sharing an entity merge.
+                let mut parent: Vec<usize> = (0..m).collect();
+                fn find(parent: &mut [usize], mut x: usize) -> usize {
+                    while parent[x] != x {
+                        parent[x] = parent[parent[x]];
+                        x = parent[x];
+                    }
+                    x
+                }
+                for tris in by_entity.values() {
+                    for w in tris.windows(2) {
+                        let (ra, rb) = (find(&mut parent, w[0]), find(&mut parent, w[1]));
+                        if ra != rb {
+                            let (lo, hi) = (ra.min(rb), ra.max(rb));
+                            parent[hi] = lo;
+                        }
+                    }
+                }
+                // densify roots to 0..k by first triplet index (deterministic).
+                let mut dense: HashMap<usize, u32> = HashMap::new();
+                let mut next = 0u32;
+                let labels: Vec<u32> = (0..m)
+                    .map(|i| {
+                        let r = find(&mut parent, i);
+                        *dense.entry(r).or_insert_with(|| {
+                            let d = next;
+                            next += 1;
+                            d
+                        })
+                    })
+                    .collect();
+                EpisodeTheses {
+                    observation: ep.observation.clone(),
+                    step: ep.step,
+                    num_theses: dense.len(),
+                    labels,
+                }
+            })
+            .collect()
     }
 
     /// True if no episodes are stored.
@@ -739,5 +847,50 @@ mod tests {
             &["a - r - b", "z - r - w"],
         ]);
         assert_eq!(m.episodic_search(&hits(&["a - r - b"]), 2).len(), 2);
+    }
+
+    // ── thesis partition ─────────────────────────────────────────────────
+
+    #[test]
+    fn theses_split_disjoint_propositions() {
+        // Two entity-disjoint triplets in one episode ⇒ two theses.
+        let m = basin_mem(&[&["a - r - b", "c - r - d"]]);
+        let t = m.theses();
+        assert_eq!(t.len(), 1); // one episode
+        assert_eq!(t[0].num_theses, 2);
+        assert_ne!(t[0].labels[0], t[0].labels[1]);
+    }
+
+    #[test]
+    fn theses_merge_on_shared_entity() {
+        // A chain a-b-c ⇒ one thesis spanning all three triplets.
+        let m = basin_mem(&[&["a - r - b", "b - r - c", "c - r - d"]]);
+        let t = m.theses();
+        assert_eq!(t[0].num_theses, 1);
+        assert_eq!(t[0].triplet_indices(0), vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn theses_are_per_episode() {
+        let m = basin_mem(&[&["a - r - b", "c - r - d"], &["x - r - y"]]);
+        let t = m.theses();
+        assert_eq!(t.len(), 2);
+        assert_eq!(t[0].num_theses, 2); // disjoint
+        assert_eq!(t[1].num_theses, 1); // single triplet
+        assert_eq!(t[0].observation, "obs0");
+        assert_eq!(t[1].observation, "obs1");
+    }
+
+    #[test]
+    fn theses_empty_memory_is_safe() {
+        assert!(EpisodicMemory::new(8).theses().is_empty());
+    }
+
+    #[test]
+    fn theses_deterministic() {
+        let m = basin_mem(&[&["a - r - b", "b - r - c", "x - r - y"]]);
+        let (p, q) = (m.theses(), m.theses());
+        assert_eq!(p[0].labels, q[0].labels);
+        assert_eq!(p[0].num_theses, q[0].num_theses);
     }
 }
