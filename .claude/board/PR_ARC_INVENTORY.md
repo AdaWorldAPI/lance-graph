@@ -33,6 +33,25 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## #733 lance-graph: x265 probe wave-2 — sprite-replay + WH-MAG-2 (probe code + verdicts)
+
+**Status:** MERGED 2026-07-18 (merge commit `be68c2f`), branch `claude/x265-x266-plans-review-h9osnl`, doc + test-only probe code.
+
+**Added**
+- `crates/helix/src/sprite_replay.rs` (`probe_sprite_replay_core`, test-only) — x265 I/P/B replay via helix motion codes; **PASS-AT-SIGNED360 (scoped) / ResidueEdge-24bit INSUFFICIENT**, KILL did not fire (one Signed360 code per sprite reconstructs motion+B-frames exactly, for helix-manifold motion; arbitrary-motion generality stays [H]).
+- `crates/bgz-tensor/src/adaptive_codec.rs` `mod probe_wh_mag::probe_wh_mag_2` — WH + escape + centroid; **upgrades the WH-magnitude leg from bare NOT-TRANSFERRING to TRANSFERS-on-structured-tiles** (gradient+spike esc 0.815 / cen 0.209).
+- EPIPHANIES `E-X265-PROBE-WAVE-2-RESULTS`.
+
+**Locked** — the sprite motion primitive is Signed360-only (ResidueEdge-24bit is hemisphere-blind + rank-adjacency-hazarded); WH transfers ONLY as the shipped escape+centroid pairing on structured tiles (compound-column caveat: the win is a codec-pairing property, WH's isolated margin unmeasured).
+
+**Deferred** — the arbitrary-independent-ground-truth sprite motion probe (promotes helix-manifold [proven] → arbitrary-motion [H]); the wgpu/wasm decode tiers (shared PROBE-GPU-LUT harness).
+
+**Docs** — ndarray #248 companion (MERGED same day: plan Results + §5 wave-2 table + §10 RESULT-2).
+
+**Review** — CodeRabbit reviewed; clippy clean on both probe crates (no dead-code warnings despite the preview hint); Bugbot usage-limited.
+
+**Confidence (2026-07-18):** probes deterministic + green (helix 75+4+7, bgz-tensor 203); Opus-adjudicated LAND-AS-IS, all findings P2.
+
 ## #717 lance-graph: D-TRI-1 value-tenant half — the autopoiesis triangle (3 SoA lanes)
 
 **Status:** MERGED 2026-07-17 (merge commit `74d16f92`), branch `claude/review-claude-board-files-nhqgx1`, 3 commits, autonomously merged under the operator's standing merge authority.
