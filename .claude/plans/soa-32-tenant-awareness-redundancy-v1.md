@@ -42,6 +42,67 @@ whether 64 bits was enough.
 
 ---
 
+## §0.5 OPERATOR DIRECTIVE (2026-07-18) — base single-sourced, OGAR mints per-app, two override points
+
+> *"the most important part is making sure that the base layout is only imported
+> in one place and ogar responsible for minting per app additional — that way
+> activation can be overridden at any time in 2 places and cheaply tested and
+> versioned and shrunken later."*
+
+This **supersedes the "add 19 named `ValueTenant` variants" reading of §2.** 19
+named base variants would make every M20 shrink a base-layout edit + version bump
++ blast radius across every (currently hand-copied) consumer — the opposite of
+shrinkable. The correct shape (which is *also* the already-coded `tenants.md §5`
+"facet lane" model — *"a ClassView READING over existing presets, no enum
+variant, no layout bump"*):
+
+| Layer | Holds | Override point | Shrink |
+|---|---|---|---|
+| **Base** — `lance-graph-contract`, ONE import site | reserves a generic **facet region** in the slab (the 324 B headroom, RESERVE-DON'T-RECLAIM) + the `FacetCascade` 16-B shape. Content-blind. | **Place 1** — region size / `ENVELOPE_LAYOUT_VERSION` | region stays reserved, never reclaimed |
+| **OGAR** — `ogar-vocab`, per-app mint | mints classid → ClassView whose `value_schema` **projects** the SpoFacet/PearlRung/… *readings* onto the region | **Place 2** — the mint (versioned per app) | **re-mint** the ClassView to drop redundant readings — no base edit, no version bump |
+
+So the A1–A7 + sibling facets of §2 are **OGAR-minted READINGS over one reserved
+region, NOT base enum variants.** The base defines *where the bytes are* and
+*what shape a facet is*, once; OGAR decides *which readings each app activates*.
+
+**This mechanism already SHIPPED for the triangle (#729 P4, 2026-07-18) — reuse
+it, don't reinvent.** `MailboxSoaView::style_rails_at(row, lane) -> Option<[(u8,u8);
+6]>` (`soa_view.rs`) reads a 12-byte content-blind register as six `(u8:u8)`
+rails — *"one register, two ClassView-selected readings — identical bytes,
+different interpretation"* (the operator's "one register, two readings" ruling:
+*"226 ARE the frozen; anything else needs 6×2×8bit … for an Orchestration for v3
+substrate replayability"*). The **per-class doctrine** (#729 `3248bd9`): *"the
+reading is ClassView-selected PER ROW/CLASS, never per lane."* The awareness
+facets are **additional `style_rails_at`-shaped 6×(8:8) ClassView readings**,
+OGAR-minted per app — the same substrate, one rung wider. `style_lane_at` (12×u8
+→ 226-atom FROZEN palette256, `cognitive_palette.rs`) is the FROZEN sibling
+reading; awareness facets are the "anything else" orchestration half.
+Consequences that gate everything below:
+
+1. **Single-import enforcement (Place 1 integrity).** The base type has one root —
+   **`lance-graph-contract`** — consumed by exactly the OGAR-aligned cluster:
+   **`lance-graph-ogar` + `OGAR` + `ogar-vocab`** (the mint/bridge; OGAR/ogar-vocab
+   carrying the encoder is CORRECT, they are the mint side, not a violation).
+   Everyone else *imports* the type, never copies. Real violation to close =
+   ENTROPY **M21**: the non-sanctioned consumer hand-copies (`woa-rs/erp/canon.rs`,
+   q2 cpic + fma) → one `canon-node-bytes` all import. **`symbiont` is NOT a fix
+   target** — it is surrealdb-based and **deprecated in favor of OGAR**; its
+   `bridge.rs:30 NODE_ROW_STRIDE = 512` copy retires *with* symbiont (dropping the
+   INTEGRATION-PLAN W2c SurrealDB arm from the live path), not by wiring it to the
+   base. Closing M21 is the prerequisite — a shrink is only "2 places" if the base
+   is genuinely one root.
+2. **The per-app mint moves to OGAR (Place 2 integrity).** The awareness
+   `value_schema` projection is an **OGAR mint** (classid → ClassView), not a new
+   hardcoded `BUILTIN_READ_MODES` preset baked in `canonical_node.rs`. The code's
+   own intent already says so (`:888` "read-mode is layered in one level up").
+3. **The auditor's LAYOUT-GATED verdict is re-scoped.** It audited the bake-19
+   path. The new delta is far smaller: reserve ONE facet region (or a small fixed
+   count of generic 12-B facet slots) + the ClassView reading contract — NOT 19
+   named `ValueTenant` variants + 19 `Full`-mask entries. This needs a **re-audit
+   of the region-reservation delta** before any `canonical_node.rs` edit; the 5
+   blocking items shrink accordingly (the `Full.field_mask().count() ==
+   VALUE_TENANTS.len()` lockstep becomes "one region descriptor," not 19).
+
 ## §1 Why "spread wide, then measure" (the operator-blessed method)
 
 This is not a new pattern — it is the workspace's own collapse discipline:
@@ -63,7 +124,14 @@ Either way the conjecture is overcome by measurement, not assertion.
 
 ---
 
-## §2 The honest full-width spread — 13 → 32 tenants (derivation, not invention)
+## §2 The honest full-width spread — 13 → 32 readings (derivation, not invention)
+
+> **Read through §0.5.** The A1–A7 + sibling table below is the **catalogue of
+> OGAR-minted ClassView READINGS** over the base's one reserved facet region —
+> NOT 19 named base `ValueTenant` variants. "13 → 32" counts the *readings a
+> fully-activated app projects*, not 32 base enum entries. The byte arithmetic
+> below sizes the **reserved region**; the per-reading activation is the OGAR
+> mint (Place 2).
 
 Current `VALUE_TENANTS` (canonical_node.rs:904-993) = **13 lanes**, offsets
 [32,188), 156 B of the 480-byte slab. `ValueSchema::Full` ends at 188;
@@ -139,16 +207,26 @@ classid + chess `0x06` (dtri1-classid-mint-spec-v1) — never a solo mint.
 
 ## §4 Sequencing + gates (nothing solo, nothing silent)
 
-1. **Envelope-auditor gate FIRST.** The A1–A7 + sibling lanes are a layout delta →
-   `v3-envelope-auditor` reviews the field-isolation matrix, RESERVE-DON'T-RECLAIM,
-   version-stability *before any canonical_node.rs edit*. (This turn.)
-2. **Batched OGAR mint, never solo.** The awareness-facet classids ride the next
-   batched mint with BoardAggregates + chess `0x06` (dtri1-classid-mint-spec-v1),
-   not a separate train.
-3. **Lane at a time, jc-cert per lane.** A1 (`SpoFacet`) first — it is the user's
-   own established base design (3 SPO + 3 episodicwitness) and the least
-   speculative. Each subsequent lane lands with its own facet-layout + a jc-cert
-   fixture reading real node data.
+0. **Single-import prerequisite (Place 1 integrity — §0.5.1).** Base root =
+   `lance-graph-contract`, consumed by `lance-graph-ogar` + `OGAR` + `ogar-vocab`.
+   Close ENTROPY **M21** (the woa-rs/q2 consumer hand-copies → one
+   `canon-node-bytes` all import). `symbiont` is deprecated (surrealdb → OGAR) and
+   is NOT a fix target — its copy retires with symbiont. A shrink is only "2
+   places" if the base is genuinely one root. Gates the plan, not just a lane.
+1. **Region re-audit FIRST.** The delta is now *reserve ONE generic facet region*
+   (or a small fixed count of generic 12-B slots) + the `FacetCascade` shape — NOT
+   19 named `ValueTenant` variants. `v3-envelope-auditor` re-reviews THIS smaller
+   delta (RESERVE-DON'T-RECLAIM, version-stability, region contiguity) *before any
+   canonical_node.rs edit*. The prior LAYOUT-GATED verdict audited the superseded
+   bake-19 path.
+2. **OGAR mints the per-app readings, never solo (Place 2).** The awareness
+   ClassView `value_schema` projections are minted in `ogar-vocab` (classid →
+   ClassView), riding the batched mint with BoardAggregates + chess `0x06`
+   (dtri1-classid-mint-spec-v1) — NOT a new hardcoded `BUILTIN_READ_MODES` preset.
+3. **Reading at a time, jc-cert per reading.** A1 (`SpoFacet`) first — the user's
+   established base design (3 SPO + 3 episodicwitness), least speculative. Each
+   reading lands as an OGAR-minted ClassView projection + a jc-cert fixture over
+   real node data. Shrink later = re-mint (drop redundant readings), no base edit.
 4. **CausalEdge64 / EpisodicEdges64 stay.** No shrink, no delete, until §3's
    measured width either vindicates or replaces the 64-bit hypothesis (M20
    residual-role ruling, still [H]).
