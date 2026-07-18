@@ -31,12 +31,12 @@ live schema carries it**. So the representations below are not separate stores �
 they are **tenant lanes / ClassView readings of one SoA**, selected by classid.
 "One SoA, never transformed" (`EPIPHANIES:5816` §11.1).
 
-## 1 — Inventory of the 7 arxiv texts
+## 1 — Inventory of the 7 papers (6 arXiv + MDPI)
 
 | Paper | Native representation | Format | Witness reference | In workspace? |
 |---|---|---|---|---|
 | **AriGraph** 2407.04363 | semantic SPO + **episodic edge** (episode → all its triplets) | triplet + episodic incidence | episode vertex `vₑᵗ=oᵗ` | SPO ✓ · episodic edge **MISSING** (string copy) |
-| **PersonalAI** 2506.17001 | object SPO + **thesis** hyper-edge (semantic) + **episodic** hyper-edge (temporal) | 3 vertex types + 2 hyper-edges | passage node `vᵢₑ=dᵢ` | object ✓ · thesis **MISSING** · episodic=basins()✓ · temporal=Lance versions |
+| **PersonalAI** 2506.17001 | object SPO + **thesis** hyper-edge (semantic) + **episodic** hyper-edge (temporal) | 3 vertex types + 2 hyper-edges | passage node `vᵢₑ=dᵢ` | object ✓ · thesis **MISSING** · episodic hyper-edge **MISSING** (basins() is a derived co-occurrence partition, not episode→triplet membership) · temporal=Lance versions |
 | **Document GraphRAG** MDPI | Document-KG (chapter/section/chunk URIs) + keyword IKG | hierarchical doc tree + keyword edges | chunk URI | doc-tree = vertical radix walk (planned doc-W4) |
 | **SAP Practical** 2507.03226 | dep-parse SPO + **RRF fusion** (vector⊕graph⊕relation) | 3 separate embeddings + rank-fusion | chunk id | SPO ✓ (DeepNSM) · **RRF MISSING** |
 | **StepChain** 2510.02827 | sub-question set + **BFS evidence-chain** `Πsᵤ` | decomposed queries + ordered paths | passage (on-the-fly) | BFS ✓ · **decomposition + path-structure MISSING** |
@@ -97,7 +97,7 @@ Legend: ✓ yes · ✓✓ *is* this · — no · V/H/E = vertical/horizontal/edg
 | Representation | Format | Witness ref | Wit | Ctx | Basin | Axis | Time | NARS | Causality-traj? | Wire |
 |---|---|---|---|---|---|---|---|---|---|---|
 | **SPO triple** | `Triplet{s,p,o,truth}` / spo:u64=3×u8 | WitnessCorpus source_url | ✓ | ✓✓ | ✓ | E | — | ✓ | **✓** owned+wit+NARS | chain episodic_search (Eq.1) |
-| **Episodic-witness edge** | `EpisodicEdges64` 4×u16 / WitnessEntry | episode/passage node | ✓✓ | ✓ | ✓✓ | E+H | ✓ | ~ | **✓** the episodic arc | wire `EpisodicEdges64` (unwired) |
+| **Episodic-witness edge** | `EpisodicEdges64` 4×u16 / WitnessEntry | episode/passage node | ✓✓ | ✓ | ✓✓ | E+H | ✓ | ~ | **✓** once wired (edge type MISSING as first-class) | wire `EpisodicEdges64` (unwired) |
 | **6×(8:8) facet (Reading A)** | `classid\|2×(basin:id SPO)` | 2nd (witness) SPO | ✓ | ✓ | ✓✓ | V/register | — | — | candidate (static row) | ratify as §3 reading + basin-byte probe |
 | **Community/basin partition** | `Communities` + `EpisodicBasins` | — (derived) | — | ✓ | ✓✓ | H | ~ | — | **grounds** trajectories | + thesis (3rd partition) |
 | **Temporal standing-wave** | `SoaWavePrimer{±radius}`→`WaveProjection`; temporal.rs stream | Lance version / stream pos | ✓ | ✓✓ | ✓ | **T** | ✓✓ | — (leashed) | **✓✓** the WAVE IDENTIFIES | **D-MTS-1** keystone probe (un-run) |
@@ -105,7 +105,7 @@ Legend: ✓ yes · ✓✓ *is* this · — no · V/H/E = vertical/horizontal/edg
 | **Palette / Fisher-z metric** | L4 6×(8:8) palette256² / `PaletteDistanceTable` 256² | — (metric) | — | — | ✓ | L4 addr | — | — | — enables matching | D-MTS-2/3 shader cert |
 | **COCA-4096 constant** | 4096² u8 matrix / cascade L3 / 96D PQ codebook | IS certification witness | ✓ | ✓ | — | L3 rung | — pinned v3 | — | — reference frame | anchor doc (à la Jina-v5 registry) |
 | **Thesis vertex** *(unbuilt)* | community-within-one-episode | episode | ~ | ✓ | ✓✓ | H | — | — | grounds | parallel to `EpisodicBasins` |
-| **RRF fusion** *(unbuilt)* | `rrf(lists,k=60)→Vec<ScoredId>` | — | — | ✓ fuses | ✓ fuses | combinator | — | gate | free fn in `retrieval.rs` — **keystone** |
+| **RRF fusion** *(unbuilt)* | `rrf(lists,k=60)→Vec<ScoredId>` | — | — | ✓ fuses | ✓ fuses | combinator | — | — | — | free fn in `retrieval.rs` — **keystone** |
 | **Sub-question decomp** *(unbuilt)* | query→{q₁..qₘ} seed sets | — | — | ✓ | — | — | seq | — | LLM/DeepNSM tail | `retrieve_multi` on `OsintRetriever` |
 | **Evidence-chain `Πsᵤ`** *(unbuilt)* | pred-map + `A-(r)→B-(r)→C` | the path (audit trail) | ✓ | ✓✓ | — | E-path | ord | ✓ | **✓✓** chain = trajectory | extend `get_associated`→`associated_paths` |
 | **Provenance→trust** *(unbuilt)* | source_url→`TruthValue.confidence` | source_url | ✓✓ | — | — | — | — | ✓✓ | enables trust-gated traj | at `promote_to_spo`/`WitnessCorpus::insert` |
