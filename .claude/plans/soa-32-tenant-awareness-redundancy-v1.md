@@ -49,17 +49,20 @@ whether 64 bits was enough.
 > activation can be overridden at any time in 2 places and cheaply tested and
 > versioned and shrunken later."*
 
-This **supersedes the "add 19 named `ValueTenant` variants" reading of §2.** 19
-named base variants would make every M20 shrink a base-layout edit + version bump
-+ blast radius across every (currently hand-copied) consumer — the opposite of
-shrinkable. The correct shape (which is *also* the already-coded `tenants.md §5`
-"facet lane" model — *"a ClassView READING over existing presets, no enum
-variant, no layout bump"*):
+This **supersedes the "add 19 named `ValueTenant` variants" reading of §2.** The
+512-byte envelope is **FIXED** — "shrink" is NOT byte-shrinking; it is the LATER
+reorganization of the jc-proven tenants into a clean layout *within* the fixed 512,
+**without hardcoding** (§0.6). 19 hand-hardcoded named base variants would make that
+reorganization a hand-edit of the `VALUE_TENANTS` array + a blast radius across
+every hand-copied consumer — the opposite of reorganizable-without-hardcoding. The
+correct shape (which is *also* the already-coded `tenants.md §5` "facet lane"
+model — *"a ClassView READING over existing presets, no enum variant, no layout
+bump"*):
 
-| Layer | Holds | Override point | Shrink |
+| Layer | Holds | Override point | Reorganize (the "shrink", §0.6) |
 |---|---|---|---|
-| **Base** — `lance-graph-contract`, ONE import site | reserves a generic **facet region** in the slab (the 324 B headroom, RESERVE-DON'T-RECLAIM) + the `FacetCascade` 16-B shape. Content-blind. | **Place 1** — region size / `ENVELOPE_LAYOUT_VERSION` | region stays reserved, never reclaimed |
-| **OGAR** — `ogar-vocab`, per-app mint | mints classid → ClassView whose `value_schema` **projects** the SpoFacet/PearlRung/… *readings* onto the region | **Place 2** — the mint (versioned per app) | **re-mint** the ClassView to drop redundant readings — no base edit, no version bump |
+| **Base** — `lance-graph-contract`, ONE import site | the tenant layout descriptor (offsets/widths in the fixed 512) + the `FacetCascade` shape. Content-blind. **Mint-sourced / codegen'd, NOT hand-hardcoded.** | **Place 1** — the layout descriptor + `ENVELOPE_LAYOUT_VERSION` | re-mint → **regenerate** the descriptor (a versioned reorg + field-isolation matrix), never a hand-edit |
+| **OGAR** — `ogar-vocab`, per-app mint | mints classid → ClassView whose `value_schema` **projects** the readings onto the layout | **Place 2** — the mint (versioned per app) | **re-mint** which readings each proven tenant carries |
 
 So the A1–A7 + sibling facets of §2 are **OGAR-minted READINGS over one reserved
 region, NOT base enum variants.** The base defines *where the bytes are* and
@@ -102,6 +105,38 @@ Consequences that gate everything below:
    of the region-reservation delta** before any `canonical_node.rs` edit; the 5
    blocking items shrink accordingly (the `Full.field_mask().count() ==
    VALUE_TENANTS.len()` lockstep becomes "one region descriptor," not 19).
+
+### §0.6 What "shrink" means — 512 fixed, reorganize-the-proven, without hardcoding
+
+**The 512-byte node is a fixed envelope; it never resizes.** "Shrink" (operator,
+2026-07-18) = *"reorganizing the tenants that are proven to work, at a later time,
+without hardcoding."* The arc:
+
+1. **Spread wide** (this plan): fill the fixed 512's reserved headroom with
+   candidate awareness readings — additive, RESERVE-DON'T-RECLAIM, no version bump.
+2. **Measure** (§3): jc tells which candidates are proven (non-redundant,
+   load-bearing) and which are redundant.
+3. **Reorganize** (the "shrink", later): consolidate the *proven* tenants into a
+   clean contiguous layout within the fixed 512, freeing the redundant slots — a
+   deliberate, versioned reorganization (`ENVELOPE_LAYOUT_VERSION` bump +
+   field-isolation matrix, I-LEGACY-API-FEATURE-GATED).
+
+**"Without hardcoding" is the load-bearing constraint on step 3.** The tenant
+layout descriptor must be **mint-sourced / codegen'd from OGAR**, not a
+hand-authored `VALUE_TENANTS` array — so reorganizing is *re-mint → regenerate the
+descriptor → recompile*, never hand-moving offsets in source. Compile-time
+guarantees (contiguity / Full / ≤480 asserts, zero-copy) still hold because the
+generated descriptor is compile-time-known; it is just **sourced from the mint,
+not typed by hand**. That is why the reorg stays a **2-place** change (regenerate
+the one base descriptor + re-mint the OGAR readings) instead of an N-place hand-edit
+across every consumer — the M21 single-import + OGAR-produces-the-layout are the
+two *enabling* invariants, not nice-to-haves.
+
+> **Implication for the base today:** `VALUE_TENANTS` is currently a hand-authored
+> `const` array (`canonical_node.rs:904`). Making it **OGAR-mint-sourced /
+> codegen'd** is the prerequisite for reorganize-without-hardcoding — a broader V3
+> direction this plan's awareness lanes must ride, not fight: do NOT add
+> hand-hardcoded awareness variants that would then have to be hand-reorganized.
 
 ## §1 Why "spread wide, then measure" (the operator-blessed method)
 
@@ -226,7 +261,9 @@ classid + chess `0x06` (dtri1-classid-mint-spec-v1) — never a solo mint.
 3. **Reading at a time, jc-cert per reading.** A1 (`SpoFacet`) first — the user's
    established base design (3 SPO + 3 episodicwitness), least speculative. Each
    reading lands as an OGAR-minted ClassView projection + a jc-cert fixture over
-   real node data. Shrink later = re-mint (drop redundant readings), no base edit.
+   real node data. Reorganize later (the "shrink", §0.6) = re-mint → regenerate the
+   layout descriptor for the proven tenants (versioned, within the fixed 512),
+   never a hand-edit.
 4. **CausalEdge64 / EpisodicEdges64 stay.** No shrink, no delete, until §3's
    measured width either vindicates or replaces the 64-bit hypothesis (M20
    residual-role ruling, still [H]).
