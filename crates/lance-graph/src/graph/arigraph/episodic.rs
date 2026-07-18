@@ -6,6 +6,8 @@
 //! Stores observation episodes with fingerprint-based similarity retrieval,
 //! enabling agents to recall relevant past experiences.
 
+use std::collections::{BTreeSet, HashMap};
+
 use crate::graph::fingerprint::{hamming_distance, label_fp, Fingerprint};
 use crate::graph::spo::truth::TruthValue;
 
@@ -63,6 +65,43 @@ pub struct EpisodicMemory {
     episodes: Vec<Episode>,
     /// Maximum number of episodes to retain.
     capacity: usize,
+}
+
+/// An **episodic-basin** partition over the entities observed in
+/// [`EpisodicMemory`].
+///
+/// The *experiential* complement to
+/// [`Communities`](super::community::Communities): entities are grouped by
+/// **co-occurrence in episodes** (what was observed together), not by structural
+/// graph connectivity (what is linked). Same accessor shape as `Communities`, so
+/// the two partitions can be read the same way and compared by a caller.
+#[derive(Debug, Clone)]
+pub struct EpisodicBasins {
+    /// Sorted, deduped entity names observed across episodes.
+    pub entities: Vec<String>,
+    /// Basin id per entity, parallel to [`Self::entities`].
+    pub labels: Vec<u32>,
+    /// Number of distinct basins.
+    pub num_basins: usize,
+}
+
+impl EpisodicBasins {
+    /// The basin id of `entity`, if it was observed in any episode.
+    pub fn basin_of(&self, entity: &str) -> Option<u32> {
+        self.entities
+            .iter()
+            .position(|e| e == entity)
+            .map(|i| self.labels[i])
+    }
+
+    /// The entity names in `basin`.
+    pub fn members(&self, basin: u32) -> Vec<&str> {
+        self.entities
+            .iter()
+            .zip(&self.labels)
+            .filter_map(|(e, &b)| if b == basin { Some(e.as_str()) } else { None })
+            .collect()
+    }
 }
 
 impl EpisodicMemory {
@@ -136,6 +175,90 @@ impl EpisodicMemory {
     /// Number of episodes currently stored.
     pub fn len(&self) -> usize {
         self.episodes.len()
+    }
+
+    /// Partition observed entities into **episodic basins**: two entities share
+    /// a basin iff they co-occur in at least one stored episode (both names
+    /// appear in that episode's `"subject - relation - object"` triplets). This
+    /// is the *experiential* grouping — the complement to the *structural*
+    /// [`TripletGraph::communities`](super::triplet_graph::TripletGraph::communities)
+    /// partition. An entity never seen alongside another is its own basin.
+    ///
+    /// Deterministic: entities are sorted, and the union-find merges by lower
+    /// root, so the same episode set always yields the same partition.
+    pub fn basins(&self) -> EpisodicBasins {
+        // 1. Per-episode entity sets + the global sorted entity list.
+        let mut per_episode: Vec<Vec<String>> = Vec::with_capacity(self.episodes.len());
+        let mut all: BTreeSet<String> = BTreeSet::new();
+        for ep in &self.episodes {
+            let mut ents: Vec<String> = Vec::new();
+            for triplet in &ep.triplets {
+                let parts: Vec<&str> = triplet.split(" - ").collect();
+                if parts.len() == 3 {
+                    for raw in [parts[0].trim(), parts[2].trim()] {
+                        if !raw.is_empty() {
+                            ents.push(raw.to_string());
+                            all.insert(raw.to_string());
+                        }
+                    }
+                }
+            }
+            ents.sort_unstable();
+            ents.dedup();
+            per_episode.push(ents);
+        }
+        let entities: Vec<String> = all.into_iter().collect();
+        let index: HashMap<&str, usize> = entities
+            .iter()
+            .enumerate()
+            .map(|(i, e)| (e.as_str(), i))
+            .collect();
+
+        // 2. Union-find over co-occurrence (all entities in one episode merge).
+        let mut parent: Vec<usize> = (0..entities.len()).collect();
+        fn find(parent: &mut [usize], mut x: usize) -> usize {
+            while parent[x] != x {
+                parent[x] = parent[parent[x]];
+                x = parent[x];
+            }
+            x
+        }
+        for ents in &per_episode {
+            let mut anchor: Option<usize> = None;
+            for e in ents {
+                let i = index[e.as_str()];
+                match anchor {
+                    None => anchor = Some(i),
+                    Some(a) => {
+                        let (ra, rb) = (find(&mut parent, a), find(&mut parent, i));
+                        if ra != rb {
+                            let (lo, hi) = (ra.min(rb), ra.max(rb));
+                            parent[hi] = lo;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Densify roots to 0..k by first appearance (deterministic).
+        let mut dense: HashMap<usize, u32> = HashMap::new();
+        let mut next = 0u32;
+        let labels: Vec<u32> = (0..entities.len())
+            .map(|i| {
+                let r = find(&mut parent, i);
+                *dense.entry(r).or_insert_with(|| {
+                    let d = next;
+                    next += 1;
+                    d
+                })
+            })
+            .collect();
+        let num_basins = dense.len();
+        EpisodicBasins {
+            entities,
+            labels,
+            num_basins,
+        }
     }
 
     /// True if no episodes are stored.
@@ -422,5 +545,58 @@ mod tests {
     #[test]
     fn threshold_matches_contract_constant() {
         assert!((UNBUNDLE_HARDNESS_THRESHOLD - 0.8).abs() < 1e-6);
+    }
+
+    // ── episodic basins ──────────────────────────────────────────────────
+
+    fn basin_mem(episodes: &[&[&str]]) -> EpisodicMemory {
+        let mut m = EpisodicMemory::new(64);
+        for (i, trips) in episodes.iter().enumerate() {
+            let ts: Vec<String> = trips.iter().map(|s| s.to_string()).collect();
+            m.add(&format!("obs{i}"), &ts, i as u64);
+        }
+        m
+    }
+
+    #[test]
+    fn basins_group_co_occurring_entities() {
+        let m = basin_mem(&[&["alice - knows - bob"], &["carol - knows - dave"]]);
+        let b = m.basins();
+        assert_eq!(b.num_basins, 2);
+        assert_eq!(b.basin_of("alice"), b.basin_of("bob"));
+        assert_eq!(b.basin_of("carol"), b.basin_of("dave"));
+        assert_ne!(b.basin_of("alice"), b.basin_of("carol"));
+    }
+
+    #[test]
+    fn basins_merge_on_a_shared_entity() {
+        // `bob` bridges the two episodes → one basin of {alice, bob, carol}.
+        let m = basin_mem(&[&["alice - knows - bob"], &["bob - knows - carol"]]);
+        let b = m.basins();
+        assert_eq!(b.num_basins, 1);
+        assert_eq!(b.members(b.basin_of("alice").unwrap()).len(), 3);
+    }
+
+    #[test]
+    fn basins_union_all_entities_in_one_episode() {
+        let m = basin_mem(&[&["a - r - b", "b - r - c", "c - r - d"]]);
+        let b = m.basins();
+        assert_eq!(b.num_basins, 1);
+        assert_eq!(b.entities.len(), 4);
+    }
+
+    #[test]
+    fn basins_empty_memory_is_safe() {
+        let b = EpisodicMemory::new(8).basins();
+        assert_eq!(b.num_basins, 0);
+        assert!(b.entities.is_empty());
+    }
+
+    #[test]
+    fn basins_deterministic() {
+        let m = basin_mem(&[&["alice - r - bob"], &["bob - r - carol"]]);
+        let (x, y) = (m.basins(), m.basins());
+        assert_eq!(x.entities, y.entities);
+        assert_eq!(x.labels, y.labels);
     }
 }
