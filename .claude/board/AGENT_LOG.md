@@ -1,3 +1,11 @@
+## 2026-07-18 — Thesis partition (D-GR-2c, PersonalAI's most load-bearing type) — pure structural heuristic ahead of G0 — main thread
+
+- **Task:** PersonalAI's `thesis` vertex (per-proposition grouping) is the most load-bearing memory type (their Table 3) and the workspace lacked it — the third partition tier between structural `Communities` and experiential `EpisodicBasins`. Landed the pure primitive (next after episodic_search #725).
+- **Change:** `arigraph/episodic.rs` — `EpisodeTheses { observation, step, labels, num_theses }` + `triplet_indices()` and `EpisodicMemory::theses() -> Vec<EpisodeTheses>` (one per episode): within each episode, union-find its triplets into theses = maximal clusters connected by a shared entity (subject/object). Deterministic (order-independent connectivity, densify by first triplet index). Re-exported `EpisodeTheses` in `arigraph/mod.rs`.
+- **Honest scope:** this is the pure NO-LLM structural heuristic (connected-components by shared entity), NOT PersonalAI's LLM-identified thesis — flagged in the doc-comment (same honesty as `basins()`). A community-within-one-episode.
+- **Pure/reversible:** reads only `Episode::{observation, step, triplets}`.
+- **Commit / Tests / Outcome:** `cargo test -p lance-graph --lib -- graph::arigraph::episodic` 27/27 (5 new: split-disjoint, merge-on-shared-entity, per-episode, empty-safe, deterministic); fmt + clippy clean. Branch `claude/happy-hamilton-0azlw4` (restarted from post-#725 main).
+
 ## 2026-07-18 — Chained episodic_search (D-GR-2b, AriGraph Eq. 1) — closes "AriGraph in name, RAG in retrieval" — main thread
 
 - **Task:** the inventory + AriGraph fidelity audit found the crate runs a *parallel* Hamming top-k for episodic recall (the RAG baseline AriGraph beats), missing the paper's *chained* semantic→episodic search. Landed the pure primitive (next after RRF #724), ahead of G0.
