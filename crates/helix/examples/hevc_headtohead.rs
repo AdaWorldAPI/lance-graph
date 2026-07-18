@@ -27,12 +27,13 @@
 //! sprite_replay.rs` module doc, "Why Signed360 should beat ResidueEdge").
 //!
 //! SECOND caveat (codex-P2 #250) — this is TOTAL-stream vs TOTAL-stream, not
-//! motion-vs-motion: x265's lane-A bytes are the ENTIRE HEVC bitstream (texture
-//! + residuals + modes + headers + MV), NOT its MV payload. So lane B's total
-//! (appearance + motion) does not replace only x265's motion field — it
-//! replaces x265's whole stream, and x265's bytes encode actual pixels while
-//! ours encode model parameters. Isolating x265's MV-only bits (via `--csv`
-//! syntax analysis) to compare motion-to-motion directly is a named follow-up.
+//! motion-vs-motion: x265's lane-A bytes are the ENTIRE HEVC bitstream (texture,
+//! residuals, modes, headers, and MV together), NOT its MV payload alone. So
+//! lane B's total (appearance plus motion) does not replace only x265's motion
+//! field — it replaces x265's whole stream, and x265's bytes encode actual
+//! pixels while ours encode model parameters. Isolating x265's MV-only bits
+//! (via `--csv` syntax analysis) to compare motion-to-motion directly is a
+//! named follow-up.
 //!
 //! Cross-ref: `crates/helix/src/sprite_replay.rs` (the encode/decode
 //! primitives this file reuses, and the honest-inverse discussion of
@@ -43,7 +44,7 @@
 
 use std::io::{BufWriter, Write};
 
-use helix::placement::Sign;
+use helix::placement::{HemispherePoint, Sign};
 use helix::residue::{ResidueEncoder, Signed360};
 
 const W: usize = 320;
@@ -108,22 +109,19 @@ fn sign_enum(sign_f64: f64) -> Sign {
     }
 }
 
-/// φ-spiral (golden-angle Fibonacci hemisphere) point n of TOTAL, signed.
-/// Returns the canonical `(x, z, y)` cartesian of the hemisphere point — the
-/// SAME axis order `sprite_replay::sprite_position` uses (`HemispherePoint::
-/// cartesian` → `(x, z, y)`, position = center + scale·[x, z, y]). The
-/// **signed height is `z`** (the 2nd element), so `sign` genuinely selects
-/// the hemisphere; the caller must project a signed axis to screen (not
-/// `abs`) or the two hemispheres collapse onto one trajectory.
-fn phi_spiral_cart(n: usize, total: usize, sign: f64) -> (f64, f64, f64) {
-    // Golden angle ≈ 2.399963 rad — the same irrational winding the arc's
-    // φ-spiral / CurveRuler uses (stride-4-over-17 is its integer cousin).
-    let ga = std::f64::consts::PI * (3.0 - 5.0_f64.sqrt());
-    let t = (n as f64 + 0.5) / total as f64; // 0..1 along the path
-    let z = sign * (1.0 - t); // signed hemisphere height (upper for +, lower for −)
-    let r = (1.0 - z * z).sqrt(); // disk radius at height z
-    let theta = n as f64 * ga;
-    (r * theta.cos(), z, r * theta.sin()) // (x, z=signed height, y)
+/// The REAL helix hemisphere point `n` of `total`, signed:
+/// `HemispherePoint::signed_lift(n, total, sign).cartesian()` = `(x, z, y)` with
+/// the SIGNED vertical lift `y` (3rd element; golden-RATIO azimuth `n·φ`,
+/// `r = √u`, `u = (n+0.5)/N`). This is the SAME generator `Signed360` encodes,
+/// so lane B's decode → re-render is a genuine helix-geometry round-trip.
+///
+/// (Codex-P1 #740: the prior local golden-ANGLE approximation — `n·(3−√5)π`,
+/// linear height, `r = √(1−z²)` — was a DIFFERENT generator; the ∞ PSNR held
+/// only because ground truth AND reconstruction shared that same local
+/// renderer. Both now run helix's actual `signed_lift`, so the head-to-head is
+/// a true helix-motion-code result.)
+fn helix_cart(n: usize, total: usize, sign: f64) -> (f64, f64, f64) {
+    HemispherePoint::signed_lift(n, total, sign_enum(sign)).cartesian()
 }
 
 fn seed_sprites() -> [Sprite; NUM_SPRITES] {
@@ -292,13 +290,13 @@ fn render_frame_with_n(
     // Splat each sprite at its φ-spiral point for this frame.
     for (i, s) in sprites.iter().enumerate() {
         let n = per_sprite_n[i];
-        // Canonical (x, z, y): x → screen-x, SIGNED z → screen-y (so the
-        // hemisphere sign mirrors the sprite vertically), y → depth.
-        let (cx_off, cz_signed, cy_depth) = phi_spiral_cart(n, TOTAL, s.sign);
-        let px0 = s.cx + s.radius * cx_off;
-        let py0 = s.cy + s.radius * cz_signed;
-        // The remaining axis (y) modulates size: nearer = larger/brighter.
-        let depth = 0.6 + 0.4 * cy_depth.abs();
+        // Real helix cartesian (x, z, y): x → screen-x, SIGNED y (3rd element)
+        // → screen-y (the hemisphere sign mirrors the sprite vertically),
+        // z → depth modulation.
+        let (hx, hz, hy) = helix_cart(n, TOTAL, s.sign);
+        let px0 = s.cx + s.radius * hx;
+        let py0 = s.cy + s.radius * hy;
+        let depth = 0.6 + 0.4 * hz.abs();
         let sigma = s.sigma * depth;
         let peak = s.bright * depth;
         let rad = (sigma * 3.0).ceil() as i64;
