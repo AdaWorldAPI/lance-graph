@@ -33,6 +33,30 @@ pub enum IdentityPlane {
     Angle,
 }
 
+/// Which lane of the **autopoiesis triangle** a style read selects — the three
+/// per-row policy lanes appended after Kanban in the canonical `NodeRow` value slab
+/// (`ValueTenant::{FrozenStyle, LearnedStyle, ExploreStyle}`, offsets 152/164/176).
+/// Each lane is 12 palette256 atoms (one per [`StyleFamily`](crate::style_family::StyleFamily)
+/// ordinal 0..11, OR per compiled-template step 0..11 — ClassView-selected). Reading
+/// one is a value-slab read (the costed tier), mirroring [`IdentityPlane`].
+///
+/// The triangle is the ancestry-pipeline wiring surface: **dispatch** reads
+/// [`Frozen`](StyleLane::Frozen) (the checkpoint policy the can't-stop-thinking
+/// cycle runs off), the P64 perturbation ladder writes [`Explore`](StyleLane::Explore),
+/// and the L4 learning seam writes [`Learned`](StyleLane::Learned) via NARS revision —
+/// each write an **owned SoA update** on the mailbox's own lane (`MailboxSoaOwner`,
+/// ractor sole-mutator), never a by-convention `&mut`. Triangle plan
+/// `.claude/plans/triangle-tenants-gestalt-separation-v1.md` §1.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum StyleLane {
+    /// The CHECKPOINT policy lane (`ValueTenant::FrozenStyle`) — what the row does now.
+    Frozen,
+    /// The NARS-revision-updated policy lane (`ValueTenant::LearnedStyle`) — the L4 write target.
+    Learned,
+    /// The deterministic address-derived exploration variant (`ValueTenant::ExploreStyle`).
+    Explore,
+}
+
 /// A transparent, read-only view over one mailbox's SoA columns.
 ///
 /// Implementors return **borrows** (`&[T]`) or `Copy` scalars — never clones of the
@@ -151,6 +175,46 @@ pub trait MailboxSoaView {
     #[inline]
     fn identity_plane_at(&self, _row: usize, _plane: IdentityPlane) -> Option<&[u64]> {
         None
+    }
+
+    /// `row`'s 12-atom **autopoiesis-triangle** lane for the selected
+    /// [`StyleLane`] (Frozen / Learned / Explore) — the value-slab policy bytes at
+    /// `ValueTenant::{FrozenStyle, LearnedStyle, ExploreStyle}` (offsets
+    /// 152/164/176 in the canonical `NodeRow`). Index `f` of the returned `[u8; 12]`
+    /// is the palette256 atom for [`StyleFamily`](crate::style_family::StyleFamily)
+    /// ordinal `f` (atom `0` = null default — an un-populated lane reads all-null,
+    /// never a wrong policy).
+    ///
+    /// **Default = `None` (zero-fallback, deferred binding)** — same discipline as
+    /// [`identity_plane_at`](MailboxSoaView::identity_plane_at): a view that has not
+    /// materialized the triangle lanes returns `None`, and a consumer falls back to
+    /// the default style. The in-RAM `MailboxSoA` owner (which carries the triangle
+    /// columns, P4) overrides this; the canonical `NodeRow` already exposes the bytes
+    /// via [`NodeRow::style_lane`](crate::canonical_node::NodeRow::style_lane).
+    #[inline]
+    fn style_lane_at(&self, _row: usize, _lane: StyleLane) -> Option<[u8; 12]> {
+        None
+    }
+
+    /// `row`'s per-family triangle read `(frozen, learned, explore)` — the three
+    /// palette256 atoms at [`StyleFamily`](crate::style_family::StyleFamily) ordinal
+    /// `family`, one glance across the three lanes (mirrors
+    /// [`NodeRow::triangle_for`](crate::canonical_node::NodeRow::triangle_for)).
+    ///
+    /// Default composes [`style_lane_at`](MailboxSoaView::style_lane_at) over the
+    /// three lanes: `None` if the view has not materialized them, or if `family >= 12`
+    /// (out of range → no triangle, never an aliased slot — the #717 `triangle_for`
+    /// guard). An owner with a cheaper single-row read may override.
+    #[inline]
+    fn triangle_at(&self, row: usize, family: u8) -> Option<(u8, u8, u8)> {
+        if family >= 12 {
+            return None;
+        }
+        let f = self.style_lane_at(row, StyleLane::Frozen)?;
+        let l = self.style_lane_at(row, StyleLane::Learned)?;
+        let e = self.style_lane_at(row, StyleLane::Explore)?;
+        let i = family as usize;
+        Some((f[i], l[i], e[i]))
     }
 
     // NOTE (follow-up): the qualia column (`QualiaI4_16D`) accessor is intentionally omitted —
@@ -354,5 +418,80 @@ mod tests {
         let m = soa.try_advance_phase(KanbanColumn::CognitiveWork).unwrap();
         assert_eq!(m.to, KanbanColumn::CognitiveWork);
         assert_eq!(soa.phase(), KanbanColumn::CognitiveWork);
+    }
+
+    #[test]
+    fn style_lane_defaults_to_none_until_the_owner_materializes_the_triangle() {
+        // Deferred binding: a view with no triangle columns resolves every style
+        // lane (and the composed per-family read) to None — the consumer falls back
+        // to the default style, never a wrong policy. The in-RAM MailboxSoA owner
+        // (P4) overrides this.
+        let soa = sample();
+        assert_eq!(soa.style_lane_at(0, StyleLane::Frozen), None);
+        assert_eq!(soa.style_lane_at(0, StyleLane::Learned), None);
+        assert_eq!(soa.style_lane_at(0, StyleLane::Explore), None);
+        assert_eq!(soa.triangle_at(0, 0), None);
+    }
+
+    /// An owner that HAS materialized the triangle lanes — proves the override +
+    /// `triangle_at` composition + the `family >= 12` guard (the #717 aliasing guard).
+    struct StyledSoa {
+        frozen: [u8; 12],
+        learned: [u8; 12],
+        explore: [u8; 12],
+    }
+
+    impl MailboxSoaView for StyledSoa {
+        fn mailbox_id(&self) -> MailboxId {
+            1
+        }
+        fn n_rows(&self) -> usize {
+            1
+        }
+        fn w_slot(&self) -> u8 {
+            1
+        }
+        fn current_cycle(&self) -> u32 {
+            0
+        }
+        fn phase(&self) -> KanbanColumn {
+            KanbanColumn::CognitiveWork
+        }
+        fn energy(&self) -> &[f32] {
+            &[]
+        }
+        fn edges_raw(&self) -> &[u64] {
+            &[]
+        }
+        fn meta_raw(&self) -> &[u32] {
+            &[]
+        }
+        fn entity_type(&self) -> &[u16] {
+            &[]
+        }
+        fn style_lane_at(&self, _row: usize, lane: StyleLane) -> Option<[u8; 12]> {
+            Some(match lane {
+                StyleLane::Frozen => self.frozen,
+                StyleLane::Learned => self.learned,
+                StyleLane::Explore => self.explore,
+            })
+        }
+    }
+
+    #[test]
+    fn triangle_at_composes_the_three_lanes_and_guards_family_range() {
+        let soa = StyledSoa {
+            frozen: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
+            learned: [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41],
+            explore: [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61],
+        };
+        // Per-family read picks index `family` from each lane.
+        assert_eq!(soa.triangle_at(0, 0), Some((10, 30, 50)));
+        assert_eq!(soa.triangle_at(0, 11), Some((21, 41, 61)));
+        // family == 12 is out of range → None, never the aliased slot 12 (#717 guard).
+        assert_eq!(soa.triangle_at(0, 12), None);
+        assert_eq!(soa.triangle_at(0, u8::MAX), None);
+        // The whole lane reads through.
+        assert_eq!(soa.style_lane_at(0, StyleLane::Learned).unwrap()[5], 35);
     }
 }
