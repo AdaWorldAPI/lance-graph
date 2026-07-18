@@ -24,7 +24,7 @@
 //! module only lands the algorithm, ahead of that gate, exactly as
 //! `Bm25Index`/`PersonalizedPageRank`/`Communities` landed as pure capabilities.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use lance_graph_contract::doc_graph::ScoredId;
 
@@ -67,11 +67,18 @@ pub fn reciprocal_rank_fusion(ranked_lists: &[&[ScoredId]], k: f64) -> Vec<Score
     // preserves within equal fused scores.
     let mut acc: BTreeMap<&str, (f64, u8)> = BTreeMap::new();
     for list in ranked_lists {
+        // RRF gives each list AT MOST ONE vote per id, at its best (first) rank.
+        // A leg that surfaces the same entity more than once (e.g. several
+        // relations to one node, before caller-side dedup) must not stack
+        // `1/(k+rank)` contributions and swamp consensus across the other legs.
+        let mut voted: BTreeSet<&str> = BTreeSet::new();
         for (pos, item) in list.iter().enumerate() {
-            let rank = pos as f64 + 1.0; // 1-based
             let entry = acc.entry(item.id.as_str()).or_insert((0.0, u8::MAX));
-            entry.0 += 1.0 / (k + rank);
-            entry.1 = entry.1.min(item.depth);
+            entry.1 = entry.1.min(item.depth); // shallowest depth across all occurrences
+            if voted.insert(item.id.as_str()) {
+                // best-first order ⇒ the first occurrence is the best rank
+                entry.0 += 1.0 / (k + pos as f64 + 1.0);
+            }
         }
     }
     let mut fused: Vec<ScoredId> = acc
@@ -177,5 +184,36 @@ mod tests {
             x.iter().map(|s| s.score).collect::<Vec<_>>(),
             y.iter().map(|s| s.score).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn duplicate_id_in_one_leg_votes_once() {
+        // A leg surfaces "a" twice (rank 1 and rank 3) plus "b" at rank 2 — as a
+        // node with several relations would before caller-side dedup. RRF must
+        // credit "a" ONCE at its best rank (1), not 1/(k+1)+1/(k+3).
+        let leg = [
+            ScoredId::new("a", 1.0, 0),
+            ScoredId::new("b", 1.0, 0),
+            ScoredId::new("a", 1.0, 0),
+        ];
+        let fused = reciprocal_rank_fusion(&[&leg], DEFAULT_RRF_K);
+        assert_eq!(fused.len(), 2);
+        let a = fused.iter().find(|s| s.id == "a").unwrap().score;
+        let b = fused.iter().find(|s| s.id == "b").unwrap().score;
+        let expected_a = (1.0f64 / (DEFAULT_RRF_K + 1.0)) as f32; // best rank only
+        assert!(
+            (a - expected_a).abs() < 1e-7,
+            "a double-counted: {a} vs {expected_a}"
+        );
+        assert!(a > b); // single best-rank vote still beats b's rank-2 vote
+    }
+
+    #[test]
+    fn duplicate_id_still_folds_shallowest_depth() {
+        // Duplicate occurrences don't re-vote, but depth still takes the min.
+        let leg = [ScoredId::new("a", 1.0, 5), ScoredId::new("a", 1.0, 2)];
+        let fused = reciprocal_rank_fusion(&[&leg], DEFAULT_RRF_K);
+        assert_eq!(fused.len(), 1);
+        assert_eq!(fused[0].depth, 2); // min(5, 2), even though the 2nd didn't vote
     }
 }
