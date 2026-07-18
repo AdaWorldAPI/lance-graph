@@ -668,4 +668,225 @@ mod probe_wh_mag {
             );
         }
     }
+
+    /// PROBE-WH-MAG-2 — the operator-ruled follow-up to PROBE-WH-MAG above.
+    /// The bare-tile probe found WH does NOT transfer to 16-cell tiles in
+    /// isolation (B/A = 0.929 / 1.317 / 1.869, NEUTRAL). But the SHIPPED
+    /// row-level codec (`encode()`/`reconstruct_row()` at the top of this
+    /// file) never applies WH to raw data alone — it always pairs WH with
+    /// two things the bare-tile probe omitted:
+    ///   1. a PASSTHROUGH ESCAPE tier — the top 10% hardest rows by LFD skip
+    ///      quantization entirely, stored exact (`classify_rows_by_lfd`);
+    ///   2. a CENTROID RESIDUAL — WH runs on `row - nearest_centroid`, not
+    ///      on the raw row (`encode()` step 3: `hadamard_rotate(&residual)`).
+    /// This nested module (kept a child of `probe_wh_mag` so it can reuse
+    /// its private generators/cascades via `super::*` — the original
+    /// `probe_wh_mag_class_ratios` test above is completely untouched and
+    /// independently re-runnable) simulates both additions on the SAME
+    /// seeded 16-cell tile corpus (identical seeds/generators), so the
+    /// `bareB/A` column below is a same-corpus cross-check against the
+    /// numbers already printed above, and the new `escB/A` / `cenB/A`
+    /// columns test whether either addition (or both) recovers a WH win the
+    /// bare tile lacked.
+    #[cfg(test)]
+    mod probe_wh_mag_2 {
+        use super::*;
+
+        /// L-infinity norm — the per-tile "hardness" proxy used for the
+        /// escape decision. Quantization error at fixed bit-width scales
+        /// with dynamic range, so a tile's largest-magnitude cell is a
+        /// cheap stand-in for `classify_rows_by_lfd`'s CLAM-derived LFD
+        /// score. (No CLAM tree at tile granularity here — 16-cell tiles
+        /// are too small to build a meaningful cluster tree — this probe
+        /// substitutes the simplest hardness signal that row-level LFD
+        /// scoring is itself a proxy for: "how much does this row/tile
+        /// deviate from the smooth/well-clustered common case".)
+        fn tile_hardness(v: &[f32]) -> f64 {
+            v.iter().fold(0.0f64, |m, x| m.max(x.abs() as f64))
+        }
+
+        /// Elementwise mean over a tile corpus — the per-class centroid.
+        /// Mirrors `encode()`'s centroid step, but a single k=1 mean
+        /// instead of k-means: each synthetic class here comes from one
+        /// generator, unlike real weight rows which cluster into k>1
+        /// groups (`encode()`'s `kmeans(&regular_rows, k, ...)`).
+        fn class_centroid(tiles: &[[f32; TILE_DIM]]) -> [f32; TILE_DIM] {
+            let mut sum = [0.0f64; TILE_DIM];
+            for t in tiles {
+                for (s, &x) in sum.iter_mut().zip(t.iter()) {
+                    *s += x as f64;
+                }
+            }
+            let n = tiles.len() as f64;
+            let mut c = [0.0f32; TILE_DIM];
+            for (ci, &s) in c.iter_mut().zip(sum.iter()) {
+                *ci = (s / n) as f32;
+            }
+            c
+        }
+
+        /// `cascade_wh` but on `tile - centroid`, with the centroid added
+        /// back after reconstruction — the shipped `encode()`/
+        /// `reconstruct_row()` centroid-residual pattern (RowPrecision::I4I2
+        /// arm: subtract nearest centroid, WH-rotate the residual, cascade,
+        /// WH-rotate back, add centroid back).
+        fn cascade_wh_centroid(tile: &[f32], centroid: &[f32]) -> Vec<f32> {
+            let residual: Vec<f32> = tile
+                .iter()
+                .zip(centroid.iter())
+                .map(|(a, b)| a - b)
+                .collect();
+            let recon_residual = cascade_wh(&residual);
+            recon_residual
+                .iter()
+                .zip(centroid.iter())
+                .map(|(a, b)| a + b)
+                .collect()
+        }
+
+        #[test]
+        fn probe_wh_mag_2_escape_and_centroid() {
+            type TileGen = fn(&mut SplitMix64) -> [f32; TILE_DIM];
+            let classes: [(&str, u64, TileGen); 3] = [
+                ("gradient+spike", 0x1111_0000_AAAA_0001, gen_gradient_spike),
+                ("heavy-tailed", 0x2222_0000_BBBB_0002, gen_heavy_tailed),
+                ("uniform-noise", 0x3333_0000_CCCC_0003, gen_uniform_noise),
+            ];
+
+            eprintln!(
+                "\nPROBE-WH-MAG-2: {} tiles/class, dim={}, escape=top 10% by L-inf \
+                 hardness (informational — verdict adjudicated externally)",
+                TILES_PER_CLASS, TILE_DIM
+            );
+            eprintln!(
+                "{:<16} {:>12} {:>12} {:>12} {:>12} {:>9} {:>9} {:>9} {:>9}",
+                "class",
+                "mse_A",
+                "mse_bareWH",
+                "mse_WH+esc",
+                "mse_WH+cen",
+                "bareB/A",
+                "escB/A",
+                "cenB/A",
+                "esc_frac"
+            );
+
+            let mut all_finite = true;
+            let mut class_count = 0usize;
+
+            for (name, seed, gen) in classes.iter() {
+                // Same seeds/generators as PROBE-WH-MAG above: identical
+                // per-class corpus, so `bareB/A` here reproduces that
+                // probe's printed ratio as a same-run cross-check.
+                let mut rng = SplitMix64::new(*seed);
+                let tiles: Vec<[f32; TILE_DIM]> =
+                    (0..TILES_PER_CLASS).map(|_| gen(&mut rng)).collect();
+
+                // Path A: uniform direct cascade, no escape tier, all tiles
+                // (the baseline — reused verbatim from PROBE-WH-MAG).
+                let sum_a: f64 = tiles.iter().map(|t| mse(t, &cascade_direct(t))).sum();
+
+                // Bare WH: reproduces PROBE-WH-MAG's path B exactly.
+                let sum_b_bare: f64 = tiles.iter().map(|t| mse(t, &cascade_wh(t))).sum();
+
+                // Escape threshold: top 10% by L-inf hardness, matching
+                // classify_rows_by_lfd's `lfd > p90` passthrough rule
+                // (percentile taken over ALL tiles in the class).
+                let hardness: Vec<f64> = tiles.iter().map(|t| tile_hardness(t)).collect();
+                let mut sorted_hardness = hardness.clone();
+                sorted_hardness.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                let p90 = sorted_hardness[TILES_PER_CLASS * 90 / 100];
+
+                // Path B_esc: WH+cascade on the regular ~90%, exact
+                // passthrough on the hardest ~10% (zero reconstruction
+                // error by construction — recon == tile).
+                let mut sum_b_esc = 0.0f64;
+                let mut n_escaped = 0usize;
+                for (t, &h) in tiles.iter().zip(hardness.iter()) {
+                    if h > p90 {
+                        n_escaped += 1;
+                    } else {
+                        sum_b_esc += mse(t, &cascade_wh(t));
+                    }
+                }
+
+                // Centroid computed over the REGULAR (non-escaped) tiles
+                // only — mirrors encode()'s `regular_rows` filter, so the
+                // hardest outliers don't skew the centroid the rest
+                // reconstruct against.
+                let regular_tiles: Vec<[f32; TILE_DIM]> = tiles
+                    .iter()
+                    .zip(hardness.iter())
+                    .filter(|(_, &h)| h <= p90)
+                    .map(|(t, _)| *t)
+                    .collect();
+                let centroid = class_centroid(&regular_tiles);
+
+                // Path B_cen: WH+centroid-residual+cascade on the regular
+                // ~90%, exact passthrough on the SAME hardest ~10% (same
+                // threshold as B_esc — asserted below).
+                let mut sum_b_cen = 0.0f64;
+                let mut n_escaped_cen = 0usize;
+                for (t, &h) in tiles.iter().zip(hardness.iter()) {
+                    if h > p90 {
+                        n_escaped_cen += 1;
+                    } else {
+                        let recon = cascade_wh_centroid(t, &centroid);
+                        sum_b_cen += mse(t, &recon);
+                    }
+                }
+                assert_eq!(
+                    n_escaped, n_escaped_cen,
+                    "class {name}: esc and cen paths must escape the same tile count \
+                     (same threshold, applied independently as a self-check)"
+                );
+
+                let mean_a = sum_a / TILES_PER_CLASS as f64;
+                let mean_b_bare = sum_b_bare / TILES_PER_CLASS as f64;
+                let mean_b_esc = sum_b_esc / TILES_PER_CLASS as f64;
+                let mean_b_cen = sum_b_cen / TILES_PER_CLASS as f64;
+                let esc_frac = n_escaped as f64 / TILES_PER_CLASS as f64;
+
+                let bare_ratio = mean_b_bare / mean_a;
+                let esc_ratio = mean_b_esc / mean_a;
+                let cen_ratio = mean_b_cen / mean_a;
+
+                eprintln!(
+                    "{:<16} {:>12.8} {:>12.8} {:>12.8} {:>12.8} {:>9.4} {:>9.4} {:>9.4} {:>9.4}",
+                    name,
+                    mean_a,
+                    mean_b_bare,
+                    mean_b_esc,
+                    mean_b_cen,
+                    bare_ratio,
+                    esc_ratio,
+                    cen_ratio,
+                    esc_frac
+                );
+
+                all_finite &= mean_a.is_finite()
+                    && mean_a > 0.0
+                    && bare_ratio.is_finite()
+                    && esc_ratio.is_finite()
+                    && cen_ratio.is_finite();
+                assert!(
+                    esc_frac > 0.0 && esc_frac < 0.5,
+                    "class {name}: escape fraction {esc_frac} outside sane bounds for a \
+                     top-10% rule"
+                );
+                class_count += 1;
+            }
+
+            // Structural sanity only, per the same iron rule PROBE-WH-MAG
+            // uses above: the PASS/NEUTRAL/KILL verdict against the <0.9 bar
+            // is adjudicated by the reviewer from the printed table, not
+            // asserted here — asserting a threshold here would red the
+            // suite on a legitimate NEUTRAL/negative result.
+            assert_eq!(class_count, 3, "expected exactly 3 tile classes");
+            assert!(
+                all_finite,
+                "one or more classes produced non-finite MSE/ratio values"
+            );
+        }
+    }
 }
