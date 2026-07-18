@@ -104,6 +104,25 @@ impl EpisodicBasins {
     }
 }
 
+/// AriGraph Eq. 1 episode relevance: `n / (N · ln N)` for `N ≥ 2`, else `0`.
+///
+/// `n` = hit triplets incident to the episode, `N` = its total triplets. The
+/// `N·ln N` normalizer down-weights large episodes; `ln 1 = 0` gives a
+/// single-triplet episode zero weight (the denominator is 0 ⇒ we return 0
+/// rather than divide). `n = 0` also yields 0.
+fn episode_relevance(n: usize, total: usize) -> f64 {
+    if n == 0 {
+        return 0.0;
+    }
+    let nn = total.max(1) as f64;
+    let denom = nn * nn.ln();
+    if denom > 0.0 {
+        n as f64 / denom
+    } else {
+        0.0
+    }
+}
+
 impl EpisodicMemory {
     /// Create a new episodic memory with the given capacity.
     pub fn new(capacity: usize) -> Self {
@@ -259,6 +278,57 @@ impl EpisodicMemory {
             labels,
             num_basins,
         }
+    }
+
+    /// AriGraph **episodic search** (Anokhin et al. 2024, Eq. 1): rank stored
+    /// episodes by how many of the caller's `semantic_hits` triplets are
+    /// incident to each episode, normalized by the episode's size.
+    ///
+    /// This is the *chained* half of the AriGraph memory-graph search — the
+    /// semantic (triplet) hits SEED the episodic recall, rather than a parallel
+    /// fingerprint top-k. `semantic_hits` are triplet string-reprs (matching the
+    /// `"subject - relation - object"` form stored on each [`Episode`]); an
+    /// episode's relevance is
+    ///
+    /// ```text
+    /// rel = n / (N · ln N)        for N ≥ 2
+    /// rel = 0                     for N ≤ 1
+    /// ```
+    ///
+    /// where `n` = hit triplets incident to the episode and `N` = its total
+    /// triplets. The `N·ln N` normalizer down-weights large episodes (an
+    /// incident hit in a focused episode counts for more) and gives
+    /// single-triplet episodes zero weight (`ln 1 = 0`), per the paper. Episodes
+    /// with no incident hit are dropped; the rest are returned as
+    /// `(episode, rel)` sorted by `rel` descending (stable — insertion order
+    /// breaks ties deterministically), truncated to `k`.
+    ///
+    /// Pure: reads only `Episode::triplets`. This is the retrieval *primitive*;
+    /// chaining it after semantic search inside `OsintRetriever::retrieve`
+    /// (replacing the parallel Hamming top-k) stays gated on the G0 verdict.
+    #[must_use]
+    pub fn episodic_search<'a>(
+        &'a self,
+        semantic_hits: &BTreeSet<String>,
+        k: usize,
+    ) -> Vec<(&'a Episode, f64)> {
+        let mut scored: Vec<(&Episode, f64)> = self
+            .episodes
+            .iter()
+            .filter_map(|ep| {
+                let n = ep
+                    .triplets
+                    .iter()
+                    .filter(|t| semantic_hits.contains(*t))
+                    .count();
+                let rel = episode_relevance(n, ep.triplets.len());
+                (rel > 0.0).then_some((ep, rel))
+            })
+            .collect();
+        // rel descending; stable sort keeps insertion order within ties.
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scored.truncate(k);
+        scored
     }
 
     /// True if no episodes are stored.
@@ -598,5 +668,76 @@ mod tests {
         let (x, y) = (m.basins(), m.basins());
         assert_eq!(x.entities, y.entities);
         assert_eq!(x.labels, y.labels);
+    }
+
+    // ── episodic search (AriGraph Eq. 1) ─────────────────────────────────
+
+    fn hits(ts: &[&str]) -> BTreeSet<String> {
+        ts.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn episodic_search_ranks_by_incidence() {
+        // ep0 has 2 incident hits, ep1 has 1 — same size ⇒ ep0 ranks higher.
+        let m = basin_mem(&[&["a - r - b", "c - r - d"], &["a - r - b", "x - r - y"]]);
+        let out = m.episodic_search(&hits(&["a - r - b", "c - r - d"]), 10);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].0.observation, "obs0");
+        assert!(out[0].1 > out[1].1);
+    }
+
+    #[test]
+    fn episodic_search_downweights_large_episodes() {
+        // Both episodes have exactly 1 incident hit ("a - r - b"); the smaller
+        // episode wins per the N·ln N normalizer.
+        let m = basin_mem(&[
+            &["a - r - b", "x - r - y"],
+            &[
+                "a - r - b",
+                "p1 - r - q1",
+                "p2 - r - q2",
+                "p3 - r - q3",
+                "p4 - r - q4",
+            ],
+        ]);
+        let out = m.episodic_search(&hits(&["a - r - b"]), 10);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].0.observation, "obs0"); // the small one
+        assert!(out[0].1 > out[1].1);
+    }
+
+    #[test]
+    fn episodic_search_single_triplet_episode_is_zero_weight() {
+        // N = 1 ⇒ ln 1 = 0 ⇒ rel 0, even though the one triplet is a hit.
+        let m = basin_mem(&[&["a - r - b"]]);
+        let out = m.episodic_search(&hits(&["a - r - b"]), 10);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn episodic_search_drops_episodes_without_incidence() {
+        let m = basin_mem(&[&["a - r - b", "c - r - d"], &["e - r - f", "g - r - h"]]);
+        let out = m.episodic_search(&hits(&["a - r - b"]), 10);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].0.observation, "obs0");
+    }
+
+    #[test]
+    fn episodic_search_empty_is_safe() {
+        let m = basin_mem(&[&["a - r - b", "c - r - d"]]);
+        assert!(m.episodic_search(&BTreeSet::new(), 10).is_empty()); // no hits
+        assert!(EpisodicMemory::new(8)
+            .episodic_search(&hits(&["a - r - b"]), 10)
+            .is_empty()); // no episodes
+    }
+
+    #[test]
+    fn episodic_search_respects_k() {
+        let m = basin_mem(&[
+            &["a - r - b", "z - r - w"],
+            &["a - r - b", "z - r - w"],
+            &["a - r - b", "z - r - w"],
+        ]);
+        assert_eq!(m.episodic_search(&hits(&["a - r - b"]), 2).len(), 2);
     }
 }

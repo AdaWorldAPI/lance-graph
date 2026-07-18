@@ -9,7 +9,8 @@ Plan: `.claude/plans/graphrag-doc-retrieval-soa-integration-v1.md` (v1.2). Pure/
 | D-GR-3b | PPR (`personalized_pagerank`) + Leiden `refine_connected` + BM25 (`Bm25Index`) — pure capabilities | lance-graph | Shipped (#716) — 13 tests | plan §3b, §5 |
 | G0 | P-GRAPH-LOADBEARING harness (vector-only vs vector+PPR+community) | lance-graph | Harness shipped (#716); real-corpus verdict OPEN | plan §5, §6 |
 | D-GR-2 | Fuse CAM-PQ+SPO-G+PPR+community into `retrieval.rs` under the #708 RungElevator | lance-graph | Design done (in `doc_graph.rs` module-doc); impl GATED on G0 | plan §5 |
-| D-GR-2a | RRF fusion primitive (`reciprocal_rank_fusion`, Cormack 2009) — the fusion algebra D-GR-2 needs; pure, ahead of G0 | lance-graph | Shipped — `arigraph/rrf.rs`, 7 tests + doctest | plan §5 |
+| D-GR-2a | RRF fusion primitive (`reciprocal_rank_fusion`, Cormack 2009) — the fusion algebra D-GR-2 needs; pure, ahead of G0 | lance-graph | Shipped (#724) — `arigraph/rrf.rs`, 9 tests + doctest | plan §5 |
+| D-GR-2b | Chained `episodic_search` (AriGraph Eq. 1) — semantic-seeded episodic recall; pure, ahead of G0 | lance-graph | Shipped — `arigraph/episodic.rs`, 6 tests | plan §5 |
 | D-GR-4 | Community summaries (no-LLM DeepNSM; Rig-oracle tail) | lance-graph | Deferred (W3-coupled) | plan §5 |
 | D-GR-5 | `ogar-doc` reconstruct/related-docs → `DocGraphQuery` seam | lance-graph + OGAR | Deferred (mint-gated, doc-W4 council) | plan §5 |
 | D-GR-6 | Witness-KV separation (DocumentID handle → consumer KV) | lance-graph | Deferred (doc-W4 council) | plan §4a, §5 |
