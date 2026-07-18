@@ -1,3 +1,11 @@
+## 2026-07-18 — Evidence-chain path structure (D-GR-2d, StepChain Πsᵤ) — the audit trail the NARS substrate exists for — main thread
+
+- **Task:** the inventory's StepChain gap — `get_associated` returns a flat `Vec<&Triplet>` and discards the *path structure* `Πsᵤ` that IS the evidence/audit chain (a causality-trajectory candidate). Landed the complement (next after thesis #727).
+- **Change:** `arigraph/triplet_graph.rs` — `TripletGraph::associated_paths(entities, steps) -> Vec<Vec<&Triplet>>`: BFS from the seed set (mirroring the proven `find_path` queue-of-paths pattern), returning the ordered triplet chain that FIRST reaches each entity (shortest per entity, visited-deduped — NOT the combinatorial all-paths set); triplet never revisited within a chain; deterministic (sorted frontier). Free `render_chain(&[&Triplet]) -> String` → `s - r - o  ⇒  s - r - o`. Accessed via `triplet_graph::` (matches `TripletGraph`'s own non-re-exported visibility).
+- **Design choice (flagged):** shortest-chain-per-entity, resolved to avoid hub path-explosion; all-paths is a future opt-in if a consumer needs it.
+- **Pure/reversible:** reads only the triplet store + entity index; additive (does not touch `get_associated`). Assembling chains into an LLM evidence prompt inside `retrieve` stays G0-gated.
+- **Commit / Tests / Outcome:** `cargo test -p lance-graph --lib -- graph::arigraph::triplet_graph::tests::associated_paths` + `render_chain` 6/6 (single-hop, two-hop chain-per-entity, no-match-empty, **cycle-termination**, render-empty, deterministic); fmt + clippy clean. Branch `claude/happy-hamilton-0azlw4` (restarted from post-#727 main).
+
 ## 2026-07-18 — Thesis partition (D-GR-2c, PersonalAI's most load-bearing type) — pure structural heuristic ahead of G0 — main thread
 
 - **Task:** PersonalAI's `thesis` vertex (per-proposition grouping) is the most load-bearing memory type (their Table 3) and the workspace lacked it — the third partition tier between structural `Communities` and experiential `EpisodicBasins`. Landed the pure primitive (next after episodic_search #725).
