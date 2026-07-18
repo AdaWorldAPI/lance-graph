@@ -1,5 +1,5 @@
-//! HEAD-TO-HEAD: object-level helix motion codes vs x265's per-block MV field,
-//! on the SAME moving scene.
+//! HEAD-TO-HEAD: our object-level helix motion codes (inside a whole
+//! model-based codec) vs x265's full bitstream, on the SAME moving scene.
 //!
 //! Renders the sprite-replay scene (the identical scene model + renderer as
 //! `hevc_moving_scene.rs` — copied verbatim, see `render_frame` below) to a
@@ -25,6 +25,14 @@
 //! codes vs arbitrary motion the encoder did NOT generate — is the named
 //! `[H]` follow-up in `PROBE-SPRITE-REPLAY` (see `crates/helix/src/
 //! sprite_replay.rs` module doc, "Why Signed360 should beat ResidueEdge").
+//!
+//! SECOND caveat (codex-P2 #250) — this is TOTAL-stream vs TOTAL-stream, not
+//! motion-vs-motion: x265's lane-A bytes are the ENTIRE HEVC bitstream (texture
+//! + residuals + modes + headers + MV), NOT its MV payload. So lane B's total
+//! (appearance + motion) does not replace only x265's motion field — it
+//! replaces x265's whole stream, and x265's bytes encode actual pixels while
+//! ours encode model parameters. Isolating x265's MV-only bits (via `--csv`
+//! syntax analysis) to compare motion-to-motion directly is a named follow-up.
 //!
 //! Cross-ref: `crates/helix/src/sprite_replay.rs` (the encode/decode
 //! primitives this file reuses, and the honest-inverse discussion of
