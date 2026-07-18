@@ -31,7 +31,7 @@ use lance_graph_contract::cognitive_shader::MetaWord;
 use lance_graph_contract::collapse_gate::MailboxId;
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
 use lance_graph_contract::qualia::QualiaI4_16D;
-use lance_graph_contract::soa_view::{IdentityPlane, MailboxSoaOwner, MailboxSoaView};
+use lance_graph_contract::soa_view::{IdentityPlane, MailboxSoaOwner, MailboxSoaView, StyleLane};
 
 /// Canonical named-fingerprint plane width: 256 × u64 = 16,384 bits
 /// (mirrors `bindspace::WORDS_PER_FP`; defined locally so the mailbox does NOT
@@ -151,6 +151,24 @@ pub struct MailboxSoA<const N: usize> {
     /// Per-row angle identity plane (`WORDS_PER_FP` u64/row). Migrated from
     /// `BindSpace.fingerprints.angle`.
     pub angle: Box<[u64]>,
+
+    // ── P4: autopoiesis-triangle policy lanes (12 palette256 atoms/row/lane) ──
+    // The three per-row style lanes appended after Kanban in the canonical
+    // `NodeRow` value slab (`ValueTenant::{FrozenStyle, LearnedStyle,
+    // ExploreStyle}`, offsets 152/164/176). Held here as SoA columns so a
+    // `KanbanActor`'s owned advance reads/writes them `&mut` (E-CE64-MB-4, ractor
+    // sole-mutator) — NOT a deprecated symbiont `Vec<NodeRow>`. Index `f` =
+    // `StyleFamily` ordinal 0..11; value = a palette256 atom (atom 0 = null
+    // default, so a zeroed lane reads all-null, never a wrong policy).
+    /// Per-row FROZEN policy lane — the checkpoint the can't-stop-thinking dispatch
+    /// runs off (read during `CognitiveWork`).
+    pub frozen_style: [[u8; 12]; N],
+    /// Per-row LEARNED policy lane — the L4 NARS-revision write target (written
+    /// during `Evaluation`; `learned[f]` promotes to `frozen[f]` on winning the arm).
+    pub learned_style: [[u8; 12]; N],
+    /// Per-row EXPLORE policy lane — the P64 perturbation variant, deterministic
+    /// address-derived jitter (the D-QUANTGATE coprime walk, never RNG; replay holds).
+    pub explore_style: [[u8; 12]; N],
 
     /// Monotonic cycle stamp; advanced by `tick()`.
     pub current_cycle: u32,
@@ -299,6 +317,10 @@ impl<const N: usize> MailboxSoA<N> {
             content: vec![0u64; N * WORDS_PER_FP].into_boxed_slice(),
             topic: vec![0u64; N * WORDS_PER_FP].into_boxed_slice(),
             angle: vec![0u64; N * WORDS_PER_FP].into_boxed_slice(),
+            // ── P4: autopoiesis-triangle lanes — zero (atom 0 = null default) ──
+            frozen_style: [[0u8; 12]; N],
+            learned_style: [[0u8; 12]; N],
+            explore_style: [[0u8; 12]; N],
             // ── W1c — empty mailbox: zero logical rows until `set_populated(...)`
             //          declares the size (no write path bumps this implicitly) ──
             populated: 0,
@@ -729,6 +751,72 @@ impl<const N: usize> MailboxSoA<N> {
     }
 }
 
+// ── P4: autopoiesis-triangle owned write ops (the ancestry-pipeline seam) ──
+//
+// Per R1 ("the SoA columns are mutated by the owner's own cognitive ops, never
+// serialized through the contract trait"), these are the OWNER's crate-visible
+// mutation surface for the three style lanes. Each is `&mut self`, so — when
+// driven from a `KanbanActor::handle` whose `State` IS this owner — the
+// single-writer no-aliasing guarantee is compile-time (E-CE64-MB-4, ractor
+// sole-mutator), not by-convention. The *value* decisions (the explore
+// coprime-walk atom, the NARS-revision learned atom) belong to the caller (the
+// KanbanActor's phase handlers); these ops only apply an already-decided atom to
+// the owned lane. An un-gated impl (NOT under `with-planner`): the triangle write
+// surface has no planner dependency. `family >= 12` is a no-op (the #717
+// `triangle_for` guard — an out-of-range family never aliases slot 12);
+// `row >= populated` is a no-op (the logical-row discipline shared with
+// `style_lane_at` / `identity_plane_at`).
+impl<const N: usize> MailboxSoA<N> {
+    /// Write a full 12-atom style `lane` for `row` (owner `&mut`). No-op if
+    /// `row >= populated`.
+    #[inline]
+    pub fn set_style_lane(&mut self, row: usize, lane: StyleLane, atoms: [u8; 12]) {
+        if row >= self.populated {
+            return;
+        }
+        match lane {
+            StyleLane::Frozen => self.frozen_style[row] = atoms,
+            StyleLane::Learned => self.learned_style[row] = atoms,
+            StyleLane::Explore => self.explore_style[row] = atoms,
+        }
+    }
+
+    /// Write a single palette256 `atom` at `family` in `row`'s style `lane` (owner
+    /// `&mut`). No-op if `row >= populated` or `family >= 12`.
+    #[inline]
+    pub fn set_style_atom(&mut self, row: usize, lane: StyleLane, family: u8, atom: u8) {
+        if row >= self.populated || family >= 12 {
+            return;
+        }
+        let f = family as usize;
+        match lane {
+            StyleLane::Frozen => self.frozen_style[row][f] = atom,
+            StyleLane::Learned => self.learned_style[row][f] = atom,
+            StyleLane::Explore => self.explore_style[row][f] = atom,
+        }
+    }
+
+    /// The **promotion** act (Evaluation-phase, kanbanstep-interior): `frozen[family]
+    /// := learned[family]` for `row` — the learned policy that won the held-out arm
+    /// replaces the checkpoint. Owner compares its own bytes and writes one; no
+    /// events, no waiting. Returns `true` if a promotion occurred (the byte
+    /// changed), `false` if it was a no-op (already equal, or out of range). No-op if
+    /// `row >= populated` or `family >= 12`.
+    #[inline]
+    pub fn promote_family(&mut self, row: usize, family: u8) -> bool {
+        if row >= self.populated || family >= 12 {
+            return false;
+        }
+        let f = family as usize;
+        let learned = self.learned_style[row][f];
+        if self.frozen_style[row][f] == learned {
+            return false;
+        }
+        self.frozen_style[row][f] = learned;
+        true
+    }
+}
+
 // ── Contract trait impls: MailboxSoA IS the in-RAM Rubicon owner ──────────────
 //
 // `MailboxSoaView` (read) + `MailboxSoaOwner` (write) make `MailboxSoA<N>` the
@@ -781,6 +869,22 @@ impl<const N: usize> MailboxSoaView for MailboxSoA<N> {
             IdentityPlane::Content => self.content_row(row),
             IdentityPlane::Topic => self.topic_row(row),
             IdentityPlane::Angle => self.angle_row(row),
+        })
+    }
+    /// Override the deferred-binding default: the in-RAM owner DOES carry the three
+    /// autopoiesis-triangle lanes (P4), so a `KanbanActor` reading `FrozenStyle`
+    /// during `CognitiveWork` gets the real checkpoint policy. `populated`-guarded
+    /// (same logical-row discipline as `identity_plane_at`); a query into
+    /// `populated..N` returns `None`.
+    #[inline]
+    fn style_lane_at(&self, row: usize, lane: StyleLane) -> Option<[u8; 12]> {
+        if row >= self.populated {
+            return None;
+        }
+        Some(match lane {
+            StyleLane::Frozen => self.frozen_style[row],
+            StyleLane::Learned => self.learned_style[row],
+            StyleLane::Explore => self.explore_style[row],
         })
     }
     #[inline]
@@ -892,6 +996,48 @@ mod tests {
                 "last_active_cycle[{row}] should be u32::MAX (never-consumed sentinel)"
             );
         }
+    }
+
+    // ── P4: autopoiesis-triangle owned lanes ─────────────────────────────────
+
+    /// The three triangle lanes zero-init (atom 0 = null), the owner writes them
+    /// `&mut`, the view reads them back, promotion copies learned→frozen, and the
+    /// range/logical-row guards hold (the #717 aliasing + `populated` discipline).
+    #[test]
+    fn triangle_lanes_owned_write_read_and_promote() {
+        let mut mb: MailboxSoA<8> = MailboxSoA::new(3, 1, 1.0);
+        mb.set_populated(2);
+
+        // Zero-init: every lane is all-null until written.
+        assert_eq!(mb.style_lane_at(0, StyleLane::Frozen), Some([0u8; 12]));
+        assert_eq!(mb.triangle_at(0, 0), Some((0, 0, 0)));
+
+        // Owner writes a single learned atom, then explore; the view reflects it.
+        mb.set_style_atom(0, StyleLane::Learned, 5, 42);
+        mb.set_style_atom(0, StyleLane::Explore, 5, 99);
+        assert_eq!(mb.style_lane_at(0, StyleLane::Learned).unwrap()[5], 42);
+        assert_eq!(mb.triangle_at(0, 5), Some((0, 42, 99)));
+
+        // Promotion: learned[5] (42) replaces frozen[5] (0) → returns true (changed).
+        assert!(mb.promote_family(0, 5));
+        assert_eq!(mb.triangle_at(0, 5), Some((42, 42, 99)));
+        // Idempotent: a second promotion is a no-op (already equal) → false.
+        assert!(!mb.promote_family(0, 5));
+
+        // Field isolation: writing family 5 left the other 11 family slots untouched.
+        let frozen = mb.style_lane_at(0, StyleLane::Frozen).unwrap();
+        for (f, &atom) in frozen.iter().enumerate() {
+            assert_eq!(atom, if f == 5 { 42 } else { 0 }, "frozen[{f}] isolation");
+        }
+
+        // Guards: family >= 12 is a no-op write + None read; row >= populated too.
+        mb.set_style_atom(0, StyleLane::Frozen, 12, 7); // out-of-range family: no-op
+        assert_eq!(mb.triangle_at(0, 12), None);
+        assert!(!mb.promote_family(0, 12));
+        mb.set_style_atom(5, StyleLane::Frozen, 0, 7); // row 5 >= populated 2: no-op
+        assert_eq!(mb.style_lane_at(5, StyleLane::Frozen), None);
+        // The out-of-range writes changed nothing observable in the valid range.
+        assert_eq!(mb.triangle_at(0, 0), Some((0, 0, 0)));
     }
 
     // ── test 2: w_slot panic ─────────────────────────────────────────────────
