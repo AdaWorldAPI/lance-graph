@@ -74,9 +74,16 @@ analytic-cosine-rank / analytic-address-location respectively). No consume-the-l
       load-bearing per re-run (heavy-tailed 1.32→0.998 via escape). Never route to a lossy lane.
 OPEN (debit — 4 NEEDS-PROBE work-items, none gating): WI-1 Lloyd-Max leaf swap (low);
 WI-2 run-or-retire the two unrun PolarQuant probes polarquant_hip_probe/turboquant_correction_probe
-(medium); WI-3 helix-vs-ladder on the continuous-field geo exit — the one genuine competition (medium);
+(medium); ~~WI-3 helix-vs-ladder on the continuous-field geo exit~~ **PAID 2026-07-18 (WI-3 RESOLVED,
+PASS-for-analytic)** — PROBE-HELIX-CONTINUOUS-FIELD (helix `continuous_field.rs`) showed analytic
+`RollingFloor` reconstructs the ~1500 m elevation field at 1 byte / RMSE ≈ 0.11 % of range
+(5.86 m terrace = 1500/256 exactly; 2-byte stacked floor ≈ 0.023 m). Ruling: the **monotone-bounded**
+continuous-field exit is ANALYTIC (RollingFloor palette256 + stacked floors, NOT ResidueEdge which is
+sphere/place-only); the materialized ladder demarcates to **unbounded/clustered/multi-modal**
+distributions (weight rows). le-contract §3 honourable-mention updated. Remaining lane-moving debit is
+now WI-2 only;
 WI-4 escape predicate LFD-vs-L-inf agreement (low). Remaining payment = 4 doc-comment demarcations
-+ WI-2/WI-3 (the only two that could still change a lane assignment). Cross-ref:
++ WI-2 (the only remaining probe that could still change a lane assignment; WI-3 resolved). Cross-ref:
 `E-BGZ-TENSOR-LANE-REVIEW-1`, `E-FISHERZ-CANONICAL-COSINE-REPLACEMENT-1`, `E-H268-PROBE-WAVE-1-RESULTS`.
 
 ## TD-RUNG2-144-VOCAB-SPLIT — the two 144s of rung 2 are divergent vocabularies (2026-07-15)
