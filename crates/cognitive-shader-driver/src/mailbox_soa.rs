@@ -523,6 +523,14 @@ impl<const N: usize> MailboxSoA<N> {
         self.content[lo..hi].fill(0);
         self.topic[lo..hi].fill(0);
         self.angle[lo..hi].fill(0);
+        // ── P4 autopoiesis-triangle lanes reset (atom 0 = null) ──
+        // A reused row MUST read the all-null default, never a stale checkpoint/
+        // learned/explore policy (codex #729 P2). Same field-isolation discipline as
+        // every column above — a lane reset_row forgets is exactly the stale-policy
+        // leak `style_lane_at` would then serve on a reused row.
+        self.frozen_style[row] = [0u8; 12];
+        self.learned_style[row] = [0u8; 12];
+        self.explore_style[row] = [0u8; 12];
     }
 
     // ── Read-only inspectors ──────────────────────────────────────────────────
@@ -1038,6 +1046,18 @@ mod tests {
         assert_eq!(mb.style_lane_at(5, StyleLane::Frozen), None);
         // The out-of-range writes changed nothing observable in the valid range.
         assert_eq!(mb.triangle_at(0, 0), Some((0, 0, 0)));
+
+        // reset_row clears all three lanes → a reused row reads the all-null default,
+        // never a stale policy (codex #729 P2; same guarantee the other columns get).
+        mb.set_style_atom(1, StyleLane::Frozen, 3, 77);
+        mb.set_style_atom(1, StyleLane::Learned, 3, 88);
+        mb.set_style_atom(1, StyleLane::Explore, 3, 99);
+        assert_eq!(mb.triangle_at(1, 3), Some((77, 88, 99)));
+        mb.reset_row(1);
+        assert_eq!(mb.style_lane_at(1, StyleLane::Frozen), Some([0u8; 12]));
+        assert_eq!(mb.style_lane_at(1, StyleLane::Learned), Some([0u8; 12]));
+        assert_eq!(mb.style_lane_at(1, StyleLane::Explore), Some([0u8; 12]));
+        assert_eq!(mb.triangle_at(1, 3), Some((0, 0, 0)));
     }
 
     // ── test 2: w_slot panic ─────────────────────────────────────────────────
