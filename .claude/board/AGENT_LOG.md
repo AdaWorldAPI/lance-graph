@@ -1,3 +1,10 @@
+## 2026-07-18 — EpisodicMemory::basins() — usable episodic-witness basin partition (operator directive: "usable code, not paper churn") — main thread
+
+- **Task:** the operator asked for the AriGraph episodic-witness basins as USABLE CODE (not a probe, not jc-coupled). AriGraph had `communities()` (structural, #714) but no experiential partition (`grep basin` → nothing). Built the complement.
+- **Change:** `arigraph/episodic.rs` — `EpisodicBasins { entities, labels, num_basins }` + `basin_of`/`members` (same accessor shape as `Communities`, so caller can compare the two partitions directly) and `EpisodicMemory::basins()`: deterministic union-find over per-episode entity **co-occurrence** (parse each `"subject - relation - object"` triplet, union all entities seen in one episode), sorted-entity + union-by-lower-root → stable partition. Re-exported in `arigraph/mod.rs`.
+- **Honest scope:** this is the experiential complement to `communities()` — entities grouped by *what was observed together*, NOT the le-contract 6-slot horizontal `basin:role` register frame (that stays EVENTUAL per `context-role-traversal-tissue.md`). No similarity pooling; structure only.
+- **Verified:** `cargo test -p lance-graph --lib -- graph::arigraph::episodic` 16/16 green (5 new basin tests: co-occurrence grouping, shared-entity merge, single-episode union, empty-safe, deterministic); clippy clean on the additions. Branch `claude/happy-hamilton-0azlw4`.
+
 ## 2026-07-18 — REMOVED the S1 community-basin probe + jc dev-coupling (operator directive: "I don't want it in the JC crate") — main thread
 
 - **Task:** the S1 real-corpus probe pooled typed relation planes into a similarity scalar and produced a retracted "mint" verdict; operator ruled it an embarrassment coupled to the scientific jc crate. Removed the entire probe line.
