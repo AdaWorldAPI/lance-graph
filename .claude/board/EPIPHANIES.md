@@ -1,3 +1,18 @@
+## 2026-07-18 — E-S07-TEXT-STREAM-NO-LLM-1 — a whole novel → a ~2 MB knowledge graph with ZERO LLM: the S07 vertical slice RUNS on real text
+
+**Status:** FINDING (demonstrated, runnable). **Confidence:** High (example runs; numbers reproducible). Deliverable: `crates/lance-graph/examples/text_stream_to_soa.rs`.
+
+The end-to-end thesis is now a runnable binary: plain text → KG + facets, **no LLM, no float embeddings**. Pipeline (all file:line-verified, no new primitives — only 3 adapter shims): COCA FSM extraction (`deepnsm::{vocabulary,parser}`, 6-state PoS FSM) → SPO → `TripletGraph::add_triplets` → ±5 Markov context (the `markov_soa` window) → NARS reasoning (`infer_deductions` / `detect_contradictions`) → `SpoFacet` 6×(8:8) (byte-split palette shim) → 512-B `NodeRow` size.
+
+**Measured on Orwell's Animal Farm** (30,340 tokens; run from scratch, text NOT committed — PD in DE/AU):
+- 1704 sentences → **5,899 SPO triples** → 4,012 deduped graph nodes.
+- ±5 Markov window → 35,158 role-continuity links.
+- NARS: **95,410 two-hop deductions, 20,131 contradictions** (a book about propaganda yields 20k contradictions — the mechanism fires hard).
+- 5,899 `SpoFacet` 6×(8:8) registers, **loss-free roundtrip**.
+- **Cold KG = 4,012 × 512 B = 1.96 MiB** vs the 32 MiB (64k) / 128 MiB (256k) budgets.
+
+**Confirms:** whole-book KG in ~2 MB RAM, no LLM, exact palette distance. **Honest caveats (carried):** the FSM is a coarse PoS FSM (relation quality is surface-level; the 20k contradictions include FSM noise, not all semantic); the word→`(basin:identity)` palette encoder is the reversible byte-split stand-in (the semantic encoder is gated on the absent `cam_codes.bin`); the **512 B is the COLD `NodeRow`** (persisted KG) — the ractor `MailboxSoA` HOT tier is ~6.2 KB/row (three-tier model, corrects the "256k×512=32MB" conflation: 512 B is NodeRow, 64k×512=32 MiB). The **two-sixes** distinction holds: CAM-PQ 6 = subspaces/word (`deepnsm::codebook`), SpoFacet 6 = slots/triple.
+
 ## 2026-07-18 — E-X265-HEVC-ANCHOR-1 — the §5 external HEVC anchor is RUN + VISUAL: x265 over the φ-spiral sprite scene, 641× / PSNR 60.94 dB, real I/P/B GOP
 
 **Status:** FINDING (external anchor — plan `x265-sprite-replay-probe-v1.md` §5 "optional context, NOT a gate"; run this session in-sandbox). Reproducer committed as `crates/helix/examples/hevc_moving_scene.rs`.
