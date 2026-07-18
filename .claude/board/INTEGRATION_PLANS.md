@@ -1,3 +1,26 @@
+## 2026-07-18 — soa-32-tenant-awareness-redundancy v1 — DRAFT (envelope-auditor gate pending)
+
+**Plan:** `.claude/plans/soa-32-tenant-awareness-redundancy-v1.md`
+Advances ENTROPY-MILESTONES **M20** (64-bit awareness cram → 96-bit facet
+payloads) per operator directive: *"keep causaledge64/episodicwitness64 for
+reference … get all 32 tenants together in 512 bytes sized SoA to reach the
+actual smartness, and then use JC crate to find redundancies. Overcome
+conjecture first."* States the CausalEdge64-v2 conjecture (the "awareness after
+2³ AND streaming cycles" = the Pearl-2³ causal mask + structural-temporal
+accumulation) as falsifiable, then builds the honest full-width representation
+BESIDE it: current **13 tenants → 32** via ~7 awareness facets (A1–A7, each L4
+`6×(8:8)` palette256², **derived field-by-field from CausalEdge64/EpisodicEdges64**
+— NOT invented) + deliberately-redundant sibling lanes, all additive within the
+324 B reserved slab headroom (RESERVE-DON'T-RECLAIM, no ENVELOPE_LAYOUT_VERSION
+bump). The **jc battery is the mechanical M20 collapse gate** (§3) — Cronbach α
+per construct (71.5%-disagreement precedent = keep-both), pairwise ICC/Spearman
+across lanes → the *measured* awareness width either vindicates or replaces the
+64-bit hypothesis. **Rides the D-TRI arc:** §3 EXTENDS D-TRI-2's jc gate to the
+awareness lanes; A1–A7 follow the D-TRI-1 triangle-tenant shipped precedent
+(#717, auditor LAYOUT-CLEAN); shares the BoardAggregates batched OGAR mint. D-ids
+D-AW-1..5. **No bytes land** until the envelope-auditor verdict + batched mint.
+D-AW-1 (this turn): plan + auditor gate. CausalEdge64/EW64 stay for reference.
+
 ## 2026-07-17 — dtri1-classid-mint-spec v1 — SPEC (ratifiable, mint-gated)
 
 **Plan:** `.claude/plans/dtri1-classid-mint-spec-v1.md`

@@ -1,3 +1,15 @@
+## soa-32-tenant-awareness-redundancy-v1 — M20: honest full-width awareness → jc-measured collapse
+
+Plan: `.claude/plans/soa-32-tenant-awareness-redundancy-v1.md`. Advances ENTROPY-MILESTONES M20. Builds the full-width awareness SoA (13→32 tenants) BESIDE CausalEdge64/EW64 (kept for reference), then jc measures the true awareness width. Rides the D-TRI / BoardAggregates batched OGAR mint. NO bytes land before the envelope-auditor verdict.
+
+| D-id | Title | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-AW-1 | Assembly plan + `v3-envelope-auditor` layout-delta gate (RESERVE-DON'T-RECLAIM, fit, version-stability, slot-purity) | lance-graph | In progress (plan drafted; auditor running) | plan §2/§4 |
+| D-AW-2 | A1 `SpoFacet` lane — 3 SPO + 3 episodicwitness palette256² (`6×(8:8)` L4); user's base design, least speculative; batched-mint gated | lance-graph | Queued (auditor + mint gated) | plan §2 A1 |
+| D-AW-3 | A2–A7 awareness facets (PearlRung/NarsTruth/FreeEnergy/StreamCycle/DirInfer/WitnessLens), derived from CE64/EW64 fields; batched-mint gated | lance-graph | Queued (auditor + mint gated) | plan §2 A2–A7 |
+| D-AW-4 | Redundant sibling lanes (2nd representation per construct — Fisher-z i8 / raw-COCA-12bit) to reach ~32; count jc-derived, not pre-committed | lance-graph | Queued | plan §2 |
+| D-AW-5 | jc collapse gate — **EXTENDS D-TRI-2** to the awareness lanes: Cronbach α per construct + pairwise ICC/Spearman → measured awareness width (M20 mechanical gate) | lance-graph | Queued (needs lanes + real data) | plan §3 |
+
 ## graphrag-doc-retrieval-soa-integration-v1 — retrieval over AriGraph (expand-in-place, no new crate)
 
 Plan: `.claude/plans/graphrag-doc-retrieval-soa-integration-v1.md` (v1.2). Pure/reversible capabilities land ahead of G0; the D-GR-2 retrieval WIRING is gated on the G0 real-corpus verdict.
