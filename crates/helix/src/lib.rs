@@ -58,6 +58,8 @@
 #![forbid(unsafe_code)]
 
 pub mod constants;
+#[cfg(test)]
+mod continuous_field;
 pub mod curve_ruler;
 pub mod distance;
 pub mod fisher_z;

@@ -210,7 +210,25 @@ Why it earns the mention here: it is the **continuous-field exit** that
 flat L4 cannot provide. A bare 256-level index terraces a continuous field
 (first consumer instance, geo arc 2026-07-16: 256 levels over ~1500 m of
 relief ≈ 6 m elevation terraces), while categorical/narrow surfaces
-(`Signed360` normals, harmonized colour) stay flat L4. Placement
+(`Signed360` normals, harmonized colour) stay flat L4.
+
+**Demarcation refined (WI-3 measured, 2026-07-18, `E-BGZ-TENSOR-LANE-REVIEW-1`):**
+for a **monotone BOUNDED** continuous field (elevation is the canonical
+case), the exit is **analytic, not materialized** — helix `RollingFloor`
+(`quantize`→`bucket_center`) reconstructs the ~1500 m elevation field at
+**1 byte / RMSE ≈ 1.7 m = 0.11 % of range** (reproducing the 5.86 m =
+1500/256 terrace figure exactly), and a composable 2-byte stacked floor
+reaches ≈ 0.023 m terraces (PROBE-HELIX-CONTINUOUS-FIELD, helix
+`continuous_field.rs`). So the honoured **materialized** bgz-tensor ladder
+is NOT the owner of the *monotone-bounded* exit — it demarcates to its
+distinct lane: **unbounded / clustered / multi-modal** value distributions
+(the heavy-tailed weight-row reconstruction the CLAM/centroid machinery is
+built for) that do NOT fit a single bounded `RollingFloor` range. Caveat:
+the shipped multi-byte residue codecs (`ResidueEdge`/`Signed360`) are
+sphere/place codecs, so "analytic" here means `RollingFloor` palette256 +
+stacked floors, not `ResidueEdge`.
+
+Placement
 discipline: this is **NOT a ninth 12-byte layout** — the residual ladder is
 **out-of-row** (same status as `Signed360` in the 96-bit carving); the
 sanctioned in-row refinement budget remains the turbovec 6×4-bit nibble
