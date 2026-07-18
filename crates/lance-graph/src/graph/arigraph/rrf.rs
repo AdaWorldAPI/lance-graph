@@ -147,8 +147,9 @@ mod tests {
         // A rank-1 hit vs a rank-10 hit: smaller k widens their score ratio.
         let mk = |k: f64| {
             let a = [ScoredId::new("top", 1.0, 0)];
-            let mut deep: Vec<ScoredId> =
-                (0..10).map(|i| ScoredId::new(format!("d{i}"), 1.0, 0)).collect();
+            let mut deep: Vec<ScoredId> = (0..10)
+                .map(|i| ScoredId::new(format!("d{i}"), 1.0, 0))
+                .collect();
             deep[9] = ScoredId::new("low", 1.0, 0); // "low" at rank 10
             let f = reciprocal_rank_fusion(&[&a, &deep], k);
             let top = f.iter().find(|s| s.id == "top").unwrap().score;
