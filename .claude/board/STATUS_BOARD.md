@@ -5,7 +5,7 @@ Plan: `.claude/plans/soa-32-tenant-awareness-redundancy-v1.md`. Advances ENTROPY
 | D-id | Title | Repo | Status | Evidence |
 |---|---|---|---|---|
 | D-AW-1 | Assembly plan + `v3-envelope-auditor` layout-delta gate (RESERVE-DON'T-RECLAIM, fit, version-stability, slot-purity) | lance-graph | In progress (plan drafted; auditor running) | plan §2/§4 |
-| D-AW-2 | A1 `SpoFacet` lane — 3 SPO + 3 episodicwitness palette256² (`6×(8:8)` L4); user's base design, least speculative; batched-mint gated | lance-graph | Queued (auditor + mint gated) | plan §2 A1 |
+| D-AW-2 | A1 `SpoFacet` — 3 SPO + 3 episodicwitness palette256² (`6×(8:8)` L4); user's base design | lance-graph | Reading primitive SHIPPED (`awareness_facet::SpoFacet`, 6 tests + doctest, reuses #729 rails); byte carve + OGAR value_schema mint (Place 2) still pending | plan §2 A1, §0.5 |
 | D-AW-3 | A2–A7 awareness facets (PearlRung/NarsTruth/FreeEnergy/StreamCycle/DirInfer/WitnessLens), derived from CE64/EW64 fields; batched-mint gated | lance-graph | Queued (auditor + mint gated) | plan §2 A2–A7 |
 | D-AW-4 | Redundant sibling lanes (2nd representation per construct — Fisher-z i8 / raw-COCA-12bit) to reach ~32; count jc-derived, not pre-committed | lance-graph | Queued | plan §2 |
 | D-AW-5 | jc collapse gate — **EXTENDS D-TRI-2** to the awareness lanes: Cronbach α per construct + pairwise ICC/Spearman → measured awareness width (M20 mechanical gate) | lance-graph | Queued (needs lanes + real data) | plan §3 |

@@ -12,6 +12,11 @@ TD payment addendum, 4 non-gating work-items WI-1..WI-4. Remaining x265
 queue: the arbitrary-motion sprite follow-up probe, PROBE-GPU-LUT (wgpu
 harness). This entry + the #733 PR_ARC entry = post-merge hygiene.
 
+## 2026-07-18 — branch `claude/happy-hamilton-0azlw4` — D-AW-2 (start): `awareness_facet::SpoFacet` reading primitive (M20 reading A1)
+
+### Current Contract Inventory — new entry
+- `lance_graph_contract::awareness_facet::{SpoFacet, Palette256Pair}` — the **A1 SpoFacet reading** of a `6×(8:8)` content-blind register (M20 assembly, `.claude/plans/soa-32-tenant-awareness-redundancy-v1.md`): six palette256² `(basin, identity)` pairs = 3 semantic-SPO + 3 episodic-witness (the operator's base design). A **reading, NOT a layout** — `from_rails`/`from_register` ↔ `to_rails`/`to_register` (loss-free), `spo()`/`witness()` splits. Reuses the shipped `soa_view::style_rails_at` convention verbatim (`rail k = (b[2k], b[2k+1])`) so it agrees pair-for-pair; touches zero bytes of the value slab. WHICH class reads its register this way is an OGAR mint (Place 2), never a base variant (operator "without hardcoding"). 6 tests + doctest. Zero in-crate deps.
+
 ## 2026-07-18 — branch `claude/review-claude-board-files-nhqgx1` (PR #729) — P4 ancestry pipeline on the SoA/ractor carrier: triangle read seam + owned columns + the 226-atom FROZEN palette256 codebook
 
 ### Current Contract Inventory — new entry
