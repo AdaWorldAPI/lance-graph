@@ -54,6 +54,31 @@ doc-comment ("predates X, kept because Y") / retirement of the redundant
 half. Cross-ref: `E-PALETTE-RESIDUAL-LADDER-1`, le-contract §3
 honourable-mention subsection (carries a pointer to this entry).
 
+**PAID (partial) — 2026-07-18, engineering review (Opus reviewer; no refactor, evidence-grounded).**
+The four axes were reviewed against source + a re-run of PROBE-WH-MAG / PROBE-WH-MAG-2.
+RULED (credit): all four = DEMARCATE/KEEP — bgz-tensor's adaptive codec occupies a lane
+none of turbovec/PolarQuant/helix covers (materialized place+residual reconstruction of
+unbounded heavy-tailed WEIGHT ROWS for GEMM; the three newer primitives are search-index /
+analytic-cosine-rank / analytic-address-location respectively). No consume-the-lane, no retire.
+  (a) DEMARCATE — turbovec is a search index (decodes to ids, trades the matmul away,
+      lib.rs:49-53); this reconstructs f32 rows. Placements already split (turbovec = in-row
+      6×4-bit; ladder = out-of-row, le-contract:216).
+  (b) DEMARCATE — hadamard_rotate VALIDATED by PROBE-WH-MAG-2 (verified this session:
+      gradient+spike cenB/A 0.209, heavy-tailed escB/A 0.998) but ONLY in the shipped
+      escape+centroid pairing; bare WH is NEUTRAL. PolarQuant's QJL is displaced for the
+      bounded cosine lane by Fisher-z (E-FISHERZ).
+  (c) DEMARCATE — helix place is analytic/address-derived (regenerated, zero location
+      storage); bgz-tensor place is a learned k-means centroid (stored). Same decomposition,
+      different place kind.
+  (d) KEEP — Passthrough refuses the mold by design (E-PALETTE-RESIDUAL-LADDER-1 virtue);
+      load-bearing per re-run (heavy-tailed 1.32→0.998 via escape). Never route to a lossy lane.
+OPEN (debit — 4 NEEDS-PROBE work-items, none gating): WI-1 Lloyd-Max leaf swap (low);
+WI-2 run-or-retire the two unrun PolarQuant probes polarquant_hip_probe/turboquant_correction_probe
+(medium); WI-3 helix-vs-ladder on the continuous-field geo exit — the one genuine competition (medium);
+WI-4 escape predicate LFD-vs-L-inf agreement (low). Remaining payment = 4 doc-comment demarcations
++ WI-2/WI-3 (the only two that could still change a lane assignment). Cross-ref:
+`E-BGZ-TENSOR-LANE-REVIEW-1`, `E-FISHERZ-CANONICAL-COSINE-REPLACEMENT-1`, `E-H268-PROBE-WAVE-1-RESULTS`.
+
 ## TD-RUNG2-144-VOCAB-SPLIT — the two 144s of rung 2 are divergent vocabularies (2026-07-15)
 
 **Open.** `E-RUNG-CONTENT-LADDER-1`'s rung-2 row cites `sigma_rosetta.rs`

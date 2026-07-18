@@ -1,3 +1,17 @@
+## 2026-07-18 — branch `claude/x265-x266-plans-review-h9osnl` (post-#733) — x265 probe wave-2 landed + bgz-tensor lane review paid
+
+#733 MERGED: the x265 wave-2 probes — PROBE-SPRITE-REPLAY (PASS-AT-SIGNED360
+scoped; ResidueEdge-24bit insufficient → Signed360-only motion primitive;
+arbitrary-motion [H]) + PROBE-WH-MAG-2 (upgrades the WH-magnitude leg to
+transfers-with-escape+centroid on structured tiles). EPIPHANIES
+`E-X265-PROBE-WAVE-2-RESULTS`; ndarray #248 companion merged. This follow-up:
+TD-BGZ-TENSOR-PRE-LANE-REVIEW **paid in part** — Opus review ruled all four
+axes DEMARCATE/KEEP (nothing retired; bgz-tensor's codec occupies a lane
+turbovec/PolarQuant/helix don't cover), `E-BGZ-TENSOR-LANE-REVIEW-1` + the
+TD payment addendum, 4 non-gating work-items WI-1..WI-4. Remaining x265
+queue: the arbitrary-motion sprite follow-up probe, PROBE-GPU-LUT (wgpu
+harness). This entry + the #733 PR_ARC entry = post-merge hygiene.
+
 ## 2026-07-18 — branch `claude/review-claude-board-files-nhqgx1` (PR #729) — P4 ancestry pipeline on the SoA/ractor carrier: triangle read seam + owned columns + the 226-atom FROZEN palette256 codebook
 
 ### Current Contract Inventory — new entry
