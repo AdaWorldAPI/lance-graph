@@ -13,6 +13,7 @@ pub mod markov_soa;
 pub mod orchestrator;
 pub mod ppr;
 pub mod retrieval;
+pub mod rrf;
 pub mod sensorium;
 pub mod spo_bridge;
 pub mod triplet_graph;
@@ -23,6 +24,7 @@ pub use bm25::Bm25Index;
 pub use community::Communities;
 pub use episodic::EpisodicBasins;
 pub use ppr::PersonalizedPageRank;
+pub use rrf::{reciprocal_rank_fusion, DEFAULT_RRF_K};
 pub use witness_corpus::{WitnessCorpus, WitnessEntry, WitnessId, WitnessIndexHashMap};
 
 #[cfg(feature = "with-cam-pq")]

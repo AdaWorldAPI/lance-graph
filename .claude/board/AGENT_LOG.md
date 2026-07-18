@@ -1,3 +1,10 @@
+## 2026-07-18 — RRF fusion primitive (D-GR-2a) — the retrieval keystone, pure capability ahead of G0 — main thread
+
+- **Task:** the inventory (#723) named RRF fusion as the D-GR-2 retrieval keystone — every ranked leg exists (`Bm25Index::rank`, `PersonalizedPageRank::ranked`, CAM-PQ) but nothing fused them. Landed the pure fusion primitive (the SAP "Practical GraphRAG" gap), ahead of G0 like `Bm25Index`/`PersonalizedPageRank`/`Communities`.
+- **Change:** `arigraph/rrf.rs` — `reciprocal_rank_fusion(ranked_lists: &[&[ScoredId]], k) -> Vec<ScoredId>` (Cormack 2009; `Σ 1/(k+rank)`, 1-based, k=60 `DEFAULT_RRF_K`). Fuses by RANK so the per-list scores need not be commensurable (the reason it combines BM25 f64 / PPR probability / CAM-PQ i8). Deterministic (BTreeMap id-asc + stable score-desc sort); shallowest `depth` wins; returns the contract `ScoredId`. Re-exported in `arigraph/mod.rs`.
+- **Pure/reversible:** computes a fused ranking, reads no carrier state. The WIRING into `OsintRetriever::retrieve` stays GATED on the G0 verdict (per plan §5 + STATUS_BOARD D-GR-2).
+- **Commit / Tests / Outcome:** feature `1306bf6`, fmt `2c87c04`, Codex-flagged per-leg dedup fix follow-up; `cargo test -p lance-graph --lib -- graph::arigraph::rrf` 9/9 + doctest 1/1 green; clippy scoped `-p lance-graph --lib` clean on the addition (the 8 warnings are pre-existing `blasgraph/ndarray_bridge.rs` SIMD dead-code). Codex P2 (RRF must give each leg one vote per id at its best rank — a duplicated entity in one leg was double-counting) FIXED + 2 regression tests. Branch `claude/happy-hamilton-0azlw4`; PR #724.
+
 ## 2026-07-18 — GraphRAG representations inventory — 7 papers × V3 substrate matrix (6 Opus paper-readers + 1 Opus v3-harvest; main-thread synthesis)
 
 - **Task:** operator asked for an inventory of 7 papers (6 arXiv + MDPI), formulate 8 representations plus the v3 "should-have-built" set, and answer a matrix per representation (format / witness-ref / witness / context / basins / vertical-horizontal-vs-edges / time / NARS / causality-trajectory-candidate / wire) + "which probe considered all tenants in every SoA."
