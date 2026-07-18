@@ -1,3 +1,11 @@
+## 2026-07-18 — E-S1-PROBE-REMOVED-1 — the S1 community-basin probe and the lance-graph `jc` dev-coupling are REMOVED. The probe pooled ~1450 typed relation planes into one undirected similarity graph and read a scalar φ as a "community-id earns the mint" verdict — a flattening artifact. jc is the scientific crate; this empirical probe does not belong coupled to it.
+
+**Status:** SHIPPED (deletes `crates/lance-graph/examples/p_community_basin_agree.rs`; removes the `jc` dev-dependency from lance-graph `Cargo.toml` + `Cargo.lock`. The #722-only real-corpus variant + its schema.org data blob + python extractor never merged and are dropped by resetting the branch to clean main.)
+
+- **What was wrong.** The probe collapsed typed structure — every relation is its own context:role plane — into one weight-summed adjacency, partitioned the blob, and reported a scalar agreement as a decision. Structure ≠ similarity; the `(8:8)`/ClassView substrate exists to enforce exactly that, and the probe violated it *after* the rule had been stated. The "DISTINCT → community-id earns the mint" verdict was retracted; the whole probe line is now removed rather than iterated.
+- **Stands on its own (unaffected):** the context:role traversal-tissue doctrine (`E-CONTEXT-ROLE-TISSUE-1`), the jc-scientific / empirical boundary (`E-EMPIRICAL-VS-SCIENTIFIC-JC-1`), the G0 harness (#716, no jc). The community≡basin identity (`E-GRAPHRAG-DGR3B-1`) is an UNRUN hypothesis again — there is no valid probe for it in-tree.
+- **Rule (operator, reinforced):** no empirical probe of mine sits next to or dev-depends on jc. A community/basin agreement, if ever measured, is decomposed per typed plane and does not borrow jc's adjacency.
+
 ## 2026-07-17 — E-CONTEXT-ROLE-TISSUE-1 — operator ruling: `part_of:is_a` ≡ **context:role**, one polymorphic `6×(8:8)` register with TWO orientations — VERTICAL (stacked exactness = HHTL family identity, q2-FMA-helix-attested) and HORIZONTAL (6-context / episodic-witness `basin:role`, eventual) — reused with classid+appid+ClassView/WideFieldMask as the CONNECTING-TISSUE TRAVERSAL for screens, documents, time series, and AriGraph
 
 **Status:** CAPTURED (knowledge doc `.claude/knowledge/context-role-traversal-tissue.md`, this commit). Doctrine + reuse checklist + probe pair; no code this arc (the anchors already exist — that is the finding).

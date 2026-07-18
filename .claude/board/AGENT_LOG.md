@@ -1,3 +1,10 @@
+## 2026-07-18 — REMOVED the S1 community-basin probe + jc dev-coupling (operator directive: "I don't want it in the JC crate") — main thread
+
+- **Task:** the S1 real-corpus probe pooled typed relation planes into a similarity scalar and produced a retracted "mint" verdict; operator ruled it an embarrassment coupled to the scientific jc crate. Removed the entire probe line.
+- **Change (branch reset to clean main, single commit):** deleted `examples/p_community_basin_agree.rs`; removed `jc = { path = "../jc" }` from `crates/lance-graph/Cargo.toml` + Cargo.lock (jc was reachable only via this dev-dep); the #722-only real-corpus example + schema.org data blob + python extractor never merged (dropped on reset). G0 harness (#716) untouched (no jc).
+- **Verified:** `cargo build -p lance-graph --examples` green without jc; only remaining example is `g0_graph_loadbearing.rs`.
+- **Board:** EPIPHANIES `E-S1-PROBE-REMOVED-1`. PR #722 repurposed to the removal; force-pushed onto clean main.
+
 ## 2026-07-17 — E-CONTEXT-ROLE-TISSUE-1 capture — connecting-tissue traversal doctrine (main thread, no subagents)
 
 - **Task:** capture the operator's context:role generalization (vertical HHTL / horizontal 6-context) and find the clean cross-domain reuse (screens, documents, time series, AriGraph) with classid+appid+ClassView/WideFieldMask.
