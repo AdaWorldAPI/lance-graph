@@ -67,6 +67,8 @@ pub mod quantize;
 pub mod residue;
 pub mod simd;
 #[cfg(test)]
+mod sprite_replay;
+#[cfg(test)]
 mod walk_spectrum;
 
 pub use constants::{
