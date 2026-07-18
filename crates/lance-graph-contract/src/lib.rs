@@ -50,6 +50,7 @@ pub mod action;
 pub mod aiwar;
 pub mod atoms;
 pub mod auth;
+pub mod awareness_facet;
 pub mod callcenter;
 pub mod cam;
 pub mod canonical_node;
