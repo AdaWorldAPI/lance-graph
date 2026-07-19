@@ -85,24 +85,43 @@ collapse semantic distance vs frequency-in-header — runs on **committed data**
    values across words; recompute `d_header` (unchanged by construction) and
    `d_payload` (changes). Report whether `d_header` is invariant (it must be) and
    the magnitude of `d_payload`'s change.
-3. **The collapse falsifier (the "the/this" shape):** among the top-256 lemmas,
-   identify pairs that are **high-frequency-similar** (|f(a)−f(b)| in the bottom
-   decile) but **semantically distant** (`d_truth` in the top decile). Report:
-   how many such pairs have `d_payload < d_truth` (pulled artificially closer by
-   shared frequency) = the collapse count; and the mean Δ = `d_payload − d_truth`
-   for this set vs the complement.
-4. **Named anchors:** report `d_truth` vs `d_payload` for `(the, be)` and
-   `(the, of)` (top-frequency, genre-distinct) — the concrete collapse witnesses.
+3. **Neighborhood corruption — the collapse signal (NOT absolute inversion).**
+   ⚠ The append is **monotone-non-decreasing**: `d_payload = √(d_truth² + (Δf)²)
+   ≥ d_truth` (Pythagoras), so `d_payload < d_truth` is IMPOSSIBLE and must NOT
+   be used as a criterion. The real defection is **rank/neighbor corruption**:
+   frequency inflates distances by the frequency gap, which pushes
+   **semantically-near-but-frequency-far** pairs (near-synonyms with divergent
+   frequency) APART and reorders the neighborhood. Measure:
+   - (a) **Nearest-neighbor flip rate:** for each of the 256 words, its nearest
+     neighbor under `d_header`(=`d_truth`) vs under `d_payload`; report the
+     fraction whose nearest neighbor CHANGES.
+   - (b) **The corrupted set:** pairs that are semantically **near** (`d_truth`
+     bottom decile) but frequency-**far** (`|f(a)−f(b)|` top decile). Report
+     their mean inflation `d_payload − d_truth` (> 0) and their mean **downward
+     displacement** in the global nearness ranking (they fall relative to
+     frequency-near pairs) vs the complement.
+4. **Named anchor (computed, not hand-picked):** among the semantically-nearest
+   decile of pairs, report the one with the LARGEST frequency gap — its
+   `d_truth`, `d_payload`, inflation, and how many rank positions it FALLS in the
+   nearness ordering (a true near-pair demoted purely by frequency).
 
 ### 3.5 PASS / COLLAPSE criteria (pre-registered — fill with YOUR numbers only)
 - **HEADER lane** must be **frequency-shuffle-invariant** (measurement 2) — the
   lane-orthogonality proof (frequency didn't leak into semantics).
 - **COLLAPSE CONFIRMED** (⇒ PF=Payload is a defection, equilibrium holds) iff:
-  `ρ_all < 1.0` AND the collapse count (measurement 3) is **materially non-zero**
-  AND the named anchors (measurement 4) show `d_payload < d_truth` (frequent-far
-  pairs pulled together).
-- **COLLAPSE REFUTED** (⇒ reconsider the matrix) iff `d_payload ≈ d_truth`
-  (ρ_all ≈ 1.0) and no anchor inversion — frequency did NOT corrupt semantics.
+  `ρ_all < 1.0` AND the **nearest-neighbor flip rate** (3a) is materially
+  non-zero AND the semantically-near-frequency-far set (3b) shows systematic
+  positive inflation + downward rank displacement (frequency corrupts the
+  semantic neighborhood).
+- **COLLAPSE REFUTED** (⇒ reconsider the matrix) iff `ρ_all ≈ 1.0` and ~zero
+  nearest-neighbor flips — frequency did NOT corrupt the ordering.
+- **Optional stronger variant (fixed-width faithful):** since the real payload is
+  fixed-width `6×(8:8)`, "folding in" frequency means it REPLACES a semantic
+  axis, not appends. Under REPLACE (overwrite the lowest-variance genre dim with
+  `f`), absolute inversions `d_payload < d_truth` DO become possible (a dropped
+  axis shrinks some distances) on top of the frequency contamination — a report
+  may add this variant, but the neighbor/rank corruption above is the primary,
+  append-robust falsifier.
 
 ## 3a. Scaling to 20k academic COCA (the regime where the facet earns its keep)
 
