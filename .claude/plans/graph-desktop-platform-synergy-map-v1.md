@@ -465,6 +465,24 @@ editor), no harvest/transpile for the demo (zero-copy over existing columns), an
 it demonstrates the "for free" differentiator **+ RBAC + banking safety** in the
 smallest credible surface. It is the cleanest first "moving parts from Citrix to
 graph rendering" statement: a monitoring wall that costs the server nothing to
-serve, because there is no copy. The single new build on the critical path is the
+serve, because there is no copy.
+
+**Ideal first dashboard — a GraphSentinel-style access/audit monitor.** The
+operator's `GraphSentinel` reference (a lightweight Python graph sentinel — a
+watchdog over graph access/security; not fetched, understood conceptually) is
+already how bulletproof access works natively here, so the cleanest first §9
+dashboard **is a security-access / audit monitor over the graph's own witness**:
+- **Access gate** = RBAC fail-closed (`WideFieldMask ∩ role`), SOLID.
+- **The witness** = the merkle-chained `UnifiedAuditEvent` → SPO + Lance
+  tombstone + `WitnessTable` (§2.4 audit row), **examined in place as a query,
+  never egressed to a SIEM** (medcare-rs commitment 7 — audit review *is* a
+  query against the witness).
+This unifies both §9 headlines in one demo: a live wall watching access + audit
+events, read-only (no `SetField`), zero-copy over the witness that already
+exists (the "$0"), RBAC-masked + sealed (the "bulletproof"), and audit-review-
+as-a-query rather than a log export. "GraphSentinel" is thus not a thing to port
+— it is the *first concrete ClassView* the monitoring PoC renders.
+
+The single new build on the critical path is the
 Grid/Timeline skin in `a2ui-paint` (over §4 gate 7's wgpu/WebGL2 last-mile); the
 read, RBAC, seal, and time-series are all SOLID today.
