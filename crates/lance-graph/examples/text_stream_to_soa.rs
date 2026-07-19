@@ -125,6 +125,45 @@ fn main() {
         }
     }
 
+    // ── Coherence-length probe (H1, "Three Sentences Are All You Need",
+    // 2106.01793): for every focal triple, at what *forward* distance d does a
+    // role-continuity partner sit? The histogram's cumulative curve is the
+    // text's coherence length — locally-coherent fables saturate within a
+    // sentence or two; long-range narratives keep accruing links out to d=20.
+    // This is precisely what makes the ±5 window a *projection* parameter
+    // (read-time), not a structural one (E-MARKOV-TEMPORAL-STREAM-1): the
+    // committed graph (deductions / contradictions / Q) is byte-identical at
+    // every radius; only this curve moves. Testable claim: frac_within_5 (how
+    // much a ±5 window captures) is high for fables, lower for novels.
+    const SCAN_MAX: usize = 20;
+    let mut link_hist = [0usize; SCAN_MAX + 1];
+    for focal in 0..n_triples {
+        let a = &ranks[focal];
+        let hi = (focal + SCAN_MAX + 1).min(n_triples);
+        for (other, b) in ranks.iter().enumerate().take(hi).skip(focal + 1) {
+            let obj_link =
+                (a.o != NO_ROLE && (a.o == b.o || a.o == b.s)) || (b.o != NO_ROLE && a.s == b.o);
+            if a.s == b.s || obj_link {
+                link_hist[other - focal] += 1;
+            }
+        }
+    }
+    let total_hist: usize = link_hist.iter().sum();
+    let cum_at = |r: usize| -> usize { link_hist.iter().take(r + 1).sum() };
+    let frac_within_5 = if total_hist > 0 {
+        cum_at(RADIUS) as f64 / total_hist as f64
+    } else {
+        0.0
+    };
+    // Coherence length L90 = smallest forward distance capturing ≥90% of links.
+    let mut coherence_len = SCAN_MAX;
+    for d in 1..=SCAN_MAX {
+        if total_hist > 0 && cum_at(d) * 10 >= total_hist * 9 {
+            coherence_len = d;
+            break;
+        }
+    }
+
     // ── Stage 4: NARS ambiguity resolution over the committed graph. ──
     let deductions = graph.infer_deductions(); // 2-hop A→B, B→C ⇒ A→C
     let contradictions = graph.detect_contradictions(0.5); // same S+O, different relation
@@ -196,6 +235,14 @@ fn main() {
         communities.num_communities,
         communities.modularity,
         communities.entities.len()
+    );
+    let hist_head = (1..=8)
+        .map(|d| format!("{}", link_hist[d]))
+        .collect::<Vec<_>>()
+        .join(" ");
+    println!(
+        "coherence    : L90={coherence_len} (forward links to capture 90%), \
+         frac(±{RADIUS})={frac_within_5:.2}, hist[d=1..8]={hist_head}"
     );
     println!(
         "paradox      : {} contradictions; sample:",
