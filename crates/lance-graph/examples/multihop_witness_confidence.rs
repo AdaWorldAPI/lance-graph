@@ -50,29 +50,45 @@ fn main() {
 
     let mut facts: Vec<CausalEdge64> = Vec::new();
     let mut witnesses: WitnessTable<64> = WitnessTable::new();
-    for i in 0..N {
-        let prior = if i == 0 { None } else { Some((i - 1) as u64) };
+    // A fact's HANDLE (its index in `facts`) is a distinct space from its W-SLOT
+    // (which of the 64 witness entries describes it). `slot_of` is a permutation so
+    // slot != handle — the walk must NOT conflate them (Codex #748 r3610142483):
+    // `WitnessEntry.spo_fact_ref` is an opaque committed-fact HANDLE, never the next
+    // W-slot. Each fact stores its OWN slot in its edge (`with_w_slot`, real under
+    // the default v2 layout); the walk follows `w_slot()` at every hop.
+    let slot_of = |handle: usize| ((handle * 7 + 3) % 64) as u8;
+    for handle in 0..N {
+        let slot = slot_of(handle);
+        // The prior belief is referenced by its opaque fact HANDLE, not its slot.
+        let prior_handle = if handle == 0 {
+            None
+        } else {
+            Some((handle - 1) as u64)
+        };
         witnesses
             .set(
-                i as u8,
+                slot,
                 WitnessEntry {
-                    mailbox_ref: 1000 + i as u32,
-                    spo_fact_ref: prior,
+                    mailbox_ref: 1000 + handle as u32,
+                    spo_fact_ref: prior_handle,
                 },
             )
             .expect("slot in cohort range");
-        facts.push(CausalEdge64::pack(
-            10 + i as u8, // distinct subject
-            20,           // shared predicate ┐ episodic-basin anchor
-            30,           // shared object    ┘ (part_of:is_a)
-            freq0,
-            conf0,
-            CausalMask::SPO,
-            0, // direction
-            InferenceType::Revision,
-            PlasticityState::from_bits(0b111), // all hot
-            0,
-        ));
+        facts.push(
+            CausalEdge64::pack(
+                10 + handle as u8, // distinct subject
+                20,                // shared predicate ┐ episodic-basin anchor
+                30,                // shared object    ┘ (part_of:is_a)
+                freq0,
+                conf0,
+                CausalMask::SPO,
+                0, // direction
+                InferenceType::Revision,
+                PlasticityState::from_bits(0b111), // all hot
+                0,
+            )
+            .with_w_slot(slot), // the fact's OWN witness slot (v2 bits 53-58)
+        );
     }
 
     // Walk the multi-hop witness arc back to the root, NARS-revising the truth with
@@ -81,14 +97,24 @@ fn main() {
     // hop is the u8 value already in that `CausalEdge64`.
     let multihop = |start: usize| -> (f32, usize) {
         let (mut f, mut c) = (facts[start].frequency(), facts[start].confidence());
-        let (mut slot, mut hops) = (start, 1usize);
-        while let Some(prior) = witnesses.get(slot as u8).and_then(|e| e.spo_fact_ref) {
-            let p = prior as usize;
-            let (nf, nc) = revise(f, c, facts[p].frequency(), facts[p].confidence());
-            f = nf;
-            c = nc;
-            slot = p;
-            hops += 1;
+        let (mut handle, mut hops) = (start, 1usize);
+        loop {
+            // Follow THIS fact's own W-slot (read from its edge) to its witness entry.
+            let w_slot = facts[handle].w_slot();
+            match witnesses.get(w_slot).and_then(|e| e.spo_fact_ref) {
+                // `spo_fact_ref` is the PRIOR fact's opaque HANDLE — load it, then
+                // follow ITS own `w_slot()` next iteration (never index a slot by a
+                // handle).
+                Some(prior_handle) => {
+                    let p = prior_handle as usize;
+                    let (nf, nc) = revise(f, c, facts[p].frequency(), facts[p].confidence());
+                    f = nf;
+                    c = nc;
+                    handle = p;
+                    hops += 1;
+                }
+                None => break,
+            }
         }
         (c, hops)
     };
