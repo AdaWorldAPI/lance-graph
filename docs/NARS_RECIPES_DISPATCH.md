@@ -2,9 +2,13 @@
 
 > **Updated:** 2026-07-19. **Source of truth:** `lance_graph_contract::recipes`
 > (`RECIPES: [Recipe; 34]`) + `recipe_kernels` (the 34 `Tactic` kernels) +
-> `materialize` (the F→34→F loop). Every table below is **measured** output of
+> `materialize` (the F→34→F loop). Every **value** below is measured by
 > `cargo run -p lance-graph-contract --example recipe_dispatch_map` — regenerate
-> there, never hand-edit the numbers.
+> there to verify; **never hand-edit the numbers**. The tables are then
+> hand-formatted for readability (the identical coherent/contradicted rows the
+> generator prints separately are merged into one `coh|contra` row, and the
+> generator's empty `requires()` output is annotated `*(empty)*`), so a
+> byte-diff against raw stdout will differ in layout, never in the values.
 >
 > **Ladder position (operator-ruled):** these 34 are **rung 3** of the
 > rung-content ladder — THE runbooks, executable inference recipes
@@ -103,7 +107,7 @@ exists" is these three lines.
 
 ## §3 The measured dispatch map (54 awareness cells)
 
-```
+```text
 gate   rung  dissonance     F<.33 routine   .33-.66 inference   F≥.66 leap
 FLOW   R1-3  coh|contra     #1  RTE         #17 CDI             #28 SSAM
 FLOW   R4-6  coh|contra     #1  RTE         #10 MCP             #28 SSAM
