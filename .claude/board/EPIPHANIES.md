@@ -1,3 +1,24 @@
+## 2026-07-19 — E-TRI-FIDELITY-SOA-SELF-REASONING-1 — the graph reasons about itself: ONE 512-byte SoA node co-resides all three distance fidelities (FULL 4096² / PALETTE 6×256:256 ADC / MORTON address-only), self-audits each vs ground truth, and a route→verify RDO cascade matches brute-force NN at 97.9% fewer exact evals — the "self-optimizing space-time-aware graph" endgame, runnable on committed data
+
+**Status:** FINDING (built + measured, KILL-gated, clippy/fmt-clean on 1.95). **Confidence:** High for the co-residence + cascade mechanism; magnitude is an 8-genre floor (the 2×256:256 committed demo; production 6×256:256 sharpens it). Deliverable: `crates/deepnsm/examples/tri_fidelity_soa.rs` (std-only, zero-dep, deterministic, no RNG). Operator: *"We use 512 byte SoA so you could store all 3 versions in DeepNSM examples — 4096² / 6×256:256 / Morton-comma mipmap — and let the Graph reason about itself."*
+
+**The one node, three fidelities (canon `key(16) | edges(16) | value(480)`):**
+- **FULL** (the 4096² ground truth): the raw 8-genre vector, i8-quantized in `value[0..8]`. L2 over it is what the DeepNSM 4096² matrix materializes. ρ=1.0 by definition.
+- **PALETTE** (`6×256:256` L4, here `2×256:256` on 8 genres): ADC over the 2 KB centroid codebook. **ρ=0.9962 vs FULL** — the quantized metric preserves the ordering.
+- **MORTON** (address-only, the key's HEEL 256:256 tile): pure shift/mask on the byte, no codebook load. **ρ=0.5219 hierarchical vs 0.4169 flat** — coarse routing signal, hierarchy beats flat (the `E-IMPLICIT-MORTON-TILE-1` result, reproduced in situ).
+
+**The elegant co-residence:** MORTON and PALETTE **read the SAME two stored bytes** — the address IS the codebook index; only the distance *function* differs (address-arithmetic vs centroid-ADC). "Two jobs, one address" (`E-IMPLICIT-MORTON-TILE-1`) is now executable in one row.
+
+**The graph reasoning about itself — the RDO route→verify cascade (measured, 384 words):**
+- MORTON routes a wide net (top-96, free shift/mask): **recall 95.3%** (true NN retained).
+- PALETTE re-ranks the net to 8 (ADC, 2 KB load).
+- FULL verifies the 8 survivors exactly.
+- **Cascade answer == brute-force FULL NN: 93.5%**, at **3072 exact-L2 evals vs 147072 brute = 97.9% saved.**
+
+This is the "self-optimizing space-time-aware graph": it holds routing-fidelity and metric-fidelity in one 512-byte row, **self-audits** (per-lane ρ vs its own ground truth = where it can trust the cheap read), and **self-optimizes** (routes with the free address lane, spends exact compute only on the tiny survivor set). The RDO-arbiter finding (`E-X265-RDO-ARBITER-1`, argmin-bits) generalized from one axis to a lane cascade over co-resident representations.
+
+**Honest boundary + the architectural lesson it forced:** address-only distance CANNOT be the final *answer* even at a large margin (the first cut tried it — 63% agreement); it is *routing*, so the cascade must PRUNE-then-VERIFY, never answer-from-coarse. The router net width scales with the router lane's coarseness (ρ0.52 → top-96 to hold recall; the free evals make width cheap); the FULL-eval budget is fixed by the verify width, independent of the net. Committed 8-genre → 2×256:256; production 6×256:256 over 96 subgenres (gitignored `codebook_pq.bin`) sharpens both cheap lanes and narrows the net. Additive: example + board only, no core change. **Cross-ref:** E-IMPLICIT-MORTON-TILE-1 (the two-fidelity address), E-FREQ-IS-COSINE-REPLACEMENT-1 (the FULL lane IS the metric), E-DEEPNSM-FACET-BLIND-CONVERGENCE-1 (header=routing, payload=metric), E-X265-RDO-ARBITER-1 (the argmin self-selection this generalizes), the 512-byte SoA node canon (`canonical_node.rs`), `soa_layout/le-contract.md` L4.
+
 ## 2026-07-19 — E-IMPLICIT-MORTON-TILE-1 — the 256:256=64k tile distance table is IMPLICIT, but the address does TWO jobs at TWO fidelities: pure shift/mask (address-only) is ROUTING (ρ≈0.51 hierarchical vs 0.41 flat — coarse is correct); the METRIC needs the stored 256-centroid codebook (ADC, ρ=1.0) — the 64k pairwise table is NEVER materialized in EITHER case (F11-adjacent named test, RUN)
 
 **Status:** FINDING (built + measured on committed data, hierarchical-vs-flat contrast). **Confidence:** High for the tier distinction + the 64k-never-materialized ruling; Medium-magnitude for the exact address-only ρ (8-genre committed data + rough deterministic 4-means, degenerate empty-branch leaves add noise — the *direction* hier>flat is robust, the absolute 0.51 is a floor). Runs the OGAR canon's F11-adjacent "hierarchical-4⁴ vs flat-256" named-but-unrun test. Operator: *"what about Morton-comma where the table is implicit 256:256=64k."* Deliverable: `implicit_morton_tile_probe.py` (scratchpad; std-only, deterministic, no RNG; buildable into `crates/deepnsm/examples/` on request).
