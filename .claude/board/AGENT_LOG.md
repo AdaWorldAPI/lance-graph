@@ -1,3 +1,11 @@
+## 2026-07-19 — cosine-free ingestion leg: 2-agent fleet (Sonnet grindwork + Opus filigree) — main-thread orchestration
+
+- **Task:** operator ("go ahead autoattended autonomous … opus agents for filigrane, sonnet 5 agents for grindwork") → make the two comprehension findings durable Rust probes, fanned out by model tier.
+- **Fleet (edit-only, shared checkout, no worktree; orchestrator compiled centrally):** Sonnet agent → `crates/deepnsm/examples/freq_is_cosine.rs` (grindwork: the ρ test). Opus agent → `crates/deepnsm/examples/homograph_collapse.rs` (filigree: the 2³ homograph collapse).
+- **Verified centrally** (scoped `cargo clippy/run --example <name>` so the operator's in-flight `gridlake_*` WIP was NOT touched): freq_is_cosine clippy-clean, **ρ=0.762** (reproduces the Python probe exactly; KILL floor 0.5); homograph_collapse clippy-clean, thought/left/means → distinct centroids (r53/r692, r152/r4559, r130/r1392), **809/809** verb∩noun homographs collapse.
+- **Board:** `E-FREQ-IS-COSINE-REPLACEMENT-1` + `E-SURFACE-FORM-COLLAPSE-1` prepended. Commits `ea18a444` + `fb20a78e` on `claude/happy-hamilton-0azlw4` (PR #757, draft), on top of the `48cef03f` arm-discovery bridge (`E-ARM-DISCOVERY-REASONING-BRIDGE-1`).
+- **Outcome:** the cosine-free ingestion-leg arc = 3 durable probes (discover premises from data → frequency-is-cosine distance → surface-form homograph collapse → reason), all measured + KILL-gated, no core change. Fleet pattern honored (Sonnet grind / Opus filigree). Left PR in draft — operator drives ready/merge.
+
 ## 2026-07-19 — qualia-immersion / Chalmers-dissolution thesis + falsifiable exhibit — main thread
 
 - **Task:** operator ("break Chalmers hard problem by subjective experience of qualia through reasoning as immersion") → capture the endgame thesis + a falsifiable exhibit.
