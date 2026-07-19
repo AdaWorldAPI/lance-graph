@@ -116,6 +116,35 @@
 > MISSING/PROPOSED row below is a *pipeline* gap (paid once, reused N apps),
 > never per-app work — which is exactly why the PoC on one app (MedCare) is a
 > proof for all of them.
+>
+> #### The technology statement the PoC makes (operator, 2026-07-19)
+>
+> **Moving parts from Citrix to graph rendering:** replace pixel-remoting with
+> **address-remoting + local hardware-accelerated render**. The wire carries
+> addressed state (`NodeDelta`) + semantic actions (`ActionInvoke` / `SetField`),
+> **never pixels**; the client decodes, unseals, and paints on its own silicon.
+> What makes it *serious* — not a demo — is that every layer is a proven,
+> already-in-use pattern, composed in the browser:
+>
+> - **Sealed channel** — Argon2id KDF + XChaCha20-Poly1305 AEAD, the *same*
+>   `encryption` crate native servers use ("one codebase for native servers **and
+>   wasm32 browsers**", `ndarray/crates/encryption`; re-exported by
+>   `ogar-encryption`; wired in `a2ui-server::SealedTransport`). Proven both
+>   directions in the merged P-REHOST loop.
+> - **Hardware acceleration** — ndarray SIMD (native **and** wasm, via the
+>   `wasm-simd-parity` crate) for decode, and **wgpu (WebGPU) / WebGL2** for the
+>   GPU raster of the addressed fieldview (`a2ui-paint` `wgpu` feature — "one
+>   crate covers both browser targets").
+> - **Graph rendering** — the ClassView / FieldMask / WideFieldMask-addressed,
+>   askama/ERB-templated surface (`a2ui-paint` + `FieldviewClient`), projected
+>   from the canonical graph, not a server-side framebuffer.
+>
+> The PoC is the *composition* of these three already-shipped patterns into one
+> browser thin client. No new cryptography, no new SIMD, no new GPU code — the
+> statement is that the combination **replaces Citrix**. §4 gate 7 (the
+> wgpu/WebGL2 client-acceleration last-mile) is therefore the PoC's headline
+> build: the crypto and the addressing are done; the browser-native paint is the
+> seam that turns the proof into the statement.
 
 ---
 
