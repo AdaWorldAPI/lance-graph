@@ -172,9 +172,64 @@ shipped**; missing exactly `RCR, TR, ASC, CAS, CR` (#4, 6, 7, 8, 11).
 | **Rung↔content wiring** (RungLevel knows Pearl depth, not content occupants) | absent | persona-vs-rung-ladder **O1** |
 | Dissonance made causal in dispatch (finding 4 above), or documented as settle-only | undecided | next selector revision (with the #515 guard kept) |
 
+## §7 All 34 carved out AND wired — the `(mechanism × depth)` address space + kanban foveation
+
+The §3 finding (surprise selector reaches only 8) is not a gap in coverage — it
+is a gap in ONE door. The 34 are fully addressable as a **bijective
+`(mechanism × depth)` space**, and the union of the two live doors reaches every
+one (measured, `foveated_awareness.rs`, KILL-gated on 34/34):
+
+- **The carve (partition, proven from `RECIPES`):** each mechanism is a *column*,
+  its recipes ordered by tier depth (CrossTier → Hard → ExtremelyHard) then id.
+  `6 (PI) + 6 (TAI) + 8 (SD) + 14 (Infra) = 34`, no recipe in two columns. So
+  `(mechanism, position)` is a complete address for the catalogue.
+- **Door A — the style→mechanism fan (the wide door): reaches all 34.** The five
+  style clusters cover all four mechanisms (`cluster_mechanism`: Analytical/Direct
+  → TruthAware, Creative/Exploratory → Divergence, Empathic → Parallel, **Meta →
+  Infrastructure** — the only door to the 14 Infrastructure recipes). `recipes_for`
+  yields a whole column, so iterating the four covering styles yields all 34.
+- **Door B — the surprise selector (the narrow front door): 8** (§3).
+- **Union: 34/34.** Every recipe is carved out (a unique address) and wired (a
+  live dispatch path). The one caveat kept explicit: the selector alone shadows 26;
+  breadth needs the style fan.
+
+**KanbanStep = self-driven foveated rendering (the model, runnable).** A board of
+cards (mailboxes) renders at two resolutions: the ONE focal card (the *fovea*)
+renders cognition at full detail — it climbs the rung ladder and dispatches the
+carved recipe at `(its style's mechanism, its rung)` — while peripheral cards
+render coarse (no dispatch). **Free energy is the saccade:** each cycle the fovea
+jumps to the highest-`free_energy` card (attention spent where surprise is), and a
+resolved card defoveates to Commit. Measured: the saccade sequence is
+non-increasing in surprise; every card reaches rest+Commit; each focal climb is
+Maslow-monotone. Each foveation is a legal `KanbanMove` (Planning −550µs Σ-commit
+→ CognitiveWork → Evaluation → Commit) — the kanban-view update.
+
+**RungLevel 0-9 = the Maslow pyramid of cognition.** The ten `RungLevel` names
+ARE the pyramid; a foveated card tries the cheapest rung first and ESCALATES only
+while surprise remains (unmet need drives the climb), resting when a rung resolves
+it. Pearl anchors land where expected:
+
+| rung | RungLevel | cognitive need | Pearl |
+|---:|---|---|---|
+| 0 | Surface | take in the raw signal | — |
+| 1 | Shallow | match to something known | — |
+| 2 | Contextual | relate to neighbors | **L1** association |
+| 3 | Analogical | map onto another domain | — |
+| 4 | Abstract | generalize past the instance | — |
+| 5 | Structural | model the mechanism | **L2** do/intervene |
+| 6 | Counterfactual | imagine it otherwise | **L3** counterfactual |
+| 7 | Meta | reason about the reasoning | — |
+| 8 | Recursive | reason about that, in turn | — |
+| 9 | Transcendent | the whole reasons about itself | apex |
+
+Honest frame: foveation / saccade / Maslow are **resource-allocation models made
+mechanical** (a finite dispatch budget spent by surprise), not consciousness
+claims. Board: `E-FOVEATED-AWARENESS-1`.
+
 ## §6 Regenerate
 
 ```sh
 cargo run -p lance-graph-contract --example recipe_dispatch_map   # §1 checklist col, §3 map + reachability
+cargo run -p lance-graph-contract --example foveated_awareness    # §7 carve, 34/34 wiring, foveation, Maslow
 cargo test  -p lance-graph-contract recipes                       # catalogue pins (34, order, tallies)
 ```
