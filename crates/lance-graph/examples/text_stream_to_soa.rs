@@ -21,6 +21,7 @@
 use std::path::{Path, PathBuf};
 
 use deepnsm::parser;
+use deepnsm::spo::NO_ROLE;
 use deepnsm::vocabulary::Vocabulary;
 
 use lance_graph::graph::arigraph::markov_soa::SpoRanks;
@@ -66,6 +67,13 @@ fn main() {
             } else {
                 String::new()
             };
+            // `TripletGraph::add_triplets` silently drops the "free" relation (and
+            // empty preds). Mirror that skip here so the graph, the Markov stream,
+            // and the facet count stay consistent for exactly those sentences
+            // (e.g. Aesop's "freed" → lemma "free").
+            if pred == "free" || pred.is_empty() {
+                continue;
+            }
             graph.add_triplets(&[Triplet::new(&subj, &obj, &pred, ts as u64)]);
             ranks.push(SpoRanks {
                 s: t.subject(),
@@ -92,7 +100,12 @@ fn main() {
                 continue;
             }
             let b = &ranks[other];
-            if a.s == b.s || a.o == b.o || a.o == b.s || a.s == b.o {
+            // Subject continuity is always real; object continuity only counts
+            // when the object is a real role, not the intransitive NO_ROLE (0xFFF)
+            // sentinel (else two objectless clauses "link" on the sentinel).
+            let obj_link =
+                (a.o != NO_ROLE && (a.o == b.o || a.o == b.s)) || (b.o != NO_ROLE && a.s == b.o);
+            if a.s == b.s || obj_link {
                 context_links += 1;
             }
         }
