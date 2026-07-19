@@ -63,12 +63,14 @@ fn main() {
     // it doubles as a corpus-integrity check: it exposed a mislabeled corpus.
     let mut surface_fid: std::collections::HashMap<String, (usize, usize)> =
         std::collections::HashMap::new();
-    // Naming heuristic (escape hatch #1): mid-sentence Capitalized tokens that
-    // don't resolve to a direct common word are NAMED ENTITIES (`Jean`, `Boxer`,
-    // `Napoleon`) — kept out of the lossy lemma fallback so they no longer
-    // collapse to `jeans`/`box`. `deepnsm::parser::named_entities` surfaces them;
-    // here we histogram them (the "capitalized-within-sentence + histogram = a
-    // name" signal). They carry identity by surface string, not COCA rank.
+    // Naming heuristic (escape hatch #1): mid-sentence Capitalized tokens that are
+    // truly OUT-OF-VOCABULARY are NAMED ENTITIES (`Napoleon`, `Snowball` — no COCA
+    // rank at all), surfaced by `deepnsm::parser::named_entities` and histogrammed
+    // here ("capitalized-within-sentence + histogram = a name"). Identity is the
+    // surface string, not a COCA rank. NOTE (W-A.1): inflection-collision names
+    // (`Jean`→`jeans`, `Boxer`→`box`) still resolve to the common noun and are NOT
+    // caught here — separating them needs the full histogram override (a surface
+    // that never appears lowercase), the "+ histogram" half of the escape hatch.
     let mut name_freq: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     // Grammar-heuristic knob (literature: OIE stopword filtering — OPIEC 1904.12324,
     // surface-fact linking 2310.14909). `CONTENT_ONLY=1` drops triples whose subject
@@ -329,7 +331,7 @@ fn main() {
         .collect::<Vec<_>>()
         .join("  ");
     println!(
-        "names        : {} named-entity types (capitalized mid-sentence, no lemma collapse); top: {}",
+        "names        : {} named-entity types (capitalized mid-sentence, OOV); top: {}",
         names.len(),
         if nameline.is_empty() {
             "(none)".into()

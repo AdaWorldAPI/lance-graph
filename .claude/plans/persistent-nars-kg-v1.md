@@ -97,7 +97,8 @@ read from the store in < recompute wall-time.
 
 | Wave | Deliverable | Gate | Escape hatch |
 |---|---|---|---|
-| **W-A** ✅ | deepnsm **naming heuristic**: preserve case (`split_words`), strict lookup for mid-sentence capitals (kills `Jean`→`jeans`, `Boxer`→`box`), `parser::named_entities()`; example `names` readout | — | #1, #8 |
+| **W-A** ✅ | deepnsm **naming heuristic**: preserve case (`split_words`), OOV-restricted named-entity detection for mid-sentence capitals (recovers `Napoleon`/`Snowball`; ordinary capitalized inflections `Dogs`→`dog` resolve normally, nothing dropped — Codex P2 r3610093782), `parser::named_entities()`; example `names` readout | — | #1, #8 |
+| **W-A.1** | **histogram override** (the "+ histogram" half): a corpus-level consumer flags a surface that is capitalized-mid-sentence AND never appears lowercase as a named entity even when it resolved to a rank — catches inflection-collision names (`Jean`→`jeans`, `Boxer`→`box`) that W-A cannot separate at the token level | W-A | #1 |
 | **W-B** | Probe **M-RUNG-1**: `CausalEdge64::rung_candidates() → [_;3]` + Simpson's-reversal test | — | #10 |
 | **W-C** | **Persistence Step 0/1**: materialize committed `Triplet`→`NodeRow` (Meta tenant `nars_f`/`nars_c` + `family`=Leiden basin), hydrate on entry instead of `new()`; run **P-PERSIST-1** | — | #4, #6 |
 | **W-D** | **escalation→recipe edge**: chain `verdict_from(&MulAssessment)` → `select_tactic`/`materialize`; wire the rung fan | M-RUNG-1 pass + two-MUL reconcile | #5, #9, #10, #11 |

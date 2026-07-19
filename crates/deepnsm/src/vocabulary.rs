@@ -46,12 +46,14 @@ pub struct Token {
     pub surface: String,
     /// First source character was uppercase (captured before lowercasing).
     pub is_capitalized: bool,
-    /// Naming heuristic: a mid-sentence Capitalized token that does NOT resolve
-    /// to a direct common word — a proper-noun candidate (`Jean`, `Napoleon`,
-    /// `Boxer`) kept OUT of the lossy lemma/suffix fallback so it is not
-    /// collapsed onto a COCA common noun. It carries meaning via `surface` (the
-    /// register), not `rank` (which stays `None`). See
-    /// `EPIPHANIES E-CODEBOOK-OOV-SURFACE-FIDELITY-1`.
+    /// Naming heuristic: a mid-sentence Capitalized token that is truly
+    /// OUT-OF-VOCABULARY (no COCA rank AND no inflection/suffix match) — a proper
+    /// noun like `Napoleon`/`Snowball`. It carries meaning via `surface` (the
+    /// register), not `rank` (which is `None`). Ordinary capitalized common
+    /// inflections (`Dogs`→`dog`) resolve normally and are NOT flagged. Inflection-
+    /// collision names (`Jean`→`jeans`) still resolve to the common noun here —
+    /// separating those needs the corpus histogram (W-A.1). See
+    /// `EPIPHANIES E-NAMING-HEURISTIC-CAPITALIZATION-1`.
     pub is_named_entity: bool,
 }
 
@@ -227,16 +229,6 @@ impl Vocabulary {
         None
     }
 
-    /// Strict lookup: DIRECT exact match only — no inflected-forms table, no
-    /// suffix strip. The naming heuristic uses this for mid-sentence Capitalized
-    /// tokens so a proper noun is not collapsed onto a common-noun lemma by the
-    /// lossy tier-2/tier-3 fallbacks (`jean`→`jeans`, `boxer`→`box`). `None`
-    /// here means "not a direct common word" → treat as a named entity.
-    #[inline]
-    pub fn lookup_word_strict(&self, word: &str) -> Option<&WordEntry> {
-        self.lookup.get(&word.to_lowercase())
-    }
-
     /// Resolve a word to its vocabulary rank. Returns None for OOV.
     #[inline]
     pub fn rank_of(&self, word: &str) -> Option<u16> {
@@ -288,19 +280,20 @@ impl Vocabulary {
                 continue;
             }
 
-            // Naming heuristic (escape hatch #1): a mid-sentence Capitalized word
-            // is a proper-noun candidate. Resolve it with the STRICT (direct-only)
-            // lookup so the lossy lemma/suffix fallback cannot collapse it onto a
-            // COCA common noun (`Jean`→`jeans`, `Boxer`→`box`). If strict lookup
-            // finds nothing it is a NAMED ENTITY: `rank` stays `None` (kept out of
-            // the 12-bit SPO), and `surface` carries the identity for the graph.
-            let proper_candidate = cap && position > 0;
-            let entry = if proper_candidate {
-                self.lookup_word_strict(word)
-            } else {
-                self.lookup_word(word)
-            };
-            let is_named_entity = proper_candidate && entry.is_none();
+            // Naming heuristic (escape hatch #1, OOV-restricted per Codex P2
+            // discussion_r3610093782): resolve EVERY word — including mid-sentence
+            // Capitalized ones — via the FULL lookup, so ordinary capitalized common
+            // inflections (`Dogs`→`dog`, title-case/headline text) still resolve and
+            // are NOT dropped. A capitalized mid-sentence token is a NAMED ENTITY only
+            // when it is truly OUT-OF-VOCABULARY (`Napoleon`, `Snowball` — no COCA
+            // rank and no inflection/suffix match): `rank` stays `None`, `surface`
+            // carries the identity. Inflection-COLLISION names (`Jean`→`jeans`,
+            // `Boxer`→`box`) still resolve to the common noun HERE; separating those
+            // needs the corpus HISTOGRAM (a surface that never appears lowercase) —
+            // that is W-A.1 in `persistent-nars-kg-v1`, the "+ histogram" half of the
+            // escape hatch, which a corpus-level consumer applies over `is_capitalized`.
+            let entry = self.lookup_word(word);
+            let is_named_entity = cap && position > 0 && entry.is_none();
             let token = Token {
                 rank: entry.map(|e| e.rank),
                 pos: entry.map_or(PoS::Noun, |e| e.pos), // default OOV/name to noun
