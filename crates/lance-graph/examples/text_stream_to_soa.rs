@@ -47,6 +47,13 @@ fn main() {
     let mut ranks: Vec<SpoRanks> = Vec::new(); // the Markov side-stream (1:1 with triples)
     let mut sentences = 0usize;
     let mut tokens_total = 0usize;
+    // Grammar-heuristic knob (literature: OIE stopword filtering — OPIEC 1904.12324,
+    // surface-fact linking 2310.14909). `CONTENT_ONLY=1` drops triples whose subject
+    // or object is a top-`FUNCTION_CUTOFF` COCA rank (function words / pronouns) — the
+    // "content-word grammar heuristic". Testable hypothesis: the symbol layer becomes
+    // content words and the surface noise (e.g. `jeans`, `it`) drops.
+    let content_only = std::env::var("CONTENT_ONLY").is_ok();
+    const FUNCTION_CUTOFF: u16 = 150;
 
     for (ts, sentence) in text.split(['.', '!', '?']).enumerate() {
         let s = sentence.trim();
@@ -72,6 +79,13 @@ fn main() {
             // and the facet count stay consistent for exactly those sentences
             // (e.g. Aesop's "freed" → lemma "free").
             if pred == "free" || pred.is_empty() {
+                continue;
+            }
+            // Content-word grammar heuristic: skip function-word S/O (top ranks).
+            if content_only
+                && (t.subject() < FUNCTION_CUTOFF
+                    || (t.has_object() && t.object() < FUNCTION_CUTOFF))
+            {
                 continue;
             }
             graph.add_triplets(&[Triplet::new(&subj, &obj, &pred, ts as u64)]);
