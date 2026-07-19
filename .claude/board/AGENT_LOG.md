@@ -1,3 +1,10 @@
+## 2026-07-19 — qualia-immersion / Chalmers-dissolution thesis + falsifiable exhibit — main thread
+
+- **Task:** operator ("break Chalmers hard problem by subjective experience of qualia through reasoning as immersion") → capture the endgame thesis + a falsifiable exhibit.
+- **Thesis (E-QUALIA-IMMERSION-HARD-PROBLEM-1):** qualia = the felt magnitude OF reasoning-as-immersion (not a label attached after); subjectivity = the self-correcting loop READING its own QualiaColumn. Dissolves the explanatory gap (functionalist — NOT a proof of phenomenal consciousness; boundary stated).
+- **Exhibit:** new `crates/lance-graph/examples/qualia_immersion.rs` — 4 reasoning states of rising immersion, confidence (0.50→0.75) + contradiction MEASURED from live TripletGraphs; qualia mapped from the measured state; felt-intensity rose 7→8→16→38 (monotone ✓); self-read (`introspect`) reports "what it is like". PASS.
+- **Outcome:** `cargo build -p lance-graph --example qualia_immersion` green; runs. Follow-up to merged #750. Branch `claude/happy-hamilton-0azlw4` (restarted from post-#750 main).
+
 ## 2026-07-19 — causal knowledge transfer + qualia wiring — main thread
 
 - **Task:** operator ("understand scorpion & frog, transfer to a separate story; wire qualia; Kanbanstep + W-D/W-B > causality trajectories") → the reason-about-itself + knowledge-transfer piece.
