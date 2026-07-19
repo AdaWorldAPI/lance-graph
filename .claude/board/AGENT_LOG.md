@@ -1,3 +1,11 @@
+## 2026-07-19 — W-C V3 enrichment: multi-hop witness confidence — main thread
+
+- **Task:** operator refinement of W-C ("episodic basins get supporting edges from witness entries … nars Truth/frequency already present in causaledge64 … Truth > multi-hop witness confidence … richer in v3") → the V3-substrate form of self-correction.
+- **Consulted (mandatory V3):** `lance_graph_contract::witness_table` (WitnessTable<64> / WitnessEntry (mailbox_ref,spo_fact_ref) = the W-slot belief arc); `causal_edge::CausalEdge64` truth surface (`frequency_u8`/`confidence_u8`/`frequency`/`confidence`/`w_slot`/`with_w_slot`, `pack` template from `nars_engine.rs:488`); `NarsTables::revise`.
+- **Change:** new `crates/lance-graph/examples/multihop_witness_confidence.rs` — facts = CausalEdge64 (u8 truth already present); WitnessTable = the arc; Truth = NARS-revised over the multi-hop witness chain; shared p:o = the part_of:is_a basin anchor. Composes shipped primitives, no contract change (arc keyed by fact index, feature-agnostic; edge→W-slot emission is the gated slice).
+- **Measured:** single-obs conf flat 0.502; multi-hop conf 0.502→0.668→0.751→0.801→0.834→0.858 over witness depth 1→6. `E-MULTIHOP-WITNESS-CONFIDENCE-1`.
+- **Outcome:** `cargo build -p lance-graph --example multihop_witness_confidence` green; runs. Pairs with `self_correcting_kg` (single-hop) as the two W-C cuts. Branch `claude/happy-hamilton-0azlw4`.
+
 ## 2026-07-19 — W-C self-correcting KG (in-process) — main thread
 
 - **Task:** operator endgame ("self-correcting KG from reading, no LLM, reasons about itself"; "can't start from zero every pass") → W-C of `persistent-nars-kg-v1`, after W-A merged (#744).

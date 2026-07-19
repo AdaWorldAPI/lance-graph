@@ -9,6 +9,26 @@
 2. **Dis-occlusion inclusion-exclusion underflowed.** `dx·h + dy·w − dx·dy` over-subtracts once `dx≥w`/`dy≥h` and underflows (u32) for large deltas (e.g. `dx=dy=100` on a 24² sprite). Fixed by clamping `dx,dy` to the sprite extents first → caps at `w·h` (the whole sprite is new when there's no overlap).
 **Lesson (process):** gating caught MY own off-by-one first (I initially checked y-overflow at bit 17; the carry actually stops at bit 16) — the probe discipline (assert + run before claiming) held on the fix itself. **Cross-ref:** `E-X265-MORTON-SHIFT-1` (parent); Codex P2s on PR #745.
 
+## 2026-07-19 — E-MULTIHOP-WITNESS-CONFIDENCE-1 — Truth from the multi-hop witness chain (V3 substrate): CausalEdge64's u8 NARS truth + the WitnessTable W-slot arc, richer than single-fact revision — the operator's "Truth > multi-hop witness confidence"
+
+**Status:** FINDING (built + measured). **Confidence:** High. Deliverable: `crates/lance-graph/examples/multihop_witness_confidence.rs`. Operator direction: *"episodic basins get supporting edges from witness entries and implement both anchors and nars Truth/frequency value already present in causaledge64 … Truth > multi-hop witness confidence … richer expressiveness in v3."*
+
+`E-SELF-CORRECTING-KG-1` (W-C in-process) used the string `TripletGraph` + f32 `TruthValue` — the SINGLE-hop revision (re-observe the same fact → confidence up). The **V3-rich** form composes the shipped V3 primitives: facts are `CausalEdge64` carrying the u8 NARS truth **already present** in the edge (`frequency_u8`/`confidence_u8`); the `lance_graph_contract::witness_table::WitnessTable<64>` holds the **W-slot arc** — each `WitnessEntry.spo_fact_ref` is the hop back to the prior belief (the "Markov-style belief-update arc" the witness-table doc names). A fact's Truth is NARS-revised across its **whole multi-hop witness chain**, not just its own observation.
+
+**Measured (one episodic basin — shared predicate:object = the `part_of:is_a` rail; each fact a single 0.502-confidence observation):**
+
+| fact | single-obs conf | multi-hop conf | witness hops |
+|---|---|---|---|
+| F0 | 0.502 | 0.502 | 1 |
+| F1 | 0.502 | 0.668 | 2 |
+| F2 | 0.502 | 0.751 | 3 |
+| F3 | 0.502 | 0.801 | 4 |
+| F4 | 0.502 | 0.834 | 5 |
+| F5 | 0.502 | **0.858** | 6 |
+
+Single-observation confidence is flat; **multi-hop confidence rises monotonically with witness depth** — a belief supported by a deeper chain of independent witnesses is more certain. The three operator pieces map exactly: **anchor** = shared `p:o` (`part_of:is_a` basin); **supporting edges** = the witness entries (the W-slot arc); **Truth** = the u8 NARS value in `CausalEdge64`, revised over the arc. This is the richer v3 expressiveness over `self_correcting_kg`'s single-fact revision — the same NARS math, now driven by the episodic witness chain.
+
+**Scope / honest boundary:** composes the SHIPPED primitives (`CausalEdge64` accessors + `WitnessTable` + f32 NARS revision reading the edge's u8 truth) in an example — **no contract-layout change** (so no `v3-envelope-auditor` / `v3-mailbox-warden` gate). The arc is keyed by fact index (feature-agnostic); the production **edge→W-slot bit-storage** (`with_w_slot`, bits 53–58) wired into the `MailboxSoA` emission path is the gated V3 slice (W-C.2 / the witness-emission wave, per `witness_table.rs` "later slices" + the trajectory map). The revision uses the f32 formula on the u8 truth; the tabled `NarsTables::revise` (u8→u8) is the hot-path swap-in.
 ## 2026-07-19 — E-SELF-CORRECTING-KG-1 — the knowledge graph stops starting from zero: re-reading REVISES in place and NARS confidence accumulates (W-C in-process, the endgame's "self-correcting" core)
 
 **Status:** FINDING (built + measured). **Confidence:** High. Deliverable: `crates/lance-graph/examples/self_correcting_kg.rs`. Operator endgame: *"a self-correcting knowledge graph from reading without LLM that is able to reason about itself."* Operator complaint it answers: *"it can't be that every pass starts from Zero."*
