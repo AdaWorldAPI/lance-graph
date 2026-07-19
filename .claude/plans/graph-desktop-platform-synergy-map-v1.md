@@ -380,15 +380,18 @@ was lost, the direct-tool-call substitution is receipted inline above.
 
 The concrete next instance of the §0 organizing thesis. A **document is not
 special** — it is a PortSpec instance whose projection skin is a document
-editor and whose body lives in KV. Every piece already exists as a named seam;
-this is wiring across three repos, not greenfield.
+editor and whose body lives in KV. **Most** pieces already exist as named seams
+(the KV substrate, the sealed transport, the ClassView addressing) — this is
+**mostly reused wiring** across three repos, plus **two genuinely-new
+implementation seams**: the `SetField` write-frame and the PDF renderer (both
+PROPOSED in the table below). Not greenfield, but not pure wiring either.
 
 | Piece | Shape | Existing seam it wires | Owner repo | Status |
 |---|---|---|---|---|
 | Document = KV | `DocumentPath` / `DocumentID` **as key**, raw data **as value** — the doc lives dynamic in the graph; **pointers in the hot path** (16-byte key), raw body pulled on demand (zero-copy value-slab-skip, L4 lazy bundle) | the "DocumentID-KV / witness-handle seam" (`graphrag-doc-retrieval-soa-integration-v1.md §4a`) + `ogar-doc-ir::{DocIr, DocPage, content_sha256}` + lance-KV | lance-graph (contract type) / OGAR (doc-ir) | SHAPED — doc-ir exists; the `DocumentID` KV key type is the small NEW contract brick |
 | Word WYSIWYG editor | edits emit `SetField{key, field_position, value}` **write-frames** — the write-mirror of `ActionInvoke`, never a blob/char-range mutation; ProseMirror/Tiptap *concepts* over a canonical GUID-keyed tree | `a2ui-rs/.claude/plans/projectional-knowledge-editor-v1.md` (ratified direction) | a2ui-rs | PROPOSED — the `SetField` frame is the missing brick (3rd `FrameKind`, a2ui queue item 4) |
 | PDF on demand | `tesseract-rs` renders the graph-resident document → PDF when asked; the PDF is a **projection**, not the stored form | `pdf-to-text-ocr-v1.md` P4 PDF renderer | tesseract-rs | PROPOSED — P4 renderer not built |
-| Local hardware accel + seal | wgpu/WebGL2 paint of the ClassView/FieldMask/WideFieldMask-addressed, askama/ERB-templated surface; ChaCha20-Poly1305 + Argon2id transport | a2ui-paint (§2.2) + SealedTransport (§2.3) | a2ui-rs | SOLID transport; SHAPED paint last-mile (§4 gate 7) |
+| Local hardware accel + seal | wgpu/WebGL2 paint of the ClassView/FieldMask/WideFieldMask-addressed, askama/ERB-templated surface; XChaCha20-Poly1305 + Argon2id transport | a2ui-paint (§2.2) + SealedTransport (§2.3) | a2ui-rs | SOLID transport; SHAPED paint last-mile (§4 gate 7) |
 
 **Reuse, immediately:** a **WoA-rs work order** (`PortSpec 0x0003`) is the same
 document-app pattern — a work order is a document. A **mail program** is another
@@ -417,9 +420,12 @@ match — **computationally "for free" / "$0."** Two headlines:
 1. **Bulletproof access** is the security statement, not an afterthought: RBAC
    fail-closed (`WideFieldMask ∩ role`, proven past bit-64) + Argon2id +
    XChaCha20-Poly1305, banking-grade, the same crypto native *and* wasm use.
-   The client only ever receives the fields its capability grants; masked
-   columns never cross the wire (proven negatively in P-REHOST's fail-closed
-   test).
+   The client only ever receives the fields its **RBAC role mask** permits;
+   masked columns never cross the wire (proven negatively in P-REHOST's
+   fail-closed test). This is the *implemented* guarantee today — the role-mask.
+   Per-tenant **capability composition** (§2.5) and stronger identity (OIDC /
+   WebAuthn / forward secrecy, §2.3) are still **future work**, not part of the
+   current guarantee.
 2. **"$0" / for free** is literal, and matches the external signal the operator
    cited (a Reddit r/databricks post, "data search engine for $0 using Rust +
    Hugging Face" — could not be fetched this session, reasoned from the title:
@@ -437,14 +443,19 @@ match — **computationally "for free" / "$0."** Two headlines:
 The rest of this section is the read-only monitoring/timeline half, which is
 almost entirely SOLID today.
 
-**Why "for free" is literal, not marketing:** there is **no serialization
-boundary**. The SoA is zero-copy from creation to Lance tombstone (§2.4); a
-*metric* is already a ClassView field over an existing SoA column. So a dashboard
-read is a `WideFieldMask` projection over columns **that already exist** — no
-query engine, no ETL, no metrics store, no serialize/transfer/deserialize.
-Grafana does `query → serialize → transfer → deserialize → render`; here it is
-`mask-existing-columns → NodeDelta (LE bytes already in place) → seal → client
-paints`. The server does ≈nothing; the client's own silicon renders. A
+**Why "for free" is literal (scoped to the server-side data path):** there is
+**no server-side serialization / ETL boundary**. The SoA is zero-copy from
+creation to Lance tombstone (§2.4); a *metric* is already a ClassView field over
+an existing SoA column. So a dashboard read is a `WideFieldMask` projection over
+columns **that already exist** — no query engine, no ETL, no metrics store, no
+server-side serialize/transform step. (The `NodeDelta` frame is still LE-encoded,
+sealed, transferred, and **decoded on the client** — but those LE bytes *are* the
+in-place SoA bytes, not a re-serialized copy; what's eliminated is the server-side
+`query → serialize → deserialize → render` pipeline and its copies, **not** the
+network itself.) Grafana does `query → serialize → transfer → deserialize →
+render`; here it is `mask-existing-columns → NodeDelta (in-place LE bytes) → seal
+→ transfer → client decodes + paints`. The server does ≈nothing beyond mask +
+frame + seal; the client's own silicon renders. A
 **timeline chart is free the same way**: a metric's history *already exists* as
 Lance versions — a line chart is a `temporal.rs` `QueryReference::at` +
 `deinterlace` version-range read, zero copies.
@@ -474,14 +485,24 @@ already how bulletproof access works natively here, so the cleanest first §9
 dashboard **is a security-access / audit monitor over the graph's own witness**:
 - **Access gate** = RBAC fail-closed (`WideFieldMask ∩ role`), SOLID.
 - **The witness** = the merkle-chained `UnifiedAuditEvent` → SPO + Lance
-  tombstone + `WitnessTable` (§2.4 audit row), **examined in place as a query,
-  never egressed to a SIEM** (medcare-rs commitment 7 — audit review *is* a
-  query against the witness).
+  tombstone + `WitnessTable`, **examined in place as a query, never egressed to
+  a SIEM** (medcare-rs commitment 7 — audit review *is* a query against the
+  witness).
+
+> **Readiness (honest):** the **access-gate half is SOLID** (RBAC fail-closed).
+> The **audit-witness half is GATED on §4 Gate 5**, not ready today: §2.4 flagged
+> **two conflicting `AuditSink` trait definitions** and **no zero-dep
+> contract-side home** — the witness currently lives in `lance-graph-callcenter`
+> (`audit_sink/`), not the contract crate. So the GraphSentinel *access* monitor
+> is buildable now; the *audit* dashboard is **PROPOSED / gated** until the
+> AuditSink canonicalization lands.
+
 This unifies both §9 headlines in one demo: a live wall watching access + audit
-events, read-only (no `SetField`), zero-copy over the witness that already
+events, read-only (no `SetField`), zero-copy over a witness that already
 exists (the "$0"), RBAC-masked + sealed (the "bulletproof"), and audit-review-
 as-a-query rather than a log export. "GraphSentinel" is thus not a thing to port
-— it is the *first concrete ClassView* the monitoring PoC renders.
+— it is the *first concrete ClassView* the monitoring PoC renders (the access
+half now; the audit half after Gate 5).
 
 The single new build on the critical path is the
 Grid/Timeline skin in `a2ui-paint` (over §4 gate 7's wgpu/WebGL2 last-mile); the
