@@ -1,3 +1,60 @@
+## 2026-07-19 — E-CAUSALEDGE-V3-96-FACET-1 — the staged/additive CausalEdge64→V3-96 successor REFERENCES SPO (never re-encodes it): SPO is already the 6×256² CAM-PQ facet, the 24-bit SPO was already deduped out of CausalEdge64, so the V3-96 edge carves its 96 bits on the TEKAMOLO axis (Temporal/Kausal/Modal/Lokal) + the nibble anaphora edge, with Lokal = the target node whose CAM-PQ IS the SPO — reference-layout demonstrator, LE round-trip + field-isolation + no-duplication all green
+
+**Status:** FINDING (reference layout built + measured, KILL-gated, clippy/fmt-clean 1.95) + DESIGN (the staged migration path). **Confidence:** High for the layout + invariants; the real `causal_edge`-crate adoption is a SEPARATE multi-crate PR gated by `v3-envelope-auditor` (not done here — this is the spec it adopts). Deliverable: `crates/deepnsm/examples/causal_edge_v3_facet.rs` (std-only, zero-dep). Operator: *"migrate causaledge64 to V3 96, removing 24bit SPO duplicate of identity, adding tekamolo … the 3x8=24 bit SPO was a deduplication, supposedly already cleaned up in causaledge64. SPO is the exact CAM_PQ we already have from 6× 256² (SPO + AriGraph). So we don't duplicate."*
+
+**The premise, re-grounded (the correction that made the design clean):**
+- The `3×8=24-bit SPO` field was a **dedup candidate already removed** from `CausalEdge64` — its 64 bits today are `block/proj/verb/row_idx/l1/freq/conf`, **no SPO** (recon: `ndarray::hpc::causal_diff`, consumed by `cognitive-shader-driver::MailboxSoA`). So there is nothing to re-remove.
+- **SPO already lives as the L4 6×256² CAM-PQ facet** (`palette256²`: 3 SPO + 3 AriGraph SPO-G byte-pairs). The edge must **reference** it, never copy it → the "we don't duplicate" invariant.
+
+**The V3-96 facet (canon `classid(4) | payload(12)` = 16 B), carved on TEKAMOLO:**
+| bytes | TEKAMOLO | field |
+|---|---|---|
+| [0] | **KA** kausal | verb(2) \| inference(3) \| modal_mode(3) — why + how-mode |
+| [1] | **TE** temporal | i8 signed offset (when, ±127) |
+| [2..4] | **LO** lokal | u16 **target node ref** — SPO reads from ITS 6×256² CAM-PQ; edge stores NO SPO bytes |
+| [4..6] | **MO** modal | freq u8 + conf u8 (NARS truth — how confidently) |
+| [6] | — | **anaphora nibble** i8 (low nibble −8..+7 coreference offset; 0 = none) |
+| [7] | — | plasticity / W-slot u8 |
+| [8..12] | — | reserved (dormant — future TEKAMOLO Instrument slot + spare) |
+
+vs `CausalEdge64` (8 B): keeps verb + NARS truth + target (row→LO); drops `proj`/`l1` (attention-specific / CAM-PQ owns distance); ADDS temporal + anaphora-nibble + plasticity + reserved. **SPO: never here.** The TEKAMOLO carving aligns to the existing `grammar::tekamolo::TekamoloSlot` (Temporal/Kausal/Modal/Lokal/Instrument) — the module is NOT rebuilt; the edge is its compressed causal-metadata projection (position offsets, not full spans).
+
+**Measured (KILL-gated):** LE round-trip identity; **field isolation** (each setter touches only its own byte-range, others byte-identical — I-LEGACY-API-FEATURE-GATED discipline); the anaphora nibble sign-extends (`Some(-4)`) with a `0→None` sentinel; and the **no-duplication invariant** — the edge's 12 payload bytes ≠ the target's SPO CAM-PQ code (SPO referenced, not carried).
+
+**Staged/additive path (operator-ruled):** this is a NEW type ALONGSIDE `CausalEdge64` (no reclaim → no I-LEGACY concern). The real migration adopts this layout in the `causal_edge` crate + wires `cognitive-shader-driver::MailboxSoA` to it, gated by `v3-envelope-auditor` + a paired field-isolation matrix test, as its own multi-crate PR. This example is the reference spec that PR implements. Additive: example + board only, no core change. **Cross-ref:** E-NIBBLE-ANAPHORA-EDGE-1 (the nibble it carries), E-IMPLICIT-MORTON-TILE-1 + E-TRI-FIDELITY-EDGE-CONSTRUCTION-1 (the CAM-PQ SPO facet it references), `grammar/tekamolo.rs` (the carving axis), `causal_edge::CausalEdge64` + `cognitive-shader-driver::mailbox_soa` (the adoption sites), `soa_layout/le-contract.md` L4.
+
+## 2026-07-19 — E-NIBBLE-ANAPHORA-EDGE-1 — the ±8 signed nibble edge resolves relative-pronoun/anaphora: a pronoun node carries a −8..+7 offset to its antecedent, the SPO spine then fills the role slot with the antecedent's lemRank centroid (pronoun dissolved), and pleonastic "it" is detected by its predicate (not the window) → left unresolved
+
+**Status:** FINDING (built + measured, KILL-gated, clippy/fmt-clean 1.95). **Confidence:** High for the mechanism; the resolver is a STATED heuristic (agreement + recency + relative-head), not full coreference (honest boundary, same as E-SURFACE-FORM-COLLAPSE-1). Deliverable: `crates/deepnsm/examples/spo_anaphora_nibble.rs` (std-only, zero-dep, deterministic). Operator: *"add nibble edges −8..+8 for resolving sentences for relativPronomen/anaphora … if not already implemented."* (Recon: TEKAMOLO IS already implemented — `grammar/tekamolo.rs` — so it is NOT rebuilt; the nibble anaphora edge was the genuinely-missing piece.)
+
+**The nibble edge.** An antecedent within ±8 tokens fits a SIGNED 4-bit offset (`−8..+7`); negative = the antecedent is behind. It is an EDGE on the pronoun node pointing back to the resolved noun — the same "edge = signed offset" shape as the Morton motion codes (`E-X265-MORTON-SHIFT-1`), here over token positions instead of pixels. This makes anaphora resolution a **nibble-sized graph edge**, not a parser subsystem.
+
+**Measured (synthetic COCA-lemma corpus):**
+- `he@6 —nibble −5→ man@1` (animate singular); `it@8 —nibble −4→ book@4` (inanimate, `it` prefers inanimate); `they@14 —nibble −3→ girls@11` (plural agreement); `that@19 —nibble −1→ car@18` (relative pronoun binds its head).
+- `it@22` (in "it rained") → **UNRESOLVED**: pleonastic "it" is detected by its **predicate** (weather/existential verb), NOT the window — the honest rule, because pure recency cannot tell referential from pleonastic "it" (car@18 sits within ±8, yet the correct answer is "no antecedent").
+- **SPO-slot rewrite:** "he liked it" → `(man r95) —like→ (book r218)` — the pronouns dissolve into their antecedents' lemRank centroids, so the fact-building spine (`E-SPO-MARKOV-KG-SPINE-1`) stores the resolved noun, never the opaque pronoun.
+
+**Why it matters (the endgame leg).** This is the coreference step of the operator's endgame: "resolving sentences for relativPronomen/anaphora." A pronoun in a Subject/Object slot would otherwise land the graph on a contentless centroid; the nibble edge redirects the slot to the antecedent's frequency-centroid address, so anaphoric text builds the SAME knowledge graph as its resolved form. The ±8 window is the same neighbourhood the CausalEdge ±5 fill uses — coreference and causal-context fill share the token-offset substrate. **Honest boundary:** stated heuristic (agreement/recency/relative-head + pleonastic-by-predicate), not salience-model coreference; a labeled falsifier corpus would extend it. Additive: example + board only, no core change. **Cross-ref:** E-SPO-MARKOV-KG-SPINE-1 (the slot it fills), E-SURFACE-FORM-COLLAPSE-1 (the S/O-role simplification), E-X265-MORTON-SHIFT-1 (the signed-offset-as-edge shape), `grammar/tekamolo.rs` (the already-built role resolver, not rebuilt).
+
+## 2026-07-19 — E-TRI-FIDELITY-EDGE-CONSTRUCTION-1 — the self-reasoning cascade turned OUTWARD: it CONSTRUCTS the canon EdgeBlock (12 in-family + 4 out-of-family) — self-search becomes self-construction, the graph reasons about itself ACROSS nodes; in-family edges land 3.4× tighter than random, 2-hop walk coherent, all 16 slots filled
+
+**Status:** FINDING (built + measured, KILL-gated, clippy/fmt-clean 1.95). **Confidence:** High. Deliverable: `crates/deepnsm/examples/tri_fidelity_edges.rs` (std-only, zero-dep, deterministic). Operator: *"add tri-fidelity edge block."*
+
+**What it does.** Extends `E-TRI-FIDELITY-SOA-SELF-REASONING-1`: the route→verify cascade that ANSWERED "nearest node to a query" now FILLS each 512-byte node's canonical EdgeBlock (`key(16) | edges(16) | value(480)`). Per node: the MORTON address net routes a wide candidate set (free shift/mask), exact L2 verifies, and the survivors land as row-index bytes — 12 nearest **same-basin** neighbors in `edges[0..12]`, 4 nearest **different-basin** neighbors (the cross-links) in `edges[12..16]`, exactly the canon's `12 in-family + 4 out-of-family`.
+
+**Measured (256 words, N=256 so a neighbor row-index fits one edge byte):**
+- in-family edge mean L2 to source = **40.5** vs global random-pair mean **138.8** → edges are **3.4× tighter** than random (ratio 0.29).
+- seed `the` → in-family neighbors `{be, a, and, of, to, in}` (all high-frequency function words — semantically coherent by genre distribution); out-of-family[0] = `at` (basin 3→2 cross-link).
+- 2-hop walk from `the`: 21 reachable nodes, mean L2 = **114.7 < 138.8** (coherent). All nodes 16/16 slots filled, none phantom, none self.
+
+**Why it matters.** This closes the "graph reasons about itself" arc: within a query (self-search, `E-TRI-FIDELITY-SOA-SELF-REASONING-1`) AND across nodes (self-construction, here). The cheap MORTON address lane is the edge ROUTER, the exact lane is the VERIFIER — the same two-fidelity split (`E-IMPLICIT-MORTON-TILE-1`) now builds the adjacency, not just answers a query.
+
+**Recon banked for the next rungs (operator's linked directives, honestly assessed):**
+- **CausalEdge64 → V3-96 (staged/additive):** the real `CausalEdge64` is in the `causal_edge` crate (v2 layout: `block/proj/verb/row_idx/l1/freq/conf`, reclaimed-temporal), consumed by `cognitive-shader-driver::MailboxSoA` (`edges: [CausalEdge64; N]`). **There is no 24-bit SPO field** in it — the "SPO mapping S=Q,P=K,O=O" is the attention-projection enum, not a stored triple. So a V3-96 successor drops nothing from THIS type; the "remove 24-bit SPO duplicate of identity" premise must be re-grounded against whichever edge actually carries an SPO field before the widen-to-96 + TEKAMOLO design proceeds. Operator ruled it **staged/additive** (new type alongside, no reclaim) → no I-LEGACY concern, but it is a V3-substrate design (le-contract facet) deserving a plan + v3-envelope-auditor, not an ad-hoc edit.
+- **TEKAMOLO already exists:** `lance_graph_contract::grammar::tekamolo` + `sigma-tier-router/examples/tekamolo_resolver.rs`. The "if not already implemented" is answered — TEKAMOLO is implemented; the NEW piece is the **nibble edge (±8 signed)** for relative-pronoun/anaphora resolution (a 4-bit signed offset to the antecedent within ±8), which appears NOT yet built as a dedicated resolver — a clean next example.
+
+Additive: example + board only, no core change. **Cross-ref:** E-TRI-FIDELITY-SOA-SELF-REASONING-1, E-IMPLICIT-MORTON-TILE-1, E-FREQ-IS-COSINE-REPLACEMENT-1, the 512-byte node canon (`canonical_node.rs` EdgeBlock), `causal_edge::CausalEdge64` + `cognitive-shader-driver::mailbox_soa`, `grammar/tekamolo.rs`.
+
 ## 2026-07-19 — E-SPO-MARKOV-KG-SPINE-1 — the endgame's fact-building spine, runnable: text → SPO 2³ facts → ±5 CausalEdge window fill → Markov/NARS reasoning FILLS the facts no window stated (transitive is_a + property inheritance down the is_a basin) → AriGraph-shaped KG grounded on lemRank; the qualia-sign=irony affect layer is the ONE deferred leg (named CONJECTURE, corpus-gated)
 
 **Status:** FINDING (built + measured, KILL-gated, clippy/fmt-clean 1.95) + the operator's endgame NORTH-STAR recorded. **Confidence:** High for the spine (the three organs compose end-to-end); the corpus is synthetic (real ngrams.info COCA windows are licensed/gitignored). Deliverable: `crates/deepnsm/examples/spo_markov_kg.rs` (std-only, zero-dep, deterministic). Operator's endgame: *"SPO 2³ represents actual facts filled by CausalEdge context from +5/-5, then reasoning fills the remaining with Markov chain context building ... reasoning about supporting basins or being sarcasm/irony (qualia -8/+8 negative are inverted or ironic) ... the stylistic and linguistic gets reasoned about and stored as knowledge graph."*
