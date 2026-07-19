@@ -4819,6 +4819,7 @@ dependencies = [
  "datafusion-expr",
  "datafusion-functions-aggregate",
  "datafusion-sql",
+ "deepnsm",
  "deltalake",
  "futures",
  "lance",

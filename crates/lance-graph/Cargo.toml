@@ -97,6 +97,8 @@ tensor-codec = ["dep:bgz-tensor"]
 lite-unified = []
 
 [dev-dependencies]
+deepnsm = { path = "../deepnsm" }
+lance-graph-contract = { path = "../lance-graph-contract" }
 futures = "0.3"
 lance-arrow = "=7.0.0"
 lance-index = "=7.0.0"

@@ -107,7 +107,7 @@ Meta/Plasticity widths differ persisted-vs-hot with no parity test;
 | `unbind_busdto` (:341) | EXTEND | already feature-gated for the mailbox cutover — the read side is V3-shaped |
 | `bindspace.rs::BindSpace` + its call sites (driver.rs, serve.rs, bins, lib.rs re-exports) | RETIRE (W7) | the primer §6 singleton; parity test (mailbox_soa.rs:1145) is the deletion gate |
 | `mailbox_soa.rs::MailboxSoA<N>` | REUSE | the shipped successor: soa_view traits, phase field, WriteCell/write_row; needs only the caller-side owner stamp |
-| p64-bridge | REUSE | pure stateless mapping, zero BindSpace/ownership deps — clean by design |
+| p64-bridge | REUSE | pure stateless mapping, zero BindSpace/ownership deps — clean by design. **Note (2026-07-18):** `workspace.exclude` + zero `p64` dep — the convergence is a call-site wiring pattern (consumer imports both `p64` + `p64-bridge`, `p64-bridge/src/lib.rs:4`), NOT a buildable local crate dependency |
 | ndarray `MultiLaneColumn` | REUSE (HW) | the LE lane carrier; repurpose opportunity: back MailboxSoA's `Box<[u64]>` identity planes (64 B-aligned) |
 | ndarray hpc (fingerprint/cascade/blackboard/read_bgz7) | REUSE (HW) | hardware-tier; causal_diff.rs "self-reinforcement LoRA" flagged for a leak-check read |
 | ladybug-rs bind_space + CogRedis | RETIRE (their repo) | pre-V3; zero SoaEnvelope adoption confirmed; contract pulls only (W5e) |

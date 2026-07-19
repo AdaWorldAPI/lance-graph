@@ -1,3 +1,18 @@
+## 2026-07-18 — E-S07-TEXT-STREAM-NO-LLM-1 — a whole novel → a ~2 MB knowledge graph with ZERO LLM: the S07 vertical slice RUNS on real text
+
+**Status:** FINDING (demonstrated, runnable). **Confidence:** High (example runs; numbers reproducible). Deliverable: `crates/lance-graph/examples/text_stream_to_soa.rs`.
+
+The end-to-end thesis is now a runnable binary: plain text → KG + facets, **no LLM, no float embeddings**. Pipeline (all file:line-verified, no new primitives — only 3 adapter shims): COCA FSM extraction (`deepnsm::{vocabulary,parser}`, 6-state PoS FSM) → SPO → `TripletGraph::add_triplets` → ±5 Markov context (the `markov_soa` window) → NARS reasoning (`infer_deductions` / `detect_contradictions`) → `SpoFacet` 6×(8:8) (byte-split palette shim) → 512-B `NodeRow` size.
+
+**Measured on Orwell's Animal Farm** (30,340 tokens; run from scratch, text NOT committed — PD in DE/AU):
+- 1704 sentences → **5,899 SPO triples** → 4,012 deduped graph nodes.
+- ±5 Markov window → 35,158 role-continuity links.
+- NARS: **95,410 two-hop deductions, 20,131 contradictions** (a book about propaganda yields 20k contradictions — the mechanism fires hard).
+- 5,899 `SpoFacet` 6×(8:8) registers, **loss-free roundtrip**.
+- **Cold KG = 4,012 × 512 B = 1.96 MiB** vs the 32 MiB (64k) / 128 MiB (256k) budgets.
+
+**Confirms:** whole-book KG in ~2 MB RAM, no LLM, exact palette distance. **Honest caveats (carried):** the FSM is a coarse PoS FSM (relation quality is surface-level; the 20k contradictions include FSM noise, not all semantic); the word→`(basin:identity)` palette encoder is the reversible byte-split stand-in (the semantic encoder is gated on the absent `cam_codes.bin`); the **512 B is the COLD `NodeRow`** (persisted KG) — the ractor `MailboxSoA` HOT tier is ~6.2 KB/row (three-tier model, corrects the "256k×512=32MB" conflation: 512 B is NodeRow, 64k×512=32 MiB). The **two-sixes** distinction holds: CAM-PQ 6 = subspaces/word (`deepnsm::codebook`), SpoFacet 6 = slots/triple.
+
 ## 2026-07-18 — E-X265-HEVC-ANCHOR-1 — the §5 external HEVC anchor is RUN + VISUAL: x265 over the φ-spiral sprite scene, 641× / PSNR 60.94 dB, real I/P/B GOP
 
 **Status:** FINDING (external anchor — plan `x265-sprite-replay-probe-v1.md` §5 "optional context, NOT a gate"; run this session in-sandbox). Reproducer committed as `crates/helix/examples/hevc_moving_scene.rs`.
@@ -17,6 +32,18 @@
 **HONEST CAVEAT:** the GPU-exec *execution* was NOT run on silicon in this sandbox (no adapter). "GPU-exec green" = COMPILES + SKIPS-cleanly + is the shipped WGSL, NOT "65536 texels compared on a GPU here." The CPU-reference is the leg that actually ran; runtime-execution parity on silicon is the one piece still deferred (the `a2ui N2` render-parity-headless-vs-browser bar).
 **Boundary:** no bgz17 dep added to a2ui-paint (a2ui charter: no consumer-crate deps) — the 256² table is built deterministically with bgz17's table STRUCTURE, so this is a HARNESS-CAPABILITY probe, not a bgz17 integration. `#[cfg(test)]`-only module; test-only `pollster` dev-dep for the async block. Charter T1/T2/T3 untouched (no new vocabulary, no behavior-on-surface, no hot-path serialization).
 **Cross-ref:** ndarray `pr-x12-h268-morton-wgpu-synergies.md` §5 Wave-3 sub-table + PROBE-GPU-LUT queue-row verdict + §10(i) 128 KiB figure; plan `x265-sprite-replay-probe-v1.md` §Results (2026-07-18) + §Decode tiers (c); `E-X265-PROBE-WAVE-2-RESULTS` (the sprite-replay wave whose wgpu decode tier (c) this un-gates — the wasm tier (b) is a SEPARATE CPU-vs-wasm replay-determinism gate, NOT touched by this wave; corrected per codex P2 on ndarray #249); a2ui-paint `src/lib.rs` `mod gpu` (the shipped `GpuPainter` harness this extends). Probe asserts structural sanity + determinism only (never the verdict); the number adjudication is here.
+## 2026-07-18 — E-GRAPHRAG-INDUSTRY-POSITIONING-1 — the stack = the living union of RedisGraph + Kuzu + GraphRAG operators over a no-LLM substrate; CausalEdge64 residual role RESOLVED
+
+**Status:** FINDING. **Confidence:** High (industry side web-verified; our side file:line-verified). Doc: `.claude/knowledge/graphrag-industry-comparison.md` (8 frameworks × representation × methods).
+
+Four load-bearing findings from the industry comparison + the CausalEdge64→V3 reasoning-migration mining:
+
+1. **Implicit summaries (the headline differentiator).** MS GraphRAG's costliest, lossiest step is the **LLM community report** (prose per Leiden community, map-reduced at query-time). The horizontal **6×(8:8) `basin:relationtype`** reading makes that summary **implicit and free** — a node's `basin` byte IS its community membership, "summarize the community" collapses to one `palette256²` table read. Microsoft *generates* with an LLM at index-time; we *address* with a byte at query-time. Our `communities()` deliberately has **no** summarization pass.
+2. **We are the living union of two dead graph DBs.** RedisGraph (GraphBLAS sparse-adjacency, **EOL 2025-01-31**) + KuzuDB (columnar CSR, **archived 2025-10-10**, Apple) are our two closest architectural analogs — both abandoned upstream. `blasgraph` continues RedisGraph's algebra with **7 HDR semirings** (vs 1 Boolean); `adjacency/` continues Kuzu's column-grouped CSR/CSC.
+3. **MIT causality is upstream, not a competitor.** Uhler et al. (NeurIPS 2024) *discovers* the latent causal DAG (Rung-1, Jacobian-variance pruning); `CausalEdge64` + `intervene_on` *carry + NARS-revise* already-typed edges (Rung-2/3). Consume-don't-rebuild.
+4. **CausalEdge64 residual role RESOLVED (closes M20 + le-contract §3 [H]).** Demoted, not deleted — survives as exactly 3 carriers: (1) MailboxSoA baton edge (`mailbox_soa.rs:92`), (2) perturbation baseline (E-THINKING-TENANTS-V3-1), (3) p64 address (`p64-bridge/src/lib.rs:30`). Only the awareness-mantissa retired — empirically oversized (D-MTS-6 GREEN, k\*=1, 2 bits/edge). Reasoning is now the **V3 substrate**: thinking-engine runs it, cognitive-shader-driver dispatches over MailboxSoA, p64 converges (call-site shim), the P4 ancestry pipeline wires awareness into **facet tenants** (autopoiesis triangle + `SpoFacet`), not a wider edge.
+
+Honesty flags: Gemini long-context = **complement** not substitute (corrected); graphrag-rs perf figures are self-reported; "MIT causality learning" has no single canonical proposal (Uhler observational-disentanglement is best graph-causality fit). v3 gems landed: ENTROPY-MILESTONES M20/M9, le-contract §3 [H], FUTURE-DESIGN (`CascadeChannels8` = confirmed NEXT wiring edge), COMPONENT-MAP (p64-bridge = call-site pattern, not a dep). graphrag-rs is external (automataIA), REUSE-as-reference only; PersonalAI (2506.17001) is the closest sibling (thesis hyper-edge + 4 retrievers, all LLM-maintained — we are the no-LLM inversion).
 
 ## 2026-07-18 — E-WI3-CONTINUOUS-FIELD-ANALYTIC-1 — WI-3 resolved: the monotone-bounded continuous-field exit is ANALYTIC (helix RollingFloor at 1 byte), not the materialized ladder
 

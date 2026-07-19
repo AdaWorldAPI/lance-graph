@@ -1,3 +1,7 @@
+## 2026-07-18 — branch `claude/happy-hamilton-0azlw4` — S07 vertical slice RUNS: `text_stream_to_soa` example (text → KG + SoA, no LLM)
+
+Shipped `crates/lance-graph/examples/text_stream_to_soa.rs` — the end-to-end thesis as a runnable binary (COCA FSM → SPO → TripletGraph → ±5 Markov → NARS → SpoFacet 6×(8:8) → 512-B NodeRow size), one `deepnsm` dev-dep, no new primitives (3 adapter shims). Measured on Animal Farm (30k tokens, text not committed): 5,899 triples → 4,012 nodes → **1.96 MiB cold KG**, 95,410 NARS deductions + 20,131 contradictions, zero LLM. Board: EPIPHANIES `E-S07-TEXT-STREAM-NO-LLM-1`. Sample: bundled PD Aesop fables.
+
 ## 2026-07-18 — branch `claude/x265-x266-plans-review-h9osnl` (post-#733) — x265 probe wave-2 landed + bgz-tensor lane review paid
 
 #733 MERGED: the x265 wave-2 probes — PROBE-SPRITE-REPLAY (PASS-AT-SIGNED360

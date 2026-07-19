@@ -100,7 +100,9 @@ wiring; some are calibration-only by design):
 
 - `layered.rs::CascadeChannels8` — NOW NAMED as the per-level cognitive-
   mantissa carrier of the Morton cascade (E-COMMA-QUORUM-1); collapses into
-  `causal_edge::CausalEdge64`'s signed mantissa slot. First wiring target.
+  `causal_edge::CausalEdge64`'s signed mantissa slot. **First wiring target —
+  the confirmed NEXT edge** (2026-07-18 ancestry-pipeline census, GEM-D):
+  `layered.rs:18`, gate = M8 parity. Most actionable unwired thinking-engine gem.
 - `spiral_segment.rs` / `prime_fingerprint.rs` — VSA bundle perturbation
   (re-scope under the VSA-niche ruling before wiring).
 - `cronbach.rs` / `ground_truth.rs` / `reencode_safety.rs` — the calibration
