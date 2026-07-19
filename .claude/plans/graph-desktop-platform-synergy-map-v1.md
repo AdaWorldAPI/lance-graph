@@ -404,3 +404,41 @@ document/work-order/mail app): the `DocumentID` KV key contract (lance-graph),
 the `SetField` write-frame (a2ui-rs), the P4 PDF renderer (tesseract-rs). This
 session can push only the lance-graph brick; the other two are sibling-arc
 surfaces to hand off.
+
+---
+
+## 9. The FIRST PoC — zero-copy monitoring / reporting, "computationally for free" (operator, 2026-07-19)
+
+Start smaller than the document editor: a **Grafana-like monitoring + reporting
+dashboard**, **read-only**, that showcases the one property no pixel-remoting
+stack can match — **computationally "for free."**
+
+**Why "for free" is literal, not marketing:** there is **no serialization
+boundary**. The SoA is zero-copy from creation to Lance tombstone (§2.4); a
+*metric* is already a ClassView field over an existing SoA column. So a dashboard
+read is a `WideFieldMask` projection over columns **that already exist** — no
+query engine, no ETL, no metrics store, no serialize/transfer/deserialize.
+Grafana does `query → serialize → transfer → deserialize → render`; here it is
+`mask-existing-columns → NodeDelta (LE bytes already in place) → seal → client
+paints`. The server does ≈nothing; the client's own silicon renders. A
+**timeline chart is free the same way**: a metric's history *already exists* as
+Lance versions — a line chart is a `temporal.rs` `QueryReference::at` +
+`deinterlace` version-range read, zero copies.
+
+| Piece | Status | Note |
+|---|---|---|
+| Zero-copy RBAC read projection | SOLID | `a2ui-server::project_node` (RBAC-masked `NodeDelta`) read-only over existing rows — no harvest, the data is already in the graph |
+| Time-series / timeline | SOLID | `temporal.rs` `QueryReference::at` + `deinterlace` — a metric's history already exists as Lance versions; a chart is a version-range read |
+| RBAC fail-closed (banking-grade access) | SOLID | `WideFieldMask ∩ role` (`a2ui-server::project.rs`), proven past bit-64 |
+| Sealed transport (banking-grade safety) | SOLID | Argon2id + XChaCha20-Poly1305 (`SealedTransport`), native+wasm |
+| Grid / Timeline / chart skins | PROPOSED | `a2ui-paint` has Form/Flow only; a dashboard needs Grid + Timeline — the **one new client brick** (a2ui-rs, sibling-arc) |
+| PDF report on demand | PROPOSED | tesseract-rs P4 renderer — optional, for the "reporting" half |
+
+**Why this first:** read-only (no `SetField` write-frame — simpler than §8's
+editor), no harvest/transpile for the demo (zero-copy over existing columns), and
+it demonstrates the "for free" differentiator **+ RBAC + banking safety** in the
+smallest credible surface. It is the cleanest first "moving parts from Citrix to
+graph rendering" statement: a monitoring wall that costs the server nothing to
+serve, because there is no copy. The single new build on the critical path is the
+Grid/Timeline skin in `a2ui-paint` (over §4 gate 7's wgpu/WebGL2 last-mile); the
+read, RBAC, seal, and time-series are all SOLID today.
