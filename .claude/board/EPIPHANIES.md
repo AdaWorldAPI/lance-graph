@@ -1,3 +1,28 @@
+## 2026-07-19 — E-CAUSALEDGE-V3-96-FACET-1 — the staged/additive CausalEdge64→V3-96 successor REFERENCES SPO (never re-encodes it): SPO is already the 6×256² CAM-PQ facet, the 24-bit SPO was already deduped out of CausalEdge64, so the V3-96 edge carves its 96 bits on the TEKAMOLO axis (Temporal/Kausal/Modal/Lokal) + the nibble anaphora edge, with Lokal = the target node whose CAM-PQ IS the SPO — reference-layout demonstrator, LE round-trip + field-isolation + no-duplication all green
+
+**Status:** FINDING (reference layout built + measured, KILL-gated, clippy/fmt-clean 1.95) + DESIGN (the staged migration path). **Confidence:** High for the layout + invariants; the real `causal_edge`-crate adoption is a SEPARATE multi-crate PR gated by `v3-envelope-auditor` (not done here — this is the spec it adopts). Deliverable: `crates/deepnsm/examples/causal_edge_v3_facet.rs` (std-only, zero-dep). Operator: *"migrate causaledge64 to V3 96, removing 24bit SPO duplicate of identity, adding tekamolo … the 3x8=24 bit SPO was a deduplication, supposedly already cleaned up in causaledge64. SPO is the exact CAM_PQ we already have from 6× 256² (SPO + AriGraph). So we don't duplicate."*
+
+**The premise, re-grounded (the correction that made the design clean):**
+- The `3×8=24-bit SPO` field was a **dedup candidate already removed** from `CausalEdge64` — its 64 bits today are `block/proj/verb/row_idx/l1/freq/conf`, **no SPO** (recon: `ndarray::hpc::causal_diff`, consumed by `cognitive-shader-driver::MailboxSoA`). So there is nothing to re-remove.
+- **SPO already lives as the L4 6×256² CAM-PQ facet** (`palette256²`: 3 SPO + 3 AriGraph SPO-G byte-pairs). The edge must **reference** it, never copy it → the "we don't duplicate" invariant.
+
+**The V3-96 facet (canon `classid(4) | payload(12)` = 16 B), carved on TEKAMOLO:**
+| bytes | TEKAMOLO | field |
+|---|---|---|
+| [0] | **KA** kausal | verb(2) \| inference(3) \| modal_mode(3) — why + how-mode |
+| [1] | **TE** temporal | i8 signed offset (when, ±127) |
+| [2..4] | **LO** lokal | u16 **target node ref** — SPO reads from ITS 6×256² CAM-PQ; edge stores NO SPO bytes |
+| [4..6] | **MO** modal | freq u8 + conf u8 (NARS truth — how confidently) |
+| [6] | — | **anaphora nibble** i8 (low nibble −8..+7 coreference offset; 0 = none) |
+| [7] | — | plasticity / W-slot u8 |
+| [8..12] | — | reserved (dormant — future TEKAMOLO Instrument slot + spare) |
+
+vs `CausalEdge64` (8 B): keeps verb + NARS truth + target (row→LO); drops `proj`/`l1` (attention-specific / CAM-PQ owns distance); ADDS temporal + anaphora-nibble + plasticity + reserved. **SPO: never here.** The TEKAMOLO carving aligns to the existing `grammar::tekamolo::TekamoloSlot` (Temporal/Kausal/Modal/Lokal/Instrument) — the module is NOT rebuilt; the edge is its compressed causal-metadata projection (position offsets, not full spans).
+
+**Measured (KILL-gated):** LE round-trip identity; **field isolation** (each setter touches only its own byte-range, others byte-identical — I-LEGACY-API-FEATURE-GATED discipline); the anaphora nibble sign-extends (`Some(-4)`) with a `0→None` sentinel; and the **no-duplication invariant** — the edge's 12 payload bytes ≠ the target's SPO CAM-PQ code (SPO referenced, not carried).
+
+**Staged/additive path (operator-ruled):** this is a NEW type ALONGSIDE `CausalEdge64` (no reclaim → no I-LEGACY concern). The real migration adopts this layout in the `causal_edge` crate + wires `cognitive-shader-driver::MailboxSoA` to it, gated by `v3-envelope-auditor` + a paired field-isolation matrix test, as its own multi-crate PR. This example is the reference spec that PR implements. Additive: example + board only, no core change. **Cross-ref:** E-NIBBLE-ANAPHORA-EDGE-1 (the nibble it carries), E-IMPLICIT-MORTON-TILE-1 + E-TRI-FIDELITY-EDGE-CONSTRUCTION-1 (the CAM-PQ SPO facet it references), `grammar/tekamolo.rs` (the carving axis), `causal_edge::CausalEdge64` + `cognitive-shader-driver::mailbox_soa` (the adoption sites), `soa_layout/le-contract.md` L4.
+
 ## 2026-07-19 — E-NIBBLE-ANAPHORA-EDGE-1 — the ±8 signed nibble edge resolves relative-pronoun/anaphora: a pronoun node carries a −8..+7 offset to its antecedent, the SPO spine then fills the role slot with the antecedent's lemRank centroid (pronoun dissolved), and pleonastic "it" is detected by its predicate (not the window) → left unresolved
 
 **Status:** FINDING (built + measured, KILL-gated, clippy/fmt-clean 1.95). **Confidence:** High for the mechanism; the resolver is a STATED heuristic (agreement + recency + relative-head), not full coreference (honest boundary, same as E-SURFACE-FORM-COLLAPSE-1). Deliverable: `crates/deepnsm/examples/spo_anaphora_nibble.rs` (std-only, zero-dep, deterministic). Operator: *"add nibble edges −8..+8 for resolving sentences for relativPronomen/anaphora … if not already implemented."* (Recon: TEKAMOLO IS already implemented — `grammar/tekamolo.rs` — so it is NOT rebuilt; the nibble anaphora edge was the genuinely-missing piece.)
