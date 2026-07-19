@@ -1,3 +1,41 @@
+## 2026-07-19 — graph-desktop-platform-synergy-map v1 — MAP COMPLETE (Phase 0, gate ledger) — main thread
+
+**Plan:** `.claude/plans/graph-desktop-platform-synergy-map-v1.md`
+Phase-0 deliverable of the operator's multi-session graph-desktop-platform
+master prompt (application store → auth → semantic remote desktop → graph
+execution → reasoning → DTO/IR memory). **Inherits, does not duplicate**
+`SYNERGY-MAP-S00-S07.md` (2026-07-16, same directory) for the retrieval/
+reasoning axis (GraphRAG operators, Stockfish, tenants, six of eight external
+`automataIA/*` repos) under its operator-ratified governing rule, adopted
+verbatim: *"Reuse canonical owners, transcode useful algorithms onto existing
+representations, and add new structures only where a concrete missing
+capability is demonstrated."* **One correction to that prior map:**
+`rs-graph-llm` was recorded there as "not an AdaWorldAPI repo, out of scope" —
+it exists, was cloned this session, is real and tested (47 tests / 4 crates),
+and `graph-flow-kanban` already directly consumes
+`lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove}` — promoted
+from design-reference to in-scope, partially-wired. **New findings this map
+adds** (S00-S07's retrieval focus didn't cover these): the projection/security/
+application-store axis is mapped fresh across OGAR (semantic ABI: ActionDef/
+ClassView-adapter/codebook/capability-registry all SOLID; signed package
+manifests and a projection-dependency index are MISSING), a2ui-rs (DesktopSession/
+SealedTransport/FieldviewClient/a2ui-paint all SOLID with real tests; a
+**regression found**: `gpu_lut_probe.rs` silently stopped compiling on origin/main
+at commit `9d9505b`; browser persistence/reconnection/multi-window are MISSING),
+and lance-graph itself (graph-commit CAS/`expected_version` is the one real gap
+under "canonical state" — Lance-version bump exists, optimistic-concurrency
+doesn't). **The golden-application slice is further along than either program
+assumed:** MedCare-rs's `p_rehost_full.rs` (this session's own prior work, PR
+#216/#217, merged) already proves install→launch→render→invoke→commit→delta
+end-to-end on a real screen, sealed both ways, painted to real PNG pixels — five
+of the master prompt's seven example-flow steps are SOLID today. Six gates
+queued (§4): projection-dependency index, graph-commit CAS, minimal signed
+package manifest, the gpu_lut_probe re-wire (surfaced to a2ui-rs, not owned),
+the AuditSink contract-side-home decision, ClassId u16/u32 unification. All 8
+external reference repos this session couldn't reach directly (proxy-blocked,
+session allowlist) have prior 2026-07-16 receipts in S00-S07 §4.C/G, carried
+forward with a re-verify-when-unblocked caveat rather than re-derived.
+
 ## 2026-07-19 — persistent-nars-kg v1 — ACTIVE (probe-gated) — main thread
 
 **Plan:** `.claude/plans/persistent-nars-kg-v1.md`
