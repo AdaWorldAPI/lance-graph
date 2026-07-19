@@ -88,6 +88,34 @@
 > transpiler + the projection loop), and to name the few genuinely-missing
 > seams that the PoC must cross. Read the gates (§4) as "what the PoC needs,"
 > and everything marked MISSING/PROPOSED as "the PoC's actual build surface."
+>
+> #### The organizing thesis: the pattern IS the platform (operator, 2026-07-19)
+>
+> MedCare-rs, Odoo-rs, OpenProject-nexgen-rs, and A2UI-RS are **not four
+> projects — they are four instances of ONE pipeline**:
+>
+> ```text
+> legacy app → OGAR transpiler sink-in  (harvest → Class / ActionDef / ClassView
+>                                        / classid IR + codebook + classid-keyed adapters)
+>            → a2ui graph-desktop projection  (project_node → sealed NodeDelta →
+>                                              FieldviewClient → a2ui-paint pixels)
+> ```
+>
+> **This is already parameterized, not aspirational.** OGAR's `PortSpec`
+> registry (`ogar-vocab/src/ports.rs`) already assigns the per-app slots:
+> OpenProject `0x0001`, Odoo `0x0002`, WoA `0x0003`, SMB `0x0004`, MedCare
+> `0x0005`, q2 `0x0006`, Redmine `0x0007` (+ Healthcare). An "app" = **a
+> `PortSpec` + a harvest**, nothing bespoke per app. **MedCare already proved
+> the entire loop end-to-end** (`p_rehost_full.rs`, PR #216/#217, merged): a
+> real harvested screen, transpiled, projected, sealed both ways, painted to
+> pixels, action resolved by address. So "why not reuse the pattern" is the
+> answer, not the question — **Odoo-rs is `OdooPort` + an Odoo model import
+> through the same pipeline; OpenProject-nexgen-rs is `OpenProjectPort` + a
+> harvest through the same pipeline.** The application store is the set of
+> registered transcodes; the platform is the pipeline. Consequently every
+> MISSING/PROPOSED row below is a *pipeline* gap (paid once, reused N apps),
+> never per-app work — which is exactly why the PoC on one app (MedCare) is a
+> proof for all of them.
 
 ---
 
