@@ -457,7 +457,7 @@ Lance versions — a line chart is a `temporal.rs` `QueryReference::at` +
 | Sealed transport (banking-grade safety) | SOLID | Argon2id + XChaCha20-Poly1305 (`SealedTransport`), native+wasm |
 | Analytical reporting (Power-BI/Databricks-class) | SOLID | datafusion analytical SQL over the zero-copy Lance columnar store — heavy aggregations without a cluster or ETL (`lance-graph` `datafusion_planner`) |
 | Semantic data-search ("$0" search engine) | SOLID | DeepNSM local embeddings + CAM-PQ compressed ANN + AriGraph RRF/BM25/PPR — no cloud embedding API, no per-query cost (§2.6) |
-| Grid / Timeline / chart skins | PROPOSED | `a2ui-paint` has Form/Flow only; a dashboard needs Grid + Timeline — the **one new client brick** (a2ui-rs, sibling-arc) |
+| Grid / Timeline / chart skins | PROPOSED | `a2ui-paint` has Form/Flow only; a dashboard needs Grid + Timeline — the **one new client brick** (a2ui-rs, sibling-arc). **Learning reference (client-accel lens only, §0):** automataIA data-viz — `lodviz-rs` (LTTB/M4 LOD downsampling + native/wasm algo-core split + linked selection) and `dashboard-studio-rs` (dashboard layout/interaction ergonomics; *reject* its ECharts/JSON renderer — we paint via wgpu/WebGL2 over the addressed surface). **Hard caveat (S00-S07 needle-pinning):** LOD must never drop rare events — an alert / anomaly / threshold breach is a pinned point, never a downsampled-away sample |
 | PDF report on demand | PROPOSED | tesseract-rs P4 renderer — optional, for the "reporting" half |
 
 **Why this first:** read-only (no `SetField` write-frame — simpler than §8's
