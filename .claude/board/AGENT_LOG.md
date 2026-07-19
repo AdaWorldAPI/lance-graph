@@ -1,3 +1,11 @@
+## 2026-07-19 — persistent-NARS-KG architecture map (3 parallel mappers) + W-A naming heuristic — main thread
+
+- **Task:** operator "escape hatches" directive → map every named surface before wiring (consult-before-guess), then build the deepnsm naming heuristic (main-thread-assigned).
+- **Agents (read-only, no cargo, no worktree):** *truth-architect* — 2³ `CausalMask` is a projection selector (no rung-candidate generator); TWO divergent MUL type-sets (bridge by scalar signals); "game theory" = `syllogism::figure()` gate + `TruthPropagatingSemiring` scorer; **probe M-RUNG-1** gates the rung fan. *trajectory-cartographer* — `infer_deductions(&self)` is a pure read (95,410 deductions recomputed + discarded/run); every operator field maps to a byte-locked 512-B tenant lane (Meta `nars_f`/`nars_c`, SpoFacet rails, `family` basin, `WitnessTable` W-slot); SMALLEST-WIRE = persist `NodeRow` + hydrate-on-entry + −6 dead-end memory; **P-PERSIST-1** benchmark. *recipes-atoms* — the **34** NARS recipes are FULLY implemented (metadata + 34 `Tactic` kernels + palette AtomIds); F→34→F selector exists but observe-only; escalation→recipe edge is THE gap; the 144 verb table is verbs×tense→TEKAMOLO, NOT verbs×SPO.
+- **Synthesis:** `.claude/plans/persistent-nars-kg-v1.md` (waves W-A..W-G + 2 probe gates + Frankenstein guards).
+- **W-A build:** deepnsm naming heuristic — `split_words` case-preserve, `Token.is_capitalized`/`is_named_entity`, `lookup_word_strict`, `parser::named_entities` (free fn); `text_stream_to_soa` `names` readout.
+- **Tests / Outcome:** `cargo test -p deepnsm` green (incl. new `split_punctuation_preserves_caps`); 4-corpus run — Animal Farm recovers napoleon/snowball/boxer/squealer (`box` artifact GONE); Ranch Girls jeans 366→52 + `jean×314` recovered; Aesop 0/0 clean. `E-NAMING-HEURISTIC-CAPITALIZATION-1`. Branch `claude/happy-hamilton-0azlw4` (restarted from post-#741 main).
+
 ## 2026-07-18 — Evidence-chain path structure (D-GR-2d, StepChain Πsᵤ) — the audit trail the NARS substrate exists for — main thread
 
 - **Task:** the inventory's StepChain gap — `get_associated` returns a flat `Vec<&Triplet>` and discards the *path structure* `Πsᵤ` that IS the evidence/audit chain (a causality-trajectory candidate). Landed the complement (next after thesis #727).

@@ -42,8 +42,19 @@ pub struct Token {
     pub position: u16,
     /// Whether preceded by "not" / "n't".
     pub is_negated: bool,
-    /// Original surface form.
+    /// Original surface form (lowercased).
     pub surface: String,
+    /// First source character was uppercase (captured before lowercasing).
+    pub is_capitalized: bool,
+    /// Naming heuristic: a mid-sentence Capitalized token that is truly
+    /// OUT-OF-VOCABULARY (no COCA rank AND no inflection/suffix match) — a proper
+    /// noun like `Napoleon`/`Snowball`. It carries meaning via `surface` (the
+    /// register), not `rank` (which is `None`). Ordinary capitalized common
+    /// inflections (`Dogs`→`dog`) resolve normally and are NOT flagged. Inflection-
+    /// collision names (`Jean`→`jeans`) still resolve to the common noun here —
+    /// separating those needs the corpus histogram (W-A.1). See
+    /// `EPIPHANIES E-NAMING-HEURISTIC-CAPITALIZATION-1`.
+    pub is_named_entity: bool,
 }
 
 impl Token {
@@ -233,7 +244,8 @@ impl Vocabulary {
         let mut tokens = Vec::with_capacity(words.len());
         let mut negation_pending = false;
 
-        for (position, word) in words.iter().enumerate() {
+        for (position, (word, is_cap)) in words.iter().enumerate() {
+            let cap = *is_cap;
             // Handle contractions
             if word == "n't" || word == "not" {
                 negation_pending = true;
@@ -245,6 +257,8 @@ impl Vocabulary {
                         position: position as u16,
                         is_negated: false,
                         surface: word.to_string(),
+                        is_capitalized: cap,
+                        is_named_entity: false,
                     });
                 }
                 continue;
@@ -259,18 +273,35 @@ impl Vocabulary {
                         position: position as u16,
                         is_negated: false,
                         surface: word.to_string(),
+                        is_capitalized: cap,
+                        is_named_entity: false,
                     });
                 }
                 continue;
             }
 
+            // Naming heuristic (escape hatch #1, OOV-restricted per Codex P2
+            // discussion_r3610093782): resolve EVERY word — including mid-sentence
+            // Capitalized ones — via the FULL lookup, so ordinary capitalized common
+            // inflections (`Dogs`→`dog`, title-case/headline text) still resolve and
+            // are NOT dropped. A capitalized mid-sentence token is a NAMED ENTITY only
+            // when it is truly OUT-OF-VOCABULARY (`Napoleon`, `Snowball` — no COCA
+            // rank and no inflection/suffix match): `rank` stays `None`, `surface`
+            // carries the identity. Inflection-COLLISION names (`Jean`→`jeans`,
+            // `Boxer`→`box`) still resolve to the common noun HERE; separating those
+            // needs the corpus HISTOGRAM (a surface that never appears lowercase) —
+            // that is W-A.1 in `persistent-nars-kg-v1`, the "+ histogram" half of the
+            // escape hatch, which a corpus-level consumer applies over `is_capitalized`.
             let entry = self.lookup_word(word);
+            let is_named_entity = cap && position > 0 && entry.is_none();
             let token = Token {
                 rank: entry.map(|e| e.rank),
-                pos: entry.map_or(PoS::Noun, |e| e.pos), // default OOV to noun
+                pos: entry.map_or(PoS::Noun, |e| e.pos), // default OOV/name to noun
                 position: position as u16,
                 is_negated: negation_pending,
                 surface: word.to_string(),
+                is_capitalized: cap,
+                is_named_entity,
             };
             negation_pending = false;
             tokens.push(token);
@@ -327,11 +358,18 @@ impl Vocabulary {
 
 // ─── Word splitting ─────────────────────────────────────────────────────────
 
-/// Split text into words. Handles contractions, punctuation, possessives.
-/// No regex — pure character-level scanning.
-fn split_words(text: &str) -> Vec<String> {
-    let mut words = Vec::new();
+/// Split text into `(lowercased_word, first_char_was_uppercase)` pairs. Handles
+/// contractions, punctuation, possessives. No regex — pure character scan.
+///
+/// The capitalization flag is captured BEFORE lowercasing (the original case is
+/// otherwise destroyed here) so the tokenizer can run the naming heuristic:
+/// a mid-sentence Capitalized word is a proper-noun candidate (`Jean`, `Boxer`)
+/// and must NOT be lemma-collapsed to a common noun (`jean`→`jeans`,
+/// `Boxer`→`box`). See `E-CODEBOOK-OOV-SURFACE-FIDELITY-1`.
+fn split_words(text: &str) -> Vec<(String, bool)> {
+    let mut words: Vec<(String, bool)> = Vec::new();
     let mut current = String::new();
+    let mut current_cap = false;
     let chars: Vec<char> = text.chars().collect();
     let len = chars.len();
     let mut i = 0;
@@ -340,7 +378,10 @@ fn split_words(text: &str) -> Vec<String> {
         let c = chars[i];
 
         if c.is_alphanumeric() || c == '-' {
-            // Continue building word
+            // First char of a fresh word records the source capitalization.
+            if current.is_empty() {
+                current_cap = c.is_uppercase();
+            }
             current.push(c.to_lowercase().next().unwrap_or(c));
             i += 1;
         } else if c == '\'' || c == '\u{2019}' {
@@ -357,12 +398,13 @@ fn split_words(text: &str) -> Vec<String> {
                     // Pop the 'n' from current before pushing
                     current.pop();
                     if !current.is_empty() {
-                        words.push(current.clone());
+                        words.push((current.clone(), current_cap));
                         current.clear();
                     } else {
                         current.clear();
                     }
-                    words.push("n't".to_string());
+                    current_cap = false;
+                    words.push(("n't".to_string(), false));
                     i += 2; // skip 't (apostrophe already at i)
                 } else if rest_lower.starts_with("'s")
                     || rest_lower.starts_with("'re")
@@ -373,9 +415,10 @@ fn split_words(text: &str) -> Vec<String> {
                 {
                     // Push current word first
                     if !current.is_empty() {
-                        words.push(current.clone());
+                        words.push((current.clone(), current_cap));
                         current.clear();
                     }
+                    current_cap = false;
                     // Find contraction end
                     let mut end = i + 1;
                     while end < len && chars[end].is_alphabetic() {
@@ -385,7 +428,7 @@ fn split_words(text: &str) -> Vec<String> {
                         .iter()
                         .map(|c| c.to_lowercase().next().unwrap_or(*c))
                         .collect();
-                    words.push(contraction);
+                    words.push((contraction, false));
                     i = end;
                 } else {
                     // Regular apostrophe in word
@@ -395,23 +438,25 @@ fn split_words(text: &str) -> Vec<String> {
             } else {
                 // Apostrophe at start or isolated
                 if !current.is_empty() {
-                    words.push(current.clone());
+                    words.push((current.clone(), current_cap));
                     current.clear();
+                    current_cap = false;
                 }
                 i += 1;
             }
         } else {
             // Whitespace or punctuation: end current word
             if !current.is_empty() {
-                words.push(current.clone());
+                words.push((current.clone(), current_cap));
                 current.clear();
+                current_cap = false;
             }
             i += 1;
         }
     }
 
     if !current.is_empty() {
-        words.push(current);
+        words.push((current, current_cap));
     }
 
     words
@@ -435,28 +480,47 @@ fn strip_suffix(word: &str) -> &str {
 mod tests {
     use super::*;
 
+    /// Just the word strings, dropping the capitalization flag.
+    fn words_only(pairs: &[(String, bool)]) -> Vec<&str> {
+        pairs.iter().map(|(w, _)| w.as_str()).collect()
+    }
+
     #[test]
     fn split_simple() {
         let words = split_words("the big dog");
-        assert_eq!(words, vec!["the", "big", "dog"]);
+        assert_eq!(words_only(&words), vec!["the", "big", "dog"]);
+        assert!(words.iter().all(|(_, cap)| !cap)); // all-lowercase source
     }
 
     #[test]
     fn split_contractions() {
         let words = split_words("don't won't can't");
-        assert_eq!(words, vec!["do", "n't", "wo", "n't", "ca", "n't"]);
+        assert_eq!(
+            words_only(&words),
+            vec!["do", "n't", "wo", "n't", "ca", "n't"]
+        );
     }
 
     #[test]
     fn split_possessive() {
         let words = split_words("he's they're I'm");
-        assert_eq!(words, vec!["he", "'s", "they", "'re", "i", "'m"]);
+        assert_eq!(
+            words_only(&words),
+            vec!["he", "'s", "they", "'re", "i", "'m"]
+        );
     }
 
     #[test]
-    fn split_punctuation() {
+    fn split_punctuation_preserves_caps() {
         let words = split_words("Hello, world! How are you?");
-        assert_eq!(words, vec!["hello", "world", "how", "are", "you"]);
+        assert_eq!(
+            words_only(&words),
+            vec!["hello", "world", "how", "are", "you"]
+        );
+        // Capitalization is captured BEFORE lowercasing — the naming signal.
+        assert!(words[0].1, "Hello is capitalized");
+        assert!(!words[1].1, "world is not");
+        assert!(words[2].1, "How is capitalized (mid-sentence)");
     }
 
     #[test]

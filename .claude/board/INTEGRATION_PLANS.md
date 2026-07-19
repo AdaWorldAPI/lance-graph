@@ -1,3 +1,8 @@
+## 2026-07-19 — persistent-nars-kg v1 — ACTIVE (probe-gated) — main thread
+
+**Plan:** `.claude/plans/persistent-nars-kg-v1.md`
+Synthesizes three parallel specialist mappers (truth-architect / trajectory-cartographer / recipes-atoms) against the operator "escape hatches" directive (a persistent NARS knowledge graph with grammar-driven ambiguity resolution). **One-line finding: everything is designed, almost nothing is wired into a loop** — the 34 recipes + 7 truth functions + 2³ `CausalMask` + MUL + 144-verb table all EXIST; every persistence lane (the 512-B node's tenants) EXISTS; `infer_deductions(&self)` writes nothing back (95,410 deductions recomputed + discarded every run). The program is **wiring + persistence + two probe gates**: **M-RUNG-1** (does the 2³ `{SO,PO,SPO}` rung fan carry a decision? gates all reasoning wiring) and **P-PERSIST-1** (twice-on-same-text: does pass 2 read instead of recompute?). Waves W-A..W-G. **W-A DONE** this session (deepnsm naming heuristic — `E-NAMING-HEURISTIC-CAPITALIZATION-1`). Frankenstein guards: two divergent MULs bridge by scalar signals (never a 3rd); 7 truth fns in 4 places (call one); the 2³ mask can't carry rung content; the "36" persona adjectives are a decoy vs the **34** NARS recipes.
+
 ## 2026-07-18 — soa-32-tenant-awareness-redundancy v1 — DRAFT (envelope-auditor gate pending)
 
 **Plan:** `.claude/plans/soa-32-tenant-awareness-redundancy-v1.md`
