@@ -154,9 +154,20 @@ fn main() {
         let confirmations: Vec<Triplet> = all_deduced
             .iter()
             .filter(|t| {
+                // A genuine confirmation needs an INDEPENDENT witness: the graph must
+                // already hold this (s,o) via a DIFFERENT path (relation). A same-path
+                // recompute is NOT an independent witness and must not lift confidence
+                // (Codex #756 r3610377133) — else a single-route seed would spoof the
+                // multi-hop witness gate by re-deriving the one path it has.
                 concluded(&g, &t.subject, &t.object)
                     && !applied_confirm
                         .contains(&(t.subject.to_lowercase(), t.object.to_lowercase()))
+                    && g.triplets.iter().any(|e| {
+                        !e.is_deleted()
+                            && e.subject.eq_ignore_ascii_case(&t.subject)
+                            && e.object.eq_ignore_ascii_case(&t.object)
+                            && e.relation != t.relation // a genuinely DIFFERENT recorded path
+                    })
             })
             .cloned()
             .collect();

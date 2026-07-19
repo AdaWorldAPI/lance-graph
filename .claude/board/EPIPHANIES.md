@@ -56,7 +56,7 @@ A real N→1 collapse: four of five terms ship with green probes; the fifth (RDO
 
 **Measured (8-belief seed, no LLM, no external input):**
 - **self-model GREW by reasoning: 8 → 14 beliefs** — it produced conclusions its seed only implied.
-- **★ the syllogism self-derived** — the graph concluded `socrates … mortal` by NARS 2-hop over its own edges (`f=f₁f₂, c=f₁f₂c₁c₂`); **no LLM produced that conclusion, the loop did.** Confidence **0.76** (path via `greek`) **→ 0.81** confirmed by a 2nd independent path (via `human`) — the multi-hop witness lift, self-applied.
+- **★ the syllogism self-derived** — the graph concluded `socrates … mortal` by NARS 2-hop over its own edges (`f=f₁f₂, c=f₁f₂c₁c₂`); **no LLM produced that conclusion, the loop did.** Confidence **0.76** (path via `greek`) **→ 0.81** confirmed by a 2nd independent path (via `human`) — the multi-hop witness lift, self-applied. The confirmation gate requires a genuinely DISTINCT path (different derivation relation), so a same-path recompute cannot spoof the witness — hardened per Codex #756 P2 (`r3610377133`); the two paths for `socrates→mortal` are edge-disjoint (greek·mortal vs human·mortal).
 - **self-directed order** — attended the contradiction (F=0.85) BEFORE the deducible gaps (F=0.45) BEFORE the confirmations (F=0.25).
 - **self-corrected on itself** — detected its own contradiction (`oracle affirms`∧`denies prophecy`) and PRESERVED both poles as a committed opinion + stamped a meta-belief (`oracle→prophecy` `self_notes` `contested`) — a belief ABOUT its beliefs (the self-reference).
 - **coherent FIXED POINT** — rested when nothing surprised it (no runaway, no stall).
