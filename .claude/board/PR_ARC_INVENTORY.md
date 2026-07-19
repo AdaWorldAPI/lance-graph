@@ -33,6 +33,21 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-07-18 — x265/H.268 arc: PROBE-GPU-LUT + HEVC anchor + head-to-head + μ-hydration adjudication
+
+**Merged this session (3 PRs):**
+- **a2ui-rs #13** — PROBE-GPU-LUT probe code (256²-u16 LUT texture-gather on a2ui-paint's `wgpu` seam; CPU-ref bit-exact 65536/65536, GPU-exec compiles + skips-clean, adapter-deferred). MERGED.
+- **lance-graph #738** — `E-X265-PROBE-GPU-LUT-1` + `E-X265-HEVC-ANCHOR-1` + `hevc_moving_scene.rs` reproducer. MERGED (squash `5340459`).
+- **ndarray #249** — pr-x12 §5 Wave-3 (PROBE-GPU-LUT verdict) + plan §Results (PROBE-GPU-LUT + HEVC anchor). MERGED (squash `5a8d817`).
+
+**Added (this branch → new PR):**
+- `crates/helix/examples/hevc_headtohead.rs` — head-to-head: our helix `Signed360` object-motion codes (**432 B, ∞ PSNR bit-exact**) vs x265 block-MV (**43,115 B, 60.94 dB**), SAME φ-scene. `E-X265-HEADTOHEAD-1`.
+- `E-3DGS-MU-HYDRATION-1` — convergence-architect adjudication of the 3DGS↔blasgraph↔gridlake operator presumption (WORTH-EXPLORING μ-hydration seam; DROP EWA-semiring rhyme + CSR-occupancy shallowness; `PROBE-SPLAT-μ-HYDRATION-RHO` named).
+**Locked:** object-motion amortization bit-cost = one 6-byte `Signed360`/sprite/P-frame (240 B/GOP), bit-exact ON MODEL-MATCHED content only (tautological win, not general). `splat3d::GaussianBatch` is ALREADY SoA; the only net-new "gridlake" claim is address-derived μ, φ-manifold-gated. EWA depth-sorted *over* is non-commutative → NOT a blasgraph semiring.
+**Deferred:** arbitrary-motion sprite probe (non-φ 3-D capture); `PROBE-SPLAT-μ-HYDRATION-RHO` (real `.ply`); GPU-exec on-silicon parity (lavapipe/browser adapter); WI-1/2/4 (real model tensors).
+**Docs:** EPIPHANIES `E-3DGS-MU-HYDRATION-1` / `E-X265-HEADTOHEAD-1` / `E-X265-HEVC-ANCHOR-1` / `E-X265-PROBE-GPU-LUT-1`; plan `x265-sprite-replay-probe-v1.md` §Results.
+**Confidence (2026-07-18):** PROBE-GPU-LUT / HEVC-anchor / head-to-head measured + merged; μ-hydration WORTH-EXPLORING (probe queued, not run).
+
 ## #733 lance-graph: x265 probe wave-2 — sprite-replay + WH-MAG-2 (probe code + verdicts)
 
 **Status:** MERGED 2026-07-18 (merge commit `be68c2f`), branch `claude/x265-x266-plans-review-h9osnl`, doc + test-only probe code.
