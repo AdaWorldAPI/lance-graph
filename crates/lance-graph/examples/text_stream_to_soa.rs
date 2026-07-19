@@ -34,8 +34,8 @@ fn main() {
         .nth(1)
         .map(PathBuf::from)
         .unwrap_or_else(|| Path::new(manifest).join("examples/data/aesop_fables.txt"));
-    let text = std::fs::read_to_string(&input)
-        .unwrap_or_else(|e| panic!("read {}: {e}", input.display()));
+    let text =
+        std::fs::read_to_string(&input).unwrap_or_else(|e| panic!("read {}: {e}", input.display()));
 
     // ── Stage 1: COCA vocab (no LLM) — the 4096-word rank table. ──
     let vocab_dir = Path::new(manifest).join("../deepnsm/word_frequency");
@@ -102,6 +102,23 @@ fn main() {
     let deductions = graph.infer_deductions(); // 2-hop A→B, B→C ⇒ A→C
     let contradictions = graph.detect_contradictions(0.5); // same S+O, different relation
 
+    // ── Multilayer readout: symbolic vocabulary + Leiden basins + paradox. ──
+    // The "layers" of the communication: the surface SPO, the recurring symbols
+    // (which words the text orbits), the community/basin partition + its
+    // modularity Q (low Q = one center of gravity; high Q = distinct themes),
+    // and the NARS contradictions (where the text says two things at once).
+    let communities = graph.communities();
+    let mut freq: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    for t in &graph.triplets {
+        *freq.entry(t.subject.as_str()).or_default() += 1;
+        if !t.object.is_empty() {
+            *freq.entry(t.object.as_str()).or_default() += 1;
+        }
+    }
+    let mut symbols: Vec<(&str, usize)> = freq.into_iter().collect();
+    symbols.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+    symbols.truncate(6);
+
     // ── Stage 5: SPO → SpoFacet 6×(8:8). Byte-split shim for rank→(basin:identity). ──
     let pair = |i: u16| ((i >> 8) as u8, (i & 0xFF) as u8);
     let mut facet_bytes = 0usize;
@@ -140,6 +157,31 @@ fn main() {
     println!(
         "stage5 facet : {n_triples} SpoFacets, {facet_bytes} bytes (6×(8:8)), roundtrip_ok={facet_roundtrip_ok}"
     );
+    println!("── multilayer communication ──");
+    let symline = symbols
+        .iter()
+        .map(|(w, n)| format!("{w}×{n}"))
+        .collect::<Vec<_>>()
+        .join("  ");
+    println!("symbols      : {symline}");
+    println!(
+        "basins       : {} Leiden communities, modularity Q={:.3} ({} entities)",
+        communities.num_communities,
+        communities.modularity,
+        communities.entities.len()
+    );
+    println!(
+        "paradox      : {} contradictions; sample:",
+        contradictions.len()
+    );
+    for &(i, j) in contradictions.iter().take(3) {
+        let a = &graph.triplets[i];
+        let b = &graph.triplets[j];
+        println!(
+            "  \"{} {} {}\"  ⟂  \"{} {} {}\"",
+            a.subject, a.relation, a.object, b.subject, b.relation, b.object
+        );
+    }
     println!("── size (COLD NodeRow SoA, 512 B/row = the persisted KG) ──");
     println!(
         "this run     : {n_nodes} nodes × {NODE_ROW_STRIDE} B = {cold_bytes} B ({:.4} MiB)",
