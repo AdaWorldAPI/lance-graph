@@ -105,6 +105,18 @@ collapse semantic distance vs frequency-in-header — runs on **committed data**
    `d_truth`, `d_payload`, inflation, and how many rank positions it FALLS in the
    nearness ordering (a true near-pair demoted purely by frequency).
 
+> **⊘ SUPERSEDED (2026-07-19, `E-DEEPNSM-FACET-BLIND-CONVERGENCE-1`).** Two
+> independent blind runs + a rank-stratified widening (freq z-span −1.14…6.23,
+> full dynamic range) all return an **empty** near-decile∩freq-far-decile set
+> (3b) — semantic-nearness and frequency-nearness are POSITIVELY correlated in
+> this data, so the double-decile AND can never fire regardless of window. The
+> 3b **set-membership** clause of §3.5 is therefore RETIRED as mis-scoped; the
+> live falsifier is measurements **3a (NN-flip) + 4 (named anchor)**, which fire
+> cleanly and identically across both blind runs. Verdict this arc:
+> header-invariance CONFIRMED, PF=Header equilibrium CONFIRMED (localized tail
+> collapse via anchor we/will −1915 ranks). See the EPIPHANY for the full
+> adjudication.
+
 ### 3.5 PASS / COLLAPSE criteria (pre-registered — fill with YOUR numbers only)
 - **HEADER lane** must be **frequency-shuffle-invariant** (measurement 2) — the
   lane-orthogonality proof (frequency didn't leak into semantics).
