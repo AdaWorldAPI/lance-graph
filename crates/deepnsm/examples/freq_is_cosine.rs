@@ -200,7 +200,10 @@ fn main() {
     let mut readme_dist = Vec::with_capacity(pairs.len());
 
     println!();
-    println!("  {:<14}  {:>14}  {:>14}", "pair", "freq_dist", "readme_dist");
+    println!(
+        "  {:<14}  {:>14}  {:>14}",
+        "pair", "freq_dist", "readme_dist"
+    );
     for &(a, b, readme) in &pairs {
         let ia = *index
             .get(a)

@@ -122,7 +122,9 @@ fn describe(senses: &[Sense], role: Role) -> String {
             format!("{lab} → {class:<7} → {lemma}.{pos} → centroid r{rank}")
         }
         Collapse::Ambiguous(n) => {
-            format!("{lab} → {class:<7} → AMBIGUOUS: {n} senses of class '{pos}' (mask alone fails)")
+            format!(
+                "{lab} → {class:<7} → AMBIGUOUS: {n} senses of class '{pos}' (mask alone fails)"
+            )
         }
         Collapse::None => format!("{lab} → {class:<7} → (no {class} reading present)"),
     }
@@ -172,9 +174,15 @@ fn main() {
     .expect("read word_forms.csv");
     let map = parse_forms(&csv);
 
-    println!("── HOMOGRAPH COLLAPSE · the SPO 2³ role mask as a superposition collapse operator ──");
-    println!("  A surface word is a SUPERPOSITION of (lemma, PoS) readings. Fixing the SPO slot it");
-    println!("  fills is the COLLAPSE OPERATOR: role → PoS class → one lemma → one lemRank centroid.");
+    println!(
+        "── HOMOGRAPH COLLAPSE · the SPO 2³ role mask as a superposition collapse operator ──"
+    );
+    println!(
+        "  A surface word is a SUPERPOSITION of (lemma, PoS) readings. Fixing the SPO slot it"
+    );
+    println!(
+        "  fills is the COLLAPSE OPERATOR: role → PoS class → one lemma → one lemRank centroid."
+    );
     println!(
         "  mask:  {} & {} → nominal   |   {} → verbal\n",
         Role::Subject.label(),
@@ -218,7 +226,9 @@ fn main() {
 
     println!("── AMBIGUITY CENSUS · word_frequency/word_forms.csv ──");
     println!("  distinct surface forms                       : {distinct}");
-    println!("  ambiguous (>1 (lemma,PoS) sense)             : {ambiguous}  ({pct:.2}% of surfaces)");
+    println!(
+        "  ambiguous (>1 (lemma,PoS) sense)             : {ambiguous}  ({pct:.2}% of surfaces)"
+    );
     println!("    ├─ CROSS-PoS (senses span ≥2 PoS letters)  : {cross_pos}   ← collapsible by a role mask");
     println!("    └─ same-PoS residue (e.g. found=find.v/found.v): {same_pos}   ← role mask ALONE cannot split");
     println!("  verb∩noun homographs (≥1 verb AND ≥1 noun)   : {verb_noun}");
@@ -243,5 +253,7 @@ fn main() {
     println!("  a token actually fills, and resolves the same-PoS residue (found=find.v/found.v)");
     println!("  this mask cannot split. This probe demonstrates the COLLAPSE MECHANISM — a role");
     println!("  mask disambiguating a homograph to a unique centroid — not full parsing. It shows");
-    println!("  the 2³ SPO mask acting as a homograph-collapse operator on real surface-form data.");
+    println!(
+        "  the 2³ SPO mask acting as a homograph-collapse operator on real surface-form data."
+    );
 }
