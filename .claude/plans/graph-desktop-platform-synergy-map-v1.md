@@ -407,11 +407,35 @@ surfaces to hand off.
 
 ---
 
-## 9. The FIRST PoC — zero-copy monitoring / reporting, "computationally for free" (operator, 2026-07-19)
+## 9. The FIRST PoC — bulletproof-access monitoring + BI reporting, "for $0" (operator, 2026-07-19)
 
-Start smaller than the document editor: a **Grafana-like monitoring + reporting
-dashboard**, **read-only**, that showcases the one property no pixel-remoting
-stack can match — **computationally "for free."**
+Start read-only, below the document editor: **bulletproof access** to a
+**Grafana-class monitoring + Power-BI / Databricks-class reporting & data-search**
+surface that showcases the one property no pixel-remoting or cloud-BI stack can
+match — **computationally "for free" / "$0."** Two headlines:
+
+1. **Bulletproof access** is the security statement, not an afterthought: RBAC
+   fail-closed (`WideFieldMask ∩ role`, proven past bit-64) + Argon2id +
+   XChaCha20-Poly1305, banking-grade, the same crypto native *and* wasm use.
+   The client only ever receives the fields its capability grants; masked
+   columns never cross the wire (proven negatively in P-REHOST's fail-closed
+   test).
+2. **"$0" / for free** is literal, and matches the external signal the operator
+   cited (a Reddit r/databricks post, "data search engine for $0 using Rust +
+   Hugging Face" — could not be fetched this session, reasoned from the title:
+   local embeddings + Rust search = no cloud cost). The workspace has a *more
+   complete* version of that idea, all local Rust, no cloud, no per-query cost:
+   - **$0 embeddings** — DeepNSM (local semantic engine, 680 GB → 16.5 MB; no
+     cloud embedding API).
+   - **$0 search** — CAM-PQ compressed ANN + AriGraph RRF / BM25 / PPR (SOLID,
+     §2.6) over the same zero-copy store.
+   - **$0 analytics** — datafusion analytical SQL over the zero-copy Lance
+     columnar store (no Databricks cluster, no ETL, no serialization boundary).
+   - **$0 render** — the client's own wgpu/WebGL2 silicon (§ technology
+     statement), not a server framebuffer or a BI-cloud render tier.
+
+The rest of this section is the read-only monitoring/timeline half, which is
+almost entirely SOLID today.
 
 **Why "for free" is literal, not marketing:** there is **no serialization
 boundary**. The SoA is zero-copy from creation to Lance tombstone (§2.4); a
@@ -431,6 +455,8 @@ Lance versions — a line chart is a `temporal.rs` `QueryReference::at` +
 | Time-series / timeline | SOLID | `temporal.rs` `QueryReference::at` + `deinterlace` — a metric's history already exists as Lance versions; a chart is a version-range read |
 | RBAC fail-closed (banking-grade access) | SOLID | `WideFieldMask ∩ role` (`a2ui-server::project.rs`), proven past bit-64 |
 | Sealed transport (banking-grade safety) | SOLID | Argon2id + XChaCha20-Poly1305 (`SealedTransport`), native+wasm |
+| Analytical reporting (Power-BI/Databricks-class) | SOLID | datafusion analytical SQL over the zero-copy Lance columnar store — heavy aggregations without a cluster or ETL (`lance-graph` `datafusion_planner`) |
+| Semantic data-search ("$0" search engine) | SOLID | DeepNSM local embeddings + CAM-PQ compressed ANN + AriGraph RRF/BM25/PPR — no cloud embedding API, no per-query cost (§2.6) |
 | Grid / Timeline / chart skins | PROPOSED | `a2ui-paint` has Form/Flow only; a dashboard needs Grid + Timeline — the **one new client brick** (a2ui-rs, sibling-arc) |
 | PDF report on demand | PROPOSED | tesseract-rs P4 renderer — optional, for the "reporting" half |
 
