@@ -1,3 +1,11 @@
+## 2026-07-19 — W-C self-correcting KG (in-process) — main thread
+
+- **Task:** operator endgame ("self-correcting KG from reading, no LLM, reasons about itself"; "can't start from zero every pass") → W-C of `persistent-nars-kg-v1`, after W-A merged (#744).
+- **Change:** new `crates/lance-graph/examples/self_correcting_kg.rs` — contrasts naive (`TripletGraph::new()` per pass, from zero) vs self-correcting (one graph, `revise_with_evidence` across passes). Reuses the shipped no-LLM extraction + the shipped `revise_with_evidence`/`TruthValue::revision`. Additive (example only).
+- **Measured:** Aesop witness `lion catch mouse` confidence 0.500 (naive, every pass) vs 0.500→0.667→0.750 (self-correcting, 0 new after pass 1); Animal Farm same accumulation over 4012 triplets. `E-SELF-CORRECTING-KG-1`.
+- **Plan:** W-C marked ✅ in-process; W-C.2 (durable NodeRow→Lance hydrate) added.
+- **Outcome:** `cargo build -p lance-graph --example self_correcting_kg` green; runs on both corpora. Branch `claude/happy-hamilton-0azlw4` (restarted from post-#744 main).
+
 ## 2026-07-19 — persistent-NARS-KG architecture map (3 parallel mappers) + W-A naming heuristic — main thread
 
 - **Task:** operator "escape hatches" directive → map every named surface before wiring (consult-before-guess), then build the deepnsm naming heuristic (main-thread-assigned).
