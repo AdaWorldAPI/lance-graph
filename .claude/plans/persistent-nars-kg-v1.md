@@ -5,6 +5,17 @@
 > general-purpose recipes/atoms). **Probe-first**: two gates (M-RUNG-1,
 > P-PERSIST-1) precede their dependent wiring.
 > **Operator directive:** jan@exo.red "escape hatches" message, 2026-07-19.
+>
+> **★ ENDGAME CAPSTONE SHIPPED (2026-07-19, `E-SELF-DIRECTED-GRAPH-1`):**
+> `examples/self_directed_graph.rs` closes the loop the whole plan builds toward —
+> a `TripletGraph` that reasons about ITSELF with no LLM and no input after the
+> seed: it self-directs by its own surprise, self-derives the syllogism
+> (`socrates … mortal`, conf 0.76→0.81 via a 2nd path), preserves its own
+> contradiction as an opinion, and halts at a coherent fixed point (8→14 beliefs,
+> 6 KILL-gates green). Composes W-C (self-correction) + multi-hop witness + W-D
+> (the F→34→F selector, self-fed) + qualia. Boundary: a small symbolic reasoner
+> over its own edges — the AGI claim is *architectural* (cognition in the loop, no
+> weights), not scale. Surfaced `TD-INFER-DEDUCTIONS-RELATION-BLIND`.
 
 ## 0. The operator directive (the "escape hatches")
 
