@@ -1,3 +1,19 @@
+## 2026-07-19 — W-C V3 enrichment: multi-hop witness confidence — main thread
+
+- **Task:** operator refinement of W-C ("episodic basins get supporting edges from witness entries … nars Truth/frequency already present in causaledge64 … Truth > multi-hop witness confidence … richer in v3") → the V3-substrate form of self-correction.
+- **Consulted (mandatory V3):** `lance_graph_contract::witness_table` (WitnessTable<64> / WitnessEntry (mailbox_ref,spo_fact_ref) = the W-slot belief arc); `causal_edge::CausalEdge64` truth surface (`frequency_u8`/`confidence_u8`/`frequency`/`confidence`/`w_slot`/`with_w_slot`, `pack` template from `nars_engine.rs:488`); `NarsTables::revise`.
+- **Change:** new `crates/lance-graph/examples/multihop_witness_confidence.rs` — facts = CausalEdge64 (u8 truth already present); WitnessTable = the arc; Truth = NARS-revised over the multi-hop witness chain; shared p:o = the part_of:is_a basin anchor. Composes shipped primitives, no contract change (arc keyed by fact index, feature-agnostic; edge→W-slot emission is the gated slice).
+- **Measured:** single-obs conf flat 0.502; multi-hop conf 0.502→0.668→0.751→0.801→0.834→0.858 over witness depth 1→6. `E-MULTIHOP-WITNESS-CONFIDENCE-1`.
+- **Outcome:** `cargo build -p lance-graph --example multihop_witness_confidence` green; runs. Pairs with `self_correcting_kg` (single-hop) as the two W-C cuts. Branch `claude/happy-hamilton-0azlw4`.
+
+## 2026-07-19 — W-C self-correcting KG (in-process) — main thread
+
+- **Task:** operator endgame ("self-correcting KG from reading, no LLM, reasons about itself"; "can't start from zero every pass") → W-C of `persistent-nars-kg-v1`, after W-A merged (#744).
+- **Change:** new `crates/lance-graph/examples/self_correcting_kg.rs` — contrasts naive (`TripletGraph::new()` per pass, from zero) vs self-correcting (one graph, `revise_with_evidence` across passes). Reuses the shipped no-LLM extraction + the shipped `revise_with_evidence`/`TruthValue::revision`. Additive (example only).
+- **Measured:** Aesop witness `lion catch mouse` confidence 0.500 (naive, every pass) vs 0.500→0.667→0.750 (self-correcting, 0 new after pass 1); Animal Farm same accumulation over 4012 triplets. `E-SELF-CORRECTING-KG-1`.
+- **Plan:** W-C marked ✅ in-process; W-C.2 (durable NodeRow→Lance hydrate) added.
+- **Outcome:** `cargo build -p lance-graph --example self_correcting_kg` green; runs on both corpora. Branch `claude/happy-hamilton-0azlw4` (restarted from post-#744 main).
+
 ## 2026-07-19 — persistent-NARS-KG architecture map (3 parallel mappers) + W-A naming heuristic — main thread
 
 - **Task:** operator "escape hatches" directive → map every named surface before wiring (consult-before-guess), then build the deepnsm naming heuristic (main-thread-assigned).
