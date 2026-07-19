@@ -344,3 +344,34 @@ limit (not a content failure) and were completed directly with tools instead
 of re-spawning: the rs-graph-llm mapping (§6 above) and part of the golden-app
 slice (§2.5/§3 above). Recorded here per board-hygiene discipline — no content
 was lost, the direct-tool-call substitution is receipted inline above.
+
+---
+
+## 8. Near-term PoC instance — the document app (operator, 2026-07-19)
+
+The concrete next instance of the §0 organizing thesis. A **document is not
+special** — it is a PortSpec instance whose projection skin is a document
+editor and whose body lives in KV. Every piece already exists as a named seam;
+this is wiring across three repos, not greenfield.
+
+| Piece | Shape | Existing seam it wires | Owner repo | Status |
+|---|---|---|---|---|
+| Document = KV | `DocumentPath` / `DocumentID` **as key**, raw data **as value** — the doc lives dynamic in the graph; **pointers in the hot path** (16-byte key), raw body pulled on demand (zero-copy value-slab-skip, L4 lazy bundle) | the "DocumentID-KV / witness-handle seam" (`graphrag-doc-retrieval-soa-integration-v1.md §4a`) + `ogar-doc-ir::{DocIr, DocPage, content_sha256}` + lance-KV | lance-graph (contract type) / OGAR (doc-ir) | SHAPED — doc-ir exists; the `DocumentID` KV key type is the small NEW contract brick |
+| Word WYSIWYG editor | edits emit `SetField{key, field_position, value}` **write-frames** — the write-mirror of `ActionInvoke`, never a blob/char-range mutation; ProseMirror/Tiptap *concepts* over a canonical GUID-keyed tree | `a2ui-rs/.claude/plans/projectional-knowledge-editor-v1.md` (ratified direction) | a2ui-rs | PROPOSED — the `SetField` frame is the missing brick (3rd `FrameKind`, a2ui queue item 4) |
+| PDF on demand | `tesseract-rs` renders the graph-resident document → PDF when asked; the PDF is a **projection**, not the stored form | `pdf-to-text-ocr-v1.md` P4 PDF renderer | tesseract-rs | PROPOSED — P4 renderer not built |
+| Local hardware accel + seal | wgpu/WebGL2 paint of the ClassView/FieldMask/WideFieldMask-addressed, askama/ERB-templated surface; ChaCha20-Poly1305 + Argon2id transport | a2ui-paint (§2.2) + SealedTransport (§2.3) | a2ui-rs | SOLID transport; SHAPED paint last-mile (§4 gate 7) |
+
+**Reuse, immediately:** a **WoA-rs work order** (`PortSpec 0x0003`) is the same
+document-app pattern — a work order is a document. A **mail program** is another
+(`stalwart`, already in the workspace). Enough of these — documents, work
+orders, mail — over the same ClassView/FieldMask/WideFieldMask + askama/ERB +
+local-hardware-accel + ChaCha20/Argon2 loop **is** the "serious thin client over
+graph-execution projection" the master prompt names. Nothing here re-proves the
+architecture (MedCare already did, §3); each is a PortSpec + a harvest + this
+document skin.
+
+**New pipeline bricks this instance needs** (each paid once, reused by every
+document/work-order/mail app): the `DocumentID` KV key contract (lance-graph),
+the `SetField` write-frame (a2ui-rs), the P4 PDF renderer (tesseract-rs). This
+session can push only the lance-graph brick; the other two are sibling-arc
+surfaces to hand off.
