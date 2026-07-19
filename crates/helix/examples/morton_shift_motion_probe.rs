@@ -23,7 +23,10 @@
 //!     EVERY sprite pixel's Morton code identically → translation is one
 //!     delta, independent of sprite size; reconstruction is BIT-EXACT for
 //!     tile-aligned (integer) motion (interior residual = 0 bytes, where
-//!     x265's DCT+quant round-trip is never exactly 0).
+//!     x265's DCT+quant round-trip is never exactly 0). The dilated-lane add
+//!     is TOROIDAL (each lane wraps mod 256); edge-crossing pixels are
+//!     clipped (`morton_translate_checked`) to match a clipping raster, so
+//!     bit-exactness holds at the field edge too, not only the interior.
 //!  B. **dis-occlusion accounting (the honest tail).** On a rigid translate
 //!     the ONLY genuine new content is the revealed leading-edge L-strip
 //!     (`dx·H + dy·W − dx·dy` px). Measured, not hidden — it is exactly the
@@ -113,8 +116,39 @@ fn morton_add_y(m: u32, dy: u32) -> u32 {
 /// The single rigid-translate operator: apply the SAME `(dx,dy)` delta to a
 /// Morton code via two carry-through-holes adds. This is the whole motion
 /// description — one delta, applied identically to every sprite pixel.
+///
+/// NOTE: the dilated-lane add is **toroidal** — each lane wraps mod `AXIS`
+/// (256). For a translate that keeps every pixel in-field this is exact
+/// address arithmetic; for edge-crossing pixels the wrap must be clipped
+/// (`morton_translate_checked`) to match a clipping raster.
 fn morton_translate(m: u32, dx: u32, dy: u32) -> u32 {
     morton_add_y(morton_add_x(m, dx), dy)
+}
+
+/// Rigid translate WITH field-boundary detection. Returns `None` when the
+/// translate carries either lane past the 8-bit field extent (the true
+/// `x+dx ≥ AXIS` or `y+dy ≥ AXIS`) — i.e. the pixel leaves the field and a
+/// clipping raster would drop it. The carry is detected directly from the
+/// add: filling the opposite lane with 1s makes a lane-overflow ripple into
+/// the bit just above that lane's top (bit 16 for x, bit 17 for y). This
+/// makes the address path agree with the re-anchored ground truth at the
+/// field EDGES, not only in the interior — closing the toroidal-wrap gap.
+fn morton_translate_checked(m: u32, dx: u32, dy: u32) -> Option<u32> {
+    // x-lane (even bits 0..14): a carry out of x's top (bit 14) lands in
+    // bit 16 ⇔ x + dx ≥ 256.
+    let xs = ((m & XMASK) | YMASK).wrapping_add(dilate8(dx));
+    if xs & 0x1_0000 != 0 {
+        return None;
+    }
+    let mx = (xs & XMASK) | (m & YMASK);
+    // y-lane (odd bits 1..15): a carry out of y's top (bit 15) ripples to
+    // bit 16 and stops (XMASK does not cover bit 16), so bit 16 set ⇔
+    // y + dy ≥ 256.
+    let ys = ((mx & YMASK) | XMASK).wrapping_add(dilate8(dy) << 1);
+    if ys & 0x1_0000 != 0 {
+        return None;
+    }
+    Some((ys & YMASK) | (mx & XMASK))
 }
 
 // ── the arbitrary (non-φ) sprite ─────────────────────────────────────────
@@ -144,9 +178,11 @@ impl Sprite {
         for oy in 0..self.h {
             for ox in 0..self.w {
                 let m0 = morton2(self.ax + ox, self.ay + oy);
-                let m = morton_translate(m0, dx, dy);
-                let (x, y) = unmorton2(m);
-                if x < AXIS && y < AXIS {
+                // The dilated-lane add is toroidal; clip pixels whose rigid
+                // translate carries past the field extent, matching the
+                // re-anchored ground truth's clipping raster.
+                if let Some(m) = morton_translate_checked(m0, dx, dy) {
+                    let (x, y) = unmorton2(m);
                     field[(y * AXIS + x) as usize] = self.px[(oy * self.w + ox) as usize];
                 }
             }
@@ -230,8 +266,15 @@ fn motion_delta_bytes(dx: u32, dy: u32) -> usize {
 /// The genuine new content on a rigid translate by `(dx,dy)`: the revealed
 /// leading-edge L-strip, `dx·h + dy·w − dx·dy` pixels (inclusion-exclusion).
 /// This is the residual the entropy coder must still carry — the honest tail.
+///
+/// The deltas are CLAMPED to the sprite extents first: once `dx ≥ w` (or
+/// `dy ≥ h`) the sprite and its translate no longer overlap, so the whole
+/// sprite is new content and the strip caps at `w·h`. Without the clamp the
+/// inclusion-exclusion term over-subtracts (and underflows for large deltas).
 fn disocclusion_pixels(w: u32, h: u32, dx: u32, dy: u32) -> u32 {
-    dx * h + dy * w - dx * dy
+    let cdx = dx.min(w);
+    let cdy = dy.min(h);
+    cdx * h + cdy * w - cdx * cdy
 }
 
 fn main() {
@@ -377,7 +420,9 @@ mod tests {
         assert_eq!(motion_delta_bytes(7, 5), a);
     }
 
-    /// Dis-occlusion inclusion-exclusion is correct and bounded by the L-strip.
+    /// Dis-occlusion inclusion-exclusion is correct and bounded by the L-strip,
+    /// and CLAMPS to the full sprite once the delta exceeds the sprite extent
+    /// (no over-subtraction, no u32 underflow for large deltas).
     #[test]
     fn disocclusion_is_the_l_strip() {
         assert_eq!(disocclusion_pixels(24, 24, 0, 0), 0);
@@ -385,6 +430,53 @@ mod tests {
         assert_eq!(disocclusion_pixels(24, 24, 0, 1), 24);
         // dx·h + dy·w − dx·dy = 2·24 + 1·24 − 2·1 = 70.
         assert_eq!(disocclusion_pixels(24, 24, 2, 1), 70);
+        // Beyond the sprite extent: no overlap → the whole sprite is new,
+        // capped at w·h = 576 (not the unclamped 540), and no underflow.
+        assert_eq!(disocclusion_pixels(24, 24, 30, 30), 576);
+        assert_eq!(disocclusion_pixels(24, 24, 100, 100), 576);
+        assert_eq!(disocclusion_pixels(24, 24, 24, 0), 576);
+    }
+
+    /// The toroidal-wrap fix: an edge-crossing rigid translate is CLIPPED by
+    /// the address path exactly as the re-anchored ground truth clips it —
+    /// so `bit_exact` holds at the field edge, not only in the interior.
+    #[test]
+    fn edge_crossing_translate_is_clipped_bit_exact() {
+        let mut rng = SplitMix64::new(SEED ^ 0xA5);
+        // Anchor fully in-field but flush against the right/bottom edge
+        // (240+16 = 256), so a positive translate carries pixels out.
+        let sprite = Sprite::new_noise(&mut rng, 240, 240, 16, 16);
+        for (dx, dy) in [(1u32, 0u32), (0, 4), (12, 12), (40, 40)] {
+            let mut addr = vec![0u8; (AXIS * AXIS) as usize];
+            let mut gt = vec![0u8; (AXIS * AXIS) as usize];
+            sprite.render_translated_by_address(dx, dy, &mut addr);
+            render_ground_truth_translate(&sprite, dx, dy, &mut gt);
+            assert_eq!(
+                addr, gt,
+                "edge-crossing translate must clip like ground truth: dx={dx} dy={dy}"
+            );
+        }
+    }
+
+    /// `morton_translate_checked` returns `None` exactly when the true
+    /// translated coordinate leaves the field, and the wrapped `Some` value
+    /// decodes to the intended in-field coordinate otherwise.
+    #[test]
+    fn checked_translate_detects_field_exit() {
+        // In-field: agrees with the direct encode.
+        assert_eq!(
+            morton_translate_checked(morton2(10, 20), 5, 7),
+            Some(morton2(15, 27))
+        );
+        // x leaves the field (250 + 10 ≥ 256) → None.
+        assert_eq!(morton_translate_checked(morton2(250, 20), 10, 0), None);
+        // y leaves the field (200 + 60 ≥ 256) → None.
+        assert_eq!(morton_translate_checked(morton2(10, 200), 0, 60), None);
+        // Exactly at the last in-field column (255) is still Some.
+        assert_eq!(
+            morton_translate_checked(morton2(250, 0), 5, 0),
+            Some(morton2(255, 0))
+        );
     }
 
     /// Comma fence: three-gap ≤ 3 and coprime full permutation.
