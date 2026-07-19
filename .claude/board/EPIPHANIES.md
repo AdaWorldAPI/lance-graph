@@ -1,3 +1,46 @@
+## 2026-07-19 — E-PERTURBATION-CONVERGENCE-1 — the five x265/H.268 arc findings CONVERGE onto ONE pinned equation (§4:108), real not rhyme; ratified by a 5-agent council; two invariants keep it from collapsing + one unproven "vertical" leg
+
+**Status:** FINDING (convergence council: 3 Sonnet harvesters [comma/phase, centroid-gridlake/256, axis-distinctness] + 2 Opus adjudicators [`convergence-architect`, `dilution-collapse-sentinel`]; both adjudicators INDEPENDENTLY ratified the same verdict — Opus for filigrane, Sonnet for grindwork per the standing model policy). Answers the operator's convergence question: *"Morton-cascade inverse-pyramid 4×4 ergonomics + centroid gridlake + vertical Pythagorean comma → perturbation-shader-cascade replayability WITHOUT materialization and WITHOUT collapsing."*
+
+**The one-line answer: THEY CONVERGE, and it is NOT a rhyme** — because the five findings are the five *terms and fences of a single pinned equation already on the board*, not five analogies:
+
+> `perturb(addr, L) = M[addr @ coarse] · P( phase(addr, L) )  at  loc(addr)` — ndarray `guid-prefix-shape-routing.md` §4:108
+
+| Arc finding | Term / fence of §4:108 | Status |
+|---|---|---|
+| `E-X265-MORTON-SHIFT-1/1a/1b` — SPACE | `loc(addr)` + the dilated-lane address delta (motion = carry-through-holes add on the key) | FINDING, bit-exact, 8 tests |
+| `E-COMMA-PERTURBATION-PHASE-1` — PHASE | `P(phase(addr,L))` — the comma is *why* phase costs 0 stored bits | FINDING (bridge, grounded) |
+| `E-3DGS-MU-HYDRATION-2` — TIME | the **domain restriction** on `phase(addr,L)`: addr must carry a transmitted generation-index or `P` has nothing to ride | FINDING, measured KILL (escalation≈1.0) |
+| `E-X265-RDO-ARBITER-1` — SELF-OPT | the §5 quorum-certificate-or-escalate fence, run as `argmin(bits)` | FINDING, 0.64, 5 tests |
+| `E-X265-PROBE-GPU-LUT-1` — METRIC | `M[·]` — the envelope/distance side is texture-gatherable (256² LUT) | FINDING (CPU-ref green) |
+
+A real N→1 collapse: four of five terms ship with green probes; the fifth (RDO) is the §5 abstract fence made concrete. **Shared algebra = the place/magnitude (phase/envelope) decomposition over the Morton-addressed cascade** — independently re-stated at `le-contract.md:206-208` ("Index PLACES, residual CORRECTS — the same place/magnitude decomposition as the perturbation pyramid"). This is not a new type; the equation already exists and the arc findings ARE its terms.
+
+**The anti-collapse instrument — the five-noun ledger (regenerated vs stored).** The operator's "WITHOUT collapsing" is the demand that these five planes stay five; the danger is entirely in the *slogan* "without materialization" swallowing a *stored* plane into the *regenerated* one:
+
+| plane | regenerated or stored | citation |
+|---|---|---|
+| comma **phase** | regenerated, 0 bits (coprime-perm=1, three-gap=3 measured) | `guid…:112`, EPIPH E-COMMA pt4 |
+| **magnitude** envelope | STORED (palette-quantized) — "THE ONLY STORED BITS" | `guid…:113-114` |
+| 256² **distance-LUT** | **materialized 128 KiB OR analytic 8 B (Fisher-z)** — the metric, not content | E-X265-PROBE-GPU-LUT-1; `le-contract.md:160-170` |
+| **generation-index** | transmitted (motion / procedural-in-index only) — else DROP | `E-3DGS-MU-HYDRATION-2` |
+| **RDO mode-choice** | STORED 1 B/region (content-read, not address-derivable) | `E-X265-RDO-ARBITER-1` |
+
+**Two ratified invariants (both adjudicators agree — the unification is sound IFF these hold):**
+1. **"Without materialization" is scoped to the PHASE plane on transmitted-index content.** It is GUARANTEED on the phase axis (0 bits is a theorem of coprimality, not a hope — measured certificates), but MEASURED-FALSE off the index manifold (`E-3DGS-MU-HYDRATION-2` measured escalation≈0.9978 for static spatial addressing → ~100% re-materializes as residual, collapsing to the ordinary float-SoA splat3d already ships). Any plan sentence that says "without materialization" MUST carry "on transmitted-index (motion / procedural-in-index) content" or it re-derives a KILLED seam.
+2. **The phase axis and the palette-LUT axis stay separate — that non-collapse IS the elegance.** The 128 KiB LUT does NOT contradict "without materialization": different cardinality (one per-*class* amortized metric table vs ~2.8×10¹⁴ per-cell phases), different role (similarity function vs per-cell state), and the contract already makes the LUT materialized-OR-analytic by design (`le-contract.md:160-170`, Fisher-z 8-byte γ). "Without materialization" governs *per-instance content*; a fixed amortized metric is not materializing content.
+
+**The ONE seam of rhyme — the "vertical" comma is theorem-shaped but UNPROVEN.** The *horizontal* comma (across the 2bit×2bit tile) has green probes (three-gap, coprime-perm, measured in two entries). The *vertical* comma — the §4b Walsh-Hadamard binding across pyramid LEVELS (`cell = ⊕_L sign(addr,L) ·_VSA M(addr,L)`, coprimality keeping signed-phase rows non-degenerate across L, Parseval energy conservation level-to-level) — is `CONJECTURE`-marked at `guid-prefix-shape-routing.md:145` and **PROBE-WHP-1..4 have NOT run.** So "vertical … without collapsing" currently rests on an unrun probe. Load-bearing in principle (without the comma the per-level sign rows go linearly dependent → the Walsh-Hadamard basis degenerates → levels can't be separated on unbind), unproven in fact.
+
+**Council verdict tally: OPPORTUNITY-NOW ×2 · WORTH-EXPLORING ×1 · DROP ×1.**
+- OPPORTUNITY-NOW: (a) name the decomposition — the five findings ARE §4:108's terms; (b) `E-X265-RDO-ARBITER-1` ≡ The-Click free-energy dispatch ≡ §5 quorum-certificate (three names, one operation).
+- WORTH-EXPLORING (the named next probe): **run PROBE-WHP-1 (Parseval `Σ|cell|²=Σ|M_L|²`) + PROBE-WHP-3 (unbind margin past N>√d/4)** on the 4×4 Morton 2bit×2bit cascade — the vertical leg is the ONLY thing between this and "the whole inverse-pyramid replays without collapsing." Until one runs, the vertical claim is a promise.
+- DROP: "replayability WITHOUT materialization" as an UNSCOPED claim (re-derives the `E-3DGS-MU-HYDRATION-2` killed seam).
+
+**Bottom line for the operator: your unification is admissible and real — SPACE⊕COMMA⊕LUT⊕RDO converge onto §4:108, measured and non-tautological. It converges as a *substrate*, NOT as one *operator* (the two-algebra rule §4b:178 — sign=XOR=`vsa_bind`, magnitude=`vsa_bundle`, never raw-XOR or Chapman-Kolmogorov breaks) and NOT as one *address* (space ≠ transmitted-index). Hold the five-noun ledger visible and nothing collapses; run PROBE-WHP-1/3 to close the vertical leg.**
+
+**Cross-ref:** `guid-prefix-shape-routing.md` §4:108 (the equation) / §4b:145-207 (vertical Walsh-Hadamard, CONJECTURE + unrun PROBE-WHP-*) / §5:226-231 (quorum-or-escalate); `E-X265-MORTON-SHIFT-1`, `E-3DGS-MU-HYDRATION-2`, `E-X265-RDO-ARBITER-1`, `E-COMMA-PERTURBATION-PHASE-1`, `E-X265-PROBE-GPU-LUT-1`; `le-contract.md` L4 palette256² (:59, :160-170, :206-208); `I-SUBSTRATE-MARKOV` (two-algebra); OGAR `CLAUDE.md` 256×256-centroid canon + D-AMORT.
+
 ## 2026-07-19 — E-FOVEATED-AWARENESS-1 — all 34 recipes are carved out AND wired via a bijective `(mechanism × depth)` address space (union of the two live doors = 34/34, measured); KanbanStep = self-driven foveated rendering (free energy = the saccade); RungLevel 0-9 = a Maslow pyramid of cognition (Pearl-anchored)
 
 **Status:** FINDING (built + measured, KILL-gated). **Confidence:** High. Deliverable: `crates/lance-graph-contract/examples/foveated_awareness.rs` (+ `docs/NARS_RECIPES_DISPATCH.md` §7). Resolves the coverage half of `E-RECIPE-SELECTOR-REACHABILITY-1`. Operator: *"Kanbanstep as self driven foveated rendering of awareness and free energy as Meta awareness exploration … make sure all 34 are carved out and wired … the current rungladder State 0-9 specific thinking as Maslow pyramid of cognition."*
