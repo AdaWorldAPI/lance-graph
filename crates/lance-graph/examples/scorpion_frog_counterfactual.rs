@@ -24,10 +24,10 @@ fn main() {
     let mut g = TripletGraph::new();
     g.add_triplets(&[
         Triplet::new("scorpion", "frog", "stings", 1), // the deed
-        Triplet::new("sting", "death", "causes", 2),    // sting → death
+        Triplet::new("sting", "death", "causes", 2),   // sting → death
         Triplet::new("frog", "scorpion", "carries", 3), // the ride
-        Triplet::new("scorpion", "nature", "has", 4),   // the modal premise
-        Triplet::new("nature", "sting", "compels", 5),  // nature ⊨ sting
+        Triplet::new("scorpion", "nature", "has", 4),  // the modal premise
+        Triplet::new("nature", "sting", "compels", 5), // nature ⊨ sting
     ]);
 
     println!("── Aesop: the scorpion & the frog — counterfactual synthesis ──\n");
