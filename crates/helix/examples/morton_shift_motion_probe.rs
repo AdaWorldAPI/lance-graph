@@ -129,11 +129,19 @@ fn morton_translate(m: u32, dx: u32, dy: u32) -> u32 {
 /// translate carries either lane past the 8-bit field extent (the true
 /// `x+dx ≥ AXIS` or `y+dy ≥ AXIS`) — i.e. the pixel leaves the field and a
 /// clipping raster would drop it. The carry is detected directly from the
-/// add: filling the opposite lane with 1s makes a lane-overflow ripple into
-/// the bit just above that lane's top (bit 16 for x, bit 17 for y). This
-/// makes the address path agree with the re-anchored ground truth at the
-/// field EDGES, not only in the interior — closing the toroidal-wrap gap.
+/// add: filling the opposite lane with 1s makes a lane-overflow ripple to
+/// bit 16 (for x it carries up through bit 15; for y it stops at bit 16
+/// because XMASK does not cover bit 16). This makes the address path agree
+/// with the re-anchored ground truth at the field EDGES, not only in the
+/// interior — closing the toroidal-wrap gap.
 fn morton_translate_checked(m: u32, dx: u32, dy: u32) -> Option<u32> {
+    // A delta at least the field extent moves EVERY pixel out of field
+    // (`x + dx ≥ AXIS` for all `x < AXIS`), and `dilate8` keeps only the low
+    // 8 bits — so `dx = AXIS` would dilate to 0 and spoof "no motion". Guard
+    // before dilating.
+    if dx >= AXIS || dy >= AXIS {
+        return None;
+    }
     // x-lane (even bits 0..14): a carry out of x's top (bit 14) lands in
     // bit 16 ⇔ x + dx ≥ 256.
     let xs = ((m & XMASK) | YMASK).wrapping_add(dilate8(dx));
@@ -477,6 +485,11 @@ mod tests {
             morton_translate_checked(morton2(250, 0), 5, 0),
             Some(morton2(255, 0))
         );
+        // A delta ≥ AXIS moves every pixel out of field — must be None, NOT
+        // spoofed to Some by dilate8 truncating the low 8 bits (dx=256 → 0).
+        assert_eq!(morton_translate_checked(morton2(40, 32), AXIS, 0), None);
+        assert_eq!(morton_translate_checked(morton2(40, 32), 0, AXIS), None);
+        assert_eq!(morton_translate_checked(morton2(40, 32), 300, 300), None);
     }
 
     /// Comma fence: three-gap ≤ 3 and coprime full permutation.

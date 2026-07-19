@@ -1,3 +1,7 @@
+## 2026-07-19 — E-X265-MORTON-SHIFT-1b — third Codex P2 (on PR #746, landed as follow-up): `morton_translate_checked` must guard `delta ≥ AXIS` before dilating
+
+**Status:** FINDING (2 tests extended, 8 green; follow-up to `E-X265-MORTON-SHIFT-1a`, again landed as a new PR because #746 merged before the review posted). Real: `dilate8` masks to the low 8 bits, so a delta `≥ 256` (e.g. `dx=256 → dilate8(256)=dilate8(0)=0`) spoofs "no motion" and returns `Some` at the wrapped address while the ground-truth raster clips every pixel out. Fix: reject `dx >= AXIS || dy >= AXIS` up front (such a delta moves the whole sprite out of a 256-field anyway). Also corrected the stale "bit 17 for y" doc-comment (the y carry stops at bit 16). **Meta-lesson:** three Codex P2s, all on the SAME edge-case axis (field-boundary behavior of the toroidal add) — the probe's happy-path tests never crossed the edge; the fix wasn't complete until the boundary was tested at EVERY delta magnitude (interior, edge-crossing, ≥AXIS). **Cross-ref:** `E-X265-MORTON-SHIFT-1a`, `-1`; Codex P2 on PR #746.
+
 ## 2026-07-19 — E-X265-MORTON-SHIFT-1a — post-merge hardening (Codex P2×2 on PR #745, landed as follow-up): the dilated-lane add is TOROIDAL, and dis-occlusion must clamp
 
 **Status:** FINDING (follow-up to `E-X265-MORTON-SHIFT-1`; PR #745 merged before the two Codex P2s could land, so they ship as a new PR per the merged-PR rule; 8 tests green). Both P2s were real:
