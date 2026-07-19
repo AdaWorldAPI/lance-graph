@@ -47,6 +47,22 @@ fn main() {
     let mut ranks: Vec<SpoRanks> = Vec::new(); // the Markov side-stream (1:1 with triples)
     let mut sentences = 0usize;
     let mut tokens_total = 0usize;
+    // Canonical-surface-fidelity detector: word → (canonical-matched, total). A
+    // symbol whose canonical surface accounts for <15% of the tokens that resolved
+    // to it is tokenizer-MANUFACTURED — the lemma table (`jean`→`jeans`) or the
+    // suffix-strip fallback (`Boxer`→`box`) invented it. This is the working
+    // codebook-resolution leg (E-CODEBOOK-OOV-SURFACE-FIDELITY-1): unlike the
+    // genre-vector over-representation filter — which FALSE-POSITIVES on genuine
+    // over-represented theme words (`animal`/`farm`/`mouse`) — this metric clears
+    // them (canonical present) and flags the manufactured symbols. It is a SUPERSET
+    // detector: it also flags benign lemma-only inflection (`tried`→`try`, base form
+    // absent). Separating the proper-noun collapses (`Jean`→`jeans`) from benign
+    // inflection needs the capitalization signal, which the tokenizer DESTROYS at
+    // `split_words` (deepnsm `vocabulary.rs:344` lowercases every char) — so the
+    // finer split needs case-preserving NER upstream, or the LLM tail. As a bonus
+    // it doubles as a corpus-integrity check: it exposed a mislabeled corpus.
+    let mut surface_fid: std::collections::HashMap<String, (usize, usize)> =
+        std::collections::HashMap::new();
     // Grammar-heuristic knob (literature: OIE stopword filtering — OPIEC 1904.12324,
     // surface-fact linking 2310.14909). `CONTENT_ONLY=1` drops triples whose subject
     // or object is a top-`FUNCTION_CUTOFF` COCA rank (function words / pronouns) — the
@@ -63,6 +79,16 @@ fn main() {
         sentences += 1;
         let toks = vocab.tokenize(s); // word → COCA token
         tokens_total += toks.len();
+        for tok in &toks {
+            if let Some(r) = tok.rank {
+                let w = vocab.word(r);
+                let e = surface_fid.entry(w.to_string()).or_insert((0, 0));
+                e.1 += 1;
+                if tok.surface == w {
+                    e.0 += 1; // canonical surface literally present (already lowercased)
+                }
+            }
+        }
         let structure = parser::parse(&toks); // FSM → SPO
         for t in &structure.triples {
             // Stage 1→2 adapter: index-triple → String-triple via vocab.word().
@@ -183,6 +209,20 @@ fn main() {
     }
     let mut symbols: Vec<(&str, usize)> = freq.into_iter().collect();
     symbols.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+    // Optional: emit every surfaced symbol + its corpus frequency as TSV for the
+    // codebook distributional-outlier filter (`EMIT_SYMBOLS=<path>`). The filter
+    // joins these against `deepnsm/word_frequency/forms_5k.csv` (COCA base rank +
+    // per-genre columns) to flag OOV-collapse sinks (e.g. `jeans`) that the
+    // rank-based grammar heuristic misses — the "use the codebook to resolve what
+    // you found" leg, zero-LLM.
+    if let Ok(path) = std::env::var("EMIT_SYMBOLS") {
+        let mut tsv = String::from("symbol\tfreq\n");
+        for (w, n) in &symbols {
+            tsv.push_str(&format!("{w}\t{n}\n"));
+        }
+        std::fs::write(&path, tsv).unwrap_or_else(|e| panic!("write {path}: {e}"));
+        eprintln!("[EMIT_SYMBOLS] wrote {} symbols → {path}", symbols.len());
+    }
     symbols.truncate(6);
 
     // ── Stage 5: SPO → SpoFacet 6×(8:8). Byte-split shim for rank→(basin:identity). ──
@@ -243,6 +283,32 @@ fn main() {
     println!(
         "coherence    : L90={coherence_len} (forward links to capture 90%), \
          frac(±{RADIUS})={frac_within_5:.2}, hist[d=1..8]={hist_head}"
+    );
+    // Manufactured-symbol readout: canonical surface accounts for <15% of the
+    // tokens that resolved to this symbol → tokenizer-manufactured (lemma/OOV/
+    // proper-noun collapse). SUPERSET (also catches benign lemma-only inflection);
+    // the proper-noun subset that needs case-preservation is a documented follow-up.
+    let mut sinks: Vec<(&String, usize, f64)> = surface_fid
+        .iter()
+        .filter(|(_, &(_, total))| total >= 5)
+        .map(|(w, &(matched, total))| (w, total, 1.0 - matched as f64 / total as f64))
+        .filter(|&(_, _, manufactured)| manufactured > 0.85)
+        .collect();
+    sinks.sort_by(|a, b| b.2.total_cmp(&a.2).then(b.1.cmp(&a.1)));
+    let sinkline = sinks
+        .iter()
+        .take(6)
+        .map(|(w, total, m)| format!("{w}({total},{:.0}%)", m * 100.0))
+        .collect::<Vec<_>>()
+        .join("  ");
+    println!(
+        "manufactured : {} symbols >85% tokenizer-manufactured (canonical surface absent); top: {}",
+        sinks.len(),
+        if sinkline.is_empty() {
+            "(none)".into()
+        } else {
+            sinkline
+        }
     );
     println!(
         "paradox      : {} contradictions; sample:",
