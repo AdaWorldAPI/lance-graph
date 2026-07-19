@@ -1,3 +1,42 @@
+## 2026-07-19 — graph-desktop-platform-synergy-map v1 — MAP COMPLETE (Phase 0, gate ledger) — main thread
+
+**Plan:** `.claude/plans/graph-desktop-platform-synergy-map-v1.md`
+Phase-0 deliverable of the operator's multi-session graph-desktop-platform
+master prompt (application store → auth → semantic remote desktop → graph
+execution → reasoning → DTO/IR memory). **Scope (operator, 2026-07-19):** the
+IR substrate is **our own — OGAR's transpiler sink-in substrate** (apps become
+semantic graph packages by transpiling into the OGAR IR); the concrete target
+is **"Odoo-rs at the cost of a ~2 MB import"** (import Odoo model defs →
+transpile into OGAR IR → run as a graph desktop, not a reimplementation); and
+the **main focus is the architecture proof-of-concept**, not exhaustive
+mapping. The `automataIA/*` repos from the (ChatGPT-authored) master prompt are
+**OUT OF SCOPE** — an artifact, not references; this supersedes
+SYNERGY-MAP-S00-S07 §4.G's REUSE treatment of them. **One correction to that
+prior map:** `rs-graph-llm` was recorded there as "not an AdaWorldAPI repo,
+out of scope" — it exists, was cloned this session, is real and tested (47
+tests / 4 crates), and `graph-flow-kanban` already directly consumes
+`lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove}` —
+promoted to in-scope, partially-wired. **Findings this map adds** across OGAR
+(semantic ABI SOLID; signed package manifest + a projection-dependency index
+are MISSING — the PoC's real build surface), a2ui-rs (DesktopSession/
+SealedTransport/FieldviewClient/a2ui-paint SOLID; a **regression found** —
+`gpu_lut_probe.rs` silently stopped compiling on origin/main at `9d9505b`), and
+lance-graph (the commit path is the **zero-copy** single-owner `BatchWriter` +
+Lance version + `temporal.rs` deinterlace on lance 7/lancedb 0.30 — PROBE-GREEN;
+`expected_version`/CAS is **moot by design** under mailbox-single-owner writes,
+a verify-not-build gate, corrected from an earlier "gap" framing). **The
+golden slice is a wiring, not a build:** MedCare-rs's `p_rehost_full.rs` (this
+session's prior work, PR #216/#217, merged) already proves
+launch→render→invoke→delta end-to-end on a real screen, sealed both ways,
+painted to real PNG pixels — **four of the master prompt's seven example-flow
+steps are SOLID today** (commit is PROBE-GREEN; package + install are the two
+MISSING steps = the PoC's package/install seam). Gates (§4): projection-
+dependency index, verify-CAS-unnecessary, minimal signed package manifest
+(exercised as the Odoo-rs / P-REHOST golden package), gpu_lut_probe re-wire
+(a2ui-rs, surfaced not owned), AuditSink contract-side home, ClassId u16/u32
+unification. Review-corrected on PR #763 (Codex + CodeRabbit caught the
+five→four SOLID miscount and the external-repo count; both folded).
+
 ## 2026-07-19 — persistent-nars-kg v1 — ACTIVE (probe-gated) — main thread
 
 **Plan:** `.claude/plans/persistent-nars-kg-v1.md`
