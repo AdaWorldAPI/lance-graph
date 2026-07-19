@@ -10,6 +10,29 @@
 4. **This is WHY magnitude-only storage works** (the gridlake-SoA / μ-hydration claim of `E-3DGS-MU-HYDRATION-1`): phase costs 0 stored bits ONLY BECAUSE it is comma-incommensurate (regenerable + non-aliasing). If the phase were commensurate with the 4×4 tile, the dither would moiré and residuals would have to be stored → the "store only magnitude" split collapses. The comma is the load-bearing enabler; §4b's Walsh-Hadamard needs it too (coprimality keeps the signed-phase rows non-degenerate across the L pyramid levels; sign=XOR=`vsa_bind`, magnitude=`vsa_bundle` per the two-algebra rule).
 **Consequence for PROBE-SPLAT-μ-HYDRATION-RHO (comma fence added):** the anti-moiré/dither leg gets a concrete KILL addendum — if the coprime-walk phase is commensurate with the real `.ply` gaussian grid (moiré appears on the reconstructed raster), the magnitude-only claim fails on that content. The comma-incommensurability is thus a FALSIFIABLE fence, not a metaphor.
 **Cross-ref:** ndarray `guid-prefix-shape-routing.md` §4 (deterministic phase + D-QUANTGATE + "anti-moiré dither, aperiodic by coprimality") + §4b (bipolar phase = Walsh-Hadamard on VSA); `pr-x12-h268-morton-wgpu-synergies.md` §7 (comma closure / X-Trans); `E-X265-HEADTOHEAD-1` (the φ = `n·φ` azimuth now wired); `E-3DGS-MU-HYDRATION-1` + `PROBE-SPLAT-μ-HYDRATION-RHO` (the μ-hydration this enables); `I-SUBSTRATE-MARKOV` (bundle ≡ Chapman-Kolmogorov, the magnitude side).
+## 2026-07-19 — E-MYSTICISM-Q-CORRECTED-1 — on GENUINE Rumi, "mysticism = lowest Q = unity" is FALSIFIED; modularity Q tracks NARRATIVE CONTINUITY (inverse), not mysticism — and the pipeline extracts real mystical symbols (love, god) from real Rumi
+
+**Status:** FINDING (measured on genuine PD Rumi, Gutenberg #45159 "The Persian Mystics: Jalálu'd-dín Rúmí"). **Confidence:** High for the ordering (5 texts, 3 genres, monotonic); Medium for the mechanism (coarse FSM, English-translation-dependent, N=5). Closes the loop opened by E-CODEBOOK-OOV-SURFACE-FIDELITY-1 (the mislabeled-corpus discovery).
+
+After the OOV detector exposed that the old "Rumi" corpus was a novel (#56097 Ranch Girls), I fetched GENUINE Rumi (#45159) and re-ran. Two results:
+
+1. **The pipeline extracts REAL mystical content from real Rumi.** Top symbols = `it, `**`love×106, god×97`**`, he, you, i` — the actual mystical vocabulary — vs the fake "Rumi" novel's `she, her, it, you, i, jeans`. And `manufactured` drops to 27 benign lemma-inflection sinks (`year`/`create`/`favor`), NO proper-noun-name artifact — corroborating E-CODEBOOK-OOV-SURFACE-FIDELITY-1 (clean text → few, benign sinks; the novel's 58 sinks were inflated by character names).
+
+2. **The mysticism-Q hypothesis is FALSIFIED; Q tracks narrative continuity (inverse).** Full corrected modularity-Q ordering across 5 texts:
+
+| Text | genre | modularity Q | L90 | frac(±5) |
+|---|---|---|---|---|
+| Aesop | discrete fables | **0.640** | 3 | 1.00 |
+| Tagore "The gardener" | lyric | 0.214 | 17 | 0.51 |
+| **Rumi #45159** | **mystical** | **0.201** | 15 | 0.65 |
+| Animal Farm | novel | 0.149 | 16 | 0.61 |
+| Ranch Girls #56097 | novel | 0.134 | 16 | 0.61 |
+
+Genuine Rumi (0.201) sits with LYRIC poetry (Tagore 0.214), NOT below the novels. The NOVELS have the lowest Q — a single continuous plot with a persistent protagonist set forms one dense connected component (fewest distinct basins). Discrete fables have the highest Q (disconnected episodes). Poetry is intermediate (distinct thematic clusters, loosely linked). **So Q measures narrative continuity, not mysticism** — the earlier "mystical unity = lowest Q" was entirely an artifact of measuring a mislabeled novel. The two novels cluster (0.134/0.149), the two poetry texts cluster (0.201/0.214), fables stand alone (0.640): a robust 3-genre signature.
+
+**Corroborates E-COHERENCE-LENGTH-PROBE-1:** genuine Rumi (L90=15, frac(±5)=0.65, persistent floor 2073→…→189) fits the continuous-text pattern exactly; Aesop remains the sole hard-cutoff (L90=3). Both the coherence-length AND the Q findings now rest on 5 genuinely-labeled texts.
+
+**Honest caveats:** coarse PoS FSM (relation quality surface-level); English-translation-dependent (a different Rumi translation could shift Q); N=5, one text per genre except novels (2). The ORDERING (fables ≫ poetry > novels) is robust; the exact Q values are translation/edition artifacts. Corpora fetched to scratch (all PD Gutenberg), not committed. Reproducible: `text_stream_to_soa <gutenberg .txt>`.
 ## 2026-07-19 — E-CODEBOOK-OOV-SURFACE-FIDELITY-1 — the genre-vector codebook filter FAILS as an OOV detector; canonical-surface-fidelity is the working (superset) detector; the root artifact is proper-noun collapse via case-destruction at split_words:344 — and chasing it exposed a MISLABELED corpus
 
 **Status:** FINDING (measured, 4 corpora; file:line-sourced). **Confidence:** High. **Corrects** E-GRAMMAR-HEURISTIC-CONTENT-FILTER-1 (its "OOV artifacts need genre-vector distributional-outlier detection" CONJECTURE is FALSIFIED; its "Rumi" corpus + "OOV Persian collapse" mechanism are BOTH wrong). Literature: LLM-KB-cleaning `2306.12766` (the credential-blocked tail).
