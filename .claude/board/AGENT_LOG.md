@@ -1,3 +1,11 @@
+## 2026-07-19 — causal knowledge transfer + qualia wiring — main thread
+
+- **Task:** operator ("understand scorpion & frog, transfer to a separate story; wire qualia; Kanbanstep + W-D/W-B > causality trajectories") → the reason-about-itself + knowledge-transfer piece.
+- **Consulted:** `lance_graph_contract::qualia` (QualiaI4_16D 16-dim i4, AXIS_LABELS: arousal/valence/tension/…/coherence/…/expansion; wonder=√(coherence·expansion)); `triplet_graph` counterfactual API (`intervene_on`, ContextTag).
+- **Change:** new `crates/lance-graph/examples/causal_knowledge_transfer.rs` — a causality trajectory = the has→compels→causes signature (Pearl rungs: avoidable via intervene_on, necessary via modal chain); the MEANING (moral + qualia) is a property of the signature; `transfer()` matches a new story to the learned signature and INHERITS the meaning (no re-derivation). Qualia wired: the preserved-contradiction moral carries tension/depth/tragic-valence/wonder.
+- **Measured:** scorpion&frog → Marcus/Elena betrayal: signature match → moral + qualia (wonder=4.00) inherited; merchant/cloth control → no transfer. `E-CAUSAL-KNOWLEDGE-TRANSFER-1`.
+- **Outcome:** `cargo build -p lance-graph --example causal_knowledge_transfer` green; runs. Branch `claude/happy-hamilton-0azlw4` (restarted from post-#749 main).
+
 ## 2026-07-19 — W-C V3 enrichment: multi-hop witness confidence — main thread
 
 - **Task:** operator refinement of W-C ("episodic basins get supporting edges from witness entries … nars Truth/frequency already present in causaledge64 … Truth > multi-hop witness confidence … richer in v3") → the V3-substrate form of self-correction.
