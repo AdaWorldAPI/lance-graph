@@ -440,6 +440,24 @@ pub fn parse_with_secondary(tokens: &[Token]) -> SentenceStructure {
     result
 }
 
+/// Extract named-entity spans via the naming heuristic (escape hatch #1):
+/// mid-sentence Capitalized tokens that did not resolve to a direct common word
+/// (`Jean`, `Napoleon`, `Boxer`). Returns `(position, surface)` pairs.
+///
+/// These carry NO COCA rank — they are register entities (identity = surface
+/// string) to be stitched into the string-keyed knowledge graph as their own
+/// nodes, instead of being lemma-collapsed onto a common noun (`jean`→`jeans`,
+/// `Boxer`→`box`) or dropped as OOV. Kept separate from [`parse`] because it is
+/// a token-level concern: the FSM works in 12-bit ranks, which named entities
+/// do not have — a consumer calls both `parse` and `named_entities`.
+pub fn named_entities(tokens: &[Token]) -> Vec<(u16, String)> {
+    tokens
+        .iter()
+        .filter(|t| t.is_named_entity)
+        .map(|t| (t.position, t.surface.clone()))
+        .collect()
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // Coverage-branch hook for D2 FailureTicket emission.
 //
@@ -618,6 +636,8 @@ mod tests {
             position: 0,
             is_negated: false,
             surface: surface.to_string(),
+            is_capitalized: false,
+            is_named_entity: false,
         }
     }
 
@@ -693,6 +713,8 @@ mod tests {
                 position: 3,
                 is_negated: false,
                 surface: "not".to_string(),
+                is_capitalized: false,
+                is_named_entity: false,
             },
             Token {
                 rank: Some(2943),
@@ -700,6 +722,8 @@ mod tests {
                 position: 4,
                 is_negated: true,
                 surface: "bite".to_string(),
+                is_capitalized: false,
+                is_named_entity: false,
             },
             make_token(0, PoS::Article, "the"),
             make_token(95, PoS::Noun, "man"),
@@ -730,6 +754,8 @@ mod parser_coverage_tests {
             position: 0,
             is_negated: false,
             surface: surface.to_string(),
+            is_capitalized: false,
+            is_named_entity: false,
         }
     }
 

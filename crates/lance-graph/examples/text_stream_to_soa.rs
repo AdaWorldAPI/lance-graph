@@ -63,6 +63,13 @@ fn main() {
     // it doubles as a corpus-integrity check: it exposed a mislabeled corpus.
     let mut surface_fid: std::collections::HashMap<String, (usize, usize)> =
         std::collections::HashMap::new();
+    // Naming heuristic (escape hatch #1): mid-sentence Capitalized tokens that
+    // don't resolve to a direct common word are NAMED ENTITIES (`Jean`, `Boxer`,
+    // `Napoleon`) — kept out of the lossy lemma fallback so they no longer
+    // collapse to `jeans`/`box`. `deepnsm::parser::named_entities` surfaces them;
+    // here we histogram them (the "capitalized-within-sentence + histogram = a
+    // name" signal). They carry identity by surface string, not COCA rank.
+    let mut name_freq: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     // Grammar-heuristic knob (literature: OIE stopword filtering — OPIEC 1904.12324,
     // surface-fact linking 2310.14909). `CONTENT_ONLY=1` drops triples whose subject
     // or object is a top-`FUNCTION_CUTOFF` COCA rank (function words / pronouns) — the
@@ -88,6 +95,9 @@ fn main() {
                     e.0 += 1; // canonical surface literally present (already lowercased)
                 }
             }
+        }
+        for (_pos, name) in parser::named_entities(&toks) {
+            *name_freq.entry(name).or_default() += 1;
         }
         let structure = parser::parse(&toks); // FSM → SPO
         for t in &structure.triples {
@@ -308,6 +318,23 @@ fn main() {
             "(none)".into()
         } else {
             sinkline
+        }
+    );
+    let mut names: Vec<(&String, usize)> = name_freq.iter().map(|(w, n)| (w, *n)).collect();
+    names.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+    let nameline = names
+        .iter()
+        .take(6)
+        .map(|(w, n)| format!("{w}×{n}"))
+        .collect::<Vec<_>>()
+        .join("  ");
+    println!(
+        "names        : {} named-entity types (capitalized mid-sentence, no lemma collapse); top: {}",
+        names.len(),
+        if nameline.is_empty() {
+            "(none)".into()
+        } else {
+            nameline
         }
     );
     println!(
