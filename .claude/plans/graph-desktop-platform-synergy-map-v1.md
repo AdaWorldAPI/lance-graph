@@ -44,20 +44,50 @@
   `lance_graph_contract::kanban` directly (§6 below). Treat the S00-S07
   "external, design-ref only" verdict for execution orchestration as
   **superseded** by this map's §6.
-- **External reference repos — proxy-blocked this session** (403, uniform,
-  session GitHub allowlist — `"Use add_repo to request access"`; the outer
-  TLS `CONNECT` succeeds, the block is the proxy's own JSON, not a
-  GitHub-level 404): `AdaWorldAPI/stockfish-rs`,
-  `automataIA/{graphrag-rs, graph-librarian-rs, wasm-typst-studio-rs,
-  lodviz-rs, dashboard-studio-rs, agentic-graphrag-rl-trainer}`.
-  **All eight already have prior receipts in SYNERGY-MAP-S00-S07.md §4.C/G**
-  (stockfish-rs graded SOLID at pinned tip `f3f728a`; the six automataIA repos
-  profiled with explicit REUSE/REJECT verdicts, self-flagged as
-  "README-level, not proven"). This map carries those forward rather than
-  re-deriving; **re-verify against current tips once `add_repo` unblocks them**
-  — do not treat 2026-07-16 receipts as permanently current.
+- **The `automataIA/*` repos are scoped to ONE thing (operator ruling,
+  2026-07-19): a learning reference for the browser client hardware-acceleration
+  layer — NOT an IR/backend source.** They were a ChatGPT-master-prompt artifact
+  and are **not** dependencies; the IR/retrieval/package substrate is **our own
+  OGAR transpiler sink-in** (scope box below), never those repos — this narrows
+  SYNERGY-MAP-S00-S07 §4.G's broad REUSE treatment. **What they ARE good for:**
+  their "army of wasm + WebGL hardware acceleration" is the reference to *learn
+  the client acceleration layer from* — the wgpu / WebGL2 / wasm rendering that
+  drives `a2ui-paint` (the GPU tier over `PaintLayout`) and the `FieldviewClient`
+  browser tier, i.e. how to hardware-accelerate the ClassView / FieldMask /
+  WideFieldMask-addressed, askama/ERB-templated fieldview surface locally. Most
+  relevant for that lens: `lodviz-rs` (native/wasm algo-core split + LOD),
+  `wasm-typst-studio-rs` (persistent wasm render session), `dashboard-studio-rs`
+  (wasm dashboard rendering). Pull the *pattern*, not the code; re-clone on demand
+  when the a2ui-paint client-acceleration gate (§4) is worked, not before.
+  (`stockfish-rs` remains a real AdaWorldAPI repo with a prior S00-S07 receipt,
+  not part of *this* PoC.)
 - **Push scope this session:** lance-graph only. OGAR and a2ui-rs are
   sibling-session arcs — findings below are surfaced, not acted on.
+
+> ### Scope box — what this program actually is (operator, 2026-07-19)
+>
+> **The IR substrate is our own: OGAR's transpiler sink-in substrate.** Not
+> external references. Applications become semantic graph packages by being
+> **transpiled into the OGAR IR** (`ogar-from-{ruff,schema,rails,docv1}` →
+> `ogar-vocab` Class/ActionDef + `ogar-doc-ir` + the codebook + classid-keyed
+> adapters), then projected through the graph-desktop loop. The IR-bundle /
+> lazy-loading / application-package rows in §2.4/§2.5 are all this one
+> substrate, not a thing to source elsewhere.
+>
+> **The concrete target: "Odoo-rs at the cost of a ~2 MB import."** Import an
+> Odoo-shaped app's model definitions (a small import, not a port), transpile
+> them into the OGAR IR, and get a running Rust ERP *projected as a graph
+> desktop* — the application-store vision (§3/§2.5) realized by transcode, not
+> reimplementation. Prior art already in-tree: `ogar-from-rails`,
+> `lance-graph-ontology/src/odoo_blueprint/`, the Odoo `PortSpec` (`0x0002`),
+> `ogar-adapter-*`.
+>
+> **The main focus is the proof-of-concept of the architecture** — not
+> exhaustive capability mapping. The map below exists to show the PoC is a
+> *wiring* of things that already exist (the P-REHOST Citrix loop + the OGAR
+> transpiler + the projection loop), and to name the few genuinely-missing
+> seams that the PoC must cross. Read the gates (§4) as "what the PoC needs,"
+> and everything marked MISSING/PROPOSED as "the PoC's actual build surface."
 
 ---
 
@@ -118,14 +148,21 @@ Proof · Consumer · Next gate.
 
 ### 2.4 State & transactions
 
+**Zero-copy invariant (whole substrate, read every row below through it):** every
+`SoaEnvelope` is zero-copy from creation to Lance tombstone — Lance's columnar I/O
+writes the in-place SoA LE bytes; **nothing is serialized between mailboxes**
+(`docs/architecture/soa-three-tier-model.md`). So "transaction/commit" here is
+*not* a serialize-then-CAS protocol; it is an in-place batch writer + Lance
+version + temporal deinterlace.
+
 | Capability | Existing impl | Status | Owner | Reuse decision | Missing seam | Proof |
 |---|---|---|---|---|---|---|
 | Canonical node identity (NodeGuid/EdgeBlock/NodeRow, 16\|16\|480) | `lance-graph-contract/src/canonical_node.rs` (3094 LOC), V3 4+12 facet, `mint_for`/`TailVariant`/`classid_read_mode` | SOLID | lance-graph-contract | REUSE | — | Const size asserts, `classid_scan.rs` adoption monitor |
 | SoaEnvelope / LE contract / MailboxSoA | `soa_envelope.rs` (498 LOC), `ENVELOPE_LAYOUT_VERSION=2`, `verify_layout` | SOLID | lance-graph-contract | REUSE | — | `.claude/v3/soa_layout/le-contract.md` (operator-locked) |
 | Lance versions as temporal stream | `lance-graph-planner/src/temporal.rs` (`QueryReference::at`, `deinterlace`); contract mirror `temporal_pov.rs` | SOLID (stream-side migration itself is probe-gated: D-MTS-1..3, per lance-graph CLAUDE.md ruling `E-MARKOV-TEMPORAL-STREAM-1`) | lance-graph-planner | REUSE | The VSA-to-stream cutover (D-MTS-1) is Queued, not this program's concern directly | 663-LOC file |
-| **Graph transaction / commit** | `graph/versioned.rs::VersionedGraph` (`commit_encounter_round`, `at_version`, `diff`, `checkout_version`) — this **is** real Lance-version wiring, not a stub. Separately: `contract/transaction/{Interactive,Bulk,Periodisch}` are typed transaction **contexts**, not a commit protocol | **SHAPED — precise gap, not absent**: no `expected_version`/CAS optimistic-concurrency API on graph writes anywhere; nodes and edges are **separate Lance datasets** checked out pairwise in `diff` — no multi-dataset atomic commit | lance-graph | EXTEND | **This is the master prompt §6 "Transaction requirements" gap** (optimistic version checks, idempotency keys, outbox pattern) — none of that exists at the graph-commit layer today, only per-action idempotency (`action.rs:204 idempotency_key`) | `VersionedGraph` tests exist; no CAS test exists because there's no CAS |
+| **Graph transaction / commit** | The commit path is the **zero-copy ahead-firing batch writer** `lance-graph-planner/src/batch_writer.rs::BatchWriter<P>` (payload-generic — never inspects `P`, DTO purity; `cast(on_behalf: MailboxId, moves, payload)` write-on-behalf + W1c `resolve_owner` delegation cache), which reads via `temporal.rs` `QueryReference::at` + `deinterlace` and persists through lance `=7.0.0` / lancedb `=0.30.0` columnar I/O, in place. Plus `graph/versioned.rs::VersionedGraph` (`commit_encounter_round`, `at_version`, `diff`) for the Lance-version layer; `contract/transaction/{Interactive,Bulk,Periodisch}` are the typed tx contexts | **PROBE-GREEN** (batch_writer 4 tests + W1 probes; VersionedGraph tests). The earlier "missing `expected_version`/CAS" read is **largely moot by design**: writes are **single-owner** (mailbox-as-owner, supervisor sole mutator), so there are no concurrent writers to the same node to reconcile | lance-graph | REUSE | To *verify*, not build: confirm CAS is unnecessary under single-owner ownership (add optimistic-concurrency only if multi-owner writes are ever introduced). The one genuine open atomicity question is cross-dataset (nodes+edges checked out pairwise in `diff`) | `batch_writer.rs` 4 tests; `VersionedGraph` tests; zero-copy per `soa-three-tier-model.md` |
 | Idempotency (per-action) | `contract/action.rs:204` | SOLID at the action level | lance-graph-contract | REUSE | Doesn't compose into a graph-commit-level idempotency guarantee | — |
-| Policy checkpoints / RBAC | `lance-graph-rbac`: `Policy`, `smb_policy()` factory, `authorize_scoped`, `ClassGrants` | SOLID | lance-graph-rbac | REUSE | **`medcare_healthcare_policy` does NOT live in lance-graph** (verified: zero hits) — it's in MedCare-rs's own `medcare-rbac::policy` crate, consumed by `medcare-realtime::gate`. The shipped upstream precedent factory is `smb_policy()` only | `medcare-realtime/src/stack.rs:48,149` | When platform-izing RBAC, decide: does every domain repo keep its own policy factory (current pattern) or does a platform capability composer (§2.5) subsume them? |
+| Policy checkpoints / RBAC | `lance-graph-rbac`: `Policy`, `smb_policy()` factory, `authorize_scoped`, `ClassGrants` | SOLID | lance-graph-rbac | REUSE | **`medcare_healthcare_policy` does NOT live in lance-graph** (verified: zero hits) — it's in MedCare-rs's own `medcare-rbac::policy` crate, consumed by `medcare-realtime::gate`. The shipped upstream precedent factory is `smb_policy()` only | `medcare-realtime/src/stack.rs:48,149` — open Q when platform-izing: keep per-domain policy factories (current) vs a platform capability composer (§2.5) |
 | DTO persistence | `lance-graph-callcenter::{ontology_dto::OntologyDto, unified_bridge::UnifiedBridge}` | SOLID | lance-graph-callcenter | REUSE | — | — |
 | Audit / witness | `callcenter::audit_sink::{AuditSink trait, JsonlSink, LanceSink}` + `unified_audit::UnifiedAuditEvent` + merkle chain | SOLID, **but not contract-side** — MedCare-rs's own CLAUDE.md commitment 7 explicitly forbids `JsonlAuditSink`/`with_jsonl_audit` as sanctioned surfaces ("legacy ship-logs-to-Splunk pattern"), yet both exist in callcenter today | lance-graph-callcenter | **CONFLICT TO RESOLVE, not just adapt** — the contract crate has `WitnessEntry`/`WitnessTable<64>` (zero-dep) but the typed `AuditSink`/`UnifiedAuditEvent` pair a consumer would want without pulling callcenter has no contract-side home | — | **Also found: two separate `AuditSink` trait definitions coexist** (`audit_sink/mod.rs:46` and `audit.rs:70`) despite PR #366 claiming unification — verify before consuming either |
 | IR bundles / lazy loading / content-addressed artifacts | Nearest: `ogar-from-ruff/examples/compile_corpus.rs` (gz bundles, example-tier only); the **lossless-DO rule** in `ogar-from-schema/src/do_arm.rs` *mandates* content-addressed action bodies but ships no hashing code — `body_source` stays `None` | **PROPOSED** (doctrine, no code) | OGAR (doctrine) / lance-graph (storage, if built) | **NEW_REQUIRED** | The content-hash store + lazy body resolution doesn't exist anywhere | — |
@@ -138,7 +175,7 @@ Proof · Consumer · Next gate.
 | Application manifest / codebook digest | `OGAR/ogar-vocab/src/app.rs::render_classid` (canon-high `(concept<<16)\|prefix`), `PortSpec` trait (`APP_PREFIX`, `classview()`, `aliases()`), `docs/APP-CLASS-CODEBOOK-LAYOUT.md` (SPEC status) | SOLID (registry) / **MISSING (signed manifest)** | OGAR | REUSE registry, **NEW_REQUIRED** signing | Zero hits for sha256/digest/signature anywhere in OGAR crate code — the "signed package" the master prompt wants doesn't exist as an artifact, only as codebook-registration doctrine |
 | Capability registration | `ogar-vocab/src/capability_registry.rs::{CapabilityRegistration, verify_registration, RegistrationDrift, resolve_hotplug}` | SOLID (coverage/registration) / **PROPOSED (grants)** | OGAR (registration) / lance-graph (grants, per RBAC retype pending) | REUSE registration | This is coverage tracking (declared capability → consumer arm → classid activated), not per-tenant capability **grants** — the master prompt's `GrantApplicationCapability`/`RevokeApplicationCapability` operations don't exist |
 | Package catalogue / install / migration ops | — | **MISSING**, entirely — no `PublishApplication`/`InstallApplication`/`ApplicationMigrationTenant` anywhere | none | **NEW_REQUIRED** | Whole §3 of the master prompt is greenfield |
-| First golden application (Patient projection) | MedCare-rs: `MedcareClassView::for_patient` (concept 0x0901) consumed by 5 view modules (`views/{wartezimmer,vital,lab,sono,anamnese}.rs`); `patient_projection.generated.rs` (live codegen'd `From<PatientRow>`); **`tests/p_rehost_full.rs` — merged PR #217** — the real a2ui-server + a2ui-wasm FieldviewClient + a2ui-paint driven against a real harvested screen (`uc_patfile_sub_diagnosis`), sealed both ways, painted to real PNG pixels, pixel-click resolved by address | **SOLID** — this is the furthest-along concrete slice of the whole master prompt, already merged | MedCare-rs | REUSE as the reference vertical | Feature-gated `p-rehost`, off by default — not yet a "real installed application" in the package-store sense (no manifest, no install step, it's a dev-dependency test) | Use this exact slice as the S07-style golden vertical for the platform's first `InstallApplication` proof |
+| First golden application (Patient projection) | MedCare-rs: `MedcareClassView::for_patient` (concept 0x0901) consumed by 5 view modules (`views/{wartezimmer,vital,lab,sono,anamnese}.rs`); `patient_projection.generated.rs` (live codegen'd `From<PatientRow>`); **`tests/p_rehost_full.rs` — merged PR #217** — the real a2ui-server + a2ui-wasm FieldviewClient + a2ui-paint driven against a real harvested screen (`uc_patfile_sub_diagnosis`), sealed both ways, painted to real PNG pixels, pixel-click resolved by address | **SOLID** — this is the furthest-along concrete slice of the whole master prompt, already merged | MedCare-rs | REUSE as the reference vertical | Feature-gated `p-rehost`, off by default — not yet a "real installed application" in the package-store sense (no manifest, no install step, it's a dev-dependency test). Use this exact slice as the S07-style golden vertical for the platform's first `InstallApplication` proof |
 
 ### 2.6 Memory & reasoning
 
@@ -148,31 +185,36 @@ this session's independent lance-graph mapper with zero contradiction:
 | Capability | Status | Notes |
 |---|---|---|
 | AriGraph episodes / SPO / TripletGraph | SOLID | RRF, PPR/HippoRAG, Leiden, BM25, chained episodic search all landed reading the same `TripletGraph` — no fork, no relationship table |
-| NARS truth + revision | SOLID, **but triplicated**: canonical `contract::crystal::TruthValue`, plus duplicates in `holograph/src/width_16k/schema.rs:104` and `lance-graph-arm-discovery/src/translator.rs:61` — REUSE canonical, do not consume the other two |
-| Palette256 / CAM-PQ | SOLID — `bgz17` + `ndarray` codec + `cognitive_palette` 226-atom codebook |
-| Retrieval trace / explainability | **MISSING** — S00-S07 names this exact gap (`RetrievalHit` explanation record) independently; do not re-scope, inherit their S03 |
-| Evidence address | MISSING — see §2.1 above, same finding as S00-S07 §6.2, inherited not re-derived |
-| Episodic-witness tenant | SHAPED/reserved — 292 B headroom in the 480-B slab, `EpisodicWitness64` deferred accessor named but not a live column. **Note:** S00-S07 flags the doc `tenants.md:41` ("328 B reserved") as stale against live code (292 B) — re-check against `canonical_node.rs`, not the doc, before citing a number |
+| NARS truth + revision | SOLID (triplicated) | canonical `contract::crystal::TruthValue`; duplicates in `holograph/src/width_16k/schema.rs:104` + `lance-graph-arm-discovery/src/translator.rs:61` — REUSE canonical, do not consume the other two |
+| Palette256 / CAM-PQ | SOLID | `bgz17` + `ndarray` codec + `cognitive_palette` 226-atom codebook |
+| Retrieval trace / explainability | MISSING | S00-S07 names this exact gap (`RetrievalHit` explanation record) independently; do not re-scope, inherit their S03 |
+| Evidence address | MISSING | see §2.1 above, same finding as S00-S07 §6.2, inherited not re-derived |
+| Episodic-witness tenant | SHAPED/reserved | 292 B headroom in the 480-B slab, `EpisodicWitness64` deferred accessor named but not a live column. S00-S07 flags `tenants.md:41` ("328 B reserved") as stale vs live code (292 B) — re-check `canonical_node.rs`, not the doc, before citing a number |
 
 ---
 
 ## 3. Golden-application slice — status against the master prompt's §3 example flow
 
-```
+```text
 package Patient application     → MISSING (no manifest/package artifact exists)
   → install into test tenant    → MISSING (no InstallApplication op)
   → launch                      → SOLID (Session::establish)
   → render Patient list/detail  → SOLID (MedcareClassView::for_patient, PR #217)
   → invoke one real action      → SOLID (P-REHOST-full: real ActionDef, real predicate resolve)
-  → commit state                → SHAPED (Lance version bump exists; no CAS/expected_version)
+  → commit state                → PROBE-GREEN (zero-copy BatchWriter + Lance version +
+                                   temporal deinterlace; CAS moot under single-owner writes — §2.4)
   → receive one minimal delta   → SOLID (NodeDelta, RBAC-projected, sealed, painted to pixels)
 ```
 
-**Reading:** five of seven steps are already SOLID, on a merged PR, in this
-exact repo, as of today. The two gaps — a real package/install step, and a
-CAS-checked commit — are also the two gaps independently surfaced in §2.4/§2.5
-above. This narrows the whole platform program's Phase-1 work to those two
-seams plus the projection-dependency index (§2.1), not a from-scratch build.
+**Reading:** **four of seven steps are SOLID** (launch/render/invoke/delta), on a
+merged PR, in this exact repo, as of today; `commit state` is PROBE-GREEN (the
+zero-copy batch writer exists and is tested, just not exercised end-to-end in the
+golden slice). The two genuinely-absent steps — a real package/install step
+(MISSING) — are also the gaps independently surfaced in §2.5. This narrows the
+platform program's Phase-1 work to the package/install seam plus the
+projection-dependency index (§2.1), not a from-scratch build. (Corrected from an
+earlier "five of seven SOLID" miscount — `commit` is PROBE-GREEN, not SOLID —
+flagged independently by Codex and CodeRabbit on PR #763.)
 
 ---
 
@@ -185,9 +227,14 @@ Ordered; each is a falsifiable probe, not a synthesis exercise.
    Falsifier: one real MedCare write (e.g. diagnosis edit) produces the correct
    minimal reproject set without a full-screen resend. This is the cleanest
    net-new brick two independent mappers converged on without prompting.
-2. **Graph-commit CAS.** Add `expected_version` + idempotency-key checking to
-   `VersionedGraph::commit_encounter_round` (or a wrapper). Falsifier: two
-   concurrent writers to the same node, one must lose deterministically.
+2. **Verify commit CAS is unnecessary (do NOT build it by default).** The commit
+   path is already the zero-copy single-owner `BatchWriter` + Lance version +
+   temporal deinterlace (§2.4). Falsifier: exhibit any code path where two owners
+   can write the same node concurrently. If none exists (expected, given
+   mailbox-as-owner + supervisor sole-mutator), CAS/`expected_version` is moot and
+   this gate closes GREEN with no code. Only if a multi-owner write path is found
+   does optimistic-concurrency become real work. The one residual open question is
+   cross-dataset (nodes+edges) atomicity across the pairwise `diff`.
 3. **Signed package manifest (minimal).** One `ApplicationManifest` +
    `package_digest` + `InstallApplication` op, exercised against the P-REHOST
    Patient slice as the first golden package. Falsifier: install → launch →
@@ -202,6 +249,18 @@ Ordered; each is a falsifiable probe, not a synthesis exercise.
    references it.
 6. **ClassId u16/u32 unification** — before a package manifest or capability
    grant type references `ClassId`, pick one width; both exist today.
+7. **Client hardware-acceleration layer (the browser last-mile).** `a2ui-paint`
+   today is layout + headless raster + a headless wgpu rect-fill (no glyphs, no
+   windowed present); the PoC needs the real browser tier — **wgpu / WebGL2 +
+   wasm** rendering the ClassView/FieldMask/WideFieldMask-addressed,
+   askama-templated fieldview surface on the client's own silicon (the "pixels
+   on the client, address on the wire" half of the Citrix-via-graph thesis).
+   Falsifier: one real harvested screen painted to a live browser canvas via
+   wgpu, with a pixel click resolving to an ordinal address (the browser-native
+   extension of the merged `p_rehost_full.rs` loop). **Learning reference (not a
+   dependency):** the `automataIA/*` wasm+WebGL acceleration patterns — pull the
+   technique, keep the substrate ours. This is the gate the operator elevated as
+   a first-class PoC concern (2026-07-19).
 
 ---
 
