@@ -86,6 +86,17 @@ jobs:
       #   gate it explicitly (same posture as the contract crate) so it can't regress.
       - name: Clippy deepnsm (mandatory)
         run: cargo clippy --manifest-path crates/deepnsm/Cargo.toml --all-targets -- -D warnings
+      # Tier B (advisory until incrementally cleaned, non-gating): bgz-tensor is
+      # a workspace-EXCLUDED codec crate that was never clippy-gated, so it
+      # carries pre-existing doc-lint debt (~9 `doc_lazy_continuation` in
+      # adaptive_codec.rs — TD-BGZ-TENSOR-CLIPPY, owned by the introducing
+      # author per the no-auto-fix rule above). Run it advisory so the NEW
+      # `morton_cascade` module (which IS clippy-clean) is exercised and its
+      # debt is visible, without gating #773 on unrelated pre-existing lints.
+      # Promote to mandatory once the adaptive_codec.rs debt is paid down.
+      - name: Clippy bgz-tensor (advisory)
+        continue-on-error: true
+        run: cargo clippy --manifest-path crates/bgz-tensor/Cargo.toml --all-targets -- -D warnings
 
   format:
     runs-on: ubuntu-24.04

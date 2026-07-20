@@ -135,6 +135,15 @@ jobs:
       # dev-dep, no lance/datafusion.
       - name: Run supervisor tests (W2b real-owner probes)
         run: cargo test --manifest-path crates/lance-graph-supervisor/Cargo.toml --features supervisor
+      # bgz-tensor: workspace-EXCLUDED metric-algebraic codec crate (deps the
+      # ndarray sibling checked out above + in-repo holograph). None of the
+      # steps above reach it, so its 207 lib tests — including the V3
+      # `morton_cascade` Fisher-z compute (E-MORTON-CASCADE-V3-1) — only ever
+      # ran on a developer machine. A green CI that never built the new module
+      # is exactly the "blind gate" this repo has repeatedly closed
+      # (deepnsm / supervisor / ogar above). One scoped step arms it. Gating.
+      - name: Run bgz-tensor tests (workspace-excluded, ndarray sibling)
+        run: cargo test --manifest-path crates/bgz-tensor/Cargo.toml --lib
 
   test-with-coverage:
     runs-on: ubuntu-24.04
