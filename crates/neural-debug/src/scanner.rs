@@ -337,6 +337,114 @@ fn detect_nan_risk(body: &str, return_type: &str) -> bool {
     (has_division && !has_nan_guard) || has_nan_literal
 }
 
+/// A call-site of the deprecated `CausalEdge64` v1 inference-mantissa accessors —
+/// the **bit-49 disunification**: consumers reading `inference_type()` (v1 3-bit
+/// unsigned, bits 46-48) instead of the unified `inference_mantissa()` +
+/// `InferenceType::from_mantissa()` (v2 4-bit SIGNED mantissa, sign at bit 49).
+/// `#[allow(deprecated)]` silences the *compiler* warning but the SCHEMA stays
+/// un-unified across consuming crates.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LegacyInferenceHit {
+    pub repo: String,
+    pub file: String,
+    pub line: u32,
+    /// The receiver token before the call (e.g. `edge`, `self`) — lets the
+    /// reader distinguish a real `CausalEdge64` call from a same-named method on
+    /// another type (`PearlJunction::inference_type`, etc.).
+    pub receiver: String,
+    /// `inference_type` or `set_inference_type`.
+    pub method: String,
+    /// Whether an `#[allow(deprecated)]` appears in the preceding 8 lines
+    /// (silenced-but-still-disunified — the case the operator flagged).
+    pub silenced: bool,
+}
+
+/// Scan the configured repos for the bit-49 `CausalEdge64` inference-mantissa
+/// disunification. Heuristic (call-site regex, like the stub/NaN detectors):
+/// it flags every `<recv>.inference_type()` / `<recv>.set_inference_type(` and
+/// records the receiver so non-`CausalEdge64` false positives (e.g. a
+/// `PearlJunction::inference_type`) can be filtered. The definition sites
+/// (`pub fn inference_type`) do not match — the leading `.` requires a receiver.
+pub fn scan_legacy_inference(config: &ScanConfig) -> Vec<LegacyInferenceHit> {
+    let mut hits = Vec::new();
+    for (repo_name, repo_path) in &config.repos {
+        for entry in WalkDir::new(repo_path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_type().is_file()
+                    && e.path().extension().is_some_and(|x| x == "rs")
+                    && !config
+                        .skip_dirs
+                        .iter()
+                        .any(|d| e.path().components().any(|c| c.as_os_str() == d.as_str()))
+            })
+        {
+            let Ok(content) = std::fs::read_to_string(entry.path()) else {
+                continue;
+            };
+            let rel = entry
+                .path()
+                .strip_prefix(repo_path)
+                .unwrap_or(entry.path())
+                .to_string_lossy()
+                .to_string();
+            hits.extend(find_legacy_inference_in_source(&content, repo_name, &rel));
+        }
+    }
+    hits
+}
+
+/// String-testable core of [`scan_legacy_inference`] (no filesystem).
+pub fn find_legacy_inference_in_source(
+    content: &str,
+    repo: &str,
+    file: &str,
+) -> Vec<LegacyInferenceHit> {
+    // `<receiver>.(inference_type|set_inference_type)(` — the leading receiver
+    // token excludes `pub fn inference_type(` definitions (no `.`).
+    let re = Regex::new(r"(\w+)\.(inference_type|set_inference_type)\s*\(").unwrap();
+    let lines: Vec<&str> = content.lines().collect();
+    let mut hits = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("//") || trimmed.starts_with("///") || trimmed.starts_with("*") {
+            continue; // comment / doc — not a call site
+        }
+        if let Some(cap) = re.captures(line) {
+            // silenced iff an `#[allow(deprecated)]` sits above this call WITHIN
+            // the same function — scan backward, stopping at a function boundary
+            // (a `fn`/`pub fn` header or a `}` close) so the window never bleeds
+            // into a neighbouring function's attribute.
+            let lo = i.saturating_sub(8);
+            let mut silenced = false;
+            for j in (lo..i).rev() {
+                let l = lines[j].trim_start();
+                if l.starts_with("fn ")
+                    || l.starts_with("pub fn ")
+                    || l.starts_with("pub(crate) fn ")
+                    || l.starts_with('}')
+                {
+                    break; // function boundary — do not cross it
+                }
+                if l.contains("allow(deprecated)") {
+                    silenced = true;
+                    break;
+                }
+            }
+            hits.push(LegacyInferenceHit {
+                repo: repo.to_string(),
+                file: file.to_string(),
+                line: (i + 1) as u32,
+                receiver: cap.get(1).unwrap().as_str().to_string(),
+                method: cap.get(2).unwrap().as_str().to_string(),
+                silenced,
+            });
+        }
+    }
+    hits
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -389,5 +497,45 @@ pub fn healthy(x: i32) -> i32 {
         let fns = extract_functions(content, "test.rs", "test", "test_repo");
         assert_eq!(fns.len(), 1);
         assert_eq!(fns[0].state, NeuronState::Static);
+    }
+
+    #[test]
+    fn flags_bit49_deprecated_inference_callsites() {
+        let content = r#"
+fn from_causal_edge(&self, edge: CausalEdge64) -> SpoHead {
+    // silenced but still disunified:
+    #[allow(deprecated)]
+    let infer = edge.inference_type() as u8;
+    infer
+}
+fn other(&self, e: CausalEdge64) {
+    e.set_inference_type(InferenceType::Deduction);
+}
+// pub fn inference_type(self) -> InferenceType {  // definition, NOT a hit
+fn unified(&self, e: CausalEdge64) -> i8 {
+    e.inference_mantissa()  // the CORRECT unified read — must NOT be flagged
+}
+"#;
+        let hits = find_legacy_inference_in_source(content, "lance-graph", "nars_engine.rs");
+        // exactly two call-sites: edge.inference_type() and e.set_inference_type(
+        assert_eq!(
+            hits.len(),
+            2,
+            "should flag both deprecated accessors, not the definition or inference_mantissa"
+        );
+        let it = hits.iter().find(|h| h.method == "inference_type").unwrap();
+        assert_eq!(it.receiver, "edge");
+        assert!(
+            it.silenced,
+            "the #[allow(deprecated)] within 8 lines must mark it silenced"
+        );
+        let sit = hits
+            .iter()
+            .find(|h| h.method == "set_inference_type")
+            .unwrap();
+        assert_eq!(sit.receiver, "e");
+        assert!(!sit.silenced);
+        // the unified inference_mantissa() read is never a hit
+        assert!(hits.iter().all(|h| h.method != "inference_mantissa"));
     }
 }
