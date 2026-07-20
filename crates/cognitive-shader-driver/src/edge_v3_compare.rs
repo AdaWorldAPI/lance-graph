@@ -12,17 +12,30 @@
 //!      SPO dropped, resolved from the target node's CAM-PQ facet — syllogize
 //!      to the IDENTICAL conclusion as the v1 edges. The 24-bit in-edge SPO
 //!      was a pure duplicate (`E-CAUSALEDGE-V3-96-STAGED-1`).
-//!   2. **V3 recovers the temporal v2 silently drops.** The driver passes
-//!      `h.cycle_index` as `CausalEdge64::pack`'s `temporal` arg
-//!      (`driver.rs`, [5]), but under the v2 layout that write is a no-op
-//!      (`I-LEGACY-API-FEATURE-GATED` — the reclaimed bits are W-slot/lens).
-//!      That is exactly why `MailboxSoA` keeps a standalone `current_cycle`
-//!      column to compensate. `CausalEdgeV3`'s explicit TE byte carries the
-//!      cycle in the edge itself — so the standalone column becomes foldable.
+//!   2. **The v2 edge silently drops a temporal the driver computes; the V3
+//!      edge can carry a per-edge one.** The driver passes `h.cycle_index` as
+//!      `CausalEdge64::pack`'s `temporal` arg (`driver.rs`, [5]), but under
+//!      the v2 layout that write is a no-op (`I-LEGACY-API-FEATURE-GATED` —
+//!      the reclaimed bits are W-slot/lens). That drop is *why* `MailboxSoA`
+//!      keeps its own cycle bookkeeping. `CausalEdgeV3`'s TE byte carries a
+//!      **signed −128..+127 per-edge chain offset** in the edge itself.
+//!
+//! ### What TE is NOT (a width caveat that gates the cut-over)
+//!
+//! TE is an `i8` (this harness narrows further to 7 bits). It is a **relative
+//! chain offset**, NOT a replacement for `MailboxSoA`'s cycle columns:
+//! `current_cycle` is a mailbox-level **`u32`** clock and the per-row
+//! `temporal` stamp is **`[u64; N]`** — neither folds losslessly into a byte.
+//! So the eventual cut-over must NOT retire those columns into TE. If it wants
+//! the absolute cycle *in* the V3 register, that is a `u32` in the reserved
+//! `[8..12]` bytes — a real `ColumnDescriptor`/`ENVELOPE_LAYOUT_VERSION`
+//! decision — while TE stays the signed relative offset it is here. (Corrected
+//! per `v3-envelope-auditor`; the earlier "current_cycle becomes foldable"
+//! wording was wrong on width and would have invited a lossy truncation.)
 //!
 //! This is the wedge for the eventual `MailboxSoA` cut-over (its own gated
 //! PR): the harness proves the lift is thinking-preserving on real emission
-//! BEFORE any stored `edges_v3` column or `current_cycle` fold is proposed.
+//! BEFORE any stored `edges_v3` column is proposed.
 
 use causal_edge::edge::CausalEdge64;
 use causal_edge::CausalEdgeV3;
@@ -32,10 +45,11 @@ use causal_edge::CausalEdgeV3;
 /// dropped. `target` is the Lokal reference to the node whose 6×256² CAM-PQ
 /// facet IS this edge's SPO (the edge itself carries NO SPO bytes).
 ///
-/// `cycle_index` is folded to the signed nibble-free i8 TE range by taking the
-/// low 7 bits (0..=127); the driver already masks to 12 bits (`& 0xFFF`) and
-/// the mailbox's own `current_cycle` is the wider counter — TE here is the
-/// per-edge chain offset, not the global clock.
+/// `cycle_index` is narrowed to the low 7 bits (0..=127) to fit the signed i8
+/// TE byte. This is deliberately LOSSY: TE is a per-edge chain offset, not the
+/// global clock. The mailbox keeps the absolute counters (`current_cycle: u32`,
+/// per-row `temporal: [u64; N]`); those are NOT foldable into this byte and the
+/// cut-over must not try (see the module-level width caveat).
 pub fn lift_emitted(edge: CausalEdge64, target: u16, cycle_index: u16) -> CausalEdgeV3 {
     let mut v3 = CausalEdgeV3::from_v1(edge, target);
     v3.set_temporal((cycle_index & 0x7F) as i8);
@@ -157,6 +171,11 @@ mod tests {
             900,
         );
         // v2 drops temporal: the two edges are byte-identical (no temporal bits).
+        // This crate always builds the v2 layout — its `causal-edge` dep enables
+        // the default `causal-edge-v2-layout` feature and Cargo unification only
+        // ADDS features, so no build of `cognitive-shader-driver` can turn it off.
+        // The byte-identity is therefore an always-active invariant here; gate it
+        // only if this crate ever sets `default-features = false` on causal-edge.
         assert_eq!(
             e_early.0, e_late.0,
             "v2 CausalEdge64 must drop temporal (bits reclaimed); if this fails the layout changed"
