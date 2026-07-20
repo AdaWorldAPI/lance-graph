@@ -25,7 +25,17 @@
 //! CAM-PQ SPO disagrees with the edge — so the invariant is "node CAM-PQ == the
 //! edge's SPO", enforced by the shared codebook, not assumed.)
 //!
-//! ## Layout (96-bit payload; the 16-byte facet's `classid` is the node's key)
+//! ## Layout — a packed EDGE REGISTER, NOT a slot-pure §3 facet
+//!
+//! `CausalEdgeV3` is the V3-96 successor of the `MaterializedEdges` packed
+//! edge register (tenants.md §2 #2, which stores `CausalEdge64` as a packed
+//! register). Its field positions are hard-coded HERE, on purpose — it is an
+//! *edge register*, deliberately NOT one of the le-contract §3 L1–L8
+//! ClassView-selected facet payloads (`6×8:8` / `4×8:8:8` / …). Do not read
+//! this as a content-blind facet: it is a typed edge register whose carving is
+//! its own contract (the same way `CausalEdge64`'s u64 bit-layout is).
+//!
+//! Layout (96-bit register):
 //!
 //! ```text
 //! [0]     MO  freq  u8   (NARS frequency)
@@ -48,6 +58,11 @@ use crate::plasticity::PlasticityState;
 pub struct CausalEdgeV3 {
     payload: [u8; 12],
 }
+
+// The V3-96 register is EXACTLY 12 bytes (96 bits): `classid(4) | payload(12)`
+// = the canonical 16-byte facet, the payload half. A width drift here silently
+// corrupts every stored edge (I-LEGACY-API-FEATURE-GATED layout discipline).
+const _: () = assert!(core::mem::size_of::<CausalEdgeV3>() == 12);
 
 impl CausalEdgeV3 {
     /// Lift a v1 [`CausalEdge64`] to V3, DROPPING its 24-bit in-edge SPO and
@@ -83,7 +98,11 @@ impl CausalEdgeV3 {
         let mantissa = {
             let lo = self.payload[3] & 0x0F;
             // sign-extend the 4-bit signed mantissa
-            if lo >= 8 { lo as i8 - 16 } else { lo as i8 }
+            if lo >= 8 {
+                lo as i8 - 16
+            } else {
+                lo as i8
+            }
         };
         let inference = InferenceType::from_mantissa(mantissa);
         let plasticity = PlasticityState::from_bits((self.payload[3] >> 4) & 0b111);
@@ -113,7 +132,10 @@ impl CausalEdgeV3 {
 
     /// Set the nibble anaphora offset (−8..=7).
     pub fn set_anaphora(&mut self, offset: i8) {
-        debug_assert!((-8..=7).contains(&offset), "anaphora offset out of nibble range");
+        debug_assert!(
+            (-8..=7).contains(&offset),
+            "anaphora offset out of nibble range"
+        );
         self.payload[6] = (self.payload[6] & 0xF0) | ((offset as u8) & 0x0F);
     }
 
@@ -194,11 +216,18 @@ mod tests {
                     got.map(|s| s.conclusion),
                     "V3 reasoning diverged from V1 for a pair (SPO dedup not thinking-preserving)"
                 );
-                assert_eq!(want.map(|s| s.figure), got.map(|s| s.figure), "figure diverged");
+                assert_eq!(
+                    want.map(|s| s.figure),
+                    got.map(|s| s.figure),
+                    "figure diverged"
+                );
                 compared += 1;
             }
         }
-        assert!(compared >= 16, "expected >= 16 pair comparisons, ran {compared}");
+        assert!(
+            compared >= 16,
+            "expected >= 16 pair comparisons, ran {compared}"
+        );
     }
 
     /// The dedup invariant is CONDITIONAL: reasoning correctly DIVERGES if the
@@ -230,22 +259,75 @@ mod tests {
         let v3 = CausalEdgeV3::from_v1(e, 0x1234);
         // the node's CAM-PQ SPO facet (mock 6×(8:8) code)
         let spo_facet: [u8; 12] = core::array::from_fn(|i| e.s_idx().wrapping_add(i as u8 * 7));
-        assert_ne!(v3.to_le_bytes(), spo_facet, "edge payload equals SPO code (duplicated!)");
+        assert_ne!(
+            v3.to_le_bytes(),
+            spo_facet,
+            "edge payload equals SPO code (duplicated!)"
+        );
         // target round-trips
         assert_eq!(v3.target(), 0x1234);
     }
 
-    /// Field isolation: each setter touches only its own byte(s) (the
-    /// I-LEGACY-API-FEATURE-GATED discipline for a layout).
+    /// Field isolation matrix (the I-LEGACY-API-FEATURE-GATED discipline for a
+    /// layout): each setter, exercised from a FULLY NON-ZERO baseline, must
+    /// touch ONLY its own byte(s) and leave every other byte bit-identical.
+    /// A zeroed baseline can hide a setter that ORs into a foreign byte's set
+    /// bits, so the baseline is deliberately all-`0xAB` except where a field
+    /// setter is expected to write.
     #[test]
     fn v3_field_isolation() {
-        let mut e = CausalEdgeV3::default();
-        e.set_anaphora(-4);
-        // only byte 6 low nibble moved
+        // ── set_anaphora: only byte 6's LOW nibble may move ──
+        {
+            let mut e = CausalEdgeV3::from_le_bytes([0xABu8; 12]);
+            let before = e.to_le_bytes();
+            e.set_anaphora(-4);
+            let after = e.to_le_bytes();
+            for (i, (&b, &a)) in before.iter().zip(after.iter()).enumerate() {
+                if i == 6 {
+                    // low nibble becomes -4; high nibble (0xA) preserved
+                    assert_eq!(a, 0xA0 | ((-4i8 as u8) & 0x0F), "byte 6 wrong");
+                } else {
+                    assert_eq!(b, a, "set_anaphora corrupted byte {i}");
+                }
+            }
+            assert_eq!(e.anaphora(), Some(-4));
+        }
+
+        // ── set_temporal: only byte 7 may move ──
+        {
+            let mut e = CausalEdgeV3::from_le_bytes([0xABu8; 12]);
+            let before = e.to_le_bytes();
+            e.set_temporal(-9);
+            let after = e.to_le_bytes();
+            for (i, (&b, &a)) in before.iter().zip(after.iter()).enumerate() {
+                if i == 7 {
+                    assert_eq!(a, -9i8 as u8, "byte 7 (temporal) wrong");
+                } else {
+                    assert_eq!(b, a, "set_temporal corrupted byte {i}");
+                }
+            }
+            assert_eq!(e.temporal(), -9);
+        }
+
+        // ── the two setters compose without cross-contamination ──
+        {
+            let mut e = CausalEdgeV3::from_le_bytes([0xABu8; 12]);
+            e.set_anaphora(5);
+            e.set_temporal(-2);
+            assert_eq!(e.anaphora(), Some(5), "temporal write clobbered anaphora");
+            assert_eq!(e.temporal(), -2, "anaphora write clobbered temporal");
+        }
+
+        // ── from a zeroed base, set_anaphora writes exactly one nibble ──
+        let mut z = CausalEdgeV3::default();
+        z.set_anaphora(-4);
         let mut expect = [0u8; 12];
         expect[6] = (-4i8 as u8) & 0x0F;
-        assert_eq!(e.to_le_bytes(), expect, "set_anaphora touched a foreign byte");
-        assert_eq!(e.anaphora(), Some(-4));
+        assert_eq!(
+            z.to_le_bytes(),
+            expect,
+            "set_anaphora touched a foreign byte"
+        );
         // sentinel: 0 -> None
         assert_eq!(CausalEdgeV3::default().anaphora(), None);
     }
