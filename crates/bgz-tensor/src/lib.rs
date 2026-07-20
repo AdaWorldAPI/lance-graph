@@ -99,6 +99,11 @@ pub mod zipper;
 #[cfg(feature = "hydrate")]
 pub mod manifest;
 pub mod matryoshka;
+/// Morton-cascade inverse-pyramid Fisher-z reading over the V3 L4 palette tenant
+/// — the clean V3 thinking compute (v3) + the legacy V1 bare-index path (legacy)
+/// + LazyLock dispatch + compare. Replaces running cluttered V1 CausalEdge64
+/// over the V3 substrate. See `E-MORTON-CASCADE-V3-1`.
+pub mod morton_cascade;
 
 // ─── Re-exports ──────────────────────────────────────────────────────────────
 
