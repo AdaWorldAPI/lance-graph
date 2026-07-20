@@ -15,3 +15,7 @@ pub mod scanner;
 // consumers call `diag()` or `snapshot_rows()` to surface state.
 pub use diagnosis::NeuronState;
 pub use registry::{registry, RuntimeDiag, RuntimeRegistry};
+// Bit-49 disunification rule: flag consumers still on the deprecated
+// `CausalEdge64::inference_type()` (v1 3-bit read) instead of the unified
+// `inference_mantissa()` + `from_mantissa()` (v2 4-bit signed mantissa).
+pub use scanner::{find_legacy_inference_in_source, scan_legacy_inference, LegacyInferenceHit};
