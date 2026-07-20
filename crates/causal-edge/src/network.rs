@@ -208,7 +208,7 @@ impl CausalNetwork {
         result.set_frequency((f_sum / count as f32).min(1.0));
         // Counterfactual confidence is attenuated by how hypothetical it is
         result.set_confidence((c_sum / count as f32 * 0.8).min(1.0));
-        result.set_inference_type(InferenceType::Abduction); // counterfactual = abduction
+        result.set_inference(InferenceType::Abduction); // counterfactual = abduction
         result
     }
 

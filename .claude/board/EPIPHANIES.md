@@ -1,3 +1,19 @@
+## 2026-07-20 — E-CAUSALEDGE-BIT49-UNIFIED — the bit-49 inference-mantissa disunification is CLOSED: causal-edge exposes a canonical layout-agnostic `inference()`/`set_inference()`; every consumer migrated off the deprecated `inference_type()` + `#[allow(deprecated)]`
+
+**Status:** FINDING (built + tested; causal-edge green under BOTH v2-default AND v1 no-default, clippy-clean; planner nars_engine 19/19; p64-bridge clippy-clean under -D warnings). **Confidence:** High. Operator: *"causaledge64 always has a little endian schema warning around bit 49 about mantissa changes not unified across all consuming crates."* This is the FIX (complements the E-NEURAL-DEBUG-BIT49-RULE detector).
+
+**The root cause (re-grounded).** `inference_mantissa()` is **v2-only** (`#[cfg(feature = "causal-edge-v2-layout")]`), so consumers could NOT "just call inference_mantissa()" (breaks v1 builds). The deprecated `inference_type()` was actually the layout-agnostic accessor (v2: decode 4-bit signed mantissa incl. bit-49 sign via `from_mantissa`; v1: 3-bit read) — deprecated only as an API *nudge*, forcing every consumer to sprinkle `#[allow(deprecated)]`. THAT scattering is the "not unified across consuming crates" the operator named.
+
+**The unification.** Added a canonical, **non-deprecated** `CausalEdge64::inference()` + `set_inference()` (the same layout-branched body); `inference_type()`/`set_inference_type()` now DELEGATE to them (behaviourally identical, `inference_type` keeps its `#[deprecated]` as a back-compat shim). Migrated every real consumer onto the canonical accessor and dropped the now-unnecessary `#[allow(deprecated)]`:
+- `lance-graph-planner/src/cache/nars_engine.rs:526` (`from_causal_edge`, `#[allow(deprecated)]` removed + comment retrimmed) + the two round-trip test sites (removed the test's unnecessary allow);
+- `p64-bridge/src/lib.rs:63` (`edge_to_layer_mask`);
+- `causal-edge/src/network.rs:211` (`set_inference`);
+- `lance-graph/tests/intervene_counterfactual.rs:133,165`.
+
+**Not migrated (correctly):** `pearl_junction.rs` `inference_type()` is PearlJunction's OWN method (returns `Option<InferenceType>`), not CausalEdge64 — a false positive the neural-debug rule's receiver-token capture distinguishes. `temporal()` call-sites (nars_engine test, network.rs sort) are a SEPARATE deprecated-accessor concern (v2 reclaim zone), left under their `#[allow(deprecated)]` — out of scope for the bit-49 inference unification. After this, the E-NEURAL-DEBUG-BIT49-RULE scanner finds ZERO production `inference_type()` hits.
+
+**Cross-ref:** E-NEURAL-DEBUG-BIT49-RULE (the detector), I-LEGACY-API-FEATURE-GATED instance #2 (the original finding), `causal_edge::edge::{inference, set_inference, inference_type (deprecated shim), inference_mantissa (v2-only)}`.
+
 ## 2026-07-20 — E-NEURAL-DEBUG-BIT49-RULE — neural-debug scanner rule for the bit-49 CausalEdge64 inference-mantissa disunification (wiring increment B of the operator's 4-part selection)
 
 **Status:** FINDING (built + tested, clippy/fmt-clean). **Confidence:** High. Deliverable: `crates/neural-debug/src/scanner.rs` (`scan_legacy_inference` + `find_legacy_inference_in_source` + `LegacyInferenceHit`, exported from `lib.rs`). Operator: *"causaledge64 always has a little endian schema warning around bit 49 about mantissa changes not unified across all consuming crates"* + the 4-wiring selection (this is B).

@@ -130,7 +130,7 @@ fn causal_edge_intervention_roundtrip() {
         42,
     );
 
-    let decoded = edge.inference_type();
+    let decoded = edge.inference();
     assert_eq!(
         decoded,
         InferenceType::Intervention,
@@ -162,7 +162,7 @@ fn causal_edge_counterfactual_roundtrip() {
         99,
     );
 
-    let decoded = edge.inference_type();
+    let decoded = edge.inference();
     assert_eq!(
         decoded,
         InferenceType::Counterfactual,
