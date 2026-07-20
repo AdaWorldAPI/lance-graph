@@ -96,6 +96,10 @@ pub mod auto_style;
 pub(crate) mod backing;
 pub mod bindspace;
 pub mod driver;
+/// Compare-thinking harness: staged `CausalEdge64` → `CausalEdgeV3` parallel
+/// (additive, read-only; proves the SPO dedup is thinking-preserving on the
+/// driver's real emission recipe). See `E-CAUSALEDGE-V3-96-STAGED-1`.
+pub mod edge_v3_compare;
 pub mod engine_bridge;
 pub mod mailbox_soa;
 pub mod sigma_rosetta;
