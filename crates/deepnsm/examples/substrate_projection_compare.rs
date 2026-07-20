@@ -34,8 +34,10 @@
 //!      observed by the p64 matrix projection (same bytes, not two copies).
 //!   3. cascade↔attention resonance: the V3 HEEL bytes ARE p64's attention
 //!      seed row (the address is the compute seed).
-//!   4. amputation is real: p64-only cannot recover the classid route; V3-only
-//!      never materializes the attention row — only hybrid reads both.
+//!   4. the two readings are independently addressable on the shared bytes: a
+//!      value-body write moves its p64 matrix row but not the classid route,
+//!      and zeroing the classid drops routing to the default rung (compute and
+//!      address are orthogonal views of one backing array).
 //!   5. boundary cost = 0 bytes copied (the projections are reinterpret casts).
 //!
 //! ## Run
@@ -177,21 +179,47 @@ fn main() {
         fail.push("V3 HEEL is NOT p64's attention seed (address and compute seed diverged)".into());
     }
 
-    // 4. amputation is real (each single-wiring loses a capability):
-    //    - p64-only: given ONLY the 64×64 matrix contract, there is no
-    //      classid semantics — routing is unavailable (a matrix has no key).
-    //    - V3-only: given ONLY key/edges/value, the attention row is never
-    //      RUN (the bytes exist but the compute contract is not invoked).
-    //    We model "amputation" as: the capability requires reading the OTHER
-    //    projection's contract on the same bytes. Hybrid = read both.
-    let p64_only_can_route = false; // a bare matrix exposes no classid
-    let v3_only_runs_attention = false; // a bare key/value never calls p64_attention
-    let hybrid_does_both = node.v3_routes() && node.p64_attention(0, 1) <= 64;
-    if p64_only_can_route || v3_only_runs_attention || !hybrid_does_both {
-        fail.push(
-            "amputation model wrong: a single wiring should lose a capability, hybrid keep both"
-                .into(),
-        );
+    // 4. the two readings are INDEPENDENTLY ADDRESSABLE on the shared bytes.
+    //    (Replaces a prior vacuous gate that asserted hardcoded `false`
+    //    booleans and so could never fail — a KILL gate that cannot kill.)
+    //    Measured on a fresh node, each assertion can genuinely fail:
+    //      - a VALUE-body write moves its p64 matrix row (compute reads the
+    //        shared bytes) but does NOT disturb the classid route;
+    //      - zeroing the classid drops routing to the unrouted default rung
+    //        (the route is addressed by the key bytes, not the value body).
+    //    This is the real substrate property behind the "amputation" argument
+    //    in the table below: the compute reading and the address reading are
+    //    orthogonal views of one backing array.
+    {
+        let mut n = Node::new();
+        n.set_v3_classid(0x0202_0002);
+        for i in 0..480 {
+            n.set_v3_value_byte(i, 0x33);
+        }
+        let route_initial = n.v3_routes();
+        let vrow_before = n.p64_row(4); // row 4 == value bytes 0..8
+        n.set_v3_value_byte(2, 0xCC); // flip a value-body byte inside row 4
+        let vrow_after = n.p64_row(4);
+        let route_after_value = n.v3_routes();
+        n.set_v3_classid(0); // zero the routing key
+        let route_after_classid = n.v3_routes();
+
+        if vrow_before == vrow_after {
+            fail.push(
+                "value-body write did not change its p64 row (compute not on shared bytes)".into(),
+            );
+        }
+        if !route_initial || route_after_value != route_initial {
+            fail.push(
+                "value-body write disturbed the classid route (readings not independent)".into(),
+            );
+        }
+        if route_after_classid {
+            fail.push(
+                "zeroing classid did not fall to the unrouted default (route not key-addressed)"
+                    .into(),
+            );
+        }
     }
 
     // 5. boundary cost = 0 copied bytes: both projections borrow `self.bytes`
@@ -225,11 +253,11 @@ fn main() {
             "KILL GATES: all pass — the 512-byte node is SIMULTANEOUSLY a p64 64×64 attention"
         );
         println!("matrix AND a routable V3 key|edges|value facet; the boundary is a zero-copy");
-        println!("reinterpret (V3-value writes seen by p64; V3 HEEL == p64 attention seed); each");
+        println!("reinterpret (V3-value writes seen by p64; V3 HEEL == p64 attention seed); the");
+        println!("compute and address readings are independently addressable on the shared bytes.");
         println!(
-            "single wiring amputates a capability, hybrid keeps both. RESONATES: hybrid is the"
+            "RESONATES: hybrid is the substrate's native shape, not a bridge between two carriers."
         );
-        println!("substrate's native shape, not a bridge between two carriers.");
     } else {
         println!("KILL GATES FAILED:");
         for f in &fail {
