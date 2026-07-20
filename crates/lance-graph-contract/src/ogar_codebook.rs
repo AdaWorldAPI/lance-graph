@@ -507,6 +507,11 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("page_layout", 0x0807),
     ("page_image", 0x0808),
     ("ocr_renderer", 0x0809),
+    // document (0x080B) — the generic, source-agnostic document concept the
+    // OCR arc converges on: the reusable `ogar-doc-ir::DocIr` DTO produced by
+    // `tesseract-rs → doc.v1 → ogar-from-docv1 → DocIr → render`. Mirror of
+    // `ogar_vocab::class_ids::DOCUMENT`. 0x080A reserved.
+    ("document", 0x080B),
     // ── 0x09XX — Health domain (MedCare; 0x0901..0x0907 = OGIT
     // NTO/Healthcare promotion; 0x0908..0x090C = harvest-derived mints,
     // furnace-exam rounds 2 & 4 — no OGIT entity, no port alias yet;
