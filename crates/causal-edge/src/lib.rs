@@ -52,6 +52,7 @@
 //! Frozen planes are established clinical patterns.
 
 pub mod edge;
+pub mod edge_v3;
 pub mod layout;
 pub mod network;
 pub mod pearl;
@@ -63,6 +64,7 @@ pub mod tables;
 mod v2_layout_tests;
 
 pub use edge::CausalEdge64;
+pub use edge_v3::CausalEdgeV3;
 pub use pearl::CausalMask;
 pub use plasticity::PlasticityState;
 pub use syllogism::{Figure, Syllogism};
