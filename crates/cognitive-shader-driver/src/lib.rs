@@ -101,6 +101,13 @@ pub mod driver;
 /// driver's real emission recipe). See `E-CAUSALEDGE-V3-96-STAGED-1`.
 pub mod edge_v3_compare;
 pub mod engine_bridge;
+/// L4 morton-cascade read over a real `MailboxSoA` style lane — the V3
+/// thinking-compute wiring (M4/M14). Additive, read-only: reads the P4
+/// autopoiesis lane's 12-byte L4 register as a `morton_cascade` tenant and
+/// scores it through the Fisher-z pairwise distribution, replacing the
+/// cluttered V1 `CausalEdge64` read over the same substrate. Keeps the legacy
+/// bare-index path in parallel and compares. See `E-MORTON-CASCADE-V3-1`.
+pub mod l4_morton_compare;
 pub mod mailbox_soa;
 pub mod sigma_rosetta;
 

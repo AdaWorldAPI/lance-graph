@@ -40,6 +40,10 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 lance-graph-ontology = { path = "../lance-graph-ontology", default-features = false }
 p64-bridge            = { path = "../p64-bridge" }
 bgz17                 = { path = "../bgz17" }
+# V3 L4-tenant thinking compute: morton_cascade Fisher-z read over the P4
+# autopoiesis style lanes (12-byte L4 register). Replaces running the cluttered
+# V1 CausalEdge64 over the V3 substrate (E-MORTON-CASCADE-V3-1). Read-only.
+bgz-tensor            = { path = "../bgz-tensor" }
 causal-edge           = { path = "../causal-edge" }
 ndarray               = { path = "../../../ndarray", default-features = false, features = ["std", "hpc-extras"] }
 

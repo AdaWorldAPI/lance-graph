@@ -1570,6 +1570,7 @@ version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
  "base64",
+ "bgz-tensor",
  "bgz17",
  "bytemuck",
  "causal-edge",
