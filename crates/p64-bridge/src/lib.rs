@@ -60,7 +60,7 @@ pub fn edge_nars_f32(edge: &CausalEdge64) -> (f32, f32) {
 #[inline]
 pub fn edge_to_layer_mask(edge: &CausalEdge64) -> u8 {
     let causal = edge.causal_mask() as u8;
-    let infer = edge.inference_type() as u8;
+    let infer = edge.inference() as u8;
 
     let mut mask = 0u8;
 

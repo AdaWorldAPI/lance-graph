@@ -447,35 +447,18 @@ impl CausalEdge64 {
 
     // ─── Inference Type ─────────────────────────────────────────────
 
-    /// NARS inference type for this edge (v1 3-bit accessor).
-    ///
-    /// DEPRECATED since 0.2.0: In v2 layout, bits 46-49 hold a 4-bit SIGNED mantissa
-    /// (range −8..+7). This accessor reads only bits 46-48 and treats them as a 3-bit
-    /// unsigned value, which is correct for v1-written edges but WRONG for v2-written
-    /// edges where the mantissa sign bit lives in bit 49.
-    ///
-    /// Migration: use `inference_mantissa()` (feature `causal-edge-v2-layout`) and
-    /// `InferenceType::from_mantissa()` to convert. The mapping is documented in
-    /// pr-ce64-mb-2-causaledge64-v2.md §"Signed Mantissa Rationale".
-    #[deprecated(
-        since = "0.2.0",
-        note = "bits 46-49 now hold a 4-bit signed mantissa in v2 layout; \
-                use inference_mantissa() + InferenceType::from_mantissa() instead; \
-                see pr-ce64-mb-2-causaledge64-v2.md §\"Signed Mantissa Rationale\"."
-    )]
+    /// Canonical, layout-agnostic NARS inference read — the **unified accessor
+    /// every consumer should use** (the bit-49 unification). Under the v2 layout
+    /// it decodes the 4-bit SIGNED mantissa (bits 46-49) via `from_mantissa` (so
+    /// the sign at bit 49 that distinguishes e.g. Intervention `+6` from
+    /// Counterfactual `−6` is honoured); under v1 it reads the 3-bit field (bits
+    /// 46-48). `pack(X).inference()` round-trips to `X` for all enum variants on
+    /// both layouts. This is the non-deprecated successor to `inference_type()` —
+    /// call sites use this instead of `inference_type()` + `#[allow(deprecated)]`.
     #[inline(always)]
-    pub fn inference_type(self) -> InferenceType {
-        // v2: bits 46-49 hold a 4-bit signed mantissa. Route through from_mantissa
-        // so the v1 API contract is preserved semantically — pack(X).inference_type()
-        // round-trips to X for all v1 enum variants via the to_mantissa/from_mantissa
-        // pair (e.g. Intervention → +6 → Intervention, Counterfactual → −6 →
-        // Counterfactual, Abduction → −1 → Abduction). Reading the raw 3-bit field
-        // (the v1 layout) would silently swap variants under v2 because the
-        // discriminant numbering does not match the mantissa encoding.
+    pub fn inference(self) -> InferenceType {
         #[cfg(feature = "causal-edge-v2-layout")]
         {
-            // inference_mantissa() reads the 4-bit signed field via arithmetic shift
-            // sign-extension.
             let raw = ((self.0 >> INFER_SHIFT) & 0xF) as i8;
             let m = (raw << 4) >> 4; // sign-extend 4-bit → i8
             InferenceType::from_mantissa(m)
@@ -486,14 +469,29 @@ impl CausalEdge64 {
         }
     }
 
-    /// Set inference type.
+    /// NARS inference type for this edge (v1 3-bit accessor name).
     ///
-    /// **v2 behavior:** writes via `t.to_mantissa()` into the 4-bit signed field
-    /// (bits 46-49) so that `inference_type()` round-trips. Writing the raw v1
-    /// discriminant into 3 bits would silently corrupt the semantic (e.g.
-    /// Counterfactual=6 stored as +6 mantissa → from_mantissa(+6)=Intervention).
+    /// DEPRECATED since 0.2.0: use [`inference`](Self::inference) — the canonical
+    /// layout-agnostic accessor (v2 decodes the 4-bit signed mantissa incl. the
+    /// bit-49 sign; v1 reads the 3-bit field). This deprecated shim now DELEGATES
+    /// to `inference()`, so it is behaviourally identical; the deprecation remains
+    /// only as an API nudge to migrate call sites off the v1 name.
+    #[deprecated(
+        since = "0.2.0",
+        note = "use inference() — the canonical layout-agnostic accessor (v2 \
+                decodes the 4-bit signed mantissa incl. the bit-49 sign; v1 reads \
+                the 3-bit field); see pr-ce64-mb-2-causaledge64-v2.md."
+    )]
+    #[inline(always)]
+    pub fn inference_type(self) -> InferenceType {
+        self.inference()
+    }
+
+    /// Canonical inference write — the **unified setter** (bit-49). v2 writes the
+    /// 4-bit signed mantissa via `to_mantissa` (bits 46-49, sign at 49); v1 writes
+    /// the 3-bit field (bits 46-48). Round-trips with [`inference`](Self::inference).
     #[inline]
-    pub fn set_inference_type(&mut self, t: InferenceType) {
+    pub fn set_inference(&mut self, t: InferenceType) {
         #[cfg(feature = "causal-edge-v2-layout")]
         {
             let raw = (t.to_mantissa() as u8) as u64 & 0xF;
@@ -504,6 +502,13 @@ impl CausalEdge64 {
             self.0 = (self.0 & !(BITS3_MASK << INFER_SHIFT))
                 | (((t as u8 as u64) & BITS3_MASK) << INFER_SHIFT);
         }
+    }
+
+    /// Set inference type (v1 name). Delegates to the canonical
+    /// [`set_inference`](Self::set_inference) — behaviourally identical.
+    #[inline]
+    pub fn set_inference_type(&mut self, t: InferenceType) {
+        self.set_inference(t);
     }
 
     // ─── Plasticity ─────────────────────────────────────────────────

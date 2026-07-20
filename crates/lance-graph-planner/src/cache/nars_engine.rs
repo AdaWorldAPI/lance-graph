@@ -501,20 +501,15 @@ impl NarsEngine {
 
     /// Hot path: CausalEdge64 → SpoHead for local processing.
     //
-    // I-LEGACY-API-FEATURE-GATED — two deprecated accessors, handled differently:
-    //   * `inference_type()` is deprecated only as an API nudge but returns the
-    //     CORRECT value under the default `causal-edge-v2-layout` (it routes
-    //     internally through `InferenceType::from_mantissa(...)`, not the aliased
-    //     3-bit read) — so it is silenced with `#[allow(deprecated)]`.
-    //   * `temporal()` is NOT round-tripped. `causal-edge` defaults to
-    //     `causal-edge-v2-layout`, where bits 52-63 are RECLAIMED (W-slot / lens
-    //     / spare) and `temporal()` returns GARBAGE for v2 edges (edge.rs:551).
-    //     Copying it into `SpoHead.temporal` would carry an unspecified value.
-    //     Temporal causality is structural now (SpoWitnessChain chain-position /
-    //     AriGraph `Triplet.timestamp`, edge.rs L-2), so the field is the
-    //     documented `0` sentinel here — proven by
-    //     `from_causal_edge_temporal_is_v2_sentinel_not_reclaimed_bits`.
-    #[allow(deprecated)]
+    // Reads inference via the canonical layout-agnostic `inference()` accessor
+    // (the bit-49 unification) — v2 decodes the 4-bit signed mantissa (incl. the
+    // sign at bit 49), v1 reads the 3-bit field — so no `#[allow(deprecated)]` is
+    // needed here. `temporal` is NOT round-tripped: under the default
+    // `causal-edge-v2-layout` bits 52-63 are RECLAIMED (W-slot / lens / spare) and
+    // `temporal()` returns GARBAGE for v2 edges (edge.rs). Temporal causality is
+    // structural now (SpoWitnessChain chain-position / AriGraph `Triplet.timestamp`,
+    // edge.rs L-2), so the field is the documented `0` sentinel here — proven by
+    // `from_causal_edge_temporal_is_v2_sentinel_not_reclaimed_bits`.
     pub fn from_causal_edge(&self, edge: CausalEdge64) -> SpoHead {
         SpoHead {
             s_idx: edge.s_idx(),
@@ -523,7 +518,7 @@ impl NarsEngine {
             freq: edge.frequency_u8(),
             conf: edge.confidence_u8(),
             pearl: edge.causal_mask() as u8,
-            inference: edge.inference_type() as u8,
+            inference: edge.inference() as u8,
             // v2 sentinel — do NOT read the reclaimed bits 52-63 (see fn doc).
             temporal: 0,
         }
@@ -1014,7 +1009,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn test_to_causal_edge_maps_intervention_and_counterfactual() {
         let dist = SpoDistances::new_zero();
         let engine = NarsEngine::new(dist);
@@ -1044,12 +1038,12 @@ mod tests {
         let cf_edge = engine.to_causal_edge(&cf_head);
 
         assert_eq!(
-            int_edge.inference_type(),
+            int_edge.inference(),
             causal_edge::edge::InferenceType::Intervention,
             "SpoHead inference=7 should map to Intervention"
         );
         assert_eq!(
-            cf_edge.inference_type(),
+            cf_edge.inference(),
             causal_edge::edge::InferenceType::Counterfactual,
             "SpoHead inference=8 should map to Counterfactual"
         );
