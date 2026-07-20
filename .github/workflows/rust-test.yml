@@ -144,6 +144,14 @@ jobs:
       # (deepnsm / supervisor / ogar above). One scoped step arms it. Gating.
       - name: Run bgz-tensor tests (workspace-excluded, ndarray sibling)
         run: cargo test --manifest-path crates/bgz-tensor/Cargo.toml --lib
+      # cognitive-shader-driver: a workspace MEMBER, but every step above is
+      # manifest-path scoped to a specific crate, so NONE build or test it — its
+      # 112 lib tests (incl. the new L4 `l4_morton_compare` morton-cascade wiring,
+      # E-MORTON-CASCADE-DRIVER-WIRING-1) only ever ran on a developer machine.
+      # Same blind-gate class as bgz-tensor / deepnsm above. Builds against the
+      # ndarray + OGAR siblings + protoc already provisioned. Gating.
+      - name: Run cognitive-shader-driver lib tests
+        run: cargo test --manifest-path crates/cognitive-shader-driver/Cargo.toml --lib
 
   test-with-coverage:
     runs-on: ubuntu-24.04
