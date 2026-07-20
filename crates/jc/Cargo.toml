@@ -27,6 +27,11 @@ hambly-lyons = ["dep:sigker"]
 # Dev-only deps for cross-crate bridge examples (production stays zero-dep).
 [dev-dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
+# `substrate_compare` example only — the on-demand P64-vs-V3 comparison drives
+# the REAL Palette64 (compute) + NodeGuid (address) and records into the
+# neural-debug runtime registry. Dev-deps, so production JC stays zero-dep.
+p64 = { path = "../../../ndarray/crates/p64" }
+neural-debug = { path = "../neural-debug" }
 
 [[example]]
 name = "prove_it"
@@ -63,3 +68,6 @@ name = "ontology_locality_probe"
 
 [[example]]
 name = "style_table_agreement"
+
+[[example]]
+name = "substrate_compare"

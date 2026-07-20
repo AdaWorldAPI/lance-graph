@@ -20,11 +20,16 @@ jobs:
   prove:
     name: Five-Pillar Substrate Proof
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Clone AdaWorldAPI/OGAR as parent-level sibling (NO-PIN path deps)
         run: git clone --depth 1 https://github.com/AdaWorldAPI/OGAR ../OGAR
+      - name: Clone AdaWorldAPI/ndarray as parent-level sibling (NO-PIN path deps)
+        # The `substrate_compare` example dev-deps `p64` (ndarray/crates/p64) for
+        # the real compute arm; production JC stays zero-dep. Sibling-clone so the
+        # path resolves in CI, matching the OGAR pattern above.
+        run: git clone --depth 1 https://github.com/AdaWorldAPI/ndarray ../ndarray
       - name: Setup Rust
         run: |
           rustup toolchain install stable
@@ -37,3 +42,9 @@ jobs:
         run: |
           cargo run --manifest-path crates/jc/Cargo.toml --release --example prove_it
           echo "Exit code: $?"
+
+      - name: Run substrate_compare (on-demand P64-vs-V3 gap analysis; KILL gates)
+        # `cargo test` compiles examples but never RUNS their runtime gates, so
+        # execute the comparison here — it exits non-zero if the asymmetry (V3
+        # absorbs P64 at 0 new bytes vs P64 replicates V3 at 32) fails to certify.
+        run: cargo run --manifest-path crates/jc/Cargo.toml --example substrate_compare
