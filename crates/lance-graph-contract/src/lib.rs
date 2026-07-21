@@ -135,6 +135,7 @@ pub mod repository;
 pub mod savants;
 pub mod scenario;
 pub mod scheduler;
+pub mod selection;
 pub mod sensorium;
 pub mod sigma_propagation;
 pub mod sla;
@@ -142,6 +143,9 @@ pub mod soa_envelope;
 pub mod soa_graph;
 pub mod soa_view;
 pub mod splat;
+/// Standing-mask subscriptions (`dirty ∩ interest`) — one bitwise AND per
+/// write, no query re-execution. See module docs for the composition rule.
+pub mod standing_mask;
 /// D-V3-W3a — compiled-template live-step selector (`Template × StepMask`),
 /// sibling of `class_view::FieldMask`. Selection, never control flow.
 pub mod step_mask;
