@@ -244,6 +244,28 @@ of pairs below the counterfactual rung at ZERO separation cost (`auc_cascade
 > self-history, so the winning AUC partly measures autocorrelation, not the A1
 > episodic-witness counterfactual. Treat leg-1 as "the mechanism runs and the
 > economics are real," not "the counterfactual rung is validated."
+>
+> **✅ v5 RESULT (2026-07-21, same session — M1/M2/M3 all shipped).** The v5
+> probe fixes all three (frozen episodic-medoid witness; reverse-direction
+> control + `MARGIN_ORIENT` gate; p64 given the same wave). Outcome SPLITS the
+> two claims the plan always kept separate:
+> - **CORE standing-wave claim (§4) — GREEN, and now un-confounded.**
+>   `auc_wave 0.997`; gate 1 (vs single 0.878, +0.119), gate 2 (vs p64-*wave*
+>   0.500, +0.497 — M3 isolates width from wave), gate 4 (vs reverse 0.000,
+>   +0.997 — M2 *falsifies* "orientation is free" against a control), gate 3b
+>   (cascade 0.997) all pass as hard asserts. The counterfactual rung is now a
+>   contrast against a frozen `WitnessCorpus`-medoid, NOT B's autocorrelation.
+> - **§0.5 escalation-ECONOMICS sub-claim — KILLED at the registered floor.**
+>   Removing the lag-1 witness raised coincidental pairs' mid-rung persistence,
+>   dropping the pruning fraction 0.458 → **0.333 < 0.40** (gate 3a). Reported,
+>   NOT retuned (`MIN_PRUNED`/`THETA_ESCALATE`/fixture byte-identical). Part of
+>   v4's "cheap escalation" figure was a witness artifact. The cascade still
+>   PRESERVES separation (3b green); only the cheapness number failed.
+>
+> Net: leg-1's *standing-wave/orientation/width* claim is promoted from
+> PROVISIONAL to VALIDATED-IN-SCOPE (leg 1); the *escalation-economics* figure
+> is DEFERRED to its own follow-up (cascade redesign or a justified
+> re-registration), never carried as green. Board: `E-DCSW1-V5-SPLIT-VERDICT`.
 
 ## §6.5 Missed-tissue audit — what already ships (5-lens review, 2026-07-21)
 
