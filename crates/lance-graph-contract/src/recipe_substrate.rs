@@ -84,7 +84,7 @@ pub fn pair_similarity(a: (u8, u8), b: (u8, u8)) -> f32 {
 /// EXACTLY (the same property [`crate::cam::ScalarAdc`] proves for the 6×256
 /// code). This is the zero-dep scalar reference; ndarray supplies the trained
 /// codebook and the SIMD lookup.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct PairPalette {
     /// 256 centroids for the basin axis (byte 0).
     basin: Vec<Vec<f32>>,
@@ -92,6 +92,15 @@ pub struct PairPalette {
     identity: Vec<Vec<f32>>,
     /// Distance normalizer (max observed pair distance), so similarity ∈ [0,1].
     d_max: f32,
+}
+
+impl Default for PairPalette {
+    /// Route through [`PairPalette::new`] so the `d_max` clamp applies — a
+    /// derived `Default` would leave `d_max = 0.0`, making `similarity` divide
+    /// by zero and return `NaN` for every input.
+    fn default() -> Self {
+        Self::new(Vec::new(), Vec::new(), 1.0)
+    }
 }
 
 impl PairPalette {
@@ -115,6 +124,12 @@ impl PairPalette {
 
     /// Squared-L2 between the two reconstructed `(basin, identity)` points —
     /// the sum of the per-axis squared-L2s (additive decomposition).
+    ///
+    /// A byte that indexes past its axis codebook (a truncated/stale palette)
+    /// contributes `+∞`, NOT `0.0`: an absent centroid must read as
+    /// unreachable-far, never as a false exact-match (`0.0` is also the
+    /// distance between identical centroids). `similarity` then clamps the
+    /// `+∞` to `0.0` — "not similar", the honest signal for a shape mismatch.
     #[must_use]
     pub fn distance(&self, a: (u8, u8), b: (u8, u8)) -> f32 {
         let metric = crate::cam::AdcMetric::SquaredL2;
@@ -122,12 +137,12 @@ impl PairPalette {
             .basin
             .get(a.0 as usize)
             .zip(self.basin.get(b.0 as usize))
-            .map_or(0.0, |(ca, cb)| metric.cell(ca, cb));
+            .map_or(f32::INFINITY, |(ca, cb)| metric.cell(ca, cb));
         let ident_d = self
             .identity
             .get(a.1 as usize)
             .zip(self.identity.get(b.1 as usize))
-            .map_or(0.0, |(ca, cb)| metric.cell(ca, cb));
+            .map_or(f32::INFINITY, |(ca, cb)| metric.cell(ca, cb));
         basin_d + ident_d
     }
 
@@ -488,5 +503,23 @@ mod tests {
                 || (real_a - pair_similarity(origin, step_basin)).abs() > 1e-6,
             "real palette256² distance must not collapse to the L1 byte grid"
         );
+    }
+
+    /// The derived `Default` would leave `d_max = 0.0` → `similarity` divides
+    /// by zero → NaN. The manual `Default` routes through `new` (clamps to 1.0),
+    /// so `similarity` stays finite.
+    #[test]
+    fn pair_palette_default_is_not_nan() {
+        let s = PairPalette::default().similarity((0, 0), (1, 1));
+        assert!(s.is_finite(), "default PairPalette must not produce NaN");
+    }
+
+    /// A byte past a truncated axis codebook → +∞ distance → similarity 0.0
+    /// ("not similar"), never a false 1.0 identity.
+    #[test]
+    fn pair_palette_out_of_range_byte_is_not_similar() {
+        let small: Vec<Vec<f32>> = (0..4).map(|c| vec![c as f32, 0.0]).collect();
+        let pal = PairPalette::new(small.clone(), small, 10.0);
+        assert_eq!(pal.similarity((200, 0), (0, 0)), 0.0);
     }
 }

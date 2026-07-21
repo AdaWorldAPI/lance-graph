@@ -314,7 +314,15 @@ impl ScalarAdc {
 
 impl DistanceTableProvider for ScalarAdc {
     fn precompute(&self, query: &[f32], codebook: &[Vec<Vec<f32>>]) -> [[f32; 256]; 6] {
-        let mut tables = [[0f32; 256]; 6];
+        // Init to +∞, NOT 0.0. A code byte that indexes a centroid the
+        // codebook does not contain (a missing subspace, or an index ≥ the
+        // subspace's centroid count) must read as unreachable-far — never as a
+        // false exact-match, since 0.0 is also the distance to a genuinely
+        // identical centroid. A partial codebook (< 256 centroids/subspace) is
+        // a valid input; only its absent slots stay +∞. Present slots below
+        // overwrite it. Guards the "exact, not approximate" guarantee against a
+        // truncated/malformed codebook silently under-counting distance.
+        let mut tables = [[f32::INFINITY; 256]; 6];
         let n_sub = codebook.len().min(NUM_SUBSPACES);
         let mut base = 0usize;
         for (s, subspace) in codebook.iter().take(n_sub).enumerate() {
@@ -438,9 +446,11 @@ mod adc_reference_tests {
             near <= far,
             "own-code cosine distance must not exceed a far code's"
         );
-        // FisherZ read-back stays finite (the cosine-replacement path).
-        let z = fisher_z_inverse(0.5);
-        assert!(z.is_finite());
+        // FisherZ read-back of the ACTUAL ADC distances stays finite (the
+        // cosine-replacement path), not an unrelated literal.
+        let z_near = fisher_z_inverse(near);
+        let z_far = fisher_z_inverse(far);
+        assert!(z_near.is_finite() && z_far.is_finite());
     }
 
     /// `distance_batch` agrees with per-candidate `distance`.
@@ -455,6 +465,22 @@ mod adc_reference_tests {
         for (i, cam) in cams.iter().enumerate() {
             assert_eq!(batch[i], adc.distance(&tables, cam));
         }
+    }
+
+    /// A code byte that indexes past its subspace's centroid count (a
+    /// truncated / stale codebook) reads as +∞, NOT a false 0.0 exact-match.
+    #[test]
+    fn absent_centroid_is_infinite_not_zero() {
+        let cb = codebook(4, 4); // only 4 centroids per subspace
+        let q = reconstruct(&cb, &[0, 1, 2, 3, 0, 1]);
+        let adc = ScalarAdc::new(AdcMetric::SquaredL2);
+        let tables = adc.precompute(&q, &cb);
+        // byte 200 in subspace 0 has no centroid → unreachable-far.
+        let d = adc.distance(&tables, &[200, 1, 2, 3, 0, 1]);
+        assert!(
+            d.is_infinite(),
+            "absent centroid must be unreachable-far, not a false 0.0"
+        );
     }
 }
 
