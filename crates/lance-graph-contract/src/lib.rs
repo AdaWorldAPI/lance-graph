@@ -54,6 +54,7 @@ pub mod awareness_facet;
 pub mod callcenter;
 pub mod cam;
 pub mod canonical_node;
+pub mod causal_witness;
 pub mod class_view;
 /// D-V3-W6a — classid adoption-scan counting logic (`ClassidForm`,
 /// `classify_form`, `AdoptionCounts`, `count_adoption`). See
@@ -129,7 +130,9 @@ pub use qualia::{
 };
 pub mod materialize;
 pub mod reasoning;
+pub mod recipe_dispatch;
 pub mod recipe_kernels;
+pub mod recipe_substrate;
 pub mod recipes;
 pub mod repository;
 pub mod savants;
