@@ -267,6 +267,107 @@ of pairs below the counterfactual rung at ZERO separation cost (`auc_cascade
 > is DEFERRED to its own follow-up (cascade redesign or a justified
 > re-registration), never carried as green. Board: `E-DCSW1-V5-SPLIT-VERDICT`.
 
+### §6.2 D-CSW-1 leg 2 — INFRA-BLOCKED in this sandbox (registered, not attempted)
+
+Leg 2's own pass criteria (line 220) names three ingredients: **labeled
+pairs**, a **certified distance table**, and **real `temporal.rs`/Lance
+versions** on a **wild corpus**. Checked against this sandbox before writing
+any code (per §7's "no bytes land" / "probe is the next deliverable"
+discipline):
+
+- **Certified distance table** — ✅ now exists. `cam::ScalarAdc` +
+  `recipe_substrate::PairPalette` (PR #787) are the first contract-level
+  distance table proven exact by an additive-decomposition test, not an L1
+  stand-in.
+- **Real `temporal.rs`/Lance versions** — ❌ blocked here. `lance-graph-planner`
+  (which owns real `temporal.rs`/`QueryReference`/`deinterlace` over actual
+  Lance datasets) requires `protoc` (absent in this sandbox — verified:
+  `which protoc` → not found) and its dependency fetch (`arrow`/`datafusion`/
+  `lance`) exceeded a 20s timeout with 4.5 GB free disk. Not attempted further
+  — reported as a real infra gap, not silently substituted.
+- **Wild corpus + labeled pairs** — ❌ not sourced. No labeled real-causal-pair
+  dataset is in this repo or session; fabricating one would repeat exactly the
+  numpy-stand-in mistake `E-CODEC-IS-PALETTE256-SQUARED-IMPLICIT-1` recorded.
+
+**Verdict: leg 2 in its full form is NOT run.** This is a registered kill of
+*this attempt*, not of the claim — the standing-wave/width/orientation result
+(v5, §6.1) stays VALIDATED-IN-SCOPE for leg 1; leg 2 needs an environment with
+`protoc` + the `lance-graph-planner` build + a sourced labeled corpus before
+it can honestly proceed. Tracked as an open infra blocker, not closed.
+
+### §6.3 D-CSW-2 — CONTRACT-LEVEL scoping probe (registered 2026-07-21, before code)
+
+Full D-CSW-2 (line 221) needs the same real-corpus labeled candidate set leg 2
+lacks. What IS buildable zero-dep, here, now: a **synthetic-but-registered**
+probe of the same *mechanism* — basin co-occupancy (via the now-certified
+[`PairPalette`](crate::recipe_substrate::PairPalette)) joined with rung
+survival (via the shipped
+[`witness_fabric::standing_wave_grounded`](crate::witness_fabric)/
+[`dispatch_guard::guard`](crate::dispatch_guard)) — using an **AND-gate
+generative structure** designed to avoid the exact M1–M3 confound class §6.5
+already caught once (a label that only ONE of the two signals could trivially
+recover would not falsify anything).
+
+**Fixture (deterministic, no rng/clock — index-derived only):** 4 equal-size
+groups of synthetic pairs:
+
+| Group | Co-occupy basin? | Rung survives? | Ground-truth label |
+|---|---|---|---|
+| 1 | YES | YES | **TRUE** (real candidate) |
+| 2 | YES | NO  | FALSE (nearby basin, witness doesn't hold — coincidental neighbor) |
+| 3 | NO  | YES | FALSE (temporal pattern present, unrelated basins — spurious) |
+| 4 | NO  | NO  | FALSE (neither) |
+
+The label is the **AND** of the two signals by construction — a design a
+single-ablation score structurally cannot recover (basin-only conflates
+groups 1&2; rung-only conflates 1&3), so the test is genuine, not tautological.
+
+**Registered pass/fail (before any code):**
+- **Pass:** joint score's precision@k (k = |group 1|, top-k by joint score)
+  exceeds BOTH basin-only precision@k and rung-only precision@k by **≥ 0.15**.
+- **Kill:** joint does not clear both ablations by that margin, or the run is
+  non-deterministic across repeats — reported honestly, registered thresholds
+  never retuned post-hoc.
+
+**Scope note (do not overclaim):** this is the contract-level mechanism test
+on a synthetic fixture — it exercises the REAL `PairPalette`/witness-fabric
+primitives, not stand-ins, but it is NOT the real-corpus labeled-candidate-set
+D-CSW-2 the plan's pass criterion names. A pass here promotes the *mechanism*
+(joint basin+rung beats either ablation) from CONJECTURE to a scoped FINDING;
+it does not close D-CSW-2 itself, which still needs real basins from real
+data.
+
+#### §6.3 RESULT (2026-07-21): PASS, clean margin
+
+Probe: `crates/lance-graph-contract/examples/probe_dcsw2_basin_rung.rs`
+(zero-dep, deterministic, gates registered above before the file existed).
+
+| Score | precision@25 |
+|---|---|
+| basin-only | 0.520 |
+| rung-only | 0.520 |
+| **joint (basin × rung)** | **1.000** |
+
+Margin over basin-only: **+0.480**. Margin over rung-only: **+0.480**. Both
+clear the registered `≥ 0.15` threshold by a wide margin — not a razor's-edge
+pass. `cargo test -p lance-graph-contract --lib`: 1008/1008 green (no
+regression). `cargo clippy -p lance-graph-contract --examples`: clean.
+`rustfmt --check` on the file: clean. Independently re-run and verified
+(output identical on a second, separate execution).
+
+**Reading the numbers.** Both single-ablation scores land near 0.5 — exactly
+as the AND-gate design predicts: basin-only cannot distinguish group 1 (TRUE)
+from group 2 (co-occupies but doesn't survive the wave); rung-only cannot
+distinguish group 1 from group 3 (survives but doesn't co-occupy). The joint
+(product) score isolates group 1 exactly, because it is near-zero whenever
+EITHER factor is near-zero. This is the mechanism the plan needed falsified or
+confirmed, not asserted.
+
+**Verdict: mechanism promoted CONJECTURE → scoped FINDING** (per the Scope
+note above — the contract-level joint-signal mechanism, NOT the real-corpus
+D-CSW-2 claim itself, which stays open pending real basins from real data).
+Board: `E-DCSW2-CONTRACT-MECHANISM-GREEN-1`.
+
 ## §6.5 Missed-tissue audit — what already ships (5-lens review, 2026-07-21)
 
 Five parallel review agents swept the runtime for organs this plan under-cited.

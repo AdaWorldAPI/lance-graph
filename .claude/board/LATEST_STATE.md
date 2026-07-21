@@ -1,3 +1,9 @@
+## 2026-07-21 — branch `claude/x265-x266-plans-review-h9osnl` — D-CSW-1 leg-2 registered INFRA-BLOCKED (no `protoc`, `lance-graph-planner` unbuildable here); D-CSW-2 CONTRACT-LEVEL mechanism probe PASSES (joint precision@25 1.000 vs 0.520/0.520 ablations, margin +0.480 each) — both registered before code, per plan discipline
+
+### Current Contract Inventory — new entry
+- `crates/lance-graph-contract/examples/probe_dcsw2_basin_rung.rs` — the D-CSW-2 contract-level scoping probe. Zero-dep, deterministic (index-derived, no rng/clock). Consumes `recipe_substrate::PairPalette` (basin co-occupancy, PR #787's certified distance table) + `witness_fabric::standing_wave_grounded` (rung survival, mirrors the exact `dispatch_guard.rs` test fixtures verbatim) on a synthetic AND-gate 4-group fixture. Result: joint precision@25 = 1.000 vs basin-only/rung-only 0.520 each (margin +0.480, registered pass ≥0.15). Promotes the JOINT-SIGNAL MECHANISM to a scoped FINDING — explicitly NOT the real-corpus D-CSW-2 claim (needs real basins from real data). `cargo test -p lance-graph-contract --lib`: 1008/1008 green; clippy + fmt clean. E-DCSW2-CONTRACT-MECHANISM-GREEN-1; plan §6.3.
+- Plan `.claude/plans/causal-rung-standing-wave-v1.md` §6.2 — D-CSW-1 leg 2 (real `temporal.rs`/Lance versions, wild corpora) registered INFRA-BLOCKED in this sandbox: `lance-graph-planner` needs `protoc` (verified absent) and its dependency fetch timed out at 4.5 GB free disk; no labeled corpus sourced. Reported honestly as a registered kill of *this attempt*, not the underlying claim (leg 1's v5 core standing-wave result stays VALIDATED-IN-SCOPE).
+
 ## 2026-07-21 — branch `claude/x265-x266-plans-review-h9osnl` — `cam::ScalarAdc` + `recipe_substrate::PairPalette`: the REAL 6×256 / palette256² distance-table math wired as the contract's scalar reference (the `DistanceTableProvider` trait had none) — provably EXACT, not the byte-L1 stand-in
 
 ### Current Contract Inventory — new entry
