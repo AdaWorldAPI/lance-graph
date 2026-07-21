@@ -119,6 +119,7 @@ pub mod orchestration_mode;
 pub mod pearl_junction;
 pub mod persona;
 pub mod plan;
+pub mod prefix_select;
 pub mod property;
 pub mod proprioception;
 pub mod qualia;
