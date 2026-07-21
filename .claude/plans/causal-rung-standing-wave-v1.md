@@ -134,8 +134,8 @@ recomputable from the current triple). They are one system: mask-ladder =
 access path; A2 = memory. Probe D-CSW-1 decides what A2 must hold beyond what
 the mask computes.
 
-**O1 (open decision, recommendation attached):** the 8 ladder masks are
-**canonical contract constants** (Pearl's ladder does not vary per class), but
+**O1 — DECIDED (operator, 2026-07-21): canonical masks.** The 8 ladder masks
+are **canonical contract constants** (Pearl's ladder does not vary per class);
 *which classes read their register as `SpoFacet` at all* stays a per-class
 OGAR mint (Place 2, per M20 §0.5) — canonical masks, per-class election.
 
@@ -221,6 +221,20 @@ construction, because representation was paid for (§0.5), not bolted on.
 | **D-CSW-2** | basin co-occupancy + rung survival predicts causal-edge candidates | precision vs a labeled candidate set beats basin-only and rung-only ablations | ablations equal or better |
 | **D-CSW-3** | (= M20 D-AW-5 extension) jc reliability: the full-width amortized ladder carries awareness the 64-bit cram lost | jc battery (Cronbach α / ICC) shows non-redundant width vs CE64-derived readings | jc says the 64-bit cram was sufficient — then M20's conjecture stands and this plan's storage claims shrink to match |
 
+### §6.1 D-CSW-1 leg 1 — RESULT (2026-07-21): PASS after two recorded kills
+
+Probe: `crates/deepnsm/examples/probe_dcsw1_standing_wave.rs` (std-only; gates
+registered before the first run and never loosened). **v1 KILL** — fixture
+ceiling (all arms AUC 1.000; a fixture where every method is perfect cannot
+falsify their differences). **v2 KILL** — refuted `mean − std` as the wave
+statistic (bursty contamination punishes causal pairs; the standing wave is
+recurrence, so the robust statistic is the persistence fraction). **v3 PASS:**
+`auc_wave 0.972` ≥ single-cycle `0.875`+0.05 and ≥ p64-cram `0.375`+0.05 (the
+3×u8 aliasing failure observable — worse than chance); cascade pruned `0.458`
+of pairs below the counterfactual rung at ZERO separation cost (`auc_cascade
+0.972`). The §0.5 economics measured. Board: `E-DCSW1-LEG1-GREEN`. **Leg 2
+(real `temporal.rs`/Lance versions, wild corpora) remains OPEN.**
+
 ## §7 Honest boundary — what this plan does NOT do
 
 - **No bytes land** before the `v3-envelope-auditor` verdict + batched OGAR
@@ -235,3 +249,41 @@ construction, because representation was paid for (§0.5), not bolted on.
 - **The 36 adjectives stay out** — rung-3 recipes are the 34 runbooks; the
   `contract::thinking` adjective-36 is the separate persona storyline unless
   the operator separately elects it.
+
+## §8 Horizon — the LLM-free corpus endgame (operator, 2026-07-21; direction, not yet gated work)
+
+*"Parse any text with tesseract-rs and spider-rs WITHOUT an LLM and create a
+knowledge graph that reasons self-awareness and causality meta-awareness
+without LLM … the COCA 4096 expanded with an academic 20k using the Morton
+tile pyramid gridlake SoA ergonomics (centroid field resonance superposition
+distribution) … a knowledge graph over academic papers, reasoning BETWEEN
+papers — later even meta-studies decomposing statistics correlation vs
+causality across studies, without LLM … knowledge transfer … exploring the
+superpowers of FREE causality learning … MUL as entropy ladder between texts
+… the scent of AGI at the cost of SIMD — a cognitive superconductor."*
+
+Mapping to shipped seams (each future item gets its own gated plan/probes):
+
+- **Ingestion, LLM-free:** tesseract-rs `doc.v1` is ALREADY documented as the
+  optional seed a consumer feeds (via OGAR) to lance-graph arm-discovery /
+  DeepNSM (tesseract-rs consumer guide); spider-rs is the crawl ingress twin.
+  Paper PDF/scan → doc.v1 → SPO stream = this plan's input, no model anywhere.
+- **Vocabulary 4096 → 20k academic:** fits the palette256² pair carve
+  NATIVELY — 20480 = 80×256, `(basin, identity) = (id>>8, id&0xFF)` — the
+  "larger codebooks" case already in the facet design; the codebook lives on
+  the Morton tile pyramid / gridlake SoA (the 256=4⁴ hierarchical-centroid
+  canon: nibble ancestry, centroid-field resonance) — deepnsm `gridlake_*`
+  examples are the shipped precedent.
+- **Meta-studies = the rung ladder ACROSS studies:** correlation-vs-causality
+  decomposition between papers is exactly rung separation — SO (association)
+  reported by one study vs PO (intervention) supported across studies vs SPO
+  (counterfactual vs each study's witnessed data) — the same 8 canonical
+  masks, with each paper's claims as facets and cross-paper agreement as the
+  standing wave over the publication stream.
+- **Knowledge transfer + MUL as entropy ladder BETWEEN texts:** §5b's entropy
+  work generalized across corpora — the gestalt/qualia texture per text, MUL
+  comparing textures between texts = which text reduces which basin's entropy.
+- **"Free causality learning" at SIMD cost:** the whole loop is table reads +
+  masks + popcount-class ops over the SoA — the cognitive-superconductor
+  claim is the §0.5 economics at corpus scale, and stays CONJECTURE until
+  leg-2-class probes run on real paper corpora.

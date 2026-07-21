@@ -4,8 +4,8 @@ Plan: `.claude/plans/causal-rung-standing-wave-v1.md`. Consumes M20 A1 (shipped)
 
 | D-id | Title | Repo | Status | Evidence |
 |---|---|---|---|---|
-| D-CSW-0 | Plan doc + O1 decision (canonical ladder masks vs per-class mint; recommendation: canonical masks + per-class facet election) | lance-graph | In PR (plan drafted; O1 awaiting operator) | plan §2 |
-| D-CSW-1 | Standing-wave probe: per-rung stability over real temporal.rs text stream separates causal from coincidental pairs vs single-cycle + p64 3-bit baseline (registered margin) | lance-graph | Queued (probe to be written FIRST) | plan §4/§6 |
+| D-CSW-0 | Plan doc + O1 decision (canonical ladder masks + per-class facet election) | lance-graph | In PR #777; **O1 DECIDED (operator 2026-07-21: canonical masks)** | plan §2 |
+| D-CSW-1 | Standing-wave probe: per-rung persistence over an ordered stream separates causal from coincidental vs single-cycle + p64 3×u8 baseline; escalation cascade prunes at zero separation cost | lance-graph | **Leg 1 GREEN** (v3: auc_wave .972 vs single .875 vs p64 .375; pruned .458, auc_cascade .972; v1 fixture-ceiling KILL + v2 mean−std-refuted KILL recorded). Leg 2 (real temporal.rs/Lance versions, wild corpora) OPEN | probe `deepnsm/examples/probe_dcsw1_standing_wave.rs`; E-DCSW1-LEG1-GREEN; plan §6.1 |
 | D-CSW-2 | Basin→causal-edge candidate probe: co-occupancy + rung survival vs basin-only / rung-only ablations | lance-graph | Queued (gated on D-CSW-1) | plan §5a/§6 |
 | D-CSW-3 | jc reliability: full-width amortized ladder vs CE64 64-bit cram (extends M20 D-AW-5) | lance-graph | Queued (needs A2/A6 lanes + real data) | plan §6 |
 
