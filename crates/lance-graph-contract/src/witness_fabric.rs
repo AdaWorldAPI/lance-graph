@@ -232,9 +232,13 @@ pub enum WaveGrounding {
     Causal,
     /// Bound, and the chain PERSISTS but leaves the `±8` reference horizon (or
     /// exhausts the hop budget mid-chain) — the causality lives over a longer time
-    /// span. The signal to **escalate** to a `temporal.rs` version-range read
-    /// (`QueryReference::at`) and search the causality pattern over time. NOT a
-    /// failure and NOT coincidental — deep thinking beyond the reference horizon.
+    /// span. The signal to **escalate** — NOT a failure and NOT coincidental (a
+    /// distant cause is still a cause). The `±8` window is dimensioned for GRAMMAR
+    /// (local positional dependencies); causality past it is no longer positional,
+    /// so escalation is a REPRESENTATION SWITCH to an ABSOLUTE address, not a wider
+    /// offset (`E-GRAMMAR-LOCAL-CAUSAL-ABSOLUTE-1`): `part_of:is_a` (the AriGraph
+    /// episodic basin) OR a centroid (CAM-PQ / palette256). The consumer does that
+    /// absolute read (D-CSW-2); the contract only emits the signal.
     Escalate,
     /// The locus is not bound at all (unbound at the source).
     Unbound,
