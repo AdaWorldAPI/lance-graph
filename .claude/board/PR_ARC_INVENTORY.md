@@ -33,6 +33,16 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-07-21 — lance-graph #780 — recipe claim-audit + 3-tenant wiring (A9 CausalWitnessFacet + SPO + qualia) → the rung-ordered NaN-gated causal ladder
+
+**Merged:** `8a00988` (operator-gated, ready-for-review flip mid-review). 4 commits.
+
+- **Added** — `contract::causal_witness` (`CausalWitnessFacet`, `Locus`, 24 signed-i4 loci = the A9/L9 reading, **third** ClassView reading of the #729 12-byte register, zero stored bytes; 8 tests + doctest); `contract::recipe_substrate` (`SubstrateView::project`, `affective_temperature`, `pair_similarity`; 4 tests); `contract::recipe_dispatch` (`RecipeInference`, `rung`, `dispatch_order`, `nan_disqualifier`, `ladder`; 6 tests); 3 gate-checked examples (`recipe_claim_audit`, `loci_recipe_relevance`, `recipe_ladder_over_substrate`). Contract 970 green, clippy clean.
+- **Locked** — **qualia is ADDITIVE + STAKES-only** (temperature, never a logical marker; gate-enforced byte-identity of logic under qualia swap); **causality is NOT a qualia** (the cause = `Locus::Kausal` witness edge); **rungs occupy zero loci** (view election carries escalation); **NaN disqualifier = the runtime `requires()` coverage gate** (a recipe never fires on an input the tenants could not ground); **two dispatch modes, one catalogue** (`select_tactic` saccade 8/34 + `ladder` sweep 34/34; mode composition, never selector retune — E-LADDER-UNSHADOWS-SELECTOR-1); the 34 stays rung-3-locked, new thinking = rung-4 macros (E-THINKING-SKILLS-ARE-RUNG-4-MACROS-1).
+- **Deferred** — `pair_similarity` → real ndarray 256×256 CAM-PQ table binding; NARS-Swift / MME-Reasoning `add_repo` + benchmark probe; the INERT fixes (CAS #8 / ETD #22 write-back) — flagged, not patched (kernel edits are their own PR); rs-graph-llm orchestration over the ladder; skill×recipe scored matrix (per-SKILL.md read).
+- **Docs** — `E-RECIPE-SUBSTRATE-WIRING-1`, `E-LADDER-UNSHADOWS-SELECTOR-1`, `E-THINKING-SKILLS-ARE-RUNG-4-MACROS-1` (EPIPHANIES); LATEST_STATE inventory ×3; STATUS_BOARD D-REC-WIRE-1; theory anchors PCRLLM 2511.08392 / Causal-ML 2206.15475 / MME-Reasoning 2505.21327.
+- **Confidence (2026-07-21):** working — all gates green at merge; audit exercises the real shipped kernels, not a reimpl.
+
 ## 2026-07-18 — x265/H.268 arc: PROBE-GPU-LUT + HEVC anchor + head-to-head + μ-hydration adjudication
 
 **Merged this session (3 PRs):**
