@@ -76,6 +76,7 @@ pub mod cycle_accumulator;
 /// `SquishedDawg` (dict/dawg binary loader) — Tesseract dictionary word-graph
 /// content store. See module docs for the `dawg.{h,cpp}` byte-parity scope.
 pub mod dawg;
+pub mod dispatch_mode;
 pub mod distance;
 /// D-GR-1 — `DocGraphQuery`, the zero-dep read surface over the calcified
 /// document / fact graph. Implemented by the AriGraph carrier (graphrag
