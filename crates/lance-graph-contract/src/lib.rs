@@ -168,6 +168,7 @@ pub mod unicharset;
 pub mod unicharset_adapter;
 pub mod view_angle;
 pub mod vsa;
+pub mod witness_fabric;
 pub mod witness_table;
 pub mod world_map;
 pub mod world_model;
