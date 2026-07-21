@@ -295,6 +295,22 @@ discipline):
 `protoc` + the `lance-graph-planner` build + a sourced labeled corpus before
 it can honestly proceed. Tracked as an open infra blocker, not closed.
 
+> **⚠ CORRECTION (2026-07-21, `E-DCSW1-LEG2-BLOCK-CORRECTION-1`) — the protoc
+> reasoning above is WRONG.** On a re-check: `lance-graph-planner` does NOT
+> depend on protoc (`cargo tree -p lance-graph-planner` closure = serde/tokio/
+> tracing + Rust-native path-deps; zero prost/protobuf/tonic/datafusion/lance)
+> and it **builds here in 19.78s, exit 0** — the original block was a 20s
+> `timeout` ~0.2s too short on the cold ndarray compile, mis-attributed to
+> protoc. protoc IS absent, but it blocks the FULL workspace (`cognitive-
+> shader-driver` / `lance-graph-ontology`), not the planner. So `temporal.rs`
+> (`QueryReference`/`deinterlace`) IS compilable here. The GENUINE remaining
+> leg-2 gap is narrower: no labeled real-causal-pair corpus + no real persisted
+> Lance multi-writer version data (fabricating either = the
+> `E-CODEC-IS-PALETTE256-SQUARED-IMPLICIT-1` mistake). A narrower probe — the
+> real planner `temporal.rs` over a synthetic-but-real-typed version stream —
+> is feasible and would need its own registered gates (flagged for operator
+> direction, not launched autonomously).
+
 ### §6.3 D-CSW-2 — CONTRACT-LEVEL scoping probe (registered 2026-07-21, before code)
 
 Full D-CSW-2 (line 221) needs the same real-corpus labeled candidate set leg 2
