@@ -188,9 +188,80 @@ construct to correlate.
 | A6 | `DirectionInferenceFacet` | 6×(8:8): direction triad × inference mantissa full-width | CE64 dir 3b + mantissa 4b | vs 7-bit pack |
 | A7 | `WitnessLensFacet` | 6×(8:8): W-slot corpus root + truth-band lens | CE64 W-slot 6b + lens 2b | vs 8-bit pack |
 | A8 | `RecipeFindingFacet` | 6×(8:8): best-of-34 conclusive finding as `part_of:is_a`, indexed by a **monotone no-look-back pointer** over the fixed 34-rung ladder; NaN/inconclusive rungs SKIP → advance to the next recipe. The reached rung-depth IS the comparability coordinate (a peer SoA row must reach a similar rung to be comparable) | rung-content ladder (rung 3, the 34 recipes) | vs `RecipeFindingFreeFacet` (sibling) |
-| A9 | `CausalWitnessFacet` | **24× signed i4 = 24 POINTERS into the Markov window** (offsets into the `temporal.rs` sorted stream / Lance versions — immutable append-only, so an offset means the same event forever). Sign = orientation (forward/reverse causal). Targets are **basin-implied** (`part_of:is_a` neighborhood) — NO stored addresses; the V1 12-in/4-out `EdgeBlock` is redundant & deprecated | temporal Markov trajectory (`E-MARKOV-TEMPORAL-STREAM-1`) | vs A1's 3 episodicwitness palette256² pairs |
+| A9 | `TekamoloWindowBinding` (`CausalWitnessFacet`) | **24× signed i4 = a TEKAMOLO role→window-offset map** (L9 carve, §2.9): each slot is a grammatical role (`grammar::role_keys`); its i4 = the signed offset ∈ [−8,+7] naming WHERE in the ±8 `temporal.rs` Markov window that role's filler sits (0 = unbound; sign = orientation). Which slots are live is **rung-state-projected** by the ClassView. Serves coreference (relativPronomen → antecedent), causality (KAUSAL offset = the cause), NARS reasoning — one register. Pure pointers; content read at the offset (I-VSA-IDENTITIES-clean). V1 12-in/4-out `EdgeBlock` deprecated | temporal Markov trajectory (`E-MARKOV-TEMPORAL-STREAM-1`) | vs A1's 3 episodicwitness palette256² pairs |
 
 > **⚠ A8/A9 + evolve-not-collapse (operator, 2026-07-21, `E-AWARENESS-TENANTS-EVOLVE-NOT-COLLAPSE-1`).** A8/A9 join A1–A7 as EVOLVING redundant members (NARS-revised, standing-wave written-back), not collapse candidates. **A9's `24× i4` is 24 temporal POINTERS, never magnitude** (operator strongly refused the magnitude reading): the nibble says WHERE in the local Markov window the witnessing event sits — strength/truth/content is read from the stream at that offset (zero-copy projection). `RecipeFindingFreeFacet` = the sibling reading of A8 (last 6 conclusive findings as `part_of:is_a` rails, sliding, NaN-skipped) — the operator's "free-form 6 for free" mode held redundantly against A8's fixed-order best-of-34. CONJECTURE until the jc parity measurement runs; no contract bytes before the envelope-auditor + batched-OGAR-mint gate.
+
+### §2.9 A9 layout schema — L9 `TekamoloWindowBinding` (the 24-edge witness carve)
+
+The 12-byte A9 payload is **24 signed nibbles (i4, −8..+7)** — a NEW le-contract
+§3 layout, **L9**. It is beyond the sanctioned turbovec `6×4-bit` refinement
+budget, so L9 is a §3-catalogue addition (operator-locked catalogue → ratify).
+The register is **content-blind**; the rung-state ClassView *projects* the role
+of each slot (V3 doctrine: bytes hold nothing, the view reads).
+
+**Nibble carve:** byte `b` holds slot `2b` (low nibble) + slot `2b+1` (high
+nibble), `b = 0..11` → slots `0..23`. Each slot = a signed offset ∈ [−8,+7]
+into the ±8 `temporal.rs` Markov window (stream position relative to this
+node's own cycle). **`0` = unbound** (no relevant context for this role;
+zero-fallback). **Sign = orientation** (− = before / antecedent-cause; + =
+after). CascadeShape `G24N4`.
+
+**The 24 = EDGES, the LOCI METHOD of Markov context agreement** (operator,
+2026-07-21). Uniform semantics — every nibble is a **locus**: a signed context
+pointer placing ONE awareness dimension's context in the ±8 window (the memory
+palace over the row's local temporal neighborhood). "Mantissa" in the CE64
+lineage is read as **context pointer**, never magnitude. `0` = unbound locus
+(zero-fallback); sign = before/after.
+
+**The rung level occupies ZERO slots.** A rung is a bit, globally — it is
+carried by the **elected view** (the rung-state ClassView switch, already
+ruled: escalation = view election). Attributing a magnitude to a rung, or
+defining it by reference, are both wrong — the rung SELECTS which awareness
+schema projects the 24 loci; it never occupies them. Escalation reinterprets
+the SAME register with a richer schema ("overwrite of same registers with
+better awareness in same context") — richer schemas bind MORE loci; the
+register never changes shape.
+
+**The grounded dimension catalogue** (which locus means what is the SCHEMA's
+call, per rung-state ClassView; these are the operator-named dimensions,
+grounded in shipped organs — unassigned loci stay `0`, never padded):
+
+| Locus dimension | Grounded in (shipped) | The locus places… |
+|---|---|---|
+| TEMPORAL | `role_keys::TEMPORAL_KEY` | my time reference |
+| KAUSAL | `role_keys::KAUSAL_KEY` | **my cause** — causality learning's stored answer |
+| MODAL | `role_keys::MODAL_KEY` | the manner/possibility context |
+| LOKAL | `role_keys::LOKAL_KEY` | the where/context |
+| S-meaning / P-meaning / O-meaning | SPO plane (A1) | *what S / P / O mean here* — the meaning-grounding events |
+| antecedent | MODIFIER/CONTEXT keys | relativPronomen → its antecedent |
+| basin-anchor | `part_of:is_a` (L1) | the event binding me to my AriGraph basin |
+| supported-by / supports | `hi_chain` / `lo_chain` | the nested supporting basin's evidence ↓ / what I support ↑ |
+| runbook-evidence | `RECIPES[34]` / A8 | where my current runbook (A8 names WHICH of the 34) drew its finding |
+| qualia-reference | QualiaColumn / i4-qualia | the event that set my current texture |
+| meaning-level context | rung-content ladder 0–4 | the context defining my current level of meaning |
+| quorum | NARS freq·conf (A3) | the **agreeing peer** — the window event whose meaning-reading matches mine |
+| contradiction | Staunen×Wisdom depth | the **disagreeing peer** — the committed contradiction PRESERVED beside the quorum |
+
+**Markov context agreement = loci comparison.** Co-window rows agree about a
+higher-order dimension when their loci converge on the SAME context events —
+quorum is read by comparing 12-byte registers (nibble equality after offset
+normalization), never by re-deriving meaning. The rung/runbook/level VALUES
+live where they already live (view election, A8, A2/A3/A6 full-width facets);
+A9 carries only the WHERE — pure loci, I-VSA-IDENTITIES-clean.
+
+**Read = coreference + causality + NARS in one register.** For a relative
+pronoun, the bound MODIFIER/CONTEXT offset names its antecedent in the window;
+for causal learning the KAUSAL offset names the cause; NARS consumes the bound
+role-offsets. Each offset → the node at `(self_pos + offset)` in the stream;
+the filler's SPO / truth is **read there** — A9 points, never stores
+(I-VSA-IDENTITIES-clean: identity pointers, not content).
+
+**Falsifier (when a probe comes — on REAL substrate, not planted integers):**
+FSM-parse a real corpus (deepnsm PoS→SPO) with the real CAM-PQ 4096² distance;
+does the KAUSAL-offset recover known causal links, and the MODIFIER/CONTEXT
+offset resolve coreference, above the rung-0 SPO-only baseline? Registered
+before any run; no synthetic tautology.
 
 9 awareness facets (A1–A9) × 12 B = 108 B. **13 + BoardAggregates(1) + 9 = 23 lanes.** The
 remaining ~9 lanes to reach 32 are the **redundant siblings** made first-class
