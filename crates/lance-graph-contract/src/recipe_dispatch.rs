@@ -4,6 +4,21 @@
 //! `recipe_dispatch` — the 34 recipes as a **rung-ordered, NaN-gated causal
 //! ladder**, keyed by NARS inference type.
 //!
+//! # Two dispatch modes, one catalogue (vs `docs/NARS_RECIPES_DISPATCH.md`)
+//!
+//! The canonical dispatch doc (`66f5a73`) measured the shipped surprise-band
+//! selector ([`materialize::select_tactic`](crate::materialize::select_tactic)):
+//! only **8/34 recipes are reachable** through it, all 14 Infrastructure recipes
+//! never win, and ICR #31 is permanently shadowed by RCR #4 on the lowest-id tie
+//! (`E-RECIPE-SELECTOR-REACHABILITY-1`). This module is the **complementary
+//! mode**, not a replacement: the selector is the *foveated saccade* (ONE tactic
+//! per surprise cycle); the [`ladder`] is the *systematic sweep* (ALL 34 in
+//! escalation order, each gated only by its own NaN checklist). Under the
+//! ladder, all 34 are reachable, CrossTier/Infrastructure recipes fire early
+//! (rung base 1), and ICR #31 fires unshadowed at the deepest rung — the three
+//! measured selector gaps are covered by mode-composition, not by retuning the
+//! selector.
+//!
 //! # Thinking is an act of cause and effect (and a finder of it)
 //!
 //! Orchestrating the recipes is *itself* causal: firing a recipe is a **cause**
