@@ -9,8 +9,11 @@
 //!
 //! The 16-byte key is stored **little-endian** (see
 //! [`canonical_node`](crate::canonical_node)): bytes `0..4` are the `classid`
-//! `u32` LE, `4..6` HEEL `u16` LE, `6..8` HIP, `8..10` TWIG, `10..16` the tail
-//! (family `u24` ++ identity `u24`). A RANGE scan needs a **total order in which
+//! `u32` LE, `4..6` HEEL `u16` LE, `6..8` HIP, `8..10` TWIG, `10..16` the
+//! **content-blind tail** — six bytes whose *reading* (the V1-legacy
+//! `family·identity` u24 pair is superseded, read-only for pre-flip GUIDs; the
+//! V3 facet payload is the current mint) belongs to the classid's ClassView and
+//! is NEVER decoded here. A RANGE scan needs a **total order in which
 //! "shares a prefix" ⟺ "occupies a contiguous run"** — and raw stored-byte
 //! lexicographic order does NOT provide it. Example: `classid 0x0000_0001` stores
 //! as `[01,00,00,00]` and `classid 0x0000_0100` as `[00,01,00,00]`; comparing the
@@ -19,10 +22,15 @@
 //! the wrong row set.
 //!
 //! The comparator this module defines and every consumer MUST use is
-//! [`scan_cmp`]: it compares two stored keys by rendering each field
-//! **big-endian** and comparing the tuple `(classid, HEEL, HIP, TWIG, family,
-//! identity)` numerically — equivalently, lexicographic order over the
-//! big-endian rendering [`scan_key`] produces. This is exactly the coarse→fine
+//! [`scan_cmp`]: it compares two stored keys by rendering the *addressed* fields
+//! **big-endian** and comparing the tuple `(classid, HEEL, HIP, TWIG,
+//! tail-bytes)` — the tail compared as **opaque stored-order bytes**, no reading
+//! imposed. (Range bounds always fill the tail uniformly — `0x00` floor / `0xFF`
+//! ceiling, the min/max byte strings under ANY byte order — so range semantics
+//! are independent of tail ordering; decoding a `family·identity` u24 pair here
+//! would bake the superseded V1 reading into new tissue for zero benefit.)
+//! Equivalently: lexicographic order over the rendering [`scan_key`] produces.
+//! This is exactly the coarse→fine
 //! cascade order the existing [`hhtl::NiblePath`](crate::hhtl) lowering already
 //! uses (`canon · HEEL · HIP · TWIG`, most-significant nibble first), so a range
 //! prefix here is an [`hhtl`](crate::hhtl) ancestor there — one order across the
@@ -268,14 +276,16 @@ pub fn compile_concept(concept: u16, columns: WideFieldMask) -> ScanUnit {
     compile(&CascadePrefix::concept(concept), columns)
 }
 
-/// Render a stored-LE 16-byte key into its **canonical big-endian scan key** —
-/// the byte string whose plain lexicographic order IS the [`scan_cmp`] order.
+/// Render a stored-LE 16-byte key into its **canonical scan key** — the byte
+/// string whose plain lexicographic order IS the [`scan_cmp`] order.
 ///
-/// Each field is emitted most-significant-byte first: `classid` (4), HEEL (2),
-/// HIP (2), TWIG (2), family (3), identity (3). Lexicographic comparison of two
-/// scan keys therefore compares `(classid, HEEL, HIP, TWIG, family, identity)`
-/// numerically, coarse→fine — the same order the [`hhtl`](crate::hhtl) cascade
-/// uses.
+/// The *addressed* fields are emitted most-significant-byte first: `classid`
+/// (4), HEEL (2), HIP (2), TWIG (2). The trailing 6 tail bytes (`10..16`) are
+/// copied **as stored — opaque, content-blind**: their reading (V1-legacy
+/// `family·identity` / V3 facet payload) is the ClassView's, never this
+/// function's, and range contiguity does not depend on their order (module
+/// docs). Comparison is therefore `(classid, HEEL, HIP, TWIG, tail-bytes)`,
+/// coarse→fine — the same order the [`hhtl`](crate::hhtl) cascade uses.
 #[inline]
 #[must_use]
 pub const fn scan_key(g: &[u8; 16]) -> [u8; 16] {
@@ -284,17 +294,18 @@ pub const fn scan_key(g: &[u8; 16]) -> [u8; 16] {
         g[5], g[4], // HEEL u16, big-endian
         g[7], g[6], // HIP u16, big-endian
         g[9], g[8], // TWIG u16, big-endian
-        g[12], g[11], g[10], // family u24, big-endian
-        g[15], g[14], g[13], // identity u24, big-endian
+        g[10], g[11], g[12], // tail bytes 10..16: content-blind,
+        g[13], g[14], g[15], // stored order — NO reading decoded
     ]
 }
 
 /// The canonical scan comparator over two stored-LE 16-byte keys.
 ///
-/// Compares `(classid, HEEL, HIP, TWIG, family, identity)` numerically by rendering
-/// each key big-endian ([`scan_key`]) and comparing lexicographically. This is the
-/// ONE order every consumer must use — comparing stored bytes directly is wrong
-/// (module docs). A total order, so it is a valid sort key.
+/// Compares `(classid, HEEL, HIP, TWIG, tail-bytes)` by rendering each key via
+/// [`scan_key`] (addressed fields big-endian, tail opaque) and comparing
+/// lexicographically. This is the ONE order every consumer must use — comparing
+/// stored bytes directly is wrong (module docs). A total order, so it is a
+/// valid sort key.
 #[inline]
 #[must_use]
 pub fn scan_cmp(a: &[u8; 16], b: &[u8; 16]) -> Ordering {
@@ -381,17 +392,29 @@ const fn stored_key(classid: u32, heel: u16, hip: u16, twig: u16, tail: u8) -> [
         h[0], h[1], // HEEL LE
         p[0], p[1], // HIP LE
         t[0], t[1], // TWIG LE
-        tail, tail, tail, tail, tail, tail, // family ++ identity
+        tail, tail, tail, tail, tail, tail, // content-blind tail, uniform fill
     ]
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::canonical_node::NodeGuid;
 
-    fn key(classid: u32, heel: u16, hip: u16, twig: u16, family: u32, identity: u32) -> [u8; 16] {
-        *NodeGuid::new(classid, heel, hip, twig, family, identity).as_bytes()
+    /// Assemble a stored-LE key directly — WITHOUT `NodeGuid::new` (the V1 mint
+    /// constructor, forbidden for new units per the 2026-07-04 supersession).
+    /// `tail_a`/`tail_b` are arbitrary content-blind tail fills (3 LE bytes
+    /// each); nothing in this module decodes them as any reading.
+    fn key(classid: u32, heel: u16, hip: u16, twig: u16, tail_a: u32, tail_b: u32) -> [u8; 16] {
+        let c = classid.to_le_bytes();
+        let h = heel.to_le_bytes();
+        let p = hip.to_le_bytes();
+        let t = twig.to_le_bytes();
+        let a = tail_a.to_le_bytes();
+        let b = tail_b.to_le_bytes();
+        [
+            c[0], c[1], c[2], c[3], h[0], h[1], p[0], p[1], t[0], t[1], a[0], a[1], a[2], b[0],
+            b[1], b[2],
+        ]
     }
 
     // ── (a) a classid range contains exactly keys of that classid ──────────────
