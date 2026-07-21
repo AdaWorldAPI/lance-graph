@@ -237,8 +237,11 @@ pub enum WaveGrounding {
     /// (local positional dependencies); causality past it is no longer positional,
     /// so escalation is a REPRESENTATION SWITCH to an ABSOLUTE address, not a wider
     /// offset (`E-GRAMMAR-LOCAL-CAUSAL-ABSOLUTE-1`): `part_of:is_a` (the AriGraph
-    /// episodic basin) OR a centroid (CAM-PQ / palette256). The consumer does that
-    /// absolute read (D-CSW-2); the contract only emits the signal.
+    /// episodic basin) OR a centroid (CAM-PQ / palette256) — the two jobs of ONE
+    /// implicit 256×256 tile, which holds an entire work's `≤64k` SPO (the whole
+    /// Bible ≈ 31k, ~half a tile — `E-WHOLE-WORK-IS-ONE-TILE-1`), so the target is
+    /// BOUNDED, not an unbounded search. The consumer does that absolute read
+    /// (D-CSW-2); the contract only emits the signal.
     Escalate,
     /// The locus is not bound at all (unbound at the source).
     Unbound,
