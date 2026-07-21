@@ -337,6 +337,37 @@ D-CSW-2 the plan's pass criterion names. A pass here promotes the *mechanism*
 it does not close D-CSW-2 itself, which still needs real basins from real
 data.
 
+#### §6.3 RESULT (2026-07-21): PASS, clean margin
+
+Probe: `crates/lance-graph-contract/examples/probe_dcsw2_basin_rung.rs`
+(zero-dep, deterministic, gates registered above before the file existed).
+
+| Score | precision@25 |
+|---|---|
+| basin-only | 0.520 |
+| rung-only | 0.520 |
+| **joint (basin × rung)** | **1.000** |
+
+Margin over basin-only: **+0.480**. Margin over rung-only: **+0.480**. Both
+clear the registered `≥ 0.15` threshold by a wide margin — not a razor's-edge
+pass. `cargo test -p lance-graph-contract --lib`: 1008/1008 green (no
+regression). `cargo clippy -p lance-graph-contract --examples`: clean.
+`rustfmt --check` on the file: clean. Independently re-run and verified
+(output identical on a second, separate execution).
+
+**Reading the numbers.** Both single-ablation scores land near 0.5 — exactly
+as the AND-gate design predicts: basin-only cannot distinguish group 1 (TRUE)
+from group 2 (co-occupies but doesn't survive the wave); rung-only cannot
+distinguish group 1 from group 3 (survives but doesn't co-occupy). The joint
+(product) score isolates group 1 exactly, because it is near-zero whenever
+EITHER factor is near-zero. This is the mechanism the plan needed falsified or
+confirmed, not asserted.
+
+**Verdict: mechanism promoted CONJECTURE → scoped FINDING** (per the Scope
+note above — the contract-level joint-signal mechanism, NOT the real-corpus
+D-CSW-2 claim itself, which stays open pending real basins from real data).
+Board: `E-DCSW2-CONTRACT-MECHANISM-GREEN-1`.
+
 ## §6.5 Missed-tissue audit — what already ships (5-lens review, 2026-07-21)
 
 Five parallel review agents swept the runtime for organs this plan under-cited.
