@@ -1,3 +1,14 @@
+## causal-rung-standing-wave-v1 — p64→v3 cognition layer: amortized 2³ ladder + standing-wave awareness
+
+Plan: `.claude/plans/causal-rung-standing-wave-v1.md`. Consumes M20 A1 (shipped) + A2/A3/A5/A6 (queued, auditor+mint gated) + selection #776 + temporal.rs. Probe-first: the probe is the next deliverable, not code; everything CONJECTURE until D-CSW-* report.
+
+| D-id | Title | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-CSW-0 | Plan doc + O1 decision (canonical ladder masks + per-class facet election) | lance-graph | In PR #777; **O1 DECIDED (operator 2026-07-21: canonical masks)** | plan §2 |
+| D-CSW-1 | Standing-wave probe: per-rung persistence over an ordered stream separates causal from coincidental vs single-cycle + p64 3×u8 baseline; escalation cascade prunes at zero separation cost | lance-graph | **v5 SPLIT VERDICT** — CORE standing-wave claim GREEN (auc_wave .997 vs single .878, vs p64-**wave** .500 [M3], vs **reverse .000** [M2 orientation control, +.997]; cascade .997); the SEPARATE §0.5 escalation-ECONOMICS gate 3a **KILLS** (pruned .333 < .40 registered — reported not retuned; the M1 witness correction dropped it from v4's .458) → DEFERRED. v1 fixture-ceiling + v2 mean−std KILLs recorded on the way; leg 2 (real temporal.rs/Lance versions, wild corpora) OPEN. _(v3 historical: .972/.875/.375/.458 — pre M1/M2/M3 fixes.)_ | probe `deepnsm/examples/probe_dcsw1_standing_wave.rs` (v5); E-DCSW1-V5-SPLIT-VERDICT / E-CAUSAL-TISSUE-ALREADY-SHIPS-1 / E-DCSW1-LEG1-GREEN; plan §6.5 |
+| D-CSW-2 | Basin→causal-edge candidate probe: co-occupancy + rung survival vs basin-only / rung-only ablations | lance-graph | Queued (gated on D-CSW-1) | plan §5a/§6 |
+| D-CSW-3 | jc reliability: full-width amortized ladder vs CE64 64-bit cram (extends M20 D-AW-5) | lance-graph | Queued (needs A2/A6 lanes + real data) | plan §6 |
+
 ## soa-32-tenant-awareness-redundancy-v1 — M20: honest full-width awareness → jc-measured collapse
 
 Plan: `.claude/plans/soa-32-tenant-awareness-redundancy-v1.md`. Advances ENTROPY-MILESTONES M20. Builds the full-width awareness SoA (13→32 tenants) BESIDE CausalEdge64/EW64 (kept for reference), then jc measures the true awareness width. Rides the D-TRI / BoardAggregates batched OGAR mint. NO bytes land before the envelope-auditor verdict.
