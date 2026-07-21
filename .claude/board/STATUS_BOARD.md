@@ -131,7 +131,7 @@ Plan: `.claude/plans/temporal-markov-and-style-classes-v1.md`. Rulings: E-MARKOV
 
 | D-id | Deliverable | Owner | Status | Notes |
 |---|---|---|---|---|
-| D-MTS-1 | Markov-as-stream parity probe (temporal version-range vs VSA ±5 braid, DeepNSM corpus) | lance-graph | Queued | gates ALL VSA-path removal; truth-architect reviews |
+| D-MTS-1 | ~~Markov-as-stream parity probe (temporal vs VSA ±5 braid)~~ | lance-graph | **VOID** (operator 2026-07-21, E-NO-BUNDLE-STANDING-WAVE-1) — no bundle to reach parity with; the standing wave IS the substrate. Replaced by TD-BUNDLE-RESIDUE-1 (excise the bundle violation); grounded on real corpora by D-CSW-1 leg 2. Plan file RETAINED with D-MTS-1 struck in-place (over-deletion corrected post-codex #790); D-MTS-2/3/4/5 + Track B/C deliverables persist. | — |
 | D-MTS-2 | L4 palette256² shader fidelity certification (vs 0.96–0.998 anchors; representation engineered first) | cognitive-shader-driver | Queued | certification-officer battery |
 | D-MTS-3 | Hierarchical-4⁴ vs flat-256 codebook fidelity (OGAR F11-adjacent) | ndarray/bgz17 | Queued | 2bit×2bit cascade prefix rigor |
 | D-MTS-4 | M4 cutover target sharpened: MailboxSoA + temporal stream + palette tenants | driver | Queued | rides M4 parity gate |

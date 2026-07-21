@@ -43,9 +43,13 @@
   D-TRI-4 = thinking-transfer validity+reliability (jc battery); D-TRI-5 =
   emulation≠resonance on opponent move prediction. The measurement harness can
   START before K1's chess classids (uses shipped stockfish-rs + temporal).
-- **P1c · D-MTS-1 — Markov-as-stream parity probe.** temporal version-range vs
-  VSA ±5 braid on the DeepNSM corpus. **Gates ALL VSA-path removal** —
-  foundational. truth-architect reviews.
+- ~~**P1c · D-MTS-1 — Markov-as-stream parity probe.**~~ **STRUCK (operator
+  2026-07-21, `E-NO-BUNDLE-STANDING-WAVE-1`).** There is no VSA ±5 braid to reach
+  parity with — the bundle is a hallucination + a single-ownership violation. The
+  standing wave over `temporal.rs` (`witness_fabric::standing_wave_grounded`,
+  shipped) IS the substrate. Replaced by **P1c′ · TD-BUNDLE-RESIDUE-1** — the
+  scoped excision of `vsa_bundle`/markov-bundle call sites in deepnsm, each →
+  a single-owner temporal-stream read (tests-green-gated).
 - **P1d · Brick 3 (D-V3-W4b) — L4 learning-loop end-to-end probe.** residue →
   owner-stamped lane → next-cycle template read. Closes the P4 self-reasoning
   carrier. My earlier flagged thrust; unblocked.
@@ -81,7 +85,8 @@
 ## Execution order (this driver's plan)
 
 1. **P1a (D-CSW-1 leg-2)** — start now; grounds the shipped convergence on real data.
-2. **P1c (D-MTS-1)** — foundational parity probe (unlocks VSA removal).
+2. ~~P1c (D-MTS-1)~~ → **P1c′ (TD-BUNDLE-RESIDUE-1)** — scoped excision of the
+   bundle violation (deepnsm call sites → single-owner temporal-stream reads).
 3. **P0 K1 (batched mint)** — with the envelope-auditor gate; unblocks the P2-GATED cluster + chess classids.
 4. **P1b (chess teacher)** — once chess classids land (or start the harness on shipped stockfish-rs).
 5. **P1d (Brick 3)** — L4 learning loop.

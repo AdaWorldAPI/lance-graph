@@ -211,15 +211,21 @@ envelope-auditor gate — never as ad-hoc lanes.**
    17K tokens/sec. The boldest spine claim stays named: **DeepNSM
    replaces transformer inference for its scope — 680 GB model →
    16.5 MB, 50 ms/token → <10 µs/sentence** (the crate's measured
-   claim; its parity against the temporal-stream lane is exactly what
-   D-MTS-1 tests). When a future session doubts the aspiration, it
-   should re-run the probes, not re-read the prose.
+   claim; the temporal-stream lane IS the substrate — there is no VSA
+   ±5 braid to run "parity" against: D-MTS-1 STRUCK,
+   `E-NO-BUNDLE-STANDING-WAVE-1`; the real-corpus grounding is D-CSW-1
+   leg 2). When a future session doubts the aspiration, it should
+   re-run the probes, not re-read the prose.
 
 ## 8. The road (in dependency order)
 
-1. **D-MTS-1** — Markov-as-stream parity on the DeepNSM corpus: the stream
-   earns the Markov crown or it doesn't. Gates ALL VSA-path removal. The
-   keystone. [next]
+1. ~~**D-MTS-1** — Markov-as-stream parity on the DeepNSM corpus~~ **STRUCK**
+   (`E-NO-BUNDLE-STANDING-WAVE-1`): there is no VSA ±5 braid to run parity
+   against — the standing wave over `temporal.rs` IS the substrate (SHIPPED:
+   `witness_fabric::standing_wave_grounded`), the Markov property holds by
+   stream order (`E-MARKOV-TEMPORAL-STREAM-1`). Grounded on real corpora by
+   **D-CSW-1 leg 2**; VSA-path removal now gated by D-MTS-2..3 + the
+   TD-BUNDLE-RESIDUE-1 excision.
 2. **D-TTV-1** — thinking tenants onto the V3 substrate (envelope-auditor
    gated), the old CausalEdge64 standing as the perturbation baseline.
 3. **D-MTS-6b** — awareness in the REAL driver loop vs that baseline: the

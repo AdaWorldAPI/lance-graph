@@ -133,8 +133,11 @@ VSA carrier).
 > bundle ALGEBRA below stays valid in that niche; the [FORMAL-SCAFFOLD]
 > consult is recorded in the board entry (Chapman-Kolmogorov now holds
 > exactly by stream order, a strengthening). Diagram + "three things" §1
-> below are read through this note. Probes D-MTS-1..3 (plan
-> `temporal-markov-and-style-classes-v1`) gate the code migration.
+> below are read through this note. Probes D-MTS-2..3 (plan
+> `temporal-markov-and-style-classes-v1`) gate the code migration
+> (D-MTS-1 STRUCK — `E-NO-BUNDLE-STANDING-WAVE-1`: no VSA ±5 braid to
+> reach parity with; the standing wave over `temporal.rs` IS the
+> substrate, grounded on real corpora by D-CSW-1 leg 2).
 
 ```
   Sentence → FSM → RoleKey_fp × content_fp   → vsa_bundle (Σ) with ρ^d braiding
