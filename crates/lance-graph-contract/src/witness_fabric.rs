@@ -215,6 +215,94 @@ pub fn resolve_chain(
     }
 }
 
+/// The grounding verdict of the **multipass Markov standing wave** over a locus.
+///
+/// The `±8` nibble is only the **reference horizon** (the cheap local window), NOT
+/// a bound on awareness (operator ruling `E-HORIZON-NOT-BOUND-1`). A chain that
+/// leaves it is not coincidental — its causality lives over a longer time span, so
+/// the recipe [`Escalate`](WaveGrounding::Escalate)s to a `temporal.rs`
+/// version-range read (search causality over time). There is no `Coincidental`
+/// wave verdict: the wave cannot decide "genuinely spurious" from the local window
+/// alone — only the escalated read can, and that is the consumer's call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WaveGrounding {
+    /// Bound AND the standing wave SETTLES within the `±8` reference horizon —
+    /// increasing the hop budget stops changing the resolved target (per-rung
+    /// persistence, D-CSW-1): the locus is **causally grounded locally** (cheap).
+    Causal,
+    /// Bound, and the chain PERSISTS but leaves the `±8` reference horizon (or
+    /// exhausts the hop budget mid-chain) — the causality lives over a longer time
+    /// span. The signal to **escalate** — NOT a failure and NOT coincidental (a
+    /// distant cause is still a cause). The `±8` window is dimensioned for GRAMMAR
+    /// (local positional dependencies); causality past it is no longer positional,
+    /// so escalation is a REPRESENTATION SWITCH to an ABSOLUTE address, not a wider
+    /// offset (`E-GRAMMAR-LOCAL-CAUSAL-ABSOLUTE-1`): `part_of:is_a` (the AriGraph
+    /// episodic basin) OR a centroid (CAM-PQ / palette256) — the two jobs of ONE
+    /// implicit 256×256 tile, which holds an entire work's `≤64k` SPO (the whole
+    /// Bible ≈ 31k, ~half a tile — `E-WHOLE-WORK-IS-ONE-TILE-1`), so the target is
+    /// BOUNDED, not an unbounded search. The consumer does that absolute read
+    /// (D-CSW-2); the contract only emits the signal.
+    Escalate,
+    /// The locus is not bound at all (unbound at the source).
+    Unbound,
+}
+
+/// **The multipass Markov standing wave** over one locus — the LITERAL Markov-chain
+/// resolution (not a coarse scalar proxy). Runs [`resolve_chain`] at increasing hop
+/// budgets `1..=passes` (the standing wave's passes) and asks whether the resolved
+/// target **persists**: a locus [`Causal`](WaveGrounding::Causal) within the `±8`
+/// reference horizon settles (two successive budgets agree, chain terminated); one
+/// whose chain leaves that horizon [`Escalate`](WaveGrounding::Escalate)s to a
+/// `temporal.rs` read (the horizon is a reference, not a bound —
+/// `E-HORIZON-NOT-BOUND-1`). This is D-CSW-1's "per-rung persistence separates
+/// causal from coincidental" applied to grounding — the honest second resolution
+/// beside the single-pass structural binding
+/// ([`is_bound`](crate::causal_witness::CausalWitnessFacet::is_bound)).
+#[must_use]
+pub fn standing_wave_grounded(
+    focal_idx: usize,
+    window: &[(usize, CausalWitnessFacet)],
+    locus: Locus,
+    passes: u8,
+) -> WaveGrounding {
+    let Some(&(_, focal)) = window.get(focal_idx) else {
+        return WaveGrounding::Unbound;
+    };
+    if !focal.is_bound(locus) {
+        return WaveGrounding::Unbound;
+    }
+    let mut last: Option<i8> = None;
+    for budget in 1..=passes.max(1) {
+        let r = resolve_chain(focal_idx, window, locus, budget);
+        // The chain left the ±8 reference horizon (or exhausted the budget): its
+        // causality lives over a longer time span → escalate, don't reject.
+        if r.escalated {
+            return WaveGrounding::Escalate;
+        }
+        match r.final_offset {
+            // settled: this budget resolved to the same target the previous did
+            // (adding budget stopped moving it) and it did not escalate.
+            Some(off) => {
+                if last == Some(off) {
+                    return WaveGrounding::Causal; // the wave stood still → causal
+                }
+                last = Some(off);
+            }
+            // resolved to nothing inside the horizon without escalating — the
+            // chain has no local target; treat as needing the wider search.
+            None => return WaveGrounding::Escalate,
+        }
+    }
+    // A single-hop terminal chain resolves identically at every budget: `last`
+    // is Some but the "two agree" short-circuit needs ≥2 passes to fire, so a
+    // resolved-non-escalated chain is causal (grounded in the reference horizon).
+    if last.is_some() {
+        WaveGrounding::Causal
+    } else {
+        WaveGrounding::Escalate
+    }
+}
+
 /// **E-CONTRADICTION-OPINION-1** — a stance/opinion is a row whose Contradiction
 /// locus stays BOUND across successive revisions (committed-contradiction
 /// persistence as first-class epistemic state). `revisions` is the same row's
