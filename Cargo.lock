@@ -4933,7 +4933,7 @@ dependencies = [
 [[package]]
 name = "lance-graph-contract"
 version = "0.1.0"
-source = "git+https://github.com/AdaWorldAPI/lance-graph?branch=claude%2Fogar-docir-architecture-jjzlig#241c7eff167264bafd4f458858e5495dd2afdd9b"
+source = "git+https://github.com/AdaWorldAPI/lance-graph?branch=main#1c44ea5c21e48c9e756d0cc4c77a0a81bd90c79e"
 dependencies = [
  "glob",
  "serde",
@@ -6052,7 +6052,7 @@ dependencies = [
 name = "ogar-class-view"
 version = "0.1.0"
 dependencies = [
- "lance-graph-contract 0.1.0 (git+https://github.com/AdaWorldAPI/lance-graph?branch=claude%2Fogar-docir-architecture-jjzlig)",
+ "lance-graph-contract 0.1.0 (git+https://github.com/AdaWorldAPI/lance-graph?branch=main)",
  "ogar-vocab",
 ]
 
