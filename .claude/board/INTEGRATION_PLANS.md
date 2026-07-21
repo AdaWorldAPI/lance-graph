@@ -19,6 +19,15 @@ D-CSW-1..3 report; no bytes before the M20 auditor+mint gates. Open decision
 O1: canonical ladder masks + per-class facet election (recommended). Carries
 the #774 post-mortem hard rules (no byte-sniffing, ClassView-elected readings,
 contract::distance only, no "wiring/replaces" claims without a caller).
+**§0.5 economics (operator refinement, same day):** pay in REPRESENTATION
+(the full-width awareness facets), earn three returns — free orientation
+(stream order), per-pair testing as a cost-ordered **escalation cascade**
+(rungs gate rungs; counterfactual only on survivors — the HHTL/RouteAction/
+elevation discipline with Pearl's ladder as level structure; the standing
+wave IS the escalation gate), and the **metacognition surface** (awareness
+rows are first-class rows in the same substrate — the recursion is the v3
+substrate self-aware by construction). D-CSW-1 now also measures the
+pruning ratio with separation preserved.
 
 ## 2026-07-19 — graph-desktop-platform-synergy-map v1 — MAP COMPLETE (Phase 0, gate ledger) — main thread
 

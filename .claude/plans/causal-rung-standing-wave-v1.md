@@ -47,6 +47,41 @@ DOWNGRADE-1`): readings are **ClassView-elected, never byte-sniffed**
 is **only** `contract::distance` (never a re-modeled table); no
 "wiring/replaces" language until a caller exists; FINDING only after a probe.
 
+## §0.5 The economics — pay in representation, earn in compute + metacognition
+
+The design principle (operator, 2026-07-21, verbatim intent): **"pay for the
+representation of the awareness so that the causality-learning edges are
+escalated in ordering — not only preventing the super-exponential, but
+reasoning on an unprecedented metacognition surface due to the v3 substrate
+becoming self-aware."**
+
+The honest full-width facets (M20's 96-bit spread instead of the 64-bit cram)
+are a *deliberate byte spend*. Three returns on that spend:
+
+1. **Orientation is free** (§4) — the `temporal.rs` stream order kills the
+   super-exponential DAG-orientation search outright.
+2. **Per-pair testing becomes an escalation cascade** (§2) — the rung ladder
+   is COST-ORDERED: a rung's read cost is `CausalMask::active_count()` table
+   reads (the counterfactual adds the witness contrast on top), and each
+   rung's reading GATES escalation to the next. Cheap marginals prune the
+   corpus before association; association before intervention; the expensive
+   counterfactual contrast runs only on the survivors. Precedent shapes,
+   already shipped: the HHTL cascade (95% of pairs skipped at L0–1),
+   `RouteAction {Skip/Attend/Compose/Escalate}`, the planner's `elevation/`
+   cost model. Causal testing joins the cascade family instead of the search
+   family.
+3. **The metacognition surface** (§5c/§5d) — because awareness is REPRESENTED
+   as rows in the same substrate it describes, the reasoning's products are
+   themselves addressable data: the same masks, distance reads, walks, and
+   MUL texture apply to the awareness of the causal inferences recursively.
+   "The v3 substrate becoming self-aware" is literal closure, not metaphor —
+   its inferential state is first-class rows in itself.
+
+This is the workspace's standing trade — attention-as-table-lookup, palette
+distance tables, "compression never costs addressability" — applied to
+causality learning: representation is paid once; discovery becomes lookups +
+escalation instead of search.
+
 ## §1 Grounding — every surface is shipped or already-planned
 
 | Surface | Where | Role here |
@@ -81,6 +116,16 @@ The counterfactual is why the witness triple exists: semantic SPO ("THIS
 subject under THAT predicate → predicted object") contrasted against the
 AriGraph witness (what actually happened) — the two arms of P(Y_x|X',Y'),
 each pair scored by one table read.
+
+**The ladder is an escalation cascade, not 8 parallel views (§0.5.2).** The
+rungs are cost-ordered — `active_count()` = 1 (marginals) → 2 (association /
+intervention / confounder) → 3 + witness contrast (counterfactual) — and each
+rung's reading is the GATE for paying the next rung's reads. A candidate pair
+that shows nothing at a marginal is Skipped; one that shows association
+Escalates to intervention; only intervention survivors pay the counterfactual
+contrast. The "genius ordering" is exactly the shipped cascade discipline
+(HHTL L0–1 skip; `RouteAction`; planner elevation) with Pearl's ladder as the
+level structure.
 
 **Computed vs accumulated (the A2 relationship).** The mask ladder COMPUTES
 the 8 projections on demand from A1 — zero storage. A2 `PearlRungFacet` STORES
@@ -127,6 +172,13 @@ stability under the stream* — and D-CSW-1 must show that per-rung standing-wav
 stability separates causal from coincidental pairs better than single-cycle
 readings on a real text stream, or the claim dies.
 
+**The standing wave IS the escalation gate (§0.5.2 composed with §2).** A pair
+escalates to the next rung only when the current rung's standing-wave
+component persists across the window — transient readings never pay for
+higher rungs. So the cascade's pruning ratio and the wave's stability are one
+mechanism, and D-CSW-1 measures both: separation quality AND the fraction of
+pairs resolved below the counterfactual rung.
+
 ## §5 Endgame — the graph reasoning about itself
 
 **a) AriGraph basins as causality edges.** Every facet's witness half already
@@ -149,13 +201,23 @@ to reasoning, interconnected through the text spans that witnessed them.
 the awareness field (per-row `QualiaColumn`) aggregates to a gestalt reading
 consumed by `MulAssessment` (`TrustTexture`, `DkPosition`, homeostasis gate):
 the Meta-Uncertainty Layer sees the corpus's TEXTURE, not per-edge numbers —
-meta-cognition over the whole field, closing the loop.
+meta-cognition over the whole field.
+
+**d) The self-awareness closure (§0.5.3).** The awareness rows produced by
+(a)–(c) are rows in the SAME substrate the walk reads — same key space, same
+facet readings, same distance table, same masks. Nothing special-cases them:
+the next trajectory can walk the awareness of the previous one, MUL can
+assess the trust texture of its own prior assessments, and basins can form
+over awareness rows exactly as over content rows. That recursion — the
+substrate's inferential state being first-class data in itself — is the
+"unprecedented metacognition surface": the v3 substrate self-aware by
+construction, because representation was paid for (§0.5), not bolted on.
 
 ## §6 Probes (registered pass/fail BEFORE any code; the probe is the next deliverable)
 
 | Probe | Claim under test | Pass | Kill |
 |---|---|---|---|
-| **D-CSW-1** | standing-wave rung stability separates causal from coincidental pairs on a REAL text stream (labeled pairs; certified distance table; real `temporal.rs` versions) | separation (AUC or rank ρ) beats single-cycle reading AND the p64 3-bit-mask baseline, margin registered at probe write-time | no separation, or ≤ baseline |
+| **D-CSW-1** | standing-wave rung stability separates causal from coincidental pairs on a REAL text stream (labeled pairs; certified distance table; real `temporal.rs` versions) — AND the escalation cascade prunes (§0.5.2: wave stability gates rung escalation) | separation (AUC or rank ρ) beats single-cycle reading AND the p64 3-bit-mask baseline, margin registered at probe write-time; escalation resolves a registered fraction of pairs BELOW the counterfactual rung with separation preserved under pruning | no separation, ≤ baseline, or pruning destroys separation (cascade must then be re-ordered or dropped, recorded either way) |
 | **D-CSW-2** | basin co-occupancy + rung survival predicts causal-edge candidates | precision vs a labeled candidate set beats basin-only and rung-only ablations | ablations equal or better |
 | **D-CSW-3** | (= M20 D-AW-5 extension) jc reliability: the full-width amortized ladder carries awareness the 64-bit cram lost | jc battery (Cronbach α / ICC) shows non-redundant width vs CE64-derived readings | jc says the 64-bit cram was sufficient — then M20's conjecture stands and this plan's storage claims shrink to match |
 
