@@ -13,6 +13,19 @@
 
 **What it proves (robust).** The cheap statistical tile address (frequency × register-keyness) is a ROUTING coordinate with ~zero semantic fidelity — "king/queen" are frequency-distant but meaning-close, "increase/decrease" frequency-close but meaning-opposite, and the address cannot tell. The SEMANTIC metric only appears once you train a centroid codebook ON the embeddings (flat-64 ADC = +0.434, 8× the address). **This is `E-IMPLICIT-MORTON-TILE-1`'s two-jobs split, now confirmed against a real neural ground truth:** address = routing (`part_of:is_a` shift/mask), metric = ADC over trained centroids. You cannot skip the centroid codebook — the frequency×distance ADDRESS gets you the cell, never the meaning.
 
+**FULL-SCALE CALIBRATION (operator: "calibrate the whole / run 18k requests") — the whole 19,869-word academic vocabulary embedded via Jina, K=256 codebook, 300k pairs.** The coarse K=64/512-word floor (0.434) rises to the proper number, and product quantization (the real CAM-PQ shape) climbs it further:
+
+| distance | Spearman vs Jina cosine |
+|---|---|
+| freq×ratio address (routing) | **+0.075** |
+| flat-256 centroid ADC (M=1) | **+0.511** |
+| hierarchical-4⁴ (=256) ADC | +0.454 |
+| product-quant M=2 / M=4 / M=6 / M=8 / M=16 | 0.544 / 0.572 / **0.600** / 0.615 / 0.664 |
+
+Codebook healthy (256/256 used, median 76 words/centroid). The address is robustly routing-only at full scale (0.075); the trained codebook recovers 7× more (0.511 flat), and product quantization — the substrate's real 6×256 CAM-PQ shape (M=6 → 0.600) — climbs it further as the effective codeword count grows (M=16 → 0.664).
+
+**Canon clarification (does NOT contradict `E-IMPLICIT-MORTON-TILE-1`, ADDS a layer it didn't measure).** The canon's "ADC ρ=1.0 by construction" is about the **cell↔cell** ordering — the distance between two CENTROIDS is exact (the LUT is lossless, ρ trivially perfect). My ρ=0.51–0.66 measures the **word→codeword quantization loss** — how much semantic distance survives ROUNDING each of 19,869 words to a 256-codeword (or 256^M product) codebook. These are different layers: cell-ordering is exact (canon correct); word-quantization is lossy (~half the ordering at M=1, recovering with PQ). The canon measured the table's fidelity; this measures the compression's. Both true; neither is the other.
+
 **What it does NOT prove (honest bounds).** (1) hierarchical-4³ (+0.376) came out slightly BELOW flat-64 (+0.434) — but this does NOT falsify the canon's hierarchical-4⁴ claim: my hierarchy is a crude greedy top-down 4-4-4 (not a trained 4⁴ Morton-nibble hierarchy), and the canon's hierarchical advantage is for ADDRESS-ONLY routing (ρ 0.51 vs flat 0.41 in `E-IMPLICIT-MORTON-TILE-1`), NOT for the ADC metric — where centroid QUALITY dominates and flat k-means gives marginally better centroids at small K. The ADC fidelities being ~equal (0.38 vs 0.43) is CONSISTENT with the canon. (2) The absolute 0.434 is a floor, not a ceiling: K=64 is heavy compression (64 codewords for a 1024-dim space); real CAM-PQ is 6×256 = far finer and would push fidelity much higher. (3) 512 words / K=64 ≈ 8 points per cluster is undersampled; the DIRECTION (address ≪ centroid) is robust, the exact numbers are coarse.
 
 **Consequence for the tile design (`E-MORTON-TILE-AXES-1`).** The freq×ratio tile is a legitimate ROUTING address (cheap, free, whole-corpus-in-one-tile) — but the SEMANTIC comma/metric MUST come from a trained centroid codebook (ADC), not from the statistical axes. Frequency × register places the word; only the trained centroid tells you what it means. **Cross-ref:** `E-IMPLICIT-MORTON-TILE-1` (the two-jobs split this confirms), `E-MORTON-TILE-AXES-1` (the address axes tested here), `E-FREQ-IS-COSINE-REPLACEMENT-1` (freq = address, NOT metric — sharpened: freq is a *routing* cosine-replacement, semantically blind on its own), certification-officer (Pearson/Spearman/ICC-vs-ground-truth method).
