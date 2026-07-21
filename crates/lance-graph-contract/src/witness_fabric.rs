@@ -216,15 +216,26 @@ pub fn resolve_chain(
 }
 
 /// The grounding verdict of the **multipass Markov standing wave** over a locus.
+///
+/// The `±8` nibble is only the **reference horizon** (the cheap local window), NOT
+/// a bound on awareness (operator ruling `E-HORIZON-NOT-BOUND-1`). A chain that
+/// leaves it is not coincidental — its causality lives over a longer time span, so
+/// the recipe [`Escalate`](WaveGrounding::Escalate)s to a `temporal.rs`
+/// version-range read (search causality over time). There is no `Coincidental`
+/// wave verdict: the wave cannot decide "genuinely spurious" from the local window
+/// alone — only the escalated read can, and that is the consumer's call.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WaveGrounding {
-    /// Bound AND the standing wave SETTLES — increasing the hop budget stops
-    /// changing the resolved target (per-rung persistence, D-CSW-1): the locus is
-    /// **causally grounded**, not a coincidental co-occurrence.
+    /// Bound AND the standing wave SETTLES within the `±8` reference horizon —
+    /// increasing the hop budget stops changing the resolved target (per-rung
+    /// persistence, D-CSW-1): the locus is **causally grounded locally** (cheap).
     Causal,
-    /// Bound but the wave never settles within the pass budget — the target keeps
-    /// moving or escalates: a **coincidental** binding, not causal grounding.
-    Coincidental,
+    /// Bound, and the chain PERSISTS but leaves the `±8` reference horizon (or
+    /// exhausts the hop budget mid-chain) — the causality lives over a longer time
+    /// span. The signal to **escalate** to a `temporal.rs` version-range read
+    /// (`QueryReference::at`) and search the causality pattern over time. NOT a
+    /// failure and NOT coincidental — deep thinking beyond the reference horizon.
+    Escalate,
     /// The locus is not bound at all (unbound at the source).
     Unbound,
 }
@@ -232,10 +243,13 @@ pub enum WaveGrounding {
 /// **The multipass Markov standing wave** over one locus — the LITERAL Markov-chain
 /// resolution (not a coarse scalar proxy). Runs [`resolve_chain`] at increasing hop
 /// budgets `1..=passes` (the standing wave's passes) and asks whether the resolved
-/// target **persists**: a causal locus settles (two successive budgets agree, chain
-/// terminated), a coincidental one keeps extending or escalates. This is D-CSW-1's
-/// "per-rung persistence separates causal from coincidental" applied to grounding —
-/// the honest second resolution beside the single-pass structural binding
+/// target **persists**: a locus [`Causal`](WaveGrounding::Causal) within the `±8`
+/// reference horizon settles (two successive budgets agree, chain terminated); one
+/// whose chain leaves that horizon [`Escalate`](WaveGrounding::Escalate)s to a
+/// `temporal.rs` read (the horizon is a reference, not a bound —
+/// `E-HORIZON-NOT-BOUND-1`). This is D-CSW-1's "per-rung persistence separates
+/// causal from coincidental" applied to grounding — the honest second resolution
+/// beside the single-pass structural binding
 /// ([`is_bound`](crate::causal_witness::CausalWitnessFacet::is_bound)).
 #[must_use]
 pub fn standing_wave_grounded(
@@ -253,27 +267,32 @@ pub fn standing_wave_grounded(
     let mut last: Option<i8> = None;
     for budget in 1..=passes.max(1) {
         let r = resolve_chain(focal_idx, window, locus, budget);
+        // The chain left the ±8 reference horizon (or exhausted the budget): its
+        // causality lives over a longer time span → escalate, don't reject.
+        if r.escalated {
+            return WaveGrounding::Escalate;
+        }
         match r.final_offset {
             // settled: this budget resolved to the same target the previous did
             // (adding budget stopped moving it) and it did not escalate.
-            Some(off) if !r.escalated => {
+            Some(off) => {
                 if last == Some(off) {
                     return WaveGrounding::Causal; // the wave stood still → causal
                 }
                 last = Some(off);
             }
-            // escalated (left the ±8 window) or unresolved → the wave has not
-            // settled: coincidental / needs a temporal.rs read.
-            _ => return WaveGrounding::Coincidental,
+            // resolved to nothing inside the horizon without escalating — the
+            // chain has no local target; treat as needing the wider search.
+            None => return WaveGrounding::Escalate,
         }
     }
-    // A single-hop terminal chain resolves identically at every budget, so `last`
-    // is Some but the "two agree" short-circuit needs ≥2 passes to fire; treat a
-    // resolved-non-escalated single pass as causal only when passes==1.
-    if passes <= 1 && last.is_some() {
+    // A single-hop terminal chain resolves identically at every budget: `last`
+    // is Some but the "two agree" short-circuit needs ≥2 passes to fire, so a
+    // resolved-non-escalated chain is causal (grounded in the reference horizon).
+    if last.is_some() {
         WaveGrounding::Causal
     } else {
-        WaveGrounding::Coincidental
+        WaveGrounding::Escalate
     }
 }
 

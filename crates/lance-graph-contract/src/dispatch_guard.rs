@@ -22,14 +22,15 @@
 //! * **Single-pass structural binding** — [`loci_disqualifier`](crate::recipe_loci::loci_disqualifier):
 //!   is every required locus BOUND (nonzero, placed in the `±8` window)?
 //! * **Multipass Markov standing wave** — [`standing_wave_grounded`](crate::witness_fabric::standing_wave_grounded):
-//!   does every required locus PERSIST across the standing wave (settle to a
-//!   stable target as the hop budget grows) rather than being a coincidental
-//!   co-occurrence?
+//!   does every required locus SETTLE within the `±8` reference horizon (stable
+//!   target as the hop budget grows), or does its causal chain leave that horizon
+//!   (a non-local cause) and need to [`Escalate`](GateOutcome::Escalate)?
 //!
 //! These are genuinely independent: a locus can be BOUND (passes the single-pass
-//! gate) yet COINCIDENTAL (fails the wave) — a causally-hollow binding. The wave
-//! catches those; the single-pass gate can't. That is real higher-confidence
-//! redundancy (causal vs merely-present), the OPPOSITE of a coarse pre-filter.
+//! gate) yet have a NON-LOCAL cause the wave sees leaving the reference horizon —
+//! the wave escalates those; the single-pass gate can't see past the window. That
+//! is real higher-confidence redundancy (local-causal vs beyond-the-horizon), the
+//! OPPOSITE of a coarse pre-filter.
 //!
 //! # The two gates are the two orthogonal axes of a self-solving tissue (Sudoku)
 //!
@@ -44,15 +45,19 @@
 //! * **Horizontal** — the multipass Markov STANDING WAVE: the multihop causality
 //!   chain (`resolve_chain`, signed offsets → forward AND backward propagation)
 //!   settling across hop budgets. Deeper budget = deeper thinking; settlement is
-//!   the confidence.
+//!   the confidence. The `±8` window is only the **reference horizon** — a chain
+//!   that leaves it is not coincidental, it [`Escalate`](GateOutcome::Escalate)s to
+//!   a `temporal.rs` version-range read, and ultimately to the AriGraph
+//!   `part_of:is_a` basins, which are ADDRESSED ABSOLUTELY (not temporal-window
+//!   bounded) — `E-HORIZON-NOT-BOUND-1`.
 //!
 //! Their INTERSECTION is the unique grounding — which is *why* the composition is
 //! higher-confidence: orthogonal constraints intersect to a solution, they do not
-//! merely agree. The 34/34 `Fires`→`WaveCatch` flip measured in
+//! merely agree. The 34/34 `Fires`→`Escalate` flip measured in
 //! `examples/dispatch_guard_redundancy` is a Sudoku row constraint being BLIND to
-//! what a column constraint sees (single-pass binding cannot see horizontal
-//! persistence). The 24-loci tissue is the grid; the 34 recipes weave it layer by
-//! layer, rung by rung.
+//! what a column constraint sees (single-pass binding cannot see that a chain's
+//! causality lives beyond the reference horizon). The 24-loci tissue is the grid;
+//! the 34 recipes weave it layer by layer, rung by rung.
 //!
 //! The `nan_disqualifier` scalar check is retained ONLY as an optional
 //! ctx-source-independent sanity flag ([`GuardVerdict::scalar_flag`]) for the case
@@ -67,23 +72,28 @@ use crate::witness_fabric::{standing_wave_grounded, WaveGrounding};
 /// The relationship between the two independent grounding gates for one recipe.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GateOutcome {
-    /// Every required locus is BOUND and CAUSAL — the recipe fires.
+    /// Every required locus is BOUND and CAUSAL within the reference horizon — the
+    /// recipe fires locally (cheap).
     Fires,
-    /// A required locus is bound but COINCIDENTAL — the standing wave caught a
-    /// causally-hollow binding the single-pass gate would have fired. The
-    /// redundancy value (the wave's independent catch).
-    WaveCatch,
-    /// A required locus is UNBOUND — both gates block (a causal locus is bound by
-    /// definition, so unbound fails the wave too). Agreement.
+    /// A required locus is bound, but its causal chain LEAVES the `±8` reference
+    /// horizon — the standing wave caught a NON-LOCAL cause the single-pass gate
+    /// would have fired blind. Not coincidental (Romeo & Juliet's death is still
+    /// caused by the distant feud): the recipe should ESCALATE to a `temporal.rs`
+    /// read / the absolute AriGraph basin and search the causality over time. The
+    /// redundancy value (the wave's independent, orthogonal catch).
+    Escalate,
+    /// A required locus is UNBOUND — both gates block (an unbound locus has no
+    /// chain to stand a wave on). Agreement.
     Unbound,
 }
 
 impl GateOutcome {
-    /// Does this cell exercise the wave's INDEPENDENT catch (bound-but-coincidental)?
+    /// Does this cell exercise the wave's INDEPENDENT catch (bound-but-non-local →
+    /// escalate over time / into the absolute basin)?
     #[inline]
     #[must_use]
-    pub const fn is_wave_catch(self) -> bool {
-        matches!(self, GateOutcome::WaveCatch)
+    pub const fn is_escalate(self) -> bool {
+        matches!(self, GateOutcome::Escalate)
     }
 }
 
@@ -92,9 +102,9 @@ impl GateOutcome {
 pub struct GuardVerdict {
     /// First required locus that is UNBOUND (single-pass structural gate), if any.
     pub unbound: Option<Locus>,
-    /// First required locus that is bound but COINCIDENTAL under the standing
-    /// wave, if any (the wave's independent catch).
-    pub coincidental: Option<Locus>,
+    /// First required locus whose causal chain LEAVES the `±8` reference horizon
+    /// under the standing wave, if any — the non-local cause to escalate for.
+    pub escalate: Option<Locus>,
     /// Optional coarse scalar sanity flag — the field `nan_disqualifier` reports
     /// on the projected ctx. NOT a grounding gate here (documented degenerate);
     /// meaningful only when the ctx has a non-witness source.
@@ -132,25 +142,26 @@ pub fn guard(
     // Gate 1 — single-pass structural binding.
     let unbound = loci_disqualifier(&witness, id);
 
-    // Gate 2 — multipass Markov standing wave: a required locus that is bound but
-    // does not persist (coincidental) is caught here, not by gate 1.
-    let coincidental = if unbound.is_some() {
+    // Gate 2 — multipass Markov standing wave: a required locus whose causal chain
+    // leaves the ±8 reference horizon (a NON-LOCAL cause) is caught here, not by
+    // gate 1. It is not coincidental — the recipe escalates to search over time.
+    let escalate = if unbound.is_some() {
         None // don't double-report; the binding gate already blocked
     } else {
         required_loci(id).iter().copied().find(|&l| {
-            standing_wave_grounded(focal_idx, window, l, passes) == WaveGrounding::Coincidental
+            standing_wave_grounded(focal_idx, window, l, passes) == WaveGrounding::Escalate
         })
     };
 
-    let outcome = match (unbound.is_some(), coincidental.is_some()) {
+    let outcome = match (unbound.is_some(), escalate.is_some()) {
         (true, _) => GateOutcome::Unbound,
-        (false, true) => GateOutcome::WaveCatch,
+        (false, true) => GateOutcome::Escalate,
         (false, false) => GateOutcome::Fires,
     };
 
     GuardVerdict {
         unbound,
-        coincidental,
+        escalate,
         scalar_flag: ctx.and_then(|c| nan_disqualifier(c, id)),
         outcome,
     }
@@ -192,28 +203,32 @@ mod tests {
     }
 
     #[test]
-    fn bound_but_coincidental_is_the_waves_independent_catch() {
+    fn bound_but_non_local_cause_escalates_not_coincidental() {
         // #20 TCF needs Quorum, BOUND — but its chain keeps extending out of the
-        // ±8 window (never settles) → the standing wave marks it Coincidental,
-        // which the single-pass binding gate (bound == grounded) would have missed.
+        // ±8 reference horizon → the standing wave marks it Escalate (a NON-LOCAL
+        // cause, like Romeo & Juliet's death caused by the distant feud), NOT
+        // coincidental. The single-pass binding gate (bound == grounded) misses it.
         let a = wit(&[(Locus::Quorum, 7)]);
         let b = wit(&[(Locus::Quorum, 7)]); // rebinds → chain leaves ±8 → escalates
         let window = [(0usize, a), (7, b)];
         let v = guard(None, &window, 0, 20, 8);
         assert_eq!(
             v.outcome,
-            GateOutcome::WaveCatch,
-            "wave catches the causally-hollow binding"
+            GateOutcome::Escalate,
+            "wave catches the non-local cause → escalate over time, not coincidental"
         );
-        assert!(v.unbound.is_none() && v.coincidental == Some(Locus::Quorum));
-        assert!(!v.fires(), "bound-but-coincidental does NOT fire");
+        assert!(v.unbound.is_none() && v.escalate == Some(Locus::Quorum));
+        assert!(
+            !v.fires(),
+            "a non-local cause does NOT fire locally — it escalates"
+        );
     }
 
     #[test]
-    fn wave_catch_is_independent_of_the_single_pass_gate() {
+    fn escalate_is_independent_of_the_single_pass_gate() {
         // The single-pass gate (loci_disqualifier) sees Quorum BOUND → would fire.
-        // The wave gate blocks it. That divergence is the higher-confidence
-        // redundancy — not a coarse subset.
+        // The wave gate escalates it. That divergence is the higher-confidence
+        // redundancy — the horizontal axis the vertical binding is blind to.
         let a = wit(&[(Locus::Quorum, 7)]);
         let b = wit(&[(Locus::Quorum, 7)]);
         let window = [(0usize, a), (7, b)];
@@ -223,7 +238,7 @@ mod tests {
         );
         assert_eq!(
             guard(None, &window, 0, 20, 8).outcome,
-            GateOutcome::WaveCatch
+            GateOutcome::Escalate
         );
     }
 }
