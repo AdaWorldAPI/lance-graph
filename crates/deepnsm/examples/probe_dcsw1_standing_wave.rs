@@ -20,8 +20,22 @@
 //!   2. `auc_wave >= auc_p64   + MARGIN_VS_P64`
 //!   3. cascade: `pruned_fraction >= MIN_PRUNED` AND
 //!      `auc_cascade >= auc_wave - MAX_AUC_DROP`
+//!
 //! KILL: any gate fails (recorded either way; a failed cascade gate forces
 //! re-ordering or dropping the cascade, per the plan's §6 kill column).
+//!
+//! ## v3 → v4 (review corrections; gates/margins/Θ unchanged)
+//!
+//! - **Codex P2 (#777):** the pure-S rung (0b100) is STRUCTURALLY degenerate —
+//!   instance collection fixes subject = B, so `d.0 ≡ 0` and the rung reads
+//!   1.0 for every pair, meaning the level-1 escalation gate could never
+//!   prune and the "cheap marginal" economics wasn't actually measured. v4
+//!   excludes rungs with no informative plane from the escalation gate (the
+//!   S plane inside 2-plane rungs is harmless: the weakest-plane `max`
+//!   ignores its 0).
+//! - **CodeRabbit (#777):** `pool_p` could reach 4139 and the `.min(4094)`
+//!   clamp broke the residue-class invariant the aliasing arm depends on;
+//!   offset 300→200 keeps the pool ≤ 4039 and the clamps are removed.
 //!
 //! ## Honest boundary (leg 1 of 2)
 //!
@@ -131,7 +145,10 @@ struct Lcg(u64);
 impl Lcg {
     fn next(&mut self) -> u64 {
         // Numerical Recipes LCG — deterministic across runs/platforms.
-        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         self.0 >> 33
     }
     fn below(&mut self, n: u64) -> u64 {
@@ -237,9 +254,12 @@ fn build_stream(rng: &mut Lcg) -> Vec<SpoTriple> {
             }
             if rng.chance(85) {
                 let k = rng.below(8) as u16;
-                let pool_p = (a % 256) + 300 + k * 512; // residue class fixed
+                // offsets keep the pools ≤ 4039/3883 < 4096 UNCLAMPED — a clamp
+                // would break the residue-class (mod-256) aliasing invariant
+                // the p64 arm depends on (CodeRabbit, #777).
+                let pool_p = (a % 256) + 200 + k * 512; // residue class fixed
                 let pool_o = (b % 256) + 44 + k * 512;
-                stream.push(SpoTriple::new(second, pool_p.min(4094), pool_o.min(4094)));
+                stream.push(SpoTriple::new(second, pool_p, pool_o));
             }
         }
         // background traffic
@@ -351,16 +371,29 @@ fn auc(causal: &[f64], coincidental: &[f64]) -> f64 {
     wins / (causal.len() * coincidental.len()) as f64
 }
 
-/// The escalation cascade (registered): climb cost levels 1→2→3; at each
-/// level take the best stability among that level's rungs; escalate only if
-/// it clears THETA_ESCALATE. Returns (score = stability at the last level
-/// paid for, reached_top).
+/// Planes that are STRUCTURALLY constant under the instance definition:
+/// instances are collected with subject = B fixed, so the S plane's distance
+/// is identically 0 and carries no information. A rung whose selected planes
+/// are ALL structural (the pure-S rung 0b100) must not gate escalation — it
+/// reads 1.0 for every pair and would make level-1 pruning impossible
+/// (Codex P2 on #777). Inside multi-plane rungs the S plane is harmless:
+/// the weakest-plane `max` ignores its 0.
+const STRUCTURAL_PLANES: u8 = 0b100;
+
+fn rung_is_informative(mask: u8) -> bool {
+    mask & !STRUCTURAL_PLANES != 0
+}
+
+/// The escalation cascade (registered): climb cost levels 1→3; at each level
+/// take the best stability among that level's INFORMATIVE rungs; escalate
+/// only if it clears THETA_ESCALATE. Returns (score = stability at the last
+/// level paid for, reached_top).
 fn cascade(per_rung: &[(u8, f64)]) -> (f64, bool) {
     let mut score = 0.0;
     for level in 1..=3u32 {
         let best = per_rung
             .iter()
-            .filter(|(m, _)| rung_cost(*m) == level)
+            .filter(|(m, _)| rung_cost(*m) == level && rung_is_informative(*m))
             .map(|(_, s)| *s)
             .fold(f64::NEG_INFINITY, f64::max);
         score = best;
