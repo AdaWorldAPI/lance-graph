@@ -31,6 +31,29 @@
 //! catches those; the single-pass gate can't. That is real higher-confidence
 //! redundancy (causal vs merely-present), the OPPOSITE of a coarse pre-filter.
 //!
+//! # The two gates are the two orthogonal axes of a self-solving tissue (Sudoku)
+//!
+//! Per the operator's framing (`E-SUDOKU-TISSUE-WEAVE-1`), grounding is a **Sudoku
+//! puzzle solving itself** — a constraint-satisfaction fixpoint on TWO orthogonal
+//! axes, not two redundant measures of one thing:
+//!
+//! * **Vertical / bottom-up / Maslow** — single-pass BINDING in rung-ascending
+//!   order: a higher-rung locus can only be grounded once the lower-layer tissue
+//!   it builds on is woven (`recipe_loci::carried_awareness`). The connective
+//!   tissue must exist first.
+//! * **Horizontal** — the multipass Markov STANDING WAVE: the multihop causality
+//!   chain (`resolve_chain`, signed offsets → forward AND backward propagation)
+//!   settling across hop budgets. Deeper budget = deeper thinking; settlement is
+//!   the confidence.
+//!
+//! Their INTERSECTION is the unique grounding — which is *why* the composition is
+//! higher-confidence: orthogonal constraints intersect to a solution, they do not
+//! merely agree. The 34/34 `Fires`→`WaveCatch` flip measured in
+//! `examples/dispatch_guard_redundancy` is a Sudoku row constraint being BLIND to
+//! what a column constraint sees (single-pass binding cannot see horizontal
+//! persistence). The 24-loci tissue is the grid; the 34 recipes weave it layer by
+//! layer, rung by rung.
+//!
 //! The `nan_disqualifier` scalar check is retained ONLY as an optional
 //! ctx-source-independent sanity flag ([`GuardVerdict::scalar_flag`]) for the case
 //! a ctx arrives from a non-witness source; it never gates grounding here.
