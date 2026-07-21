@@ -235,6 +235,61 @@ of pairs below the counterfactual rung at ZERO separation cost (`auc_cascade
 0.972`). The §0.5 economics measured. Board: `E-DCSW1-LEG1-GREEN`. **Leg 2
 (real `temporal.rs`/Lance versions, wild corpora) remains OPEN.**
 
+> **⚠ LEG-1 RE-GRADE → PROVISIONAL (2026-07-21, 5-lens missed-tissue audit).**
+> The `E-DCSW1-LEG1-GREEN` headline is downgraded to PROVISIONAL pending a v5
+> probe, for three verified methodological reasons (§6.5 M1–M3). It is NOT
+> withdrawn — the fixture-ceiling escape, the persistence-fraction statistic,
+> and the cascade-prune-at-zero-cost result stand. What is compromised is the
+> *interpretation* of the counterfactual rung: the probe's witness is lag-1
+> self-history, so the winning AUC partly measures autocorrelation, not the A1
+> episodic-witness counterfactual. Treat leg-1 as "the mechanism runs and the
+> economics are real," not "the counterfactual rung is validated."
+
+## §6.5 Missed-tissue audit — what already ships (5-lens review, 2026-07-21)
+
+Five parallel review agents swept the runtime for organs this plan under-cited.
+**Headline: most of this plan already has shipped tissue.** The plan's value is
+the *amortization framing* (8 canonical masks over ONE SpoFacet register) and
+the *economics* (§0.5) — NOT the invention of the organs. Every claim below was
+grepped to a real `file:line` before landing here.
+
+**Shipped organs the plan must cite (not re-propose):**
+
+| Plan concept | Already ships as | Location |
+|---|---|---|
+| "8 amortized causal views" | `CausalNetwork` (forward_chain / learn_path / causal_query / detect_simpsons_paradox / evidence_trail) | `network.rs:61,81,91,120,152` |
+| NARS execution at u8 width | `NarsTables` + `nars_infer` + `all_projections` + `StyleVector` + `inference_to_pearl_mask` | `nars_engine.rs:150,188,254,382` |
+| "standing wave over the stream" | `arigraph::markov_soa` | `markov_soa.rs` |
+| Rung elevation over CausalMask bits | `RungLevel` / `causal_mask_bits` / `RungElevator` | `cognitive_shader.rs:157,244,272` |
+| Counterfactual intervention | `CounterfactualSpoG::intervene_on` + `contract::counterfactual` | `triplet_graph.rs:754,789` |
+| The witness organ | `WitnessCorpus` | `witness_corpus.rs:316` |
+| qualia+mantissa → MUL | `mul::i4_eval` | `mul.rs:150` |
+
+**M1–M3 — the three verified compromises to D-CSW-1's "green":**
+
+- **M1 (autocorrelation confound).** The probe's `instance_readings` sets
+  `witness = Some(eff)` where `eff` is the *previous B-as-subject triple* — i.e.
+  lag-1 self-history of the effect variable. The "counterfactual" rung therefore
+  measures autocorrelation of B, not `P(Y_x | X', Y')` against an episodic
+  witness (the A1 SpoFacet witness rails). v5 must draw the witness from a
+  genuine `WitnessCorpus`-shaped episodic row, not B's own past.
+- **M2 (no reverse-direction control).** The probe never runs the B→A direction.
+  "Orientation is free" (the stream-order claim that kills DAG-orientation
+  search) is therefore *asserted, never falsified* — a B→A control that stays at
+  chance is the missing falsifier.
+- **M3 (p64 baseline denies p64 the wave).** The `p64` arm is single-cycle only,
+  so the 0.375 AUC conflates two distinct claims — "3×u8 aliasing loses
+  information" (width) and "one cycle can't see recurrence" (wave). v5 must give
+  p64 the same multi-cycle window to isolate the width claim from the wave claim.
+
+**Consequence for the plan:** §0's "8 edges" framing is re-cited to
+`CausalNetwork` (which already amortizes the 8 walks + writes-back), and §4's
+standing wave is re-cited to `markov_soa`. The *new* contribution is confined to
+(a) folding all 8 walks onto the single SpoFacet 6×(8:8) register instead of
+CausalNetwork's separate edge structures, and (b) the rung-cost-ordered
+escalation cascade (§0.5) that CausalNetwork does not currently gate on. Those
+two remain CONJECTURE until v5 + leg-2.
+
 ## §7 Honest boundary — what this plan does NOT do
 
 - **No bytes land** before the `v3-envelope-auditor` verdict + batched OGAR
