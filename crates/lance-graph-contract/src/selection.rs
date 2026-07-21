@@ -256,16 +256,27 @@ pub struct FieldVisit<K> {
 /// - `root` — the starting node.
 /// - `max_depth` — the explicit descent cap: the root is depth `0`; a child is
 ///   visited only while its depth `<= max_depth`. `max_depth == 0` walks the root
-///   only.
+///   only. Clamped to [`MAX_WALK_DEPTH`] — the walk recurses one frame per rail
+///   hop, and a stack overflow aborts the process (it cannot be caught), so the
+///   ceiling holds regardless of caller input.
 /// - `visit` — the renderer-neutral sink, called once per emitted `(key,
 ///   position)`.
 ///
-/// **Termination is guaranteed three ways:** the `visited` cycle guard (a node is
-/// walked at most once — a cyclic `part_of` graph cannot loop), the explicit
-/// `max_depth` cap, and natural leaf termination (a node whose present∩view mask
-/// yields no [`rail_target`](RailGraph::rail_target) recurses nowhere). Fields are
+/// **Termination is guaranteed three ways:** the **path-local** cycle guard (a
+/// key already on the CURRENT recursion stack is not re-entered, so a cyclic
+/// `part_of` graph cannot loop — while a key reachable through several selected
+/// rails is walked once **per path**, emitting at each path's own depth; a
+/// global visited-set would let the first DFS path win and emit shared DAG
+/// targets at the wrong depth), the explicit `max_depth` cap, and natural leaf
+/// termination (a node whose present∩view mask yields no
+/// [`rail_target`](RailGraph::rail_target) recurses nowhere). Fields are
 /// emitted in ascending position order and rails followed in ascending position
 /// order, so the whole traversal is deterministic.
+///
+/// **View/class agreement is enforced:** a binding that returns a view whose
+/// [`NamedView::class`] differs from the node's own class is pruned fail-closed
+/// — field positions are defined per class, and applying a foreign class's mask
+/// would emit unrelated positions.
 pub fn walk_rails<G, V, F>(
     graph: &G,
     class_view: &V,
@@ -279,7 +290,7 @@ pub fn walk_rails<G, V, F>(
     V: ClassView,
     F: FnMut(FieldVisit<G::Key>),
 {
-    let mut visited: HashSet<G::Key> = HashSet::new();
+    let mut stack: HashSet<G::Key> = HashSet::new();
     walk_node(
         graph,
         class_view,
@@ -287,11 +298,20 @@ pub fn walk_rails<G, V, F>(
         &view_binding,
         root,
         0,
-        max_depth,
-        &mut visited,
+        max_depth.min(MAX_WALK_DEPTH),
+        &mut stack,
         visit,
     );
 }
+
+/// Hard sanity ceiling on [`walk_rails`]'s `max_depth`, independent of caller
+/// input. The walk recurses one call frame per rail hop; a long acyclic chain
+/// under a generous `max_depth` (e.g. `usize::MAX`) would otherwise grow the
+/// call stack unboundedly, and a stack overflow ABORTS the process — unlike a
+/// panic it cannot be caught or unwound. 64 is far above any sanctioned
+/// projection depth (the facet path is 12 levels; rails span 6 positions) while
+/// keeping worst-case recursion trivially stack-safe.
+pub const MAX_WALK_DEPTH: usize = 64;
 
 /// Positions are `u8`, so at most 256 field positions exist per class — the same
 /// cap [`WideFieldMask`] imposes. The iteration bound is `min(field_count, 256)`.
@@ -306,7 +326,7 @@ fn walk_node<G, V, B, F>(
     key: G::Key,
     depth: usize,
     max_depth: usize,
-    visited: &mut HashSet<G::Key>,
+    stack: &mut HashSet<G::Key>,
     visit: &mut F,
 ) where
     G: RailGraph,
@@ -317,64 +337,80 @@ fn walk_node<G, V, B, F>(
     if depth > max_depth {
         return;
     }
-    // Cycle guard: a node is walked at most once. `insert` returns false if the
-    // key was already present → prune (this is what makes a cyclic part_of graph
-    // terminate).
-    if !visited.insert(key) {
+    // PATH-LOCAL cycle guard (codex P2 on #776): only keys on the CURRENT
+    // recursion stack are pruned — a true cycle terminates, while a key
+    // reachable through several selected rails (a DAG) is walked once per
+    // path, at each path's own depth. A global visited-set would let the
+    // first DFS path win, emitting shared targets at the wrong depth and
+    // silently pruning subtrees reachable via a shorter path. The key is
+    // removed on EVERY exit below (unwind), never left behind.
+    if !stack.insert(key) {
         return;
     }
 
-    let class = graph.class_of(key);
-    let Some(view_id) = view_binding(class) else {
-        return; // no view bound for this class → prune its subtree
-    };
-    let Some(view) = registry.get(view_id) else {
-        return; // dangling view id → prune (never a panic)
-    };
-
-    // AND the view's selection mask with the node's presence: emit only fields that
-    // are BOTH selected by the view AND populated on this instance (C2 presence).
-    let effective = view.mask.intersect(&graph.present_mask(key));
-
-    // Bound iteration to the class's declared field count (a class has exactly
-    // `field_count` fields), capped at the u8 position ceiling.
-    let field_count = class_view.field_count(class).min(MAX_POSITIONS);
-
-    // Emit present, selected fields in ascending position order (deterministic).
-    for pos in 0..field_count {
-        let p = pos as u8;
-        if effective.has(p) {
-            visit(FieldVisit {
-                key,
-                class,
-                position: p,
-                depth,
-            });
+    'body: {
+        let class = graph.class_of(key);
+        let Some(view_id) = view_binding(class) else {
+            break 'body; // no view bound for this class → prune its subtree
+        };
+        let Some(view) = registry.get(view_id) else {
+            break 'body; // dangling view id → prune (never a panic)
+        };
+        // View/class agreement (codex P2 on #776): field positions are defined
+        // per class; a stale or cross-class binding must not apply a foreign
+        // class's mask to this node. Prune fail-closed.
+        if view.class != class {
+            break 'body;
         }
-    }
 
-    // Follow the set rail-bearing bits in ascending position order (deterministic),
-    // recursing into each rail's target. A present, selected position that resolves
-    // to a `rail_target` is a rail; one that resolves to `None` is a leaf field
-    // (already emitted above, not recursed).
-    for pos in 0..field_count {
-        let p = pos as u8;
-        if effective.has(p) {
-            if let Some(child) = graph.rail_target(key, p) {
-                walk_node(
-                    graph,
-                    class_view,
-                    registry,
-                    view_binding,
-                    child,
-                    depth + 1,
-                    max_depth,
-                    visited,
-                    visit,
-                );
+        // AND the view's selection mask with the node's presence: emit only fields
+        // that are BOTH selected by the view AND populated on this instance (C2
+        // presence).
+        let effective = view.mask.intersect(&graph.present_mask(key));
+
+        // Bound iteration to the class's declared field count (a class has exactly
+        // `field_count` fields), capped at the u8 position ceiling.
+        let field_count = class_view.field_count(class).min(MAX_POSITIONS);
+
+        // Emit present, selected fields in ascending position order (deterministic).
+        for pos in 0..field_count {
+            let p = pos as u8;
+            if effective.has(p) {
+                visit(FieldVisit {
+                    key,
+                    class,
+                    position: p,
+                    depth,
+                });
+            }
+        }
+
+        // Follow the set rail-bearing bits in ascending position order
+        // (deterministic), recursing into each rail's target. A present, selected
+        // position that resolves to a `rail_target` is a rail; one that resolves to
+        // `None` is a leaf field (already emitted above, not recursed).
+        for pos in 0..field_count {
+            let p = pos as u8;
+            if effective.has(p) {
+                if let Some(child) = graph.rail_target(key, p) {
+                    walk_node(
+                        graph,
+                        class_view,
+                        registry,
+                        view_binding,
+                        child,
+                        depth + 1,
+                        max_depth,
+                        stack,
+                        visit,
+                    );
+                }
             }
         }
     }
+
+    // Unwind the path-local guard: this key may be revisited via another path.
+    stack.remove(&key);
 }
 
 #[cfg(test)]
@@ -650,7 +686,7 @@ mod tests {
                 (31, WALL, 0, 1),
                 (31, WALL, 1, 1),
             ],
-            "the visited-set cycle guard walks each node once; no infinite loop"
+            "the path-local cycle guard terminates the cycle; no infinite loop"
         );
     }
 
@@ -684,6 +720,100 @@ mod tests {
         // max_depth = 0 → root only.
         let root_only = collect(&g, &cv, &reg, &binding, 1, 0);
         assert_eq!(root_only, vec![(1, WALL, 0, 0), (1, WALL, 1, 0)]);
+    }
+
+    /// Falsifier for the PATH-LOCAL cycle guard (codex P2 on #776): a diamond
+    /// DAG — root rails to A and B, both rail to the SAME target C. A global
+    /// visited-set would emit C once (first DFS path wins) and silently prune
+    /// the second path; the path-local guard emits C once PER PATH, each at
+    /// that path's own depth.
+    #[test]
+    fn diamond_dag_emits_shared_target_once_per_path() {
+        let cv = TestClasses::new();
+        let (reg, binding) = registry();
+        let mut g = TestGraph::new();
+        // The diamond needs TWO rail positions on the root; WORK_PACKAGE has
+        // three fields, and rail-ness is graph-side (rail_target), not
+        // schema-side — so positions 1 and 2 both rail here.
+        g.node(10, WORK_PACKAGE, &[0, 1, 2]);
+        g.node(30, WALL, &[0, 1]); // A
+        g.node(31, WALL, &[0, 1]); // B
+        g.node(40, STOREY, &[0]); // C — the shared target
+        g.rail(10, 1, 30); // root → A
+        g.rail(10, 2, 31); // root → B
+        g.rail(30, 1, 40); // A → C
+        g.rail(31, 1, 40); // B → C
+
+        let got = collect(&g, &cv, &reg, &binding, 10, 8);
+        let c_visits: Vec<_> = got.iter().filter(|(k, ..)| *k == 40).collect();
+        assert_eq!(
+            c_visits,
+            vec![&(40, STOREY, 0, 2), &(40, STOREY, 0, 2)],
+            "the shared DAG target is emitted once per path, each at its own depth \
+             — a global visited-set would emit it exactly once"
+        );
+    }
+
+    /// Falsifier for view/class agreement (codex P2 on #776): a binding that
+    /// resolves a class to a view registered for a DIFFERENT class is pruned
+    /// fail-closed — the foreign mask must not be applied to this node.
+    #[test]
+    fn cross_class_view_binding_is_pruned() {
+        let cv = TestClasses::new();
+        let mut reg = ViewRegistry::new();
+        // The only registered view belongs to WORK_PACKAGE…
+        let wp_view = reg.register(NamedView::new(
+            WORK_PACKAGE,
+            WideFieldMask::from_positions(&[0, 1, 2]),
+            DisplayTemplate::Detail,
+        ));
+        let mut g = TestGraph::new();
+        g.node(20, USER, &[0, 1]);
+
+        // …but the binding hands it out for USER too (stale/cross-class binding).
+        let mut out = Vec::new();
+        walk_rails(
+            &g,
+            &cv,
+            &reg,
+            |_| Some(wp_view),
+            20,
+            8,
+            &mut |v: FieldVisit<u32>| out.push((v.key, v.class, v.position, v.depth)),
+        );
+        assert!(
+            out.is_empty(),
+            "a view whose class differs from the node's class is pruned fail-closed, \
+             not applied as a foreign mask"
+        );
+    }
+
+    /// The hard recursion ceiling (CodeRabbit on #776): a rail chain longer
+    /// than [`MAX_WALK_DEPTH`] under `max_depth == usize::MAX` stops at the
+    /// ceiling instead of growing the call stack without bound.
+    #[test]
+    fn max_depth_is_clamped_to_walk_ceiling() {
+        let cv = TestClasses::new();
+        let (reg, binding) = registry();
+        let mut g = TestGraph::new();
+        // A linear Wall chain twice the ceiling: 0 →part_of→ 1 →…→ 2·MAX.
+        let len = (MAX_WALK_DEPTH * 2) as u32;
+        for i in 0..=len {
+            g.node(i, WALL, &[0, 1]);
+            if i > 0 {
+                g.rail(i - 1, 1, i);
+            }
+        }
+
+        let got = collect(&g, &cv, &reg, &binding, 0, usize::MAX);
+        let deepest = got.iter().map(|&(.., d)| d).max().unwrap();
+        assert_eq!(
+            deepest, MAX_WALK_DEPTH,
+            "an unbounded caller max_depth is clamped to MAX_WALK_DEPTH"
+        );
+        // The node AT the ceiling is emitted; the one past it is not.
+        assert!(got.iter().any(|&(k, ..)| k == MAX_WALK_DEPTH as u32));
+        assert!(!got.iter().any(|&(k, ..)| k == MAX_WALK_DEPTH as u32 + 1));
     }
 
     #[test]
