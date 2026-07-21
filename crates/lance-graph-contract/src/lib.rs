@@ -133,6 +133,7 @@ pub mod materialize;
 pub mod reasoning;
 pub mod recipe_dispatch;
 pub mod recipe_kernels;
+pub mod recipe_loci;
 pub mod recipe_substrate;
 pub mod recipes;
 pub mod repository;
