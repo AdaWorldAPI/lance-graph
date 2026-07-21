@@ -135,6 +135,7 @@ pub mod repository;
 pub mod savants;
 pub mod scenario;
 pub mod scheduler;
+pub mod selection;
 pub mod sensorium;
 pub mod sigma_propagation;
 pub mod sla;
