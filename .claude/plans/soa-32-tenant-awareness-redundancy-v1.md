@@ -187,17 +187,21 @@ construct to correlate.
 | A5 | `StreamCycleFacet` | 6×(8:8): ±5 / ±50 / ±500 window awareness | "streaming cycles" (structural) | vs Kanban.cycle u32 |
 | A6 | `DirectionInferenceFacet` | 6×(8:8): direction triad × inference mantissa full-width | CE64 dir 3b + mantissa 4b | vs 7-bit pack |
 | A7 | `WitnessLensFacet` | 6×(8:8): W-slot corpus root + truth-band lens | CE64 W-slot 6b + lens 2b | vs 8-bit pack |
+| A8 | `RecipeFindingFacet` | 6×(8:8): best-of-34 conclusive finding as `part_of:is_a`, indexed by a **monotone no-look-back pointer** over the fixed 34-rung ladder; NaN/inconclusive rungs SKIP → advance to the next recipe. The reached rung-depth IS the comparability coordinate (a peer SoA row must reach a similar rung to be comparable) | rung-content ladder (rung 3, the 34 recipes) | vs `RecipeFindingFreeFacet` (sibling) |
+| A9 | `CausalWitnessFacet` | **24× signed i4 = 24 POINTERS into the Markov window** (offsets into the `temporal.rs` sorted stream / Lance versions — immutable append-only, so an offset means the same event forever). Sign = orientation (forward/reverse causal). Targets are **basin-implied** (`part_of:is_a` neighborhood) — NO stored addresses; the V1 12-in/4-out `EdgeBlock` is redundant & deprecated | temporal Markov trajectory (`E-MARKOV-TEMPORAL-STREAM-1`) | vs A1's 3 episodicwitness palette256² pairs |
 
-7 awareness facets × 12 B = 84 B. **13 + BoardAggregates(1) + 7 = 21 lanes.** The
-remaining ~11 lanes to reach 32 are the **redundant siblings** made first-class
+> **⚠ A8/A9 + evolve-not-collapse (operator, 2026-07-21, `E-AWARENESS-TENANTS-EVOLVE-NOT-COLLAPSE-1`).** A8/A9 join A1–A7 as EVOLVING redundant members (NARS-revised, standing-wave written-back), not collapse candidates. **A9's `24× i4` is 24 temporal POINTERS, never magnitude** (operator strongly refused the magnitude reading): the nibble says WHERE in the local Markov window the witnessing event sits — strength/truth/content is read from the stream at that offset (zero-copy projection). `RecipeFindingFreeFacet` = the sibling reading of A8 (last 6 conclusive findings as `part_of:is_a` rails, sliding, NaN-skipped) — the operator's "free-form 6 for free" mode held redundantly against A8's fixed-order best-of-34. CONJECTURE until the jc parity measurement runs; no contract bytes before the envelope-auditor + batched-OGAR-mint gate.
+
+9 awareness facets (A1–A9) × 12 B = 108 B. **13 + BoardAggregates(1) + 9 = 23 lanes.** The
+remaining ~9 lanes to reach 32 are the **redundant siblings** made first-class
 (each awareness construct carried in a *second* representation — e.g. Fisher-z i8
-lane, raw-COCA-12bit lane — so the jc battery correlates representation-A vs
-representation-B of the *same* construct). The exact sibling count is **not
-pre-committed here** — it is bounded by the slab and *chosen to give jc a clean
-k-item scale per construct*, not by a target number.
+lane, raw-COCA-12bit lane, `RecipeFindingFreeFacet` — so the jc battery correlates
+representation-A vs representation-B of the *same* construct). The exact sibling
+count is **not pre-committed here** — it is bounded by the slab and *chosen to give
+jc a clean k-item scale per construct*, not by a target number.
 
 **Layout arithmetic (fits, layout-preserving, RESERVE-DON'T-RECLAIM):**
-`188 (Full end) + 8 (BoardAggregates) + 7×12 (A1–A7) + ~11×12 (siblings) ≈ 412 B`
+`188 (Full end) + 8 (BoardAggregates) + 9×12 (A1–A9) + ~9×12 (siblings) ≈ 412 B`
 → ends ≤ 412, slab-relative ≤ 380 ≤ 480. **No `NODE_ROW_STRIDE` change, no
 `ENVELOPE_LAYOUT_VERSION` bump** (all additive, existing offsets frozen).
 
@@ -208,6 +212,19 @@ the ClassView's, never a slot. No label/name/ordinal in any payload.
 ---
 
 ## §3 The mechanical collapse gate — the jc battery (`jc::reliability`)
+
+> **⊘ SUPERSEDED framing (operator, 2026-07-21, `E-AWARENESS-TENANTS-EVOLVE-NOT-COLLAPSE-1`).**
+> The awareness tenants **evolve, they do not collapse.** The steps below are
+> RETAINED as a **diagnostic** — `jc` certifies inter-tenant agreement/divergence
+> as a permanent parity witness (the MySQL-oracle-never-retired pattern) — but the
+> word "collapse" is superseded: **no lane is ever deleted.** A high-α (redundant)
+> pair *today* can diverge *tomorrow* as each reading is NARS-revised and
+> standing-wave written-back; deleting it would destroy the capacity to diverge
+> that makes the substrate learn. So read step 1 as "α high ⇒ lanes AGREE *right
+> now* (a snapshot that evolves)", step 3 as "the measured agreement SNAPSHOT (not
+> a permanent width)". This is the M20 gate as a **living diagnostic**, not an N→1
+> reducer. The ENTROPY-MILESTONES N→1 ledger still applies to accidental TYPE
+> duplication — a different thing from this functional-diversity substrate.
 
 All four measures are implemented and callable (`crates/jc/src/reliability.rs`:
 Pearson `r`, Spearman `ρ`, Cronbach `α`, ICC `Icc2_1`/`Icc3_1`). The M20 gate:
