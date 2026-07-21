@@ -53,14 +53,106 @@ pub struct SubstrateView {
 }
 
 /// Palette256² grid similarity between two `(basin, identity)` centroids, in
-/// `[0.0, 1.0]` (1 = identical). A structural stand-in for the ndarray 256×256
-/// CAM-PQ distance table (unavailable in the zero-dep contract) — deterministic
-/// L1-in-grid; the exact table binding is an ndarray-side follow-up.
+/// `[0.0, 1.0]` (1 = identical). This is the **no-codebook default**:
+/// deterministic L1-in-grid, used when no trained codebook is in reach (the
+/// zero-dep path, the recipe kernels' synthetic tests, WASM/embedded). It
+/// treats the two bytes as ordinal grid coordinates — a monotone surrogate,
+/// NOT the real centroid distance (equal steps in byte space are not equal
+/// steps in embedding space).
+///
+/// The **real** palette256² distance — where each byte names a trained
+/// centroid and the similarity is the actual distance between the centroids
+/// the bytes name — is [`PairPalette::similarity`]. When a codebook is present
+/// (ndarray supplies the trained one), route through that instead; it is the
+/// exact table this L1 form stood in for. Both live behind the same `(u8, u8)`
+/// call shape so a caller upgrades by swapping the provider, not the sites.
 #[inline]
 #[must_use]
 pub fn pair_similarity(a: (u8, u8), b: (u8, u8)) -> f32 {
     let d = (a.0 as i32 - b.0 as i32).unsigned_abs() + (a.1 as i32 - b.1 as i32).unsigned_abs();
     1.0 - (d as f32 / 510.0)
+}
+
+/// The real palette256² distance for a `(basin, identity)` byte pair: two
+/// axis codebooks of ≤256 centroids each. A `(u8, u8)` point reconstructs to
+/// the concatenation of `basin[byte0] ++ identity[byte1]`, and similarity is
+/// `1 − d/d_max` over the actual centroid distance — the exact table
+/// [`pair_similarity`]'s L1 form stands in for.
+///
+/// Squared-L2 decomposes additively across the two axes, so the pair distance
+/// equals the full-vector squared L2 between the two reconstructed points
+/// EXACTLY (the same property [`crate::cam::ScalarAdc`] proves for the 6×256
+/// code). This is the zero-dep scalar reference; ndarray supplies the trained
+/// codebook and the SIMD lookup.
+#[derive(Debug, Clone)]
+pub struct PairPalette {
+    /// 256 centroids for the basin axis (byte 0).
+    basin: Vec<Vec<f32>>,
+    /// 256 centroids for the identity axis (byte 1).
+    identity: Vec<Vec<f32>>,
+    /// Distance normalizer (max observed pair distance), so similarity ∈ [0,1].
+    d_max: f32,
+}
+
+impl Default for PairPalette {
+    /// Route through [`PairPalette::new`] so the `d_max` clamp applies — a
+    /// derived `Default` would leave `d_max = 0.0`, making `similarity` divide
+    /// by zero and return `NaN` for every input.
+    fn default() -> Self {
+        Self::new(Vec::new(), Vec::new(), 1.0)
+    }
+}
+
+impl PairPalette {
+    /// Build from the two axis codebooks. `d_max` normalizes the raw squared-L2
+    /// distance into a `[0, 1]` similarity; pass the codebook's diameter (max
+    /// centroid-pair distance) or any positive scale. A non-finite / non-positive
+    /// `d_max` is clamped to `1.0` so similarity stays defined.
+    #[must_use]
+    pub fn new(basin: Vec<Vec<f32>>, identity: Vec<Vec<f32>>, d_max: f32) -> Self {
+        let d_max = if d_max.is_finite() && d_max > 0.0 {
+            d_max
+        } else {
+            1.0
+        };
+        Self {
+            basin,
+            identity,
+            d_max,
+        }
+    }
+
+    /// Squared-L2 between the two reconstructed `(basin, identity)` points —
+    /// the sum of the per-axis squared-L2s (additive decomposition).
+    ///
+    /// A byte that indexes past its axis codebook (a truncated/stale palette)
+    /// contributes `+∞`, NOT `0.0`: an absent centroid must read as
+    /// unreachable-far, never as a false exact-match (`0.0` is also the
+    /// distance between identical centroids). `similarity` then clamps the
+    /// `+∞` to `0.0` — "not similar", the honest signal for a shape mismatch.
+    #[must_use]
+    pub fn distance(&self, a: (u8, u8), b: (u8, u8)) -> f32 {
+        let metric = crate::cam::AdcMetric::SquaredL2;
+        let basin_d = self
+            .basin
+            .get(a.0 as usize)
+            .zip(self.basin.get(b.0 as usize))
+            .map_or(f32::INFINITY, |(ca, cb)| metric.cell(ca, cb));
+        let ident_d = self
+            .identity
+            .get(a.1 as usize)
+            .zip(self.identity.get(b.1 as usize))
+            .map_or(f32::INFINITY, |(ca, cb)| metric.cell(ca, cb));
+        basin_d + ident_d
+    }
+
+    /// Real palette256² similarity ∈ `[0, 1]` — `1 − distance/d_max`, clamped.
+    /// Identical points return `1.0`; the exact replacement for
+    /// [`pair_similarity`]'s L1 form.
+    #[must_use]
+    pub fn similarity(&self, a: (u8, u8), b: (u8, u8)) -> f32 {
+        (1.0 - self.distance(a, b) / self.d_max).clamp(0.0, 1.0)
+    }
 }
 
 /// Index of a named qualia i4 dimension.
@@ -349,5 +441,85 @@ mod tests {
             .with(Locus::SMeaning, 1);
         let v = SubstrateView::new(spo, w, QualiaI4_16D::ZERO);
         assert_eq!(v.logical_candidates().len(), 3, "one score per bound edge");
+    }
+
+    /// Two small axis codebooks (dim-2 each) for the real palette256² path.
+    fn axis_codebook(seed: usize) -> Vec<Vec<f32>> {
+        (0..256)
+            .map(|c| {
+                vec![
+                    ((c * 5 + seed) % 13) as f32 - 6.0,
+                    ((c * 3 + seed * 2) % 11) as f32 - 5.0,
+                ]
+            })
+            .collect()
+    }
+
+    #[test]
+    fn pair_palette_self_similarity_is_one() {
+        let pal = PairPalette::new(axis_codebook(1), axis_codebook(2), 100.0);
+        assert!((pal.similarity((7, 42), (7, 42)) - 1.0).abs() < 1e-6);
+    }
+
+    /// The real distance is the SUM of the two axis squared-L2s — additive
+    /// decomposition, exactly (the property the L1 stand-in cannot honor).
+    #[test]
+    fn pair_palette_distance_is_additive_over_axes() {
+        let basin = axis_codebook(1);
+        let identity = axis_codebook(2);
+        let a = (3u8, 9u8);
+        let b = (20u8, 4u8);
+
+        let metric = crate::cam::AdcMetric::SquaredL2;
+        let expected = metric.cell(&basin[a.0 as usize], &basin[b.0 as usize])
+            + metric.cell(&identity[a.1 as usize], &identity[b.1 as usize]);
+
+        let pal = PairPalette::new(basin, identity, 100.0);
+        assert!((pal.distance(a, b) - expected).abs() < 1e-4);
+    }
+
+    /// The real palette distance is NOT the L1 byte-grid distance: equal steps
+    /// in byte space are unequal steps in centroid space. Two byte pairs at the
+    /// SAME L1 grid distance can have different real distances — which is
+    /// exactly why the L1 form was only a stand-in.
+    #[test]
+    fn real_palette_diverges_from_l1_grid() {
+        let pal = PairPalette::new(axis_codebook(1), axis_codebook(2), 100.0);
+        let origin = (0u8, 0u8);
+        // Two neighbours at L1 grid-distance 1 from origin.
+        let step_basin = (1u8, 0u8);
+        let step_ident = (0u8, 1u8);
+        assert_eq!(
+            pair_similarity(origin, step_basin),
+            pair_similarity(origin, step_ident)
+        );
+        // The real centroid distances generally differ (the codebooks are not
+        // the identity grid), so at least one real similarity differs from the
+        // L1 value — the L1 grid is not the real palette metric.
+        let real_a = pal.similarity(origin, step_basin);
+        let real_b = pal.similarity(origin, step_ident);
+        assert!(
+            (real_a - real_b).abs() > 1e-6
+                || (real_a - pair_similarity(origin, step_basin)).abs() > 1e-6,
+            "real palette256² distance must not collapse to the L1 byte grid"
+        );
+    }
+
+    /// The derived `Default` would leave `d_max = 0.0` → `similarity` divides
+    /// by zero → NaN. The manual `Default` routes through `new` (clamps to 1.0),
+    /// so `similarity` stays finite.
+    #[test]
+    fn pair_palette_default_is_not_nan() {
+        let s = PairPalette::default().similarity((0, 0), (1, 1));
+        assert!(s.is_finite(), "default PairPalette must not produce NaN");
+    }
+
+    /// A byte past a truncated axis codebook → +∞ distance → similarity 0.0
+    /// ("not similar"), never a false 1.0 identity.
+    #[test]
+    fn pair_palette_out_of_range_byte_is_not_similar() {
+        let small: Vec<Vec<f32>> = (0..4).map(|c| vec![c as f32, 0.0]).collect();
+        let pal = PairPalette::new(small.clone(), small, 10.0);
+        assert_eq!(pal.similarity((200, 0), (0, 0)), 0.0);
     }
 }

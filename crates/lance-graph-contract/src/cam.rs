@@ -206,6 +206,285 @@ pub trait IvfContract: Send + Sync {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Scalar ADC reference — the 6×256 distance-table math, zero-dep.
+//
+// `DistanceTableProvider` had NO reference implementation in the contract:
+// ndarray was expected to supply the only impl (via its AVX-512 kernels).
+// That gap is why the byte-L1 stand-ins exist (`distance::<[u8; 6]>` and
+// `recipe_substrate::pair_similarity`) — with no codebook-backed reference
+// in reach, callers fell back to L1-on-byte-indices, which is NOT the
+// palette256² distance (it ignores where the centroids actually sit).
+//
+// `ScalarAdc` closes it. It is the reference `distance.rs` promises
+// ("scalar impls guarantee the trait works everywhere ... ndarray consumers
+// should shadow these with SIMD"): it computes the REAL per-subspace tables
+// from a trained codebook, so an ADC lookup returns the actual distance
+// between the centroids the codes name. `SquaredL2` is provably EXACT — the
+// per-subspace table sum equals the full-vector squared L2 by additive
+// decomposition (see `adc_ssd_is_exact_not_l1`), which is the property that
+// makes the 6×256:256 palette table a distance table and not an
+// approximation. `Cosine` read through `Distance::similarity_z` (FisherZ)
+// is the cosine-replacement path.
+// ─────────────────────────────────────────────────────────────────────
+
+/// Metric for the scalar ADC reference table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AdcMetric {
+    /// Squared Euclidean (SSD). ADC over per-subspace SSD tables reproduces
+    /// the full-vector squared L2 EXACTLY: `Σ_s ‖q_s − c_s‖²  =  ‖q − c‖²`.
+    /// This additive decomposition is *the* reason ADC is a distance table,
+    /// not a byte-index approximation.
+    #[default]
+    SquaredL2,
+    /// Cosine distance `1 − cos(q, c)`. The subspace tables sum to an
+    /// asymmetric cosine surrogate; read through [`crate::distance::Distance::similarity_z`]
+    /// (FisherZ) it is the cosine-replacement the palette256² path is
+    /// defined against.
+    Cosine,
+}
+
+impl AdcMetric {
+    /// One table cell: distance from a query subvector to one centroid.
+    #[inline]
+    #[must_use]
+    pub fn cell(self, q: &[f32], centroid: &[f32]) -> f32 {
+        match self {
+            Self::SquaredL2 => q
+                .iter()
+                .zip(centroid)
+                .map(|(a, b)| {
+                    let d = a - b;
+                    d * d
+                })
+                .sum(),
+            Self::Cosine => {
+                let mut dot = 0f32;
+                let mut nq = 0f32;
+                let mut nc = 0f32;
+                for (a, b) in q.iter().zip(centroid) {
+                    dot += a * b;
+                    nq += a * a;
+                    nc += b * b;
+                }
+                let denom = (nq.sqrt() * nc.sqrt()).max(1e-12);
+                1.0 - dot / denom
+            }
+        }
+    }
+}
+
+/// Zero-dep scalar reference implementation of [`DistanceTableProvider`].
+///
+/// The reference ndarray shadows with AVX-512. It computes the REAL 6×256
+/// distance tables from a trained codebook (`codebook[subspace][centroid]`
+/// is a centroid subvector), so an ADC lookup returns the actual distance
+/// between the centroids the 6-byte code names — the palette256² / 6×256
+/// distance, NOT the byte-L1 stand-in.
+///
+/// # Example
+///
+/// ```
+/// use lance_graph_contract::cam::{ScalarAdc, AdcMetric, DistanceTableProvider};
+///
+/// // 6 subspaces × 2 centroids × dim-2 (tiny, for illustration).
+/// let codebook: Vec<Vec<Vec<f32>>> = (0..6)
+///     .map(|s| vec![vec![s as f32, 0.0], vec![0.0, s as f32]])
+///     .collect();
+/// let query: Vec<f32> = (0..12).map(|i| i as f32).collect();
+/// let adc = ScalarAdc::new(AdcMetric::SquaredL2);
+/// let tables = adc.precompute(&query, &codebook);
+/// // code selects centroid 0 in every subspace
+/// let d = adc.distance(&tables, &[0; 6]);
+/// assert!(d.is_finite());
+/// ```
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ScalarAdc {
+    /// Metric the tables are computed under.
+    pub metric: AdcMetric,
+}
+
+impl ScalarAdc {
+    /// New reference provider for `metric`.
+    #[inline]
+    #[must_use]
+    pub const fn new(metric: AdcMetric) -> Self {
+        Self { metric }
+    }
+}
+
+impl DistanceTableProvider for ScalarAdc {
+    fn precompute(&self, query: &[f32], codebook: &[Vec<Vec<f32>>]) -> [[f32; 256]; 6] {
+        // Init to +∞, NOT 0.0. A code byte that indexes a centroid the
+        // codebook does not contain (a missing subspace, or an index ≥ the
+        // subspace's centroid count) must read as unreachable-far — never as a
+        // false exact-match, since 0.0 is also the distance to a genuinely
+        // identical centroid. A partial codebook (< 256 centroids/subspace) is
+        // a valid input; only its absent slots stay +∞. Present slots below
+        // overwrite it. Guards the "exact, not approximate" guarantee against a
+        // truncated/malformed codebook silently under-counting distance.
+        let mut tables = [[f32::INFINITY; 256]; 6];
+        let n_sub = codebook.len().min(NUM_SUBSPACES);
+        let mut base = 0usize;
+        for (s, subspace) in codebook.iter().take(n_sub).enumerate() {
+            let sub_dim = subspace.first().map_or(0, Vec::len);
+            let end = (base + sub_dim).min(query.len());
+            let q = if base < end {
+                &query[base..end]
+            } else {
+                &[][..]
+            };
+            for (c, centroid) in subspace.iter().take(NUM_CENTROIDS).enumerate() {
+                tables[s][c] = self.metric.cell(q, centroid);
+            }
+            base += sub_dim;
+        }
+        tables
+    }
+
+    fn distance(&self, tables: &[[f32; 256]; 6], cam: &[u8; 6]) -> f32 {
+        let mut d = 0f32;
+        for (s, table) in tables.iter().enumerate() {
+            d += table[cam[s] as usize];
+        }
+        d
+    }
+
+    fn distance_batch(&self, tables: &[[f32; 256]; 6], cams: &[[u8; 6]]) -> Vec<f32> {
+        cams.iter().map(|c| self.distance(tables, c)).collect()
+    }
+}
+
+#[cfg(test)]
+mod adc_reference_tests {
+    use super::*;
+
+    /// Build a `NUM_SUBSPACES`-subspace codebook of `k` centroids, each of
+    /// dimension `sub_dim`, deterministically (no rng).
+    fn codebook(k: usize, sub_dim: usize) -> Vec<Vec<Vec<f32>>> {
+        (0..NUM_SUBSPACES)
+            .map(|s| {
+                (0..k)
+                    .map(|c| {
+                        (0..sub_dim)
+                            .map(|d| ((s * 31 + c * 7 + d * 3) % 17) as f32 - 8.0)
+                            .collect()
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// Concatenate the centroids a 6-byte code names into one full vector.
+    fn reconstruct(cb: &[Vec<Vec<f32>>], code: &[u8; 6]) -> Vec<f32> {
+        let mut v = Vec::new();
+        for (s, subspace) in cb.iter().enumerate() {
+            v.extend_from_slice(&subspace[code[s] as usize]);
+        }
+        v
+    }
+
+    /// THE property that makes ADC a distance table and not an L1 stand-in:
+    /// when the query is one reconstruction, SSD-ADC to another code equals
+    /// the full-vector squared L2 between the two reconstructions — exactly.
+    #[test]
+    fn adc_ssd_is_exact_not_l1() {
+        let sub_dim = 4;
+        let cb = codebook(8, sub_dim);
+        let code_a = [1u8, 3, 0, 5, 2, 7];
+        let code_b = [4u8, 0, 6, 1, 7, 3];
+
+        let recon_a = reconstruct(&cb, &code_a);
+        let recon_b = reconstruct(&cb, &code_b);
+
+        // Ground truth: full-vector squared L2.
+        let direct: f32 = recon_a
+            .iter()
+            .zip(&recon_b)
+            .map(|(x, y)| {
+                let d = x - y;
+                d * d
+            })
+            .sum();
+
+        // ADC: query = recon(a), look up code_b in the precomputed tables.
+        let adc = ScalarAdc::new(AdcMetric::SquaredL2);
+        let tables = adc.precompute(&recon_a, &cb);
+        let via_adc = adc.distance(&tables, &code_b);
+
+        assert!(
+            (direct - via_adc).abs() < 1e-3,
+            "SSD-ADC must equal full-vector squared L2 exactly: direct={direct}, adc={via_adc}"
+        );
+    }
+
+    /// A code's ADC distance to ITSELF (query = its own reconstruction) is 0
+    /// under SSD — the diagonal of the palette tile is exact zero.
+    #[test]
+    fn adc_self_distance_is_zero() {
+        let cb = codebook(8, 4);
+        let code = [2u8, 5, 1, 7, 0, 3];
+        let recon = reconstruct(&cb, &code);
+        let adc = ScalarAdc::new(AdcMetric::SquaredL2);
+        let tables = adc.precompute(&recon, &cb);
+        assert!(adc.distance(&tables, &code).abs() < 1e-4);
+    }
+
+    /// Cosine ADC composed with FisherZ `similarity_z` is finite and ordered:
+    /// a nearer code reads as more similar than a farther one.
+    #[test]
+    fn cosine_adc_orders_by_similarity() {
+        use crate::distance::fisher_z_inverse;
+        let cb = codebook(8, 4);
+        let query = reconstruct(&cb, &[1, 1, 1, 1, 1, 1]);
+        let adc = ScalarAdc::new(AdcMetric::Cosine);
+        let tables = adc.precompute(&query, &cb);
+
+        // Distance to the query's own code should be <= distance to a far code.
+        let near = adc.distance(&tables, &[1, 1, 1, 1, 1, 1]);
+        let far = adc.distance(&tables, &[7, 7, 7, 7, 7, 7]);
+        assert!(
+            near <= far,
+            "own-code cosine distance must not exceed a far code's"
+        );
+        // FisherZ read-back of the ACTUAL ADC distances stays finite (the
+        // cosine-replacement path), not an unrelated literal.
+        let z_near = fisher_z_inverse(near);
+        let z_far = fisher_z_inverse(far);
+        assert!(z_near.is_finite() && z_far.is_finite());
+    }
+
+    /// `distance_batch` agrees with per-candidate `distance`.
+    #[test]
+    fn batch_matches_scalar() {
+        let cb = codebook(8, 4);
+        let q = reconstruct(&cb, &[0, 1, 2, 3, 4, 5]);
+        let adc = ScalarAdc::new(AdcMetric::SquaredL2);
+        let tables = adc.precompute(&q, &cb);
+        let cams = [[0u8, 1, 2, 3, 4, 5], [5, 4, 3, 2, 1, 0]];
+        let batch = adc.distance_batch(&tables, &cams);
+        for (i, cam) in cams.iter().enumerate() {
+            assert_eq!(batch[i], adc.distance(&tables, cam));
+        }
+    }
+
+    /// A code byte that indexes past its subspace's centroid count (a
+    /// truncated / stale codebook) reads as +∞, NOT a false 0.0 exact-match.
+    #[test]
+    fn absent_centroid_is_infinite_not_zero() {
+        let cb = codebook(4, 4); // only 4 centroids per subspace
+        let q = reconstruct(&cb, &[0, 1, 2, 3, 0, 1]);
+        let adc = ScalarAdc::new(AdcMetric::SquaredL2);
+        let tables = adc.precompute(&q, &cb);
+        // byte 200 in subspace 0 has no centroid → unreachable-far.
+        let d = adc.distance(&tables, &[200, 1, 2, 3, 0, 1]);
+        assert!(
+            d.is_infinite(),
+            "absent centroid must be unreachable-far, not a false 0.0"
+        );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Codec sweep parameters (plan: .claude/plans/codec-sweep-via-lab-infra-v1.md)
 //
 // CodecParams is the sweep-tunable shape the lab API passes to the JIT
