@@ -1,3 +1,14 @@
+## causal-rung-standing-wave-v1 — p64→v3 cognition layer: amortized 2³ ladder + standing-wave awareness
+
+Plan: `.claude/plans/causal-rung-standing-wave-v1.md`. Consumes M20 A1 (shipped) + A2/A3/A5/A6 (queued, auditor+mint gated) + selection #776 + temporal.rs. Probe-first: the probe is the next deliverable, not code; everything CONJECTURE until D-CSW-* report.
+
+| D-id | Title | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-CSW-0 | Plan doc + O1 decision (canonical ladder masks vs per-class mint; recommendation: canonical masks + per-class facet election) | lance-graph | In PR (plan drafted; O1 awaiting operator) | plan §2 |
+| D-CSW-1 | Standing-wave probe: per-rung stability over real temporal.rs text stream separates causal from coincidental pairs vs single-cycle + p64 3-bit baseline (registered margin) | lance-graph | Queued (probe to be written FIRST) | plan §4/§6 |
+| D-CSW-2 | Basin→causal-edge candidate probe: co-occupancy + rung survival vs basin-only / rung-only ablations | lance-graph | Queued (gated on D-CSW-1) | plan §5a/§6 |
+| D-CSW-3 | jc reliability: full-width amortized ladder vs CE64 64-bit cram (extends M20 D-AW-5) | lance-graph | Queued (needs A2/A6 lanes + real data) | plan §6 |
+
 ## soa-32-tenant-awareness-redundancy-v1 — M20: honest full-width awareness → jc-measured collapse
 
 Plan: `.claude/plans/soa-32-tenant-awareness-redundancy-v1.md`. Advances ENTROPY-MILESTONES M20. Builds the full-width awareness SoA (13→32 tenants) BESIDE CausalEdge64/EW64 (kept for reference), then jc measures the true awareness width. Rides the D-TRI / BoardAggregates batched OGAR mint. NO bytes land before the envelope-auditor verdict.
