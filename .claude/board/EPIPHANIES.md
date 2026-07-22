@@ -1,3 +1,19 @@
+## 2026-07-22 — E-DEEPNSM-V2-PALETTE-ARCHITECTURE-1 — DeepNSM rebuilt on the V3 palette256² substrate as `crates/deepnsm-v2` (the existing `deepnsm` untouched); it is the FIRST in-tree consumer of the certified distance table (`PairPalette` + `ScalarAdc`, PR #787)
+
+**Status:** SHIPPED (crate built, 18 tests green, clippy `-D warnings` + fmt clean; standalone/`exclude`d, single path-dep on `lance-graph-contract`). **Confidence:** High for the architecture wiring + tests; the demo distances are an explicit placeholder (see the honest-scope caveat) — that half is CONJECTURE-until-a-trained-codebook, and labeled as such in the crate docs.
+
+**The ask.** "Rewrite an updated DeepNSM version using the new architecture / keep the existing." Done as a *parallel* crate, not an edit of `deepnsm` — v1 stays byte-for-byte as the 4,096-COCA reference.
+
+**The v1→v2 mapping (each row consumes a contract primitive instead of reimplementing it):**
+- 4,096-word COCA table, 12-bit ids → `256×256` palette tile, 16-bit ids (`vocab::PaletteVocab`; `split(id) = (id>>8, id&0xFF)` = `(basin, identity)`; `vocabulary = frequency × distance` per the operator ruling — basin = frequency-rank band, identity = within-band position, semantic distance from the trained codebook not the id arithmetic).
+- stored `4096²` u8 distance matrix (16 MB) → the certified palette256² distance (`space::SemanticSpace` wraps `recipe_substrate::PairPalette`) — a `256×256` tile *computed* from two axis codebooks, not a stored byte grid.
+- (no v1 whole-work code) → `6×256` CAM ADC, one tile per work (`space::AdcSpace` wraps `cam::ScalarAdc`), exercising the `Σ_s‖q_s−c_s‖² = ‖q−c‖²` additive-decomposition exactness through `adc_code_to_its_own_reconstruction_is_zero`.
+- 512-bit VSA XOR bind + majority bundle → palette `(basin, identity)` addressing (`spo::Spo::pairs()` → the 3 tile addresses).
+- ±5 sentence ring buffer → arbitrary-width version-range read (`TemporalStream` over `temporal_pov::TemporalPov::at` / `VersionRange`) — the E-MARKOV-TEMPORAL-STREAM-1 generalization of the fixed ±5 window.
+- 6-state PoS FSM → SPO — preserved verbatim (`fsm::parse_to_spo`, serial-verb chaining + Stop-flush).
+
+**Honest scope (why this is only a PARTIAL payoff of `TD-CERTIFIED-DISTANCE-TABLE-UNCONSUMED`):** the crate makes the certified table no longer consumer-less, but (1) it ships DETERMINISTIC `demo()` codebooks (index-derived, no rng/clock) whose distances are a placeholder — real semantics still need the ndarray-side trained-codebook producer that does not exist; (2) it is a *parallel* consumer, not a threading of `PairPalette` into the LIVE `SubstrateView` (`logical_confidence`/`logical_beliefs` still run on the L1 `pair_similarity` default). It reads NO real corpus — Aesop/Bible/etc. stay behind `ISS-DCSW-REAL-CORPUS-BLOCKED`. Refs: `crates/deepnsm-v2/`, PR #787, `TD-CERTIFIED-DISTANCE-TABLE-UNCONSUMED`, `E-ADC-SCALAR-REFERENCE-WIRED-1`, `E-MARKOV-TEMPORAL-STREAM-1`.
+
 ## 2026-07-21 — E-DCSW1-LEG2-BLOCK-CORRECTION-1 — CORRECTION to the merged D-CSW-1 leg-2 "infra-blocked (needs protoc)" claim: `lance-graph-planner` does NOT need protoc and DOES build here (19.78s, exit 0). The protoc-absence is real but blocks the FULL workspace, not the planner. The genuine leg-2 gap is narrower than claimed
 
 **Status:** CORRECTION (supersedes the protoc reasoning in `E-DCSW2-CONTRACT-MECHANISM-GREEN-1`, plan §6.2, STATUS_BOARD D-CSW-1, LATEST_STATE — all merged to main in PR #789). **Confidence:** High — every claim below is a re-run command result, not an inference.

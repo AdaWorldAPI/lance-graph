@@ -1,0 +1,24 @@
+[package]
+name = "deepnsm-v2"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = """
+DeepNSM v2: the distributional semantic core rebuilt on the V3 palette256²
+architecture. Keeps the DeepNSM signature (frequency-ranked vocab → PoS FSM →
+SPO triples) but replaces the 4096² u8 distance matrix with the certified-exact
+palette256² distance (lance-graph-contract PairPalette / ScalarAdc), the 4096
+COCA vocab with the 256×256 = 65536 palette pair carve (20k academic fits), and
+the ±5 VSA ring with the temporal_pov version-range read. The existing `deepnsm`
+crate is untouched; this is the parallel v2.
+"""
+
+# Standalone: an empty `[workspace]` table stops cargo's auto-discovery from
+# walking up into the parent workspace root (deepnsm-v2 is `exclude`d there).
+# The only dependency is the ZERO-DEP `lance-graph-contract`, so this crate
+# builds light + fast on its own — no ndarray, no arrow, no protoc.
+[workspace]
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
