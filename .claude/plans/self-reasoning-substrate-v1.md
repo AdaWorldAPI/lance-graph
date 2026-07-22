@@ -335,6 +335,58 @@ as a test**: the known runaway must be fenced by stratification, not by luck.
 >   share (depth ≤ 12 native levels AND per-node fan-out ≤ 16; deeper/wider =
 >   the hierarchy's registry-resolve + ref-escape job, per canon).
 
+> **RESULT — D-SRS-2 v1 taxonomy KILLED on the real book (2026-07-22; reported
+> verbatim, taxonomy NOT relaxed).** First live run of the registered gates:
+> G-SRS2-a EXACTNESS **PASS** (trie == closure, zero diff), G-SRS2-d
+> TERMINATION **PASS** (uncapped fixed point) — but **G-SRS2-b KILLED**:
+> `amortization 1.64x < 2x — detector mis-routed`, trie target `'sawest'`
+> (18 edges, 11 covered, max depth 2). Census top-5: `be` (1717 edges,
+> pressure 38625), `have`, `shall`, `hath`, `come` — all Cyclic →
+> BoundedEscalate (correct for hub verbs). **Diagnosis (the instructive
+> part):** the v1 `Forest` class demands PURITY (`max_in ≤ 1` over the whole
+> predicate) — so on a real noisy harvest, ONE FSM mis-parse multi-parent edge
+> demotes a 99%-forest (the `begat` genealogies) to `Dag` → low pressure →
+> MaterializedFabric, and the trie route is starved down to tiny
+> pure-by-accident predicates where relocation cannot pay. A purity gate on
+> harvested data is a structural mis-design, not a threshold problem.
+>
+> **Pre-run registration v2 — the MEASURED router (registered BEFORE the v2
+> code; append-only, v1 stands as the falsified record):** the detector stops
+> guessing shape from degree statistics and **measures the candidate
+> representation**: build the primary-parent `FamilyTrie` (residue-tolerant by
+> its existing contract), measure `coverage = covered / (covered +
+> cycle_residue)` and `amortization = |ancestor pairs| / covered`, and route on
+> the measured fit. Fixed v2 routing order:
+> 1. `edges == 0` OR `closure_pressure == 0` → **EdgeTable** (unchanged).
+> 2. measured fit: `coverage ≥ 0.8` AND `amortization ≥ 2.0` → **RadixTrie**
+>    when residue-free (no multi-parent, no cycle members), else
+>    **TriePlusEscalate** (trie + residue pointers).
+> 3. else `cyclic` → **BoundedEscalate**.
+> 4. else `closure_pressure ≤ 4×edges` → **MaterializedFabric**.
+> 5. else → **BoundedEscalate** (high-pressure acyclic without trie fit: a trie
+>    that does not pay is not a fallback — bound it).
+> - **G-SRS2v2-a EXACTNESS:** unchanged — trie pairs == uncapped closure of the
+>   covered forest, exact set equality, then the materialization is deleted.
+> - **G-SRS2v2-b MEASURED FIT:** at least ONE predicate in the real book routes
+>   to a trie representation under the measured rule, and the top such
+>   predicate's re-measured amortization ≥ 2.0 and coverage ≥ 0.8 (the
+>   detector's claim must equal the independent re-measurement). If NO
+>   predicate fits, that is a KILL reported verbatim (the relocation story has
+>   no real target in this corpus).
+> - **G-SRS2v2-c SYNTHETIC:** fixed expectations under v2 routing — 10-chain →
+>   RadixTrie (coverage 1.0, amort 4.5); 3-cycle → BoundedEscalate; disjoint
+>   pairs → EdgeTable; star → EdgeTable; diamond → MaterializedFabric (fit
+>   amort 1.0 fails, low pressure); 10×10 waist DAG → BoundedEscalate (fit
+>   fails, pressure 100 > 4×20); **noisy near-forest** (long chain + one
+>   multi-parent noise edge + a detached 2-cycle; coverage ≥ 0.8, amort ≥ 2) →
+>   **TriePlusEscalate** — THE case v1 was falsified on.
+> - **G-SRS2v2-d TERMINATION:** unchanged (uncapped true fixed point on the
+>   trie target's covered forest).
+> - **KILL:** any pair diff in (a); no fitting predicate OR claim ≠
+>   re-measurement in (b); any synthetic mismatch in (c); non-termination in
+>   (d). v1's `detect` stays in the crate as the falsified, regression-pinned
+>   record; the shipped router is the measured one.
+
 ### D-SRS-3 — Basin self-codes + self-report
 
 Compute the Cam96 centroid self-code per basin (Layer 5) and emit a
