@@ -25,6 +25,26 @@
 //! horizon-is-a-reference-not-a-bound semantics — now bound to the version read
 //! rather than a fixed ±5 ring.
 //!
+//! ## Paper grounding for the ±8 horizon (2026-07-22 four-paper review)
+//!
+//! The empirical anchor: **Manning & Carpenter 1997 (IWPT-97) Table 7** — the
+//! maximum left-corner stack depth over the ENTIRE binarized WSJ Penn Treebank
+//! is **8** (~99.4% of configurations ≤ 5), and their implementation carries
+//! partial parses as **pointers into the move stream** with trees materialized
+//! only at output — the grammar tree IS a pointer fabric over the stream. The
+//! bounded-stack theorem itself (LC parsing: O(1) memory on left/right
+//! branching, O(n) only on center-embedding, which natural text caps at ~3) is
+//! **Abney & Johnson 1991 / Resnik 1992 / Stabler 1994** — NOT Roark & Johnson
+//! 2000 or Moore 2000 (provenance corrected after review). Honest framing:
+//! that theorem bounds the *open-constituent count* (which the 24-loci
+//! register triples), NOT the *token span* of one attachment — a single slot
+//! can span a long relative clause. The ±8 offset is therefore a **recency
+//! prior rescued by escalation**: `Escalate` on OFFSET overflow (long-distance
+//! attachment / invisible version) is the load-bearing channel, and Roark &
+//! Johnson 2000 §3.3 predicts non-local context makes resolution *cheaper*,
+//! not just more correct. Full synthesis:
+//! `.claude/knowledge/left-corner-grammar-tree-pointer-fabric.md`.
+//!
 //! ## Scope boundary (declared, not faked)
 //!
 //! The loci (`CausalWitnessFacet` — antecedent / kausal / grounding offsets) are

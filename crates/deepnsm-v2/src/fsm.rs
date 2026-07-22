@@ -5,6 +5,27 @@
 //! run, a **subject** noun, a **verb** (predicate), an optional modifier run,
 //! then an **object** noun that closes the triple. It is deliberately small and
 //! deterministic — the semantics live in [`crate::space`], not here.
+//!
+//! ## Scope + known blind spot (paper-grounded, 2026-07-22)
+//!
+//! Full CFG parsing of natural language is combinatorially hostile (Moore 2000:
+//! the Penn Treebank grammar averages **7.2×10²⁷ parses/sentence**); this FSM
+//! deliberately commits to ONE coarse SPO reading and streams — determinism is
+//! a feature at this scope (no recursion → cannot non-terminate). The
+//! constituency the FSM omits is carried by the pointer fabric over the stream
+//! ([`crate::wave`]; see
+//! `.claude/knowledge/left-corner-grammar-tree-pointer-fabric.md`).
+//!
+//! **Known blind spot: MOVEMENT constructions** (Liu 2025, JLM 13(2)) — object
+//! relatives ("the rat that the cat bit"), topicalization ("Cheeses, the rat
+//! ate"), wh-fronting. These invert canonical S/O order, so first-noun=subject
+//! emits the wrong triple. Logged fork (not built): promote a
+//! Relativizer/Complementizer tag out of [`Pos::Other`] as a clause-boundary
+//! marker that does NOT positionally reset S/O. The tie-breaks below
+//! ("last verb wins", "re-anchor subject") are RECENCY HEURISTICS, not
+//! attachment decisions — they will silently mis-bind on coordination and
+//! center-embedding, acceptable because this extracts a coarse skeleton, not
+//! a parse.
 
 use crate::spo::Spo;
 use crate::vocab::WordId;
