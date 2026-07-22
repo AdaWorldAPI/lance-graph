@@ -1,5 +1,15 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-21 — ISS-DCSW-REAL-CORPUS-BLOCKED — D-CSW-1 leg 2 + the real-corpus D-CSW-2 are blocked on data + a real `temporal.rs` binding, not code — OPEN
+
+**Status:** OPEN (blocker, not debt — the code path is fine; the inputs don't exist here). Surfaced by the #789/#791 arc.
+
+**What is blocked.** Both the full D-CSW-1 leg 2 (real `temporal.rs`/Lance version stream over a wild corpus) and the real-corpus D-CSW-2 (labeled causal-edge candidate set) need two things this sandbox does not have: (1) a **sourced labeled corpus** (real causal pairs / candidate labels — none is in this repo or session; fabricating one would repeat the numpy-stand-in mistake `E-CODEC-IS-PALETTE256-SQUARED-IMPLICIT-1` corrected); (2) a **real `temporal.rs`/Lance version binding** — the contract-side `temporal_pov.rs` is the zero-dep filter, but the canonical `QueryReference`/`deinterlace` over actual Lance datasets lives in `lance-graph-planner`, which builds here but has no wired real-version stream to read.
+
+**What is NOT the blocker (corrected).** The earlier "#789 leg-2 infra-blocked on `protoc`" claim was WRONG (PR #791, `E-DCSW1-LEG2-BLOCK-CORRECTION-1`): `lance-graph-planner` builds in ~20s and needs no `protoc`; that was a mislabelled too-tight timeout. Do not re-file the block as a build/toolchain problem.
+
+**What IS done (so this issue is scoped, not open-ended).** The contract-level *mechanism* is proven (`E-DCSW2-CONTRACT-MECHANISM-GREEN-1`, PR #789: joint basin+rung precision@25 = 1.000 vs 0.520/0.520 ablations on a synthetic AND-gate fixture using the real `PairPalette`/`witness_fabric` primitives). Leg 1's v5 core standing-wave result is VALIDATED-IN-SCOPE (`E-DCSW1-V5-SPLIT-VERDICT`). The **feasible narrower next step** is a real-`temporal.rs` probe (planner-side, small labeled slice) — operator-gated, flagged not launched. **Resolution path:** source a small labeled causal corpus + wire one real `lance-graph-planner` version-stream read; until then this stays OPEN and neither leg is claimed as more than its scoped result. Refs: plan `causal-rung-standing-wave-v1.md` §6.2/§6.3, `E-DCSW2-CONTRACT-MECHANISM-GREEN-1`, `E-DCSW1-LEG2-BLOCK-CORRECTION-1`, `E-DCSW1-V5-SPLIT-VERDICT`, `TD-CERTIFIED-DISTANCE-TABLE-UNCONSUMED` (the codebook a real D-CSW-2 also needs).
+
 ## 2026-07-08 — ISS-V1-TAIL-RESIDUE — woa-rs arm — RESOLVED (`make_account_guid_bytes` migrated to the V3 tail)
 
 **Status:** RESOLVED (operator ruling 2026-07-08, landed in woa-rs — sibling repo,
