@@ -1,5 +1,19 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-21 — ISS-BUNDLE-RULING-SCOPE — does E-NO-BUNDLE-STANDING-WAVE-1's niche-closure retire the deepnsm MarkovBundler cluster? The ruling's LETTER says yes; its stated MECHANISM (single-owner SoA violation) does NOT describe this code — ruling-author decision
+
+**Status:** OPEN — operator (ruling author) decision. **Priority:** P2. **Scope:** @truth-architect domain:deepnsm domain:substrate.
+
+**Surfaced by** a full read of the six-file cluster (`markov_bundle`/`trajectory`/`arcs`/`arcuate`/`disambiguator_glue`/`trajectory_audit`) AFTER an earlier session this day deleted it on a pattern-match (never read) as "the bundle violation" and had to fully revert (`AGENT_LOG` 2026-07-21). The read reframes the claim; this entry replaces the reverted, ungrounded `TD-BUNDLE-RESIDUE-1`.
+
+**What the cluster actually is (read, not grepped).** `MarkovBundler::bundle_current` (`markov_bundle.rs:118`) IS a ±radius-window superposition of multiple sentences into one `Trajectory`, kernel-weighted into disjoint role slices (SUBJECT[0..2000)…), Σ|w|-normalized — structurally the "±5 braid" the ruling names. BUT: (a) LOCAL owned computation — `push` returns an owned `Trajectory` by value; it never writes a shared multi-owner SoA (the mechanism the ruling's "single-ownership violation" describes). (b) FIREWALLED — only a sign-binarized `Binary16K` fingerprint crosses into the contract `ContextChain`; the contract takes no deepnsm dep (`arcs.rs:19-22`, `arcuate.rs:28-35`). (c) `disambiguator_glue.rs:29-35` EXPLICITLY frames it as the sanctioned `I-VSA-IDENTITIES` niche (identity superposition of role-bound fingerprints; the Vsa16kF32→Binary16K switchboard hop). (d) UNWIRED from the live pipeline — `arcuate.rs:21-26` states it is a separate, offline-testable seam, NOT in `pipeline.rs`'s live `ContextWindow`. It is the Broca / arcuate-fasciculus / Wernicke faculty (conduction-aphasia gap) — coherent design, not junk.
+
+**The tension (why it needs the ruling author).** The ruling's LETTER closes the I-VSA-IDENTITIES "≤32 within one compartment" niche → this ±radius bundle is out. But the ruling's stated MECHANISM — "mixes multiple owners' contributions into one carrier, breaking single-owner SoA" — does NOT describe this code: one producer bundling its own input window into its own owned, firewalled, unwired output, with none of the shared-SoA aliasing the ruling cites. So: is the niche closed even for a local, owned, firewalled, unwired computation? Ruling-author's call, not a pattern-match.
+
+**Resolution paths (operator decision).** (a) Ruling applies in full → the cluster is real (understood) debt to retire → then a replacement standing-wave faculty must be WRITTEN + tested-to-parity against the current behaviour BEFORE any deletion (never the reverse — the reverted-mistake lesson); moves to `TECH_DEBT.md`. (b) Niche stays open for local owned firewalled computations → the cluster stays; the ruling's niche-closure wording is scoped to shared-SoA carriers. (c) Retire as UNWIRED on its own ruling-independent ground once a consumer sweep confirms zero live callers — separate from the bundle question.
+
+**Cross-ref:** E-NO-BUNDLE-STANDING-WAVE-1 (the ruling — currently unrecorded in EPIPHANIES per its own revert), `I-VSA-IDENTITIES` (CLAUDE.md), `AGENT_LOG` 2026-07-21 (the deletion + revert), `markov_bundle.rs:118` / `arcuate.rs:21-35` / `disambiguator_glue.rs:29-35`.
+
 ## 2026-07-21 — ISS-DCSW-REAL-CORPUS-BLOCKED — D-CSW-1 leg 2 + the real-corpus D-CSW-2 are blocked on data + a real `temporal.rs` binding, not code — OPEN
 
 **Status:** OPEN (blocker, not debt — the code path is fine; the inputs don't exist here). Surfaced by the #789/#791 arc.
