@@ -126,6 +126,12 @@ jobs:
       # doctests, fast (no lance/datafusion/ndarray deps). Gating.
       - name: Run deepnsm tests
         run: cargo test --manifest-path crates/deepnsm/Cargo.toml
+      # deepnsm-v2: the palette256² rebuild of deepnsm (PR #798), a standalone
+      # crate with a single path-dep on lance-graph-contract, workspace-excluded
+      # like deepnsm — so the steps above never reach its 18 tests. Same blind-gate
+      # posture as deepnsm; one scoped step arms it. Gating.
+      - name: Run deepnsm-v2 tests
+        run: cargo test --manifest-path crates/deepnsm-v2/Cargo.toml
       # lance-graph-supervisor: every test in the crate (including the W2b
       # real-owner probes over the production MailboxSoA, PR #634) is gated
       # behind the `supervisor` feature (ractor dep), so no step above ever

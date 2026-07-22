@@ -86,6 +86,11 @@ jobs:
       #   gate it explicitly (same posture as the contract crate) so it can't regress.
       - name: Clippy deepnsm (mandatory)
         run: cargo clippy --manifest-path crates/deepnsm/Cargo.toml --all-targets -- -D warnings
+      # Tier A (mandatory, gating): deepnsm-v2 (PR #798) shipped clippy-clean and
+      #   is workspace-excluded like deepnsm, so the lance-graph clippy steps don't
+      #   cover it; gate it explicitly (same posture) so it can't regress.
+      - name: Clippy deepnsm-v2 (mandatory)
+        run: cargo clippy --manifest-path crates/deepnsm-v2/Cargo.toml --all-targets -- -D warnings
       # Tier B (advisory until incrementally cleaned, non-gating): bgz-tensor is
       # a workspace-EXCLUDED codec crate that was never clippy-gated, so it
       # carries pre-existing doc-lint debt (~9 `doc_lazy_continuation` in
@@ -132,6 +137,11 @@ jobs:
       # baseline in this PR; check it explicitly so it can't silently drift.
       - name: Check formatting (deepnsm)
         run: cargo fmt --manifest-path crates/deepnsm/Cargo.toml -- --check
+      # deepnsm-v2 (PR #798) is likewise standalone + workspace-excluded, so
+      # `cargo fmt --all` never reaches it. It shipped rustfmt-clean; check it
+      # explicitly so it can't silently drift.
+      - name: Check formatting (deepnsm-v2)
+        run: cargo fmt --manifest-path crates/deepnsm-v2/Cargo.toml -- --check
 
   # typos / spell-check removed 2026-04-26: too many false positives on
   # technical jargon (NARS terms, codec acronyms, German loanwords used in
