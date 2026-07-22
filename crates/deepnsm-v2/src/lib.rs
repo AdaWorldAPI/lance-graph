@@ -36,6 +36,7 @@
 
 pub mod codebook;
 pub mod fsm;
+pub mod reason;
 pub mod space;
 pub mod spo;
 pub mod vocab;

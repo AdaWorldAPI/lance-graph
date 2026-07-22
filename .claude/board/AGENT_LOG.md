@@ -1,3 +1,15 @@
+## 2026-07-22 — D-SRS-1 SHIPPED (execution phase): the graph reasons about itself — Opus main thread, sole board writer
+
+- **Task:** operator "Go" → begin the execution phase on the gated plan set. First deliverable: D-SRS-1 (self-reasoning-substrate-v1), the dependency root (D-LIT-4 shares its gate), runs on already-shipped artifacts.
+- **Discipline:** gate registered BEFORE code (`6008747`, anti-tuning — precedes `f01d874`), per the plan's own pre-run-registration protocol; the registration was NOT edited when the result diverged.
+- **Built (Opus main thread — foundational/invariant-heavy, not delegated):** `crates/deepnsm-v2/src/reason.rs` — `DerivationArena::derive_transitive[_capped]`, per-predicate transitive composition with premise POINTERS (the pointers ARE the proof tree), Tarski rung stamping. 7 deterministic unit tests + the `bible_wave` D-SRS-1 leg.
+- **Commit:** `6008747` (gate) → `f01d874` (code) → the adjudication/board commit (this entry).
+- **Tests:** `cargo test --manifest-path crates/deepnsm-v2/Cargo.toml reason` — 7/7 green; `cargo clippy … -D warnings` clean; `bible_wave` on the real KJV (`/tmp/pg10.txt`, Gutenberg #10, never committed) — all gates + D-SRS-1 leg green.
+- **Adjudication:** SOUNDNESS gate (the KILL clause) PASS — 100% resolvability + acyclic on unit tests AND the real book (21,749 distinct base triples, 50,000 derived at horizon). FINDING: the full whole-book closure is O(N²) (begat genealogies) → bounded derivation (Layers 2-3) is load-bearing; the registered full-book-termination sub-clause superseded, recorded transparently (`E-SELF-REASONING-FABRIC-1`, plan §D-SRS-1 RESULT). D-SRS-2 is that finding's home.
+- **Board (this entry + EPIPHANIES + STATUS_BOARD + plan RESULT):** written by the MAIN THREAD as sole writer, per `E-AGENT-LOG-SHARED-SINK-ANTIPATTERN-1`.
+- **Root `Cargo.lock` fork-pin churn** (a git-dep re-resolving `lance-graph-contract` main→a feature branch) was restored, not committed, per standing rule.
+- **Outcome:** D-SRS-1 Shipped; ships in the execution-phase PR that follows #804 (branch restarted from merged main).
+
 ## 2026-07-22 — capture fleet: 3 plans + 1 knowledge doc landed pre-compaction — Opus main-thread orchestration
 
 - **Task:** operator directive to capture in-flight architecture before context compaction. Opus (main thread) orchestrated a 5-agent capture fleet on branch `claude/x265-x266-plans-review-h9osnl`.
