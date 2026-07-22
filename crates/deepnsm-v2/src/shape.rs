@@ -8,21 +8,32 @@
 //! **rung-2 meta-awareness** citizen: its subject matter is not the world but
 //! the graph's own representation of the world.
 //!
-//! ## The taxonomy (pre-registered; do not tune)
+//! ## Two detectors: [`detect_measured`] (shipped) vs [`detect`] (record)
 //!
-//! Per predicate `p` over its edge set: `edges`, `entities`, `max_in`,
-//! `max_out`, `cyclic` (directed DFS), and `closure_pressure = Σ_v
-//! in(v)·out(v)` — the number of length-2 composition paths, i.e. the
-//! first-pass addition count of a transitive closure: THE O(N²) predictor that
-//! fired in `D-SRS-1`'s whole-book finding.
+//! [`detect_measured`] is the SHIPPED router: it MEASURES the candidate trie
+//! (coverage + amortization) and routes on the measured fit. [`detect`] is the
+//! v1 STRUCTURAL router — it guessed shape from degree statistics and its
+//! *routing verdict* was falsified on the real book (a `max_in ≤ 1` purity gate
+//! mis-routes a noisy near-forest, `D-SRS-2` RESULT). `detect` is retained as
+//! that falsified record — but note its *function* is NOT dead: `detect_measured`
+//! calls it every invocation for the shared structural stats (`edges`,
+//! `entities`, `cyclic`, `closure_pressure`). Only v1's routing VERDICT is
+//! retired; [`detect_all`] (the v1 census wrapper) is the genuinely test-only part.
 //!
-//! Classification order: `Empty` → `Cyclic` → `Flat` (pressure 0; a star is
-//! Flat) → `Forest` (`max_in ≤ 1`) → `Dag`. Routing: Empty/Flat →
-//! [`Representation::EdgeTable`]; Forest → [`Representation::RadixTrie`] (the
-//! DN/HHTL family codebook — closure NEVER materialized); Cyclic →
-//! [`Representation::BoundedEscalate`]; Dag → [`Representation::MaterializedFabric`]
-//! when `closure_pressure ≤ 4×edges`, else [`Representation::TriePlusEscalate`]
-//! (primary-parent trie + residue pointers).
+//! ## The structural stats
+//!
+//! Per predicate `p` over its (deduplicated) edge set: `edges`, `entities`,
+//! `max_in`, `max_out`, `cyclic` (directed DFS), and `closure_pressure = Σ_v
+//! in(v)·out(v)` — the count of length-2 directed composition PATHS. This is an
+//! **upper bound / proxy** for a transitive closure's first-pass growth, NOT the
+//! exact addition count: the closure dedups (two paths through different
+//! intermediates collapse to one endpoint; a path whose shortcut already exists
+//! adds nothing). It is used only as a routing threshold, never as a correctness
+//! gate — it was the O(N²)-risk signal that fired in `D-SRS-1`'s whole-book finding.
+//!
+//! v1 classification order (the falsified record): `Empty` → `Cyclic` → `Flat`
+//! (pressure 0; a star is Flat) → `Forest` (`max_in ≤ 1`) → `Dag`. The v2
+//! measured routing lives on [`detect_measured`].
 
 use crate::ancestry::FamilyTrie;
 use crate::spo::Spo;
@@ -103,8 +114,9 @@ pub struct ShapeReport {
     pub max_out: usize,
     /// Whether the subgraph contains a directed cycle.
     pub cyclic: bool,
-    /// `Σ_v in(v)·out(v)` — length-2 composition paths; the first-pass
-    /// addition count of a transitive closure (the O(N²) predictor).
+    /// `Σ_v in(v)·out(v)` — length-2 composition PATHS; an upper bound on a
+    /// transitive closure's first-pass growth (the closure dedups), the O(N²)
+    /// routing signal.
     pub closure_pressure: u64,
     /// The shape class.
     pub class: ShapeClass,
@@ -183,7 +195,7 @@ pub struct MeasuredShape {
     pub entities: usize,
     /// Contains a directed cycle.
     pub cyclic: bool,
-    /// `Σ_v in(v)·out(v)` — the O(N²) predictor.
+    /// `Σ_v in(v)·out(v)` — length-2 paths; an upper-bound O(N²) routing signal.
     pub closure_pressure: u64,
     /// Entities the primary-parent trie grounds to a root.
     pub covered: usize,

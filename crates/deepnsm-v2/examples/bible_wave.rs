@@ -349,7 +349,9 @@ fn main() {
     );
 
     // G-SRS2-a — EXACTNESS: trie prefix-ancestry == the uncapped closure of the
-    // SAME forest edges (base ∪ derived pairs), as sets, both directions.
+    // trie's DIRECT forest edges (the closure adds the multi-hop pairs), as
+    // sets, both directions — a two-implementation differential oracle
+    // (parent-pointer ascent vs the reason.rs fixed-point engine).
     let forest: Vec<Spo> = trie
         .forest_edges()
         .iter()
@@ -373,6 +375,42 @@ fn main() {
         trie_pairs, closure_pairs,
         "KILL D-SRS-2 (a): trie prefix-ancestry != materialized closure"
     );
+    // G-SRS2v2-a' — the OPERATIONAL api on real book data: `is_ancestor_of` (the
+    // "ancestry lives in the key" primitive) must agree with the closure set,
+    // and be strict (no self-ancestry). Exercised here at book scale, not just
+    // in unit tests.
+    for &(a, z) in &trie_pairs {
+        assert!(
+            trie.is_ancestor_of(a, z),
+            "KILL D-SRS-2 (a'): is_ancestor_of({a},{z}) false but the pair is in the closure"
+        );
+        assert!(
+            !trie.is_ancestor_of(z, a),
+            "KILL D-SRS-2 (a'): is_ancestor_of is not antisymmetric on ({a},{z})"
+        );
+    }
+    // dn integrity on the deepest covered node: the DN is an ancestor chain
+    // ending at the node, and EVERY DN member is an ancestor of it (dn ⇔
+    // is_ancestor_of agreement, at book scale).
+    if let Some(deepest) = trie
+        .forest_edges()
+        .iter()
+        .map(|&(_, c)| c)
+        .max_by_key(|&c| trie.dn(c).map_or(0, |p| p.len()))
+    {
+        let dn = trie.dn(deepest).expect("covered node has a DN");
+        assert_eq!(
+            *dn.last().unwrap(),
+            deepest,
+            "KILL D-SRS-2 (a'): DN must end at its own node"
+        );
+        for &a in &dn[..dn.len() - 1] {
+            assert!(
+                trie.is_ancestor_of(a, deepest),
+                "KILL D-SRS-2 (a'): DN member {a} is not an ancestor of {deepest}"
+            );
+        }
+    }
     // G-SRS2v2-b — MEASURED FIT: the detector's CLAIM must equal an independent
     // re-measurement (coverage ≥ 0.8, amortization ≥ 2.0), and the trie must
     // actually pay ≥2× vs one pointer per covered entity.

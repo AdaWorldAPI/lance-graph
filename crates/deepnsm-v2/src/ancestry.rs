@@ -359,6 +359,31 @@ mod tests {
         );
     }
 
+    /// `is_ancestor_of` agrees EXACTLY with `ancestor_pairs` membership over a
+    /// branching forest (and is strict + antisymmetric) — the operational-API
+    /// pin behind the D-SRS-2 gate.
+    #[test]
+    fn is_ancestor_of_agrees_with_ancestor_pairs() {
+        let edges = [(1, 2), (1, 3), (2, 4), (2, 5), (5, 6), (10, 11)];
+        let t = FamilyTrie::build(&edges);
+        let pairs = t.ancestor_pairs();
+        let covered: Vec<u16> = (0..=11).filter(|&e| t.dn(e).is_some()).collect();
+        for &a in &covered {
+            for &z in &covered {
+                let via_walk = t.is_ancestor_of(a, z);
+                let via_set = pairs.contains(&(a, z));
+                assert_eq!(via_walk, via_set, "disagreement on ({a},{z})");
+                if a == z {
+                    assert!(!via_walk, "strictness: no self-ancestry");
+                }
+                if via_walk {
+                    assert!(!t.is_ancestor_of(z, a), "antisymmetry on ({a},{z})");
+                }
+            }
+        }
+        assert_eq!(t.pair_count(), pairs.len());
+    }
+
     /// Star (one root, many children): depth-1 trie, pairs == edges — the
     /// shape where relocation buys nothing (the detector routes it to
     /// EdgeTable; the trie still answers correctly).
