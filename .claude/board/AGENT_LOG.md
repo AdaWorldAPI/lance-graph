@@ -1,3 +1,12 @@
+## 2026-07-23 — Anti-colorblindness probe: cross-genre shape census reveals a vocab confound — main thread, sole board writer
+
+- **Task:** operator "before we get color blind we should test the codebook across different types of literature." Built `crates/deepnsm-v2/examples/genre_shapes.rs` — the D-SRS-2 shape detector across 6 public-domain genres (KJV/Milton/Homer/Darwin/Austen/Sherlock, Gutenberg, never committed) through one shared 18,555-word academic vocab (`academic_20k.csv`, AVL — read at runtime, local-only, never embedded/committed per the license rule).
+- **Finding (`E-ACADEMIC-VOCAB-COLORBLIND-1`):** the detector generalizes MECHANICALLY, but the academic vocab is itself colorblind — 0/7 genealogy carriers (`begat/adam/seth/…`) present, so the KJV `begat`-forest dissolves (top-forest `'shoot' 1.1x`, cyclic 53%) and all genres flatten toward the same profile. The uniformity is the instrument's, not the literature's. Structure probes need entity-inclusive vocab; the scientific-KG wave's real gate is term/entity extraction, not an academic lens.
+- **Commit:** the `genre_shapes` probe + this finding (EPIPHANIES).
+- **Tests:** `clippy -D warnings` clean on the example; the probe is exploratory (no gate — a methodology finding), reproducible via the documented Gutenberg ids.
+- **Deferred to operator steer:** (2) re-run with an entity-inclusive vocab to recover the real cross-genre structure; (3) scope the spider-rs/tesseract-rs → scientific-KG + MUL wave (outward-facing crawl + cross-repo — not started).
+- **Outcome:** finding shipped; ships in a follow-on PR after #806.
+
 ## 2026-07-22 — D-SRS-2 SHIPPED (reshaped): shape detector + ancestry radix-trie — main thread, sole board writer
 
 - **Task:** operator "Go" on D-SRS-2, reshaped through two rulings: ancestry = HHTL family key / DN chain / radix-trie codebook (`is_ancestor_of` = prefix, never materialized), plus the brutal data-shape detector that reasons about the best representation (rung-2 meta-awareness). Then the SPOG G-lane suggestion folded in.
