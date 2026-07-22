@@ -54,11 +54,18 @@ def cos(a, b):
     na = math.sqrt(sum(x*x for x in a)); nb = math.sqrt(sum(y*y for y in b))
     return d/(na*nb) if na and nb else 0.0
 
+CA = os.environ.get("JINA_CA_BUNDLE", "")  # optional; empty = system trust store
 def embed(batch):
     body = json.dumps({"model":"jina-embeddings-v3","task":"text-matching","dimensions":256,"input":batch})
-    out = subprocess.run(["curl","-sS","--cacert","/root/.ccr/ca-bundle.crt","-X","POST",
-        "https://api.jina.ai/v1/embeddings","-H",f"Authorization: Bearer {KEY}",
-        "-H","Content-Type: application/json","-d",body], capture_output=True, text=True, timeout=120)
+    args = ["curl","-sS","-f","--config","-","-X","POST","https://api.jina.ai/v1/embeddings",
+            "-H","Content-Type: application/json","-d",body]
+    if CA:
+        args[2:2] = ["--cacert", CA]
+    # Authorization rides stdin config, never argv (invisible to process listings).
+    out = subprocess.run(args, input=f'header = "Authorization: Bearer {KEY}"\n',
+                         capture_output=True, text=True, timeout=180)
+    if out.returncode != 0:
+        raise RuntimeError(f"jina embed failed (curl exit {out.returncode}): {out.stderr[:200]}")
     return [e["embedding"] for e in json.loads(out.stdout)["data"]]
 emb = {}
 for i in range(0, len(sample), 100):
@@ -107,4 +114,5 @@ print(f"  C. DISCOURSE category       AUC(same>cross Jina)          = {auc:.3f} 
 print(f"\n  RATIO  substrate:frequency meaning-tracking = {(r_subs/abs(r_freq) if r_freq else float('inf')):.1f}×")
 print("\nDETERMINATION:")
 print(f"  frequency  → ROUTING   (orthogonal to meaning, rho={r_freq:+.3f})")
-print(f"  distance   → MEANING   (substrate count-distance tracks Jina, rho={r_subs:+.3f}; discourse AUC={auc:.3f})")
+subs_verdict = "tracks Jina (coarse)" if r_subs > 0.15 else "COARSE FLOOR ONLY (weak on random pairs)"
+print(f"  distance   → MEANING   ({subs_verdict}, rho={r_subs:+.3f}; discourse AUC={auc:.3f})")

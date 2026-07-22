@@ -48,8 +48,8 @@ citation-provenance correction, below.
    depth overflow.** The papers' data predicts that tail is rare.
 
 3. **Citation provenance (correction — two reviewers independently).**
-   The "LC needs bounded stack for left/right-branching, grows only on
-   center-embedding" theorem is **Abney & Johnson 1991 / Resnik 1992 /
+   The left-corner memory-profile theorem — O(1) for left/right
+   branching, O(n) only under center-embedding — is **Abney & Johnson 1991 / Resnik 1992 /
    Stabler 1994** (imported by Manning & Carpenter §5 and by Liu 2025) — it is
    NOT in Roark & Johnson 2000 and NOT in Moore 2000. Do not cite those two for
    it. Liu 2025 Table 2 is the modern MG-side confirmation of the same profile;
