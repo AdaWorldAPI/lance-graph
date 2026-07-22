@@ -292,8 +292,153 @@ fn main() {
         g.base, g.derived, g.passes, g.resolvability_pct, g.acyclic
     );
 
+    // ── D-SRS-2 (reshaped) — the SHAPE DETECTOR + ancestry relocation ──
+    // The graph reasons about the best representation of its own knowledge
+    // (rung-2 meta-awareness, mechanical): per-predicate shape census, then the
+    // trie target's ancestry RELOCATES to the DN/HHTL radix-trie codebook —
+    // is_ancestor_of = prefix containment — and the materialized closure is
+    // deleted after the exactness falsifier proves the trie carries it.
+    let census = deepnsm_v2::shape::detect_all_measured(&base);
+    println!(
+        "D-SRS-2 measured census (top 5 of {} predicates):",
+        census.len()
+    );
+    for r in census.iter().take(5) {
+        println!(
+            "    '{}' — {} edges, {} entities, cyclic={}, pressure={}, covered={}, coverage={:.2}, amort={:.2}x → {:?} (SPOG G={})",
+            nsm.vocab.word(r.predicate).unwrap_or("?"),
+            r.edges, r.entities, r.cyclic, r.closure_pressure,
+            r.covered, r.coverage, r.amortization, r.recommend, r.recommend.graph_id()
+        );
+    }
+
+    // Trie target (pre-registered): highest-edge predicate the MEASURED router
+    // routes to RadixTrie or TriePlusEscalate.
+    let target = census
+        .iter()
+        .find(|r| {
+            matches!(
+                r.recommend,
+                deepnsm_v2::shape::Representation::RadixTrie
+                    | deepnsm_v2::shape::Representation::TriePlusEscalate
+            )
+        })
+        .expect("KILL D-SRS-2: no predicate routed to a trie representation");
+    let target_word = nsm.vocab.word(target.predicate).unwrap_or("?");
+    // Dedup edges exactly as the measured router did, so the trie here matches
+    // the census's re-measurement (a repeated (p,c) is frequency, not a second
+    // parent).
+    let mut target_edges: Vec<(u16, u16)> = base
+        .iter()
+        .filter(|t| t.predicate == target.predicate)
+        .map(|t| (t.subject, t.object))
+        .collect();
+    target_edges.sort_unstable();
+    target_edges.dedup();
+    let trie = deepnsm_v2::FamilyTrie::build(&target_edges);
+    println!(
+        "D-SRS-2 trie target: '{}' ({:?}) — covered {} entities, residue: {} multi-parent + {} on-cycle; \
+         max DN depth {}, HHTL-packable {} (≤12 deep, ≤16 fan)",
+        target_word,
+        target.recommend,
+        trie.covered(),
+        trie.multi_parent_residue(),
+        trie.cycle_residue(),
+        trie.max_depth(),
+        trie.hhtl_packable()
+    );
+
+    // G-SRS2-a — EXACTNESS: trie prefix-ancestry == the uncapped closure of the
+    // trie's DIRECT forest edges (the closure adds the multi-hop pairs), as
+    // sets, both directions — a two-implementation differential oracle
+    // (parent-pointer ascent vs the reason.rs fixed-point engine).
+    let forest: Vec<Spo> = trie
+        .forest_edges()
+        .iter()
+        .map(|&(p, c)| Spo::new(p, target.predicate, c))
+        .collect();
+    let closure = deepnsm_v2::reason::DerivationArena::derive_transitive(&forest);
+    let cg = closure.gate();
+    // G-SRS2-d — TERMINATION through relocation: the shape-routed forest
+    // closure reaches a TRUE fixed point, uncapped, on the real book.
+    assert!(
+        cg.passed(),
+        "KILL D-SRS-2 (d): forest closure did not soundly terminate: {cg:?}"
+    );
+    let closure_pairs: std::collections::HashSet<(u16, u16)> = closure
+        .entries()
+        .iter()
+        .map(|d| (d.triple.subject, d.triple.object))
+        .collect();
+    let trie_pairs = trie.ancestor_pairs();
+    assert_eq!(
+        trie_pairs, closure_pairs,
+        "KILL D-SRS-2 (a): trie prefix-ancestry != materialized closure"
+    );
+    // G-SRS2v2-a' — the OPERATIONAL api on real book data: `is_ancestor_of` (the
+    // "ancestry lives in the key" primitive) must agree with the closure set,
+    // and be strict (no self-ancestry). Exercised here at book scale, not just
+    // in unit tests.
+    for &(a, z) in &trie_pairs {
+        assert!(
+            trie.is_ancestor_of(a, z),
+            "KILL D-SRS-2 (a'): is_ancestor_of({a},{z}) false but the pair is in the closure"
+        );
+        assert!(
+            !trie.is_ancestor_of(z, a),
+            "KILL D-SRS-2 (a'): is_ancestor_of is not antisymmetric on ({a},{z})"
+        );
+    }
+    // dn integrity on the deepest covered node: the DN is an ancestor chain
+    // ending at the node, and EVERY DN member is an ancestor of it (dn ⇔
+    // is_ancestor_of agreement, at book scale).
+    if let Some(deepest) = trie
+        .forest_edges()
+        .iter()
+        .map(|&(_, c)| c)
+        .max_by_key(|&c| trie.dn(c).map_or(0, |p| p.len()))
+    {
+        let dn = trie.dn(deepest).expect("covered node has a DN");
+        assert_eq!(
+            *dn.last().unwrap(),
+            deepest,
+            "KILL D-SRS-2 (a'): DN must end at its own node"
+        );
+        for &a in &dn[..dn.len() - 1] {
+            assert!(
+                trie.is_ancestor_of(a, deepest),
+                "KILL D-SRS-2 (a'): DN member {a} is not an ancestor of {deepest}"
+            );
+        }
+    }
+    // G-SRS2v2-b — MEASURED FIT: the detector's CLAIM must equal an independent
+    // re-measurement (coverage ≥ 0.8, amortization ≥ 2.0), and the trie must
+    // actually pay ≥2× vs one pointer per covered entity.
+    let ratio = closure_pairs.len() as f64 / trie.covered() as f64;
+    assert!(
+        (ratio - target.amortization).abs() < 1e-6 && target.coverage >= 0.8,
+        "KILL D-SRS-2 (b): detector claim (amort {:.2}x, cov {:.2}) != re-measure (amort {ratio:.2}x)",
+        target.amortization,
+        target.coverage
+    );
+    assert!(
+        ratio >= 2.0,
+        "KILL D-SRS-2 (b): amortization {ratio:.2}x < 2x — detector mis-routed"
+    );
+    println!(
+        "D-SRS-2 PASS  '{}' ({:?}): trie ({} pointers) == closure ({} ancestor pairs) EXACTLY; \
+         coverage {:.2}, amortization {ratio:.1}x (claim == re-measure); closure terminated uncapped \
+         in {} passes → the materialization is DELETED (ancestry lives in the key)",
+        target_word,
+        target.recommend,
+        trie.covered(),
+        closure_pairs.len(),
+        target.coverage,
+        cg.passes
+    );
+
     println!(
         "\nALL GATES GREEN — the whole book is resident, literally read, with real meaning codes, \
-         and reasoning about its own derivations (bounded horizon)."
+         reasoning about its own derivations, and routing its own representations by shape."
     );
 }
