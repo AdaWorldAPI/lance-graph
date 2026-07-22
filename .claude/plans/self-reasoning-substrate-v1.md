@@ -200,6 +200,33 @@ pointers are the tree.
   ANY citation cycle at all (whether it crosses rungs upward or sits within one
   rung). Either falsifies "the fabric composes premises soundly."
 
+> **Pre-run registration — D-SRS-1 (2026-07-22, registered BEFORE the code; the
+> anti-tuning commit precedes the measurement commit in git history).** The gate
+> is STRUCTURAL, not a tunable threshold, so the registered values are the exact
+> binary assertions the run must satisfy:
+> - **Inference rule (fixed):** per-predicate transitive composition ONLY — for
+>   arena entries `(A,p,B)` and `(B,p,C)` sharing the **same predicate `p`**,
+>   derive `(A,p,C)` with premise pointers `[i,j]`. Cross-predicate composition
+>   is FORBIDDEN (that is the `TD-INFER-DEDUCTIONS-RELATION-BLIND` runaway; here
+>   the sound is_a-style rule keeps `p` constant). Self-loops (`A==B` or `B==C`)
+>   and re-derivation of an already-present triple are dropped (dedup by `Spo`).
+> - **Rung stamp (fixed):** base triples rung 0; a derived triple is stamped
+>   `max(premise rungs) + 1`. This makes every premise strictly-lower by
+>   construction.
+> - **PASS = all three, exactly:** (1) **premise resolvability = 100.0%** — every
+>   premise pointer indexes an EARLIER arena entry that exists (0 dangling);
+>   (2) **acyclic = true** — every premise strictly-lower rung than its citer
+>   (0 equal-or-higher citations), verified explicitly, not assumed;
+>   (3) **terminates = true** — the fixed-point closure reaches a fixed point
+>   (a pass adds 0 new triples) in bounded passes on BOTH the deterministic
+>   unit-test KGs AND the real 31,327-triple KJV KG.
+> - **KILL = any of:** resolvability < 100.0%, OR one equal/higher-rung citation,
+>   OR the closure does not reach a fixed point. Report the failing metric
+>   verbatim; do NOT relax the rule to make it pass.
+> - **Proof surface:** the invariants are proven by deterministic `#[test]`s in
+>   `src/reason.rs` (no corpus, no network — the gate); the KJV run is the SCALE
+>   demonstration (the same assertions re-checked on the book-scale KG).
+
 ### D-SRS-2 — Rung stratification enforcement
 
 Stamp every derived triple at rung *n+1* of its deepest premise; run a
