@@ -686,14 +686,30 @@ compose their outputs at runtime."
 
 For subagent coordination *during* this session:
 
-- **`.claude/board/AGENT_LOG.md` is the Layer-2 blackboard.**
-  Every agent run gets one append-only entry (D-ids, commit, tests,
-  outcome). Later agents read prior entries to see what was already
-  shipped, found, or is in flight — same as Layer-1 experts reading
-  prior `BlackboardEntry` rounds. This replaces explicit message
-  passing between agents: no backend coordination, just file reads.
-  **Every agent prompt MUST include:** "Read `.claude/board/AGENT_LOG.md`
-  before starting. After committing, prepend your own entry."
+- **`.claude/board/AGENT_LOG.md` is the Layer-2 blackboard — with ONE
+  writer.** Every agent run gets one entry (D-ids, commit, tests, outcome);
+  later agents read prior entries to see what was shipped, found, or is in
+  flight — same as Layer-1 experts reading prior `BlackboardEntry` rounds.
+  This replaces explicit message passing between agents: no backend
+  coordination, just file reads.
+  > **⊘ ONE-WRITER CORRECTION (operator-ruled 2026-07-22,
+  > `E-AGENT-LOG-SHARED-SINK-ANTIPATTERN-1`).** Sub-agents do NOT append to
+  > `AGENT_LOG.md` (or any shared board file). Concurrent append to one file
+  > is a lost-write race, and a shared append-log is the exact
+  > shared-mutable-sink the runtime substrate eliminated
+  > (one-writer-per-mailbox, `SoaEnvelope::mailbox_owner`, no singleton;
+  > E-CE64-MB-4) — re-created one layer up. **The rule now:** each sub-agent
+  > writes ONLY its own agent-tag file (`exec-runs/<slug>.txt` for an
+  > executor; `<agentId>.md` for any worker that must leave a record); the
+  > **orchestrating main thread is the SOLE writer** of `AGENT_LOG.md` and
+  > every shared board file, consolidating the tag-files after committing. A
+  > shared append-log is not an A2A channel — real A2A is a message to an
+  > *owned* mailbox; co-appending to one log is pseudo-A2A with a race. Full
+  > statement: `.claude/knowledge/tiered-agent-execution-protocol.md`
+  > § "ONE WRITER PER FILE".
+  > **Every agent prompt MUST include:** "Read `.claude/board/AGENT_LOG.md`
+  > before starting. Do NOT write it — leave your record in your own tag-file;
+  > the orchestrator consolidates."
 - **`LATEST_STATE.md` + `PR_ARC_INVENTORY.md`** are the structural
   blackboard — what types exist, which PRs shipped. Every subagent
   reads them for current state.
@@ -776,8 +792,15 @@ the runtime Blackboard. Keep them architecturally distinct.
 - **`Explore` subagent:** Sonnet default. Search is pattern matching.
   If the explore requires synthesis across many files (mapping an
   architecture), escalate to Opus.
-- **NEVER `haiku` for any subagent in this workspace.** Quality floor
-  is Sonnet regardless of task simplicity.
+- **NEVER `haiku` for any subagent in this workspace** — with ONE narrow,
+  contract-gated exception: the **guarded-executor** role (run a pre-written,
+  `-p`-scoped bash/cargo card with explicit START/STOP, retry table, tail-30
+  output discipline, one shared `target/`, and a mandatory append-only log
+  entry; never authors, decides, or edits any file but the log). See
+  `.claude/knowledge/tiered-agent-execution-protocol.md` for the full
+  contract. Outside that role the quality floor is Sonnet regardless of task
+  simplicity — Haiku remains forbidden for synthesis, drafting, review, and
+  any file edit.
 
 **Concrete test before spawning a subagent:**
 > "Does this agent have to read N sources and produce something that

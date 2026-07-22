@@ -36,7 +36,7 @@ Do NOT propose any new type, module, or convention without grepping LATEST_STATE
 ## Governance (never violate)
 
 - APPEND-ONLY: LATEST_STATE + PR_ARC_INVENTORY Edit prompts for approval; Write to append stays unprompted. Only the Confidence line per PR entry is updatable; corrections append as dated lines; reversals get their own PR entry.
-- Model policy: main thread Opus + deep thinking; subagent grindwork (single-source mechanical) → Sonnet; accumulation (multi-source synthesis) → Opus; NEVER Haiku.
+- Model policy: main thread Opus + deep thinking; subagent grindwork (single-source mechanical) → Sonnet; accumulation (multi-source synthesis) → Opus; NEVER Haiku EXCEPT the one contract-gated guarded-executor role (.claude/knowledge/tiered-agent-execution-protocol.md).
 - GitHub reads: zipball to /tmp/sources/ + local grep for 3+ reads per external repo. MCP only for writes (PR, comments, reviews) and single-path reads.
 - Contract zero-dep invariant: lance-graph-contract has no external crate deps.
 - Read before Write: always Read a file before overwriting.
