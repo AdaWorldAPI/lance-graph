@@ -1,7 +1,7 @@
 import numpy as np, math, struct
 rng = np.random.default_rng(0x9E3779B9)
 E = np.load("bible_vocab_emb96.npy").astype(np.float64)
-vocab = open("bible_vocab.txt").read().split("\n")
+vocab = [w for w in open("bible_vocab.txt").read().splitlines() if w.strip()]
 N = len(E); assert N == len(vocab)
 
 def kmeans(X, k=256, iters=25, seed=0):

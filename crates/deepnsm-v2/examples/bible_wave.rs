@@ -216,11 +216,17 @@ fn main() {
         100.0 * beyond8 as f64 / links as f64
     );
 
-    // window sanity: the literal read reaches any span.
+    // window sanity: the literal read reaches any span — GATED, not just logged
+    // (a temporal-range regression must fail the falsifier, per #803 review).
     let w = stream.window_range(lance_graph_contract::temporal_pov::VersionRange::new(
         0,
         verses.len() as u64,
     ));
+    assert_eq!(
+        w.len(),
+        all.len(),
+        "KILL: whole-book window did not return every streamed triple"
+    );
     println!(
         "WINDOW      whole-book literal read returns {} triples (no bundle, no reset)",
         w.len()

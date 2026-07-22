@@ -1,7 +1,7 @@
 import json, os, subprocess, time, numpy as np
 KEY = os.environ.get("JINA_API_KEY","").strip().strip('"').strip("'"); assert KEY.startswith("jina_")
 CA = os.environ.get("JINA_CA_BUNDLE", "/root/.ccr/ca-bundle.crt")
-vocab = open("bible_vocab.txt").read().split("\n")
+vocab = [w for w in open("bible_vocab.txt").read().splitlines() if w.strip()]
 def embed(batch):
     body = json.dumps({"model":"jina-embeddings-v3","task":"text-matching","dimensions":96,"input":batch})
     args = ["curl","-sS","-f","--config","-","-X","POST","https://api.jina.ai/v1/embeddings",

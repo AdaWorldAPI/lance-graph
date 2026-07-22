@@ -52,7 +52,10 @@ pub fn load_cam96_space(bytes: &[u8]) -> Result<Cam96Space, CodebookError> {
             .try_into()
             .map_err(|_| CodebookError::Truncated)?,
     );
-    if n_axes != 12 || dim == 0 || n_cent == 0 || n_cent > 256 {
+    // A corrupt d_max must fail loudly here, not silently clamp to 1.0 in
+    // `from_axis_codebooks` — an artifact loader rejects, never repairs.
+    if n_axes != 12 || dim == 0 || n_cent == 0 || n_cent > 256 || !d_max.is_finite() || d_max <= 0.0
+    {
         return Err(CodebookError::BadHeader);
     }
     let payload = &bytes[24..];
@@ -148,5 +151,14 @@ mod tests {
             load_cam96_space(&tiny_codebook_blob(3, 4)[..30]),
             Err(CodebookError::Truncated)
         ));
+        // corrupt d_max (zero / negative / NaN) is BadHeader, never a silent clamp.
+        for bad in [0.0f32, -1.0, f32::NAN] {
+            let mut blob = tiny_codebook_blob(3, 4);
+            blob[20..24].copy_from_slice(&bad.to_le_bytes());
+            assert!(matches!(
+                load_cam96_space(&blob),
+                Err(CodebookError::BadHeader)
+            ));
+        }
     }
 }
