@@ -686,14 +686,30 @@ compose their outputs at runtime."
 
 For subagent coordination *during* this session:
 
-- **`.claude/board/AGENT_LOG.md` is the Layer-2 blackboard.**
-  Every agent run gets one append-only entry (D-ids, commit, tests,
-  outcome). Later agents read prior entries to see what was already
-  shipped, found, or is in flight — same as Layer-1 experts reading
-  prior `BlackboardEntry` rounds. This replaces explicit message
-  passing between agents: no backend coordination, just file reads.
-  **Every agent prompt MUST include:** "Read `.claude/board/AGENT_LOG.md`
-  before starting. After committing, prepend your own entry."
+- **`.claude/board/AGENT_LOG.md` is the Layer-2 blackboard — with ONE
+  writer.** Every agent run gets one entry (D-ids, commit, tests, outcome);
+  later agents read prior entries to see what was shipped, found, or is in
+  flight — same as Layer-1 experts reading prior `BlackboardEntry` rounds.
+  This replaces explicit message passing between agents: no backend
+  coordination, just file reads.
+  > **⊘ ONE-WRITER CORRECTION (operator-ruled 2026-07-22,
+  > `E-AGENT-LOG-SHARED-SINK-ANTIPATTERN-1`).** Sub-agents do NOT append to
+  > `AGENT_LOG.md` (or any shared board file). Concurrent append to one file
+  > is a lost-write race, and a shared append-log is the exact
+  > shared-mutable-sink the runtime substrate eliminated
+  > (one-writer-per-mailbox, `SoaEnvelope::mailbox_owner`, no singleton;
+  > E-CE64-MB-4) — re-created one layer up. **The rule now:** each sub-agent
+  > writes ONLY its own agent-tag file (`exec-runs/<slug>.txt` for an
+  > executor; `<agentId>.md` for any worker that must leave a record); the
+  > **orchestrating main thread is the SOLE writer** of `AGENT_LOG.md` and
+  > every shared board file, consolidating the tag-files after committing. A
+  > shared append-log is not an A2A channel — real A2A is a message to an
+  > *owned* mailbox; co-appending to one log is pseudo-A2A with a race. Full
+  > statement: `.claude/knowledge/tiered-agent-execution-protocol.md`
+  > § "ONE WRITER PER FILE".
+  > **Every agent prompt MUST include:** "Read `.claude/board/AGENT_LOG.md`
+  > before starting. Do NOT write it — leave your record in your own tag-file;
+  > the orchestrator consolidates."
 - **`LATEST_STATE.md` + `PR_ARC_INVENTORY.md`** are the structural
   blackboard — what types exist, which PRs shipped. Every subagent
   reads them for current state.

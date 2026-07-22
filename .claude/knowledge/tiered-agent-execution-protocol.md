@@ -33,7 +33,43 @@ READ BY: any session orchestrating subagent fleets in this workspace. PROPOSES a
 |---|---|---|---|
 | Opus (or main thread) | FILIGREE: synthesis, plan authorship, adjudication of probe results vs gates, board rulings, review | read everything; write plans/knowledge/board | be used for mechanical loops |
 | Sonnet | GRINDWORK: write-file-from-spec, scoped edits, drafting from a complete brief | edit code/docs per brief | synthesize across sources; decide gates; touch board files unless brief says so |
-| Haiku | GUARDED EXECUTION ONLY: run a pre-written bash sequence with clear START/STOP, capture output, append a log entry | run the exact commands in its brief; retry per an explicit retry table | write or edit ANY source file; interpret ambiguous failures; deviate from the command list; run commands not in the brief |
+| Haiku | GUARDED EXECUTION ONLY: run a pre-written bash sequence with clear START/STOP, capture output, write its OWN tag-file receipt | run the exact commands in its brief; retry per an explicit retry table | write or edit ANY source file; append to any SHARED file; interpret ambiguous failures; deviate from the command list; run commands not in the brief |
+
+## The load-bearing invariant — ONE WRITER PER FILE (all tiers)
+
+**No agent ever appends to a file another agent also writes.** Each agent
+writes exactly ONE file it alone owns, keyed by its agent tag / id (an
+executor → `exec-runs/<slug>.txt`; any worker that must leave a record →
+`<agentId>.md`). A shared file — `AGENT_LOG.md`, any board file — has exactly
+ONE writer, ALWAYS: the orchestrating main thread, which reads the set of
+per-agent tag-files and consolidates. This is not a Haiku-tier workaround; it
+is the general law, and the executor's receipt is just its first instance.
+
+Why it is load-bearing, not hygiene:
+
+- **Concurrent append to one file is a lost-write race.** Two agents doing
+  read → append → write (or `>>` of multiline records) interleave or drop
+  entries. Per-agent tag-files have no contention by construction — one writer,
+  one file.
+- **It is the SAME law the runtime substrate already proves.** One-writer-
+  per-mailbox is `SoaEnvelope::mailbox_owner` + write-on-behalf +
+  no-singleton-sink (E-CE64-MB-4): aliasing/data-race becomes a *compile
+  error* downstream precisely because nothing co-writes a shared cell. A
+  shared session-log that every agent appends to is that eliminated
+  shared-mutable-sink, re-created one layer up.
+- **A shared append-log is NOT A2A.** Real agent-to-agent coordination is a
+  message to an *owned* mailbox; you own your lane and the reader reads
+  *across* lanes. Co-appending to one log is pseudo-A2A with a race attached —
+  use per-agent tag-files + a single consolidator, never a shared sink.
+
+> **Corrects the workspace Layer-2 A2A convention (operator-ruled 2026-07-22,
+> `E-AGENT-LOG-SHARED-SINK-ANTIPATTERN-1`).** CLAUDE.md §"Layer 2 — Session
+> A2A" previously said "Every agent run gets one append-only entry" and every
+> agent prompt "MUST … prepend your own entry" to `AGENT_LOG.md`. That is the
+> shared-mutable-sink anti-pattern: sub-agents own tag-files; the **orchestrator
+> is the SOLE writer** of `AGENT_LOG.md` and every other shared board file. The
+> operator's words: *"agents are never supposed to append to the same file, but
+> instead it's an agent tag file … appending to the same log is illogical."*
 
 ## Why Haiku for execution
 
