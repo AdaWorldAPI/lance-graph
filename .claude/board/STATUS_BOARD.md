@@ -1,3 +1,35 @@
+## self-reasoning-substrate-v1 — the derivation DAG as the pointer fabric one level up
+
+Plan: `.claude/plans/self-reasoning-substrate-v1.md`. PROPOSED, doc-only — captured pre-compaction (PR #803), no code yet.
+
+| D-id | Title | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-SRS-1 | Derivation-pointer fabric over the 31,327-triple Bible KG | lance-graph | Queued | plan |
+| D-SRS-2 | Rung stratification enforcement / fixed-point closure | lance-graph | Queued | plan |
+| D-SRS-3 | Basin self-codes + uncertainty self-report | lance-graph | Queued | plan |
+| D-SRS-4 | The self-reference falsifier | lance-graph | Queued | plan |
+
+## literature-probe-ladder-v1 — literature as falsifier: 8 genres → 8 LC artifacts → previously-impossible milestones
+
+Plan: `.claude/plans/literature-probe-ladder-v1.md`. PROPOSED, doc-only — captured pre-compaction (PR #803), no code yet.
+
+| D-id | Title | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-LIT-1 | Milton inversion via canonical cross-instances | lance-graph | Queued | plan |
+| D-LIT-2 | Christie red-herring vs clue-chain, differential Jirak gate | lance-graph | Queued | plan |
+| D-LIT-3 | Synoptic elect_peers source recovery | lance-graph | Queued | plan |
+| D-LIT-4 | Derivation fabric over Bible triples — **shares its gate with D-SRS-1** | lance-graph | Queued | plan |
+
+## w3-template-mask-v1 — W3: LC template mask + count-derived pair table (no finetuning)
+
+Plan: `.claude/plans/w3-template-mask-v1.md`. PROPOSED, gated on D-W3M-1 — captured pre-compaction (PR #803), no code yet.
+
+| D-id | Title | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-W3M-1 | Count-vs-oracle probe — THE gate | lance-graph | Queued | plan |
+| D-W3M-2 | 8 KB LC relation mask + cheap-check-first | lance-graph | Queued | plan |
+| D-W3M-3 | StepMask integration | lance-graph | Queued | plan |
+
 ## causal-rung-standing-wave-v1 — p64→v3 cognition layer: amortized 2³ ladder + standing-wave awareness
 
 Plan: `.claude/plans/causal-rung-standing-wave-v1.md`. Consumes M20 A1 (shipped) + A2/A3/A5/A6 (queued, auditor+mint gated) + selection #776 + temporal.rs. Probe-first: the probe is the next deliverable, not code; everything CONJECTURE until D-CSW-* report.

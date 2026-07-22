@@ -1,3 +1,11 @@
+## 2026-07-22 — capture fleet: 3 plans + 1 knowledge doc landed pre-compaction — Opus main-thread orchestration
+
+- **Task:** operator directive to capture in-flight architecture before context compaction. Opus (main thread) orchestrated a 5-agent capture fleet on branch `claude/x265-x266-plans-review-h9osnl`.
+- **Fleet (edit-only, no worktree; orchestrator verified centrally):** 3× Opus filigree plan-writer (accumulation/synthesis, one new integration plan each) + 1× Sonnet protocol-writer (grindwork, one knowledge doc from a fully-specified brief) + 1× Sonnet board agent (this entry, three-file board hygiene).
+- **Files produced:** `.claude/plans/self-reasoning-substrate-v1.md`, `.claude/plans/literature-probe-ladder-v1.md`, `.claude/plans/w3-template-mask-v1.md`, `.claude/knowledge/tiered-agent-execution-protocol.md` (the Opus-filigree / Sonnet-grindwork / Haiku-guarded-executor protocol; proposes a narrow, contract-conditional exception to the Model Policy's haiku line, ratified only by the operator merging its PR).
+- **Board:** `INTEGRATION_PLANS.md` PREPENDED 3 entries; `STATUS_BOARD.md` added D-SRS-1..4 / D-LIT-1..4 / D-W3M-1..3 (D-LIT-4 flagged sharing its gate with D-SRS-1); this AGENT_LOG entry.
+- **Outcome:** plans captured pre-compaction; ships in the plan-set PR that follows #803 (branch restarted from merged main); all D-ids Queued.
+
 ## 2026-07-21 — ISS-BUNDLE-RULING-SCOPE ruled (b): standing-wave RESOLUTION complement built in deepnsm-v2 — main thread
 
 - **Path (b), after the read + a discovery.** A full read of the 6-file MarkovBundler cluster reframed it as a local / owned / firewalled / unwired `I-VSA-IDENTITIES`-niche computation (`ISS-BUNDLE-RULING-SCOPE`). Then #798 turned out to already ship **deepnsm-v2** — the parallel rebuild whose `TemporalStream` replaces v1's ±5 ring with a `temporal_pov` version-range read. So a standing-wave module in OLD deepnsm would have been a redundant THIRD artifact; I checked #798 FIRST (read-before-build) and stood down. The operator ruled **(b)**: KEEP the MarkovBundler; build the standing-wave RESOLUTION as the complement to deepnsm-v2's window.

@@ -1,3 +1,30 @@
+## 2026-07-22 — self-reasoning-substrate v1 — PROPOSED (doc-only) — Opus plan-writer (capture fleet)
+
+**Plan:** `.claude/plans/self-reasoning-substrate-v1.md`
+Self-reasoning substrate: the derivation DAG as the pointer fabric one level
+up over the 31,327-triple Bible KG. Deliverables: D-SRS-1 (derivation-pointer
+fabric), D-SRS-2 (rung stratification enforcement / fixed-point closure),
+D-SRS-3 (basin self-codes + uncertainty self-report), D-SRS-4 (the
+self-reference falsifier). Status PROPOSED, doc-only — no code yet.
+
+## 2026-07-22 — literature-probe-ladder v1 — PROPOSED (doc-only) — Opus plan-writer (capture fleet)
+
+**Plan:** `.claude/plans/literature-probe-ladder-v1.md`
+Literature as falsifier: 8 genres → 8 LC artifacts → previously-impossible
+milestones. Deliverables: D-LIT-1 (Milton inversion via canonical
+cross-instances), D-LIT-2 (Christie red-herring vs clue-chain, differential
+Jirak gate), D-LIT-3 (synoptic elect_peers source recovery), D-LIT-4
+(derivation fabric over Bible triples, shared gate with D-SRS-1). Status
+PROPOSED, doc-only — no code yet.
+
+## 2026-07-22 — w3-template-mask v1 — PROPOSED (gated on D-W3M-1) — Opus plan-writer (capture fleet)
+
+**Plan:** `.claude/plans/w3-template-mask-v1.md`
+W3: LC template mask + count-derived pair table (no finetuning).
+Deliverables: D-W3M-1 (count-vs-oracle probe, THE gate), D-W3M-2 (8 KB LC
+relation mask + cheap-check-first), D-W3M-3 (StepMask integration). Status
+PROPOSED, gated on D-W3M-1.
+
 ## 2026-07-21 — causal-rung-standing-wave v1 — PLAN DRAFTED (probe-gated, no code yet) — main thread
 
 **Plan:** `.claude/plans/causal-rung-standing-wave-v1.md`
