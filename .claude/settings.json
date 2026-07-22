@@ -197,6 +197,17 @@
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Grep|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/anti-pattern-matching.sh"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "startup",
