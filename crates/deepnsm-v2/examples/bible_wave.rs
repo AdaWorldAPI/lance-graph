@@ -257,7 +257,32 @@ fn main() {
         "G4 PASS  meaning (trained codebook): sim(god,lord)={near:.3} > sim(god,fish)={far:.3}"
     );
 
+    // ── D-SRS-1 — the derivation-pointer fabric over the SAME whole-book KG ──
+    // The graph reasons about itself: per-predicate transitive composition, each
+    // derived triple carrying premise pointers (the pointers ARE the proof tree),
+    // stamped max(premise rungs)+1. The gate is STRUCTURAL and pre-registered
+    // (self-reasoning-substrate-v1 D-SRS-1): 100% premise resolvability AND
+    // acyclic AND terminated. Proven by unit tests in `src/reason.rs`; this is
+    // the SCALE re-check on the real 31,327-triple book.
+    let base: Vec<Spo> = all.iter().map(|&(_, t)| t).collect();
+    let arena = deepnsm_v2::reason::DerivationArena::derive_transitive(&base);
+    let g = arena.gate();
+    assert!(
+        g.passed(),
+        "KILL D-SRS-1: resolvability={:.1}% acyclic={} terminated={} (passes={})",
+        g.resolvability_pct,
+        g.acyclic,
+        g.terminated,
+        g.passes
+    );
     println!(
-        "\nALL GATES GREEN — the whole book is resident, literally read, with real meaning codes."
+        "D-SRS-1 PASS  derivation fabric: {} base → {} derived triples; \
+         premise resolvability {:.1}%, acyclic={}, terminated={} in {} passes",
+        g.base, g.derived, g.resolvability_pct, g.acyclic, g.terminated, g.passes
+    );
+
+    println!(
+        "\nALL GATES GREEN — the whole book is resident, literally read, with real meaning codes, \
+         and reasoning about its own derivations."
     );
 }
