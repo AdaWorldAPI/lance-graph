@@ -23,7 +23,7 @@
 //!
 //! ## Honest scope
 //!
-//! A **trained codebook now exists** (the `AdaWorldAPI/q2` release
+//! A **trained codebook now exists** (the `AdaWorldAPI/lance-graph` release
 //! `v0.1.0-cam96-data`, fetched into `data/` — produced by `probes/` from real
 //! Jina-v3 embeddings of the 12,543-word KJV vocabulary; held-out ρ 0.774 vs
 //! the 48-bit point's 0.617) and loads via [`codebook`]. `demo()` codebooks

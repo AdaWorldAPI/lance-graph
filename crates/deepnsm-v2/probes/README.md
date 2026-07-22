@@ -91,7 +91,7 @@ semantics, morton-comma prefix/ancestry routing — which residual coding breaks
 (its second byte is meaningless without the first). A measured trade: ~0.012 ρ
 for content-blind addressability. GATE (ρ96 ≥ 0.6 AND ρ96 > ρ48): PASS.
 
-Artifacts (NOT committed — hosted as the `AdaWorldAPI/q2` release
+Artifacts (NOT committed — hosted as the `AdaWorldAPI/lance-graph` release
 `v0.1.0-cam96-data`; fetch per `data/README.md`): `cam96_codebook.bin`
 (12×256×8d f32 + d_max, 96 KB), `cam96_codes.bin` (12,543 × 12 B),
 `bible_vocab.txt` — loaded at runtime by `src/codebook.rs`; exercised

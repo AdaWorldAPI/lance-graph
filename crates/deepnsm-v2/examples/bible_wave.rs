@@ -33,7 +33,7 @@ use deepnsm_v2::{
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-/// The trained artifacts are NOT committed — they ship as the `AdaWorldAPI/q2`
+/// The trained artifacts are NOT committed — they ship as the `AdaWorldAPI/lance-graph`
 /// release `v0.1.0-cam96-data` (see `data/README.md` for the fetch commands).
 /// Loaded at runtime from `data/` (override the directory with
 /// `DEEPNSM_V2_DATA`).
