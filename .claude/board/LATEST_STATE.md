@@ -1,3 +1,8 @@
+## 2026-07-22 — branch `claude/review-claude-board-files-nhqgx1` — `deepnsm-v2::wave::WitnessStream`: the standing-wave RESOLUTION complement over deepnsm-v2's version-range window (`ISS-BUNDLE-RULING-SCOPE` ruled (b))
+
+### deepnsm-v2 — new module (existing modules untouched)
+- `crates/deepnsm-v2/src/wave.rs` — `WitnessStream`: version-stamped, single-owner `CausalWitnessFacet` loci events, resolved `Causal`/`Escalate` by the SHIPPED `witness_fabric::standing_wave_grounded`/`resolve_chain` over `TemporalStream`'s version-range window. `window_at`/`window_range` mirror `TemporalStream`; absolute stream positions carry the ±8 reference horizon; a target at a not-yet-visible version → `Escalate` (widen the version read — the horizon meets the version read, `E-HORIZON-NOT-BOUND-1`). Complements `TemporalStream` (the WINDOW) with the multipass wave RESOLUTION it left open — no bundle, no shared register (`E-NO-BUNDLE-STANDING-WAVE-1`). `+pub mod wave;` + one re-export in `lib.rs`; fsm/space/spo/vocab/`TemporalStream` UNTOUCHED. 10 new tests (28 total), clippy `-D warnings` + fmt clean. Operator ruling `ISS-BUNDLE-RULING-SCOPE` path (b): keep the MarkovBundler; NO old-`deepnsm` duplication.
+
 ## 2026-07-22 — branch `claude/x265-x266-plans-review-h9osnl` — `deepnsm-v2`: DeepNSM rebuilt on the V3 palette256² architecture as the FIRST real consumer of the certified distance table (`PairPalette`/`ScalarAdc`); the existing `deepnsm` crate is untouched
 
 ### Current Contract Inventory — new consumer crate

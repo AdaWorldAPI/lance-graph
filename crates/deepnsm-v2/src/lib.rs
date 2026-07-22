@@ -35,6 +35,7 @@ pub mod fsm;
 pub mod space;
 pub mod spo;
 pub mod vocab;
+pub mod wave;
 
 use lance_graph_contract::temporal_pov::{TemporalPov, VersionRange};
 
@@ -42,6 +43,7 @@ pub use fsm::{parse_to_spo, Pos, Tagged};
 pub use space::{AdcSpace, SemanticSpace};
 pub use spo::Spo;
 pub use vocab::{PaletteVocab, WordId};
+pub use wave::WitnessStream;
 
 /// The DeepNSM v2 engine: a palette vocabulary + a semantic-distance space.
 ///
