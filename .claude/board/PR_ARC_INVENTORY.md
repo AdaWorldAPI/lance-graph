@@ -33,6 +33,16 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-07-21 — lance-graph #793 — anti-pattern-matching PreToolUse guard (tooling); a MarkovBundler deletion mistake caught + fully reverted
+
+**Merged:** `52073cb2` (content `2e21a8e8`). `.claude/` tooling only — no source/contract change.
+
+- **Added** — `.claude/hooks/anti-pattern-matching.sh` + a `PreToolUse(Grep|Bash)` hook in `.claude/settings.json`. Non-blocking; injects the rule that `Grep`/`grep`/`rg`/`sed`/`tail`/`head` are discovery-search only, never a comprehension substitute — do not act on a match before a full `Read`. Word-boundary command match; pipe-tested.
+- **Locked** — reading discipline is now mechanically surfaced at every pattern/partial-range tool use (operator directive). Retirement rule reaffirmed: write + test the replacement BEFORE deleting working code.
+- **Deferred / Reverted** — the no-bundle ruling `E-NO-BUNDLE-STANDING-WAVE-1` was issued this session but its EPIPHANIES record was reverted with an over-deletion; re-recording it is an open board item. The `deepnsm` MarkovBundler deletion (PR #792) was REVERTED in full (`git reset --hard`, nothing merged/lost); PR #790 (doc-only) and #792 (deletion) both CLOSED, not merged.
+- **Docs** — AGENT_LOG 2026-07-21 (the full arc, honestly including the deletion mistake).
+- **Confidence (2026-07-21):** working — hook merged to main, tested.
+
 ## 2026-07-21 — lance-graph #791 — D-CSW-1 leg-2 block reason CORRECTED (planner does NOT need protoc)
 
 **Merged:** `21e5452` (content `0366aff`). Board-only.

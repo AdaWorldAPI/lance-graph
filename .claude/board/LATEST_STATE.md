@@ -1,3 +1,7 @@
+## 2026-07-21 — branch `claude/review-claude-board-files-nhqgx1` (PR #793, MERGED) — anti-pattern-matching PreToolUse guard; a MarkovBundler deletion mistake caught + fully reverted
+
+**Tooling, not a contract type.** `.claude/hooks/anti-pattern-matching.sh` + `settings.json` `PreToolUse(Grep|Bash)`: fires on `Grep`/`grep`/`rg`/`sed`/`tail`/`head` and injects the rule that these are discovery-search only, never a comprehension substitute — do not act on a match before a full `Read` (operator directive). **No source change** this session: an earlier deletion of the `deepnsm` MarkovBundler cluster (only pattern-matched, never read; no tested replacement) was caught by the operator and FULLY REVERTED (`git reset --hard origin/main`, nothing lost); PR #790 + #792 CLOSED. The no-bundle ruling `E-NO-BUNDLE-STANDING-WAVE-1` was issued but its EPIPHANIES record was reverted with the over-deletion — re-recording it is an OPEN board item. Detail: `AGENT_LOG` 2026-07-21.
+
 ## 2026-07-21 — branch `claude/x265-x266-plans-review-h9osnl` — D-CSW-1 leg-2 registered INFRA-BLOCKED (no `protoc`, `lance-graph-planner` unbuildable here); D-CSW-2 CONTRACT-LEVEL mechanism probe PASSES (joint precision@25 1.000 vs 0.520/0.520 ablations, margin +0.480 each) — both registered before code, per plan discipline
 
 ### Current Contract Inventory — new entry
