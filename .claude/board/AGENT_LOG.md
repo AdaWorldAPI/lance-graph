@@ -1,3 +1,11 @@
+## 2026-07-21 — D-CSW-2 contract-level probe: 1 Sonnet grindwork agent + Opus verify — main-thread orchestration
+
+- **Task:** operator ("go ahead autoattended autonomous decision making … Sonnet agents for grindwork") → land the registered D-CSW-2 contract-level mechanism probe. Opus (main thread) did the accumulation: verified `lance-graph-planner` unbuildability, scoped leg-2 as blocked + D-CSW-2 down to a zero-dep contract-level probe, designed the AND-gate fixture, and registered pass/fail in the plan doc BEFORE any code (§6.3).
+- **Fleet (edit-only, shared checkout, no worktree; orchestrator verified centrally):** ONE Sonnet `general-purpose` agent → wrote `crates/lance-graph-contract/examples/probe_dcsw2_basin_rung.rs` verbatim from the fully-specified brief, ran `cargo run --example` + `cargo test --lib` + clippy + fmt, reported raw numbers. Did NOT decide pass/fail (that was reserved for Opus).
+- **Verified centrally (Opus re-ran, did not trust the agent's numbers):** independent second execution → identical output. joint precision@25 = **1.000** vs basin-only 0.520 / rung-only 0.520 (+0.480 each, registered pass ≥0.15). Contract 1008/1008 green; clippy + fmt clean; `rustfmt --check` on the file clean.
+- **Board:** `E-DCSW2-CONTRACT-MECHANISM-GREEN-1` prepended; plan §6.2 (leg-2 block) + §6.3 (probe + result); STATUS_BOARD D-CSW-1/2; LATEST_STATE inventory. Commits `8616a36` (registration) + `318e324` (probe+result) on `claude/x265-x266-plans-review-h9osnl` → **PR #789 (merged `566addd`)**; leg-2 block reason later corrected in PR #791 (`0366aff`, `E-DCSW1-LEG2-BLOCK-CORRECTION-1`).
+- **Outcome:** the joint-signal MECHANISM (basin co-occupancy AND rung survival) promoted CONJECTURE → scoped FINDING — NOT the real-corpus D-CSW-2 claim, which stays open (needs real basins from real data). Fleet pattern honored (Sonnet grind / Opus accumulation + verify + pass-fail call).
+
 ## 2026-07-19 — cosine-free ingestion leg: 2-agent fleet (Sonnet grindwork + Opus filigree) — main-thread orchestration
 
 - **Task:** operator ("go ahead autoattended autonomous … opus agents for filigrane, sonnet 5 agents for grindwork") → make the two comprehension findings durable Rust probes, fanned out by model tier.

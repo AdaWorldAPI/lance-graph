@@ -33,6 +33,36 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-07-21 — lance-graph #791 — D-CSW-1 leg-2 block reason CORRECTED (planner does NOT need protoc)
+
+**Merged:** `21e5452` (content `0366aff`). Board-only.
+
+- **Added** — nothing (board correction only).
+- **Locked** — the honest failure mode of D-CSW-1 leg 2 is a MISSING LABELED CORPUS + real Lance version data, NOT a build wall. `lance-graph-planner` builds in this sandbox in ~20s and does NOT depend on `protoc` — the earlier "#789 leg-2 infra-blocked on protoc" claim was a mislabelled too-tight (20s) timeout, caught by the operator's "double check protoc" prompt. A feasible narrower real-`temporal.rs` probe is possible and was flagged for operator direction rather than launched.
+- **Deferred** — the narrower real-`temporal.rs` leg-2 probe (operator-gated); the full real-corpus D-CSW-2 (still needs sourced labeled data).
+- **Docs** — `E-DCSW1-LEG2-BLOCK-CORRECTION-1` (EPIPHANIES); plan §6.2 regrade.
+- **Confidence (2026-07-21):** working — the correction is the accurate record; supersedes the protoc line in the #789 entry below.
+
+## 2026-07-21 — lance-graph #789 — D-CSW-2 contract-level basin+rung mechanism probe (PASS); D-CSW-1 leg-2 registered blocked
+
+**Merged:** `566addd` (content `8616a36` registration-before-code, `318e324` probe+result). 2 commits.
+
+- **Added** — `crates/lance-graph-contract/examples/probe_dcsw2_basin_rung.rs` (zero-dep, deterministic; consumes the real `PairPalette` + `witness_fabric::standing_wave_grounded`, fixtures mirrored verbatim from `dispatch_guard.rs` tests). Plan §6.2 (leg-2 block) + §6.3 (probe registration + result). Sonnet agent wrote it; Opus (main thread) re-ran + verified independently.
+- **Locked** — probe-first discipline: gates (AND-gate 4-group fixture; joint precision@k must beat BOTH single-signal ablations by ≥0.15) registered in the plan doc BEFORE the probe file existed. Result: joint precision@25 = **1.000** vs basin-only 0.520 / rung-only 0.520 (+0.480 each). Promotes the JOINT-SIGNAL MECHANISM (co-occupancy AND rung-survival) CONJECTURE → scoped FINDING — explicitly NOT the real-corpus D-CSW-2 claim. Contract 1008/1008 green; clippy+fmt clean.
+- **Deferred** — the real-corpus labeled-candidate-set D-CSW-2 (real basins from real data); D-CSW-1 leg 2 (see #791 correction above for the accurate block reason).
+- **Docs** — `E-DCSW2-CONTRACT-MECHANISM-GREEN-1` (EPIPHANIES); STATUS_BOARD D-CSW-1/2 rows; LATEST_STATE inventory.
+- **Confidence (2026-07-21):** working — the mechanism margins are wide (not razor-thin), AND-gate design structurally prevents a single ablation recovering the label. **Correction (2026-07-21 from PR #791):** the leg-2 "infra-blocked on protoc" line in this entry is WRONG — the planner needs no protoc and builds here; the real block is a missing labeled corpus.
+
+## 2026-07-21 — lance-graph #787 — `cam::ScalarAdc` + `recipe_substrate::PairPalette` — the REAL 6×256 / palette256² distance table, wired as the contract's scalar reference
+
+**Merged:** `e19eae2` (content `9b8391d` wiring, `5aba03e` review-guard fixes, `fb89f4c` board quote-drop). 3 commits + review round.
+
+- **Added** — `contract::cam::{ScalarAdc, AdcMetric}` (zero-dep scalar reference impl of the `DistanceTableProvider` trait, which shipped with NO contract impl → THIS is why the byte-L1 stand-ins existed); `recipe_substrate::PairPalette` (the palette256² `(u8,u8)` two-axis case, real centroid distance behind `pair_similarity`'s call shape). Closes #780's deferred "`pair_similarity` → real 256×256 CAM-PQ table binding." Contract tests + doctest green.
+- **Locked** — ADC over per-subspace SSD tables reproduces full-vector squared L2 EXACTLY (`Σ_s ‖q_s−c_s‖² = ‖q−c‖²`, `adc_ssd_is_exact_not_l1`) — the additive decomposition that makes a 6×256 table a distance table, NOT an L1-on-byte-indices approximation; `pair_similarity` stays the documented no-codebook L1 DEFAULT, `PairPalette` is the codebook-backed exact upgrade; absent/out-of-range centroids read as `+∞` NOT `0.0` (a truncated codebook must never produce a false exact-match — codex + CodeRabbit P2/major, fixed in `5aba03e`); board entries stay impersonal (no operator quotes — `fb89f4c`).
+- **Deferred** — the 0.9995 cosine-correlation magnitude is a TRAINED-codebook property (ndarray/measurement-side), NOT re-asserted here; ndarray supplies the trained codebook + SIMD that shadow this scalar reference.
+- **Docs** — `E-ADC-SCALAR-REFERENCE-WIRED-1` (EPIPHANIES); LATEST_STATE inventory ×2. All 6 review threads (2 Codex + 4 CodeRabbit) replied + resolved.
+- **Confidence (2026-07-21):** working — exactness is a unit-tested algebraic property; merged with all required checks green.
+
 ## 2026-07-21 — lance-graph #780 — recipe claim-audit + 3-tenant wiring (A9 CausalWitnessFacet + SPO + qualia) → the rung-ordered NaN-gated causal ladder
 
 **Merged:** `8a00988` (operator-gated, ready-for-review flip mid-review). 4 commits.
