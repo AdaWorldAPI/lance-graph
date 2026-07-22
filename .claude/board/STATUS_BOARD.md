@@ -1,3 +1,14 @@
+## scientific-kg-substrate-v1 — crawl → OCR → terms → reason → MUL (scoping)
+
+Plan: `.claude/plans/scientific-kg-substrate-v1.md`. PROPOSED scoping; outward-facing crawl (D-SCI-3) BLOCKED on §4 decisions. D-SCI-1 buildable on a further "Go".
+
+| D-id | Title | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-SCI-1 | Term/entity extraction — the gate (inverse of the colorblind finding) | lance-graph | Queued | plan; buildable now |
+| D-SCI-2 | OCR ingest via the tesseract-rs doc.v1 seam | lance-graph + tesseract-rs | Queued | plan |
+| D-SCI-3 | The crawl (spider-rs) — OUTWARD-FACING | lance-graph | Blocked | plan §4 (scope + robots + fork coords) |
+| D-SCI-4 | MUL reasoning + adjacent thinking (depends on D-SRS-3) | lance-graph-planner | Queued | plan; blocked on D-SRS-3 |
+
 ## self-reasoning-substrate-v1 — the derivation DAG as the pointer fabric one level up
 
 Plan: `.claude/plans/self-reasoning-substrate-v1.md`. D-SRS-1 SHIPPED (execution phase); D-SRS-2..4 Queued.

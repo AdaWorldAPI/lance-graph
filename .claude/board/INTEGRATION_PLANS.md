@@ -1,3 +1,18 @@
+## 2026-07-23 — scientific-kg-substrate v1 — PROPOSED (scoping; outward-facing crawl BLOCKED) — main thread
+
+**Plan:** `.claude/plans/scientific-kg-substrate-v1.md`
+The operator's scientific-KG wave, scoped: `spider-rs (crawl, NEW/BLOCKED) →
+tesseract-rs doc.v1 (OCR, EXISTS) →OGAR→ term extraction (NEW, the gate) →
+deepnsm-v2 shape/ancestry/reason (SHIPPED) → scientific KG → MUL
+(lance-graph-planner, EXISTS) + D-SRS-3 basin self-codes (PLANNED)`. Mostly a
+composition of existing seams; the two new pieces are term extraction and the
+crawl. Gate: `E-ACADEMIC-VOCAB-COLORBLIND-1` — the KG gates on entity/term
+extraction, not an academic lens. Deliverables D-SCI-1 (term extraction, local,
+buildable) → D-SCI-2 (OCR ingest via the tesseract seam) → D-SCI-3 (crawl,
+OUTWARD-FACING, blocked on scope) → D-SCI-4 (MUL reasoning + adjacent thinking,
+depends on D-SRS-3). Open blockers §4: spider-rs fork coordinates, crawl
+scope/robots/licensing, MUL wiring direction, KG persistence.
+
 ## 2026-07-22 — self-reasoning-substrate v1 — PROPOSED (doc-only) — Opus plan-writer (capture fleet)
 
 **Plan:** `.claude/plans/self-reasoning-substrate-v1.md`
