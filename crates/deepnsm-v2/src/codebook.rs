@@ -1,7 +1,8 @@
 //! `codebook` — the LE loader for the TRAINED Cam96 codebook + word codes.
 //!
-//! This retires the `demo()` placeholder for real use: the artifacts in
-//! `data/` were produced from real Jina-v3 96-d embeddings of the KJV Bible
+//! This retires the `demo()` placeholder for real use: the artifacts (the
+//! `AdaWorldAPI/q2` release `v0.1.0-cam96-data`, fetched into `data/` per its
+//! README) were produced from real Jina-v3 96-d embeddings of the KJV Bible
 //! vocabulary (12,543 words), k-means-256 per axis (see `probes/README.md`
 //! § trained codebook for the held-out measurement: 96-bit ρ 0.774 vs the
 //! 48-bit point's 0.617 on 299,882 held-out pairs).

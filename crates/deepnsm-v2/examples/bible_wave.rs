@@ -31,10 +31,24 @@ use deepnsm_v2::{
     TemporalStream,
 };
 use std::collections::HashMap;
+use std::path::PathBuf;
 
-const CODEBOOK: &[u8] = include_bytes!("../data/cam96_codebook.bin");
-const CODES: &[u8] = include_bytes!("../data/cam96_codes.bin");
-const VOCAB: &str = include_str!("../data/bible_vocab.txt");
+/// The trained artifacts are NOT committed — they ship as the `AdaWorldAPI/q2`
+/// release `v0.1.0-cam96-data` (see `data/README.md` for the fetch commands).
+/// Loaded at runtime from `data/` (override the directory with
+/// `DEEPNSM_V2_DATA`).
+fn data_file(name: &str) -> Vec<u8> {
+    let dir = std::env::var("DEEPNSM_V2_DATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data"));
+    let path = dir.join(name);
+    std::fs::read(&path).unwrap_or_else(|e| {
+        panic!(
+            "missing {} ({e}) — fetch the v0.1.0-cam96-data release assets per data/README.md",
+            path.display()
+        )
+    })
+}
 
 /// COCA PoS letter → the FSM's coarse tag. Pronouns ride as Noun so subjects
 /// like "he said" bind; adverbs/preps/conj are Other (skipped by the FSM).
@@ -111,12 +125,12 @@ fn main() {
         verses.len()
     );
 
-    // ── vocab + TRAINED codebook (real Jina-v3 embeddings; data/) ──
+    // ── vocab + TRAINED codebook (real Jina-v3 embeddings; runtime-fetched) ──
+    let vocab_text = String::from_utf8(data_file("bible_vocab.txt")).expect("utf8 vocab");
     let mut vocab = PaletteVocab::new();
-    let words: Vec<&str> = VOCAB.lines().collect();
-    vocab.from_frequency_ranked(words.iter().copied());
-    let space = load_cam96_space(CODEBOOK).expect("codebook artifact");
-    let codes = load_cam96_codes(CODES).expect("codes artifact");
+    vocab.from_frequency_ranked(vocab_text.lines());
+    let space = load_cam96_space(&data_file("cam96_codebook.bin")).expect("codebook artifact");
+    let codes = load_cam96_codes(&data_file("cam96_codes.bin")).expect("codes artifact");
     assert_eq!(codes.len(), vocab.len(), "KILL G2: codes/vocab misaligned");
     let nsm = Nsm::with_codes(vocab, space, codes);
     println!(
