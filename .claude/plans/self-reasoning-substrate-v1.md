@@ -387,6 +387,39 @@ as a test**: the known runaway must be fenced by stratification, not by luck.
 >   (d). v1's `detect` stays in the crate as the falsified, regression-pinned
 >   record; the shipped router is the measured one.
 
+> **RESULT — D-SRS-2 v2 SHIPPED, all gates green (2026-07-22; commits `88c91ef`
+> v1-gate → `33bfe6c` v2-gate → the code+adjudication commit; both registrations
+> UNEDITED).** `src/shape.rs` (`detect_measured` + the v1 `detect` regression
+> record), `src/ancestry.rs` (`FamilyTrie`, the DN/HHTL radix-trie), the
+> `bible_wave` D-SRS-2 leg. 63 unit tests + `clippy -D warnings` green.
+> - **G-SRS2v2-a EXACTNESS: PASS** — on the real book's trie target `'found'`
+>   (TriePlusEscalate): trie **74 pointers == 295-pair uncapped closure, EXACTLY**
+>   (set equality both directions), then the materialization is DELETED.
+> - **G-SRS2v2-b MEASURED FIT: PASS** — coverage 1.00, amortization 4.0×, and the
+>   detector's CLAIM equals the independent re-measurement (the anti-overclaim
+>   check). Census top-5 (`be`/`have`/`shall`/`hath`/`come`) all correctly
+>   BoundedEscalate (cyclic hub verbs, coverage 0.04–0.16 — a trie cannot ground
+>   them).
+> - **G-SRS2v2-c SYNTHETIC: PASS** — including the noisy-near-forest case that
+>   FALSIFIED v1: v1's `max_in ≤ 1` purity gate mis-routes a 99%-forest with one
+>   mis-parse edge; v2 measures it to TriePlusEscalate.
+> - **G-SRS2v2-d TERMINATION: PASS** — the trie target's covered-forest closure
+>   reaches a TRUE fixed point uncapped in 4 passes. Termination through
+>   **shape-routing + relocation**, not a horizon cap — the D-SRS-1 O(N²)
+>   intractability dissolves once the right carrier is chosen.
+> - **SPOG G-lane (operator, folded in):** `Representation::graph_id()` is the
+>   **G byte of an SPOG quad** — the census is not an ephemeral report but the
+>   materialized `G` lane linking each SPO to its shape-graph, so a reader routes
+>   by `G` without re-detecting. Fits the `4×(u8:u8:u8)` SPO-triplet facet carving
+>   + `G` (`le-contract` §3); codes pinned `{EdgeTable 0, RadixTrie 1,
+>   TriePlusEscalate 2, MaterializedFabric 3, BoundedEscalate 4}`, append-only.
+> - **Honest note:** the trie target was `'found'`, not `'begat'` — `begat`'s
+>   genealogies carry enough multi-parent/spelling residue on this FSM harvest to
+>   fall below the census's highest-edge trie pick; the MECHANISM (any predicate
+>   measured as an amortizing trie) is what the gate proves, and `'found'` is a
+>   clean 4.0× exact instance. Wiring the G lane into a real SoA SPOG tenant (the
+>   canonical-node layout) is the persistence follow-on, not this deliverable.
+
 ### D-SRS-3 — Basin self-codes + self-report
 
 Compute the Cam96 centroid self-code per basin (Layer 5) and emit a

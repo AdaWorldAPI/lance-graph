@@ -34,9 +34,11 @@
 //! Doc-table ρ values above are in-sample-era; current held-out numbers live in
 //! `probes/README.md` (0.766 general / 0.774 Bible-vocab vs 0.624/0.617).
 
+pub mod ancestry;
 pub mod codebook;
 pub mod fsm;
 pub mod reason;
+pub mod shape;
 pub mod space;
 pub mod spo;
 pub mod vocab;
@@ -44,8 +46,13 @@ pub mod wave;
 
 use lance_graph_contract::temporal_pov::{TemporalPov, VersionRange};
 
+pub use ancestry::FamilyTrie;
 pub use codebook::{load_cam96_codes, load_cam96_space, CodebookError};
 pub use fsm::{parse_to_spo, Pos, Tagged};
+pub use shape::{
+    detect, detect_all, detect_all_measured, detect_measured, MeasuredShape, Representation,
+    ShapeClass, ShapeReport,
+};
 pub use space::{AdcSpace, Cam96, Cam96Space, SemanticSpace};
 pub use spo::Spo;
 pub use vocab::{PaletteVocab, WordId};

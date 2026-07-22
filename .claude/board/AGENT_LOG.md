@@ -1,3 +1,14 @@
+## 2026-07-22 — D-SRS-2 SHIPPED (reshaped): shape detector + ancestry radix-trie — main thread, sole board writer
+
+- **Task:** operator "Go" on D-SRS-2, reshaped through two rulings: ancestry = HHTL family key / DN chain / radix-trie codebook (`is_ancestor_of` = prefix, never materialized), plus the brutal data-shape detector that reasons about the best representation (rung-2 meta-awareness). Then the SPOG G-lane suggestion folded in.
+- **Discipline:** v1 gate registered before code (`88c91ef`); v1 self-falsified on the real book (G-SRS2-b amortization 1.64× — the `max_in ≤ 1` purity gate mis-routes a noisy forest); v2 measured router re-registered BEFORE its code (`33bfe6c`); both registrations UNEDITED (append-only, v1 stands as the falsified record).
+- **Built (main thread):** `src/ancestry.rs` (`FamilyTrie` — DN/HHTL radix-trie, residue-tolerant), `src/shape.rs` (`detect_measured` v2 + v1 `detect` regression record + `Representation::graph_id()` = the SPOG G byte), `bible_wave` D-SRS-2 leg. 63 unit tests.
+- **Commits:** `88c91ef` (v1 gate) → `33bfe6c` (v2 gate) → the code+adjudication commit (this entry).
+- **Tests:** `cargo test --manifest-path crates/deepnsm-v2/Cargo.toml` — 63/63; `clippy -D warnings` clean; `bible_wave` on real KJV — all gates + D-SRS-2 v2 green.
+- **Adjudication:** all four v2 gates PASS on the book — target `'found'` (TriePlusEscalate), trie 74 pointers == 295-pair uncapped closure EXACTLY, coverage 1.00, amort 4.0×, claim == re-measure, uncapped fixed point in 4 passes → materialization DELETED. Termination through shape-routing, not a horizon cap: the D-SRS-1 O(N²) intractability dissolves. `E-SHAPE-DETECTOR-MEASURED-1`, plan §D-SRS-2 RESULT.
+- **Board (this entry + EPIPHANIES + STATUS_BOARD + plan RESULT):** main thread sole writer per `E-AGENT-LOG-SHARED-SINK-ANTIPATTERN-1`.
+- **Outcome:** D-SRS-2 Shipped; ships in the execution-phase PR following #805 (branch restarted from merged main). SPOG-into-real-SoA-tenant is a persistence follow-on.
+
 ## 2026-07-22 — D-SRS-1 SHIPPED (execution phase): the graph reasons about itself — Opus main thread, sole board writer
 
 - **Task:** operator "Go" → begin the execution phase on the gated plan set. First deliverable: D-SRS-1 (self-reasoning-substrate-v1), the dependency root (D-LIT-4 shares its gate), runs on already-shipped artifacts.

@@ -5,7 +5,7 @@ Plan: `.claude/plans/self-reasoning-substrate-v1.md`. D-SRS-1 SHIPPED (execution
 | D-id | Title | Repo | Status | Evidence |
 |---|---|---|---|---|
 | D-SRS-1 | Derivation-pointer fabric over the 31,327-triple Bible KG | lance-graph | Shipped | `src/reason.rs` + 7 tests + `bible_wave` leg; soundness gate green (100% resolvable, acyclic); `E-SELF-REASONING-FABRIC-1` |
-| D-SRS-2 | Rung stratification enforcement / fixed-point closure | lance-graph | Queued | plan |
+| D-SRS-2 | Shape detector + ancestry radix-trie relocation (reshaped) | lance-graph | Shipped | `src/{shape,ancestry}.rs` + 63 tests; v1 taxonomy self-falsified, v2 measured router green (trie==closure exact, 4.0×); SPOG G-lane; `E-SHAPE-DETECTOR-MEASURED-1` |
 | D-SRS-3 | Basin self-codes + uncertainty self-report | lance-graph | Queued | plan |
 | D-SRS-4 | The self-reference falsifier | lance-graph | Queued | plan |
 
