@@ -2,7 +2,7 @@
 
 ## 2026-07-21 — ISS-BUNDLE-RULING-SCOPE — does E-NO-BUNDLE-STANDING-WAVE-1's niche-closure retire the deepnsm MarkovBundler cluster? The ruling's LETTER says yes; its stated MECHANISM (single-owner SoA violation) does NOT describe this code — ruling-author decision
 
-**Status:** OPEN — operator (ruling author) decision. **Priority:** P2. **Scope:** @truth-architect domain:deepnsm domain:substrate.
+**Status:** RULED 2026-07-21 (operator, path **(b)**) — KEEP the MarkovBundler cluster as is (path (a) full-retire NOT taken; path (c) unwired-retire deferred). The standing-wave **resolution** complement is built where the parallel rebuild lives: **`deepnsm-v2::wave::WitnessStream`** — version-stamped single-owner loci events, resolved `Causal`/`Escalate` by `witness_fabric::standing_wave_grounded`/`resolve_chain` over `TemporalStream`'s version-range window (out-of-version target → Escalate; the ±8 horizon meets the version read). 10 tests green. NOT in old `deepnsm` (that would have been the redundant third artifact this entry warned against). **Priority:** P2. **Scope:** @truth-architect domain:deepnsm domain:substrate.
 
 **Surfaced by** a full read of the six-file cluster (`markov_bundle`/`trajectory`/`arcs`/`arcuate`/`disambiguator_glue`/`trajectory_audit`) AFTER an earlier session this day deleted it on a pattern-match (never read) as "the bundle violation" and had to fully revert (`AGENT_LOG` 2026-07-21). The read reframes the claim; this entry replaces the reverted, ungrounded `TD-BUNDLE-RESIDUE-1`.
 
