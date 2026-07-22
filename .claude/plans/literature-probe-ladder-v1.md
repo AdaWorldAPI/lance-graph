@@ -284,9 +284,17 @@ literary DNA is self-reference, multi-witness, and preserved contradiction.
 Rising ambition; each **KILL-gated**; **pass/KILL registered before any code
 is written** (the `E-CAM96-REVIEW-CORRECTIONS-1` discipline — a probe whose
 threshold is set after seeing the number is a confirmation-bias generator,
-not a falsifier). Every X below is a placeholder to be *registered as a
-concrete number in this doc* before the probe runs; running with an
-unregistered threshold is itself a KILL.
+not a falsifier). Every `X` below is an **intentional placeholder, not yet a
+registered gate**: these four deliverables are **PENDING operator ratification**
+(this PROPOSED plan does not authorize them). A concrete number, its metric
+direction (higher-is-better vs lower), and its tie-handling rule are registered
+in a dated, append-only pre-run record in this section as the FIRST commit of
+that deliverable's own work — before its probe compiles — and then never edited.
+The registration commit predates the measurement commit in git history; that
+ordering, not a plan-time guess, is the anti-gaming proof. Running a probe
+against an `X` that has not been so registered is itself a KILL. Filling the
+`X`s in this plan-time doc would be false precision inviting post-hoc re-tuning,
+so they stay `X` until authorization.
 
 Status of all four: **CONJECTURE** (no probe run). Each names its falsifier
 genre from §1 and the FINDING substrate it exercises.
@@ -366,6 +374,22 @@ itself; SHARED GATE with `self-reasoning-substrate-v1.md` D-SRS-1)*
   owns the pass/KILL registration; this deliverable is the *literature-side
   entry point* into it (the Bible corpus is the shared substrate). Register
   the cross-reference here; do not double-register the threshold.
+- **Schema scope (what this leg adds to D-SRS-1):** D-SRS-1 specifies the
+  derivation-pointer fabric for `is_a`-style DEDUCTIONS (premise → conclusion).
+  D-LIT-4 needs three *additional* edge kinds — `quote`, `revise`, `contradict`
+  — which are literature-native, not deductive. This deliverable does **not**
+  invent a second pointer format: it CONSUMES the D-SRS-1 premise-pointer edge
+  (`(target_triple_ref, relation_label)`), extended with (a) a `relation_label`
+  drawn from `{is_a-deduction, quote, revise, contradict}` and (b) the
+  document-position provenance already carried by every triple in the KG (the
+  verse-index version stamp = the `E-WHOLE-BOOK-WAVE-1` `vi`, which uniquely
+  identifies the "earlier triple"). So: **D-SRS-1 owns the edge type and its
+  registration; D-LIT-4 registers, under that shared gate, the three extra
+  `relation_label` values and asserts the provenance field suffices to resolve
+  "which earlier triple" — it emits typed labels ON the D-SRS-1 edge, it does
+  not produce a parallel edge artifact.** Any need for a richer position field
+  than the existing version stamp is a D-SRS-1 change, filed there, not a local
+  hack here (I-VSA-IDENTITIES register discipline).
 - **Why last / most ambitious:** D-LIT-1..3 have the graph reasoning about a
   *text*; D-LIT-4 has the graph reasoning about *itself* (its own resident
   KG's internal derivation structure). It is the ladder's top rung because it

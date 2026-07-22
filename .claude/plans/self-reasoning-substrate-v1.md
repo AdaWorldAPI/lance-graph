@@ -48,7 +48,7 @@ fabric, table-driven checks — and leave the beams behind.
 
 The recursion bottoms out cleanly and lives entirely in one 64k tile:
 
-```
+```text
 words  ──(pointer fabric)──▶  triples  ──(SAME fabric)──▶  derivations  ──(SAME fabric)──▶  beliefs-about-derivations
   ±8 loci → attachment site      ±8 loci → premise triple      ±8 loci → cited derivation
   rung 0                          rung 0–1                       rung 2+                        rung 3+
@@ -168,6 +168,20 @@ measurement is unproven. D-SRS-3 is the falsifier.*
 Each deliverable registers its pass/KILL gate in this section **before** any
 example is written. No D-SRS deliverable lands before its gate is green.
 
+> **On the un-filled numeric thresholds (D-SRS-2 pass ceiling, D-SRS-3
+> correlation floor + rank-combination rule, D-SRS-4 exact question / expected
+> answer / tolerance):** these are deliberately UNSET in this PROPOSED plan.
+> Filling them now — before the deliverable is authorized and before the
+> held-out split exists — would be false precision, and worse, a number chosen
+> at plan-time invites being quietly re-tuned once results are seen. The
+> anti-gaming discipline is: **each threshold is registered in a dated,
+> append-only pre-run record IN this section as the FIRST commit of the
+> deliverable's own work (before its example compiles), then never edited.**
+> The registration commit predates the measurement commit in git history —
+> that ordering, not a plan-time guess, is what proves the gate was not tuned
+> post-hoc. Until a deliverable is authorized, its gate reads "to be
+> registered pre-run" by intent, not omission.
+
 ### D-SRS-1 — Derivation-pointer fabric over the Bible KG
 
 Derive `is_a`-style deductions over the shipped 31,327-triple KJV KG, each
@@ -176,11 +190,15 @@ pointers are the tree.
 
 - **PASS gate:** every derived triple's premises are resolvable via its pointers
   (round-trip: pointer → premise triple, for 100% of derived triples), AND the
-  derivation graph contains **no unstratified cycle** (every citation points to a
-  strictly-lower or equal rung, never a higher one — see D-SRS-2).
-- **KILL:** any derived triple with a dangling/unresolvable premise pointer, OR a
-  citation cycle that crosses rungs upward. Either falsifies "the fabric composes
-  premises soundly."
+  derivation graph is **acyclic** because every citation points to a
+  **strictly-lower** rung (never equal, never higher). Strictly-lower is the
+  invariant that *guarantees* acyclicity: equal-rung citations do NOT — two or
+  more equal-rung edges can close a cycle with no upward edge — so the gate
+  forbids them outright (this is Tarski stratification, consistent with D-SRS-2
+  stamping each derived triple at rung *n+1* of its deepest premise).
+- **KILL:** any derived triple with a dangling/unresolvable premise pointer, OR
+  ANY citation cycle at all (whether it crosses rungs upward or sits within one
+  rung). Either falsifies "the fabric composes premises soundly."
 
 ### D-SRS-2 — Rung stratification enforcement
 

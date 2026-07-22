@@ -103,18 +103,33 @@ streaming recognizer.
 constituent above it — is resolved by ONE table conditioned on the
 `(left-corner category, goal category)` PAIR.
 
-- **Shape:** `palette256:palette256` → u8 per cell → `256 × 256` = **64 KB**.
-  Manning & Carpenter's core innovation (pair conditioning, not mother-only) is
-  **structurally ONE 256:256 rail** — the same `X:Y` rail shape as the LE
-  contract's `6×(u8:u8)` carving. The cell holds the count-derived decision
-  (or a small count pair from which the argmax is read).
+- **Shape (resolved — not two contracts):** the RUNTIME table is
+  **decision-only**: `palette256:palette256` → **one u8 per cell** → `256 × 256`
+  = **64 KB**, each cell holding the pre-resolved argmax outcome (a small enum:
+  `0 = attach`, `1 = project`, `2 = unseen/fallback`). The attach/project COUNT
+  PAIR that the argmax is derived from lives in a **build-time side artifact**
+  (the tally, kept out of the hot path), NOT in the 64 KB cell — a u8 cannot
+  hold two counts, so it holds only their resolved decision. This keeps the
+  runtime read a single O(1) byte lookup and matches the compiled-offline
+  philosophy (Artifact 1's mask is likewise compiled, not carried as raw rule
+  text). Manning & Carpenter's core innovation (pair conditioning, not
+  mother-only) is **structurally ONE 256:256 rail** — the same `X:Y` rail shape
+  as the LE contract's `6×(u8:u8)` carving.
+- **Unseen `(lc, goal)` cells:** a cell for a pair never observed in the
+  training slice is stamped `2 = fallback` at compile time and, at runtime,
+  defers to Artifact 3's Escalate channel (the global graph) rather than
+  guessing attach/project. Unseen is an explicit, addressable state — never a
+  silent default to `attach` — so coverage gaps are visible, not hidden.
 - **Source:** **count-derived** from a treebank / corpus slice — for each
   observed `(lc, goal)` context, tally how often the gold parse attached vs
   projected. **Same class as `freq_is_cosine`** (`E-FREQ-IS-COSINE-REPLACEMENT-1`,
   AGENT_LOG 2026-07-19): distance/decision FROM counting, **no gradient, no
   training loop.**
-- **Resolution:** **greedy deterministic argmax** over the pair-table row
-  (Liu 2025 arc-eager license). No beam.
+- **Resolution:** the argmax is computed **at build time** (over the side
+  artifact's counts) and baked into the cell; at runtime the resolution is a
+  **single deterministic byte read** — `attach`/`project`/`fallback` — with no
+  beam and no per-step search (Liu 2025 arc-eager license). "Greedy
+  deterministic" describes the decision the byte encodes, not a runtime scan.
 - **Consumer role:** the second, more expensive read — gated by the Artifact-1
   mask check. Never consulted when the mask already pruned the continuation.
 
@@ -147,7 +162,7 @@ artifact.
 The three surfaces run in strict cost order; this is the +67% lever, not a
 micro-optimization:
 
-```
+```text
 1. mask check      — one O(1) bitmask AND (Artifact 1). Prunes most continuations.
 2. pair-table read — one 256:256 u8 lookup (Artifact 2). Only on mask-survivors.
 3. escalate        — global-graph read (Artifact 3). Only when local underdetermines.
