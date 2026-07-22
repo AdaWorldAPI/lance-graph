@@ -1,3 +1,9 @@
+## 2026-07-22 — branch `claude/x265-x266-plans-review-h9osnl` — trained Cam96 codebook SHIPPED (`deepnsm-v2/data/` + `codebook` loader) + the whole-book Bible falsifier runs ALL-GATES-GREEN (63.3% of context beyond ±5)
+
+### Current Contract Inventory — new entries
+- `deepnsm_v2::codebook::{load_cam96_space, load_cam96_codes, CodebookError}` — LE loader for the TRAINED codebook artifacts (`data/cam96_codebook.bin` 96 KB `CAM96CB1`, `cam96_codes.bin` `CAM96WD1`, `bible_vocab.txt`), produced by `probes/` from real Jina-v3 96-d embeddings of the 12,543-word KJV vocab. Held-out ρ 0.774 (96-bit) vs 0.617 (48-bit); equal-budget RQ point control 0.786 → the distribution's advantage is ALGEBRAIC (addressable bytes/rails), not raw fidelity — recorded honestly. Retires `demo()` for real use; pays the producer third of `TD-CERTIFIED-DISTANCE-TABLE-UNCONSUMED`. 2 loader tests (35 total green).
+- `crates/deepnsm-v2/examples/bible_wave.rs` — the WHOLE-BOOK falsifier: KJV (PD, not committed; path arg) → verses → COCA-lemma PoS + archaic fallback → FSM → SPO stream (verse = version) → `TemporalStream` + trained codes. 4 in-code gates ALL PASS: 23,145 verses = one 64k tile; 31,327 triples / 606 subjects; sim(god,lord) 0.625 > sim(god,fish) 0.265; **63.3% of 27,086 same-subject links beyond ±5** (v1-ring forfeit), 55.7% beyond ±8 (Escalate share). `E-WHOLE-BOOK-WAVE-1`.
+
 ## 2026-07-22 — branch `claude/x265-x266-plans-review-h9osnl` — `deepnsm-v2::space::{Cam96, Cam96Space}` + `Nsm` routing/meaning split, Jina-grounded (ρ 0.828 vs 0.711; used_for reasoning 0.667 vs 0.500)
 
 ### deepnsm-v2 — CAM-PQ 96 DISTRIBUTION meaning code (operator-pinned point→distribution ladder, now measured)

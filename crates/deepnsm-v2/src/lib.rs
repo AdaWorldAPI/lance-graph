@@ -23,14 +23,17 @@
 //!
 //! ## Honest scope
 //!
-//! The palette256² and ADC distances carry **real** semantics only with a
-//! **trained codebook**. Producing that from real embeddings is the ndarray-side
-//! producer named in `TD-CERTIFIED-DISTANCE-TABLE-UNCONSUMED` and does not exist
-//! yet, so [`space`] ships deterministic `demo()` codebooks (a placeholder) plus
-//! `from_*` constructors for real ones. This crate wires the architecture and is
-//! test-proven end to end on the demo codebook; it does **not** read any real
-//! corpus (Aesop/Bible/etc.) — that stays the open `ISS-DCSW-REAL-CORPUS-BLOCKED`.
+//! A **trained codebook now exists** (`data/`, produced by `probes/` from real
+//! Jina-v3 embeddings of the 12,543-word KJV vocabulary; held-out ρ 0.774 vs
+//! the 48-bit point's 0.617) and loads via [`codebook`]. `demo()` codebooks
+//! remain for standalone tests only. The crate reads a real corpus end to end:
+//! `examples/bible_wave.rs` runs the whole KJV (23,145 verses = one 64k tile)
+//! through FSM → SPO → `TemporalStream` with the trained codes — measuring that
+//! **63.3% of same-subject context lies beyond ±5** (what v1's ring forfeits).
+//! Doc-table ρ values above are in-sample-era; current held-out numbers live in
+//! `probes/README.md` (0.766 general / 0.774 Bible-vocab vs 0.624/0.617).
 
+pub mod codebook;
 pub mod fsm;
 pub mod space;
 pub mod spo;
@@ -39,6 +42,7 @@ pub mod wave;
 
 use lance_graph_contract::temporal_pov::{TemporalPov, VersionRange};
 
+pub use codebook::{load_cam96_codes, load_cam96_space, CodebookError};
 pub use fsm::{parse_to_spo, Pos, Tagged};
 pub use space::{AdcSpace, Cam96, Cam96Space, SemanticSpace};
 pub use spo::Spo;

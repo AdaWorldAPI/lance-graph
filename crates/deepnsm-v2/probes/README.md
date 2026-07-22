@@ -70,3 +70,38 @@ Jina-v3 (not v5) oracle; probe-scale N; k-NN purity as reasoning proxy;
 Python+numpy k-means (the production codebook trainer is the ndarray-side
 producer, `TD-CERTIFIED-DISTANCE-TABLE-UNCONSUMED`). These are measurement
 probes gating architecture — not production certification.
+
+### 4. `embed_bible_vocab.py` + `train_codebook.py` — the TRAINED codebook producer
+
+KJV Bible vocabulary (12,543 words, PD, Gutenberg #10 — text not committed),
+embedded via Jina-v3 96-d, codebooks k-means-256 per axis. **Held-out**
+measurement (train 10,000 / eval 2,543, 299,882 pairs):
+
+| code | shape | ρ(dist, Jina) | MSE |
+|---|---|---|---|
+| 48-bit POINT | 6×16d PQ | 0.617 | 0.00343 |
+| **96-bit POINT control** | 6×(coarse+residual RQ) | **0.786** | 0.00198 |
+| 96-bit DISTRIBUTION | 12×8d PQ | 0.774 | 0.00211 |
+
+**Structure-vs-budget isolated:** at equal 96 bits the residual-refined POINT
+slightly exceeds the 12-axis DISTRIBUTION on raw fidelity (+0.012). The
+96-vs-48 gain is therefore mostly BUDGET; the DISTRIBUTION's justification is
+the **facet algebra** — independently-addressable bytes, `6×(u8:u8)` rail
+semantics, morton-comma prefix/ancestry routing — which residual coding breaks
+(its second byte is meaningless without the first). A measured trade: ~0.012 ρ
+for content-blind addressability. GATE (ρ96 ≥ 0.6 AND ρ96 > ρ48): PASS.
+
+Artifacts (committed, `data/`): `cam96_codebook.bin` (12×256×8d f32 + d_max,
+96 KB), `cam96_codes.bin` (12,543 × 12 B), `bible_vocab.txt` — loaded by
+`src/codebook.rs`; exercised end-to-end by `examples/bible_wave.rs`.
+
+### 5. `examples/bible_wave.rs` — the WHOLE-BOOK falsifier (Rust, gates in-code)
+
+KJV through the full pipeline (verses → PoS → FSM → SPO stream → TemporalStream
++ trained codebook): **G1** 23,145 verses ≤ 65,536 (one 256×256 tile);
+**G3** 31,327 triples / 606 subjects / 1,081 predicates; **G4** trained-codebook
+meaning sim(god,lord)=0.625 > sim(god,fish)=0.265. **Long-range: 63.3% of
+27,086 same-subject recurrence links are beyond ±5** — the context v1's
+fire-and-forget ring structurally forfeits; 55.7% beyond ±8 (the Escalate zone
+→ global graph). The whole-book literal read returns all 31,327 triples in one
+window — no bundle, no beam, no per-sentence reset.
