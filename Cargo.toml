@@ -27,6 +27,7 @@ exclude = [
     "crates/lance-graph-codec-research",
     "crates/bgz17",
     "crates/deepnsm",
+    "crates/deepnsm-v2",
     "crates/lance-graph-osint",
     "crates/reader-lm",
     "crates/bge-m3",
