@@ -266,6 +266,75 @@ as a test**: the known runaway must be fenced by stratification, not by luck.
   stratification does not actually bound self-reference — the whole safety claim
   of Layer 3 fails.
 
+> **⊘ D-SRS-2 RESHAPED (operator-ruled, 2026-07-22; appended, original stands).**
+> The D-SRS-1 O(N²) finding was diagnosed one level deeper by the operator:
+> materializing a transitive `is_a`-style closure is the WRONG CARRIER, not just
+> an unbounded one. *"Ancestry are classic HHTL family identity, 6× part_of:is_a
+> — Distinguished-Name-like chains, or even radix-trie codebook ontology."*
+> Object-level ancestry belongs in the **key** (the HHTL family path; a node's DN
+> IS its lineage; `is_ancestor_of` = DN **prefix containment** = radix-trie
+> containment — the same law as the 4⁴ centroid-hierarchy canon), carried by the
+> `6×(u8:u8)` `part_of:is_a` rails — **never materialized as derived triples and
+> never occupying a derived tenant.** What remains in the derivation FABRIC is
+> only the **sparse meta layer** (rung 2+: derivations about derivations,
+> contradiction verdicts, revision outcomes — genuine thinking-about-thinking).
+> Rung = REFLECTION depth; ancestry depth = HHTL path depth; two orthogonal axes
+> D-SRS-1 had collapsed into one.
+>
+> And the second half of the ruling — the brutal move: *"add a data shape
+> detector that reasons about the best possible representation."* Per-predicate,
+> the graph measures its own edge-set's SHAPE and routes it to the right carrier.
+> The detector is itself the first mechanical **rung-2 meta-awareness** citizen:
+> the graph reasoning about how it represents its own knowledge, amortizing
+> redundancy by relocation + pointers instead of materialization.
+>
+> **Pre-run registration — D-SRS-2 reshaped (registered BEFORE the code; the
+> anti-tuning commit precedes the measurement commit in git history):**
+> - **Detector taxonomy (fixed):** per predicate `p` over its edge set, compute
+>   `edges`, `entities`, `max_in`, `max_out`, `cyclic` (directed DFS), and
+>   `closure_pressure = Σ_v in(v)·out(v)` (= the number of length-2 composition
+>   paths — the first-pass addition count, THE O(N²) predictor). Classify, in
+>   this order: `Empty` (no edges) → `Cyclic` (any directed cycle) → `Flat`
+>   (`closure_pressure == 0` — no entity is both object and subject; a star is
+>   Flat) → `Forest` (`max_in ≤ 1`) → `Dag` (the rest). Representation routing
+>   (fixed): Empty/Flat → **EdgeTable** (closure adds nothing); Forest →
+>   **RadixTrie** (the DN/HHTL family codebook; closure NEVER materialized);
+>   Cyclic → **BoundedEscalate** (bounded fabric + global-graph Escalate); Dag →
+>   **MaterializedFabric** if `closure_pressure ≤ 4×edges` (small closure is
+>   fine) else **TriePlusEscalate** (primary-parent trie + residue pointers).
+> - **Trie contract (fixed):** `FamilyTrie` assigns each covered entity ONE
+>   parent (first-wins primary; multi-parent edges counted as residue), walks to
+>   a root with cycle detection (cycle members → residue, uncovered); an
+>   entity's DN = its root-path; `is_ancestor_of(A,Z)` = A's DN is a strict
+>   prefix of Z's DN. Storage = one parent pointer per covered entity.
+> - **G-SRS2-a EXACTNESS (the falsifier):** on the trie target — the
+>   highest-edge-count predicate whose recommendation is RadixTrie or
+>   TriePlusEscalate — the trie's implied ancestor-pair set over the covered
+>   forest **equals, as a set (both directions, zero diff)**, the UNCAPPED
+>   per-predicate transitive closure (base ∪ derived pairs) of the same forest
+>   edges via `derive_transitive`. Then the materialization is DELETED — the
+>   trie + pointers replace it.
+> - **G-SRS2-b AMORTIZATION:** on that same target, `|closure pairs| ≥ 2 ×
+>   |covered entities|` (the relocation must pay ≥2× vs storing one pointer per
+>   entity; if the closure is smaller, the detector mis-routed — KILL).
+> - **G-SRS2-c DETECTOR:** five synthetic shapes classify EXACTLY as the fixed
+>   taxonomy above: chain → Forest/RadixTrie; directed cycle → Cyclic/
+>   BoundedEscalate; disjoint pairs → Flat/EdgeTable; star (one root, N
+>   children) → Flat/EdgeTable; dense multi-parent DAG → Dag with the
+>   pressure-routed recommendation. Deterministic unit tests.
+> - **G-SRS2-d TERMINATION (the `TD-INFER` test, reshaped):** the per-predicate
+>   forest closure on the REAL book's trie target runs UNCAPPED to a TRUE fixed
+>   point (`terminated = true`) — termination achieved through **relocation and
+>   shape-routing**, not through a horizon cap. What was intractable whole-KG
+>   (D-SRS-1's finding) becomes tractable when routed by shape.
+> - **KILL = any of:** a single pair diff in (a); ratio < 2 in (b); any
+>   misclassification in (c); non-termination in (d). Report verbatim; never
+>   relax the taxonomy to pass.
+> - **Reported, not gated (unknown pre-run):** trie coverage % (FSM noise rate),
+>   residue counts (multi-parent / cycle), max DN depth, and the HHTL-packable
+>   share (depth ≤ 12 native levels AND per-node fan-out ≤ 16; deeper/wider =
+>   the hierarchy's registry-resolve + ref-escape job, per canon).
+
 ### D-SRS-3 — Basin self-codes + self-report
 
 Compute the Cam96 centroid self-code per basin (Layer 5) and emit a
