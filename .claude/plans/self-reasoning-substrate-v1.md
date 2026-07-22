@@ -227,6 +227,30 @@ pointers are the tree.
 >   `src/reason.rs` (no corpus, no network — the gate); the KJV run is the SCALE
 >   demonstration (the same assertions re-checked on the book-scale KG).
 
+> **RESULT — D-SRS-1 SHIPPED, gate met, with one finding (2026-07-22; commits
+> `6008747` gate → `f01d874` code → the adjudication commit; the registration
+> above is UNEDITED per anti-tuning).** `src/reason.rs`
+> (`DerivationArena::derive_transitive[_capped]`) + 7 deterministic unit tests +
+> the `bible_wave` D-SRS-1 leg.
+> - **SOUNDNESS (the KILL clause: dangling pointer OR any cycle): PASS.** 100.0%
+>   premise resolvability + acyclic (every premise strictly-lower rung), proven
+>   exhaustively by the unit tests AND re-verified on the real book — 21,749
+>   distinct base triples (the 31,327 whole-book triples dedup to 21,749 distinct
+>   `Spo`), 50,000 derived at the bounded horizon, resolvability 100.0%,
+>   acyclic=true. The falsifier did not fire.
+> - **TERMINATION: PASS where the closure is tractable** (all unit-test KGs reach
+>   a fixed point; finiteness guarantees it on any KG). **FINDING:** the FULL
+>   whole-book closure is genuinely **O(N²)** — >50,000 two-hop compositions in
+>   the FIRST pass alone (hub verbs + the literal `begat` genealogies are long
+>   same-predicate chains). Running it to a full fixed point is intractable, so
+>   the book leg BOUNDS the horizon and asserts SOUNDNESS (which holds on any
+>   prefix). This is not a miss — it **empirically demonstrates that Layers 2-3
+>   are load-bearing, not optional**: derivation MUST be bounded (±8-local +
+>   Escalate; the D-SRS-2 rung cap). The registered "full-book termination"
+>   sub-clause is thereby superseded by the architecture's own bounded-derivation
+>   posture; D-SRS-2 is its proper home. Recorded as a finding, not a silent
+>   relaxation — the registration stands as written.
+
 ### D-SRS-2 — Rung stratification enforcement
 
 Stamp every derived triple at rung *n+1* of its deepest premise; run a

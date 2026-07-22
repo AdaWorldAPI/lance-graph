@@ -98,15 +98,35 @@ pub struct DerivationArena {
 }
 
 impl DerivationArena {
-    /// Build the arena from observed base triples and close it under
-    /// per-predicate transitive composition.
+    /// Build the arena from observed base triples and close it under the FULL
+    /// per-predicate transitive closure — equivalent to
+    /// [`derive_transitive_capped`](Self::derive_transitive_capped) with no cap.
     ///
-    /// Base triples are deduplicated (first occurrence kept) and stamped rung 0;
-    /// the closure then repeatedly composes `(A,p,B) + (B,p,C) → (A,p,C)` for a
-    /// shared predicate `p`, stamping each new triple `max(premise rungs)+1` and
-    /// recording its two premise pointers, until a pass adds nothing.
+    /// The closure is finite (a subset of `entities × {p} × entities`) so it
+    /// terminates, but on a corpus with long same-predicate chains — e.g. the
+    /// KJV `begat` genealogies — the full ancestral closure is `O(N²)` per chain.
+    /// Use [`derive_transitive_capped`](Self::derive_transitive_capped) at book
+    /// scale; the SOUNDNESS invariants (resolvability, acyclicity) hold on any
+    /// prefix, so bounding never sacrifices them. Bounding the *derivation
+    /// horizon* is exactly what Layers 2–3 of the plan do (±8-local + Escalate;
+    /// the rung cap of D-SRS-2).
     #[must_use]
     pub fn derive_transitive(base: &[Spo]) -> Self {
+        Self::derive_transitive_capped(base, usize::MAX)
+    }
+
+    /// Close under per-predicate transitive composition, stopping once
+    /// `max_derived` derived triples have been produced.
+    ///
+    /// Base triples are deduplicated (first occurrence kept) and stamped rung 0;
+    /// the closure then composes `(A,p,B) + (B,p,C) → (A,p,C)` for a shared
+    /// predicate `p`, stamping each new triple `max(premise rungs)+1` and
+    /// recording its two premise pointers, until a pass adds nothing (a true
+    /// fixed point → `terminated`) OR the cap is reached (→ NOT `terminated`; the
+    /// closure was bounded, not exhausted). Soundness (resolvability +
+    /// acyclicity) holds either way.
+    #[must_use]
+    pub fn derive_transitive_capped(base: &[Spo], max_derived: usize) -> Self {
         // Base: dedup, rung 0, no premises.
         let mut seen: HashSet<Spo> = HashSet::new();
         let mut entries: Vec<Derivation> = Vec::new();
@@ -125,7 +145,7 @@ impl DerivationArena {
         // [arena idx]`, then composes every `(A,p,B)` with every `(B,p,C)`.
         let mut passes = 0u32;
         let mut reached_fixed_point = false;
-        while passes < MAX_PASSES {
+        'closure: while passes < MAX_PASSES {
             passes += 1;
 
             // Pivot index over the CURRENT arena.
@@ -138,8 +158,9 @@ impl DerivationArena {
             }
 
             // Collect new triples this pass (do not mutate `entries` while
-            // iterating it).
+            // iterating it). Pass-local dedup via a set — O(1), not an O(n) scan.
             let mut additions: Vec<Derivation> = Vec::new();
+            let mut pass_seen: HashSet<Spo> = HashSet::new();
             for i in 0..entries.len() {
                 let (a, p, b) = {
                     let d = &entries[i];
@@ -153,10 +174,7 @@ impl DerivationArena {
                     let c = entries[j].triple.object;
                     let composed = Spo::new(a, p, c);
                     // Dedup against base + prior derivations + this pass.
-                    if seen.contains(&composed) {
-                        continue;
-                    }
-                    if additions.iter().any(|d| d.triple == composed) {
+                    if seen.contains(&composed) || !pass_seen.insert(composed) {
                         continue;
                     }
                     let rung = entries[i].rung.max(entries[j].rung) + 1;
@@ -165,6 +183,14 @@ impl DerivationArena {
                         rung,
                         premises: vec![i, j],
                     });
+                    // Cap: stop as soon as the horizon is reached (bounded, not
+                    // a fixed point — `reached_fixed_point` stays false).
+                    if entries.len() - base_len + additions.len() >= max_derived {
+                        for d in additions {
+                            entries.push(d);
+                        }
+                        break 'closure;
+                    }
                 }
             }
 
@@ -347,5 +373,31 @@ mod tests {
         let arena = DerivationArena::derive_transitive(&base);
         assert_eq!(arena.gate().derived, 0);
         assert!(arena.gate().passed());
+    }
+
+    /// A long chain's full closure is `O(N²)`; the cap bounds it while
+    /// soundness (resolvability + acyclicity) still holds — the book-scale
+    /// posture. The uncapped closure on the same chain terminates at the full
+    /// count (the `begat`-genealogy shape in miniature).
+    #[test]
+    fn capped_closure_bounds_derived_but_stays_sound() {
+        let p = 4;
+        // Chain 0→1→…→20 (20 base edges, 21 entities): full closure = 190 derived.
+        let base: Vec<Spo> = (0..20).map(|k| Spo::new(k, p, k + 1)).collect();
+
+        let capped = DerivationArena::derive_transitive_capped(&base, 25);
+        let cg = capped.gate();
+        assert!(
+            cg.derived >= 25 && cg.derived <= 45,
+            "cap bounds derived: {cg:?}"
+        );
+        assert!(!cg.terminated, "a capped run is bounded, not a fixed point");
+        assert_eq!(cg.resolvability_pct, 100.0, "soundness holds under the cap");
+        assert!(cg.acyclic, "acyclicity holds under the cap");
+
+        let full = DerivationArena::derive_transitive(&base);
+        let fg = full.gate();
+        assert!(fg.passed(), "uncapped closure terminates soundly: {fg:?}");
+        assert_eq!(fg.derived, 20 * 19 / 2, "full transitive closure = 190");
     }
 }
