@@ -103,10 +103,52 @@ citation-provenance correction, below.
 - **KEEP: no PCFG/beam/FOM machinery** in the FSM — determinism is a feature
   at this scope (no recursion → trivially cannot non-terminate).
 
+## The scarcity inversion (operator observation, 2026-07-22 — read before importing ANYTHING else from this literature)
+
+**In the whole left-corner parsing history there was never a substrate that
+could hold all meanings of a book in parallel.** Every design decision in the
+four papers is downstream of that scarcity:
+
+- **Beam / k-best** (Roark & Johnson, Manning & Carpenter) — competing analyses
+  are *discarded* because they cannot be held. A scarcity artifact, not a
+  principle.
+- **Packed chart** (Moore) — the ceiling the field reached: all parses of ONE
+  sentence, polynomial space, **syntax-only**, discarded at the sentence
+  boundary. The 7.2×10²⁷ ambiguity is structural; *meaning was never in the
+  parser at all* — no semantic substrate existed.
+- **Perfect oracle** (Liu) — ambiguity idealized away entirely.
+- **Per-sentence reset** (all) — cross-sentence meaning (coreference,
+  discourse) out of scope for the entire tradition.
+
+**What the 64k SoA changes:** a whole book (≤64k verses/SPO = one 256×256
+tile) resident at once; every token a 96-bit `6×cosine²` DISTRIBUTION — its
+meaning-*spread*, not a beam-chosen point — all co-addressable. Consequences:
+
+1. **Do NOT import beams / k-best / prune-at-parse.** Destructive choice at
+   parse time was forced by RAM, not by language. Here ambiguity persists as
+   the distribution and is resolved by a **per-reader READ**
+   (`QueryReference::at(v, rung)` — late binding, non-destructive, replayable).
+2. **R&J's ancestor-annotation gain generalizes to triviality.** They smuggled
+   non-local context into category labels because the parser could not see
+   back. In this substrate the whole book IS the resident annotation, O(1)
+   addressable — the mechanism that made their parser both better AND faster
+   is the substrate's default posture.
+3. **No sentence-boundary reset** — coreference/discourse become in-scope for
+   the SAME machinery (the pointer fabric + escalation), not a separate system.
+4. **What survives unchanged:** depth ≤ 8, the pointer fabric, table-driven
+   mechanics, cheap-check-first — these are properties of *language*, not of
+   1997 RAM. Import the linguistics; leave the scarcity workarounds behind.
+
+**Honest bounds:** "all meanings in parallel" = co-resident distributions +
+stored edges + pointer fabric, at BOOK scale (64k cells × 6 rails) — not
+unbounded superposition in one cell. `I-VSA-IDENTITIES` still applies: the
+distributions are trained-codebook cells (meaning-spread), never superposed
+content registers.
+
 ## Cross-refs
 
 `E-CAM96-DISTRIBUTION-MEASURED-1` (the meaning-substrate measurements this
 grammar layer sits on), `E-HORIZON-NOT-BOUND-1` (horizon = reference, not
 bound — now paper-grounded), `E-MARKOV-TEMPORAL-STREAM-1`,
-`E-NO-BUNDLE-STANDING-WAVE-1`, `crates/deepnsm-v2/src/{fsm,wave}.rs`,
-plan `deepnsm-v3-convergence-v1`.
+`E-NO-BUNDLE-STANDING-WAVE-1`, `E-LC-SCARCITY-INVERSION-1`,
+`crates/deepnsm-v2/src/{fsm,wave}.rs`, plan `deepnsm-v3-convergence-v1`.
