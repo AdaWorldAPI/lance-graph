@@ -1,8 +1,9 @@
 # deepnsm-v2 probes — meaning vs routing vs frequency, Jina-grounded
 
 Reproducible measurement scripts behind the CAM-PQ 96 architecture decision.
-All read `JINA_API_KEY` from env (never committed); Jina calls go through
-`curl` (`/root/.ccr/ca-bundle.crt` in the CI sandbox; plain curl elsewhere).
+All read `JINA_API_KEY` from env (never committed; passed to curl via stdin
+config, never argv). CA bundle: system trust store by default; set
+`JINA_CA_BUNDLE=/root/.ccr/ca-bundle.crt` in the proxied CI sandbox.
 Data inputs (not committed): `coca_tokens.csv` from the repo release
 `v0.1.0-coca-data` (CC0), `lemmas_5k.csv` from `crates/deepnsm/word_frequency/`.
 Deterministic seeds (`0x9E3779B9`); no clock/rng in the substrate under test.
@@ -27,17 +28,21 @@ real but COARSE tier — fine meaning needs a trained codebook.**
 
 ### 2. `fidelity_48_vs_96.py` — CAM-PQ 48 POINT vs CAM-PQ 96 DISTRIBUTION
 
-3,000-token vocab, real Jina 96-d embeddings, 299,896 eval pairs; PQ codebooks
-trained per subspace (k-means-256, 20 iters):
+**HELD-OUT protocol (corrected 2026-07-22 per PR #801 review):** codebooks fit
+on a disjoint 2,000-token train split; encoded + scored ONLY on the held-out
+1,000 tokens (299,699 pairs), real Jina 96-d embeddings:
 
 | substrate | shape | recon MSE | ρ(dist, Jina) |
 |---|---|---|---|
-| deepnsm 48-bit POINT | 6×16-d | 0.00292 | **0.711** |
-| deepnsm_v2 96-bit DISTRIBUTION | 12×8-d | 0.00171 | **0.828** |
+| deepnsm 48-bit POINT | 6×16-d | 0.00388 | **0.624** |
+| deepnsm_v2 96-bit DISTRIBUTION | 12×8-d | 0.00237 | **0.766** |
 
-**Δρ = +0.117 (+16.5%), 41% lower MSE. The 6×cosine² DISTRIBUTION preserves
-more Jina meaning than the 6×cosine POINT.** Caveat: 2× code budget; a 96-bit
-point control (structure-vs-budget isolation) is an open follow-up.
+**Δρ = +0.142 (+22.7%), 39% lower MSE — out-of-sample.** The correction
+LOWERED absolute fidelity (the original in-sample run — 0.711/0.828, +16.5% —
+overstated it by scoring the training set) but WIDENED the 96-vs-48 gap: the
+DISTRIBUTION generalizes better than the POINT, which strengthens the
+architecture conclusion. Caveat unchanged: 2× code budget; a 96-bit point
+control (structure-vs-budget isolation) is an open follow-up.
 
 ### 3. `spo_usedfor_nars.py` — can 0.828 carry SPO 2³ "used for" reasoning?
 

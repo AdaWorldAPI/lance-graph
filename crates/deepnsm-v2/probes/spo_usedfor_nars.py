@@ -44,11 +44,18 @@ for o, ss in GROUPS.items():
 objs = list(GROUPS.keys())
 print(f"{len(subs)} subjects across {len(objs)} used_for groups")
 
+CA = os.environ.get("JINA_CA_BUNDLE", "")  # optional; empty = system trust store
 def embed(batch, dim=96):
-    body = json.dumps({"model":"jina-embeddings-v3","task":"text-matching","dimensions":dim,"input":batch})
-    out = subprocess.run(["curl","-sS","--cacert","/root/.ccr/ca-bundle.crt","-X","POST",
-        "https://api.jina.ai/v1/embeddings","-H",f"Authorization: Bearer {KEY}",
-        "-H","Content-Type: application/json","-d",body], capture_output=True, text=True, timeout=120)
+    body = json.dumps({"model": "jina-embeddings-v3", "task": "text-matching", "dimensions": dim, "input": batch})
+    args = ["curl","-sS","-f","--config","-","-X","POST","https://api.jina.ai/v1/embeddings",
+            "-H","Content-Type: application/json","-d",body]
+    if CA:
+        args[2:2] = ["--cacert", CA]
+    # Authorization rides stdin config, never argv (invisible to process listings).
+    out = subprocess.run(args, input=f'header = "Authorization: Bearer {KEY}"\n',
+                         capture_output=True, text=True, timeout=180)
+    if out.returncode != 0:
+        raise RuntimeError(f"jina embed failed (curl exit {out.returncode}): {out.stderr[:200]}")
     return np.asarray([e["embedding"] for e in json.loads(out.stdout)["data"]], dtype=np.float64)
 
 S = embed(subs)                    # subjects, Jina 96-d

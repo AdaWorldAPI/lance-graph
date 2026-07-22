@@ -170,10 +170,11 @@ pub type Cam96 = [u8; 12];
 /// subspaces) — normalized by `d_max`. No cosine call: the normalized `[x;y]`
 /// coordinate distance carries the ordering directly.
 ///
-/// Measured (`probes/`, Jina-v3 96-d ground truth): this 96-bit distribution
-/// preserves **ρ 0.828** of Jina's meaning ordering vs the 48-bit point's
-/// **ρ 0.711** (+16.5%), at 41% lower reconstruction error — the point→
-/// distribution ladder, empirically. Real semantics need a **trained** codebook
+/// Measured (`probes/`, Jina-v3 96-d ground truth, HELD-OUT protocol —
+/// codebooks fit on a disjoint train split): this 96-bit distribution preserves
+/// **ρ 0.766** of Jina's meaning ordering vs the 48-bit point's **ρ 0.624**
+/// (+22.7%), at 39% lower reconstruction error — the point→distribution
+/// ladder, out-of-sample. Real semantics need a **trained** codebook
 /// ([`from_axis_codebooks`](Self::from_axis_codebooks)); [`demo`](Self::demo)
 /// ships a deterministic placeholder so the crate runs standalone.
 #[derive(Debug, Clone)]
@@ -209,10 +210,17 @@ impl Cam96Space {
         Self::from_axis_codebooks(axes, (dim as f32) * 12.0 * 64.0)
     }
 
-    /// The per-axis dimension (each of the 12 axes owns `len/12` of the vector).
+    /// The per-axis CENTROID dimension (each of the 12 axes owns `axis_dim()`
+    /// consecutive components of an input vector). Read from the first
+    /// centroid's length — NOT the outer `Vec` length, which is the centroid
+    /// COUNT (≤256); conflating the two collapsed every encode to centroid 0
+    /// (caught independently by two reviewers on PR #801).
     #[must_use]
     pub fn axis_dim(&self) -> usize {
-        self.axes.first().map_or(0, Vec::len)
+        self.axes
+            .first()
+            .and_then(|axis| axis.first())
+            .map_or(0, Vec::len)
     }
 
     /// Quantize a length-`12·axis_dim` vector into a 12-byte [`Cam96`] code:
@@ -350,27 +358,37 @@ mod tests {
     }
 
     #[test]
-    fn cam96_encode_is_idempotent_and_zero_reconstruction() {
-        // A vector built from known centroids encodes to a code whose
-        // reconstruction is EXACTLY that vector (distance 0) — the encode found
-        // a zero-distance centroid per axis. The demo codebook has ties, so the
-        // recovered INDEX may differ, but re-encoding is idempotent in value.
+    fn cam96_axis_dim_is_centroid_dimension_not_count() {
+        // Regression for the PR #801 review finding: axis_dim() must be the
+        // per-centroid dimension (`dim`), never the centroid COUNT (256).
+        let s = Cam96Space::demo(4);
+        assert_eq!(s.axis_dim(), 4);
+    }
+
+    #[test]
+    fn cam96_encode_recovers_exact_centroids() {
+        // A vector built by concatenating known centroids re-encodes to exactly
+        // those indices. Indices are kept < 13 because demo_axis is mod-13
+        // periodic (centroid c ≡ c+13), so below 13 recovery is unambiguous.
+        // This is the STRONG test whose earlier failure was misdiagnosed as
+        // tie-collisions when it was actually the axis_dim count/dim bug.
         let dim = 4;
         let s = Cam96Space::demo(dim);
-        let seed: Cam96 = [2, 5, 0, 9, 12, 1, 7, 3, 200, 42, 4, 8];
+        let target: Cam96 = [2, 5, 0, 9, 12, 1, 7, 3, 11, 6, 4, 8];
         let mut v = Vec::new();
-        for (axis, &centroid) in seed.iter().enumerate() {
+        for (axis, &centroid) in target.iter().enumerate() {
             v.extend_from_slice(&demo_axis(axis + 1, dim)[centroid as usize]);
         }
-        let code = s.encode(&v);
-        // self-distance of the encoded code is zero (identical code).
-        assert!(s.distance(&code, &code).abs() < 1e-6);
-        // re-encoding the reconstruction of `code` yields `code` (idempotent).
-        let mut recon = Vec::new();
-        for (axis, &c) in code.iter().enumerate() {
-            recon.extend_from_slice(&demo_axis(axis + 1, dim)[c as usize]);
-        }
-        assert_eq!(s.encode(&recon), code);
+        assert_eq!(s.encode(&v), target);
+        // and a non-centroid vector no longer collapses to all-zeros:
+        let noisy: Vec<f32> = (0..12 * dim)
+            .map(|i| (i as f32 * 0.37).sin() * 5.0)
+            .collect();
+        let code = s.encode(&noisy);
+        assert!(
+            code.iter().any(|&c| c != 0),
+            "encode must not collapse to centroid 0"
+        );
     }
 
     #[test]
