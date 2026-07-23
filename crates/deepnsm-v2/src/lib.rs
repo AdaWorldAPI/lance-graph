@@ -56,8 +56,8 @@ pub use basin::{
 };
 pub use codebook::{load_cam96_codes, load_cam96_space, CodebookError};
 pub use evidence::{
-    evidence_basin, forward_gate, novelty_rate, shuffle_beliefs_null, shuffle_rungs_null,
-    EvidenceBasin, ForwardGateReport,
+    evidence_basin, forward_gate, novelty_rate, open_question_yield, partial_spearman,
+    shuffle_beliefs_null, shuffle_rungs_null, EvidenceBasin, ForwardGateReport,
 };
 pub use fsm::{parse_to_spo, Pos, Tagged};
 pub use introspect::{

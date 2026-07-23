@@ -701,6 +701,163 @@ fn main() {
         );
     }
 
+    // ── D-SRS-3b G-SRS3b-2 — the OPERATOR-CORRECTED TARGET: open-question YIELD ──
+    // The negative G-SRS3b-1 ρ was the graph reporting doom-scroll / bad query:
+    // raw novelty is not a question the rung ladder asks. The corrected forward
+    // target is RESOLUTION — a first-half derived-but-unobserved triple is the
+    // graph PREDICTING (A,p,C); does the second half OBSERVE it (text confirms)?
+    // First-half base (p,o) per subject (to exclude already-observed).
+    let mut fh_base_po: Map<u16, std::collections::HashSet<(u16, u16)>> = Map::new();
+    for &t in &fh_base {
+        fh_base_po
+            .entry(t.subject)
+            .or_default()
+            .insert((t.predicate, t.object));
+    }
+    // Open questions per subject = first-half INFERENCES (rung≥1, not observed).
+    let mut open_q: Map<u16, Vec<(u16, u16)>> = Map::new();
+    for d in fh_arena.entries() {
+        if d.rung >= 1 {
+            let po = (d.triple.predicate, d.triple.object);
+            let observed = fh_base_po
+                .get(&d.triple.subject)
+                .is_some_and(|s| s.contains(&po));
+            if !observed {
+                open_q.entry(d.triple.subject).or_default().push(po);
+            }
+        }
+    }
+    // Second-half DISTINCT base (p,o) per subject (the confirmations).
+    let mut sh_base_po: Map<u16, Vec<(u16, u16)>> = Map::new();
+    for (s, occ) in &sh_occ {
+        let mut v: Vec<(u16, u16)> = occ.clone();
+        v.sort_unstable();
+        v.dedup();
+        sh_base_po.insert(*s, v);
+    }
+    // Eligible: ≥4 open questions AND ≥4 second-half base occurrences.
+    let mut subj_q: Vec<u16> = open_q
+        .keys()
+        .copied()
+        .filter(|s| {
+            open_q.get(s).map_or(0, Vec::len) >= 4 && sh_base_po.get(s).map_or(0, Vec::len) >= 4
+        })
+        .collect();
+    subj_q.sort_unstable();
+    let mut qb: Vec<deepnsm_v2::evidence::BasinBeliefs> = Vec::new();
+    let mut q_rungs: Vec<f32> = Vec::new();
+    let mut yield_v: Vec<f32> = Vec::new();
+    let mut q_activity: Vec<f32> = Vec::new();
+    for &s in &subj_q {
+        // Reuse the first-half evidence for this subject (may be absent if the
+        // subject had <1 first-half base belief — then skip, no composite).
+        let Some(bel_map) = fh_beliefs.get(&s) else {
+            continue;
+        };
+        let bel: Vec<deepnsm_v2::evidence::BeliefRecord> =
+            bel_map.iter().map(|(&(p, o), &n)| (p, o, n)).collect();
+        let der_share = {
+            let tot = *tri_tot.get(&s).unwrap_or(&0);
+            if tot == 0 {
+                0.0
+            } else {
+                *tri_der.get(&s).unwrap_or(&0) as f32 / tot as f32
+            }
+        };
+        let Some(y) = deepnsm_v2::open_question_yield(&open_q[&s], &sh_base_po[&s]) else {
+            continue;
+        };
+        q_activity.push(open_q[&s].len() as f32);
+        yield_v.push(y);
+        q_rungs.push(der_share);
+        qb.push((s, bel));
+    }
+    let uq_real: Vec<f32> = qb
+        .iter()
+        .zip(&q_rungs)
+        .filter_map(|((s, b), &r)| deepnsm_v2::evidence_basin(*s, b, r).map(|e| e.uncertainty()))
+        .collect();
+    let qb_null = deepnsm_v2::shuffle_beliefs_null(&qb);
+    let qr_null = deepnsm_v2::shuffle_rungs_null(&q_rungs);
+    let uq_null: Vec<f32> = qb_null
+        .iter()
+        .zip(&qr_null)
+        .filter_map(|((s, b), &r)| deepnsm_v2::evidence_basin(*s, b, r).map(|e| e.uncertainty()))
+        .collect();
+    let fg2 = deepnsm_v2::forward_gate(&uq_real, &uq_null, &q_activity, &yield_v);
+    println!(
+        "D-SRS-3b G-SRS3b-2 (evidence composite → open-question YIELD): {} basins, real ρ={:.3}, \
+         null ρ={:.3} — separation {:.3}; #open-questions baseline ρ={:.3}",
+        fg2.basins,
+        fg2.real_rho,
+        fg2.null_rho,
+        fg2.separation(),
+        fg2.baseline_rho
+    );
+    if fg2.real_rho >= 0.25 && fg2.separation() >= 0.15 {
+        println!(
+            "D-SRS-3b PASS (G-SRS3b-2)  evidence-composite uncertainty PREDICTS open-question yield \
+             (real ρ {:.3} ≥ 0.25, sep {:.3} ≥ 0.15) — uncertainty points to PRODUCTIVE exploration; \
+             the rung-ladder-relevant target works where raw novelty (G-SRS3b-1) did not",
+            fg2.real_rho,
+            fg2.separation()
+        );
+    } else if fg2.separation().abs() >= 0.15 && fg2.real_rho <= -0.25 {
+        println!(
+            "D-SRS-3b DEAD-END DETECTOR (G-SRS3b-2)  real ρ {:.3} (negative) SEPARATES from null \
+             (sep {:.3}) — uncertainty reliably points where questions do NOT resolve: a validated \
+             doom-scroll/dead-end signal (inverted use), not a productive-exploration signal",
+            fg2.real_rho,
+            fg2.separation()
+        );
+    } else if fg2.killed() {
+        println!(
+            "D-SRS-3b KILL (G-SRS3b-2)  separation {:.3} ≤ 0.05 — even the rung-ladder-relevant target \
+             is coverage-driven; the composite carries no question-resolution signal. Reported, not softened.",
+            fg2.separation()
+        );
+    } else {
+        println!(
+            "D-SRS-3b WEAK (G-SRS3b-2)  real ρ {:.3}, separation {:.3} — below the registered (0.25, 0.15). \
+             Registration stands, no tuning.",
+            fg2.real_rho,
+            fg2.separation()
+        );
+    }
+
+    // G-SRS3b-3 — the TERMINAL test: does the composite predict yield BEYOND
+    // size? Partial-correlate U and yield after rank-residualizing both on the
+    // dominating size covariate (#open-questions = q_activity).
+    let p_real = deepnsm_v2::partial_spearman(&uq_real, &yield_v, &q_activity);
+    let p_null = deepnsm_v2::partial_spearman(&uq_null, &yield_v, &q_activity);
+    let p_sep = p_real - p_null;
+    println!(
+        "D-SRS-3b G-SRS3b-3 (partial ρ(U, yield | size)): real={:.3}, null={:.3} — separation {:.3}",
+        p_real, p_null, p_sep
+    );
+    if p_real >= 0.15 && p_sep >= 0.10 {
+        println!(
+            "D-SRS-3b PASS (G-SRS3b-3)  the composite predicts question-resolution EVEN AFTER size is \
+             removed (partial ρ {:.3} ≥ 0.15, sep {:.3} ≥ 0.10) — the NARS×contra×rung composition \
+             carries genuine information beyond a count. The operator's instrument is vindicated.",
+            p_real, p_sep
+        );
+    } else if p_sep <= 0.05 {
+        println!(
+            "D-SRS-3b KILL (G-SRS3b-3)  with size partialled out, separation {:.3} ≤ 0.05 — the \
+             composite IS its size baseline; the NARS×contra×rung composition adds nothing beyond a \
+             count across basins. (Its validated home is the per-basin KANBANSTEP drive, not a \
+             cross-basin correlation.) Reported, not softened.",
+            p_sep
+        );
+    } else {
+        println!(
+            "D-SRS-3b WEAK (G-SRS3b-3)  partial ρ {:.3}, sep {:.3} — a faint size-independent residual, \
+             below the registered (0.15, 0.10). Registration stands, no tuning.",
+            p_real, p_sep
+        );
+    }
+
     // ── D-SRS-4 — the self-reference falsifier: the graph answers questions ──
     // about its OWN reasoning, checked against an INDEPENDENT recount.
     // G-SRS4-1 (provenance): every derived triple's stored premises must

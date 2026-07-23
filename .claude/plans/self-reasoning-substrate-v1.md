@@ -695,6 +695,25 @@ faithfully (NARS frequency-confidence; rung stratification).
     composite's validated home is the per-basin KANBANSTEP drive regardless of
     outcome. `E-DOOMSCROLL-VS-RUNG-LADDER-QUERY-1`.
 
+#### G-SRS3b-3 RESULT (2026-07-23, append-only — TERMINAL)
+
+- **KILLED, definitively.** partial ρ(U, yield | #open-questions) = **−0.077**
+  (real) vs **+0.131** (null), separation **−0.208**. With size partialled out
+  the composite predicts NOTHING (slightly negative, below the null).
+- **The settled answer across the whole D-SRS-3b arc:** the evidence composite
+  carries **no cross-basin information beyond size**. Three targets
+  (code-spread, forward-novelty, open-question-yield) + a size-residualized
+  partial correlation all agree — the `NARS×contra×rung` composition, for
+  RANKING basins against each other, is a count. This does not refute the
+  operator's "the composite would have information": the information is REAL but
+  it is SIZE (how much evidence a basin holds), and its correct consumer is the
+  **per-basin KANBANSTEP drive** (`EvidenceBasin::{gate,advance}` → the Rubicon
+  lifecycle, Flow/Hold/Block on that basin's OWN evidence), NOT a cross-basin
+  correlation. **Method banked:** a per-basin uncertainty signal must be
+  validated per-basin (its lifecycle outcome), never by cross-basin Spearman —
+  which is size-dominated for any count-correlated quantity.
+  `E-DOOMSCROLL-VS-RUNG-LADDER-QUERY-1`.
+
 ### D-SRS-4 — The self-reference falsifier
 
 **The graph answers a question about its OWN earlier derivation, correctly.**

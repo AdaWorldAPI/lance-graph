@@ -169,6 +169,28 @@ pub fn evidence_basin(
     })
 }
 
+/// The rung ladder's **open questions** for a subject and their forward
+/// **yield** (G-SRS3b-2): a first-half derived-but-not-observed triple is the
+/// graph PREDICTING `(A,p,C)` by transitivity — the open question is "does the
+/// text later confirm it?". `yield = |OpenQ ∩ second-half-base| / |OpenQ|`.
+///
+/// `open_q` = the subject's first-half inferences (rung ≥ 1, NOT already
+/// observed), as `(predicate, object)` pairs. `second_half_base` = the
+/// distinct `(predicate, object)` base facts observed under the subject in the
+/// second half. Returns `None` if there are no open questions (nothing to
+/// resolve). This is the operator-corrected forward target — question
+/// RESOLUTION, not raw novelty (the doom-scroll trap).
+#[must_use]
+pub fn open_question_yield(open_q: &[(u16, u16)], second_half_base: &[(u16, u16)]) -> Option<f32> {
+    if open_q.is_empty() {
+        return None;
+    }
+    let observed: std::collections::HashSet<(u16, u16)> =
+        second_half_base.iter().copied().collect();
+    let resolved = open_q.iter().filter(|po| observed.contains(po)).count();
+    Some(resolved as f32 / open_q.len() as f32)
+}
+
 /// Second-half **novelty**: the share of `(p, o)` occurrences (with repeats)
 /// that were never seen in the subject's first-half distinct-belief set.
 /// Independent ground truth for the forward gate — computed by direct
@@ -234,6 +256,77 @@ pub fn shuffle_rungs_null(rungs: &[f32]) -> Vec<f32> {
         v.swap(i, j);
     }
     v
+}
+
+/// **Spearman partial correlation** ρ(x, y | z): rank-transform all three,
+/// linearly residualize `rank(x)` and `rank(y)` on `rank(z)`, and correlate the
+/// residuals. Removes the confounding covariate `z` (here: basin size). `0.0`
+/// for < 3 points or a degenerate (zero-variance) side. The G-SRS3b-3 primitive
+/// — "does the composite predict yield AFTER size is partialled out?"
+#[must_use]
+pub fn partial_spearman(x: &[f32], y: &[f32], z: &[f32]) -> f32 {
+    if x.len() != y.len() || x.len() != z.len() || x.len() < 3 {
+        return 0.0;
+    }
+    let (rx, ry, rz) = (ranks_f(x), ranks_f(y), ranks_f(z));
+    let ex = residualize(&rx, &rz);
+    let ey = residualize(&ry, &rz);
+    pearson_local(&ex, &ey)
+}
+
+/// Average ranks (1-based, ties averaged) — local copy so this module is
+/// self-contained for the partial-correlation path.
+fn ranks_f(v: &[f32]) -> Vec<f32> {
+    let n = v.len();
+    let mut idx: Vec<usize> = (0..n).collect();
+    idx.sort_by(|&a, &b| v[a].partial_cmp(&v[b]).unwrap_or(std::cmp::Ordering::Equal));
+    let mut r = vec![0.0f32; n];
+    let mut i = 0;
+    while i < n {
+        let mut j = i + 1;
+        while j < n && v[idx[j]] == v[idx[i]] {
+            j += 1;
+        }
+        let avg = ((i + 1 + j) as f32) / 2.0;
+        for &k in &idx[i..j] {
+            r[k] = avg;
+        }
+        i = j;
+    }
+    r
+}
+
+/// Residuals of `a` after linear regression on `b` (`a − (α + β·b)`).
+fn residualize(a: &[f32], b: &[f32]) -> Vec<f32> {
+    let n = a.len() as f32;
+    let (ma, mb) = (a.iter().sum::<f32>() / n, b.iter().sum::<f32>() / n);
+    let mut sbb = 0.0f32;
+    let mut sab = 0.0f32;
+    for (&av, &bv) in a.iter().zip(b) {
+        sbb += (bv - mb) * (bv - mb);
+        sab += (av - ma) * (bv - mb);
+    }
+    let beta = if sbb <= 0.0 { 0.0 } else { sab / sbb };
+    let alpha = ma - beta * mb;
+    a.iter().zip(b).map(|(&av, &bv)| av - (alpha + beta * bv)).collect()
+}
+
+/// Pearson correlation (local, for the residual path). `0.0` on zero variance.
+fn pearson_local(x: &[f32], y: &[f32]) -> f32 {
+    let n = x.len() as f32;
+    let (mx, my) = (x.iter().sum::<f32>() / n, y.iter().sum::<f32>() / n);
+    let (mut sxy, mut sxx, mut syy) = (0.0f32, 0.0f32, 0.0f32);
+    for (&a, &b) in x.iter().zip(y) {
+        sxy += (a - mx) * (b - my);
+        sxx += (a - mx) * (a - mx);
+        syy += (b - my) * (b - my);
+    }
+    let d = (sxx * syy).sqrt();
+    if d <= 0.0 {
+        0.0
+    } else {
+        sxy / d
+    }
 }
 
 /// The G-SRS3b-1 forward-gate report: real vs null vs activity-baseline
@@ -357,6 +450,17 @@ mod tests {
         );
     }
 
+    /// Open-question yield: the share of first-half inferences the second half
+    /// confirms (the operator-corrected forward target — resolution, not novelty).
+    #[test]
+    fn open_question_yield_counts_confirmed_inferences() {
+        let open_q = [(7u16, 4u16), (7, 9), (7, 12), (8, 3)]; // 4 inferences
+        let sh_base = [(7u16, 4u16), (7, 12), (5, 5)]; // confirms 2 of them
+        assert!((open_question_yield(&open_q, &sh_base).unwrap() - 0.5).abs() < 1e-6);
+        assert!(open_question_yield(&[], &sh_base).is_none()); // no questions
+        assert_eq!(open_question_yield(&open_q, &[]), Some(0.0)); // none confirmed
+    }
+
     /// The kanban seam: the evidence composite DRIVES the Rubicon lifecycle
     /// via GateDecision → advance_on_gate. Thick evidence Flows Planning →
     /// CognitiveWork; thin evidence Blocks Planning → Prune (Libet veto);
@@ -386,6 +490,23 @@ mod tests {
         assert_eq!(mid.advance(KanbanColumn::Planning), None, "Hold stays");
         // Block mid-CognitiveWork has no veto edge (contract DAG) → None.
         assert_eq!(thin.advance(KanbanColumn::CognitiveWork), None);
+    }
+
+    /// Partial correlation removes a shared confound: when x and y are
+    /// correlated ONLY through z, the partial ρ collapses to ≈0; when x has a
+    /// genuine z-independent tie to y, it survives.
+    #[test]
+    fn partial_spearman_removes_shared_confound() {
+        // x and y both = z + tiny independent noise ⇒ correlation is all z.
+        let z = [1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+        let x: Vec<f32> = z.iter().map(|&v| v + 0.01 * (v * 1.7).sin()).collect();
+        let y: Vec<f32> = z.iter().map(|&v| v + 0.01 * (v * 2.3).cos()).collect();
+        let raw = spearman(&x, &y);
+        let partial = partial_spearman(&x, &y, &z);
+        assert!(raw > 0.9, "raw corr high (both track z): {raw}");
+        assert!(partial.abs() < raw, "partial removes the shared z: {partial}");
+        // Degenerate guards.
+        assert_eq!(partial_spearman(&[1.0, 2.0], &[1.0, 2.0], &[1.0, 2.0]), 0.0);
     }
 
     /// Forward gate mechanism: when U tracks novelty monotonically and the
