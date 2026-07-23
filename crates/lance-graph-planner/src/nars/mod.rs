@@ -5,6 +5,7 @@
 //!
 //! Each inference type = a specific semiring for adjacent_truth_propagate().
 
+pub mod basin_resonance;
 pub mod belief;
 pub mod dissolution;
 pub mod elevation;
@@ -19,6 +20,7 @@ pub mod tactic_select;
 pub mod tactics;
 pub mod truth;
 
+pub use basin_resonance::{rank_basins, Basin, BasinKind, ResonanceConfig};
 pub use belief::{Belief, BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
 pub use dissolution::{detect_dissolution, should_elevate, staunen, wisdom, Dissolution};
 pub use elevation::{elevate_field, Elevation};
