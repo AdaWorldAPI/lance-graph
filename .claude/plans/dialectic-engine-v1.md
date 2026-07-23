@@ -163,6 +163,22 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > planner tests green. V0 `deepnsm-v2/belief.rs` dedup owed (`TD-DEEPNSM-V2-BELIEF-DUP`).
 - **V2:** the loop — GraphBias→recipe LUT, byte-lane council, texture window,
   insight/mush (S10) + its null falsifier, kanban wiring.
+  > **NEXT SLICE (register-before-code, 2026-07-23):** build V2-A in
+  > `lance-graph-planner/src/nars` FIRST — the S10 insight/mush detector as a
+  > PURE scored function over before/after `BeliefArena` signals
+  > (`INSIGHT = clamp(Δcoh+Δwonder−Δent,0,1)·[yield>θ]`;
+  > `MUSH = 0.5·churn+0.5·stall`, `churn = revision_velocity·(1−yield)`,
+  > `stall = entropy·(1−|Δcoh|)`) WITH its MANDATORY size-preserving null
+  > falsifier (E-BASIN-WIDTH: the discriminator must beat a shuffle/
+  > size-preserving control before "detects insight" is promoted). Signals
+  > read from the arena (yield = derived/premise rate, coherence = mean
+  > expectation, entropy = truth spread, revision_velocity = revisions/step,
+  > wonder from contradiction depth). THEN V2-B: the S8 GraphBias→recipe-LUT
+  > tactic selection (which of the 5 fires inside CognitiveWork — distinct
+  > from `advance_on_gate` PHASE movement). Consult `GraphSignals` (contract
+  > exploration), `FlowState`/`mul`, `kanban` (contract + planner
+  > style_strategy) before wiring. Reuse the one engine; probe-first on any
+  > "detects insight" claim.
 - **V3:** dissolution detection + field elevation (S11) — the cathedral floors;
   Staunen↔Wisdom flow accounting; epiphany attractors (rate-normalized, S9).
 - **V4:** the 64k SIMT lowering — Boolean-reachability semiring + truth second
