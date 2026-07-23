@@ -210,13 +210,32 @@ impl BeliefArena {
     /// A cop C` ONLY for `cop.transits()` (Inh, Sim), with NARS deduction
     /// truth `f=f₁f₂, c=f₁f₂c₁c₂` computed per ordered premise pair (truth is
     /// NOT an mxm quantity — S1; this scalar path IS the second-pass form at
-    /// V0 scale). New statements are admitted rung-stamped max(premises)+1
-    /// with premise pointers; a derived statement that ALREADY exists resolves
-    /// by CHOICE (S2) — never a duplicate entry, so the `reason.rs` finiteness
-    /// argument holds and the closure terminates.
+    /// V0 scale). A statement exists exactly once (S2); every derivation of
+    /// that statement — including multiple paths to the same conclusion (a weak
+    /// A→B→C vs a strong A→D→C) — is resolved by **CHOICE on `expectation()`**,
+    /// NOT by which path was walked first. Concretely, per pass:
+    /// - all derivations are collected keyed by the derived statement, keeping
+    ///   the maximum-`expectation()` candidate (order-independent — the Codex
+    ///   P2 fix; the earlier `continue`-on-duplicate made stored truth depend
+    ///   on iteration order);
+    /// - an ABSENT statement is admitted rung-stamped `max(premise rungs)+1`;
+    /// - an OBSERVATION-GROUNDED statement (non-empty stamp — whether observed
+    ///   before it was ever derived, rung 0, or derived-then-observed, rung ≥ 1)
+    ///   is ground and a pure derivation never overrides it;
+    /// - a PURE-DERIVED statement (empty stamp) is updated only when the winning
+    ///   derivation's `expectation()` strictly exceeds the stored one (`EPS`).
+    ///
+    /// Termination: each stored expectation only ever increases and is bounded
+    /// (deduction confidence is a product of confidences < 1, so a longer path
+    /// can never exceed a shorter one), so the number of `changed` passes is
+    /// finite — the `reason.rs` finiteness argument holds and the closure
+    /// reaches a true fixed point (`max_passes` is only a backstop).
     pub fn close_transitive(&mut self, max_passes: u32) {
         self.passes = 0;
         self.reached_fixed_point = false;
+        // A CHOICE update fires only on a MEANINGFUL expectation gain, so float
+        // churn cannot re-trigger passes indefinitely.
+        const EPS: f32 = 1e-6;
         while self.passes < max_passes {
             self.passes += 1;
             // Pivot: (subject, copula) → entry ids, over the CURRENT arena.
@@ -229,7 +248,10 @@ impl BeliefArena {
                         .push(i as u32);
                 }
             }
-            let mut additions: Vec<(CStmt, NarsTruth, u32, [u32; 2])> = Vec::new();
+            // Collect EVERY derivation this pass, keyed by the derived
+            // statement, keeping the maximum-`expectation()` candidate. Two
+            // paths to the same conclusion no longer race on insertion order.
+            let mut derived: HashMap<CStmt, (NarsTruth, u32, [u32; 2])> = HashMap::new();
             for i in 0..self.entries.len() {
                 let (a, cop, b_term, t1, r1) = {
                     let e = &self.entries[i];
@@ -251,31 +273,65 @@ impl BeliefArena {
                         cop,
                         p: c_term,
                     };
-                    if self.index.contains_key(&stmt) || additions.iter().any(|(s, ..)| *s == stmt)
-                    {
-                        continue; // CHOICE territory / already queued — never a duplicate.
-                    }
                     // NARS deduction truth, per ordered pair (S1 second-pass form).
                     let f = t1.frequency * t2.frequency;
                     let c = f * t1.confidence * t2.confidence;
-                    additions.push((stmt, NarsTruth::new(f, c), r1.max(r2) + 1, [i as u32, j]));
+                    let truth = NarsTruth::new(f, c);
+                    let cand = (truth, r1.max(r2) + 1, [i as u32, j]);
+                    match derived.get(&stmt) {
+                        Some((best, ..)) if best.expectation() >= truth.expectation() => {}
+                        _ => {
+                            derived.insert(stmt, cand);
+                        }
+                    }
                 }
             }
-            if additions.is_empty() {
+            // Apply each winning derivation through CHOICE against the arena.
+            // Absent → admit; observation-grounded → untouched; pure derivation →
+            // update only on a strict expectation gain. Order-independent: at
+            // most one candidate per statement, and admit/gain-update never
+            // interfere across distinct statements.
+            let mut changed = false;
+            for (stmt, (truth, rung, premises)) in derived {
+                match self.index.get(&stmt) {
+                    Some(&id) => {
+                        let e = &mut self.entries[id as usize];
+                        // Any belief carrying observation evidence — a non-empty
+                        // stamp — is GROUND: a pure derivation never overwrites
+                        // it. This catches BOTH a purely-observed belief (rung 0)
+                        // AND a derived-then-observed one (rung ≥ 1, but its stamp
+                        // was unioned in by `revise_at` — a derived belief's zero
+                        // stamp is disjoint from every observation, so observing
+                        // it always pools). The `rung == 0` guard missed the
+                        // latter and would drop the observed evidence.
+                        if e.stamp != Stamp::default() {
+                            continue; // observation dominates a derivation
+                        }
+                        if truth.expectation() > e.truth.expectation() + EPS {
+                            e.truth = truth;
+                            e.rung = rung;
+                            e.premises = premises.to_vec();
+                            changed = true;
+                        }
+                    }
+                    None => {
+                        let id = self.entries.len() as u32;
+                        self.entries.push(Belief {
+                            stmt,
+                            truth,
+                            stamp: Stamp::default(), // derived: no observation sources of its own
+                            rung,
+                            premises: premises.to_vec(),
+                            contradiction: 0.0,
+                        });
+                        self.index.insert(stmt, id);
+                        changed = true;
+                    }
+                }
+            }
+            if !changed {
                 self.reached_fixed_point = true;
                 return;
-            }
-            for (stmt, truth, rung, premises) in additions {
-                let id = self.entries.len() as u32;
-                self.entries.push(Belief {
-                    stmt,
-                    truth,
-                    stamp: Stamp::default(), // derived: no observation sources of its own
-                    rung,
-                    premises: premises.to_vec(),
-                    contradiction: 0.0,
-                });
-                self.index.insert(stmt, id);
             }
         }
     }
@@ -461,6 +517,109 @@ mod tests {
             arena.get(derived).unwrap().rung,
             1,
             "rung fixed at creation"
+        );
+    }
+
+    /// Close a two-path arena (weak A→B→C vs strong A→D→C) in a chosen
+    /// insertion order and return the derived truth of A→C. A=0, B=1, C=2, D=3.
+    fn close_two_paths_to_ac(strong_first: bool) -> NarsTruth {
+        let weak: [(CStmt, NarsTruth); 2] = [
+            (inh(0, 1), NarsTruth::new(0.6, 0.5)), // A→B (weak)
+            (inh(1, 2), NarsTruth::new(0.6, 0.5)), // B→C (weak)
+        ];
+        let strong: [(CStmt, NarsTruth); 2] = [
+            (inh(0, 3), NarsTruth::new(0.95, 0.9)), // A→D (strong)
+            (inh(3, 2), NarsTruth::new(0.95, 0.9)), // D→C (strong)
+        ];
+        let order: [&[(CStmt, NarsTruth)]; 2] = if strong_first {
+            [&strong, &weak]
+        } else {
+            [&weak, &strong]
+        };
+        let mut arena = BeliefArena::new();
+        let mut src = 0u32;
+        for group in order {
+            for &(stmt, truth) in group {
+                arena.observe(stmt, truth, Stamp::source(src));
+                src += 1;
+            }
+        }
+        arena.close_transitive(64);
+        assert!(arena.reached_fixed_point, "closure must terminate");
+        arena.get(inh(0, 2)).expect("A→C must derive").truth
+    }
+
+    /// CODEX P2 REGRESSION (`close_transitive` CHOICE-for-duplicates fix): when
+    /// two paths reach the same conclusion (a weak A→B→C and a strong A→D→C),
+    /// the stored truth of A→C is decided by CHOICE on `expectation()` and is
+    /// therefore INDEPENDENT of which path is walked first. Before the fix the
+    /// first-encountered derivation was `continue`-skipped and permanently won,
+    /// making stored truth insertion-order-dependent (violating S2).
+    #[test]
+    fn transitive_duplicate_resolves_by_choice_not_insertion_order() {
+        // Deduction truth of the STRONG path A→C: f=0.95², c=f·0.9² — the higher
+        // expectation, so CHOICE must keep it in BOTH orderings.
+        let want_f = 0.95f32 * 0.95;
+        let want_c = want_f * 0.9 * 0.9;
+
+        let strong_first = close_two_paths_to_ac(true);
+        let weak_first = close_two_paths_to_ac(false);
+
+        for (label, t) in [("strong-first", strong_first), ("weak-first", weak_first)] {
+            assert!(
+                (t.frequency - want_f).abs() < 1e-6 && (t.confidence - want_c).abs() < 1e-6,
+                "{label}: CHOICE must keep the strong-path truth (f={want_f}, c={want_c}), \
+                 got f={}, c={}",
+                t.frequency,
+                t.confidence,
+            );
+        }
+        // The two orderings agree exactly — the order-independence Codex asked for.
+        assert!((strong_first.frequency - weak_first.frequency).abs() < 1e-9);
+        assert!((strong_first.confidence - weak_first.confidence).abs() < 1e-9);
+    }
+
+    /// CODEX P2 REGRESSION (the second, subtler one): a belief that is DERIVED
+    /// first and OBSERVED later keeps its rung (≥ 1) but now carries real
+    /// observation evidence (its stamp was unioned in by revision). A later
+    /// closure that finds a higher-expectation pure derivation must NOT
+    /// overwrite it — the `rung == 0` guard missed this; the stamp guard catches
+    /// it. Scenario: derive A→C from weak A→B→C, observe A→C, add strong
+    /// A→D→C, re-close — the observed/revised truth must survive intact.
+    #[test]
+    fn closure_does_not_overwrite_a_derived_then_observed_belief() {
+        let mut arena = BeliefArena::new();
+        // 1) Derive A→C weakly from A→B→C (rung 1, empty stamp).
+        arena.observe(inh(0, 1), NarsTruth::new(0.6, 0.5), Stamp::source(0));
+        arena.observe(inh(1, 2), NarsTruth::new(0.6, 0.5), Stamp::source(1));
+        arena.close_transitive(64);
+        assert_eq!(arena.get(inh(0, 2)).unwrap().rung, 1, "A→C derived");
+        // 2) Observe A→C directly (disjoint source): revision pools evidence in
+        //    place at rung 1 — the belief now carries a non-empty stamp. Chosen
+        //    so its expectation stays BELOW the strong path's, proving the guard
+        //    (not the expectation test) is what protects it.
+        let out = arena.observe(inh(0, 2), NarsTruth::new(0.55, 0.9), Stamp::source(2));
+        assert!(
+            matches!(out, ReviseOutcome::Revised { .. }),
+            "disjoint → revision (derived belief's zero stamp is disjoint from any source)"
+        );
+        let observed = arena.get(inh(0, 2)).unwrap().truth;
+        // 3) Add a STRONGER path A→D→C (deduction expectation ≈ 0.79, above the
+        //    revised A→C) and re-close. The pre-fix code would overwrite A→C with
+        //    the pure derivation, dropping the observation.
+        arena.observe(inh(0, 3), NarsTruth::new(0.95, 0.9), Stamp::source(3));
+        arena.observe(inh(3, 2), NarsTruth::new(0.95, 0.9), Stamp::source(4));
+        arena.close_transitive(64);
+        let after = arena.get(inh(0, 2)).unwrap().truth;
+        assert_eq!(
+            (after.frequency, after.confidence),
+            (observed.frequency, observed.confidence),
+            "closure must not overwrite an observation-grounded belief with a pure derivation"
+        );
+        // It did NOT become the pure strong derivation (f = 0.95²) — observation survived.
+        assert!(
+            (after.frequency - 0.95 * 0.95).abs() > 1e-2,
+            "observed evidence survived, not replaced by the strong derivation"
         );
     }
 }
