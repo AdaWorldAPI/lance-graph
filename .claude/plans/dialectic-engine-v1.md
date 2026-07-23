@@ -223,5 +223,32 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > Morton-tiled — the ceiling raises CAPACITY, never licenses brute enumeration.
   > Morton width still fits: 4M axis = u22 → u44 code (u64). The lab result is a
   > falsifier; the Morton-tile top-k is the production optimization that follows.
+  > **★ V4 field-search architecture — FOVEATED HHTL TRIE, addressing-first
+  > (operator, 2026-07-23; full ruling `E-FOVEATED-HHTL-TRIE-FIELD-SEARCH-1`).**
+  > Field search is the total-function FLOOR (the 4M/2GB ceiling makes nothing
+  > structurally impossible), NOT the default substrate. The real mechanism is an
+  > **addressing-first ergonomics ladder** = the `elevation/` L0→L5 doctrine
+  > applied to scale: (1) morton-comma prefix descent (O(depth), no search) →
+  > (2) `temporal.rs` sorted-stream read → (3) S5 throttle / horizon cap →
+  > (4) FLOOR: Morton-tile field search (always possible, rarely reached).
+  > Pruning = **foveated morton-comma**: eccentricity-dependent LoD (fine at the
+  > query fovea, coarse/killed in the periphery) — irrelevant candidates collapse
+  > into coarse buckets, never enumerated. **Materialization only on the hot
+  > path**; the periphery stays cheap **HHTL-trie traversal** (never materialized)
+  > = Kuzu **factorized processing** (the planner already has `adjacency/`
+  > Kuzu-style CSR + `MorselExec`). Composite = blasgraph `PremultipliedOver`
+  > semiring `mxv` (transmittance scan = the structural, non-learned "LSTM").
+  > **Build order (addressing-first):**
+  > - **Rung 1 = `PROBE-CODEBOOK-44`** (candidate (c)'s foundation, highest
+  >   leverage): build the bgz17 palette256 as a genuine **4⁴ hierarchy** (it is
+  >   FLAT k-means today, `palette.rs:120`) + prove `nibble-prefix ==
+  >   centroid-ancestry` + fidelity ρ vs flat (OGAR `D-TILE256`/`F11` anchors
+  >   0.9973/0.965). A true 4⁴ codebook turns a 2M "search" into a 4-level prefix
+  >   DESCENT — the ergonomic that makes field search unnecessary for the common
+  >   case. Consult `encoding-ecosystem.md` + `palette-engineer`/`family-codec-smith`
+  >   before writing (codec canon).
+  > - Rung 2 = foveated morton-comma trie descent (eccentricity → LoD).
+  > - Rung 3 = the floor: `PremultipliedOver` blasgraph `mxv` composite;
+  >   `TD-CLOSE-TRANSITIVE-HORIZON-CAP` is its degenerate rung-horizon case.
 - **V5:** reach-out integration (spider/arXiv → §3.6 felt criterion) + the
   qualia ablation falsifier (S12).
