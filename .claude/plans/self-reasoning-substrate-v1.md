@@ -437,6 +437,115 @@ where MUL already expects a self-measurement signal. No new tenant, no layout bu
 - **KILL:** the self-report's ranking is uncorrelated with (or inverted from) the
   held-out measurement. The graph does not know where it is uncertain.
 
+#### G-SRS3-1 — PRE-RUN REGISTRATION (2026-07-23, before any code)
+
+> Registered as the FIRST commit of D-SRS-3, before `basin.rs` or the example
+> compiles. Never edited post-hoc; the registration commit predates the
+> measurement commit in git history — that ordering is the anti-tuning proof
+> (§2 discipline). Divergences are recorded as append-only corrections below,
+> never by editing this block.
+
+- **Basin definition (structural, NOT routing).** A basin = one **subject's
+  outgoing-object neighborhood** over the whole-book KG: basin `s` = the multiset
+  of object words `{o : (s, p, o) ∈ base}` across all predicates. This is the
+  deepnsm-v2 realization of the le-contract L1–L3 `part_of:is_a` episodic rail
+  (a subject anchors a neighborhood). It is explicitly **NOT** the vocab routing
+  basin-byte — routing is measured ORTHOGONAL to meaning (ρ≈−0.07 vs Jina,
+  `lib.rs`), so grouping by it would give meaning-incoherent basins and a
+  degenerate gate.
+- **Member codes = the TRAINED Cam96 codes** (`data/cam96_codes.bin`, real
+  Jina-v3 embeddings) of the basin's object words. Never demo codes.
+- **Basin self-code (Layer 5).** Reconstruct each member code to its
+  concatenated-centroid point (`Cam96Space::reconstruct`), average the points →
+  the centroid point, re-encode → the basin's Cam96 self-code. O(n) per basin.
+- **Width (distribution spread).** Mean squared-L2 of member points to the
+  centroid point. This is the "where am I uncertain" instrument: a diffuse
+  neighborhood (objects semantically scattered) = wide = uncertain.
+- **HELD-OUT protocol (never in-sample).** Deterministically split each basin's
+  members by index parity into disjoint halves A (even) and B (odd). Compute
+  `width_A` from A's own centroid and `width_B` from B's own — the two halves
+  never see each other. Consider only basins with **≥ 6 members** (so each half
+  has ≥ 3). Rank-correlate `width_A` against `width_B` across those basins by
+  **Spearman ρ** (average-rank ties).
+- **PASS gate:** ρ **≥ 0.35** (a basin the graph reports wide on half its
+  evidence is wide on the other half — the self-report is reliable out-of-sample).
+- **KILL:** ρ **≤ 0** (uncorrelated or inverted — the graph does not know where
+  it is uncertain; report as falsified, do not soften).
+- **Soft-fail band `0 < ρ < 0.35`:** recorded honestly as "below the registered
+  floor" — NOT tuned to pass, NOT relabelled a KILL. The registration stands.
+- **Advantage framing.** Cite the DISTRIBUTION's edge as **ALGEBRAIC**
+  (independently-addressable rails, exact additive-decomposition distance),
+  per `E-CAM96-REVIEW-CORRECTIONS-1` — not raw fidelity.
+- **MUL consumption (in-scope, no layout bump).** Each basin's width maps to a
+  competence ∈ [0,1] (`competence = 1 − width/max_width`) and its complement
+  `curiosity = 1 − competence` — the exact value `mul::compass CompassNeedles`
+  expects as a self-measurement. A derived READ, not a new tenant (§3).
+- **Contradiction density (secondary, REPORTED not gated).** Fraction of a
+  subject's `(s,p)` slots carrying > 1 distinct object — an available structural
+  ambiguity signal, reported alongside width. Gated instrument is width (it has
+  the clean held-out falsifier with the loaded codes).
+
+#### G-SRS3-1 RESULT + CONFOUND (2026-07-23, append-only correction — do NOT edit the registration above)
+
+- **Raw registered gate PASSES but is CONFOUNDED.** On the whole KJV (285 basins
+  ≥ 6 members) the registered split-half Spearman ρ = **0.583 ≥ 0.35**. But an
+  adversarial **label-shuffle null control** (added post-registration as
+  verification, NOT part of the registration): destroy the basin↔code binding
+  (globally shuffle which codes fall in which basin, PRESERVING each basin's
+  size) and re-run the SAME gate → null ρ = **0.591 ≈ 0.583** (separation
+  −0.008). The split-half reliability is therefore a **member-count artifact**,
+  not a semantic signal: the plug-in-centroid width estimator is n-biased
+  (`E[width] ≈ σ²(1 − 1/n)`), the two halves of one basin share n, so width_A
+  and width_B co-vary across basins regardless of which codes they hold.
+- **Honest verdict on G-SRS3-1:** the registered gate is INSUFFICIENT to
+  establish the claim. The raw pass is not withdrawn (the registration stands,
+  git-ordered), but it is explicitly marked confounded and does NOT support "the
+  graph knows where it is uncertain." The real test is G-SRS3-2 below.
+
+#### G-SRS3-2 — PRE-RUN REGISTRATION (2026-07-23, before the constant-n code)
+
+> The confound above is a member-count artifact. It is removed by FIXING the
+> per-half sample size so n cannot vary across basins, and the gate is on
+> **separation from the shuffled null**, not raw ρ. Registered before the
+> constant-n function is written; run result recorded as an append-only line.
+
+- **Instrument.** `K = 5` per half. For each basin with ≥ `2K = 10` members,
+  take the first `2K` member codes, split by index parity into A (even) and
+  B (odd) — each EXACTLY `K`. `width_A`/`width_B` about their own centroids.
+  Spearman ρ across all such basins between `width_A` and `width_B`.
+- **Null control (same shuffle as G-SRS3-1's).** Destroy the basin↔code binding
+  (SplitMix64 Fisher-Yates over the global code pool, basin sizes preserved),
+  re-run the constant-n gate → `null_ρ`. With n fixed, every null basin is an
+  equal-size random sample of the global pool, so `null_ρ` reflects only
+  sampling noise (no n-artifact left to inflate it).
+- **PASS:** real ρ ≥ **0.30** AND (real ρ − null ρ) ≥ **0.20** — a semantic
+  width signal that survives n-fixing AND separates from the label-shuffle null.
+- **KILL:** (real ρ − null ρ) ≤ **0.05** — the width self-report carries no
+  semantic content beyond the member-count artifact; the graph does NOT know
+  where it is uncertain. Report as falsified; do not soften.
+- **Soft band** `0.05 < separation < 0.20`: recorded honestly as "weak/
+  inconclusive separation", neither a claimed PASS nor a KILL.
+
+#### G-SRS3-2 RESULT (2026-07-23, append-only — whole KJV, k=5)
+
+- **Constant-n:** 221 basins (≥ 10 members), real ρ = **0.054**, null ρ = 0.003,
+  **separation = 0.051** — the SOFT band, one-thousandth above the 0.05 KILL
+  line. Not a formal KILL, but at the noise floor.
+- **Bessel full-power diagnostic (exploratory, all members, ×m/(m−1) bias
+  removal):** real ρ = **0.002**, null ρ = 0.062, separation = −0.059 — confirms
+  the near-zero constant-n result is NOT underpowered: with full statistical
+  power the semantic self-signal is ≈ 0.
+- **VERDICT — D-SRS-3 conjecture NOT CONFIRMED (honest negative).** The confident
+  raw split-half ρ = 0.583 (G-SRS3-1) was ENTIRELY a member-count artifact,
+  exposed by the label-shuffle null (null ρ ≈ 0.56 matched real). Once n is fixed
+  or bias-corrected, Cam96 code-spread does not tell the graph where it is
+  uncertain. **What ships as real:** the basin self-code machinery (`basin.rs`),
+  the split-half + constant-n + Bessel held-out instruments, and the
+  null-control methodology — a falsifier that FIRED. The MUL competence/curiosity
+  wire exists and is correct, but SHOULD NOT be fed the width self-report as a
+  competence signal on this evidence (the signal is noise). Not softened, not
+  tuned; the registration predates every measurement in git history.
+
 ### D-SRS-4 — The self-reference falsifier
 
 **The graph answers a question about its OWN earlier derivation, correctly.**

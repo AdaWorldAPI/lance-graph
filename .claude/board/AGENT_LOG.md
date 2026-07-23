@@ -1,3 +1,14 @@
+## 2026-07-23 — D-SRS-3 SHIPPED as a FALSIFIER-THAT-FIRED: basin self-codes + "where am I uncertain" self-report — conjecture NOT confirmed — main thread, sole board writer
+
+- **Task:** operator goal "autoattended autonomous … following your curiosity" → D-SRS-3, the per-basin self-measurement that curiosity_mul (D-SCI-4a) would consume. Closed the self-exploration loop honestly.
+- **Discipline (git-ordered, anti-tuning):** G-SRS3-1 registered BEFORE code (`a41286c`) → basin.rs + example → raw run PASSED ρ=0.583 → adversarial NULL CONTROL refuted it (null ρ≈0.56) → G-SRS3-2 constant-n+Bessel registered BEFORE its code (`d9a9ac3`) → run → this adjudication. Every registration predates its measurement.
+- **Built (`crates/deepnsm-v2/src/basin.rs`, 0-dep, consumes the trained Cam96 codebook):** `basin_self_code` (centroid self-code + width + contradiction density), `Cam96Space::reconstruct` (the decode side), `heldout_split_gate` (G-SRS3-1), `heldout_constant_n_gate` (G-SRS3-2), `heldout_bessel_gate` (exploratory power-check), `BasinCode::{competence,curiosity}` (the MUL `CompassNeedles` shape). Basin = subject outgoing-object neighborhood (le-contract L1–L3 rail, NOT routing basin-byte).
+- **Result (real 31,327-triple KJV KG, trained Jina-v3 codes):** G-SRS3-1 raw ρ=0.583 (285 basins) — but label-shuffle null ρ≈0.56 ⇒ a MEMBER-COUNT ARTIFACT (plug-in width n-biased). G-SRS3-2 constant-n k=5: real ρ=0.054, sep 0.051 (noise floor). Bessel full-power: real ρ=0.002. **VERDICT: the graph does NOT reliably know where it is uncertain from Cam96 code-spread alone — conjecture not confirmed, not softened.**
+- **Tests:** 72/72 (`basin::tests` ×8 incl. constant-n structural guarantees + no-NaN; reconstruct round-trip) + `clippy -D warnings` clean.
+- **Adversarial verify:** I ran the decisive refutation myself (the size-preserving label-shuffle null + the Bessel full-power diagnostic) — the null collapsed the apparent signal, the Bessel confirmed it's not underpowered.
+- **Consequences banked (`E-BASIN-WIDTH-IS-N-ARTIFACT-1`):** (1) do NOT feed the basin-width self-report into the MUL competence signal — it's noise; a real self-uncertainty instrument needs contradiction-count / NARS revision-velocity / embedding-grounded spread. (2) the label-shuffle null is MANDATORY for any held-out "the-graph-knows-itself" claim.
+- **Next:** D-SRS-4 (self-reference falsifier) or D-SCI-1 (term/entity extraction — turns the E-ACADEMIC-VOCAB-COLORBLIND-1 finding positive).
+
 ## 2026-07-23 — D-SCI-4a SHIPPED: curiosity_mul + qualia texture gestalt (the MUL exploration-gateway wire) — main thread, sole board writer
 
 - **Task:** operator goal "autoattended autonomous … following your curiosity" + steer "wire qualia as a texture gestalt awareness." Built the one wire `E-MUL-EXPLORATION-GATEWAY-1` named.

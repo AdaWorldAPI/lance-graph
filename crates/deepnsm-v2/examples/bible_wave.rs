@@ -437,8 +437,178 @@ fn main() {
         cg.passes
     );
 
+    // ── D-SRS-3 — basin self-codes + the "where am I uncertain" self-report ──
+    // The graph measures, from its OWN trained meaning codes, which subject
+    // neighborhoods are diffuse — and is checked HELD-OUT (index-parity split-
+    // half). Gate G-SRS3-1 (pre-registered before this code): Spearman ρ across
+    // basins between the even-half width and the odd-half width; PASS ρ ≥ 0.35,
+    // KILL ρ ≤ 0. Basin = a subject's outgoing-object neighborhood (the L1–L3
+    // part_of:is_a rail), NEVER the routing basin-byte (routing ⟂ meaning).
+    use std::collections::HashMap as Map;
+    // Group base edges by subject → (predicate, object) pairs, then map objects
+    // to their trained Cam96 codes (skip objects with no code — OOV can't happen
+    // here since every id came from the coded vocab, but guard anyway).
+    let mut edges_by_s: Map<u16, Vec<(u16, u16)>> = Map::new();
+    for &t in &base {
+        edges_by_s
+            .entry(t.subject)
+            .or_default()
+            .push((t.predicate, t.object));
+    }
+    // Re-read the tiny (150 KB) codes artifact — codes[id] aligns with vocab id.
+    let all_codes = load_cam96_codes(&data_file("cam96_codes.bin")).expect("codes artifact");
+    let groups: Vec<(u16, Vec<deepnsm_v2::Cam96>)> = edges_by_s
+        .iter()
+        .map(|(&s, edges)| {
+            let members: Vec<deepnsm_v2::Cam96> = edges
+                .iter()
+                .filter_map(|&(_p, o)| all_codes.get(o as usize).copied())
+                .collect();
+            (s, members)
+        })
+        .collect();
+
+    // The full self-report: rank basins by width (widest = least certain).
+    let space = &nsm.space;
+    let mut report: Vec<deepnsm_v2::BasinCode> = groups
+        .iter()
+        .filter_map(|(s, members)| {
+            let edges = edges_by_s.get(s).map(Vec::as_slice).unwrap_or(&[]);
+            deepnsm_v2::basin_self_code(space, *s, members, edges)
+        })
+        .collect();
+    let max_width = report.iter().map(|b| b.width).fold(0.0f32, f32::max);
+    report.sort_by(|a, b| {
+        b.width
+            .partial_cmp(&a.width)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     println!(
-        "\nALL GATES GREEN — the whole book is resident, literally read, with real meaning codes, \
-         reasoning about its own derivations, and routing its own representations by shape."
+        "D-SRS-3 self-report: {} basins (subjects with ≥1 coded object). Most UNCERTAIN (widest) basins:",
+        report.len()
     );
+    for b in report.iter().filter(|b| b.members >= 6).take(5) {
+        println!(
+            "    '{}' — {} objects, width={:.1}, contradiction={:.2}, curiosity={:.2}",
+            nsm.vocab.word(b.subject).unwrap_or("?"),
+            b.members,
+            b.width,
+            b.contradiction,
+            b.curiosity(max_width),
+        );
+    }
+    for b in report.iter().rev().filter(|b| b.members >= 6).take(3) {
+        println!(
+            "    (most CERTAIN) '{}' — {} objects, width={:.1}, curiosity={:.2}",
+            nsm.vocab.word(b.subject).unwrap_or("?"),
+            b.members,
+            b.width,
+            b.curiosity(max_width),
+        );
+    }
+
+    // A size-preserving label-shuffle null: destroy the basin↔code binding
+    // (globally shuffle which codes fall in which basin, PRESERVING each basin's
+    // size) via deterministic SplitMix64 Fisher-Yates (no rng/clock). Both gates
+    // below re-run against this null to separate SEMANTIC signal from artifact.
+    let null_groups = shuffle_null(&groups);
+
+    // G-SRS3-1 — the registered raw split-half gate (floor 0.35). It PASSES raw
+    // (ρ ≥ 0.35) but the null control reveals the pass is a member-count ARTIFACT:
+    // the plug-in-centroid width is n-biased (E[width]≈σ²(1−1/n)), both halves of
+    // one basin share n, so widths co-vary regardless of which codes they hold.
+    let g1 = deepnsm_v2::heldout_split_gate(space, &groups, 6, 0.35);
+    let g1_null = deepnsm_v2::heldout_split_gate(space, &null_groups, 6, 0.35);
+    println!(
+        "D-SRS-3 G-SRS3-1 (raw split-half): {} basins, real ρ={:.3} (floor 0.35), null ρ={:.3} — \
+         separation {:.3} ⇒ CONFOUNDED (raw pass is a member-count artifact, not semantic)",
+        g1.basins,
+        g1.rho,
+        g1_null.rho,
+        g1.rho - g1_null.rho
+    );
+
+    // G-SRS3-2 — the CONSTANT-n gate (registered pre-run): fix n=k per half so the
+    // n-artifact cannot inflate ρ, and gate on SEPARATION from the null.
+    const K: usize = 5;
+    let g2 = deepnsm_v2::heldout_constant_n_gate(space, &groups, K, 0.30);
+    let g2_null = deepnsm_v2::heldout_constant_n_gate(space, &null_groups, K, 0.30);
+    let sep = g2.rho - g2_null.rho;
+    println!(
+        "D-SRS-3 G-SRS3-2 (constant-n, k={K}): {} basins (≥{} members), real ρ={:.3}, null ρ={:.3} — separation {:.3}",
+        g2.basins, g2.min_members, g2.rho, g2_null.rho, sep
+    );
+    assert!(
+        sep > 0.05,
+        "KILL D-SRS-3 (G-SRS3-2): constant-n separation {sep:.3} ≤ 0.05 — the width self-report \
+         carries no semantic content beyond the member-count artifact; the graph does NOT know \
+         where it is uncertain"
+    );
+    if g2.rho >= 0.30 && sep >= 0.20 {
+        println!(
+            "D-SRS-3 PASS (G-SRS3-2)  the width self-report is SEMANTIC and reliable out-of-sample \
+             (constant-n real ρ {:.3} ≥ 0.30, separation {sep:.3} ≥ 0.20); the widths feed MUL as \
+             competence=1−width/max (algebraic advantage, E-CAM96-REVIEW-CORRECTIONS-1)",
+            g2.rho
+        );
+    } else {
+        // Soft band 0.05 < sep < 0.20: honest, neither claimed PASS nor KILL.
+        println!(
+            "D-SRS-3 WEAK (G-SRS3-2)  constant-n separation {sep:.3} is positive but below the \
+             registered 0.20 — a real but weak semantic self-signal; registration stands, no tuning"
+        );
+    }
+
+    // ── EXPLORATORY (not a registered gate): Bessel-corrected all-member gate ──
+    // Distinguishes "weak because underpowered" (constant-n k=5 discards evidence)
+    // from "weak because no signal". Uses ALL members with an analytic n-bias
+    // correction (×m/(m−1)); the null should still collapse to ≈0. Whatever it
+    // shows, the pre-registered verdict remains G-SRS3-2's above — this only
+    // diagnoses the WEAK result, it does not override it.
+    let gb = deepnsm_v2::heldout_bessel_gate(space, &groups, 6, 0.30);
+    let gb_null = deepnsm_v2::heldout_bessel_gate(space, &null_groups, 6, 0.30);
+    println!(
+        "D-SRS-3 EXPLORATORY (Bessel all-member): {} basins, real ρ={:.3}, null ρ={:.3} — separation {:.3} \
+         (diagnoses power, does NOT change the registered G-SRS3-2 verdict)",
+        gb.basins, gb.rho, gb_null.rho, gb.rho - gb_null.rho
+    );
+
+    println!(
+        "\nSTRUCTURAL GATES GREEN (G1–G4, D-SRS-1, D-SRS-2) — the whole book is resident, literally \
+         read, with real meaning codes, reasoning about its own derivations, and routing its own \
+         representations by shape.\nD-SRS-3 FALSIFIER RAN (null-controlled): the width self-report is \
+         a MEMBER-COUNT ARTIFACT — once n is fixed (constant-n) or bias-corrected (Bessel) the \
+         semantic separation collapses to ≈0. The graph does NOT reliably know where it is uncertain \
+         from Cam96 code-spread alone; the D-SRS-3 conjecture is NOT confirmed (an honest negative)."
+    );
+}
+
+/// Size-preserving label-shuffle null: pool every basin's member codes, shuffle
+/// the pool deterministically (SplitMix64 Fisher-Yates — no rng/clock), then
+/// re-chunk into basins of the ORIGINAL sizes. Destroys the basin↔code binding
+/// while holding member counts fixed — the control that separates a semantic
+/// width signal from a member-count artifact.
+fn shuffle_null(groups: &[(u16, Vec<deepnsm_v2::Cam96>)]) -> Vec<(u16, Vec<deepnsm_v2::Cam96>)> {
+    let mut pool: Vec<deepnsm_v2::Cam96> = groups.iter().flat_map(|(_, m)| m.clone()).collect();
+    let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+    let mut next = || {
+        seed = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = seed;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    };
+    for i in (1..pool.len()).rev() {
+        let j = (next() % (i as u64 + 1)) as usize;
+        pool.swap(i, j);
+    }
+    let mut off = 0usize;
+    groups
+        .iter()
+        .map(|(s, m)| {
+            let g = pool[off..off + m.len()].to_vec();
+            off += m.len();
+            (*s, g)
+        })
+        .collect()
 }
