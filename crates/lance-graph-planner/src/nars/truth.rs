@@ -97,6 +97,18 @@ impl TruthValue {
         let c = w / (w + 1.0);
         TruthValue::new(f, c)
     }
+
+    /// NARS Analogy: `{S↔S′ (this = the belief), sim} ⊢ S′-substituted`.
+    /// Given a belief truth (`self`) and a similarity truth (`sim`), the
+    /// sibling-substituted conclusion carries `f = f·f_sim`, `c = c·c_sim·f_sim`
+    /// (OpenNARS `analogy` = `and(c1, c2, f2)` on the confidence; the similarity
+    /// premise's frequency discounts both). Used by the divergence tactic (TR)
+    /// where the sibling comes from a `Sim` BELIEF, never a tree distance.
+    pub fn analogy(&self, sim: &TruthValue) -> TruthValue {
+        let f = self.frequency * sim.frequency;
+        let c = self.confidence * sim.confidence * sim.frequency;
+        TruthValue::new(f, c)
+    }
 }
 
 #[cfg(test)]

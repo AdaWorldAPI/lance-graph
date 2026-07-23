@@ -5,8 +5,15 @@
 //!
 //! Each inference type = a specific semiring for adjacent_truth_propagate().
 
+pub mod belief;
 pub mod inference;
+pub mod tactics;
 pub mod truth;
 
+pub use belief::{Belief, BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
 pub use inference::NarsInference;
+pub use tactics::{
+    asc_challenge, cas_abstract, challenge_target, cr_synthesize, rcr_abduce, tr_diverge,
+    AscOutcome, Candidate, Frontier, GapKind, ReasoningGap, Tactic, Throttle,
+};
 pub use truth::TruthValue;

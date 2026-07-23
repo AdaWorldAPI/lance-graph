@@ -155,6 +155,12 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > (never a local truth-function reimpl — that was the parked `tactics.rs`
   > mistake). Tactic LOGIC (copula-gated syllogism structure, S5 throttle,
   > `ReasoningGap`, parity tests) preserved in scratchpad `tactics-draft.rs`.
+  > **✓ SHIPPED 2026-07-23** (`E-DIALECTIC-V1-TACTICS-IN-PLANNER-1`):
+  > `lance-graph-planner/src/nars/{belief,tactics}.rs`. All five tactics over
+  > `TruthValue` (added `TruthValue::analogy` for TR — extend the one engine,
+  > never reimplement); S5 throttle + `ReasoningGap` first-class; pinned to
+  > `contract::recipe_dispatch` (RCR=4/TR=6/ASC=7/CAS=8/CR=11). 16 nars + 232
+  > planner tests green. V0 `deepnsm-v2/belief.rs` dedup owed (`TD-DEEPNSM-V2-BELIEF-DUP`).
 - **V2:** the loop — GraphBias→recipe LUT, byte-lane council, texture window,
   insight/mush (S10) + its null falsifier, kanban wiring.
 - **V3:** dissolution detection + field elevation (S11) — the cathedral floors;
