@@ -401,26 +401,46 @@ fn report(label: &str, text: &str) {
     // — CENTRE (ablation) — "the smallest set of relations whose removal makes
     //   the remaining statements mean something else" (the House text's own
     //   definition of the centre). For each salient concept, remove it, re-close,
-    //   and measure the FRACTION of derived conclusions that collapse. The
-    //   highest-impact concepts ARE the relational centre — the load-bearing
-    //   relations, not the most frequent words. This is the inverse of
-    //   reach_out_integrate (which measures what ADDING a bridge composes).
-    let base_derived = arena
-        .entries()
-        .iter()
-        .filter(|b| b.rung >= 1)
-        .count()
-        .max(1);
+    //   and measure how many conclusions OVER THE SURVIVING TERMS collapse. This
+    //   is the inverse of reach_out_integrate (which measures what ADDING a bridge
+    //   composes).
+    //
+    //   Crucially we compare the SURVIVING-term derivation SETS, not raw counts
+    //   (Codex #836 P2): a conclusion that merely mentions the removed term `c`
+    //   (e.g. losing `A→C` when ablating endpoint `A`) is not a change to the
+    //   remaining graph — only its trivial disappearance. Counting those biases
+    //   the centre toward frequent endpoints/hubs. So `lost(c)` = derived
+    //   statements NOT touching `c` that existed before but vanish after removal
+    //   (e.g. losing `A→C` when ablating the MIDDLE term `B` — a real collapse of
+    //   the surviving graph). Normalized by the surviving base derivations.
+    let base_survivor = |c: u16| -> Vec<CStmt> {
+        arena
+            .entries()
+            .iter()
+            .filter(|b| b.rung >= 1 && b.stmt.s != c && b.stmt.p != c)
+            .map(|b| b.stmt)
+            .collect()
+    };
     let mut impact: Vec<(u16, f32, usize)> = Vec::new();
     for (i, _) in ranked.iter().enumerate() {
         let c = i as u16; // interner ids are salience order 0..ranked.len()
         let ablated = close_from(&salient, WINDOW, Some(c));
-        let ablated_derived = ablated.entries().iter().filter(|b| b.rung >= 1).count();
-        let lost = base_derived.saturating_sub(ablated_derived);
-        impact.push((c, lost as f32 / base_derived as f32, lost));
+        let ablated_set: std::collections::HashSet<CStmt> = ablated
+            .entries()
+            .iter()
+            .filter(|b| b.rung >= 1)
+            .map(|b| b.stmt)
+            .collect();
+        let surviving = base_survivor(c); // base derivations not touching c
+        let base_n = surviving.len().max(1);
+        let lost = surviving
+            .iter()
+            .filter(|s| !ablated_set.contains(s))
+            .count();
+        impact.push((c, lost as f32 / base_n as f32, lost));
     }
     impact.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-    println!("  — CENTRE (ablation: fraction of conclusions lost on removal) —");
+    println!("  — CENTRE (ablation: fraction of SURVIVING-term conclusions lost) —");
     for (c, frac, lost) in impact.iter().take(6) {
         println!(
             "      {:>14}  collapse={:.3}  ({} conclusions)",
