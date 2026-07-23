@@ -546,6 +546,56 @@ where MUL already expects a self-measurement signal. No new tenant, no layout bu
   competence signal on this evidence (the signal is noise). Not softened, not
   tuned; the registration predates every measurement in git history.
 
+### D-SRS-3b — Evidence-composite basin uncertainty (operator-corrected instrument)
+
+**Operator ruling (2026-07-23, verbatim intent):** *"If you would have done MUL
+tenant right, MUL × rung ladder × rung tenant × NARS Truth × frequency would
+have information. The way you did it: bullshit in, bullshit out."* — D-SRS-3
+failed because the instrument was GEOMETRY (Cam96 code-spread) with zero
+evidence semantics. The corrected instrument composes the EVIDENCE-BEARING
+signals the substrate already carries — exactly the signals D-SRS-4 proved read
+faithfully (NARS frequency-confidence; rung stratification).
+
+#### G-SRS3b-1 — PRE-RUN REGISTRATION (2026-07-23, before `evidence.rs`)
+
+> Registered before the code compiles; never edited post-hoc; divergences append
+> below. The registration commit predates the measurement commit (anti-tuning).
+
+- **Instrument (per basin `s`, computed ONLY on the first half of the verse
+  stream `[0, V/2)`):** basin = subject's outgoing neighborhood (unchanged).
+  - *beliefs* = distinct `(p, o)` under `s`, each with occurrence count `n_i`.
+  - `u_conf = 1 − mean_i( n_i/(n_i+1) )` — **NARS Truth × frequency**:
+    singleton-heavy neighborhoods = thin evidence = uncertain.
+  - `u_contra` = contradiction density — share of predicates under `s` with > 1
+    distinct object (promoted from "reported" to a gated component).
+  - `u_rung` = derived share — fraction of `s`-subject triples in the
+    first-half `DerivationArena` (capped 50k, as D-SRS-1) at **rung ≥ 1**
+    (inferred rather than observed) — the **rung-ladder** component (aligned
+    with the V3 rung-content ladder: rungs 0–1 = observation; higher = derived).
+  - `U = (u_conf + u_contra + u_rung)/3` — equal weights, REGISTERED, never
+    tuned. MUL mapping: `competence = 1 − U`, `curiosity = U` (CompassNeedles).
+- **Ground truth (independent + FORWARD-predictive — the active-inference
+  reading: reported uncertainty must predict where surprise actually arrives):**
+  `novelty(s)` = fraction of `s`'s second-half `[V/2, V)` `(p,o)` occurrences
+  never seen under `s` in the first half. Computed by separate code from the
+  raw stream; the two halves share no evidence.
+- **Eligibility:** ≥ 4 distinct first-half beliefs AND ≥ 4 second-half
+  occurrences (both sides non-trivial).
+- **Null control (deterministic):** pool all first-half belief records
+  `(p, o, n)` across basins in sorted order, SplitMix64 Fisher-Yates shuffle,
+  redeal preserving each basin's DISTINCT-BELIEF COUNT — preserves the
+  n-artifact, destroys the evidence binding. `U_null` from redealt evidence;
+  novelty stays with the real basin.
+- **Baseline (REPORTED, not gated):** ρ(first-half total occurrences, novelty)
+  — the frequency-only activity predictor, to show what the composite adds
+  beyond raw activity.
+- **PASS:** Spearman ρ(U, novelty) ≥ **0.25** AND (real ρ − null ρ) ≥ **0.15**.
+- **KILL:** (real ρ − null ρ) ≤ **0.05** — the evidence composite also carries
+  no signal beyond structure-free chance; report as falsified.
+- **Soft band** between: honest report, no tuning. The verdict is REPORTED,
+  never panicked (D-SRS-3 lesson: a scientific falsifier reports; regression
+  gates assert).
+
 ### D-SRS-4 — The self-reference falsifier
 
 **The graph answers a question about its OWN earlier derivation, correctly.**
