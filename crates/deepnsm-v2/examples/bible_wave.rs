@@ -85,7 +85,14 @@ fn archaic_pos(w: &str) -> Option<Pos> {
 fn main() {
     let path = std::env::args()
         .nth(1)
-        .expect("usage: bible_wave <pg10.txt>");
+        .expect("usage: bible_wave <pg10.txt> [--export <spo.tsv>]");
+    // The inbound leg can EMIT its whole-book SPO/belief stream for the
+    // lance-graph reasoning layer to consume (the SoC seam, `E-DEEPNSM-V2-IS-
+    // INBOUND-LEG-REASONING-LIVES-IN-LANCE-GRAPH-1`): the planner example
+    // `reason_whole_book` reads this TSV into a `BeliefArena` and reasons.
+    let export = std::env::args()
+        .position(|a| a == "--export")
+        .and_then(|i| std::env::args().nth(i + 1));
     let raw = std::fs::read_to_string(&path).expect("read KJV text");
 
     // ── verses: a whitespace token shaped d+:d+ starts a new verse ──
@@ -183,6 +190,28 @@ fn main() {
             stream.push(vi as u64, t);
             all.push((vi as u64, t));
         }
+    }
+
+    // ── SoC seam: emit the whole-book belief stream for the reasoning layer ──
+    if let Some(out) = &export {
+        use std::io::Write;
+        let mut f = std::io::BufWriter::new(std::fs::File::create(out).expect("create export"));
+        for &(v, t) in &all {
+            writeln!(
+                f,
+                "{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                t.subject,
+                nsm.vocab.word(t.subject).unwrap_or("?"),
+                t.predicate,
+                nsm.vocab.word(t.predicate).unwrap_or("?"),
+                t.object,
+                nsm.vocab.word(t.object).unwrap_or("?"),
+                v,
+            )
+            .expect("write export");
+        }
+        println!("EXPORT  {} triples -> {}", all.len(), out);
+        return;
     }
 
     // G3 — non-trivial KG.

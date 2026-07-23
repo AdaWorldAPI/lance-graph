@@ -329,71 +329,120 @@ pub fn tr_diverge(arena: &BeliefArena, focus: CStmt) -> Frontier {
     out
 }
 
+/// Index the `is_a` beliefs by subject: `subject → [(arena idx, predicate)]`.
+/// The abstraction tactic reads this instead of re-scanning the whole arena per
+/// parent (the whole-book run showed the naive O(parents × entries) scan is both
+/// slow and unbounded).
+#[must_use]
+fn inh_by_subject(arena: &BeliefArena) -> HashMap<u16, Vec<(u32, u16)>> {
+    let mut m: HashMap<u16, Vec<(u32, u16)>> = HashMap::new();
+    for (i, b) in arena.entries().iter().enumerate() {
+        if b.stmt.cop == Copula::Inh {
+            m.entry(b.stmt.s).or_default().push((i as u32, b.stmt.p));
+        }
+    }
+    m
+}
+
 /// **CAS — abstraction** (recipe #8). Tree-guided over the focus subject's
 /// `is_a` parents `G` (`S→G` beliefs):
 /// - **up = induction** `{S→P, S→G} ⊢ G→P` (weak);
 /// - **down = deduction** `{G→P, S→G} ⊢ S→P` (strong).
 ///
+/// Throttled by the SAME S5 levers RCR uses (the whole-book KJV run showed the
+/// unthrottled form minted ~2M candidates from 10 high-degree subjects): a
+/// parent `G` that is a hub (`is_a` in-degree > `throttle.hub_indegree`) is
+/// barred (its `down` fan-out explodes), candidates below `c_min` are dropped,
+/// and the per-thought `budget` caps the frontier (emitting `BudgetExhausted`).
 /// No parent → [`GapKind::NoAbstraction`].
 #[must_use]
-pub fn cas_abstract(arena: &BeliefArena, focus_subject: u16) -> Frontier {
+pub fn cas_abstract(arena: &BeliefArena, focus_subject: u16, throttle: &Throttle) -> Frontier {
     let mut out = Frontier::default();
+    let deg = inh_predicate_indegree(arena);
+    let by_subj = inh_by_subject(arena);
 
-    let parents: Vec<(u32, u16)> = arena
-        .entries()
-        .iter()
-        .enumerate()
-        .filter(|(_, b)| b.stmt.cop == Copula::Inh && b.stmt.s == focus_subject)
-        .map(|(i, b)| (i as u32, b.stmt.p))
-        .collect();
-
-    if parents.is_empty() {
+    // The focus subject's own `is_a` rows ARE both its properties (up premises)
+    // and its parents (the middle terms); absent → nothing to abstract over.
+    let Some(props) = by_subj.get(&focus_subject) else {
         out.gaps.push(ReasoningGap {
             kind: GapKind::NoAbstraction,
             subject: Some(focus_subject),
             predicate: None,
         });
         return out;
-    }
+    };
 
-    for &(sg_idx, g) in &parents {
+    'outer: for &(sg_idx, g) in props {
+        // Hub-exclude a parent G with too many inheritors — `down` through it
+        // mints one S→P per property of G, the combinatorial blow-up.
+        if deg.get(&g).copied().unwrap_or(0) > throttle.hub_indegree {
+            out.gaps.push(ReasoningGap {
+                kind: GapKind::HubExcluded,
+                subject: Some(focus_subject),
+                predicate: Some(g),
+            });
+            continue;
+        }
         let (t_sg, r_sg) = {
             let e = &arena.entries()[sg_idx as usize];
             (e.truth, e.rung)
         };
-        for (i, b) in arena.entries().iter().enumerate() {
-            if b.stmt.cop != Copula::Inh {
+        // up: {S→P, S→G} ⊢ G→P — induction (S→G first, S→P second → G inherits P).
+        for &(pi, p) in props {
+            if p == g {
                 continue;
             }
-            // up: {S→P, S→G} ⊢ G→P — induction. `TruthValue::induction` models
-            // `{A→B, A→C} ⊢ B→C` (f = f of the second premise). For the G→P
-            // conclusion the figure is A=S, B=G, C=P, so A→B = S→G (t_sg) is the
-            // FIRST premise and A→C = S→P (b) the second — the conclusion must
-            // inherit P's frequency, `t_sg.induction(&b.truth)`, not the reverse.
-            if b.stmt.s == focus_subject && b.stmt.p != g {
-                out.candidates.push(Candidate {
-                    stmt: CStmt {
-                        s: g,
-                        cop: Copula::Inh,
-                        p: b.stmt.p,
-                    },
-                    truth: t_sg.induction(&b.truth),
-                    premises: [sg_idx, i as u32],
-                    rung: b.rung.max(r_sg) + 1,
-                    tactic: Tactic::CasUp,
-                });
+            let truth = t_sg.induction(&arena.entries()[pi as usize].truth);
+            if truth.confidence < throttle.c_min {
+                continue;
             }
-            // down: {G→P, S→G} ⊢ S→P — deduction (G→P is M→P, S→G is S→M).
-            if b.stmt.s == g && b.stmt.p != focus_subject {
+            if out.candidates.len() >= throttle.budget {
+                out.gaps.push(ReasoningGap {
+                    kind: GapKind::BudgetExhausted,
+                    subject: Some(focus_subject),
+                    predicate: Some(g),
+                });
+                break 'outer;
+            }
+            out.candidates.push(Candidate {
+                stmt: CStmt {
+                    s: g,
+                    cop: Copula::Inh,
+                    p,
+                },
+                truth,
+                premises: [sg_idx, pi],
+                rung: arena.entries()[pi as usize].rung.max(r_sg) + 1,
+                tactic: Tactic::CasUp,
+            });
+        }
+        // down: {G→P, S→G} ⊢ S→P — deduction (G→P is M→P, S→G is S→M).
+        if let Some(gprops) = by_subj.get(&g) {
+            for &(gi, p) in gprops {
+                if p == focus_subject {
+                    continue;
+                }
+                let truth = arena.entries()[gi as usize].truth.deduction(&t_sg);
+                if truth.confidence < throttle.c_min {
+                    continue;
+                }
+                if out.candidates.len() >= throttle.budget {
+                    out.gaps.push(ReasoningGap {
+                        kind: GapKind::BudgetExhausted,
+                        subject: Some(focus_subject),
+                        predicate: Some(g),
+                    });
+                    break 'outer;
+                }
                 out.candidates.push(Candidate {
                     stmt: CStmt {
                         s: focus_subject,
                         cop: Copula::Inh,
-                        p: b.stmt.p,
+                        p,
                     },
-                    truth: b.truth.deduction(&t_sg),
-                    premises: [i as u32, sg_idx],
-                    rung: b.rung.max(r_sg) + 1,
+                    truth,
+                    premises: [gi, sg_idx],
+                    rung: arena.entries()[gi as usize].rung.max(r_sg) + 1,
                     tactic: Tactic::CasDown,
                 });
             }
@@ -599,7 +648,7 @@ mod tests {
         arena.observe(inh(1, 2), TruthValue::new(0.95, 0.9), Stamp::source(0)); // S→G
         arena.observe(inh(1, 3), TruthValue::new(0.9, 0.85), Stamp::source(1)); // S→P
         arena.observe(inh(2, 4), TruthValue::new(0.9, 0.85), Stamp::source(2)); // G→Q
-        let fr = cas_abstract(&arena, 1);
+        let fr = cas_abstract(&arena, 1, &Throttle::permissive());
         let up = fr
             .candidates
             .iter()
@@ -626,10 +675,53 @@ mod tests {
         let w_up = 0.95 * 0.9 * 0.85;
         assert!((up.truth.confidence - w_up / (w_up + 1.0)).abs() < 1e-6);
         assert_eq!(up.premises, [0, 1], "premises in S→G, S→P order");
-        assert!(cas_abstract(&arena, 7)
+        assert!(cas_abstract(&arena, 7, &Throttle::permissive())
             .gaps
             .iter()
             .any(|g| g.kind == GapKind::NoAbstraction));
+    }
+
+    /// The S5 throttle bounds CAS on a high-fan-out subject — the whole-book KJV
+    /// run showed the unthrottled form minted ~2M candidates from 10 subjects.
+    /// A subject with one parent and many properties floods `up`; the budget caps
+    /// it and reports `BudgetExhausted`.
+    #[test]
+    fn cas_budget_bounds_a_high_fanout_subject() {
+        let mut arena = BeliefArena::new();
+        arena.observe(inh(1, 2), TruthValue::new(0.95, 0.9), Stamp::source(0)); // S→G parent
+        for p in 10..40u16 {
+            // 30 properties of S → up mints ~30 G→P candidates uncapped.
+            arena.observe(
+                inh(1, p),
+                TruthValue::new(0.9, 0.85),
+                Stamp::source(p as u32),
+            );
+        }
+        let full = cas_abstract(&arena, 1, &Throttle::permissive());
+        assert!(
+            full.candidates.len() >= 30,
+            "unthrottled floods: {}",
+            full.candidates.len()
+        );
+        let capped = cas_abstract(&arena, 1, &Throttle::new(0.0, 8, usize::MAX));
+        assert_eq!(capped.candidates.len(), 8, "budget caps the frontier");
+        assert!(capped
+            .gaps
+            .iter()
+            .any(|g| g.kind == GapKind::BudgetExhausted));
+        // A hub parent (many inheritors) is barred from the down fan-out.
+        let mut hub = BeliefArena::new();
+        hub.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(0)); // S→G
+        for s in 10..30u16 {
+            hub.observe(
+                inh(s, 2),
+                TruthValue::new(0.9, 0.9),
+                Stamp::source(s as u32),
+            ); // many ?→G
+        }
+        hub.observe(inh(2, 99), TruthValue::new(0.9, 0.9), Stamp::source(99)); // G→P
+        let barred = cas_abstract(&hub, 1, &Throttle::new(0.0, usize::MAX, 4));
+        assert!(barred.gaps.iter().any(|g| g.kind == GapKind::HubExcluded));
     }
 
     /// ASC revises INDEPENDENT counter-evidence but BLOCKS self-refutation from
