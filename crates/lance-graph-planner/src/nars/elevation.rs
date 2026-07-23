@@ -27,7 +27,7 @@
 //! self` during pure computation; growth/construction steps are the sanctioned
 //! exception).
 
-use super::belief::{BeliefArena, CStmt, Copula, Stamp};
+use super::belief::{BeliefArena, CStmt, Copula};
 use super::truth::TruthValue;
 use std::collections::BTreeMap;
 
@@ -49,9 +49,14 @@ pub struct Elevation {
 /// child. Predicates below the threshold are left untouched (no false
 /// abstraction on noise — the honest guard). Returns what was minted.
 ///
-/// Idempotency: the grouping snapshot is taken BEFORE any minting, so a
-/// predicate that is itself a parent minted THIS sweep is never re-lifted
-/// (no runaway abstraction within one call).
+/// Across-sweep idempotence (codex #828 P2): the repeated dissolution→elevation
+/// loop STABILIZES — a cluster already homed under a minted parent is not
+/// re-lifted. Two mechanisms close the two re-lift paths: (a) abstraction edges
+/// are minted as DERIVED (`admit_derived`, rung 1), so the synthetic `s is_a g`
+/// edges never enter the rung-0 grouping scan; (b) a subject already routed to
+/// `m` through an intermediate (`has_intermediate_parent`) is excluded, so the
+/// original `m` cluster falls below `min_cluster` once its subjects are homed.
+/// Calling `elevate_field` again on a stabilized field mints nothing.
 #[must_use]
 pub fn elevate_field(arena: &mut BeliefArena, min_cluster: usize) -> Elevation {
     // 1. Fresh term id floor: one past the max term id in use anywhere.
@@ -85,10 +90,26 @@ pub fn elevate_field(arena: &mut BeliefArena, min_cluster: usize) -> Elevation {
     }
 
     // Collect the qualifying clusters into an OWNED Vec before touching the
-    // arena again — `arena.observe` below needs `&mut`, so no borrow from
+    // arena again — `arena.admit_derived` below needs `&mut`, so no borrow from
     // `arena.entries()` may still be live at that point.
+    //
+    // ACROSS-SWEEP IDEMPOTENCE (codex #828 P2): a subject already routed to `m`
+    // through a minted intermediate parent (`s is_a g`, `g is_a m`) is EXCLUDED
+    // — it has been abstracted already, so the repeated dissolution→elevation
+    // loop stabilizes instead of minting a duplicate layer each pass. Combined
+    // with minting the abstraction edges as DERIVED (below), both re-lift paths
+    // are closed: the original `m` cluster shrinks below `min_cluster` once its
+    // subjects are homed, and the synthetic `s is_a g` edges (rung ≥ 1) never
+    // enter this rung-0 scan at all.
     let clusters: Vec<(u16, Vec<u16>)> = groups
         .into_iter()
+        .map(|(m, subjects)| {
+            let unabstracted: Vec<u16> = subjects
+                .into_iter()
+                .filter(|&s| !has_intermediate_parent(arena, s, m))
+                .collect();
+            (m, unabstracted)
+        })
         .filter(|(_, subjects)| subjects.len() >= min_cluster)
         .collect();
 
@@ -96,7 +117,6 @@ pub fn elevate_field(arena: &mut BeliefArena, min_cluster: usize) -> Elevation {
     let mut minted_parents = Vec::new();
     let mut clusters_lifted = 0usize;
     let mut children_rehomed = 0usize;
-    let mut child_counter: u32 = 0;
 
     for (m, subjects) in clusters {
         if next_id > u32::from(u16::MAX) {
@@ -105,18 +125,15 @@ pub fn elevate_field(arena: &mut BeliefArena, min_cluster: usize) -> Elevation {
         let g = next_id as u16;
         next_id += 1;
 
-        arena.observe(
-            inh(g, m),
-            TruthValue::new(0.9, 0.9),
-            Stamp::source(50_000 + clusters_lifted as u32),
-        );
+        // Mint the abstraction edges as INDUCED (derived, rung 1), NOT observed:
+        // mass-induction produces derivations, not raw observations, and the
+        // derived rung keeps these synthetic edges out of the rung-0 grouping
+        // scan on subsequent sweeps (codex #828 P2 — the anti-runaway half).
+        // `admit_derived` inserts fresh statements with an empty stamp, so it
+        // never overwrites the ground observations it abstracts.
+        arena.admit_derived(inh(g, m), TruthValue::new(0.9, 0.9), &[], 1);
         for &s in &subjects {
-            arena.observe(
-                inh(s, g),
-                TruthValue::new(0.9, 0.9),
-                Stamp::source(51_000 + child_counter),
-            );
-            child_counter += 1;
+            arena.admit_derived(inh(s, g), TruthValue::new(0.9, 0.9), &[], 1);
         }
 
         minted_parents.push(g);
@@ -137,6 +154,22 @@ fn inh(s: u16, p: u16) -> CStmt {
         cop: Copula::Inh,
         p,
     }
+}
+
+/// Is subject `s` already routed to property `m` through an abstract
+/// intermediate parent `g` (`s is_a g` ∧ `g is_a m`, `g ∉ {s, m}`)? Such a
+/// subject has already been lifted and must not seed another abstraction layer
+/// under `m` on a later sweep (the across-sweep idempotence guard). O(parents
+/// of `s`) — acceptable at arena scale; a field-scale index is future work.
+#[must_use]
+fn has_intermediate_parent(arena: &BeliefArena, s: u16, m: u16) -> bool {
+    arena.entries().iter().any(|b| {
+        b.stmt.cop == Copula::Inh
+            && b.stmt.s == s
+            && b.stmt.p != m
+            && b.stmt.p != s
+            && arena.get(inh(b.stmt.p, m)).is_some()
+    })
 }
 
 #[cfg(test)]
@@ -255,5 +288,44 @@ mod tests {
 
         let e2 = elevate_field(&mut arena, 2);
         assert_eq!(e2.clusters_lifted, 1, "2 subjects >= min_cluster 2");
+    }
+
+    /// The repeated dissolution→elevation loop STABILIZES (codex #828 P2): once a
+    /// cluster has a minted abstract parent, a second sweep lifts NOTHING and
+    /// mints no new beliefs — no runaway hierarchy growth.
+    #[test]
+    fn elevate_stabilizes_across_repeated_calls() {
+        let mut arena = BeliefArena::new();
+        for s in 10u16..15 {
+            arena.observe(
+                inh(s, 100),
+                TruthValue::new(0.9, 0.9),
+                Stamp::source(s.into()),
+            );
+        }
+
+        let first = elevate_field(&mut arena, 3);
+        assert_eq!(first.clusters_lifted, 1, "first sweep lifts the cluster");
+        let beliefs_after_first = arena.entries().len();
+
+        // Second sweep on the now-stabilized field: the original `100` cluster's
+        // subjects are homed under the minted parent (excluded), and the
+        // synthetic `s is_a G` edges are derived (never in the rung-0 scan).
+        let second = elevate_field(&mut arena, 3);
+        assert_eq!(
+            second.clusters_lifted, 0,
+            "a stabilized cluster must not be re-lifted (no runaway abstraction)"
+        );
+        assert!(second.minted_parents.is_empty());
+        assert_eq!(
+            arena.entries().len(),
+            beliefs_after_first,
+            "the idempotent second sweep mints no new beliefs"
+        );
+
+        // A THIRD sweep is likewise a no-op — the fixed point holds.
+        let third = elevate_field(&mut arena, 3);
+        assert_eq!(third.clusters_lifted, 0);
+        assert_eq!(arena.entries().len(), beliefs_after_first);
     }
 }
