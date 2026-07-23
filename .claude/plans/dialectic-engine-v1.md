@@ -179,6 +179,20 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > exploration), `FlowState`/`mul`, `kanban` (contract + planner
   > style_strategy) before wiring. Reuse the one engine; probe-first on any
   > "detects insight" claim.
+  > **✅ V2-A SHIPPED (2026-07-23):** `nars/insight.rs` — `Snapshot`/
+  > `InsightMush`/`detect`/`flow_state`, reusing contract `GraphSignals` +
+  > `FlowState` (nothing invented). The MANDATORY null falsifier
+  > (`insight_beats_size_preserving_null`) did its job on the first build:
+  > it scored real=null=0 under the draft `clamp(Δcoh+Δwonder−Δent)` formula
+  > and forced a TWO-part correction (`E-S10-COHERENCE-CLOSURE-DENSITY-1`):
+  > (1) `coherence = closure density (derived/total)` — the `·mean_exp`
+  > multiplier inverted under NAL deduction attenuation (deep chains earn the
+  > lowest expectation); (2) `−Δentropy` REMOVED from insight (confidence-
+  > spread rises on every productive term-logic step — a VSA-codebook pole
+  > that does not transfer to term-logic); entropy's correct home is the mush
+  > `stall` term. Final: `insight = clamp(Δcoh+Δwonder,0,1)·[yield>θ]`. 3
+  > insight + 46 nars tests green, clippy clean. NOT yet wired to a whole-book
+  > step (V2-A→whole-book measurement is next). THEN V2-B below.
 - **V3:** dissolution detection + field elevation (S11) — the cathedral floors;
   Staunen↔Wisdom flow accounting; epiphany attractors (rate-normalized, S9).
 - **V4:** the 64k SIMT lowering — Boolean-reachability semiring + truth second
