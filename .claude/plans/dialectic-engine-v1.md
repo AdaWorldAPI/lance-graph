@@ -212,5 +212,16 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > which is exactly why V4 is the Morton lowering, not a wider brute sweep.
   > (Distinct from the GUID cascade's per-tier 64k = 256×256 centroid tile, which
   > is codebook cardinality / canon — untouched by column length.)
+  > **LAB ceiling = 4M rows / 2 GB (operator, 2026-07-23).** The three regimes:
+  > (1) **production** = 64k / 32 MB (L3-cache-resident, the hot canonical size);
+  > (2) **affordable growth** = 256k–512k / 128–256 MB (DRAM, still cheap);
+  > (3) **LAB PoC ceiling = 4M / 2 GB** (`4,194,304 × 512 B = 2 GiB` exactly) —
+  > the upper bound for an *exceptional* proof-of-concept, **correctness-first,
+  > optimize later** (the lab-vs-canonical posture applied to field size). A 4M
+  > field is fine to HOLD resident and prove a result over; it is NOT fine to
+  > brute-sweep (O(N²) = 1.6×10¹³ pairs), so even a lab PoC at 4M runs the sweep
+  > Morton-tiled — the ceiling raises CAPACITY, never licenses brute enumeration.
+  > Morton width still fits: 4M axis = u22 → u44 code (u64). The lab result is a
+  > falsifier; the Morton-tile top-k is the production optimization that follows.
 - **V5:** reach-out integration (spider/arXiv → §3.6 felt criterion) + the
   qualia ablation falsifier (S12).
