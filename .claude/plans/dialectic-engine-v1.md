@@ -179,9 +179,49 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > exploration), `FlowState`/`mul`, `kanban` (contract + planner
   > style_strategy) before wiring. Reuse the one engine; probe-first on any
   > "detects insight" claim.
+  > **✅ V2-A SHIPPED (2026-07-23):** `nars/insight.rs` — `Snapshot`/
+  > `InsightMush`/`detect`/`flow_state`, reusing contract `GraphSignals` +
+  > `FlowState` (nothing invented). The MANDATORY null falsifier
+  > (`insight_beats_size_preserving_null`) did its job on the first build:
+  > it scored real=null=0 under the draft `clamp(Δcoh+Δwonder−Δent)` formula
+  > and forced a TWO-part correction (`E-S10-COHERENCE-CLOSURE-DENSITY-1`):
+  > (1) `coherence = closure density (derived/total)` — the `·mean_exp`
+  > multiplier inverted under NAL deduction attenuation (deep chains earn the
+  > lowest expectation); (2) `−Δentropy` REMOVED from insight (confidence-
+  > spread rises on every productive term-logic step — a VSA-codebook pole
+  > that does not transfer to term-logic); entropy's correct home is the mush
+  > `stall` term. Final: `insight = clamp(Δcoh+Δwonder,0,1)·[yield>θ]`. 3
+  > insight + 46 nars tests green, clippy clean. NOT yet wired to a whole-book
+  > step (V2-A→whole-book measurement is next). THEN V2-B below.
 - **V3:** dissolution detection + field elevation (S11) — the cathedral floors;
   Staunen↔Wisdom flow accounting; epiphany attractors (rate-normalized, S9).
 - **V4:** the 64k SIMT lowering — Boolean-reachability semiring + truth second
   pass (S1), masks, sweeps — only after V0–V3 green at small scale.
+  > **Column size is a capacity knob, NOT a cache constant (operator, 2026-07-23).**
+  > The 64k column (64k×512 B = 32 MB) is a cache convenience (server-L3-resident
+  > working set), not an architectural constant — 256k/128 MB or 512k/256 MB are
+  > easily affordable. The knob to grow is column CAPACITY (rows in RAM); the
+  > INVARIANT knob is the Morton TILE (the swept, cache-resident unit). They
+  > DECOUPLE under Morton-tile top-k: you sweep one tile, never the whole column,
+  > so cache behavior is invariant to total column size. Morton width scales fine
+  > (64k axis = u16 → u32 code; 512k = u19 → u38, still u64). What growing the
+  > column DOES change: brute O(N²) pair enumeration goes 16×/64× worse
+  > (`close_transitive`'s book-scale 92k-derived / 12–17 s already shows the
+  > shape) — so a bigger column makes the Morton-tile top-k substrate MANDATORY,
+  > not optional. Column growth is affordable ONLY with the retrieval mechanism,
+  > which is exactly why V4 is the Morton lowering, not a wider brute sweep.
+  > (Distinct from the GUID cascade's per-tier 64k = 256×256 centroid tile, which
+  > is codebook cardinality / canon — untouched by column length.)
+  > **LAB ceiling = 4M rows / 2 GB (operator, 2026-07-23).** The three regimes:
+  > (1) **production** = 64k / 32 MB (L3-cache-resident, the hot canonical size);
+  > (2) **affordable growth** = 256k–512k / 128–256 MB (DRAM, still cheap);
+  > (3) **LAB PoC ceiling = 4M / 2 GB** (`4,194,304 × 512 B = 2 GiB` exactly) —
+  > the upper bound for an *exceptional* proof-of-concept, **correctness-first,
+  > optimize later** (the lab-vs-canonical posture applied to field size). A 4M
+  > field is fine to HOLD resident and prove a result over; it is NOT fine to
+  > brute-sweep (O(N²) = 1.6×10¹³ pairs), so even a lab PoC at 4M runs the sweep
+  > Morton-tiled — the ceiling raises CAPACITY, never licenses brute enumeration.
+  > Morton width still fits: 4M axis = u22 → u44 code (u64). The lab result is a
+  > falsifier; the Morton-tile top-k is the production optimization that follows.
 - **V5:** reach-out integration (spider/arXiv → §3.6 felt criterion) + the
   qualia ablation falsifier (S12).
