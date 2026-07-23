@@ -187,14 +187,19 @@ impl FrontierEdge {
         // Staunen = graph-wide surprise (entropy + contradiction). NOTE: this is
         // NOT the qualia `wonder = √(coherence·expansion)` (coherent-novelty) —
         // Staunen is surprise-wonder, carried by arousal/entropy/tension below.
-        let staunen = (0.5 * signals.truth_entropy + 0.5 * signals.contradiction_rate).clamp(0.0, 1.0);
+        let staunen =
+            (0.5 * signals.truth_entropy + 0.5 * signals.contradiction_rate).clamp(0.0, 1.0);
 
         // ── the qualia texture (the awareness) ──
         let mut texture: QualiaVector = QUALIA_ZERO;
         texture[0] = (0.5 * staunen + 0.5 * uncertainty).clamp(0.0, 1.0); // arousal (Staunen activation)
         texture[1] = valence_axis(assessment.dk_position); // valence: approach vs avoid
         texture[2] = signals.contradiction_rate.clamp(0.0, 1.0); // tension: contradiction
-        texture[4] = if assessment.complexity_mapped { 0.8 } else { 0.4 }; // clarity
+        texture[4] = if assessment.complexity_mapped {
+            0.8
+        } else {
+            0.4
+        }; // clarity
         texture[6] = uncertainty.clamp(0.0, 1.0); // depth of the unknown
         texture[7] = signals.revision_velocity.clamp(0.0, 1.0); // velocity
         texture[8] = (0.5 * uncertainty + 0.5 * signals.truth_entropy).clamp(0.0, 1.0); // entropy
@@ -1020,13 +1025,22 @@ mod tests {
         // expansion == novelty
         assert!((quiet.texture[15] - 1.0).abs() < 1e-6, "expansion=novelty");
         // tension == contradiction_rate
-        assert!((loud.texture[2] - 0.6).abs() < 1e-6, "tension=contradiction");
+        assert!(
+            (loud.texture[2] - 0.6).abs() < 1e-6,
+            "tension=contradiction"
+        );
         // entropy rises with truth_entropy
-        assert!(loud.texture[8] > quiet.texture[8], "entropy tracks truth_entropy");
+        assert!(
+            loud.texture[8] > quiet.texture[8],
+            "entropy tracks truth_entropy"
+        );
         // arousal (Staunen activation) rises with surprise
         assert!(loud.texture[0] > quiet.texture[0], "arousal tracks Staunen");
         // velocity tracks revision_velocity
-        assert!((loud.texture[7] - 0.5).abs() < 1e-6, "velocity tracks revision");
+        assert!(
+            (loud.texture[7] - 0.5).abs() < 1e-6,
+            "velocity tracks revision"
+        );
         // groundedness: Uncertain ground < Calibrated ground
         let g_unc = e
             .curiosity_gestalt(
@@ -1039,7 +1053,10 @@ mod tests {
                 &GraphSignals::default(),
             )
             .texture[14];
-        assert!(g_unc < quiet.texture[14], "groundedness tracks trust texture");
+        assert!(
+            g_unc < quiet.texture[14],
+            "groundedness tracks trust texture"
+        );
     }
 
     /// The recorded finding, guarded: the qualia `wonder = √(coherence·expansion)`

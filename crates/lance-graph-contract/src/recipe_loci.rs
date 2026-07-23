@@ -326,7 +326,10 @@ pub fn rung_level(id: u8) -> RungLevel {
 #[must_use]
 pub fn carried_awareness(w: &CausalWitnessFacet, up_to: u8) -> Vec<Locus> {
     let mut carried: Vec<Locus> = Vec::new();
-    for &id in loci_dispatch_order().iter().filter(|&&id| loci_rung(id) <= up_to) {
+    for &id in loci_dispatch_order()
+        .iter()
+        .filter(|&&id| loci_rung(id) <= up_to)
+    {
         for &l in required_loci(id) {
             if w.is_bound(l) && !carried.contains(&l) {
                 carried.push(l);
@@ -459,7 +462,10 @@ mod tests {
         // reads 5 loci — deepest because it reads apex dimensions, not by a table.
         let icr = steps.iter().find(|s| s.id == 31).unwrap();
         assert_eq!(icr.required, 5, "ICR reads Kausal+Contradiction+S/P/O");
-        assert_eq!(icr.rung, 6, "counterfactual apex = Kausal/Contradiction rung");
+        assert_eq!(
+            icr.rung, 6,
+            "counterfactual apex = Kausal/Contradiction rung"
+        );
         assert_eq!(icr.rung, steps.iter().map(|s| s.rung).max().unwrap());
     }
 
