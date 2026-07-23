@@ -231,7 +231,16 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > 3 tests: dissolving-step→elevates, crystallizing-step→no-op, loop bounded
   > across cycles (the V3-B idempotence is what makes a CLOSED loop safe). The
   > S11 dissolution→elevation floor is now a complete, closed, bounded, null-
-  > tested loop. Remaining V3: epiphany attractors (S9).
+  > tested loop.
+  > **✅ S9 epiphany attractors SHIPPED (2026-07-23):** `nars/epiphany.rs` —
+  > `rank_epiphany_attractors(&arena, min_attempts)` ranks subject-basins by
+  > epiphany DENSITY (`derived/total` closure rate), never raw count — the
+  > E-DOOMSCROLL "rank by rate, never count" discipline (S9, 3rd confirmation)
+  > so the field never collapses into its largest basin
+  > (`E-DIA-S9-EPIPHANY-ATTRACTOR-RATE-1`; falsifier: a small dense basin
+  > out-ranks a large sparse one on rate while count buries it — the orderings
+  > diverge). **V3 is now fully shipped** (V3-A detector + V3-B response + V3-C
+  > loop + S9 attractors).
   > **✅ V3-B (field-elevation RESPONSE) SHIPPED (2026-07-23):** `nars/elevation.rs`
   > — `elevate_field(&mut arena, min_cluster) -> Elevation`. The mass-induction
   > sweep: groups OBSERVED `is_a` subjects by shared predicate `M`, and for each
