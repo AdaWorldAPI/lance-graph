@@ -1,3 +1,11 @@
+## 2026-07-23 — D-DIA-V3-A dissolution detector (S11) — 1 Sonnet grindwork agent from an Opus spec, Opus-gated (sole board writer)
+
+- **Operator directive (re-issued):** "use sonnet agents for grindwork to save tokens." The design was fully worked out on the main thread (the dissolution formula, the `Δwisdom≤0` gate, the flood-vs-crystallizing null falsifier with exact fixtures), so the build was genuine grindwork → one `general-purpose·sonnet` agent (edit-only, no cargo, no worktree; tag file `exec-runs/dia-v3a-dissolution.txt`).
+- **Deliverable:** `nars/dissolution.rs` (`detect_dissolution`/`staunen`/`wisdom`/`flow`/`should_elevate` + `Dissolution`) — the S10 MIRROR on the same `insight::Snapshot`. `E-DIA-V3-A-DISSOLUTION-DETECTOR-1`.
+- **Reuse-not-reinvent:** `insight::Snapshot` (V2-A) is the sole signal carrier — no new signal type. Poles: `staunen = 0.5·entropy + 0.5·wonder`, `wisdom = coherence`. Dissolution gates on `Δwisdom ≤ 0` (coherence unable to form), the size-honest discriminator.
+- **Agent's one flagged judgment call (accepted):** added `BeliefArena` to the test-module import (the spec's helper needs it; additive, matches the spec's "and whatever the tests need").
+- **Orchestrator-verified (not self-report):** 4 dissolution tests incl. the mandatory `dissolution_beats_size_preserving_null` green; 248 planner-lib nars tests; `cargo fmt -p lance-graph-planner` + `cargo clippy -p lance-graph-planner --lib -- -D warnings` clean; `Cargo.lock` restored.
+
 ## 2026-07-23 — D-DIA-V2-B bias→tactic LUT (S8) — main-thread Opus build (small subtle module, no fleet)
 
 - **Deliverable:** `nars/tactic_select.rs` (`tactic_for_bias(GraphBias) -> TacticChoice`, the S8 second axis) + `examples/tactic_select_confusion.rs` (the falsifier). `E-DIA-V2-B-BIAS-TACTIC-LUT-1`.
