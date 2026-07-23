@@ -17,6 +17,9 @@
 //! Zero external LLM API. Cost: $0. Speed: limited by HTTP fetch.
 
 use crate::literal_graph::{LiteralEdge, LiteralGraph, LiteralNode};
+use crate::mul::{DkPosition, FlowState, MulAssessment, TrustTexture};
+use crate::qualia::{QualiaVector, ZERO as QUALIA_ZERO};
+use crate::sensorium::GraphSignals;
 
 /// Pearl 2³ query decomposition for a single edge.
 ///
@@ -151,6 +154,145 @@ impl FrontierEdge {
         let uncertainty = 1.0 - self.truth.confidence;
         novelty * uncertainty
     }
+
+    /// MUL-weighted curiosity — the exploration-gateway ranking key
+    /// (`D-SCI-4a`, `E-MUL-EXPLORATION-GATEWAY-1`). The scalar magnitude of
+    /// [`curiosity_gestalt`](Self::curiosity_gestalt).
+    ///
+    /// The graph's own uncertainty ([`GraphSignals`]) and self-assessment
+    /// ([`MulAssessment`]) weight the base [`curiosity`](Self::curiosity):
+    /// surprise (Staunen) pulls exploration up; over-confidence (MountStupid +
+    /// Overconfident) pulls it down (humility); unsafe ground dampens it (never
+    /// to zero). When MUL is neutral and the graph is quiet, this reduces EXACTLY
+    /// to [`curiosity`](Self::curiosity) — MUL earns its weight or is inert
+    /// (`G-CM-1`).
+    ///
+    /// Non-circular: reads only contract types; the substrate supplies
+    /// `GraphSignals`/`NarsTruth`, MUL/the planner consumes.
+    pub fn curiosity_mul(&self, assessment: &MulAssessment, signals: &GraphSignals) -> f32 {
+        self.curiosity_gestalt(assessment, signals).magnitude
+    }
+
+    /// The full exploration **texture gestalt** — qualia AS a felt awareness of
+    /// this edge's worth, not a bare number (operator steer: "wire qualia as a
+    /// texture gestalt awareness"). Returns the 17D [`QualiaVector`] felt-quality
+    /// plus the scalar `magnitude` (the frontier ranking key) projected from it.
+    pub fn curiosity_gestalt(
+        &self,
+        assessment: &MulAssessment,
+        signals: &GraphSignals,
+    ) -> TextureGestalt {
+        let novelty = 1.0 / (self.query_count as f32 + 1.0);
+        let uncertainty = 1.0 - self.truth.confidence;
+        // Staunen = graph-wide surprise (entropy + contradiction). NOTE: this is
+        // NOT the qualia `wonder = √(coherence·expansion)` (coherent-novelty) —
+        // Staunen is surprise-wonder, carried by arousal/entropy/tension below.
+        let staunen = (0.5 * signals.truth_entropy + 0.5 * signals.contradiction_rate).clamp(0.0, 1.0);
+
+        // ── the qualia texture (the awareness) ──
+        let mut texture: QualiaVector = QUALIA_ZERO;
+        texture[0] = (0.5 * staunen + 0.5 * uncertainty).clamp(0.0, 1.0); // arousal (Staunen activation)
+        texture[1] = valence_axis(assessment.dk_position); // valence: approach vs avoid
+        texture[2] = signals.contradiction_rate.clamp(0.0, 1.0); // tension: contradiction
+        texture[4] = if assessment.complexity_mapped { 0.8 } else { 0.4 }; // clarity
+        texture[6] = uncertainty.clamp(0.0, 1.0); // depth of the unknown
+        texture[7] = signals.revision_velocity.clamp(0.0, 1.0); // velocity
+        texture[8] = (0.5 * uncertainty + 0.5 * signals.truth_entropy).clamp(0.0, 1.0); // entropy
+        texture[9] = trust_coherence(assessment.trust.texture); // coherence: how solid
+        texture[14] = groundedness(assessment.trust.texture, assessment.dk_position); // groundedness
+        texture[15] = novelty.clamp(0.0, 1.0); // expansion: novelty drive
+
+        // ── project the magnitude from base curiosity × MUL × texture ──
+        let base = novelty * uncertainty; // == self.curiosity()
+        let fw = assessment.free_will_modifier as f32;
+        let dk = dk_factor(assessment.dk_position);
+        let flow = flow_factor(assessment.homeostasis.flow_state);
+        let trust = trust_factor(assessment.trust.texture);
+        let staunen_boost = 1.0 + staunen; // surprise pulls exploration
+        let ground_gate = 0.4 + 0.6 * texture[14]; // dampen on unsafe ground, floor 0.4 (never 0)
+        let magnitude = (base * fw * dk * flow * trust * staunen_boost * ground_gate).max(0.0);
+
+        TextureGestalt { texture, magnitude }
+    }
+}
+
+/// The exploration **texture gestalt**: qualia as a felt awareness of an edge's
+/// exploration-worth. The `texture` is the 17D felt-quality (the awareness); the
+/// `magnitude` is its scalar projection — the frontier ranking key.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextureGestalt {
+    /// The 17D qualia felt-texture of exploring this edge.
+    pub texture: QualiaVector,
+    /// The scalar exploration magnitude (frontier ranking key).
+    pub magnitude: f32,
+}
+
+/// Dunning-Kruger exploration weight: over-confident novices are discounted
+/// hard (the 0.3 humility factor); the slope-of-enlightenment is boosted.
+fn dk_factor(dk: DkPosition) -> f32 {
+    match dk {
+        DkPosition::MountStupid => 0.3,
+        DkPosition::ValleyOfDespair => 0.9,
+        DkPosition::SlopeOfEnlightenment => 1.15,
+        DkPosition::Plateau => 1.0,
+    }
+}
+
+/// Flow-state exploration weight: boredom (under-challenged) seeks novelty;
+/// anxiety (overwhelmed) explores less.
+fn flow_factor(flow: FlowState) -> f32 {
+    match flow {
+        FlowState::Flow => 1.0,
+        FlowState::Boredom => 1.2,
+        FlowState::Transition => 0.9,
+        FlowState::Anxiety => 0.5,
+    }
+}
+
+/// Trust-texture exploration weight: don't trust the urge to explore when
+/// over-confident; be slightly more curious when uncertain.
+fn trust_factor(t: TrustTexture) -> f32 {
+    match t {
+        TrustTexture::Calibrated => 1.0,
+        TrustTexture::Overconfident => 0.5,
+        TrustTexture::Uncertain => 1.1,
+        TrustTexture::Underconfident => 1.0,
+    }
+}
+
+/// Coherence qualia axis from trust texture (how solid/calibrated the ground).
+fn trust_coherence(t: TrustTexture) -> f32 {
+    match t {
+        TrustTexture::Calibrated => 0.9,
+        TrustTexture::Underconfident => 0.6,
+        TrustTexture::Overconfident => 0.5,
+        TrustTexture::Uncertain => 0.3,
+    }
+}
+
+/// Groundedness qualia axis: how SAFE it feels to explore here. Over-confident
+/// ground (MountStupid) is treacherous regardless of texture.
+fn groundedness(t: TrustTexture, dk: DkPosition) -> f32 {
+    if dk == DkPosition::MountStupid {
+        return 0.25;
+    }
+    match t {
+        TrustTexture::Calibrated => 1.0,
+        TrustTexture::Underconfident => 0.7,
+        TrustTexture::Uncertain => 0.4,
+        TrustTexture::Overconfident => 0.3,
+    }
+}
+
+/// Valence qualia axis: approach (high) vs avoid (low) an exploration target
+/// by Dunning-Kruger position.
+fn valence_axis(dk: DkPosition) -> f32 {
+    match dk {
+        DkPosition::MountStupid => 0.2, // avoid: over-confident trap
+        DkPosition::ValleyOfDespair => 0.5,
+        DkPosition::SlopeOfEnlightenment => 0.9, // approach: learning
+        DkPosition::Plateau => 0.7,
+    }
 }
 
 /// Result of processing one search result page.
@@ -243,6 +385,29 @@ impl MassExplorer {
         // Sort by curiosity descending
         self.frontier
             .sort_by(|a, b| b.curiosity().partial_cmp(&a.curiosity()).unwrap());
+        Some(self.frontier[0].clone())
+    }
+
+    /// Pick the next edge, steered by MUL — the exploration gateway
+    /// (`E-MUL-EXPLORATION-GATEWAY-1`). Ranks the frontier by
+    /// [`FrontierEdge::curiosity_mul`] (base curiosity weighted by the graph's
+    /// own uncertainty + self-assessment) instead of the MUL-blind
+    /// [`curiosity`](FrontierEdge::curiosity). When MUL is neutral and the graph
+    /// is quiet this returns the SAME edge as [`next_frontier_edge`](Self::next_frontier_edge)
+    /// (`G-CM-1`).
+    pub fn next_frontier_edge_mul(
+        &mut self,
+        assessment: &MulAssessment,
+        signals: &GraphSignals,
+    ) -> Option<FrontierEdge> {
+        if self.frontier.is_empty() || self.queries_executed >= self.budget {
+            return None;
+        }
+        self.frontier.sort_by(|a, b| {
+            b.curiosity_mul(assessment, signals)
+                .partial_cmp(&a.curiosity_mul(assessment, signals))
+                .unwrap()
+        });
         Some(self.frontier[0].clone())
     }
 
@@ -710,6 +875,188 @@ mod tests {
         assert!(
             stats.edges_discovered > 0,
             "should have discovered new edges"
+        );
+    }
+
+    // ── D-SCI-4a: curiosity_mul + qualia texture gestalt (G-CM-1..5) ──
+    use crate::mul::{Homeostasis, MulAssessment, TrustQualia};
+
+    fn edge(conf: f32, queries: u32) -> FrontierEdge {
+        FrontierEdge {
+            source: "a".into(),
+            target: "b".into(),
+            label: "rel".into(),
+            truth: NarsTruth::new(0.9, conf),
+            query_count: queries,
+            is_seed: true,
+        }
+    }
+
+    fn assess(
+        dk: DkPosition,
+        trust: TrustTexture,
+        flow: FlowState,
+        free_will: f64,
+    ) -> MulAssessment {
+        MulAssessment {
+            trust: TrustQualia {
+                value: 1.0,
+                texture: trust,
+            },
+            dk_position: dk,
+            homeostasis: Homeostasis {
+                flow_state: flow,
+                allostatic_load: 0.0,
+            },
+            complexity_mapped: true,
+            free_will_modifier: free_will,
+        }
+    }
+
+    fn neutral() -> MulAssessment {
+        assess(
+            DkPosition::Plateau,
+            TrustTexture::Calibrated,
+            FlowState::Flow,
+            1.0,
+        )
+    }
+
+    /// G-CM-1 — the anti-vacuity falsifier: with a neutral assessment and a quiet
+    /// graph, `curiosity_mul` reduces EXACTLY to `curiosity()`.
+    #[test]
+    fn g_cm_1_neutral_identity() {
+        let e = edge(0.3, 2);
+        let m = e.curiosity_mul(&neutral(), &GraphSignals::default());
+        assert!(
+            (m - e.curiosity()).abs() < 1e-6,
+            "neutral MUL must be inert: {m} vs {}",
+            e.curiosity()
+        );
+    }
+
+    /// G-CM-2 — Staunen boost: graph-wide surprise strictly raises curiosity.
+    #[test]
+    fn g_cm_2_staunen_boost() {
+        let e = edge(0.3, 2);
+        let surprised = GraphSignals {
+            truth_entropy: 0.8,
+            contradiction_rate: 0.4,
+            ..GraphSignals::default()
+        };
+        let m = e.curiosity_mul(&neutral(), &surprised);
+        assert!(
+            m > e.curiosity(),
+            "surprise must pull exploration up: {m} !> {}",
+            e.curiosity()
+        );
+    }
+
+    /// G-CM-3 — humility gate: MountStupid + Overconfident strictly lowers it.
+    #[test]
+    fn g_cm_3_humility_gate() {
+        let e = edge(0.3, 2);
+        let overconfident = assess(
+            DkPosition::MountStupid,
+            TrustTexture::Overconfident,
+            FlowState::Flow,
+            1.0,
+        );
+        let m = e.curiosity_mul(&overconfident, &GraphSignals::default());
+        assert!(
+            m < e.curiosity(),
+            "over-confidence must dampen exploration: {m} !< {}",
+            e.curiosity()
+        );
+    }
+
+    /// G-CM-4 — ground gate dampens but NEVER hits zero (reversibility, not
+    /// paralysis); softer ground ranks below firm ground.
+    #[test]
+    fn g_cm_4_ground_gate_never_zero() {
+        let e = edge(0.3, 2);
+        let worst = assess(
+            DkPosition::MountStupid,
+            TrustTexture::Overconfident,
+            FlowState::Anxiety,
+            0.5,
+        );
+        let m = e.curiosity_mul(&worst, &GraphSignals::default());
+        assert!(m > 0.0, "ground gate must never zero a positive edge: {m}");
+
+        let uncertain = e.curiosity_mul(
+            &assess(
+                DkPosition::Plateau,
+                TrustTexture::Uncertain,
+                FlowState::Flow,
+                1.0,
+            ),
+            &GraphSignals::default(),
+        );
+        let calibrated = e.curiosity_mul(&neutral(), &GraphSignals::default());
+        assert!(
+            uncertain < calibrated,
+            "softer ground must rank below firm ground: {uncertain} !< {calibrated}"
+        );
+    }
+
+    /// G-CM-5 — texture fidelity: the emitted qualia axes track their sources.
+    /// (Recorded finding: the qualia `wonder = √(coherence·expansion)` is
+    /// coherent-NOVELTY wonder, NOT Staunen; Staunen — surprise-wonder — is
+    /// carried by `arousal`/`entropy`/`tension`, which is what this asserts.)
+    #[test]
+    fn g_cm_5_texture_fidelity() {
+        let e = edge(0.2, 0); // uncertainty 0.8, novelty 1.0
+        let quiet = e.curiosity_gestalt(&neutral(), &GraphSignals::default());
+        let loud = e.curiosity_gestalt(
+            &neutral(),
+            &GraphSignals {
+                truth_entropy: 0.9,
+                contradiction_rate: 0.6,
+                revision_velocity: 0.5,
+                ..GraphSignals::default()
+            },
+        );
+        // expansion == novelty
+        assert!((quiet.texture[15] - 1.0).abs() < 1e-6, "expansion=novelty");
+        // tension == contradiction_rate
+        assert!((loud.texture[2] - 0.6).abs() < 1e-6, "tension=contradiction");
+        // entropy rises with truth_entropy
+        assert!(loud.texture[8] > quiet.texture[8], "entropy tracks truth_entropy");
+        // arousal (Staunen activation) rises with surprise
+        assert!(loud.texture[0] > quiet.texture[0], "arousal tracks Staunen");
+        // velocity tracks revision_velocity
+        assert!((loud.texture[7] - 0.5).abs() < 1e-6, "velocity tracks revision");
+        // groundedness: Uncertain ground < Calibrated ground
+        let g_unc = e
+            .curiosity_gestalt(
+                &assess(
+                    DkPosition::Plateau,
+                    TrustTexture::Uncertain,
+                    FlowState::Flow,
+                    1.0,
+                ),
+                &GraphSignals::default(),
+            )
+            .texture[14];
+        assert!(g_unc < quiet.texture[14], "groundedness tracks trust texture");
+    }
+
+    /// The MUL-steered pick matches the MUL-blind pick when MUL is neutral
+    /// (the frontier ordering is unchanged until MUL has something to say).
+    #[test]
+    fn next_frontier_edge_mul_matches_blind_when_neutral() {
+        use crate::literal_graph::LiteralGraph;
+        let mut ex = MassExplorer::from_graph(LiteralGraph::new(), 100);
+        ex.frontier = vec![edge(0.9, 5), edge(0.2, 0), edge(0.5, 1)];
+        let blind = ex.next_frontier_edge().unwrap();
+        let steered = ex
+            .next_frontier_edge_mul(&neutral(), &GraphSignals::default())
+            .unwrap();
+        assert_eq!(
+            (blind.source, blind.target, blind.query_count),
+            (steered.source, steered.target, steered.query_count),
+            "neutral MUL must not change the pick"
         );
     }
 }
