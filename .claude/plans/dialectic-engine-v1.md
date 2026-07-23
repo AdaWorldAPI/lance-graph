@@ -309,3 +309,15 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > - **✅ M26 SHIPPED** = `Belief⟷SpoFacet` lossless byte round-trip (`planner/nars/facet_fold.rs`) — the write path (reasoning → field), a Belief IS a reading of the awareness register.
 - **V5:** reach-out integration (spider/arXiv → §3.6 felt criterion) + the
   qualia ablation falsifier (S12).
+  > **✅ V5-A (reach-out felt criterion) SHIPPED (2026-07-23):** `nars/reach_out.rs`
+  > — `reach_out_integrate(&mut arena, bridge, truth, stamp, &cfg) -> FeltOutcome`.
+  > A fetched `bridge` belief is QUARANTINED (confidence capped at
+  > `cfg.quarantine_prior`, default 0.1 — the no-LLM external discount) and closed;
+  > `NewInsight{new_derivations, coherence_gain}` iff the bridge composed
+  > pre-existing beliefs into ≥1 new derivation (the §3.6 middle-term click,
+  > coherence rises) else `DullShadow`. `E-DIA-V5-A-FELT-INTEGRATION-1`: the felt
+  > criterion is ONE structural test read two ways (derivation ⇔ spark), per
+  > pillar 6 (no QualiaReader service). 4 tests: middle-term-click→insight,
+  > lone-concept→shadow, size-matched, quarantine-caps-confidence. **Remaining V5:**
+  > the S12 qualia-ablation FIELD-scale falsifier (doomscroll cycles, Staunen→Wisdom
+  > conversion — texture-gated vs texture-ablated field must measurably differ).

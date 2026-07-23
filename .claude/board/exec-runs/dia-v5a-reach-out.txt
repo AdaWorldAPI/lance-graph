@@ -1,0 +1,31 @@
+D-DIA-V5-A: felt integration criterion — dull shadow vs new insight (§3.6)
+
+Files touched:
+- crates/lance-graph-planner/src/nars/reach_out.rs (NEW)
+- crates/lance-graph-planner/src/nars/mod.rs (EDIT: added `pub mod reach_out;` +
+  `pub use reach_out::{reach_out_integrate, FeltOutcome, ReachOutConfig};`)
+
+Confirmed TruthValue import path by reading belief.rs (line 24:
+`use super::truth::TruthValue;`) — TruthValue lives in `truth.rs`, NOT
+re-exported from belief.rs itself. Used `use super::truth::TruthValue;` in
+reach_out.rs, matching the same pattern belief.rs uses.
+
+4 tests as specified, all present in reach_out.rs::tests:
+1. middle_term_click_is_new_insight — pre-existing A is_a M (rung 0),
+   disjoint-stamp bridge M is_a B composes → NewInsight, new_derivations>=1,
+   a.get(inh(1,2)).is_some(), coherence_gain > 0.0.
+2. lone_concept_is_dull_shadow — unconnected bridge inh(100,101) →
+   FeltOutcome::DullShadow exactly.
+3. shadow_and_insight_are_size_matched — both arenas ingest exactly ONE
+   bridge belief; insight_out matches NewInsight, shadow_out == DullShadow.
+4. quarantine_caps_confidence — offered truth (0.9, 0.95) with
+   quarantine_prior 0.1; stored bridge belief confidence <= 0.1 + 1e-6.
+
+Did NOT run cargo (build/check/test/clippy/fmt) per edit-only mandate. No
+worktree used. No board files touched besides this tag file.
+
+Spec ambiguity: none. Implemented reach_out_integrate/FeltOutcome/
+ReachOutConfig exactly as given in the spec, verbatim doc-comment content
+adapted to match repo doc-comment style (module //! header expanded slightly
+to explain the "audit form vs felt form" framing already present in mod.rs
+neighbors, no logic/API changes).

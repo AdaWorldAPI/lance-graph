@@ -1,3 +1,12 @@
+## 2026-07-23 — D-DIA-V5-A reach-out felt integration (§3.6) — 1 Sonnet grindwork agent from an Opus spec, Opus-gated (sole board writer)
+
+- **Operator directive:** "use sonnet agents for grindwork." The §3.6 criterion reduces to a structural test (middle-term click = a derivation lands), so the design (quarantine + new-derivation gate + the size-matched falsifier) was worked on the main thread and the build was grindwork → one `general-purpose·sonnet` (edit-only, no cargo/worktree; tag `exec-runs/dia-v5a-reach-out.txt`).
+- **Deliverable:** `nars/reach_out.rs` (`reach_out_integrate` + `FeltOutcome` + `ReachOutConfig`) — fetched bridge quarantined at prior 0.1, NewInsight iff ≥1 derivation composed vs DullShadow. `E-DIA-V5-A-FELT-INTEGRATION-1`.
+- **Reuse-not-reinvent:** `insight::Snapshot` for coherence; the Belief arena's `close_transitive` for the composition test. No new signal, no qualia service (pillar 6).
+- **Agent's correct source-check:** confirmed `TruthValue` re-exports from `truth.rs` (read `belief.rs` line 24), didn't guess — same diligence as the V3-B agent.
+- **Falsifier finding (banked):** a "felt/qualia" criterion must reduce to a structural substrate event (a derivation, a coherence delta) — the dull-shadow-vs-insight distinction IS the middle-term click, proven size-matched (both ingest exactly one belief).
+- **Orchestrator-verified:** 4 reach_out tests (middle-term-click, dull-shadow, size-matched, quarantine-cap) + 255 planner-lib nars tests green; `cargo fmt` + `cargo clippy -p lance-graph-planner --lib -- -D warnings` clean; `Cargo.lock` restored.
+
 ## 2026-07-23 — D-DIA-V3-C regulation loop (S11 loop-closure) — 1 Sonnet grindwork agent from an Opus spec, Opus-gated (sole board writer)
 
 - **Operator directive:** "use sonnet agents for grindwork." The loop is pure composition of shipped pieces (design = the cycle shape + the trigger-IFF + boundedness falsifiers), so grindwork → one `general-purpose·sonnet` (edit-only, no cargo/worktree; tag `exec-runs/dia-v3c-regulate.txt`).
