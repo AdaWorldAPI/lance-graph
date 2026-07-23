@@ -1,3 +1,11 @@
+## 2026-07-23 — D-DIA-V2-B bias→tactic LUT (S8) — main-thread Opus build (small subtle module, no fleet)
+
+- **Deliverable:** `nars/tactic_select.rs` (`tactic_for_bias(GraphBias) -> TacticChoice`, the S8 second axis) + `examples/tactic_select_confusion.rs` (the falsifier). `E-DIA-V2-B-BIAS-TACTIC-LUT-1`.
+- **Model call:** built on the main thread, NOT a Sonnet fleet — the module is small (~90 LOC) but the probe is subtle (mutating vs frontier tactics, per-tactic "fires" predicate, honest structural-vs-normative split); a Sonnet round-trip's briefing + review would have cost more main-thread tokens than writing it, and the anti-overclaim framing is a judgment call. (Contrast the V4 fleet, where four independent well-specced files justified fan-out.)
+- **Reuse-not-reinvent:** `GraphBias`/`GraphSignals`/`suggested_bias` from `contract::sensorium` (already shipped); the 5 tactics from `nars::tactics`. `TacticChoice` is a new type only because neither `Tactic` (4-variant Candidate tag) nor `RecipeInference` (collapses ASC+CR→Revision) is the recipe-level selection currency.
+- **Falsifier finding (banked):** tactic selectivity splits — RCR/TR/CAS structural (G2 3/3-on/0-off), ASC/CR broadly applicable → normative selection. G1 diagonal 5/5, G3 beats every constant policy. Probe prints the full matrix incl. the ASC/CR full columns (data, not a bug).
+- **Orchestrator-verified:** 4 new unit tests + 28 nars tests green; probe all 3 gates PASS; `clippy -p lance-graph-planner --lib --examples -- -D warnings` clean; `cargo fmt -p lance-graph-planner` clean; `Cargo.lock` restored (not staged).
+
 ## 2026-07-23 — D-DIA-V4 field-search loop (rungs 2-3 + M26 + #4) — 4-agent Sonnet fleet, consolidated + gated by main thread (sole board writer)
 
 - **Operator directive:** "all of the above using sonnet agents for grindwork to save tokens." Opus orchestrator DESIGNED the four specs (baking in the design calls so the fleet built the right thing), fanned out 4 parallel background Sonnet agents (distinct files, edit-only), and gated centrally (one build per cargo-hygiene). Tag files: `.claude/board/exec-runs/{dia-v4-rung2,dia-v4-rung3,base17-cv-sweep,m26-belief-spofacet}.txt` (agents wrote only their own; orchestrator sole writer of AGENT_LOG).

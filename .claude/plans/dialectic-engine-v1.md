@@ -193,6 +193,20 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > `stall` term. Final: `insight = clamp(Δcoh+Δwonder,0,1)·[yield>θ]`. 3
   > insight + 46 nars tests green, clippy clean. NOT yet wired to a whole-book
   > step (V2-A→whole-book measurement is next). THEN V2-B below.
+  > **✅ V2-B (bias→tactic LUT) SHIPPED (2026-07-23):** `nars/tactic_select.rs`
+  > — `tactic_for_bias(GraphBias) -> TacticChoice`, the S8 SECOND axis
+  > (orthogonal to `advance_on_gate` PHASE). Reuses the shipped
+  > `contract::sensorium::GraphBias` (6 conditions) + the 5 tactics; `Resolve→CR`,
+  > `Explore→RCR`, `Exploit→CAS`, `Adapt→TR`, `Stagnant→ASC`, `Balanced→CAS`.
+  > `TacticChoice` is a genuine new type (not `Tactic` — that's the 4-variant
+  > Candidate provenance tag; not `RecipeInference` — that collapses ASC+CR to
+  > Revision). The confusion-matrix falsifier (`examples/tactic_select_confusion.rs`)
+  > banked the honest finding (`E-DIA-V2-B-BIAS-TACTIC-LUT-1`): tactic selectivity
+  > SPLITS — RCR/TR/CAS are STRUCTURALLY selective (gap when their premise-structure
+  > is absent; G2 3/3-on / 0-off), ASC/CR are BROADLY applicable so their selection
+  > is NORMATIVE not structural (they fire on every fixture). G1 diagonal 5/5, G3
+  > beats every constant policy. The byte-lane i8 council (S8 max-of-3) + texture
+  > window (S12) remain queued under V2-B.
 - **V3:** dissolution detection + field elevation (S11) — the cathedral floors;
   Staunen↔Wisdom flow accounting; epiphany attractors (rate-normalized, S9).
 - **V4:** the 64k SIMT lowering — Boolean-reachability semiring + truth second
