@@ -249,12 +249,44 @@ fn inh(s: u16, p: u16) -> CStmt {
     }
 }
 
-/// Deterministic content-word tokenisation.
+/// MathML/LaTeX-mangle fragments that PDF text extraction leaves behind on
+/// math-heavy papers (D-SCI-1 real-paper finding on the JAR OWL-reasoning paper:
+/// `msub`, equation refs, figure numbers dominated the salient vocabulary). Kept
+/// out of the concept vocabulary so the readers see terms, not notation.
+const MATH_FRAG: &[&str] = &[
+    "msub",
+    "msup",
+    "mrow",
+    "mfrac",
+    "mtable",
+    "mtd",
+    "mtr",
+    "mstyle",
+    "mtext",
+    "mspace",
+    "mpadded",
+    "mphantom",
+    "mover",
+    "munder",
+    "mroot",
+    "mfenced",
+    "msqrt",
+    "mmultiscripts",
+];
+
+/// Deterministic content-word tokenisation. Drops all-numeric tokens (equation
+/// refs / figure numbers) and MathML fragments — PDF-extraction noise that would
+/// otherwise dominate frequency salience on academic papers.
 fn tokens(text: &str) -> Vec<String> {
     text.split(|c: char| !c.is_alphanumeric())
         .filter(|w| !w.is_empty())
         .map(|w| w.to_lowercase())
-        .filter(|w| w.len() > 2 && !STOP.contains(&w.as_str()))
+        .filter(|w| {
+            w.len() > 2
+                && !STOP.contains(&w.as_str())
+                && !MATH_FRAG.contains(&w.as_str())
+                && !w.chars().all(|c| c.is_ascii_digit())
+        })
         .collect()
 }
 
