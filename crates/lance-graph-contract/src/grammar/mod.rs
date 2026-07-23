@@ -27,6 +27,10 @@ pub mod wechsel;
 // PR #279 outlook epiphany E3 — 144-cell verb-role lookup table.
 pub mod verb_table;
 
+// D-SCI-1 — verb surface form → (VerbFamily, Tense) → TEKAMOLO slot; the
+// consumer of the verb_table archetypes for typed relation extraction.
+pub mod verb_lexicon;
+
 // PR #279 outlook epiphany E5 — generalized disambiguation primitive.
 pub mod disambiguator;
 
