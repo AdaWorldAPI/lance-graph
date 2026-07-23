@@ -123,37 +123,82 @@ A scanned/PDF paper → tesseract-rs `doc.v1` → (OGAR adapter) → term extrac
 
 Fetch a **licensed, whitelisted** scientific source set (e.g. arXiv OA / PMC OA
 subset) under robots/ToS compliance, rate-limited, into the D-SCI-1/2 pipeline.
+**MUL-steered, not blind** (per D-SCI-4): the crawl frontier is scored by the
+KG's curiosity/epiphany signal — the web-side twin of the KG frontier. The plug
+point (mapped in `AdaWorldAPI/spider`, @ /workspace/spider): replace/wrap
+`spider::features::automation::prefilter_urls → classify_urls` (the LLM
+URL-relevance gate, wired at 9 crawl sites) so the MUL score, not an LLM prompt,
+decides "crawl HERE next"; `spider_agent_types::MapResult{relevance,
+suggested_next}` is the scored-frontier DTO. Compliance is OPT-IN in spider
+(robots default OFF; SSRF guard only behind the `firewall` feature) — a
+compliant crawl MUST enable `respect_robots_txt` + the `firewall` feature
+explicitly. spider's HTML harvest and tesseract OCR both emit the OGAR `DocIr`
+(via `content_sha256`) — one ingest shape for crawl and scan.
 
-- **PASS gate:** N papers crawled within the licensed whitelist, 0 robots/ToS
-  violations, feeding a KG whose shape census matches D-SCI-1's per-domain
-  expectation.
+- **PASS gate:** N papers crawled within the licensed whitelist, robots +
+  firewall features ON, 0 robots/ToS violations, the MUL-scored frontier
+  measurably prioritizing high-curiosity targets, feeding a KG whose shape
+  census matches D-SCI-1's per-domain expectation.
 - **KILL / STOP:** any source outside the whitelist, any robots/ToS breach —
   hard stop, not a warning.
 - **Not authorized by this doc.** Requires the §4 decisions + explicit operator
   green-light. Never crawl on inference.
 
-### D-SCI-4 — MUL reasoning + adjacent thinking (depends on D-SRS-3)
+### D-SCI-4 — MUL as the exploration gateway (the operator's steer; ~90% scaffolded)
 
-Feed the KG's D-SRS-3 basin self-codes into MUL; surface *"where the graph is
-uncertain"* and *"adjacent concepts"* (shape-similar predicates + basin
-proximity).
+**Reframed (2026-07-23, operator: "use MUL as an exploration gateway for
+insights following epiphanies"; grounded in `E-MUL-EXPLORATION-GATEWAY-1`).**
+This is NOT a from-scratch build — a 3-agent read-only exploration found the
+gateway is ~90% already scaffolded in `lance-graph-contract`. What exists:
 
-- **PASS gate:** on a held-out split, MUL's uncertainty ranking correlates
-  (≥ `X`) with an independent measure of the corpus's under-supported regions,
-  AND the adjacency surfacing recovers ≥ `X`% of a human-curated "related
-  concepts" set for sampled seed terms.
-- **KILL:** uncertainty ranking uncorrelated (the graph doesn't know what it
-  doesn't know) OR adjacency is noise (no better than frequency).
-- **Prerequisite:** D-SRS-3 shipped. Non-circular MUL wiring confirmed (§4).
+- **KG edge frontier (curiosity-ranked):** `contract::exploration::MassExplorer`
+  — `FrontierEdge::curiosity() = novelty × uncertainty`, `next_frontier_edge()`
+  returns the top = "explore HERE next."
+- **KG-uncertainty IN:** `sensorium::GraphSignals{truth_entropy,
+  contradiction_rate, …}` → `suggested_bias() → GraphBias::Explore`
+  (substrate-supplied, non-circular).
+- **Epiphany trigger:** `free_energy::Resolution::{Commit(F<0.2),
+  Epiphany(ΔF<0.05), FailureTicket(F>0.8)}` (the Click) +
+  `escalation::EpiphanyDetector` (sim > baseline×1.5), whose `WisdomMarker`
+  residue decays to a **floor 0.1, never zero** — past epiphanies are
+  PERMANENT ATTRACTORS ("following epiphanies", literally).
+- **Breadth/depth/settle verdict:** `escalation::InnerCouncil::from_signals →
+  CollapseHint::{Fanout, RungElevate, Flow}`.
+- **MUL curiosity:** `mul/compass::CompassNeedles.curiosity=(1−competence)×0.5`;
+  `CompassDecision::Exploratory`.
+
+**The one honest gap = the wire.** Nothing feeds `MulAssessment`/`GraphSignals`
+into the frontier ordering; `FrontierEdge::curiosity()` is MUL-blind. The
+deliverable is `FrontierEdge::curiosity_mul(&assessment, &signals)` = the
+existing `novelty × uncertainty` scalar × the compass curiosity needle × an
+epiphany-residue insight-density term. No new substrate type
+(`GraphSignals` + `NarsTruth.confidence` are the IN; frontier sort key +
+`CollapseHint` are the OUT). An explore verdict that crosses to the crawler
+lands on the CONTRACT side (extend `CompassDecision`/`GateDecision`), never the
+planner — non-circular.
+
+- **PASS gate:** on a held-out split, the MUL-weighted frontier ordering
+  (`curiosity_mul`) beats the MUL-blind `curiosity()` at reaching
+  under-supported / high-surprise regions first (≥ `X` improvement in
+  time-to-first-epiphany or coverage-of-hot-edges), AND adjacent-concept
+  surfacing (shape-similar predicates + basin proximity) recovers ≥ `X`% of a
+  human-curated related-concepts set.
+- **KILL:** `curiosity_mul` is indistinguishable from `curiosity()` (MUL adds
+  nothing) OR the epiphany-attractor term makes it loop on settled regions.
+- **Prerequisite:** the D-SRS-3 basin self-codes are the ideal IN, but
+  `NarsTruth.confidence` + `GraphSignals.truth_entropy` are shippable surrogates
+  — so a first `curiosity_mul` is buildable WITHOUT D-SRS-3 (a `GraphSignals`
+  self-code width field is the later refinement). Non-circular wiring confirmed.
 
 ---
 
 ## 4. Open decisions — BLOCKERS before the outward-facing build
 
-1. **spider-rs coordinates + status.** Is there an `AdaWorldAPI/spider-rs`
-   fork? (Per the workspace P0, a forked crate MUST be wired via the fork, never
-   crates.io — and if coordinates are unknown, STOP and ask.) Unknown ⇒ this is
-   a hard blocker, not a default.
+1. **spider-rs coordinates — RESOLVED (2026-07-23).** `AdaWorldAPI/spider`
+   (cloned @ /workspace/spider, HEAD `046c439`) — a 10-crate workspace with an
+   agent layer (`spider_agent`, `spider_mcp`, `spider_doc_ir`) beyond stock
+   spider-rs. Wire via the fork per P0. The MUL steering hook + doc-IR
+   convergence are mapped (`E-MUL-EXPLORATION-GATEWAY-1`).
 2. **Crawl scope + compliance.** Which sources, under which license (arXiv OA /
    PMC OA have explicit terms)? robots.txt honored, rate-limited, redirects off,
    size caps — the SSRF/politeness posture tesseract-ocr-web already models.

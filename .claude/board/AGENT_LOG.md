@@ -1,3 +1,13 @@
+## 2026-07-23 — Exploration: MUL as an exploration gateway (spider fork + MUL/epiphany mapped) — main thread, sole board writer
+
+- **Task:** operator "Explore, the idea is to use MUL as an exploration gateway for insights following epiphanies." Cloned `AdaWorldAPI/spider` (@ /workspace/spider, HEAD 046c439) and ran 3 parallel read-only exploration agents (general-purpose): (A) spider crawl + doc-IR path, (B) spider agent layer + MCP steering hooks, (C) MUL + epiphany mechanism as gateway.
+- **Finding (`E-MUL-EXPLORATION-GATEWAY-1`):** the gateway is ~90% already scaffolded in `lance-graph-contract` — `exploration::MassExplorer` curiosity-ranked edge frontier, `sensorium::GraphSignals→GraphBias::Explore`, `EpiphanyDetector`/`Resolution::Epiphany` at the Click thresholds, `InnerCouncil→CollapseHint::{Fanout/RungElevate/Flow}`, `compass.curiosity`. The one gap is a weighting WIRE (`FrontierEdge::curiosity_mul(assessment, signals)`). Spider's `prefilter_urls→classify_urls` LLM relevance gate is the web-side twin; `spider_doc_ir` + tesseract `doc.v1` both emit the OGAR `DocIr`. Footgun: divergent `MulGateDecision`(planner) vs `GateDecision`(contract) — explore verdict belongs contract-side (non-circular).
+- **Plan reshaped:** `scientific-kg-substrate-v1` D-SCI-4 rewritten as "MUL as exploration gateway (~90% scaffolded; the wire is `curiosity_mul`)"; D-SCI-3 as MUL-steered crawl (replace `classify_urls`, robots+firewall opt-in); §4 blocker #1 (spider coordinates) RESOLVED.
+- **Commit:** this exploration synthesis (EPIPHANIES + plan reshape + this entry). Read-only exploration — no code, no crawl.
+- **Tests:** n/a (exploration + doc-only reshape).
+- **Deferred to operator steer:** build `curiosity_mul` (D-SCI-4 first wire, buildable now without D-SRS-3 via `NarsTruth.confidence`/`GraphSignals` surrogates); D-SCI-1 term extraction; crawl scope (D-SCI-3, still outward-facing/gated).
+- **Outcome:** exploration synthesized; ships in PR #807 (probe + scoping + this).
+
 ## 2026-07-23 — Anti-colorblindness probe: cross-genre shape census reveals a vocab confound — main thread, sole board writer
 
 - **Task:** operator "before we get color blind we should test the codebook across different types of literature." Built `crates/deepnsm-v2/examples/genre_shapes.rs` — the D-SRS-2 shape detector across 6 public-domain genres (KJV/Milton/Homer/Darwin/Austen/Sherlock, Gutenberg, never committed) through one shared 18,555-word academic vocab (`academic_20k.csv`, AVL — read at runtime, local-only, never embedded/committed per the license rule).
