@@ -184,10 +184,17 @@ pub fn rcr_abduce(arena: &BeliefArena, throttle: &Throttle) -> Frontier {
             by_pred.entry(b.stmt.p).or_default().push(i as u32);
         }
     }
+    // DETERMINISM: `by_pred` is a HashMap (randomly-seeded iteration). Under a
+    // finite budget the set of candidates KEPT depends on which predicates are
+    // visited first, so the frontier must be reproducible — iterate predicates
+    // in a stable (ascending) order. `members` are already in arena-index order.
+    let mut preds: Vec<u16> = by_pred.keys().copied().collect();
+    preds.sort_unstable();
 
     let mut any_pair = false;
     let mut hub_seen = false;
-    'outer: for (&m, members) in &by_pred {
+    'outer: for m in preds {
+        let members = &by_pred[&m];
         if members.len() < 2 {
             continue;
         }
@@ -358,7 +365,11 @@ pub fn cas_abstract(arena: &BeliefArena, focus_subject: u16) -> Frontier {
             if b.stmt.cop != Copula::Inh {
                 continue;
             }
-            // up: {S→P, S→G} ⊢ G→P — induction (S→P is v1, S→G is v2).
+            // up: {S→P, S→G} ⊢ G→P — induction. `TruthValue::induction` models
+            // `{A→B, A→C} ⊢ B→C` (f = f of the second premise). For the G→P
+            // conclusion the figure is A=S, B=G, C=P, so A→B = S→G (t_sg) is the
+            // FIRST premise and A→C = S→P (b) the second — the conclusion must
+            // inherit P's frequency, `t_sg.induction(&b.truth)`, not the reverse.
             if b.stmt.s == focus_subject && b.stmt.p != g {
                 out.candidates.push(Candidate {
                     stmt: CStmt {
@@ -366,8 +377,8 @@ pub fn cas_abstract(arena: &BeliefArena, focus_subject: u16) -> Frontier {
                         cop: Copula::Inh,
                         p: b.stmt.p,
                     },
-                    truth: b.truth.induction(&t_sg),
-                    premises: [i as u32, sg_idx],
+                    truth: t_sg.induction(&b.truth),
+                    premises: [sg_idx, i as u32],
                     rung: b.rung.max(r_sg) + 1,
                     tactic: Tactic::CasUp,
                 });
@@ -548,6 +559,14 @@ mod tests {
             .gaps
             .iter()
             .any(|g| g.kind == GapKind::BudgetExhausted));
+        // DETERMINISM: predicate iteration is sorted + members are in arena
+        // order, so the budget-capped set is a STABLE prefix, not hash-seeded.
+        let capped_stmts: Vec<CStmt> = capped.candidates.iter().map(|c| c.stmt).collect();
+        assert_eq!(
+            capped_stmts,
+            vec![inh(2, 1), inh(3, 1), inh(4, 1), inh(1, 2), inh(3, 2)],
+            "budget keeps a deterministic prefix"
+        );
         assert!(
             rcr_abduce(&arena, &Throttle::new(0.9, usize::MAX, usize::MAX))
                 .candidates
@@ -597,6 +616,16 @@ mod tests {
         );
         assert!((down.truth.frequency - 0.9 * 0.95).abs() < 1e-6);
         assert!((down.truth.confidence - 0.85 * 0.9 * 0.9 * 0.95).abs() < 1e-6);
+        // up = induction(S→G, S→P) for the G→P conclusion (premise order fixed):
+        // f = f(S→P) = 0.9 (G inherits P's frequency), w = f_SG·c_SG·c_SP.
+        assert!(
+            (up.truth.frequency - 0.9).abs() < 1e-6,
+            "G→P inherits P's frequency, not the reverse: {}",
+            up.truth.frequency
+        );
+        let w_up = 0.95 * 0.9 * 0.85;
+        assert!((up.truth.confidence - w_up / (w_up + 1.0)).abs() < 1e-6);
+        assert_eq!(up.premises, [0, 1], "premises in S→G, S→P order");
         assert!(cas_abstract(&arena, 7)
             .gaps
             .iter()

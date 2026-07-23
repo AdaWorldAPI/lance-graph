@@ -177,13 +177,20 @@ impl BeliefArena {
         }
     }
 
-    /// The S4 revision guard on an existing belief. Disjoint stamps → NARS
-    /// evidence pooling ([`TruthValue::revise`]) + stamp union + preserved
-    /// `|f₁−f₂|` depth, IN PLACE (rung untouched). Overlapping stamps → CHOICE:
-    /// keep the higher-confidence truth, count nothing twice.
+    /// The S4 revision guard on an existing belief. A NON-EMPTY incoming stamp
+    /// that is disjoint from the belief's own sources → NARS evidence pooling
+    /// ([`TruthValue::revise`]) + stamp union + preserved `|f₁−f₂|` depth, IN
+    /// PLACE (rung untouched). Otherwise (overlap OR an EMPTY incoming stamp) →
+    /// CHOICE: keep the higher-confidence truth, count nothing twice.
+    ///
+    /// The empty-stamp guard is load-bearing: `Stamp::default()` (the "no
+    /// observation source" sentinel) is disjoint from EVERY stamp, so treating
+    /// it as independent evidence would let a repeated zero-stamped observation
+    /// pool into itself and inflate confidence without bound (`union` also never
+    /// records overlap). Unsourced evidence cannot pool — it competes by CHOICE.
     pub fn revise_at(&mut self, id: u32, new: TruthValue, stamp: Stamp) -> ReviseOutcome {
         let b = &mut self.entries[id as usize];
-        if b.stamp.disjoint(stamp) {
+        if stamp != Stamp::default() && b.stamp.disjoint(stamp) {
             let depth = (b.truth.frequency - new.frequency).abs();
             b.contradiction = b.contradiction.max(depth);
             b.truth = b.truth.revise(&new);
@@ -429,6 +436,41 @@ mod tests {
                 arena.get(stmt).unwrap().truth.confidence
             ),
             (before.frequency, before.confidence),
+        );
+    }
+
+    /// An EMPTY incoming stamp (`Stamp::default()`, the no-source sentinel) must
+    /// NOT pool as independent evidence — repeated zero-stamped observations
+    /// would otherwise inflate confidence without bound. It routes through CHOICE
+    /// (the Codex empty-stamp guard).
+    #[test]
+    fn empty_incoming_stamp_does_not_pool() {
+        let mut arena = BeliefArena::new();
+        let stmt = inh(1, 2);
+        arena.observe(stmt, TruthValue::new(0.8, 0.5), Stamp::source(3));
+        let c0 = arena.get(stmt).unwrap().truth.confidence;
+        // Same statement offered with an EMPTY stamp, repeatedly.
+        for _ in 0..10 {
+            let out = arena.observe(stmt, TruthValue::new(0.8, 0.5), Stamp::default());
+            assert!(
+                matches!(out, ReviseOutcome::Chosen { .. }),
+                "empty stamp → CHOICE, got {out:?}"
+            );
+        }
+        let c1 = arena.get(stmt).unwrap().truth.confidence;
+        assert!(
+            (c1 - c0).abs() < 1e-6,
+            "empty-stamped evidence never pooled: {c0} → {c1}"
+        );
+        // A REAL disjoint source still pools (the guard is only for empty stamps).
+        let out = arena.observe(stmt, TruthValue::new(0.8, 0.5), Stamp::source(7));
+        assert!(
+            matches!(out, ReviseOutcome::Revised { .. }),
+            "real source still revises"
+        );
+        assert!(
+            arena.get(stmt).unwrap().truth.confidence > c0,
+            "real evidence pools"
         );
     }
 }
