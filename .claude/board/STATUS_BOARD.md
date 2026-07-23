@@ -6,10 +6,10 @@ Plan: `.claude/plans/dialectic-engine-v1.md` (six operator pillars + S1-S12 synt
 |---|---|---|---|---|
 | D-DIA-V0 | Belief arena falsifying slice (triple-keyed + in-place stamped revision + copula-gated transitivity) | lance-graph | Shipped (all 4 registered gates green first run) | `deepnsm-v2/src/belief.rs`; 90 tests + clippy clean; `E-DIALECTIC-ENGINE-SYNTHESIS-1` |
 | D-DIA-V1 | The five tactics (RCR/TR/ASC/CAS/CR) over the Belief arena + throttles + ReasoningGap | lance-graph | Shipped (PR #816; lance-graph-planner `nars/{belief,tactics}` over `TruthValue`; 17 nars + 233 planner tests) | plan §3, §4 |
-| D-DIA-V2-A | insight/mush S10 detector + size-preserving null falsifier | lance-graph | Shipped (`nars/insight.rs`; null falsifier caught + fixed 2 formula confounds — `E-S10-COHERENCE-CLOSURE-DENSITY-1`; 3 insight + 46 nars tests, clippy clean) | plan §1 S10, §4 |
+| D-DIA-V2-A | insight/mush S10 detector + size-preserving null falsifier | lance-graph | Shipped (PR #819 merged; `nars/insight.rs`; null falsifier caught + fixed 2 formula confounds — `E-S10-COHERENCE-CLOSURE-DENSITY-1`) | plan §1 S10, §4 |
 | D-DIA-V2-B | The loop: bias→recipe tactic-LUT, byte-lane council, texture window | lance-graph | Queued | plan §4 |
 | D-DIA-V3 | Dissolution → field rung-elevation (the cathedral floors) + Staunen↔Wisdom flow accounting | lance-graph | Queued | plan §4 |
-| D-DIA-V4 | 64k SIMT lowering (Boolean-reachability semiring + second-pass truth) | lance-graph | Queued | plan §4, S1 |
+| D-DIA-V4 | Foveated HHTL-trie field-search (addressing-first ladder; field search = total-function floor). Rung 1 = `PROBE-CODEBOOK-44` (4⁴ hierarchical codebook), rung 2 = foveated morton-comma descent, rung 3 = `PremultipliedOver` blasgraph `mxv` floor. Kuzu factorized-processing alignment. | lance-graph + bgz17 | Queued (architecture ruled `E-FOVEATED-HHTL-TRIE-FIELD-SEARCH-1`; rung 1 next) | plan §4, S1 |
 | D-DIA-V5 | Reach-out felt integration (dull shadow vs insight) + qualia ablation falsifier | lance-graph | Queued | plan §3.6, S12 |
 
 ## scientific-kg-substrate-v1 — crawl → OCR → terms → reason → MUL (scoping)
