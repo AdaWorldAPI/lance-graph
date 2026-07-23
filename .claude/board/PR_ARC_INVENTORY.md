@@ -33,6 +33,17 @@
 > - **Docs** — knowledge files produced (immutable)
 > - **Confidence (YYYY-MM-DD):** — the ONLY mutable field
 
+## 2026-07-23 — lance-graph #814 / #815 / #816 — the dialectic engine's reasoning layer (D-DIA-V0 fixes + SoC ruling + D-DIA-V1 the five NARS tactics)
+
+**Merged:** #814 (`c0debe4`..`8e3024a`/`4a63777`/`f2efdf4`, squashed), #815 (`6144d48`, squashed), #816 (`08479ad`, squashed). All on `main`.
+
+- **Added (#816, code)** — `lance-graph-planner/src/nars/belief.rs` (the statement-keyed `BeliefArena`: `Belief`/`CStmt`/`Copula`/`Stamp`/`ReviseOutcome`, `observe`/`revise_at`/`admit_derived`/`close_transitive`, all over `TruthValue`) + `nars/tactics.rs` (the five tactics `rcr_abduce`/`tr_diverge`/`cas_abstract`/`asc_challenge`/`cr_synthesize`, `Candidate`/`ReasoningGap`/`GapKind`/`Throttle`/`Frontier`/`Tactic`) + `TruthValue::analogy` (the missing NAL function). Re-exported from `nars/mod.rs`. 17 nars + 233 planner tests.
+- **Added (#814)** — the Codex-fixed `close_transitive` (CHOICE-on-`expectation()` dedup + stamp-based observation guard) on the V0 `deepnsm-v2/belief.rs` arena.
+- **Locked** — **the dialectic reasoning lives in the lance-graph reasoning layer (lance-graph-planner `nars/`), on the ONE engine (`TruthValue`/`NarsInference`)** — NEVER a local truth-function reimpl (`E-DEEPNSM-V2-IS-INBOUND-LEG-REASONING-LIVES-IN-LANCE-GRAPH-1`, #815). `deepnsm-v2` = the INBOUND leg (forward encode → belief stream), NOT a reasoning home. Tactics pinned to `contract::recipe_dispatch` (RCR=4/TR=6/ASC=7/CAS=8/CR=11) via `tactic_matches_recipe_taxonomy`. S2 dedup keys on max-`expectation()` (order-independent); the observation-ground guard keys on the STAMP (evidence provenance), never the rung. Empty incoming stamps route through CHOICE (never pool). RCR predicate iteration is sorted (deterministic under budget).
+- **Deferred** — `deepnsm-v2/belief.rs` V0 arena dedup (`TD-DEEPNSM-V2-BELIEF-DUP`; repoint deepnsm-v2 to emit the belief stream only). D-DIA-V2 (the loop: insight/mush S10 + null falsifier, GraphBias→recipe tactic-LUT) registered in `dialectic-engine-v1.md` §4.
+- **Docs** — `dialectic-engine-v1.md` (§3 tactics, §4 build order, V1 home corrected); EPIPHANIES `E-DIALECTIC-CLOSURE-CHOICE-ORDER-INDEPENDENCE-1` + `E-DEEPNSM-V2-IS-INBOUND-LEG-REASONING-LIVES-IN-LANCE-GRAPH-1` + `E-DIALECTIC-V1-TACTICS-IN-PLANNER-1`.
+- **Confidence (2026-07-23):** working — V0-V1 shipped, all gates green; SIMT lowering (S1) and eager-vs-frontier admission at scale are V4, unbuilt.
+
 ## 2026-07-21 — lance-graph #793 — anti-pattern-matching PreToolUse guard (tooling); a MarkovBundler deletion mistake caught + fully reverted
 
 **Merged:** `52073cb2` (content `2e21a8e8`). `.claude/` tooling only — no source/contract change.

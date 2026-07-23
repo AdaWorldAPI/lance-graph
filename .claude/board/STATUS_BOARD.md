@@ -1,11 +1,11 @@
 ## dialectic-engine-v1 — the reasoning cathedral (ACTIVE)
 
-Plan: `.claude/plans/dialectic-engine-v1.md` (six operator pillars + S1-S12 synthesis). V0 SHIPPED; V1-V5 queued.
+Plan: `.claude/plans/dialectic-engine-v1.md` (six operator pillars + S1-S12 synthesis). V0-V1 SHIPPED; V2-V5 queued.
 
 | D-id | Deliverable | Repo | Status | Evidence |
 |---|---|---|---|---|
 | D-DIA-V0 | Belief arena falsifying slice (triple-keyed + in-place stamped revision + copula-gated transitivity) | lance-graph | Shipped (all 4 registered gates green first run) | `deepnsm-v2/src/belief.rs`; 90 tests + clippy clean; `E-DIALECTIC-ENGINE-SYNTHESIS-1` |
-| D-DIA-V1 | The five tactics (RCR/TR/ASC/CAS/CR) over the Belief arena + throttles + ReasoningGap | lance-graph | In PR | plan §3, §4 |
+| D-DIA-V1 | The five tactics (RCR/TR/ASC/CAS/CR) over the Belief arena + throttles + ReasoningGap | lance-graph | Shipped (PR #816; lance-graph-planner `nars/{belief,tactics}` over `TruthValue`; 17 nars + 233 planner tests) | plan §3, §4 |
 | D-DIA-V2 | The loop: bias→recipe LUT, byte-lane council, texture window, insight/mush + null falsifier | lance-graph | Queued | plan §4 |
 | D-DIA-V3 | Dissolution → field rung-elevation (the cathedral floors) + Staunen↔Wisdom flow accounting | lance-graph | Queued | plan §4 |
 | D-DIA-V4 | 64k SIMT lowering (Boolean-reachability semiring + second-pass truth) | lance-graph | Queued | plan §4, S1 |

@@ -1,3 +1,11 @@
+## 2026-07-23 — branch `claude/x265-x266-plans-review-h9osnl` (PRs #814/#815/#816, MERGED) — the dialectic engine's REASONING LAYER: the five NARS tactics in `lance-graph-planner/src/nars` over the one engine
+
+### Current Contract Inventory — new planner reasoning modules
+- `lance_graph_planner::nars::belief::{BeliefArena, Belief, CStmt, Copula, Stamp, ReviseOutcome}` — the statement-keyed dialectic Belief arena over `TruthValue` (S2 triple-keyed dedup + CHOICE-on-`expectation()`; S3 copula-gated `close_transitive` (only Inh/Sim transit); S4 stamped `observe`/`revise_at` — disjoint→revision, overlap OR empty-stamp→CHOICE; `admit_derived` the shared throttled-frontier path, observation-ground guard keys on the STAMP).
+- `lance_graph_planner::nars::tactics::{rcr_abduce, tr_diverge, cas_abstract, asc_challenge, cr_synthesize, Candidate, ReasoningGap, GapKind, Throttle, Frontier, Tactic, AscOutcome, challenge_target}` — the FIVE tactics as term logic over the one engine (RCR=abduction, TR=analogy, CAS up=induction/down=deduction, ASC=disjoint-stamp self-critique, CR=dialectic revision); S5 throttle (c_min/budget/hub-exclusion, sorted-deterministic); pinned to `contract::recipe_dispatch` (RCR=4/TR=6/ASC=7/CAS=8/CR=11).
+- `lance_graph_planner::nars::truth::TruthValue::analogy` — the missing NAL analogy truth (`f=f·f_sim, c=c·c_sim·f_sim`), added by extending the one engine (never a local reimpl).
+- **Ruling (`E-DEEPNSM-V2-IS-INBOUND-LEG-REASONING-LIVES-IN-LANCE-GRAPH-1`):** the dialectic reasoning lives HERE (lance-graph reasoning layer); `deepnsm-v2` is the INBOUND leg (forward encode → belief stream), never a reasoning home. The V0 `deepnsm-v2/belief.rs` arena is superseded — dedup owed (`TD-DEEPNSM-V2-BELIEF-DUP`). 17 nars + 233 planner tests, clippy `-D warnings` clean. Detail: `AGENT_LOG` 2026-07-23; `PR_ARC_INVENTORY` #814/#815/#816.
+
 ## 2026-07-22 — branch `claude/x265-x266-plans-review-h9osnl` — trained Cam96 codebook SHIPPED (`deepnsm-v2/data/` + `codebook` loader) + the whole-book Bible falsifier runs ALL-GATES-GREEN (63.3% of context beyond ±5)
 
 ### Current Contract Inventory — new entries
