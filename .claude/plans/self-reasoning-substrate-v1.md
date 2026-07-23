@@ -485,6 +485,47 @@ where MUL already expects a self-measurement signal. No new tenant, no layout bu
   ambiguity signal, reported alongside width. Gated instrument is width (it has
   the clean held-out falsifier with the loaded codes).
 
+#### G-SRS3-1 RESULT + CONFOUND (2026-07-23, append-only correction — do NOT edit the registration above)
+
+- **Raw registered gate PASSES but is CONFOUNDED.** On the whole KJV (285 basins
+  ≥ 6 members) the registered split-half Spearman ρ = **0.583 ≥ 0.35**. But an
+  adversarial **label-shuffle null control** (added post-registration as
+  verification, NOT part of the registration): destroy the basin↔code binding
+  (globally shuffle which codes fall in which basin, PRESERVING each basin's
+  size) and re-run the SAME gate → null ρ = **0.591 ≈ 0.583** (separation
+  −0.008). The split-half reliability is therefore a **member-count artifact**,
+  not a semantic signal: the plug-in-centroid width estimator is n-biased
+  (`E[width] ≈ σ²(1 − 1/n)`), the two halves of one basin share n, so width_A
+  and width_B co-vary across basins regardless of which codes they hold.
+- **Honest verdict on G-SRS3-1:** the registered gate is INSUFFICIENT to
+  establish the claim. The raw pass is not withdrawn (the registration stands,
+  git-ordered), but it is explicitly marked confounded and does NOT support "the
+  graph knows where it is uncertain." The real test is G-SRS3-2 below.
+
+#### G-SRS3-2 — PRE-RUN REGISTRATION (2026-07-23, before the constant-n code)
+
+> The confound above is a member-count artifact. It is removed by FIXING the
+> per-half sample size so n cannot vary across basins, and the gate is on
+> **separation from the shuffled null**, not raw ρ. Registered before the
+> constant-n function is written; run result recorded as an append-only line.
+
+- **Instrument.** `K = 5` per half. For each basin with ≥ `2K = 10` members,
+  take the first `2K` member codes, split by index parity into A (even) and
+  B (odd) — each EXACTLY `K`. `width_A`/`width_B` about their own centroids.
+  Spearman ρ across all such basins between `width_A` and `width_B`.
+- **Null control (same shuffle as G-SRS3-1's).** Destroy the basin↔code binding
+  (SplitMix64 Fisher-Yates over the global code pool, basin sizes preserved),
+  re-run the constant-n gate → `null_ρ`. With n fixed, every null basin is an
+  equal-size random sample of the global pool, so `null_ρ` reflects only
+  sampling noise (no n-artifact left to inflate it).
+- **PASS:** real ρ ≥ **0.30** AND (real ρ − null ρ) ≥ **0.20** — a semantic
+  width signal that survives n-fixing AND separates from the label-shuffle null.
+- **KILL:** (real ρ − null ρ) ≤ **0.05** — the width self-report carries no
+  semantic content beyond the member-count artifact; the graph does NOT know
+  where it is uncertain. Report as falsified; do not soften.
+- **Soft band** `0.05 < separation < 0.20`: recorded honestly as "weak/
+  inconclusive separation", neither a claimed PASS nor a KILL.
+
 ### D-SRS-4 — The self-reference falsifier
 
 **The graph answers a question about its OWN earlier derivation, correctly.**
