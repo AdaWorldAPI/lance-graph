@@ -1,3 +1,15 @@
+## 2026-07-23 — D-SRS-4 SHIPPED (CONFIRMED, positive) + D-SRS-3 determinism fix — main thread, sole board writer
+
+- **Task:** operator goal "autoattended autonomous … following your curiosity" → D-SRS-4, the positive counterpart to D-SRS-3's negative. Completes the self-reasoning-substrate plan.
+- **Discipline:** G-SRS4-1/2 registered BEFORE code (`94ff3fe`) → introspect.rs + example → run → this adjudication. Registration predates measurement.
+- **Built (`crates/deepnsm-v2/src/introspect.rs`, 0-dep):** `provenance_check` (re-composition falsifier over `DerivationArena`), `confidence_delta_self` (NARS confidence THROUGH `TemporalStream::window_at`) + `confidence_delta_recount` (independent direct scan) + `most_frequent_belief` + `nars_confidence`.
+- **Result (real KJV KG):** G-SRS4-1 PASS — all 50,000 derived triples re-compose from their premise pointers (strictly stronger than D-SRS-1 resolvability). G-SRS4-2 PASS — belief 'thou hast me', NARS confidence 0.500→0.991 (n 1→114 across v93→v22831), windowed self-read == independent recount EXACTLY. **VERDICT: D-SRS-4 CONFIRMED** — the graph faithfully recovers its own provenance + confidence trajectory (structural reads, not fuzzy inference).
+- **Bug fixed (in the already-merged #809 D-SRS-3 example):** `groups` was built from a `std::HashMap` (randomized iteration order), making the `shuffle_null` null-ρ — and thus the constant-n separation — flaky (0.051→0.242→−0.002 across seeds), which could spuriously panic the KILL assert. Fixed by sorting `groups` by subject. **Deterministic D-SRS-3 result: constant-n sep −0.002 — a clean FORMAL KILL, stronger than the soft-band 0.051 originally recorded** (append-only correction in the plan + `E-BASIN-WIDTH-IS-N-ARTIFACT-1` unchanged verdict). D-SRS-3 KILL now REPORTED (valid finding), not panicked.
+- **Tests:** 77/77 (introspect ×5 incl. self-read==recount, provenance vacuity, deterministic belief pick) + `clippy -D warnings` clean.
+- **Adversarial verify:** both arms are independent-recount falsifiers by construction (self-read vs separate code); the determinism defect was caught by re-running the example 3× and noticing the D-SRS-3 numbers drift.
+- **Finding banked (`E-SELF-REFERENCE-LOOP-CLOSED-1`):** the self-reference the substrate supports is STRUCTURAL bookkeeping (provenance, evidence count, version trajectory), NOT metacognitive confidence-in-meaning (which D-SRS-3 falsified). Honest boundary of "the graph reasons about itself."
+- **Plan COMPLETE:** D-SRS-1/2/4 confirmed, D-SRS-3 falsified. Next per curiosity: D-SCI-1 (term/entity extraction — turns E-ACADEMIC-VOCAB-COLORBLIND-1 positive) or the D-LIT literature ladder.
+
 ## 2026-07-23 — D-SRS-3 SHIPPED as a FALSIFIER-THAT-FIRED: basin self-codes + "where am I uncertain" self-report — conjecture NOT confirmed — main thread, sole board writer
 
 - **Task:** operator goal "autoattended autonomous … following your curiosity" → D-SRS-3, the per-basin self-measurement that curiosity_mul (D-SCI-4a) would consume. Closed the self-exploration loop honestly.

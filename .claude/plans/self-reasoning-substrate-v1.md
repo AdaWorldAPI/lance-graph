@@ -562,6 +562,89 @@ pointers (Layer 2), stratified (Layer 3), with NARS-revised confidence (Layer 4)
   does not — the self-reference loop is not closed, and this plan's central
   CONJECTURE is falsified (report it as such; do not soften).
 
+#### G-SRS4-1 / G-SRS4-2 — PRE-RUN REGISTRATION (2026-07-23, before `introspect.rs`)
+
+> Registered as the FIRST commit of D-SRS-4, before the code compiles. Two arms,
+> each an INDEPENDENT-recount falsifier of the self-reference loop — the graph's
+> introspective read must equal a naive recomputation done by SEPARATE code.
+> Unlike D-SRS-3, these are implementation-faithfulness gates (is the self-read
+> CORRECT), not a cognition-strength conjecture — so a KILL means a real bug in
+> the Layer-1/2/4 read path, not a falsified thesis. Registration predates
+> measurement in git history (the anti-tuning proof).
+
+- **G-SRS4-1 (provenance arm) — "which premises concluded triple X?"**
+  - *Question:* for EVERY derived triple in the whole-KJV `DerivationArena`
+    (`reason.rs`, per-predicate transitive closure), report the premise pair the
+    graph stored.
+  - *Self-answer:* follow the entry's `premises` pointers (Layer 2) → the two
+    premise triples.
+  - *Independent ground truth (SEPARATE code):* the composition RULE re-applied —
+    for stored premises `[i, j]` with `entries[i] = (A,p,B)` and
+    `entries[j] = (B,p,C)`, the conclusion MUST be exactly `(A,p,C)`: same
+    predicate `p`, `entries[i].object == entries[j].subject` (the shared pivot),
+    `X.subject == A`, `X.object == C`. This is STRICTLY STRONGER than D-SRS-1's
+    resolvability (which checked pointers resolve + rungs stratify, NOT that they
+    COMPOSE): a derived triple could resolve to two unrelated premises and still
+    pass D-SRS-1; G-SRS4-1 fails it.
+  - **PASS:** 100% of derived triples have premises that independently re-compose
+    to them (pivot-shared, same predicate, endpoints match). **KILL:** any
+    derived triple whose stored premises do not compose to it — the provenance
+    the graph reports about its own reasoning is false.
+- **G-SRS4-2 (confidence-delta arm) — "did your confidence in belief Y change
+  between v1 and v2?"**
+  - *Belief Y + versions:* the single most-frequent base triple in the KJV KG
+    (deterministic: max occurrence count, ties broken by smallest `pack()`);
+    `v1` = the version of its 1st occurrence, `v2` = the version of its last.
+  - *NARS confidence:* `c(v) = n(v) / (n(v) + k)`, evidence horizon `k = 1`,
+    where `n(v)` = occurrences of Y at `row_version ≤ v`.
+  - *Self-answer:* computed THROUGH the graph's own version-range read primitive
+    (`TemporalStream::window_at(v)`, the `TemporalPov::at` contract — Layer 1),
+    counting Y in each window → `(c1, c2, c2 − c1)`.
+  - *Independent ground truth (SEPARATE code):* a direct scan of the raw
+    `(version, triple)` vector counting Y with `version ≤ v1` and `≤ v2`, same
+    NARS formula — NOT going through the window API.
+  - **PASS:** self-answer `(c1, c2, delta)` equals the independent recount within
+    `1e-6` AND `delta > 0` (Y recurs, so confidence must strictly rise — a
+    sanity floor that a broken monotonicity would trip). **KILL:** the windowed
+    self-read disagrees with the direct recount (an off-by-one in the `≤ v`
+    boundary or a miscounted window) — the self-reference read is not faithful.
+
+#### G-SRS4-1 / G-SRS4-2 RESULT (2026-07-23, append-only — whole KJV)
+
+- **G-SRS4-1 (provenance) PASS:** all **50,000** derived triples (capped arena;
+  provenance holds on any prefix) independently re-compose from their stored
+  premise pointers — `(A,p,B)+(B,p,C) ⇒ (A,p,C)`, shared pivot, same predicate,
+  endpoints match. The provenance the graph reports about its own reasoning is
+  FAITHFUL (strictly stronger than D-SRS-1 resolvability, which never checked
+  composition).
+- **G-SRS4-2 (confidence-delta) PASS:** belief Y = `'thou hast me'` (most
+  frequent triple), `v1` = 93 (1st occurrence, n=1), `v2` = 22,831 (last, n=114);
+  NARS confidence `0.500 → 0.991` (Δ +0.491). The version-range windowed
+  self-read **==** the independent direct recount EXACTLY, and Δ > 0. The
+  self-reference loop is CLOSED (the introspective read is correct).
+- **VERDICT — D-SRS-4 CONFIRMED (positive).** The graph answers questions about
+  its own reasoning faithfully. This is the positive counterpart to D-SRS-3's
+  negative: the graph does NOT know where it is uncertain from code-spread
+  (D-SRS-3), but it CAN correctly recover its own derivation provenance and its
+  own confidence trajectory (D-SRS-4) — because those are structural reads over
+  the pointer fabric + version stream, not a fuzzy semantic-distance inference.
+
+#### G-SRS3-2 DETERMINISM CORRECTION (2026-07-23, append-only — supersedes the RESULT's exact number, NOT its verdict)
+
+The `G-SRS3-2 RESULT` above recorded constant-n separation **0.051** and Bessel
+**−0.059**. Those numbers were NON-DETERMINISTIC: the whole-book `groups` were
+built from a `std::HashMap` (randomized per-process iteration order), so the
+`shuffle_null` pool-concatenation order — hence the null ρ — varied run-to-run
+(observed constant-n separation swinging 0.051 → 0.242 → −0.002 across seeds).
+Fixed in the D-SRS-4 PR by sorting `groups` by subject id. **Deterministic
+result: constant-n real ρ = 0.054, null ρ = 0.056, separation = −0.002** — a
+clean FORMAL KILL (≤ 0.05), STRONGER than the soft-band number originally
+recorded. The D-SRS-3 verdict (conjecture NOT confirmed — width self-report is a
+member-count artifact) is UNCHANGED and reinforced. The example now REPORTS the
+KILL (a valid scientific finding) instead of asserting on the flaky soft-band
+value. Lesson banked: a stochastic-null falsifier MUST fix all iteration order
+(no HashMap-order dependence) or the gate is flaky.
+
 ---
 
 ## §3 — Explicitly out of scope
