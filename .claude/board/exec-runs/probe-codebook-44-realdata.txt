@@ -1,0 +1,84 @@
+PROBE-CODEBOOK-44 — REAL-DATA ρ (closes/tests Probe M1 real-data PENDING)
+=========================================================================
+Run date: 2026-07-23
+Agent: CERTIFICATION_OFFICER (sub-agent; orchestrator gates + board-hygiene + lands on #823 branch)
+Repo: /home/user/lance-graph
+Example: crates/bgz17/examples/probe_codebook_44_realdata.rs  (NEW; clippy-clean, unstaged)
+Build/run: cargo run --release --manifest-path crates/bgz17/Cargo.toml --example probe_codebook_44_realdata
+
+EMBED PATH USED
+---------------
+- Python probe (curl `--config -` header-via-stdin, CA=/root/.ccr/ca-bundle.crt, HTTPS proxy).
+  Reused the proven pattern from crates/deepnsm-v2/probes/embed_bible_vocab.py.
+  Script: <scratch>/embed_vocab.py  (env-only key; NEVER written to any file).
+- API: api.jina.ai/v1/embeddings, model jina-embeddings-v3, task=text-matching, dimensions=1024.
+- Vocab: top 4096 frequency-ranked words (dedup, order-preserving) from
+  crates/deepnsm/word_frequency/academic_20k.csv  (`word` column).
+- Batches: 41 API calls (batch=100). Raw f32 cached (self-describing [u32 n][u32 dim] + n*dim f32 LE)
+  to crates/bgz17/data/jina_probe_embeddings.f32 (16,777,224 bytes) — GITIGNORED, LOCAL-ONLY.
+  Re-run does NOT re-hit the API.
+- Rust side reproduces projection::Base17::from_f32 golden-fold (BASE_DIM=17, GOLDEN_STEP=11,
+  FP_SCALE=256) bit-for-bit; builds flat Palette::build(.,256,20) + hierarchical
+  Palette::build_hierarchical(.,20) from PR #823. Deterministic SplitMix64 seed 0x9E3779B97F4A7C15,
+  4000 held-out pairs. NaN scan PASS at source + ground-truth + metric stages.
+
+RESULTS (ρ to 4 decimals)
+-------------------------
+Two framings, because the cited canon anchors (0.965 k=128 / 0.992 k=256, bgz17 KNOWLEDGE.md;
+0.9973 arm-discovery aerial) were measured as CODEBOOK-reconstruction ρ vs the codebook's OWN
+input reference (full Base17 distance), NOT vs raw upstream cosine. The synthetic probe_codebook_44
+fidelity_rho correlates against templates[i].l1(templates[j]) — same reference.
+
+(A) CODEBOOK fidelity ρ vs full Base17 distance  [canon-anchor comparable — discriminates codebook]
+      HELD-OUT split (build 75% train / eval 25% unseen words):
+        flat ρ = 0.3294   hierarchical ρ = 0.3762   (hier ≥ flat: PASS, +0.0468)
+      FULL-SET (build all / random pairs):
+        flat ρ = 0.3802   hierarchical ρ = 0.3639   (hier ≥ flat: FAIL, -0.0163)
+      clears 0.965: flat=NO hier=NO   |   clears 0.9973: flat=NO hier=NO   (all four, both splits)
+
+(B) END-TO-END ρ vs raw Jina cosine  [bottlenecked, informational]
+      HELD-OUT:  flat ρ = 0.1078   hierarchical ρ = 0.1286   (collisions <1%)
+      FULL-SET:  flat ρ = 0.1566   hierarchical ρ = 0.1173
+
+DIAGNOSTIC (why the anchors do not reproduce — decomposition)
+-------------------------------------------------------------
+- Data is fine: true cosine over pairs mean=0.3048 std=0.0842 min=0.0637 max=0.9187 (real spread).
+- Base17 17-dim golden-fold PROJECTION ceiling (17-dim L1, NO codebook) vs cosine = ρ 0.2599.
+- Base17 pairwise-L1 spread: mean=16.3 std=3.6 CV=0.220 → folded 17-dim patterns are NEAR-DEGENERATE
+  (dense zero-mean 1024-d embeddings averaged over ~60 strided dims collapse toward the origin;
+  ~1 unit/dim of separation). Centroid collisions are <1%, so this is NOT centroid collapse — it is
+  a low-variance (near-uniform) distance distribution that makes rank correlation noise-sensitive.
+
+VERDICT
+-------
+INCONCLUSIVE / PARTIAL — the real-data test at this pipeline (single words → Jina 1024-d →
+17-dim Base17 fold → 256-centroid codebook) is DOMINATED BY THE UPSTREAM PROJECTION BOTTLENECK
+and cannot discriminate the codebook question:
+  • Neither codebook clears the 0.965/0.9973 anchors in EITHER framing (best real ρ ≈ 0.38 vs
+    the synthetic 0.99). → Does NOT CLOSE Probe M1 at the anchor level on this input.
+  • hierarchical-vs-flat is SIGN-UNSTABLE across splits (+0.0468 held-out / -0.0163 full-set),
+    i.e. within noise. → Does NOT cleanly FALSIFY the "structure is free" mechanism either
+    (and PR #823 already proved prefix==ancestry structurally; that synthetic proof is untouched).
+  • The dominant, valuable real finding is LOCALIZED and upstream: the 17-dim Base17 golden-fold
+    cannot carry dense sentence-embedding cosine (ceiling ρ≈0.26; folded-pattern CV=0.22). The
+    canon anchors 0.965/0.9973 were established on STRUCTURED/CLUSTERED patterns (SPO token
+    fingerprints / aerial imagery), not on single-word dense embeddings folded to 17 dims.
+
+This is an honest non-closure: it prevents both a false "M1 closed on real data" claim and a false
+falsification. If the orchestrator wants an anchor-level real-data close, the codebook must be built
+on higher-dimensional / structured Base17 patterns (e.g. token-embedding rows or a
+higher-fidelity projection than 17-dim fold), or on tightly-clustered embedding families where the
+fold preserves within-cluster structure — a follow-up, not a result claimable from THIS pipeline.
+A full ~20k-word run is available (change N_WORDS in the embed script) but will not move the
+projection ceiling; it is the 17-dim fold, not the sample size, that caps fidelity.
+
+SECURITY + SCOPE CONFIRMATION
+-----------------------------
+- JINA_API_KEY: env-only (os.environ + assert prefix). Verified literal key ABSENT from every
+  authored artifact (example .rs, embed script, test script, vocab file, .gitignore). Never
+  printed/echoed/committed.
+- crates/bgz17/data/ added to .gitignore (line 81). git check-ignore confirms
+  jina_probe_embeddings.f32 + jina_probe_vocab.txt are ignored; `git status` shows them UNTRACKED
+  (not staged). Vocab + embeddings are LOCAL-only derived data.
+- No model identifier in any artifact. bgz17 build/clippy scoped --manifest-path (never --all/-p).
+- Did NOT commit or push. Left: the example + this tag file + .gitignore edit for the orchestrator.
