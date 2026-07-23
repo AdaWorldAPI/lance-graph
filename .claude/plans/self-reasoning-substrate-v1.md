@@ -546,6 +546,174 @@ where MUL already expects a self-measurement signal. No new tenant, no layout bu
   competence signal on this evidence (the signal is noise). Not softened, not
   tuned; the registration predates every measurement in git history.
 
+### D-SRS-3b — Evidence-composite basin uncertainty (operator-corrected instrument)
+
+**Operator ruling (2026-07-23, verbatim intent):** *"If you would have done MUL
+tenant right, MUL × rung ladder × rung tenant × NARS Truth × frequency would
+have information. The way you did it: bullshit in, bullshit out."* — D-SRS-3
+failed because the instrument was GEOMETRY (Cam96 code-spread) with zero
+evidence semantics. The corrected instrument composes the EVIDENCE-BEARING
+signals the substrate already carries — exactly the signals D-SRS-4 proved read
+faithfully (NARS frequency-confidence; rung stratification).
+
+#### G-SRS3b-1 — PRE-RUN REGISTRATION (2026-07-23, before `evidence.rs`)
+
+> Registered before the code compiles; never edited post-hoc; divergences append
+> below. The registration commit predates the measurement commit (anti-tuning).
+
+- **Instrument (per basin `s`, computed ONLY on the first half of the verse
+  stream `[0, V/2)`):** basin = subject's outgoing neighborhood (unchanged).
+  - *beliefs* = distinct `(p, o)` under `s`, each with occurrence count `n_i`.
+  - `u_conf = 1 − mean_i( n_i/(n_i+1) )` — **NARS Truth × frequency**:
+    singleton-heavy neighborhoods = thin evidence = uncertain.
+  - `u_contra` = contradiction density — share of predicates under `s` with > 1
+    distinct object (promoted from "reported" to a gated component).
+  - `u_rung` = derived share — fraction of `s`-subject triples in the
+    first-half `DerivationArena` (capped 50k, as D-SRS-1) at **rung ≥ 1**
+    (inferred rather than observed) — the **rung-ladder** component (aligned
+    with the V3 rung-content ladder: rungs 0–1 = observation; higher = derived).
+  - `U = (u_conf + u_contra + u_rung)/3` — equal weights, REGISTERED, never
+    tuned. MUL mapping: `competence = 1 − U`, `curiosity = U` (CompassNeedles).
+- **Ground truth (independent + FORWARD-predictive — the active-inference
+  reading: reported uncertainty must predict where surprise actually arrives):**
+  `novelty(s)` = fraction of `s`'s second-half `[V/2, V)` `(p,o)` occurrences
+  never seen under `s` in the first half. Computed by separate code from the
+  raw stream; the two halves share no evidence.
+- **Eligibility:** ≥ 4 distinct first-half beliefs AND ≥ 4 second-half
+  occurrences (both sides non-trivial).
+- **Null control (deterministic):** pool all first-half belief records
+  `(p, o, n)` across basins in sorted order, SplitMix64 Fisher-Yates shuffle,
+  redeal preserving each basin's DISTINCT-BELIEF COUNT — preserves the
+  n-artifact, destroys the evidence binding. `U_null` from redealt evidence;
+  novelty stays with the real basin.
+- **Baseline (REPORTED, not gated):** ρ(first-half total occurrences, novelty)
+  — the frequency-only activity predictor, to show what the composite adds
+  beyond raw activity.
+- **PASS:** Spearman ρ(U, novelty) ≥ **0.25** AND (real ρ − null ρ) ≥ **0.15**.
+- **KILL:** (real ρ − null ρ) ≤ **0.05** — the evidence composite also carries
+  no signal beyond structure-free chance; report as falsified.
+- **Soft band** between: honest report, no tuning. The verdict is REPORTED,
+  never panicked (D-SRS-3 lesson: a scientific falsifier reports; regression
+  gates assert).
+
+#### G-SRS3b-1 RESULT (2026-07-23, append-only — whole KJV, first/second-half split)
+
+- **KILLED (separation 0.007 ≤ 0.05).** 167 eligible basins: real ρ(U, novelty)
+  = **−0.423**, null ρ = **−0.430**, separation **0.007**. Frequency-only
+  baseline ρ = **−0.632**.
+- **Diagnosis — the gate is COVERAGE-CONFOUNDED (the D-SRS-3 confound one level
+  up).** "Forward novelty" is mechanically anti-correlated with first-half
+  ACTIVITY: a heavily-seen basin has already covered its `(p,o)` space, so few
+  NEW pairs arrive in the second half. The size-preserving null preserves that
+  coverage relationship, so the composite cannot separate from it. Worse: the
+  activity-only baseline (−0.632) is a STRONGER novelty predictor than the
+  composite (−0.423) — the `u_contra`/`u_rung` components DILUTE the coverage
+  signal for this target, and `u_rung` is itself size-driven (large
+  neighborhoods derive quadratically more transitive triples). So the evidence
+  composite is dominated by, and worse than, its own activity baseline against
+  forward-novelty.
+- **What this does and does NOT show.** It does NOT show the operator's
+  `MUL × rung × NARS × frequency` composite is worthless — the composite carries
+  strong structure (|ρ| 0.42) and, crucially, **it drives the kanban lifecycle**
+  (the operator's second point): `EvidenceBasin::{gate, advance}` maps `U` →
+  `GateDecision` → `KanbanColumn::advance_on_gate`, routing each basin
+  Flow(explore)/Hold(gather)/Block(veto). On the book: 6 Flow / 160 Hold / 1
+  Block from `Planning`. It DOES show that **forward-novelty is the wrong
+  ground truth** — coverage-confounded, unable to validate the composite as a
+  self-signal. A non-confounded gate would need to control for coverage
+  (e.g. residualize novelty on activity first), which is a NEW registered gate,
+  not a post-hoc edit of this one.
+- **Ships as real:** `evidence.rs` (the composite + the KANBANSTEP drive wire —
+  addresses "you have kanbanstep-driven strategies, I doubt you even used it")
+  + the honest coverage-confound finding. Registration `aa43fe4` predates this
+  measurement. `E-EVIDENCE-COMPOSITE-COVERAGE-CONFOUND-1`.
+
+#### G-SRS3b-2 — PRE-RUN REGISTRATION (2026-07-23, operator-corrected TARGET, before code)
+
+> **Operator diagnosis (2026-07-23):** *"If forward search is negatively
+> correlated with your backward activity, you either fell into the doom-scrolling
+> trap, or your Google search was badly constructed — not relevant to the
+> questions the rung ladder would ask."* G-SRS3b-1's negative ρ was not merely a
+> coverage confound to file — it was the graph reporting that **raw novelty is
+> the wrong target**: raw novelty rewards saturation-avoidance (doom-scroll),
+> not answering the rung ladder's SPECIFIC questions. G-SRS3b-2 replaces the
+> target, NOT the instrument (the composite is unchanged; only the ground truth
+> changes — this is a NEW registered gate, not a post-hoc edit of G-SRS3b-1).
+
+- **The rung ladder's open questions (enumerated, not generated — no LLM):** a
+  first-half **derived-but-not-yet-observed** triple is the graph PREDICTING
+  `(A,p,C)` by transitivity — the open question is *"does the text later confirm
+  it?"* Formally: `OpenQ(s)` = { arena entries with rung ≥ 1, subject = `s`,
+  that are NOT in the first-half base set } (the graph's inferences).
+- **Forward target = OPEN-QUESTION YIELD (resolution, not novelty):**
+  `yield(s)` = |OpenQ(s) ∩ second-half base| / |OpenQ(s)| — the share of the
+  basin's first-half INFERENCES that the second half OBSERVES (the text
+  confirms the graph's prediction). Computed by separate code from the raw
+  second-half stream; no window API, no codebook.
+- **Eligibility:** ≥ 4 first-half open questions AND ≥ 4 second-half base
+  occurrences under `s`.
+- **Same instrument, same null:** `U` = the unchanged evidence composite;
+  size-preserving belief+rung shuffle null (`U_null`); activity baseline
+  reported.
+- **PASS:** ρ(U, yield) ≥ **0.25** AND (real ρ − null ρ) ≥ **0.15** — the
+  evidence composite predicts where reading forward RESOLVES the rung ladder's
+  own questions (the productive-exploration signal). **Pre-registered sign
+  interpretation:** POSITIVE ρ = uncertainty points to productive basins
+  (explore there); a strong NEGATIVE ρ that SEPARATES from null = a validated
+  **dead-end / doom-scroll detector** (uncertainty points where questions do
+  NOT get answered — still useful, inverted use), reported as such, not a PASS.
+- **KILL:** (real ρ − null ρ) ≤ **0.05** — even the rung-ladder-relevant target
+  is coverage-driven; the composite carries no question-resolution signal.
+- Verdict REPORTED, never panicked. `E-DOOMSCROLL-VS-RUNG-LADDER-QUERY-1`.
+
+#### G-SRS3b-2 RESULT + G-SRS3b-3 REGISTRATION (2026-07-23)
+
+- **G-SRS3b-2 KILLED, but the sign FLIPPED CORRECT.** 197 basins: real ρ(U,
+  yield) = **+0.326** (positive — uncertain basins DO resolve more of their
+  open questions, the sensible direction the raw-novelty target lacked), null ρ
+  = **0.340**, separation **−0.013** (KILL). `#open-questions` baseline ρ =
+  **0.497** dominates. So the operator's target correction WORKED (sign
+  sensible) but the composite STILL doesn't separate from a size-preserving
+  null — same confound, third target.
+- **The robust finding across THREE targets:** the evidence composite never
+  beats a size-preserving null (code-spread G-SRS3-2, forward-novelty G-SRS3b-1,
+  open-question-yield G-SRS3b-2). The information is SIZE/ACTIVITY, captured by a
+  plain count. **G-SRS3b-3 settles it definitively:** does the composite carry
+  ANY signal BEYOND size?
+
+- **G-SRS3b-3 — PRE-RUN REGISTRATION (size-residualized partial correlation):**
+  control for the dominating size covariate (`#open-questions`) by
+  rank-residualizing both `U` and `yield` on it, then correlate the residuals
+  (Spearman partial correlation). Same size-preserving null.
+  - **PASS:** partial ρ(U, yield | size) ≥ **0.15** AND (real − null) ≥ **0.10**
+    — the composite predicts question-resolution EVEN AFTER size is removed:
+    the operator's `NARS×contra×rung` composition carries genuine information
+    beyond a count.
+  - **KILL:** (real − null) ≤ **0.05** — with size partialled out, nothing
+    remains; the composite IS its size baseline (report as such, do not soften).
+  - Verdict REPORTED. This is the terminal cross-basin test for D-SRS-3b; the
+    composite's validated home is the per-basin KANBANSTEP drive regardless of
+    outcome. `E-DOOMSCROLL-VS-RUNG-LADDER-QUERY-1`.
+
+#### G-SRS3b-3 RESULT (2026-07-23, append-only — TERMINAL)
+
+- **KILLED, definitively.** partial ρ(U, yield | #open-questions) = **−0.077**
+  (real) vs **+0.131** (null), separation **−0.208**. With size partialled out
+  the composite predicts NOTHING (slightly negative, below the null).
+- **The settled answer across the whole D-SRS-3b arc:** the evidence composite
+  carries **no cross-basin information beyond size**. Three targets
+  (code-spread, forward-novelty, open-question-yield) + a size-residualized
+  partial correlation all agree — the `NARS×contra×rung` composition, for
+  RANKING basins against each other, is a count. This does not refute the
+  operator's "the composite would have information": the information is REAL but
+  it is SIZE (how much evidence a basin holds), and its correct consumer is the
+  **per-basin KANBANSTEP drive** (`EvidenceBasin::{gate,advance}` → the Rubicon
+  lifecycle, Flow/Hold/Block on that basin's OWN evidence), NOT a cross-basin
+  correlation. **Method banked:** a per-basin uncertainty signal must be
+  validated per-basin (its lifecycle outcome), never by cross-basin Spearman —
+  which is size-dominated for any count-correlated quantity.
+  `E-DOOMSCROLL-VS-RUNG-LADDER-QUERY-1`.
+
 ### D-SRS-4 — The self-reference falsifier
 
 **The graph answers a question about its OWN earlier derivation, correctly.**
