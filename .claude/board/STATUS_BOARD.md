@@ -18,7 +18,8 @@ Plan: `.claude/plans/scientific-kg-substrate-v1.md`. PROPOSED scoping; outward-f
 
 | D-id | Title | Repo | Status | Evidence |
 |---|---|---|---|---|
-| D-SCI-1 | Term/entity extraction — the gate (inverse of the colorblind finding) | lance-graph | Queued | plan; buildable now |
+| D-SCI-INSIGHT | Main-insight surface — "the paper speaks and thinks for itself" (no-LLM, emergent, auditable) | lance-graph | **first slice SHIPPED** (`E-SCI-INSIGHT-PAPER-SPEAKS-FOR-ITSELF-1`; `nars/insights.rs` `extract_main_insights`/`MainInsight`/`InsightKind`/`InsightReason` — CoreTheme(S9) + Conclusion(derivation+ladder) + Bridge(shared middle term); 4 tests, structured-vs-noise falsifier + ladder recovery). Real-paper leg = D-SCI-1. Validation = the Kant/Schopenhauer/Hegel/Precht connective-tissue oracle. | plan; the insight-surfacing half |
+| D-SCI-1 | Term/entity extraction — the gate (inverse of the colorblind finding); feeds D-SCI-INSIGHT. Corpus (operator): public-domain Gutenberg text OR ephemeral single-arXiv-paper via tesseract/spider (never committed). | lance-graph | Queued | plan; buildable now |
 | D-SCI-2 | OCR ingest via the tesseract-rs doc.v1 seam | lance-graph + tesseract-rs | Queued | plan |
 | D-SCI-3 | The crawl (spider-rs) — OUTWARD-FACING | lance-graph | Blocked | plan §4 (scope + robots + fork coords) |
 | D-SCI-4a | `curiosity_mul` + qualia texture gestalt — the MUL exploration-gateway wire | lance-graph-contract | Shipped | `exploration.rs` + 12 tests (G-CM-1..5 + wonder-invariance); adversarially verified; `E-MUL-EXPLORATION-GATEWAY-1` |

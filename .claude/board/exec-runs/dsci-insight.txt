@@ -1,0 +1,42 @@
+Agent: general-purpose (sonnet), edit-only, no cargo, no worktree.
+Task: D-SCI-INSIGHT — nars::insights module (main-insight extraction from a
+reasoned concept-KG: CoreTheme / Conclusion / Bridge, each with a provenance
+ladder + explained InsightReason).
+
+Files touched:
+- crates/lance-graph-planner/src/nars/insights.rs (NEW)
+- crates/lance-graph-planner/src/nars/mod.rs (EDIT: added `pub mod insights;`
+  right after `pub mod insight;`, and
+  `pub use insights::{extract_main_insights, InsightConfig, InsightKind,
+  InsightReason, MainInsight};` right after the `pub use insight::{...}` line)
+- .claude/board/exec-runs/dsci-insight.txt (this file)
+
+Tests added (insights.rs, #[cfg(test)] mod tests):
+1. structured_kg_surfaces_its_insights — theme cluster (subjects 1,2,3 →
+   predicate 100) + chain 1→2→3→4, close_transitive derives 1→3/1→4/2→4.
+   Asserts a Bridge at focus.s==100 with MiddleTerm{bridges:3}, a Conclusion
+   with rung>=1 and non-empty premises, and at least one CoreTheme.
+2. noise_kg_stays_quiet — size-matched (6 observed beliefs) but fully
+   disjoint KG. Asserts NO Bridge, NO Conclusion, and that the structured KG
+   (test 1's fixture, rebuilt) produces strictly more insights
+   (E-BASIN-WIDTH: surfaces structure, stays quiet on noise).
+3. every_conclusion_carries_its_ladder — every surfaced Conclusion has
+   rung>=1 AND non-empty premises (auditability).
+4. top_k_bounds_output — InsightConfig{top_k:1} bounds output to <=1, and
+   that one entry is the globally strongest.
+
+Verification: did NOT run cargo (edit-only per hard rules). Implemented
+exactly per the spec's provided source (belief.rs / epiphany.rs / truth.rs
+signatures verified by reading each file before writing: BeliefArena::new/
+entries/observe/admit_derived/close_transitive, TruthValue::new/expectation,
+CStmt{s,cop,p}, Copula::Inh).
+
+Sibling re-export check (mod.rs): CONFIRMED all 12 pre-existing `pub use`
+lines are present and byte-unchanged after the edit — belief, dissolution,
+elevation, epiphany, facet_fold, inference, insight, reach_out, regulate,
+tactic_select, tactics, truth. Only the new insights mod + re-export line
+were added (each via a single targeted Edit, not a full-file rewrite), so no
+sibling re-export could have been dropped.
+
+No spec ambiguity encountered — the spec's source blocks were followed
+verbatim.
