@@ -228,6 +228,23 @@ planner — non-circular.
 >   no crawl). The held-out frontier-ordering PASS gate above (beats MUL-blind on
 >   time-to-first-epiphany) is D-SCI-4b, a later corpus probe; D-SCI-4a is the
 >   structural wire + its gestalt semantics.
+>
+> **⊘ CORRECTION to G-CM-5 (2026-07-23, append-only; the registered line above
+> stands as written).** G-CM-5 registered *"the derived `wonder =
+> √(coherence·expansion)` … rises with Staunen."* The implementation found this
+> is **ill-posed**: the qualia `wonder` (`qualia::qualia_to_state` drive-axis 9)
+> is `√(coherence·expansion)` = **coherent-NOVELTY** wonder — it reads only trust
+> (coherence) and edge novelty (expansion), NOT `truth_entropy`/`contradiction`.
+> **Staunen (surprise-wonder) is a DIFFERENT quale**, carried by `arousal[0]`,
+> `entropy[8]`, `tension[2]`. So the as-built G-CM-5 asserts Staunen tracks
+> arousal/entropy/tension (which it does), and a paired
+> `wonder_is_invariant_to_staunen` test guards the decoupling. Not a relaxation
+> — a real two-wonders distinction (Csikszentmihalyi coherent-novelty vs
+> Staunen surprise), recorded rather than fudged. Adversarially verified: the
+> decoupling is mathematically correct, all 5 gates hold with margin, the
+> `.max(0.0)` magnitude is NaN-safe (the sort cannot panic — strictly safer than
+> the pre-existing `next_frontier_edge`), non-circular, SIMD-repr contract
+> untouched.
 
 ---
 

@@ -204,7 +204,7 @@ impl FrontierEdge {
 
         // ── project the magnitude from base curiosity × MUL × texture ──
         let base = novelty * uncertainty; // == self.curiosity()
-        let fw = assessment.free_will_modifier as f32;
+        let fw = (assessment.free_will_modifier as f32).clamp(0.0, 1.0); // defensive: [0,1]
         let dk = dk_factor(assessment.dk_position);
         let flow = flow_factor(assessment.homeostasis.flow_state);
         let trust = trust_factor(assessment.trust.texture);
@@ -1040,6 +1040,32 @@ mod tests {
             )
             .texture[14];
         assert!(g_unc < quiet.texture[14], "groundedness tracks trust texture");
+    }
+
+    /// The recorded finding, guarded: the qualia `wonder = √(coherence·expansion)`
+    /// is INVARIANT to Staunen (surprise) — it is coherent-novelty wonder, not
+    /// surprise-wonder. Raising truth_entropy/contradiction must NOT move the
+    /// wonder projection (only arousal/entropy/tension carry Staunen).
+    #[test]
+    fn wonder_is_invariant_to_staunen() {
+        use crate::qualia::qualia_to_state;
+        let e = edge(0.2, 0);
+        let quiet = e.curiosity_gestalt(&neutral(), &GraphSignals::default());
+        let loud = e.curiosity_gestalt(
+            &neutral(),
+            &GraphSignals {
+                truth_entropy: 0.95,
+                contradiction_rate: 0.8,
+                ..GraphSignals::default()
+            },
+        );
+        // wonder is drive-axis 9 of the 11D projection = √(coherence·expansion).
+        let w_quiet = qualia_to_state(&quiet.texture)[9];
+        let w_loud = qualia_to_state(&loud.texture)[9];
+        assert!(
+            (w_quiet - w_loud).abs() < 1e-6,
+            "wonder must be invariant to surprise: {w_quiet} vs {w_loud} (Staunen lives in arousal/entropy/tension)"
+        );
     }
 
     /// The MUL-steered pick matches the MUL-blind pick when MUL is neutral

@@ -7,7 +7,8 @@ Plan: `.claude/plans/scientific-kg-substrate-v1.md`. PROPOSED scoping; outward-f
 | D-SCI-1 | Term/entity extraction — the gate (inverse of the colorblind finding) | lance-graph | Queued | plan; buildable now |
 | D-SCI-2 | OCR ingest via the tesseract-rs doc.v1 seam | lance-graph + tesseract-rs | Queued | plan |
 | D-SCI-3 | The crawl (spider-rs) — OUTWARD-FACING | lance-graph | Blocked | plan §4 (scope + robots + fork coords) |
-| D-SCI-4 | MUL reasoning + adjacent thinking (depends on D-SRS-3) | lance-graph-planner | Queued | plan; blocked on D-SRS-3 |
+| D-SCI-4a | `curiosity_mul` + qualia texture gestalt — the MUL exploration-gateway wire | lance-graph-contract | Shipped | `exploration.rs` + 12 tests (G-CM-1..5 + wonder-invariance); adversarially verified; `E-MUL-EXPLORATION-GATEWAY-1` |
+| D-SCI-4b | Held-out frontier-ordering probe (curiosity_mul beats MUL-blind) + adjacent thinking | lance-graph | Queued | plan; corpus probe, later |
 
 ## self-reasoning-substrate-v1 — the derivation DAG as the pointer fabric one level up
 

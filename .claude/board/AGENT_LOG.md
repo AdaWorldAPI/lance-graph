@@ -1,3 +1,15 @@
+## 2026-07-23 — D-SCI-4a SHIPPED: curiosity_mul + qualia texture gestalt (the MUL exploration-gateway wire) — main thread, sole board writer
+
+- **Task:** operator goal "autoattended autonomous … following your curiosity" + steer "wire qualia as a texture gestalt awareness." Built the one wire `E-MUL-EXPLORATION-GATEWAY-1` named.
+- **Discipline:** gate registered BEFORE code (`8cf709a`, anti-tuning) → code (`b0dd736`) → this adjudication.
+- **Built (`lance-graph-contract::exploration`, non-circular, zero-dep):** `FrontierEdge::curiosity_mul` + `curiosity_gestalt → TextureGestalt{texture: QualiaVector, magnitude}` (qualia AS felt awareness, not a bare scalar) + `MassExplorer::next_frontier_edge_mul`. MUL (`MulAssessment`) + graph uncertainty (`GraphSignals`) weight base `curiosity()`; Staunen→arousal/entropy/tension, DK-humility damp, ground gate.
+- **Tests:** 12/12 (`G-CM-1` neutral identity, `G-CM-2` staunen boost, `G-CM-3` humility gate, `G-CM-4` ground gate, `G-CM-5` texture fidelity, `wonder_is_invariant_to_staunen`, frontier-pick match); `clippy -D warnings` clean.
+- **Adversarial verify (1 general-purpose lens):** NO code defects; all 5 gates hold with margin (humility survives max surprise 0.198<1.0; NaN-safe sort via `.max(0.0)`, strictly safer than pre-existing `next_frontier_edge`; non-vacuity bit-exact at neutral; Calibrated/Underconfident conflation caught by ground_gate). Folded: defensive `fw` clamp, the `wonder_is_invariant_to_staunen` regression, and the append-only G-CM-5 correction (the two-wonders distinction: coherent-novelty `wonder` ≠ Staunen surprise) into the plan.
+- **Finding recorded (not a bug):** qualia `wonder = √(coherence·expansion)` is coherent-novelty wonder, decoupled from Staunen (surprise), which lives in arousal/entropy/tension.
+- **Commit:** `8cf709a` (gate) → `b0dd736` (wire) → the hardening+board commit.
+- **TECH_DEBT filed:** pre-existing `next_frontier_edge` NaN-panic risk (public-field NaN `confidence`) — the new `_mul` path is already safe.
+- **Outcome:** D-SCI-4a Shipped, verified; the MUL exploration gateway is real. Ships in the execution-phase PR after #807. Next: D-SRS-3 basin self-codes (the ideal per-basin IN for this wire).
+
 ## 2026-07-23 — Exploration: MUL as an exploration gateway (spider fork + MUL/epiphany mapped) — main thread, sole board writer
 
 - **Task:** operator "Explore, the idea is to use MUL as an exploration gateway for insights following epiphanies." Cloned `AdaWorldAPI/spider` (@ /workspace/spider, HEAD 046c439) and ran 3 parallel read-only exploration agents (general-purpose): (A) spider crawl + doc-IR path, (B) spider agent layer + MCP steering hooks, (C) MUL + epiphany mechanism as gateway.
