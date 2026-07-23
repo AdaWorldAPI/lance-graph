@@ -437,6 +437,54 @@ where MUL already expects a self-measurement signal. No new tenant, no layout bu
 - **KILL:** the self-report's ranking is uncorrelated with (or inverted from) the
   held-out measurement. The graph does not know where it is uncertain.
 
+#### G-SRS3-1 — PRE-RUN REGISTRATION (2026-07-23, before any code)
+
+> Registered as the FIRST commit of D-SRS-3, before `basin.rs` or the example
+> compiles. Never edited post-hoc; the registration commit predates the
+> measurement commit in git history — that ordering is the anti-tuning proof
+> (§2 discipline). Divergences are recorded as append-only corrections below,
+> never by editing this block.
+
+- **Basin definition (structural, NOT routing).** A basin = one **subject's
+  outgoing-object neighborhood** over the whole-book KG: basin `s` = the multiset
+  of object words `{o : (s, p, o) ∈ base}` across all predicates. This is the
+  deepnsm-v2 realization of the le-contract L1–L3 `part_of:is_a` episodic rail
+  (a subject anchors a neighborhood). It is explicitly **NOT** the vocab routing
+  basin-byte — routing is measured ORTHOGONAL to meaning (ρ≈−0.07 vs Jina,
+  `lib.rs`), so grouping by it would give meaning-incoherent basins and a
+  degenerate gate.
+- **Member codes = the TRAINED Cam96 codes** (`data/cam96_codes.bin`, real
+  Jina-v3 embeddings) of the basin's object words. Never demo codes.
+- **Basin self-code (Layer 5).** Reconstruct each member code to its
+  concatenated-centroid point (`Cam96Space::reconstruct`), average the points →
+  the centroid point, re-encode → the basin's Cam96 self-code. O(n) per basin.
+- **Width (distribution spread).** Mean squared-L2 of member points to the
+  centroid point. This is the "where am I uncertain" instrument: a diffuse
+  neighborhood (objects semantically scattered) = wide = uncertain.
+- **HELD-OUT protocol (never in-sample).** Deterministically split each basin's
+  members by index parity into disjoint halves A (even) and B (odd). Compute
+  `width_A` from A's own centroid and `width_B` from B's own — the two halves
+  never see each other. Consider only basins with **≥ 6 members** (so each half
+  has ≥ 3). Rank-correlate `width_A` against `width_B` across those basins by
+  **Spearman ρ** (average-rank ties).
+- **PASS gate:** ρ **≥ 0.35** (a basin the graph reports wide on half its
+  evidence is wide on the other half — the self-report is reliable out-of-sample).
+- **KILL:** ρ **≤ 0** (uncorrelated or inverted — the graph does not know where
+  it is uncertain; report as falsified, do not soften).
+- **Soft-fail band `0 < ρ < 0.35`:** recorded honestly as "below the registered
+  floor" — NOT tuned to pass, NOT relabelled a KILL. The registration stands.
+- **Advantage framing.** Cite the DISTRIBUTION's edge as **ALGEBRAIC**
+  (independently-addressable rails, exact additive-decomposition distance),
+  per `E-CAM96-REVIEW-CORRECTIONS-1` — not raw fidelity.
+- **MUL consumption (in-scope, no layout bump).** Each basin's width maps to a
+  competence ∈ [0,1] (`competence = 1 − width/max_width`) and its complement
+  `curiosity = 1 − competence` — the exact value `mul::compass CompassNeedles`
+  expects as a self-measurement. A derived READ, not a new tenant (§3).
+- **Contradiction density (secondary, REPORTED not gated).** Fraction of a
+  subject's `(s,p)` slots carrying > 1 distinct object — an available structural
+  ambiguity signal, reported alongside width. Gated instrument is width (it has
+  the clean held-out falsifier with the loaded codes).
+
 ### D-SRS-4 — The self-reference falsifier
 
 **The graph answers a question about its OWN earlier derivation, correctly.**
