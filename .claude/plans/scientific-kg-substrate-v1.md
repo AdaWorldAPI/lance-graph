@@ -108,6 +108,43 @@ corpus under the academic-20k vocab.
   indistinguishable shape distributions — entity extraction bought nothing, the
   substrate can't see scientific structure, STOP the wave.
 
+### D-SCI-INSIGHT — the main-insight surface ("the paper speaks and thinks for itself") — FIRST SLICE SHIPPED
+
+The north-star capability (operator, 2026-07-23): *"extract the main insights of
+a paper would be groundbreaking."* The SURFACING half is shipped
+(`nars/insights.rs` `extract_main_insights`, `E-SCI-INSIGHT-PAPER-SPEAKS-FOR-ITSELF-1`):
+given a reasoned concept-KG (a `BeliefArena` after `close_transitive` + tactics),
+it surfaces ranked `MainInsight`s — **CoreTheme** (S9 epiphany attractor),
+**Conclusion** (high-`expectation()` derivation), **Bridge** (non-hub shared
+middle term) — each carrying its **ladder** (`rung` + `premises`, the learnable
+derivation shape) and its **explained reason** (`InsightReason`, why it is
+insightful). Falsifier: a structured KG surfaces its planted insights, a
+size-matched noise KG stays quiet (E-BASIN-WIDTH); every Conclusion is auditable
+back to its premises.
+
+**The differentiator (operator):** *"the difference between LLM extraction — and
+the paper speaks and thinks for itself."* Insights EMERGE from the paper's own
+connective tissue (its concepts compose via the engine), with full provenance —
+never an external model imposed on the text. No-LLM, emergent, auditable.
+
+**The real-paper leg = D-SCI-1** (concept extraction) feeds this surface. Corpus
+(operator): a public-domain Gutenberg science/philosophy text, OR an ephemeral
+single-arXiv-paper fetch via tesseract/spider (never committed to disk — one
+paper, not a crawl).
+
+**Connective-tissue validation gate (operator: Kant / Schopenhauer / Hegel /
+Precht).** Run the pipeline over a philosophy corpus whose conceptual bridges are
+KNOWN FROM SCHOLARSHIP — Precht's interpretation maps the real connections
+between these thinkers — and check the engine's extracted `Bridge` insights
+against that scholarship ORACLE. A domain with a ground-truth connective tissue,
+so "does the paper's-own-structure produce the bridges scholarship already knows?"
+is falsifiable in a way a synthetic KG is not. This is the companion to the
+term-vocab-vs-word-vocab shape gate above.
+
+**Next rung — learn from the ladder:** NARS self-reinforcement over the
+derivation shapes that produced good insights ("capture the shape of figuring it
+out"). The surface exposes the ladder; learning over it is the next slice.
+
 ### D-SCI-2 — OCR ingest via the tesseract-rs `doc.v1` seam (cross-repo)
 
 A scanned/PDF paper → tesseract-rs `doc.v1` → (OGAR adapter) → term extract →
