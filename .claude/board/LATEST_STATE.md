@@ -1,3 +1,14 @@
+## 2026-07-23 — branch `claude/x265-x266-plans-review-h9osnl` (PRs #817/#818/#819/#820/#822/#823/#824, MERGED) — the dialectic engine's LOOP + V4 foveated field-search (D-DIA-V2 → V4)
+
+### Current Contract Inventory — new field-search + fold modules
+- `bgz17::palette::{build_hierarchical, HierarchicalPalette}` (#823) — divisive 16-coarse×16-fine k-means codebook where `code>>4==coarse` IS centroid ancestry (the `D-TILE256` rigor condition, reusing `hhtl.rs::NiblePath`). Flat `build` untouched. `PROBE-CODEBOOK-44` retires Probe M1.
+- `bgz17::palette_semiring::premultiplied_over` (#824, rung 3) — the composite floor `Σ weightᵢ·value(codeᵢ)` over `[i64;17]` signed Base17 dims (commutativity gate PASS); the alpha-over composite lives in bgz17's palette world, NOT blasgraph's HDR semiring.
+- `bgz17::examples::probe_foveated_descent::foveated_descend` (#824, rung 2) — foveated morton-comma descent: materialize only the `fovea_k` nearest coarse clusters' leaves, prune periphery. fovea_k=2 → 8× prune + full recall.
+- `lance_graph_planner::nars::facet_fold::{to_spo_facet, cstmt_from_spo_facet}` (#824, M26) — lossless content-blind `Belief⟷SpoFacet` byte relabel (rails 0-3 carry `CStmt` exactly incl. `Rel(v)>255` two-rail split); a `Belief` IS a reading of the M20 `awareness_facet::SpoFacet` register, never a new store.
+- `lance_graph_planner::nars::insight` (#819) — the S10 insight-vs-mush detector over a before→after `BeliefArena` snapshot (reuses `GraphSignals`/`FlowState`): `insight = clamp(Δcoh + Δwonder, 0, 1)·[yield>θ]`, coherence = closure density (size-invariant).
+- **Ruling (`E-FOVEATED-HHTL-TRIE-FIELD-SEARCH-1`, #820 + #822 fold):** field search = the guaranteed-terminating FLOOR of an addressing-first ladder → the whole escalation is a TOTAL function; foveation IS the pruning; deferring materialization IS Kuzu factorized processing. Folds onto shipped survivors (`SpoFacet` field element, `NiblePath` ancestry, palette-table composite) — the plan EXPANDS the ENTROPY ledger, never re-describes it.
+- **Open (operator-gated):** anchor-level real-data ρ is blocked by the Base17 17-dim fold ceiling (ρ=0.2599, `TD-BASE17-FOLD-CEILING-SINGLE-WORD`), NOT the codebook (hierarchy is fidelity-neutral on real Jina data — structure-is-free confirmed); the close needs higher-dim/structured Base17 input (a design steer, not grindwork). 134 bgz17 + 24 nars tests, clippy `-D warnings` clean. Detail: `PR_ARC_INVENTORY` #817..#824; `AGENT_LOG` 2026-07-23.
+
 ## 2026-07-23 — branch `claude/x265-x266-plans-review-h9osnl` (PRs #814/#815/#816, MERGED) — the dialectic engine's REASONING LAYER: the five NARS tactics in `lance-graph-planner/src/nars` over the one engine
 
 ### Current Contract Inventory — new planner reasoning modules
