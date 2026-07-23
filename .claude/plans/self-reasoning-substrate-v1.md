@@ -666,6 +666,35 @@ faithfully (NARS frequency-confidence; rung stratification).
   is coverage-driven; the composite carries no question-resolution signal.
 - Verdict REPORTED, never panicked. `E-DOOMSCROLL-VS-RUNG-LADDER-QUERY-1`.
 
+#### G-SRS3b-2 RESULT + G-SRS3b-3 REGISTRATION (2026-07-23)
+
+- **G-SRS3b-2 KILLED, but the sign FLIPPED CORRECT.** 197 basins: real ρ(U,
+  yield) = **+0.326** (positive — uncertain basins DO resolve more of their
+  open questions, the sensible direction the raw-novelty target lacked), null ρ
+  = **0.340**, separation **−0.013** (KILL). `#open-questions` baseline ρ =
+  **0.497** dominates. So the operator's target correction WORKED (sign
+  sensible) but the composite STILL doesn't separate from a size-preserving
+  null — same confound, third target.
+- **The robust finding across THREE targets:** the evidence composite never
+  beats a size-preserving null (code-spread G-SRS3-2, forward-novelty G-SRS3b-1,
+  open-question-yield G-SRS3b-2). The information is SIZE/ACTIVITY, captured by a
+  plain count. **G-SRS3b-3 settles it definitively:** does the composite carry
+  ANY signal BEYOND size?
+
+- **G-SRS3b-3 — PRE-RUN REGISTRATION (size-residualized partial correlation):**
+  control for the dominating size covariate (`#open-questions`) by
+  rank-residualizing both `U` and `yield` on it, then correlate the residuals
+  (Spearman partial correlation). Same size-preserving null.
+  - **PASS:** partial ρ(U, yield | size) ≥ **0.15** AND (real − null) ≥ **0.10**
+    — the composite predicts question-resolution EVEN AFTER size is removed:
+    the operator's `NARS×contra×rung` composition carries genuine information
+    beyond a count.
+  - **KILL:** (real − null) ≤ **0.05** — with size partialled out, nothing
+    remains; the composite IS its size baseline (report as such, do not soften).
+  - Verdict REPORTED. This is the terminal cross-basin test for D-SRS-3b; the
+    composite's validated home is the per-basin KANBANSTEP drive regardless of
+    outcome. `E-DOOMSCROLL-VS-RUNG-LADDER-QUERY-1`.
+
 ### D-SRS-4 — The self-reference falsifier
 
 **The graph answers a question about its OWN earlier derivation, correctly.**
