@@ -219,9 +219,9 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > out-scores a size-matched crystallizing influx (chain-extending → closure rises
   > → dissolution 0) — the detector measures crystallization-FAILURE, not growth
   > (`E-DIA-V3-A-DISSOLUTION-DETECTOR-1`). `should_elevate` is the S11 field-elevation
-  > TRIGGER. **V3-B (the RESPONSE) still queued:** the FIELD-scale mass-induction
-  > sweep minting parent concepts (new family basins; HHTL grows upward), gated by
-  > `should_elevate`; plus epiphany attractors (rate-normalized, S9).
+  > TRIGGER. **V3-B (the RESPONSE) — now SHIPPED, see the V3-B note below:** the
+  > FIELD-scale mass-induction sweep minting parent concepts (new family basins;
+  > HHTL grows upward), gated by `should_elevate`.
   > **✅ V3-C (the trigger→response LOOP) SHIPPED (2026-07-23):** `nars/regulate.rs`
   > — `regulate_cycle(&mut arena, &before, &cfg) -> CycleOutcome` composes the
   > three shipped V3 pieces (detect_dissolution → should_elevate → elevate_field)
@@ -240,9 +240,9 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > proves the value is PROPAGATION not minting: one later `G is_a N` fact derives
   > `S_i is_a N` for ALL k children via `close_transitive` (the abstraction is an
   > amortization point — one update, k dividends); and the honest guard mints
-  > NOTHING on a structureless flood. **Remaining V3:** the LIVE trigger→response
-  > loop (dissolution fires `should_elevate` → `elevate_field` runs in a runtime
-  > cycle) + epiphany attractors (S9).
+  > NOTHING on a structureless flood. **The LIVE trigger→response loop is now
+  > SHIPPED as V3-C** (`regulate_cycle`, above). **Remaining V3:** epiphany
+  > attractors (rate-normalized, S9) — the only unshipped V3 scope.
 - **V4:** the 64k SIMT lowering — Boolean-reachability semiring + truth second
   pass (S1), masks, sweeps — only after V0–V3 green at small scale.
   > **Column size is a capacity knob, NOT a cache constant (operator, 2026-07-23).**
