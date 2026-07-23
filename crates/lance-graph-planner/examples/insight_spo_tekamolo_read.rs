@@ -63,7 +63,7 @@
 
 use lance_graph_contract::grammar::role_keys::Tense;
 use lance_graph_contract::grammar::tekamolo::TekamoloSlot;
-use lance_graph_contract::grammar::verb_lexicon::{is_causal_cue, read_verb};
+use lance_graph_contract::grammar::verb_lexicon::{is_causal_cue, is_copula, read_verb};
 use lance_graph_contract::grammar::verb_table::VerbFamily;
 use lance_graph_contract::qualia::{QualiaI4_16D, QualiaVector, AXIS_LABELS, QUALIA_DIMS};
 use lance_graph_contract::tekamolo_facet::{TekamoloFacet, TekamoloRole};
@@ -130,14 +130,29 @@ fn is_content(w: &str) -> bool {
         && w.chars().all(|c| c.is_ascii_alphabetic())
         && !STOP.contains(&w)
         && !is_verb(w)
+        && !is_copula(w) // are/been/being — transparent, never a term (Codex #843 P2)
         && !is_causal_cue(w)
         && !TEMPORAL_CUES.iter().any(|(c, _)| *c == w)
         && !LOCAL_PREPS.contains(&w)
 }
 
-/// A `-ly` manner adverb (`carefully`, `swiftly`) — the "how" morphology.
+/// Common `-ly` words that are NOT manner adverbs — nouns/adjectives whose
+/// suffix would otherwise be misread as "how" (Codex #843 P2). The COCA-grounded
+/// `insight_coca_read` gates this by real PoS instead of a denylist.
+const LY_NONADVERB: &[&str] = &[
+    "family", "supply", "apply", "reply", "rely", "ally", "assembly", "anomaly", "monopoly",
+    "only", "early", "likely", "lonely", "ugly", "holy", "silly", "jolly", "rally", "bully",
+    "belly", "folly", "italy", "july", "duly", "ripply", "wobbly",
+];
+
+/// A `-ly` manner adverb (`carefully`, `swiftly`) — the "how" morphology, gated
+/// against the `-ly` non-adverbs (`family`, `supply`) and known verbs.
 fn is_manner_adverb(w: &str) -> bool {
-    w.len() > 4 && w.ends_with("ly") && !STOP.contains(&w)
+    w.len() > 4
+        && w.ends_with("ly")
+        && !STOP.contains(&w)
+        && !LY_NONADVERB.contains(&w)
+        && !is_verb(w)
 }
 
 /// Map an archetype [`Tense`] to the Temporal lane's coarse code (1 past / 2
@@ -582,6 +597,28 @@ fn main() {
     assert!(
         qualia.get(vi) < 0,
         "valence channel stays negative in the packed tenant"
+    );
+
+    // ── Codex #843 P2 regressions ──
+    // (a) a `-ly` NOUN (`family`) must not be consumed as a Modal cue — the
+    //     relation survives with `family` as the subject.
+    let ly = extract(&tokens("the family supports the roof"));
+    assert_eq!(
+        ly.s, "family",
+        "a -ly noun stays the subject, not the manner"
+    );
+    assert_eq!(
+        ly.verb, "supports",
+        "the relation is not dropped by -ly overmatch"
+    );
+    assert_eq!(ly.modal, [0, 0, 0], "no Modal from a -ly noun");
+    // (b) a copula (`are`) must be transparent — it does not chunk into the
+    //     subject NP of the following real predicate.
+    let cop = extract(&tokens("the stars are bright and pressure caused failure"));
+    assert!(
+        !cop.s.contains("are") && !cop.s.contains("star"),
+        "copula must not chunk into the subject: got {}",
+        cop.s
     );
 
     // ── Control: a bare transitive clause with NO adverbial cues → all-zero
