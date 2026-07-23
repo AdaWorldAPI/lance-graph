@@ -601,11 +601,18 @@ fn main() {
                 .entry((t.predicate, t.object))
                 .or_insert(0) += 1;
         } else {
-            sh_occ.entry(t.subject).or_default().push((t.predicate, t.object));
+            sh_occ
+                .entry(t.subject)
+                .or_default()
+                .push((t.predicate, t.object));
         }
     }
     // Rung-ladder derived share per subject, from the FIRST-HALF arena (capped).
-    let fh_base: Vec<Spo> = all.iter().filter(|&&(v, _)| v < mid_v).map(|&(_, t)| t).collect();
+    let fh_base: Vec<Spo> = all
+        .iter()
+        .filter(|&&(v, _)| v < mid_v)
+        .map(|&(_, t)| t)
+        .collect();
     let fh_arena = deepnsm_v2::reason::DerivationArena::derive_transitive_capped(&fh_base, 50_000);
     let (mut tri_tot, mut tri_der): (Map<u16, usize>, Map<u16, usize>) = (Map::new(), Map::new());
     for d in fh_arena.entries() {
@@ -620,8 +627,7 @@ fn main() {
         .keys()
         .copied()
         .filter(|s| {
-            fh_beliefs.get(s).map_or(0, Map::len) >= 4
-                && sh_occ.get(s).map_or(0, Vec::len) >= 4
+            fh_beliefs.get(s).map_or(0, Map::len) >= 4 && sh_occ.get(s).map_or(0, Vec::len) >= 4
         })
         .collect();
     subjects_e.sort_unstable();
@@ -636,7 +642,11 @@ fn main() {
             .collect();
         let der_share = {
             let tot = *tri_tot.get(&s).unwrap_or(&0);
-            if tot == 0 { 0.0 } else { *tri_der.get(&s).unwrap_or(&0) as f32 / tot as f32 }
+            if tot == 0 {
+                0.0
+            } else {
+                *tri_der.get(&s).unwrap_or(&0) as f32 / tot as f32
+            }
         };
         let fh_po: Vec<(u16, u16)> = fh_beliefs[&s].keys().copied().collect();
         activity.push(bel.iter().map(|&(_, _, n)| n as f32).sum());
@@ -648,7 +658,9 @@ fn main() {
     let u_real: Vec<f32> = basin_beliefs
         .iter()
         .zip(&rungs)
-        .filter_map(|((s, bel), &r)| deepnsm_v2::evidence_basin(*s, bel, r).map(|e| e.uncertainty()))
+        .filter_map(|((s, bel), &r)| {
+            deepnsm_v2::evidence_basin(*s, bel, r).map(|e| e.uncertainty())
+        })
         .collect();
     // Null: redeal belief records AND rung shares across basins (size-preserving).
     let null_beliefs = deepnsm_v2::shuffle_beliefs_null(&basin_beliefs);
@@ -656,7 +668,9 @@ fn main() {
     let u_null: Vec<f32> = null_beliefs
         .iter()
         .zip(&null_rungs)
-        .filter_map(|((s, bel), &r)| deepnsm_v2::evidence_basin(*s, bel, r).map(|e| e.uncertainty()))
+        .filter_map(|((s, bel), &r)| {
+            deepnsm_v2::evidence_basin(*s, bel, r).map(|e| e.uncertainty())
+        })
         .collect();
     let fg = deepnsm_v2::forward_gate(&u_real, &u_null, &activity, &novelty);
     println!(

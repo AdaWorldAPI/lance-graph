@@ -201,7 +201,10 @@ pub fn novelty_rate(first_half_beliefs: &[(u16, u16)], second_half_occ: &[(u16, 
         return 0.0;
     }
     let seen: std::collections::HashSet<(u16, u16)> = first_half_beliefs.iter().copied().collect();
-    let novel = second_half_occ.iter().filter(|po| !seen.contains(po)).count();
+    let novel = second_half_occ
+        .iter()
+        .filter(|po| !seen.contains(po))
+        .count();
     novel as f32 / second_half_occ.len() as f32
 }
 
@@ -224,9 +227,7 @@ fn splitmix_seq(len: usize) -> impl FnMut() -> u64 {
 /// DISTINCT-BELIEF COUNT. Preserves the n-artifact (how many beliefs a basin
 /// has); destroys WHICH evidence it holds.
 #[must_use]
-pub fn shuffle_beliefs_null(
-    basins: &[BasinBeliefs],
-) -> Vec<BasinBeliefs> {
+pub fn shuffle_beliefs_null(basins: &[BasinBeliefs]) -> Vec<BasinBeliefs> {
     let mut pool: Vec<(u16, u16, usize)> = basins.iter().flat_map(|(_, b)| b.clone()).collect();
     let mut next = splitmix_seq(pool.len());
     for i in (1..pool.len()).rev() {
@@ -308,7 +309,10 @@ fn residualize(a: &[f32], b: &[f32]) -> Vec<f32> {
     }
     let beta = if sbb <= 0.0 { 0.0 } else { sab / sbb };
     let alpha = ma - beta * mb;
-    a.iter().zip(b).map(|(&av, &bv)| av - (alpha + beta * bv)).collect()
+    a.iter()
+        .zip(b)
+        .map(|(&av, &bv)| av - (alpha + beta * bv))
+        .collect()
 }
 
 /// Pearson correlation (local, for the residual path). `0.0` on zero variance.
@@ -504,7 +508,10 @@ mod tests {
         let raw = spearman(&x, &y);
         let partial = partial_spearman(&x, &y, &z);
         assert!(raw > 0.9, "raw corr high (both track z): {raw}");
-        assert!(partial.abs() < raw, "partial removes the shared z: {partial}");
+        assert!(
+            partial.abs() < raw,
+            "partial removes the shared z: {partial}"
+        );
         // Degenerate guards.
         assert_eq!(partial_spearman(&[1.0, 2.0], &[1.0, 2.0], &[1.0, 2.0]), 0.0);
     }

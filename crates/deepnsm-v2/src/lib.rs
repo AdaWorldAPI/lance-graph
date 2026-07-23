@@ -36,6 +36,7 @@
 
 pub mod ancestry;
 pub mod basin;
+pub mod belief;
 pub mod codebook;
 pub mod evidence;
 pub mod fsm;
@@ -54,6 +55,7 @@ pub use basin::{
     basin_self_code, heldout_bessel_gate, heldout_constant_n_gate, heldout_split_gate, BasinCode,
     HeldOutGate,
 };
+pub use belief::{Belief, BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
 pub use codebook::{load_cam96_codes, load_cam96_space, CodebookError};
 pub use evidence::{
     evidence_basin, forward_gate, novelty_rate, open_question_yield, partial_spearman,

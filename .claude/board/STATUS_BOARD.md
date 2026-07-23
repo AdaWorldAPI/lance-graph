@@ -1,3 +1,16 @@
+## dialectic-engine-v1 — the reasoning cathedral (ACTIVE)
+
+Plan: `.claude/plans/dialectic-engine-v1.md` (six operator pillars + S1-S12 synthesis). V0 SHIPPED; V1-V5 queued.
+
+| D-id | Deliverable | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-DIA-V0 | Belief arena falsifying slice (triple-keyed + in-place stamped revision + copula-gated transitivity) | lance-graph | Shipped (all 4 registered gates green first run) | `deepnsm-v2/src/belief.rs`; 90 tests + clippy clean; `E-DIALECTIC-ENGINE-SYNTHESIS-1` |
+| D-DIA-V1 | The five tactics (RCR/TR/ASC/CAS/CR) over the Belief arena + throttles + ReasoningGap | lance-graph | Queued | plan §3, §4 |
+| D-DIA-V2 | The loop: bias→recipe LUT, byte-lane council, texture window, insight/mush + null falsifier | lance-graph | Queued | plan §4 |
+| D-DIA-V3 | Dissolution → field rung-elevation (the cathedral floors) + Staunen↔Wisdom flow accounting | lance-graph | Queued | plan §4 |
+| D-DIA-V4 | 64k SIMT lowering (Boolean-reachability semiring + second-pass truth) | lance-graph | Queued | plan §4, S1 |
+| D-DIA-V5 | Reach-out felt integration (dull shadow vs insight) + qualia ablation falsifier | lance-graph | Queued | plan §3.6, S12 |
+
 ## scientific-kg-substrate-v1 — crawl → OCR → terms → reason → MUL (scoping)
 
 Plan: `.claude/plans/scientific-kg-substrate-v1.md`. PROPOSED scoping; outward-facing crawl (D-SCI-3) BLOCKED on §4 decisions. D-SCI-1 buildable on a further "Go".
