@@ -219,10 +219,11 @@ impl BeliefArena {
     ///   P2 fix; the earlier `continue`-on-duplicate made stored truth depend
     ///   on iteration order);
     /// - an ABSENT statement is admitted rung-stamped `max(premise rungs)+1`;
-    /// - an OBSERVED statement (rung 0) is ground and a derivation never
-    ///   overrides it;
-    /// - a DERIVED statement is updated only when the winning derivation's
-    ///   `expectation()` strictly exceeds the stored one (beyond `EPS`).
+    /// - an OBSERVATION-GROUNDED statement (non-empty stamp — whether observed
+    ///   before it was ever derived, rung 0, or derived-then-observed, rung ≥ 1)
+    ///   is ground and a pure derivation never overrides it;
+    /// - a PURE-DERIVED statement (empty stamp) is updated only when the winning
+    ///   derivation's `expectation()` strictly exceeds the stored one (`EPS`).
     ///
     /// Termination: each stored expectation only ever increases and is bounded
     /// (deduction confidence is a product of confidences < 1, so a longer path
@@ -286,7 +287,7 @@ impl BeliefArena {
                 }
             }
             // Apply each winning derivation through CHOICE against the arena.
-            // Absent → admit; observed (rung 0) → ground, untouched; derived →
+            // Absent → admit; observation-grounded → untouched; pure derivation →
             // update only on a strict expectation gain. Order-independent: at
             // most one candidate per statement, and admit/gain-update never
             // interfere across distinct statements.
@@ -295,7 +296,15 @@ impl BeliefArena {
                 match self.index.get(&stmt) {
                     Some(&id) => {
                         let e = &mut self.entries[id as usize];
-                        if e.rung == 0 {
+                        // Any belief carrying observation evidence — a non-empty
+                        // stamp — is GROUND: a pure derivation never overwrites
+                        // it. This catches BOTH a purely-observed belief (rung 0)
+                        // AND a derived-then-observed one (rung ≥ 1, but its stamp
+                        // was unioned in by `revise_at` — a derived belief's zero
+                        // stamp is disjoint from every observation, so observing
+                        // it always pools). The `rung == 0` guard missed the
+                        // latter and would drop the observed evidence.
+                        if e.stamp != Stamp::default() {
                             continue; // observation dominates a derivation
                         }
                         if truth.expectation() > e.truth.expectation() + EPS {
@@ -568,5 +577,49 @@ mod tests {
         // The two orderings agree exactly — the order-independence Codex asked for.
         assert!((strong_first.frequency - weak_first.frequency).abs() < 1e-9);
         assert!((strong_first.confidence - weak_first.confidence).abs() < 1e-9);
+    }
+
+    /// CODEX P2 REGRESSION (the second, subtler one): a belief that is DERIVED
+    /// first and OBSERVED later keeps its rung (≥ 1) but now carries real
+    /// observation evidence (its stamp was unioned in by revision). A later
+    /// closure that finds a higher-expectation pure derivation must NOT
+    /// overwrite it — the `rung == 0` guard missed this; the stamp guard catches
+    /// it. Scenario: derive A→C from weak A→B→C, observe A→C, add strong
+    /// A→D→C, re-close — the observed/revised truth must survive intact.
+    #[test]
+    fn closure_does_not_overwrite_a_derived_then_observed_belief() {
+        let mut arena = BeliefArena::new();
+        // 1) Derive A→C weakly from A→B→C (rung 1, empty stamp).
+        arena.observe(inh(0, 1), NarsTruth::new(0.6, 0.5), Stamp::source(0));
+        arena.observe(inh(1, 2), NarsTruth::new(0.6, 0.5), Stamp::source(1));
+        arena.close_transitive(64);
+        assert_eq!(arena.get(inh(0, 2)).unwrap().rung, 1, "A→C derived");
+        // 2) Observe A→C directly (disjoint source): revision pools evidence in
+        //    place at rung 1 — the belief now carries a non-empty stamp. Chosen
+        //    so its expectation stays BELOW the strong path's, proving the guard
+        //    (not the expectation test) is what protects it.
+        let out = arena.observe(inh(0, 2), NarsTruth::new(0.55, 0.9), Stamp::source(2));
+        assert!(
+            matches!(out, ReviseOutcome::Revised { .. }),
+            "disjoint → revision (derived belief's zero stamp is disjoint from any source)"
+        );
+        let observed = arena.get(inh(0, 2)).unwrap().truth;
+        // 3) Add a STRONGER path A→D→C (deduction expectation ≈ 0.79, above the
+        //    revised A→C) and re-close. The pre-fix code would overwrite A→C with
+        //    the pure derivation, dropping the observation.
+        arena.observe(inh(0, 3), NarsTruth::new(0.95, 0.9), Stamp::source(3));
+        arena.observe(inh(3, 2), NarsTruth::new(0.95, 0.9), Stamp::source(4));
+        arena.close_transitive(64);
+        let after = arena.get(inh(0, 2)).unwrap().truth;
+        assert_eq!(
+            (after.frequency, after.confidence),
+            (observed.frequency, observed.confidence),
+            "closure must not overwrite an observation-grounded belief with a pure derivation"
+        );
+        // It did NOT become the pure strong derivation (f = 0.95²) — observation survived.
+        assert!(
+            (after.frequency - 0.95 * 0.95).abs() > 1e-2,
+            "observed evidence survived, not replaced by the strong derivation"
+        );
     }
 }
