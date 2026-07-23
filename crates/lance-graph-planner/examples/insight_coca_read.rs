@@ -1,7 +1,8 @@
 //! `insight_coca_read` — D-SCI-1: the **corpus-grounded** full-record extractor.
 //! Where `insight_spo_tekamolo_read` uses hand-seeded cue tables, this grounds
-//! every lexical decision in **real COCA data** (`examples/data/coca/`, derived
-//! from ngrams.info's free samples + the master lexicon) and the merged
+//! every lexical decision in **real COCA data** — the `coca-codebook-v2` Release
+//! asset (MedCare-rs; NOT committed to the repo), extracted into
+//! `examples/data/coca/` (gitignored) or `$COCA_CODEBOOK_DIR` — and the merged
 //! `verb_table` archetype — then emits the same
 //! **S · P · O + Temporal · Kausal · Modal · Lokal + Qualia** record into a real
 //! [`TekamoloFacet`](lance_graph_contract::tekamolo_facet::TekamoloFacet) + the
@@ -23,7 +24,7 @@
 //! lemma is archetype-known; unknown → no edge (sparsity). Qualia is the 17D
 //! felt vector (a small polarity lexicon; COCA carries no sentiment).
 //!
-//! ## Falsifier (self-testing, runs in CI)
+//! ## Falsifier (self-testing when the codebook is present; skips cleanly if not)
 //!
 //! `"the committee slowly supported the health care plan in the region"` — grounded
 //! entirely in COCA: `committee/plan/region` are nouns, `supported → support` a
@@ -61,51 +62,66 @@ struct Coca {
     prep_place: HashSet<(String, String)>,
 }
 
+/// The COCA codebook is NOT committed to the repo — it is a Release asset
+/// (`coca-codebook-v2` on `AdaWorldAPI/MedCare-rs`, the private codebook store).
+/// Extract the tarball into `examples/data/coca/` (gitignored), or point
+/// `$COCA_CODEBOOK_DIR` at wherever you extracted it.
 fn data_dir() -> std::path::PathBuf {
+    if let Ok(d) = std::env::var("COCA_CODEBOOK_DIR") {
+        return std::path::PathBuf::from(d);
+    }
     std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/data/coca")
 }
 
-fn load_lines(name: &str) -> Vec<String> {
+const CODEBOOK_HINT: &str = "\
+COCA codebook not found. It is a Release asset, not committed to the repo:
+  1. Download `coca-codebook-v2.tar.gz` from the MedCare-rs release
+     (tag `coca-codebook-v2`).
+  2. Extract into `crates/lance-graph-planner/examples/data/coca/`
+     (gitignored), OR set $COCA_CODEBOOK_DIR to the extraction dir.
+Then re-run this example.";
+
+fn load_lines(name: &str) -> Result<Vec<String>, String> {
     let path = data_dir().join(name);
-    std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("cannot read {}: {e}", path.display()))
+    let text = std::fs::read_to_string(&path).map_err(|_| format!("{}\n(missing: {})", CODEBOOK_HINT, path.display()))?;
+    Ok(text
         .lines()
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
         .map(str::to_string)
-        .collect()
+        .collect())
 }
 
 impl Coca {
-    fn load() -> Self {
+    fn load() -> Result<Self, String> {
         let mut lex = HashMap::new();
-        for l in load_lines("lexicon.tsv") {
+        for l in load_lines("lexicon.tsv")? {
             let mut it = l.split('\t');
             if let (Some(w), Some(lemma), Some(pos)) = (it.next(), it.next(), it.next()) {
                 lex.insert(w.to_string(), (lemma.to_string(), pos.as_bytes()[0]));
             }
         }
-        let pair = |name: &str| -> HashSet<(String, String)> {
-            load_lines(name)
+        let pair = |name: &str| -> Result<HashSet<(String, String)>, String> {
+            Ok(load_lines(name)?
                 .iter()
                 .filter_map(|l| {
                     let mut it = l.split('\t');
                     Some((it.next()?.to_string(), it.next()?.to_string()))
                 })
-                .collect()
+                .collect())
         };
-        let single = |name: &str, col: usize| -> HashSet<String> {
-            load_lines(name)
+        let single = |name: &str, col: usize| -> Result<HashSet<String>, String> {
+            Ok(load_lines(name)?
                 .iter()
                 .filter_map(|l| l.split('\t').nth(col).map(str::to_string))
-                .collect()
+                .collect())
         };
-        Self {
+        Ok(Self {
             lex,
-            compounds: pair("noun_compounds.txt"),
-            transitive: single("transitive_verbs.txt", 0),
-            particles: single("verb_particles.txt", 0),
-            prep_place: pair("prep_place.txt"),
-        }
+            compounds: pair("noun_compounds.txt")?,
+            transitive: single("transitive_verbs.txt", 0)?,
+            particles: single("verb_particles.txt", 0)?,
+            prep_place: pair("prep_place.txt")?,
+        })
     }
 
     fn pos(&self, w: &str) -> Option<Pos> {
@@ -485,7 +501,15 @@ fn report(coca: &Coca, label: &str, text: &str) -> Vec<(Extraction, TekamoloFace
 }
 
 fn main() {
-    let coca = Coca::load();
+    let coca = match Coca::load() {
+        Ok(c) => c,
+        Err(hint) => {
+            // The codebook is a Release asset, not in the repo — skip cleanly
+            // (exit 0) so this is not a hard CI failure when the data is absent.
+            eprintln!("{hint}");
+            return;
+        }
+    };
     println!(
         "loaded COCA: {} lexicon forms, {} compounds, {} transitive verbs, {} prep-place pairs",
         coca.lex.len(),

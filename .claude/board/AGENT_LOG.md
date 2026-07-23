@@ -1,3 +1,11 @@
+## 2026-07-23 — D-SCI-1 COCA codebook moved to Release (repo de-bloat) (main-thread, no subagent)
+
+- **Operator:** "use only the release for the coca codebook — the last PR has 26k LOC (lexicon.tsv)." The committed COCA tables (lexicon.tsv alone = 20k lines) were bloating #843.
+- **Removed** the five COCA data files from the repo (`git rm`) and gitignored `crates/lance-graph-planner/examples/data/coca/`. The codebook now lives ONLY as the `coca-codebook-v2` Release asset on `AdaWorldAPI/MedCare-rs` (the private codebook store) — three-axis: syntax (PoS+collocation) + salience (frequency rank) + meaning (Cam96 Jina-v3-96d PQ codebook, byte-compatible with `deepnsm::codebook`).
+- **`insight_coca_read.rs` now loads from the release:** `data_dir()` honours `$COCA_CODEBOOK_DIR`, else `examples/data/coca/` (gitignored). If the codebook is absent, it prints a download hint and exits 0 (clean skip — not a hard CI failure); when present, the self-testing falsifier runs green. Matches the workspace's data-in-releases convention (bgz-data, cam96-data, qwopus-layers, etc.).
+- **Meaning axis built this session:** all 20k normal-English words embedded via jina-embeddings-v3 (JINA_API_KEY2, 79,681 tokens), L2-normalized, product-quantized to Cam96 (6×256×16). Semantic sanity: money~cash/currency, doctor~physician/surgeon, storm~weather/wind — disambiguation PoS cannot supply. Published as standalone `cam96_codebook.bin`/`cam96_codes.bin`/`cam96_norm.json`/`coca_vocab.txt` + the `coca-codebook-v2.tar.gz` bundle.
+- **Gates:** compile clean; clippy `-D warnings` clean; present-data run green; missing-data path prints hint + exits 0.
+
 ## 2026-07-23 — D-SCI-1 COCA-grounded extractor + Codex #843 P2 fixes (main-thread, no subagent)
 
 - **Operator steer:** "use the 18k table and [ed_d.txt, verb_adv.txt, n_n.txt, v_the_n.txt, like_w2_w3.txt, w1_prep_w3.txt]" + (follow-up) the master `coca_lexicon.txt` and the x2..x5wp n-gram samples. Ground the extractor's starter cue tables in REAL COCA data.
