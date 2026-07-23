@@ -11,6 +11,7 @@
 use crate::base17::Base17;
 use crate::distance_matrix::DistanceMatrix;
 use crate::palette::Palette;
+use crate::BASE_DIM;
 
 /// Semiring over palette indices: distance (metric) + compose (path algebra).
 #[derive(Clone, Debug)]
@@ -92,6 +93,45 @@ impl SpoPaletteSemiring {
             object: PaletteSemiring::build(o_pal),
         }
     }
+}
+
+/// D-DIA-V4 rung 3 — the `PremultipliedOver` palette composite.
+///
+/// Sort→reduce alpha-over depth compositing (3DGS-style: `T_i = T_{i-1}(1-α_i)`,
+/// see `EPIPHANIES.md` `E-FOVEATED-HHTL-TRIE-FIELD-SEARCH-1`) is non-commutative
+/// in its raw form because each `α_i` is scaled by the *running* transmittance
+/// `T_i`, which depends on evaluation order. **Premultiplying** the transmittance
+/// into the weight *before* calling this function (`weight_i = round(T_i · α_i ·
+/// 255)`, computed once by the caller's depth-sort) turns the composite into a
+/// plain weighted sum — a commutative, associative monoid — which is what makes
+/// the operation safe to fold as an unordered GraphBLAS-style `mxv` reduce
+/// instead of a strictly-ordered scan.
+///
+/// Carrier: bgz17's PALETTE world. `contribs` is a slice of
+/// `(palette_code: u8, premultiplied_weight: u16)` pairs — the `SpoFacet`
+/// palette-index side of a depth-sorted contribution list. `value(code)` is the
+/// palette centroid (`palette.entries[code].dims`, the same `Base17` archetype
+/// `PaletteSemiring::compose`/`distance` already index into) — the composite
+/// reduces `Σ_i weight_i · value(code_i)` per Base17 dimension.
+///
+/// Accumulates in `i64` (not `u32`): `Base17` dims are *signed* `i16`, and
+/// `weight (u16, ≤65535) × value (i16, ≤32767)` summed over up to 256
+/// contributions needs headroom a `u32` can't give a signed value — `i64` has
+/// no realistic overflow risk for palette-scale contribution lists.
+///
+/// Commutativity is the headline property under test: because plain integer
+/// multiply-then-add is exactly commutative and associative (no floating-point
+/// rounding), `premultiplied_over` is order-independent by construction once
+/// the weights are premultiplied — the sort→reduce split.
+pub fn premultiplied_over(palette: &Palette, contribs: &[(u8, u16)]) -> [i64; BASE_DIM] {
+    let mut acc = [0i64; BASE_DIM];
+    for &(code, weight) in contribs {
+        let entry = &palette.entries[code as usize];
+        for d in 0..BASE_DIM {
+            acc[d] += weight as i64 * entry.dims[d] as i64;
+        }
+    }
+    acc
 }
 
 #[cfg(test)]
@@ -195,5 +235,123 @@ mod tests {
         // distance matrix: 256*256*2 = 128KB
         // compose table: 256*256 = 64KB
         assert_eq!(sr.byte_size(), 256 * 256 * 2 + 256 * 256);
+    }
+
+    // ── D-DIA-V4 rung 3 — `premultiplied_over` gates ───────────────────────
+
+    /// Deterministic SplitMix64 (seed 0x9E3779B97F4A7C15) — no clock/rand.
+    struct SplitMix64(u64);
+    impl SplitMix64 {
+        fn next_u64(&mut self) -> u64 {
+            self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = self.0;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^ (z >> 31)
+        }
+        /// Uniform index in `[0, n)`.
+        fn below(&mut self, n: usize) -> usize {
+            (self.next_u64() % n as u64) as usize
+        }
+    }
+
+    /// Deterministic Fisher-Yates shuffle over a SplitMix64 stream.
+    fn shuffled<T: Clone>(items: &[T], seed: u64) -> Vec<T> {
+        let mut v = items.to_vec();
+        let mut rng = SplitMix64(seed);
+        for i in (1..v.len()).rev() {
+            let j = rng.below(i + 1);
+            v.swap(i, j);
+        }
+        v
+    }
+
+    /// Deterministic (code, weight) contribution list over a k-entry palette.
+    fn make_contribs(k: u8) -> Vec<(u8, u16)> {
+        (0..k)
+            .map(|code| (code, 1 + (code as u16) * 37 % 4000))
+            .collect()
+    }
+
+    #[test]
+    fn premultiplied_over_is_commutative() {
+        // The headline gate: premultiplied weights make the sort→reduce
+        // composite order-independent — plain (code, weight) reordering must
+        // not change the result.
+        let pal = make_palette(32);
+        let contribs = make_contribs(32);
+        let baseline = premultiplied_over(&pal, &contribs);
+
+        let shuffled_contribs = shuffled(&contribs, 0x9E37_79B9_7F4A_7C15);
+        // Sanity: the shuffle actually reorders (not a no-op permutation).
+        assert_ne!(
+            contribs, shuffled_contribs,
+            "shuffle must actually permute the contribution order"
+        );
+
+        let reordered = premultiplied_over(&pal, &shuffled_contribs);
+        assert_eq!(
+            baseline, reordered,
+            "premultiplied_over must be order-independent (commutative reduce)"
+        );
+
+        // A second, independently-derived shuffle (different seed) must also
+        // agree — commutativity should hold for ANY permutation, not just one.
+        let shuffled_again = shuffled(&contribs, 0xD1B5_4A32_D192_ED03);
+        let reordered_again = premultiplied_over(&pal, &shuffled_again);
+        assert_eq!(baseline, reordered_again);
+    }
+
+    #[test]
+    fn premultiplied_over_is_linear_in_weight() {
+        // Doubling every contribution's premultiplied weight must double the
+        // reduce (plain weighted-sum linearity — no saturation, no clamping).
+        let pal = make_palette(24);
+        let contribs = make_contribs(24);
+        let doubled: Vec<(u8, u16)> = contribs.iter().map(|&(c, w)| (c, w * 2)).collect();
+
+        let base = premultiplied_over(&pal, &contribs);
+        let scaled = premultiplied_over(&pal, &doubled);
+
+        for d in 0..BASE_DIM {
+            assert_eq!(
+                scaled[d],
+                base[d] * 2,
+                "dim {d}: doubling weights must double the reduce ({} vs {})",
+                scaled[d],
+                base[d] * 2
+            );
+        }
+    }
+
+    #[test]
+    fn premultiplied_over_zero_weight_is_a_no_op() {
+        // A zero-weight contribution (fully occluded / T_i*alpha_i == 0) must
+        // not perturb the result — appending one is a no-op.
+        let pal = make_palette(16);
+        let contribs = make_contribs(16);
+        let base = premultiplied_over(&pal, &contribs);
+
+        let mut with_zero = contribs.clone();
+        with_zero.push((7, 0));
+        let with_zero_result = premultiplied_over(&pal, &with_zero);
+        assert_eq!(
+            base, with_zero_result,
+            "a zero-weight contribution must be a no-op"
+        );
+
+        // An all-zero contribution list must reduce to the additive identity.
+        let all_zero: Vec<(u8, u16)> = contribs.iter().map(|&(c, _)| (c, 0)).collect();
+        assert_eq!(
+            premultiplied_over(&pal, &all_zero),
+            [0i64; BASE_DIM],
+            "an all-zero-weight contribution list must reduce to zero"
+        );
+    }
+
+    #[test]
+    fn premultiplied_over_empty_contribs_is_zero() {
+        let pal = make_palette(8);
+        assert_eq!(premultiplied_over(&pal, &[]), [0i64; BASE_DIM]);
     }
 }

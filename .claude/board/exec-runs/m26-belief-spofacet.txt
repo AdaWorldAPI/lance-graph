@@ -1,0 +1,35 @@
+M26 — Belief <-> SpoFacet round-trip — Sonnet grindwork run
+
+Files touched:
+- crates/lance-graph-planner/src/nars/facet_fold.rs (NEW)
+- crates/lance-graph-planner/src/nars/mod.rs (wired pub mod facet_fold + re-export)
+
+Fns:
+- to_spo_facet(stmt: &CStmt, rung: u32, premises_len: usize) -> SpoFacet
+- cstmt_from_spo_facet(f: &SpoFacet) -> CStmt
+
+Design: lossless content-blind byte relabel of CStmt{s,cop,p} into the 6x(8:8)
+SpoFacet register (rails 0-3 carry the statement exactly, incl. Copula::Rel(u16)
+payloads >255 split across rail1.lo + rail3.hi; rails 4-5 carry a documented
+lossy provenance summary, NOT round-trip-gated). Codebook-mediated semantic
+placement (term -> palette256^2 centroid) is out of scope, documented as
+separate future work needing term embeddings the planner lacks.
+
+Verify (scoped, no --workspace/--all, no worktree):
+- cargo test -p lance-graph-planner nars:: => 24 passed; 0 failed
+  (3 new: cstmt_round_trips_through_spo_facet_for_all_copulas_and_boundaries,
+   to_spo_facet_is_a_pure_byte_relabel_of_the_register,
+   rel_payload_spans_two_rails_losslessly)
+- cargo fmt -p lance-graph-planner => reformatted facet_fold.rs only (test array
+  alignment); no other files touched.
+
+Round-trip test matrix: 4 boundary term-ids (0,255,256,65535) x 7 copulas
+(Inh,Sim,Impl,Rel(0),Rel(255),Rel(256),Rel(65535)) = 112 statements x 4x4=16
+(s,p) pairs each run = all pass exactly.
+
+Divergence from spec: none. Did not run clippy (not in the explicitly-granted
+gate list; brief said "clippy-clean for your additions" as a discipline note,
+not a required run command — flagging for orchestrator to run centrally per
+cargo-hygiene rule).
+
+No commit, no push, no board-file writes performed by this run (per guardrails).

@@ -1,0 +1,69 @@
+## D-DIA-V4 rung 2 — foveated morton-comma descent — grindwork agent (edit-only)
+
+Built `crates/bgz17/examples/probe_foveated_descent.rs` (new file, self-contained,
+zero deps, mirrors probe_codebook_44.rs's SplitMix64/planted-hierarchy style).
+
+fn signature (exact, per spec):
+  fn foveated_descend(hp: &HierarchicalPalette, query: &Base17, fovea_k: usize, budget: usize) -> Vec<u8>
+
+Mechanism: rank coarse clusters (hp.coarse) by L1 to query (eccentricity) →
+fovea_k nearest get FINE LoD (their 16 leaf codes materialized via the
+code>>4==coarse contiguous-range invariant from PROBE-CODEBOOK-44 GATE 1,
+no periphery leaf ever touched) → rank materialized candidates by L1 →
+truncate to budget.
+
+Reused (canonical, not rebuilt): `HierarchicalPalette::{coarse, coarse_len,
+leaf_len, leaves}` from crates/bgz17/src/palette.rs (PR #823); the
+code>>4==coarse ancestry invariant that mirrors
+lance-graph-contract::hhtl::NiblePath (cited in doc comments, not re-derived).
+
+Verify run (`cargo run --example probe_foveated_descent --manifest-path
+crates/bgz17/Cargo.toml`) + `cargo fmt` — both scoped to bgz17 only, per brief.
+
+RESULTS (deterministic, SplitMix64 seed 0x9E3779B97F4A7C15, planted 16x16
+hierarchy, 2048 samples, 256 leaves):
+
+Pruning (fovea_k -> materialized/256):
+  fovea_k=1: 16/256  ratio=0.0625 (16.0x pruned)
+  fovea_k=2: 32/256  ratio=0.1250 (8.0x pruned)
+  fovea_k=4: 64/256  ratio=0.2500 (4.0x pruned)
+  fovea_k=8: 128/256 ratio=0.5000 (2.0x pruned)
+
+Recall@8 (foveal top-8 contains brute-force true nearest leaf):
+  typical queries (512, near leaf centers, +-100 jitter, held-out from the
+  +-40 build-sample jitter):
+    fovea_k=1: 1.0000 (512/512)
+    fovea_k=2: 1.0000 (512/512)
+    fovea_k=3: 1.0000 (512/512)
+  boundary queries (128, at midpoint of each coarse cluster and its true
+  geometric nearest-neighbor coarse cluster, +-50 jitter — the honest stress
+  case):
+    fovea_k=1: 0.5391 (69/128)   <- the real accuracy/cost trade-off, reported not hidden
+    fovea_k=2: 1.0000 (128/128)
+    fovea_k=3: 1.0000 (128/128)
+  combined (640): fovea_k=1 0.9078, fovea_k=2/3 1.0000
+
+GATES (printed in-example, both PASS):
+  PRUNE:  materialized(16) << total(256) — PASS
+  RECALL: typical queries, fovea_k=1, budget=8, threshold 0.90 -> 1.0000 — PASS
+
+HONEST TRADE-OFF: fovea_k=1 gives 16x pruning but only 0.5391 recall@8 on
+boundary queries (true nearest leaf sits in the 2nd-nearest coarse cluster,
+which fovea_k=1 prunes away entirely, never enumerated). Widening to
+fovea_k=2 recovers full recall on both typical and boundary at 8x pruning
+instead of 16x — eccentricity/LoD is a real accuracy/cost dial, not a
+hidden failure mode.
+
+Discipline: edit-only, no worktree, no workspace-wide cargo, scoped to
+--manifest-path crates/bgz17/Cargo.toml only. Did not commit/push. Did not
+touch AGENT_LOG.md or any other shared board file (this is my own tag-file
+per sonnet-worker-guardrails.md).
+
+NOTE: on refresh, git status showed unrelated pre-existing dirty files
+(Cargo.lock, crates/bgz17/examples/probe_codebook_44_realdata.rs,
+crates/bgz17/src/palette_semiring.rs [D-DIA-V4 rung 3 work, PremultipliedOver],
+crates/lance-graph-planner/src/nars/{mod.rs,facet_fold.rs}) — confirmed NOT
+caused by my bgz17-scoped commands (bgz17 has its own separate Cargo.lock,
+zero deps; the root Cargo.lock diff is an unrelated lance-graph-contract git
+pin bump). Left entirely untouched — appears to be a concurrent agent (rung 3)
+sharing this checkout. Only file I created: crates/bgz17/examples/probe_foveated_descent.rs.

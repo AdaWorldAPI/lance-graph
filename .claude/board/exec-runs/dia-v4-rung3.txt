@@ -1,0 +1,44 @@
+D-DIA-V4 rung 3 — PremultipliedOver palette composite (bgz17) — palette-engineer agent (edit-only, no commit)
+
+Task: build the sort→reduce alpha-over composite in bgz17's PALETTE world (palette256²
++ the 256×256 table carrier), NOT blasgraph's HDR bitvec semiring, per operator design
+call already made in EPIPHANIES E-FOVEATED-HHTL-TRIE-FIELD-SEARCH-1.
+
+File touched: crates/bgz17/src/palette_semiring.rs (additive only — no existing
+PaletteSemiring/SpoPaletteSemiring code changed).
+
+Added:
+  pub fn premultiplied_over(palette: &Palette, contribs: &[(u8, u16)]) -> [i64; BASE_DIM]
+
+Signature note (divergence from the brief's illustrative `[u32; K]`): value(code) reads
+the palette centroid (`Base17.dims`, signed i16), so the accumulator must be signed;
+u32 cannot hold a signed reduce. K = BASE_DIM = 17 (Base17 dim count). Accumulates in
+i64 (weight u16 up to 65535 × value i16 up to 32767, summed over up to 256 contribs —
+comfortably inside i64, no overflow risk). Reduce = Sum_i weight_i * value(code_i) per
+Base17 dimension, exactly as specified.
+
+Tests added (all green, palette_semiring::tests::):
+  - premultiplied_over_is_commutative        (THE headline gate — shuffled via
+    deterministic SplitMix64 seed 0x9E3779B97F4A7C15 Fisher-Yates; asserts baseline ==
+    shuffled result for two independent shuffles; also asserts the shuffle actually
+    permutes, so the gate can't pass vacuously)
+  - premultiplied_over_is_linear_in_weight   (doubling all weights doubles every dim
+    of the result — plain weighted-sum linearity, no saturation/clamping)
+  - premultiplied_over_zero_weight_is_a_no_op (appending a (code, 0) contribution is a
+    no-op; an all-zero-weight contribution list reduces to [0; 17])
+  - premultiplied_over_empty_contribs_is_zero (empty slice -> additive identity)
+
+Result: cargo test --manifest-path crates/bgz17/Cargo.toml palette_semiring
+  -> 9 passed; 0 failed (4 new + 5 pre-existing PaletteSemiring tests, all green)
+cargo fmt --manifest-path crates/bgz17/Cargo.toml -> clean (git diff shows only the
+  158 lines I added, no reformatting churn elsewhere)
+
+Clippy: not run standalone per discipline (test run already compiles the crate; the
+5 warnings shown during compilation are ALL pre-existing, in bridge.rs/palette.rs
+(unused imports, unused var, non-snake-case test fn) — none in palette_semiring.rs,
+none touch my addition. This is the already-banked TD-BGZ17-CLIPPY-PREEXISTING debt
+(EPIPHANIES E-PROBE-CODEBOOK-44-MECHANISM-1), left untouched per scope.
+
+No commit, no push, no workspace-wide cargo, no -p, no worktree. bgz17 is
+workspace-excluded (crates/bgz17 stays in [workspace] exclude per lance-graph
+Cargo.toml — untouched). No model identifier in any artifact.

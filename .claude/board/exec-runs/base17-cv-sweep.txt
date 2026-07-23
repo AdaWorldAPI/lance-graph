@@ -1,0 +1,63 @@
+=== base17-cv-sweep exec run (2026-07-23) ===
+Task: TD-BASE17-FOLD-CEILING-SINGLE-WORD input-specificity probe.
+File added: crates/bgz17/examples/probe_base17_cv_sweep.rs (new, self-contained,
+NO external API, deterministic SplitMix64 seed 0x9E3779B97F4A7C15).
+
+Verify commands run (scoped to bgz17, no workspace cargo, no -p, no worktree):
+  cargo run --release --example probe_base17_cv_sweep --manifest-path crates/bgz17/Cargo.toml
+  cargo fmt --manifest-path crates/bgz17/Cargo.toml   (reformatted the new file only)
+  cargo clippy --manifest-path crates/bgz17/Cargo.toml --example probe_base17_cv_sweep -- -D warnings
+    -> fails with 8 pre-existing errors, ALL in src/palette_semiring.rs and
+       src/rabitq_compat.rs (needless_range_loop x7, manual_div_ceil x1) — zero
+       hits reference probe_base17_cv_sweep.rs (grep-confirmed). Matches the
+       already-tracked TD-BGZ17-CLIPPY-PREEXISTING debt entry; NOT introduced
+       by this file. Plain `cargo clippy` (no -D warnings) on the example
+       target shows zero findings in the new file.
+
+Design: synthetic Base17 (17-dim i16) pattern generator, k-cluster mixture
+(cluster centers + within-cluster uniform noise), sep_mult controls
+cluster-center spread vs fixed within-cluster spread (UNIT=300). Derived
+k_clusters analytically from the two-point-mixture CV formula
+CV_asymptote = sqrt(p/(1-p)), p=1/k, to hit CV targets {0.10,0.22,0.40,0.70,1.00}
+-> k = {100,22,7,3,2}, sep_mult=50 fixed (large enough to cleanly separate
+within/between distance modes). Measures framing A (codebook-fidelity: Palette
+flat-256 / build_hierarchical reconstructed distance vs ground-truth Base17 L1)
+on a 75/25 train/held-out split, mirroring probe_codebook_44_realdata.rs
+methodology (reconstruct_rho_vs_base17). Real-data anchor (framing B,
+CV=0.220 -> rho=0.2599) printed as a non-comparable cross-check reference.
+
+RESULT TABLE (framing A, codebook fidelity vs Base17 L1 ground truth):
+  CVtgt  CVach   flatRho  hierRho  clr0.965  clr0.9973
+  0.10   0.1935  0.2489   0.2453   no        no
+  0.22   0.2734  0.2157   0.2333   no        no
+  0.40   0.4490  0.4117   0.4114   no        no
+  0.70   0.7073  0.4926   0.5105   no        no
+  1.00   0.9610  0.8561   0.8549   no        no
+Extreme-CV diagnostic (k=2, sep_mult 70/100, pushed past the CVtgt=1.00 row):
+  sepMult=70  CVach=0.9881  flatRho=-0.4153 hierRho=-0.4486  (k-means instability,
+    negative rho at this seed/geometry — degenerate-k-fragility, not a smooth
+    function of CV alone)
+  sepMult=100 CVach=0.9778  flatRho=0.8565  hierRho=0.8554   (back in line with
+    the CVtgt=1.00 row; NOT still rising past it, does NOT clear 0.965)
+
+VERDICT: PARTIAL (neither clean CONFIRMED nor clean FALSIFIED).
+  - rho rises strongly and (mostly) monotonically with CV: 0.22-0.25 at
+    CVach~0.19-0.27 up to 0.855-0.856 at CVach~0.96-0.98 (~3.4x). Input-CV is
+    clearly a MAJOR driver of the fidelity ceiling -> supports the debt
+    entry's input-specificity claim directionally.
+  - rho does NOT clear the 0.965/0.9973 canon anchors even as CV approaches
+    and exceeds the real single-word-embedding CV=0.220 by 4-5x, and pushing
+    separation even further (extreme diagnostic) does not close the gap
+    either (plateaus ~0.855-0.857, one seed even goes negative from k-means
+    fragility at k=2 true clusters vs 256 requested centroids).
+  - structure-is-free (hier >= flat within noise) HOLDS across the whole
+    5-point sweep (all 5 rows either hier>=flat or within 0.02).
+  - Honest read: CV explains MOST of the real single-word ceiling (a ~3.4x
+    swing off a low base), but a residual gap to the 0.965/0.9973 anchors
+    persists at CV~1 in this generator — CV alone is not SUFFICIENT to reach
+    the anchors; anchor-clearing likely also needs genuine multi-level /
+    hierarchical structure (more than 2-7 true clusters) and/or codebook
+    training stability that a simple 2-cluster mixture does not provide.
+
+Discipline: edit-only, no workspace cargo, no -p, no worktree, no commit/push.
+No model identifier in any committed artifact.
