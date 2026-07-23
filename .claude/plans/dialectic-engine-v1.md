@@ -222,6 +222,16 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > TRIGGER. **V3-B (the RESPONSE) still queued:** the FIELD-scale mass-induction
   > sweep minting parent concepts (new family basins; HHTL grows upward), gated by
   > `should_elevate`; plus epiphany attractors (rate-normalized, S9).
+  > **✅ V3-C (the trigger→response LOOP) SHIPPED (2026-07-23):** `nars/regulate.rs`
+  > — `regulate_cycle(&mut arena, &before, &cfg) -> CycleOutcome` composes the
+  > three shipped V3 pieces (detect_dissolution → should_elevate → elevate_field)
+  > into ONE active-inference cycle: close → measure dissolution vs the pre-ingest
+  > `before` → elevate IFF dissolving past threshold → re-close. Elevation is
+  > TRIGGERED by the measurement, never chosen (`E-DIA-V3-C-REGULATION-LOOP-1`).
+  > 3 tests: dissolving-step→elevates, crystallizing-step→no-op, loop bounded
+  > across cycles (the V3-B idempotence is what makes a CLOSED loop safe). The
+  > S11 dissolution→elevation floor is now a complete, closed, bounded, null-
+  > tested loop. Remaining V3: epiphany attractors (S9).
   > **✅ V3-B (field-elevation RESPONSE) SHIPPED (2026-07-23):** `nars/elevation.rs`
   > — `elevate_field(&mut arena, min_cluster) -> Elevation`. The mass-induction
   > sweep: groups OBSERVED `is_a` subjects by shared predicate `M`, and for each

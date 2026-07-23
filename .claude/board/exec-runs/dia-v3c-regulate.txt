@@ -1,0 +1,28 @@
+D-DIA-V3-C — regulate.rs (S11 trigger→response regulation loop)
+
+Files touched:
+- crates/lance-graph-planner/src/nars/regulate.rs (NEW)
+- crates/lance-graph-planner/src/nars/mod.rs (EDIT: added `pub mod regulate;` +
+  `pub use regulate::{regulate_cycle, CycleConfig, CycleOutcome};`)
+
+Composition: pure composition of shipped V3-A (dissolution::detect_dissolution,
+dissolution::should_elevate) + V3-B (elevation::elevate_field). No new detector,
+no new engine.
+
+Tests written (3, as specified):
+1. dissolving_step_triggers_elevation — flood of 5 subjects sharing predicate 900
+   (disjoint from the core chain) triggers should_elevate → elevate_field fires;
+   asserts dissolution > 0.0, elevated.is_some(), clusters_lifted == 1,
+   children_rehomed == 5.
+2. crystallizing_step_no_elevation — chain-extending material (composes with the
+   core) does not trigger elevation; asserts dissolution == 0.0, elevated.is_none().
+3. loop_is_stable_across_cycles — after one elevating cycle, two more cycles with
+   no new material ingested neither elevate again nor grow arena.entries().len()
+   (bounded — relies on V3-B across-sweep idempotence).
+
+Did NOT run cargo (build/check/test/clippy/fmt) per hard rules — edit-only.
+No git worktree used. No board files edited besides this tag file.
+
+Spec ambiguity: none flagged — the spec's exact code block was implemented
+verbatim (CycleConfig, CycleOutcome, regulate_cycle), and the three test bodies
+follow the spec's prescribed fixtures/assertions exactly.

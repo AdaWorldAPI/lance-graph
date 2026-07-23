@@ -1,3 +1,12 @@
+## 2026-07-23 — D-DIA-V3-C regulation loop (S11 loop-closure) — 1 Sonnet grindwork agent from an Opus spec, Opus-gated (sole board writer)
+
+- **Operator directive:** "use sonnet agents for grindwork." The loop is pure composition of shipped pieces (design = the cycle shape + the trigger-IFF + boundedness falsifiers), so grindwork → one `general-purpose·sonnet` (edit-only, no cargo/worktree; tag `exec-runs/dia-v3c-regulate.txt`).
+- **Deliverable:** `nars/regulate.rs` (`regulate_cycle` + `CycleConfig` + `CycleOutcome`) — composes detect_dissolution → should_elevate → elevate_field into one active-inference cycle. `E-DIA-V3-C-REGULATION-LOOP-1`.
+- **Reuse-not-reinvent:** zero new detector/engine — the three V3 pieces (V3-A dissolution, V3-B elevation, insight::Snapshot) composed as-is.
+- **Gate note:** the agent's numbered-list doc comment tripped `clippy::doc_lazy_continuation` (rust 1.95); orchestrator fixed the doc formatting (blank lines around the list) — no logic change. 3 tests + 252 nars tests green after fix.
+- **Falsifier finding (banked):** a control loop's correctness is a SEPARATE falsifier from its parts' — test trigger-IFF-condition (dissolving→elevates, crystallizing→no-op) AND boundedness (repeated cycles don't run away) distinctly. The V3-B idempotence fix is what makes the CLOSED loop safe.
+- **Orchestrator-verified:** 3 regulate tests + 252 planner-lib nars tests green; `cargo fmt` + `cargo clippy -p lance-graph-planner --lib -- -D warnings` clean (after the doc fix); `Cargo.lock` restored.
+
 ## 2026-07-23 — D-DIA-V3-B field-elevation response (S11) — 1 Sonnet grindwork agent from an Opus spec, Opus-gated (sole board writer)
 
 - **Operator directive:** "use sonnet agents for grindwork to save tokens." Design fully worked on the main thread (the mass-induction clustering, the fresh-id minting, and the two falsifiers — the honest structure-vs-noise guard + the one-fact-to-k propagation payoff, with exact fixtures + expected derived counts); build was grindwork → one `general-purpose·sonnet` (edit-only, no cargo/worktree; tag file `exec-runs/dia-v3b-elevation.txt`).
