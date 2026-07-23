@@ -609,6 +609,42 @@ pointers (Layer 2), stratified (Layer 3), with NARS-revised confidence (Layer 4)
     self-read disagrees with the direct recount (an off-by-one in the `≤ v`
     boundary or a miscounted window) — the self-reference read is not faithful.
 
+#### G-SRS4-1 / G-SRS4-2 RESULT (2026-07-23, append-only — whole KJV)
+
+- **G-SRS4-1 (provenance) PASS:** all **50,000** derived triples (capped arena;
+  provenance holds on any prefix) independently re-compose from their stored
+  premise pointers — `(A,p,B)+(B,p,C) ⇒ (A,p,C)`, shared pivot, same predicate,
+  endpoints match. The provenance the graph reports about its own reasoning is
+  FAITHFUL (strictly stronger than D-SRS-1 resolvability, which never checked
+  composition).
+- **G-SRS4-2 (confidence-delta) PASS:** belief Y = `'thou hast me'` (most
+  frequent triple), `v1` = 93 (1st occurrence, n=1), `v2` = 22,831 (last, n=114);
+  NARS confidence `0.500 → 0.991` (Δ +0.491). The version-range windowed
+  self-read **==** the independent direct recount EXACTLY, and Δ > 0. The
+  self-reference loop is CLOSED (the introspective read is correct).
+- **VERDICT — D-SRS-4 CONFIRMED (positive).** The graph answers questions about
+  its own reasoning faithfully. This is the positive counterpart to D-SRS-3's
+  negative: the graph does NOT know where it is uncertain from code-spread
+  (D-SRS-3), but it CAN correctly recover its own derivation provenance and its
+  own confidence trajectory (D-SRS-4) — because those are structural reads over
+  the pointer fabric + version stream, not a fuzzy semantic-distance inference.
+
+#### G-SRS3-2 DETERMINISM CORRECTION (2026-07-23, append-only — supersedes the RESULT's exact number, NOT its verdict)
+
+The `G-SRS3-2 RESULT` above recorded constant-n separation **0.051** and Bessel
+**−0.059**. Those numbers were NON-DETERMINISTIC: the whole-book `groups` were
+built from a `std::HashMap` (randomized per-process iteration order), so the
+`shuffle_null` pool-concatenation order — hence the null ρ — varied run-to-run
+(observed constant-n separation swinging 0.051 → 0.242 → −0.002 across seeds).
+Fixed in the D-SRS-4 PR by sorting `groups` by subject id. **Deterministic
+result: constant-n real ρ = 0.054, null ρ = 0.056, separation = −0.002** — a
+clean FORMAL KILL (≤ 0.05), STRONGER than the soft-band number originally
+recorded. The D-SRS-3 verdict (conjecture NOT confirmed — width self-report is a
+member-count artifact) is UNCHANGED and reinforced. The example now REPORTS the
+KILL (a valid scientific finding) instead of asserting on the flaky soft-band
+value. Lesson banked: a stochastic-null falsifier MUST fix all iteration order
+(no HashMap-order dependence) or the gate is flaky.
+
 ---
 
 ## §3 — Explicitly out of scope

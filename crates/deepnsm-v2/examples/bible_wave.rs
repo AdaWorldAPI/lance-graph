@@ -457,7 +457,7 @@ fn main() {
     }
     // Re-read the tiny (150 KB) codes artifact — codes[id] aligns with vocab id.
     let all_codes = load_cam96_codes(&data_file("cam96_codes.bin")).expect("codes artifact");
-    let groups: Vec<(u16, Vec<deepnsm_v2::Cam96>)> = edges_by_s
+    let mut groups: Vec<(u16, Vec<deepnsm_v2::Cam96>)> = edges_by_s
         .iter()
         .map(|(&s, edges)| {
             let members: Vec<deepnsm_v2::Cam96> = edges
@@ -467,6 +467,11 @@ fn main() {
             (s, members)
         })
         .collect();
+    // DETERMINISM: `edges_by_s` is a HashMap (randomized iteration order per
+    // process), so the null shuffle's pool-concatenation order — and thus the
+    // null ρ — would vary run-to-run, making the KILL assertion flaky. Sort by
+    // subject id so the whole D-SRS-3 leg is reproducible.
+    groups.sort_by_key(|(s, _)| *s);
 
     // The full self-report: rank basins by width (widest = least certain).
     let space = &nsm.space;
@@ -538,18 +543,22 @@ fn main() {
         "D-SRS-3 G-SRS3-2 (constant-n, k={K}): {} basins (≥{} members), real ρ={:.3}, null ρ={:.3} — separation {:.3}",
         g2.basins, g2.min_members, g2.rho, g2_null.rho, sep
     );
-    assert!(
-        sep > 0.05,
-        "KILL D-SRS-3 (G-SRS3-2): constant-n separation {sep:.3} ≤ 0.05 — the width self-report \
-         carries no semantic content beyond the member-count artifact; the graph does NOT know \
-         where it is uncertain"
-    );
+    // D-SRS-3 is a SCIENTIFIC falsifier: a KILL (no semantic signal) is a valid
+    // FINDING, not a crash — it is REPORTED, never panicked (unlike the D-SRS-1/2/4
+    // regression gates below). Deterministic now that `groups` is sorted.
     if g2.rho >= 0.30 && sep >= 0.20 {
         println!(
             "D-SRS-3 PASS (G-SRS3-2)  the width self-report is SEMANTIC and reliable out-of-sample \
              (constant-n real ρ {:.3} ≥ 0.30, separation {sep:.3} ≥ 0.20); the widths feed MUL as \
              competence=1−width/max (algebraic advantage, E-CAM96-REVIEW-CORRECTIONS-1)",
             g2.rho
+        );
+    } else if sep <= 0.05 {
+        // Registered KILL: the falsifier FIRED. Report the negative honestly.
+        println!(
+            "D-SRS-3 KILL/FALSIFIED (G-SRS3-2)  constant-n separation {sep:.3} ≤ 0.05 — the width \
+             self-report carries NO semantic content beyond the member-count artifact; the graph does \
+             NOT know where it is uncertain from Cam96 code-spread. Conjecture falsified (not softened)."
         );
     } else {
         // Soft band 0.05 < sep < 0.20: honest, neither claimed PASS nor KILL.
@@ -573,13 +582,62 @@ fn main() {
         gb.basins, gb.rho, gb_null.rho, gb.rho - gb_null.rho
     );
 
+    // ── D-SRS-4 — the self-reference falsifier: the graph answers questions ──
+    // about its OWN reasoning, checked against an INDEPENDENT recount.
+    // G-SRS4-1 (provenance): every derived triple's stored premises must
+    // re-compose to it (strictly stronger than D-SRS-1 resolvability).
+    let prov = deepnsm_v2::provenance_check(&arena);
+    assert!(
+        prov.passed(),
+        "KILL D-SRS-4 (G-SRS4-1): {}/{} derived triples do NOT re-compose from their stored premises \
+         — the provenance the graph reports about its own reasoning is false",
+        prov.derived - prov.composes,
+        prov.derived
+    );
     println!(
-        "\nSTRUCTURAL GATES GREEN (G1–G4, D-SRS-1, D-SRS-2) — the whole book is resident, literally \
-         read, with real meaning codes, reasoning about its own derivations, and routing its own \
-         representations by shape.\nD-SRS-3 FALSIFIER RAN (null-controlled): the width self-report is \
-         a MEMBER-COUNT ARTIFACT — once n is fixed (constant-n) or bias-corrected (Bessel) the \
-         semantic separation collapses to ≈0. The graph does NOT reliably know where it is uncertain \
-         from Cam96 code-spread alone; the D-SRS-3 conjecture is NOT confirmed (an honest negative)."
+        "D-SRS-4 PASS (G-SRS4-1 provenance): all {} derived triples independently re-compose from \
+         their premise pointers ((A,p,B)+(B,p,C) ⇒ (A,p,C), shared pivot) — self-reported provenance is FAITHFUL",
+        prov.composes
+    );
+
+    // G-SRS4-2 (confidence-delta): NARS confidence in the most-frequent belief,
+    // read THROUGH the graph's own version-range window, must equal a direct
+    // recount over the raw stream, and must strictly rise as the belief recurs.
+    let (y, v1, v2) = deepnsm_v2::most_frequent_belief(&all).expect("non-empty KG");
+    let self_ans = deepnsm_v2::confidence_delta_self(&stream, y, v1, v2, 1);
+    let truth = deepnsm_v2::confidence_delta_recount(&all, y, v1, v2, 1);
+    assert_eq!(
+        self_ans, truth,
+        "KILL D-SRS-4 (G-SRS4-2): windowed self-read {self_ans:?} != independent recount {truth:?} \
+         — the self-reference read is not faithful"
+    );
+    assert!(
+        self_ans.delta > 0.0,
+        "KILL D-SRS-4 (G-SRS4-2): confidence in a recurring belief did not rise (delta={})",
+        self_ans.delta
+    );
+    println!(
+        "D-SRS-4 PASS (G-SRS4-2 confidence-delta): belief '{} {} {}' — n(≤v{v1})={}, n(≤v{v2})={}; \
+         NARS confidence {:.3}→{:.3} (Δ +{:.3}); windowed self-read == independent recount EXACTLY",
+        nsm.vocab.word(y.subject).unwrap_or("?"),
+        nsm.vocab.word(y.predicate).unwrap_or("?"),
+        nsm.vocab.word(y.object).unwrap_or("?"),
+        self_ans.n1,
+        self_ans.n2,
+        self_ans.c1,
+        self_ans.c2,
+        self_ans.delta
+    );
+
+    println!(
+        "\nSTRUCTURAL GATES GREEN (G1–G4, D-SRS-1, D-SRS-2, D-SRS-4) — the whole book is resident, \
+         literally read, with real meaning codes, reasoning about its own derivations, routing its own \
+         representations by shape, and answering FAITHFULLY questions about its own reasoning \
+         (provenance + confidence-delta, each == an independent recount).\nD-SRS-3 FALSIFIER RAN \
+         (null-controlled): the width self-report is a MEMBER-COUNT ARTIFACT — once n is fixed \
+         (constant-n) or bias-corrected (Bessel) the semantic separation collapses to ≈0. The graph \
+         does NOT reliably know where it is uncertain from Cam96 code-spread alone; the D-SRS-3 \
+         conjecture is NOT confirmed (an honest negative)."
     );
 }
 

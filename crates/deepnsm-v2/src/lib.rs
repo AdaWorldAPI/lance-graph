@@ -38,6 +38,7 @@ pub mod ancestry;
 pub mod basin;
 pub mod codebook;
 pub mod fsm;
+pub mod introspect;
 pub mod reason;
 pub mod shape;
 pub mod space;
@@ -54,6 +55,10 @@ pub use basin::{
 };
 pub use codebook::{load_cam96_codes, load_cam96_space, CodebookError};
 pub use fsm::{parse_to_spo, Pos, Tagged};
+pub use introspect::{
+    confidence_delta_recount, confidence_delta_self, most_frequent_belief, provenance_check,
+    ConfidenceAnswer, ProvenanceReport,
+};
 pub use shape::{
     detect, detect_all, detect_all_measured, detect_measured, MeasuredShape, Representation,
     ShapeClass, ShapeReport,

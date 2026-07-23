@@ -12,14 +12,14 @@ Plan: `.claude/plans/scientific-kg-substrate-v1.md`. PROPOSED scoping; outward-f
 
 ## self-reasoning-substrate-v1 — the derivation DAG as the pointer fabric one level up
 
-Plan: `.claude/plans/self-reasoning-substrate-v1.md`. D-SRS-1/2 SHIPPED; D-SRS-3 SHIPPED as a falsifier that FIRED (conjecture not confirmed — width self-report is a member-count artifact); D-SRS-4 Queued.
+Plan: `.claude/plans/self-reasoning-substrate-v1.md`. D-SRS-1/2/4 SHIPPED (D-SRS-4 CONFIRMED — the graph faithfully recovers its own provenance + confidence trajectory); D-SRS-3 SHIPPED as a falsifier that FIRED (conjecture not confirmed — width self-report is a member-count artifact; deterministic sep −0.002 formal KILL after the HashMap-order fix). Plan COMPLETE.
 
 | D-id | Title | Repo | Status | Evidence |
 |---|---|---|---|---|
 | D-SRS-1 | Derivation-pointer fabric over the 31,327-triple Bible KG | lance-graph | Shipped | `src/reason.rs` + 7 tests + `bible_wave` leg; soundness gate green (100% resolvable, acyclic); `E-SELF-REASONING-FABRIC-1` |
 | D-SRS-2 | Shape detector + ancestry radix-trie relocation (reshaped) | lance-graph | Shipped | `src/{shape,ancestry}.rs` + 63 tests; v1 taxonomy self-falsified, v2 measured router green (trie==closure exact, 4.0×); SPOG G-lane; `E-SHAPE-DETECTOR-MEASURED-1` |
 | D-SRS-3 | Basin self-codes + uncertainty self-report | lance-graph | Shipped (falsifier fired — conjecture NOT confirmed) | `src/basin.rs` + 72 tests + `bible_wave` leg; raw split-half ρ=0.583 refuted by label-shuffle null (member-count artifact); constant-n sep 0.051 + Bessel real ρ=0.002 ⇒ no semantic signal; `E-BASIN-WIDTH-IS-N-ARTIFACT-1` |
-| D-SRS-4 | The self-reference falsifier | lance-graph | Queued | plan |
+| D-SRS-4 | The self-reference falsifier (provenance + confidence-delta) | lance-graph | Shipped (CONFIRMED — positive) | `src/introspect.rs` + 77 tests + `bible_wave` leg; G-SRS4-1 all 50k derived triples re-compose from premises; G-SRS4-2 windowed NARS confidence read == independent recount (0.500→0.991); `E-SELF-REFERENCE-LOOP-CLOSED-1` |
 
 ## literature-probe-ladder-v1 — literature as falsifier: 8 genres → 8 LC artifacts → previously-impossible milestones
 
