@@ -117,7 +117,11 @@ pub fn extract_main_insights(arena: &BeliefArena, cfg: &InsightConfig) -> Vec<Ma
     //    promise is auditability — an unexplainable "conclusion" is worse than
     //    none. Empty-premise derivations are skipped here (Codex P2, E-SCI-INSIGHT).
     for b in arena.entries() {
-        if b.rung >= 1 && !b.premises.is_empty() {
+        // Skip self-conclusions (`s == p`, minted by `close_transitive` on cyclic
+        // KGs — real text is full of cycles): `river → river` is trivially true
+        // and carries no insight, only noise in the ranked output (D-SCI-1 real-
+        // text finding; same spirit as the basin self-loop dedup).
+        if b.rung >= 1 && !b.premises.is_empty() && b.stmt.s != b.stmt.p {
             out.push(MainInsight {
                 kind: InsightKind::Conclusion,
                 focus: b.stmt,
@@ -341,6 +345,30 @@ mod tests {
                 b.strength
             );
         }
+    }
+
+    /// D-SCI-1 real-text finding: a self-conclusion (`s == p`, minted by
+    /// `close_transitive` closing a cycle) must NOT surface as an insight — it is
+    /// trivially true and pure noise. Real prose is cyclic, so this fires often.
+    #[test]
+    fn self_conclusion_is_not_surfaced() {
+        // A 2-cycle 1→2, 2→1 closes into self-loops 1→1 and 2→2.
+        let mut a = BeliefArena::new();
+        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(0));
+        a.observe(inh(2, 1), TruthValue::new(0.9, 0.9), Stamp::source(1));
+        a.close_transitive(64);
+        assert!(
+            a.get(inh(1, 1)).is_some(),
+            "the cycle must mint a self-loop"
+        );
+
+        let insights = extract_main_insights(&a, &InsightConfig::default());
+        assert!(
+            !insights
+                .iter()
+                .any(|i| i.kind == InsightKind::Conclusion && i.focus.s == i.focus.p),
+            "a self-conclusion (river→river) must never surface as an insight"
+        );
     }
 
     #[test]
