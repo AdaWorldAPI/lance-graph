@@ -144,6 +144,17 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   `revision_keeps_rung_in_place`. Red kills the design cheaply; green gates V1.
 - **V1:** the five tactics over the Belief arena (this §3), throttles of S5,
   ReasoningGap as first-class failure.
+  > **⊘ HOME CORRECTED (operator SoC ruling 2026-07-23,
+  > `E-DEEPNSM-V2-IS-INBOUND-LEG-REASONING-LIVES-IN-LANCE-GRAPH-1`).** V1 is
+  > built in the **lance-graph reasoning layer** (lance-graph-planner, alongside
+  > `nars::inference::NarsInference` + `nars::truth::TruthValue` — the ONE
+  > engine), NOT in `deepnsm-v2`. `deepnsm-v2` is the **inbound leg** (the
+  > forward encode emitting the SPO/belief stream); the Belief arena (`belief.rs`
+  > V0, merged in `deepnsm-v2`) is reasoning and migrates to the planner. The 5
+  > tactics re-home onto `TruthValue::{deduction,abduction,induction,revise}`
+  > (never a local truth-function reimpl — that was the parked `tactics.rs`
+  > mistake). Tactic LOGIC (copula-gated syllogism structure, S5 throttle,
+  > `ReasoningGap`, parity tests) preserved in scratchpad `tactics-draft.rs`.
 - **V2:** the loop — GraphBias→recipe LUT, byte-lane council, texture window,
   insight/mush (S10) + its null falsifier, kanban wiring.
 - **V3:** dissolution detection + field elevation (S11) — the cathedral floors;
