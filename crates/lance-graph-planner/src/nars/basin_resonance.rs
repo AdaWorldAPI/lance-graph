@@ -144,7 +144,17 @@ pub fn rank_basins(arena: &BeliefArena, cfg: &ResonanceConfig) -> Vec<Basin> {
         let conf = b.truth.confidence;
         let exp = b.truth.expectation();
         let st = stakes(b.truth);
-        for concept in [b.stmt.s, b.stmt.p] {
+        // A self-statement (`s == p`, which `close_transitive` mints when it
+        // closes a cycle A→…→A) touches ONE concept, not two — folding both
+        // endpoints would double n/derived/observed for it, overweight cyclic
+        // self-loops against ordinary basins, and let a lone self-loop wrongly
+        // clear `min_basin` despite being one belief (Codex P2, #833).
+        let endpoints: &[u16] = if b.stmt.s == b.stmt.p {
+            &[b.stmt.s]
+        } else {
+            &[b.stmt.s, b.stmt.p]
+        };
+        for &concept in endpoints {
             let a = acc.entry(concept).or_default();
             a.n += 1;
             a.stakes += st;
@@ -369,6 +379,32 @@ mod tests {
             (small_top - big_top).abs() < 1e-6,
             "resonance is a per-basin rate: small={small_top} big={big_top}"
         );
+    }
+
+    /// Codex P2 (#833): a self-statement (`s == p`) touches ONE concept, not two.
+    /// A lone self-loop must count once — so it does NOT clear `min_basin: 2`, and
+    /// under `min_basin: 1` it surfaces with `observed == 1`, never doubled.
+    #[test]
+    fn self_loop_is_counted_once() {
+        let mut a = BeliefArena::new();
+        a.observe(inh(5, 5), TruthValue::new(0.9, 0.9), Stamp::source(0));
+
+        assert!(
+            !rank_basins(&a, &ResonanceConfig::default())
+                .iter()
+                .any(|b| b.concept == 5),
+            "a lone self-loop is one belief — it must not be double-counted past min_basin"
+        );
+
+        let cfg = ResonanceConfig {
+            min_basin: 1,
+            ..ResonanceConfig::default()
+        };
+        let b5 = rank_basins(&a, &cfg)
+            .into_iter()
+            .find(|b| b.concept == 5)
+            .expect("with min_basin=1 the self-loop concept surfaces");
+        assert_eq!(b5.observed, 1, "self-loop observed once, not doubled");
     }
 
     /// `top_k` bounds the output and the top basin is stable across the cut.
