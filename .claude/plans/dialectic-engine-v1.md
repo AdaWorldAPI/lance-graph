@@ -256,8 +256,8 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   >   DESCENT — the ergonomic that makes field search unnecessary for the common
   >   case. Consult `encoding-ecosystem.md` + `palette-engineer`/`family-codec-smith`
   >   before writing (codec canon).
-  > - Rung 2 = foveated morton-comma trie descent (eccentricity → LoD).
-  > - Rung 3 = the floor: `PremultipliedOver` blasgraph `mxv` composite;
-  >   `TD-CLOSE-TRANSITIVE-HORIZON-CAP` is its degenerate rung-horizon case.
+  > - **✅ Rung 2 SHIPPED** = foveated morton-comma descent (`bgz17/examples/probe_foveated_descent.rs`, `E-DIA-V4-FIELD-SEARCH-LOOP-1`): eccentricity → LoD, materialize the foveal coarse cluster's leaves, prune the periphery; `fovea_k=2` = 8× prune + full recall (the honest dial).
+  > - **✅ Rung 3 SHIPPED** = the composite floor `bgz17/palette_semiring.rs::premultiplied_over` — **corrected home: bgz17 palette world, NOT blasgraph HDR** (the carrier is `SpoFacet` palette pairs); commutative reduce (sort→reduce split proven). `TD-CLOSE-TRANSITIVE-HORIZON-CAP` is its degenerate rung-horizon case.
+  > - **✅ M26 SHIPPED** = `Belief⟷SpoFacet` lossless byte round-trip (`planner/nars/facet_fold.rs`) — the write path (reasoning → field), a Belief IS a reading of the awareness register.
 - **V5:** reach-out integration (spider/arXiv → §3.6 felt criterion) + the
   qualia ablation falsifier (S12).

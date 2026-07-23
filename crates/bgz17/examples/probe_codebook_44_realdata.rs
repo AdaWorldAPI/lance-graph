@@ -286,8 +286,13 @@ fn run_split(
         hp.leaf_len(),
         hp.coarse_len()
     );
-    println!("  eval pairs={}  (SplitMix64 seed 0x9E3779B97F4A7C15)", pairs.len());
-    println!("  (A) CODEBOOK fidelity ρ vs full Base17 distance  [canon-anchor 0.965/0.992 framing]");
+    println!(
+        "  eval pairs={}  (SplitMix64 seed 0x9E3779B97F4A7C15)",
+        pairs.len()
+    );
+    println!(
+        "  (A) CODEBOOK fidelity ρ vs full Base17 distance  [canon-anchor 0.965/0.992 framing]"
+    );
     println!("        flat         ρ : {cb_flat:.4}");
     println!("        hierarchical ρ : {cb_hier:.4}");
     println!(
@@ -299,7 +304,11 @@ fn run_split(
     );
     println!(
         "        hierarchical ρ >= flat ρ (structure is free) : {}",
-        if cb_hier >= cb_flat - 1e-9 { "PASS" } else { "FAIL" }
+        if cb_hier >= cb_flat - 1e-9 {
+            "PASS"
+        } else {
+            "FAIL"
+        }
     );
     println!("  (B) END-TO-END ρ vs raw Jina cosine  [bottlenecked by 17-dim Base17 fold]");
     println!(
@@ -352,7 +361,11 @@ fn main() {
         let b17d: Vec<f64> = b17_sim.iter().map(|&s| -s).collect();
         let dmean = b17d.iter().sum::<f64>() / b17d.len() as f64;
         let dvar = b17d.iter().map(|d| (d - dmean).powi(2)).sum::<f64>() / b17d.len() as f64;
-        let cv = if dmean > 0.0 { dvar.sqrt() / dmean } else { 0.0 };
+        let cv = if dmean > 0.0 {
+            dvar.sqrt() / dmean
+        } else {
+            0.0
+        };
 
         println!("── DIAGNOSTIC (fidelity decomposition) ──");
         println!(

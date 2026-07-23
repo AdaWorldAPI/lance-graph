@@ -6,12 +6,14 @@
 //! Each inference type = a specific semiring for adjacent_truth_propagate().
 
 pub mod belief;
+pub mod facet_fold;
 pub mod inference;
 pub mod insight;
 pub mod tactics;
 pub mod truth;
 
 pub use belief::{Belief, BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
+pub use facet_fold::{cstmt_from_spo_facet, to_spo_facet};
 pub use inference::NarsInference;
 pub use insight::{arena_graph_signals, detect, flow_state, InsightMush, Snapshot};
 pub use tactics::{
