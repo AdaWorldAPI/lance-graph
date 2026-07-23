@@ -258,10 +258,45 @@ fn tokens(text: &str) -> Vec<String> {
         .collect()
 }
 
+/// Build + close a concept-KG from a salient (pos, concept) stream: ±`window`
+/// co-occurrence `Inh` edges. `exclude` drops one concept entirely (its edges are
+/// never observed) — the ablation used by the centre finder.
+fn close_from(salient: &[(usize, u16)], window: usize, exclude: Option<u16>) -> BeliefArena {
+    let mut arena = BeliefArena::new();
+    let mut src = 0u32;
+    for i in 0..salient.len() {
+        let (pos_i, ci) = salient[i];
+        if exclude == Some(ci) {
+            continue;
+        }
+        for &(pos_j, cj) in salient.iter().skip(i + 1) {
+            if pos_j - pos_i > window {
+                break;
+            }
+            if ci != cj && exclude != Some(cj) {
+                arena.observe(inh(ci, cj), TruthValue::new(0.9, 0.9), Stamp::source(src));
+                src = src.wrapping_add(1);
+            }
+        }
+    }
+    arena.close_transitive(512);
+    arena
+}
+
 /// Read one document into a bounded concept-KG: top-`k` frequency-salient terms
 /// as the vocabulary, ±`window` co-occurrence between salient terms as `Inh`
-/// edges. Returns (arena, interner, ordered top terms).
-fn read_kg(text: &str, k: usize, window: usize) -> (BeliefArena, Interner, Vec<(String, usize)>) {
+/// edges. Returns (arena, interner, ordered top terms, salient stream).
+#[allow(clippy::type_complexity)]
+fn read_kg(
+    text: &str,
+    k: usize,
+    window: usize,
+) -> (
+    BeliefArena,
+    Interner,
+    Vec<(String, usize)>,
+    Vec<(usize, u16)>,
+) {
     let toks = tokens(text);
 
     // Frequency-salience: pick the top-k content words as the concept vocabulary.
@@ -287,28 +322,14 @@ fn read_kg(text: &str, k: usize, window: usize) -> (BeliefArena, Interner, Vec<(
         .map(|(pos, t)| (pos, intern.id(t)))
         .collect();
 
-    let mut arena = BeliefArena::new();
-    let mut src = 0u32;
-    for i in 0..salient.len() {
-        let (pos_i, ci) = salient[i];
-        for &(pos_j, cj) in salient.iter().skip(i + 1) {
-            if pos_j - pos_i > window {
-                break;
-            }
-            if ci != cj {
-                arena.observe(inh(ci, cj), TruthValue::new(0.9, 0.9), Stamp::source(src));
-                src = src.wrapping_add(1);
-            }
-        }
-    }
-    arena.close_transitive(512);
-    (arena, intern, ranked)
+    let arena = close_from(&salient, window, None);
+    (arena, intern, ranked, salient)
 }
 
 fn report(label: &str, text: &str) {
     const K: usize = 48;
     const WINDOW: usize = 4;
-    let (arena, intern, ranked) = read_kg(text, K, WINDOW);
+    let (arena, intern, ranked, salient) = read_kg(text, K, WINDOW);
     let snap = Snapshot::of(&arena, 0.0);
 
     println!("\n════════ {label} ════════");
@@ -375,6 +396,38 @@ fn report(label: &str, text: &str) {
             InsightReason::MiddleTerm { bridges } => format!("middle term of {bridges} claims"),
         };
         println!("      [{:.3}] {what:<28} — {why}", mi.strength);
+    }
+
+    // — CENTRE (ablation) — "the smallest set of relations whose removal makes
+    //   the remaining statements mean something else" (the House text's own
+    //   definition of the centre). For each salient concept, remove it, re-close,
+    //   and measure the FRACTION of derived conclusions that collapse. The
+    //   highest-impact concepts ARE the relational centre — the load-bearing
+    //   relations, not the most frequent words. This is the inverse of
+    //   reach_out_integrate (which measures what ADDING a bridge composes).
+    let base_derived = arena
+        .entries()
+        .iter()
+        .filter(|b| b.rung >= 1)
+        .count()
+        .max(1);
+    let mut impact: Vec<(u16, f32, usize)> = Vec::new();
+    for (i, _) in ranked.iter().enumerate() {
+        let c = i as u16; // interner ids are salience order 0..ranked.len()
+        let ablated = close_from(&salient, WINDOW, Some(c));
+        let ablated_derived = ablated.entries().iter().filter(|b| b.rung >= 1).count();
+        let lost = base_derived.saturating_sub(ablated_derived);
+        impact.push((c, lost as f32 / base_derived as f32, lost));
+    }
+    impact.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    println!("  — CENTRE (ablation: fraction of conclusions lost on removal) —");
+    for (c, frac, lost) in impact.iter().take(6) {
+        println!(
+            "      {:>14}  collapse={:.3}  ({} conclusions)",
+            intern.name(*c),
+            frac,
+            lost
+        );
     }
 }
 
