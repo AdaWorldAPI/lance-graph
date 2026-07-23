@@ -241,6 +241,11 @@ fn lemma_candidates(w: &str) -> Vec<(String, Tense)> {
             push(collapsed, Tense::PresentContinuous, &mut out); // runn(ing) → run
         }
     }
+    // -ied → past with -y restoration (carr(ied) → carry). Checked BEFORE the
+    // plain -ed strip so the -y candidate is offered first for -ied forms.
+    if let Some(stem) = w.strip_suffix("ied") {
+        push(format!("{stem}y"), Tense::Past, &mut out); // carr(ied) → carry
+    }
     // -ed → past.
     if let Some(stem) = w.strip_suffix("ed") {
         push(stem.to_string(), Tense::Past, &mut out);
@@ -248,6 +253,10 @@ fn lemma_candidates(w: &str) -> Vec<(String, Tense)> {
         if let Some(collapsed) = collapse_double(stem) {
             push(collapsed, Tense::Past, &mut out); // stopp(ed) → stop
         }
+    }
+    // -ies → present with -y restoration (carr(ies) → carry).
+    if let Some(stem) = w.strip_suffix("ies") {
+        push(format!("{stem}y"), Tense::Present, &mut out); // carr(ies) → carry
     }
     // -es → present (3rd person after sibilant: passes → pass, dissolves handled by -s).
     if let Some(stem) = w.strip_suffix("es") {
@@ -357,6 +366,21 @@ pub fn read_verb(word: &str) -> Option<(VerbFamily, Tense, TekamoloSlot)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn restores_y_in_ied_and_ies_forms() {
+        // carr(ied) → carry (Supports) — the -ied→-y restoration; without it the
+        // stem candidates are `carri`/`carrie`, both unknown, and a common verb
+        // silently drops out of the archetype.
+        assert_eq!(
+            classify_verb("carried"),
+            Some((VerbFamily::Supports, Tense::Past))
+        );
+        assert_eq!(
+            classify_verb("carries"),
+            Some((VerbFamily::Supports, Tense::Present))
+        );
+    }
 
     #[test]
     fn classifies_regular_and_irregular_inflections() {
