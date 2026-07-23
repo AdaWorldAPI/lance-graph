@@ -222,6 +222,17 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > TRIGGER. **V3-B (the RESPONSE) still queued:** the FIELD-scale mass-induction
   > sweep minting parent concepts (new family basins; HHTL grows upward), gated by
   > `should_elevate`; plus epiphany attractors (rate-normalized, S9).
+  > **✅ V3-B (field-elevation RESPONSE) SHIPPED (2026-07-23):** `nars/elevation.rs`
+  > — `elevate_field(&mut arena, min_cluster) -> Elevation`. The mass-induction
+  > sweep: groups OBSERVED `is_a` subjects by shared predicate `M`, and for each
+  > cluster ≥`min_cluster` mints a fresh abstract parent `G` (`G is_a M` +
+  > `S_i is_a G`) — HHTL grows upward. Falsifier `E-DIA-V3-B-FIELD-ELEVATION-1`
+  > proves the value is PROPAGATION not minting: one later `G is_a N` fact derives
+  > `S_i is_a N` for ALL k children via `close_transitive` (the abstraction is an
+  > amortization point — one update, k dividends); and the honest guard mints
+  > NOTHING on a structureless flood. **Remaining V3:** the LIVE trigger→response
+  > loop (dissolution fires `should_elevate` → `elevate_field` runs in a runtime
+  > cycle) + epiphany attractors (S9).
 - **V4:** the 64k SIMT lowering — Boolean-reachability semiring + truth second
   pass (S1), masks, sweeps — only after V0–V3 green at small scale.
   > **Column size is a capacity knob, NOT a cache constant (operator, 2026-07-23).**
