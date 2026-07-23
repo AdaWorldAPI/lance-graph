@@ -225,6 +225,15 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > falsifier; the Morton-tile top-k is the production optimization that follows.
   > **★ V4 field-search architecture — FOVEATED HHTL TRIE, addressing-first
   > (operator, 2026-07-23; full ruling `E-FOVEATED-HHTL-TRIE-FIELD-SEARCH-1`).**
+  > **FOLD ANCHOR (blast-radius ruling — expands, does NOT duplicate):** the
+  > carrier is NOT new — the field element is the shipped **`awareness_facet::SpoFacet`**
+  > (M20 autopoiesis-triangle survivor: `mailbox_soa.rs:170` + `cognitive_palette`
+  > + `SpoFacet`); the ancestry algebra is the shipped **`hhtl.rs::NiblePath`**
+  > (`FAN_OUT=16`, `is_ancestor_of` = prefix-shift, CODED); the composite `times`
+  > is the shipped 256×256 palette table read (`crate::distance`), never a float;
+  > and **Rung 1 = `PROBE-CODEBOOK-44` folds Probe M1** (retire, don't add). V4 is
+  > a foveated *read pattern* over these survivors, registered as `ENTROPY-MILESTONES`
+  > M26 (`Belief ⟷ SpoFacet`), never a new engine/carrier/probe.
   > Field search is the total-function FLOOR (the 4M/2GB ceiling makes nothing
   > structurally impossible), NOT the default substrate. The real mechanism is an
   > **addressing-first ergonomics ladder** = the `elevation/` L0→L5 doctrine

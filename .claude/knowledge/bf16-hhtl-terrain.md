@@ -190,7 +190,7 @@ M4   P4        HHTL termination: what % at each level?    >60% HEEL        >60% 
 
 | ID | Harness | Status |
 |----|---------|--------|
-| M1 | `thinking-engine/examples/polarquant_hip_probe.rs` — tests HIP family assignment (farthest-pair `build_hip_families` vs PolarQuant gain-shape NN-preservation). Plus `turboquant_correction_probe.rs` for LEAF-orthogonal comparison. Needs real safetensors. | PARTIAL |
+| M1 | `thinking-engine/examples/polarquant_hip_probe.rs` — tests HIP family assignment (farthest-pair `build_hip_families` vs PolarQuant gain-shape NN-preservation). Plus `turboquant_correction_probe.rs` for LEAF-orthogonal comparison. Needs real safetensors. **⊕ FOLD (2026-07-23): M1 IS `PROBE-CODEBOOK-44` (OGAR `D-TILE256`/F11).** The "CLAM 3-level 16-way tree on 256 centroids" question = "build the codebook as a 4⁴/16-way hierarchy so a `hhtl.rs::NiblePath` prefix == centroid ancestry." Running PROBE-CODEBOOK-44 (hierarchical codebook + `is_ancestor_of(prefix(c),c)` gate + fidelity ρ vs flat k-means at the 0.9973/0.965 anchors) RETIRES M1 — one probe, not two. Reuses the shipped `NiblePath` (`FAN_OUT=16`) for the address; the codebook build is the only new work. Enables `ENTROPY-MILESTONES` M26 (Belief⟷SpoFacet is codebook-mediated). | PARTIAL (= PROBE-CODEBOOK-44, QUEUED) |
 | P1 | `jc/src/probe_p1_gamma_phase.rs` — mathematical property (Dupain-Sós), synthetic sufficient | PASS |
 | P2–P4 | `shader-lab` via `WireSweepRequest` / `WireTokenAgreement` / `WireCalibrate`. Phase 0 DTOs done. JIT-first: one compile, parameterized REST sweep. Plan: `.claude/plans/codec-sweep-via-lab-infra-v1.md` | NOT RUN |
 
