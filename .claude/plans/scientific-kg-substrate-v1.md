@@ -190,6 +190,45 @@ planner — non-circular.
   — so a first `curiosity_mul` is buildable WITHOUT D-SRS-3 (a `GraphSignals`
   self-code width field is the later refinement). Non-circular wiring confirmed.
 
+> **Pre-run registration — D-SCI-4a `curiosity_mul` + qualia texture gestalt
+> (2026-07-23, registered BEFORE the code; anti-tuning). Operator steer folded
+> in: "wire qualia as a texture gestalt awareness."** The wire's output is NOT a
+> bare scalar — it is a `TextureGestalt { texture: QualiaVector (17D felt
+> quality), magnitude: f32 (frontier ranking key) }`. Qualia IS the awareness;
+> the magnitude is a projection of it. All in `lance-graph-contract::exploration`
+> (zero-dep, non-circular — reads `MulAssessment` + `GraphSignals`, both
+> contract types). Gate is STRUCTURAL (directional inequalities, no tunable
+> threshold), registered as:
+> - **G-CM-1 NEUTRAL IDENTITY (the anti-vacuity falsifier):** with a NEUTRAL
+>   `MulAssessment` (Calibrated trust, `DkPosition::Plateau`, `FlowState::Flow`,
+>   `free_will_modifier = 1.0`) and `GraphSignals::default()` (all zero),
+>   `curiosity_mul(neutral, default) == curiosity()` (within 1e-6). The wire adds
+>   NOTHING when MUL has nothing to say — MUL earns its weight or is inert.
+> - **G-CM-2 STAUNEN BOOST:** raising `truth_entropy` / `contradiction_rate`
+>   (graph-wide surprise = the Staunen/wonder texture) STRICTLY INCREASES
+>   `curiosity_mul` above `curiosity()` on the same edge. Surprise pulls
+>   exploration.
+> - **G-CM-3 HUMILITY GATE:** `DkPosition::MountStupid` + `TrustTexture::Overconfident`
+>   STRICTLY DECREASES `curiosity_mul` below `curiosity()` (the doc's 0.3
+>   humility discount) — the graph does NOT explore over-confidently.
+> - **G-CM-4 GROUND GATE (never a hard stop):** less-solid ground (Uncertain /
+>   Overconfident texture, or MountStupid) dampens the magnitude vs Calibrated,
+>   but never to zero (floor > 0) — unsafe ground is discouraged, not forbidden
+>   (reversibility, not paralysis).
+> - **G-CM-5 TEXTURE FIDELITY:** the emitted `QualiaVector` carries
+>   `entropy = f(edge-uncertainty, truth_entropy)`, `expansion = novelty`,
+>   `tension = contradiction_rate`, `groundedness = f(trust texture)`, and the
+>   derived `wonder = √(coherence·expansion)` (via `qualia::qualia_to_state`)
+>   rises with Staunen — the gestalt is a faithful felt-reading, not decoration.
+> - **KILL = any of:** neutral identity fails (the wire is not inert when it
+>   should be — it is either vacuous or arbitrary); staunen does not boost;
+>   MountStupid+Overconfident does not dampen; ground gate hits zero; or the
+>   texture axes do not track their sources. Report verbatim; never relax.
+> - **Proof surface:** deterministic `#[test]`s in `exploration.rs` (no corpus,
+>   no crawl). The held-out frontier-ordering PASS gate above (beats MUL-blind on
+>   time-to-first-epiphany) is D-SCI-4b, a later corpus probe; D-SCI-4a is the
+>   structural wire + its gestalt semantics.
+
 ---
 
 ## 4. Open decisions — BLOCKERS before the outward-facing build
