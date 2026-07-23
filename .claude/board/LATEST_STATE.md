@@ -1,3 +1,10 @@
+## 2026-07-23 — branch `claude/x265-x266-plans-review-h9osnl` — D-SCI-1 archetype consumer + FSM movement feeder (on top of #841)
+
+### Current Contract Inventory — new grammar module + planner example + fsm tag
+- `lance_graph_contract::grammar::verb_lexicon` (`E-SCI-1-VERB-TABLE-ARCHETYPE-CONSUMER-AND-FSM-FEEDER-1`) — the CONSUMER of the 144-cell `verb_table` archetypes: `classify_verb(word) -> Option<(VerbFamily,Tense)>` (fixed lemma→family table + regular `-ed`/`-ing`/`-es`/`-s` morphology with `-e`/doubled-consonant restoration), `slot_for(family,tense) -> TekamoloSlot` (reads `base_prior.combine(tense_modifier)` → `dominant_slot` argmax), `read_verb` (the one-shot family+tense+slot), `is_copula`/`is_causal_cue` (route `Inh`/`Impl`). Zero-dep, no model. 8 unit + 2 doctests. Starter map (corpus-tune logged).
+- `lance_graph_planner::examples::insight_archetype_read` — the archetype-typed relation extractor: types each verb-mediated edge via `read_verb`; discriminative falsifier (causal corpus → plurality Kausal, grounding → Lokal) asserts the extractor consumes `verb_table`, not a flat list.
+- `deepnsm_v2::fsm::Pos::Rel` — the movement feeder-tag: relativizer/complementizer promoted out of `Pos::Other`; `parse_to_spo` gains a single-level relative-clause sub-machine that preserves the matrix subject (object- + subject-relative), feeding the ±8 `antecedent` pointer (`wave.rs`). 4 new property tests. Detail: `EPIPHANIES` E-SCI-1-VERB-TABLE-ARCHETYPE-CONSUMER-AND-FSM-FEEDER-1; `AGENT_LOG` 2026-07-23.
+
 ## 2026-07-23 — branch `claude/x265-x266-plans-review-h9osnl` (PRs #817/#818/#819/#820/#822/#823/#824, MERGED) — the dialectic engine's LOOP + V4 foveated field-search (D-DIA-V2 → V4)
 
 ### Current Contract Inventory — new field-search + fold modules
