@@ -209,6 +209,19 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   > window (S12) remain queued under V2-B.
 - **V3:** dissolution detection + field elevation (S11) — the cathedral floors;
   Staunen↔Wisdom flow accounting; epiphany attractors (rate-normalized, S9).
+  > **✅ V3-A (dissolution detector + Staunen↔Wisdom poles) SHIPPED (2026-07-23):**
+  > `nars/dissolution.rs` — the S10 MIRROR on the same `insight::Snapshot`.
+  > `staunen = 0.5·entropy + 0.5·wonder` (novelty influx pole), `wisdom = coherence`
+  > (crystallized closure density pole), `flow = wisdom⁺/(staunen⁺+wisdom⁺)`.
+  > `detect_dissolution` fires ONLY when `Δwisdom ≤ 0` (coherence unable to form),
+  > then `clamp(Δstaunen − Δwisdom, 0, 1)`. The mandatory size-preserving null
+  > falsifier PASSES: a flooding influx (disjoint edges → closure density falls)
+  > out-scores a size-matched crystallizing influx (chain-extending → closure rises
+  > → dissolution 0) — the detector measures crystallization-FAILURE, not growth
+  > (`E-DIA-V3-A-DISSOLUTION-DETECTOR-1`). `should_elevate` is the S11 field-elevation
+  > TRIGGER. **V3-B (the RESPONSE) still queued:** the FIELD-scale mass-induction
+  > sweep minting parent concepts (new family basins; HHTL grows upward), gated by
+  > `should_elevate`; plus epiphany attractors (rate-normalized, S9).
 - **V4:** the 64k SIMT lowering — Boolean-reachability semiring + truth second
   pass (S1), masks, sweeps — only after V0–V3 green at small scale.
   > **Column size is a capacity knob, NOT a cache constant (operator, 2026-07-23).**

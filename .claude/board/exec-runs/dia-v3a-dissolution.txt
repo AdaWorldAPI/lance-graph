@@ -1,0 +1,33 @@
+D-DIA-V3-A S11 dissolution detector — Sonnet grindwork exec run
+
+Files written:
+- crates/lance-graph-planner/src/nars/dissolution.rs (NEW)
+  - staunen(&Snapshot) -> f32
+  - wisdom(&Snapshot) -> f32
+  - struct Dissolution { d_staunen, d_wisdom, flow, dissolution }
+  - detect_dissolution(before: &Snapshot, after: &Snapshot, _yield_theta: f32) -> Dissolution
+  - should_elevate(d: &Dissolution, threshold: f32) -> bool
+  - reuses super::insight::Snapshot exactly as specified — no new signal type invented.
+- crates/lance-graph-planner/src/nars/mod.rs (EDITED)
+  - added `pub mod dissolution;` (after `pub mod belief;`, alphabetical-ish, existing lines undisturbed)
+  - added `pub use dissolution::{detect_dissolution, should_elevate, staunen, wisdom, Dissolution};`
+
+Tests written (4, in dissolution.rs #[cfg(test)] mod tests):
+1. dissolution_beats_size_preserving_null — THE mandatory E-BASIN-WIDTH gate.
+   Core = 6-edge chain 0..6. Dissolving = 6 disjoint fresh edges (100..111,
+   non-composing). Crystallizing null = SAME 6 edges but extending the core
+   chain (6..12, composes into new transitive conclusions). Asserts
+   dissolving.dissolution > crystallizing.dissolution (with the exact
+   spec'd failure message), dissolving.dissolution > 0.0, and
+   crystallizing.dissolution == 0.0.
+2. crystallizing_step_is_high_flow — crystallizing fixture: flow > 0.5,
+   dissolution == 0.0.
+3. dissolving_step_is_low_flow — dissolving fixture: flow < 0.5.
+4. poles_read_from_snapshot — build tiny arena (1,2),(2,3), close, snapshot;
+   asserts wisdom(&snap) == snap.coherence exactly and staunen(&snap) ==
+   0.5*truth_entropy + 0.5*wonder to 1e-6; should_elevate true at
+   threshold=0.5, false at threshold=0.7 for a fixed Dissolution literal.
+
+Self-check: did NOT run cargo build/check/test/clippy/fmt — orchestrator
+gates centrally in the single shared target/, per hard rules. No worktree
+created. Only the two named files + this tag file were touched.
