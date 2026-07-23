@@ -1,3 +1,14 @@
+## 2026-07-23 — D-SRS-3b SHIPPED: operator-corrected evidence composite + KANBANSTEP drive — main thread, sole board writer
+
+- **Task:** two operator corrections. (1) "MUL tenant right = MUL × rung ladder × NARS Truth × frequency would have information; the way you did it: bullshit in, bullshit out" → D-SRS-3's Cam96 code-spread was geometry with no evidence semantics. (2) "You have kanbanstep-driven strategies, I doubt you even used it" → correct, I had not.
+- **Discipline:** G-SRS3b-1 registered BEFORE code (`aa43fe4`), forward-predictive (first-half U predicts second-half novelty) vs deterministic size-preserving null + activity baseline. Registration predates measurement.
+- **Built (`crates/deepnsm-v2/src/evidence.rs`):** `evidence_basin` (u_conf NARS×freq + u_contra contradiction + u_rung rung-ladder derived-share, U=mean/3), `EvidenceBasin::{competence,curiosity,gate,advance}` — the KANBAN SEAM: U→`GateDecision` (tertiles)→`KanbanColumn::advance_on_gate` (real `contract::kanban`), `forward_gate` + `novelty_rate` + size-preserving nulls.
+- **Result (real KJV, 167 basins):** (1) KANBANSTEP drive REAL — 6 Flow (explore-here) / 160 Hold (gather) / 1 Block (Libet veto) from Planning. (2) G-SRS3b-1 forward-novelty gate KILLED — real ρ −0.423 ≈ null −0.430 (sep 0.007), and activity-only baseline (−0.632) DOMINATES the composite. **Diagnosis: coverage-confound** (E-BASIN-WIDTH-IS-N-ARTIFACT-1 one level up) — forward-novelty is mechanically anti-correlated with first-half activity; the composite is dominated by, and worse than, its own activity baseline; u_rung is size-driven.
+- **Tests:** 84/84 (evidence ×8 incl. the kanban-lifecycle drive test) + `clippy -D warnings` clean.
+- **Also banked:** the operator NO-LLM constraint on the D-SCI-3 crawl frontier (`4a0c7c3`) — the spider classify_urls LLM gate is forbidden; open-question enumeration + codebook resonance + measured post-ingest evidence delta, never an LLM call.
+- **Findings (`E-EVIDENCE-COMPOSITE-COVERAGE-CONFOUND-1`):** the kanban-drive wire is real (operator point 2 addressed); forward-novelty is the wrong ground truth (coverage-confounded); any self-knowledge gate must control for coverage/count (residualize) — a NEW registered gate, not a post-hoc edit.
+- **Next per curiosity:** D-SCI-1 (term/entity extraction) or a coverage-residualized re-gate of the composite (new registration).
+
 ## 2026-07-23 — D-SRS-4 SHIPPED (CONFIRMED, positive) + D-SRS-3 determinism fix — main thread, sole board writer
 
 - **Task:** operator goal "autoattended autonomous … following your curiosity" → D-SRS-4, the positive counterpart to D-SRS-3's negative. Completes the self-reasoning-substrate plan.

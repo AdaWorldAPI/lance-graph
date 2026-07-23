@@ -582,6 +582,125 @@ fn main() {
         gb.basins, gb.rho, gb_null.rho, gb.rho - gb_null.rho
     );
 
+    // ── D-SRS-3b — the OPERATOR-CORRECTED evidence-composite instrument ──
+    // D-SRS-3 failed because Cam96 code-spread is GEOMETRY with no evidence
+    // semantics ("bullshit in, bullshit out"). The corrected instrument composes
+    // NARS×frequency (u_conf) + contradiction density (u_contra) + rung-ladder
+    // derived share (u_rung) — the evidence-bearing signals D-SRS-4 proved read
+    // faithfully — and is gated FORWARD-predictively (G-SRS3b-1): first-half
+    // uncertainty must predict second-half NOVELTY, vs a size-preserving null.
+    let mid_v = (verses.len() / 2) as u64;
+    // First-half distinct beliefs per subject (p,o → count); second-half occ list.
+    let mut fh_beliefs: Map<u16, Map<(u16, u16), usize>> = Map::new();
+    let mut sh_occ: Map<u16, Vec<(u16, u16)>> = Map::new();
+    for &(v, t) in &all {
+        if v < mid_v {
+            *fh_beliefs
+                .entry(t.subject)
+                .or_default()
+                .entry((t.predicate, t.object))
+                .or_insert(0) += 1;
+        } else {
+            sh_occ.entry(t.subject).or_default().push((t.predicate, t.object));
+        }
+    }
+    // Rung-ladder derived share per subject, from the FIRST-HALF arena (capped).
+    let fh_base: Vec<Spo> = all.iter().filter(|&&(v, _)| v < mid_v).map(|&(_, t)| t).collect();
+    let fh_arena = deepnsm_v2::reason::DerivationArena::derive_transitive_capped(&fh_base, 50_000);
+    let (mut tri_tot, mut tri_der): (Map<u16, usize>, Map<u16, usize>) = (Map::new(), Map::new());
+    for d in fh_arena.entries() {
+        *tri_tot.entry(d.triple.subject).or_insert(0) += 1;
+        if d.rung >= 1 {
+            *tri_der.entry(d.triple.subject).or_insert(0) += 1;
+        }
+    }
+    // Eligible basins (≥4 distinct first-half beliefs AND ≥4 second-half occ),
+    // in DETERMINISTIC subject order (the null's determinism depends on it).
+    let mut subjects_e: Vec<u16> = fh_beliefs
+        .keys()
+        .copied()
+        .filter(|s| {
+            fh_beliefs.get(s).map_or(0, Map::len) >= 4
+                && sh_occ.get(s).map_or(0, Vec::len) >= 4
+        })
+        .collect();
+    subjects_e.sort_unstable();
+    let mut basin_beliefs: Vec<deepnsm_v2::evidence::BasinBeliefs> = Vec::new();
+    let mut rungs: Vec<f32> = Vec::new();
+    let mut novelty: Vec<f32> = Vec::new();
+    let mut activity: Vec<f32> = Vec::new();
+    for &s in &subjects_e {
+        let bel: Vec<deepnsm_v2::evidence::BeliefRecord> = fh_beliefs[&s]
+            .iter()
+            .map(|(&(p, o), &n)| (p, o, n))
+            .collect();
+        let der_share = {
+            let tot = *tri_tot.get(&s).unwrap_or(&0);
+            if tot == 0 { 0.0 } else { *tri_der.get(&s).unwrap_or(&0) as f32 / tot as f32 }
+        };
+        let fh_po: Vec<(u16, u16)> = fh_beliefs[&s].keys().copied().collect();
+        activity.push(bel.iter().map(|&(_, _, n)| n as f32).sum());
+        novelty.push(deepnsm_v2::novelty_rate(&fh_po, &sh_occ[&s]));
+        rungs.push(der_share);
+        basin_beliefs.push((s, bel));
+    }
+    // Real U per basin.
+    let u_real: Vec<f32> = basin_beliefs
+        .iter()
+        .zip(&rungs)
+        .filter_map(|((s, bel), &r)| deepnsm_v2::evidence_basin(*s, bel, r).map(|e| e.uncertainty()))
+        .collect();
+    // Null: redeal belief records AND rung shares across basins (size-preserving).
+    let null_beliefs = deepnsm_v2::shuffle_beliefs_null(&basin_beliefs);
+    let null_rungs = deepnsm_v2::shuffle_rungs_null(&rungs);
+    let u_null: Vec<f32> = null_beliefs
+        .iter()
+        .zip(&null_rungs)
+        .filter_map(|((s, bel), &r)| deepnsm_v2::evidence_basin(*s, bel, r).map(|e| e.uncertainty()))
+        .collect();
+    let fg = deepnsm_v2::forward_gate(&u_real, &u_null, &activity, &novelty);
+    println!(
+        "D-SRS-3b G-SRS3b-1 (evidence composite → forward novelty): {} basins, real ρ={:.3}, null ρ={:.3} \
+         — separation {:.3}; frequency-only baseline ρ={:.3}",
+        fg.basins, fg.real_rho, fg.null_rho, fg.separation(), fg.baseline_rho
+    );
+    // The KANBANSTEP DRIVE: the composite is not a printed number — it drives
+    // the Rubicon lifecycle. Count how the evidence gate routes each basin from
+    // Planning (Flow=explore-here / Hold=gather / Block=veto-thin-evidence).
+    let (mut flow, mut hold, mut block) = (0u32, 0u32, 0u32);
+    for ((s, bel), &r) in basin_beliefs.iter().zip(&rungs) {
+        if let Some(e) = deepnsm_v2::evidence_basin(*s, bel, r) {
+            match e.advance(lance_graph_contract::kanban::KanbanColumn::Planning) {
+                Some(lance_graph_contract::kanban::KanbanColumn::CognitiveWork) => flow += 1,
+                Some(lance_graph_contract::kanban::KanbanColumn::Prune) => block += 1,
+                _ => hold += 1,
+            }
+        }
+    }
+    println!(
+        "D-SRS-3b KANBANSTEP drive (Planning→): {flow} Flow (explore-here) · {hold} Hold (gather) · \
+         {block} Block (veto thin/contradicted evidence) — the STEP is the trigger, not the report"
+    );
+    if fg.passed() {
+        println!(
+            "D-SRS-3b PASS (G-SRS3b-1)  evidence-composite uncertainty PREDICTS forward novelty \
+             (real ρ {:.3} ≥ 0.25, separation {:.3} ≥ 0.15) — MUL competence=1−U is a REAL self-signal",
+            fg.real_rho, fg.separation()
+        );
+    } else if fg.killed() {
+        println!(
+            "D-SRS-3b KILL/FALSIFIED (G-SRS3b-1)  separation {:.3} ≤ 0.05 — even the evidence composite \
+             carries no forward-predictive signal beyond chance. Reported, not softened.",
+            fg.separation()
+        );
+    } else {
+        println!(
+            "D-SRS-3b WEAK (G-SRS3b-1)  real ρ {:.3}, separation {:.3} — positive but below the registered \
+             (0.25, 0.15); a real but weak evidence signal. Registration stands, no tuning.",
+            fg.real_rho, fg.separation()
+        );
+    }
+
     // ── D-SRS-4 — the self-reference falsifier: the graph answers questions ──
     // about its OWN reasoning, checked against an INDEPENDENT recount.
     // G-SRS4-1 (provenance): every derived triple's stored premises must

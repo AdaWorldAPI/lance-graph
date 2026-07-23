@@ -596,6 +596,38 @@ faithfully (NARS frequency-confidence; rung stratification).
   never panicked (D-SRS-3 lesson: a scientific falsifier reports; regression
   gates assert).
 
+#### G-SRS3b-1 RESULT (2026-07-23, append-only — whole KJV, first/second-half split)
+
+- **KILLED (separation 0.007 ≤ 0.05).** 167 eligible basins: real ρ(U, novelty)
+  = **−0.423**, null ρ = **−0.430**, separation **0.007**. Frequency-only
+  baseline ρ = **−0.632**.
+- **Diagnosis — the gate is COVERAGE-CONFOUNDED (the D-SRS-3 confound one level
+  up).** "Forward novelty" is mechanically anti-correlated with first-half
+  ACTIVITY: a heavily-seen basin has already covered its `(p,o)` space, so few
+  NEW pairs arrive in the second half. The size-preserving null preserves that
+  coverage relationship, so the composite cannot separate from it. Worse: the
+  activity-only baseline (−0.632) is a STRONGER novelty predictor than the
+  composite (−0.423) — the `u_contra`/`u_rung` components DILUTE the coverage
+  signal for this target, and `u_rung` is itself size-driven (large
+  neighborhoods derive quadratically more transitive triples). So the evidence
+  composite is dominated by, and worse than, its own activity baseline against
+  forward-novelty.
+- **What this does and does NOT show.** It does NOT show the operator's
+  `MUL × rung × NARS × frequency` composite is worthless — the composite carries
+  strong structure (|ρ| 0.42) and, crucially, **it drives the kanban lifecycle**
+  (the operator's second point): `EvidenceBasin::{gate, advance}` maps `U` →
+  `GateDecision` → `KanbanColumn::advance_on_gate`, routing each basin
+  Flow(explore)/Hold(gather)/Block(veto). On the book: 6 Flow / 160 Hold / 1
+  Block from `Planning`. It DOES show that **forward-novelty is the wrong
+  ground truth** — coverage-confounded, unable to validate the composite as a
+  self-signal. A non-confounded gate would need to control for coverage
+  (e.g. residualize novelty on activity first), which is a NEW registered gate,
+  not a post-hoc edit of this one.
+- **Ships as real:** `evidence.rs` (the composite + the KANBANSTEP drive wire —
+  addresses "you have kanbanstep-driven strategies, I doubt you even used it")
+  + the honest coverage-confound finding. Registration `aa43fe4` predates this
+  measurement. `E-EVIDENCE-COMPOSITE-COVERAGE-CONFOUND-1`.
+
 ### D-SRS-4 — The self-reference falsifier
 
 **The graph answers a question about its OWN earlier derivation, correctly.**

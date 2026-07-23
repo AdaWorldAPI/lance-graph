@@ -296,7 +296,7 @@ pub fn heldout_bessel_gate(
 
 /// Spearman rank correlation = Pearson on average-rank-transformed values.
 /// Returns `0.0` for < 2 points or a zero-variance side (no signal).
-fn spearman(x: &[f32], y: &[f32]) -> f32 {
+pub(crate) fn spearman(x: &[f32], y: &[f32]) -> f32 {
     if x.len() != y.len() || x.len() < 2 {
         return 0.0;
     }
