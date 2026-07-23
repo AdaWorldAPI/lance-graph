@@ -15,7 +15,7 @@
 
 use super::belief::{BeliefArena, CStmt, Copula};
 use super::epiphany::rank_epiphany_attractors;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Which kind of main insight this is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,8 +111,13 @@ pub fn extract_main_insights(arena: &BeliefArena, cfg: &InsightConfig) -> Vec<Ma
     }
 
     // 2. Conclusion — derived beliefs ranked by expectation, carrying their ladder.
+    //    Only surface derivations with a REAL provenance ladder: a rung>=1 belief
+    //    admitted with empty premises (e.g. an `elevate_field` mint, or any
+    //    `admit_derived(.., &[], ..)`) has no auditable chain, and this API's
+    //    promise is auditability — an unexplainable "conclusion" is worse than
+    //    none. Empty-premise derivations are skipped here (Codex P2, E-SCI-INSIGHT).
     for b in arena.entries() {
-        if b.rung >= 1 {
+        if b.rung >= 1 && !b.premises.is_empty() {
             out.push(MainInsight {
                 kind: InsightKind::Conclusion,
                 focus: b.stmt,
@@ -127,20 +132,29 @@ pub fn extract_main_insights(arena: &BeliefArena, cfg: &InsightConfig) -> Vec<Ma
     }
 
     // 3. Bridge — predicates shared by ≥min_bridge distinct subjects, below the hub ceiling.
-    let mut indeg: BTreeMap<u16, std::collections::BTreeSet<u16>> = BTreeMap::new();
+    let mut indeg: BTreeMap<u16, BTreeSet<u16>> = BTreeMap::new();
+    let mut subjects_all: BTreeSet<u16> = BTreeSet::new();
     for b in arena.entries() {
         if b.stmt.cop == Copula::Inh {
             indeg.entry(b.stmt.p).or_default().insert(b.stmt.s);
+            subjects_all.insert(b.stmt.s);
         }
     }
-    let total_preds = indeg.len().max(1) as f32;
+    // Normalize bridge strength by the TOTAL distinct subjects, not the predicate
+    // count: `d` (subjects sharing a predicate) is a subset of all subjects, so
+    // `d / total_subjects` is a fraction in [0,1] — dimensionally a subject-share,
+    // on the SAME scale as a Conclusion's expectation. Dividing by the predicate
+    // count (the prior bug) is unbounded — a predicate shared by 2 subjects in a
+    // 1-predicate KG scored 2.0 and out-ranked a max-confidence conclusion in the
+    // cross-kind top_k sort (Codex P2, E-SCI-INSIGHT).
+    let total_subjects = subjects_all.len().max(1) as f32;
     for (m, subjects) in &indeg {
         let d = subjects.len();
         if d >= cfg.min_bridge && d <= cfg.hub_ceiling {
             out.push(MainInsight {
                 kind: InsightKind::Bridge,
                 focus: inh(*m, *m), // the bridging concept sits in focus.s
-                strength: d as f32 / total_preds, // rate-normalized (S9 discipline)
+                strength: d as f32 / total_subjects, // subject-share, bounded [0,1]
                 rung: 0,
                 premises: Vec::new(),
                 reason: InsightReason::MiddleTerm { bridges: d },
@@ -281,6 +295,50 @@ mod tests {
             assert!(
                 !i.premises.is_empty(),
                 "every surfaced conclusion must carry a non-empty provenance ladder"
+            );
+        }
+    }
+
+    /// Codex P2 (#832): a derived belief admitted with EMPTY premises (e.g. an
+    /// `elevate_field` mint, or any `admit_derived(.., &[], ..)`) has no auditable
+    /// ladder and must NOT surface as a `Conclusion` — this API promises every
+    /// conclusion carries its provenance chain.
+    #[test]
+    fn empty_premise_derivation_is_not_surfaced_as_conclusion() {
+        let mut a = BeliefArena::new();
+        // A synthetic parent edge with high truth but NO premises (the elevate mint shape).
+        a.admit_derived(inh(7, 8), TruthValue::new(0.95, 0.95), &[], 1);
+        let insights = extract_main_insights(&a, &InsightConfig::default());
+        assert!(
+            !insights
+                .iter()
+                .any(|i| i.kind == InsightKind::Conclusion && i.focus == inh(7, 8)),
+            "an empty-premise derivation must not be surfaced as an auditable Conclusion"
+        );
+    }
+
+    /// Codex P2 (#832): bridge strength must stay in [0,1] (a subject-share), on
+    /// the same scale as a Conclusion's expectation — so a bridge in a
+    /// few-predicate KG cannot out-rank a max-confidence conclusion in the
+    /// cross-kind `top_k` sort.
+    #[test]
+    fn bridge_strength_is_bounded_and_comparable() {
+        // 2 subjects share predicate 100; only 1 predicate in the KG — the prior
+        // `d/total_preds` bug would have scored this bridge 2.0.
+        let mut a = BeliefArena::new();
+        a.observe(inh(1, 100), TruthValue::new(0.9, 0.9), Stamp::source(0));
+        a.observe(inh(2, 100), TruthValue::new(0.9, 0.9), Stamp::source(1));
+        // A derived conclusion with a real ladder (so a Conclusion exists to compare).
+        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(2));
+        a.observe(inh(2, 3), TruthValue::new(0.9, 0.9), Stamp::source(3));
+        a.close_transitive(64);
+
+        let insights = extract_main_insights(&a, &InsightConfig::default());
+        for b in insights.iter().filter(|i| i.kind == InsightKind::Bridge) {
+            assert!(
+                (0.0..=1.0).contains(&b.strength),
+                "bridge strength must be bounded [0,1], got {}",
+                b.strength
             );
         }
     }
