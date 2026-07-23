@@ -1,0 +1,35 @@
+Task: D-DIA-S9 — epiphany attractors ranked by rate, never count
+
+Files touched:
+- crates/lance-graph-planner/src/nars/epiphany.rs (NEW)
+- crates/lance-graph-planner/src/nars/mod.rs (EDIT: added `pub mod epiphany;`
+  in alphabetical position after `elevation` before `facet_fold`, and
+  `pub use epiphany::{rank_epiphany_attractors, EpiphanyAttractor};` re-export)
+
+Deliverable:
+- `EpiphanyAttractor { subject: u16, epiphanies: usize, attempts: usize, rate: f32 }`
+- `rank_epiphany_attractors(arena: &BeliefArena, min_attempts: usize) -> Vec<EpiphanyAttractor>`
+  groups arena entries by `stmt.s`, counts total (attempts) vs rung>=1 (epiphanies),
+  filters by min_attempts, sorts by rate DESC then subject ASC (f32::total_cmp).
+
+Tests (3, as specified):
+1. rate_ranking_beats_count_ranking — S9/E-DOOMSCROLL falsifier. Large sparse
+   basin (subject 1: 20 observed + 5 derived, rate 0.20) vs small dense basin
+   (subject 2: 1 observed + 3 derived, rate 0.75). Asserts rate-ranking top =
+   subject 2, count-ranking top = subject 1, and the two orderings diverge.
+2. min_attempts_filters_thin_basins — subject 1 (3 beliefs) survives
+   min_attempts=2, subject 2 (1 belief) is filtered out.
+3. ordering_is_deterministic_on_ties — subject 3 and subject 5 both at
+   rate 0.5; asserts tie broken by subject id ASC (3 before 5).
+
+Source verification performed (not guessed):
+- Read belief.rs: confirmed `BeliefArena::entries()`, `observe(CStmt, TruthValue,
+  Stamp) -> ReviseOutcome`, `admit_derived(CStmt, TruthValue, &[u32], u32) -> bool`,
+  `Belief { stmt, rung, .. }`, `CStmt { s, cop, p }`, `Copula::Inh`,
+  `Stamp::source(u32)` all match the spec exactly. Confirmed `BeliefArena`
+  derives `Default` (used `BeliefArena::default()` in tests; equivalent to
+  `BeliefArena::new()` used elsewhere in the file).
+- Confirmed mod.rs re-export style/alphabetical pub mod ordering before editing.
+
+Did NOT run cargo (build/check/test/clippy/fmt) per hard rules — edit-only,
+orchestrator gates centrally. No git operations performed.

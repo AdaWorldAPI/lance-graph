@@ -1,3 +1,11 @@
+## 2026-07-23 — D-DIA-S9 epiphany attractors (rank by rate) — 1 Sonnet grindwork agent from an Opus spec, Opus-gated (sole board writer)
+
+- **Operator steer:** answered the D-SCI-1-vs-remainders AskUserQuestion with "small dialectic remainders" (+ Gutenberg science text for D-SCI-1's future corpus, + the arXiv-ephemeral-via-tesseract/spider option). This is the S9 remainder. Build was grindwork (design = the density-ranking primitive + the rate-vs-count divergence falsifier) → one `general-purpose·sonnet` (edit-only; tag `exec-runs/dia-s9-epiphany.txt`).
+- **Deliverable:** `nars/epiphany.rs` (`rank_epiphany_attractors` + `EpiphanyAttractor`) — rank subject-basins by density (`derived/total`) not count, the E-DOOMSCROLL discipline (S9). `E-DIA-S9-EPIPHANY-ATTRACTOR-RATE-1`. Completes D-DIA-V3.
+- **⚠ Central gate caught a Sonnet regression:** the agent, inserting the `epiphany` re-export alphabetically into `nars/mod.rs`, DROPPED the `reach_out` re-export line (module still declared, public items no longer re-exported). Orchestrator restored `pub use reach_out::{reach_out_integrate, FeltOutcome, ReachOutConfig};` before gating — a concrete instance of why the fleet edits and the orchestrator compiles/gates centrally (the edit-only agent can't see the compile regression its own alphabetical edit caused).
+- **Falsifier finding (banked):** rate-ranking surfaces a small dense basin (rate 0.75, count 3) that count-ranking buries under a large sparse one (rate 0.20, count 5) — the orderings diverge, which is the E-DOOMSCROLL point.
+- **Orchestrator-verified:** 3 epiphany tests + 47 nars-module tests green (the 47 confirms the reach_out re-export restore compiles); `cargo fmt` + `cargo clippy -p lance-graph-planner --lib -- -D warnings` clean; `Cargo.lock` restored.
+
 ## 2026-07-23 — D-DIA-V5-A reach-out felt integration (§3.6) — 1 Sonnet grindwork agent from an Opus spec, Opus-gated (sole board writer)
 
 - **Operator directive:** "use sonnet agents for grindwork." The §3.6 criterion reduces to a structural test (middle-term click = a derivation lands), so the design (quarantine + new-derivation gate + the size-matched falsifier) was worked on the main thread and the build was grindwork → one `general-purpose·sonnet` (edit-only, no cargo/worktree; tag `exec-runs/dia-v5a-reach-out.txt`).
