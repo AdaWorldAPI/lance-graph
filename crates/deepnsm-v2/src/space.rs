@@ -287,6 +287,25 @@ impl Cam96Space {
     pub fn rails(code: &Cam96) -> [(u8, u8); 6] {
         std::array::from_fn(|r| (code[2 * r], code[2 * r + 1]))
     }
+
+    /// The length-`12·axis_dim` point a code reconstructs to — the 12 chosen
+    /// centroids concatenated in axis order (the "decode" side, mirror of
+    /// [`AdcSpace::reconstruct`]). An out-of-range centroid on any axis
+    /// contributes a zero block, so the returned vector is always exactly
+    /// `12·axis_dim` long (the mean/centroid path in [`crate::basin`] relies on
+    /// this fixed length).
+    #[must_use]
+    pub fn reconstruct(&self, code: &Cam96) -> Vec<f32> {
+        let d = self.axis_dim();
+        let mut v = Vec::with_capacity(12 * d);
+        for (k, axis) in self.axes.iter().enumerate() {
+            match axis.get(code[k] as usize) {
+                Some(c) if c.len() == d => v.extend_from_slice(c),
+                _ => v.extend(std::iter::repeat_n(0.0f32, d)),
+            }
+        }
+        v
+    }
 }
 
 /// Deterministic `256`-centroid axis codebook (index-derived; demo only).
@@ -389,6 +408,19 @@ mod tests {
             code.iter().any(|&c| c != 0),
             "encode must not collapse to centroid 0"
         );
+    }
+
+    #[test]
+    fn cam96_reconstruct_is_fixed_length_and_re_encodes() {
+        let dim = 4;
+        let s = Cam96Space::demo(dim);
+        // A code built from known centroids reconstructs to their concatenation,
+        // and re-encoding that point recovers the code (round-trip on centroids
+        // below the mod-13 period, as in cam96_encode_recovers_exact_centroids).
+        let code: Cam96 = [2, 5, 0, 9, 12, 1, 7, 3, 11, 6, 4, 8];
+        let point = s.reconstruct(&code);
+        assert_eq!(point.len(), 12 * dim, "reconstruct is always 12*axis_dim");
+        assert_eq!(s.encode(&point), code, "reconstruct∘encode round-trips");
     }
 
     #[test]

@@ -35,6 +35,7 @@
 //! `probes/README.md` (0.766 general / 0.774 Bible-vocab vs 0.624/0.617).
 
 pub mod ancestry;
+pub mod basin;
 pub mod codebook;
 pub mod fsm;
 pub mod reason;
@@ -47,6 +48,10 @@ pub mod wave;
 use lance_graph_contract::temporal_pov::{TemporalPov, VersionRange};
 
 pub use ancestry::FamilyTrie;
+pub use basin::{
+    basin_self_code, heldout_bessel_gate, heldout_constant_n_gate, heldout_split_gate, BasinCode,
+    HeldOutGate,
+};
 pub use codebook::{load_cam96_codes, load_cam96_space, CodebookError};
 pub use fsm::{parse_to_spo, Pos, Tagged};
 pub use shape::{

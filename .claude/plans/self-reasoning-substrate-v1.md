@@ -526,6 +526,26 @@ where MUL already expects a self-measurement signal. No new tenant, no layout bu
 - **Soft band** `0.05 < separation < 0.20`: recorded honestly as "weak/
   inconclusive separation", neither a claimed PASS nor a KILL.
 
+#### G-SRS3-2 RESULT (2026-07-23, append-only — whole KJV, k=5)
+
+- **Constant-n:** 221 basins (≥ 10 members), real ρ = **0.054**, null ρ = 0.003,
+  **separation = 0.051** — the SOFT band, one-thousandth above the 0.05 KILL
+  line. Not a formal KILL, but at the noise floor.
+- **Bessel full-power diagnostic (exploratory, all members, ×m/(m−1) bias
+  removal):** real ρ = **0.002**, null ρ = 0.062, separation = −0.059 — confirms
+  the near-zero constant-n result is NOT underpowered: with full statistical
+  power the semantic self-signal is ≈ 0.
+- **VERDICT — D-SRS-3 conjecture NOT CONFIRMED (honest negative).** The confident
+  raw split-half ρ = 0.583 (G-SRS3-1) was ENTIRELY a member-count artifact,
+  exposed by the label-shuffle null (null ρ ≈ 0.56 matched real). Once n is fixed
+  or bias-corrected, Cam96 code-spread does not tell the graph where it is
+  uncertain. **What ships as real:** the basin self-code machinery (`basin.rs`),
+  the split-half + constant-n + Bessel held-out instruments, and the
+  null-control methodology — a falsifier that FIRED. The MUL competence/curiosity
+  wire exists and is correct, but SHOULD NOT be fed the width self-report as a
+  competence signal on this evidence (the signal is noise). Not softened, not
+  tuned; the registration predates every measurement in git history.
+
 ### D-SRS-4 — The self-reference falsifier
 
 **The graph answers a question about its OWN earlier derivation, correctly.**
