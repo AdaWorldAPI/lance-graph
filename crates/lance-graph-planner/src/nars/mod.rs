@@ -7,6 +7,7 @@
 
 pub mod belief;
 pub mod dissolution;
+pub mod elevation;
 pub mod facet_fold;
 pub mod inference;
 pub mod insight;
@@ -16,6 +17,7 @@ pub mod truth;
 
 pub use belief::{Belief, BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
 pub use dissolution::{detect_dissolution, should_elevate, staunen, wisdom, Dissolution};
+pub use elevation::{elevate_field, Elevation};
 pub use facet_fold::{cstmt_from_spo_facet, to_spo_facet};
 pub use inference::NarsInference;
 pub use insight::{arena_graph_signals, detect, flow_state, InsightMush, Snapshot};

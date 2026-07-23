@@ -1,0 +1,28 @@
+D-DIA-V3-B field-elevation (S11 response) — Sonnet grindwork agent
+
+Files:
+- NEW crates/lance-graph-planner/src/nars/elevation.rs
+  (elevate_field(&mut BeliefArena, min_cluster) -> Elevation; mints abstract
+  parents for shared-predicate clusters, honest-guards on structureless noise)
+- EDIT crates/lance-graph-planner/src/nars/mod.rs
+  (added `pub mod elevation;` after `pub mod dissolution;`; re-exported
+  `elevate_field, Elevation`)
+
+Tests written (3, as specified):
+1. elevate_lifts_structure_not_noise — structured 5-subject cluster lifts
+   (clusters_lifted=1, children_rehomed=5, minted parent id=101, G is_a M +
+   child is_a G both present); structureless 5-distinct-predicate flood mints
+   nothing (clusters_lifted=0, minted_parents empty).
+2. minted_parent_propagates_to_children — after minting, a single NEW fact on
+   the abstraction (g is_a 200) + close_transitive propagates to all 5
+   children via deduction (rung >= 1, i.e. DERIVED not observed).
+3. min_cluster_threshold_holds — 2-subject cluster: min_cluster=3 lifts
+   nothing, min_cluster=2 lifts 1.
+
+Did NOT run cargo (build/check/test/clippy/fmt) per hard rule — edit-only.
+Import path used: `use super::belief::{BeliefArena, CStmt, Copula, Stamp};`
++ `use super::truth::TruthValue;` in the module body (matches belief.rs's own
+style); test module uses `use crate::nars::{BeliefArena, CStmt, Copula, Stamp,
+TruthValue};` per the dissolution.rs precedent. No ambiguity encountered —
+belief.rs was read directly to confirm CStmt/Copula/Stamp live in `belief`
+itself (not a separate re-export module) before writing the import.

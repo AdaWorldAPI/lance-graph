@@ -1,3 +1,11 @@
+## 2026-07-23 — D-DIA-V3-B field-elevation response (S11) — 1 Sonnet grindwork agent from an Opus spec, Opus-gated (sole board writer)
+
+- **Operator directive:** "use sonnet agents for grindwork to save tokens." Design fully worked on the main thread (the mass-induction clustering, the fresh-id minting, and the two falsifiers — the honest structure-vs-noise guard + the one-fact-to-k propagation payoff, with exact fixtures + expected derived counts); build was grindwork → one `general-purpose·sonnet` (edit-only, no cargo/worktree; tag file `exec-runs/dia-v3b-elevation.txt`).
+- **Deliverable:** `nars/elevation.rs` (`elevate_field` + `Elevation`) — the S11 RESPONSE that `dissolution::should_elevate` triggers. `E-DIA-V3-B-FIELD-ELEVATION-1`.
+- **Agent's correct source-check:** the spec guessed `TruthValue` was re-exported from `belief`; the agent READ `belief.rs`, found `TruthValue` lives in `truth.rs`, and imported `super::truth::TruthValue` — a genuine diligence catch, not a guess.
+- **Falsifier finding (banked):** the value of minting is PROPAGATION — one `G is_a N` fact derives `S_i is_a N` for all k children via closure (the abstraction amortizes future evidence); and the honest guard mints nothing on structureless noise.
+- **Orchestrator-verified:** 3 elevation tests (incl. `minted_parent_propagates_to_children`, `elevate_lifts_structure_not_noise`) green; 251 planner-lib nars tests; `cargo fmt` + `cargo clippy -p lance-graph-planner --lib -- -D warnings` clean; `Cargo.lock` restored.
+
 ## 2026-07-23 — D-DIA-V3-A dissolution detector (S11) — 1 Sonnet grindwork agent from an Opus spec, Opus-gated (sole board writer)
 
 - **Operator directive (re-issued):** "use sonnet agents for grindwork to save tokens." The design was fully worked out on the main thread (the dissolution formula, the `Δwisdom≤0` gate, the flood-vs-crystallizing null falsifier with exact fixtures), so the build was genuine grindwork → one `general-purpose·sonnet` agent (edit-only, no cargo, no worktree; tag file `exec-runs/dia-v3a-dissolution.txt`).
