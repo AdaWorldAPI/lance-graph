@@ -8,9 +8,10 @@
 //! THIS example (the reasoning layer) consumes it into a `BeliefArena` and runs
 //! copula-gated transitive closure + the five tactics.
 //!
-//! Usage:
+//! Usage (deepnsm-v2 is a workspace-EXCLUDED crate → `--manifest-path`, not `-p`):
 //! ```text
-//! cargo run -p deepnsm-v2 --example bible_wave -- /tmp/pg10.txt --export /tmp/kjv_spo.tsv
+//! cargo run --release --manifest-path crates/deepnsm-v2/Cargo.toml \
+//!     --example bible_wave -- /tmp/pg10.txt --export /tmp/kjv_spo.tsv
 //! cargo run -p lance-graph-planner --release --example reason_whole_book -- /tmp/kjv_spo.tsv
 //! ```
 //!
