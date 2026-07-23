@@ -144,6 +144,32 @@ explicitly. spider's HTML harvest and tesseract OCR both emit the OGAR `DocIr`
 - **Not authorized by this doc.** Requires the §4 decisions + explicit operator
   green-light. Never crawl on inference.
 
+> **⊘ NO-LLM CONSTRAINT (operator-ruled 2026-07-23, append-only — binds any
+> future D-SCI-3 implementation).** *"We don't use LLM — so you can't have an
+> LLM or filter, except if you do it right."* Spider's `classify_urls`
+> `relevance_prompt` LLM gate is FORBIDDEN as the frontier filter — it would
+> smuggle a transformer oracle back into the loop DeepNSM exists to eliminate.
+> "Doing it right" = the filter is computed from the substrate's own
+> information-bearing machinery, deterministically:
+> 1. **Open questions are enumerated, not generated:** `(s,p,?)` slots with
+>    contradiction density > 0, thin-evidence beliefs (NARS `n/(n+1)` low),
+>    `FailureTicket` (F>0.8) sites, high-`curiosity_mul` frontier edges — the
+>    graph's own gaps ARE the query list.
+> 2. **Relevance = codebook resonance, not a prompt:** candidate tokens
+>    (anchor text / URL terms / snippet) scored against open-question terms via
+>    the trained Cam96/palette distance + FSM→SPO (the <10µs/sentence path),
+>    weighted by epiphany residue (`WisdomMarker` attractors) near the
+>    question's basin.
+> 3. **Dead ends are MEASURED after ingest, not judged before:** did NARS
+>    evidence counts rise, did a contradiction resolve, did forward NOVELTY
+>    arrive (the G-SRS3b evidence-composite instrument)? Zero delta across N
+>    pages ⇒ prune the branch. Arithmetic, not opinion.
+> 4. Even the FailureTicket tail escalates to the open-question queue — never
+>    to an LLM call. Cross-ref: `E-MUL-EXPLORATION-GATEWAY-1` (the plug point),
+>    `self-reasoning-substrate-v1` §D-SRS-3b (the evidence-composite
+>    instrument this frontier consumes), `E-BASIN-WIDTH-IS-N-ARTIFACT-1`
+>    (why geometry-only scoring is GIGO).
+
 ### D-SCI-4 — MUL as the exploration gateway (the operator's steer; ~90% scaffolded)
 
 **Reframed (2026-07-23, operator: "use MUL as an exploration gateway for
