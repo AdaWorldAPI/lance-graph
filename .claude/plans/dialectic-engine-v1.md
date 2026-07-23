@@ -197,5 +197,20 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
   Staunen↔Wisdom flow accounting; epiphany attractors (rate-normalized, S9).
 - **V4:** the 64k SIMT lowering — Boolean-reachability semiring + truth second
   pass (S1), masks, sweeps — only after V0–V3 green at small scale.
+  > **Column size is a capacity knob, NOT a cache constant (operator, 2026-07-23).**
+  > The 64k column (64k×512 B = 32 MB) is a cache convenience (server-L3-resident
+  > working set), not an architectural constant — 256k/128 MB or 512k/256 MB are
+  > easily affordable. The knob to grow is column CAPACITY (rows in RAM); the
+  > INVARIANT knob is the Morton TILE (the swept, cache-resident unit). They
+  > DECOUPLE under Morton-tile top-k: you sweep one tile, never the whole column,
+  > so cache behavior is invariant to total column size. Morton width scales fine
+  > (64k axis = u16 → u32 code; 512k = u19 → u38, still u64). What growing the
+  > column DOES change: brute O(N²) pair enumeration goes 16×/64× worse
+  > (`close_transitive`'s book-scale 92k-derived / 12–17 s already shows the
+  > shape) — so a bigger column makes the Morton-tile top-k substrate MANDATORY,
+  > not optional. Column growth is affordable ONLY with the retrieval mechanism,
+  > which is exactly why V4 is the Morton lowering, not a wider brute sweep.
+  > (Distinct from the GUID cascade's per-tier 64k = 256×256 centroid tile, which
+  > is codebook cardinality / canon — untouched by column length.)
 - **V5:** reach-out integration (spider/arXiv → §3.6 felt criterion) + the
   qualia ablation falsifier (S12).
