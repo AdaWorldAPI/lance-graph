@@ -65,6 +65,12 @@ impl Default for ReachOutConfig {
 /// the outcome is the felt form: [`FeltOutcome::NewInsight`] iff at least one
 /// new derivation landed (the bridge served as a middle term composing
 /// pre-existing beliefs), else [`FeltOutcome::DullShadow`].
+///
+/// The arena is closed to a FIXED POINT before the baseline is snapshotted, so
+/// the reported result depends only on the fetched `bridge` — never on whatever
+/// pending (un-closed) derivations the caller happened to pass in. Because the
+/// pre-bridge arena is already at a fixed point, every derivation counted below
+/// is provably bridge-caused (codex #830 P2).
 #[must_use]
 pub fn reach_out_integrate(
     arena: &mut BeliefArena,
@@ -73,6 +79,10 @@ pub fn reach_out_integrate(
     stamp: Stamp,
     cfg: &ReachOutConfig,
 ) -> FeltOutcome {
+    // Establish the baseline at a fixed point FIRST — otherwise a pending
+    // pre-existing chain (e.g. `A→B, B→C` not yet closed) would land during the
+    // post-bridge close and be miscredited to the bridge (codex #830 P2).
+    arena.close_transitive(cfg.max_passes);
     let before = Snapshot::of(arena, 0.0);
     let derived_before = arena.entries().iter().filter(|b| b.rung >= 1).count();
 
@@ -224,6 +234,41 @@ mod tests {
             stored.truth.confidence <= 0.1 + 1e-6,
             "fetched material must stay quarantined, got confidence {}",
             stored.truth.confidence
+        );
+    }
+
+    /// The result must depend on the BRIDGE, not on the caller's prior closure
+    /// state (codex #830 P2). An arena with a pending, un-closed chain
+    /// (`A→B, B→C`) plus a totally unrelated fetched bridge must still be a
+    /// `DullShadow`: the pending `A→C` closes in the BASELINE (fixed point
+    /// first), so it is never miscredited to the bridge.
+    #[test]
+    fn pending_closure_is_not_miscredited_to_an_unrelated_bridge() {
+        let mut a = BeliefArena::new();
+        // An OPEN chain: A→B, B→C, deliberately NOT closed by the caller.
+        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(0));
+        a.observe(inh(2, 3), TruthValue::new(0.9, 0.9), Stamp::source(1));
+        // (no close_transitive here — the arena is passed in un-closed)
+
+        let out = reach_out_integrate(
+            &mut a,
+            inh(100, 101), // fresh, unrelated to the pending chain.
+            TruthValue::new(0.9, 0.9),
+            Stamp::source(2),
+            &ReachOutConfig::default(),
+        );
+
+        assert_eq!(
+            out,
+            FeltOutcome::DullShadow,
+            "an unrelated bridge must not inherit the pending A→C closure as \
+             its own insight"
+        );
+        // Sanity: the pending A→C DID get closed (in the baseline), it just
+        // wasn't credited to the bridge.
+        assert!(
+            a.get(inh(1, 3)).is_some_and(|b| b.rung >= 1),
+            "the pending chain still closes — into the baseline, not the bridge's credit"
         );
     }
 }
