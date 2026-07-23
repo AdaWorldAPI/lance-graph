@@ -1,0 +1,55 @@
+PROBE-CODEBOOK-44 — hierarchical 16-way codebook (retires Probe M1)
+Agent: PALETTE_ENGINEER  |  Date: 2026-07-23  |  Crate: crates/bgz17 (workspace-excluded)
+Status: MECHANISM PROVEN (synthetic). Probe M1 mechanism retired; REAL-DATA ρ (Jina centroids) PENDING.
+
+WHAT WAS BUILT (edit-only; NOT committed — orchestrator lands the PR)
+  crates/bgz17/src/palette.rs:
+    + Palette::build_hierarchical(patterns: &[Base17], max_iter: usize) -> HierarchicalPalette
+        divisive k-means: 16 coarse clusters × 16 fine leaves = 256; leaf code ordered so
+        code>>4 == coarse-cluster index == NiblePath ancestor. Flat build() untouched (baseline).
+    + struct HierarchicalPalette { leaves: Palette, coarse: Vec<Base17> }
+        methods: coarse_len(), leaf_len(), coarse_index(code)->u8, coarse_of(code)->Option<&Base17>,
+        coarse_is_ancestor_of(coarse_nibble,leaf_code)->bool  (mirrors hhtl.rs::NiblePath::is_ancestor_of
+        prefix-shift, FAN_OUT=16 — replicated only because bgz17 can't dep the contract crate; comment cites hhtl.rs as canonical)
+    + private helpers: mean_centroid(), kmeans_with_assignments()  (baseline build() left as-is)
+    + 3 GATE-1 #[test]s (planted 16×16 SplitMix64 synthetic)
+  crates/bgz17/examples/probe_codebook_44.rs  (runnable probe; deterministic SplitMix64 seed 0x9E3779B97F4A7C15)
+
+GATE 1 — prefix == ancestry (structural)   [SYNTHETIC, fully falsifiable]
+  code>>4 == coarse ancestor for all 256 codes : true
+  coarse centroid == mean of its 16 children   : true
+  hierarchical top-nibble planted purity       : 1.0000   (recovers planted coarse structure)
+  flat        top-nibble planted purity        : 0.1602   (arbitrary code order — FAILS ancestry gate)
+  => PASS: hierarchy is REAL not decorative; flat FAILS the same gate.
+
+GATE 2 — fidelity ρ (Spearman, pairwise inter-centroid)   [SYNTHETIC MECHANISM]
+  hierarchical ρ : 1.0000
+  flat k-means ρ : 1.0000
+  anchors 0.9973 / 0.965: both cleared on synthetic (both clear because 256 centroids match 256 well-separated templates → perfect rank preservation).
+  => PASS: hierarchical ρ >= flat ρ — the 16-way structure costs NO fidelity.
+  NOTE: ρ=1.0000 both is the clean-synthetic ceiling; it proves structure-is-free, NOT the discriminating
+  real-data number. The 0.9973/0.965 anchors are REAL-DATA anchors — need actual Jina v5 centroids
+  (none on disk this run: crates/bgz17 has no *.bin/*.npy/centroid data).
+
+TESTS/GATES RUN (scoped: --manifest-path crates/bgz17/Cargo.toml)
+  cargo test  : 130 passed / 0 failed  (was 121 lib + new hierarchical_* ; incl. the 3 GATE-1 tests)
+  cargo run --example probe_codebook_44 : prints the numbers above
+  cargo fmt --check : exit 0 (clean)
+  cargo clippy -D warnings : my additions (palette.rs new ranges + the example) produce ZERO hits.
+     The crate has PRE-EXISTING clippy debt (bridge.rs unused imports, container.rs needless_range_loop,
+     base17.rs manual_div_ceil, palette.rs:592/:707 in pre-existing test helpers, etc.) — NOT introduced
+     here and NOT touched (scope discipline: bgz17 only, no sibling files).
+
+VERDICT
+  PROBE-CODEBOOK-44 PASSES on the synthetic mechanism: the hierarchy is real (prefix==ancestry,
+  purity 1.0 vs flat 0.16) AND fidelity is not sacrificed (hier ρ >= flat ρ). This RETIRES Probe M1's
+  MECHANISM ("CLAM 3-level 16-way tree on 256 centroids" == "codebook built so nibble-prefix == centroid
+  ancestry"). NOT fully closed: the ultimate fidelity ρ on REAL Jina centroids (the 0.9973/0.965 anchors)
+  is the one remaining step — gated on real safetensors/centroids being on disk.
+
+DIVERGENCE FROM BRIEF: none material. Arity is the 2-level 16×16 the brief specified (== 256 leaves,
+  FAN_OUT=16, aligned to the shipped NiblePath 16-way path per the E-FOVEATED fold correction), not a
+  4-level 4-ary 4⁴ read; both yield 256 leaves but the brief + fold explicitly chose 16-way.
+
+FOLLOW-UP for orchestrator: central gates + certification-officer ρ review + board hygiene
+  (bf16-hhtl-terrain.md M1 row -> retired/mechanism-proven; ENTROPY-MILESTONES M26 enablement) + PR.

@@ -9,7 +9,7 @@ Plan: `.claude/plans/dialectic-engine-v1.md` (six operator pillars + S1-S12 synt
 | D-DIA-V2-A | insight/mush S10 detector + size-preserving null falsifier | lance-graph | Shipped (PR #819 merged; `nars/insight.rs`; null falsifier caught + fixed 2 formula confounds — `E-S10-COHERENCE-CLOSURE-DENSITY-1`) | plan §1 S10, §4 |
 | D-DIA-V2-B | The loop: bias→recipe tactic-LUT, byte-lane council, texture window | lance-graph | Queued | plan §4 |
 | D-DIA-V3 | Dissolution → field rung-elevation (the cathedral floors) + Staunen↔Wisdom flow accounting | lance-graph | Queued | plan §4 |
-| D-DIA-V4 | Foveated HHTL-trie field-search (addressing-first ladder; field search = total-function floor). Rung 1 = `PROBE-CODEBOOK-44` (4⁴ hierarchical codebook), rung 2 = foveated morton-comma descent, rung 3 = `PremultipliedOver` blasgraph `mxv` floor. Kuzu factorized-processing alignment. | lance-graph + bgz17 | Queued (architecture ruled `E-FOVEATED-HHTL-TRIE-FIELD-SEARCH-1`; rung 1 next) | plan §4, S1 |
+| D-DIA-V4 | Foveated HHTL-trie field-search (addressing-first ladder; field search = total-function floor). Rung 1 = `PROBE-CODEBOOK-44` (16-way hierarchical codebook), rung 2 = foveated morton-comma descent, rung 3 = `PremultipliedOver` blasgraph `mxv` floor. Kuzu factorized-processing alignment. | lance-graph + bgz17 | Rung 1 MECHANISM-GREEN (`E-PROBE-CODEBOOK-44-MECHANISM-1`: `bgz17::build_hierarchical`, prefix==ancestry purity 1.0 vs flat 0.16; real-data ρ pending). Rungs 2-3 queued. Architecture `E-FOVEATED-HHTL-TRIE-FIELD-SEARCH-1` | plan §4, S1 |
 | D-DIA-V5 | Reach-out felt integration (dull shadow vs insight) + qualia ablation falsifier | lance-graph | Queued | plan §3.6, S12 |
 
 ## scientific-kg-substrate-v1 — crawl → OCR → terms → reason → MUL (scoping)
