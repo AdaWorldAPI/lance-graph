@@ -24,6 +24,23 @@
 //! the value slab is unchanged; a `classid → ClassView` chooses to *read* a facet
 //! as TEKAMOLO (per `le-contract.md` §3, "the ClassView picks the carving").
 //!
+//! # Status: EXPERIMENTAL reading — not yet in the operator-locked §3 catalogue
+//!
+//! `le-contract.md` §3 sanctions the `G4D3` (`4×3`) carving as **L5 = SPO
+//! triplets**. The TEKAMOLO four-adverbial-role naming is a *different* semantic
+//! reading of the SAME byte carving — legitimate under the slot-purity /
+//! "ClassView picks the carving" doctrine (no bytes move), operator-green-lit
+//! 2026-07-23 for testing typed relations, but **not yet registered as a
+//! sanctioned §3 reading**. Two consequences a consumer must respect
+//! (`v3-envelope-auditor` verdict, `E-TEKAMOLO-FACET-IS-A-G4D3-READING-1`):
+//! - each lane's three bytes STRADDLE tier boundaries (group 0 = `t0.hi, t0.lo,
+//!   t1.hi` — the G4D3 "divide" shape, `is_byte_aligned() == false`); the
+//!   `256:256:256` framing is a naming over ladder positions, not a clean
+//!   per-tier hierarchy (inherent to `G4D3`, same as the L5 triplets);
+//! - a consumer that begins *trusting* a TEKAMOLO reading owes the §3b jc-pillar
+//!   (ICC / Spearman / Cronbach) certification before backing any downstream
+//!   claim on it. Until registered in §3, treat this as experimental.
+//!
 //! # Qualia — already present, not added here
 //!
 //! The signed-nibble qualia lane already exists as **value tenant #1**
@@ -79,8 +96,18 @@ impl TekamoloRole {
 /// with its four groups named Temporal / Kausal / Modal / Lokal, each a 3-byte
 /// `256:256:256` cascade. Carries no bytes of its own (wraps the facet); every
 /// accessor is the canonical `cascade_byte(G4D3, group, level)` lookup renamed.
+///
+/// `#[repr(transparent)]` over [`FacetCascade`]: this reading never grows a
+/// backing store (const-asserted 16 B below), so it is safe to reinterpret a
+/// `&FacetCascade` as a `&TekamoloFacet` where the ClassView selects the reading.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[repr(transparent)]
 pub struct TekamoloFacet(pub FacetCascade);
+
+const _: () = assert!(
+    core::mem::size_of::<TekamoloFacet>() == core::mem::size_of::<FacetCascade>(),
+    "TekamoloFacet is a pure reading — it must never grow a backing store beyond the facet"
+);
 
 impl TekamoloFacet {
     /// The carving this reading always uses.
