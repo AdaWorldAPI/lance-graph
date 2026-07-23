@@ -628,6 +628,44 @@ faithfully (NARS frequency-confidence; rung stratification).
   + the honest coverage-confound finding. Registration `aa43fe4` predates this
   measurement. `E-EVIDENCE-COMPOSITE-COVERAGE-CONFOUND-1`.
 
+#### G-SRS3b-2 — PRE-RUN REGISTRATION (2026-07-23, operator-corrected TARGET, before code)
+
+> **Operator diagnosis (2026-07-23):** *"If forward search is negatively
+> correlated with your backward activity, you either fell into the doom-scrolling
+> trap, or your Google search was badly constructed — not relevant to the
+> questions the rung ladder would ask."* G-SRS3b-1's negative ρ was not merely a
+> coverage confound to file — it was the graph reporting that **raw novelty is
+> the wrong target**: raw novelty rewards saturation-avoidance (doom-scroll),
+> not answering the rung ladder's SPECIFIC questions. G-SRS3b-2 replaces the
+> target, NOT the instrument (the composite is unchanged; only the ground truth
+> changes — this is a NEW registered gate, not a post-hoc edit of G-SRS3b-1).
+
+- **The rung ladder's open questions (enumerated, not generated — no LLM):** a
+  first-half **derived-but-not-yet-observed** triple is the graph PREDICTING
+  `(A,p,C)` by transitivity — the open question is *"does the text later confirm
+  it?"* Formally: `OpenQ(s)` = { arena entries with rung ≥ 1, subject = `s`,
+  that are NOT in the first-half base set } (the graph's inferences).
+- **Forward target = OPEN-QUESTION YIELD (resolution, not novelty):**
+  `yield(s)` = |OpenQ(s) ∩ second-half base| / |OpenQ(s)| — the share of the
+  basin's first-half INFERENCES that the second half OBSERVES (the text
+  confirms the graph's prediction). Computed by separate code from the raw
+  second-half stream; no window API, no codebook.
+- **Eligibility:** ≥ 4 first-half open questions AND ≥ 4 second-half base
+  occurrences under `s`.
+- **Same instrument, same null:** `U` = the unchanged evidence composite;
+  size-preserving belief+rung shuffle null (`U_null`); activity baseline
+  reported.
+- **PASS:** ρ(U, yield) ≥ **0.25** AND (real ρ − null ρ) ≥ **0.15** — the
+  evidence composite predicts where reading forward RESOLVES the rung ladder's
+  own questions (the productive-exploration signal). **Pre-registered sign
+  interpretation:** POSITIVE ρ = uncertainty points to productive basins
+  (explore there); a strong NEGATIVE ρ that SEPARATES from null = a validated
+  **dead-end / doom-scroll detector** (uncertainty points where questions do
+  NOT get answered — still useful, inverted use), reported as such, not a PASS.
+- **KILL:** (real ρ − null ρ) ≤ **0.05** — even the rung-ladder-relevant target
+  is coverage-driven; the composite carries no question-resolution signal.
+- Verdict REPORTED, never panicked. `E-DOOMSCROLL-VS-RUNG-LADDER-QUERY-1`.
+
 ### D-SRS-4 — The self-reference falsifier
 
 **The graph answers a question about its OWN earlier derivation, correctly.**
