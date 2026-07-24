@@ -875,6 +875,19 @@ pub enum ValueTenant {
     /// D-QUANTGATE coprime walk — never RNG, replay holds), so a re-run yields the
     /// identical explore atom for the same address.
     ExploreStyle = 12,
+    /// **TEKAMOLO facet lane** — the 16-byte content-blind V3 4+12 facet
+    /// ([`TekamoloFacet`](crate::tekamolo_facet::TekamoloFacet), `classid(4) +
+    /// 6×(u8:u8)`) read in the G4D3 shape as the *when / why / how / where* address
+    /// of the node's utterance: `temporal · kausal · modal · lokal`, each a
+    /// `256:256:256` coarse→fine cascade. The grammatical circumstance-frame
+    /// (TEKAMOLO) as a first-class value tenant — a node carries its own
+    /// spatio-temporal-causal-modal address, so prefix-routing "near in time / near
+    /// in place / same cause" is a per-axis `cascade_group_shared` read off the row,
+    /// no lookup. Zero-fallback: an all-zero facet reads as *unaddressed* (no lane
+    /// asserted), never a wrong circumstance. Appended after the autopoiesis triangle
+    /// (additive, reserve-don't-reclaim); the extractor that populates it lives in
+    /// `examples/insight_reason_wired.rs`.
+    Tekamolo = 13,
 }
 
 impl ValueTenant {
@@ -969,9 +982,8 @@ pub const VALUE_TENANTS: &[ColumnDescriptor] = &[
     // ── Autopoiesis triangle: three 12-byte palette256-atom lanes, appended after
     //    Kanban per the operator ruling. 3 × 12 = 36 B contiguous [152,188)
     //    (value-slab [120,156)); additive, reserve-don't-reclaim, layout-preserving
-    //    (Full now ends 188 ≤ 480, NODE_ROW_STRIDE unchanged → no
-    //    ENVELOPE_LAYOUT_VERSION bump). BoardAggregates (W2a) reserves row_offset
-    //    188 next in the same batched mint.
+    //    (triangle ends 188 ≤ 480, NODE_ROW_STRIDE unchanged → no
+    //    ENVELOPE_LAYOUT_VERSION bump).
     ColumnDescriptor {
         name_id: ValueTenant::FrozenStyle as u16,
         kind: ColumnKind::U8,
@@ -989,6 +1001,17 @@ pub const VALUE_TENANTS: &[ColumnDescriptor] = &[
         kind: ColumnKind::U8,
         elems_per_row: 12,
         row_offset: 176,
+    },
+    // ── TEKAMOLO facet lane: the 16-byte content-blind V3 4+12 facet, appended
+    //    after the triangle at [188,204) (value-slab [156,172)); additive,
+    //    reserve-don't-reclaim, layout-preserving (Full now ends 204 ≤ 480,
+    //    NODE_ROW_STRIDE unchanged → no ENVELOPE_LAYOUT_VERSION bump).
+    //    BoardAggregates (W2a) reserves row_offset 204 next in the same batched mint.
+    ColumnDescriptor {
+        name_id: ValueTenant::Tekamolo as u16,
+        kind: ColumnKind::U8,
+        elems_per_row: 16,
+        row_offset: 188,
     },
 ];
 
@@ -1088,6 +1111,11 @@ impl ValueSchema {
                 ValueTenant::FrozenStyle as u8,
                 ValueTenant::LearnedStyle as u8,
                 ValueTenant::ExploreStyle as u8,
+                // TEKAMOLO facet — Full is the densest node, so it carries the
+                // circumstance-frame address too (keeps the `Full covers every
+                // tenant` compile assert). Cognitive is left unchanged: entity
+                // classes materialise TEKAMOLO only when their utterances are read.
+                ValueTenant::Tekamolo as u8,
             ]),
         }
     }
@@ -2212,8 +2240,8 @@ mod tests {
         assert!(prev_end <= NODE_ROW_STRIDE);
         assert_eq!(
             prev_end - VALUE_SLAB_ROW_OFFSET,
-            156,
-            "current Full carve uses 156 of 480 B (kanban×Rubicon 8 + autopoiesis triangle 3×12=36)"
+            172,
+            "current Full carve uses 172 of 480 B (kanban×Rubicon 8 + autopoiesis triangle 3×12=36 + TEKAMOLO facet 16)"
         );
         assert!(prev_end - VALUE_SLAB_ROW_OFFSET <= VALUE_SLAB_LEN);
     }
@@ -2248,12 +2276,13 @@ mod tests {
     #[test]
     fn value_schema_byte_budgets_are_locked() {
         assert_eq!(ValueSchema::Bootstrap.tenant_bytes(), 0);
-        // Cognitive 58 + Kanban 8 = 66 (triangle NOT in Cognitive — entity classes
-        // keep their carve); Full 120 + 3×12 triangle = 156 (autopoiesis triangle
-        // added — reserve-don't-reclaim, still ≤ 480, stride unchanged).
+        // Cognitive 58 + Kanban 8 = 66 (triangle + TEKAMOLO NOT in Cognitive —
+        // entity classes keep their carve); Full 120 + 3×12 triangle + 16 TEKAMOLO
+        // facet = 172 (both additive — reserve-don't-reclaim, still ≤ 480, stride
+        // unchanged).
         assert_eq!(ValueSchema::Cognitive.tenant_bytes(), 66);
         assert_eq!(ValueSchema::Compressed.tenant_bytes(), 56);
-        assert_eq!(ValueSchema::Full.tenant_bytes(), 156);
+        assert_eq!(ValueSchema::Full.tenant_bytes(), 172);
         for s in [
             ValueSchema::Bootstrap,
             ValueSchema::Cognitive,
@@ -2361,7 +2390,7 @@ mod tests {
     #[test]
     fn default_class_node_materialises_full_slab() {
         // End-to-end connect: a bootstrap NodeRow → its classid resolves to Full →
-        // the Full preset covers every tenant and uses the locked 156-byte carve.
+        // the Full preset covers every tenant and uses the locked 172-byte carve.
         let row = sample_row(NodeGuid::CLASSID_DEFAULT, 0x00_00CD);
         let rm = row.key.read_mode();
         assert_eq!(rm.value_schema, ValueSchema::Full);
@@ -2370,8 +2399,8 @@ mod tests {
             VALUE_TENANTS.len(),
             "Full read-mode materialises every value tenant"
         );
-        assert_eq!(rm.value_schema.tenant_bytes(), 156);
-        // The slab has room (156 ≤ 480) and the choice never grows the stride.
+        assert_eq!(rm.value_schema.tenant_bytes(), 172);
+        // The slab has room (172 ≤ 480) and the choice never grows the stride.
         assert!(rm.value_schema.tenant_bytes() <= VALUE_SLAB_LEN);
         assert!(rm.is_layout_preserving());
     }
@@ -2386,7 +2415,7 @@ mod tests {
         use ValueTenant::{ExploreStyle, FrozenStyle, LearnedStyle};
 
         // (1) Contiguous, 12 B each, right after Kanban (ends 152); triangle ends
-        //     188 ≤ 480, so BoardAggregates (W2a) reserves row_offset 188 next.
+        //     188 ≤ 480, where the TEKAMOLO facet lane [188,204) is appended next.
         assert_eq!(FrozenStyle.value_offset(), 152 - VALUE_SLAB_ROW_OFFSET);
         assert_eq!(LearnedStyle.value_offset(), 164 - VALUE_SLAB_ROW_OFFSET);
         assert_eq!(ExploreStyle.value_offset(), 176 - VALUE_SLAB_ROW_OFFSET);

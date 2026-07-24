@@ -1,3 +1,9 @@
+## 2026-07-23 — branch `claude/lance-graph-last-10-pr-z30uij` — D-SCI-1 TEKAMOLO value tenant + the new reasoning wired via SPO-G + all tenants
+
+### Current Contract Inventory — new value tenant + wired-reasoning example
+- `lance_graph_contract::canonical_node::ValueTenant::Tekamolo` (`E-SCI-1-TEKAMOLO-TENANT-WIRED-VIA-SPOG-1`) — the 14th value tenant (discriminant **13**), first content-blind V3 4+12 facet to become a lane: `VALUE_TENANTS` descriptor `[188,204)` U8×16 = the `TekamoloFacet` (`classid(4)+6×(u8:u8)`), read G4D3 as the `temporal · kausal · modal · lokal` when/why/how/where address (each a `256:256:256` cascade). Added to `ValueSchema::Full` (Cognitive/Compressed unchanged); Full carve 156→172 B, layout-preserving (≤480, `NODE_ROW_STRIDE` unchanged, no `ENVELOPE_LAYOUT_VERSION` bump). Field-isolation + contiguity asserts updated. 1029 contract lib tests green.
+- `lance_graph_planner::examples::insight_reason_wired` — the new reasoning wired end-to-end: one clause → `Triple` SPO-G quads (a `Graph` `G` slot = `Utterance` relation beside `WordNet` `is_a`/`instance_of` rails, the two-basin symbolic-vs-field split) + the canonical value tenants Qualia(#1)/EntityType(#8)/Meta(#0)/**Tekamolo(#13)**, with a slab round-trip proof that the facet lands byte-for-byte in the `ValueTenant::Tekamolo` carve. Additive — the existing 3×SPO + 3×AriGraph grouping is untouched. Loads the two-basin store (COCA lexicon + WordNet rails) from Release assets (gitignored, skips cleanly if absent). PoC↔canonical switch points noted (`type_code()`→`ogar_codebook::canonical_concept_id`; is-a rails→`lance-graph-ontology`).
+
 ## 2026-07-23 — branch `claude/x265-x266-plans-review-h9osnl` — D-SCI-1 archetype consumer + FSM movement feeder (on top of #841)
 
 ### Current Contract Inventory — new grammar module + planner example + fsm tag

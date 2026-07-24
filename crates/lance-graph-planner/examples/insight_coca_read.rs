@@ -83,7 +83,8 @@ Then re-run this example.";
 
 fn load_lines(name: &str) -> Result<Vec<String>, String> {
     let path = data_dir().join(name);
-    let text = std::fs::read_to_string(&path).map_err(|_| format!("{}\n(missing: {})", CODEBOOK_HINT, path.display()))?;
+    let text = std::fs::read_to_string(&path)
+        .map_err(|_| format!("{}\n(missing: {})", CODEBOOK_HINT, path.display()))?;
     Ok(text
         .lines()
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
