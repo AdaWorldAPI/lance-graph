@@ -49,6 +49,7 @@ pub mod proposal;
 pub mod registry;
 pub mod schema_source;
 pub mod semantic_types;
+pub mod soa_bake;
 pub mod ttl_parse;
 pub mod wikidata_hhtl;
 
@@ -62,11 +63,11 @@ pub use hydrators::{
     hydrate_fibo_be, hydrate_fibo_be_from, hydrate_fibo_fnd, hydrate_fibo_fnd_from, hydrate_odoo,
     hydrate_odoo_from, hydrate_owltime, hydrate_owltime_from, hydrate_provo, hydrate_provo_from,
     hydrate_qudt, hydrate_qudt_from, hydrate_schemaorg, hydrate_schemaorg_from, hydrate_skos,
-    hydrate_skos_from, hydrate_skr03, hydrate_skr03_bau, hydrate_skr03_bau_from, hydrate_skr03_from,
-    hydrate_skr04, hydrate_skr04_from, hydrate_zugferd, hydrate_zugferd_from, hydrate_zugferd_rules,
-    hydrate_zugferd_rules_from, ContextBundle, DolceCategory, EntityId, HydrateErr,
-    MetaStructureHydrator, OntologySlot, OwlHydrator, SchematronHydrator, SkrHydrator, XsdHydrator,
-    SKR03_BAU_IRI_PREFIX, SKR03_IRI_PREFIX, SKR04_IRI_PREFIX,
+    hydrate_skos_from, hydrate_skr03, hydrate_skr03_bau, hydrate_skr03_bau_from,
+    hydrate_skr03_from, hydrate_skr04, hydrate_skr04_from, hydrate_zugferd, hydrate_zugferd_from,
+    hydrate_zugferd_rules, hydrate_zugferd_rules_from, ContextBundle, DolceCategory, EntityId,
+    HydrateErr, MetaStructureHydrator, OntologySlot, OwlHydrator, SchematronHydrator, SkrHydrator,
+    XsdHydrator, SKR03_BAU_IRI_PREFIX, SKR03_IRI_PREFIX, SKR04_IRI_PREFIX,
 };
 pub use namespace::{NamespaceId, OgitUri, SchemaPtr};
 pub use proposal::{
