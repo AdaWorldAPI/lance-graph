@@ -29,6 +29,30 @@
 //! same input corpus always mints the same `(codebook, indices)`.
 
 use std::collections::HashMap;
+use std::fmt;
+
+/// Why a codebook could not be built.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CodebookError {
+    /// The corpus has more distinct tokens than the u16 index space can
+    /// address. Partition the codebook (prefix-scoped, per the module doc)
+    /// rather than widening the index.
+    VocabularyTooLarge { distinct: usize, max: usize },
+}
+
+impl fmt::Display for CodebookError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::VocabularyTooLarge { distinct, max } => write!(
+                f,
+                "label vocabulary has {distinct} distinct tokens, exceeding the \
+                 u16 codebook index space ({max}); partition the codebook by class prefix"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for CodebookError {}
 
 /// The unique token set of an ontology's label corpus. Byte layout is stable
 /// (sorted ASCII-lexicographic), so the codebook is content-addressable.
@@ -41,11 +65,22 @@ pub struct LabelCodebook {
 }
 
 impl LabelCodebook {
-    /// Build a codebook from the token set of `labels`. Tokens are the ASCII
-    /// whitespace-split fields of each label — the shape FMA/LOINC/ICD labels
-    /// take. Deterministic; identical input corpus ⇒ identical codebook.
-    #[must_use]
-    pub fn from_labels<S: AsRef<str>>(labels: &[S]) -> Self {
+    /// The largest vocabulary a u16-indexed codebook can address.
+    pub const MAX_TOKENS: usize = u16::MAX as usize + 1;
+
+    /// Build a codebook from the token set of `labels`, or
+    /// [`CodebookError::VocabularyTooLarge`] when the corpus has more than
+    /// [`Self::MAX_TOKENS`] distinct whitespace tokens (the u16 index space).
+    ///
+    /// Tokens are the ASCII whitespace-split fields of each label — the shape
+    /// FMA/LOINC/ICD labels take. Deterministic; identical input corpus ⇒
+    /// identical codebook.
+    ///
+    /// A corpus that overflows the index space is a real input (a very large
+    /// multilingual ontology), so this is a typed error rather than a panic —
+    /// the caller partitions the codebook by class prefix (see the module doc
+    /// on prefix-scoped codebooks) instead of losing the bake.
+    pub fn try_from_labels<S: AsRef<str>>(labels: &[S]) -> Result<Self, CodebookError> {
         let mut set: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
         for l in labels {
             for tok in l.as_ref().split_whitespace() {
@@ -54,13 +89,32 @@ impl LabelCodebook {
                 }
             }
         }
+        if set.len() > Self::MAX_TOKENS {
+            return Err(CodebookError::VocabularyTooLarge {
+                distinct: set.len(),
+                max: Self::MAX_TOKENS,
+            });
+        }
         let tokens: Vec<String> = set.into_iter().collect();
         let index = tokens
             .iter()
             .enumerate()
-            .map(|(i, t)| (t.clone(), u16::try_from(i).expect("token id fits u16")))
+            // In range by the check above.
+            .map(|(i, t)| (t.clone(), i as u16))
             .collect();
-        Self { tokens, index }
+        Ok(Self { tokens, index })
+    }
+
+    /// Infallible wrapper over [`Self::try_from_labels`] for corpora known to
+    /// fit the u16 index space (every ontology measured so far is ≤ a few
+    /// thousand tokens).
+    ///
+    /// # Panics
+    /// If the corpus has more than [`Self::MAX_TOKENS`] distinct tokens. Use
+    /// [`Self::try_from_labels`] when the corpus size is not known in advance.
+    #[must_use]
+    pub fn from_labels<S: AsRef<str>>(labels: &[S]) -> Self {
+        Self::try_from_labels(labels).expect("label corpus fits the u16 codebook index space")
     }
 
     /// Number of distinct tokens.
@@ -81,11 +135,12 @@ impl LabelCodebook {
         &self.tokens
     }
 
-    /// Encode a single label to token indices. Unknown tokens are DROPPED —
-    /// use [`LabelCodebook::extend_with`] first if the corpus grew.
+    /// Encode a single label to token indices. Tokens absent from the codebook
+    /// are DROPPED (never panic) — rebuild the codebook from the widened corpus
+    /// if it grew.
     ///
-    /// (For the compression report below, `LabelColumn::bake` encodes against
-    /// a codebook built FROM the same labels — no unknown tokens possible.)
+    /// [`LabelColumn::bake`] always encodes against a codebook built FROM the
+    /// same labels, so no token can be unknown on that path.
     #[must_use]
     pub fn encode(&self, label: &str) -> Vec<u16> {
         label
@@ -100,9 +155,12 @@ impl LabelCodebook {
     #[must_use]
     pub fn decode(&self, indices: &[u16]) -> String {
         let mut out = String::new();
-        for (i, &id) in indices.iter().enumerate() {
+        for &id in indices {
             if let Some(tok) = self.tokens.get(id as usize) {
-                if i > 0 {
+                // Separator depends on what was EMITTED, not on the input
+                // position — a skipped out-of-range id must not leave a
+                // leading space on the surviving label.
+                if !out.is_empty() {
                     out.push(' ');
                 }
                 out.push_str(tok);
@@ -130,14 +188,23 @@ pub struct LabelColumn {
 }
 
 impl LabelColumn {
-    /// Bake `labels` into a codebook + index column. Round-trip via
-    /// [`LabelColumn::decode`] is lossless for whitespace-separated labels
-    /// (asserted by test on the FMA corpus).
+    /// Bake `labels` into a codebook + index column, or
+    /// [`CodebookError::VocabularyTooLarge`] if the corpus overflows the u16
+    /// index space. Round-trip via [`LabelColumn::decode`] is lossless for
+    /// whitespace-separated labels (asserted by test on the FMA corpus).
+    pub fn try_bake<S: AsRef<str>>(labels: &[S]) -> Result<Self, CodebookError> {
+        let codebook = LabelCodebook::try_from_labels(labels)?;
+        let indices = labels.iter().map(|l| codebook.encode(l.as_ref())).collect();
+        Ok(Self { codebook, indices })
+    }
+
+    /// Infallible wrapper over [`Self::try_bake`].
+    ///
+    /// # Panics
+    /// If the corpus overflows the u16 codebook index space.
     #[must_use]
     pub fn bake<S: AsRef<str>>(labels: &[S]) -> Self {
-        let codebook = LabelCodebook::from_labels(labels);
-        let indices = labels.iter().map(|l| codebook.encode(l.as_ref())).collect();
-        Self { codebook, indices }
+        Self::try_bake(labels).expect("label corpus fits the u16 codebook index space")
     }
 
     /// Decode the `i`-th label back to a string (space-joined).
@@ -243,6 +310,41 @@ mod tests {
             raw_bytes(&labels),
             col.wire_bytes(),
         );
+    }
+
+    /// Codex P2: an out-of-range index must be skipped WITHOUT leaving a
+    /// leading separator on the surviving label (spacing follows what was
+    /// emitted, not the input position).
+    #[test]
+    fn out_of_range_index_does_not_leave_a_leading_space() {
+        let codebook = LabelCodebook::from_labels(&["aorta artery"]);
+        // tokens sort ASCII-lex: ["aorta", "artery"] → ids 0, 1.
+        assert_eq!(codebook.decode(&[u16::MAX, 0]), "aorta");
+        assert_eq!(codebook.decode(&[u16::MAX, 0, 1]), "aorta artery");
+        assert_eq!(codebook.decode(&[0, u16::MAX, 1]), "aorta artery");
+        assert_eq!(codebook.decode(&[u16::MAX]), "");
+    }
+
+    /// Codex P2: a corpus that overflows the u16 index space returns a typed
+    /// error instead of panicking mid-bake.
+    #[test]
+    fn oversized_vocabulary_is_a_typed_error_not_a_panic() {
+        // MAX_TOKENS + 1 distinct tokens, one per label.
+        let labels: Vec<String> = (0..=LabelCodebook::MAX_TOKENS)
+            .map(|i| format!("t{i}"))
+            .collect();
+        match LabelColumn::try_bake(&labels) {
+            Err(CodebookError::VocabularyTooLarge { distinct, max }) => {
+                assert_eq!(distinct, LabelCodebook::MAX_TOKENS + 1);
+                assert_eq!(max, LabelCodebook::MAX_TOKENS);
+            }
+            other => panic!("expected VocabularyTooLarge, got {other:?}"),
+        }
+        // Exactly at the limit still bakes.
+        let at_limit: Vec<String> = (0..LabelCodebook::MAX_TOKENS)
+            .map(|i| format!("t{i}"))
+            .collect();
+        assert!(LabelColumn::try_bake(&at_limit).is_ok());
     }
 
     #[test]

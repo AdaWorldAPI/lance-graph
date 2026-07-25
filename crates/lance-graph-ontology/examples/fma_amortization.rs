@@ -72,13 +72,18 @@ fn main() {
         col.codebook.len(),
     );
 
-    // Sanity: round-trip a few random rows losslessly.
-    for i in [0, 42, 100, all_labels.len() - 1] {
+    // Sanity: round-trip a few sampled rows losslessly. Indices are filtered
+    // to the actual corpus length so a small FMA_DATA directory can't panic.
+    let mut sample_rows = vec![0, 42, 100, all_labels.len() - 1];
+    sample_rows.retain(|&i| i < all_labels.len());
+    sample_rows.sort_unstable();
+    sample_rows.dedup();
+    for &i in &sample_rows {
         let got = col.decode(i).unwrap_or_default();
         assert_eq!(got, all_labels[i], "round-trip failed at row {i}");
     }
     println!();
-    println!("round-trip: OK on {} sampled rows", 4);
+    println!("round-trip: OK on {} sampled rows", sample_rows.len());
 }
 
 /// Parse the FMA TSV format: skip the header line, take label columns
@@ -99,17 +104,65 @@ fn extract_labels(text: &str) -> Vec<String> {
     out
 }
 
+/// `FMA1234` / `FJ5678` (prefix followed IMMEDIATELY by a non-empty all-digit
+/// suffix) or a plain non-empty numeric id. `FMA`, `FMAfoo123` and `""` are
+/// labels, not ids.
 fn looks_like_id(s: &str) -> bool {
-    // FMA1234, FJ5678, plain numeric ids.
-    (s.starts_with("FMA") || s.starts_with("FJ"))
-        && s[..]
-            .chars()
-            .skip_while(|c| c.is_ascii_alphabetic())
-            .all(|c| c.is_ascii_digit())
-        || s.chars().all(|c| c.is_ascii_digit())
+    let numeric_suffix = |rest: &str| !rest.is_empty() && rest.bytes().all(|b| b.is_ascii_digit());
+    if let Some(rest) = s.strip_prefix("FMA") {
+        return numeric_suffix(rest);
+    }
+    if let Some(rest) = s.strip_prefix("FJ") {
+        return numeric_suffix(rest);
+    }
+    numeric_suffix(s)
 }
 
 fn distinct(labels: &[String]) -> usize {
     let s: std::collections::HashSet<&String> = labels.iter().collect();
     s.len()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn looks_like_id_matches_only_immediate_numeric_suffixes() {
+        assert!(looks_like_id("FMA1234"));
+        assert!(looks_like_id("FJ5678"));
+        assert!(looks_like_id("42"));
+        // Prefix without digits, or with non-digits between, is a LABEL.
+        assert!(!looks_like_id("FMA"));
+        assert!(!looks_like_id("FJ"));
+        assert!(!looks_like_id("FMAfoo123"));
+        assert!(!looks_like_id("aorta"));
+        assert!(!looks_like_id(""));
+    }
+
+    #[test]
+    fn extract_labels_skips_header_and_ids() {
+        let text = "concept id\tname\telement file id\n\
+                    FMA3734\taorta\tFJ1931\n\
+                    FMA3736\tascending aorta\tFJ3413\n";
+        let labels = extract_labels(text);
+        // Header row skipped; ids dropped; only the two names survive.
+        assert_eq!(labels, vec!["aorta", "ascending aorta"]);
+    }
+
+    #[test]
+    fn extract_labels_handles_empty_and_header_only_input() {
+        assert!(extract_labels("").is_empty());
+        assert!(extract_labels("only\ta\theader\n").is_empty());
+    }
+
+    #[test]
+    fn distinct_counts_unique_labels() {
+        let labels = vec![
+            "aorta".to_string(),
+            "aorta".to_string(),
+            "artery".to_string(),
+        ];
+        assert_eq!(distinct(&labels), 2);
+    }
 }
