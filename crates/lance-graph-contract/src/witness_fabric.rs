@@ -508,6 +508,137 @@ pub fn is_opinion(revisions: &[CausalWitnessFacet]) -> bool {
     !revisions.is_empty() && opinion_strength(revisions) == revisions.len()
 }
 
+// ── The VERSION axis — belief-state traversal ─────────────────────────────
+//
+// [`TrajectorySignature`] grades how a locus resolved across the ±8 SPATIAL
+// window. This is its twin on the TEMPORAL axis: how a belief resolved across
+// successive revisions (Lance versions, oldest→newest). Same three questions —
+// how many steps, did it destabilize, where did it end — asked of time instead
+// of position.
+//
+// The pairing is not decorative. `E-MARKOV-TEMPORAL-STREAM-1` routes a chain
+// that leaves the ±8 horizon to a `temporal.rs` version-range read, so
+// [`WaveGrounding::Escalate`] is literally the door from the spatial axis to
+// this one. Grading both with the same shape means an escalation does not fall
+// off a cliff into an ungraded medium.
+//
+// `opinion_strength` / `is_opinion` already consume revision series — this
+// extends that shape rather than opening a parallel one.
+
+/// How a belief moved across successive revisions — the version-axis twin of
+/// [`TrajectorySignature`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct RevisionTrajectory {
+    /// Revisions observed (the series length actually read).
+    pub steps: u8,
+    /// Times the locus changed target between consecutive revisions — the
+    /// temporal analogue of [`TrajectorySignature::escalated`]: instability,
+    /// not failure. A belief that flips is not a broken belief; it is a belief
+    /// under pressure, and that is a signal worth keeping.
+    pub flips: u8,
+    /// Revisions since the last flip (equals `steps` when it never flipped).
+    /// High = calcified, low = live.
+    pub stable_for: u8,
+    /// Where it currently stands; `None` = unbound at the latest revision.
+    pub terminal: Option<i8>,
+}
+
+impl RevisionTrajectory {
+    /// **Churn as a `0..=15` mantissa** — flips per step, in the same i4 range
+    /// as [`quorum_mantissa`] so it lands in the existing qualia nibble carving
+    /// without widening anything.
+    ///
+    /// This is a qualia dimension nothing else hydrates: a basin whose beliefs
+    /// keep flipping is *epistemically different* from one that calcified, even
+    /// when both currently hold the same values. Only the version axis can see
+    /// that difference — a snapshot cannot.
+    #[must_use]
+    pub const fn churn_mantissa(&self) -> u8 {
+        if self.steps <= 1 {
+            return 0; // a single observation cannot have churned
+        }
+        // flips ∈ 0..=steps-1 → scale that range onto 0..=15.
+        let denom = (self.steps - 1) as u16;
+        let scaled = (self.flips as u16 * 15) / denom;
+        if scaled > 15 {
+            15
+        } else {
+            scaled as u8
+        }
+    }
+
+    /// Two beliefs share a **temporal meta-basin** when they churned alike —
+    /// the same grouping-by-shape rule [`TrajectorySignature::same_meta_basin`]
+    /// applies spatially. Terminal value is deliberately NOT compared: it is
+    /// what distinguishes mini-basins inside.
+    #[must_use]
+    pub const fn same_churn_basin(self, other: Self) -> bool {
+        self.churn_mantissa() == other.churn_mantissa()
+    }
+}
+
+/// Grade a belief's traversal across a revision series (oldest→newest).
+///
+/// # Read-as-of is enforced by the parameter, not by discipline
+///
+/// `upto` bounds how much of the history is visible: a trajectory computed
+/// "as of" revision *v* passes `upto = v + 1` and **cannot** observe anything
+/// that arrived later. This is the same structural guarantee as
+/// [`quorum_mantissa`]'s outcome-blind signature, applied to time: retrospective
+/// calibration ("was the confidence at *v* justified by what was knowable at
+/// *v*?") becomes an honest measurement instead of the textbook hindsight trap,
+/// because the future is not reachable from the call.
+///
+/// Passing `upto >= revisions.len()` reads the whole history — which is correct
+/// for "what is the current state", and wrong for any as-of question. The
+/// distinction is the caller's to make, deliberately: it is visible at every
+/// call site rather than buried in a flag.
+#[must_use]
+pub fn revision_trajectory(
+    revisions: &[CausalWitnessFacet],
+    locus: Locus,
+    upto: usize,
+) -> RevisionTrajectory {
+    let visible = &revisions[..upto.min(revisions.len())];
+    if visible.is_empty() {
+        return RevisionTrajectory::default();
+    }
+    let mut flips = 0u8;
+    let mut stable_for = 0u8;
+    let mut prev: Option<i8> = None;
+    for r in visible {
+        let cur = if r.is_bound(locus) {
+            Some(r.at(locus))
+        } else {
+            None
+        };
+        match (prev, cur) {
+            // First observation establishes the baseline; it is not a flip.
+            (None, _) => stable_for = 1,
+            (Some(p), Some(c)) if p == c => stable_for = stable_for.saturating_add(1),
+            // Any change of target — including bind→unbind — is a flip.
+            _ => {
+                flips = flips.saturating_add(1);
+                stable_for = 1;
+            }
+        }
+        if cur.is_some() {
+            prev = cur;
+        }
+    }
+    let last = visible.last().expect("non-empty");
+    RevisionTrajectory {
+        steps: visible.len().min(u8::MAX as usize) as u8,
+        flips,
+        stable_for,
+        terminal: if last.is_bound(locus) {
+            Some(last.at(locus))
+        } else {
+            None
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -766,6 +897,94 @@ mod tests {
             !a.same_meta_basin(e),
             "escalated chain merged into a settled basin"
         );
+    }
+
+    // ── version axis (belief-state traversal) ────────────────────────────
+
+    #[test]
+    fn revision_trajectory_counts_flips_not_steps() {
+        let a = w(&[(Locus::Kausal, -3)]);
+        let b = w(&[(Locus::Kausal, -5)]);
+        // Calcified: same target every revision → no flips, fully stable.
+        let calm = [a, a, a, a];
+        let t = revision_trajectory(&calm, Locus::Kausal, usize::MAX);
+        assert_eq!((t.steps, t.flips), (4, 0));
+        assert_eq!(t.stable_for, 4);
+        assert_eq!(t.terminal, Some(-3));
+        assert_eq!(t.churn_mantissa(), 0);
+
+        // Churning: alternates every revision → maximal churn.
+        let churn = [a, b, a, b];
+        let c = revision_trajectory(&churn, Locus::Kausal, usize::MAX);
+        assert_eq!((c.steps, c.flips), (4, 3));
+        assert_eq!(c.stable_for, 1, "just flipped");
+        assert_eq!(c.churn_mantissa(), 15, "3 flips over 3 opportunities");
+
+        // Two beliefs holding the SAME current value can differ entirely in
+        // churn — the thing a snapshot cannot see.
+        assert_eq!(t.terminal, Some(-3));
+        assert_eq!(
+            revision_trajectory(&[a, b, a], Locus::Kausal, 3).terminal,
+            Some(-3)
+        );
+        assert!(!t.same_churn_basin(c));
+    }
+
+    /// The read-as-of guarantee: a trajectory computed as of revision v is
+    /// unaffected by anything appended after v. Hindsight cannot leak in
+    /// because the future is not reachable from the call.
+    #[test]
+    fn read_as_of_cannot_see_later_revisions() {
+        let a = w(&[(Locus::Kausal, -3)]);
+        let b = w(&[(Locus::Kausal, -5)]);
+        let history_then = [a, a, a];
+        let history_now = [a, a, a, b, b, a];
+        let as_of_3_then = revision_trajectory(&history_then, Locus::Kausal, 3);
+        let as_of_3_now = revision_trajectory(&history_now, Locus::Kausal, 3);
+        assert_eq!(
+            as_of_3_then, as_of_3_now,
+            "later revisions leaked into an as-of read"
+        );
+        // And the full read DOES differ — proving the bound is doing work
+        // rather than the two reads being trivially equal.
+        let full = revision_trajectory(&history_now, Locus::Kausal, usize::MAX);
+        assert_ne!(full, as_of_3_now);
+        assert!(full.flips > as_of_3_now.flips);
+    }
+
+    #[test]
+    fn bind_to_unbind_is_a_flip_and_empty_history_is_not_a_belief() {
+        let bound = w(&[(Locus::Kausal, -3)]);
+        let clear = CausalWitnessFacet::ZERO;
+        // Losing a binding is a change of belief, not a non-event.
+        let t = revision_trajectory(&[bound, clear], Locus::Kausal, usize::MAX);
+        assert_eq!(t.flips, 1);
+        assert_eq!(t.terminal, None, "unbound at the latest revision");
+        // Absent ≠ zero: no history yields the default, not a confident zero.
+        let empty = revision_trajectory(&[], Locus::Kausal, usize::MAX);
+        assert_eq!(empty, RevisionTrajectory::default());
+        assert_eq!(empty.steps, 0);
+        assert_eq!(empty.churn_mantissa(), 0);
+        // A single observation cannot have churned (no denominator).
+        assert_eq!(
+            revision_trajectory(&[bound], Locus::Kausal, usize::MAX).churn_mantissa(),
+            0
+        );
+    }
+
+    /// Churn is a per-locus reading of ONE register series — a belief may be
+    /// calcified on one dimension while churning on another.
+    #[test]
+    fn churn_is_per_locus_not_per_row() {
+        let r1 = w(&[(Locus::Kausal, -3), (Locus::Temporal, 1)]);
+        let r2 = w(&[(Locus::Kausal, -3), (Locus::Temporal, 4)]);
+        let r3 = w(&[(Locus::Kausal, -3), (Locus::Temporal, 2)]);
+        let hist = [r1, r2, r3];
+        let kausal = revision_trajectory(&hist, Locus::Kausal, usize::MAX);
+        let temporal = revision_trajectory(&hist, Locus::Temporal, usize::MAX);
+        assert_eq!(kausal.flips, 0, "cause never moved");
+        assert_eq!(temporal.flips, 2, "time reference moved twice");
+        assert!(temporal.churn_mantissa() > kausal.churn_mantissa());
     }
 
     /// An unbound locus earns no rung at all — pass 0, distinct from "grounded
