@@ -154,7 +154,23 @@ confidence notion.
 **Unblocks:** W5-gap-4 (keep-first polysemy) via component 2 + D-RCC-1 sense
 index → un-gates W11 (Aesop probe).
 
-### D-RCC-5 — CLAM/HHTL ↔ WordNet alignment probe
+> **Third operator correction (same day): "search for translation errors"
+> IS CHAODA.** No bespoke error-hunter module — over the aligned-lane SoA,
+> a doctrinal substitution (`Erbsünde` vs the θάνατος/mors/death/smrt
+> cluster) is a high anomaly score in a sparse manifold region: CHAODA's
+> native read of the CLAM tree. Consequences: (1) **outlier ≠ fork by
+> cluster shape** — one deviant lane = a far point off a tight cluster; an
+> inherited substitution = a BIMODAL split (two internally-tight
+> sub-clusters), so single-lane error vs tradition fork is distinguished
+> structurally; (2) **the witness-independence weights become MEASURED, not
+> asserted** — lanes repeatedly co-clustering against the source lane over
+> 31k rows recover the stemma empirically (Lachmannian textual criticism as
+> a substrate side effect); documented history (Vulgate→Luther→KJV) demotes
+> to a cross-check of the measurement; (3) D-RCC-5 and the error search are
+> TWO READS OF ONE TREE — cluster ancestry read paradigmatically = sense
+> tiers; read row-locally across lanes = anomaly/fork detection.
+
+### D-RCC-5 — CLAM/HHTL ↔ WordNet alignment probe + CHAODA lane-anomaly read
 
 Does common-prefix-length in the (hierarchical-4⁴) centroid address track
 WordNet LCA depth? Spearman ρ vs a flat-256 null, and — the sharper form —
