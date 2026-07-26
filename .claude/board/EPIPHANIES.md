@@ -1,3 +1,36 @@
+## 2026-07-26 — E-CONSTRUCTION-CHOICE-IS-THE-QUALIA-SIGNAL-1 — language is deliberately multilayered, and resolution must keep BOTH layers: the canonical proposition AND the construction the speaker chose to carry it. The choice is not surface noise — it is the qualia signal, and its strength is the SURPRISAL of that choice within the verb's construction paradigm. **Corrects an over-broad claim made earlier in this arc.**
+
+**Status:** FINDING for the paradigm measurement; DESIGN RULING for the two-layer resolution + the surprisal formulation (implementation queued to W5/W6). **Confidence:** High on the measurement; the qualia-axis mapping is [H] until a probe scores it.
+
+**The correction.** `E-SCI-1-RIGHT-CORNER-DELAYED-COMMITMENT-1` states "active canonicalization, not passive — a passive rewrite is an orthopedic intermediate, never the stored meaning." That is right about OUR candidate readings (we normalize a fronted clause to active) and WRONG if read as "discard voice." When the SPEAKER chose the passive, the choice is DATA: agent suppression is deliberate. Two different operations were conflated — *our* parse normalization vs *their* construction selection. Both survive; they land in different layers.
+
+**The measurement** (UD German-GSD+HDT, cluster-resolved via the #850 `verb_cluster()`/`finite_of()` helpers). Construction inventory, tokens: transitive 30,511 · intransitive 27,903 · modal-active 8,309 · passive 5,389 · reflexive 5,164 · **modal-passive 1,532**. Paradigm BREADTH per verb lemma:
+
+| distinct constructions | lemmas | share |
+|---|---|---|
+| 1 | 1,531 | 40.8 % |
+| 2 | 898 | 23.9 % |
+| 3 | 518 | 13.8 % |
+| **4+** | **808** | **21.5 %** |
+| all 6 | 154 | 4.1 % |
+
+Richest paradigms are the light, high-frequency verbs (`stellen`, `geben`, `machen`, `überlassen`, `verstehen`, `finden`) — exactly where the speaker has the most expressive freedom, hence where the choice carries the most information.
+
+**The ruling — two layers, never collapsed** (this is `E-WITNESS-SPECIFIC-MEANING-1`'s assertion/expression split applied WITHIN one language instead of across witnesses):
+```text
+ASSERTION graph   canonical proposition (active; agent recovered, or Implicit — never invented)
+EXPRESSION graph  the construction actually chosen: voice · agent-suppression · modality ·
+                  reflexive/anticausative · transitivity alternation
+QUALIA            read FROM the expression layer, not from a polarity word-list
+```
+`Er öffnet die Tür` / `Die Tür öffnet sich` / `Die Tür wird geöffnet` / `Die Tür muss geöffnet werden` share one assertion and differ entirely in the expression layer — agent visibility, obligation, stance.
+
+**Why this makes qualia GRAMMATICALLY grounded.** The current extractor reads felt tone from POSITIVE/NEGATIVE polarity lexicons — lexical, shallow, and English-shaped. Construction choice is STRUCTURAL and language-native: agent suppression (passive) lowers assertion/agency and raises boundary; modal obligation (`müssen`) raises tension; reflexive/anticausative raises receptivity while lowering agency; modal possibility (`können`) raises expansion. Same 17D axes, a far better signal — and available in every language that has a voice/modality paradigm, without a sentiment lexicon.
+
+**The formulation worth keeping: qualia strength = surprisal of the construction given the verb's paradigm.** A construction selected from a 6-way paradigm carries `-log P(construction | verb)` bits; a verb with ONE available construction carries zero — the speaker had no choice, so nothing was signalled. This is computable directly from the mined `voice-paradigm` table (no model, no lexicon), and it is the free-energy quantity the substrate already speaks: an unexpected construction IS surprise, and should dispatch thinking exactly as any other surprise does. The 40.8 % single-construction lemmas are therefore qualia-silent BY CONSTRUCTION — a null baseline the falsifier gets for free.
+
+**Queued** (W5/W6/W17): emit `voice_paradigm.tsv` (verb → available constructions + per-construction counts) from the German builder; score construction surprisal; map the axes and probe against the existing polarity-lexicon qualia as the baseline it should beat. Same miner runs on Greek (aorist/middle/passive), Latin, Czech (aspect) — the paradigm differs, the surprisal formulation does not. Refs: `E-SCI-1-RIGHT-CORNER-DELAYED-COMMITMENT-1` (the corrected claim), `E-WITNESS-SPECIFIC-MEANING-1` (assertion/expression split), `E-TENSE-IS-A-BASIN-REGISTER-NOT-A-POINTER-1`, `E-SCI-1-SPO-TEKAMOLO-QUALIA-EXTRACTION-1` (the 17D vector this feeds).
+
 ## 2026-07-26 — E-TENSE-IS-A-BASIN-REGISTER-NOT-A-POINTER-1 — the temporal twin of the anaphora law, with INVERTED polarity: entity anaphora is 88 % LOCAL (nibble-addressable), temporal anaphora is **91.7 % NON-LOCAL**. Plusquamperfekt/Futur II do not point at a TOKEN — they read and write the episodic basin's **reference-time register**. Tense morphology is a basin-state OPERATION, not a pointer.
 
 **Status:** FINDING (measured on UD German-GSD+HDT). **Confidence:** High — the polarity split is decisive and Reichenbach explains the mechanism exactly.
