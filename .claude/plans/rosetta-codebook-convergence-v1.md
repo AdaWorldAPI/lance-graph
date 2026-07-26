@@ -62,19 +62,28 @@
 
 ## §2 Deliverables
 
-### D-RCC-1 — lanes-to-singleton probe (THE GATE, run first)
+### D-RCC-1 — lanes-to-singleton probe (CALIBRATOR, run first — not a kill gate)
 
-For the vocabulary shared across the lanes already on disk (English KJV +
-German Luther via UD lexicon + Greek PROIEL as local oracle): per ambiguous
-English lemma, how many lanes until the cross-language sense-set intersection
-is a singleton? Distribution over the vocabulary, plus per-item receipts
-(`swallow`, `grape` mandatory anchors).
+> **Operator correction (2026-07-26):** originally drafted as a go/no-go on
+> the median — WRONG framing. The value of the intersection is per-item, not
+> aggregate: every resolved pair (`Schwalbe=swallow`) is a free, permanent,
+> deterministic sense anchor, and the benefit of knowing it is OVERWHELMING
+> regardless of the distribution's tail. The only true failure mode — a
+> false friend / SHARED ambiguity in the same verse — requires both lanes to
+> have inherited the same polysemy accident (mostly cognate borrowing),
+> which is rare because polysemy accidents are language-local; and it has
+> structural escape hatches (add a non-cognate lane, e.g. Czech; fall back
+> to the intensional cascade; route to the residual). Worst case is
+> "unresolved", already a first-class outcome — never corruption.
 
-- **PASS:** median lanes-to-singleton ≤ 3 → the Rosetta stack is justified;
-  proceed to D-RCC-2/3.
-- **KILL:** median ≥ 5 → intersection story is wrong; stop and rethink
-  before any SoA/bake work.
-- Cost: an example binary over local data; no new deps, no network.
+For the vocabulary shared across the lanes on disk (English KJV + German
+via UD lexicon + Greek PROIEL as local oracle): per ambiguous English
+lemma, lanes-to-singleton distribution + per-item receipts (`swallow`,
+`grape` mandatory anchors) + a false-friend/shared-ambiguity census.
+
+What it CALIBRATES (nothing hangs on it): how many lanes are worth carrying
+hot; which items route to the intensional end; the size of the residual.
+Cost: an example binary over local data; no new deps, no network.
 
 ### D-RCC-2 — the Rosetta SoA shape (contract)
 
@@ -159,14 +168,13 @@ pair). Domain-bias limit (biblical senses only) travels WITH the codebook.
 ## §3 Order & gates
 
 ```
-D-RCC-1 (gate, cheap, local)
-  ├─ KILL → stop, rethink intersection
-  └─ PASS → D-RCC-2 (contract shape)
-             → D-RCC-3 (alignment) → D-RCC-4 (qualia vector) → un-gate W11
-             → D-RCC-5 (CLAM probe, parallel)   → component 6
-             → D-RCC-6 (propagation fixpoint)   → residual criterion
-             → D-RCC-7 (Czech lane)             → aspect source
-             → D-RCC-8 (package/Release)        — needs licence re-verify pass
+D-RCC-1 (calibrator, cheap, local — informs lane count + routing, blocks nothing)
+D-RCC-2 (contract shape)
+   → D-RCC-3 (alignment) → D-RCC-4 (qualia vector) → un-gate W11
+   → D-RCC-5 (CLAM probe, parallel)   → component 6
+   → D-RCC-6 (propagation fixpoint)   → residual criterion
+   → D-RCC-7 (Czech lane)             → aspect source + false-friend hatch
+   → D-RCC-8 (package/Release)        — needs licence re-verify pass
 ```
 
 ## §4 Open blockers

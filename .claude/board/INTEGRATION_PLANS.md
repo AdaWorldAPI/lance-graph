@@ -1,4 +1,4 @@
-## 2026-07-26 — rosetta-codebook-convergence v1 — PROPOSED (D-RCC-1 gate runnable today) — main thread
+## 2026-07-26 — rosetta-codebook-convergence v1 — PROPOSED (D-RCC-1 calibrator runnable today) — main thread
 
 **Plan:** `.claude/plans/rosetta-codebook-convergence-v1.md`
 The Bible Rosetta SoA + multi-codebook qualia agreement: frozen verse address
@@ -11,8 +11,9 @@ sense-set intersection (extensional) × CLAM/HHTL cascade descent
 (intensional); cross-lane constraint propagation to fixpoint (facts cross,
 form never; propagated ≠ attested); Czech/Kralická as the aspect-marked
 lane; bake as PD-texts-only Release with NC treebanks as local oracle
-(libtesseract pattern). Deliverables D-RCC-1 (lanes-to-singleton gate,
-KILL if median ≥5) → D-RCC-2..8. Absorbs task-board W4/W7/W15/W17/W18;
+(libtesseract pattern). Deliverables D-RCC-1 (lanes-to-singleton
+CALIBRATOR — per-item anchors are the value, blocks nothing; operator-corrected
+from a kill gate) + D-RCC-2..8. Absorbs task-board W4/W7/W15/W17/W18;
 un-gates W11 via D-RCC-4. Blockers §4: per-treebank licence re-verify,
 Kralická edition provenance, versification map source, Greek PD edition.
 
