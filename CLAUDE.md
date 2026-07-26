@@ -344,6 +344,19 @@ Consequences, non-negotiable for new work:
   non-trivial (`kept * 3 < total`), not merely that filtering happened.
 - **A guard/channel needs a can-it-fire test** — prove it triggers on some
   real input. A watchdog that cannot bark is the defect one level up.
+- **…and its twin, a can-it-STAY-SILENT test** (added 2026-07-27,
+  `E-ANTI-EIGENVALUE-MACHINERY-CAN-ITSELF-BECOME-THE-EIGENVALUE-1`). **A guard
+  that fires on everything carries exactly as much information as one that
+  never fires** — that is the `closed_class_guess` 150/150 defect, and an
+  escalation channel that objects to everything has *become* the dominant mode
+  it exists to interrupt. Both halves must use NON-TRIVIAL inputs: an
+  empty-input silence case proves the guard handles emptiness, not that it
+  discriminates. Measured instance: the two dissent channels fire 114/180 and
+  144/180 over the style×rung matrix — discriminating, but only because it was
+  checked; nothing in the suite had required it.
+- **A tolerance/threshold parameter needs an inertness test** — raising it must
+  silence something, lowering it must admit something. Otherwise the knob is
+  decoration (`heel_threshold 50.0` against a 25.5 maximum, task #35).
 - **A doc-comment claim is not a behaviour.** If the prose says "multipass",
   "95% skipped", or "prunes N×", a test must exercise the claim or the claim
   must be labelled *claimed, unverified*.

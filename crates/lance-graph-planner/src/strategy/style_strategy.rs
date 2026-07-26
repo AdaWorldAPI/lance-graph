@@ -715,6 +715,66 @@ mod tests {
         }
     }
 
+    /// **The can-it-STAY-SILENT twin.** A guard that fires on every input
+    /// carries exactly as much information as one that never fires — the
+    /// `closed_class_guess` 150/150 defect, in a channel meant to be a
+    /// periphery. If the anti-eigenvalue machinery objects to everything, it
+    /// has BECOME the dominant mode it exists to interrupt.
+    ///
+    /// Measured on this fixture at `tol = 0.0` (the most permissive setting —
+    /// any movement at all counts as dissent): same-family fires 114/180
+    /// style×rung pairs, cross-family 144/180. Both discriminate; neither is
+    /// degenerate. The bounds below are deliberately loose (the exact counts
+    /// are kernel-dependent and would make this a change-detector), but they
+    /// FAIL if either channel collapses to always-fire or never-fire.
+    #[test]
+    fn dissent_channels_discriminate_rather_than_always_firing() {
+        let ctx = ctx_with(Some(style_vec(0.9, 0.0, 0.0)));
+        let rungs = [
+            RungLevel::Surface,
+            RungLevel::Shallow,
+            RungLevel::Contextual,
+            RungLevel::Analogical,
+            RungLevel::Counterfactual,
+        ];
+        let (mut same, mut cross, mut n) = (0usize, 0usize, 0usize);
+        for style in ThinkingStyle::ALL {
+            for rung in rungs {
+                n += 1;
+                if StyleStrategy::peripheral_dissent(style, &ctx, rung, 8, 0.0).is_some() {
+                    same += 1;
+                }
+                if StyleStrategy::cross_family_dissent(style, &ctx, rung, 8, 0.0).is_some() {
+                    cross += 1;
+                }
+            }
+        }
+        for (label, fired) in [("same-family", same), ("cross-family", cross)] {
+            assert!(
+                fired > 0,
+                "{label} channel never fires on {n} style/rung pairs — inert"
+            );
+            assert!(
+                fired < n,
+                "{label} channel fires on ALL {n} style/rung pairs — it is not a \
+                 periphery, it is the new centre (anti-eigenvalue machinery \
+                 became an eigenvalue)"
+            );
+        }
+        // A raised tolerance must SILENCE more than it fires — otherwise `tol`
+        // is not actually the knob its callers believe it is.
+        let loud = ThinkingStyle::ALL
+            .iter()
+            .filter(|&&s| {
+                StyleStrategy::peripheral_dissent(s, &ctx, RungLevel::Shallow, 8, 0.9).is_some()
+            })
+            .count();
+        assert!(
+            loud < ThinkingStyle::ALL.len(),
+            "tol=0.9 silences nothing — the tolerance parameter is inert"
+        );
+    }
+
     /// At the top rung there is no periphery, so there is nothing to dissent —
     /// the guard must be silent rather than fabricate an elevation.
     #[test]
