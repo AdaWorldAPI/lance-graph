@@ -213,7 +213,7 @@ def main() -> None:
         hits = [k for k, t in lanes["kjv"].items() if spec["en"].search(t)]
         n_bird = n_verb = n_neither = 0
         lines = [f"### `{name}` — {len(hits)} KJV verses"]
-        for k in sorted(hits):
+        for idx, k in enumerate(sorted(hits)):
             row = [f"- **{k[0]}.{k[1]}:{k[2]}** en: “{lanes['kjv'][k]}”"]
             cls = "neither"
             for l in LANES[1:]:
@@ -231,7 +231,14 @@ def main() -> None:
                 n_verb += 1
             else:
                 n_neither += 1
-            if name == "swallow" or len(receipts) < 400:
+            # Cap the per-anchor verse dump at 400 rows. The original
+            # condition (`len(receipts) < 400`) checked the OUTER list --
+            # which holds one entry per ANCHOR NAME (appended once, after
+            # this loop finishes) -- so it was 0 or 1 for the whole run
+            # and the cap never fired; every matching verse was dumped
+            # for every anchor. `idx` is the per-anchor verse counter,
+            # which is what the cap was actually meant to bound.
+            if name == "swallow" or idx < 400:
                 lines.append("\n".join(row))
         lines.insert(1, f"lane-resolved: bird={n_bird} verb={n_verb} "
                         f"unresolved-by-regex={n_neither}")
@@ -347,7 +354,7 @@ def main() -> None:
         "weinberg) — this is a stated APPROXIMATION, not a lemmatizer: no "
         "dictionary, no strong-verb ablaut correction, no compound "
         "splitting, no umlaut normalisation, and it under-folds short words "
-        "(gut/guten/guten collapse to only two stems, not one) by design of "
+        "(gut/gute/guten collapse to only two stems, not one) by design of "
         "the minimum-stem-length guard. English candidates are NOT "
         "normalised (still surface forms) — only the German association "
         "side is. PMI threshold 3.0, cooc>=5, overlap<=0.3 hand-set, "

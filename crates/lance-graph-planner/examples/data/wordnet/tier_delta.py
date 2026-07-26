@@ -135,7 +135,22 @@ def find_wndb_dir() -> Path | None:
     if env:
         candidates.append(Path(env))
     candidates.append(HERE / "wndb")  # if ever vendored locally
-    candidates.append(Path("/tmp/wn/dict"))  # session-local convenience only
+    # /tmp/wn/dict is NOT trusted as an implicit, unconditional fallback:
+    # /tmp is world-writable, so any local user could pre-create this
+    # path and steer what this script reads as "WordNet ground truth."
+    # Only consult it if it is owned by the user running this process --
+    # a real (if partial) guard against a planted directory, never silent
+    # trust of a world-writable location.
+    tmp_candidate = Path("/tmp/wn/dict")
+    if tmp_candidate.is_dir():
+        try:
+            owned_by_us = tmp_candidate.stat().st_uid == os.getuid()
+        except (AttributeError, OSError):
+            # No os.getuid() (non-POSIX) or stat failed -- refuse rather
+            # than guess about ownership.
+            owned_by_us = False
+        if owned_by_us:
+            candidates.append(tmp_candidate)
     for c in candidates:
         if c.is_dir() and (c / "data.noun").exists() and (c / "index.noun").exists():
             return c
@@ -420,11 +435,30 @@ class TsvHypernymGraph:
                 break
         return depths
 
+    def _is_present(self, word: str, pos: str) -> bool:
+        if (word, pos) in self.hypernym_of:
+            return True
+        return any(w == word for (w, _p) in self.hypernym_of)
+
     def tier_delta(self, word_a, pos_a, word_b, pos_b) -> TierDeltaResult:
-        if (word_a, pos_a) not in self.hypernym_of and word_a not in (
-            w for (w, _p) in self.hypernym_of
-        ):
-            return TierDeltaResult(status=ABSENT, note=f"{word_a}/{pos_a} absent")
+        # Both sides must be checked for absence, not just word_a. A
+        # missing word_b was previously let through unchecked:
+        # `ancestors_with_depth` unconditionally seeds its BFS with
+        # `{(word, pos): 0}` regardless of whether that key is a known
+        # node, so an absent word_b still produced a (trivial, one-node)
+        # depths dict, and the call fell through to NO_COMMON_ANCESTOR
+        # instead of ABSENT -- conflating "never measured" with "measured
+        # and found disjoint," which is exactly the distinction this
+        # module's own ABSENT/NO_COMMON_ANCESTOR/MEASURED three-way split
+        # exists to preserve (absence is never zero and never a measured
+        # result).
+        missing = []
+        if not self._is_present(word_a, pos_a):
+            missing.append(f"{word_a}/{pos_a}")
+        if not self._is_present(word_b, pos_b):
+            missing.append(f"{word_b}/{pos_b}")
+        if missing:
+            return TierDeltaResult(status=ABSENT, note=f"absent from TSV graph: {missing}")
         depths_a = self.ancestors_with_depth(word_a, pos_a)
         depths_b = self.ancestors_with_depth(word_b, pos_b)
         # match ignoring the '?'-pos placeholder when comparing keys

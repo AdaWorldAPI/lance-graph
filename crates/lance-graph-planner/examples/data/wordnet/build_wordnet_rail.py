@@ -109,7 +109,22 @@ def find_wndb_dir() -> Path | None:
     if env:
         candidates.append(Path(env))
     candidates.append(HERE / "wndb")  # if ever vendored locally
-    candidates.append(Path("/tmp/wn/dict"))  # session-local convenience only
+    # /tmp/wn/dict is NOT trusted as an implicit, unconditional fallback:
+    # /tmp is world-writable, so any local user could pre-create this
+    # path and steer what this script reads as "WordNet ground truth."
+    # Only consult it if it is owned by the user running this process --
+    # a real (if partial) guard against a planted directory, never silent
+    # trust of a world-writable location.
+    tmp_candidate = Path("/tmp/wn/dict")
+    if tmp_candidate.is_dir():
+        try:
+            owned_by_us = tmp_candidate.stat().st_uid == os.getuid()
+        except (AttributeError, OSError):
+            # No os.getuid() (non-POSIX) or stat failed -- refuse rather
+            # than guess about ownership.
+            owned_by_us = False
+        if owned_by_us:
+            candidates.append(tmp_candidate)
     for c in candidates:
         if c.is_dir() and (c / "data.noun").exists() and (c / "index.noun").exists():
             return c
@@ -399,6 +414,7 @@ def run_diff(db: WordNetDb, sample: int) -> None:
     wrong_examples = []
     by_pos_wrong = Counter()
     by_pos_total = Counter()
+    by_pos_absent = Counter()
 
     for word, pos, kind, v1_hyp in v1_rows:
         total += 1
@@ -406,6 +422,7 @@ def run_diff(db: WordNetDb, sample: int) -> None:
         status, sense1_offset, true_hyp = true_sense1_hypernym(db, word, pos)
         if status == "ABSENT":
             absent += 1
+            by_pos_absent[pos] += 1
             continue
         if status == "ROOT":
             root_in_v1 += 1
@@ -464,13 +481,23 @@ def run_diff(db: WordNetDb, sample: int) -> None:
         "before exact-match lookups against it are safe.\"\n"
     )
     lines.append("\n### By POS\n")
-    lines.append("| pos | total | wrong | error rate |")
-    lines.append("|---|---|---|---|")
+    lines.append(
+        "Denominator here is **comparable** rows (total minus absent), "
+        "matching the headline error-rate definition above -- an earlier "
+        "version of this table divided by the RAW per-pos row count "
+        "(including absent rows), which systematically UNDERSTATES the "
+        "per-pos rate whenever a pos has any absent rows (absent rows "
+        "inflate the denominator but never count toward `wrong`).\n"
+    )
+    lines.append("| pos | total | absent | comparable | wrong | error rate |")
+    lines.append("|---|---|---|---|---|---|")
     for pos in POS_LIST:
         t = by_pos_total.get(pos, 0)
+        a = by_pos_absent.get(pos, 0)
         w = by_pos_wrong.get(pos, 0)
-        rate = (w / t * 100.0) if t else 0.0
-        lines.append(f"| {pos} | {t} | {w} | {rate:.2f}% |")
+        comp = t - a
+        rate = (w / comp * 100.0) if comp else 0.0
+        lines.append(f"| {pos} | {t} | {a} | {comp} | {w} | {rate:.2f}% |")
 
     lines.append("\n## Named receipts\n")
     for word, expect in VERIFY_ANCHORS.items():

@@ -74,6 +74,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import sys
 from collections import Counter, defaultdict
@@ -409,10 +410,34 @@ def coverage_by_band(transferred: dict[str, dict], verse_df: dict[str, int]) -> 
     return {"totals": band_totals, "with": band_with}, total_vocab, total_with
 
 
-def main() -> None:
-    scratch_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
-        "/tmp/claude-0/-home-user/8a7f1676-44cf-569c-afbe-022e551ce1ec/scratchpad"
+def resolve_scratch_dir() -> Path:
+    """Resolve the scratch directory holding the sibling `bible_*.json` /
+    `out/alignment_*.tsv` inputs this script reads.
+
+    Honors $ROSETTA_SCRATCH_DIR (the same convention `fetch_greek_lane.py`
+    uses) for portability; otherwise falls back to a `scratchpad/`
+    directory relative to the current working directory. Never bakes a
+    session-specific absolute path -- a prior version hardcoded one
+    sandbox's `/tmp/claude-0/...` path, which does not exist outside that
+    single session.
+    """
+    env = os.environ.get("ROSETTA_SCRATCH_DIR")
+    if env:
+        return Path(env)
+    fallback = Path.cwd() / "scratchpad"
+    if fallback.exists():
+        return fallback
+    sys.exit(
+        "no scratch_dir given, $ROSETTA_SCRATCH_DIR is unset, and the "
+        f"cwd-relative fallback {fallback} does not exist -- pass "
+        "scratch_dir explicitly as argv[1], or set $ROSETTA_SCRATCH_DIR "
+        "to the directory containing bible_*.json and out/alignment_*.tsv "
+        "(see fetch_greek_lane.py for the same convention)."
     )
+
+
+def main() -> None:
+    scratch_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else resolve_scratch_dir()
     repo_root = Path(sys.argv[2]) if len(sys.argv) > 2 else Path(__file__).resolve().parents[5]
 
     out_dir = scratch_dir / "out"

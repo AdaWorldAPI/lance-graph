@@ -103,15 +103,24 @@ SCRATCH_DIR = Path(__file__).resolve().parents[0]  # placeholder, overridden bel
 def scratchpad_dir() -> Path:
     """Resolve the scratchpad directory the sibling lanes already live in.
 
-    Honors $ROSETTA_SCRATCH_DIR for portability; otherwise falls back to the
-    well-known session scratchpad path used by the sibling `bible_*.json`
-    lanes and `translations.json` this session already fetched.
+    Honors $ROSETTA_SCRATCH_DIR for portability; otherwise falls back to a
+    `scratchpad/` directory relative to the current working directory (the
+    convention every sibling script in this session already used). Never
+    bakes a session-specific absolute path -- a prior version hardcoded
+    one sandbox's `/tmp/claude-0/...` path, which does not exist outside
+    that single session. Exits with a clear message if neither resolves.
     """
     env = os.environ.get("ROSETTA_SCRATCH_DIR")
     if env:
         return Path(env)
-    return Path(
-        "/tmp/claude-0/-home-user/8a7f1676-44cf-569c-afbe-022e551ce1ec/scratchpad"
+    fallback = Path.cwd() / "scratchpad"
+    if fallback.exists():
+        return fallback
+    sys.exit(
+        "no scratch dir resolvable: $ROSETTA_SCRATCH_DIR is unset and the "
+        f"cwd-relative fallback {fallback} does not exist -- set "
+        "$ROSETTA_SCRATCH_DIR to the directory containing bible_*.json "
+        "(see module docstring)."
     )
 
 
@@ -228,15 +237,33 @@ def main() -> int:
     tischendorf_path = scratch / "bible_tischendorf.json"
     kjv_path = scratch / "bible_kjv.json"
 
-    try:
-        if translations_path.exists():
+    if translations_path.exists():
+        try:
             translations = json.loads(translations_path.read_text(encoding="utf-8"))
-        else:
+        except OSError as exc:
+            print(f"FAILED to read cached translations.json: {exc}", file=sys.stderr)
+            translations = {}
+    elif args.no_fetch:
+        # --no-fetch MUST NEVER perform a network call. A missing cache
+        # under --no-fetch is a clear error, not a silent fetch (the
+        # original code fell through to fetch_json() here regardless of
+        # the flag).
+        print(
+            f"--no-fetch given and {translations_path} is absent -- "
+            "refusing to fetch translations.json over the network. Run "
+            "once without --no-fetch to populate the cache first, or "
+            "point $ROSETTA_SCRATCH_DIR at a directory that already has "
+            "it.",
+            file=sys.stderr,
+        )
+        translations = {}
+    else:
+        try:
             translations = fetch_json(TRANSLATIONS_URL)
             translations_path.write_text(json.dumps(translations, ensure_ascii=False), encoding="utf-8")
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        print(f"FAILED to fetch/read translations.json: {exc}", file=sys.stderr)
-        translations = {}
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            print(f"FAILED to fetch translations.json: {exc}", file=sys.stderr)
+            translations = {}
 
     if args.dump_licences:
         print(licence_report(translations))
@@ -245,8 +272,23 @@ def main() -> int:
     tischendorf = None
     if translations.get("tischendorf", {}).get("distribution_license", "").strip().lower() == "public domain":
         try:
-            if args.no_fetch and tischendorf_path.exists():
+            if tischendorf_path.exists():
                 tischendorf = json.loads(tischendorf_path.read_text(encoding="utf-8"))
+            elif args.no_fetch:
+                # --no-fetch MUST NEVER perform a network call. The
+                # original condition only checked `args.no_fetch and
+                # tischendorf_path.exists()` for the CACHE-HIT case and
+                # fell through to fetch_json() for every other case
+                # (including --no-fetch with an absent cache) -- a
+                # missing cache under --no-fetch is now a clear error,
+                # never a silent fetch.
+                print(
+                    f"--no-fetch given and {tischendorf_path} is absent "
+                    "-- refusing to fetch tischendorf.json over the "
+                    "network.",
+                    file=sys.stderr,
+                )
+                tischendorf = None
             else:
                 tischendorf = fetch_json(TISCHENDORF_URL)
                 tischendorf_path.write_text(json.dumps(tischendorf, ensure_ascii=False), encoding="utf-8")

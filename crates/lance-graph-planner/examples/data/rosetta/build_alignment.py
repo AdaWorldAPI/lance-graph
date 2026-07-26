@@ -163,14 +163,34 @@ def normalize_en(tok: str) -> str:
         return t[:-2]
     if t.endswith("es") and len(t) - 2 >= EN_MIN_STEM_LEN:
         # "-es" is added after a sibilant-ending stem (box->boxes,
-        # dish->dishes, church->churches); anything else spelled "-es" is
-        # really a silent-e stem + plain "-s" (grape->grapes), so strip
-        # only the final "s" and keep the "e" -- this is the difference
-        # between "grap" (wrong, the bug this comment replaces) and
-        # "grape" (right, what makes grape/grapes actually share a key).
-        # Crude and orthography-shaped, not a real morphological analyser.
+        # dish->dishes, church->churches, witness->witnesses); anything
+        # else spelled "-es" is really a silent-e stem + plain "-s"
+        # (grape->grapes, house->houses, prize->prizes), so strip only
+        # the final "s" and keep the "e" -- this is the difference
+        # between "grap"/"hous" (wrong -- the original bug this comment
+        # replaces, and a REGRESSION of it: a bare single terminal 's'/'z'
+        # before the stripped "es", as in "houses"/"prizes", was being
+        # misread as the sibilant case, so "house"/"houses" landed on two
+        # DIFFERENT keys ("house" unchanged, "houses"->"hous") and never
+        # merged) and "grape"/"house"/"prize" (right, what makes the
+        # singular and plural actually share a key).
+        #
+        # Disambiguation, still crude/orthography-shaped, not a real
+        # morphological analyser: "ch"/"sh"/"x" endings, and a DOUBLED
+        # final consonant (witness->witnesses, kiss->kisses), are treated
+        # as the unambiguous sibilant-cluster case (no English word ends
+        # in a silent "e" preceded by "ch"/"sh"/"x", or by a doubled
+        # consonant, in ordinary Bible-corpus vocabulary). A single bare
+        # terminal 's' or 'z' (house, prize, praise, purpose -- all far
+        # more common in the KJV than genuine no-silent-e sibilant nouns
+        # like "bus"/"quiz") is treated as silent-e and falls through to
+        # the plain strip-final-s branch below.
         stem_no_es = t[:-2]
-        if stem_no_es and (stem_no_es[-1] in "sxz" or stem_no_es.endswith(("ch", "sh"))):
+        is_doubled = len(stem_no_es) >= 2 and stem_no_es[-1] == stem_no_es[-2]
+        if stem_no_es and (
+            stem_no_es.endswith(("ch", "sh", "x"))
+            or (is_doubled and stem_no_es[-1] in "sz")
+        ):
             return stem_no_es
         if len(t) - 1 >= EN_MIN_STEM_LEN:
             return t[:-1]
