@@ -1,3 +1,22 @@
+## 2026-07-26 — E-QUALIA-I4-IS-CMYK-NATIVE-1 — **operator ruling: the i4-16D qualia ARE CMYK** — and the receipts were already in the code. Signed nibbles = ink as deviation from a white ground (zero-fallback: zero = ground shows through); saturating pack = GAMUT CLIPPING (`I4x32::pack(-100)→-8`, test-pinned); the 17D-in-16 fold = the derived K-plate; the MetaWord write path (bits persist while F > floor) = residue of processing, not property of input. **Consequence: the observed statistics built this session are RGB and must pass through a SEPARATION step before landing in the qualia register.**
+
+**Status:** RULING (operator) + design consequence. **Confidence:** High — every structural receipt verified in shipped code/tests.
+
+**The mistake this catches before it shipped:** the D-RCC-4 design said "the qualia agreement vector is a READ of the existing QualiaI4_16D carving", and `quorum_mantissa`/`churn_mantissa` were built as `0..=15` UNSIGNED to "land in the i4 range". That is filling a subtractive register with additive ink — a type error the compiler cannot see. Raw agreement/churn/tier-delta are RGB: observer-side, illuminant-free (which is exactly why they are deterministic, and exactly why they are not experience).
+
+**The separation step (the missing piece, named precisely):** observed → experienced requires the illuminant AND the paper — an ICC profile, i.e. the READER-STATE, itself a stored addressable row. What lands in the nibbles is **signed deviation from the prior the reader brought**:
+- quorum-ink = agreement observed − agreement expected for this basin;
+- churn-ink = flips relative to basin-typical churn;
+- tier-ink = specificity relative to the register the discourse has been running at.
+
+Zero then recovers its native meaning — *as expected, no ink* — consistent with the zero-fallback ladder, and absent-≠-zero holds automatically (no profile ⇒ no separation ⇒ no ink, never "neutral experience"). **Determinism survives intact:** profile row + text ⇒ same separation forever — deterministic subjectivity, the substrate thesis applied one level up, no learned weights anywhere.
+
+**Teeth requirement carried over:** the experienced register must gate/route/escalate somewhere or it is persona-36 again ("carried and displayed, not acted on"). First candidate with teeth: sour-grapes-class construction surprisal (illuminant-conditioned) feeding the FailureTicket/Epiphany trichotomy — the Aesop illuminant-comparison probe is the falsifier venue.
+
+**RGB functions stay as they are** — `quorum_mantissa` etc. remain correct *observations* (contract-level, profile-free). The ruling does not unsign them; it says they are separation INPUTS, not qualia. The boundary is: observation functions in `witness_fabric` (RGB, unsigned, illuminant-free), separation at the consumer with a profile row (CMYK, signed, illuminant-bound), ink in `QualiaI4_16D`.
+
+Refs: operator ruling this turn; `E-SATURATION-SWITCHES-TO-PASSIVE-QUORUM-1` (the mantissas), `E-TENSE-IS-A-BASIN-REGISTER-NOT-A-POINTER-1` (the basin prior that serves as paper), plan `rosetta-codebook-convergence-v1.md` D-RCC-4 (amended by this), W11/Aesop as the probe venue.
+
 ## 2026-07-26 — E-NORMALISER-CAN-SPLIT-WHAT-IT-MEANT-TO-MERGE-1 — the lemma key lifts alignment coverage (39.2%→43.0% de, 30.7%→36.3% el) **and broke the `tongue` regression anchor** — because a crude suffix stripper gave one lemma TWO fold keys. The anchor caught it, the agent root-caused it instead of tuning it away, and the flag stayed opt-in.
 
 **Status:** SHIPPED (opt-in, default OFF) + FINDING. **Confidence:** High — root cause reproduced on the main thread.
