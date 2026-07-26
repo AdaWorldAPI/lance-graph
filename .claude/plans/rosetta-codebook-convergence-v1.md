@@ -73,8 +73,28 @@
 > have inherited the same polysemy accident (mostly cognate borrowing),
 > which is rare because polysemy accidents are language-local; and it has
 > structural escape hatches (add a non-cognate lane, e.g. Czech; fall back
-> to the intensional cascade; route to the residual). Worst case is
-> "unresolved", already a first-class outcome — never corruption.
+> to the intensional cascade; route to the residual).
+
+> **Second operator correction (same day): the TRUE worst case is not
+> "unresolved" — it is a TRANSLATION ERROR producing a confidently wrong
+> anchor** (canonical example: `Erbsünde` where the source has `Tod` — a
+> doctrinal rendering substituting the interpretive concept for the textual
+> one). Naive intersection ingests doctrine as sense evidence; and if the
+> substitution travelled the inheritance chain (Vulgate→Luther→KJV), N lanes
+> "agree" with ONE upstream cause — correlated error wearing an N-fold
+> confirmation costume (the I-NOISE-FLOOR-JIRAK failure, translation form).
+> Three defenses, all load-bearing: (1) **source outranks translation** —
+> the Greek/Hebrew lane is the text, translation lanes are witnesses ABOUT
+> it; an anchor contradicted by the source lane is no anchor, whatever the
+> translation head-count (rule-shape of dependency-outranks-case); (2)
+> **agreement counts only across inheritance-independent lanes** — the
+> witness-independence weight is what distinguishes three witnesses from one
+> witness copied thrice; (3) **doctrinal-vocabulary flag, mechanically
+> derived from D-RCC-3 itself** — a lemma that never aligns 1:1 to a stable
+> source token is translation-layer (interpretive) vocabulary, not
+> text-layer rendering; it self-identifies and is excluded from sense
+> anchoring (kept as a qualia signal instead: doctrinal load IS
+> construction-choice surprisal).
 
 For the vocabulary shared across the lanes on disk (English KJV + German
 via UD lexicon + Greek PROIEL as local oracle): per ambiguous English
@@ -106,6 +126,11 @@ lexicon by deterministic co-occurrence alignment over the ~31k aligned
 verses (no external lexicon licence inherited; CILI demoted to cross-check).
 Bootstrap order: verse align (free) → word align (derived) → sense
 intersection (D-RCC-1 machinery, corpus-wide) → qualia components.
+Side product (load-bearing, see D-RCC-1 second correction): the
+**doctrinal-vocabulary flag** — lemmas with no stable 1:1 source-token
+alignment are interpretive vocabulary (`Erbsünde` class), excluded from
+sense anchoring, retained as doctrinal-load qualia. Anchoring precedence:
+source lane > independent translation agreement > inherited agreement.
 
 ### D-RCC-4 — qualia-agreement vector (hydration by POS routing)
 
