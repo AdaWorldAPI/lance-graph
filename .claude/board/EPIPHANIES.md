@@ -1,3 +1,34 @@
+## 2026-07-26 — E-WORDNET-RAIL-KEEPFIRST-IS-ALSO-WRONG-SENSE-1 — the committed `wordnet31_isa.tsv` rail is not merely polysemy-blind (its own header admits that); its "first-sense per lemma" claim is FALSE on 2/2 audited anchors — a systematic extractor bug that has been silently poisoning every downstream taxonomic read.
+
+**Status:** FINDING (verified on the main thread against WNDB ground truth, independent of the reporting agent). **Confidence:** High for the two audited lemmas; the extractor's full error rate is UNMEASURED (next probe).
+
+**Audit (WordNet 3.1 WNDB `index.noun`/`data.noun` as ground truth):**
+
+| lemma | committed TSV | true sense 1 | what the TSV actually encoded |
+|---|---|---|---|
+| `grape` | `isa shot` | `07774656` (the fruit) | sense **3** = `03458491` grapeshot |
+| `swallow` | `isa consumption` | `07594841` (a small amount, "sup") | sense **2** = `00841439` drink/deglutition |
+
+The bird (`01597013`) is `swallow` sense 3 — unreachable from the rail at any depth. So the earlier `grape → shot` / `swallow → consumption` sightings (recorded as the W5-gap-4 keep-first blocker) were only HALF diagnosed: keep-first was blamed, but the extractor is not even keeping the FIRST sense. Two independent defects stacked; fixing sense-selection alone would still leave the polysemy hole, and fixing polysemy alone would still inherit a wrong default.
+
+**The tier-delta mechanism itself is GREEN** (D-RCC-5 taxonomic arm, `wordnet/tier_delta.py`, run on full WNDB): small controls dog/wolf=2, boat/ship=2, house/dwelling=1 (max 2) vs large controls death/vineyard=12, stone/mercy=7 (min 7) — a clean margin with no overlap; the Erbsünde-proxy anchor `sin`/`death` = 6 (LCA `attribute`), i.e. it lands in the large-delta regime as the plan predicted. `swallow`(n) vs `swallow`(v) returns `NO_COMMON_ANCESTOR` — correct, noun and verb hierarchies are disjoint DAGs, and correctly distinguished from "absent" and from delta=0.
+
+**Load-bearing fragility (NOT a dependency yet):** the full WNDB used for all of the above lives at `/tmp/wn/dict` (53 MB, 95,981 synsets) — **ephemeral session-local state that no manifest pins and no fetch step reproduces**. Every green number above is therefore currently unreproducible from a cold container. The script degrades to the TSV-only path (validated by a forced-fallback run) but that path is the buggy rail. Consequence: regenerating the rail from WNDB with ALL senses + correct sense order is now a prerequisite, not a nice-to-have, and the WNDB acquisition must be scripted before the numbers can be re-claimed.
+
+Refs: plan `rosetta-codebook-convergence-v1.md` D-RCC-5, task-board W5 gap 4 (re-diagnosed), W11 (still gated), `E-HYPERNYM-CLIMB-IS-A-CASCADE-TIER-DELTA-1`.
+
+## 2026-07-26 — E-VERSIFICATION-IS-PER-EDITION-NOT-PER-TRADITION-1 — the Psalm offset is NOT a uniform "German/Vulgate tradition" shift (my earlier framing, corrected by measurement): of three non-KJV lanes, only luther1545 shifts; elberfelder1905 and bkr fold the Hebrew superscription into v1's TEXT and need no shift at all.
+
+**Status:** FINDING (empirical detector + manual cross-check of the Psalm 84 receipt). **Confidence:** High for the measured lanes; the detector is per-(book,chapter) and would not catch a whole-book chapter divergence.
+
+**Measured** (`rosetta/build_versification_map.py`, offsets DETECTED by proper-noun/digit overlap scoring, not hardcoded from tradition lore): offset≠0 in **36** (luther1545) / **3** (elberfelder1905) / **8** (bkr) of 1189 (book,chapter) groups. `TextAbsent` = **0** across all 66 books in all 4 lanes. Realignment payoff on the cheap anchor signal: 5793 → 5814 of 15270 testable verses (37.9% → 38.1%, +21) — **modest, and a lower bound** (the fuzzy-prefix proxy is deliberately crude).
+
+**A measurement caught a measurement bug:** the first pass scored Psalm 11 (luther1545) as offset=−1 at confidence 0.69; manual verification against the raw JSON showed 0. Root cause: the scoring BASIS (anchor-match vs length-fallback) was being chosen per-offset, so a wrong offset that happened to drop the chapter's only anchor-bearing verse could win via the weaker fallback. Fixed by deciding the basis once per chapter, then re-verified. This is the reason the brief demanded empirical detection over lore: the lore would have produced a plausible table with no way to notice it was wrong.
+
+**Open, flagged not diagnosed:** bkr shows a ~49% low-confidence rate vs ~18% for the German lanes — cause unknown, deliberately out of grindwork scope.
+
+Refs: plan `rosetta-codebook-convergence-v1.md` §4.3 (blocker now partially discharged), `E-RCC-1-FOUR-LANES-ONE-KEY-1` (the Ps 84:3 receipt this corrects and sharpens).
+
 ## 2026-07-26 — E-RCC-1-FOUR-LANES-ONE-KEY-1 — the frozen verse address WORKS as the Rosetta SoA key at full-canon scale, and one probe run produced the whole argument in miniature: the census, the anchor, the versification blocker, AND its escape hatch — in a single receipt.
 
 **Status:** FINDING (probe run, receipts on local disk). **Confidence:** High for what was measured; the split census is CRUDE by design (no lemmatizer).
