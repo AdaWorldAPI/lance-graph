@@ -1,3 +1,27 @@
+## 2026-07-26 — E-STANDING-WAVE-IS-UNSTRATIFIED-SUDOKU-1 — the multipass standing wave, the 0–9 rung ladder and the 34 NARS recipes are ALL SHIPPED and MUTUALLY UNWIRED. The wave already IS a Sudoku fixpoint; what is missing is the rung stratification that would make each pass *normalized* — and the same edge closes D-RCC-6.
+
+**Status:** FINDING (code audit, operator-directed). **Confidence:** High — every claim below is a file:line read, not inference.
+
+**What is already shipped (better than assumed):**
+- `contract::witness_fabric::standing_wave_grounded(focal_idx, window, locus, passes)` is a genuine **fixpoint iterator**: it loops `budget in 1..=passes` and settles when increasing the hop budget stops changing the resolved target. That is Sudoku constraint propagation, already in the substrate.
+- Its three outcomes are the right trichotomy: `Causal` (settles inside ±8), `Escalate` (chain persists but leaves the horizon), `Unbound`. Escalation is explicitly **not** failure — it is a REPRESENTATION SWITCH to an absolute address (`part_of:is_a` basin or centroid), which is the operator ruling "any Relativpronomen further than 8 hops is implicitly a basin edge", already codified as `E-GRAMMAR-LOCAL-CAUSAL-ABSOLUTE-1`.
+- 14 `CONTENT_LOCI` (Temporal/Kausal/Modal/Lokal, S/P/O-Meaning, Antecedent, BasinAnchor, SupportedBy, Supports, RunbookEvidence, …) with the 2 social loci (Quorum, Contradiction) **computed, never read as input** — no self-reference. Loci converge on the same ABSOLUTE event (`pos_a + o_a == pos_b + o_b`), not on equal offsets.
+- `recipes::RECIPES: [Recipe; 34]` — the rung-3 runbooks, catalogued with Tier/Mechanism/Bucket/Coverage.
+
+**The three gaps (measured):**
+
+1. **The wave has only TWO callers** — `deepnsm-v2/src/wave.rs` and `contract::dispatch_guard`. **`lance-graph-planner` never calls it.** The planner's thinking path does not consult the standing wave at all; this is the underuse.
+2. **`passes` is a caller-supplied constant, not rung-derived.** Nothing relates pass depth to `RungLevel`. So the fixpoint runs flat: every pass is permitted the same operations.
+3. **The 34 recipes are dispatched from exactly ONE site** — `planner/strategy/style_strategy.rs`, filtered by `Mechanism` only (`RECIPES.iter().filter(|r| r.mechanism == want)`). Never by rung, never by wave grounding, never by pass index. This is O1/O2 of `persona-vs-rung-ladder.md` still open, now with the consequence made concrete.
+
+**The missing edge, named:** `pass index ↔ RungLevel ↔ recipe admissibility`. Stratifying the existing loop is the whole change — pass 1 at rung 0–1 binds loci (observation only, no inference); pass 2 at rung 2 applies the 144 verb atoms; pass 3 at rung 3 admits the 34 tactics; pass 4 at rung 4 composes StyleFamily macros; `Escalate` is itself a rung elevation (positional → absolute). **That is what "rung-level alignment for thinking normalization" buys: cheap constraints run to exhaustion before expensive ones are legal, exactly as Sudoku propagates singles before it guesses.** Today a counterfactual tactic is admissible on pass 1.
+
+**The convergence (why this is one job, not two):** D-RCC-6 (Rosetta cross-lane constraint propagation to fixpoint) and the grammar standing wave are **the same operation at different scales** — a window of rows, multipass resolution, settle-or-escalate, residual routed to the oracle. The Rosetta lanes ARE a window; `Escalate` past ±8 is the basin edge; the unresolved residual is the FailureTicket tail. Wiring the stratification once serves both, and D-RCC-6 should be implemented AS a caller of `standing_wave_grounded`, never as a parallel propagator.
+
+**Anti-scope (stated so the next session does not drift):** this is a WIRING change over shipped carriers — no new struct, no new trait, no fourth 0–9 ladder (see `TD-THIRD-RUNG-LADDER-LEARNING`, O8). Rung-2 wiring stays BLOCKED on O7 (the two divergent 144 vocabularies, `TD-RUNG2-144-VOCAB-SPLIT`) — a naive ordinal bridge silently mis-maps, so pass-2 admissibility must wait or use an explicit demarcation.
+
+Refs: `.claude/v3/knowledge/persona-vs-rung-ladder.md` O1/O2/O7/O8, `E-GRAMMAR-LOCAL-CAUSAL-ABSOLUTE-1`, `E-RUNG-CONTENT-LADDER-1`, plan `rosetta-codebook-convergence-v1.md` D-RCC-6, task-board W2/W6/W9.
+
 ## 2026-07-26 — E-COVERAGE-INVERSION-CLAIM-REFUTED-1 — **my own "WordNet and COCA hydrate disjoint regions" claim is REFUTED.** WordNet coverage does not fall where frequency is highest — it RISES (97.6% top decile vs 84.3% bottom). The POS-router design survives, but its justification was wrong: route on measured ladder-usefulness, never on frequency band.
 
 **Status:** FINDING (measurement briefed explicitly to refute the orchestrator's claim; it did). **Confidence:** High for content vocabulary; the function-word half of the claim is UNTESTABLE on this data (see scope, below) — not vindicated, just unmeasured.
