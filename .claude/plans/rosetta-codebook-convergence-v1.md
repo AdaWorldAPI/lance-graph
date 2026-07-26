@@ -221,6 +221,15 @@ a modernized edition may carry editorial claims).
 
 ### D-RCC-8 — the Bible Rosetta package (Release)
 
+> **Status 2026-07-26: FIRST RELEASE SHIPPED** — tag
+> `v0.1.0-codebooks-2026-07-26`, three regime-separated tarballs each with
+> MANIFEST.md (licence, attribution, schema, known defects) + SHA256SUMS:
+> `de-bundle` (CC BY-SA 4.0, UD-derived), `wordnet-bundle` (WordNet License,
+> v2 rail + audit), `rosetta-bundle` (PD-derived lane codebooks + en-de/en-el/
+> en-cs alignments + versification map). NC sources deliberately absent.
+> Operator-directed: the PR references codebooks; the codebooks live in the
+> Release, per the data-in-Releases law.
+
 PD texts are ingredients; NC treebanks are the ORACLE only (validate the
 derived layer locally, never enter the artifact — the libtesseract pattern).
 Package: verse table + N PD text lanes + derived (alignment, sense index,

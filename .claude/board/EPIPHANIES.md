@@ -1,3 +1,24 @@
+## 2026-07-26 — E-SEPARATION-IS-ALREADY-SHIPPED-WIRE-DONT-INVENT-1 — **operator correction to the CMYK ruling's consequence: the text itself often licenses experienced qualia, and the separation machinery ALREADY EXISTS** — texture, `ResonanceDto`, `PerturbationDto` (D-PERT-1), and gestalt awareness ARE the experience-side carriers. Task #39 is a WIRING job, not a build job.
+
+**Status:** RULING (operator) + verified inventory. **Confidence:** High — carriers confirmed at type level on the main thread.
+
+**What I got wrong in the amendment:** `E-QUALIA-I4-IS-CMYK-NATIVE-1` correctly identified the register as CMYK-native and the mantissas as RGB, then proposed BUILDING a separation step ("an ICC profile as a new stored row"). Consult-before-guess should have fired: the separation is shipped, distributed across four carriers —
+
+| carrier | what it already computes | CMYK role |
+|---|---|---|
+| `ResonanceDto` (verified: `hdr` 3-perspective resonance, `dominant_perspective`, `is_divergent`/`is_converged`, `GateState`, field-evolution state) | how THIS text lands against the current field — resonance vs `global_context` is reader-conditioned BY CONSTRUCTION | the profile conversion, running |
+| `PerturbationDto` (D-PERT-1 split; L4 palette256 tenant over the Morton cascade) | the deviation the text inflicts on the field | the ink, signed by nature |
+| texture (window; D-DIA-V2-B) | local grain of the field around the read | the paper |
+| gestalt awareness (`spo/gestalt.rs`, gestalt tenant) | the integrated whole-shape percept | the K plate readout |
+
+And the deepest already-shipped instance is on the board's own front page: **`FreeEnergy::compose(likelihood, kl)` with `kl = awareness.divergence_from(prior)` IS observed-minus-illuminant** — F has been the CMYK conversion all along. `global_context += fact` reshaping the NEXT cycle's F landscape means the illuminant is maintained per-read, automatically.
+
+**The operator's sharper point — the text often licenses experienced qualia ENDOGENOUSLY.** The profile does not need an external reader-state row in the common case: the running context accumulated while reading (the text-so-far) IS the illuminant, and deviation from it (construction surprisal, Satzklammer tension held open, vocative address, the Erbsuende-class doctrinal load) is experienced in the act of parsing. Exogenous profiles (different reader-states over the same text — the Aesop two-illuminant probe) remain the CONTRAST case, not the prerequisite. This dissolves the bootstrap question the amendment left open ("where does the first profile come from"): from reading.
+
+**Task #39 re-scoped accordingly:** wire `witness_fabric`'s RGB observations (quorum/churn/tier-delta) INTO the resonance/perturbation/texture/gestalt path as field inputs, and let the EXISTING deviation machinery write the signed ink to `QualiaI4_16D`. Building a parallel "separation module" would have been the parallel-object-model anti-pattern one more time — the same shape as the LanguageDto rejection (§0.2) and the scenario-crate rejection. The teeth requirement stands unchanged: the ink must gate/route/escalate (first candidate: illuminant-conditioned construction surprisal feeding Commit/Epiphany/FailureTicket).
+
+Refs: `E-QUALIA-I4-IS-CMYK-NATIVE-1` (amended by this), D-PERT-1, `.claude/plans/triangle-tenants-gestalt-separation-v1.md`, CLAUDE.md "The Click" (the F diagram), task #39.
+
 ## 2026-07-26 — E-QUALIA-I4-IS-CMYK-NATIVE-1 — **operator ruling: the i4-16D qualia ARE CMYK** — and the receipts were already in the code. Signed nibbles = ink as deviation from a white ground (zero-fallback: zero = ground shows through); saturating pack = GAMUT CLIPPING (`I4x32::pack(-100)→-8`, test-pinned); the 17D-in-16 fold = the derived K-plate; the MetaWord write path (bits persist while F > floor) = residue of processing, not property of input. **Consequence: the observed statistics built this session are RGB and must pass through a SEPARATION step before landing in the qualia register.**
 
 **Status:** RULING (operator) + design consequence. **Confidence:** High — every structural receipt verified in shipped code/tests.
