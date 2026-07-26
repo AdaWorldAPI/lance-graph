@@ -170,6 +170,22 @@ index → un-gates W11 (Aesop probe).
 > TWO READS OF ONE TREE — cluster ancestry read paradigmatically = sense
 > tiers; read row-locally across lanes = anomaly/fork detection.
 
+> **Refinement (operator): WordNet + qualia magnitude complete the CHAODA
+> read.** (a) Synset mapping gives CHAODA a LANGUAGE-NEUTRAL coordinate
+> system — Tod/death/mors/smrt co-locate in concept space with no shared
+> embedding, so the taxonomic anomaly read runs BEFORE/independent of
+> D-RCC-3 alignment; (b) the anomaly MAGNITUDE = the hypernym tier delta
+> (sibling synsets = translational freedom/Compatible; LCA-near-root, the
+> Erbsünde-vs-Tod case = doctrinal substitution) — deterministic and
+> auditable, never a learned weight; (c) polysemy count triages "our
+> sense-lookup erred" from "the translator substituted", and the
+> doctrinal-vocab flag routes interpretive vocabulary to qualia instead of
+> error; (d) metric×taxonomy conjunction is the verdict — both anomalous =
+> substitution/error; metric-only = register drift; taxonomy-only =
+> idiom/metaphor; the off-diagonals are information. The detector is
+> itself an agreement vector (component 6 doing double duty), never a
+> merged score.
+
 ### D-RCC-5 — CLAM/HHTL ↔ WordNet alignment probe + CHAODA lane-anomaly read
 
 Does common-prefix-length in the (hierarchical-4⁴) centroid address track
