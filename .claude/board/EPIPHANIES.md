@@ -1,3 +1,28 @@
+## 2026-07-26 — E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1 — the i4 pointer window is not a size limit, it is the **type boundary between syntax and discourse**: a reference past ±8 hops is implicitly a BASIN EDGE (SPO-G / AriGraph), never a wider pointer. Operator-stated bluntly, then falsified on 7,657 real German relative clauses — CONFIRMED with a 7×/8.4× structural separation.
+
+**Status:** FINDING (measured, not asserted). **Confidence:** High — the split is decisive on real data and the mechanism explains it.
+
+**The measurement** (UD German-GSD + HDT, 7,657 relative pronouns with resolvable antecedents; the German lane's `relative_pronoun` harvest):
+
+| | within i4 (−8..+7), n=6,739 | beyond i4 (\|off\|>8), n=918 |
+|---|---|---|
+| intervening finite verbs | 0.07 (6 % have ≥1) | **0.66 (42 % have ≥1)** — 7× |
+| competing noun candidates | 0.41 (10 % have >1) | **3.43 (89 % have >1)** — 8.4× |
+
+**Why it is a TYPE boundary, not overflow.** Inside the window, 90 % of cases have NO competing noun — *position alone discriminates*, so a nibble offset is not merely sufficient, it is the CORRECT address. Outside it, 89 % have multiple candidates and 42 % cross a finite-clause boundary — so an arbitrarily wider pointer would still be addressing a POSITION when the discriminator has become IDENTITY ("which entity", not "how far back"). The long tail therefore resolves through rails / type / graph — an SPO-G quad or AriGraph episodic edge, whichever carrier owns that referent — and NEVER through a wider nibble. Escalation is the wrong word; it is a different KIND of reference.
+
+**The demarcation this ratifies (feeds `W12` anti-collapse):**
+```
+LOCAL   ≤8 hops → 24×i4 nibble pointer in the V3 content-blind facet = SYNTAX
+                  (deterministic, free, in-register, identity-free)
+NON-LOCAL >8    → basin edge (SPO-G / AriGraph / episodic rails)     = DISCOURSE / MEMORY
+                  (requires referent identity; position is not the discriminator)
+```
+
+**The convergence worth naming:** the boundary was never hand-tuned. It falls out of the carving arithmetic — the V3 facet's 12 content-blind bytes = **24 nibbles**, i4 = **−8..+7** — and German independently says that is exactly where the linguistic phenomenon changes character. The register width PREDICTED a syntax/discourse distinction. (Window placement is a wash and needs no offset trick: natural i4 covers 88.01 %, the best possible 16-value placement −10..+5 covers 88.49 %.) This also confirms deepnsm-v2 `wave.rs`'s shipped ±8 antecedent pointer as correctly sized, chosen before this data existed.
+
+**Carving note (operator correction recorded):** EdgeBlock is the **V1** edge carrier; V3 relations live in the `classid(4B) + 12B content-blind payload`, ClassView-selected — `6×(u8:u8)` rails / `4×(u8:u8:u8)` SPO triplets / `3×(u8:u8:u8:u8)` quads / **`24×i4` anaphora pointers**. One register, N sanctioned readings: a German relative pronoun emits TWO signals into TWO carvings of the SAME 96 bits — the pointer (nibble reading: where the antecedent is) and the case (triplet reading: what role it plays inside the clause). No new lane, no layout change, no `ENVELOPE_LAYOUT_VERSION` bump. Refs: `.claude/v3/soa_layout/le-contract.md` §3, `E-V3-FACET-4-PLUS-12`, `E-MARKOV-TEMPORAL-STREAM-1` (±5 → version-range generalization), `E-SCI-1-RIGHT-CORNER-DELAYED-COMMITMENT-1`, task board W5/W12/W17.
+
 ## 2026-07-26 — E-WITNESS-SPECIFIC-MEANING-1 — [SPEC, not the next PR] parallel witnesses can increase recoverable meaning while preserving source-local assertions AND expression structures. Text absence, semantic absence, and non-projectable linguistic evidence are DISTINCT dispositions. One invariant, four instruments; success = improved cross-witness recoverability with ZERO mutation or hub domination of any witness-local graph.
 
 **Status:** SPEC (probe contract persisted; implementation deferred behind the PROIEL grammar-PROMOTION experiment — see order below). **Confidence:** High on the invariant (it is the effective-forgetting amendment + the #849 witness law composed); each lab's claims carry their own caveats below.
