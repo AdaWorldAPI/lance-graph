@@ -126,6 +126,13 @@ lexicon by deterministic co-occurrence alignment over the ~31k aligned
 verses (no external lexicon licence inherited; CILI demoted to cross-check).
 Bootstrap order: verse align (free) → word align (derived) → sense
 intersection (D-RCC-1 machinery, corpus-wide) → qualia components.
+**Status 2026-07-26:** IN FLIGHT — `rosetta/build_alignment.py` (PMI baseline
+from D-RCC-1 §C + a stronger association score, en→de and en→el). Its output
+also becomes the successor to the failed monolingual closed-class detector
+(`E-DISPERSION-CLOSED-CLASS-DETECTION-FAILS-1`): closed-class labels TRANSFER
+through alignment from English (which has UD POS + WordNet) to Czech/Greek
+(which have neither), instead of being detected per-language.
+
 Side product (load-bearing, see D-RCC-1 second correction): the
 **doctrinal-vocabulary flag** — lemmas with no stable 1:1 source-token
 alignment are interpretive vocabulary (`Erbsünde` class), excluded from
@@ -251,6 +258,12 @@ D-RCC-2 (contract shape)
 2. Kralická digital-edition provenance (D-RCC-7).
 3. Versification scheme map source (Masoretic/LXX/Vulgate offsets) —
    standard tables exist, none vendored yet.
-4. Greek PD edition choice (TR/WH/Tischendorf are PD; critical texts not) —
-   decides which Greek TEXT lane can ship (the PROIEL annotation stays
-   oracle-only regardless).
+4. ~~Greek PD edition choice~~ — **DISCHARGED 2026-07-26**
+   (`E-PD-GREEK-LANE-ACQUIRED-TISCHENDORF-1`). **Tischendorf 8th ed. is stated
+   `Public Domain`; Textus Receptus and Westcott-Hort are BOTH
+   `CC BY-NC-SA 4.0`** — the assumption that a pre-1929 Greek edition is
+   automatically redistributable is FALSE, because the digital transcription
+   carries its own claim. Acquired: 27 NT books, 7,895 verses, full row-key
+   containment in KJV, 62 KJV verses `TextAbsent` (critical-text omissions,
+   not errors). The PROIEL annotation stays oracle-only regardless.
+   Fetcher: `rosetta/fetch_greek_lane.py`.
