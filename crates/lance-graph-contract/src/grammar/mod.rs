@@ -31,6 +31,10 @@ pub mod verb_table;
 // consumer of the verb_table archetypes for typed relation extraction.
 pub mod verb_lexicon;
 
+// D-SCI-1 — delayed clause commitment (right-corner / fronted-argument) cue
+// catalogues: pronoun case (KJV ye/you, thou/thee incl.) + modal auxiliary spine.
+pub mod clause_cues;
+
 // PR #279 outlook epiphany E5 — generalized disambiguation primitive.
 pub mod disambiguator;
 
