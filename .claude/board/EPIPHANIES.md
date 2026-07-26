@@ -18,13 +18,13 @@
 
 **Acquisition order (feeds W17/W11/W15):** Luther 1545 (DTA/Wikisource, public domain) verse-aligned against PROIEL Greek NT ⇒ projected Early-Modern-German dependency annotation + the German religious register in one acquisition. Then the same hinge shape for Czech (Hus/Kralice) and Italian (Dante) if the lanes are wanted. Refs: `E-WITNESS-SPECIFIC-MEANING-1`, `E-SCI-1-WITNESS-CONSTRUCTION-LICENSE-1`, `E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1`, task board W17/W15/W11.
 
-## 2026-07-26 — E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1 — the i4 pointer window is not a size limit, it is the **type boundary between syntax and discourse**: a reference past ±8 hops is implicitly a BASIN EDGE (SPO-G / AriGraph), never a wider pointer. Operator-stated bluntly, then falsified on 7,657 real German relative clauses — CONFIRMED with a 7×/8.4× structural separation.
+## 2026-07-26 — E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1 — the i4 pointer window is not a size limit, it is the **type boundary between syntax and discourse**: a reference outside the i4 window (`-8 <= off <= +7`) is implicitly a BASIN EDGE (SPO-G / AriGraph), never a wider pointer. Operator-stated bluntly, then falsified on 7,657 real German relative clauses — CONFIRMED with a 7×/8.4× structural separation.
 
 **Status:** FINDING (measured, not asserted). **Confidence:** High — the split is decisive on real data and the mechanism explains it.
 
 **The measurement** (UD German-GSD + HDT, 7,657 relative pronouns with resolvable antecedents; the German lane's `relative_pronoun` harvest):
 
-| | within i4 (−8..+7), n=6,739 | beyond i4 (\|off\|>8), n=918 |
+| | within i4 (`-8 <= off <= +7`), n=6,739 | beyond i4 (`off < -8` or `off > +7`), n=918 |
 |---|---|---|
 | intervening finite verbs | 0.07 (6 % have ≥1) | **0.66 (42 % have ≥1)** — 7× |
 | competing noun candidates | 0.41 (10 % have >1) | **3.43 (89 % have >1)** — 8.4× |
@@ -32,10 +32,10 @@
 **Why it is a TYPE boundary, not overflow.** Inside the window, 90 % of cases have NO competing noun — *position alone discriminates*, so a nibble offset is not merely sufficient, it is the CORRECT address. Outside it, 89 % have multiple candidates and 42 % cross a finite-clause boundary — so an arbitrarily wider pointer would still be addressing a POSITION when the discriminator has become IDENTITY ("which entity", not "how far back"). The long tail therefore resolves through rails / type / graph — an SPO-G quad or AriGraph episodic edge, whichever carrier owns that referent — and NEVER through a wider nibble. Escalation is the wrong word; it is a different KIND of reference.
 
 **The demarcation this ratifies (feeds `W12` anti-collapse):**
-```
-LOCAL   ≤8 hops → 24×i4 nibble pointer in the V3 content-blind facet = SYNTAX
-                  (deterministic, free, in-register, identity-free)
-NON-LOCAL >8    → basin edge (SPO-G / AriGraph / episodic rails)     = DISCOURSE / MEMORY
+```text
+LOCAL      -8 <= off <= +7  → 24xi4 nibble pointer in the V3 facet = SYNTAX
+                              (deterministic, free, in-register, identity-free)
+NON-LOCAL  off < -8 or off > +7 → basin edge (SPO-G / AriGraph / rails) = DISCOURSE / MEMORY
                   (requires referent identity; position is not the discriminator)
 ```
 

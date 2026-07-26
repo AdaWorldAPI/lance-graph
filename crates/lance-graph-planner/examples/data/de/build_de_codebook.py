@@ -11,6 +11,24 @@ Emits the loader-shaped TSVs the lance-graph examples read:
 """
 import sys, glob, collections
 
+
+def verb_cluster(head, toks):
+    """One clause's verb cluster: its lexical head + the auxiliaries UD hangs
+    off it (`gesehen` + `habe`, `kommen` + `muss`). German splits the finite and
+    lexical verb across the Satzklammer, so any question about the bracket must
+    be asked of the cluster, never of a single token."""
+    if head is None:
+        return []
+    return [head] + [x for x in toks
+                     if x["head"] == head["id"] and x["upos"] in ("VERB", "AUX")
+                     and x["rel"] in ("aux", "aux:pass", "cop")]
+
+
+def finite_of(cluster):
+    """The cluster's FINITE member — the left bracket, and the token whose
+    position decides verb-finality."""
+    return next((v for v in cluster if v["feats"].get("VerbForm") == "Fin"), None)
+
 # UD UPOS → the single-letter PoS the COCA loader expects.
 POS = {
     "NOUN": "n", "PROPN": "n", "VERB": "v", "AUX": "v", "ADJ": "j",
@@ -115,11 +133,17 @@ def main(paths, outdir):
             #      Dat = static (wo, location). German marks morphologically what
             #      `WechselAmbiguity` would otherwise ticket to an LLM.
             if t["upos"] == "ADP" and t["lemma"].lower() in WECHSEL_PREPS and t["head"] in by_id:
-                gov = by_id[t["head"]]  # the ADP's head is its NP in UD
-                case = gov["feats"].get("Case")
+                np_head = by_id[t["head"]]  # the ADP's head is its NP in UD
+                case = np_head["feats"].get("Case")
                 if case in ("Acc", "Dat"):
-                    reading = "directional" if case == "Acc" else "static"
-                    wechsel[(t["lemma"].lower(), case, reading, gov["rel"])] += 1
+                    # Record the CASE and its GOVERNOR; do NOT assert a spatial
+                    # reading here. `an dich denken` is Acc with no direction —
+                    # a lexically governed frame, not a Wechsel alternation. The
+                    # alternation itself is the evidence, resolved at emit time.
+                    gov = by_id.get(np_head["head"])
+                    gv = (gov["lemma"].lower()
+                          if gov and gov["upos"] in ("VERB", "AUX") else "-")
+                    wechsel[(t["lemma"].lower(), gv, case, np_head["rel"])] += 1
             # (c3) REFLEXIVES — `sich` Acc vs Dat is a VERB-FRAME discriminator
             #      (sich[Acc] waschen vs sich[Dat] etwas vorstellen).
             if t["lemma"].lower() == "sich" and t["head"] in by_id:
@@ -132,8 +156,18 @@ def main(paths, outdir):
             #      right-corner commitment in one signal (the FSM Pos::Rel feeder).
             if "Rel" in t["feats"].get("PronType", "").split(",") and t["head"] in by_id:
                 h = by_id[t["head"]]
-                kids = [x for x in toks if x["head"] == h["id"]]
-                vfinal = bool(kids) and h["id"] > max(x["id"] for x in kids)
+                # Verb-finality is a property of the FINITE verb, not of the
+                # relativizer's head. In periphrastic clauses (`das ich gesehen
+                # habe`) the relativizer attaches to the PARTICIPLE while finite
+                # `habe` is a later aux child — comparing against the participle
+                # reverses the classification. Resolve the clause's verb cluster
+                # and anchor on its finite member. (Codex #850 P1.)
+                cluster = verb_cluster(h, toks)
+                anchor = finite_of(cluster) or h
+                cl_ids = {v["id"] for v in cluster}
+                others = [x for x in toks if x["head"] == h["id"]
+                          and x["rel"] != "punct" and x["id"] not in cl_ids]
+                vfinal = bool(others) and anchor["id"] > max(x["id"] for x in others)
                 relpro[(t["form"].lower(), t["feats"].get("Case", "-"), t["rel"],
                         "verb-final" if vfinal else "verb-nonfinal")] += 1
             # (c) TEKAMOLO lanes from adverbials/obliques
@@ -148,15 +182,26 @@ def main(paths, outdir):
         #     The Vorfeld is measured in CONSTITUENTS, not tokens: V2 means exactly
         #     ONE top-level constituent precedes the finite verb (`Der große Hund
         #     bellt` is V2 even though the verb is token 4).
-        fin = [t for t in toks if t["upos"] in ("VERB", "AUX")
-               and t["feats"].get("VerbForm") == "Fin"]
-        nonfin = [t for t in toks if t["upos"] in ("VERB", "AUX")
-                  and t["feats"].get("VerbForm") in ("Inf", "Part")]
-        if fin:
-            f0 = fin[0]
-            # Top-level constituents = direct dependents of the finite verb; count
-            # the distinct ones whose whole subtree lies before it (the Vorfeld).
-            deps = [t for t in toks if t["head"] == f0["id"] and t["rel"] != "punct"]
+        #     CLAUSE-LOCAL: the leftmost finite verb in the SENTENCE is not the
+        #     matrix predicate — in `Wenn es regnet, bleibe ich zuhause` it is
+        #     `regnet`, yielding a spurious V3+ instead of the matrix V2 headed by
+        #     `bleibe`. Anchor on the ROOT's verb cluster, and take the bracket's
+        #     nonfinite members from THAT cluster (a sentence-wide `nonfin` sweep
+        #     pairs the predicate with a verb from another clause). (Codex #850 P1.)
+        root = next((t for t in toks if t["rel"] == "root"
+                     and t["upos"] in ("VERB", "AUX")), None)
+        cluster = verb_cluster(root, toks) if root else []
+        f0 = finite_of(cluster)
+        if f0:
+            nonfin = [v for v in cluster
+                      if v["feats"].get("VerbForm") in ("Inf", "Part")]
+            # Top-level constituents = direct dependents of the clause's lexical
+            # head (the ROOT), minus the verb cluster itself; the Vorfeld is those
+            # lying before the FINITE verb (`Der große Hund bellt` is V2 even
+            # though the verb is token 4 — constituents, not tokens).
+            cl_ids = {v["id"] for v in cluster}
+            deps = [t for t in toks if t["head"] == root["id"]
+                    and t["rel"] != "punct" and t["id"] not in cl_ids]
             vorfeld = [d for d in deps if d["id"] < f0["id"]]
             pos_class = ("V1" if not vorfeld else "V2" if len(vorfeld) == 1
                          else f"V{min(len(vorfeld) + 1, 4)}+")
@@ -170,14 +215,23 @@ def main(paths, outdir):
                 klammer[(f"{pos_class}+bracket", "span>=3" if span >= 3 else "span<3")] += 1
             else:
                 klammer[(pos_class, "simple")] += 1
-            # subordinate clauses: finite verb at the right corner
+            # Subordinate clauses: FINITE verb at the right corner. AUX is
+            # included because German modals (können/müssen/sollen/wollen/dürfen/
+            # mögen) are UPOS=AUX in UD — `weil er kommen muss` is headed by the
+            # modal and was previously skipped entirely. Same finite-anchor rule
+            # as the relativizer block. (CodeRabbit + Codex #850.)
             for t in toks:
-                if t["rel"] in ("advcl", "ccomp", "csubj", "acl") and t["upos"] == "VERB":
-                    kids = [x for x in toks if x["head"] == t["id"]]
-                    if kids and t["id"] > max(x["id"] for x in kids):
-                        klammer[("subordinate", "verb-final")] += 1
-                    elif kids:
-                        klammer[("subordinate", "verb-nonfinal")] += 1
+                if t["rel"] in ("advcl", "ccomp", "csubj", "acl", "acl:relcl") \
+                        and t["upos"] in ("VERB", "AUX"):
+                    sub = verb_cluster(t, toks)
+                    anchor = finite_of(sub) or t
+                    sub_ids = {v["id"] for v in sub}
+                    others = [x for x in toks if x["head"] == t["id"]
+                              and x["rel"] != "punct" and x["id"] not in sub_ids]
+                    if others:
+                        vf = anchor["id"] > max(x["id"] for x in others)
+                        klammer[("subordinate",
+                                 "verb-final" if vf else "verb-nonfinal")] += 1
 
     import os
     os.makedirs(outdir, exist_ok=True)
@@ -240,11 +294,27 @@ def main(paths, outdir):
         for (lane, lem, rel), c in tekamolo.most_common():
             fh.write(f"{lane}\t{lem}\t{rel}\t{c}\n")
 
+    # wechsel.tsv — case does NOT by itself mean directional/static. `an dich
+    # denken` is Acc without direction; temporal and other governed senses are
+    # likewise not spatial. The ALTERNATION is the evidence: a (prep, governor)
+    # pair attested with BOTH cases is a live Wechsel contrast, so the spatial
+    # reading is licensed; a pair locked to one case is lexically GOVERNED and
+    # gets no semantic reading at all. Same discipline as the English extractor's
+    # recipient-only PP fronting. (Codex #850 P2.)
+    pair_cases = collections.defaultdict(set)
+    for (prep, gov, case, _rel) in wechsel:
+        pair_cases[(prep, gov)].add(case)
     with w("wechsel.tsv") as fh:
-        fh.write("# prep\tcase\treading\trelation\tcount — Wechselpräposition disambiguated BY CASE\n")
-        fh.write("#   Acc = directional (wohin, goal/change-of-state) · Dat = static (wo, location)\n")
-        for (prep, case, reading, rel), c in wechsel.most_common():
-            fh.write(f"{prep}\t{case}\t{reading}\t{rel}\t{c}\n")
+        fh.write("# prep\tgovernor\tcase\tframe\treading\trelation\tcount\n")
+        fh.write("#   frame=alternating → the (prep,governor) pair is attested with BOTH cases,\n")
+        fh.write("#     so the Wechsel contrast is live: Acc = directional (wohin) · Dat = static (wo).\n")
+        fh.write("#   frame=governed → pair locked to ONE case (lexical/idiomatic frame, e.g.\n")
+        fh.write("#     `an+Acc denken`): reading is '-' — case here encodes government, NOT space.\n")
+        for (prep, gov, case, rel), c in wechsel.most_common():
+            alternating = len(pair_cases[(prep, gov)]) > 1
+            frame = "alternating" if alternating else "governed"
+            reading = ("directional" if case == "Acc" else "static") if alternating else "-"
+            fh.write(f"{prep}\t{gov}\t{case}\t{frame}\t{reading}\t{rel}\t{c}\n")
 
     with w("reflexive.tsv") as fh:
         fh.write("# verb\tcase\trelation\tcount — sich[Acc] vs sich[Dat] verb-frame discriminator\n")
