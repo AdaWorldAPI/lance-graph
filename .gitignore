@@ -79,7 +79,8 @@ crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/token_embd_4096x4096.u8
 
 # PROBE-CODEBOOK-44 real-data: Jina embeddings + vocab (derived data, license-unverified) — LOCAL ONLY
 crates/bgz17/data/
-crates/lance-graph-planner/examples/data/coca/
+crates/lance-graph-planner/examples/data/coca/*
+!crates/lance-graph-planner/examples/data/coca/*.py
 # Ignore the wordnet DATA, keep any GENERATOR (codebook must stay reproducible
 # from the repo — data-in-Releases, code-in-repo).
 crates/lance-graph-planner/examples/data/wordnet/*
