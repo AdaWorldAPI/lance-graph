@@ -275,6 +275,23 @@ def run_pair(pair_name: str, src_lane_name: str, tgt_lane_name: str,
     receipts_dice = anchor_receipts(cooc, src_sets, tgt_sets, n_v, topk,
                                      anchor_words_src, "dice")
 
+    # ── honest plural-form check (surface-form tokenization has no
+    # lemmatiser: "grape" and "grapes" are different tokens; measure both
+    # so a low-frequency singular anchor's noisy top-k isn't mistaken for
+    # the aligner failing on the LEMMA when it is really a frequency-split
+    # artifact of no lemmatisation) ───────────────────────────────────────
+    plural_note_lines = []
+    for w in anchor_words_src:
+        plural = w + "s"
+        if plural in src_sets and w in src_sets and plural != w:
+            n_sg, n_pl = len(src_sets[w]), len(src_sets[plural])
+            if n_pl != n_sg:
+                pl_receipt = anchor_receipts(cooc, src_sets, tgt_sets, n_v,
+                                              topk, [plural], "pmi")[0]
+                plural_note_lines.append(
+                    f"- `{w}` ({n_sg} verses) vs `{plural}` ({n_pl} verses, "
+                    f"pmi): {pl_receipt.split(': ', 1)[1]}")
+
     # ── honest coverage by frequency band ────────────────────────────────
     band_lines = ["| band | source tokens | aligned (PMI) | coverage | aligned (Dice) | coverage |",
                   "|---|---|---|---|---|---|"]
@@ -342,6 +359,12 @@ def run_pair(pair_name: str, src_lane_name: str, tgt_lane_name: str,
         "### Anchor receipts -- Dice",
         "",
         *receipts_dice,
+        "",
+        "### Plural-form check (no lemmatiser -- surface forms only)",
+        "",
+        *(plural_note_lines if plural_note_lines else
+          ["- no anchor word had a distinct plural form present in the "
+           "source vocabulary"]),
         "",
     ]
     return "\n".join(section)
