@@ -66,7 +66,9 @@ LOKAL = {
 
 WECHSEL_PREPS = {"an", "auf", "hinter", "in", "neben", "über", "unter", "vor", "zwischen"}
 
-MODALS = {"können", "müssen", "sollen", "wollen", "dürfen", "mögen", "werden", "haben", "sein"}
+# NOTE: no modal-lemma list. UD's structural annotation is the single source of
+# truth — UPOS=AUX identifies modals and VerbForm=Fin anchors the verb cluster —
+# so a lemma set would be a redundant second source and would only invite drift.
 
 
 def sentences(paths):
