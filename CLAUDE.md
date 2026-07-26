@@ -322,6 +322,10 @@ updating the relevant board file in the SAME commit is incomplete.**
 | An unresolved issue / blocker | `.claude/board/ISSUES.md` entry |
 | A completed agent run | `.claude/board/AGENT_LOG.md` PREPEND entry (D-ids, commit, tests, outcome) |
 
+**Sessions with Private Repositories making board entries on a public
+repository have to exclusively focus on the necessary updates in the public
+repository, and keep a separation of concerns.**
+
 The governance files are APPEND-ONLY (prepend new entries; never
 edit past entries except the `**Status:**` / `**Confidence:**`
 lines). The retroactive-hygiene commit pattern (merge PR → later
