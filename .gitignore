@@ -96,3 +96,13 @@ crates/lance-graph-planner/examples/data/de/*
 # keep the GENERATOR committed, ignore the data
 crates/lance-graph-planner/examples/data/rosetta/*
 !crates/lance-graph-planner/examples/data/rosetta/*.py
+
+# ── BRANCH-LOCAL (plateau branch only) ────────────────────────────────────
+# The codebook/bake generators are tracked on `claude/rosetta-codebook-bakes-z30uij`,
+# not here — this branch is the substrate plateau (see the "plateau:" commit).
+# The files remain on disk and are runnable; they are simply not part of THIS
+# branch's diff. Last-match-wins re-ignores them despite the *.py negations above.
+# When the bake branch merges, delete this block — do not resolve it by deleting
+# the negations, which would untrack the generators repo-wide.
+crates/lance-graph-planner/examples/data/**/*.py
+crates/lance-graph-planner/examples/data/**/*.sh
