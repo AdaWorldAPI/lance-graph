@@ -1,0 +1,63 @@
+GRINDWORK — Mutation operator Mutate_FalseWitness (external-review adjudication, Gemini §6 op 4)
+Agent: general-purpose (Sonnet), edit-only, no git commands run.
+
+Owned deliverable:
+  crates/lance-graph-planner/examples/data/rosetta/mutate_falsewitness.py (NEW, stdlib-only, 466 lines)
+
+Report emitted (scratchpad, as instructed — not committed to the repo):
+  /tmp/claude-0/-home-user/8a7f1676-44cf-569c-afbe-022e551ce1ec/scratchpad/out/mutate_falsewitness_report.md
+
+What it does: duplicates the KJV lane verbatim as a fake 6th lane ("kjv2"; a
+key-for-key Python dict copy of kjv, i.e. byte-identical text under every
+shared row key) alongside the 5 real lanes (kjv, luther1545, elberfelder1905,
+bkr, tischendorf — Greek NT, restricting the cross-lane intersection to NT
+books, 7893 common rows) and re-runs three agreement-flavoured measures
+baseline (5 lanes) vs mutated (6 lanes) with identical logic both passes:
+  M1 naive per-verse cross-lane token-overlap agreement (unweighted mean
+     Jaccard against every other lane) — EXPECTED and CONFIRMED to inflate.
+  M2 pairwise lane-similarity matrix (per-lane aggregated token-set Jaccard
+     over 500 deterministically seeded common rows, seed=20260726) — the
+     detection signal.
+  M3 independence-weighted agreement (M1's logic, but each pair's
+     contribution weighted by 1 - M2's pairwise similarity) — the proposed
+     fix, checked honestly rather than assumed to work.
+
+Numbers (all computed by the script at run time, none hand-typed; verified
+byte-identical across two independent runs, confirming the fixed-seed
+determinism claim):
+  common rows: 7893 (NT-only, tischendorf is Greek NT only)
+  M1: baseline=0.054229  mutated=0.105213  (+94.02%)  -> INFLATES
+  M2: sim(kjv, kjv2) = 1.000000 exactly (off-diagonal, full matrix in report)
+  M3: baseline=0.035900  mutated=0.026522  (-26.12%)  -> IMMUNE (does not rise)
+
+Finding surfaced (per the "report honestly if unexpected" instruction,
+NOT swept under IMMUNE): M3's aggregate DEFLATES rather than staying flat.
+Decomposed and reported in two DISTINCT, separately-computed mechanisms
+(not conflated):
+  1. Cluster-dilution drift on luther1545 (-18.38%) and elberfelder1905
+     (-17.67%) — both German translations with real, legitimate mutual
+     vocabulary overlap (sim=0.4413, already correctly discounted in BOTH
+     passes); doubling the weight-mass on "the English/kjv-shaped" term
+     (kjv, then kjv+kjv2) pulls their weighted average further from their
+     genuine German-German similarity.
+  2. Small-denominator amplification on bkr (+35.85%, tiny absolute base
+     0.002685 -> a small delta reads as a large percentage) vs tischendorf
+     (+0.00% exactly — Greek script shares zero literal tokens with any
+     Latin-script lane including kjv2, a clean control proving the
+     mechanism needs nonzero baseline overlap to have anything to dilute).
+  Conclusion stated plainly in the report: the aggregate still does not
+  inflate (answers the operator's core question: no), but pairwise
+  (1 - similarity) weighting does not make a duplicate fully invisible to
+  OTHER lanes' own averages — it still perturbs lanes it shares no token
+  with, via denominator-composition dilution. A cluster-and-count-once fix
+  is named as the stricter alternative, out of scope for this probe.
+
+Rule the result supports: I-NOISE-FLOOR-JIRAK, translation-corpus form —
+weakly-dependent (cloned/near-cloned) witnesses inflate naive
+independent-witness statistics; independence-weighting by measured
+pairwise redundancy answers the direct-inflation question but is not a
+complete fix (indirect cross-lane dilution survives).
+
+Gates run: py_compile syntax check (clean); two full runs against the real
+scratchpad data confirmed byte-identical numeric output (determinism
+verified, not assumed). No cargo/git touched. No other files modified.

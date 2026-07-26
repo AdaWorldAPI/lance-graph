@@ -1080,6 +1080,94 @@ pub fn suggest_reopening(
     out
 }
 
+// ── The Epistemic Foresight Test (minimal honest form) ────────────────────
+//
+// External-review convergence: the reviewer's "decisive experiment" for
+// functional awareness — *did the substrate, at version v, correctly identify
+// which of its own beliefs were most likely to require later correction?* —
+// is exactly the read-as-of calibration probe this module's `upto` bounds
+// were built for. This is the MINIMAL honest form: the only risk signal used
+// is churn-as-of-v, so the claim under test is narrow and falsifiable
+// ("past instability predicts future revision"), not a composite
+// awareness score. Richer risk profiles (method competence, coverage,
+// independence) are CONSUMER-side — they need data this zero-dep crate
+// does not hold.
+//
+// Hindsight discipline: the risk is computed through `upto = v`, so it
+// physically cannot see the post-v segment it is scored against.
+
+/// One belief's foresight sample: what the substrate could say about itself
+/// AS OF `v`, paired with what actually happened AFTER `v`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ForesightSample {
+    /// Churn mantissa computed from revisions `..v` only (`0..=15`).
+    pub risk_asof_v: u8,
+    /// Flips observed in the post-`v` segment.
+    pub flips_after: u8,
+    /// Post-`v` revisions observed (the denominator; 0 = not scorable).
+    pub steps_after: u8,
+}
+
+/// Sample one belief series at split point `v`.
+///
+/// Returns `None` when either side of the split is empty — a belief with no
+/// pre-`v` history has no self-knowledge to score, and one with no post-`v`
+/// history has no outcome to score against. Absent is not zero on either
+/// axis.
+#[must_use]
+pub fn foresight_sample(
+    revisions: &[CausalWitnessFacet],
+    locus: Locus,
+    v: usize,
+) -> Option<ForesightSample> {
+    if v == 0 || v >= revisions.len() {
+        return None;
+    }
+    let before = revision_trajectory(revisions, locus, v);
+    if before.steps == 0 {
+        return None;
+    }
+    // The post segment must OVERLAP the boundary by one revision so a flip
+    // across the split itself is counted: compare from the last pre-v state.
+    let after = revision_trajectory(&revisions[v - 1..], locus, usize::MAX);
+    Some(ForesightSample {
+        risk_asof_v: before.churn_mantissa(),
+        flips_after: after.flips,
+        steps_after: after.steps.saturating_sub(1),
+    })
+}
+
+/// Flip-rate per risk band over many sampled beliefs — the calibration curve
+/// of the substrate's self-doubt.
+///
+/// Bands: low = `0..=5`, mid = `6..=10`, high = `11..=15`. Each entry is
+/// `(scorable_beliefs, total_flips, total_post_steps)`; rates are the
+/// caller's division so that empty bands stay visibly empty instead of
+/// becoming a confident 0.0.
+///
+/// The PASS condition (scored by the consumer, stated here so it cannot
+/// drift): high-risk beliefs flip more often per post-step than low-risk
+/// ones. The test does not ask the substrate to know the future — it asks
+/// whether it understands the weakness of its own present.
+#[must_use]
+pub fn foresight_calibration(samples: &[ForesightSample]) -> [(u32, u32, u32); 3] {
+    let mut bins = [(0u32, 0u32, 0u32); 3];
+    for s in samples {
+        if s.steps_after == 0 {
+            continue; // not scorable — never a confident zero
+        }
+        let b = match s.risk_asof_v {
+            0..=5 => 0,
+            6..=10 => 1,
+            _ => 2,
+        };
+        bins[b].0 += 1;
+        bins[b].1 += u32::from(s.flips_after);
+        bins[b].2 += u32::from(s.steps_after);
+    }
+    bins
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1692,6 +1780,128 @@ mod tests {
         }
         // And the channel is not inert on this window.
         assert!(!suggest_reopening(&hist, Locus::Kausal, usize::MAX).is_empty());
+    }
+
+    // ── the Epistemic Foresight Test ──────────────────────────────────────
+
+    /// The risk signal is computed through `upto = v` and CANNOT see the
+    /// post-`v` segment. Falsifier: a series that is calm before the split and
+    /// wild after it must report LOW risk — an implementation that leaked
+    /// hindsight (churn over the whole series) would report 7 here, not 0.
+    #[test]
+    fn foresight_risk_is_hindsight_blind() {
+        let v = |o: i8| w(&[(Locus::Kausal, o)]);
+        // Calm-then-wild: risk must not know about the storm.
+        let calm_then_wild = [v(2), v(2), v(2), v(2), v(3), v(2), v(3)];
+        let s = foresight_sample(&calm_then_wild, Locus::Kausal, 4).unwrap();
+        assert_eq!(s.risk_asof_v, 0, "hindsight leaked into the risk signal");
+        assert_eq!(s.flips_after, 3);
+        assert_eq!(s.steps_after, 3);
+
+        // Wild-then-calm: the sample must honestly record the miscalibrated
+        // case (high self-doubt, no later correction) — a function that only
+        // ever emitted hypothesis-confirming samples would be worthless as a
+        // calibration input.
+        let wild_then_calm = [v(2), v(3), v(2), v(3), v(3), v(3), v(3)];
+        let s2 = foresight_sample(&wild_then_calm, Locus::Kausal, 4).unwrap();
+        assert_eq!(s2.risk_asof_v, 15);
+        assert_eq!(s2.flips_after, 0, "the calm future was miscounted");
+        assert_eq!(s2.steps_after, 3);
+    }
+
+    /// A flip exactly ACROSS the split is counted — the post segment overlaps
+    /// the boundary by one revision. Without the overlap this history would
+    /// report `flips_after == 0` and the test fails.
+    #[test]
+    fn foresight_counts_the_boundary_flip() {
+        let v = |o: i8| w(&[(Locus::Kausal, o)]);
+        let hist = [v(2), v(2), v(2), v(5)];
+        let s = foresight_sample(&hist, Locus::Kausal, 3).unwrap();
+        assert_eq!(s.flips_after, 1, "the cross-boundary flip was dropped");
+        assert_eq!(s.steps_after, 1);
+        // And the overlap revision itself is not double-counted as a step.
+        let no_flip = [v(2), v(2), v(2), v(2)];
+        let s2 = foresight_sample(&no_flip, Locus::Kausal, 3).unwrap();
+        assert_eq!(s2.flips_after, 0);
+        assert_eq!(s2.steps_after, 1);
+    }
+
+    /// Absent is not zero on either side of the split: no pre-`v` history has
+    /// no self-knowledge to score, no post-`v` history has no outcome.
+    #[test]
+    fn foresight_refuses_empty_sides() {
+        let v = |o: i8| w(&[(Locus::Kausal, o)]);
+        let hist = [v(1), v(2), v(3)];
+        assert_eq!(foresight_sample(&hist, Locus::Kausal, 0), None);
+        assert_eq!(foresight_sample(&hist, Locus::Kausal, 3), None);
+        assert_eq!(foresight_sample(&hist, Locus::Kausal, 99), None);
+        assert_eq!(foresight_sample(&[], Locus::Kausal, 1), None);
+        assert_eq!(foresight_sample(&[v(1)], Locus::Kausal, 1), None);
+        // Interior splits of the same series ARE scorable.
+        assert!(foresight_sample(&hist, Locus::Kausal, 1).is_some());
+        assert!(foresight_sample(&hist, Locus::Kausal, 2).is_some());
+    }
+
+    /// The calibration bins route by band, keep raw counts, and SKIP
+    /// unscorable samples. Falsifier: the `steps_after == 0` sample sits in
+    /// the high band — an implementation that counted it would report
+    /// `(2, 2, 2)` there instead of `(1, 2, 2)`.
+    #[test]
+    fn foresight_calibration_bins_exactly_and_skips_unscorable() {
+        let s = |risk: u8, flips: u8, steps: u8| ForesightSample {
+            risk_asof_v: risk,
+            flips_after: flips,
+            steps_after: steps,
+        };
+        let samples = [
+            s(2, 1, 4),
+            s(5, 0, 2),
+            s(8, 3, 3),
+            s(15, 2, 2),
+            s(12, 0, 0), // not scorable — must NOT become a confident zero
+        ];
+        let bins = foresight_calibration(&samples);
+        assert_eq!(bins[0], (2, 1, 6));
+        assert_eq!(bins[1], (1, 3, 3));
+        assert_eq!(bins[2], (1, 2, 2));
+        // Empty input stays visibly empty — all-zero counts, not a rate.
+        assert_eq!(foresight_calibration(&[]), [(0, 0, 0); 3]);
+    }
+
+    /// End-to-end: on histories where past instability genuinely predicts
+    /// future revision, the calibration curve must SLOPE — high-risk beliefs
+    /// flip more per post-step than low-risk ones. This is the PASS condition
+    /// of the foresight test actually firing on constructed data, not merely
+    /// the plumbing type-checking.
+    #[test]
+    fn foresight_calibration_slopes_when_churn_predicts_revision() {
+        let v = |o: i8| w(&[(Locus::Kausal, o)]);
+        let split = 4usize;
+        // Three calcified beliefs that stay put, three churning ones that
+        // keep churning.
+        let histories: Vec<Vec<CausalWitnessFacet>> = vec![
+            vec![v(1), v(1), v(1), v(1), v(1), v(1), v(1)],
+            vec![v(4), v(4), v(4), v(4), v(4), v(4), v(4)],
+            vec![v(-2), v(-2), v(-2), v(-2), v(-2), v(-2), v(-2)],
+            vec![v(1), v(2), v(1), v(2), v(1), v(2), v(1)],
+            vec![v(3), v(5), v(3), v(5), v(3), v(5), v(3)],
+            vec![v(-1), v(2), v(-1), v(2), v(-1), v(2), v(-1)],
+        ];
+        let samples: Vec<ForesightSample> = histories
+            .iter()
+            .filter_map(|h| foresight_sample(h, Locus::Kausal, split))
+            .collect();
+        assert_eq!(samples.len(), 6, "every history must be scorable");
+        let bins = foresight_calibration(&samples);
+        let (low, high) = (bins[0], bins[2]);
+        assert!(low.0 > 0 && high.0 > 0, "both extreme bands must be hit");
+        // Flip-rate comparison via cross-multiplication (no float division).
+        assert!(
+            high.1 * low.2 > low.1 * high.2,
+            "high-risk beliefs did not flip more per step: low={low:?} high={high:?}"
+        );
+        // The low band on THIS data is exactly zero flips — knowable input.
+        assert_eq!(low.1, 0);
     }
 
     /// The diagnosed wave is instrumentation over the stratified one — the

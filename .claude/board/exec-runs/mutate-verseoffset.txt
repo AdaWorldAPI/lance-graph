@@ -1,0 +1,96 @@
+Mutate_VersificationOffset — external-review adjudication (Gemini §6 op 5)
+Agent: Sonnet grindwork exec. File owned/touched:
+crates/lance-graph-planner/examples/data/rosetta/mutate_verseoffset.py ONLY (NEW).
+No other rosetta/*.py touched. No commit/push/git commands performed.
+Read .claude/board/AGENT_LOG.md before starting (not written — per protocol,
+the orchestrator is the sole writer of that file; this is my own tag-file record).
+
+WHAT WAS BUILT
+- Read build_rosetta_probe.py, build_versification_map.py, build_alignment.py
+  in full before writing anything (all three in the same rosetta/ dir).
+- New script mutate_verseoffset.py: applies the mutation operator (shift the
+  Tischendorf Greek lane +1 verse WITHIN EACH CHAPTER: shifted[v] =
+  original[v+1]; a verse with no v+1 in its chapter becomes TextAbsent, key
+  omitted, never "") over the real bible_kjv.json / bible_tischendorf.json,
+  NT-only (book_nr 40..66, KJV filtered to match Tischendorf's natural range).
+- Reused, NOT reinvented, per the brief:
+  (1) the anchor-overlap offset detector (anchor_tokens/fuzzy_present/
+      chapter_has_anchor_signal/score_offset/detect_offset) copied VERBATIM
+      from build_versification_map.py with attribution comments (same
+      pattern build_alignment.py itself uses for DE_SUFFIXES — copy, don't
+      cross-import, since these are separate deliverables).
+  (2) the Dice association measure + MIN_COOC=5 floor copied VERBATIM from
+      build_alignment.py (dice_score, build_sparse_cooccurrence,
+      build_verse_sets), used exclusively (not PMI) per the brief's explicit
+      "the Dice form" instruction.
+- Data used as given: /tmp/claude-0/.../scratchpad/bible_{kjv,tischendorf}.json
+  (verified byte-identical in size to the already-present rosetta/ copies —
+  did not re-fetch anything, no network calls).
+- Ran the script for real end-to-end against the full NT corpus; every number
+  in the report is a script output, cross-verified independently against a
+  from-scratch prototype (separate ad-hoc python session) before finalizing
+  the deliverable file, per the "never report a number you did not compute"
+  instruction.
+
+MEASURED RESULTS (real KJV/Tischendorf NT corpus, 260 (book,chapter) groups)
+
+1. Anchor-overlap detector recovery (build_versification_map.py logic, unchanged):
+   - 258/260 chapters (99.2%) score via `anchor` basis; 2/260 via `length`
+     fallback (KJV chapter has zero proper-noun/digit signal at all: 1 Cor
+     13, James 5).
+   - Shifted-lane recovery of the true offset (-1): 2/260 = 0.77% overall —
+     but 100% (2/2) within the `length`-basis chapters, 0% (0/258) within
+     the `anchor`-basis chapters.
+   - `anchor`-basis chapters ALWAYS report offset=0 (wrong) with confidence
+     EXACTLY 0.0000 (all 3 candidate offsets tie at score 0.0; tie-break
+     picks offset 0). Root cause verified: fuzzy_present prefix-matches a
+     Latin-alphabet token against Greek-script text — zero shared codepoints,
+     structurally can never match, independent of true alignment. Digit
+     signal doesn't rescue it either: 1 digit-bearing verse in 7895 total in
+     the Greek corpus (spelled-out number words, not Arabic numerals).
+   - Baseline (untouched) run: 260/260 report offset=0 (correct, since it IS
+     unshifted) but mean confidence only 0.0011 (min 0, max 0.1669) —
+     indistinguishable in magnitude from the WRONG shifted-offset-0 verdict's
+     confidence (exactly 0.0000). The detector cannot discriminate corrupted
+     from clean for this language pair.
+   - Headline finding: the expected failure class ("short chapters with no
+     proper nouns") is INVERTED — those 2 chapters are exactly where
+     recovery SUCCEEDS (via the length-ratio fallback), while the anchor
+     mechanism covering 99.2% of chapters fails universally.
+
+2. Alignment degradation (Dice, cooc>=5, topk=3):
+   - distinct src tokens aligned: baseline 1831 -> shifted 1650 (-9.89%).
+   - naive top-50 (by raw cooc, dominated by function words and/the/of/that):
+     42/50 (84%) survive in shifted top-3; 50/50 retain >0 residual raw
+     cooc. Honest note: this does NOT show the "expected collapse" because
+     ultra-frequent function words co-occur with their Greek counterparts in
+     nearly every verse regardless of exact pairing.
+   - content-word top-50 (src verse-freq <=500, explicit stated cutoff):
+     26/50 (52%) survive in shifted top-3 — real, quantified degradation
+     (24/50 pairs drop out of top-3 rank), while still 50/50 retain some
+     residual co-occurrence (pairing degrades, does not vanish, consistent
+     with a LOCAL ±1 misalignment over a whole testament).
+
+3. Boundary census:
+   - 280 verses became TextAbsent: 260 structural (exactly one per chapter,
+     the chapter's own last verse) + 20 cascading from pre-existing internal
+     gaps already in Tischendorf's critical-text verse numbering (a verse
+     already missing mid-chapter pulls its predecessor down too).
+   - Confirmed by direct measurement, not assumption: 0 pre-existing
+     empty-string verses in the original data; 0 of the 280 dropped keys
+     leak into the shifted flat dict; len(shifted_flat) == len(original) -
+     280 exactly (7615 == 7895 - 280) — absence is by key omission, never an
+     empty-string placeholder that could spuriously "match."
+
+OUTPUT
+- Report written to <data_dir>/out/mutate_verseoffset_report.md, i.e.
+  /tmp/claude-0/-home-user/8a7f1676-44cf-569c-afbe-022e551ce1ec/scratchpad/out/mutate_verseoffset_report.md
+  (script invocation: python3 mutate_verseoffset.py <scratchpad_dir>).
+- Script is fully self-contained, stdlib-only, no network calls, re-runnable.
+
+GATES
+- Ran cleanly end-to-end against the real corpus (no exceptions); output
+  numbers cross-checked against an independent from-scratch prototype run
+  before this file was written. No cargo/rust involved (pure Python
+  deliverable in the rosetta/ data-scripts directory, matching sibling
+  scripts' convention). No git commands run.
