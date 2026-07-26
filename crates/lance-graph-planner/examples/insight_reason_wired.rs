@@ -33,8 +33,8 @@
 //! rails (symbolic, exact) beside field (distributional, fuzzy).
 //!
 //! ## Data (Release assets, gitignored — skips cleanly if absent)
-//!   - COCA codebook  → `coca-codebook-v2` (MedCare-rs) → `examples/data/coca/`
-//!   - WordNet rails  → `wordnet31-rails-v1` (MedCare-rs) → `examples/data/wordnet/`
+//!   - COCA codebook  → `coca-codebook-v2` → `examples/data/coca/`
+//!   - WordNet rails  → `wordnet31-rails-v1` → `examples/data/wordnet/`
 //!
 //! Or point `$COCA_CODEBOOK_DIR` / `$WORDNET_DIR` at the extraction dirs.
 //!
@@ -76,8 +76,8 @@ impl Basins {
         let wn = dir("WORDNET_DIR", "wordnet").join("wordnet31_isa.tsv");
         let hint = "\
 missing Release data. The codebooks are NOT in the repo:
-  COCA codebook → `coca-codebook-v2` (MedCare-rs) → examples/data/coca/  (or $COCA_CODEBOOK_DIR)
-  WordNet rails → `wordnet31-rails-v1` (MedCare-rs) → examples/data/wordnet/ (or $WORDNET_DIR)";
+  COCA codebook → `coca-codebook-v2` → examples/data/coca/  (or $COCA_CODEBOOK_DIR)
+  WordNet rails → `wordnet31-rails-v1` → examples/data/wordnet/ (or $WORDNET_DIR)";
         let lex_txt = std::fs::read_to_string(&coca)
             .map_err(|_| format!("{hint}\n(missing {})", coca.display()))?;
         let wn_txt = std::fs::read_to_string(&wn)
@@ -95,15 +95,35 @@ missing Release data. The codebooks are NOT in the repo:
             }
         }
         let mut rails = HashMap::new();
+        let mut wrong_arity = 0usize;
         for l in wn_txt
             .lines()
             .filter(|l| !l.starts_with('#') && !l.is_empty())
         {
             let c: Vec<&str> = l.split('\t').collect();
-            // word<TAB>pos<TAB>kind<TAB>type ; keep the first (noun preferred) reading
-            if c.len() >= 4 && !rails.contains_key(c[0]) {
+            // v1 schema is EXACTLY `word<TAB>pos<TAB>kind<TAB>type`. The guard is
+            // `== 4`, not `>= 4`, deliberately: the v2 rail
+            // (`wordnet31_isa_v2.tsv`) has 7 columns and would satisfy a
+            // permissive guard while `c[2]`/`c[3]` silently became
+            // `sense_num`/`synset_offset` — garbage EntityType tenants and
+            // WordNet rails with no error anywhere. Same filename, different
+            // meaning, is the `I-LEGACY-API-FEATURE-GATED` failure shape; a
+            // strict arity check turns it into a loud skip.
+            if c.len() == 4 && !rails.contains_key(c[0]) {
                 rails.insert(c[0].to_string(), (c[2].to_string(), c[3].to_string()));
+            } else if c.len() != 4 {
+                wrong_arity += 1;
             }
+        }
+        // A wholly wrong-arity file is a SCHEMA MISMATCH, not sparse data —
+        // fail loudly rather than silently reasoning over an empty rail set.
+        if rails.is_empty() && wrong_arity > 0 {
+            return Err(format!(
+                "wordnet rail schema mismatch: {wrong_arity} rows, none with the \
+                 expected 4 columns (`word<TAB>pos<TAB>kind<TAB>type`). The v2 rail \
+                 has 7 columns and is NOT a drop-in replacement — point \
+                 $WORDNET_DIR at a v1 rail, or migrate this reader."
+            ));
         }
         Ok(Self { lex, rails })
     }

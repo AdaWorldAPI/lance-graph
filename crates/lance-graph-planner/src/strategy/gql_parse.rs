@@ -177,6 +177,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         assert!(parser.affinity(&ctx) > 0.7);
     }
@@ -192,6 +193,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         assert!(parser.affinity(&ctx) < 0.5);
     }
@@ -205,6 +207,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         assert!(parser.affinity(&ctx) > 0.7);
     }
@@ -221,6 +224,7 @@ mod tests {
                 free_will_modifier: 1.0,
                 thinking_style: None,
                 nars_hint: None,
+                witness: None,
             },
             outcome: None,
         };
@@ -244,6 +248,7 @@ mod tests {
                 free_will_modifier: 1.0,
                 thinking_style: None,
                 nars_hint: None,
+                witness: None,
             },
             outcome: None,
         };
@@ -261,6 +266,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         assert!(parser.affinity(&ctx) < 0.1);
     }

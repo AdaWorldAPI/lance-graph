@@ -1,0 +1,46 @@
+task #21 — acquire PUBLIC-DOMAIN Greek New Testament TEXT lane
+agent: general-purpose (sonnet grindwork)
+file owned: crates/lance-graph-planner/examples/data/rosetta/fetch_greek_lane.py (NEW)
+
+RESULT: ACQUIRED. tischendorf (Tischendorf's 8th edition GNT, morphological
+tags stripped for this lane) via getbible.net v2 API.
+
+LICENCE FINDING (verbatim, from https://api.getbible.net/v2/translations.json):
+  - textusreceptus  -> "Creative Commons: BY-NC-SA 4.0"  -> NOT SHIPPABLE
+  - westcotthort    -> "Creative Commons: BY-NC-SA 4.0"  -> NOT SHIPPABLE
+  - lxx (OT only)   -> "Copyrighted; Free non-commercial distribution" -> NOT SHIPPABLE
+  - tischendorf     -> "Public Domain" (distribution_about states outright:
+    "This text and its analysis are in the Public Domain. Copy freely.")
+    -> SHIPPABLE. Base: G. Clint Yale's Tischendorf transcription + Maurice
+    A. Robinson's PD Westcott-Hort text, ed. Ulrik Sandborg-Petersen
+    (morphgnt.org, OSIS format).
+
+COUNTS: 27 NT books (book_nr 40..66, same convention as bible_kjv.json),
+7895 verses, 0 empty-text verses.
+
+OVERLAP vs local bible_kjv.json restricted to NT (book_nr 40..66, 7957
+verses): 7895/7895 Tischendorf verses have a KJV row-key match (full
+containment). 62 verses exist in KJV NT versification but TextAbsent from
+Tischendorf -- these are the well-known critical-text omissions (Matt
+17:21, 18:11, 23:14, etc: Byzantine/TR-only verses absent from the
+Alexandrian-leaning Tischendorf 8th ed.) -- textual criticism, NOT a fetch
+error.
+
+RECEIPT (worked, printed by the script):
+  John 1:1   grc: "Ἐν ἀρχῇ ἦν ὁ λόγος, καὶ ὁ λόγος ἦν πρὸς τὸν θεόν, καὶ θεὸς ἦν ὁ λόγος."
+             kjv: "In the beginning was the Word, and the Word was with God, and the Word was God."
+  Acts 3:22  grc: "Μωϋσῆς μὲν εἶπεν ὅτι προφήτην ὑμῖν ἀναστήσει κύριος ὁ θεὸς ἡμῶν ἐκ τῶν ἀδελφῶν ὑμῶν ὡς ἐμέ· αὐτοῦ ἀκούσεσθε κατὰ πάντα ὅσα ἂν λαλήσῃ πρὸς ὑμᾶς."
+             kjv: "For Moses truly said unto the fathers, A prophet shall the Lord your God raise up unto you of your brethren, like unto me; him shall ye hear in all things whatsoever he shall say unto you."
+
+LIMITATIONS: NT-only (no OT Greek lane shippable -- lxx is copyrighted, and
+even if it weren't, it's OT not NT); morphological tags from the OSIS
+source not carried into the verse-text lane (future facet if needed);
+textusreceptus/westcotthort remain usable only as CC BY-NC-SA oracles
+(same restriction tier as the already-known PROIEL treebank), never as a
+shipped lane.
+
+GATES: script is stdlib-only Python 3 (urllib/json/argparse/pathlib, no new
+deps); py_compile clean; ran end-to-end twice (fresh fetch + --no-fetch
+cached path), both exit 0; report written to
+<scratchpad>/out/greek_lane_report.md. Did not touch build_rosetta_probe.py,
+build_lane_codebooks.py, or any Rust file. No git commit/push performed.

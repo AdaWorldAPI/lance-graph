@@ -177,6 +177,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         assert!(strategy.affinity(&chat_ctx) > 0.9);
 
@@ -186,6 +187,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         assert_eq!(strategy.affinity(&cypher_ctx), 0.0);
     }
@@ -219,6 +221,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         assert!(strategy.affinity(&chat) > 0.9);
 
@@ -229,6 +232,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         assert_eq!(strategy.affinity(&cypher), 0.0);
 
@@ -239,6 +243,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         assert_eq!(strategy.affinity(&gremlin), 0.0);
 
@@ -249,6 +254,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         assert_eq!(strategy.affinity(&sparql), 0.0);
 
@@ -259,6 +265,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         let aff = strategy.affinity(&plain);
         assert!(

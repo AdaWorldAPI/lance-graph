@@ -224,7 +224,7 @@ impl PlanStrategy for StyleStrategy {
         // this slice. It replaces the dead-store `let _reliability = …` the council
         // flagged — the value now has an honest home instead of `_`.
         let style = Self::resolve_style(&input.context);
-        let reliability = Self::reliability_of(style, &input.context);
+        let reliability = Self::reliability_for(style, &input.context);
         input.outcome = Some(StrategyOutcome {
             reliability,
             intended_move: Some(Self::intended_move(style)),
@@ -255,6 +255,27 @@ impl StyleStrategy {
         Self::reliability_at(style, ctx, RungLevel::Transcendent)
     }
 
+    /// **The context-honest entry point** — stratified when, and only when, the
+    /// context carries witness evidence that EARNED a rung.
+    ///
+    /// This is the root of the audit gap `E-RUNG-STRATIFIED-WAVE-SHIPPED-1` left
+    /// open ("threading the wave into planner context is its own deliverable"):
+    /// the planner now runs [`standing_wave_stratified`](lance_graph_contract::witness_fabric::standing_wave_stratified)
+    /// itself, via [`WitnessWindow::rung`](crate::traits::WitnessWindow::rung),
+    /// instead of trusting a rung it was handed.
+    ///
+    /// No window — or a window whose wave escalated or was unbound — yields NO
+    /// rung, and falls back to the unstratified [`reliability_of`](Self::reliability_of).
+    /// **Absence must never be read as [`RungLevel::Surface`]**: rung 0 admits 4
+    /// of 34 tactics, so treating "no evidence" as "shallowest evidence" would
+    /// silently starve every caller that has never heard of the witness fabric.
+    pub fn reliability_for(style: ThinkingStyle, ctx: &PlanContext) -> f32 {
+        match ctx.witness.as_ref().and_then(|w| w.rung()) {
+            Some(rung) => Self::reliability_at(style, ctx, rung),
+            None => Self::reliability_of(style, ctx),
+        }
+    }
+
     /// [`reliability_of`](Self::reliability_of) **at a rung** — only the tactics
     /// the resolution has earned may contribute
     /// (`E-STANDING-WAVE-IS-UNSTRATIFIED-SUDOKU-1`).
@@ -272,12 +293,15 @@ impl StyleStrategy {
     /// let r = StyleStrategy::reliability_at(style, ctx, rung);
     /// ```
     ///
-    /// **Why the rung is a parameter and not a `PlanContext` field:** `PlanContext`
-    /// carries no witness window today, so there is no honest rung to read from it
-    /// — deriving one from `estimated_complexity` would be inventing a semantic.
-    /// Threading the wave into the planner's context is its own deliverable; until
-    /// then callers that HAVE a window pass the rung explicitly, and callers that
-    /// do not keep the unstratified [`reliability_of`](Self::reliability_of).
+    /// **Why the rung is still a parameter, now that `PlanContext` can carry a
+    /// window:** a rung read from the context is only honest when the context
+    /// HAS witness evidence — that path is [`reliability_for`](Self::reliability_for),
+    /// which derives it from the wave. This entry point stays explicit for the
+    /// callers that hold a window the `PlanContext` does not (the fabric's own
+    /// consumers), and for the peripheral watchdog, which must score at rungs
+    /// the context did not earn. The rule that has not changed: a rung is
+    /// derived from a wave or passed by someone who ran one — never inferred
+    /// from `estimated_complexity`, which would be inventing a semantic.
     pub fn reliability_at(style: ThinkingStyle, ctx: &PlanContext, rung: RungLevel) -> f32 {
         let mut tc = Self::thought_ctx_from(ctx);
         for recipe in Self::recipes_for_at(style, rung) {
@@ -372,6 +396,7 @@ mod tests {
             free_will_modifier: 0.7,
             thinking_style: style,
             nars_hint: None,
+            witness: None,
         }
     }
 
@@ -627,5 +652,198 @@ mod tests {
             context,
             outcome: None,
         }
+    }
+
+    // ── the wave threaded into planner context (task #29) ────────────────────
+
+    use crate::traits::WitnessWindow;
+    use lance_graph_contract::causal_witness::{CausalWitnessFacet, Locus};
+
+    fn facet(edges: &[(Locus, i8)]) -> CausalWitnessFacet {
+        let mut f = CausalWitnessFacet::ZERO;
+        for &(l, o) in edges {
+            f = f.with(l, o);
+        }
+        f
+    }
+
+    fn window(rows: Vec<(usize, CausalWitnessFacet)>, passes: u8) -> WitnessWindow {
+        WitnessWindow {
+            rows,
+            focal_idx: 0,
+            locus: Locus::Antecedent,
+            passes,
+        }
+    }
+
+    /// A single-hop chain that terminates: the cheapest ground the wave can
+    /// observe (settles at pass 2 — two successive budgets agree).
+    fn cheap_ground_window() -> WitnessWindow {
+        window(
+            vec![
+                (0, facet(&[(Locus::Antecedent, 1)])),
+                (1, CausalWitnessFacet::ZERO),
+            ],
+            8,
+        )
+    }
+
+    /// A chain that leaves the `±8` reference horizon — the hard case.
+    fn escalating_window() -> WitnessWindow {
+        window(vec![(0, facet(&[(Locus::Antecedent, 7)]))], 8)
+    }
+
+    /// The three contexts `resolve_style` can actually produce, so a claim
+    /// about "every style" is a claim about every reachable one.
+    fn reachable_ctxs() -> Vec<PlanContext> {
+        vec![
+            ctx_with(Some(style_vec(0.9, 0.0, 0.0))),
+            ctx_with(Some(style_vec(0.0, 0.9, 0.0))),
+            ctx_with(Some(style_vec(0.0, 0.0, 0.9))),
+        ]
+    }
+
+    /// **The non-breaking guarantee.** A context without witness evidence must
+    /// score EXACTLY as it did before the window existed — bit-identical, not
+    /// approximately.
+    #[test]
+    fn no_witness_window_is_bit_identical_to_the_unstratified_path() {
+        for ctx in reachable_ctxs() {
+            assert!(ctx.witness.is_none());
+            let style = StyleStrategy::resolve_style(&ctx);
+            assert_eq!(
+                StyleStrategy::reliability_for(style, &ctx).to_bits(),
+                StyleStrategy::reliability_of(style, &ctx).to_bits(),
+                "{style:?}: no-window path drifted from the unstratified score"
+            );
+            // …including through `plan()`, the surface a consumer actually reads.
+            let out = StyleStrategy
+                .plan(ctx_input(ctx.clone()), &mut Arena::new())
+                .expect("plan must not error");
+            assert_eq!(
+                out.outcome.unwrap().reliability.to_bits(),
+                StyleStrategy::reliability_of(style, &ctx).to_bits()
+            );
+        }
+    }
+
+    /// **Absent ≠ zero.** No window means NO rung — never
+    /// [`RungLevel::Surface`], which admits 4 of 34 tactics and would silently
+    /// starve every caller that has no witness evidence.
+    #[test]
+    fn absent_window_is_not_read_as_rung_surface() {
+        // The claim is only falsifiable where Surface and the unstratified set
+        // actually score differently; assert such a style exists, then assert
+        // the absent path lands on the unstratified side of that difference.
+        let mut discriminating = 0;
+        for ctx in reachable_ctxs() {
+            let style = StyleStrategy::resolve_style(&ctx);
+            let surface = StyleStrategy::reliability_at(style, &ctx, RungLevel::Surface);
+            let absent = StyleStrategy::reliability_for(style, &ctx);
+            if surface.to_bits() != StyleStrategy::reliability_of(style, &ctx).to_bits() {
+                discriminating += 1;
+                assert_ne!(
+                    absent.to_bits(),
+                    surface.to_bits(),
+                    "{style:?}: a context with NO witness was scored as rung 0"
+                );
+            }
+        }
+        assert!(
+            discriminating > 0,
+            "no style distinguishes Surface from the full set — the test cannot falsify"
+        );
+    }
+
+    /// The rung is DERIVED from the wave, not asserted: a window that grounds
+    /// cheaply is normalized to a shallow rung, and that changes the measured
+    /// reliability — not merely a recipe count.
+    #[test]
+    fn witness_window_derives_the_rung_from_the_wave() {
+        let cheap = cheap_ground_window();
+        assert_eq!(
+            cheap.rung(),
+            Some(RungLevel::Shallow),
+            "a single-hop terminal chain settles at pass 2 → Shallow"
+        );
+
+        let mut moved = 0;
+        for mut ctx in reachable_ctxs() {
+            let style = StyleStrategy::resolve_style(&ctx);
+            let unstratified = StyleStrategy::reliability_of(style, &ctx);
+            ctx.witness = Some(cheap_ground_window());
+            let stratified = StyleStrategy::reliability_for(style, &ctx);
+            // The score is exactly the one the derived rung dictates.
+            assert_eq!(
+                stratified.to_bits(),
+                StyleStrategy::reliability_at(style, &ctx, RungLevel::Shallow).to_bits(),
+                "{style:?}: context rung did not come from the wave"
+            );
+            if stratified.to_bits() != unstratified.to_bits() {
+                moved += 1;
+            }
+        }
+        assert!(
+            moved > 0,
+            "threading the wave changed no OUTCOME for any style — inert wiring"
+        );
+    }
+
+    /// A window whose chain escalates earns NO rung, so the caller falls back to
+    /// the full set — never to the shallow rung its early settle pass would
+    /// suggest. Starving the hardest case of the deepest tactics is exactly the
+    /// blindness `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1` names.
+    #[test]
+    fn escalating_and_unbound_windows_earn_no_rung_and_never_starve() {
+        assert_eq!(escalating_window().rung(), None, "escalation earns no rung");
+        assert_eq!(
+            window(vec![(0, CausalWitnessFacet::ZERO)], 8).rung(),
+            None,
+            "an unbound locus earns no rung"
+        );
+
+        for mut ctx in reachable_ctxs() {
+            let style = StyleStrategy::resolve_style(&ctx);
+            let unstratified = StyleStrategy::reliability_of(style, &ctx);
+            ctx.witness = Some(escalating_window());
+            assert_eq!(
+                StyleStrategy::reliability_for(style, &ctx).to_bits(),
+                unstratified.to_bits(),
+                "{style:?}: an escalating window was scored at a rung it never earned"
+            );
+            // …and the cheap ground really is the STRICTER of the two: fewer
+            // tactics admitted than the escalating (unstratified) fallback.
+            let shallow = StyleStrategy::recipes_for_at(style, RungLevel::Shallow).count();
+            let full = StyleStrategy::recipes_for(style).count();
+            assert!(
+                shallow <= full,
+                "{style:?}: cheap ground admitted more than the fallback"
+            );
+        }
+        // At least one style must show the inequality strictly, or "shallower
+        // than escalate" is a claim about nothing.
+        assert!(
+            ThinkingStyle::ALL.iter().any(|&s| {
+                StyleStrategy::recipes_for_at(s, RungLevel::Shallow).count()
+                    < StyleStrategy::recipes_for(s).count()
+            }),
+            "cheap grounding never restricts anything relative to escalation"
+        );
+    }
+
+    /// End-to-end: the wave reaches the D-MBX-A6 carrier `plan()` surfaces.
+    #[test]
+    fn plan_surfaces_the_wave_derived_reliability() {
+        let mut ctx = ctx_with(Some(style_vec(0.9, 0.0, 0.0)));
+        ctx.witness = Some(cheap_ground_window());
+        let style = StyleStrategy::resolve_style(&ctx);
+        let out = StyleStrategy
+            .plan(ctx_input(ctx.clone()), &mut Arena::new())
+            .expect("plan must not error");
+        assert_eq!(
+            out.outcome.unwrap().reliability.to_bits(),
+            StyleStrategy::reliability_at(style, &ctx, RungLevel::Shallow).to_bits(),
+            "plan() ignored the context's witness window"
+        );
     }
 }

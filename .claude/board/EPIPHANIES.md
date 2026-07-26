@@ -1,3 +1,54 @@
+## 2026-07-26 — E-PD-GREEK-LANE-ACQUIRED-TISCHENDORF-1 — the source lane EXISTS: Tischendorf 8th ed. is stated **Public Domain**, while Textus Receptus and Westcott-Hort are **CC BY-NC-SA 4.0**. The pre-1929 age of a Greek edition does NOT make its digital transcription redistributable — the transcription carries its own claim, and two of the three obvious candidates fail.
+
+**Status:** FINDING (licence strings re-fetched and verified on the main thread, independently of the producing agent). **Confidence:** High.
+
+**Verified verbatim from `api.getbible.net/v2/translations.json`:**
+
+| edition | `distribution_license` | shippable |
+|---|---|---|
+| **tischendorf** (8th ed. GNT) | **`Public Domain`** | **YES** |
+| textusreceptus | `Creative Commons: BY-NC-SA 4.0` | no — NC |
+| westcotthort | `Creative Commons: BY-NC-SA 4.0` | no — NC |
+| lxx | `Copyrighted; Free non-commercial distribution` | no (and OT-only) |
+
+The `distribution_about` for Tischendorf reads *"This text and its analysis are in the Public Domain. Copy freely."*
+
+**The lesson worth keeping:** I would have assumed TR (1550/1894) and WH (1881) were PD — they are ancient works. **Two of three failed on the transcription's own terms.** This is the same trap as `E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1` one level down: age of the underlying work says nothing about the licence of the digitisation. Check the string, never the century.
+
+**Acquired:** 27 NT books (`book_nr` 40..66, matching the KJV lane's numbering), **7,895 verses**, 0 empty. Every Tischendorf row-key has a KJV match; **62 KJV NT verses are `TextAbsent` from Tischendorf** — the well-known critical-text omissions (Matt 17:21, 18:11, 23:14 …), a Byzantine-vs-Alexandrian tradition artifact, NOT an error. That is `WitnessDisposition::TextAbsent` earning its keep on real data for the second time this session. Receipt: John 1:1 `Ἐν ἀρχῇ ἦν ὁ λόγος…`. Generator: `rosetta/fetch_greek_lane.py` (stdlib-only, licence finding in its docstring).
+
+**Unblocks the anchoring rule.** `E-...-Erbsünde` defined *source outranks translation*, but there was no source lane to outrank with. There is now — and it is PUBLICLY SHIPPABLE, so the D-RCC-8 package can carry a source arm rather than depending on the NC PROIEL treebank, which stays oracle-only. Plan blocker §4.4 is DISCHARGED. Task #21.
+
+---
+
+## 2026-07-26 — E-PERMISSIVE-ARITY-GUARD-IS-THE-SILENT-MISREAD-MECHANISM-1 — the WordNet rail swap has only **2 consumers and NO loud-break ones** — and that is the bad news, not the good news. Both use a permissive `len() >= 4` guard that the 7-column v2 rail would satisfy while `c[2]`/`c[3]` silently became `sense_num`/`synset_offset`. **Fixed by making the guard exact and the mismatch loud.**
+
+**Status:** SHIPPED (audit + fix). **Confidence:** High — consumer claims verified at file:line on the main thread.
+
+**Audit result (read-only sweep, whole workspace + siblings):**
+- `wordnet31_isa.tsv` is **NOT committed** — it is gitignored generated data; only the two generator scripts are in git. So the migration has no git history at risk.
+- **2 real consumers, both silent-mis-read risk:** `examples/insight_reason_wired.rs` (live) and `wordnet/tier_delta.py` (the audit tool that found the bug; latent).
+- `build_wordnet_rail.py` is schema-aware by design (separate v1/v2 path constants) — no risk. `coca_wordnet_convergence.py` reads raw WNDB, not this TSV — not a consumer. A `dul.ttl` hit is a false positive (DOLCE mentioning WordNet generically).
+- **Sibling repos (ndarray, OGAR, tesseract-rs): zero consumers.**
+
+**Why zero loud-break consumers is the WORSE finding.** A break is safe: it stops the build and names itself. A permissive guard that keeps passing under a changed schema produces garbage `EntityType` tenants and `Graph::WordNet` rails with no error anywhere — the reader reasons confidently over nonsense. This bug class has now recurred TWICE in this file family (the keep-first extractor, then the arity guard), which is the tell that the *guard style* is the defect, not the individual site.
+
+**Fix applied:** `insight_reason_wired.rs` now guards on `c.len() == 4` (exact arity, with the reasoning in a comment naming v2 explicitly), counts wrong-arity rows, and **fails loudly** with a schema-mismatch error when a file yields zero valid rows but non-zero wrong-arity rows — turning a silent misread into a named failure. Migration shape adopted: **new filename + exact-arity checks at every read site** (the sweep's recommendation (a) + defense-in-depth from (c)); deprecation scaffolding rejected as over-engineering for 2 editable-in-one-PR consumers.
+
+**Generalizes:** every `len() >= N` guard over a schema'd file is a silent-misread waiting for a schema change. Prefer `== N` plus an explicit else-branch. Task #22.
+
+---
+
+## 2026-07-26 — E-PRIVATE-STORE-DISCLOSURE-IN-SOURCE-1 — **my earlier confidentiality sweep was incomplete**: it covered `.claude/board/` and the PR body but NOT committed SOURCE. Four example files named the private repository as the storage location for restricted codebooks, in user-facing error text.
+
+**Status:** FIXED. **Confidence:** High — found by a `crates/**` grep the earlier sweep never ran.
+
+The operator rule (now in `CLAUDE.md`) is that a public artifact states findings and limits, never *where a restricted artifact is kept*. I applied it to board files and the PR body and stopped there. Four `lance-graph-planner/examples/*.rs` files carried lines of the shape ``COCA codebook → `coca-codebook-v2` (<private repo>) → examples/data/coca/`` — **in a runtime error message**, i.e. the most user-visible surface in the crate. Redacted to name the Release asset without its location.
+
+**Deliberately NOT redacted:** `medcare_bridge.rs`, `ogar_codebook.rs`, `classid_scan.rs`, `postgrest.rs`, `lance-graph-ontology` — these name MedCare as a *tenant/consumer domain* (render lens, classid pairs, namespace). That is cross-repo coordination the arc depends on, not a statement about what a private repo holds. The distinction is the same one drawn in the board sweep, applied consistently.
+
+**Process lesson:** a confidentiality sweep scoped to "the docs" is not a sweep. The next one must cover `crates/**`, `docs/**`, `.claude/**`, commit messages, and PR bodies — error strings especially, because they are both committed AND shown to users at runtime.
+
 ## 2026-07-26 — E-SATURATION-SWITCHES-TO-PASSIVE-QUORUM-1 — **at the top of the ladder the gate stops discriminating, so discrimination switches from ACTIVE selection to PASSIVE quorum** — and the tail is then ridden, not discarded: graded by multi-hop causal trajectory, meta-clustered on causal SHAPE, split into mini-basins, and reported as SUGGESTIONS with the anti-eigenvalue guard re-applied at the meta level.
 
 **Status:** SHIPPED (contract + planner). **Confidence:** High — 1050 contract + 289 planner tests green, clippy + fmt clean.
