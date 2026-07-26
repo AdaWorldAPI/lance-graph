@@ -1,5 +1,37 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-26 — ISS-VERSIFICATION-SCRIPT-BLIND — the anchor-overlap versification detector cannot measure cross-script lane pairs and reports the tie as `offset=0` — the Greek lane's versification is UNVERIFIED — OPEN
+
+**Status:** OPEN (P1 for any consumer of `versification_map.tsv` rows involving
+tischendorf; the German/Czech rows are unaffected — same-script pairs carry real
+anchor signal). Surfaced by the `Mutate_VersificationOffset` operator
+(`E-MUTATION-WAVE1-VERSIFICATION-DETECTOR-IS-SCRIPT-BLIND-1`).
+
+**Defect.** `build_versification_map.py`'s `fuzzy_present` prefix-matches
+Latin-alphabet anchor tokens against Greek-script text — zero shared codepoints,
+structurally can never match. All three candidate offsets tie at score 0.0 and
+the tie-break silently picks `offset=0`, at confidence 0.0000, on clean and
+corrupted data alike (0/258 recovery of an injected +1 shift on anchor-basis
+chapters; the length-ratio fallback recovered 2/2). An absent measurement is
+being read as a zero offset — the exact absent≠zero violation the substrate
+bans, in shipped tooling.
+
+**Fix (task #43).** (1) A script-compatibility guard: when the anchor token set
+and the target lane share no script, the chapter's verdict is `CannotMeasure`,
+never `offset=0`. (2) A tie at score 0.0 across all candidates is also
+`CannotMeasure` regardless of script. (3) Cross-script pairs route to the
+length-ratio basis (the only mechanism that worked) with its basis labelled, or
+to a transliteration/alignment-based anchor set if one is ever built. The
+generator lives on the bake branch (`claude/rosetta-codebook-bakes-z30uij`), so
+the fix lands there; consumers of the published map must treat existing
+tischendorf rows as unverified until regenerated.
+
+**Cross-ref:** `E-MUTATION-WAVE1-VERSIFICATION-DETECTOR-IS-SCRIPT-BLIND-1`,
+`exec-runs/mutate-verseoffset.txt` (tag-file with the full census), the
+falsifiability rule (CLAUDE.md P0 — "a guard/channel needs a can-it-fire test":
+this detector's first can-it-fire test was this mutation operator, and it
+couldn't).
+
 ## 2026-07-21 — ISS-BUNDLE-RULING-SCOPE — does E-NO-BUNDLE-STANDING-WAVE-1's niche-closure retire the deepnsm MarkovBundler cluster? The ruling's LETTER says yes; its stated MECHANISM (single-owner SoA violation) does NOT describe this code — ruling-author decision
 
 **Status:** RULED 2026-07-21 (operator, path **(b)**) — KEEP the MarkovBundler cluster as is (path (a) full-retire NOT taken; path (c) unwired-retire deferred). The standing-wave **resolution** complement is built where the parallel rebuild lives: **`deepnsm-v2::wave::WitnessStream`** — version-stamped single-owner loci events, resolved `Causal`/`Escalate` by `witness_fabric::standing_wave_grounded`/`resolve_chain` over `TemporalStream`'s version-range window (out-of-version target → Escalate; the ±8 horizon meets the version read). 10 tests green. NOT in old `deepnsm` (that would have been the redundant third artifact this entry warned against). **Priority:** P2. **Scope:** @truth-architect domain:deepnsm domain:substrate.

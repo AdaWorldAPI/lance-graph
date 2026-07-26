@@ -1,0 +1,32 @@
+Task: regenerate WordNet rail correctly + make it reproducible
+Files written (only these two, plus this tag file):
+  - crates/lance-graph-planner/examples/data/wordnet/build_wordnet_rail.py
+  - crates/lance-graph-planner/examples/data/wordnet/fetch_wordnet.sh
+
+Ran (gitignored outputs, not committed):
+  - out/wordnet31_isa_v2.tsv (176,532 rows, all senses n+v)
+  - out/wordnet_rail_diff.md (full audit, all 129,059 v1 rows, no sampling)
+
+Headline: v1 error rate 16.01% exact-string (20,660/129,059), 12.76%
+case-insensitive / real-sense-selection-only (16,471/129,059; ~4,189
+mismatches were pure case-folding e.g. v-day vs V-day, not sense bugs).
+By POS: nouns 14.33%, verbs 33.84%. 219 rows had v1 attach a hypernym to
+a sense-1 that is actually a taxonomy root (fabricated, not just
+mis-ranked).
+
+Both named anchors (grape/n, swallow/n) verified PASS via --verify mode
+against live WNDB, matching the epiphany exactly (grape 'shot' belongs
+to sense 3, true sense-1 hypernym 'edible_fruit'; swallow 'consumption'
+belongs to sense 2, true sense-1 hypernym 'taste').
+
+fetch_wordnet.sh: network fetch WORKS in this session. Correct live URL
+found by trial (the commonly-assumed .../3.1/WNdb-3.1.tar.gz path 404s;
+the actual live asset is https://wordnetcode.princeton.edu/wn3.1.dict.tar.gz,
+verified HTTP 200, 16,358,468 bytes, gzip, Last-Modified 2012-02-27).
+Tested both the no-op path (dir already present) and a cold fetch into
+a fresh temp dir, extraction, layout-detection, and a full re-run of
+build_wordnet_rail.py --verify against the freshly-fetched copy -- PASS,
+identical results. Test artifacts cleaned up after.
+
+Did NOT touch: wordnet31_isa.tsv (untouched, not superseded by me),
+AGENT_LOG.md, any other board file, no git commit/push.

@@ -14,6 +14,7 @@ pub mod facet_fold;
 pub mod inference;
 pub mod insight;
 pub mod insights;
+pub mod meta_basin;
 pub mod reach_out;
 pub mod regulate;
 pub mod tactic_select;

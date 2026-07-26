@@ -1,3 +1,22 @@
+## 2026-07-26 — rosetta-codebook-convergence v1 — PROPOSED (D-RCC-1 calibrator runnable today) — main thread
+
+**Plan:** `.claude/plans/rosetta-codebook-convergence-v1.md`
+The Bible Rosetta SoA + multi-codebook qualia agreement: frozen verse address
+= external key ⇒ all translations are LANES on one row (~31k rows, in-memory);
+language = lane discriminant resolved from classid (no LanguageDto — the
+witness facet is the shipped `ClauseSignature`); codebooks never merge — the
+qualia of a word is a VECTOR OF AGREEMENTS (rank stats, i4, support-masked,
+POS-routed hydration); sense resolution = Schnittpunkt of cross-language
+sense-set intersection (extensional) × CLAM/HHTL cascade descent
+(intensional); cross-lane constraint propagation to fixpoint (facts cross,
+form never; propagated ≠ attested); Czech/Kralická as the aspect-marked
+lane; bake as PD-texts-only Release with NC treebanks as local oracle
+(libtesseract pattern). Deliverables D-RCC-1 (lanes-to-singleton
+CALIBRATOR — per-item anchors are the value, blocks nothing; operator-corrected
+from a kill gate) + D-RCC-2..8. Absorbs task-board W4/W7/W15/W17/W18;
+un-gates W11 via D-RCC-4. Blockers §4: per-treebank licence re-verify,
+Kralická edition provenance, versification map source, Greek PD edition.
+
 ## 2026-07-23 — scientific-kg-substrate v1 — PROPOSED (scoping; outward-facing crawl BLOCKED) — main thread
 
 **Plan:** `.claude/plans/scientific-kg-substrate-v1.md`

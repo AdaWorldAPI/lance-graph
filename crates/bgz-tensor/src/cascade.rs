@@ -305,10 +305,61 @@ mod tests {
         let (active, stats) =
             cascade_attention(&q_bases, &k_bases, &q_idx, &k_idx, &table, &config);
 
-        // Should eliminate significant fraction
+        // Fixture is fully deterministic (fixed seeds, no RNG, no wall-clock
+        // input) so instead of a loose lower bound this asserts the EXACT
+        // counts measured against this fixture (`E-VACUOUS-ASSERTION-IS-THE-
+        // HOUSE-STYLE-1`: `elimination_rate() > 0.0` is true for ANY input
+        // that eliminates a single candidate and cannot distinguish a
+        // working cascade from a nearly-inert one). Measured 2026-07-26 for
+        // n=32 (1024 pairs), heel_min_agreement=2, hip_max_distance=20000:
+        // HEEL rejects 66 pairs, HIP rejects 0, TWIG rejects 0, and the 1%
+        // LEAF budget (10 of 1024) admits exactly 10 pairs while rejecting
+        // the remaining 948 that reached LEAF.
+        //
+        // A regression that would slip past a bare `> 0.0` check but is
+        // caught here: HEEL's plane-agreement filter silently degrading
+        // (e.g. `heel_min_agreement` stops being honored, or `ScentByte`
+        // computation breaks) would still leave elimination_rate() > 0.0 as
+        // long as the LEAF budget alone eliminated something — but
+        // `eliminated_at[0]` would drop to 0 and this exact-count assertion
+        // would fail where the old one would not.
+        assert_eq!(
+            stats.eliminated_at[0],
+            66,
+            "HEEL elimination count changed for this deterministic fixture — either \
+             ScentByte::compute or heel_min_agreement handling regressed, or this test's \
+             fixture was edited (in which case re-measure and update the expected count). \
+             Stats: {}",
+            stats.summary()
+        );
+        assert_eq!(
+            stats.eliminated_at[1],
+            0,
+            "HIP was expected to reject 0 pairs at hip_max_distance=20000 for this fixture; \
+             a nonzero count here means the palette distance table or its threshold changed. \
+             Stats: {}",
+            stats.summary()
+        );
+        assert_eq!(
+            stats.active_pairs,
+            10,
+            "LEAF budget (1% of 1024 = 10) should admit exactly 10 pairs; a different count \
+             means the leaf-budget bookkeeping in cascade_attention regressed. Stats: {}",
+            stats.summary()
+        );
+
+        // Restated as a rate so the intent (early-stage elimination fraction)
+        // stays legible without re-deriving it from the raw counts above.
+        // Bounds are the observed value ± a small tolerance, not invented:
+        // below 0.05 would mean HEEL's agreement filter stopped discriminating
+        // for this fixture; above 0.08 would mean HEEL is eliminating pairs it
+        // didn't before (over-pruning candidates that should reach HIP/TWIG).
+        let rate = stats.elimination_rate();
         assert!(
-            stats.elimination_rate() > 0.0,
-            "Cascade should eliminate some pairs. Stats: {}",
+            (0.05..0.08).contains(&rate),
+            "elimination_rate {:.4} fell outside the measured band [0.05, 0.08) for this \
+             fixture (measured 0.0645). Stats: {}",
+            rate,
             stats.summary()
         );
         assert!(active.len() <= n * n);

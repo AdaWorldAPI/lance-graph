@@ -1,0 +1,52 @@
+Task #20 — closed-class detector (grindwork, Sonnet)
+
+File added: crates/lance-graph-planner/examples/data/rosetta/closed_class.py
+(stdlib-only Python 3; no edits to build_lane_codebooks.py / build_rosetta_probe.py /
+fetch_greek_lane.py; no Rust; no git commit/push).
+
+Method: rank-matched Juilland's-D dispersion z-score (bin tokens by log-scaled
+rank, z-score dispersion against same-bin peers) as the primary independent
+signal, combined with rep_ratio (freq/verse_df, verse-internal repetition) and
+token length (deliberately smallest weight — flagged in the brief as a
+non-transferable shortcut). Score = z_disp + REP_ALPHA*z_rep - LEN_ALPHA*z_len;
+predicted_closed = score>=Z_THRESH and freq>=MIN_FREQ.
+
+Validation: German ground truth = crates/lance-graph-planner/examples/data/de/lexicon.tsv
+(95,855 unique UD-derived word forms, single-letter POS, 0 ambiguous dupes).
+POS->class mapping: closed={i,d,p,c,t}, open={n,v,j,r}, excluded={m,x}
+(documented in module docstring). Both German lanes (luther1545, elberfelder1905)
+scored by lowercase surface-form match; coverage 30.79% (13709/44525 tokens
+matched a lexicon entry with an unambiguous class).
+
+Config selected by grid search (9 Z_THRESH x 6 MIN_FREQ x 4 REP_ALPHA x 3
+LEN_ALPHA = 648 combos) maximising combined-German F1, no held-out split
+(disclosed as a limitation): Z_THRESH=0.0, MIN_FREQ=50, REP_ALPHA=0.5,
+LEN_ALPHA=0.0.
+
+RESULT — NEGATIVE, reported honestly per the brief:
+  combined German: new detector F1=0.2802 (P=0.1938, R=0.5058)
+                    old baseline (rank<=150) F1=0.3881 (P=0.5455, R=0.3012)
+  Detector does NOT beat the rank<=150 baseline on F1. It trades the
+  baseline's high precision (rank<=150 catches mostly-true function words at
+  P=0.55) for much higher recall (0.51 vs 0.30, it also flags closed-class
+  tokens outside the top-150) but nets a worse F1 overall on this validation
+  set. Per-lane breakdown in the report shows the same pattern in both
+  luther1545 and elberfelder1905 individually.
+
+Czech (bkr) application: UNVALIDATED (no ground truth exists for this
+language in the repo). Same German-tuned config applied as-is. Flags
+837/40100 tokens (2.09%) vs baseline's 150. Top-30 flagged tokens by score
+listed in the report for human eyeballing — includes plausible function
+words (a, se, i, v, na, mezi, nad, pro) alongside some likely false
+positives (loket/loktů = "cubit", a recurring measurement noun; čeled =
+"household/retinue").
+
+Report emitted: /tmp/claude-0/-home-user/8a7f1676-44cf-569c-afbe-022e551ce1ec/scratchpad/out/closed_class_report.md
+(method, thresholds, German P/R/F1 table incl. per-lane, Czech application,
+limitations section — 6 disclosed caveats incl. no-held-out-split,
+zero-ground-truth-for-Czech, surface-form-not-lemma matching, m/x POS
+exclusion, unchanged Juilland's-D formula, hand-picked rank bins).
+
+Script verified: py_compile clean, stdlib-only imports (argparse, statistics,
+collections.defaultdict, pathlib), runs end-to-end against the scratch data
+in ~1s.

@@ -151,6 +151,7 @@ impl Planner {
             free_will_modifier: 1.0,
             thinking_style: Some(full_vec),
             nars_hint: None,
+            witness: None,
         };
 
         let selected = crate::selector::select_strategies(

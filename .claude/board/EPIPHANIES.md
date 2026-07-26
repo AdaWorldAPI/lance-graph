@@ -1,4 +1,687 @@
-## 2026-07-26 — E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1 — the derived codebooks do NOT share one publication path: **UD-derived and WordNet-derived assets can ship as PUBLIC lance-graph Releases; PROIEL-derived and COCA-derived assets must stay PRIVATE (MedCare-rs)** — because a derived database inherits its source's licence, and PROIEL's NonCommercial clause is the blocker. Never bundle regimes into one asset.
+## 2026-07-26 — E-META-AWARENESS-CONVERGES-ON-SHIPPED-MUL-FORESIGHT-SHIPPED-1 — the external reviewer's "meta-awareness architecture" proposal, adjudicated: **its centrepiece already ships** (`contract::mul` — `DkPosition::{MountStupid, ValleyOfDespair, SlopeOfEnlightenment, Plateau}`, `GateDecision::{Flow, Hold, Block}`, `MulAssessment`), and the reviewer re-derived it independently because MY knowledge-transfer document never mentioned it. **A reviewer can only review the map you hand them** — an omission in the transfer doc reads back as a gap in the system. The genuinely new pieces are queued; the decisive experiment is SHIPPED.
+
+**Status:** ADJUDICATED + partially SHIPPED. **Confidence:** High — MUL verified at type level; foresight functions tested.
+
+**Convergence (validation, not novelty):** the proposal's "operational Dunning-Kruger quadrants" and "meta schedules thinking, never decides truth" are the shipped MUL — quadrants = `DkPosition`, the scheduling-not-truth rule = `GateDecision` + this session's suggestion-only doctrine (every periphery channel SUGGESTS; disposition rules decide). Independent re-derivation of an unshown design is evidence the design sits at an attractor — recorded as such, not as a new idea.
+
+**Genuinely new, queued (tasks #41/#42):**
+- **RecipeCompetence three-gate.** Admissibility ("may this recipe fire at this rung?") ships as `Recipe::min_rung`/`admissible_at`. The reviewer adds two MORE gates with distinct failure modes: **competence** ("has it earned trust on this basin?" — per-recipe outcome history) and **coverage** ("has it been inspected enough to know?" — the anti-eigenvalue coverage cursor feeding a per-recipe inspection count). Three gates, three different reasons to hold a recipe back; collapsing them into one score is the merged-proxy trap again.
+- **MetaEpistemicFacet as a 12-byte lane.** The proposed 6×(belief/method/search/dynamics/evidence/residual) pairs are natively the V3 `6×(u8:u8)` facet carving — no widening, no new struct shape. Gated HARD on a producer existing first: shipping the struct without the hydration path is the persona-36 trap (a dead register with a storyline).
+
+**SHIPPED — the Epistemic Foresight Test, minimal honest form** (`witness_fabric::{ForesightSample, foresight_sample, foresight_calibration}`): *did the substrate, at version v, correctly identify which of its own beliefs would need later correction?* Risk = `churn_mantissa` computed through `upto = v` — **hindsight-blind by parameter, not by discipline** (the same structural guarantee as `quorum_mantissa`'s outcome-blind signature). Post-segment overlaps the split by one revision so cross-boundary flips count; `None` on empty sides (absent ≠ zero); calibration returns raw counts per risk band so empty bands stay visible instead of becoming a confident 0.0. Five tests, each with a named falsifier: calm-then-wild MUST read risk 0 (an implementation leaking hindsight reads 7); wild-then-calm MUST honestly record the miscalibrated case (risk 15, zero flips after — a sampler that only emits hypothesis-confirming rows is worthless as calibration input); the boundary flip fires; the unscorable sample is skipped, not zeroed; and the calibration curve SLOPES on data where churn genuinely predicts revision. This is the narrow claim ("past instability predicts future revision") — richer risk profiles are consumer-side. Task #27's contract-level core is now in place; the corpus-scale probe remains.
+
+Refs: `E-EXTERNAL-REVIEW-ADJUDICATED-1` (the adjudication protocol this continues), `contract::mul` (the convergence target), `.claude/v3/soa_layout/le-contract.md` §3 (the facet carving #42 must use), tasks #27/#41/#42.
+
+## 2026-07-26 — E-MUTATION-WAVE1-VERSIFICATION-DETECTOR-IS-SCRIPT-BLIND-1 — first two mutation operators ran against the real corpus and one of them **falsified a shipped verification**: the anchor-overlap versification detector is SCRIPT-BLIND — it prefix-matches Latin-alphabet anchors against Greek text, which can never match, so it reports `offset=0, confidence 0.0000` on clean AND corrupted Greek alike. **The Greek lane's versification was never actually verified; the earlier "tischendorf needs no shift" reading was an absent-read-as-zero artifact.** A detector that had never been run against a known corruption was trusted as if it had — the falsifiability rule, found in shipped tooling.
+
+**Status:** FINDING (measured, two independent runs each). **Confidence:** High for every number; both scripts stdlib-only, deterministic, re-runnable.
+
+**Mutate_VersificationOffset (Tischendorf +1-per-chapter shift, KJV/Greek NT, 260 chapters):**
+- Anchor-basis chapters (258/260, 99.2% of the corpus): recovery of the true offset **0/258**. Root cause verified, not guessed: `fuzzy_present` prefix-matches Latin tokens against Greek script — zero shared codepoints, structurally impossible, independent of alignment. Digit signal cannot rescue it: 1 digit-bearing verse in 7,895 (Greek spells numbers out).
+- The clean baseline reads offset=0 at mean confidence 0.0011; the corrupted run reads offset=0 at confidence exactly 0.0000 (three-way score tie, tie-break picks 0). **The detector cannot discriminate corrupted from clean for this pair** — it needs a `CannotMeasure` state for cross-script lanes; a tie at zero must never surface as a finding of "no offset" (task #43).
+- **The expected failure class is INVERTED:** the two chapters with no anchor signal at all (1 Cor 13, James 5) are exactly where recovery SUCCEEDS — the length-ratio fallback got 2/2 while the 99.2% mainline got 0/258. The fallback is the only part that works cross-script.
+- Alignment degradation under the shift: content-word top-50 survival **52%** vs function-word **84%** — function words co-occur everywhere and are shift-robust; content words carry the actual alignment signal. Boundary census exact: 7615 == 7895 − 280 (260 structural last-verses + 20 cascading from Tischendorf's critical-text gaps); absence by key omission, never an empty string that could spuriously match.
+
+**Mutate_FalseWitness (KJV cloned verbatim as a fake 6th lane, 7,893 NT rows):**
+- Naive per-verse cross-lane agreement inflates **+94.02%** — the eigenvalue-amplification illusion, measured.
+- The pairwise lane-similarity matrix detects the clone at exactly **1.000000** (real German pair luther↔elberfelder: 0.4413 — the honest ceiling for "related but independent").
+- Independence-weighted agreement does NOT inflate (−26.12%), answering the direct question — but the honest decomposition shows it is not a complete fix: cluster-dilution drift on the German pair (−18%) and small-denominator amplification on bkr (+35.85% on a 0.0027 base; tischendorf +0.00% exactly — Greek shares zero literal tokens, the clean control). A duplicate still perturbs lanes it shares no token with, through denominator composition. The stricter fix is cluster-and-count-once (evidence-lineage clustering, per the external re-aim: false witnesses belong to LINEAGE detection, with NARS confidence required UNCHANGED).
+- Supports `I-NOISE-FLOOR-JIRAK` in translation-corpus form: cloned/near-cloned witnesses inflate naive independent-witness statistics; measured pairwise redundancy is the discount factor.
+
+**Process note:** both operators were executed as Sonnet grindwork with tag-file records (`exec-runs/mutate-{falsewitness,verseoffset}.txt`); every number is script output, cross-verified against independent reruns. The two scripts live with the other generators on the bake branch (this branch's diff is substrate-only per the plateau split).
+
+Refs: `E-EXTERNAL-REVIEW-ADJUDICATED-1` §mutation-expectations, `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` (the rule this vindicates in tooling), `.claude/board/ISSUES.md` `ISS-VERSIFICATION-SCRIPT-BLIND`, task #43.
+
+## 2026-07-26 — E-EXTERNAL-REVIEW-ADJUDICATED-1 — first external-model review cycle (GPT-5.6-class + Gemini-3.x-class) adjudicated against the code. **Both contributed real corrections; both required correction; and one of their predictions was demonstrated LIVE by my own implementation failing its coverage test.** External claims are held witness-local (CLAIMED-BY-EXTERNAL) until verified — the same anti-contamination rule the substrate applies to textual witnesses, applied to reviewers.
+
+**Status:** ADJUDICATED + partially SHIPPED. **Confidence:** High for everything below marked verified; external inventory claims explicitly quarantined.
+
+**Verified against code, then fixed (both external points landed on real defects):**
+
+1. **"Hard max-pass truncation" (Gemini §8.3, refined by GPT).** Real, at the exact spot named: `ChainResolution` distinguishes `out_of_horizon` from `budget_exhausted` since the multipass fix, but BOTH wave verdicts collapsed the distinction back into bare `Escalate` at max budget — so a caller could not tell "do the expensive temporal read" from "retry with a bigger budget", and the two demand OPPOSITE responses. Gemini mis-named the variant (`Unbound`); the substance held. **Shipped:** `EscalateReason::{OutOfHorizon, BudgetExhausted}` + `standing_wave_diagnosed` — additive, parity-pinned bit-identical to the undiagnosed pair, reason present iff Escalate (tested, not promised). The budget-starved 2-hop chain now says RETRY and the test proves the retry works.
+
+2. **"Simulated randomness is not systematic coverage" (GPT correcting Gemini's Blake3-seeded tail sample) — demonstrated live by my own code.** I implemented the rotating peripheral sample with a hashed phase; **its own coverage test failed** — 40 epochs of pseudo-random phases missed strata (coupon collector wearing a deterministic costume). Replaced with a pure COVERAGE CURSOR (`phase = (epoch + rung) % stride`): epochs `0..stride` provably cover the whole periphery, one cycle, arithmetic not luck. Also adopted GPT's deeper correction: seed by **probe_epoch, never dataset version** — version-seeded sampling would make a time-series diff attributable to the changed SAMPLE rather than changed KNOWLEDGE, corrupting exactly the read-as-of comparisons the temporal axis exists for. Epoch and version advance independently.
+
+**GPT's corrections of Gemini, endorsed after checking (queued into specs, not yet code):**
+- Gemini's Spearman formula ranks k anchors but was described over k(k-1)/2 pairwise distances — denominator wrong for its own procedure; ties dominate under quantized palettes. **Triplet-order agreement** (per anchor pair: does each language preserve `d(c,ai) < d(c,aj)`, with tie categories both sides) is the right relational invariant for quantized spaces — rotation/scale/address-free.
+- Normalized CLAM depth is not cross-tree comparable (branching/balance/split-policy differ); compare relations to SHARED anchors (LCA depth, path length, cophenetic rank, subtree percentile), never absolute depth.
+- The cross-language vector must stay a FACET VECTOR with support masks — the off-diagonal patterns ARE the classification (taxonomy-agrees/resonance-differs = register; grammar-agrees/taxonomy-jumps = metaphor; genealogical-lanes-disagree-together = tradition fork). CHAODA detects patterns; **deterministic disposition rules label them** — a detector must never be the labeller. Gemini's "translation bug ⇒ zero qualia innovation" rule rejected: qualia is evidence, never a required diagnostic bit.
+- Qualia lesion testing MUST use Lance-versioned counterfactual branches (snapshot → branch A baseline / branch B lesioned → compare → discard B → replay A must return exactly): Gemini's "remove the lesion and require return to baseline" is impossible once the lesion has legitimately altered intermediate memory. Single-channel lesions before whole-register. This makes qualia lesioning (task #39) a CONSUMER of W9's fork-at-version machinery — the two deliverables just merged.
+- Closed-class ablation must mask contributions POST-parse (structural vs semantic separately), not delete tokens pre-parse — token deletion measures parser fragility, not grammatical function. Two independent load axes, never compressed into one routing number. Third attempt at the twice-failed detector now has genuinely new machinery.
+- Mutation-suite expectations re-aimed: false-witness detection belongs to EVIDENCE LINEAGE (transcription hash, edition ancestry, shared deviations), with NARS confidence required UNCHANGED; verse-offset should show lane-alignment disagreement, not necessarily i4-anaphora collapse; doctrinal substitution needs the compound detector (source-lane contradiction + stable substitution in related lanes + preserved syntax), qualia spike optional.
+- **Ordering:** wrong-sense injection is the cleanest first falsifier (real known failures exist, correct sense known, controlled corruption, no witness-genealogy dependency) — as a MATRIX (swallow/grape/fox/tongue × senses), pass condition = *typed disagreement pattern appears; correct bindings and legitimate projections stay stable*, NOT "confidence drops". False-witness second: wrong-sense tests semantic grounding, false-witness tests eigenvalue amplification — the two most dangerous illusions (deterministic ⇒ meaningful; repeated agreement ⇒ independent evidence).
+
+**External claims QUARANTINED (CLAIMED-BY-EXTERNAL, not in our canon):** the GPT restatement asserted inventory we do not have — Aramaic codebooks (none), Vulgate Latin lane (planned W18, not built), "~18,000-word COCA vocabulary" (ours: 20k lexicon + 4,096 deepnsm), "~96% deterministic resolution" (prior-session aspiration, not re-verified), "90% of Greek vocative inventory recoverable" (the 615-vs-3 census is measured; the 90% recovery rate is NOT). A reviewer's confident restatement of our own system is still a witness statement about it, and witness assertions stay witness-local until attested. **This is the contamination rule eating its own cooking, and it caught real drift on the first cycle.**
+
+**What GPT named that becomes doctrine:** the Catch-22 does not evaporate under the membrane design — it MOVES to four harder questions (anchor correctness, neighbourhood stability, taxonomy comparability, causal efficacy of resonance); and the standing risk is that "relational invariant" becomes the next elegant phrase hiding a merged proxy. Both recorded as the D-RCC-4/5 acceptance frame.
+
+Refs: `E-MULTIPASS-WAS-SINGLE-PASS-1` (the carrier split this completes), `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`, `E-QUALIA-I4-IS-CMYK-NATIVE-1`, KNOWLEDGE-TRANSFER-external.md (ada-docs), tasks #9/#39/#40+, workflow `mutation-suite-wave1` (false-witness + verse-offset probes, in flight).
+
+## 2026-07-26 — E-KJV-IS-GPL-AND-I-CLAIMED-VERIFIED-WITHOUT-VERIFYING-1 — **`kjv` is tagged `GPL`, not Public Domain** — and I shipped a Release MANIFEST asserting "all source texts are Public Domain, licence strings verified verbatim" when I had verified only the GREEK candidates. My own one-asset-per-regime law, violated by me, 30 minutes after writing the asset that carries it.
+
+**Status:** FINDING + CORRECTED. **Confidence:** High — string re-fetched and read on the main thread.
+
+**Verbatim, `api.getbible.net/v2/translations.json`, 2026-07-26:**
+
+| lane | `distribution_license` |
+|---|---|
+| **kjv** | **`GPL`** |
+| luther1545 | `Public Domain` |
+| elberfelder1905 | `Public Domain` |
+| bkr | `Public Domain` |
+| tischendorf | `Public Domain` |
+
+**The process failure, precisely.** During the Greek-lane task I verified `tischendorf` / `textusreceptus` / `westcotthort` / `lxx` and recorded the finding that *age of the work says nothing about the licence of the transcription* — TR (1550) and WH (1881) are both `CC BY-NC-SA`. I then wrote a MANIFEST for the codebook Release claiming **all five** lanes were PD and "verified verbatim". Four of the five had never been checked. I generalised a verification from the subset I happened to have run to the set I wished I had run — while the very lesson in my hand said not to.
+
+**Why it mattered rather than being cosmetic:** every alignment in the bundle has ENGLISH on the source side (`en→de`, `en→el`, `en→cs`), and `codebook_kjv.tsv` is directly KJV-derived. So the bundle mixed a GPL-encumbered derivative into an asset labelled Public Domain — **exactly the contamination the one-asset-per-regime law exists to prevent** (`E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1`: "packaging a permissive artifact with a restricted one makes the combined asset effectively restricted"). A consumer reading the MANIFEST would have taken PD terms on GPL-derived data.
+
+**Corrected:** the Release now carries FIVE regime-separated assets — `pd-texts` (the 4 PD source lanes verbatim), `rosetta-pd` (non-English derived), **`rosetta-gpl`** (KJV codebook + every alignment + split census, explicitly labelled GPL-encumbered, copyleft-not-NonCommercial), `de` (CC BY-SA), `wordnet` (WordNet License). The superseded mixed asset was deleted, and the Release body records the correction rather than quietly replacing it.
+
+**Second miss found in the same pass (the reason to re-inventory at all):** the first upload silently omitted every measurement REPORT and the split census — `rosetta_probe_report.md`, `alignment_report.md`, `versification_report.md`, `codebook_summary.md`, `greek_lane_report.md`, `tier_delta_report.md`, `closed_class_report.md`, `closed_class_transfer_report.md`, `en_de_splits.tsv`. Those are the receipts for every "known defect" the MANIFESTs assert; shipping the claims without the evidence made the defect list unverifiable by the consumer. Also added: the PD source texts themselves, so the whole Release is reproducible without depending on an external API staying up.
+
+**The rule this earns:** *a verification covers exactly the items you named when you ran it.* Carrying a verified finding forward onto adjacent items is the same shape as the vacuous assertion (`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`) — a claim whose evidence does not constrain it. When a MANIFEST says "verified", the list of what was verified belongs in the MANIFEST.
+
+Refs: `E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1` (the law I broke), `E-PD-GREEK-LANE-ACQUIRED-TISCHENDORF-1` (the finding I over-generalised), Release `v0.1.0-codebooks-2026-07-26`.
+
+## 2026-07-26 — E-SEPARATION-IS-ALREADY-SHIPPED-WIRE-DONT-INVENT-1 — **operator correction to the CMYK ruling's consequence: the text itself often licenses experienced qualia, and the separation machinery ALREADY EXISTS** — texture, `ResonanceDto`, `PerturbationDto` (D-PERT-1), and gestalt awareness ARE the experience-side carriers. Task #39 is a WIRING job, not a build job.
+
+**Status:** RULING (operator) + verified inventory. **Confidence:** High — carriers confirmed at type level on the main thread.
+
+**What I got wrong in the amendment:** `E-QUALIA-I4-IS-CMYK-NATIVE-1` correctly identified the register as CMYK-native and the mantissas as RGB, then proposed BUILDING a separation step ("an ICC profile as a new stored row"). Consult-before-guess should have fired: the separation is shipped, distributed across four carriers —
+
+| carrier | what it already computes | CMYK role |
+|---|---|---|
+| `ResonanceDto` (verified: `hdr` 3-perspective resonance, `dominant_perspective`, `is_divergent`/`is_converged`, `GateState`, field-evolution state) | how THIS text lands against the current field — resonance vs `global_context` is reader-conditioned BY CONSTRUCTION | the profile conversion, running |
+| `PerturbationDto` (D-PERT-1 split; L4 palette256 tenant over the Morton cascade) | the deviation the text inflicts on the field | the ink, signed by nature |
+| texture (window; D-DIA-V2-B) | local grain of the field around the read | the paper |
+| gestalt awareness (`spo/gestalt.rs`, gestalt tenant) | the integrated whole-shape percept | the K plate readout |
+
+And the deepest already-shipped instance is on the board's own front page: **`FreeEnergy::compose(likelihood, kl)` with `kl = awareness.divergence_from(prior)` IS observed-minus-illuminant** — F has been the CMYK conversion all along. `global_context += fact` reshaping the NEXT cycle's F landscape means the illuminant is maintained per-read, automatically.
+
+**The operator's sharper point — the text often licenses experienced qualia ENDOGENOUSLY.** The profile does not need an external reader-state row in the common case: the running context accumulated while reading (the text-so-far) IS the illuminant, and deviation from it (construction surprisal, Satzklammer tension held open, vocative address, the Erbsuende-class doctrinal load) is experienced in the act of parsing. Exogenous profiles (different reader-states over the same text — the Aesop two-illuminant probe) remain the CONTRAST case, not the prerequisite. This dissolves the bootstrap question the amendment left open ("where does the first profile come from"): from reading.
+
+**Task #39 re-scoped accordingly:** wire `witness_fabric`'s RGB observations (quorum/churn/tier-delta) INTO the resonance/perturbation/texture/gestalt path as field inputs, and let the EXISTING deviation machinery write the signed ink to `QualiaI4_16D`. Building a parallel "separation module" would have been the parallel-object-model anti-pattern one more time — the same shape as the LanguageDto rejection (§0.2) and the scenario-crate rejection. The teeth requirement stands unchanged: the ink must gate/route/escalate (first candidate: illuminant-conditioned construction surprisal feeding Commit/Epiphany/FailureTicket).
+
+Refs: `E-QUALIA-I4-IS-CMYK-NATIVE-1` (amended by this), D-PERT-1, `.claude/plans/triangle-tenants-gestalt-separation-v1.md`, CLAUDE.md "The Click" (the F diagram), task #39.
+
+## 2026-07-26 — E-QUALIA-I4-IS-CMYK-NATIVE-1 — **operator ruling: the i4-16D qualia ARE CMYK** — and the receipts were already in the code. Signed nibbles = ink as deviation from a white ground (zero-fallback: zero = ground shows through); saturating pack = GAMUT CLIPPING (`I4x32::pack(-100)→-8`, test-pinned); the 17D-in-16 fold = the derived K-plate; the MetaWord write path (bits persist while F > floor) = residue of processing, not property of input. **Consequence: the observed statistics built this session are RGB and must pass through a SEPARATION step before landing in the qualia register.**
+
+**Status:** RULING (operator) + design consequence. **Confidence:** High — every structural receipt verified in shipped code/tests.
+
+**The mistake this catches before it shipped:** the D-RCC-4 design said "the qualia agreement vector is a READ of the existing QualiaI4_16D carving", and `quorum_mantissa`/`churn_mantissa` were built as `0..=15` UNSIGNED to "land in the i4 range". That is filling a subtractive register with additive ink — a type error the compiler cannot see. Raw agreement/churn/tier-delta are RGB: observer-side, illuminant-free (which is exactly why they are deterministic, and exactly why they are not experience).
+
+**The separation step (the missing piece, named precisely):** observed → experienced requires the illuminant AND the paper — an ICC profile, i.e. the READER-STATE, itself a stored addressable row. What lands in the nibbles is **signed deviation from the prior the reader brought**:
+- quorum-ink = agreement observed − agreement expected for this basin;
+- churn-ink = flips relative to basin-typical churn;
+- tier-ink = specificity relative to the register the discourse has been running at.
+
+Zero then recovers its native meaning — *as expected, no ink* — consistent with the zero-fallback ladder, and absent-≠-zero holds automatically (no profile ⇒ no separation ⇒ no ink, never "neutral experience"). **Determinism survives intact:** profile row + text ⇒ same separation forever — deterministic subjectivity, the substrate thesis applied one level up, no learned weights anywhere.
+
+**Teeth requirement carried over:** the experienced register must gate/route/escalate somewhere or it is persona-36 again ("carried and displayed, not acted on"). First candidate with teeth: sour-grapes-class construction surprisal (illuminant-conditioned) feeding the FailureTicket/Epiphany trichotomy — the Aesop illuminant-comparison probe is the falsifier venue.
+
+**RGB functions stay as they are** — `quorum_mantissa` etc. remain correct *observations* (contract-level, profile-free). The ruling does not unsign them; it says they are separation INPUTS, not qualia. The boundary is: observation functions in `witness_fabric` (RGB, unsigned, illuminant-free), separation at the consumer with a profile row (CMYK, signed, illuminant-bound), ink in `QualiaI4_16D`.
+
+Refs: operator ruling this turn; `E-SATURATION-SWITCHES-TO-PASSIVE-QUORUM-1` (the mantissas), `E-TENSE-IS-A-BASIN-REGISTER-NOT-A-POINTER-1` (the basin prior that serves as paper), plan `rosetta-codebook-convergence-v1.md` D-RCC-4 (amended by this), W11/Aesop as the probe venue.
+
+## 2026-07-26 — E-NORMALISER-CAN-SPLIT-WHAT-IT-MEANT-TO-MERGE-1 — the lemma key lifts alignment coverage (39.2%→43.0% de, 30.7%→36.3% el) **and broke the `tongue` regression anchor** — because a crude suffix stripper gave one lemma TWO fold keys. The anchor caught it, the agent root-caused it instead of tuning it away, and the flag stayed opt-in.
+
+**Status:** SHIPPED (opt-in, default OFF) + FINDING. **Confidence:** High — root cause reproduced on the main thread.
+
+**The failure mode, verified directly:**
+
+```
+sprache   -> sprach     zunge   -> zung
+sprachen  -> spra       zungen  -> zung     ← merges correctly
+```
+
+`sprachen` matches the **`-chen` diminutive** rule (leaving a 4-char stem, which passes the min-stem guard), while `sprache` takes a different branch. One lemma, two fold keys — so the evidence that was previously *whole* is now *split*, and `tongue`'s top-3 degraded from `zunge/zungen/sprache` to `zung/lipp/schweig`: the language sense dropped out entirely.
+
+**A normaliser is supposed to merge surface forms. This one split one** — the exact inverse of its purpose, and invisible without an anchor that knew what the right answer looked like. `tongue → Zunge/Sprache` was specified as a mandatory regression check precisely because it was a known-good result from two independent earlier runs; it is the only reason this was caught.
+
+**What the flag DOES deliver** (so the trade is visible, not hidden): coverage en-de **39.2% → 43.0%**, en-el **30.7% → 36.3%** on an independent corpus with a comparable flip rate (20.4% vs 21.6%) — so the lift is real and reproducible, not a German artifact. `grape`, which previously returned stopwords (`die/der/und`), now merges with `grapes` across 41 verses and returns `herling(9.45)/traub(9.09)/beer(8.77)` — real signal, exactly the fragmentation `E-D-RCC-3-ALIGNER-SHIPPED-DICE-NOT-BETTER-1` diagnosed. `swallow` improved; `vineyard` unchanged.
+
+**Handled correctly under uncertainty:** the flag defaults **OFF**, the primary output TSVs are **byte-identical** (md5-verified) with and without it, and the lemma-key output lands in a separate `*_lemmakey.tsv` — so a consuming sibling agent's inputs could not shift underneath it. A net-positive-but-not-uniformly-safe transform belongs behind a flag, not in the default path.
+
+**The agent also self-caught an earlier bug before reporting:** its first `normalize_en` stripped `grapes → grap` (the `-es` branch always chopped two chars); fixed with an orthography-aware branch (sibilant-final stem strips `-es`, otherwise keep the silent `e` and strip only `-s`). Reporting a bug you found and fixed yourself is the behaviour that makes the rest of the report credible.
+
+**The fix for `-chen` is known and small** (raise the minimum stem length for the diminutive rules specifically, so `spra` fails the guard and `-en` applies instead, yielding `sprach` to match the singular) — filed rather than rushed, because the anchor now exists to verify it.
+
+**The general lesson:** every normalisation step needs a *known-good merge* as its falsifier, not just a coverage number. Coverage went UP while quality went DOWN on the one case where we knew the answer — a metric that improved while the thing it proxies regressed.
+
+Refs: `E-D-RCC-3-ALIGNER-SHIPPED-DICE-NOT-BETTER-1`, `E-RCC-1-V2-SPLIT-SURVIVES-NORMALISATION-1` (the same normaliser family, measured 48.9%→43.0% there), task #34 → #37.
+
+## 2026-07-26 — E-BOTH-CLOSED-CLASS-METHODS-LOSE-TO-RANK-150-1 — **two sophisticated methods, two negatives: `rank<=150` wins.** Dispersion z-score F1 0.280, alignment transfer F1 0.277, trivial frequency rank **0.386–0.388**. Stop trying to beat it for this task — and a data defect found along the way explains part of why the premise was shaky.
+
+**Status:** FINDING (negative ×2). **Confidence:** High — German is the only lane with ground truth and both methods were scored against it.
+
+| method | scope | P | R | **F1** |
+|---|---|---:|---:|---:|
+| alignment transfer | luther1545 | 0.336 | 0.235 | **0.277** |
+| dispersion z-score | both DE lanes | 0.194 | 0.506 | **0.280** |
+| **`rank<=150`** (lane-matched recompute) | luther1545 | 0.531 | 0.303 | **0.386** |
+| **`rank<=150`** (published) | both DE lanes | 0.545 | 0.301 | **0.388** |
+
+The agent recomputed the baseline *lane-matched* rather than comparing against the published both-lane figure — the fair comparison, and it still loses decisively.
+
+**The honest conclusion: for closed-class detection on this corpus, frequency rank IS the signal.** Two independent, more principled approaches — one distributional (dispersion vs a rank-matched baseline), one cross-lingual (transfer through a proven aligner) — both lose to a one-line heuristic. Continuing to search for a cleverer detector is now the expensive move; the finding is that the trivial feature is near-sufficient and the effort belongs elsewhere. This is the Kahneman shape in reverse: the *sophisticated* path was the seductive one.
+
+**Coverage behaved exactly as predicted** (the one confirmed prediction here): 0% hapax, 53–92% in the low/mid/high bands — German 22.2%, Czech 13.2%, Greek 9.6%. The `cooc>=5` cliff is favourable for closed-class words (all high-frequency), so coverage was NOT the limiting factor. The method had its best shot and still lost.
+
+**⚠ The premise was partly false — a data defect the work surfaced.** The transfer method assumes "English has UD POS tags". Verified on the main thread that `coca/lexicon.tsv`'s `pos` column is **wrong for exactly the words that matter**: `the`→`i` (preposition), `and`→`r` (adverb), `it`→`n` (**noun**), `that`→`r` (adverb); `a` absent entirely. 3 of 5 function words mis-tagged, 1 missing. The agent worked around it with a curated list — so the F1 stands — but the English ground truth this stack has been carrying is not what it claims. Filed as `TD-COCA-LEXICON-POS-UNUSABLE-FOR-FUNCTION-WORDS`, compounding the earlier rank-column defect in the same file. **Open-class tags in that column were not audited — unknown, not vindicated.**
+
+**Method note worth keeping:** Czech required a self-built aligner because `build_alignment.py` ships only `en-de`/`en-el`, and the agent built one *inside its own file*, clearly labelled as duplicated, unreviewed machinery rather than silently reusing or editing a sibling's deliverable. Correct behaviour under concurrency; the duplication is visible rather than merged in.
+
+Refs: `E-DISPERSION-CLOSED-CLASS-DETECTION-FAILS-1` (negative #1), `E-D-RCC-3-ALIGNER-SHIPPED-DICE-NOT-BETTER-1` (the aligner consumed), `TD-COCA-LEXICON-RANK-UNRELIABLE-AT-HEAD`, tasks #20/#30.
+
+---
+
+## 2026-07-26 — E-CASCADE-RECALL-IS-0.50-AND-A-THRESHOLD-IS-INERT-1 — the critical blind prune now has a peripheral channel, and the falsifier that came with it produced two numbers nobody had: **the cascade loses HALF the true top-10 (recall@10 = 0.50)**, and the shipped `heel_threshold: 50.0` is **INERT** because the maximum HEEL sub-distance is 25.5.
+
+**Status:** SHIPPED + FINDING. **Confidence:** High for the measurements on the stated fixture; the production-scale claim is explicitly NOT made (see limits).
+
+**The channel** (`CamPqScanOp`, the sweep's CRITICAL entry): `CascadeRejects { at_heel, at_branch, at_topk }` — three lanes **by cause**, never merged, with `heuristic_len()` excluding `at_topk` because *a budget is not a guess*. That is `E-SPLIT-THE-CARRIER-NOT-THE-CALL-SITES-1` applied to a new carrier before the conflation could cause a bug rather than after.
+
+Two design choices worth recording:
+- **Endpoint-inclusive stride**, not `i*(n/k)` — the naive form never reaches the extremal reject, which is exactly the interesting one when the failure geometry is *one bad byte hiding five good ones*. `k=1` takes the far edge.
+- **Each lane strided within its OWN key**, because a HEEL sub-distance and a HEEL+BRANCH partial are not comparable numbers. Merging them would have produced a sample ordered by an incoherent quantity.
+- `ThresholdDissent` carries **two Options** (`suggested_heel_threshold`, `suggested_branch_threshold`), not one f32 — the two thresholds are separate facts.
+- `RejectPolicy::Disabled` **delegates to the untouched `execute()`**, so bit-identity is structural rather than promised.
+
+**The measurements (5,000 scattered CAM codes, shipped thresholds, top_k=10):**
+- **recall@10 = 0.50** — five of ten true nearest survive the cascade.
+- heuristic rejection rate **0.7636** — the doc's "99% rejection" is **not reproduced**.
+- Lane counts: `at_heel` **0**, `at_branch` 3,818, `at_topk` 1,172.
+
+**`at_heel = 0` is the incidental finding and it is the sharper one:** with these distance tables the max HEEL sub-distance is 25.5, so `heel_threshold: 50.0` can never reject anything. **Stroke 1 is dead code at runtime; stroke 2 carries the whole cascade.** Whether production tables share that scale is unverified — flagged, not fixed, because guessing would be worse than reporting.
+
+**Limits stated rather than smoothed:** recall 0.50 is on a synthetic fixture with *independent* bytes, so real correlated CAM codes likely score higher — **the number falsifies "no cost", it does not estimate production loss**; `Collect` is O(n) memory with no reservoir (unsafe on a 100M-row scan, documented); `IvfCascade` still shares Cascade's body so its complement is the cascade's, not IVF's; "zero cost when disabled" is pinned bit-identically but **not timed**; and `api.rs::CamSearch::top_k` still discards the strategy — the mechanism landed, the wiring did not.
+
+---
+
+## 2026-07-26 — E-VACUOUS-ASSERTIONS-REPLACED-CLAIMS-HELD-1 — the two `elimination_rate() > 0.0` tests replaced with exact measured counts, and **no test failed once made meaningful.** The doc-comment claims were true all along; they simply were not falsifiable. Plus a six-entry workspace sweep of the same shape.
+
+**Status:** SHIPPED. **Confidence:** High — 207 bgz-tensor tests green.
+
+Both fixtures are fully deterministic (no RNG), so **exact counts** replaced loose bounds rather than a band being guessed: `cascade.rs` — HEEL eliminates 66 of 1,024 (6.4%), HIP 0, LEAF admits the 10-item budget, rate band `(0.05..0.08)` with both bounds justified in-code; `stacked.rs` — stage1 16, stage2 0, all 112 stage-3 survivors accepted, rate exactly 0.125.
+
+**The result is the reassuring kind of negative:** making the assertions falsifiable did not reveal a broken cascade. The value is prospective — these tests can now *fail* if the cascade regresses, which they previously could not, and the measured constants are documentation of what the cascade actually does.
+
+**Workspace sweep, ranked by exclusion consequence** (report-only): `neighborhood/search.rs:323` (`heel()` truncates to `k`, test asserts `<=10` — first stage of the 3-hop cascade, highest consequence found), `blasgraph/heel_hip_twig_leaf.rs:473` (same shape), `search.rs:400` + `tests/neighborhood_cascade.rs:238` (partially redeemed by separate sort-order checks), `holograph/demo.rs:1047,1064`, `bgz-tensor/codebook4096.rs:374` (**doubly vacuous** — `build()` ignores the test's passed parameter entirely), `contract/doc_graph.rs:528` (lowest — generic combinator with dedup/sort checked separately). A broader `> 0` sweep found ~50 hits, mostly legitimate discriminator checks, not exhaustively re-audited — stated as unfinished rather than implied complete.
+
+**Hygiene note:** running `cargo fmt` on the whole manifest reformatted `matryoshka.rs`, a file the agent did not own; it reverted the collateral change and kept only its two files' diffs. Correct behaviour in a shared checkout.
+
+## 2026-07-26 — E-TEMPORAL-PERIPHERY-PROXY-NAMED-AS-PROXY-1 — the anti-blindness test applied to the TIME axis: superseded beliefs are now enumerable, spread-sampled and able to suggest re-opening. **And the part that could not be built honestly was refused rather than faked** — "a past state that predicted better than the present" needs an oracle the zero-dep contract does not have, so a structural proxy shipped with the limit in its rustdoc and the real signal's correct home named.
+
+**Status:** SHIPPED (contract). **Confidence:** High — 1061 contract tests green, clippy clean.
+
+**The gap.** The present is the dominant mode of the time axis. A reader that always takes HEAD treats overwritten states as a reject pile — but those states ARE the temporal tail, and this session's corrections came from tails repeatedly. The three-part test (enumerable / spread-sampled / escalation-capable) had been applied to the rung ladder and swept across 12 spatial prunes; never to time.
+
+**Built** (functions over a revision slice, the module's established shape — no materialized struct; every entry point bounded by `upto`, so read-as-of is enforced by signature):
+1. **Enumerable** — `BeliefRun { first_revision, held_for, value, superseded_at }` + `belief_runs()` / `superseded_runs()`. `RevisionTrajectory::flips` *counted* flips; these **name** them — which revision held which state, and where each was replaced.
+2. **Spread-sampled** — `superseded_spread_sample(.., k)` strides the whole history rather than taking the recent k, which would be the temporal form of cheap-edge sampling. Deterministic, mirroring `RungLevel::peripheral_sample`. The test asserts it reaches the oldest revision **and** `assert_ne!`s against the recent-k slice — so "spread" is falsifiable, not decorative.
+3. **Escalation-capable** — `suggest_reopening() -> ReopeningSuggestion { run, reason, evidence }` with reasons `Reverted` / `LongStableThenBrief`. Suggestion only; nothing prunes or decides.
+
+**The refusal is the finding.** Scoring "predicted better" requires ground truth; the contract crate is zero-dep, carries no outcome column, and the read-as-of rule *deliberately denies* the future of the revision being judged. Any ranking built here would have invented what it claims to measure. So: a structural proxy ships, the rustdoc says it is a proxy, and it names where the real signal belongs — a **consumer-side** function over `(belief_runs(.., upto), outcome_at(upto))`, oracle outside the contract, read-as-of bound intact. That is the correct shape of "I cannot measure this here", and it is worth more than a plausible number.
+
+**Second limit, documented rather than unified:** the run model treats *unbound* as its own state, so `a → unbound → a` is three runs where `revision_trajectory` counts one flip. Unifying them would change shipped semantics, so the divergence is stated instead of silently reconciled.
+
+**The tests are falsifiable by construction** (per the new `CLAUDE.md` rule): `belief_runs_partition_the_visible_history` reconstructs spans into an index histogram, so an off-by-one leaves a hole or an overlap; `reopening_fires_on_reversion_and_stays_silent_on_stability` checks BOTH directions **including a stability-INCREASING history** — the case a naive "any flip is suspicious" detector would fire on; `temporal_periphery_cannot_see_later_revisions` shows the bound doing real work (as-of-4 yields `LongStableThenBrief`, the full history yields `Reverted`).
+
+**Cross-agent note:** this agent reported 3 planner failures and correctly attributed them to a sibling agent's in-flight `cam_pq_scan.rs` rather than to itself, and verified its own dependent (`nars::meta_basin`, 17/17) was green. Correct attribution under concurrency is what makes parallel agent work safe to consolidate.
+
+Refs: `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1` (the doctrine), `E-SATURATION-SWITCHES-TO-PASSIVE-QUORUM-1`, `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`, task #28.
+
+## 2026-07-26 — E-SPLIT-THE-CARRIER-NOT-THE-CALL-SITES-1 — `ChainResolution::escalated` split into `out_of_horizon` / `budget_exhausted`, making the `E-MULTIPASS-WAS-SINGLE-PASS-1` conflation **unrepresentable** rather than merely fixed. The earlier fix compensated at every call site; this removes the thing that had to be compensated for.
+
+**Status:** SHIPPED. **Confidence:** High — 1056 contract + 305 planner + 96 deepnsm-v2 tests green; clippy clean (the one remaining warning is a pre-existing `serve.rs`-in-two-build-targets Cargo.toml issue, unrelated).
+
+**The distinction the old bool erased:**
+- `out_of_horizon` — the chain left the ±8 window. **Genuinely non-local; more budget will never help.**
+- `budget_exhausted` — the hop budget ran out mid-chain. **Says "ask again with more budget"** — which is precisely what the multipass loop's next iteration supplies.
+
+One bool meant the wave could not tell "this is far away" from "you didn't look far enough", so it aborted at budget 1 (which truncates every ≥2-hop chain) before reaching the budget that resolves it.
+
+**Both loops now read the distinction directly** rather than compensating for it: a horizon exit returns `Escalate` at ANY budget (correct and now *provably* so), budget exhaustion continues to the next iteration and only escalates at the final budget. That is strictly clearer than the previous `if escalated { if budget == max { … } else { continue } }`, which had to encode the semantic difference in control flow because the data could not carry it.
+
+**Migration was small because the carrier was right to fix:** four constructor sites classified by their actual cause, an `escalated()` accessor preserving the v1 reading for callers that genuinely do not care why (documented with a warning that using it inside a budget loop is what caused the bug), and three consumers updated (`meta_basin` ×2 via `TrajectorySignature`, which was deliberately kept stable, and one `deepnsm-v2` assertion).
+
+**The new test earns its place** (`escalation_causes_are_distinguishable_not_one_bool`): the same 2-hop chain is `budget_exhausted && !out_of_horizon` at budget 1 and clean at budget 2, while a genuine horizon exit is `out_of_horizon && !budget_exhausted` at every budget from 1 to 64. Budget-independence of the horizon cause is the property the old bool could not express, so it is now the property under test.
+
+**The general lesson:** when a bug forces the same compensating check at N call sites, the defect is in the carrier, not the call sites. Fixing the sites leaves the next caller free to re-introduce it; fixing the type makes the mistake unavailable. Same move as `quorum_mantissa`'s outcome-blind signature and `revision_trajectory`'s `upto` bound — **prefer making an error unrepresentable over promising not to make it.**
+
+Refs: `E-MULTIPASS-WAS-SINGLE-PASS-1` (the bug this closes at the root), task #31.
+
+## 2026-07-26 — E-D-RCC-3-ALIGNER-SHIPPED-DICE-NOT-BETTER-1 — the corpus-derived word aligner works, the `tongue → Zunge/Sprache` regression anchor **reproduced**, and **Dice did NOT beat PMI** (81% top-1 agreement, disagreements confined to the thin-frequency tail). Coverage is a hard floor at `cooc>=5`, not a soft degradation — hapax alignment is 0.0%, stated rather than smoothed.
+
+**Status:** SHIPPED (D-RCC-3). **Confidence:** High — anchors and coverage bands re-read on the main thread.
+
+**Built:** `rosetta/build_alignment.py`, stdlib-only, no external lexicon (so no licence is inherited — the reason this is derived rather than downloaded). First implementation was a full-vocab cross-product that timed out (>120 s on 12k×30k); rewritten as **sparse per-verse co-occurrence accumulation** — walk each shared verse once, record only pairs that actually co-occur → **13.7 s for both language pairs**. The naive shape was O(|V_src|·|V_tgt|) over a space that is almost entirely zeros.
+
+| pair | shared rows | source tokens | coverage |
+|---|---:|---:|---:|
+| en→de (kjv→luther1545, Psalms excluded) | 28,636 | 12,266 | 39.2% |
+| en→el (kjv→tischendorf, NT-only) | 7,895 | 5,960 | 30.7% |
+
+**The regression anchor held:** `tongue → zunge(57, pmi 8.08) / zungen(14) / sprache(7, pmi 6.44)` — the body-part vs language split, reproducing the known-good D-RCC-1 §C result under a completely different code path. That is the check that would have caught a silent regression, and it is the reason it was specified in the brief as mandatory.
+
+**Dice vs PMI — a NEUTRAL result, reported as such.** 81.2% / 81.6% top-1 agreement across the two pairs; disagreements cluster in the thin-frequency tail (PMI overweights rare pairs, Dice underweights strong-but-common ones). Neither is declared the winner. The standard "upgrade" did not upgrade, and saying so is worth more than a defensible-sounding preference.
+
+**`grape` looked like an aligner failure and was not** — the singular appears in only 8 verses and surfaced stopword noise (`die`/`der`/`und`). Diagnosed to **tokenisation fragmentation**: with no lemmatiser, `grape` ≠ `grapes`, and the real signal was hiding behind the surface split — `grapes → trauben, pmi 9.54`. The correct read is "the corpus evidence is under a different key", not "the method failed". This is the same lemmatisation limit `E-RCC-1-V2-SPLIT-SURVIVES-NORMALISATION-1` measured (48.9%→43.0%), surfacing in a second place.
+
+**Coverage is a CLIFF, not a slope:** hapax 0.0%, low (5–19) ~76–90%, mid/high 100%. That is the `cooc>=5` floor doing exactly what it says — a hard gate, so rare vocabulary gets *nothing* rather than a weak guess. Honest, and the right default for an anchoring pipeline where a confident wrong alignment is the expensive failure (`E-...-Erbsünde`). It does mean the long tail needs a different instrument, not a lower threshold.
+
+**Unblocks:** task #30 — closed-class labels can now TRANSFER from English (UD POS + WordNet) to Czech/Greek through the alignment, replacing the monolingual detector that failed measurably (`E-DISPERSION-CLOSED-CLASS-DETECTION-FAILS-1`). Note the coverage cliff is *favourable* here: closed-class words are all high-frequency, i.e. exactly the 100%-coverage band.
+
+Refs: plan `rosetta-codebook-convergence-v1.md` D-RCC-3, `E-PD-GREEK-LANE-ACQUIRED-TISCHENDORF-1` (the Greek lane this aligns), task #30.
+
+## 2026-07-26 — E-TRAJECTORY-DISTANCE-IS-A-TRUE-METRIC-1 — the meta-basin outlier layer upgraded from exact-match to **CHAODA relative-density scoring over a proven integer metric** — and the metric's design is where the honesty lives: `escalated` is categorical, `terminal_offset: None` is a real group, and both are test-pinned as such rather than quietly folded onto a number line.
+
+**Status:** SHIPPED. **Confidence:** High — 305 planner tests green (17 in-module), clippy `-D warnings` clean, and **zero pre-existing assertions removed** (verified by diffing the pre-CHAODA commit: 686 insertions, 0 assertions deleted).
+
+**The metric** (`trajectory_distance(a, b) -> u32`, integer throughout — floats would make tie structure depend on rounding, and a ranking that reorders between runs is not auditable):
+
+- `hops` is the only genuinely **ordinal** axis → `4·|Δh|`.
+- **`escalated` is CATEGORICAL, not a magnitude.** It says the chain left the horizon — a different *mode* of resolution, not more of the same one. Flat weight 12 on mismatch, never scaled by the other axes; pinned by `escalation_is_categorical_not_a_continuous_axis`.
+- **`terminal_offset: None` is a real group, never an imputed zero.** `None/None = 0`, `Some/Some = min(|Δ|, 32)`, `None/Some = 16` flat. The test that makes this real: `d(None, Some(0)) == d(None, Some(7))` — *`None` is not a point on the offset axis*. This is the absent-≠-zero discipline enforced inside a distance function, which is exactly where it usually leaks.
+- Proven a **true metric** (symmetry, identity-of-indiscernibles, triangle inequality) over a sampled space, and it *generalizes* the shipped rule: zero shape-distance ⟺ `same_meta_basin`. The offset cap exists only to keep the triangle inequality total over every `i8`; unreachable inside a ±8 window, so it changes no real reading.
+
+**The CHAODA move:** `anomaly(i) = reach(i)·k·1000 / Σ reach(neighbours)` — anomaly relative to the **local** manifold, not a global cut, so a legitimately sparse region does not report all its members as strange. A lone row reads neutral: *alone is not anomalous*. Fixed-point at 1000, saturating.
+
+**Perturbation upgraded from a bool to a fraction:** `stability_sweep(.., budgets) -> Stability{stable, probed}` with `fraction_milli()`; the old bool survives as a wrapper, and a test asserts the two agree over the same budgets — so the improvement cannot silently disagree with the shipped semantics.
+
+**Suggestion-only contract intact:** `OutlierSuggestion` gains an `anomaly` score and a `DensityAnomaly` reason; `ranked_outlier_suggestions` subsumes the coarse path (coarse reason wins per row, density-only rows appended, deterministic ordering) with `ranked_path_subsumes_the_coarse_path_without_reclassifying` proving no row changes classification. The score RANKS; it never decides.
+
+**Anti-inertness, now the house rule (`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`), applied without being asked:** `density_score_discriminates_a_planted_outlier` (a planted row strictly outscores every cluster member) AND its converse `a_uniform_spread_reports_no_anomaly` (it does not just fire on everything). Both directions — a discriminator that always fires is as useless as one that never does.
+
+**Limits left open honestly, in-doc and in the tag file:** weights (4/12/16) and the anomaly threshold (1500) are **hand-tuned, not Jirak-bound-derived** — and say so, per `I-NOISE-FLOOR-JIRAK`'s requirement that hand-tuned thresholds declare themselves; `k=3` is unvalidated against a real tail-size distribution; `density_scores` is O(n² log n), fine for ±8..±64 windows and NOT whole-stream; and this is the **flat-kNN relative-density member** of the CHAODA family, not the full ensemble over a CLAM cluster tree — the hierarchical manifold is absent, so the name is used narrowly and deliberately.
+
+Refs: `E-SATURATION-SWITCHES-TO-PASSIVE-QUORUM-1` (whose "honest limits" section named this exact gap), `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1`, task #25.
+
+## 2026-07-26 — E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1 — **seven instances in ONE session of the same defect: an assertion implied by the code it tests.** This is not a run of bad luck, it is a house style — and it is why a "multipass" wave stayed single-pass and a 12.76%-wrong rail stayed trusted. Promoted to a P0 rule in `CLAUDE.md`.
+
+**Status:** RULING (promoted to `CLAUDE.md`). **Confidence:** High — every instance verified at file:line.
+
+**The seven, all 2026-07-26:**
+
+| # | instance | why it cannot fail |
+|---|---|---|
+| 1 | `cam_pq_scan.rs:264,290` — `assert!(results.len() <= 10)` | the code above is `results.truncate(self.top_k)` with `top_k: 10`. **The test asserts that truncate truncates.** |
+| 2 | `bgz-tensor/cascade.rs:310`, `stacked.rs:575` — `elimination_rate() > 0.0` | true of ANY input that eliminates a single candidate |
+| 3 | `closed_class_guess` | fired 150/149/148/150 of a max 150 — the dispersion conjunct rejected ~1 word per lane |
+| 4 | the "multipass" standing wave | every test used a 1-hop or out-of-window chain, so nothing exercised the multi-pass path — it had been single-pass all along (`E-MULTIPASS-WAS-SINGLE-PASS-1`) |
+| 5–7 | the rung gate, the peripheral watchdog, the outlier suggester | each landed WITHOUT a can-it-fire test until one was demanded; all three could have been inert and passed |
+
+**The pattern:** the assertion restates the implementation instead of constraining it. `truncate(k)` then `len() <= k`; `filter()` then `rate > 0`; a doc-comment says "multipass" and the tests exercise one pass. Each looks like coverage in a diff and reads like diligence in review.
+
+**Why it is expensive here specifically.** This stack is built on prunes, gates, and cascades — mechanisms whose whole purpose is to *exclude* things. A vacuous test on a prune does not just fail to catch bugs; it certifies a blind spot. Instances 1 and 2 sit on the two prunes the eigenvalue sweep rated CRITICAL and HIGH, so the mechanisms with the least trustworthy tests are exactly the ones excluding the most.
+
+**Cross-cutting finding from the same sweep (worth its own line): the stack instruments in INVERSE proportion to need.** CLAM's `rho_nn` — an *admissible* triangle-inequality prune that provably loses nothing — carries a counter. The three *heuristic* prunes that can silently drop good candidates carry less. Instrumentation followed what was easy to measure, not what could be wrong.
+
+**The rule now in `CLAUDE.md`:** before a test lands, answer *what input would make this fail?* If none exists, delete or rewrite it. A filter needs an anti-vacuity test (assert the excluded set is non-trivial), a guard needs a can-it-fire test, a doc-comment claim needs an exercising test or the label *claimed, unverified*, and schema reads use `== N` not `>= N`.
+
+**Honest note on provenance:** instances 5–7 are MINE, shipped hours earlier in this same session, and only acquired their can-it-fire tests because the operator's eigenvalue caution forced the question. The house style was mine too.
+
+Refs: eigenvalue sweep tag file `exec-runs/eigenvalue-sweep.txt`, `E-MULTIPASS-WAS-SINGLE-PASS-1`, `E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1`, `E-PERMISSIVE-ARITY-GUARD-IS-THE-SILENT-MISREAD-MECHANISM-1`, task #24.
+
+---
+
+## 2026-07-26 — E-EIGENVALUE-SWEEP-6-OF-12-PRUNES-BLIND-1 — the anti-blindness discipline applied across the whole stack: **12 pruning mechanisms audited, 6 clean, 6 failing** the enumerable/sampleable/escalation-capable test. The worst (`CamPqScanOp::cascade`) fails all three.
+
+**Status:** FINDING (read-only audit). **Confidence:** High for the code reads; the "95% skipped" HHTL figure is explicitly *claimed, unverified*.
+
+**Failing, ranked by consequence (not elegance):**
+1. **M1 `CamPqScanOp::cascade`** (`physical/cam_pq_scan.rs:93,103`) — CRITICAL, fails all three tests. Heuristic rejects vanish unnamed.
+2. **M2 `cascade_attention` LEAF budget** (`bgz-tensor/cascade.rs:240`) — HIGH; counts only, and **the cut is by iteration order, not quality** — which candidate survives depends on traversal sequence.
+3. **M3 `SearchCascade` per-hop `truncate(k)`** (`neighborhood/search.rs:109,149,188`) — HIGH; compounds 3×, and ranks on **1 of 8 bytes**.
+4. **M4 HHTL `RouteAction::Skip`** — MEDIUM; the table IS enumerable (materialized + serialized), but `Escalate` serves the *undecided* set, not the *excluded* one — an easy thing to mistake for a peripheral channel while it is not one.
+5. M5 `StepMask` — no complement accessor. 6. `foveated_descend` — probe-only, gated on promotion.
+
+**Clean, stated plainly** (a clean pass is information, not an absence of findings): CLAM `rho_nn` (admissible — provably loses nothing, so it needs no channel; caveat: conditional on `dist` being a true metric, unverified), the elevation cost model (escalates rather than discards, saturates loudly with `Err`), MUL gate, sigma bands, `dispatch_order`, and **`RungLevel` — the reference implementation, passing all three** (which is expected: it was built under this discipline hours earlier).
+
+**Queued fix (M1, one well-specified sketch rather than six gestures):** an opt-in `CascadeRejects` complement keeping heuristic rejects (`at_heel`/`at_branch`) in lanes separate from the budgeted `at_topk`; sampled **strided by HEEL sub-distance** so it reaches hard-rejected candidates rather than near-misses — the failure geometry is *one bad byte hiding five good ones*, so a cheap-edge sample would miss exactly the interesting rejects; then full 6-byte ADC on those k only, emitting a `ThresholdDissent` signal the caller may act on and the operator never must. Paired with a real `cascade_recall_against_full_adc` falsifier and a can-it-fire test. Cheapest adjacent win: `select_strategy` silently changes result semantics with corpus size — return the chosen strategy to the caller.
+
+Refs: `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1` (the doctrine), `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` (why the failing prunes' tests did not catch this), task #24 → #32.
+
+## 2026-07-26 — E-DISPERSION-CLOSED-CLASS-DETECTION-FAILS-1 — **NEGATIVE RESULT, and it survives the fairness check I ran to rescue it.** A rank-matched dispersion z-score does NOT beat `rank<=150` at finding German closed-class words (F1 0.280 vs 0.388). The redirect is worth more than the fix: with a parallel corpus, closed-class labels should be TRANSFERRED through alignment, not detected monolingually.
+
+**Status:** FINDING (negative). **Confidence:** High for the negative; the redirect is CONJECTURE until D-RCC-3 alignment exists to test it.
+
+**Measured** (`rosetta/closed_class.py`; ground truth `de/lexicon.tsv`, 95,855 UD word forms; closed = {DET, ADP, PRON, AUX, CCONJ, SCONJ, PART}; numerals/other excluded; 13,709 scored tokens across both German lanes):
+
+| | precision | recall | **F1** |
+|---|---:|---:|---:|
+| rank-matched dispersion z-score | 0.194 | 0.506 | **0.280** |
+| old `rank<=150` baseline | 0.545 | 0.301 | **0.388** |
+
+**I tried to rescue it and the arithmetic said no.** My instinct was that the comparison is structurally unfair — the baseline can flag at most 150 tokens BY CONSTRUCTION, making its precision cheap. Checked: the scored set holds ~272 true closed-class tokens, so the baseline's recall CEILING is 0.552 and it sits at 0.301 — 55% of its structural max, i.e. NOT saturated. Meanwhile the new detector spends **4.7× the flag budget (708 vs 150) to find 137 vs 82** — at nearly five times the cost it recovers 50.6%, still below what the trivial rank rule could reach. The comparison is fair; the detector genuinely loses. Recording the failed rescue because defending one's own hypothesis with a metric argument is precisely the bias this session keeps catching.
+
+**Why dispersion fails here, plausibly:** in a religious corpus the highest-dispersion words include content words that appear everywhere (`God`, `Lord`, `said`). "Evenly spread" separates *ubiquitous* from *local*, which is a different axis than *function* vs *content*. Tuning was a declared 648-config grid maximising F1 on the validation set with NO held-out split, so 0.280 is an optimistic upper bound.
+
+**The redirect (the value of the negative).** Monolingual detection is the wrong tool when a parallel corpus is available. English has BOTH UD POS tags and WordNet; Czech and Greek have neither. The Rosetta lanes give word alignment (D-RCC-3) over a frozen key — so **a Czech token aligned to an English closed-class token IS closed-class**, by transfer, with no detector at all. Closed-class words are also the highest-frequency, most reliably-aligned tokens in any parallel corpus, i.e. exactly where alignment is most trustworthy. A failed heuristic is replaced by machinery already justified for other reasons, and it extends to Greek (now acquired) for free.
+
+**Czech arm, honestly unvalidated:** with the German-tuned config it flags 837/40,100 tokens (2.09%); the top-30 are mostly plausible function words (`a`, `se`, `i`, `v`, `na`, `mezi`, `nad`, `pro`) with visible false positives (`loket`/`loktů`, "cubit"). Plausible-looking output from a detector that measurably fails on the one language where truth is known is NOT evidence — it is the confirmation bias this workspace has a rule against. Illustrative only.
+
+**Consequence for D-RCC-4:** the POS router now has **two failed inputs** (`closed_class_guess` vacuous per `E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1`; dispersion z-score negative here) and one measured survivor — the per-word ladder-usefulness signal from `E-COVERAGE-INVERSION-CLAIM-REFUTED-1`, which needs a wordnet and so covers English only. Alignment transfer is the path for everything else. Task #20 closed as answered-in-the-negative; transfer becomes its successor.
+
+## 2026-07-26 — E-MULTIPASS-WAS-SINGLE-PASS-1 — **the "multipass Markov standing wave" was effectively SINGLE-pass for every chain longer than one hop.** The loop raised the hop budget precisely to give a chain more hops, then returned `Escalate` the instant a low budget was insufficient — aborting before the budget that resolves it. Found, empirically confirmed, fixed, regression-pinned.
+
+**Status:** BUG FOUND + FIXED. **Confidence:** High — reproduced with a throwaway probe on the main thread before touching anything, then pinned by a test that fails on the old code.
+
+**The probe** (2-hop chain `0 →(+1) 1 →(+1) 2`, wholly inside the ±8 horizon):
+
+```
+budget 1: hops=1 esc=true  off=Some(1)   ← truncated mid-chain
+budget 2: hops=1 esc=false off=Some(2)   ← RESOLVES
+budget 3: hops=1 esc=false off=Some(2)   ← SETTLES (agrees with budget 2)
+stratified(passes=8) => Escalate at pass 1   ← but the wave said this
+```
+
+**Root cause: `ChainResolution::escalated` conflates two different facts** — "the chain left the ±8 reference horizon" (genuinely non-local ⇒ escalate is correct) and "the hop budget ran out mid-chain" (needs MORE passes ⇒ the next loop iteration supplies exactly that). Both loops (`standing_wave_grounded` and `standing_wave_stratified`) returned on the first `escalated`, so budget 1 — which truncates every ≥2-hop chain — always won.
+
+**Consequences of the bug, now retired:** every multi-hop causal chain inside the horizon was falsely reported non-local and dispatched to a `temporal.rs` version-range read it did not need; and `Causal` could only ever be declared for a *single-hop terminal* chain, which is why the wave-derived rung was capped at `Surface`/`Shallow` in practice. The stratification ladder was wired correctly but structurally starved of its upper rungs.
+
+**Fix:** escalate only if the chain STILL escalates at the FINAL budget; below that, treat escalation as "needs more hops", drop the untrustworthy `last` comparison, and continue. Applied identically to both functions — they must stay in verdict parity, which `stratified_never_disagrees_with_grounded` already pins across 6 window shapes × 3 loci × 4 budgets.
+
+**Regression test** (`multi_hop_chains_actually_get_their_extra_passes`) asserts all four arms: the underlying chain really does resolve at budget 2; the wave now grounds it at pass ≥ 2; a chain that genuinely leaves the horizon STILL escalates (the fix must not convert non-locality into false grounding); and `passes=1` still honestly reports escalation because one pass cannot resolve two hops.
+
+**Why it survived this long:** every existing wave test used a single-hop or an out-of-window chain. Nothing exercised a multi-hop chain end-to-end — so the "multipass" claim in the doc comment was never falsified by the suite that surrounded it. **A feature named in a doc comment but not exercised by a test is a claim, not a behaviour.** Found only because the planner-context wiring (task #29) forced someone to ask which rungs the wave can actually earn.
+
+**Follow-on (not done here):** `ChainResolution::escalated` should probably become two fields (`out_of_horizon` / `budget_exhausted`) so callers cannot re-conflate them; the current fix compensates at every call site instead of fixing the carrier. Filed rather than silently deferred.
+
+## 2026-07-26 — E-PD-GREEK-LANE-ACQUIRED-TISCHENDORF-1 — the source lane EXISTS: Tischendorf 8th ed. is stated **Public Domain**, while Textus Receptus and Westcott-Hort are **CC BY-NC-SA 4.0**. The pre-1929 age of a Greek edition does NOT make its digital transcription redistributable — the transcription carries its own claim, and two of the three obvious candidates fail.
+
+**Status:** FINDING (licence strings re-fetched and verified on the main thread, independently of the producing agent). **Confidence:** High.
+
+**Verified verbatim from `api.getbible.net/v2/translations.json`:**
+
+| edition | `distribution_license` | shippable |
+|---|---|---|
+| **tischendorf** (8th ed. GNT) | **`Public Domain`** | **YES** |
+| textusreceptus | `Creative Commons: BY-NC-SA 4.0` | no — NC |
+| westcotthort | `Creative Commons: BY-NC-SA 4.0` | no — NC |
+| lxx | `Copyrighted; Free non-commercial distribution` | no (and OT-only) |
+
+The `distribution_about` for Tischendorf reads *"This text and its analysis are in the Public Domain. Copy freely."*
+
+**The lesson worth keeping:** I would have assumed TR (1550/1894) and WH (1881) were PD — they are ancient works. **Two of three failed on the transcription's own terms.** This is the same trap as `E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1` one level down: age of the underlying work says nothing about the licence of the digitisation. Check the string, never the century.
+
+**Acquired:** 27 NT books (`book_nr` 40..66, matching the KJV lane's numbering), **7,895 verses**, 0 empty. Every Tischendorf row-key has a KJV match; **62 KJV NT verses are `TextAbsent` from Tischendorf** — the well-known critical-text omissions (Matt 17:21, 18:11, 23:14 …), a Byzantine-vs-Alexandrian tradition artifact, NOT an error. That is `WitnessDisposition::TextAbsent` earning its keep on real data for the second time this session. Receipt: John 1:1 `Ἐν ἀρχῇ ἦν ὁ λόγος…`. Generator: `rosetta/fetch_greek_lane.py` (stdlib-only, licence finding in its docstring).
+
+**Unblocks the anchoring rule.** `E-...-Erbsünde` defined *source outranks translation*, but there was no source lane to outrank with. There is now — and it is PUBLICLY SHIPPABLE, so the D-RCC-8 package can carry a source arm rather than depending on the NC PROIEL treebank, which stays oracle-only. Plan blocker §4.4 is DISCHARGED. Task #21.
+
+---
+
+## 2026-07-26 — E-PERMISSIVE-ARITY-GUARD-IS-THE-SILENT-MISREAD-MECHANISM-1 — the WordNet rail swap has only **2 consumers and NO loud-break ones** — and that is the bad news, not the good news. Both use a permissive `len() >= 4` guard that the 7-column v2 rail would satisfy while `c[2]`/`c[3]` silently became `sense_num`/`synset_offset`. **Fixed by making the guard exact and the mismatch loud.**
+
+**Status:** SHIPPED (audit + fix). **Confidence:** High — consumer claims verified at file:line on the main thread.
+
+**Audit result (read-only sweep, whole workspace + siblings):**
+- `wordnet31_isa.tsv` is **NOT committed** — it is gitignored generated data; only the two generator scripts are in git. So the migration has no git history at risk.
+- **2 real consumers, both silent-mis-read risk:** `examples/insight_reason_wired.rs` (live) and `wordnet/tier_delta.py` (the audit tool that found the bug; latent).
+- `build_wordnet_rail.py` is schema-aware by design (separate v1/v2 path constants) — no risk. `coca_wordnet_convergence.py` reads raw WNDB, not this TSV — not a consumer. A `dul.ttl` hit is a false positive (DOLCE mentioning WordNet generically).
+- **Sibling repos (ndarray, OGAR, tesseract-rs): zero consumers.**
+
+**Why zero loud-break consumers is the WORSE finding.** A break is safe: it stops the build and names itself. A permissive guard that keeps passing under a changed schema produces garbage `EntityType` tenants and `Graph::WordNet` rails with no error anywhere — the reader reasons confidently over nonsense. This bug class has now recurred TWICE in this file family (the keep-first extractor, then the arity guard), which is the tell that the *guard style* is the defect, not the individual site.
+
+**Fix applied:** `insight_reason_wired.rs` now guards on `c.len() == 4` (exact arity, with the reasoning in a comment naming v2 explicitly), counts wrong-arity rows, and **fails loudly** with a schema-mismatch error when a file yields zero valid rows but non-zero wrong-arity rows — turning a silent misread into a named failure. Migration shape adopted: **new filename + exact-arity checks at every read site** (the sweep's recommendation (a) + defense-in-depth from (c)); deprecation scaffolding rejected as over-engineering for 2 editable-in-one-PR consumers.
+
+**Generalizes:** every `len() >= N` guard over a schema'd file is a silent-misread waiting for a schema change. Prefer `== N` plus an explicit else-branch. Task #22.
+
+---
+
+## 2026-07-26 — E-PRIVATE-STORE-DISCLOSURE-IN-SOURCE-1 — **my earlier confidentiality sweep was incomplete**: it covered `.claude/board/` and the PR body but NOT committed SOURCE. Four example files named the private repository as the storage location for restricted codebooks, in user-facing error text.
+
+**Status:** FIXED. **Confidence:** High — found by a `crates/**` grep the earlier sweep never ran.
+
+The operator rule (now in `CLAUDE.md`) is that a public artifact states findings and limits, never *where a restricted artifact is kept*. I applied it to board files and the PR body and stopped there. Four `lance-graph-planner/examples/*.rs` files carried lines of the shape ``COCA codebook → `coca-codebook-v2` (<private repo>) → examples/data/coca/`` — **in a runtime error message**, i.e. the most user-visible surface in the crate. Redacted to name the Release asset without its location.
+
+**Deliberately NOT redacted:** `medcare_bridge.rs`, `ogar_codebook.rs`, `classid_scan.rs`, `postgrest.rs`, `lance-graph-ontology` — these name MedCare as a *tenant/consumer domain* (render lens, classid pairs, namespace). That is cross-repo coordination the arc depends on, not a statement about what a private repo holds. The distinction is the same one drawn in the board sweep, applied consistently.
+
+**Process lesson:** a confidentiality sweep scoped to "the docs" is not a sweep. The next one must cover `crates/**`, `docs/**`, `.claude/**`, commit messages, and PR bodies — error strings especially, because they are both committed AND shown to users at runtime.
+
+## 2026-07-26 — E-SATURATION-SWITCHES-TO-PASSIVE-QUORUM-1 — **at the top of the ladder the gate stops discriminating, so discrimination switches from ACTIVE selection to PASSIVE quorum** — and the tail is then ridden, not discarded: graded by multi-hop causal trajectory, meta-clustered on causal SHAPE, split into mini-basins, and reported as SUGGESTIONS with the anti-eigenvalue guard re-applied at the meta level.
+
+**Status:** SHIPPED (contract + planner). **Confidence:** High — 1050 contract + 289 planner tests green, clippy + fmt clean.
+
+**The saturation problem (operator-named).** Once the rung reaches `Transcendent`, all 34 tactics are admissible and the gate has zero discriminating power left. Continuing to pick a *dominant* tactic there is eigenvalue-following with nothing left to justify it. So the mode changes:
+
+1. **`witness_fabric::quorum_mantissa(focal, window) -> u8` (0..=15).** Passive: it OBSERVES how much of the window converges on the same absolute events instead of selecting a winner. i4 range so it lands in the existing qualia nibble carving — nothing widened.
+
+2. **Hindsight-blindness is prevented BY THE SIGNATURE, not by discipline.** The function cannot see any resolution, verdict, settle pass, or outcome — it takes only the window. A quorum able to observe the answer would weight the peers that "turned out right", which is textbook hindsight bias (every past state reads as having pointed at the settled result). Because the outcome is *unavailable at the type level*, no future edit can quietly reintroduce that weighting without changing the signature and failing review. Test `quorum_mantissa_cannot_see_the_outcome` re-runs it after wave resolution, peer election, and trajectory computation and asserts the value is unmoved. The same no-self-reference rule as `elect_peers` holds: only the 14 CONTENT loci contribute — Quorum/Contradiction are what this computes.
+
+3. **Ride the tail, graded by trajectory.** `TrajectorySignature { hops, escalated, terminal_offset }` + `trajectory_of()`. Low-quorum rows are not a reject pile; they become a clusterable feature space. `same_meta_basin()` groups on causal SHAPE (hop depth + escalation) regardless of terminus — so the terminus is left free to distinguish mini-basins inside.
+
+4. **`planner::nars::meta_basin`** — `grade_rows` → `tail` → `meta_cluster` → `mini_basins` → `outlier_suggestions`.
+
+**The anti-eigenvalue discipline re-applied at the META level (the operator's explicit instruction — the same failure recurs in a new costume):**
+- **Perturbation stability** (`MetaBasin::stable_under_perturbation`): a basin that dissolves when the hop budget is nudged was an artifact OF THE BUDGET, not a structure in the data. Riding it is perturbation blindness. Singletons are spared (nothing to dissolve); the call is total across budgets 0..=255.
+- **Mini-basins are searched inside EVERY meta-basin, never only the largest** — sub-structure in a small basin is exactly what a dominant-mode reader discards. `meta_cluster` likewise keeps singletons, and a test asserts no row is ever lost (`total == graded.len()`).
+- **Deterministic ordering everywhere** — suggestions that varied run to run would not be auditable.
+
+**Outliers SUGGEST, never decide (operator: "make only suggestion what they are outliers").** `OutlierSuggestion { row, reason, basin_size }` with `OutlierReason::{SoloTerminus, UnstableBasin, IsolatedAndEscalating}`. It carries the basin size it was judged against, so a weak suggestion from a small basin is *visible to the consumer* rather than asserted at it. Nothing prunes, commits, or scores. `UnstableBasin` is deliberately read as "the grouping may be an artifact", NOT "this row is wrong". Same shape as `WaveGrounding::Escalate` and `peripheral_dissent`: a signal.
+
+**Guards against inertness (the failure this workspace has now caught three times — vacuous `closed_class_guess`, the never-firing gate, the never-barking watchdog):** `suggester_can_actually_fire` proves the channel emits on a real window; `suggestions_are_advisory_and_evidenced` proves every suggestion carries justification and that repeated runs are identical.
+
+**Honest limits:** meta-clustering is exact-match on causal shape, not a metric clustering — CHAODA-style density outliers over the trajectory space are the natural next rung and are NOT implemented here (`mini_basins` splits on terminal equality, which is a coarse proxy). Perturbation tests ONE nudge direction (the caller's `perturbed_hops`), not a sweep. Both are honest floors to improve on, not claims already met.
+
+Refs: `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1` (the one-level-down guard this generalizes), `E-RUNG-STRATIFIED-WAVE-SHIPPED-1`, `E-GRAMMAR-LOCAL-CAUSAL-ABSOLUTE-1`, task #24.
+
+## 2026-07-26 — E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1 — **operator caution, acted on: optimizing the dominant mode blinds the periphery.** The rung gate shipped hours earlier was a HARD prune with an early stop — a locus that grounds cheaply was never examined by the 30 tactics its rung excluded. Fixed by making the periphery addressable, spread-sampled, and able to force elevation — never to decide.
+
+**Status:** SHIPPED (contract + planner). **Confidence:** High — 1047 contract + 283 planner tests green, clippy + fmt clean.
+
+**The defect in my own work, named precisely.** `E-RUNG-STRATIFIED-WAVE-SHIPPED-1` gated tactics by rung, and the wave STOPS when it settles. Compose those and the failure mode is: settle at pass 2 ⇒ rung `Shallow` ⇒ 4 of 34 tactics ⇒ **the other 30 are never consulted, ever**. And "settles fast" correlates with "looks obvious", which is exactly when a wrong answer is most expensive — the System-1 easy path the workspace's own `lab-vs-canonical-surface.md` warns about. Two multiplicative prunes compounded it: mechanism-filtering already narrows to ~6–14 recipes before the rung gate runs. **This session's entire value came from the periphery** (the 2 residual `swallow` verses, the 12.76% rail error, the 2.4× polysemy tail) — and I had just built a mechanism that would have hidden all three.
+
+**The fix (three parts, each with a can-it-fire test):**
+
+1. `RungLevel::peripheral_recipes()` — the exact complement of `admissible_recipes`. *A prune nobody can enumerate is a blind spot; a prune you can enumerate is a budget.* Partition is test-pinned at every rung: `|admissible| + |peripheral| == 34`, disjoint, and `Shallow` is shown to be blind to ≥25 of 34 — the blindness stated, not denied.
+2. `RungLevel::peripheral_sample(k)` — a **strided** sample across the whole excluded set, deliberately NOT the `k` cheapest-excluded. Taking the cheap edge would sample only the near periphery and stay systematically blind to the `ExtremelyHard` far edge — re-creating the blindness one level down. Test asserts the sample *reaches* an `ExtremelyHard` tactic. Deterministic (no RNG) so a dissent is reproducible and auditable rather than a lucky draw.
+3. `StyleStrategy::peripheral_dissent(style, ctx, rung, k, tol) -> Option<RungLevel>` — runs the watchers as OBSERVERS. If a watcher moves reliability beyond `tol`, it returns the rung to elevate to. **The periphery forces a deeper look; it never votes.** Same shape as `WaveGrounding::Escalate` — a signal, not a verdict.
+
+**Three guards, because a watchdog that cannot bark is the same defect one level up:**
+- `peripheral_dissent_can_fire_and_never_decides` — proves dissent is reachable at `tol=0`, AND that the score is bit-identical before/after the watchdog runs (`to_bits()`).
+- `no_periphery_no_dissent` — the top rung is blind to nothing, so the guard stays silent instead of fabricating an elevation.
+- `dissent_elevates_to_a_rung_that_admits_the_dissenter` — an elevation that would not actually admit the dissenter is theatre; asserted strictly deeper.
+
+**The general lesson, worth carrying past this wiring:** every cost-discipline mechanism this stack adds (rung gates, HHTL prunes, cascade skips, admissibility filters) is an eigenvalue-following device, and each one needs its own peripheral channel or it converts a *budget* into a *blindness*. The test to apply: **can the mechanism's excluded set be enumerated, sampled, and given the power to escalate?** If not, it is not a prune — it is a blind spot with good PR.
+
+Refs: `E-RUNG-STRATIFIED-WAVE-SHIPPED-1` (the work this corrects), `E-STANDING-WAVE-IS-UNSTRATIFIED-SUDOKU-1`, `E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1` (the near-vacuous-filter failure this reuses as a test), task #23.
+
+## 2026-07-26 — E-RUNG-STRATIFIED-WAVE-SHIPPED-1 — the pass ↔ rung ↔ recipe-admissibility edge is WIRED. The standing wave now reports the pass it settled at, the rung normalizes that depth, and only the tactics the resolution earned may fire. Admissible set grows 4 → 11 → 24 → 34; the unstratified entry point is bit-identical.
+
+**Status:** SHIPPED (contract + planner). **Confidence:** High — 1045 contract + 280 planner tests green, clippy + fmt clean, doctest green.
+
+**What landed** (wiring only over shipped carriers — no new struct, no new trait, no fourth ladder):
+
+1. `Recipe::min_rung()` / `Recipe::admissible_at(rung)` — admissibility derived from the recipes' OWN documented `Bucket`/`Tier` semantics, never invented: `Gate` ("a cheap marker that gates whether deeper work fires") ⇒ `Surface`; `Datapath` ("uniform, branch-free, every-cycle SIMD") ⇒ `Contextual`; `Control` ("branchy decision at a control point") ⇒ `Analogical`. `Tier::ExtremelyHard` ("convergent lock-in") lifts the floor to `Counterfactual`. **`Hard` and `CrossTier` deliberately do NOT lift it** — `Hard` describes the difficulty of the PROBLEM (the ~65% plateau), not the cost of the tactic, and `CrossTier` is documented as "helps at every difficulty"; lifting either would withhold cheap help exactly where it is most useful.
+2. `RungLevel::for_pass(pass)` (one rung per pass, saturating) + `RungLevel::admissible_recipes()`.
+3. `witness_fabric::standing_wave_stratified()` — `standing_wave_grounded` plus the settle pass. **Verdict parity is test-pinned across 6 window shapes × 3 loci × 4 budgets**: adding instrumentation may never change a verdict.
+4. `StyleStrategy::recipes_for_at` / `reliability_at(style, ctx, rung)`; `reliability_of` now delegates at `Transcendent` and is asserted **bit-identical** (`to_bits()`) to its old behaviour for every style.
+
+**The measured ladder** (this is what "thinking normalization" buys):
+
+| pass | rung | admissible | newly unlocked |
+|---:|---|---:|---|
+| 1–2 | Surface/Shallow | **4** | TCP, CAS, TCF, CUR (all `Gate`) |
+| 3 | Contextual | 11 | +7 `Datapath` |
+| 4 | Analogical | 24 | +13 `Control` |
+| 7 | Counterfactual | **34** | +10 `ExtremelyHard` |
+
+Pass 1 admits 4 of 34 (11.8%) — the anti-vacuity guard from `E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1` (a filter that filters nothing) is a test here, not a hope.
+
+**Two honest limits, both pinned in code:**
+- **The ladder has FOUR distinct levels, not ten.** Rungs 1, 4, 5, 7–9 unlock nothing, because the floors derive from a 3-valued `Bucket` plus one `Tier` escalator. Passes still do wave work at those rungs; only the tactic set is stepped. Spreading it further would need `Mechanism`/`Coverage` to carry cost semantics they do not claim to.
+- **The cheapest observable ground costs TWO passes, not one** — `Causal` is declared only when two successive budgets agree, so even a single-hop terminal chain reports `settle_pass == 2`. Found by a test I wrote asserting 1; the code was right and the assumption wrong. Kept as a feature: pass 0 → `Surface` stays cleanly reserved for "nothing resolved", making `Shallow` the shallowest rung any real grounding can earn. Both admit only `Gate`, so the discipline is unaffected.
+
+**Not done, deliberately:** `PlanContext` carries no witness window, so there is no honest rung to read from it — deriving one from `estimated_complexity` would be inventing a semantic. The rung is therefore an explicit parameter; threading the wave into planner context is its own deliverable. Rung-2 → the 144 verb atoms stays BLOCKED on O7 (`TD-RUNG2-144-VOCAB-SPLIT`); nothing here reads either vocabulary.
+
+**Serves D-RCC-6 unchanged:** the Rosetta cross-lane propagation should call `standing_wave_stratified`, not build a parallel propagator — same window, same fixpoint, same settle-or-escalate, same residual.
+
+Refs: `E-STANDING-WAVE-IS-UNSTRATIFIED-SUDOKU-1` (the audit this closes), `.claude/v3/knowledge/persona-vs-rung-ladder.md` O1/O2 (partially closed: rung→tactic wired; rung→verb still open), `E-GRAMMAR-LOCAL-CAUSAL-ABSOLUTE-1`, task #23.
+
+## 2026-07-26 — E-STANDING-WAVE-IS-UNSTRATIFIED-SUDOKU-1 — the multipass standing wave, the 0–9 rung ladder and the 34 NARS recipes are ALL SHIPPED and MUTUALLY UNWIRED. The wave already IS a Sudoku fixpoint; what is missing is the rung stratification that would make each pass *normalized* — and the same edge closes D-RCC-6.
+
+**Status:** FINDING (code audit, operator-directed). **Confidence:** High — every claim below is a file:line read, not inference.
+
+**What is already shipped (better than assumed):**
+- `contract::witness_fabric::standing_wave_grounded(focal_idx, window, locus, passes)` is a genuine **fixpoint iterator**: it loops `budget in 1..=passes` and settles when increasing the hop budget stops changing the resolved target. That is Sudoku constraint propagation, already in the substrate.
+- Its three outcomes are the right trichotomy: `Causal` (settles inside ±8), `Escalate` (chain persists but leaves the horizon), `Unbound`. Escalation is explicitly **not** failure — it is a REPRESENTATION SWITCH to an absolute address (`part_of:is_a` basin or centroid), which is the operator ruling "any Relativpronomen further than 8 hops is implicitly a basin edge", already codified as `E-GRAMMAR-LOCAL-CAUSAL-ABSOLUTE-1`.
+- 14 `CONTENT_LOCI` (Temporal/Kausal/Modal/Lokal, S/P/O-Meaning, Antecedent, BasinAnchor, SupportedBy, Supports, RunbookEvidence, …) with the 2 social loci (Quorum, Contradiction) **computed, never read as input** — no self-reference. Loci converge on the same ABSOLUTE event (`pos_a + o_a == pos_b + o_b`), not on equal offsets.
+- `recipes::RECIPES: [Recipe; 34]` — the rung-3 runbooks, catalogued with Tier/Mechanism/Bucket/Coverage.
+
+**The three gaps (measured):**
+
+1. **The wave has only TWO callers** — `deepnsm-v2/src/wave.rs` and `contract::dispatch_guard`. **`lance-graph-planner` never calls it.** The planner's thinking path does not consult the standing wave at all; this is the underuse.
+2. **`passes` is a caller-supplied constant, not rung-derived.** Nothing relates pass depth to `RungLevel`. So the fixpoint runs flat: every pass is permitted the same operations.
+3. **The 34 recipes are dispatched from exactly ONE site** — `planner/strategy/style_strategy.rs`, filtered by `Mechanism` only (`RECIPES.iter().filter(|r| r.mechanism == want)`). Never by rung, never by wave grounding, never by pass index. This is O1/O2 of `persona-vs-rung-ladder.md` still open, now with the consequence made concrete.
+
+**The missing edge, named:** `pass index ↔ RungLevel ↔ recipe admissibility`. Stratifying the existing loop is the whole change — pass 1 at rung 0–1 binds loci (observation only, no inference); pass 2 at rung 2 applies the 144 verb atoms; pass 3 at rung 3 admits the 34 tactics; pass 4 at rung 4 composes StyleFamily macros; `Escalate` is itself a rung elevation (positional → absolute). **That is what "rung-level alignment for thinking normalization" buys: cheap constraints run to exhaustion before expensive ones are legal, exactly as Sudoku propagates singles before it guesses.** Today a counterfactual tactic is admissible on pass 1.
+
+**The convergence (why this is one job, not two):** D-RCC-6 (Rosetta cross-lane constraint propagation to fixpoint) and the grammar standing wave are **the same operation at different scales** — a window of rows, multipass resolution, settle-or-escalate, residual routed to the oracle. The Rosetta lanes ARE a window; `Escalate` past ±8 is the basin edge; the unresolved residual is the FailureTicket tail. Wiring the stratification once serves both, and D-RCC-6 should be implemented AS a caller of `standing_wave_grounded`, never as a parallel propagator.
+
+**Anti-scope (stated so the next session does not drift):** this is a WIRING change over shipped carriers — no new struct, no new trait, no fourth 0–9 ladder (see `TD-THIRD-RUNG-LADDER-LEARNING`, O8). Rung-2 wiring stays BLOCKED on O7 (the two divergent 144 vocabularies, `TD-RUNG2-144-VOCAB-SPLIT`) — a naive ordinal bridge silently mis-maps, so pass-2 admissibility must wait or use an explicit demarcation.
+
+Refs: `.claude/v3/knowledge/persona-vs-rung-ladder.md` O1/O2/O7/O8, `E-GRAMMAR-LOCAL-CAUSAL-ABSOLUTE-1`, `E-RUNG-CONTENT-LADDER-1`, plan `rosetta-codebook-convergence-v1.md` D-RCC-6, task-board W2/W6/W9.
+
+## 2026-07-26 — E-COVERAGE-INVERSION-CLAIM-REFUTED-1 — **my own "WordNet and COCA hydrate disjoint regions" claim is REFUTED.** WordNet coverage does not fall where frequency is highest — it RISES (97.6% top decile vs 84.3% bottom). The POS-router design survives, but its justification was wrong: route on measured ladder-usefulness, never on frequency band.
+
+**Status:** FINDING (measurement briefed explicitly to refute the orchestrator's claim; it did). **Confidence:** High for content vocabulary; the function-word half of the claim is UNTESTABLE on this data (see scope, below) — not vindicated, just unmeasured.
+
+**The claim under test** (asserted by me earlier this session, never measured): *"WordNet is weakest almost exactly where frequency is highest… therefore the two codebooks hydrate DISJOINT regions and POS routes between them."*
+
+**Measured** (`coca/coca_wordnet_convergence.py`, 20k COCA lexicon × full WNDB, n/v subset n=16,018; no classical significance claimed — weak dependence, `I-NOISE-FLOOR-JIRAK`):
+
+| test | result | verdict |
+|---|---|---|
+| coverage by frequency decile | top 97.6% vs bottom 84.3% (overall 91.4%) | **REFUTES** — inverted |
+| plain ABSENT rate | high-freq 3.8% vs low-freq 11.7% | **REFUTES** — inverted |
+| ρ(rank, sense_count) | −0.334 (n=14,550) | supports: frequent ⇒ more senses |
+| ρ(rank, depth) | +0.091 (n=14,550) | correct direction, **weak** |
+| "useful ladder" share | high-freq 77.5% vs low-freq 74.2% | **REFUTES disjointness** — near-identical |
+| "uselessly polysemous" (shallow ∧ ≥5 senses) | high-freq 13.5% vs low-freq 5.6% (~2.4×) | supports, but a MINORITY effect |
+
+**What I got wrong and what survives.** The polysemy half was right (frequent words do carry more senses) and the shallow-ladder half is real but minor (13.5%, not the majority I implied). The load-bearing half — *disjoint coverage* — is simply false: WordNet hydrates high-frequency content vocabulary about as well as low-frequency, and better than I claimed at both ends. **Architectural consequence: the D-RCC-4 POS router must key on a MEASURED per-word signal (shallow ∧ polysemous ⇒ ladder does no work ⇒ route to construction statistics), not on a frequency band or a bare open/closed-class split.** The router is still right; my reason for it was not.
+
+**Scope limit — the untested half (orchestrator verification, beyond the agent's report).** `coca/lexicon.tsv` is a pre-filtered 20k list, not raw COCA rank 1..N: `a, I, you, he, she, they, not, what, which` are ABSENT, so the pure-function-word band the claim was partly about is excluded rather than deprioritised. Worse, **the rank column is unreliable in exactly that band** — `the` is recorded at rank **5645** and `and` at **3584** (and `and` is POS-tagged `r`/adverb), while `of`=5. Those are not COCA frequency ranks. So: the decile analysis is sound for content vocabulary but the file cannot support any claim about the true top-of-frequency function words, and its `rank` column should not be trusted as a frequency proxy at the head without repair. Filed as tech debt.
+
+**Method note worth keeping:** briefing a subagent to *refute* an orchestrator claim, with "refuting is a success, do not tune thresholds until it passes" stated in the brief, produced a clean refutation of a claim I had already written into three prior turns of design reasoning. This is the cheapest correction mechanism in the session so far.
+
+Refs: plan `rosetta-codebook-convergence-v1.md` D-RCC-4 (router justification amended), `E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1` (the vacuous `closed_class_guess` — same router, second broken input), task #20.
+
+## 2026-07-26 — E-WORDNET-RAIL-ERROR-RATE-MEASURED-1 — the committed rail's sense-selection bug is **12.76% of all rows** (16,471/129,059) — and **33.84% of VERBS**. What began as "2/2 audited anchors wrong" is now a measured, POS-stratified defect rate, plus a corrected v2 rail (176,537 rows, all senses) and a working fetch script that ends the ephemeral-WNDB fragility.
+
+**Status:** FINDING (full audit, no sampling; anchors re-verified on the main thread independently of the producing agent). **Confidence:** High.
+
+**Measured** (`wordnet/build_wordnet_rail.py`, full WNDB 3.1 as ground truth, all 129,059 comparable v1 rows):
+
+| metric | value |
+|---|---|
+| exact-string mismatch | **16.01%** (20,660) |
+| of which pure case-folding artifact (`v-day` vs `V-day`) | 4,189 — separated out, NOT counted as sense bugs |
+| **real sense-selection errors** | **12.76%** (16,471) |
+| nouns | 14.33% |
+| **verbs** | **33.84%** (3,759 / 11,107) |
+| sense-1 is actually a taxonomy ROOT ⇒ v1's hypernym is FABRICATED | 219 |
+
+The agent separating case artifacts from real errors rather than banking the bigger 16.01% headline is the right call and is why the 12.76% is trustworthy. The 219 fabricated rows are a distinct failure class: sense 1 has no hypernym at all, so v1's recorded value corresponds to nothing — not mis-ranked, invented.
+
+**Verified independently on the main thread** (`--verify`, re-run by the orchestrator):
+- `grape/n` sense 1 = `07774656`, true hypernym **`edible_fruit`**; v1's `shot` is sense **3**. PASS.
+- `swallow/n` sense 1 = `07594841`, true hypernym **`taste`**; v1's `consumption` is sense **2**. PASS.
+- The bird is now REACHABLE: `swallow n 3 01597013 isa oscine 01528361`.
+- Also visible in v2: `swallow/v` sense 1 is a taxonomy ROOT — exactly the 219-row fabrication class, in an anchor we had already been reasoning about.
+
+**Verbs at one-in-three is the load-bearing number.** Every downstream taxonomic read over verbs — and the D-SCI grammar arc is verb-centric (valency, government, voice, the 144 verb atoms) — has been consuming a rail where a third of entries point at the wrong sense. This is not a tail risk; it is the modal case for that POS.
+
+**The ephemerality blocker is DISCHARGED.** `wordnet/fetch_wordnet.sh` works cold, tested in-session: the commonly-assumed `.../3.1/WNdb-3.1.tar.gz` **404s**; the live asset is `https://wordnetcode.princeton.edu/wn3.1.dict.tar.gz` (HTTP 200, 16,358,468 bytes). Verified both the no-op path (dir present) and a genuine cold fetch into a fresh temp dir, then re-ran `--verify` against the fresh copy: identical PASS. So the green numbers in `E-WORDNET-RAIL-KEEPFIRST-IS-ALSO-WRONG-SENSE-1` are now reproducible from a cold container, not session-local luck.
+
+**Not yet done (deliberate):** v1 `wordnet31_isa.tsv` is UNTOUCHED; v2 lands beside it as `out/wordnet31_isa_v2.tsv`. Superseding the committed rail is an orchestrator decision and needs a consumer sweep first — every reader of the v1 rail must be found before the swap, or the fix becomes a silent semantic change (`I-LEGACY-API-FEATURE-GATED` shape: same filename, different meaning). Scope limits: nouns+verbs only (adjectives/adverbs carry no `@` taxonomy, matching v1's own scope); the audit compares only the first `@`/`@i` pointer on multi-parent synsets, though the v2 rail emits all of them as separate rows.
+
+Refs: `E-WORDNET-RAIL-KEEPFIRST-IS-ALSO-WRONG-SENSE-1` (the 2/2 anchor finding this quantifies), plan `rosetta-codebook-convergence-v1.md` D-RCC-5, task-board W5 gap 4, W11.
+
+## 2026-07-26 — E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1 — four verse-attested codebooks on identical logic reproduce the morphological-richness ordering (en < de < cs) as a free sanity check; the TWO German lanes differ enough to be non-redundant witnesses; and the `closed_class_guess` heuristic is near-VACUOUS — it is essentially "rank ≤ 150".
+
+**Status:** FINDING (measured); the vacuity critique is an orchestrator read of the emitted TSVs, not the producing agent's claim. **Confidence:** High.
+
+**Built** (`rosetta/build_lane_codebooks.py`, stdlib-only, identical logic across all lanes — no per-language special-casing beyond the tokeniser character class): per token `freq, verse_df, rank, dispersion (Juilland's D over the lane's own 66 books), is_hapax, closed_class_guess`.
+
+| lane | language | tokens | types | TTR | hapax |
+|---|---|---:|---:|---:|---:|
+| kjv | English | 792,376 | 12,453 | 0.0157 | 30.7% |
+| luther1545 | German | 696,534 | 20,444 | 0.0294 | 38.3% |
+| elberfelder1905 | German | 722,778 | 24,081 | 0.0333 | 39.2% |
+| bkr | Czech | 596,085 | 40,100 | 0.0673 | 45.6% |
+
+**Three reads:**
+
+1. **The ordering is a free pipeline sanity check.** TTR and hapax rate both rank en < de < cs — exactly the morphological-richness ordering (English analytic; German compounding + case; Czech 7 cases × rich derivation). Nobody encoded that; it falls out of identical logic on four texts of comparable length. A pipeline bug would have to be language-correlated to fake it.
+
+2. **The two German lanes are NOT redundant witnesses.** Same 66 books, same verse counts, same tokeniser — yet 20,444 vs 24,081 types (+17.8%) and a 0.9 pp hapax gap. That is translation STYLE, not a tokeniser artifact, and it matters for the witness-independence weighting (`E-VERSIFICATION-IS-PER-EDITION-NOT-PER-TRADITION-1` showed the same two lanes diverging on versification). Two editions of one language earn two lanes.
+
+3. **⚠ `closed_class_guess` is near-vacuous — do not consume it as a POS router.** Defined `rank ≤ 150 AND D ≥ 0.60`, it fires for **150/149/148/150** of a maximum 150 per lane. The dispersion conjunct therefore rejects ~1 word per lane: the flag is operationally identical to "rank ≤ 150". It cannot serve the D-RCC-4 POS-routing role (open-class → WordNet ladder; closed-class → construction statistics) for the languages that have no tagger, which was the entire motivation. **A real closed-class detector for cs/el is now an open item** — candidate signal: dispersion measured against a rank-matched baseline rather than an absolute threshold, so the criterion is doing independent work.
+
+**Scope correction (agent-flagged, worth pinning):** the four PD lanes are English + **two German** + Czech. There is **NO Greek TEXT lane** — the PROIEL Greek NT in the scratchpad is a treebank (different format, CC BY-NC-SA, oracle-only per `E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1`). Any earlier session framing implying a Greek lane among the four is corrected here; acquiring a PD Greek text edition remains plan blocker §4.4 and now sits on the critical path for the source-outranks-translation rule (which needs a source lane to outrank with).
+
+Refs: plan `rosetta-codebook-convergence-v1.md` §2 D-RCC-4 + §4.4, `E-RCC-1-FOUR-LANES-ONE-KEY-1`.
+
+## 2026-07-26 — E-RCC-1-V2-SPLIT-SURVIVES-NORMALISATION-1 — the cross-lingual split census is NOT an inflection artifact: folding German surface forms to stems moves it 48.9% → 43.0%, not to zero. The German lane really does partition English polysemy at scale.
+
+**Status:** FINDING (measured before/after in one run, same thresholds both passes). **Confidence:** High for the direction and magnitude; the normaliser is a stated approximation, so the exact 43.0% is a lower-bound-ish estimate, not a precise constant.
+
+**The falsification that mattered.** v1's headline (48.9% of 3,071 mid-frequency English words have ≥2 German associates that partition their verse contexts) had an obvious deflationary explanation: `weinberge`/`weinberges`/`weinbergen` are one lemma masquerading as three "senses". If the split were mostly that, the whole extensional arm of the Schnittpunkt story would be an artifact of German morphology. **It is not.** A crude longest-suffix-strip normaliser (min stem length 4, explicitly NOT a lemmatiser — no dictionary, no ablaut, no compound splitting) folded 20,025 German surface tokens → 13,452 stems (6,573 folded away; 3,810 stems absorbed ≥2 surface forms) and the split census fell only **48.9% → 43.0%** (1,501 → 1,319 of 3,071; −182 rows, −5.9 pp). Inflection accounted for about an eighth of the effect; seven eighths is real lexical partitioning.
+
+**Anchor regex hardening — and what the residual proves.** §B `swallow` unresolved fell **22/50 (44%) → 2/50 (4%)**, with every added pattern read off the actual unresolved lane texts rather than guessed: German strong-verb ablaut participle `verschlungen` (v1 had only `verschling`/`verschlang`); a Czech diacritic error `pozř` → `požř`; and the Czech `pohltit`/`sehltit` family's t/c/ť palatalisation (`pohlceni`, `sehlcen`, `sehlťme`). Broader bare-root patterns were TESTED AND REJECTED against the corpus for false positives — `hlc` collides with `poběhlce` ("fugitive"), `hlť` with old-Czech enclitics. **The residual 2 verses (Job 6:3, Job 39:24) are genuine translation divergences** — all three non-English lanes choose an unrelated verb concept entirely — and were correctly left unresolved rather than forced. That is the `WitnessDisposition` discipline holding at the regex layer: unresolved is a value, not a failure.
+
+**Consequence for the plan:** the extensional half of the Schnittpunkt (`rosetta-codebook-convergence-v1` §0.4) survives its first deflationary attack. D-RCC-3's real aligner should improve on 43%, not have to rescue it. The `--anchor WORD` flag added this pass means future anchors get scoped from real text BEFORE anyone writes a regex — the workflow that produced every correct pattern here.
+
+Refs: `E-RCC-1-FOUR-LANES-ONE-KEY-1` (v1 baseline this corrects), plan §0.4 + D-RCC-3, `build_rosetta_probe.py` v2.
+
+## 2026-07-26 — E-WORDNET-RAIL-KEEPFIRST-IS-ALSO-WRONG-SENSE-1 — the committed `wordnet31_isa.tsv` rail is not merely polysemy-blind (its own header admits that); its "first-sense per lemma" claim is FALSE on 2/2 audited anchors — a systematic extractor bug that has been silently poisoning every downstream taxonomic read.
+
+**Status:** FINDING (verified on the main thread against WNDB ground truth, independent of the reporting agent). **Confidence:** High for the two audited lemmas; the extractor's full error rate is UNMEASURED (next probe).
+
+**Audit (WordNet 3.1 WNDB `index.noun`/`data.noun` as ground truth):**
+
+| lemma | committed TSV | true sense 1 | what the TSV actually encoded |
+|---|---|---|---|
+| `grape` | `isa shot` | `07774656` (the fruit) | sense **3** = `03458491` grapeshot |
+| `swallow` | `isa consumption` | `07594841` (a small amount, "sup") | sense **2** = `00841439` drink/deglutition |
+
+The bird (`01597013`) is `swallow` sense 3 — unreachable from the rail at any depth. So the earlier `grape → shot` / `swallow → consumption` sightings (recorded as the W5-gap-4 keep-first blocker) were only HALF diagnosed: keep-first was blamed, but the extractor is not even keeping the FIRST sense. Two independent defects stacked; fixing sense-selection alone would still leave the polysemy hole, and fixing polysemy alone would still inherit a wrong default.
+
+**The tier-delta mechanism itself is GREEN** (D-RCC-5 taxonomic arm, `wordnet/tier_delta.py`, run on full WNDB): small controls dog/wolf=2, boat/ship=2, house/dwelling=1 (max 2) vs large controls death/vineyard=12, stone/mercy=7 (min 7) — a clean margin with no overlap; the Erbsünde-proxy anchor `sin`/`death` = 6 (LCA `attribute`), i.e. it lands in the large-delta regime as the plan predicted. `swallow`(n) vs `swallow`(v) returns `NO_COMMON_ANCESTOR` — correct, noun and verb hierarchies are disjoint DAGs, and correctly distinguished from "absent" and from delta=0.
+
+**Load-bearing fragility (NOT a dependency yet):** the full WNDB used for all of the above lives at `/tmp/wn/dict` (53 MB, 95,981 synsets) — **ephemeral session-local state that no manifest pins and no fetch step reproduces**. Every green number above is therefore currently unreproducible from a cold container. The script degrades to the TSV-only path (validated by a forced-fallback run) but that path is the buggy rail. Consequence: regenerating the rail from WNDB with ALL senses + correct sense order is now a prerequisite, not a nice-to-have, and the WNDB acquisition must be scripted before the numbers can be re-claimed.
+
+Refs: plan `rosetta-codebook-convergence-v1.md` D-RCC-5, task-board W5 gap 4 (re-diagnosed), W11 (still gated), `E-HYPERNYM-CLIMB-IS-A-CASCADE-TIER-DELTA-1`.
+
+## 2026-07-26 — E-VERSIFICATION-IS-PER-EDITION-NOT-PER-TRADITION-1 — the Psalm offset is NOT a uniform "German/Vulgate tradition" shift (my earlier framing, corrected by measurement): of three non-KJV lanes, only luther1545 shifts; elberfelder1905 and bkr fold the Hebrew superscription into v1's TEXT and need no shift at all.
+
+**Status:** FINDING (empirical detector + manual cross-check of the Psalm 84 receipt). **Confidence:** High for the measured lanes; the detector is per-(book,chapter) and would not catch a whole-book chapter divergence.
+
+**Measured** (`rosetta/build_versification_map.py`, offsets DETECTED by proper-noun/digit overlap scoring, not hardcoded from tradition lore): offset≠0 in **36** (luther1545) / **3** (elberfelder1905) / **8** (bkr) of 1189 (book,chapter) groups. `TextAbsent` = **0** across all 66 books in all 4 lanes. Realignment payoff on the cheap anchor signal: 5793 → 5814 of 15270 testable verses (37.9% → 38.1%, +21) — **modest, and a lower bound** (the fuzzy-prefix proxy is deliberately crude).
+
+**A measurement caught a measurement bug:** the first pass scored Psalm 11 (luther1545) as offset=−1 at confidence 0.69; manual verification against the raw JSON showed 0. Root cause: the scoring BASIS (anchor-match vs length-fallback) was being chosen per-offset, so a wrong offset that happened to drop the chapter's only anchor-bearing verse could win via the weaker fallback. Fixed by deciding the basis once per chapter, then re-verified. This is the reason the brief demanded empirical detection over lore: the lore would have produced a plausible table with no way to notice it was wrong.
+
+**Open, flagged not diagnosed:** bkr shows a ~49% low-confidence rate vs ~18% for the German lanes — cause unknown, deliberately out of grindwork scope.
+
+Refs: plan `rosetta-codebook-convergence-v1.md` §4.3 (blocker now partially discharged), `E-RCC-1-FOUR-LANES-ONE-KEY-1` (the Ps 84:3 receipt this corrects and sharpens).
+
+## 2026-07-26 — E-RCC-1-FOUR-LANES-ONE-KEY-1 — the frozen verse address WORKS as the Rosetta SoA key at full-canon scale, and one probe run produced the whole argument in miniature: the census, the anchor, the versification blocker, AND its escape hatch — in a single receipt.
+
+**Status:** FINDING (probe run, receipts on local disk). **Confidence:** High for what was measured; the split census is CRUDE by design (no lemmatizer).
+
+**Probe:** `crates/lance-graph-planner/examples/data/rosetta/build_rosetta_probe.py` (D-RCC-1, calibrator per the operator correction) over 4 PD verse-keyed lanes fetched from getBible v2: kjv, luther1545, elberfelder1905, bkr (= Kralická — the D-RCC-7 lane, landed same run).
+
+**Measured:**
+1. **Census:** union 31,103 rows, common to all 4 lanes 31,097 (99.98%). Per-lane absences 1–5 rows. The frozen external key needs NO alignment pass — lanes land on rows.
+2. **The Ps 84:3 receipt (the plan's §0 thesis in one row):** KJV `swallow` (bird). Luther-1545 lane at (19,84,3) shows a DIFFERENT verse — the live Psalm-title +1 versification offset (blocker §4.3, demonstrated not assumed). Elberfelder-1905 🐦 `Schwalbe` and Kralická 🐦 `vlaštovice` BOTH align and BOTH resolve bird. One lane misaligned → two independent lanes carry the anchor. The escape-hatch claim (operator: benefit of Schwalbe=swallow is OVERWHELMING, failures get hatches) is now a receipt, not an argument.
+3. **swallow across 50 KJV verses:** crude lane-regexes resolve bird=4 / verb=24 / unresolved-by-regex=22 (regex gaps, e.g. Czech `sehltiti` missing — calibrator honesty, not a limit of the method).
+4. **Split census (en→luther1545, PMI≥3.0, cooc≥5, context-overlap≤0.3, Psalms excluded):** 48.9% of 3,071 mid-frequency English content words have ≥2 German associates that PARTITION their verse contexts. Star receipt: `tongue → Zunge(57) vs Sprache(7)` — a REAL sense split (body part vs language) found by the crude v0 aligner unprompted. Inflection noise is acknowledged (weinberges/weinberge rows).
+
+**Consequences:** (a) D-RCC-2's in-memory whole-canon SoA is confirmed feasible at 31k rows; (b) the versification map (§4.3) is REQUIRED for the Luther lane specifically and demonstrably absent-not-broken for Elberfelder/Kralická under KJV-style keys; (c) Kralická data is landed → D-RCC-7 is data-complete before its deliverable even started; (d) the German lane's splitting power (48.9% crude) is enough that the qualia sense-index (D-RCC-4) will not starve. Refs: plan `rosetta-codebook-convergence-v1.md`, `E-ROSETTA-IS-A-JOIN-NOT-A-CHOICE-1`, task #19.
+
+## 2026-07-26 — E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1 — the derived codebooks do NOT share one publication path: **UD-derived and WordNet-derived assets can ship as PUBLIC lance-graph Releases; PROIEL-derived and COCA-derived assets are NOT publicly redistributable** — because a derived database inherits its source's licence, and PROIEL's NonCommercial clause is the blocker. Never bundle regimes into one asset.
 
 **Status:** RULING (governance). **Confidence:** High — every licence below was fetched and read, not assumed.
 
@@ -10,17 +693,17 @@
 | UD German-HDT | CC BY-SA 4.0 (annotation) | no | SA | **PUBLIC** Release (attribute + SA) |
 | theographic-bible-metadata | CC BY-SA 4.0 | no | SA | **PUBLIC** Release (attribute + SA) |
 | **WordNet** (Princeton + OEWN) | WordNet License + **CC BY 4.0** | no | **none** | **PUBLIC**, attribution only — the most permissive asset we hold |
-| **PROIEL** treebank | **CC BY-NC-SA 3.0** | **YES** | SA | **PRIVATE** only (MedCare-rs) |
-| COCA (wordfrequency.info) | commercial/restricted | — | — | **PRIVATE** only (already ruled) |
+| **PROIEL** treebank | **CC BY-NC-SA 3.0** | **YES** | SA | **NOT** publicly redistributable |
+| COCA (wordfrequency.info) | commercial/restricted | — | — | **NOT** publicly redistributable (already ruled) |
 | NTN (SemanticBible) | UNVERIFIED | ? | ? | LOCAL only until checked |
 
-**The reasoning that decides it.** A derived database is a derivative work, so the codebook inherits the source licence. Three consequences: (1) the German codebook is a CC BY-SA 4.0 derivative of UD GSD+HDT — BY-SA *permits* redistribution including commercial use, so a PUBLIC lance-graph Release is fine provided the asset attributes UD and carries BY-SA; (2) any Greek codebook mined from PROIEL inherits **NonCommercial**, which a public Release of a commercially-usable project cannot carry — private repo, same shelf as COCA; (3) WordNet carries neither NC nor SA, so it imposes **no copyleft on anything it is combined with** — the safest thing to depend on.
+**The reasoning that decides it.** A derived database is a derivative work, so the codebook inherits the source licence. Three consequences: (1) the German codebook is a CC BY-SA 4.0 derivative of UD GSD+HDT — BY-SA *permits* redistribution including commercial use, so a PUBLIC lance-graph Release is fine provided the asset attributes UD and carries BY-SA; (2) any Greek codebook mined from PROIEL inherits **NonCommercial**, which a public Release of a commercially-usable project cannot carry — excluded from public Releases, same shelf as COCA; (3) WordNet carries neither NC nor SA, so it imposes **no copyleft on anything it is combined with** — the safest thing to depend on.
 
 **THE TRAP, and the rule: one Release asset per licence regime — never bundle.** Shipping the German codebook (BY-SA, commercial-OK) in the same archive as a PROIEL-derived Greek codebook (NC) makes the *combined* asset effectively NonCommercial: a permissive artifact silently contaminated by its packaging. Assets must be separated by regime, each with its own attribution and licence file, even when a consumer wants both.
 
 **The data-in-Releases convention turns out to be legally load-bearing, not merely size hygiene.** Code lives in the repo (Apache-2.0); data lives in Release assets under its own licence. That is *mere aggregation* — the SA obligation attaches to the derived DATABASE and never propagates into the Apache-2.0 Rust/Python that reads it. Had the codebooks been committed into the tree, a BY-SA database would sit inside an Apache-2.0 source tree and the boundary would be far harder to argue. The convention we adopted to keep 26k-line TSVs out of diffs is the same structure that keeps the licences clean.
 
-**Actions:** (a) German codebook → public lance-graph Release, asset carries `LICENSE-CC-BY-SA-4.0` + a citation of UD German-GSD/HDT; (b) WordNet rails → public Release, attribution to Princeton WordNet + the Open English WordNet team; (c) theographic rails → public Release, BY-SA + attribution; (d) Greek/PROIEL codebook → MedCare-rs private, NC recorded in its MANIFEST; (e) COCA → unchanged, private; (f) NTN → verify SemanticBible's terms before it leaves local disk (it is currently only in the session scratchpad — no action has published it). Every MANIFEST states its regime explicitly so a future session cannot re-bundle by accident. Refs: `E-SCI-1-COCA-GROUNDED-EXTRACTION-1` (the data-in-Releases convention), `E-ROSETTA-IS-A-JOIN-NOT-A-CHOICE-1` (the Latin/OCS additions inherit PROIEL's NC), task board W15/W17/W18.
+**Actions:** (a) German codebook → public lance-graph Release, asset carries `LICENSE-CC-BY-SA-4.0` + a citation of UD German-GSD/HDT; (b) WordNet rails → public Release, attribution to Princeton WordNet + the Open English WordNet team; (c) theographic rails → public Release, BY-SA + attribution; (d) Greek/PROIEL codebook → excluded from every public Release, NC recorded in its MANIFEST; (e) COCA → unchanged, excluded; (f) NTN → verify SemanticBible's terms before it leaves local disk (it is currently only in the session scratchpad — no action has published it). Every MANIFEST states its regime explicitly so a future session cannot re-bundle by accident. Refs: `E-SCI-1-COCA-GROUNDED-EXTRACTION-1` (the data-in-Releases convention), `E-ROSETTA-IS-A-JOIN-NOT-A-CHOICE-1` (the Latin/OCS additions inherit PROIEL's NC), task board W15/W17/W18.
 
 ## 2026-07-26 — E-HYPERNYM-CLIMB-IS-A-CASCADE-TIER-DELTA-1 — WordNet's hypernym hierarchy is EXPLICIT vertical navigation, and it lines up with the substrate's own vertical machinery (HHTL tiers / CLAM-CHAODA cluster tree / the hierarchical-4⁴ codebook). Consequence: the fox→animal specificity loss stops being a judgement call and becomes a MEASURABLE tier delta — and the coarsest tier is the cheapest error detector. Caught a live bug that would have poisoned the Aesop probe.
 
@@ -3369,11 +4052,11 @@ coexisted with the lint that motivated it.
 **Consequence:** the single highest-leverage small move in the address stack is
 rebasing `mint_factored`+`RadixCodebook` over main (conflict surface ≈ the
 `pub mod` line + doc header) so the corrected state exists on ONE branch.
-Until then, "brick-3's corrected form is shipped" is true only of the private
-probe run, not of public ruff main.
+Until then, "brick-3's corrected form is shipped" is true only of the probe
+run, not of public ruff main.
 
-**Process note:** my #625 record propagated the claim from the private archive's
-RESTORE-STATUS without re-verifying WHICH branch carried the code — the same
+**Process note:** my #625 record propagated the claim from a probe status note
+without re-verifying WHICH branch carried the code — the same
 verify-by-reading-not-by-inheriting failure mode as the stale-doc-comment
 episode (E-BRICK3 arc). Corrections cite their pass: surfaced by the 2026-07-02
 OGAR+ruff review fan-out.
@@ -3896,10 +4579,8 @@ mint_factored}` shipped and the brick-3 probe RAN against a real C# corpus via
 `(part_of:is_a)` packing was falsified at scale** (mass truncation + god-class
 collisions); **`mint_factored`** (base-255 positional path +
 `is_a`-from-`inherits`-only) drives truncation AND collisions to 0. The
-proprietary measured numbers live ONLY in the private MedCare-rs
-`.claude/archive/ruff-spo-address-medcare-probe/` (MedCare-rs is private;
-lance-graph + ruff are not) — this board records the design consequence, never
-the numbers.
+measured numbers are proprietary and are recorded nowhere in this repo — this
+board records the design consequence, never the numbers.
 
 **The doctrine (operator).** Truncation is **disallowed by policy** — not
 "reduced by a bigger packer." A bucket that exceeds capacity (256-cap or 6-tier

@@ -66,7 +66,7 @@ impl Basins {
         let coca = dir("COCA_CODEBOOK_DIR", "coca").join("lexicon.tsv");
         let txt = std::fs::read_to_string(&coca).map_err(|_| {
             format!(
-                "missing Release data (COCA codebook `coca-codebook-v2`, MedCare-rs) — \
+                "missing Release data (COCA codebook `coca-codebook-v2`) — \
                  expected {}",
                 coca.display()
             )

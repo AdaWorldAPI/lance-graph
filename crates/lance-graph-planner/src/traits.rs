@@ -3,7 +3,10 @@
 #[allow(unused_imports)] // Node intended for strategy result wiring
 use crate::ir::{Arena, LogicalOp, LogicalPlan, Node};
 use crate::PlanError;
+use lance_graph_contract::causal_witness::{CausalWitnessFacet, Locus};
+use lance_graph_contract::cognitive_shader::RungLevel;
 use lance_graph_contract::kanban::KanbanMove;
+use lance_graph_contract::witness_fabric::{standing_wave_stratified, WaveGrounding};
 
 /// What kind of planning problem a strategy solves.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -65,6 +68,66 @@ impl PlanCapability {
     }
 }
 
+/// The witness evidence a rung may honestly be derived FROM — the argument
+/// bundle of
+/// [`standing_wave_stratified`](lance_graph_contract::witness_fabric::standing_wave_stratified),
+/// named so that "present" always means "fully specified".
+///
+/// This is what closes `E-RUNG-STRATIFIED-WAVE-SHIPPED-1`'s stated gap at the
+/// ROOT rather than at the leaf: the planner previously took a rung as an
+/// explicit parameter because `PlanContext` carried no window, so the wave was
+/// never called from the planner at all. Carrying the WINDOW (not a
+/// pre-resolved rung) is the load-bearing choice — the wave is then run here,
+/// against evidence a reviewer can inspect, instead of trusting a number a
+/// caller asserted.
+///
+/// Not a new cognitive carrier: the rows are the shipped
+/// `(stream_position, CausalWitnessFacet)` slice the fabric already operates
+/// on. Four loose `Option` fields would admit half-configured states (rows but
+/// no focal); one `Option<WitnessWindow>` cannot.
+#[derive(Debug, Clone)]
+pub struct WitnessWindow {
+    /// `(stream_position, register)` rows — the fabric's window shape.
+    pub rows: Vec<(usize, CausalWitnessFacet)>,
+    /// Index into `rows` of the row being resolved.
+    pub focal_idx: usize,
+    /// Which locus chain the wave follows.
+    pub locus: Locus,
+    /// Maximum hop budget the wave may spend (the standing wave's passes).
+    pub passes: u8,
+}
+
+impl WitnessWindow {
+    /// The rung this window has EARNED, or `None` when it earned none.
+    ///
+    /// **Only [`Causal`](WaveGrounding::Causal) confers a rung.** A settled wave
+    /// is the only outcome that normalizes a depth: the pass it settled at IS
+    /// the cost the resolution paid, which is exactly what
+    /// [`RungLevel::for_pass`] converts.
+    ///
+    /// The other two verdicts return `None`, and the caller must fall back to
+    /// the UNSTRATIFIED path — never to [`Surface`](RungLevel::Surface):
+    /// - [`Unbound`](WaveGrounding::Unbound) reports pass 0 — nothing was
+    ///   resolved, so nothing was earned. Absent is not shallow.
+    /// - [`Escalate`](WaveGrounding::Escalate) means the chain left the `±8`
+    ///   reference horizon, so this window CANNOT normalize the depth — the
+    ///   answer lives in a wider read. Mapping its early settle pass to a
+    ///   shallow rung would starve the hardest cases of the deepest tactics,
+    ///   which is precisely the blindness
+    ///   `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1` names. No elevation
+    ///   is invented either — the representation switch's magnitude is not
+    ///   derivable here.
+    #[must_use]
+    pub fn rung(&self) -> Option<RungLevel> {
+        let (grounding, settle_pass) =
+            standing_wave_stratified(self.focal_idx, &self.rows, self.locus, self.passes);
+        match grounding {
+            WaveGrounding::Causal => Some(RungLevel::for_pass(settle_pass)),
+            WaveGrounding::Escalate | WaveGrounding::Unbound => None,
+        }
+    }
+}
+
 /// Context passed to strategies for affinity scoring and planning.
 #[derive(Debug, Clone)]
 pub struct PlanContext {
@@ -78,6 +141,14 @@ pub struct PlanContext {
     pub thinking_style: Option<Vec<f64>>,
     /// NARS inference type hint (None if not detected).
     pub nars_hint: Option<crate::thinking::NarsInferenceType>,
+    /// The witness window a rung may be derived from (`None` when the caller
+    /// has no witness evidence — the overwhelmingly common case today).
+    ///
+    /// `None` means NO RUNG, never rung 0: a strategy without evidence runs the
+    /// unstratified path it always ran. Deriving a rung from
+    /// `features.estimated_complexity` would invent a semantic the substrate
+    /// does not have.
+    pub witness: Option<WitnessWindow>,
 }
 
 /// Detected query features — set incrementally as strategies analyze the query.

@@ -1,0 +1,49 @@
+D-RCC-3 alignment executor run — 2026-07-26
+
+File delivered: crates/lance-graph-planner/examples/data/rosetta/build_alignment.py
+Ran against local scratchpad data (gitignored bible_{kjv,luther1545,tischendorf}.json).
+
+Method: sparse per-verse co-occurrence (not full vocab cross-product — that
+timed out at >120s on 12k x 30k vocab; rewritten to walk each shared verse
+once and only accumulate (src,tgt) pairs that actually co-occur in a verse,
+13.7s total for both pairs). Two scorers compared on the same anchors: plain
+PMI (D-RCC-1 §C machinery, cooc>=5) and Dice coefficient (2*cooc/(|a|+|b|)).
+
+en-de (kjv->luther1545, Psalms excluded per PSALMS_NR offset):
+  28636 shared rows, 12266 source tokens.
+  Overall coverage: PMI 4806/12266 = 39.2%, Dice identical (same floor gate).
+  By band: hapax/rare = 0% (hard cooc>=5 floor), low(5-19)=89.7%,
+  mid(20-99)=100%, high(100+)=100%.
+  PMI vs Dice top-1 agreement: 3901/4806 = 81.2%.
+
+en-el (kjv->tischendorf, NT-only, no Psalms issue):
+  7895 shared rows, 5960 source tokens.
+  Overall coverage: 1831/5960 = 30.7%. PMI/Dice top-1 agreement 81.6%.
+
+ANCHOR RECEIPTS (mandatory falsifiers):
+  tongue -> zunge(cooc=57,pmi=8.08) / zungen(14,6.78) / sprache(7,6.44)
+    — SPLIT REPRODUCED (organ vs language), matches known-good D-RCC-1 result.
+  vineyard -> weinberges/weinberg/weingärtnern — correct cluster.
+  grape (singular, only 8 verses) -> die/der/und (stopword noise, low pmi
+    0.3-0.8) — the 8-verse floor is too thin for a clean signal.
+  swallow -> verschlingen(cooc=7,pmi=10.36) correct top-1, but rank 2/3 are
+    stopword noise (ihr/nicht) at low score — same thin-frequency effect.
+  Added a plural-form check (no lemmatiser, so "grape"!="grapes" as tokens):
+    grapes (33 verses) -> trauben(pmi=9.54)/feigen/weinberge — the REAL signal
+    was hiding behind tokenization fragmentation, not aligner failure.
+  en-el anchors (word/love/faith/spirit/kingdom/light): all resolve to
+    correct Greek stems (λόγο-/ἀγαπ-/πίστ-/πνεῦμα-/βασιλεί-/φῶς) with high PMI.
+
+SCORER COMPARISON: Dice did not outperform PMI on the anchors — they agree
+81-82% of the time on top-1 picks; where they disagree it is mostly the
+thin-frequency tail (PMI overweights rare-target pairs, Dice underweights
+strong-but-common associations). Neither wins outright; reported as a
+negative/neutral finding, not asserted.
+
+Coverage is honestly poor at hapax/rare bands (0% — hard floor, not a soft
+degradation) — flagged explicitly, not hidden.
+
+Outputs (scratchpad, not committed): out/alignment_en-de.tsv (13016 rows),
+out/alignment_en-el.tsv (4594 rows), out/alignment_report.md.
+
+No git commit/push performed (per brief). No other agents' files touched.

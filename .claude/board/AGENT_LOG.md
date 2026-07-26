@@ -1,3 +1,13 @@
+## 2026-07-26 — mutation-suite-wave1 consolidated (2 Sonnet grindwork executors, tag-files → this entry)
+
+- **mutate-falsewitness** (tag: `exec-runs/mutate-falsewitness.txt`): `mutate_falsewitness.py` (466 lines, stdlib-only). KJV cloned as fake 6th lane, 7893 NT rows. Naive agreement +94.02% (inflates); pairwise similarity matrix detects clone at exactly 1.000000 (real luther↔elberfelder = 0.4413); independence-weighted M3 does NOT inflate (−26.12%) but deflates via cluster-dilution (German pair −18%) + small-denominator amplification (bkr +35.85% on 0.0027 base; tischendorf +0.00% exact — clean control). Two runs byte-identical. Board: E-MUTATION-WAVE1-VERSIFICATION-DETECTOR-IS-SCRIPT-BLIND-1 (shared entry).
+- **mutate-verseoffset** (tag: `exec-runs/mutate-verseoffset.txt`): `mutate_verseoffset.py`. Tischendorf +1-per-chapter shift, 260 chapters. HEADLINE: anchor detector SCRIPT-BLIND — 0/258 recovery on anchor-basis chapters, offset=0 @ confidence 0.0000 on clean AND corrupted (structural: Latin prefix vs Greek codepoints). Length-fallback recovered 2/2 (expected failure class INVERTED). Content-word alignment survival 52% vs function-word 84%. TextAbsent exact: 7615 == 7895 − 280. Board: same entry + ISS-VERSIFICATION-SCRIPT-BLIND + task #43.
+- Both scripts live on disk under `crates/lance-graph-planner/examples/data/rosetta/` (branch-local-ignored on the plateau branch; preservation → bake branch, pending).
+
+## 2026-07-26 — foresight functions shipped (main-thread, no subagent)
+
+- `witness_fabric::{ForesightSample, foresight_sample, foresight_calibration}` — the Epistemic Foresight Test, minimal honest form (risk = churn through upto=v; boundary-overlap flip counting; None on empty sides; counts-not-rates calibration). 5 tests incl. hindsight-blindness falsifier + miscalibrated-case honesty. 31 witness_fabric tests green; fmt + clippy clean. Tasks #41/#42/#43 filed; #27's contract core now in place.
+
 ## 2026-07-23 — D-SCI-1 COCA codebook moved to Release (repo de-bloat) (main-thread, no subagent)
 
 - **Operator:** "use only the release for the coca codebook — the last PR has 26k LOC (lexicon.tsv)." The committed COCA tables (lexicon.tsv alone = 20k lines) were bloating #843.

@@ -1,0 +1,30 @@
+task #30 — closed-class labels by alignment transfer (successor to E-DISPERSION-CLOSED-CLASS-DETECTION-FAILS-1)
+
+Built: crates/lance-graph-planner/examples/data/rosetta/closed_class_transfer.py (new, stdlib-only).
+Ran: python3 crates/lance-graph-planner/examples/data/rosetta/closed_class_transfer.py
+Output: <scratch>/out/closed_class_transfer_report.md, <scratch>/out/alignment_en-cs_selfbuilt.tsv (new, self-built — no en-cs pair existed)
+
+RESULT: SECOND NEGATIVE. German (luther1545-only, real ground truth):
+  transfer            P 0.336 R 0.235 F1 0.277
+  rank<=150 (lane-matched recompute)  P 0.531 R 0.303 F1 0.386
+  rank<=150 (published, both lanes)   P 0.545 R 0.301 F1 0.388
+  dispersion detector (published, failed, both lanes) P 0.194 R 0.506 F1 0.280
+Transfer does NOT beat either rank<=150 baseline; does beat the failed dispersion
+detector's F1 but not decisively enough to matter (both are below the trivial baseline).
+
+Coverage (full lane vocab, favourable band as predicted): German 22.2% overall (0% hapax/rare,
+53-92% low/mid/high). Greek 9.6% overall. Czech 13.2% overall (self-built kjv->bkr alignment,
+12031 rows, since build_alignment.py only ships en-de/en-el).
+
+Czech/Greek top-40 emitted, explicitly marked UNVALIDATED/illustrative (no ground truth for
+either language in this repo).
+
+Did NOT edit build_alignment.py, closed_class.py, build_rosetta_probe.py, build_lane_codebooks.py,
+fetch_greek_lane.py. No Rust files touched. No git commit/push.
+
+Honest limitations recorded in the report: German validation is luther1545-only (elberfelder1905
+never aligned); Czech alignment is self-built/unreviewed (duplicated PMI formula, not the shipped
+one); English closed-class ground truth is a curated word list, NOT the coca lexicon pos column
+(spot-checked unusable: "the"->i, "and"->r, "it"->n, "that"->r — wrong for a closed/open split;
+supplemented only with coca's i/b tags, never n/v/j/r); cooc-weighted vote not compared against
+score-weighted alternative.

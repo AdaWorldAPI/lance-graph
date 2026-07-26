@@ -1,7 +1,7 @@
 //! `insight_coca_read` — D-SCI-1: the **corpus-grounded** full-record extractor.
 //! Where `insight_spo_tekamolo_read` uses hand-seeded cue tables, this grounds
 //! every lexical decision in **real COCA data** — the `coca-codebook-v2` Release
-//! asset (MedCare-rs; NOT committed to the repo), extracted into
+//! asset (NOT committed to the repo), extracted into
 //! `examples/data/coca/` (gitignored) or `$COCA_CODEBOOK_DIR` — and the merged
 //! `verb_table` archetype — then emits the same
 //! **S · P · O + Temporal · Kausal · Modal · Lokal + Qualia** record into a real
@@ -63,7 +63,7 @@ struct Coca {
 }
 
 /// The COCA codebook is NOT committed to the repo — it is a Release asset
-/// (`coca-codebook-v2` on `AdaWorldAPI/MedCare-rs`, the private codebook store).
+/// (the `coca-codebook-v2` Release asset (not redistributable; see the licence board entry)).
 /// Extract the tarball into `examples/data/coca/` (gitignored), or point
 /// `$COCA_CODEBOOK_DIR` at wherever you extracted it.
 fn data_dir() -> std::path::PathBuf {
@@ -75,7 +75,7 @@ fn data_dir() -> std::path::PathBuf {
 
 const CODEBOOK_HINT: &str = "\
 COCA codebook not found. It is a Release asset, not committed to the repo:
-  1. Download `coca-codebook-v2.tar.gz` from the MedCare-rs release
+  1. Download `coca-codebook-v2.tar.gz` from the Release asset
      (tag `coca-codebook-v2`).
   2. Extract into `crates/lance-graph-planner/examples/data/coca/`
      (gitignored), OR set $COCA_CODEBOOK_DIR to the extraction dir.

@@ -1,0 +1,55 @@
+# task #25 — CHAODA-style density outlier scoring over trajectory space
+# agent: filigree (Opus) | file owned: crates/lance-graph-planner/src/nars/meta_basin.rs (ONLY)
+
+METRIC (trajectory_distance -> u32, integer, no floats)
+  hops       : ORDINAL  -> HOP_WEIGHT(4) * |dh|
+  escalated  : CATEGORICAL -> flat ESCALATION_WEIGHT(12) on mismatch, 0 on match (mode, not magnitude)
+  terminus   : Option<i8>; None is a REAL GROUP, never imputed
+               None/None = 0 ; Some/Some = min(|dx|, OFFSET_CAP=32) ; None/Some = TERMINUS_KIND_WEIGHT(16)
+  True metric: symmetry + identity-of-indiscernibles + triangle, test-proven over a 100-point sample.
+  OFFSET_CAP = 2*TERMINUS_KIND_WEIGHT exists solely to make the triangle hold for all i8 (unreachable in a +/-8 window).
+  Generalizes same_meta_basin: zero shape-distance <=> same_meta_basin (test-pinned).
+
+DENSITY / ANOMALY (density_scores)
+  reach(i)   = sum of distances to the k nearest rows (tie-break on window index)
+  anomaly(i) = reach(i)*k*1000 / sum(reach(j) for j in kNN(i))   [DENSITY_SCALE=1000 == as dense as neighbours]
+  CHAODA move: relative to the LOCAL manifold, not a global cut. Saturates at ANOMALY_CEILING=1e6.
+  Lone row (neighbours==0) -> neutral 1000, never flagged.
+
+PERTURBATION SWEEP
+  stability_sweep(window, locus, budgets) -> Stability{stable, probed}, .fraction_milli() (0..=1000)
+  stability_around(.., max_hops) -> budgets 0..=min(max_hops+2,16)
+  stable_under_perturbation(..) kept UNCHANGED as the bool convenience wrapper.
+
+SUGGESTION-ONLY CONTRACT
+  OutlierSuggestion gains `anomaly: u32` (ranks; never decides). New OutlierReason::DensityAnomaly.
+  outlier_suggestions  = coarse path, behaviour BIT-IDENTICAL (reasons/order/basin_size unchanged), now carries anomaly.
+  ranked_outlier_suggestions = metric path: coarse reasons win per row, adds DensityAnomaly rows,
+    sorted desc anomaly then asc idx. One suggestion per row. Nothing prunes/commits/mutates.
+  coarse_flags() factored out so both paths REUSE one rule instead of restating it.
+
+TESTS (17 total in module; 11 new; 0 pre-existing changed)
+  metric_axioms_hold_over_the_sampled_space
+  none_terminus_is_a_group_never_an_imputed_zero
+  escalation_is_categorical_not_a_continuous_axis
+  zero_shape_distance_agrees_with_same_meta_basin
+  density_score_discriminates_a_planted_outlier      <- ANTI-INERTNESS (discrimination)
+  a_uniform_spread_reports_no_anomaly                <- ANTI-INERTNESS (no false firing)
+  density_scores_are_deterministic_and_never_mutate_their_input
+  a_lone_row_is_neutral_not_anomalous
+  stability_is_a_fraction_and_the_bool_wrapper_still_agrees
+  ranked_suggestions_fire_are_ordered_and_stay_advisory  <- ANTI-INERTNESS (can fire)
+  ranked_path_subsumes_the_coarse_path_without_reclassifying
+
+GATES
+  cargo test -p lance-graph-planner --lib          305 passed / 0 failed (17 in nars::meta_basin)
+  cargo fmt -p lance-graph-planner                 clean
+  cargo clippy -p lance-graph-planner --lib -- -D warnings   clean (0 warnings)
+  no new deps; contract crate untouched; no commit/push.
+
+OPEN LIMITS (honest)
+  - Weights (4/12/16) and anomaly_threshold (1500) are HAND-TUNED, not Jirak-bound-derived. Said so in-doc.
+  - k=3 default is unvalidated against a real tail-size distribution.
+  - density_scores is O(n^2 log n); fine for +/-8..+/-64 windows, not for whole-stream scoring.
+  - No hierarchical/CLAM cluster manifold (real CHAODA's graph-of-clusters). This is the flat-kNN
+    relative-density member of that family, not the full ensemble over a cluster tree.

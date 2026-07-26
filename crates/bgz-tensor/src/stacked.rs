@@ -571,9 +571,58 @@ mod tests {
         };
 
         let (active, result) = vedic_cascade(&queries, &keys, &config);
-        assert!(
-            result.elimination_rate() > 0.0,
-            "should eliminate some pairs. Stage1: {}, Stage2: {}, Survived: {}",
+
+        // Fixture is fully deterministic (fixed formulas, no RNG), so this
+        // asserts the EXACT counts measured against it instead of a bare
+        // `elimination_rate() > 0.0` (`E-VACUOUS-ASSERTION-IS-THE-HOUSE-
+        // STYLE-1`: that check is true of ANY input that eliminates a single
+        // pair and cannot tell a working cascade from a nearly-inert one).
+        // Measured 2026-07-26 for 8 queries × 16 keys (128 pairs),
+        // stage1_threshold=50000, stage2_threshold=200000,
+        // stage3_threshold=500000: Stage 1 rejects 16 pairs, Stage 2 rejects
+        // 0, and all 112 pairs that reach Stage 3 land at or under
+        // stage3_threshold so all 112 are accepted (active.len() == 112).
+        //
+        // A regression this catches that a bare `> 0.0` would not: if Stage
+        // 1's sampled-dims distance computation broke (e.g. `stage1_dims`
+        // stopped being read, or the upper-bits extraction regressed) but
+        // Stage 3's threshold still rejected at least one pair somewhere,
+        // elimination_rate() would stay > 0.0 while stage1_eliminated
+        // silently dropped to 0 — caught here, not there.
+        assert_eq!(
+            result.stage1_eliminated, 16,
+            "Stage 1 elimination count changed for this deterministic fixture — either the \
+             sampled-dims distance computation regressed, or this test's fixture was edited \
+             (in which case re-measure and update the expected count). Stage1: {}, Stage2: {}, \
+             Survived: {}",
+            result.stage1_eliminated, result.stage2_eliminated, result.stage3_survived
+        );
+        assert_eq!(
+            result.stage2_eliminated, 0,
+            "Stage 2 was expected to reject 0 pairs at stage2_threshold=200000 for this \
+             fixture; a nonzero count means the upper-half distance or its threshold changed. \
+             Stage1: {}, Stage2: {}, Survived: {}",
+            result.stage1_eliminated, result.stage2_eliminated, result.stage3_survived
+        );
+        assert_eq!(
+            active.len(),
+            112,
+            "expected all 112 Stage-3 survivors to land under stage3_threshold=500000 and be \
+             accepted; a different count means the full-distance computation or threshold \
+             changed. Stage1: {}, Stage2: {}, Survived: {}",
+            result.stage1_eliminated,
+            result.stage2_eliminated,
+            result.stage3_survived
+        );
+
+        // Restated as a rate (16 eliminated / 128 total = 0.125 exactly, a
+        // power-of-two fraction with no float rounding) so the intent stays
+        // legible without re-deriving it from the raw counts above.
+        assert_eq!(
+            result.elimination_rate(),
+            0.125,
+            "elimination_rate should be exactly 16/128 for this fixture. Stage1: {}, Stage2: {}, \
+             Survived: {}",
             result.stage1_eliminated,
             result.stage2_eliminated,
             result.stage3_survived

@@ -1,0 +1,215 @@
+TASK #22 — WordNet rail v1→v2 consumer sweep (READ-ONLY AUDIT)
+Scope: /home/user/lance-graph (full workspace) + siblings /home/user/ndarray,
+/home/user/OGAR, /home/user/tesseract-rs. No code/board files changed except
+this tag file.
+
+=====================================================================
+0. GIT STATUS OF THE RAIL ITSELF — CORRECTS THE BRIEF'S FRAMING
+=====================================================================
+`wordnet31_isa.tsv` is NOT a committed/tracked file. `git log` on it returns
+nothing; `git check-ignore -v` confirms it is matched by
+`.gitignore:86: crates/lance-graph-planner/examples/data/wordnet/*`
+(with `!*.py` carving out the generator scripts). `git status --short
+--ignored` shows it, `out/`, and `fetch_wordnet.sh` all as `!!` (ignored).
+
+So there is no git history to "break" and no other clone/CI/branch has this
+exact file — it is local, per-session, fetched/generated data (same
+convention as the COCA codebook). The two Python generator scripts ARE
+committed:
+  - `build_wordnet_rail.py`  (committed in a92b553)
+  - `tier_delta.py`          (committed in 91b9db0)
+`fetch_wordnet.sh` is present on disk but NOT committed (ignored — a `.sh`,
+not a `.py`; the gitignore carve-out only spares `*.py`). Minor tech-debt
+note, not in scope for the swap decision.
+
+The v2 file **already exists on disk**: `out/wordnet31_isa_v2.tsv`
+(176,532/176,537 rows per the two exec-run reports — both figures appear;
+not reconciled here, not material to this audit). Also gitignored.
+
+This changes the risk profile from "editing a shipped artifact" to "will
+the small number of REAL code consumers silently misparse the new schema
+if the filename is reused or `$WORDNET_DIR` is repointed."
+
+=====================================================================
+1. REAL CODE CONSUMERS (parse the TSV; schema-sensitive) — 2 found
+=====================================================================
+
+### CONSUMER A — SILENT MIS-READ RISK (HIGH SEVERITY)
+File: crates/lance-graph-planner/examples/insight_reason_wired.rs
+Lines: 76 (path), 97-107 (parse loop)
+Tracked: YES (commit 7b2ae3f, touched again cecfc32)
+
+```rust
+let wn = dir("WORDNET_DIR", "wordnet").join("wordnet31_isa.tsv");   // line 76
+...
+let c: Vec<&str> = l.split('\t').collect();
+// word<TAB>pos<TAB>kind<TAB>type ; keep the first (noun preferred) reading
+if c.len() >= 4 && !rails.contains_key(c[0]) {
+    rails.insert(c[0].to_string(), (c[2].to_string(), c[3].to_string()));
+}
+```
+
+What it does: builds `HashMap<word, (kind, type)>`, one entry per lemma
+(first-seen wins), feeding `ValueTenant::EntityType` (#8) and the
+`Graph::WordNet` SPO-G rail in the reasoning example.
+
+Verdict under v2 schema (`word,pos,sense_num,synset_offset,kind,hypernym,
+hypernym_offset` — 7 cols): **SILENT MIS-READ, not a break.** The guard is
+`c.len() >= 4`, which a 7-column row satisfies trivially. It would then read
+`c[2]` (v2's `sense_num`, e.g. "1", "2") into the "kind" slot and `c[3]`
+(v2's `synset_offset`, a WordNet byte-offset ID) into the "type" slot. No
+panic, no error message — every downstream `EntityType` tenant and every
+`Graph::WordNet` rail would carry garbage strings that happen to type-check
+as `String`. This is exactly the shape `I-LEGACY-API-FEATURE-GATED` warns
+against: same code path, two silently different meanings depending on which
+file is on disk.
+Loud-vs-silent: **SILENT.**
+
+### CONSUMER B — SAME SHAPE, LOWER PRACTICAL RISK (but real)
+File: crates/lance-graph-planner/examples/data/wordnet/tier_delta.py
+Lines: 51 (`TSV_PATH = HERE / "wordnet31_isa.tsv"`), 84-93 (`audit_tsv`),
+389-393 (`TsvHypernymGraph.__init__`)
+Tracked: YES (commit 91b9db0)
+
+Both `audit_tsv()` and `TsvHypernymGraph` do the identical thing as
+Consumer A: `parts = line.split('\t')`, guard `if len(parts) < 4: continue`,
+then unpack `word, pos, kind, typ = parts[0], parts[1], parts[2], parts[3]`.
+Under v2's 7 columns the guard still passes and `kind`/`typ` silently become
+`sense_num`/`synset_offset`.
+
+Mitigating context: this IS the audit/diagnostic tool that discovered the
+12.76%/33.84% wrong-sense rate in the first place — its author already knows
+the v1/v2 schema difference (see its own header comment, line 19-22: "the
+TSV itself is NOT committed... First-sense hypernym per lemma"), and
+`build_wordnet_rail.py` deliberately keeps `V1_TSV_PATH` and `V2_TSV_PATH` as
+two separate constants rather than one shared name. So under NORMAL usage
+(each script pointed at its own intended file) there is no confusion today.
+The residual risk is narrower: if a future session repoints `TSV_PATH`
+itself at the v2 file (e.g. "just point tier_delta at the new one"), the
+parse silently breaks the same way as Consumer A — the guard was never
+tightened after the schema was understood.
+Loud-vs-silent: **SILENT** (conditional on a future repoint; not live today).
+
+=====================================================================
+2. FILES THAT MENTION THE RAIL BUT DO NOT PARSE IT (no risk)
+=====================================================================
+
+- `crates/lance-graph-planner/examples/data/wordnet/build_wordnet_rail.py`
+  — the GENERATOR. Reads v1 (`V1_TSV_PATH`) to *produce* v2
+  (`V2_TSV_PATH`), two distinct path constants by design. Schema-aware by
+  construction. Not a naive consumer.
+- `crates/lance-graph-planner/examples/data/coca/coca_wordnet_convergence.py`
+  — mentions "WordNet" 20+ times but reads a **different** on-disk artifact
+  entirely: the raw WNDB dictionary (`data.noun`/`data.verb`) via
+  `tier_delta.WordNetDb`, not `wordnet31_isa.tsv`. Not a TSV-schema consumer.
+- `.claude/board/EPIPHANIES.md` (2 entries, incl. the two E-WORDNET-RAIL-*
+  epiphanies this task is downstream of) — prose only.
+- `.claude/board/exec-runs/{rcc-tierdelta,rcc-wordnet-rebuild,
+  rcc-coca-wordnet,rcc-splitcensus,rcc-lane-codebooks}.txt` — prior agents'
+  tag-file reports, prose only, no parsing.
+- `.claude/board/STATUS_BOARD.md`, `PR_ARC_INVENTORY.md`, `LATEST_STATE.md`
+  — board mentions (D-RCC-5 row, contract inventory references), prose only.
+- `.claude/plans/rosetta-codebook-convergence-v1.md` — plan doc, prose +
+  design notes, no parsing.
+- `.gitignore` — the ignore rule itself (lines 84-87), not a consumer.
+- `data/ontologies/dul.ttl` — FALSE POSITIVE for this audit. Mentions
+  "WordNet" as the general lexical-ontology concept (DOLCE-Lite alignment
+  notes, synset examples) — this is a DUL/DOLCE ontology file unrelated to
+  `wordnet31_isa.tsv`; grep matched on the word, not the rail.
+
+=====================================================================
+3. SIBLING REPOS — ZERO CONSUMERS
+=====================================================================
+Searched `/home/user/ndarray`, `/home/user/OGAR`, `/home/user/tesseract-rs`
+for "wordnet" (case-insensitive) across `.rs/.py/.md/.toml/.sh`: **zero
+hits in all three repos.** No code, no docs, nothing. This rail has never
+propagated outside lance-graph.
+
+=====================================================================
+4. SEVERITY-RANKED SUMMARY
+=====================================================================
+- SILENT MIS-READ (dangerous, would not error, would corrupt output):
+  2 — Consumer A (insight_reason_wired.rs, live/active) and
+      Consumer B (tier_delta.py, latent — only fires if TSV_PATH is
+      repointed to v2 content).
+- LOUD BREAK risk: 0 found. No consumer does strict `== 4` column
+  validation or panics on unexpected shape — everything degrades silently
+  via permissive `>= 4` / `< 4` guards, which is itself the finding: the
+  workspace's TSV-reading convention throughout this feature is "permissive
+  length check + positional unpack," a pattern that offers zero protection
+  against a schema swap under a stable filename.
+- Documentation/board mentions: 8 files, all narrative, no risk.
+- Sibling-repo consumers: 0 (ndarray, OGAR, tesseract-rs all clean).
+- Generator tooling (schema-aware by construction): 1
+  (build_wordnet_rail.py).
+- Fully unrelated false positive: 1 (dul.ttl).
+
+Total files touching the string "wordnet": 16 in lance-graph, 0 elsewhere.
+Total consumers actually at risk from a same-filename schema swap: 2,
+both in lance-graph, both fixable in a few lines each.
+
+=====================================================================
+5. RECOMMENDATION
+=====================================================================
+**Combine (a) new filename + explicit migration, WITH a defense-in-depth
+strict-schema guard at each read site (element of (c)). Do not do a
+same-filename swap, and do not bother with (b) deprecation-pointer
+scaffolding.**
+
+Why NOT (b) "keep both, v1 frozen + deprecated with a pointer":
+Over-engineered for this case. Deprecation pointers exist to protect
+EXTERNAL or numerous callers who can't all move at once. Here there are
+exactly 2 real consumers, both in this repo, both editable in the same PR
+that does the swap. Freezing v1 in place with a pointer just leaves a
+known-12.76%-wrong-sense file sitting on disk indefinitely as an attractive
+nuisance for the next `$WORDNET_DIR`-pointing session that doesn't read the
+pointer doc.
+
+Why NOT a same-filename swap alone (the thing this audit was commissioned
+to prevent): confirmed dangerous — both Consumer A and Consumer B read
+positionally with permissive length guards (`>= 4` / `< 4`), so a same-name
+swap from 4-col to 7-col schema is **exactly the CATCH-LATENT shape**: it
+compiles, it runs, it produces plausible-looking strings, and nothing
+downstream complains until someone notices `EntityType` values are stray
+synset offsets instead of hypernym lemmas. This is worse than a compile
+error — it is the "silent mis-read" the brief singled out as the dangerous
+case.
+
+Why (a) is cheap here specifically: the file is not committed to git (§0),
+so "new filename" costs nothing in history/diff terms — it's a rename of an
+already-gitignored local artifact, not a repo-wide search-replace across
+tracked history. `out/wordnet31_isa_v2.tsv` already exists under its own
+name; the natural move is to promote it (e.g. `mv` to
+`examples/data/wordnet/wordnet31_isa_v2.tsv` at the top level, matching
+where v1 currently sits) and repoint the 2 consumers:
+  1. `insight_reason_wired.rs:76` → join `"wordnet31_isa_v2.tsv"`, rewrite
+     the parse loop for the 7-column schema (word, pos, sense_num,
+     synset_offset, kind, hypernym, hypernym_offset) and an EXPLICIT
+     multi-row-per-lemma policy (the KEEPFIRST epiphany already found
+     "keep first" is also wrong — so this is the moment to decide the
+     real policy: sense_num==1, or a WSD-informed choice, or keep-all with
+     the SPO-G rail carrying multiple `Graph::WordNet` quads per word —
+     this decision should not be silently defaulted to whatever the old
+     `!rails.contains_key` shortcut did).
+  2. `tier_delta.py`'s `TSV_PATH`/`audit_tsv`/`TsvHypernymGraph` → same
+     rename + 7-column unpack, OR (cleaner) leave `tier_delta.py` pointed
+     at v1 permanently since its whole job is auditing/diffing v1 against
+     v2 (`build_wordnet_rail.py` already treats them as two distinct named
+     inputs) — in which case tier_delta.py needs NO change at all, only
+     Consumer A does.
+
+Defense-in-depth on top of the rename (why also take a piece of (c)):
+both consumers' permissive `>= 4` / `< 4` guards are themselves the root
+enabler of the danger — a strict `assert len(parts) == 4` (v1) /
+`== 7` (v2) at the parse site, or a one-line header sniff (`# schema=v1`
+vs `# schema=v2` comment on line 1, checked before the loop), converts any
+FUTURE accidental repoint from a silent corruption into a loud, immediate
+failure. This costs one assert/branch per consumer and should land in the
+same commit as the rename — it is what stops this exact class of bug from
+recurring a third time (it already recurred once, independently, in
+Consumer A and Consumer B).
+
+Net recommendation: rename + migrate the 2 consumers explicitly (not a
+silent swap), add a strict schema check at each read site, and leave v1
+to be garbage-collected (it's gitignored, not committed, no external
+consumer per §3) rather than formally deprecating it.

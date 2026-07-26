@@ -79,8 +79,12 @@ crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/token_embd_4096x4096.u8
 
 # PROBE-CODEBOOK-44 real-data: Jina embeddings + vocab (derived data, license-unverified) — LOCAL ONLY
 crates/bgz17/data/
-crates/lance-graph-planner/examples/data/coca/
-crates/lance-graph-planner/examples/data/wordnet/
+crates/lance-graph-planner/examples/data/coca/*
+!crates/lance-graph-planner/examples/data/coca/*.py
+# Ignore the wordnet DATA, keep any GENERATOR (codebook must stay reproducible
+# from the repo — data-in-Releases, code-in-repo).
+crates/lance-graph-planner/examples/data/wordnet/*
+!crates/lance-graph-planner/examples/data/wordnet/*.py
 # PROIEL Greek NT treebank (CC BY-NC-SA — data stays local, never committed)
 crates/lance-graph-planner/examples/data/proiel/
 # German codebook from UD German-GSD/HDT (CC BY-SA — Release asset, not committed).
@@ -88,3 +92,17 @@ crates/lance-graph-planner/examples/data/proiel/
 # codebook must stay reproducible from the repo (data-in-Releases, code-in-repo).
 crates/lance-graph-planner/examples/data/de/*
 !crates/lance-graph-planner/examples/data/de/build_de_codebook.py
+# Rosetta probe data (PD Bible JSON lanes + generated out/) — data-in-Releases;
+# keep the GENERATOR committed, ignore the data
+crates/lance-graph-planner/examples/data/rosetta/*
+!crates/lance-graph-planner/examples/data/rosetta/*.py
+
+# ── BRANCH-LOCAL (plateau branch only) ────────────────────────────────────
+# The codebook/bake generators are tracked on `claude/rosetta-codebook-bakes-z30uij`,
+# not here — this branch is the substrate plateau (see the "plateau:" commit).
+# The files remain on disk and are runnable; they are simply not part of THIS
+# branch's diff. Last-match-wins re-ignores them despite the *.py negations above.
+# When the bake branch merges, delete this block — do not resolve it by deleting
+# the negations, which would untrack the generators repo-wide.
+crates/lance-graph-planner/examples/data/**/*.py
+crates/lance-graph-planner/examples/data/**/*.sh

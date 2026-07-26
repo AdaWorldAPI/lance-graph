@@ -1,0 +1,61 @@
+RUN RECORD — coca-wordnet convergence probe (rcc-coca-wordnet)
+Agent: grindwork executor (Sonnet). Owns only: this file +
+crates/lance-graph-planner/examples/data/coca/coca_wordnet_convergence.py
+(+ its generated out/coca_wordnet_convergence.md). No board files touched,
+no git commit, no push.
+
+CLAIM UNDER TEST (main thread, unmeasured): "WordNet is weakest almost
+exactly where frequency is highest... the two codebooks hydrate DISJOINT
+regions of the vocabulary and POS routes between them."
+
+VERDICT: **REFUTE** (the strong "disjoint regions" form of the claim).
+
+Headline numbers (full 20,000-word COCA lexicon.tsv x real WNDB, 95,981
+synsets, all senses; noun/verb subset n=16,018 unless noted):
+- Overall WordNet presence: 91.4% PRESENT, 8.0% ABSENT, 0.6%
+  CLOSED_CLASS_SKIPPED (prepositions + explicit function-word stoplist —
+  never queried, not conflated with ABSENT).
+- Coverage by frequency decile (n/v only): D1 (highest freq) = 97.6%
+  present; D10 (lowest freq) = 84.3% present. Coverage is HIGHER at the
+  top than the bottom — the opposite of a coverage cliff at high frequency.
+- Polysemy vs rank: Spearman rho(rank, sense_count) = -0.334 (PRESENT-only,
+  n=14,550); -0.345 (ABSENT=0 folded in, n=16,018). Higher frequency does
+  associate with more senses, as the claim's "light verbs have ~10+ senses"
+  half predicts.
+- Depth vs rank: Spearman rho(rank, depth_first) = +0.091 (n=14,550) —
+  correct direction (higher freq -> shallower first-sense hypernym depth)
+  but weak. depth_first is sense-#1 (WordNet's own most-frequent-sense-
+  first ordering); depth_max is reported separately and shown to be
+  misleading (e.g. call/v: depth_first=2, depth_max=11, 28 senses).
+- 2x2 quadrant (n/v, DEPTH_CUTOFF=3 for "useful ladder", justified via a
+  probe of be/have/do/go/get/make/use/know/feel/want/find/give at
+  depth_first 0 vs day/way/time/criticism/record/gasoline at depth_first
+  4-6): high-freq useful-ladder share 77.5% (4109/5305) vs low-freq 74.2%
+  (7949/10713) — nearly identical, not disjoint.
+- Where the claim DOES hold, narrowly: the "uselessly polysemous" subset
+  (PRESENT, depth_first<=2, sense_count>=5) is 13.5% of high-freq n/v words
+  vs 5.6% of low-freq (~2.4x) — a real but minority-share effect, not a
+  disjoint-region effect.
+- Plain ABSENT is actually LOWER in the high-freq band (3.8%) than low-freq
+  (11.7%) — coverage direction is inverted from the claim.
+
+LIMITATIONS (see report for full text):
+- lexicon.tsv is a pre-filtered 20k list, not raw COCA rank 1..N: "a", "I",
+  "you", "he", "she", "we", "they", "not", "what", "which" are entirely
+  ABSENT from the file (not merely low-ranked); "the" sits at rank 5645.
+  So deciles are over this curated list's own ordering, and the very top
+  of the TRUE frequency distribution (pure function words) is largely
+  pre-removed from the vocabulary this script deciles over.
+- No classical significance claimed for any Spearman rho
+  (I-NOISE-FLOOR-JIRAK — weak dependence, not IID).
+- Adjective/adverb POS get presence + sense-count only, no depth (WordNet
+  has no hypernym IS-A tree for those POS — similarity/pertainym pointers
+  instead, a structural fact, not a data gap).
+- depth_max is reported but explicitly flagged unreliable for this
+  question (rare deep senses inflate it); depth_first is the metric the
+  verdict is based on.
+
+Runtime: ~1.9s, stdlib-only Python 3, no network, no new deps. Reused
+tier_delta.py's WordNetDb (noun/verb hypernym DAG) unmodified via
+importlib; mirrored a small index-file reader for adj/adv sense counts
+only (no depth claim for those POS, per WordNet's actual structure).

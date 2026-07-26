@@ -200,6 +200,7 @@ impl PlannerAwareness {
                             .collect(),
                     ),
                     nars_hint: Some(thinking_ctx.nars_type),
+                    witness: None,
                 };
 
                 let selected =
@@ -240,6 +241,7 @@ impl PlannerAwareness {
                             free_will_modifier: compass.modified_score,
                             thinking_style: None,
                             nars_hint: Some(thinking_ctx.nars_type),
+                            witness: None,
                         };
                         let selected =
                             selector::select_strategies(&self.selector, &self.strategies, &context);
@@ -272,6 +274,7 @@ impl PlannerAwareness {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
 
         // Run feature detection from query text (same logic as CypherParse)

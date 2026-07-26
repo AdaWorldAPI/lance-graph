@@ -759,6 +759,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         assert!(gremlin.affinity(&gremlin_ctx) > 0.9);
 
@@ -768,6 +769,7 @@ mod tests {
             free_will_modifier: 1.0,
             thinking_style: None,
             nars_hint: None,
+            witness: None,
         };
         assert!(gremlin.affinity(&cypher_ctx) < 0.1);
     }
@@ -830,6 +832,7 @@ mod tests {
                 free_will_modifier: 1.0,
                 thinking_style: None,
                 nars_hint: None,
+                witness: None,
             },
             outcome: None,
         };

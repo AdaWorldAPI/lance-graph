@@ -1,0 +1,76 @@
+# task #28 — the temporal periphery policy (witness_fabric.rs)
+
+FILE OWNED: crates/lance-graph-contract/src/witness_fabric.rs (only)
+
+## Shipped — the anti-eigenvalue three-part test applied to the VERSION axis
+Functions over a revision slice (module's established shape; no materialized
+history struct). All take `upto` — read-as-of enforced by signature.
+
+1. ENUMERABLE
+   - `BeliefRun { first_revision, held_for, value: Option<i8>, superseded_at: Option<u8> }`
+     + `is_superseded()` / `span()`.
+   - `belief_runs(revisions, locus, upto) -> Vec<BeliefRun>` — NAMES which
+     revisions held which state and WHEN each was superseded.
+     `RevisionTrajectory::flips` could only count them.
+   - `superseded_runs(..)` — the periphery itself (all but the newest run).
+
+2. SPREAD-SAMPLED
+   - `superseded_spread_sample(revisions, locus, upto, k)` — strided across the
+     WHOLE history, deliberately not the recent-k edge (the temporal form of
+     cheap-edge sampling). Deterministic, no RNG. Mirrors
+     `RungLevel::peripheral_sample`.
+
+3. ESCALATION-CAPABLE (suggestion only)
+   - `suggest_reopening(..) -> Vec<ReopeningSuggestion>` with
+     `ReopeningReason::{Reverted, LongStableThenBrief}` and
+     `ReopeningEvidence { total_held, current_held, occurrences }`.
+   - Deterministic, oldest→newest. Nothing prunes/decides/scores.
+
+## HONEST LIMIT — a real "predicted better" signal was NOT achievable
+Scoring "a past state predicted better than the present" requires ground truth.
+The contract crate is zero-dep, has no oracle/outcome column, and the
+read-as-of rule deliberately denies access to the future of the revision being
+judged. Any such ranking here would invent what it measures. Shipped the
+STRUCTURAL PROXY with the limit stated in the rustdoc of `suggest_reopening`,
+plus the named right shape for the real signal: a CONSUMER-side function over
+`(belief_runs(.., upto), outcome_at(upto))` — oracle outside the contract,
+read-as-of bound intact.
+
+Second stated limit (in module doc): the run model treats "unbound" as a state
+of its own, so `a → unbound → a` is 3 runs while `revision_trajectory` counts
+1 flip. Divergence documented rather than unified — unifying would change
+`revision_trajectory`'s shipped semantics.
+
+## Signature freeze respected
+`TrajectorySignature`, `trajectory_of`, `RevisionTrajectory`,
+`revision_trajectory`, `ChainResolution` — untouched. Added only.
+
+## Tests added (5)
+- belief_runs_partition_the_visible_history — spans reconstructed into an index
+  histogram, every slot must be covered exactly once (catches off-by-one /
+  dropped final revision); superseded ∪ current == all, disjoint; absent≠zero
+  both directions (empty history vs stable history).
+- superseded_spread_sample_reaches_an_early_revision — asserts it reaches the
+  OLDEST superseded run AND the recent half, and `assert_ne!` vs the recent-k
+  slice (a recent-edge sampler fails).
+- reopening_fires_on_reversion_and_stays_silent_on_stability — fires on a
+  reverted belief and on a long-stable→brief trade; silent on monotonic
+  stability, single revision, empty history, an unbound run, AND on
+  stability-INCREASING (brief→long-stable), the case a naive "any flip is
+  suspicious" detector would fire on.
+- temporal_periphery_cannot_see_later_revisions — as-of-4 sees
+  LongStableThenBrief, full view sees Reverted (bound does real work);
+  truncated view == same-length prefix stored alone.
+- temporal_periphery_is_deterministic — sample + suggestions identical across
+  repeated runs at 3 `upto` bounds; ordering strictly ascending; non-inert.
+
+## Gates
+- cargo fmt -p lance-graph-contract .............. clean
+- cargo test -p lance-graph-contract --lib ....... 1061 passed, 0 failed
+- cargo clippy -p lance-graph-contract --lib -D warnings ... clean
+  (only the pre-existing unrelated cognitive-shader-driver serve.rs
+   multiple-build-targets warning; no new ones)
+- cargo test -p lance-graph-planner --lib ........ 309 passed, 3 failed
+  ALL 3 failures are in `physical/cam_pq_scan.rs` — a SIBLING AGENT's in-flight
+  file (`git status` shows it modified; I never touched it). My dependent
+  `nars::meta_basin` is 17/17 green.
