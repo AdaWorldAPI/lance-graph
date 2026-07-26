@@ -272,12 +272,24 @@ pub fn standing_wave_grounded(
         return WaveGrounding::Unbound;
     }
     let mut last: Option<i8> = None;
-    for budget in 1..=passes.max(1) {
+    let max_budget = passes.max(1);
+    for budget in 1..=max_budget {
         let r = resolve_chain(focal_idx, window, locus, budget);
-        // The chain left the ±8 reference horizon (or exhausted the budget): its
-        // causality lives over a longer time span → escalate, don't reject.
+        // **Budget exhaustion is NOT the same as leaving the horizon.**
+        // `ChainResolution::escalated` conflates them, and returning on the
+        // first `escalated` defeated the whole multipass: a 2-hop chain is
+        // truncated at budget 1, so the loop escalated before ever trying
+        // budget 2 — the very budget that resolves it. Only a chain that STILL
+        // escalates at the final budget is genuinely non-local
+        // (`E-MULTIPASS-WAS-SINGLE-PASS-1`). Below the final budget, an
+        // escalation means "needs more hops" — which is exactly what the next
+        // iteration supplies.
         if r.escalated {
-            return WaveGrounding::Escalate;
+            if budget == max_budget {
+                return WaveGrounding::Escalate;
+            }
+            last = None; // this budget resolved nothing trustworthy; don't compare against it
+            continue;
         }
         match r.final_offset {
             // settled: this budget resolved to the same target the previous did
@@ -363,10 +375,18 @@ pub fn standing_wave_stratified(
         return (WaveGrounding::Unbound, 0);
     }
     let mut last: Option<i8> = None;
-    for budget in 1..=passes.max(1) {
+    let max_budget = passes.max(1);
+    for budget in 1..=max_budget {
         let r = resolve_chain(focal_idx, window, locus, budget);
+        // Same budget-exhaustion-vs-horizon distinction as
+        // `standing_wave_grounded`; the two MUST stay in verdict parity
+        // (pinned by `stratified_never_disagrees_with_grounded`).
         if r.escalated {
-            return (WaveGrounding::Escalate, budget);
+            if budget == max_budget {
+                return (WaveGrounding::Escalate, budget);
+            }
+            last = None;
+            continue;
         }
         match r.final_offset {
             Some(off) => {
@@ -985,6 +1005,52 @@ mod tests {
         assert_eq!(kausal.flips, 0, "cause never moved");
         assert_eq!(temporal.flips, 2, "time reference moved twice");
         assert!(temporal.churn_mantissa() > kausal.churn_mantissa());
+    }
+
+    /// **Regression for `E-MULTIPASS-WAS-SINGLE-PASS-1`.** A genuine 2-hop
+    /// chain that terminates INSIDE the ±8 horizon must ground, not escalate.
+    /// Before the fix the loop returned `Escalate` at budget 1 (where the chain
+    /// is truncated) and never tried budget 2 — the budget that resolves it —
+    /// so the "multipass" wave was effectively single-pass for every chain
+    /// longer than one hop.
+    #[test]
+    fn multi_hop_chains_actually_get_their_extra_passes() {
+        // 0 →(+1) 1 →(+1) 2(terminal). Two hops, wholly inside the window.
+        let win = vec![
+            (0, w(&[(Locus::Antecedent, 1)])),
+            (1, w(&[(Locus::Antecedent, 1)])),
+            (2, CausalWitnessFacet::ZERO),
+        ];
+        // The underlying chain genuinely resolves once given the budget.
+        assert!(resolve_chain(0, &win, Locus::Antecedent, 1).escalated);
+        let r2 = resolve_chain(0, &win, Locus::Antecedent, 2);
+        assert!(!r2.escalated);
+        assert_eq!(r2.final_offset, Some(2));
+
+        // So the wave must GROUND it, not escalate it.
+        let (g, pass) = standing_wave_stratified(0, &win, Locus::Antecedent, 8);
+        assert_eq!(
+            g,
+            WaveGrounding::Causal,
+            "2-hop chain inside the horizon escalated — multipass defeated again"
+        );
+        assert!(pass >= 2, "a 2-hop ground cannot be earned at pass {pass}");
+        assert_eq!(standing_wave_grounded(0, &win, Locus::Antecedent, 8), g);
+
+        // A chain that TRULY leaves the horizon still escalates — the fix must
+        // not turn genuine non-locality into false grounding.
+        let far = vec![(0, w(&[(Locus::Antecedent, 7)]))];
+        assert_eq!(
+            standing_wave_stratified(0, &far, Locus::Antecedent, 8).0,
+            WaveGrounding::Escalate
+        );
+
+        // And a budget too small to ever resolve still escalates.
+        assert_eq!(
+            standing_wave_stratified(0, &win, Locus::Antecedent, 1).0,
+            WaveGrounding::Escalate,
+            "passes=1 cannot resolve a 2-hop chain and must say so"
+        );
     }
 
     /// An unbound locus earns no rung at all — pass 0, distinct from "grounded

@@ -1,0 +1,92 @@
+# task #29 — thread the standing wave into planner context (Opus, filigree)
+
+FILES: crates/lance-graph-planner/src/traits.rs, .../src/strategy/style_strategy.rs
+       (+ mechanical `witness: None,` on 24 PlanContext literals in
+        lib.rs, api.rs, strategy/{sparql,gremlin,gql}_parse.rs, chat_bundle.rs)
+
+## Shape chosen: (a) refined — an OPTIONAL WITNESS WINDOW on PlanContext, and the
+## planner runs the wave itself.
+
+`PlanContext.witness: Option<WitnessWindow>` where
+
+    WitnessWindow { rows: Vec<(usize, CausalWitnessFacet)>, focal_idx, locus, passes }
+    WitnessWindow::rung(&self) -> Option<RungLevel>
+
+`rung()` calls `standing_wave_stratified` and maps ONLY `WaveGrounding::Causal`
+to `RungLevel::for_pass(settle_pass)`. `StyleStrategy::reliability_for(style, ctx)`
+is the new context-honest entry point (`plan()` calls it): `Some(rung)` →
+`reliability_at`, `None` → unstratified `reliability_of`.
+
+WHY (b) LOST — a pre-resolved `Option<(WaveGrounding, u8)>` keeps the planner a
+NON-CALLER of the wave. The audit gap E-RUNG-STRATIFIED-WAVE-SHIPPED-1 records is
+"lance-graph-planner never calls it"; (b) closes the *parameter* gap while leaving
+that true, and a caller could assert `(Causal, 7)` with no evidence behind it.
+Carrying the WINDOW makes the rung falsifiable at review time: the evidence is in
+the struct, the derivation is one shipped function, and no caller can hand-wave a
+depth it did not pay for.
+
+WHY NOT four loose Option fields — `rows` present with `focal_idx` absent is a
+half-configured state. One `Option<struct>` makes "present" mean "fully specified".
+
+WHY the struct is not a doctrine violation — it is the named argument bundle of
+`standing_wave_stratified` over the shipped `(pos, CausalWitnessFacet)` slice, not
+a new cognitive carrier and not a wrapper over the four SoA columns.
+
+## The correctness rule: ONLY `Causal` earns a rung
+
+- `Unbound` (pass 0) → None. Nothing resolved ⇒ nothing earned.
+- `Escalate` → None. The chain left the ±8 horizon, so THIS window cannot
+  normalize the depth. Mapping its early settle pass (usually 1) to `Surface`
+  would give the HARDEST case 4 of 34 tactics — the exact blindness
+  E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1 names. No elevation is
+  invented either; the representation switch's magnitude is not derivable here.
+- No window → None → unstratified. Absent is never rung 0.
+
+## MEASURED (probe run, then removed)
+
+  cheap single-hop terminal chain      → Some(Shallow)   (settles at pass 2)
+  same window with passes = 1          → Some(Surface)
+  2-hop chain / off-window / unbound   → None
+  Analytical: Surface/Shallow/Contextual = 0.5, unstratified = 0.45000002
+  Creative:   Surface/Shallow/Contextual = 0.5, unstratified = 0.525
+  Reflective: identical at every rung (Infrastructure recipes are all `Gate`)
+
+FINDING worth carrying (not previously stated): with the current
+`resolve_chain` semantics, ANY chain needing ≥2 hops escalates at budget 1, so
+`Causal` is only ever declared for a single-hop terminal chain. The
+window-derived rung is therefore `Surface` or `Shallow` in practice — the
+deeper rungs are reachable only via the explicit `reliability_at` parameter.
+The ladder is wired and honest, but the wave cannot currently *earn* a rung
+above `Shallow`. That is a property of the wave, not of this wiring.
+
+## TESTS ADDED (style_strategy.rs)
+
+  no_witness_window_is_bit_identical_to_the_unstratified_path
+  absent_window_is_not_read_as_rung_surface
+  witness_window_derives_the_rung_from_the_wave
+  escalating_and_unbound_windows_earn_no_rung_and_never_starve
+  plan_surfaces_the_wave_derived_reliability
+
+`absent_window_...` first asserts a style EXISTS for which Surface ≠ unstratified
+(else the test could not falsify), then asserts the no-window path lands on the
+unstratified side. `witness_window_...` asserts the score equals
+`reliability_at(.., Shallow)` exactly AND that it differs bitwise from the
+no-window score for ≥1 style — an outcome change, not a count change.
+
+## GATES
+
+  cargo test -p lance-graph-planner --lib   294 passed (was 289)
+  cargo test -p lance-graph-contract --lib  1054 passed
+  cargo fmt -p lance-graph-planner --check  clean
+  cargo clippy -p lance-graph-planner --lib no new warnings
+
+## UNRESOLVED / NOT MINE
+
+- Pre-existing clippy warning `unnecessary_sort_by` at
+  crates/lance-graph-planner/src/nars/meta_basin.rs:184 (task #24's file, untouched).
+- `peripheral_dissent` still takes an explicit rung — correct: the watchdog must
+  score at rungs the context did NOT earn, so it cannot read the context's rung.
+- Nothing populates `PlanContext.witness` in production yet; the producer (whoever
+  builds the witness window from a live stream) is a separate deliverable.
+- The orchestrator committed the working tree mid-run (8c14a37); my files are in
+  HEAD. I ran no git commit/push.

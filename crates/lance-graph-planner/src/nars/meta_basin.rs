@@ -181,7 +181,7 @@ pub fn mini_basins(basin: &MetaBasin) -> Vec<MiniBasin> {
             }),
         }
     }
-    minis.sort_by(|a, b| b.members.len().cmp(&a.members.len()));
+    minis.sort_by_key(|m| std::cmp::Reverse(m.members.len()));
     minis
 }
 

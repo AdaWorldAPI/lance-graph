@@ -1,3 +1,28 @@
+## 2026-07-26 — E-MULTIPASS-WAS-SINGLE-PASS-1 — **the "multipass Markov standing wave" was effectively SINGLE-pass for every chain longer than one hop.** The loop raised the hop budget precisely to give a chain more hops, then returned `Escalate` the instant a low budget was insufficient — aborting before the budget that resolves it. Found, empirically confirmed, fixed, regression-pinned.
+
+**Status:** BUG FOUND + FIXED. **Confidence:** High — reproduced with a throwaway probe on the main thread before touching anything, then pinned by a test that fails on the old code.
+
+**The probe** (2-hop chain `0 →(+1) 1 →(+1) 2`, wholly inside the ±8 horizon):
+
+```
+budget 1: hops=1 esc=true  off=Some(1)   ← truncated mid-chain
+budget 2: hops=1 esc=false off=Some(2)   ← RESOLVES
+budget 3: hops=1 esc=false off=Some(2)   ← SETTLES (agrees with budget 2)
+stratified(passes=8) => Escalate at pass 1   ← but the wave said this
+```
+
+**Root cause: `ChainResolution::escalated` conflates two different facts** — "the chain left the ±8 reference horizon" (genuinely non-local ⇒ escalate is correct) and "the hop budget ran out mid-chain" (needs MORE passes ⇒ the next loop iteration supplies exactly that). Both loops (`standing_wave_grounded` and `standing_wave_stratified`) returned on the first `escalated`, so budget 1 — which truncates every ≥2-hop chain — always won.
+
+**Consequences of the bug, now retired:** every multi-hop causal chain inside the horizon was falsely reported non-local and dispatched to a `temporal.rs` version-range read it did not need; and `Causal` could only ever be declared for a *single-hop terminal* chain, which is why the wave-derived rung was capped at `Surface`/`Shallow` in practice. The stratification ladder was wired correctly but structurally starved of its upper rungs.
+
+**Fix:** escalate only if the chain STILL escalates at the FINAL budget; below that, treat escalation as "needs more hops", drop the untrustworthy `last` comparison, and continue. Applied identically to both functions — they must stay in verdict parity, which `stratified_never_disagrees_with_grounded` already pins across 6 window shapes × 3 loci × 4 budgets.
+
+**Regression test** (`multi_hop_chains_actually_get_their_extra_passes`) asserts all four arms: the underlying chain really does resolve at budget 2; the wave now grounds it at pass ≥ 2; a chain that genuinely leaves the horizon STILL escalates (the fix must not convert non-locality into false grounding); and `passes=1` still honestly reports escalation because one pass cannot resolve two hops.
+
+**Why it survived this long:** every existing wave test used a single-hop or an out-of-window chain. Nothing exercised a multi-hop chain end-to-end — so the "multipass" claim in the doc comment was never falsified by the suite that surrounded it. **A feature named in a doc comment but not exercised by a test is a claim, not a behaviour.** Found only because the planner-context wiring (task #29) forced someone to ask which rungs the wave can actually earn.
+
+**Follow-on (not done here):** `ChainResolution::escalated` should probably become two fields (`out_of_horizon` / `budget_exhausted`) so callers cannot re-conflate them; the current fix compensates at every call site instead of fixing the carrier. Filed rather than silently deferred.
+
 ## 2026-07-26 — E-PD-GREEK-LANE-ACQUIRED-TISCHENDORF-1 — the source lane EXISTS: Tischendorf 8th ed. is stated **Public Domain**, while Textus Receptus and Westcott-Hort are **CC BY-NC-SA 4.0**. The pre-1929 age of a Greek edition does NOT make its digital transcription redistributable — the transcription carries its own claim, and two of the three obvious candidates fail.
 
 **Status:** FINDING (licence strings re-fetched and verified on the main thread, independently of the producing agent). **Confidence:** High.
