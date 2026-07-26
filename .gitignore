@@ -97,12 +97,11 @@ crates/lance-graph-planner/examples/data/de/*
 crates/lance-graph-planner/examples/data/rosetta/*
 !crates/lance-graph-planner/examples/data/rosetta/*.py
 
-# ── BRANCH-LOCAL (plateau branch only) ────────────────────────────────────
-# The codebook/bake generators are tracked on `claude/rosetta-codebook-bakes-z30uij`,
-# not here — this branch is the substrate plateau (see the "plateau:" commit).
-# The files remain on disk and are runnable; they are simply not part of THIS
-# branch's diff. Last-match-wins re-ignores them despite the *.py negations above.
-# When the bake branch merges, delete this block — do not resolve it by deleting
-# the negations, which would untrack the generators repo-wide.
-crates/lance-graph-planner/examples/data/**/*.py
-crates/lance-graph-planner/examples/data/**/*.sh
+# ── REVERTED 2026-07-27: the plateau's branch-local generator ignore ──────
+# A `**/*.py` / `**/*.sh` block here re-ignored (last-match-wins) the very
+# generators the negations above deliberately track, and the plateau commit
+# then swept all 11 off the branch — 5,790 lines of apparatus. That violated
+# the rule written three times in THIS file: data-in-Releases, CODE-IN-REPO.
+# Main was left holding the measurement receipts while the instruments that
+# produced them lived on another branch. Reproducibility is not a per-PR
+# size concern; the generators are permanent. Do not re-add such a block.

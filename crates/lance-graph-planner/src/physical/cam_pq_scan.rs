@@ -692,15 +692,27 @@ mod tests {
             );
         }
 
-        // Anti-vacuity: the filter must actually filter (kept ≪ total).
+        // Anti-vacuity: the filter must actually filter (kept ≪ total). `kept`
+        // is the SURVIVOR count of the two-stroke cascade filter itself
+        // (`cams.len() - heuristic_len()`) — not `results.len()`, which is
+        // already pinned to `top_k == 10` above and would make this assertion
+        // reduce to the unfalsifiable `30 < 10000`
+        // (`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` reviewer finding). This
+        // version fails if the cascade stops pruning (e.g. thresholds widened
+        // so most candidates survive stroke 1+2).
         let (_, rejects) = op.cascade_instrumented(&dt, &cams);
+        let kept = cams.len() - rejects.heuristic_len();
         assert!(
-            results.len() * 3 < cams.len(),
-            "cascade kept {} of {} — the prune is inert",
-            results.len(),
+            kept * 3 < cams.len(),
+            "cascade kept {kept} of {} candidates past the two-stroke filter — the prune is inert",
             cams.len()
         );
-        assert!(rejects.heuristic_len() > cams.len() / 2);
+        // NOTE: a separate `rejects.heuristic_len() > cams.len() / 2` assertion
+        // used to stand here. It is algebraically implied by the one above
+        // (`kept * 3 < cams.len()` rearranges to `heuristic_len() >
+        // (2/3)*cams.len()`, which is strictly stronger than `> cams.len()/2`)
+        // — decoration, not an independent check, so it is dropped rather than
+        // kept as dead weight.
     }
 
     // ── anti-blindness fixtures ──────────────────────────────────────────

@@ -1,5 +1,52 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-COCA-LEXICON-RANK-UNRELIABLE-AT-HEAD (2026-07-26)
+
+`crates/lance-graph-planner/examples/data/coca/lexicon.tsv` (20,004 rows) is a
+PRE-FILTERED list, not raw COCA rank 1..N, and its `rank` column is wrong in the
+high-frequency band: `the` = 5645 (pos `i`), `and` = 3584 (pos `r`/adverb — also
+a wrong tag), while `of` = 5. Pure function words `a, I, you, he, she, they, not,
+what, which` are absent entirely.
+
+Impact: any consumer treating `rank` as a frequency proxy gets a scrambled head of
+the distribution; any coverage/decile analysis silently excludes function words.
+Surfaced by `E-COVERAGE-INVERSION-CLAIM-REFUTED-1` (the decile analysis is sound
+for content vocabulary only, for this reason).
+
+Fix options: (a) re-derive rank from a real COCA frequency list; (b) rename the
+column `list_order` and add a MANIFEST note that it is not a frequency rank;
+(c) supersede with the verse-attested lane codebooks (`rosetta/build_lane_codebooks.py`),
+whose `freq`/`rank`/`dispersion` ARE corpus-measured — at the cost of Bible-domain bias.
+
+## TD-COCA-LEXICON-POS-UNUSABLE-FOR-FUNCTION-WORDS (2026-07-26)
+
+Extends `TD-COCA-LEXICON-RANK-UNRELIABLE-AT-HEAD`: the same file's **`pos`
+column is wrong for exactly the words a POS column is most needed for.**
+Spot-checked on the main thread:
+
+| word | recorded pos | correct |
+|---|---|---|
+| `the` | `i` (preposition) | determiner |
+| `and` | `r` (adverb) | coordinating conjunction |
+| `it` | `n` (**noun**) | pronoun |
+| `that` | `r` (adverb) | determiner/conjunction/pronoun |
+| `of` | `i` (preposition) | ✓ correct |
+| `a` | ABSENT | determiner |
+
+3 of 5 function words checked are mis-tagged and 1 is missing; the one
+correct tag is the one that is unambiguously a preposition.
+
+Impact: any consumer treating this column as POS ground truth for
+closed-class vocabulary is reading noise. Surfaced by the closed-class
+transfer work (`E-BOTH-CLOSED-CLASS-METHODS-LOSE-TO-RANK-150-1`), which had
+to substitute a curated word list. **Do not use `coca/lexicon.tsv` `pos` for
+function words.** For open-class content words it was not audited — unknown,
+not vindicated.
+
+Fix options: (a) re-derive POS from a real tagged corpus (the German lane
+already uses UD-derived tags and they are sound); (b) rename the column to
+mark it unreliable; (c) supersede with UD-derived English tags.
+
 ## TD-BASE17-FOLD-CEILING-SINGLE-WORD — the Base17 17-dim golden fold caps ρ at ~0.26 vs Jina cosine for single-word dense embeddings, bottlenecking any 256-codebook fidelity on that input (2026-07-23, found by the PROBE-CODEBOOK-44 real-data ρ, `E-PROBE-CODEBOOK-44-MECHANISM-1`). On 4096 `academic_20k` words → `jina-embeddings-v3` 1024-d → Base17, the projection-only ceiling (17-dim L1, NO codebook) is **ρ=0.2599** vs raw cosine — the dense zero-mean 1024-d vectors averaged over ~60 strided dims collapse near the origin (pairwise-L1 CV=0.220 ⇒ low distance-variance, NOT centroid-collapse; codebook collisions <1%). Consequence: the canon fidelity anchors (0.965/0.9973), which were established on **structured SPO/aerial patterns**, are UNREACHABLE for single-word dense embeddings regardless of flat-vs-hierarchical codebook — so PROBE-CODEBOOK-44's real-data ρ could confirm the codebook is fidelity-neutral (hier≈flat within noise) but could NOT close Probe M1 at the anchor level. Paying = one of: (a) a higher-dimensional / structured Base17 input (the SPO/aerial shapes the anchors were set on), (b) a tighter/variance-preserving projection than the 17-dim golden fold for dense-embedding workloads, or (c) re-scope the anchors as structured-pattern-only (single-word dense embeddings get their own, lower, honest anchor). Not paid here (out of scope for the codebook probe). Until paid, do NOT expect any bgz17 palette to preserve Jina single-word semantics past ρ≈0.26; the Base17 fold, not the codebook, is the limiter. Refs: `E-PROBE-CODEBOOK-44-MECHANISM-1` real-data ρ block, `crates/bgz17/examples/probe_codebook_44_realdata.rs`, `bf16-hhtl-terrain.md` M1. **⊕ REFINED 2026-07-23 (`E-DIA-V4-FIELD-SEARCH-LOOP-1` #4 CV sweep, `crates/bgz17/examples/probe_base17_cv_sweep.rs`):** the ceiling is DOMINANTLY input-variance-driven but not ONLY — as synthetic pairwise-distance CV rises 0.22→1.0, codebook ρ rises 0.22→**0.856** (~3.4×, confirming CV is the major driver + the ceiling is largely input-specific), BUT ρ **plateaus ~0.856 and never clears 0.965/0.9973** even at extreme CV. So paying this debt needs BOTH higher input distance-variance AND genuine multi-level hierarchical structure (the structured SPO/aerial shape the anchors were set on) — CV alone tops out ~0.86. Structure-is-free (hier≈flat) holds across the whole CV sweep.
 
 ## TD-BGZ17-CLIPPY-PREEXISTING — `crates/bgz17` carries 7 pre-existing clippy warnings unrelated to any current work (2026-07-23, observed while landing PROBE-CODEBOOK-44). `container.rs` (5× `needless_range_loop` — loop var only used to index), `base17.rs` (`manual_div_ceil`), + `palette.rs` test-helper hits (`:592`/`:707`). The `E-PROBE-CODEBOOK-44-MECHANISM-1` additions (`build_hierarchical`/`HierarchicalPalette`/`examples/probe_codebook_44.rs`) are clippy-CLEAN; these 7 are older debt NOT introduced or touched (scope discipline — bgz17 is workspace-excluded, so its clippy does not gate the workspace CI). Paying = a mechanical sweep (`needless_range_loop`→iterator, `manual_div_ceil`→`div_ceil`) scoped `--manifest-path crates/bgz17/Cargo.toml`, in its own PR so a probe change stays reviewable. Until paid, `cargo clippy --manifest-path crates/bgz17 -- -D warnings` is red on old debt; the crate's Hard-Rule clippy-clean claim (bgz17 `CLAUDE.md`) is aspirational for the excluded crate. Low risk (all mechanical style lints, zero behavior).
@@ -3189,50 +3236,3 @@ bijection needs re-seeding. Pair: D-IDENTITY-4.
 - **TD-CI-EXCLUDED-FUSE (F5):** main's CI never compiles the workspace-`exclude`d `lance-graph-ogar`, so its compile-time `COUNT_FUSE` fires only in *consumers'* builds (medcare hit E0080 twice). Fix: one CI job `cargo check`-ing the excluded crate against OGAR main. Effort S.
 - **TD-OGAR-LOCK-UNDECIDED (F3):** `lance-graph-ogar/Cargo.lock` is gitignored → fresh checkouts build the fuse against OGAR HEAD (floating canary) while the workspace lock pins. Decide canary-vs-pin; document in one sentence. Effort S.
 - **TD-BOARD-PREPEND-CONFLICTS (F6):** at fleet cadence the append-only board files (EPIPHANIES/LATEST_STATE/PR_ARC) are the only recurring rebase-conflict cost (~30-60 min/day/session). Per-entry board files + generated index make the conflict structurally impossible. Council-sized; forwarded to the V3/coordination session.
-
-## TD-COCA-LEXICON-RANK-UNRELIABLE-AT-HEAD (2026-07-26)
-
-`crates/lance-graph-planner/examples/data/coca/lexicon.tsv` (20,004 rows) is a
-PRE-FILTERED list, not raw COCA rank 1..N, and its `rank` column is wrong in the
-high-frequency band: `the` = 5645 (pos `i`), `and` = 3584 (pos `r`/adverb — also
-a wrong tag), while `of` = 5. Pure function words `a, I, you, he, she, they, not,
-what, which` are absent entirely.
-
-Impact: any consumer treating `rank` as a frequency proxy gets a scrambled head of
-the distribution; any coverage/decile analysis silently excludes function words.
-Surfaced by `E-COVERAGE-INVERSION-CLAIM-REFUTED-1` (the decile analysis is sound
-for content vocabulary only, for this reason).
-
-Fix options: (a) re-derive rank from a real COCA frequency list; (b) rename the
-column `list_order` and add a MANIFEST note that it is not a frequency rank;
-(c) supersede with the verse-attested lane codebooks (`rosetta/build_lane_codebooks.py`),
-whose `freq`/`rank`/`dispersion` ARE corpus-measured — at the cost of Bible-domain bias.
-
-## TD-COCA-LEXICON-POS-UNUSABLE-FOR-FUNCTION-WORDS (2026-07-26)
-
-Extends `TD-COCA-LEXICON-RANK-UNRELIABLE-AT-HEAD`: the same file's **`pos`
-column is wrong for exactly the words a POS column is most needed for.**
-Spot-checked on the main thread:
-
-| word | recorded pos | correct |
-|---|---|---|
-| `the` | `i` (preposition) | determiner |
-| `and` | `r` (adverb) | coordinating conjunction |
-| `it` | `n` (**noun**) | pronoun |
-| `that` | `r` (adverb) | determiner/conjunction/pronoun |
-| `of` | `i` (preposition) | ✓ correct |
-| `a` | ABSENT | determiner |
-
-3 of 5 function words checked are mis-tagged and 1 is missing; the one
-correct tag is the one that is unambiguously a preposition.
-
-Impact: any consumer treating this column as POS ground truth for
-closed-class vocabulary is reading noise. Surfaced by the closed-class
-transfer work (`E-BOTH-CLOSED-CLASS-METHODS-LOSE-TO-RANK-150-1`), which had
-to substitute a curated word list. **Do not use `coca/lexicon.tsv` `pos` for
-function words.** For open-class content words it was not audited — unknown,
-not vindicated.
-
-Fix options: (a) re-derive POS from a real tagged corpus (the German lane
-already uses UD-derived tags and they are sound); (b) rename the column to
-mark it unreliable; (c) supersede with UD-derived English tags.

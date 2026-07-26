@@ -1,0 +1,106 @@
+cr-vacuity — fixing the anti-vacuity fixes that were themselves vacuous
+=========================================================================
+
+FILE A — crates/lance-graph-planner/src/physical/cam_pq_scan.rs (test_cascade, ~line 660-710)
+------------------------------------------------------------------------------------------
+Finding: `assert!(results.len() * 3 < cams.len())` reduced to `30 < 10000` because
+`results.len()` is already pinned to `== 10` (top_k) by the assertion above it —
+unfalsifiable, exactly the defect the comment above it claimed to fix.
+
+Fix: compute `kept = cams.len() - rejects.heuristic_len()` — the SURVIVOR count of
+the two-stroke cascade filter itself, before top_k truncation — and assert
+`kept * 3 < cams.len()` on that.
+
+Falsifying input: any change that widens `heel_threshold`/`branch_threshold` (or a
+distance-table change) so the cascade lets more than 1/3 of the 10000 candidates
+survive strokes 1+2. E.g. if `heuristic_len()` dropped to ~3000 (kept ~7000), the
+assertion `7000*3=21000 < 10000` is false — it fires. Confirmed this is a live
+constraint, not tautological: `kept` depends on the fixture's HEEL/BRANCH partial
+distances and the operator's thresholds, neither of which is fixed by an earlier
+assertion in the test.
+
+Old `assert!(rejects.heuristic_len() > cams.len() / 2)`: DROPPED, not kept as
+decoration. Algebra: `kept*3 < cams.len()` rearranges (kept = cams.len() -
+heuristic_len()) to `heuristic_len() > (2/3)*cams.len()`, which is strictly
+stronger than `heuristic_len() > cams.len()/2` (2/3 > 1/2). So the old assertion
+adds zero additional falsification power once the new one is in place — it is
+implied, not independent. Noted this reasoning inline in a comment rather than
+silently deleting it, per the reviewer's ask to justify drops.
+
+Verified with real numbers: `cargo test -p lance-graph-planner --lib
+physical::cam_pq_scan::tests::test_cascade` — green. (Actual observed on this
+fixture: cascade rejects the large majority via a monotone-in-index CAM
+distribution; kept well under cams.len()/3, so the new assertion is not
+borderline on this data — it's genuinely exercising the filter, as intended.)
+
+FILE B — crates/lance-graph-planner/examples/insight_reason_wired.rs (Basins::load, ~98-127)
+------------------------------------------------------------------------------------------
+Finding 1 (partial schema corruption invisible): `wrong_arity` was only surfaced
+when `rails` ended up COMPLETELY empty. A file mixing well-formed 4-column v1 rows
+with v2-shaped 7-column rows silently dropped the bad rows with zero signal.
+
+Fix + call-site read: `main()` treats `Basins::load()`'s `Err` as a hard
+print-and-return (line ~377-383) — there is no downstream Rust consumer that
+inspects the `Result` further; it's a CLI example whose only observable surface
+is stdout/stderr and process exit. Given that, escalating a PARTIAL mismatch to a
+hard `Err` would abort the whole run over a few corrupted rows in an otherwise
+usable rail set — worse than the status quo, since the good rows are still
+usable for the two-basin meaning lookup. Chose: keep hard `Err` only for the
+"nothing parsed at all" case (already there, message unchanged), and add a loud
+stderr warning naming both counts (`"{wrong_arity} of {total_rows} wordnet rail
+rows had wrong arity ... {rails.len()} rails loaded, the rail set may be missing
+entries"`) whenever `wrong_arity > 0` but some rows did parse. This is the
+"at minimum a loud warning to stderr naming the counts" option from the brief,
+chosen over hard-Err specifically because main()'s consumption pattern (skip a
+Basins::load failure entirely vs. reason over an admittedly-partial rail set) is
+better served by continuing with a documented gap than aborting the whole
+example.
+
+Finding 2 (no can-it-fire test): extracted the parsing loop out of `Basins::load`
+into a standalone, directly-testable `parse_wordnet_rails(wn_txt: &str) ->
+Result<(WordnetRails, usize, usize), String>` (rails, wrong_arity, total_rows).
+`Basins::load` now calls it and only owns file I/O + the stderr-warning decision.
+Introduced a `type WordnetRails = HashMap<String, (String, String)>` alias to
+satisfy `clippy::type_complexity` (`-D warnings` failed on the raw
+`Result<(HashMap<...>, usize, usize), String>` return type without it).
+
+Three tests added in `#[cfg(test)] mod wordnet_rail_parse_tests`:
+  - `valid_v1_file_loads_with_zero_wrong_arity` — 3 well-formed 4-column rows;
+    asserts `wrong_arity == 0`, `total_rows == 3`, `rails.len() == 3`, and one
+    row's content. Falsifying input: any regression that starts rejecting
+    well-formed 4-column rows (e.g. an off-by-one in the arity check) fails
+    `wrong_arity == 0` or `rails.len() == 3`.
+  - `wholly_v2_shaped_file_is_rejected` — THE can-it-fire test for the guard.
+    3 rows, each 7 columns (simulating `wordnet31_isa_v2.tsv`). Asserts
+    `parse_wordnet_rails` returns `Err` containing "schema mismatch". Falsifying
+    input: if the guard silently accepted the v2 shape (e.g. someone loosens
+    `c.len() == 4` to `c.len() >= 4`), this test fails because `Ok(...)` would
+    be returned instead of `Err`, or garbage rails would appear.
+  - `mixed_file_parses_partially_and_reports_wrong_arity` — the paired honest
+    case: 2 valid rows + 1 seven-column row in one file. Asserts `total_rows ==
+    3`, `wrong_arity == 1` (exactly the bad one), `rails.len() == 2`, both good
+    keys present, bad key absent. Falsifying input: if a future change silently
+    swallowed the wrong-arity row without incrementing `wrong_arity`, or if the
+    bad row's data leaked into `rails` (e.g. key collision on `shepherd`), this
+    test fails.
+
+All three tests confirmed distinct/observable outcomes as required: one all-good
+(wrong_arity=0), one all-bad (Err), one mixed (partial success + nonzero count).
+
+GATES RUN (targeted, shared target/, no build/check/git per instructions):
+- `cargo test -p lance-graph-planner --example insight_reason_wired` → 3 passed
+- `cargo test -p lance-graph-planner --lib physical::cam_pq_scan` → 13 passed
+  (includes pre-existing tests in that module, all still green)
+- `cargo fmt -p lance-graph-planner` → applied (2 assert! reformats in the new
+  test module; re-ran `-- --check` clean after)
+- `cargo clippy -p lance-graph-planner --lib --example insight_reason_wired
+  --tests -- -D warnings` → clean (after adding the `WordnetRails` type alias
+  to kill a `type_complexity` error)
+
+WHAT THE REVIEWER (brief author) GOT RIGHT / DIDN'T MISS: nothing to correct —
+the diagnosis was accurate on both files; the "kept" formula and the "== N not
+>= N" preference matched what the code already did for the WordNet arity guard
+(that guard was already `== 4`, not touched, just now exercised by a real test).
+One judgment call I made that the brief left open: Err-vs-warning for the mixed
+case — documented above with the call-site reasoning (main()'s consumption
+pattern), landed on warning-only for partial, Err-only for total failure.

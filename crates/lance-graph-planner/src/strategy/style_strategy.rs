@@ -126,12 +126,13 @@ impl StyleStrategy {
         tol: f32,
     ) -> Option<RungLevel> {
         let admitted = Self::reliability_at(style, ctx, rung);
-        for watcher in rung.peripheral_sample(k) {
-            // Only watchers this style would ever fire are informative — a
-            // mechanism the style never selects is off-character, not dissent.
-            if watcher.mechanism != Self::cluster_mechanism(style.cluster()) {
-                continue;
-            }
+        let want = Self::cluster_mechanism(style.cluster());
+        // Eligibility is applied BEFORE the stride: sampling globally and then
+        // `continue`-ing on mechanism let ineligible watchers spend the whole
+        // `k` budget, so the channel could report agreement without having run
+        // a single relevant tactic — silence produced by the sampler, not by
+        // the evidence.
+        for watcher in rung.peripheral_sample_where(k, |r| r.mechanism == want) {
             let Some(kern) = kernel(watcher.id) else {
                 continue;
             };
@@ -145,6 +146,61 @@ impl StyleStrategy {
             if (tc.confidence.clamp(0.0, 1.0) - admitted).abs() > tol {
                 // Elevate to where this watcher would have been legal anyway.
                 return Some(watcher.min_rung());
+            }
+        }
+        None
+    }
+
+    /// **Cross-family dissent** — the independence channel, deliberately NOT
+    /// the same measurement as [`peripheral_dissent`].
+    ///
+    /// `peripheral_dissent` only consults watchers sharing the style's own
+    /// [`Mechanism`], because an off-character tactic is not evidence about how
+    /// well this style reasoned. That restriction is right for CALIBRATION and
+    /// wrong for INDEPENDENCE: every watcher it can hear from is a sibling of
+    /// the admitted set, so the channel is a monoculture by construction and
+    /// agreement inside it says nothing about whether the conclusion survives
+    /// an instrument not derived from the same basin.
+    ///
+    /// The distinction is measured, not theoretical. This session's
+    /// false-witness probe cloned one translation lane and watched naive
+    /// cross-witness agreement rise 94 % while the clone sat at similarity
+    /// 1.000000 — *n* agreeing witnesses are one witness counted *n* times
+    /// unless their independence was established. `Mechanism` IS the
+    /// independence partition for tactics (it names the structural capability
+    /// the recipe relies on), so a watcher from another mechanism is the
+    /// cheapest available orthogonal instrument.
+    ///
+    /// Returns the objecting watcher's rung AND its mechanism, so the caller
+    /// learns *which family* objected. The two channels are never summed into
+    /// one dissent number: "a sibling scored this differently" and "an
+    /// independent instrument disagrees" demand different responses, and a
+    /// merged score is exactly the proxy that hides the second inside the first.
+    ///
+    /// Suggestion-only, like every periphery channel here: it can force a
+    /// wider read, never name the answer.
+    pub fn cross_family_dissent(
+        style: ThinkingStyle,
+        ctx: &PlanContext,
+        rung: RungLevel,
+        k: usize,
+        tol: f32,
+    ) -> Option<(RungLevel, Mechanism)> {
+        let admitted = Self::reliability_at(style, ctx, rung);
+        let want = Self::cluster_mechanism(style.cluster());
+        for watcher in rung.peripheral_sample_where(k, |r| r.mechanism != want) {
+            let Some(kern) = kernel(watcher.id) else {
+                continue;
+            };
+            let mut tc = Self::thought_ctx_from(ctx);
+            for r in Self::recipes_for_at(style, rung) {
+                if let Some(k2) = kernel(r.id) {
+                    let _ = k2.run(&mut tc);
+                }
+            }
+            let _ = kern.run(&mut tc);
+            if (tc.confidence.clamp(0.0, 1.0) - admitted).abs() > tol {
+                return Some((watcher.min_rung(), watcher.mechanism));
             }
         }
         None
@@ -543,6 +599,118 @@ mod tests {
                 before.to_bits(),
                 after.to_bits(),
                 "{style:?}: watchdog mutated the score it was only meant to observe"
+            );
+        }
+    }
+
+    /// **The eligibility budget is not spent on ineligible watchers.**
+    ///
+    /// Falsifier for the sample-then-filter shape this replaced: at small `k`
+    /// the pre-filtered sample must contain ONLY same-mechanism watchers and
+    /// must be non-empty wherever eligible watchers exist. Under the old shape
+    /// a global stride at `k = 2` returned watchers of other mechanisms, every
+    /// one of which the loop skipped — so the channel observed nothing and
+    /// reported agreement.
+    #[test]
+    fn eligible_watchers_are_not_starved_by_the_sampler() {
+        let want = Mechanism::TruthAwareInference;
+        for rung in [
+            RungLevel::Surface,
+            RungLevel::Shallow,
+            RungLevel::Contextual,
+        ] {
+            let eligible_total = rung
+                .peripheral_recipes()
+                .filter(|r| r.mechanism == want)
+                .count();
+            for k in [1usize, 2, 3] {
+                let picked: Vec<&Recipe> = rung
+                    .peripheral_sample_where(k, |r| r.mechanism == want)
+                    .collect();
+                assert!(
+                    picked.iter().all(|r| r.mechanism == want),
+                    "{rung:?} k={k}: sampler returned an ineligible watcher"
+                );
+                assert_eq!(
+                    picked.len(),
+                    k.min(eligible_total),
+                    "{rung:?} k={k}: budget spent on ineligible watchers \
+                     ({eligible_total} eligible exist)"
+                );
+            }
+            // The global sampler is genuinely different — otherwise this test
+            // would pass against the shape it is meant to reject.
+            if eligible_total > 0 && eligible_total < rung.peripheral_recipes().count() {
+                let global: Vec<&Recipe> = rung.peripheral_sample(2).collect();
+                assert!(
+                    global.iter().any(|r| r.mechanism != want),
+                    "{rung:?}: global sample is accidentally all-eligible, \
+                     this fixture cannot distinguish the two samplers"
+                );
+            }
+        }
+    }
+
+    /// **The two dissent channels must be able to DISAGREE.** Same-family
+    /// dissent measures calibration; cross-family dissent measures
+    /// independence. If no input can make one fire while the other stays
+    /// silent, they are one channel wearing two names and the independence
+    /// claim is decoration.
+    #[test]
+    fn cross_family_dissent_is_a_distinct_channel() {
+        let ctx = ctx_with(Some(style_vec(0.9, 0.0, 0.0)));
+        let rungs = [
+            RungLevel::Surface,
+            RungLevel::Shallow,
+            RungLevel::Contextual,
+        ];
+
+        // It can fire at all.
+        let cross_fires = ThinkingStyle::ALL.iter().any(|&s| {
+            rungs
+                .iter()
+                .any(|&r| StyleStrategy::cross_family_dissent(s, &ctx, r, 8, 0.0).is_some())
+        });
+        assert!(cross_fires, "cross-family channel is inert");
+
+        // And it reports a mechanism that is NOT the style's own — that is the
+        // whole point of the channel.
+        for style in ThinkingStyle::ALL {
+            let own = StyleStrategy::cluster_mechanism(style.cluster());
+            for rung in rungs {
+                if let Some((_, m)) = StyleStrategy::cross_family_dissent(style, &ctx, rung, 8, 0.0)
+                {
+                    assert_ne!(
+                        m, own,
+                        "{style:?}: cross-family dissent reported the style's OWN mechanism"
+                    );
+                }
+            }
+        }
+
+        // Somewhere in the matrix the two channels differ. A tolerance high
+        // enough to silence one but not the other is the discriminating input.
+        let differs = ThinkingStyle::ALL.iter().any(|&s| {
+            rungs.iter().any(|&r| {
+                let same = StyleStrategy::peripheral_dissent(s, &ctx, r, 8, 0.0).is_some();
+                let cross = StyleStrategy::cross_family_dissent(s, &ctx, r, 8, 0.0).is_some();
+                same != cross
+            })
+        });
+        assert!(
+            differs,
+            "the two channels never disagree — one of them is decoration"
+        );
+
+        // Neither channel touches the score.
+        for style in ThinkingStyle::ALL {
+            let before = StyleStrategy::reliability_at(style, &ctx, RungLevel::Shallow);
+            let _ = StyleStrategy::cross_family_dissent(style, &ctx, RungLevel::Shallow, 8, 0.0);
+            let after = StyleStrategy::reliability_at(style, &ctx, RungLevel::Shallow);
+            assert_eq!(
+                before.to_bits(),
+                after.to_bits(),
+                "{style:?}: cross-family channel mutated the score"
             );
         }
     }

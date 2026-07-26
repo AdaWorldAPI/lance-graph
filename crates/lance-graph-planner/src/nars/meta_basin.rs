@@ -424,8 +424,20 @@ impl MetaBasin {
     /// perturbation blindness — the anti-eigenvalue discipline applied at the
     /// meta level.
     ///
-    /// Stable = the same member set still shares a shape at the perturbed
-    /// budget. Returns `true` for singletons (nothing to dissolve).
+    /// **Stable means this basin's exact member-index SET survives
+    /// re-clustering the COMPLETE window at the perturbed budget** — not
+    /// merely that the members it already had still agree with each other.
+    /// Comparing only `self.members` (the earlier shape of this function)
+    /// cannot see a MERGE: a row that sat OUTSIDE the basin can converge onto
+    /// the same post-perturbation shape while every original member still
+    /// agrees with every other original member, and an internal-only check
+    /// reports "stable" for a basin whose true membership changed underneath
+    /// it (CodeRabbit review, PR #852). So this re-derives the complete
+    /// meta-clustering of `window` at `perturbed_hops` and requires one of its
+    /// basins to carry EXACTLY this basin's index set — a merge (an outside
+    /// row joined) and a split (a member left) are both reported `false`.
+    ///
+    /// Returns `true` for singletons (nothing to merge into or split from).
     ///
     /// This is the ONE-DIRECTION convenience wrapper over
     /// [`stability_sweep`](MetaBasin::stability_sweep). Testing a single nudge
@@ -441,19 +453,29 @@ impl MetaBasin {
         if self.members.len() < 2 {
             return true;
         }
-        let mut shape: Option<TrajectorySignature> = None;
-        for m in &self.members {
-            let t = trajectory_of(m.idx, window, locus, perturbed_hops);
-            match shape {
-                None => shape = Some(t),
-                Some(s) => {
-                    if !s.same_meta_basin(t) {
-                        return false;
-                    }
-                }
-            }
-        }
-        true
+        let mut want: Vec<usize> = self.members.iter().map(|m| m.idx).collect();
+        want.sort_unstable();
+
+        // Re-grade and re-cluster EVERY row of the window at the perturbed
+        // budget — not just this basin's members — so a row that joins from
+        // outside is visible. `quorum` is irrelevant to shape-clustering
+        // (`meta_cluster` only reads `.trajectory`), so it is left at `0`.
+        let reperturbed: Vec<GradedRow> = window
+            .iter()
+            .enumerate()
+            .map(|(idx, &(pos, _))| GradedRow {
+                idx,
+                pos,
+                quorum: 0,
+                trajectory: trajectory_of(idx, window, locus, perturbed_hops),
+            })
+            .collect();
+
+        meta_cluster(&reperturbed).into_iter().any(|b| {
+            let mut got: Vec<usize> = b.members.iter().map(|m| m.idx).collect();
+            got.sort_unstable();
+            got == want
+        })
     }
 
     /// **Perturbation SWEEP** — survival across a range of hop budgets, as a
@@ -483,11 +505,15 @@ impl MetaBasin {
         }
     }
 
-    /// The sweep's default range: budgets `0..=max_hops`, capped so the probe
-    /// stays bounded on a `255` budget. Centring on the caller's own budget is
-    /// the point — the question is "would a different budget have grouped these
-    /// rows differently", and only budgets the caller might plausibly have
-    /// chosen answer it.
+    /// The sweep's default range: `max_hops.saturating_sub(8) ..=
+    /// max_hops.saturating_add(2)` — a window CENTRED ON the caller's own
+    /// budget, always including it. The old range (`0..=min(max_hops+2, 16)`)
+    /// never probed the caller's own budget once `max_hops` exceeded 14, so a
+    /// caller running at `max_hops = 255` got a fraction answering "how
+    /// budget-dependent is this basin near budget 0-16", not "near the budget
+    /// I actually use" — silently contradicting this doc's own claim. Naturally
+    /// bounded to at most 11 probes without an extra cap, so it stays cheap at
+    /// any `max_hops`.
     #[must_use]
     pub fn stability_around(
         &self,
@@ -495,10 +521,19 @@ impl MetaBasin {
         locus: Locus,
         max_hops: u8,
     ) -> Stability {
-        let hi = max_hops.saturating_add(2).min(16);
-        let budgets: Vec<u8> = (0..=hi).collect();
+        let budgets: Vec<u8> = stability_around_window(max_hops).collect();
         self.stability_sweep(window, locus, &budgets)
     }
+}
+
+/// The budget window [`MetaBasin::stability_around`] sweeps — factored out so
+/// a test can assert the caller's own `max_hops` is actually inside it
+/// (`stability_around_probes_the_callers_own_budget_even_at_255`) rather than
+/// only asserting the call does not panic.
+fn stability_around_window(max_hops: u8) -> std::ops::RangeInclusive<u8> {
+    let lo = max_hops.saturating_sub(8);
+    let hi = max_hops.saturating_add(2);
+    lo..=hi
 }
 
 /// **Suggest** which rows look like outliers — never decide.
@@ -717,6 +752,78 @@ mod tests {
                 let _ = b.stable_under_perturbation(&win, Locus::Antecedent, p);
             }
         }
+    }
+
+    /// **Falsifies the internal-only check a MERGE hides from** (CodeRabbit
+    /// review, PR #852, finding 1 + finding 3): a basin whose ORIGINAL members
+    /// still agree with EACH OTHER after perturbation, while a row that sat
+    /// OUTSIDE the basin converges onto the very same post-perturbation shape.
+    /// A `stable_under_perturbation` that compares only `self.members` cannot
+    /// see the outside row and reports `true`; the fixed version re-clusters
+    /// the whole window and must report `false`, because the basin's true
+    /// member SET grew.
+    ///
+    /// Fixture: two independent 2-hop `Antecedent` chains (`0->1->2`,
+    /// `10->11->12`) land in one meta-basin at `max_hops = 8`
+    /// (`hops = 1, escalated = false` — each chain's first hop is bound, so it
+    /// takes budget ≥ 2 to walk past it to the unbound terminal). A THIRD,
+    /// unrelated 3-hop chain (`20->21->22->23`) sits in a DIFFERENT meta-basin
+    /// at that budget (`hops = 2, escalated = false`). At the perturbed budget
+    /// of `1`, every chain's first hop now exhausts the budget mid-walk, so
+    /// ALL THREE chains — including the row starting the outside chain — read
+    /// `hops = 1, escalated = true`: the outside row joins the basin's
+    /// post-perturbation shape. This is a real, falsifiable dissolve (a
+    /// merge), not an artifact of the fixture.
+    #[test]
+    fn stable_under_perturbation_catches_a_merge_the_internal_check_misses() {
+        let win = vec![
+            (0, w(&[(Locus::Antecedent, 1)])),
+            (1, w(&[(Locus::Antecedent, 1)])),
+            (2, CausalWitnessFacet::ZERO),
+            (10, w(&[(Locus::Antecedent, 1)])),
+            (11, w(&[(Locus::Antecedent, 1)])),
+            (12, CausalWitnessFacet::ZERO),
+            (20, w(&[(Locus::Antecedent, 1)])),
+            (21, w(&[(Locus::Antecedent, 1)])),
+            (22, w(&[(Locus::Antecedent, 1)])),
+            (23, CausalWitnessFacet::ZERO),
+        ];
+        let graded = grade_rows(&win, Locus::Antecedent, 8);
+        let basins = meta_cluster(&graded);
+        let basin = basins
+            .iter()
+            .find(|b| b.shape.hops == 1 && !b.shape.escalated)
+            .expect("fixture must produce a hops=1, non-escalated meta-basin at budget 8");
+        assert!(
+            basin.members.len() >= 2,
+            "fixture basin needs ≥2 members to exercise the internal-only false positive \
+             (a single member trivially 'agrees with itself')"
+        );
+
+        // What the pre-fix, internal-only loop would have concluded: every
+        // original member, taken pairwise, still shares a shape at the
+        // perturbed budget. This is TRUE for this fixture (all three
+        // original members truncate to the identical hops=1/escalated shape)
+        // — which is exactly why the internal-only check is fooled.
+        let mut shapes = basin
+            .members
+            .iter()
+            .map(|m| trajectory_of(m.idx, &win, Locus::Antecedent, 1));
+        let first = shapes.next().expect("basin has members");
+        assert!(
+            shapes.all(|s| first.same_meta_basin(s)),
+            "fixture invariant broken: original members must still agree with EACH OTHER \
+             post-perturbation for this to exercise the internal-only blind spot"
+        );
+
+        // The correct answer: unstable, because an outside row (the start of
+        // the 3-hop chain) now shares that same post-perturbation shape too —
+        // the basin's true membership grew.
+        assert!(
+            !basin.stable_under_perturbation(&win, Locus::Antecedent, 1),
+            "a row outside the basin converged onto its post-perturbation shape — \
+             this is a merge, not stability, and must be reported false"
+        );
     }
 
     /// The load-bearing contract of this module: it SUGGESTS. Every suggestion
@@ -1009,6 +1116,35 @@ mod tests {
                 .fraction_milli(),
             DENSITY_SCALE
         );
+    }
+
+    /// **Falsifies the pre-fix `stability_around` range** (CodeRabbit review,
+    /// PR #852, finding 2): the doc claimed the sweep "centres on the caller's
+    /// own budget", but the old range was `0..=min(max_hops+2, 16)` — a
+    /// caller running at `max_hops = 255` never had its OWN budget probed at
+    /// all (255 is nowhere in `0..=16`). Under the old code this assertion
+    /// fails; under the fixed windowing (`max_hops.saturating_sub(8) ..=
+    /// max_hops.saturating_add(2)`) the caller's own budget is always inside.
+    #[test]
+    fn stability_around_probes_the_callers_own_budget_even_at_255() {
+        let window = stability_around_window(255);
+        assert!(
+            window.contains(&255),
+            "the caller's own budget (255) must be inside its own stability window, got {window:?}"
+        );
+        // Every budget in the window must be a legal probe, and the window
+        // must stay bounded (never sweep the whole u8 range) even at the
+        // largest possible max_hops.
+        assert!(
+            window.clone().count() <= 11,
+            "the window around max_hops must stay small, got {} budgets",
+            window.count()
+        );
+        // Sanity at the other end: a small max_hops still probes budget 0
+        // (nothing below it is representable), matching the old behaviour
+        // there.
+        let small = stability_around_window(1);
+        assert!(small.contains(&0) && small.contains(&1));
     }
 
     // ── the ranked surface ───────────────────────────────────────────────
