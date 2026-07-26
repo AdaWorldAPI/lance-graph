@@ -1,3 +1,34 @@
+## 2026-07-26 — E-WORDNET-RAIL-ERROR-RATE-MEASURED-1 — the committed rail's sense-selection bug is **12.76% of all rows** (16,471/129,059) — and **33.84% of VERBS**. What began as "2/2 audited anchors wrong" is now a measured, POS-stratified defect rate, plus a corrected v2 rail (176,537 rows, all senses) and a working fetch script that ends the ephemeral-WNDB fragility.
+
+**Status:** FINDING (full audit, no sampling; anchors re-verified on the main thread independently of the producing agent). **Confidence:** High.
+
+**Measured** (`wordnet/build_wordnet_rail.py`, full WNDB 3.1 as ground truth, all 129,059 comparable v1 rows):
+
+| metric | value |
+|---|---|
+| exact-string mismatch | **16.01%** (20,660) |
+| of which pure case-folding artifact (`v-day` vs `V-day`) | 4,189 — separated out, NOT counted as sense bugs |
+| **real sense-selection errors** | **12.76%** (16,471) |
+| nouns | 14.33% |
+| **verbs** | **33.84%** (3,759 / 11,107) |
+| sense-1 is actually a taxonomy ROOT ⇒ v1's hypernym is FABRICATED | 219 |
+
+The agent separating case artifacts from real errors rather than banking the bigger 16.01% headline is the right call and is why the 12.76% is trustworthy. The 219 fabricated rows are a distinct failure class: sense 1 has no hypernym at all, so v1's recorded value corresponds to nothing — not mis-ranked, invented.
+
+**Verified independently on the main thread** (`--verify`, re-run by the orchestrator):
+- `grape/n` sense 1 = `07774656`, true hypernym **`edible_fruit`**; v1's `shot` is sense **3**. PASS.
+- `swallow/n` sense 1 = `07594841`, true hypernym **`taste`**; v1's `consumption` is sense **2**. PASS.
+- The bird is now REACHABLE: `swallow n 3 01597013 isa oscine 01528361`.
+- Also visible in v2: `swallow/v` sense 1 is a taxonomy ROOT — exactly the 219-row fabrication class, in an anchor we had already been reasoning about.
+
+**Verbs at one-in-three is the load-bearing number.** Every downstream taxonomic read over verbs — and the D-SCI grammar arc is verb-centric (valency, government, voice, the 144 verb atoms) — has been consuming a rail where a third of entries point at the wrong sense. This is not a tail risk; it is the modal case for that POS.
+
+**The ephemerality blocker is DISCHARGED.** `wordnet/fetch_wordnet.sh` works cold, tested in-session: the commonly-assumed `.../3.1/WNdb-3.1.tar.gz` **404s**; the live asset is `https://wordnetcode.princeton.edu/wn3.1.dict.tar.gz` (HTTP 200, 16,358,468 bytes). Verified both the no-op path (dir present) and a genuine cold fetch into a fresh temp dir, then re-ran `--verify` against the fresh copy: identical PASS. So the green numbers in `E-WORDNET-RAIL-KEEPFIRST-IS-ALSO-WRONG-SENSE-1` are now reproducible from a cold container, not session-local luck.
+
+**Not yet done (deliberate):** v1 `wordnet31_isa.tsv` is UNTOUCHED; v2 lands beside it as `out/wordnet31_isa_v2.tsv`. Superseding the committed rail is an orchestrator decision and needs a consumer sweep first — every reader of the v1 rail must be found before the swap, or the fix becomes a silent semantic change (`I-LEGACY-API-FEATURE-GATED` shape: same filename, different meaning). Scope limits: nouns+verbs only (adjectives/adverbs carry no `@` taxonomy, matching v1's own scope); the audit compares only the first `@`/`@i` pointer on multi-parent synsets, though the v2 rail emits all of them as separate rows.
+
+Refs: `E-WORDNET-RAIL-KEEPFIRST-IS-ALSO-WRONG-SENSE-1` (the 2/2 anchor finding this quantifies), plan `rosetta-codebook-convergence-v1.md` D-RCC-5, task-board W5 gap 4, W11.
+
 ## 2026-07-26 — E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1 — four verse-attested codebooks on identical logic reproduce the morphological-richness ordering (en < de < cs) as a free sanity check; the TWO German lanes differ enough to be non-redundant witnesses; and the `closed_class_guess` heuristic is near-VACUOUS — it is essentially "rank ≤ 150".
 
 **Status:** FINDING (measured); the vacuity critique is an orchestrator read of the emitted TSVs, not the producing agent's claim. **Confidence:** High.
