@@ -1,3 +1,29 @@
+## 2026-07-26 — E-KJV-IS-GPL-AND-I-CLAIMED-VERIFIED-WITHOUT-VERIFYING-1 — **`kjv` is tagged `GPL`, not Public Domain** — and I shipped a Release MANIFEST asserting "all source texts are Public Domain, licence strings verified verbatim" when I had verified only the GREEK candidates. My own one-asset-per-regime law, violated by me, 30 minutes after writing the asset that carries it.
+
+**Status:** FINDING + CORRECTED. **Confidence:** High — string re-fetched and read on the main thread.
+
+**Verbatim, `api.getbible.net/v2/translations.json`, 2026-07-26:**
+
+| lane | `distribution_license` |
+|---|---|
+| **kjv** | **`GPL`** |
+| luther1545 | `Public Domain` |
+| elberfelder1905 | `Public Domain` |
+| bkr | `Public Domain` |
+| tischendorf | `Public Domain` |
+
+**The process failure, precisely.** During the Greek-lane task I verified `tischendorf` / `textusreceptus` / `westcotthort` / `lxx` and recorded the finding that *age of the work says nothing about the licence of the transcription* — TR (1550) and WH (1881) are both `CC BY-NC-SA`. I then wrote a MANIFEST for the codebook Release claiming **all five** lanes were PD and "verified verbatim". Four of the five had never been checked. I generalised a verification from the subset I happened to have run to the set I wished I had run — while the very lesson in my hand said not to.
+
+**Why it mattered rather than being cosmetic:** every alignment in the bundle has ENGLISH on the source side (`en→de`, `en→el`, `en→cs`), and `codebook_kjv.tsv` is directly KJV-derived. So the bundle mixed a GPL-encumbered derivative into an asset labelled Public Domain — **exactly the contamination the one-asset-per-regime law exists to prevent** (`E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1`: "packaging a permissive artifact with a restricted one makes the combined asset effectively restricted"). A consumer reading the MANIFEST would have taken PD terms on GPL-derived data.
+
+**Corrected:** the Release now carries FIVE regime-separated assets — `pd-texts` (the 4 PD source lanes verbatim), `rosetta-pd` (non-English derived), **`rosetta-gpl`** (KJV codebook + every alignment + split census, explicitly labelled GPL-encumbered, copyleft-not-NonCommercial), `de` (CC BY-SA), `wordnet` (WordNet License). The superseded mixed asset was deleted, and the Release body records the correction rather than quietly replacing it.
+
+**Second miss found in the same pass (the reason to re-inventory at all):** the first upload silently omitted every measurement REPORT and the split census — `rosetta_probe_report.md`, `alignment_report.md`, `versification_report.md`, `codebook_summary.md`, `greek_lane_report.md`, `tier_delta_report.md`, `closed_class_report.md`, `closed_class_transfer_report.md`, `en_de_splits.tsv`. Those are the receipts for every "known defect" the MANIFESTs assert; shipping the claims without the evidence made the defect list unverifiable by the consumer. Also added: the PD source texts themselves, so the whole Release is reproducible without depending on an external API staying up.
+
+**The rule this earns:** *a verification covers exactly the items you named when you ran it.* Carrying a verified finding forward onto adjacent items is the same shape as the vacuous assertion (`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`) — a claim whose evidence does not constrain it. When a MANIFEST says "verified", the list of what was verified belongs in the MANIFEST.
+
+Refs: `E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1` (the law I broke), `E-PD-GREEK-LANE-ACQUIRED-TISCHENDORF-1` (the finding I over-generalised), Release `v0.1.0-codebooks-2026-07-26`.
+
 ## 2026-07-26 — E-SEPARATION-IS-ALREADY-SHIPPED-WIRE-DONT-INVENT-1 — **operator correction to the CMYK ruling's consequence: the text itself often licenses experienced qualia, and the separation machinery ALREADY EXISTS** — texture, `ResonanceDto`, `PerturbationDto` (D-PERT-1), and gestalt awareness ARE the experience-side carriers. Task #39 is a WIRING job, not a build job.
 
 **Status:** RULING (operator) + verified inventory. **Confidence:** High — carriers confirmed at type level on the main thread.
