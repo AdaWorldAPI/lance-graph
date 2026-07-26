@@ -1,3 +1,167 @@
+## 2026-07-26 — E-HYPERNYM-CLIMB-IS-A-CASCADE-TIER-DELTA-1 — WordNet's hypernym hierarchy is EXPLICIT vertical navigation, and it lines up with the substrate's own vertical machinery (HHTL tiers / CLAM-CHAODA cluster tree / the hierarchical-4⁴ codebook). Consequence: the fox→animal specificity loss stops being a judgement call and becomes a MEASURABLE tier delta — and the coarsest tier is the cheapest error detector. Caught a live bug that would have poisoned the Aesop probe.
+
+**Status:** FINDING for the walkability + the caught bug; [H] for the CLAM/codebook alignment (probe specified, NOT run). **Confidence:** High on what was measured; the alignment claim is explicitly unmeasured.
+
+**The rails are walkable as a depth hierarchy** (117,952 noun `is_a` edges, `examples/data/wordnet/wordnet31_isa.tsv`):
+```text
+fox     → canine → carnivore → predator → animal → organism → living_thing    depth 10
+wolf    → canine → carnivore → predator → animal → organism → living_thing    depth 10
+lamb    → young_mammal → young → animal → organism → living_thing             depth  9
+shepherd→ herder → hired_hand → laborer → workman → employee → worker         depth 16
+```
+Depth distribution over a 20k sample peaks around 8–12. So `fox → animal` is a **4-step climb**, countable — exactly the `Δ abstraction loss` term the meaning_gain ledger wanted but could not previously compute.
+
+**THE LIVE BUG THIS CAUGHT (pre-emptive, before W11 ran).** The keep-first polysemy flattening (W5 gap 4 — the loader's `if !rails.contains_key(...)`) resolves:
+```text
+swallow → consumption → depletion → decrease → change → action     ← the VERB sense, not the bird
+grape   → shot → rocket_firing → launching → propulsion → act      ← "grapeshot", not the fruit
+```
+**The Aesop identity-contamination probe (W11) would have compared a bird against `consumption`** and reported nonsense with full confidence. The gap-audit's silent-drop detector was right that this mattered; the vertical walk is what made it visible. W5 gap 4 is therefore a BLOCKER for W11, not a nice-to-have — recorded as a dependency.
+
+**The mechanism worth keeping: the top of the chain is the COARSE tier.** `living_thing` / `action` / `event` are HEEL-level basins. A word whose chain terminates in a basin that contradicts the discourse is detectable **at the coarsest granularity** — one comparison, no fine-grained similarity, no embedding. That is the cheapest possible polysemy/word-sense error detector, and it falls out of the hierarchy the rails already carry. It is also why the climb is a *tier* phenomenon: losing `fox` for `animal` moves the address up the cascade, and the substrate's whole addressing story is prefix-routed tiers.
+
+**The alignment probe (SPECIFIED, NOT RUN — the honest boundary).** The substrate has THREE vertical structures and they have never been compared: (1) WordNet hypernym depth — explicit, symbolic, measured above; (2) the HHTL cascade — HEEL/HIP/TWIG = 12 nibble-levels of 16-ary prefix routing; (3) CLAM / CHAODA cluster trees (ndarray, 46 tests) + the hierarchical-4⁴ codebook (`bgz17::palette::build_hierarchical`, shipped #823, where `code>>4 == coarse` IS centroid ancestry — the D-TILE256 rigor condition). **PROBE:** does centroid ancestry correlate with hypernym ancestry? PR #823 already measured that the hierarchical codebook is *fidelity-neutral* on real Jina data ("structure is free"); if the ancestry also tracks meaning, the structure is not merely free but MEANINGFUL — and the HHTL prefix would gain semantic grounding rather than being distance-only. Falsifier: rank correlation between centroid-tree shared-prefix depth and WordNet shared-hypernym depth over a paired sample, against a flat-256 null.
+
+**Honest constraint on any mapping.** HHTL carries 12 nibble-levels (16-ary); measured WordNet chains run 9–16 deep with variable branching. So the fit is close but NOT 1:1 — the deepest chains (`shepherd` at 16) exceed the cascade. Any mapping must therefore be stated as an approximation with the rails as ground truth, never as an isomorphism; and the two-basin rule still governs — rails are exact/symbolic, the cascade is approximate/distributional, and neither overwrites the other. Refs: `E-ROSETTA-IS-A-JOIN-NOT-A-CHOICE-1`, `E-ACADEMIC-VOCAB-COLORBLIND-1` (the original colorblind/hub-domination finding), `PROBE-CODEBOOK-44` / `E-PROBE-CODEBOOK-44-MECHANISM-1` (#823 hierarchical codebook), task board W3/W5/W11/W12.
+
+## 2026-07-26 — E-ROSETTA-IS-A-JOIN-NOT-A-CHOICE-1 — **WordNet-as-Rosetta vs Bible-as-Rosetta is a false alternative**: they are the two basins, and meaning-loss across languages is computable ONLY from their JOIN. The concept graph supplies the DENOMINATOR (what was available), the parallel text supplies the NUMERATOR (what was chosen) — which is exactly the construction-surprisal formulation, lifted from within-language to cross-language.
+
+**Status:** RULING (architecture) + verified acquisition path. **Confidence:** High on the ruling and the corpus availability (probed live); the projection-classification yield is unmeasured until the join is built.
+
+**The two answer different questions** — the two-basin doctrine, cross-lingual edition:
+
+| | WordNet / CILI (rails) | Bible parallel text (witness/field) |
+|---|---|---|
+| axis | PARADIGMATIC — what senses are *possible* | SYNTAGMATIC — which sense/construction was *chosen here* |
+| unit | concept (interlingual sense address) | token + construction in context |
+| coverage | lexicon-wide, sense inventory only | one text, but every layer at once |
+| cross-language relation | interlingual index (CILI) | verse alignment |
+| blind to | which sense is live in THIS passage | options that were available but unattested |
+
+**Why neither alone suffices — the swallow case, precisely.** Alignment says Greek `χελιδών` ↔ German `Vogel`. The concept graph says `χελιδών` is a HYPONYM of `Vogel`. **Only the join says: this is a BROADENING, not a translation equivalence.** The parallel text alone reports a correspondence; the concept graph alone reports a possible relation; the specificity LOSS — the thing `E-WITNESS-SPECIFIC-MEANING-1` exists to detect — is visible only where they meet. So `ConceptProjection {Exact, Narrower, Broader, PartialOverlap, Metaphorical, Metonymic, Calque, FormSpecific, NoLexicalEquivalent, Unknown}` is a JOIN product, never a property of either source.
+
+**The unification worth keeping:** this is `E-CONSTRUCTION-CHOICE-IS-THE-QUALIA-SIGNAL-1` lifted one level. Within a language, qualia = `-log P(construction | verb paradigm)` — the mined paradigm is the denominator, the observed construction the numerator. Across languages, translation-choice information = `-log P(lexicalization | concept's available lexicalizations)` — **the wordnet is the denominator, the witness is the numerator.** Same formula, same requirement: you cannot compute a choice's information content without knowing the option set. A translator selecting `Vogel` where `Schwalbe` was available is carrying information; selecting the only available word carries none.
+
+**CILI as the address, never English as the truth.** The interlingual index is the concept rail; local synsets hang off it. English-Princeton-as-hub would make English the ontology emperor — and the workspace already has the correct pattern for this: it is the `corresponds_to`-never-`same_as` membrane rule (`E-WITNESS-SPECIFIC-MEANING-1`), applied to senses instead of entities. GermaNet's ~28.5k ILI mappings against ~179k synsets is INFORMATIVE, not a defect: ILI-linked = cross-language comparable; GermaNet-only = a German lexical distinction not yet projectable, which is itself a `NonProjectable` datum.
+
+**Verified acquisition — the Gospel Rosetta stack exists TODAY** (probed live, PROIEL repo): `greek-nt.xml` 29.1 MB (on disk) · **`latin-nt.xml` 23.3 MB — the Vulgate NT** · **`marianus.xml` 13.0 MB — Codex Marianus, Old Church Slavonic Gospels**. All three carry dependency + morphology + information structure, verse-aligned by citation. 65 MB buys a three-language annotated parallel treebank — the literal Rosetta artifact: one text, three grammatical systems, all annotated.
+
+**OCS is the CONTROL, and that is why it matters.** With Greek + Latin only, any Slavic free-word-order or case-recovery behaviour observed later in Czech would be attributed to the translator. Marianus separates *Latin/Greek source influence* from *general Slavic grammatical substrate* from *specifically Old Czech restructuring*. A witness stack without a same-family control cannot make that attribution at all.
+
+**The Vulgate needs its OWN frequency layer — the register lesson again.** Classical Latin frequency is the wrong usage model for the Vulgate: Christian Latin has specialized senses, and a single global Latin frequency byte would erase exactly the distinction that matters (common in the Vulgate / rare in Classical / consistently rendering one Greek concept / inconsistently rendering several Hebrew ones). This is the SAME finding as the German vocative (615-vs-3): a corpus missing the register misreports the construction. Lanes: general · Classical · Christian/Late · Vulgate-whole · OT · NT · book-local.
+
+**Czech correction, recorded before it propagates:** there is no Bible personally translated by Jan Hus — a complete Czech Bible existed c. 1360, and the relevant artifact is the **third Old Czech redaction (c. 1410) from Hus's circle**, new OT + revised NT, primarily from the Vulgate. The evidence address is therefore `OldCzech.HusCircle.Redaction3`, never `JanHusBible` — the same edition-in-the-address discipline that keeps PROIEL's critical text distinct from the Textus Receptus the KJV translates (`E-SCI-1-WITNESS-CONSTRUCTION-LICENSE-1`). Diabible supplies verse-aligned medieval Czech redactions (Gospels, Psalms, Song of Songs) for within-language editorial variation — the Czech analogue of Daniel OG↔Theodotion.
+
+**Honest gap:** no Old Czech dependency treebank exists (historical Czech resources offer partial lemmatization + morphology, not full dependencies). In this architecture that is the EXPERIMENT rather than the blocker: Latin supplies the direct-source dependencies, Greek the deeper witness, OCS the Slavic control, PDT-C modern-Czech candidate templates — and the substrate does elimination and promotion. If a deterministic Old Czech grammar survives withdrawal of those witnesses (the Level-3 gate, W1), that is self-amortization demonstrated on an unannotated medieval language. Refs: `E-CONSTRUCTION-CHOICE-IS-THE-QUALIA-SIGNAL-1`, `E-WITNESS-SPECIFIC-MEANING-1`, `E-GATEWAY-TEXT-IS-A-PROJECTION-HINGE-1`, task board W11/W15/W17.
+
+## 2026-07-26 — E-CONSTRUCTION-CHOICE-IS-THE-QUALIA-SIGNAL-1 — language is deliberately multilayered, and resolution must keep BOTH layers: the canonical proposition AND the construction the speaker chose to carry it. The choice is not surface noise — it is the qualia signal, and its strength is the SURPRISAL of that choice within the verb's construction paradigm. **Corrects an over-broad claim made earlier in this arc.**
+
+**Status:** FINDING for the paradigm measurement; DESIGN RULING for the two-layer resolution + the surprisal formulation (implementation queued to W5/W6). **Confidence:** High on the measurement; the qualia-axis mapping is [H] until a probe scores it.
+
+**The correction.** `E-SCI-1-RIGHT-CORNER-DELAYED-COMMITMENT-1` states "active canonicalization, not passive — a passive rewrite is an orthopedic intermediate, never the stored meaning." That is right about OUR candidate readings (we normalize a fronted clause to active) and WRONG if read as "discard voice." When the SPEAKER chose the passive, the choice is DATA: agent suppression is deliberate. Two different operations were conflated — *our* parse normalization vs *their* construction selection. Both survive; they land in different layers.
+
+**The measurement** (UD German-GSD+HDT, cluster-resolved via the #850 `verb_cluster()`/`finite_of()` helpers). Construction inventory, tokens: transitive 30,511 · intransitive 27,903 · modal-active 8,309 · passive 5,389 · reflexive 5,164 · **modal-passive 1,532**. Paradigm BREADTH per verb lemma:
+
+| distinct constructions | lemmas | share |
+|---|---|---|
+| 1 | 1,531 | 40.8 % |
+| 2 | 898 | 23.9 % |
+| 3 | 518 | 13.8 % |
+| **4+** | **808** | **21.5 %** |
+| all 6 | 154 | 4.1 % |
+
+Richest paradigms are the light, high-frequency verbs (`stellen`, `geben`, `machen`, `überlassen`, `verstehen`, `finden`) — exactly where the speaker has the most expressive freedom, hence where the choice carries the most information.
+
+**The ruling — two layers, never collapsed** (this is `E-WITNESS-SPECIFIC-MEANING-1`'s assertion/expression split applied WITHIN one language instead of across witnesses):
+```text
+ASSERTION graph   canonical proposition (active; agent recovered, or Implicit — never invented)
+EXPRESSION graph  the construction actually chosen: voice · agent-suppression · modality ·
+                  reflexive/anticausative · transitivity alternation
+QUALIA            read FROM the expression layer, not from a polarity word-list
+```
+`Er öffnet die Tür` / `Die Tür öffnet sich` / `Die Tür wird geöffnet` / `Die Tür muss geöffnet werden` share one assertion and differ entirely in the expression layer — agent visibility, obligation, stance.
+
+**Why this makes qualia GRAMMATICALLY grounded.** The current extractor reads felt tone from POSITIVE/NEGATIVE polarity lexicons — lexical, shallow, and English-shaped. Construction choice is STRUCTURAL and language-native: agent suppression (passive) lowers assertion/agency and raises boundary; modal obligation (`müssen`) raises tension; reflexive/anticausative raises receptivity while lowering agency; modal possibility (`können`) raises expansion. Same 17D axes, a far better signal — and available in every language that has a voice/modality paradigm, without a sentiment lexicon.
+
+**The formulation worth keeping: qualia strength = surprisal of the construction given the verb's paradigm.** A construction selected from a 6-way paradigm carries `-log P(construction | verb)` bits; a verb with ONE available construction carries zero — the speaker had no choice, so nothing was signalled. This is computable directly from the mined `voice-paradigm` table (no model, no lexicon), and it is the free-energy quantity the substrate already speaks: an unexpected construction IS surprise, and should dispatch thinking exactly as any other surprise does. The 40.8 % single-construction lemmas are therefore qualia-silent BY CONSTRUCTION — a null baseline the falsifier gets for free.
+
+**Queued** (W5/W6/W17): emit `voice_paradigm.tsv` (verb → available constructions + per-construction counts) from the German builder; score construction surprisal; map the axes and probe against the existing polarity-lexicon qualia as the baseline it should beat. Same miner runs on Greek (aorist/middle/passive), Latin, Czech (aspect) — the paradigm differs, the surprisal formulation does not. Refs: `E-SCI-1-RIGHT-CORNER-DELAYED-COMMITMENT-1` (the corrected claim), `E-WITNESS-SPECIFIC-MEANING-1` (assertion/expression split), `E-TENSE-IS-A-BASIN-REGISTER-NOT-A-POINTER-1`, `E-SCI-1-SPO-TEKAMOLO-QUALIA-EXTRACTION-1` (the 17D vector this feeds).
+
+## 2026-07-26 — E-TENSE-IS-A-BASIN-REGISTER-NOT-A-POINTER-1 — the temporal twin of the anaphora law, with INVERTED polarity: entity anaphora is 88 % LOCAL (nibble-addressable), temporal anaphora is **91.7 % NON-LOCAL**. Plusquamperfekt/Futur II do not point at a TOKEN — they read and write the episodic basin's **reference-time register**. Tense morphology is a basin-state OPERATION, not a pointer.
+
+**Status:** FINDING (measured on UD German-GSD+HDT). **Confidence:** High — the polarity split is decisive and Reichenbach explains the mechanism exactly.
+
+**The measurement.** Periphrastic tenses resolved via the `verb_cluster()`/`finite_of()` helpers (the same cluster discipline the #850 review forced): Perfekt 6,249 · **Plusquamperfekt 1,994** · Futur I 1,615 · **Futur II 69** · Partizip II 17,802. For each Plusquamperfekt, the nearest candidate R-anchor (another finite past verb):
+
+| | count | share |
+|---|---|---|
+| NO in-sentence R-anchor | 1,339 | **67.2 %** |
+| in-sentence anchor | 655 | 32.8 % |
+| …of those, inside `-8 <= off <= +7` | 166 | 25.3 % of anchored |
+| **⇒ R-anchor inside the i4 window** | **166 / 1,994** | **8.3 %** |
+
+Against the relative-pronoun result (`E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1`: 88.01 % inside the window), the two anaphora types have **opposite polarity**: entity reference is overwhelmingly local, temporal reference overwhelmingly not.
+
+**Why this CONFIRMS the basin-edge law rather than breaking it.** The law says: beyond the window is a *different KIND* of reference, resolved by identity/state rather than position. Plusquamperfekt is that different kind **by construction** — Reichenbach's R (reference time) is neither speech time nor event time, so Plusquamperfekt and Futur II are the two tenses that MUST anchor to something outside themselves; and in narrative that something is the discourse's current reference time, which is a **basin state**, not a token position. A wider pointer would not help — there is no token to point at.
+
+**The architectural consequence (feeds W5/W12/W17).** Tense/aspect morphology maps onto the episodic basin as register operations, NOT as pointers:
+```text
+Präteritum / Perfekt  → SET  R          (advance the narrative now)
+Plusquamperfekt       → READ R, assert E < R      (reach back before it)
+Futur I               → SET  R' > S
+Futur II              → SET  R' > S, assert E < R'
+```
+So the TEKAMOLO Temporal lane needs a **basin-level R register** alongside its per-clause tense reading — the absolute-time axis gap (W5 gap 3) is not only "wire real chronology", it is "carry the discourse reference time as basin state, and let tense morphology mutate it". This is also why the Te lane read as near-constant "Past" in the gap audit: per-clause tense is the WRONG granularity for narrative; the informative quantity is R and its updates.
+
+**Language variation (the witness argument, temporal edition).** German marks R explicitly and periphrastically (`hatte` + Partizip II); Slavic marks grammatical ASPECT; Greek splits aorist/imperfect/perfect. So a language with richer tense-aspect morphology is a better WITNESS for temporal structure exactly as Greek case was a better witness for role structure (`E-SCI-1-WITNESS-CONSTRUCTION-LICENSE-1`) — and the projection direction is the same: harvest R-structure from the morphologically explicit witness, license it onto the impoverished target.
+
+**Honest limits.** (a) Partizip I was NOT detected (0 instances) — UD German tags the present participle as ADJ, so the inventory here covers Partizip II only; a dedicated `Tense=Pres|VerbForm=Part` + ADJ sweep is queued. (b) The 67.2 % "no in-sentence anchor" figure is a LOWER bound on non-locality measured within sentence boundaries; cross-sentence anchors were not resolved (the corpus is sentence-shuffled for licensing), so the true basin-edge share may be higher still, never lower. (c) Futur II at n=69 is too sparse for its own statistics — reported as an inventory count only. Refs: `E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1` (the entity half), `E-GATEWAY-TEXT-IS-A-PROJECTION-HINGE-1`, task board W5/W12/W15/W17.
+
+## 2026-07-26 — E-GATEWAY-TEXT-IS-A-PROJECTION-HINGE-1 — a language's **gateway text** (Luther/German · Hus/Czech · Dante/Italian · Tyndale-KJV/English) is the highest-value corpus per byte the substrate can acquire, because it is FOUR things at once — and the "bad translation" property (calquing) is precisely what makes it machine-useful. Worked example: the VOCATIVE, measured 615 (Greek NT) vs 3 (modern German UD).
+
+**Status:** FINDING for the vocative measurement; PRINCIPLE (grade [H], acquisition-gated) for the gateway-hinge claim. **Confidence:** High on the measurement + the mechanism; the projection yield is unmeasured until a Luther bitext is aligned.
+
+**The vocative worked example (operator-seeded: "Lieber/sehr geehrter … that's why religious translations transliterate Oh Gott instead"):** PROIEL Greek NT carries **615 morphological vocatives** (0.8 % of case-bearing tokens); UD German-GSD+HDT carry **3 in 1.1 M tokens**. Top Greek vocative lemmas are the address inventory itself — κύριε *Lord* (120), ἀδελφοί *brothers* (108), διδάσκαλε (31), πάτερ (26), **ἀγαπητοί *beloved* (13)**. `ἀγαπητός`-vocative IS the German "Lieber" construction: Greek carries it in a CASE ENDING, German in an **article-less strong-declension adjective + comma + initial position**. Same function, different morphological carrier — which is exactly why *Lieber Gott* reads native and *O Gott* reads imported.
+
+**The three translation routes ARE the `EvidenceAvailability` classes** (extends `E-WITNESS-SPECIFIC-MEANING-1`): loan the source particle (ὦ / يا → *O Gott*, *O Allah*) = `NonProjectable`, compensated by borrowing; native compensation (*Lieber Gott*, *Herr, erbarme dich*) = `Paraphrased`; drop into a plain subject = `ExpressionAbsent`. The translator's "struggle" is not weakness — it is a **case with no target-language carrier**, forcing a choice among three lossy routes. That choice is a witness-disposition decision, not a style preference.
+
+**Parser consequence (corrects a corpus assumption):** the German vocative cannot be LEARNED from our corpus (n=3) but does not need to be — it has a morphological SIGNATURE (article-less NP + strong-declension adjective + comma + initial). Recognize the shape; never wait for frequency. Deeper: **our German corpus is missing a REGISTER, not a construction** — news/web/wiki never address anyone, while religious/epistolary/liturgical German is full of vocatives. A witness IN ANOTHER LANGUAGE exposed a genre hole in the target corpus. Same lane-coverage logic that sends the spider after Aristotle for the dead Kausal/Modal lanes (W15).
+
+**The gateway principle.** Luther (NHG, 1522/34), Hus (Czech orthography + vernacular preaching), Dante (*Commedia*; and *De vulgari eloquentia* — literally a treatise arguing the vernacular can carry high thought) each stand where a vernacular ENTERS the written record. Each such text is simultaneously:
+1. **The diachronic ROOT of the standardized language** — the anchor node of the ancestry trie; everything later is descent from it (DTA 1500-1900 walks forward to modern German).
+2. **A verse-aligned BITEXT against an annotated source witness** — Luther worked from Erasmus's Greek NT, which PROIEL annotates with full dependencies. So Greek dependencies can be PROJECTED onto the German text through verse alignment (the same technique that built the Hebrew↔LXX UD treebank) ⇒ **a treebank for the founding stratum, for free**.
+3. **CALQUE-HEAVY by sacred-fidelity pressure — and this is the FEATURE.** Earlier this arc we read KJV's Semitic word order (Ecclesiastes parallelism, `him shall ye hear`) as the *problem*. Inverted: a translation that calques PRESERVES the source's dependency structure, which makes it the BEST annotation-projection target. Bad idiomatic target-language ⇒ good structural mirror. The fidelity artifact is the alignment signal.
+4. **The register modern corpora lack** — vocative, imperative, direct address, second person: exactly the constructions news/web text never exercises (see the 615-vs-3 measurement above).
+
+**And the founding stratum carries the RICHEST morphology** — Early Modern German and Early Modern English both retain case distinctions their modern forms lost (KJV `ye`/`you`, `thou`/`thee`, per `E-SCI-1-RIGHT-CORNER-DELAYED-COMMITMENT-1`; Luther's full article paradigm). So the gateway stratum is simultaneously the most alignable AND the most case-decidable — the two properties the witness-gated parser most wants. Czech (Hus) extends it further: 7 cases, so role assignment is near-fully morphological.
+
+**Acquisition order (feeds W17/W11/W15):** Luther 1545 (DTA/Wikisource, public domain) verse-aligned against PROIEL Greek NT ⇒ projected Early-Modern-German dependency annotation + the German religious register in one acquisition. Then the same hinge shape for Czech (Hus/Kralice) and Italian (Dante) if the lanes are wanted. Refs: `E-WITNESS-SPECIFIC-MEANING-1`, `E-SCI-1-WITNESS-CONSTRUCTION-LICENSE-1`, `E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1`, task board W17/W15/W11.
+
+## 2026-07-26 — E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1 — the i4 pointer window is not a size limit, it is the **type boundary between syntax and discourse**: a reference outside the i4 window (`-8 <= off <= +7`) is implicitly a BASIN EDGE (SPO-G / AriGraph), never a wider pointer. Operator-stated bluntly, then falsified on 7,657 real German relative clauses — CONFIRMED with a 7×/8.4× structural separation.
+
+**Status:** FINDING (measured, not asserted). **Confidence:** High — the split is decisive on real data and the mechanism explains it.
+
+**The measurement** (UD German-GSD + HDT, 7,657 relative pronouns with resolvable antecedents; the German lane's `relative_pronoun` harvest):
+
+| | within i4 (`-8 <= off <= +7`), n=6,739 | beyond i4 (`off < -8` or `off > +7`), n=918 |
+|---|---|---|
+| intervening finite verbs | 0.07 (6 % have ≥1) | **0.66 (42 % have ≥1)** — 7× |
+| competing noun candidates | 0.41 (10 % have >1) | **3.43 (89 % have >1)** — 8.4× |
+
+**Why it is a TYPE boundary, not overflow.** Inside the window, 90 % of cases have NO competing noun — *position alone discriminates*, so a nibble offset is not merely sufficient, it is the CORRECT address. Outside it, 89 % have multiple candidates and 42 % cross a finite-clause boundary — so an arbitrarily wider pointer would still be addressing a POSITION when the discriminator has become IDENTITY ("which entity", not "how far back"). The long tail therefore resolves through rails / type / graph — an SPO-G quad or AriGraph episodic edge, whichever carrier owns that referent — and NEVER through a wider nibble. Escalation is the wrong word; it is a different KIND of reference.
+
+**The demarcation this ratifies (feeds `W12` anti-collapse):**
+```text
+LOCAL      -8 <= off <= +7  → 24xi4 nibble pointer in the V3 facet = SYNTAX
+                              (deterministic, free, in-register, identity-free)
+NON-LOCAL  off < -8 or off > +7 → basin edge (SPO-G / AriGraph / rails) = DISCOURSE / MEMORY
+                  (requires referent identity; position is not the discriminator)
+```
+
+**The convergence worth naming:** the boundary was never hand-tuned. It falls out of the carving arithmetic — the V3 facet's 12 content-blind bytes = **24 nibbles**, i4 = **−8..+7** — and German independently says that is exactly where the linguistic phenomenon changes character. The register width PREDICTED a syntax/discourse distinction. (Window placement is a wash and needs no offset trick: natural i4 covers 88.01 %, the best possible 16-value placement −10..+5 covers 88.49 %.) This also confirms deepnsm-v2 `wave.rs`'s shipped ±8 antecedent pointer as correctly sized, chosen before this data existed.
+
+**Carving note (operator correction recorded):** EdgeBlock is the **V1** edge carrier; V3 relations live in the `classid(4B) + 12B content-blind payload`, ClassView-selected — `6×(u8:u8)` rails / `4×(u8:u8:u8)` SPO triplets / `3×(u8:u8:u8:u8)` quads / **`24×i4` anaphora pointers**. One register, N sanctioned readings: a German relative pronoun emits TWO signals into TWO carvings of the SAME 96 bits — the pointer (nibble reading: where the antecedent is) and the case (triplet reading: what role it plays inside the clause). No new lane, no layout change, no `ENVELOPE_LAYOUT_VERSION` bump. Refs: `.claude/v3/soa_layout/le-contract.md` §3, `E-V3-FACET-4-PLUS-12`, `E-MARKOV-TEMPORAL-STREAM-1` (±5 → version-range generalization), `E-SCI-1-RIGHT-CORNER-DELAYED-COMMITMENT-1`, task board W5/W12/W17.
+
 ## 2026-07-26 — E-WITNESS-SPECIFIC-MEANING-1 — [SPEC, not the next PR] parallel witnesses can increase recoverable meaning while preserving source-local assertions AND expression structures. Text absence, semantic absence, and non-projectable linguistic evidence are DISTINCT dispositions. One invariant, four instruments; success = improved cross-witness recoverability with ZERO mutation or hub domination of any witness-local graph.
 
 **Status:** SPEC (probe contract persisted; implementation deferred behind the PROIEL grammar-PROMOTION experiment — see order below). **Confidence:** High on the invariant (it is the effective-forgetting amendment + the #849 witness law composed); each lab's claims carry their own caveats below.
