@@ -1,3 +1,27 @@
+## 2026-07-26 — E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1 — the derived codebooks do NOT share one publication path: **UD-derived and WordNet-derived assets can ship as PUBLIC lance-graph Releases; PROIEL-derived and COCA-derived assets must stay PRIVATE (MedCare-rs)** — because a derived database inherits its source's licence, and PROIEL's NonCommercial clause is the blocker. Never bundle regimes into one asset.
+
+**Status:** RULING (governance). **Confidence:** High — every licence below was fetched and read, not assumed.
+
+**Verified licences** (probed 2026-07-26):
+
+| source | licence | NC? | copyleft | derived asset may be… |
+|---|---|---|---|---|
+| UD German-GSD | CC BY-SA 4.0 | no | SA | **PUBLIC** Release (attribute + SA) |
+| UD German-HDT | CC BY-SA 4.0 (annotation) | no | SA | **PUBLIC** Release (attribute + SA) |
+| theographic-bible-metadata | CC BY-SA 4.0 | no | SA | **PUBLIC** Release (attribute + SA) |
+| **WordNet** (Princeton + OEWN) | WordNet License + **CC BY 4.0** | no | **none** | **PUBLIC**, attribution only — the most permissive asset we hold |
+| **PROIEL** treebank | **CC BY-NC-SA 3.0** | **YES** | SA | **PRIVATE** only (MedCare-rs) |
+| COCA (wordfrequency.info) | commercial/restricted | — | — | **PRIVATE** only (already ruled) |
+| NTN (SemanticBible) | UNVERIFIED | ? | ? | LOCAL only until checked |
+
+**The reasoning that decides it.** A derived database is a derivative work, so the codebook inherits the source licence. Three consequences: (1) the German codebook is a CC BY-SA 4.0 derivative of UD GSD+HDT — BY-SA *permits* redistribution including commercial use, so a PUBLIC lance-graph Release is fine provided the asset attributes UD and carries BY-SA; (2) any Greek codebook mined from PROIEL inherits **NonCommercial**, which a public Release of a commercially-usable project cannot carry — private repo, same shelf as COCA; (3) WordNet carries neither NC nor SA, so it imposes **no copyleft on anything it is combined with** — the safest thing to depend on.
+
+**THE TRAP, and the rule: one Release asset per licence regime — never bundle.** Shipping the German codebook (BY-SA, commercial-OK) in the same archive as a PROIEL-derived Greek codebook (NC) makes the *combined* asset effectively NonCommercial: a permissive artifact silently contaminated by its packaging. Assets must be separated by regime, each with its own attribution and licence file, even when a consumer wants both.
+
+**The data-in-Releases convention turns out to be legally load-bearing, not merely size hygiene.** Code lives in the repo (Apache-2.0); data lives in Release assets under its own licence. That is *mere aggregation* — the SA obligation attaches to the derived DATABASE and never propagates into the Apache-2.0 Rust/Python that reads it. Had the codebooks been committed into the tree, a BY-SA database would sit inside an Apache-2.0 source tree and the boundary would be far harder to argue. The convention we adopted to keep 26k-line TSVs out of diffs is the same structure that keeps the licences clean.
+
+**Actions:** (a) German codebook → public lance-graph Release, asset carries `LICENSE-CC-BY-SA-4.0` + a citation of UD German-GSD/HDT; (b) WordNet rails → public Release, attribution to Princeton WordNet + the Open English WordNet team; (c) theographic rails → public Release, BY-SA + attribution; (d) Greek/PROIEL codebook → MedCare-rs private, NC recorded in its MANIFEST; (e) COCA → unchanged, private; (f) NTN → verify SemanticBible's terms before it leaves local disk (it is currently only in the session scratchpad — no action has published it). Every MANIFEST states its regime explicitly so a future session cannot re-bundle by accident. Refs: `E-SCI-1-COCA-GROUNDED-EXTRACTION-1` (the data-in-Releases convention), `E-ROSETTA-IS-A-JOIN-NOT-A-CHOICE-1` (the Latin/OCS additions inherit PROIEL's NC), task board W15/W17/W18.
+
 ## 2026-07-26 — E-HYPERNYM-CLIMB-IS-A-CASCADE-TIER-DELTA-1 — WordNet's hypernym hierarchy is EXPLICIT vertical navigation, and it lines up with the substrate's own vertical machinery (HHTL tiers / CLAM-CHAODA cluster tree / the hierarchical-4⁴ codebook). Consequence: the fox→animal specificity loss stops being a judgement call and becomes a MEASURABLE tier delta — and the coarsest tier is the cheapest error detector. Caught a live bug that would have poisoned the Aesop probe.
 
 **Status:** FINDING for the walkability + the caught bug; [H] for the CLAM/codebook alignment (probe specified, NOT run). **Confidence:** High on what was measured; the alignment claim is explicitly unmeasured.
