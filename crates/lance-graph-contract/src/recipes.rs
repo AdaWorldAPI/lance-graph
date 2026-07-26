@@ -546,6 +546,39 @@ impl RungLevel {
         RungLevel::from_u8(pass.saturating_sub(1))
     }
 
+    /// **The periphery this rung is BLIND to** — the complement of
+    /// [`admissible_recipes`](Self::admissible_recipes).
+    ///
+    /// Stratification is a prune, and a prune that nobody can enumerate is a
+    /// blind spot rather than a budget. Following only the dominant mode
+    /// (cheapest-admissible) goes blind in exactly the direction where this
+    /// workspace repeatedly found its corrections. Making the excluded set
+    /// addressable is the precondition for sampling it.
+    pub fn peripheral_recipes(self) -> impl Iterator<Item = &'static Recipe> {
+        RECIPES.iter().filter(move |r| !r.admissible_at(self))
+    }
+
+    /// A deterministic **spread** sample of the periphery — up to `k` excluded
+    /// recipes, strided across the whole excluded set rather than taken from its
+    /// cheap end.
+    ///
+    /// The stride matters: taking the `k` cheapest-excluded tactics would sample
+    /// only the near periphery and stay systematically blind to the
+    /// [`ExtremelyHard`](Tier::ExtremelyHard) far edge — re-creating the very
+    /// blindness at one remove. Striding covers near AND far.
+    ///
+    /// Deterministic by construction (no RNG): the same rung and `k` always
+    /// yield the same watchers, so a dissent is reproducible and auditable
+    /// rather than a lucky draw.
+    pub fn peripheral_sample(self, k: usize) -> impl Iterator<Item = &'static Recipe> {
+        let excluded: Vec<&'static Recipe> = self.peripheral_recipes().collect();
+        let n = excluded.len();
+        let take = k.min(n);
+        // stride ≥ 1; index i*stride spreads the picks across the whole set.
+        let stride = if take == 0 { 1 } else { n / take.max(1) };
+        (0..take).filter_map(move |i| excluded.get(i * stride.max(1)).copied())
+    }
+
     /// Every recipe admissible at this rung, ascending by id.
     ///
     /// This is the stratified replacement for the unconditional
@@ -654,6 +687,56 @@ mod tests {
             counts[0],
             RECIPES.len()
         );
+    }
+
+    #[test]
+    fn periphery_is_the_exact_complement_and_stays_addressable() {
+        for v in 0..=9u8 {
+            let rung = RungLevel::from_u8(v);
+            let adm: Vec<u8> = rung.admissible_recipes().map(|r| r.id).collect();
+            let per: Vec<u8> = rung.peripheral_recipes().map(|r| r.id).collect();
+            assert_eq!(
+                adm.len() + per.len(),
+                RECIPES.len(),
+                "rung {v}: admissible ∪ peripheral must partition the catalogue"
+            );
+            for id in &per {
+                assert!(!adm.contains(id), "rung {v}: recipe {id} in both halves");
+            }
+        }
+        // The shallow rungs must have a LARGE periphery — that is the blindness
+        // being made visible rather than denied.
+        assert!(RungLevel::Shallow.peripheral_recipes().count() >= 25);
+        // The top rung is blind to nothing.
+        assert_eq!(RungLevel::Transcendent.peripheral_recipes().count(), 0);
+    }
+
+    #[test]
+    fn peripheral_sample_spreads_instead_of_hugging_the_cheap_edge() {
+        let rung = RungLevel::Shallow;
+        let sample: Vec<&Recipe> = rung.peripheral_sample(3).collect();
+        assert_eq!(sample.len(), 3);
+        // Deterministic: same inputs, same watchers.
+        let again: Vec<u8> = rung.peripheral_sample(3).map(|r| r.id).collect();
+        assert_eq!(
+            sample.iter().map(|r| r.id).collect::<Vec<_>>(),
+            again,
+            "peripheral sample must be reproducible"
+        );
+        // Spread, not clustered at the near edge: the sample must reach the FAR
+        // periphery (an ExtremelyHard tactic), which a cheapest-k would miss.
+        assert!(
+            sample.iter().any(|r| r.tier == Tier::ExtremelyHard),
+            "sample never reached the far periphery: {:?}",
+            sample.iter().map(|r| r.code).collect::<Vec<_>>()
+        );
+        // k larger than the periphery saturates rather than panicking.
+        assert_eq!(
+            RungLevel::Transcendent.peripheral_sample(5).count(),
+            0,
+            "no periphery at the top rung"
+        );
+        assert!(rung.peripheral_sample(999).count() <= RECIPES.len());
     }
 
     #[test]

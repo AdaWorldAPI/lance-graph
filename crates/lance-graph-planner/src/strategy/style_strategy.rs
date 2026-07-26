@@ -96,6 +96,60 @@ impl StyleStrategy {
         Self::recipes_for(style).filter(move |r| r.admissible_at(rung))
     }
 
+    /// **The peripheral-dissent watchdog** — the guard against optimizing the
+    /// dominant mode into blindness.
+    ///
+    /// The rung gate is a hard prune, and the standing wave STOPS when it
+    /// settles, so a locus that grounds cheaply is otherwise never examined by
+    /// the tactics its rung excluded. "Settles fast" correlates with "looks
+    /// obvious", which is precisely when a wrong answer is most expensive — the
+    /// System-1 easy path this workspace's own doctrine warns about.
+    ///
+    /// So: run a deterministic spread sample of `k` EXCLUDED tactics as
+    /// observers. They never contribute to the score. If a peripheral tactic
+    /// moves reliability by more than `tol` relative to the admitted set, the
+    /// cheap consensus is not trustworthy and this returns the rung to elevate
+    /// to — the periphery gets to force a deeper look, never to decide.
+    ///
+    /// Returns `None` when the periphery agrees (or there is none — the top rung
+    /// is blind to nothing).
+    ///
+    /// This mirrors [`WaveGrounding::Escalate`](lance_graph_contract::witness_fabric::WaveGrounding::Escalate):
+    /// a *signal*, not a verdict. Cheap consensus that a watcher disputes is the
+    /// same shape as a chain that leaves the ±8 horizon — both say "this needs a
+    /// wider read", neither says what the answer is.
+    pub fn peripheral_dissent(
+        style: ThinkingStyle,
+        ctx: &PlanContext,
+        rung: RungLevel,
+        k: usize,
+        tol: f32,
+    ) -> Option<RungLevel> {
+        let admitted = Self::reliability_at(style, ctx, rung);
+        for watcher in rung.peripheral_sample(k) {
+            // Only watchers this style would ever fire are informative — a
+            // mechanism the style never selects is off-character, not dissent.
+            if watcher.mechanism != Self::cluster_mechanism(style.cluster()) {
+                continue;
+            }
+            let Some(kern) = kernel(watcher.id) else {
+                continue;
+            };
+            let mut tc = Self::thought_ctx_from(ctx);
+            for r in Self::recipes_for_at(style, rung) {
+                if let Some(k2) = kernel(r.id) {
+                    let _ = k2.run(&mut tc);
+                }
+            }
+            let _ = kern.run(&mut tc);
+            if (tc.confidence.clamp(0.0, 1.0) - admitted).abs() > tol {
+                // Elevate to where this watcher would have been legal anyway.
+                return Some(watcher.min_rung());
+            }
+        }
+        None
+    }
+
     /// Build the recipe substrate's [`ThoughtCtx`] from the available `PlanContext`
     /// markers. Today the planner exposes `free_will_modifier` (→ temperature) and the
     /// query feature richness (→ candidate seeds); richer markers (real sd / free-energy
@@ -432,6 +486,75 @@ mod tests {
             moved,
             "rung gate left every style's reliability identical — inert wiring"
         );
+    }
+
+    /// The watchdog must be able to FIRE — a guard that can never trigger is
+    /// the same failure as the gate that never gates.
+    #[test]
+    fn peripheral_dissent_can_fire_and_never_decides() {
+        let ctx = ctx_with(Some(style_vec(0.9, 0.0, 0.0)));
+        // tol = 0 → any peripheral movement at all counts as dissent. If NO
+        // style/rung pair can produce dissent even then, the watchdog is inert.
+        let any_fires = ThinkingStyle::ALL.iter().any(|&s| {
+            [
+                RungLevel::Surface,
+                RungLevel::Shallow,
+                RungLevel::Contextual,
+            ]
+            .iter()
+            .any(|&r| StyleStrategy::peripheral_dissent(s, &ctx, r, 8, 0.0).is_some())
+        });
+        assert!(
+            any_fires,
+            "peripheral watchdog can never fire — inert guard"
+        );
+
+        // It NEVER changes the score: dissent is a signal, not a vote.
+        for style in ThinkingStyle::ALL {
+            let before = StyleStrategy::reliability_at(style, &ctx, RungLevel::Shallow);
+            let _ = StyleStrategy::peripheral_dissent(style, &ctx, RungLevel::Shallow, 8, 0.0);
+            let after = StyleStrategy::reliability_at(style, &ctx, RungLevel::Shallow);
+            assert_eq!(
+                before.to_bits(),
+                after.to_bits(),
+                "{style:?}: watchdog mutated the score it was only meant to observe"
+            );
+        }
+    }
+
+    /// At the top rung there is no periphery, so there is nothing to dissent —
+    /// the guard must be silent rather than fabricate an elevation.
+    #[test]
+    fn no_periphery_no_dissent() {
+        let ctx = ctx_with(Some(style_vec(0.9, 0.0, 0.0)));
+        for style in ThinkingStyle::ALL {
+            assert!(
+                StyleStrategy::peripheral_dissent(style, &ctx, RungLevel::Transcendent, 8, 0.0)
+                    .is_none(),
+                "{style:?}: dissent reported where nothing is excluded"
+            );
+        }
+    }
+
+    /// A dissent must point UP — elevating to a rung that would not actually
+    /// admit the dissenting watcher would be theatre.
+    #[test]
+    fn dissent_elevates_to_a_rung_that_admits_the_dissenter() {
+        let ctx = ctx_with(Some(style_vec(0.9, 0.0, 0.0)));
+        for style in ThinkingStyle::ALL {
+            for rung in [
+                RungLevel::Surface,
+                RungLevel::Shallow,
+                RungLevel::Contextual,
+            ] {
+                if let Some(up) = StyleStrategy::peripheral_dissent(style, &ctx, rung, 8, 0.0) {
+                    assert!(
+                        (up as u8) > (rung as u8),
+                        "{style:?}: dissent at {rung:?} elevated to {up:?} (not deeper)"
+                    );
+                }
+            }
+        }
     }
 
     /// The stratification must actually bite somewhere — if every style's set

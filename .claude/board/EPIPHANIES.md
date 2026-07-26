@@ -1,3 +1,24 @@
+## 2026-07-26 — E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1 — **operator caution, acted on: optimizing the dominant mode blinds the periphery.** The rung gate shipped hours earlier was a HARD prune with an early stop — a locus that grounds cheaply was never examined by the 30 tactics its rung excluded. Fixed by making the periphery addressable, spread-sampled, and able to force elevation — never to decide.
+
+**Status:** SHIPPED (contract + planner). **Confidence:** High — 1047 contract + 283 planner tests green, clippy + fmt clean.
+
+**The defect in my own work, named precisely.** `E-RUNG-STRATIFIED-WAVE-SHIPPED-1` gated tactics by rung, and the wave STOPS when it settles. Compose those and the failure mode is: settle at pass 2 ⇒ rung `Shallow` ⇒ 4 of 34 tactics ⇒ **the other 30 are never consulted, ever**. And "settles fast" correlates with "looks obvious", which is exactly when a wrong answer is most expensive — the System-1 easy path the workspace's own `lab-vs-canonical-surface.md` warns about. Two multiplicative prunes compounded it: mechanism-filtering already narrows to ~6–14 recipes before the rung gate runs. **This session's entire value came from the periphery** (the 2 residual `swallow` verses, the 12.76% rail error, the 2.4× polysemy tail) — and I had just built a mechanism that would have hidden all three.
+
+**The fix (three parts, each with a can-it-fire test):**
+
+1. `RungLevel::peripheral_recipes()` — the exact complement of `admissible_recipes`. *A prune nobody can enumerate is a blind spot; a prune you can enumerate is a budget.* Partition is test-pinned at every rung: `|admissible| + |peripheral| == 34`, disjoint, and `Shallow` is shown to be blind to ≥25 of 34 — the blindness stated, not denied.
+2. `RungLevel::peripheral_sample(k)` — a **strided** sample across the whole excluded set, deliberately NOT the `k` cheapest-excluded. Taking the cheap edge would sample only the near periphery and stay systematically blind to the `ExtremelyHard` far edge — re-creating the blindness one level down. Test asserts the sample *reaches* an `ExtremelyHard` tactic. Deterministic (no RNG) so a dissent is reproducible and auditable rather than a lucky draw.
+3. `StyleStrategy::peripheral_dissent(style, ctx, rung, k, tol) -> Option<RungLevel>` — runs the watchers as OBSERVERS. If a watcher moves reliability beyond `tol`, it returns the rung to elevate to. **The periphery forces a deeper look; it never votes.** Same shape as `WaveGrounding::Escalate` — a signal, not a verdict.
+
+**Three guards, because a watchdog that cannot bark is the same defect one level up:**
+- `peripheral_dissent_can_fire_and_never_decides` — proves dissent is reachable at `tol=0`, AND that the score is bit-identical before/after the watchdog runs (`to_bits()`).
+- `no_periphery_no_dissent` — the top rung is blind to nothing, so the guard stays silent instead of fabricating an elevation.
+- `dissent_elevates_to_a_rung_that_admits_the_dissenter` — an elevation that would not actually admit the dissenter is theatre; asserted strictly deeper.
+
+**The general lesson, worth carrying past this wiring:** every cost-discipline mechanism this stack adds (rung gates, HHTL prunes, cascade skips, admissibility filters) is an eigenvalue-following device, and each one needs its own peripheral channel or it converts a *budget* into a *blindness*. The test to apply: **can the mechanism's excluded set be enumerated, sampled, and given the power to escalate?** If not, it is not a prune — it is a blind spot with good PR.
+
+Refs: `E-RUNG-STRATIFIED-WAVE-SHIPPED-1` (the work this corrects), `E-STANDING-WAVE-IS-UNSTRATIFIED-SUDOKU-1`, `E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1` (the near-vacuous-filter failure this reuses as a test), task #23.
+
 ## 2026-07-26 — E-RUNG-STRATIFIED-WAVE-SHIPPED-1 — the pass ↔ rung ↔ recipe-admissibility edge is WIRED. The standing wave now reports the pass it settled at, the rung normalizes that depth, and only the tactics the resolution earned may fire. Admissible set grows 4 → 11 → 24 → 34; the unstratified entry point is bit-identical.
 
 **Status:** SHIPPED (contract + planner). **Confidence:** High — 1045 contract + 280 planner tests green, clippy + fmt clean, doctest green.
