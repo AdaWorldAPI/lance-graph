@@ -94,4 +94,4 @@ crates/lance-graph-planner/examples/data/de/*
 # Rosetta probe data (PD Bible JSON lanes + generated out/) — data-in-Releases;
 # keep the GENERATOR committed, ignore the data
 crates/lance-graph-planner/examples/data/rosetta/*
-!crates/lance-graph-planner/examples/data/rosetta/build_rosetta_probe.py
+!crates/lance-graph-planner/examples/data/rosetta/*.py

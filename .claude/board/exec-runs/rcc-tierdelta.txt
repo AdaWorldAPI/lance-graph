@@ -1,0 +1,103 @@
+D-RCC-5 taxonomic arm — WordNet tier-delta as anomaly magnitude
+Executor tag-file (main thread does NOT append to AGENT_LOG.md; consolidates from here).
+
+WHAT WAS RUN
+  python3 crates/lance-graph-planner/examples/data/wordnet/tier_delta.py
+Output: crates/lance-graph-planner/examples/data/wordnet/out/tier_delta_report.md
+Also ran the same script with the WNDB path force-disabled to validate the
+TSV-only fallback degrades honestly (confirmed working, not committed as a
+separate artifact — the report on disk is from the primary WNDB-available run).
+
+CAPABILITY-AUDIT VERDICT (the main finding, not the pretty table)
+- The committed generator target `wordnet31_isa.tsv` (129,059 rows) is
+  confirmed EMPIRICALLY, not just by its own header comment, to be strict
+  keep-first: max rows per (word,pos) key = 1. It cannot represent
+  polysemy at all (swallow/n -> only "consumption", swallow/v -> only
+  "believe"; no bird sense reachable).
+- BUT: this session's environment already has full WordNet 3.1 WNDB
+  "dict" database files at /tmp/wn/dict (index.noun/data.noun/
+  index.verb/data.verb, classic Princeton lexicographer-file format,
+  95,981 synsets, 129,493 (lemma,pos) index entries) — NOT downloaded by
+  me, already present on disk. This carries ALL senses, real synset ids,
+  and the full hypernym pointer DAG (multiple inheritance). The script
+  auto-detects it ($WNDB_DIR env var, else a local `wndb/` dir next to
+  the script, else `/tmp/wn/dict` as a session-local convenience) and
+  uses it when present; it degrades to the TSV-only path (proven inferior
+  in the fallback test run below) when absent.
+- IMPORTANT CAVEAT: /tmp/wn/dict is ephemeral session-local state, not a
+  pinned reproducible dependency. A future run of this script in a fresh
+  container without that directory (and without $WNDB_DIR pointed at an
+  equivalent WNDB install) will silently fall back to the TSV-only path
+  and lose all sense disambiguation. The report says this explicitly.
+  Recommendation for the orchestrator: if this taxonomic arm is to be
+  relied on going forward, either (a) vendor a WNDB dict tarball into the
+  Release asset alongside the TSV (same one-asset-per-regime discipline
+  used elsewhere in the plan), or (b) accept that D-RCC-5 as currently
+  scoped needs richer-than-committed data and scope that explicitly.
+
+HEADLINE NUMBERS (WNDB path, this run)
+- Measure: tier_delta(a,b) = min over common hypernym ancestors c of
+  depth(a->c)+depth(b->c) (BFS shortest path over the hypernym DAG,
+  Rada-et-al edge-counting family). ABSENT / NO_COMMON_ANCESTOR / MEASURED
+  kept as three distinct outcomes (never zero-fallback).
+- ANCHOR (sin/n vs death/n, proxy for Erbsünde-vs-Tod doctrinal
+  substitution): delta=6, LCA={attribute} (depth 2 from root) — meets only
+  at a fairly abstract level, consistent with the thesis that a doctrinal
+  substitution should show a large delta relative to genuine synonyms.
+- KEEP-FIRST BUG PAIR (grape/n vs shot/n): delta=1 (adjacent!) — and the
+  WNDB sense inventory shows WHY: grape(n) sense 3 of 3 IS "grapeshot",
+  hypernym "shot, pellet" directly. The surprising finding: the TSV's own
+  "first-sense" pick is NOT actually sense 1 (sense 1 is the fruit,
+  hypernym "edible_fruit") — it picked sense 3 instead. So the shipped
+  keep-first extractor has a second, distinct bug beyond "no polysemy
+  support": on at least this item it did not even correctly keep the
+  FIRST (most frequent) sense. Worth flagging upstream to whoever
+  generates wordnet31_isa.tsv.
+- CONTROLS, small (expect small delta): dog/wolf=2, boat/ship=2,
+  house/dwelling=1. Max=2.
+- CONTROLS, large (expect large delta): death/vineyard=12, stone/mercy=7.
+  Min=7.
+- SEPARATION VERDICT: clean — every small-control delta (<=2) is strictly
+  below every large-control delta (>=7) on this small probe set. The
+  measure behaves as the plan's thesis requires here.
+- POLYSEMY PROBE (swallow/n vs swallow/v): NO_COMMON_ANCESTOR — expected
+  and informative, not a bug: WordNet's noun and verb hierarchies are
+  separate hypernym DAGs with no `@`/`@i` edges crossing POS, so a
+  cross-POS pair can never resolve via this measure. The real polysemy
+  demonstration is the swallow(n) 3-sense inventory printed in the report
+  (sup/small-drink -> taste/mouthful; drink/deglutition ->
+  consumption/ingestion; songbird -> oscine/oscine_bird) — three
+  genuinely distinct hypernym targets the TSV collapses to one.
+
+LIMITATIONS
+- Probe set is small (1 anchor pair, 3 small-control pairs, 2
+  large-control pairs) — a margin claim on 5-6 pairs is suggestive, not a
+  validated statistical separation (no Jirak-rate significance claim
+  attempted, correctly, per the plan's own iron-rule discipline; this is
+  a feasibility probe, per the plan's own framing, not a kill gate).
+- "best sense pair" search is O(senses_a * senses_b) with BFS per pair;
+  fine for spot pairs, would need memoization/caching before scaling to
+  the full D-RCC-3 corpus-wide alignment.
+- LCA search uses shortest edge-count only; does not weight by
+  information content / frequency (a Resnik-style IC-weighted measure
+  was explicitly NOT implemented — out of scope for this feasibility
+  probe, and would require frequency counts (cntlist) not yet wired in).
+- TSV-only fallback path is deliberately crude (bare hypernym LEMMA
+  STRINGS, not synset ids; tries both n/v POS on each hop since the TSV
+  loses the hypernym's own POS) — confirmed via a disabled-WNDB test run
+  to produce a DEGRADED, sometimes-wrong result (e.g. swallow/n vs
+  swallow/v collapses to delta=0 because they're literally the same
+  string "swallow" in the crude lemma-graph; house/dwelling delta jumps
+  to 9 instead of 1, breaking the small/large separation in that mode).
+  This fallback exists only so the script produces something when WNDB
+  truly is unavailable — it should never be treated as validated.
+
+FILES WRITTEN
+- crates/lance-graph-planner/examples/data/wordnet/tier_delta.py (script;
+  gitignore already allows *.py generators in this data dir)
+- crates/lance-graph-planner/examples/data/wordnet/out/tier_delta_report.md
+  (gitignored output, WNDB-path run)
+- .claude/board/exec-runs/rcc-tierdelta.txt (this file)
+
+No git commit/push performed (per brief). No network access. No package
+installs (stdlib only; confirmed nltk/wn not installed and not used).

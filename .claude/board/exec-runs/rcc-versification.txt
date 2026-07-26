@@ -1,0 +1,113 @@
+D-RCC-2b — versification offset map — exec run record
+=======================================================
+
+WHAT WAS RUN
+  python3 crates/lance-graph-planner/examples/data/rosetta/build_versification_map.py \
+    /tmp/claude-0/-home-user/8a7f1676-44cf-569c-afbe-022e551ce1ec/scratchpad
+  (stdlib only, no deps added, no network calls; ~5s runtime)
+
+FILES WRITTEN (by me)
+  crates/lance-graph-planner/examples/data/rosetta/build_versification_map.py   (script)
+  <data_dir>/out/versification_map.tsv        (3567 rows: lane × book × chapter,
+                                                lanes luther1545/elberfelder1905/bkr
+                                                vs reference kjv)
+  <data_dir>/out/versification_report.md      (census + receipts + payoff)
+
+METHOD
+  Per (lane, book, chapter) group, score candidate offsets {-1,0,+1} by
+  fuzzy overlap (5-char diacritic-stripped prefix match) of KJV
+  proper-noun-shaped tokens (capitalized, non-sentence-initial, len>=4,
+  small stoplist) + digit runs, against the correspondingly-shifted lane
+  verse text. Falls back to verse-length-ratio similarity ONLY when the
+  WHOLE chapter (not per-offset) has zero anchor/digit signal at all —
+  basis is decided once per chapter, never per offset (see bug below).
+  Best-vs-second-best score margin = confidence, written to the TSV.
+
+REAL BUG FOUND AND FIXED DURING THE RUN
+  First pass produced Psalm 11 (luther1545) => offset=-1, confidence=0.69
+  (very confident). Manual verification of the raw JSON showed offset
+  should be 0 (Luther merges the psalm superscription into v1 here,
+  unlike Psalm 84 where it's split out — both lanes have matching
+  7-verse / 12-verse counts respectively at offset 0). Root cause: the
+  scoring basis (anchor-vs-length-fallback) was being chosen PER OFFSET.
+  Psalm 11 has exactly one anchor token in the whole chapter ("Flee",
+  v1) which does not transliterate into German and so scored 0.0 under
+  the correct offset 0 — but offset -1 conveniently drops v1 (no lane
+  counterpart under that shift), leaving zero anchors to score under
+  that offset, so it fell back to the length-ratio proxy and scored
+  0.69 by coincidence, beating the honest-but-low true score. Fixed by
+  deciding the anchor-vs-length basis ONCE per chapter
+  (chapter_has_anchor_signal), so all three candidate offsets are always
+  judged on the same currency. Re-verified: luther1545 Ps11 -> offset=0
+  after the fix. This is exactly the kind of measurement-vs-assumption
+  disagreement the task asked to report rather than paper over.
+
+HEADLINE NUMBERS (post-fix)
+  Scored groups: 3567 (1189 (book,chapter) groups x 3 non-reference lanes)
+  TextAbsent groups: 0 for all three lanes (all 66 books, matching
+    chapter/verse ranges present in kjv also present in the other 3 —
+    no book-level or whole-chapter absence detected in this corpus).
+  Scoring basis: anchor 3336 / length 231 (231 chapters carry literally
+    no proper-noun/digit signal at all — mostly short units like some
+    Psalms).
+  Offset != 0 groups: luther1545 36, elberfelder1905 3, bkr 8.
+  Concentration: luther1545's 36 nonzero chapters are 33/36 in Psalms
+    (19) plus one each in Hosea/Micah/Haggai; elberfelder1905's 3 are
+    spread (Leviticus, Psalms, Matthew); bkr's 8 span Psalms(3),
+    Proverbs(2), Leviticus, Isaiah, John.
+  Low-confidence decisions (margin < 0.15): luther1545 214, elberfelder1905
+    199, bkr 584 — bkr's high count is notable (see LIMITATIONS).
+  Psalm 84 worked receipt (quoted in the report): luther1545 detected
+    +1 (confidence 0.1667, correctly matching the known Hebrew-
+    superscription-as-v1 convention); elberfelder1905 and bkr both
+    detected +0 (their v1 MERGES the superscription with the first
+    content line, so no shift needed) -- all three cross-checked
+    manually against the raw JSON and confirmed correct.
+  Payoff (all-4-lane agreement on the cheap anchor/digit signal, over
+    15270 testable KJV verses): BEFORE (offset=0 everywhere, today's
+    naive verse-address join) = 5793/15270 (37.9%). AFTER (detected
+    per-chapter offsets applied) = 5814/15270 (38.1%). Net +21 verses
+    (+0.14 pp). The gain is modest in absolute terms because offset!=0
+    chapters are a small fraction of the corpus (36+3+8 = 47 of 3567
+    scored groups, ~1.3%) — but every one of those ~47 chapters is a
+    chapter where the naive join was previously silently misaligning
+    verses across all three non-English lanes simultaneously.
+
+SURPRISES
+  - elberfelder1905 and bkr disagree with luther1545 on how they handle
+    the SAME Hebrew superscriptions — elberfelder1905/bkr fold them
+    into v1's text, luther1545 gives them their own verse. This is a
+    genuine cross-lane inconsistency the task's framing ("German/Vulgate
+    tradition count the superscription as v1") undersold: it's not one
+    uniform "German tradition" vs KJV, it's per-EDITION, and only
+    luther1545 among the three actually needs a numeric shift for it.
+  - A few detected offsets appear outside Psalms (Leviticus, Matthew,
+    Isaiah, John, Proverbs) at LOW confidence (margin as small as
+    0.005-0.05) — these are borderline and could be coincidental
+    prefix-fuzzy-match noise rather than real versification divergence;
+    they are all correctly flagged in the low-confidence list rather
+    than asserted as fact.
+
+LIMITATIONS / COULD NOT DETERMINE
+  - bkr's 584 low-confidence decisions (out of 1189, ~49%) is much
+    higher than luther1545/elberfelder1905 (~18%/~17%). Not fully
+    diagnosed; plausible causes (not verified further given grindwork
+    scope): Czech's non-Latin-alphabet consonant clusters may reduce
+    5-char-prefix fuzzy-match hit rate for transliterated Hebrew/Greek
+    names more than German does, or bkr's archaic 1613 orthography
+    (already Czech, not modernized) may diverge more from a naive
+    diacritic-strip normalization than modern German does from
+    diacritic-free English. This would need a dedicated probe to
+    confirm — flagged, not fabricated.
+  - The detector operates strictly per (book, chapter): a hypothetical
+    whole-BOOK chapter-numbering divergence (distinct from the observed
+    within-chapter verse-numbering divergence) is out of scope and
+    would surface as TextAbsent for every chapter past the divergence
+    point. None was observed in this corpus (TextAbsent=0 everywhere),
+    which is itself informative but doesn't rule out a scheme this
+    detector can't see.
+  - No lemmatizer; the 5-char-prefix fuzzy match is a deliberately cheap
+    surface heuristic (per the brief) and both under- and over-counts
+    real cross-lingual token correspondence. The before/after payoff
+    numbers should be read as a lower-bound proxy for true semantic
+    agreement, not an exact count.
