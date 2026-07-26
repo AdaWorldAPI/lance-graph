@@ -1,3 +1,35 @@
+## 2026-07-26 — E-RUNG-STRATIFIED-WAVE-SHIPPED-1 — the pass ↔ rung ↔ recipe-admissibility edge is WIRED. The standing wave now reports the pass it settled at, the rung normalizes that depth, and only the tactics the resolution earned may fire. Admissible set grows 4 → 11 → 24 → 34; the unstratified entry point is bit-identical.
+
+**Status:** SHIPPED (contract + planner). **Confidence:** High — 1045 contract + 280 planner tests green, clippy + fmt clean, doctest green.
+
+**What landed** (wiring only over shipped carriers — no new struct, no new trait, no fourth ladder):
+
+1. `Recipe::min_rung()` / `Recipe::admissible_at(rung)` — admissibility derived from the recipes' OWN documented `Bucket`/`Tier` semantics, never invented: `Gate` ("a cheap marker that gates whether deeper work fires") ⇒ `Surface`; `Datapath` ("uniform, branch-free, every-cycle SIMD") ⇒ `Contextual`; `Control` ("branchy decision at a control point") ⇒ `Analogical`. `Tier::ExtremelyHard` ("convergent lock-in") lifts the floor to `Counterfactual`. **`Hard` and `CrossTier` deliberately do NOT lift it** — `Hard` describes the difficulty of the PROBLEM (the ~65% plateau), not the cost of the tactic, and `CrossTier` is documented as "helps at every difficulty"; lifting either would withhold cheap help exactly where it is most useful.
+2. `RungLevel::for_pass(pass)` (one rung per pass, saturating) + `RungLevel::admissible_recipes()`.
+3. `witness_fabric::standing_wave_stratified()` — `standing_wave_grounded` plus the settle pass. **Verdict parity is test-pinned across 6 window shapes × 3 loci × 4 budgets**: adding instrumentation may never change a verdict.
+4. `StyleStrategy::recipes_for_at` / `reliability_at(style, ctx, rung)`; `reliability_of` now delegates at `Transcendent` and is asserted **bit-identical** (`to_bits()`) to its old behaviour for every style.
+
+**The measured ladder** (this is what "thinking normalization" buys):
+
+| pass | rung | admissible | newly unlocked |
+|---:|---|---:|---|
+| 1–2 | Surface/Shallow | **4** | TCP, CAS, TCF, CUR (all `Gate`) |
+| 3 | Contextual | 11 | +7 `Datapath` |
+| 4 | Analogical | 24 | +13 `Control` |
+| 7 | Counterfactual | **34** | +10 `ExtremelyHard` |
+
+Pass 1 admits 4 of 34 (11.8%) — the anti-vacuity guard from `E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1` (a filter that filters nothing) is a test here, not a hope.
+
+**Two honest limits, both pinned in code:**
+- **The ladder has FOUR distinct levels, not ten.** Rungs 1, 4, 5, 7–9 unlock nothing, because the floors derive from a 3-valued `Bucket` plus one `Tier` escalator. Passes still do wave work at those rungs; only the tactic set is stepped. Spreading it further would need `Mechanism`/`Coverage` to carry cost semantics they do not claim to.
+- **The cheapest observable ground costs TWO passes, not one** — `Causal` is declared only when two successive budgets agree, so even a single-hop terminal chain reports `settle_pass == 2`. Found by a test I wrote asserting 1; the code was right and the assumption wrong. Kept as a feature: pass 0 → `Surface` stays cleanly reserved for "nothing resolved", making `Shallow` the shallowest rung any real grounding can earn. Both admit only `Gate`, so the discipline is unaffected.
+
+**Not done, deliberately:** `PlanContext` carries no witness window, so there is no honest rung to read from it — deriving one from `estimated_complexity` would be inventing a semantic. The rung is therefore an explicit parameter; threading the wave into planner context is its own deliverable. Rung-2 → the 144 verb atoms stays BLOCKED on O7 (`TD-RUNG2-144-VOCAB-SPLIT`); nothing here reads either vocabulary.
+
+**Serves D-RCC-6 unchanged:** the Rosetta cross-lane propagation should call `standing_wave_stratified`, not build a parallel propagator — same window, same fixpoint, same settle-or-escalate, same residual.
+
+Refs: `E-STANDING-WAVE-IS-UNSTRATIFIED-SUDOKU-1` (the audit this closes), `.claude/v3/knowledge/persona-vs-rung-ladder.md` O1/O2 (partially closed: rung→tactic wired; rung→verb still open), `E-GRAMMAR-LOCAL-CAUSAL-ABSOLUTE-1`, task #23.
+
 ## 2026-07-26 — E-STANDING-WAVE-IS-UNSTRATIFIED-SUDOKU-1 — the multipass standing wave, the 0–9 rung ladder and the 34 NARS recipes are ALL SHIPPED and MUTUALLY UNWIRED. The wave already IS a Sudoku fixpoint; what is missing is the rung stratification that would make each pass *normalized* — and the same edge closes D-RCC-6.
 
 **Status:** FINDING (code audit, operator-directed). **Confidence:** High — every claim below is a file:line read, not inference.

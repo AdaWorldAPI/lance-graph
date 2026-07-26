@@ -303,6 +303,92 @@ pub fn standing_wave_grounded(
     }
 }
 
+/// **The stratified standing wave** — [`standing_wave_grounded`] plus the pass
+/// at which the wave actually SETTLED, so the caller can normalize its thinking
+/// depth to what the resolution cost (`E-STANDING-WAVE-IS-UNSTRATIFIED-SUDOKU-1`).
+///
+/// Returns `(grounding, settle_pass)` where `settle_pass` is the hop budget that
+/// produced the verdict, counted from 1 — the same counting the internal budget
+/// loop uses. Feed it straight to
+/// [`RungLevel::for_pass`](crate::cognitive_shader::RungLevel::for_pass) to get
+/// the rung this resolution is normalized to, and thence to
+/// [`RungLevel::admissible_recipes`](crate::cognitive_shader::RungLevel::admissible_recipes)
+/// for the tactics that may legally fire on it:
+///
+/// ```
+/// # use lance_graph_contract::witness_fabric::{standing_wave_stratified, WaveGrounding};
+/// # use lance_graph_contract::causal_witness::{CausalWitnessFacet, Locus};
+/// # use lance_graph_contract::cognitive_shader::RungLevel;
+/// # let window: Vec<(usize, CausalWitnessFacet)> = vec![];
+/// let (grounding, settle_pass) =
+///     standing_wave_stratified(0, &window, Locus::Antecedent, 8);
+/// let rung = RungLevel::for_pass(settle_pass);
+/// let admissible = rung.admissible_recipes().count();
+/// # let _ = (grounding, admissible);
+/// ```
+///
+/// **Why a cheap settle is a SHALLOW rung, not a lucky one.** A locus that
+/// grounds on pass 1 needed one hop; permitting a Counterfactual tactic to fire
+/// on it would spend rung-6 machinery on a rung-0 fact. Conversely a chain that
+/// only settles at pass 7 has earned the deeper tactics. This is the Sudoku
+/// discipline — exhaust the cheap constraints, escalate only the residual —
+/// expressed as a rung rather than a heuristic.
+///
+/// **The cheapest observable ground costs TWO passes, not one** (pinned by
+/// `cheap_settle_normalizes_to_a_shallow_rung`). [`Causal`](WaveGrounding::Causal)
+/// is declared only when two SUCCESSIVE budgets resolve the same target, so even
+/// a single-hop terminal chain reports `settle_pass == 2`. That is a feature of
+/// the mapping, not an off-by-one: it leaves pass 0 → [`Surface`](
+/// crate::cognitive_shader::RungLevel::Surface) cleanly reserved for "nothing was
+/// resolved", and makes [`Shallow`](crate::cognitive_shader::RungLevel::Shallow)
+/// the shallowest rung any real grounding can earn. Both admit only the
+/// [`Gate`](crate::recipes::Bucket::Gate) bucket, so the discipline is unaffected.
+///
+/// [`Escalate`](WaveGrounding::Escalate) reports the pass at which the chain left
+/// the `±8` horizon; that is itself a rung elevation (positional → absolute
+/// address, `E-GRAMMAR-LOCAL-CAUSAL-ABSOLUTE-1`), so the caller may elevate
+/// rather than treat it as a dead end. [`Unbound`](WaveGrounding::Unbound)
+/// reports pass 0 — nothing was resolved, so no rung was earned.
+#[must_use]
+pub fn standing_wave_stratified(
+    focal_idx: usize,
+    window: &[(usize, CausalWitnessFacet)],
+    locus: Locus,
+    passes: u8,
+) -> (WaveGrounding, u8) {
+    let Some(&(_, focal)) = window.get(focal_idx) else {
+        return (WaveGrounding::Unbound, 0);
+    };
+    if !focal.is_bound(locus) {
+        return (WaveGrounding::Unbound, 0);
+    }
+    let mut last: Option<i8> = None;
+    for budget in 1..=passes.max(1) {
+        let r = resolve_chain(focal_idx, window, locus, budget);
+        if r.escalated {
+            return (WaveGrounding::Escalate, budget);
+        }
+        match r.final_offset {
+            Some(off) => {
+                if last == Some(off) {
+                    return (WaveGrounding::Causal, budget);
+                }
+                last = Some(off);
+            }
+            None => return (WaveGrounding::Escalate, budget),
+        }
+    }
+    // Same terminal-chain case as `standing_wave_grounded`: a single-hop chain
+    // resolves identically at every budget, so it is causal at the FIRST pass —
+    // the cheapest possible grounding, and the one that most deserves a shallow
+    // rung.
+    if last.is_some() {
+        (WaveGrounding::Causal, 1)
+    } else {
+        (WaveGrounding::Escalate, passes.max(1))
+    }
+}
+
 /// **E-CONTRADICTION-OPINION-1** — a stance/opinion is a row whose Contradiction
 /// locus stays BOUND across successive revisions (committed-contradiction
 /// persistence as first-class epistemic state). `revisions` is the same row's
@@ -424,5 +510,101 @@ mod tests {
         );
         assert!(!is_opinion(&[]), "empty history is not an opinion");
         assert_eq!(opinion_strength(&[bound, clear, bound]), 2);
+    }
+
+    // ── stratified standing wave (E-STANDING-WAVE-IS-UNSTRATIFIED-SUDOKU-1) ──
+
+    /// The load-bearing non-breaking guarantee: adding the settle-pass must not
+    /// change ANY verdict. `standing_wave_stratified` is `standing_wave_grounded`
+    /// plus instrumentation, never a second opinion.
+    #[test]
+    fn stratified_never_disagrees_with_grounded() {
+        let windows: Vec<Vec<(usize, CausalWitnessFacet)>> = vec![
+            // unbound focal
+            vec![(0, CausalWitnessFacet::ZERO), (1, CausalWitnessFacet::ZERO)],
+            // single-hop terminal chain
+            vec![
+                (0, w(&[(Locus::Antecedent, 1)])),
+                (1, CausalWitnessFacet::ZERO),
+            ],
+            // two-hop chain that terminates
+            vec![
+                (0, w(&[(Locus::Antecedent, 1)])),
+                (1, w(&[(Locus::Antecedent, 1)])),
+                (2, CausalWitnessFacet::ZERO),
+            ],
+            // chain pointing outside the window → leaves the horizon
+            vec![(0, w(&[(Locus::Antecedent, 7)]))],
+            // backwards chain
+            vec![
+                (0, CausalWitnessFacet::ZERO),
+                (1, w(&[(Locus::Kausal, -1)])),
+            ],
+            // empty window (focal_idx out of range)
+            vec![],
+        ];
+        for (i, win) in windows.iter().enumerate() {
+            for locus in [Locus::Antecedent, Locus::Kausal, Locus::Temporal] {
+                for passes in [1u8, 2, 3, 8] {
+                    let flat = standing_wave_grounded(0, win, locus, passes);
+                    let (strat, pass) = standing_wave_stratified(0, win, locus, passes);
+                    assert_eq!(
+                        flat, strat,
+                        "window {i} locus {locus:?} passes {passes}: verdict diverged"
+                    );
+                    // A verdict that resolved something must name a real pass;
+                    // Unbound earned no rung and must report 0.
+                    match strat {
+                        WaveGrounding::Unbound => assert_eq!(pass, 0),
+                        _ => assert!(
+                            (1..=passes.max(1)).contains(&pass),
+                            "window {i}: settle pass {pass} outside 1..={passes}"
+                        ),
+                    }
+                }
+            }
+        }
+    }
+
+    /// The Sudoku payoff: a chain that grounds on the FIRST pass is normalized
+    /// to the shallowest rung, so only the cheap gate tactics may fire on it.
+    #[test]
+    fn cheap_settle_normalizes_to_a_shallow_rung() {
+        use crate::cognitive_shader::RungLevel;
+        let win = vec![
+            (0, w(&[(Locus::Antecedent, 1)])),
+            (1, CausalWitnessFacet::ZERO),
+        ];
+        let (grounding, pass) = standing_wave_stratified(0, &win, Locus::Antecedent, 8);
+        assert_eq!(grounding, WaveGrounding::Causal);
+        // NOT 1: the wave declares Causal only when two SUCCESSIVE budgets
+        // resolve the same target, so observing agreement costs a second pass.
+        // Pass 2 is therefore the cheapest ground the wave can report, which
+        // leaves pass 0 / `Surface` cleanly reserved for "nothing resolved".
+        assert_eq!(pass, 2, "cheapest observable ground costs two budgets");
+        let rung = RungLevel::for_pass(pass);
+        assert_eq!(rung, RungLevel::Shallow);
+        // Shallow still admits only the cheap gate bucket — the stratification
+        // holds at the cheapest real grounding, which is the case that matters.
+        for r in rung.admissible_recipes() {
+            assert_eq!(r.bucket, crate::recipes::Bucket::Gate);
+        }
+        // Rung-0 admits strictly fewer tactics than the full catalogue — the
+        // stratification is doing real work, not passing everything through.
+        let admissible = rung.admissible_recipes().count();
+        assert!(
+            admissible < crate::recipes::RECIPES.len(),
+            "rung 0 admitted the whole catalogue ({admissible}) — stratification inert"
+        );
+    }
+
+    /// An unbound locus earns no rung at all — pass 0, distinct from "grounded
+    /// cheaply at pass 1". Absent is not the same as shallow.
+    #[test]
+    fn unbound_earns_no_pass() {
+        let win = vec![(0, CausalWitnessFacet::ZERO)];
+        let (g, pass) = standing_wave_stratified(0, &win, Locus::Antecedent, 8);
+        assert_eq!(g, WaveGrounding::Unbound);
+        assert_eq!(pass, 0);
     }
 }

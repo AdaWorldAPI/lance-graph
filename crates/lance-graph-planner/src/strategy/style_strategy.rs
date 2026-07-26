@@ -29,6 +29,7 @@
 //! Deferred: `Outcome`→`Candidate`/`KanbanMove` adapter, the JIT compile call, and the
 //! membrane commit path (see the D-MBX-COMPLETION-MAP / board).
 
+use lance_graph_contract::cognitive_shader::RungLevel;
 use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, KanbanMove};
 use lance_graph_contract::recipe_kernels::{kernel, ThoughtCtx};
 use lance_graph_contract::recipes::{Mechanism, Recipe, RECIPES};
@@ -73,6 +74,26 @@ impl StyleStrategy {
     fn recipes_for(style: ThinkingStyle) -> impl Iterator<Item = &'static Recipe> {
         let want = Self::cluster_mechanism(style.cluster());
         RECIPES.iter().filter(move |r| r.mechanism == want)
+    }
+
+    /// The recipes a style fires **at a given rung** — [`recipes_for`] gated by
+    /// [`Recipe::admissible_at`], so a tactic may not fire before the standing
+    /// wave has earned the depth to pay for it
+    /// (`E-STANDING-WAVE-IS-UNSTRATIFIED-SUDOKU-1`).
+    ///
+    /// Mechanism answers *which kind* of tactic this style prefers; the rung
+    /// answers *how expensive* a tactic the resolution has earned. Filtering on
+    /// mechanism alone (the pre-stratification behaviour) let a `Control`-bucket
+    /// branchy inference fire on a chain that grounded in two hops.
+    ///
+    /// Callers get the rung from the wave:
+    /// `RungLevel::for_pass(settle_pass)` where `settle_pass` comes from
+    /// [`standing_wave_stratified`](lance_graph_contract::witness_fabric::standing_wave_stratified).
+    fn recipes_for_at(
+        style: ThinkingStyle,
+        rung: RungLevel,
+    ) -> impl Iterator<Item = &'static Recipe> {
+        Self::recipes_for(style).filter(move |r| r.admissible_at(rung))
     }
 
     /// Build the recipe substrate's [`ThoughtCtx`] from the available `PlanContext`
@@ -173,8 +194,39 @@ impl StyleStrategy {
     /// Pure: no plan mutation, no commit. The `Evaluation→{Commit|Plan|Prune}` wiring that
     /// would CONSUME this is deferred until the probe proves it changes an outcome.
     pub fn reliability_of(style: ThinkingStyle, ctx: &PlanContext) -> f32 {
+        // Unstratified entry point: admits the whole mechanism set, i.e. exactly
+        // the pre-stratification behaviour. Preserved bit-for-bit so no existing
+        // caller changes meaning (`I-LEGACY-API-FEATURE-GATED` discipline: the
+        // same function name must not silently mean something new).
+        Self::reliability_at(style, ctx, RungLevel::Transcendent)
+    }
+
+    /// [`reliability_of`](Self::reliability_of) **at a rung** — only the tactics
+    /// the resolution has earned may contribute
+    /// (`E-STANDING-WAVE-IS-UNSTRATIFIED-SUDOKU-1`).
+    ///
+    /// This is the Sudoku discipline made executable: a locus that grounded in
+    /// two hops is scored by the cheap [`Gate`](lance_graph_contract::recipes::Bucket::Gate)
+    /// tactics alone, while a chain that only settled deep in the standing wave
+    /// unlocks the branchy `Control` tactics that cost more to run.
+    ///
+    /// The rung comes from the wave, not from a guess:
+    ///
+    /// ```text
+    /// let (grounding, pass) = standing_wave_stratified(idx, window, locus, passes);
+    /// let rung = RungLevel::for_pass(pass);
+    /// let r = StyleStrategy::reliability_at(style, ctx, rung);
+    /// ```
+    ///
+    /// **Why the rung is a parameter and not a `PlanContext` field:** `PlanContext`
+    /// carries no witness window today, so there is no honest rung to read from it
+    /// — deriving one from `estimated_complexity` would be inventing a semantic.
+    /// Threading the wave into the planner's context is its own deliverable; until
+    /// then callers that HAVE a window pass the rung explicitly, and callers that
+    /// do not keep the unstratified [`reliability_of`](Self::reliability_of).
+    pub fn reliability_at(style: ThinkingStyle, ctx: &PlanContext, rung: RungLevel) -> f32 {
         let mut tc = Self::thought_ctx_from(ctx);
-        for recipe in Self::recipes_for(style) {
+        for recipe in Self::recipes_for_at(style, rung) {
             if let Some(k) = kernel(recipe.id) {
                 // `run` gates + applies, mutating `tc.confidence` in place (returns the
                 // per-recipe Outcome, which we don't need here — the accumulated
@@ -315,6 +367,86 @@ mod tests {
             StyleStrategy::cluster_mechanism(ThinkingStyle::Analytical.cluster()),
             StyleStrategy::cluster_mechanism(ThinkingStyle::Creative.cluster()),
             "R-GATE: styles must select distinct mechanisms or the gate is cosmetic"
+        );
+    }
+
+    /// The rung gate narrows the mechanism-selected set at shallow rungs and
+    /// restores it at deep ones — for EVERY style, so no cluster is accidentally
+    /// starved or accidentally unstratified.
+    #[test]
+    fn rung_gate_narrows_shallow_and_restores_deep() {
+        for style in ThinkingStyle::ALL {
+            let all: Vec<u8> = StyleStrategy::recipes_for(style).map(|r| r.id).collect();
+            let deep: Vec<u8> = StyleStrategy::recipes_for_at(style, RungLevel::Transcendent)
+                .map(|r| r.id)
+                .collect();
+            assert_eq!(
+                all, deep,
+                "{style:?}: the top rung must admit exactly the mechanism set"
+            );
+
+            let shallow: Vec<u8> = StyleStrategy::recipes_for_at(style, RungLevel::Shallow)
+                .map(|r| r.id)
+                .collect();
+            assert!(
+                shallow.len() <= all.len(),
+                "{style:?}: shallow rung admitted MORE than the full set"
+            );
+            // Monotone in rung: no tactic appears shallow and vanishes deep.
+            for id in &shallow {
+                assert!(
+                    all.contains(id),
+                    "{style:?}: recipe {id} admitted at Shallow but not in the set"
+                );
+            }
+        }
+    }
+
+    /// The unstratified entry point must be EXACTLY the top-rung stratified one —
+    /// no existing caller changes meaning when the gate lands.
+    #[test]
+    fn reliability_of_is_unchanged_by_the_gate() {
+        let ctx = ctx_with(Some(style_vec(0.9, 0.0, 0.0)));
+        for style in ThinkingStyle::ALL {
+            let before = StyleStrategy::reliability_of(style, &ctx);
+            let top = StyleStrategy::reliability_at(style, &ctx, RungLevel::Transcendent);
+            assert_eq!(
+                before.to_bits(),
+                top.to_bits(),
+                "{style:?}: reliability_of drifted from the top rung"
+            );
+        }
+    }
+
+    /// The gate must change a real OUTCOME, not just a recipe count — otherwise
+    /// it is instrumentation rather than stratification.
+    #[test]
+    fn rung_changes_measured_reliability_for_some_style() {
+        let ctx = ctx_with(Some(style_vec(0.9, 0.0, 0.0)));
+        let moved = ThinkingStyle::ALL.iter().any(|&style| {
+            let shallow = StyleStrategy::reliability_at(style, &ctx, RungLevel::Shallow);
+            let deep = StyleStrategy::reliability_at(style, &ctx, RungLevel::Transcendent);
+            shallow.to_bits() != deep.to_bits()
+        });
+        assert!(
+            moved,
+            "rung gate left every style's reliability identical — inert wiring"
+        );
+    }
+
+    /// The stratification must actually bite somewhere — if every style's set
+    /// were rung-invariant, the gate would be decoration (the `closed_class_guess`
+    /// failure mode).
+    #[test]
+    fn rung_gate_is_not_inert_across_the_style_space() {
+        let bitten = ThinkingStyle::ALL.iter().any(|&style| {
+            let shallow = StyleStrategy::recipes_for_at(style, RungLevel::Shallow).count();
+            let deep = StyleStrategy::recipes_for_at(style, RungLevel::Transcendent).count();
+            shallow < deep
+        });
+        assert!(
+            bitten,
+            "rung gate changed nothing for any style — stratification is inert"
         );
     }
 
