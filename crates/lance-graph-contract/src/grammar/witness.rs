@@ -127,6 +127,18 @@ impl ClauseSignature {
     /// dependent preceding its predicate)? Dependency-first by design:
     /// `obl` is included precisely because government verbs (ἀκούω +
     /// genitive) surface their patient as oblique — case would lie here.
+    ///
+    /// **Known over-approximation (queued):** `obl` conflates GOVERNED
+    /// obliques (`hear him` — a participant) with CIRCUMSTANTIAL obliques
+    /// (`in the garden` — an adjunct); a fronted circumstantial should NOT
+    /// license an English object candidate. Splitting them needs a lexical
+    /// valency/frame layer (`ArgumentStatus { CoreArgument, GovernedOblique,
+    /// CircumstantialOblique, Unknown }`) — extend the Core deliberately when
+    /// the frame lexicon lands; until then this method is documented as
+    /// erring toward licensing, and consumers gate commits on the ENGLISH
+    /// side's own case evidence too. (Morphological case never lied — it
+    /// faithfully encoded Greek government; only a naive English role
+    /// projection would have lied about what it meant.)
     #[must_use]
     pub fn has_fronted_argument(&self) -> bool {
         self.fronted_relations

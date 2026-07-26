@@ -74,8 +74,10 @@ impl Basins {
         let mut lex = HashMap::new();
         for l in txt.lines().filter(|l| !l.starts_with('#') && !l.is_empty()) {
             let c: Vec<&str> = l.split('\t').collect();
-            if c.len() >= 3 {
-                lex.insert(c[0].to_string(), (c[1].to_string(), c[2].as_bytes()[0]));
+            // Guard the first byte: a row with an empty PoS field must be
+            // skipped, never panic (CodeRabbit #849 hardening).
+            if let (3.., Some(&pos)) = (c.len(), c.get(2).and_then(|s| s.as_bytes().first())) {
+                lex.insert(c[0].to_string(), (c[1].to_string(), pos));
             }
         }
         Ok(Self { lex })
@@ -129,13 +131,42 @@ fn tense_code(t: Tense) -> u8 {
     }
 }
 
-/// Phase-1 delayed-commitment scan: recognise `O AUX S V` and canonicalise to
-/// the active `S —V→ O`. Returns `None` (no premature binding) unless every
-/// awaited slot fills — and NEVER commits on an [`PronounCase::Ambiguous`]
-/// fronted form.
+/// Leading discourse connectives that may precede a fronted clause
+/// (`FOR unto thee will I pray`) — skipped, never part of the frame.
+const CONNECTIVES: &[&str] = &["for", "and", "but", "then", "therefore", "yea", "now", "so"];
+
+/// Prepositions that may head a fronted PP argument (`UNTO thee will I pray`).
+/// The fronted argument is then the PP's accusative object. Deliberately ONLY
+/// the recipient pair: locative/source preps (`upon`/`of`/`in`…) mark the
+/// Lokal lane, not an object — the whole-KJV re-run showed `of them shall ye
+/// buy` (them = source) and `upon thee shall he offer` (thee = place) would
+/// otherwise commit role-wrong edges. Precision over recall, as ever.
+const FRONT_PREPS: &[&str] = &["unto", "to"];
+
+/// Phase-1 delayed-commitment scan: recognise `[CONN*] [PREP] O AUX S V` and
+/// canonicalise to the active `S —V→ O`. Returns `None` (no premature binding)
+/// unless every awaited slot fills — and NEVER commits on an
+/// [`PronounCase::Ambiguous`] fronted form. The leading-connective and
+/// fronted-PP handling is the codex-review fix: `for unto thee will I pray`
+/// (Ps 5:2) previously only parsed by line-wrapping luck.
 fn right_corner(b: &Basins, toks: &[String]) -> Option<RightCornerReason> {
+    // Skip discourse connectives, then at most ONE preposition — and only when
+    // it immediately precedes an unambiguous accusative pronoun (the PP object
+    // is the fronted argument; anything else is not a case-decided front).
+    let mut start = 0usize;
+    while start < toks.len() && CONNECTIVES.contains(&toks[start].as_str()) {
+        start += 1;
+    }
+    if start < toks.len()
+        && FRONT_PREPS.contains(&toks[start].as_str())
+        && toks
+            .get(start + 1)
+            .is_some_and(|w| pronoun_case(w) == Some(PronounCase::Accusative))
+    {
+        start += 1;
+    }
     let mut aw = AwaitingClause::default();
-    for w in toks {
+    for w in &toks[start..] {
         match (&aw.fronted, &aw.modal, &aw.subject) {
             // Awaiting the fronted argument: only an UNAMBIGUOUS accusative
             // pronoun opens a right-corner hypothesis (case decides; eroded
@@ -219,7 +250,7 @@ fn report(b: &Basins, label: &str, text: &str) -> (Vec<RightCornerReason>, Vec<T
     println!("\n════════ {label} ════════");
     let (mut rc, mut lc) = (Vec::new(), Vec::new());
     for sent in text
-        .split(['.', ';', '\n'])
+        .split(['.', ';', ':', '?', '!', ',', '\n'])
         .map(str::trim)
         .filter(|s| !s.is_empty())
     {
@@ -273,14 +304,20 @@ fn main() {
     // 1) The KJV fronted clause (Deut 18:15 / Acts 3:22) — case-decided OSV.
     // 2) A plain SVO control — must stay on the left-corner machine.
     // 3) An eroded-case front (`you`) — must NOT commit on case alone.
+    // 4) Codex #849 regression: fronted PP after a connective + `:` splitting
+    //    (Ps 5:2 `…my God: for unto thee will I pray` — previously reachable
+    //    only by line-wrapping luck).
+    // 5) Codex #849 regression: `?` terminates a unit — two fronted clauses in
+    //    one string must yield TWO commitments, not one.
     let (rc, lc) = report(
         &b,
         "right-corner falsifier",
-        "him shall ye hear. the shepherd carries the lamb. you shall hear them.",
+        "him shall ye hear. the shepherd carries the lamb. you shall hear them. \
+         hearken unto my god: for unto thee will i pray. \
+         him shall ye hear? them shall he serve?",
     );
 
     // 1) `him shall ye hear` canonicalises ACTIVE with roles recovered by case.
-    assert_eq!(rc.len(), 1, "exactly one right-corner commitment");
     let r = &rc[0];
     assert_eq!(
         r.canonical.s, "ye",
@@ -313,6 +350,29 @@ fn main() {
     assert!(
         !rc.iter().any(|r| r.canonical.o == "you"),
         "eroded `you` must never be committed as a fronted object on case alone"
+    );
+
+    // 4) Fronted PP (Ps 5:2): the `:` split isolates `for unto thee will i
+    //    pray`; the connective + preposition are skipped; `thee` (accusative)
+    //    fronts, `i` (nominative) is the subject — by structure, not luck.
+    let pp = rc
+        .iter()
+        .find(|r| r.canonical.o == "thee")
+        .expect("`for unto thee will i pray` must right-corner-commit");
+    assert_eq!(pp.canonical.s, "i");
+    assert_eq!(pp.canonical.p, "pray");
+    assert_eq!(pp.tense, Tense::Future, "tense reads off the modal `will`");
+
+    // 5) `?` is a unit boundary: BOTH fronted questions commit.
+    assert!(
+        rc.iter()
+            .any(|r| r.canonical.o == "them" && r.canonical.s == "he" && r.canonical.p == "serve"),
+        "the second `?`-terminated clause must commit (he —serve→ them)"
+    );
+    assert_eq!(
+        rc.len(),
+        4,
+        "four right-corner commitments: hear/pray + the two question clauses"
     );
 
     println!(

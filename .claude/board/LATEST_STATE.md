@@ -8,7 +8,7 @@
 
 ### Current Contract Inventory — new grammar cue catalogue + planner example
 - `lance_graph_contract::grammar::clause_cues` (`E-SCI-1-RIGHT-CORNER-DELAYED-COMMITMENT-1`) — delayed-clause-commitment cue catalogues: `pronoun_case` (Nominative `I/he/she/we/they/thou/ye` · Accusative `me/him/us/them/thee` · **Ambiguous** `you/it/her` — case-eroded, never decisive) + the modal spine `is_modal_aux`/`modal_tense` (incl. KJV `shalt`/`wilt`; shall→Future, might→Potential). Zero-dep catalogues, not algorithms. 4 unit + 2 doctests.
-- `lance_graph_planner::examples::insight_right_corner_read` — the `AwaitingClause` scan: `O AUX S V` → canonical ACTIVE `S —V→ O`, tense off the modal, Ambiguous-fronted never commits (honest incompleteness beats a wrong parse); coexists with the left-corner control. Live whole-KJV run: 6 commitments, 6/6 correct, 0 false positives (`ye—hear→him`, `thou—serve→him`, `i—pray→thee`, …). Phases 2-4 queued in the epiphany.
+- `lance_graph_planner::examples::insight_right_corner_read` — the `AwaitingClause` scan: `O AUX S V` → canonical ACTIVE `S —V→ O`, tense off the modal, Ambiguous-fronted never commits (honest incompleteness beats a wrong parse); coexists with the left-corner control. Live whole-KJV run: 21 commitments, 21/21 defensible (`ye—hear→him`, `thou—serve→him`, `i—pray→thee`, …; was 6 before the codex/CR #849 round: split `:?!,` + connective/recipient-PP skip, `unto`/`to` only). Phases 2-4 queued in the epiphany.
 
 ## 2026-07-23 — branch `claude/lance-graph-last-10-pr-z30uij` — D-SCI-1 TEKAMOLO value tenant + the new reasoning wired via SPO-G + all tenants
 

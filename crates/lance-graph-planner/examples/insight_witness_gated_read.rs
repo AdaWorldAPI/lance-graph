@@ -82,8 +82,10 @@ impl Basins {
         let mut lex = HashMap::new();
         for l in txt.lines().filter(|l| !l.starts_with('#') && !l.is_empty()) {
             let c: Vec<&str> = l.split('\t').collect();
-            if c.len() >= 3 {
-                lex.insert(c[0].to_string(), (c[1].to_string(), c[2].as_bytes()[0]));
+            // Guard the first byte: a row with an empty PoS field must be
+            // skipped, never panic (CodeRabbit #849 hardening).
+            if let (3.., Some(&pos)) = (c.len(), c.get(2).and_then(|s| s.as_bytes().first())) {
+                lex.insert(c[0].to_string(), (c[1].to_string(), pos));
             }
         }
         Ok(Self { lex })
