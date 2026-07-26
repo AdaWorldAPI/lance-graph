@@ -453,6 +453,101 @@ pub fn standing_wave_stratified(
     }
 }
 
+/// WHY an escalation fired — the distinction [`WaveGrounding::Escalate`]
+/// erases, surfaced (external-review adjudication: the reviewer's "hard
+/// max-pass truncation" claim landed on this exact spot — the CARRIER
+/// distinguishes the reasons since the `E-MULTIPASS-WAS-SINGLE-PASS-1` fix,
+/// but the wave verdict collapsed both back into one variant).
+///
+/// The two reasons demand OPPOSITE responses, which is why conflating them is
+/// not cosmetic:
+/// * [`OutOfHorizon`](Self::OutOfHorizon) — the chain genuinely left the ±8
+///   window. More budget cannot help; the correct move is the representation
+///   switch (basin edge / `temporal.rs` version read).
+/// * [`BudgetExhausted`](Self::BudgetExhausted) — the chain was still walking
+///   when the FINAL budget ran out. Slow convergence, not non-locality; the
+///   correct move is to retry with a larger `passes`, which is cheap, before
+///   paying for the wide read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EscalateReason {
+    OutOfHorizon,
+    BudgetExhausted,
+}
+
+/// [`standing_wave_stratified`] plus the escalation REASON — additive
+/// diagnosis, never a second opinion: the `(grounding, settle_pass)` pair is
+/// parity-pinned bit-identical to the undiagnosed functions
+/// (`diagnosed_never_disagrees_with_stratified`).
+///
+/// `reason` is `Some` iff `grounding == Escalate`. A `None` reason on an
+/// `Escalate` (or vice versa) is unrepresentable by construction of this
+/// function — tested, not promised.
+#[must_use]
+pub fn standing_wave_diagnosed(
+    focal_idx: usize,
+    window: &[(usize, CausalWitnessFacet)],
+    locus: Locus,
+    passes: u8,
+) -> (WaveGrounding, u8, Option<EscalateReason>) {
+    let Some(&(_, focal)) = window.get(focal_idx) else {
+        return (WaveGrounding::Unbound, 0, None);
+    };
+    if !focal.is_bound(locus) {
+        return (WaveGrounding::Unbound, 0, None);
+    }
+    let mut last: Option<i8> = None;
+    let max_budget = passes.max(1);
+    for budget in 1..=max_budget {
+        let r = resolve_chain(focal_idx, window, locus, budget);
+        if r.out_of_horizon {
+            return (
+                WaveGrounding::Escalate,
+                budget,
+                Some(EscalateReason::OutOfHorizon),
+            );
+        }
+        if r.budget_exhausted {
+            if budget == max_budget {
+                return (
+                    WaveGrounding::Escalate,
+                    budget,
+                    Some(EscalateReason::BudgetExhausted),
+                );
+            }
+            last = None;
+            continue;
+        }
+        match r.final_offset {
+            Some(off) => {
+                if last == Some(off) {
+                    return (WaveGrounding::Causal, budget, None);
+                }
+                last = Some(off);
+            }
+            // Resolved to nothing inside the horizon without escalating: no
+            // local target exists, and no amount of budget manufactures one —
+            // the wider read is genuinely required, so this is horizon-class,
+            // not budget-class.
+            None => {
+                return (
+                    WaveGrounding::Escalate,
+                    budget,
+                    Some(EscalateReason::OutOfHorizon),
+                )
+            }
+        }
+    }
+    if last.is_some() {
+        (WaveGrounding::Causal, 1, None)
+    } else {
+        (
+            WaveGrounding::Escalate,
+            max_budget,
+            Some(EscalateReason::BudgetExhausted),
+        )
+    }
+}
+
 /// **The passive quorum mantissa** — what discriminates once admissibility no
 /// longer can.
 ///
@@ -1597,6 +1692,76 @@ mod tests {
         }
         // And the channel is not inert on this window.
         assert!(!suggest_reopening(&hist, Locus::Kausal, usize::MAX).is_empty());
+    }
+
+    /// The diagnosed wave is instrumentation over the stratified one — the
+    /// `(grounding, pass)` pair may never differ, and the reason is present
+    /// exactly on escalations.
+    #[test]
+    fn diagnosed_never_disagrees_with_stratified_and_reasons_are_exact() {
+        let windows: Vec<Vec<(usize, CausalWitnessFacet)>> = vec![
+            vec![(0, CausalWitnessFacet::ZERO)],
+            vec![
+                (0, w(&[(Locus::Antecedent, 1)])),
+                (1, CausalWitnessFacet::ZERO),
+            ],
+            vec![
+                (0, w(&[(Locus::Antecedent, 1)])),
+                (1, w(&[(Locus::Antecedent, 1)])),
+                (2, CausalWitnessFacet::ZERO),
+            ],
+            vec![(0, w(&[(Locus::Antecedent, 7)]))],
+            vec![],
+        ];
+        for (i, win) in windows.iter().enumerate() {
+            for locus in [Locus::Antecedent, Locus::Kausal] {
+                for passes in [1u8, 2, 8] {
+                    let (g, p) = standing_wave_stratified(0, win, locus, passes);
+                    let (dg, dp, reason) = standing_wave_diagnosed(0, win, locus, passes);
+                    assert_eq!((g, p), (dg, dp), "window {i} passes {passes}: diverged");
+                    assert_eq!(
+                        reason.is_some(),
+                        dg == WaveGrounding::Escalate,
+                        "window {i}: reason must exist iff Escalate"
+                    );
+                }
+            }
+        }
+    }
+
+    /// The two escalation reasons demand opposite responses — prove the
+    /// diagnosis separates them on real chains.
+    #[test]
+    fn escalation_reasons_separate_retry_from_representation_switch() {
+        // A 2-hop chain with passes=1: slow convergence, NOT non-locality.
+        let two_hop = vec![
+            (0, w(&[(Locus::Antecedent, 1)])),
+            (1, w(&[(Locus::Antecedent, 1)])),
+            (2, CausalWitnessFacet::ZERO),
+        ];
+        let (g, _, r) = standing_wave_diagnosed(0, &two_hop, Locus::Antecedent, 1);
+        assert_eq!(g, WaveGrounding::Escalate);
+        assert_eq!(
+            r,
+            Some(EscalateReason::BudgetExhausted),
+            "budget starvation must say RETRY, not 'do the wide read'"
+        );
+        // And the retry it recommends actually works:
+        let (g2, _, r2) = standing_wave_diagnosed(0, &two_hop, Locus::Antecedent, 8);
+        assert_eq!(g2, WaveGrounding::Causal);
+        assert_eq!(r2, None);
+
+        // A chain that leaves the window: no budget will ever help.
+        let far = vec![(0, w(&[(Locus::Antecedent, 7)]))];
+        for passes in [1u8, 8, 200] {
+            let (g, _, r) = standing_wave_diagnosed(0, &far, Locus::Antecedent, passes);
+            assert_eq!(g, WaveGrounding::Escalate);
+            assert_eq!(
+                r,
+                Some(EscalateReason::OutOfHorizon),
+                "horizon exit must not be mistaken for budget starvation at passes={passes}"
+            );
+        }
     }
 
     /// An unbound locus earns no rung at all — pass 0, distinct from "grounded

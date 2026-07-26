@@ -579,6 +579,52 @@ impl RungLevel {
         (0..take).filter_map(move |i| excluded.get(i * stride.max(1)).copied())
     }
 
+    /// A **rotating** spread sample of the periphery — deterministic per
+    /// `probe_epoch`, with guaranteed eventual coverage across epochs.
+    ///
+    /// [`peripheral_sample`](Self::peripheral_sample) is deterministic but
+    /// STATIC: the same rung and `k` yield the same watchers forever, so the
+    /// un-sampled strata are a *permanent* deterministic blind spot —
+    /// reproducibility quietly becoming blindness (external-review finding).
+    ///
+    /// The rotation is seeded by `probe_epoch` — **deliberately NOT by
+    /// dataset version**: a version-seeded sample would change whenever the
+    /// data changes, so a time-series diff could come from the changed SAMPLE
+    /// rather than changed KNOWLEDGE, corrupting exactly the read-as-of
+    /// comparisons the temporal axis exists for. Epoch and version advance
+    /// independently: same epoch ⇒ bit-identical sample regardless of data;
+    /// next epoch ⇒ deterministic rotation.
+    ///
+    /// Coverage guarantee (test-pinned): the union of samples over epochs
+    /// `0..stride` is the ENTIRE periphery — rotation is a coverage cursor,
+    /// not simulated randomness.
+    pub fn peripheral_sample_rotating(
+        self,
+        k: usize,
+        probe_epoch: u32,
+    ) -> impl Iterator<Item = &'static Recipe> {
+        let excluded: Vec<&'static Recipe> = self.peripheral_recipes().collect();
+        let n = excluded.len();
+        let take = k.min(n);
+        let stride = if take == 0 {
+            1
+        } else {
+            (n / take.max(1)).max(1)
+        };
+        // A COVERAGE CURSOR, deliberately not a hash: `phase` cycles through
+        // every residue as the epoch increments, so epochs `0..stride`
+        // PROVABLY cover the whole periphery (one pick per stride cell per
+        // epoch, each cell walked exhaustively). A hashed phase was tried
+        // first and failed its own coverage test — pseudo-random phases are
+        // the coupon-collector problem wearing a deterministic costume, which
+        // is exactly the "simulated randomness vs systematic eventual
+        // coverage" distinction the external review drew. The per-rung offset
+        // only de-synchronizes rungs so they do not all probe the same
+        // stratum in the same epoch; it cannot affect coverage.
+        let phase = (probe_epoch as usize + self as usize) % stride;
+        (0..take).filter_map(move |i| excluded.get(i * stride + phase).copied())
+    }
+
     /// Every recipe admissible at this rung, ascending by id.
     ///
     /// This is the stratified replacement for the unconditional
@@ -737,6 +783,67 @@ mod tests {
             "no periphery at the top rung"
         );
         assert!(rung.peripheral_sample(999).count() <= RECIPES.len());
+    }
+
+    /// The rotation contract: same epoch ⇒ identical; epochs differ; and the
+    /// union over one stride-cycle of epochs covers the WHOLE periphery — the
+    /// static sample's permanent blind stratum is provably gone.
+    #[test]
+    fn rotating_sample_is_epoch_stable_and_eventually_covers_everything() {
+        use std::collections::BTreeSet;
+        let rung = RungLevel::Shallow;
+        let periphery: BTreeSet<u8> = rung.peripheral_recipes().map(|r| r.id).collect();
+        let k = 3usize;
+        // Epoch-stable.
+        let e0: Vec<u8> = rung
+            .peripheral_sample_rotating(k, 0)
+            .map(|r| r.id)
+            .collect();
+        assert_eq!(
+            e0,
+            rung.peripheral_sample_rotating(k, 0)
+                .map(|r| r.id)
+                .collect::<Vec<_>>(),
+            "same epoch must be bit-identical"
+        );
+        // Some epoch differs from epoch 0 (rotation is not inert).
+        let stride = periphery.len() / k.max(1);
+        let mut any_diff = false;
+        let mut union: BTreeSet<u8> = BTreeSet::new();
+        // ONE stride-cycle of epochs must suffice — the cursor guarantees it
+        // exactly, not eventually (the hashed-phase draft needed 4 cycles and
+        // still failed; the cursor makes coverage arithmetic, not luck).
+        for e in 0..(stride as u32) {
+            let s: Vec<u8> = rung
+                .peripheral_sample_rotating(k, e)
+                .map(|r| r.id)
+                .collect();
+            assert_eq!(s.len(), k, "epoch {e}: sample size drifted");
+            if s != e0 {
+                any_diff = true;
+            }
+            union.extend(s);
+        }
+        assert!(
+            any_diff,
+            "rotation is inert — every epoch samples identically"
+        );
+        // The tail cells beyond k*stride are reached because stride*k <= n
+        // leaves at most (n - stride*k) < stride un-walked indices per cycle;
+        // phase sweeps 0..stride so index i*stride+phase reaches every slot
+        // < stride*(k+0)+stride. When n is not a multiple of k the LAST few
+        // indices need phase to reach them — which it does, since the final
+        // cell [k*stride-stride, n) is narrower than stride. Assert exactly.
+        assert_eq!(
+            union, periphery,
+            "rotation never reaches part of the periphery — the blind stratum survives"
+        );
+        // No epoch ever samples an ADMISSIBLE recipe (complement discipline).
+        for e in 0..8u32 {
+            for r in rung.peripheral_sample_rotating(k, e) {
+                assert!(!r.admissible_at(rung));
+            }
+        }
     }
 
     #[test]
