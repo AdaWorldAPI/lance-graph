@@ -1,3 +1,33 @@
+## 2026-07-26 — E-TENSE-IS-A-BASIN-REGISTER-NOT-A-POINTER-1 — the temporal twin of the anaphora law, with INVERTED polarity: entity anaphora is 88 % LOCAL (nibble-addressable), temporal anaphora is **91.7 % NON-LOCAL**. Plusquamperfekt/Futur II do not point at a TOKEN — they read and write the episodic basin's **reference-time register**. Tense morphology is a basin-state OPERATION, not a pointer.
+
+**Status:** FINDING (measured on UD German-GSD+HDT). **Confidence:** High — the polarity split is decisive and Reichenbach explains the mechanism exactly.
+
+**The measurement.** Periphrastic tenses resolved via the `verb_cluster()`/`finite_of()` helpers (the same cluster discipline the #850 review forced): Perfekt 6,249 · **Plusquamperfekt 1,994** · Futur I 1,615 · **Futur II 69** · Partizip II 17,802. For each Plusquamperfekt, the nearest candidate R-anchor (another finite past verb):
+
+| | count | share |
+|---|---|---|
+| NO in-sentence R-anchor | 1,339 | **67.2 %** |
+| in-sentence anchor | 655 | 32.8 % |
+| …of those, inside `-8 <= off <= +7` | 166 | 25.3 % of anchored |
+| **⇒ R-anchor inside the i4 window** | **166 / 1,994** | **8.3 %** |
+
+Against the relative-pronoun result (`E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1`: 88.01 % inside the window), the two anaphora types have **opposite polarity**: entity reference is overwhelmingly local, temporal reference overwhelmingly not.
+
+**Why this CONFIRMS the basin-edge law rather than breaking it.** The law says: beyond the window is a *different KIND* of reference, resolved by identity/state rather than position. Plusquamperfekt is that different kind **by construction** — Reichenbach's R (reference time) is neither speech time nor event time, so Plusquamperfekt and Futur II are the two tenses that MUST anchor to something outside themselves; and in narrative that something is the discourse's current reference time, which is a **basin state**, not a token position. A wider pointer would not help — there is no token to point at.
+
+**The architectural consequence (feeds W5/W12/W17).** Tense/aspect morphology maps onto the episodic basin as register operations, NOT as pointers:
+```text
+Präteritum / Perfekt  → SET  R          (advance the narrative now)
+Plusquamperfekt       → READ R, assert E < R      (reach back before it)
+Futur I               → SET  R' > S
+Futur II              → SET  R' > S, assert E < R'
+```
+So the TEKAMOLO Temporal lane needs a **basin-level R register** alongside its per-clause tense reading — the absolute-time axis gap (W5 gap 3) is not only "wire real chronology", it is "carry the discourse reference time as basin state, and let tense morphology mutate it". This is also why the Te lane read as near-constant "Past" in the gap audit: per-clause tense is the WRONG granularity for narrative; the informative quantity is R and its updates.
+
+**Language variation (the witness argument, temporal edition).** German marks R explicitly and periphrastically (`hatte` + Partizip II); Slavic marks grammatical ASPECT; Greek splits aorist/imperfect/perfect. So a language with richer tense-aspect morphology is a better WITNESS for temporal structure exactly as Greek case was a better witness for role structure (`E-SCI-1-WITNESS-CONSTRUCTION-LICENSE-1`) — and the projection direction is the same: harvest R-structure from the morphologically explicit witness, license it onto the impoverished target.
+
+**Honest limits.** (a) Partizip I was NOT detected (0 instances) — UD German tags the present participle as ADJ, so the inventory here covers Partizip II only; a dedicated `Tense=Pres|VerbForm=Part` + ADJ sweep is queued. (b) The 67.2 % "no in-sentence anchor" figure is a LOWER bound on non-locality measured within sentence boundaries; cross-sentence anchors were not resolved (the corpus is sentence-shuffled for licensing), so the true basin-edge share may be higher still, never lower. (c) Futur II at n=69 is too sparse for its own statistics — reported as an inventory count only. Refs: `E-ANAPHORA-BEYOND-I4-IS-A-BASIN-EDGE-1` (the entity half), `E-GATEWAY-TEXT-IS-A-PROJECTION-HINGE-1`, task board W5/W12/W15/W17.
+
 ## 2026-07-26 — E-GATEWAY-TEXT-IS-A-PROJECTION-HINGE-1 — a language's **gateway text** (Luther/German · Hus/Czech · Dante/Italian · Tyndale-KJV/English) is the highest-value corpus per byte the substrate can acquire, because it is FOUR things at once — and the "bad translation" property (calquing) is precisely what makes it machine-useful. Worked example: the VOCATIVE, measured 615 (Greek NT) vs 3 (modern German UD).
 
 **Status:** FINDING for the vocative measurement; PRINCIPLE (grade [H], acquisition-gated) for the gateway-hinge claim. **Confidence:** High on the measurement + the mechanism; the projection yield is unmeasured until a Luther bitext is aligned.
