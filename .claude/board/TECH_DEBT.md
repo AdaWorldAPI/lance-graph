@@ -3189,3 +3189,21 @@ bijection needs re-seeding. Pair: D-IDENTITY-4.
 - **TD-CI-EXCLUDED-FUSE (F5):** main's CI never compiles the workspace-`exclude`d `lance-graph-ogar`, so its compile-time `COUNT_FUSE` fires only in *consumers'* builds (medcare hit E0080 twice). Fix: one CI job `cargo check`-ing the excluded crate against OGAR main. Effort S.
 - **TD-OGAR-LOCK-UNDECIDED (F3):** `lance-graph-ogar/Cargo.lock` is gitignored → fresh checkouts build the fuse against OGAR HEAD (floating canary) while the workspace lock pins. Decide canary-vs-pin; document in one sentence. Effort S.
 - **TD-BOARD-PREPEND-CONFLICTS (F6):** at fleet cadence the append-only board files (EPIPHANIES/LATEST_STATE/PR_ARC) are the only recurring rebase-conflict cost (~30-60 min/day/session). Per-entry board files + generated index make the conflict structurally impossible. Council-sized; forwarded to the V3/coordination session.
+
+## TD-COCA-LEXICON-RANK-UNRELIABLE-AT-HEAD (2026-07-26)
+
+`crates/lance-graph-planner/examples/data/coca/lexicon.tsv` (20,004 rows) is a
+PRE-FILTERED list, not raw COCA rank 1..N, and its `rank` column is wrong in the
+high-frequency band: `the` = 5645 (pos `i`), `and` = 3584 (pos `r`/adverb — also
+a wrong tag), while `of` = 5. Pure function words `a, I, you, he, she, they, not,
+what, which` are absent entirely.
+
+Impact: any consumer treating `rank` as a frequency proxy gets a scrambled head of
+the distribution; any coverage/decile analysis silently excludes function words.
+Surfaced by `E-COVERAGE-INVERSION-CLAIM-REFUTED-1` (the decile analysis is sound
+for content vocabulary only, for this reason).
+
+Fix options: (a) re-derive rank from a real COCA frequency list; (b) rename the
+column `list_order` and add a MANIFEST note that it is not a frequency rank;
+(c) supersede with the verse-attested lane codebooks (`rosetta/build_lane_codebooks.py`),
+whose `freq`/`rank`/`dispersion` ARE corpus-measured — at the cost of Bible-domain bias.

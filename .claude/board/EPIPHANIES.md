@@ -1,3 +1,28 @@
+## 2026-07-26 — E-COVERAGE-INVERSION-CLAIM-REFUTED-1 — **my own "WordNet and COCA hydrate disjoint regions" claim is REFUTED.** WordNet coverage does not fall where frequency is highest — it RISES (97.6% top decile vs 84.3% bottom). The POS-router design survives, but its justification was wrong: route on measured ladder-usefulness, never on frequency band.
+
+**Status:** FINDING (measurement briefed explicitly to refute the orchestrator's claim; it did). **Confidence:** High for content vocabulary; the function-word half of the claim is UNTESTABLE on this data (see scope, below) — not vindicated, just unmeasured.
+
+**The claim under test** (asserted by me earlier this session, never measured): *"WordNet is weakest almost exactly where frequency is highest… therefore the two codebooks hydrate DISJOINT regions and POS routes between them."*
+
+**Measured** (`coca/coca_wordnet_convergence.py`, 20k COCA lexicon × full WNDB, n/v subset n=16,018; no classical significance claimed — weak dependence, `I-NOISE-FLOOR-JIRAK`):
+
+| test | result | verdict |
+|---|---|---|
+| coverage by frequency decile | top 97.6% vs bottom 84.3% (overall 91.4%) | **REFUTES** — inverted |
+| plain ABSENT rate | high-freq 3.8% vs low-freq 11.7% | **REFUTES** — inverted |
+| ρ(rank, sense_count) | −0.334 (n=14,550) | supports: frequent ⇒ more senses |
+| ρ(rank, depth) | +0.091 (n=14,550) | correct direction, **weak** |
+| "useful ladder" share | high-freq 77.5% vs low-freq 74.2% | **REFUTES disjointness** — near-identical |
+| "uselessly polysemous" (shallow ∧ ≥5 senses) | high-freq 13.5% vs low-freq 5.6% (~2.4×) | supports, but a MINORITY effect |
+
+**What I got wrong and what survives.** The polysemy half was right (frequent words do carry more senses) and the shallow-ladder half is real but minor (13.5%, not the majority I implied). The load-bearing half — *disjoint coverage* — is simply false: WordNet hydrates high-frequency content vocabulary about as well as low-frequency, and better than I claimed at both ends. **Architectural consequence: the D-RCC-4 POS router must key on a MEASURED per-word signal (shallow ∧ polysemous ⇒ ladder does no work ⇒ route to construction statistics), not on a frequency band or a bare open/closed-class split.** The router is still right; my reason for it was not.
+
+**Scope limit — the untested half (orchestrator verification, beyond the agent's report).** `coca/lexicon.tsv` is a pre-filtered 20k list, not raw COCA rank 1..N: `a, I, you, he, she, they, not, what, which` are ABSENT, so the pure-function-word band the claim was partly about is excluded rather than deprioritised. Worse, **the rank column is unreliable in exactly that band** — `the` is recorded at rank **5645** and `and` at **3584** (and `and` is POS-tagged `r`/adverb), while `of`=5. Those are not COCA frequency ranks. So: the decile analysis is sound for content vocabulary but the file cannot support any claim about the true top-of-frequency function words, and its `rank` column should not be trusted as a frequency proxy at the head without repair. Filed as tech debt.
+
+**Method note worth keeping:** briefing a subagent to *refute* an orchestrator claim, with "refuting is a success, do not tune thresholds until it passes" stated in the brief, produced a clean refutation of a claim I had already written into three prior turns of design reasoning. This is the cheapest correction mechanism in the session so far.
+
+Refs: plan `rosetta-codebook-convergence-v1.md` D-RCC-4 (router justification amended), `E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1` (the vacuous `closed_class_guess` — same router, second broken input), task #20.
+
 ## 2026-07-26 — E-WORDNET-RAIL-ERROR-RATE-MEASURED-1 — the committed rail's sense-selection bug is **12.76% of all rows** (16,471/129,059) — and **33.84% of VERBS**. What began as "2/2 audited anchors wrong" is now a measured, POS-stratified defect rate, plus a corrected v2 rail (176,537 rows, all senses) and a working fetch script that ends the ephemeral-WNDB fragility.
 
 **Status:** FINDING (full audit, no sampling; anchors re-verified on the main thread independently of the producing agent). **Confidence:** High.
