@@ -1,3 +1,17 @@
+## 2026-07-26 — E-RCC-1-FOUR-LANES-ONE-KEY-1 — the frozen verse address WORKS as the Rosetta SoA key at full-canon scale, and one probe run produced the whole argument in miniature: the census, the anchor, the versification blocker, AND its escape hatch — in a single receipt.
+
+**Status:** FINDING (probe run, receipts on local disk). **Confidence:** High for what was measured; the split census is CRUDE by design (no lemmatizer).
+
+**Probe:** `crates/lance-graph-planner/examples/data/rosetta/build_rosetta_probe.py` (D-RCC-1, calibrator per the operator correction) over 4 PD verse-keyed lanes fetched from getBible v2: kjv, luther1545, elberfelder1905, bkr (= Kralická — the D-RCC-7 lane, landed same run).
+
+**Measured:**
+1. **Census:** union 31,103 rows, common to all 4 lanes 31,097 (99.98%). Per-lane absences 1–5 rows. The frozen external key needs NO alignment pass — lanes land on rows.
+2. **The Ps 84:3 receipt (the plan's §0 thesis in one row):** KJV `swallow` (bird). Luther-1545 lane at (19,84,3) shows a DIFFERENT verse — the live Psalm-title +1 versification offset (blocker §4.3, demonstrated not assumed). Elberfelder-1905 🐦 `Schwalbe` and Kralická 🐦 `vlaštovice` BOTH align and BOTH resolve bird. One lane misaligned → two independent lanes carry the anchor. The escape-hatch claim (operator: benefit of Schwalbe=swallow is OVERWHELMING, failures get hatches) is now a receipt, not an argument.
+3. **swallow across 50 KJV verses:** crude lane-regexes resolve bird=4 / verb=24 / unresolved-by-regex=22 (regex gaps, e.g. Czech `sehltiti` missing — calibrator honesty, not a limit of the method).
+4. **Split census (en→luther1545, PMI≥3.0, cooc≥5, context-overlap≤0.3, Psalms excluded):** 48.9% of 3,071 mid-frequency English content words have ≥2 German associates that PARTITION their verse contexts. Star receipt: `tongue → Zunge(57) vs Sprache(7)` — a REAL sense split (body part vs language) found by the crude v0 aligner unprompted. Inflection noise is acknowledged (weinberges/weinberge rows).
+
+**Consequences:** (a) D-RCC-2's in-memory whole-canon SoA is confirmed feasible at 31k rows; (b) the versification map (§4.3) is REQUIRED for the Luther lane specifically and demonstrably absent-not-broken for Elberfelder/Kralická under KJV-style keys; (c) Kralická data is landed → D-RCC-7 is data-complete before its deliverable even started; (d) the German lane's splitting power (48.9% crude) is enough that the qualia sense-index (D-RCC-4) will not starve. Refs: plan `rosetta-codebook-convergence-v1.md`, `E-ROSETTA-IS-A-JOIN-NOT-A-CHOICE-1`, task #19.
+
 ## 2026-07-26 — E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1 — the derived codebooks do NOT share one publication path: **UD-derived and WordNet-derived assets can ship as PUBLIC lance-graph Releases; PROIEL-derived and COCA-derived assets are NOT publicly redistributable** — because a derived database inherits its source's licence, and PROIEL's NonCommercial clause is the blocker. Never bundle regimes into one asset.
 
 **Status:** RULING (governance). **Confidence:** High — every licence below was fetched and read, not assumed.

@@ -1,3 +1,18 @@
+## rosetta-codebook-convergence-v1 — Bible Rosetta SoA + qualia agreement (ACTIVE)
+
+Plan: `.claude/plans/rosetta-codebook-convergence-v1.md` (operator convergence arc, 3 same-day corrections baked). Absorbs W4/W15/W17/W18.
+
+| D-id | Deliverable | Repo | Status | Evidence |
+|---|---|---|---|---|
+| D-RCC-1 | lanes-to-singleton probe (calibrator) | lance-graph | **v1 RUN** (`build_rosetta_probe.py`; 4 PD lanes kjv/luther1545/elberfelder1905/bkr; census 31,103 union / 31,097 common; swallow+grape receipts incl. LIVE Ps-84 versification-offset + two-lane rescue; en→de split census 48.9% of 3,071 mid-freq words; `tongue→Zunge/Sprache` real sense split) | `E-RCC-1-FOUR-LANES-ONE-KEY-1`; report in local `out/` |
+| D-RCC-2 | Rosetta SoA shape (contract) | lance-graph | Queued | plan §2 |
+| D-RCC-3 | corpus-derived word alignment | lance-graph | Queued (PMI v0 exists inside D-RCC-1) | plan §2 |
+| D-RCC-4 | qualia-agreement vector (POS-routed) | lance-graph | Queued — un-gates W11 | plan §2 |
+| D-RCC-5 | CLAM/WordNet probe + CHAODA lane-anomaly read | lance-graph | Queued (taxonomic arm runnable now) | plan §2 |
+| D-RCC-6 | cross-lane constraint propagation to fixpoint | lance-graph | Queued | plan §2 |
+| D-RCC-7 | Czech lane | lance-graph | **Data landed** (bkr lane fetched + in census) | plan §2 |
+| D-RCC-8 | Rosetta package Release | lance-graph | Blocked on licence re-verify (Release path only; research unblocked per operator posture) | plan §4 |
+
 ## dialectic-engine-v1 — the reasoning cathedral (ACTIVE)
 
 Plan: `.claude/plans/dialectic-engine-v1.md` (six operator pillars + S1-S12 synthesis). V0-V1 SHIPPED; V2-V5 queued.
