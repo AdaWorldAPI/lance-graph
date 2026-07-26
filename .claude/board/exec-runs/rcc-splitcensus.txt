@@ -1,0 +1,99 @@
+D-RCC-1 v2 exec run — build_rosetta_probe.py hardening (rosetta-codebook-convergence-v1)
+File touched: crates/lance-graph-planner/examples/data/rosetta/build_rosetta_probe.py
+Data: /tmp/claude-0/.../scratchpad/bible_{kjv,luther1545,elberfelder1905,bkr}.json (local, gitignored)
+Command: python3 build_rosetta_probe.py <data_dir>   (also verified: --anchor lamb)
+
+PROBLEM 1 — anchor regex gaps (swallow, §B)
+  Before: bird=4 verb=24 unresolved-by-regex=22 (of 50 KJV verses, 44%)
+  After:  bird=4 verb=44 unresolved-by-regex=2  (4.0%)
+  Method: dumped the 22 unresolved verses' actual lane texts and read the
+  German + Czech words verbatim (no guessing). Findings, with evidence:
+    - German: v1 regex had "verschling" (infinitive stem) + "verschlang"
+      (preterite) but was missing "verschlung" — the strong-verb ablaut
+      participle "verschlungen" (schlingen/schlang/geschlungen pattern).
+      This alone recovered 18.20:15, 46.15:54, 47.2:7, 47.5:4 (German side).
+    - Czech: v1 had "pozř" — this NEVER matches; the real stem uses ž not z
+      (požřel/požřela/požře/požři, from infinitive požříti). Typo fix:
+      pozř -> požř. Recovered 24.51:44, 25.2:*, etc. (bkr side).
+    - Czech: the whole pohltit/sehltit "swallow" verb family alternates
+      consonant t/c/ť under Czech palatalization: pohltiti -> pohlceni;
+      sehltiti -> sehlcen(a)/sehlcuje/sehlťme. v1 only had "pohlt". Added
+      pohlc, sehlt, sehlc, sehlť, nahlt as explicit anchored stems (each
+      one verified present verbatim in the unresolved verses: sehltil,
+      sehltili, sehltiti, sehlcen, sehlcena, sehlceni, sehlcuje, pohlcena,
+      pohlceni, nahltané, sehlťme).
+    - REJECTED as over-broad (checked against full bkr corpus vocabulary
+      before adopting, to avoid false positives): bare substring "hlc"
+      collides with "poběhlce"/"poběhlci" (fugitive, unrelated); bare "hlť"
+      collides with 6 unrelated old-Czech enclitic "-ť" forms (nemohlť,
+      nezavrhlť, odtrhlť, protrhlť, přisáhlť, zdvihlť) out of 7 total hits —
+      so used anchored prefixes (pohlc|sehlt|sehlc|sehlť|nahlt) instead of
+      bare roots. Bare "hlt" also picked up "hltavost/hltaví" (adj.
+      "greedy/voracious", related-but-not-identical sense) and one
+      coincidental collision ("přisáhltě") — avoided by keeping the
+      anchored-prefix forms only.
+  Residual (honest, not forced to zero): 2/50 verses (18.6:3, 18.39:24).
+  Read both: in both, ALL THREE non-English lanes (Luther, Elberfelder,
+  BKR) translate "swallow(ed/eth)" with an entirely different verb concept
+  (e.g. 18.6:3 KJV "my words are swallowed up" -> Luther "es ist umsonst,
+  was ich rede" [it is in vain what I say], Elberfelder "unbesonnen"
+  [reckless], BKR "nedostává" [words fail me] — no swallow-family lexeme
+  in ANY lane). This is a genuine translation divergence, not a regex
+  gap; correctly left unresolved.
+
+PROBLEM 2 — inflection noise in split census (§C)
+  Before (raw German surface forms, PMI split census, unchanged from v1
+  thresholds: PMI>=3.0, cooc>=5, overlap<=0.3, candidate freq 10..500 len>=4):
+    n_cand = 3071 (unchanged across before/after — English side never
+    normalised), n_split = 1501 -> 48.9%   [reproduces the v1 finding]
+  After (crude German suffix-strip normaliser applied to the German
+  association side only, same thresholds, same code path via a shared
+  compute_split_census() so before/after are apples-to-apples):
+    n_split = 1319 -> 43.0%
+  Delta: -182 rows, -5.9 percentage points. The split is NOT an artifact
+  of inflection noise alone — 43% still partition, so this is a real
+  finding about the corpus, not a failure of the census. Honest report.
+  Normaliser mechanics (DE_SUFFIXES, longest-match-first, min stem
+  length 4, documented explicitly as NOT a lemmatizer — no dictionary,
+  no ablaut correction, no compound splitting):
+    20444 distinct German surface tokens in luther1545 (Psalms-excluded
+    common rows) -> merged down; report line: "normaliser fold: N
+    distinct German surface tokens -> M distinct stems (K tokens folded
+    away; F stems each absorbed >=2 surface forms)" is emitted by the
+    script itself each run (values computed at runtime, not hardcoded
+    here since they depend on the exact stat_keys population; verified
+    manually against luther1545 alone earlier at 20444 tokens -> 13640
+    stems, 3903 folding stems, as an independent sanity check before
+    wiring into the two-lane common-rows pipeline).
+  Spot-checked worked example (the brief's own case): weinberge,
+  weinberges, weinbergen, weinbergs, weinberg all normalise to "weinberg".
+  Known under-fold (documented in the report caveat, not hidden): short
+  words are blocked by the min-stem-length-4 guard, e.g. gut/guten/gute
+  do NOT all collapse to one stem (guten -> gute, but gut stays gut) —
+  this is a stated limitation of the crude approximation, not a bug.
+
+CLI ADDITION
+  --anchor WORD: dumps every KJV verse containing WORD (\bWORD\w*) plus
+  raw lane text, no classification — for scoping a future anchor's regex
+  from real text. Verified additive: running with --anchor lamb produced
+  identical split-census numbers (1319/48.9%/43.0%) to the run without
+  the flag; only appends a new report section. Verified via py_compile
+  and a plain import that the module still loads cleanly.
+
+LIMITATIONS / HONESTY NOTES
+  - The suffix normaliser is deliberately crude (stated in 3 places: module
+    docstring, report caveat paragraph, this file). It is NOT lemmatization.
+  - Both anchor and split-census fixes are grounded in verbatim evidence
+    from the actual corpus (verses quoted above; corpus-wide substring
+    checks run before adopting any pattern, several broader candidates
+    were REJECTED for false positives as documented above).
+  - Runtime: ~35s for a full run (before+after split census both computed).
+  - Report format/output paths unchanged (rosetta_probe_report.md,
+    en_de_splits.tsv in <data_dir>/out/); tsv header renamed to
+    "partitioning_de_associates_normalized" to reflect it is now the
+    post-normalisation (canonical/improved) list, not the raw one — the
+    raw-pass numbers are reported in the .md but not re-materialised as
+    a second tsv (kept the deliverable to one canonical list + reported
+    stats for the other, per "one canonical output" simplicity).
+  - Did not touch: versification-map file or WordNet tier-delta script
+    (sibling agents' scope); .gitignore; any .claude/board/ file.
