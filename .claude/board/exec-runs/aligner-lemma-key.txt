@@ -1,0 +1,117 @@
+Task #34 — shared lemma key for build_alignment.py (D-RCC-3 aligner)
+Agent: Sonnet grindwork exec. File owned/touched: crates/lance-graph-planner/examples/data/rosetta/build_alignment.py ONLY.
+No other rosetta/*.py touched. No commit/push performed (per brief).
+
+WHAT WAS BUILT
+- Added `normalize_de`/`DE_SUFFIXES` (copied with attribution from
+  build_rosetta_probe.py, not imported — that module is a separate
+  deliverable another agent owns concurrently) and a NEW `normalize_en`/
+  no-EN_SUFFIXES-table-needed (hand-written suffix cascade: -ies->y, -eth/
+  -est/-ing, -ed, -es (orthography-aware: sibilant stem -> full -es strip,
+  else keep the silent e and strip only -s), plain -s), both min-stem-len=4
+  guarded, both explicitly NOT lemmatisers (no dict, no irregulars, no
+  ablaut/umlaut, no compounds).
+- New CLI flag `--lemma-key`, default OFF. Verified: with or without the
+  flag, `alignment_en-de.tsv` and `alignment_en-el.tsv` (the files the
+  closed_class_transfer.py consumer reads) are byte-identical (md5 diff
+  empty both before and after the normalizer bugfix). When the flag IS
+  passed, an ADDITIONAL `alignment_<pair>_lemmakey.tsv` is written (new
+  file, same 5 columns, nothing renamed/reordered) and the report gains a
+  "Lemma-key pass" section per pair.
+- Fixed a bug I introduced myself before reporting: initial normalize_en
+  stripped "grapes" -> "grap" (wrong; -es branch always chopped 2 chars).
+  Fixed with an orthography-aware branch (sibilant-final stem -> chop -es;
+  else chop only trailing -s so grapes->grape, tongues->tongue). Verified
+  with unit spot-checks before regenerating the real report.
+- Data for real run: bible_{kjv,luther1545,tischendorf}.json are
+  gitignored + were not present in the fresh checkout; found cached copies
+  in this session's scratchpad (left over from the prior D-RCC-3 session)
+  and copied them into the rosetta dir (also gitignored, `git status`
+  confirms zero untracked noise) to run the REAL aligner end-to-end rather
+  than reasoning about it unverified.
+
+MEASURED RESULTS (real KJV/Luther1545/Tischendorf corpus, MIN_COOC=5, topk=3)
+
+en-de (12,266 src tokens, 28,636 shared verses):
+  overall coverage PMI: raw 39.2% (4806/12266) -> lemma-key 43.0% (4103/9545)
+  vocab: 12266 distinct src tokens (raw) -> 9545 (lemma-key), i.e. folding
+  did fire (2721 keys merged away).
+  band coverage (own-vocab, raw -> lemma-key):
+    hapax(1):   3872 tok, 0.0%   -> 2845 tok, 0.0%   (hard floor unmoved)
+    rare(2-4):  3286 tok, 0.0%   -> 2415 tok, 0.0%   (hard floor unmoved)
+    low(5-19):  2943 tok, 89.7%  -> 2285 tok, 92.0%
+    mid(20-99): 1518 tok, 100%   -> 1335 tok, 100%
+    high(100+):  647 tok, 100%   ->  665 tok, 100%
+  LOW-BAND LIFT (direct flip measurement: raw-unaligned token, does its
+  normalised key become aligned?):
+    hapax:  3872 considered, 581 flipped  = 15.0%
+    rare:   3286 considered, 866 flipped  = 26.4%
+    low:     302 considered, 165 flipped  = 54.6%
+    ALL THREE: 7460 considered, 1612 flipped = 21.6%
+  -> normalisation DOES lift low-frequency coverage via merging, and it is
+     quantified directly (not inferred from two independently-banded
+     tables): ~1 in 5 raw-unaligned hapax/rare/low tokens gains an aligned
+     target purely from folding onto a normalised key that already cleared
+     cooc>=5 elsewhere.
+
+en-el (5,960 src tokens, 7,895 shared verses; NO German normalizer applies
+here — Greek target side has no normalizer, English source side does):
+  overall coverage PMI: raw 30.7% (1831/5960) -> lemma-key 36.3% (1679/4620)
+  LOW-BAND LIFT: hapax 12.9%, rare 25.6%, low 36.9%, ALL THREE 20.4%
+  (independent corpus, same order of magnitude as en-de -- the lift is not
+  an en-de-specific artifact).
+
+ANCHOR RECEIPTS — the falsifier, both ways (en-de pair)
+  grape:
+    raw (8 verses):    die(cooc=5,.76); der(cooc=5,.54); und(cooc=8,.37)   <- stopword noise
+    lemma (41 verses): herling(cooc=5,9.45); traub(cooc=14,9.09); beer(cooc=5,8.77)
+    -> YES, grape now finds trauben (traub, unripe-grape herling, beere/berry)
+       instead of stopwords. The predicted fix landed and is measured, not
+       asserted.
+  swallow:
+    raw (17 v):    verschlingen(7,10.36); ihr(5,1.31); nicht(7,1.05)
+    lemma (41 v):  verschlang(6,8.86); verschl(6,8.86); verschling(9,8.53)
+    -> also improved: all three lemma-key targets are the swallow-up verb
+       stem across its inflected forms, replacing 2 of 3 stopword hits.
+  vineyard:
+    raw (58 v):    weinberges(7,8.95); weinberg(36,8.83); weingärtnern(7,8.75)
+    lemma (100 v): weinberg(97,8.08); jesreelit(5,7.48); weingärtn(10,7.02)
+    -> stays correct both ways (was never broken); coverage/verse-count
+       grows via merging plural forms.
+  tongue — THE REGRESSION-CHECK ANCHOR:
+    raw (96 v):    zunge(57,8.08); zungen(14,6.78); sprache(7,6.44)
+    lemma (126 v): zung(88,7.63); lipp(8,5.00); schweig(5,4.79)
+    DID NOT SURVIVE: sprach(e)'s sense drops out of top-3 under lemma-key.
+    ROOT CAUSE (diagnosed, NOT tuned away): the borrowed DE_SUFFIXES
+    "chen" entry (meant for diminutives, e.g. Mädchen) spuriously matches
+    the tail of "sprachen" (spra+chen), folding plural "sprachen" -> "spra"
+    while singular "sprache" folds to "sprach" via the separate bare-"e"
+    suffix rule. Two forms of ONE word land on TWO different normalised
+    keys, so their evidence never merges, and both individually rank below
+    newly-boosted associates (lipp, schweig, falsch) that gained mass from
+    unrelated folding. This is a suffix-table collision in the REUSED
+    German table, not a bug in the new English-side logic. Per the brief's
+    explicit instruction, this was reported as-is and NOT hand-tuned to
+    make the anchor look green again.
+
+SO: lemma-key is a real, measured net positive on coverage (+3.8pp en-de
+overall, +5.6pp en-el overall, ~21% low-band flip rate both corpora,
+grape/swallow both fixed) but is NOT unconditionally safe — the known-good
+tongue regression anchor DOES break under it, root-caused to a specific
+suffix-table collision, and documented in the module docstring, the
+generated report's Limitations section, and this file rather than being
+silently avoided.
+
+IRON-RULE COMPLIANCE
+- stdlib-only Python 3 (argparse/json/math/re/sys/collections/pathlib —
+  unchanged from before).
+- No network access.
+- Every threshold in force (MIN_COOC=5, DE_MIN_STEM_LEN=4, EN_MIN_STEM_LEN=4,
+  topk) is stated in the report.
+- Primary TSV columns/filenames unchanged (verified via md5 before/after,
+  with and without the flag); the lemma-key TSV is a NEW file with the same
+  5-column schema, not a rename/reorder.
+- Reported a regression rather than tuning it away (tongue/sprache).
+
+FILES CHANGED: crates/lance-graph-planner/examples/data/rosetta/build_alignment.py only.
+NOT COMMITTED. Orchestrator to review + commit/push.

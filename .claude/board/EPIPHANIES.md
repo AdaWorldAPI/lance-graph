@@ -1,3 +1,30 @@
+## 2026-07-26 — E-NORMALISER-CAN-SPLIT-WHAT-IT-MEANT-TO-MERGE-1 — the lemma key lifts alignment coverage (39.2%→43.0% de, 30.7%→36.3% el) **and broke the `tongue` regression anchor** — because a crude suffix stripper gave one lemma TWO fold keys. The anchor caught it, the agent root-caused it instead of tuning it away, and the flag stayed opt-in.
+
+**Status:** SHIPPED (opt-in, default OFF) + FINDING. **Confidence:** High — root cause reproduced on the main thread.
+
+**The failure mode, verified directly:**
+
+```
+sprache   -> sprach     zunge   -> zung
+sprachen  -> spra       zungen  -> zung     ← merges correctly
+```
+
+`sprachen` matches the **`-chen` diminutive** rule (leaving a 4-char stem, which passes the min-stem guard), while `sprache` takes a different branch. One lemma, two fold keys — so the evidence that was previously *whole* is now *split*, and `tongue`'s top-3 degraded from `zunge/zungen/sprache` to `zung/lipp/schweig`: the language sense dropped out entirely.
+
+**A normaliser is supposed to merge surface forms. This one split one** — the exact inverse of its purpose, and invisible without an anchor that knew what the right answer looked like. `tongue → Zunge/Sprache` was specified as a mandatory regression check precisely because it was a known-good result from two independent earlier runs; it is the only reason this was caught.
+
+**What the flag DOES deliver** (so the trade is visible, not hidden): coverage en-de **39.2% → 43.0%**, en-el **30.7% → 36.3%** on an independent corpus with a comparable flip rate (20.4% vs 21.6%) — so the lift is real and reproducible, not a German artifact. `grape`, which previously returned stopwords (`die/der/und`), now merges with `grapes` across 41 verses and returns `herling(9.45)/traub(9.09)/beer(8.77)` — real signal, exactly the fragmentation `E-D-RCC-3-ALIGNER-SHIPPED-DICE-NOT-BETTER-1` diagnosed. `swallow` improved; `vineyard` unchanged.
+
+**Handled correctly under uncertainty:** the flag defaults **OFF**, the primary output TSVs are **byte-identical** (md5-verified) with and without it, and the lemma-key output lands in a separate `*_lemmakey.tsv` — so a consuming sibling agent's inputs could not shift underneath it. A net-positive-but-not-uniformly-safe transform belongs behind a flag, not in the default path.
+
+**The agent also self-caught an earlier bug before reporting:** its first `normalize_en` stripped `grapes → grap` (the `-es` branch always chopped two chars); fixed with an orthography-aware branch (sibilant-final stem strips `-es`, otherwise keep the silent `e` and strip only `-s`). Reporting a bug you found and fixed yourself is the behaviour that makes the rest of the report credible.
+
+**The fix for `-chen` is known and small** (raise the minimum stem length for the diminutive rules specifically, so `spra` fails the guard and `-en` applies instead, yielding `sprach` to match the singular) — filed rather than rushed, because the anchor now exists to verify it.
+
+**The general lesson:** every normalisation step needs a *known-good merge* as its falsifier, not just a coverage number. Coverage went UP while quality went DOWN on the one case where we knew the answer — a metric that improved while the thing it proxies regressed.
+
+Refs: `E-D-RCC-3-ALIGNER-SHIPPED-DICE-NOT-BETTER-1`, `E-RCC-1-V2-SPLIT-SURVIVES-NORMALISATION-1` (the same normaliser family, measured 48.9%→43.0% there), task #34 → #37.
+
 ## 2026-07-26 — E-BOTH-CLOSED-CLASS-METHODS-LOSE-TO-RANK-150-1 — **two sophisticated methods, two negatives: `rank<=150` wins.** Dispersion z-score F1 0.280, alignment transfer F1 0.277, trivial frequency rank **0.386–0.388**. Stop trying to beat it for this task — and a data defect found along the way explains part of why the premise was shaky.
 
 **Status:** FINDING (negative ×2). **Confidence:** High — German is the only lane with ground truth and both methods were scored against it.
