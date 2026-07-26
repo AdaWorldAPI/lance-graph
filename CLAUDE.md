@@ -326,6 +326,30 @@ updating the relevant board file in the SAME commit is incomplete.**
 repository have to exclusively focus on the necessary updates in the public
 repository, and keep a separation of concerns.**
 
+### The falsifiability rule (P0, added 2026-07-26 — 7 instances in one session)
+
+**An assertion implied by the code it tests is not a test.** Before a test
+lands, answer: *what input would make this fail?* If none exists, delete or
+rewrite it.
+
+Measured instances, all found the same day (`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`):
+`assert!(results.len() <= 10)` where the code above it is
+`results.truncate(top_k)` with `top_k: 10`; `elimination_rate() > 0.0` (true
+of any input that eliminates anything); a `closed_class_guess` flag firing
+150/150; a "multipass" wave that was single-pass because every test used a
+one-hop chain (`E-MULTIPASS-WAS-SINGLE-PASS-1`).
+
+Consequences, non-negotiable for new work:
+- **A filter needs an anti-vacuity test** — assert the excluded set is
+  non-trivial (`kept * 3 < total`), not merely that filtering happened.
+- **A guard/channel needs a can-it-fire test** — prove it triggers on some
+  real input. A watchdog that cannot bark is the defect one level up.
+- **A doc-comment claim is not a behaviour.** If the prose says "multipass",
+  "95% skipped", or "prunes N×", a test must exercise the claim or the claim
+  must be labelled *claimed, unverified*.
+- **Prefer `== N` over `>= N`** when reading a schema'd file; a permissive
+  arity guard is a silent-misread waiting for a schema change.
+
 The governance files are APPEND-ONLY (prepend new entries; never
 edit past entries except the `**Status:**` / `**Confidence:**`
 lines). The retroactive-hygiene commit pattern (merge PR → later
