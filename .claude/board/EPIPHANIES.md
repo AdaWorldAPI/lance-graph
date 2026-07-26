@@ -1,3 +1,26 @@
+## 2026-07-26 — E-TRAJECTORY-DISTANCE-IS-A-TRUE-METRIC-1 — the meta-basin outlier layer upgraded from exact-match to **CHAODA relative-density scoring over a proven integer metric** — and the metric's design is where the honesty lives: `escalated` is categorical, `terminal_offset: None` is a real group, and both are test-pinned as such rather than quietly folded onto a number line.
+
+**Status:** SHIPPED. **Confidence:** High — 305 planner tests green (17 in-module), clippy `-D warnings` clean, and **zero pre-existing assertions removed** (verified by diffing the pre-CHAODA commit: 686 insertions, 0 assertions deleted).
+
+**The metric** (`trajectory_distance(a, b) -> u32`, integer throughout — floats would make tie structure depend on rounding, and a ranking that reorders between runs is not auditable):
+
+- `hops` is the only genuinely **ordinal** axis → `4·|Δh|`.
+- **`escalated` is CATEGORICAL, not a magnitude.** It says the chain left the horizon — a different *mode* of resolution, not more of the same one. Flat weight 12 on mismatch, never scaled by the other axes; pinned by `escalation_is_categorical_not_a_continuous_axis`.
+- **`terminal_offset: None` is a real group, never an imputed zero.** `None/None = 0`, `Some/Some = min(|Δ|, 32)`, `None/Some = 16` flat. The test that makes this real: `d(None, Some(0)) == d(None, Some(7))` — *`None` is not a point on the offset axis*. This is the absent-≠-zero discipline enforced inside a distance function, which is exactly where it usually leaks.
+- Proven a **true metric** (symmetry, identity-of-indiscernibles, triangle inequality) over a sampled space, and it *generalizes* the shipped rule: zero shape-distance ⟺ `same_meta_basin`. The offset cap exists only to keep the triangle inequality total over every `i8`; unreachable inside a ±8 window, so it changes no real reading.
+
+**The CHAODA move:** `anomaly(i) = reach(i)·k·1000 / Σ reach(neighbours)` — anomaly relative to the **local** manifold, not a global cut, so a legitimately sparse region does not report all its members as strange. A lone row reads neutral: *alone is not anomalous*. Fixed-point at 1000, saturating.
+
+**Perturbation upgraded from a bool to a fraction:** `stability_sweep(.., budgets) -> Stability{stable, probed}` with `fraction_milli()`; the old bool survives as a wrapper, and a test asserts the two agree over the same budgets — so the improvement cannot silently disagree with the shipped semantics.
+
+**Suggestion-only contract intact:** `OutlierSuggestion` gains an `anomaly` score and a `DensityAnomaly` reason; `ranked_outlier_suggestions` subsumes the coarse path (coarse reason wins per row, density-only rows appended, deterministic ordering) with `ranked_path_subsumes_the_coarse_path_without_reclassifying` proving no row changes classification. The score RANKS; it never decides.
+
+**Anti-inertness, now the house rule (`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`), applied without being asked:** `density_score_discriminates_a_planted_outlier` (a planted row strictly outscores every cluster member) AND its converse `a_uniform_spread_reports_no_anomaly` (it does not just fire on everything). Both directions — a discriminator that always fires is as useless as one that never does.
+
+**Limits left open honestly, in-doc and in the tag file:** weights (4/12/16) and the anomaly threshold (1500) are **hand-tuned, not Jirak-bound-derived** — and say so, per `I-NOISE-FLOOR-JIRAK`'s requirement that hand-tuned thresholds declare themselves; `k=3` is unvalidated against a real tail-size distribution; `density_scores` is O(n² log n), fine for ±8..±64 windows and NOT whole-stream; and this is the **flat-kNN relative-density member** of the CHAODA family, not the full ensemble over a CLAM cluster tree — the hierarchical manifold is absent, so the name is used narrowly and deliberately.
+
+Refs: `E-SATURATION-SWITCHES-TO-PASSIVE-QUORUM-1` (whose "honest limits" section named this exact gap), `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1`, task #25.
+
 ## 2026-07-26 — E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1 — **seven instances in ONE session of the same defect: an assertion implied by the code it tests.** This is not a run of bad luck, it is a house style — and it is why a "multipass" wave stayed single-pass and a 12.76%-wrong rail stayed trusted. Promoted to a P0 rule in `CLAUDE.md`.
 
 **Status:** RULING (promoted to `CLAUDE.md`). **Confidence:** High — every instance verified at file:line.
