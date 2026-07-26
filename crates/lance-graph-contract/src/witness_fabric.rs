@@ -389,6 +389,103 @@ pub fn standing_wave_stratified(
     }
 }
 
+/// **The passive quorum mantissa** — what discriminates once admissibility no
+/// longer can.
+///
+/// At [`RungLevel::Transcendent`](crate::cognitive_shader::RungLevel::Transcendent)
+/// every one of the 34 tactics is admissible, so the rung gate has no
+/// discriminating power left. Continuing to pick a *dominant* tactic there is
+/// eigenvalue-following with nothing to justify it. The discrimination must
+/// switch from ACTIVE selection to **PASSIVE observation of agreement**: how
+/// much of the window converges on the same absolute events, as a magnitude.
+///
+/// Returns a `0..=15` mantissa (i4 range, so it lands in the existing qualia
+/// nibble carving without widening anything): `0` = no peer agrees, `15` =
+/// saturated agreement.
+///
+/// # Hindsight-blindness is prevented BY THE SIGNATURE, not by discipline
+///
+/// This function cannot see any resolution, verdict, settle pass, or outcome —
+/// it takes only the window. That is deliberate and load-bearing: a quorum that
+/// could observe the answer would weight the peers that "turned out right",
+/// which is textbook hindsight bias — every past state reads as having pointed
+/// at the settled result. Because the outcome is *unavailable at the type
+/// level*, no future edit can quietly introduce that weighting without changing
+/// the signature and failing review.
+///
+/// The same no-self-reference rule as [`elect_peers`] applies: only
+/// [`CONTENT_LOCI`] contribute — the social loci (Quorum, Contradiction) are
+/// what this COMPUTES and so must not be read as input.
+#[must_use]
+pub fn quorum_mantissa(focal_idx: usize, window: &[(usize, CausalWitnessFacet)]) -> u8 {
+    let Some(&(focal_pos, focal)) = window.get(focal_idx) else {
+        return 0;
+    };
+    let peers = window.len().saturating_sub(1);
+    if peers == 0 {
+        return 0;
+    }
+    // Total agreements observed, and the ceiling they are measured against.
+    let mut agreed = 0usize;
+    for (i, &(pos, peer)) in window.iter().enumerate() {
+        if i == focal_idx {
+            continue;
+        }
+        agreed += absolute_agreement(focal_pos, focal, pos, peer);
+    }
+    let ceiling = peers * CONTENT_LOCI.len();
+    if ceiling == 0 {
+        return 0;
+    }
+    // Scale into 0..=15 with saturating rounding-down (never claims more
+    // agreement than observed).
+    ((agreed * 15) / ceiling).min(15) as u8
+}
+
+/// The multi-hop causal **trajectory** of one locus — the shape the tail is
+/// graded by.
+///
+/// Rows that disagree (low [`quorum_mantissa`]) are not noise to discard; they
+/// are the tail worth riding. Grading them by *how* their causality resolved —
+/// hop count, whether it left the horizon, where it terminated — turns the tail
+/// into a clusterable feature space instead of a reject pile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct TrajectorySignature {
+    /// Hops taken to resolve (0 = resolved directly at the focal).
+    pub hops: u8,
+    /// The chain left the `±8` horizon or exhausted its budget.
+    pub escalated: bool,
+    /// Terminal signed offset, or `None` if it resolved to nothing locally.
+    pub terminal_offset: Option<i8>,
+}
+
+impl TrajectorySignature {
+    /// Two trajectories belong to the same **meta-basin** when they share hop
+    /// depth and escalation status — the causal SHAPE — regardless of which
+    /// absolute event they terminated on. Same shape, same basin; the terminal
+    /// offset then distinguishes MINI basins inside it.
+    #[must_use]
+    pub const fn same_meta_basin(self, other: Self) -> bool {
+        self.hops == other.hops && self.escalated == other.escalated
+    }
+}
+
+/// Compute the [`TrajectorySignature`] of one locus for one row.
+#[must_use]
+pub fn trajectory_of(
+    focal_idx: usize,
+    window: &[(usize, CausalWitnessFacet)],
+    locus: Locus,
+    max_hops: u8,
+) -> TrajectorySignature {
+    let r = resolve_chain(focal_idx, window, locus, max_hops);
+    TrajectorySignature {
+        hops: r.hops,
+        escalated: r.escalated,
+        terminal_offset: r.final_offset,
+    }
+}
+
 /// **E-CONTRADICTION-OPINION-1** — a stance/opinion is a row whose Contradiction
 /// locus stays BOUND across successive revisions (committed-contradiction
 /// persistence as first-class epistemic state). `revisions` is the same row's
@@ -595,6 +692,79 @@ mod tests {
         assert!(
             admissible < crate::recipes::RECIPES.len(),
             "rung 0 admitted the whole catalogue ({admissible}) — stratification inert"
+        );
+    }
+
+    #[test]
+    fn quorum_mantissa_is_passive_bounded_and_ordered() {
+        // No peers → no quorum (not "perfect agreement with nobody").
+        assert_eq!(quorum_mantissa(0, &[(0, w(&[(Locus::Kausal, -1)]))]), 0);
+        assert_eq!(quorum_mantissa(0, &[]), 0);
+
+        // Two rows pointing Kausal at the SAME absolute event agree; pointing at
+        // different events does not. Agreement must order the mantissa.
+        let agree = vec![
+            (5, w(&[(Locus::Kausal, -3)])), // → event 2
+            (7, w(&[(Locus::Kausal, -5)])), // → event 2
+        ];
+        let disagree = vec![
+            (5, w(&[(Locus::Kausal, -3)])), // → event 2
+            (7, w(&[(Locus::Kausal, -1)])), // → event 6
+        ];
+        let q_agree = quorum_mantissa(0, &agree);
+        let q_disagree = quorum_mantissa(0, &disagree);
+        assert!(
+            q_agree > q_disagree,
+            "agreement {q_agree} must exceed disagreement {q_disagree}"
+        );
+        // i4 range — lands in the existing nibble carving, never widened.
+        for win in [&agree, &disagree] {
+            assert!(quorum_mantissa(0, win) <= 15);
+        }
+    }
+
+    /// The hindsight guard is STRUCTURAL: the mantissa is a pure function of the
+    /// window, so re-running it after any amount of downstream resolution
+    /// returns the identical value. Nothing about the outcome can leak in.
+    #[test]
+    fn quorum_mantissa_cannot_see_the_outcome() {
+        let win = vec![
+            (5, w(&[(Locus::Kausal, -3), (Locus::Antecedent, 1)])),
+            (7, w(&[(Locus::Kausal, -5)])),
+            (6, w(&[(Locus::SMeaning, 2)])),
+        ];
+        let before = quorum_mantissa(0, &win);
+        // Resolve things — the "hindsight" a biased implementation would use.
+        let _ = standing_wave_stratified(0, &win, Locus::Kausal, 8);
+        let _ = elect_peers(0, &win);
+        let _ = trajectory_of(0, &win, Locus::Antecedent, 8);
+        assert_eq!(
+            before,
+            quorum_mantissa(0, &win),
+            "mantissa moved after resolution — hindsight leaked in"
+        );
+    }
+
+    #[test]
+    fn trajectories_group_by_causal_shape_not_by_target() {
+        let win = vec![
+            (0, w(&[(Locus::Antecedent, 1)])),
+            (1, CausalWitnessFacet::ZERO),
+            (2, w(&[(Locus::Antecedent, 1)])),
+            (3, CausalWitnessFacet::ZERO),
+        ];
+        let a = trajectory_of(0, &win, Locus::Antecedent, 8);
+        let c = trajectory_of(2, &win, Locus::Antecedent, 8);
+        // Same causal SHAPE (same hop depth, same escalation) → same meta-basin,
+        // even though they terminate on different absolute events.
+        assert!(a.same_meta_basin(c));
+        // An escalating chain is a DIFFERENT shape, never merged in.
+        let far = vec![(0, w(&[(Locus::Antecedent, 7)]))];
+        let e = trajectory_of(0, &far, Locus::Antecedent, 8);
+        assert!(e.escalated);
+        assert!(
+            !a.same_meta_basin(e),
+            "escalated chain merged into a settled basin"
         );
     }
 

@@ -1,3 +1,30 @@
+## 2026-07-26 — E-SATURATION-SWITCHES-TO-PASSIVE-QUORUM-1 — **at the top of the ladder the gate stops discriminating, so discrimination switches from ACTIVE selection to PASSIVE quorum** — and the tail is then ridden, not discarded: graded by multi-hop causal trajectory, meta-clustered on causal SHAPE, split into mini-basins, and reported as SUGGESTIONS with the anti-eigenvalue guard re-applied at the meta level.
+
+**Status:** SHIPPED (contract + planner). **Confidence:** High — 1050 contract + 289 planner tests green, clippy + fmt clean.
+
+**The saturation problem (operator-named).** Once the rung reaches `Transcendent`, all 34 tactics are admissible and the gate has zero discriminating power left. Continuing to pick a *dominant* tactic there is eigenvalue-following with nothing left to justify it. So the mode changes:
+
+1. **`witness_fabric::quorum_mantissa(focal, window) -> u8` (0..=15).** Passive: it OBSERVES how much of the window converges on the same absolute events instead of selecting a winner. i4 range so it lands in the existing qualia nibble carving — nothing widened.
+
+2. **Hindsight-blindness is prevented BY THE SIGNATURE, not by discipline.** The function cannot see any resolution, verdict, settle pass, or outcome — it takes only the window. A quorum able to observe the answer would weight the peers that "turned out right", which is textbook hindsight bias (every past state reads as having pointed at the settled result). Because the outcome is *unavailable at the type level*, no future edit can quietly reintroduce that weighting without changing the signature and failing review. Test `quorum_mantissa_cannot_see_the_outcome` re-runs it after wave resolution, peer election, and trajectory computation and asserts the value is unmoved. The same no-self-reference rule as `elect_peers` holds: only the 14 CONTENT loci contribute — Quorum/Contradiction are what this computes.
+
+3. **Ride the tail, graded by trajectory.** `TrajectorySignature { hops, escalated, terminal_offset }` + `trajectory_of()`. Low-quorum rows are not a reject pile; they become a clusterable feature space. `same_meta_basin()` groups on causal SHAPE (hop depth + escalation) regardless of terminus — so the terminus is left free to distinguish mini-basins inside.
+
+4. **`planner::nars::meta_basin`** — `grade_rows` → `tail` → `meta_cluster` → `mini_basins` → `outlier_suggestions`.
+
+**The anti-eigenvalue discipline re-applied at the META level (the operator's explicit instruction — the same failure recurs in a new costume):**
+- **Perturbation stability** (`MetaBasin::stable_under_perturbation`): a basin that dissolves when the hop budget is nudged was an artifact OF THE BUDGET, not a structure in the data. Riding it is perturbation blindness. Singletons are spared (nothing to dissolve); the call is total across budgets 0..=255.
+- **Mini-basins are searched inside EVERY meta-basin, never only the largest** — sub-structure in a small basin is exactly what a dominant-mode reader discards. `meta_cluster` likewise keeps singletons, and a test asserts no row is ever lost (`total == graded.len()`).
+- **Deterministic ordering everywhere** — suggestions that varied run to run would not be auditable.
+
+**Outliers SUGGEST, never decide (operator: "make only suggestion what they are outliers").** `OutlierSuggestion { row, reason, basin_size }` with `OutlierReason::{SoloTerminus, UnstableBasin, IsolatedAndEscalating}`. It carries the basin size it was judged against, so a weak suggestion from a small basin is *visible to the consumer* rather than asserted at it. Nothing prunes, commits, or scores. `UnstableBasin` is deliberately read as "the grouping may be an artifact", NOT "this row is wrong". Same shape as `WaveGrounding::Escalate` and `peripheral_dissent`: a signal.
+
+**Guards against inertness (the failure this workspace has now caught three times — vacuous `closed_class_guess`, the never-firing gate, the never-barking watchdog):** `suggester_can_actually_fire` proves the channel emits on a real window; `suggestions_are_advisory_and_evidenced` proves every suggestion carries justification and that repeated runs are identical.
+
+**Honest limits:** meta-clustering is exact-match on causal shape, not a metric clustering — CHAODA-style density outliers over the trajectory space are the natural next rung and are NOT implemented here (`mini_basins` splits on terminal equality, which is a coarse proxy). Perturbation tests ONE nudge direction (the caller's `perturbed_hops`), not a sweep. Both are honest floors to improve on, not claims already met.
+
+Refs: `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1` (the one-level-down guard this generalizes), `E-RUNG-STRATIFIED-WAVE-SHIPPED-1`, `E-GRAMMAR-LOCAL-CAUSAL-ABSOLUTE-1`, task #24.
+
 ## 2026-07-26 — E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1 — **operator caution, acted on: optimizing the dominant mode blinds the periphery.** The rung gate shipped hours earlier was a HARD prune with an early stop — a locus that grounds cheaply was never examined by the 30 tactics its rung excluded. Fixed by making the periphery addressable, spread-sampled, and able to force elevation — never to decide.
 
 **Status:** SHIPPED (contract + planner). **Confidence:** High — 1047 contract + 283 planner tests green, clippy + fmt clean.
