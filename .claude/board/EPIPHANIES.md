@@ -1,3 +1,24 @@
+## 2026-07-26 — E-DISPERSION-CLOSED-CLASS-DETECTION-FAILS-1 — **NEGATIVE RESULT, and it survives the fairness check I ran to rescue it.** A rank-matched dispersion z-score does NOT beat `rank<=150` at finding German closed-class words (F1 0.280 vs 0.388). The redirect is worth more than the fix: with a parallel corpus, closed-class labels should be TRANSFERRED through alignment, not detected monolingually.
+
+**Status:** FINDING (negative). **Confidence:** High for the negative; the redirect is CONJECTURE until D-RCC-3 alignment exists to test it.
+
+**Measured** (`rosetta/closed_class.py`; ground truth `de/lexicon.tsv`, 95,855 UD word forms; closed = {DET, ADP, PRON, AUX, CCONJ, SCONJ, PART}; numerals/other excluded; 13,709 scored tokens across both German lanes):
+
+| | precision | recall | **F1** |
+|---|---:|---:|---:|
+| rank-matched dispersion z-score | 0.194 | 0.506 | **0.280** |
+| old `rank<=150` baseline | 0.545 | 0.301 | **0.388** |
+
+**I tried to rescue it and the arithmetic said no.** My instinct was that the comparison is structurally unfair — the baseline can flag at most 150 tokens BY CONSTRUCTION, making its precision cheap. Checked: the scored set holds ~272 true closed-class tokens, so the baseline's recall CEILING is 0.552 and it sits at 0.301 — 55% of its structural max, i.e. NOT saturated. Meanwhile the new detector spends **4.7× the flag budget (708 vs 150) to find 137 vs 82** — at nearly five times the cost it recovers 50.6%, still below what the trivial rank rule could reach. The comparison is fair; the detector genuinely loses. Recording the failed rescue because defending one's own hypothesis with a metric argument is precisely the bias this session keeps catching.
+
+**Why dispersion fails here, plausibly:** in a religious corpus the highest-dispersion words include content words that appear everywhere (`God`, `Lord`, `said`). "Evenly spread" separates *ubiquitous* from *local*, which is a different axis than *function* vs *content*. Tuning was a declared 648-config grid maximising F1 on the validation set with NO held-out split, so 0.280 is an optimistic upper bound.
+
+**The redirect (the value of the negative).** Monolingual detection is the wrong tool when a parallel corpus is available. English has BOTH UD POS tags and WordNet; Czech and Greek have neither. The Rosetta lanes give word alignment (D-RCC-3) over a frozen key — so **a Czech token aligned to an English closed-class token IS closed-class**, by transfer, with no detector at all. Closed-class words are also the highest-frequency, most reliably-aligned tokens in any parallel corpus, i.e. exactly where alignment is most trustworthy. A failed heuristic is replaced by machinery already justified for other reasons, and it extends to Greek (now acquired) for free.
+
+**Czech arm, honestly unvalidated:** with the German-tuned config it flags 837/40,100 tokens (2.09%); the top-30 are mostly plausible function words (`a`, `se`, `i`, `v`, `na`, `mezi`, `nad`, `pro`) with visible false positives (`loket`/`loktů`, "cubit"). Plausible-looking output from a detector that measurably fails on the one language where truth is known is NOT evidence — it is the confirmation bias this workspace has a rule against. Illustrative only.
+
+**Consequence for D-RCC-4:** the POS router now has **two failed inputs** (`closed_class_guess` vacuous per `E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1`; dispersion z-score negative here) and one measured survivor — the per-word ladder-usefulness signal from `E-COVERAGE-INVERSION-CLAIM-REFUTED-1`, which needs a wordnet and so covers English only. Alignment transfer is the path for everything else. Task #20 closed as answered-in-the-negative; transfer becomes its successor.
+
 ## 2026-07-26 — E-MULTIPASS-WAS-SINGLE-PASS-1 — **the "multipass Markov standing wave" was effectively SINGLE-pass for every chain longer than one hop.** The loop raised the hop budget precisely to give a chain more hops, then returned `Escalate` the instant a low budget was insufficient — aborting before the budget that resolves it. Found, empirically confirmed, fixed, regression-pinned.
 
 **Status:** BUG FOUND + FIXED. **Confidence:** High — reproduced with a throwaway probe on the main thread before touching anything, then pinned by a test that fails on the old code.
