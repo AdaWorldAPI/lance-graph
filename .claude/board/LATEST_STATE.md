@@ -1,3 +1,15 @@
+## 2026-07-26 — branch `claude/lance-graph-last-10-pr-z30uij` — D-SCI-1 Phase 2: witness-gated construction licenses (PROIEL Greek NT)
+
+### Current Contract Inventory — new grammar witness module + planner example
+- `lance_graph_contract::grammar::witness` (`E-SCI-1-WITNESS-CONSTRUCTION-LICENSE-1`) — typed construction licenses from source-language treebanks (treebank-agnostic): `VoiceClass` (Active/Passive/Middle/±Deponent(reserved)/Ambiguous; `from_proiel_code`, `licenses_agentive` — Middle licenses, Passive does not), `WitnessDisposition` (Confirmed/Compatible/Contradicted(reserved — ordering never justifies it)/TextAbsent/AlignmentUnknown — the latter two NEVER block), `ClauseSignature` (dependency-first: `has_fronted_argument` counts `obj`+`obl` because government verbs like ἀκούω+genitive make case lie; `licenses_fronted_object_active`; edition/tradition in the evidence address). 4 unit tests; contract 1037 green.
+- `lance_graph_planner::examples::insight_witness_gated_read` — PROIEL greek-nt.xml → per-citation `ClauseSignature`s; the generation/elimination law (generation = English OR witness evidence; elimination = all typed constraints); fronted-NP-object candidate commits ONLY under a license, pronoun-case commitments stay witness-independent with receipts. Falsifier: Acts 3:22 Confirmed (fronted `obl` + Middle — the government-verb path), Acts 7:37 TR clause TextAbsent (surfaced, not vetoed), Deut 6:13 TextAbsent (out-of-corpus), `a prophet shall the lord your god raise up` Phase-1-miss → licensed `god—raise→prophet`, negative control held. PROIEL data gitignored (`examples/data/proiel/`, CC BY-NC-SA).
+
+## 2026-07-26 — branch `claude/lance-graph-last-10-pr-z30uij` — D-SCI-1 Phase 1: right-corner delayed clause commitment (KJV OSV)
+
+### Current Contract Inventory — new grammar cue catalogue + planner example
+- `lance_graph_contract::grammar::clause_cues` (`E-SCI-1-RIGHT-CORNER-DELAYED-COMMITMENT-1`) — delayed-clause-commitment cue catalogues: `pronoun_case` (Nominative `I/he/she/we/they/thou/ye` · Accusative `me/him/us/them/thee` · **Ambiguous** `you/it/her` — case-eroded, never decisive) + the modal spine `is_modal_aux`/`modal_tense` (incl. KJV `shalt`/`wilt`; shall→Future, might→Potential). Zero-dep catalogues, not algorithms. 4 unit + 2 doctests.
+- `lance_graph_planner::examples::insight_right_corner_read` — the `AwaitingClause` scan: `O AUX S V` → canonical ACTIVE `S —V→ O`, tense off the modal, Ambiguous-fronted never commits (honest incompleteness beats a wrong parse); coexists with the left-corner control. Live whole-KJV run: 21 commitments, 21/21 defensible (`ye—hear→him`, `thou—serve→him`, `i—pray→thee`, …; was 6 before the codex/CR #849 round: split `:?!,` + connective/recipient-PP skip, `unto`/`to` only). Phases 2-4 queued in the epiphany.
+
 ## 2026-07-23 — branch `claude/lance-graph-last-10-pr-z30uij` — D-SCI-1 TEKAMOLO value tenant + the new reasoning wired via SPO-G + all tenants
 
 ### Current Contract Inventory — new value tenant + wired-reasoning example

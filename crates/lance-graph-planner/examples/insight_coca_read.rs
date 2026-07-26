@@ -97,8 +97,14 @@ impl Coca {
         let mut lex = HashMap::new();
         for l in load_lines("lexicon.tsv")? {
             let mut it = l.split('\t');
-            if let (Some(w), Some(lemma), Some(pos)) = (it.next(), it.next(), it.next()) {
-                lex.insert(w.to_string(), (lemma.to_string(), pos.as_bytes()[0]));
+            // Guard the first byte: an empty PoS field is skipped, never a
+            // panic (CodeRabbit #849 hardening, applied to the shared pattern).
+            if let (Some(w), Some(lemma), Some(&pos)) = (
+                it.next(),
+                it.next(),
+                it.next().and_then(|p| p.as_bytes().first()),
+            ) {
+                lex.insert(w.to_string(), (lemma.to_string(), pos));
             }
         }
         let pair = |name: &str| -> Result<HashSet<(String, String)>, String> {
