@@ -1,3 +1,26 @@
+## 2026-07-26 — E-D-RCC-3-ALIGNER-SHIPPED-DICE-NOT-BETTER-1 — the corpus-derived word aligner works, the `tongue → Zunge/Sprache` regression anchor **reproduced**, and **Dice did NOT beat PMI** (81% top-1 agreement, disagreements confined to the thin-frequency tail). Coverage is a hard floor at `cooc>=5`, not a soft degradation — hapax alignment is 0.0%, stated rather than smoothed.
+
+**Status:** SHIPPED (D-RCC-3). **Confidence:** High — anchors and coverage bands re-read on the main thread.
+
+**Built:** `rosetta/build_alignment.py`, stdlib-only, no external lexicon (so no licence is inherited — the reason this is derived rather than downloaded). First implementation was a full-vocab cross-product that timed out (>120 s on 12k×30k); rewritten as **sparse per-verse co-occurrence accumulation** — walk each shared verse once, record only pairs that actually co-occur → **13.7 s for both language pairs**. The naive shape was O(|V_src|·|V_tgt|) over a space that is almost entirely zeros.
+
+| pair | shared rows | source tokens | coverage |
+|---|---:|---:|---:|
+| en→de (kjv→luther1545, Psalms excluded) | 28,636 | 12,266 | 39.2% |
+| en→el (kjv→tischendorf, NT-only) | 7,895 | 5,960 | 30.7% |
+
+**The regression anchor held:** `tongue → zunge(57, pmi 8.08) / zungen(14) / sprache(7, pmi 6.44)` — the body-part vs language split, reproducing the known-good D-RCC-1 §C result under a completely different code path. That is the check that would have caught a silent regression, and it is the reason it was specified in the brief as mandatory.
+
+**Dice vs PMI — a NEUTRAL result, reported as such.** 81.2% / 81.6% top-1 agreement across the two pairs; disagreements cluster in the thin-frequency tail (PMI overweights rare pairs, Dice underweights strong-but-common ones). Neither is declared the winner. The standard "upgrade" did not upgrade, and saying so is worth more than a defensible-sounding preference.
+
+**`grape` looked like an aligner failure and was not** — the singular appears in only 8 verses and surfaced stopword noise (`die`/`der`/`und`). Diagnosed to **tokenisation fragmentation**: with no lemmatiser, `grape` ≠ `grapes`, and the real signal was hiding behind the surface split — `grapes → trauben, pmi 9.54`. The correct read is "the corpus evidence is under a different key", not "the method failed". This is the same lemmatisation limit `E-RCC-1-V2-SPLIT-SURVIVES-NORMALISATION-1` measured (48.9%→43.0%), surfacing in a second place.
+
+**Coverage is a CLIFF, not a slope:** hapax 0.0%, low (5–19) ~76–90%, mid/high 100%. That is the `cooc>=5` floor doing exactly what it says — a hard gate, so rare vocabulary gets *nothing* rather than a weak guess. Honest, and the right default for an anchoring pipeline where a confident wrong alignment is the expensive failure (`E-...-Erbsünde`). It does mean the long tail needs a different instrument, not a lower threshold.
+
+**Unblocks:** task #30 — closed-class labels can now TRANSFER from English (UD POS + WordNet) to Czech/Greek through the alignment, replacing the monolingual detector that failed measurably (`E-DISPERSION-CLOSED-CLASS-DETECTION-FAILS-1`). Note the coverage cliff is *favourable* here: closed-class words are all high-frequency, i.e. exactly the 100%-coverage band.
+
+Refs: plan `rosetta-codebook-convergence-v1.md` D-RCC-3, `E-PD-GREEK-LANE-ACQUIRED-TISCHENDORF-1` (the Greek lane this aligns), task #30.
+
 ## 2026-07-26 — E-TRAJECTORY-DISTANCE-IS-A-TRUE-METRIC-1 — the meta-basin outlier layer upgraded from exact-match to **CHAODA relative-density scoring over a proven integer metric** — and the metric's design is where the honesty lives: `escalated` is categorical, `terminal_offset: None` is a real group, and both are test-pinned as such rather than quietly folded onto a number line.
 
 **Status:** SHIPPED. **Confidence:** High — 305 planner tests green (17 in-module), clippy `-D warnings` clean, and **zero pre-existing assertions removed** (verified by diffing the pre-CHAODA commit: 686 insertions, 0 assertions deleted).
