@@ -39,6 +39,22 @@
 //! which may mean it is wrong, or may mean the basin is too coarse. The
 //! substrate is not entitled to that judgement, so it does not make it: same
 //! shape as `WaveGrounding::Escalate` and `peripheral_dissent` — a signal.
+//!
+//! # The metric upgrade — from exact match to density
+//!
+//! `E-SATURATION-SWITCHES-TO-PASSIVE-QUORUM-1` named its own floor: clustering
+//! by exact causal-shape equality is a proxy, not a metric — two trajectories
+//! one hop apart were as "far" as two five hops apart, and [`mini_basins`] split
+//! on terminal EQUALITY. [`trajectory_distance`] supplies the missing metric and
+//! [`density_scores`] a CHAODA-flavoured relative-density anomaly over it: a
+//! row's score is its own local sparsity divided by its neighbours', so an
+//! anomaly is *relative to its neighbourhood* rather than to a global cut.
+//!
+//! The metric is a strict generalization, not a replacement: at distance zero it
+//! agrees with `same_meta_basin` + terminal equality, so the coarse path
+//! ([`outlier_suggestions`]) keeps its exact prior behaviour and the metric path
+//! ([`ranked_outlier_suggestions`]) only RANKS what the coarse path could merely
+//! list.
 
 use lance_graph_contract::causal_witness::{CausalWitnessFacet, Locus};
 use lance_graph_contract::witness_fabric::{quorum_mantissa, trajectory_of, TrajectorySignature};
@@ -74,6 +90,210 @@ pub struct MiniBasin {
     pub members: Vec<GradedRow>,
 }
 
+// ── The metric over trajectory space ──────────────────────────────────────
+//
+// Integer weights, integer distance: floating point would make the ranking's
+// tie structure depend on rounding, and a suggestion that reorders between runs
+// is not auditable. Every weight below is a modelling choice, so each one states
+// what it claims.
+
+/// Cost of one hop of depth difference.
+///
+/// Hop count is genuinely ORDINAL — three hops is further from one hop than two
+/// is — so it is the one axis where a difference is a magnitude.
+pub const HOP_WEIGHT: u32 = 4;
+
+/// Cost of disagreeing about escalation.
+///
+/// `escalated` is CATEGORICAL, not a continuous axis: it says the chain left the
+/// horizon, which is a different *mode* of resolution rather than more of the
+/// same one. So it contributes a flat cost on mismatch and nothing on agreement
+/// — never a scaled difference. Its size (3 hops) says a mode change is a real
+/// separation but not an incommensurable one; that magnitude is hand-tuned and
+/// is stated as such (`I-NOISE-FLOOR-JIRAK` — a threshold without a derivation
+/// must admit it).
+pub const ESCALATION_WEIGHT: u32 = 12;
+
+/// Cost of one terminus being `None` while the other is `Some`.
+///
+/// `terminal_offset: None` means "resolved to nothing locally" — a REAL group,
+/// never a missing value. Imputing it (as 0, as a mean, as the nearest offset)
+/// would place every locally-unresolved row on top of the rows that resolved at
+/// the focal, which is the exact confusion the tail exists to avoid. It is
+/// therefore treated as its own category: zero distance to another `None`, a
+/// flat [`TERMINUS_KIND_WEIGHT`] to any `Some`, and no numeric relationship to
+/// the offset axis at all. The value equals the widest gap two termini can have
+/// inside the ±8 window, so "resolved nowhere" sits at the far edge of the
+/// terminus axis — not beyond it, which would let terminus kind outvote depth.
+pub const TERMINUS_KIND_WEIGHT: u32 = 16;
+
+/// Truncation applied to the offset difference.
+///
+/// Needed for the triangle inequality: without it a pair of far-apart `Some`
+/// offsets could exceed the two-hop route through `None`
+/// (`2 · TERMINUS_KIND_WEIGHT`) and [`trajectory_distance`] would not be a
+/// metric. Inside the ±8 window the cap is unreachable, so it changes no real
+/// reading — it only makes the metric claim true for every representable `i8`.
+pub const OFFSET_CAP: u32 = 2 * TERMINUS_KIND_WEIGHT;
+
+/// Fixed-point unit for [`DensityScore::anomaly`]. `1000` = exactly as dense as
+/// the neighbourhood; above = sparser, i.e. more anomalous.
+pub const DENSITY_SCALE: u32 = 1_000;
+
+/// Saturation ceiling for [`DensityScore::anomaly`], so an isolated row in a
+/// perfectly-collapsed neighbourhood reports "maximal" rather than overflowing.
+pub const ANOMALY_CEILING: u32 = 1_000_000;
+
+/// Distance between two causal trajectories.
+///
+/// A true metric (symmetric, zero iff identical, triangle inequality) — proven
+/// by `metric_axioms_hold_over_the_sampled_space`. Being a metric is what lets
+/// [`density_scores`] mean anything: a "local neighbourhood" is only well-defined
+/// if closeness composes.
+///
+/// The three axes compose additively because they answer independent questions:
+/// how deep (hops), in what mode (escalated), ending where (terminus).
+#[must_use]
+pub fn trajectory_distance(a: TrajectorySignature, b: TrajectorySignature) -> u32 {
+    let hop = HOP_WEIGHT * u32::from(a.hops.abs_diff(b.hops));
+    let esc = if a.escalated == b.escalated {
+        0
+    } else {
+        ESCALATION_WEIGHT
+    };
+    let term = match (a.terminal_offset, b.terminal_offset) {
+        (None, None) => 0,
+        (Some(x), Some(y)) => u32::from(x.abs_diff(y)).min(OFFSET_CAP),
+        // Categorical mismatch: never imputed, never scaled.
+        _ => TERMINUS_KIND_WEIGHT,
+    };
+    hop + esc + term
+}
+
+/// Neighbourhood size and flag threshold for the density pass.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DensityConfig {
+    /// Neighbours per row. Clamped to `len - 1`; `0` when a row is alone.
+    pub k: usize,
+    /// Anomaly at or above which [`ranked_outlier_suggestions`] will SUGGEST a
+    /// row the coarse path did not flag. `1500` = "half again as sparse as its
+    /// own neighbourhood" — hand-tuned, not bound-derived, and said so.
+    pub anomaly_threshold: u32,
+}
+
+impl Default for DensityConfig {
+    fn default() -> Self {
+        Self {
+            k: 3,
+            anomaly_threshold: 1_500,
+        }
+    }
+}
+
+/// One row's local density and the anomaly derived from it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DensityScore {
+    pub row: GradedRow,
+    /// Summed distance to the `k` nearest rows — LOW = dense, HIGH = sparse.
+    pub reach: u32,
+    /// `reach` relative to the mean `reach` of those same `k` neighbours, in
+    /// [`DENSITY_SCALE`] units. This is the CHAODA move: anomaly is measured
+    /// against the local manifold, not a global cut, so a legitimately sparse
+    /// region does not report every one of its members as an outlier.
+    pub anomaly: u32,
+    /// How many neighbours the score was computed against — `0` means the row
+    /// was alone and the score is the neutral [`DENSITY_SCALE`], never a flag.
+    pub neighbours: usize,
+}
+
+/// Local density + relative anomaly for every row, over [`trajectory_distance`].
+///
+/// Deterministic end to end: integer arithmetic only, and neighbour selection
+/// breaks distance ties on window index so the same input yields the same
+/// neighbourhoods in the same order.
+///
+/// Never mutates its input and never removes a row — every input row gets a
+/// score, including the ones the score will rank lowest.
+#[must_use]
+pub fn density_scores(rows: &[GradedRow], cfg: DensityConfig) -> Vec<DensityScore> {
+    let n = rows.len();
+    if n == 0 {
+        return Vec::new();
+    }
+    let k = cfg.k.min(n - 1);
+
+    // Pass 1 — k-nearest neighbours and the reach (summed distance) they imply.
+    let mut nbrs: Vec<Vec<usize>> = Vec::with_capacity(n);
+    let mut reach: Vec<u32> = Vec::with_capacity(n);
+    for (i, ri) in rows.iter().enumerate() {
+        let mut d: Vec<(u32, usize)> = rows
+            .iter()
+            .enumerate()
+            .filter(|&(j, _)| j != i)
+            .map(|(j, rj)| (trajectory_distance(ri.trajectory, rj.trajectory), j))
+            .collect();
+        // Explicit tie-break on position: equal distances must not reorder.
+        d.sort_unstable();
+        let take: Vec<usize> = d.iter().take(k).map(|&(_, j)| j).collect();
+        reach.push(d.iter().take(k).map(|&(dist, _)| dist).sum());
+        nbrs.push(take);
+    }
+
+    // Pass 2 — relative density. A row is anomalous when it is sparser than the
+    // rows it is nearest to, which is a different claim from "far from the mean".
+    rows.iter()
+        .enumerate()
+        .map(|(i, &row)| {
+            let denom: u64 = nbrs[i].iter().map(|&j| u64::from(reach[j])).sum();
+            let anomaly = if nbrs[i].is_empty() || denom == 0 {
+                if reach[i] == 0 {
+                    DENSITY_SCALE
+                } else {
+                    ANOMALY_CEILING
+                }
+            } else {
+                let num = u64::from(reach[i]) * nbrs[i].len() as u64 * u64::from(DENSITY_SCALE);
+                u32::try_from((num / denom).min(u64::from(ANOMALY_CEILING)))
+                    .unwrap_or(ANOMALY_CEILING)
+            };
+            DensityScore {
+                row,
+                reach: reach[i],
+                anomaly,
+                neighbours: nbrs[i].len(),
+            }
+        })
+        .collect()
+}
+
+/// How much of a perturbation SWEEP a basin survived.
+///
+/// A single nudge answers "did it survive THIS budget"; a fraction answers "how
+/// budget-dependent is it", which is the question the anti-eigenvalue discipline
+/// actually asks. `1000/1000` is a structure; `200/1000` is mostly an artifact
+/// of the budget; the consumer decides where the line is, because the substrate
+/// is not entitled to that judgement either.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Stability {
+    /// Budgets at which the basin still shared one causal shape.
+    pub stable: usize,
+    /// Budgets probed.
+    pub probed: usize,
+}
+
+impl Stability {
+    /// Stable fraction in [`DENSITY_SCALE`] units (`1000` = survived every
+    /// budget). An empty sweep reports `1000` — nothing falsified it.
+    #[must_use]
+    pub fn fraction_milli(&self) -> u32 {
+        if self.probed == 0 {
+            return DENSITY_SCALE;
+        }
+        u32::try_from(self.stable as u64 * u64::from(DENSITY_SCALE) / self.probed as u64)
+            .unwrap_or(DENSITY_SCALE)
+    }
+}
+
 /// Why a row was suggested as an outlier. Descriptive, never prescriptive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutlierReason {
@@ -86,6 +306,10 @@ pub enum OutlierReason {
     /// Low quorum AND an escalating chain — the row agrees with nobody and its
     /// causality leaves the local horizon.
     IsolatedAndEscalating,
+    /// Sparser in trajectory space than the rows nearest to it — the metric
+    /// reading the exact-match path cannot express. Only [`ranked_outlier_suggestions`]
+    /// emits it; the coarse path is unchanged.
+    DensityAnomaly,
 }
 
 /// A **suggestion** that a row is an outlier. Carries its evidence so a
@@ -97,6 +321,12 @@ pub struct OutlierSuggestion {
     /// Size of the basin the row was judged against — small basins make weak
     /// suggestions, and the consumer can see that rather than being told.
     pub basin_size: usize,
+    /// The row's [`DensityScore::anomaly`] within the tail it was judged in.
+    ///
+    /// This RANKS a suggestion; it never promotes one to a decision. A consumer
+    /// reading only `reason` gets exactly the prior behaviour; a consumer
+    /// reading `anomaly` gets an ordering over the same suggestions.
+    pub anomaly: u32,
 }
 
 /// Grade every row of a window: passive quorum + causal trajectory.
@@ -196,6 +426,11 @@ impl MetaBasin {
     ///
     /// Stable = the same member set still shares a shape at the perturbed
     /// budget. Returns `true` for singletons (nothing to dissolve).
+    ///
+    /// This is the ONE-DIRECTION convenience wrapper over
+    /// [`stability_sweep`](MetaBasin::stability_sweep). Testing a single nudge
+    /// cannot distinguish "structure" from "survived the one budget I happened
+    /// to pick"; prefer the sweep and read its fraction.
     #[must_use]
     pub fn stable_under_perturbation(
         &self,
@@ -220,6 +455,50 @@ impl MetaBasin {
         }
         true
     }
+
+    /// **Perturbation SWEEP** — survival across a range of hop budgets, as a
+    /// fraction rather than a verdict.
+    ///
+    /// One nudge tests one budget; a basin can survive that nudge and dissolve
+    /// at every other. Sweeping reports how budget-dependent the grouping is,
+    /// which is the quantity the anti-eigenvalue guard actually wants. Budgets
+    /// are probed in the order given and each is independent, so the result is
+    /// deterministic.
+    ///
+    /// Singletons report full stability at every budget — there is nothing in a
+    /// one-member basin that a budget could dissolve.
+    #[must_use]
+    pub fn stability_sweep(
+        &self,
+        window: &[(usize, CausalWitnessFacet)],
+        locus: Locus,
+        budgets: &[u8],
+    ) -> Stability {
+        Stability {
+            stable: budgets
+                .iter()
+                .filter(|&&p| self.stable_under_perturbation(window, locus, p))
+                .count(),
+            probed: budgets.len(),
+        }
+    }
+
+    /// The sweep's default range: budgets `0..=max_hops`, capped so the probe
+    /// stays bounded on a `255` budget. Centring on the caller's own budget is
+    /// the point — the question is "would a different budget have grouped these
+    /// rows differently", and only budgets the caller might plausibly have
+    /// chosen answer it.
+    #[must_use]
+    pub fn stability_around(
+        &self,
+        window: &[(usize, CausalWitnessFacet)],
+        locus: Locus,
+        max_hops: u8,
+    ) -> Stability {
+        let hi = max_hops.saturating_add(2).min(16);
+        let budgets: Vec<u8> = (0..=hi).collect();
+        self.stability_sweep(window, locus, &budgets)
+    }
 }
 
 /// **Suggest** which rows look like outliers — never decide.
@@ -243,8 +522,29 @@ pub fn outlier_suggestions(
 ) -> Vec<OutlierSuggestion> {
     let graded = grade_rows(window, locus, max_hops);
     let tail_rows = tail(&graded, tail_below);
+    let scores = density_scores(&tail_rows, DensityConfig::default());
+    coarse_flags(window, locus, perturbed_hops, &tail_rows)
+        .into_iter()
+        .map(|(row, reason, basin_size)| OutlierSuggestion {
+            row,
+            reason,
+            basin_size,
+            anomaly: anomaly_of(&scores, row.idx),
+        })
+        .collect()
+}
+
+/// The exact-match flagging the coarse path has always done, factored out so the
+/// metric path can reuse it verbatim rather than restate it (a restated rule
+/// drifts; a reused one cannot).
+fn coarse_flags(
+    window: &[(usize, CausalWitnessFacet)],
+    locus: Locus,
+    perturbed_hops: u8,
+    tail_rows: &[GradedRow],
+) -> Vec<(GradedRow, OutlierReason, usize)> {
     let mut out = Vec::new();
-    for basin in meta_cluster(&tail_rows) {
+    for basin in meta_cluster(tail_rows) {
         let size = basin.members.len();
         let stable = basin.stable_under_perturbation(window, locus, perturbed_hops);
         for mini in mini_basins(&basin) {
@@ -258,14 +558,79 @@ pub fn outlier_suggestions(
                 } else {
                     continue;
                 };
-                out.push(OutlierSuggestion {
-                    row,
-                    reason,
-                    basin_size: size,
-                });
+                out.push((row, reason, size));
             }
         }
     }
+    out
+}
+
+/// Neutral [`DENSITY_SCALE`] when a row has no score — a missing score is not
+/// evidence of anomaly.
+fn anomaly_of(scores: &[DensityScore], idx: usize) -> u32 {
+    scores
+        .iter()
+        .find(|s| s.row.idx == idx)
+        .map_or(DENSITY_SCALE, |s| s.anomaly)
+}
+
+/// **Suggest and RANK** — the metric path.
+///
+/// Subsumes [`outlier_suggestions`] and adds two things exact matching cannot
+/// give: a [`OutlierReason::DensityAnomaly`] for rows that are sparse in
+/// trajectory space without tripping any exact-match rule, and a deterministic
+/// ORDER over all suggestions (descending anomaly, then window index — an
+/// explicit tie-break, because a ranking that reorders between runs is not
+/// auditable).
+///
+/// Exactly one suggestion per row: the coarse reason wins when a row has one, so
+/// upgrading a caller from [`outlier_suggestions`] never silently reclassifies a
+/// row it was already told about.
+///
+/// Still a SUGGESTION. The score orders the list; it does not license acting on
+/// it, and nothing here prunes, commits, or mutates the window.
+#[must_use]
+pub fn ranked_outlier_suggestions(
+    window: &[(usize, CausalWitnessFacet)],
+    locus: Locus,
+    max_hops: u8,
+    perturbed_hops: u8,
+    tail_below: u8,
+    cfg: DensityConfig,
+) -> Vec<OutlierSuggestion> {
+    let graded = grade_rows(window, locus, max_hops);
+    let tail_rows = tail(&graded, tail_below);
+    let scores = density_scores(&tail_rows, cfg);
+    let coarse = coarse_flags(window, locus, perturbed_hops, &tail_rows);
+
+    let mut out: Vec<OutlierSuggestion> = coarse
+        .iter()
+        .map(|&(row, reason, basin_size)| OutlierSuggestion {
+            row,
+            reason,
+            basin_size,
+            anomaly: anomaly_of(&scores, row.idx),
+        })
+        .collect();
+
+    // Density-only suggestions: a row the exact-match rules never reached, whose
+    // neighbourhood says it does not belong to it. `neighbours == 0` is excluded
+    // — a row alone has no neighbourhood to be anomalous against.
+    for s in &scores {
+        if s.neighbours > 0
+            && s.anomaly >= cfg.anomaly_threshold
+            && !coarse.iter().any(|&(r, _, _)| r.idx == s.row.idx)
+        {
+            out.push(OutlierSuggestion {
+                row: s.row,
+                reason: OutlierReason::DensityAnomaly,
+                basin_size: s.neighbours + 1,
+                anomaly: s.anomaly,
+            });
+        }
+    }
+
+    out.sort_by(|a, b| b.anomaly.cmp(&a.anomaly).then(a.row.idx.cmp(&b.row.idx)));
     out
 }
 
@@ -400,5 +765,320 @@ mod tests {
             !sug.is_empty(),
             "outlier suggester never fires — inert channel"
         );
+    }
+
+    // ── the metric ───────────────────────────────────────────────────────
+
+    /// A representative sweep of the trajectory space, including both terminus
+    /// kinds and both escalation states.
+    fn sample_space() -> Vec<TrajectorySignature> {
+        let mut v = Vec::new();
+        for hops in [0u8, 1, 3, 8, 255] {
+            for escalated in [false, true] {
+                for terminal_offset in [None, Some(-8i8), Some(0), Some(7), Some(127)] {
+                    v.push(TrajectorySignature {
+                        hops,
+                        escalated,
+                        terminal_offset,
+                    });
+                }
+            }
+        }
+        v
+    }
+
+    /// Density scoring is only meaningful if closeness composes — so the claim
+    /// that this IS a metric is asserted, not asserted-in-prose.
+    #[test]
+    fn metric_axioms_hold_over_the_sampled_space() {
+        let s = sample_space();
+        for &a in &s {
+            assert_eq!(trajectory_distance(a, a), 0, "identity of indiscernibles");
+            for &b in &s {
+                assert_eq!(trajectory_distance(a, b), trajectory_distance(b, a));
+                assert_eq!(
+                    trajectory_distance(a, b) == 0,
+                    a == b,
+                    "zero distance must mean identical, not merely similar"
+                );
+                for &c in &s {
+                    assert!(
+                        trajectory_distance(a, c)
+                            <= trajectory_distance(a, b) + trajectory_distance(b, c),
+                        "triangle inequality violated: {a:?} {b:?} {c:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// `None` is "resolved to nothing locally" — a real group. If it were ever
+    /// imputed to `0`, this row would collapse onto the rows that resolved at
+    /// the focal, which is the confusion the tail exists to keep apart.
+    #[test]
+    fn none_terminus_is_a_group_never_an_imputed_zero() {
+        let none = TrajectorySignature {
+            hops: 1,
+            escalated: false,
+            terminal_offset: None,
+        };
+        let zero = TrajectorySignature {
+            terminal_offset: Some(0),
+            ..none
+        };
+        let far = TrajectorySignature {
+            terminal_offset: Some(7),
+            ..none
+        };
+        assert_eq!(
+            trajectory_distance(none, none),
+            0,
+            "None clusters with None"
+        );
+        assert_eq!(trajectory_distance(none, zero), TERMINUS_KIND_WEIGHT);
+        // Categorical: the distance from None does NOT vary with the offset.
+        assert_eq!(
+            trajectory_distance(none, zero),
+            trajectory_distance(none, far),
+            "None was treated as a point on the offset axis"
+        );
+    }
+
+    /// `escalated` is a MODE, not a magnitude: a flat cost, never scaled by the
+    /// other axes.
+    #[test]
+    fn escalation_is_categorical_not_a_continuous_axis() {
+        for hops in [0u8, 5, 200] {
+            let a = TrajectorySignature {
+                hops,
+                escalated: false,
+                terminal_offset: Some(1),
+            };
+            let b = TrajectorySignature {
+                escalated: true,
+                ..a
+            };
+            assert_eq!(trajectory_distance(a, b), ESCALATION_WEIGHT);
+        }
+    }
+
+    /// The metric generalizes the shipped exact-match rule rather than replacing
+    /// it: same shape ⟺ zero distance on the two shape axes.
+    #[test]
+    fn zero_shape_distance_agrees_with_same_meta_basin() {
+        let s = sample_space();
+        for &a in &s {
+            for &b in &s {
+                let shape_only = trajectory_distance(
+                    TrajectorySignature {
+                        terminal_offset: None,
+                        ..a
+                    },
+                    TrajectorySignature {
+                        terminal_offset: None,
+                        ..b
+                    },
+                );
+                assert_eq!(shape_only == 0, a.same_meta_basin(b));
+            }
+        }
+    }
+
+    // ── the density score ────────────────────────────────────────────────
+
+    fn row(idx: usize, quorum: u8, hops: u8, escalated: bool, term: Option<i8>) -> GradedRow {
+        GradedRow {
+            idx,
+            pos: idx,
+            quorum,
+            trajectory: TrajectorySignature {
+                hops,
+                escalated,
+                terminal_offset: term,
+            },
+        }
+    }
+
+    /// A cluster plus one planted far row. A score that cannot separate them is
+    /// as useless as a gate that never gates — the failure this workspace has
+    /// now caught four times.
+    #[test]
+    fn density_score_discriminates_a_planted_outlier() {
+        let mut rows: Vec<GradedRow> = (0..6)
+            .map(|i| row(i, 1, 1 + u8::from(i % 2 == 0), false, Some(1)))
+            .collect();
+        // The plant: deep, escalating, resolved nowhere — far on all three axes.
+        rows.push(row(6, 1, 40, true, None));
+
+        let scores = density_scores(&rows, DensityConfig::default());
+        let planted = scores.iter().find(|s| s.row.idx == 6).unwrap();
+        for s in scores.iter().filter(|s| s.row.idx != 6) {
+            assert!(
+                planted.anomaly > s.anomaly,
+                "planted outlier ({}) did not outscore cluster member {} ({})",
+                planted.anomaly,
+                s.row.idx,
+                s.anomaly
+            );
+        }
+        assert!(
+            planted.anomaly > DENSITY_SCALE,
+            "planted outlier scored as dense as its neighbourhood"
+        );
+    }
+
+    /// Relative, not absolute: a uniformly-spread set has no outlier, because
+    /// every row is exactly as sparse as its neighbours. A score that reported
+    /// one anyway would be measuring size, not structure.
+    #[test]
+    fn a_uniform_spread_reports_no_anomaly() {
+        let rows: Vec<GradedRow> = (0..6).map(|i| row(i, 1, i as u8, false, Some(0))).collect();
+        for s in density_scores(&rows, DensityConfig::default()) {
+            assert!(
+                s.anomaly <= DensityConfig::default().anomaly_threshold,
+                "uniform row {} flagged at {}",
+                s.row.idx,
+                s.anomaly
+            );
+        }
+    }
+
+    #[test]
+    fn density_scores_are_deterministic_and_never_mutate_their_input() {
+        let rows: Vec<GradedRow> = (0..7)
+            .map(|i| row(i, i as u8 % 3, i as u8, i % 3 == 0, Some(i as i8 - 3)))
+            .collect();
+        let before = rows.clone();
+        let a = density_scores(&rows, DensityConfig::default());
+        let b = density_scores(&rows, DensityConfig::default());
+        assert_eq!(a, b, "density scoring is not deterministic");
+        assert_eq!(rows, before, "density scoring mutated its input");
+        assert_eq!(a.len(), rows.len(), "a row was dropped from the scoring");
+    }
+
+    /// A lone row has no neighbourhood to be anomalous against — it must read
+    /// neutral, never "maximally strange because it is alone".
+    #[test]
+    fn a_lone_row_is_neutral_not_anomalous() {
+        let s = density_scores(&[row(0, 0, 3, true, None)], DensityConfig::default());
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].neighbours, 0);
+        assert_eq!(s[0].anomaly, DENSITY_SCALE);
+        assert!(density_scores(&[], DensityConfig::default()).is_empty());
+    }
+
+    // ── the perturbation sweep ───────────────────────────────────────────
+
+    #[test]
+    fn stability_is_a_fraction_and_the_bool_wrapper_still_agrees() {
+        let win = vec![
+            (0, w(&[(Locus::Antecedent, 1)])),
+            (1, CausalWitnessFacet::ZERO),
+            (2, w(&[(Locus::Antecedent, 1)])),
+            (3, w(&[(Locus::Antecedent, 7)])),
+        ];
+        let graded = grade_rows(&win, Locus::Antecedent, 8);
+        let budgets: Vec<u8> = (0..=10).collect();
+        for b in meta_cluster(&graded) {
+            let sweep = b.stability_sweep(&win, Locus::Antecedent, &budgets);
+            assert_eq!(sweep.probed, budgets.len());
+            assert!(sweep.stable <= sweep.probed);
+            assert!(sweep.fraction_milli() <= DENSITY_SCALE);
+            // The fraction is the sweep, not a restatement of one nudge: the
+            // count must equal the number of budgets the bool wrapper accepts.
+            let by_wrapper = budgets
+                .iter()
+                .filter(|&&p| b.stable_under_perturbation(&win, Locus::Antecedent, p))
+                .count();
+            assert_eq!(sweep.stable, by_wrapper);
+            // Singletons have nothing to dissolve at ANY budget.
+            if b.members.len() < 2 {
+                assert_eq!(sweep.fraction_milli(), DENSITY_SCALE);
+            }
+            // Deterministic, and total over the default range.
+            assert_eq!(sweep, b.stability_sweep(&win, Locus::Antecedent, &budgets));
+            let _ = b.stability_around(&win, Locus::Antecedent, 255);
+        }
+        // An empty sweep falsifies nothing, so it claims full stability.
+        let lone = MetaBasin {
+            shape: TrajectorySignature::default(),
+            members: vec![],
+        };
+        assert_eq!(
+            lone.stability_sweep(&win, Locus::Antecedent, &[])
+                .fraction_milli(),
+            DENSITY_SCALE
+        );
+    }
+
+    // ── the ranked surface ───────────────────────────────────────────────
+
+    #[test]
+    fn ranked_suggestions_fire_are_ordered_and_stay_advisory() {
+        let win = vec![
+            (0, w(&[(Locus::Antecedent, 1)])),
+            (1, CausalWitnessFacet::ZERO),
+            (2, w(&[(Locus::Antecedent, 1)])),
+            (3, CausalWitnessFacet::ZERO),
+            (4, w(&[(Locus::Antecedent, 7)])),
+            (5, w(&[(Locus::Kausal, -1)])),
+        ];
+        let before = win.clone();
+        let cfg = DensityConfig::default();
+        let sug = ranked_outlier_suggestions(&win, Locus::Antecedent, 8, 2, 15, cfg);
+        assert!(
+            !sug.is_empty(),
+            "ranked suggester never fires — inert channel"
+        );
+        assert_eq!(win, before, "the ranked path mutated its window");
+        // Descending anomaly with an explicit index tie-break.
+        for pair in sug.windows(2) {
+            let (a, b) = (&pair[0], &pair[1]);
+            assert!(
+                a.anomaly > b.anomaly || (a.anomaly == b.anomaly && a.row.idx < b.row.idx),
+                "ranking is not totally ordered"
+            );
+        }
+        // One suggestion per row, each still evidenced.
+        let mut seen: Vec<usize> = sug.iter().map(|s| s.row.idx).collect();
+        seen.sort_unstable();
+        let mut dedup = seen.clone();
+        dedup.dedup();
+        assert_eq!(seen, dedup, "a row was suggested twice");
+        for s in &sug {
+            assert!(s.basin_size >= 1);
+            assert!(s.row.idx < win.len());
+        }
+        assert_eq!(
+            sug,
+            ranked_outlier_suggestions(&win, Locus::Antecedent, 8, 2, 15, cfg),
+            "ranking is not deterministic"
+        );
+    }
+
+    /// The coarse path keeps its exact prior classification — the metric only
+    /// adds; it never reclassifies a row a caller was already told about.
+    #[test]
+    fn ranked_path_subsumes_the_coarse_path_without_reclassifying() {
+        let win = vec![
+            (0, w(&[(Locus::Antecedent, 1)])),
+            (1, CausalWitnessFacet::ZERO),
+            (2, w(&[(Locus::Antecedent, 1)])),
+            (3, CausalWitnessFacet::ZERO),
+            (4, w(&[(Locus::Antecedent, 7)])),
+            (5, w(&[(Locus::Kausal, -1)])),
+        ];
+        let coarse = outlier_suggestions(&win, Locus::Antecedent, 8, 2, 15);
+        let ranked =
+            ranked_outlier_suggestions(&win, Locus::Antecedent, 8, 2, 15, DensityConfig::default());
+        for c in &coarse {
+            let r = ranked
+                .iter()
+                .find(|r| r.row.idx == c.row.idx)
+                .expect("ranked path dropped a coarse suggestion");
+            assert_eq!(r.reason, c.reason, "coarse reason was reclassified");
+            assert_eq!(r.basin_size, c.basin_size);
+        }
+        assert!(ranked.len() >= coarse.len());
     }
 }

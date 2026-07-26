@@ -1,0 +1,354 @@
+# EIGENVALUE SWEEP — task #24 — peripheral-blindness audit of every cost-discipline
+# mechanism in the stack. READ-ONLY. No code changed. No board file written but this one.
+# Agent: filigree/eigenvalue-sweep (Opus). Date: 2026-07-26.
+#
+# DOCTRINE APPLIED: E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1 +
+# E-SATURATION-SWITCHES-TO-PASSIVE-QUORUM-1. Three-part test per mechanism:
+#   T1 ENUMERABLE      — can the excluded set be listed at all?
+#   T2 SPREAD-SAMPLE   — can it be drawn from across its WHOLE range (not just the cheap edge)?
+#   T3 ESCALATION      — can something excluded force a deeper look (signal, never verdict)?
+# Severity is CONSEQUENCE, not elegance: silent-drop that a consumer reads as
+# absent-because-not-there > loud truncation against a declared budget.
+
+12 mechanisms audited. 1 clean pass (the reference). 2 pass-with-note. 4 partial. 5 fail.
+
+================================================================================
+PER-MECHANISM TABLE
+================================================================================
+
+--------------------------------------------------------------------------------
+M1. CamPqScanOp::cascade — stroke thresholds  ****WORST****
+    crates/lance-graph-planner/src/physical/cam_pq_scan.rs:92-105
+      :93   `if dt[0][cam[0] as usize] < self.heel_threshold  { survivors.push(idx) }`
+      :103  `if partial < self.branch_threshold               { refined.push(idx) }`
+    Strategy auto-selected by corpus size: api.rs:477
+      `let strategy = CamPqScanOp::select_strategy(cam_data.len() as u64);`
+      cam_pq_scan.rs:129-138  (>=100M -> IvfCascade, >=10M -> Cascade, else FullAdc)
+
+    EXCLUDED: every CAM code whose HEEL sub-distance >= heel_threshold (hand-tuned
+    absolute f32: 50.0 default, 5.0 in the cascade test path), then every survivor
+    whose HEEL+BRANCH partial >= branch_threshold (25.0 / 10.0). Two multiplicative
+    absolute-value cuts on a 6-subspace ADC sum. Neither is a bound on the FULL
+    distance, so the prune is NOT admissible — a candidate with a bad HEEL byte and
+    five excellent ones is discarded and provably could have been the true nearest.
+
+    T1 ENUMERABLE   FAIL — `continue`-equivalent drop. No count, no index kept, no
+                    stat struct at all. The rejected set does not exist after the loop.
+    T2 SPREAD       FAIL — nothing to sample.
+    T3 ESCALATION   FAIL — returns `Vec<(usize, f32)>` of length <= top_k with no
+                    flag. `FullAdc` and `Cascade` return DIFFERENT result sets for the
+                    same query and the caller cannot tell which ran.
+
+    SEVERITY: **CRITICAL**. Three compounding reasons:
+      (a) Production physical-operator path (`api.rs` CamSearch), not lab scaffolding.
+      (b) ZERO instrumentation — strictly worse than M2/M4, which at least count.
+      (c) The aggressiveness is coupled to CORPUS SIZE invisibly: cross 10M rows and
+          the same query silently switches from exact-over-ADC to threshold-pruned.
+          A consumer measuring recall on 1M rows learns nothing about 11M rows.
+    CLAIMED, UNVERIFIED: doc-comment ":24 99% rejection before full ADC". No test
+    measures rejection rate or recall. `test_cascade_rejection_rate` (:273-288) is
+    VACUOUS — its only assertion is `results.len() <= 10`, which is `truncate(10)`'s
+    postcondition and holds for any input whatsoever. This is precisely the
+    near-vacuous-filter failure E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1 names, and the
+    untested-claim failure E-MULTIPASS-WAS-SINGLE-PASS-1 names, in one function.
+
+--------------------------------------------------------------------------------
+M2. bgz-tensor cascade_attention — LEAF budget cutoff
+    crates/bgz-tensor/src/cascade.rs:240-243
+      `if leaf_count >= leaf_max { stats.eliminated_at[3] += 1; continue; }`
+      (`leaf_max = (total as f32 * config.leaf_budget) as usize`, :213)
+
+    EXCLUDED: every pair after the budget fills. **The cut is by ITERATION ORDER, not
+    by quality** — the loop is `for i in 0..n_q { for j in 0..n_k`. A pair at (31,31)
+    that survived HEEL+HIP+TWIG (i.e. is a strong match) is dropped because weaker
+    earlier-indexed pairs consumed the budget first. Stage-3 eliminations are
+    therefore NOT commensurate with stages 0-2, yet they land in the same
+    `eliminated_at` array and the same `elimination_rate()`.
+
+    T1 ENUMERABLE   PARTIAL — `CascadeStats::eliminated_at[0..4]` counts per stage
+                    (:79). A count is not an enumeration; indices are discarded.
+    T2 SPREAD       FAIL.
+    T3 ESCALATION   FAIL — `RouteAction::Escalate` exists in the sibling module but
+                    is not reachable from this function; a budget-dropped pair
+                    produces no signal.
+    SEVERITY: **HIGH**. The order-dependence is a latent correctness defect on top of
+    the blindness: identical data in a different row order yields a different active
+    set. Test `cascade_eliminates_most` (:308) asserts only `elimination_rate() > 0.0`
+    — again near-vacuous; it does not exercise the leaf budget at all.
+
+--------------------------------------------------------------------------------
+M3. SearchCascade HEEL/HIP/TWIG — per-hop beam truncation
+    crates/lance-graph/src/graph/neighborhood/search.rs:109, :149, :188, :242
+      `hits.sort_by_key(|h| h.distance); hits.truncate(config.k);`  (k default 50, :72)
+
+    EXCLUDED: the rank-(k+1..) tail at EACH of three hops. Compounding: a node
+    reachable only through a rank-51 intermediate is unreachable, and the loss is
+    multiplicative across HEEL->HIP->TWIG. Additionally `scent_only: true` (default)
+    ranks on ONE byte of an 8-byte ZeckF64 — the beam is decided on 1/8 of the signal.
+
+    T1 ENUMERABLE   PARTIAL — the tail is sorted and in hand the instant before
+                    `truncate`; it is simply dropped. Trivially enumerable, not enumerated.
+    T2 SPREAD       FAIL — `truncate` keeps exactly the cheap edge, the anti-pattern
+                    `peripheral_sample`'s stride was built to avoid.
+    T3 ESCALATION   FAIL.
+    SEVERITY: **HIGH**. `k` is a declared budget (loud in that sense), but the caller
+    receives a deduplicated union with no marker that any hop saturated. A hop that
+    truncated 10 candidates and one that truncated 10^5 are indistinguishable.
+
+--------------------------------------------------------------------------------
+M4. HHTL route table — RouteAction::Skip
+    crates/bgz-tensor/src/hhtl_cache.rs:439-442 (build) / :200-207 (lookup)
+      `if dist > weighted_p75 { routes[a*k+b] = RouteAction::Skip; continue; }`
+      out-of-range `(a,b)` also falls to `Skip` (:205) — a DIFFERENT meaning, same variant.
+
+    EXCLUDED: archetype PAIRS above a perceptually-weighted p75 of the observed
+    distance distribution. Note this is a data-derived percentile, not a magic
+    constant — better grounded than M1's hand-tuned absolutes.
+
+    T1 ENUMERABLE   PASS — the `routes` table is fully materialized k*k and
+                    persisted (`serialize`, :219). Every Skip pair is listable by
+                    scanning it. This is the strongest enumerability in the sweep.
+    T2 SPREAD       FAIL — no sampler over the Skip set; nothing strides it.
+    T3 ESCALATION   PARTIAL — `RouteAction::Escalate` exists and is assigned to the
+                    MIDDLE band (:473), i.e. to pairs that were NOT skipped. The
+                    escalation channel therefore does not serve the excluded set; it
+                    serves the undecided set. Skip is terminal.
+    SEVERITY: **MEDIUM**. Enumerable + persisted means the fix is cheap.
+    CLAIMED, UNVERIFIED: "95% of pairs skipped" (CLAUDE.md, and hhtl_cache.rs:9,:65).
+    No test in this crate measures the skip fraction or any recall against a
+    non-skipped baseline. Flag as claimed-unverified.
+
+--------------------------------------------------------------------------------
+M5. StepMask — masked-off template steps
+    crates/lance-graph-contract/src/step_mask.rs:98 (`without`), :151 (`next_live`)
+    EXCLUDED: steps whose bit is 0. The executor walk (`next_live`) skips them in
+    O(1) via trailing_zeros and never observes them.
+    T1 ENUMERABLE   PARTIAL — mathematically trivial (`full_for(n).0 & !mask.0`) but
+                    there is NO accessor for it. No `masked_off()`, no `complement()`.
+                    The type has `union`/`intersect`/`is_disjoint` but no complement.
+    T2 SPREAD       FAIL — no sampler.
+    T3 ESCALATION   FAIL — deliberately so; module doc (:17-24) rules that a mask is
+                    "Selection, NEVER control flow". An escalation channel would have
+                    to live beside the mask, not in it.
+    SEVERITY: **LOW-MEDIUM**. The mask is set by an explicit style/board decision, so
+    the exclusion is intentional and attributable, not an inference artifact. Still
+    worth a `peripheral()` accessor for symmetry with RungLevel.
+
+--------------------------------------------------------------------------------
+M6. foveated_descend — coarse-cluster periphery
+    crates/bgz17/examples/probe_foveated_descent.rs:94-141
+      `let fovea_clusters = &coarse_rank[..fovea_k];`  (:118)
+    EXCLUDED: `coarse_rank[fovea_k..]` — every non-fovea coarse cluster's 16 leaves,
+    never materialized. THIS IS A PROBE EXAMPLE, NOT PRODUCTION CODE.
+    T1 ENUMERABLE   PASS — `coarse_rank[fovea_k..]` is in hand and ranked; the
+                    function simply does not return it.
+    T2 SPREAD       FAIL — the fovea is by construction the nearest edge; nothing
+                    strides the eccentric tail.
+    T3 ESCALATION   PARTIAL — the file ships `brute_nearest` (:145) as an oracle and
+                    grades recall against it (:227-237). That is accountability by
+                    MEASUREMENT, which is the right shape for a probe, but it is an
+                    offline grade, not a runtime signal.
+    SEVERITY: **LOW** (as shipped — probe only). Would be HIGH if promoted to a
+    production descent without carrying a periphery channel. Flag as promotion-gate.
+
+--------------------------------------------------------------------------------
+M7. CLAM rho_nn — triangle-inequality cluster prune   [ndarray, read-only]
+    /home/user/ndarray/src/hpc/clam.rs:610-613
+      `if d_minus > rho { clusters_pruned += 1; continue; }`
+      `delta_minus = max(0, f(q,center) - radius)`  (:129-133)
+    EXCLUDED: subtrees whose lower-bound distance already exceeds rho.
+    T1 ENUMERABLE   PARTIAL — `clusters_pruned` is a count only (node indices are on
+                    the stack and discarded). BUT SEE BELOW.
+    T2 SPREAD       N/A
+    T3 ESCALATION   N/A
+    SEVERITY: **NONE — this is a clean pass, and the reason matters.** The prune is
+    ADMISSIBLE: given a distance satisfying the triangle inequality, `d_minus > rho`
+    is a proof that no point in the subtree can be within rho. The excluded set is
+    provably empty of qualifying results, so there is nothing for enumeration,
+    sampling, or escalation to recover. **An exact prune needs no peripheral channel;
+    a heuristic prune always does.** This is the correct discriminator for the whole
+    sweep and the reason M1/M2/M3 are severe while this is not.
+    ONE HONEST CAVEAT: the guarantee is conditional on `tree.dist` being a true
+    metric. I did not verify every distance function that can be installed on a
+    ClamTree; if a non-metric is admitted, this silently becomes a heuristic prune
+    with no channel — i.e. it would drop to CRITICAL. Not determinable without
+    reading every construction site in the sibling repo (out of scope, read-only).
+
+--------------------------------------------------------------------------------
+M8. Elevation cost model — PatienceBudget / ElevationOperator
+    crates/lance-graph-planner/src/elevation/operator.rs:103-158, budget.rs:16-27
+    EXCLUDED: **nothing.** This mechanism does not prune candidates; it ESCALATES the
+    execution level when latency / result-count / memory exceed budget (:118), and on
+    timeout (:138). It is a budget that elevates, not a budget that discards.
+    T1/T2 N/A. T3 PASS — escalation IS the whole mechanism.
+    Ceiling saturation is LOUD: at `level == ceiling` a timeout returns
+    `Err(ElevationError::Timeout)` (:150) rather than silently returning partial
+    results. This is the reference shape for "truncate loudly".
+    SEVERITY: **NONE**. Clean pass.
+
+--------------------------------------------------------------------------------
+M9. MUL gate — MulGateDecision
+    crates/lance-graph-planner/src/mul/gate.rs:36-79
+    EXCLUDED: nothing. `Sandbox{reason}` and `Compass` are escalation-shaped verdicts
+    carrying a reason string; no candidate set is discarded. Gates the whole query,
+    does not filter within it.
+    T1 N/A  T2 N/A  T3 PASS (Sandbox/Compass ARE the signal; `escalation.rs`
+    `boot_checklist` further splits Hard-gates from Soft-degrades).
+    SEVERITY: **NONE**. Clean pass. Minor note: `Sandbox` reasons are `String`
+    (allocating) while the contract sibling `mul::GateDecision` uses `&'static str`
+    to stay zero-alloc — a divergence, but not a blindness.
+
+--------------------------------------------------------------------------------
+M10. RungLevel gate — admissible vs peripheral recipes   ****THE REFERENCE****
+    crates/lance-graph-contract/src/recipes.rs:557 (`peripheral_recipes`),
+      :573 (`peripheral_sample`), planner/src/strategy/style_strategy.rs:121
+      (`peripheral_dissent`)
+    T1 ENUMERABLE   PASS — exact complement of `admissible_recipes`, partition
+                    test-pinned (|adm|+|per| == 34, disjoint).
+    T2 SPREAD       PASS — STRIDED sample, explicitly not the cheap edge; test
+                    asserts the sample reaches an ExtremelyHard tactic.
+    T3 ESCALATION   PASS — `peripheral_dissent` returns `Option<RungLevel>` (a rung to
+                    elevate to), and `peripheral_dissent_can_fire_and_never_decides`
+                    proves the score is bit-identical before/after the watchdog runs.
+    SEVERITY: **NONE**. This is what every other row should look like. Note it is also
+    the only mechanism in the sweep with an anti-inertness guard (a watchdog proven
+    able to bark).
+
+--------------------------------------------------------------------------------
+M11. SigmaTierBands::tier_for — Jirak-derived band thresholds
+    crates/sigma-tier-router/src/lib.rs:167-172
+    EXCLUDED: nothing. Maps a free-energy scalar to a tier 1..=10; saturates to 10
+    rather than dropping. Thresholds are DERIVED (Jirak 2016 p=3.0), not hand-tuned —
+    and the derivation is documented at the definition (:13-15, :176-180), satisfying
+    I-NOISE-FLOOR-JIRAK's "say so if hand-tuned".
+    SEVERITY: **NONE**. Classifier, not a prune. Included for completeness because it
+    superficially reads like a cutoff ladder.
+
+--------------------------------------------------------------------------------
+M12. recipe_dispatch::dispatch_order
+    crates/lance-graph-contract/src/recipe_dispatch.rs:188
+    Returns `[u8; 34]` — ALL 34 recipes, rung-ascending. An ORDERING, not a prune.
+    Nothing excluded. SEVERITY: **NONE**.
+
+================================================================================
+RANKING OF FAILURES (by consequence)
+================================================================================
+  1. M1  CamPqScanOp::cascade      CRITICAL  T1 F / T2 F / T3 F  + vacuous test
+  2. M2  cascade_attention LEAF    HIGH      T1 P / T2 F / T3 F  + order-dependent
+  3. M3  SearchCascade truncate    HIGH      T1 P / T2 F / T3 F  + compounds 3x
+  4. M4  HHTL RouteAction::Skip    MEDIUM    T1 P̶A̶S̶S̶ / T2 F / T3 P  + unverified 95%
+  5. M5  StepMask masked-off       LOW-MED   T1 P / T2 F / T3 F  (intentional excl.)
+  6. M6  foveated_descend          LOW       probe-only; promotion gate
+
+Clean passes (stated plainly, per the honesty rule): M7 CLAM rho_nn (admissible
+prune — needs no channel), M8 elevation (escalates, never discards), M9 MUL gate,
+M10 RungLevel (the reference), M11 sigma bands, M12 dispatch_order.
+
+CROSS-CUTTING FINDING. The sweep separates cleanly on ONE axis that is not "did
+someone add a periphery channel": **is the prune admissible (provably loses nothing)
+or heuristic (loses unknown amounts)?** M7 is admissible and therefore fine with
+only a counter. M1/M2/M3 are heuristic and have LESS instrumentation than the
+admissible one. That inversion is the finding: the stack instruments in inverse
+proportion to need.
+
+SECOND CROSS-CUTTING FINDING. Every heuristic prune in this sweep whose claim was
+checkable had a NEAR-VACUOUS TEST — `results.len() <= 10` where 10 is the truncate
+bound (M1), `elimination_rate() > 0.0` (M2). Both are true for any input. Consistent
+with E-MULTIPASS-WAS-SINGLE-PASS-1: the claim was never falsifiable, so nobody
+noticed it was unmeasured.
+
+================================================================================
+FIX SKETCH — M1 ONLY (CamPqScanOp::cascade)
+================================================================================
+The other five get no sketch on purpose; fix this one first and the pattern is
+reusable for M2/M3 verbatim.
+
+(1) ENUMERABLE COMPLEMENT.
+    `cascade()` currently returns `Vec<(usize, f32)>`. Give it a sibling that
+    returns the rejected set alongside, and keep the cheap signature delegating:
+
+      pub struct CascadeRejects {
+          /// Indices rejected at stroke 1 (HEEL), with their HEEL sub-distance.
+          pub at_heel:   Vec<(usize, f32)>,
+          /// Indices rejected at stroke 2 (HEEL+BRANCH), with their partial.
+          pub at_branch: Vec<(usize, f32)>,
+          /// Survivors that lost only to `truncate(top_k)` — a DIFFERENT kind of
+          /// exclusion (loud, budgeted) and must not be conflated with the two above.
+          pub at_topk:   Vec<(usize, f32)>,
+      }
+      fn cascade_instrumented(&self, dt, cam_data) -> (Vec<(usize,f32)>, CascadeRejects)
+
+    The three lanes must stay separate: `at_topk` is a declared budget, `at_heel` /
+    `at_branch` are heuristic guesses. Merging them would repeat M2's defect of
+    putting an order-artifact elimination in the same bucket as a quality one.
+    Cost note: retaining rejects is O(n) memory on a path whose point is to avoid
+    O(n) work — so this must be opt-in (a `collect_rejects: bool` on the op, or a
+    reservoir of bounded size, see (2)), never the default hot path.
+
+(2) WHAT "SPREAD SAMPLE" MEANS IN THIS SPACE.
+    The space is ADC distance, and the cheap edge is "just barely over the
+    threshold". Sampling the k nearest-misses is exactly the near-periphery
+    blindness `RungLevel::peripheral_sample`'s stride was built to avoid: those are
+    the candidates most likely to be genuinely bad-but-close, and least likely to
+    reveal a systematic threshold error. The informative sample strides the rejected
+    set sorted by HEEL sub-distance, so it reaches candidates rejected HARD at
+    stroke 1. Concretely, mirroring recipes.rs:573:
+
+      fn rejected_sample(&self, r: &CascadeRejects, k: usize) -> Vec<usize>
+      // sort at_heel by its f32; stride = n / k; take indices 0, stride, 2*stride...
+      // deterministic, no RNG, so a dissent is reproducible and auditable.
+
+    Because the prune is over SUM-OF-SIX-SUBSPACES but cuts on ONE (HEEL), the
+    far-rejected candidates are precisely where a bad HEEL byte can hide five good
+    ones. The stride is not cosmetic here — it targets the actual failure geometry.
+
+(3) THE ESCALATION SIGNAL.
+    Run full 6-byte ADC on the strided sample only (k of them, O(k), negligible).
+    If any sampled reject's FULL distance would have placed it inside the returned
+    top_k, the thresholds are demonstrably mis-set for this data. Emit, in the shape
+    of `WaveGrounding::Escalate` / `peripheral_dissent` / `OutlierSuggestion` —
+    a SIGNAL, never a verdict, and never a silent re-insertion into the results:
+
+      pub struct ThresholdDissent {
+          pub sampled: usize,             // how many rejects were probed
+          pub would_have_ranked: usize,   // how many beat the returned top_k
+          pub worst_miss_rank: usize,     // best rank a reject would have taken
+          pub suggested_heel_threshold: f32,   // the value that would have admitted it
+      }
+      fn threshold_dissent(...) -> Option<ThresholdDissent>
+
+    The op returns it beside the results; the caller (api.rs CamSearch) decides
+    whether to re-run as `FullAdc`. The operator itself must NOT re-run — that would
+    make the periphery decide, which is the failure one level up.
+
+(4) THE TEST THAT MAKES IT NON-VACUOUS (this is the part that actually matters).
+    Replace `test_cascade_rejection_rate`'s tautology with two real falsifiers:
+      a) `cascade_recall_against_full_adc` — run BOTH strategies on the same
+         `(dt, cam_data)` and assert a measured recall@top_k, printing the number.
+         This is the first measurement of the ":24 99% rejection" claim's cost side.
+      b) `threshold_dissent_can_actually_fire` — construct a candidate with a
+         deliberately bad HEEL byte and five excellent ones, assert it is rejected
+         at stroke 1 AND that `threshold_dissent` reports it. A watchdog that cannot
+         bark is the same defect one level up (E-PERIPHERAL-DISSENT §guards).
+    Without (4), (1)-(3) are three more untested claims.
+
+(5) SEPARATELY, AND NOT OPTIONAL: `select_strategy` (cam_pq_scan.rs:129) silently
+    changes result semantics as a function of `cam_data.len()`. Whatever else lands,
+    the chosen strategy must be returned to the caller alongside the results, so a
+    consumer can tell whether it received an exact-over-ADC ranking or a
+    threshold-pruned one. Today it cannot, and that is the single cheapest fix in
+    this entire sweep.
+
+================================================================================
+SCOPE / HONESTY NOTES
+================================================================================
+- Read-only audit. No file under crates/ or docs/ was modified. No git command run.
+- /home/user/ndarray was read only (M7); nothing written there.
+- I did NOT run any test or benchmark, so every rate figure quoted above is a
+  doc-comment claim, explicitly labelled claimed-unverified where it appears.
+- M7's admissibility guarantee is conditional on the installed distance being a
+  true metric; I did not verify all ClamTree construction sites (sibling repo,
+  out of scope). Stated as a caveat, not resolved.
+- Mechanisms I looked for and did NOT find as prunes: sigma-tier-router (classifier),
+  dispatch_order (ordering), blasgraph heel_hip_twig_leaf.rs (no prune/skip symbols
+  matched). Absence here is from grep, not from exhaustive reading.

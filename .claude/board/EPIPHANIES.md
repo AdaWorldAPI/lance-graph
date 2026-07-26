@@ -1,3 +1,48 @@
+## 2026-07-26 — E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1 — **seven instances in ONE session of the same defect: an assertion implied by the code it tests.** This is not a run of bad luck, it is a house style — and it is why a "multipass" wave stayed single-pass and a 12.76%-wrong rail stayed trusted. Promoted to a P0 rule in `CLAUDE.md`.
+
+**Status:** RULING (promoted to `CLAUDE.md`). **Confidence:** High — every instance verified at file:line.
+
+**The seven, all 2026-07-26:**
+
+| # | instance | why it cannot fail |
+|---|---|---|
+| 1 | `cam_pq_scan.rs:264,290` — `assert!(results.len() <= 10)` | the code above is `results.truncate(self.top_k)` with `top_k: 10`. **The test asserts that truncate truncates.** |
+| 2 | `bgz-tensor/cascade.rs:310`, `stacked.rs:575` — `elimination_rate() > 0.0` | true of ANY input that eliminates a single candidate |
+| 3 | `closed_class_guess` | fired 150/149/148/150 of a max 150 — the dispersion conjunct rejected ~1 word per lane |
+| 4 | the "multipass" standing wave | every test used a 1-hop or out-of-window chain, so nothing exercised the multi-pass path — it had been single-pass all along (`E-MULTIPASS-WAS-SINGLE-PASS-1`) |
+| 5–7 | the rung gate, the peripheral watchdog, the outlier suggester | each landed WITHOUT a can-it-fire test until one was demanded; all three could have been inert and passed |
+
+**The pattern:** the assertion restates the implementation instead of constraining it. `truncate(k)` then `len() <= k`; `filter()` then `rate > 0`; a doc-comment says "multipass" and the tests exercise one pass. Each looks like coverage in a diff and reads like diligence in review.
+
+**Why it is expensive here specifically.** This stack is built on prunes, gates, and cascades — mechanisms whose whole purpose is to *exclude* things. A vacuous test on a prune does not just fail to catch bugs; it certifies a blind spot. Instances 1 and 2 sit on the two prunes the eigenvalue sweep rated CRITICAL and HIGH, so the mechanisms with the least trustworthy tests are exactly the ones excluding the most.
+
+**Cross-cutting finding from the same sweep (worth its own line): the stack instruments in INVERSE proportion to need.** CLAM's `rho_nn` — an *admissible* triangle-inequality prune that provably loses nothing — carries a counter. The three *heuristic* prunes that can silently drop good candidates carry less. Instrumentation followed what was easy to measure, not what could be wrong.
+
+**The rule now in `CLAUDE.md`:** before a test lands, answer *what input would make this fail?* If none exists, delete or rewrite it. A filter needs an anti-vacuity test (assert the excluded set is non-trivial), a guard needs a can-it-fire test, a doc-comment claim needs an exercising test or the label *claimed, unverified*, and schema reads use `== N` not `>= N`.
+
+**Honest note on provenance:** instances 5–7 are MINE, shipped hours earlier in this same session, and only acquired their can-it-fire tests because the operator's eigenvalue caution forced the question. The house style was mine too.
+
+Refs: eigenvalue sweep tag file `exec-runs/eigenvalue-sweep.txt`, `E-MULTIPASS-WAS-SINGLE-PASS-1`, `E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1`, `E-PERMISSIVE-ARITY-GUARD-IS-THE-SILENT-MISREAD-MECHANISM-1`, task #24.
+
+---
+
+## 2026-07-26 — E-EIGENVALUE-SWEEP-6-OF-12-PRUNES-BLIND-1 — the anti-blindness discipline applied across the whole stack: **12 pruning mechanisms audited, 6 clean, 6 failing** the enumerable/sampleable/escalation-capable test. The worst (`CamPqScanOp::cascade`) fails all three.
+
+**Status:** FINDING (read-only audit). **Confidence:** High for the code reads; the "95% skipped" HHTL figure is explicitly *claimed, unverified*.
+
+**Failing, ranked by consequence (not elegance):**
+1. **M1 `CamPqScanOp::cascade`** (`physical/cam_pq_scan.rs:93,103`) — CRITICAL, fails all three tests. Heuristic rejects vanish unnamed.
+2. **M2 `cascade_attention` LEAF budget** (`bgz-tensor/cascade.rs:240`) — HIGH; counts only, and **the cut is by iteration order, not quality** — which candidate survives depends on traversal sequence.
+3. **M3 `SearchCascade` per-hop `truncate(k)`** (`neighborhood/search.rs:109,149,188`) — HIGH; compounds 3×, and ranks on **1 of 8 bytes**.
+4. **M4 HHTL `RouteAction::Skip`** — MEDIUM; the table IS enumerable (materialized + serialized), but `Escalate` serves the *undecided* set, not the *excluded* one — an easy thing to mistake for a peripheral channel while it is not one.
+5. M5 `StepMask` — no complement accessor. 6. `foveated_descend` — probe-only, gated on promotion.
+
+**Clean, stated plainly** (a clean pass is information, not an absence of findings): CLAM `rho_nn` (admissible — provably loses nothing, so it needs no channel; caveat: conditional on `dist` being a true metric, unverified), the elevation cost model (escalates rather than discards, saturates loudly with `Err`), MUL gate, sigma bands, `dispatch_order`, and **`RungLevel` — the reference implementation, passing all three** (which is expected: it was built under this discipline hours earlier).
+
+**Queued fix (M1, one well-specified sketch rather than six gestures):** an opt-in `CascadeRejects` complement keeping heuristic rejects (`at_heel`/`at_branch`) in lanes separate from the budgeted `at_topk`; sampled **strided by HEEL sub-distance** so it reaches hard-rejected candidates rather than near-misses — the failure geometry is *one bad byte hiding five good ones*, so a cheap-edge sample would miss exactly the interesting rejects; then full 6-byte ADC on those k only, emitting a `ThresholdDissent` signal the caller may act on and the operator never must. Paired with a real `cascade_recall_against_full_adc` falsifier and a can-it-fire test. Cheapest adjacent win: `select_strategy` silently changes result semantics with corpus size — return the chosen strategy to the caller.
+
+Refs: `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1` (the doctrine), `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` (why the failing prunes' tests did not catch this), task #24 → #32.
+
 ## 2026-07-26 — E-DISPERSION-CLOSED-CLASS-DETECTION-FAILS-1 — **NEGATIVE RESULT, and it survives the fairness check I ran to rescue it.** A rank-matched dispersion z-score does NOT beat `rank<=150` at finding German closed-class words (F1 0.280 vs 0.388). The redirect is worth more than the fix: with a parallel corpus, closed-class labels should be TRANSFERRED through alignment, not detected monolingually.
 
 **Status:** FINDING (negative). **Confidence:** High for the negative; the redirect is CONJECTURE until D-RCC-3 alignment exists to test it.
