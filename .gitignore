@@ -81,3 +81,5 @@ crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/token_embd_4096x4096.u8
 crates/bgz17/data/
 crates/lance-graph-planner/examples/data/coca/
 crates/lance-graph-planner/examples/data/wordnet/
+# PROIEL Greek NT treebank (CC BY-NC-SA — data stays local, never committed)
+crates/lance-graph-planner/examples/data/proiel/

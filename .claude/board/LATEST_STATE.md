@@ -1,3 +1,9 @@
+## 2026-07-26 — branch `claude/lance-graph-last-10-pr-z30uij` — D-SCI-1 Phase 2: witness-gated construction licenses (PROIEL Greek NT)
+
+### Current Contract Inventory — new grammar witness module + planner example
+- `lance_graph_contract::grammar::witness` (`E-SCI-1-WITNESS-CONSTRUCTION-LICENSE-1`) — typed construction licenses from source-language treebanks (treebank-agnostic): `VoiceClass` (Active/Passive/Middle/±Deponent(reserved)/Ambiguous; `from_proiel_code`, `licenses_agentive` — Middle licenses, Passive does not), `WitnessDisposition` (Confirmed/Compatible/Contradicted(reserved — ordering never justifies it)/TextAbsent/AlignmentUnknown — the latter two NEVER block), `ClauseSignature` (dependency-first: `has_fronted_argument` counts `obj`+`obl` because government verbs like ἀκούω+genitive make case lie; `licenses_fronted_object_active`; edition/tradition in the evidence address). 4 unit tests; contract 1037 green.
+- `lance_graph_planner::examples::insight_witness_gated_read` — PROIEL greek-nt.xml → per-citation `ClauseSignature`s; the generation/elimination law (generation = English OR witness evidence; elimination = all typed constraints); fronted-NP-object candidate commits ONLY under a license, pronoun-case commitments stay witness-independent with receipts. Falsifier: Acts 3:22 Confirmed (fronted `obl` + Middle — the government-verb path), Acts 7:37 TR clause TextAbsent (surfaced, not vetoed), Deut 6:13 TextAbsent (out-of-corpus), `a prophet shall the lord your god raise up` Phase-1-miss → licensed `god—raise→prophet`, negative control held. PROIEL data gitignored (`examples/data/proiel/`, CC BY-NC-SA).
+
 ## 2026-07-26 — branch `claude/lance-graph-last-10-pr-z30uij` — D-SCI-1 Phase 1: right-corner delayed clause commitment (KJV OSV)
 
 ### Current Contract Inventory — new grammar cue catalogue + planner example
