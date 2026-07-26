@@ -299,7 +299,7 @@ mod tests {
             .resolve_at(0, Locus::Kausal, 99, 5)
             .expect("focal visible");
         assert_eq!(r.final_offset, Some(4));
-        assert!(!r.escalated, "chain terminates inside the horizon + window");
+        assert!(!r.escalated(), "chain terminates inside the horizon + window");
     }
 
     #[test]

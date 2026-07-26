@@ -130,11 +130,36 @@ pub struct ChainResolution {
     pub final_offset: Option<i8>,
     /// Hops taken (0 = the focal's own locus resolved directly).
     pub hops: u8,
-    /// The chain left the `±8` window or exceeded the hop budget — the signal a
-    /// `temporal.rs` version-range read (`QueryReference::at`) is required. The
-    /// contract emits the signal; the consumer does the read (no widening of the
-    /// i4 nibble, no new witness variant).
-    pub escalated: bool,
+    /// The chain left the `±8` window — the signal a `temporal.rs` version-range
+    /// read (`QueryReference::at`) is required. The contract emits the signal;
+    /// the consumer does the read (no widening of the i4 nibble, no new witness
+    /// variant). **Genuinely non-local: more hop budget will NOT help.**
+    pub out_of_horizon: bool,
+    /// The hop budget ran out mid-chain. **This is NOT non-locality** — it says
+    /// "ask again with more budget", and the multipass loop's next iteration
+    /// supplies exactly that.
+    ///
+    /// These two were ONE `escalated: bool` until `E-MULTIPASS-WAS-SINGLE-PASS-1`:
+    /// conflating them made the wave abort at budget 1 (which truncates every
+    /// ≥2-hop chain) before reaching the budget that resolves it, so the
+    /// "multipass" wave was single-pass for every non-trivial chain. Splitting
+    /// the carrier makes that conflation **unrepresentable** rather than merely
+    /// fixed at each call site.
+    pub budget_exhausted: bool,
+}
+
+impl ChainResolution {
+    /// Either escalation cause — the v1 `escalated` reading, preserved for
+    /// callers that genuinely do not care WHY the chain did not settle.
+    ///
+    /// Prefer the specific field: a caller that loops over increasing budgets
+    /// must distinguish them, and using this in that position is what caused
+    /// `E-MULTIPASS-WAS-SINGLE-PASS-1`.
+    #[inline]
+    #[must_use]
+    pub const fn escalated(&self) -> bool {
+        self.out_of_horizon || self.budget_exhausted
+    }
 }
 
 /// **E-LOCI-CHAIN-ESCALATE-1** — follow the focal row's `locus` chain: the
@@ -153,7 +178,8 @@ pub fn resolve_chain(
         return ChainResolution {
             final_offset: None,
             hops: 0,
-            escalated: false,
+            out_of_horizon: false,
+            budget_exhausted: false,
         };
     };
     // Map stream position → window index for O(1) hops.
@@ -169,7 +195,12 @@ pub fn resolve_chain(
             return ChainResolution {
                 final_offset: None,
                 hops,
-                escalated: hops > 0,
+                // Chain broke mid-walk (locus unbound). Not a horizon exit;
+                // more budget cannot revive a broken chain either, but the
+                // caller should treat it as "did not settle", so report it on
+                // the budget side rather than inventing a third cause.
+                out_of_horizon: false,
+                budget_exhausted: hops > 0,
             };
         }
         let cur_pos = window[cur_idx].0 as isize;
@@ -180,7 +211,8 @@ pub fn resolve_chain(
             return ChainResolution {
                 final_offset: None,
                 hops,
-                escalated: true,
+                out_of_horizon: true,
+                budget_exhausted: false,
             };
         }
         let Some(next_idx) = idx_of(target_pos) else {
@@ -189,7 +221,8 @@ pub fn resolve_chain(
             return ChainResolution {
                 final_offset: Some(total as i8),
                 hops,
-                escalated: true,
+                out_of_horizon: true,
+                budget_exhausted: false,
             };
         };
         let next = window[next_idx].1;
@@ -198,7 +231,8 @@ pub fn resolve_chain(
             return ChainResolution {
                 final_offset: Some(total as i8),
                 hops,
-                escalated: false,
+                out_of_horizon: false,
+                budget_exhausted: false,
             };
         }
         hops += 1;
@@ -207,7 +241,8 @@ pub fn resolve_chain(
             return ChainResolution {
                 final_offset: Some(total as i8),
                 hops,
-                escalated: true,
+                out_of_horizon: false,
+                budget_exhausted: true,
             };
         }
         cur_idx = next_idx;
@@ -284,11 +319,17 @@ pub fn standing_wave_grounded(
         // (`E-MULTIPASS-WAS-SINGLE-PASS-1`). Below the final budget, an
         // escalation means "needs more hops" — which is exactly what the next
         // iteration supplies.
-        if r.escalated {
+        // Now expressible directly: a horizon exit is terminal at ANY budget
+        // (more hops cannot bring it back inside), while budget exhaustion is
+        // exactly what the next iteration fixes.
+        if r.out_of_horizon {
+            return WaveGrounding::Escalate;
+        }
+        if r.budget_exhausted {
             if budget == max_budget {
                 return WaveGrounding::Escalate;
             }
-            last = None; // this budget resolved nothing trustworthy; don't compare against it
+            last = None; // nothing trustworthy resolved at this budget
             continue;
         }
         match r.final_offset {
@@ -381,7 +422,10 @@ pub fn standing_wave_stratified(
         // Same budget-exhaustion-vs-horizon distinction as
         // `standing_wave_grounded`; the two MUST stay in verdict parity
         // (pinned by `stratified_never_disagrees_with_grounded`).
-        if r.escalated {
+        if r.out_of_horizon {
+            return (WaveGrounding::Escalate, budget);
+        }
+        if r.budget_exhausted {
             if budget == max_budget {
                 return (WaveGrounding::Escalate, budget);
             }
@@ -501,7 +545,7 @@ pub fn trajectory_of(
     let r = resolve_chain(focal_idx, window, locus, max_hops);
     TrajectorySignature {
         hops: r.hops,
-        escalated: r.escalated,
+        escalated: r.escalated(),
         terminal_offset: r.final_offset,
     }
 }
@@ -727,11 +771,11 @@ mod tests {
         let window = [(3usize, a), (5, b), (7, c), (9, d)];
         // budget 1 hop: after 1 hop, escalate.
         let r1 = resolve_chain(0, &window, Locus::Kausal, 1);
-        assert!(r1.escalated && r1.hops == 1);
+        assert!(r1.escalated() && r1.hops == 1);
         // budget 5: chain resolves to pos 9 (total offset +6) within window.
         let r5 = resolve_chain(0, &window, Locus::Kausal, 5);
         assert_eq!(r5.final_offset, Some(6));
-        assert!(!r5.escalated);
+        assert!(!r5.escalated());
     }
 
     #[test]
@@ -742,7 +786,7 @@ mod tests {
         let window = [(0usize, a), (7, b)];
         let r = resolve_chain(0, &window, Locus::Kausal, 8);
         assert!(
-            r.escalated,
+            r.escalated(),
             "chain leaves the ±8 window → escalate to version-range read"
         );
     }
@@ -1022,9 +1066,9 @@ mod tests {
             (2, CausalWitnessFacet::ZERO),
         ];
         // The underlying chain genuinely resolves once given the budget.
-        assert!(resolve_chain(0, &win, Locus::Antecedent, 1).escalated);
+        assert!(resolve_chain(0, &win, Locus::Antecedent, 1).budget_exhausted);
         let r2 = resolve_chain(0, &win, Locus::Antecedent, 2);
-        assert!(!r2.escalated);
+        assert!(!r2.escalated());
         assert_eq!(r2.final_offset, Some(2));
 
         // So the wave must GROUND it, not escalate it.
@@ -1051,6 +1095,34 @@ mod tests {
             WaveGrounding::Escalate,
             "passes=1 cannot resolve a 2-hop chain and must say so"
         );
+    }
+
+    /// The split carrier makes the `E-MULTIPASS-WAS-SINGLE-PASS-1` conflation
+    /// UNREPRESENTABLE: the two escalation causes are now distinct fields, and
+    /// a chain can be budget-exhausted at one budget and clean at the next
+    /// while never being out-of-horizon at either.
+    #[test]
+    fn escalation_causes_are_distinguishable_not_one_bool() {
+        let two_hop = vec![
+            (0, w(&[(Locus::Antecedent, 1)])),
+            (1, w(&[(Locus::Antecedent, 1)])),
+            (2, CausalWitnessFacet::ZERO),
+        ];
+        let r1 = resolve_chain(0, &two_hop, Locus::Antecedent, 1);
+        assert!(r1.budget_exhausted, "budget 1 truncates a 2-hop chain");
+        assert!(!r1.out_of_horizon, "…but the chain never left the ±8 window");
+        assert!(r1.escalated(), "the v1 reading still sees an escalation");
+
+        let r2 = resolve_chain(0, &two_hop, Locus::Antecedent, 2);
+        assert!(!r2.escalated(), "more budget resolves it — as it always could");
+
+        // A genuine horizon exit is the OTHER cause, and no budget fixes it.
+        let far = vec![(0, w(&[(Locus::Antecedent, 7)]))];
+        for b in [1u8, 2, 8, 64] {
+            let r = resolve_chain(0, &far, Locus::Antecedent, b);
+            assert!(r.out_of_horizon, "budget {b}: horizon exit is budget-independent");
+            assert!(!r.budget_exhausted);
+        }
     }
 
     /// An unbound locus earns no rung at all — pass 0, distinct from "grounded

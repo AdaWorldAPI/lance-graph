@@ -1,3 +1,23 @@
+## 2026-07-26 — E-SPLIT-THE-CARRIER-NOT-THE-CALL-SITES-1 — `ChainResolution::escalated` split into `out_of_horizon` / `budget_exhausted`, making the `E-MULTIPASS-WAS-SINGLE-PASS-1` conflation **unrepresentable** rather than merely fixed. The earlier fix compensated at every call site; this removes the thing that had to be compensated for.
+
+**Status:** SHIPPED. **Confidence:** High — 1056 contract + 305 planner + 96 deepnsm-v2 tests green; clippy clean (the one remaining warning is a pre-existing `serve.rs`-in-two-build-targets Cargo.toml issue, unrelated).
+
+**The distinction the old bool erased:**
+- `out_of_horizon` — the chain left the ±8 window. **Genuinely non-local; more budget will never help.**
+- `budget_exhausted` — the hop budget ran out mid-chain. **Says "ask again with more budget"** — which is precisely what the multipass loop's next iteration supplies.
+
+One bool meant the wave could not tell "this is far away" from "you didn't look far enough", so it aborted at budget 1 (which truncates every ≥2-hop chain) before reaching the budget that resolves it.
+
+**Both loops now read the distinction directly** rather than compensating for it: a horizon exit returns `Escalate` at ANY budget (correct and now *provably* so), budget exhaustion continues to the next iteration and only escalates at the final budget. That is strictly clearer than the previous `if escalated { if budget == max { … } else { continue } }`, which had to encode the semantic difference in control flow because the data could not carry it.
+
+**Migration was small because the carrier was right to fix:** four constructor sites classified by their actual cause, an `escalated()` accessor preserving the v1 reading for callers that genuinely do not care why (documented with a warning that using it inside a budget loop is what caused the bug), and three consumers updated (`meta_basin` ×2 via `TrajectorySignature`, which was deliberately kept stable, and one `deepnsm-v2` assertion).
+
+**The new test earns its place** (`escalation_causes_are_distinguishable_not_one_bool`): the same 2-hop chain is `budget_exhausted && !out_of_horizon` at budget 1 and clean at budget 2, while a genuine horizon exit is `out_of_horizon && !budget_exhausted` at every budget from 1 to 64. Budget-independence of the horizon cause is the property the old bool could not express, so it is now the property under test.
+
+**The general lesson:** when a bug forces the same compensating check at N call sites, the defect is in the carrier, not the call sites. Fixing the sites leaves the next caller free to re-introduce it; fixing the type makes the mistake unavailable. Same move as `quorum_mantissa`'s outcome-blind signature and `revision_trajectory`'s `upto` bound — **prefer making an error unrepresentable over promising not to make it.**
+
+Refs: `E-MULTIPASS-WAS-SINGLE-PASS-1` (the bug this closes at the root), task #31.
+
 ## 2026-07-26 — E-D-RCC-3-ALIGNER-SHIPPED-DICE-NOT-BETTER-1 — the corpus-derived word aligner works, the `tongue → Zunge/Sprache` regression anchor **reproduced**, and **Dice did NOT beat PMI** (81% top-1 agreement, disagreements confined to the thin-frequency tail). Coverage is a hard floor at `cooc>=5`, not a soft degradation — hapax alignment is 0.0%, stated rather than smoothed.
 
 **Status:** SHIPPED (D-RCC-3). **Confidence:** High — anchors and coverage bands re-read on the main thread.
