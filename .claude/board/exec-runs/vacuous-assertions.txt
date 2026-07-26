@@ -1,0 +1,108 @@
+Task #33 — replace vacuous assertions in bgz-tensor (cascade.rs, stacked.rs), then sweep.
+Agent: Sonnet grindwork. Files owned: crates/bgz-tensor/src/cascade.rs, crates/bgz-tensor/src/stacked.rs (tests only).
+Read .claude/board/AGENT_LOG.md and EPIPHANIES.md E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1 before starting, per brief.
+
+=== FIX 1: crates/bgz-tensor/src/cascade.rs — cascade_eliminates_most (was line 310) ===
+Old: assert!(stats.elimination_rate() > 0.0, ...)  — vacuous, true for any single elimination.
+Measured (n=32, 1024 pairs, heel_min_agreement=2, hip_max_distance=20000, fully deterministic
+fixture, no RNG):
+  HEEL eliminated:  66  (6.4%)
+  HIP  eliminated:   0  (0.0%)
+  TWIG eliminated:   0  (0.0%)
+  LEAF admitted:    10  (1% budget of 1024)
+  elimination_rate() (early-only, HEEL+HIP / total) = 66/1024 = 0.064453125
+New assertions (deterministic fixture -> exact counts, not a loose bound):
+  assert_eq!(stats.eliminated_at[0], 66, ...)
+  assert_eq!(stats.eliminated_at[1], 0, ...)
+  assert_eq!(stats.active_pairs, 10, ...)
+  assert!((0.05..0.08).contains(&rate), ...)   // restated as a band, bounds justified
+    in-code: below 0.05 = HEEL agreement filter stopped discriminating; above 0.08 = HEEL
+    over-pruning pairs that should reach HIP/TWIG.
+Result: test passed once made meaningful. No production code touched.
+
+=== FIX 2: crates/bgz-tensor/src/stacked.rs — vedic_cascade_eliminates (was line 575) ===
+Old: assert!(result.elimination_rate() > 0.0, ...) — same defect.
+Measured (8 queries x 16 keys = 128 pairs, stage1_threshold=50000, stage2_threshold=200000,
+stage3_threshold=500000, deterministic fixture):
+  stage1_eliminated: 16
+  stage2_eliminated:  0
+  stage3_survived:  112  (all accepted; active.len() == 112)
+  elimination_rate() = 1 - 112/128 = 0.125 exactly (power-of-two fraction, no float rounding)
+New assertions: assert_eq!(stage1_eliminated, 16), assert_eq!(stage2_eliminated, 0),
+  assert_eq!(active.len(), 112), assert_eq!(elimination_rate(), 0.125).
+Result: test passed once made meaningful. No production code touched.
+
+=== VERIFY ===
+cargo test --manifest-path crates/bgz-tensor/Cargo.toml       -> 207 passed, 0 failed
+cargo fmt --manifest-path crates/bgz-tensor/Cargo.toml        -> clean (reformatted the new
+  assertion blocks; no logic change)
+No test failed once made meaningful — both mechanisms behave as their doc comments claim for
+these fixtures; the exact-count assertions simply make that claim falsifiable going forward.
+
+=== WORKSPACE SWEEP (report only — did not touch, per brief) ===
+Confirmed instance of shape (a) "assert on a bound the code just applied" (truncate(k) -> len<=k),
+ranked by how much the tested mechanism excludes (prune mechanisms first):
+
+1. crates/lance-graph/src/graph/neighborhood/search.rs:323 (test_heel_returns_results)
+   `assert!(results.len() <= 10, "Should respect k=10")` after `SearchCascade::heel(...)`.
+   heel() body (line ~91-111 same file): `hits.sort_by_key(...); hits.truncate(config.k); hits`.
+   HEEL is the FIRST stage of the 3-hop neighborhood-search cascade (the primary elimination
+   mechanism this crate ships) — highest-consequence instance found outside bgz-tensor.
+
+2. crates/lance-graph/src/graph/blasgraph/heel_hip_twig_leaf.rs:473 (cascade_search test)
+   `assert!(results.len() <= 10)` after `cascade_search(...)`, which bottoms out in
+   `heel_search()` (line 79-93): `hits.truncate(k); hits`. Same HHTL-cascade family as #1,
+   blasgraph variant — same consequence tier.
+
+3. crates/lance-graph/src/graph/neighborhood/search.rs:400 (test_leaf_rerank_with_full_distance)
+   and crates/lance-graph/tests/neighborhood_cascade.rs:238 (test_leaf_rerank_refines_ordering)
+   both: `assert!(reranked.len() <= 10)` after `SearchCascade::leaf_rerank(..., 10)`.
+   leaf_rerank() (search.rs:255-276): `reranked.sort_by_key(...); reranked.truncate(top_k); reranked`.
+   Final-stage rerank of the same cascade; each test also checks sort order afterward, so the
+   test as a whole is not fully inert, but this specific line is vacuous in isolation.
+
+4. crates/holograph/src/width_16k/demo.rs:1047 (bloom_accelerated_search, k=5)
+   `assert!(bloom_results.len() <= 5, "Should respect k limit")`.
+   crates/holograph/src/width_16k/demo.rs:1064 (rl_guided_search, k=5)
+   `assert!(rl_results.len() <= 5)`.
+   Both call into crates/holograph/src/width_16k/search.rs: bloom_accelerated_search (line 742,
+   `results.truncate(k)` at line ~791) and rl_guided_search (line 829, `results.truncate(k)` at
+   line ~958). Same shape, holograph's search/prune surface.
+
+5. crates/bgz-tensor/src/codebook4096.rs:374 (small_codebook test)
+   `assert!(cb.clusters.len() <= 10)` after `Codebook4096::build(&vectors(10), 8)`.
+   build() (line 84-...): `let k_clusters = 64.min(vectors.len());` — the `max_entries_per_cluster`
+   parameter (8) passed by the test isn't even the bound being asserted; k_clusters is
+   structurally `64.min(len)` regardless. Doubly vacuous: the assertion restates a `min()` the
+   code just applied AND doesn't exercise the parameter the test name implies it's checking.
+   Should be `assert_eq!(cb.clusters.len(), 10)` if the intent is "small n produces one cluster
+   per vector or fewer," but as written it can't fail for any n<=10 input regardless of
+   clustering correctness. NOT in my owned files — reported, not fixed. (Also NOT touched:
+   crates/bgz-tensor is otherwise my scope, but this defect is outside cascade.rs/stacked.rs
+   per the brief's file-ownership boundary, so left as report-only.)
+
+6. crates/lance-graph-contract/src/doc_graph.rs:528 (retrieve_dedups_best_score_and_truncates)
+   `assert!(capped.len() <= 2)` after `g.retrieve(&seeds, RungLevel::Surface, 2)`.
+   retrieve() truncates via `hits.truncate(top_k)` (same file, ~line 285). Lowest-consequence
+   of the six: retrieve() is a generic dedup+sort+cap combinator, not itself a heuristic
+   distance/threshold prune, and this specific test already asserts the dedup and sort-order
+   behavior separately — only the truncation-bound line itself is vacuous.
+
+Shape (b) "> 0.0 / > 0 on a rate or count that any non-degenerate input satisfies":
+searched all `elimination_rate() > 0` occurrences workspace-wide — the only 3 hits are the two
+I fixed (cascade.rs, stacked.rs) plus lance-graph-planner/src/physical/cam_pq_scan.rs (owned by
+a sibling agent this session, per brief — left untouched). No other `*_rate()`/count-vacuous
+instances of this specific shape were found; a broader `assert!(... > 0)` grep returned ~50+
+hits across the workspace, but manual spot-check shows most are legitimate discriminator checks
+(e.g. "distance between two different nodes is nonzero", "trust.value > 0.0" as a domain
+invariant, "tension > 0.0" as a structural postcondition) rather than prune/elimination-rate
+vacuity — did not exhaustively re-derive falsifiability for all of them; flagging for a future
+pass if wanted.
+
+Files touched by me (tests only, no production logic changed):
+  crates/bgz-tensor/src/cascade.rs
+  crates/bgz-tensor/src/stacked.rs
+Did not touch: cam_pq_scan.rs, witness_fabric.rs, examples/data/rosetta/*.py, codebook4096.rs,
+doc_graph.rs, search.rs, heel_hip_twig_leaf.rs, holograph/*, neighborhood_cascade.rs (all
+report-only per sweep scope).
+No git commit/push performed, per brief.

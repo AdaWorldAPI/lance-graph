@@ -3207,3 +3207,32 @@ Fix options: (a) re-derive rank from a real COCA frequency list; (b) rename the
 column `list_order` and add a MANIFEST note that it is not a frequency rank;
 (c) supersede with the verse-attested lane codebooks (`rosetta/build_lane_codebooks.py`),
 whose `freq`/`rank`/`dispersion` ARE corpus-measured — at the cost of Bible-domain bias.
+
+## TD-COCA-LEXICON-POS-UNUSABLE-FOR-FUNCTION-WORDS (2026-07-26)
+
+Extends `TD-COCA-LEXICON-RANK-UNRELIABLE-AT-HEAD`: the same file's **`pos`
+column is wrong for exactly the words a POS column is most needed for.**
+Spot-checked on the main thread:
+
+| word | recorded pos | correct |
+|---|---|---|
+| `the` | `i` (preposition) | determiner |
+| `and` | `r` (adverb) | coordinating conjunction |
+| `it` | `n` (**noun**) | pronoun |
+| `that` | `r` (adverb) | determiner/conjunction/pronoun |
+| `of` | `i` (preposition) | ✓ correct |
+| `a` | ABSENT | determiner |
+
+3 of 5 function words checked are mis-tagged and 1 is missing; the one
+correct tag is the one that is unambiguously a preposition.
+
+Impact: any consumer treating this column as POS ground truth for
+closed-class vocabulary is reading noise. Surfaced by the closed-class
+transfer work (`E-BOTH-CLOSED-CLASS-METHODS-LOSE-TO-RANK-150-1`), which had
+to substitute a curated word list. **Do not use `coca/lexicon.tsv` `pos` for
+function words.** For open-class content words it was not audited — unknown,
+not vindicated.
+
+Fix options: (a) re-derive POS from a real tagged corpus (the German lane
+already uses UD-derived tags and they are sound); (b) rename the column to
+mark it unreliable; (c) supersede with UD-derived English tags.

@@ -1,3 +1,63 @@
+## 2026-07-26 — E-BOTH-CLOSED-CLASS-METHODS-LOSE-TO-RANK-150-1 — **two sophisticated methods, two negatives: `rank<=150` wins.** Dispersion z-score F1 0.280, alignment transfer F1 0.277, trivial frequency rank **0.386–0.388**. Stop trying to beat it for this task — and a data defect found along the way explains part of why the premise was shaky.
+
+**Status:** FINDING (negative ×2). **Confidence:** High — German is the only lane with ground truth and both methods were scored against it.
+
+| method | scope | P | R | **F1** |
+|---|---|---:|---:|---:|
+| alignment transfer | luther1545 | 0.336 | 0.235 | **0.277** |
+| dispersion z-score | both DE lanes | 0.194 | 0.506 | **0.280** |
+| **`rank<=150`** (lane-matched recompute) | luther1545 | 0.531 | 0.303 | **0.386** |
+| **`rank<=150`** (published) | both DE lanes | 0.545 | 0.301 | **0.388** |
+
+The agent recomputed the baseline *lane-matched* rather than comparing against the published both-lane figure — the fair comparison, and it still loses decisively.
+
+**The honest conclusion: for closed-class detection on this corpus, frequency rank IS the signal.** Two independent, more principled approaches — one distributional (dispersion vs a rank-matched baseline), one cross-lingual (transfer through a proven aligner) — both lose to a one-line heuristic. Continuing to search for a cleverer detector is now the expensive move; the finding is that the trivial feature is near-sufficient and the effort belongs elsewhere. This is the Kahneman shape in reverse: the *sophisticated* path was the seductive one.
+
+**Coverage behaved exactly as predicted** (the one confirmed prediction here): 0% hapax, 53–92% in the low/mid/high bands — German 22.2%, Czech 13.2%, Greek 9.6%. The `cooc>=5` cliff is favourable for closed-class words (all high-frequency), so coverage was NOT the limiting factor. The method had its best shot and still lost.
+
+**⚠ The premise was partly false — a data defect the work surfaced.** The transfer method assumes "English has UD POS tags". Verified on the main thread that `coca/lexicon.tsv`'s `pos` column is **wrong for exactly the words that matter**: `the`→`i` (preposition), `and`→`r` (adverb), `it`→`n` (**noun**), `that`→`r` (adverb); `a` absent entirely. 3 of 5 function words mis-tagged, 1 missing. The agent worked around it with a curated list — so the F1 stands — but the English ground truth this stack has been carrying is not what it claims. Filed as `TD-COCA-LEXICON-POS-UNUSABLE-FOR-FUNCTION-WORDS`, compounding the earlier rank-column defect in the same file. **Open-class tags in that column were not audited — unknown, not vindicated.**
+
+**Method note worth keeping:** Czech required a self-built aligner because `build_alignment.py` ships only `en-de`/`en-el`, and the agent built one *inside its own file*, clearly labelled as duplicated, unreviewed machinery rather than silently reusing or editing a sibling's deliverable. Correct behaviour under concurrency; the duplication is visible rather than merged in.
+
+Refs: `E-DISPERSION-CLOSED-CLASS-DETECTION-FAILS-1` (negative #1), `E-D-RCC-3-ALIGNER-SHIPPED-DICE-NOT-BETTER-1` (the aligner consumed), `TD-COCA-LEXICON-RANK-UNRELIABLE-AT-HEAD`, tasks #20/#30.
+
+---
+
+## 2026-07-26 — E-CASCADE-RECALL-IS-0.50-AND-A-THRESHOLD-IS-INERT-1 — the critical blind prune now has a peripheral channel, and the falsifier that came with it produced two numbers nobody had: **the cascade loses HALF the true top-10 (recall@10 = 0.50)**, and the shipped `heel_threshold: 50.0` is **INERT** because the maximum HEEL sub-distance is 25.5.
+
+**Status:** SHIPPED + FINDING. **Confidence:** High for the measurements on the stated fixture; the production-scale claim is explicitly NOT made (see limits).
+
+**The channel** (`CamPqScanOp`, the sweep's CRITICAL entry): `CascadeRejects { at_heel, at_branch, at_topk }` — three lanes **by cause**, never merged, with `heuristic_len()` excluding `at_topk` because *a budget is not a guess*. That is `E-SPLIT-THE-CARRIER-NOT-THE-CALL-SITES-1` applied to a new carrier before the conflation could cause a bug rather than after.
+
+Two design choices worth recording:
+- **Endpoint-inclusive stride**, not `i*(n/k)` — the naive form never reaches the extremal reject, which is exactly the interesting one when the failure geometry is *one bad byte hiding five good ones*. `k=1` takes the far edge.
+- **Each lane strided within its OWN key**, because a HEEL sub-distance and a HEEL+BRANCH partial are not comparable numbers. Merging them would have produced a sample ordered by an incoherent quantity.
+- `ThresholdDissent` carries **two Options** (`suggested_heel_threshold`, `suggested_branch_threshold`), not one f32 — the two thresholds are separate facts.
+- `RejectPolicy::Disabled` **delegates to the untouched `execute()`**, so bit-identity is structural rather than promised.
+
+**The measurements (5,000 scattered CAM codes, shipped thresholds, top_k=10):**
+- **recall@10 = 0.50** — five of ten true nearest survive the cascade.
+- heuristic rejection rate **0.7636** — the doc's "99% rejection" is **not reproduced**.
+- Lane counts: `at_heel` **0**, `at_branch` 3,818, `at_topk` 1,172.
+
+**`at_heel = 0` is the incidental finding and it is the sharper one:** with these distance tables the max HEEL sub-distance is 25.5, so `heel_threshold: 50.0` can never reject anything. **Stroke 1 is dead code at runtime; stroke 2 carries the whole cascade.** Whether production tables share that scale is unverified — flagged, not fixed, because guessing would be worse than reporting.
+
+**Limits stated rather than smoothed:** recall 0.50 is on a synthetic fixture with *independent* bytes, so real correlated CAM codes likely score higher — **the number falsifies "no cost", it does not estimate production loss**; `Collect` is O(n) memory with no reservoir (unsafe on a 100M-row scan, documented); `IvfCascade` still shares Cascade's body so its complement is the cascade's, not IVF's; "zero cost when disabled" is pinned bit-identically but **not timed**; and `api.rs::CamSearch::top_k` still discards the strategy — the mechanism landed, the wiring did not.
+
+---
+
+## 2026-07-26 — E-VACUOUS-ASSERTIONS-REPLACED-CLAIMS-HELD-1 — the two `elimination_rate() > 0.0` tests replaced with exact measured counts, and **no test failed once made meaningful.** The doc-comment claims were true all along; they simply were not falsifiable. Plus a six-entry workspace sweep of the same shape.
+
+**Status:** SHIPPED. **Confidence:** High — 207 bgz-tensor tests green.
+
+Both fixtures are fully deterministic (no RNG), so **exact counts** replaced loose bounds rather than a band being guessed: `cascade.rs` — HEEL eliminates 66 of 1,024 (6.4%), HIP 0, LEAF admits the 10-item budget, rate band `(0.05..0.08)` with both bounds justified in-code; `stacked.rs` — stage1 16, stage2 0, all 112 stage-3 survivors accepted, rate exactly 0.125.
+
+**The result is the reassuring kind of negative:** making the assertions falsifiable did not reveal a broken cascade. The value is prospective — these tests can now *fail* if the cascade regresses, which they previously could not, and the measured constants are documentation of what the cascade actually does.
+
+**Workspace sweep, ranked by exclusion consequence** (report-only): `neighborhood/search.rs:323` (`heel()` truncates to `k`, test asserts `<=10` — first stage of the 3-hop cascade, highest consequence found), `blasgraph/heel_hip_twig_leaf.rs:473` (same shape), `search.rs:400` + `tests/neighborhood_cascade.rs:238` (partially redeemed by separate sort-order checks), `holograph/demo.rs:1047,1064`, `bgz-tensor/codebook4096.rs:374` (**doubly vacuous** — `build()` ignores the test's passed parameter entirely), `contract/doc_graph.rs:528` (lowest — generic combinator with dedup/sort checked separately). A broader `> 0` sweep found ~50 hits, mostly legitimate discriminator checks, not exhaustively re-audited — stated as unfinished rather than implied complete.
+
+**Hygiene note:** running `cargo fmt` on the whole manifest reformatted `matryoshka.rs`, a file the agent did not own; it reverted the collateral change and kept only its two files' diffs. Correct behaviour in a shared checkout.
+
 ## 2026-07-26 — E-TEMPORAL-PERIPHERY-PROXY-NAMED-AS-PROXY-1 — the anti-blindness test applied to the TIME axis: superseded beliefs are now enumerable, spread-sampled and able to suggest re-opening. **And the part that could not be built honestly was refused rather than faked** — "a past state that predicted better than the present" needs an oracle the zero-dep contract does not have, so a structural proxy shipped with the limit in its rustdoc and the real signal's correct home named.
 
 **Status:** SHIPPED (contract). **Confidence:** High — 1061 contract tests green, clippy clean.

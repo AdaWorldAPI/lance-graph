@@ -28,10 +28,44 @@ should split across German `Zunge` (organ) and `Sprache` (language) --
 if this aligner does not reproduce that split, something regressed and
 the report says so explicitly.
 
-Usage:
-    python3 build_alignment.py [data_dir] [--pair en-de|en-el] [--topk N]
+Lemma-key mode (`--lemma-key`, OFF by default -- task #34, D-D-RCC-3
+follow-up). `grape` and `grapes` are different surface tokens with no
+lemmatiser: the singular's 8-verse co-occurrence surfaces stopword noise
+while the real signal (`grapes -> trauben, pmi 9.54`) sits at a different
+key. This is the same limit that moved the split census 48.9% -> 43.0%
+(`E-RCC-1-V2-SPLIT-SURVIVES-NORMALISATION-1`). `--lemma-key` folds surface
+tokens to a crude approximate stem BEFORE building verse-sets/co-occurrence,
+merging counts across inflected forms:
+  - German target side reuses the `build_rosetta_probe.py` `DE_SUFFIXES` /
+    `DE_MIN_STEM_LEN` approach (copied here with attribution, NOT imported
+    -- that module is a separate deliverable and may move independently).
+  - English source side gets an equivalent crude suffix table
+    (`EN_SUFFIXES`/`normalize_en`): plural/verb endings (`-s`, `-es`,
+    `-ies` -> `-y`, `-ed`, `-ing`) PLUS archaic KJV 2nd/3rd-person verb
+    endings (`-eth`, `-est`, e.g. `giveth`/`believest`), all min-stem-length
+    guarded.
+  - Greek (Tischendorf) target side has NO normaliser (none was asked for
+    and none is safely craftable without touching diacritics/breathing
+    marks, which is out of scope here) -- the en-el pair's lemma pass only
+    folds the English side.
+  - **This is NOT a lemmatiser** on either side: no dictionary, no ablaut/
+    umlaut correction, no compound splitting, no irregular-verb table
+    (`hath`, `saith` are NOT folded to `have`/`say` -- they simply don't
+    match any suffix and pass through unchanged, a stated gap, not a bug).
+  - Default OFF: normal invocations (no flag) produce byte-identical
+    output to before this mode existed -- the primary `alignment_<pair>.tsv`
+    is ALWAYS built from the raw (un-normalised) pass, flag or no flag, so
+    a downstream consumer reading that file never sees a behavioural
+    change. When `--lemma-key` is passed, an ADDITIONAL
+    `alignment_<pair>_lemmakey.tsv` is written (new file, existing file
+    untouched) and the report gains a before/after comparison section.
 
-Out: <data_dir>/out/alignment_<pair>.tsv + <data_dir>/out/alignment_report.md
+Usage:
+    python3 build_alignment.py [data_dir] [--pair en-de|en-el] [--topk N] [--lemma-key]
+
+Out: <data_dir>/out/alignment_<pair>.tsv (always, raw pass)
+     + <data_dir>/out/alignment_<pair>_lemmakey.tsv (only with --lemma-key)
+     + <data_dir>/out/alignment_report.md
      (report accumulates all pairs run in one invocation; default = both).
 """
 
@@ -68,6 +102,94 @@ FREQ_BANDS = [
     (20, 99, "mid (20-99)"),
     (100, None, "high (100+)"),
 ]
+
+# ── lemma-key normalisers (task #34, --lemma-key, OFF by default) ──────────
+#
+# German side: the SAME crude longest-suffix-strip approach as
+# build_rosetta_probe.py's DE_SUFFIXES/normalize_de -- copied here with
+# attribution rather than imported (that module is a separate deliverable
+# and may move/change shape independently of this one). Explicitly NOT a
+# lemmatiser: no dictionary, no ablaut/umlaut correction, no compound
+# splitting.
+DE_SUFFIXES = tuple(sorted({
+    "ungen", "heiten", "keiten", "schaften",
+    "chen", "lein",
+    "ung", "heit", "keit", "schaft",
+    "isch", "lich", "bar", "sam",
+    "esse", "eren", "ern",
+    "end", "ende", "enden", "endes", "ender", "est", "et",
+    "en", "em", "es", "er", "e", "n", "s", "t",
+}, key=len, reverse=True))
+DE_MIN_STEM_LEN = 4  # guard: never strip a suffix if the remainder is shorter
+
+
+def normalize_de(tok: str) -> str:
+    """Crude longest-suffix strip with a minimum-stem-length guard.
+
+    Copied from build_rosetta_probe.py's normalize_de (same table, same
+    guard) -- see that module's docstring for the fuller caveat. Approximation
+    only: no dictionary lookups, no ablaut/umlaut correction, no compound
+    decomposition.
+    """
+    for suf in DE_SUFFIXES:
+        if tok.endswith(suf) and len(tok) - len(suf) >= DE_MIN_STEM_LEN:
+            return tok[: -len(suf)]
+    return tok
+
+
+# English side: an equivalent crude table for KJV English -- ordinary
+# plural/verb-form endings plus archaic 2nd/3rd-person singular verb
+# endings that are common in KJV prose (giveth, believest). Order matters:
+# -ies/-eth/-est are checked before the shorter -es/-s/-ed so a word is not
+# stripped by the wrong (shorter) suffix first.
+EN_MIN_STEM_LEN = 4  # same guard discipline as the German side
+
+
+def normalize_en(tok: str) -> str:
+    """Crude English surface-form fold: plurals, -ed/-ing, archaic KJV verb
+    endings (-eth, -est). NOT a lemmatiser -- no irregular-verb table, so
+    `hath`/`saith`/`doth` (irregular, not simple suffixation) pass through
+    UNCHANGED rather than folding to `have`/`say`/`do`. This is a stated
+    gap, not a bug: a true lemmatiser is out of scope for this script's
+    "no external lexicon" discipline (see module docstring).
+    """
+    t = tok
+    if t.endswith("ies") and len(t) - 3 + 1 >= EN_MIN_STEM_LEN:
+        return t[:-3] + "y"
+    for suf in ("eth", "est", "ing"):
+        if t.endswith(suf) and len(t) - len(suf) >= EN_MIN_STEM_LEN:
+            return t[: -len(suf)]
+    if t.endswith("ed") and len(t) - 2 >= EN_MIN_STEM_LEN:
+        return t[:-2]
+    if t.endswith("es") and len(t) - 2 >= EN_MIN_STEM_LEN:
+        # "-es" is added after a sibilant-ending stem (box->boxes,
+        # dish->dishes, church->churches); anything else spelled "-es" is
+        # really a silent-e stem + plain "-s" (grape->grapes), so strip
+        # only the final "s" and keep the "e" -- this is the difference
+        # between "grap" (wrong, the bug this comment replaces) and
+        # "grape" (right, what makes grape/grapes actually share a key).
+        # Crude and orthography-shaped, not a real morphological analyser.
+        stem_no_es = t[:-2]
+        if stem_no_es and (stem_no_es[-1] in "sxz" or stem_no_es.endswith(("ch", "sh"))):
+            return stem_no_es
+        if len(t) - 1 >= EN_MIN_STEM_LEN:
+            return t[:-1]
+        return stem_no_es
+    if t.endswith("s") and not t.endswith("ss") and len(t) - 1 >= EN_MIN_STEM_LEN:
+        return t[:-1]
+    return t
+
+
+def wrap_tokenizer(tokenizer, normalizer):
+    """Compose a base tokenizer with an optional per-token normaliser.
+    normalizer=None returns the base tokenizer unchanged (the raw pass)."""
+    if normalizer is None:
+        return tokenizer
+
+    def wrapped(text: str) -> list:
+        return [normalizer(t) for t in tokenizer(text)]
+
+    return wrapped
 
 
 def load_lane(path: Path) -> dict:
@@ -193,6 +315,33 @@ def build_lexicon(cooc: dict, src_sets: dict, tgt_sets: dict, n_v: int,
     return rows, aligned_count, band_totals, band_aligned
 
 
+def anchor_candidates(cooc: dict, src_sets: dict, tgt_sets: dict, n_v: int,
+                       topk: int, word: str, score_name: str):
+    """Top-k (score, cooc, target) tuples for ONE source word, or None if
+    the word is absent from the source vocabulary. Factored out of
+    anchor_receipts so callers that need the raw ranking (e.g. the
+    tongue-survives lemma-key regression check) don't have to re-parse
+    rendered report text."""
+    sks = src_sets.get(word)
+    if not sks:
+        return None
+    tgt_counts = cooc.get(word, {})
+    cands = []
+    for tgt, co in tgt_counts.items():
+        if co < MIN_COOC:
+            continue
+        sz_b = len(tgt_sets[tgt])
+        if score_name == "pmi":
+            s = pmi_score(co, len(sks), sz_b, n_v)
+        else:
+            s = dice_score(co, len(sks), sz_b)
+        if s == float("-inf"):
+            continue
+        cands.append((s, co, tgt))
+    cands.sort(reverse=True)
+    return cands[:topk]
+
+
 def anchor_receipts(cooc: dict, src_sets: dict, tgt_sets: dict, n_v: int,
                      topk: int, words: list, score_name: str) -> list:
     lines = []
@@ -201,21 +350,7 @@ def anchor_receipts(cooc: dict, src_sets: dict, tgt_sets: dict, n_v: int,
         if not sks:
             lines.append(f"- `{w}`: NOT FOUND in source vocabulary (0 verses)")
             continue
-        tgt_counts = cooc.get(w, {})
-        cands = []
-        for tgt, co in tgt_counts.items():
-            if co < MIN_COOC:
-                continue
-            sz_b = len(tgt_sets[tgt])
-            if score_name == "pmi":
-                s = pmi_score(co, len(sks), sz_b, n_v)
-            else:
-                s = dice_score(co, len(sks), sz_b)
-            if s == float("-inf"):
-                continue
-            cands.append((s, co, tgt))
-        cands.sort(reverse=True)
-        top = cands[:topk]
+        top = anchor_candidates(cooc, src_sets, tgt_sets, n_v, topk, w, score_name)
         if not top:
             lines.append(f"- `{w}` ({len(sks)} verses, {score_name}): "
                           f"no target above cooc>={MIN_COOC} threshold")
@@ -227,7 +362,8 @@ def anchor_receipts(cooc: dict, src_sets: dict, tgt_sets: dict, n_v: int,
 
 def run_pair(pair_name: str, src_lane_name: str, tgt_lane_name: str,
              src_tokenizer, tgt_tokenizer, data_dir: Path, out_dir: Path,
-             topk: int, anchor_words_src: list, exclude_psalms: bool) -> str:
+             topk: int, anchor_words_src: list, exclude_psalms: bool,
+             lemma_key: bool = False) -> str:
     src_path = data_dir / f"bible_{src_lane_name}.json"
     tgt_path = data_dir / f"bible_{tgt_lane_name}.json"
     for p in (src_path, tgt_path):
@@ -367,6 +503,155 @@ def run_pair(pair_name: str, src_lane_name: str, tgt_lane_name: str,
            "source vocabulary"]),
         "",
     ]
+
+    # ── lemma-key pass (--lemma-key, OFF by default) ────────────────────
+    # Everything above this point is the RAW pass, unchanged from before
+    # this mode existed -- the primary TSV was already written from it.
+    # This block runs a SECOND pass with normalised tokenizers and reports
+    # before/after, never mutating the raw pass's numbers above.
+    if lemma_key:
+        tgt_normalizer = normalize_de if tgt_lane_name == "luther1545" else None
+        src_tok_lemma = wrap_tokenizer(src_tokenizer, normalize_en)
+        tgt_tok_lemma = wrap_tokenizer(tgt_tokenizer, tgt_normalizer)
+
+        src_sets_l = build_verse_sets(src_shared, src_tok_lemma)
+        tgt_sets_l = build_verse_sets(tgt_shared, tgt_tok_lemma)
+        cooc_l = build_sparse_cooccurrence(shared, src_shared, tgt_shared,
+                                            src_tok_lemma, tgt_tok_lemma)
+
+        rows_pmi_l, aligned_pmi_l, bt_pmi_l, ba_pmi_l = build_lexicon(
+            cooc_l, src_sets_l, tgt_sets_l, n_v, topk, "pmi")
+
+        # new artifact only, never touches the primary alignment_<pair>.tsv
+        lemma_tsv_path = out_dir / f"alignment_{pair_name}_lemmakey.tsv"
+        with lemma_tsv_path.open("w", encoding="utf-8") as f:
+            f.write("src_token\ttgt_token\tcooc\tscore\trank\n")
+            for src, tgt, co, s, rank in sorted(rows_pmi_l, key=lambda r: (-r[2], r[0], r[4])):
+                f.write(f"{src}\t{tgt}\t{co}\t{s:.4f}\t{rank}\n")
+
+        total_src_l = sum(bt_pmi_l.values())
+        overall_pmi_l = f"{100.0*aligned_pmi_l/total_src_l:.1f}%" if total_src_l else "n/a"
+
+        # side-by-side band table -- RAW and LEMMA-KEY each computed against
+        # their OWN post-fold vocabulary/frequencies (folding changes which
+        # band a token falls in, same as the split-census before/after
+        # measurement did -- this is not the same universe on both sides,
+        # stated explicitly per the falsifiability rule).
+        band_lines_l = [
+            "| band | raw src tokens | raw aligned | raw coverage "
+            "| lemma-key src tokens | lemma-key aligned | lemma-key coverage |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for label in all_bands:
+            tot_r, ap_r = bt_pmi.get(label, 0), ba_pmi.get(label, 0)
+            tot_l, ap_l = bt_pmi_l.get(label, 0), ba_pmi_l.get(label, 0)
+            cov_r = f"{100.0*ap_r/tot_r:.1f}%" if tot_r else "n/a"
+            cov_l = f"{100.0*ap_l/tot_l:.1f}%" if tot_l else "n/a"
+            band_lines_l.append(
+                f"| {label} | {tot_r} | {ap_r} | {cov_r} | {tot_l} | {ap_l} | {cov_l} |")
+
+        # ── the actual "lift" measurement: for each RAW hapax/rare/low
+        # source token that was NOT aligned in the raw pass, does its
+        # NORMALISED key become aligned in the lemma-key pass? This is a
+        # direct token-level flip count, not two independently-banded
+        # tables read side by side -- it is the honest answer to "does
+        # merging counts over the cooc>=5 floor actually lift low-frequency
+        # coverage, and by how much."
+        aligned_src_raw = {r[0] for r in rows_pmi}
+        aligned_src_lemma = {r[0] for r in rows_pmi_l}
+        lift_considered = Counter()
+        lift_flipped = Counter()
+        low_bands = {"hapax (1)", "rare (2-4)", "low (5-19)"}
+        for w, sks in src_sets.items():
+            band = freq_band(len(sks))
+            if band not in low_bands or w in aligned_src_raw:
+                continue
+            lift_considered[band] += 1
+            if normalize_en(w) in aligned_src_lemma:
+                lift_flipped[band] += 1
+        lift_lines = ["| band | raw-unaligned tokens | now aligned via normalised key | flip rate |",
+                      "|---|---|---|---|"]
+        total_considered = total_flipped = 0
+        for label in ("hapax (1)", "rare (2-4)", "low (5-19)"):
+            c = lift_considered.get(label, 0)
+            f_ = lift_flipped.get(label, 0)
+            total_considered += c
+            total_flipped += f_
+            rate = f"{100.0*f_/c:.1f}%" if c else "n/a"
+            lift_lines.append(f"| {label} | {c} | {f_} | {rate} |")
+        total_rate = f"{100.0*total_flipped/total_considered:.1f}%" if total_considered else "n/a"
+        lift_lines.append(f"| **all three bands** | {total_considered} | {total_flipped} | **{total_rate}** |")
+
+        # ── anchor receipts under lemma-key, same anchor words (none of
+        # the stock anchors -- swallow/grape/tongue/vineyard -- are
+        # themselves suffix-stripped by normalize_en, so the literal word
+        # is still the right lookup key; they only GAIN co-occurrence mass
+        # from other surface forms folding into them) ──────────────────
+        receipts_pmi_lemma = anchor_receipts(cooc_l, src_sets_l, tgt_sets_l,
+                                              n_v, topk, anchor_words_src, "pmi")
+
+        # ── tongue-survives regression check, programmatic (en-de only:
+        # Zunge/Sprache is a German-target phenomenon). Targets are
+        # compared as NORMALISED keys, since the German side is folded too
+        # (normalize_de("zunge") -> "zung", normalize_de("sprache") ->
+        # "sprach") -- the check is whether the ORGAN-sense and
+        # LANGUAGE-sense associates both survive as distinct top-k
+        # entries, not whether the exact spelling "zunge" reappears. ──
+        tongue_lines = []
+        if pair_name == "en-de" and "tongue" in anchor_words_src:
+            top_lemma = anchor_candidates(cooc_l, src_sets_l, tgt_sets_l,
+                                           n_v, topk, "tongue", "pmi") or []
+            got = {t for _, _, t in top_lemma}
+            zunge_key = normalize_de("zunge")
+            sprache_key = normalize_de("sprache")
+            survived = zunge_key in got and sprache_key in got
+            rendered = ("; ".join(f"{t}(cooc={co},score={s:.2f})"
+                                   for s, co, t in top_lemma)
+                        if top_lemma else "(no candidates above threshold)")
+            tongue_lines = [
+                f"- expects normalised targets `{zunge_key}` (from `zunge`, "
+                f"organ sense) AND `{sprache_key}` (from `sprache`, language "
+                f"sense) both present in top-{topk}.",
+                f"- lemma-key top-{topk} for `tongue`: {rendered}",
+                f"- **regression check: "
+                f"{'SURVIVED' if survived else 'REGRESSED — DO NOT TUNE AWAY, REPORT AS-IS'}**",
+            ]
+        elif pair_name == "en-de":
+            tongue_lines = ["- `tongue` is not in this pair's anchor set; "
+                             "check not applicable"]
+
+        section.extend([
+            "### Lemma-key pass (`--lemma-key`) — before/after",
+            "",
+            f"- raw source vocabulary: **{total_src}**, lemma-key source "
+            f"vocabulary: **{total_src_l}** (fewer distinct keys = folding "
+            f"happened; identical count would mean the normaliser never "
+            f"fired on this vocabulary)",
+            f"- **overall coverage, PMI raw: {aligned_pmi}/{total_src} = "
+            f"{overall_pmi}** vs "
+            f"**lemma-key: {aligned_pmi_l}/{total_src_l} = {overall_pmi_l}**",
+            "",
+            "#### Coverage by band, raw vs lemma-key (each on its own "
+            "post-fold vocabulary)",
+            "",
+            *band_lines_l,
+            "",
+            "#### Low-frequency LIFT: raw-unaligned tokens whose normalised "
+            "key becomes aligned",
+            "",
+            *lift_lines,
+            "",
+            "#### Anchor receipts under lemma-key (PMI)",
+            "",
+            *receipts_pmi_lemma,
+            "",
+            "#### `tongue` regression check (known-good anchor, must not "
+            "break)",
+            "",
+            *tongue_lines,
+            "",
+        ])
+
     return "\n".join(section)
 
 
@@ -378,6 +663,16 @@ def main() -> None:
                      help="which lane pair to align (default: both)")
     ap.add_argument("--topk", type=int, default=DEFAULT_TOPK,
                      help=f"top-k targets per source token (default {DEFAULT_TOPK})")
+    ap.add_argument("--lemma-key", action="store_true", default=False,
+                     help="OFF by default. Adds a second pass that folds "
+                     "surface tokens to a crude approximate stem before "
+                     "building co-occurrence (English suffix table + reused "
+                     "German suffix table; see module docstring). Writes an "
+                     "ADDITIONAL alignment_<pair>_lemmakey.tsv and a "
+                     "before/after section in the report; the primary "
+                     "alignment_<pair>.tsv is always the raw (un-normalised) "
+                     "pass, flag or no flag, so existing consumers of that "
+                     "file see no change.")
     args = ap.parse_args()
 
     data_dir = Path(args.data_dir) if args.data_dir else Path(__file__).parent
@@ -397,6 +692,14 @@ def main() -> None:
         "coefficient (`2*cooc/(|a|+|b|)`), both gated by the same MIN_COOC "
         "floor before scoring.",
         "",
+        f"`--lemma-key`: **{'ON' if args.lemma_key else 'OFF (default)'}**"
+        + (" -- English suffix table `EN_SUFFIXES`/`normalize_en` "
+           f"(min stem {EN_MIN_STEM_LEN}) + German suffix table "
+           f"`DE_SUFFIXES`/`normalize_de` (min stem {DE_MIN_STEM_LEN}, copied "
+           "from build_rosetta_probe.py). Greek target side has no "
+           "normaliser." if args.lemma_key else " -- pass `--lemma-key` to "
+           "run the additional before/after pass (see module docstring)."),
+        "",
     ]
 
     en_anchors = ["swallow", "grape", "tongue", "vineyard"]
@@ -408,25 +711,34 @@ def main() -> None:
     if args.pair in ("en-de", "both"):
         sections.append(run_pair(
             "en-de", "kjv", "luther1545", toks_en, toks_de,
-            data_dir, out_dir, args.topk, en_anchors, exclude_psalms=True))
+            data_dir, out_dir, args.topk, en_anchors, exclude_psalms=True,
+            lemma_key=args.lemma_key))
 
     if args.pair in ("en-el", "both"):
         sections.append(run_pair(
             "en-el", "kjv", "tischendorf", toks_en, toks_el,
-            data_dir, out_dir, args.topk, el_anchors, exclude_psalms=False))
+            data_dir, out_dir, args.topk, el_anchors, exclude_psalms=False,
+            lemma_key=args.lemma_key))
 
     sections.append(
         "## Limitations (honest, not swept under the rug)\n\n"
-        "- No lemmatiser on either side: German inflected forms "
-        "(`weinberge`/`weinberges`/`weinbergen`) and Greek inflected forms "
-        "fragment the target vocabulary, which *undercounts* co-occurrence "
-        "for morphologically rich targets relative to an isolating language "
-        "like English. This is the same limitation the D-RCC-1 §C probe "
-        "documented for German surface forms (its crude suffix normaliser is "
-        "NOT reused here -- this script is surface-form-only on both sides, "
-        "so any 'before/after' delta the D-RCC-1 probe measured is *not* "
-        "re-measured here; it would only make coverage numbers larger, never "
-        "smaller).\n"
+        "- No lemmatiser on either side BY DEFAULT: German and English "
+        "inflected forms (`weinberge`/`weinberges`/`weinbergen`, "
+        "`grape`/`grapes`) and Greek inflected forms fragment the "
+        "vocabulary, which *undercounts* co-occurrence for morphologically "
+        "richer forms and can hide real signal behind a low-frequency "
+        "surface split (the `grape`/`grapes` case in `E-D-RCC-3-ALIGNER-"
+        "SHIPPED-DICE-NOT-BETTER-1`). This is the same limitation the "
+        "D-RCC-1 §C probe documented for German surface forms "
+        "(48.9% -> 43.0%, `E-RCC-1-V2-SPLIT-SURVIVES-NORMALISATION-1`). "
+        "**Task #34 added `--lemma-key`** (OFF by default, so this script's "
+        "default behaviour and primary TSV output are unchanged) reusing "
+        "the German suffix table and adding an equivalent English one "
+        "(including archaic KJV `-eth`/`-est` verb endings); see the module "
+        "docstring and the report's per-pair \"Lemma-key pass\" section for "
+        "the measured before/after. Neither normaliser is a lemmatiser: no "
+        "dictionary, no irregular forms (`hath`/`saith` do not fold), no "
+        "ablaut/umlaut correction, no compound splitting.\n"
         "- Low-frequency source tokens (hapax/rare bands) are the tail: "
         "co-occurrence needs `cooc>=5` to score at all, so a token that "
         "appears in fewer than 5 verses total can NEVER pass the floor no "

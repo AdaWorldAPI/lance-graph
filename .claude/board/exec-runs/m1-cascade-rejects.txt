@@ -1,0 +1,89 @@
+# M1 CascadeRejects — task #32 — the peripheral channel for CamPqScanOp::cascade
+# Agent: filigree/m1-cascade-rejects (Opus). Date: 2026-07-26.
+# File owned + changed: crates/lance-graph-planner/src/physical/cam_pq_scan.rs (ONLY).
+# No board file written but this one. No commit, no push.
+
+SHAPE BUILT
+  CamPqStrategy::is_exact_over_adc()      — the semantics the corpus-size switch changes.
+  CascadeRejects { at_heel, at_branch, at_topk }   — enumerable complement, 3 lanes by CAUSE.
+      heuristic_len() excludes at_topk: a budget is not a guess. Lanes never merged
+      (E-SPLIT-THE-CARRIER-NOT-THE-CALL-SITES-1).
+  CascadeRejects::heuristic_sample(k)     — deterministic ENDPOINT-INCLUSIVE stride,
+      each lane strided within its OWN key (a HEEL sub-distance and a HEEL+BRANCH
+      partial are not comparable numbers). k=1 takes the FAR edge.
+  ThresholdDissent { sampled, would_have_ranked, worst_miss_rank,
+                     suggested_heel_threshold: Option<f32>,
+                     suggested_branch_threshold: Option<f32> }  — signal, never verdict.
+      Two Option fields, not one f32: the suggestion is a different quantity per lane.
+  RejectPolicy::{Disabled (default), Collect{dissent_sample}}   — opt-in.
+  ScanOutcome { strategy, results, rejects, dissent } + execute_observed(..).
+      Disabled arm DELEGATES to execute() — bit-identical by construction, not by promise.
+  execute() / cascade() / full_adc() / the struct's fields: UNCHANGED. api.rs untouched
+      and still compiles.
+
+MEASURED (cascade_recall_against_full_adc, 5000 scattered SplitMix64 CAM codes,
+          shipped production thresholds heel=50.0 branch=25.0, top_k=10):
+  recall@10 = 0.50   (5 of the 10 true nearest survive the cascade)
+  heuristic rejection rate = 0.7636
+  lanes: at_heel 0, at_branch 3818, at_topk 1172
+  => the doc-comment ":24 99% rejection" is not reproduced (76.4% here), and its COST
+     side is now a number for the first time: HALF the true top-10 is lost.
+
+INCIDENTAL FINDING (not in the sweep): with the test distance tables the largest
+  possible HEEL sub-distance is 25.5, so the shipped heel_threshold = 50.0 is INERT —
+  stroke 1 rejects nothing and the whole cascade is carried by stroke 2. Whether the
+  production tables have the same scale is UNVERIFIED (no real codebook in this test
+  path). Pinned in a comment at the partition test; flagged, not fixed.
+
+TESTS (13 in-module, all green; 312 planner --lib green)
+  cascade_recall_against_full_adc                    NEW  falsifier, prints the number,
+        floors recall >= 0.40 AND ceilings it < 1.0 (a fixture that stops losing has
+        stopped testing) AND asserts rejection_rate > 0.50 (prune must still prune).
+  rejects_partition_the_candidate_set                NEW  kept ∪ 3 lanes == n, disjoint,
+        all three lanes non-empty.
+  full_adc_has_no_heuristic_rejects_only_a_budget    NEW  the lane split made observable.
+  stride_sample_reaches_hard_rejects_not_near_misses NEW  sampled_max >= extremal reject,
+        AND the cheap-edge contrast (k nearest misses confined to the near half).
+  threshold_dissent_can_actually_fire                NEW  planted [250,0,0,0,0,0] — one
+        bad HEEL byte hiding five perfect ones. Rejected at stroke 1, beats every
+        returned result, dissent reports rank 0 + suggested_heel_threshold Some(25.0),
+        suggested_branch_threshold None. Results bit-identical (to_bits) to execute().
+  no_periphery_no_dissent                            NEW  converse: silent when nothing pruned.
+  disabled_policy_is_bit_identical_and_allocation_free NEW  to_bits equality across all
+        3 strategies, disabled AND enabled (instrumentation never moves the verdict).
+  strategy_switch_is_observable_and_changes_semantics NEW  9_999_999 exact / 10_000_000 not,
+        and the two strategies provably disagree on the same data.
+  test_cascade                                       REWRITTEN — the vacuous
+        `results.len() <= 10` (E-VACUOUS #1) replaced by: budget FILLS (== 10), every
+        survivor obeys the stroke-2 invariant, kept*3 < total anti-vacuity.
+  test_cascade_rejection_rate                        DELETED — its only assertion was
+        truncate's postcondition; cascade_recall_against_full_adc replaces it.
+
+GATES
+  cargo test -p lance-graph-planner --lib      312 passed / 0 failed
+  cargo fmt -p lance-graph-planner             clean
+  cargo clippy -p lance-graph-planner --lib -- -D warnings   clean
+        (only the pre-existing cognitive-shader-driver/src/bin/serve.rs multi-target
+         Cargo.toml warning, unrelated and untouched)
+  cargo clippy --lib --tests                   no findings in this file
+
+LIMITS LEFT OPEN, HONESTLY
+  1. api.rs::CamSearch::top_k STILL returns a bare Vec and still discards the strategy.
+     api.rs is another agent's file this task; the observable surface exists
+     (ScanOutcome.strategy / is_exact_over_adc) but is NOT yet adopted by the one
+     production caller. Sweep item (5) is half-done: the mechanism landed, the wiring
+     did not.
+  2. heel_threshold/branch_threshold remain HAND-TUNED absolutes and say so. Nothing
+     here derives them from a Jirak bound; ThresholdDissent only reports the value that
+     WOULD have admitted the observed miss — a suggestion from one sample, not a
+     calibration.
+  3. Recall 0.50 is measured on a SYNTHETIC fixture (linear-ramp distance tables,
+     independent uniform bytes). Real CAM codes are correlated across subspaces, so the
+     true production recall is unknown and probably higher. The number falsifies the
+     "no cost" reading; it does not estimate production loss.
+  4. IvfCascade shares Cascade's body (pre-existing), so its per-partition probe is not
+     modelled here either — the complement it reports is the cascade's, not IVF's.
+  5. Cost of Collect is O(n) memory, unbounded — no reservoir. Fine for the audit path
+     it is built for; NOT safe to enable on a 100M-row scan. Documented on RejectPolicy.
+  6. No benchmark run: "zero cost when disabled" is argued structurally (the Disabled
+     arm calls the untouched execute()) and pinned bit-identically, not timed.
