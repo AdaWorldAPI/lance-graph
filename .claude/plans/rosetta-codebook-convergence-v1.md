@@ -234,7 +234,16 @@ D-RCC-2 (contract shape)
    → D-RCC-8 (package/Release)        — needs licence re-verify pass
 ```
 
-## §4 Open blockers
+## §4 Licence posture + open items
+
+> **Operator ruling (2026-07-26): this is self-funded personal RESEARCH.**
+> NC/academic licences restrict redistribution and commercial use, not
+> research use — so nothing below blocks the research deliverables
+> (D-RCC-1..7). The licence table's job is documentation-in-place: if
+> monetization ever happens, the decision is made against the documented
+> regimes, not reconstructed. The one-asset-per-regime law gates ONLY the
+> public Release path (D-RCC-8). GermaNet (academic licence) joins the
+> usable-for-research, documented-for-later set alongside PROIEL.
 
 1. Per-treebank licence re-verification for any lane leaving local disk
    (only the already-probed set is verified; Latin UD family assumed BY-SA,
