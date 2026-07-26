@@ -1,0 +1,84 @@
+Agent tag file — rcc-lane-codebooks (grindwork, Rosetta arc)
+Task: per-language verse-attested codebooks for all 4 lanes (D-RCC follow-on
+to build_rosetta_probe.py / build_versification_map.py). Did NOT touch either
+sibling script or anything under data/wordnet/.
+
+Files written:
+- crates/lance-graph-planner/examples/data/rosetta/build_lane_codebooks.py
+  (new file, stdlib-only Python 3)
+- <scratchpad>/out/codebook_kjv.tsv
+- <scratchpad>/out/codebook_luther1545.tsv
+- <scratchpad>/out/codebook_elberfelder1905.tsv
+- <scratchpad>/out/codebook_bkr.tsv
+- <scratchpad>/out/codebook_summary.md
+(scratchpad = /tmp/claude-0/-home-user/8a7f1676-44cf-569c-afbe-022e551ce1ec/scratchpad —
+gitignored working data dir, not committed; the .py under crates/ is the
+committable deliverable)
+
+Run: `python3 build_lane_codebooks.py <scratchpad>` — exit 0, no errors.
+
+LANE ROSTER CORRECTION (important — read before using the brief's "Czech
+and Greek" framing verbatim): the 4 lanes actually present in the fetched
+data are kjv (English), luther1545 (German), elberfelder1905 (German), bkr
+(Czech). That's TWO German lanes + 1 English + 1 Czech — there is NO Greek
+Bible JSON in this data set. A Greek NT file exists elsewhere in the
+scratchpad (proiel-greek-nt.xml) but it's a different corpus format
+(PROIEL treebank XML, not verse-JSON) and was correctly left untouched —
+out of scope for "verse-keyed lane codebook" as specified. Flagged this
+explicitly in codebook_summary.md rather than silently building 4 codebooks
+and letting a reader assume one is Greek.
+
+Headline numbers (tokens = surface-form count via one shared Unicode
+letter-run regex [^\W\d_]+, IDENTICAL logic across all 4 lanes, no
+per-language special-casing):
+
+  lane            books verses  tokens   types  TTR     hapax  hapax-rate
+  kjv (en)        66    31102   792376   12453  0.0157  3817   0.3065
+  luther1545 (de) 66    31098   696534   20444  0.0294  7839   0.3834
+  elberfelder1905 66    31102   722778   24081  0.0333  9433   0.3917
+  bkr (cs)        66    31102   596085   40100  0.0673  18291  0.4561
+
+Surprises:
+- Monotonic TTR/hapax-rate ordering en < de(luther) < de(elberfelder) < cs
+  tracks morphological richness almost perfectly (English least inflected,
+  Czech most synthetic) — exactly the expected artifact of a non-lemmatizing
+  tokenizer, and a clean sanity check that the pipeline is doing what it
+  claims.
+- The two German lanes (luther1545 vs elberfelder1905, same language,
+  different 19th-c. translations) differ noticeably in type count (20444 vs
+  24081) and hapax rate (0.383 vs 0.392) despite covering the same 66 books
+  and near-identical verse counts — a real translation-style signal (more
+  literal/archaic diction in one vs the other), not a tokenizer artifact,
+  since the tokenizer treats both identically.
+- Median dispersion (Juilland's D over the WHOLE vocabulary, not just
+  top-N) drops steeply with inflection: kjv 0.262, luther1545 0.171,
+  elberfelder1905 0.133, bkr 0.0 (bkr's median token appears in so few
+  books, given 40k surface types spread over the same 66 books, that the
+  median D rounds to 0.0). This is the direct consequence of type
+  proliferation: more distinct surface forms per lemma means each
+  individual form is rarer and more likely concentrated in fewer books.
+- closed_class_guess (rank<=150 AND dispersion>=0.60, no POS tagger) fires
+  on 148-150 of the intended 150 slots in every lane except a handful get
+  excluded for insufficient dispersion — the heuristic is well-behaved
+  (close to its own cutoff by construction) but is NOT validated against
+  any ground-truth POS list in this pass; flagged as a guess, not a tag,
+  in both the TSV header and the summary.
+- Top-20-by-frequency and top-20-by-dispersion overlap heavily but not
+  perfectly in every lane (see codebook_summary.md per-lane tables) —
+  confirms the two columns measure genuinely different things rather than
+  being redundant.
+
+Limitations (see script docstring + summary.md "Caveats" section for full
+text, not repeated here):
+- Surface forms only, no lemmatizer for any of the 4 lanes (English COCA
+  lemma table and German UD lemma table both exist in-repo but were
+  deliberately NOT consulted, to keep all 4 lanes on identical logic per
+  the brief's iron rule).
+- closed_class_guess is a rank+dispersion heuristic, not a POS tag; will
+  mis-flag any very frequent, evenly-spread CONTENT word (e.g. theological
+  terms like "lord"/"god"/"herr"/"pán" repeated throughout) as closed-class.
+- Dispersion is computed per-lane over that lane's own book segmentation
+  (66 books in all 4 lanes here, confirmed empirically, but the script does
+  not assume this — it counts book_nr per lane).
+- No cross-lane "absent" semantics touched by this script at all — that
+  stays build_rosetta_probe.py's job.

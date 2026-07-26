@@ -1,3 +1,28 @@
+## 2026-07-26 — E-LANE-CODEBOOKS-MORPHOLOGY-ORDERING-1 — four verse-attested codebooks on identical logic reproduce the morphological-richness ordering (en < de < cs) as a free sanity check; the TWO German lanes differ enough to be non-redundant witnesses; and the `closed_class_guess` heuristic is near-VACUOUS — it is essentially "rank ≤ 150".
+
+**Status:** FINDING (measured); the vacuity critique is an orchestrator read of the emitted TSVs, not the producing agent's claim. **Confidence:** High.
+
+**Built** (`rosetta/build_lane_codebooks.py`, stdlib-only, identical logic across all lanes — no per-language special-casing beyond the tokeniser character class): per token `freq, verse_df, rank, dispersion (Juilland's D over the lane's own 66 books), is_hapax, closed_class_guess`.
+
+| lane | language | tokens | types | TTR | hapax |
+|---|---|---:|---:|---:|---:|
+| kjv | English | 792,376 | 12,453 | 0.0157 | 30.7% |
+| luther1545 | German | 696,534 | 20,444 | 0.0294 | 38.3% |
+| elberfelder1905 | German | 722,778 | 24,081 | 0.0333 | 39.2% |
+| bkr | Czech | 596,085 | 40,100 | 0.0673 | 45.6% |
+
+**Three reads:**
+
+1. **The ordering is a free pipeline sanity check.** TTR and hapax rate both rank en < de < cs — exactly the morphological-richness ordering (English analytic; German compounding + case; Czech 7 cases × rich derivation). Nobody encoded that; it falls out of identical logic on four texts of comparable length. A pipeline bug would have to be language-correlated to fake it.
+
+2. **The two German lanes are NOT redundant witnesses.** Same 66 books, same verse counts, same tokeniser — yet 20,444 vs 24,081 types (+17.8%) and a 0.9 pp hapax gap. That is translation STYLE, not a tokeniser artifact, and it matters for the witness-independence weighting (`E-VERSIFICATION-IS-PER-EDITION-NOT-PER-TRADITION-1` showed the same two lanes diverging on versification). Two editions of one language earn two lanes.
+
+3. **⚠ `closed_class_guess` is near-vacuous — do not consume it as a POS router.** Defined `rank ≤ 150 AND D ≥ 0.60`, it fires for **150/149/148/150** of a maximum 150 per lane. The dispersion conjunct therefore rejects ~1 word per lane: the flag is operationally identical to "rank ≤ 150". It cannot serve the D-RCC-4 POS-routing role (open-class → WordNet ladder; closed-class → construction statistics) for the languages that have no tagger, which was the entire motivation. **A real closed-class detector for cs/el is now an open item** — candidate signal: dispersion measured against a rank-matched baseline rather than an absolute threshold, so the criterion is doing independent work.
+
+**Scope correction (agent-flagged, worth pinning):** the four PD lanes are English + **two German** + Czech. There is **NO Greek TEXT lane** — the PROIEL Greek NT in the scratchpad is a treebank (different format, CC BY-NC-SA, oracle-only per `E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1`). Any earlier session framing implying a Greek lane among the four is corrected here; acquiring a PD Greek text edition remains plan blocker §4.4 and now sits on the critical path for the source-outranks-translation rule (which needs a source lane to outrank with).
+
+Refs: plan `rosetta-codebook-convergence-v1.md` §2 D-RCC-4 + §4.4, `E-RCC-1-FOUR-LANES-ONE-KEY-1`.
+
 ## 2026-07-26 — E-RCC-1-V2-SPLIT-SURVIVES-NORMALISATION-1 — the cross-lingual split census is NOT an inflection artifact: folding German surface forms to stems moves it 48.9% → 43.0%, not to zero. The German lane really does partition English polysemy at scale.
 
 **Status:** FINDING (measured before/after in one run, same thresholds both passes). **Confidence:** High for the direction and magnitude; the normaliser is a stated approximation, so the exact 43.0% is a lower-bound-ish estimate, not a precise constant.
