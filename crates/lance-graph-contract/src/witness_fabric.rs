@@ -703,6 +703,288 @@ pub fn revision_trajectory(
     }
 }
 
+// ── The TEMPORAL PERIPHERY — superseded belief states ─────────────────────
+//
+// **The present is the dominant mode of the time axis.** A reader that always
+// takes HEAD treats every overwritten belief state as a reject pile — which is
+// the exact eigenvalue-following failure `E-PERIPHERAL-DISSENT-GUARDS-THE-
+// STRATIFICATION-1` names, applied to time instead of to the rung ladder. The
+// anti-eigenvalue three-part test (**enumerable / spread-sampled /
+// escalation-capable**) was applied there and swept across the spatial prunes;
+// this is its application to the version axis.
+//
+// The same shape as the spatial side: FUNCTIONS over a slice, never a
+// materialized history struct. [`belief_runs`] enumerates, [`superseded_spread_sample`]
+// samples with a stride (the temporal form of `RungLevel::peripheral_sample`),
+// [`suggest_reopening`] escalates — and, like every other periphery channel in
+// this module, it SUGGESTS and never decides.
+//
+// **Divergence from [`revision_trajectory`], stated rather than hidden.** The
+// run model here treats "unbound" as a state of its own, so `a → unbound → a`
+// is three runs; `revision_trajectory` carries the last BOUND value forward and
+// counts that same series as one flip. Neither is wrong — churn asks "how often
+// did the belief move", runs ask "which distinct states did the history hold".
+// They are deliberately not unified: doing so would change
+// `revision_trajectory`'s shipped semantics.
+
+/// One contiguous stretch of the history during which a belief held ONE state.
+///
+/// A run that was replaced carries `superseded_at`; the newest run does not.
+/// The superseded runs ARE the temporal periphery — the states a HEAD read
+/// discards.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BeliefRun {
+    /// Index (into the visible history) of the first revision holding it.
+    pub first_revision: u8,
+    /// Consecutive revisions that held it. Never 0 — a run exists because a
+    /// revision held it.
+    pub held_for: u8,
+    /// The state held; `None` = the locus was unbound across this run.
+    /// **Absent is not a value**: an unbound run is a real run, but it is never
+    /// a candidate for re-opening (there is no belief to re-open).
+    pub value: Option<i8>,
+    /// Revision index at which a DIFFERENT state took over, or `None` if this
+    /// run is still current. This is the "when did the flip happen" that
+    /// [`RevisionTrajectory::flips`] can only count.
+    pub superseded_at: Option<u8>,
+}
+
+impl BeliefRun {
+    /// This run was replaced by a later one — it is part of the periphery.
+    #[inline]
+    #[must_use]
+    pub const fn is_superseded(&self) -> bool {
+        self.superseded_at.is_some()
+    }
+
+    /// Revision indices this run covers, as a half-open `[start, end)` pair.
+    /// Used to prove the runs TILE the history rather than merely being derived
+    /// from it.
+    #[inline]
+    #[must_use]
+    pub const fn span(&self) -> (u8, u8) {
+        (self.first_revision, self.first_revision + self.held_for)
+    }
+}
+
+/// **Enumerate** the belief states a history held, oldest→newest.
+///
+/// This is part 1 of the three-part periphery test: *a prune nobody can
+/// enumerate is a blind spot; a prune you can enumerate is a budget.*
+/// [`RevisionTrajectory::flips`] counts the flips; this NAMES them — which
+/// revisions held which state, and at which revision each was superseded.
+///
+/// # Read-as-of is enforced by the parameter, not by discipline
+///
+/// `upto` bounds visibility exactly as in [`revision_trajectory`]: a run set
+/// computed as of revision *v* passes `upto = v + 1` and cannot observe
+/// anything later. Retrospective judgement of a past state must not be able to
+/// see what came after it, or it is hindsight wearing an audit's clothes.
+///
+/// Visibility is additionally capped at 255 revisions so the indices stay in
+/// `u8` (the same clamping [`RevisionTrajectory::steps`] already does).
+#[must_use]
+pub fn belief_runs(revisions: &[CausalWitnessFacet], locus: Locus, upto: usize) -> Vec<BeliefRun> {
+    let end = upto.min(revisions.len()).min(u8::MAX as usize);
+    let mut runs: Vec<BeliefRun> = Vec::new();
+    for (i, r) in revisions[..end].iter().enumerate() {
+        let value = if r.is_bound(locus) {
+            Some(r.at(locus))
+        } else {
+            None
+        };
+        match runs.last_mut() {
+            Some(last) if last.value == value => last.held_for = last.held_for.saturating_add(1),
+            _ => runs.push(BeliefRun {
+                first_revision: i as u8,
+                held_for: 1,
+                value,
+                superseded_at: None,
+            }),
+        }
+    }
+    for i in 1..runs.len() {
+        let at = runs[i].first_revision;
+        runs[i - 1].superseded_at = Some(at);
+    }
+    runs
+}
+
+/// The temporal periphery itself: every run that a later revision replaced.
+///
+/// Empty for an empty history AND for a history that never changed — in both
+/// cases nothing has been superseded. **Absent ≠ zero**: "no superseded states"
+/// because there is no history is not the same claim as "no superseded states
+/// because the belief is stable", and the caller can tell them apart by asking
+/// [`belief_runs`] for the whole picture.
+#[must_use]
+pub fn superseded_runs(
+    revisions: &[CausalWitnessFacet],
+    locus: Locus,
+    upto: usize,
+) -> Vec<BeliefRun> {
+    let mut runs = belief_runs(revisions, locus, upto);
+    runs.pop(); // the newest run is the present, not the periphery
+    runs
+}
+
+/// **Sample the periphery with a SPREAD** — up to `k` superseded runs, strided
+/// across the WHOLE history rather than taken from its recent edge.
+///
+/// Part 2 of the three-part test, and the part most easily got wrong. Taking
+/// the `k` most-recent superseded states is the temporal form of sampling the
+/// cheap edge: it re-creates the present-dominance blindness one level down,
+/// because the states nearest HEAD are the ones a HEAD reader already half-sees.
+/// The stride reaches the OLD end too.
+///
+/// Deterministic by construction (no RNG) — mirroring
+/// [`RungLevel::peripheral_sample`](crate::cognitive_shader::RungLevel), whose
+/// reasoning applies verbatim: a reproducible sample is the only auditable one.
+#[must_use]
+pub fn superseded_spread_sample(
+    revisions: &[CausalWitnessFacet],
+    locus: Locus,
+    upto: usize,
+    k: usize,
+) -> Vec<BeliefRun> {
+    let periphery = superseded_runs(revisions, locus, upto);
+    let n = periphery.len();
+    let take = k.min(n);
+    if take == 0 {
+        return Vec::new();
+    }
+    let stride = (n / take).max(1);
+    (0..take)
+        .filter_map(|i| periphery.get(i * stride).copied())
+        .collect()
+}
+
+/// Why a superseded state is worth re-opening. Never a verdict — see
+/// [`ReopeningSuggestion`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ReopeningReason {
+    /// The value was ABANDONED and later came back — it appears in ≥2 distinct
+    /// runs. A belief the history keeps returning to is not settled noise; the
+    /// flip away from it is the part that needs justifying.
+    Reverted,
+    /// A LONG-stable value was replaced by a strictly SHORTER-lived one. The
+    /// system traded accumulated stability for something it then did not keep,
+    /// which is the structural silhouette of a regression.
+    LongStableThenBrief,
+}
+
+/// The evidence a suggestion carries, so a consumer can weigh it instead of
+/// being asserted at. Same discipline as
+/// `OutlierSuggestion::basin_size` on the spatial side.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct ReopeningEvidence {
+    /// Total revisions the suggested value was held across the visible history
+    /// (summed over all its runs).
+    pub total_held: u8,
+    /// Revisions the CURRENT state has been held. A suggestion whose value
+    /// out-held the incumbent reads differently from one that did not.
+    pub current_held: u8,
+    /// Distinct runs in which the suggested value appeared.
+    pub occurrences: u8,
+}
+
+/// A superseded state proposed for re-examination, with its evidence attached.
+///
+/// **Nothing here prunes, decides, or scores.** It is the temporal sibling of
+/// [`WaveGrounding::Escalate`] and `peripheral_dissent`: a signal that the
+/// consumer may act on, never an action.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ReopeningSuggestion {
+    /// The superseded run being surfaced.
+    pub run: BeliefRun,
+    /// The structural pattern that surfaced it.
+    pub reason: ReopeningReason,
+    /// What the pattern was measured against.
+    pub evidence: ReopeningEvidence,
+}
+
+/// **Escalation-capability** — surface superseded states that structurally
+/// deserve re-opening, oldest→newest, deterministically.
+///
+/// # What this CANNOT measure, stated plainly
+///
+/// The honest signal would be "a past state predicted better than the present
+/// one". **This crate cannot compute that.** Scoring prediction requires ground
+/// truth — an outcome each belief state can be checked against — and a zero-dep
+/// contract crate has no oracle, no outcome column, and (by the read-as-of rule
+/// above) deliberately no access to the future of the revision it speaks for.
+/// Any function here claiming to rank past states by predictive accuracy would
+/// be inventing the thing it measures.
+///
+/// What IS measurable without an oracle is the SHAPE of the history, and two
+/// shapes are honest proxies for "worth re-opening":
+///
+/// * [`Reverted`](ReopeningReason::Reverted) — the history came back to a value
+///   it had abandoned. Recurrence after abandonment is evidence the abandonment
+///   was premature, *without needing to know which value is right*.
+/// * [`LongStableThenBrief`](ReopeningReason::LongStableThenBrief) — a value
+///   held for ≥2 revisions was replaced by a strictly shorter-lived one. The
+///   trade is visible in the structure alone.
+///
+/// **These are proxies, not the signal.** A genuine predicted-better test needs
+/// an outcome the consumer holds; the right shape for it is a consumer-side
+/// function taking `(belief_runs(.., upto), outcome_at(upto))`, which keeps the
+/// oracle outside the contract and the read-as-of bound intact.
+///
+/// Unbound runs are never suggested: there is no belief to re-open, and
+/// treating absence as a candidate would be the absent-as-zero error.
+#[must_use]
+pub fn suggest_reopening(
+    revisions: &[CausalWitnessFacet],
+    locus: Locus,
+    upto: usize,
+) -> Vec<ReopeningSuggestion> {
+    let runs = belief_runs(revisions, locus, upto);
+    if runs.len() < 2 {
+        return Vec::new(); // nothing was superseded — no periphery to escalate
+    }
+    let current_held = runs[runs.len() - 1].held_for;
+    let mut out: Vec<ReopeningSuggestion> = Vec::new();
+    for i in 0..runs.len() - 1 {
+        let run = runs[i];
+        let Some(value) = run.value else {
+            continue; // absent is not a belief
+        };
+        let same: Vec<&BeliefRun> = runs.iter().filter(|r| r.value == Some(value)).collect();
+        let occurrences = same.len().min(u8::MAX as usize) as u8;
+        let total_held = same
+            .iter()
+            .fold(0u8, |acc, r| acc.saturating_add(r.held_for));
+        let evidence = ReopeningEvidence {
+            total_held,
+            current_held,
+            occurrences,
+        };
+        // Recurrence is the stronger signal; report it once, on the EARLIEST
+        // run holding the value, so a value returning three times does not
+        // emit three near-identical suggestions.
+        let first_of_value = same
+            .first()
+            .is_some_and(|r| r.first_revision == run.first_revision);
+        if occurrences >= 2 && first_of_value {
+            out.push(ReopeningSuggestion {
+                run,
+                reason: ReopeningReason::Reverted,
+                evidence,
+            });
+            continue;
+        }
+        if occurrences < 2 && run.held_for >= 2 && runs[i + 1].held_for < run.held_for {
+            out.push(ReopeningSuggestion {
+                run,
+                reason: ReopeningReason::LongStableThenBrief,
+                evidence,
+            });
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1110,19 +1392,211 @@ mod tests {
         ];
         let r1 = resolve_chain(0, &two_hop, Locus::Antecedent, 1);
         assert!(r1.budget_exhausted, "budget 1 truncates a 2-hop chain");
-        assert!(!r1.out_of_horizon, "…but the chain never left the ±8 window");
+        assert!(
+            !r1.out_of_horizon,
+            "…but the chain never left the ±8 window"
+        );
         assert!(r1.escalated(), "the v1 reading still sees an escalation");
 
         let r2 = resolve_chain(0, &two_hop, Locus::Antecedent, 2);
-        assert!(!r2.escalated(), "more budget resolves it — as it always could");
+        assert!(
+            !r2.escalated(),
+            "more budget resolves it — as it always could"
+        );
 
         // A genuine horizon exit is the OTHER cause, and no budget fixes it.
         let far = vec![(0, w(&[(Locus::Antecedent, 7)]))];
         for b in [1u8, 2, 8, 64] {
             let r = resolve_chain(0, &far, Locus::Antecedent, b);
-            assert!(r.out_of_horizon, "budget {b}: horizon exit is budget-independent");
+            assert!(
+                r.out_of_horizon,
+                "budget {b}: horizon exit is budget-independent"
+            );
             assert!(!r.budget_exhausted);
         }
+    }
+
+    // ── temporal periphery (superseded belief states) ────────────────────
+
+    /// Part 1 — ENUMERABLE, and provably complete: the runs must TILE the
+    /// visible history. This is not implied by the code — an off-by-one in the
+    /// run-closing logic, or a dropped final revision, leaves a hole or an
+    /// overlap that this reconstruction catches.
+    #[test]
+    fn belief_runs_partition_the_visible_history() {
+        let v = |o: i8| w(&[(Locus::Kausal, o)]);
+        let hist = [v(1), v(1), v(2), CausalWitnessFacet::ZERO, v(2), v(2), v(3)];
+        let runs = belief_runs(&hist, Locus::Kausal, usize::MAX);
+        // Reconstruct the covered index set from the spans alone.
+        let mut covered = vec![0u8; hist.len()];
+        for r in &runs {
+            let (start, end) = r.span();
+            for slot in covered.iter_mut().take(end as usize).skip(start as usize) {
+                *slot += 1;
+            }
+        }
+        assert!(
+            covered.iter().all(|&c| c == 1),
+            "runs do not tile the history exactly: {covered:?}"
+        );
+
+        // Superseded ∪ current == all, and they are disjoint.
+        let superseded = superseded_runs(&hist, Locus::Kausal, usize::MAX);
+        assert_eq!(superseded.len() + 1, runs.len());
+        assert!(superseded.iter().all(BeliefRun::is_superseded));
+        assert!(!runs.last().unwrap().is_superseded());
+        assert!(
+            !superseded.iter().any(|r| r == runs.last().unwrap()),
+            "the current run leaked into the periphery"
+        );
+
+        // The flips are NAMED, not merely counted — `RevisionTrajectory` can
+        // only report how many there were.
+        assert_eq!(superseded[0].superseded_at, Some(2));
+        assert_eq!(superseded[0].value, Some(1));
+        assert_eq!(superseded[0].held_for, 2);
+        let counted = revision_trajectory(&hist, Locus::Kausal, usize::MAX).flips;
+        assert!(
+            counted > 0 && !superseded.is_empty(),
+            "a history with flips must have a non-empty periphery"
+        );
+
+        // Absent ≠ zero, in both directions.
+        assert!(belief_runs(&[], Locus::Kausal, usize::MAX).is_empty());
+        assert!(superseded_runs(&[v(1); 4], Locus::Kausal, usize::MAX).is_empty());
+        assert_eq!(belief_runs(&[v(1); 4], Locus::Kausal, usize::MAX).len(), 1);
+    }
+
+    /// Part 2 — the sample must SPREAD. Asserting only "it returned k items"
+    /// would pass for the recent-edge sampler that re-creates the blindness,
+    /// so the test asserts it REACHES the oldest superseded state and is not
+    /// the recent-k slice.
+    #[test]
+    fn superseded_spread_sample_reaches_an_early_revision() {
+        // 10 distinct values (all inside the i4 offset range) → 10 runs → 9
+        // superseded.
+        let hist: Vec<CausalWitnessFacet> = [1i8, 2, 3, 4, 5, 6, 7, -1, -2, -3]
+            .iter()
+            .map(|&o| w(&[(Locus::Kausal, o)]))
+            .collect();
+        let periphery = superseded_runs(&hist, Locus::Kausal, usize::MAX);
+        assert_eq!(periphery.len(), 9);
+
+        let sample = superseded_spread_sample(&hist, Locus::Kausal, usize::MAX, 3);
+        assert_eq!(sample.len(), 3);
+        assert_eq!(
+            sample[0].first_revision, 0,
+            "sample never reached the OLDEST superseded state"
+        );
+        assert!(
+            sample
+                .iter()
+                .any(|r| r.first_revision as usize >= periphery.len() / 2),
+            "sample never reached the recent half either — a spread covers both"
+        );
+        // Explicitly NOT the cheap (recent) edge.
+        let recent_k: Vec<BeliefRun> = periphery[periphery.len() - 3..].to_vec();
+        assert_ne!(sample, recent_k, "spread sample degenerated to recent-k");
+
+        // Bounds: asking for more than exists yields what exists, not padding.
+        assert_eq!(
+            superseded_spread_sample(&hist, Locus::Kausal, usize::MAX, 100).len(),
+            9
+        );
+        assert!(superseded_spread_sample(&hist, Locus::Kausal, usize::MAX, 0).is_empty());
+        assert!(superseded_spread_sample(&[], Locus::Kausal, usize::MAX, 5).is_empty());
+    }
+
+    /// Part 3 — the escalation channel must be able to FIRE, and must be able
+    /// to stay silent. A detector that always fires is as useless as one that
+    /// never does.
+    #[test]
+    fn reopening_fires_on_reversion_and_stays_silent_on_stability() {
+        let v = |o: i8| w(&[(Locus::Kausal, o)]);
+
+        // FIRES — the history abandoned `1`, then came back to it.
+        let reverted = [v(1), v(1), v(1), v(2), v(1)];
+        let s = suggest_reopening(&reverted, Locus::Kausal, usize::MAX);
+        assert_eq!(s.len(), 1, "expected exactly one suggestion, got {s:?}");
+        assert_eq!(s[0].reason, ReopeningReason::Reverted);
+        assert_eq!(s[0].run.first_revision, 0, "reported on the EARLIEST run");
+        assert_eq!(s[0].evidence.occurrences, 2);
+        assert_eq!(s[0].evidence.total_held, 4);
+        assert_eq!(s[0].evidence.current_held, 1);
+
+        // FIRES — a 3-revision stable belief traded for a 1-revision one.
+        let regressed = [v(5), v(5), v(5), v(6)];
+        let s2 = suggest_reopening(&regressed, Locus::Kausal, usize::MAX);
+        assert_eq!(s2.len(), 1);
+        assert_eq!(s2[0].reason, ReopeningReason::LongStableThenBrief);
+        assert_eq!(s2[0].evidence.total_held, 3);
+
+        // SILENT — monotonically stable: nothing was ever superseded.
+        assert!(suggest_reopening(&[v(1); 6], Locus::Kausal, usize::MAX).is_empty());
+        // SILENT — a single revision, and an empty history.
+        assert!(suggest_reopening(&[v(1)], Locus::Kausal, usize::MAX).is_empty());
+        assert!(suggest_reopening(&[], Locus::Kausal, usize::MAX).is_empty());
+        // SILENT — stability INCREASING (brief → long-stable) is the healthy
+        // direction and must not be flagged. This is the case a naive
+        // "any flip is suspicious" detector would fire on.
+        assert!(
+            suggest_reopening(&[v(5), v(6), v(6), v(6)], Locus::Kausal, usize::MAX).is_empty(),
+            "flagged a history that got MORE stable"
+        );
+        // SILENT — an unbound run is not a belief to re-open.
+        let unbound_first = [CausalWitnessFacet::ZERO, CausalWitnessFacet::ZERO, v(7)];
+        assert!(suggest_reopening(&unbound_first, Locus::Kausal, usize::MAX).is_empty());
+    }
+
+    /// Read-as-of on the periphery: a judgement made as of revision v cannot
+    /// see the reversion that happens at v+1. Enforced by the signature.
+    #[test]
+    fn temporal_periphery_cannot_see_later_revisions() {
+        let v = |o: i8| w(&[(Locus::Kausal, o)]);
+        let full = [v(1), v(1), v(1), v(2), v(1)];
+        // As of revision 4 the reversion has not happened yet.
+        let as_of_4 = suggest_reopening(&full, Locus::Kausal, 4);
+        assert_eq!(
+            as_of_4.len(),
+            1,
+            "as-of-4 sees the long-stable trade, not the reversion"
+        );
+        assert_eq!(as_of_4[0].reason, ReopeningReason::LongStableThenBrief);
+        // With the whole history it becomes a reversion — the bound is doing
+        // real work, not returning a trivially equal answer.
+        let full_view = suggest_reopening(&full, Locus::Kausal, usize::MAX);
+        assert_eq!(full_view[0].reason, ReopeningReason::Reverted);
+        assert_ne!(as_of_4, full_view);
+        // A truncated view is identical to the same-length prefix stored alone.
+        let prefix = [v(1), v(1), v(1), v(2)];
+        assert_eq!(
+            belief_runs(&full, Locus::Kausal, 4),
+            belief_runs(&prefix, Locus::Kausal, usize::MAX),
+            "later revisions leaked into an as-of run enumeration"
+        );
+    }
+
+    /// Determinism: same history ⇒ same sample and same suggestions. A
+    /// periphery that varied run to run would not be auditable.
+    #[test]
+    fn temporal_periphery_is_deterministic() {
+        let v = |o: i8| w(&[(Locus::Kausal, o)]);
+        let hist = [v(1), v(2), v(1), v(3), v(3), v(2), v(4), v(1)];
+        for upto in [3usize, 5, usize::MAX] {
+            let a = superseded_spread_sample(&hist, Locus::Kausal, upto, 3);
+            let b = superseded_spread_sample(&hist, Locus::Kausal, upto, 3);
+            assert_eq!(a, b);
+            let sa = suggest_reopening(&hist, Locus::Kausal, upto);
+            let sb = suggest_reopening(&hist, Locus::Kausal, upto);
+            assert_eq!(sa, sb);
+            // Ordering is oldest→newest, so a consumer diffing two runs sees
+            // stable positions.
+            assert!(sa
+                .windows(2)
+                .all(|p| p[0].run.first_revision < p[1].run.first_revision));
+        }
+        // And the channel is not inert on this window.
+        assert!(!suggest_reopening(&hist, Locus::Kausal, usize::MAX).is_empty());
     }
 
     /// An unbound locus earns no rung at all — pass 0, distinct from "grounded

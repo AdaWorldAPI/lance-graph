@@ -1,3 +1,24 @@
+## 2026-07-26 — E-TEMPORAL-PERIPHERY-PROXY-NAMED-AS-PROXY-1 — the anti-blindness test applied to the TIME axis: superseded beliefs are now enumerable, spread-sampled and able to suggest re-opening. **And the part that could not be built honestly was refused rather than faked** — "a past state that predicted better than the present" needs an oracle the zero-dep contract does not have, so a structural proxy shipped with the limit in its rustdoc and the real signal's correct home named.
+
+**Status:** SHIPPED (contract). **Confidence:** High — 1061 contract tests green, clippy clean.
+
+**The gap.** The present is the dominant mode of the time axis. A reader that always takes HEAD treats overwritten states as a reject pile — but those states ARE the temporal tail, and this session's corrections came from tails repeatedly. The three-part test (enumerable / spread-sampled / escalation-capable) had been applied to the rung ladder and swept across 12 spatial prunes; never to time.
+
+**Built** (functions over a revision slice, the module's established shape — no materialized struct; every entry point bounded by `upto`, so read-as-of is enforced by signature):
+1. **Enumerable** — `BeliefRun { first_revision, held_for, value, superseded_at }` + `belief_runs()` / `superseded_runs()`. `RevisionTrajectory::flips` *counted* flips; these **name** them — which revision held which state, and where each was replaced.
+2. **Spread-sampled** — `superseded_spread_sample(.., k)` strides the whole history rather than taking the recent k, which would be the temporal form of cheap-edge sampling. Deterministic, mirroring `RungLevel::peripheral_sample`. The test asserts it reaches the oldest revision **and** `assert_ne!`s against the recent-k slice — so "spread" is falsifiable, not decorative.
+3. **Escalation-capable** — `suggest_reopening() -> ReopeningSuggestion { run, reason, evidence }` with reasons `Reverted` / `LongStableThenBrief`. Suggestion only; nothing prunes or decides.
+
+**The refusal is the finding.** Scoring "predicted better" requires ground truth; the contract crate is zero-dep, carries no outcome column, and the read-as-of rule *deliberately denies* the future of the revision being judged. Any ranking built here would have invented what it claims to measure. So: a structural proxy ships, the rustdoc says it is a proxy, and it names where the real signal belongs — a **consumer-side** function over `(belief_runs(.., upto), outcome_at(upto))`, oracle outside the contract, read-as-of bound intact. That is the correct shape of "I cannot measure this here", and it is worth more than a plausible number.
+
+**Second limit, documented rather than unified:** the run model treats *unbound* as its own state, so `a → unbound → a` is three runs where `revision_trajectory` counts one flip. Unifying them would change shipped semantics, so the divergence is stated instead of silently reconciled.
+
+**The tests are falsifiable by construction** (per the new `CLAUDE.md` rule): `belief_runs_partition_the_visible_history` reconstructs spans into an index histogram, so an off-by-one leaves a hole or an overlap; `reopening_fires_on_reversion_and_stays_silent_on_stability` checks BOTH directions **including a stability-INCREASING history** — the case a naive "any flip is suspicious" detector would fire on; `temporal_periphery_cannot_see_later_revisions` shows the bound doing real work (as-of-4 yields `LongStableThenBrief`, the full history yields `Reverted`).
+
+**Cross-agent note:** this agent reported 3 planner failures and correctly attributed them to a sibling agent's in-flight `cam_pq_scan.rs` rather than to itself, and verified its own dependent (`nars::meta_basin`, 17/17) was green. Correct attribution under concurrency is what makes parallel agent work safe to consolidate.
+
+Refs: `E-PERIPHERAL-DISSENT-GUARDS-THE-STRATIFICATION-1` (the doctrine), `E-SATURATION-SWITCHES-TO-PASSIVE-QUORUM-1`, `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`, task #28.
+
 ## 2026-07-26 — E-SPLIT-THE-CARRIER-NOT-THE-CALL-SITES-1 — `ChainResolution::escalated` split into `out_of_horizon` / `budget_exhausted`, making the `E-MULTIPASS-WAS-SINGLE-PASS-1` conflation **unrepresentable** rather than merely fixed. The earlier fix compensated at every call site; this removes the thing that had to be compensated for.
 
 **Status:** SHIPPED. **Confidence:** High — 1056 contract + 305 planner + 96 deepnsm-v2 tests green; clippy clean (the one remaining warning is a pre-existing `serve.rs`-in-two-build-targets Cargo.toml issue, unrelated).
