@@ -1,3 +1,29 @@
+## 2026-07-26 — E-HYPERNYM-CLIMB-IS-A-CASCADE-TIER-DELTA-1 — WordNet's hypernym hierarchy is EXPLICIT vertical navigation, and it lines up with the substrate's own vertical machinery (HHTL tiers / CLAM-CHAODA cluster tree / the hierarchical-4⁴ codebook). Consequence: the fox→animal specificity loss stops being a judgement call and becomes a MEASURABLE tier delta — and the coarsest tier is the cheapest error detector. Caught a live bug that would have poisoned the Aesop probe.
+
+**Status:** FINDING for the walkability + the caught bug; [H] for the CLAM/codebook alignment (probe specified, NOT run). **Confidence:** High on what was measured; the alignment claim is explicitly unmeasured.
+
+**The rails are walkable as a depth hierarchy** (117,952 noun `is_a` edges, `examples/data/wordnet/wordnet31_isa.tsv`):
+```text
+fox     → canine → carnivore → predator → animal → organism → living_thing    depth 10
+wolf    → canine → carnivore → predator → animal → organism → living_thing    depth 10
+lamb    → young_mammal → young → animal → organism → living_thing             depth  9
+shepherd→ herder → hired_hand → laborer → workman → employee → worker         depth 16
+```
+Depth distribution over a 20k sample peaks around 8–12. So `fox → animal` is a **4-step climb**, countable — exactly the `Δ abstraction loss` term the meaning_gain ledger wanted but could not previously compute.
+
+**THE LIVE BUG THIS CAUGHT (pre-emptive, before W11 ran).** The keep-first polysemy flattening (W5 gap 4 — the loader's `if !rails.contains_key(...)`) resolves:
+```text
+swallow → consumption → depletion → decrease → change → action     ← the VERB sense, not the bird
+grape   → shot → rocket_firing → launching → propulsion → act      ← "grapeshot", not the fruit
+```
+**The Aesop identity-contamination probe (W11) would have compared a bird against `consumption`** and reported nonsense with full confidence. The gap-audit's silent-drop detector was right that this mattered; the vertical walk is what made it visible. W5 gap 4 is therefore a BLOCKER for W11, not a nice-to-have — recorded as a dependency.
+
+**The mechanism worth keeping: the top of the chain is the COARSE tier.** `living_thing` / `action` / `event` are HEEL-level basins. A word whose chain terminates in a basin that contradicts the discourse is detectable **at the coarsest granularity** — one comparison, no fine-grained similarity, no embedding. That is the cheapest possible polysemy/word-sense error detector, and it falls out of the hierarchy the rails already carry. It is also why the climb is a *tier* phenomenon: losing `fox` for `animal` moves the address up the cascade, and the substrate's whole addressing story is prefix-routed tiers.
+
+**The alignment probe (SPECIFIED, NOT RUN — the honest boundary).** The substrate has THREE vertical structures and they have never been compared: (1) WordNet hypernym depth — explicit, symbolic, measured above; (2) the HHTL cascade — HEEL/HIP/TWIG = 12 nibble-levels of 16-ary prefix routing; (3) CLAM / CHAODA cluster trees (ndarray, 46 tests) + the hierarchical-4⁴ codebook (`bgz17::palette::build_hierarchical`, shipped #823, where `code>>4 == coarse` IS centroid ancestry — the D-TILE256 rigor condition). **PROBE:** does centroid ancestry correlate with hypernym ancestry? PR #823 already measured that the hierarchical codebook is *fidelity-neutral* on real Jina data ("structure is free"); if the ancestry also tracks meaning, the structure is not merely free but MEANINGFUL — and the HHTL prefix would gain semantic grounding rather than being distance-only. Falsifier: rank correlation between centroid-tree shared-prefix depth and WordNet shared-hypernym depth over a paired sample, against a flat-256 null.
+
+**Honest constraint on any mapping.** HHTL carries 12 nibble-levels (16-ary); measured WordNet chains run 9–16 deep with variable branching. So the fit is close but NOT 1:1 — the deepest chains (`shepherd` at 16) exceed the cascade. Any mapping must therefore be stated as an approximation with the rails as ground truth, never as an isomorphism; and the two-basin rule still governs — rails are exact/symbolic, the cascade is approximate/distributional, and neither overwrites the other. Refs: `E-ROSETTA-IS-A-JOIN-NOT-A-CHOICE-1`, `E-ACADEMIC-VOCAB-COLORBLIND-1` (the original colorblind/hub-domination finding), `PROBE-CODEBOOK-44` / `E-PROBE-CODEBOOK-44-MECHANISM-1` (#823 hierarchical codebook), task board W3/W5/W11/W12.
+
 ## 2026-07-26 — E-ROSETTA-IS-A-JOIN-NOT-A-CHOICE-1 — **WordNet-as-Rosetta vs Bible-as-Rosetta is a false alternative**: they are the two basins, and meaning-loss across languages is computable ONLY from their JOIN. The concept graph supplies the DENOMINATOR (what was available), the parallel text supplies the NUMERATOR (what was chosen) — which is exactly the construction-surprisal formulation, lifted from within-language to cross-language.
 
 **Status:** RULING (architecture) + verified acquisition path. **Confidence:** High on the ruling and the corpus availability (probed live); the projection-classification yield is unmeasured until the join is built.
