@@ -80,7 +80,37 @@ beyond ndarray — on `lance-graph-contract::distance`, which remains the one
 LIVE umbrella in code (§A).
 
 
-## 2026-07-27 — ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED — the certified replacement exists; nothing in the spine reaches it — **CONTESTED** (see ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT: ndarray `cognitive-distance-typing.md` says HDR popcount IS the cosine replacement and Fisher-z is NOT a distance; this entry took bgz-tensor's "certified cosine-replacement" wording as settled — an assumption, pending operator ruling)
+### E. RESOLVED-BY-RULING (operator, 2026-07-27 -- "only palette256 and ONLY [a,b]; FisherZ COULD materialize but why, if palette256 has lower entropy: it IS normalized distance")
+
+Section B's "contradiction" **dissolves** -- and not into a "two senses"
+arbitration. There is nothing to arbitrate:
+
+- **Only palette256.** One encoding. The census's rival-encoder framing was the
+  error (same shape as ClassId-vs-classid: one carrier, many projections --
+  transferred from identity to value and re-committed).
+- **Only [a,b].** The pair-indexed table read is THE distance operation, and
+  because the codes are normalized, that read IS normalized distance. Popcount /
+  Base17-L1 / pair-table are this one operation at three cascade scales, not
+  three metrics competing for a slot.
+- **Fisher-z: could materialize, no reason to.** It decodes palette
+  relationships into z-space -- more entropy, same ordering information.
+  `FisherZTable` is a materialization ARTIFACT, not the canon. This ruling was
+  ALREADY RECORDED in primer section 13 hours earlier ("palette256 could be
+  materialized as FisherZ but doesn't need to -- lower entropy and higher value
+  when normalized; a stored Fisher-Z column would be a forbidden materialized
+  alternate representation") -- and this session then found FisherZTable and
+  crowned it "the certified replacement" anyway. The failure was not missing
+  information; it was not applying a ruling already on file.
+
+Status: section B CLOSED (dissolved). ISS-FISHERZ-...-UNWIRED closes as INVALID
+-- there is nothing to wire; wiring it would ship the unnecessary
+materialization. Section A stands and is STRENGTHENED: contract::Distance is
+the forbidden umbrella, and a generic distance() over uniform u8 codes is
+exactly how a wrong-level read gets applied silently (measured: [u8;6] at rho
+-0.0030). Section D's spec-ahead-of-code finding stands: the typed per-metric
+surface over the ONE encoding remains unbuilt.
+
+## 2026-07-27 — ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED — the certified replacement exists; nothing in the spine reaches it — **CONTESTED** (see ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT: ndarray `cognitive-distance-typing.md` says HDR popcount IS the cosine replacement and Fisher-z is NOT a distance; this entry took bgz-tensor's "certified cosine-replacement" wording as settled — an assumption, pending operator ruling; CLOSED-INVALID 2026-07-27 -- palette256-ONLY ruling: FisherZTable is a materialization artifact, nothing to wire, see section E)
 
 **The cosine replacement is not missing. It is shipped, certified, and named** —
 and the 2026-07-27 cosine census missed it by asking "is this cosine a violation?"
