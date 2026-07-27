@@ -276,17 +276,37 @@ footprints are *exactly* derivable from a code-asserted constant:
 So the capacity ladder is **internally consistent with the canonical node**, not
 arbitrary.
 
-**⚠ Two caveats before reusing those numbers:**
-1. `NodeRow` (512 B = `key 16 | edges 16 | value 480`) is the **canonical node**
-   row. `MailboxSoA<N>`'s per-row footprint is a **different, materially smaller**
-   sum (`f32 + u8 + u32 + u32 + CausalEdge64 + qualia + meta + u16 + u64 + u16 +
-   u8`, plus three `[u8; 12]` style lanes). **Compute it before applying the
-   32 MiB figure to a mailbox SoA** — the two row shapes are not interchangeable.
-2. **16-bit addressing is not expressed in the SoA API.** `MailboxSoA` is
-   `<const N: usize>` and its accessors take `row: usize`
-   (`mailbox_soa.rs:624,630`). The `u16`s present (`entity_type`, `expert`) are
-   **values, not addresses**. The 16-bit address width is [OWNER-SPECIFIED]; the
-   code does not encode it as a row-index type.
+**The 512 B stride is UNIFORM — there is no second, smaller row shape.**
+Every SoA row reserves 512 B *on paper*, always:
+- `pub value: [u8; 480], // 32..512  (reserved — comes after)` (`canonical_node.rs:729`)
+- *"32..512 are the class-resolved value slab. **Sum = 512 = stride.**"* (`:764`)
+- The 480 B slab is where `energy` / `meta` / `qualia` / `entity_type` live
+  (`:708`) — i.e. the named `MailboxSoA` columns are **tenants inside the
+  reserved slab**, not a competing row shape.
+- `EdgeBlock`: *"Canonical, not mandatory: the 16 bytes are ALWAYS reserved
+  (zeroed when unused)"* (`:640`); *"always reserved, never shrunk"* (`:8`).
+- **RESERVE, DON'T RECLAIM** (`:16`): *"a zero tier means 'not consulted', never
+  'compacted away'"*.
+- The envelope **enforces** it — `verify_layout` has an error variant for *"Sum
+  of column byte-widths does not equal the declared row stride"*
+  (`soa_envelope.rs:124`).
+
+Only the **baked** (Lance columnar) form may omit empties — that is storage-layer
+compression, and it does **not** change the logical stride. So the 32 MiB / 2 GiB
+arithmetic applies uniformly to `MailboxSoA`, with no per-crate recomputation.
+
+> **Retraction:** an earlier revision of this file claimed `MailboxSoA`'s per-row
+> footprint was "a different, materially smaller sum" than `NodeRow`'s 512 B, and
+> warned against transferring the 32 MiB figure. That was a category error — it
+> listed the hot columns and mistook them for the whole row, when they are
+> tenants *within* the reserved 480-byte value slab. Both are the same 512-byte
+> row: `NodeRow` is its AoS view, `MailboxSoA` its SoA projection.
+
+**⚠ One caveat that does stand:** **16-bit addressing is not expressed in the SoA
+API.** `MailboxSoA` is `<const N: usize>` and its accessors take `row: usize`
+(`mailbox_soa.rs:624,630`). The `u16`s present (`entity_type`, `expert`) are
+**values, not addresses**. The address widths are [OWNER-SPECIFIED]; the row
+footprints are arithmetically checked.
 
 ### Four dimensions that must never substitute for each other
 | Dimension | Meaning | Do NOT infer |
@@ -313,8 +333,9 @@ stated in the substrate crates.)*
   *capacity* half is partly corroborated — see the ARITHMETIC CHECK above.
 - **[OWNER-SPECIFIED]** The 16-bit / 18-bit / 22-bit addressing ladder and the
   32 MiB / 2 GiB envelopes. Row footprints check out exactly against
-  `size_of::<NodeRow>() == 512`; the *address widths* themselves are not encoded
-  in any row-index type (`row: usize` throughout).
+  `size_of::<NodeRow>() == 512`, which is the UNIFORM stride (reserve-don't-
+  reclaim); the *address widths* themselves are not encoded in any row-index
+  type (`row: usize` throughout).
 - **[OWNER-SPECIFIED]** Compute + write cost are masked by the parallel pipeline.
 - **[CODE-PROVEN]** `BatchWriter` casts are ahead-firing and physical writes are
   coalesced — *"records intent moves AHEAD of any storage write completing"*;
