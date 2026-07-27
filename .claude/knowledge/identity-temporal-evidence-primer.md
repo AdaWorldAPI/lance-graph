@@ -1,0 +1,242 @@
+# Identity / Temporal / Evidence primer — READ BEFORE PROPOSING ANY CARRIER
+
+> **READ BY:** any agent touching identity, provenance, evidence, versions,
+> masks, or ownership. **MANDATORY** before proposing a new struct in
+> `lance-graph-contract`.
+>
+> Written 2026-07-27 after a session repeatedly proposed new carriers before
+> establishing what the substrate already represents. Every claim below is
+> `file:line`-grounded. Do not infer semantics from names.
+
+---
+
+## 0. Two operator rulings (non-negotiable premises)
+
+1. **The V3 substrate is always a V3-shaped GUID using `ClassId:AppId:ClassView`.**
+2. **Always SoA-owned; the SoA owns the kanban per SoA; always zero-copy, never
+   serialized.** Verified: `soa_envelope.rs:18-19` — *"Nothing is serialized or
+   transmitted; the backing bytes are resident in-place, zero-copy from creation
+   to Lance tombstone"*; `soa_envelope.rs:16-17` — *"a Lance version IS a
+   coherent LE in-place layout at cycle N"*.
+
+**Consequence that kills a whole class of proposals:** a "side ledger",
+"append-only receipt file", or any serialized provenance store is **forbidden by
+construction**. The cold/authoritative path is *Lance versions of the same
+in-place LE bytes*, never a second serialized representation.
+
+---
+
+## 1. THERE IS ONE CLASS-IDENTITY CARRIER
+
+`ClassId` and the GUID's `classid` are **the same carrier**, seen through
+different projections. Do not model them as two systems.
+
+```
+NodeGuid  =  [u8; 16]                       canonical_node.rs:33-35  "16-byte canonical instance key"
+   ≡  FacetCascade                          facet.rs:94-100          byte-identical, reinterpret no-op
+      ├── facet_classid : u32   [0..4)      ← the class address
+      │     ├── canon  : u16  (HIGH)  = ClassId  — the shared CONCEPT
+      │     └── custom : u16  (LOW)   = AppId    — the render lens
+      └── tiers : [FacetTier; 6]  [4..16)   ← 6 × (8:8), coarse→fine:
+            HEEL · HIP · TWIG · LEAF · family · identity      ← the INSTANCE lives here
+```
+
+- `pub type ClassId = u16` — `class_view.rs:54`. *"Per-row class discriminator —
+  the Cognitive-RISC `class_id`/`shape_id`… ≤65,535 shape-families;
+  OD-CLASSID-WIDTH ratified."* This is the **concept component**, not a rival id.
+- `compose_classid(canon, custom) -> u32` / `split_classid` — `ogar_codebook.rs:337-352`.
+  Active order `CLASSID_ORDER = ClassidOrder::CanonHigh` (`ogar_codebook.rs:313`).
+- `classid_canon` / `classid_custom` / `classid_concept` — `ogar_codebook.rs:357,364,428`.
+  **Accessors on one value**, not separate identities.
+- `classid_canon_compat` — `ogar_codebook.rs:385-394`. Reads BOTH stored orders;
+  the flip is mint-forward and never reinterprets persisted ids.
+- `AppPrefix::render(concept) -> u32` — `ogar_codebook.rs:241`. `Core = 0x0000`
+  is documented *"shared canonical core (default ClassView, no render lens)"*.
+- `ClassView` is a **trait** — `class_view.rs:903`. *"the parser+schema… projects
+  row → typed view, late-bound"*. It is what the address **resolves to**, and it
+  chooses **which reading** of the 12-byte register applies (`facet.rs:95-96`:
+  *"which ClassView interprets the 6 tiers' 8:8"*).
+- `NodeGuid::facet()` — `canonical_node.rs:441-443`, with the byte-identity test
+  `nodeguid_facet_bridge_is_byte_identical` (`canonical_node.rs:451`).
+
+### Which operations preserve identity vs collapse to concept
+| Operation | Uses | Correct because |
+|---|---|---|
+| routing / storage / equality of an addressed form | **full `classid` u32** | the app lens is part of the addressed form |
+| RBAC, ontology, cross-app concept convergence | `classid_canon`/`classid_concept` | the shared concept is the subject |
+| reading corpora spanning the order flip | `classid_canon_compat` | serves both stored forms |
+| rendering | `AppId` + `ClassView` | selects the skin, not the subject |
+
+**Comparing only the canon half is WRONG** wherever two apps' addressed forms
+must stay distinct (storage, dedup of addressed rows). **Comparing the full u32
+is WRONG** wherever the shared concept is the subject (RBAC grants, concept
+convergence). Neither is universally right — that is why both accessors exist.
+
+---
+
+## 2. Instance identity
+
+- The instance is the GUID tail: `family` + `identity` (`GuidParts`,
+  `canonical_node.rs:601-615`), a.k.a. `local_key()` = trailing 6 bytes,
+  *"the only discriminator once the prefix is resolved"*.
+- **Scope:** `local_key` is unique **only within a resolved classid prefix** — it
+  is not globally canonical.
+- **Uniqueness is NOT enforced.** `debug_assert_identity_unique`
+  (`canonical_node.rs:338`) is `debug_assert!`-gated and its **only call sites are
+  in `mod tests`** (`canonical_node.rs:2026, 2034`). Its own doc says *"Call on
+  insert with whatever set/bitmap the mint path keeps"* — an obligation on the
+  caller, honoured by no production mint path.
+- Its panic message admits reuse: *"or reused — mint a non-zero family to expand
+  before this fires in prod"*.
+- **No tombstone, deletion, or compaction path exists** in `canonical_node.rs`
+  (verified ABSENT). So identity-reuse-after-delete is unspecified, not prevented.
+- **No monotonic counter / serial / sequence field exists on any identity type**
+  (`NodeGuid`, `GuidParts`, `MailboxId`, `EdgeRef`, `EpisodicEdges64`,
+  `RelationId`, `WitnessEntry`). Verified ABSENT.
+
+---
+
+## 3. Temporal model — five distinct things, three of them MISSING
+
+| Concept | Carrier | Status |
+|---|---|---|
+| dataset snapshot | `LanceVersion = u64` (`temporal.rs:47`, *"the storage frame's clock tick"*); `DatasetVersion(u64)` (`scheduler.rs:33-36`) | EXISTS |
+| reader horizon | `QueryReference.ref_version` (`temporal.rs:114-116`, *"The `KnowledgeHorizon` — the Lance version the reader is pinned at"*) | EXISTS |
+| epistemic policy | `EpistemicMode {Strict, Aware, Retro}` (`temporal.rs:52-61`) + `TemporalStatus {Contemporary, Anachronistic, Spoiler, Unknowable}` (`temporal.rs:91-102`) | EXISTS |
+| registration horizon | `DeinterlaceRow::knowable_from()` (`temporal.rs:294-306`) — distinct from `lance_version()` | EXISTS (trait method, not a persisted field) |
+| multi-writer scope | `QueryReference.server_id: u16` + `hlc_tick: Option<u64>` (`temporal.rs:110-119`); module doc calls `(server_id, lance_version, hlc_tick)` *"the deinterlace key"* | **RESERVED-DORMANT** — no code path sets non-zero `server_id` or `Some(hlc_tick)`; `default()`/`at()` hardcode `0`/`None` (`temporal.rs:126-151`) |
+| **per-row last-modified version** | — | **MISSING** (`row_version` is only a *parameter name* in `classify`, never a field) |
+| **transaction / commit identity** | — | **MISSING** (`transaction/mod.rs` holds execution-regime typestates, not commit ids) |
+| **append-log / observation / receipt serial** | — | **MISSING** |
+| **two changes to one row within one version** | — | **NOT EXPRESSIBLE** — `DeinterlaceRow` gives exactly one `lance_version()` per row |
+
+**Do not substitute the nearest available version field for a missing one.**
+Read-at ≠ snapshot ≠ changed-at ≠ observation identity.
+
+---
+
+## 4. Evidence carriers — what each actually answers
+
+| Carrier | Answers | Does NOT answer |
+|---|---|---|
+| `Stamp(pub u64)` (planner `belief.rs:31`; deepnsm-v2 `belief.rs:33`) | "do two bases share a *source bit*" | which event; which source (bits are folded); replay identity |
+| `Belief.stamp` | evidential base **and** (via `!= default()`) "is this observation-grounded" | — **two orthogonal questions on one field** |
+| `Belief.premises: Vec<u32>` | derivation inputs, *"Arena indices of premises"* (planner `belief.rs:99`) | anything replay-stable — arena indices are allocation-order |
+| `SupportReceipt` / `SupportLedger` (`causal_audit.rs`) | which kind of support, from whom, when, how strong | **which event** — the receipt has no identity of its own |
+| `WitnessEntry {mailbox_ref, spo_fact_ref}` (`witness_table.rs:80-95`) | which mailbox + SPO fact a W-slot resolves to | evidence membership |
+| `EpisodicEdges64` (`episodic_edges.rs:103`) | up to 4 MRU episodic edges | provenance |
+
+**`Stamp::source(id) = 1u64 << (id % 64)`** (planner `belief.rs:36`; deepnsm-v2
+`belief.rs:38`) — 64 sources max, silent modulo aliasing beyond. Documented as
+CONSERVATIVE (false overlap only, never false disjointness) — **that doc is
+correct**; the defect is that source ≠ event, not that folding is unsound.
+
+### Verified drift between the two BeliefArenas
+```rust
+// planner/src/nars/belief.rs:193   — HAS the empty-stamp guard
+if stamp != Stamp::default() && b.stamp.disjoint(stamp) {
+// deepnsm-v2/src/belief.rs:189    — LACKS it
+if b.stamp.disjoint(stamp) {
+```
+`Stamp::default()` (all-zero) is `disjoint` from everything, so in deepnsm-v2 a
+repeated unsourced observation **pools unboundedly**. The planner routes it to
+CHOICE and has the test `empty_incoming_stamp_does_not_pool`
+(planner `belief.rs:447`); deepnsm-v2 has no equivalent test. Both files carry
+the *same* explanatory doc text — the prose stayed in sync while the code did not.
+
+---
+
+## 5. Fixed-width discipline — the actual rule
+
+**A bitmask is justified only where each bit has a stable, predefined meaning in
+a bounded vocabulary.** The repo mostly gets this right:
+
+| Carrier | Bit meaning | Verdict |
+|---|---|---|
+| `ThoughtMask(u8)` / `ThoughtField` (`recipe_kernels.rs:137,111-128`) | STATIC, *"bit positions are stable (do not reorder — append-only basis)"* | ✅ correct use |
+| `FieldMask(u64)` (`class_view.rs:70`) | STATIC, *"once instances persist, a field's bit position never moves and retired bits are never reused"*; positions ≥64 **ignored, NOT folded** (`:79-83`) | ✅ correct use |
+| `StepMask(u64)` (`step_mask.rs:40`) | STATIC per template version; positions ≥64 **ignored, NOT folded** (`:53-56`) | ✅ correct use |
+| `WideFieldMask` (`class_view.rs:221`) | STATIC; >256 is *"a loud refusal, never a silent drop"* (`:525-529`) | ✅ correct use |
+| `WitnessTable<64>` (`witness_table.rs:112`) | slot index; **N=64 is DOMAIN-derived** — *"matching the 6-bit address space of the W-slot field"* (`:100-102`); out-of-range → `Err`, no panic | ✅ correct use |
+| `EpisodicEdges64` (`episodic_edges.rs:103`) | DYNAMIC 4×16-bit slots; `push` returns `None` when full; `promote` evicts slot 3 **to a `DemotionSink`** | ✅ explicit eviction, not silent |
+| **`Stamp(u64)`** | **DYNAMIC — bit = a runtime-assigned source id, folded `% 64`** | ❌ **the one violation** |
+
+**The discriminator:** `FieldMask` and `StepMask` refuse to fold and say so in
+their docs; `Stamp` folds. Dynamically-arriving identities do not belong in
+globally-interpreted Boolean positions.
+
+**Never confuse a `u64` identity (2⁶⁴ values) with a `u64` Boolean mask (64
+positions).** `LanceVersion` is the former; `Stamp` is the latter.
+
+Known silent-clamp sites worth auditing before reuse: `CausalEdge64::with_w_slot`
+uses a **debug-only** `debug_assert!(w <= 63)` (`causal-edge/src/edge.rs:953`);
+`with_inference_mantissa` **silently wraps** out-of-range values (`:966-967`);
+`set_temporal` under v2 **silently drops** the write (`:588`).
+
+---
+
+## 6. Ownership / persistence / replay
+
+- `SoaEnvelope` (`soa_envelope.rs:170`) — the owner of the in-place backing store.
+  `ENVELOPE_LAYOUT_VERSION = 2` (`:54`).
+- **Write-on-behalf iron rule** (`soa_envelope.rs:165-169`): every consuming crate
+  writes ON BEHALF OF the envelope's mailbox id, never directly.
+- Mutation lives on the **owner** type, never on the read trait
+  (`soa_envelope.rs:148-149`; mirrors `MailboxSoaView` vs `MailboxSoaOwner`).
+- `MailboxId = u32` (`collapse_gate.rs:121`) — *"unique u32 identity of one
+  spatial-temporal meaning accumulator"*.
+- **Replay stability:** anything whose meaning depends on allocation order
+  (arena indices in `premises`, `Stamp` bit assignment) is NOT replay-stable.
+  Anything derived from the canonical GUID + Lance version IS.
+
+---
+
+## 7. VERIFIED GAPS (say MISSING; do not substitute)
+
+1. **Evidence-event identity** — no receipt/observation/serial identity exists.
+2. **Per-row mutation version** — no persisted last-changed field.
+3. **Transaction/commit identity** — none.
+4. **Intra-version ordering** — one row = one point on the version axis.
+5. **Replay-stable derivation provenance** — `premises` are arena indices.
+6. **Dependence model** — nothing represents whether two sources share a common
+   cause, though the workspace *measured* non-independence (cloned-lane probe:
+   +94 % naive agreement, similarity 1.000000).
+7. **Enforced instance uniqueness** — debug-only, test-only call sites.
+
+---
+
+## 8. DO NOT INVENT
+
+1. **Do not create a second classid carrier** because layers expose different
+   projections. `ClassId`, `classid_canon`, `classid_concept`, `GuidParts`,
+   `facet_classid` are **accessors on one value**.
+2. **Do not mistake a component accessor for a separate identity system.**
+3. **Do not create an arena-local replacement for canonical persistent identity**
+   (this is what `SourceRegistry` did; withdrawn in PR #854).
+4. **Do not use source identity as evidence-event identity.**
+5. **Do not use a dataset snapshot version as observation-event identity.**
+6. **Do not assign dynamically-arriving updates to fixed, globally-interpreted
+   Boolean positions.** Follow `FieldMask`/`StepMask`: refuse, never fold.
+7. **Do not treat projection/rendering differences as independent evidence**
+   without first proving the semantic distinction.
+8. **Do not use a Boolean API where the architecture distinguishes true, false,
+   and unknown.** "Not known to overlap" ≠ "known disjoint".
+9. **Do not introduce a serialized side-store for provenance.** Zero-copy,
+   never serialized; the cold path is Lance versions of the same LE bytes.
+10. **Do not widen a mask to fit more members** — `WideFieldMask`'s doc calls
+    exceeding the cap *"a split signal, not a case to widen the mask type"*.
+11. **Do not reuse `Stamp`'s shape as precedent.** It is the one carrier in this
+    inventory that violates the mask discipline its siblings document.
+
+---
+
+## 9. Reading order for the next coding session
+
+1. This file.
+2. `soa_envelope.rs` module docs (ownership + zero-copy contract).
+3. `canonical_node.rs` §CANON block in `CLAUDE.md`, then `facet.rs:88-110`.
+4. `ogar_codebook.rs:285-400` (the one flippable classid composition).
+5. `temporal.rs` **whole file** (the epistemic model is the spec).
+6. `planner/src/nars/belief.rs` **and** `deepnsm-v2/src/belief.rs` side by side —
+   they differ at one line and it matters.
+7. `.claude/board/EPIPHANIES.md` top 5 entries.
