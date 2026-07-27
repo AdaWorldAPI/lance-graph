@@ -26,9 +26,8 @@
 //!   frontier finite; `ReasoningGap`s should surface where word-level SPO lacks
 //!   the concept structure the tactics need (the E-HERMENEUTIK concept-lift).
 
-use lance_graph_planner::nars::belief::SourceId;
 use lance_graph_planner::nars::{
-    cas_abstract, rcr_abduce, BeliefArena, CStmt, Copula, GapKind, Throttle, TruthValue,
+    cas_abstract, rcr_abduce, BeliefArena, CStmt, Copula, GapKind, Stamp, Throttle, TruthValue,
 };
 use std::collections::HashMap;
 use std::time::Instant;
@@ -90,13 +89,11 @@ fn main() {
         };
         *subj_degree.entry(s).or_default() += 1;
         // Observed fact: asserted (freq 1.0), moderate confidence; stamp = verse.
-        arena
-            .observe(
-                CStmt { s, cop, p: o },
-                TruthValue::new(1.0, 0.9),
-                SourceId(v as u64),
-            )
-            .unwrap();
+        arena.observe(
+            CStmt { s, cop, p: o },
+            TruthValue::new(1.0, 0.9),
+            Stamp::source(v),
+        );
     }
     let observed = arena.entries().len();
     println!("── ingest ──");

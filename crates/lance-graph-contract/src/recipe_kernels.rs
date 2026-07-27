@@ -1302,8 +1302,13 @@ mod effect_census {
     /// it, so an exact comparison is the right one (no epsilon — an epsilon
     /// here would hide small real writes).
     fn changed_fields(before: &ThoughtCtx, after: &ThoughtCtx) -> ThoughtMask {
-        let mut bits = 0u8;
-        let mut set = |f: ThoughtField| bits |= 1 << (f as u8);
+        // Build through the canonical constructor, not a hand-rolled
+        // `1 << (f as u8)`: the census must be tied to `ThoughtMask`'s own bit
+        // encoding, or it silently diverges if `of` ever changes (CodeRabbit,
+        // PR #854). Ironic on arrival — this helper bypassed the constructor
+        // added in the same commit.
+        let mut fields: Vec<ThoughtField> = Vec::new();
+        let mut set = |f: ThoughtField| fields.push(f);
         if before.sd != after.sd {
             set(ThoughtField::Sd);
         }
@@ -1328,7 +1333,7 @@ mod effect_census {
         if before.beliefs != after.beliefs {
             set(ThoughtField::Beliefs);
         }
-        ThoughtMask(bits)
+        ThoughtMask::of(&fields)
     }
 
     /// **No kernel may mutate a field it did not declare.**

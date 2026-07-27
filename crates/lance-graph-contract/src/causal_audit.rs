@@ -231,10 +231,13 @@ impl SupportBasis {
     }
 }
 
-// Evidence-source identity is CANONICAL in `source_registry` — re-exported, not
-// redefined. A second `SourceId` here would be the same duplication the registry
-// exists to end (two crates had already shipped two incompatible `Stamp`s).
-pub use crate::source_registry::SourceId;
+/// An opaque, stable identity for an evidence source.
+///
+/// NOT a bit position. Arbitrary and sparse — a term id, corpus id, witness
+/// id, or hash. Mapping it to a dense local slot is a registry's job, never an
+/// arithmetic accident.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct EvidenceSourceId(pub u64);
 
 /// One piece of evidence for a relation: which kind, from whom, when, how
 /// strong.
@@ -248,7 +251,7 @@ pub struct SupportReceipt {
     /// Which kind of support this is.
     pub basis: SupportBasis,
     /// Who supplied it — a stable external identity.
-    pub source: SourceId,
+    pub source: EvidenceSourceId,
     /// When it was recorded.
     ///
     /// **Known gap:** this is a storage revision, NOT an epistemic view. It
@@ -305,7 +308,7 @@ impl SupportLedger {
     /// This is why receipts are canonical and a mask is not: withdrawal
     /// requires knowing *which* evidence came from whom, and a bitmask cannot
     /// answer that.
-    pub fn withdraw_source(&mut self, source: SourceId) -> usize {
+    pub fn withdraw_source(&mut self, source: EvidenceSourceId) -> usize {
         let before = self.receipts.len();
         self.receipts.retain(|r| r.source != source);
         before - self.receipts.len()
@@ -318,7 +321,7 @@ impl SupportLedger {
     /// hot path reads [`SupportProfile`], not this.
     #[must_use]
     pub fn distinct_sources_for(&self, basis: SupportBasis) -> usize {
-        let mut seen: Vec<SourceId> = Vec::new();
+        let mut seen: Vec<EvidenceSourceId> = Vec::new();
         for r in self.receipts.iter().filter(|r| r.basis == basis) {
             if !seen.contains(&r.source) {
                 seen.push(r.source);
@@ -337,17 +340,25 @@ impl SupportLedger {
 
     /// Project to the compact [`SupportProfile`] for the SIMD / fixed-width path.
     #[must_use]
+    /// Project the ledger. ONE pass — the earlier form rescanned every receipt
+    /// nine times through `distinct_sources_for` (codex/CodeRabbit, PR #854).
+    ///
+    /// `independent_strength` is left `None` throughout: no dependence model
+    /// exists, so no strength here has been shown to be independent corroboration.
+    #[must_use]
     pub fn profile(&self) -> SupportProfile {
         let mut p = SupportProfile::default();
+        let mut seen: [Vec<EvidenceSourceId>; 9] = Default::default();
         for r in &self.receipts {
             p.basis_mask |= r.basis.bit();
             let slot = r.basis as usize;
-            p.receipt_counts[slot] = p.receipt_counts[slot].saturating_add(1);
-            p.strength[slot] = p.strength[slot].saturating_add(r.strength);
-        }
-        for basis in SupportBasis::ALL {
-            p.distinct_sources[basis as usize] =
-                u8::try_from(self.distinct_sources_for(basis)).unwrap_or(u8::MAX);
+            let cell = &mut p.per_basis[slot];
+            cell.receipt_count = cell.receipt_count.saturating_add(1);
+            cell.total_strength = cell.total_strength.saturating_add(u32::from(r.strength));
+            if !seen[slot].contains(&r.source) {
+                seen[slot].push(r.source);
+                cell.distinct_source_count = cell.distinct_source_count.saturating_add(1);
+            }
         }
         p
     }
@@ -368,21 +379,54 @@ impl SupportBasis {
     ];
 }
 
+/// What one [`SupportBasis`] has behind it — four readings kept apart.
+///
+/// **`total_strength` is NOT corroboration.** It sums every receipt, so one
+/// source repeating itself three times reaches the same total as three
+/// independent sources. That is the defect this struct exists to make
+/// unreachable by accident: the repetition-proof reading is
+/// [`distinct_source_count`](Self::distinct_source_count), and any claim of
+/// *corroborated* strength must come from
+/// [`independent_strength`](Self::independent_strength).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct BasisProfile {
+    /// Receipts recorded — repetition-SENSITIVE by design.
+    pub receipt_count: u32,
+    /// Distinct sources — repetition-PROOF; the honest corroboration count.
+    pub distinct_source_count: u32,
+    /// Summed receipt strength (saturating). See the type docs: this is a
+    /// volume reading, never an independence reading.
+    pub total_strength: u32,
+    /// Strength that may be treated as independent corroboration.
+    ///
+    /// **Always `None` today, and deliberately so.** Establishing it requires a
+    /// dependence model — whether two distinct sources share a common cause —
+    /// which this substrate does not yet have. (The workspace has *measured*
+    /// that its witnesses are not automatically independent: the cloned-lane
+    /// probe, +94 % naive agreement, similarity 1.000000.) `None` means "not
+    /// established", never "zero", and a caller must not substitute
+    /// `total_strength` for it.
+    pub independent_strength: Option<u32>,
+}
+
 /// Fixed-width projection of a [`SupportLedger`] — derived, never authoritative.
 ///
-/// Keeps `receipt_counts` and `distinct_sources` SEPARATE on purpose: one
-/// source attesting three times and three sources attesting once each share a
-/// `basis_mask` and must not share a corroboration reading.
+/// One [`BasisProfile`] per [`SupportBasis`], indexed by `basis as usize`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SupportProfile {
     /// One bit per [`SupportBasis`] present.
     pub basis_mask: u16,
-    /// Receipts recorded per basis.
-    pub receipt_counts: [u8; 9],
-    /// DISTINCT sources per basis — the corroboration reading.
-    pub distinct_sources: [u8; 9],
-    /// Summed receipt strength per basis (saturating).
-    pub strength: [u8; 9],
+    /// Per-basis readings, indexed by `basis as usize`.
+    pub per_basis: [BasisProfile; 9],
+}
+
+impl SupportProfile {
+    /// The readings for one basis.
+    #[inline]
+    #[must_use]
+    pub const fn basis(&self, basis: SupportBasis) -> &BasisProfile {
+        &self.per_basis[basis as usize]
+    }
 }
 
 impl SupportProfile {
@@ -447,7 +491,7 @@ mod tests {
     fn receipt(basis: SupportBasis, source: u64, strength: u8) -> SupportReceipt {
         SupportReceipt {
             basis,
-            source: SourceId(source),
+            source: EvidenceSourceId(source),
             at: DatasetVersion(1),
             strength,
         }
@@ -488,14 +532,28 @@ mod tests {
         }
 
         let (a, b) = (independent.profile(), repeated.profile());
-        assert_eq!(a.basis_mask, b.basis_mask, "masks are identical…");
-        assert_eq!(a.receipt_counts, b.receipt_counts, "…and so are raw counts");
-        assert_eq!(a.distinct_sources[SupportBasis::TextAttested as usize], 3);
-        assert_eq!(b.distinct_sources[SupportBasis::TextAttested as usize], 1);
-        assert_ne!(
-            a.distinct_sources, b.distinct_sources,
-            "corroboration must distinguish them"
+        let (ta, tb) = (
+            a.basis(SupportBasis::TextAttested),
+            b.basis(SupportBasis::TextAttested),
         );
+
+        // Three readings CANNOT tell them apart — stated as assertions so the
+        // limitation is documented behaviour rather than a latent surprise.
+        assert_eq!(a.basis_mask, b.basis_mask, "masks are identical…");
+        assert_eq!(ta.receipt_count, tb.receipt_count, "…so are raw counts…");
+        assert_eq!(
+            ta.total_strength, tb.total_strength,
+            "…and so is total_strength — it is a VOLUME reading, never corroboration. \
+             Summing it was the shipped bug (codex, PR #854)."
+        );
+
+        // Exactly one reading distinguishes them, and it is the repetition-proof one.
+        assert_eq!(ta.distinct_source_count, 3);
+        assert_eq!(tb.distinct_source_count, 1);
+
+        // And nothing here claims independence, because nothing established it.
+        assert_eq!(ta.independent_strength, None);
+        assert_eq!(tb.independent_strength, None);
     }
 
     /// A corpus edge cannot reach interventional standing by piling on text.
@@ -570,11 +628,11 @@ mod tests {
         led.record(receipt(SupportBasis::DerivationalTrace, 1, 10));
         led.record(receipt(SupportBasis::TextAttested, 2, 10));
 
-        assert_eq!(led.withdraw_source(SourceId(1)), 2);
+        assert_eq!(led.withdraw_source(EvidenceSourceId(1)), 2);
         assert_eq!(led.receipts().len(), 1);
-        assert_eq!(led.receipts()[0].source, SourceId(2));
+        assert_eq!(led.receipts()[0].source, EvidenceSourceId(2));
         assert_eq!(
-            led.withdraw_source(SourceId(42)),
+            led.withdraw_source(EvidenceSourceId(42)),
             0,
             "absent source is a no-op"
         );

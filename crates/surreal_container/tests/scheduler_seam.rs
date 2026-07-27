@@ -81,7 +81,7 @@ fn libet_anchor_only_on_sigma_commit_crossing() {
     assert_eq!(
         crossing.libet_window_us(),
         Some(LIBET_COMMIT_WINDOW_US),
-        "the Σ-commit crossing must carry the -550ms Libet anchor"
+        "the Σ-commit crossing must open the canonical Libet window"
     );
 
     for from in [KanbanColumn::CognitiveWork, KanbanColumn::Evaluation, KanbanColumn::Plan] {
@@ -91,7 +91,7 @@ fn libet_anchor_only_on_sigma_commit_crossing() {
         assert_eq!(
             mv.libet_window_us(),
             None,
-            "{from:?} is not the Σ-commit crossing — Libet offset must be 0"
+            "{from:?} is not the Σ-commit crossing — no Libet window opens"
         );
     }
 }

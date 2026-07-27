@@ -31,11 +31,10 @@
 
 use std::collections::HashMap;
 
-use lance_graph_planner::nars::belief::SourceId;
 use lance_graph_planner::nars::{
     detect_dissolution, rank_basins, rank_epiphany_attractors, reach_out_integrate, staunen,
     wisdom, Basin, BasinKind, BeliefArena, CStmt, Copula, FeltOutcome, ReachOutConfig,
-    ResonanceConfig, Snapshot, TruthValue,
+    ResonanceConfig, Snapshot, Stamp, TruthValue,
 };
 
 /// A tiny deterministic word→concept-id interner shared across BOTH poets, so the
@@ -97,13 +96,11 @@ fn ingest(arena: &mut BeliefArena, lines: &[&str], intern: &mut Interner, src_ba
         let cs = concepts(line, intern);
         for w in cs.windows(2) {
             if w[0] != w[1] {
-                arena
-                    .observe(
-                        inh(w[0], w[1]),
-                        TruthValue::new(0.9, 0.9),
-                        SourceId((src_base + n) as u64),
-                    )
-                    .unwrap();
+                arena.observe(
+                    inh(w[0], w[1]),
+                    TruthValue::new(0.9, 0.9),
+                    Stamp::source(src_base + n),
+                );
                 n += 1;
             }
         }
@@ -255,7 +252,7 @@ fn main() {
         &mut felt_arena,
         inh(rose, flame),
         TruthValue::new(0.9, 0.9),
-        SourceId(9800),
+        Stamp::source(9800),
         &ReachOutConfig::default(),
     );
     let g_after = Snapshot::of(&felt_arena, 0.0);
@@ -268,7 +265,7 @@ fn main() {
         &mut dull_arena,
         inh(bank, loan),
         TruthValue::new(0.9, 0.9),
-        SourceId(9900),
+        Stamp::source(9900),
         &ReachOutConfig::default(),
     );
 

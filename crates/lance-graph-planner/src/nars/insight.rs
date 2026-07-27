@@ -274,8 +274,7 @@ pub fn flow_state(im: &InsightMush) -> FlowState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nars::{CStmt, Copula, TruthValue};
-    use lance_graph_contract::source_registry::SourceId;
+    use crate::nars::{CStmt, Copula, Stamp, TruthValue};
 
     /// A before→after step is two readings of the SAME arena under the SAME
     /// lens at different versions. Can-fire.
@@ -339,9 +338,11 @@ mod tests {
     fn score_step(edges: &[(u16, u16)]) -> InsightMush {
         let mut arena = BeliefArena::new();
         for (i, &(s, p)) in edges.iter().enumerate() {
-            arena
-                .observe(inh(s, p), TruthValue::new(0.95, 0.9), SourceId(i as u64))
-                .unwrap();
+            arena.observe(
+                inh(s, p),
+                TruthValue::new(0.95, 0.9),
+                Stamp::source(i as u32),
+            );
         }
         let before = Snapshot::of(&arena, 0.0);
         arena.close_transitive(64);
@@ -404,12 +405,8 @@ mod tests {
     #[test]
     fn signals_reuse_contract_carrier() {
         let mut arena = BeliefArena::new();
-        arena
-            .observe(inh(1, 2), TruthValue::new(0.9, 0.9), SourceId(0))
-            .unwrap();
-        arena
-            .observe(inh(2, 3), TruthValue::new(0.9, 0.9), SourceId(1))
-            .unwrap();
+        arena.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(0));
+        arena.observe(inh(2, 3), TruthValue::new(0.9, 0.9), Stamp::source(1));
         arena.close_transitive(8);
         let sig: GraphSignals = arena_graph_signals(&arena, 0.0);
         // 3 statements, 1 derived (1→3) → yield = 1/3.

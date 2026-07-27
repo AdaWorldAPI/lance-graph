@@ -175,8 +175,7 @@ fn has_intermediate_parent(arena: &BeliefArena, s: u16, m: u16) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nars::{BeliefArena, CStmt, Copula, TruthValue};
-    use lance_graph_contract::source_registry::SourceId;
+    use crate::nars::{BeliefArena, CStmt, Copula, Stamp, TruthValue};
 
     fn inh(s: u16, p: u16) -> CStmt {
         CStmt {
@@ -194,9 +193,11 @@ mod tests {
         // STRUCTURED: 5 subjects share predicate 100.
         let mut arena = BeliefArena::new();
         for s in 10u16..15 {
-            arena
-                .observe(inh(s, 100), TruthValue::new(0.9, 0.9), SourceId(s.into()))
-                .unwrap();
+            arena.observe(
+                inh(s, 100),
+                TruthValue::new(0.9, 0.9),
+                Stamp::source(s.into()),
+            );
         }
         let e = elevate_field(&mut arena, 3);
         assert_eq!(e.clusters_lifted, 1, "one shared-predicate cluster lifted");
@@ -218,9 +219,11 @@ mod tests {
         // structure to lift.
         let mut noisy_arena = BeliefArena::new();
         for (s, p) in [(10u16, 100u16), (11, 101), (12, 102), (13, 103), (14, 104)] {
-            noisy_arena
-                .observe(inh(s, p), TruthValue::new(0.9, 0.9), SourceId(s.into()))
-                .unwrap();
+            noisy_arena.observe(
+                inh(s, p),
+                TruthValue::new(0.9, 0.9),
+                Stamp::source(s.into()),
+            );
         }
         let e_noise = elevate_field(&mut noisy_arena, 3);
         assert_eq!(
@@ -237,18 +240,18 @@ mod tests {
     fn minted_parent_propagates_to_children() {
         let mut arena = BeliefArena::new();
         for s in 10u16..15 {
-            arena
-                .observe(inh(s, 100), TruthValue::new(0.9, 0.9), SourceId(s.into()))
-                .unwrap();
+            arena.observe(
+                inh(s, 100),
+                TruthValue::new(0.9, 0.9),
+                Stamp::source(s.into()),
+            );
         }
         let e = elevate_field(&mut arena, 3);
         let g = e.minted_parents[0];
         assert_eq!(g, 101);
 
         // A single NEW fact about the abstraction, never about any child.
-        arena
-            .observe(inh(g, 200), TruthValue::new(0.9, 0.9), SourceId(9))
-            .unwrap();
+        arena.observe(inh(g, 200), TruthValue::new(0.9, 0.9), Stamp::source(9));
         arena.close_transitive(64);
 
         // Without the minted parent, this one `g is_a 200` fact could not
@@ -277,12 +280,8 @@ mod tests {
     #[test]
     fn min_cluster_threshold_holds() {
         let mut arena = BeliefArena::new();
-        arena
-            .observe(inh(10, 100), TruthValue::new(0.9, 0.9), SourceId(0))
-            .unwrap();
-        arena
-            .observe(inh(11, 100), TruthValue::new(0.9, 0.9), SourceId(1))
-            .unwrap();
+        arena.observe(inh(10, 100), TruthValue::new(0.9, 0.9), Stamp::source(0));
+        arena.observe(inh(11, 100), TruthValue::new(0.9, 0.9), Stamp::source(1));
 
         let e3 = elevate_field(&mut arena, 3);
         assert_eq!(e3.clusters_lifted, 0, "2 subjects < min_cluster 3");
@@ -298,9 +297,11 @@ mod tests {
     fn elevate_stabilizes_across_repeated_calls() {
         let mut arena = BeliefArena::new();
         for s in 10u16..15 {
-            arena
-                .observe(inh(s, 100), TruthValue::new(0.9, 0.9), SourceId(s.into()))
-                .unwrap();
+            arena.observe(
+                inh(s, 100),
+                TruthValue::new(0.9, 0.9),
+                Stamp::source(s.into()),
+            );
         }
 
         let first = elevate_field(&mut arena, 3);

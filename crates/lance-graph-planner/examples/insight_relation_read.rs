@@ -49,8 +49,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use lance_graph_planner::nars::belief::SourceId;
-use lance_graph_planner::nars::{BeliefArena, CStmt, Copula, TruthValue};
+use lance_graph_planner::nars::{BeliefArena, CStmt, Copula, Stamp, TruthValue};
 
 /// A modest English stoplist — function words that never carry a concept. Kept
 /// deterministic and small; the point of this example is the *edges*, not vocab
@@ -272,17 +271,15 @@ fn close_sparse(rels: &[Relation], exclude: Option<u16>) -> BeliefArena {
         if exclude == Some(r.s) || exclude == Some(r.o) {
             continue;
         }
-        arena
-            .observe(
-                CStmt {
-                    s: r.s,
-                    cop: Copula::Inh,
-                    p: r.o,
-                },
-                TruthValue::new(0.9, 0.9),
-                SourceId(src as u64),
-            )
-            .unwrap();
+        arena.observe(
+            CStmt {
+                s: r.s,
+                cop: Copula::Inh,
+                p: r.o,
+            },
+            TruthValue::new(0.9, 0.9),
+            Stamp::source(src),
+        );
         src = src.wrapping_add(1);
     }
     arena.close_transitive(512);
@@ -305,17 +302,15 @@ fn close_dense(salient: &[(usize, u16)], window: usize, exclude: Option<u16>) ->
                 break;
             }
             if ci != cj && exclude != Some(cj) {
-                arena
-                    .observe(
-                        CStmt {
-                            s: ci,
-                            cop: Copula::Inh,
-                            p: cj,
-                        },
-                        TruthValue::new(0.9, 0.9),
-                        SourceId(src as u64),
-                    )
-                    .unwrap();
+                arena.observe(
+                    CStmt {
+                        s: ci,
+                        cop: Copula::Inh,
+                        p: cj,
+                    },
+                    TruthValue::new(0.9, 0.9),
+                    Stamp::source(src),
+                );
                 src = src.wrapping_add(1);
             }
         }

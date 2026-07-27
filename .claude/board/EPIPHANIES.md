@@ -1,21 +1,28 @@
-## 2026-07-27 — E-THE-TWO-COPIES-HAD-ALREADY-DRIFTED-1 — **the "migrate both together" rule was justified by a hypothetical asymmetry; the migration found a REAL one.**
+## 2026-07-27 — E-EVENT-IDENTITY-IS-NOT-SOURCE-IDENTITY-AND-WE-HAVE-NEITHER-1 — **`source_registry` withdrawn from PR #854 as a falsified design. The separation it revealed is the deliverable; the code was the scaffold.**
 
-**Status:** FINDING (measured while migrating, not predicted). **Confidence:** High — the divergence is two lines of source.
+**Status:** RULING (operator, 2026-07-27) + measurement. **Confidence:** High — every leg was verified in source or measured, not inferred.
 
-The argument for moving `lance-graph-planner::nars::belief` and `deepnsm-v2::belief` onto the canonical registry in ONE change was that fixing one alone would leave "two incompatible independence semantics wearing matching comments." That was reasoning about a risk. Doing the work showed the copies had **already diverged**:
+**Five objects, previously one carrier:**
+```
+event identity ≠ evidential-base membership ≠ source dependence
+               ≠ object/view identity ≠ dataset version
+```
 
-- **Planner:** `if stamp != Stamp::default() && b.stamp.disjoint(stamp)` — with a doc-comment calling the empty-stamp guard *load-bearing*: the no-source sentinel is disjoint from EVERY stamp, so treating it as independent evidence lets a repeated unsourced observation pool into itself and inflate confidence without bound.
-- **deepnsm-v2:** `if b.stamp.disjoint(stamp)` — no guard. The same repeated unsourced observation pools.
+**Leg 1 — the guard needs EVENT identity, not SOURCE identity.** `disjoint()` has exactly one consumer: NARS revision admissibility, which exists to stop *one evidence event* being counted twice through different derivation paths (Wang's evidential base = a set of input **serial numbers**). Keying it on sources means **one sensor observing twice can never raise confidence** — repetition becomes worthless, which is not a rare collision but the disabling of the most basic form of evidence accumulation.
 
-Same struct name, same `source(id) = 1 << (id % 64)`, same S4 doc-bullet, same "CONSERVATIVE folding" comment — and a different answer to *when may evidence pool*. Neither file was wrong about itself; the pair was wrong about each other, and nothing could have noticed, because nothing compared them.
+**Leg 2 — no canonical evidence-event identity exists here.** Verified against the types, not the names: `ClassId` is `= u16` while the GUID's `classid` is a `u32` composite (two types, one word); `ClassView` is a **late-bound projection trait**; `AppPrefix::Core` is documented as *"no render lens"*; `LanceVersion`/`DatasetVersion` is a **dataset snapshot**. So `ClassId:AppId:ClassView + version` names *a field projection of a class under a rendering interpretation, as of a commit* — no instance, no event. It fails 4 of 6 ingestion cases: two rows of one class in one commit collide; a **re-observation of an unchanged value produces no mutation at all**; one observation spans many rows; an external statement mutates nothing. Identity belongs to an **immutable receipt that refers to** an object revision — and no receipt type exists. `NodeGuid` cannot substitute: `debug_assert_identity_unique`'s own message admits *"or reused"*, so uniqueness is a **debug assertion only**.
 
-**Two lessons, and the second is the load-bearing one:**
-1. Duplicated types do not merely risk drifting. On a long enough timeline they HAVE drifted, and the copy you are not currently reading is the one that surprises you.
-2. **A shared doc-comment is negative evidence of agreement.** Both copies carried the same explanatory prose about conservative folding, which is exactly why the behavioural difference stayed invisible — the prose was the thing being kept in sync, so it read as though the code was. This is `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` in a new place: matching narration standing in for verified sameness.
+**Leg 3 — the digest is safe but useless, measured.** 20 000 trials/cell, genuinely disjoint bases, query `digest_a & digest_b == 0` (NOT membership FPR): **P(false overlap) ≈ n²/m** at k=1 — 6.1 % (n=2,m=64), **63.4 %** (n=8,m=64), 22.2 % even at m=256. **k>1 is catastrophic** — 98.1 % at n=8/m=64/k=2 — *even though raising k improves membership queries*. A Bloom-shaped digest never yields false disjointness, so it is safe; at realistic base sizes it reports overlap on two thirds of disjoint pairs, so it starves revision. Safety is not usefulness, and I had recommended it on the safety half alone.
 
-Aligned to the planner's (correct) behaviour, with the divergence documented at the site rather than quietly harmonized. A `Default`-derived `Stamp` means `Stamp::default()` still compiled after the migration, so the guard's absence would NOT have surfaced as a compile error — it was found by reading, which is the only thing that could have found it.
+**Leg 4 — `bool` cannot carry the claim.** "Not known to overlap" ≠ "known disjoint". Both membership and dependence need tri-state (`Disjoint/Overlap/Unknown`, `Independent/Dependent/Unknown`); a Boolean silently converts ignorance into permission.
 
-Refs: `E-A-LOCAL-BITSET-IS-NOT-SELF-DESCRIBING-PROVENANCE-1`, `E-THE-UNCONTESTED-AXIS-IS-THE-ONE-THAT-MERGES-1` (nobody had contested whether the two copies agreed).
+**The reviewers found the smoke, and the prescribed fix would have cemented the fire.** Codex and CodeRabbit independently hit the 64-ceiling from four angles (examples panicking, `reach_out_integrate` swallowing `CapacityExceeded` into `DullShadow`, `asc_challenge` reporting capacity as `BlockedSelfReference`, cross-registry comparison). CodeRabbit prescribed *"reuse a bounded `SourceId`"* — **rejected**: minting one identity per distinct observation is correct behaviour, and bounding it would have made the semantic defect permanent while turning the symptoms green. **A fix that silences the smoke by making the wrong model fit is worse than the crash.**
+
+**Rollback is not endorsement.** The restored local `Stamp` still models source membership; it is kept as the pre-PR baseline solely because it introduces no breaking API and no global ceiling. Recorded so no future session reads the revert as a verdict that the old code was right.
+
+**Method note worth keeping:** the operator's questions did the work an adversarial review could not — each round I answered from a *name* (`address`, `version`, `source`) and each round the code said otherwise. Three of my own answers in this thread were wrong in the same direction: reaching for an identity already in hand instead of the act that produced the evidence.
+
+Refs: `E-A-LOCAL-BITSET-IS-NOT-SELF-DESCRIBING-PROVENANCE-1`, `E-THE-TWO-COPIES-HAD-ALREADY-DRIFTED-1`, `E-THE-UNCONTESTED-AXIS-IS-THE-ONE-THAT-MERGES-1`, PR #854.
 
 ## 2026-07-27 — E-A-LOCAL-BITSET-IS-NOT-SELF-DESCRIBING-PROVENANCE-1 — **the `Stamp` folding was CONSERVATIVE, not unsound — and the real defect is one level up: a bitset does not carry the mapping that gives its bits meaning.**
 

@@ -22,25 +22,31 @@
 //!   overlap → CHOICE, no double count.
 
 use super::truth::TruthValue;
-use lance_graph_contract::source_registry::SourceRegistry;
 use std::collections::HashMap;
 
-/// Evidential provenance types — CANONICAL in `lance_graph_contract::source_registry`,
-/// re-exported here so `crate::nars::Stamp` keeps resolving for existing readers.
-///
-/// This module used to define its own `Stamp(pub u64)` with
-/// `source(id) = 1 << (id % 64)`, as did `deepnsm-v2`. Two copies, two
-/// independence semantics. The folding was CONSERVATIVE (a collision creates
-/// false *overlap*, so revision refuses to pool — evidence lost, never
-/// double-counted), but it destroyed everything downstream of knowing which bit
-/// is whom: pooling past 64 sources, leave-one-out, withdrawal, and any reading
-/// of an evidence count.
-///
-/// [`Stamp`] is now OPAQUE — readable (`is_empty`/`count`/`disjoint`) but not
-/// constructible outside the registry that mints it, because a bitset does not
-/// carry the mapping that gives its bits meaning. Stamps are arena-local by
-/// containment; see the `source_registry` module docs for the ruling.
-pub use lance_graph_contract::source_registry::{CapacityExceeded, SourceId, Stamp};
+/// Fixed-width evidential stamp: bit *i* = observation source *i* (bounded
+/// horizon of 64; sources beyond fold by modulo — CONSERVATIVE: folding can only
+/// create false overlap, never false disjointness, so no-double-count survives).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Stamp(pub u64);
+
+impl Stamp {
+    /// The stamp of a single observation source.
+    #[must_use]
+    pub fn source(id: u32) -> Self {
+        Stamp(1u64 << (id % 64))
+    }
+    /// Two stamps share no evidence.
+    #[must_use]
+    pub fn disjoint(self, other: Self) -> bool {
+        self.0 & other.0 == 0
+    }
+    /// Pooled evidence base.
+    #[must_use]
+    pub fn union(self, other: Self) -> Self {
+        Stamp(self.0 | other.0)
+    }
+}
 
 /// The copula of a concept-level statement (S3). `Rel` carries an arbitrary
 /// relational term (an FSM verb id) — stored, queryable, NEVER transitive.
@@ -123,11 +129,6 @@ pub enum ReviseOutcome {
 pub struct BeliefArena {
     entries: Vec<Belief>,
     index: HashMap<CStmt, u32>,
-    /// This arena's OWN source registry — the mapping that gives its stamps
-    /// their meaning. Private, and stamps never leave, so a stamp minted here
-    /// can never be compared against one minted by a different arena (where the
-    /// same bit denotes a different source).
-    registry: SourceRegistry,
     /// Closure passes run by the last `close_transitive` call.
     pub passes: u32,
     /// Whether the last closure reached a true fixed point.
@@ -153,38 +154,12 @@ impl BeliefArena {
         self.index.get(&stmt).map(|&i| &self.entries[i as usize])
     }
 
-    /// Does `stmt`'s belief already carry evidence from `source`?
-    ///
-    /// The containment-preserving replacement for `belief.stamp.disjoint(s)` at
-    /// a call site that only wants to know "is this source already counted
-    /// here?" — asking the question never requires minting a stamp, so no
-    /// `Stamp` has to cross the arena boundary to answer it.
-    ///
-    /// Query-only: an unregistered source cannot be present, so this never
-    /// allocates a slot and can never exhaust the registry (hence no `Result`).
-    #[must_use]
-    pub fn stmt_has_source(&self, stmt: CStmt, source: SourceId) -> bool {
-        match (self.registry.lookup(source), self.get(stmt)) {
-            (Some(slot), Some(b)) => b.stamp.contains(slot),
-            _ => false,
-        }
-    }
-
     /// Offer evidence for a statement (rung 0 observation path). Admits it if
     /// absent; otherwise routes through the S4 guard: disjoint → revision in
     /// place; overlap → CHOICE. The arena NEVER grows a second entry for an
     /// existing statement — the termination invariant.
-    /// Capacity exhaustion is REPORTED ([`CapacityExceeded`]), never folded —
-    /// that is the behavioural difference from the retired `id % 64`, which
-    /// silently aliased a 65th source onto an existing slot.
-    pub fn observe(
-        &mut self,
-        stmt: CStmt,
-        truth: TruthValue,
-        source: SourceId,
-    ) -> Result<ReviseOutcome, CapacityExceeded> {
-        let stamp = self.registry.stamp_for(source)?;
-        Ok(match self.index.get(&stmt) {
+    pub fn observe(&mut self, stmt: CStmt, truth: TruthValue, stamp: Stamp) -> ReviseOutcome {
+        match self.index.get(&stmt) {
             None => {
                 let id = self.entries.len() as u32;
                 self.entries.push(Belief {
@@ -198,8 +173,8 @@ impl BeliefArena {
                 self.index.insert(stmt, id);
                 ReviseOutcome::Admitted { id }
             }
-            Some(&id) => self.revise_at_stamp(id, truth, stamp),
-        })
+            Some(&id) => self.revise_at(id, truth, stamp),
+        }
     }
 
     /// The S4 revision guard on an existing belief. A NON-EMPTY incoming stamp
@@ -213,24 +188,9 @@ impl BeliefArena {
     /// it as independent evidence would let a repeated zero-stamped observation
     /// pool into itself and inflate confidence without bound (`union` also never
     /// records overlap). Unsourced evidence cannot pool — it competes by CHOICE.
-    /// Capacity exhaustion is REPORTED, never folded (see [`observe`](Self::observe)).
-    pub fn revise_at(
-        &mut self,
-        id: u32,
-        new: TruthValue,
-        source: SourceId,
-    ) -> Result<ReviseOutcome, CapacityExceeded> {
-        let stamp = self.registry.stamp_for(source)?;
-        Ok(self.revise_at_stamp(id, new, stamp))
-    }
-
-    /// The stamp-taking core, shared by [`observe`](Self::observe) and
-    /// [`revise_at`](Self::revise_at) so a single logical event mints its slot
-    /// exactly once. Private: a `Stamp` is only meaningful relative to THIS
-    /// arena's registry, so it must not be constructible from outside.
-    fn revise_at_stamp(&mut self, id: u32, new: TruthValue, stamp: Stamp) -> ReviseOutcome {
+    pub fn revise_at(&mut self, id: u32, new: TruthValue, stamp: Stamp) -> ReviseOutcome {
         let b = &mut self.entries[id as usize];
-        if !stamp.is_empty() && b.stamp.disjoint(stamp) {
+        if stamp != Stamp::default() && b.stamp.disjoint(stamp) {
             let depth = (b.truth.frequency - new.frequency).abs();
             b.contradiction = b.contradiction.max(depth);
             b.truth = b.truth.revise(&new);
@@ -281,7 +241,7 @@ impl BeliefArena {
                 // both purely-observed (rung 0) and derived-then-observed
                 // (rung ≥ 1, stamp unioned by `revise_at`) beliefs; keying on the
                 // stamp (evidence provenance), never the rung, is the Codex fix.
-                if !e.stamp.is_empty() {
+                if e.stamp != Stamp::default() {
                     return false;
                 }
                 if truth.expectation() > e.truth.expectation() + EPS {
@@ -297,7 +257,7 @@ impl BeliefArena {
                 self.entries.push(Belief {
                     stmt,
                     truth,
-                    stamp: Stamp::EMPTY, // derived: no observation sources of its own
+                    stamp: Stamp::default(), // derived: no observation sources of its own
                     rung,
                     premises: premises.to_vec(),
                     contradiction: 0.0,
@@ -395,17 +355,15 @@ mod tests {
     fn revision_disjoint_moves_truth_and_terminates() {
         let mut arena = BeliefArena::new();
         for k in 0..9u16 {
-            arena
-                .observe(inh(k, k + 1), TruthValue::new(0.9, 0.9), SourceId(k as u64))
-                .unwrap();
+            arena.observe(
+                inh(k, k + 1),
+                TruthValue::new(0.9, 0.9),
+                Stamp::source(k as u32),
+            );
         }
-        arena
-            .observe(inh(9, 0), TruthValue::new(0.9, 0.9), SourceId(9))
-            .unwrap(); // cycle
+        arena.observe(inh(9, 0), TruthValue::new(0.9, 0.9), Stamp::source(9)); // cycle
         let stmt = inh(0, 1);
-        let out = arena
-            .observe(stmt, TruthValue::new(0.2, 0.75), SourceId(40))
-            .unwrap();
+        let out = arena.observe(stmt, TruthValue::new(0.2, 0.75), Stamp::source(40));
         let ReviseOutcome::Revised {
             synthesis_c, depth, ..
         } = out
@@ -431,38 +389,30 @@ mod tests {
     fn verbs_do_not_transit() {
         let mut arena = BeliefArena::new();
         let bit = Copula::Rel(77);
-        arena
-            .observe(
-                CStmt {
-                    s: 1,
-                    cop: bit,
-                    p: 2,
-                },
-                TruthValue::new(1.0, 0.9),
-                SourceId(0),
-            )
-            .unwrap();
-        arena
-            .observe(
-                CStmt {
-                    s: 2,
-                    cop: bit,
-                    p: 3,
-                },
-                TruthValue::new(1.0, 0.9),
-                SourceId(1),
-            )
-            .unwrap();
+        arena.observe(
+            CStmt {
+                s: 1,
+                cop: bit,
+                p: 2,
+            },
+            TruthValue::new(1.0, 0.9),
+            Stamp::source(0),
+        );
+        arena.observe(
+            CStmt {
+                s: 2,
+                cop: bit,
+                p: 3,
+            },
+            TruthValue::new(1.0, 0.9),
+            Stamp::source(1),
+        );
         arena.close_transitive(16);
         assert_eq!(arena.entries().len(), 2, "dog bit sandwich must NOT derive");
 
         let mut inh_arena = BeliefArena::new();
-        inh_arena
-            .observe(inh(1, 2), TruthValue::new(0.9, 0.8), SourceId(0))
-            .unwrap();
-        inh_arena
-            .observe(inh(2, 3), TruthValue::new(1.0, 0.95), SourceId(1))
-            .unwrap();
+        inh_arena.observe(inh(1, 2), TruthValue::new(0.9, 0.8), Stamp::source(0));
+        inh_arena.observe(inh(2, 3), TruthValue::new(1.0, 0.95), Stamp::source(1));
         inh_arena.close_transitive(16);
         let d = inh_arena.get(inh(1, 3)).expect("Inh transits");
         assert!((d.truth.frequency - 0.9).abs() < 1e-6);
@@ -476,9 +426,7 @@ mod tests {
     fn admit_derived_respects_observation_ground() {
         let mut arena = BeliefArena::new();
         let stmt = inh(2, 1);
-        arena
-            .observe(stmt, TruthValue::new(0.55, 0.95), SourceId(9))
-            .unwrap();
+        arena.observe(stmt, TruthValue::new(0.55, 0.95), Stamp::source(9));
         let before = arena.get(stmt).unwrap().truth;
         let changed = arena.admit_derived(stmt, TruthValue::new(0.99, 0.9), &[0, 0], 1);
         assert!(!changed, "ground belief not overwritten");
@@ -499,19 +447,11 @@ mod tests {
     fn empty_incoming_stamp_does_not_pool() {
         let mut arena = BeliefArena::new();
         let stmt = inh(1, 2);
-        let id = match arena
-            .observe(stmt, TruthValue::new(0.8, 0.5), SourceId(3))
-            .unwrap()
-        {
-            ReviseOutcome::Admitted { id } => id,
-            other => panic!("expected Admitted, got {other:?}"),
-        };
+        arena.observe(stmt, TruthValue::new(0.8, 0.5), Stamp::source(3));
         let c0 = arena.get(stmt).unwrap().truth.confidence;
-        // Same statement offered with an EMPTY stamp, repeatedly. `SourceId` cannot
-        // construct an empty stamp (opaque by design), so this drives the private
-        // stamp-taking core directly to exercise the guard.
+        // Same statement offered with an EMPTY stamp, repeatedly.
         for _ in 0..10 {
-            let out = arena.revise_at_stamp(id, TruthValue::new(0.8, 0.5), Stamp::EMPTY);
+            let out = arena.observe(stmt, TruthValue::new(0.8, 0.5), Stamp::default());
             assert!(
                 matches!(out, ReviseOutcome::Chosen { .. }),
                 "empty stamp → CHOICE, got {out:?}"
@@ -523,9 +463,7 @@ mod tests {
             "empty-stamped evidence never pooled: {c0} → {c1}"
         );
         // A REAL disjoint source still pools (the guard is only for empty stamps).
-        let out = arena
-            .observe(stmt, TruthValue::new(0.8, 0.5), SourceId(7))
-            .unwrap();
+        let out = arena.observe(stmt, TruthValue::new(0.8, 0.5), Stamp::source(7));
         assert!(
             matches!(out, ReviseOutcome::Revised { .. }),
             "real source still revises"

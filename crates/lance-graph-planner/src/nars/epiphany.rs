@@ -76,8 +76,7 @@ pub fn rank_epiphany_attractors(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nars::{BeliefArena, CStmt, Copula, TruthValue};
-    use lance_graph_contract::source_registry::SourceId;
+    use crate::nars::{BeliefArena, CStmt, Copula, Stamp, TruthValue};
 
     fn inh(s: u16, p: u16) -> CStmt {
         CStmt {
@@ -96,8 +95,11 @@ mod tests {
         // LARGE sparse basin, subject 1: 20 observed + 5 derived.
         // epiphanies 5, attempts 25, rate 0.20.
         for p in 100..120u16 {
-            a.observe(inh(1, p), TruthValue::new(0.9, 0.9), SourceId(p as u64))
-                .unwrap();
+            a.observe(
+                inh(1, p),
+                TruthValue::new(0.9, 0.9),
+                Stamp::source(p as u32),
+            );
         }
         for p in 200..205u16 {
             assert!(a.admit_derived(inh(1, p), TruthValue::new(0.9, 0.9), &[], 1));
@@ -105,8 +107,7 @@ mod tests {
 
         // SMALL dense basin, subject 2: 1 observed + 3 derived.
         // epiphanies 3, attempts 4, rate 0.75.
-        a.observe(inh(2, 300), TruthValue::new(0.9, 0.9), SourceId(300))
-            .unwrap();
+        a.observe(inh(2, 300), TruthValue::new(0.9, 0.9), Stamp::source(300));
         for p in 301..304u16 {
             assert!(a.admit_derived(inh(2, p), TruthValue::new(0.9, 0.9), &[], 1));
         }
@@ -143,15 +144,12 @@ mod tests {
         let mut a = BeliefArena::default();
 
         // Subject 1: 3 beliefs (clears min_attempts = 2).
-        a.observe(inh(1, 10), TruthValue::new(0.9, 0.9), SourceId(10))
-            .unwrap();
-        a.observe(inh(1, 11), TruthValue::new(0.9, 0.9), SourceId(11))
-            .unwrap();
+        a.observe(inh(1, 10), TruthValue::new(0.9, 0.9), Stamp::source(10));
+        a.observe(inh(1, 11), TruthValue::new(0.9, 0.9), Stamp::source(11));
         assert!(a.admit_derived(inh(1, 12), TruthValue::new(0.9, 0.9), &[], 1));
 
         // Subject 2: 1 belief (below min_attempts = 2).
-        a.observe(inh(2, 20), TruthValue::new(0.9, 0.9), SourceId(20))
-            .unwrap();
+        a.observe(inh(2, 20), TruthValue::new(0.9, 0.9), Stamp::source(20));
 
         let ranked = rank_epiphany_attractors(&a, 2);
         assert_eq!(ranked.len(), 1);
@@ -163,13 +161,11 @@ mod tests {
         let mut a = BeliefArena::default();
 
         // Subject 5: 1 derived / 2 total = rate 0.5.
-        a.observe(inh(5, 50), TruthValue::new(0.9, 0.9), SourceId(50))
-            .unwrap();
+        a.observe(inh(5, 50), TruthValue::new(0.9, 0.9), Stamp::source(50));
         assert!(a.admit_derived(inh(5, 51), TruthValue::new(0.9, 0.9), &[], 1));
 
         // Subject 3: 1 derived / 2 total = rate 0.5 (same rate).
-        a.observe(inh(3, 30), TruthValue::new(0.9, 0.9), SourceId(30))
-            .unwrap();
+        a.observe(inh(3, 30), TruthValue::new(0.9, 0.9), Stamp::source(30));
         assert!(a.admit_derived(inh(3, 31), TruthValue::new(0.9, 0.9), &[], 1));
 
         let ranked = rank_epiphany_attractors(&a, 2);

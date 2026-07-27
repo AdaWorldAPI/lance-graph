@@ -18,7 +18,7 @@
 //! expansion rising, [`super::insight::Snapshot`]). This module measures it
 //! by composing the two shipped pieces — no new detector, no new engine.
 
-use super::belief::{BeliefArena, CStmt, SourceId};
+use super::belief::{BeliefArena, CStmt, Stamp};
 use super::insight::Snapshot;
 use super::truth::TruthValue;
 
@@ -76,7 +76,7 @@ pub fn reach_out_integrate(
     arena: &mut BeliefArena,
     bridge: CStmt,
     truth: TruthValue,
-    source: SourceId,
+    stamp: Stamp,
     cfg: &ReachOutConfig,
 ) -> FeltOutcome {
     // Establish the baseline at a fixed point FIRST — otherwise a pending
@@ -87,10 +87,7 @@ pub fn reach_out_integrate(
     let derived_before = arena.entries().iter().filter(|b| b.rung >= 1).count();
 
     let quarantined = TruthValue::new(truth.frequency, truth.confidence.min(cfg.quarantine_prior));
-    // A full registry means the bridge's evidence cannot be admitted
-    // independently, so nothing lands and the reach-out simply does not fire —
-    // reported by the derivation count below, never silently pooled.
-    let _ = arena.observe(bridge, quarantined, source);
+    arena.observe(bridge, quarantined, stamp);
     arena.close_transitive(cfg.max_passes);
 
     let after = Snapshot::of(arena, 0.0);
@@ -110,7 +107,7 @@ pub fn reach_out_integrate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nars::{BeliefArena, CStmt, Copula, TruthValue};
+    use crate::nars::{BeliefArena, CStmt, Copula, Stamp, TruthValue};
 
     fn inh(s: u16, p: u16) -> CStmt {
         CStmt {
@@ -128,14 +125,13 @@ mod tests {
     fn middle_term_click_is_new_insight() {
         let mut a = BeliefArena::new();
         // A is_a M (pre-existing, rung 0).
-        a.observe(inh(1, 9), TruthValue::new(0.9, 0.9), SourceId(0))
-            .unwrap();
+        a.observe(inh(1, 9), TruthValue::new(0.9, 0.9), Stamp::source(0));
 
         let out = reach_out_integrate(
             &mut a,
             inh(9, 2), // M is_a B — the fetched bridge.
             TruthValue::new(0.9, 0.9),
-            SourceId(1), // disjoint from source 0.
+            Stamp::source(1), // disjoint from source 0.
             &ReachOutConfig::default(),
         );
 
@@ -163,14 +159,13 @@ mod tests {
     #[test]
     fn lone_concept_is_dull_shadow() {
         let mut a = BeliefArena::new();
-        a.observe(inh(1, 9), TruthValue::new(0.9, 0.9), SourceId(0))
-            .unwrap();
+        a.observe(inh(1, 9), TruthValue::new(0.9, 0.9), Stamp::source(0));
 
         let out = reach_out_integrate(
             &mut a,
             inh(100, 101), // fresh, unconnected terms.
             TruthValue::new(0.9, 0.9),
-            SourceId(1),
+            Stamp::source(1),
             &ReachOutConfig::default(),
         );
 
@@ -188,28 +183,24 @@ mod tests {
     #[test]
     fn shadow_and_insight_are_size_matched() {
         let mut insight_arena = BeliefArena::new();
-        insight_arena
-            .observe(inh(1, 9), TruthValue::new(0.9, 0.9), SourceId(0))
-            .unwrap();
+        insight_arena.observe(inh(1, 9), TruthValue::new(0.9, 0.9), Stamp::source(0));
         // Exactly one bridge belief added: composes as a middle term.
         let insight_out = reach_out_integrate(
             &mut insight_arena,
             inh(9, 2),
             TruthValue::new(0.9, 0.9),
-            SourceId(1),
+            Stamp::source(1),
             &ReachOutConfig::default(),
         );
 
         let mut shadow_arena = BeliefArena::new();
-        shadow_arena
-            .observe(inh(1, 9), TruthValue::new(0.9, 0.9), SourceId(0))
-            .unwrap();
+        shadow_arena.observe(inh(1, 9), TruthValue::new(0.9, 0.9), Stamp::source(0));
         // Exactly one bridge belief added: composes with nothing.
         let shadow_out = reach_out_integrate(
             &mut shadow_arena,
             inh(100, 101),
             TruthValue::new(0.9, 0.9),
-            SourceId(1),
+            Stamp::source(1),
             &ReachOutConfig::default(),
         );
 
@@ -223,8 +214,7 @@ mod tests {
     #[test]
     fn quarantine_caps_confidence() {
         let mut a = BeliefArena::new();
-        a.observe(inh(1, 9), TruthValue::new(0.9, 0.9), SourceId(0))
-            .unwrap();
+        a.observe(inh(1, 9), TruthValue::new(0.9, 0.9), Stamp::source(0));
 
         let bridge = inh(9, 2);
         let cfg = ReachOutConfig {
@@ -235,7 +225,7 @@ mod tests {
             &mut a,
             bridge,
             TruthValue::new(0.9, 0.95), // high offered confidence.
-            SourceId(1),
+            Stamp::source(1),
             &cfg,
         );
 
@@ -256,17 +246,15 @@ mod tests {
     fn pending_closure_is_not_miscredited_to_an_unrelated_bridge() {
         let mut a = BeliefArena::new();
         // An OPEN chain: A→B, B→C, deliberately NOT closed by the caller.
-        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), SourceId(0))
-            .unwrap();
-        a.observe(inh(2, 3), TruthValue::new(0.9, 0.9), SourceId(1))
-            .unwrap();
+        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(0));
+        a.observe(inh(2, 3), TruthValue::new(0.9, 0.9), Stamp::source(1));
         // (no close_transitive here — the arena is passed in un-closed)
 
         let out = reach_out_integrate(
             &mut a,
             inh(100, 101), // fresh, unrelated to the pending chain.
             TruthValue::new(0.9, 0.9),
-            SourceId(2),
+            Stamp::source(2),
             &ReachOutConfig::default(),
         );
 

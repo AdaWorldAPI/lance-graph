@@ -37,7 +37,15 @@ use crate::Fingerprint;
 #[derive(Debug, Clone)]
 pub struct SubstitutedWorld {
     /// The substitution applied.
-    pub substitution: BindingSubstitution,
+    /// The COMPLETE applied sequence, in order — empty when none was applied.
+    ///
+    /// Not `the last one`: `state` reflects every substitution, so recording
+    /// only the final entry misreports what produced it, and fabricating an
+    /// all-zero entry for the empty case makes "nothing was substituted"
+    /// indistinguishable from "substituted with zeros". A module whose argument
+    /// is that the algebra should say honestly what it did cannot have a field
+    /// that does otherwise (codex/CodeRabbit, PR #854).
+    pub substitutions: Vec<BindingSubstitution>,
     /// Fingerprint of the world state AFTER substitution.
     pub state: Fingerprint,
     /// Divergence from baseline (Hamming distance / total bits).
@@ -81,7 +89,7 @@ pub fn substitute_binding(world: &Fingerprint, substitution: &BindingSubstitutio
     let divergence = world.hamming(&new_state) as f32 / TOTAL_BITS as f32;
 
     SubstitutedWorld {
-        substitution: substitution.clone(),
+        substitutions: vec![substitution.clone()],
         state: new_state,
         divergence,
     }
@@ -109,15 +117,7 @@ pub fn multi_substitute_binding(
     }
     let divergence = world.hamming(&current) as f32 / TOTAL_BITS as f32;
     SubstitutedWorld {
-        substitution: if let Some(last) = substitutions.last() {
-            last.clone()
-        } else {
-            BindingSubstitution {
-                target: Fingerprint::zero(),
-                original: Fingerprint::zero(),
-                replacement: Fingerprint::zero(),
-            }
-        },
+        substitutions: substitutions.to_vec(),
         state: current,
         divergence,
     }
@@ -210,7 +210,7 @@ mod tests {
         let variable = Fingerprint::from_content("unchanged");
         let world = base.bind(&variable);
 
-        // Intervening with same value should produce identical world
+        // Substituting with the same value should produce an identical world
         let identity = BindingSubstitution {
             target: variable.clone(),
             original: variable.clone(),

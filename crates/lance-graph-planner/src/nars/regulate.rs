@@ -92,8 +92,7 @@ pub fn regulate_cycle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nars::belief::SourceId;
-    use crate::nars::{BeliefArena, CStmt, Copula, TruthValue};
+    use crate::nars::{BeliefArena, CStmt, Copula, Stamp, TruthValue};
 
     fn inh(s: u16, p: u16) -> CStmt {
         CStmt {
@@ -110,9 +109,8 @@ mod tests {
             a.observe(
                 inh(i, i + 1),
                 TruthValue::new(0.95, 0.9),
-                SourceId(i.into()),
-            )
-            .unwrap();
+                Stamp::source(i.into()),
+            );
         }
         a.close_transitive(64);
         a
@@ -128,8 +126,11 @@ mod tests {
 
         // 5 subjects share predicate 900 — disjoint from the core, non-composing.
         for s in 200u16..205 {
-            a.observe(inh(s, 900), TruthValue::new(0.9, 0.9), SourceId(s.into()))
-                .unwrap();
+            a.observe(
+                inh(s, 900),
+                TruthValue::new(0.9, 0.9),
+                Stamp::source(s.into()),
+            );
         }
 
         let out = regulate_cycle(&mut a, &before, &CycleConfig::default());
@@ -159,9 +160,8 @@ mod tests {
             a.observe(
                 inh(i, i + 1),
                 TruthValue::new(0.95, 0.9),
-                SourceId((100 + i).into()),
-            )
-            .unwrap();
+                Stamp::source((100 + i).into()),
+            );
         }
 
         let out = regulate_cycle(&mut a, &before, &CycleConfig::default());
@@ -184,8 +184,11 @@ mod tests {
         let mut a = core_arena();
         let before = Snapshot::of(&a, 0.0);
         for s in 200u16..205 {
-            a.observe(inh(s, 900), TruthValue::new(0.9, 0.9), SourceId(s.into()))
-                .unwrap();
+            a.observe(
+                inh(s, 900),
+                TruthValue::new(0.9, 0.9),
+                Stamp::source(s.into()),
+            );
         }
         let first = regulate_cycle(&mut a, &before, &CycleConfig::default());
         assert!(first.elevated.is_some(), "first cycle elevates");
