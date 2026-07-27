@@ -7,7 +7,19 @@
 //! **There is no confirmation bookkeeping here — by ruling (operator,
 //! 2026-07-17, E-ACK-ELIMINATED-1).** Durability evidence is the written
 //! row's own `LanceVersion` in Lance, read through `crate::temporal`
-//! (`QueryReference::at` + deinterlace). The intent records in this struct
+//! (`QueryReference::at` + deinterlace).
+//!
+//! > **STATUS: DECLARED — the read side is UNWIRED (verified 2026-07-27,
+//! > §12 substrate trace).** The no-confirmation-ledger *ruling* is in force
+//! > and this module obeys it. What is NOT yet true is the sentence above
+//! > describing how durability is *observed*: `deinterlace` has no production
+//! > caller (all call sites are in `temporal.rs`'s own `#[cfg(test)]` module),
+//! > there is no production `DeinterlaceRow` implementor, and `cast()` itself
+//! > has **zero production call sites**. Treat the paragraph above as the
+//! > intended contract, not as a description of a running path. Ledger:
+//! > `.claude/board/TECH_DEBT.md` TD-DOC-COMMENTS-CLAIM-UNWIRED-BEHAVIOUR.
+//!
+//! The intent records in this struct
 //! are **ephemeral staging, not a durable WAL**: after a restart they are
 //! gone and there is nothing to replay from them. The durable record is
 //! the Lance row — a crash mid-write leaves it at an older `LanceVersion`,

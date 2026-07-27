@@ -18,7 +18,7 @@ use crate::physical::accumulate::{Semiring, SemiringValue};
 ///   truth_out[target] = semiring.add(truth_out[target], new_value)
 pub fn adjacent_truth_propagate(
     store: &AdjacencyStore,
-    batch: &AdjacencyBatch,
+    batch: &AdjacencyBatch<'_>,
     input_truths: &[TruthValue],
     semiring: &dyn Semiring,
 ) -> Vec<(u64, TruthValue)> {

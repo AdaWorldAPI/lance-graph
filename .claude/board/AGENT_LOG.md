@@ -1,3 +1,41 @@
+## 2026-07-27 — furnace L1–L7 build + amortization probes consolidated (1 Opus probe, 1 Sonnet probe)
+
+Tags: `exec-runs/probe-l5-fisherz.md` (Sonnet, bgz-tensor); planner probe
+committed as `probe_furnace_amortization.rs`. Real bge-m3 bytes both. Outcome:
+amortization VALIDATED (193→9 ns/cand [a,b]; FisherZ 35.6→1.86 ns/lookup,
+Spearman 0.9998 PASSES ≥0.9990; bf16-RNE 1.000000/1.000000 PASSES ≥0.9999;
+L2-only break-even 0.13 of one pass). HHTL awareness-location PROVEN falsifiably
+(same-HEEL 0.7981 vs shuffled control 1.0711); pruning NOT shown on thin rig.
+L5 γ-fold NOT validated — probe folded random rows against the fold's own
+CLAM-family precondition (ρ 0.3786 vs ~0.96 anchor); member-addressing falsifier
+fires (0.3786 vs 0.0817). Follow-up: clam_group-first refold. V1 EdgeBlock
+citation corrected to V3 facet rails (operator). No production code changed;
+probes + boards only.
+
+## 2026-07-27 — §12 substrate trace consolidated (Sonnet ×4, read-only)
+
+Tags: `exec-runs/trace-{A-write-path,B-writer-key,C-value-slab,D-allocations}.md`;
+synthesis: primer §14. Outcome: **the substrate write path is UNBUILT** — no
+Lance-version production, `MailboxSoA` never implements `SoaEnvelope`, `cast()`
+has zero production call sites, `deinterlace` test-only end-to-end with no HLC
+source. §13's CODE-PROVEN labels came from type defs + doc-comments; corrected.
+Beliefs have no row home (only Truth declared, 8B/4B mismatch open; rung/
+contradiction/premises/evidence NONE). The CSR allocation criticism targeted
+test-only code and is withdrawn. Real waste is arena-internal re-indexing
+(by_sc per pass; 3× HashMap rebuilds in tactics.rs). Test lock verified as
+depending on arena-admission-index order specifically. No code changed.
+
+## 2026-07-27 — cosine-replacement census consolidated (Sonnet ×4, read-only)
+
+Tags: `exec-runs/cosine-census-{contract,planner-core,deepnsm-group,lab-crates}.md`;
+synthesis: `exec-runs/cosine-census-CONSOLIDATED.md`. 103 production files.
+Outcome: **REPLACE list = 3 sites** — cam.rs ADC f32 tables (HOT, CamPqScanOp),
+deepnsm trajectory.rs resonance-vs-codebook (HOT, excluded crate), cognitive
+nsm.rs/triangle.rs (DORMANT, unwired). NARS hot path clean; deepnsm-v2 already
+SquaredL2 via contract PairPalette (2 stale doc labels); 9-site Cypher
+QUERY-SURFACE chain kept separate; lab tier 58 files = table-build/calibration
+with ZERO spine imports (dead Cargo deps → TECH_DEBT). No code changed.
+
 ## 2026-07-27 — cr-generators consolidated (Sonnet, tag `exec-runs/cr-generators.txt`)
 
 Nine CodeRabbit generator findings fixed; **all six files ported to MAIN**, not

@@ -93,30 +93,19 @@ impl AdjacencyStore {
         self.csc_offsets[node as usize + 1] - self.csc_offsets[node as usize]
     }
 
-    /// Kuzu's core primitive: batch-get all adjacent node_ids for a batch of sources.
-    /// Returns a flat vector + offsets (like Arrow ListArray).
-    /// This is WHERE vectorized traversal happens.
-    pub fn batch_adjacent(&self, source_ids: &[u64]) -> AdjacencyBatch {
-        let mut offsets = Vec::with_capacity(source_ids.len() + 1);
-        let mut targets = Vec::new();
-        let mut edge_ids = Vec::new();
-
-        offsets.push(0u64);
-
-        for &src in source_ids {
-            let adj = self.adjacent(src);
-            let eids = self.edge_ids(src);
-            targets.extend_from_slice(adj);
-            edge_ids.extend_from_slice(eids);
-            offsets.push(targets.len() as u64);
-        }
-
-        AdjacencyBatch {
-            source_ids: source_ids.to_vec(),
-            offsets,
-            targets,
-            edge_ids,
-        }
+    /// Kuzu's core primitive: batch-get adjacency for a batch of sources.
+    ///
+    /// Returns a BORROWED VIEW — no allocation, no copy. Previously this packed
+    /// `source_ids`, `targets` and `edge_ids` into three fresh `Vec`s, which
+    /// duplicated state this store already holds contiguously and already lends
+    /// out zero-copy through [`adjacent`](Self::adjacent) /
+    /// [`edge_ids`](Self::edge_ids). Per-source slices are now delegated on
+    /// access, so `targets_for(i)` yields exactly the bytes the old packed form
+    /// held at that offset range (2026-07-27; primer §11/§15 zero-copy rule).
+    #[inline]
+    #[must_use]
+    pub fn batch_adjacent<'a>(&'a self, source_ids: &'a [u64]) -> AdjacencyBatch<'a> {
+        AdjacencyBatch::new(self, source_ids)
     }
 
     /// Build from edge list (src, dst) pairs.

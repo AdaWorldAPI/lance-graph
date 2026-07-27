@@ -1,41 +1,83 @@
 //! Batch adjacency operations — the vectorized traversal primitive.
+//!
+//! **Zero-copy by construction (2026-07-27).** `AdjacencyBatch` is a BORROWED
+//! VIEW over an [`AdjacencyStore`], not an owned re-packing of it. The previous
+//! shape copied three vectors (`source_ids.to_vec()` plus `extend_from_slice`
+//! of `targets` and `edge_ids`) that the store already holds contiguously and
+//! already lends out zero-copy via `adjacent()` / `edge_ids()` — a duplicate
+//! representation of resident state, which the universal zero-copy rule
+//! forbids (primer §11/§15).
+//!
+//! The owned struct was REPLACED, not supplemented: keeping both would retain
+//! the alternate owned representation the rule is about. Per-source slices are
+//! delegated to the store on access, so `targets_for(i)` returns exactly the
+//! bytes the old concatenation would have held at that offset range.
 
-/// Result of batch_adjacent(): flat vector + offsets (Arrow ListArray pattern).
-#[derive(Debug, Clone)]
-pub struct AdjacencyBatch {
-    /// Source node IDs (one per batch entry).
-    pub source_ids: Vec<u64>,
-    /// Offsets into targets/edge_ids (length = source_ids.len() + 1).
-    pub offsets: Vec<u64>,
-    /// Packed target node_ids (sorted per source for intersection).
-    pub targets: Vec<u64>,
-    /// Edge IDs corresponding to each target.
-    pub edge_ids: Vec<u64>,
+use super::csr::AdjacencyStore;
+
+/// Borrowed view of adjacency for a batch of sources (Arrow ListArray pattern,
+/// without the packing step).
+///
+/// Holds no adjacency data of its own — every accessor reads through to the
+/// store's resident CSR arrays.
+#[derive(Debug, Clone, Copy)]
+pub struct AdjacencyBatch<'a> {
+    /// The store the view reads through.
+    store: &'a AdjacencyStore,
+    /// Source node IDs (one per batch entry) — borrowed from the caller.
+    pub source_ids: &'a [u64],
 }
 
-impl AdjacencyBatch {
+impl<'a> AdjacencyBatch<'a> {
+    /// Construct a view over `source_ids` against `store`. No allocation.
+    #[inline]
+    #[must_use]
+    pub fn new(store: &'a AdjacencyStore, source_ids: &'a [u64]) -> Self {
+        Self { store, source_ids }
+    }
+
     /// Get the target slice for the i-th source in the batch.
-    pub fn targets_for(&self, batch_idx: usize) -> &[u64] {
-        let start = self.offsets[batch_idx] as usize;
-        let end = self.offsets[batch_idx + 1] as usize;
-        &self.targets[start..end]
+    ///
+    /// Zero-copy: borrows straight out of the store's CSR targets.
+    #[inline]
+    #[must_use]
+    pub fn targets_for(&self, batch_idx: usize) -> &'a [u64] {
+        self.store.adjacent(self.source_ids[batch_idx])
     }
 
     /// Get the edge_id slice for the i-th source in the batch.
-    pub fn edge_ids_for(&self, batch_idx: usize) -> &[u64] {
-        let start = self.offsets[batch_idx] as usize;
-        let end = self.offsets[batch_idx + 1] as usize;
-        &self.edge_ids[start..end]
+    ///
+    /// Zero-copy: borrows straight out of the store's CSR edge ids.
+    #[inline]
+    #[must_use]
+    pub fn edge_ids_for(&self, batch_idx: usize) -> &'a [u64] {
+        self.store.edge_ids(self.source_ids[batch_idx])
     }
 
     /// Total number of adjacency entries across all sources.
+    ///
+    /// Summed from out-degrees rather than read off a packed length — the
+    /// packed vector no longer exists.
+    #[must_use]
     pub fn total_targets(&self) -> usize {
-        self.targets.len()
+        self.source_ids
+            .iter()
+            .map(|&src| self.store.out_degree(src) as usize)
+            .sum()
     }
 
     /// Number of sources in the batch.
+    #[inline]
+    #[must_use]
     pub fn num_sources(&self) -> usize {
         self.source_ids.len()
+    }
+
+    /// Whether the batch has no sources.
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.source_ids.is_empty()
     }
 
     /// Intersect two adjacency batches — Kuzu's worst-case optimal join primitive.
@@ -43,7 +85,12 @@ impl AdjacencyBatch {
     ///
     /// A→B→C = intersect(adjacent(A), adjacent(C).reverse())
     /// Both target lists must be sorted (guaranteed by CSR construction).
-    pub fn intersect(&self, other: &AdjacencyBatch) -> IntersectionResult {
+    ///
+    /// The returned [`IntersectionResult`] IS owned — it is a derived join
+    /// product (matched pairs that existed in neither input), not a re-packing
+    /// of resident state.
+    #[must_use]
+    pub fn intersect(&self, other: &AdjacencyBatch<'_>) -> IntersectionResult {
         let mut matched_sources_left = Vec::new();
         let mut matched_sources_right = Vec::new();
         let mut matched_targets = Vec::new();
@@ -92,10 +139,12 @@ pub struct IntersectionResult {
 }
 
 impl IntersectionResult {
+    #[must_use]
     pub fn len(&self) -> usize {
         self.shared_targets.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.shared_targets.is_empty()
     }
@@ -105,29 +154,69 @@ impl IntersectionResult {
 mod tests {
     use super::*;
 
+    /// Build the same graph the previous hand-packed literals encoded:
+    /// 0 → [1, 2, 3], 4 → [2, 5], 10 → [2, 3, 7].
+    fn store() -> AdjacencyStore {
+        AdjacencyStore::from_edges(
+            "t".to_string(),
+            11,
+            &[
+                (0, 1),
+                (0, 2),
+                (0, 3),
+                (4, 2),
+                (4, 5),
+                (10, 2),
+                (10, 3),
+                (10, 7),
+            ],
+        )
+    }
+
     #[test]
     fn test_intersection() {
-        // Left batch: node 0 → [1, 2, 3], node 4 → [2, 5]
-        let left = AdjacencyBatch {
-            source_ids: vec![0, 4],
-            offsets: vec![0, 3, 5],
-            targets: vec![1, 2, 3, 2, 5],
-            edge_ids: vec![0, 1, 2, 3, 4],
-        };
-
-        // Right batch: node 10 → [2, 3, 7]
-        let right = AdjacencyBatch {
-            source_ids: vec![10],
-            offsets: vec![0, 3],
-            targets: vec![2, 3, 7],
-            edge_ids: vec![10, 11, 12],
-        };
+        let s = store();
+        let left = AdjacencyBatch::new(&s, &[0, 4]);
+        let right = AdjacencyBatch::new(&s, &[10]);
 
         let result = left.intersect(&right);
 
-        // Node 0 shares targets 2, 3 with node 10
-        // Node 4 shares target 2 with node 10
+        // Node 0 shares targets 2, 3 with node 10; node 4 shares target 2.
         assert_eq!(result.len(), 3);
         assert_eq!(result.shared_targets, vec![2, 3, 2]);
+    }
+
+    /// The view must report exactly what the store holds — this is the
+    /// semantic-identity check that licensed replacing the owned packing.
+    #[test]
+    fn view_matches_store_slices() {
+        let s = store();
+        let b = AdjacencyBatch::new(&s, &[0, 4, 10]);
+
+        assert_eq!(b.num_sources(), 3);
+        assert_eq!(b.targets_for(0), s.adjacent(0));
+        assert_eq!(b.targets_for(1), s.adjacent(4));
+        assert_eq!(b.targets_for(2), s.adjacent(10));
+        assert_eq!(b.edge_ids_for(0), s.edge_ids(0));
+        // 3 + 2 + 3 — summed from out-degrees, not a packed length.
+        assert_eq!(b.total_targets(), 8);
+    }
+
+    /// A repeated source must yield the same slice at both positions (the old
+    /// packed form duplicated those bytes; the view must not diverge from it).
+    #[test]
+    fn repeated_source_yields_same_slice() {
+        let s = store();
+        let b = AdjacencyBatch::new(&s, &[0, 0]);
+        assert_eq!(b.targets_for(0), b.targets_for(1));
+        assert_eq!(b.total_targets(), 6);
+    }
+
+    #[test]
+    fn empty_batch_is_empty() {
+        let s = store();
+        let b = AdjacencyBatch::new(&s, &[]);
+        assert!(b.is_empty());
+        assert_eq!(b.total_targets(), 0);
     }
 }

@@ -1,5 +1,57 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-DOC-COMMENTS-CLAIM-UNWIRED-BEHAVIOUR (2026-07-27)
+
+Three production doc-comments describe `deinterlace`/`QueryReference` as
+providing real durability or moment-reads — `batch_writer.rs:9-10`,
+`reasoning_loop.rs:51-52`, `witness_fabric.rs:134` — while **none of those files
+import or call either symbol**. The mechanism is test-only end to end (one
+test-only `DeinterlaceRow` impl; all 6 `deinterlace()` callers in tests; no HLC
+source anywhere in `crates/`). Same class as `KanbanColumn::Commit`'s *"calcify
+to Lance"* with nothing implementing it.
+
+This is the falsifiability rule applied to prose: a doc-comment claim is not a
+behaviour. Either the claim is labelled *claimed, unverified*, or the wiring
+lands. Source: §12 substrate trace 2026-07-27
+(`exec-runs/trace-B-writer-key.md`, `trace-A-write-path.md`).
+
+## TD-BGE-M3-BGZ7-RELEASE-ASSET-TRUNCATED (2026-07-27)
+
+`bge-m3-f16.bgz7` (release `v0.1.0-bgz-data`) declares **389 tensors** in its
+header but contains **290 complete tensors then exact EOF** — and its SHA256
+(`970daa4d...a6a50b`) MATCHES `crates/bgz-tensor/data/manifest.json`, so the
+asset was published truncated; the manifest records the truncated bytes as
+canonical. `ndarray::hpc::gguf_indexer::read_bgz7_file` hard-fails on it
+("failed to fill whole buffer"), so any consumer using the canonical reader
+cannot load this asset at all.
+
+Found by `probe_adc_cosine_head_to_head` (2026-07-27), which reads the complete
+prefix leniently and prints declared-vs-parsed rather than hiding the gap. The
+290 parsed tensors yield 223,326 usable rows — ample for the probe, so this did
+not block the measurement. Fix is a re-upload + manifest SHA update (a user
+action: release assets are not agent-writable). Until then, treat 389 as the
+declared count and 290 as the real one.
+
+## TD-BGZ-LAB-DEPS-DECLARED-NEVER-IMPORTED (2026-07-27)
+
+`bgz17` is an unconditional dep of `lance-graph-planner` and `bgz17`/`bgz-tensor`
+are default-on optional deps of `lance-graph` core (`bgz17-codec`/`tensor-codec`),
+yet a repo-wide path-qualified grep finds ZERO real imports of `bgz17::` /
+`bgz_tensor::` / `highheelbgz::` / `thinking_engine::` in contract, planner,
+cognitive, or core — every hit is a doc comment or a name collision
+(`ndarray::hpc::bgz17_bridge::Base17`; core's independent
+`nsm/similarity.rs::SimilarityTable`). Dead dependency wiring inflates builds and
+misleads readers about the codec path. Source: cosine census 2026-07-27
+(`exec-runs/cosine-census-lab-crates.md`).
+
+## TD-DEEPNSM-V2-COSINE-LABELS-STALE (2026-07-27)
+
+`deepnsm-v2/src/lib.rs:83` and `space.rs:158-163` say "6×cosine²" but the code
+computes `AdcMetric::SquaredL2` via the contract PairPalette (`space.rs:165-171`
+self-corrects: "No cosine call"). Two-line doc fix; matters because the NO-FLOAT
+doctrine makes "cosine" in a doc read as a violation flag. Source: cosine census
+2026-07-27 (`exec-runs/cosine-census-deepnsm-group.md`).
+
 ## TD-COCA-LEXICON-RANK-UNRELIABLE-AT-HEAD (2026-07-26)
 
 `crates/lance-graph-planner/examples/data/coca/lexicon.tsv` (20,004 rows) is a

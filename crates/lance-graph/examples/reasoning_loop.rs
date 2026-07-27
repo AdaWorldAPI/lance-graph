@@ -48,9 +48,19 @@
 //! experienced qualia, not a claim of phenomenal immediacy. These are the first
 //! ingredients; what is next on the list to subjective experience stays open.
 //!
-//! In production the moment-read is `temporal::deinterlace(rows, QueryReference::
+//! The INTENDED moment-read is `temporal::deinterlace(rows, QueryReference::
 //! at(v, rung), deps)`; the rung fan (W-B) generates the Pearl decomposition; the
-//! kanban step-strategies drive the cycle. Here the loop is composed directly over
+//! kanban step-strategies drive the cycle.
+//!
+//! > **STATUS: TESTED-ONLY (verified 2026-07-27, §12 substrate trace).** This
+//! > previously read "in production the moment-read is …". There is no
+//! > production moment-read: every `deinterlace` call site lives in
+//! > `temporal.rs`'s own `#[cfg(test)]` module, the only `DeinterlaceRow`
+//! > implementor is a test struct, and no code anywhere sets a non-zero
+//! > `server_id` or `Some(hlc_tick)` outside one test. Ledger:
+//! > `.claude/board/TECH_DEBT.md` TD-DOC-COMMENTS-CLAIM-UNWIRED-BEHAVIOUR.
+//!
+//! Here the loop is composed directly over
 //! the shipped `materialize` so it runs with no features:
 //!
 //! ```sh

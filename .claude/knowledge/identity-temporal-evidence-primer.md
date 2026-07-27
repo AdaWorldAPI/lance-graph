@@ -414,6 +414,167 @@ otherwise parallel cohort around one allocator.
 
 ---
 
+## 5.8 Can the adjacency layer BE the belief store? Provisionally NO
+
+`nars/mod.rs:3` states the intent — *"**NARS Schema** = truth values stored as
+edge properties in the adjacency store"* — and it is **backed by real code**, not
+aspirational: `adjacent_truth_propagate` exists and is tested
+(`adjacency/propagate.rs:19`, tests at `:104,:114`). Correcting an earlier
+reading in this file that treated it as an unbacked doc line.
+
+**But propagation is not storage.** Two different capabilities:
+
+```
+truth propagation over an adjacency batch   ≠   unique keyed belief storage with revision
+```
+
+Surface as it exists today:
+
+| | evidence |
+|---|---|
+| `AdjacencyStore::new(rel_type, num_nodes)` / `from_edges(…, edges: &[(u64,u64)])` (`csr.rs:45,123`) | CSR is built **whole**; no incremental admission |
+| `adjacent` / `adjacent_incoming` / `edge_ids` / `out_degree` / `in_degree` (`csr.rs:62-92`) | **every accessor is `&self`** — no `&mut`, no upsert, no keyed insert anywhere |
+| `EdgeProperties::with_nars_truth(mut self, …) -> Self` (`properties.rs:45`) | **builder-consuming**; truth is supplied at construction |
+| `EdgeProperties::truth_value(edge_id) -> Option<(f32, f32)>` (`properties.rs:54`) | **read-only**, and only `(frequency, confidence)` |
+| node addressing | positional `u64` over `num_nodes` — **not keyed by `CStmt`** |
+
+**Consequences for the migration:**
+- *One statement → one authoritative belief under concurrency* — cannot be
+  guaranteed, because there is **no admission path at all**.
+- *Atomic revision of `truth + groundedness + evidence + contradiction + rung +
+  ancestry`* — cannot be done: `truth_value` carries `(f32, f32)`, so
+  `contradiction`, `rung`, `stamp` and `premises` have **nowhere to live**.
+
+**Provisional classification: `propagation-only kernel`.** Not wrong — it does
+what it claims. It is simply **not a store**. ~~So PR D is *build the keyed
+mutable layer*~~ — **WITHDRAWN** (2026-07-27): "build the keyed mutable layer"
+was design prescription. What stands is only the negative: do not migrate belief
+storage onto this API, and do not mutate `AdjacencyStore` into a store. Whether
+the current CSR remains legacy/test/bench code or becomes a borrowed
+interpretation of resident bytes is a §12 trace question. Note the current
+constructor takes `edges: &[(u64,u64)]` and builds — under the zero-copy ruling
+that construct-from-array step **cannot be a V3 execution stage as it stands**.
+
+### The statement key is concept-level by design, and lossy
+```rust
+pub struct CStmt { pub s: u16, pub cop: Copula, pub p: u16 }   // belief.rs:77-84
+pub enum Copula { Inh, Sim, Impl, Rel(u16) }                   // belief.rs:54-63
+```
+`s`/`p` are *concept ids* — the canon half only. **No `AppId`, no `ClassView`, no
+instance tiers.** The relation term for `Rel` rides inside the copula variant, also
+`u16`. So the map is `V3 GUID → concept`: **surjective, not injective** — two
+app/view-resolved statements sharing a concept projection **collide by
+construction**.
+
+This is deliberate (*"the arena composes concept-level STATEMENTS by their shared
+terms"*), and it forces a decision **before** any capability audit:
+
+> **⊘ CORRECTION (operator, 2026-07-27).** An earlier version of the table below
+> said *"canonical V3 addressing for beliefs would be a category error."*
+> **That was wrong, and it was the same error twice.** Two claims got collapsed:
+>
+> - **True:** the map `addressed-form subject/predicate GUIDs → CStmt` is
+>   surjective, so it **cannot be inverted**. A concept belief's key does not
+>   recover the addressed forms that produced it.
+> - **False (what I wrote):** therefore a concept-level belief cannot itself be
+>   V3-addressed.
+>
+> **But no positive design follows from that logical correction.** Whether a
+> belief IS a row, whether it receives a GUID, whether grounding is an edge, a
+> column, a tier, a temporal relation, a Kanban transition, or something already
+> present — all of that is **UNAUTHORIZED INFERENCE until the substrate is
+> traced** (§12). The correction removes a false impossibility claim; it does
+> not install a possibility as an architecture.
+
+> **⊘⊘ WITHDRAWN (operator + source-session retraction, 2026-07-27).** An
+> option table stood here — *A. concept-keyed belief only / B.
+> full-GUID-form-keyed belief / C. canonical concept belief + separately
+> V3-addressed evidence events*, with C expanded into a belief-rows /
+> event-rows / evidence-edges diagram and called "the orthogonal
+> decomposition". **All three options, the diagram, and the "strongest fit"
+> verdict are withdrawn as unauthorized architectural invention.** Nothing in
+> the code establishes that beliefs are rows, that events are rows, that either
+> gets a GUID, that evidence is an edge, or that belief and event state share
+> an SoA. Valid invariants (SoA ownership, zero-copy, concept-level `CStmt`)
+> were used to fill unknown space with familiar graph/storage patterns; the
+> repeated wording then made the guesses sound ratified. The keying decision is
+> **OPEN**, and it is answered by tracing the substrate — not by choosing among
+> invented options.
+>
+> What survives from the deleted text, because it is operator-ratified and
+> design-free: **NEVER any serialization or materialization. Ever.** (full
+> statement: §11 and §8 rule 9). And the *semantic* finding that source
+> membership, evidence-event identity, and object identity are three different
+> questions — which constrains any future answer without prescribing one.
+
+## 5.9 Consumer census — COMPLETE (10 of 10 modules)
+
+> **Two corrections to the 7/10 partial reported earlier in this file.** The
+> partial said "order-dependence: ZERO" and speculated that `premises` might be
+> opaque payload. `tactics.rs` — the module that was still running — **refutes
+> both**. Recorded here rather than silently overwritten, because the shape of
+> the error matters: the encouraging result came from the 7 modules that had
+> *finished*, and the hard cases were concentrated in the one that had not.
+
+### ⚠ Order-dependence is REAL — 3 sites, all in `tactics.rs`, all feeding budget caps
+
+| site | mechanism | severity |
+|---|---|---|
+| `rcr_abduce` `by_pred` (`:182`, consumed `:196-256`) | grouping preserves arena push order → nested-loop emission order → **budget cap truncates** | **test-locked**: `rcr_floor_and_budget` asserts a deterministic prefix, with a comment at `:190` relying on *"members already in arena-index order"* |
+| `tr_diverge` Sim scan (`:293-320`) | candidates pushed in scan order into `out.candidates`, **returned as-is, never sorted** | output order is caller-visible |
+| `inh_by_subject` (`:339`) → `cas_abstract` (`:375-450`) | `props` grouping order decides which up/down candidates **survive the budget cut** | changes which beliefs get derived |
+
+**This is not incidental iteration order — it decides which candidates survive
+truncation.** Per the "name the real order" rule: the operative order is
+**arena-admission order**, and a test currently locks it. PR A therefore
+**cannot** be a pure behaviour-preserving refactor of these three unless that
+order is either named and preserved explicitly, or the truncation is made
+order-independent (e.g. rank-then-cut) — which is a **behaviour change** needing
+its own decision.
+
+The other 7 modules (`insight` · `basin_resonance` · `epiphany` · `elevation` ·
+`reach_out` · `regulate` · `insights`) remain genuinely order-free: commutative
+reductions, `BTreeMap`/`BTreeSet` grouping, explicit terminal `sort_by`.
+
+### ⚠ `premises` ARE positional handles — the speculation is REFUTED
+
+`tactics.rs` stores the *same* `u32` it uses for indexed lookup:
+`premises: [r, o]` (`rcr_abduce`), `[sg_idx, pi]` / `[gi, sg_idx]`
+(`cas_abstract`). So `premises: Vec<u32>` is **not** opaque payload — it is arena
+positions, and **any replacement reference must preserve positional identity or
+the premise graph breaks** (what that reference IS remains open — §12; the
+`BeliefHandle` carrier once named here is withdrawn). (`insights.rs:119` merely *clones* premises, which is why the
+7-module partial read them as inert.)
+
+### Slice-dependence: 9 real sites, all in `tactics.rs`
+`arena.entries()[r]` / `[o]` (`:217,221,240,242`), `[sg_idx]` (`:387`),
+`[pi]` (`:395,415`), `[gi]` (`:425,445`) — **random access by a stored `u32`
+handle**. Everything else across all 10 modules is `.iter()`-chaining or
+`.len()`, which is mechanical.
+
+### Missing API, discovered by the census
+`tr_diverge` (`:285-288`) runs a **redundant linear `.position()` scan** to
+recover the arena index of a belief it *just fetched* via `get()` — because
+`get()` returns `&Belief` without its index. An O(n) scan for a value the index
+map already knows. **`belief index by statement` is a missing accessor**, not a
+new requirement.
+
+### The minimal semantic *usage pattern* — 9 reads, 3 writes across all 10 modules
+*(⊘⊘ demoted 2026-07-27: this is a census FINDING about current usage, NOT the
+future API. Prescribing the replacement interface before the resident layout is
+known was unauthorized — §12.)*
+**Reads:** `count all` · `derived only (rung>=1)` · `beliefs by copula` (± grouped
+by subject or predicate) · `grounded is_a grouped by predicate` ·
+`belief by statement` · **`belief index by statement`** · `belief by handle` ·
+`beliefs sharing a term` (term + copula) · `existence scan over a subject's
+parents` · `max term id` · `aggregate/statistical reduction over a scalar field`.
+**Writes:** `admit observation` · `admit derived` · `close to fixed point`.
+
+Small and nameable. **A generic boxed iterator would swap a mega-accessor for a
+fuzzier one** — and would not serve `belief by handle` at all.
+
+---
+
 ## 6. Ownership / persistence / replay
 
 - `SoaEnvelope` (`soa_envelope.rs:170`) — the owner of the in-place backing store.
@@ -460,8 +621,18 @@ otherwise parallel cohort around one allocator.
    without first proving the semantic distinction.
 8. **Do not use a Boolean API where the architecture distinguishes true, false,
    and unknown.** "Not known to overlap" ≠ "known disjoint".
-9. **Do not introduce a serialized side-store for provenance.** Zero-copy,
-   never serialized; the cold path is Lance versions of the same LE bytes.
+9. **NEVER any serialization or materialization. Ever.** (operator, 2026-07-27 —
+   promoted from "no serialized side-store for provenance", which was too narrow:
+   it banned one shape and left materialization open.) No side-store, ledger,
+   journal, or append-log; no serialized record in any wire form; **and no
+   materialized second structure that duplicates or translates bytes the
+   substrate already owns** — no evidence index alongside the rows, no cached
+   projection kept in sync, no shadow ancestry copy. Zero-copy from creation to
+   Lance tombstone; the cold path is Lance **versions of the same LE bytes**.
+   A query is a **projection over what is already there** (`temporal.rs`
+   deinterlace is the reference shape), never a maintained side structure.
+   Corollary: *"we can reconstruct it from the serialized mapping"* is not a
+   safety argument — there is no serialized mapping.
 10. **Do not widen a mask to fit more members** — `WideFieldMask`'s doc calls
     exceeding the cap *"a split signal, not a case to widen the mask type"*.
 11. **Do not reuse `Stamp`'s shape as precedent.** It is the one carrier in this
@@ -506,3 +677,899 @@ otherwise parallel cohort around one allocator.
 6. `planner/src/nars/belief.rs` **and** `deepnsm-v2/src/belief.rs` side by side —
    they differ at one line and it matters.
 7. `.claude/board/EPIPHANIES.md` top 5 entries.
+
+---
+
+## 10. ⊘⊘ WITHDRAWN redo sequence (2026-07-27) — retained only for its KEPT census methodology
+
+> **⊘⊘ SECTION LARGELY WITHDRAWN (2026-07-27, same retraction as §5.8).** The
+> adjacency pipeline that stood here (*SoA state → Lance-versioned projection →
+> CSR adjacency batch → propagate → cast back*, "CSR is a compute projection")
+> and the PR B–E sequence below were **unauthorized architectural inventions** —
+> valid invariants extended with familiar graph/storage patterns. "CSR batch"
+> allocates, which the zero-copy ruling (§11) forbids outright; "concept-belief
+> SoA" presumes every semantic noun gets its own SoA; "the belief entity itself"
+> presumes beliefs are GUID-bearing rows. None of that is code-proven or
+> owner-specified. What survives of this section is marked KEPT below; the
+> replacement for everything else is the §12 blast-radius classification +
+> substrate trace, which produces facts, conflicts, and missing links — **not a
+> target design**.
+>
+> The one legitimately inverted question survives as a *trace* question, not a
+> design: the current adjacency API cannot be the mutable belief store (§5.8,
+> code-proven), so the open question is **what resident bytes the current
+> propagation path actually reads and writes** — traced, not presumed to be a
+> "projection" of an owner that has not been shown to exist.
+
+### KEPT — Two caveats that reopen the "7 modules are order-free" result
+*(census methodology — descriptive, survives the retraction)*
+
+The census called seven modules order-free because their reductions are
+commutative and their groupings use `BTreeMap`/`BTreeSet` with an explicit
+terminal `sort_by`. **Commutativity is not sufficient.** Two gaps:
+
+**Floating-point accumulation.** For `f32`, `(a + b) + c ≠ a + (b + c)` in
+general. Any sum, average, density, confidence aggregation, or entropy
+calculation can vary bit-for-bit under reordered or parallel iteration **even
+when the mathematical operator is commutative**. A `HashMap`/`HashSet` iteration
+feeding a float fold is the worst case — arbitrary order, not merely admission
+order. The perturbation test must therefore assert one of:
+- **exact equality**, where integer/fixed-point behaviour is intended;
+- a **bounded numerical tolerance**, where float variation is accepted;
+- a **deterministic accumulation order**, where reproducibility is required.
+
+Which of the three applies is a per-site decision, and stating it is part of A0.
+
+**Ties.** An explicit terminal `sort_by` is deterministic only when the
+comparator defines a **total** order. A score-only comparator leaves ties, and
+Rust's `sort_by` is *stable* — so prior iteration order (arena admission order)
+leaks straight back in through the tie. `max_by` returns the LAST maximum;
+`min_by` returns the FIRST minimum. A tie becomes an observable behaviour
+difference the moment a `truncate`/`take`/`[..n]` follows the ranking.
+
+Every ranking needs a stable secondary key:
+
+```text
+score
+then canonical belief handle / statement key
+```
+
+So the census grows two columns:
+
+| Caller | Floating reduction? | Total tie-breaker? |
+|---|---|---|
+
+### KEPT — Premise indices are not replay-stable (finding only)
+
+Only `tactics.rs` dereferences them and `insights.rs` merely clones them — but
+`Vec<u32>` still means:
+
+```text
+premise identity = admission position in this particular arena build
+```
+
+That is **not replay-stable** and cannot become canonical ancestry (§7 gap 5).
+Narrow usage makes an eventual migration cheap; it does not make it optional.
+
+> **⊘⊘ The `BeliefHandle` prescription that stood here is WITHDRAWN.** Wrapping
+> the arena index in an opaque newtype is ordinary migration technique, but it
+> was prescribed without knowing whether positional handles belong anywhere in
+> V3 at all — a private wrapper can merely lacquer the defect. The census fact
+> (premises are positional, `tactics.rs` depends on that) stands; the carrier
+> does not, until §12's trace establishes what a premise reference must actually
+> be.
+
+### ⊘⊘ The PR sequence that stood here (A0–A1–B–C–D–E) is WITHDRAWN
+
+Only **A0 — finish the census** survives: per call site, record semantic query ·
+fields read · direct indexing · premise dereference · order dependence ·
+floating reduction · tie-breaking · mutation required · cardinality and hot-path
+status. **No code changes.** Everything after A0 assumed the withdrawn
+belief-row / event-row / CSR-projection architecture and is discarded until the
+substrate is traced (§12). §5.9's "minimal semantic API" is likewise demoted
+from *future interface* to *census finding about current usage patterns* — the
+replacement interface is not designable before the resident layout is known.
+
+---
+
+## 11. ⊘ TIGHTENED (operator, 2026-07-27) — the ONLY permitted operation
+
+**Never serialization. Never materialization. Never reconstruction. Never copied
+intermediate state. Never detached canonical state. Never a sidecar.**
+Reaffirmed verbatim by the operator after the first statement: **"everything is
+zerocopy period."** There is no carve-out for temporaries, caches, batches,
+scratch copies, or "just during compute".
+
+The only permitted operation:
+
+```text
+SoA-owned in-place bytes
+        ↓
+borrowed ClassView / column view
+        ↓
+reasoning directly over those bytes
+        ↓
+owner-governed Kanban mutation
+        ↓
+Lance version of the same in-place layout
+```
+
+Forbidden, explicitly:
+
+```text
+Vec<Belief> reconstructed from SoA
+CSR snapshot built from SoA
+DTO or row packet created for reasoning
+temporary adjacency copy
+serialized receipt or evidence log
+hydrate / dehydrate cycle
+cache containing duplicated canonical state
+cast payload carrying copied state
+```
+
+**A "projection" is valid only when it is a borrowed interpretation of the
+existing bytes. The moment it allocates or duplicates the population, it is not
+a V3 projection.**
+
+### The discriminator (operator, 2026-07-27) — what "accumulation" is permitted
+
+The sole permitted "collection" is **entropy-reducing reasoning that produces
+new semantic value** and commits that result back into the owning SoA — as NARS
+truth, a `CausalEdge64`, qualia, meta, rung, contradiction, or another
+already-authorized class-resolved field:
+
+```text
+resident SoA state
+        ↓ zero-copy reasoning
+entropy reduction / inference / synthesis
+        ↓
+new semantic state written into the owning SoA
+```
+
+That is not materialization, because it does not duplicate an existing
+representation — it creates a result that did not exist before.
+
+```text
+Copying or reorganizing existing state
+    = forbidden materialization
+
+Computing an inference with added semantic value
+and committing that result through the owning Kanban
+    = permitted reasoning
+```
+
+Applied:
+
+| operation | verdict |
+|---|---|
+| collecting edges into a CSR for easier computation | **forbidden** |
+| collecting beliefs into a `Vec` for iteration | **forbidden** |
+| building an index, cache, snapshot, DTO, receipt list, or scratch graph | **forbidden** |
+| accumulating evidence into a revised NARS truth | **permitted** |
+| combining inputs into a new causal edge | **permitted** |
+| deriving a conclusion and storing its semantic result | **permitted** |
+| machine-level registers, SIMD lanes, accumulator values, kernel-local arithmetic | **permitted** — computation, not an owned alternate representation of substrate state |
+
+One sentence: **zero-copy applies universally; the sole permitted accumulation
+is entropy work whose output has new semantic value and is committed as
+canonical SoA-owned reasoning state. No collection may exist merely to
+reorganize, index, transport, cache, or reproduce existing state.**
+
+**The physical rationale (operator, 2026-07-27):** *"serialization would be just
+plain dumb because 64k at 32 MB is L3 cache."*
+
+```text
+65,536 rows × 512 bytes = 32 MiB
+```
+
+At the preferred envelope the **entire logical population is L3-resident on the
+target machine**. Copying it into another representation is not an optimization
+— it is self-inflicted cache vandalism. Materializing a `Vec`, CSR, hash index,
+DTO set, or shadow graph would:
+
+- read the same 32 MiB again;
+- allocate new memory;
+- write duplicated state;
+- evict useful SoA cache lines;
+- introduce pointer chasing and allocator traffic;
+- destroy the fixed-stride locality;
+- require synchronization between two representations;
+- add no semantic information.
+
+The whole point of the 64k envelope is that no intermediate representation is
+needed: **the resident SoA is already the compute structure.** So the rule is
+plainer than doctrine — at 64k, the complete 512-byte population is a 32 MiB
+L3-resident working set, and repackaging it is not merely nonconformant, **it is
+slower than reasoning directly over it.** Every wire format, index, and cache in
+ordinary software exists to compensate for data being far away; here it never
+is. The doctrine and the hardware say the same thing.
+
+This also sharpens §12's violations inventory (item 4): each allocation found on
+a reasoning path is classified against this discriminator — *is it an alternate
+representation of existing state (violation), or kernel-local arithmetic en
+route to a committed semantic result (permitted)?*
+
+So the target is **not** `SoA → reasoning representation → SoA`. It is
+**reasoning directly through a ClassView of the SoA**. `BeliefArena`,
+`AdjacencyStore`, and `CStmt` survive only as **APIs or views over the owning SoA
+memory**. None may own, copy, materialize, or reconstruct belief state.
+
+Consequences already visible in code (facts, not design):
+
+- `BeliefArena { entries: Vec<Belief>, index: HashMap<CStmt, u32> }`
+  (planner `belief.rs:129-136`) **owns detached heap state** — under this ruling
+  it cannot survive as an owner. What replaces it is a §12 trace output, not a
+  §10-style plan.
+- `AdjacencyStore::from_edges(…, edges: &[(u64,u64)])` (`csr.rs:123`)
+  **allocates a CSR from an edge array** — as written it cannot be a V3
+  execution stage. Whether resident bytes exist that a borrowed view could
+  interpret is a §12 trace question; whether the kernel changes instead is not
+  decidable (and not proposable) before that trace.
+- Any PR-A1-style refactor that "retains `Vec<Belief>` internally" endorses a
+  forbidden shape and is withdrawn with the rest of the §10 sequence.
+
+---
+
+## 12. THE ACTUAL NEXT TASK — blast-radius audit + substrate trace (no design)
+
+> Root cause of the withdrawn material, named so it is not repeated: **an
+> unfilled semantic slot is not a design invitation.** In this architecture it
+> means *trace the substrate until the existing representation is found, or
+> report that the path is missing.* Plausible software architecture substituted
+> for knowledge of this architecture is hallucination, however familiar the
+> pattern.
+
+### 12.1 Blast-radius classification
+
+Every mention — in this primer, `LATEST_STATE.md`, `EPIPHANIES.md`, and any plan
+touched since PR #854 — of: `reasoning index` · `concept ClassView` · `belief
+row` · `belief GUID` · `event row` · `event GUID` · `evidence edge` ·
+`concept-belief SoA` · `CSR projection` · `transient projection` · `materialize`
+· `reconstruct` · `cache` · `BeliefHandle` · `event minting` · `immutable
+receipt` · `ledger fallback` — is classified as exactly one of:
+
+```text
+CODE-PROVEN              (file:line exists and shows it)
+OWNER-SPECIFIED          (operator said it, quoted)
+UNAUTHORIZED INFERENCE   (neither → remove from normative text)
+```
+
+Status in THIS file after the 2026-07-27 excision: the §5.8 option table, the
+belief-row/event-row/evidence-edge diagram, the §10 adjacency pipeline, the
+`BeliefHandle` prescription, the PR B–E sequence, and the "minimal semantic API
+as future interface" reading are all marked ⊘⊘ WITHDRAWN in place.
+`.claude/board/` files are append-only — corrections there land as new dated
+entries, never edits.
+
+### 12.2 Substrate trace (report facts, conflicts, missing links — nothing else)
+
+For each current reasoning operation (the 34 tactics, propagation, insight/
+epiphany/elevation paths):
+
+1. the **exact resident bytes** it reads — with file:line;
+2. whether those bytes are **already in an SoA** (which envelope, which columns)
+   or in detached heap state (`Vec`, `HashMap`, boxed anything);
+3. how adjacency propagation **receives its input** today — the concrete call
+   chain into `AdjacencyStore::from_edges`, and who allocates;
+4. **every allocation, collection, copy, CSR construction, `Vec`, `HashMap`,
+   and owned intermediate** on the path — a violations inventory against §11;
+5. the **owner and Kanban** governing each mutation — or the fact that a
+   mutation bypasses ownership;
+6. whether output **modifies the same resident bytes** or lands in a detached
+   structure;
+7. where a path simply **does not exist** — reported as MISSING, never bridged
+   with an invented carrier.
+
+**Do not design the target carrier.** The trace's only deliverable is the fact
+base the operator needs to specify one.
+
+---
+
+## 13. Capability confirmation — the standing wave produces the same or better (operator-prompted, 2026-07-27)
+
+> Operator: *"confirm how you can produce the same or better results over the
+> standing wave, because you already have the data; if you want to update it,
+> update it in the belief guid or whatever you need IN the substrate."* And:
+> *"why would you need a sidecar if you can think inside what already exists."*
+>
+> **Classification note:** the first sentence makes *belief state updates land
+> at the belief's substrate address* **OWNER-SPECIFIED** — it was withdrawn in
+> §5.8/§10 only as unauthorized inference, and is now specified. The
+> confirmation below cites only [CODE-PROVEN] / [OWNER-SPECIFIED] mechanisms;
+> open items are [TRACE].
+
+> **⊘ NO FLOAT, EVER (operator, 2026-07-27):** *"we NEVER use float EVER — we
+> use palette256 (0.9973..0.9995 ρ exactness)."* Values are palette256 codes —
+> u8 indices into 256-entry codebooks with table-lookup distance/compose
+> algebra, ρ = 0.9973–0.9995 against ground truth. Consequence for the census's
+> f32-accumulation caveat (§10 KEPT): that caveat describes the **legacy arena
+> representation only** (`TruthValue`/`contradiction` as `f32`). Over the
+> substrate the fold-order problem is not *mitigated by canonical order* — it is
+> **eliminated**, because integer/table algebra is exactly associative and
+> commutative. No float ever enters the reasoning path.
+
+| Arena capability (census-verified) | Over the standing wave | Verdict |
+|---|---|---|
+| belief by statement (`HashMap<CStmt,u32>`) | address resolution via prefix routing [CODE-PROVEN] | **better** — the HashMap is a materialized index recomputing what addressing already is; forbidden shape anyway |
+| belief *index* by statement (`tr_diverge` O(n) `.position()`) | disappears — the address IS the identity | **better** |
+| scans (copula / grouped / grounded / count / max / folds) | fixed-stride 512 B sweep, 32 MiB L3-resident [OWNER-SPECIFIED L3 argument] | **better mechanics, identical results** — no per-entry heap pointer chase; prefix routing prunes |
+| revision (overwrite truth in place) | read at horizon → pool (kernel-local table algebra, permitted) → Kanban commit → new Lance version | **strictly better** — arena destroys history (`contradiction` keeps lossy max); versions keep the full dialectic trajectory, contradiction computable over the range |
+| `Stamp` disjointness (lossy 64-bit fold) | version axis records every admission, keyed `(server_id, lance_version, hlc_tick)`; "already counted?" = version-range read, zero copies [mechanism CODE-PROVEN via `deinterlace`+tests] | **better in principle: exact, replay-stable, no aliasing** — depends on the dormant writer-key wiring being populated [TRACE] |
+| budget-capped order-dependent sites (`rcr_abduce` / `cas_abstract` / `tr_diverge`) | operative order = admission order; the version axis **is admission order made canonical** (`(hlc_tick ?? lance_version, lance_version)`) [CODE-PROVEN `temporal.rs`] | **better** — truncation order becomes named + replay-stable; test-locked prefix must be verified equivalent [TRACE] |
+| `premises: Vec<u32>` (arena positions, not replay-stable) | premise references as substrate addresses and/or `CausalEdge64`/`EdgeBlock` relations [OWNER-SPECIFIED] | **strictly better** — positional identity preserved AND replay-stable; ancestry becomes queryable structure |
+| `close_transitive` fixed point | derivations commit via Kanban; frontier = rows changed since version v; fixed point = no new deltas | **better** — durable witness, incremental across sessions |
+| adjacency propagation (CSR built from edge array) | edges already resident (`EdgeBlock`, 16 B/row) [CODE-PROVEN]; walk resident edges, commit truths to the same rows | **same computation, no CSR build** — kernel adapt-vs-replace is a trace outcome [TRACE] |
+| f32 fold-order sensitivity (census caveat) | **no floats exist** — palette256 table algebra, exactly associative/commutative [OWNER-SPECIFIED] | **eliminated, not mitigated** — the caveat was a property of the legacy representation |
+
+**Better beyond the rows:** the planner/deepnsm-v2 twin drift class dies (one
+substrate, nothing to diverge); `&mut Vec` single-borrow serialization is
+replaced by mailbox ownership (native parallel form); persistence + replay are
+free because rows are their own history; and there is no sidecar because there
+is nothing a sidecar could hold that the resident rows do not already hold —
+*"why would you need a sidecar if you can think inside what already exists."*
+
+**Not claimed:** live writer-key wiring (mechanism tested, production sites
+dormant); survival of the test-locked `rcr_abduce` prefix without verification;
+palette256 parity of the migrated truth values against the legacy f32 outputs
+(exactness ρ = 0.9973–0.9995 is the spec — the migration must state it, not
+assume bit-parity with floats). All three route to the §12 trace.
+
+### Palette256 vs Fisher-Z — the stored form is the code, never the decode (operator, 2026-07-27)
+
+> *"palette256 could be materialized as Fisher-Z but doesn't need to, because it
+> is lower entropy and higher value when normalized."*
+
+The u8 palette code **is the canonical stored value**. Fisher-Z (the continuous
+reading) is a *derivable decode* — permitted as kernel-local computation when a
+kernel genuinely needs it, **never stored, never a column, never a shadow
+representation**. This is not a new rule; it is the discriminator (§11) applied
+to value encoding, and the workspace already proved the pattern on orientations:
+`helix-cartesian-vs-fisher2z.md` — *"Fisher-2z normalized is built to never
+materialize — comparison and lookup live in the normalized-index domain; any
+reconstruction is amortized to a one-time table build. Per-element cost = 0."*
+
+Why the code beats the decode as the resident form:
+- **lower entropy** — 8 bits vs 32; the normalized codebook already carves the
+  distribution so the index is the sufficient statistic (ρ = 0.9973–0.9995);
+- **higher value when normalized** — equal-mass codes spend representation where
+  the data lives, unlike raw float whose precision is dense where nothing is;
+- **algebra without reconstruction** — distance/compose are 256×256 LUTs
+  (metric-safe L1, triangle inequality holds), so comparison, pooling, and
+  propagation stay in index space: integer, exactly associative, order-free;
+- **4× row density** — more population per L3 line, compounding the §11
+  32 MiB-resident argument.
+
+Consequence for the reasoning path: revision/pooling operates code-in → code-out
+via compose tables (or decode→arithmetic→encode entirely inside registers, which
+the discriminator's kernel-local clause permits). A stored Fisher-Z column
+alongside palette codes would be a materialized alternate representation of
+existing state — forbidden, and *worse* than the thing it duplicates.
+
+### §13 addendum — MEASURED: why the pair-LUT is the economy (2026-07-27)
+
+> Operator: *"the moment we calculate 64k SoA with float it's CPU expensive and
+> would lose the economy/low entropy of [a,b] that makes our no-GPU cheap"* ·
+> *"normalized 6× palette256² centroids are cheap and you can run around in
+> circles"* · *"cheap and fast and exact like a lookup — that's the whole
+> point"* · *"low entropy > fast thinking"* · *"no GPU"* · *"ndarray makes the
+> polyfill SIMD cheap and fast"*.
+
+Probe: `crates/lance-graph-planner/examples/probe_adc_cosine_head_to_head.rs`.
+Real bytes only (bge-m3 bgz7 shard, SHA-pinned), SplitMix64 seed
+`0x9E3779B97F4A7C15`, 64 queries × 4096 candidates, release build.
+
+**Exact AT LOOKUP.** `LUT[a][b]` *is* the distance — zero approximation at
+lookup time. All error lives in the **encode** step (which centroid a vector
+lands on). That is the precise sense in which the pair-LUT is exact, and it is
+why the accuracy question is a codebook question, never a distance question.
+
+**The economics (the deciding numbers):**
+
+| | ADC (per-query f32 tables) | SDC (static pair LUT) |
+|---|---|---|
+| per-query derived state | **6 144 B written** | **0 B** |
+| per-query table build | 13 342 ns, 1 536 cosine cells | **0 ns, 0 cells** |
+| at a 64 000-row cohort | **853 ms + 393 MB churn** | **0** |
+| static footprint | — | 768 KB (6×256²×2 B), L2-resident, built once |
+| scan | 2 ns/cand — but only reachable AFTER the 19 395 ns/query build | 5 ns/cand scalar (SIMD polyfill unmeasured) |
+| **exact full-float scan (no codec)** | **276 ns/cand** | — the cost the LUT deletes outright |
+
+**55× on the scan, at zero per-query state.** The exact float path is 276 ns/cand;
+the LUT is 5. And the float-table path's "fast" 2 ns/cand is only reachable after
+paying 19.4 µs per query — 1 241 ms at a 64 000-row cohort against a 550 ms
+budget. The exact path never gets that option at all: 276 ns × 64k × 64k is a
+wall, not a workload.
+
+**"Low entropy > fast thinking", measured.** The u8 codes are not fast because the
+arithmetic is clever — they are fast because 768 KB stays L2-resident and every
+operation is a gather, which is precisely the shape ndarray's SIMD polyfill is
+built for. **No GPU is required because there is nothing to offload:** the work
+is already lookups over resident bytes.
+
+**853 ms of pure table-building against a 550 ms SLA** — the budget is gone
+before a single comparison runs, plus 393 MB of write churn through a 32 MB L3
+envelope. This is the no-GPU argument in numbers: the float path is not
+"somewhat more expensive", it exceeds the entire cohort budget on overhead alone.
+
+**"Run around in circles" is the multiplier.** `close_transitive` iterates to a
+fixed point; ADC re-pays 13 342 ns **per pass per query** because the query
+moves. The static LUT pays nothing on any iteration. Iterative reasoning is
+affordable only in the second regime.
+
+**Accuracy, measured against EXACT full-vector cosine** (the correct reference —
+an earlier pass wrongly used ADC as ground truth, which made ADC perfect by
+definition and charged SDC the whole gap):
+
+- ADC ρ 0.8718, recall@10 0.4219 · SDC ρ 0.8494, recall@10 0.3875 · **gap 0.0225**.
+- ~~Normalizing centroids + 5 Lloyd passes moved the gap 0.0242 → 0.0225: the gap
+  is query-quantization, structurally inherent to SDC, not a codebook artifact.~~
+  **⊘ RETRACTED (operator, 2026-07-27 — "don't hand-roll").** Invalid inference:
+  it compared ONE hand-rolled codebook (normalize + Lloyd k-means) against
+  ANOTHER hand-rolled codebook, and concluded the codebook *class* was
+  exonerated. Two hand-rolls agreeing says nothing about the calibrated path.
+  **Both ρ figures (ADC 0.8718 / SDC 0.8494) are measurements of a hand-rolled
+  rig, not of palette256.** No structural conclusion about SDC is licensed.
+
+**The calibrated path I bypassed** — palette256's exactness comes from **HDR
+popcount early-exit rolling-floor calibration**, with φ-Weyl sampling. All three
+already exist:
+
+| mechanism | where | what it does |
+|---|---|---|
+| rolling-floor calibration | `helix::quantize::RollingFloor` (`observe`/`roll`/`bucket_center`, drift in multinomial-SD units) | buckets follow the real distribution instead of assuming uniform |
+| calibrated LUT | `helix::DistanceLut::from_floor(&RollingFloor)` | builds the 256×256 table from **real bucket centers** — *"rather than assuming uniform buckets"* |
+| HDR popcount early-exit | `perturbation-sim::rolling_floor::TierFloors::stack_early_exit` | *"coarse→fine popcount-stacking… exits at the first tier whose stacked band is `Alarm`"*, preheating cold finer floors from coarser ones |
+| φ-Weyl sampling | `jc::weyl` | golden stride hits the Ostrowski bound `2/N` — *"the tightest possible for any irrational number"*; the law for placing buckets, **not k-means** |
+| HDR band classify | `bgz-tensor::hdr_belichtung` (`PaletteCascade::calibrate`, `heel_distance_palette`) | quarter-σ bands over the pair-LUT |
+| calibrated palette build | `bgz17::Palette::{build, from_sigma_bands, build_hierarchical}` + `build_distance_table()` | the codebook constructors that already exist |
+
+**⊘ THE "PLACEMENT BLOCKER" WAS FALSE (operator, 2026-07-27 — "you didn't even
+use ndarray, that's the most embarrassing part" · "ndarray::simd::*").** The
+retracted paragraph claimed no correct rig could run because `helix` /
+`perturbation-sim` / `bgz-tensor` are unreachable from `lance-graph-planner`.
+That skipped the crate that IS a declared path dependency of the planner:
+
+```toml
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std", "hpc-extras"] }
+```
+
+**`ndarray::hpc` + `ndarray::simd` provide the entire calibrated chain.** The
+probe hand-rolled every piece:
+
+| hand-rolled in the probe | already in ndarray |
+|---|---|
+| Lloyd k-means centroids | `hpc::cam_pq::{train_geometric, train_semantic, train_hybrid}` → `CamCodebook` |
+| argmin encode loop | `CamCodebook::{encode, encode_batch}` |
+| the whole ADC arm | `CamCodebook::precompute_distances` → `DistanceTables::{distance, distance_batch}` |
+| the flat pair LUT | `hpc::palette_distance::{Palette, DistanceMatrix}` — *"precomputed k×k… every subsequent distance lookup becomes a single u16 array load"* |
+| scalar `for sub in 0..6` accumulate | `simd::U8x64` (`from_slice`/`reduce_sum`) + `simd_soa::MultiLaneColumn::iter_u8x64()` — a 64-code SoA column sweep |
+| never built at all | `hpc::cascade::{calibrate, expose, observe, recalibrate}` — rolling floor, HDR bands, drift alert |
+
+**`cascade::calibrate` computes `threshold = mu + 3.0 * sigma`** (`cascade.rs:151`),
+and `expose()` returns `Band::{Foveal, Near, Good, …}` — the HDR early-exit bands.
+The σ3 derived elsewhere in this file by inverting the normal CDF is a literal
+line of ndarray. `palette_distance.rs:7` states its own purpose: *"self-contained
+re-implementation of lance-graph's bgz17 palette and distance_matrix modules for
+interoperability"* — it exists so consumers need not reach bgz17 at all.
+
+Consequences: (a) every fidelity number from the hand-rolled rig is void (already
+retracted above); (b) **the claim that a correct rig had no home is WITHDRAWN** —
+it has one, in the planner, via ndarray; (c) `ISS-PALETTE256-HAS-NO-DISTANCE-IMPL`
+survives unchanged — `awareness_facet.rs` genuinely has no `Distance` impl — but
+the consequence drawn from it was wrong: that is a missing **contract impl**, never
+a missing capability.
+
+**Standing rule for this workspace, restated because it was violated three times
+in one session:** `CLAUDE.md` § "Consult, don't guess" and the ndarray card's
+*"all SIMD from `ndarray::simd`"* invariant are not style advice. Hand-rolling a
+kernel, a codebook, or a calibration that ndarray exports is a defect, and the
+tell is a probe that imports ndarray for exactly one symbol.
+
+**Honest caveats.** (a) Both arms sit near ρ 0.87 vs exact because 17 dims split
+into 6 subspaces is *thin* (2–3 dims each) — a property of this Base17 rig, not
+of either arm; real 1024-dim embeddings subdivide far better. (b) The 4 ns/cand
+SDC scan is **scalar**; ndarray's SIMD polyfill (`U8x64` gather) is the
+production path and is **not yet measured**. (c) Codebook construction here is
+normalize + Lloyd; `euler_gamma_fold` (`bgz-tensor/src/euler_fold.rs`, γ·i
+rotation at 3σ-separated angles) is the architecture's own path and remains
+untested.
+
+---
+
+## 14. §12 SUBSTRATE TRACE — RESULTS (2026-07-27, four read-only lanes)
+
+Tag files: `.claude/board/exec-runs/trace-{A-write-path,B-writer-key,C-value-slab,D-allocations}.md`.
+Descriptive only; every claim `file:line`-grounded in the tag files.
+
+### ⊘ THE HEADLINE: §13's substrate column was labelled CODE-PROVEN on type definitions and doc-comments. The write path is UNBUILT.
+
+| §13 cell | claimed | TRACED |
+|---|---|---|
+| revision → "commit via Kanban → **new Lance version**" | CODE-PROVEN | **MISSING** — no Lance-version-producing code in any traced file. `KanbanColumn::Commit`'s doc says *"calcify to Lance"*; nothing implements it |
+| the write path generally | CODE-PROVEN | **MISSING** — `MailboxSoA` **never implements `SoaEnvelope`**. Only non-test implementor: `NodeRowPacket` (`canonical_node.rs:1479`), built from `Vec<NodeRow>` (a copy), with no code path to a live `MailboxSoA` |
+| `cast()` as commit primitive | CODE-PROVEN | **ZERO production call sites** — every `BatchWriter::cast`/`::new` is under `#[test]`. (The `P`-descriptor shape does match rule 17.) |
+| `Stamp` → version-range read | "mechanism CODE-PROVEN, wiring dormant" | **TEST-ONLY END TO END** — one test-only `DeinterlaceRow` impl, all 6 `deinterlace()` callers in tests, **no HLC source exists in `crates/`**. Three production doc-comments (`batch_writer.rs:9-10`, `reasoning_loop.rs:51-52`, `witness_fabric.rs:134`) claim real durability/moment-reads; none import or call it. Only non-zero `server_id` anywhere: a test at `insight.rs:307-308` |
+
+**Path correction:** `temporal.rs` lives in `lance-graph-planner`, not the contract; the
+contract's mirror is `temporal_pov.rs`, **deliberately HLC-blind by its own module doc.**
+
+**Consequence for the migration frame:** §13 compared a *functioning heap arena*
+against a *specified-but-unconnected substrate*, and scored the substrate
+"better" on both. The honest statement is that the substrate side must be BUILT
+before anything can move onto it. First missing hop, named by trace A:
+`MailboxSoA → SoaEnvelope impl → Lance write` — **neither half exists.**
+
+### The arena is NOT a duplicate — beliefs have no substrate home yet
+
+- Trace D: `BeliefArena.entries` / `index` are **canonical state, not copies**.
+- Trace C, per belief field: **Truth** — a declared home exists
+  (`MetaWord::{nars_f, nars_c}` in the `Meta` tenant) but with an **8 B / 4 B
+  width mismatch already flagged as open in le-contract**, and no accessor.
+  **Rung** — fully-shaped standalone `RungLevel` enum, **zero row wiring**.
+  **Contradiction depth · premise/derivation refs · evidential base** — **NO
+  row-tenant home at all** (only a heap rendering DTO `graph_render::Contradiction`
+  and the unwired `causal_audit::SupportBasis`/`CausalLocus` vocabulary).
+
+So the migration is not "remove the copy." It is **"build the substrate side,
+then move."**
+
+### The CSR criticism targeted dead code
+
+Trace D: `AdjacencyStore::from_edges` is exercised **only** from `#[cfg(test)]`
+across all five searched files — **no production caller** — and its truth values
+arrive by ad hoc direct field overwrite (`store.edge_properties = …`),
+**structurally disjoint from `BeliefArena`'s truth values.** The allocation this
+session costed at 853 ms/64k-cohort **does not run in production.** Withdrawn as
+a migration argument.
+
+`EdgeBlock` itself IS live: two production readers (`mailbox_scan.rs::edge_slots_coarse`,
+`soa_graph.rs::project_snapshot`) read the 12+4 slots under `CoarseOnly` — but
+both *"land the edge structure, never fake the row resolution"*, i.e. no slot
+byte is resolved to a neighbour row/key anywhere today.
+
+### What IS real, live waste — inside the arena, not at its boundary
+
+Repeated full-arena re-indexing with zero sharing:
+- `close_transitive`'s `by_sc` map — **rebuilt every pass** (`belief.rs:285`);
+- three independent `deg` / `by_pred` / `by_subj` HashMap reconstructions
+  (`tactics.rs:161-168, 181-186, 337-344`) — same predicate/subject index, from
+  scratch, per call;
+- `AdjacencyStore::batch_adjacent` (`csr.rs:100-119`) re-copies CSR slices it
+  already has zero-copy access to via `adjacent()`/`edge_ids()`.
+- `insight.rs` is **clean** — folds over `entries()` into scalars/stack arrays.
+
+### Value-slab facts a belief tenant must respect (trace C)
+
+- `VALUE_TENANTS` (`canonical_node.rs:917-1016`) carves **14 tenants across bytes
+  `[0,172)` of 480**; the remaining 308 B are **unclaimed by omission, not
+  explicitly reserved**.
+- **6 of 14 have typed accessors**; 8 are read via raw `value_offset()` + manual
+  slicing in consumer code (`ocr.rs`, `nan_projection.rs`).
+- Adding a tenant: **append-only** at the end (compile-asserted contiguous, no
+  gaps), must fit 480 B, **does NOT bump `ENVELOPE_LAYOUT_VERSION`** (the slab is
+  one already-declared 480 B envelope column), must join `ValueSchema::Full`'s
+  field mask (compile-asserted), needs `ClassView` opt-in for other presets, and
+  **owes a jc-pillar certification (ICC / Spearman / Cronbach) per le-contract
+  §3b before any reading is trusted.**
+- **Precedent shape:** the autopoiesis triangle (3 × 12 B palette256 lanes) —
+  typed 12-byte accessors, release-safe length guards, a field-isolation-matrix
+  test, and the documented *"reading, not layout"* pattern
+  (`awareness_facet::SpoFacet`) for relabelling an existing 12-byte register
+  instead of minting a new tenant.
+
+### The test lock, verified
+
+`rcr_floor_and_budget` (`tactics.rs:590-624`) asserts a **literal 5-element
+ordered vector**, and trace D confirmed by hand that the asserted prefix depends
+on `by_pred`'s members being visited in **arena-admission-index order** — not
+merely "some deterministic order". Any migration must either preserve that exact
+order or replace the assertion; it cannot be satisfied by determinism alone.
+
+### f32 inventory (what palette256 retires)
+
+The entire `TruthValue` / `Belief` / tactics / S10 surface is f32; the only f64
+is a transient `f32→f64→f32` round-trip in
+`physical::accumulate::TruthPropagatingSemiring`, per `adjacent_truth_propagate` call.
+
+### Open / AMBIGUOUS (not forced to a verdict)
+
+- Whether the triple re-indexing in `tactics.rs` is FORBIDDEN-COPY or
+  KERNEL-SCRATCH depends on whether the migration turns those into *maintained*
+  secondary indices — a design question, deliberately unanswered.
+- Premise-vec cloning provenance; `with_nars_truth` caller provenance.
+- `NodeRowPacket::new(&rows, 0)` — a copy into a second representation, flagged
+  for follow-up read.
+- Naming collision: `collapse_gate::GateDecision` vs `mul::GateDecision` — both
+  used, unrelated.
+- Non-Rust components outside `crates/` unchecked; whether
+  `witness_fabric.rs`'s `out_of_horizon` escalation is consumed downstream.
+
+---
+
+## 15. ⊘ §13 SUPERSEDED — de facto authoritative ≠ architecturally canonical (operator ruling, 2026-07-27)
+
+**§13's two-column table is withdrawn.** It compared a working arena against an
+*assumed-working* substrate and awarded the substrate `[CODE-PROVEN]`, which let
+"a type exists" be promoted to "the system works". §14's trace disproved the
+substrate column; this section replaces the table.
+
+### The distinction that must appear everywhere
+
+```text
+Current implementation authority:   BeliefArena heap state
+Ratified architecture:              resident zero-copy SoA standing wave
+Current gap:                        no implemented path connects the two
+```
+
+`BeliefArena` is **de facto authoritative** — the only live implementation of
+belief state. It is **NOT thereby architecturally canonical.** §14's phrase
+"canonical state" (trace D) is corrected here: it meant *"not a copy of anything
+live"*, and must never be read as blessing the heap arena. The intended SoA path
+remains mostly contractual scaffolding.
+
+### §13 replacement — THREE columns
+
+| Capability | Current LIVE implementation | Target CONTRACT status |
+|---|---|---|
+| Belief truth | `BeliefArena` field | palette-coded row tenant **declared** (`MetaWord::{nars_f,nars_c}`), wiring unresolved + 8B/4B width mismatch open |
+| Rung | `BeliefArena` field | carrier exists (`RungLevel`), **row wiring missing** |
+| Contradiction | `BeliefArena` field | **missing resident tenant** |
+| Premises | arena-local indices | **missing replay-stable resident representation** |
+| Evidence | folded source stamp (`Stamp`, 64-slot alias) | evidence-event semantics **and** tenant missing |
+| Write ownership | direct arena mutation | SoA/Kanban write path **missing** |
+| Version production | none for belief writes | **specified in prose only** |
+| Temporal read | arena snapshot behaviour | `deinterlace` **TESTED-ONLY** |
+| Parallel cast | none in production | API exists, **production call path missing** |
+
+### Code-proven findings from the §12 trace (settled)
+
+- No production Lance-version-producing belief write path.
+- `MailboxSoA` does **not** implement the required envelope seam.
+- `BatchWriter::cast()` has **no production callers**.
+- `deinterlace` is tested but **not used by any production read path**.
+- **No HLC producer exists.**
+- `AdjacencyStore::from_edges` is **test-only**; the existing CSR path is
+  **irrelevant to current production performance**.
+- `BeliefArena` is **not duplicating** a live SoA belief representation, because
+  **no such representation currently exists**.
+- Only NARS truth has even a *declared* row destination, and it carries an
+  unresolved width mismatch.
+- Rung / contradiction / premises / evidential membership have **no demonstrated
+  resident tenant location**.
+- The actual repeated work is **inside** the arena: `by_sc` rebuilt during
+  closure; separate `deg` / `by_pred` / `by_subj` reconstructions;
+  `batch_adjacent` copying data it already possesses.
+
+### ⊘ CORRECTION — the five "AMBIGUOUS" cells were a FALSE BINARY
+
+§14 framed the `tactics.rs` re-indexing as *maintained secondary indices vs
+recompute*, and deferred it as a design question. **Both options are wrong under
+the universal zero-copy rule:**
+
+- **maintaining** them duplicates state;
+- **reconstructing** them repeatedly materializes state.
+
+A maintained `HashMap` / lookup table / CSR / grouped vector whose purpose is
+merely to **reorganize existing belief state** is a forbidden duplicate
+representation. It is permissible **only** if what is stored is genuine *entropy
+work with independent semantic value* — a NARS-derived relation, `CausalEdge64`,
+a palette-coded truth result, a contradiction result, or another ratified
+reasoning product.
+
+The zero-copy question is therefore:
+
+```text
+Can the required relationship be read directly from the resident standing wave,
+or must reasoning derive a NEW semantically valuable relation and store THAT?
+```
+
+If `by_pred` is merely a convenience grouping → **it must disappear as a
+structure.** If predicate adjacency is itself meaningful reasoning state → it may
+be carried by an authorized semantic carrier (causal / NARS edge) — **because it
+adds meaning, never because it accelerates lookup.**
+
+### The implementation gate (precise)
+
+**Implementation does NOT begin with a `BeliefArena` migration.** It begins only
+once the §12 trace can identify an **uninterrupted production path**:
+
+```text
+resident belief tenant
+  → owner-authorized mutation
+  → synchronous Kanban transition
+  → ahead-firing descriptor cast
+  → new Lance standing-wave position
+  → production temporal read
+```
+
+Today the first missing link appears **before the write**:
+
+```text
+MailboxSoA → SoaEnvelope ownership/writer seam → live Lance write path
+```
+
+That remains a **trace statement, not a design prescription**, until the exact
+existing contracts are mapped.
+
+### THERE MUST NEVER BE A TRANSFER
+
+The repo does **not** contain two competing belief stores. It contains:
+
+```text
+one functioning but architecture-nonconformant heap belief engine
++
+one partially specified, mostly unwired zero-copy substrate
+```
+
+The job is **not** to optimize a transfer between them — **there must never be a
+transfer.** The job is to complete the resident standing-wave path until
+reasoning operates there **directly**, then retire the heap authority — without
+serialization, materialization, reconstruction, or shadow indexing.
+
+### Three classes of work justified NOW (no destination invented)
+
+1. **Documentation truthfulness.** Downgrade to `DECLARED` / `TESTED-ONLY` /
+   `UNWIRED`: *"Commit calcifies to Lance"*, *"deinterlace provides production
+   moment reads"*, *"cast is the production commit primitive"*. Tracked as
+   `TD-DOC-COMMENTS-CLAIM-UNWIRED-BEHAVIOUR`.
+2. **Pure copy elimination.** `batch_adjacent` (`csr.rs:100-119`) copying an
+   already-borrowed slice may be removed **where the result is semantically
+   identical and no alternate owned representation is retained.**
+3. **Legacy value-algebra scope identification.** Canon is settled — truth /
+   contradiction = palette codes; comparison = `[a,b]` reads; floats = legacy —
+   so the §14 f32 inventory defines retirement SCOPE. **Migrating the values
+   waits** until their resident tenant and write path exist.
+
+---
+
+## 16. ⊘ DISCRIMINATOR REFINED — the forbidden thing is the SERIALIZATION BOUNDARY (operator, 2026-07-27)
+
+> *"The forbidden is the serialization boundary. Anything that serves thinking
+> needs only to prove, if new SoA are created by thinking, that they are
+> meta-awareness or reasoning-substrate convergence."*
+
+This sharpens §11/§15. The rule was drifting toward "allocation on the thinking
+path is a violation"; that is not the rule. Three tiers:
+
+### 1. FORBIDDEN — crossing a serialization boundary
+Serialize/deserialize, wire formats, files-as-transport, any second
+representation built **to be reconstructed from**. This is the hard line and the
+only hard line: zero-copy from creation to Lance tombstone; Lance's columnar
+I/O writes the same LE bytes; nothing is encoded in order to be decoded.
+
+### 2. FREE — thinking's own compartment
+Kernel-local scratch, ephemeral folds, per-call working structures, bundles that
+die with the computation. Thinking allocates as it thinks; no proof obligation
+attaches while state stays ephemeral and in-compartment. (This is "The Click"'s
+original scoping: the bundle is an ephemeral computation, never a persisted or
+transmitted singleton.)
+
+### 3. PROOF-OBLIGATED — thinking mints a NEW SoA
+The obligation attaches exactly at **persistence**: a new SoA born of thinking
+must be one of two things —
+
+- **meta-awareness** — new epistemic state ABOUT the reasoning itself. In-tree
+  precedents that already have this shape: `InsightMush`/`GraphSignals`
+  (insight.rs), the settlement signals (settlement.rs), contradiction depth,
+  the `KanbanMove` witness chain, `MetaWord` awareness bits;
+- **reasoning-substrate convergence** — derived relations that BECOME substrate:
+  NARS derivations, `CausalEdge64`, palette-coded truth results, the L1–L2
+  furnace products (codebooks, FisherZ tables — float entropy work calcifying
+  into the substrate's own read surface).
+
+A structure that is neither — an index, cache, CSR snapshot, grouped vector
+that merely reorganizes existing state — may not persist as SoA. As *ephemeral*
+scratch it is legal (tier 2) and merely wasteful.
+
+### Reclassifications this forces
+
+| item | old classification | refined |
+|---|---|---|
+| `tactics.rs` triple re-indexing / `by_sc` per-pass rebuild (audit P1 #7) | violation-adjacent ("recomputing materializes") | **tier-2 waste, not a violation** — ephemeral, in-compartment, crosses no boundary. Fix is optional perf work; what it may never become is a *persisted* index (that would be tier-3 with no legitimation). **De-escalated.** |
+| trace-D `FORBIDDEN-COPY` class | any population copy | narrowed: forbidden only if it persists as parallel authority or crosses serialization. In-process per-call copies → waste. |
+| `AdjacencyBatch` owned→view fix (`ffca104`) | doctrine fix | stands, reclassified as **waste removal** — correct either way. |
+| `NodeRowPacket::new(&rows, 0)` (trace A follow-up) | copy-into-second-representation | **now the sharpest open question**: it sits AT the Lance flush seam (`as_le_bytes`). If it is a re-encoding built to be reconstructed from → tier 1, forbidden. If it is the in-place LE view the sink drains → legal. Needs its read, not a guess. |
+| `BeliefArena` | "forbidden duplicate" (early session) → "de facto authority" (§15) | final form: **tier-2 thinking state that never converges** — its sin is not allocation but that no convergence path exists (P0). The arena's contents are exactly the kind of derived reasoning state tier-3(b) legitimizes, once there is a substrate to converge INTO. |
+| BF16 furnace lanes (`BF16-HIGH-VALUE-LANES`) | justified by four-part test | consistent — every lane's product IS tier-3(b) convergence; the anti-lanes (per-query ADC tables) fail because they are tier-2 scratch *pretending* to be worth rebuilding per query, not because they allocate. |
+
+### The test, one line
+**Ephemeral: think freely. Persistent: prove meta-awareness or convergence.
+Serialized: never.**
+
+---
+
+## 17. ⊘ STORAGE LOCALITY — thinking products store WHERE THE SoA HAS THE EVIDENCE (operator, 2026-07-27)
+
+> *"In the best case they are stored where the SoA has the evidence — that's the
+> whole point. Why serialize into a useless sidecar if the substrate has the
+> evidence edges all saved in the substrate?"*
+
+This completes §16 with the WHERE, and it closes this primer's ORIGINAL question.
+
+### The closing of §7 gap 1 (evidence-event identity)
+
+The session opened searching for an evidence-event identity carrier to replace
+`Stamp`. The answer is that **the carrier question was itself the sidecar
+reflex**:
+
+- A belief's evidential base is **not a field** — it is the **evidence edges**:
+  the grounding rows, reachable through the row's own `EdgeBlock`, with
+  temporal birth on the version axis.
+- `Stamp(u64)` was a **lossy sidecar compressing what the substrate stores
+  natively** — 64 folded membership bits standing in for edges + versions that
+  were never folded in the first place.
+- Evidence-event identity = **the substrate address of the evidencing row, at
+  its version**. Nothing to mint, nothing to serialize.
+- The disjointness guard becomes an **edge read**: do two beliefs' evidence
+  edges reach overlapping rows? Exact, replay-stable, no aliasing — an
+  `[a,b]`-shaped question over resident slots.
+
+### Correction to trace C's "belief-state homes" table
+
+| field | trace C said | corrected |
+|---|---|---|
+| evidential base | "NO row-tenant home at all" | **wrong frame** — evidence needs no VALUE tenant. The home has existed since the canon: the 16-byte `EdgeBlock` (12 in-family + 4 out, always reserved, never shrunk) + the version axis. |
+| premises / derivation refs | "missing replay-stable representation" | same correction — premises are evidence edges to premise-belief rows; the address is the replay-stable reference §7 gap 5 asked for. |
+
+What is genuinely missing is narrower than either row implied: **slot-byte →
+neighbour-row resolution** — exactly what trace C's two live `EdgeBlock` readers
+(`mailbox_scan.rs::edge_slots_coarse`, `soa_graph.rs::project_snapshot`)
+document themselves as stopping short of (*"lands the edge structure, never
+fakes the row resolution"*). One resolution mechanism, and both premises and
+evidential base have their storage — co-located with the beliefs they ground.
+
+### The locality rule, stated
+
+A thinking-minted SoA (tier 3, §16) stores **adjacent to its evidence** — same
+substrate, edge-connected to the rows that ground it — never in a parallel
+store keyed by anything else. Corollary: **any proposed provenance structure
+whose contents are derivable by walking resident edges is a sidecar and is
+rejected on sight.** `SourceRegistry` (withdrawn), `Stamp` (legacy), and every
+"receipt ledger" shape this session considered were instances of exactly that.
+
+### Why this is the whole point
+
+Co-location is not a storage preference — it is what makes evidence QUERYABLE
+by the same `[a,b]` reads as everything else. The moment provenance lives in a
+sidecar, answering "what grounds this belief?" requires a join across
+representations (a serialization boundary in waiting). With evidence as edges
+in the same rows, grounding, disjointness, contradiction ancestry, and replay
+are all walks over resident bytes — the standing wave answering questions about
+itself.
+
+### ⊘ §17 CORRECTION — the 12+4 EdgeBlock is V1-LEGACY; V3 evidence rails live in the FACET (operator, 2026-07-27: "you keep repeating deprecated")
+
+§17 named the 16-byte `EdgeBlock` (12 in-family + 4 out) as the evidence-edge
+home. **That is the V1 shape** — same status as the u24 tail: reads of existing
+rows survive (I-LEGACY-API-FEATURE-GATED), **new units never mint it**. This
+primer has now repeated a deprecated carrier twice (u24 tail context, then
+this); the correction is recorded loudly so it is not repeated a third time.
+
+**Under V3 the evidence rails are a READING of the 4+12 facet register**:
+the 12-byte content-blind payload carved per le-contract §3 — `6×(u8:u8)`
+rails (`part_of:is_a`, the L1–L3 episodic basins), with the L4
+`6× palette256:palette256` tenant over the Morton cascade. Evidence edges =
+rail entries in the facet reading the ClassView selects — co-located with the
+row exactly as §17 requires, just in the V3 carrier, not the V1 block.
+Trace C's two live `EdgeBlock` readers are V1-read paths, not the template for
+new belief evidence.
+
+### WordNet IS HHTL — and the probe just measured it (operator, 2026-07-27)
+
+The HHTL cascade tiers ARE a taxonomy: HEEL/HIP/TWIG = hypernym depth. "Location
+of awareness in semantic space" = the row's position in that taxonomy, carried
+by the facet tiers. Empirical support landed today
+(`probe_furnace_amortization`, real bge-m3 bytes): rows sharing a HEEL code are
+**20% closer in exact distance than random pairs (ratio 0.7981)** while a
+shuffled-code control stays silent (1.0711) — the address prefix demonstrably IS
+a semantic location, with the falsifier firing in both directions. Honest
+limits: on the thin 17-dim/6-subspace rig the HEEL stage carries locality but
+almost no PRUNING power (99.7% survivors at the t/4 band) — the 95%-skip HHTL
+claim needs a full-width tier and remains unverified here.
+
+**Operator extension, noted for a future probe (not built):** the helix
+place/residue codec could carry the **semantic location residue** — HHTL/wordnet
+tier = the PLACE, `Signed360`/Fisher-2z = the fine residue within the taxonomy
+node — *"if that makes additional sense."* Fits the existing helix doctrine
+(place regenerated from address, residue stored, never materialized); worth a
+probe only after the facet-rail resolution mechanism exists.

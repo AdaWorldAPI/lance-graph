@@ -1,5 +1,256 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-27 — ISS-CONTRACT-DISTANCE-IS-THE-FORBIDDEN-UMBRELLA + ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT — OPEN
+
+Source: ndarray `.claude/knowledge/cognitive-distance-typing.md` (operator-cited),
+the binding API-design authority for distance typing.
+
+### A. `lance_graph_contract::distance::Distance` is the anti-pattern that doc forbids
+
+> *"No `Box<dyn Distance>` / no `enum DistanceMetric { Palette, Hamming, Base17, … }`
+> / no `fn distance<T: HasMetric>(a, b) -> f32` umbrella. The type system
+> distinguishes the metrics for a reason."*
+
+`contract::distance::Distance` is exactly that: one trait, `fn distance(&self,
+&Self) -> u32`, impl'd for `[u64;256]` (Hamming), `[u8;6]` (PQ byte-L1) and
+`[u8;3]` (palette byte-L1) — **three different metrics under one generic API
+returning one untyped scalar.** The doc requires instead: one named fn per
+metric, newtyped outputs (`PaletteDistance(f32)` / `HammingDistance(u16)` /
+`Base17L1(i32)`) so cross-metric arithmetic does not compile, and REQUIRED
+`buckets` + `EulerGammaOffset` on every palette-256 call.
+
+This inverts the 2026-07-27 cosine census, which was organised around migrating
+call sites TOWARD that umbrella. It also explains the measured ρ = −0.0030 for
+`[u8;6]` structurally: the umbrella returns a `u32` the type system cannot
+distinguish from a real distance.
+
+### B. Two in-repo sources contradict on WHAT the cosine replacement is — REPORTED, NOT RESOLVED
+
+| source | claim |
+|---|---|
+| ndarray `cognitive-distance-typing.md` | **HDR popcount early-exit** *"IS the cosine replacement on the cascade — NOT a derivative or approximation of cosine"* (Level 1, ~1M → ~20K). Fisher-z is *"**NOT a distance** — a normalization applied to palette 256 OUTPUT… Calling Fisher-z on a non-correlation value is a category error."* |
+| bgz-tensor `nnue_palette_cosine.rs:172` + `EPIPHANIES E-FISHERZ-CANONICAL-COSINE-REPLACEMENT-1` | `FisherZTable` is *"the certified palette256 cosine-replacement"* |
+
+`ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED` (filed earlier today) took
+bgz-tensor's wording as settled. That was an assumption; it is **downgraded to
+CONTESTED** pending an operator ruling. Both artifacts are in-tree and current.
+
+### C. The three-level cascade — the probes used the wrong level
+
+| Level | metric | scale |
+|---|---|---|
+| 1 | HDR popcount early-exit (`&Fingerprint256` ×2 + `u16` threshold → `Option<HammingDistance>`) | ~1M → ~20K |
+| 2 | Base17 L1 on `[i16; 17]` — *"don't pad to 16 or 18"* | ~20K → ~200 |
+| 3 | Palette-256 table lookup + **`buckets` + `EulerGammaOffset`** | ~200 finalists |
+
+`probe_palette256_ndarray` ran a **Level-3** pair LUT across all 4096 candidates,
+skipping L1 and L2 — and its "HDR gate" passed `hamming_distance_raw` ONE BYTE
+instead of two 256-bit fingerprints, which is the root cause of the
+already-reported can't-fire defect. Its LUT also carried neither `buckets` nor
+`EulerGammaOffset`, which the doc says *"changes the answer"*.
+
+Also: the direct in-palette fast path (`palette256_bf16_mantissa_transform`,
+one typed hop, no cascade) was never considered by any probe this session.
+
+### D. Full-read addendum (doc verified byte-identical to pinned commit 6ff231ad)
+
+**The doc is a binding spec AHEAD of the code.** Its cross-refs and prescribed
+types are unbuilt: `src/hpc/distance.rs` does not exist (`layered_distance.rs` /
+`palette_distance.rs` do); the `CLAUDE.md § "Three-Level Cascade"` section is
+absent; and 5 of 7 prescribed types exist in NEITHER repo (`PaletteIdx`,
+`EulerGammaOffset`, `Fingerprint256`, `BF16MantissaCtx`, ndarray-side
+`PaletteDistance`). So the answer to "what part of the cosine replacement didn't
+you find" is complete: **the mechanisms are shipped in pieces; the typed API
+surface the doc mandates is assembled nowhere.**
+
+**Proposed reconciliation of §B (textual, NOT ratified):** the doc scopes
+popcount's claim to the SEARCH TOPOLOGY (*"IS the cosine replacement on the
+cascade… substitutes for FP cosine in the search topology"* — cosine as metric,
+L1), while its Fisher-z row permits exactly what `FisherZTable` does
+(*"variance-stabilizing transform of correlation"* — and `FisherZTable.entries`
+ARE cosines of centroid representatives, genuine correlations, so no category
+error). Two senses of "replacement": popcount replaces cosine-as-METRIC;
+FisherZTable replaces cosine-as-STORED-VALUE (i8 value encoding in palette
+space). Different axes, no conflict — pending operator confirmation.
+
+**The doc's own audit item, retargeted:** "audit `src/hpc/distance.rs` for a
+`fn distance<T>` umbrella" names a nonexistent file; the audit belongs on
+`layered_distance.rs` + `palette_distance.rs`, and — if the doc's scope extends
+beyond ndarray — on `lance-graph-contract::distance`, which remains the one
+LIVE umbrella in code (§A).
+
+
+### E. RESOLVED-BY-RULING (operator, 2026-07-27 -- "only palette256 and ONLY [a,b]; FisherZ COULD materialize but why, if palette256 has lower entropy: it IS normalized distance")
+
+Section B's "contradiction" **dissolves** -- and not into a "two senses"
+arbitration. There is nothing to arbitrate:
+
+- **Only palette256.** One encoding. The census's rival-encoder framing was the
+  error (same shape as ClassId-vs-classid: one carrier, many projections --
+  transferred from identity to value and re-committed).
+- **Only [a,b].** The pair-indexed table read is THE distance operation, and
+  because the codes are normalized, that read IS normalized distance. Popcount /
+  Base17-L1 / pair-table are this one operation at three cascade scales, not
+  three metrics competing for a slot.
+- **Fisher-z: could materialize, no reason to.** It decodes palette
+  relationships into z-space -- more entropy, same ordering information.
+  `FisherZTable` is a materialization ARTIFACT, not the canon. This ruling was
+  ALREADY RECORDED in primer section 13 hours earlier ("palette256 could be
+  materialized as FisherZ but doesn't need to -- lower entropy and higher value
+  when normalized; a stored Fisher-Z column would be a forbidden materialized
+  alternate representation") -- and this session then found FisherZTable and
+  crowned it "the certified replacement" anyway. The failure was not missing
+  information; it was not applying a ruling already on file.
+
+Status: section B CLOSED (dissolved). ISS-FISHERZ-...-UNWIRED closes as INVALID
+-- there is nothing to wire; wiring it would ship the unnecessary
+materialization. Section A stands and is STRENGTHENED: contract::Distance is
+the forbidden umbrella, and a generic distance() over uniform u8 codes is
+exactly how a wrong-level read gets applied silently (measured: [u8;6] at rho
+-0.0030). Section D's spec-ahead-of-code finding stands: the typed per-metric
+surface over the ONE encoding remains unbuilt.
+
+
+### F. THE CANON PREDATES THE SESSION BY TWO MONTHS (ndarray board, 2026-05-26)
+
+`ndarray/.claude/board/EPIPHANIES.md` (verified at pinned commit 6ff231ad)
+already carries, dated **2026-05-26**:
+
+- **"Palette256 + Fisher-z IS the exact cosine replacement (integer, no float)"
+  — Status: VALIDATED** (operator: 10 000×10 000 splat, theta ~ 1.45-1.6
+  Fisher-z ~ cos 0.90-0.92). Ranking-exact Palette256 ADC integer lookup, gated
+  by a Fisher-z aperture theta; no float MAC in the O(D) kernel.
+- The section-B "contradiction" resolved in five words: *"popcount IS the cosine
+  replacement **by topology, not value**; Fisher-z is a palette-output
+  normalization, not a cosine reconstruction."* Sections D/E re-derived this.
+- **Two lanes**: SELECT = integer cascade (L1 popcount -> L2 Base17-L1 -> L3
+  Palette256 ADC); uncertainty = tiny per-edge float Sigma metadata. Co-certified
+  siblings (Pflug-10 certifies the CAM-PQ quantization).
+- **The cam.rs gap is a RECORDED MAY DEBT**: *"cam-pq-production-wiring (cam_pq
+  shipped, unrouted through CamCodecContract)"* — today's "discovery" was on the
+  ledger.
+- **Correction to section A**: the validated entry GROUNDS the contract Distance
+  trait as part of the design (theta lives at `lance-graph-contract::distance::
+  similarity_z = atanh`). The typing rule binds ndarray's per-metric fn surface;
+  "contract::Distance is the forbidden umbrella" OVERSTATED. The [u8;6]-is-noise
+  measurement stands; the demolition verdict is withdrawn. What remains open is
+  the narrower question: whether the [u8;6] byte-L1 fallback impl should be
+  removed/renamed so no caller mistakes it for the ADC path.
+- **Today's failure mode is a documented epiphany**: *"Grounding-discipline
+  (meta — the expensive one)"* — a prior session built float code from ChatGPT
+  inspiration without grounding against the integer/palette substrate in the
+  same repo, net-zero-usable. Binding fix (2026-05-26): whole-file reads only;
+  L0 source/tests/standards, L1 audit (spot-check never inherit), L2
+  plans/perspective-docs are NOT evidence. Sibling epiphany: ledger-first,
+  code-never-unless-necessary (10^7x cheaper). This session inverted both.
+
+**Net status of this whole issue cluster:** B/D/E were re-derivations of the
+2026-05-26 validated canon. A is narrowed as above. What was genuinely new
+today: the [u8;6] noise measurement (rho -0.0030), the cost measurements
+(276 vs 5-9 ns/cand; 0 B per-query state; table-build vs 550 ms SLA), and the
+kmeans-vs-hand-rolled codebook delta (0.8494 -> 0.9725).
+
+### G. MEASURED: the contract `Distance` trait has ZERO production consumers (2026-07-27)
+
+Grep of the whole workspace for `use lance_graph_contract::distance::Distance`
+returns exactly ONE hit: `crates/lance-graph-planner/examples/probe_palette256_ndarray.rs:28`
+— this session's own probe. `similarity_z` (where the 2026-05-26 VALIDATED entry
+places the Fisher-z theta aperture) appears only in `cam.rs:226,240,432`
+doc-comments, never in a call. (`helix::distance::DistanceLut` hits are a
+different module.)
+
+Consequences:
+1. **Removing or renaming the `[u8;6]` byte-L1 impl breaks nothing** — no caller
+   to migrate. The section-A open item is therefore free to action, and its
+   noise measurement (rho -0.0030 vs exact) is the justification.
+2. **The cosine census's "REPLACE #1 = migrate cam.rs onto Distance" pointed at
+   an unconsumed trait.** Recorded as a second-order error of that census.
+3. **The trait is SPECIFICATION-SHAPED, not load-bearing** — declared,
+   in-crate-tested, unwired. Consistent with the standing May debt
+   `cam-pq-production-wiring` ("cam_pq shipped, unrouted through
+   `CamCodecContract`"). Neither "forbidden umbrella" (section A, already
+   withdrawn as overstated) nor "the canonical dispatch consumers use"
+   (this session's framing) described it correctly: it is an unwired contract
+   surface awaiting that debt's resolution.
+
+
+## 2026-07-27 — ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED — the certified replacement exists; nothing in the spine reaches it — **CONTESTED** (see ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT: ndarray `cognitive-distance-typing.md` says HDR popcount IS the cosine replacement and Fisher-z is NOT a distance; this entry took bgz-tensor's "certified cosine-replacement" wording as settled — an assumption, pending operator ruling; CLOSED-INVALID 2026-07-27 -- palette256-ONLY ruling: FisherZTable is a materialization artifact, nothing to wire, see section E)
+
+**The cosine replacement is not missing. It is shipped, certified, and named** —
+and the 2026-07-27 cosine census missed it by asking "is this cosine a violation?"
+instead of "is this cosine the replacement?". `fisher_z.rs` was filed LAB /
+table-build; `bgz-tensor` was written off as "zero spine imports".
+
+- **`FisherZTable`** — `bgz-tensor/src/fisher_z.rs:100`: `entries: Vec<i8>` =
+  *"k×k i8 encoded cosine values (row-major)"* + `gamma: FamilyGamma`, with
+  `lookup_i8(a: u8, b: u8) -> i8` / `lookup_f32(a, b)`. **This is `distance is
+  [a,b]`** — the pair indexes the table. *"k=256 → 64 KB + 8 bytes. 26 groups ×
+  64 KB = 1.6 MB for the entire 1.7B model."*
+  `nnue_palette_cosine.rs:172` calls it *"the certified palette256
+  cosine-replacement"*.
+- **`FamilyGamma`** — `fisher_z.rs:28`, `BYTE_SIZE = 8`, `from_cosines()`
+  (atanh over the pairwise distribution → `z_min`/`z_range`), `encode`→i8,
+  `decode`→cosine, **`to_le_bytes` / `from_le_bytes`**. The gamma travels WITH
+  the table.
+- **`CosineGamma`** — `gamma_calibration.rs:136`: *"γ_cosine: cosine replacement
+  offset (4 bytes per codebook)"*, *"redistributes u8 levels so the crowded
+  center (cosine ≈ 0, where most pairs land) gets more resolution"*; stores
+  measured `gamma` / `center` / `spread`.
+- Board: **`E-FISHERZ-CANONICAL-COSINE-REPLACEMENT-1`** — *"helix = the analytic
+  2z rung"*. Siblings: `E-FREQ-IS-COSINE-REPLACEMENT-1` (rank distance
+  `|Δrank|/16`), and deepnsm `fingerprint16k.rs:10` *"replaces cosine with
+  popcount — same bucket resolution"*.
+
+**What is actually missing is WIRING, not a mechanism.** Three pieces exist and
+none are connected:
+1. `FisherZTable::lookup_i8(a,b)` — certified, in a workspace-EXCLUDED crate with
+   no spine import;
+2. `contract::distance::Distance` — canonical dispatch, **no palette impl**;
+3. `impl Distance for [u8;6]` — the nearest existing thing, and it **measures as
+   noise** (Spearman −0.0030, recall@10 0.0125 vs exact, probe
+   `probe_palette256_ndarray`), because byte-wise L1 over centroid INDICES is not
+   a metric.
+
+**Two corrections this supersedes:** (a) the claim that the γ offset is not
+stored (it is — `FamilyGamma::to_le_bytes`, 8 B, plus `CosineGamma` 4 B/codebook;
+the earlier check looked at `euler_fold::FoldedFamily`, the wrong struct);
+(b) `probe_palette256_ndarray`'s hand-built `Vec<u16>` k×k LUT — it
+re-implements `FisherZTable` in a worse encoding, so its ρ 0.9725 measures a
+hand-roll competing with the certified table, not the certified table itself.
+
+**Shape not proposed.** Where the impl lands, whether `FisherZTable` re-homes,
+and how a zero-dep contract reaches a calibrated table are decisions.
+
+## 2026-07-27 — ISS-PALETTE256-HAS-NO-DISTANCE-IMPL — the canonical value carrier and the canonical distance dispatch both live in lance-graph-contract and are NOT connected — OPEN
+
+Verified:
+- `pub type Palette256Pair = (u8, u8)` — `awareness_facet.rs:32`, *"a palette256²
+  centroid — (basin, identity)"*. `AwarenessFacet::from_rails([Palette256Pair; 6])`
+  is the L4 `6×(8:8)` layout; `legacy_outliers.rs:30` calls it *"the exit — the
+  real destination"*.
+- `Distance::distance(&self, &Self) -> u32` — `distance.rs:19-24`.
+- **`impl Distance for` exists for exactly three types**: `[u64;256]` (Hamming),
+  `[u8;6]` (CamPq — its own doc at `:95-96` calls it *"an L1 fallback"*,
+  explicitly not the real ADC), `[u8;3]` (PaletteEdge — byte-wise L1 **computed
+  inline, not a table lookup**).
+- **`awareness_facet.rs` contains the string `distance` ZERO times.**
+
+The calibrated LUTs exist and ARE reachable — `ndarray::hpc::palette_distance::
+{Palette, DistanceMatrix}` (*"every subsequent distance lookup becomes a single
+u16 array load"*), with `ndarray::hpc::cascade::calibrate` supplying the
+`mu + 3σ` rolling-floor threshold and `expose()` the HDR bands. ndarray is a
+declared path dep of `lance-graph-planner`. (An earlier note claiming these were
+unreachable was FALSE and is withdrawn — see the primer §13 addendum.)
+
+**This supersedes the cosine census's "REPLACE #1 = cam.rs".** Migrating `cam.rs`
+off float without a palette256 `Distance` impl relocates the hand-roll rather
+than removing it. The head of the migration is the missing impl.
+
+**Shape not proposed** — whether the impl belongs on `Palette256Pair`, on
+`AwarenessFacet`, or on the 12-byte lane, and how the calibrated table is reached
+(the contract is zero-dep; ndarray is not a contract dependency) are decisions,
+not inferences. Reported, not designed.
+
 ## 2026-07-27 — ISS-PEARL-VOCABULARY-WITHOUT-PEARL-MECHANICS — the substrate has the Pearl TAXONOMY comprehensively and the Pearl OPERATOR not at all; four different kinds of "cause" share one untyped edge — OPEN
 
 **Status:** OPEN (audit result, measured on the main thread — operator asked
