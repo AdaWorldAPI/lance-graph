@@ -446,8 +446,14 @@ Surface as it exists today:
   `contradiction`, `rung`, `stamp` and `premises` have **nowhere to live**.
 
 **Provisional classification: `propagation-only kernel`.** Not wrong — it does
-what it claims. It is simply **not a store**. So PR D is *build the keyed mutable
-layer*, not *migrate onto an existing one*; scope accordingly.
+what it claims. It is simply **not a store**. ~~So PR D is *build the keyed
+mutable layer*~~ — **WITHDRAWN** (2026-07-27): "build the keyed mutable layer"
+was design prescription. What stands is only the negative: do not migrate belief
+storage onto this API, and do not mutate `AdjacencyStore` into a store. Whether
+the current CSR remains legacy/test/bench code or becomes a borrowed
+interpretation of resident bytes is a §12 trace question. Note the current
+constructor takes `edges: &[(u64,u64)]` and builds — under the zero-copy ruling
+that construct-from-array step **cannot be a V3 execution stage as it stands**.
 
 ### The statement key is concept-level by design, and lossy
 ```rust
@@ -473,89 +479,33 @@ terms"*), and it forces a decision **before** any capability audit:
 > - **False (what I wrote):** therefore a concept-level belief cannot itself be
 >   V3-addressed.
 >
-> A belief instance can carry its own canonical V3 GUID. That GUID addresses
-> **the belief**, not its constituents — *"a belief about (canonical subject
-> concept + copula + canonical predicate concept)"* is a perfectly good
-> addressable entity. "These two values are not the same value" is not
-> "these two things cannot coexist" — precisely the `ClassId`-vs-`classid`
-> mistake this primer exists to prevent, repeated one layer down.
->
-> The real distinction is **what the addressed entity means**:
->
-> ```text
-> full addressed-form belief   — keyed by addressed subject/view/predicate forms
-> canonical concept belief     — keyed by canonical concept projections
-> ```
->
-> Both are V3-addressable. The existing arena has already chosen the second:
-> concept-level convergence across app/render views — consistent with one
-> carrier having concept and app/view projections rather than two competing
-> identity systems.
+> **But no positive design follows from that logical correction.** Whether a
+> belief IS a row, whether it receives a GUID, whether grounding is an edge, a
+> column, a tier, a temporal relation, a Kanban transition, or something already
+> present — all of that is **UNAUTHORIZED INFERENCE until the substrate is
+> traced** (§12). The correction removes a false impossibility claim; it does
+> not install a possibility as an architecture.
 
-| Option | Cost |
-|---|---|
-| **A. concept-keyed belief only** | cheapest, matches today. Preserves current NARS semantics, but loses which addressed forms or observations grounded a belief unless that is attached elsewhere. |
-| **B. full-GUID-form-keyed belief** | preserves addressed-form distinctions, but changes **reasoning semantics** and fragments cross-app convergence unless an `is_a` rail re-unifies. |
-| **C. canonical concept belief + separately addressed grounding** | the strongest fit. **NOT** "V3-GUID-keyed evidence attached as metadata" — each observation event becomes **its own canonically addressed V3 entity or relation**, not an annotation keyed by existing object GUIDs. |
-
-> **⊘ HARD CONSTRAINT (operator, 2026-07-27): NEVER any serialization or
-> materialization. Ever.** This binds how Option C may be built, and it is the
-> single easiest way to get C wrong.
+> **⊘⊘ WITHDRAWN (operator + source-session retraction, 2026-07-27).** An
+> option table stood here — *A. concept-keyed belief only / B.
+> full-GUID-form-keyed belief / C. canonical concept belief + separately
+> V3-addressed evidence events*, with C expanded into a belief-rows /
+> event-rows / evidence-edges diagram and called "the orthogonal
+> decomposition". **All three options, the diagram, and the "strongest fit"
+> verdict are withdrawn as unauthorized architectural invention.** Nothing in
+> the code establishes that beliefs are rows, that events are rows, that either
+> gets a GUID, that evidence is an edge, or that belief and event state share
+> an SoA. Valid invariants (SoA ownership, zero-copy, concept-level `CStmt`)
+> were used to fill unknown space with familiar graph/storage patterns; the
+> repeated wording then made the guesses sound ratified. The keying decision is
+> **OPEN**, and it is answered by tracing the substrate — not by choosing among
+> invented options.
 >
-> "Each observation event becomes its own canonically addressed V3 entity" means
-> the event **is addressable** — it has a canonical GUID and an owner. It does
-> **not** license any of the following, all of which are forbidden:
->
-> - a provenance **side-store**, ledger, journal, or append-log of events;
-> - a **serialized** event record (JSON / bincode / protobuf / any wire form) —
->   `SoaEnvelope` is *"zero-copy from creation to Lance tombstone"*
->   (`soa_envelope.rs:16-19`); Lance's columnar I/O writes the **same LE bytes**
->   from the in-place backing store, and nothing is serialized *in order to be
->   stored*;
-> - a **materialized** second structure that duplicates state the substrate
->   already holds — no evidence index built alongside the rows, no cached
->   projection kept in sync, no shadow copy of ancestry;
-> - a "rebuild it from the serialized mapping" recovery story. There is no
->   serialized mapping. If a design's safety argument is *"we can reconstruct
->   it"*, the design is already outside the substrate.
->
-> An evidence event is **a row in an SoA owned by a mailbox**, written
-> on-behalf-of that owner, whose history is Lance **versions of those same
-> bytes**. The address is the identity; the bytes are the storage; the version
-> axis is the history. Nothing else is created.
->
-> Test before proposing any grounding mechanism: *does this add bytes that are a
-> copy of, or a translation of, bytes the substrate already owns?* If yes, it is
-> materialization and it is rejected — regardless of how convenient it is for
-> provenance queries. A query is a **projection over what is already there**
-> (`temporal.rs` deinterlace is the reference shape: a version-range read, still
-> a projection, zero copies), never a structure maintained on the side.
-
-Option C, expanded — three layers, none folded into another:
-
-```text
-canonical concept-level belief
-        ├── truth state
-        ├── contradiction / rung
-        ├── derivation ancestry
-        └── evidence edges
-                ↓
-           canonical evidence-event entities
-                ├── source attribution
-                ├── temporal birth
-                └── affected V3 rows / addressed forms
-```
-
-```text
-belief semantics   = concept-level
-observed target    = addressed V3 form or forms
-evidence identity  = observation event
-```
-
-This is not a compromise between A and B. It is the **orthogonal decomposition**
-the withdrawn `SourceRegistry` accidentally forced into view: source membership,
-evidence-event identity, and object identity are three axes, and the registry
-failed because it tried to serve all three with one.
+> What survives from the deleted text, because it is operator-ratified and
+> design-free: **NEVER any serialization or materialization. Ever.** (full
+> statement: §11 and §8 rule 9). And the *semantic* finding that source
+> membership, evidence-event identity, and object identity are three different
+> questions — which constrains any future answer without prescribing one.
 
 ## 5.9 Consumer census — COMPLETE (10 of 10 modules)
 
@@ -591,8 +541,9 @@ reductions, `BTreeMap`/`BTreeSet` grouping, explicit terminal `sort_by`.
 `tactics.rs` stores the *same* `u32` it uses for indexed lookup:
 `premises: [r, o]` (`rcr_abduce`), `[sg_idx, pi]` / `[gi, sg_idx]`
 (`cas_abstract`). So `premises: Vec<u32>` is **not** opaque payload — it is arena
-positions, and `BeliefHandle` must preserve positional identity or the premise
-graph breaks. (`insights.rs:119` merely *clones* premises, which is why the
+positions, and **any replacement reference must preserve positional identity or
+the premise graph breaks** (what that reference IS remains open — §12; the
+`BeliefHandle` carrier once named here is withdrawn). (`insights.rs:119` merely *clones* premises, which is why the
 7-module partial read them as inert.)
 
 ### Slice-dependence: 9 real sites, all in `tactics.rs`
@@ -608,7 +559,10 @@ recover the arena index of a belief it *just fetched* via `get()` — because
 map already knows. **`belief index by statement` is a missing accessor**, not a
 new requirement.
 
-### The minimal semantic API — 9 reads, 3 writes, deduplicated across all 10 modules
+### The minimal semantic *usage pattern* — 9 reads, 3 writes across all 10 modules
+*(⊘⊘ demoted 2026-07-27: this is a census FINDING about current usage, NOT the
+future API. Prescribing the replacement interface before the resident layout is
+known was unauthorized — §12.)*
 **Reads:** `count all` · `derived only (rung>=1)` · `beliefs by copula` (± grouped
 by subject or predicate) · `grounded is_a grouped by predicate` ·
 `belief by statement` · **`belief index by statement`** · `belief by handle` ·
@@ -726,53 +680,29 @@ fuzzier one** — and would not serve `belief by handle` at all.
 
 ---
 
-## 10. Revised redo sequence (operator, 2026-07-27) — SUPERSEDES the earlier PR A–E
+## 10. ⊘⊘ WITHDRAWN redo sequence (2026-07-27) — retained only for its KEPT census methodology
 
-The earlier five-PR sketch is replaced. Two corrections drove the change: the
-concept-belief-can-itself-be-V3-addressed ruling (§5.8 ⊘ CORRECTION) and the
-adjacency reframing below. Bound by §8 rule 9 — **never any serialization or
-materialization, ever.**
+> **⊘⊘ SECTION LARGELY WITHDRAWN (2026-07-27, same retraction as §5.8).** The
+> adjacency pipeline that stood here (*SoA state → Lance-versioned projection →
+> CSR adjacency batch → propagate → cast back*, "CSR is a compute projection")
+> and the PR B–E sequence below were **unauthorized architectural inventions** —
+> valid invariants extended with familiar graph/storage patterns. "CSR batch"
+> allocates, which the zero-copy ruling (§11) forbids outright; "concept-belief
+> SoA" presumes every semantic noun gets its own SoA; "the belief entity itself"
+> presumes beliefs are GUID-bearing rows. None of that is code-proven or
+> owner-specified. What survives of this section is marked KEPT below; the
+> replacement for everything else is the §12 blast-radius classification +
+> substrate trace, which produces facts, conflicts, and missing links — **not a
+> target design**.
+>
+> The one legitimately inverted question survives as a *trace* question, not a
+> design: the current adjacency API cannot be the mutable belief store (§5.8,
+> code-proven), so the open question is **what resident bytes the current
+> propagation path actually reads and writes** — traced, not presumed to be a
+> "projection" of an owner that has not been shown to exist.
 
-### The adjacency question was posed backwards
-
-PR B must **stop asking** *"can `AdjacencyStore` become the mutable belief
-store?"* — its existing API already answers that: not without becoming a
-fundamentally different component. The CSR layer is an **immutable projection +
-propagation kernel**, and that is a clean role, not a deficiency.
-
-The question is upstream instead:
-
-> Which authoritative V3-owned edge/row state **produces** the immutable CSR
-> projection that `adjacent_truth_propagate` consumes?
-
-```text
-canonical SoA-owned belief/edge state
-        ↓
-Lance-versioned projection          (a projection — not a materialized copy)
-        ↓
-CSR adjacency batch
-        ↓
-adjacent_truth_propagate
-        ↓
-derived updates cast back on behalf of the owner
-```
-
-The CSR is a **compute projection**, never the owner. Remaining audit targets,
-all upstream of the kernel:
-
-- Where are canonical **mutable relations** currently owned?
-- Which SoA columns or `EdgeBlock`s feed `AdjacencyStore::from_edges`?
-- Are truth properties **baked from authoritative state**, or supplied ad hoc by
-  callers?
-- Is there an existing **write-on-behalf path** from propagation output back to
-  the owner?
-- Does CSR reconstruction happen **per Lance version, per query, or only in
-  tests**?
-
-If no such owner exists, the missing component is **not** "a mutable CSR" — it is
-the canonical concept-belief / relation SoA that CSR should project.
-
-### Two caveats that reopen the "7 modules are order-free" result
+### KEPT — Two caveats that reopen the "7 modules are order-free" result
+*(census methodology — descriptive, survives the retraction)*
 
 The census called seven modules order-free because their reductions are
 commutative and their groupings use `BTreeMap`/`BTreeSet` with an explicit
@@ -809,7 +739,7 @@ So the census grows two columns:
 | Caller | Floating reduction? | Total tie-breaker? |
 |---|---|---|
 
-### Premise indices: lightly consumed, still architecturally toxic
+### KEPT — Premise indices are not replay-stable (finding only)
 
 Only `tactics.rs` dereferences them and `insights.rs` merely clones them — but
 `Vec<u32>` still means:
@@ -819,62 +749,216 @@ premise identity = admission position in this particular arena build
 ```
 
 That is **not replay-stable** and cannot become canonical ancestry (§7 gap 5).
-Narrow usage makes the migration cheap; it does not make it optional. The
-replacement handle must land **before** premises cross into the authoritative
-substrate.
+Narrow usage makes an eventual migration cheap; it does not make it optional.
 
-A provisional opaque handle is the right PR A1 move:
+> **⊘⊘ The `BeliefHandle` prescription that stood here is WITHDRAWN.** Wrapping
+> the arena index in an opaque newtype is ordinary migration technique, but it
+> was prescribed without knowing whether positional handles belong anywhere in
+> V3 at all — a private wrapper can merely lacquer the defect. The census fact
+> (premises are positional, `tactics.rs` depends on that) stands; the carrier
+> does not, until §12's trace establishes what a premise reference must actually
+> be.
 
-```rust
-pub struct BeliefHandle(/* private: current arena index */);
+### ⊘⊘ The PR sequence that stood here (A0–A1–B–C–D–E) is WITHDRAWN
+
+Only **A0 — finish the census** survives: per call site, record semantic query ·
+fields read · direct indexing · premise dereference · order dependence ·
+floating reduction · tie-breaking · mutation required · cardinality and hot-path
+status. **No code changes.** Everything after A0 assumed the withdrawn
+belief-row / event-row / CSR-projection architecture and is discarded until the
+substrate is traced (§12). §5.9's "minimal semantic API" is likewise demoted
+from *future interface* to *census finding about current usage patterns* — the
+replacement interface is not designable before the resident layout is known.
+
+---
+
+## 11. ⊘ TIGHTENED (operator, 2026-07-27) — the ONLY permitted operation
+
+**Never serialization. Never materialization. Never reconstruction. Never copied
+intermediate state. Never detached canonical state. Never a sidecar.**
+Reaffirmed verbatim by the operator after the first statement: **"everything is
+zerocopy period."** There is no carve-out for temporaries, caches, batches,
+scratch copies, or "just during compute".
+
+The only permitted operation:
+
+```text
+SoA-owned in-place bytes
+        ↓
+borrowed ClassView / column view
+        ↓
+reasoning directly over those bytes
+        ↓
+owner-governed Kanban mutation
+        ↓
+Lance version of the same in-place layout
 ```
 
-It may still wrap `u32` initially. The point is to **stop callers from knowing
-that**, so the backing can later become a canonical concept-belief reference
-without a second caller-wide migration.
+Forbidden, explicitly:
 
-### The sequence
+```text
+Vec<Belief> reconstructed from SoA
+CSR snapshot built from SoA
+DTO or row packet created for reasoning
+temporary adjacency copy
+serialized receipt or evidence log
+hydrate / dehydrate cycle
+cache containing duplicated canonical state
+cast payload carrying copied state
+```
 
-**PR A0 — finish the census.** Per call site, record: semantic query · fields
-read · direct indexing · premise dereference · order dependence · **floating
-reduction** · **tie-breaking** · whether **mutation** is required · expected
-**cardinality** and hot-path status. No code changes.
+**A "projection" is valid only when it is a borrowed interpretation of the
+existing bytes. The moment it allocates or duplicates the population, it is not
+a V3 projection.**
 
-**PR A1 — representation decoupling, behaviour unchanged.**
-- private `Belief` fields;
-- opaque `BeliefHandle`;
-- remove public slice access; replace every `entries()[i]`;
-- add named semantic scans and lookups (the 9 reads / 3 writes of §5.9, plus the
-  missing `belief index by statement`);
-- **retain `Vec<Belief>` internally** — this PR does not change storage;
-- add **shuffled-admission tests**;
-- add **tie and float-order falsifiers** (per the §"Two caveats" decision above).
+### The discriminator (operator, 2026-07-27) — what "accumulation" is permitted
 
-> **Avoid boxed trait-object iterators.** The future SoA path needs
-> monomorphizable or batch-oriented access, not one virtual call per belief — and
-> a `Box<dyn Iterator>` cannot serve `belief by handle` at all. Swapping a
-> mega-accessor for a fuzzier one is not decoupling.
+The sole permitted "collection" is **entropy-reducing reasoning that produces
+new semantic value** and commits that result back into the owning SoA — as NARS
+truth, a `CausalEdge64`, qualia, meta, rung, contradiction, or another
+already-authorized class-resolved field:
 
-**PR B — ratify belief granularity.** Record explicitly, as a decision:
+```text
+resident SoA state
+        ↓ zero-copy reasoning
+entropy reduction / inference / synthesis
+        ↓
+new semantic state written into the owning SoA
+```
 
-> A belief is keyed by **canonical concept-level** subject, copula and predicate.
-> `AppId`/`ClassView`-specific forms **converge** into this concept belief.
-> Addressed-form and observation distinctions live in **grounding/evidence
-> relations**, not in the belief key.
+That is not materialization, because it does not duplicate an existing
+representation — it creates a result that did not exist before.
 
-Then define the bijection for the **belief entity itself** — not for `CStmt`
-back to its source object GUIDs, which is surjective and not invertible (§5.8).
+```text
+Copying or reorganizing existing state
+    = forbidden materialization
 
-**PR C — locate or design the authoritative owner.** Determine whether an
-existing V3 relation/edge SoA can own: concept statement identity · truth ·
-groundedness · rung · contradiction · derivation reference. If none can, **say
-the concept-belief SoA is missing** — do not mutate `AdjacencyStore` into it.
+Computing an inference with added semantic value
+and committing that result through the owning Kanban
+    = permitted reasoning
+```
 
-**PR D — CSR projection parity.** Prove the authoritative state projects into the
-existing adjacency kernel while preserving current reasoning results.
+Applied:
 
-**PR E — evidence events.** Only after the canonical concept-belief owner exists:
-observation event → canonical V3 event identity → evidence edge to the concept
-belief → affected addressed-form rows → temporal birth and horizon behaviour.
-**Then** replace `Stamp`. Bound throughout by §8 rule 9 — the event is a row in
-an owner's SoA, never a serialized or materialized record.
+| operation | verdict |
+|---|---|
+| collecting edges into a CSR for easier computation | **forbidden** |
+| collecting beliefs into a `Vec` for iteration | **forbidden** |
+| building an index, cache, snapshot, DTO, receipt list, or scratch graph | **forbidden** |
+| accumulating evidence into a revised NARS truth | **permitted** |
+| combining inputs into a new causal edge | **permitted** |
+| deriving a conclusion and storing its semantic result | **permitted** |
+| machine-level registers, SIMD lanes, accumulator values, kernel-local arithmetic | **permitted** — computation, not an owned alternate representation of substrate state |
+
+One sentence: **zero-copy applies universally; the sole permitted accumulation
+is entropy work whose output has new semantic value and is committed as
+canonical SoA-owned reasoning state. No collection may exist merely to
+reorganize, index, transport, cache, or reproduce existing state.**
+
+**The physical rationale (operator, 2026-07-27):** *"serialization would be just
+plain dumb because 64k at 32 MB is L3 cache."*
+
+```text
+65,536 rows × 512 bytes = 32 MiB
+```
+
+At the preferred envelope the **entire logical population is L3-resident on the
+target machine**. Copying it into another representation is not an optimization
+— it is self-inflicted cache vandalism. Materializing a `Vec`, CSR, hash index,
+DTO set, or shadow graph would:
+
+- read the same 32 MiB again;
+- allocate new memory;
+- write duplicated state;
+- evict useful SoA cache lines;
+- introduce pointer chasing and allocator traffic;
+- destroy the fixed-stride locality;
+- require synchronization between two representations;
+- add no semantic information.
+
+The whole point of the 64k envelope is that no intermediate representation is
+needed: **the resident SoA is already the compute structure.** So the rule is
+plainer than doctrine — at 64k, the complete 512-byte population is a 32 MiB
+L3-resident working set, and repackaging it is not merely nonconformant, **it is
+slower than reasoning directly over it.** Every wire format, index, and cache in
+ordinary software exists to compensate for data being far away; here it never
+is. The doctrine and the hardware say the same thing.
+
+This also sharpens §12's violations inventory (item 4): each allocation found on
+a reasoning path is classified against this discriminator — *is it an alternate
+representation of existing state (violation), or kernel-local arithmetic en
+route to a committed semantic result (permitted)?*
+
+So the target is **not** `SoA → reasoning representation → SoA`. It is
+**reasoning directly through a ClassView of the SoA**. `BeliefArena`,
+`AdjacencyStore`, and `CStmt` survive only as **APIs or views over the owning SoA
+memory**. None may own, copy, materialize, or reconstruct belief state.
+
+Consequences already visible in code (facts, not design):
+
+- `BeliefArena { entries: Vec<Belief>, index: HashMap<CStmt, u32> }`
+  (planner `belief.rs:129-136`) **owns detached heap state** — under this ruling
+  it cannot survive as an owner. What replaces it is a §12 trace output, not a
+  §10-style plan.
+- `AdjacencyStore::from_edges(…, edges: &[(u64,u64)])` (`csr.rs:123`)
+  **allocates a CSR from an edge array** — as written it cannot be a V3
+  execution stage. Whether resident bytes exist that a borrowed view could
+  interpret is a §12 trace question; whether the kernel changes instead is not
+  decidable (and not proposable) before that trace.
+- Any PR-A1-style refactor that "retains `Vec<Belief>` internally" endorses a
+  forbidden shape and is withdrawn with the rest of the §10 sequence.
+
+---
+
+## 12. THE ACTUAL NEXT TASK — blast-radius audit + substrate trace (no design)
+
+> Root cause of the withdrawn material, named so it is not repeated: **an
+> unfilled semantic slot is not a design invitation.** In this architecture it
+> means *trace the substrate until the existing representation is found, or
+> report that the path is missing.* Plausible software architecture substituted
+> for knowledge of this architecture is hallucination, however familiar the
+> pattern.
+
+### 12.1 Blast-radius classification
+
+Every mention — in this primer, `LATEST_STATE.md`, `EPIPHANIES.md`, and any plan
+touched since PR #854 — of: `reasoning index` · `concept ClassView` · `belief
+row` · `belief GUID` · `event row` · `event GUID` · `evidence edge` ·
+`concept-belief SoA` · `CSR projection` · `transient projection` · `materialize`
+· `reconstruct` · `cache` · `BeliefHandle` · `event minting` · `immutable
+receipt` · `ledger fallback` — is classified as exactly one of:
+
+```text
+CODE-PROVEN              (file:line exists and shows it)
+OWNER-SPECIFIED          (operator said it, quoted)
+UNAUTHORIZED INFERENCE   (neither → remove from normative text)
+```
+
+Status in THIS file after the 2026-07-27 excision: the §5.8 option table, the
+belief-row/event-row/evidence-edge diagram, the §10 adjacency pipeline, the
+`BeliefHandle` prescription, the PR B–E sequence, and the "minimal semantic API
+as future interface" reading are all marked ⊘⊘ WITHDRAWN in place.
+`.claude/board/` files are append-only — corrections there land as new dated
+entries, never edits.
+
+### 12.2 Substrate trace (report facts, conflicts, missing links — nothing else)
+
+For each current reasoning operation (the 34 tactics, propagation, insight/
+epiphany/elevation paths):
+
+1. the **exact resident bytes** it reads — with file:line;
+2. whether those bytes are **already in an SoA** (which envelope, which columns)
+   or in detached heap state (`Vec`, `HashMap`, boxed anything);
+3. how adjacency propagation **receives its input** today — the concrete call
+   chain into `AdjacencyStore::from_edges`, and who allocates;
+4. **every allocation, collection, copy, CSR construction, `Vec`, `HashMap`,
+   and owned intermediate** on the path — a violations inventory against §11;
+5. the **owner and Kanban** governing each mutation — or the fact that a
+   mutation bypasses ownership;
+6. whether output **modifies the same resident bytes** or lands in a detached
+   structure;
+7. where a path simply **does not exist** — reported as MISSING, never bridged
+   with an invented carrier.
+
+**Do not design the target carrier.** The trace's only deliverable is the fact
+base the operator needs to specify one.

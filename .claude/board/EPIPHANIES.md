@@ -1,3 +1,22 @@
+## 2026-07-27 — E-AN-UNFILLED-SEMANTIC-SLOT-IS-NOT-A-DESIGN-INVITATION-1 — **post-#854 target shapes withdrawn as unauthorized architectural invention; the zero-copy discriminator; the L3 argument.**
+
+**Status:** RULING (operator, 2026-07-27) + retraction. **Confidence:** High — the withdrawal is itself the finding.
+
+**What happened.** After PR #854's merge, the redo discussion filled verified gaps with familiar graph/storage patterns: belief rows with belief GUIDs, evidence-event rows with event GUIDs, evidence edges between them, a "concept-belief SoA", CSR as a "Lance-versioned compute projection", an opaque `BeliefHandle` migration carrier, a named future query API, and a PR B–E sequence built on all of it. **None of it was code-proven or owner-specified.** Valid invariants (SoA ownership, zero-copy, concept-level `CStmt`) were extended with plausible software architecture, and repetition made the guesses read as ratified. All of it is now marked ⊘⊘ WITHDRAWN in `identity-temporal-evidence-primer.md` (§5.8, §10, §11); §12 defines the replacement task — blast-radius classification (`CODE-PROVEN` / `OWNER-SPECIFIED` / `UNAUTHORIZED INFERENCE`) plus a substrate trace that reports facts, conflicts, and missing links, **no target design**.
+
+**The rule that prevents recurrence:** *an unfilled semantic slot does not mean "invent a suitable carrier"; it means trace the substrate until the existing representation is found, or report that the path is missing.*
+
+**Operator rulings recorded (primer §11):**
+1. **Never serialization. Never materialization. Never reconstruction. Never copied intermediate state. Never detached canonical state. Never a sidecar.** "Everything is zerocopy period." A projection is valid only as a borrowed interpretation of resident bytes; the moment it allocates or duplicates the population it is not a V3 projection.
+2. **The discriminator.** The sole permitted accumulation is entropy-reducing reasoning whose output has NEW semantic value, committed through the owning Kanban into the owning SoA (NARS truth, `CausalEdge64`, qualia, meta, rung, contradiction). Copying or reorganizing existing state = forbidden materialization. CSR-for-convenience, `Vec<Belief>`-for-iteration, index/cache/snapshot/DTO/receipt-list/scratch-graph = forbidden. Kernel-local registers/SIMD lanes/accumulators = computation, permitted.
+3. **The physical argument.** 65,536 × 512 B = 32 MiB = L3-resident on the target machine. Repackaging an L3-resident population is not merely nonconformant — it is *slower* than reasoning directly over it: re-read, allocate, duplicate, evict, pointer-chase, synchronize two representations, add zero semantic information. The resident SoA is already the compute structure.
+
+**Immediate code consequences (facts, not design):** `BeliefArena { entries: Vec<Belief>, index: HashMap }` owns detached heap state — cannot survive as an owner; `AdjacencyStore::from_edges(&[(u64,u64)])` allocates a CSR — cannot be a V3 execution stage as written. What replaces either is a §12 trace output.
+
+**What survives the retraction:** the consumer census (descriptive); the two census caveats (f32 accumulation order, tie-breaker totality); premises-are-positional (finding, carrier open); `SourceId` ≠ evidence-event identity; the adjacency API is not a keyed mutable store; the logical point that surjectivity of `GUIDs → CStmt` does not by itself preclude addressability (with **no positive design** following from it).
+
+Refs: `E-EVENT-IDENTITY-IS-NOT-SOURCE-IDENTITY-AND-WE-HAVE-NEITHER-1`, primer §11–§12, PR #854.
+
 ## 2026-07-27 — E-EVENT-IDENTITY-IS-NOT-SOURCE-IDENTITY-AND-WE-HAVE-NEITHER-1 — **`source_registry` withdrawn from PR #854 as a falsified design. The separation it revealed is the deliverable; the code was the scaffold.**
 
 **Status:** RULING (operator, 2026-07-27) + measurement. **Confidence:** High — every leg was verified in source or measured, not inferred.

@@ -1,3 +1,19 @@
+## 2026-07-27 (later) — post-#854 target shapes WITHDRAWN; zero-copy discriminator ruled; next task is the §12 substrate trace
+
+### ⊘⊘ The redo-sequence architecture proposed after #854's merge is WITHDRAWN as unauthorized inference
+Belief rows with belief GUIDs · evidence-event rows with event GUIDs · evidence edges · a "concept-belief SoA" · CSR as a "compute projection" · the opaque `BeliefHandle` carrier · the named future query API · the PR B–E sequence — **none code-proven, none owner-specified**. All marked ⊘⊘ WITHDRAWN in place in `identity-temporal-evidence-primer.md` (§5.8/§10/§11); the rule that prevents recurrence: *an unfilled semantic slot means trace the substrate, not invent a carrier* (`E-AN-UNFILLED-SEMANTIC-SLOT-IS-NOT-A-DESIGN-INVITATION-1`).
+
+### Operator rulings now in the primer (§11)
+1. **Never serialization / materialization / reconstruction / copied intermediate state / detached canonical state / sidecar. "Everything is zerocopy period."** A projection is valid only as a borrowed interpretation of resident bytes.
+2. **The discriminator:** the sole permitted accumulation is entropy-reducing reasoning committed as new semantic state (NARS truth, `CausalEdge64`, qualia, meta, rung, contradiction) into the owning SoA via its Kanban. Copy/reorganize of existing state = forbidden; kernel-local arithmetic = permitted.
+3. **The L3 argument:** 65,536 × 512 B = 32 MiB, fully L3-resident — repackaging is *slower* than reasoning directly over the resident SoA. The SoA is already the compute structure.
+
+### What survives (descriptive)
+Consumer census 10/10 (incl. the 3 order-dependent budget-cap sites in `tactics.rs` and positional `premises`); census caveats (f32 accumulation order, tie-breaker totality — two new census columns); A0 census-completion agents dispatched (float/tie/mutation/cardinality columns + deepnsm-v2 drift ledger). Facts: `BeliefArena` owns detached heap state (cannot survive as owner); `AdjacencyStore::from_edges` allocates a CSR (cannot be a V3 stage as written).
+
+### Next task (blocked on nothing): primer §12
+Blast-radius classification (`CODE-PROVEN` / `OWNER-SPECIFIED` / `UNAUTHORIZED INFERENCE`) + substrate trace per reasoning path: exact resident bytes, SoA vs detached, adjacency input chain, allocation inventory against the discriminator, owner+Kanban per mutation, output destination, MISSING paths reported not bridged. **No target design.**
+
 ## 2026-07-27 — branch `claude/medcare-rs-transcode-ruff-3y2olh` — **C1 WITHDRAWN (falsified design)** + D1 shipped: the four-signal settlement field
 
 ### ⊘ `source_registry` was ATTEMPTED and WITHDRAWN — it is NOT a shipped contract
