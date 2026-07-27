@@ -469,31 +469,67 @@ terms"*), and it forces a decision **before** any capability audit:
 | key on full V3 GUID | per-addressed-form beliefs; cross-app convergence lost unless an `is_a` rail re-unifies — changes **reasoning semantics**, not just storage |
 | two-level | concept-keyed belief + V3-GUID-keyed evidence; the only option that does not silently pick a side |
 
-## 5.9 Consumer census — 7 of 10 modules (tactics.rs pending)
+## 5.9 Consumer census — COMPLETE (10 of 10 modules)
 
-Covering `insight` · `basin_resonance` · `epiphany` · `elevation` · `reach_out` ·
-`regulate` · `insights`.
+> **Two corrections to the 7/10 partial reported earlier in this file.** The
+> partial said "order-dependence: ZERO" and speculated that `premises` might be
+> opaque payload. `tactics.rs` — the module that was still running — **refutes
+> both**. Recorded here rather than silently overwritten, because the shape of
+> the error matters: the encouraging result came from the 7 modules that had
+> *finished*, and the hard cases were concentrated in the one that had not.
 
-- **Order-dependence: ZERO production sites.** Every reduction is commutative
-  (sum / count / max / histogram); every grouping lands in `BTreeMap`/`BTreeSet`;
-  both rankers and `extract_main_insights` end with an explicit `sort_by`. The
-  admission-order perturbation test should still be written — it will pass.
-- **Slice-dependence: mechanical only.** Every break is `.iter()` chained on the
-  result, or `.len()` requiring `ExactSizeIterator`. **No `entries()[i]` indexed
-  access in these seven modules** — that pattern is concentrated in `tactics.rs`.
-- **`premises` read at ONE site** — `insights.rs:119`, which **clones** the vec
-  rather than dereferencing it into `entries()[i]`. If `tactics.rs` agrees,
-  positional identity is a far weaker coupling than the API implies and
-  `BeliefHandle` is cheap.
+### ⚠ Order-dependence is REAL — 3 sites, all in `tactics.rs`, all feeding budget caps
 
-**Semantic surface so far — 7 reads, 3 writes:** count-all · derived-only
-(`rung>=1`) · grounded `is_a` grouped by predicate · belief-by-statement ·
-existence scan over a subject's parents · max term id · filtered scan with
-premises+expectation · `Inh` grouped by predicate ‖ admit-observation ·
-admit-derived · close-to-fixed-point.
+| site | mechanism | severity |
+|---|---|---|
+| `rcr_abduce` `by_pred` (`:182`, consumed `:196-256`) | grouping preserves arena push order → nested-loop emission order → **budget cap truncates** | **test-locked**: `rcr_floor_and_budget` asserts a deterministic prefix, with a comment at `:190` relying on *"members already in arena-index order"* |
+| `tr_diverge` Sim scan (`:293-320`) | candidates pushed in scan order into `out.candidates`, **returned as-is, never sorted** | output order is caller-visible |
+| `inh_by_subject` (`:339`) → `cas_abstract` (`:375-450`) | `props` grouping order decides which up/down candidates **survive the budget cut** | changes which beliefs get derived |
 
-Small and nameable. **Nothing here needs a generic boxed iterator** — replacing
-`entries()` with one would swap a mega-accessor for a fuzzier one.
+**This is not incidental iteration order — it decides which candidates survive
+truncation.** Per the "name the real order" rule: the operative order is
+**arena-admission order**, and a test currently locks it. PR A therefore
+**cannot** be a pure behaviour-preserving refactor of these three unless that
+order is either named and preserved explicitly, or the truncation is made
+order-independent (e.g. rank-then-cut) — which is a **behaviour change** needing
+its own decision.
+
+The other 7 modules (`insight` · `basin_resonance` · `epiphany` · `elevation` ·
+`reach_out` · `regulate` · `insights`) remain genuinely order-free: commutative
+reductions, `BTreeMap`/`BTreeSet` grouping, explicit terminal `sort_by`.
+
+### ⚠ `premises` ARE positional handles — the speculation is REFUTED
+
+`tactics.rs` stores the *same* `u32` it uses for indexed lookup:
+`premises: [r, o]` (`rcr_abduce`), `[sg_idx, pi]` / `[gi, sg_idx]`
+(`cas_abstract`). So `premises: Vec<u32>` is **not** opaque payload — it is arena
+positions, and `BeliefHandle` must preserve positional identity or the premise
+graph breaks. (`insights.rs:119` merely *clones* premises, which is why the
+7-module partial read them as inert.)
+
+### Slice-dependence: 9 real sites, all in `tactics.rs`
+`arena.entries()[r]` / `[o]` (`:217,221,240,242`), `[sg_idx]` (`:387`),
+`[pi]` (`:395,415`), `[gi]` (`:425,445`) — **random access by a stored `u32`
+handle**. Everything else across all 10 modules is `.iter()`-chaining or
+`.len()`, which is mechanical.
+
+### Missing API, discovered by the census
+`tr_diverge` (`:285-288`) runs a **redundant linear `.position()` scan** to
+recover the arena index of a belief it *just fetched* via `get()` — because
+`get()` returns `&Belief` without its index. An O(n) scan for a value the index
+map already knows. **`belief index by statement` is a missing accessor**, not a
+new requirement.
+
+### The minimal semantic API — 9 reads, 3 writes, deduplicated across all 10 modules
+**Reads:** `count all` · `derived only (rung>=1)` · `beliefs by copula` (± grouped
+by subject or predicate) · `grounded is_a grouped by predicate` ·
+`belief by statement` · **`belief index by statement`** · `belief by handle` ·
+`beliefs sharing a term` (term + copula) · `existence scan over a subject's
+parents` · `max term id` · `aggregate/statistical reduction over a scalar field`.
+**Writes:** `admit observation` · `admit derived` · `close to fixed point`.
+
+Small and nameable. **A generic boxed iterator would swap a mega-accessor for a
+fuzzier one** — and would not serve `belief by handle` at all.
 
 ---
 
