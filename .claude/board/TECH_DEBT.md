@@ -1,5 +1,20 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-DOC-COMMENTS-CLAIM-UNWIRED-BEHAVIOUR (2026-07-27)
+
+Three production doc-comments describe `deinterlace`/`QueryReference` as
+providing real durability or moment-reads — `batch_writer.rs:9-10`,
+`reasoning_loop.rs:51-52`, `witness_fabric.rs:134` — while **none of those files
+import or call either symbol**. The mechanism is test-only end to end (one
+test-only `DeinterlaceRow` impl; all 6 `deinterlace()` callers in tests; no HLC
+source anywhere in `crates/`). Same class as `KanbanColumn::Commit`'s *"calcify
+to Lance"* with nothing implementing it.
+
+This is the falsifiability rule applied to prose: a doc-comment claim is not a
+behaviour. Either the claim is labelled *claimed, unverified*, or the wiring
+lands. Source: §12 substrate trace 2026-07-27
+(`exec-runs/trace-B-writer-key.md`, `trace-A-write-path.md`).
+
 ## TD-BGE-M3-BGZ7-RELEASE-ASSET-TRUNCATED (2026-07-27)
 
 `bge-m3-f16.bgz7` (release `v0.1.0-bgz-data`) declares **389 tensors** in its

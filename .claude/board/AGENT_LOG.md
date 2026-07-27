@@ -1,3 +1,16 @@
+## 2026-07-27 — §12 substrate trace consolidated (Sonnet ×4, read-only)
+
+Tags: `exec-runs/trace-{A-write-path,B-writer-key,C-value-slab,D-allocations}.md`;
+synthesis: primer §14. Outcome: **the substrate write path is UNBUILT** — no
+Lance-version production, `MailboxSoA` never implements `SoaEnvelope`, `cast()`
+has zero production call sites, `deinterlace` test-only end-to-end with no HLC
+source. §13's CODE-PROVEN labels came from type defs + doc-comments; corrected.
+Beliefs have no row home (only Truth declared, 8B/4B mismatch open; rung/
+contradiction/premises/evidence NONE). The CSR allocation criticism targeted
+test-only code and is withdrawn. Real waste is arena-internal re-indexing
+(by_sc per pass; 3× HashMap rebuilds in tactics.rs). Test lock verified as
+depending on arena-admission-index order specifically. No code changed.
+
 ## 2026-07-27 — cosine-replacement census consolidated (Sonnet ×4, read-only)
 
 Tags: `exec-runs/cosine-census-{contract,planner-core,deepnsm-group,lab-crates}.md`;
