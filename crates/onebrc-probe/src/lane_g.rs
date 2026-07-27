@@ -238,7 +238,6 @@ impl Actor for ShardOwner {
                     from: KanbanColumn::CognitiveWork,
                     to: KanbanColumn::Evaluation,
                     witness_chain_position: pos,
-                    libet_offset_us: 0,
                     exec: ExecTarget::Native,
                 });
             }

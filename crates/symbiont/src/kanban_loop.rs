@@ -180,18 +180,11 @@ impl MailboxSoaOwner for SymbiontBoard {
     fn advance_phase(&mut self, to: KanbanColumn) -> KanbanMove {
         let from = self.phase;
         self.phase = to;
-        let libet_offset_us =
-            if from == KanbanColumn::Planning && to == KanbanColumn::CognitiveWork {
-                -550_000
-            } else {
-                0
-            };
         KanbanMove {
             mailbox: self.mailbox,
             from,
             to,
             witness_chain_position: self.cycle,
-            libet_offset_us,
             exec: ExecTarget::Native,
         }
     }
@@ -219,6 +212,7 @@ pub fn run_demo() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lance_graph_contract::kanban::LIBET_COMMIT_WINDOW_US;
 
     #[test]
     fn loop_drives_forward_arc_to_commit() {
@@ -235,9 +229,10 @@ mod tests {
             ]
         );
         assert!(board.phase().is_absorbing());
-        // the Planning→CognitiveWork crossing carries the Libet anchor; others 0.
-        assert_eq!(trail[0].libet_offset_us, -550_000);
-        assert_eq!(trail[1].libet_offset_us, 0);
+        // the Planning→CognitiveWork crossing carries the Libet anchor; others None
+        // (the window is now derived from the transition, not stamped).
+        assert_eq!(trail[0].libet_window_us(), Some(LIBET_COMMIT_WINDOW_US));
+        assert_eq!(trail[1].libet_window_us(), None);
         // monotonic cycle stamps (the SoA cycle-ownership stamp, R4).
         assert_eq!(
             trail.iter().map(|m| m.cycle()).collect::<Vec<_>>(),

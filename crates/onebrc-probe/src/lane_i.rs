@@ -322,7 +322,6 @@ impl Actor for OwnershipSink {
                     from: KanbanColumn::CognitiveWork,
                     to: KanbanColumn::Evaluation,
                     witness_chain_position: pos,
-                    libet_offset_us: 0,
                     exec: ExecTarget::Native,
                 });
             }
@@ -416,7 +415,6 @@ impl Actor for LanceSink {
                     from: KanbanColumn::CognitiveWork,
                     to: KanbanColumn::Evaluation,
                     witness_chain_position: pos,
-                    libet_offset_us: 0,
                     exec: ExecTarget::Native,
                 });
             }

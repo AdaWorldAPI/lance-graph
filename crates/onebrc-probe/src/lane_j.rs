@@ -358,7 +358,6 @@ impl Actor for OwnershipLane {
                     from: KanbanColumn::CognitiveWork,
                     to: KanbanColumn::Evaluation,
                     witness_chain_position: pos,
-                    libet_offset_us: 0,
                     exec: ExecTarget::Native,
                 });
             }
@@ -440,7 +439,6 @@ impl Actor for LanceLane {
                     from: KanbanColumn::CognitiveWork,
                     to: KanbanColumn::Evaluation,
                     witness_chain_position: pos,
-                    libet_offset_us: 0,
                     exec: ExecTarget::Native,
                 });
             }
