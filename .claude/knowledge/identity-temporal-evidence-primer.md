@@ -1283,3 +1283,139 @@ is a transient `f32→f64→f32` round-trip in
   used, unrelated.
 - Non-Rust components outside `crates/` unchecked; whether
   `witness_fabric.rs`'s `out_of_horizon` escalation is consumed downstream.
+
+---
+
+## 15. ⊘ §13 SUPERSEDED — de facto authoritative ≠ architecturally canonical (operator ruling, 2026-07-27)
+
+**§13's two-column table is withdrawn.** It compared a working arena against an
+*assumed-working* substrate and awarded the substrate `[CODE-PROVEN]`, which let
+"a type exists" be promoted to "the system works". §14's trace disproved the
+substrate column; this section replaces the table.
+
+### The distinction that must appear everywhere
+
+```text
+Current implementation authority:   BeliefArena heap state
+Ratified architecture:              resident zero-copy SoA standing wave
+Current gap:                        no implemented path connects the two
+```
+
+`BeliefArena` is **de facto authoritative** — the only live implementation of
+belief state. It is **NOT thereby architecturally canonical.** §14's phrase
+"canonical state" (trace D) is corrected here: it meant *"not a copy of anything
+live"*, and must never be read as blessing the heap arena. The intended SoA path
+remains mostly contractual scaffolding.
+
+### §13 replacement — THREE columns
+
+| Capability | Current LIVE implementation | Target CONTRACT status |
+|---|---|---|
+| Belief truth | `BeliefArena` field | palette-coded row tenant **declared** (`MetaWord::{nars_f,nars_c}`), wiring unresolved + 8B/4B width mismatch open |
+| Rung | `BeliefArena` field | carrier exists (`RungLevel`), **row wiring missing** |
+| Contradiction | `BeliefArena` field | **missing resident tenant** |
+| Premises | arena-local indices | **missing replay-stable resident representation** |
+| Evidence | folded source stamp (`Stamp`, 64-slot alias) | evidence-event semantics **and** tenant missing |
+| Write ownership | direct arena mutation | SoA/Kanban write path **missing** |
+| Version production | none for belief writes | **specified in prose only** |
+| Temporal read | arena snapshot behaviour | `deinterlace` **TESTED-ONLY** |
+| Parallel cast | none in production | API exists, **production call path missing** |
+
+### Code-proven findings from the §12 trace (settled)
+
+- No production Lance-version-producing belief write path.
+- `MailboxSoA` does **not** implement the required envelope seam.
+- `BatchWriter::cast()` has **no production callers**.
+- `deinterlace` is tested but **not used by any production read path**.
+- **No HLC producer exists.**
+- `AdjacencyStore::from_edges` is **test-only**; the existing CSR path is
+  **irrelevant to current production performance**.
+- `BeliefArena` is **not duplicating** a live SoA belief representation, because
+  **no such representation currently exists**.
+- Only NARS truth has even a *declared* row destination, and it carries an
+  unresolved width mismatch.
+- Rung / contradiction / premises / evidential membership have **no demonstrated
+  resident tenant location**.
+- The actual repeated work is **inside** the arena: `by_sc` rebuilt during
+  closure; separate `deg` / `by_pred` / `by_subj` reconstructions;
+  `batch_adjacent` copying data it already possesses.
+
+### ⊘ CORRECTION — the five "AMBIGUOUS" cells were a FALSE BINARY
+
+§14 framed the `tactics.rs` re-indexing as *maintained secondary indices vs
+recompute*, and deferred it as a design question. **Both options are wrong under
+the universal zero-copy rule:**
+
+- **maintaining** them duplicates state;
+- **reconstructing** them repeatedly materializes state.
+
+A maintained `HashMap` / lookup table / CSR / grouped vector whose purpose is
+merely to **reorganize existing belief state** is a forbidden duplicate
+representation. It is permissible **only** if what is stored is genuine *entropy
+work with independent semantic value* — a NARS-derived relation, `CausalEdge64`,
+a palette-coded truth result, a contradiction result, or another ratified
+reasoning product.
+
+The zero-copy question is therefore:
+
+```text
+Can the required relationship be read directly from the resident standing wave,
+or must reasoning derive a NEW semantically valuable relation and store THAT?
+```
+
+If `by_pred` is merely a convenience grouping → **it must disappear as a
+structure.** If predicate adjacency is itself meaningful reasoning state → it may
+be carried by an authorized semantic carrier (causal / NARS edge) — **because it
+adds meaning, never because it accelerates lookup.**
+
+### The implementation gate (precise)
+
+**Implementation does NOT begin with a `BeliefArena` migration.** It begins only
+once the §12 trace can identify an **uninterrupted production path**:
+
+```text
+resident belief tenant
+  → owner-authorized mutation
+  → synchronous Kanban transition
+  → ahead-firing descriptor cast
+  → new Lance standing-wave position
+  → production temporal read
+```
+
+Today the first missing link appears **before the write**:
+
+```text
+MailboxSoA → SoaEnvelope ownership/writer seam → live Lance write path
+```
+
+That remains a **trace statement, not a design prescription**, until the exact
+existing contracts are mapped.
+
+### THERE MUST NEVER BE A TRANSFER
+
+The repo does **not** contain two competing belief stores. It contains:
+
+```text
+one functioning but architecture-nonconformant heap belief engine
++
+one partially specified, mostly unwired zero-copy substrate
+```
+
+The job is **not** to optimize a transfer between them — **there must never be a
+transfer.** The job is to complete the resident standing-wave path until
+reasoning operates there **directly**, then retire the heap authority — without
+serialization, materialization, reconstruction, or shadow indexing.
+
+### Three classes of work justified NOW (no destination invented)
+
+1. **Documentation truthfulness.** Downgrade to `DECLARED` / `TESTED-ONLY` /
+   `UNWIRED`: *"Commit calcifies to Lance"*, *"deinterlace provides production
+   moment reads"*, *"cast is the production commit primitive"*. Tracked as
+   `TD-DOC-COMMENTS-CLAIM-UNWIRED-BEHAVIOUR`.
+2. **Pure copy elimination.** `batch_adjacent` (`csr.rs:100-119`) copying an
+   already-borrowed slice may be removed **where the result is semantically
+   identical and no alternate owned representation is retained.**
+3. **Legacy value-algebra scope identification.** Canon is settled — truth /
+   contradiction = palette codes; comparison = `[a,b]` reads; floats = legacy —
+   so the §14 f32 inventory defines retirement SCOPE. **Migrating the values
+   waits** until their resident tenant and write path exist.
