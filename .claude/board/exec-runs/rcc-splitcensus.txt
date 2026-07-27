@@ -97,3 +97,15 @@ LIMITATIONS / HONESTY NOTES
     stats for the other, per "one canonical output" simplicity).
   - Did not touch: versification-map file or WordNet tier-delta script
     (sibling agents' scope); .gitignore; any .claude/board/ file.
+
+CORRECTION 2026-07-27 (CodeRabbit review of PR #852, appended not rewritten)
+  The "CLI ADDITION" paragraph above reports the --anchor verification as
+  "identical split-census numbers (1319/48.9%/43.0%)". That triple pairs the
+  AFTER count with the BEFORE percentage and is a misreading of this file's
+  own §C numbers. Correct, per lines 47-53 above:
+      before: n_split = 1501  -> 48.9%
+      after:  n_split = 1319  -> 43.0%
+  The verification CLAIM is unaffected — --anchor is additive and the census
+  was byte-identical with and without the flag. Only the transcription of the
+  pair into the summary line was wrong. Kept as an appended correction rather
+  than an in-place edit so the original record stays auditable.

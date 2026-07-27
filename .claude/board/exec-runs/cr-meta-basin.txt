@@ -1,0 +1,154 @@
+exec-run: cr-meta-basin
+file: crates/lance-graph-planner/src/nars/meta_basin.rs
+task: fix 3 CodeRabbit findings from merged PR #852
+
+FINDING 1 — stable_under_perturbation (recompute complete basin membership)
+--------------------------------------------------------------------------
+Change: the old body looped over `self.members` only, computed each
+member's trajectory at `perturbed_hops`, and returned `false` the moment
+two of THOSE members disagreed. It never looked at any row outside
+`self.members`, so a MERGE (an outside row converging onto the basin's
+post-perturbation shape while the original members still agree with each
+other) was invisible and reported `true`.
+
+Fix: re-grade every row of the full `window` at `perturbed_hops` (not just
+`self.members`), re-cluster with the existing `meta_cluster`, sort the
+member-index sets, and require an EXACT match between one of the
+re-clustered basins and `self.members`' index set. Any difference (merge OR
+split) now returns `false`. Doc comment rewritten to state precisely what
+"stable" means (identical membership under re-clustering).
+
+Falsifying input: the fixture in
+`stable_under_perturbation_catches_a_merge_the_internal_check_misses` —
+two independent 2-hop Antecedent chains (0->1->2, 10->11->12) share a
+meta-basin at max_hops=8 (hops=1, escalated=false); an unrelated 3-hop
+chain (20->21->22->23) sits in a DIFFERENT meta-basin at that budget
+(hops=2, escalated=false). At perturbed_hops=1 every chain's first hop
+exhausts the budget, so ALL of them (including the previously-outside
+chain's start row) read hops=1/escalated=true. The old internal-only
+check would say `true` (the three original members still agree with each
+OTHER); the fixed code says `false` because the true re-clustered set
+gained a member. The test explicitly re-derives what the old check would
+have concluded (`shapes.all(|s| first.same_meta_basin(s))` — asserted
+true, i.e. the fixture DOES fool the internal-only logic) and then asserts
+the real API returns `false`. This is the same fixture used for finding 3.
+
+FINDING 2 — stability_around (probe range doesn't centre on the caller's budget)
+---------------------------------------------------------------------------------
+Change: old range was `0..=min(max_hops+2, 16)` — at max_hops=255 the
+caller's own budget was never probed (255 not in 0..=16), contradicting the
+doc's claim of "centring on the caller's own budget".
+
+Fix: windowed the sweep AROUND max_hops: `lo = max_hops.saturating_sub(8)`,
+`hi = max_hops.saturating_add(2)`, budgets `lo..=hi`. Factored the range
+into a private free function `stability_around_window(max_hops: u8) ->
+RangeInclusive<u8>` so a test can assert on the range itself rather than
+only "the call doesn't panic". Doc comment on `stability_around` rewritten
+to describe the actual window and explicitly call out why the old range
+was wrong (never probed budgets above 14).
+
+New test: `stability_around_probes_the_callers_own_budget_even_at_255`.
+Falsifying input: `stability_around_window(255)` under the OLD code would
+be `0..=16` (does not contain 255) — the test asserts `window.contains(&255)`,
+which fails under the pre-fix range and passes under the fix. Also asserts
+the window stays bounded (<=11 probes) and that a small max_hops (1) still
+covers 0 and 1, so the fix doesn't regress the small-budget case.
+
+FINDING 3 — perturbation_marks_budget_artifacts_and_spares_singletons never fires
+------------------------------------------------------------------------------------
+The existing test only asserted "singletons are spared" and "the call does
+not panic" — no input in it ever produced an unstable multi-member basin,
+so (per the reviewer's own framing) a `stable_under_perturbation` that
+always returned `true` would still have passed it. I did NOT touch that
+existing test (kept as-is; both its assertions still hold and are legit
+regression coverage for the singleton guard and the totality-over-any-budget
+claim) — instead added a NEW test,
+`stable_under_perturbation_catches_a_merge_the_internal_check_misses`,
+which is the "can-it-fire" test the falsifiability rule requires. It
+constructs a genuine multi-member basin that DISSOLVES (via merge, not
+split) at a perturbed budget and asserts `stable_under_perturbation`
+returns `false`. This is the same fixture described under Finding 1 above.
+
+Falsifying input for the new assertion: the merge fixture. Under the
+pre-fix code (internal-members-only comparison) this exact input makes
+`stable_under_perturbation` return `true` (verified algebraically and
+re-asserted in the test itself via the `shapes.all(...)` check) — so the
+new assertion `!basin.stable_under_perturbation(...)` is a real falsifier
+of the old implementation, not a tautology.
+
+Test names added
+----------------
+1. stable_under_perturbation_catches_a_merge_the_internal_check_misses
+   (crates/lance-graph-planner/src/nars/meta_basin.rs, in `mod tests`,
+   placed after `perturbation_marks_budget_artifacts_and_spares_singletons`)
+2. stability_around_probes_the_callers_own_budget_even_at_255
+   (placed after `stability_is_a_fraction_and_the_bool_wrapper_still_agrees`,
+   before the "ranked surface" section)
+
+Existing tests: none weakened, none deleted, none rewritten. All 16
+pre-existing tests in this module still pass unmodified.
+
+Test run output
+----------------
+$ cargo test -p lance-graph-planner --lib nars::meta_basin
+running 19 tests
+test nars::meta_basin::tests::density_score_discriminates_a_planted_outlier ... ok
+test nars::meta_basin::tests::a_uniform_spread_reports_no_anomaly ... ok
+test nars::meta_basin::tests::a_lone_row_is_neutral_not_anomalous ... ok
+test nars::meta_basin::tests::density_scores_are_deterministic_and_never_mutate_their_input ... ok
+test nars::meta_basin::tests::escalation_is_categorical_not_a_continuous_axis ... ok
+test nars::meta_basin::tests::grading_carries_both_axes_and_the_tail_is_the_low_quorum_rows ... ok
+test nars::meta_basin::tests::meta_cluster_keeps_singletons_not_just_the_dominant_basin ... ok
+test nars::meta_basin::tests::none_terminus_is_a_group_never_an_imputed_zero ... ok
+test nars::meta_basin::tests::perturbation_marks_budget_artifacts_and_spares_singletons ... ok
+test nars::meta_basin::tests::ranked_path_subsumes_the_coarse_path_without_reclassifying ... ok
+test nars::meta_basin::tests::ranked_suggestions_fire_are_ordered_and_stay_advisory ... ok
+test nars::meta_basin::tests::stability_around_probes_the_callers_own_budget_even_at_255 ... ok
+test nars::meta_basin::tests::mini_basins_partition_their_meta_basin ... ok
+test nars::meta_basin::tests::stability_is_a_fraction_and_the_bool_wrapper_still_agrees ... ok
+test nars::meta_basin::tests::stable_under_perturbation_catches_a_merge_the_internal_check_misses ... ok
+test nars::meta_basin::tests::suggestions_are_advisory_and_evidenced ... ok
+test nars::meta_basin::tests::zero_shape_distance_agrees_with_same_meta_basin ... ok
+test nars::meta_basin::tests::suggester_can_actually_fire ... ok
+test nars::meta_basin::tests::metric_axioms_hold_over_the_sampled_space ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 297 filtered out; finished in 0.01s
+
+Notes / things I found the reviewer's framing understated
+-----------------------------------------------------------
+1. `coarse_flags` (the internal helper `outlier_suggestions` and
+   `ranked_outlier_suggestions` both call) constructs basins via
+   `meta_cluster(tail_rows)` — a SUBSET of the window (only rows at or
+   below `tail_below`) — but then calls `basin.stable_under_perturbation(
+   window, ...)` with the FULL window. My fix re-clusters the FULL window
+   inside `stable_under_perturbation`, which is correct per the literal
+   finding-1 wording ("recompute complete basin membership") and matches
+   the intent (a merge can come from ANY row in the window, not just the
+   tail), but it does mean a basin computed over `tail_rows` is now
+   compared against a re-clustering universe that includes non-tail rows
+   too. I believe this is the right behaviour (a stability claim about a
+   basin should not pretend the rest of the window doesn't exist), but it
+   is worth flagging explicitly: the reviewer's note didn't spell out
+   which universe "complete" means (window vs tail), and I chose window
+   because that's `stable_under_perturbation`'s own parameter and the
+   function has no other way to know about `tail_below`.
+2. `stability_around`'s doc previously said "capped so the probe stays
+   bounded on a `255` budget" as if the `.min(16)` cap were the load-bearing
+   correctness mechanism; it was actually what caused the bug (it clamped
+   the window to a fixed low range regardless of `max_hops`, which is what
+   made the caller's own high budget fall outside it). The new window is
+   naturally bounded (width <= 11) without needing an explicit cap, which
+   is a cleaner invariant than the one being replaced.
+3. Did not find anything the reviewer got wrong on these three findings —
+   all three were real and precisely characterized. The one place I'd add
+   is the tail-vs-window universe ambiguity noted above (item 1), which
+   the review comment (as relayed to me) didn't disambiguate.
+
+Rules followed
+--------------
+- No `cargo build`/`cargo check` run (only `cargo test -p lance-graph-planner
+  --lib nars::meta_basin`, which uses the shared target/).
+- No worktree created, no git commands run.
+- Only file touched: crates/lance-graph-planner/src/nars/meta_basin.rs.
+- No unwrap() outside test code; no &Vec parameters; no needless borrows;
+  iterator-based set construction throughout.

@@ -625,6 +625,39 @@ impl RungLevel {
         (0..take).filter_map(move |i| excluded.get(i * stride + phase).copied())
     }
 
+    /// A spread sample of the periphery **restricted to watchers a caller can
+    /// actually use** — the eligibility predicate is applied BEFORE the stride,
+    /// so ineligible recipes never consume the `k` budget.
+    ///
+    /// Sampling first and filtering after (the shape this replaces) silently
+    /// spends the whole budget on watchers the caller then skips, and the
+    /// channel reports agreement without having observed a single relevant
+    /// tactic — a watchdog starved into silence by its own sampler. That is the
+    /// same defect one level up from the vacuous assertion: not a wrong answer,
+    /// an answer with no evidence behind it.
+    ///
+    /// `k` is therefore a budget of ELIGIBLE watchers, which is what every
+    /// caller already believed it was.
+    pub fn peripheral_sample_where<P>(
+        self,
+        k: usize,
+        pred: P,
+    ) -> impl Iterator<Item = &'static Recipe>
+    where
+        P: Fn(&Recipe) -> bool,
+    {
+        let eligible: Vec<&'static Recipe> =
+            self.peripheral_recipes().filter(|r| pred(r)).collect();
+        let n = eligible.len();
+        let take = k.min(n);
+        let stride = if take == 0 {
+            1
+        } else {
+            (n / take.max(1)).max(1)
+        };
+        (0..take).filter_map(move |i| eligible.get(i * stride).copied())
+    }
+
     /// Every recipe admissible at this rung, ascending by id.
     ///
     /// This is the stratified replacement for the unconditional

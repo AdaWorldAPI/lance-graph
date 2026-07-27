@@ -1,3 +1,39 @@
+## 2026-07-27 — cr-generators consolidated (Sonnet, tag `exec-runs/cr-generators.txt`)
+
+Nine CodeRabbit generator findings fixed; **all six files ported to MAIN**, not
+the bake branch — the generators were restored to main in the same arc
+(`E-CONFIDENCE-SHOULD-COMPRESS-KNOWLEDGE-OUT-OF-AWARENESS-1` §reproducibility),
+so main is now their home. Environment note: the agent's worktree had been
+reclaimed; it worked in a plain snapshot dir and said so rather than inventing
+a git state — the orchestrator ported the six diffs.
+
+Substantive results:
+- `normalize_en` `-es` branch: `house`/`houses` and `prize`/`prizes` now merge.
+  The agent found the PREVIOUS fix was itself a regression of the original bug
+  (a bare terminal s/z read as the sibilant case) and documented it in place.
+- `build_wordnet_rail` per-POS denominator: fixed to `comparable` (was raw
+  total, systematically understating). **Reran against real WNDB present in the
+  environment: the published 14.33% / 33.84% figures are CONFIRMED UNCHANGED**
+  (absent = 0 for both POS on the full dataset) — verified by execution, and the
+  bug independently confirmed by a synthetic counter-example (40% vs true 50%).
+  So no published number needed correction; the defect was real but inert here.
+- `tier_delta` absence check now symmetric (`word_b` could never yield ABSENT —
+  a missing token was reported as `NO_COMMON_ANCESTOR`, conflating absence with
+  a measured-but-disjoint result). Third instance of absent-read-as-measured in
+  one arc, after the script-blind versification detector.
+- World-writable `/tmp/wn/dict` fallback now requires ownership match — **fired
+  for real in this sandbox** (owned by another uid) and correctly refused.
+- `--no-fetch` now genuinely refuses network on both paths (verified live, twice).
+- Two hardcoded session-`/tmp` defaults replaced with env → cwd → clear exit.
+- Dead row cap (`len(receipts)` → `idx`) and a report typo.
+
+## 2026-07-27 — PR #852 review follow-up (3 agents + main thread)
+
+- **cr-meta-basin** (Sonnet, tag `exec-runs/cr-meta-basin.txt`): `stable_under_perturbation` now re-clusters the COMPLETE window at the perturbed budget and requires an exact member-index match (catches merges, not just internal disagreement); `stability_around` windows on the caller's budget (`max_hops-8 ..= max_hops+2`) instead of the `.min(16)` cap that made a 255-budget caller never probe its own budget; added a can-it-fire fixture where a basin provably dissolves, asserting the OLD check would have said `true`. 19/19 green. Honest caveat recorded: "complete window" was ambiguous (window vs tail universe) in the review note; agent chose window and said why.
+- **cr-vacuity** (Sonnet, tag `exec-runs/cr-vacuity.txt`): `cam_pq_scan` anti-vacuity assertion now measures SURVIVORS (`cams.len() - rejects.heuristic_len()`) not the truncated result list; the neighbouring assertion was dropped as algebraically implied (argued, not assumed). `insight_reason_wired` parsing extracted to a testable `parse_wordnet_rails`, partial schema corruption now warns with counts, and 3 fixtures (clean / all-v2 / mixed) prove the guard fires. 3 + 13 green.
+- **cr-generators** (Sonnet, bake worktree): nine generator findings — in flight at commit time.
+- **main thread**: `peripheral_sample_where` (filter-before-stride, so ineligible watchers no longer eat the `k` budget); `cross_family_dissent` as a SEPARATE independence channel from same-family calibration dissent, test-pinned to be able to disagree; `witness_fabric` disjointness assertion compares run identity instead of derived-`PartialEq` (which was structurally always-true); all 11 generators restored to main + the branch-local ignore reverted; board hygiene (TECH_DEBT reorder, exec-run correction appended, redaction-trace entry).
+
 ## 2026-07-26 — mutation-suite-wave1 consolidated (2 Sonnet grindwork executors, tag-files → this entry)
 
 - **mutate-falsewitness** (tag: `exec-runs/mutate-falsewitness.txt`): `mutate_falsewitness.py` (466 lines, stdlib-only). KJV cloned as fake 6th lane, 7893 NT rows. Naive agreement +94.02% (inflates); pairwise similarity matrix detects clone at exactly 1.000000 (real luther↔elberfelder = 0.4413); independence-weighted M3 does NOT inflate (−26.12%) but deflates via cluster-dilution (German pair −18%) + small-denominator amplification (bkr +35.85% on 0.0027 base; tischendorf +0.00% exact — clean control). Two runs byte-identical. Board: E-MUTATION-WAVE1-VERSIFICATION-DETECTOR-IS-SCRIPT-BLIND-1 (shared entry).

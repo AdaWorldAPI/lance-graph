@@ -1,5 +1,85 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-27 — ISS-PEARL-VOCABULARY-WITHOUT-PEARL-MECHANICS — the substrate has the Pearl TAXONOMY comprehensively and the Pearl OPERATOR not at all; four different kinds of "cause" share one untyped edge — OPEN
+
+**Status:** OPEN (audit result, measured on the main thread — operator asked
+directly: *"I'm not convinced that we implemented MIT proposed causality
+learning properly"*. The suspicion is correct.) **Priority:** P1 for any claim
+of causal capability; P3 for the running system, which does not currently
+depend on the missing half.
+
+**What EXISTS (verified, not guessed):** `orchestration_mode::pearl_level()`
+returning 1/2/3; the SPO 2³ mask taxonomy mapping S×O → `P(Y|X)` (SEE, L1),
+P×O → `P(Y|do(X))` (DO, L2), full SPO → `P(Y|do(X'),X=x)` (IMAGINE, L3);
+`InferenceOp::Counterfactual`; `RungLevel::Counterfactual`; recipe 31 (ICR)
+carrying the counterfactual label; a `pearl_junction` module. The mask→level
+mapping is principled and worth keeping — this is a good taxonomy.
+
+**What does NOT exist:**
+
+1. **No intervention operator.** Nothing in `lance-graph-contract` or
+   `lance-graph-planner` severs a node's incoming mechanisms, invalidates
+   evidence derived from its old parents, or recomputes descendants. Grep for
+   `sever` / `disable_mechanism` / causal-ancestry invalidation returns
+   nothing; the only `lineage` hits are property-version lineage
+   (`upsert_with_lineage`), which is storage versioning, not evidence ancestry.
+   **Overwriting a value while retaining evidence derived from its old parents
+   is a contradictory mutation, not `do(X = x)`.**
+2. **The one counterfactual kernel is a stub.** `recipe_kernels::Icr` (#31)
+   XORs three hardcoded `u32` constants, counts bit divergence, and multiplies
+   its confidence contribution by **`0.0`**. Its parameter is `_ctx` — it reads
+   nothing, so it returns the same result for every input and **no test over it
+   can fail**. It is now labelled as a stub in source (2026-07-27); before that,
+   recipe 31's rung was the only "evidence" of counterfactual capability.
+   (3 other kernels are also context-blind: `Are`#19, `Zcf`#24, `Hkf`#34.
+   31/35 do read context — this is a targeted gap, not a blanket stub problem.)
+3. **No `CausalDomain` distinction.** Four structurally different causal claims
+   share one untyped edge: **World** (`betrayal → loss of trust`, a claim about
+   the represented world), **Interpretive** (`accusative marking → object-role
+   resolution` — the case marker did not cause the event, it caused the PARSER
+   to choose), **Derivational** (`WordNet rail + recipe 17 → proposition P
+   entered the belief field` — why the substrate believes something), and
+   **Experiential** (`negative qualia residue → later ambiguity read as
+   threatening` — a causal relation inside the reader). Each needs a DIFFERENT
+   intervention (`do(event = absent)` / mask grammatical evidence / disable a
+   recipe or evidence lineage / lesion one qualia channel). Untyped, an
+   intervention proving a token causes a parser decision can be recorded as
+   evidence that the token's concept caused the narrated event — a deterministic
+   category error.
+4. **`InferenceType` duplication is live.** The contract's `nars::InferenceType`
+   is `{Deduction, Induction, Abduction, Revision, Synthesis}` — **no
+   Intervention, no Counterfactual** — while `CLAUDE.md`'s
+   I-LEGACY-API-FEATURE-GATED discusses `InferenceType::Counterfactual` with
+   mantissa −6 (the `causal-edge` crate's copy). `TYPE_DUPLICATION_MAP` records
+   3 copies; this audit confirms they have DIFFERENT VARIANT SETS, which makes
+   "the contract is canonical" false for this type today.
+
+**Why it matters more here than elsewhere:** the substrate genuinely does make
+causal EXPERIMENTS cheap (versioned snapshots, deterministic replay, parallel
+branches, observable recipes, read-as-of bounds). That is the expensive half in
+the external literature. But **cheap experiments do not make causal
+IDENTIFICATION free** — observational evidence identifies an equivalence class
+of graphs, and orienting the remaining edges needs surgical interventions,
+preserved equivalence classes, represented hidden common causes (shared
+manuscript, translation genealogy, shared tokenizer, shared WordNet binding,
+shared Jina model, shared earlier inferred edge — the false-witness probe
+already measured that lanes are not independent), cross-environment invariance,
+and negative controls. None of those six are implemented.
+
+**Resolution path (tasks #47/#48, deliberately ordered audit-before-build):**
+FIRST classify every existing edge labelled causal into World / Interpretive /
+Derivational / Experiential / Unknown, and for each record whether it was
+observed, inferred from temporal order, supported by intervention, or supported
+only by simulation. THEN type the domain. Do NOT build more causal machinery
+before that census — the likely finding is that `preceded` / `enabled` /
+`provided evidence for` / `derived` / `predicted` / `caused` are already
+travelling under one umbrella, and separating them is the actual unlock.
+
+**Cross-ref:** `E-CONFIDENCE-SHOULD-COMPRESS-KNOWLEDGE-OUT-OF-AWARENESS-1`,
+`E-MUTATION-WAVE1-…-1` (measured witness non-independence = a hidden common
+cause, already in hand), CLAUDE.md § falsifiability rule ("a doc-comment claim
+is not a behaviour" — recipe 31 is the exemplar), `TYPE_DUPLICATION_MAP.md`.
+
 ## 2026-07-26 — ISS-VERSIFICATION-SCRIPT-BLIND — the anchor-overlap versification detector cannot measure cross-script lane pairs and reports the tie as `offset=0` — the Greek lane's versification is UNVERIFIED — OPEN
 
 **Status:** OPEN (P1 for any consumer of `versification_map.tsv` rows involving

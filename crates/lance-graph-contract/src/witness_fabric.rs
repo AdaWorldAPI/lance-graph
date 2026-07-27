@@ -1628,8 +1628,14 @@ mod tests {
         assert_eq!(superseded.len() + 1, runs.len());
         assert!(superseded.iter().all(BeliefRun::is_superseded));
         assert!(!runs.last().unwrap().is_superseded());
+        // Compare on IDENTITY (`first_revision`), not on the whole struct:
+        // `superseded_at` is `Some` for every superseded run and `None` for the
+        // current one, so a derived-`PartialEq` comparison is structurally
+        // false whatever the tiling logic does — an assertion no input can
+        // fail. Start-index collision is the real leak this must catch.
+        let current_start = runs.last().expect("non-empty").first_revision;
         assert!(
-            !superseded.iter().any(|r| r == runs.last().unwrap()),
+            !superseded.iter().any(|r| r.first_revision == current_start),
             "the current run leaked into the periphery"
         );
 

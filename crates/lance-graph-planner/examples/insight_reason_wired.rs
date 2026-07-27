@@ -62,6 +62,56 @@ fn dir(env: &str, sub: &str) -> PathBuf {
         .join(sub)
 }
 
+/// `word -> (kind, type)` — the WordNet symbolic rail table.
+type WordnetRails = HashMap<String, (String, String)>;
+
+/// Parse the WordNet v1 rail TSV text into `word -> (kind, type)`, isolated
+/// from file I/O so it is directly testable against synthetic fixtures.
+///
+/// Returns `(rails, wrong_arity, total_rows)` on success, or `Err` when
+/// **every** non-comment row had the wrong column count (a whole-file schema
+/// mismatch, e.g. pointing `$WORDNET_DIR` at the 7-column v2 rail) — that
+/// case must fail loudly rather than silently reason over an empty rail set.
+/// A file mixing well-formed and wrong-arity rows returns `Ok` with
+/// `wrong_arity > 0`; the caller (`Basins::load`) is responsible for
+/// surfacing that partial-corruption signal.
+fn parse_wordnet_rails(wn_txt: &str) -> Result<(WordnetRails, usize, usize), String> {
+    let mut rails = HashMap::new();
+    let mut wrong_arity = 0usize;
+    let mut total_rows = 0usize;
+    for l in wn_txt
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.is_empty())
+    {
+        total_rows += 1;
+        let c: Vec<&str> = l.split('\t').collect();
+        // v1 schema is EXACTLY `word<TAB>pos<TAB>kind<TAB>type`. The guard is
+        // `== 4`, not `>= 4`, deliberately: the v2 rail
+        // (`wordnet31_isa_v2.tsv`) has 7 columns and would satisfy a
+        // permissive guard while `c[2]`/`c[3]` silently became
+        // `sense_num`/`synset_offset` — garbage EntityType tenants and
+        // WordNet rails with no error anywhere. Same filename, different
+        // meaning, is the `I-LEGACY-API-FEATURE-GATED` failure shape; a
+        // strict arity check turns it into a loud skip.
+        if c.len() == 4 && !rails.contains_key(c[0]) {
+            rails.insert(c[0].to_string(), (c[2].to_string(), c[3].to_string()));
+        } else if c.len() != 4 {
+            wrong_arity += 1;
+        }
+    }
+    // A wholly wrong-arity file is a SCHEMA MISMATCH, not sparse data —
+    // fail loudly rather than silently reasoning over an empty rail set.
+    if rails.is_empty() && wrong_arity > 0 {
+        return Err(format!(
+            "wordnet rail schema mismatch: {wrong_arity} rows, none with the \
+             expected 4 columns (`word<TAB>pos<TAB>kind<TAB>type`). The v2 rail \
+             has 7 columns and is NOT a drop-in replacement — point \
+             $WORDNET_DIR at a v1 rail, or migrate this reader."
+        ));
+    }
+    Ok((rails, wrong_arity, total_rows))
+}
+
 /// The two-basin meaning store: WordNet symbolic rails + COCA syntax lexicon.
 struct Basins {
     /// COCA `word → (lemma, pos)` — the syntax axis (n/v/b/j/r/i).
@@ -94,36 +144,23 @@ missing Release data. The codebooks are NOT in the repo:
                 lex.insert(c[0].to_string(), (c[1].to_string(), pos));
             }
         }
-        let mut rails = HashMap::new();
-        let mut wrong_arity = 0usize;
-        for l in wn_txt
-            .lines()
-            .filter(|l| !l.starts_with('#') && !l.is_empty())
-        {
-            let c: Vec<&str> = l.split('\t').collect();
-            // v1 schema is EXACTLY `word<TAB>pos<TAB>kind<TAB>type`. The guard is
-            // `== 4`, not `>= 4`, deliberately: the v2 rail
-            // (`wordnet31_isa_v2.tsv`) has 7 columns and would satisfy a
-            // permissive guard while `c[2]`/`c[3]` silently became
-            // `sense_num`/`synset_offset` — garbage EntityType tenants and
-            // WordNet rails with no error anywhere. Same filename, different
-            // meaning, is the `I-LEGACY-API-FEATURE-GATED` failure shape; a
-            // strict arity check turns it into a loud skip.
-            if c.len() == 4 && !rails.contains_key(c[0]) {
-                rails.insert(c[0].to_string(), (c[2].to_string(), c[3].to_string()));
-            } else if c.len() != 4 {
-                wrong_arity += 1;
-            }
-        }
-        // A wholly wrong-arity file is a SCHEMA MISMATCH, not sparse data —
-        // fail loudly rather than silently reasoning over an empty rail set.
-        if rails.is_empty() && wrong_arity > 0 {
-            return Err(format!(
-                "wordnet rail schema mismatch: {wrong_arity} rows, none with the \
-                 expected 4 columns (`word<TAB>pos<TAB>kind<TAB>type`). The v2 rail \
-                 has 7 columns and is NOT a drop-in replacement — point \
-                 $WORDNET_DIR at a v1 rail, or migrate this reader."
-            ));
+        let (rails, wrong_arity, total_rows) = parse_wordnet_rails(&wn_txt)?;
+        // Partial corruption is invisible if only the "rails ended up
+        // completely empty" case is surfaced: a file mixing well-formed
+        // 4-column rows with v2-shaped (7-column) rows silently drops the bad
+        // rows with no signal, even when a meaningful chunk of the rail set is
+        // missing. This is a CLI example whose caller (`main`) already treats
+        // a hard `Err` as a print-and-exit — there is no downstream consumer
+        // that would act on a `Result` here, so a partial mismatch is surfaced
+        // as a loud stderr warning naming the counts rather than a hard `Err`
+        // (which is reserved for the "nothing parsed at all" case above).
+        if wrong_arity > 0 {
+            eprintln!(
+                "warning: {wrong_arity} of {total_rows} wordnet rail rows had wrong arity \
+                 (expected 4 columns `word<TAB>pos<TAB>kind<TAB>type`) and were skipped — \
+                 {} rails loaded, the rail set may be missing entries",
+                rails.len()
+            );
         }
         Ok(Self { lex, rails })
     }
@@ -463,4 +500,90 @@ fn main() {
          (reserve-don't-reclaim)."
     );
     println!("\n(usage: cargo run -p lance-graph-planner --example insight_reason_wired -- FILE [FILE ...])");
+}
+
+#[cfg(test)]
+mod wordnet_rail_parse_tests {
+    use super::parse_wordnet_rails;
+
+    /// A valid v1 fixture must load fine: three distinct 4-column rows, all
+    /// three survive, `wrong_arity == 0`. Falsified by any regression that
+    /// starts rejecting well-formed 4-column rows.
+    const V1_VALID: &str = "\
+shepherd\tn\tisa\therder
+lamb\tn\tisa\tanimal
+moses\tn\tinst\tprophet
+";
+
+    /// A v2-shaped fixture: every row has 7 columns
+    /// (`word<TAB>pos<TAB>sense_num<TAB>synset_offset<TAB>...`), none with the
+    /// expected v1 arity of 4. This is the schema-mismatch input the guard
+    /// exists to catch.
+    const V2_SHAPED: &str = "\
+shepherd\tn\t1\t12345678\tfoo\tbar\tbaz
+lamb\tn\t1\t23456789\tfoo\tbar\tbaz
+moses\tn\t1\t34567890\tfoo\tbar\tbaz
+";
+
+    /// A mix of well-formed v1 rows and v2-shaped rows in the same file — the
+    /// partial-corruption case: some rails load, some rows are silently
+    /// wrong-arity, and the caller must be told the counts rather than
+    /// discovering only that the rail set is non-empty.
+    const MIXED: &str = "\
+shepherd\tn\tisa\therder
+lamb\tn\t1\t23456789\tfoo\tbar\tbaz
+moses\tn\tinst\tprophet
+";
+
+    #[test]
+    fn valid_v1_file_loads_with_zero_wrong_arity() {
+        let (rails, wrong_arity, total_rows) =
+            parse_wordnet_rails(V1_VALID).expect("a well-formed v1 file must parse");
+        assert_eq!(wrong_arity, 0, "no row should be flagged wrong-arity");
+        assert_eq!(total_rows, 3);
+        assert_eq!(rails.len(), 3);
+        assert_eq!(
+            rails.get("shepherd"),
+            Some(&("isa".to_string(), "herder".to_string()))
+        );
+    }
+
+    /// The can-it-fire test for the schema-mismatch guard (finding 2): a
+    /// wholly v2-shaped file — no row has the expected 4 columns — must
+    /// return `Err`, not silently produce an empty rail set. Before this
+    /// test, nothing exercised `Basins::load()`/`parse_wordnet_rails` against
+    /// a 7-column fixture to confirm the guard actually fires.
+    #[test]
+    fn wholly_v2_shaped_file_is_rejected() {
+        let err = parse_wordnet_rails(V2_SHAPED)
+            .expect_err("an all-7-column file must be rejected as a schema mismatch");
+        assert!(
+            err.contains("schema mismatch"),
+            "error must name the failure mode, got: {err}"
+        );
+    }
+
+    /// The paired honest case: a MIXED file (some valid, some wrong-arity)
+    /// must NOT hard-fail — data survives — but must surface the
+    /// partial-corruption signal via a non-zero `wrong_arity` count so the
+    /// caller can warn. This is the exact gap finding 1 fixes: previously
+    /// only `rails.is_empty()` triggered any signal, so a mixed file lost
+    /// its bad rows with zero indication.
+    #[test]
+    fn mixed_file_parses_partially_and_reports_wrong_arity() {
+        let (rails, wrong_arity, total_rows) =
+            parse_wordnet_rails(MIXED).expect("a partially-valid file must not hard-fail");
+        assert_eq!(total_rows, 3);
+        assert_eq!(
+            wrong_arity, 1,
+            "exactly one row (the 7-column one) is wrong-arity"
+        );
+        assert_eq!(rails.len(), 2, "the two well-formed rows still load");
+        assert!(rails.contains_key("shepherd"));
+        assert!(rails.contains_key("moses"));
+        assert!(
+            !rails.contains_key("lamb"),
+            "the wrong-arity row must not load"
+        );
+    }
 }

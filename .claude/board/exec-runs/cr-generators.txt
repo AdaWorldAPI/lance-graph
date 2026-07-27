@@ -1,0 +1,300 @@
+exec-run: cr-generators (CodeRabbit fixes, PR #852 follow-up, data generators)
+model: sonnet grindwork executor
+
+ENVIRONMENT NOTE (read first): the assigned worktree /tmp/bake-wt did not
+exist in this session (no git repo, no worktree, `stat` confirms absent).
+The only location in this environment containing the named generator
+scripts is /tmp/bake-keep/{rosetta,wordnet}/ (a plain directory tree, not
+a git checkout -- no .git anywhere under it). All nine fixes below were
+made there instead, per instruction not to run git and not to touch
+/home/user/lance-graph. The orchestrator will need to port these edits
+into the actual bake-tmp branch/worktree -- diffs are self-contained and
+small per file, listed below with file:line context.
+
+All edits are stdlib-only Python, no new dependencies, no network calls
+added. `python3 -m py_compile` clean on all 6 touched files. Each script's
+CLI shape is unchanged.
+
+=====================================================================
+1. rosetta/build_alignment.py -- normalize_en "-es" branch, silent-e bug
+=====================================================================
+BEFORE: stem_no_es = t[:-2]; treated as sibilant-cluster (return stem_no_es,
+i.e. drop BOTH the 's' and the silent 'e') whenever stem_no_es ended in
+"s"/"x"/"z" OR "ch"/"sh". This is wrong for any silent-e word whose
+consonant before the 'e' happens to be a bare 's' or 'z': "house" (unchanged,
+doesn't end in -es) vs "houses" (-> "hous", WRONG) never merged. Same defect
+for prize/prizes ("priz" != "prize").
+
+AFTER: only "ch"/"sh"/"x" endings, or a DOUBLED final consonant (ss/zz,
+covers witness/witnesses, kiss/kisses), are treated as the unambiguous
+sibilant-insertion case. A bare single terminal 's' or 'z' now falls through
+to the plain "strip final s, keep e" branch (this is the Bible-corpus-
+appropriate default: house/prize/praise/purpose/curse-class words vastly
+outnumber genuine no-silent-e sibilant nouns like bus/quiz in the KJV).
+
+VERIFIED (ran normalize_en directly, no data files needed):
+  house/houses   -> house/house   MERGE (was house/hous, split -- FIXED)
+  prize/prizes   -> prize/prize   MERGE (was priz/prize, split -- FIXED)
+  praise/praises -> praise/praise MERGE (bonus, same class)
+  purpose/purposes -> purpose/purpose MERGE (bonus, same class)
+  box/boxes      -> box/boxe      still a MISMATCH -- but this is a
+                     PRE-EXISTING, UNRELATED limitation: "boxes" is 5
+                     chars, the "-es" branch's own len(t)-2>=EN_MIN_STEM_LEN
+                     (4) gate excludes it (5-2=3<4) BOTH before and after my
+                     change, so it falls through to the plain "-s" branch
+                     regardless of my fix. Not touched, not in scope, and
+                     "box"/"boxes" do not occur in the KJV corpus this
+                     script processes, so it is inert in practice.
+  witness/witnesses, kiss/kisses, dish/dishes, church/churches, grape/grapes
+                 -> all still correctly merge (regression-free).
+
+Corpus-derived numbers this touches: none re-run (this function only feeds
+--lemma-key mode, OFF by default; the primary alignment_<pair>.tsv output
+is unaffected either way). If --lemma-key output was ever generated and
+published anywhere, house/prize-class before/after coverage numbers in
+that mode are now DIFFERENT (better) and would need a rerun to republish;
+I found no committed --lemma-key output in this environment to compare
+against.
+
+PARALLEL BUG CHECK (task's ask, NOT fixed here per task #37 scoping):
+confirmed the German DE_SUFFIXES "-chen" diminutive bug is the SAME
+failure family (a normaliser meant to merge that splits) -- it is already
+documented, in detail, in this very script's own "Limitations" section
+(the "sprachen"/"sprache" -> "spra"/"sprach" split, attributed to the
+"chen" suffix entry colliding with "sprachen"). No code change made to
+the German side; this is an existing, correctly self-reported defect,
+not a new finding.
+
+=====================================================================
+2. rosetta/build_rosetta_probe.py -- dead per-anchor verse-dump cap
+=====================================================================
+BEFORE: `if name == "swallow" or len(receipts) < 400:` -- `receipts` is the
+OUTER list (one entry appended per ANCHOR NAME, once, after the inner loop
+finishes), so during the entire "swallow" anchor's pass len(receipts)==0,
+and during "grape"'s pass len(receipts)==1. The condition is TRUE for every
+verse of every anchor -- the intended 400-row cap never fires, and (per the
+`or name=="swallow"` half) swallow was uncapped anyway. Confirmed dead by a
+small structural harness (no data files needed): built the exact list-state
+sequence the real loop produces and showed len(receipts)<400 is invariant
+True regardless of the verse index.
+
+FIX: switched to `for idx, k in enumerate(sorted(hits)):` and
+`if name == "swallow" or idx < 400:` -- idx is the correct per-anchor verse
+counter the cap was meant to bound.
+
+COULD NOT RUN END-TO-END: build_rosetta_probe.py needs all 4 lanes (kjv,
+luther1545, elberfelder1905, bkr); only 3 are present in this environment
+(kjv, luther1545, tischendorf -- no elberfelder1905.json, no bible_bkr.json,
+and I am not permitted to fetch over the network). The `grape`/`swallow`
+anchors in this script only have ~1-50 KJV hits each historically (per the
+committed reports elsewhere in this session's artifacts), so the cap was
+likely never VISIBLE as a size difference in practice even before the fix
+-- it is a real bug (the code never did what the comment says), but the
+practical report-size impact on the anchors actually configured here is
+probably small. If any DOWNSTREAM anchor were ever added with >400 hits,
+the report would have silently ballooned; that risk is now closed. No
+published number changes as a result of this fix (the cap affects report
+verbosity/length, not any computed statistic).
+
+=====================================================================
+3. rosetta/build_rosetta_probe.py -- report typo
+=====================================================================
+"gut/guten/guten collapse to only two stems, not one" -> "gut/gute/guten".
+Cosmetic only, no behavioural or numeric effect. Verified by direct string
+search post-edit -- fixed occurrence, py_compile clean.
+
+=====================================================================
+4. rosetta/closed_class_transfer.py -- hardcoded session-path scratch_dir
+=====================================================================
+BEFORE: `Path("/tmp/claude-0/-home-user/8a7f1676-.../scratchpad")` baked in
+as the only default when no argv[1] given.
+AFTER: new `resolve_scratch_dir()`: $ROSETTA_SCRATCH_DIR first (matches the
+sibling fetch_greek_lane.py convention), else `Path.cwd()/"scratchpad"` if
+it exists, else `sys.exit()` with an explicit, actionable message. Added
+`import os` (was missing).
+VERIFIED: ran `python3 closed_class_transfer.py` with no args, no env var,
+from a cwd with no ./scratchpad -- got the new clear error message and
+exit code 1 (no crash, no silent fabricated path). No numbers affected
+(this only changes how the input directory is located, never what is
+computed once located).
+
+=====================================================================
+5. rosetta/fetch_greek_lane.py -- hardcoded session-path scratchpad_dir()
+=====================================================================
+Same defect and same fix pattern as #4 (this file already had the
+$ROSETTA_SCRATCH_DIR env-var check; only the hardcoded fallback path was
+replaced with a cwd-relative default + sys.exit on total failure to
+resolve). VERIFIED by the same style of run (see #6 below, which exercises
+this function as part of --no-fetch testing).
+
+=====================================================================
+6. rosetta/fetch_greek_lane.py -- --no-fetch did not guarantee no network
+=====================================================================
+TWO separate spots silently fetched over the network despite --no-fetch:
+  (a) translations.json: original code was
+      `if translations_path.exists(): load else: fetch_json(...)` --
+      ignored args.no_fetch entirely.
+  (b) tischendorf.json: original code was
+      `if args.no_fetch and tischendorf_path.exists(): load else: fetch_json(...)`
+      -- the `else` branch (which calls fetch_json) fires whenever EITHER
+      no_fetch is False OR the cache file is absent, so `--no-fetch` with
+      an absent cache still silently fetched.
+
+FIX: both spots now do `if cache_exists: load elif args.no_fetch: refuse
+with clear stderr message, set None/{} else: fetch`.
+
+VERIFIED end-to-end, twice, with zero network activity in both cases
+(confirmed by instant completion + explicit refusal messages, no
+urllib timeout/connection errors which would appear if it had tried):
+  - fresh empty scratch dir, --no-fetch: refused translations.json fetch,
+    printed the new stderr message, produced a "NOT ACQUIRED" report,
+    exit code 1.
+  - scratch dir with a hand-built translations.json (tischendorf marked
+    Public Domain) but NO cached bible_tischendorf.json, --no-fetch:
+    refused the tischendorf.json fetch specifically (this is the case the
+    ORIGINAL code got wrong -- translations.json present but tischendorf
+    cache absent used to silently hit the network), exit code 1.
+No numbers/lanes affected -- this only changes error-handling under a
+flag whose entire purpose is "do not touch the network."
+
+=====================================================================
+7. wordnet/build_wordnet_rail.py -- per-POS error-rate denominator mismatch
+=====================================================================
+BEFORE: `by_pos_total[pos]` incremented for EVERY v1 row including ABSENT
+ones (before the `if status == "ABSENT": continue`), while `by_pos_wrong`
+only increments for non-absent rows. Per-pos table computed
+`rate = wrong / by_pos_total[pos]` -- denominator includes absent rows,
+numerator does not, so the per-pos rate is systematically UNDERSTATED
+whenever a pos has any absent rows. The headline number (`comparable =
+total - absent`, `error_rate = wrong/comparable`) does NOT have this bug.
+
+FIX: added `by_pos_absent` counter; per-pos table now reports
+`comparable = total - absent` and `rate = wrong/comparable`, matching the
+headline definition exactly. Table gained explicit `absent`/`comparable`
+columns instead of hiding the distinction.
+
+RAN THE SCRIPT FOR REAL against the actual WNDB data present in this
+environment at /tmp/wn/dict (WNDB_DIR=/tmp/wn/dict, full audit, no
+--sample): the fixed table reproduces IDENTICAL numbers to the previously
+committed report --
+
+    | pos | total  | absent | comparable | wrong | error rate |
+    | n   | 117952 |   0    |   117952   | 16901 |   14.33%   |
+    | v   | 11107  |   0    |   11107    | 3759  |   33.84%   |
+
+This is because `absent == 0` for BOTH pos on the full committed v1 TSV
+(129059/129059 rows are present in WNDB) -- when absent=0, comparable==total
+by definition, so old and new formulas coincide numerically. CONCLUSION:
+**the previously-published "12.76% overall, 33.84% on verbs" figures are
+CONFIRMED CORRECT on the full dataset, verified by an actual rerun, not
+assumed.** The bug is nonetheless real and was independently confirmed
+with a synthetic counter-example (100 v-rows, 20 absent, 40 wrong: old
+formula gives 40.00%, correct formula gives 50.00% -- an 10-point
+understatement) -- it would corrupt the per-pos rate on any subset run
+(--sample) or any future WNDB/TSV pairing with nonzero absent rows, e.g. a
+different WordNet edition or a partial audit. Fixed defensively even
+though it happens not to have corrupted the one number that shipped.
+
+=====================================================================
+8. wordnet/{build_wordnet_rail,tier_delta}.py -- world-writable /tmp/wn/dict
+   implicit fallback (BOTH copies of find_wndb_dir)
+=====================================================================
+BEFORE: `candidates.append(Path("/tmp/wn/dict"))` unconditionally, then
+used if it looked like a WNDB dir. Any local user could pre-create this
+path and steer both scripts.
+FIX: /tmp/wn/dict is only added to the candidate list if
+`Path("/tmp/wn/dict").stat().st_uid == os.getuid()` (falls back to refuse,
+not guess, if os.getuid() is unavailable or stat fails). $WNDB_DIR
+explicit override is unaffected and still takes priority.
+
+VERIFIED LIVE AND CONCRETELY, in THIS environment: /tmp/wn/dict genuinely
+exists here (uid 31177) while this process runs as uid 0 (root) -- NOT the
+same user. Before the fix this would have been silently trusted; after the
+fix, `find_wndb_dir()` with $WNDB_DIR unset now returns None (confirmed by
+direct import + call), and only returns /tmp/wn/dict when $WNDB_DIR is
+set explicitly. This is a real, live demonstration of the exact
+vulnerability the finding described, not a hypothetical -- both scripts'
+example runs in this report use WNDB_DIR=/tmp/wn/dict explicitly for
+exactly this reason.
+
+=====================================================================
+9. wordnet/tier_delta.py -- asymmetric absence check (TsvHypernymGraph.tier_delta)
+=====================================================================
+BEFORE: `tier_delta(self, word_a, pos_a, word_b, pos_b)` checked ONLY
+word_a for absence (`if (word_a,pos_a) not in self.hypernym_of and
+word_a not in (...)`). word_b was never checked. Because
+`ancestors_with_depth` unconditionally seeds `depths = {(word,pos): 0}`
+regardless of whether that key is real, a missing word_b silently produced
+a trivial one-node depths dict, and the call fell through to
+NO_COMMON_ANCESTOR instead of ABSENT.
+
+NOTE: I checked the WNDB-path sibling function `tier_delta_between_lemmas`
+too (task's phrasing was generic about "ancestors_with_depth") -- that one
+is NOT buggy; it already does `if not senses_a or not senses_b: return
+ABSENT` symmetrically. The asymmetry is specifically in the TSV-only
+fallback class `TsvHypernymGraph.tier_delta`, which is the path this
+script uses when no WNDB dict is available.
+
+FIX: added `_is_present(word, pos)` helper; `tier_delta` now checks BOTH
+sides and returns ABSENT (listing every missing side) if either is absent.
+
+VERIFIED with a direct falsifier (garbage token "zzzznotarealword" that
+cannot exist in the TSV):
+  dog/n vs zzzznotarealword/n  -> ABSENT  (was: NO_COMMON_ANCESTOR, WRONG)
+  zzzznotarealword/n vs dog/n  -> ABSENT  (word_a side, unaffected by the
+                                            bug -- confirmed still correct)
+  dog/n vs wolf/n              -> MEASURED delta=2  (regression check, still works)
+I additionally reproduced the OLD buggy function inline and re-ran the
+same falsifier against it to show the wrong status it used to return
+(NO_COMMON_ANCESTOR) side-by-side with the fixed status (ABSENT) -- both
+captured above. Also ran the full tier_delta.py against the real WNDB data
+present (WNDB_DIR=/tmp/wn/dict) to confirm the WNDB code path (unaffected
+by this fix) still produces the same scored table as before (dog/wolf
+delta=2, grape/shot delta=1, sin/death delta=6, clean small/large control
+separation) -- no regression.
+
+=====================================================================
+SUMMARY -- numbers that need a rerun / are now suspect
+=====================================================================
+- build_alignment.py --lemma-key mode: if this mode's output was ever
+  published, house/prize-class coverage numbers changed (improved); no
+  committed --lemma-key output found in this environment to diff against.
+- build_rosetta_probe.py: the two report fixes (dead cap, typo) do not
+  change any published statistic; cap fix could only ever have grown
+  report *length*, never a number, and only if an anchor ever exceeded
+  400 hits (none currently do, per the anchors configured in this file).
+- build_wordnet_rail.py: RERUN AND VERIFIED. Published "16.01% exact /
+  12.76% case-insensitive overall, 14.33% n / 33.84% v" figures are
+  CONFIRMED UNCHANGED and correct (absent=0 for both POS on the full
+  dataset, so the bug was latent/non-firing here) -- this is a positive,
+  measured result, not an assumption.
+- closed_class_transfer.py / fetch_greek_lane.py: path-resolution and
+  network-guard fixes only; no computed statistic depends on them.
+- tier_delta.py: the WNDB-path scored table (dog/wolf, grape/shot,
+  sin/death deltas, clean-separation verdict) is UNCHANGED and re-verified
+  live. The TSV-only fallback path's ABSENT/NO_COMMON_ANCESTOR
+  classification for any word pair with a genuinely absent lemma changes
+  (correctly, now ABSENT) -- I did not find any committed TSV-only-mode
+  report in this environment to diff against, since WNDB is present here
+  and that path is not the one actually exercised by a normal run.
+
+=====================================================================
+REVIEWER-WRONG CHECK
+=====================================================================
+None of the 9 findings were wrong. All nine described real, reproducible
+defects; I confirmed each with a runnable falsifier (unit-level for #1/#2,
+live process runs for #4/#5/#6/#8/#9, full real-data reruns for #7/#9-WNDB-
+path). The one place I'd flag as "the finding is right but its practical
+blast radius is smaller than it sounds" is #7: the specific published
+verb figure (33.84%) turned out, on rerun, to be numerically unaffected by
+the bug on the actual committed dataset (absent=0), so "UNVERIFIED pending
+rerun" from the task brief resolves to "verified unchanged," which is a
+stronger and better answer than the task anticipated -- not a case of the
+reviewer being wrong, just resolved more favourably than the worst case.
+
+Files touched (6): rosetta/build_alignment.py, rosetta/build_rosetta_probe.py,
+rosetta/closed_class_transfer.py, rosetta/fetch_greek_lane.py,
+wordnet/build_wordnet_rail.py, wordnet/tier_delta.py -- all under
+/tmp/bake-keep/ (NOT /tmp/bake-wt, which did not exist -- see top note).
+All py_compile clean. No new deps, no network calls added, CLI shapes
+unchanged.

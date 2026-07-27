@@ -830,6 +830,26 @@ impl Tactic for Icr {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::EMPTY
     }
+    /// **⚠ STUB — this is NOT a Pearl counterfactual.** Labelled honestly per the
+    /// falsifiability rule ("a doc-comment claim is not a behaviour").
+    ///
+    /// What it actually does: XORs three HARDCODED constants, counts the
+    /// resulting bit divergence, and contributes exactly zero confidence
+    /// (`* 0.0`). It never reads `ctx` — the same output for every input, so no
+    /// test over this kernel can fail. Recipe 31 carries the
+    /// `RungLevel::Counterfactual` label and the SPO=0b111 (Pearl "IMAGINE")
+    /// mask, and the label is the only counterfactual thing about it.
+    ///
+    /// A real `do(X = x)` must SEVER the mechanisms that normally determine
+    /// `X` — parents disconnected, evidence derived from those parents
+    /// invalidated, descendants recomputed — while holding the exogenous
+    /// background fixed. Overwriting a value while retaining evidence derived
+    /// from its old parents is a contradictory MUTATION, not an intervention.
+    /// Nothing in this crate severs anything today.
+    ///
+    /// Tracked: `ISS-PEARL-VOCABULARY-WITHOUT-PEARL-MECHANICS`. Do not cite
+    /// this kernel, or recipe 31's rung, as evidence of counterfactual
+    /// capability.
     fn apply(&self, _ctx: &mut ThoughtCtx) -> Outcome {
         // Counterfactual: world' = world ⊗ factual ⊗ counterfactual; divergence = popcount.
         let world = 0xF0F0_F0F0u32;
@@ -837,7 +857,7 @@ impl Tactic for Icr {
         let world_cf = world ^ factual ^ counterfactual; // SPO=0b111 apex
         let divergence = (world ^ world_cf).count_ones();
         Outcome::done(
-            "constructed counterfactual world (XOR; SPO=0b111)",
+            "STUB counterfactual (hardcoded constants; contributes no confidence)",
             (divergence as f32 / 32.0) * 0.0, // divergence reported, conf unchanged
         )
     }
