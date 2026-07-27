@@ -1101,9 +1101,36 @@ an earlier pass wrongly used ADC as ground truth, which made ADC perfect by
 definition and charged SDC the whole gap):
 
 - ADC ρ 0.8718, recall@10 0.4219 · SDC ρ 0.8494, recall@10 0.3875 · **gap 0.0225**.
-- Normalizing centroids + 5 Lloyd passes moved the gap 0.0242 → 0.0225: the gap
-  is **query-quantization, structurally inherent to SDC**, not a codebook
-  artifact. 0.0225 ρ is the price for deleting 853 ms + 393 MB.
+- ~~Normalizing centroids + 5 Lloyd passes moved the gap 0.0242 → 0.0225: the gap
+  is query-quantization, structurally inherent to SDC, not a codebook artifact.~~
+  **⊘ RETRACTED (operator, 2026-07-27 — "don't hand-roll").** Invalid inference:
+  it compared ONE hand-rolled codebook (normalize + Lloyd k-means) against
+  ANOTHER hand-rolled codebook, and concluded the codebook *class* was
+  exonerated. Two hand-rolls agreeing says nothing about the calibrated path.
+  **Both ρ figures (ADC 0.8718 / SDC 0.8494) are measurements of a hand-rolled
+  rig, not of palette256.** No structural conclusion about SDC is licensed.
+
+**The calibrated path I bypassed** — palette256's exactness comes from **HDR
+popcount early-exit rolling-floor calibration**, with φ-Weyl sampling. All three
+already exist:
+
+| mechanism | where | what it does |
+|---|---|---|
+| rolling-floor calibration | `helix::quantize::RollingFloor` (`observe`/`roll`/`bucket_center`, drift in multinomial-SD units) | buckets follow the real distribution instead of assuming uniform |
+| calibrated LUT | `helix::DistanceLut::from_floor(&RollingFloor)` | builds the 256×256 table from **real bucket centers** — *"rather than assuming uniform buckets"* |
+| HDR popcount early-exit | `perturbation-sim::rolling_floor::TierFloors::stack_early_exit` | *"coarse→fine popcount-stacking… exits at the first tier whose stacked band is `Alarm`"*, preheating cold finer floors from coarser ones |
+| φ-Weyl sampling | `jc::weyl` | golden stride hits the Ostrowski bound `2/N` — *"the tightest possible for any irrational number"*; the law for placing buckets, **not k-means** |
+| HDR band classify | `bgz-tensor::hdr_belichtung` (`PaletteCascade::calibrate`, `heel_distance_palette`) | quarter-σ bands over the pair-LUT |
+| calibrated palette build | `bgz17::Palette::{build, from_sigma_bands, build_hierarchical}` + `build_distance_table()` | the codebook constructors that already exist |
+
+**Placement blocker (reported, not worked around):** the probe lives in
+`lance-graph-planner`, which reaches `bgz17` (declared dep — see
+`TD-BGZ-LAB-DEPS-DECLARED-NEVER-IMPORTED`) but **not** `helix`,
+`perturbation-sim`, or `bgz-tensor`. `helix` additionally sources ndarray by
+**git, not path**, so adding it is a Cargo change under the RFC gate, not a probe
+edit. A correct rig therefore belongs where the calibration already lives — it
+must not be re-implemented planner-side. **No further measurement was run rather
+than hand-roll a third time.**
 
 **Honest caveats.** (a) Both arms sit near ρ 0.87 vs exact because 17 dims split
 into 6 subspaces is *thin* (2–3 dims each) — a property of this Base17 rig, not
