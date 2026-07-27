@@ -23,7 +23,11 @@
 //! ```text
 //! cargo run --release -p lance-graph-planner --example probe_palette256_ndarray -- <shard.bgz7>
 //! ```
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
 
 use lance_graph_contract::distance::Distance;
 use ndarray::hpc::gguf_indexer::CompressedTensor; // I/O type, not a SIMD kernel
@@ -102,11 +106,29 @@ fn recall_at_k(truth: &[f64], cand: &[f64], k: usize) -> f64 {
     t.iter().filter(|i| c.contains(i)).count() as f64 / k as f64
 }
 
+fn shard_path() -> String {
+    // No machine-specific default: the asset is NOT in the repo, so a silent
+    // fallback made the committed reproduction command panic in File::open for
+    // everyone but the authoring session (codex P2, PR #855).
+    match std::env::args().nth(1) {
+        Some(p) => p,
+        None => {
+            eprintln!(
+                "usage: <example> <shard.bgz7>\n\n\
+                 Requires a real bgz7 shard (Rule 23 - no synthetic vectors).\n\
+                 Smallest published asset, SHA-pinned in crates/bgz-tensor/data/manifest.json:\n\
+                 \n\
+                 curl -sSL -o /tmp/bge-m3-f16.bgz7 \\\n\
+                   https://github.com/AdaWorldAPI/lance-graph/releases/download/v0.1.0-bgz-data/bge-m3-f16.bgz7\n\
+                 sha256 970daa4d248df76f7d28cf830158ea1261cbb8a2066ffb9cff53e84704a6a50b"
+            );
+            std::process::exit(2);
+        }
+    }
+}
+
 fn main() {
-    let shard = std::env::args().nth(1).unwrap_or_else(|| {
-        "/tmp/claude-0/-home-user/bcd29cfc-5bae-5b23-b86b-0de9582a87da/scratchpad/bge-m3-f16.bgz7"
-            .to_string()
-    });
+    let shard = shard_path();
     // Lenient bgz7 read: the published v0.1.0 bge-m3 asset declares 389 tensors
     // but holds 290 complete ones then exact EOF (SHA256 matches the committed
     // manifest — it shipped truncated). `read_bgz7_file` hard-fails; keep the
@@ -143,6 +165,15 @@ fn main() {
     println!("shard: {shard}\nusable rows: {}", rows.len());
 
     let mut rng = SplitMix64(SEED);
+    // Guard BEFORE sampling: the draw loop scans for an unused index and
+    // would spin forever once every index is taken (codex P2, PR #855).
+    let needed = N_TRAIN + N_QUERIES + N_DB;
+    assert!(
+        rows.len() >= needed,
+        "shard too small: {} usable rows, need >= {} (train + queries + db, all disjoint). Use a larger shard.",
+        rows.len(),
+        needed
+    );
     let mut taken = vec![false; rows.len()];
     let draw = |rng: &mut SplitMix64, taken: &mut Vec<bool>| loop {
         let i = rng.below(taken.len());
@@ -160,7 +191,10 @@ fn main() {
     let mut base = 0usize;
     let mut codebook: Vec<Vec<Vec<f32>>> = Vec::with_capacity(SUB);
     for sd in SUB_DIMS {
-        let data: Vec<Vec<f32>> = train.iter().map(|&ri| rows[ri][base..base + sd].to_vec()).collect();
+        let data: Vec<Vec<f32>> = train
+            .iter()
+            .map(|&ri| rows[ri][base..base + sd].to_vec())
+            .collect();
         codebook.push(kmeans(&data, K, sd, KMEANS_ITERS));
         base += sd;
     }
@@ -321,20 +355,32 @@ fn main() {
     let (rc, _, _) = stats(&rc_ctr);
     let (sf, _, _) = stats(&survivor_frac);
 
-    println!("\n== built on ndarray::simd::* (kmeans / squared_l2 / hamming_distance_raw / U8x64) ==");
+    println!(
+        "\n== built on ndarray::simd::* (kmeans / squared_l2 / hamming_distance_raw / U8x64) =="
+    );
     println!("codebook: 6 x {K} via simd::kmeans, {KMEANS_ITERS} iters, {cb_ms} ms (once)");
-    println!("pair LUT: 6 x {K}^2 u16 = {} KB via simd::squared_l2, {lut_ms} ms (once)", SUB * K * K * 2 / 1024);
+    println!(
+        "pair LUT: 6 x {K}^2 u16 = {} KB via simd::squared_l2, {lut_ms} ms (once)",
+        SUB * K * K * 2 / 1024
+    );
     println!("\n-- fidelity vs EXACT (simd::squared_l2 full-vector) --");
     println!("pair LUT [a,b]   Spearman {sl:.4} (min {sl_lo:.4})  Pearson {pl:.4}  recall@{TOP_K} {rl:.4} (min {rl_lo:.4})");
     println!("contract [u8;6]  Spearman {sc:.4}                    recall@{TOP_K} {rc:.4}");
     println!("\n-- HDR popcount early-exit (σ3 = mu + 3*sigma on observed HEEL) --");
-    println!("survivors after stroke-1 gate: {:.1}% of candidates", sf * 100.0);
+    println!(
+        "survivors after stroke-1 gate: {:.1}% of candidates",
+        sf * 100.0
+    );
     println!("\n-- cost, ns/candidate --");
     println!("exact squared_l2  {}", ns_exact / per);
     println!("pair LUT gather   {}", ns_lut / per);
     println!("contract [u8;6]   {}", ns_ctr / per);
     println!("popcount gate     {}", ns_simd / per);
-    println!("U8x64 sweep       {} (per code, {} codes)", ns_u8x64 / (SUB * N_DB) as u128, SUB * N_DB);
+    println!(
+        "U8x64 sweep       {} (per code, {} codes)",
+        ns_u8x64 / (SUB * N_DB) as u128,
+        SUB * N_DB
+    );
     println!("\nper-query derived state: 0 B (LUT static). Band: sigma3 = 0.9973 coverage.");
 }
 

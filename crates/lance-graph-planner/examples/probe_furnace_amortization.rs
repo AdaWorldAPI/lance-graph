@@ -34,9 +34,13 @@
 //! Real bytes only: bge-m3 bgz7 shard (SHA-pinned). Seed 0x9E3779B97F4A7C15.
 //!
 //! ```text
-//! cargo run --release -p lance-graph-planner --example probe_furnace_amortization
+//! cargo run --release -p lance-graph-planner --example probe_furnace_amortization -- <shard.bgz7>
 //! ```
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
 
 use ndarray::hpc::gguf_indexer::CompressedTensor; // I/O type, not a SIMD kernel
 use ndarray::simd::{bf16_to_f32_batch, f32_to_bf16_batch_rne, kmeans, squared_l2};
@@ -112,11 +116,29 @@ fn recall_at_k(truth: &[f64], cand: &[f64], k: usize) -> f64 {
     t.iter().filter(|i| c.contains(i)).count() as f64 / k as f64
 }
 
+fn shard_path() -> String {
+    // No machine-specific default: the asset is NOT in the repo, so a silent
+    // fallback made the committed reproduction command panic in File::open for
+    // everyone but the authoring session (codex P2, PR #855).
+    match std::env::args().nth(1) {
+        Some(p) => p,
+        None => {
+            eprintln!(
+                "usage: <example> <shard.bgz7>\n\n\
+                 Requires a real bgz7 shard (Rule 23 - no synthetic vectors).\n\
+                 Smallest published asset, SHA-pinned in crates/bgz-tensor/data/manifest.json:\n\
+                 \n\
+                 curl -sSL -o /tmp/bge-m3-f16.bgz7 \\\n\
+                   https://github.com/AdaWorldAPI/lance-graph/releases/download/v0.1.0-bgz-data/bge-m3-f16.bgz7\n\
+                 sha256 970daa4d248df76f7d28cf830158ea1261cbb8a2066ffb9cff53e84704a6a50b"
+            );
+            std::process::exit(2);
+        }
+    }
+}
+
 fn main() {
-    let shard = std::env::args().nth(1).unwrap_or_else(|| {
-        "/tmp/claude-0/-home-user/bcd29cfc-5bae-5b23-b86b-0de9582a87da/scratchpad/bge-m3-f16.bgz7"
-            .to_string()
-    });
+    let shard = shard_path();
     // Lenient bgz7 read (shard declares 389 tensors, holds 290 then exact EOF).
     let mut reader = std::io::BufReader::new(std::fs::File::open(&shard).expect("open shard"));
     let mut magic = [0u8; 4];
@@ -146,9 +168,23 @@ fn main() {
             }
         }
     }
-    println!("shard: {} tensors ({} declared), usable rows: {}", tensors.len(), declared, rows.len());
+    println!(
+        "shard: {} tensors ({} declared), usable rows: {}",
+        tensors.len(),
+        declared,
+        rows.len()
+    );
 
     let mut rng = SplitMix64(SEED);
+    // Guard BEFORE sampling: the draw loop scans for an unused index and
+    // would spin forever once every index is taken (codex P2, PR #855).
+    let needed = N_TRAIN + N_QUERIES + N_DB;
+    assert!(
+        rows.len() >= needed,
+        "shard too small: {} usable rows, need >= {} (train + queries + db, all disjoint). Use a larger shard.",
+        rows.len(),
+        needed
+    );
     let mut taken = vec![false; rows.len()];
     let draw = |rng: &mut SplitMix64, taken: &mut Vec<bool>| loop {
         let i = rng.below(taken.len());
@@ -166,7 +202,10 @@ fn main() {
     let mut base = 0usize;
     let mut codebook: Vec<Vec<Vec<f32>>> = Vec::with_capacity(SUB);
     for sd in SUB_DIMS {
-        let data: Vec<Vec<f32>> = train.iter().map(|&ri| rows[ri][base..base + sd].to_vec()).collect();
+        let data: Vec<Vec<f32>> = train
+            .iter()
+            .map(|&ri| rows[ri][base..base + sd].to_vec())
+            .collect();
         codebook.push(kmeans(&data, K, sd, KMEANS_ITERS));
         base += sd;
     }
@@ -252,11 +291,16 @@ fn main() {
     let heel_tab = &pair_lut[0..K * K];
     let n = heel_tab.len() as f64;
     let mu = heel_tab.iter().map(|&d| f64::from(d)).sum::<f64>() / n;
-    let sd = (heel_tab.iter().map(|&d| (f64::from(d) - mu).powi(2)).sum::<f64>() / n).sqrt();
+    let sd = (heel_tab
+        .iter()
+        .map(|&d| (f64::from(d) - mu).powi(2))
+        .sum::<f64>()
+        / n)
+        .sqrt();
     let sigma3_t = mu + 3.0 * sd; // the far-tail threshold t (Belichtungsmesser shape)
-    // Early-exit KEEPS the near bands: d <= t/4 (Foveal) or <= t/2 (Near) —
-    // ndarray cascade::expose's band carve. Keeping d <= t itself admits the
-    // 99.87th percentile = decoration (the defect the first run self-reported).
+                                  // Early-exit KEEPS the near bands: d <= t/4 (Foveal) or <= t/2 (Near) —
+                                  // ndarray cascade::expose's band carve. Keeping d <= t itself admits the
+                                  // 99.87th percentile = decoration (the defect the first run self-reported).
     let keep_floor = sigma3_t / 4.0;
     let theta = 1.52f64; // a Fisher-z aperture in the validated 1.45-1.6 band
     let theta_accept_q8: u8 = ((theta / 5.0) * 255.0).round() as u8; // stored as ONE byte
@@ -400,7 +444,10 @@ fn main() {
         }
         let n = build / (alt - prod).max(1);
         if n <= session_reads {
-            format!("{n} reads = {:.2} of one pass", n as f64 / session_reads as f64)
+            format!(
+                "{n} reads = {:.2} of one pass",
+                n as f64 / session_reads as f64
+            )
         } else {
             format!("{n} reads = {:.1} passes", n as f64 / session_reads as f64)
         }
@@ -410,7 +457,11 @@ fn main() {
     println!("session read volume: {session_reads} candidate reads (64 q x 4096)");
     println!("float alternative per read: exact squared_l2 = {exact_ns} ns/cand\n");
     println!("lane | build_once | product | per_read | break_even");
-    println!("L1 codebook      | {:>8.1} ms | {:>6} B | (enables L2/L6)  | amortized via L2+L6", l1_build_ns as f64 / 1e6, l1_bytes);
+    println!(
+        "L1 codebook      | {:>8.1} ms | {:>6} B | (enables L2/L6)  | amortized via L2+L6",
+        l1_build_ns as f64 / 1e6,
+        l1_bytes
+    );
     println!(
         "L2 pair-table    | {:>8.1} ms | {:>6} B | {lut_ns} ns/cand | L2-only: {}; charged L1+L2: {}",
         l2_build_ns as f64 / 1e6, l2_bytes,
@@ -433,14 +484,99 @@ fn main() {
     println!("same-HEEL pair distance / random pair distance = {locality_ratio:.4}  (<1 = the prefix IS a semantic address)");
     println!("shuffled-code control ratio                    = {control_ratio:.4}  (~1 = the measurement CAN stay silent)");
     let locality_proven = locality_ratio < 0.9 && (control_ratio - 1.0).abs() < 0.1;
-    println!("awareness-location: {}", if locality_proven { "PROVEN (signal fires, control silent)" } else { "NOT PROVEN on this rig" });
+    println!(
+        "awareness-location: {}",
+        if locality_proven {
+            "PROVEN (signal fires, control silent)"
+        } else {
+            "NOT PROVEN on this rig"
+        }
+    );
 
     println!("\n== verdicts ==");
     let l3_pass = l3_pearson >= 0.9999 && l3_spearman >= 0.9999;
-    println!("L3 bf16-RNE certification: {}", if l3_pass { "PASS" } else { "FAIL" });
+    println!(
+        "L3 bf16-RNE certification: {}",
+        if l3_pass { "PASS" } else { "FAIL" }
+    );
     let gate_fires = svm < 0.999 && svm > 0.001;
-    println!("L4 sigma3 gate discriminates (not 0%/100%): {}", if gate_fires { "YES" } else { "NO — gate is decoration" });
-    let amort = exact_ns > lut_ns;
-    println!("amortization validated (per-read float > per-read [a,b]): {}", if amort { "YES" } else { "NO" });
-    assert!(l3_pass && amort, "core furnace claims must hold");
+    println!(
+        "L4 sigma3 gate discriminates (not 0%/100%): {}",
+        if gate_fires {
+            "YES"
+        } else {
+            "NO — gate is decoration"
+        }
+    );
+
+    // AMORTIZATION — charged, not marginal (codex P1, PR #855).
+    //
+    // The previous verdict asserted `exact_ns > lut_ns`, i.e. only that a table
+    // lookup beats an exact float scan. That is implied by the code and cannot
+    // fail — a vacuous assertion under the falsifiability rule, and it printed
+    // "validated" while the same run reported the L1-charged build needing 8.3
+    // passes. The verdict now compares BUILD COST against SAVINGS RECOVERED in
+    // one pass, and reports the two charging models separately because they
+    // answer different questions:
+    //   L2-only   — the marginal call: the codebook already exists (it is also
+    //               L6's encoder and every future query's), so a NEW pair-table
+    //               is charged only its own build.
+    //   L1+L2     — the cold-start call: nothing exists yet, the furnace is lit
+    //               from scratch for this workload alone.
+    let saved_per_read = exact_ns.saturating_sub(lut_ns);
+    let recovered_ns = saved_per_read * session_reads;
+    let l2_only_ns = l2_build_ns;
+    let cold_ns = l1_build_ns + l2_build_ns;
+    let pays = |build: u128| -> (bool, f64) {
+        let passes = build as f64 / recovered_ns.max(1) as f64;
+        (build <= recovered_ns, passes)
+    };
+    let (l2_pays, l2_passes) = pays(l2_only_ns);
+    let (cold_pays, cold_passes) = pays(cold_ns);
+    println!(
+        "savings recovered in ONE pass: {:.1} ms ({saved_per_read} ns/read x {session_reads} reads)",
+        recovered_ns as f64 / 1e6
+    );
+    println!(
+        "  L2-only build {:.1} ms -> {} ({:.2} passes to break even)",
+        l2_only_ns as f64 / 1e6,
+        if l2_pays {
+            "PAYS WITHIN ONE PASS"
+        } else {
+            "does NOT pay within one pass"
+        },
+        l2_passes
+    );
+    println!(
+        "  L1+L2 cold-start build {:.1} ms -> {} ({:.1} passes to break even)",
+        cold_ns as f64 / 1e6,
+        if cold_pays {
+            "PAYS WITHIN ONE PASS"
+        } else {
+            "does NOT pay within one pass"
+        },
+        cold_passes
+    );
+    println!(
+        "amortization (documented criterion: pays inside a single pass): {}",
+        if l2_pays && cold_pays {
+            "VALIDATED on both charging models"
+        } else if l2_pays {
+            "VALIDATED marginally (L2-only); cold-start needs multiple passes — see above"
+        } else {
+            "NOT VALIDATED"
+        }
+    );
+
+    // The falsifiable core: the MARGINAL furnace call must pay inside one pass.
+    // Cold-start is reported honestly and deliberately NOT asserted — a
+    // one-shot workload that never re-reads its table legitimately should not
+    // light the furnace, and hiding that behind a passing assert would be the
+    // same vacuity in a new place.
+    assert!(l3_pass, "L3 bf16-RNE must clear its certification gate");
+    assert!(
+        l2_pays,
+        "marginal furnace call must pay inside one pass: build {} ns > recovered {} ns",
+        l2_only_ns, recovered_ns
+    );
 }
