@@ -428,21 +428,38 @@ impl OntologyRegistry {
     /// [`RegistryClassView`](crate::class_resolver::RegistryClassView), which keys
     /// on the returned `entity_type`.
     ///
-    /// Composes the two halves that already existed but were never chained: the
-    /// canon GUID→NiblePath fold ([`NiblePath::from_guid_prefix`] — root-first
-    /// `classid_lo · HEEL · HIP · TWIG`) and this registry's `NiblePath →
-    /// entity_type` bijection ([`Self::entity_type_of`]).
+    /// Composes the **v3** GUID→NiblePath fold
+    /// ([`NiblePath::from_guid_prefix_v3`] — the 4 HHTL tiers
+    /// `HEEL · HIP · TWIG · LEAF` read in full from key bytes `4..12`, both the
+    /// `part_of` high byte and the `is_a` low byte of each 8:8 tile) with this
+    /// registry's `NiblePath → entity_type` bijection
+    /// ([`Self::entity_type_of`]).
     ///
-    /// Returns `None` when the GUID's high `classid` u16 is nonzero (the fold
-    /// refuses the lossy case — no silent collision) OR when no class is
-    /// registered at the folded path (zero-fallback: an unbound GUID resolves to
-    /// no class, never a panic). The `classid_lo ↔ entity_type` correspondence is
-    /// the registrar's invariant: `register_class_path(t,
-    /// NiblePath::from_guid_prefix(guid))` makes `class_id_for_guid(guid) ==
-    /// Some(t)` (see `class_id_for_guid_wires_ogar_guid_to_classview`).
+    /// > **v1 fold retired here (operator ruling, 2026-07-27).** This used
+    /// > [`NiblePath::from_guid_prefix`], which folds the classid's canon half
+    /// > INTO the routing path and therefore REFUSES (`None`) any GUID whose two
+    /// > classid halves are both nonzero. After the canon-HIGH flip
+    /// > (`D-CLASSID-CANON-HIGH-FLIP`) that is the NORMAL shape of a marked V3
+    /// > id, not an edge case: the contract's own test shows OSINT-V3
+    /// > `0x0701_1000` folding to `None`, so every V3-marked GUID resolved to NO
+    /// > class. The v1 fold conflates two objects — the classid is the class
+    /// > ADDRESS, the HHTL path is the ROUTING position — which is the same
+    /// > category error that made `ClassId = u16` a zombie. The v3 fold routes
+    /// > the tiers and leaves the classid alone.
+    ///
+    /// Returns `None` only when no class is registered at the folded path
+    /// (zero-fallback: an unbound GUID resolves to no class, never a panic) —
+    /// the fold itself no longer refuses. The registrar's invariant is now
+    /// `register_class_path(t, NiblePath::from_guid_prefix_v3(guid))` ⇒
+    /// `class_id_for_guid(guid) == Some(t)`; a registrar still using the v1 fold
+    /// will not match, so both sides must move together.
+    ///
+    /// Requires the contract's `guid-v3-tail` feature, which is **default-on**
+    /// (operator ruling 2026-07-04, `ISS-V1-TAIL-RESIDUE`). Building without it
+    /// is a compile error here BY CHOICE — failing loudly beats silently
+    /// reverting to the fold that drops V3 ids.
     pub fn class_id_for_guid(&self, guid: &NodeGuid) -> Option<EntityTypeId> {
-        let path = NiblePath::from_guid_prefix(guid)?;
-        self.entity_type_of(path)
+        self.entity_type_of(NiblePath::from_guid_prefix_v3(guid))
     }
 
     /// Export the registry to an OGIT-shaped TTL fragment for the named
@@ -904,32 +921,52 @@ mod tests {
             .unwrap();
         let t = a.schema_ptr.entity_type_id();
 
-        // An OGAR node GUID (classid in the low u16 + the HHT cascade). The
-        // registrar pairs the class with the GUID-DERIVED path — that is the
-        // `classid_lo ↔ entity_type` consistency the wiring relies on.
+        // An OGAR node GUID. Registrar and reader BOTH use the v3 fold — the
+        // v1 fold is retired here (see `class_id_for_guid`), and the two sides
+        // must move together or the bijection breaks.
         let g = NodeGuid::new(0x0000_ABCD, 0x1234, 0x5678, 0x9ABC, 1, 2);
-        let path = NiblePath::from_guid_prefix(&g).expect("classid_lo only ⇒ Some");
-        reg.register_class_path(t, path).unwrap();
+        reg.register_class_path(t, NiblePath::from_guid_prefix_v3(&g))
+            .unwrap();
 
-        // The wiring: GUID → from_guid_prefix → entity_type_of → EntityTypeId.
+        // The wiring: GUID → from_guid_prefix_v3 → entity_type_of → EntityTypeId.
         assert_eq!(reg.class_id_for_guid(&g), Some(t));
-        // Equal to the explicit composition (documents exactly what it does).
         assert_eq!(
             reg.class_id_for_guid(&g),
-            reg.entity_type_of(NiblePath::from_guid_prefix(&g).unwrap()),
+            reg.entity_type_of(NiblePath::from_guid_prefix_v3(&g)),
         );
 
         // Zero-fallback: a GUID whose folded path was never registered → None.
         let unbound = NodeGuid::new(0x0000_1111, 0, 0, 0, 0, 0);
         assert_eq!(reg.class_id_for_guid(&unbound), None);
 
-        // The fold refuses a high-classid-u16 GUID upstream → None (no silent
-        // collision onto a folded path).
-        let high = NodeGuid::new(0xDEAD_BEEF, 0, 0, 0, 0, 0);
+        // THE V3 FIX, stated as a test rather than left in prose: a marked V3
+        // classid (both halves nonzero — the NORMAL shape after the canon-HIGH
+        // flip) used to be REFUSED by the v1 fold, so it resolved to no class at
+        // all. Under v3 the tiers route and the classid is untouched, so it
+        // resolves normally.
+        let marked = NodeGuid::new(0x0701_1000, 0x1234, 0x5678, 0x9ABC, 1, 2);
         assert_eq!(
-            reg.class_id_for_guid(&high),
+            NiblePath::from_guid_prefix(&marked),
             None,
-            "high classid u16 ⇒ lossy fold refused, so no class resolves"
+            "v1 fold refuses a marked classid — the defect this switch removes"
+        );
+        assert_eq!(
+            reg.class_id_for_guid(&marked),
+            Some(t),
+            "v3 resolves it, because the tiers are identical to `g`"
+        );
+
+        // ...and the CONSEQUENCE of that, asserted so it cannot surprise a later
+        // reader: under v3 the classid does NOT participate in the path, so two
+        // GUIDs with DIFFERENT classids but identical HHTL tiers resolve to the
+        // SAME entity_type. Class resolution is now keyed on WHERE the node sits
+        // in the tier cascade, never on its classid. If a caller needs the
+        // classid to discriminate, it must consult `NodeGuid::classid` directly —
+        // this function no longer carries it.
+        assert_eq!(
+            NiblePath::from_guid_prefix_v3(&g),
+            NiblePath::from_guid_prefix_v3(&marked),
+            "v3 path ignores classid entirely"
         );
     }
 
