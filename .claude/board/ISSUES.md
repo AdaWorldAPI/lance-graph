@@ -110,6 +110,46 @@ exactly how a wrong-level read gets applied silently (measured: [u8;6] at rho
 -0.0030). Section D's spec-ahead-of-code finding stands: the typed per-metric
 surface over the ONE encoding remains unbuilt.
 
+
+### F. THE CANON PREDATES THE SESSION BY TWO MONTHS (ndarray board, 2026-05-26)
+
+`ndarray/.claude/board/EPIPHANIES.md` (verified at pinned commit 6ff231ad)
+already carries, dated **2026-05-26**:
+
+- **"Palette256 + Fisher-z IS the exact cosine replacement (integer, no float)"
+  — Status: VALIDATED** (operator: 10 000×10 000 splat, theta ~ 1.45-1.6
+  Fisher-z ~ cos 0.90-0.92). Ranking-exact Palette256 ADC integer lookup, gated
+  by a Fisher-z aperture theta; no float MAC in the O(D) kernel.
+- The section-B "contradiction" resolved in five words: *"popcount IS the cosine
+  replacement **by topology, not value**; Fisher-z is a palette-output
+  normalization, not a cosine reconstruction."* Sections D/E re-derived this.
+- **Two lanes**: SELECT = integer cascade (L1 popcount -> L2 Base17-L1 -> L3
+  Palette256 ADC); uncertainty = tiny per-edge float Sigma metadata. Co-certified
+  siblings (Pflug-10 certifies the CAM-PQ quantization).
+- **The cam.rs gap is a RECORDED MAY DEBT**: *"cam-pq-production-wiring (cam_pq
+  shipped, unrouted through CamCodecContract)"* — today's "discovery" was on the
+  ledger.
+- **Correction to section A**: the validated entry GROUNDS the contract Distance
+  trait as part of the design (theta lives at `lance-graph-contract::distance::
+  similarity_z = atanh`). The typing rule binds ndarray's per-metric fn surface;
+  "contract::Distance is the forbidden umbrella" OVERSTATED. The [u8;6]-is-noise
+  measurement stands; the demolition verdict is withdrawn. What remains open is
+  the narrower question: whether the [u8;6] byte-L1 fallback impl should be
+  removed/renamed so no caller mistakes it for the ADC path.
+- **Today's failure mode is a documented epiphany**: *"Grounding-discipline
+  (meta — the expensive one)"* — a prior session built float code from ChatGPT
+  inspiration without grounding against the integer/palette substrate in the
+  same repo, net-zero-usable. Binding fix (2026-05-26): whole-file reads only;
+  L0 source/tests/standards, L1 audit (spot-check never inherit), L2
+  plans/perspective-docs are NOT evidence. Sibling epiphany: ledger-first,
+  code-never-unless-necessary (10^7x cheaper). This session inverted both.
+
+**Net status of this whole issue cluster:** B/D/E were re-derivations of the
+2026-05-26 validated canon. A is narrowed as above. What was genuinely new
+today: the [u8;6] noise measurement (rho -0.0030), the cost measurements
+(276 vs 5-9 ns/cand; 0 B per-query state; table-build vs 550 ms SLA), and the
+kmeans-vs-hand-rolled codebook delta (0.8494 -> 0.9725).
+
 ## 2026-07-27 — ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED — the certified replacement exists; nothing in the spine reaches it — **CONTESTED** (see ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT: ndarray `cognitive-distance-typing.md` says HDR popcount IS the cosine replacement and Fisher-z is NOT a distance; this entry took bgz-tensor's "certified cosine-replacement" wording as settled — an assumption, pending operator ruling; CLOSED-INVALID 2026-07-27 -- palette256-ONLY ruling: FisherZTable is a materialization artifact, nothing to wire, see section E)
 
 **The cosine replacement is not missing. It is shipped, certified, and named** —
