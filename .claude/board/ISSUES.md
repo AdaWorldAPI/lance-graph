@@ -150,6 +150,30 @@ today: the [u8;6] noise measurement (rho -0.0030), the cost measurements
 (276 vs 5-9 ns/cand; 0 B per-query state; table-build vs 550 ms SLA), and the
 kmeans-vs-hand-rolled codebook delta (0.8494 -> 0.9725).
 
+### G. MEASURED: the contract `Distance` trait has ZERO production consumers (2026-07-27)
+
+Grep of the whole workspace for `use lance_graph_contract::distance::Distance`
+returns exactly ONE hit: `crates/lance-graph-planner/examples/probe_palette256_ndarray.rs:28`
+— this session's own probe. `similarity_z` (where the 2026-05-26 VALIDATED entry
+places the Fisher-z theta aperture) appears only in `cam.rs:226,240,432`
+doc-comments, never in a call. (`helix::distance::DistanceLut` hits are a
+different module.)
+
+Consequences:
+1. **Removing or renaming the `[u8;6]` byte-L1 impl breaks nothing** — no caller
+   to migrate. The section-A open item is therefore free to action, and its
+   noise measurement (rho -0.0030 vs exact) is the justification.
+2. **The cosine census's "REPLACE #1 = migrate cam.rs onto Distance" pointed at
+   an unconsumed trait.** Recorded as a second-order error of that census.
+3. **The trait is SPECIFICATION-SHAPED, not load-bearing** — declared,
+   in-crate-tested, unwired. Consistent with the standing May debt
+   `cam-pq-production-wiring` ("cam_pq shipped, unrouted through
+   `CamCodecContract`"). Neither "forbidden umbrella" (section A, already
+   withdrawn as overstated) nor "the canonical dispatch consumers use"
+   (this session's framing) described it correctly: it is an unwired contract
+   surface awaiting that debt's resolution.
+
+
 ## 2026-07-27 — ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED — the certified replacement exists; nothing in the spine reaches it — **CONTESTED** (see ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT: ndarray `cognitive-distance-typing.md` says HDR popcount IS the cosine replacement and Fisher-z is NOT a distance; this entry took bgz-tensor's "certified cosine-replacement" wording as settled — an assumption, pending operator ruling; CLOSED-INVALID 2026-07-27 -- palette256-ONLY ruling: FisherZTable is a materialization artifact, nothing to wire, see section E)
 
 **The cosine replacement is not missing. It is shipped, certified, and named** —
