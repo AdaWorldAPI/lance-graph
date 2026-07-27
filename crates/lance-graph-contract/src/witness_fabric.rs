@@ -134,6 +134,11 @@ pub struct ChainResolution {
     /// read (`QueryReference::at`) is required. The contract emits the signal;
     /// the consumer does the read (no widening of the i4 nibble, no new witness
     /// variant). **Genuinely non-local: more hop budget will NOT help.**
+    ///
+    /// **STATUS: DECLARED — no in-repo consumer performs that read** (verified
+    /// 2026-07-27, §12 substrate trace: `deinterlace` has no production caller).
+    /// The signal is emitted correctly; the responding read is the unwired half.
+    /// Whether an out-of-repo consumer acts on it was not traced.
     pub out_of_horizon: bool,
     /// The hop budget ran out mid-chain. **This is NOT non-locality** — it says
     /// "ask again with more budget", and the multipass loop's next iteration

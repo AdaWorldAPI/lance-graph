@@ -41,6 +41,13 @@ pub enum KanbanColumn {
     /// `t > 0`: read back over the witness arc; residual free-energy assessed.
     Evaluation = 2,
     /// Terminal — calcify: commit to Lance SPO-G + AriGraph pointer.
+    ///
+    /// **STATUS: DECLARED — nothing implements the calcify step** (verified
+    /// 2026-07-27, §12 substrate trace). No Lance-version-producing code exists
+    /// for this transition; `MailboxSoA` does not implement `SoaEnvelope`, so
+    /// the write seam this variant names is absent. The variant is a valid
+    /// terminal *state* in the DAG; the "commit to Lance" *action* is intent.
+    /// Ledger: `.claude/board/TECH_DEBT.md` TD-DOC-COMMENTS-CLAIM-UNWIRED-BEHAVIOUR.
     Commit = 3,
     /// Terminal — re-plan: re-enter [`Planning`](KanbanColumn::Planning) carrying
     /// the witness (the "act differently next time" exit).
