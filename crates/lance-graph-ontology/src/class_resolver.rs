@@ -29,7 +29,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use lance_graph_contract::class_view::{ClassId, ClassView};
+use lance_graph_contract::class_view::{ClassView, EntityTypeId};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef, ObjectView};
 
 use crate::hydrators::dolce_odoo::{classify_odoo, DolceCategory};
@@ -71,7 +71,7 @@ pub struct RegistryClassView<'a> {
     registry: &'a OntologyRegistry,
     /// `class_id -> its ObjectView` (ordered fields + template). The field
     /// enumeration is the deferred D-CLS audit; supplied here as the bit-basis.
-    views: HashMap<ClassId, ObjectView>,
+    views: HashMap<EntityTypeId, ObjectView>,
     /// Empty fallback so `fields()` can return a `&[FieldRef]` for unknown classes.
     empty: Vec<FieldRef>,
     /// Memo of `class_id -> resolved DOLCE id`. A class's DOLCE category is stable
@@ -79,12 +79,12 @@ pub struct RegistryClassView<'a> {
     /// O(n) scan + full `MappingRow` clone (`registry::enumerate_first_with_entity_type_id`
     /// — a known perf gap; the `by_entity_type_id` index is a deferred registry slice).
     /// Memoizing here makes the scan happen at most once per class, not per render call.
-    dolce_memo: RefCell<HashMap<ClassId, u8>>,
+    dolce_memo: RefCell<HashMap<EntityTypeId, u8>>,
 }
 
 impl<'a> RegistryClassView<'a> {
     /// Build over the live registry with the per-class field-set views.
-    pub fn new(registry: &'a OntologyRegistry, views: HashMap<ClassId, ObjectView>) -> Self {
+    pub fn new(registry: &'a OntologyRegistry, views: HashMap<EntityTypeId, ObjectView>) -> Self {
         Self {
             registry,
             views,
@@ -94,7 +94,7 @@ impl<'a> RegistryClassView<'a> {
     }
 
     /// Does the cache know this class? (a real leaf lookup against the registry)
-    pub fn is_known(&self, class: ClassId) -> bool {
+    pub fn is_known(&self, class: EntityTypeId) -> bool {
         self.registry
             .enumerate_first_with_entity_type_id(class)
             .is_some()
@@ -102,14 +102,14 @@ impl<'a> RegistryClassView<'a> {
 }
 
 impl ClassView for RegistryClassView<'_> {
-    fn fields(&self, class: ClassId) -> &[FieldRef] {
+    fn fields(&self, class: EntityTypeId) -> &[FieldRef] {
         self.views
             .get(&class)
             .map(|v| v.fields.as_slice())
             .unwrap_or(&self.empty)
     }
 
-    fn template(&self, class: ClassId) -> DisplayTemplate {
+    fn template(&self, class: EntityTypeId) -> DisplayTemplate {
         self.views
             .get(&class)
             .map(|v| v.display_template.clone())
@@ -117,7 +117,7 @@ impl ClassView for RegistryClassView<'_> {
             .unwrap_or(DisplayTemplate::Card)
     }
 
-    fn dolce_category_id(&self, class: ClassId) -> u8 {
+    fn dolce_category_id(&self, class: EntityTypeId) -> u8 {
         if let Some(&id) = self.dolce_memo.borrow().get(&class) {
             return id;
         }

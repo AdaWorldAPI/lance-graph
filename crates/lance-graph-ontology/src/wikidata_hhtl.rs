@@ -5,7 +5,7 @@
 //! or it is overfit to one ERP. **Wikidata is the falsifier domain.** This module
 //! routes a curated set of *real* Wikidata classes through the SAME machinery the
 //! D-CLS arc (#441) built for Odoo — proving the Wikidata "D-CLS triple"
-//! `(class_id, shape_hash, presence_bitmask)` = `(ClassId, StructuralSignature,
+//! `(class_id, shape_hash, presence_bitmask)` = `(EntityTypeId, StructuralSignature,
 //! FieldMask)` is **domain-independent** (`wikidata-hhtl-load.md`:33).
 //!
 //! ## What is reused (not re-grown)
@@ -31,7 +31,7 @@
 
 use std::collections::HashMap;
 
-use lance_graph_contract::class_view::{ClassId, ClassView, FieldMask};
+use lance_graph_contract::class_view::{ClassView, EntityTypeId, FieldMask};
 use lance_graph_contract::hash::fnv1a;
 use lance_graph_contract::hhtl::NiblePath;
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
@@ -45,8 +45,8 @@ use crate::odoo_blueprint::class_signature::StructuralSignature;
 /// `i`, N3 append-only) — not the exhaustive Wikidata property list.
 #[derive(Debug, Clone)]
 pub struct WikidataClass {
-    /// The class discriminator (reuses the #441 `ClassId` width — u16).
-    pub class_id: ClassId,
+    /// The class discriminator (reuses the #441 `EntityTypeId` width — u16).
+    pub class_id: EntityTypeId,
     /// The Wikidata QID, e.g. `"Q5"` (human).
     pub qid: &'static str,
     /// The English label (resolved late in real loads; carried here for the fixture).
@@ -116,7 +116,7 @@ impl WikidataClass {
     /// one: `(class_id, shape_hash, presence_bitmask)`. This identity IS the N4
     /// falsification target.
     #[must_use]
-    pub fn dcls_triple(&self) -> (ClassId, StructuralSignature, FieldMask) {
+    pub fn dcls_triple(&self) -> (EntityTypeId, StructuralSignature, FieldMask) {
         (self.class_id, self.signature(), self.presence_mask())
     }
 
@@ -213,8 +213,8 @@ pub fn shape_families(classes: &[WikidataClass]) -> Vec<(StructuralSignature, Ve
 /// of [`RegistryClassView`](crate::class_resolver::RegistryClassView). Proves the
 /// #441 contract trait resolves a Wikidata class with no change.
 pub struct WikidataClassView {
-    fields: HashMap<ClassId, Vec<FieldRef>>,
-    dolce: HashMap<ClassId, u8>,
+    fields: HashMap<EntityTypeId, Vec<FieldRef>>,
+    dolce: HashMap<EntityTypeId, u8>,
     empty: Vec<FieldRef>,
 }
 
@@ -237,13 +237,13 @@ impl WikidataClassView {
 }
 
 impl ClassView for WikidataClassView {
-    fn fields(&self, class: ClassId) -> &[FieldRef] {
+    fn fields(&self, class: EntityTypeId) -> &[FieldRef] {
         self.fields
             .get(&class)
             .map_or(self.empty.as_slice(), |v| v.as_slice())
     }
 
-    fn template(&self, class: ClassId) -> DisplayTemplate {
+    fn template(&self, class: EntityTypeId) -> DisplayTemplate {
         // Same size heuristic as Odoo's `object_view` (≤4 fields → Card).
         match self.fields.get(&class) {
             Some(f) if f.len() <= 4 => DisplayTemplate::Card,
@@ -251,7 +251,7 @@ impl ClassView for WikidataClassView {
         }
     }
 
-    fn dolce_category_id(&self, class: ClassId) -> u8 {
+    fn dolce_category_id(&self, class: EntityTypeId) -> u8 {
         // Resolved from the cache (carried as the opaque u8); default Endurant.
         self.dolce
             .get(&class)
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn dcls_triple_shape_is_domain_independent() {
-        // The Wikidata triple is the SAME (ClassId, StructuralSignature, FieldMask)
+        // The Wikidata triple is the SAME (EntityTypeId, StructuralSignature, FieldMask)
         // as Odoo's — the identity that proves the meta-DTO is not Odoo-overfit.
         let human = by_qid("Q5");
         let (id, sig, mask) = human.dcls_triple();

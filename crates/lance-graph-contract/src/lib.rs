@@ -184,8 +184,13 @@ pub use canonical_node::{
     KanbanTenant, NodeGuid, NodeRow, NodeRowPacket, ReadMode, ValueSchema, ValueTenant,
     VALUE_TENANTS,
 };
+// `EntityTypeId` (was `ClassId`) is the ontology-registry row number, NOT the
+// V3 GUID `classid` — the crate-root re-export is deliberately the honest name
+// only; the deprecated `class_view::ClassId` alias stays reachable by full path
+// for out-of-tree consumers but is not re-exported here, so a fresh `use
+// lance_graph_contract::ClassId` cannot silently pick up the wrong quantity.
 pub use class_view::{
-    ClassId, ClassProjection, ClassView, FieldMask, RenderRow, ValueRow, WideFieldMask,
+    ClassProjection, ClassView, EntityTypeId, FieldMask, RenderRow, ValueRow, WideFieldMask,
 };
 pub use collapse_gate::{GateDecision, MailboxId, MergeMode};
 pub use doc_graph::{DocGraphQuery, ScoredId};

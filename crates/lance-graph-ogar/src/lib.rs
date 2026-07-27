@@ -16,9 +16,9 @@
 //!
 //! - [`ogar_vocab::Class`] — the calcified AR shape: canonical concept + typed
 //!   attributes + family-edge `Association`s. `canonical_concept_id` == the
-//!   contract [`ClassId`](lance_graph_contract::class_view::ClassId).
+//!   contract [`EntityTypeId`](lance_graph_contract::class_view::EntityTypeId).
 //! - [`ogar_class_view::OgarClassView`] — **`impl lance_graph_contract::ClassView`**:
-//!   builds an `ObjectView` per promoted concept, keyed by `ClassId`, exposing the
+//!   builds an `ObjectView` per promoted concept, keyed by `EntityTypeId`, exposing the
 //!   whole 32-concept AR set through the contract's runtime projection trait
 //!   (`render_rows(id, mask)`).
 //! - [`ogar_ontology`] — prefix conventions + NiblePath identity routing.
@@ -55,10 +55,10 @@
 //! # The OGIT ↔ OGAR seam
 //!
 //! `lance-graph-ontology` (OGIT) hydrates classes from TTL; OGAR mints the
-//! calcified canonical concepts (`class_ids::ALL`) keyed by the same `ClassId`
+//! calcified canonical concepts (`class_ids::ALL`) keyed by the same `EntityTypeId`
 //! space. They meet at the codebook id == `NodeGuid.classid` low u16 — the
 //! `0xDDCC` domain layout the [`parity`] guard pins. Reconciling an OGIT-hydrated
-//! TTL class against an OGAR-promoted concept is a `ClassId` lookup, not a parse.
+//! TTL class against an OGAR-promoted concept is a `EntityTypeId` lookup, not a parse.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]

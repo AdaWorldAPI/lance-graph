@@ -54,6 +54,12 @@
 
 pub mod class_signature;
 pub mod l1;
+pub mod l10;
+pub mod l11;
+pub mod l12;
+pub mod l13;
+pub mod l14;
+pub mod l15;
 pub mod l2;
 pub mod l3;
 pub mod l4;
@@ -62,12 +68,6 @@ pub mod l6;
 pub mod l7;
 pub mod l8;
 pub mod l9;
-pub mod l10;
-pub mod l11;
-pub mod l12;
-pub mod l13;
-pub mod l14;
-pub mod l15;
 
 // ─── Source-extracted sub-modules (D-ODOO-EXT-2) ─────────────────────────
 //
@@ -530,9 +530,18 @@ mod tests {
         const INVOICE_STATE: OdooStateMachine = OdooStateMachine {
             state_field: "state",
             states: &[
-                OdooState { name: "draft", semantic: OdooStateSemantic::Draft },
-                OdooState { name: "posted", semantic: OdooStateSemantic::Posted },
-                OdooState { name: "cancel", semantic: OdooStateSemantic::Cancelled },
+                OdooState {
+                    name: "draft",
+                    semantic: OdooStateSemantic::Draft,
+                },
+                OdooState {
+                    name: "posted",
+                    semantic: OdooStateSemantic::Posted,
+                },
+                OdooState {
+                    name: "cancel",
+                    semantic: OdooStateSemantic::Cancelled,
+                },
             ],
             transitions: &[OdooTransition {
                 from: "draft",

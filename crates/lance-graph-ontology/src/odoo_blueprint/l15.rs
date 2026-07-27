@@ -288,7 +288,8 @@ const TAX_EXTENSION_DECORATORS: &[OdooDecorator] = &[
 const TAX_EXTENSION_CONSTRAINTS: &[OdooConstraint] = &[
     OdooConstraint {
         kind: OdooConstraintKind::Python,
-        condition: "If tax_exigibility == 'on_payment', cash_basis_transition_account_id.reconcile \
+        condition:
+            "If tax_exigibility == 'on_payment', cash_basis_transition_account_id.reconcile \
                     must be True (CABA transition account must allow reconciliation). \
                     account_tax.py L247-255.",
         source_method: Some("_constrains_cash_basis_transition_account"),
@@ -336,7 +337,7 @@ pub const ACCOUNT_TAX_L15: OdooEntity = OdooEntity {
         odoo_source: &[
             OdooSourceRef {
                 path: "addons/account/models/account_tax.py",
-                line_range: (163, 174),  // hide_tax_exigibility + exigibility fields
+                line_range: (163, 174), // hide_tax_exigibility + exigibility fields
             },
             OdooSourceRef {
                 path: "addons/account/models/account_tax.py",
@@ -396,15 +397,18 @@ mod tests {
     fn all_entities_reference_l15_doc() {
         for entity in ENTITIES {
             assert_eq!(
-                entity.provenance.l_doc,
-                "L15-TAX-REPARTITION.md",
+                entity.provenance.l_doc, "L15-TAX-REPARTITION.md",
                 "{} references wrong L-doc",
                 entity.model_name
             );
             let (start, end) = entity.provenance.l_doc_lines;
             assert!(start > 0, "{} has zero start line", entity.model_name);
             assert!(end >= start, "{} has end < start", entity.model_name);
-            assert!(end <= 655, "{} references line beyond doc length", entity.model_name);
+            assert!(
+                end <= 655,
+                "{} references line beyond doc length",
+                entity.model_name
+            );
         }
     }
 
@@ -496,9 +500,7 @@ mod tests {
             .find(|e| e.model_name == "account.account.tag")
             .unwrap();
         assert!(
-            tag.methods
-                .iter()
-                .any(|m| m.name == "_get_tax_tags_domain"),
+            tag.methods.iter().any(|m| m.name == "_get_tax_tags_domain"),
             "_get_tax_tags_domain must be declared (strips leading '-' from tag name)"
         );
     }

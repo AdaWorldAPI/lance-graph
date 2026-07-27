@@ -298,14 +298,12 @@ pub const ACCOUNT_ACCOUNT_TAG: OdooEntity = OdooEntity {
             semantic_role: OdooSemanticRole::Status,
         },
     ],
-    methods: &[
-        OdooMethod {
-            name: "_compute_balance_negate",
-            kind: OdooMethodKind::Compute,
-            return_kind: OdooReturnKind::Unit,
-            triggers: &[],
-        },
-    ],
+    methods: &[OdooMethod {
+        name: "_compute_balance_negate",
+        kind: OdooMethodKind::Compute,
+        return_kind: OdooReturnKind::Unit,
+        triggers: &[],
+    }],
     decorators: &[OdooDecorator {
         kind: OdooDecoratorKind::ApiDepends,
         targets: &["name"],
@@ -721,8 +719,7 @@ mod tests {
     fn all_entities_cite_l11_doc() {
         for entity in ENTITIES {
             assert_eq!(
-                entity.provenance.l_doc,
-                "L11-COA-JOURNALS-LOCKDATES.md",
+                entity.provenance.l_doc, "L11-COA-JOURNALS-LOCKDATES.md",
                 "{} must reference L11-COA-JOURNALS-LOCKDATES.md",
                 entity.model_name,
             );
@@ -739,7 +736,11 @@ mod tests {
     fn account_account_type_is_policy() {
         let acc = &ACCOUNT_ACCOUNT;
         assert_eq!(acc.model_name, "account.account");
-        let t = acc.fields.iter().find(|f| f.name == "account_type").unwrap();
+        let t = acc
+            .fields
+            .iter()
+            .find(|f| f.name == "account_type")
+            .unwrap();
         assert_eq!(t.kind, OdooFieldKind::Selection);
         assert_eq!(t.semantic_role, OdooSemanticRole::Policy);
     }
@@ -769,15 +770,14 @@ mod tests {
             "hard_lock_date",
         ];
         for name in lock_fields {
-            let f = co.fields.iter().find(|f| f.name == name).unwrap_or_else(|| {
-                panic!("lock-date field '{}' missing on res.company entity", name)
-            });
-            assert_eq!(
-                f.kind,
-                OdooFieldKind::Date,
-                "field '{}' must be Date",
-                name
-            );
+            let f = co
+                .fields
+                .iter()
+                .find(|f| f.name == name)
+                .unwrap_or_else(|| {
+                    panic!("lock-date field '{}' missing on res.company entity", name)
+                });
+            assert_eq!(f.kind, OdooFieldKind::Date, "field '{}' must be Date", name);
             assert_eq!(
                 f.semantic_role,
                 OdooSemanticRole::Policy,
@@ -820,7 +820,8 @@ mod tests {
         assert_eq!(f.semantic_role, OdooSemanticRole::Policy);
         assert!(tag.constraints.iter().any(|c| {
             c.kind == OdooConstraintKind::Sql
-                && c.condition.contains("UNIQUE(name, applicability, country_id)")
+                && c.condition
+                    .contains("UNIQUE(name, applicability, country_id)")
         }));
     }
 }

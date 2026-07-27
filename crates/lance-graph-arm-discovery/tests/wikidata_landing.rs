@@ -11,7 +11,7 @@
 //! `class_view::FieldMask` (presence, + `inherit`), and `hash::fnv1a_str` (the
 //! structural-signature value). Firewall intact: aerial (the lib) never imports
 //! the hub; this *test* consumes both sides to prove the seam — the
-//! `(ClassId, signature, FieldMask)` triple + the `dolce_id` u8 are the only
+//! `(EntityTypeId, signature, FieldMask)` triple + the `dolce_id` u8 are the only
 //! things that cross.
 //!
 //! Run: `cargo test --manifest-path crates/lance-graph-arm-discovery/Cargo.toml \
@@ -26,7 +26,7 @@ use lance_graph_arm_discovery::{
     extract_rules, CandidateRule, CandidateTriple, Dataset, ExtractParams, FeatureSpec, Item,
     OntologyProjector, TopKDistance, NARS_PERSONALITY_K,
 };
-use lance_graph_contract::class_view::{ClassId, FieldMask};
+use lance_graph_contract::class_view::{EntityTypeId, FieldMask};
 use lance_graph_contract::hash::fnv1a_str;
 use lance_graph_contract::hhtl::NiblePath;
 
@@ -36,7 +36,7 @@ use lance_graph_contract::hhtl::NiblePath;
 // descent below the basin; `props` = the representative property-id set (its
 // IDENTITIES drive the shape-family, its COUNT drives the presence mask).
 struct WClass {
-    id: ClassId,
+    id: EntityTypeId,
     qid: &'static str,
     etype: u32,
     dolce: u8,
@@ -146,7 +146,7 @@ fn landing_preserves_basin_and_mask() {
     for c in &classes {
         let basin = discovered[&c.etype]; // from DISCOVERY, not hardcoded
         let path = nibble_path(basin, c.path); // contract::hhtl::NiblePath
-        let triple: (ClassId, u32, FieldMask) = (c.id, signature(basin, c.props), presence(c.props));
+        let triple: (EntityTypeId, u32, FieldMask) = (c.id, signature(basin, c.props), presence(c.props));
         assert_eq!(path.basin(), Some(basin), "basin survives down the nibble path");
         assert_eq!(triple.0, c.id);
         assert_eq!(triple.2.count(), c.props.len() as u32, "one present bit per property");

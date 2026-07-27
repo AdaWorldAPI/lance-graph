@@ -45,13 +45,40 @@
 use crate::ontology::{DisplayTemplate, FieldRef};
 use std::hash::{Hash, Hasher};
 
-/// Per-row class discriminator — the Cognitive-RISC `class_id` / `shape_id`.
+/// The ontology registry's **entity-type** discriminator — a registry ROW
+/// NUMBER, `u16`, minted sequentially by
+/// `OntologyRegistry::register_*` (`(rows.len() + 1) as u16`, id 0 = "unknown"
+/// sentinel) and returned by `entity_type_of(NiblePath)`.
 ///
-/// A `u16` (≤ 65,535 shape-families; OD-CLASSID-WIDTH ratified). It is a
-/// *discriminator*, never a content hash — it stays OUTSIDE the CAM identity
-/// layer (`I-VSA-IDENTITIES`: never hashed-as-content, never superposed). Reuses
-/// the width of the existing [`crate::soa_view::MailboxSoaView::class_id`] accessor.
-pub type ClassId = u16;
+/// > **⚠ THIS IS NOT THE V3 GUID `classid`.** Until 2026-07-27 this alias was
+/// > named `ClassId` and documented as *"the Cognitive-RISC `class_id` /
+/// > `shape_id`"*, which asserted an identity it does not have: the one and only
+/// > substrate classid is the **`u32`** in the V3 GUID key (`classid(4)` at bytes
+/// > `0..4`, canon-high per `D-CLASSID-CANON-HIGH-FLIP`), aliased at
+/// > [`crate::rbac::ClassId`] and taken bare as `u32` by
+/// > [`crate::action::actions_for`], `unicharset_adapter`, and
+/// > [`crate::canonical_node`]. Two different objects were wearing one word in
+/// > one crate. Renamed so the name states what the value is; no behaviour
+/// > changed. The `u16` width is correct FOR AN ENTITY TYPE (it indexes
+/// > registry rows) and must not be widened to "match" the GUID — they are not
+/// > the same quantity.
+///
+/// It is a *discriminator*, never a content hash — it stays OUTSIDE the CAM
+/// identity layer (`I-VSA-IDENTITIES`: never hashed-as-content, never
+/// superposed). Reuses the width of the existing
+/// [`crate::soa_view::MailboxSoaView::class_id`] accessor.
+pub type EntityTypeId = u16;
+
+/// **Deprecated** — renamed to [`EntityTypeId`], which is what the value
+/// actually is (an ontology-registry row number, not the V3 GUID `classid`).
+/// Kept as a pointer for out-of-tree consumers per
+/// `I-LEGACY-API-FEATURE-GATED`; if you wanted the substrate classid you want
+/// `u32` / [`crate::rbac::ClassId`] instead.
+#[deprecated(
+    since = "0.1.0",
+    note = "renamed to EntityTypeId — this is a registry row number, NOT the V3 GUID classid (which is u32, see rbac::ClassId)"
+)]
+pub type ClassId = EntityTypeId;
 
 /// A class's **presence bitmask** — one bit per field of its class
 /// [`ObjectView`](crate::ontology::ObjectView), set iff that field is populated
@@ -904,25 +931,25 @@ pub trait ClassView {
     /// The class's ordered field set — the bit basis. Position `i` in this slice
     /// is the stable [`FieldMask`] bit `i` (N3 append-only). This IS the
     /// per-class [`ObjectView`](crate::ontology::ObjectView)'s `fields`.
-    fn fields(&self, class: ClassId) -> &[FieldRef];
+    fn fields(&self, class: EntityTypeId) -> &[FieldRef];
 
     /// Which askama template renders this class.
-    fn template(&self, class: ClassId) -> DisplayTemplate;
+    fn template(&self, class: EntityTypeId) -> DisplayTemplate;
 
     /// The DOLCE upper-category of this class, RESOLVED from the ontology cache
     /// (not a stored enum on the row — OD-DOLCE "use the ontology cache"). Returned
     /// as the cache's opaque category id; the consumer maps it to its own enum.
-    fn dolce_category_id(&self, class: ClassId) -> u8;
+    fn dolce_category_id(&self, class: EntityTypeId) -> u8;
 
     /// The label of field position `n` in `class`, resolved late from the cache
     /// (locale resolution is the consumer's job). `None` if `n` is out of range.
-    fn field_label(&self, class: ClassId, n: u8) -> Option<&str> {
+    fn field_label(&self, class: EntityTypeId, n: u8) -> Option<&str> {
         self.fields(class).get(n as usize).map(|f| f.label.as_str())
     }
 
     /// The class's field count (mask width). Must be `<= FieldMask::MAX_FIELDS`.
     #[inline]
-    fn field_count(&self, class: ClassId) -> usize {
+    fn field_count(&self, class: EntityTypeId) -> usize {
         self.fields(class).len()
     }
 
@@ -930,7 +957,7 @@ pub trait ClassView {
     /// gating each field by the presence `mask`. This is the render surface — the
     /// consumer skips off-bits (`cognitive-risc-classes.md`:49). The SoA supplied
     /// only `(class, mask)`; the labels come from the cache, above the SoA.
-    fn project<'a>(&'a self, class: ClassId, mask: FieldMask) -> ClassProjection<'a> {
+    fn project<'a>(&'a self, class: EntityTypeId, mask: FieldMask) -> ClassProjection<'a> {
         ClassProjection {
             fields: self.fields(class),
             mask,
@@ -946,7 +973,7 @@ pub trait ClassView {
     /// Presence-only (C2): a row appears iff its bit is set; the mask NEVER changes a
     /// row's meaning, only its presence. The labels are the meta-DTO's late resolution
     /// (above the SoA), the mask is the SoA's structural delta.
-    fn render_rows<'a>(&'a self, class: ClassId, mask: FieldMask) -> Vec<RenderRow<'a>> {
+    fn render_rows<'a>(&'a self, class: EntityTypeId, mask: FieldMask) -> Vec<RenderRow<'a>> {
         self.project(class, mask)
             .filter(|(_, present)| *present)
             .map(|(f, _)| RenderRow {
@@ -978,7 +1005,7 @@ pub trait ClassView {
     /// never the byte itself. The SoA supplied only `(class, mask, facet)`.
     fn facet_rows<'a>(
         &'a self,
-        class: ClassId,
+        class: EntityTypeId,
         mask: FieldMask,
         facet: &[u8; 12],
     ) -> Vec<ValueRow<'a>> {
@@ -1007,7 +1034,7 @@ pub trait ClassView {
     /// leaves every class an orphan, and `resolve_render_class` degenerates to
     /// "return the class itself" (still monotonic — the ladder never fails).
     #[inline]
-    fn is_a_parent(&self, _class: ClassId) -> Option<ClassId> {
+    fn is_a_parent(&self, _class: EntityTypeId) -> Option<EntityTypeId> {
         None
     }
 
@@ -1028,10 +1055,10 @@ pub trait ClassView {
     /// and an on-stack visited array rejects a `subClassOf` cycle
     /// (`A is_a B is_a A`) without a `HashSet`. Either guard hit → return the
     /// original class (never an infinite loop, never a panic).
-    fn resolve_render_class(&self, class: ClassId) -> ClassId {
+    fn resolve_render_class(&self, class: EntityTypeId) -> EntityTypeId {
         const MAX_HOPS: usize = 16;
         // Seeded with `class` so an unwritten tail can never spuriously match.
-        let mut visited: [ClassId; MAX_HOPS] = [class; MAX_HOPS];
+        let mut visited: [EntityTypeId; MAX_HOPS] = [class; MAX_HOPS];
         let mut current = class;
         let mut depth = 0usize;
         loop {
@@ -1070,10 +1097,10 @@ pub trait ClassView {
     /// visited guard as [`resolve_render_class`](ClassView::resolve_render_class).
     /// A `subClassOf` cycle terminates at the first repeat (never loops, never
     /// panics); the only allocation is the returned path.
-    fn menu_address(&self, class: ClassId) -> Vec<ClassId> {
+    fn menu_address(&self, class: EntityTypeId) -> Vec<EntityTypeId> {
         const MAX_HOPS: usize = 16;
-        let mut path: Vec<ClassId> = Vec::new();
-        let mut visited: [ClassId; MAX_HOPS] = [class; MAX_HOPS];
+        let mut path: Vec<EntityTypeId> = Vec::new();
+        let mut visited: [EntityTypeId; MAX_HOPS] = [class; MAX_HOPS];
         let mut current = class;
         let mut depth = 0usize;
         loop {
@@ -1106,7 +1133,7 @@ pub trait ClassView {
     /// choice never changes `NODE_ROW_STRIDE` (canon "registry-resolved via
     /// `classid → ClassView`", never a stride change).
     #[inline]
-    fn edge_codec_flavor(&self, _class: ClassId) -> crate::canonical_node::EdgeCodecFlavor {
+    fn edge_codec_flavor(&self, _class: EntityTypeId) -> crate::canonical_node::EdgeCodecFlavor {
         crate::canonical_node::EdgeCodecFlavor::CoarseOnly
     }
 
@@ -1130,7 +1157,7 @@ pub trait ClassView {
     /// `Bootstrap`, so the substrate zero-fallback semantics are untouched; only
     /// the class→schema *resolution* default is Full.
     #[inline]
-    fn value_schema(&self, _class: ClassId) -> crate::canonical_node::ValueSchema {
+    fn value_schema(&self, _class: EntityTypeId) -> crate::canonical_node::ValueSchema {
         // TEMPORARY POC default — see doc above. Revert to `ValueSchema::Bootstrap`
         // (canon zero-fallback) before merge. No invention: `Full` activates the
         // already-existing, already-tested 9 ValueTenants (helix-48 / turbovec /
@@ -1152,7 +1179,7 @@ pub trait ClassView {
     /// change. The instance recompute that consumes this is gated per-cell by the
     /// cycle-aware `write_row` (`E-SOA-CYCLE-OWNERSHIP`).
     #[inline]
-    fn compute_dag(&self, _class: ClassId) -> &[ComputeEdge] {
+    fn compute_dag(&self, _class: EntityTypeId) -> &[ComputeEdge] {
         &[]
     }
 
@@ -1169,7 +1196,7 @@ pub trait ClassView {
     /// duplicate-safe — [`execute_defaults`] fires each position at most
     /// once). Phase rule: defaults run BEFORE the recompute DAG.
     #[inline]
-    fn default_targets(&self, _class: ClassId) -> &[u8] {
+    fn default_targets(&self, _class: EntityTypeId) -> &[u8] {
         &[]
     }
 }
@@ -1248,9 +1275,9 @@ mod tests {
         // class 7 = a 3-field shape ("invoice": amount, tax, partner)
         invoice: Vec<FieldRef>,
         // per-class field sets for non-7 classes (empty vec / absent = empty shape).
-        extra: HashMap<ClassId, Vec<FieldRef>>,
+        extra: HashMap<EntityTypeId, Vec<FieldRef>>,
         // is_a (subClassOf) edges: child -> parent.
-        parents: HashMap<ClassId, ClassId>,
+        parents: HashMap<EntityTypeId, EntityTypeId>,
     }
 
     impl FakeClasses {
@@ -1266,32 +1293,32 @@ mod tests {
         }
 
         /// Register a class's field set (test builder for the is_a / facet surface).
-        fn with_class(mut self, class: ClassId, fields: Vec<FieldRef>) -> Self {
+        fn with_class(mut self, class: EntityTypeId, fields: Vec<FieldRef>) -> Self {
             self.extra.insert(class, fields);
             self
         }
 
         /// Register an `is_a` (subClassOf) edge `child -> parent`.
-        fn with_isa(mut self, child: ClassId, parent: ClassId) -> Self {
+        fn with_isa(mut self, child: EntityTypeId, parent: EntityTypeId) -> Self {
             self.parents.insert(child, parent);
             self
         }
     }
 
     impl ClassView for FakeClasses {
-        fn fields(&self, class: ClassId) -> &[FieldRef] {
+        fn fields(&self, class: EntityTypeId) -> &[FieldRef] {
             match class {
                 7 => &self.invoice,
                 c => self.extra.get(&c).map_or(&[], |v| v.as_slice()),
             }
         }
-        fn template(&self, _class: ClassId) -> DisplayTemplate {
+        fn template(&self, _class: EntityTypeId) -> DisplayTemplate {
             DisplayTemplate::Detail
         }
-        fn dolce_category_id(&self, _class: ClassId) -> u8 {
+        fn dolce_category_id(&self, _class: EntityTypeId) -> u8 {
             0 // Endurant, resolved from the cache in the real impl
         }
-        fn is_a_parent(&self, class: ClassId) -> Option<ClassId> {
+        fn is_a_parent(&self, class: EntityTypeId) -> Option<EntityTypeId> {
             self.parents.get(&class).copied()
         }
     }

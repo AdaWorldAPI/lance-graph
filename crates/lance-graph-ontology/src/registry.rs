@@ -26,7 +26,7 @@ use crate::proposal::{
 use crate::semantic_types::SemanticTypeMap;
 use crate::ttl_parse::{parse_ttl_directory_with_provenance, ttl_root_checksum};
 use lance_graph_contract::canonical_node::NodeGuid;
-use lance_graph_contract::class_view::ClassId;
+use lance_graph_contract::class_view::EntityTypeId;
 use lance_graph_contract::hhtl::NiblePath;
 use lance_graph_contract::property::{Marking, SemanticType};
 use std::collections::HashMap;
@@ -423,7 +423,7 @@ impl OntologyRegistry {
     }
 
     /// **OGAR → ClassView wiring.** Resolve an OGAR node's [`NodeGuid`] to its
-    /// ontology class (`entity_type` / [`ClassId`]) — the single link that lets a
+    /// ontology class (`entity_type` / [`EntityTypeId`]) — the single link that lets a
     /// node row carrying a `classid` reach its class shape through
     /// [`RegistryClassView`](crate::class_resolver::RegistryClassView), which keys
     /// on the returned `entity_type`.
@@ -440,7 +440,7 @@ impl OntologyRegistry {
     /// the registrar's invariant: `register_class_path(t,
     /// NiblePath::from_guid_prefix(guid))` makes `class_id_for_guid(guid) ==
     /// Some(t)` (see `class_id_for_guid_wires_ogar_guid_to_classview`).
-    pub fn class_id_for_guid(&self, guid: &NodeGuid) -> Option<ClassId> {
+    pub fn class_id_for_guid(&self, guid: &NodeGuid) -> Option<EntityTypeId> {
         let path = NiblePath::from_guid_prefix(guid)?;
         self.entity_type_of(path)
     }
@@ -597,7 +597,7 @@ impl RegistryState {
         {
             Some(existing) => existing,
             None => {
-                // Id 0 is the "unknown" sentinel; u16 is the ratified ClassId
+                // Id 0 is the "unknown" sentinel; u16 is the ratified EntityTypeId
                 // width (OD-CLASSID-WIDTH) — refuse to wrap, never alias.
                 if self.rows.len() >= u16::MAX as usize {
                     return AppendOutcome::Failed("entity_type overflow (u16)".to_string());
@@ -911,7 +911,7 @@ mod tests {
         let path = NiblePath::from_guid_prefix(&g).expect("classid_lo only ⇒ Some");
         reg.register_class_path(t, path).unwrap();
 
-        // The wiring: GUID → from_guid_prefix → entity_type_of → ClassId.
+        // The wiring: GUID → from_guid_prefix → entity_type_of → EntityTypeId.
         assert_eq!(reg.class_id_for_guid(&g), Some(t));
         // Equal to the explicit composition (documents exactly what it does).
         assert_eq!(

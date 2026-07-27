@@ -16,7 +16,7 @@
 //!   ITSELF: at each node, AND the view's mask with the node's presence, emit the
 //!   present fields, follow the set rail-bearing bits, recurse. Termination: a
 //!   node whose present∩view mask yields no rail target is a leaf.
-//! - A **named view** is a [`NamedView`] = `(ClassId, WideFieldMask,
+//! - A **named view** is a [`NamedView`] = `(EntityTypeId, WideFieldMask,
 //!   DisplayTemplate)` recipe — a persisted mask constant (GraphQL fragment +
 //!   persisted query in one). Fragment spread / composition =
 //!   [`ViewRegistry::union_of`], bitwise OR via the EXISTING
@@ -64,7 +64,7 @@
 //! serde anywhere. The walk allocates nothing beyond the visited set and whatever
 //! the caller's `visit` closure keeps.
 
-use crate::class_view::{ClassId, ClassView, WideFieldMask};
+use crate::class_view::{ClassView, EntityTypeId, WideFieldMask};
 use crate::ontology::DisplayTemplate;
 use std::collections::HashSet;
 
@@ -72,7 +72,7 @@ use std::collections::HashSet;
 ///
 /// **Width justification (`u16`).** A `ViewId` names one recipe in the fragment
 /// library; `u16` gives 65 536 named views, which mirrors the
-/// [`ClassId`](crate::class_view::ClassId) cardinality ceiling (also `u16`) — a
+/// [`EntityTypeId`](crate::class_view::EntityTypeId) cardinality ceiling (also `u16`) — a
 /// view is at most a per-class-per-projection constant, so the library is bounded
 /// by (classes × a handful of projections each), comfortably inside `u16`. Keeping
 /// it `u16` also keeps [`NamedView`] small and lets a consumer store a view id in
@@ -94,7 +94,7 @@ pub struct NamedView {
     /// The class this view projects. A view is applied to a node only when the
     /// node's [`class_of`](RailGraph::class_of) matches (the walk resolves the
     /// view per node's own classid — the canon `classid → view` lookup).
-    pub class: ClassId,
+    pub class: EntityTypeId,
     /// The selected field positions — the persisted mask constant.
     pub mask: WideFieldMask,
     /// Which template renders the projected view.
@@ -104,7 +104,7 @@ pub struct NamedView {
 impl NamedView {
     /// A view recipe over `class` selecting `mask`, rendered by `template`.
     #[must_use]
-    pub fn new(class: ClassId, mask: WideFieldMask, template: DisplayTemplate) -> Self {
+    pub fn new(class: EntityTypeId, mask: WideFieldMask, template: DisplayTemplate) -> Self {
         Self {
             class,
             mask,
@@ -208,7 +208,7 @@ pub trait RailGraph {
     type Key: Copy + Eq + core::hash::Hash;
 
     /// The `classid` of `key` — resolves which view/mask governs this node.
-    fn class_of(&self, key: Self::Key) -> ClassId;
+    fn class_of(&self, key: Self::Key) -> EntityTypeId;
 
     /// The presence [`WideFieldMask`] of `key`: which field positions are
     /// populated on this instance (C2 presence). AND-ed with the view mask so a
@@ -233,7 +233,7 @@ pub struct FieldVisit<K> {
     /// The node this field belongs to.
     pub key: K,
     /// The node's class (its own `classid` resolved the view).
-    pub class: ClassId,
+    pub class: EntityTypeId,
     /// The field position (binds to the class's [`FieldRef`](crate::ontology::FieldRef)
     /// / facet byte at that position — the consumer's render path resolves it).
     pub position: u8,
@@ -281,7 +281,7 @@ pub fn walk_rails<G, V, F>(
     graph: &G,
     class_view: &V,
     registry: &ViewRegistry,
-    view_binding: impl Fn(ClassId) -> Option<ViewId>,
+    view_binding: impl Fn(EntityTypeId) -> Option<ViewId>,
     root: G::Key,
     max_depth: usize,
     visit: &mut F,
@@ -331,7 +331,7 @@ fn walk_node<G, V, B, F>(
 ) where
     G: RailGraph,
     V: ClassView,
-    B: Fn(ClassId) -> Option<ViewId>,
+    B: Fn(EntityTypeId) -> Option<ViewId>,
     F: FnMut(FieldVisit<G::Key>),
 {
     if depth > max_depth {
@@ -427,13 +427,13 @@ mod tests {
     //   Wall(3)        --part_of --> Storey(4)         (a mereology rail)
     // The cyclic-graph test reuses Wall(3) as A part_of B, B part_of A.
 
-    const WORK_PACKAGE: ClassId = 1;
-    const USER: ClassId = 2;
-    const WALL: ClassId = 3;
-    const STOREY: ClassId = 4;
+    const WORK_PACKAGE: EntityTypeId = 1;
+    const USER: EntityTypeId = 2;
+    const WALL: EntityTypeId = 3;
+    const STOREY: EntityTypeId = 4;
 
     struct TestClasses {
-        fields: HashMap<ClassId, Vec<FieldRef>>,
+        fields: HashMap<EntityTypeId, Vec<FieldRef>>,
     }
 
     impl TestClasses {
@@ -471,20 +471,20 @@ mod tests {
     }
 
     impl ClassView for TestClasses {
-        fn fields(&self, class: ClassId) -> &[FieldRef] {
+        fn fields(&self, class: EntityTypeId) -> &[FieldRef] {
             self.fields.get(&class).map_or(&[], |v| v.as_slice())
         }
-        fn template(&self, _class: ClassId) -> DisplayTemplate {
+        fn template(&self, _class: EntityTypeId) -> DisplayTemplate {
             DisplayTemplate::Detail
         }
-        fn dolce_category_id(&self, _class: ClassId) -> u8 {
+        fn dolce_category_id(&self, _class: EntityTypeId) -> u8 {
             0
         }
     }
 
     /// A node = (class, presence mask). Rails keyed by (node, position) → target.
     struct TestGraph {
-        nodes: HashMap<u32, (ClassId, WideFieldMask)>,
+        nodes: HashMap<u32, (EntityTypeId, WideFieldMask)>,
         rails: HashMap<(u32, u8), u32>,
     }
 
@@ -495,7 +495,7 @@ mod tests {
                 rails: HashMap::new(),
             }
         }
-        fn node(&mut self, key: u32, class: ClassId, present: &[u8]) {
+        fn node(&mut self, key: u32, class: EntityTypeId, present: &[u8]) {
             self.nodes.insert(
                 key,
                 (
@@ -511,7 +511,7 @@ mod tests {
 
     impl RailGraph for TestGraph {
         type Key = u32;
-        fn class_of(&self, key: u32) -> ClassId {
+        fn class_of(&self, key: u32) -> EntityTypeId {
             self.nodes.get(&key).map_or(0, |(c, _)| *c)
         }
         fn present_mask(&self, key: u32) -> WideFieldMask {
@@ -527,7 +527,7 @@ mod tests {
     /// Build the standard registry + binding: one view per class.
     /// `user_view` deliberately masks ONLY name(0) — email(1) is present but NOT
     /// selected, so the walk must not emit it (proves masking selects a subset).
-    fn registry() -> (ViewRegistry, HashMap<ClassId, ViewId>) {
+    fn registry() -> (ViewRegistry, HashMap<EntityTypeId, ViewId>) {
         let mut reg = ViewRegistry::new();
         let mut binding = HashMap::new();
         binding.insert(
@@ -569,10 +569,10 @@ mod tests {
         graph: &G,
         cv: &V,
         reg: &ViewRegistry,
-        binding: &HashMap<ClassId, ViewId>,
+        binding: &HashMap<EntityTypeId, ViewId>,
         root: u32,
         max_depth: usize,
-    ) -> Vec<(u32, ClassId, u8, usize)> {
+    ) -> Vec<(u32, EntityTypeId, u8, usize)> {
         let mut out = Vec::new();
         walk_rails(
             graph,
