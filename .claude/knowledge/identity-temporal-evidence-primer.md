@@ -104,7 +104,7 @@ convergence). Neither is universally right — that is why both accessors exist.
 | reader horizon | `QueryReference.ref_version` (`temporal.rs:114-116`, *"The `KnowledgeHorizon` — the Lance version the reader is pinned at"*) | EXISTS |
 | epistemic policy | `EpistemicMode {Strict, Aware, Retro}` (`temporal.rs:52-61`) + `TemporalStatus {Contemporary, Anachronistic, Spoiler, Unknowable}` (`temporal.rs:91-102`) | EXISTS |
 | registration horizon | `DeinterlaceRow::knowable_from()` (`temporal.rs:294-306`) — distinct from `lance_version()` | EXISTS (trait method, not a persisted field) |
-| multi-writer scope | `QueryReference.server_id: u16` + `hlc_tick: Option<u64>` (`temporal.rs:110-119`); module doc calls `(server_id, lance_version, hlc_tick)` *"the deinterlace key"* | **RESERVED-DORMANT** — no code path sets non-zero `server_id` or `Some(hlc_tick)`; `default()`/`at()` hardcode `0`/`None` (`temporal.rs:126-151`) |
+| multi-writer scope | `QueryReference.server_id: u16` + `hlc_tick: Option<u64>` (`temporal.rs:110-119`); module doc calls `(server_id, lance_version, hlc_tick)` *"the deinterlace key"* | **MECHANISM IMPLEMENTED + TESTED; PRODUCTION WIRING DORMANT** — `deinterlace` sorts on `(hlc_tick ?? lance_version, lance_version)` and `deinterlace_hlc_orders_across_frames` / `deinterlace_mixed_hlc_falls_back_to_lance_version` pass; what is dormant is that no substrate call site yet sets non-zero `server_id` / `Some(hlc_tick)` (`default()`/`at()` hardcode `0`/`None`, `temporal.rs:126-151`). See §5.7. |
 | **per-row last-modified version** | — | **MISSING** (`row_version` is only a *parameter name* in `classify`, never a field) |
 | **transaction / commit identity** | — | **MISSING** (`transaction/mod.rs` holds execution-regime typestates, not commit ids) |
 | **append-log / observation / receipt serial** | — | **MISSING** |
@@ -229,52 +229,114 @@ it can be substrate-conformant**, however well-typed it is.
 
 ---
 
-## 5.7 The execution model — fire-and-forget, and what PR #854 broke
+## 5.7 Parallel execution + temporal deinterlacing
+
+Claims are labelled. **Repository absence is NOT disproof of owner-specified
+architecture** — it marks where the invariant is not yet made explicit.
 
 ```
-V3 GUID → SoA-owned state → SoA-owned Kanban transition → fire-and-forget → async BatchWriter
+1. V3 GUID resolves the addressed SoA state.
+2. The SoA-owned Kanban performs the SYNCHRONOUS legal transition.
+3. Large populations of transitions execute IN PARALLEL.
+4. Each transition casts its continuation fire-and-forget.
+5. BatchWriter records intents + coalesces physical writes asynchronously.
+6. Lance versioning records the resulting temporal positions.
+7. temporal.rs deinterlaces the parallel standing wave.
+8. QueryReference / knowledge horizons prevent hindsight leakage.
+9. The cohort converges within the ~64k / 550 ms WALL-CLOCK envelope.
 ```
-Budget: **~64,000 updates / 550 ms ⇒ ~8.6 µs per logical update**, and that is the
-budget for the *whole* transition, not for one helper.
 
-**`BatchWriter<P>`** — `lance-graph-planner/src/batch_writer.rs:55`. Its module doc
-IS the contract:
+### ⚠ The SLA is a cohort envelope, not a per-update budget
+**Do NOT compute `550 ms / 64 000`.** That division assumes serial execution.
+The ~64k updates occupy **one overlapping wall-clock interval**; their compute
+and write costs are not summed sequentially. The question is *"can the parallel
+cohort converge, deinterlace, and become available inside 550 ms"* — never *"can
+each update finish in 8.6 µs"*.
 
-- `pub fn cast(&mut self, on_behalf: MailboxId, moves: Vec<KanbanMove>, payload: P) -> CastId`
-  (`:92`) — **returns `CastId`, not `Result`.** *"the thinker reports (casts) and
-  moves on — 'melden macht frei' — it is **NEVER refused**."*
-- *"There is no confirmation bookkeeping here — by ruling (operator, 2026-07-17,
-  `E-ACK-ELIMINATED-1`)."* Durability evidence is the written row's own
-  `LanceVersion`, read via `QueryReference::at` + deinterlace.
-- *"**Do not add a confirmation ledger (a persisted id→version map) under any
-  name.**"*
-- *"`P` is a DESCRIPTOR — (mailbox, dirty row-range, cycle) — never owned delta
-  bytes. Deltas stay in the SoA backing store; the sink reads them through
-  `NodeRowPacket::as_le_bytes` at flush time."*
-- Intent records are *"ephemeral staging, not a durable WAL"*.
+> An earlier revision of this file contained that division. It was wrong and is
+> retracted.
 
-### Two Results that look alike and are not
+### Certainty labels
+- **[OWNER-SPECIFIED]** ~64k updates execute in parallel within a 550 ms
+  wall-clock SLA. *Not located in code* — `550_000` appears only as
+  `LIBET_COMMIT_WINDOW_US` (a Libet readiness anchor on the
+  `Planning → CognitiveWork` crossing, `kanban.rs:146-154`), and `64k` only in
+  `onebrc-probe` preset names. **This is a target the code does not yet state.**
+- **[OWNER-SPECIFIED]** Compute + write cost are masked by the parallel pipeline.
+- **[CODE-PROVEN]** `BatchWriter` casts are ahead-firing and physical writes are
+  coalesced — *"records intent moves AHEAD of any storage write completing"*;
+  *"one physical flush coalesces all earlier intents for a row
+  (last-state-wins)"*; `cast() -> CastId`, *"NEVER refused"*.
+- **[CODE-PROVEN, NARROW]** `BatchWriter` does **not** execute payload compute —
+  *"intent recording, nothing else"*; *"the writer never inspects `P`"*. Do not
+  attribute the whole masking property to it.
+- **[CODE-PROVEN]** The Kanban step itself is **synchronous inline** — *"the
+  in-stream synchronous kanbanstep (`VersionScheduler::on_version →
+  try_advance_phase(&mut)`), fired inline"*. Fire-and-forget describes the
+  **cast**, not the transition.
 
-| | `try_advance_phase -> Result<KanbanMove, RubiconTransitionError>` (`soa_view.rs:309`) | `observe -> Result<_, CapacityExceeded>` (PR #854, withdrawn) |
-|---|---|---|
-| what it decides | is this transition **legal in the lifecycle DAG** (`from.can_transition_to(to)`) | did a **shared allocator run out of slots** |
-| cost | one enum compare | O(n≤64) linear scan + possible push, per update |
-| shared mutable state | none | `&mut self.registry` on **every** observe |
-| category | pre-emission legality guard — documented as *"the in-stream synchronous kanbanstep… fired inline"* | **a refusal on a path documented as never-refusing** |
+### Where compute parallelism actually lives [CODE-AUDIT]
+- **Actor-per-mailbox** — `lance-graph-supervisor/src/kanban_actor.rs` uses
+  `ractor` (`impl Actor`, `ractor::registry::where_is`, `ractor::call!`). One SoA
+  = one mailbox = one Kanban = one actor. This is the parallelism unit.
+- **Row sweeps inside one SoA** — `MailboxSoA` batch delivery
+  (`mailbox_soa.rs:337`, *"Accept a batch of `(target_row, CausalEdge64)`
+  deliveries"*) + cycle-guarded late-batch rejection (`:182,:245`).
+- **`MailboxSoA::cast_to`** (`mailbox_soa.rs:748-762`) — the W4a ahead-firing
+  cast pairing into `BatchWriter`.
+- **NOT rayon/`par_iter`** in the substrate: those appear only in the
+  `onebrc-probe` benchmark crate. **Gap: no data-parallel executor over the
+  cohort is stated in the substrate crates.**
 
-The first is conformant. The second inserts resource-exhaustion control flow into
-fire-and-forget, and forces every caller to branch — which is exactly why the
-examples reached for `.unwrap()` (panic) and `reach_out_integrate` reached for
-`let _ =` (swallow). **Both reviewer-reported symptoms are the shape, not the code.**
+### Temporal deinterlacing — [CODE-PROVEN, with tests]
+`temporal.rs` is the standing-wave resolver, not a snapshot wrapper.
 
-`SourceRegistry` is a **persistent id→slot map that gates the path and can refuse**
-— the forbidden confirmation-ledger shape under another name.
+- **Sort key** (`temporal.rs:345-351`):
+  `(hlc_tick.unwrap_or(lance_version), lance_version)`. The fallback is
+  deliberate — falling back to `0` *"would force every missing-HLC row ahead of
+  all HLC rows regardless of its version (Codex P2 on #468)"*.
+- **Horizon gate**: each row passes `.dispatchable(v_ref.mode)` before ordering.
+- **Tests that exist:** `deinterlace_filters_and_orders_single_server`,
+  `deinterlace_hlc_orders_across_frames`,
+  `deinterlace_mixed_hlc_falls_back_to_lance_version`, and
+  **`no_hindsight_streamed_known_game`** — hindsight gating is named and tested.
 
-### What belongs where
-Evidence-overlap checks, provenance accumulation, receipt creation, settlement
-computation and causal classification are all **accumulate-and-amortise** shaped:
-they are BatchWriter work. Anything that must run *before* emission has to be
-O(1), allocation-free, and unable to fail.
+**Correction to an earlier reading in this file:** HLC is *implemented and
+tested* in `deinterlace`; what is dormant is **production wiring** — no
+substrate call site sets a non-zero `server_id` or `Some(hlc_tick)`
+(`QueryReference::default`/`at` hardcode `0`/`None`). Mechanism present, callers
+not yet multi-writer.
+
+**Physical completion order ≠ epistemic order.** Ordering is by the temporal key
+above, never by when a cast landed.
+
+### Performance audit — the right questions
+| Concern | Question |
+|---|---|
+| Parallel width | Can ~64k updates remain concurrently active? |
+| Wall-clock convergence | Does the **cohort** converge in 550 ms? |
+| Synchronous critical path | What must an update finish **before it may cast**? |
+| Compute overlap | Which stages run concurrently across rows/mailboxes? |
+| Batch coalescing | How many logical updates become one physical write? |
+| Deinterlacing cost | What does temporal ordering cost for the whole cohort? |
+| Knowledge gating | Can any update observe a **later** Lance version? |
+| **Contention** | Does any shared registry/allocator **serialize** the cohort? |
+| Failure behaviour | Can one local capacity condition **refuse or stall** the wave? |
+
+### The real PR #854 danger, correctly framed
+Not the cost of an O(≤64) scan. A per-arena **mutable** `SourceRegistry` on the
+pre-cast path introduces: shared mutable allocation · **insertion-order-dependent
+meaning** (so slot assignment becomes nondeterministic under concurrency, hence
+**replay-unstable**) · a 64-entry ceiling · **synchronous refusal**
+(`CapacityExceeded`) · and a serialization point that can collapse part of an
+otherwise parallel cohort around one allocator.
+
+> **Retraction:** an earlier revision called `SourceRegistry` "the forbidden
+> confirmation-ledger shape under another name". The `E-ACK-ELIMINATED-1` ruling
+> forbids *"a confirmation ledger (a persisted id→version map)"* — write-durability
+> bookkeeping. `SourceRegistry` is an id→**slot** map for source interning:
+> structurally similar, **not covered by that ruling**. The contention and
+> refusal objections above stand on their own.
 
 ---
 
@@ -340,14 +402,23 @@ O(1), allocation-free, and unable to fail.
     registry legitimate — it makes the arena the thing to question.
 14. **Do not treat "arena-local" as a containment guarantee.** In V3, containment
     is SoA ownership + write-on-behalf, not privacy of a heap field.
-15. **Do not put fallible, allocating, or shared-mutable work before
-    fire-and-forget emission.** `cast()` is *"NEVER refused"*. Work on that path
-    must be O(1), allocation-free, and infallible; everything else is
-    BatchWriter work. Budget: ~8.6 µs per update (64k / 550 ms).
+15. **Do not put fallible, allocating, or shared-mutable work before a cast.**
+    `cast()` is *"NEVER refused"*. The danger is not per-update cost — it is
+    **serializing a parallel cohort around one allocator** and making slot
+    meaning depend on insertion order. Never derive a per-update budget by
+    dividing the cohort SLA by the update count.
 16. **Do not add a confirmation ledger under any name** — the BatchWriter doc
     forbids it explicitly. Durability evidence is the row's own `LanceVersion`.
 17. **Do not ride owned bytes on a cast payload.** `P` is a DESCRIPTOR
     (mailbox, dirty row-range, cycle); deltas stay in the SoA backing store.
+18. **Do not use physical completion order as epistemic order.** Ordering is
+    `(hlc_tick ?? lance_version, lance_version)` through `deinterlace`, gated by
+    `QueryReference.mode`.
+19. **Do not describe Lance versions as durability acknowledgements only.** They
+    are the temporally sorted standing wave — the substrate replay traverses.
+20. **Do not treat repository absence as disproof of owner-specified
+    architecture.** Report where an invariant is not yet explicit in code, tests,
+    or docs; do not conclude it is false.
 
 ---
 
