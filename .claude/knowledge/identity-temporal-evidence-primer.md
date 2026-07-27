@@ -1123,14 +1123,47 @@ already exist:
 | HDR band classify | `bgz-tensor::hdr_belichtung` (`PaletteCascade::calibrate`, `heel_distance_palette`) | quarter-σ bands over the pair-LUT |
 | calibrated palette build | `bgz17::Palette::{build, from_sigma_bands, build_hierarchical}` + `build_distance_table()` | the codebook constructors that already exist |
 
-**Placement blocker (reported, not worked around):** the probe lives in
-`lance-graph-planner`, which reaches `bgz17` (declared dep — see
-`TD-BGZ-LAB-DEPS-DECLARED-NEVER-IMPORTED`) but **not** `helix`,
-`perturbation-sim`, or `bgz-tensor`. `helix` additionally sources ndarray by
-**git, not path**, so adding it is a Cargo change under the RFC gate, not a probe
-edit. A correct rig therefore belongs where the calibration already lives — it
-must not be re-implemented planner-side. **No further measurement was run rather
-than hand-roll a third time.**
+**⊘ THE "PLACEMENT BLOCKER" WAS FALSE (operator, 2026-07-27 — "you didn't even
+use ndarray, that's the most embarrassing part" · "ndarray::simd::*").** The
+retracted paragraph claimed no correct rig could run because `helix` /
+`perturbation-sim` / `bgz-tensor` are unreachable from `lance-graph-planner`.
+That skipped the crate that IS a declared path dependency of the planner:
+
+```toml
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std", "hpc-extras"] }
+```
+
+**`ndarray::hpc` + `ndarray::simd` provide the entire calibrated chain.** The
+probe hand-rolled every piece:
+
+| hand-rolled in the probe | already in ndarray |
+|---|---|
+| Lloyd k-means centroids | `hpc::cam_pq::{train_geometric, train_semantic, train_hybrid}` → `CamCodebook` |
+| argmin encode loop | `CamCodebook::{encode, encode_batch}` |
+| the whole ADC arm | `CamCodebook::precompute_distances` → `DistanceTables::{distance, distance_batch}` |
+| the flat pair LUT | `hpc::palette_distance::{Palette, DistanceMatrix}` — *"precomputed k×k… every subsequent distance lookup becomes a single u16 array load"* |
+| scalar `for sub in 0..6` accumulate | `simd::U8x64` (`from_slice`/`reduce_sum`) + `simd_soa::MultiLaneColumn::iter_u8x64()` — a 64-code SoA column sweep |
+| never built at all | `hpc::cascade::{calibrate, expose, observe, recalibrate}` — rolling floor, HDR bands, drift alert |
+
+**`cascade::calibrate` computes `threshold = mu + 3.0 * sigma`** (`cascade.rs:151`),
+and `expose()` returns `Band::{Foveal, Near, Good, …}` — the HDR early-exit bands.
+The σ3 derived elsewhere in this file by inverting the normal CDF is a literal
+line of ndarray. `palette_distance.rs:7` states its own purpose: *"self-contained
+re-implementation of lance-graph's bgz17 palette and distance_matrix modules for
+interoperability"* — it exists so consumers need not reach bgz17 at all.
+
+Consequences: (a) every fidelity number from the hand-rolled rig is void (already
+retracted above); (b) **the claim that a correct rig had no home is WITHDRAWN** —
+it has one, in the planner, via ndarray; (c) `ISS-PALETTE256-HAS-NO-DISTANCE-IMPL`
+survives unchanged — `awareness_facet.rs` genuinely has no `Distance` impl — but
+the consequence drawn from it was wrong: that is a missing **contract impl**, never
+a missing capability.
+
+**Standing rule for this workspace, restated because it was violated three times
+in one session:** `CLAUDE.md` § "Consult, don't guess" and the ndarray card's
+*"all SIMD from `ndarray::simd`"* invariant are not style advice. Hand-rolling a
+kernel, a codebook, or a calibration that ndarray exports is a defect, and the
+tell is a probe that imports ndarray for exactly one symbol.
 
 **Honest caveats.** (a) Both arms sit near ρ 0.87 vs exact because 17 dims split
 into 6 subspaces is *thin* (2–3 dims each) — a property of this Base17 rig, not

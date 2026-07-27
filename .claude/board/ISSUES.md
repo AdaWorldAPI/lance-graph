@@ -1,5 +1,35 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-27 — ISS-PALETTE256-HAS-NO-DISTANCE-IMPL — the canonical value carrier and the canonical distance dispatch both live in lance-graph-contract and are NOT connected — OPEN
+
+Verified:
+- `pub type Palette256Pair = (u8, u8)` — `awareness_facet.rs:32`, *"a palette256²
+  centroid — (basin, identity)"*. `AwarenessFacet::from_rails([Palette256Pair; 6])`
+  is the L4 `6×(8:8)` layout; `legacy_outliers.rs:30` calls it *"the exit — the
+  real destination"*.
+- `Distance::distance(&self, &Self) -> u32` — `distance.rs:19-24`.
+- **`impl Distance for` exists for exactly three types**: `[u64;256]` (Hamming),
+  `[u8;6]` (CamPq — its own doc at `:95-96` calls it *"an L1 fallback"*,
+  explicitly not the real ADC), `[u8;3]` (PaletteEdge — byte-wise L1 **computed
+  inline, not a table lookup**).
+- **`awareness_facet.rs` contains the string `distance` ZERO times.**
+
+The calibrated LUTs exist and ARE reachable — `ndarray::hpc::palette_distance::
+{Palette, DistanceMatrix}` (*"every subsequent distance lookup becomes a single
+u16 array load"*), with `ndarray::hpc::cascade::calibrate` supplying the
+`mu + 3σ` rolling-floor threshold and `expose()` the HDR bands. ndarray is a
+declared path dep of `lance-graph-planner`. (An earlier note claiming these were
+unreachable was FALSE and is withdrawn — see the primer §13 addendum.)
+
+**This supersedes the cosine census's "REPLACE #1 = cam.rs".** Migrating `cam.rs`
+off float without a palette256 `Distance` impl relocates the hand-roll rather
+than removing it. The head of the migration is the missing impl.
+
+**Shape not proposed** — whether the impl belongs on `Palette256Pair`, on
+`AwarenessFacet`, or on the 12-byte lane, and how the calibrated table is reached
+(the contract is zero-dep; ndarray is not a contract dependency) are decisions,
+not inferences. Reported, not designed.
+
 ## 2026-07-27 — ISS-PEARL-VOCABULARY-WITHOUT-PEARL-MECHANICS — the substrate has the Pearl TAXONOMY comprehensively and the Pearl OPERATOR not at all; four different kinds of "cause" share one untyped edge — OPEN
 
 **Status:** OPEN (audit result, measured on the main thread — operator asked
