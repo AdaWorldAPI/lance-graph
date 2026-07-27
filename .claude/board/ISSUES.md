@@ -1,5 +1,52 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-27 — ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED — the certified replacement exists; nothing in the spine reaches it — OPEN
+
+**The cosine replacement is not missing. It is shipped, certified, and named** —
+and the 2026-07-27 cosine census missed it by asking "is this cosine a violation?"
+instead of "is this cosine the replacement?". `fisher_z.rs` was filed LAB /
+table-build; `bgz-tensor` was written off as "zero spine imports".
+
+- **`FisherZTable`** — `bgz-tensor/src/fisher_z.rs:100`: `entries: Vec<i8>` =
+  *"k×k i8 encoded cosine values (row-major)"* + `gamma: FamilyGamma`, with
+  `lookup_i8(a: u8, b: u8) -> i8` / `lookup_f32(a, b)`. **This is `distance is
+  [a,b]`** — the pair indexes the table. *"k=256 → 64 KB + 8 bytes. 26 groups ×
+  64 KB = 1.6 MB for the entire 1.7B model."*
+  `nnue_palette_cosine.rs:172` calls it *"the certified palette256
+  cosine-replacement"*.
+- **`FamilyGamma`** — `fisher_z.rs:28`, `BYTE_SIZE = 8`, `from_cosines()`
+  (atanh over the pairwise distribution → `z_min`/`z_range`), `encode`→i8,
+  `decode`→cosine, **`to_le_bytes` / `from_le_bytes`**. The gamma travels WITH
+  the table.
+- **`CosineGamma`** — `gamma_calibration.rs:136`: *"γ_cosine: cosine replacement
+  offset (4 bytes per codebook)"*, *"redistributes u8 levels so the crowded
+  center (cosine ≈ 0, where most pairs land) gets more resolution"*; stores
+  measured `gamma` / `center` / `spread`.
+- Board: **`E-FISHERZ-CANONICAL-COSINE-REPLACEMENT-1`** — *"helix = the analytic
+  2z rung"*. Siblings: `E-FREQ-IS-COSINE-REPLACEMENT-1` (rank distance
+  `|Δrank|/16`), and deepnsm `fingerprint16k.rs:10` *"replaces cosine with
+  popcount — same bucket resolution"*.
+
+**What is actually missing is WIRING, not a mechanism.** Three pieces exist and
+none are connected:
+1. `FisherZTable::lookup_i8(a,b)` — certified, in a workspace-EXCLUDED crate with
+   no spine import;
+2. `contract::distance::Distance` — canonical dispatch, **no palette impl**;
+3. `impl Distance for [u8;6]` — the nearest existing thing, and it **measures as
+   noise** (Spearman −0.0030, recall@10 0.0125 vs exact, probe
+   `probe_palette256_ndarray`), because byte-wise L1 over centroid INDICES is not
+   a metric.
+
+**Two corrections this supersedes:** (a) the claim that the γ offset is not
+stored (it is — `FamilyGamma::to_le_bytes`, 8 B, plus `CosineGamma` 4 B/codebook;
+the earlier check looked at `euler_fold::FoldedFamily`, the wrong struct);
+(b) `probe_palette256_ndarray`'s hand-built `Vec<u16>` k×k LUT — it
+re-implements `FisherZTable` in a worse encoding, so its ρ 0.9725 measures a
+hand-roll competing with the certified table, not the certified table itself.
+
+**Shape not proposed.** Where the impl lands, whether `FisherZTable` re-homes,
+and how a zero-dep contract reaches a calibrated table are decisions.
+
 ## 2026-07-27 — ISS-PALETTE256-HAS-NO-DISTANCE-IMPL — the canonical value carrier and the canonical distance dispatch both live in lance-graph-contract and are NOT connected — OPEN
 
 Verified:

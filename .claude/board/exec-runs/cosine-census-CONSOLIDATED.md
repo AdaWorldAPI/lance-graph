@@ -1,5 +1,19 @@
 # Cosine-replacement census — CONSOLIDATED (orchestrator synthesis, 2026-07-27)
 
+> **⊘ THIS CENSUS ASKED THE WRONG QUESTION (operator, 2026-07-27 — "what part in
+> cosine replacement in code didn't you find").** Every arm classified `cosine`
+> sites as violation / derived / query-surface / lab / doc-only — i.e. hunted
+> VIOLATIONS — and never searched for the named REPLACEMENT. It therefore filed
+> `bgz-tensor/src/fisher_z.rs` under "LAB / table-build" when it contains
+> **`FisherZTable`, the certified palette256 cosine-replacement**:
+> `lookup_i8(a: u8, b: u8) -> i8` over k×k i8 Fisher-z values with a
+> `FamilyGamma` that serializes to 8 LE bytes. Board entry:
+> `E-FISHERZ-CANONICAL-COSINE-REPLACEMENT-1`. Siblings:
+> `E-FREQ-IS-COSINE-REPLACEMENT-1`, deepnsm popcount. See
+> `ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED`. The REPLACE list below
+> is still accurate as a violation inventory; it is NOT the migration target,
+> because the target already exists and needs wiring, not authoring.
+
 > Operator directive: `lance-graph-contract::distance()` is the canonical
 > integer dispatch (`fn distance(&self,&Self) -> u32`; impls today: `[u64;256]`
 > Hamming, `[u8;6]` CamPq L1, `[u8;3]` Palette L1); grep every cosine site and
