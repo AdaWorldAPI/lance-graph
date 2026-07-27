@@ -21,6 +21,15 @@
 //!   (min, span) per query across all 6 subspace tables — preserving
 //!   additivity — then integer-summed (u32). This is the 6×256 u8 LUT
 //!   shape of the palette256 doctrine.
+//! - **SDC** (the architecturally mandated arm, added after the operator's
+//!   "distance is [a,b]"): the query is palette-coded too, and distance is
+//!   `Σ_s LUT_s[q_s][db_s]` over STATIC 256×256 u16 tables built ONCE — the
+//!   shape of `helix::DistanceLut::distance(a,b)` / `bgz17::
+//!   PaletteDistanceTable::distance(a,b)`. No per-query tables exist at all.
+//!   `ScalarAdc::precompute` builds 6×256 f32 = 6 KB of derived state PER
+//!   QUERY; that per-query materialization — not the element type — is what
+//!   the zero-copy discriminator forbids. The "A" in ADC (asymmetric: query
+//!   stays continuous) is precisely why those tables must exist.
 //! - **Falsifier** (can-it-fire): a 4-bit (16-level) ablation MUST score
 //!   strictly worse than 8-bit, or the harness cannot detect degradation.
 //!
@@ -141,7 +150,7 @@ fn main() {
         base += sd;
     }
 
-    // Encode database rows (shared by both arms): argmin cosine cell per subspace.
+    // Encode database rows (shared by all arms): argmin cosine cell per subspace.
     let metric = AdcMetric::Cosine;
     let encode = |v: &[f32; DIM]| -> [u8; 6] {
         let mut code = [0u8; 6];
@@ -161,6 +170,32 @@ fn main() {
         code
     };
     let db_codes: Vec<[u8; 6]> = db_rows.iter().map(|&ri| encode(&rows[ri])).collect();
+
+    // STATIC pair LUTs — one 256×256 u16 table per subspace, built ONCE from
+    // inter-centroid cosine distance, then quantized to the u16 range. This is
+    // `DistanceLut::distance(a,b)` shape: the pair IS the coordinate. Total
+    // 6 × 256 × 256 × 2 B = 768 KB, shared by every query forever.
+    let pair_luts: Vec<Vec<u16>> = (0..6)
+        .map(|s| {
+            let cb = &codebook[s];
+            let mut raw = vec![0f32; N_CENTROIDS * N_CENTROIDS];
+            let (mut lo, mut hi) = (f32::INFINITY, f32::NEG_INFINITY);
+            for a in 0..N_CENTROIDS {
+                for b in 0..N_CENTROIDS {
+                    let d = metric.cell(&cb[a], &cb[b]);
+                    raw[a * N_CENTROIDS + b] = d;
+                    if d.is_finite() {
+                        lo = lo.min(d);
+                        hi = hi.max(d);
+                    }
+                }
+            }
+            let span = (hi - lo).max(1e-12);
+            raw.iter()
+                .map(|&d| ((d - lo) / span * 65535.0).round() as u16)
+                .collect()
+        })
+        .collect();
 
     // Quantize one query's f32 tables to an n-level integer LUT with ONE
     // shared affine (min, span) across all 6 tables — the sum stays affine
@@ -275,6 +310,11 @@ fn main() {
     let mut ic8 = Vec::with_capacity(N_QUERIES);
     let mut rc8 = Vec::with_capacity(N_QUERIES);
     let mut sp4 = Vec::with_capacity(N_QUERIES);
+    let mut sp_sdc = Vec::with_capacity(N_QUERIES);
+    let mut pr_sdc = Vec::with_capacity(N_QUERIES);
+    let mut ic_sdc = Vec::with_capacity(N_QUERIES);
+    let mut rc_sdc = Vec::with_capacity(N_QUERIES);
+    let mut ns_sdc = 0u128;
     let mut ns_f32 = 0u128;
     let mut ns_u8 = 0u128;
 
@@ -308,6 +348,29 @@ fn main() {
         pr8.push(pearson(&before, &after));
         ic8.push(icc_2_1(&before, &after));
         rc8.push(recall_at_k(&before, &after, TOP_K));
+
+        // SDC arm: query is palette-coded too; distance = Σ_s LUT_s[q_s][db_s]
+        // over the STATIC tables. No per-query precompute of any kind.
+        let q_code = encode(&rows[qi]);
+        let t2 = Instant::now();
+        let sdc: Vec<u32> = db_codes
+            .iter()
+            .map(|code| {
+                let mut acc = 0u32;
+                for sub in 0..6 {
+                    let a = q_code[sub] as usize;
+                    let b = code[sub] as usize;
+                    acc += u32::from(pair_luts[sub][a * N_CENTROIDS + b]);
+                }
+                acc
+            })
+            .collect();
+        ns_sdc += t2.elapsed().as_nanos();
+        let sdc_f: Vec<f64> = sdc.iter().map(|&d| f64::from(d)).collect();
+        sp_sdc.push(spearman(&before, &sdc_f));
+        pr_sdc.push(pearson(&before, &sdc_f));
+        ic_sdc.push(icc_2_1(&before, &sdc_f));
+        rc_sdc.push(recall_at_k(&before, &sdc_f, TOP_K));
 
         // Falsifier arm: 16 levels must be measurably worse than 256.
         let (lut4, _, _) = quantize(&tables, 16);
@@ -346,12 +409,23 @@ fn main() {
     println!("Pearson  r    mean {pr_m:.4}  min {pr_lo:.4}  max {pr_hi:.4}");
     println!("ICC(2,1)      mean {ic_m:.4}  min {ic_lo:.4}  max {ic_hi:.4}");
     println!("recall@{TOP_K}     mean {rc_m:.4}  min {rc_lo:.4}  max {rc_hi:.4}");
-    println!("ablation 4-bit Spearman mean {s4_m:.4} (max {s4_hi:.4})");
+    let (ss_m, ss_lo, ss_hi) = stats(&sp_sdc);
+    let (sp_pr, _, _) = stats(&pr_sdc);
+    let (sp_ic, _, _) = stats(&ic_sdc);
+    let (sp_rc, sp_rc_lo, _) = stats(&rc_sdc);
+    println!("\n-- SDC arm: static 256x256 pair LUT, NO per-query tables --");
+    println!("Spearman rho  mean {ss_m:.4}  min {ss_lo:.4}  max {ss_hi:.4}");
+    println!("Pearson  r    mean {sp_pr:.4}");
+    println!("ICC(2,1)      mean {sp_ic:.4}");
+    println!("recall@{TOP_K}     mean {sp_rc:.4}  min {sp_rc_lo:.4}");
+    println!("per-query derived state: ADC 6144 B  vs  SDC 0 B (LUT is static, shared)");
+    println!("\nablation 4-bit Spearman mean {s4_m:.4} (max {s4_hi:.4})");
     println!(
         "timing: f32 {} ns/cand   u8 {} ns/cand (debug build; relative only)",
         ns_f32 / per_cand,
         ns_u8 / per_cand
     );
+    println!("        sdc {} ns/cand", ns_sdc / per_cand);
 
     // Verdicts (operator band 0.9973..0.9995; falsifier must fire).
     let pass_band = sp_m >= 0.9973;
