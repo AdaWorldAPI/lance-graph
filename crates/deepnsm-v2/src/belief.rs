@@ -23,32 +23,22 @@
 //! by shared terms; truth moves only by truth functions. No fingerprints.
 
 use lance_graph_contract::exploration::NarsTruth;
+use lance_graph_contract::source_registry::SourceRegistry;
 use std::collections::HashMap;
 
-/// Fixed-width evidential stamp: bit *i* = observation source *i* (bounded
-/// horizon of 64 sources; sources beyond the horizon fold by modulo, which is
-/// CONSERVATIVE — folding can only create false overlap, never false
-/// disjointness, so the no-double-count guarantee survives the bound).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct Stamp(pub u64);
-
-impl Stamp {
-    /// The stamp of a single observation source.
-    #[must_use]
-    pub fn source(id: u32) -> Self {
-        Stamp(1u64 << (id % 64))
-    }
-    /// Two stamps share no evidence.
-    #[must_use]
-    pub fn disjoint(self, other: Self) -> bool {
-        self.0 & other.0 == 0
-    }
-    /// Pooled evidence base.
-    #[must_use]
-    pub fn union(self, other: Self) -> Self {
-        Stamp(self.0 | other.0)
-    }
-}
+/// Evidential provenance types — CANONICAL in
+/// `lance_graph_contract::source_registry`, re-exported here.
+///
+/// This module and `lance-graph-planner::nars::belief` each used to define
+/// their OWN `Stamp(pub u64)` with `source(id) = 1 << (id % 64)`: two copies,
+/// two independence semantics, drifting in step. Migrated TOGETHER — fixing one
+/// alone would have left a silent asymmetry, which is worse than fixing
+/// neither.
+///
+/// [`Stamp`] is now opaque: readable, not constructible outside the registry
+/// that mints it, because a bitset does not carry the mapping that gives its
+/// bits meaning. Stamps are arena-local by containment.
+pub use lance_graph_contract::source_registry::{CapacityExceeded, SourceId, Stamp};
 
 /// The copula of a concept-level statement (S3). `Rel` carries an arbitrary
 /// relational term (an FSM verb id) — stored, queryable, NEVER transitive.
@@ -132,6 +122,9 @@ pub enum ReviseOutcome {
 pub struct BeliefArena {
     entries: Vec<Belief>,
     index: HashMap<CStmt, u32>,
+    /// This arena's OWN source registry — the mapping that gives its stamps
+    /// their meaning. Private, and stamps never leave.
+    registry: SourceRegistry,
     /// Closure passes run by the last `close_transitive` call.
     pub passes: u32,
     /// Whether the last closure reached a true fixed point.
@@ -161,8 +154,16 @@ impl BeliefArena {
     /// absent; otherwise routes through the S4 guard: disjoint → revision
     /// in place; overlap → CHOICE. The arena NEVER grows a second entry for an
     /// existing statement — the termination invariant.
-    pub fn observe(&mut self, stmt: CStmt, truth: NarsTruth, stamp: Stamp) -> ReviseOutcome {
-        match self.index.get(&stmt) {
+    /// Capacity exhaustion is REPORTED ([`CapacityExceeded`]), never folded —
+    /// the behavioural difference from the retired `id % 64`.
+    pub fn observe(
+        &mut self,
+        stmt: CStmt,
+        truth: NarsTruth,
+        source: SourceId,
+    ) -> Result<ReviseOutcome, CapacityExceeded> {
+        let stamp = self.registry.stamp_for(source)?;
+        Ok(match self.index.get(&stmt) {
             None => {
                 let id = self.entries.len() as u32;
                 self.entries.push(Belief {
@@ -176,17 +177,39 @@ impl BeliefArena {
                 self.index.insert(stmt, id);
                 ReviseOutcome::Admitted { id }
             }
-            Some(&id) => self.revise_at(id, truth, stamp),
-        }
+            Some(&id) => self.revise_at_stamp(id, truth, stamp),
+        })
     }
 
     /// The S4 revision guard on an existing belief. Disjoint stamps → NARS
     /// evidence pooling (`NarsTruth::revision`) + stamp union + preserved
     /// |f₁−f₂| depth, IN PLACE (rung untouched). Overlapping stamps → CHOICE:
     /// keep the higher-confidence truth, count nothing twice.
-    pub fn revise_at(&mut self, id: u32, new: NarsTruth, stamp: Stamp) -> ReviseOutcome {
+    /// Capacity exhaustion is REPORTED, never folded (see [`observe`](Self::observe)).
+    pub fn revise_at(
+        &mut self,
+        id: u32,
+        new: NarsTruth,
+        source: SourceId,
+    ) -> Result<ReviseOutcome, CapacityExceeded> {
+        let stamp = self.registry.stamp_for(source)?;
+        Ok(self.revise_at_stamp(id, new, stamp))
+    }
+
+    /// The stamp-taking core, so one logical event mints its slot exactly once.
+    /// Private: a `Stamp` is only meaningful relative to THIS arena's registry.
+    ///
+    /// **The empty-stamp guard was MISSING here** and present in the
+    /// `lance-graph-planner` twin, which documents it as load-bearing: the
+    /// no-source sentinel is disjoint from EVERY stamp, so treating it as
+    /// independent evidence lets a repeated unsourced observation pool into
+    /// itself and inflate confidence without bound. The two copies had drifted
+    /// into genuinely different semantics — exactly the asymmetry that made
+    /// migrating them together non-negotiable. Aligned to the planner's
+    /// (correct) behaviour: unsourced evidence competes by CHOICE, never pools.
+    fn revise_at_stamp(&mut self, id: u32, new: NarsTruth, stamp: Stamp) -> ReviseOutcome {
         let b = &mut self.entries[id as usize];
-        if b.stamp.disjoint(stamp) {
+        if !stamp.is_empty() && b.stamp.disjoint(stamp) {
             let depth = (b.truth.frequency - new.frequency).abs();
             b.contradiction = b.contradiction.max(depth);
             b.truth = b.truth.revision(&new);
@@ -304,7 +327,7 @@ impl BeliefArena {
                         // stamp is disjoint from every observation, so observing
                         // it always pools). The `rung == 0` guard missed the
                         // latter and would drop the observed evidence.
-                        if e.stamp != Stamp::default() {
+                        if !e.stamp.is_empty() {
                             continue; // observation dominates a derivation
                         }
                         if truth.expectation() > e.truth.expectation() + EPS {
@@ -319,7 +342,7 @@ impl BeliefArena {
                         self.entries.push(Belief {
                             stmt,
                             truth,
-                            stamp: Stamp::default(), // derived: no observation sources of its own
+                            stamp: Stamp::EMPTY, // derived: no observation sources of its own
                             rung,
                             premises: premises.to_vec(),
                             contradiction: 0.0,
@@ -360,17 +383,19 @@ mod tests {
         // A 10-concept is_a chain with a cycle at the tail (worst case for
         // termination) …
         for k in 0..9u16 {
-            arena.observe(
-                inh(k, k + 1),
-                NarsTruth::new(0.9, 0.9),
-                Stamp::source(k as u32),
-            );
+            arena
+                .observe(inh(k, k + 1), NarsTruth::new(0.9, 0.9), SourceId(k as u64))
+                .unwrap();
         }
-        arena.observe(inh(9, 0), NarsTruth::new(0.9, 0.9), Stamp::source(9)); // cycle
-                                                                              // … and the dialectic: thesis vs antithesis on the SAME statement from
-                                                                              // DISJOINT sources (the CR worked example: w₁=9, w₂=3).
+        arena
+            .observe(inh(9, 0), NarsTruth::new(0.9, 0.9), SourceId(9)) // cycle
+            .unwrap();
+        // … and the dialectic: thesis vs antithesis on the SAME statement from
+        // DISJOINT sources (the CR worked example: w₁=9, w₂=3).
         let stmt = inh(0, 1);
-        let out = arena.observe(stmt, NarsTruth::new(0.2, 0.75), Stamp::source(40));
+        let out = arena
+            .observe(stmt, NarsTruth::new(0.2, 0.75), SourceId(40))
+            .unwrap();
         let ReviseOutcome::Revised {
             synthesis_c, depth, ..
         } = out
@@ -407,7 +432,9 @@ mod tests {
         // Revision after closure STILL terminates arena growth: same statement,
         // new disjoint source → in-place, no new entry.
         let n = arena.entries().len();
-        arena.observe(stmt, NarsTruth::new(0.8, 0.5), Stamp::source(41));
+        arena
+            .observe(stmt, NarsTruth::new(0.8, 0.5), SourceId(41))
+            .unwrap();
         assert_eq!(arena.entries().len(), n, "revision never mints an entry");
     }
 
@@ -418,10 +445,14 @@ mod tests {
     fn revision_overlapping_stamp_is_rejected() {
         let mut arena = BeliefArena::new();
         let stmt = inh(1, 2);
-        arena.observe(stmt, NarsTruth::new(0.9, 0.8), Stamp::source(7));
+        arena
+            .observe(stmt, NarsTruth::new(0.9, 0.8), SourceId(7))
+            .unwrap();
         let before = arena.get(stmt).unwrap().truth;
         // Same source (overlap) offering "more of the same evidence".
-        let out = arena.observe(stmt, NarsTruth::new(0.9, 0.6), Stamp::source(7));
+        let out = arena
+            .observe(stmt, NarsTruth::new(0.9, 0.6), SourceId(7))
+            .unwrap();
         assert_eq!(
             out,
             ReviseOutcome::Chosen {
@@ -437,7 +468,9 @@ mod tests {
             "no double count: truth unchanged by overlapping evidence"
         );
         // Overlap with HIGHER confidence: choice swaps, still no pooling.
-        let out = arena.observe(stmt, NarsTruth::new(0.4, 0.95), Stamp::source(7));
+        let out = arena
+            .observe(stmt, NarsTruth::new(0.4, 0.95), SourceId(7))
+            .unwrap();
         assert_eq!(
             out,
             ReviseOutcome::Chosen {
@@ -459,24 +492,28 @@ mod tests {
     fn verbs_do_not_transit() {
         let mut arena = BeliefArena::new();
         let bit = Copula::Rel(77); // "bit"
-        arena.observe(
-            CStmt {
-                s: 1,
-                cop: bit,
-                p: 2,
-            }, // dog bit man
-            NarsTruth::new(1.0, 0.9),
-            Stamp::source(0),
-        );
-        arena.observe(
-            CStmt {
-                s: 2,
-                cop: bit,
-                p: 3,
-            }, // man bit sandwich
-            NarsTruth::new(1.0, 0.9),
-            Stamp::source(1),
-        );
+        arena
+            .observe(
+                CStmt {
+                    s: 1,
+                    cop: bit,
+                    p: 2,
+                }, // dog bit man
+                NarsTruth::new(1.0, 0.9),
+                SourceId(0),
+            )
+            .unwrap();
+        arena
+            .observe(
+                CStmt {
+                    s: 2,
+                    cop: bit,
+                    p: 3,
+                }, // man bit sandwich
+                NarsTruth::new(1.0, 0.9),
+                SourceId(1),
+            )
+            .unwrap();
         arena.close_transitive(16);
         assert!(arena.reached_fixed_point);
         assert_eq!(arena.entries().len(), 2, "dog bit sandwich must NOT derive");
@@ -489,8 +526,12 @@ mod tests {
             .is_none());
         // Control: the same shape under Inh DOES transit, with deduction truth.
         let mut inh_arena = BeliefArena::new();
-        inh_arena.observe(inh(1, 2), NarsTruth::new(0.9, 0.8), Stamp::source(0));
-        inh_arena.observe(inh(2, 3), NarsTruth::new(1.0, 0.95), Stamp::source(1));
+        inh_arena
+            .observe(inh(1, 2), NarsTruth::new(0.9, 0.8), SourceId(0))
+            .unwrap();
+        inh_arena
+            .observe(inh(2, 3), NarsTruth::new(1.0, 0.95), SourceId(1))
+            .unwrap();
         inh_arena.close_transitive(16);
         let d = inh_arena.get(inh(1, 3)).expect("Inh transits");
         assert!((d.truth.frequency - 0.9).abs() < 1e-6); // f = 0.9·1.0
@@ -504,13 +545,19 @@ mod tests {
     #[test]
     fn revision_keeps_rung_in_place() {
         let mut arena = BeliefArena::new();
-        arena.observe(inh(1, 2), NarsTruth::new(0.9, 0.8), Stamp::source(0));
-        arena.observe(inh(2, 3), NarsTruth::new(0.9, 0.8), Stamp::source(1));
+        arena
+            .observe(inh(1, 2), NarsTruth::new(0.9, 0.8), SourceId(0))
+            .unwrap();
+        arena
+            .observe(inh(2, 3), NarsTruth::new(0.9, 0.8), SourceId(1))
+            .unwrap();
         arena.close_transitive(16);
         let derived = inh(1, 3);
         assert_eq!(arena.get(derived).unwrap().rung, 1);
         // Independent observation of the derived statement revises it in place…
-        let out = arena.observe(derived, NarsTruth::new(0.7, 0.6), Stamp::source(9));
+        let out = arena
+            .observe(derived, NarsTruth::new(0.7, 0.6), SourceId(9))
+            .unwrap();
         assert!(matches!(out, ReviseOutcome::Revised { .. }));
         // …at its EXISTING rung.
         assert_eq!(
@@ -540,7 +587,7 @@ mod tests {
         let mut src = 0u32;
         for group in order {
             for &(stmt, truth) in group {
-                arena.observe(stmt, truth, Stamp::source(src));
+                arena.observe(stmt, truth, SourceId(src as u64)).unwrap();
                 src += 1;
             }
         }
@@ -590,15 +637,21 @@ mod tests {
     fn closure_does_not_overwrite_a_derived_then_observed_belief() {
         let mut arena = BeliefArena::new();
         // 1) Derive A→C weakly from A→B→C (rung 1, empty stamp).
-        arena.observe(inh(0, 1), NarsTruth::new(0.6, 0.5), Stamp::source(0));
-        arena.observe(inh(1, 2), NarsTruth::new(0.6, 0.5), Stamp::source(1));
+        arena
+            .observe(inh(0, 1), NarsTruth::new(0.6, 0.5), SourceId(0))
+            .unwrap();
+        arena
+            .observe(inh(1, 2), NarsTruth::new(0.6, 0.5), SourceId(1))
+            .unwrap();
         arena.close_transitive(64);
         assert_eq!(arena.get(inh(0, 2)).unwrap().rung, 1, "A→C derived");
         // 2) Observe A→C directly (disjoint source): revision pools evidence in
         //    place at rung 1 — the belief now carries a non-empty stamp. Chosen
         //    so its expectation stays BELOW the strong path's, proving the guard
         //    (not the expectation test) is what protects it.
-        let out = arena.observe(inh(0, 2), NarsTruth::new(0.55, 0.9), Stamp::source(2));
+        let out = arena
+            .observe(inh(0, 2), NarsTruth::new(0.55, 0.9), SourceId(2))
+            .unwrap();
         assert!(
             matches!(out, ReviseOutcome::Revised { .. }),
             "disjoint → revision (derived belief's zero stamp is disjoint from any source)"
@@ -607,8 +660,12 @@ mod tests {
         // 3) Add a STRONGER path A→D→C (deduction expectation ≈ 0.79, above the
         //    revised A→C) and re-close. The pre-fix code would overwrite A→C with
         //    the pure derivation, dropping the observation.
-        arena.observe(inh(0, 3), NarsTruth::new(0.95, 0.9), Stamp::source(3));
-        arena.observe(inh(3, 2), NarsTruth::new(0.95, 0.9), Stamp::source(4));
+        arena
+            .observe(inh(0, 3), NarsTruth::new(0.95, 0.9), SourceId(3))
+            .unwrap();
+        arena
+            .observe(inh(3, 2), NarsTruth::new(0.95, 0.9), SourceId(4))
+            .unwrap();
         arena.close_transitive(64);
         let after = arena.get(inh(0, 2)).unwrap().truth;
         assert_eq!(

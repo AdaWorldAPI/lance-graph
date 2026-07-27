@@ -98,7 +98,8 @@ pub fn should_elevate(d: &Dissolution, threshold: f32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nars::{BeliefArena, CStmt, Copula, Stamp, TruthValue};
+    use crate::nars::{BeliefArena, CStmt, Copula, TruthValue};
+    use lance_graph_contract::source_registry::SourceId;
 
     fn inh(s: u16, p: u16) -> CStmt {
         CStmt {
@@ -113,20 +114,20 @@ mod tests {
     fn score_ingest(core: &[(u16, u16)], new: &[(u16, u16)]) -> Dissolution {
         let mut arena = BeliefArena::new();
         for (i, &(s, p)) in core.iter().enumerate() {
-            arena.observe(
-                inh(s, p),
-                TruthValue::new(0.95, 0.9),
-                Stamp::source(i as u32),
-            );
+            arena
+                .observe(inh(s, p), TruthValue::new(0.95, 0.9), SourceId(i as u64))
+                .unwrap();
         }
         arena.close_transitive(64);
         let before = Snapshot::of(&arena, 0.0);
         for (j, &(s, p)) in new.iter().enumerate() {
-            arena.observe(
-                inh(s, p),
-                TruthValue::new(0.95, 0.9),
-                Stamp::source(1000 + j as u32),
-            );
+            arena
+                .observe(
+                    inh(s, p),
+                    TruthValue::new(0.95, 0.9),
+                    SourceId(1000 + j as u64),
+                )
+                .unwrap();
         }
         arena.close_transitive(64);
         let after = Snapshot::of(&arena, 0.0);
@@ -221,8 +222,12 @@ mod tests {
     #[test]
     fn poles_read_from_snapshot() {
         let mut arena = BeliefArena::new();
-        arena.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(0));
-        arena.observe(inh(2, 3), TruthValue::new(0.9, 0.9), Stamp::source(1));
+        arena
+            .observe(inh(1, 2), TruthValue::new(0.9, 0.9), SourceId(0))
+            .unwrap();
+        arena
+            .observe(inh(2, 3), TruthValue::new(0.9, 0.9), SourceId(1))
+            .unwrap();
         arena.close_transitive(8);
         let snap = Snapshot::of(&arena, 0.0);
 

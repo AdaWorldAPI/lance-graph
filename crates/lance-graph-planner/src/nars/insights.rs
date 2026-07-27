@@ -187,7 +187,8 @@ fn inh(s: u16, p: u16) -> CStmt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nars::{BeliefArena, CStmt, Copula, Stamp, TruthValue};
+    use crate::nars::{BeliefArena, CStmt, Copula, TruthValue};
+    use lance_graph_contract::source_registry::SourceId;
 
     fn inh(s: u16, p: u16) -> CStmt {
         CStmt {
@@ -202,12 +203,18 @@ mod tests {
     /// `close_transitive` derives into `1→3`, `1→4`, `2→4`.
     fn structured_kg() -> BeliefArena {
         let mut a = BeliefArena::new();
-        a.observe(inh(1, 100), TruthValue::new(0.9, 0.9), Stamp::source(0));
-        a.observe(inh(2, 100), TruthValue::new(0.9, 0.9), Stamp::source(1));
-        a.observe(inh(3, 100), TruthValue::new(0.9, 0.9), Stamp::source(2));
-        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(3));
-        a.observe(inh(2, 3), TruthValue::new(0.9, 0.9), Stamp::source(4));
-        a.observe(inh(3, 4), TruthValue::new(0.9, 0.9), Stamp::source(5));
+        a.observe(inh(1, 100), TruthValue::new(0.9, 0.9), SourceId(0))
+            .unwrap();
+        a.observe(inh(2, 100), TruthValue::new(0.9, 0.9), SourceId(1))
+            .unwrap();
+        a.observe(inh(3, 100), TruthValue::new(0.9, 0.9), SourceId(2))
+            .unwrap();
+        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), SourceId(3))
+            .unwrap();
+        a.observe(inh(2, 3), TruthValue::new(0.9, 0.9), SourceId(4))
+            .unwrap();
+        a.observe(inh(3, 4), TruthValue::new(0.9, 0.9), SourceId(5))
+            .unwrap();
         a.close_transitive(64);
         a
     }
@@ -253,11 +260,9 @@ mod tests {
             (14, 114),
             (15, 115),
         ] {
-            noise.observe(
-                inh(s, p),
-                TruthValue::new(0.9, 0.9),
-                Stamp::source(s as u32),
-            );
+            noise
+                .observe(inh(s, p), TruthValue::new(0.9, 0.9), SourceId(s as u64))
+                .unwrap();
         }
         noise.close_transitive(64);
 
@@ -330,11 +335,15 @@ mod tests {
         // 2 subjects share predicate 100; only 1 predicate in the KG — the prior
         // `d/total_preds` bug would have scored this bridge 2.0.
         let mut a = BeliefArena::new();
-        a.observe(inh(1, 100), TruthValue::new(0.9, 0.9), Stamp::source(0));
-        a.observe(inh(2, 100), TruthValue::new(0.9, 0.9), Stamp::source(1));
+        a.observe(inh(1, 100), TruthValue::new(0.9, 0.9), SourceId(0))
+            .unwrap();
+        a.observe(inh(2, 100), TruthValue::new(0.9, 0.9), SourceId(1))
+            .unwrap();
         // A derived conclusion with a real ladder (so a Conclusion exists to compare).
-        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(2));
-        a.observe(inh(2, 3), TruthValue::new(0.9, 0.9), Stamp::source(3));
+        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), SourceId(2))
+            .unwrap();
+        a.observe(inh(2, 3), TruthValue::new(0.9, 0.9), SourceId(3))
+            .unwrap();
         a.close_transitive(64);
 
         let insights = extract_main_insights(&a, &InsightConfig::default());
@@ -354,8 +363,10 @@ mod tests {
     fn self_conclusion_is_not_surfaced() {
         // A 2-cycle 1→2, 2→1 closes into self-loops 1→1 and 2→2.
         let mut a = BeliefArena::new();
-        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(0));
-        a.observe(inh(2, 1), TruthValue::new(0.9, 0.9), Stamp::source(1));
+        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), SourceId(0))
+            .unwrap();
+        a.observe(inh(2, 1), TruthValue::new(0.9, 0.9), SourceId(1))
+            .unwrap();
         a.close_transitive(64);
         assert!(
             a.get(inh(1, 1)).is_some(),

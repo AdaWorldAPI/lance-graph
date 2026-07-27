@@ -24,7 +24,7 @@
 //! | 8 CAS | abstraction | up=induction `{S→P, S→G} ⊢ G→P`; down=deduction `{G→P, S→G} ⊢ S→P` | [`TruthValue::induction`] / [`TruthValue::deduction`] | Datapath |
 //! | 11 CR | dialectic | same statement, disjoint → revision; overlap → CHOICE | [`TruthValue::revise`] / CHOICE | Control |
 
-use super::belief::{BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
+use super::belief::{BeliefArena, CStmt, CapacityExceeded, Copula, ReviseOutcome, SourceId};
 use super::truth::TruthValue;
 use std::collections::HashMap;
 
@@ -473,26 +473,31 @@ pub enum AscOutcome {
 
 /// **ASC — self-critique** (recipe #7, Control bucket). Forms the belief's
 /// refutation target `⟨1−f, c⟩` and admits offered counter-evidence ONLY when it
-/// is independently sourced (its stamp is DISJOINT from the belief's) — then
-/// revises it in. Counter-evidence overlapping the belief's own sources is
-/// BLOCKED (no self-refutation from one's own evidence).
+/// is independently sourced (the belief does NOT already carry that source) —
+/// then revises it in. Counter-evidence from a source the belief already counts
+/// is BLOCKED (no self-refutation from one's own evidence).
 pub fn asc_challenge(
     arena: &mut BeliefArena,
     target: CStmt,
     counter: TruthValue,
-    counter_stamp: Stamp,
+    counter_source: SourceId,
 ) -> AscOutcome {
-    let Some(belief) = arena.get(target) else {
+    if arena.get(target).is_none() {
         return AscOutcome::NoTarget;
-    };
-    if !belief.stamp.disjoint(counter_stamp) {
+    }
+    // The self-reference guard, asked as a QUERY rather than by constructing a
+    // stamp to compare against: a challenge that reuses evidence the target
+    // already carries is not independent counter-evidence.
+    if arena.stmt_has_source(target, counter_source) {
         return AscOutcome::BlockedSelfReference;
     }
-    match arena.observe(target, counter, counter_stamp) {
-        ReviseOutcome::Revised {
+    match arena.observe(target, counter, counter_source) {
+        Ok(ReviseOutcome::Revised {
             synthesis_c, depth, ..
-        } => AscOutcome::Revised { synthesis_c, depth },
-        _ => AscOutcome::BlockedSelfReference,
+        }) => AscOutcome::Revised { synthesis_c, depth },
+        // A full registry cannot admit independent counter-evidence, so the
+        // challenge does not land — reported as blocked, never silently pooled.
+        Ok(_) | Err(_) => AscOutcome::BlockedSelfReference,
     }
 }
 
@@ -504,9 +509,9 @@ pub fn cr_synthesize(
     arena: &mut BeliefArena,
     stmt: CStmt,
     truth: TruthValue,
-    stamp: Stamp,
-) -> ReviseOutcome {
-    arena.observe(stmt, truth, stamp)
+    source: SourceId,
+) -> Result<ReviseOutcome, CapacityExceeded> {
+    arena.observe(stmt, truth, source)
 }
 
 #[cfg(test)]
@@ -544,8 +549,12 @@ mod tests {
     #[test]
     fn rcr_abduces_shared_predicate_with_weak_truth() {
         let mut arena = BeliefArena::new();
-        arena.observe(inh(1, 9), TruthValue::new(0.9, 0.8), Stamp::source(0)); // A→M
-        arena.observe(inh(2, 9), TruthValue::new(0.8, 0.7), Stamp::source(1)); // B→M
+        arena
+            .observe(inh(1, 9), TruthValue::new(0.9, 0.8), SourceId(0))
+            .unwrap(); // A→M
+        arena
+            .observe(inh(2, 9), TruthValue::new(0.8, 0.7), SourceId(1))
+            .unwrap(); // B→M
         let fr = rcr_abduce(&arena, &Throttle::permissive());
         assert_eq!(fr.candidates.len(), 2, "both directions abduced");
         let b_to_a = fr
@@ -566,19 +575,21 @@ mod tests {
     fn rcr_excludes_hub_and_reports_gaps() {
         let mut arena = BeliefArena::new();
         for s in 1..=5u16 {
-            arena.observe(
-                inh(s, 9),
-                TruthValue::new(0.9, 0.8),
-                Stamp::source(s as u32),
-            );
+            arena
+                .observe(inh(s, 9), TruthValue::new(0.9, 0.8), SourceId(s as u64))
+                .unwrap();
         }
         let fr = rcr_abduce(&arena, &Throttle::new(0.0, usize::MAX, 4));
         assert!(fr.candidates.is_empty(), "no candidates through a hub");
         assert!(fr.gaps.iter().any(|g| g.kind == GapKind::HubExcluded));
         // No shared middle at all → NoSharedMiddle.
         let mut disjoint = BeliefArena::new();
-        disjoint.observe(inh(1, 8), TruthValue::new(0.9, 0.8), Stamp::source(0));
-        disjoint.observe(inh(2, 9), TruthValue::new(0.9, 0.8), Stamp::source(1));
+        disjoint
+            .observe(inh(1, 8), TruthValue::new(0.9, 0.8), SourceId(0))
+            .unwrap();
+        disjoint
+            .observe(inh(2, 9), TruthValue::new(0.9, 0.8), SourceId(1))
+            .unwrap();
         assert!(rcr_abduce(&disjoint, &Throttle::permissive())
             .gaps
             .iter()
@@ -590,11 +601,9 @@ mod tests {
     fn rcr_floor_and_budget() {
         let mut arena = BeliefArena::new();
         for s in 1..=4u16 {
-            arena.observe(
-                inh(s, 9),
-                TruthValue::new(0.9, 0.9),
-                Stamp::source(s as u32),
-            );
+            arena
+                .observe(inh(s, 9), TruthValue::new(0.9, 0.9), SourceId(s as u64))
+                .unwrap();
         }
         assert_eq!(
             rcr_abduce(&arena, &Throttle::new(0.0, usize::MAX, usize::MAX))
@@ -627,8 +636,12 @@ mod tests {
     #[test]
     fn tr_analogy_substitutes_sibling() {
         let mut arena = BeliefArena::new();
-        arena.observe(inh(1, 3), TruthValue::new(0.9, 0.8), Stamp::source(0)); // dog→mammal
-        arena.observe(sim(1, 2), TruthValue::new(0.7, 0.6), Stamp::source(1)); // dog↔wolf
+        arena
+            .observe(inh(1, 3), TruthValue::new(0.9, 0.8), SourceId(0))
+            .unwrap(); // dog→mammal
+        arena
+            .observe(sim(1, 2), TruthValue::new(0.7, 0.6), SourceId(1))
+            .unwrap(); // dog↔wolf
         let fr = tr_diverge(&arena, inh(1, 3));
         assert_eq!(fr.candidates.len(), 1);
         let c = fr.candidates[0];
@@ -645,9 +658,15 @@ mod tests {
     #[test]
     fn cas_up_induction_down_deduction() {
         let mut arena = BeliefArena::new();
-        arena.observe(inh(1, 2), TruthValue::new(0.95, 0.9), Stamp::source(0)); // S→G
-        arena.observe(inh(1, 3), TruthValue::new(0.9, 0.85), Stamp::source(1)); // S→P
-        arena.observe(inh(2, 4), TruthValue::new(0.9, 0.85), Stamp::source(2)); // G→Q
+        arena
+            .observe(inh(1, 2), TruthValue::new(0.95, 0.9), SourceId(0))
+            .unwrap(); // S→G
+        arena
+            .observe(inh(1, 3), TruthValue::new(0.9, 0.85), SourceId(1))
+            .unwrap(); // S→P
+        arena
+            .observe(inh(2, 4), TruthValue::new(0.9, 0.85), SourceId(2))
+            .unwrap(); // G→Q
         let fr = cas_abstract(&arena, 1, &Throttle::permissive());
         let up = fr
             .candidates
@@ -688,14 +707,14 @@ mod tests {
     #[test]
     fn cas_budget_bounds_a_high_fanout_subject() {
         let mut arena = BeliefArena::new();
-        arena.observe(inh(1, 2), TruthValue::new(0.95, 0.9), Stamp::source(0)); // S→G parent
+        arena
+            .observe(inh(1, 2), TruthValue::new(0.95, 0.9), SourceId(0))
+            .unwrap(); // S→G parent
         for p in 10..40u16 {
             // 30 properties of S → up mints ~30 G→P candidates uncapped.
-            arena.observe(
-                inh(1, p),
-                TruthValue::new(0.9, 0.85),
-                Stamp::source(p as u32),
-            );
+            arena
+                .observe(inh(1, p), TruthValue::new(0.9, 0.85), SourceId(p as u64))
+                .unwrap();
         }
         let full = cas_abstract(&arena, 1, &Throttle::permissive());
         assert!(
@@ -711,15 +730,14 @@ mod tests {
             .any(|g| g.kind == GapKind::BudgetExhausted));
         // A hub parent (many inheritors) is barred from the down fan-out.
         let mut hub = BeliefArena::new();
-        hub.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(0)); // S→G
+        hub.observe(inh(1, 2), TruthValue::new(0.9, 0.9), SourceId(0))
+            .unwrap(); // S→G
         for s in 10..30u16 {
-            hub.observe(
-                inh(s, 2),
-                TruthValue::new(0.9, 0.9),
-                Stamp::source(s as u32),
-            ); // many ?→G
+            hub.observe(inh(s, 2), TruthValue::new(0.9, 0.9), SourceId(s as u64))
+                .unwrap(); // many ?→G
         }
-        hub.observe(inh(2, 99), TruthValue::new(0.9, 0.9), Stamp::source(99)); // G→P
+        hub.observe(inh(2, 99), TruthValue::new(0.9, 0.9), SourceId(99))
+            .unwrap(); // G→P
         let barred = cas_abstract(&hub, 1, &Throttle::new(0.0, usize::MAX, 4));
         assert!(barred.gaps.iter().any(|g| g.kind == GapKind::HubExcluded));
     }
@@ -730,24 +748,16 @@ mod tests {
     fn asc_independent_revises_overlap_blocks() {
         let mut arena = BeliefArena::new();
         let stmt = inh(1, 2);
-        arena.observe(stmt, TruthValue::new(0.9, 0.8), Stamp::source(3));
+        arena
+            .observe(stmt, TruthValue::new(0.9, 0.8), SourceId(3))
+            .unwrap();
         assert!((challenge_target(arena.get(stmt).unwrap().truth).frequency - 0.1).abs() < 1e-6);
         assert_eq!(
-            asc_challenge(
-                &mut arena,
-                stmt,
-                TruthValue::new(0.1, 0.7),
-                Stamp::source(3)
-            ),
+            asc_challenge(&mut arena, stmt, TruthValue::new(0.1, 0.7), SourceId(3)),
             AscOutcome::BlockedSelfReference
         );
         assert!((arena.get(stmt).unwrap().truth.frequency - 0.9).abs() < 1e-6);
-        let out = asc_challenge(
-            &mut arena,
-            stmt,
-            TruthValue::new(0.1, 0.7),
-            Stamp::source(40),
-        );
+        let out = asc_challenge(&mut arena, stmt, TruthValue::new(0.1, 0.7), SourceId(40));
         assert!(matches!(out, AscOutcome::Revised { .. }));
         assert!(
             arena.get(stmt).unwrap().truth.frequency < 0.9,
@@ -758,7 +768,7 @@ mod tests {
                 &mut arena,
                 inh(7, 8),
                 TruthValue::new(0.5, 0.5),
-                Stamp::source(0)
+                SourceId(0)
             ),
             AscOutcome::NoTarget
         );
@@ -771,20 +781,11 @@ mod tests {
         let mut arena = BeliefArena::new();
         let stmt = inh(1, 2);
         assert!(matches!(
-            cr_synthesize(
-                &mut arena,
-                stmt,
-                TruthValue::new(0.9, 0.8),
-                Stamp::source(0)
-            ),
+            cr_synthesize(&mut arena, stmt, TruthValue::new(0.9, 0.8), SourceId(0)).unwrap(),
             ReviseOutcome::Admitted { .. }
         ));
-        let anti = cr_synthesize(
-            &mut arena,
-            stmt,
-            TruthValue::new(0.2, 0.75),
-            Stamp::source(1),
-        );
+        let anti =
+            cr_synthesize(&mut arena, stmt, TruthValue::new(0.2, 0.75), SourceId(1)).unwrap();
         let ReviseOutcome::Revised {
             synthesis_c, depth, ..
         } = anti
@@ -802,10 +803,16 @@ mod tests {
     fn admitted_candidate_respects_ground() {
         let mut arena = BeliefArena::new();
         let stmt = inh(2, 1);
-        arena.observe(stmt, TruthValue::new(0.55, 0.95), Stamp::source(9));
+        arena
+            .observe(stmt, TruthValue::new(0.55, 0.95), SourceId(9))
+            .unwrap();
         let before = arena.get(stmt).unwrap().truth;
-        arena.observe(inh(1, 9), TruthValue::new(0.99, 0.9), Stamp::source(0));
-        arena.observe(inh(2, 9), TruthValue::new(0.99, 0.9), Stamp::source(1));
+        arena
+            .observe(inh(1, 9), TruthValue::new(0.99, 0.9), SourceId(0))
+            .unwrap();
+        arena
+            .observe(inh(2, 9), TruthValue::new(0.99, 0.9), SourceId(1))
+            .unwrap();
         let cand = *rcr_abduce(&arena, &Throttle::permissive())
             .candidates
             .iter()

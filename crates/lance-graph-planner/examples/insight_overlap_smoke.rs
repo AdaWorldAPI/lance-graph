@@ -28,10 +28,11 @@
 
 use std::collections::HashMap;
 
+use lance_graph_planner::nars::belief::SourceId;
 use lance_graph_planner::nars::{
     detect_dissolution, rank_basins, rank_epiphany_attractors, reach_out_integrate, staunen,
     wisdom, BasinKind, BeliefArena, CStmt, Copula, FeltOutcome, ReachOutConfig, ResonanceConfig,
-    Snapshot, Stamp, TruthValue,
+    Snapshot, TruthValue,
 };
 
 /// A tiny deterministic word→concept-id interner (shared across texts, so the
@@ -132,11 +133,13 @@ fn ingest(arena: &mut BeliefArena, text: &str, intern: &mut Interner, src_base: 
     let mut n = 0u32;
     for w in cs.windows(2) {
         if w[0] != w[1] {
-            arena.observe(
-                inh(w[0], w[1]),
-                TruthValue::new(0.9, 0.9),
-                Stamp::source(src_base + n),
-            );
+            arena
+                .observe(
+                    inh(w[0], w[1]),
+                    TruthValue::new(0.9, 0.9),
+                    SourceId((src_base + n) as u64),
+                )
+                .unwrap();
             n += 1;
         }
     }
@@ -240,7 +243,7 @@ fn main() {
         &mut felt_arena,
         inh(montague, capulet),
         TruthValue::new(0.9, 0.9),
-        Stamp::source(500),
+        SourceId(500),
         &ReachOutConfig::default(),
     );
     let g_after = Snapshot::of(&felt_arena, 0.0);
@@ -254,7 +257,7 @@ fn main() {
         &mut dull_arena,
         inh(gravity, light),
         TruthValue::new(0.9, 0.9),
-        Stamp::source(600),
+        SourceId(600),
         &ReachOutConfig::default(),
     );
 

@@ -40,7 +40,8 @@ use lance_graph_contract::grammar::role_keys::Tense;
 use lance_graph_contract::grammar::tekamolo::TekamoloSlot;
 use lance_graph_contract::grammar::verb_lexicon::{is_copula, read_verb};
 use lance_graph_contract::grammar::verb_table::VerbFamily;
-use lance_graph_planner::nars::{BeliefArena, CStmt, Copula, Stamp, TruthValue};
+use lance_graph_planner::nars::belief::SourceId;
+use lance_graph_planner::nars::{BeliefArena, CStmt, Copula, TruthValue};
 
 /// Minimal function-word stoplist — the point here is the typed edges, not
 /// vocabulary tuning.
@@ -154,15 +155,17 @@ fn extract(text: &str, intern: &mut Interner) -> Vec<TypedEdge> {
 fn arena_of(edges: &[TypedEdge]) -> BeliefArena {
     let mut arena = BeliefArena::new();
     for (i, e) in edges.iter().enumerate() {
-        arena.observe(
-            CStmt {
-                s: e.s,
-                cop: Copula::Inh,
-                p: e.p,
-            },
-            TruthValue::new(0.9, 0.9),
-            Stamp::source(i as u32),
-        );
+        arena
+            .observe(
+                CStmt {
+                    s: e.s,
+                    cop: Copula::Inh,
+                    p: e.p,
+                },
+                TruthValue::new(0.9, 0.9),
+                SourceId(i as u64),
+            )
+            .unwrap();
     }
     arena.close_transitive(256);
     arena

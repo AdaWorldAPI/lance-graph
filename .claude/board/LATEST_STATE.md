@@ -1,3 +1,12 @@
+## 2026-07-27 — branch `claude/medcare-rs-transcode-ruff-3y2olh` — causality-audit C1 part 2: BOTH BeliefArenas migrated onto the canonical registry (and the drift it exposed)
+
+### Planner + deepnsm-v2 — the two `Stamp(pub u64)` copies retired
+- `lance_graph_planner::nars::belief` and `deepnsm_v2::belief` both drop their local `Stamp` and re-export `contract::source_registry::{SourceId, Stamp, CapacityExceeded}`. Each `BeliefArena` now owns a PRIVATE `SourceRegistry`; `observe`/`revise_at` take a `SourceId` and return `Result<ReviseOutcome, CapacityExceeded>` — **capacity exhaustion is reported, never folded**, the behavioural difference from `1 << (id % 64)`. A private `revise_at_stamp` is the shared core so one logical event mints its slot exactly once.
+- **Containment held at the call sites, not just the type.** `Stamp` is opaque (private bits), so `asc_challenge`'s self-reference guard could no longer construct a stamp to compare against. Rather than leak a mint, the arena gained `stmt_has_source(stmt, source) -> bool` — a QUERY that never allocates a slot (an unregistered source cannot be present), so no `Stamp` crosses the boundary to answer it. `cr_synthesize` and `reach_out_integrate` take `SourceId`.
+- **The migration exposed real drift between the two "identical" copies.** The planner's `revise_at` guards `!stamp.is_empty()` before pooling — its doc calls this load-bearing, because the no-source sentinel is disjoint from EVERY stamp, so treating it as independent evidence lets a repeated unsourced observation pool into itself and inflate confidence without bound. **deepnsm-v2's copy had no such guard.** Two implementations with genuinely different independence semantics, wearing matching comments — precisely the silent asymmetry that made migrating them together non-negotiable rather than tidy. Aligned to the planner's (correct) behaviour, documented in-source at the divergence.
+
+Gate: deepnsm-v2 96 green; planner lib green (examples in progress at time of writing). Detail: `EPIPHANIES` `E-A-LOCAL-BITSET-IS-NOT-SELF-DESCRIBING-PROVENANCE-1`.
+
 ## 2026-07-27 — branch `claude/medcare-rs-transcode-ruff-3y2olh` — causality-audit C1 + D1: canonical source registry + the four-signal settlement field
 
 ### Current Contract Inventory — two new modules

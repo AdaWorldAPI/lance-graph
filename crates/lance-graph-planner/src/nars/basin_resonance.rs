@@ -48,7 +48,7 @@
 //! [`super::dissolution`] (`staunen`/`wisdom` at whole-arena granularity; here
 //! they are per-basin), [`super::insight`] (the S10 per-step notion).
 
-use super::belief::{BeliefArena, Copula, Stamp};
+use super::belief::{BeliefArena, Copula};
 use super::truth::TruthValue;
 use std::collections::BTreeMap;
 
@@ -139,7 +139,7 @@ pub fn rank_basins(arena: &BeliefArena, cfg: &ResonanceConfig) -> Vec<Basin> {
             // Rel (verbs) never join a reasoning basin; Inh/Sim/Impl do.
             continue;
         }
-        let is_evidence = b.stamp != Stamp::default();
+        let is_evidence = !b.stamp.is_empty();
         let is_derived = b.rung >= 1;
         let conf = b.truth.confidence;
         let exp = b.truth.expectation();
@@ -211,7 +211,8 @@ pub fn rank_basins(arena: &BeliefArena, cfg: &ResonanceConfig) -> Vec<Basin> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nars::{BeliefArena, CStmt, Copula, Stamp, TruthValue};
+    use crate::nars::{BeliefArena, CStmt, Copula, TruthValue};
+    use lance_graph_contract::source_registry::SourceId;
 
     fn inh(s: u16, p: u16) -> CStmt {
         CStmt {
@@ -226,12 +227,18 @@ mod tests {
     /// conclusions `1→3, 1→4, 2→4` (logical coherence around the chain heads).
     fn structured_kg() -> BeliefArena {
         let mut a = BeliefArena::new();
-        a.observe(inh(1, 100), TruthValue::new(0.9, 0.9), Stamp::source(0));
-        a.observe(inh(2, 100), TruthValue::new(0.9, 0.9), Stamp::source(1));
-        a.observe(inh(3, 100), TruthValue::new(0.9, 0.9), Stamp::source(2));
-        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(3));
-        a.observe(inh(2, 3), TruthValue::new(0.9, 0.9), Stamp::source(4));
-        a.observe(inh(3, 4), TruthValue::new(0.9, 0.9), Stamp::source(5));
+        a.observe(inh(1, 100), TruthValue::new(0.9, 0.9), SourceId(0))
+            .unwrap();
+        a.observe(inh(2, 100), TruthValue::new(0.9, 0.9), SourceId(1))
+            .unwrap();
+        a.observe(inh(3, 100), TruthValue::new(0.9, 0.9), SourceId(2))
+            .unwrap();
+        a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), SourceId(3))
+            .unwrap();
+        a.observe(inh(2, 3), TruthValue::new(0.9, 0.9), SourceId(4))
+            .unwrap();
+        a.observe(inh(3, 4), TruthValue::new(0.9, 0.9), SourceId(5))
+            .unwrap();
         a.close_transitive(64);
         a
     }
@@ -270,11 +277,9 @@ mod tests {
             (14, 114),
             (15, 115),
         ] {
-            noise.observe(
-                inh(s, p),
-                TruthValue::new(0.9, 0.9),
-                Stamp::source(s as u32),
-            );
+            noise
+                .observe(inh(s, p), TruthValue::new(0.9, 0.9), SourceId(s as u64))
+                .unwrap();
         }
         noise.close_transitive(64);
 
@@ -341,33 +346,39 @@ mod tests {
             big.observe(
                 inh(s(1), pred),
                 TruthValue::new(0.9, 0.9),
-                Stamp::source(base as u32),
-            );
+                SourceId(base as u64),
+            )
+            .unwrap();
             big.observe(
                 inh(s(2), pred),
                 TruthValue::new(0.9, 0.9),
-                Stamp::source(base as u32 + 1),
-            );
+                SourceId(base as u64 + 1),
+            )
+            .unwrap();
             big.observe(
                 inh(s(3), pred),
                 TruthValue::new(0.9, 0.9),
-                Stamp::source(base as u32 + 2),
-            );
+                SourceId(base as u64 + 2),
+            )
+            .unwrap();
             big.observe(
                 inh(s(1), s(2)),
                 TruthValue::new(0.9, 0.9),
-                Stamp::source(base as u32 + 3),
-            );
+                SourceId(base as u64 + 3),
+            )
+            .unwrap();
             big.observe(
                 inh(s(2), s(3)),
                 TruthValue::new(0.9, 0.9),
-                Stamp::source(base as u32 + 4),
-            );
+                SourceId(base as u64 + 4),
+            )
+            .unwrap();
             big.observe(
                 inh(s(3), s(4)),
                 TruthValue::new(0.9, 0.9),
-                Stamp::source(base as u32 + 5),
-            );
+                SourceId(base as u64 + 5),
+            )
+            .unwrap();
         }
         big.close_transitive(64);
         let big_top = rank_basins(&big, &ResonanceConfig::default())
@@ -387,7 +398,8 @@ mod tests {
     #[test]
     fn self_loop_is_counted_once() {
         let mut a = BeliefArena::new();
-        a.observe(inh(5, 5), TruthValue::new(0.9, 0.9), Stamp::source(0));
+        a.observe(inh(5, 5), TruthValue::new(0.9, 0.9), SourceId(0))
+            .unwrap();
 
         assert!(
             !rank_basins(&a, &ResonanceConfig::default())

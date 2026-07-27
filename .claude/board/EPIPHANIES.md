@@ -1,3 +1,22 @@
+## 2026-07-27 — E-THE-TWO-COPIES-HAD-ALREADY-DRIFTED-1 — **the "migrate both together" rule was justified by a hypothetical asymmetry; the migration found a REAL one.**
+
+**Status:** FINDING (measured while migrating, not predicted). **Confidence:** High — the divergence is two lines of source.
+
+The argument for moving `lance-graph-planner::nars::belief` and `deepnsm-v2::belief` onto the canonical registry in ONE change was that fixing one alone would leave "two incompatible independence semantics wearing matching comments." That was reasoning about a risk. Doing the work showed the copies had **already diverged**:
+
+- **Planner:** `if stamp != Stamp::default() && b.stamp.disjoint(stamp)` — with a doc-comment calling the empty-stamp guard *load-bearing*: the no-source sentinel is disjoint from EVERY stamp, so treating it as independent evidence lets a repeated unsourced observation pool into itself and inflate confidence without bound.
+- **deepnsm-v2:** `if b.stamp.disjoint(stamp)` — no guard. The same repeated unsourced observation pools.
+
+Same struct name, same `source(id) = 1 << (id % 64)`, same S4 doc-bullet, same "CONSERVATIVE folding" comment — and a different answer to *when may evidence pool*. Neither file was wrong about itself; the pair was wrong about each other, and nothing could have noticed, because nothing compared them.
+
+**Two lessons, and the second is the load-bearing one:**
+1. Duplicated types do not merely risk drifting. On a long enough timeline they HAVE drifted, and the copy you are not currently reading is the one that surprises you.
+2. **A shared doc-comment is negative evidence of agreement.** Both copies carried the same explanatory prose about conservative folding, which is exactly why the behavioural difference stayed invisible — the prose was the thing being kept in sync, so it read as though the code was. This is `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` in a new place: matching narration standing in for verified sameness.
+
+Aligned to the planner's (correct) behaviour, with the divergence documented at the site rather than quietly harmonized. A `Default`-derived `Stamp` means `Stamp::default()` still compiled after the migration, so the guard's absence would NOT have surfaced as a compile error — it was found by reading, which is the only thing that could have found it.
+
+Refs: `E-A-LOCAL-BITSET-IS-NOT-SELF-DESCRIBING-PROVENANCE-1`, `E-THE-UNCONTESTED-AXIS-IS-THE-ONE-THAT-MERGES-1` (nobody had contested whether the two copies agreed).
+
 ## 2026-07-27 — E-A-LOCAL-BITSET-IS-NOT-SELF-DESCRIBING-PROVENANCE-1 — **the `Stamp` folding was CONSERVATIVE, not unsound — and the real defect is one level up: a bitset does not carry the mapping that gives its bits meaning.**
 
 **Status:** FINDING + shipped contract (`source_registry`). **Confidence:** High. **Correction:** supersedes an audit claim, made earlier in the same arc, that `1u64 << (id % 64)` "manufactures false independence". It does not, and both crates' own doc-comments said so.

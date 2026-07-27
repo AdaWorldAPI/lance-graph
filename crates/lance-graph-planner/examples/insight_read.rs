@@ -22,9 +22,10 @@
 
 use std::collections::HashMap;
 
+use lance_graph_planner::nars::belief::SourceId;
 use lance_graph_planner::nars::{
     extract_main_insights, rank_basins, rank_epiphany_attractors, staunen, wisdom, BeliefArena,
-    CStmt, Copula, InsightConfig, InsightKind, InsightReason, ResonanceConfig, Snapshot, Stamp,
+    CStmt, Copula, InsightConfig, InsightKind, InsightReason, ResonanceConfig, Snapshot,
     TruthValue,
 };
 
@@ -306,7 +307,9 @@ fn close_from(salient: &[(usize, u16)], window: usize, exclude: Option<u16>) -> 
                 break;
             }
             if ci != cj && exclude != Some(cj) {
-                arena.observe(inh(ci, cj), TruthValue::new(0.9, 0.9), Stamp::source(src));
+                arena
+                    .observe(inh(ci, cj), TruthValue::new(0.9, 0.9), SourceId(src as u64))
+                    .unwrap();
                 src = src.wrapping_add(1);
             }
         }

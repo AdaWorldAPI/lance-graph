@@ -25,10 +25,11 @@
 //! Usage: `cargo run -p lance-graph-planner --example tactic_select_confusion`
 
 use lance_graph_contract::sensorium::GraphBias;
+use lance_graph_planner::nars::belief::SourceId;
 use lance_graph_planner::nars::{
     asc_challenge, cas_abstract, challenge_target, cr_synthesize, rcr_abduce, tactic_for_bias,
-    tr_diverge, AscOutcome, BeliefArena, CStmt, Copula, ReviseOutcome, Stamp, TacticChoice,
-    Throttle, TruthValue,
+    tr_diverge, AscOutcome, BeliefArena, CStmt, Copula, ReviseOutcome, TacticChoice, Throttle,
+    TruthValue,
 };
 
 fn inh(s: u16, p: u16) -> CStmt {
@@ -64,7 +65,7 @@ struct Fixture {
 /// `BeliefArena` is not `Clone` and the revision tactics mutate.
 fn fires(choice: TacticChoice, fx: &Fixture) -> bool {
     let mut arena = (fx.build)();
-    let counter_stamp = Stamp::source(9999); // disjoint from every fixture source
+    let counter_stamp = SourceId(9999); // disjoint from every fixture source
     match choice {
         TacticChoice::Rcr => !rcr_abduce(&arena, &Throttle::permissive())
             .candidates
@@ -88,7 +89,8 @@ fn fires(choice: TacticChoice, fx: &Fixture) -> bool {
                 fx.target,
                 TruthValue::new(0.2, 0.8),
                 counter_stamp
-            ),
+            )
+            .unwrap(),
             ReviseOutcome::Revised { .. }
         ),
     }
@@ -102,8 +104,10 @@ fn main() {
             name: "shared-predicate pair",
             build: || {
                 let mut a = BeliefArena::new();
-                a.observe(inh(1, 9), TruthValue::new(0.9, 0.8), Stamp::source(0));
-                a.observe(inh(2, 9), TruthValue::new(0.8, 0.7), Stamp::source(1));
+                a.observe(inh(1, 9), TruthValue::new(0.9, 0.8), SourceId(0))
+                    .unwrap();
+                a.observe(inh(2, 9), TruthValue::new(0.8, 0.7), SourceId(1))
+                    .unwrap();
                 a
             },
             focus: inh(1, 9),
@@ -117,8 +121,10 @@ fn main() {
             name: "similarity sibling",
             build: || {
                 let mut a = BeliefArena::new();
-                a.observe(inh(1, 9), TruthValue::new(0.9, 0.8), Stamp::source(0));
-                a.observe(sim(1, 2), TruthValue::new(0.9, 0.8), Stamp::source(1));
+                a.observe(inh(1, 9), TruthValue::new(0.9, 0.8), SourceId(0))
+                    .unwrap();
+                a.observe(sim(1, 2), TruthValue::new(0.9, 0.8), SourceId(1))
+                    .unwrap();
                 a
             },
             focus: inh(1, 9),
@@ -132,8 +138,10 @@ fn main() {
             name: "is_a chain",
             build: || {
                 let mut a = BeliefArena::new();
-                a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), Stamp::source(0));
-                a.observe(inh(2, 3), TruthValue::new(0.9, 0.9), Stamp::source(1));
+                a.observe(inh(1, 2), TruthValue::new(0.9, 0.9), SourceId(0))
+                    .unwrap();
+                a.observe(inh(2, 3), TruthValue::new(0.9, 0.9), SourceId(1))
+                    .unwrap();
                 a
             },
             focus: inh(1, 2),
@@ -147,7 +155,8 @@ fn main() {
             name: "lone belief (challenge)",
             build: || {
                 let mut a = BeliefArena::new();
-                a.observe(inh(1, 2), TruthValue::new(0.8, 0.8), Stamp::source(0));
+                a.observe(inh(1, 2), TruthValue::new(0.8, 0.8), SourceId(0))
+                    .unwrap();
                 a
             },
             focus: inh(1, 2),
@@ -161,7 +170,8 @@ fn main() {
             name: "lone belief (synthesize)",
             build: || {
                 let mut a = BeliefArena::new();
-                a.observe(inh(1, 2), TruthValue::new(0.9, 0.8), Stamp::source(0));
+                a.observe(inh(1, 2), TruthValue::new(0.9, 0.8), SourceId(0))
+                    .unwrap();
                 a
             },
             focus: inh(1, 2),
