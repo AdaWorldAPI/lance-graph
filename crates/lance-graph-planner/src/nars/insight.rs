@@ -17,6 +17,7 @@
 //! measures SIZE, not insight (the D-SRS-3b "composite = size" collapse shape).
 
 use super::belief::BeliefArena;
+use crate::temporal::QueryReference;
 use lance_graph_contract::mul::FlowState;
 use lance_graph_contract::sensorium::GraphSignals;
 
@@ -45,6 +46,71 @@ pub struct Snapshot {
     /// Wonder: mean committed contradiction depth (`|f₁−f₂|` preserved across
     /// revisions) — the Staunen pole.
     pub wonder: f32,
+}
+
+/// A [`Snapshot`] stamped with the epistemic view it was read under — an owned,
+/// movable record of "these signals, as of this reader's reference".
+///
+/// **Owned identity, never a borrow.** An earlier draft held `arena: &BeliefArena`
+/// alongside the snapshot; that couples a historical reading to a live mutable
+/// arena (so the two can silently disagree), makes the record unmovable and
+/// unpersistable, and leaves it ambiguous whether the field means *identity* or
+/// *current content*. The arena is re-read separately through `arena_id` + the
+/// reference when needed.
+///
+/// **`at` is a [`QueryReference`], not a bare version.** A version answers
+/// "which dataset revision"; a `QueryReference` answers "which revision was this
+/// observer permitted to see, under which epistemic mode, at which rung" — the
+/// `Strict`/`Retro` distinction is the whole point of the temporal layer, and a
+/// settlement or insight reading taken under `Retro` is not the same
+/// observation as one taken under `Strict`.
+///
+/// No `branch_id` field: `QueryReference::server_id` already names the version
+/// line, and duplicating it is how two carriers drift apart.
+#[derive(Debug, Clone, Copy)]
+pub struct VersionedSnapshot {
+    /// The epistemic view this reading was taken under.
+    pub at: QueryReference,
+    /// Which arena was read.
+    pub arena_id: u32,
+    /// The signals themselves.
+    pub snapshot: Snapshot,
+}
+
+impl VersionedSnapshot {
+    /// Stamp a snapshot with the view it was read under.
+    #[must_use]
+    pub fn new(at: QueryReference, arena_id: u32, snapshot: Snapshot) -> Self {
+        Self {
+            at,
+            arena_id,
+            snapshot,
+        }
+    }
+
+    /// Read `arena` and stamp the result in one step.
+    #[must_use]
+    pub fn of(
+        arena: &BeliefArena,
+        revision_velocity: f32,
+        at: QueryReference,
+        arena_id: u32,
+    ) -> Self {
+        Self::new(at, arena_id, Snapshot::of(arena, revision_velocity))
+    }
+
+    /// May these two readings be compared as a before→after step?
+    ///
+    /// Same arena, same epistemic MODE, same rung — differing only in version,
+    /// which is what a step IS. Comparing a `Strict` reading against a `Retro`
+    /// one measures the mode change, not the reasoning.
+    #[must_use]
+    pub fn steppable_to(&self, later: &Self) -> bool {
+        self.arena_id == later.arena_id
+            && self.at.mode == later.at.mode
+            && self.at.rung == later.at.rung
+            && self.at.server_id == later.at.server_id
+    }
 }
 
 impl Snapshot {
@@ -209,6 +275,39 @@ pub fn flow_state(im: &InsightMush) -> FlowState {
 mod tests {
     use super::*;
     use crate::nars::{CStmt, Copula, Stamp, TruthValue};
+
+    /// A before→after step is two readings of the SAME arena under the SAME
+    /// lens at different versions. Can-fire.
+    #[test]
+    fn same_lens_different_version_is_a_step() {
+        let snap = Snapshot::of(&BeliefArena::new(), 0.0);
+        let before = VersionedSnapshot::new(QueryReference::at(10, 2), 7, snap);
+        let after = VersionedSnapshot::new(QueryReference::at(11, 2), 7, snap);
+        assert!(before.steppable_to(&after));
+    }
+
+    /// Can-stay-silent, on NON-TRIVIAL differences — one per scope component.
+    /// A reading taken under a different epistemic mode, rung, or arena is a
+    /// different observation, and differencing it measures the lens change
+    /// rather than the reasoning.
+    #[test]
+    fn a_changed_lens_is_not_a_step() {
+        let snap = Snapshot::of(&BeliefArena::new(), 0.0);
+        let base = VersionedSnapshot::new(QueryReference::at(10, 2), 7, snap);
+
+        // Different rung — and, via `at`, a different derived mode.
+        let other_rung = VersionedSnapshot::new(QueryReference::at(11, 5), 7, snap);
+        assert!(!base.steppable_to(&other_rung));
+
+        // Different arena entirely.
+        let other_arena = VersionedSnapshot::new(QueryReference::at(11, 2), 9, snap);
+        assert!(!base.steppable_to(&other_arena));
+
+        // Different version line (server).
+        let mut other_line = QueryReference::at(11, 2);
+        other_line.server_id = 3;
+        assert!(!base.steppable_to(&VersionedSnapshot::new(other_line, 7, snap)));
+    }
 
     fn inh(s: u16, p: u16) -> CStmt {
         CStmt {

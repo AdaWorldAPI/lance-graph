@@ -25,7 +25,6 @@ fn make_move(mailbox: u32, from: KanbanColumn, to: KanbanColumn, witness: u32) -
         from,
         to,
         witness_chain_position: witness,
-        libet_offset_us: 0,
         exec: ExecTarget::Native,
     }
 }

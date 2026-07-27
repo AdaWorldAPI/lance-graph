@@ -1,3 +1,86 @@
+## 2026-07-27 — E-EVENT-IDENTITY-IS-NOT-SOURCE-IDENTITY-AND-WE-HAVE-NEITHER-1 — **`source_registry` withdrawn from PR #854 as a falsified design. The separation it revealed is the deliverable; the code was the scaffold.**
+
+**Status:** RULING (operator, 2026-07-27) + measurement. **Confidence:** High — every leg was verified in source or measured, not inferred.
+
+**Five objects, previously one carrier:**
+```text
+event identity ≠ evidential-base membership ≠ source dependence
+               ≠ object/view identity ≠ dataset version
+```
+
+**Leg 1 — the guard needs EVENT identity, not SOURCE identity.** `disjoint()` has exactly one consumer: NARS revision admissibility, which exists to stop *one evidence event* being counted twice through different derivation paths (Wang's evidential base = a set of input **serial numbers**). Keying it on sources means **one sensor observing twice can never raise confidence** — repetition becomes worthless, which is not a rare collision but the disabling of the most basic form of evidence accumulation.
+
+**Leg 2 — no canonical evidence-event identity exists here.** Verified against the types, not the names: `ClassId` is `= u16` while the GUID's `classid` is a `u32` composite (two types, one word); `ClassView` is a **late-bound projection trait**; `AppPrefix::Core` is documented as *"no render lens"*; `LanceVersion`/`DatasetVersion` is a **dataset snapshot**. So `ClassId:AppId:ClassView + version` names *a field projection of a class under a rendering interpretation, as of a commit* — no instance, no event. It fails 4 of 6 ingestion cases: two rows of one class in one commit collide; a **re-observation of an unchanged value produces no mutation at all**; one observation spans many rows; an external statement mutates nothing. Identity belongs to an **immutable receipt that refers to** an object revision — and no receipt type exists. `NodeGuid` cannot substitute: `debug_assert_identity_unique`'s own message admits *"or reused"*, so uniqueness is a **debug assertion only**.
+
+**Leg 3 — the digest is safe but useless, measured.** 20 000 trials/cell, genuinely disjoint bases, query `digest_a & digest_b == 0` (NOT membership FPR): **P(false overlap) ≈ n²/m** at k=1 — 6.1 % (n=2,m=64), **63.4 %** (n=8,m=64), 22.2 % even at m=256. **k>1 is catastrophic** — 98.1 % at n=8/m=64/k=2 — *even though raising k improves membership queries*. A Bloom-shaped digest never yields false disjointness, so it is safe; at realistic base sizes it reports overlap on two thirds of disjoint pairs, so it starves revision. Safety is not usefulness, and I had recommended it on the safety half alone.
+
+**Leg 4 — `bool` cannot carry the claim.** "Not known to overlap" ≠ "known disjoint". Both membership and dependence need tri-state (`Disjoint/Overlap/Unknown`, `Independent/Dependent/Unknown`); a Boolean silently converts ignorance into permission.
+
+**The reviewers found the smoke, and the prescribed fix would have cemented the fire.** Codex and CodeRabbit independently hit the 64-ceiling from four angles (examples panicking, `reach_out_integrate` swallowing `CapacityExceeded` into `DullShadow`, `asc_challenge` reporting capacity as `BlockedSelfReference`, cross-registry comparison). CodeRabbit prescribed *"reuse a bounded `SourceId`"* — **rejected**: minting one identity per distinct observation is correct behaviour, and bounding it would have made the semantic defect permanent while turning the symptoms green. **A fix that silences the smoke by making the wrong model fit is worse than the crash.**
+
+**Rollback is not endorsement.** The restored local `Stamp` still models source membership; it is kept as the pre-PR baseline solely because it introduces no breaking API and no global ceiling. Recorded so no future session reads the revert as a verdict that the old code was right.
+
+**Method note worth keeping:** the operator's questions did the work an adversarial review could not — each round I answered from a *name* (`address`, `version`, `source`) and each round the code said otherwise. Three of my own answers in this thread were wrong in the same direction: reaching for an identity already in hand instead of the act that produced the evidence.
+
+Refs: `E-A-LOCAL-BITSET-IS-NOT-SELF-DESCRIBING-PROVENANCE-1`, `E-THE-TWO-COPIES-HAD-ALREADY-DRIFTED-1`, `E-THE-UNCONTESTED-AXIS-IS-THE-ONE-THAT-MERGES-1`, PR #854.
+
+## 2026-07-27 — E-A-LOCAL-BITSET-IS-NOT-SELF-DESCRIBING-PROVENANCE-1 — **the `Stamp` folding was CONSERVATIVE, not unsound — and the real defect is one level up: a bitset does not carry the mapping that gives its bits meaning.**
+
+**Status:** FINDING + shipped contract (`source_registry`). **Confidence:** High. **Correction:** supersedes an audit claim, made earlier in the same arc, that `1u64 << (id % 64)` "manufactures false independence". It does not, and both crates' own doc-comments said so.
+
+**What folding actually does.** A collision makes two DISTINCT sources look *overlapping*. NARS revision then refuses to pool them → evidence is LOST, never double-counted. The no-double-count guarantee survives the bound; the failure is conservative in the safe direction. Getting this backwards mattered: it would have justified an urgent "correctness" fix over the real, duller problem.
+
+**What it genuinely destroys** — everything downstream of knowing *which bit is whom*: pooling past 64 sources, leave-one-out, withdrawal, and any interpretation of an evidence count (`count_ones()` becomes a lower bound of unknown tightness). Hence the rule: **a term id, domain id, witness id or corpus id must NEVER be silently interpreted as a bit position.** The bound is on SIMULTANEOUSLY REPRESENTED identities, not on id magnitude — `SourceId(50_000)` legitimately takes slot 0 when it registers first, and exhaustion is a reported `CapacityExceeded`, not a wrap.
+
+**The subtler defect the registry exposes: a stamp is meaningless without its registry.** Registry A may give source X slot 0 while registry B gives source Z slot 0 — so `Stamp(0b1)` denotes different evidence in each, and `disjoint()` will answer confidently either way. A local bitset is not self-describing provenance. Pinned as a test (`slot_zero_means_different_sources_in_different_registries`) so the hazard stays visible rather than becoming folklore.
+
+**Ruling: arena-local by CONTAINMENT, and registry-bearing stamps REJECTED.** The owning arena holds the registry, mints every stamp, and performs every union/disjoint; callers pass a `SourceId` and no stamp crosses an API boundary. Enforced structurally — private bits, no `Serialize`, constructible only from a registry-issued `SourceSlot`.
+
+The rejected alternative (`{registry_id, bits}`) exists precisely to make arena A's evidence meaningful inside arena B — i.e. a handoff between two independently-owned state containers. **That is the shape #477 deleted at the mailbox layer** (no inter-mailbox carrier, one writer per mailbox), reappearing one layer down under a new name. Containment is not merely cheaper; it is the option consistent with the ratified ownership model. Same fold, different altitude — cf. `E-AGENT-LOG-SHARED-SINK-ANTIPATTERN-1`, where the shared-mutable-sink came back one layer *up*.
+
+**Flip condition, named so it is falsifiable:** if replay must reconstruct evidence from PERSISTED state rather than rebuilding the arena, containment breaks. The answer even then is not a registry field on every stamp — it is a **frozen source census**: a versioned artifact from which a deterministic sorted-`SourceId` → `SourceSlot` allocation is regenerated and checked against a digest. Mapping identity stays addressable by epistemic view instead of riding in the hot carrier.
+
+**Sequencing discipline held.** The two `BeliefArena`s (planner + deepnsm-v2) are migrated TOGETHER. Fixing one alone leaves two incompatible independence semantics wearing matching comments — worse than fixing neither, because the asymmetry is silent.
+
+Refs: `contract::source_registry`, `E-THE-UNCONTESTED-AXIS-IS-THE-ONE-THAT-MERGES-1` (the arena-locality assumption was itself an uncontested axis until probed), `E-CE64-MB-4`, PR #477.
+
+## 2026-07-27 — E-THE-UNCONTESTED-AXIS-IS-THE-ONE-THAT-MERGES-1 — **the general form of eigenvalue blindness, demonstrated on the reviewer.** Across five adversarial rounds refining the `E-WE-HAVE-PEARL-VOCABULARY…-1` fix list, every merged carrier that got caught had been *argued about*; the one that slipped through was the axis nobody had contested yet. It was folded **one sentence after the prohibition against folding was written**, by the author of the prohibition.
+
+**Status:** FINDING + rule. **Confidence:** High — the instance is in this session's own transcript, not inferred.
+
+**The mechanism.** A contested axis accumulates names, counterexamples, independent carriers, tests, boundaries. An uncontested axis stays a background assumption, and *because nobody perturbs it, it looks naturally unified*. So the dominant interpretation is not merely the best-supported one — it is often the one whose hidden dimensions were never independently activated. The error under adversarial pressure does not die; **it relocates to wherever the pressure isn't.**
+
+**The migration, in order, all in one session:** missing architecture (grep used as comprehension) → confidence confused with effect → subject-matter domain confused with causal locus → single `SupportBasis` confused with provenance geometry → arena-local bit meaning assumed from privacy alone. Each round's fix was correct; each round's *next* defect sat one axis further from where anyone was looking.
+
+**The schema-level falsifier this yields — the orthogonality audit.** For any proposed compound carrier over dimensions A and B, require TWO witnesses: *A varies while B is fixed*, and *B varies while A is fixed*, both on non-trivial inputs. Consequences:
+- Both witnesses exist ⇒ genuinely independent; never irreversibly merge them.
+- **Only ONE direction has a witness ⇒ the other axis is DERIVED**, and belongs in a method, not a stored field.
+- Neither ⇒ one axis, described twice.
+
+**It reproduced an independent decision on first use.** Run against `KanbanMove`: `(from, to)` varies while `libet_offset_us` holds (any mid-cycle arc — witness exists), but no legitimate input makes the offset vary while `(from, to)` holds. One-directional ⇒ derived ⇒ delete the field. That is exactly the A5 conclusion reached four rounds earlier by unrelated reasoning. A schema rule that re-derives a decision made on other grounds has some claim to being real rather than merely well-phrased.
+
+**Operating corollary:** after resolving the currently disputed dimensions, deliberately perturb the ones that survived without discussion — not because they are probably wrong, but because they received the least epistemic pressure. "We fixed the contested axes" is the moment to start looking, not to stop.
+
+Refs: `E-WE-HAVE-PEARL-VOCABULARY-NOT-PEARL-MECHANICS-1` (the arc this refines), `causal_audit` (the typing that resulted), `E-ZERO-DELTA-DOES-NOT-MEAN-NO-EFFECT-1`.
+
+## 2026-07-27 — E-ZERO-DELTA-DOES-NOT-MEAN-NO-EFFECT-1 — **a census of all 34 recipe kernels falsified an audit claim made from grep counts: 15 kernels return `delta_conf = 0.0` on every branch while mutating `ThoughtCtx`.**
+
+**Status:** FINDING (full-file census, then encoded as executable masks + tests). **Confidence:** High — the numbers come from reading all 34 `apply` bodies, and the masks are now enforced by a suite that fails on drift.
+
+**The defect in the reasoning, worth preserving because it is seductive.** `Tactic::run` calls `apply(ctx)` **first**, then adds `Outcome.delta_conf` to `ctx.confidence`. So `apply` holds `&mut ThoughtCtx` for its whole body and the returned delta says *nothing* about whether the context survived. An audit that counted `0.0` literals and concluded "evaluation-inert" was measuring one of eight possible effects and reporting it as all of them. `Htd` reorders the entire candidate vector — every downstream `max_idx`, prune and fuse reads a different array — and reports zero.
+
+**Census result:** 27 Operational · 6 Demonstration · 1 Stub. The 15 silent mutators write `candidates`/`beliefs`/`sd`/`rung`/`dissonance`/`temperature`. Three kernels that *look* operational land nothing: **`Etd`** sorts a CLONE of `candidates` and never writes it back (the computed decomposition is discarded); **`Cas`** computes `_level` and drops it; **`Sdd`** detects distortion, reports it in the note, and hardcodes `delta_conf = 0.0` outside the branch. Wiring any of them up is a behaviour change requiring an explicit decision — recorded as `Demonstration`, not silently fixed.
+
+**The fix is declaration + falsifier, not documentation.** `Tactic` gains two non-defaulted methods: `writes() -> ThoughtMask` (POSSIBLE writes, the mirror of `requires()`'s may-read) and `maturity() -> KernelMaturity{Operational,Demonstration,Stub}`. Maturity lives on the **impl**, never on the `Recipe` catalogue entry: a `Recipe` describes what the tactic *is*, maturity describes what *this code currently does* and changes the day someone finishes it — folding an implementation property into a concept record is the same merged-carrier mistake one level down.
+
+**Seven tests make the declarations falsifiable** (`recipe_kernels::effect_census`): no kernel writes outside its mask; every declared write is reachable on some probe; `Operational` implies a real effect; non-Operational implies none; the four context-blind kernels are input-invariant; the maturity split is non-trivial in both directions; and a regression guard pinning that zero-delta-implies-inert stays false.
+
+**The census also caught its own fixtures first.** `maturity_operational_implies_an_effect` failed on `Mcp` — not a kernel defect, a **probe gap**: every probe inherited `ThoughtCtx::new`'s `confidence = 0.5`, so Mcp's `confidence > 0.7 && free_energy > 0.5` branch was unreachable and Mcp looked inert. A can-fire test found the hole in the test matrix before it found one in the code, which is the argument for writing them.
+
+**Side finding, from the write mask existing at all:** `Lsi` declared `Sd` in `requires()` but only ever *wrote* it — an output over-declared as an input, invisible until reads and writes had separate carriers. Corrected.
+
+Refs: `recipe_kernels::{KernelMaturity, Tactic::writes}`, `E-THE-UNCONTESTED-AXIS-IS-THE-ONE-THAT-MERGES-1`, the falsifiability rule in CLAUDE.md.
+
 ## 2026-07-27 — E-WE-HAVE-PEARL-VOCABULARY-NOT-PEARL-MECHANICS-1 — **operator suspicion confirmed by audit.** Asked directly ("I'm not convinced that we implemented MIT proposed causality learning properly"), the answer is: correct. We have the Pearl taxonomy comprehensively — `pearl_level()`, the SPO 2³ mask → SEE/DO/IMAGINE mapping, `InferenceOp::Counterfactual`, `RungLevel::Counterfactual`, a `pearl_junction` module — and **the Pearl operator not at all.** The one kernel carrying the counterfactual label XORs three hardcoded constants, ignores its context, and multiplies its confidence contribution by `0.0`.
 
 **Status:** FINDING (audited on the main thread, file-level). **Confidence:** High.

@@ -67,7 +67,9 @@ phase. This is triggered by the Lance writer, not by the SoA itself.
 Lance writer  →  VersionScheduler::on_version(&view, at, exec)
                          │  read-only &V: never mutates
                          ▼
-                   Option<KanbanMove>  { mailbox, from→to, libet_offset_us }
+                   Option<KanbanMove>  { mailbox, from→to, witness_chain_position, exec }
+                         │  the Libet window is DERIVED: libet_window_us()
+                         │  = Some(550_000) iff from→to is Planning→CognitiveWork
                          │  caller applies
                          ▼
               MailboxSoaOwner::advance_phase(to)  ← SOLE mutator

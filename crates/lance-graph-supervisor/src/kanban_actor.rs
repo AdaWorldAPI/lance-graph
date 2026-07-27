@@ -436,7 +436,6 @@ mod tests {
                 from,
                 to,
                 witness_chain_position: self.cycle,
-                libet_offset_us: 0,
                 exec: ExecTarget::Native,
             }
         }

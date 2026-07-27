@@ -30,14 +30,18 @@
 
 use super::budget::{budget_for_cluster, PatienceBudget};
 use crate::thinking::style::ThinkingCluster;
-use lance_graph_contract::kanban::KanbanMove;
+use lance_graph_contract::kanban::{KanbanMove, LIBET_COMMIT_WINDOW_US};
 use std::time::Duration;
 
-/// The per-cycle net thinking budget, in µs — the magnitude of the Libet
-/// anchor (`-550_000 µs`) the contract scheduler stamps on the Σ-commit
-/// crossing. A parity test below pins this against the REAL stamped move so
-/// the two constants cannot drift apart silently.
-pub const LIBET_CYCLE_BUDGET_US: u32 = 550_000;
+/// The per-cycle net thinking budget, in µs — the Libet window a cycle has
+/// between the Σ-commit crossing and the act landing.
+///
+/// **Re-exported, not restated.** This IS
+/// [`lance_graph_contract::kanban::LIBET_COMMIT_WINDOW_US`]; the literal has
+/// exactly one definition, so there is nothing left for a parity test to keep
+/// in sync (the window is now derived from the transition — see
+/// `KanbanMove::libet_window_us`).
+pub const LIBET_CYCLE_BUDGET_US: u32 = LIBET_COMMIT_WINDOW_US;
 
 /// Measured per-card kanban overhead (spawn + 3 Rubicon ticks + join):
 /// **~66 µs** — onebrc-probe lane E (t2, 2026-07-02), fine granularity.
@@ -75,18 +79,16 @@ impl CycleBudget {
         Self::new(LIBET_CYCLE_BUDGET_US)
     }
 
-    /// **The M12 read side:** derive the cycle budget from a stamped
-    /// [`KanbanMove`]. `Some` exactly when the move carries a Libet anchor
-    /// (a negative `libet_offset_us` — the Σ-commit `Planning →
-    /// CognitiveWork` crossing); the budget is the anchor's magnitude.
-    /// Mid-cycle moves (offset `0`) carry no window → `None` (keep the
-    /// current budget; a move never *shrinks* the cycle).
+    /// **The M12 read side:** derive the cycle budget from a [`KanbanMove`].
+    /// `Some` exactly when the move IS the Σ-commit `Planning → CognitiveWork`
+    /// crossing; mid-cycle moves open no window → `None` (keep the current
+    /// budget; a move never *shrinks* the cycle).
+    ///
+    /// The window is now a projection of the transition rather than a stored
+    /// field, so there is no sign test and no `unsigned_abs()` here: a move
+    /// cannot disagree with itself about whether it crossed the Rubicon.
     pub fn from_move(mv: &KanbanMove) -> Option<Self> {
-        if mv.libet_offset_us < 0 {
-            Some(Self::new(mv.libet_offset_us.unsigned_abs()))
-        } else {
-            None
-        }
+        mv.libet_window_us().map(Self::new)
     }
 
     /// Charge `us` microseconds of completed work (saturating — spending
@@ -189,11 +191,12 @@ mod tests {
     }
 
     #[test]
-    fn libet_constant_pins_the_real_scheduler_stamp_no_silent_drift() {
-        // The M12 parity gate: our budget constant equals the magnitude the
-        // REAL contract scheduler stamps on the Σ-commit crossing. If the
-        // contract anchor ever changes, this test fails loudly instead of
-        // the two constants drifting apart.
+    fn budget_derives_from_the_real_scheduler_crossing() {
+        // The M12 read gate against the REAL contract scheduler (not a
+        // hand-built move): the Σ-commit crossing opens a window of exactly
+        // the canonical width. There is no longer a second constant to drift —
+        // LIBET_CYCLE_BUDGET_US IS the contract's LIBET_COMMIT_WINDOW_US — so
+        // what this pins is the SEAM: scheduler → move → budget.
         let mv = NextPhaseScheduler
             .on_version(
                 &PhaseView(KanbanColumn::Planning),
@@ -202,19 +205,16 @@ mod tests {
             )
             .expect("Planning proposes the forward arc");
         assert_eq!(mv.to, KanbanColumn::CognitiveWork);
-        assert!(mv.libet_offset_us < 0, "Σ-commit carries the anchor");
-        assert_eq!(mv.libet_offset_us.unsigned_abs(), LIBET_CYCLE_BUDGET_US);
 
-        // The read side: the budget derives FROM the stamped move.
-        let budget = CycleBudget::from_move(&mv).expect("anchored move opens a window");
+        let budget = CycleBudget::from_move(&mv).expect("the crossing opens a window");
         assert_eq!(budget.remaining_us(), LIBET_CYCLE_BUDGET_US);
         assert_eq!(budget, CycleBudget::libet());
     }
 
     #[test]
     fn mid_cycle_moves_open_no_window() {
-        // A mid-cycle advance (CognitiveWork → Evaluation) carries offset 0:
-        // no new window — the current budget keeps running.
+        // A mid-cycle advance (CognitiveWork → Evaluation) is not a Rubicon
+        // crossing: no new window — the current budget keeps running.
         let mv = NextPhaseScheduler
             .on_version(
                 &PhaseView(KanbanColumn::CognitiveWork),
@@ -222,7 +222,7 @@ mod tests {
                 ExecTarget::Native,
             )
             .expect("forward arc");
-        assert_eq!(mv.libet_offset_us, 0);
+        assert_eq!(mv.libet_window_us(), None);
         assert!(CycleBudget::from_move(&mv).is_none());
     }
 

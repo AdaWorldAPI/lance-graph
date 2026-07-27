@@ -374,11 +374,6 @@ mod tests {
                 from,
                 to,
                 witness_chain_position: self.cycle,
-                libet_offset_us: if to == KanbanColumn::CognitiveWork {
-                    -550_000
-                } else {
-                    0
-                },
                 exec: crate::kanban::ExecTarget::Native,
             }
         }
@@ -425,12 +420,17 @@ mod tests {
     }
 
     #[test]
-    fn owner_advances_phase_and_sets_libet_anchor() {
+    fn owner_advances_phase_and_opens_the_libet_window() {
         let mut soa = sample();
         let m = soa.advance_phase(KanbanColumn::CognitiveWork);
         assert_eq!(m.from, KanbanColumn::Planning);
         assert_eq!(m.to, KanbanColumn::CognitiveWork);
-        assert_eq!(m.libet_offset_us, -550_000);
+        // The window is DERIVED from the crossing — the owner cannot stamp a
+        // Σ-commit move that disagrees with itself about having crossed.
+        assert_eq!(
+            m.libet_window_us(),
+            Some(crate::kanban::LIBET_COMMIT_WINDOW_US)
+        );
         assert_eq!(soa.phase(), KanbanColumn::CognitiveWork);
     }
 

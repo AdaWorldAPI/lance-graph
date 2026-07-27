@@ -379,20 +379,21 @@ impl StyleStrategy {
     /// `KanbanColumn::Planning.can_transition_to(CognitiveWork)`), carrying the −550 ms
     /// Σ-commit anchor (matches `soa_view` `advance_phase`, contract).
     ///
-    /// Honestly-fillable fields: `from`/`to`/`libet_offset_us` (structural constants of
-    /// the crossing) and `exec` (the backend `reliability_of` actually ran = the
-    /// interpreted `recipe_kernels` layer = [`ExecTarget::Elixir`], per this module's
-    /// doc header). Bootstrap-sentinel fields: `mailbox = 0` (write-on-behalf of the
-    /// documented bootstrap owner, NOT as ourselves — the live owner rebinds it) and
-    /// `witness_chain_position = 0` (no live `current_cycle` exists at plan time; 0 is
-    /// the zero-fallback pre-cycle stamp the owner overwrites on adoption).
+    /// Honestly-fillable fields: `from`/`to` (structural constants of the crossing,
+    /// whose `libet_window_us()` derives `Some(LIBET_COMMIT_WINDOW_US)` for exactly
+    /// this Planning→CognitiveWork pair) and `exec` (the backend `reliability_of`
+    /// actually ran = the interpreted `recipe_kernels` layer = [`ExecTarget::Elixir`],
+    /// per this module's doc header). Bootstrap-sentinel fields: `mailbox = 0`
+    /// (write-on-behalf of the documented bootstrap owner, NOT as ourselves — the
+    /// live owner rebinds it) and `witness_chain_position = 0` (no live
+    /// `current_cycle` exists at plan time; 0 is the zero-fallback pre-cycle stamp
+    /// the owner overwrites on adoption).
     fn intended_move(_style: ThinkingStyle) -> KanbanMove {
         KanbanMove {
             mailbox: 0,
             from: KanbanColumn::Planning,
             to: KanbanColumn::CognitiveWork,
             witness_chain_position: 0,
-            libet_offset_us: -550_000,
             exec: ExecTarget::Elixir,
         }
     }
@@ -401,6 +402,7 @@ impl StyleStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lance_graph_contract::kanban::LIBET_COMMIT_WINDOW_US;
 
     #[test]
     fn analytical_default_selects_truth_aware_recipes() {
@@ -864,7 +866,8 @@ mod tests {
             "intended edge must be a legal Rubicon transition"
         );
         assert_eq!(
-            mv.libet_offset_us, -550_000,
+            mv.libet_window_us(),
+            Some(LIBET_COMMIT_WINDOW_US),
             "Σ-commit anchor on the crossing"
         );
         assert_eq!(

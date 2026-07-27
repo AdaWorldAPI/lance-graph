@@ -236,7 +236,10 @@ in the Rust sense.**
   read-only) — **"propose, don't dispose": the scheduler never mutates; only
   `MailboxSoaOwner::advance_phase` mutates.** (Confirmed — clean ownership split.)
 - `NextPhaseScheduler` advances the 6-phase Rubicon Kanban lifecycle on each
-  Lance version tick. Planning→CognitiveWork stamps `libet_offset_us = -550_000`.
+  Lance version tick. The Planning→CognitiveWork crossing IS the Libet anchor:
+  `KanbanMove::libet_window_us()` derives `Some(LIBET_COMMIT_WINDOW_US)` from
+  `(from, to)`. (The stored `libet_offset_us` field was removed — a separately
+  writable projection of the transition could only ever disagree with it.)
 - Per-row time stamps in the envelope are `current_cycle: u32` and
   `last_emission_cycle [u32;N]` — these are **same-cycle idempotency guards**,
   not history. No previous-self snapshot is copied into rows.
@@ -248,7 +251,7 @@ in the Rust sense.**
             │ on_version(&view, at, exec)
             ▼
    VersionScheduler (READ-ONLY &V)  ──proposes──►  KanbanMove { mailbox, from→to phase,
-            │                                                    witness_chain_position, libet_offset_us }
+            │                                                    witness_chain_position, exec }
             │ (caller applies)
             ▼
    MailboxSoaOwner::advance_phase(to)   ← SOLE mutator

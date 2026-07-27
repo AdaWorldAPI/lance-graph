@@ -143,6 +143,16 @@ impl KanbanColumn {
     }
 }
 
+/// The Libet readiness window, in µs — the `-550 ms` anchor a thinking cycle
+/// has between the Σ-commit crossing and the act landing.
+///
+/// Magnitude only: the sign lived in the retired `KanbanMove::libet_offset_us`
+/// field, and direction is now carried by the transition itself (see
+/// [`KanbanMove::libet_window_us`]). ONE definition — the planner's
+/// `elevation::cycle::LIBET_CYCLE_BUDGET_US` re-exports this rather than
+/// restating the literal.
+pub const LIBET_COMMIT_WINDOW_US: u32 = 550_000;
+
 /// One kanban transition: the planner's output unit and the ractor's lifecycle step.
 ///
 /// `Copy` and small (≤ 16 B) so it rides the airgap as owned microcopy, never a
@@ -159,15 +169,36 @@ pub struct KanbanMove {
     /// structural time, not a wall-clock stamp (R4). (Same convention the
     /// retired `CollapseGateEmission` carrier used, kept after its removal.)
     pub witness_chain_position: u32,
-    /// Libet commit anchor: signed micros relative to the act. `-550_000` on the
-    /// `Planning → CognitiveWork` Σ-commit; `0` otherwise. Structural offset only.
-    pub libet_offset_us: i32,
     /// Which execution backend the planner selected for this move's work — the
     /// JIT-adjacent strategy target (native planner / JIT / SurrealQL / Elixir).
     pub exec: ExecTarget,
 }
 
 impl KanbanMove {
+    /// The Libet commit window this move opens, in µs — `Some(550_000)` exactly
+    /// on the `Planning → CognitiveWork` Σ-commit crossing, `None` on every
+    /// other arc.
+    ///
+    /// **Derived, never stored.** The window is a pure projection of
+    /// `(from, to)`: the Rubicon crossing IS the anchor, so a separately
+    /// writable `libet_offset_us` field could only ever disagree with the
+    /// transition it describes (a `Planning → CognitiveWork` move stamped `0`,
+    /// or a mid-cycle move stamped `-550_000`). Removing the field removes the
+    /// invalid state rather than testing for it. The one legal destination-arc
+    /// into `CognitiveWork` is from `Planning`
+    /// ([`next_phases`](KanbanColumn::next_phases)), so matching on the pair is
+    /// exactly as precise as matching the destination alone — and says why.
+    ///
+    /// Read side: `lance-graph-planner` `elevation::cycle::CycleBudget::from_move`.
+    #[inline]
+    #[must_use]
+    pub const fn libet_window_us(&self) -> Option<u32> {
+        match (self.from, self.to) {
+            (KanbanColumn::Planning, KanbanColumn::CognitiveWork) => Some(LIBET_COMMIT_WINDOW_US),
+            _ => None,
+        }
+    }
+
     /// The SoA cycle-ownership stamp (S2.5) — the mailbox `current_cycle` at
     /// which this lifecycle step was emitted.
     ///
@@ -248,7 +279,13 @@ impl core::fmt::Display for RubiconTransitionError {
 impl core::error::Error for RubiconTransitionError {}
 
 // `KanbanMove` must stay a small owned microcopy (airgap discipline, I1):
-// MailboxId(4) + u32(4) + i32(4) + 2×KanbanColumn(1) + ExecTarget(1) packs within 16 B.
+// MailboxId(4) + u32(4) + 2×KanbanColumn(1) + ExecTarget(1) packs within 16 B.
+//
+// An UPPER BOUND, deliberately — not an exact-size pin. `KanbanMove` is a
+// Rust-representation microcopy, not an ABI or a persisted byte layout, so the
+// exact `size_of` is the compiler's business (default `repr` gives no layout
+// guarantee). Pin an exact size only if the layout ever becomes contractual,
+// and then state `repr` + supported targets alongside it.
 const _: () = assert!(core::mem::size_of::<KanbanMove>() <= 16);
 
 #[cfg(test)]
@@ -288,12 +325,74 @@ mod tests {
             from: KanbanColumn::Planning,
             to: KanbanColumn::CognitiveWork,
             witness_chain_position: 7,
-            libet_offset_us: -550_000,
             exec: ExecTarget::Native,
         };
         let n = m; // Copy, not move
         assert_eq!(m, n);
         assert!(core::mem::size_of::<KanbanMove>() <= 16);
+    }
+
+    /// The Libet window is DERIVED from the transition — can-fire and
+    /// can-stay-silent, both on non-trivial moves.
+    ///
+    /// The pair is not decoration: an orthogonality audit on the retired
+    /// `libet_offset_us` field found variation in one direction only —
+    /// `(from, to)` can vary while the offset holds (any mid-cycle arc), but no
+    /// legitimate input makes the offset vary while `(from, to)` holds.
+    /// One-directional variation means *derived*, not *independent*; hence the
+    /// projection below and no field.
+    #[test]
+    fn libet_window_fires_only_on_the_rubicon_crossing() {
+        let mv = |from, to| KanbanMove {
+            mailbox: 42,
+            from,
+            to,
+            witness_chain_position: 3,
+            exec: ExecTarget::Native,
+        };
+
+        // FIRES: the Σ-commit crossing, and only with the window's magnitude.
+        assert_eq!(
+            mv(KanbanColumn::Planning, KanbanColumn::CognitiveWork).libet_window_us(),
+            Some(LIBET_COMMIT_WINDOW_US)
+        );
+
+        // STAYS SILENT: every other LEGAL arc in the lifecycle DAG — non-trivial
+        // inputs, not an empty/default move.
+        for (from, to) in [
+            (KanbanColumn::CognitiveWork, KanbanColumn::Evaluation),
+            (KanbanColumn::Evaluation, KanbanColumn::Commit),
+            (KanbanColumn::Evaluation, KanbanColumn::Plan),
+            (KanbanColumn::Evaluation, KanbanColumn::Prune),
+            (KanbanColumn::Planning, KanbanColumn::Prune), // pre-Rubicon veto
+            (KanbanColumn::Plan, KanbanColumn::Planning),  // re-deliberate
+        ] {
+            assert_eq!(
+                mv(from, to).libet_window_us(),
+                None,
+                "{from:?} -> {to:?} must open no window"
+            );
+        }
+    }
+
+    /// `Planning` is the ONLY legal predecessor of `CognitiveWork`, which is why
+    /// matching the pair and matching the destination alone agree over the DAG.
+    /// Pinned so a future arc into `CognitiveWork` breaks this test loudly
+    /// instead of silently widening the Rubicon crossing.
+    #[test]
+    fn cognitive_work_has_exactly_one_legal_predecessor() {
+        let predecessors: Vec<KanbanColumn> = [
+            KanbanColumn::Planning,
+            KanbanColumn::CognitiveWork,
+            KanbanColumn::Evaluation,
+            KanbanColumn::Commit,
+            KanbanColumn::Plan,
+            KanbanColumn::Prune,
+        ]
+        .into_iter()
+        .filter(|c| c.can_transition_to(KanbanColumn::CognitiveWork))
+        .collect();
+        assert_eq!(predecessors, vec![KanbanColumn::Planning]);
     }
 
     #[test]
