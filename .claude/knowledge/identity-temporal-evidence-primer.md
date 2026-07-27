@@ -256,12 +256,65 @@ each update finish in 8.6 µs"*.
 > An earlier revision of this file contained that division. It was wrong and is
 > retracted.
 
+### Capacity: addressing + cache envelope, NOT a concurrency ceiling
+
+**~64k is a preferred operating point, not a limit.** It falls out of *16-bit
+addressing* + a *cache-friendly working set* — never from the SLA, never from
+"how many updates may run in parallel", never from V3 semantics.
+
+| Scale | Addressing | Working set (× 512 B row) | Regime |
+|---|---|---|---|
+| ~64k (2¹⁶) | 16-bit | **32 MiB** | preferred, cache-friendly |
+| ~262k (2¹⁸) | 18-bit | 128 MiB | wider addressing, more cache pressure; comfortable on newer CPUs |
+| ~4M (2²²) | ~22-bit | **2 GiB** | memory-resident, outside ordinary L3 — a different **memory-latency** regime |
+
+**[ARITHMETIC CHECK — the only part of this the repo corroborates]** The
+footprints are *exactly* derivable from a code-asserted constant:
+`const _: () = assert!(core::mem::size_of::<NodeRow>() == 512);`
+(`canonical_node.rs:735`, with `NodeGuid == 16` and `EdgeBlock == 16` at
+`:733-734`). `2¹⁶ × 512 B = 32 MiB` and `2²² × 512 B = 2 GiB` land on the nose.
+So the capacity ladder is **internally consistent with the canonical node**, not
+arbitrary.
+
+**⚠ Two caveats before reusing those numbers:**
+1. `NodeRow` (512 B = `key 16 | edges 16 | value 480`) is the **canonical node**
+   row. `MailboxSoA<N>`'s per-row footprint is a **different, materially smaller**
+   sum (`f32 + u8 + u32 + u32 + CausalEdge64 + qualia + meta + u16 + u64 + u16 +
+   u8`, plus three `[u8; 12]` style lanes). **Compute it before applying the
+   32 MiB figure to a mailbox SoA** — the two row shapes are not interchangeable.
+2. **16-bit addressing is not expressed in the SoA API.** `MailboxSoA` is
+   `<const N: usize>` and its accessors take `row: usize`
+   (`mailbox_soa.rs:624,630`). The `u16`s present (`entity_type`, `expert`) are
+   **values, not addresses**. The 16-bit address width is [OWNER-SPECIFIED]; the
+   code does not encode it as a row-index type.
+
+### Four dimensions that must never substitute for each other
+| Dimension | Meaning | Do NOT infer |
+|---|---|---|
+| **Address width** | how many SoA positions can be named | 16-bit ⇏ 64k *sequential* operations |
+| **Active population** | how many rows/updates participate concurrently | 64k parallel ⇏ 550 ms / 64k per-update latency |
+| **Cache envelope** | does the working set stay near the CPU | 32 MiB-friendly ⇏ larger populations unaddressable |
+| **Wall-clock SLA** | how fast the parallel cohort must converge | 4M addressable ⇏ same cache behaviour as 64k |
+
+**The ownership model does not change across these scales.** What changes is
+physical locality and memory latency. V3 GUID resolution, `ClassView` dispatch,
+SoA ownership and one-Kanban-per-SoA are scale-invariant. Above the cache
+envelope the expected structural response is **partitioning into several SoAs —
+each retaining its own Kanban** — not a different algorithm. *(Partitioning
+behaviour at scale is [CODE-AUDIT REQUIRED]: no multi-SoA partitioning policy is
+stated in the substrate crates.)*
+
 ### Certainty labels
 - **[OWNER-SPECIFIED]** ~64k updates execute in parallel within a 550 ms
-  wall-clock SLA. *Not located in code* — `550_000` appears only as
+  wall-clock SLA. *Not located in code as an SLA* — `550_000` appears only as
   `LIBET_COMMIT_WINDOW_US` (a Libet readiness anchor on the
   `Planning → CognitiveWork` crossing, `kanban.rs:146-154`), and `64k` only in
-  `onebrc-probe` preset names. **This is a target the code does not yet state.**
+  `onebrc-probe` preset names. **A target the code does not yet state.** The
+  *capacity* half is partly corroborated — see the ARITHMETIC CHECK above.
+- **[OWNER-SPECIFIED]** The 16-bit / 18-bit / 22-bit addressing ladder and the
+  32 MiB / 2 GiB envelopes. Row footprints check out exactly against
+  `size_of::<NodeRow>() == 512`; the *address widths* themselves are not encoded
+  in any row-index type (`row: usize` throughout).
 - **[OWNER-SPECIFIED]** Compute + write cost are masked by the parallel pipeline.
 - **[CODE-PROVEN]** `BatchWriter` casts are ahead-firing and physical writes are
   coalesced — *"records intent moves AHEAD of any storage write completing"*;
