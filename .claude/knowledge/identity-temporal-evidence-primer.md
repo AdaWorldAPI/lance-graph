@@ -229,6 +229,55 @@ it can be substrate-conformant**, however well-typed it is.
 
 ---
 
+## 5.7 The execution model — fire-and-forget, and what PR #854 broke
+
+```
+V3 GUID → SoA-owned state → SoA-owned Kanban transition → fire-and-forget → async BatchWriter
+```
+Budget: **~64,000 updates / 550 ms ⇒ ~8.6 µs per logical update**, and that is the
+budget for the *whole* transition, not for one helper.
+
+**`BatchWriter<P>`** — `lance-graph-planner/src/batch_writer.rs:55`. Its module doc
+IS the contract:
+
+- `pub fn cast(&mut self, on_behalf: MailboxId, moves: Vec<KanbanMove>, payload: P) -> CastId`
+  (`:92`) — **returns `CastId`, not `Result`.** *"the thinker reports (casts) and
+  moves on — 'melden macht frei' — it is **NEVER refused**."*
+- *"There is no confirmation bookkeeping here — by ruling (operator, 2026-07-17,
+  `E-ACK-ELIMINATED-1`)."* Durability evidence is the written row's own
+  `LanceVersion`, read via `QueryReference::at` + deinterlace.
+- *"**Do not add a confirmation ledger (a persisted id→version map) under any
+  name.**"*
+- *"`P` is a DESCRIPTOR — (mailbox, dirty row-range, cycle) — never owned delta
+  bytes. Deltas stay in the SoA backing store; the sink reads them through
+  `NodeRowPacket::as_le_bytes` at flush time."*
+- Intent records are *"ephemeral staging, not a durable WAL"*.
+
+### Two Results that look alike and are not
+
+| | `try_advance_phase -> Result<KanbanMove, RubiconTransitionError>` (`soa_view.rs:309`) | `observe -> Result<_, CapacityExceeded>` (PR #854, withdrawn) |
+|---|---|---|
+| what it decides | is this transition **legal in the lifecycle DAG** (`from.can_transition_to(to)`) | did a **shared allocator run out of slots** |
+| cost | one enum compare | O(n≤64) linear scan + possible push, per update |
+| shared mutable state | none | `&mut self.registry` on **every** observe |
+| category | pre-emission legality guard — documented as *"the in-stream synchronous kanbanstep… fired inline"* | **a refusal on a path documented as never-refusing** |
+
+The first is conformant. The second inserts resource-exhaustion control flow into
+fire-and-forget, and forces every caller to branch — which is exactly why the
+examples reached for `.unwrap()` (panic) and `reach_out_integrate` reached for
+`let _ =` (swallow). **Both reviewer-reported symptoms are the shape, not the code.**
+
+`SourceRegistry` is a **persistent id→slot map that gates the path and can refuse**
+— the forbidden confirmation-ledger shape under another name.
+
+### What belongs where
+Evidence-overlap checks, provenance accumulation, receipt creation, settlement
+computation and causal classification are all **accumulate-and-amortise** shaped:
+they are BatchWriter work. Anything that must run *before* emission has to be
+O(1), allocation-free, and unable to fail.
+
+---
+
 ## 6. Ownership / persistence / replay
 
 - `SoaEnvelope` (`soa_envelope.rs:170`) — the owner of the in-place backing store.
@@ -291,6 +340,14 @@ it can be substrate-conformant**, however well-typed it is.
     registry legitimate — it makes the arena the thing to question.
 14. **Do not treat "arena-local" as a containment guarantee.** In V3, containment
     is SoA ownership + write-on-behalf, not privacy of a heap field.
+15. **Do not put fallible, allocating, or shared-mutable work before
+    fire-and-forget emission.** `cast()` is *"NEVER refused"*. Work on that path
+    must be O(1), allocation-free, and infallible; everything else is
+    BatchWriter work. Budget: ~8.6 µs per update (64k / 550 ms).
+16. **Do not add a confirmation ledger under any name** — the BatchWriter doc
+    forbids it explicitly. Durability evidence is the row's own `LanceVersion`.
+17. **Do not ride owned bytes on a cast payload.** `P` is a DESCRIPTOR
+    (mailbox, dirty row-range, cycle); deltas stay in the SoA backing store.
 
 ---
 
