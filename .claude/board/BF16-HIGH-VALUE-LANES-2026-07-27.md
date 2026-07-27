@@ -109,3 +109,42 @@ where the ore is already BF16 (model weights) or where AMX tiles make the
 furnace an order of magnitude cheaper — and every product leaves the furnace
 as codes, tables, and single-byte calibration constants that the standing wave
 reads as `[a,b]` forever after.
+
+
+---
+
+## MEASURED (2026-07-27, both probes landed — real bge-m3 bytes, release builds)
+
+| lane | build once | product | per-read | float alt | break-even | fidelity gate |
+|---|---|---|---|---|---|---|
+| L1 codebook | 395.7 ms | 17 KB | (enables L2/L6) | — | via L2+L6 | — |
+| L2 pair-table (shape) | 6.5 ms | 768 KB u16 | 9 ns/cand | 193 ns/cand | **35 k reads = 0.13 of one pass** (L2-only); 8.3 passes charged with L1 | ρ 0.9725 vs exact (rig-bound) |
+| **L2 certified (`FisherZTable`)** | 3.2 ms | **65 544 B = the documented 64 KB + 8 B, exactly** | **1.86 ns/lookup** | 35.6 ns/cosine | ≈ 95 k reads | **Spearman 0.9998, Pearson 0.9996 — PASSES the ≥ 0.9990 gate** |
+| L3 bf16-RNE | 0.4 ms / 70 k vals | 2 B/val | cast-once | — | at ingest | **Pearson 1.000000, Spearman 1.000000 — PASSES ≥ 0.9999** |
+| L4 calibration | 0.16 ms | **3 bytes** | gates cascade | — | immediate | t = μ+3σ, keep ≤ t/4, θ_q8 |
+| **L5 γ-fold** | 33 µs (warm) | 2 184 B for 6 members | unfold per read | — | — | **NOT VALIDATED ON THIS RIG** — see below |
+| L6 encode | 5.3 µs/row once | 6 B/row | `[a,b]` forever | 68 B float row | first read | 11.3× denser |
+| L7 Σ | — | — | — | — | — | fenced by design |
+
+**L5 honest verdict.** Recovery ρ = 0.3786 (min 0.1140) against the ~0.96 anchor
+— because the probe folded **randomly sampled rows**, and the fold's own doc
+says members must be a **CLAM family** ("N similar vectors, same CLAM family");
+SNR = √(d·SPD/N) assumes post-centroid residuals are small, which random members
+violate. Storage also lost vs raw at this shape (408 B raw vs 2 184 B folded —
+though `compression_ratio()` reports 2.99× against StackedN-encoded bytes, both
+numbers reported). What DID validate: **member addressing** — the falsifier
+fires (correct-index ρ 0.3786 vs wrong-index 0.0817, margin 0.297). Required
+follow-up before any L5 claim: `clam_group` preselection first, fold only
+genuine families. The lane stands as designed-for-families; this rig tested it
+against its own precondition.
+
+**HHTL awareness-location (operator: "wordnet IS HHTL"):** same-HEEL pairs 20 %
+closer in exact distance than random (0.7981), shuffled control silent (1.0711)
+— the prefix IS a semantic address, proven with the falsifier firing both ways.
+Pruning power NOT shown on the thin rig (99.7 % survivors at t/4); the 95 %-skip
+claim needs a full-width tier.
+
+**Bottom line:** the furnace economics hold everywhere they were measured —
+193 → 9 ns/cand ([a,b] shape), 35.6 → 1.86 ns (certified FisherZ), certification
+gates pass at L2/L3 — and the one lane that missed did so by violating its own
+documented precondition, with the miss reported rather than reframed.

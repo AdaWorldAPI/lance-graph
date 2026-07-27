@@ -1,3 +1,17 @@
+## 2026-07-27 — furnace L1–L7 build + amortization probes consolidated (1 Opus probe, 1 Sonnet probe)
+
+Tags: `exec-runs/probe-l5-fisherz.md` (Sonnet, bgz-tensor); planner probe
+committed as `probe_furnace_amortization.rs`. Real bge-m3 bytes both. Outcome:
+amortization VALIDATED (193→9 ns/cand [a,b]; FisherZ 35.6→1.86 ns/lookup,
+Spearman 0.9998 PASSES ≥0.9990; bf16-RNE 1.000000/1.000000 PASSES ≥0.9999;
+L2-only break-even 0.13 of one pass). HHTL awareness-location PROVEN falsifiably
+(same-HEEL 0.7981 vs shuffled control 1.0711); pruning NOT shown on thin rig.
+L5 γ-fold NOT validated — probe folded random rows against the fold's own
+CLAM-family precondition (ρ 0.3786 vs ~0.96 anchor); member-addressing falsifier
+fires (0.3786 vs 0.0817). Follow-up: clam_group-first refold. V1 EdgeBlock
+citation corrected to V3 facet rails (operator). No production code changed;
+probes + boards only.
+
 ## 2026-07-27 — §12 substrate trace consolidated (Sonnet ×4, read-only)
 
 Tags: `exec-runs/trace-{A-write-path,B-writer-key,C-value-slab,D-allocations}.md`;
