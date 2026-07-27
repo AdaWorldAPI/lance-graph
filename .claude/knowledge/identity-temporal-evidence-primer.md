@@ -1071,7 +1071,20 @@ why the accuracy question is a codebook question, never a distance question.
 | per-query table build | 13 342 ns, 1 536 cosine cells | **0 ns, 0 cells** |
 | at a 64 000-row cohort | **853 ms + 393 MB churn** | **0** |
 | static footprint | — | 768 KB (6×256²×2 B), L2-resident, built once |
-| scan | 2 ns/cand | 4 ns/cand scalar (SIMD polyfill unmeasured) |
+| scan | 2 ns/cand — but only reachable AFTER the 19 395 ns/query build | 5 ns/cand scalar (SIMD polyfill unmeasured) |
+| **exact full-float scan (no codec)** | **276 ns/cand** | — the cost the LUT deletes outright |
+
+**55× on the scan, at zero per-query state.** The exact float path is 276 ns/cand;
+the LUT is 5. And the float-table path's "fast" 2 ns/cand is only reachable after
+paying 19.4 µs per query — 1 241 ms at a 64 000-row cohort against a 550 ms
+budget. The exact path never gets that option at all: 276 ns × 64k × 64k is a
+wall, not a workload.
+
+**"Low entropy > fast thinking", measured.** The u8 codes are not fast because the
+arithmetic is clever — they are fast because 768 KB stays L2-resident and every
+operation is a gather, which is precisely the shape ndarray's SIMD polyfill is
+built for. **No GPU is required because there is nothing to offload:** the work
+is already lookups over resident bytes.
 
 **853 ms of pure table-building against a 550 ms SLA** — the budget is gone
 before a single comparison runs, plus 393 MB of write churn through a 32 MB L3

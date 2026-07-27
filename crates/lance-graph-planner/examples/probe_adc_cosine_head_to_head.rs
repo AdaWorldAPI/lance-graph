@@ -537,11 +537,15 @@ fn main() {
         pre_per_q * cohort / 1_000_000,
         6144 * cohort / 1_000_000
     );
-    println!("(debug build; the RATIO and the byte counts are the point, not absolute ns)");
+    println!(
+        "exact full-float scan: {} ns/cand — the cost the LUT replaces entirely",
+        ns_exact / per_cand
+    );
+    println!("(the RATIO and the byte counts are the point, not absolute ns)");
 
     println!("\nablation 4-bit Spearman mean {s4_m:.4} (max {s4_hi:.4})");
     println!(
-        "timing: f32 {} ns/cand   u8 {} ns/cand (debug build; relative only)",
+        "timing: f32 {} ns/cand   u8 {} ns/cand",
         ns_f32 / per_cand,
         ns_u8 / per_cand
     );
