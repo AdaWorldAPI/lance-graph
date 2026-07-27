@@ -1013,3 +1013,34 @@ dormant); survival of the test-locked `rcr_abduce` prefix without verification;
 palette256 parity of the migrated truth values against the legacy f32 outputs
 (exactness ρ = 0.9973–0.9995 is the spec — the migration must state it, not
 assume bit-parity with floats). All three route to the §12 trace.
+
+### Palette256 vs Fisher-Z — the stored form is the code, never the decode (operator, 2026-07-27)
+
+> *"palette256 could be materialized as Fisher-Z but doesn't need to, because it
+> is lower entropy and higher value when normalized."*
+
+The u8 palette code **is the canonical stored value**. Fisher-Z (the continuous
+reading) is a *derivable decode* — permitted as kernel-local computation when a
+kernel genuinely needs it, **never stored, never a column, never a shadow
+representation**. This is not a new rule; it is the discriminator (§11) applied
+to value encoding, and the workspace already proved the pattern on orientations:
+`helix-cartesian-vs-fisher2z.md` — *"Fisher-2z normalized is built to never
+materialize — comparison and lookup live in the normalized-index domain; any
+reconstruction is amortized to a one-time table build. Per-element cost = 0."*
+
+Why the code beats the decode as the resident form:
+- **lower entropy** — 8 bits vs 32; the normalized codebook already carves the
+  distribution so the index is the sufficient statistic (ρ = 0.9973–0.9995);
+- **higher value when normalized** — equal-mass codes spend representation where
+  the data lives, unlike raw float whose precision is dense where nothing is;
+- **algebra without reconstruction** — distance/compose are 256×256 LUTs
+  (metric-safe L1, triangle inequality holds), so comparison, pooling, and
+  propagation stay in index space: integer, exactly associative, order-free;
+- **4× row density** — more population per L3 line, compounding the §11
+  32 MiB-resident argument.
+
+Consequence for the reasoning path: revision/pooling operates code-in → code-out
+via compose tables (or decode→arithmetic→encode entirely inside registers, which
+the discriminator's kernel-local clause permits). A stored Fisher-Z column
+alongside palette codes would be a materialized alternate representation of
+existing state — forbidden, and *worse* than the thing it duplicates.
