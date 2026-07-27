@@ -414,6 +414,89 @@ otherwise parallel cohort around one allocator.
 
 ---
 
+## 5.8 Can the adjacency layer BE the belief store? Provisionally NO
+
+`nars/mod.rs:3` states the intent — *"**NARS Schema** = truth values stored as
+edge properties in the adjacency store"* — and it is **backed by real code**, not
+aspirational: `adjacent_truth_propagate` exists and is tested
+(`adjacency/propagate.rs:19`, tests at `:104,:114`). Correcting an earlier
+reading in this file that treated it as an unbacked doc line.
+
+**But propagation is not storage.** Two different capabilities:
+
+```
+truth propagation over an adjacency batch   ≠   unique keyed belief storage with revision
+```
+
+Surface as it exists today:
+
+| | evidence |
+|---|---|
+| `AdjacencyStore::new(rel_type, num_nodes)` / `from_edges(…, edges: &[(u64,u64)])` (`csr.rs:45,123`) | CSR is built **whole**; no incremental admission |
+| `adjacent` / `adjacent_incoming` / `edge_ids` / `out_degree` / `in_degree` (`csr.rs:62-92`) | **every accessor is `&self`** — no `&mut`, no upsert, no keyed insert anywhere |
+| `EdgeProperties::with_nars_truth(mut self, …) -> Self` (`properties.rs:45`) | **builder-consuming**; truth is supplied at construction |
+| `EdgeProperties::truth_value(edge_id) -> Option<(f32, f32)>` (`properties.rs:54`) | **read-only**, and only `(frequency, confidence)` |
+| node addressing | positional `u64` over `num_nodes` — **not keyed by `CStmt`** |
+
+**Consequences for the migration:**
+- *One statement → one authoritative belief under concurrency* — cannot be
+  guaranteed, because there is **no admission path at all**.
+- *Atomic revision of `truth + groundedness + evidence + contradiction + rung +
+  ancestry`* — cannot be done: `truth_value` carries `(f32, f32)`, so
+  `contradiction`, `rung`, `stamp` and `premises` have **nowhere to live**.
+
+**Provisional classification: `propagation-only kernel`.** Not wrong — it does
+what it claims. It is simply **not a store**. So PR D is *build the keyed mutable
+layer*, not *migrate onto an existing one*; scope accordingly.
+
+### The statement key is concept-level by design, and lossy
+```rust
+pub struct CStmt { pub s: u16, pub cop: Copula, pub p: u16 }   // belief.rs:77-84
+pub enum Copula { Inh, Sim, Impl, Rel(u16) }                   // belief.rs:54-63
+```
+`s`/`p` are *concept ids* — the canon half only. **No `AppId`, no `ClassView`, no
+instance tiers.** The relation term for `Rel` rides inside the copula variant, also
+`u16`. So the map is `V3 GUID → concept`: **surjective, not injective** — two
+app/view-resolved statements sharing a concept projection **collide by
+construction**.
+
+This is deliberate (*"the arena composes concept-level STATEMENTS by their shared
+terms"*), and it forces a decision **before** any capability audit:
+
+| Option | Cost |
+|---|---|
+| keep concept-level | cheapest, matches today; adjacency edges are then **concept-keyed, not V3-GUID-keyed** — "canonical V3 addressing for beliefs" would be a category error |
+| key on full V3 GUID | per-addressed-form beliefs; cross-app convergence lost unless an `is_a` rail re-unifies — changes **reasoning semantics**, not just storage |
+| two-level | concept-keyed belief + V3-GUID-keyed evidence; the only option that does not silently pick a side |
+
+## 5.9 Consumer census — 7 of 10 modules (tactics.rs pending)
+
+Covering `insight` · `basin_resonance` · `epiphany` · `elevation` · `reach_out` ·
+`regulate` · `insights`.
+
+- **Order-dependence: ZERO production sites.** Every reduction is commutative
+  (sum / count / max / histogram); every grouping lands in `BTreeMap`/`BTreeSet`;
+  both rankers and `extract_main_insights` end with an explicit `sort_by`. The
+  admission-order perturbation test should still be written — it will pass.
+- **Slice-dependence: mechanical only.** Every break is `.iter()` chained on the
+  result, or `.len()` requiring `ExactSizeIterator`. **No `entries()[i]` indexed
+  access in these seven modules** — that pattern is concentrated in `tactics.rs`.
+- **`premises` read at ONE site** — `insights.rs:119`, which **clones** the vec
+  rather than dereferencing it into `entries()[i]`. If `tactics.rs` agrees,
+  positional identity is a far weaker coupling than the API implies and
+  `BeliefHandle` is cheap.
+
+**Semantic surface so far — 7 reads, 3 writes:** count-all · derived-only
+(`rung>=1`) · grounded `is_a` grouped by predicate · belief-by-statement ·
+existence scan over a subject's parents · max term id · filtered scan with
+premises+expectation · `Inh` grouped by predicate ‖ admit-observation ·
+admit-derived · close-to-fixed-point.
+
+Small and nameable. **Nothing here needs a generic boxed iterator** — replacing
+`entries()` with one would swap a mega-accessor for a fuzzier one.
+
+---
+
 ## 6. Ownership / persistence / replay
 
 - `SoaEnvelope` (`soa_envelope.rs:170`) — the owner of the in-place backing store.
