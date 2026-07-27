@@ -1,5 +1,22 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-BGE-M3-BGZ7-RELEASE-ASSET-TRUNCATED (2026-07-27)
+
+`bge-m3-f16.bgz7` (release `v0.1.0-bgz-data`) declares **389 tensors** in its
+header but contains **290 complete tensors then exact EOF** — and its SHA256
+(`970daa4d...a6a50b`) MATCHES `crates/bgz-tensor/data/manifest.json`, so the
+asset was published truncated; the manifest records the truncated bytes as
+canonical. `ndarray::hpc::gguf_indexer::read_bgz7_file` hard-fails on it
+("failed to fill whole buffer"), so any consumer using the canonical reader
+cannot load this asset at all.
+
+Found by `probe_adc_cosine_head_to_head` (2026-07-27), which reads the complete
+prefix leniently and prints declared-vs-parsed rather than hiding the gap. The
+290 parsed tensors yield 223,326 usable rows — ample for the probe, so this did
+not block the measurement. Fix is a re-upload + manifest SHA update (a user
+action: release assets are not agent-writable). Until then, treat 389 as the
+declared count and 290 as the real one.
+
 ## TD-BGZ-LAB-DEPS-DECLARED-NEVER-IMPORTED (2026-07-27)
 
 `bgz17` is an unconditional dep of `lance-graph-planner` and `bgz17`/`bgz-tensor`
