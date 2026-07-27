@@ -13,19 +13,33 @@
 > `ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED`. The REPLACE list below
 > is still accurate as a violation inventory; it is NOT the migration target,
 > because the target already exists and needs wiring, not authoring.
-
-> Operator directive: `lance-graph-contract::distance()` is the canonical
-> integer dispatch (`fn distance(&self,&Self) -> u32`; impls today: `[u64;256]`
-> Hamming, `[u8;6]` CamPq L1, `[u8;3]` Palette L1); grep every cosine site and
-> classify against it. Doctrine: NO FLOAT EVER on reasoning paths; palette256
-> (ρ 0.9973–0.9995) with 256×256 integer LUTs; float only as derived decode;
-> `vsa_cosine` only inside the I-VSA-IDENTITIES niche.
+>
+> **⊘ SUPERSEDED-IN-PART 2026-07-27 — read the brief below as the CENSUS
+> PROMPT, not as a current conclusion.** Two later findings overtake it, both
+> in `ISSUES.md`: (a) section A/E — `contract::distance::Distance` is the
+> *forbidden umbrella* (`cognitive-distance-typing.md`: one named fn per
+> metric, newtyped outputs), so it is NOT a migration target; (b) section G —
+> the trait has **zero production consumers**, measured. The paragraph directly
+> above is also overtaken: `ISS-FISHERZ-...-UNWIRED` closed **INVALID** — there
+> is nothing to wire, because `FisherZTable` is a materialization artifact under
+> the palette256-ONLY ruling. The REPLACE LIST below
+> is therefore a **historical violation inventory**, accurate as a census of
+> where float cosine sits, and NOT a migration plan. The palette256 /
+> no-float-on-reasoning-paths half of the directive stands unchanged.
+>
+> Operator directive (as issued, for the record): `lance-graph-contract::distance()`
+> is the canonical integer dispatch (`fn distance(&self,&Self) -> u32`; impls
+> today: `[u64;256]` Hamming, `[u8;6]` CamPq L1, `[u8;3]` Palette L1); grep
+> every cosine site and classify against it. Doctrine: NO FLOAT EVER on
+> reasoning paths; palette256 (ρ 0.9973–0.9995) with 256×256 integer LUTs;
+> float only as derived decode; `vsa_cosine` only inside the
+> I-VSA-IDENTITIES niche.
 >
 > Inputs (Sonnet fleet, read-only): `cosine-census-contract.md` ·
 > `cosine-census-planner-core.md` · `cosine-census-deepnsm-group.md` ·
 > `cosine-census-lab-crates.md`. 103 production files censused.
 
-## THE REPLACE LIST — everything that actually needs migration
+## THE REPLACE LIST — HISTORICAL violation inventory (see the ⊘ note above: not a migration target)
 
 | # | site | status | detail |
 |---|---|---|---|

@@ -1,6 +1,11 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
-## 2026-07-27 — ISS-CONTRACT-DISTANCE-IS-THE-FORBIDDEN-UMBRELLA + ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT — OPEN
+## 2026-07-27 — ISS-CONTRACT-DISTANCE-IS-THE-FORBIDDEN-UMBRELLA + ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT — **section B RESOLVED (dissolved, §E); section A STANDS and is STRENGTHENED (§E, §G measured zero consumers); section D OPEN (typed per-metric surface unbuilt)**
+
+> Status line updated 2026-07-27 (was: `OPEN`) so the heading matches §E/§G
+> below. Sections A–G are unedited — this file is append-only and only the
+> status marker is revisable. §A is NOT superseded: §E says verbatim
+> *"Section A stands and is STRENGTHENED"*.
 
 Source: ndarray `.claude/knowledge/cognitive-distance-typing.md` (operator-cited),
 the binding API-design authority for distance typing.
@@ -174,7 +179,7 @@ Consequences:
    surface awaiting that debt's resolution.
 
 
-## 2026-07-27 — ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED — the certified replacement exists; nothing in the spine reaches it — **CONTESTED** (see ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT: ndarray `cognitive-distance-typing.md` says HDR popcount IS the cosine replacement and Fisher-z is NOT a distance; this entry took bgz-tensor's "certified cosine-replacement" wording as settled — an assumption, pending operator ruling; CLOSED-INVALID 2026-07-27 -- palette256-ONLY ruling: FisherZTable is a materialization artifact, nothing to wire, see section E)
+## 2026-07-27 — ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED — the certified replacement exists; nothing in the spine reaches it — **CLOSED-INVALID** (operator palette256-ONLY ruling, §E: `FisherZTable` is a materialization artifact; there is nothing to wire, and wiring it would ship the unnecessary materialization. Was `CONTESTED`; history retained — ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT: ndarray `cognitive-distance-typing.md` says HDR popcount IS the cosine replacement and Fisher-z is NOT a distance; this entry took bgz-tensor's "certified cosine-replacement" wording as settled — an assumption, pending operator ruling; CLOSED-INVALID 2026-07-27 -- palette256-ONLY ruling: FisherZTable is a materialization artifact, nothing to wire, see section E)
 
 **The cosine replacement is not missing. It is shipped, certified, and named** —
 and the 2026-07-27 cosine census missed it by asking "is this cosine a violation?"

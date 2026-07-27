@@ -56,8 +56,13 @@
 //! > previously read "in production the moment-read is …". There is no
 //! > production moment-read: every `deinterlace` call site lives in
 //! > `temporal.rs`'s own `#[cfg(test)]` module, the only `DeinterlaceRow`
-//! > implementor is a test struct, and no code anywhere sets a non-zero
-//! > `server_id` or `Some(hlc_tick)` outside one test. Ledger:
+//! > implementor is a test struct, and **no production code sets a non-zero
+//! > `server_id` or a `Some` `QueryReference::hlc_tick`** — every
+//! > `QueryReference` constructor hardcodes `server_id: 0` / `hlc_tick: None`,
+//! > and `temporal.rs:504` asserts it. (The reader-side
+//! > `DeinterlaceRow::hlc_tick()` DOES return `Some(..)` — but only from the
+//! > test row struct, which is the point: the ordering path is exercised by
+//! > tests alone. The one non-zero `server_id` is likewise a test.) Ledger:
 //! > `.claude/board/TECH_DEBT.md` TD-DOC-COMMENTS-CLAIM-UNWIRED-BEHAVIOUR.
 //!
 //! Here the loop is composed directly over

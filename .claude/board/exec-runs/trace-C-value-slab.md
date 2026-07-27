@@ -17,7 +17,7 @@ plus targeted greps into `ocr.rs`, `nan_projection.rs`, `soa_view.rs`,
 carve of the 480-byte slab. Contiguous, discriminant-ordered, compile-time
 asserted (`:1018-1044`: discriminant==index, no gaps, fits 512, fits 480).
 Current occupied span: value-slab bytes `[0, 172)` of 480 — i.e. row bytes
-`[32, 204)`. Everything from row byte 204 to 512 (276 B) is **unclaimed and
+`[32, 204)`. Everything from row byte 204 to 512 (308 B) is **unclaimed and
 un-described by any `ColumnDescriptor`** — reserved by omission, not by an
 explicit "reserved" entry.
 
@@ -41,9 +41,9 @@ explicit "reserved" entry.
 `ValueTenant::value_offset()` / `::byte_len()` (`:893-909`) are the only
 generic, tenant-agnostic accessors; every specific-typed accessor
 (`kanban`, `qualia`, `style_lane`/`triangle_for`) is hand-written on top of
-them. 5 of 14 tenants (`Meta`, `MaterializedEdges`, `Fingerprint`,
-`HelixResidue`, `TurbovecResidue`, `Plasticity`, `EntityType`, `Tekamolo` —
-8, not 5; corrected count: **8 of 14**) have no `NodeRow` method at all —
+them. **8 of 14** tenants (`Meta`, `MaterializedEdges`, `Fingerprint`,
+`HelixResidue`, `TurbovecResidue`, `Plasticity`, `EntityType`, `Tekamolo`)
+have no `NodeRow` method at all —
 callers reach for `ValueTenant::X.value_offset()` + manual byte slicing.
 
 `ValueSchema` presets (`:1058-1150`, byte budgets certified at

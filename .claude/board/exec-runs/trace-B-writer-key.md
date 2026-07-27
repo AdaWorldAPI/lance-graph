@@ -65,7 +65,7 @@ odoo/callcenter/witness type) implements `DeinterlaceRow`. There is no
 
 ## deinterlace callers
 
-Exhaustive grep for `deinterlace(` returns 6 call sites, **all inside
+Exhaustive grep for `deinterlace(` returns 7 call sites, **all inside
 `lance-graph-planner/src/temporal.rs`'s own `#[cfg(test)] mod tests`**:
 lines 458, 469, 470, 491, 538, 627, 653. Zero calls outside that test module,
 in this or any other crate.

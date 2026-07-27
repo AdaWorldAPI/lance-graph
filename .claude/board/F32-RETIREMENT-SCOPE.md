@@ -16,7 +16,7 @@
 |---|---|---|
 | `nars/truth.rs:12` | `TruthValue.frequency: f32` | the NARS frequency; **declared** row home `MetaWord::nars_f`, unwired, 8B/4B width mismatch open |
 | `nars/truth.rs:14` | `TruthValue.confidence: f32` | the NARS confidence; declared home `MetaWord::nars_c`, same status |
-| `nars/belief.rs` | `Belief.contradiction: f32` | preserved dialectic depth (`max |f₁−f₂|`); **NO resident tenant exists** |
+| `nars/belief.rs` | `Belief.contradiction: f32` | preserved dialectic depth (`max \|f₁−f₂\|`); **NO resident tenant exists** |
 
 `TruthValue` is `Copy` and two `f32`s wide; it is the single carrier through
 every tactic, the semiring, and the arena's revision path. **Retiring these three
