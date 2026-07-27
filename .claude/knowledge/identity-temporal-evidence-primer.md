@@ -175,6 +175,60 @@ uses a **debug-only** `debug_assert!(w <= 63)` (`causal-edge/src/edge.rs:953`);
 
 ---
 
+## 5.5 SoA ownership — and the island that is NOT SoA-owned
+
+**The owning SoA** is `MailboxSoA<const N: usize>` (`cognitive-shader-driver/src/mailbox_soa.rs:58`).
+True struct-of-arrays — one fixed-size array per column:
+
+```
+mailbox_id : MailboxId          ← the SoA's own identity
+energy              [f32; N]      plasticity_counter  [u8; N]
+last_active_cycle   [u32; N]      last_write_cycle    [u32; N]
+edges  [CausalEdge64; N]          qualia [QualiaI4_16D; N]
+meta   [MetaWord; N]              entity_type [u16; N]
+temporal [u64; N]                 expert [u16; N]        sigma [u8; N]
++ three per-row style lanes, appended AFTER Kanban
+```
+
+**This SoA owns its Kanban** (`mailbox_soa.rs:179,222-228`):
+- `current_cycle: u32`
+- `phase: KanbanColumn` — **`pub(crate)`, not `pub`** — *"Mutated only via
+  `MailboxSoaOwner::advance_phase` / `try_advance_phase`; starts at
+  `KanbanColumn::Planning`. Read it through the `MailboxSoaView::phase` getter."*
+
+One SoA → one Kanban → one owner (`MailboxSoaOwner`) → sole mutator. Verified.
+
+### ⚠ `BeliefArena` is an object-shaped island, NOT V3 SoA ownership
+
+```rust
+// planner/src/nars/belief.rs:129-136   — and deepnsm-v2/src/belief.rs likewise
+pub struct BeliefArena {
+    entries: Vec<Belief>,          // ← array-of-STRUCTS on the heap
+    index: HashMap<CStmt, u32>,    // ← a second heap map
+    passes: u32, reached_fixed_point: bool,
+}
+```
+
+It has **no SoA columns, no Kanban, no `mailbox_id`, no V3 GUID addressing**.
+`Belief.premises` are `Vec<u32>` *arena indices*. It is AoS + hashmap — the
+opposite shape from `MailboxSoA`.
+
+**Consequence for any evidence work:** the question is never "how should the
+arena own evidence identity". Both candidate answers — the old `Stamp` and the
+withdrawn `SourceRegistry` — are heap structures inside a structure that is
+already outside V3 ownership. `SourceRegistry` added a **third** heap map
+(`Vec<SourceId>`) inside the island and called the result "containment".
+
+The V3-shaped question is:
+> Which `MailboxSoA` column, mask, edge, or Kanban transition represents this,
+> and which SoA owns the row?
+
+Until `BeliefArena` is either (a) backed by SoA columns or (b) explicitly
+declared a non-substrate diagnostic surface, **no evidence carrier placed inside
+it can be substrate-conformant**, however well-typed it is.
+
+---
+
 ## 6. Ownership / persistence / replay
 
 - `SoaEnvelope` (`soa_envelope.rs:170`) — the owner of the in-place backing store.
@@ -227,6 +281,16 @@ uses a **debug-only** `debug_assert!(w <= 63)` (`causal-edge/src/edge.rs:953`);
     exceeding the cap *"a split signal, not a case to widen the mask type"*.
 11. **Do not reuse `Stamp`'s shape as precedent.** It is the one carrier in this
     inventory that violates the mask discipline its siblings document.
+12. **Do not evaluate a design by whether it implements `Serialize`, can be
+    frozen into a census, or can be rebuilt from serialized records.** V3 is
+    never serialized, so "not serializable" is not a safety property and
+    "reconstructible from a serialized mapping" is not a solution. Judge by
+    *which SoA owns it* and *which Kanban governs its transitions*.
+13. **Do not let a Rust struct's shape override the substrate's architecture.**
+    That `BeliefArena` is a struct with a `Vec` does not make an arena-owned
+    registry legitimate — it makes the arena the thing to question.
+14. **Do not treat "arena-local" as a containment guarantee.** In V3, containment
+    is SoA ownership + write-on-behalf, not privacy of a heap field.
 
 ---
 
