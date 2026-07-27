@@ -1475,3 +1475,64 @@ scratch it is legal (tier 2) and merely wasteful.
 ### The test, one line
 **Ephemeral: think freely. Persistent: prove meta-awareness or convergence.
 Serialized: never.**
+
+---
+
+## 17. ⊘ STORAGE LOCALITY — thinking products store WHERE THE SoA HAS THE EVIDENCE (operator, 2026-07-27)
+
+> *"In the best case they are stored where the SoA has the evidence — that's the
+> whole point. Why serialize into a useless sidecar if the substrate has the
+> evidence edges all saved in the substrate?"*
+
+This completes §16 with the WHERE, and it closes this primer's ORIGINAL question.
+
+### The closing of §7 gap 1 (evidence-event identity)
+
+The session opened searching for an evidence-event identity carrier to replace
+`Stamp`. The answer is that **the carrier question was itself the sidecar
+reflex**:
+
+- A belief's evidential base is **not a field** — it is the **evidence edges**:
+  the grounding rows, reachable through the row's own `EdgeBlock`, with
+  temporal birth on the version axis.
+- `Stamp(u64)` was a **lossy sidecar compressing what the substrate stores
+  natively** — 64 folded membership bits standing in for edges + versions that
+  were never folded in the first place.
+- Evidence-event identity = **the substrate address of the evidencing row, at
+  its version**. Nothing to mint, nothing to serialize.
+- The disjointness guard becomes an **edge read**: do two beliefs' evidence
+  edges reach overlapping rows? Exact, replay-stable, no aliasing — an
+  `[a,b]`-shaped question over resident slots.
+
+### Correction to trace C's "belief-state homes" table
+
+| field | trace C said | corrected |
+|---|---|---|
+| evidential base | "NO row-tenant home at all" | **wrong frame** — evidence needs no VALUE tenant. The home has existed since the canon: the 16-byte `EdgeBlock` (12 in-family + 4 out, always reserved, never shrunk) + the version axis. |
+| premises / derivation refs | "missing replay-stable representation" | same correction — premises are evidence edges to premise-belief rows; the address is the replay-stable reference §7 gap 5 asked for. |
+
+What is genuinely missing is narrower than either row implied: **slot-byte →
+neighbour-row resolution** — exactly what trace C's two live `EdgeBlock` readers
+(`mailbox_scan.rs::edge_slots_coarse`, `soa_graph.rs::project_snapshot`)
+document themselves as stopping short of (*"lands the edge structure, never
+fakes the row resolution"*). One resolution mechanism, and both premises and
+evidential base have their storage — co-located with the beliefs they ground.
+
+### The locality rule, stated
+
+A thinking-minted SoA (tier 3, §16) stores **adjacent to its evidence** — same
+substrate, edge-connected to the rows that ground it — never in a parallel
+store keyed by anything else. Corollary: **any proposed provenance structure
+whose contents are derivable by walking resident edges is a sidecar and is
+rejected on sight.** `SourceRegistry` (withdrawn), `Stamp` (legacy), and every
+"receipt ledger" shape this session considered were instances of exactly that.
+
+### Why this is the whole point
+
+Co-location is not a storage preference — it is what makes evidence QUERYABLE
+by the same `[a,b]` reads as everything else. The moment provenance lives in a
+sidecar, answering "what grounds this belief?" requires a join across
+representations (a serialization boundary in waiting). With evidence as edges
+in the same rows, grounding, disjointness, contradiction ancestry, and replay
+are all walks over resident bytes — the standing wave answering questions about
+itself.
