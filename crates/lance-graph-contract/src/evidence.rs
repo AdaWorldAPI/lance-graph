@@ -37,7 +37,7 @@
 //! [`EvidenceOverlap::Unknown`], never `Disjoint`. The bound is read off the
 //! carrier, not chosen.
 
-use crate::episodic_edges::{EdgeRef, EpisodicEdges64};
+use crate::episodic_edges::EpisodicEdges64;
 
 /// Result of the evidential-base disjointness guard.
 ///
@@ -109,6 +109,7 @@ pub fn pooled_base(a: EpisodicEdges64, b: EpisodicEdges64) -> Option<EpisodicEdg
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::episodic_edges::EdgeRef;
 
     fn edges(locals: &[u16]) -> EpisodicEdges64 {
         let mut e = EpisodicEdges64::empty();
