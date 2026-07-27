@@ -3,7 +3,7 @@
 **Status:** RULING (operator, 2026-07-27) + measurement. **Confidence:** High — every leg was verified in source or measured, not inferred.
 
 **Five objects, previously one carrier:**
-```
+```text
 event identity ≠ evidential-base membership ≠ source dependence
                ≠ object/view identity ≠ dataset version
 ```

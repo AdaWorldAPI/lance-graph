@@ -80,7 +80,10 @@ pub struct BindingSubstitution {
 /// ```
 ///
 /// This is a substitution, NOT `do(X = x)` — see the module docs.
-pub fn substitute_binding(world: &Fingerprint, substitution: &BindingSubstitution) -> SubstitutedWorld {
+pub fn substitute_binding(
+    world: &Fingerprint,
+    substitution: &BindingSubstitution,
+) -> SubstitutedWorld {
     // Unbind original, bind replacement
     let new_state = world
         .bind(&substitution.original) // Unbind: cancels original via XOR
