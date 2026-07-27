@@ -10,12 +10,18 @@
 
 use crate::PillarResult;
 
-const PHI_INV: f64 = 0.618_033_988_749_894_9; // 1/φ = (√5 - 1) / 2
-const QUINTENZIRKEL: f64 = 0.584_962_500_721_156_0; // log₂(3/2) ≈ 0.585
+pub const PHI_INV: f64 = 0.618_033_988_749_894_9; // 1/φ = (√5 - 1) / 2
+pub const QUINTENZIRKEL: f64 = 0.584_962_500_721_156_0; // log₂(3/2) ≈ 0.585
 
 fn frac(x: f64) -> f64 { x - x.floor() }
 
-fn star_discrepancy(n: usize, stride: f64) -> f64 {
+/// Star-discrepancy `D* = sup_x |F_n(x) − x|` of the Weyl sequence
+/// `{ frac(k·stride) }` against uniform (Kolmogorov–Smirnov form).
+///
+/// `pub` so stride comparisons outside this pillar measure the SAME quantity
+/// the pillar is proven against, instead of re-deriving the formula and
+/// risking divergence. Visibility only — behaviour unchanged.
+pub fn star_discrepancy(n: usize, stride: f64) -> f64 {
     let mut points: Vec<f64> = (0..n).map(|k| frac(k as f64 * stride)).collect();
     points.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
