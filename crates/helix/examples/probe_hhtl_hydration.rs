@@ -52,9 +52,24 @@
 //!
 //! Real bytes only (Rule 23). Deterministic SplitMix64, seed 0x9E3779B97F4A7C15.
 //!
+//! **Target (b), taxonomy — runs ONLY when the extra args are supplied, and is
+//! only meaningful because (a) held.** Ground truth becomes the WordNet
+//! shared-ancestor depth for the lemma pair, so the question changes from *does
+//! the geometry track POSITION* to *does it track MEANING*. The address, the
+//! geometry, and the permutation null are identical; only the target moves,
+//! which is what makes the two numbers comparable.
+//!
+//! The WordNet walk is reproduced here rather than imported: helix is a
+//! standalone crate (own `[workspace]`, git-sourced ndarray) and must not gain a
+//! dependency on the planner to run a probe.
+//!
 //! ```text
+//! # target (a) only:
 //! cargo run --release --manifest-path crates/helix/Cargo.toml \
 //!   --example probe_hhtl_hydration -- <emb.f32>
+//! # targets (a) AND (b):
+//! cargo run --release --manifest-path crates/helix/Cargo.toml \
+//!   --example probe_hhtl_hydration -- <emb.f32> <vocab.txt> <wordnet31_isa_v2.tsv>
 //! ```
 #![allow(
     clippy::cast_precision_loss,
@@ -218,13 +233,15 @@ fn hydrate(paths: &[u64], depth: u8) -> (Vec<HemispherePoint>, Vec<u8>) {
 }
 
 fn main() {
-    let Some(path_arg) = std::env::args().nth(1) else {
+    let argv: Vec<String> = std::env::args().skip(1).collect();
+    let Some(path_arg) = argv.first().cloned() else {
         eprintln!(
             "usage: probe_hhtl_hydration <emb.f32>\n\n\
              Requires REAL embedding bytes (Rule 23). Format: [u32 n][u32 dim]\n\
              + n*dim f32 LE. Reference input (all-MiniLM-L6-v2 word embeddings,\n\
              30522 x 384, model.safetensors sha256\n\
-             53aa51172d142c89d9012cce15ae4d6cc0ca6895895114379cacb4fab128d9db)."
+             53aa51172d142c89d9012cce15ae4d6cc0ca6895895114379cacb4fab128d9db).\n\n\
+             Optional target (b): <emb.f32> <vocab.txt> <wordnet31_isa_v2.tsv>"
         );
         std::process::exit(2);
     };
@@ -244,15 +261,56 @@ fn main() {
     assert!(n >= N_LEMMAS, "need >= {N_LEMMAS} rows, file has {n}");
     println!("source: {n} x {dim} real embedding rows; using {N_LEMMAS}");
 
+    // Target (b) needs lemma NAMES, so when vocab + rail are supplied the sample
+    // is drawn from rows that are BOTH a whole-word vocab token and a WordNet
+    // noun. Target (a) is then measured on that same sample, so the two targets
+    // are comparable rather than measured on different populations.
+    let taxonomy = (argv.len() >= 3).then(|| {
+        let vocab: Vec<String> = std::fs::read_to_string(&argv[1])
+            .unwrap_or_else(|e| panic!("read {}: {e}", argv[1]))
+            .lines()
+            .map(str::to_string)
+            .collect();
+        assert_eq!(
+            vocab.len(),
+            n,
+            "vocab has {} entries but the matrix has {n} rows - not the same tokenizer",
+            vocab.len()
+        );
+        (vocab, WordNet::load(&argv[2]))
+    });
+
     let mut rng = SplitMix64(SEED);
-    let mut taken = vec![false; n];
+    let candidates: Vec<usize> = match &taxonomy {
+        Some((vocab, wn)) => (0..n)
+            .filter(|&i| {
+                let w = &vocab[i];
+                w.len() > 2
+                    && w.chars().all(|c| c.is_ascii_lowercase())
+                    && wn.senses.contains_key(w)
+            })
+            .collect(),
+        None => (0..n).collect(),
+    };
+    assert!(
+        candidates.len() >= N_LEMMAS,
+        "only {} usable rows, need >= {N_LEMMAS}",
+        candidates.len()
+    );
+    let mut taken = vec![false; candidates.len()];
     let mut pick = Vec::with_capacity(N_LEMMAS);
     while pick.len() < N_LEMMAS {
-        let i = rng.below(n);
-        if !taken[i] {
-            taken[i] = true;
-            pick.push(i);
+        let k = rng.below(candidates.len());
+        if !taken[k] {
+            taken[k] = true;
+            pick.push(candidates[k]);
         }
+    }
+    if taxonomy.is_some() {
+        println!(
+            "target (b) enabled: sampling from {} vocab-AND-wordnet-noun rows",
+            candidates.len()
+        );
     }
     let rows: Vec<Vec<f32>> = pick
         .iter()
@@ -381,4 +439,175 @@ fn main() {
          establishes weak dependence, so a classical IID bound would understate\n  \
          it. The permutation carries the dependence structure itself."
     );
+
+    // ── TARGET (b): does the SAME geometry track TAXONOMY? ──────────────────
+    let Some((vocab, wn)) = taxonomy else { return };
+    let carried_a = beats == 0 && z > 3.0;
+    assert!(
+        carried_a,
+        "target (a) did not hold (z={z:.2}, {beats}/{N_PERM}) - target (b) must \
+         NOT be interpreted, it would measure the same silence"
+    );
+
+    let names: Vec<&str> = pick.iter().map(|&i| vocab[i].as_str()).collect();
+    let mut cache: HashMap<u32, u32> = HashMap::new();
+    let truth_b: Vec<f64> = pairs
+        .iter()
+        .map(|&(i, j)| {
+            wn.shared_depth(names[i], names[j], &mut cache)
+                .unwrap_or(0.0)
+        })
+        .collect();
+    let distinct_b: HashSet<u64> = truth_b.iter().map(|d| d.to_bits()).collect();
+    assert!(
+        distinct_b.len() >= 3,
+        "wordnet depth takes only {} distinct values - no ground-truth spread",
+        distinct_b.len()
+    );
+
+    // Geometry distance predicts SMALL wordnet depth (far apart => shallow
+    // shared ancestor), so the expected sign is NEGATIVE. Reported as-is.
+    let rho_b_place = spearman(&d_place, &truth_b);
+    let rho_b_hydr = spearman(&d_hydr, &truth_b);
+    let mut null_b = Vec::with_capacity(N_PERM);
+    let mut shuf_b = paths.clone();
+    for _ in 0..N_PERM {
+        for k in (1..shuf_b.len()).rev() {
+            shuf_b.swap(k, rng.below(k + 1));
+        }
+        let (p_s, _) = hydrate(&shuf_b, LEVELS);
+        let d: Vec<f64> = pairs
+            .iter()
+            .map(|&(i, j)| hemi_dist(&p_s[i], &p_s[j]))
+            .collect();
+        null_b.push(spearman(&d, &truth_b));
+    }
+    let mean_b = null_b.iter().sum::<f64>() / N_PERM as f64;
+    let sd_b = (null_b
+        .iter()
+        .map(|r| (r - mean_b) * (r - mean_b))
+        .sum::<f64>()
+        / N_PERM as f64)
+        .sqrt();
+    assert!(sd_b > 1e-9, "target (b) null is degenerate (sd={sd_b:.2e})");
+    let z_b = (rho_b_hydr - mean_b) / sd_b;
+    let beats_b = null_b
+        .iter()
+        .filter(|r| r.abs() >= rho_b_hydr.abs())
+        .count();
+
+    println!("\n--- verdict (target b: taxonomy) ---");
+    println!(
+        "  ground truth: wordnet shared-ancestor depth, {} distinct values",
+        distinct_b.len()
+    );
+    println!("  place-only   rho {rho_b_place:+.4}");
+    println!("  hydrated     rho {rho_b_hydr:+.4}   z {z_b:+.2}   {beats_b}/{N_PERM} |perm| >= |observed|");
+    println!(
+        "  null: mean {mean_b:+.5}  sd {sd_b:.5}   (two-sided: geometry distance\n           should predict SHALLOW shared ancestors, so a NEGATIVE rho is the\n           hypothesis-consistent direction)"
+    );
+    if beats_b == 0 && z_b.abs() > 3.0 {
+        println!(
+            "\n  TAXONOMY TRACKS TOO. The same address->geometry seam that carried\n  \
+             POSITION also separates items by hypernym relatedness above the\n  \
+             shuffled-address floor. This is the measurement 'wordnet IS HHTL'\n  \
+             was asking for - stated at the strength the margin supports, not\n  \
+             more."
+        );
+    } else {
+        println!(
+            "\n  TAXONOMY DOES NOT TRACK. The geometry carries POSITION (target a\n  \
+             held) but not hypernym structure above the floor. That is a real\n  \
+             and useful split: the address is spatially faithful and\n  \
+             taxonomically blind, so 'wordnet IS HHTL' is NOT supported by the\n  \
+             same seam that supports spatial hydration."
+        );
+    }
+}
+
+// ── target (b): WordNet taxonomy ─────────────────────────────────────────────
+// Reproduced, not imported: helix is standalone and must not depend on the
+// planner to run a probe. Nouns only, matching the rail's own scope.
+
+use std::collections::{HashMap, HashSet};
+
+struct WordNet {
+    senses: HashMap<String, Vec<u32>>,
+    parents: HashMap<u32, Vec<u32>>,
+}
+
+impl WordNet {
+    fn load(path: &str) -> Self {
+        let text = std::fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("read {path}: {e}\nBuild the rail first."));
+        let mut senses: HashMap<String, Vec<u32>> = HashMap::new();
+        let mut parents: HashMap<u32, Vec<u32>> = HashMap::new();
+        for line in text.lines() {
+            if line.starts_with('#') || line.trim().is_empty() {
+                continue;
+            }
+            let c: Vec<&str> = line.split('\t').collect();
+            assert_eq!(c.len(), 7, "rail schema changed: {} columns", c.len());
+            if c[1] != "n" {
+                continue;
+            }
+            let (Ok(off), Ok(hyp)) = (c[3].parse::<u32>(), c[6].parse::<u32>()) else {
+                continue;
+            };
+            senses.entry(c[0].to_string()).or_default().push(off);
+            parents.entry(off).or_default().push(hyp);
+        }
+        for v in senses.values_mut() {
+            v.sort_unstable();
+            v.dedup();
+        }
+        WordNet { senses, parents }
+    }
+
+    fn ancestors(&self, s: u32) -> HashMap<u32, u32> {
+        let mut out: HashMap<u32, u32> = HashMap::new();
+        let mut frontier = vec![s];
+        let mut seen: HashSet<u32> = HashSet::from([s]);
+        let mut depth = 0u32;
+        while !frontier.is_empty() && depth < 32 {
+            depth += 1;
+            let mut next = Vec::new();
+            for nd in frontier.drain(..) {
+                for &p in self.parents.get(&nd).map_or(&[][..], |v| v.as_slice()) {
+                    if seen.insert(p) {
+                        out.insert(p, depth);
+                        next.push(p);
+                    }
+                }
+            }
+            frontier = next;
+        }
+        out
+    }
+
+    fn root_distance(&self, s: u32) -> u32 {
+        self.ancestors(s).values().copied().max().unwrap_or(0)
+    }
+
+    /// Root-distance of the DEEPEST common ancestor over all sense pairs.
+    /// Higher = the two lemmas share a more specific ancestor.
+    fn shared_depth(&self, a: &str, b: &str, cache: &mut HashMap<u32, u32>) -> Option<f64> {
+        let (sa, sb) = (self.senses.get(a)?, self.senses.get(b)?);
+        let mut best = 0u32;
+        for &x in sa {
+            let ax = self.ancestors(x);
+            for &y in sb {
+                if x == y {
+                    continue;
+                }
+                for k in self.ancestors(y).keys() {
+                    if ax.contains_key(k) {
+                        let d = *cache.entry(*k).or_insert_with(|| self.root_distance(*k));
+                        best = best.max(d);
+                    }
+                }
+            }
+        }
+        Some(f64::from(best))
+    }
 }
