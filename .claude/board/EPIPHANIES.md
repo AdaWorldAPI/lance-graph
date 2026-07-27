@@ -1,3 +1,67 @@
+## 2026-07-27 — E-BASE17-CEILING-IS-DIMENSIONAL-AND-THE-GOLDEN-STEP-IS-A-RELABEL-1 — the Base17 fold ceiling is **17 DIMENSIONS**, not the fold's grouping — a random JL-17 projection scores the SAME (0.2615 vs 0.2726). And `GOLDEN_STEP=11` provably carries **zero information**: it permutes bucket LABELS, and every symmetric readout cancels it.
+
+**Status:** FINDING (measured, three independent controls). **Confidence:** High — replicated across models and refutes the measuring session's own stated hypothesis.
+
+**Probe:** `crates/bgz17/examples/probe_base17_fold_ceiling.rs`, real bytes only
+(all-MiniLM-L6-v2 `word_embeddings.weight`, 30522×384 f32, sha256
+`53aa5117…28d9db`), 4096 rows → 20 000 pairs, SplitMix64 `0x9E3779B97F4A7C15`.
+
+**Measured (width 384, Spearman ρ vs exact cosine on the full vectors):**
+
+| encoder (all 17 outputs) | ρ vs cosine |
+|---|---|
+| `golden` — the shipped fold, `GOLDEN_STEP=11`, i16 fixed-point | **0.2726** |
+| `exact` — same fold, NO i16 quantization | 0.2756 |
+| `block` — contiguous block means, not residue classes | 0.2660 |
+| `jl-17` — random Gaussian Johnson-Lindenstrauss to 17 dims | **0.2615** |
+| `golden` vs full-width **L1** (metric-matched, not cosine) | 0.5830 |
+
+**The two findings.**
+
+1. **The ceiling is DIMENSIONAL.** A well-chosen 17-dim projection (JL) scores
+   0.96× the fold. Grouping — residue-class vs contiguous vs random-sign — moves
+   ρ by <0.02. **No choice of 17-dim projection escapes this**, so the fold is
+   NOT the defect; 17 numbers cannot rank single-word dense-embedding cosine.
+   The prior framing "the fold is a bad projection, fix the projection" is
+   REFUTED — it was this session's own hypothesis, stated before measuring.
+2. **`GOLDEN_STEP` is a pure relabel.** `GOLDEN_POS[i] = (i*step) % 17` with
+   `gcd(step,17)=1` is a permutation, and the fold accumulates source index
+   `octave*17 + GOLDEN_POS[i]` — i.e. residue class `GOLDEN_POS[i]` mod 17. The
+   step only permutes *which bucket gets which residue class*. Since `l1`/
+   `sign_agreement` sum over all 17, the labelling cancels **exactly**: the probe
+   asserts L1 is bit-identical across steps {1,2,3,5,7,11,13} and it is (L1=46
+   for every step). `l1_weighted` (dim 0 ×20) and `permute` are the only
+   readouts the step can touch. **C5's "11/17 golden step is proven" is about
+   full residue coverage — which any coprime step gives. It is not evidence the
+   choice of 11 does work.**
+
+**Quantization is NOT the cap** (control): unrounded means score 0.2756 vs the
+stored i16's 0.2726 — a 0.003 gap. The probe asserts this stays under 0.15, so a
+future `FP_SCALE` change that made rounding binding would fail loudly.
+
+**Replication + reconciliation.** ρ=0.2726 on MiniLM-384 matches the recorded
+ρ=0.2599 on jina-v3-1024 (`TD-BASE17-FOLD-CEILING-SINGLE-WORD`) — different
+model, different width, same ceiling. Measured CV of pairwise distance is
+0.153–0.176, placing this input at the LOW end of the existing CV sweep
+(`probe_base17_cv_sweep.rs`: ρ 0.22→0.856 as CV 0.22→1.0). The two findings
+compose: **at low input distance-variance, 17 dims is the binding constraint and
+no projection escapes it**; the CV sweep shows the ceiling lifts with input
+variance, not with a better fold.
+
+**Consequences.** (a) Do NOT spend effort on a "tighter projection than the
+golden fold" for dense-embedding workloads — measured dead end; the payable
+options in `TD-BASE17-FOLD-CEILING-SINGLE-WORD` reduce to *more dimensions* or
+*structured input*. (b) Any probe that must resolve fine semantic distinctions
+MUST NOT route through a 17-dim fold — including the pending WordNet
+centroid-ancestry falsifier (`E-HYPERNYM-CLIMB-IS-A-CASCADE-TIER-DELTA-1`),
+which would otherwise read this upstream cap as its own failure. (c) The
+metric-matched ρ=0.5830 says roughly half the loss is L1-on-means answering a
+cosine question — relevant to any consumer that folds then compares.
+
+Refs: `TD-BASE17-FOLD-CEILING-SINGLE-WORD`, `E-PROBE-CODEBOOK-44-MECHANISM-1`,
+`E-DIA-V4-FIELD-SEARCH-LOOP-1` #4 (CV sweep), `bf16-hhtl-terrain.md` C5 + M1,
+`bgz17::base17::Base17::encode`.
+
 ## 2026-07-27 — E-AN-UNFILLED-SEMANTIC-SLOT-IS-NOT-A-DESIGN-INVITATION-1 — **post-#854 target shapes withdrawn as unauthorized architectural invention; the zero-copy discriminator; the L3 argument.**
 
 **Status:** RULING (operator, 2026-07-27) + retraction. **Confidence:** High — the withdrawal is itself the finding.
