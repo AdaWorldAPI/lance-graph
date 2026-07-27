@@ -87,6 +87,9 @@ const SEED: u64 = 0x9E37_79B9_7F4A_7C15;
 const N_LEMMAS: usize = 3000;
 const N_PAIRS: usize = 40_000;
 const KMEANS_ITERS: usize = 15;
+/// Permutation replicates for the null distribution. One shuffle is a point,
+/// not a floor; K shuffles give the mean and sd a margin can be read against.
+const N_PERM: usize = 200;
 
 struct SplitMix64(u64);
 impl SplitMix64 {
@@ -499,12 +502,7 @@ fn main() {
     let code_16: Vec<u8> = rows.iter().map(|r| c16.encode(r)).collect();
     let code_4: Vec<u8> = rows.iter().map(|r| c4.encode(r)).collect();
 
-    // SHUFFLED control: same code MULTISET, assignment destroyed.
     let mut rng = SplitMix64(SEED);
-    let mut code_shuf = code_4.clone();
-    for i in (1..code_shuf.len()).rev() {
-        code_shuf.swap(i, rng.below(i + 1));
-    }
 
     // ── pair sample + WordNet ground truth ──────────────────────────────────
     let mut cache: HashMap<u32, u32> = HashMap::new();
@@ -548,7 +546,6 @@ fn main() {
     let p_flat_b17 = map(&prefix_depth_16x16, &code_flat_b17);
     let p_16 = map(&|a, b| c16.prefix_depth(a, b), &code_16);
     let p_4 = map(&|a, b| c4.prefix_depth(a, b), &code_4);
-    let p_shuf = map(&|a, b| c4.prefix_depth(a, b), &code_shuf);
 
     // CAN-IT-FIRE: prefix depth must be non-degenerate. A prefix that is always
     // 0 (or always maximal) carries exactly no information.
@@ -570,46 +567,64 @@ fn main() {
     let rho_flat_b17 = report("flat-256-base17 NULL", &p_flat_b17, &wn_depth, 2);
     let rho_16 = report("16x16-fulldim", &p_16, &wn_depth, 2);
     let rho_4 = report("4^4-fulldim CANON", &p_4, &wn_depth, 4);
-    let rho_shuf = report("SHUFFLED control", &p_shuf, &wn_depth, 4);
 
-    println!("\n--- verdict ---");
-    println!("  shuffled control          rho {rho_shuf:+.4}  (must sit at ~0)");
-    println!(
-        "  4^4-fulldim over control      {:+.4}",
-        rho_4 - rho_shuf.abs()
+    // ── PERMUTATION NULL ────────────────────────────────────────────────────
+    // The floor is not a parametric bound. `jc::jirak` (pillar 5) establishes
+    // that these samples are weakly dependent, so classical IID Berry-Esseen
+    // would UNDERSTATE the floor — its job is to tell us not to use it, not to
+    // hand us a threshold. The valid floor here is a permutation over the
+    // lemma -> code assignment: it destroys the mapping while preserving the
+    // code multiset AND the pair structure, so the dependence induced by a
+    // lemma recurring across ~27 pairs is carried by the null itself. The
+    // effective independent unit is the LEMMA (3000), never the pair (40000).
+    let mut null: Vec<f64> = Vec::with_capacity(N_PERM);
+    let mut scratch = code_4.clone();
+    for _ in 0..N_PERM {
+        for i in (1..scratch.len()).rev() {
+            scratch.swap(i, rng.below(i + 1));
+        }
+        null.push(spearman(
+            &map(&|a, b| c4.prefix_depth(a, b), &scratch),
+            &wn_depth,
+        ));
+    }
+    let null_mean = null.iter().sum::<f64>() / N_PERM as f64;
+    let null_sd = (null
+        .iter()
+        .map(|r| (r - null_mean) * (r - null_mean))
+        .sum::<f64>()
+        / N_PERM as f64)
+        .sqrt();
+    // CAN-IT-FIRE on the null itself: a degenerate null (sd ~ 0) would make
+    // every z-score infinite and meaningless.
+    assert!(
+        null_sd > 1e-6,
+        "permutation null is degenerate (sd={null_sd:.2e}) - the shuffle is not \
+         perturbing the statistic, so no floor is being measured"
     );
+    let z = |rho: f64| (rho - null_mean) / null_sd;
+    let beats = |rho: f64| null.iter().filter(|r| **r >= rho).count();
     println!(
-        "  16x16-fulldim over control    {:+.4}",
-        rho_16 - rho_shuf.abs()
-    );
-    println!(
-        "  SHIPPED over its flat null    {:+.4}",
-        rho_hier_b17 - rho_flat_b17
-    );
-    println!("  4^4 over 16x16 (same data)    {:+.4}", rho_4 - rho_16);
-    println!(
-        "  fulldim over base17 (16x16)   {:+.4}",
-        rho_16 - rho_hier_b17
+        "\npermutation null (K={N_PERM}, lemma->code assignment shuffled): \
+         mean {null_mean:+.5}  sd {null_sd:.5}  range [{:+.4}, {:+.4}]",
+        null.iter().cloned().fold(f64::INFINITY, f64::min),
+        null.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
     );
 
-    let best = rho_4.max(rho_16);
-    if best - rho_shuf.abs() > 0.05 {
+    println!("\n--- verdict (z = sigma above the permutation null) ---");
+    for (name, rho) in [
+        ("16x16-base17 SHIPPED", rho_hier_b17),
+        ("flat-256-base17 NULL", rho_flat_b17),
+        ("16x16-fulldim", rho_16),
+        ("4^4-fulldim CANON", rho_4),
+    ] {
+        let k = beats(rho);
         println!(
-            "\n  SIGNAL: centroid ancestry tracks hypernym ancestry above the\n  \
-             shuffled control => the HHTL prefix carries semantic grounding,\n  \
-             not distance only. Strength is the margin, never the raw rho."
-        );
-    } else {
-        println!(
-            "\n  NO SIGNAL at this resolution: centroid prefix does not predict\n  \
-             hypernym ancestry beyond the shuffled control. 'wordnet IS HHTL' is\n  \
-             NOT supported by this measurement - the prefix is a DISTANCE address\n  \
-             that happens to be hierarchical."
+            "  {name:<24} rho {rho:+.4}   z {:+7.2}   {k}/{N_PERM} permutations >= observed",
+            z(rho)
         );
     }
     println!(
-        "\n  Shape (4^4 vs 16x16, same full-dim data, same 256 leaves) and carrier\n  \
-         (full-dim vs Base17, same 16x16 shape) are reported separately, so a\n  \
-         null result names WHICH factor is responsible instead of blaming both."
+        "\n  Read the z against Jirak's weak-dependence rate, NOT classical IID\n           Berry-Esseen (jc pillar 5: dependence measurably inflates the sup-error,\n           so an IID sigma understates this floor). The permutation null already\n           carries the dependence structure, so the z is the honest statistic; the\n           Jirak citation is why a parametric IID threshold was not used instead.\n\n           Shape (4^4 vs 16x16, same data) and carrier (full-dim vs Base17, same\n           shape) stay separate so a null result names WHICH factor is responsible.\n\n           CAVEAT: the two *-base17 arms compare a PHASE code against a TAXONOMY\n           (see the header) and are ill-posed regardless of their z."
     );
 }
