@@ -1,6 +1,58 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
-## 2026-07-27 — ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED — the certified replacement exists; nothing in the spine reaches it — OPEN
+## 2026-07-27 — ISS-CONTRACT-DISTANCE-IS-THE-FORBIDDEN-UMBRELLA + ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT — OPEN
+
+Source: ndarray `.claude/knowledge/cognitive-distance-typing.md` (operator-cited),
+the binding API-design authority for distance typing.
+
+### A. `lance_graph_contract::distance::Distance` is the anti-pattern that doc forbids
+
+> *"No `Box<dyn Distance>` / no `enum DistanceMetric { Palette, Hamming, Base17, … }`
+> / no `fn distance<T: HasMetric>(a, b) -> f32` umbrella. The type system
+> distinguishes the metrics for a reason."*
+
+`contract::distance::Distance` is exactly that: one trait, `fn distance(&self,
+&Self) -> u32`, impl'd for `[u64;256]` (Hamming), `[u8;6]` (PQ byte-L1) and
+`[u8;3]` (palette byte-L1) — **three different metrics under one generic API
+returning one untyped scalar.** The doc requires instead: one named fn per
+metric, newtyped outputs (`PaletteDistance(f32)` / `HammingDistance(u16)` /
+`Base17L1(i32)`) so cross-metric arithmetic does not compile, and REQUIRED
+`buckets` + `EulerGammaOffset` on every palette-256 call.
+
+This inverts the 2026-07-27 cosine census, which was organised around migrating
+call sites TOWARD that umbrella. It also explains the measured ρ = −0.0030 for
+`[u8;6]` structurally: the umbrella returns a `u32` the type system cannot
+distinguish from a real distance.
+
+### B. Two in-repo sources contradict on WHAT the cosine replacement is — REPORTED, NOT RESOLVED
+
+| source | claim |
+|---|---|
+| ndarray `cognitive-distance-typing.md` | **HDR popcount early-exit** *"IS the cosine replacement on the cascade — NOT a derivative or approximation of cosine"* (Level 1, ~1M → ~20K). Fisher-z is *"**NOT a distance** — a normalization applied to palette 256 OUTPUT… Calling Fisher-z on a non-correlation value is a category error."* |
+| bgz-tensor `nnue_palette_cosine.rs:172` + `EPIPHANIES E-FISHERZ-CANONICAL-COSINE-REPLACEMENT-1` | `FisherZTable` is *"the certified palette256 cosine-replacement"* |
+
+`ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED` (filed earlier today) took
+bgz-tensor's wording as settled. That was an assumption; it is **downgraded to
+CONTESTED** pending an operator ruling. Both artifacts are in-tree and current.
+
+### C. The three-level cascade — the probes used the wrong level
+
+| Level | metric | scale |
+|---|---|---|
+| 1 | HDR popcount early-exit (`&Fingerprint256` ×2 + `u16` threshold → `Option<HammingDistance>`) | ~1M → ~20K |
+| 2 | Base17 L1 on `[i16; 17]` — *"don't pad to 16 or 18"* | ~20K → ~200 |
+| 3 | Palette-256 table lookup + **`buckets` + `EulerGammaOffset`** | ~200 finalists |
+
+`probe_palette256_ndarray` ran a **Level-3** pair LUT across all 4096 candidates,
+skipping L1 and L2 — and its "HDR gate" passed `hamming_distance_raw` ONE BYTE
+instead of two 256-bit fingerprints, which is the root cause of the
+already-reported can't-fire defect. Its LUT also carried neither `buckets` nor
+`EulerGammaOffset`, which the doc says *"changes the answer"*.
+
+Also: the direct in-palette fast path (`palette256_bf16_mantissa_transform`,
+one typed hop, no cascade) was never considered by any probe this session.
+
+## 2026-07-27 — ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED — the certified replacement exists; nothing in the spine reaches it — **CONTESTED** (see ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT: ndarray `cognitive-distance-typing.md` says HDR popcount IS the cosine replacement and Fisher-z is NOT a distance; this entry took bgz-tensor's "certified cosine-replacement" wording as settled — an assumption, pending operator ruling)
 
 **The cosine replacement is not missing. It is shipped, certified, and named** —
 and the 2026-07-27 cosine census missed it by asking "is this cosine a violation?"
