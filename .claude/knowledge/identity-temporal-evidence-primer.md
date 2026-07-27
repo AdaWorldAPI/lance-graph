@@ -1536,3 +1536,40 @@ representations (a serialization boundary in waiting). With evidence as edges
 in the same rows, grounding, disjointness, contradiction ancestry, and replay
 are all walks over resident bytes — the standing wave answering questions about
 itself.
+
+### ⊘ §17 CORRECTION — the 12+4 EdgeBlock is V1-LEGACY; V3 evidence rails live in the FACET (operator, 2026-07-27: "you keep repeating deprecated")
+
+§17 named the 16-byte `EdgeBlock` (12 in-family + 4 out) as the evidence-edge
+home. **That is the V1 shape** — same status as the u24 tail: reads of existing
+rows survive (I-LEGACY-API-FEATURE-GATED), **new units never mint it**. This
+primer has now repeated a deprecated carrier twice (u24 tail context, then
+this); the correction is recorded loudly so it is not repeated a third time.
+
+**Under V3 the evidence rails are a READING of the 4+12 facet register**:
+the 12-byte content-blind payload carved per le-contract §3 — `6×(u8:u8)`
+rails (`part_of:is_a`, the L1–L3 episodic basins), with the L4
+`6× palette256:palette256` tenant over the Morton cascade. Evidence edges =
+rail entries in the facet reading the ClassView selects — co-located with the
+row exactly as §17 requires, just in the V3 carrier, not the V1 block.
+Trace C's two live `EdgeBlock` readers are V1-read paths, not the template for
+new belief evidence.
+
+### WordNet IS HHTL — and the probe just measured it (operator, 2026-07-27)
+
+The HHTL cascade tiers ARE a taxonomy: HEEL/HIP/TWIG = hypernym depth. "Location
+of awareness in semantic space" = the row's position in that taxonomy, carried
+by the facet tiers. Empirical support landed today
+(`probe_furnace_amortization`, real bge-m3 bytes): rows sharing a HEEL code are
+**20% closer in exact distance than random pairs (ratio 0.7981)** while a
+shuffled-code control stays silent (1.0711) — the address prefix demonstrably IS
+a semantic location, with the falsifier firing in both directions. Honest
+limits: on the thin 17-dim/6-subspace rig the HEEL stage carries locality but
+almost no PRUNING power (99.7% survivors at the t/4 band) — the 95%-skip HHTL
+claim needs a full-width tier and remains unverified here.
+
+**Operator extension, noted for a future probe (not built):** the helix
+place/residue codec could carry the **semantic location residue** — HHTL/wordnet
+tier = the PLACE, `Signed360`/Fisher-2z = the fine residue within the taxonomy
+node — *"if that makes additional sense."* Fits the existing helix doctrine
+(place regenerated from address, residue stored, never materialized); worth a
+probe only after the facet-rail resolution mechanism exists.
