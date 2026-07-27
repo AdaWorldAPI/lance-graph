@@ -339,9 +339,9 @@ impl SupportLedger {
     }
 
     /// Project to the compact [`SupportProfile`] for the SIMD / fixed-width path.
-    #[must_use]
-    /// Project the ledger. ONE pass — the earlier form rescanned every receipt
-    /// nine times through `distinct_sources_for` (codex/CodeRabbit, PR #854).
+    ///
+    /// ONE pass — the earlier form rescanned every receipt nine times through
+    /// `distinct_sources_for` (codex/CodeRabbit, PR #854).
     ///
     /// `independent_strength` is left `None` throughout: no dependence model
     /// exists, so no strength here has been shown to be independent corroboration.
