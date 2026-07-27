@@ -138,14 +138,64 @@ fn main() {
     let query_rows: Vec<usize> = (0..N_QUERIES).map(|_| draw(&mut rng, &mut taken)).collect();
     let db_rows: Vec<usize> = (0..N_DB).map(|_| draw(&mut rng, &mut taken)).collect();
 
-    // Codebook: subspace s = slice s of each of the 256 real rows.
+    // Codebook: per subspace, seed from real rows then NORMALIZE + refine with
+    // Lloyd iterations. Raw sampled rows are not centroids — they are noise, and
+    // both arms pay for it. Normalization is what makes the palette256 tile a
+    // metric surface (unit-norm centroids => cosine cell is 1 - dot, and the
+    // 256x256 tile spacing is comparable across subspaces). This whole step is
+    // ONE-TIME table-build cost — the amortized reconstruction the doctrine
+    // permits, not per-query materialization.
+    let unit = |v: &mut Vec<f32>| {
+        let n = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-12);
+        for x in v.iter_mut() {
+            *x /= n;
+        }
+    };
     let mut base = 0usize;
     let mut codebook: Vec<Vec<Vec<f32>>> = Vec::with_capacity(6);
     for sd in SUB_DIMS {
-        let sub: Vec<Vec<f32>> = centroid_rows
+        let mut sub: Vec<Vec<f32>> = centroid_rows
             .iter()
             .map(|&ri| rows[ri][base..base + sd].to_vec())
             .collect();
+        for c in &mut sub {
+            unit(c);
+        }
+        // Lloyd refinement over a training slice of the db rows (5 passes).
+        let train: Vec<Vec<f32>> = db_rows
+            .iter()
+            .take(2048)
+            .map(|&ri| {
+                let mut v = rows[ri][base..base + sd].to_vec();
+                unit(&mut v);
+                v
+            })
+            .collect();
+        for _ in 0..5 {
+            let mut sums = vec![vec![0f64; sd]; N_CENTROIDS];
+            let mut cnt = vec![0usize; N_CENTROIDS];
+            for t in &train {
+                let mut best = (f32::INFINITY, 0usize);
+                for (ci, c) in sub.iter().enumerate() {
+                    let d: f32 = t.iter().zip(c).map(|(a, b)| (a - b) * (a - b)).sum();
+                    if d < best.0 {
+                        best = (d, ci);
+                    }
+                }
+                cnt[best.1] += 1;
+                for (k, &x) in t.iter().enumerate() {
+                    sums[best.1][k] += f64::from(x);
+                }
+            }
+            for ci in 0..N_CENTROIDS {
+                if cnt[ci] > 0 {
+                    for k in 0..sd {
+                        sub[ci][k] = (sums[ci][k] / cnt[ci] as f64) as f32;
+                    }
+                    unit(&mut sub[ci]);
+                }
+            }
+        }
         codebook.push(sub);
         base += sd;
     }
@@ -175,8 +225,9 @@ fn main() {
     // inter-centroid cosine distance, then quantized to the u16 range. This is
     // `DistanceLut::distance(a,b)` shape: the pair IS the coordinate. Total
     // 6 × 256 × 256 × 2 B = 768 KB, shared by every query forever.
-    let pair_luts: Vec<Vec<u16>> = (0..6)
-        .map(|s| {
+    let mut pair_lut: Vec<u16> = vec![0u16; 6 * N_CENTROIDS * N_CENTROIDS];
+    for s in 0..6 {
+        let plane: Vec<u16> = {
             let cb = &codebook[s];
             let mut raw = vec![0f32; N_CENTROIDS * N_CENTROIDS];
             let (mut lo, mut hi) = (f32::INFINITY, f32::NEG_INFINITY);
@@ -194,8 +245,10 @@ fn main() {
             raw.iter()
                 .map(|&d| ((d - lo) / span * 65535.0).round() as u16)
                 .collect()
-        })
-        .collect();
+        };
+        pair_lut[s * N_CENTROIDS * N_CENTROIDS..(s + 1) * N_CENTROIDS * N_CENTROIDS]
+            .copy_from_slice(&plane);
+    }
 
     // Quantize one query's f32 tables to an n-level integer LUT with ONE
     // shared affine (min, span) across all 6 tables — the sum stays affine
@@ -315,12 +368,23 @@ fn main() {
     let mut ic_sdc = Vec::with_capacity(N_QUERIES);
     let mut rc_sdc = Vec::with_capacity(N_QUERIES);
     let mut ns_sdc = 0u128;
+    // vs EXACT ground truth (full-vector cosine) — the correct reference.
+    // Measuring SDC against ADC made ADC definitionally perfect and charged
+    // SDC for the whole gap; ADC is itself an approximation.
+    let mut sp_adc_t = Vec::with_capacity(N_QUERIES);
+    let mut rc_adc_t = Vec::with_capacity(N_QUERIES);
+    let mut sp_sdc_t = Vec::with_capacity(N_QUERIES);
+    let mut rc_sdc_t = Vec::with_capacity(N_QUERIES);
+    let mut ns_pre = 0u128;
+    let mut ns_exact = 0u128;
     let mut ns_f32 = 0u128;
     let mut ns_u8 = 0u128;
 
     for &qi in &query_rows {
         let q: Vec<f32> = rows[qi].to_vec();
+        let tp = Instant::now();
         let tables = adc.precompute(&q, &codebook);
+        ns_pre += tp.elapsed().as_nanos();
 
         // BEFORE arm: shipped f32 path (timed).
         let t0 = Instant::now();
@@ -349,6 +413,23 @@ fn main() {
         ic8.push(icc_2_1(&before, &after));
         rc8.push(recall_at_k(&before, &after, TOP_K));
 
+        // EXACT arm: full-vector cosine distance, the real reference.
+        let te = Instant::now();
+        let exact: Vec<f64> = db_rows
+            .iter()
+            .map(|&ri| {
+                let v = &rows[ri];
+                let (mut dot, mut nq, mut nc) = (0f64, 0f64, 0f64);
+                for d in 0..DIM {
+                    dot += f64::from(q[d]) * f64::from(v[d]);
+                    nq += f64::from(q[d]).powi(2);
+                    nc += f64::from(v[d]).powi(2);
+                }
+                1.0 - dot / (nq.sqrt() * nc.sqrt()).max(1e-12)
+            })
+            .collect();
+        ns_exact += te.elapsed().as_nanos();
+
         // SDC arm: query is palette-coded too; distance = Σ_s LUT_s[q_s][db_s]
         // over the STATIC tables. No per-query precompute of any kind.
         let q_code = encode(&rows[qi]);
@@ -356,17 +437,26 @@ fn main() {
         let sdc: Vec<u32> = db_codes
             .iter()
             .map(|code| {
+                // Flat, contiguous, subspace-major: one base offset per subspace,
+                // no per-subspace pointer chase. This is the shape ndarray's SIMD
+                // polyfill gathers over (U8x64 / u16 gather); the Vec<Vec<_>> form
+                // measured earlier was a rig artifact, not the architecture.
                 let mut acc = 0u32;
                 for sub in 0..6 {
+                    let base = sub * N_CENTROIDS * N_CENTROIDS;
                     let a = q_code[sub] as usize;
                     let b = code[sub] as usize;
-                    acc += u32::from(pair_luts[sub][a * N_CENTROIDS + b]);
+                    acc += u32::from(pair_lut[base + a * N_CENTROIDS + b]);
                 }
                 acc
             })
             .collect();
         ns_sdc += t2.elapsed().as_nanos();
         let sdc_f: Vec<f64> = sdc.iter().map(|&d| f64::from(d)).collect();
+        sp_adc_t.push(spearman(&exact, &before));
+        rc_adc_t.push(recall_at_k(&exact, &before, TOP_K));
+        sp_sdc_t.push(spearman(&exact, &sdc_f));
+        rc_sdc_t.push(recall_at_k(&exact, &sdc_f, TOP_K));
         sp_sdc.push(spearman(&before, &sdc_f));
         pr_sdc.push(pearson(&before, &sdc_f));
         ic_sdc.push(icc_2_1(&before, &sdc_f));
@@ -419,6 +509,36 @@ fn main() {
     println!("ICC(2,1)      mean {sp_ic:.4}");
     println!("recall@{TOP_K}     mean {sp_rc:.4}  min {sp_rc_lo:.4}");
     println!("per-query derived state: ADC 6144 B  vs  SDC 0 B (LUT is static, shared)");
+    println!(
+        "static LUT: 6 x 256^2 x 2 B = {} KB (L2-resident, built once, reused forever)",
+        6 * N_CENTROIDS * N_CENTROIDS * 2 / 1024
+    );
+    // ── the comparison that actually decides it: both vs EXACT ──
+    let (at_m, at_lo, _) = stats(&sp_adc_t);
+    let (art_m, _, _) = stats(&rc_adc_t);
+    let (st_m, st_lo, _) = stats(&sp_sdc_t);
+    let (srt_m, _, _) = stats(&rc_sdc_t);
+    println!("\n== vs EXACT full-vector cosine (the correct reference) ==");
+    println!("ADC f32   Spearman {at_m:.4} (min {at_lo:.4})  recall@{TOP_K} {art_m:.4}");
+    println!("SDC LUT   Spearman {st_m:.4} (min {st_lo:.4})  recall@{TOP_K} {srt_m:.4}");
+    println!("gap in rho: {:.4}", at_m - st_m);
+
+    // ── economics: what per-query materialization costs at cohort scale ──
+    let pre_per_q = ns_pre / N_QUERIES as u128;
+    let cells_per_q = 6u128 * N_CENTROIDS as u128;
+    println!("\n== economics of per-query materialization ==");
+    println!(
+        "ADC precompute: {pre_per_q} ns/query, {cells_per_q} cosine cells/query, 6144 B written"
+    );
+    println!("SDC precompute: 0 ns/query, 0 cells, 0 B written (static LUT, built once)");
+    let cohort = 64_000u128;
+    println!(
+        "at a {cohort}-row cohort: ADC = {} ms of pure table-building + {} MB written; SDC = 0",
+        pre_per_q * cohort / 1_000_000,
+        6144 * cohort / 1_000_000
+    );
+    println!("(debug build; the RATIO and the byte counts are the point, not absolute ns)");
+
     println!("\nablation 4-bit Spearman mean {s4_m:.4} (max {s4_hi:.4})");
     println!(
         "timing: f32 {} ns/cand   u8 {} ns/cand (debug build; relative only)",

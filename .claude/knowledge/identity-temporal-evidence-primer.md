@@ -1044,3 +1044,59 @@ via compose tables (or decode→arithmetic→encode entirely inside registers, w
 the discriminator's kernel-local clause permits). A stored Fisher-Z column
 alongside palette codes would be a materialized alternate representation of
 existing state — forbidden, and *worse* than the thing it duplicates.
+
+### §13 addendum — MEASURED: why the pair-LUT is the economy (2026-07-27)
+
+> Operator: *"the moment we calculate 64k SoA with float it's CPU expensive and
+> would lose the economy/low entropy of [a,b] that makes our no-GPU cheap"* ·
+> *"normalized 6× palette256² centroids are cheap and you can run around in
+> circles"* · *"cheap and fast and exact like a lookup — that's the whole
+> point"* · *"low entropy > fast thinking"* · *"no GPU"* · *"ndarray makes the
+> polyfill SIMD cheap and fast"*.
+
+Probe: `crates/lance-graph-planner/examples/probe_adc_cosine_head_to_head.rs`.
+Real bytes only (bge-m3 bgz7 shard, SHA-pinned), SplitMix64 seed
+`0x9E3779B97F4A7C15`, 64 queries × 4096 candidates, release build.
+
+**Exact AT LOOKUP.** `LUT[a][b]` *is* the distance — zero approximation at
+lookup time. All error lives in the **encode** step (which centroid a vector
+lands on). That is the precise sense in which the pair-LUT is exact, and it is
+why the accuracy question is a codebook question, never a distance question.
+
+**The economics (the deciding numbers):**
+
+| | ADC (per-query f32 tables) | SDC (static pair LUT) |
+|---|---|---|
+| per-query derived state | **6 144 B written** | **0 B** |
+| per-query table build | 13 342 ns, 1 536 cosine cells | **0 ns, 0 cells** |
+| at a 64 000-row cohort | **853 ms + 393 MB churn** | **0** |
+| static footprint | — | 768 KB (6×256²×2 B), L2-resident, built once |
+| scan | 2 ns/cand | 4 ns/cand scalar (SIMD polyfill unmeasured) |
+
+**853 ms of pure table-building against a 550 ms SLA** — the budget is gone
+before a single comparison runs, plus 393 MB of write churn through a 32 MB L3
+envelope. This is the no-GPU argument in numbers: the float path is not
+"somewhat more expensive", it exceeds the entire cohort budget on overhead alone.
+
+**"Run around in circles" is the multiplier.** `close_transitive` iterates to a
+fixed point; ADC re-pays 13 342 ns **per pass per query** because the query
+moves. The static LUT pays nothing on any iteration. Iterative reasoning is
+affordable only in the second regime.
+
+**Accuracy, measured against EXACT full-vector cosine** (the correct reference —
+an earlier pass wrongly used ADC as ground truth, which made ADC perfect by
+definition and charged SDC the whole gap):
+
+- ADC ρ 0.8718, recall@10 0.4219 · SDC ρ 0.8494, recall@10 0.3875 · **gap 0.0225**.
+- Normalizing centroids + 5 Lloyd passes moved the gap 0.0242 → 0.0225: the gap
+  is **query-quantization, structurally inherent to SDC**, not a codebook
+  artifact. 0.0225 ρ is the price for deleting 853 ms + 393 MB.
+
+**Honest caveats.** (a) Both arms sit near ρ 0.87 vs exact because 17 dims split
+into 6 subspaces is *thin* (2–3 dims each) — a property of this Base17 rig, not
+of either arm; real 1024-dim embeddings subdivide far better. (b) The 4 ns/cand
+SDC scan is **scalar**; ndarray's SIMD polyfill (`U8x64` gather) is the
+production path and is **not yet measured**. (c) Codebook construction here is
+normalize + Lloyd; `euler_gamma_fold` (`bgz-tensor/src/euler_fold.rs`, γ·i
+rotation at 3σ-separated angles) is the architecture's own path and remains
+untested.
