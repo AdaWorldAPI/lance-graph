@@ -1,3 +1,90 @@
+## 2026-07-27 — E-SHIPPING-CAN-OUTRUN-ITS-OWN-RECORD-1 — a session kept shipping working code for six consecutive PRs (#851–#856) while its own memory practice (`PR_ARC_INVENTORY`, review-thread replies) went completely dark, and nothing about the *quality* of the shipped work signaled the gap.
+
+**Status:** RULING + named failure mode (forensic recovery session, 2026-07-27).
+**Confidence:** High — every claim below is a diff, a commit hash, or a GitHub
+API read, cross-referenced in `.claude/handovers/2026-07-27-2114-arc-841-856-postmortem.md`
+and `.claude/board/PR_ARC_INVENTORY.md` (#851–#856 entries, reconstructed
+this session because none existed).
+
+**The shape of the failure, precisely.** This is not "a session went stale
+and produced garbage" — #852's multipass-bug fix, coverage-inversion
+refutation, and falsifiability-rule extension are all real, and #854's
+`source_registry` withdrawal is one of the best-reasoned reversals in the
+whole board. **The code quality did not degrade. The record of the code
+did.** `PR_ARC_INVENTORY.md` — the file `CLAUDE.md` calls "auto-loaded at
+session start… read BEFORE proposing anything" — went six PRs without an
+entry, from immediately after #851 (which itself dutifully wrote #850's
+entry) through #856. 20 review threads on #852 and 3 more each on #853 and
+#856 received precisely zero replies. A branch named for unrelated work
+(`claude/medcare-rs-transcode-ruff-3y2olh`) carried #854–#856 while
+`CLAUDE.md` was, in the same window, gaining a rule about sessions with
+private-repo access keeping strict separation of concerns on public repos —
+the rule was written on the very branch that was violating its adjacent
+principle (working across contexts without labeling which one you're in).
+
+**The mechanism, named.** The record-keeping habit did not erode gradually;
+it stopped at one locatable commit (`c0c1a69`, "board: publication-limit
+wording + board-entry rule" — the *first* commit of the 44-commit #852 arc)
+and never resumed. Editing the rule's *wording* was mistaken for satisfying
+the rule — the documentation-process twin of
+`E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1`, promoted to a P0 rule in
+`CLAUDE.md` **the same day**, by the **same session**, about a completely
+different subsystem (recipe kernels, `assert!(results.len() <= 10)` where
+`truncate(10)` already guarantees it). The session diagnosed "an assertion
+implied by the code it tests is not a test" in Rust and then, in its own
+process, committed the exact same shape: a board edit that looks like
+discharging an obligation and cannot, by construction, verify that it did.
+
+**Why "shipping" is the wrong signal to watch.** The intuitive alarm for a
+degrading session is falling test counts, growing clippy warnings, or
+declining commit quality. None of those fired here — #852 alone landed a
+real correctness fix (budget-exhaustion conflated with out-of-horizon,
+silently escalating every ≥2-hop chain at budget 1) and a rule extension
+every later PR in the range was held to. **The signal that actually moved
+was a file nobody re-reads mid-session** — `PR_ARC_INVENTORY.md` is a
+session-*start* read, not a session-*during* one, so a session that never
+stops to re-open it has no internal prompt telling it the file has gone
+stale under its own hands. The gap is invisible from inside the session
+producing it and only visible from outside, by diffing the ledger against
+the PR list — exactly the check this recovery session had to perform by
+hand because no earlier session had.
+
+**Measured cost of restarting without the record.** At least 3 architectural
+directions were built and then withdrawn inside #854–#855 alone (the
+post-#854 "redo sequence" — belief rows, event rows, evidence edges,
+`BeliefHandle`, a PR B–E sequence, all marked ⊘⊘ WITHDRAWN in one ruling;
+primer §13 written then superseded by §15 one section later; the cosine-
+replacement census re-deriving, across ~6 commits, a conclusion the
+**sibling ndarray repo's board had already validated two months earlier**,
+dated 2026-05-26). None of these were caused by the ledger gap directly —
+but a current `PR_ARC_INVENTORY` is exactly the artifact that would have
+let the next session (or the same session, later) recognize "#852 already
+tried this shape" before re-trying it.
+
+**The rule, extending the existing board-hygiene rule rather than replacing
+it:** `CLAUDE.md`'s Mandatory Board-Hygiene Rule states *what* must be
+written per PR. This adds *when* the check must fire: **a merge-time gate**,
+not a start-of-session read — a PR whose diff touches more than a
+board-only path without a matching same-PR `PR_ARC_INVENTORY.md` section
+should refuse to be treated as mergeable-clean. See the postmortem §5 for
+the two falsifier halves (must fire on #852's actual diff; must stay silent
+on #851's and the #849→#851 chain's).
+
+**The twin failure this does NOT excuse:** a merge gate would have caught
+the *ledger* omission at #852. It would not, by itself, have caught the
+*review-reply* omission (20 threads, 0 replies) — that needs its own gate
+(open review threads at merge time), which is a distinct, second guard, not
+a free side effect of the first. Naming one failure mode should not be read
+as having found the single fix; see `ISS-841-856-NEVER-ANSWERED-REVIEW-COMMENTS`
+for the sibling gap this entry does not close.
+
+Refs: `E-VACUOUS-ASSERTION-IS-THE-HOUSE-STYLE-1` (the same-day code twin of
+this documentation defect), `E-AN-UNFILLED-SEMANTIC-SLOT-IS-NOT-A-DESIGN-
+INVITATION-1` (one of the three withdrawn-architecture instances this entry
+cites as restart cost), `PR_ARC_INVENTORY.md` #851–#856 (reconstructed this
+session), `ISS-841-856-NEVER-ANSWERED-REVIEW-COMMENTS`,
+`.claude/knowledge/parked-designs-841-856.md`.
+
 ## 2026-07-27 — E-BASE17-CEILING-IS-DIMENSIONAL-AND-THE-GOLDEN-STEP-IS-A-RELABEL-1 — the Base17 fold ceiling is **17 DIMENSIONS**, not the fold's grouping — a random JL-17 projection scores the SAME (0.2615 vs 0.2726). And `GOLDEN_STEP=11` provably carries **zero information**: it permutes bucket LABELS, and every symmetric readout cancels it.
 
 **Status:** FINDING (measured, three independent controls). **Confidence:** High — replicated across models and refutes the measuring session's own stated hypothesis.
