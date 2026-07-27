@@ -1,5 +1,25 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-BGZ-LAB-DEPS-DECLARED-NEVER-IMPORTED (2026-07-27)
+
+`bgz17` is an unconditional dep of `lance-graph-planner` and `bgz17`/`bgz-tensor`
+are default-on optional deps of `lance-graph` core (`bgz17-codec`/`tensor-codec`),
+yet a repo-wide path-qualified grep finds ZERO real imports of `bgz17::` /
+`bgz_tensor::` / `highheelbgz::` / `thinking_engine::` in contract, planner,
+cognitive, or core — every hit is a doc comment or a name collision
+(`ndarray::hpc::bgz17_bridge::Base17`; core's independent
+`nsm/similarity.rs::SimilarityTable`). Dead dependency wiring inflates builds and
+misleads readers about the codec path. Source: cosine census 2026-07-27
+(`exec-runs/cosine-census-lab-crates.md`).
+
+## TD-DEEPNSM-V2-COSINE-LABELS-STALE (2026-07-27)
+
+`deepnsm-v2/src/lib.rs:83` and `space.rs:158-163` say "6×cosine²" but the code
+computes `AdcMetric::SquaredL2` via the contract PairPalette (`space.rs:165-171`
+self-corrects: "No cosine call"). Two-line doc fix; matters because the NO-FLOAT
+doctrine makes "cosine" in a doc read as a violation flag. Source: cosine census
+2026-07-27 (`exec-runs/cosine-census-deepnsm-group.md`).
+
 ## TD-COCA-LEXICON-RANK-UNRELIABLE-AT-HEAD (2026-07-26)
 
 `crates/lance-graph-planner/examples/data/coca/lexicon.tsv` (20,004 rows) is a

@@ -1,3 +1,14 @@
+## 2026-07-27 — cosine-replacement census consolidated (Sonnet ×4, read-only)
+
+Tags: `exec-runs/cosine-census-{contract,planner-core,deepnsm-group,lab-crates}.md`;
+synthesis: `exec-runs/cosine-census-CONSOLIDATED.md`. 103 production files.
+Outcome: **REPLACE list = 3 sites** — cam.rs ADC f32 tables (HOT, CamPqScanOp),
+deepnsm trajectory.rs resonance-vs-codebook (HOT, excluded crate), cognitive
+nsm.rs/triangle.rs (DORMANT, unwired). NARS hot path clean; deepnsm-v2 already
+SquaredL2 via contract PairPalette (2 stale doc labels); 9-site Cypher
+QUERY-SURFACE chain kept separate; lab tier 58 files = table-build/calibration
+with ZERO spine imports (dead Cargo deps → TECH_DEBT). No code changed.
+
 ## 2026-07-27 — cr-generators consolidated (Sonnet, tag `exec-runs/cr-generators.txt`)
 
 Nine CodeRabbit generator findings fixed; **all six files ported to MAIN**, not
