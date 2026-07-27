@@ -1,5 +1,157 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## 2026-07-27 — ISS-841-856-NEVER-ANSWERED-REVIEW-COMMENTS — the forensic recovery's full ledger of GitHub review/issue comments across #849–#856 that never received a reply, sorted by whether the underlying finding was fixed anyway
+
+> Filed by the arc-841-856-postmortem recovery session. Every item below was
+> verified directly against the GitHub API (`pull_request_read` /
+> `get_review_comments` / `get_comments`) on 2026-07-27, and every "fixed
+> forward" claim was cross-checked against the actual diffs of the PRs named,
+> not assumed from a later PR's description. See
+> `.claude/board/PR_ARC_INVENTORY.md` (#851–#856 entries) for the full
+> per-PR context and `.claude/handovers/2026-07-27-2114-arc-841-856-postmortem.md`
+> for the process analysis of why these went unanswered.
+
+### A. #852 — 20 review threads, ZERO replies on the thread itself — content mostly fixed forward in #853, process never closed out
+
+Every one of #852's 20 review threads (`chatgpt-codex-connector` + `coderabbitai`)
+is `is_resolved: false` with `total_count: 1` (bot comment only, no author
+reply) as of the API read above. Cross-checked against #853's two follow-up
+commits (`92742b1`, `8e71483`):
+
+- **Fixed forward, verified in the #853 diff** (11 of 20): `meta_basin.rs`
+  ×3 (recompute-on-perturbation over the complete window; `stability_around`
+  windowing off a fixed cap; the "marks budget artifacts" test-coverage gap),
+  `style_strategy.rs` ×2 (eligibility-before-stride; the `cross_family_dissent`
+  monoculture), `witness_fabric.rs` ×1 (an assertion that couldn't fail),
+  `cam_pq_scan.rs` ×1 (same), `insight_reason_wired.rs` ×2 (schema-corruption
+  visibility), `build_alignment.py` ×1 (`houses`/`prizes` mis-stemming).
+- **Fixed forward, verified in the #853 diff, Python generators** (6 of 20):
+  `build_rosetta_probe.py` ×2 (dead row cap, report typo), `closed_class_transfer.py`
+  ×1 (hardcoded scratch path — **note:** this is a *different* defect in the
+  same file than the one #853's own review later found unfixed, see §C below),
+  `fetch_greek_lane.py` ×2 (`--no-fetch` silent network + hardcoded scratch
+  path), `build_wordnet_rail.py` ×1 (per-POS denominator), `tier_delta.py` ×2
+  (WNDB world-writable fallback, `word_b` absence asymmetry — **one of two**
+  `tier_delta.py` findings from #852; a *third, unrelated* `tier_delta.py`
+  defect surfaced independently in #853's own review, see §C).
+- **Acknowledged but deliberately not reverted** (1 of 20): the coderabbitai
+  finding that `EPIPHANIES.md` had four historical entries redacted in place
+  (a private-archive path reference) — #853's board work records a trace
+  entry stating the redaction stands and why, rather than reverting it. This
+  is a considered decision, not an oversight, but it was never posted back
+  as a reply to the originating thread.
+- **Fixed forward via board reorganization** (1 of 20): the `TECH_DEBT.md`
+  append-vs-prepend violation — #853 reordered the file newest-first.
+- **No reply ever posted to any of the 20 threads on GitHub**, regardless of
+  whether the finding was acted on. A reviewer (human or bot) opening PR
+  #852 today sees 20 apparently-ignored findings, indistinguishable from a
+  stonewalled review without cross-referencing #853's diff by hand — which
+  is what this recovery had to do.
+
+**Status:** content CLOSED (verified fixed or deliberately kept, 19/20);
+process gap OPEN and will recur unless a merge-time check requires either a
+reply or a cross-referencing commit note before a PR with open review
+threads can be treated as done. See the postmortem §5 for the proposed guard.
+
+### B. #851 — 2 review threads, both P1, both never answered, both still open
+
+Both threads (`chatgpt-codex-connector`, posted 2026-07-26T10:31:32Z, the PR
+merged at 10:34:10Z — three minutes later) dispute the central claim of
+`E-CODEBOOK-LICENSE-REGIMES-ONE-ASSET-EACH-1`:
+
+1. The German codebook's PUBLIC/BY-SA verdict drops HDT's own stated
+   NC restriction — `build_de_codebook.py:247`'s generated lexicon labels
+   itself "CC BY-SA / CC BY-NC-SA," an apparent direct contradiction of the
+   ruling's "commercial-OK BY-SA" classification for the combined codebook.
+2. The ruling treats packaging location (Release vs. repo tree) as the
+   legal ShareAlike/aggregation boundary test; the reviewer argues
+   adaptation-vs-collection must be determined by the relationship between
+   the works, and that "keep it in a separate Release" is a project policy,
+   not itself a legal boundary — a distinction future publishers could miss.
+
+Neither critique was rebutted, revised, or acknowledged anywhere in #852
+through #856. **Status: OPEN.** One inconclusive lead: `EPIPHANIES.md` (as it
+stands after later, unrelated edits) lists "UD German-HDT | CC BY-SA 4.0
+(annotation)" as a table row distinct from GSD, which may gesture at an
+annotation-vs-underlying-text licence distinction relevant to critique 1 —
+but no commit or comment anywhere in the traced range explicitly connects
+that wording to this thread. Treat as UNRECONSTRUCTED, not as a fix.
+
+### C. #853 — 3 review threads, none answered, none fixed forward (verified absent from every #854/#855/#856 diff)
+
+1. `closed_class_transfer.py:224` (codex P1) — the evaluation only iterates
+   `predicted.items()`, excluding every unaligned German token from the
+   transfer method's false-negative count, while the baseline dictionary
+   uses the full codebook vocabulary; whenever alignment coverage is below
+   100% (which the script itself measures) the two recall/F1 denominators
+   differ and the headline "transfer beats/loses to baseline" claim can be
+   wrong. **Distinct from** the hardcoded-scratch-path defect in the same
+   file that #852's review found and #853 itself fixed — two independent
+   bugs, one paid down, one not.
+2. `meta_basin.rs:466` (codex P2) — `coarse_flags` constructs each basin
+   from `tail_rows` but reclusters the *complete window* and compares
+   against the tail-only member set; a non-tail row sharing the basin's
+   shape falsely marks the basin unstable. **Distinct from** the
+   `stable_under_perturbation`/`stability_around` findings #852 raised on
+   the same file, which #853 itself fixed in the same commit pass.
+3. `tier_delta.py:318` (codex P2) — when both inputs resolve to the same
+   non-root synset, `lca_depth_from_root` is hardcoded to `0` instead of
+   using the same `synset_root_depth` computation every other path uses,
+   producing an inconsistent depth for identical-synset pairs in the
+   tier-delta report.
+
+Confirmed via `git log --oneline b0b6419..62658af -- <file>` for all three
+files: **zero commits touch any of them again anywhere in #854–#856.**
+**Status: OPEN**, genuine unpaid technical debt.
+
+### D. #855 — 15 review threads, all eventually answered (4 pre-merge fixed same-day; 11 post-merge closed out one PR later in #856)
+
+Not a gap by the time the range ends, but worth recording precisely because
+it is the one case in this range where a PR closed with unanswered threads
+and the *next* PR explicitly, itemizedly closed every one of them (posted as
+an issue comment on #855 itself, `2026-07-27T16:51:39Z`, listing all 11 by
+number with CONFIRMED/rejected verdicts). This is the pattern #852 and #853
+should have followed and didn't. **Status: CLOSED**, cited here as the
+counter-example.
+
+### E. #856 — 3 review threads posted around merge time, none answered, one substantive and unresolved
+
+1. **(codex P1, substantive, unresolved)** — disputes this PR's own headline
+   finding ("the Base17 ceiling is dimensional, not the fold's grouping") by
+   citing a **pre-existing measurement already in the same file's history**
+   (`EPIPHANIES.md` former lines 3899–3901: naive PCA-17 scored Spearman
+   0.72 on raw Jina vs. the golden fold's 0.32). Argues that scoring one
+   random Gaussian JL draw with L1 cannot establish that *no* trained or
+   data-dependent 17-dim projection escapes the ceiling, and that closing
+   the "tighter projection" payable option on this basis risks prematurely
+   killing a promising line of work. **This is a live, unresolved challenge
+   to a finding this ledger and `TECH_DEBT.md`'s `TD-BASE17-FOLD-CEILING-
+   SINGLE-WORD` entry currently treat as settled** (`E-BASE17-CEILING-IS-
+   DIMENSIONAL-AND-THE-GOLDEN-STEP-IS-A-RELABEL-1`). Recommended next step:
+   re-run the probe with a PCA-fitted (not random) 17-dim projection on the
+   *same* sample and readout as the golden fold, and either reconcile the
+   0.72-vs-0.32 figure or explain why it doesn't transfer to this probe's
+   setup. **Status: OPEN, and should gate reliance on the dimensional-
+   ceiling finding until answered.**
+2. **(coderabbitai, minor)** — `F32-RETIREMENT-SCOPE.md` is missing a
+   required `file:line` citation. **Status: OPEN, trivial.**
+3. **(coderabbitai, major, self-referential)** — the very corrections this
+   PR made to the trace files (rewriting "6" to "7" call sites, "276" to
+   "308" bytes, etc.) were applied by editing historical text in place
+   rather than by prepending a dated correction — exactly what CLAUDE.md's
+   append-only board-hygiene rule (itself extended by #853 the same week)
+   forbids. **Status: OPEN** — ironic given #856 itself closed out a
+   similar finding against #852 in its own PR body.
+
+**Confidence (2026-07-27):** all six sub-sections above are sourced directly
+from the GitHub review-comment API, cross-checked against `git log` for the
+"fixed forward" claims. Section A's 19/20 "fixed" count is the one synthetic
+judgment call in this entry — it required matching each thread's file/line
+against #853's commit diffs by hand, since no thread was ever marked
+resolved with a linking comment; treat individual file attributions in §A as
+high-confidence but not GitHub-verified in the way §C's "confirmed absent"
+claim is (that one is a mechanical `git log` fact, not a judgment).
+
 ## 2026-07-27 — ISS-CONTRACT-DISTANCE-IS-THE-FORBIDDEN-UMBRELLA + ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT — **section B RESOLVED (dissolved, §E); section A STANDS and is STRENGTHENED (§E, §G measured zero consumers); section D OPEN (typed per-metric surface unbuilt)**
 
 > Status line updated 2026-07-27 (was: `OPEN`) so the heading matches §E/§G
