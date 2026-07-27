@@ -463,11 +463,99 @@ construction**.
 This is deliberate (*"the arena composes concept-level STATEMENTS by their shared
 terms"*), and it forces a decision **before** any capability audit:
 
+> **⊘ CORRECTION (operator, 2026-07-27).** An earlier version of the table below
+> said *"canonical V3 addressing for beliefs would be a category error."*
+> **That was wrong, and it was the same error twice.** Two claims got collapsed:
+>
+> - **True:** the map `addressed-form subject/predicate GUIDs → CStmt` is
+>   surjective, so it **cannot be inverted**. A concept belief's key does not
+>   recover the addressed forms that produced it.
+> - **False (what I wrote):** therefore a concept-level belief cannot itself be
+>   V3-addressed.
+>
+> A belief instance can carry its own canonical V3 GUID. That GUID addresses
+> **the belief**, not its constituents — *"a belief about (canonical subject
+> concept + copula + canonical predicate concept)"* is a perfectly good
+> addressable entity. "These two values are not the same value" is not
+> "these two things cannot coexist" — precisely the `ClassId`-vs-`classid`
+> mistake this primer exists to prevent, repeated one layer down.
+>
+> The real distinction is **what the addressed entity means**:
+>
+> ```text
+> full addressed-form belief   — keyed by addressed subject/view/predicate forms
+> canonical concept belief     — keyed by canonical concept projections
+> ```
+>
+> Both are V3-addressable. The existing arena has already chosen the second:
+> concept-level convergence across app/render views — consistent with one
+> carrier having concept and app/view projections rather than two competing
+> identity systems.
+
 | Option | Cost |
 |---|---|
-| keep concept-level | cheapest, matches today; adjacency edges are then **concept-keyed, not V3-GUID-keyed** — "canonical V3 addressing for beliefs" would be a category error |
-| key on full V3 GUID | per-addressed-form beliefs; cross-app convergence lost unless an `is_a` rail re-unifies — changes **reasoning semantics**, not just storage |
-| two-level | concept-keyed belief + V3-GUID-keyed evidence; the only option that does not silently pick a side |
+| **A. concept-keyed belief only** | cheapest, matches today. Preserves current NARS semantics, but loses which addressed forms or observations grounded a belief unless that is attached elsewhere. |
+| **B. full-GUID-form-keyed belief** | preserves addressed-form distinctions, but changes **reasoning semantics** and fragments cross-app convergence unless an `is_a` rail re-unifies. |
+| **C. canonical concept belief + separately addressed grounding** | the strongest fit. **NOT** "V3-GUID-keyed evidence attached as metadata" — each observation event becomes **its own canonically addressed V3 entity or relation**, not an annotation keyed by existing object GUIDs. |
+
+> **⊘ HARD CONSTRAINT (operator, 2026-07-27): NEVER any serialization or
+> materialization. Ever.** This binds how Option C may be built, and it is the
+> single easiest way to get C wrong.
+>
+> "Each observation event becomes its own canonically addressed V3 entity" means
+> the event **is addressable** — it has a canonical GUID and an owner. It does
+> **not** license any of the following, all of which are forbidden:
+>
+> - a provenance **side-store**, ledger, journal, or append-log of events;
+> - a **serialized** event record (JSON / bincode / protobuf / any wire form) —
+>   `SoaEnvelope` is *"zero-copy from creation to Lance tombstone"*
+>   (`soa_envelope.rs:16-19`); Lance's columnar I/O writes the **same LE bytes**
+>   from the in-place backing store, and nothing is serialized *in order to be
+>   stored*;
+> - a **materialized** second structure that duplicates state the substrate
+>   already holds — no evidence index built alongside the rows, no cached
+>   projection kept in sync, no shadow copy of ancestry;
+> - a "rebuild it from the serialized mapping" recovery story. There is no
+>   serialized mapping. If a design's safety argument is *"we can reconstruct
+>   it"*, the design is already outside the substrate.
+>
+> An evidence event is **a row in an SoA owned by a mailbox**, written
+> on-behalf-of that owner, whose history is Lance **versions of those same
+> bytes**. The address is the identity; the bytes are the storage; the version
+> axis is the history. Nothing else is created.
+>
+> Test before proposing any grounding mechanism: *does this add bytes that are a
+> copy of, or a translation of, bytes the substrate already owns?* If yes, it is
+> materialization and it is rejected — regardless of how convenient it is for
+> provenance queries. A query is a **projection over what is already there**
+> (`temporal.rs` deinterlace is the reference shape: a version-range read, still
+> a projection, zero copies), never a structure maintained on the side.
+
+Option C, expanded — three layers, none folded into another:
+
+```text
+canonical concept-level belief
+        ├── truth state
+        ├── contradiction / rung
+        ├── derivation ancestry
+        └── evidence edges
+                ↓
+           canonical evidence-event entities
+                ├── source attribution
+                ├── temporal birth
+                └── affected V3 rows / addressed forms
+```
+
+```text
+belief semantics   = concept-level
+observed target    = addressed V3 form or forms
+evidence identity  = observation event
+```
+
+This is not a compromise between A and B. It is the **orthogonal decomposition**
+the withdrawn `SourceRegistry` accidentally forced into view: source membership,
+evidence-event identity, and object identity are three axes, and the registry
+failed because it tried to serve all three with one.
 
 ## 5.9 Consumer census — COMPLETE (10 of 10 modules)
 
@@ -579,8 +667,18 @@ fuzzier one** — and would not serve `belief by handle` at all.
    without first proving the semantic distinction.
 8. **Do not use a Boolean API where the architecture distinguishes true, false,
    and unknown.** "Not known to overlap" ≠ "known disjoint".
-9. **Do not introduce a serialized side-store for provenance.** Zero-copy,
-   never serialized; the cold path is Lance versions of the same LE bytes.
+9. **NEVER any serialization or materialization. Ever.** (operator, 2026-07-27 —
+   promoted from "no serialized side-store for provenance", which was too narrow:
+   it banned one shape and left materialization open.) No side-store, ledger,
+   journal, or append-log; no serialized record in any wire form; **and no
+   materialized second structure that duplicates or translates bytes the
+   substrate already owns** — no evidence index alongside the rows, no cached
+   projection kept in sync, no shadow ancestry copy. Zero-copy from creation to
+   Lance tombstone; the cold path is Lance **versions of the same LE bytes**.
+   A query is a **projection over what is already there** (`temporal.rs`
+   deinterlace is the reference shape), never a maintained side structure.
+   Corollary: *"we can reconstruct it from the serialized mapping"* is not a
+   safety argument — there is no serialized mapping.
 10. **Do not widen a mask to fit more members** — `WideFieldMask`'s doc calls
     exceeding the cap *"a split signal, not a case to widen the mask type"*.
 11. **Do not reuse `Stamp`'s shape as precedent.** It is the one carrier in this
@@ -625,3 +723,158 @@ fuzzier one** — and would not serve `belief by handle` at all.
 6. `planner/src/nars/belief.rs` **and** `deepnsm-v2/src/belief.rs` side by side —
    they differ at one line and it matters.
 7. `.claude/board/EPIPHANIES.md` top 5 entries.
+
+---
+
+## 10. Revised redo sequence (operator, 2026-07-27) — SUPERSEDES the earlier PR A–E
+
+The earlier five-PR sketch is replaced. Two corrections drove the change: the
+concept-belief-can-itself-be-V3-addressed ruling (§5.8 ⊘ CORRECTION) and the
+adjacency reframing below. Bound by §8 rule 9 — **never any serialization or
+materialization, ever.**
+
+### The adjacency question was posed backwards
+
+PR B must **stop asking** *"can `AdjacencyStore` become the mutable belief
+store?"* — its existing API already answers that: not without becoming a
+fundamentally different component. The CSR layer is an **immutable projection +
+propagation kernel**, and that is a clean role, not a deficiency.
+
+The question is upstream instead:
+
+> Which authoritative V3-owned edge/row state **produces** the immutable CSR
+> projection that `adjacent_truth_propagate` consumes?
+
+```text
+canonical SoA-owned belief/edge state
+        ↓
+Lance-versioned projection          (a projection — not a materialized copy)
+        ↓
+CSR adjacency batch
+        ↓
+adjacent_truth_propagate
+        ↓
+derived updates cast back on behalf of the owner
+```
+
+The CSR is a **compute projection**, never the owner. Remaining audit targets,
+all upstream of the kernel:
+
+- Where are canonical **mutable relations** currently owned?
+- Which SoA columns or `EdgeBlock`s feed `AdjacencyStore::from_edges`?
+- Are truth properties **baked from authoritative state**, or supplied ad hoc by
+  callers?
+- Is there an existing **write-on-behalf path** from propagation output back to
+  the owner?
+- Does CSR reconstruction happen **per Lance version, per query, or only in
+  tests**?
+
+If no such owner exists, the missing component is **not** "a mutable CSR" — it is
+the canonical concept-belief / relation SoA that CSR should project.
+
+### Two caveats that reopen the "7 modules are order-free" result
+
+The census called seven modules order-free because their reductions are
+commutative and their groupings use `BTreeMap`/`BTreeSet` with an explicit
+terminal `sort_by`. **Commutativity is not sufficient.** Two gaps:
+
+**Floating-point accumulation.** For `f32`, `(a + b) + c ≠ a + (b + c)` in
+general. Any sum, average, density, confidence aggregation, or entropy
+calculation can vary bit-for-bit under reordered or parallel iteration **even
+when the mathematical operator is commutative**. A `HashMap`/`HashSet` iteration
+feeding a float fold is the worst case — arbitrary order, not merely admission
+order. The perturbation test must therefore assert one of:
+- **exact equality**, where integer/fixed-point behaviour is intended;
+- a **bounded numerical tolerance**, where float variation is accepted;
+- a **deterministic accumulation order**, where reproducibility is required.
+
+Which of the three applies is a per-site decision, and stating it is part of A0.
+
+**Ties.** An explicit terminal `sort_by` is deterministic only when the
+comparator defines a **total** order. A score-only comparator leaves ties, and
+Rust's `sort_by` is *stable* — so prior iteration order (arena admission order)
+leaks straight back in through the tie. `max_by` returns the LAST maximum;
+`min_by` returns the FIRST minimum. A tie becomes an observable behaviour
+difference the moment a `truncate`/`take`/`[..n]` follows the ranking.
+
+Every ranking needs a stable secondary key:
+
+```text
+score
+then canonical belief handle / statement key
+```
+
+So the census grows two columns:
+
+| Caller | Floating reduction? | Total tie-breaker? |
+|---|---|---|
+
+### Premise indices: lightly consumed, still architecturally toxic
+
+Only `tactics.rs` dereferences them and `insights.rs` merely clones them — but
+`Vec<u32>` still means:
+
+```text
+premise identity = admission position in this particular arena build
+```
+
+That is **not replay-stable** and cannot become canonical ancestry (§7 gap 5).
+Narrow usage makes the migration cheap; it does not make it optional. The
+replacement handle must land **before** premises cross into the authoritative
+substrate.
+
+A provisional opaque handle is the right PR A1 move:
+
+```rust
+pub struct BeliefHandle(/* private: current arena index */);
+```
+
+It may still wrap `u32` initially. The point is to **stop callers from knowing
+that**, so the backing can later become a canonical concept-belief reference
+without a second caller-wide migration.
+
+### The sequence
+
+**PR A0 — finish the census.** Per call site, record: semantic query · fields
+read · direct indexing · premise dereference · order dependence · **floating
+reduction** · **tie-breaking** · whether **mutation** is required · expected
+**cardinality** and hot-path status. No code changes.
+
+**PR A1 — representation decoupling, behaviour unchanged.**
+- private `Belief` fields;
+- opaque `BeliefHandle`;
+- remove public slice access; replace every `entries()[i]`;
+- add named semantic scans and lookups (the 9 reads / 3 writes of §5.9, plus the
+  missing `belief index by statement`);
+- **retain `Vec<Belief>` internally** — this PR does not change storage;
+- add **shuffled-admission tests**;
+- add **tie and float-order falsifiers** (per the §"Two caveats" decision above).
+
+> **Avoid boxed trait-object iterators.** The future SoA path needs
+> monomorphizable or batch-oriented access, not one virtual call per belief — and
+> a `Box<dyn Iterator>` cannot serve `belief by handle` at all. Swapping a
+> mega-accessor for a fuzzier one is not decoupling.
+
+**PR B — ratify belief granularity.** Record explicitly, as a decision:
+
+> A belief is keyed by **canonical concept-level** subject, copula and predicate.
+> `AppId`/`ClassView`-specific forms **converge** into this concept belief.
+> Addressed-form and observation distinctions live in **grounding/evidence
+> relations**, not in the belief key.
+
+Then define the bijection for the **belief entity itself** — not for `CStmt`
+back to its source object GUIDs, which is surjective and not invertible (§5.8).
+
+**PR C — locate or design the authoritative owner.** Determine whether an
+existing V3 relation/edge SoA can own: concept statement identity · truth ·
+groundedness · rung · contradiction · derivation reference. If none can, **say
+the concept-belief SoA is missing** — do not mutate `AdjacencyStore` into it.
+
+**PR D — CSR projection parity.** Prove the authoritative state projects into the
+existing adjacency kernel while preserving current reasoning results.
+
+**PR E — evidence events.** Only after the canonical concept-belief owner exists:
+observation event → canonical V3 event identity → evidence edge to the concept
+belief → affected addressed-form rows → temporal birth and horizon behaviour.
+**Then** replace `Stamp`. Bound throughout by §8 rule 9 — the event is a row in
+an owner's SoA, never a serialized or materialized record.
