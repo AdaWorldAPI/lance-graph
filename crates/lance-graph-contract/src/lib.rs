@@ -91,6 +91,7 @@ pub mod doc_graph;
 pub mod emission_scan;
 pub mod episodic_edges;
 pub mod escalation;
+pub mod evidence;
 pub mod exploration;
 pub mod external_membrane;
 pub mod facet;
