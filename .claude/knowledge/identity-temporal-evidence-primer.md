@@ -1419,3 +1419,59 @@ serialization, materialization, reconstruction, or shadow indexing.
    contradiction = palette codes; comparison = `[a,b]` reads; floats = legacy —
    so the §14 f32 inventory defines retirement SCOPE. **Migrating the values
    waits** until their resident tenant and write path exist.
+
+---
+
+## 16. ⊘ DISCRIMINATOR REFINED — the forbidden thing is the SERIALIZATION BOUNDARY (operator, 2026-07-27)
+
+> *"The forbidden is the serialization boundary. Anything that serves thinking
+> needs only to prove, if new SoA are created by thinking, that they are
+> meta-awareness or reasoning-substrate convergence."*
+
+This sharpens §11/§15. The rule was drifting toward "allocation on the thinking
+path is a violation"; that is not the rule. Three tiers:
+
+### 1. FORBIDDEN — crossing a serialization boundary
+Serialize/deserialize, wire formats, files-as-transport, any second
+representation built **to be reconstructed from**. This is the hard line and the
+only hard line: zero-copy from creation to Lance tombstone; Lance's columnar
+I/O writes the same LE bytes; nothing is encoded in order to be decoded.
+
+### 2. FREE — thinking's own compartment
+Kernel-local scratch, ephemeral folds, per-call working structures, bundles that
+die with the computation. Thinking allocates as it thinks; no proof obligation
+attaches while state stays ephemeral and in-compartment. (This is "The Click"'s
+original scoping: the bundle is an ephemeral computation, never a persisted or
+transmitted singleton.)
+
+### 3. PROOF-OBLIGATED — thinking mints a NEW SoA
+The obligation attaches exactly at **persistence**: a new SoA born of thinking
+must be one of two things —
+
+- **meta-awareness** — new epistemic state ABOUT the reasoning itself. In-tree
+  precedents that already have this shape: `InsightMush`/`GraphSignals`
+  (insight.rs), the settlement signals (settlement.rs), contradiction depth,
+  the `KanbanMove` witness chain, `MetaWord` awareness bits;
+- **reasoning-substrate convergence** — derived relations that BECOME substrate:
+  NARS derivations, `CausalEdge64`, palette-coded truth results, the L1–L2
+  furnace products (codebooks, FisherZ tables — float entropy work calcifying
+  into the substrate's own read surface).
+
+A structure that is neither — an index, cache, CSR snapshot, grouped vector
+that merely reorganizes existing state — may not persist as SoA. As *ephemeral*
+scratch it is legal (tier 2) and merely wasteful.
+
+### Reclassifications this forces
+
+| item | old classification | refined |
+|---|---|---|
+| `tactics.rs` triple re-indexing / `by_sc` per-pass rebuild (audit P1 #7) | violation-adjacent ("recomputing materializes") | **tier-2 waste, not a violation** — ephemeral, in-compartment, crosses no boundary. Fix is optional perf work; what it may never become is a *persisted* index (that would be tier-3 with no legitimation). **De-escalated.** |
+| trace-D `FORBIDDEN-COPY` class | any population copy | narrowed: forbidden only if it persists as parallel authority or crosses serialization. In-process per-call copies → waste. |
+| `AdjacencyBatch` owned→view fix (`ffca104`) | doctrine fix | stands, reclassified as **waste removal** — correct either way. |
+| `NodeRowPacket::new(&rows, 0)` (trace A follow-up) | copy-into-second-representation | **now the sharpest open question**: it sits AT the Lance flush seam (`as_le_bytes`). If it is a re-encoding built to be reconstructed from → tier 1, forbidden. If it is the in-place LE view the sink drains → legal. Needs its read, not a guess. |
+| `BeliefArena` | "forbidden duplicate" (early session) → "de facto authority" (§15) | final form: **tier-2 thinking state that never converges** — its sin is not allocation but that no convergence path exists (P0). The arena's contents are exactly the kind of derived reasoning state tier-3(b) legitimizes, once there is a substrate to converge INTO. |
+| BF16 furnace lanes (`BF16-HIGH-VALUE-LANES`) | justified by four-part test | consistent — every lane's product IS tier-3(b) convergence; the anti-lanes (per-query ADC tables) fail because they are tier-2 scratch *pretending* to be worth rebuilding per query, not because they allocate. |
+
+### The test, one line
+**Ephemeral: think freely. Persistent: prove meta-awareness or convergence.
+Serialized: never.**
