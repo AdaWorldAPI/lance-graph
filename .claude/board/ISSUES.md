@@ -52,6 +52,34 @@ already-reported can't-fire defect. Its LUT also carried neither `buckets` nor
 Also: the direct in-palette fast path (`palette256_bf16_mantissa_transform`,
 one typed hop, no cascade) was never considered by any probe this session.
 
+### D. Full-read addendum (doc verified byte-identical to pinned commit 6ff231ad)
+
+**The doc is a binding spec AHEAD of the code.** Its cross-refs and prescribed
+types are unbuilt: `src/hpc/distance.rs` does not exist (`layered_distance.rs` /
+`palette_distance.rs` do); the `CLAUDE.md § "Three-Level Cascade"` section is
+absent; and 5 of 7 prescribed types exist in NEITHER repo (`PaletteIdx`,
+`EulerGammaOffset`, `Fingerprint256`, `BF16MantissaCtx`, ndarray-side
+`PaletteDistance`). So the answer to "what part of the cosine replacement didn't
+you find" is complete: **the mechanisms are shipped in pieces; the typed API
+surface the doc mandates is assembled nowhere.**
+
+**Proposed reconciliation of §B (textual, NOT ratified):** the doc scopes
+popcount's claim to the SEARCH TOPOLOGY (*"IS the cosine replacement on the
+cascade… substitutes for FP cosine in the search topology"* — cosine as metric,
+L1), while its Fisher-z row permits exactly what `FisherZTable` does
+(*"variance-stabilizing transform of correlation"* — and `FisherZTable.entries`
+ARE cosines of centroid representatives, genuine correlations, so no category
+error). Two senses of "replacement": popcount replaces cosine-as-METRIC;
+FisherZTable replaces cosine-as-STORED-VALUE (i8 value encoding in palette
+space). Different axes, no conflict — pending operator confirmation.
+
+**The doc's own audit item, retargeted:** "audit `src/hpc/distance.rs` for a
+`fn distance<T>` umbrella" names a nonexistent file; the audit belongs on
+`layered_distance.rs` + `palette_distance.rs`, and — if the doc's scope extends
+beyond ndarray — on `lance-graph-contract::distance`, which remains the one
+LIVE umbrella in code (§A).
+
+
 ## 2026-07-27 — ISS-FISHERZ-COSINE-REPLACEMENT-IS-SHIPPED-BUT-UNWIRED — the certified replacement exists; nothing in the spine reaches it — **CONTESTED** (see ISS-COSINE-REPLACEMENT-SOURCES-CONTRADICT: ndarray `cognitive-distance-typing.md` says HDR popcount IS the cosine replacement and Fisher-z is NOT a distance; this entry took bgz-tensor's "certified cosine-replacement" wording as settled — an assumption, pending operator ruling)
 
 **The cosine replacement is not missing. It is shipped, certified, and named** —
