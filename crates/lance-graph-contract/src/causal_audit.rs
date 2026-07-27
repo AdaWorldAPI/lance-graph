@@ -231,13 +231,10 @@ impl SupportBasis {
     }
 }
 
-/// An opaque, stable identity for an evidence source.
-///
-/// NOT a bit position. Arbitrary and sparse — a term id, corpus id, witness
-/// id, or hash. Mapping it to a dense local slot is a registry's job, never an
-/// arithmetic accident.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
-pub struct SourceId(pub u64);
+// Evidence-source identity is CANONICAL in `source_registry` — re-exported, not
+// redefined. A second `SourceId` here would be the same duplication the registry
+// exists to end (two crates had already shipped two incompatible `Stamp`s).
+pub use crate::source_registry::SourceId;
 
 /// One piece of evidence for a relation: which kind, from whom, when, how
 /// strong.

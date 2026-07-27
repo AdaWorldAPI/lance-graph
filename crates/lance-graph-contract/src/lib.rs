@@ -148,6 +148,7 @@ pub mod sensorium;
 pub mod sigma_propagation;
 pub mod sla;
 pub mod soa_envelope;
+pub mod source_registry;
 pub mod soa_graph;
 pub mod soa_view;
 pub mod splat;
