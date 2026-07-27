@@ -962,3 +962,54 @@ epiphany/elevation paths):
 
 **Do not design the target carrier.** The trace's only deliverable is the fact
 base the operator needs to specify one.
+
+---
+
+## 13. Capability confirmation — the standing wave produces the same or better (operator-prompted, 2026-07-27)
+
+> Operator: *"confirm how you can produce the same or better results over the
+> standing wave, because you already have the data; if you want to update it,
+> update it in the belief guid or whatever you need IN the substrate."* And:
+> *"why would you need a sidecar if you can think inside what already exists."*
+>
+> **Classification note:** the first sentence makes *belief state updates land
+> at the belief's substrate address* **OWNER-SPECIFIED** — it was withdrawn in
+> §5.8/§10 only as unauthorized inference, and is now specified. The
+> confirmation below cites only [CODE-PROVEN] / [OWNER-SPECIFIED] mechanisms;
+> open items are [TRACE].
+
+> **⊘ NO FLOAT, EVER (operator, 2026-07-27):** *"we NEVER use float EVER — we
+> use palette256 (0.9973..0.9995 ρ exactness)."* Values are palette256 codes —
+> u8 indices into 256-entry codebooks with table-lookup distance/compose
+> algebra, ρ = 0.9973–0.9995 against ground truth. Consequence for the census's
+> f32-accumulation caveat (§10 KEPT): that caveat describes the **legacy arena
+> representation only** (`TruthValue`/`contradiction` as `f32`). Over the
+> substrate the fold-order problem is not *mitigated by canonical order* — it is
+> **eliminated**, because integer/table algebra is exactly associative and
+> commutative. No float ever enters the reasoning path.
+
+| Arena capability (census-verified) | Over the standing wave | Verdict |
+|---|---|---|
+| belief by statement (`HashMap<CStmt,u32>`) | address resolution via prefix routing [CODE-PROVEN] | **better** — the HashMap is a materialized index recomputing what addressing already is; forbidden shape anyway |
+| belief *index* by statement (`tr_diverge` O(n) `.position()`) | disappears — the address IS the identity | **better** |
+| scans (copula / grouped / grounded / count / max / folds) | fixed-stride 512 B sweep, 32 MiB L3-resident [OWNER-SPECIFIED L3 argument] | **better mechanics, identical results** — no per-entry heap pointer chase; prefix routing prunes |
+| revision (overwrite truth in place) | read at horizon → pool (kernel-local table algebra, permitted) → Kanban commit → new Lance version | **strictly better** — arena destroys history (`contradiction` keeps lossy max); versions keep the full dialectic trajectory, contradiction computable over the range |
+| `Stamp` disjointness (lossy 64-bit fold) | version axis records every admission, keyed `(server_id, lance_version, hlc_tick)`; "already counted?" = version-range read, zero copies [mechanism CODE-PROVEN via `deinterlace`+tests] | **better in principle: exact, replay-stable, no aliasing** — depends on the dormant writer-key wiring being populated [TRACE] |
+| budget-capped order-dependent sites (`rcr_abduce` / `cas_abstract` / `tr_diverge`) | operative order = admission order; the version axis **is admission order made canonical** (`(hlc_tick ?? lance_version, lance_version)`) [CODE-PROVEN `temporal.rs`] | **better** — truncation order becomes named + replay-stable; test-locked prefix must be verified equivalent [TRACE] |
+| `premises: Vec<u32>` (arena positions, not replay-stable) | premise references as substrate addresses and/or `CausalEdge64`/`EdgeBlock` relations [OWNER-SPECIFIED] | **strictly better** — positional identity preserved AND replay-stable; ancestry becomes queryable structure |
+| `close_transitive` fixed point | derivations commit via Kanban; frontier = rows changed since version v; fixed point = no new deltas | **better** — durable witness, incremental across sessions |
+| adjacency propagation (CSR built from edge array) | edges already resident (`EdgeBlock`, 16 B/row) [CODE-PROVEN]; walk resident edges, commit truths to the same rows | **same computation, no CSR build** — kernel adapt-vs-replace is a trace outcome [TRACE] |
+| f32 fold-order sensitivity (census caveat) | **no floats exist** — palette256 table algebra, exactly associative/commutative [OWNER-SPECIFIED] | **eliminated, not mitigated** — the caveat was a property of the legacy representation |
+
+**Better beyond the rows:** the planner/deepnsm-v2 twin drift class dies (one
+substrate, nothing to diverge); `&mut Vec` single-borrow serialization is
+replaced by mailbox ownership (native parallel form); persistence + replay are
+free because rows are their own history; and there is no sidecar because there
+is nothing a sidecar could hold that the resident rows do not already hold —
+*"why would you need a sidecar if you can think inside what already exists."*
+
+**Not claimed:** live writer-key wiring (mechanism tested, production sites
+dormant); survival of the test-locked `rcr_abduce` prefix without verification;
+palette256 parity of the migrated truth values against the legacy f32 outputs
+(exactness ρ = 0.9973–0.9995 is the spec — the migration must state it, not
+assume bit-parity with floats). All three route to the §12 trace.
