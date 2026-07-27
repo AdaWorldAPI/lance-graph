@@ -1,3 +1,23 @@
+## 2026-07-27 — E-A-LOCAL-BITSET-IS-NOT-SELF-DESCRIBING-PROVENANCE-1 — **the `Stamp` folding was CONSERVATIVE, not unsound — and the real defect is one level up: a bitset does not carry the mapping that gives its bits meaning.**
+
+**Status:** FINDING + shipped contract (`source_registry`). **Confidence:** High. **Correction:** supersedes an audit claim, made earlier in the same arc, that `1u64 << (id % 64)` "manufactures false independence". It does not, and both crates' own doc-comments said so.
+
+**What folding actually does.** A collision makes two DISTINCT sources look *overlapping*. NARS revision then refuses to pool them → evidence is LOST, never double-counted. The no-double-count guarantee survives the bound; the failure is conservative in the safe direction. Getting this backwards mattered: it would have justified an urgent "correctness" fix over the real, duller problem.
+
+**What it genuinely destroys** — everything downstream of knowing *which bit is whom*: pooling past 64 sources, leave-one-out, withdrawal, and any interpretation of an evidence count (`count_ones()` becomes a lower bound of unknown tightness). Hence the rule: **a term id, domain id, witness id or corpus id must NEVER be silently interpreted as a bit position.** The bound is on SIMULTANEOUSLY REPRESENTED identities, not on id magnitude — `SourceId(50_000)` legitimately takes slot 0 when it registers first, and exhaustion is a reported `CapacityExceeded`, not a wrap.
+
+**The subtler defect the registry exposes: a stamp is meaningless without its registry.** Registry A may give source X slot 0 while registry B gives source Z slot 0 — so `Stamp(0b1)` denotes different evidence in each, and `disjoint()` will answer confidently either way. A local bitset is not self-describing provenance. Pinned as a test (`slot_zero_means_different_sources_in_different_registries`) so the hazard stays visible rather than becoming folklore.
+
+**Ruling: arena-local by CONTAINMENT, and registry-bearing stamps REJECTED.** The owning arena holds the registry, mints every stamp, and performs every union/disjoint; callers pass a `SourceId` and no stamp crosses an API boundary. Enforced structurally — private bits, no `Serialize`, constructible only from a registry-issued `SourceSlot`.
+
+The rejected alternative (`{registry_id, bits}`) exists precisely to make arena A's evidence meaningful inside arena B — i.e. a handoff between two independently-owned state containers. **That is the shape #477 deleted at the mailbox layer** (no inter-mailbox carrier, one writer per mailbox), reappearing one layer down under a new name. Containment is not merely cheaper; it is the option consistent with the ratified ownership model. Same fold, different altitude — cf. `E-AGENT-LOG-SHARED-SINK-ANTIPATTERN-1`, where the shared-mutable-sink came back one layer *up*.
+
+**Flip condition, named so it is falsifiable:** if replay must reconstruct evidence from PERSISTED state rather than rebuilding the arena, containment breaks. The answer even then is not a registry field on every stamp — it is a **frozen source census**: a versioned artifact from which a deterministic sorted-`SourceId` → `SourceSlot` allocation is regenerated and checked against a digest. Mapping identity stays addressable by epistemic view instead of riding in the hot carrier.
+
+**Sequencing discipline held.** The two `BeliefArena`s (planner + deepnsm-v2) are migrated TOGETHER. Fixing one alone leaves two incompatible independence semantics wearing matching comments — worse than fixing neither, because the asymmetry is silent.
+
+Refs: `contract::source_registry`, `E-THE-UNCONTESTED-AXIS-IS-THE-ONE-THAT-MERGES-1` (the arena-locality assumption was itself an uncontested axis until probed), `E-CE64-MB-4`, PR #477.
+
 ## 2026-07-27 — E-THE-UNCONTESTED-AXIS-IS-THE-ONE-THAT-MERGES-1 — **the general form of eigenvalue blindness, demonstrated on the reviewer.** Across five adversarial rounds refining the `E-WE-HAVE-PEARL-VOCABULARY…-1` fix list, every merged carrier that got caught had been *argued about*; the one that slipped through was the axis nobody had contested yet. It was folded **one sentence after the prohibition against folding was written**, by the author of the prohibition.
 
 **Status:** FINDING + rule. **Confidence:** High — the instance is in this session's own transcript, not inferred.
