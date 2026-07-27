@@ -64,14 +64,8 @@ fn advance(
                 from: at,
                 to,
                 witness_chain_position: step,
-                // Libet anchor: −550 ms exactly on the Planning→CognitiveWork Σ-commit.
-                libet_offset_us: if at == KanbanColumn::Planning
-                    && to == KanbanColumn::CognitiveWork
-                {
-                    -550_000
-                } else {
-                    0
-                },
+                // Libet anchor: −550 ms exactly on the Planning→CognitiveWork Σ-commit,
+                // now derived from the transition itself via `libet_window_us()`.
                 exec: ExecTarget::Native,
             });
             to
@@ -367,7 +361,7 @@ fn main() {
             m.cycle(),
             m.from,
             m.to,
-            m.libet_offset_us,
+            m.libet_window_us().map(|w| -(w as i64)).unwrap_or(0),
             m.exec
         );
     }

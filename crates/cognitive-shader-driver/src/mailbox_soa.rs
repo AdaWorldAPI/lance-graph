@@ -965,12 +965,9 @@ impl<const N: usize> MailboxSoaOwner for MailboxSoA<N> {
             // the mailbox writes to itself in place; this is its own lifecycle
             // step recorded at its own current_cycle, per the #477 three-tier model.)
             witness_chain_position: self.current_cycle,
-            libet_offset_us: if from == KanbanColumn::Planning && to == KanbanColumn::CognitiveWork
-            {
-                -550_000
-            } else {
-                0
-            },
+            // No Libet stamp: the window is DERIVED from `(from, to)` via
+            // `KanbanMove::libet_window_us()`. An owner cannot mint a move that
+            // disagrees with itself about having crossed the Rubicon.
             exec: ExecTarget::Native,
         }
     }
@@ -1270,7 +1267,7 @@ mod tests {
 
         let sched = NextPhaseScheduler;
         let mut steps = 0u32;
-        let mut first_libet = 0i32;
+        let mut first_libet: Option<u32> = None;
         for v in 1..=10u64 {
             // IN-direction: the scheduler lowers a version tick to the next move…
             let Some(mv) = sched.on_version(&mb, DatasetVersion(v), ExecTarget::Native) else {
@@ -1284,7 +1281,7 @@ mod tests {
                 .expect("the scheduler proposes only legal Rubicon edges");
             assert_eq!(applied.to, mv.to);
             if steps == 0 {
-                first_libet = applied.libet_offset_us;
+                first_libet = applied.libet_window_us();
             }
             steps += 1;
         }
@@ -1300,8 +1297,9 @@ mod tests {
             "Planning→CognitiveWork→Evaluation→Commit = 3 advances"
         );
         assert_eq!(
-            first_libet, -550_000,
-            "the Planning→CognitiveWork crossing carries the Libet −550 ms anchor"
+            first_libet,
+            Some(lance_graph_contract::kanban::LIBET_COMMIT_WINDOW_US),
+            "the Planning→CognitiveWork crossing opens the Libet 550 ms window"
         );
     }
 

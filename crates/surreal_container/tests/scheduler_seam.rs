@@ -10,7 +10,7 @@
 //! seam WRONG. None of these pin "current behaviour" — they pin the contract
 //! the doc-comments assert.
 
-use lance_graph_contract::kanban::{ExecTarget, KanbanColumn};
+use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, LIBET_COMMIT_WINDOW_US};
 use lance_graph_contract::scheduler::{DatasetVersion, NextPhaseScheduler, VersionScheduler};
 use lance_graph_contract::soa_view::MailboxSoaView;
 use surreal_container::view::SurrealMailboxView;
@@ -79,7 +79,8 @@ fn libet_anchor_only_on_sigma_commit_crossing() {
         .expect("Planning advances");
     assert_eq!(crossing.to, KanbanColumn::CognitiveWork);
     assert_eq!(
-        crossing.libet_offset_us, -550_000,
+        crossing.libet_window_us(),
+        Some(LIBET_COMMIT_WINDOW_US),
         "the Σ-commit crossing must carry the -550ms Libet anchor"
     );
 
@@ -88,7 +89,8 @@ fn libet_anchor_only_on_sigma_commit_crossing() {
             .on_version(&view_at(from), DatasetVersion(2), ExecTarget::Native)
             .expect("non-absorbing column advances");
         assert_eq!(
-            mv.libet_offset_us, 0,
+            mv.libet_window_us(),
+            None,
             "{from:?} is not the Σ-commit crossing — Libet offset must be 0"
         );
     }

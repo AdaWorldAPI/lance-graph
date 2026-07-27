@@ -418,13 +418,6 @@ fn advance(
                 from: card.col,
                 to,
                 witness_chain_position: cycle,
-                libet_offset_us: if card.col == KanbanColumn::Planning
-                    && to == KanbanColumn::CognitiveWork
-                {
-                    -550_000
-                } else {
-                    0
-                },
                 exec: lance_graph_contract::kanban::ExecTarget::Native,
             });
             to

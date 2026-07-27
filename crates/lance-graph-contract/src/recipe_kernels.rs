@@ -177,10 +177,72 @@ impl ThoughtMask {
     }
 }
 
+/// The epistemic status of a tactic's **implementation** — machine-readable, so
+/// "this one is a placeholder" is a value the registry can filter on rather than
+/// a sentence in a doc-comment nobody parses.
+///
+/// Lives on the [`Tactic`] impl, NOT on the [`Recipe`] catalogue entry. A
+/// `Recipe` describes what the tactic *is* (Tier / Mechanism / Bucket / 2³) —
+/// stable properties of the concept. Maturity describes what *this code*
+/// currently does, and changes the day someone finishes the implementation. The
+/// catalogue entry must not have to change when that happens; folding an
+/// implementation property into a concept record is the same
+/// merged-carrier mistake the effect census exists to catch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum KernelMaturity {
+    /// Has a real effect on [`ThoughtCtx`]: mutates at least one field, or
+    /// returns a non-zero `delta_conf` on at least one branch. Enforced by
+    /// `maturity_operational_implies_an_effect` — a tactic that can do neither
+    /// CANNOT declare itself `Operational`.
+    Operational,
+    /// Runs a real, deterministic computation but lands no effect — either it
+    /// ignores `ctx` entirely (algebra demonstrations), or it computes a result
+    /// and discards it. Honest scaffolding, not production behaviour. Whether a
+    /// given `Demonstration` should be wired up or deleted is an open decision,
+    /// recorded per-impl; it is NOT resolved by silently giving it an effect.
+    Demonstration,
+    /// Hardcoded constants standing in for an unimplemented mechanism.
+    Stub,
+}
+
+impl KernelMaturity {
+    /// May this tactic's effects be relied on in a production dispatch?
+    /// Only [`Operational`](KernelMaturity::Operational).
+    #[inline]
+    #[must_use]
+    pub const fn is_production(self) -> bool {
+        matches!(self, Self::Operational)
+    }
+}
+
 /// The uniform behaviour every tactic implements (the Elixir-style contract).
 pub trait Tactic: Sync {
     /// The catalogue metadata for this tactic.
     fn meta(&self) -> &'static Recipe;
+
+    /// The epistemic status of this implementation — see [`KernelMaturity`].
+    ///
+    /// NON-defaulted on purpose, exactly like [`requires`](Tactic::requires): a
+    /// default of `Operational` would let an unimplemented tactic inherit a
+    /// production claim by saying nothing, which is the failure mode this
+    /// method exists to close.
+    fn maturity(&self) -> KernelMaturity;
+
+    /// The tactic's **output checklist**: which [`ThoughtField`]s its
+    /// [`apply`](Tactic::apply) can mutate, on ANY branch.
+    ///
+    /// **POSSIBLE writes, not guaranteed writes** — the mirror of `requires()`'s
+    /// *may-read*. A tactic that writes `Temperature` only under
+    /// `GateState::Block` still declares `Temperature`.
+    ///
+    /// This exists because `delta_conf` is ONE of eight possible effects, and
+    /// reading it as the whole effect is wrong: an effect census over the 34
+    /// found **15 tactics returning `delta_conf = 0.0` on every branch while
+    /// mutating `ThoughtCtx`** — [`Tactic::run`] calls `apply(ctx)` first and
+    /// only then adds the delta, so a zero delta says nothing about whether the
+    /// context survived unchanged. `Htd` reorders the entire candidate vector
+    /// and reports zero.
+    fn writes(&self) -> ThoughtMask;
 
     /// The tactic's **input checklist**: which [`ThoughtField`]s its [`apply`] reads.
     ///
@@ -249,6 +311,12 @@ impl Tactic for Rte {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::FreeEnergy, ThoughtField::Rung])
     }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Rung, ThoughtField::FreeEnergy])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Recursive expansion: deepen the rung while there's surprise; Berry-Esseen-style stop.
         let mut depth = 0;
@@ -271,6 +339,12 @@ impl Tactic for Htd {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Hierarchical decompose: bipolar split around the mean (CLAM-style).
         let m = mean(&ctx.candidates);
@@ -287,6 +361,12 @@ impl Tactic for Smad {
     }
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // 3-agent vote: agreement (low spread) revises confidence up.
@@ -312,6 +392,12 @@ impl Tactic for Rcr {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Reverse-causality: walk backward (effect→cause) = reverse the chain.
         ctx.candidates.reverse();
@@ -326,6 +412,12 @@ impl Tactic for Tcp {
     }
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates, ThoughtField::Sd])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Prune low-confidence branches: keep candidates above an SD-derived floor.
@@ -345,6 +437,12 @@ impl Tactic for Tr {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates, ThoughtField::Temperature])
     }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Thought randomization: deterministic temperature-scaled perturbation above noise floor.
         let amp = (ctx.temperature * 0.1).max(NOISE_FLOOR);
@@ -363,6 +461,12 @@ impl Tactic for Asc {
     }
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Confidence])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Adversarial self-critique: negate the top belief; survival = strength, else weaken.
@@ -386,6 +490,13 @@ impl Tactic for Cas {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Rung])
     }
+    /// Demonstration: computes an abstraction level and discards it — no effect on ctx, no confidence delta.
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Demonstration
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Conditional abstraction scaling: pick HDR resolution from rung (coarse→fine).
         let _level = match ctx.rung {
@@ -406,6 +517,12 @@ impl Tactic for Irs {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates, ThoughtField::Temperature])
     }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Iterative roleplay: a persona modulation (structurally distinct search kernel).
         for c in ctx.candidates.iter_mut() {
@@ -422,6 +539,12 @@ impl Tactic for Mcp {
     }
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Confidence, ThoughtField::FreeEnergy])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Meta-cognition: if confident but high free-energy (poorly calibrated), pull confidence down.
@@ -444,6 +567,12 @@ impl Tactic for Cr {
     }
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Beliefs])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Contradiction: same topic, opposing frequency (one true, one false).
@@ -476,6 +605,13 @@ impl Tactic for Tca {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    /// only when `candidates` is non-empty
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Temporal augmentation: lag-shift the series (Granger-style precedence).
         if !ctx.candidates.is_empty() {
@@ -492,6 +628,13 @@ impl Tactic for Cdt {
     }
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates, ThoughtField::Temperature])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    /// both branches write; the convergent branch only when a max exists
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Convergent↔divergent by temperature: hot spreads, cold collapses to the best.
@@ -517,6 +660,12 @@ impl Tactic for Mct {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Multimodal: unify modalities into one fingerprint (mean as the unified score).
         let unified = mean(&ctx.candidates);
@@ -533,8 +682,16 @@ impl Tactic for Lsi {
     fn meta(&self) -> &'static Recipe {
         Self::rec()
     }
+    /// Reads `candidates` only — `Sd` is an OUTPUT (see `writes`), not an input; it
+    /// was over-declared before the write-mask existed.
     fn requires(&self) -> ThoughtMask {
-        ThoughtMask::of(&[ThoughtField::Candidates, ThoughtField::Sd])
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Sd])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Latent introspection: read the distribution (mean/sd) and write sd back.
@@ -554,6 +711,12 @@ impl Tactic for Pso {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Scaffold: pre-organize (sort) the reasoning candidates descending.
         ctx.candidates
@@ -568,6 +731,12 @@ impl Tactic for Cdi {
         Self::rec()
     }
     fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Beliefs, ThoughtField::Dissonance])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Beliefs, ThoughtField::Dissonance])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
@@ -591,6 +760,13 @@ impl Tactic for Cws {
             ThoughtField::Beliefs,
         ])
     }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    /// only when a max-scoring candidate exists
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Beliefs])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Context persistence: checkpoint the current best into the (persistent) belief set.
         if let Some(&best) = ctx.candidates.get(max_idx(&ctx.candidates)) {
@@ -608,6 +784,13 @@ impl Tactic for Are {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::EMPTY
     }
+    /// Demonstration: context-blind ABBA unbind identity; ignores ctx entirely.
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Demonstration
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
+    }
     fn apply(&self, _ctx: &mut ThoughtCtx) -> Outcome {
         // Reverse-engineer via exact algebraic inverse: A⊗B⊗B = A (XOR self-inverse).
         let (a, b) = (0xDEADBEEFu32, 0xCAFEBABEu32);
@@ -623,6 +806,12 @@ impl Tactic for Tcf {
         Self::rec()
     }
     fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
@@ -644,6 +833,12 @@ impl Tactic for Ssr {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Confidence, ThoughtField::FreeEnergy])
     }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Self-skepticism: challenge intensity scales with (confidence − evidence).
         let intensity = (ctx.confidence - ctx.free_energy.min(1.0)).max(0.0);
@@ -658,6 +853,15 @@ impl Tactic for Etd {
     }
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
+    }
+    /// Demonstration: sorts a CLONE of `candidates` and never writes it back — the
+    /// computed decomposition is discarded. Wiring it up is a behaviour change and
+    /// needs an explicit decision, not a silent fix.
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Demonstration
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Emergent decomposition: split at the largest gap (natural cluster boundary).
@@ -674,6 +878,13 @@ impl Tactic for Amp {
     }
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::FreeEnergy, ThoughtField::Rung])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    /// only when `free_energy > 0.5`
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Rung])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Adaptive meta: TD-style — raise the rung when free-energy stays high.
@@ -692,6 +903,13 @@ impl Tactic for Zcf {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::EMPTY
     }
+    /// Demonstration: context-blind VSA bind identity; ignores ctx entirely.
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Demonstration
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
+    }
     fn apply(&self, _ctx: &mut ThoughtCtx) -> Outcome {
         // Zero-shot fusion: bind(A,B) — valid in both, recoverable.
         let (a, b) = (0x0Au32, 0xB0u32);
@@ -707,6 +925,13 @@ impl Tactic for Hpm {
         Self::rec()
     }
     fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    /// only when `candidates` is non-empty
+    fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
@@ -730,6 +955,13 @@ impl Tactic for Cur {
         Self::rec()
     }
     fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    /// only while more than one candidate remains (the loop may not run)
+    fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
@@ -756,6 +988,12 @@ impl Tactic for Mpc {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Multi-perspective compression: bundle = consensus (mean per the bundle op).
         let consensus = mean(&ctx.candidates);
@@ -772,6 +1010,12 @@ impl Tactic for Ssam {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Sd])
     }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Analogy A→B, C≈A ⊢ C→B: confidence ∝ source similarity.
         let sim = 1.0 - ctx.sd; // closer cluster ⇒ stronger analogy
@@ -785,6 +1029,13 @@ impl Tactic for Idr {
         Self::rec()
     }
     fn requires(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Candidates])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    /// only when `candidates` is non-empty
+    fn writes(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
@@ -804,6 +1055,12 @@ impl Tactic for Spp {
     }
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Shadow-parallel: two independent paths; agreement = structural verification.
@@ -829,6 +1086,13 @@ impl Tactic for Icr {
     }
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::EMPTY
+    }
+    /// Stub: hardcoded constants; `delta_conf` is literally `x * 0.0`.
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Stub
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
     }
     /// **⚠ STUB — this is NOT a Pearl counterfactual.** Labelled honestly per the
     /// falsifiability rule ("a doc-comment claim is not a behaviour").
@@ -871,6 +1135,14 @@ impl Tactic for Sdd {
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Candidates])
     }
+    /// Demonstration: detects distortion and reports it in the note, but `delta_conf`
+    /// is hardcoded 0.0 outside the branch — the detection lands nowhere.
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Demonstration
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
+    }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Semantic distortion: deviation above the Berry-Esseen noise floor = real distortion.
         let dev = (mean(&ctx.candidates) - 0.5).abs();
@@ -893,6 +1165,13 @@ impl Tactic for Dtmf {
     }
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::of(&[ThoughtField::Sd, ThoughtField::Temperature])
+    }
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Operational
+    }
+    /// only when the gate reads BLOCK
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[ThoughtField::Temperature])
     }
     fn apply(&self, ctx: &mut ThoughtCtx) -> Outcome {
         // Meta-frame switch when the current frame is BLOCKed.
@@ -918,6 +1197,13 @@ impl Tactic for Hkf {
     }
     fn requires(&self) -> ThoughtMask {
         ThoughtMask::EMPTY
+    }
+    /// Demonstration: context-blind cross-domain bind identity; ignores ctx entirely.
+    fn maturity(&self) -> KernelMaturity {
+        KernelMaturity::Demonstration
+    }
+    fn writes(&self) -> ThoughtMask {
+        ThoughtMask::of(&[])
     }
     fn apply(&self, _ctx: &mut ThoughtCtx) -> Outcome {
         // Cross-domain fusion: bind(domain_A, relation, domain_B); reversible/auditable.
@@ -952,6 +1238,304 @@ kernels! {
     17 => Cdi, 18 => Cws, 19 => Are, 20 => Tcf, 21 => Ssr, 22 => Etd, 23 => Amp, 24 => Zcf,
     25 => Hpm, 26 => Cur, 27 => Mpc, 28 => Ssam, 29 => Idr, 30 => Spp, 31 => Icr, 32 => Sdd,
     33 => Dtmf, 34 => Hkf,
+}
+
+/// Effect-census tests: do the declared masks tell the truth?
+///
+/// A declaration drifts from its implementation exactly like a doc-comment
+/// does — that is the failure this whole module's `writes()` mask exists to
+/// answer, so the mask itself needs a falsifier. Every test here asks
+/// *what input would make this fail?*
+#[cfg(test)]
+mod effect_census {
+    use super::*;
+
+    /// Probe contexts chosen to exercise the CONDITIONAL write branches the
+    /// census identified — empty vs populated `candidates`, both sides of the
+    /// `temperature > 0.5` split, `free_energy > 0.5`, and all three
+    /// `GateState`s. A single default ctx would leave conditional writers
+    /// looking inert and quietly pass every test below.
+    fn probes() -> Vec<ThoughtCtx> {
+        let mut hot = ThoughtCtx::new(vec![0.9, 0.6, 0.3, 0.1]);
+        hot.sd = 0.5; // BLOCK — the only gate state Dtmf switches under
+        hot.temperature = 0.9; // > 0.5 — Cdt divergent branch
+        hot.free_energy = 0.9; // > 0.5 — Amp raises the rung
+        hot.rung = 3;
+        hot.beliefs = vec![(7, 0.9, 0.8), (7, 0.1, 0.7)]; // same-topic contradiction
+
+        let mut cold = ThoughtCtx::new(vec![0.4, 0.45, 0.5, 0.55]);
+        cold.sd = 0.05; // FLOW
+        cold.temperature = 0.1; // <= 0.5 — Cdt convergent branch
+        cold.free_energy = 0.05; // <= 0.5 — Amp holds
+        cold.rung = 8;
+        cold.beliefs = vec![(3, 0.6, 0.5)];
+
+        let mut empty = ThoughtCtx::new(vec![]); // every `is_empty` guard bites
+        empty.sd = 0.25; // HOLD
+        empty.beliefs = vec![];
+
+        let mut single = ThoughtCtx::new(vec![0.5]); // len == 1: Cur's loop never runs
+        single.sd = 0.25;
+        single.beliefs = vec![(1, 0.5, 0.5)];
+
+        // Overconfident-and-surprised. Added because
+        // `maturity_operational_implies_an_effect` FAILED on `Mcp` without it:
+        // every probe above inherits `ThoughtCtx::new`'s `confidence = 0.5`, so
+        // Mcp's `confidence > 0.7 && free_energy > 0.5` branch was unreachable
+        // and Mcp looked inert. The gap was in the fixtures, not the kernel —
+        // which is precisely what a can-fire test is for, and it found the hole
+        // in the probe matrix before it found one in a kernel.
+        let mut overconfident = ThoughtCtx::new(vec![0.8, 0.2]);
+        overconfident.confidence = 0.95;
+        overconfident.free_energy = 0.9;
+        overconfident.sd = 0.4; // BLOCK
+        overconfident.temperature = 0.6;
+        overconfident.rung = 5;
+        overconfident.beliefs = vec![(9, 0.9, 0.9), (9, 0.05, 0.6)];
+
+        vec![hot, cold, empty, single, overconfident]
+    }
+
+    /// Which [`ThoughtField`]s differ between two contexts.
+    ///
+    /// Bit-equality on the floats: "unchanged" means the kernel did not touch
+    /// it, so an exact comparison is the right one (no epsilon — an epsilon
+    /// here would hide small real writes).
+    fn changed_fields(before: &ThoughtCtx, after: &ThoughtCtx) -> ThoughtMask {
+        let mut bits = 0u8;
+        let mut set = |f: ThoughtField| bits |= 1 << (f as u8);
+        if before.sd != after.sd {
+            set(ThoughtField::Sd);
+        }
+        if before.free_energy != after.free_energy {
+            set(ThoughtField::FreeEnergy);
+        }
+        if before.dissonance != after.dissonance {
+            set(ThoughtField::Dissonance);
+        }
+        if before.temperature != after.temperature {
+            set(ThoughtField::Temperature);
+        }
+        if before.confidence != after.confidence {
+            set(ThoughtField::Confidence);
+        }
+        if before.rung != after.rung {
+            set(ThoughtField::Rung);
+        }
+        if before.candidates != after.candidates {
+            set(ThoughtField::Candidates);
+        }
+        if before.beliefs != after.beliefs {
+            set(ThoughtField::Beliefs);
+        }
+        ThoughtMask(bits)
+    }
+
+    /// **No kernel may mutate a field it did not declare.**
+    ///
+    /// Uses `apply` directly, NOT `run`: `run` adds `delta_conf` to
+    /// `ctx.confidence` afterwards, which is a separate declared effect and
+    /// would otherwise show up here as an undeclared `Confidence` write.
+    #[test]
+    fn no_kernel_writes_outside_its_declared_mask() {
+        for k in all_kernels() {
+            let declared = k.writes();
+            for probe in probes() {
+                let before = probe.clone();
+                let mut after = probe;
+                let _ = k.apply(&mut after);
+                let actual = changed_fields(&before, &after);
+                assert!(
+                    actual.covered_by(declared),
+                    "{} ({}) mutated fields outside writes(): actual={:08b} declared={:08b}",
+                    k.meta().code,
+                    k.meta().id,
+                    actual.0,
+                    declared.0
+                );
+            }
+        }
+    }
+
+    /// **A declared write must be REACHABLE** — the can-fire half.
+    ///
+    /// A mask that over-declares is as dishonest as one that under-declares:
+    /// it makes a kernel look more effectful than it is, and it is exactly
+    /// what `Lsi` was doing on the read side (declaring `Sd` as an input it
+    /// never read) before the census.
+    #[test]
+    fn every_declared_write_actually_happens_on_some_probe() {
+        for k in all_kernels() {
+            let declared = k.writes();
+            if declared.is_empty() {
+                continue;
+            }
+            let mut observed = 0u8;
+            for probe in probes() {
+                let before = probe.clone();
+                let mut after = probe;
+                let _ = k.apply(&mut after);
+                observed |= changed_fields(&before, &after).0;
+            }
+            assert_eq!(
+                observed & declared.0,
+                declared.0,
+                "{} ({}) declares writes it never performs: declared={:08b} observed={:08b}",
+                k.meta().code,
+                k.meta().id,
+                declared.0,
+                observed
+            );
+        }
+    }
+
+    /// **`Operational` requires an effect.** A kernel that can neither mutate
+    /// `ThoughtCtx` nor move confidence is not production behaviour, whatever
+    /// its note string claims.
+    ///
+    /// This is the invariant [`KernelMaturity::Operational`] documents, made
+    /// executable — without it, maturity is another unenforced doc-comment.
+    #[test]
+    fn maturity_operational_implies_an_effect() {
+        for k in all_kernels() {
+            if k.maturity() != KernelMaturity::Operational {
+                continue;
+            }
+            let has_write = !k.writes().is_empty();
+            let moves_confidence = probes().into_iter().any(|mut c| {
+                let out = k.apply(&mut c);
+                out.delta_conf != 0.0
+            });
+            assert!(
+                has_write || moves_confidence,
+                "{} ({}) claims Operational but writes nothing and never moves confidence",
+                k.meta().code,
+                k.meta().id
+            );
+        }
+    }
+
+    /// The converse: a `Demonstration` or `Stub` must NOT be quietly
+    /// effectful. If one starts doing real work, its maturity is stale and
+    /// this fails rather than letting an unreviewed effect ride in under a
+    /// "not production" label.
+    #[test]
+    fn non_operational_kernels_land_no_effect() {
+        for k in all_kernels() {
+            if k.maturity() == KernelMaturity::Operational {
+                continue;
+            }
+            assert!(
+                k.writes().is_empty(),
+                "{} is {:?} but declares writes",
+                k.meta().code,
+                k.maturity()
+            );
+            for probe in probes() {
+                let before = probe.clone();
+                let mut after = probe;
+                let out = k.apply(&mut after);
+                assert_eq!(
+                    changed_fields(&before, &after),
+                    ThoughtMask::EMPTY,
+                    "{} is {:?} but mutated ctx",
+                    k.meta().code,
+                    k.maturity()
+                );
+                assert_eq!(
+                    out.delta_conf,
+                    0.0,
+                    "{} is {:?} but moved confidence",
+                    k.meta().code,
+                    k.maturity()
+                );
+            }
+        }
+    }
+
+    /// The four context-blind kernels return the SAME outcome for radically
+    /// different inputs — the honest test for an algebra demonstration.
+    ///
+    /// Note this is deliberately NOT a can-fire / can-stay-silent pair: those
+    /// belong to detectors and thresholded gates. A kernel that ignores its
+    /// argument has no input condition to fire on, so the meaningful property
+    /// is *invariance*, and asserting anything else would be theatre.
+    #[test]
+    fn context_blind_kernels_are_input_invariant() {
+        const BLIND: [u8; 4] = [19, 24, 31, 34]; // Are, Zcf, Icr, Hkf
+        for id in BLIND {
+            let k = kernel(id).expect("id in range");
+            let outs: Vec<Outcome> = probes().into_iter().map(|mut c| k.apply(&mut c)).collect();
+            for o in &outs {
+                assert_eq!(
+                    o,
+                    &outs[0],
+                    "{} is context-blind and must not vary with ctx",
+                    k.meta().code
+                );
+            }
+            assert_ne!(
+                k.maturity(),
+                KernelMaturity::Operational,
+                "{} ignores ctx entirely and cannot be Operational",
+                k.meta().code
+            );
+        }
+    }
+
+    /// The maturity split is non-trivial in BOTH directions — neither label is
+    /// vacuous. A classification that applied to everything (or nothing) would
+    /// carry exactly as much information as no classification at all.
+    #[test]
+    fn maturity_discriminates_and_is_not_all_one_label() {
+        let ks = all_kernels();
+        let operational = ks
+            .iter()
+            .filter(|k| k.maturity() == KernelMaturity::Operational)
+            .count();
+        let demonstration = ks
+            .iter()
+            .filter(|k| k.maturity() == KernelMaturity::Demonstration)
+            .count();
+        let stub = ks
+            .iter()
+            .filter(|k| k.maturity() == KernelMaturity::Stub)
+            .count();
+
+        assert_eq!(operational + demonstration + stub, 34);
+        assert!(operational > 0 && operational < 34, "not all one label");
+        assert!(demonstration > 0, "the demonstrations must stay visible");
+        assert_eq!(stub, 1, "Icr is the one self-declared stub");
+    }
+
+    /// **The finding this census exists for.** `delta_conf == 0.0` does NOT
+    /// mean "no effect": `run` applies the delta only AFTER `apply` has had
+    /// full `&mut` access. A substantial set of kernels return zero while
+    /// reordering candidates, rewriting beliefs, or raising the rung.
+    ///
+    /// Pinned as a REGRESSION GUARD, not as a target: if a future refactor
+    /// makes zero-delta imply inert, this fails and the reasoning gets
+    /// re-examined rather than silently inverted.
+    #[test]
+    fn zero_delta_does_not_imply_inert() {
+        let silent_mutators: Vec<&'static str> = all_kernels()
+            .iter()
+            .filter(|k| !k.writes().is_empty())
+            .filter(|k| {
+                probes()
+                    .into_iter()
+                    .all(|mut c| k.apply(&mut c).delta_conf == 0.0)
+            })
+            .map(|k| k.meta().code)
+            .collect();
+
+        assert!(
+            silent_mutators.len() >= 10,
+            "expected a substantial silent-mutator set, found {}: {:?}",
+            silent_mutators.len(),
+            silent_mutators
+        );
+    }
 }
 
 #[cfg(test)]

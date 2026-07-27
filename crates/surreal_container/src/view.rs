@@ -319,7 +319,10 @@ mod tests {
             .expect("Planning is not absorbing");
         assert_eq!(mv.from, KanbanColumn::Planning);
         assert_eq!(mv.to, KanbanColumn::CognitiveWork);
-        assert_eq!(mv.libet_offset_us, -550_000); // Libet anchor
+        assert_eq!(
+            mv.libet_window_us(),
+            Some(lance_graph_contract::kanban::LIBET_COMMIT_WINDOW_US)
+        ); // Libet anchor
         assert_eq!(
             mv.exec,
             lance_graph_contract::kanban::ExecTarget::SurrealQl,

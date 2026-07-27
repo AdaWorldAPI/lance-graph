@@ -184,7 +184,7 @@ mod tests {
     use arrow_array::builder::FixedSizeBinaryBuilder;
     use arrow_array::{FixedSizeBinaryArray, RecordBatch, UInt32Array};
     use lance_graph_contract::collapse_gate::MailboxId;
-    use lance_graph_contract::kanban::{ExecTarget, KanbanColumn};
+    use lance_graph_contract::kanban::{ExecTarget, KanbanColumn, LIBET_COMMIT_WINDOW_US};
     use std::sync::Arc;
     use tempfile::TempDir;
 
@@ -331,7 +331,7 @@ mod tests {
         // Forward arc: Planning -> CognitiveWork carries the Libet anchor.
         assert_eq!(mv.from, KanbanColumn::Planning);
         assert_eq!(mv.to, KanbanColumn::CognitiveWork);
-        assert_eq!(mv.libet_offset_us, -550_000);
+        assert_eq!(mv.libet_window_us(), Some(LIBET_COMMIT_WINDOW_US));
         assert_eq!(mv.mailbox, 7);
         assert_eq!(mv.witness_chain_position, 11);
         assert_eq!(mv.exec, ExecTarget::Native);
@@ -366,7 +366,7 @@ mod tests {
         let mv = a.unwrap();
         assert_eq!(mv.from, KanbanColumn::CognitiveWork);
         assert_eq!(mv.to, KanbanColumn::Evaluation);
-        assert_eq!(mv.libet_offset_us, 0);
+        assert_eq!(mv.libet_window_us(), None);
     }
 
     #[tokio::test(flavor = "current_thread")]

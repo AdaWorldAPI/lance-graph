@@ -1,93 +1,121 @@
-//! Counterfactual reasoning — Pearl's Rung 3: "What if I had...?"
+//! Reversible **binding substitution** on fingerprint world states: swap one
+//! bound component for another and measure how far the composite moved.
 //!
-//! Implements do-calculus interventions on fingerprint world states.
-//! An intervention replaces one causal variable with a counterfactual value,
-//! then measures how the world state diverges from the baseline.
+//! ## This is NOT do-calculus, and used to say it was
 //!
-//! # Science
-//! - Pearl (2009): "Causality" ch.7 — structural counterfactuals
-//! - Halpern & Pearl (2005): Actual causality definition
-//! - Lewis (1973): Counterfactual conditionals
+//! An earlier version of this module was titled "Pearl's Rung 3" and described
+//! itself as implementing interventions. It does not, and the gap is not a
+//! detail of degree:
+//!
+//! - **No mechanism is severed.** `do(X = x)` requires cutting X's incoming
+//!   edges so its parents stop determining it. There are no edges here — the
+//!   world is one fingerprint, not a structural causal model.
+//! - **No descendants are recomputed.** After a real intervention, everything
+//!   downstream of X is re-derived under the mutilated model. Here the composite
+//!   is XOR-rewritten in place and nothing propagates.
+//! - **No exogenous background is held fixed**, so the counterfactual
+//!   "same world, one variable changed" semantics has nothing to anchor to.
+//!
+//! What the algebra genuinely provides is worth keeping on its own merits:
+//! XOR-binding is self-inverse, so `world ⊗ old ⊗ new` exactly replaces a bound
+//! component and is exactly reversible. That is a **substitution primitive** —
+//! useful for reversible binding, fingerprint edits, synthetic mutation, and for
+//! *encoding* a hypothetical once some other layer has decided what the
+//! hypothetical is. It is not the layer that decides.
+//!
+//! Naming it after Pearl made the substrate look like it had an operator it
+//! never had, in a workspace where `RungLevel::Counterfactual` is a real
+//! address. Renamed rather than deleted: the algebra is sound, the claim was not.
+//!
+//! # Algebra
+//! XOR self-inverse binding: `(a ⊗ b) ⊗ b = a`.
 
 use crate::FINGERPRINT_BITS as TOTAL_BITS;
 use crate::Fingerprint;
 
-/// A counterfactual world is a BindSpace state where one or more
-/// fingerprints have been replaced with intervened values.
+/// A world state in which one or more bound components have been substituted.
 #[derive(Debug, Clone)]
-pub struct CounterfactualWorld {
-    /// The intervention applied
-    pub intervention: Intervention,
-    /// Fingerprint of the world state AFTER intervention
+pub struct SubstitutedWorld {
+    /// The substitution applied.
+    pub substitution: BindingSubstitution,
+    /// Fingerprint of the world state AFTER substitution.
     pub state: Fingerprint,
-    /// Divergence from baseline (Hamming distance / total bits)
+    /// Divergence from baseline (Hamming distance / total bits).
     pub divergence: f32,
 }
 
-/// An intervention replaces one causal node with a counterfactual value.
+/// Replace one bound component of a composite fingerprint with another.
+///
+/// "Component", not "causal variable": nothing here knows what causes what.
 #[derive(Debug, Clone)]
-pub struct Intervention {
-    /// What was changed (identity of the variable)
+pub struct BindingSubstitution {
+    /// Identity of the component being substituted.
     pub target: Fingerprint,
-    /// What it was (original binding)
+    /// What it was (original binding).
     pub original: Fingerprint,
-    /// What it became (counterfactual binding)
-    pub counterfactual: Fingerprint,
+    /// What it becomes (replacement binding).
+    pub replacement: Fingerprint,
 }
 
-/// Create a counterfactual world by intervening on a variable.
+/// Substitute one bound component for another, and report how far the
+/// composite moved.
 ///
-/// Pearl Rung 3: "What would have happened if X were x'?"
-///
-/// Method: unbind the original variable from the world state,
-/// bind the counterfactual value in its place.
+/// Exact and reversible — XOR binding is self-inverse, so unbinding the
+/// original and binding the replacement leaves every other component
+/// untouched, and applying the inverse substitution restores the input
+/// bit-for-bit.
 ///
 /// ```text
-/// world' = world ⊗ original ⊗ counterfactual
-///        = (base ⊗ original) ⊗ original ⊗ counterfactual
-///        = base ⊗ counterfactual
+/// world' = world ⊗ original ⊗ replacement
+///        = (base ⊗ original) ⊗ original ⊗ replacement
+///        = base ⊗ replacement
 /// ```
-pub fn intervene(world: &Fingerprint, intervention: &Intervention) -> CounterfactualWorld {
-    // Unbind original, bind counterfactual
+///
+/// This is a substitution, NOT `do(X = x)` — see the module docs.
+pub fn substitute_binding(world: &Fingerprint, substitution: &BindingSubstitution) -> SubstitutedWorld {
+    // Unbind original, bind replacement
     let new_state = world
-        .bind(&intervention.original) // Unbind: cancels original via XOR
-        .bind(&intervention.counterfactual); // Bind: installs replacement
+        .bind(&substitution.original) // Unbind: cancels original via XOR
+        .bind(&substitution.replacement); // Bind: installs replacement
 
     let divergence = world.hamming(&new_state) as f32 / TOTAL_BITS as f32;
 
-    CounterfactualWorld {
-        intervention: intervention.clone(),
+    SubstitutedWorld {
+        substitution: substitution.clone(),
         state: new_state,
         divergence,
     }
 }
 
-/// Compare two counterfactual worlds.
+/// Compare two substituted worlds.
 ///
 /// Returns normalized Hamming distance between the two world states.
-pub fn worlds_differ(w1: &CounterfactualWorld, w2: &CounterfactualWorld) -> f32 {
+pub fn worlds_differ(w1: &SubstitutedWorld, w2: &SubstitutedWorld) -> f32 {
     w1.state.hamming(&w2.state) as f32 / TOTAL_BITS as f32
 }
 
-/// Apply multiple interventions to a world state.
+/// Apply multiple substitutions to a world state.
 ///
-/// Each intervention is applied sequentially, so later interventions
+/// Each substitution is applied sequentially, so later substitutions
 /// operate on the already-modified world.
-pub fn multi_intervene(world: &Fingerprint, interventions: &[Intervention]) -> CounterfactualWorld {
+pub fn multi_substitute_binding(
+    world: &Fingerprint,
+    substitutions: &[BindingSubstitution],
+) -> SubstitutedWorld {
     let mut current = world.clone();
-    for intervention in interventions {
-        let cf = intervene(&current, intervention);
+    for substitution in substitutions {
+        let cf = substitute_binding(&current, substitution);
         current = cf.state;
     }
     let divergence = world.hamming(&current) as f32 / TOTAL_BITS as f32;
-    CounterfactualWorld {
-        intervention: if let Some(last) = interventions.last() {
+    SubstitutedWorld {
+        substitution: if let Some(last) = substitutions.last() {
             last.clone()
         } else {
-            Intervention {
+            BindingSubstitution {
                 target: Fingerprint::zero(),
                 original: Fingerprint::zero(),
-                counterfactual: Fingerprint::zero(),
+                replacement: Fingerprint::zero(),
             }
         },
         state: current,
@@ -95,7 +123,11 @@ pub fn multi_intervene(world: &Fingerprint, interventions: &[Intervention]) -> C
     }
 }
 
-// Keep the original structs for backward compatibility
+// Keep the original structs for backward compatibility.
+//
+// These two DO legitimately concern hypothesis-vs-baseline comparison at the
+// world-versioning level, so they keep their names — unlike the XOR primitive
+// above, they make no claim to be an intervention operator.
 /// High-level counterfactual metadata (for world versioning).
 pub struct Counterfactual {
     pub baseline_version: u64,
@@ -103,7 +135,7 @@ pub struct Counterfactual {
     pub affected_nodes: Vec<String>,
 }
 
-/// A change applied to create a counterfactual world.
+/// A change applied to create a hypothesis world.
 #[derive(Clone, Debug)]
 pub enum Change {
     Remove(String),
@@ -124,69 +156,71 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_intervene_diverges() {
+    fn test_substitute_binding_diverges() {
         let base = Fingerprint::from_content("base_world_state");
         let variable = Fingerprint::from_content("the_variable");
         let world = base.bind(&variable);
 
-        let intervention = Intervention {
+        let substitution = BindingSubstitution {
             target: variable.clone(),
             original: variable.clone(),
-            counterfactual: Fingerprint::from_content("counterfactual_variable"),
+            replacement: Fingerprint::from_content("replacement_variable"),
         };
 
-        let cf_world = intervene(&world, &intervention);
+        let cf_world = substitute_binding(&world, &substitution);
 
-        // Counterfactual world should differ from original
+        // Substituting a component moves the composite substantially.
         assert!(
             cf_world.divergence > 0.3,
-            "Counterfactual should diverge >30% from baseline: {:.3}",
+            "substitution should diverge >30% from baseline: {:.3}",
             cf_world.divergence
         );
     }
 
     #[test]
-    fn test_intervene_recovers_base() {
+    fn test_substitute_binding_recovers_base() {
         let base = Fingerprint::from_content("base_world_state");
         let variable = Fingerprint::from_content("the_variable");
         let world = base.bind(&variable);
 
-        let cf_var = Fingerprint::from_content("counterfactual_variable");
-        let intervention = Intervention {
+        let cf_var = Fingerprint::from_content("replacement_variable");
+        let substitution = BindingSubstitution {
             target: variable.clone(),
             original: variable.clone(),
-            counterfactual: cf_var.clone(),
+            replacement: cf_var.clone(),
         };
 
-        let cf_world = intervene(&world, &intervention);
+        let cf_world = substitute_binding(&world, &substitution);
 
-        // The intervened variable should be recoverable from new world
+        // The substituted component is recoverable from the new world — this is
+        // the primitive's actual contract (exact reversibility), and the reason
+        // the algebra survives the rename.
         // world' = base ⊗ cf_var, so world' ⊗ cf_var = base
         let recovered = cf_world.state.bind(&cf_var);
         assert_eq!(
             recovered.as_raw(),
             base.as_raw(),
-            "Should recover base world after unbinding counterfactual"
+            "Should recover base world after unbinding replacement"
         );
     }
 
     #[test]
-    fn test_identity_intervention() {
+    fn test_identity_substitution() {
         let base = Fingerprint::from_content("base_state");
         let variable = Fingerprint::from_content("unchanged");
         let world = base.bind(&variable);
 
         // Intervening with same value should produce identical world
-        let identity = Intervention {
+        let identity = BindingSubstitution {
             target: variable.clone(),
             original: variable.clone(),
-            counterfactual: variable.clone(),
+            replacement: variable.clone(),
         };
 
-        let cf = intervene(&world, &identity);
+        let cf = substitute_binding(&world, &identity);
         assert_eq!(
             cf.divergence, 0.0,
-            "Identity intervention should produce zero divergence"
+            "Identity substitution should produce zero divergence"
         );
         assert_eq!(cf.state.as_raw(), world.as_raw());
     }
@@ -197,52 +231,52 @@ mod tests {
         let var = Fingerprint::from_content("variable");
         let world = base.bind(&var);
 
-        let i1 = Intervention {
+        let i1 = BindingSubstitution {
             target: var.clone(),
             original: var.clone(),
-            counterfactual: Fingerprint::from_content("counterfactual_A"),
+            replacement: Fingerprint::from_content("replacement_A"),
         };
-        let i2 = Intervention {
+        let i2 = BindingSubstitution {
             target: var.clone(),
             original: var.clone(),
-            counterfactual: Fingerprint::from_content("counterfactual_B"),
+            replacement: Fingerprint::from_content("replacement_B"),
         };
 
-        let w1 = intervene(&world, &i1);
-        let w2 = intervene(&world, &i2);
+        let w1 = substitute_binding(&world, &i1);
+        let w2 = substitute_binding(&world, &i2);
 
         let diff = worlds_differ(&w1, &w2);
         assert!(
             diff > 0.3,
-            "Different interventions should produce different worlds: {:.3}",
+            "Different substitutions should produce different worlds: {:.3}",
             diff
         );
     }
 
     #[test]
-    fn test_multi_intervene() {
+    fn test_multi_substitute_binding() {
         let world = Fingerprint::from_content("complex_world");
         let var_a = Fingerprint::from_content("var_a");
         let var_b = Fingerprint::from_content("var_b");
         let world = world.bind(&var_a).bind(&var_b);
 
-        let interventions = vec![
-            Intervention {
+        let substitutions = vec![
+            BindingSubstitution {
                 target: var_a.clone(),
                 original: var_a,
-                counterfactual: Fingerprint::from_content("cf_a"),
+                replacement: Fingerprint::from_content("cf_a"),
             },
-            Intervention {
+            BindingSubstitution {
                 target: var_b.clone(),
                 original: var_b,
-                counterfactual: Fingerprint::from_content("cf_b"),
+                replacement: Fingerprint::from_content("cf_b"),
             },
         ];
 
-        let cf = multi_intervene(&world, &interventions);
+        let cf = multi_substitute_binding(&world, &substitutions);
         assert!(
             cf.divergence > 0.3,
-            "Multi-intervention should diverge: {:.3}",
+            "Multi-substitution should diverge: {:.3}",
             cf.divergence
         );
     }

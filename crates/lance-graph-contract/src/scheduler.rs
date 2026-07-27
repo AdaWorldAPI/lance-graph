@@ -27,7 +27,7 @@
 //! is the sole mutator (R1 "one SoA never transformed"; mirrors the
 //! `MailboxSoaView` / `MailboxSoaOwner` read/write split).
 
-use crate::kanban::{ExecTarget, KanbanColumn, KanbanMove};
+use crate::kanban::{ExecTarget, KanbanMove};
 use crate::soa_view::MailboxSoaView;
 
 /// A monotonic Lance dataset version — the surreal Timeline tick, i.e. one entry
@@ -89,12 +89,6 @@ impl VersionScheduler for NextPhaseScheduler {
         // `next_phases()` is empty exactly for the absorbing columns (Commit/Prune):
         // `?` short-circuits to `None`, i.e. "the cycle ended — schedule nothing".
         let to = *from.next_phases().first()?;
-        let libet_offset_us = if from == KanbanColumn::Planning && to == KanbanColumn::CognitiveWork
-        {
-            -550_000
-        } else {
-            0
-        };
         Some(KanbanMove {
             mailbox: view.mailbox_id(),
             from,
@@ -103,7 +97,6 @@ impl VersionScheduler for NextPhaseScheduler {
             // for the chain index until the A3 `witness_arc` column lands. Read it as
             // the SoA cycle-ownership stamp via `KanbanMove::cycle()` (S2.5).
             witness_chain_position: view.current_cycle(),
-            libet_offset_us,
             exec,
         })
     }
@@ -113,6 +106,7 @@ impl VersionScheduler for NextPhaseScheduler {
 mod tests {
     use super::*;
     use crate::collapse_gate::MailboxId;
+    use crate::kanban::{KanbanColumn, LIBET_COMMIT_WINDOW_US};
 
     /// Minimal `MailboxSoaView` with a settable phase — proves the scheduler
     /// lowers a version event to the right move without any consumer crate
@@ -171,7 +165,7 @@ mod tests {
             .expect("Planning is not absorbing");
         assert_eq!(m.from, KanbanColumn::Planning);
         assert_eq!(m.to, KanbanColumn::CognitiveWork); // forward arc, not the Prune veto
-        assert_eq!(m.libet_offset_us, -550_000); // the Σ-commit Rubicon crossing
+        assert_eq!(m.libet_window_us(), Some(LIBET_COMMIT_WINDOW_US)); // Σ-commit Rubicon crossing
         assert_eq!(m.mailbox, 42);
         assert_eq!(m.witness_chain_position, 9); // current_cycle stamp
     }
@@ -186,7 +180,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(cw.to, KanbanColumn::Evaluation);
-        assert_eq!(cw.libet_offset_us, 0);
+        assert_eq!(cw.libet_window_us(), None);
 
         let ev = NextPhaseScheduler
             .on_version(
@@ -196,7 +190,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(ev.to, KanbanColumn::Commit); // forward arc = calcify
-        assert_eq!(ev.libet_offset_us, 0);
+        assert_eq!(ev.libet_window_us(), None);
     }
 
     #[test]
