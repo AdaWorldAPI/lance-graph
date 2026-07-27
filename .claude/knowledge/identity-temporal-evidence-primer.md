@@ -1173,3 +1173,113 @@ production path and is **not yet measured**. (c) Codebook construction here is
 normalize + Lloyd; `euler_gamma_fold` (`bgz-tensor/src/euler_fold.rs`, γ·i
 rotation at 3σ-separated angles) is the architecture's own path and remains
 untested.
+
+---
+
+## 14. §12 SUBSTRATE TRACE — RESULTS (2026-07-27, four read-only lanes)
+
+Tag files: `.claude/board/exec-runs/trace-{A-write-path,B-writer-key,C-value-slab,D-allocations}.md`.
+Descriptive only; every claim `file:line`-grounded in the tag files.
+
+### ⊘ THE HEADLINE: §13's substrate column was labelled CODE-PROVEN on type definitions and doc-comments. The write path is UNBUILT.
+
+| §13 cell | claimed | TRACED |
+|---|---|---|
+| revision → "commit via Kanban → **new Lance version**" | CODE-PROVEN | **MISSING** — no Lance-version-producing code in any traced file. `KanbanColumn::Commit`'s doc says *"calcify to Lance"*; nothing implements it |
+| the write path generally | CODE-PROVEN | **MISSING** — `MailboxSoA` **never implements `SoaEnvelope`**. Only non-test implementor: `NodeRowPacket` (`canonical_node.rs:1479`), built from `Vec<NodeRow>` (a copy), with no code path to a live `MailboxSoA` |
+| `cast()` as commit primitive | CODE-PROVEN | **ZERO production call sites** — every `BatchWriter::cast`/`::new` is under `#[test]`. (The `P`-descriptor shape does match rule 17.) |
+| `Stamp` → version-range read | "mechanism CODE-PROVEN, wiring dormant" | **TEST-ONLY END TO END** — one test-only `DeinterlaceRow` impl, all 6 `deinterlace()` callers in tests, **no HLC source exists in `crates/`**. Three production doc-comments (`batch_writer.rs:9-10`, `reasoning_loop.rs:51-52`, `witness_fabric.rs:134`) claim real durability/moment-reads; none import or call it. Only non-zero `server_id` anywhere: a test at `insight.rs:307-308` |
+
+**Path correction:** `temporal.rs` lives in `lance-graph-planner`, not the contract; the
+contract's mirror is `temporal_pov.rs`, **deliberately HLC-blind by its own module doc.**
+
+**Consequence for the migration frame:** §13 compared a *functioning heap arena*
+against a *specified-but-unconnected substrate*, and scored the substrate
+"better" on both. The honest statement is that the substrate side must be BUILT
+before anything can move onto it. First missing hop, named by trace A:
+`MailboxSoA → SoaEnvelope impl → Lance write` — **neither half exists.**
+
+### The arena is NOT a duplicate — beliefs have no substrate home yet
+
+- Trace D: `BeliefArena.entries` / `index` are **canonical state, not copies**.
+- Trace C, per belief field: **Truth** — a declared home exists
+  (`MetaWord::{nars_f, nars_c}` in the `Meta` tenant) but with an **8 B / 4 B
+  width mismatch already flagged as open in le-contract**, and no accessor.
+  **Rung** — fully-shaped standalone `RungLevel` enum, **zero row wiring**.
+  **Contradiction depth · premise/derivation refs · evidential base** — **NO
+  row-tenant home at all** (only a heap rendering DTO `graph_render::Contradiction`
+  and the unwired `causal_audit::SupportBasis`/`CausalLocus` vocabulary).
+
+So the migration is not "remove the copy." It is **"build the substrate side,
+then move."**
+
+### The CSR criticism targeted dead code
+
+Trace D: `AdjacencyStore::from_edges` is exercised **only** from `#[cfg(test)]`
+across all five searched files — **no production caller** — and its truth values
+arrive by ad hoc direct field overwrite (`store.edge_properties = …`),
+**structurally disjoint from `BeliefArena`'s truth values.** The allocation this
+session costed at 853 ms/64k-cohort **does not run in production.** Withdrawn as
+a migration argument.
+
+`EdgeBlock` itself IS live: two production readers (`mailbox_scan.rs::edge_slots_coarse`,
+`soa_graph.rs::project_snapshot`) read the 12+4 slots under `CoarseOnly` — but
+both *"land the edge structure, never fake the row resolution"*, i.e. no slot
+byte is resolved to a neighbour row/key anywhere today.
+
+### What IS real, live waste — inside the arena, not at its boundary
+
+Repeated full-arena re-indexing with zero sharing:
+- `close_transitive`'s `by_sc` map — **rebuilt every pass** (`belief.rs:285`);
+- three independent `deg` / `by_pred` / `by_subj` HashMap reconstructions
+  (`tactics.rs:161-168, 181-186, 337-344`) — same predicate/subject index, from
+  scratch, per call;
+- `AdjacencyStore::batch_adjacent` (`csr.rs:100-119`) re-copies CSR slices it
+  already has zero-copy access to via `adjacent()`/`edge_ids()`.
+- `insight.rs` is **clean** — folds over `entries()` into scalars/stack arrays.
+
+### Value-slab facts a belief tenant must respect (trace C)
+
+- `VALUE_TENANTS` (`canonical_node.rs:917-1016`) carves **14 tenants across bytes
+  `[0,172)` of 480**; the remaining 308 B are **unclaimed by omission, not
+  explicitly reserved**.
+- **6 of 14 have typed accessors**; 8 are read via raw `value_offset()` + manual
+  slicing in consumer code (`ocr.rs`, `nan_projection.rs`).
+- Adding a tenant: **append-only** at the end (compile-asserted contiguous, no
+  gaps), must fit 480 B, **does NOT bump `ENVELOPE_LAYOUT_VERSION`** (the slab is
+  one already-declared 480 B envelope column), must join `ValueSchema::Full`'s
+  field mask (compile-asserted), needs `ClassView` opt-in for other presets, and
+  **owes a jc-pillar certification (ICC / Spearman / Cronbach) per le-contract
+  §3b before any reading is trusted.**
+- **Precedent shape:** the autopoiesis triangle (3 × 12 B palette256 lanes) —
+  typed 12-byte accessors, release-safe length guards, a field-isolation-matrix
+  test, and the documented *"reading, not layout"* pattern
+  (`awareness_facet::SpoFacet`) for relabelling an existing 12-byte register
+  instead of minting a new tenant.
+
+### The test lock, verified
+
+`rcr_floor_and_budget` (`tactics.rs:590-624`) asserts a **literal 5-element
+ordered vector**, and trace D confirmed by hand that the asserted prefix depends
+on `by_pred`'s members being visited in **arena-admission-index order** — not
+merely "some deterministic order". Any migration must either preserve that exact
+order or replace the assertion; it cannot be satisfied by determinism alone.
+
+### f32 inventory (what palette256 retires)
+
+The entire `TruthValue` / `Belief` / tactics / S10 surface is f32; the only f64
+is a transient `f32→f64→f32` round-trip in
+`physical::accumulate::TruthPropagatingSemiring`, per `adjacent_truth_propagate` call.
+
+### Open / AMBIGUOUS (not forced to a verdict)
+
+- Whether the triple re-indexing in `tactics.rs` is FORBIDDEN-COPY or
+  KERNEL-SCRATCH depends on whether the migration turns those into *maintained*
+  secondary indices — a design question, deliberately unanswered.
+- Premise-vec cloning provenance; `with_nars_truth` caller provenance.
+- `NodeRowPacket::new(&rows, 0)` — a copy into a second representation, flagged
+  for follow-up read.
+- Naming collision: `collapse_gate::GateDecision` vs `mul::GateDecision` — both
+  used, unrelated.
+- Non-Rust components outside `crates/` unchecked; whether
+  `witness_fabric.rs`'s `out_of_horizon` escalation is consumed downstream.
