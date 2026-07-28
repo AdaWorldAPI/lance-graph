@@ -1,3 +1,12 @@
+## 2026-07-28 — PROBE-BABEL-STANCES slice 1 (Opus orchestrator + 1 Sonnet curator)
+
+- **Model split per operator directive** ("Sonnet 5 agents for grindwork, opus for filigrane planning"): Sonnet curated the 5-lane verbatim lexicon under the §1 guardrails preamble; Opus designed the grid/phase/amplitude machinery, gated, and adjudicated.
+- **Sonnet curator (agent, general-purpose/sonnet):** produced `examples/data/babel/lanes.rs`, 30 rows (5 lanes × 3 pairs × 2 addresses), reproduced every anchor fact consistently, and **flagged 14 rows CHECK** — including an explicit "may be a real BKR translator choice or a curator memory error" on the DIE pair. Abstain-and-report (Iron Rule 10) behavior worked exactly as the guardrails intend.
+- **Opus adjudication — the finding that nearly shipped false:** the first run's DIE split (amplitude 0.667) rested ENTIRELY on that unverified BKR row. Added per-ROW `is_verified` gating (Luther's KNOW/NAKED anchored, its DIE not — lane-level would have been wrong), asserts over verified rows only, unverified splits in a REPORT-ONLY section. DIE split correctly vanishes from the asserted set.
+- **Measured (asserted):** KNOW split by de-luther1545 alone → amplitude 0.500 / residual 0.500; NAKED 1.000; DIE 1.000. Convergence: KNOW's awareness address = 3:7 = B2's blind reflexive-lift crown.
+- **Gates:** fmt clean · `clippy -D warnings` clean · falsifier asserts green.
+- **Board (this commit):** EPIPHANIES `E-THE-GRID-COLLAPSES-WHAT-A-LANGUAGE-SPLITS-1`. Task #51.
+
 ## 2026-07-28 — B6 aspect panel: four lights, one crystal (main-thread, no subagent)
 
 - **Operator steers, one arc:** "kant Wittgenstein Nietzsche.. Hegel.." (the stance panel) + the crystal/Doppelspalt image (corpus = crystal, percipient's light, interference of text-wave × reader-wave) + "qualia × magnitude × phase → Erkenntnis becomes passion" (queued composite) + the lane list (WordNet convergence; Greek/Czech/Vulgate/Aramaic/German) (queued PROBE-BABEL-STANCES).
