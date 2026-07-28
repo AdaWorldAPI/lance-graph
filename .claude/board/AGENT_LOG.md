@@ -1,3 +1,14 @@
+## 2026-07-28 — PROBE-EYES-OPENED: the Adam awareness printed blind (main-thread, no subagent)
+
+- **Operator arc:** "the most brutal test would be to find out how the KJV bible bake needs to connect the dots about the Adam awareness — 'Their eyes were opened'" + "we could start with that and Hermeneutik" + "how does Hermeneutik compute to NARS". Built the four-blade probe over the real KJV bake (`/tmp/pg10.txt`, Gutenberg #10, local-only).
+- **Built — contract (`grammar/clause_cues.rs`):** `is_negation` (polarity flippers, exact catalogue — the load-bearing gap: no negation-hold → no reversal detection) + `is_perception_verb` (rung-lift operators, deliberately separate from `FAMILY_LEXICON` — epistemic level ≠ TEKAMOLO slot). 2 new fire+silent tests + 2 doctests.
+- **Built — probe (`examples/probe_eyes_opened.rs`):** cue-driven clause machine (pronoun-normalize via `pronoun_case`, pronoun-sticky subject anchoring, modal/aux/copula arming, `read_verb` archetype consumer, `-ed` action fallback) → BeliefArena with per-emission disjoint stamps. Four blades, all fire+stay-silent, asserts pinned to measurement on a 13-verse verbatim KJV fixture.
+- **Measured — fixture:** B1 blind ranking exactly {they→eat, they→die} @0.850 (4 negations held; control 0); B2 exactly one reflexive lift (3:7 knew→naked; non-reflexive at 1:4+3:6 prove discrimination); B3 Impl(naked→afraid) from 3:10's "because"; B4 pass-2 admitted=0 revised=0 fixed_point=true.
+- **Measured — REAL Genesis 1–4 blind (106 verses):** 10 rung lifts, exactly ONE reflexive = 3:7 (the headline); B1 found eat+die PLUS two undesigned genuine reversals (god→good @2:18, they→respect @4:4-5) — the blade generalizes; 4 causal edges all textually real; B4 converges on the full corpus.
+- **Two principled fixes from measured false positives (not scene hacks):** inherited-inner-subject degeneracy ("God saw that [it] was good" → reflexivity requires an OVERT re-anchored inner subject) + demonstrative-that capture (2:19 → complementizer window expires after 3 content tokens).
+- **Gates:** contract 6 unit + 4 doc PASS · clippy `-D warnings` clean (contract lib + probe example) · fmt clean · fixture falsifier green.
+- **Board (this commit):** EPIPHANIES `E-EYES-OPENED-PRINTS-BLIND-1` · STATUS_BOARD PROBE-EYES-OPENED row · LATEST_STATE inventory. Task #48.
+
 ## 2026-07-27 — furnace L1–L7 build + amortization probes consolidated (1 Opus probe, 1 Sonnet probe)
 
 Tags: `exec-runs/probe-l5-fisherz.md` (Sonnet, bgz-tensor); planner probe

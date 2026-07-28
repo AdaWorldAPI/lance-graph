@@ -1,3 +1,10 @@
+## 2026-07-28 — branch `claude/x265-x266-plans-review-h9osnl` — PROBE-EYES-OPENED (the Adam awareness printed blind from the KJV bake)
+
+### Current Contract Inventory — new clause_cues catalogues + probe example
+- `lance_graph_contract::grammar::clause_cues::is_negation` (`E-EYES-OPENED-PRINTS-BLIND-1`) — predicate-polarity negation cues (`not/no/never/neither/nor/cannot`, exact catalogue; excludes `without`/`nothing`/`none` with rationale). The load-bearing capability: an extractor observing `f≈0.05` under a negation lets the arena HOLD an invalidation, so a later positive observation produces a genuine NARS revision with preserved contradiction depth. Fire+silent tests.
+- `lance_graph_contract::grammar::clause_cues::is_perception_verb` — the rung-lift operators (`knew/saw/perceived/understood/realized/...` incl. KJV forms), deliberately NOT in `verb_lexicon::FAMILY_LEXICON` (epistemic level ≠ TEKAMOLO slot — conflating them flattens the Tarski ladder into the relation plane). Fire+silent tests.
+- `lance_graph_planner::examples::probe_eyes_opened` — the four-blade probe (reversal / reflexive rung lift / causal chain / Hermeneutik pass-2) with a self-asserting 13-verse KJV fixture and a local-only real-corpus mode. Measured headline: on real Genesis 1–4 (106 verses) the ONLY self-referential rung lift of ten is 3:7 `they —knew→ naked`, found blind; blind contradiction ranking = {eat, die, god→good, they→respect} all genuine; pass-2 re-read converges (admitted=0, revised=0, fixed point) — NARS's S4 overlap guard is the hermeneutic circle's termination proof. Detail: `EPIPHANIES` E-EYES-OPENED-PRINTS-BLIND-1; `AGENT_LOG` 2026-07-28.
+
 ## 2026-07-27 (later) — post-#854 target shapes WITHDRAWN; zero-copy discriminator ruled; next task is the §12 substrate trace
 
 ### ⊘⊘ The redo-sequence architecture proposed after #854's merge is WITHDRAWN as unauthorized inference
