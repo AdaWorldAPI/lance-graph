@@ -125,6 +125,83 @@ pub fn modal_tense(word: &str) -> Option<Tense> {
     MODALS.iter().find(|(m, _)| *m == word).map(|(_, t)| *t)
 }
 
+/// Negation cues — the words that flip a clause's predicate polarity. An
+/// extractor seeing one before its predicate observes the statement with LOW
+/// frequency (`f ≈ 0`, an explicit invalidation) instead of high — which is
+/// what lets the arena HOLD a negation ("they were **not** ashamed",
+/// Gen 2:25; "ye shall **not** surely die", Gen 3:4) so a later positive
+/// observation of the same statement produces a genuine NARS revision with
+/// preserved contradiction depth. A substrate that cannot hold a negation
+/// cannot detect a reversal — the PROBE-EYES-OPENED load-bearing gap.
+///
+/// Exact catalogue, not morphology: `not`/`no`/`never`/`neither`/`nor`, plus
+/// the contracted-erosion form `cannot`. Deliberately excludes `without`
+/// (prepositional, scopes a noun phrase not the predicate) and `nothing`/
+/// `none` (negative pronouns — they fill a slot rather than flip one).
+const NEGATIONS: &[&str] = &["not", "no", "never", "neither", "nor", "cannot"];
+
+/// Is this (lowercased) word a predicate-polarity negation cue?
+///
+/// ```
+/// use lance_graph_contract::grammar::clause_cues::is_negation;
+/// assert!(is_negation("not"));   // "were not ashamed" — Gen 2:25
+/// assert!(is_negation("never"));
+/// assert!(!is_negation("naught"));  // archaic noun, fills a slot
+/// assert!(!is_negation("knot"));
+/// ```
+#[must_use]
+pub fn is_negation(word: &str) -> bool {
+    NEGATIONS.contains(&word)
+}
+
+/// Perception / epistemic verbs — the rung-lift operators. `X knew that P`
+/// does not merely observe `P`; it mints a rung-1 statement ABOUT `P`
+/// (Tarski ladder: knowledge-about is one rung above the known). The
+/// catalogue carries surface forms (incl. KJV irregular pasts) because these
+/// verbs are RUNG OPERATORS, not relation families — they deliberately do
+/// NOT live in `verb_lexicon::FAMILY_LEXICON` (a `knows-that` edge types the
+/// EPISTEMIC level, not the TEKAMOLO slot; conflating them would flatten the
+/// ladder into the relation plane).
+///
+/// The self-referential case (`knower == inner subject`: "they knew that
+/// THEY were naked", Gen 3:7) is the awareness signature the probe hunts —
+/// distinct from ordinary knows-that ("God saw that it was good", Gen 1:4,
+/// rung-1 but not reflexive).
+const PERCEPTION_VERBS: &[&str] = &[
+    "know",
+    "knew",
+    "knows",
+    "knowing",
+    "see",
+    "saw",
+    "sees",
+    "perceive",
+    "perceived",
+    "understand",
+    "understood",
+    "realize",
+    "realized",
+    "recognize",
+    "recognized",
+];
+
+/// Is this (lowercased) word a perception/epistemic verb — a rung-lift
+/// operator that, followed by a complementizer (`that`), lifts the ensuing
+/// clause one Tarski rung?
+///
+/// ```
+/// use lance_graph_contract::grammar::clause_cues::is_perception_verb;
+/// assert!(is_perception_verb("knew"));  // "they knew that they were naked"
+/// assert!(is_perception_verb("saw"));   // "God saw ... that it was good"
+/// assert!(!is_perception_verb("sewed")); // action verb, no rung lift
+/// assert!(!is_perception_verb("hear"));  // perception, but not in the exact
+///                                        // catalogue until a probe needs it
+/// ```
+#[must_use]
+pub fn is_perception_verb(word: &str) -> bool {
+    PERCEPTION_VERBS.contains(&word)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,5 +249,33 @@ mod tests {
         assert_eq!(modal_tense("shalt"), Some(Tense::Future));
         assert_eq!(modal_tense("would"), Some(Tense::Potential));
         assert_eq!(modal_tense("carries"), None);
+    }
+
+    #[test]
+    fn negation_cues_fire_on_polarity_flippers_only() {
+        // Fire: the Gen 2:25 / 3:4 forms the reversal blade depends on.
+        for w in ["not", "no", "never", "neither", "nor", "cannot"] {
+            assert!(is_negation(w), "{w} must flip predicate polarity");
+        }
+        // Stay silent: scoped/slot-filling negatives and lookalikes are NOT
+        // polarity flippers — flagging them would invalidate statements the
+        // text never denied.
+        for w in ["without", "nothing", "none", "naught", "knot", "note"] {
+            assert!(!is_negation(w), "{w} must not flip predicate polarity");
+        }
+    }
+
+    #[test]
+    fn perception_verbs_fire_on_rung_operators_only() {
+        // Fire: the epistemic verbs that lift a that-clause one rung.
+        for w in ["knew", "know", "saw", "perceived", "understood", "realized"] {
+            assert!(is_perception_verb(w), "{w} is a rung operator");
+        }
+        // Stay silent: action verbs — 3:7's OTHER verbs must not rung-lift,
+        // else every clause becomes meta and the ladder flattens (a
+        // fires-on-everything guard carries zero information).
+        for w in ["sewed", "hid", "eat", "took", "made", "opened"] {
+            assert!(!is_perception_verb(w), "{w} must not rung-lift");
+        }
     }
 }
