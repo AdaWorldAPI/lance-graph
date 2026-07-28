@@ -152,9 +152,25 @@
 //! fingerprints under a pluggable Hamming-family `DistanceFn`; **helix
 //! `DistanceLut`** is a 256×256 L1 table over a LINEAR codebook order — a
 //! true metric (triangle inequality by construction), safe for CLAM/CAKES
-//! pruning where edit distances are not. The substrate-shaped successor to
-//! Levenshtein here is the **q-gram character profile** (Ukkonen's family):
-//! a profile IS a sparse fingerprint, which is what CLAM/HHTL consume.
+//! pruning where edit distances are not. The fingerprint-space companion is
+//! the **q-gram character profile** (Ukkonen's family): a profile IS a
+//! sparse fingerprint, which is what CLAM/HHTL consume.
+//!
+//! **Correction — "successor" was the wrong word** (operator: *"for
+//! reference, tesseract-rs achieved an extremely improved ranking with
+//! Levenshtein CER"*). Edit distance is not superseded; it is the RIGHT
+//! metric for a different job, and the workspace has the receipt.
+//! Character Error Rate **is** normalized Levenshtein, and it is what
+//! ranked the tesseract-rs OCR transcode — because there the question is
+//! *"how far is this produced sequence from the reference sequence,"* which
+//! is exactly what an alignment-based edit distance answers and what a
+//! bag-of-q-grams cannot (a profile is order-blind: `kennen` and `nenken`
+//! score identically). The split is by QUESTION, not by generation:
+//! **sequence error → edit distance / CER**; **fingerprint-space search and
+//! metric-tree pruning → L1-over-linear-order + CLAM/HHTL**. This probe is
+//! doing neither — it is generating a graded PHASE from shared radix depth
+//! — so it borrows the LCS substring rather than claiming to replace
+//! anything.
 //!
 //! Measured caveat, adjudicated by the operator's own anti-deadness
 //! constraint: at stem scale (≤ 8 chars) a pure bigram measure QUANTIZES —
@@ -482,11 +498,15 @@ fn phase_of(shared: f32) -> f32 {
 /// The fingerprint-space CROSS-CHECK metric: unigram+bigram character
 /// profile cosine (the q-gram profile family — Ukkonen's edit-distance
 /// bound). A profile is a sparse FINGERPRINT of the string, i.e. the shape
-/// CLAM trees and HHTL cascades consume after binarization — this is the
-/// substrate-native successor to the Levenshtein family. It does NOT drive
-/// phase (pure bigrams quantize at stem scale — the dead-phase trap through
-/// the metric door); it must AGREE with the radix path on the flagship
-/// ordering, which the falsifier asserts.
+/// CLAM trees and HHTL cascades consume after binarization.
+///
+/// NOT a replacement for edit distance — a profile is order-blind
+/// (`kennen` and `nenken` score identically), which is precisely why CER
+/// (normalized Levenshtein) is the right metric for sequence error and
+/// ranked the tesseract-rs OCR transcode. Different question, different
+/// metric. Here it also does NOT drive phase (pure bigrams quantize at stem
+/// scale — the dead-phase trap through the metric door); it must AGREE with
+/// the radix path on the flagship ordering, which the falsifier asserts.
 fn profile_cosine(a: &str, b: &str) -> f32 {
     fn profile(s: &str) -> HashMap<(char, char), f32> {
         let cs: Vec<char> = s.chars().collect();
