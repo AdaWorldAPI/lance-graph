@@ -75,11 +75,16 @@
 //! * German `KNOW` (`gewar` adj ↔ `erkandte` v): divergent on THREE channels
 //!   — φ_sem = 0.833π (suppletive stems), φ_syn = π (adj vs verb), φ_morph =
 //!   π (∅- vs er- prefixation). [VERIFIED — asserted.]
-//! * `KNOW`'s pragmatic channel is antiphase in EVERY lane (φ_prag = π,
-//!   cross-lane coherence 1.0): all six traditions — English included —
-//!   carry the Hebrew ידע euphemism at 4:1 as a calque. **Coherent antiphase
-//!   = translationese**: the lanes agree because they inherit one convention,
-//!   not because five languages independently converged.
+//! * `KNOW`'s pragmatic channel is antiphase in every VERIFIED lane
+//!   (φ_prag = π, cross-lane coherence 1.0 over the verified non-English
+//!   lanes): English, German, Latin and Greek all carry the Hebrew ידע
+//!   euphemism at 4:1 as a calque. **Coherent antiphase = translationese**:
+//!   the lanes agree because they inherit one convention, not because
+//!   independent languages converged. The Czech and Aramaic rows read the
+//!   same way but are curator reconstructions — consistent, **not claimed**,
+//!   and never asserted (codex P2 on #862: this example runs in CI, so an
+//!   assert over a CHECK row would make unverified philology a release gate
+//!   — the slice-1 DIE defect, one channel over).
 //!
 //! Cross-lane, each channel gets its own interference reading over the
 //! verified non-English lanes (en is the chart, never an opinion in the
@@ -555,6 +560,19 @@ fn row_at<'a>(rows: &[&'a LaneLex], pair: &str, addr: (u8, u8)) -> Option<&'a La
         .copied()
 }
 
+/// Are BOTH of a lane's rows at this contrast curator-VERIFIED? The single
+/// gate every assertion in `main` must pass through — a CHECK pair may be
+/// printed but never asserted, and never gate CI (codex P2 on #862).
+fn pair_verified(rows: &[&LaneLex], c: &Contrast) -> bool {
+    match (
+        row_at(rows, c.pair, COORDS[c.a].addr),
+        row_at(rows, c.pair, COORDS[c.b].addr),
+    ) {
+        (Some(ra), Some(rb)) => is_verified(ra) && is_verified(rb),
+        _ => false,
+    }
+}
+
 /// The 4-channel phase vector of one lane at one contrast, or `None` when the
 /// lane is silent there (no phasor, never a guess).
 fn phase_vec(rows: &[&LaneLex], c: &Contrast) -> Option<PhaseVec> {
@@ -1019,26 +1037,56 @@ fn main() {
         "…and the radix path must agree — two metrics, one ordering"
     );
 
-    // PRAGMATIC COHERENT ANTIPHASE (the translationese finding): every lane —
-    // the chart included — flips its pragmatic marker across KNOW's two
-    // coordinates (the Hebrew ידע euphemism, calqued through every tradition).
+    // PRAGMATIC COHERENT ANTIPHASE (the translationese finding).
+    //
+    // ⊘ CODEX P2, ACCEPTED: an earlier revision asserted this over EVERY
+    // occupied lane. Two of them (`cs-bkr`, `arc-onkelos`) are curator
+    // reconstructions the fixture marks CHECK — and because this example now
+    // runs in CI, asserting on them promoted unverified philology to a
+    // release gate. That is precisely the defect slice 1 caught in its own
+    // DIE split, re-introduced one channel over. The gate is verified pairs
+    // ONLY; CHECK lanes print as report-only and can never fail the build.
+    let mut prag_verified: Vec<&str> = Vec::new();
+    let mut prag_check: Vec<&str> = Vec::new();
     for lane in &occupied {
-        let pv = phase_vec(&rows_of[lane], know).unwrap();
-        assert!(
-            pv.prag > 0.9 * pi,
-            "{lane}: the KNOW pragmatic channel must be antiphase (the calque)"
-        );
+        let rows = &rows_of[lane];
+        // Silent-lane convention (CodeRabbit nitpick, accepted): a lane with no
+        // rows at this contrast is SILENT, never a panic — the census loop and
+        // the NAKED/DIE loop already treat it that way, and slot 6 of the spine
+        // is reserved for exactly such a lane (Finnish). An `unwrap` here would
+        // turn the planned lane mint into an opaque panic.
+        let Some(pv) = phase_vec(rows, know) else {
+            continue;
+        };
+        if pair_verified(rows, know) {
+            assert!(
+                pv.prag > 0.9 * pi,
+                "{lane}: the KNOW pragmatic channel must be antiphase (the calque)"
+            );
+            prag_verified.push(lane);
+        } else {
+            prag_check.push(lane);
+        }
     }
+    println!(
+        "  ── pragmatic calque ── asserted over verified {prag_verified:?}; \
+         CHECK (report-only, consistent but not claimed) {prag_check:?}"
+    );
     let prag_coh = chan_coherence[&("KNOW", "prag")];
     assert!(
         prag_coh > 0.99,
         "KNOW prag channel must be COHERENT antiphase (all verified lanes \
          agree because they inherit ONE convention — translationese), got {prag_coh:.3}"
     );
-    // …and the prag channel must stay SILENT where there is no euphemism.
+    // …and the prag channel must stay SILENT where there is no euphemism —
+    // again over verified pairs only (same P2).
     for c in &CONTRASTS[1..] {
         for lane in &occupied {
-            if let Some(pv) = phase_vec(&rows_of[lane], c) {
+            let rows = &rows_of[lane];
+            if !pair_verified(rows, c) {
+                continue;
+            }
+            if let Some(pv) = phase_vec(rows, c) {
                 assert!(
                     pv.prag < 1e-3,
                     "{lane}: prag channel must be silent at {} (no calque there)",
@@ -1359,8 +1407,10 @@ fn main() {
     println!("    of five lanes, GERMAN alone tracks the grid's two KNOW coordinates");
     println!("    lexically — and English still marks them, one level up, by valency");
     println!("    frame (clausal-reflexive vs transitive). Nothing disappears; it moves.");
-    println!("  ✓ all six traditions carry the ידע euphemism at 4:1 in coherent");
-    println!("    antiphase — the lanes agree by inheritance, not convergence.");
+    println!("  ✓ every VERIFIED tradition carries the ידע euphemism at 4:1 in");
+    println!("    coherent antiphase — agreement by inheritance, not convergence.");
+    println!("    (Czech + Aramaic read the same way but are reconstructions:");
+    println!("     consistent, reported, never asserted — CHECK rows do not gate CI.)");
     println!("  ✓ each lane's language stone LEARNED its self-knowledge from the corpus");
     println!("    stone (per-channel awareness — the semantic kernel), and passion =");
     println!("    quale × magnitude × phase peaks exactly where the grid makes a");

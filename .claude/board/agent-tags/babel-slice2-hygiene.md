@@ -1,8 +1,10 @@
 # babel-slice2-hygiene — worker record
 
 Sonnet grindwork worker, branch `claude/x265-x266-plans-review-h9osnl`.
-Task: board hygiene for PROBE-BABEL-STANCES slice 2 (PR #861 rewritten by
-orchestrator; codex P1/P2 findings resolved in
+Task: board hygiene for PROBE-BABEL-STANCES slice 2 (originally staged on
+PR #861, which merged; the branch restarted from `origin/main` and the
+slice-2 work now lives on **PR #862**, rewritten by the orchestrator; codex
+P1/P2 findings resolved in
 `crates/lance-graph-planner/examples/probe_babel_stances.rs`).
 
 ## Files touched
@@ -40,9 +42,10 @@ orchestrator; codex P1/P2 findings resolved in
      immediately after the existing `## PROBE-EYES-OPENED` section, matching
      that section's exact header-table format (single-row `| D-id |
      Deliverable | Repo | Status | Evidence |` table). Status marked
-     **IN PR** (not SHIPPED — PR #861 is open per the brief), evidence cites
-     both the new EPIPHANIES id and the retraction note inside the old one,
-     plus the CI wiring fix (`rust-test.yml` now runs both probe examples).
+     **IN PR** (not SHIPPED — the slice-2 work is open on PR #862, opened
+     after #861 merged, per the brief), evidence cites both the new
+     EPIPHANIES id and the retraction note inside the old one, plus the CI
+     wiring fix (`rust-test.yml` now runs both probe examples).
 
 3. `.claude/board/agent-tags/babel-slice2-hygiene.md` (this file) — created
    the `agent-tags/` directory (did not exist) and wrote this record.
@@ -66,9 +69,7 @@ orchestrator; codex P1/P2 findings resolved in
 - `STATUS_BOARD.md` has no per-file append-only enforcement visible in this
   worktree's tooling reach (no settings.json check run), so the edit was
   made via the normal Edit tool per the brief's explicit deliverable list,
-  not via `tee -a` (STATUS_BOARD.md is a table-structured dashboard file,
-  not a strictly-chronological append-only ledger like EPIPHANIES.md/
-  AGENT_LOG.md — inserting a new section required an in-place Edit, which
-  matches how neighboring sections in that file are structured). Flagging
-  this judgment call for the orchestrator to confirm is consistent with
-  file convention.
+  not via `tee -a`. The repository's newest-first ordering rule is
+  mandatory for `STATUS_BOARD.md` — there is no dashboard-vs-ledger
+  exception — so the section was placed at the very top of the file, ahead
+  of `## PROBE-EYES-OPENED`, not merely appended after it.

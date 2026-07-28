@@ -2,7 +2,7 @@
 
 **Status:** IN PR (`probe_babel_stances`, self-asserting, running in CI via `.github/workflows/rust-test.yml` — closing slice 1's P2 finding that the example's asserts never ran). **Confidence:** High on VERIFIED-row asserts (the falsifier gates on them); the Czech `DIE` morphology-only reading is explicitly CHECK-row-dependent and printed report-only, never asserted.
 
-**Retracts and replaces slice 1's headline mechanism** (see the ⊘ RETRACTED block inside `E-THE-GRID-COLLAPSES-WHAT-A-LANGUAGE-SPLITS-1`, below). Codex flagged two P1s: the coordinate was a LEMMA where WordNet's own `senses` field distinguishes `know.v.01` from `know.v.05` as separate synsets, so the "residual" measured English surface-lemma reuse, not grid escape; and `en-kjv` sat inside its own resultant, contributing a guaranteed-constructive phasor to a measurement made against itself. Both are structurally impossible in slice 2.
+**Retracts and replaces slice 1's headline mechanism** (the slice-1 entry's Status line below is amended to RETRACTED and points here; per the append-only rule only that line was touched — the retraction is stated in full HERE, not inside the historical entry). Codex flagged two P1s: the coordinate was a LEMMA where WordNet's own `senses` field distinguishes `know.v.01` from `know.v.05` as separate synsets, so the "residual" measured English surface-lemma reuse, not grid escape; and `en-kjv` sat inside its own resultant, contributing a guaranteed-constructive phasor to a measurement made against itself. Both are structurally impossible in slice 2.
 
 **Stone 1 — the CORPUS stone: a stratified convergence grid.** Per the operator's steer (*"every other codebook also has frequency, POS and meaning — when you use POS and frequency and WordNet you at least have a convergence"*), a coordinate is the CONVERGENCE of three independently-motivated axes: synset (WordNet — meaning), POS (syntactic category), frequency band (COCA-shaped `top100`/`common`/`rare`). Two verse addresses are distinct coordinates only when ≥ 2 of the 3 axes agree they differ. `KNOW`'s two addresses differ on synset AND band (the carnal sense is archaic-rare); `NAKED` and `DIE` differ on neither — the grid genuinely files them together, so lane silence there is the EXPECTED reading, not a defect. This is the mechanism that inverts the headline: **the grid now sees MORE than most lanes**, and the live question becomes "which lane TRACKS the grid's distinction, and at which linguistic level?"
 
@@ -24,34 +24,11 @@
 
 **Metric check (operator steer: "newer metrics than Levenshtein; HHTL+CLAM, HHTL+helix").** `ndarray::hpc::clam` trees fixed-length `&[u8]` fingerprints under a pluggable Hamming-family `DistanceFn`; helix `DistanceLut` is a 256×256 L1 table over a linear codebook order — a true metric, safe for CLAM/CAKES pruning where edit distances are not. The substrate-shaped successor to Levenshtein is the q-gram character profile (a profile IS a sparse fingerprint). Measured caveat: at stem scale (≤ 8 chars) pure bigrams QUANTIZE (`gewahr` ∩ `kennen` share zero bigrams → φ snaps to π → dead phase again, the slice-1 trap reappearing through the metric door) — so the graded LCS radix path stays the phase GENERATOR, and the profile cosine runs as a fingerprint-space cross-check; both metrics must agree on the flagship ordering (asserted). Full HHTL+helix routing needs a trained lexeme codebook — 30 curated rows are not a codebook — so it stays the queued slice-3 probe.
 
-**Queued next:** slice-3 (trained lexeme codebook → `DistanceLut` L1 → CLAM cross-lane cognate/false-friend search); the Finnish suffix-carving fix (`prefix|stem|suffix`); a confidence-independent surprise term for passion; verifying the remaining CHECK rows against critical editions. Refs: `E-THE-GRID-COLLAPSES-WHAT-A-LANGUAGE-SPLITS-1` (the retracted slice-1 entry, mechanism this supersedes), `E-EYES-OPENED-PRINTS-BLIND-1` (the 3:7 convergence that survives, unrelated to the retracted residual number), `examples/probe_babel_stances.rs` module doc (the authoritative slice-2 statement), task #51.
+**Queued next:** slice-3 (trained lexeme codebook → `DistanceLut` L1 → CLAM cross-lane cognate/false-friend search); the Finnish suffix-carving fix (`prefix|stem|suffix`); a confidence-independent surprise term for passion; verifying the remaining CHECK rows against critical editions. Refs: `E-THE-GRID-COLLAPSES-WHAT-A-LANGUAGE-SPLITS-1` (the retracted slice-1 entry, mechanism this supersedes), `E-EYES-OPENED-PRINTS-BLIND-1` (the 3:7 convergence that survives, unrelated to the retracted residual number), `crates/lance-graph-planner/examples/probe_babel_stances.rs` module doc (the authoritative slice-2 statement), task #52.
 
 ## 2026-07-28 — E-THE-GRID-COLLAPSES-WHAT-A-LANGUAGE-SPLITS-1 — PROBE-BABEL-STANCES slice 1: with English/WordNet as the COORDINATE SYSTEM (not a sixth lane) and linguistic resonance read as PHASE, the Genesis `KNOW` coordinate carries a measured residual of **0.500** that the grid cannot address — and the sole splitting lane is **German** (Luther 1545 `gewar`/gewahr @3:7 vs `erkandte`/kennen @4:1), while `NAKED` stays fully constructive at 1.000. The split coordinate's awareness address is **3:7** — the same verse the monolingual reflexive-lift blade crowns independently. Two machineries, one address.
 
-**Status:** SHIPPED (`probe_babel_stances`, self-asserting; 6-lane spine, verified-row-gated asserts). **Confidence:** High on the asserted rows (en-kjv machine-verified from Gutenberg #10; de/la/el KNOW+NAKED are anchor facts). The `DIE` finding is **explicitly NOT claimed** — see the honesty correction below.
-
-> **⊘ RETRACTED (codex P1, 2026-07-28):** this entry's headline residual (0.500,
-> "expressiveness escaping the coordinate system") is retracted. The `KNOW`
-> coordinate was built from a LEMMA, not a synset — but the grid's own
-> `senses` field already said WordNet files `know.v.01` (be cognizant of)
-> and `know.v.05` (carnal) as DISTINCT synsets. A one-lemma coordinate
-> therefore cannot distinguish Gen 3:7 from Gen 4:1 in English itself, so
-> the measured "residual" was **English surface-lemma reuse**, not
-> expressiveness the grid cannot address. Second, compounding defect:
-> `en-kjv` sat INSIDE its own resultant — the chart contributed a
-> guaranteed-constructive phasor to a measurement made against itself,
-> inflating every amplitude. Slice 2 (`E-TWO-ROSETTA-STONES-AND-THE-FOUR-
-> CHANNEL-SPLIT-1`, below) rebuilds the coordinate as a three-axis
-> synset×POS×frequency-band convergence and excludes en-kjv from every
-> resultant; the honest finding INVERTS — the grid now sees MORE than most
-> lanes. **What survives unretracted, unchanged:** the graded-phase
-> (dead-phase) fix in the SELF-CAUGHT CORRECTION below (`φ = π·(1 −
-> shared_path)`, LCS-over-chars) — slice 2 keeps this radix-grading
-> mechanism verbatim; the per-row VERIFIED/CHECK discipline (`is_verified`
-> gates per row, not per lane); and the 3:7 convergence with
-> `E-EYES-OPENED-PRINTS-BLIND-1`'s B2 blade (both machineries still crown
-> the same verse — that finding does not depend on the retracted residual
-> number). The `DIE` non-finding and the false-friends 2×2 stand as written.
+**Status:** SHIPPED, then **HEADLINE RETRACTED 2026-07-28 (codex P1)** — the residual mechanism below is superseded; the retraction and what survives it are stated in full in `E-TWO-ROSETTA-STONES-AND-THE-FOUR-CHANNEL-SPLIT-1` (prepended above). Entry text otherwise unchanged (append-only: only this Status line is amendable). **Confidence:** High on the asserted rows (en-kjv machine-verified from Gutenberg #10; de/la/el KNOW+NAKED are anchor facts); the headline residual number is WITHDRAWN. The `DIE` finding was **explicitly NOT claimed** — see the honesty correction below.
 
 **The three operator steers became one mechanism.** (1) *"English meaning as a coordinate system (wordnet) vs linguistic resonance"* — English is the GRID, its synsets are addresses, the five other lanes are measured AGAINST it (asymmetric by design: chart vs territory). Machine-verified: the KJV uses ONE root at both addresses of all three pairs — `knew`/`knew`, `naked`/`naked`, `die`/`die` — so the grid genuinely cannot address what a lane may split. (2) *"treat linguistic resonance as phase"* — per (lane, coordinate): shares one root = **phase 0** (constructive, agrees with the grid), two roots = **phase π** (antiphase). Amplitude = `|Σ e^{iφ}|/N`; **residual = 1 − amplitude IS the expressiveness escaping the coordinate system** — the multilingual form of `AddressAbsent`. Deterministic from lanes + grid, never stored (D-QUANTGATE-clean). (3) *"use the richness of our 32 lane SoA"* — a 32-slot spine, 6 occupied, 26 `None` (RESERVE-DON'T-RECLAIM). **Honest scope: lane-SHAPED, not SoA-WRITTEN** — no envelope, no tenant, no `ENVELOPE_LAYOUT_VERSION` (a real value tenant is `v3-envelope-auditor`-gated, not this slice); the columnar-read payoff is stated as a CLAIM, not a benchmark.
 
