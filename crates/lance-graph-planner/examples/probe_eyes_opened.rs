@@ -424,6 +424,19 @@ fn stream(
                                     cop: Copula::Rel(verb),
                                     p,
                                 };
+                                // Context BEFORE output (codex P1): the
+                                // snapshot must precede admit_derived, else
+                                // the modal-scaled meta-belief sits inside
+                                // its own context factor and `modal` leaks
+                                // into BOTH sides of quale = modal × staunen
+                                // (and duplicate lifts become incomparable).
+                                // The inner emission IS stream context; the
+                                // meta-belief is the lift's own output.
+                                let staunen_at = if pass2 {
+                                    0.0
+                                } else {
+                                    staunen(&Snapshot::of(arena, 0.0))
+                                };
                                 // Cell-graded epistemic force: the meta-truth
                                 // discount IS the 144 cell's tense-modulated
                                 // modal prior — knowing (Abstracts, 0.85)
@@ -437,12 +450,10 @@ fn stream(
                                 if !pass2 {
                                     // Blind × context: the cell's modal
                                     // (text-independent archetype) × the
-                                    // arena's Staunen AT this stream position
+                                    // arena's Staunen AT the lift site
                                     // (0.5·truth_entropy + 0.5·wonder; wonder
                                     // = committed-contradiction tension — the
                                     // felt stakes accumulated so far).
-                                    let snap = Snapshot::of(arena, 0.0);
-                                    let staunen_at = staunen(&snap);
                                     out.lifts.push(RungLift {
                                         verse: verse.clone(),
                                         knower,

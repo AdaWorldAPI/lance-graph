@@ -238,16 +238,25 @@ pub fn family_of_lemma(lemma: &str) -> Option<VerbFamily> {
 /// consumer catalogue actually needs (extend alongside `FAMILY_LEXICON`).
 const IRREGULAR_PASTS: &[(&str, &str)] = &[
     ("knew", "know"),
-    ("saw", "see"),
     ("understood", "understand"),
     ("grew", "grow"),
     ("arose", "arise"),
     ("became", "become"),
     ("brought", "bring"),
     ("held", "hold"),
-    ("bore", "bear"),
     ("upheld", "uphold"),
 ];
+
+/// Irregular pasts that are HOMOGRAPHS of unrelated words — `saw` (the tool),
+/// `bore` (to drill) — and therefore NEVER resolve in the context-free public
+/// [`classify_verb`] (codex P2: an unconditional past reading would make
+/// `read_verb` emit confidently mistyped relations for "saw the plank" where
+/// the honest behavior is sparsity). They resolve ONLY through a cue-gated
+/// path that supplies the missing context — today that is
+/// [`epistemic_reading`], where `is_perception_verb` + the that-complement
+/// license the verb reading of `saw`. `bore` has no cue consumer yet, so it
+/// keeps returning `None` everywhere — ambiguity preserved, not guessed.
+const AMBIGUOUS_IRREGULAR_PASTS: &[(&str, &str)] = &[("saw", "see"), ("bore", "bear")];
 
 /// Candidate (lemma, tense) readings for a surface form, in priority order.
 /// Irregular pasts first (`knew` → know/Past), then regular English
@@ -448,7 +457,17 @@ pub fn epistemic_reading(word: &str) -> Option<EpistemicReading> {
     if !crate::grammar::clause_cues::is_perception_verb(&lower) {
         return None; // cheap cue gate: licenses the that-complement
     }
-    let (family, tense) = classify_verb(&lower)?;
+    // The cue gate IS the context an ambiguous homograph needs: within this
+    // path, `saw` is a perception verb awaiting a that-complement, never the
+    // tool — so the ambiguous irregulars resolve here and only here.
+    let (family, tense) = if let Some((_, base)) = AMBIGUOUS_IRREGULAR_PASTS
+        .iter()
+        .find(|(surface, _)| *surface == lower.as_str())
+    {
+        (family_of_lemma(base)?, Tense::Past)
+    } else {
+        classify_verb(&lower)?
+    };
     let prior = base_prior(family).combine(tense_modifier(tense));
     Some(EpistemicReading {
         family,
@@ -596,10 +615,6 @@ mod tests {
         assert_eq!(
             classify_verb("knew"),
             Some((VerbFamily::Abstracts, Tense::Past))
-        );
-        assert_eq!(
-            classify_verb("saw"),
-            Some((VerbFamily::Mirrors, Tense::Past))
         );
         assert_eq!(
             classify_verb("understood"),

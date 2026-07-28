@@ -5,6 +5,7 @@
 - **Built — probe:** lift gate → epistemic_reading; meta-truth discount = cell modal (never a constant); RungLift carries modal/cell/staunen_at/quale; B5 falsifier (scene-scale quale crowns reflexive 3:7, context factor must rise independently).
 - **Measured:** fixture all green (3:7 quale 0.155 ≈ 2× 3:6's 0.086); corpus-scale mean-staunen DILUTES (1:4 0.062 > 3:7 0.056) — honest finding, rate-not-count one layer up; PROBE-QUALE-LOCAL pre-registered, not tuned in.
 - **Gates:** 135 grammar tests green · clippy `-D warnings` clean ×2 · fmt clean · fixture asserts green.
+- **Codex review round (#859, both confirmed real, fixed pre-merge):** P1 — snapshot taken AFTER admit_derived leaked modal into its own context factor; fix (snapshot before output) FLIPPED the corpus verdict: blind ranking now crowns 3:7 (0.047; 1:4 = 0.000 pristine) and the earlier "mean dilutes" finding is superseded as substantially artifact. P2 — homograph irregulars (saw = tool, bore = drill) unconditionally past-classified in public classify_verb → split: AMBIGUOUS_IRREGULAR_PASTS resolve only under the cue gate (epistemic_reading); read_verb("saw") stays None (sparsity preserved), tested.
 - **Board (this commit):** EPIPHANIES E-RUNG-LIFT-RAILS-SHAPED-144-QUALIA-1 · LATEST_STATE inventory. Task #49.
 
 ## 2026-07-28 — PROBE-EYES-OPENED: the Adam awareness printed blind (main-thread, no subagent)
