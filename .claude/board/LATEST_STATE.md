@@ -1,3 +1,10 @@
+## 2026-07-28 — branch `claude/x265-x266-plans-review-h9osnl` — rails-shaped rung lift (144-cell reasoning + Morton cascade + qualia)
+
+### Current Contract Inventory — verb matrix cascade + epistemic reading
+- `lance_graph_contract::grammar::verb_table::{FamilyQuadrant, TenseQuadrant, morton_cell, same_quadrant, quadrant_prior}` (`E-RUNG-LIFT-RAILS-SHAPED-144-QUALIA-1`) — the 4×4 Morton cascade addressing of the 144: one byte per cell `[fq:2|tq:2|fm:2|tm:2]`, high nibble = coarse quadrant (nibble-ancestry, D-TILE256-shaped), 12×12 occupied in the 16×16 palette256 page, reserves RESERVE-DON'T-RECLAIM. Inverse-pyramid residual probe MEASURED + pinned: mean 0.0774, max 0.500 = Grounds.lokal (outlier catalogue named; lokal = the axis the carve compresses worst). Deterministic throughout.
+- `lance_graph_contract::grammar::verb_lexicon::{IRREGULAR_PASTS, EpistemicReading, epistemic_reading}` — the rails-shaped rung-lift condition: cue gate (that-complement licensing) + 144-cell read (tense-modulated modal = epistemic force + Morton address). Epistemic lemmas minted: SEE-class → Mirrors (0.70), KNOW-class → Abstracts (0.85) — WordNet's verb.perception/verb.cognition supersense split independently confirms the cut. Catalogue↔matrix WELD test forbids drift. Irregular pasts (knew/saw/understood/…) classify with correct tense.
+- `probe_eyes_opened` B5 — awareness quale = blind × context (cell modal × Staunen-at-lift): scene-scale asserted (3:7 = 0.85×0.182 = 0.155 > 3:6 = 0.70×0.123 = 0.086, both factors independently); corpus-scale HONEST finding: field-mean staunen dilutes (1:4 outranks 3:7) — PROBE-QUALE-LOCAL (Δstaunen) pre-registered. Also queued: PROBE-WORDNET-QUADRANTS, PROBE-COMMA-144 ([S] until a phase-reader is named; golden-step null is the falsifier template). O7 fence held (verb_table 144 only). Detail: EPIPHANIES + AGENT_LOG 2026-07-28.
+
 ## 2026-07-28 — branch `claude/x265-x266-plans-review-h9osnl` — PROBE-EYES-OPENED (the Adam awareness printed blind from the KJV bake)
 
 ### Current Contract Inventory — new clause_cues catalogues + probe example

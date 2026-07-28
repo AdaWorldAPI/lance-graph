@@ -1,3 +1,12 @@
+## 2026-07-28 — rails-shaped rung lift: 144-cell reasoning + 4×4 Morton cascade + qualia (main-thread, no subagent)
+
+- **Operator steers (4, same arc):** "use the 12×12=144 verb matrix for reasoning" (not a flat membership bit); "4×4 Morton cascade inverse pyramid perturbation shader"; "either as is or expanded to 16×16" → as-is, reserves dormant; "verbs actionability should be deterministic" → table reads only; "the qualia of blind × context would make awareness even better" → quale = cell modal × Staunen-at-lift; "(3×4)² irrational Morton drifting Pythagoras comma" → real mechanism, [S], logged as PROBE-COMMA-144 with the golden-step null as falsifier template.
+- **Built — contract:** verb_table Morton cascade layer (quadrants, morton_cell, quadrant_prior + 4 tests incl. the MEASURED residual probe: mean 0.0774 / max 0.500 Grounds.lokal, pinned); verb_lexicon IRREGULAR_PASTS + epistemic lemmas (see→Mirrors 0.70, know→Abstracts 0.85; WordNet supersense split concurs) + epistemic_reading (cue gate × matrix read) + 5 tests incl. the catalogue↔matrix weld.
+- **Built — probe:** lift gate → epistemic_reading; meta-truth discount = cell modal (never a constant); RungLift carries modal/cell/staunen_at/quale; B5 falsifier (scene-scale quale crowns reflexive 3:7, context factor must rise independently).
+- **Measured:** fixture all green (3:7 quale 0.155 ≈ 2× 3:6's 0.086); corpus-scale mean-staunen DILUTES (1:4 0.062 > 3:7 0.056) — honest finding, rate-not-count one layer up; PROBE-QUALE-LOCAL pre-registered, not tuned in.
+- **Gates:** 135 grammar tests green · clippy `-D warnings` clean ×2 · fmt clean · fixture asserts green.
+- **Board (this commit):** EPIPHANIES E-RUNG-LIFT-RAILS-SHAPED-144-QUALIA-1 · LATEST_STATE inventory. Task #49.
+
 ## 2026-07-28 — PROBE-EYES-OPENED: the Adam awareness printed blind (main-thread, no subagent)
 
 - **Operator arc:** "the most brutal test would be to find out how the KJV bible bake needs to connect the dots about the Adam awareness — 'Their eyes were opened'" + "we could start with that and Hermeneutik" + "how does Hermeneutik compute to NARS". Built the four-blade probe over the real KJV bake (`/tmp/pg10.txt`, Gutenberg #10, local-only).
