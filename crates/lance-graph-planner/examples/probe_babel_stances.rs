@@ -71,7 +71,13 @@
 //!   identical (φ_sem = 0), perfectivizing prefixes wholly divergent
 //!   (φ_morph = π). A pooled measure read this as 0.286π "mild semantic
 //!   divergence"; the split shows it is pure aspect morphology. [CHECK row —
-//!   reported, never asserted.]
+//!   reported, never asserted. This claim was ASSERTED until CodeRabbit caught
+//!   it on #862: no VERIFIED lane exhibits morphology-only divergence (German
+//!   fires all three channels, Latin none), so the fixture could only supply
+//!   this shape through an unverified row whose own DEVIATION note flags a
+//!   possible curator error. The channel-separability INVARIANT — and its
+//!   converse — is now asserted on synthetic strings, lane-free, where a
+//!   philological correction cannot break the build.]
 //! * German `KNOW` (`gewar` adj ↔ `erkandte` v): divergent on THREE channels
 //!   — φ_sem = 0.833π (suppletive stems), φ_syn = π (adj vs verb), φ_morph =
 //!   π (∅- vs er- prefixation). [VERIFIED — asserted.]
@@ -988,27 +994,68 @@ fn main() {
     );
 
     // THE PREFIX MEANING-SWITCH, three readings the pooled measure conflates.
-    let cs_die = phase_vec(&rows_of["cs-bkr"], &CONTRASTS[2]).unwrap();
+    // REPORT-ONLY for the Czech row (CHECK): printed, never asserted, and
+    // silent-lane tolerant so a fixture correction cannot panic the run.
+    let cs_die_report = phase_vec(&rows_of["cs-bkr"], &CONTRASTS[2])
+        .map(|p| format!("{:.2}π sem {:.2}π [CHECK]", p.morph / pi, p.sem / pi))
+        .unwrap_or_else(|| "(silent)".to_string());
     println!(
         "  ── prefix meaning-switch ── la KNOW co|gnosco↔co|gnosco morph {:.2}π sem {:.2}π  |  \
-         cs DIE u|mříti↔ze|mříti morph {:.2}π sem {:.2}π [CHECK]  |  \
+         cs DIE u|mříti↔ze|mříti morph {cs_die_report}  |  \
          de KNOW ∅|gewahr↔er|kennen morph {:.2}π sem {:.2}π",
         la_know.morph / pi,
         la_know.sem / pi,
-        cs_die.morph / pi,
-        cs_die.sem / pi,
         de_know.morph / pi,
         de_know.sem / pi
     );
-    // Czech is the PURE morphological case: stems identical, prefix switched.
-    // (CHECK row — this assert tests the CHANNEL ARITHMETIC on the fixture as
-    // curated, not the philological claim, which stays report-only.)
+    // CHANNEL SEPARABILITY — the arithmetic invariant, on SYNTHETIC input.
+    //
+    // ⊘ CODEX/CODERABBIT, ACCEPTED (second instance of the same defect): an
+    // earlier revision asserted this on `cs_die` — the cs-bkr DIE pair, which
+    // the fixture marks CHECK and whose own DEVIATION note says it may be a
+    // curator memory error. With this example running in CI, correcting that
+    // reconstruction would have BROKEN THE BUILD. The comment there claimed the
+    // assert tested "channel arithmetic, not the philological claim" — but an
+    // assert reading fixture rows tests the fixture, whatever the comment says.
+    //
+    // The mechanism claim is genuinely independent of any lane, so it is tested
+    // where it belongs: on constructed strings. Same stem, different prefix ⇒
+    // morph fires ALONE (sem silent). No verified lane exhibits this shape —
+    // de KNOW fires all three channels, la KNOW fires none — so asserting it
+    // from the fixture was only ever possible by leaning on an unverified row.
+    let (syn_pfx_a, syn_stem_a) = split_morph("u|mriti");
+    let (syn_pfx_b, syn_stem_b) = split_morph("ze|mriti");
+    let syn_morph = phase_of(shared_path(syn_pfx_a, syn_pfx_b));
+    let syn_sem = phase_of(shared_path(syn_stem_a, syn_stem_b));
     assert!(
-        cs_die.sem < 1e-3 && cs_die.morph > 0.9 * pi,
-        "cs DIE must be divergence attributable to MORPHOLOGY ALONE (same \
-         stem mříti, switched perfectivizing prefix), got morph {:.2}π sem {:.2}π",
-        cs_die.morph / pi,
-        cs_die.sem / pi
+        syn_sem < 1e-3 && syn_morph > 0.9 * pi,
+        "channel separability: identical stems with disjoint prefixes must put \
+         ALL divergence on the morph channel and NONE on sem — got morph {:.2}π \
+         sem {:.2}π",
+        syn_morph / pi,
+        syn_sem / pi
+    );
+    // …and the converse, so the pair is a real discriminator rather than a
+    // one-sided guard: identical prefixes with divergent stems must put the
+    // divergence on sem and leave morph silent.
+    let (cv_pfx_a, cv_stem_a) = split_morph("co|gnosco");
+    let (cv_pfx_b, cv_stem_b) = split_morph("co|habito");
+    let cv_morph = phase_of(shared_path(cv_pfx_a, cv_pfx_b));
+    let cv_sem = phase_of(shared_path(cv_stem_a, cv_stem_b));
+    assert!(
+        cv_morph < 1e-3 && cv_sem > 0.5 * pi,
+        "channel separability (converse): identical prefixes with divergent \
+         stems must fire sem and leave morph silent — got morph {:.2}π sem {:.2}π",
+        cv_morph / pi,
+        cv_sem / pi
+    );
+    println!(
+        "  ── channel separability (synthetic, lane-free) ── morph-only {:.2}π/{:.2}π  \
+         sem-only {:.2}π/{:.2}π   [cs DIE is the natural instance but CHECK — reported, never asserted]",
+        syn_morph / pi,
+        syn_sem / pi,
+        cv_morph / pi,
+        cv_sem / pi
     );
 
     // METRIC CROSS-CHECK: the q-gram profile cosine (fingerprint space —
@@ -1027,15 +1074,34 @@ fn main() {
         profile_cosine(la_a, la_b),
         shared_path(la_a, la_b)
     );
-    assert!(
-        profile_cosine(de_a, de_b) < profile_cosine(cs_a, cs_b),
-        "the fingerprint-space metric must order the flagship pairs the same \
-         way the radix path does (German stems more distant than Czech stems)"
-    );
-    assert!(
-        shared_path(de_a, de_b) < shared_path(cs_a, cs_b),
-        "…and the radix path must agree — two metrics, one ordering"
-    );
+    // The ORDERING agreement is asserted on a synthetic ladder, not against the
+    // fixture's identical-stem pairs. Comparing a real pair to a self-identical
+    // one only ever asks "is 0.13 < 1.0" — true of almost any input, so it
+    // tested nothing (the anti-vacuity rule: an assertion implied by its own
+    // construction is not a test). A three-rung ladder of GENUINELY different
+    // pairs has a real failure mode: if the two metrics ever disagree on the
+    // ranking, one of them is unfit to cross-check the other.
+    let ladder = [
+        ("mriti", "mriti"),   // identical      — maximal agreement
+        ("gnosco", "gnosca"), // one char apart — high agreement
+        ("gewahr", "kennen"), // suppletive     — minimal agreement
+    ];
+    for w in ladder.windows(2) {
+        let (hi, lo) = (w[0], w[1]);
+        assert!(
+            profile_cosine(hi.0, hi.1) > profile_cosine(lo.0, lo.1),
+            "q-gram profile must rank {:?} above {:?}",
+            hi,
+            lo
+        );
+        assert!(
+            shared_path(hi.0, hi.1) > shared_path(lo.0, lo.1),
+            "…and the radix path must produce the SAME ranking — two metrics, \
+             one ordering ({:?} above {:?})",
+            hi,
+            lo
+        );
+    }
 
     // PRAGMATIC COHERENT ANTIPHASE (the translationese finding).
     //
