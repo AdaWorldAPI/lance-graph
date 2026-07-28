@@ -121,6 +121,14 @@ const FAMILY_LEXICON: &[(&str, VerbFamily)] = &[
     ("conceptualize", VerbFamily::Abstracts),
     ("idealize", VerbFamily::Abstracts),
     ("model", VerbFamily::Abstracts),
+    // Epistemic KNOW-class: knowing forms a concept from the world — the
+    // mind abstracts. Cell modal 0.85 = the strongest epistemic force in
+    // the matrix (the 144 grades knowing above seeing; see
+    // `epistemic_reading`). "they KNEW that they were naked" (Gen 3:7).
+    ("know", VerbFamily::Abstracts),
+    ("understand", VerbFamily::Abstracts),
+    ("realize", VerbFamily::Abstracts),
+    ("recognize", VerbFamily::Abstracts),
     // ── Enables — Discovery/enablement: high Kausal + Lokal ──
     ("enable", VerbFamily::Enables),
     ("allow", VerbFamily::Enables),
@@ -160,6 +168,12 @@ const FAMILY_LEXICON: &[(&str, VerbFamily)] = &[
     ("mimic", VerbFamily::Mirrors),
     ("correspond", VerbFamily::Mirrors),
     ("match", VerbFamily::Mirrors),
+    // Epistemic SEE-class: perceiving mirrors the world in the perceiver —
+    // representation, not yet concept. Cell modal 0.70 < the KNOW-class's
+    // 0.85 (Abstracts): the 144 grades seeing below knowing. "the woman
+    // SAW that the tree was good" (Gen 3:6).
+    ("see", VerbFamily::Mirrors),
+    ("perceive", VerbFamily::Mirrors),
     // ── Dissolves — Change verb: high Temporal + Modal ──
     ("dissolve", VerbFamily::Dissolves),
     ("dissipate", VerbFamily::Dissolves),
@@ -218,11 +232,37 @@ pub fn family_of_lemma(lemma: &str) -> Option<VerbFamily> {
         .map(|(_, f)| *f)
 }
 
+/// Irregular past surface forms → base lemma. Consulted BEFORE the
+/// bare-form-as-Present fallback, so `knew` classifies as (know, Past) and
+/// never as a Present lemma in its own right. Small and exact — only forms a
+/// consumer catalogue actually needs (extend alongside `FAMILY_LEXICON`).
+const IRREGULAR_PASTS: &[(&str, &str)] = &[
+    ("knew", "know"),
+    ("understood", "understand"),
+    ("grew", "grow"),
+    ("arose", "arise"),
+    ("became", "become"),
+    ("brought", "bring"),
+    ("held", "hold"),
+    ("upheld", "uphold"),
+];
+
+/// Irregular pasts that are HOMOGRAPHS of unrelated words — `saw` (the tool),
+/// `bore` (to drill) — and therefore NEVER resolve in the context-free public
+/// [`classify_verb`] (codex P2: an unconditional past reading would make
+/// `read_verb` emit confidently mistyped relations for "saw the plank" where
+/// the honest behavior is sparsity). They resolve ONLY through a cue-gated
+/// path that supplies the missing context — today that is
+/// [`epistemic_reading`], where `is_perception_verb` + the that-complement
+/// license the verb reading of `saw`. `bore` has no cue consumer yet, so it
+/// keeps returning `None` everywhere — ambiguity preserved, not guessed.
+const AMBIGUOUS_IRREGULAR_PASTS: &[(&str, &str)] = &[("saw", "see"), ("bore", "bear")];
+
 /// Candidate (lemma, tense) readings for a surface form, in priority order.
-/// Regular English inflection only — `-ing`/`-ed`/`-es`/`-s` with the `-e`
-/// restoration (`caus` → `cause`) and single doubled-consonant collapse
-/// (`running` → `run`). The surface form itself is tried first (irregulars and
-/// already-base forms), as present tense.
+/// Irregular pasts first (`knew` → know/Past), then regular English
+/// inflection — `-ing`/`-ed`/`-es`/`-s` with the `-e` restoration
+/// (`caus` → `cause`) and single doubled-consonant collapse (`running` →
+/// `run`). The surface form itself is tried as present tense (base forms).
 fn lemma_candidates(w: &str) -> Vec<(String, Tense)> {
     let mut out: Vec<(String, Tense)> = Vec::new();
     let push = |s: String, t: Tense, out: &mut Vec<(String, Tense)>| {
@@ -230,7 +270,11 @@ fn lemma_candidates(w: &str) -> Vec<(String, Tense)> {
             out.push((s, t));
         }
     };
-    // Bare surface form (irregular past / present base): try as present.
+    // Irregular past: the surface form IS a past tense of a known base.
+    if let Some((_, base)) = IRREGULAR_PASTS.iter().find(|(s, _)| *s == w) {
+        push((*base).to_string(), Tense::Past, &mut out);
+    }
+    // Bare surface form (present base): try as present.
     push(w.to_string(), Tense::Present, &mut out);
 
     // -ing → present continuous.
@@ -363,6 +407,76 @@ pub fn read_verb(word: &str) -> Option<(VerbFamily, Tense, TekamoloSlot)> {
     Some((family, tense, slot_for(family, tense)))
 }
 
+/// The 144-cell reading of an epistemic (rung-lift) verb — the RAILS-SHAPED
+/// lift condition. A flat catalogue-membership bit is not a reasoning
+/// condition; the cell is:
+///
+/// * the **cue gate** (`clause_cues::is_perception_verb`) licenses the
+///   that-complement — a lexical fact (the Mirrors family also holds
+///   `resemble`, which takes no that-clause), Moore's cheap check first;
+/// * the **matrix read** supplies the reasoning: `(family, tense)` → the
+///   cell's tense-modulated MODAL prior = the lift's epistemic force, and
+///   the cell's one-byte Morton address for downstream carriage.
+///
+/// The 144 grades knowing above seeing: KNOW-class verbs sit in `Abstracts`
+/// (modal 0.85 — concept formation) and SEE-class in `Mirrors` (modal 0.70 —
+/// representation), so "they KNEW that they were naked" (Gen 3:7) carries
+/// more epistemic force than "the woman SAW that the tree was good" (3:6) —
+/// graded by the matrix, not by a constant.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EpistemicReading {
+    /// The verb's family (KNOW-class → `Abstracts`, SEE-class → `Mirrors`).
+    pub family: VerbFamily,
+    /// Tense read from morphology (irregular pasts resolved: `knew` → Past).
+    pub tense: Tense,
+    /// The cell's tense-modulated modal prior — the lift's epistemic force.
+    pub modal: f32,
+    /// The cell's one-byte Morton cascade address (`verb_table::morton_cell`).
+    pub cell: u8,
+}
+
+/// Read an epistemic verb through the 144 matrix, or `None` if the word is
+/// not a rung-lift operator (cue gate) or does not classify (matrix gate).
+/// Both gates must pass — the weld test asserts the catalogue can never
+/// drift from the matrix.
+///
+/// ```
+/// use lance_graph_contract::grammar::verb_lexicon::epistemic_reading;
+/// use lance_graph_contract::grammar::verb_table::VerbFamily;
+/// let knew = epistemic_reading("knew").unwrap();
+/// let saw = epistemic_reading("saw").unwrap();
+/// assert_eq!(knew.family, VerbFamily::Abstracts); // knowing forms concepts
+/// assert_eq!(saw.family, VerbFamily::Mirrors);    // seeing represents
+/// assert!(knew.modal > saw.modal);                // the 144 grades them
+/// assert_eq!(epistemic_reading("sewed"), None);   // action verb — no lift
+/// assert_eq!(epistemic_reading("resembled"), None); // Mirrors, but no that-clause cue
+/// ```
+#[must_use]
+pub fn epistemic_reading(word: &str) -> Option<EpistemicReading> {
+    let lower = word.to_ascii_lowercase();
+    if !crate::grammar::clause_cues::is_perception_verb(&lower) {
+        return None; // cheap cue gate: licenses the that-complement
+    }
+    // The cue gate IS the context an ambiguous homograph needs: within this
+    // path, `saw` is a perception verb awaiting a that-complement, never the
+    // tool — so the ambiguous irregulars resolve here and only here.
+    let (family, tense) = if let Some((_, base)) = AMBIGUOUS_IRREGULAR_PASTS
+        .iter()
+        .find(|(surface, _)| *surface == lower.as_str())
+    {
+        (family_of_lemma(base)?, Tense::Past)
+    } else {
+        classify_verb(&lower)?
+    };
+    let prior = base_prior(family).combine(tense_modifier(tense));
+    Some(EpistemicReading {
+        family,
+        tense,
+        modal: prior.modal,
+        cell: crate::grammar::verb_table::morton_cell(family, tense),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -491,6 +605,130 @@ mod tests {
         assert_eq!(
             classify_verb("prevented"),
             Some((VerbFamily::Prevents, Tense::Past))
+        );
+    }
+
+    // ── The rails-shaped rung lift (144-cell reasoning) ──
+
+    #[test]
+    fn irregular_pasts_classify_with_past_tense() {
+        assert_eq!(
+            classify_verb("knew"),
+            Some((VerbFamily::Abstracts, Tense::Past))
+        );
+        assert_eq!(
+            classify_verb("understood"),
+            Some((VerbFamily::Abstracts, Tense::Past))
+        );
+        // Regulars via morphology still work for the new lemmas.
+        assert_eq!(
+            classify_verb("knowing"),
+            Some((VerbFamily::Abstracts, Tense::PresentContinuous))
+        );
+        assert_eq!(
+            classify_verb("sees"),
+            Some((VerbFamily::Mirrors, Tense::Present))
+        );
+    }
+
+    /// The catalogue↔matrix WELD: every perception-verb surface form the cue
+    /// catalogue fires on MUST classify through the 144 matrix. This is what
+    /// makes the flat catalogue unable to drift from the reasoning matrix —
+    /// a cue without a cell is a compile-adjacent failure here, not a silent
+    /// membership bit at a consumer.
+    #[test]
+    fn every_perception_cue_reads_a_matrix_cell() {
+        for w in [
+            "know",
+            "knew",
+            "knows",
+            "knowing",
+            "see",
+            "saw",
+            "sees",
+            "perceive",
+            "perceived",
+            "understand",
+            "understood",
+            "realize",
+            "realized",
+            "recognize",
+            "recognized",
+        ] {
+            use crate::grammar::clause_cues::is_perception_verb;
+            assert!(is_perception_verb(w), "{w} must be in the cue catalogue");
+            let r = epistemic_reading(w);
+            assert!(
+                r.is_some(),
+                "{w} fires the cue but reads NO matrix cell — drift"
+            );
+        }
+    }
+
+    /// The 144 grades epistemic force: knowing (Abstracts, modal 0.85) above
+    /// seeing (Mirrors, modal 0.70) — the exact pins of the shipped starter
+    /// priors at Past (no tense delta). Inertness: these are cell reads, so
+    /// changing base_prior moves them (re-pin on tune).
+    #[test]
+    fn the_matrix_grades_knowing_above_seeing() {
+        let knew = epistemic_reading("knew").unwrap();
+        let saw = epistemic_reading("saw").unwrap();
+        assert_eq!(knew.family, VerbFamily::Abstracts);
+        assert_eq!(saw.family, VerbFamily::Mirrors);
+        assert!(
+            (knew.modal - 0.85).abs() < 1e-6,
+            "knew modal = Abstracts base 0.85"
+        );
+        assert!(
+            (saw.modal - 0.70).abs() < 1e-6,
+            "saw modal = Mirrors base 0.70"
+        );
+        // Tense modulates the force: Potential ("might know") +0.25 clamps at 1.0.
+        let mut has_tense_effect = false;
+        if let Some(r) = epistemic_reading("knowing") {
+            // PresentContinuous: modal −0.05 → 0.80 < 0.85.
+            assert!((r.modal - 0.80).abs() < 1e-6);
+            has_tense_effect = true;
+        }
+        assert!(has_tense_effect, "the tense COLUMN must modulate the cell");
+    }
+
+    /// The cell address rides along: knew and saw live in DIFFERENT family
+    /// quadrants (Change holds both Abstracts and Mirrors — same fq — so the
+    /// discrimination is at the member level, not the quadrant level: the
+    /// pyramid places seeing and knowing as siblings under Change).
+    #[test]
+    fn epistemic_cells_are_change_quadrant_siblings() {
+        use crate::grammar::verb_table::{same_quadrant, FamilyQuadrant};
+        let knew = epistemic_reading("knew").unwrap();
+        let saw = epistemic_reading("saw").unwrap();
+        assert_eq!(VerbFamily::Abstracts.quadrant().0, FamilyQuadrant::Change);
+        assert_eq!(VerbFamily::Mirrors.quadrant().0, FamilyQuadrant::Change);
+        // Same tense (Past → Simple) + same family quadrant → same coarse cell;
+        // different members → different full address.
+        assert!(same_quadrant(knew.cell, saw.cell));
+        assert_ne!(knew.cell, saw.cell);
+    }
+
+    /// The two gates are BOTH required (stay-silent halves): an action verb
+    /// fails the cue gate; a Mirrors verb without that-complement licensing
+    /// (`resembled`) fails the cue gate despite classifying in the matrix.
+    #[test]
+    fn epistemic_reading_stays_silent_without_both_gates() {
+        assert_eq!(epistemic_reading("sewed"), None, "action verb");
+        assert_eq!(
+            epistemic_reading("caused"),
+            None,
+            "relational verb, not epistemic"
+        );
+        assert!(
+            classify_verb("resembled").is_some(),
+            "resemble IS in the matrix"
+        );
+        assert_eq!(
+            epistemic_reading("resembled"),
+            None,
+            "…but takes no that-clause: cue gate must hold it back"
         );
     }
 }

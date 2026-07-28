@@ -53,9 +53,23 @@
 //! ## Determinism + scope (honest)
 //!
 //! No LLM, no model, no RNG: catalogues (`clause_cues::{is_negation,
-//! is_perception_verb, is_modal_aux, is_causal_cue via verb_lexicon}`),
-//! the `verb_table` archetype consumer (`read_verb`), and one morphology
-//! fallback (`-ed` action predicate). The extractor is COARSE by design —
+//! is_modal_aux}`, `verb_lexicon::{is_causal_cue, is_copula}`), the
+//! `verb_table` archetype consumers (`read_verb` for relations,
+//! `epistemic_reading` for rung lifts — the RAILS-SHAPED condition: the
+//! lift's condition AND force are 144-cell reads, never a membership bit),
+//! and one morphology fallback (`-ed` action predicate).
+//!
+//! **B5 — awareness = blind × context (operator).** Each lift's quale =
+//! the cell's tense-modulated modal prior (blind archetype: knowing/
+//! Abstracts 0.85 > seeing/Mirrors 0.70) × Staunen of the arena AT the
+//! lift site (felt context; wonder = committed-contradiction tension).
+//! Scene-scale: both factors independently order 3:6 below 3:7 (asserted).
+//! Corpus-scale (measured, honest): field-MEAN staunen dilutes — at 106
+//! verses the early-arena entropy of 1:4 (0.089) outweighs 3:7's
+//! two-contradiction wonder (0.065); means wash out events, so reflexivity
+//! stays the corpus-scale crown and a LOCAL context measure (Δstaunen,
+//! the shipped `Dissolution` step delta) is the pre-registered follow-up
+//! probe — never tuned in post hoc. The extractor is COARSE by design —
 //! single-scene pronoun coreference (all personal pronouns → one discourse
 //! referent `they`; God/serpent/woman stay nouns), no conditionals, no
 //! object scoping ("eat" vs "eat-of-THE-tree" flatten to one statement —
@@ -73,10 +87,14 @@
 use std::collections::HashMap;
 
 use lance_graph_contract::grammar::clause_cues::{
-    is_modal_aux, is_negation, is_perception_verb, pronoun_case, PronounCase,
+    is_modal_aux, is_negation, pronoun_case, PronounCase,
 };
-use lance_graph_contract::grammar::verb_lexicon::{is_causal_cue, is_copula, read_verb};
-use lance_graph_planner::nars::{BeliefArena, CStmt, Copula, ReviseOutcome, Stamp, TruthValue};
+use lance_graph_contract::grammar::verb_lexicon::{
+    epistemic_reading, is_causal_cue, is_copula, read_verb,
+};
+use lance_graph_planner::nars::{
+    staunen, BeliefArena, CStmt, Copula, ReviseOutcome, Snapshot, Stamp, TruthValue,
+};
 
 /// The Genesis 1 control — affirmation-only creation narrative. Contains
 /// rung lifts ("God saw the light, that it was good") but NO negations, NO
@@ -214,6 +232,17 @@ struct RungLift {
     knower: u16,
     verb: u16,
     object: u16,
+    /// The 144-cell's tense-modulated modal prior — the lift's BLIND
+    /// epistemic force (Abstracts/knew 0.85 > Mirrors/saw 0.70).
+    modal: f32,
+    /// The cell's one-byte Morton cascade address.
+    cell: u8,
+    /// Staunen of the arena AT the lift site — the felt CONTEXT
+    /// (0.5·truth_entropy + 0.5·wonder, wonder = committed-contradiction
+    /// tension).
+    staunen_at: f32,
+    /// Awareness quale = blind × context = modal × staunen_at.
+    quale: f32,
     self_referential: bool,
 }
 
@@ -255,15 +284,16 @@ fn stream(
         let mut subject_is_pronoun = false;
         let mut armed = false; // copula/modal/aux/typed-verb armed a predicate
         let mut negated = false;
-        let mut await_that: Option<(u16, u16)> = None; // (knower, perception verb id)
+        // (knower, verb id, cell modal, cell address) — the 144 reading rides along.
+        let mut await_that: Option<(u16, u16, f32, u8)> = None;
         let mut await_budget: u8 = 0; // content tokens left before the wait expires
-        let mut lift_verb: Option<(u16, u16)> = None; // (knower, verb) — "that" seen
-                                                      // Did the inner clause re-anchor its OWN subject after "that"? A
-                                                      // dropped inner subject ("God saw that [it] was good") inherits the
-                                                      // knower — inherited identity is NOT evidence of reflexivity. The
-                                                      // real-corpus blind run measured this: without the overt-subject
-                                                      // requirement, the Genesis 1 refrain produced five degenerate
-                                                      // "self-referential" lifts; with it, 3:7 stands alone.
+        let mut lift_verb: Option<(u16, u16, f32, u8)> = None; // …after "that" is seen
+                                                               // Did the inner clause re-anchor its OWN subject after "that"? A
+                                                               // dropped inner subject ("God saw that [it] was good") inherits the
+                                                               // knower — inherited identity is NOT evidence of reflexivity. The
+                                                               // real-corpus blind run measured this: without the overt-subject
+                                                               // requirement, the Genesis 1 refrain produced five degenerate
+                                                               // "self-referential" lifts; with it, 3:7 stands alone.
         let mut inner_subject_seen = false;
         let mut causal_effect: Option<u16> = None; // effect predicate awaiting cause
         let mut last_pred: Option<u16> = None; // most recent emitted predicate
@@ -312,10 +342,13 @@ fn stream(
                 causal_effect = last_pred;
                 continue;
             }
-            if is_perception_verb(&w) {
+            // Rails-shaped rung-lift gate: the verb must READ A 144 CELL
+            // (cue gate licenses the that-complement; the matrix supplies the
+            // reasoning — tense-modulated modal force + Morton address).
+            if let Some(er) = epistemic_reading(&w) {
                 if let Some(s) = subject {
                     let verb_id = intern.id(&w);
-                    await_that = Some((s, verb_id));
+                    await_that = Some((s, verb_id, er.modal, er.cell));
                     await_budget = 3; // complementizer must be near
                 }
                 continue;
@@ -377,7 +410,7 @@ fn stream(
                         // passes (pass-2 admit_derived on an unchanged
                         // derived statement is a no-op) so the stamp
                         // sequence stays identical across passes.
-                        if let Some((knower, verb)) = lift_verb.take() {
+                        if let Some((knower, verb, modal, cell)) = lift_verb.take() {
                             if let Some(inner) = arena.get(stmt) {
                                 let inner_truth = inner.truth;
                                 let inner_id = arena
@@ -391,17 +424,45 @@ fn stream(
                                     cop: Copula::Rel(verb),
                                     p,
                                 };
+                                // Context BEFORE output (codex P1): the
+                                // snapshot must precede admit_derived, else
+                                // the modal-scaled meta-belief sits inside
+                                // its own context factor and `modal` leaks
+                                // into BOTH sides of quale = modal × staunen
+                                // (and duplicate lifts become incomparable).
+                                // The inner emission IS stream context; the
+                                // meta-belief is the lift's own output.
+                                let staunen_at = if pass2 {
+                                    0.0
+                                } else {
+                                    staunen(&Snapshot::of(arena, 0.0))
+                                };
+                                // Cell-graded epistemic force: the meta-truth
+                                // discount IS the 144 cell's tense-modulated
+                                // modal prior — knowing (Abstracts, 0.85)
+                                // lifts harder than seeing (Mirrors, 0.70),
+                                // graded by the matrix, never a constant.
                                 let t = TruthValue::new(
-                                    inner_truth.frequency * 0.9,
-                                    inner_truth.confidence * 0.9,
+                                    inner_truth.frequency * modal,
+                                    inner_truth.confidence * modal,
                                 );
                                 arena.admit_derived(meta, t, &[inner_id], 1);
                                 if !pass2 {
+                                    // Blind × context: the cell's modal
+                                    // (text-independent archetype) × the
+                                    // arena's Staunen AT the lift site
+                                    // (0.5·truth_entropy + 0.5·wonder; wonder
+                                    // = committed-contradiction tension — the
+                                    // felt stakes accumulated so far).
                                     out.lifts.push(RungLift {
                                         verse: verse.clone(),
                                         knower,
                                         verb,
                                         object: p,
+                                        modal,
+                                        cell,
+                                        staunen_at,
+                                        quale: modal * staunen_at,
                                         // Reflexive ONLY with an OVERT inner
                                         // subject: "they knew that THEY were
                                         // naked" — an inherited subject
@@ -531,15 +592,19 @@ fn report(label: &str, verses: &[(String, String)]) -> (BeliefArena, Interner, R
         );
     }
 
-    // B2 — rung lifts, reflexive vs not.
-    println!("  — B2 RUNG LIFTS (X knew/saw THAT …) —");
+    // B2 — rung lifts, reflexive vs not, with the 144-cell reading + quale.
+    println!("  — B2 RUNG LIFTS (X knew/saw THAT …) — cell-graded, quale = modal × staunen —");
     for l in &out.lifts {
         println!(
-            "      {}  {} —{}→ {}  rung=1  {}",
+            "      {}  {} —{}[cell {:#04x}, modal {:.2}]→ {}  staunen {:.3}  quale {:.3}  {}",
             l.verse,
             intern.name(l.knower),
             intern.name(l.verb),
+            l.cell,
+            l.modal,
             intern.name(l.object),
+            l.staunen_at,
+            l.quale,
             if l.self_referential {
                 "SELF-REFERENTIAL ← the awareness signature"
             } else {
@@ -762,6 +827,45 @@ fn main() {
     assert!(
         ctrl_out.impls.is_empty(),
         "Genesis 1 states no 'because' — no Impl edges"
+    );
+
+    // B5 — awareness = BLIND × CONTEXT (operator, 2026-07-28): the quale
+    // (cell modal × Staunen-at-lift) must crown the reflexive 3:7 lift.
+    // Both factors point the same way and BOTH are blind: the 144 grades
+    // knew (Abstracts, 0.85) above saw (Mirrors, 0.70), and 3:7 fires after
+    // BOTH reversals (die @3:4, eat @3:6) while 3:6's lift fires after only
+    // one — Adam's eyes open at the moment of maximal felt surprise.
+    let mut by_quale: Vec<&RungLift> = out.lifts.iter().collect();
+    by_quale.sort_by(|a, b| b.quale.total_cmp(&a.quale));
+    println!(
+        "  B5 quale ranking: {:?}",
+        by_quale
+            .iter()
+            .map(|l| format!("{} {}={:.3}", l.verse, intern.name(l.verb), l.quale))
+            .collect::<Vec<_>>()
+    );
+    let top = by_quale.first().expect("scene has lifts");
+    assert!(
+        top.self_referential && top.verse == "3:7",
+        "the max-quale lift must be the reflexive 3:7 awareness, got {} (quale {:.3})",
+        top.verse,
+        top.quale
+    );
+    // The context factor alone must ALSO order them (staunen at 3:7 > 3:6 —
+    // two held contradictions vs one), so the verdict never rests on the
+    // modal factor alone (that would make the quale decoration over B2).
+    let l37 = out.lifts.iter().find(|l| l.verse == "3:7").unwrap();
+    let l36 = out.lifts.iter().find(|l| l.verse == "3:6").unwrap();
+    assert!(
+        l37.staunen_at > l36.staunen_at,
+        "context factor must rise between 3:6 ({:.3}) and 3:7 ({:.3}) — the second \
+         reversal (eat) landed in between",
+        l36.staunen_at,
+        l37.staunen_at
+    );
+    assert!(
+        l37.modal > l36.modal,
+        "and the blind factor grades knew above saw"
     );
 
     // B4: the hermeneutic circle converges — pass 2 changed NOTHING.

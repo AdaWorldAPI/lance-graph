@@ -327,6 +327,151 @@ pub fn default_table() -> VerbRoleTable {
     t
 }
 
+// ═══════════ The 4×4 Morton cascade reading (operator, 2026-07-28) ═══════════
+//
+// The 144 table addressed in the canonical 16×16 = 256 cascade space (one
+// palette256 page): each cell is ONE BYTE `[fq:2|tq:2|fm:2|tm:2]` whose HIGH
+// NIBBLE is the coarse 4×4 quadrant pair — nibble = ancestry, the D-TILE256
+// rigor condition. The 12×12 stays AS-IS (occupied); the 4 spare members per
+// quadrant axis are RESERVE-DON'T-RECLAIM — minted later with zero layout
+// change, never compacted away.
+//
+// The INVERSE-PYRAMID perturbation reading: apex (uniform prior) → quadrant
+// centroid (the coarse semantic signal) → member cell (a small residual
+// perturbation on its centroid). The table was already secretly this shape —
+// `base_prior` groups the 12 families into exactly these 4 superclasses (its
+// own comment headers) and `tense_modifier` is class-shaped over the 4 tense
+// quadrants — the cascade only makes the pyramid ADDRESSABLE. Deterministic
+// throughout (verb actionability is table reads; no stochastic scoring).
+//
+// Compartment grounding (starter, wordnet-tunable): WordNet's verb inventory
+// is compartmentalized into 15 supersenses (verb.change / verb.cognition /
+// verb.perception / verb.motion / verb.stative / …) — a near-fill of the 16
+// coarse cells — with troponymy as the pyramid below; Levin's alternation
+// classes make the same coarse cuts. A families↔supersenses alignment probe
+// over the in-house wordnet rail is the queued corpus tune (D-RCC-5 adjacent).
+//
+// O7 fence: this addresses verb_table's 144 ONLY. The divergent sigma_rosetta
+// 144 (E-RUNG2-TWO-144S-1) is NOT bridged here.
+
+/// The four family superclasses — the coarse family axis of the 4×4 quadrant
+/// grid, lifted from `base_prior`'s own grouping.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum FamilyQuadrant {
+    /// Change verbs — high Temporal + Modal (Becomes, Dissolves, Abstracts, Mirrors).
+    Change = 0,
+    /// Action verbs — high Kausal + Temporal (Causes, Prevents, Transforms; 1 reserve).
+    Action = 1,
+    /// State verbs — high Modal, low Temporal (Supports, Contradicts, Refines, Grounds).
+    State = 2,
+    /// Discovery / enablement — high Kausal + Lokal (Enables; 3 reserve).
+    Discovery = 3,
+}
+
+/// The four tense superclasses — the coarse tense axis (`tense as usize / 3`,
+/// matching `Tense`'s declaration order and `tense_modifier`'s class shape).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum TenseQuadrant {
+    /// Present / Past / Future — unmarked (zero modifier).
+    Simple = 0,
+    /// The three continuous aspects — ongoing process.
+    Continuous = 1,
+    /// Perfect / Pluperfect / FuturePerfect — completion, temporal anchoring.
+    Perfect = 2,
+    /// Habitual / Potential / Imperative — marked mood.
+    Mood = 3,
+}
+
+impl VerbFamily {
+    /// This family's (quadrant, member-index) coordinate in the coarse grid.
+    /// Member indices are dense within each quadrant; unassigned indices are
+    /// RESERVED (Action 3; Discovery 1..=3).
+    #[must_use]
+    pub fn quadrant(self) -> (FamilyQuadrant, u8) {
+        match self {
+            Self::Becomes => (FamilyQuadrant::Change, 0),
+            Self::Dissolves => (FamilyQuadrant::Change, 1),
+            Self::Abstracts => (FamilyQuadrant::Change, 2),
+            Self::Mirrors => (FamilyQuadrant::Change, 3),
+            Self::Causes => (FamilyQuadrant::Action, 0),
+            Self::Prevents => (FamilyQuadrant::Action, 1),
+            Self::Transforms => (FamilyQuadrant::Action, 2),
+            Self::Supports => (FamilyQuadrant::State, 0),
+            Self::Contradicts => (FamilyQuadrant::State, 1),
+            Self::Refines => (FamilyQuadrant::State, 2),
+            Self::Grounds => (FamilyQuadrant::State, 3),
+            Self::Enables => (FamilyQuadrant::Discovery, 0),
+        }
+    }
+}
+
+/// A tense's (quadrant, member-index): `(t/3, t%3)` by declaration order.
+/// Member 3 of every tense quadrant is RESERVED.
+#[must_use]
+pub fn tense_quadrant(tense: Tense) -> (TenseQuadrant, u8) {
+    let t = tense as u8;
+    let q = match t / 3 {
+        0 => TenseQuadrant::Simple,
+        1 => TenseQuadrant::Continuous,
+        2 => TenseQuadrant::Perfect,
+        _ => TenseQuadrant::Mood,
+    };
+    (q, t % 3)
+}
+
+/// The cell's one-byte Morton address: `[fq:2|tq:2|fm:2|tm:2]` MSB→LSB. The
+/// high nibble `(fq,tq)` is the coarse quadrant pair — two addresses share a
+/// coarse cell iff `a >> 4 == b >> 4` (ancestry by nibble).
+#[must_use]
+pub fn morton_cell(family: VerbFamily, tense: Tense) -> u8 {
+    let (fq, fm) = family.quadrant();
+    let (tq, tm) = tense_quadrant(tense);
+    ((fq as u8) << 6) | ((tq as u8) << 4) | (fm << 2) | tm
+}
+
+/// Do two cell addresses share a coarse quadrant (high-nibble ancestry)?
+#[must_use]
+pub fn same_quadrant(a: u8, b: u8) -> bool {
+    a >> 4 == b >> 4
+}
+
+/// The coarse-cell centroid: mean of the OCCUPIED member cells' full priors
+/// in the `(fq, tq)` quadrant. This is the pyramid's middle level — what an
+/// unknown verb resolvable only to a quadrant reads (graceful degradation;
+/// Moore's cheap-check-first at the representation level). Reserved members
+/// contribute nothing (occupied-mean, never zero-padded).
+#[must_use]
+pub fn quadrant_prior(fq: FamilyQuadrant, tq: TenseQuadrant) -> SlotPrior {
+    let mut sum = [0.0f32; 5];
+    let mut n = 0.0f32;
+    for family in VerbFamily::ALL {
+        if family.quadrant().0 != fq {
+            continue;
+        }
+        for tense in Tense::ALL {
+            if tense_quadrant(tense).0 != tq {
+                continue;
+            }
+            let p = base_prior(family).combine(tense_modifier(tense));
+            sum[0] += p.temporal;
+            sum[1] += p.kausal;
+            sum[2] += p.modal;
+            sum[3] += p.lokal;
+            sum[4] += p.instrument;
+            n += 1.0;
+        }
+    }
+    SlotPrior {
+        temporal: sum[0] / n,
+        kausal: sum[1] / n,
+        modal: sum[2] / n,
+        lokal: sum[3] / n,
+        instrument: sum[4] / n,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -585,5 +730,111 @@ mod tests {
         assert!(p.modal >= 0.0 && p.modal <= 1.0);
         assert!(p.lokal >= 0.0 && p.lokal <= 1.0);
         assert!(p.instrument >= 0.0 && p.instrument <= 1.0);
+    }
+
+    // ── The 4×4 Morton cascade layer ──
+
+    /// Every occupied (family, tense) cell gets a UNIQUE byte address, and the
+    /// high nibble is exactly the quadrant pair (ancestry by nibble).
+    #[test]
+    fn morton_addresses_are_unique_and_nibble_ancestored() {
+        let mut seen = std::collections::HashSet::new();
+        for family in VerbFamily::ALL {
+            for tense in Tense::ALL {
+                let cell = morton_cell(family, tense);
+                assert!(seen.insert(cell), "duplicate address {cell:#04x}");
+                let (fq, _) = family.quadrant();
+                let (tq, _) = tense_quadrant(tense);
+                assert_eq!(cell >> 4, ((fq as u8) << 2) | (tq as u8));
+            }
+        }
+        assert_eq!(seen.len(), 144, "12×12 occupied cells in the 16×16 space");
+    }
+
+    /// Ancestry discriminates: same-quadrant pairs share the high nibble,
+    /// cross-quadrant pairs do not (fire + stay-silent on non-trivial input).
+    #[test]
+    fn same_quadrant_fires_and_stays_silent() {
+        // Becomes/Dissolves are both Change; Present/Past both Simple.
+        let a = morton_cell(VerbFamily::Becomes, Tense::Present);
+        let b = morton_cell(VerbFamily::Dissolves, Tense::Past);
+        assert!(
+            same_quadrant(a, b),
+            "Change×Simple pair shares the coarse cell"
+        );
+        // Causes is Action — different family quadrant.
+        let c = morton_cell(VerbFamily::Causes, Tense::Present);
+        assert!(!same_quadrant(a, c), "Change vs Action must not share");
+        // Same family, mood tense — different tense quadrant.
+        let d = morton_cell(VerbFamily::Becomes, Tense::Potential);
+        assert!(!same_quadrant(a, d), "Simple vs Mood must not share");
+    }
+
+    /// The inverse-pyramid residual probe — MEASURED, then pinned. The claim:
+    /// the 144's information lives mostly at the coarse level — each occupied
+    /// cell is a small perturbation on its quadrant centroid. Measured on the
+    /// shipped starter priors: **mean residual 0.0774** (the pyramid claim
+    /// holds on the mean), **max 0.500 = Grounds.lokal** vs the State
+    /// quadrant's lokal centroid 0.35 — the largest of a named outlier
+    /// catalogue (Grounds.L 0.500, Causes.T 0.300, Contradicts.K 0.279,
+    /// Mirrors.L 0.275): the per-family axis SIGNATURES the coarse level
+    /// deliberately does not carry. Lokal is the axis the 4-class carve
+    /// compresses worst — a real input to the queued wordnet-supersense
+    /// alignment tune. Inertness: max must sit AT the Grounds.lokal value
+    /// (a smaller max means the priors changed and the pins are stale);
+    /// mean far under the ~0.30 spread a shuffled family→quadrant
+    /// assignment would produce.
+    #[test]
+    fn quadrant_centroids_reconstruct_cells_within_measured_residuals() {
+        let mut max_res = 0.0f32;
+        let mut sum_res = 0.0f32;
+        let mut n = 0.0f32;
+        for family in VerbFamily::ALL {
+            let (fq, _) = family.quadrant();
+            for tense in Tense::ALL {
+                let (tq, _) = tense_quadrant(tense);
+                let cell = base_prior(family).combine(tense_modifier(tense));
+                let cen = quadrant_prior(fq, tq);
+                for (c, q) in [
+                    (cell.temporal, cen.temporal),
+                    (cell.kausal, cen.kausal),
+                    (cell.modal, cen.modal),
+                    (cell.lokal, cen.lokal),
+                    (cell.instrument, cen.instrument),
+                ] {
+                    let r = (c - q).abs();
+                    max_res = max_res.max(r);
+                    sum_res += r;
+                    n += 1.0;
+                }
+            }
+        }
+        let mean_res = sum_res / n;
+        assert!(
+            (0.49..=0.51).contains(&max_res),
+            "max residual {max_res:.3} — pinned at Grounds.lokal 0.500; a different \
+             value means the priors changed and these pins need re-measuring"
+        );
+        assert!(
+            (0.07..=0.09).contains(&mean_res),
+            "mean residual {mean_res:.4} — measured 0.0774: cells are small \
+             perturbations on centroids (the pyramid claim, on the mean)"
+        );
+    }
+
+    /// Graceful degradation: a quadrant centroid preserves its class's
+    /// DOMINANT semantic axis — the read an unknown-but-quadrant-resolvable
+    /// verb receives is still class-correct.
+    #[test]
+    fn quadrant_centroids_keep_the_class_signal() {
+        // Action×Simple: kausal dominates (Causes/Prevents/Transforms class).
+        let action = quadrant_prior(FamilyQuadrant::Action, TenseQuadrant::Simple);
+        assert!(action.kausal > action.temporal && action.kausal > action.modal);
+        // State×Simple: modal dominates.
+        let state = quadrant_prior(FamilyQuadrant::State, TenseQuadrant::Simple);
+        assert!(state.modal > state.temporal && state.modal > state.kausal);
+        // Change×Simple: temporal+modal high, kausal low.
+        let change = quadrant_prior(FamilyQuadrant::Change, TenseQuadrant::Simple);
+        assert!(change.temporal > change.kausal && change.modal > change.kausal);
     }
 }
