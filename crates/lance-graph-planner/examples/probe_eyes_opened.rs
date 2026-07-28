@@ -543,6 +543,158 @@ fn contradiction_ranking(arena: &BeliefArena) -> Vec<(CStmt, f32)> {
     v
 }
 
+/// Nietzschean genealogy: HOW did a held contradiction flip?
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FlipKind {
+    /// First observed NEGATED, later affirmed — the forbidden became done
+    /// (Umwertung: low → high).
+    Transvaluation,
+    /// First affirmed, later NEGATED — the asserted was denied (high → low).
+    Devaluation,
+}
+
+/// B6 — the ASPECT PANEL: four philosopher stances as PURE READS over ONE
+/// unchanged arena. The operator's image: the corpus is a CRYSTAL — the
+/// percipient's own knowledge and reflection shine a light through it,
+/// creating reflections the crystal alone does not contain; thinking as a
+/// Doppelspalt event, the reading an interference pattern between the
+/// text-wave and the reader-wave. Wittgenstein's duck-rabbit gives the same
+/// invariant operationally: "I see that it has not changed; and yet I see
+/// it differently." Each stance takes `&BeliefArena` — mutation impossible
+/// by signature; the caller asserts the runtime witness (entry count
+/// unchanged). And unlike the physical Doppelspalt, the read is
+/// NON-DESTRUCTIVE: nothing collapses (E-LC-SCARCITY-INVERSION-1 — the
+/// substrate holds the distribution; stances are late-bound reads).
+///
+/// * **Hegel** — rank by Aufhebung. The three meanings of *aufheben* ARE
+///   `revise_at`'s three fields: cancelled = pooled truth, preserved = the
+///   `contradiction` field, lifted = the rung.
+/// * **Nietzsche** — genealogy: partition the held contradictions by FLIP
+///   DIRECTION read from provenance (first vs last emission's negation).
+///   Transvaluation (forbidden → done) vs devaluation (asserted → denied)
+///   — a distinction Hegel's symmetric depth ranking cannot see.
+/// * **Kant** — critique: recompute the lift ranking with the reader's
+///   modal grading ablated to uniform (0.5). The delta IS the reader's
+///   a-priori contribution (the reader-wave, isolated); what survives — the
+///   reversal set, pure text evidence — is a posteriori (the text-wave).
+///   Doubles as the inertness test on the modal knob.
+/// * **Wittgenstein** — meaning as use: rank concepts by DISTINCT
+///   language-games participated in (Inh-subject, Inh-object, knows-that
+///   object, Impl-cause, Impl-effect). No inner essence — breadth of
+///   practice.
+#[allow(clippy::type_complexity)]
+fn stance_panel(
+    arena: &BeliefArena,
+    intern: &Interner,
+    out: &ReadOut,
+) -> (
+    Vec<(CStmt, f32)>,       // Hegel: Aufhebung ranking
+    Vec<(CStmt, FlipKind)>,  // Nietzsche: genealogy partition
+    Vec<(String, f32, f32)>, // Kant: (lift label, graded quale, ablated quale)
+    Vec<(u16, usize)>,       // Wittgenstein: (concept, distinct games)
+) {
+    // ── Hegel ──
+    let hegel = contradiction_ranking(arena);
+
+    // ── Nietzsche ──
+    let mut nietzsche = Vec::new();
+    for (stmt, _) in &hegel {
+        let obs: Vec<&Provenance> = out.provenance.iter().filter(|p| p.stmt == *stmt).collect();
+        if let (Some(first), Some(last)) = (obs.first(), obs.last()) {
+            let kind = match (first.negated, last.negated) {
+                (true, false) => Some(FlipKind::Transvaluation),
+                (false, true) => Some(FlipKind::Devaluation),
+                _ => None, // flip not legible from endpoints — no verdict
+            };
+            if let Some(k) = kind {
+                nietzsche.push((*stmt, k));
+            }
+        }
+    }
+
+    // ── Kant ──
+    const UNIFORM_MODAL: f32 = 0.5;
+    let kant: Vec<(String, f32, f32)> = out
+        .lifts
+        .iter()
+        .map(|l| {
+            (
+                format!("{} {}", l.verse, intern.name(l.verb)),
+                l.quale,
+                UNIFORM_MODAL * l.staunen_at,
+            )
+        })
+        .collect();
+
+    // ── Wittgenstein ──
+    let mut games: HashMap<u16, std::collections::HashSet<&'static str>> = HashMap::new();
+    for b in arena.entries() {
+        // Observation-grounded Inh only — derived closure edges are the
+        // arena's own inferences, not the text's usage.
+        if b.stmt.cop == Copula::Inh && b.stamp != Stamp::default() {
+            games.entry(b.stmt.s).or_default().insert("inh-subj");
+            games.entry(b.stmt.p).or_default().insert("inh-obj");
+        }
+    }
+    for l in &out.lifts {
+        games.entry(l.knower).or_default().insert("rel-subj");
+        games.entry(l.object).or_default().insert("rel-obj");
+    }
+    for (_, cause, effect) in &out.impls {
+        games.entry(*cause).or_default().insert("impl-cause");
+        games.entry(*effect).or_default().insert("impl-effect");
+    }
+    let mut wittgenstein: Vec<(u16, usize)> =
+        games.into_iter().map(|(c, g)| (c, g.len())).collect();
+    wittgenstein.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+
+    (hegel, nietzsche, kant, wittgenstein)
+}
+
+fn print_stance_panel(arena: &BeliefArena, intern: &Interner, out: &ReadOut) {
+    let entries_before = arena.entries().len();
+    let (hegel, nietzsche, kant, wittgenstein) = stance_panel(arena, intern, out);
+    println!("  — B6 ASPECT PANEL (four lights, ONE crystal — arena unchanged) —");
+    println!("      HEGEL (Aufhebung = cancelled/preserved/lifted):");
+    for (stmt, d) in hegel.iter().take(3) {
+        println!(
+            "        {} → {}  depth={:.3}",
+            intern.name(stmt.s),
+            intern.name(stmt.p),
+            d
+        );
+    }
+    println!("      NIETZSCHE (genealogy of the flips):");
+    for (stmt, kind) in &nietzsche {
+        println!(
+            "        {} → {}  {:?}",
+            intern.name(stmt.s),
+            intern.name(stmt.p),
+            kind
+        );
+    }
+    println!("      KANT (graded vs a-priori-ablated crown):");
+    let mut graded: Vec<&(String, f32, f32)> = kant.iter().collect();
+    graded.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let mut ablated: Vec<&(String, f32, f32)> = kant.iter().collect();
+    ablated.sort_by(|a, b| b.2.total_cmp(&a.2));
+    if let (Some(g), Some(u)) = (graded.first(), ablated.first()) {
+        println!(
+            "        graded: {} ({:.3})   ablated: {} ({:.3})",
+            g.0, g.1, u.0, u.2
+        );
+    }
+    println!("      WITTGENSTEIN (meaning as use — distinct games):");
+    for (c, n) in wittgenstein.iter().take(3) {
+        println!("        {:>10}  {} games", intern.name(*c), n);
+    }
+    assert_eq!(
+        arena.entries().len(),
+        entries_before,
+        "Aspektsehen: the crystal must not change while the reflections differ"
+    );
+}
+
 fn report(label: &str, verses: &[(String, String)]) -> (BeliefArena, Interner, ReadOut) {
     let mut arena = BeliefArena::new();
     let mut intern = Interner::new();
@@ -699,10 +851,11 @@ fn main() {
         match std::fs::read_to_string(path) {
             Ok(text) => {
                 let verses = parse_kjv_genesis(&text);
-                let (_, _, _) = report(
+                let (arena, intern, out) = report(
                     &format!("REAL {path} (Genesis 1-4, {} verses)", verses.len()),
                     &verses,
                 );
+                print_stance_panel(&arena, &intern, &out);
             }
             Err(e) => eprintln!("skip {path}: {e}"),
         }
@@ -887,7 +1040,84 @@ fn main() {
     );
     assert_eq!(ctrl_out.pass2_admitted + ctrl_out.pass2_revised, 0);
 
+    // B6 — the ASPECT PANEL: four stances, one crystal. Fire = the stances
+    // produce genuinely DIFFERENT readings (the horizon matters); invariant
+    // core = the reversal set and the reflexive lift are stance-independent
+    // (the text constrains — horizons fuse without collapsing).
+    print_stance_panel(&scene_arena, &intern, &out);
+    let (hegel, nietzsche, kant, wittgenstein) = stance_panel(&scene_arena, &intern, &out);
+
+    // Hegel re-reads B1: the Aufhebung ranking IS the held-contradiction set.
+    assert_eq!(hegel.len(), 2, "Hegel sees exactly the two reversals");
+
+    // Nietzsche sees what Hegel cannot: the same two depths, OPPOSITE
+    // genealogies — one of each kind, and the right way round.
+    assert_eq!(nietzsche.len(), 2);
+    let flip_of = |name: &str| {
+        nietzsche
+            .iter()
+            .find(|(s, _)| intern.name(s.p) == name)
+            .map(|(_, k)| *k)
+            .unwrap_or_else(|| panic!("{name} must carry a genealogy verdict"))
+    };
+    assert_eq!(
+        flip_of("eat"),
+        FlipKind::Transvaluation,
+        "eat: forbidden (2:17, 3:1) → done (3:6) — the Umwertung"
+    );
+    assert_eq!(
+        flip_of("die"),
+        FlipKind::Devaluation,
+        "die: asserted (2:17) → denied by the serpent (3:4)"
+    );
+
+    // Kant: ablating the reader's a-priori grading must CHANGE the measured
+    // margin (inertness — the modal knob does work) while the scene crown
+    // survives on context alone; and the reversal set is a posteriori —
+    // modal never touches it (hegel above == B1, trivially modal-free).
+    let q = |label: &str| {
+        kant.iter()
+            .find(|(l, _, _)| l.starts_with(label))
+            .expect("lift present")
+    };
+    let (_, g37, u37) = q("3:7");
+    let (_, g36, u36) = q("3:6");
+    let graded_margin = g37 / g36;
+    let ablated_margin = u37 / u36;
+    println!("  B6 Kant margins: graded {graded_margin:.2}x vs ablated {ablated_margin:.2}x");
+    assert!(
+        graded_margin > ablated_margin + 0.1,
+        "the a-priori grading WIDENS the awareness margin ({graded_margin:.2}x vs \
+         {ablated_margin:.2}x) — the reader's categories contribute discrimination"
+    );
+    assert!(
+        u37 > u36,
+        "…while the scene crown survives ablation on context alone (a posteriori)"
+    );
+
+    // Wittgenstein crowns a concept NEITHER depth nor quale crowns: `naked`
+    // participates in the most distinct language-games, strictly above all.
+    let (w_crown, w_games) = wittgenstein[0];
+    assert_eq!(intern.name(w_crown), "naked", "meaning-as-use crowns naked");
+    assert_eq!(
+        w_games, 3,
+        "naked: Inh-object + knows-that object + Impl-cause"
+    );
+    assert!(
+        wittgenstein[1].1 < w_games,
+        "…strictly — every other concept plays fewer games"
+    );
+    // Horizon variance: Wittgenstein's crown is OUTSIDE Hegel's set — the
+    // stances genuinely see different things in the same crystal.
+    assert!(
+        !hegel.iter().any(|(s, _)| s.p == w_crown || s.s == w_crown),
+        "the use-crown (naked) is not a reversal — different light, different reflection"
+    );
+
     println!("\n  ✓ the awareness event PRINTS: two blind-ranked reversals (die, eat), one");
     println!("    reflexive rung lift at 3:7, the explicit Impl(naked→afraid), and a");
     println!("    hermeneutic re-read that converges. Soup holds none of these.");
+    println!("  ✓ and four philosopher stances read the SAME unchanged crystal into four");
+    println!("    different reflections — with the reversal set and the reflexive lift");
+    println!("    invariant across all of them. The horizon matters; the text constrains.");
 }

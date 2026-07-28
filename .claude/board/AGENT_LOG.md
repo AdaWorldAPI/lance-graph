@@ -1,3 +1,12 @@
+## 2026-07-28 — B6 aspect panel: four lights, one crystal (main-thread, no subagent)
+
+- **Operator steers, one arc:** "kant Wittgenstein Nietzsche.. Hegel.." (the stance panel) + the crystal/Doppelspalt image (corpus = crystal, percipient's light, interference of text-wave × reader-wave) + "qualia × magnitude × phase → Erkenntnis becomes passion" (queued composite) + the lane list (WordNet convergence; Greek/Czech/Vulgate/Aramaic/German) (queued PROBE-BABEL-STANCES).
+- **Built:** `stance_panel` + `print_stance_panel` in `probe_eyes_opened` — four PURE reads over `&BeliefArena` (mutation impossible by signature + runtime witness). Hegel = Aufhebung ranking (aufheben's three meanings = revise_at's three fields). Nietzsche = genealogy partition by provenance-endpoint flip direction. Kant = a-priori ablation (uniform modal 0.5, post-hoc recompute). Wittgenstein = use-diversity (distinct language-games per concept).
+- **Measured (fixture, asserted):** Hegel {eat,die}@0.850; Nietzsche eat=Transvaluation, die=Devaluation; Kant margins 3.04×→2.51× (inertness) with crown surviving on context; Wittgenstein crowns naked (3 games, strict). Variance: naked ∉ Hegel's set. Invariance: reversal set + reflexive lift stance-independent.
+- **Measured (corpus, report):** Kant crown FLIPS under ablation (3:7 knew 0.047 → 1:12 saw 0.029) — the a priori is constitutive. Nietzsche endpoint read ABSTAINS on multi-flip eat (permitted→forbidden→done→cursed) — abstention over confabulation, refinement queued. Wittgenstein: god/day/naked tie at 3.
+- **Gates:** clippy `-D warnings` clean, fmt clean, fixture asserts green.
+- **Board (this commit):** EPIPHANIES `E-FOUR-LIGHTS-ONE-CRYSTAL-1` · STATUS_BOARD B6 row. Task #50.
+
 ## 2026-07-28 — rails-shaped rung lift: 144-cell reasoning + 4×4 Morton cascade + qualia (main-thread, no subagent)
 
 - **Operator steers (4, same arc):** "use the 12×12=144 verb matrix for reasoning" (not a flat membership bit); "4×4 Morton cascade inverse pyramid perturbation shader"; "either as is or expanded to 16×16" → as-is, reserves dormant; "verbs actionability should be deterministic" → table reads only; "the qualia of blind × context would make awareness even better" → quale = cell modal × Staunen-at-lift; "(3×4)² irrational Morton drifting Pythagoras comma" → real mechanism, [S], logged as PROBE-COMMA-144 with the golden-step null as falsifier template.

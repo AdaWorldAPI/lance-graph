@@ -2,6 +2,11 @@
 
 | D-id | Deliverable | Repo | Status | Evidence |
 |---|---|---|---|---|
+| B6-ASPECT-PANEL | Four philosopher stances (Hegel/Nietzsche/Kant/Wittgenstein) as pure reads over the unchanged arena — crystal/Doppelspalt operational; Kant ablation flips the corpus crown (a priori constitutive); Wittgenstein crowns naked (3 games); invariance core stance-independent | lance-graph | **SHIPPED** — fixture asserted, corpus report | `E-FOUR-LIGHTS-ONE-CRYSTAL-1`; task #50 |
+
+
+| D-id | Deliverable | Repo | Status | Evidence |
+|---|---|---|---|---|
 | PROBE-EYES-OPENED | Gen 3:7 awareness as printed epistemic structure: B1 reversal blades (blind contradiction ranking → {eat, die} @0.850 + 2 discovered: god→good, they→respect), B2 reflexive rung lift (10 lifts on real Gen 1-4, exactly ONE self-referential = 3:7 knew→naked), B3 causal chain (Impl(naked→afraid) from the text's "because"), B4 Hermeneutik (pass-2 stamp-overlap → CHOICE only → fixed point: NARS supplies the hermeneutic circle's termination proof). Contract: `clause_cues::{is_negation, is_perception_verb}`. | lance-graph | **SHIPPED + MEASURED** — fixture asserts green in CI; real-corpus blind run recorded | `E-EYES-OPENED-PRINTS-BLIND-1`; `examples/probe_eyes_opened.rs`; task #48 |
 
 ## rosetta-codebook-convergence-v1 — Bible Rosetta SoA + qualia agreement (ACTIVE)
