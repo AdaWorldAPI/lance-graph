@@ -37,9 +37,34 @@
 //!
 //! ## Phase = linguistic resonance (deterministic, never stored)
 //!
-//! For each (lane, pair): the lane either shares one root across the pair's
-//! two addresses (it agrees with the grid — **phase 0**, constructive) or uses
-//! two roots (it splits what the grid collapses — **phase π**, antiphase).
+//! For each (lane, pair), phase is **graded, never boolean**:
+//! `φ = π · (1 − shared_path)` where `shared_path` is the longest common
+//! SUBSTRING of the two roots over chars, normalized — the deepest shared
+//! radix path, read from either direction so Slavic prefixation
+//! (`umříti`/`zemříti`, stem `mříti`) scores as the near-agreement it is.
+//! Identical roots → φ = 0 (constructive); nothing shared → φ = π (antiphase);
+//! partial overlap → in between.
+//!
+//! **Why graded is load-bearing (the deadness trap):** a binary {0, π} phase
+//! has `sin ≡ 0`, so the resultant collapses to `|aligned − split| / N` — an
+//! integer count wearing a complex costume, with no degrees of freedom and no
+//! way to say "mildly divergent". Measured on this very fixture before the
+//! fix: `im = 0.000000` and amplitude `0.500` exactly equal to `|3−1|/4`.
+//! Grading rescues it: German `KNOW` reads φ = 0.833π (near-total divergence)
+//! while Czech `DIE` reads φ = 0.286π (one root, two prefixes) — a distinction
+//! the boolean form could not express, and which the falsifier now asserts.
+//!
+//! **False friends (scoping, and why they cannot bite yet):** a surface-similarity
+//! measure conflates COGNACY (real shared descent) with ACCIDENTAL resemblance
+//! (`Gift`/`gift`). Phase here is strictly INTRA-lane — it compares two roots
+//! of ONE lane at two addresses — so a cross-language false friend is
+//! structurally impossible in this slice. It becomes possible the moment a
+//! later slice compares surfaces ACROSS lanes, and that is exactly where the
+//! trie needs the grid to validate it: same grid coordinate + high surface
+//! share = cognate; same coordinate + LOW share = suppletion (the German
+//! `KNOW` signal); DIFFERENT coordinate + high share = false friend, which must
+//! never be read as resonance. The grid is what makes the coordinate system
+//! true rather than merely similar.
 //! The pair's interference amplitude is the normalized resultant of the six
 //! unit phasors, `|Σ e^{iφ}| / N` — 1.0 when every lane agrees with the grid,
 //! falling as lanes diverge. `residual = 1 − amplitude` is exactly the share of
@@ -207,6 +232,41 @@ fn lane_spine() -> [Option<&'static str>; LANE_SLOTS] {
 /// across the pair's two addresses (it agrees with the grid — constructive),
 /// π when it uses two roots (it splits what the grid collapses — antiphase).
 /// Deterministic from lanes + grid; never stored.
+/// Longest common SUBSTRING length, over CHARS — never bytes: the lanes carry
+/// Greek, Hebrew and Czech multi-byte scripts, and a byte-wise measure would
+/// silently score them as more divergent than they are.
+///
+/// Substring, not prefix: Slavic prefixation (`umříti` / `zemříti`) shares its
+/// stem in the MIDDLE, so a left-anchored prefix measure would report total
+/// divergence where the roots are nearly identical. This is the radix-trie
+/// depth read from both directions — the deepest shared path, wherever it sits.
+fn lcs_chars(a: &str, b: &str) -> usize {
+    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+    let mut best = 0usize;
+    let mut prev = vec![0usize; b.len() + 1];
+    for i in 1..=a.len() {
+        let mut cur = vec![0usize; b.len() + 1];
+        for j in 1..=b.len() {
+            if a[i - 1] == b[j - 1] {
+                cur[j] = prev[j - 1] + 1;
+                best = best.max(cur[j]);
+            }
+        }
+        prev = cur;
+    }
+    best
+}
+
+/// Shared-path fraction of two roots: `lcs / max(len)` ∈ [0,1]. 1.0 = identical
+/// roots, 0.0 = nothing in common.
+fn shared_path(a: &str, b: &str) -> f32 {
+    let n = a.chars().count().max(b.chars().count());
+    if n == 0 {
+        return 1.0;
+    }
+    lcs_chars(a, b) as f32 / n as f32
+}
+
 fn phase(lane_rows: &[&LaneLex], pair: &GridPair) -> Option<f32> {
     let root_at = |a: (u8, u8)| {
         lane_rows
@@ -215,7 +275,13 @@ fn phase(lane_rows: &[&LaneLex], pair: &GridPair) -> Option<f32> {
             .map(|r| r.root)
     };
     match (root_at(pair.addr_a), root_at(pair.addr_b)) {
-        (Some(ra), Some(rb)) => Some(if ra == rb { 0.0 } else { std::f32::consts::PI }),
+        // GRADED (never binary): φ = π·(1 − shared_path). A binary {0,π} phase
+        // is DEAD — sin ≡ 0, so the resultant collapses to |aligned − split|/N,
+        // an integer count wearing a complex costume. Grading by shared radix
+        // depth gives the phasor a real imaginary part and lets the measure say
+        // "mildly divergent" (Slavic prefix pairs) apart from "wholly other"
+        // (suppletive roots). The falsifier asserts this gradedness directly.
+        (Some(ra), Some(rb)) => Some(std::f32::consts::PI * (1.0 - shared_path(ra, rb))),
         _ => None, // lane silent at this coordinate — no phasor, never a guess
     }
 }
@@ -355,6 +421,41 @@ fn main() {
     }
     println!("  NOTE: the DIE split is carried ENTIRELY by an unverified cs-bkr row —");
     println!("        the curator flagged it as possibly a memory error. NOT claimed.");
+
+    // ANTI-DEADNESS (the operator's constraint: "construct phase so it doesn't
+    // become dead"). A binary phase has sin ≡ 0 and its resultant is an integer
+    // count — the complex form would be decoration. Assert the machinery can
+    // express PARTIAL divergence: some lane's phase must sit strictly between
+    // 0 and π, and the resultant must carry a non-zero imaginary part.
+    let mut graded = Vec::new();
+    for pair in GRID {
+        for lane in &occupied {
+            if let Some(p) = phase(&rows_of[lane], pair) {
+                graded.push((pair.name, *lane, p));
+            }
+        }
+    }
+    let partial: Vec<&(&str, &str, f32)> = graded
+        .iter()
+        .filter(|(_, _, p)| *p > 1e-3 && *p < std::f32::consts::PI - 1e-3)
+        .collect();
+    println!("  ── ANTI-DEADNESS (phase must be graded, not a boolean) ──");
+    for (pair, lane, p) in &partial {
+        println!(
+            "  {pair:<6} {lane:<16} φ = {:.3}π  (partial divergence — a boolean phase could not say this)",
+            p / std::f32::consts::PI
+        );
+    }
+    assert!(
+        !partial.is_empty(),
+        "phase is DEAD: every value is 0 or π, so sin ≡ 0 and the resultant is \
+         an integer count — the complex form would be pure decoration"
+    );
+    let im: f32 = graded.iter().map(|(_, _, p)| p.sin()).sum();
+    assert!(
+        im.abs() > 1e-3,
+        "the resultant carries no imaginary part ({im:.6}) — phase is not doing work"
+    );
 
     // FIRE: the KNOW coordinate is split, and German is among the splitters.
     assert!(
