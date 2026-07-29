@@ -69,6 +69,146 @@ Each compares **two materializations**. The lens is not the worse option being
 weighed — it is outside the option set the author was choosing from. Naming that
 is the correction; arguing the numbers is not.
 
+## The scale anchor — why cost is not an argument in EITHER direction
+
+> Operator, 2026-07-29: *"The whole Bible is 32k sentences, 16 MB."*
+> …and: *"Grey / white matter makes it 2× 16 MB."*
+
+Do the arithmetic, because it settles both rulings at once:
+
+- **32k rows × `NODE_ROW_STRIDE` 512 B = 16 MB.** The entire corpus *is* the SoA.
+  It is resident. There is no I/O, no paging, no streaming — every "window" is a
+  slice of something already in memory.
+- **The measured violation copied ~768 KB per resolve.** That is **4.8 % of the
+  whole corpus, per resolve** — ~48 resolves copy the entire Bible. The copy is
+  larger, relative to the substrate, than any access it could possibly save.
+  There was never an access to save: the bytes were already there.
+- **A whole tenant is 32k × 16 B = 512 KB.** Storage is free at this scale.
+
+So cost cannot be the argument in **either** direction, and that symmetry is the
+point:
+
+| | the tempting cost argument | why it is empty at 16 MB |
+|---|---|---|
+| **for a copy** | "gathering avoids repeated strided access" | the data is resident; the gather costs 4.8 % of the corpus to save nothing |
+| **for a tenant** | "storing it avoids recomputation" | 512 KB is free; cheapness never licensed a lane |
+| **against a tenant** | "another lane costs memory" | 512 KB is free; cost never *blocked* a lane either |
+
+**What is left when cost is removed from both sides is the only real criterion:
+the rung.** A projection is refused because it is the same awareness stage, not
+because it is expensive. An elevation is admitted because it is a higher stage,
+not because it is cheap. That is why the exception below is stated in rungs and
+never in bytes or nanoseconds.
+
+(Consistency check: 32k sentences is ~1000× the `I-VSA-IDENTITIES` Test-1 bundle
+capacity of N ≤ √d/4 ≈ 32 — which is exactly why VSA is demoted to its
+within-compartment niche and the `temporal.rs` sorted stream is primary. See
+`E-MARKOV-TEMPORAL-STREAM-1`.)
+
+### Grey and white — the anatomy of the exception
+
+The second 16 MB is not more corpus. In neuroanatomy grey matter is cell bodies
+(content, where computation happens) and white matter is myelinated axons
+(**connectivity** — what routes between them). The operator's 2× budget maps the
+two halves of this law onto that split:
+
+| | **grey matter** ≈ 16 MB | **white matter** ≈ 16 MB |
+|---|---|---|
+| holds | content / observation — the corpus as read in | connection — displacements, bindings, resolved routes |
+| the A9 24×i4 register | — | **here**: loci are *offsets*, never magnitudes |
+| a projection over it | free, and **never stored** (same rung) | — |
+| an elevation | — | **eligible to be stored** (higher rung) |
+
+Two things fall out, and both are already-shipped rules getting their anatomical
+name rather than new policy:
+
+1. **"Cross-tenant *pointers* are legitimate; cross-tenant *values* are not"**
+   (`le-contract-is-the-tenant.md`) **is the grey/white fence.** A locus holding
+   *where* something was grounded is white matter. A locus holding another
+   tenant's *content* at lossy `i4` is white matter impersonating grey — which is
+   exactly the failure that rule was written to forbid.
+2. **The elevation budget equals the observation budget.** There is as much room
+   for derived structure as for the corpus itself — so scarcity is never the
+   reason to refuse a derivation tenant, and abundance is never the reason to
+   grant one. Only the rung decides. 32 MB total is still trivially resident.
+
+*Honest status:* the 2×16 MB budget and the grey/white framing are the operator's;
+the row-level mapping of "which existing tenant is grey vs white" is not yet
+enumerated per-lane. Treat the table as the governing frame, not as a census.
+
+## Projection is not chasing (the indirection cost that does not exist)
+
+> Operator ruling, 2026-07-29: *"24 i4 — it's just pointer projections, NOT
+> pointer chasing."*
+
+This closes the last place a cost argument could hide. The defence overruled
+above priced "a 16 B pointer **plus an indirection**" — and the indirection was
+imported intuition, not a cost this substrate pays.
+
+|  | pointer **chasing** | pointer **projection** (what the loci do) |
+|---|---|---|
+| how the target is obtained | loaded, then dereferenced | **computed**: `target = cur + off` |
+| when the address is known | only after the load retires | as soon as the offset nibble is in a register |
+| address pattern | arbitrary, data-dependent | strided into a contiguous slab (`NODE_ROW_STRIDE`) |
+| hop dependency | serial — each hop waits on the last | **independent** — hops pipeline |
+| prefetcher | defeated | wins |
+
+A locus is a **displacement, not an address**. Reading it costs a mask and a
+sign-extend; resolving it costs an add. Nothing is followed. So the "indirection"
+term in every inline-beats-reference argument is **zero in this substrate** —
+which is why no arithmetic ever rescues the copy: the copy pays a real store to
+avoid a cost that was never charged.
+
+Corollary for review: if a design justifies materialization by invoking
+indirection, cache misses, or chasing over a **strided register lane**, the
+finding is not that the numbers are wrong — it is that the mechanism cited is
+absent.
+
+## The one apparent exception — and why it is not one
+
+There is exactly one thing that licenses writing a value into a tenant, and it is
+**not** "I did work to produce it."
+
+> Operator rulings, 2026-07-29, closing a hole this doc was about to open:
+> 1. *"If the 24× i4 is efficient over the standing wave, calling it compute to
+>    store a copy is still wrong."*
+> 2. *"We're talking about nanoseconds — you need to have a higher awareness
+>    stage to be stored to justify a new tenant."*
+
+An earlier draft framed the exception as *"entropy work licenses the write."*
+**That framing is void as stated**, because every computation is entropy work if
+you squint — it would have re-licensed precisely the copies this law forbids.
+The two rulings fence it from opposite sides:
+
+- **Efficiency is not elevation.** A cheap read is the *mechanism*, not a
+  justification to store its output. The 24×i4 register reading efficiently over
+  the standing wave is exactly what **disqualifies** storing what it read: the
+  lens already is the answer. Relabelling the read as "compute" does not convert
+  its output into new information. **The hatch cannot be entered from below.**
+- **The bar is a rung, never a clock.** At nanoseconds there is nothing to save,
+  so cost is never the argument. A lane is justified only by a **strictly higher
+  awareness stage** than every input it was derived from.
+
+**The test, and it is mechanical:**
+
+> Name the rung of every input and the rung of the output.
+> `output_rung == max(input_rungs)` → **projection. Never stored**, however much
+> arithmetic it took.
+> `output_rung > max(input_rungs)` → **elevation. Eligible for a tenant.**
+
+(Rungs per `.claude/v3/knowledge/persona-vs-rung-ladder.md`: 0–1 observation,
+2 = the 144 verb atoms, 3 = the 34 NARS tactic recipes, 4 = StyleFamily macros.)
+
+The falsifier that keeps it honest: **recompute the stored value from the lens.**
+If it comes back equal, you stored a projection — the store was a cache with a
+correctness liability, not a memory.
+
+**Worked precedent, already shipped:** `Locus::Quorum` and `Locus::Contradiction`
+are stored entropy work, and `CONTENT_LOCI` excludes them ("no self-reference").
+They qualify **not** because reconciling observations is expensive, but because a
+contradiction is a strictly higher epistemic object than the observations it
+reconciles. That is the shape every future derivation tenant must match.
+
 ## The canonical measured instance (2026-07-28)
 
 `witness_fabric::{resolve_chain, standing_wave_grounded}` took
