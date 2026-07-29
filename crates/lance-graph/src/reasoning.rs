@@ -1,19 +1,20 @@
 //! The consumer reasoning facade — **concept-blind by construction**.
 //!
-//! Consumers (medcare-rs and any other) supply *opaque* interned `u16` concept
+//! Consumers supply *opaque* interned `u16` concept
 //! ids plus `(frequency, confidence)` premises; this module supplies the
 //! deduction matrix and never learns what an id means. That asymmetry is the
 //! point, and it is a hard fence, not a preference: `lance-graph` is public,
 //! so a domain vocabulary living here would be a disclosure surface as well as
-//! a reusability loss. **Do not add LOINC codes, disease tables, panel
-//! specifics, or any other domain catalogue to this module.** The consumer owns
-//! the meaning, privately; this crate owns the mechanism.
+//! a reusability loss. **Do not add a domain catalogue of any kind to this
+//! module — no code lists, no entity tables, no field-specific naming, not
+//! even in doc examples or tests.** The consumer owns the meaning, privately;
+//! this crate owns the mechanism.
 //!
 //! # Why a curated facade rather than `pub use lance_graph_planner`
 //!
 //! A blanket re-export would hand every consumer the whole strategy surface
 //! (16 planner strategies, MUL, elevation) to reach four reasoning types. This
-//! module names exactly the clinical-reasoning entry points, so the consumer's
+//! module names exactly the reasoning entry points it supports, so the consumer's
 //! dependency tier stays narrow and auditable. Consumers must NOT path-dep
 //! `lance-graph-planner` directly — that breaks the BBB tiering every consumer
 //! repo in this workspace enforces.
@@ -33,9 +34,7 @@
 //! Guard rules ([`detect_violations`]) deliberately do **not** enter that
 //! pipeline — see their own documentation.
 
-pub use lance_graph_planner::nars::belief::{
-    Belief, BeliefArena, CStmt, Copula, ReviseOutcome, Stamp,
-};
+pub use lance_graph_planner::nars::belief::{Belief, BeliefArena, CStmt, Copula, ReviseOutcome};
 pub use lance_graph_planner::nars::tactics::{
     asc_challenge, cas_abstract, cr_synthesize, rcr_abduce, tr_diverge, AscOutcome, Candidate,
     Frontier, GapKind, ReasoningGap, Tactic, Throttle,
@@ -47,7 +46,7 @@ pub use lance_graph_cognitive::world::counterfactual::{
     Counterfactual, SubstitutedWorld,
 };
 
-/// The evidential-stamp horizon: [`Stamp`] is a 64-bit source bitset.
+/// The evidential-stamp horizon: the evidential stamp is a 64-bit source bitset.
 ///
 /// Load-bearing, not decorative. `Stamp::source(id)` folds `id % 64`, so axis
 /// 0 and axis 64 would produce the *same* bit — and two premises that look
@@ -69,8 +68,15 @@ pub const MAX_AXES: u8 = 64;
 /// genuinely independent axes produces a plausible answer carrying the
 /// confidence of a single axis.
 ///
-/// Taking an `Axis` rather than a `Stamp` means a consumer cannot express that
-/// mistake: distinct axes yield distinct bits by construction.
+/// Taking an `Axis` rather than a raw stamp means a consumer cannot express
+/// that mistake ON THIS PATH: distinct axes yield distinct bits by
+/// construction, and the stamp type is not re-exported, so it cannot be named
+/// or built from outside without breaking the BBB tiering.
+///
+/// **Scoped honestly:** [`PremiseBundle::arena`] still hands out a raw
+/// [`BeliefArena`], and a consumer who deliberately takes that escape hatch
+/// owns the stamp discipline themselves. The guarantee is over this facade's
+/// path, not over every reachable call.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Axis(u8);
 
@@ -93,17 +99,19 @@ impl Axis {
     }
 
     /// The evidential stamp for this axis — one distinct bit per axis.
+    ///
+    /// Crate-private on purpose: a consumer that could name and construct a
+    /// raw `Stamp` could reintroduce the aliasing this type exists to prevent.
     #[must_use]
-    pub fn stamp(self) -> Stamp {
-        Stamp::source(u32::from(self.0))
+    pub(crate) fn stamp(self) -> lance_graph_planner::nars::belief::Stamp {
+        lance_graph_planner::nars::belief::Stamp::source(u32::from(self.0))
     }
 }
 
-/// A patient's (or any subject's) premises, each tagged with the axis that
-/// observed it.
+/// One subject's premises, each tagged with the axis that observed it.
 ///
 /// The bundle owns stamp assignment precisely so the consumer never touches
-/// [`Stamp`] directly — see [`Axis`].
+/// a raw stamp — see [`Axis`].
 #[derive(Debug, Clone, Default)]
 pub struct PremiseBundle {
     premises: Vec<(CStmt, TruthValue, Axis)>,
@@ -143,6 +151,11 @@ impl PremiseBundle {
     /// Fold the bundle into a [`BeliefArena`], stamping each premise with its
     /// own axis. Premises on the same statement from DIFFERENT axes pool
     /// (confidence rises); from the SAME axis they compete by CHOICE.
+    ///
+    /// This is the ESCAPE HATCH: it hands out a raw arena, and anything done
+    /// to it afterwards is outside [`Axis`]'s guarantee. Reach for it only to
+    /// run a tactic this facade does not wrap; for ordinary use prefer
+    /// [`resolve`](Self::resolve) / [`differential`](Self::differential).
     #[must_use]
     pub fn arena(&self) -> BeliefArena {
         let mut arena = BeliefArena::new();
@@ -150,6 +163,49 @@ impl PremiseBundle {
             arena.observe(*stmt, *truth, axis.stamp());
         }
         arena
+    }
+
+    /// Resolve to the best-supported statement, ranked by NARS `expectation()`
+    /// (which weighs frequency BY confidence, so a confident moderate belief
+    /// outranks a near-certain guess).
+    ///
+    /// Returns `None` for an empty bundle — an absent answer, never a
+    /// fabricated low-confidence one.
+    #[must_use]
+    pub fn resolve(&self) -> Option<Resolution> {
+        let arena = self.arena();
+        arena
+            .entries()
+            .iter()
+            .enumerate()
+            // `max_by` keeps the LAST maximum; reverse the index so ties resolve
+            // to the earliest-observed belief and the result is
+            // insertion-deterministic.
+            .max_by(|(ia, a), (ib, b)| {
+                a.truth
+                    .expectation()
+                    .total_cmp(&b.truth.expectation())
+                    .then(ib.cmp(ia))
+            })
+            .map(|(_, b)| Resolution {
+                stmt: b.stmt,
+                truth: b.truth,
+                contradiction: b.contradiction,
+                // The belief's OWN evidence base, not the bundle's — see the field.
+                axes: b.stamp.0.count_ones() as usize,
+            })
+    }
+
+    /// The ranked differential: rival explanations plus **what is missing to
+    /// separate them**.
+    ///
+    /// Returns a [`Frontier`] rather than a bare `Vec<Candidate>` on purpose:
+    /// when two rivals cannot be separated, a [`ReasoningGap`] names the absent
+    /// premise instead of forcing a ranking on evidence that does not support
+    /// one. Surface the gaps — do not discard them.
+    #[must_use]
+    pub fn differential(&self, throttle: &Throttle) -> Frontier {
+        rcr_abduce(&self.arena(), throttle)
     }
 }
 
@@ -172,53 +228,10 @@ pub struct Resolution {
     /// across the whole bundle. The two differ whenever an axis observed only
     /// *other* statements, and the bundle-wide number sitting next to a
     /// resolution reads as a stronger claim than it is — "4 axes" beside a
-    /// diagnosis will be understood as four axes supporting *that* diagnosis.
+    /// verdict will be understood as four axes supporting *that* verdict.
     /// The stamp is the belief's own evidence base, so its popcount is the
     /// honest number.
     pub axes: usize,
-}
-
-/// Resolve a bundle to its best-supported statement, ranked by NARS
-/// `expectation()` (which weighs frequency BY confidence, so a confident
-/// moderate belief outranks a near-certain guess).
-///
-/// Returns `None` for an empty bundle — an absent answer, never a fabricated
-/// low-confidence one.
-#[must_use]
-pub fn resolve(bundle: &PremiseBundle) -> Option<Resolution> {
-    let arena = bundle.arena();
-    arena
-        .entries()
-        .iter()
-        .enumerate()
-        // `max_by` keeps the LAST maximum; reverse the index so ties resolve to
-        // the earliest-observed belief and the result is insertion-deterministic.
-        .max_by(|(ia, a), (ib, b)| {
-            a.truth
-                .expectation()
-                .total_cmp(&b.truth.expectation())
-                .then(ib.cmp(ia))
-        })
-        .map(|(_, b)| Resolution {
-            stmt: b.stmt,
-            truth: b.truth,
-            contradiction: b.contradiction,
-            // The belief's OWN evidence base, not the bundle's — see the field.
-            axes: b.stamp.0.count_ones() as usize,
-        })
-}
-
-/// The ranked differential: rival explanations plus **what is missing to
-/// separate them**.
-///
-/// The [`Frontier::gaps`] half is the clinically honest part and the reason
-/// this returns a `Frontier` rather than a bare `Vec<Candidate>`: when two
-/// rivals cannot be separated, a [`ReasoningGap`] names the absent premise
-/// instead of forcing a ranking on evidence that does not support one.
-/// Surface the gaps — do not discard them.
-#[must_use]
-pub fn differential(bundle: &PremiseBundle, throttle: &Throttle) -> Frontier {
-    rcr_abduce(&bundle.arena(), throttle)
 }
 
 /// Comparison operator for a [`GuardRule`].
@@ -323,7 +336,7 @@ mod tests {
         }
     }
 
-    /// **THE gating falsifier** (medcare seam, both halves required).
+    /// **THE gating falsifier** — both halves required.
     ///
     /// Four independent axes agreeing must POOL — confidence strictly rises
     /// above any single axis. The same four observations on ONE axis must NOT
@@ -341,13 +354,13 @@ mod tests {
         for i in 0..4u8 {
             four.observe(hypothesis, single, axis(i));
         }
-        let pooled = resolve(&four).expect("non-empty bundle resolves");
+        let pooled = four.resolve().expect("non-empty bundle resolves");
 
         let mut one = PremiseBundle::new();
         for _ in 0..4 {
             one.observe(hypothesis, single, axis(0));
         }
-        let chosen = resolve(&one).expect("non-empty bundle resolves");
+        let chosen = one.resolve().expect("non-empty bundle resolves");
 
         assert_eq!(four.distinct_axes(), 4, "four axes must read as four");
         assert_eq!(
@@ -382,7 +395,7 @@ mod tests {
         let mut b = PremiseBundle::new();
         b.observe(hypothesis, TruthValue::new(0.9, 0.5), axis(0));
         b.observe(hypothesis, TruthValue::new(0.1, 0.5), axis(1));
-        let r = resolve(&b).expect("resolves");
+        let r = b.resolve().expect("resolves");
         assert!(
             r.contradiction > 0.5,
             "a 0.9-vs-0.1 split must survive as committed contradiction depth, got {}",
@@ -393,7 +406,7 @@ mod tests {
         agree.observe(hypothesis, TruthValue::new(0.9, 0.5), axis(0));
         agree.observe(hypothesis, TruthValue::new(0.9, 0.5), axis(1));
         assert!(
-            resolve(&agree).expect("resolves").contradiction < 1e-6,
+            agree.resolve().expect("resolves").contradiction < 1e-6,
             "agreeing axes must record NO contradiction — else the flag is decoration"
         );
     }
@@ -417,7 +430,7 @@ mod tests {
     /// An empty bundle resolves to `None` — no fabricated low-confidence answer.
     #[test]
     fn empty_bundle_resolves_to_nothing() {
-        assert!(resolve(&PremiseBundle::new()).is_none());
+        assert!(PremiseBundle::new().resolve().is_none());
     }
 
     /// `Resolution.axes` counts the axes that backed the WINNING statement, not
@@ -437,7 +450,7 @@ mod tests {
         b.observe(winner, TruthValue::new(0.9, 0.6), axis(1));
         b.observe(rival, TruthValue::new(0.2, 0.2), axis(2));
 
-        let r = resolve(&b).expect("resolves");
+        let r = b.resolve().expect("resolves");
         assert_eq!(r.stmt, winner, "the strongly-backed statement must win");
         assert_eq!(
             b.distinct_axes(),
@@ -467,7 +480,7 @@ mod tests {
         a.observe(first, same, axis(0));
         a.observe(second, same, axis(1));
         assert_eq!(
-            resolve(&a).expect("resolves").stmt,
+            a.resolve().expect("resolves").stmt,
             first,
             "first-observed must win its tie"
         );
@@ -476,7 +489,7 @@ mod tests {
         b.observe(second, same, axis(0));
         b.observe(first, same, axis(1));
         assert_eq!(
-            resolve(&b).expect("resolves").stmt,
+            b.resolve().expect("resolves").stmt,
             second,
             "…and the SAME rule must hold when the insertion order is swapped"
         );
@@ -486,30 +499,30 @@ mod tests {
     /// silence must come from the RULE, not from an empty input.
     #[test]
     fn guard_rule_fires_armed_and_stays_silent_unarmed() {
-        const DRUG: u16 = 10;
-        const OTHER_DRUG: u16 = 11;
-        const MARKER: u16 = 20;
+        const TRIGGER: u16 = 10;
+        const OTHER_TRIGGER: u16 = 11;
+        const OBSERVABLE: u16 = 20;
         let rule = GuardRule {
-            when_present: DRUG,
-            observable: MARKER,
+            when_present: TRIGGER,
+            observable: OBSERVABLE,
             cmp: Cmp::Lt,
             threshold: 45.0,
         };
         let rules = [rule];
 
-        let fired = detect_violations(&rules, &[DRUG], &[(MARKER, 30.0)]);
+        let fired = detect_violations(&rules, &[TRIGGER], &[(OBSERVABLE, 30.0)]);
         assert_eq!(fired.len(), 1, "armed + tripped must fire");
         assert_eq!(fired[0].observed, 30.0, "the operand must come back");
         assert_eq!(fired[0].rule.threshold, 45.0, "…and so must the rule");
 
         // Silent because the value is fine — NOT because the input was empty.
         assert!(
-            detect_violations(&rules, &[DRUG], &[(MARKER, 60.0)]).is_empty(),
+            detect_violations(&rules, &[TRIGGER], &[(OBSERVABLE, 60.0)]).is_empty(),
             "armed but within threshold must not fire"
         );
         // Silent because the rule is unarmed, on the SAME tripping value.
         assert!(
-            detect_violations(&rules, &[OTHER_DRUG], &[(MARKER, 30.0)]).is_empty(),
+            detect_violations(&rules, &[OTHER_TRIGGER], &[(OBSERVABLE, 30.0)]).is_empty(),
             "unarmed must not fire even on a tripping value"
         );
     }
@@ -518,22 +531,22 @@ mod tests {
     /// category fence, asserted rather than merely documented.
     #[test]
     fn guard_violations_never_enter_the_arena() {
-        const DRUG: u16 = 10;
-        const MARKER: u16 = 20;
+        const TRIGGER: u16 = 10;
+        const OBSERVABLE: u16 = 20;
         let rules = [GuardRule {
-            when_present: DRUG,
-            observable: MARKER,
+            when_present: TRIGGER,
+            observable: OBSERVABLE,
             cmp: Cmp::Lt,
             threshold: 45.0,
         }];
-        let violations = detect_violations(&rules, &[DRUG], &[(MARKER, 30.0)]);
+        let violations = detect_violations(&rules, &[TRIGGER], &[(OBSERVABLE, 30.0)]);
         assert_eq!(violations.len(), 1);
 
-        // The bundle that reasons about this patient is untouched by the
+        // The bundle that reasons about this subject is untouched by the
         // violation: nothing to observe, nothing to revise, nothing to soften.
         let bundle = PremiseBundle::new();
         assert!(
-            resolve(&bundle).is_none(),
+            bundle.resolve().is_none(),
             "a contraindication must not have produced a belief"
         );
     }
