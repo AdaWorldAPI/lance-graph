@@ -92,10 +92,33 @@ correct shape is indices into that buffer. Not done here: it cascades through
 after today's record I am not landing a refactor that size unreviewed in the
 same pass as the fix.
 
-`reasoning.rs` also still has `PremiseBundle.premises: Vec<..>` and
-`arena(&self) -> BeliefArena`, which **builds and returns a whole arena per
-call**. Documented in #866 as "the escape hatch"; it is a per-call
-materialisation and is unexamined.
+`reasoning.rs` has `PremiseBundle.premises: Vec<..>` and
+`arena(&self) -> BeliefArena`.
+
+> **⊘ SELF-CORRECTION (same session, before acting on it).** An earlier revision
+> of this line called `arena()` "a per-call materialisation" and listed it as a
+> copy to remove. **That was wrong, and it was the same reflex that nearly
+> mis-flagged `lance-graph-ontology`:** seeing an owned return value and reading
+> it as a duplication without asking what it derives from.
+>
+> `arena()` is a **fold**, not a copy. It takes premises and produces pooled
+> beliefs with NARS-revised truth — `TruthValue::revise` on disjoint stamps,
+> CHOICE on overlapping ones. The output is at a strictly higher rung than every
+> input: no premise carries pooled confidence; the arena is where that comes into
+> existence. That is exactly the ELEVATED carve-out (`Locus::Quorum` /
+> `Contradiction` precedent) and it EARNS its store. Removing it would delete the
+> reasoning, not a duplication.
+>
+> **The real finding, which is smaller and different:** `resolve()` (`:176`) and
+> `differential()` (`:208`) each call `self.arena()`, so a caller that does both
+> — which is the expected consumer shape — folds the same premises **twice**.
+> That is redundant computation, not a copy. `.claude/rules/data-flow.md`
+> permits the fix (*"caches use interior mutability (`RwLock`, `LazyLock`) or are
+> built once"*), so a `OnceCell<BeliefArena>` is in-doctrine. NOT done here: it
+> changes a public struct's shape, and it is a different category of defect from
+> the one this record is about. Filed, not smuggled in.
+
+`PremiseBundle.premises` remains a stored `Vec` and is genuinely unexamined.
 
 ---
 
