@@ -1,3 +1,11 @@
+## 2026-07-29 — branch `claude/x265-x266-plans-review-h9osnl` — PROBE-SUDOKU-TEACHER G7 + the fork-closure null result
+
+### Current Contract Inventory — probe surface only (no contract types added)
+- `lance_graph_planner::examples::probe_sudoku_teacher` — now **G1–G7, ALL GATES GREEN**. New: `count_completions` (bounded solution enumerator — the fixture VALIDATOR, never called by the reasoner), `try_bifurcate_or_flag` / `ForkOutcome` (the fork's explicit third arm: neither branch contradicting ⇒ `Underdetermined`), `Verdict` + `solve_with_ambiguity_gate`, `find_ambiguous_fixture` + `find_fork_required_fixture` (both DISCOVER-and-verify, never hand-derive), and `Policy::ElectionsFirstWithHidden`.
+- **G7 (new)** — the gate a search solver structurally fails: commit on a verified-unique puzzle, REFUSE on a verified-ambiguous one (2 completions, 6 differing cells, none written). Falsifier proven: flipping the refuse arm to "commit the first candidate" fails both refuse assertions with `can_commit` still true.
+- **G4 (amended)** — the bifurcate-vs-refuse contrast is explicitly **NOT asserted**, with the reason in the gate's own detail line: it does not exist on this puzzle family. Scan: 26858 unique / 388 singles-stall / **0 fork-closable** / best residual 16. Debt: `TD-FORK-CANNOT-CLOSE-WHAT-SINGLES-CANNOT` (close condition: `fork_closes > 0`). G4's third half instead asserts hidden-singles soundness (Hamming 0) and non-regression (census ≥ baseline).
+- **Finding worth carrying:** `base_solution_boxmajor` is the cyclic grid `(f(r)+c) mod 9` and is **provably free of 4-cell unavoidable sets** — a corner swap forces `2(c₁−c₂) ≡ 0 (mod 9)`, and `gcd(2,9)=1` ⟹ `c₁=c₂`. A fixture family can be structurally incapable of exhibiting the property under test. Detail: `EPIPHANIES` `E-A-NULL-RESULT-IS-THE-DELIVERABLE-1`; `AGENT_LOG` 2026-07-29.
+
 ## 2026-07-29 — branch `claude/happy-hamilton-0azlw4` — `invoke_recoder`: the SECOND keystone, proving `classid → ClassView → content` dispatch is class-AGNOSTIC (not fitted to one call shape)
 
 ### Current Contract Inventory — new entry
