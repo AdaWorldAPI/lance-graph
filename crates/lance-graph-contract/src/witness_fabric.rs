@@ -105,7 +105,21 @@ const _: () = assert!(
 ///
 /// No `#[derive(Debug)]`: [`NodeRow`] itself does not implement `Debug` (out
 /// of scope for this lens to add), so a derived impl here would not compile.
-#[derive(Clone, Copy)]
+// NOT `Clone`, NOT `Copy` — operator-ruled 2026-07-29: *"copies are forbidden,
+// borrows are only for the same mailbox"*, and *"WitnessLens is forbidden as a
+// copy. period."*
+//
+// A `Copy` borrow is a borrow that duplicates itself silently. It can be handed
+// to a second holder, stored beside the first, and carried out of the
+// compartment that owns the rows — with no move, no diagnostic, and nothing in
+// a review to point at. That is precisely the escape the mailbox rule exists to
+// close: a borrow is legitimate INSIDE one mailbox and illegitimate the moment
+// it crosses an ownership boundary, and `Copy` is what lets it cross unnoticed.
+//
+// Without the derive the lens must be passed by reference and cannot be
+// duplicated into a second owner, so its reach is bounded by the borrow it was
+// built from. Anything that wants the rows elsewhere takes an ADDRESS and
+// resolves it against the corpus there — never a second view of the same bytes.
 pub struct WitnessLens<'a> {
     rows: &'a [NodeRow],
 }
