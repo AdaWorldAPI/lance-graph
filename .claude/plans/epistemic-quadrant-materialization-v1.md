@@ -458,6 +458,51 @@ Probe artifact: `crates/lance-graph-planner/examples/probe_sudoku_teacher.rs`
 (planner has both deps: contract for NodeRow/WitnessLens, ndarray for
 Quadrant; precedent: probe_babel_stances, probe_eyes_opened).
 
+## 4d-RESULTS (2026-07-29) — G1–G6 green, and what they do NOT show
+
+`examples/probe_sudoku_teacher.rs`, 1094 LOC. Orchestrator-verified (not
+report-trusted): `cargo fmt` needed a central fix, `clippy -p
+lance-graph-planner --all-targets -- -D warnings` clean, probe run
+**ALL GATES GREEN** (G1–G6).
+
+Confirmed working: the lane/sweep horizon split (box-forced → sweep silent;
+column-forced → sweep fires and *changes* the answer, lane `[7,8,9]` → `[9]`);
+fork-return byte-isolation (`only_target_changed=true`,
+`wrong_guess_absent=true`, `exactly_one_branch_failed=true`); triangle promotion
+AND refusal with write-isolation on both (`promote learned=0xbb frozen=0xbb`,
+`refuse frozen=0x00`); Hamming monotone with a genuine strict decrease.
+
+**Three honest limitations — recorded because "ALL GATES GREEN" must not be read
+as "we built a Sudoku reasoner":**
+
+1. **This is a mechanism demonstrator on engineered fixtures, not a solver.**
+   The "hard" puzzles are near-empty (Hamming series start at 81 = every cell
+   unsolved) and end at 80 — *one cell resolved*. Legitimate for isolating a
+   mechanism; not evidence of solving ability, and no such claim is made.
+2. **G4 does not test the contrast it was designed for.** The intent was
+   "bifurcation enables migration where refusal does not." The measured census
+   is **identical for both** (`staunen 63, wisdom 18`); only the *easy-vs-hard*
+   contrast is asserted, and the bifurcate census is printed "for comparison"
+   rather than asserted. So G4 currently proves migration happens on an easy
+   puzzle and not on a hard one — which is weaker than its stated claim. **The
+   gate passes while under-testing; fixing it needs a puzzle where bifurcation
+   is genuinely load-bearing.** (Exactly the vacuity class the P0 rule targets —
+   caught here by reading the numbers, not the verdict.)
+3. **Hidden singles are not in the solve loop.** G2 proves the detector fires
+   and stays silent, but `run_policy` never elects via hidden singles — the
+   worker found that threading them in subsumed the engineered 2-candidate
+   ambiguity and erased the G5 policy distinction. So the **unknown-known
+   mechanism is demonstrated in isolation, not exercised by the reasoner.**
+   That is the quadrant this probe most wanted to prove, so the gap is
+   material.
+
+Also note G5's margin is one edit operation (`path_lev` 1 vs 2) at equal cost —
+honest (that IS the metric) but thin; a wider-margin fixture would be sturdier.
+
+**Follow-ups, in order:** (a) G7 ambiguity gate (§4e); (b) re-shape G4 so
+bifurcate-vs-refuse is the asserted contrast; (c) thread hidden singles into
+`run_policy` with a policy distinction that survives it.
+
 ## 4e. Comparison baseline: `zackthoutt/sudoku-ai` — search vs REASONING
 
 > Operator, 2026-07-29: *"for comparison — needs reimagining using logical
