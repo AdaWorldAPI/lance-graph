@@ -1,5 +1,75 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-NO-PER-THREAD-TEMPORAL-PROJECTION-IS-EVER-CONSTRUCTED (2026-07-29) — OPEN, UPSTREAM OF `meta_basin`
+
+> **⊘ RE-GRADED AND RELOCATED (Codex, #869) — my first filing mislocated this.**
+> I recorded it as "P1 correctness, shipped in #868". Both halves were wrong:
+>
+> - **`WitnessLens` is not the defect.** It borrows a caller-supplied
+>   `&[NodeRow]` and indexes it. Hand it an as-of projection and it reads that
+>   projection **correctly**. The type is agnostic to which version its rows came
+>   from — that is a property, not a bug.
+> - **#868 did not introduce it.** The gathered `(stream_position, facet)` API it
+>   replaced had **no version parameter either**. The migration changed nothing
+>   about temporal behaviour in either direction.
+>
+> The real gap is a **capability that has never existed anywhere**: nothing
+> upstream ever *constructs* a per-thread as-of projection to hand down. Filing
+> it against `meta_basin` would have aimed the fix — and its regression test — at
+> the wrong component, which is worse than not filing it, because a green test on
+> the wrong layer reads as coverage.
+>
+> **Severity: an unbuilt capability, not a regression.** Nothing that works today
+> stops working. It bounds what the substrate can express: while every thread is
+> handed the same rows, "corpus-as-of" is inexpressible regardless of how
+> `meta_basin` is written.
+
+**The defect (Codex, #868, verified against the code).** `WitnessLens::at(pos)`
+always reads the **current snapshot**. `visible(pos)` can only *include or
+exclude* an address — it structurally **cannot** select the historical row
+revision that `QueryReference::at(v, rung)` + `deinterlace` produce. So when the
+standing wave holds threads pinned to different Lance versions:
+
+- a thread whose row was modified after its horizon is graded from the **newer**
+  register — it reads a future it should not be able to see;
+- one invocation shares **one** peer domain, so quorum, trajectory and basin
+  membership describe a **global snapshot**, not each thread's corpus-as-of view.
+
+**Why no better predicate fixes it.** Include/exclude is the wrong *arity* for
+the question. The row bytes are fetched from the wrong version **before** the
+predicate is consulted, so no `visible` implementation can recover the right
+ones. The input must carry the focal thread's **temporal projection / address
+set**, not a spatial filter over the current lens.
+
+**Scope — CORRECTED (Codex, #869). It subsumes nothing.** My first filing claimed
+`GradedRow::pos`, the Θ(N·k) peer scan, and `MetaBasin::members` were all
+downstream of one cause and could not be fixed separately. That was the same
+flattening reflex as the rest of this arc: three things felt like one, so I made
+them one.
+
+**`TD-LENS-QUORUM-SCANS-THE-WHOLE-LENS` STAYS OPEN and is NOT superseded.** For a
+plain single-version sparse window with `N` corpus rows and `k` visible,
+`grade_rows` calls `quorum_mantissa_lens` once per focal and each call scans all
+`N` positions — `Θ(N·k)`, measured at 4608 probes for N=512/k=8 against 64
+gathered peer comparisons. **Temporal projection does not reduce that by one
+probe.** The two are orthogonal: an as-of projection fixes *which rows* a thread
+sees; the address list fixes *how many it touches to find its peers*. Declaring
+the address-list plan superseded would have closed a measured performance
+regression by rhetoric.
+
+**Why the suite is silent.** Every fixture in `meta_basin` builds one snapshot at
+one version, so the entire temporal axis is **constant across every comparison**,
+including the equivalence test that feeds the *same* fixture to both sides. Third
+instance today of `E-THE-EQUALITY-PASSED-WHILE-AN-AXIS-WAS-CONSTANT-1` — and this
+one was found by asking a reviewer "what else is constant across my fixtures?"
+rather than by the suite. **Any fix must land with a multi-version fixture**, or
+the same silence repeats.
+
+**Operator framing that produced it:** ~64k reasoning threads, each temporally
+situated, reconciled through `temporal.rs`. The merged code models rows as data
+swept at one instant; the substrate is threads reading their own corpus-as-of.
+
+
 ## 2026-07-27 — ISS-841-856-NEVER-ANSWERED-REVIEW-COMMENTS — the forensic recovery's full ledger of GitHub review/issue comments across #849–#856 that never received a reply, sorted by whether the underlying finding was fixed anyway
 
 > Filed by the arc-841-856-postmortem recovery session. Every item below was
