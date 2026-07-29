@@ -549,7 +549,22 @@ impl VectorRef for BitpackedVector {
 /// The borrowed slice must be at least `VECTOR_WORDS` u64s long and the data
 /// must be valid (padding bits in word[156] must be masked). Arrow columns
 /// built with `PaddedVectorBuilder` satisfy both invariants.
-#[derive(Clone, Copy)]
+// NOT `Clone`, NOT `Copy` — operator-ruled 2026-07-29: *"copies are forbidden,
+// borrows are only for the same mailbox"* (the same ruling that stripped the
+// derive from `lance_graph_contract::witness_fabric::WitnessLens`).
+//
+// A `Copy` borrow is a borrow that duplicates itself silently. It can be handed
+// to a second holder, stored beside the first, and carried out of the
+// compartment that owns the bytes — with no move, no diagnostic, and nothing in
+// a review to point at. Here the owner is an Arrow/mmap buffer that some other
+// mailbox holds, and `as_words` re-exports the borrow at the FULL `'a`, so a
+// duplicated slice outlives every scope the reviewer can see.
+//
+// Without the derive the slice must be passed by reference and cannot be
+// duplicated into a second owner, so its reach is bounded by the borrow it was
+// built from. Every consumer here already takes `&dyn VectorRef`; a holder that
+// wants the vector elsewhere takes an ADDRESS (row index into the batch) and
+// re-resolves it there — never a second view of the same bytes.
 pub struct VectorSlice<'a> {
     words: &'a [u64],
 }

@@ -20,7 +20,20 @@ use super::csr::AdjacencyStore;
 ///
 /// Holds no adjacency data of its own — every accessor reads through to the
 /// store's resident CSR arrays.
-#[derive(Debug, Clone, Copy)]
+// NOT `Clone`, NOT `Copy` — operator-ruled 2026-07-29: *"copies are forbidden,
+// borrows are only for the same mailbox"*. Same ruling that stripped the derive
+// from `lance_graph_contract::witness_fabric::WitnessLens` (`b3515ba`); this is
+// the same shape — a struct whose every field is a borrow.
+//
+// A `Copy` borrow duplicates itself silently: it can be handed to a second
+// holder, stored beside the first, and carried out of the compartment that owns
+// the CSR arrays with no move, no diagnostic, and nothing in a review to point
+// at. That is exactly the escape the mailbox rule closes. Without the derive the
+// view must be passed by reference (every call site here already does), so its
+// reach is bounded by the borrow it was built from; anything that wants the
+// adjacency elsewhere takes the source ids as ADDRESSES and re-derives the view
+// against the store there — never a second view of the same bytes.
+#[derive(Debug)]
 pub struct AdjacencyBatch<'a> {
     /// The store the view reads through.
     store: &'a AdjacencyStore,
