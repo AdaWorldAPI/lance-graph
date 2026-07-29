@@ -344,23 +344,21 @@ pub struct OutlierSuggestion {
 /// SPARSE selection — the gathered form could hold positions `[0, 1, 2, 10, 20]`
 /// with no rows between, and the lens expresses exactly that as a row array with
 /// `visible` false on the gaps.
-#[must_use]
-pub fn grade_rows(
-    lens: &WitnessLens<'_>,
-    visible: &impl Fn(usize) -> bool,
+pub fn grade_rows<'a>(
+    lens: &'a WitnessLens<'_>,
+    visible: &'a impl Fn(usize) -> bool,
     locus: Locus,
     max_hops: u8,
-) -> Vec<GradedRow> {
+) -> impl Iterator<Item = GradedRow> + 'a {
     (0..lens.len())
-        .filter(|&pos| visible(pos))
+        .filter(move |&pos| visible(pos))
         .enumerate()
-        .map(|(idx, pos)| GradedRow {
+        .map(move |(idx, pos)| GradedRow {
             idx,
             pos,
             quorum: quorum_mantissa_lens(pos, lens, visible),
             trajectory: trajectory_of_lens(pos, lens, visible, locus, max_hops),
         })
-        .collect()
 }
 
 /// **Ride the tail** — the rows the quorum does not cover.
@@ -369,12 +367,31 @@ pub fn grade_rows(
 /// the tail. This deliberately returns rows rather than discarding them: the
 /// tail is the input to meta-clustering, not a reject pile.
 #[must_use]
-pub fn tail(graded: &[GradedRow], tail_below: u8) -> Vec<GradedRow> {
+pub fn tail(graded: impl IntoIterator<Item = GradedRow>, tail_below: u8) -> Vec<GradedRow> {
     graded
-        .iter()
-        .copied()
+        .into_iter()
         .filter(|r| r.quorum <= tail_below)
         .collect()
+}
+
+/// Shape-only grading for the perturbation path: `meta_cluster` reads ONLY
+/// `.trajectory`, so the quorum sweep — the expensive half — is skipped
+/// entirely rather than computed and discarded. Lazy, like [`grade_rows`].
+fn grade_shapes_at<'a>(
+    lens: &'a WitnessLens<'_>,
+    visible: &'a impl Fn(usize) -> bool,
+    locus: Locus,
+    hops: u8,
+) -> impl Iterator<Item = GradedRow> + 'a {
+    (0..lens.len())
+        .filter(move |&pos| visible(pos))
+        .enumerate()
+        .map(move |(idx, pos)| GradedRow {
+            idx,
+            pos,
+            quorum: 0,
+            trajectory: trajectory_of_lens(pos, lens, visible, locus, hops),
+        })
 }
 
 /// Cluster rows into [`MetaBasin`]s by causal shape.
@@ -476,16 +493,8 @@ impl MetaBasin {
         // budget — not just this basin's members — so a row that joins from
         // outside is visible. `quorum` is irrelevant to shape-clustering
         // (`meta_cluster` only reads `.trajectory`), so it is left at `0`.
-        let reperturbed: Vec<GradedRow> = (0..lens.len())
-            .filter(|&pos| visible(pos))
-            .enumerate()
-            .map(|(idx, pos)| GradedRow {
-                idx,
-                pos,
-                quorum: 0,
-                trajectory: trajectory_of_lens(pos, lens, visible, locus, perturbed_hops),
-            })
-            .collect();
+        let reperturbed: Vec<GradedRow> =
+            grade_shapes_at(lens, visible, locus, perturbed_hops).collect();
 
         meta_cluster(&reperturbed).into_iter().any(|b| {
             let mut got: Vec<usize> = b.members.iter().map(|m| m.idx).collect();
@@ -574,8 +583,7 @@ pub fn outlier_suggestions(
     perturbed_hops: u8,
     tail_below: u8,
 ) -> Vec<OutlierSuggestion> {
-    let graded = grade_rows(lens, visible, locus, max_hops);
-    let tail_rows = tail(&graded, tail_below);
+    let tail_rows = tail(grade_rows(lens, visible, locus, max_hops), tail_below);
     let scores = density_scores(&tail_rows, DensityConfig::default());
     coarse_flags(lens, visible, locus, perturbed_hops, &tail_rows)
         .into_iter()
@@ -654,8 +662,7 @@ pub fn ranked_outlier_suggestions(
     tail_below: u8,
     cfg: DensityConfig,
 ) -> Vec<OutlierSuggestion> {
-    let graded = grade_rows(lens, visible, locus, max_hops);
-    let tail_rows = tail(&graded, tail_below);
+    let tail_rows = tail(grade_rows(lens, visible, locus, max_hops), tail_below);
     let scores = density_scores(&tail_rows, cfg);
     let coarse = coarse_flags(lens, visible, locus, perturbed_hops, &tail_rows);
 
@@ -761,15 +768,15 @@ mod tests {
         let rows = rows_from(&win);
         let lens = WitnessLens::new(&rows);
         let vis = vis_of(&win);
-        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
+        let graded: Vec<GradedRow> = grade_rows(&lens, &vis, Locus::Antecedent, 8).collect();
         assert_eq!(graded.len(), 3);
         for g in &graded {
             assert!(g.quorum <= 15, "mantissa out of i4 range");
         }
         // A high threshold takes everything; a threshold of 0 takes only the
         // rows nobody agrees with. The tail is a VIEW, never a discard.
-        assert_eq!(tail(&graded, 15).len(), 3);
-        assert!(tail(&graded, 0).len() <= 3);
+        assert_eq!(tail(graded.iter().copied(), 15).len(), 3);
+        assert!(tail(graded.iter().copied(), 0).len() <= 3);
     }
 
     #[test]
@@ -784,7 +791,7 @@ mod tests {
         let rows = rows_from(&win);
         let lens = WitnessLens::new(&rows);
         let vis = vis_of(&win);
-        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
+        let graded: Vec<GradedRow> = grade_rows(&lens, &vis, Locus::Antecedent, 8).collect();
         let basins = meta_cluster(&graded);
         assert!(basins.len() >= 2, "escalating row was merged away");
         // Every row survives clustering — nothing is silently dropped.
@@ -806,7 +813,7 @@ mod tests {
         let rows = rows_from(&win);
         let lens = WitnessLens::new(&rows);
         let vis = vis_of(&win);
-        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
+        let graded: Vec<GradedRow> = grade_rows(&lens, &vis, Locus::Antecedent, 8).collect();
         for b in meta_cluster(&graded) {
             let minis = mini_basins(&b);
             let total: usize = minis.iter().map(|m| m.members.len()).sum();
@@ -823,7 +830,7 @@ mod tests {
         let rows = rows_from(&win);
         let lens = WitnessLens::new(&rows);
         let vis = vis_of(&win);
-        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
+        let graded: Vec<GradedRow> = grade_rows(&lens, &vis, Locus::Antecedent, 8).collect();
         for b in meta_cluster(&graded) {
             // Singletons have nothing to dissolve — never reported unstable.
             if b.members.len() < 2 {
@@ -873,7 +880,7 @@ mod tests {
         let rows = rows_from(&win);
         let lens = WitnessLens::new(&rows);
         let vis = vis_of(&win);
-        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
+        let graded: Vec<GradedRow> = grade_rows(&lens, &vis, Locus::Antecedent, 8).collect();
         let basins = meta_cluster(&graded);
         let basin = basins
             .iter()
@@ -1181,7 +1188,7 @@ mod tests {
         let rows = rows_from(&win);
         let lens = WitnessLens::new(&rows);
         let vis = vis_of(&win);
-        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
+        let graded: Vec<GradedRow> = grade_rows(&lens, &vis, Locus::Antecedent, 8).collect();
         let budgets: Vec<u8> = (0..=10).collect();
         for b in meta_cluster(&graded) {
             let sweep = b.stability_sweep(&lens, &vis, Locus::Antecedent, &budgets);
@@ -1403,7 +1410,8 @@ mod tests {
 
             for hops in [0u8, 1, 2, 3, 8, 255] {
                 let gathered = grade_rows_gathered(win, Locus::Antecedent, hops);
-                let lensed = grade_rows(&lens, &vis, Locus::Antecedent, hops);
+                let lensed: Vec<GradedRow> =
+                    grade_rows(&lens, &vis, Locus::Antecedent, hops).collect();
                 assert_eq!(
                     gathered.len(),
                     lensed.len(),
@@ -1482,7 +1490,7 @@ mod tests {
             calls.set(calls.get() + 1);
             positions.contains(&p)
         };
-        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
+        let graded: Vec<GradedRow> = grade_rows(&lens, &vis, Locus::Antecedent, 8).collect();
         assert_eq!(graded.len(), K, "only the visible rows are graded");
 
         // The shape, not a magic number: at least one full sweep per graded row
@@ -1522,7 +1530,7 @@ mod tests {
         assert!(lens.at(1).is_some(), "row 1 is addressable by the lens");
         assert!(!vis(1), "row 1 must be invisible");
 
-        let graded = grade_rows(&lens, &vis, Locus::Antecedent, 8);
+        let graded: Vec<GradedRow> = grade_rows(&lens, &vis, Locus::Antecedent, 8).collect();
         assert_eq!(graded.len(), 2, "the invisible row leaked into the grading");
         assert_eq!(
             graded.iter().map(|g| g.pos).collect::<Vec<_>>(),
