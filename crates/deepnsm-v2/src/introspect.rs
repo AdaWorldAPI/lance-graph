@@ -106,6 +106,11 @@ pub fn nars_confidence(n: usize, k: usize) -> f32 {
 /// ([`TemporalStream::window_at`], the `TemporalPov::at` contract). This is the
 /// introspective read: it counts `y` in each contemporary window, not by
 /// touching any raw list directly.
+///
+/// The window is consumed as the BORROWING projection it is — counting a
+/// window never materializes it. The self-read is still strictly through the
+/// window primitive (that is what makes `G-SRS4-2` a real gate); only the
+/// two full-window `Vec`s it used to allocate per call are gone.
 #[must_use]
 pub fn confidence_delta_self(
     stream: &TemporalStream,
@@ -114,7 +119,7 @@ pub fn confidence_delta_self(
     v2: u64,
     k: usize,
 ) -> ConfidenceAnswer {
-    let count_at = |v: u64| stream.window_at(v).into_iter().filter(|&t| t == y).count();
+    let count_at = |v: u64| stream.window_at(v).filter(|&&t| t == y).count();
     let n1 = count_at(v1);
     let n2 = count_at(v2);
     let c1 = nars_confidence(n1, k);
@@ -229,6 +234,60 @@ mod tests {
         // NARS: c1 = 2/3, c2 = 3/4.
         assert!((self_ans.c1 - 2.0 / 3.0).abs() < 1e-6);
         assert!((self_ans.c2 - 3.0 / 4.0).abs() < 1e-6);
+    }
+
+    /// **The safety argument for the borrowing window.** The self-read goes
+    /// through [`TemporalStream::window_at`]; the recount never touches it.
+    /// Sweeping EVERY `(v1, v2)` pair over the stream's version span — the
+    /// empty window (before any version), partial windows, and the fully
+    /// visible window — the two must agree on every field, for a belief that
+    /// occurs AND for one that never does.
+    #[test]
+    fn confidence_self_matches_recount_across_every_version_pair() {
+        let y = Spo::new(10, 20, 30);
+        let absent = Spo::new(77, 77, 77); // never pushed
+        let other = Spo::new(1, 2, 3);
+        let raw = vec![
+            (2u64, y),
+            (3, other),
+            (5, y),
+            (5, other),
+            (8, y),
+            (9, other),
+        ];
+        let mut stream = TemporalStream::new();
+        for &(v, t) in &raw {
+            stream.push(v, t);
+        }
+
+        let (mut saw_empty, mut saw_partial, mut saw_full) = (false, false, false);
+        for v1 in 0..=11u64 {
+            for v2 in 0..=11u64 {
+                for &belief in &[y, absent, other] {
+                    let got = confidence_delta_self(&stream, belief, v1, v2, 1);
+                    let truth = confidence_delta_recount(&raw, belief, v1, v2, 1);
+                    assert_eq!(
+                        got, truth,
+                        "self-read diverged from the recount at v1={v1} v2={v2} for {belief:?}"
+                    );
+                }
+                let visible = stream.window_at(v1).count();
+                match visible {
+                    0 => saw_empty = true,
+                    n if n == raw.len() => saw_full = true,
+                    _ => saw_partial = true,
+                }
+            }
+        }
+        assert!(
+            saw_empty && saw_partial && saw_full,
+            "the sweep must cover the empty, partial AND all-visible windows"
+        );
+        // Anti-vacuity: the fixture must actually move the confidence, or the
+        // sweep above only proves two ways of computing zero.
+        let moving = confidence_delta_self(&stream, y, 2, 8, 1);
+        assert!(moving.delta > 0.0, "the fixture must exercise a real delta");
+        assert_eq!((moving.n1, moving.n2), (1, 3));
     }
 
     /// `most_frequent_belief` is deterministic: most occurrences, ties by

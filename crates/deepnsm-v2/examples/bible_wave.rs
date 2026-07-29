@@ -261,19 +261,20 @@ fn main() {
 
     // window sanity: the literal read reaches any span — GATED, not just logged
     // (a temporal-range regression must fail the falsifier, per #803 review).
-    let w = stream.window_range(lance_graph_contract::temporal_pov::VersionRange::new(
-        0,
-        verses.len() as u64,
-    ));
+    // The window is a borrowing projection of the stream, so the whole-book
+    // read is COUNTED in place — asking how wide it is never materializes it.
+    let w_len = stream
+        .window_range(lance_graph_contract::temporal_pov::VersionRange::new(
+            0,
+            verses.len() as u64,
+        ))
+        .count();
     assert_eq!(
-        w.len(),
+        w_len,
         all.len(),
         "KILL: whole-book window did not return every streamed triple"
     );
-    println!(
-        "WINDOW      whole-book literal read returns {} triples (no bundle, no reset)",
-        w.len()
-    );
+    println!("WINDOW      whole-book literal read returns {w_len} triples (no bundle, no reset)");
 
     // G4 — trained-codebook meaning sanity.
     let near = nsm.word_similarity("god", "lord").expect("in vocab");

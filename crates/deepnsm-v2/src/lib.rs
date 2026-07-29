@@ -189,25 +189,32 @@ impl TemporalStream {
     /// Every triple a reader pinned at `ref_version` can see — the contemporary
     /// window `row_version ≤ ref_version` ([`TemporalPov::at`]), the version-range
     /// generalization of the ±5 ring.
-    #[must_use]
-    pub fn window_at(&self, ref_version: u64) -> Vec<Spo> {
+    ///
+    /// **A window is a PROJECTION of the stream, never a second store**
+    /// (operator ruling: "zero copy is a law without escape hatches"). This
+    /// returns a BORROWING iterator over `entries` — the primary store — so a
+    /// reader that counts, scans or filters a window pays one predicate call
+    /// per entry and never an allocation. Collecting is the caller's explicit
+    /// choice, not the accessor's default; it previously was the default, and
+    /// every consumer paid a full-window `Vec` to ask a question the iterator
+    /// answers in place.
+    pub fn window_at(&self, ref_version: u64) -> impl Iterator<Item = &Spo> + '_ {
         let pov = TemporalPov::at(ref_version, 0);
         self.entries
             .iter()
-            .filter(|(v, _)| pov.admits(*v))
-            .map(|(_, t)| *t)
-            .collect()
+            .filter(move |(v, _)| pov.admits(*v))
+            .map(|(_, t)| t)
     }
 
     /// Every triple in an explicit half-open [`VersionRange`] `[from, to)` — an
     /// arbitrary-width window (any span, not just the contemporary prefix).
-    #[must_use]
-    pub fn window_range(&self, range: VersionRange) -> Vec<Spo> {
+    ///
+    /// Borrowing projection, exactly as [`Self::window_at`] — same reasoning.
+    pub fn window_range(&self, range: VersionRange) -> impl Iterator<Item = &Spo> + '_ {
         self.entries
             .iter()
-            .filter(|(v, _)| range.contains(*v))
-            .map(|(_, t)| *t)
-            .collect()
+            .filter(move |(v, _)| range.contains(*v))
+            .map(|(_, t)| t)
     }
 }
 
@@ -278,10 +285,62 @@ mod tests {
             s.push(v, Spo::new(v as u16, 0, 0));
         }
         // Contemporary window at v=4 admits versions 0..=4 (5 triples).
-        assert_eq!(s.window_at(4).len(), 5);
+        assert_eq!(s.window_at(4).count(), 5);
         // Arbitrary width [2,7) admits versions 2..=6 (5 triples) — any span.
-        assert_eq!(s.window_range(VersionRange::new(2, 7)).len(), 5);
+        assert_eq!(s.window_range(VersionRange::new(2, 7)).count(), 5);
         // A future-frame triple is not admitted at an earlier ref.
-        assert!(s.window_at(4).iter().all(|t| t.subject <= 4));
+        assert!(s.window_at(4).all(|t| t.subject <= 4));
+    }
+
+    /// **The borrowing window is the SAME window.** Against an independent
+    /// recomputation over the raw `(version, triple)` pairs — separate code
+    /// that never calls the accessor — the projection must admit exactly the
+    /// same triples, in the same order, at every reference version, including
+    /// the empty (`ref` before everything) and all-visible edges.
+    #[test]
+    fn window_projection_matches_an_independent_recount() {
+        // Versions start at 2, so reference 0/1 exercises the EMPTY window.
+        let raw: Vec<(u64, Spo)> = (0..10u64)
+            .map(|v| ((v + 1) * 2, Spo::new(v as u16, 1, 2)))
+            .collect();
+        let mut s = TemporalStream::new();
+        for &(v, t) in &raw {
+            s.push(v, t);
+        }
+        let mut saw_empty = false;
+        let mut saw_partial = false;
+        let mut saw_full = false;
+        for reference in 0..=20u64 {
+            let expect: Vec<Spo> = raw
+                .iter()
+                .filter(|&&(v, _)| v <= reference)
+                .map(|&(_, t)| t)
+                .collect();
+            let got: Vec<Spo> = s.window_at(reference).copied().collect();
+            assert_eq!(got, expect, "window_at({reference}) diverged");
+            match expect.len() {
+                0 => saw_empty = true,
+                n if n == raw.len() => saw_full = true,
+                _ => saw_partial = true,
+            }
+
+            // Same for an explicit range, so the arbitrary-width arm is not
+            // taken on faith.
+            let range = VersionRange::new(reference, reference + 7);
+            let expect_r: Vec<Spo> = raw
+                .iter()
+                .filter(|&&(v, _)| range.contains(v))
+                .map(|&(_, t)| t)
+                .collect();
+            let got_r: Vec<Spo> = s.window_range(range).copied().collect();
+            assert_eq!(got_r, expect_r, "window_range({reference}..) diverged");
+        }
+        assert!(
+            saw_empty && saw_partial && saw_full,
+            "the sweep must cover the empty, partial AND all-visible windows"
+        );
+
+        // An empty stream projects nothing rather than panicking.
+        assert_eq!(TemporalStream::new().window_at(7).count(), 0);
     }
 }

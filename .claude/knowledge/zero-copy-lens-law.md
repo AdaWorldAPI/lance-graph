@@ -261,6 +261,25 @@ Three rules that make a lens correct rather than merely borrowed:
    positions and budgets — lens result ≡ gathered result. Without it, a
    "refactor" is a rewrite hoping to be one.
 
+## Not every gathered slice is a window (the axis check, added 2026-07-29)
+
+Found while migrating the `window:` family: **a gathered parameter tells you a
+copy happened, not which lens replaces it.** Two different axes wear the same
+`&[…Facet]` shape, and only one of them is a row slice.
+
+| | **position axis** (`window:`) | **version axis** (`revisions:`) |
+|---|---|---|
+| what the elements are | different rows, one instant | the SAME logical row at successive versions |
+| where they live | contiguous, `NODE_ROW_STRIDE`-strided | Lance versions — a temporal read |
+| the lens | `WitnessLens::at(pos)` — a cast | **not yet written**; source is a version-range read (`QueryReference::at(v, rung)` + deinterlace, per `E-MARKOV-TEMPORAL-STREAM-1`) |
+
+**`WitnessLens` does not generalize to the version axis.** Applying it there
+would be the anti-pattern the card names — a "lens" whose constructor takes owned
+data, i.e. the copy moved rather than removed. **Name the source before writing
+the twin**; if you cannot name what the borrow borrows FROM, you are not ready to
+migrate. Live inventory: 8 `revisions:` functions in `witness_fabric.rs`, no
+external callers, unscoped.
+
 ## Consequences for new work
 
 - **No parameter may be a gathered window.** Not `&[(usize, Facet)]`, not
