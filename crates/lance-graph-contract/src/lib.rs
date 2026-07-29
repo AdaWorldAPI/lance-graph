@@ -139,6 +139,12 @@ pub mod recipe_kernels;
 pub mod recipe_loci;
 pub mod recipe_substrate;
 pub mod recipes;
+/// `UnicharCompress` (recoder) keystone — the classid → ClassView → content
+/// store → adapter wiring over [`unicharcompress::UnicharCompress`], sibling
+/// of [`unicharset_adapter`]. See module docs for why a second class (whose
+/// methods return sequences, not scalars) proves the dispatch is
+/// class-agnostic.
+pub mod recoder_adapter;
 pub mod repository;
 pub mod savants;
 pub mod scenario;
