@@ -51,6 +51,36 @@
 //! the caller's input, the same shape the `jc` `l9_loci_real_text` harness
 //! computes from text. Deriving loci FROM [`super::Spo`] triples is a separate
 //! adapter and is intentionally NOT bundled here, so this stays a clean resolver.
+//!
+//! ## Honest scope: owned parallel container, not a lane projection (2026-07-29 audit)
+//!
+//! This note does not touch the resolution math. `witness_fabric::{
+//! standing_wave_grounded, resolve_chain}` are sound and unchanged, and "reads
+//! a version-range window and mutates nothing" (above) is an accurate
+//! description of what [`WitnessStream`] does with the registers it holds.
+//!
+//! What that framing leaves unsaid: [`WitnessStream`] is currently a
+//! **parallel OWNED container beside [`super::TemporalStream`]**, not a
+//! zero-copy projection over the real `ValueTenant::CausalWitness` lane
+//! (`lance_graph_contract::canonical_node` — row-offset 204, i.e. value-slab
+//! bytes `[172, 188)` of `NodeRow::value`: a 16-byte V3 4+12 facet whose last
+//! 12 bytes are the register `CausalWitnessFacet::from_register_ref` reads).
+//! `push` takes an owned `CausalWitnessFacet` **by value** and `events` stores
+//! that owned copy; nothing here borrows from, or is wired to, an actual
+//! `NodeRow`. This is an architectural gap, not a correctness bug — and it is
+//! not a dependency gap either: `lance-graph-contract` (`deepnsm-v2`'s sole
+//! dependency, see the crate's `Cargo.toml`) already exposes `NodeRow`,
+//! `ValueTenant`, and `CausalWitnessFacet::from_register_ref` as public items,
+//! so a future borrowed-view constructor is reachable. It does not exist yet,
+//! and the current `push`-based API has no lane to borrow from even if it
+//! wanted to — a borrowed view would need `WitnessStream` to hold a reference
+//! (a signature-changing, lifetime-parameterized redesign) rather than accept
+//! owned registers through `push`.
+//!
+//! Concretely: **nothing in this repository populates a [`WitnessStream`] from
+//! text or from a real `NodeRow`.** Every `WitnessStream::new()` call site is
+//! `#[cfg(test)]` (see the `tests` module below) — there is no production
+//! adapter feeding real loci into this stream today.
 
 use lance_graph_contract::causal_witness::{CausalWitnessFacet, Locus};
 use lance_graph_contract::temporal_pov::{TemporalPov, VersionRange};
