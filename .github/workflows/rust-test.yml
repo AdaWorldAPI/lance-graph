@@ -150,6 +150,16 @@ jobs:
       # (deepnsm / supervisor / ogar above). One scoped step arms it. Gating.
       - name: Run bgz-tensor tests (workspace-excluded, ndarray sibling)
         run: cargo test --manifest-path crates/bgz-tensor/Cargo.toml --lib
+      # Codex P2 (PR #861): the two self-asserting probe examples validate
+      # their fixtures via assert! inside example main() — cargo test never
+      # executes an example's main(), so those asserts only ever ran on a
+      # developer's local `cargo run --example` invocation. Running the
+      # examples explicitly here closes that blind-gate (same posture as
+      # deepnsm / supervisor / bgz-tensor above).
+      - name: Probe falsifier - eyes opened (fixture asserts)
+        run: cargo run -p lance-graph-planner --example probe_eyes_opened
+      - name: Probe falsifier - babel stances (fixture asserts)
+        run: cargo run -p lance-graph-planner --example probe_babel_stances
 
   test-with-coverage:
     runs-on: ubuntu-24.04

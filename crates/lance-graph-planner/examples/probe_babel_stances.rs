@@ -1,148 +1,365 @@
-//! `probe_babel_stances` — PROBE-BABEL-STANCES slice 1: **language as light.**
+//! `probe_babel_stances` — PROBE-BABEL-STANCES slice 2: **two Rosetta stones.**
 //!
-//! The operator's arc, three steers, one probe:
+//! ## ⊘ RETRACTION of the slice-1 headline (codex P1, accepted)
 //!
-//! 1. *"the convergence with wordnet and rich expressiveness of Greek Czech
-//!    Vulgate Aramaic AND German"* — six lanes over one verse-addressed spine.
-//! 2. *"English meaning as a coordinate system (wordnet) vs linguistic
-//!    resonance"* — English is **not a sixth opinion**; it is the GRID. Its
-//!    synsets are addresses. The other five lanes are measured as resonance
-//!    *against* that grid, asymmetrically by design (chart vs territory).
-//! 3. *"you could treat linguistic resonance as phase"* — and so the reading
-//!    becomes literal interference: each lane contributes a unit phasor per
-//!    grid coordinate, and the pair's **amplitude** is their resultant.
+//! Slice 1 reported a `KNOW` "residual that escapes the coordinate system"
+//! (amplitude 0.500 → after the en-exclusion fix 0.333). That number was an
+//! artifact of the probe's own construction, twice over:
 //!
-//! Together with `probe_eyes_opened`'s crystal (`E-FOUR-LIGHTS-ONE-CRYSTAL-1`)
-//! this is the Doppelspalt completed: there the reader-wave varied (four
-//! philosopher stances over one text); here the **text-wave** varies (six
-//! language lanes over one grid), and what we measure is where they interfere.
+//! 1. **The coordinate was a LEMMA, not a synset.** The grid's own `senses`
+//!    field said so: WordNet files `know.v.01` (be cognizant of) and
+//!    `know.v.05` (carnal) as DISTINCT synsets. A synset grid therefore
+//!    assigns Gen 3:7 and Gen 4:1 to two different coordinates — the
+//!    "residual" measured **English surface-lemma reuse**, not expressiveness
+//!    escaping the grid.
+//! 2. **`en-kjv` sat inside its own resultant** — the chart contributed a
+//!    guaranteed-constructive phasor to the measurement made against itself.
 //!
-//! ## The grid (WordNet-shaped): a coordinate is a SYNSET, not a word
+//! Slice 2 rebuilds the grid so neither artifact can recur, and the honest
+//! finding INVERTS: the grid now sees MORE than most lanes. The question is no
+//! longer "which lane splits what the grid collapses" but **"which lane TRACKS
+//! the grid's distinction, and at which linguistic level?"**
 //!
-//! Three pairs, each two verse addresses that the English grid assigns to ONE
-//! coordinate (machine-verified against the local Gutenberg #10 KJV — English
-//! really does use a single root at both addresses of all three pairs):
+//! ## Stone 1 — the CORPUS stone: a stratified convergence grid
 //!
-//! | pair | address A | address B | KJV root at both |
+//! Per the operator's steer: *"every other codebook also has frequency, POS
+//! and meaning — when you use POS and frequency and WordNet you at least have
+//! a convergence."* A coordinate is no longer one lemma but the CONVERGENCE
+//! of three independently-motivated axes:
+//!
+//! * **synset** (WordNet — meaning),
+//! * **POS** (syntactic category),
+//! * **frequency band** (COCA-shaped: `top100` / `common` / `rare`).
+//!
+//! Two verse addresses sit at distinct coordinates only when independent
+//! codebooks AGREE they differ (≥ 2 of 3 axes). `KNOW`'s two addresses differ
+//! on synset AND band (the carnal sense is archaic-rare); `NAKED`'s and
+//! `DIE`'s differ on none — the grid genuinely files them together, so lane
+//! silence there is expected, not a defect.
+//!
+//! ## Stone 2 — the LANGUAGE stone: per-lane linguistic structure that LEARNS
+//!
+//! Per the operator's steer: *"the second Rosetta stone is for linguistic
+//! representation and relationships WITHIN a language, and it learns while
+//! using the corpus Rosetta stone."* Each lane owns a private `BeliefArena`
+//! (its own interner, its own stamps — one writer per stone, the mailbox
+//! discipline applied to reasoning state). Traversing the corpus stone, the
+//! lane observes **within-language** `Sim` beliefs between its two surface
+//! occurrences at each contrast — one belief PER CHANNEL:
+//!
+//! * `sem`   — stem identity (`gewahr` ↔ `kennen`: f = shared radix path),
+//! * `morph` — affix identity (`u-` ↔ `ze-`: aspect/Aktionsart prefixes),
+//! * `syn`   — POS identity (`adj` ↔ `v`),
+//! * `prag`  — pragmatic-marker identity (plain ↔ euphemism-calque).
+//!
+//! *"It needs different awareness for pragmatic and semantic and syntax
+//! complexity — literally building a semantic kernel"*: the stone's learned
+//! state IS that kernel — a (lane × channel) matrix of NARS expectations,
+//! each channel with its own awareness, CHECK rows entering at reduced
+//! confidence (c = 0.5) so curatorial uncertainty is carried in the belief,
+//! never laundered. Plasticity in this slice = admission (the stones start
+//! empty and end holding the lane's self-knowledge); revision arrives when a
+//! second corpus section re-evidences a pair (queued).
+//!
+//! ## The four-channel phase split (Morphologie / Syntax / Semantik / Pragmatik)
+//!
+//! Per lane per contrast, divergence is ATTRIBUTED, not pooled — a 4-channel
+//! phase vector, each φ ∈ [0, π] graded by shared radix path (LCS substring
+//! over chars, both-directions — the dead-phase fix from slice 1 kept):
+//!
+//! * Czech `DIE` (`u|mříti` ↔ `ze|mříti`): **morphology only** — stems
+//!   identical (φ_sem = 0), perfectivizing prefixes wholly divergent
+//!   (φ_morph = π). A pooled measure read this as 0.286π "mild semantic
+//!   divergence"; the split shows it is pure aspect morphology. [CHECK row —
+//!   reported, never asserted. This claim was ASSERTED until CodeRabbit caught
+//!   it on #862: no VERIFIED lane exhibits morphology-only divergence (German
+//!   fires all three channels, Latin none), so the fixture could only supply
+//!   this shape through an unverified row whose own DEVIATION note flags a
+//!   possible curator error. The channel-separability INVARIANT — and its
+//!   converse — is now asserted on synthetic strings, lane-free, where a
+//!   philological correction cannot break the build.]
+//! * German `KNOW` (`gewar` adj ↔ `erkandte` v): divergent on THREE channels
+//!   — φ_sem = 0.833π (suppletive stems), φ_syn = π (adj vs verb), φ_morph =
+//!   π (∅- vs er- prefixation). [VERIFIED — asserted.]
+//! * `KNOW`'s pragmatic channel is antiphase in every VERIFIED lane
+//!   (φ_prag = π, cross-lane coherence 1.0 over the verified non-English
+//!   lanes): English, German, Latin and Greek all carry the Hebrew ידע
+//!   euphemism at 4:1 as a calque. **Coherent antiphase = translationese**:
+//!   the lanes agree because they inherit one convention, not because
+//!   independent languages converged. The Czech and Aramaic rows read the
+//!   same way but are curator reconstructions — consistent, **not claimed**,
+//!   and never asserted (codex P2 on #862: this example runs in CI, so an
+//!   assert over a CHECK row would make unverified philology a release gate
+//!   — the slice-1 DIE defect, one channel over).
+//!
+//! Cross-lane, each channel gets its own interference reading over the
+//! verified non-English lanes (en is the chart, never an opinion in the
+//! resultant): **coherence** `|Σe^{iφ}|/N` measures agreement; LOW coherence
+//! marks where languages genuinely disagree — and on `KNOW`'s semantic
+//! channel the disagreement is carried by German alone.
+//!
+//! ## Valency: the distinction MOVES levels, it never disappears
+//!
+//! Per the operator's steer (*"reflexiv, Relativpronomen, transitive
+//! intransitive"*): English does NOT fail to mark `KNOW`'s two coordinates —
+//! it marks them by **subcategorization frame** instead of lexeme. At 3:7
+//! `knew` takes a clausal complement whose subject the matrix subject binds
+//! (*"they knew that THEY were naked"* — the complementizer/Relativ family,
+//! reflexive-shaped: B2's `self_referential`); at 4:1 it takes a direct
+//! object NP (*"knew Eve"* — plain transitive). Luther marks the same split
+//! twice: by frame (gewar + `das`-clause vs erkandte + NP) AND by lexeme.
+//! The frame table is machine-verifiable for en (local KJV) and curated for
+//! de's verified rows; other lanes stay silent rather than guessed.
+//!
+//! ## Erkenntnis becomes passion: quale × magnitude × phase
+//!
+//! Three ORTHOGONAL sources multiply (none derivable from another):
+//!
+//! * **quale** — reader-side: `1 − expectation` of the lane's own learned
+//!   `sem` belief (the stone's surprise that its two occurrences are "one
+//!   word" — confidence-weighted, so CHECK rows feel less),
+//! * **magnitude** — grid-side: `axes_differing / 3` (how real the contrast
+//!   is in the corpus stone; 0 for `NAKED`/`DIE`, so passion there is
+//!   structurally zero — no Erkenntnis without a distinction to see),
+//! * **phase** — cross-lane: `1 − coherence` on the semantic channel (how
+//!   contested the reading is between languages — the Doppelspalt term).
+//!
+//! ## The prefix meaning-switch — and where the morph field is typologically blind
+//!
+//! Per the operator's steer (*"prefix meaning switch you find in Latin and
+//! German … and Czech"*): three lanes carry the same phenomenon at three
+//! different strengths, and the morph channel separates them because the
+//! fixture now decomposes ALL of them, not just the obvious one:
+//!
+//! | lane | pair | morph | reading |
 //! |---|---|---|---|
-//! | `KNOW` | 3:7 *"they **knew** that they were naked"* (awareness) | 4:1 *"Adam **knew** Eve his wife"* (carnal) | `know` |
-//! | `NAKED` | 2:25 *"they were both **naked** … not ashamed"* | 3:7 *"knew that they were **naked**"* | `naked` |
-//! | `DIE` | 2:17 *"thou shalt surely **die**"* | 3:4 *"ye shall not surely **die**"* | `die` |
+//! | la-vulgate | KNOW | `co|gnosco` ↔ `co|gnosco` | prefixed, but the SAME prefix → morph silent |
+//! | de-luther1545 | KNOW | `|gewahr` ↔ `er|kennen` | prefix appears WITH a new stem → lexical switch |
+//! | cs-bkr | DIE | `u|mříti` ↔ `ze|mříti` | same stem, prefix SWITCHES → morphology alone |
 //!
-//! `KNOW` is the interesting coordinate: English (and WordNet, which files
-//! `know.v.01` "be cognizant of" and `know.v.05` "have sexual relations with"
-//! as distinct senses of ONE lemma) addresses both with the same word. A lane
-//! that uses two different ROOTS there is seeing a distinction the coordinate
-//! system cannot address — the multilingual form of `AddressAbsent`.
+//! Czech is the pure case (aspect/Aktionsart), Latin the pure null case
+//! (prefixed lexeme, no switch), German the compound case. Reading them as
+//! one pooled "root divergence" — slice 1's measure — cannot tell these
+//! three apart; the channel split is exactly what makes them distinguishable,
+//! and the falsifier asserts all three readings.
 //!
-//! ## Phase = linguistic resonance (deterministic, never stored)
+//! **Honest limitation (self-caught, and the operator is right that Finnish
+//! would be easier):** the `morph` field carves `prefix|stem`, which is
+//! typologically biased toward prefixing languages. An agglutinative lane
+//! (Finnish `tietää`/`tuntea` + case/derivational SUFFIX stacking) carries
+//! its meaning switch on the RIGHT edge, where this carving cannot see it —
+//! a `prefix|stem|suffix` carving is the fix, and Finnish (Biblia 1776,
+//! public domain) is the lane that would falsify it. Slot 6 of the spine is
+//! left explicitly RESERVED for it rather than filled with a reconstruction:
+//! an unverified lane would be a CHECK row that could not be asserted
+//! anyway, and inventing one to make a point is the failure mode this probe
+//! keeps catching in itself.
 //!
-//! For each (lane, pair), phase is **graded, never boolean**:
-//! `φ = π · (1 − shared_path)` where `shared_path` is the longest common
-//! SUBSTRING of the two roots over chars, normalized — the deepest shared
-//! radix path, read from either direction so Slavic prefixation
-//! (`umříti`/`zemříti`, stem `mříti`) scores as the near-agreement it is.
-//! Identical roots → φ = 0 (constructive); nothing shared → φ = π (antiphase);
-//! partial overlap → in between.
+//! ## Metric check: HHTL + CLAM + helix vs the Levenshtein family
 //!
-//! **Why graded is load-bearing (the deadness trap):** a binary {0, π} phase
-//! has `sin ≡ 0`, so the resultant collapses to `|aligned − split| / N` — an
-//! integer count wearing a complex costume, with no degrees of freedom and no
-//! way to say "mildly divergent". Measured on this very fixture before the
-//! fix: `im = 0.000000` and amplitude `0.500` exactly equal to `|3−1|/4`.
-//! Grading rescues it: German `KNOW` reads φ = 0.833π (near-total divergence)
-//! while Czech `DIE` reads φ = 0.286π (one root, two prefixes) — a distinction
-//! the boolean form could not express, and which the falsifier now asserts.
+//! Per the operator's steer (*"newer metrics than Levenshtein — you could use
+//! HHTL+CLAM, HHTL+helix"*), the workspace's own metric machinery was
+//! checked: **CLAM** (`ndarray::hpc::clam`) trees fixed-length `&[u8]`
+//! fingerprints under a pluggable Hamming-family `DistanceFn`; **helix
+//! `DistanceLut`** is a 256×256 L1 table over a LINEAR codebook order — a
+//! true metric (triangle inequality by construction), safe for CLAM/CAKES
+//! pruning where edit distances are not. The fingerprint-space companion is
+//! the **q-gram character profile** (Ukkonen's family): a profile IS a
+//! sparse fingerprint, which is what CLAM/HHTL consume.
 //!
-//! **False friends (scoping, and why they cannot bite yet):** a surface-similarity
-//! measure conflates COGNACY (real shared descent) with ACCIDENTAL resemblance
-//! (`Gift`/`gift`). Phase here is strictly INTRA-lane — it compares two roots
-//! of ONE lane at two addresses — so a cross-language false friend is
-//! structurally impossible in this slice. It becomes possible the moment a
-//! later slice compares surfaces ACROSS lanes, and that is exactly where the
-//! trie needs the grid to validate it: same grid coordinate + high surface
-//! share = cognate; same coordinate + LOW share = suppletion (the German
-//! `KNOW` signal); DIFFERENT coordinate + high share = false friend, which must
-//! never be read as resonance. The grid is what makes the coordinate system
-//! true rather than merely similar.
-//! The pair's interference amplitude is the normalized resultant of the six
-//! unit phasors, `|Σ e^{iφ}| / N` — 1.0 when every lane agrees with the grid,
-//! falling as lanes diverge. `residual = 1 − amplitude` is exactly the share of
-//! expressiveness that **escapes** the grid. Phase is computed from lanes +
-//! grid at read time and never persisted (D-QUANTGATE-clean: phase is
-//! convention, magnitude is data).
+//! **Correction — "successor" was the wrong word** (operator: *"for
+//! reference, tesseract-rs achieved an extremely improved ranking with
+//! Levenshtein CER"*). Edit distance is not superseded; it is the RIGHT
+//! metric for a different job, and the workspace has the receipt.
+//! Character Error Rate **is** normalized Levenshtein, and it is what
+//! ranked the tesseract-rs OCR transcode — because there the question is
+//! *"how far is this produced sequence from the reference sequence,"* which
+//! is exactly what an alignment-based edit distance answers and what a
+//! bag-of-q-grams cannot (a profile is order-blind: `kennen` and `nenken`
+//! score identically). The split is by QUESTION, not by generation:
+//! **sequence error → edit distance / CER**; **fingerprint-space search and
+//! metric-tree pruning → L1-over-linear-order + CLAM/HHTL**. This probe is
+//! doing neither — it is generating a graded PHASE from shared radix depth
+//! — so it borrows the LCS substring rather than claiming to replace
+//! anything.
 //!
-//! ## SoA shape (honest scoping)
+//! Measured caveat, adjudicated by the operator's own anti-deadness
+//! constraint: at stem scale (≤ 8 chars) a pure bigram measure QUANTIZES —
+//! `gewahr`∩`kennen` share zero bigrams, so φ snaps to π and the phase goes
+//! dead (the slice-1 trap, back through the metric door). So the graded LCS
+//! radix path stays the PHASE GENERATOR, and the unigram+bigram profile
+//! cosine runs as a fingerprint-space CROSS-CHECK: both metrics must agree
+//! on the ordering of the flagship pairs (asserted below). Full HHTL+helix
+//! routing — stems → per-lane lexeme codebook → `DistanceLut` L1 → CLAM tree
+//! for cross-lane cognate/false-friend search — is the queued slice-3 probe:
+//! it needs a trained codebook over the lexeme population, and 30 curated
+//! rows are not a codebook.
 //!
-//! Lanes are held in a fixed 32-slot array — 6 occupied, 26 `None` — mirroring
-//! the workspace's lane discipline (RESERVE, DON'T RECLAIM: a slot's absence
-//! means *not consulted*, never *compacted away*), so a later lane mints into
-//! a free slot with no shape change. **This is lane-SHAPED, not SoA-WRITTEN:**
-//! the probe touches no `SoaEnvelope`, no tenant, no `ENVELOPE_LAYOUT_VERSION`
-//! (adding a real value tenant is `v3-envelope-auditor`-gated and is not this
-//! slice). The payoff the shape buys is stated as a claim, not a benchmark:
-//! once the lanes live in the value slab, cross-lane phase is a columnar read
-//! at one verse address instead of a join.
+//! **CHAODA-shaped outlier detection** (the operator's follow-up steer:
+//! *"Levenshtein/CLAM similarity + CHAODA outlier detection"*): the tracking
+//! census's π/2 threshold is replaced-in-spirit by a POPULATION-RELATIVE
+//! anomaly read — each (lane, contrast) stem similarity is scored against
+//! the median of all verified similarities (MAD-shaped robust deviation, no
+//! hand-tuned cut), and the sole outlier must be (German, KNOW). That is
+//! CHAODA's stance at fixture scale — the anomaly is defined by the
+//! population, not by a constant; real CHAODA (graph features over the CLAM
+//! cluster tree) arrives with the codebook slice, where there is a tree.
 //!
-//! ## Falsifier (self-testing, runs in CI with no args)
+//! **DN-tree naming** (*"animal/fox as a dn_tree/distinguished name"*):
+//! stone terms are most-significant-first PATH names (`sem/gewahr/3:7` —
+//! channel / lexeme / address), so shared prefixes are shared tree ancestry
+//! and the interner's namespace is radix-addressable — the DN convention,
+//! which is also the HHTL path and the classid cascade prefix, in miniature.
+//! The `animal/fox` hyponymy form (WordNet hypernym chains as synset DNs)
+//! joins the grid axis in the codebook slice.
 //!
-//! * **Fire:** the `KNOW` coordinate must be split by at least one lane, and
-//!   the German lane must be among the splitters (Luther 1545 reads *"wurden
-//!   gewar"* at 3:7 — awareness — against *"erkandte"* at 4:1).
-//! * **Stay silent:** `NAKED` must be split by strictly fewer lanes than
-//!   `KNOW` — the machinery reports low resonance where the languages agree,
-//!   so a nonzero reading means something. (A guard that fires on every
-//!   coordinate carries as much information as one that never fires.)
-//! * **Convergence:** the split coordinate's awareness address must equal the
-//!   verse that `probe_eyes_opened`'s B2 crowns as the unique reflexive rung
-//!   lift (3:7) — two independent machineries, one address.
+//! ## Substrate claims (doc-level, queued — stated, not faked)
+//!
+//! The 32-slot lane spine is where the linguistic resolve COLLECTS into the
+//! SoA substrate: one slot = one lane = one stone = one mailbox owner
+//! (compile-time one-writer guarantee — the "corpus 64k + language 64-256k
+//! parallel ractor" split, with the corpus stone and each language stone as
+//! separately-owned arenas; corpus + language → plasticity). In brain terms:
+//! the per-lane stones are **grey matter** (local belief tissue), the
+//! cross-lane phase channels are **white matter** (the tracts through shared
+//! grid coordinates — the corpus stone as corpus callosum), and the binary
+//! substrate they compile down to is ndarray's `hpc/bnn.rs`: XNOR + popcount
+//! over `Fingerprint<256>`, winner-take-all per layer, and a **plastic
+//! channel for continual learning without backprop** — which is exactly the
+//! shape of "corpus + language → plasticity" (the corpus stone supplies the
+//! coordinates; each language stone accumulates its own plastic state; no
+//! gradient crosses the boundary). Classid prefix
+//! routing is how a row switches substrate, and `classid → ClassView` is how
+//! the SAME register switches philosopher stance (B6's Kant/Hegel/Nietzsche/
+//! Wittgenstein panel = four ClassView projections of one crystal). All of
+//! this is lane-SHAPED here, not SoA-WRITTEN: no `SoaEnvelope`, no tenant,
+//! no `ENVELOPE_LAYOUT_VERSION` — a real value tenant is
+//! `v3-envelope-auditor`-gated and is not this slice.
+//!
+//! ## Falsifier (runs in CI — the examples are executed by rust-test.yml)
+//!
+//! Fire / stay-silent / convergence asserts throughout `main()`, all on
+//! VERIFIED rows only; CHECK rows are report-only. The B2 convergence stays:
+//! the aware coordinate of the tracked contrast is 3:7, the verse the
+//! monolingual reflexive-lift blade crowns independently.
 //!
 //! Usage: `cargo run -p lance-graph-planner --example probe_babel_stances`
 
 use std::collections::HashMap;
 
+use lance_graph_planner::nars::{BeliefArena, CStmt, Copula, Stamp, TruthValue};
+
 // The curated verbatim multilingual lexeme fixture (5 lanes × 3 pairs × 2
-// addresses). Public-domain editions; every row carries its verse quote and a
-// VERIFIED/CHECK confidence marker in the source comments.
+// addresses) with the level-split fields (pos / morph / prag). Public-domain
+// editions; every row carries its verse quote and a VERIFIED/CHECK confidence
+// marker in the source comments.
 include!("data/babel/lanes.rs");
 
-/// The grid coordinate: a WordNet-shaped synset pair — two verse addresses the
-/// English coordinate system assigns to ONE lemma.
-struct GridPair {
-    name: &'static str,
-    /// The address whose reading is "awareness-shaped" (the one the
-    /// monolingual epistemic machinery independently crowns, for `KNOW`).
-    addr_a: (u8, u8),
-    addr_b: (u8, u8),
-    /// The synset gloss pair — what WordNet files under the one lemma.
-    senses: (&'static str, &'static str),
+// ─────────────────────────────────────────────────────────────────────────
+// Stone 1 — the corpus stone: the stratified convergence grid
+// ─────────────────────────────────────────────────────────────────────────
+
+/// One grid coordinate: the convergence of three independently-motivated
+/// axes. Two addresses are "the same place" only when the axes agree.
+struct Coord {
+    /// WordNet synset (meaning axis).
+    synset: &'static str,
+    /// Part of speech (syntax axis).
+    pos: &'static str,
+    /// COCA-shaped frequency band (frequency axis): "top100"/"common"/"rare".
+    /// Band-granular on purpose — sense-tagged frequencies (SemCor-shaped)
+    /// justify coarse bands, not ranks: `know.v.01` dominates the lemma's
+    /// top-100 usage; the carnal `know.v.05` is archaic-rare.
+    band: &'static str,
+    addr: (u8, u8),
 }
 
-const GRID: &[GridPair] = &[
-    GridPair {
-        name: "KNOW",
-        addr_a: (3, 7),
-        addr_b: (4, 1),
-        senses: ("know.v.01 be cognizant of", "know.v.05 have relations with"),
+const COORDS: &[Coord] = &[
+    // 0: KNOW-AWARE — "they knew that they were naked"
+    Coord {
+        synset: "know.v.01",
+        pos: "v",
+        band: "top100",
+        addr: (3, 7),
     },
-    GridPair {
-        name: "NAKED",
-        addr_a: (2, 25),
-        addr_b: (3, 7),
-        senses: ("naked.a.01 without clothing", "naked.a.01 (same synset)"),
+    // 1: KNOW-CARNAL — "Adam knew Eve his wife"
+    Coord {
+        synset: "know.v.05",
+        pos: "v",
+        band: "rare",
+        addr: (4, 1),
     },
-    GridPair {
-        name: "DIE",
-        addr_a: (2, 17),
-        addr_b: (3, 4),
-        senses: ("die.v.01 pass from life", "die.v.01 (same synset, negated)"),
+    // 2: NAKED-UNASHAMED — "they were both naked … not ashamed"
+    Coord {
+        synset: "naked.a.01",
+        pos: "adj",
+        band: "common",
+        addr: (2, 25),
+    },
+    // 3: NAKED-SEEN — "knew that they were naked"
+    Coord {
+        synset: "naked.a.01",
+        pos: "adj",
+        band: "common",
+        addr: (3, 7),
+    },
+    // 4: DIE-THREAT — "thou shalt surely die"
+    Coord {
+        synset: "die.v.01",
+        pos: "v",
+        band: "common",
+        addr: (2, 17),
+    },
+    // 5: DIE-DENIAL — "ye shall not surely die"
+    Coord {
+        synset: "die.v.01",
+        pos: "v",
+        band: "common",
+        addr: (3, 4),
     },
 ];
 
-/// Lane 0 — the COORDINATE SURFACE. Machine-verified against the local
-/// Gutenberg #10 KJV (`probe_eyes_opened`'s parser reads the same file): the
-/// KJV uses ONE root at both addresses of all three pairs. This is not an
-/// opinion among six; it is the chart the other five are measured against.
+/// A contrast: two grid coordinates whose LANE lexicalizations we compare.
+/// `pair` matches the fixture rows' `pair` field.
+struct Contrast {
+    pair: &'static str,
+    a: usize,
+    b: usize,
+}
+
+const CONTRASTS: &[Contrast] = &[
+    Contrast {
+        pair: "KNOW",
+        a: 0,
+        b: 1,
+    },
+    Contrast {
+        pair: "NAKED",
+        a: 2,
+        b: 3,
+    },
+    Contrast {
+        pair: "DIE",
+        a: 4,
+        b: 5,
+    },
+];
+
+/// How many of the three independent axes distinguish the contrast's two
+/// coordinates. ≥ 2 = the codebooks CONVERGE on "these are two things".
+fn axes_differing(c: &Contrast) -> u8 {
+    let (a, b) = (&COORDS[c.a], &COORDS[c.b]);
+    u8::from(a.synset != b.synset) + u8::from(a.pos != b.pos) + u8::from(a.band != b.band)
+}
+
+/// Lane 0 — the grid's own SURFACE lemma layer. Machine-verified against the
+/// local Gutenberg #10 KJV. The English surface uses ONE root at both
+/// addresses of all three contrasts — which the grid's own synset axis now
+/// exposes as LEMMA REUSE at `KNOW` (know.v.01 ≠ know.v.05): English
+/// collapses at the lexeme level a distinction its own coordinate system
+/// carries. This lane is EXCLUDED from every cross-lane resultant (the chart
+/// is not an opinion); it appears in the tracking census and owns a language
+/// stone like any lane.
 const EN_KJV: &[LaneLex] = &[
     LaneLex {
         lane: "en-kjv",
@@ -150,6 +367,9 @@ const EN_KJV: &[LaneLex] = &[
         addr: (3, 7),
         surface: "knew",
         root: "know",
+        pos: "v",
+        morph: "|know",
+        prag: "plain",
     },
     LaneLex {
         lane: "en-kjv",
@@ -157,6 +377,9 @@ const EN_KJV: &[LaneLex] = &[
         addr: (4, 1),
         surface: "knew",
         root: "know",
+        pos: "v",
+        morph: "|know",
+        prag: "euphemism-calque",
     },
     LaneLex {
         lane: "en-kjv",
@@ -164,6 +387,9 @@ const EN_KJV: &[LaneLex] = &[
         addr: (2, 25),
         surface: "naked",
         root: "naked",
+        pos: "adj",
+        morph: "|naked",
+        prag: "plain",
     },
     LaneLex {
         lane: "en-kjv",
@@ -171,6 +397,9 @@ const EN_KJV: &[LaneLex] = &[
         addr: (3, 7),
         surface: "naked",
         root: "naked",
+        pos: "adj",
+        morph: "|naked",
+        prag: "plain",
     },
     LaneLex {
         lane: "en-kjv",
@@ -178,6 +407,9 @@ const EN_KJV: &[LaneLex] = &[
         addr: (2, 17),
         surface: "die",
         root: "die",
+        pos: "v",
+        morph: "|die",
+        prag: "plain",
     },
     LaneLex {
         lane: "en-kjv",
@@ -185,6 +417,9 @@ const EN_KJV: &[LaneLex] = &[
         addr: (3, 4),
         surface: "die",
         root: "die",
+        pos: "v",
+        morph: "|die",
+        prag: "plain",
     },
 ];
 
@@ -194,32 +429,28 @@ const EN_KJV: &[LaneLex] = &[
 /// wording unverified against a facsimile). `cs-bkr` (1613 orthography) and
 /// `arc-onkelos` (unpointed Aramaic) are reconstructions end to end.
 ///
-/// This is the substrate's own doctrine applied to its input: a reading
-/// carries its epistemic status, and an UNVERIFIED row can be *reported* but
-/// never *asserted*. The two-unknowns split, one layer down — a CHECK row is
-/// a known-unknown, not a fact.
+/// A CHECK row is a known-unknown: it can be *reported* (and enters its
+/// language stone at reduced confidence) but never *asserted*.
 fn is_verified(r: &LaneLex) -> bool {
-    match (r.lane, r.pair) {
-        // Machine-verified against the local Gutenberg #10 KJV.
-        ("en-kjv", _) => true,
-        // Anchor facts the orchestrator supplied and the curator reproduced.
-        ("de-luther1545", "KNOW") | ("de-luther1545", "NAKED") => true,
-        ("la-vulgate", _) | ("el-lxx", _) => true,
-        // CHECK — curator-flagged reconstructions.
-        ("de-luther1545", "DIE") => false,
-        ("cs-bkr", _) | ("arc-onkelos", _) => false,
-        _ => false,
-    }
+    matches!(
+        (r.lane, r.pair),
+        ("en-kjv", _)
+            | ("de-luther1545", "KNOW")
+            | ("de-luther1545", "NAKED")
+            | ("la-vulgate", _)
+            | ("el-lxx", _)
+    )
 }
 
 /// The lane spine: 32 slots, occupied low, the rest RESERVED (a `None` slot
-/// means *not consulted*, never *compacted away* — mint a lane into a free
-/// slot and the shape does not change).
+/// means *not consulted*, never *compacted away*). This is where the
+/// linguistic resolve collects: one slot = one lane = one language stone =
+/// one owner (the parallel-ractor one-writer shape, lane-SHAPED here).
 const LANE_SLOTS: usize = 32;
 
 fn lane_spine() -> [Option<&'static str>; LANE_SLOTS] {
     let mut slots: [Option<&'static str>; LANE_SLOTS] = [None; LANE_SLOTS];
-    slots[0] = Some("en-kjv"); // the coordinate surface
+    slots[0] = Some("en-kjv"); // the coordinate surface (chart, not opinion)
     slots[1] = Some("de-luther1545");
     slots[2] = Some("cs-bkr");
     slots[3] = Some("la-vulgate");
@@ -228,18 +459,17 @@ fn lane_spine() -> [Option<&'static str>; LANE_SLOTS] {
     slots
 }
 
-/// A lane's phase at one grid coordinate: 0 when the lane shares one root
-/// across the pair's two addresses (it agrees with the grid — constructive),
-/// π when it uses two roots (it splits what the grid collapses — antiphase).
-/// Deterministic from lanes + grid; never stored.
+// ─────────────────────────────────────────────────────────────────────────
+// The four-channel phase split (graded; the slice-1 dead-phase fix kept)
+// ─────────────────────────────────────────────────────────────────────────
+
 /// Longest common SUBSTRING length, over CHARS — never bytes: the lanes carry
 /// Greek, Hebrew and Czech multi-byte scripts, and a byte-wise measure would
 /// silently score them as more divergent than they are.
 ///
-/// Substring, not prefix: Slavic prefixation (`umříti` / `zemříti`) shares its
-/// stem in the MIDDLE, so a left-anchored prefix measure would report total
-/// divergence where the roots are nearly identical. This is the radix-trie
-/// depth read from both directions — the deepest shared path, wherever it sits.
+/// Substring, not prefix: Slavic stems sit in the MIDDLE of their prefixed
+/// lemmas, so a left-anchored measure would report total divergence where the
+/// roots are nearly identical. The deepest shared radix path, wherever it sits.
 fn lcs_chars(a: &str, b: &str) -> usize {
     let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
     let mut best = 0usize;
@@ -257,8 +487,9 @@ fn lcs_chars(a: &str, b: &str) -> usize {
     best
 }
 
-/// Shared-path fraction of two roots: `lcs / max(len)` ∈ [0,1]. 1.0 = identical
-/// roots, 0.0 = nothing in common.
+/// Shared-path fraction of two strings: `lcs / max(len)` ∈ [0,1]. Two empty
+/// strings share everything (1.0) — that is the "no affix on either side"
+/// case for the morphology channel, which must read as agreement.
 fn shared_path(a: &str, b: &str) -> f32 {
     let n = a.chars().count().max(b.chars().count());
     if n == 0 {
@@ -267,30 +498,115 @@ fn shared_path(a: &str, b: &str) -> f32 {
     lcs_chars(a, b) as f32 / n as f32
 }
 
-fn phase(lane_rows: &[&LaneLex], pair: &GridPair) -> Option<f32> {
-    let root_at = |a: (u8, u8)| {
-        lane_rows
-            .iter()
-            .find(|r| r.pair == pair.name && r.addr == a)
-            .map(|r| r.root)
-    };
-    match (root_at(pair.addr_a), root_at(pair.addr_b)) {
-        // GRADED (never binary): φ = π·(1 − shared_path). A binary {0,π} phase
-        // is DEAD — sin ≡ 0, so the resultant collapses to |aligned − split|/N,
-        // an integer count wearing a complex costume. Grading by shared radix
-        // depth gives the phasor a real imaginary part and lets the measure say
-        // "mildly divergent" (Slavic prefix pairs) apart from "wholly other"
-        // (suppletive roots). The falsifier asserts this gradedness directly.
-        (Some(ra), Some(rb)) => Some(std::f32::consts::PI * (1.0 - shared_path(ra, rb))),
-        _ => None, // lane silent at this coordinate — no phasor, never a guess
+/// Graded phase from a shared-path fraction: φ = π·(1−shared). A binary
+/// {0, π} phase is DEAD — sin ≡ 0, the resultant collapses to an integer
+/// count wearing a complex costume (measured in slice 1: im = 0.000000
+/// exactly). Grading gives the phasor a real imaginary part.
+fn phase_of(shared: f32) -> f32 {
+    std::f32::consts::PI * (1.0 - shared)
+}
+
+/// The fingerprint-space CROSS-CHECK metric: unigram+bigram character
+/// profile cosine (the q-gram profile family — Ukkonen's edit-distance
+/// bound). A profile is a sparse FINGERPRINT of the string, i.e. the shape
+/// CLAM trees and HHTL cascades consume after binarization.
+///
+/// NOT a replacement for edit distance — a profile is order-blind
+/// (`kennen` and `nenken` score identically), which is precisely why CER
+/// (normalized Levenshtein) is the right metric for sequence error and
+/// ranked the tesseract-rs OCR transcode. Different question, different
+/// metric. Here it also does NOT drive phase (pure bigrams quantize at stem
+/// scale — the dead-phase trap through the metric door); it must AGREE with
+/// the radix path on the flagship ordering, which the falsifier asserts.
+fn profile_cosine(a: &str, b: &str) -> f32 {
+    fn profile(s: &str) -> HashMap<(char, char), f32> {
+        let cs: Vec<char> = s.chars().collect();
+        let mut p: HashMap<(char, char), f32> = HashMap::new();
+        for &c in &cs {
+            *p.entry((c, '\0')).or_default() += 1.0;
+        }
+        for w in cs.windows(2) {
+            *p.entry((w[0], w[1])).or_default() += 1.0;
+        }
+        p
+    }
+    let (pa, pb) = (profile(a), profile(b));
+    let dot: f32 = pa
+        .iter()
+        .filter_map(|(k, va)| pb.get(k).map(|vb| va * vb))
+        .sum();
+    let na = pa.values().map(|v| v * v).sum::<f32>().sqrt();
+    let nb = pb.values().map(|v| v * v).sum::<f32>().sqrt();
+    if na == 0.0 || nb == 0.0 {
+        return if a == b { 1.0 } else { 0.0 };
+    }
+    dot / (na * nb)
+}
+
+/// `"prefix|stem"` → (prefix, stem). Every fixture `morph` value carries the
+/// delimiter; be defensive anyway (no prefix = empty prefix).
+fn split_morph(m: &str) -> (&str, &str) {
+    m.split_once('|').unwrap_or(("", m))
+}
+
+/// A lane's divergence at one contrast, ATTRIBUTED by linguistic level.
+/// Each channel φ ∈ [0, π]: 0 = the lane treats the two coordinates
+/// identically at that level, π = wholly differently.
+#[derive(Clone, Copy)]
+struct PhaseVec {
+    morph: f32,
+    syn: f32,
+    sem: f32,
+    prag: f32,
+}
+
+fn row_at<'a>(rows: &[&'a LaneLex], pair: &str, addr: (u8, u8)) -> Option<&'a LaneLex> {
+    rows.iter()
+        .find(|r| r.pair == pair && r.addr == addr)
+        .copied()
+}
+
+/// Are BOTH of a lane's rows at this contrast curator-VERIFIED? The single
+/// gate every assertion in `main` must pass through — a CHECK pair may be
+/// printed but never asserted, and never gate CI (codex P2 on #862).
+fn pair_verified(rows: &[&LaneLex], c: &Contrast) -> bool {
+    match (
+        row_at(rows, c.pair, COORDS[c.a].addr),
+        row_at(rows, c.pair, COORDS[c.b].addr),
+    ) {
+        (Some(ra), Some(rb)) => is_verified(ra) && is_verified(rb),
+        _ => false,
     }
 }
 
-/// The interference amplitude at a coordinate: the normalized resultant of the
-/// participating lanes' unit phasors, `|Σ e^{iφ}| / N`. 1.0 = every lane agrees
-/// with the grid (fully constructive); lower = lanes diverge. `1 − amplitude`
-/// is the share of expressiveness that escapes the coordinate system.
-fn amplitude(phases: &[f32]) -> f32 {
+/// The 4-channel phase vector of one lane at one contrast, or `None` when the
+/// lane is silent there (no phasor, never a guess).
+fn phase_vec(rows: &[&LaneLex], c: &Contrast) -> Option<PhaseVec> {
+    let ra = row_at(rows, c.pair, COORDS[c.a].addr)?;
+    let rb = row_at(rows, c.pair, COORDS[c.b].addr)?;
+    let (pfx_a, stem_a) = split_morph(ra.morph);
+    let (pfx_b, stem_b) = split_morph(rb.morph);
+    Some(PhaseVec {
+        morph: phase_of(shared_path(pfx_a, pfx_b)),
+        syn: if ra.pos == rb.pos {
+            0.0
+        } else {
+            std::f32::consts::PI
+        },
+        sem: phase_of(shared_path(stem_a, stem_b)),
+        prag: if ra.prag == rb.prag {
+            0.0
+        } else {
+            std::f32::consts::PI
+        },
+    })
+}
+
+/// Cross-lane coherence at one channel: `|Σ e^{iφ}| / N` ∈ [0,1]. High =
+/// the lanes AGREE (all-constructive at 0 or all-antiphase at π both read
+/// 1.0 — agreement, not alignment with the grid); LOW = the lanes genuinely
+/// disagree, which is where one language sees what the others don't.
+fn coherence(phases: &[f32]) -> f32 {
     if phases.is_empty() {
         return 0.0;
     }
@@ -300,20 +616,253 @@ fn amplitude(phases: &[f32]) -> f32 {
     (re * re + im * im).sqrt() / phases.len() as f32
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Valency frames (reflexiv / Relativ-complementizer / transitive-intransitive)
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Subcategorization frame of the predicate at one (lane, pair, address).
+/// Only machine-verifiable (en, local KJV) and curator-VERIFIED (de) cells
+/// are filled; every other lane is silent rather than guessed.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Frame {
+    /// Clausal complement whose subject the matrix subject binds — the
+    /// complementizer ("that" / 1545 "das") is the Relativ-family cue
+    /// (`deepnsm_v2::fsm::Pos::Rel` is the running-parser counterpart), and
+    /// the binding is B2's `self_referential` reflexive shape.
+    ClausalReflexive,
+    /// Plain transitive: direct-object NP.
+    TransitiveNp,
+    /// Copular predicate adjective.
+    PredicativeAdj,
+    /// Intransitive.
+    Intransitive,
+}
+
+fn frame_of(lane: &str, pair: &str, addr: (u8, u8)) -> Option<Frame> {
+    match (lane, pair, addr) {
+        // en — machine-verified against the local KJV clause shapes:
+        // 3:7 "they knew that they were naked" / 4:1 "Adam knew Eve his wife"
+        ("en-kjv", "KNOW", (3, 7)) => Some(Frame::ClausalReflexive),
+        ("en-kjv", "KNOW", (4, 1)) => Some(Frame::TransitiveNp),
+        ("en-kjv", "NAKED", _) => Some(Frame::PredicativeAdj),
+        ("en-kjv", "DIE", _) => Some(Frame::Intransitive),
+        // de — VERIFIED rows only: "wurden gewar, das sie nacket waren" /
+        // "erkandte sein Weib". (Luther DIE rows are CHECK → silent.)
+        ("de-luther1545", "KNOW", (3, 7)) => Some(Frame::ClausalReflexive),
+        ("de-luther1545", "KNOW", (4, 1)) => Some(Frame::TransitiveNp),
+        ("de-luther1545", "NAKED", _) => Some(Frame::PredicativeAdj),
+        _ => None,
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Stone 2 — the language stone: a per-lane belief arena that learns
+// ─────────────────────────────────────────────────────────────────────────
+
+struct Interner {
+    map: HashMap<String, u16>,
+    names: Vec<String>,
+}
+impl Interner {
+    fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+            names: Vec::new(),
+        }
+    }
+    fn id(&mut self, w: &str) -> u16 {
+        if let Some(&i) = self.map.get(w) {
+            return i;
+        }
+        let i = self.names.len() as u16;
+        self.map.insert(w.to_string(), i);
+        self.names.push(w.to_string());
+        i
+    }
+}
+
+const CHANNELS: &[&str] = &["morph", "syn", "sem", "prag"];
+
+/// One lane's intra-language representation: a private arena (own interner,
+/// own stamp counter — one writer per stone) holding per-CHANNEL `Sim`
+/// beliefs between the lane's two occurrences at each contrast. The stone
+/// starts empty and LEARNS while traversing the corpus stone; what it holds
+/// afterwards is the lane's own measured self-knowledge (the semantic
+/// kernel's per-lane column).
+struct LanguageStone {
+    lane: &'static str,
+    arena: BeliefArena,
+    intern: Interner,
+    /// (contrast pair, channel) → the observed statement, for read-back.
+    beliefs: HashMap<(&'static str, &'static str), CStmt>,
+    admitted: u32,
+    next_source: u32,
+}
+
+impl LanguageStone {
+    fn new(lane: &'static str) -> Self {
+        Self {
+            lane,
+            arena: BeliefArena::new(),
+            intern: Interner::new(),
+            beliefs: HashMap::new(),
+            admitted: 0,
+            next_source: 0,
+        }
+    }
+
+    fn observe_channel(
+        &mut self,
+        contrast: &'static str,
+        channel: &'static str,
+        term_a: &str,
+        term_b: &str,
+        f: f32,
+        c: f32,
+    ) {
+        let s = self.intern.id(term_a);
+        let p = self.intern.id(term_b);
+        let stmt = CStmt {
+            s,
+            cop: Copula::Sim,
+            p,
+        };
+        let stamp = Stamp::source(self.next_source);
+        self.next_source += 1;
+        self.arena.observe(stmt, TruthValue::new(f, c), stamp);
+        self.beliefs.insert((contrast, channel), stmt);
+        self.admitted += 1;
+    }
+
+    /// Traverse the corpus stone: at each contrast where this lane speaks,
+    /// observe one within-language belief per channel. CHECK rows enter at
+    /// c = 0.5 (curatorial uncertainty carried in the belief itself).
+    fn learn(&mut self, rows: &[&LaneLex]) {
+        for c in CONTRASTS {
+            let (Some(ra), Some(rb)) = (
+                row_at(rows, c.pair, COORDS[c.a].addr),
+                row_at(rows, c.pair, COORDS[c.b].addr),
+            ) else {
+                continue;
+            };
+            let conf = if is_verified(ra) && is_verified(rb) {
+                0.9
+            } else {
+                0.5
+            };
+            // DN-shaped term names: most-significant-first PATH segments
+            // (`sem/gewahr/3:7`), so a shared prefix IS shared tree ancestry
+            // and the interner's namespace is radix-addressable — the same
+            // convention as the HHTL path and the classid cascade prefix.
+            let at = |ch: &str, w: &str, addr: (u8, u8)| format!("{ch}/{w}/{}:{}", addr.0, addr.1);
+            let (pfx_a, stem_a) = split_morph(ra.morph);
+            let (pfx_b, stem_b) = split_morph(rb.morph);
+            self.observe_channel(
+                c.pair,
+                "sem",
+                &at("sem", stem_a, ra.addr),
+                &at("sem", stem_b, rb.addr),
+                shared_path(stem_a, stem_b),
+                conf,
+            );
+            // Morphology has nothing to believe when neither side is affixed.
+            if !pfx_a.is_empty() || !pfx_b.is_empty() {
+                self.observe_channel(
+                    c.pair,
+                    "morph",
+                    &at("morph", pfx_a, ra.addr),
+                    &at("morph", pfx_b, rb.addr),
+                    shared_path(pfx_a, pfx_b),
+                    conf,
+                );
+            }
+            self.observe_channel(
+                c.pair,
+                "syn",
+                &at("syn", ra.pos, ra.addr),
+                &at("syn", rb.pos, rb.addr),
+                if ra.pos == rb.pos { 1.0 } else { 0.0 },
+                conf,
+            );
+            self.observe_channel(
+                c.pair,
+                "prag",
+                &at("prag", ra.prag, ra.addr),
+                &at("prag", rb.prag, rb.addr),
+                if ra.prag == rb.prag { 1.0 } else { 0.0 },
+                conf,
+            );
+        }
+    }
+
+    /// Read back one channel's learned expectation at one contrast.
+    fn awareness(&self, contrast: &str, channel: &str) -> Option<f32> {
+        self.beliefs
+            .get(&(contrast, channel))
+            .and_then(|s| self.arena.get(*s))
+            .map(|b| b.truth.expectation())
+    }
+}
+
 fn main() {
-    // One row set: the machine-verified coordinate surface + the curated lanes.
     let all: Vec<&LaneLex> = EN_KJV.iter().chain(CURATED.iter()).collect();
     let spine = lane_spine();
-    let occupied: Vec<&str> = spine.iter().flatten().copied().collect();
-
-    println!("════════ PROBE-BABEL-STANCES slice 1 ════════");
+    let occupied: Vec<&'static str> = spine.iter().flatten().copied().collect();
+    println!("════════ PROBE-BABEL-STANCES slice 2 — two Rosetta stones ════════");
+    println!("  ⊘ RETRACTION (codex P1): slice 1's 'KNOW residual' measured ENGLISH");
+    println!("    LEMMA REUSE, not grid escape — the grid's own synset axis separates");
+    println!("    know.v.01 from know.v.05. The en-kjv lane also sat inside its own");
+    println!("    resultant. Both are structurally impossible below: the coordinate is");
+    println!("    a 3-axis convergence, and en-kjv never enters a resultant.\n");
     println!(
-        "  lane spine: {}/{} slots occupied ({} reserved — RESERVE, DON'T RECLAIM)",
+        "  lane spine: {}/{} slots occupied ({} reserved — RESERVE, DON'T RECLAIM);",
         occupied.len(),
         LANE_SLOTS,
         LANE_SLOTS - occupied.len()
     );
-    println!("  lane 0 = en-kjv is the COORDINATE SURFACE (the grid), not an opinion.\n");
+    println!("  one slot = one lane = one language stone = one owner (one-writer).\n");
+
+    // ── Stone 1: the grid, with axis agreement per contrast ──
+    println!("  ── CORPUS STONE: POS × frequency × synset convergence grid ──");
+    for c in CONTRASTS {
+        let (a, b) = (&COORDS[c.a], &COORDS[c.b]);
+        let n = axes_differing(c);
+        println!(
+            "  {:<6} {:?} {}/{}/{}  ↔  {:?} {}/{}/{}   axes differing: {n}/3 → {}",
+            c.pair,
+            a.addr,
+            a.synset,
+            a.pos,
+            a.band,
+            b.addr,
+            b.synset,
+            b.pos,
+            b.band,
+            if n >= 2 {
+                "TWO coordinates (codebooks converge)"
+            } else {
+                "one coordinate"
+            }
+        );
+    }
+    // Axis convergence: KNOW's two addresses are distinct in the grid by ≥2
+    // independent codebooks; NAKED's and DIE's are genuinely one coordinate.
+    let know = &CONTRASTS[0];
+    assert!(
+        axes_differing(know) >= 2,
+        "KNOW's addresses must be distinct coordinates by ≥2 independent axes \
+         (synset + frequency band) — otherwise the retraction's repair is not in place"
+    );
+    assert_eq!(
+        axes_differing(&CONTRASTS[1]),
+        0,
+        "NAKED must be ONE coordinate (all axes agree)"
+    );
+    assert_eq!(
+        axes_differing(&CONTRASTS[2]),
+        0,
+        "DIE must be ONE coordinate (all axes agree)"
+    );
 
     // Per-lane rows, spine order.
     let rows_of: HashMap<&str, Vec<&LaneLex>> = occupied
@@ -321,192 +870,616 @@ fn main() {
         .map(|&l| (l, all.iter().copied().filter(|r| r.lane == l).collect()))
         .collect();
 
-    let mut splitters: HashMap<&str, Vec<&str>> = HashMap::new();
-    let mut unverified_splits: HashMap<&str, Vec<&str>> = HashMap::new();
-    let mut amps: HashMap<&str, f32> = HashMap::new();
-    let mut amps_all: HashMap<&str, f32> = HashMap::new();
+    // ── The tracking census + per-channel interference ──
+    println!("\n  ── TRACKING CENSUS (does the lane lexicalize the grid's distinction?) ──");
+    let mut tracks_know_verified: Vec<&str> = Vec::new();
+    let mut tracks_know_check: Vec<&str> = Vec::new();
+    let mut chan_coherence: HashMap<(&str, &str), f32> = HashMap::new();
+    let mut verified_sem_phases: Vec<(&str, &str, f32)> = Vec::new();
 
-    for pair in GRID {
-        println!(
-            "  ── {} ── grid: {:?} ↔ {:?}   senses: {} / {}",
-            pair.name, pair.addr_a, pair.addr_b, pair.senses.0, pair.senses.1
-        );
-        let mut phases = Vec::new();
-        let mut phases_verified = Vec::new();
+    for c in CONTRASTS {
+        println!("  ── {} ──", c.pair);
+        let mut per_channel: HashMap<&str, Vec<f32>> = HashMap::new();
         for lane in &occupied {
             let rows = &rows_of[lane];
-            let Some(p) = phase(rows, pair) else {
-                println!("      {lane:>16}  (silent at this coordinate)");
+            let Some(pv) = phase_vec(rows, c) else {
+                println!("      {lane:>16}  (silent at this contrast)");
                 continue;
             };
-            let sa = rows
-                .iter()
-                .find(|r| r.pair == pair.name && r.addr == pair.addr_a)
-                .map(|r| r.surface)
-                .unwrap_or("?");
-            let sb = rows
-                .iter()
-                .find(|r| r.pair == pair.name && r.addr == pair.addr_b)
-                .map(|r| r.surface)
-                .unwrap_or("?");
-            let split = p != 0.0;
-            let verified = rows
-                .iter()
-                .filter(|r| r.pair == pair.name)
-                .all(|r| is_verified(r));
-            if split && verified {
-                splitters.entry(pair.name).or_default().push(lane);
-            }
-            if split && !verified {
-                unverified_splits.entry(pair.name).or_default().push(lane);
-            }
-            println!(
-                "      {lane:>16}  {sa} / {sb}   phase {}   {}{}",
-                if split { "π" } else { "0" },
-                if split {
-                    "◀ SPLITS the coordinate"
+            let ra = row_at(rows, c.pair, COORDS[c.a].addr).unwrap();
+            let rb = row_at(rows, c.pair, COORDS[c.b].addr).unwrap();
+            let verified = is_verified(ra) && is_verified(rb);
+            let tracks = pv.sem >= std::f32::consts::FRAC_PI_2;
+            if c.pair == "KNOW" && tracks {
+                if verified {
+                    tracks_know_verified.push(lane);
                 } else {
-                    "aligned"
+                    tracks_know_check.push(lane);
+                }
+            }
+            let pi = std::f32::consts::PI;
+            println!(
+                "      {lane:>16}  {}/{}   φ/π: morph {:.2} syn {:.2} sem {:.2} prag {:.2}   {}{}",
+                ra.surface,
+                rb.surface,
+                pv.morph / pi,
+                pv.syn / pi,
+                pv.sem / pi,
+                pv.prag / pi,
+                if tracks {
+                    "◀ TRACKS the grid distinction"
+                } else {
+                    "collapses (one lexeme)"
                 },
                 if verified {
                     ""
                 } else {
-                    "   [CHECK — unverified reconstruction]"
+                    "   [CHECK — report-only]"
                 }
             );
-            phases.push(p);
-            if verified {
-                phases_verified.push(p);
+            // en-kjv is the chart: it NEVER enters a cross-lane resultant.
+            if *lane != "en-kjv" && verified {
+                per_channel.entry("morph").or_default().push(pv.morph);
+                per_channel.entry("syn").or_default().push(pv.syn);
+                per_channel.entry("sem").or_default().push(pv.sem);
+                per_channel.entry("prag").or_default().push(pv.prag);
+                verified_sem_phases.push((c.pair, lane, pv.sem));
             }
         }
-        let a = amplitude(&phases);
-        let av = amplitude(&phases_verified);
-        amps.insert(pair.name, av);
-        amps_all.insert(pair.name, a);
-        println!(
-            "      → VERIFIED amplitude {av:.3} residual {:.3} ({} lanes)  |  \
-             all-lane {a:.3} ({} lanes, report-only)\n",
-            1.0 - av,
-            phases_verified.len(),
-            phases.len()
-        );
+        for ch in CHANNELS {
+            let phases = per_channel.get(ch).map(Vec::as_slice).unwrap_or(&[]);
+            let coh = coherence(phases);
+            chan_coherence.insert((c.pair, ch), coh);
+            let mean = if phases.is_empty() {
+                0.0
+            } else {
+                phases.iter().sum::<f32>() / phases.len() as f32
+            };
+            println!(
+                "      → {ch:<5} coherence {coh:.3} mean φ {:.2}π ({} verified non-en lanes)",
+                mean / std::f32::consts::PI,
+                phases.len()
+            );
+        }
+        println!();
     }
 
-    // ── FALSIFIER ──
+    // ── FALSIFIER: census + channels ──
     println!("════════ FALSIFIER ════════");
-    let know_splits = splitters.get("KNOW").cloned().unwrap_or_default();
-    let naked_splits = splitters.get("NAKED").cloned().unwrap_or_default();
-    let die_splits = splitters.get("DIE").cloned().unwrap_or_default();
-    println!(
-        "  KNOW  split by {know_splits:?}   amplitude {:.3}",
-        amps["KNOW"]
+    println!("  KNOW tracked by (verified): {tracks_know_verified:?}   (CHECK, report-only): {tracks_know_check:?}");
+
+    // FIRE: exactly one verified lane tracks the grid's KNOW distinction
+    // lexically, and it is German (gewahr ↔ kennen — suppletive stems).
+    assert_eq!(
+        tracks_know_verified,
+        vec!["de-luther1545"],
+        "exactly ONE verified lane must lexically track KNOW's two grid \
+         coordinates, and it must be German"
     );
-    println!(
-        "  NAKED split by {naked_splits:?}   amplitude {:.3}",
-        amps["NAKED"]
-    );
-    println!(
-        "  DIE   split by {die_splits:?}   amplitude {:.3}",
-        amps["DIE"]
+    // …and the chart's own surface does NOT track it: English lemma reuse,
+    // the retraction embodied as an assert.
+    let en_know = phase_vec(&rows_of["en-kjv"], know).unwrap();
+    assert!(
+        en_know.sem < 0.1,
+        "en-kjv must COLLAPSE the KNOW contrast at the lexeme level (lemma \
+         reuse — what slice 1 mistook for grid escape), got φ_sem = {:.3}",
+        en_know.sem
     );
 
-    println!("  ── REPORT-ONLY (CHECK rows — curator reconstructions, NOT findings) ──");
-    let empty: Vec<&str> = Vec::new();
-    for pair in GRID {
-        let u = unverified_splits.get(pair.name).unwrap_or(&empty);
-        println!(
-            "  {:<6} unverified splits {u:?}   all-lane amplitude {:.3}",
-            pair.name, amps_all[pair.name]
+    // CHANNEL ATTRIBUTION on verified rows: German KNOW diverges on THREE
+    // levels at once — morphology (∅- vs er-), syntax (adj vs v), semantics
+    // (suppletive stems) — while Latin KNOW is channel-silent everywhere
+    // except pragmatics (can-fire AND can-stay-silent for the morph channel).
+    let de_know = phase_vec(&rows_of["de-luther1545"], know).unwrap();
+    let la_know = phase_vec(&rows_of["la-vulgate"], know).unwrap();
+    let pi = std::f32::consts::PI;
+    assert!(
+        de_know.morph > 0.9 * pi,
+        "de KNOW must fire the morph channel (∅- vs er-)"
+    );
+    assert!(
+        de_know.syn > 0.9 * pi,
+        "de KNOW must fire the syntax channel (adj vs v)"
+    );
+    assert!(
+        de_know.sem > 0.5 * pi && de_know.sem < 0.95 * pi,
+        "de KNOW sem must be GRADED high divergence (suppletive but not \
+         char-disjoint stems), got {:.3}π",
+        de_know.sem / pi
+    );
+    assert!(
+        la_know.morph < 1e-3 && la_know.syn < 1e-3 && la_know.sem < 1e-3,
+        "la KNOW must stay silent on morph/syn/sem (one lexeme, co|gnosco — \
+         PREFIXED, but the same prefix at both addresses)"
+    );
+
+    // THE PREFIX MEANING-SWITCH, three readings the pooled measure conflates.
+    // REPORT-ONLY for the Czech row (CHECK): printed, never asserted, and
+    // silent-lane tolerant so a fixture correction cannot panic the run.
+    let cs_die_report = phase_vec(&rows_of["cs-bkr"], &CONTRASTS[2])
+        .map(|p| format!("{:.2}π sem {:.2}π [CHECK]", p.morph / pi, p.sem / pi))
+        .unwrap_or_else(|| "(silent)".to_string());
+    println!(
+        "  ── prefix meaning-switch ── la KNOW co|gnosco↔co|gnosco morph {:.2}π sem {:.2}π  |  \
+         cs DIE u|mříti↔ze|mříti morph {cs_die_report}  |  \
+         de KNOW ∅|gewahr↔er|kennen morph {:.2}π sem {:.2}π",
+        la_know.morph / pi,
+        la_know.sem / pi,
+        de_know.morph / pi,
+        de_know.sem / pi
+    );
+    // CHANNEL SEPARABILITY — the arithmetic invariant, on SYNTHETIC input.
+    //
+    // ⊘ CODEX/CODERABBIT, ACCEPTED (second instance of the same defect): an
+    // earlier revision asserted this on `cs_die` — the cs-bkr DIE pair, which
+    // the fixture marks CHECK and whose own DEVIATION note says it may be a
+    // curator memory error. With this example running in CI, correcting that
+    // reconstruction would have BROKEN THE BUILD. The comment there claimed the
+    // assert tested "channel arithmetic, not the philological claim" — but an
+    // assert reading fixture rows tests the fixture, whatever the comment says.
+    //
+    // The mechanism claim is genuinely independent of any lane, so it is tested
+    // where it belongs: on constructed strings. Same stem, different prefix ⇒
+    // morph fires ALONE (sem silent). No verified lane exhibits this shape —
+    // de KNOW fires all three channels, la KNOW fires none — so asserting it
+    // from the fixture was only ever possible by leaning on an unverified row.
+    let (syn_pfx_a, syn_stem_a) = split_morph("u|mriti");
+    let (syn_pfx_b, syn_stem_b) = split_morph("ze|mriti");
+    let syn_morph = phase_of(shared_path(syn_pfx_a, syn_pfx_b));
+    let syn_sem = phase_of(shared_path(syn_stem_a, syn_stem_b));
+    assert!(
+        syn_sem < 1e-3 && syn_morph > 0.9 * pi,
+        "channel separability: identical stems with disjoint prefixes must put \
+         ALL divergence on the morph channel and NONE on sem — got morph {:.2}π \
+         sem {:.2}π",
+        syn_morph / pi,
+        syn_sem / pi
+    );
+    // …and the converse, so the pair is a real discriminator rather than a
+    // one-sided guard: identical prefixes with divergent stems must put the
+    // divergence on sem and leave morph silent.
+    let (cv_pfx_a, cv_stem_a) = split_morph("co|gnosco");
+    let (cv_pfx_b, cv_stem_b) = split_morph("co|habito");
+    let cv_morph = phase_of(shared_path(cv_pfx_a, cv_pfx_b));
+    let cv_sem = phase_of(shared_path(cv_stem_a, cv_stem_b));
+    assert!(
+        cv_morph < 1e-3 && cv_sem > 0.5 * pi,
+        "channel separability (converse): identical prefixes with divergent \
+         stems must fire sem and leave morph silent — got morph {:.2}π sem {:.2}π",
+        cv_morph / pi,
+        cv_sem / pi
+    );
+    println!(
+        "  ── channel separability (synthetic, lane-free) ── morph-only {:.2}π/{:.2}π  \
+         sem-only {:.2}π/{:.2}π   [cs DIE is the natural instance but CHECK — reported, never asserted]",
+        syn_morph / pi,
+        syn_sem / pi,
+        cv_morph / pi,
+        cv_sem / pi
+    );
+
+    // METRIC CROSS-CHECK: the q-gram profile cosine (fingerprint space —
+    // CLAM/HHTL-shaped) must AGREE with the radix path on the flagship
+    // ordering, even though it is too coarse to generate phase itself.
+    let (de_a, de_b) = ("gewahr", "kennen");
+    let (cs_a, cs_b) = ("mříti", "mříti");
+    let (la_a, la_b) = ("gnosco", "gnosco");
+    println!(
+        "  ── metric cross-check (q-gram profile cosine vs radix path) ── \
+         de {:.3}/{:.3}  cs-stem {:.3}/{:.3}  la {:.3}/{:.3}",
+        profile_cosine(de_a, de_b),
+        shared_path(de_a, de_b),
+        profile_cosine(cs_a, cs_b),
+        shared_path(cs_a, cs_b),
+        profile_cosine(la_a, la_b),
+        shared_path(la_a, la_b)
+    );
+    // The ORDERING agreement is asserted on a synthetic ladder, not against the
+    // fixture's identical-stem pairs. Comparing a real pair to a self-identical
+    // one only ever asks "is 0.13 < 1.0" — true of almost any input, so it
+    // tested nothing (the anti-vacuity rule: an assertion implied by its own
+    // construction is not a test). A three-rung ladder of GENUINELY different
+    // pairs has a real failure mode: if the two metrics ever disagree on the
+    // ranking, one of them is unfit to cross-check the other.
+    let ladder = [
+        ("mriti", "mriti"),   // identical      — maximal agreement
+        ("gnosco", "gnosca"), // one char apart — high agreement
+        ("gewahr", "kennen"), // suppletive     — minimal agreement
+    ];
+    for w in ladder.windows(2) {
+        let (hi, lo) = (w[0], w[1]);
+        assert!(
+            profile_cosine(hi.0, hi.1) > profile_cosine(lo.0, lo.1),
+            "q-gram profile must rank {:?} above {:?}",
+            hi,
+            lo
+        );
+        assert!(
+            shared_path(hi.0, hi.1) > shared_path(lo.0, lo.1),
+            "…and the radix path must produce the SAME ranking — two metrics, \
+             one ordering ({:?} above {:?})",
+            hi,
+            lo
         );
     }
-    println!("  NOTE: the DIE split is carried ENTIRELY by an unverified cs-bkr row —");
-    println!("        the curator flagged it as possibly a memory error. NOT claimed.");
 
-    // ANTI-DEADNESS (the operator's constraint: "construct phase so it doesn't
-    // become dead"). A binary phase has sin ≡ 0 and its resultant is an integer
-    // count — the complex form would be decoration. Assert the machinery can
-    // express PARTIAL divergence: some lane's phase must sit strictly between
-    // 0 and π, and the resultant must carry a non-zero imaginary part.
-    let mut graded = Vec::new();
-    for pair in GRID {
+    // PRAGMATIC COHERENT ANTIPHASE (the translationese finding).
+    //
+    // ⊘ CODEX P2, ACCEPTED: an earlier revision asserted this over EVERY
+    // occupied lane. Two of them (`cs-bkr`, `arc-onkelos`) are curator
+    // reconstructions the fixture marks CHECK — and because this example now
+    // runs in CI, asserting on them promoted unverified philology to a
+    // release gate. That is precisely the defect slice 1 caught in its own
+    // DIE split, re-introduced one channel over. The gate is verified pairs
+    // ONLY; CHECK lanes print as report-only and can never fail the build.
+    let mut prag_verified: Vec<&str> = Vec::new();
+    let mut prag_check: Vec<&str> = Vec::new();
+    for lane in &occupied {
+        let rows = &rows_of[lane];
+        // Silent-lane convention (CodeRabbit nitpick, accepted): a lane with no
+        // rows at this contrast is SILENT, never a panic — the census loop and
+        // the NAKED/DIE loop already treat it that way, and slot 6 of the spine
+        // is reserved for exactly such a lane (Finnish). An `unwrap` here would
+        // turn the planned lane mint into an opaque panic.
+        let Some(pv) = phase_vec(rows, know) else {
+            continue;
+        };
+        if pair_verified(rows, know) {
+            assert!(
+                pv.prag > 0.9 * pi,
+                "{lane}: the KNOW pragmatic channel must be antiphase (the calque)"
+            );
+            prag_verified.push(lane);
+        } else {
+            prag_check.push(lane);
+        }
+    }
+    println!(
+        "  ── pragmatic calque ── asserted over verified {prag_verified:?}; \
+         CHECK (report-only, consistent but not claimed) {prag_check:?}"
+    );
+    let prag_coh = chan_coherence[&("KNOW", "prag")];
+    assert!(
+        prag_coh > 0.99,
+        "KNOW prag channel must be COHERENT antiphase (all verified lanes \
+         agree because they inherit ONE convention — translationese), got {prag_coh:.3}"
+    );
+    // …and the prag channel must stay SILENT where there is no euphemism —
+    // again over verified pairs only (same P2).
+    for c in &CONTRASTS[1..] {
         for lane in &occupied {
-            if let Some(p) = phase(&rows_of[lane], pair) {
-                graded.push((pair.name, *lane, p));
+            let rows = &rows_of[lane];
+            if !pair_verified(rows, c) {
+                continue;
+            }
+            if let Some(pv) = phase_vec(rows, c) {
+                assert!(
+                    pv.prag < 1e-3,
+                    "{lane}: prag channel must be silent at {} (no calque there)",
+                    c.pair
+                );
             }
         }
     }
-    let partial: Vec<&(&str, &str, f32)> = graded
+
+    // LOW COHERENCE where one language sees what the others don't: KNOW's
+    // semantic channel is the contested one; NAKED's is fully coherent.
+    let know_sem_coh = chan_coherence[&("KNOW", "sem")];
+    let naked_sem_coh = chan_coherence[&("NAKED", "sem")];
+    println!("  sem-channel coherence: KNOW {know_sem_coh:.3} (contested) vs NAKED {naked_sem_coh:.3} (agreed)");
+    assert!(
+        know_sem_coh < naked_sem_coh - 0.2,
+        "KNOW's semantic channel must be markedly LESS coherent than NAKED's \
+         — that incoherence IS the German signal"
+    );
+    assert!(
+        naked_sem_coh > 0.99,
+        "NAKED must be fully coherent (every lane one lexeme)"
+    );
+
+    // CHAODA-SHAPED OUTLIER READ: the π/2 tracking threshold is a constant,
+    // and a constant is a hand-tuned cut. Score each verified (lane, contrast)
+    // semantic phase against the POPULATION instead — robust deviation from
+    // the median in MAD units — so the anomaly is defined by the data. Real
+    // CHAODA reads graph features off a CLAM cluster tree; at fixture scale
+    // this is its stance, not its machinery (there is no tree in 12 points).
+    let mut sems: Vec<f32> = verified_sem_phases.iter().map(|(_, _, p)| *p).collect();
+    sems.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let median = sems[sems.len() / 2];
+    let mut devs: Vec<f32> = sems.iter().map(|p| (p - median).abs()).collect();
+    devs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let mad = devs[devs.len() / 2];
+    println!("\n  ── CHAODA-shaped outlier read (population-relative, no constant cut) ──");
+    // MAD is EXACTLY zero here: 7 of 8 verified points sit at φ_sem = 0, so
+    // the median absolute deviation is 0 and a robust-z would divide by it
+    // (printing a meaningless 2.6e6). A degenerate population needs a
+    // degenerate-population criterion, not a fudged divisor: when MAD == 0
+    // the outlier set is simply the points that differ from the median AT
+    // ALL — and that set must be a strict minority, or "outlier" means
+    // nothing. Both branches are exercised as the fixture grows.
+    let degenerate = mad <= 1e-6;
+    let mut outliers: Vec<(&str, &str, f32)> = Vec::new();
+    for (pair, lane, p) in &verified_sem_phases {
+        let dev = (p - median).abs();
+        let flag = if degenerate {
+            dev > 1e-3
+        } else {
+            dev / mad > 3.0
+        };
+        if flag {
+            let score = if degenerate { dev / pi } else { dev / mad };
+            outliers.push((*lane, *pair, score));
+            println!(
+                "      {lane:>16} × {pair:<6} φ_sem {:.3}π  {} {score:.2} ◀ OUTLIER",
+                p / pi,
+                if degenerate {
+                    "deviation/π"
+                } else {
+                    "robust-z"
+                }
+            );
+        }
+    }
+    println!(
+        "      (median φ_sem {:.3}π, MAD {mad:.4}{} over {} verified points)",
+        median / pi,
+        if degenerate {
+            " — DEGENERATE population, deviation criterion"
+        } else {
+            ""
+        },
+        sems.len()
+    );
+    assert!(
+        outliers.len() * 3 < verified_sem_phases.len(),
+        "the outlier set must be a strict minority of the population ({} of {}) \
+         — a detector that flags a third of its input is describing the input",
+        outliers.len(),
+        verified_sem_phases.len()
+    );
+    assert_eq!(
+        outliers.len(),
+        1,
+        "the population must contain exactly ONE semantic outlier — a detector \
+         that flags many carries as little information as one that flags none"
+    );
+    assert_eq!(
+        (outliers[0].0, outliers[0].1),
+        ("de-luther1545", "KNOW"),
+        "…and the outlier must be (German, KNOW) — found by the population, \
+         not by a threshold chosen to find it"
+    );
+
+    // ANTI-DEADNESS (kept from slice 1): some verified phase must sit strictly
+    // between 0 and π, and the resultant must carry imaginary weight.
+    let partial: Vec<_> = verified_sem_phases
         .iter()
-        .filter(|(_, _, p)| *p > 1e-3 && *p < std::f32::consts::PI - 1e-3)
+        .filter(|(_, _, p)| *p > 1e-3 && *p < pi - 1e-3)
         .collect();
-    println!("  ── ANTI-DEADNESS (phase must be graded, not a boolean) ──");
     for (pair, lane, p) in &partial {
         println!(
-            "  {pair:<6} {lane:<16} φ = {:.3}π  (partial divergence — a boolean phase could not say this)",
-            p / std::f32::consts::PI
+            "  graded: {pair} {lane} φ_sem = {:.3}π (a boolean phase could not say this)",
+            p / pi
         );
     }
     assert!(
         !partial.is_empty(),
-        "phase is DEAD: every value is 0 or π, so sin ≡ 0 and the resultant is \
-         an integer count — the complex form would be pure decoration"
+        "phase is DEAD: every verified value is 0 or π"
     );
-    let im: f32 = graded.iter().map(|(_, _, p)| p.sin()).sum();
+    let im: f32 = verified_sem_phases.iter().map(|(_, _, p)| p.sin()).sum();
     assert!(
         im.abs() > 1e-3,
-        "the resultant carries no imaginary part ({im:.6}) — phase is not doing work"
+        "no imaginary part ({im:.6}) — phase is not doing work"
     );
 
-    // FIRE: the KNOW coordinate is split, and German is among the splitters.
-    assert!(
-        !know_splits.is_empty(),
-        "KNOW must be split by at least one lane — English/WordNet files two \
-         senses under one lemma and some language marks the difference lexically"
-    );
-    assert!(
-        know_splits.contains(&"de-luther1545"),
-        "German must split KNOW (Luther 1545: 'wurden gewar' @3:7 awareness vs \
-         'erkandte' @4:1), got {know_splits:?}"
-    );
-    // STAY SILENT: where the languages agree, the machinery must read low.
-    assert!(
-        naked_splits.len() < know_splits.len(),
-        "NAKED must be split by strictly fewer lanes than KNOW ({} vs {}) — a \
-         detector that splits every coordinate carries no information",
-        naked_splits.len(),
-        know_splits.len()
-    );
-    assert!(
-        amps["NAKED"] > amps["KNOW"],
-        "…and its amplitude must be strictly higher (more constructive): \
-         NAKED {:.3} vs KNOW {:.3}",
-        amps["NAKED"],
-        amps["KNOW"]
-    );
-    // The residual is the point: KNOW leaks expressiveness the grid can't hold.
-    assert!(
-        1.0 - amps["KNOW"] > 0.0,
-        "the KNOW residual is what escapes the coordinate system"
-    );
-
-    // CONVERGENCE: the split coordinate's awareness address is the same verse
-    // `probe_eyes_opened`'s B2 crowns as the UNIQUE reflexive rung lift.
-    let know = GRID.iter().find(|g| g.name == "KNOW").unwrap();
-    assert_eq!(
-        know.addr_a,
-        (3, 7),
-        "the awareness address of the split coordinate must be 3:7 — the same \
-         verse the monolingual epistemic machinery crowns (B2's unique \
-         reflexive lift). Two independent machineries, one address."
-    );
-
-    println!("\n  ✓ the grid collapses what a language splits: KNOW carries a residual");
+    // ── VALENCY: the distinction moves levels, it never disappears ──
+    println!("\n  ── VALENCY FRAMES (reflexiv / complementizer / transitivity) ──");
+    let en_fa = frame_of("en-kjv", "KNOW", (3, 7)).unwrap();
+    let en_fb = frame_of("en-kjv", "KNOW", (4, 1)).unwrap();
+    let de_fa = frame_of("de-luther1545", "KNOW", (3, 7)).unwrap();
+    let de_fb = frame_of("de-luther1545", "KNOW", (4, 1)).unwrap();
     println!(
-        "    ({:.3}) that the English coordinate system cannot address, and the",
-        1.0 - amps["KNOW"]
+        "  en-kjv        KNOW: {en_fa:?} vs {en_fb:?}  (lexeme SAME — frame carries the split)"
     );
-    println!("    lane that splits it is German — while NAKED stays constructive.");
-    println!("  ✓ and the split coordinate's awareness address is 3:7: the verse the");
-    println!("    monolingual reflexive-lift blade crowns independently. Two machineries,");
-    println!("    one address — the interference is where the light converges.");
+    println!("  de-luther1545 KNOW: {de_fa:?} vs {de_fb:?}  (frame AND lexeme both split)");
+    assert_ne!(
+        en_fa, en_fb,
+        "English must mark KNOW's two coordinates by FRAME (clausal-reflexive \
+         vs transitive-NP) even though its lexeme collapses them — the \
+         distinction moves levels, it never disappears"
+    );
+    assert_eq!(
+        en_fa,
+        Frame::ClausalReflexive,
+        "3:7 is the reflexive clausal frame (B2's shape)"
+    );
+    assert_eq!(
+        en_fb,
+        Frame::TransitiveNp,
+        "4:1 is the plain transitive frame"
+    );
+    assert_eq!(
+        (de_fa, de_fb),
+        (en_fa, en_fb),
+        "Luther mirrors the same frame split"
+    );
+    let en_na = frame_of("en-kjv", "NAKED", (2, 25)).unwrap();
+    let en_nb = frame_of("en-kjv", "NAKED", (3, 7)).unwrap();
+    assert_eq!(
+        en_na, en_nb,
+        "NAKED's frames must NOT split (stay-silent half)"
+    );
+
+    // ── Stone 2: the language stones learn (grey matter; plasticity) ──
+    println!("\n  ── LANGUAGE STONES: per-lane arenas learn from the corpus stone ──");
+    println!("  (the semantic kernel: each channel carries its OWN awareness)\n");
+    let mut stones: Vec<LanguageStone> = occupied.iter().map(|l| LanguageStone::new(l)).collect();
+    for stone in &mut stones {
+        stone.learn(&rows_of[stone.lane]);
+    }
+    println!(
+        "      {:>16}  {:>8} {:>8} {:>8} {:>8}   admitted",
+        "lane / KNOW", "morph", "syn", "sem", "prag"
+    );
+    for stone in &stones {
+        let cell = |ch: &str| {
+            stone
+                .awareness("KNOW", ch)
+                .map(|e| format!("{e:>8.3}"))
+                .unwrap_or_else(|| format!("{:>8}", "—"))
+        };
+        println!(
+            "      {:>16}  {} {} {} {}   {}",
+            stone.lane,
+            cell("morph"),
+            cell("syn"),
+            cell("sem"),
+            cell("prag"),
+            stone.admitted
+        );
+    }
+    // Plasticity: every stone learned something (started empty, ends holding
+    // the lane's self-knowledge). Revision is queued for a second corpus
+    // section re-evidencing the same pairs; admission is this slice's claim.
+    for stone in &stones {
+        assert!(
+            stone.admitted >= 9,
+            "{}: stone must admit ≥9 beliefs (3 contrasts × ≥3 channels)",
+            stone.lane
+        );
+    }
+    // The learned contrast, read back from NARS state (not from raw φ):
+    // German's stone BELIEVES its two KNOW occurrences are different words
+    // (low Sim expectation); Latin's and English's believe theirs are one
+    // (high expectation — English lemma reuse as a LEARNED belief).
+    let exp_of = |lane: &str, ch: &str| {
+        stones
+            .iter()
+            .find(|s| s.lane == lane)
+            .and_then(|s| s.awareness("KNOW", ch))
+            .unwrap()
+    };
+    let (de_e, la_e, en_e) = (
+        exp_of("de-luther1545", "sem"),
+        exp_of("la-vulgate", "sem"),
+        exp_of("en-kjv", "sem"),
+    );
+    println!("\n  learned sem awareness at KNOW: de {de_e:.3} (two words) vs la {la_e:.3} / en {en_e:.3} (one word)");
+    assert!(
+        de_e < 0.35,
+        "German's stone must have LEARNED gewahr ≁ kennen (exp < 0.35), got {de_e:.3}"
+    );
+    assert!(
+        la_e > 0.9 && en_e > 0.9,
+        "Latin/English stones must have learned lexeme unity (exp > 0.9)"
+    );
+
+    // ── Erkenntnis becomes passion: quale × magnitude × phase ──
+    println!("\n  ── PASSION = quale (reader) × magnitude (grid) × phase (cross-lane) ──");
+    // SELF-CAUGHT CONFLATION (kept as a finding, not silently patched): the
+    // quale term reads `1 − expectation`, and expectation falls BOTH when a
+    // lane's stone believes its two occurrences are different words (Erkenntnis)
+    // AND when the belief merely has low confidence (a CHECK row enters at
+    // c = 0.5 → expectation 0.75 → quale 0.25 with nothing seen at all).
+    // Uncertainty is not surprise. First run of this composite ranked cs-bkr
+    // and arc-onkelos above the four verified one-lexeme lanes purely on
+    // curatorial doubt. The fix is the probe's standing rule, not a new one:
+    // passion is computed over VERIFIED (lane, contrast) cells only; CHECK
+    // cells are printed as report-only. Separating the two terms properly
+    // (a confidence-independent surprise) is queued.
+    let mut passions: Vec<(&str, &str, f32)> = Vec::new();
+    for c in CONTRASTS {
+        let magnitude = f32::from(axes_differing(c)) / 3.0;
+        let interference = 1.0 - chan_coherence[&(c.pair, "sem")];
+        for stone in &stones {
+            let rows = &rows_of[stone.lane];
+            let verified = match (
+                row_at(rows, c.pair, COORDS[c.a].addr),
+                row_at(rows, c.pair, COORDS[c.b].addr),
+            ) {
+                (Some(ra), Some(rb)) => is_verified(ra) && is_verified(rb),
+                _ => continue,
+            };
+            let Some(e) = stone.awareness(c.pair, "sem") else {
+                continue;
+            };
+            if !verified {
+                println!(
+                    "      {:>16} × {:<6} [CHECK — report-only: quale {:.3} is curatorial \
+                     doubt, not Erkenntnis]",
+                    stone.lane,
+                    c.pair,
+                    1.0 - e
+                );
+                continue;
+            }
+            let quale = 1.0 - e;
+            let passion = quale * magnitude * interference;
+            passions.push((stone.lane, c.pair, passion));
+            if passion > 0.0 {
+                println!(
+                    "      {:>16} × {:<6} quale {quale:.3} × magnitude {magnitude:.3} × phase {interference:.3} = {passion:.4}",
+                    stone.lane, c.pair
+                );
+            }
+        }
+    }
+    let max = passions
+        .iter()
+        .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap())
+        .copied()
+        .unwrap();
+    println!(
+        "      → maximal passion: {} × {} = {:.4}",
+        max.0, max.1, max.2
+    );
+    assert_eq!(
+        (max.0, max.1),
+        ("de-luther1545", "KNOW"),
+        "passion must peak at (German, KNOW) — the lane that SEES the \
+         distinction, at the contrast the grid makes real"
+    );
+    // Structural silence: no distinction in the grid → no Erkenntnis to have.
+    for (lane, pair, p) in &passions {
+        if *pair != "KNOW" {
+            assert!(
+                *p == 0.0,
+                "{lane} × {pair}: passion must be structurally ZERO where the \
+                 grid's axes agree (magnitude 0) — got {p}"
+            );
+        }
+    }
+    // …and the peak must dominate every other lane at KNOW (quale separates).
+    for (lane, pair, p) in &passions {
+        if *pair == "KNOW" && *lane != "de-luther1545" {
+            assert!(
+                max.2 > 5.0 * p,
+                "(de, KNOW) must dominate ({lane}, KNOW) by >5× — got {:.4} vs {p:.4}",
+                max.2
+            );
+        }
+    }
+
+    // CONVERGENCE: the tracked contrast's aware coordinate is the same verse
+    // `probe_eyes_opened`'s B2 crowns as the UNIQUE reflexive rung lift.
+    assert_eq!(
+        COORDS[know.a].addr,
+        (3, 7),
+        "the aware coordinate of the tracked contrast must be 3:7 — the verse \
+         the monolingual reflexive-lift blade crowns. Two machineries, one address."
+    );
+
+    println!("\n  ✓ the stratified grid distinguishes what the English LEMMA collapses;");
+    println!("    of five lanes, GERMAN alone tracks the grid's two KNOW coordinates");
+    println!("    lexically — and English still marks them, one level up, by valency");
+    println!("    frame (clausal-reflexive vs transitive). Nothing disappears; it moves.");
+    println!("  ✓ every VERIFIED tradition carries the ידע euphemism at 4:1 in");
+    println!("    coherent antiphase — agreement by inheritance, not convergence.");
+    println!("    (Czech + Aramaic read the same way but are reconstructions:");
+    println!("     consistent, reported, never asserted — CHECK rows do not gate CI.)");
+    println!("  ✓ each lane's language stone LEARNED its self-knowledge from the corpus");
+    println!("    stone (per-channel awareness — the semantic kernel), and passion =");
+    println!("    quale × magnitude × phase peaks exactly where the grid makes a");
+    println!("    distinction real and one language sees it: (German, KNOW) — whose");
+    println!("    aware coordinate is 3:7, the verse B2 crowns independently.");
 }
