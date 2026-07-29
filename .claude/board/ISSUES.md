@@ -1,5 +1,48 @@
 # Issues Log — Open + Resolved (double-entry, append-only)
 
+## ISS-GRADING-IGNORES-EACH-THREADS-TEMPORAL-HORIZON (2026-07-29) — OPEN ON `main`
+
+**Severity: P1 correctness. Shipped in #868 (merged `1bbc890`), unfixed.** Filed
+here because its only other record is a review thread on a closed PR.
+
+**The defect (Codex, #868, verified against the code).** `WitnessLens::at(pos)`
+always reads the **current snapshot**. `visible(pos)` can only *include or
+exclude* an address — it structurally **cannot** select the historical row
+revision that `QueryReference::at(v, rung)` + `deinterlace` produce. So when the
+standing wave holds threads pinned to different Lance versions:
+
+- a thread whose row was modified after its horizon is graded from the **newer**
+  register — it reads a future it should not be able to see;
+- one invocation shares **one** peer domain, so quorum, trajectory and basin
+  membership describe a **global snapshot**, not each thread's corpus-as-of view.
+
+**Why no better predicate fixes it.** Include/exclude is the wrong *arity* for
+the question. The row bytes are fetched from the wrong version **before** the
+predicate is consulted, so no `visible` implementation can recover the right
+ones. The input must carry the focal thread's **temporal projection / address
+set**, not a spatial filter over the current lens.
+
+**Scope — this subsumes three items previously filed separately.** `GradedRow::pos`
+being a lens index, the Θ(N·k) peer-domain scan, and `MetaBasin`/`MiniBasin::members`
+holding rows already in the tail buffer are **not** three defects with a shared
+cause; they are all downstream of the lens exposing one snapshot to every thread
+at once. Fixing any one alone is incoherent.
+Supersedes the address-list plan in `TD-LENS-QUORUM-SCANS-THE-WHOLE-LENS` — that
+plan was still a single-version design, just a cheaper one.
+
+**Why the suite is silent.** Every fixture in `meta_basin` builds one snapshot at
+one version, so the entire temporal axis is **constant across every comparison**,
+including the equivalence test that feeds the *same* fixture to both sides. Third
+instance today of `E-THE-EQUALITY-PASSED-WHILE-AN-AXIS-WAS-CONSTANT-1` — and this
+one was found by asking a reviewer "what else is constant across my fixtures?"
+rather than by the suite. **Any fix must land with a multi-version fixture**, or
+the same silence repeats.
+
+**Operator framing that produced it:** ~64k reasoning threads, each temporally
+situated, reconciled through `temporal.rs`. The merged code models rows as data
+swept at one instant; the substrate is threads reading their own corpus-as-of.
+
+
 ## 2026-07-27 — ISS-841-856-NEVER-ANSWERED-REVIEW-COMMENTS — the forensic recovery's full ledger of GitHub review/issue comments across #849–#856 that never received a reply, sorted by whether the underlying finding was fixed anyway
 
 > Filed by the arc-841-856-postmortem recovery session. Every item below was
