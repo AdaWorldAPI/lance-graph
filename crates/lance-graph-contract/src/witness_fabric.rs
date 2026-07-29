@@ -20,7 +20,8 @@
 //! events"). [`CausalWitnessFacet::agrees_at`](crate::causal_witness) compares
 //! bare offsets (co-located rows); the fabric compares absolute targets.
 
-use crate::causal_witness::{CausalWitnessFacet, Locus};
+use crate::canonical_node::{NodeRow, ValueTenant};
+use crate::causal_witness::{CausalWitnessFacet, Locus, WITNESS_REGISTER_BYTES};
 
 /// The named loci that carry CONTENT agreement — everything except the two
 /// social loci (Quorum / Contradiction), which the fabric is COMPUTING and so
@@ -41,6 +42,114 @@ const CONTENT_LOCI: [Locus; 14] = [
     Locus::QualiaReference,
     Locus::MeaningLevel,
 ];
+
+// ── The zero-copy lens (operator-ruled: "zero copy is a law without escape
+// hatches") ────────────────────────────────────────────────────────────────
+//
+// The resolvers below ([`resolve_chain`], [`standing_wave_grounded`], …) take
+// a GATHERED `&[(usize, CausalWitnessFacet)]` window: a caller must walk
+// `NodeRow`s and copy each row's 12-byte register out into a packed `Vec`.
+// That gather materializes a SECOND projection beside the row array itself —
+// the row's own `value` bytes ARE the register; copying them elsewhere is
+// strictly worse on BOTH correctness (two copies can drift apart) and speed
+// (a lens over the existing bytes, at the cost of a cast, is the performance
+// floor — there is no faster than reading the bytes that are already there).
+//
+// [`WitnessLens`] is the zero-copy alternative: it borrows the row slice and
+// casts in place, per position, on demand — never gathers. [`resolve_chain_lens`]
+// and [`standing_wave_grounded_lens`] are lens-based twins of the gathered
+// resolvers below, reproducing their semantics exactly with a `visible`
+// predicate standing in for "this position is part of the gathered window".
+
+/// Width of the `facet_classid` prefix every 16-byte content-blind facet lane
+/// carries ahead of its 12-byte payload (`classid(4) + 12-byte register`,
+/// `E-V3-FACET-4-PLUS-12`).
+const WITNESS_FACET_CLASSID_BYTES: usize = 4;
+
+/// Byte offset, within [`NodeRow::value`], of the `CausalWitnessFacet` register
+/// (the 12 bytes AFTER the CausalWitness facet lane's 4-byte `facet_classid`
+/// prefix).
+///
+/// Derived from the [`ValueTenant::CausalWitness`] descriptor — never a bare
+/// literal — so a future re-carve of the value slab cannot silently desync the
+/// lens from the tenant it reads. The `const _` assertions below additionally
+/// pin the CURRENT, measured value (176) so any drift is a compile error, not
+/// a silent runtime misread.
+const WITNESS_REGISTER_START: usize =
+    ValueTenant::CausalWitness.value_offset() + WITNESS_FACET_CLASSID_BYTES;
+
+/// One-past-the-end byte offset (within [`NodeRow::value`]) of the register.
+const WITNESS_REGISTER_END: usize = WITNESS_REGISTER_START + WITNESS_REGISTER_BYTES;
+
+const _: () = assert!(
+    WITNESS_REGISTER_START == 176,
+    "CausalWitness register start drifted from the ValueTenant descriptor \
+     (value_offset 172 + 4-byte facet_classid prefix = 176) — a drift here \
+     means the value-slab carve moved; update the lens deliberately, this \
+     assert exists to make that loud instead of silent"
+);
+const _: () = assert!(
+    WITNESS_REGISTER_END == 188,
+    "CausalWitness register end drifted from the ValueTenant descriptor"
+);
+const _: () = assert!(
+    WITNESS_REGISTER_END - WITNESS_REGISTER_START == WITNESS_REGISTER_BYTES,
+    "the register slice width must equal WITNESS_REGISTER_BYTES (12)"
+);
+
+/// A zero-copy, **borrowing** view over a row source for the CausalWitness A9
+/// lane. [`Self::at`] casts a bounds-checked slice of [`NodeRow::value`] in
+/// place — [`CausalWitnessFacet::from_register_ref`] is `#[repr(transparent)]`-
+/// sound, so no register byte is ever copied out of the row. The row array
+/// *is* the projection; this is a lens over it, never a second store.
+///
+/// No `#[derive(Debug)]`: [`NodeRow`] itself does not implement `Debug` (out
+/// of scope for this lens to add), so a derived impl here would not compile.
+#[derive(Clone, Copy)]
+pub struct WitnessLens<'a> {
+    rows: &'a [NodeRow],
+}
+
+impl<'a> WitnessLens<'a> {
+    /// Wrap a row slice as a witness lens. Stores the reference only — zero
+    /// cost, no scan, no copy.
+    #[inline]
+    #[must_use]
+    pub const fn new(rows: &'a [NodeRow]) -> Self {
+        Self { rows }
+    }
+
+    /// Rows visible through the lens.
+    #[inline]
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.rows.len()
+    }
+
+    /// Whether the lens has no rows.
+    #[inline]
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.rows.is_empty()
+    }
+
+    /// The `CausalWitnessFacet` register at absolute row position `pos` — a
+    /// borrowed cast into the row's own bytes, never a copy. `None` if `pos`
+    /// is out of range.
+    #[inline]
+    #[must_use]
+    pub fn at(&self, pos: usize) -> Option<&'a CausalWitnessFacet> {
+        let row = self.rows.get(pos)?;
+        let reg: &[u8; WITNESS_REGISTER_BYTES] = row.value
+            [WITNESS_REGISTER_START..WITNESS_REGISTER_END]
+            .try_into()
+            .expect(
+                "WITNESS_REGISTER_START..WITNESS_REGISTER_END is exactly \
+                 WITNESS_REGISTER_BYTES wide by the const asserts above",
+            );
+        Some(CausalWitnessFacet::from_register_ref(reg))
+    }
+}
 
 /// Count content loci on which two rows converge on the **same absolute event**.
 #[must_use]
@@ -172,6 +281,12 @@ impl ChainResolution {
 /// (the register following its own nibbles, `E-L9-REAL-TEXT-1`), up to
 /// `max_hops`. Escalate (rather than widen) when the chain leaves the `±8`
 /// window or exhausts the budget.
+///
+/// **Zero-copy path:** [`resolve_chain_lens`] is the lens-based twin with
+/// identical semantics. This gathered form materializes a SECOND projection
+/// of the row array (the caller's `Vec` gather) beside the row array itself;
+/// prefer the lens twin at any call site that already has an addressable row
+/// slice.
 #[must_use]
 pub fn resolve_chain(
     focal_idx: usize,
@@ -255,6 +370,103 @@ pub fn resolve_chain(
     }
 }
 
+/// **Zero-copy twin of [`resolve_chain`].** Identical chain-following
+/// semantics — absolute positions (`target = cur_pos + off`), the same `±8`
+/// horizon check, the same out-of-horizon / budget-exhausted / settled
+/// outcomes — but reads through a [`WitnessLens`] instead of a gathered
+/// `&[(usize, CausalWitnessFacet)]` window.
+///
+/// `focal_pos` and every hop target are **absolute row positions**, read
+/// directly through `lens` (no window-index mapping, because there is no
+/// window to index into). `visible` stands in for "this position is part of
+/// the gathered window": a position the predicate rejects is treated exactly
+/// as a position absent from the gathered window (escalate for the
+/// version-range read), so filtering a position out costs one predicate call
+/// per hop, never a `Vec`.
+#[must_use]
+pub fn resolve_chain_lens(
+    focal_pos: usize,
+    lens: &WitnessLens<'_>,
+    visible: impl Fn(usize) -> bool,
+    locus: Locus,
+    max_hops: u8,
+) -> ChainResolution {
+    let Some(&focal) = lens.at(focal_pos) else {
+        return ChainResolution {
+            final_offset: None,
+            hops: 0,
+            out_of_horizon: false,
+            budget_exhausted: false,
+        };
+    };
+
+    let mut cur_pos = focal_pos;
+    let mut cur = focal;
+    let mut hops = 0u8;
+    loop {
+        let off = cur.at(locus);
+        if off == 0 {
+            // chain broke before reaching a terminal — escalate if we hopped
+            // at all (mirrors `resolve_chain` exactly).
+            return ChainResolution {
+                final_offset: None,
+                hops,
+                out_of_horizon: false,
+                budget_exhausted: hops > 0,
+            };
+        }
+        let target_signed = cur_pos as isize + off as isize;
+        let total = target_signed - focal_pos as isize;
+        // Left the window the focal can address in one i4 → escalate.
+        if !(-8..=7).contains(&total) {
+            return ChainResolution {
+                final_offset: None,
+                hops,
+                out_of_horizon: true,
+                budget_exhausted: false,
+            };
+        }
+        // A negative absolute position cannot address a row; treat it exactly
+        // like a target the `visible` predicate rejects, below.
+        let next = if target_signed >= 0 && visible(target_signed as usize) {
+            lens.at(target_signed as usize)
+        } else {
+            None
+        };
+        let Some(&next_facet) = next else {
+            // target event not visible/present → resolved to the offset, but
+            // its filler is out of window: escalate for the version read.
+            return ChainResolution {
+                final_offset: Some(total as i8),
+                hops,
+                out_of_horizon: true,
+                budget_exhausted: false,
+            };
+        };
+        // If the target does NOT re-bind this locus, the chain terminates here.
+        if !next_facet.is_bound(locus) {
+            return ChainResolution {
+                final_offset: Some(total as i8),
+                hops,
+                out_of_horizon: false,
+                budget_exhausted: false,
+            };
+        }
+        hops += 1;
+        if hops >= max_hops {
+            // budget exhausted mid-chain → escalate.
+            return ChainResolution {
+                final_offset: Some(total as i8),
+                hops,
+                out_of_horizon: false,
+                budget_exhausted: true,
+            };
+        }
+        cur_pos = target_signed as usize;
+        cur = next_facet;
+    }
+}
+
 /// The grounding verdict of the **multipass Markov standing wave** over a locus.
 ///
 /// The `±8` nibble is only the **reference horizon** (the cheap local window), NOT
@@ -298,6 +510,11 @@ pub enum WaveGrounding {
 /// causal from coincidental" applied to grounding — the honest second resolution
 /// beside the single-pass structural binding
 /// ([`is_bound`](crate::causal_witness::CausalWitnessFacet::is_bound)).
+///
+/// **Zero-copy path:** [`standing_wave_grounded_lens`] is the lens-based twin
+/// with identical verdict logic. This gathered form materializes a SECOND
+/// projection of the row array beside the row array itself; prefer the lens
+/// twin at any call site that already has an addressable row slice.
 #[must_use]
 pub fn standing_wave_grounded(
     focal_idx: usize,
@@ -354,6 +571,58 @@ pub fn standing_wave_grounded(
     // A single-hop terminal chain resolves identically at every budget: `last`
     // is Some but the "two agree" short-circuit needs ≥2 passes to fire, so a
     // resolved-non-escalated chain is causal (grounded in the reference horizon).
+    if last.is_some() {
+        WaveGrounding::Causal
+    } else {
+        WaveGrounding::Escalate
+    }
+}
+
+/// **Zero-copy twin of [`standing_wave_grounded`].** Runs [`resolve_chain_lens`]
+/// at increasing hop budgets instead of [`resolve_chain`] — identical verdict
+/// logic, identical budget-exhaustion-vs-horizon distinction — reading
+/// through a [`WitnessLens`] instead of a gathered window.
+#[must_use]
+pub fn standing_wave_grounded_lens(
+    focal_pos: usize,
+    lens: &WitnessLens<'_>,
+    visible: impl Fn(usize) -> bool,
+    locus: Locus,
+    passes: u8,
+) -> WaveGrounding {
+    let Some(&focal) = lens.at(focal_pos) else {
+        return WaveGrounding::Unbound;
+    };
+    if !focal.is_bound(locus) {
+        return WaveGrounding::Unbound;
+    }
+    let mut last: Option<i8> = None;
+    let max_budget = passes.max(1);
+    for budget in 1..=max_budget {
+        let r = resolve_chain_lens(focal_pos, lens, &visible, locus, budget);
+        // Same budget-exhaustion-vs-horizon distinction as
+        // `standing_wave_grounded` — see that function's comment for the
+        // full rationale (`E-MULTIPASS-WAS-SINGLE-PASS-1`).
+        if r.out_of_horizon {
+            return WaveGrounding::Escalate;
+        }
+        if r.budget_exhausted {
+            if budget == max_budget {
+                return WaveGrounding::Escalate;
+            }
+            last = None; // nothing trustworthy resolved at this budget
+            continue;
+        }
+        match r.final_offset {
+            Some(off) => {
+                if last == Some(off) {
+                    return WaveGrounding::Causal; // the wave stood still → causal
+                }
+                last = Some(off);
+            }
+            None => return WaveGrounding::Escalate,
+        }
+    }
     if last.is_some() {
         WaveGrounding::Causal
     } else {
@@ -1993,5 +2262,199 @@ mod tests {
         let (g, pass) = standing_wave_stratified(0, &win, Locus::Antecedent, 8);
         assert_eq!(g, WaveGrounding::Unbound);
         assert_eq!(pass, 0);
+    }
+
+    // ── the zero-copy lens ────────────────────────────────────────────────
+
+    /// Build a row array indexed BY absolute stream position (row i ↔
+    /// position i), each row's CausalWitness register written from `regs`;
+    /// positions not named in `regs` are left `ZERO` (unbound).
+    fn rows_from(regs: &[(usize, CausalWitnessFacet)]) -> Vec<NodeRow> {
+        let max_pos = regs.iter().map(|&(p, _)| p).max().unwrap_or(0);
+        let blank = || NodeRow {
+            key: crate::canonical_node::NodeGuid::local(1),
+            edges: crate::canonical_node::EdgeBlock::default(),
+            value: [0u8; 480],
+        };
+        let mut rows: Vec<NodeRow> = (0..=max_pos).map(|_| blank()).collect();
+        for &(pos, facet) in regs {
+            rows[pos].value[WITNESS_REGISTER_START..WITNESS_REGISTER_END]
+                .copy_from_slice(&facet.to_register());
+        }
+        rows
+    }
+
+    /// **The whole safety argument.** For several real chain shapes (hop-then-
+    /// escalate-on-budget, leaves-the-window, multi-hop-inside-the-window),
+    /// `resolve_chain_lens` / `standing_wave_grounded_lens` must return
+    /// EXACTLY what the gathered functions return when fed the equivalent
+    /// window, across every budget/pass tried. `visible` = "position is a
+    /// member of the gathered window" is the direct analogue of window
+    /// membership.
+    #[test]
+    fn lens_resolvers_match_gathered_resolvers_across_scenarios() {
+        // Scenario A — mirrors `resolve_chain_hops_then_escalates_on_budget`:
+        // three hops, gaps between the window positions.
+        let a = w(&[(Locus::Kausal, 2)]);
+        let b = w(&[(Locus::Kausal, 2)]);
+        let c = w(&[(Locus::Kausal, 2)]);
+        let d = w(&[]); // terminal, no Kausal
+        let window_a = [(3usize, a), (5, b), (7, c), (9, d)];
+        let rows_a = rows_from(&window_a);
+        let lens_a = WitnessLens::new(&rows_a);
+
+        // Scenario B — mirrors `resolve_chain_escalates_when_leaving_the_window`.
+        let window_b = [
+            (0usize, w(&[(Locus::Kausal, 7)])),
+            (7, w(&[(Locus::Kausal, 7)])),
+        ];
+        let rows_b = rows_from(&window_b);
+        let lens_b = WitnessLens::new(&rows_b);
+
+        // Scenario C — mirrors `multi_hop_chains_actually_get_their_extra_passes`:
+        // a genuine 2-hop chain settled wholly INSIDE the ±8 horizon.
+        let window_c = [
+            (0usize, w(&[(Locus::Antecedent, 1)])),
+            (1, w(&[(Locus::Antecedent, 1)])),
+            (2, CausalWitnessFacet::ZERO),
+        ];
+        let rows_c = rows_from(&window_c);
+        let lens_c = WitnessLens::new(&rows_c);
+
+        for &(focal_pos, window, lens, locus) in &[
+            (3usize, &window_a[..], &lens_a, Locus::Kausal),
+            (0usize, &window_b[..], &lens_b, Locus::Kausal),
+            (0usize, &window_c[..], &lens_c, Locus::Antecedent),
+        ] {
+            let present: std::collections::HashSet<usize> =
+                window.iter().map(|&(p, _)| p).collect();
+            let visible = |pos: usize| present.contains(&pos);
+            let focal_idx = window.iter().position(|&(p, _)| p == focal_pos).unwrap();
+            for budget in [1u8, 2, 3, 5, 8] {
+                let gathered = resolve_chain(focal_idx, window, locus, budget);
+                let lensed = resolve_chain_lens(focal_pos, lens, visible, locus, budget);
+                assert_eq!(
+                    gathered, lensed,
+                    "resolve_chain diverged at focal_pos {focal_pos} budget {budget}"
+                );
+            }
+            for passes in [1u8, 2, 3, 8] {
+                let gathered = standing_wave_grounded(focal_idx, window, locus, passes);
+                let lensed = standing_wave_grounded_lens(focal_pos, lens, visible, locus, passes);
+                assert_eq!(
+                    gathered, lensed,
+                    "standing_wave_grounded diverged at focal_pos {focal_pos} passes {passes}"
+                );
+            }
+        }
+    }
+
+    /// **Visibility predicate.** Excluding a position from `visible` must have
+    /// exactly the effect that dropping it from the gathered window has: the
+    /// intermediate hop target is no longer found, and the chain that would
+    /// have settled now escalates instead — the SAME divergence a shrunk
+    /// gathered window produces, not a different one.
+    #[test]
+    fn lens_visibility_predicate_changes_the_outcome_like_a_shrunk_window() {
+        let full_window = [
+            (0usize, w(&[(Locus::Antecedent, 1)])),
+            (1, w(&[(Locus::Antecedent, 1)])),
+            (2, CausalWitnessFacet::ZERO),
+        ];
+        let shrunk_window = [
+            (0usize, w(&[(Locus::Antecedent, 1)])),
+            (2, CausalWitnessFacet::ZERO),
+        ];
+        let rows = rows_from(&full_window);
+        let lens = WitnessLens::new(&rows);
+
+        let gathered_full = resolve_chain(0, &full_window, Locus::Antecedent, 8);
+        let gathered_shrunk = resolve_chain(0, &shrunk_window, Locus::Antecedent, 8);
+        assert_ne!(
+            gathered_full, gathered_shrunk,
+            "the shrunk-window fixture must actually change the gathered outcome"
+        );
+
+        let lensed_full = resolve_chain_lens(0, &lens, |_| true, Locus::Antecedent, 8);
+        assert_eq!(lensed_full, gathered_full);
+        assert!(!lensed_full.out_of_horizon);
+
+        let lensed_shrunk = resolve_chain_lens(0, &lens, |pos| pos != 1, Locus::Antecedent, 8);
+        assert_eq!(
+            lensed_shrunk, gathered_shrunk,
+            "hiding position 1 via `visible` must match dropping it from the gathered window"
+        );
+        assert!(
+            lensed_shrunk.out_of_horizon,
+            "hiding the hop target must force an escalation"
+        );
+
+        // Same visibility gate, through the standing wave.
+        assert_eq!(
+            standing_wave_grounded(0, &full_window, Locus::Antecedent, 8),
+            standing_wave_grounded_lens(0, &lens, |_| true, Locus::Antecedent, 8)
+        );
+        assert_eq!(
+            standing_wave_grounded(0, &shrunk_window, Locus::Antecedent, 8),
+            standing_wave_grounded_lens(0, &lens, |pos| pos != 1, Locus::Antecedent, 8)
+        );
+    }
+
+    /// **Bounds.** An out-of-range position — including on an empty lens —
+    /// returns `None`, never panics.
+    #[test]
+    fn lens_at_out_of_range_is_none() {
+        let rows = rows_from(&[(0, CausalWitnessFacet::ZERO)]);
+        let lens = WitnessLens::new(&rows);
+        assert_eq!(lens.len(), 1);
+        assert!(!lens.is_empty());
+        assert!(lens.at(0).is_some());
+        assert!(lens.at(1).is_none());
+        assert!(lens.at(1_000_000).is_none());
+
+        let empty: [NodeRow; 0] = [];
+        let empty_lens = WitnessLens::new(&empty);
+        assert!(empty_lens.is_empty());
+        assert!(empty_lens.at(0).is_none());
+    }
+
+    /// **Offset-drift guard.** The lens must read EXACTLY the bytes
+    /// `ValueTenant::CausalWitness` describes — not one byte more, not one
+    /// byte less, not shifted. Canary bytes fill the rest of the row; if the
+    /// lens read outside `[WITNESS_REGISTER_START, WITNESS_REGISTER_END)` the
+    /// canary would corrupt the read-back facet and this assertion would
+    /// catch it (the `const _` asserts above catch the same drift at compile
+    /// time; this proves the runtime read agrees with them).
+    #[test]
+    fn lens_reads_exactly_the_causal_witness_tenant_bytes() {
+        let value_offset = ValueTenant::CausalWitness.value_offset();
+        assert_eq!(
+            WITNESS_REGISTER_START,
+            value_offset + WITNESS_FACET_CLASSID_BYTES
+        );
+        assert_eq!(
+            WITNESS_REGISTER_END,
+            value_offset + ValueTenant::CausalWitness.byte_len()
+        );
+
+        let facet = CausalWitnessFacet::ZERO
+            .with(Locus::Kausal, -3)
+            .with(Locus::Temporal, 5)
+            .with(Locus::Contradiction, -1);
+        let mut row = NodeRow {
+            key: crate::canonical_node::NodeGuid::local(1),
+            edges: crate::canonical_node::EdgeBlock::default(),
+            // Canary everywhere; only [WITNESS_REGISTER_START, END) is
+            // overwritten below, so any offset drift shows up as garbage.
+            value: [0xEE_u8; 480],
+        };
+        row.value[WITNESS_REGISTER_START..WITNESS_REGISTER_END]
+            .copy_from_slice(&facet.to_register());
+        let lens = WitnessLens::new(std::slice::from_ref(&row));
+        let read = *lens.at(0).expect("row present");
+        assert_eq!(
+            read, facet,
+            "lens read bytes outside the tenant-described register"
+        );
     }
 }
