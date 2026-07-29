@@ -83,8 +83,18 @@ pub struct ReasoningWitness64(pub u64);
 /// q8 deposition writes to dedicated accumulators, not floats.
 /// This is the same width as `Vsa16kF32` and `Binary16K` (the canonical
 /// switchboard carriers).
+///
+/// **NOT `Copy` (zero-copy law, 2026-07-29).** This is a 2 KB in-place
+/// accumulator its owner deposits into (`&mut self`) — substrate, not a
+/// reasoning microcopy (`.claude/rules/data-flow.md` §2 licenses `Copy` for
+/// `u64`/`Band`/`ScanParams`-sized owned values, not for a 16 Kbit tile).
+/// `Copy` let `let p2 = p1;` duplicate the whole pressure tile with no move
+/// visible in a diff — the exact mechanism by which a 16 Kbit carrier leaves
+/// the compartment that owns it (CLAUDE.md: a 16 Kbit carrier never crosses a
+/// mailbox boundary). `Clone` stays: a deliberate duplicate is still allowed,
+/// it just has to be written down.
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct AwarenessPlane16K(pub [u64; 256]);
 
 impl Default for AwarenessPlane16K {
@@ -172,8 +182,12 @@ impl CamPlaneSplat {
 // ── SplatPlaneSet: the 6 channel planes ────────────────────────────────────
 
 /// One [`AwarenessPlane16K`] per channel. 12 KB total per set.
+///
+/// **NOT `Copy`** — same reason as [`AwarenessPlane16K`], six times over: this
+/// is 12 KB of owned accumulator, and `Copy` made a whole-set duplicate
+/// indistinguishable from a read. `Clone` retained.
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct SplatPlaneSet {
     pub support: AwarenessPlane16K,
     pub contradiction: AwarenessPlane16K,

@@ -1,0 +1,484 @@
+# Blast radius — `derive(Clone, Copy)` census (2026-07-29)
+
+Operator order: *"copies are forbidden, borrows are only for the same mailbox"*,
+*"WitnessLens is forbidden as a copy. period"*, *"only cognitive achievements >
+tenant"*, *"grep Clone, Copy and remove it"*, *"log the blast radius"*.
+
+**930 sites.** Regenerated order-insensitively and multi-line-aware, per
+CodeRabbit's Major finding — matching any `#[derive(...)]` block containing
+`Copy`, rather than a literal two-token spelling on one line.
+
+### The count's own history is the lesson
+
+| figure | method | wrong by |
+|---|---|---|
+| 26 | one literal spelling, one line | 36× |
+| 369 | both orderings, still single-line | 2.5× |
+| **930** | any derive block containing `Copy`, multi-line | — |
+
+Each number was published as a *correction* to the previous one, and each
+inherited the same defect: a regex chosen for the shape I expected rather than
+the shape the language allows. The 369 pass even carried the sentence "this
+census matches both orderings" — the claim was about the fix I had just made,
+not about what the regex could see. CodeRabbit caught it by cross-checking
+against the agents' own tag files (119/95/123 for cognitive/codec/thinking
+against the 56/73/70 recorded here), which is the check I should have run
+myself: **I had a second, independent source in the repo and never compared.**
+
+Per-crate (top 8): `lance-graph-contract` 313 · `lance-graph-planner` 92 ·
+`lance-graph` 61 · `holograph` 51 · `lance-graph-ontology` 45 ·
+`lance-graph-cognitive` 44 · `deepnsm` 41 · `thinking-engine` 34.
+
+**The Tier A/B tables below were built from the 369 pass and are therefore a
+SUBSET, not a census.** They remain useful as the audited starting set — every
+row in them was verified by an agent — but a site's absence from them means
+"not yet looked at", never "not a violation". The 7-agent verdicts
+(24 → ~16 real / 26 LEGITIMATE / 13 ELEVATED) are likewise verdicts over the
+subset.
+
+## The discriminator (why this is not a blanket removal)
+
+`Copy` on a **borrow-carrying** type is the violation: a `Copy` borrow duplicates
+itself silently, so it can be stored beside the original and carried out of the
+compartment that owns the bytes with no move and nothing in a diff to point at.
+That is exactly how a same-mailbox borrow escapes its mailbox.
+
+`Copy` on a **small owned value** is not only allowed but REQUIRED by
+`.claude/rules/data-flow.md` §2 (reasoning = owned `Copy` microcopies:
+`TruthValue`, `Fingerprint`, `u64`, `Band`, `CpuCaps`, `ScanParams` — passed by
+value, no heap, no lifetime tracking). Removing those would break the rule in
+the other direction.
+
+So each site needs a verdict, not a sweep. The Tier A/B split below is a
+mechanical FIRST PASS by a crude heuristic (does the declaration carry a
+lifetime parameter, or a field spelled `&`), not a verdict — several Tier A
+entries have no lifetime in the decl line and were flagged on a `&'static` or a
+doc-comment `&`. Verification is the agents' job.
+
+## Already fixed
+
+`WitnessLens<'a>` (`lance-graph-contract/src/witness_fabric.rs`) — derive
+removed in `b3515ba`; contract gates clean (1134 tests, clippy `-D warnings`,
+fmt). It does not appear below.
+
+## ⊘ CARVE-OUT — `lance-graph-ontology` is NOT in scope (operator, 2026-07-29)
+
+Operator: *"copying ontology is desired, RDF is converted to KV."*
+
+The zero-copy law governs **substrate** bytes — rows, registers, tenant lanes:
+things that already carry a projection, where a second stored reading is an
+ontological duplication (`zero-copy-lens-law.md`: "there is no neutral byte
+layer underneath").
+
+**RDF/TTL is not substrate. It is an external format at a membrane.** The
+`lance-graph-ontology` hydrators (`ttl_parse.rs`, `hydrators/owl.rs`,
+`hydrators/dolce_odoo.rs`, `namespace.rs`, `proposal.rs`) exist to CONVERT
+oxrdf triples into the canonical KV/classid form. A transcode's entire job is to
+produce a new representation; the copy there is the FIRST projection, not a
+second one. Applying the copy ban to it would forbid ingest itself.
+
+This is the same line `compilation-vs-runtime-substrate.md` and
+`assembler-vs-storage-substrate.md` draw elsewhere: serialization is legal AT a
+membrane and illegal on the hot path. Ontology hydration is a membrane.
+
+**Consequence for any future sweep:** ALL **45** derive-with-`Copy` sites under
+`crates/lance-graph-ontology/` are **out of scope** (the "13" written here
+earlier came from the undercounting 369 pass — same defect, propagated into the
+carve-out).
+Do not de-`Copy` them, and do not file them as debt. The 13 clippy errors in
+that crate (deprecated `oxrdf::Subject` alias, doc-list indentation) are
+ordinary lint drift on an un-linted crate — unrelated to the copy law, and NOT
+evidence of a violation.
+
+This carve-out was nearly missed: the sweep reached ontology only because
+`lance-graph-callcenter` deps it, and the reflex on seeing `Copy` + a parse type
+is to treat it as a materialization. Recorded because that reflex will recur.
+
+---
+
+TOTAL derive(Clone,Copy) sites: 369
+HOLDS-A-BORROW (lifetime param or & field): 11
+
+=== TIER A — carries a borrow (Copy lets it escape its mailbox) ===
+crates/deepnsm/examples/homograph_collapse.rs:63  Collapse
+      enum Collapse<'a> {
+crates/holograph/src/bitpack.rs:552  VectorSlice
+      pub struct VectorSlice<'a> {
+crates/lance-graph-callcenter/src/family_table.rs:132  FamilyEntry
+      pub struct FamilyEntry {
+crates/lance-graph-callcenter/src/odoo_alignment.rs:65  OwlPivot
+      pub struct OwlPivot {
+crates/lance-graph-callcenter/src/super_domain.rs:125  MetaAnchors
+      pub struct MetaAnchors {
+crates/lance-graph-callcenter/src/super_domain.rs:181  SuperDomainEntry
+      pub struct SuperDomainEntry {
+crates/lance-graph-contract/examples/foveated_awareness.rs:159  Card
+      struct Card {
+crates/lance-graph-contract/src/canonical_node.rs:1492  NodeRowPacket
+      pub struct NodeRowPacket<'a> {
+crates/lance-graph-contract/src/cognitive_shader.rs:143  StyleSelector
+      pub enum StyleSelector {
+crates/lance-graph-contract/src/mul.rs:233  MulThresholdProfile
+      pub struct MulThresholdProfile {
+crates/lance-graph/examples/causal_knowledge_transfer.rs:33  Trajectory
+      struct Trajectory {
+
+=== TIER B — no borrow visible (value type; judge against data-flow.md §2) ===
+crates/bgz-tensor/src/adaptive_codec.rs:27  RowPrecision
+crates/bgz-tensor/src/belichtungsmesser.rs:18  Band
+crates/bgz-tensor/src/cascade.rs:33  CascadeLevel
+crates/bgz-tensor/src/cascade.rs:132  ScentByte
+crates/bgz-tensor/src/codebook4096.rs:22  CodebookIndex
+crates/bgz-tensor/src/fisher_z.rs:27  FamilyGamma
+crates/bgz-tensor/src/had_cascade.rs:50  TensorRegime
+crates/bgz-tensor/src/hdr_belichtung.rs:39  QuarterSigmaBand
+crates/bgz-tensor/src/hhtl_cache.rs:35  RouteAction
+crates/bgz-tensor/src/hhtl_d.rs:31  HeelBasin
+crates/bgz-tensor/src/hhtl_d.rs:64  HhtlDEntry
+crates/bgz-tensor/src/hhtl_f32.rs:36  HhtlF32Entry
+crates/bgz-tensor/src/matryoshka.rs:32  BandPrecision
+crates/bgz-tensor/src/morton_cascade/mod.rs:34  L4Tenant
+crates/bgz-tensor/src/morton_cascade/mod.rs:72  Reading
+crates/bgz-tensor/src/morton_cascade/mod.rs:80  Backend
+crates/bgz-tensor/src/neuron_hetero.rs:68  ThinkingStyleFingerprint
+crates/bgz-tensor/src/neuron_hetero.rs:377  TransformSpectrum
+crates/bgz-tensor/src/slot_l.rs:35  SlotL
+crates/bgz-tensor/src/variance.rs:11  Role
+crates/bgz17/src/container.rs:242  CrystalTriple
+crates/bgz17/src/container.rs:339  InlineEdge
+crates/bgz17/src/generative.rs:51  LfdProfile
+crates/bgz17/src/lib.rs:78  Precision
+crates/bgz17/src/palette.rs:20  PaletteEdge
+crates/bgz17/src/palette.rs:542  PaletteResolution
+crates/bgz17/src/simd.rs:16  SimdLevel
+crates/causal-edge/src/edge.rs:159  CausalEdge64
+crates/causal-edge/src/edge_v3.rs:57  CausalEdgeV3
+crates/causal-edge/src/layout.rs:112  TrustTexture
+crates/cognitive-shader-driver/src/attention_mask.rs:24  AttentionMaskEntry
+crates/deepnsm-v2/src/shape.rs:311  Color
+crates/deepnsm/examples/causal_edge_v3_facet.rs:52  Verb
+crates/deepnsm/examples/causal_edge_v3_facet.rs:69  CausalEdgeV3
+crates/deepnsm/examples/gridlake_coca_wire.rs:17  Cell
+crates/deepnsm/examples/gridlake_spo_ngrams.rs:21  Cell
+crates/deepnsm/examples/homograph_collapse.rs:37  Role
+crates/deepnsm/examples/spo_anaphora_nibble.rs:49  Noun
+crates/deepnsm/examples/spo_anaphora_nibble.rs:56  Pron
+crates/deepnsm/examples/spo_markov_kg.rs:59  Truth
+crates/deepnsm/examples/spo_markov_kg.rs:79  Role
+crates/deepnsm/src/cam64.rs:37  Cam64
+crates/deepnsm/src/crystal_neighborhood.rs:50  NeighborhoodMetric
+crates/deepnsm/src/episodic_spo.rs:39  DependencyRole
+crates/deepnsm/src/episodic_spo.rs:54  ClauseRole
+crates/deepnsm/src/episodic_spo.rs:67  DiscourseRole
+crates/deepnsm/src/episodic_spo.rs:90  EpisodicSpoFrame
+crates/deepnsm/src/episodic_spo.rs:215  BasinClassification
+crates/deepnsm/src/fingerprint16k.rs:19  Fingerprint16K
+crates/deepnsm/src/morphology.rs:36  MorphFlags
+crates/deepnsm/src/parser.rs:19  State
+crates/deepnsm/src/parser.rs:34  ModRelation
+crates/deepnsm/src/pos.rs:7  PoS
+crates/deepnsm/src/reader_state.rs:50  LeftCornerTrigger
+crates/deepnsm/src/sentence_transformer64.rs:108  P64
+crates/deepnsm/src/sentence_transformer64.rs:260  Cam4096
+crates/deepnsm/src/sentence_transformer64.rs:341  Perturbation4x4
+crates/deepnsm/src/sentence_transformer64.rs:401  SplatNeighbour
+crates/deepnsm/src/sentence_transformer64.rs:521  EpisodicSpoHint
+crates/deepnsm/src/sentence_transformer64.rs:560  Sentence64
+crates/deepnsm/src/signed_crystal.rs:88  HorizonPolarity
+crates/deepnsm/src/signed_crystal.rs:152  SignedOffset4
+crates/deepnsm/src/signed_crystal.rs:222  Crystal4096
+crates/deepnsm/src/signed_crystal.rs:320  SignedSentenceCrystal
+crates/deepnsm/src/spo.rs:23  SpoTriple
+crates/deepnsm/src/window.rs:62  ExpectedReason
+crates/deepnsm/src/window.rs:79  ExpectedSlot
+crates/deepnsm/src/window.rs:87  WindowEntry
+crates/helix/examples/fire_forget_replay_probe.rs:98  Region
+crates/helix/examples/hevc_headtohead.rs:85  Sprite
+crates/helix/examples/hevc_moving_scene.rs:40  Sprite
+crates/helix/examples/mu_hydration_probe.rs:98  Slab
+crates/helix/examples/rdo_arbiter_probe.rs:143  Mode
+crates/helix/examples/rdo_arbiter_probe.rs:169  Kind
+crates/highheelbgz/src/lib.rs:36  SpiralAddress
+crates/highheelbgz/src/lib.rs:189  NeuronPrint
+crates/highheelbgz/src/simd_hardened.rs:16  SpiralAddr
+crates/highheelbgz/src/simd_hardened.rs:141  NeuronPrint
+crates/holograph/src/crystal_dejavu.rs:50  Coord5D
+crates/holograph/src/crystal_dejavu.rs:406  SigmaBand
+crates/holograph/src/dn_sparse.rs:165  PackedDn
+crates/holograph/src/dn_sparse.rs:518  EdgeDescriptor
+crates/holograph/src/dntree.rs:267  VerbCategory
+crates/holograph/src/dntree.rs:298  CogVerb
+crates/holograph/src/epiphany.rs:73  EpiphanyZone
+crates/holograph/src/graphblas/descriptor.rs:25  DescField
+crates/holograph/src/graphblas/sparse.rs:19  SparseFormat
+crates/holograph/src/graphblas/types.rs:109  GrBType
+crates/holograph/src/graphblas/types.rs:169  GrBUnaryOp
+crates/holograph/src/graphblas/types.rs:192  GrBBinaryOp
+crates/holograph/src/graphblas/types.rs:241  GrBMonoid
+crates/holograph/src/graphblas/types.rs:284  GrBSelectOp
+crates/holograph/src/mindmap.rs:60  NodeType
+crates/holograph/src/neural_tree.rs:89  NeuralLayer
+crates/holograph/src/storage_transport.rs:35  StorageHeader
+crates/holograph/src/storage_transport.rs:61  StorageFlags
+crates/holograph/src/storage_transport.rs:95  MetaBlock128
+crates/holograph/src/storage_transport.rs:144  SemanticTier
+crates/holograph/src/storage_transport.rs:248  TransportHeader
+crates/holograph/src/storage_transport.rs:280  MessageType
+crates/holograph/src/storage_transport.rs:300  VersionFlags
+crates/holograph/src/storage_transport.rs:330  CompressionType
+crates/holograph/src/width_16k/schema.rs:23  AniLevels
+crates/holograph/src/width_16k/schema.rs:102  NarsTruth
+crates/holograph/src/width_16k/schema.rs:171  NarsBudget
+crates/holograph/src/width_16k/schema.rs:220  EdgeTypeMarker
+crates/holograph/src/width_16k/schema.rs:270  NodeKind
+crates/holograph/src/width_16k/schema.rs:291  NodeTypeMarker
+crates/holograph/src/width_16k/schema.rs:326  InlineQValues
+crates/holograph/src/width_16k/schema.rs:390  InlineRewards
+crates/holograph/src/width_16k/schema.rs:440  StdpMarkers
+crates/holograph/src/width_16k/schema.rs:467  InlineHebbian
+crates/holograph/src/width_16k/schema.rs:513  CompressedDnAddr
+crates/holograph/src/width_16k/schema.rs:532  NeighborBloom
+crates/holograph/src/width_16k/schema.rs:593  GraphMetrics
+crates/holograph/src/width_16k/search.rs:48  BlockMask
+crates/holograph/src/width_32k/search.rs:46  Dimension
+crates/holograph/src/width_32k/search.rs:72  DimWeights
+crates/holograph/src/width_32k/search.rs:426  ProbeTarget
+crates/jc/examples/l9_loci_real_text.rs:210  NounF
+crates/jc/examples/l9_loci_real_text.rs:228  Pron
+crates/jc/examples/osint_edge_traversal.rs:37  Mat2
+crates/jc/examples/splat_perturbationslernen.rs:80  Mat2
+crates/jc/examples/splat_to_ewa_bridge.rs:62  Mat2
+crates/jc/src/ewa_sandwich.rs:104  Spd2
+crates/jc/src/ewa_sandwich.rs:232  PathResult
+crates/jc/src/ewa_sandwich_3d.rs:99  Spd3
+crates/jc/src/ewa_sandwich_3d.rs:384  PathResult
+crates/jc/src/koestenberger.rs:99  Spd2
+crates/jc/src/reliability.rs:251  IccForm
+crates/jc/src/sigma_codebook_probe.rs:77  Sym2
+crates/jc/src/sigma_codebook_probe.rs:145  EdgeFields
+crates/lance-graph-arm-discovery/examples/meta_awareness_probe.rs:211  EdgeRef
+crates/lance-graph-arm-discovery/examples/meta_awareness_probe.rs:233  Meta
+crates/lance-graph-callcenter/src/audit_sink/composite.rs:16  FanoutMode
+crates/lance-graph-callcenter/src/audit_sink/mod.rs:63  NoopAuditSink
+crates/lance-graph-callcenter/src/dn_path.rs:18  DnPath
+crates/lance-graph-callcenter/src/family_table.rs:62  OwlCharacteristics
+crates/lance-graph-callcenter/src/family_table.rs:181  PerFamilyCodebook
+crates/lance-graph-callcenter/src/lance_membrane.rs:117  ActorState
+crates/lance-graph-callcenter/src/super_domain.rs:45  SuperDomain
+crates/lance-graph-callcenter/src/super_domain.rs:109  DolceMarker
+crates/lance-graph-callcenter/src/super_domain.rs:153  ComplianceRegime
+crates/lance-graph-callcenter/src/transcode/parallelbetrieb.rs:71  DriftKind
+crates/lance-graph-callcenter/src/transcode/zerocopy.rs:48  ArrowTypeCode
+crates/lance-graph-callcenter/src/unified_audit.rs:51  AuthOp
+crates/lance-graph-callcenter/src/unified_audit.rs:71  AuthDecision
+crates/lance-graph-callcenter/src/unified_audit.rs:94  AuditMerkleRoot
+crates/lance-graph-callcenter/src/unified_audit.rs:135  UnifiedAuditEvent
+crates/lance-graph-callcenter/src/unified_audit.rs:196  AuditChain
+crates/lance-graph-callcenter/src/unified_bridge.rs:75  OgitFamily
+crates/lance-graph-callcenter/src/unified_bridge.rs:110  OwlIdentity
+crates/lance-graph-callcenter/src/unified_bridge.rs:169  TenantId
+crates/lance-graph-codec-research/src/lib.rs:79  AudioQualia
+crates/lance-graph-cognitive/src/container_bs/adjacency.rs:33  PackedDn
+crates/lance-graph-cognitive/src/container_bs/adjacency.rs:232  InlineEdge
+crates/lance-graph-cognitive/src/container_bs/adjacency.rs:282  EdgeDescriptor
+crates/lance-graph-cognitive/src/core_full/index.rs:74  Key
+crates/lance-graph-cognitive/src/core_full/index.rs:134  Entry
+crates/lance-graph-cognitive/src/core_full/scent.rs:24  ChunkHeader
+crates/lance-graph-cognitive/src/core_full/scent.rs:480  BucketAddr
+crates/lance-graph-cognitive/src/fabric/subsystem.rs:4  Subsystem
+crates/lance-graph-cognitive/src/grammar/causality.rs:37  DependencyType
+crates/lance-graph-cognitive/src/search/cognitive.rs:63  QualiaVector
+crates/lance-graph-cognitive/src/search/cognitive.rs:280  SearchVia
+crates/lance-graph-cognitive/src/search/cognitive.rs:309  RelevanceScores
+crates/lance-graph-cognitive/src/spo/cognitive_codebook.rs:22  CognitiveDomain
+crates/lance-graph-cognitive/src/spo/cognitive_codebook.rs:70  NsmCategory
+crates/lance-graph-cognitive/src/spo/cognitive_codebook.rs:95  QualiaChannel
+crates/lance-graph-cognitive/src/spo/cognitive_codebook.rs:112  NarsCopula
+crates/lance-graph-cognitive/src/spo/cognitive_codebook.rs:129  NarsInference
+crates/lance-graph-cognitive/src/spo/cognitive_codebook.rs:148  CausalityType
+crates/lance-graph-cognitive/src/spo/cognitive_codebook.rs:165  TemporalRelation
+crates/lance-graph-cognitive/src/spo/cognitive_codebook.rs:190  YamlTemplate
+crates/lance-graph-cognitive/src/spo/cognitive_codebook.rs:215  ThematicRole
+crates/lance-graph-cognitive/src/spo/cognitive_codebook.rs:248  CognitiveAddress
+crates/lance-graph-cognitive/src/spo/sentence_crystal.rs:85  Coord5D
+crates/lance-graph-contract/examples/foveated_awareness.rs:67  Style
+crates/lance-graph-contract/src/a2a_blackboard.rs:36  ExpertCapability
+crates/lance-graph-contract/src/a2a_blackboard.rs:157  RoutingStrategy
+crates/lance-graph-contract/src/a2a_blackboard.rs:182  ConsensusStrategy
+crates/lance-graph-contract/src/canonical_node.rs:724  NodeRow
+crates/lance-graph-contract/src/cognitive_shader.rs:42  MetaWord
+crates/lance-graph-contract/src/cognitive_shader.rs:80  MetaFilter
+crates/lance-graph-contract/src/cognitive_shader.rs:119  ColumnWindow
+crates/lance-graph-contract/src/cognitive_shader.rs:155  RungLevel
+crates/lance-graph-contract/src/cognitive_shader.rs:271  RungElevator
+crates/lance-graph-contract/src/cognitive_shader.rs:364  ShaderDispatch
+crates/lance-graph-contract/src/cognitive_shader.rs:416  EmitMode
+crates/lance-graph-contract/src/cognitive_shader.rs:433  ShaderHit
+crates/lance-graph-contract/src/cognitive_shader.rs:465  ShaderResonance
+crates/lance-graph-contract/src/cognitive_shader.rs:506  AlphaComposite
+crates/lance-graph-contract/src/cognitive_shader.rs:582  MetaSummary
+crates/lance-graph-contract/src/cognitive_shader.rs:602  MaterializeProvenance
+crates/lance-graph-contract/src/collapse_gate.rs:18  MergeMode
+crates/lance-graph-contract/src/collapse_gate.rs:58  GateDecision
+crates/lance-graph-contract/src/container.rs:56  ContentGeometry
+crates/lance-graph-contract/src/content_store.rs:50  ContentId
+crates/lance-graph-contract/src/content_store.rs:77  SourceSpan
+crates/lance-graph-contract/src/content_store.rs:122  ContentError
+crates/lance-graph-contract/src/cycle_accumulator.rs:56  AccumulatorAction
+crates/lance-graph-contract/src/external_membrane.rs:38  ExternalRole
+crates/lance-graph-contract/src/external_membrane.rs:59  ExternalEventKind
+crates/lance-graph-contract/src/faculty.rs:63  FacultyRole
+crates/lance-graph-contract/src/head2head.rs:40  WinnerCriterion
+crates/lance-graph-contract/src/head2head.rs:63  CompetitionOutcome
+crates/lance-graph-contract/src/head2head.rs:78  Head2Head
+crates/lance-graph-contract/src/high_heel.rs:46  SpoBase17
+crates/lance-graph-contract/src/high_heel.rs:133  Heel
+crates/lance-graph-contract/src/mul.rs:699  SimdCapsShim
+crates/lance-graph-contract/src/ocr.rs:37  Bbox
+crates/lance-graph-contract/src/ocr.rs:46  BlockKind
+crates/lance-graph-contract/src/ontology.rs:28  Locale
+crates/lance-graph-contract/src/ontology.rs:246  ModelHealth
+crates/lance-graph-contract/src/persona.rs:84  RoutingHint
+crates/lance-graph-contract/src/property.rs:17  PropertyKind
+crates/lance-graph-contract/src/property.rs:309  Cardinality
+crates/lance-graph-contract/src/property.rs:353  PrefetchDepth
+crates/lance-graph-contract/src/property.rs:409  ActionTrigger
+crates/lance-graph-contract/src/property.rs:770  Marking
+crates/lance-graph-contract/src/property.rs:829  DatePrecision
+crates/lance-graph-contract/src/property.rs:838  GeoFormat
+crates/lance-graph-contract/src/property.rs:890  AuditAction
+crates/lance-graph-contract/src/proprioception.rs:59  ProprioceptionAxes
+crates/lance-graph-contract/src/proprioception.rs:159  StateAnchor
+crates/lance-graph-contract/src/proprioception.rs:217  AnchorState
+crates/lance-graph-contract/src/proprioception.rs:259  DriveMode
+crates/lance-graph-contract/src/proprioception.rs:334  StateReport
+crates/lance-graph-contract/src/qualia.rs:174  QualiaI4_16D
+crates/lance-graph-contract/src/rbac.rs:40  ScopeSpec
+crates/lance-graph-contract/src/rbac.rs:196  OpMask
+crates/lance-graph-contract/src/rbac.rs:252  ClassGrant
+crates/lance-graph-contract/src/reasoning.rs:29  ReasoningKind
+crates/lance-graph-contract/src/reasoning.rs:45  Budget
+crates/lance-graph-contract/src/sigma_propagation.rs:94  Spd2
+crates/lance-graph-contract/src/sla.rs:30  SlaPolicy
+crates/lance-graph-contract/src/sla.rs:40  SlaPriority
+crates/lance-graph-contract/src/splat.rs:31  SplatChannel
+crates/lance-graph-contract/src/splat.rs:68  TriadicProjection
+crates/lance-graph-contract/src/splat.rs:77  ReasoningWitness64
+crates/lance-graph-contract/src/splat.rs:87  AwarenessPlane16K
+crates/lance-graph-contract/src/splat.rs:122  CamPlaneSplat
+crates/lance-graph-contract/src/splat.rs:176  SplatPlaneSet
+crates/lance-graph-contract/src/splat.rs:226  CamSplatCertificate
+crates/lance-graph-contract/src/splat.rs:250  SplatDecision
+crates/lance-graph-contract/src/splat.rs:298  ThetaDecision
+crates/lance-graph-contract/src/tax.rs:18  TaxPeriod
+crates/lance-graph-contract/src/tax.rs:27  PeriodKind
+crates/lance-graph-contract/src/tax.rs:34  Jurisdiction
+crates/lance-graph-contract/src/world_map.rs:42  WorldMapDto
+crates/lance-graph-contract/src/world_model.rs:35  SelfState
+crates/lance-graph-contract/src/world_model.rs:65  UserState
+crates/lance-graph-contract/src/world_model.rs:86  FieldState
+crates/lance-graph-contract/src/world_model.rs:111  GestaltState
+crates/lance-graph-ontology/src/bridge.rs:144  EntityRef
+crates/lance-graph-ontology/src/bridge.rs:149  EdgeRef
+crates/lance-graph-ontology/src/hydrators/dolce_odoo.rs:32  DolceCategory
+crates/lance-graph-ontology/src/hydrators/owl.rs:139  Format
+crates/lance-graph-ontology/src/namespace.rs:26  NamespaceId
+crates/lance-graph-ontology/src/namespace.rs:124  SchemaPtr
+crates/lance-graph-ontology/src/namespace.rs:196  SchemaKind
+crates/lance-graph-ontology/src/proposal.rs:114  IdentityCodec
+crates/lance-graph-ontology/src/proposal.rs:124  QualiaMeta
+crates/lance-graph-ontology/src/proposal.rs:213  MappingHandle
+crates/lance-graph-ontology/src/ttl_parse.rs:560  SubjectKind
+crates/lance-graph-planner/examples/insight_reason_wired.rs:183  Graph
+crates/lance-graph-planner/examples/insight_relation_read.rs:221  Relation
+crates/lance-graph-planner/examples/probe_babel_stances.rs:555  PhaseVec
+crates/lance-graph-planner/examples/probe_babel_stances.rs:626  Frame
+crates/lance-graph-planner/examples/probe_sudoku_teacher.rs:437  Election
+crates/lance-graph-planner/examples/probe_sudoku_teacher.rs:490  Policy
+crates/lance-graph-planner/examples/probe_sudoku_teacher.rs:641  Grade
+crates/lance-graph-planner/examples/probe_sudoku_teacher.rs:801  ForkOutcome
+crates/lance-graph-planner/examples/probe_sudoku_teacher.rs:878  Verdict
+crates/lance-graph-planner/src/cache/candidate_pool.rs:10  Phase
+crates/lance-graph-planner/src/cache/candidate_pool.rs:21  HeadAddress
+crates/lance-graph-planner/src/cache/nars_engine.rs:28  SpoHead
+crates/lance-graph-planner/src/cache/nars_engine.rs:161  Inference
+crates/lance-graph-planner/src/cache/triple_model.rs:13  Plasticity
+crates/lance-graph-planner/src/cache/triple_model.rs:56  DkPosition
+crates/lance-graph-planner/src/strategy/chat_bundle.rs:112  CacheRoute
+crates/lance-graph-python/src/graph.rs:45  ExecutionStrategy
+crates/lance-graph-python/src/graph.rs:64  SqlDialect
+crates/lance-graph-python/src/graph.rs:92  DistanceMetric
+crates/lance-graph-supervisor/src/lifecycle_audit.rs:37  LifecycleEventType
+crates/lance-graph-supervisor/src/lifecycle_audit.rs:56  LifecycleAuditEvent
+crates/lance-graph-supervisor/src/lifecycle_audit.rs:89  NoopLifecycleSink
+crates/lance-graph-turbovec/src/lib.rs:66  Kernel
+crates/lance-graph/examples/causal_knowledge_transfer.rs:41  Meaning
+crates/lance-graph/src/graph/arigraph/witness_corpus.rs:62  WitnessId
+crates/lance-graph/src/graph/audio/hhtl_bridge.rs:32  AudioCascadeLevel
+crates/lance-graph/src/graph/audio/hhtl_bridge.rs:45  AudioCascadeResult
+crates/lance-graph/src/graph/audio/hhtl_bridge.rs:169  CascadeStats
+crates/lance-graph/src/graph/audio/node.rs:26  AudioNode
+crates/lance-graph/src/graph/audio/node.rs:154  TemporalEdge
+crates/lance-graph/src/graph/hydrate.rs:19  TensorRole
+crates/learning/src/cam_ops.rs:106  OpCategory
+crates/learning/src/cam_ops.rs:155  LanceOp
+crates/learning/src/cam_ops.rs:243  SqlOp
+crates/learning/src/cam_ops.rs:324  CypherOp
+crates/learning/src/cam_ops.rs:407  HammingOp
+crates/learning/src/cam_ops.rs:478  NarsOp
+crates/learning/src/cam_ops.rs:577  FilesystemOp
+crates/learning/src/cam_ops.rs:675  CrystalOp
+crates/learning/src/cam_ops.rs:767  NsmOp
+crates/learning/src/cam_ops.rs:871  ActrOp
+crates/learning/src/cam_ops.rs:950  RlOp
+crates/learning/src/cam_ops.rs:1035  CausalOp
+crates/learning/src/cam_ops.rs:1119  QualiaOp
+crates/learning/src/cam_ops.rs:1219  RungOp
+crates/learning/src/cam_ops.rs:1317  MetaOp
+crates/learning/src/cam_ops.rs:1406  VerbOp
+crates/learning/src/cam_ops.rs:1464  MemoryOp
+crates/learning/src/cam_ops.rs:1499  UserOp
+crates/learning/src/cam_ops.rs:1564  LearnOp
+crates/learning/src/causal_ops.rs:37  CausalOp
+crates/learning/src/cognitive_frameworks.rs:18  TruthValue
+crates/learning/src/cognitive_frameworks.rs:64  NarsCopula
+crates/learning/src/cognitive_frameworks.rs:188  ActrBuffer
+crates/learning/src/cognitive_frameworks.rs:499  CausalRelation
+crates/learning/src/cognitive_frameworks.rs:577  QualiaChannel
+crates/learning/src/cognitive_frameworks.rs:701  Rung
+crates/learning/src/feedback.rs:86  NarsInferenceType
+crates/learning/src/rl_ops.rs:45  RlOp
+crates/perturbation-sim/examples/comma_awareness.rs:132  Edge
+crates/perturbation-sim/examples/comma_awareness.rs:191  Lane
+crates/reader-lm/src/classifier.rs:5  HtmlStructure
+crates/thinking-engine/examples/codec_rnd_bench.rs:2096  PBasis
+crates/thinking-engine/examples/codec_rnd_bench.rs:2101  PQuant
+crates/thinking-engine/examples/codec_rnd_bench.rs:2110  PMode
+crates/thinking-engine/examples/codec_rnd_bench.rs:2115  PRank
+crates/thinking-engine/examples/qwopus_nars_gate.rs:152  Mode
+crates/thinking-engine/src/awareness_dto.rs:58  GestaltState
+crates/thinking-engine/src/bridge_gate.rs:29  CognitiveOpKind
+crates/thinking-engine/src/bridge_gate.rs:61  CognitiveAuthResult
+crates/thinking-engine/src/builder.rs:32  Temperature
+crates/thinking-engine/src/builder.rs:70  ThinkingPreset
+crates/thinking-engine/src/builder.rs:121  TableType
+crates/thinking-engine/src/cognitive_stack.rs:41  StyleParams
+crates/thinking-engine/src/cognitive_stack.rs:182  GateState
+crates/thinking-engine/src/contract_bridge.rs:155  FastBusDto
+crates/thinking-engine/src/cronbach.rs:108  QuorumLevel
+crates/thinking-engine/src/dto.rs:11  SourceType
+crates/thinking-engine/src/dto.rs:25  ThinkingScale
+crates/thinking-engine/src/ghosts.rs:35  GhostType
+crates/thinking-engine/src/layered.rs:45  CascadeChannels8
+crates/thinking-engine/src/meaning_axes.rs:131  Viscosity
+crates/thinking-engine/src/meaning_axes.rs:158  Archetype
+crates/thinking-engine/src/meaning_axes.rs:253  GestaltRole
+crates/thinking-engine/src/meaning_axes.rs:261  HdrResonance
+crates/thinking-engine/src/persona.rs:31  PersonaMode
+crates/thinking-engine/src/spiral_segment.rs:19  SpiralSegment
+crates/thinking-engine/src/splat_ops.rs:20  SplatField
+crates/thinking-engine/src/tokenizer_registry.rs:18  ModelId
+crates/thinking-engine/src/world_model.rs:23  SelfState
+crates/thinking-engine/src/world_model.rs:53  UserState
+crates/thinking-engine/src/world_model.rs:72  FieldState
+crates/thinking-engine/src/world_model.rs:93  GestaltState

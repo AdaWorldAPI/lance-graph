@@ -21,7 +21,16 @@ pub const SCENT_BYTES: usize = 5;
 pub const BUCKETS: usize = 256;
 
 /// Chunk header with embedded scent and cognitive markers
-#[derive(Clone, Copy, Debug)]
+// NOT `Copy` (removed 2026-07-29): this is a record OF the substrate, not a
+// value. `ScentIndexL1` OWNS the `[ChunkHeader; BUCKETS]` array and mutates
+// it in place (`on_append` / `set_decision` / `set_plasticity` write
+// `scent` / `count` / `last_access` / `plasticity` / `decision`), so a `Copy`
+// silently mints a second, immediately-stale reading of live bucket state —
+// including `scent`, which is itself a lossy projection of fingerprints that
+// already live in the data file. Every read path here is already `&`-borrowed
+// (`headers.iter()`), which is the correct shape: borrow inside the index's
+// own mailbox, never carry an owned duplicate out of it.
+#[derive(Clone, Debug)]
 #[repr(C)]
 pub struct ChunkHeader {
     /// Chunk ID (0-255)

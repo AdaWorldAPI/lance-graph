@@ -105,14 +105,49 @@ const _: () = assert!(
 ///
 /// No `#[derive(Debug)]`: [`NodeRow`] itself does not implement `Debug` (out
 /// of scope for this lens to add), so a derived impl here would not compile.
-#[derive(Clone, Copy)]
+// NOT `Clone`, NOT `Copy` — operator-ruled 2026-07-29: *"copies are forbidden,
+// borrows are only for the same mailbox"*, and *"WitnessLens is forbidden as a
+// copy. period."*
+//
+// A `Copy` borrow is a borrow that duplicates itself silently. It can be handed
+// to a second holder, stored beside the first, and carried out of the
+// compartment that owns the rows — with no move, no diagnostic, and nothing in
+// a review to point at. That is precisely the escape the mailbox rule exists to
+// close: a borrow is legitimate INSIDE one mailbox and illegitimate the moment
+// it crosses an ownership boundary, and `Copy` is what lets it cross unnoticed.
+//
+// Without the derive the lens must be passed by reference and cannot be
+// duplicated into a second owner, so its reach is bounded by the borrow it was
+// built from. Anything that wants the rows elsewhere takes an ADDRESS and
+// resolves it against the corpus there — never a second view of the same bytes.
 pub struct WitnessLens<'a> {
     rows: &'a [NodeRow],
 }
 
 impl<'a> WitnessLens<'a> {
-    /// Wrap a row slice as a witness lens. Stores the reference only — zero
+    /// Wrap the corpus as a witness lens. Stores the reference only — zero
     /// cost, no scan, no copy.
+    ///
+    /// # Invariant — `rows` is the WHOLE standing wave, never a sub-slice
+    ///
+    /// Every position on this type is an **absolute stream address**, and
+    /// `at(pos)` resolves it as `rows[pos]`. That identity holds only while
+    /// `rows[0]` IS stream position 0. Passing `&rows[start..]` with
+    /// `start != 0` does not shift the addressing — it silently redefines it:
+    /// `GradedRow::pos` then names the wrong corpus row, and a `visible`
+    /// predicate keyed by absolute positions selects the wrong domain or
+    /// nothing. The gathered `(stream_position, facet)` form this replaced
+    /// carried the address explicitly and so could not be misread this way.
+    ///
+    /// **Do not "fix" this by adding a base offset.** The standing wave is a
+    /// single ~16 MB array (32k rows × 512 B) and is lensed whole; a sub-slice
+    /// is not a supported narrowing, it is the error. Narrowing is expressed by
+    /// the caller's ADDRESS SET (the `visible` predicate today, an explicit
+    /// address list once `TD-LENS-QUORUM-SCANS-THE-WHOLE-LENS` lands) — never
+    /// by moving where the array starts.
+    ///
+    /// Found by Codex on #868, whose fixtures all built from position 0, so the
+    /// distinction was constant across every comparison in the suite.
     #[inline]
     #[must_use]
     pub const fn new(rows: &'a [NodeRow]) -> Self {

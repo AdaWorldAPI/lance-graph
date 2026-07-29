@@ -171,3 +171,38 @@ an example call site (`probe_dcsw2_basin_rung.rs`) — leaving **14 live
 migratable parameters** (`contract/witness_fabric.rs` gathered originals: 7;
 `planner/nars/meta_basin.rs`: 7), which is what the "14" was counting. Unit
 made explicit: parameters, not call sites.
+
+## ⊘ Update (2026-07-29, ZC-2a — orchestrator, main thread)
+
+`planner/nars/meta_basin.rs`'s **7** gathered `window:` parameters are
+**MIGRATED IN PLACE** — `grade_rows`, `stable_under_perturbation`,
+`stability_sweep`, `stability_around`, `outlier_suggestions`, `coarse_flags`,
+`ranked_outlier_suggestions` now take `(&WitnessLens<'_>, &impl Fn(usize) -> bool)`.
+No twins were added and no gathered form was retained: the family has zero
+callers outside its own file (confirmed — the lib compiled clean while only the
+in-file test module broke, 21 call sites), so the deprecation window that
+`witness_fabric`'s 7 need does not apply here.
+
+**Live migratable `window:` parameters: 14 → 7** (the `contract/witness_fabric.rs`
+gathered originals, still retained for their outside callers). BLOCKED (1,
+`WitnessWindow.rows`) and the example call site (1) are unchanged.
+
+**Scoping correction to "migratable NOW" above:** that label measured twin
+availability, not caller shape. These fixtures use SPARSE positions
+(`[0,1,2, 10,11,12, 20,21,22,23]`) and `resolve_chain` hops by absolute stream
+position, so the gathered form could name positions with no rows between them.
+The lens indexes a dense row array, so the gaps must exist as rows and be
+excluded by `visible`. Every fixture was rebuilt (`rows_from` + `vis_of`), not
+merely re-called.
+
+**Proof:** `lens_grading_matches_the_gathered_oracle_on_sparse_and_dense_windows`
+(pre-migration body retained verbatim as the `grade_rows_gathered` oracle;
+field-by-field across 6 budgets × 2 fixtures, with a per-axis anti-vacuity clause
+that caught a constant quorum axis TWICE — see EPIPHANIES
+`E-THE-EQUALITY-PASSED-WHILE-AN-AXIS-WAS-CONSTANT-1`) and
+`an_invisible_gap_is_excluded_even_though_the_row_exists`. Revert-test: deleting
+the `visible` filter fails 3 tests incl. `sparse: row count diverged at max_hops=0`.
+
+**Gates (central):** `cargo test -p lance-graph-planner` **324 + 4 passed, 0 failed**;
+`cargo clippy -p lance-graph-planner --all-targets -- -D warnings` clean;
+`cargo fmt --check` clean. Scoped `-p` throughout.

@@ -1,5 +1,112 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-LENS-QUORUM-SCANS-THE-WHOLE-LENS (2026-07-29)
+
+**Codex P2 on #868, verified and MEASURED.** The lens migration changes the
+complexity of grading, and Codex was right about the direction that regresses.
+
+`quorum_mantissa_lens(focal, lens, visible)` scans `0..lens.len()`, where the
+gathered `quorum_mantissa(idx, window)` scanned the `k`-entry window. Grading
+`k` visible rows therefore goes **Θ(k²) → Θ(N·k)** in peer work. Measured with a
+counting `visible` closure (deterministic, unlike a wall-clock assert):
+
+| | N=512, k=8 sparse |
+|---|---|
+| lens: `visible` probes | **4608** |
+| gathered: peer comparisons | **64** |
+
+**The half Codex did not mention — the trade is genuinely two-sided.** Gathered
+`resolve_chain` resolved each hop with `window.iter().position(..)`, a linear
+O(k) scan **per hop**; `resolve_chain_lens` uses `lens.at(pos)`, which is O(1).
+So hop work goes **Θ(hops·k) → Θ(hops)**.
+
+Net per graded row: gathered `k·(1 + hops)` vs lens `N + hops`. The lens **wins**
+whenever `N < k·(1 + hops) − hops` — dense windows and deep chains — and **loses**
+when a small window is viewed through a large row array. That second case is
+real: the zero-copy law says the row array IS the projection, so a full-table
+lens with a handful of visible rows is a natural, not pathological, usage.
+
+> **⊘ OPERATOR CORRECTION (2026-07-29): the framing below is wrong, and so was
+> the "needs a lifetime parameter" verdict on the BLOCKED `WitnessWindow.rows`.**
+> Operator: *"lifetime parameter is the wrong lens — you have a corpus, you have
+> hard facts, you just need to avoid circular reasoning."*
+>
+> The circularity: I assumed a window must HOLD facets, so getting off a gathered
+> copy means holding a BORROW, so a lifetime propagates into `PlanContext`. Both
+> horns are the same bad premise. **A window carries ADDRESSES, not data.** The
+> corpus is the durable thing and already exists; positions are the hard facts;
+> facets are resolved from them at read time. No copy, no borrow, no lifetime,
+> nothing propagates — `WitnessWindow { rows: Vec<(usize, CausalWitnessFacet)> }`
+> becomes a position list, and `PlanContext` is untouched.
+>
+> **This dissolves the P2 too, and the two were never separate problems.** The
+> Θ(N·k) scan exists only because the selection is expressed as a PREDICATE over
+> the whole corpus (`0..lens.len()` filtered by `visible`) instead of as the
+> addresses already in hand. Iterate the position list and peer work is Θ(k) —
+> bounded by the window, not the corpus — which is exactly the "bounded/visible
+> position view" Codex asked for. The measured 4608-vs-64 figure stands as the
+> cost of the predicate form; it is not a cost of lensing.
+>
+> Both items therefore collapse into one follow-up: **addresses-not-data**.
+> Superseded reasoning retained below per append-only.
+
+**Not fixed in #868, deliberately.** The scan lives in `quorum_mantissa_lens`,
+which is **shipped `lance-graph-contract` API** landed by the previous ZC-2 run
+and already consumed by `dispatch_guard` — so meta_basin inherited the cost
+rather than introducing it. Fixing it means either a new bounded-position-view
+variant on that contract surface (additive, but a design call about what the
+peer domain *is*) or having callers narrow the lens, which absolute positioning
+makes non-trivial. Neither belongs inside a behaviour-preserving refactor.
+
+**Guarded meanwhile:** `grading_cost_scales_with_lens_length_not_window_size`
+pins the shape — it asserts the Θ(N·k) sweep happens AND that the cost is not
+superlinear in N. If someone lands the bounded view, that test fails and gets
+updated deliberately rather than the improvement passing unnoticed.
+
+**AGENTS.md compliance:** the repo requires timing notes for performance-
+sensitive changes. The counted-probe figures above are that note; no `cargo
+bench` harness exists for this crate, and a wall-clock number on a shared runner
+would have been less informative than the invariant count.
+
+
+## TD-PLANNER-DEPENDENTS-NO-CI-BUILD (2026-07-29)
+
+**Two crates depend on `lance-graph-planner` by path and are built by NO CI job.**
+Found while verifying ZC-2a's "zero external callers" claim (#868) — the claim
+held, but the *gate* I first cited could not have caught a violation.
+
+| dependent | why CI misses it |
+|---|---|
+| `crates/lance-graph-osint` | **workspace-`exclude`d** — no workspace command reaches it, and no workflow names it via `--manifest-path` |
+| `crates/cognitive-shader-driver` | workspace member, but its planner dep is `optional = true` behind `with-planner`, a feature **no** workflow enables |
+
+The other dependents are covered: `lance-graph` deps the planner through its
+default `planner` feature and IS built (`build.yml` / `rust-test.yml` via
+`--manifest-path crates/lance-graph/Cargo.toml`).
+
+**Why this is debt, not a one-off.** CI here is deliberately per-crate
+(`--manifest-path`), not `--workspace` — a reasonable choice for build time. The
+cost is that adding a crate, or gating a dep behind a feature, silently removes
+it from coverage with no signal. A breaking change to a planner API can go green
+through every gate and break `lance-graph-osint` on someone's next local build.
+
+**Verified manually for #868** (both clean, exit 0):
+`cargo check -p cognitive-shader-driver --features with-planner` ·
+`cargo check --manifest-path crates/lance-graph-osint/Cargo.toml`.
+Doing that by hand is exactly the thing that does not survive contact with the
+next session, which is why this is filed rather than considered handled.
+
+**Options, cheapest first:** (a) add both to `style.yml`/`rust-test.yml` as two
+more `--manifest-path` / `--features` steps; (b) a single
+`cargo check --workspace --all-features` job accepting the build-time cost;
+(c) leave as-is and accept that excluded crates are consumer-maintained — but
+then say so in `CLAUDE.md`, because today nothing does.
+
+**Not scheduled** — needs a call on which option, and the shader-driver
+`serve.rs`-in-two-bin-targets warning shows up in the same area and may want
+fixing together.
+
+
 ## TD-LANCE-GRAPH-ALL-FEATURES-DELTA-BREAK (2026-07-29)
 
 `cargo clippy -p lance-graph --lib --all-features` fails:

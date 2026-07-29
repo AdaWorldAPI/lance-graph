@@ -60,7 +60,15 @@ impl Role {
 }
 
 /// Result of applying a role mask to a surface word's sense superposition.
-#[derive(Clone, Copy)]
+//
+// NOT `Clone`, NOT `Copy` — operator-ruled 2026-07-29: *"copies are forbidden,
+// borrows are only for the same mailbox"* (same ruling as
+// `lance_graph_contract::witness_fabric::WitnessLens`). `Unique` carries an
+// `&'a str` borrowed from the caller's `&[Sense]`; a `Copy` borrow duplicates
+// itself silently, so it can be stored beside the original and carried out of
+// the compartment that owns the sense table with no move and nothing in a
+// review to point at. Without the derive the verdict moves once, and its reach
+// is bounded by the borrow it was built from.
 enum Collapse<'a> {
     /// Superposition collapsed to a single reading: `(lemma, lemRank centroid)`.
     Unique(&'a str, u32),

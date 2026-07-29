@@ -193,7 +193,27 @@ impl UnifiedAuditEvent {
 /// Tracks the prior merkle root for one super domain so each new event
 /// can chain off it. Construct one per super-domain context the
 /// `UnifiedBridge` operates against.
-#[derive(Clone, Copy, Debug)]
+// NOT `Copy` (removed 2026-07-29): this is single-writer chain STATE, and
+// `last_root` is a second holding of a root already durably recorded on the
+// last emitted event. A `Copy` silently forks the chain — two advancers
+// stamping distinct events as successors of the same `prev_merkle`, which is
+// exactly the tamper signature `verify_chain` exists to detect, minted by the
+// type system with nothing in a diff to point at. The one-writer invariant is
+// enforced structurally instead: `UnifiedBridge` holds it in a
+// `Mutex<AuditChain>` and advances through `&mut`; the sanctioned way to
+// continue a chain elsewhere is `AuditChain::resume(.., last_root)`, which is
+// explicit about which root it claims. `Clone` is retained (nothing calls it
+// today) because an explicit `.clone()` is greppable; `Copy` is not.
+//
+// ⊘ CORRECTED (CodeRabbit Major, #868): that reasoning was insufficient and
+// `Clone` is now gone too. "Greppable" and "no current callers" are not
+// invariants for an EXPORTED type — a public `Clone` lets any future caller
+// fork single-writer merkle-chain state, which is the same defect `Copy` had,
+// only slower to reach. A second chain sharing a prefix is not a copy of a
+// value; it is two writers claiming one lineage. If a new chain is ever
+// legitimately needed, it must come from an explicit constructor that
+// establishes a fresh lineage, never from duplicating an existing one.
+#[derive(Debug)]
 pub struct AuditChain {
     pub super_domain: SuperDomain,
     /// Per-super-domain salt — looked up from the super-domain registry
