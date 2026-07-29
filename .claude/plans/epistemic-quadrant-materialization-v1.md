@@ -95,6 +95,79 @@ the same behaviour, because nothing consumes the bit to modulate a path.
 That inertness is the first thing to falsify, per the P0 rule: *a knob that
 changes nothing is decoration.*
 
+## 4a. VERDICT on `PlasticityEngine`: reimagine, do not port
+
+**Age: 27 days by calendar, one full generation by substrate.** `git log` shows
+exactly ONE commit touching `holograph/src/rl_ops.rs` — `28f17cd`, 2026-07-02
+13:47, the squashed `v3-substrate-migration-review` merge (#629) that landed the
+whole crate at once. Nothing has touched it since. 1575 LOC, zero external
+consumers.
+
+Measure it in commits rather than days and the picture inverts: **825 commits
+have landed since**, and 2026-07-02 is *precisely* the V3 flip date — both
+`E-V3-FACET-4-PLUS-12` (content-blind 4+12 facet) and the classid canon-high
+flip were operator-locked that day. So the crate did not arrive "before V3": it
+arrived **on the boundary, inside the V3 migration PR itself, and was never
+adapted to what that same PR ratified.** Every invariant it violates was locked
+either that day or later — the zero-copy law is from today.
+
+The lesson generalizes past this crate: *a migration PR is the easiest place for
+un-migrated code to enter*, because the diff is already enormous and one more
+crate reads as part of the sweep.
+
+The mechanism is sound neuroscience (STDP + Hebbian + homeostatic scaling is the
+right triad). The **chassis is pre-V3** and violates current invariants:
+
+| # | violation | the rule it breaks |
+|---|---|---|
+| 1 | `HebbianMatrix { weights: HashMap<(usize,usize), f32> }` — connectivity stored **beside** `EdgeBlock` (12 in-family + 4 out-of-family) and `CausalEdge64` | **SECOND-PROJECTION.** Connectivity already has a home; this is a second reading of it |
+| 2 | HashMap lookup per pair — data-dependent addresses | **pointer CHASING**, the exact thing ruled against 2026-07-29; the substrate's edges are computed displacements |
+| 3 | `fire(&mut self, cell)` mutates while computing | `.claude/rules/data-flow.md`: *"No `&mut self` during computation. Ever."* |
+| 4 | `*scale *= 0.99; *scale += …` | borrow-strategy: gated XOR (single writer) or BUNDLE (multi); **never raw `=`** on shared state |
+| 5 | `f32` per connection | LE contract is byte/nibble-quantized (i4 loci, u8 palette); f32-per-pair has no lane shape |
+| 6 | private `timestep: u32` | a second clock beside episodic = Lance versions / `last_active_cycle` |
+| 7 | no notion of `PlasticityState` | the 3-bit S/P/O hot-frozen gate is **exactly** this engine's missing input — the measured disconnect in §4 |
+| 8 | O(n²) pair space | at 32k rows ≈ 10⁹ pairs; the substrate's answer is EdgeBlock's **bounded degree**, not a growing map |
+
+**And a live defect, not merely a mismatch — #9: depression is computed and
+discarded.** `StdpRule::weight_change` returns negative `dw` for LTD, but
+`PlasticityEngine::fire` applies only `if dw > 0.0`, carrying
+`// TODO: directional hebbian (asymmetric matrix) for depression`. So
+`a_minus: 0.012, // Slightly stronger depression (homeostasis)` is an **inert
+doc-comment claim**: the homeostasis it documents never happens. The engine can
+only potentiate — i.e. wiring it as-is produces exactly the unbounded
+reinforcement runaway that falsifier P2 exists to catch. This is the P0
+falsifiability rule at substrate level: *a doc-comment claim is not a behaviour.*
+
+**Reimagined shape (a lane, not a port):**
+
+- **Conductance lives in the edge** — an `EdgeBlock` slot / `CausalEdge64`
+  magnitude, never a side map. Bounded degree by construction.
+- **Update is BUNDLE**, because conductance is a magnitude — `I-SUBSTRATE-MARKOV`
+  forbids `MergeMode::Xor` on magnitudes (it breaks Chapman-Kolmogorov).
+- **Gated by the existing `PlasticityState`** 3-bit S/P/O. That bit is *for*
+  this; consuming it is what makes it stop being inert (§4, falsifier P1).
+- **Quantized** (u8 / i4), not f32. Same reason every other lane is.
+- **Clock = Lance version / `last_active_cycle`**, not a private counter.
+- **No `&mut self` compute:** a pass *returns* deltas; write-back is a separate
+  gated builder step (engines return results, they do not mutate while computing).
+- **LTD must actually land**, or be deleted and the homeostasis claim removed.
+  Half a mechanism whose disabled half is documented as active is worse than an
+  honest omission.
+
+**Doppelspalt framing (operator, 2026-07-28→29):** the four philosophers are four
+**lenses over one crystal**; interference is visible in the projections while the
+bytes never move (CLAUDE.md § I-SUBSTRATE-MARKOV consequence). Plasticity's job
+is therefore to modulate **which slit is elected** — the conductance of the
+projections — never to accumulate a private matrix beside the crystal. That is
+the same statement as row 1 of the table above, arrived at from the physics side
+rather than the storage side, which is why P4 requires the non-elected stances to
+stay *reachable*: closing a slit destroys the interference pattern.
+
+**Verdict: REIMAGINE.** Keep the triad's math (`weight_change`'s exponential
+windows are reusable as-is); discard the chassis. Treat `rl_ops.rs` as a
+reference implementation to read, not a dependency to wire.
+
 ## 5. Falsifiers — required before any wiring lands
 
 - **P1 — the hot/frozen bit must be INERTNESS-TESTABLE.** Flipping
