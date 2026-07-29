@@ -57,10 +57,34 @@ Adding a tenant is **exactly two places** in
 1. the `ValueTenant` enum variant — its doc-comment carries the lane's law;
 2. its `VALUE_TENANTS` descriptor row (name_id / row_offset / length).
 
-Everything else is *derived*. `ValueTenant::value_offset()` says so in its own
-doc: *"Not a new property: a derived accessor over the already-locked,
-compile-asserted carve."* If adding a tenant is touching more than two places,
-the design is wrong, not the rule.
+`ValueTenant::value_offset()` says so in its own doc: *"Not a new property: a
+derived accessor over the already-locked, compile-asserted carve."*
+
+> **⊘ CORRECTED 2026-07-28, by a compile-time assert, hours after this doc
+> first claimed "everything else is derived."** That claim is FALSE as
+> stated, and minting `CausalWitness = 14` proved it. Two places are what
+> you **author** — the decisions. Three more sites are **mechanically
+> forced**, and the compiler will not let you forget them:
+>
+> - `ValueSchema::Full::field_mask()` — a hand-maintained position list.
+>   `Full` *means* "all tenants", so it looks derived, but it is written out
+>   by hand and pinned by
+>   `const _: () = assert!(Full.field_mask().count() == VALUE_TENANTS.len())`.
+> - the carve-total literals in three tests (`value_tenants_contiguous_within_slab`,
+>   `value_schema_byte_budgets_are_locked`, `default_class_node_materialises_full_slab`)
+>   — `172 → 188` on this mint.
+>
+> **Read this as a compliment to the substrate, not a defect.** The const
+> assert is the workspace having already known that `Full` is a drift risk
+> and having pinned it at compile time: the mismatch window is
+> *uncompilable*, so it cannot exist in any commit. The honest rule is
+> therefore **"two places to decide, three the compiler enforces"** — and
+> if you find yourself editing a *fourth* thing you had to reason about,
+> then the design is wrong.
+>
+> The failure shape is the same one this whole doc is about: a value that
+> looks derived (`Full` = all of them) but is actually hand-maintained.
+> Same family as an absolute byte offset recorded as if it were primary.
 
 **Worked precedent: `ValueTenant::Tekamolo = 13`.** Copy its idiom wholesale —
 16-byte content-blind V3 4+12 facet (`classid(4) + 12`), the shape named

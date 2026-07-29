@@ -1,4 +1,4 @@
-# Tenant Lanes — the value-slab catalogue (code ground truth 2026-07-02)
+# Tenant Lanes — the value-slab catalogue (code ground truth 2026-07-02, refreshed 2026-07-28)
 
 > READ BY: v3-envelope-auditor (mandatory), anyone reading/writing a tenant
 > lane, adding a ValueSchema, or wiring a consumer. Byte atom + payload
@@ -6,6 +6,19 @@
 > Ground truth source: mapping-fleet pass over
 > `crates/lance-graph-contract/src/{canonical_node,soa_envelope,facet,kanban,soa_view}.rs`
 > + `crates/cognitive-shader-driver/src/mailbox_soa.rs`.
+
+> **⊘ 2026-07-28 refresh note — this catalogue is GENERATED FROM
+> `canonical_node.rs::VALUE_TENANTS` (+ the `ValueTenant` enum), which is
+> the single source of truth.** The doc had drifted **four tenants
+> behind** between the 2026-07-02 freeze and this refresh: §2 stopped at
+> tenant 9 (`Kanban [144,152)`) while code had already shipped tenants
+> 10–14 (`FrozenStyle`/`LearnedStyle`/`ExploreStyle`/`Tekamolo`/
+> `CausalWitness`, running the value slab to `[204,220)`). **Byte offsets
+> in this doc are DERIVED and go stale on every tenant landing — cite
+> `ValueTenant::X.value_offset()` symbolically in code and docs, never a
+> literal offset.** This is the exact failure mode that made the
+> BoardAggregates reservation go stale three times in a row
+> (152 → 188 → 204) as tenants kept landing underneath it.
 
 ## Status: FINDING (byte-accurate, file:line-cited; two flagged seams at the end)
 
@@ -20,7 +33,7 @@
 every downstream tenant offset. Every tenant below carries its OWN LE
 contract nested in the envelope's (le-contract.md §3b).
 
-## §2 The 10 value tenants (`ValueTenant`, canonical_node.rs:729-849)
+## §2 The 15 value tenants (`ValueTenant`, canonical_node.rs:828-909; `VALUE_TENANTS`, canonical_node.rs:935-1054)
 
 Discriminant = FieldMask bit = VALUE_TENANTS index (compile-asserted).
 Offsets are FULL-ROW; subtract 32 for slab-relative.
@@ -37,9 +50,31 @@ Offsets are FULL-ROW; subtract 32 for slab-relative.
 | 7 | Plasticity | U32 × 1 | 4 B | [138,142) | persisted plasticity |
 | 8 | EntityType | U16 × 1 | 2 B | [142,144) | OGIT class ordinal (1-based registry index) |
 | 9 | Kanban | U64 × 1 | 8 B | [144,152) | `phase(u8) \| exec(u8) \| reserved(u16) \| cycle(u32)` (KanbanTenant::to/from_bytes, canonical_node.rs:1385-1409) |
+| 10 | FrozenStyle | U8 × 12 | 12 B | [152,164) | Autopoiesis-triangle FROZEN lane — 12 palette256 atoms, one per StyleFamily ordinal (or compiled-template step); the CHECKPOINT policy the can't-stop-thinking dispatch runs off. Atom 0 = null default (zero-fallback) |
+| 11 | LearnedStyle | U8 × 12 | 12 B | [164,176) | Autopoiesis-triangle LEARNED lane — same 12-slot palette256 shape; the NARS-revision-updated policy the L4 learning seam writes (owner `&mut`); promotes to `frozen[f]` only after winning the held-out arm |
+| 12 | ExploreStyle | U8 × 12 | 12 B | [176,188) | Autopoiesis-triangle EXPLORE lane — same 12-slot palette256 shape; exploration variant from the P64 perturbation ladder (StreamDto → PerturbationDto), deterministic address-derived jitter (D-QUANTGATE coprime walk, never RNG) |
+| 13 | Tekamolo | U8 × 16 | 16 B | [188,204) | TEKAMOLO facet lane — 16 B content-blind V3 4+12 facet (`classid(4) + 6×(u8:u8)`), read G4D3 as `temporal · kausal · modal · lokal` (when/why/how/where circumstance-frame). All-zero = unaddressed |
+| 14 | CausalWitness | U8 × 16 | 16 B | [204,220) | CausalWitness facet lane — 16 B content-blind V3 4+12 facet read as **G24N4** (24 signed i4 loci, a lane shape name, never a `CascadeShape` variant); each nibble is a context pointer (signed ±8 window offset), not a strength. Slots 16..24 reserved-zero. **Status: EXPERIMENTAL — not in the operator-locked §3 catalogue** (per its own doc-comment) |
 
-`ValueSchema::Full` uses 152 B of 480 — **328 B headroom,
-RESERVE-DON'T-RECLAIM** (compile-asserted ≤ 480, canonical_node.rs:974).
+`ValueSchema::Full`'s `field_mask()` (canonical_node.rs:1132-1157, as read
+2026-07-28) lists all 15 tenants 0–14 (Meta … `CausalWitness`), totalling
+220 B of 480 — **260 B headroom, RESERVE-DON'T-RECLAIM** (compile-asserted
+≤ 480, canonical_node.rs:1197).
+
+> **⊘ TRANSIENT-READ CORRECTION (2026-07-28, same day).** An earlier
+> revision of this section flagged a live defect — "`Full` lists 0–13 while
+> `VALUE_TENANTS` carries 15; the assert at canonical_node.rs:1198 requires
+> these to match (14 vs 15 as read)." **That mismatch never existed as a
+> committed state.** It was an in-flight intermediate: the `CausalWitness`
+> mint was landing concurrently, and this doc was generated between the
+> descriptor row and the `Full` field-mask update. The assert is exactly
+> what makes such a window uncompilable, so it can never be observed in any
+> commit — reading it from a working tree mid-edit is the only way to see
+> it. Recorded because it is this document's own lesson turned on itself:
+> **a value read from a moving surface is transient, and writing it down as
+> standing fact is the same class of error as recording a derived byte
+> offset as if it were primary.** Verify against a committed tree, never a
+> mid-edit one.
 
 ## §3 ValueSchema presets (canonical_node.rs:894-970)
 
@@ -48,7 +83,7 @@ RESERVE-DON'T-RECLAIM** (compile-asserted ≤ 480, canonical_node.rs:974).
 | Bootstrap = 0 (default) | none (FieldMask::EMPTY) | zero-fallback ladder |
 | Cognitive = 1 | Meta, Qualia, Fingerprint, Energy, Plasticity, EntityType, Kanban (7) | thinking rows |
 | Compressed = 2 | Fingerprint, HelixResidue, TurbovecResidue, EntityType (4) | baked/search rows (q2 bakes) |
-| Full = 3 | all 10 | superset |
+| Full = 3 | all 15 tenants 0–14 (Meta … `CausalWitness`) | superset; count compile-asserted `== VALUE_TENANTS.len()` |
 
 ## §4 The classid → tenant resolution (ReadMode registry)
 
