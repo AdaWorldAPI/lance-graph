@@ -32,6 +32,37 @@ doc-comment `&`. Verification is the agents' job.
 removed in `b3515ba`; contract gates clean (1134 tests, clippy `-D warnings`,
 fmt). It does not appear below.
 
+## ⊘ CARVE-OUT — `lance-graph-ontology` is NOT in scope (operator, 2026-07-29)
+
+Operator: *"copying ontology is desired, RDF is converted to KV."*
+
+The zero-copy law governs **substrate** bytes — rows, registers, tenant lanes:
+things that already carry a projection, where a second stored reading is an
+ontological duplication (`zero-copy-lens-law.md`: "there is no neutral byte
+layer underneath").
+
+**RDF/TTL is not substrate. It is an external format at a membrane.** The
+`lance-graph-ontology` hydrators (`ttl_parse.rs`, `hydrators/owl.rs`,
+`hydrators/dolce_odoo.rs`, `namespace.rs`, `proposal.rs`) exist to CONVERT
+oxrdf triples into the canonical KV/classid form. A transcode's entire job is to
+produce a new representation; the copy there is the FIRST projection, not a
+second one. Applying the copy ban to it would forbid ingest itself.
+
+This is the same line `compilation-vs-runtime-substrate.md` and
+`assembler-vs-storage-substrate.md` draw elsewhere: serialization is legal AT a
+membrane and illegal on the hot path. Ontology hydration is a membrane.
+
+**Consequence for any future sweep:** the 13 `derive(Clone, Copy)` sites under
+`crates/lance-graph-ontology/` in the TIER B census below are **out of scope**.
+Do not de-`Copy` them, and do not file them as debt. The 13 clippy errors in
+that crate (deprecated `oxrdf::Subject` alias, doc-list indentation) are
+ordinary lint drift on an un-linted crate — unrelated to the copy law, and NOT
+evidence of a violation.
+
+This carve-out was nearly missed: the sweep reached ontology only because
+`lance-graph-callcenter` deps it, and the reflex on seeing `Copy` + a parse type
+is to treat it as a materialization. Recorded because that reflex will recur.
+
 ---
 
 TOTAL derive(Clone,Copy) sites: 369
