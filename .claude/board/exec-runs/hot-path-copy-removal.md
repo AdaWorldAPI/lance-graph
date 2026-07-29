@@ -121,3 +121,101 @@ materialisation and is unexamined.
 **PR #868 remains draft / DO-NOT-MERGE.** The hot-path allocations are fixed;
 the `MetaBasin.members` copies and the `arena()` materialisation are not, and
 the PR's original "materializing path is GONE" claim is retracted in its body.
+
+---
+
+## 8. HOW it was redone without the copy — and why the result is BETTER, not merely equal
+
+The instinct when told "remove the copy" is to fear a trade: fewer allocations,
+more indirection, same work. That is not what happened. In every case the copy
+was **carrying nothing**, so removing it removed work rather than moving it.
+
+### 8.1 `grade_rows` — the copy was a materialised map
+
+**Before.** `(0..len).filter(visible).enumerate().map(grade).collect()` — build
+every `GradedRow`, put them in a heap buffer, hand the buffer back. The caller
+then walked the buffer.
+
+**After.** Identical expression, `.collect()` deleted, return type
+`impl Iterator<Item = GradedRow> + 'a`. The `map` closure is unchanged.
+
+**Why better, not equal.** A `map` over a range IS the projection; `collect` was
+adding a heap buffer between two loops that were already fused. Removing it
+gives: no allocation, no second pass, and — the real win — **grading now happens
+lazily, so a consumer that short-circuits never pays for the rows it does not
+reach.** `tail` filters on `quorum <= tail_below`; under the old shape every row
+was fully graded (quorum sweep AND chain walk) before the first was tested.
+
+**The lifetime is the whole trick.** `grade_rows<'a>(lens: &'a …, visible: &'a impl Fn…)`
+with `move` on both closures ties the iterator to the borrows it reads. No
+`Copy`, no clone, no owned capture — the iterator is a *description* of work
+over borrowed state, which is exactly the lens argument one level up.
+
+### 8.2 `tail` — the copy was a filter that reallocated
+
+**Before.** `tail(graded: &[GradedRow], …) -> Vec<GradedRow>` doing
+`.iter().copied().filter(..).collect()` — a full second buffer, from a buffer
+built one line earlier.
+
+**After.** `tail(graded: impl IntoIterator<Item = GradedRow>, …) -> Vec<GradedRow>`.
+
+**Why better.** Taking `IntoIterator` instead of `&[T]` means the filter fuses
+into the grading iterator: **one pass, one allocation, for what was two of each.**
+And it is strictly more general — a slice still satisfies `IntoIterator`, so
+nothing that could call it before cannot call it now. The remaining `Vec` is
+kept deliberately: `meta_cluster` and `density_scores` need random access, and
+an accumulation that a real algorithm requires is not a copy in the sense the
+law forbids.
+
+### 8.3 `stable_under_perturbation` — the copy hid a computation nobody read
+
+This is the one that produced a genuine algorithmic win rather than an
+allocation win.
+
+**Before.** Inline, per probe:
+```
+let reperturbed: Vec<GradedRow> = (0..lens.len()).filter(visible).enumerate()
+    .map(|(idx,pos)| GradedRow { idx, pos, quorum: 0, trajectory: … }).collect();
+```
+
+**After.** `grade_shapes_at(lens, visible, locus, hops).collect()` — a named,
+lazy, shape-only grading.
+
+**Why better.** Naming the operation exposed what the inline version obscured:
+`meta_cluster` reads **only `.trajectory`**. The inline code already knew this —
+it hardcoded `quorum: 0` — but the *general* `grade_rows` next to it did not,
+and `stability_sweep` calls this **once per budget**, 11 times on the default
+range. Extracting it made the asymmetry legible and let the quorum sweep be
+skipped structurally rather than by a magic literal.
+
+So the change removes, per basin per sweep: **11 heap allocations** AND **11
+full quorum passes** — where a quorum pass is the expensive half (it scans peers;
+the chain walk is `lens.at` lookups). The copy was not the cost. The copy was
+hiding the cost.
+
+### 8.4 The pattern worth keeping
+
+In all three the copy was **an artefact of how the code was written, not of what
+it had to compute**. A `collect` between two loops that are already fused; a
+filter that reallocates what it filters; an inline rebuild that obscures which
+half of the work is dead. None of them was a trade-off being paid for
+correctness — which is why removing them costs nothing and buys laziness,
+generality, and one dead computation deleted.
+
+**This is the substance of the operator's ruling.** "The lens is the performance
+floor — a materialization is strictly worse on BOTH axes" is not a slogan about
+memory. Here it was literally true: the copies were slower AND they concealed
+that a quorum was being computed 11 times per basin and thrown away.
+
+**Measured, both directions:**
+
+| path | before | after |
+|---|---|---|
+| grading → tail | 2 allocations/row, eager | 1 allocation total, lazy |
+| perturbation sweep (default range) | 11 allocs + 11 quorum passes per basin | 0 allocs, 0 quorum passes |
+| generality of `tail` | `&[GradedRow]` only | any `IntoIterator` (slices still work) |
+
+Gates unchanged and green throughout: **325 planner tests**, clippy
+`-D warnings` clean, fmt clean. No test was weakened to accommodate the change —
+the equivalence and anti-vacuity tests from #868 still pass against the same
+oracles.
