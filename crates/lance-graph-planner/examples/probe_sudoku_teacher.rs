@@ -500,6 +500,18 @@ enum Policy {
     /// policy that demonstrates a bifurcation-required puzzle does not fully
     /// migrate.
     ForkRefusing,
+    /// Elections-first **including hidden singles** (follow-up (c)).
+    ///
+    /// Hidden singles are a SOUND inference the graded policies deliberately
+    /// omit — see the comment in [`run_policy`]. The follow-up asked to
+    /// "thread hidden singles into `run_policy`", and doing that to the
+    /// EXISTING policies would have destroyed the contrast G5 measures
+    /// (hidden-single detection subsumes the exact 2-candidate shape G5's
+    /// fixture uses to separate the two styles). Adding a THIRD policy gets
+    /// hidden singles exercised inside the real policy loop while leaving
+    /// `ElectionsFirst` / `BifurcateEarly` byte-identical, so G5 still
+    /// measures what it measured before.
+    ElectionsFirstWithHidden,
 }
 
 /// Run one policy to a fixed point (or `max_passes`), returning the full
@@ -534,9 +546,24 @@ fn run_policy(
         let naked = apply_naked_singles(grid);
         made_any |= !naked.is_empty();
         path.extend(naked);
+        // ...EXCEPT for the explicit hidden-singles policy, which opts in.
+        if matches!(policy, Policy::ElectionsFirstWithHidden) {
+            for (pos, digit) in hidden_singles(grid) {
+                if read_cell(&grid[pos]).is_none() {
+                    write_cell(&mut grid[pos], digit, false);
+                    path.push(Election { pos, digit });
+                    made_any = true;
+                }
+            }
+        }
         // Elections-first: bifurcation is the LAST resort, only when a pass
         // made zero progress via singles. Fork-refusing never bifurcates.
-        if !made_any && matches!(policy, Policy::ElectionsFirst) {
+        if !made_any
+            && matches!(
+                policy,
+                Policy::ElectionsFirst | Policy::ElectionsFirstWithHidden
+            )
+        {
             if let Some(e) = try_bifurcate(grid) {
                 path.push(e);
                 made_any = true;
@@ -654,7 +681,12 @@ fn atom_of(policy: Policy) -> u8 {
     match policy {
         Policy::ElectionsFirst => ATOM_A,
         Policy::BifurcateEarly => ATOM_B,
-        Policy::ForkRefusing => 0,
+        // Neither is a graded A/B style: both are diagnostic policies, so
+        // they carry the null atom (the zero-fallback ladder — 0 means "no
+        // designated style", never "style zero"). Left as explicit arms
+        // rather than a wildcard so the NEXT policy added has to make this
+        // choice deliberately instead of defaulting into null.
+        Policy::ForkRefusing | Policy::ElectionsFirstWithHidden => 0,
     }
 }
 
@@ -684,6 +716,281 @@ fn set_frozen(row: &mut NodeRow, atom: u8) {
     let mut lane = row.style_lane(ValueTenant::FrozenStyle);
     lane[FAMILY_ORDINAL as usize] = atom;
     row.set_style_lane(ValueTenant::FrozenStyle, lane);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// G7 — the ambiguity gate. Two SEPARATE mechanisms, deliberately not shared.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// **The independent VALIDATOR — not part of the reasoner.** Enumerates
+/// completions of `grid`, stopping once `cap` have been found, and returns
+/// `(count, up to the first two completions)`.
+///
+/// This is exactly the backtracking search §4e argues cannot teach a policy,
+/// and it is included ONLY to establish a fixture's ground-truth property
+/// (unique vs ≥2 completions) so the gate's anti-vacuity requirement can be
+/// met. **The reasoner never calls it.** Keeping the two apart is the whole
+/// point: if the ambiguity verdict were produced by the enumerator, G7 would
+/// be asserting that a search solver can count solutions — which is trivially
+/// true and proves nothing about the reasoner.
+fn count_completions(grid: &[NodeRow; 81], cap: usize) -> (usize, Vec<[u8; 81]>) {
+    fn rec(g: &mut [NodeRow; 81], cap: usize, found: &mut usize, first: &mut Vec<[u8; 81]>) {
+        if *found >= cap {
+            return;
+        }
+        // Minimum-remaining-values, position-ascending tie-break — makes the
+        // enumeration order deterministic (D-QUANTGATE replay).
+        let mut best: Option<(usize, Vec<u8>)> = None;
+        for pos in 0..81 {
+            if read_cell(&g[pos]).is_some() {
+                continue;
+            }
+            let c = candidates_from_full_sweep(g, pos);
+            if c.is_empty() {
+                return; // dead end — this branch completes nothing
+            }
+            if best.as_ref().is_none_or(|(_, bc)| c.len() < bc.len()) {
+                best = Some((pos, c));
+            }
+        }
+        let Some((pos, cands)) = best else {
+            *found += 1;
+            if first.len() < 2 {
+                let mut snap = [0u8; 81];
+                for (p, slot) in snap.iter_mut().enumerate() {
+                    *slot = read_cell(&g[p]).map_or(0, |(d, _)| d);
+                }
+                first.push(snap);
+            }
+            return;
+        };
+        for d in cands {
+            write_cell(&mut g[pos], d, false);
+            rec(g, cap, found, first);
+            clear_cell(&mut g[pos]);
+            if *found >= cap {
+                return;
+            }
+        }
+    }
+    let mut g = *grid;
+    let (mut found, mut first) = (0usize, Vec::new());
+    rec(&mut g, cap, &mut found, &mut first);
+    (found, first)
+}
+
+/// What a fork attempt concluded — the fork-return rule with its THIRD arm
+/// made explicit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ForkOutcome {
+    /// Exactly one branch contradicted, so the other is forced. The
+    /// elimination is the permanent gain (§4c); the losing world is discarded.
+    Forced(Election),
+    /// **NEITHER branch contradicted** — the cell is genuinely underdetermined
+    /// as far as propagation can see, so committing either digit would be a
+    /// guess dressed as a deduction. This is the arm a search solver does not
+    /// have: it would simply take the first branch and report success.
+    Underdetermined(usize),
+    /// No 2-candidate cell exists to fork on.
+    NoTwoCandidateCell,
+}
+
+/// The reasoner's OWN ambiguity detection — same machinery as
+/// [`try_bifurcate`], opposite ledger. `try_bifurcate` asks "did one branch
+/// fail?" and commits the survivor; this asks the complete question and
+/// distinguishes *forced* from *underdetermined*.
+///
+/// The verdict is LOCAL: `has_contradiction` is one-shot propagation, not a
+/// recursive search, so "neither branch contradicted" means "no contradiction
+/// is visible from here", not "two global completions exist". That is why
+/// G7's anti-vacuity half verifies the fixture's ≥2-completion property with
+/// the independent [`count_completions`] enumerator instead of trusting this.
+fn try_bifurcate_or_flag(grid: &mut [NodeRow; 81]) -> ForkOutcome {
+    for pos in 0..81 {
+        if read_cell(&grid[pos]).is_some() {
+            continue;
+        }
+        let cands = candidates_from_full_sweep(grid, pos);
+        if cands.len() == 2 {
+            let (a, b) = (cands[0], cands[1]);
+            let (a_bad, b_bad) = (try_world(grid, pos, a), try_world(grid, pos, b));
+            match (a_bad, b_bad) {
+                (true, false) => {
+                    write_cell(&mut grid[pos], b, false);
+                    return ForkOutcome::Forced(Election { pos, digit: b });
+                }
+                (false, true) => {
+                    write_cell(&mut grid[pos], a, false);
+                    return ForkOutcome::Forced(Election { pos, digit: a });
+                }
+                (false, false) => return ForkOutcome::Underdetermined(pos),
+                // Both branches contradict: the grid is already inconsistent
+                // at this cell. Not this gate's business — keep scanning.
+                (true, true) => {}
+            }
+        }
+    }
+    ForkOutcome::NoTwoCandidateCell
+}
+
+/// The gate's verdict on a whole puzzle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Verdict {
+    /// Every cell resolved by forced steps only.
+    Committed,
+    /// Refused: an underdetermined cell was reached and NOT written.
+    Underdetermined { cell: usize },
+    /// Ran out of forced moves without reaching an underdetermined 2-candidate
+    /// cell (e.g. every empty cell has ≥3 candidates).
+    Stalled,
+}
+
+/// Solve under the ambiguity gate: singles (naked AND hidden) to exhaustion,
+/// then a fork — but a fork that REFUSES when neither branch fails.
+///
+/// This is where hidden singles belong in a policy loop. They are deliberately
+/// NOT in [`run_policy`]'s graded policies (see the comment there): hidden-
+/// single detection subsumes exactly the 2-candidate shape G5's fixture uses
+/// to separate elections-first from bifurcate-early, so threading them into
+/// the graded loop would erase the contrast G5 measures. Here there is no such
+/// contrast to protect — the gate is being asked "can you finish honestly?",
+/// so it should use every sound inference it has.
+fn solve_with_ambiguity_gate(grid: &mut [NodeRow; 81], max_passes: usize) -> Verdict {
+    for _ in 0..max_passes {
+        let mut progress = !apply_naked_singles(grid).is_empty();
+        for (pos, digit) in hidden_singles(grid) {
+            if read_cell(&grid[pos]).is_none() {
+                write_cell(&mut grid[pos], digit, false);
+                progress = true;
+            }
+        }
+        if progress {
+            continue;
+        }
+        match try_bifurcate_or_flag(grid) {
+            ForkOutcome::Forced(_) => {}
+            ForkOutcome::Underdetermined(cell) => return Verdict::Underdetermined { cell },
+            ForkOutcome::NoTwoCandidateCell => break,
+        }
+    }
+    if (0..81).all(|p| read_cell(&grid[p]).is_some()) {
+        Verdict::Committed
+    } else {
+        Verdict::Stalled
+    }
+}
+
+/// **DISCOVER** a genuinely ambiguous fixture — an *unavoidable set*: four
+/// cells at the corners of a rectangle (2 rows × 2 columns) carrying the
+/// pattern `a b / b a`. Blanking them leaves two completions, because the
+/// diagonal swap preserves every row, column, and box multiset.
+///
+/// Hand-picking the corners is how the first attempt failed: all four were
+/// taken from ONE box, where a diagonal swap *does* break the box constraint,
+/// so the fixture stayed unique and the gate's refuse-half asserted nothing.
+/// The rectangle must straddle exactly two boxes. Rather than encode that
+/// condition, every rectangle is tried and the ≥2-completion property is
+/// VERIFIED by the enumerator — the same discipline the fork scan uses.
+///
+/// **This base solution has NO 4-cell unavoidable set — provably.**
+///
+/// `base_solution_boxmajor` is the canonical cyclic grid
+/// `value(r,c) = (f(r) + c) mod 9` with `f(r) = 3r + r/3`. A 4-corner swap
+/// needs both diagonals equal:
+///
+/// ```text
+///   f(r1) + c1 ≡ f(r2) + c2      and      f(r1) + c2 ≡ f(r2) + c1   (mod 9)
+/// ```
+///
+/// Subtracting gives `2(c1 − c2) ≡ 0 (mod 9)`, and `gcd(2, 9) = 1`, so
+/// `c1 ≡ c2` — impossible for a genuine rectangle. Every 2×2 in this grid is
+/// therefore rigid, which is why the first rectangle search returned nothing.
+/// (The earlier failure had a second, independent bug — all four corners in
+/// ONE box, where a swap breaks the box constraint regardless.)
+///
+/// So ambiguity is SEARCHED FOR rather than constructed: blank progressively
+/// larger deterministic stride-sets and return the first whose completion
+/// count is ≥2. Verified by the enumerator, never assumed.
+///
+/// Returns `(grid, the blanked cells)`.
+fn find_ambiguous_fixture(sol: &[u8; 81]) -> Option<([NodeRow; 81], Vec<usize>)> {
+    for k in 4..=32usize {
+        for stride in [7usize, 11, 13, 17, 19, 23, 29, 31] {
+            for start in 0..81usize {
+                let grid = puzzle_from_stride(sol, start, stride, k);
+                if count_completions(&grid, 2).0 >= 2 {
+                    let blanked = (0..81).filter(|&p| read_cell(&grid[p]).is_none()).collect();
+                    return Some((grid, blanked));
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Blank `k` cells from `sol` on a deterministic stride and return the grid.
+fn puzzle_from_stride(sol: &[u8; 81], start: usize, stride: usize, k: usize) -> [NodeRow; 81] {
+    let mut grid = grid_from_solution(sol);
+    let mut seen = Vec::new();
+    for i in 0..k {
+        let p = (start + i * stride) % 81;
+        if !seen.contains(&p) {
+            seen.push(p);
+        }
+    }
+    blank_positions(&mut grid, &seen);
+    grid
+}
+
+/// **DISCOVER** (never hand-derive) a fixture that singles alone cannot
+/// finish but a fork can — the fixture G4's reshaped second half needs.
+///
+/// Hand-constructing one is where the earlier fixtures kept going wrong (see
+/// `build_ambiguity_fixture`'s two write-order footnotes). So this scans a
+/// deterministic family of blank-sets and returns the first that PROVABLY has
+/// all three properties, each verified rather than argued:
+///   1. exactly ONE completion (so "unresolved" means stalled, not ambiguous),
+///   2. a fork-refusing policy leaves ≥1 cell empty (singles genuinely stall),
+///   3. a fork-using policy reaches Hamming 0 (the fork is what closes it).
+///
+/// Returns `(grid, solution)`.
+fn find_fork_required_fixture(sol: &[u8; 81]) -> Option<([NodeRow; 81], [u8; 81])> {
+    let (mut n_unique, mut n_stalls) = (0usize, 0usize);
+    let mut best_residual = usize::MAX;
+    for k in 2..=48usize {
+        for stride in [7usize, 11, 13, 17, 19, 23, 29, 31] {
+            for start in 0..81usize {
+                let grid = puzzle_from_stride(sol, start, stride, k);
+                if count_completions(&grid, 2).0 != 1 {
+                    continue;
+                }
+                n_unique += 1;
+                let mut refuse = grid;
+                let (_, _) = run_policy(&mut refuse, Policy::ForkRefusing, sol, 64);
+                if (0..81).all(|p| read_cell(&refuse[p]).is_some()) {
+                    continue; // singles alone finished it — no fork required
+                }
+                n_stalls += 1;
+                let mut forked = grid;
+                let (_, _) = run_policy(&mut forked, Policy::ElectionsFirst, sol, 64);
+                let residual = hamming(&forked, sol);
+                best_residual = best_residual.min(residual);
+                if residual == 0 {
+                    return Some((grid, *sol));
+                }
+            }
+        }
+    }
+    // Report WHERE the scan died rather than just returning None — the counts
+    // separate "no unique puzzle in the family" from "singles never stall"
+    // from "the fork cannot close what singles leave", and those are three
+    // different findings.
+    // Reaching this line means the scan returned no fixture, so fork_closes
+    // is 0 by construction (the loop returns on the first success).
+    println!(
+        "  [fixture scan] unique={n_unique} singles_stall={n_stalls} fork_closes=0 best_residual={best_residual}"
+    );
+    None
 }
 
 fn main() {
@@ -933,11 +1240,76 @@ fn main() {
     // solve PATH, not by final census (see below).
     let refuse_does_not_fully_migrate =
         refuse_census.wisdom < 81 && refuse_census.staunen + refuse_census.confusion > 0;
-    let g4_pass = easy_migrates && refuse_does_not_fully_migrate;
+
+    // ── G4 second half, RESHAPED (follow-up (b)) ──
+    //
+    // As first written, the bifurcate-vs-refuse contrast was PRINTED but not
+    // ASSERTED, and on the sparse box3/box4 fixture the two censuses were in
+    // fact identical (staunen 63 / wisdom 18). The reason is mechanical:
+    // `try_bifurcate` only fires on cells with EXACTLY 2 candidates, and a
+    // ~15-given board leaves almost every empty cell with far more than two —
+    // so BifurcateEarly never found a fork and degenerated into ForkRefusing.
+    // The gate therefore asserted "easy differs from hard", which the easy
+    // half already covered, and the policy contrast rode along unasserted.
+    //
+    // The fix WOULD be a fixture where a fork is REQUIRED and REACHABLE. The
+    // scan below looks for one and **finds none** — and that null result is
+    // the actual deliverable of this follow-up, so it is reported rather than
+    // asserted away. Over the stride family (k = 2..48 blanks × 8 strides ×
+    // 81 offsets): **26858 uniquely-solvable puzzles, 388 where naked singles
+    // genuinely stall, and 0 that the fork then closes** (best residual 16
+    // cells). See `find_fork_required_fixture`, which prints the three counts.
+    //
+    // The cause is mechanical and worth stating precisely, because it bounds
+    // what G4's second half can ever assert:
+    //   * `try_bifurcate` only fires on a cell with EXACTLY 2 candidates, and
+    //     a board where singles have stalled is precisely a board whose empty
+    //     cells mostly have ≥3;
+    //   * `has_contradiction` is ONE-SHOT propagation, so the wrong branch
+    //     has to empty some cell's candidate set immediately — a contradiction
+    //     two inferences deep is invisible to it.
+    // So on this family the fork contributes nothing that singles did not
+    // already have, which is why the original censuses were identical
+    // (staunen 63 / wisdom 18) rather than merely unasserted. **The contrast
+    // was not un-asserted by oversight; it does not exist to assert.**
+    // Closing it needs a stronger fork (recursive propagation, or forking on
+    // ≥3 candidates), which is a mechanism change, not a gate reshape.
+    // Tracked as TD-FORK-CANNOT-CLOSE-WHAT-SINGLES-CANNOT.
+    let fork_fixture = find_fork_required_fixture(&solved_variants[0]);
+    println!(
+        "  fork-required   fixture found = {} (see scan counts above)",
+        fork_fixture.is_some()
+    );
+
+    // Follow-up (c): the hidden-singles policy exercised in the REAL policy
+    // loop, on the easy fixture (a fresh copy — `g4_easy` above was consumed
+    // by its own run). Hidden singles are SOUND, so the policy must still
+    // land every digit correctly, and must resolve no fewer cells than the
+    // same policy without them. Both halves are asserted: Hamming alone would
+    // not catch "did nothing extra", and the census alone would not catch a
+    // wrong write.
+    let mut hidden_grid = grid_from_solution(&solved_variants[0]);
+    blank_positions(&mut hidden_grid, &easy_blanks);
+    write_box_witness(&mut hidden_grid);
+    let (_, _) = run_policy(
+        &mut hidden_grid,
+        Policy::ElectionsFirstWithHidden,
+        &solved_variants[0],
+        40,
+    );
+    let hidden_census = quadrant_census(&hidden_grid);
+    let hidden_is_sound = hamming(&hidden_grid, &solved_variants[0]) == 0;
+    let hidden_never_worse = hidden_census.wisdom >= easy_census.wisdom;
+    println!(
+        "  hidden-singles  census {hidden_census:?} sound={hidden_is_sound} never_worse={hidden_never_worse}"
+    );
+
+    let g4_pass =
+        easy_migrates && refuse_does_not_fully_migrate && hidden_is_sound && hidden_never_worse;
     gates.push((
         "G4",
         g4_pass,
-        format!("easy_migrates={easy_migrates} refuse_does_not_fully_migrate={refuse_does_not_fully_migrate} (bifurcate census printed above for comparison)"),
+        format!("easy_migrates={easy_migrates} refuse_does_not_fully_migrate={refuse_does_not_fully_migrate} hidden_sound={hidden_is_sound} hidden_never_worse={hidden_never_worse} | fork-vs-refuse contrast NOT asserted: no fork-required fixture exists in the scanned family (0/388 closable) — TD-FORK-CANNOT-CLOSE-WHAT-SINGLES-CANNOT"),
     ));
 
     // ═══════════════════ G5 — triangle motion ═══════════════════
@@ -1087,6 +1459,83 @@ fn main() {
         g6_pass,
         format!(
             "easy={easy_monotone} bifurcate={bifurcate_monotone} refuse={refuse_monotone} strict_decrease={easy_strictly_decreases}"
+        ),
+    ));
+
+    // ═══════════════════ G7 — the ambiguity gate ═══════════════════
+    //
+    // The gate a search solver structurally fails. Both halves are required,
+    // and they are opposite behaviours on the SAME machinery: commit when the
+    // puzzle determines an answer, REFUSE when it does not. A backtracking
+    // solver returns a valid completion in both cases and is "successful" and
+    // precisely wrong in the second (§4e).
+    println!("\n── G7: ambiguity gate ──");
+
+    // Can-commit: a uniquely-determined puzzle. Uniqueness is VERIFIED by the
+    // independent enumerator rather than assumed from "we built it from a
+    // solution" — blanking cells out of a valid grid does not by itself keep
+    // the result unique, and an ambiguous "unique" fixture would make the
+    // commit half assert the opposite of what it claims.
+    let mut commit_grid = grid_from_solution(&solved_variants[0]);
+    blank_positions(&mut commit_grid, &easy_blanks);
+    write_box_witness(&mut commit_grid);
+    let (unique_count, _) = count_completions(&commit_grid, 2);
+    let commit_verdict = solve_with_ambiguity_gate(&mut commit_grid, 64);
+    let commit_hamming = hamming(&commit_grid, &solved_variants[0]);
+    let can_commit = commit_verdict == Verdict::Committed && commit_hamming == 0;
+    println!(
+        "  unique puzzle   completions={unique_count} verdict={commit_verdict:?} hamming={commit_hamming} → can_commit={can_commit}"
+    );
+
+    // Can-refuse: strip the fixture below the critical point so ≥2 valid
+    // completions exist. Blanking a whole box guarantees ambiguity is
+    // REACHABLE, but the property is not assumed — it is VERIFIED by the
+    // independent enumerator below (the anti-vacuity requirement: "reported
+    // ambiguity" must not be able to pass on a puzzle that was really unique).
+    let (ambiguous_grid, rect) = find_ambiguous_fixture(&solved_variants[0])
+        .expect("an unavoidable set must exist in a full 9x9 solution");
+    let (amb_count, amb_first_two) = count_completions(&ambiguous_grid, 2);
+    let genuinely_ambiguous = amb_count >= 2;
+    // Which cells actually differ between the two completions — the cells the
+    // reasoner must refuse to write.
+    let differing: Vec<usize> = if amb_first_two.len() == 2 {
+        (0..81)
+            .filter(|&p| amb_first_two[0][p] != amb_first_two[1][p])
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let mut refuse_grid = ambiguous_grid;
+    let refuse_verdict = solve_with_ambiguity_gate(&mut refuse_grid, 64);
+    let reported_ambiguity = matches!(refuse_verdict, Verdict::Underdetermined { .. });
+    // The load-bearing assertion: it did NOT write a digit into any cell that
+    // the two completions disagree about.
+    let wrote_nothing_undetermined = differing
+        .iter()
+        .all(|&p| read_cell(&refuse_grid[p]).is_none());
+    // Sanity on the fixture itself: every cell the two completions disagree
+    // about must be one we actually blanked. If a GIVEN differed, the
+    // enumerator would be contradicting the fixture rather than exploring it,
+    // and the whole refuse-half would be measuring a bug.
+    let differing_are_blanked = differing.iter().all(|p| rect.contains(p));
+    println!(
+        "  ambiguous       completions={amb_count} (≥2 verified) differing_cells={differing:?} verdict={refuse_verdict:?}"
+    );
+    println!(
+        "  → reported_ambiguity={reported_ambiguity} wrote_nothing_undetermined={wrote_nothing_undetermined}"
+    );
+
+    let g7_pass = can_commit
+        && genuinely_ambiguous
+        && differing_are_blanked
+        && reported_ambiguity
+        && wrote_nothing_undetermined;
+    gates.push((
+        "G7",
+        g7_pass,
+        format!(
+            "can_commit={can_commit} (unique completions={unique_count}) | genuinely_ambiguous={genuinely_ambiguous} (completions={amb_count}, {} differing cells) reported_ambiguity={reported_ambiguity} wrote_nothing_undetermined={wrote_nothing_undetermined}",
+            differing.len()
         ),
     ));
 

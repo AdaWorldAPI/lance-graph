@@ -535,6 +535,49 @@ honest (that IS the metric) but thin; a wider-margin fixture would be sturdier.
 bifurcate-vs-refuse is the asserted contrast; (c) thread hidden singles into
 `run_policy` with a policy distinction that survives it.
 
+> **⊘ ALL THREE RESOLVED 2026-07-29 — one shipped, one REFUSED with a number,
+> one granted in a different shape** (`E-A-NULL-RESULT-IS-THE-DELIVERABLE-1`;
+> probe re-run ALL GATES GREEN, now G1–G7).
+>
+> **(a) G7 — SHIPPED.** Both halves green: commit on a verified-unique puzzle
+> (Hamming 0), `Underdetermined { cell: 0 }` + no digit written into any of
+> the 6 differing cells on a verified-ambiguous one (2 completions). Two
+> deliberately separate mechanisms: the reasoner refuses via its own
+> `try_bifurcate_or_flag` (the fork's third arm — *neither* branch
+> contradicting), while `count_completions` establishes the fixture's
+> ground truth and **is never called by the reasoner**. Falsifier proven:
+> flipping the refuse arm to "commit the first candidate" — a backtracking
+> solver's behaviour — fails G7 on both refuse assertions with `can_commit`
+> still true.
+>
+> **(b) G4 re-shape — REFUSED, and the refusal is the finding.** The contrast
+> does not exist to assert on this puzzle family. Scan (k = 2..48 × 8 strides
+> × 81 offsets): **26858 unique, 388 singles-stall, 0 fork-closable**, best
+> residual 16. Cause is structural — `try_bifurcate` needs exactly-2-candidate
+> cells, but a singles-stalled board has mostly ≥3; and `has_contradiction` is
+> one-shot, so a contradiction two inferences deep is invisible. The identical
+> censuses (staunen 63 / wisdom 18) were the two policies genuinely agreeing,
+> not a missing assertion. G4 states the non-contrast in its detail line;
+> `TD-FORK-CANNOT-CLOSE-WHAT-SINGLES-CANNOT` holds the numbers and the
+> falsifiable close condition (`fork_closes > 0`). Closing it needs a stronger
+> fork — a mechanism change, not a gate edit.
+>
+> **(c) hidden singles — GRANTED IN A DIFFERENT SHAPE.** Threading them into
+> the existing policies would have erased what G5 measures (hidden-single
+> detection subsumes G5's 2-candidate separator, collapsing both graded
+> policies to one path). Landed as a third policy, `ElectionsFirstWithHidden`,
+> inside the same `run_policy` loop; the two graded policies are byte-identical
+> to before. G4 asserts both halves: still solves correctly (Hamming 0 — catches
+> a wrong write) and resolves no fewer cells (catches "did nothing extra").
+>
+> **Bonus finding, worth more than any of the three:** `base_solution_boxmajor`
+> is the cyclic grid `value(r,c) = (f(r)+c) mod 9`, and a 4-corner swap needs
+> `2(c₁−c₂) ≡ 0 (mod 9)` with `gcd(2,9)=1` ⟹ `c₁=c₂`. **No 2×2 in it is
+> swappable**, so the classic unavoidable-set fixture cannot exist here at all —
+> a fixture family can be structurally incapable of exhibiting the property
+> about to be tested, and a search that reports its counts finds that out where
+> an `expect()` reports nothing.
+
 ## 4e. Comparison baseline: `zackthoutt/sudoku-ai` — search vs REASONING
 
 > Operator, 2026-07-29: *"for comparison — needs reimagining using logical

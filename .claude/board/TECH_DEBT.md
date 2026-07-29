@@ -1,5 +1,52 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-FORK-CANNOT-CLOSE-WHAT-SINGLES-CANNOT (2026-07-29)
+
+**Measured, not suspected.** `probe_sudoku_teacher`'s fixture scan over the
+stride family (k = 2..48 blanks × 8 strides × 81 offsets) reports:
+
+```
+unique=26858   singles_stall=388   fork_closes=0   best_residual=16
+```
+
+26858 uniquely-solvable puzzles; 388 where naked singles genuinely stall; and
+**zero** that `try_bifurcate` then closes — the best fork-assisted run still
+leaves 16 cells wrong. So on this family the fork contributes NOTHING beyond
+what singles already had.
+
+**Two compounding causes, both structural:**
+
+1. `try_bifurcate` fires only on a cell with EXACTLY 2 candidates. A board on
+   which singles have stalled is precisely a board whose empty cells mostly
+   carry ≥3 — the two conditions are near-disjoint by construction.
+2. `has_contradiction` is ONE-SHOT propagation (an empty candidate set
+   somewhere). The wrong branch must therefore *immediately* empty some cell;
+   a contradiction two inferences deep is invisible, so `try_world` returns
+   "no contradiction" for branches that are in fact dead.
+
+**What this bounds.** The G4 follow-up asked to re-shape the gate so
+bifurcate-vs-refuse is the ASSERTED contrast rather than merely printed. It
+cannot be: the contrast does not exist to assert on this family. The two
+censuses were identical (staunen 63 / wisdom 18) not because the gate forgot
+to check, but because the two policies genuinely do the same thing there. G4
+now says so explicitly in its detail line instead of implying an untested
+contrast.
+
+**Cost of the naive fix.** Asserting `fork_beats_refuse` would have needed a
+hand-built fixture, and a hand-built fixture is exactly what the two
+`build_ambiguity_fixture` write-order footnotes already warn about — the
+earlier fixtures kept "working" for the wrong reason. The scan exists so the
+fixture's properties are VERIFIED (unique / stalls / closes) rather than
+argued.
+
+**To close this:** strengthen the fork, which is a mechanism change, not a
+gate reshape — either recursive propagation inside `try_world` (so deep
+contradictions are visible) or forking on ≥3 candidates (so the fork can
+reach the cells that actually block a stalled board). Either is a real design
+decision with a cost, and neither should be smuggled in under a gate edit.
+Re-run the scan afterwards: `fork_closes > 0` is the falsifiable success
+condition, and `best_residual` is the progress metric while it is still 0.
+
 ## TD-LENS-FACET-BY-VALUE-DECLINED (2026-07-29)
 
 **Codex P2 on #863** (`witness_fabric.rs:284`, "Keep lens facets borrowed
