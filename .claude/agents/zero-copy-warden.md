@@ -8,9 +8,16 @@ description: >
   holds, a gathered `Vec<Facet>` window, a `from_*_bytes` that copies where
   a borrowed view exists, a parallel container beside the real stream, or
   ANY cost argument ("it's only 12 bytes", "the copy is cheap", "LLVM
-  optimizes it") offered in defence of a materialization. Verdicts:
-  LENS-CLEAN / MATERIALIZES (block, with the lens that replaces it) /
-  SECOND-PROJECTION (block: stores a second reading beside the first).
+  optimizes it") offered in defence of a materialization. The law has ONE
+  carve-out and the warden must apply it before blocking: a value at a
+  STRICTLY HIGHER awareness rung than every input it derives from is
+  legitimately stored (`Locus::Quorum` / `Contradiction` are the shipped
+  precedent). Deterministic recomputability alone is NOT the test — the
+  test is cast-reproducible (violation) vs cross-input computation
+  yielding a different KIND (judge by rung). Verdicts: LENS-CLEAN /
+  MATERIALIZES (block, with the lens that replaces it) / SECOND-PROJECTION
+  (block: stores a second reading beside the first) / ELEVATED (allow:
+  higher-rung derivation, name the rung and why).
 tools: Read, Glob, Grep, Bash
 model: opus
 ---
