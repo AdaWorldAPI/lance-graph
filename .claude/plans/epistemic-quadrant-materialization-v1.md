@@ -1,133 +1,144 @@
-# Epistemic quadrant materialization — grey/white, and what may be written
+# Plasticity materialization — grey/white as MECHANISM, over the B6 stance panel
 
 > **Status: PROPOSED.** Operator direction 2026-07-29: *"We can slowly switch to
 > the idea of materializing thoughts as a grey matter / white matter explicit
 > materialization for testing of known unknowns, unknown unknowns, unknown knowns
-> and known knowns."* **"Slowly" is load-bearing** — this doc exists so the
-> criterion is settled before any lane is minted. Nothing here is built.
+> and known knowns."* → clarified: ***"I'm talking about brain plasticity."***
 >
-> Companion: `.claude/knowledge/zero-copy-lens-law.md` § "The one apparent
-> exception" (the rung test) and § "Grey and white" (the anatomy).
+> **⊘ CORRECTED, same session, by the operator.** The first draft of this doc
+> read "the four quadrants" as an *epistemic taxonomy* and built a storage-
+> eligibility rulebook around it. Wrong axis. Grey/white matter is a
+> **mechanism** — two distinct plasticity processes — and the quadrants are what
+> you *test* by running it, not a filing system. The correction matters because
+> the taxonomy reading produced a design about **what may be stored**, while the
+> mechanism reading produces a design about **what changes when you think**.
+> Those are different systems. Second operator correction, same session: *"only
+> 10 h ago you wired Wittgenstein, Kant, Hegel and Nietzsche and you already
+> forgot about it"* — the arena this runs over already exists (§3); the first
+> draft invented an abstract one.
 
-## 1. The matrix already exists — under its affective name
+## 1. The two mechanisms (this is the whole idea)
 
-`ndarray::hpc::entropy_ladder::Quadrant::classify(entropy, energy)` → four
-variants. It is the Rumsfeld matrix, reached from qualia rather than epistemics:
+Neuroscience distinguishes two plasticity processes, and they are not variants of
+each other:
 
-| entropy × energy | affective | epistemic | what it means here |
-|---|---|---|---|
-| low H, high c | `Wisdom` | **known known** | collapsed and evidenced — the committed lanes |
-| high H, low c | `Staunen` | **known unknown** | surprise registered, entropy work not yet paid |
-| high H, high c | `Confusion` | **unknown known** | material present, no ClassView elects it |
-| low H, low c | `Boredom` | **unknown unknown** | no surprise *because there is no receptor* |
-
-**Do NOT mint a second enum.** Reuse `Quadrant`; if the epistemic reading needs
-to be nameable, it is a `#[doc]` mapping or an accessor, never a parallel type —
-that is the prior-art failure mode (one insight, two ids, a divided search
-surface for every future session).
-
-**The asymmetry that drives the whole design:** `Boredom` and `Wisdom` differ
-only by evidence (both are low-entropy). So the unknown-unknown quadrant is
-*indistinguishable from settledness from the inside*. It cannot be detected by
-any read; it can only be detected by a probe that **fails**. This is why the
-operator's framing is "for testing" and not "for storing."
-
-## 2. The trap — and the rule that defuses it
-
-"Materializing thoughts" reads as licence to store everything. Under the law it
-is not, and the rung test disqualifies the obvious first move:
-
-> `Quadrant::classify(entropy, energy)` is a **pure function of two scalars that
-> are already readable from lanes.** It is therefore recomputable from the lens,
-> which by the law's own falsifier makes storing it a **cache with a correctness
-> liability, not a memory.**
-
-So the discipline, and it is the whole of this design:
-
-| | recomputable from the lens? | verdict |
+| | **grey matter** — synaptic | **white matter** — myelination |
 |---|---|---|
-| a quadrant **assignment** | yes — `classify(H, c)` | **projection. Never stored.** |
-| a quadrant **trajectory** | yes — episodic = Lance versions (`QueryReference::at`) | **projection. Never stored.** |
-| a probe **outcome** (held-out test failed here) | **no — the world answered** | **observation. Stored.** |
-| "no reader elected this structure until sweep S" | **no — it is a fact about the projection surface, which is in no lane** | **elevation. Stored.** |
+| what changes | synapse strength, dendritic spines | myelin thickness on the axon |
+| what that does | changes **what** is associated | changes **conduction velocity** — *how fast a path carries* |
+| timescale | fast, local, reversible | slower, structural, activity-dependent |
+| in this substrate | belief/content revision (NARS truth on the SPO arena) | **edge conductance** — which traversal is cheap |
 
-**Assignment is a projection; the test outcome is an observation.** That single
-line is what keeps this from undoing the zero-copy arc. Anything eligible to be
-written here earns it by being *evidence the substrate did not already contain* —
-never by being expensive to recompute.
+The load-bearing fact: **myelin stores no content.** It does not copy the signal;
+it changes how fast the existing path carries it. A path used repeatedly gets
+myelinated → becomes faster → is more likely used again. That is the entire
+reinforcement loop, and it is *structural*, not representational.
 
-## 3. Placement: grey vs white
+## 2. Why this dissolves the tension the first draft agonized over
 
-Per `zero-copy-lens-law.md` § "Grey and white":
+The first draft spent its length deciding *which derived values may be stored*.
+Under the mechanism reading that question mostly evaporates:
 
-- **Grey (content)** — known knowns already live here. The corpus rows. This
-  quadrant mints **nothing new**; proposing a "known-knowns tenant" is the
-  second-projection anti-pattern with a philosophy hat on.
-- **White (connectivity)** — the other three are all statements about the
-  *projection surface*, not about content:
-  - known unknown → a **marked missing** connection (where a read should have
-    landed and did not);
-  - unknown known → an **unelected** connection (present, no ClassView reads it);
-  - unknown unknown → the **boundary** of the connection space (where the
-    codebook has no centroid, residuals spike, the quorum has no witnesses).
+> **A plasticity update is not a materialization.** It writes a **weight onto an
+> edge that already exists** — conductance, not content. There is no second
+> projection, because nothing is re-represented.
 
-That all three land in white matter is a result, not a convenience: it is the
-same fence as *"cross-tenant pointers are legitimate; cross-tenant values are
-not."*
+This is what the operator's earlier ruling meant by *"the entropy work is stored
+and can be reused for further reasoning"*: the reuse is not a cached answer, it
+is a **cheaper path to re-deriving it**. Consistent with the whole zero-copy arc —
+the lens stays the only read, and what changes is the cost gradient over lanes.
 
-## 4. Prior art to consume, never re-derive
+Two constraints inherited, non-negotiable:
 
-| surface | where | covers |
+- **Write-back is gated** (`.claude/rules/borrow-strategy.md`): single writer →
+  gated XOR; multiple writers → BUNDLE. **Never raw `=`** onto shared state.
+- **Plasticity is a MAGNITUDE, so it bundles.** Per `I-SUBSTRATE-MARKOV`, the
+  magnitude side uses `vsa_bundle`, never `MergeMode::Xor` — XOR on magnitudes
+  breaks the Chapman-Kolmogorov semigroup. (Sign side may XOR; magnitude may not.
+  Two operators, two algebras — the OGAR two-algebra rule.)
+
+## 3. The arena already exists — B6's four stances
+
+`probe_babel_stances.rs:233`: *"the SAME register switches philosopher stance
+(B6's Kant / Hegel / Nietzsche / Wittgenstein panel = **four ClassView
+projections of one crystal**)."* Four readers, one arena. That is precisely what
+plasticity acts on, and it makes each quadrant concrete rather than abstract:
+
+| quadrant | over the stance panel | detectable how |
 |---|---|---|
-| `Quadrant::classify` | `ndarray::hpc::entropy_ladder` | the 2×2 itself |
-| `DkPosition` (MountStupid → PlateauOfMastery) | `planner/cache/triple_model.rs` | the meta-confidence axis over self/user/impact |
-| `curiosity_mul` (D-SCI-4) | planner MUL | the exploration gateway — where to spend entropy work |
-| D-SRS-3 basin self-codes + held-out gate | — | "where am I uncertain", already with a held-out falsifier |
-| D-SRS-3b evidence-composite basin uncertainty | — | operator-corrected uncertainty compositing |
-| D-SRS-4 derivation provenance + confidence delta | — | the self-reference falsifier |
-| `Locus::Quorum` / `Locus::Contradiction` | `causal_witness.rs` | the shipped precedent for *stored* entropy work |
-| `world_model.rs` / `world_map.rs` | contract | `WorldModelDto` quadrant-snapshot (self / other / …) |
+| **known known** | all four stances converge; path myelinated | agreement + high conductance |
+| **known unknown** | stances **disagree**, and the divergence is registered | B6 already measures cross-stance divergence |
+| **unknown known** | a stance that *would* resolve it exists in the panel but is **never elected** | sweep: projections with no route |
+| **unknown unknown** | **no** stance in the panel has a receptor | the panel fails *collectively* — needs a fifth stance |
 
-The known-unknown quadrant is **substantially already built** (D-SRS-3/3b +
-curiosity_mul). The genuinely new work is the other two.
+The third row is the payoff, and it is why the abstract first draft was worse
+than useless: "unelected connection" sounded like a metaphor. Here it is a
+countable thing — *four ClassViews exist over one register; if only one is ever
+elected, the other three are unknown knowns by construction.*
 
-## 5. Falsifiers — required before any lane is minted
+## 4. Measured state of the mechanism (2026-07-29)
 
-Per the P0 falsifiability rule, each must have both halves:
+| surface | where | state |
+|---|---|---|
+| `PlasticityState` (3-bit S/P/O per-plane hot/frozen) | `causal-edge/src/plasticity.rs` | wired on `CausalEdge64`; **23 `ALL_FROZEN`, 11 `ALL_HOT`, 3 selective** call sites |
+| `PlasticityEngine` (STDP + Hebbian + homeostatic) | `holograph/src/rl_ops.rs:1128` | **ZERO users outside holograph** |
+| STDP timing markers | `holograph/src/width_16k/schema.rs:439` | present |
+| NARS self-reinforcement LoRA | ndarray `hpc/causal_diff.rs` | present |
 
-- **F1 — the unknown-known sweep can FIRE and can STAY SILENT.** On a corpus with
-  deliberately unelected structure it must find it; on a corpus where every lane
-  has a reader it must return empty. A sweep that reports "latent structure" on
-  every input carries exactly as much information as one that never fires.
-- **F2 — the unknown-unknown boundary is only credible from a FAILED probe.**
-  Assert the held-out set is non-trivial (`kept * 3 < total`-style anti-vacuity),
-  and that a probe which succeeds does *not* mark a boundary. A boundary detector
-  that fires without a failure is measuring its own prior.
-- **F3 — the recompute falsifier, on every stored value.** Recompute it from the
-  lens; if it comes back equal, it was a projection and must be deleted. This is
-  the mechanical guard against § 2's trap and applies to every field, forever.
-- **F4 — quadrant migration must be observable.** Paying entropy work on a
-  `Staunen` item must move it (`Staunen → Confusion → Wisdom`), and *not* moving
-  under investment is itself the finding. Without this the quadrant is decoration
-  (the `heel_threshold` inertness lesson).
+**The finding: the field and the engine are in different crates and are not
+connected.** `PlasticityState` records *whether* a plane may change;
+`PlasticityEngine` knows *how* something changes. Nothing routes one to the
+other, so no traversal currently updates any conductance. The state is not
+"frozen" (11 sites do go hot) — it is **inert**: hot and frozen currently lead to
+the same behaviour, because nothing consumes the bit to modulate a path.
 
-## 6. Sequencing (explicitly NOT now)
+That inertness is the first thing to falsify, per the P0 rule: *a knob that
+changes nothing is decoration.*
 
-Ordered behind the declared priorities — W6 antecedent binder, the ZC-2
-remainder, W8 hygiene:
+## 5. Falsifiers — required before any wiring lands
 
-1. **Q0 — census, no code.** Map every existing lane to grey/white and to a
-   quadrant. The `zero-copy-lens-law.md` grey/white table is flagged *"the
-   governing frame, not a census"*; this closes that gap and is the honest
-   prerequisite for everything below.
-2. **Q1 — the unknown-known sweep** (F1). Highest value, lowest risk: it reads
-   the existing surface and mints nothing. It answers "what does the substrate
-   already hold that nothing reads?"
-3. **Q2 — probe-outcome storage** (F2 + F3). The first genuinely new stored
-   evidence. Needs a named source before a lane — the `revisions:` lesson:
-   *if you cannot name what the borrow borrows from, you are not ready.*
-4. **Q3 — migration accounting** (F4). Only meaningful once Q1/Q2 exist.
+- **P1 — the hot/frozen bit must be INERTNESS-TESTABLE.** Flipping
+  `ALL_HOT`→`ALL_FROZEN` on a path under repeated traversal must change an
+  observable; if both produce identical behaviour the bit is decoration. This is
+  the `heel_threshold` lesson applied to the substrate's own plasticity flag.
+- **P2 — reinforcement must be OBSERVABLE and BOUNDED.** Repeated traversal must
+  measurably increase conductance (fire), and a path *not* traversed must not
+  drift (stay silent). Both halves. Plus saturation: unbounded reinforcement is
+  the runaway that homeostatic plasticity exists to prevent — assert a ceiling.
+- **P3 — content must NOT change.** The zero-copy guard for this whole design:
+  after a plasticity update, re-read the arena through the lens and assert the
+  **bytes are identical**. Conductance changed; content did not. If content
+  moved, this stopped being myelination and became a write.
+- **P4 — stance election must actually shift.** Over B6's panel, reinforcing one
+  stance must change which ClassView is elected on a later pass — and the other
+  three must remain *reachable* (a myelinated favourite that makes the others
+  unreachable is pathology, not learning). This is the unknown-known detector's
+  own falsifier.
 
-**Gate:** no lane is minted before its falsifier is green. If Q1's sweep cannot
-demonstrate both halves of F1 on a real corpus, the next deliverable is the
-probe, not more design.
+## 6. Sequencing (explicitly NOT now — behind W6 / ZC-2 / W8)
+
+1. **P0-census** — map `PlasticityState` consumers: who reads the bit, and does
+   anything modulate on it? Expected answer from §4: nothing. Confirm before
+   building. No code.
+2. **P1** — make the bit inert-testable (the smallest honest first step).
+3. **P2** — connect one traversal to one conductance update, gated + bundled.
+4. **P3/P4** — the stance-panel loop over B6's arena.
+
+**Gate:** if P1 shows hot and frozen are indistinguishable, the next deliverable
+is the probe that makes them distinguishable — not more design. The first draft
+of this doc is the standing example of what happens when design runs ahead of the
+mechanism.
+
+## 7. What survives from the first draft
+
+Only the prior-art table, which stands: `Quadrant::classify` in
+`ndarray::hpc::entropy_ladder` (Staunen / Confusion / Boredom / Wisdom) is a real
+2×2 and does correspond to the four quadrants — but it is a **read** of the
+current state, not the mechanism that moves between them. Under the corrected
+framing it is the *instrument* (how you observe which quadrant a thought is in),
+while plasticity is the *process* (what moves it). Do not mint a second enum;
+reuse it as the measurement surface for P2/P4.
+
+Also still valid: `DkPosition`, `curiosity_mul` (D-SCI-4), D-SRS-3/3b basin
+uncertainty + held-out gate, D-SRS-4 derivation provenance,
+`Locus::Quorum`/`Contradiction`, `WorldModelDto`.
