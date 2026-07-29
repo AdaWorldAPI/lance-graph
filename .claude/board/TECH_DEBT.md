@@ -1,5 +1,47 @@
 # Technical Debt Log — Open + Paid (double-entry, append-only)
 
+## TD-LENS-FACET-BY-VALUE-DECLINED (2026-07-29)
+
+**Codex P2 on #863** (`witness_fabric.rs:284`, "Keep lens facets borrowed
+through computation"): `let Some(&focal) = lens.at(pos)` dereferences the
+12-byte `CausalWitnessFacet`, and `absolute_agreement` + the read-only facet
+methods take facets **by value**, so a debug or non-inlined build performs a
+stack copy per element "despite this API's stated cast-only guarantee."
+Remedy proposed: hold references throughout and make the read-only ops accept
+borrowed facets.
+
+**Declined, with reasons — recorded so it is not silently re-raised.**
+
+1. **Category.** The zero-copy law governs *materialization of substrate
+   bytes into owned storage* — a gathered `Vec`, a struct owning what a lane
+   holds, a second projection beside the first. The measured violation this
+   arc fixed was ~768 KB of packed storage per resolve. A 12-byte register
+   load at the point of use is not that; it **is the read**. "The cast is the
+   floor" means the floor is *reached*, not that no byte ever enters a
+   register — every computation must eventually load its operands.
+2. **The remedy is the trap, inverted.** `CausalWitnessFacet` is
+   `#[repr(transparent)]` over `[u8; 12]` and `Copy`. Passing `&Facet`
+   substitutes an 8-byte pointer plus an indirection at each field access for
+   a 12-byte move. That is exactly the "12 B inline beats a 16 B pointer plus
+   indirection" comparison `zero-copy-warden.md` names as an automatic
+   finding — both sides of it are register-level, and the warden's point is
+   that the *lens* is outside that option set, not that one side of it wins.
+   Adopting the remedy would not move the code toward the lens; it would pick
+   the other horn of a false choice.
+3. **Cost is excluded in BOTH directions** (the 16 MB scale anchor). "Debug
+   builds copy more" is a cost argument, and the law does not accept cost
+   arguments for a store *or* against a lane. If debug-build stack traffic
+   ever matters here it is an optimization question with a measurement
+   attached — and there is no measurement.
+
+**What would reopen this.** A measured profile showing the by-value facet
+parameters are a real cost on a real workload — at which point it is a perf
+change judged on numbers, not a law violation. Filed as debt rather than
+dismissed because the underlying observation (the API's doc says "cast", and
+a reader may reasonably expect that to extend to the whole call chain) is a
+**documentation** gap worth closing even though the code is right: the lens
+guarantees no *gather*, not that no operand is ever moved.
+
 ## TD-DOC-COMMENTS-CLAIM-UNWIRED-BEHAVIOUR (2026-07-27)
 
 FOUR production doc-comments claimed unwired behaviour and all four were

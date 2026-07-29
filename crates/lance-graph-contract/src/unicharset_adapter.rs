@@ -95,8 +95,15 @@ pub enum DispatchError {
         /// The C++ method name that was not composed.
         method: &'static str,
     },
-    /// The method is composed, but no [`UniCharSet`] is bound to this classid in
+    /// The method is composed, but no content object is bound to this classid in
     /// the content-store tier.
+    ///
+    /// Deliberately class-AGNOSTIC — this variant is shared by every keystone
+    /// adapter (`invoke_unicharset`, `invoke_recoder`, …), so it names neither
+    /// [`UniCharSet`] nor
+    /// [`UnicharCompress`](crate::unicharcompress::UnicharCompress). The
+    /// classid carries the identity; a message or doc that guessed the type
+    /// would misreport every other adapter's configuration failure.
     NoContentStore {
         /// The classid with no bound content store.
         classid: u32,
