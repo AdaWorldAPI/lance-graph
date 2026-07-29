@@ -458,6 +458,72 @@ Probe artifact: `crates/lance-graph-planner/examples/probe_sudoku_teacher.rs`
 (planner has both deps: contract for NodeRow/WitnessLens, ndarray for
 Quadrant; precedent: probe_babel_stances, probe_eyes_opened).
 
+## 4e. Comparison baseline: `zackthoutt/sudoku-ai` — search vs REASONING
+
+> Operator, 2026-07-29: *"for comparison — needs reimagining using logical
+> reasoning."* Verified by fetch, not assumed (I had expected a CNN and was
+> wrong): it is a **constraint-satisfaction solver that explicitly rejects ML**
+> — *"an AI that requires zero training data"*, two Python files
+> (`sudoku.py` / `solver.py`), README claims **100 % accuracy, no failure cases,
+> no metrics**, no algorithm detail (backtracking vs propagation unstated).
+
+That makes it the RIGHT baseline: it already skips the neural detour, so the
+remaining delta is purely **search vs reasoning** — no ML strawman in between.
+
+| | constraint SEARCH (baseline) | logical REASONING (this substrate) |
+|---|---|---|
+| candidate state | binary in/out | NARS `(frequency, confidence)` — graded |
+| a failed branch | **backtrack: undone and discarded** | **fork-return: only the contradiction comes back, as a permanent elimination** (§4c) |
+| output | a filled grid | grid **+ the election path + which tactic fired at what confidence** |
+| self-knowledge | none | quadrant census, DK position, "where am I uncertain" (D-SRS-3) |
+| under-determined input | returns the first solution | must report **ambiguity** |
+| competence claim | "100 %", unfalsifiable | must state what input would make it fail |
+
+**The load-bearing difference is #2, and it is not a refinement — it inverts the
+sign of a failed branch.** Backtracking treats a contradiction as *waste* (undo,
+retry elsewhere). The fork-return rule treats it as *the only thing worth
+keeping* — the elimination is a permanent gain, the positive assignments are
+discarded. Same operation, opposite ledger. A search solver ends a puzzle
+knowing exactly as much as it started; a reasoner ends it having accumulated
+eliminations it can carry.
+
+**Consequence for the teacher ladder (§4d / §7-T): this baseline CANNOT be a
+teacher.** The promotion record is
+`(position_key, elections[], outcome_grade, teacher_path)`, and a backtracking
+solver's trace is *search order*, not *reasoning order* — it contains "tried 4,
+failed, tried 7" where the teacher path needs "cell forced by box-peer quorum,
+confidence c". Path-Levenshtein against a search trace would measure branch
+scheduling, not policy. **A solver that cannot explain its path cannot teach a
+policy.** That is the operational meaning of "needs reimagining using logical
+reasoning": not that constraint solving is wrong (it is correct and fast), but
+that *correctness without a justification trace carries no training signal*.
+
+**The README's own best observation is where the two diverge hardest.** It notes
+a "critical point": too few givens → multiple valid solutions → the puzzle
+becomes *"easier again"*. For search that is true — any valid completion ends the
+run sooner. **For a reasoner it is strictly harder**: the uniqueness assumption
+has failed, so committing to one completion is an *error*, and the correct output
+is "underdetermined, N solutions" — a known unknown, not an answer. Same puzzle,
+opposite verdict, and the disagreement is measurable.
+
+### G7 — the ambiguity gate (both halves; a search solver structurally fails it)
+
+- **Can-commit:** on a uniquely-determined puzzle, the reasoner commits and the
+  grid matches the solution (Hamming 0).
+- **Can-refuse:** on a deliberately under-constrained puzzle (below the critical
+  point, ≥2 valid completions), it must **report ambiguity and refuse to
+  commit** — asserting it did NOT write a digit into an under-determined cell.
+  A baseline that returns a valid completion here scores "success" and is
+  precisely wrong.
+
+Anti-vacuity: the under-constrained fixture must have its multiple completions
+enumerated and asserted ≥2, so "reported ambiguity" cannot pass by accident on a
+puzzle that was actually unique.
+
+**Sequencing note:** G7 is specified here but is NOT in the in-flight §4d build
+(gates G1–G6). Adding it mid-run would be a scope change against worker rule 1;
+it lands as a follow-up increment once the G1–G6 probe returns green.
+
 ## 5. Falsifiers — required before any wiring lands
 
 - **P1 — the hot/frozen bit must be INERTNESS-TESTABLE.** Flipping
