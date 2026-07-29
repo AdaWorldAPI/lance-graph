@@ -111,10 +111,7 @@ impl core::fmt::Display for DispatchError {
                 "classid {classid:#010x} does not compose method `{method}`"
             ),
             Self::NoContentStore { classid } => {
-                write!(
-                    f,
-                    "no UniCharSet content store bound to classid {classid:#010x}"
-                )
+                write!(f, "no content store bound to classid {classid:#010x}")
             }
         }
     }

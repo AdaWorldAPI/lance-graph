@@ -194,6 +194,18 @@ pub fn invoke_recoder<'a, S: RecoderStore + ?Sized>(
         RecoderCall::EncodeUnichar(id) => {
             RecoderOut::Codes(recoder.encode(id).map(|rc| rc.codes()))
         }
+        RecoderCall::DecodeUnichar(codes) if codes.len() > RecodedCharId::MAX_CODE_LEN => {
+            // An overlong slice must be REJECTED before the key is built.
+            // `RecodedCharId::from_codes` silently truncates to the first
+            // `MAX_CODE_LEN` codes, so a 10-code input whose 9-code prefix
+            // happens to be a real code would otherwise decode SUCCESSFULLY
+            // to that prefix's id — aliasing an ill-formed input onto a valid
+            // answer, and breaking this arm's contract that an ill-formed
+            // sequence yields `None`. Truncation is lossy in a way that is
+            // invisible after the fact, so the guard has to live here, at the
+            // DO boundary, not inside the constructor.
+            RecoderOut::Id(None)
+        }
         RecoderCall::DecodeUnichar(codes) => {
             let key = RecodedCharId::from_codes(codes);
             let id = recoder.decode(&key);
@@ -380,6 +392,88 @@ mod tests {
                 &RecoderCall::DecodeUnichar(&[])
             ),
             Ok(RecoderOut::Id(None))
+        );
+    }
+
+    /// **Regression (codex P2 on PR #864).** An OVERLONG codes slice must
+    /// decode to `None`, never alias onto its own truncated prefix.
+    ///
+    /// `RecodedCharId::from_codes` keeps only the first
+    /// [`RecodedCharId::MAX_CODE_LEN`] codes and silently drops the rest, so
+    /// before the guard a 10-code input whose 9-code prefix was a REAL code
+    /// decoded successfully to that prefix's id — an ill-formed input
+    /// producing a confident, valid-looking answer. Truncation is invisible
+    /// after construction, so the length check has to happen at the DO
+    /// boundary.
+    ///
+    /// The fixture is built to make the aliasing reachable: a single entry
+    /// whose code IS a full-length 9-sequence, so the 10-code probe's prefix
+    /// is exactly that valid code. A pass-through (length-1) recoder could
+    /// not falsify this at all — the prefix would never resolve.
+    #[test]
+    fn keystone_decode_overlong_codes_is_none_not_a_truncated_alias() {
+        let full: [i32; 9] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+        assert_eq!(
+            full.len(),
+            RecodedCharId::MAX_CODE_LEN,
+            "the fixture must sit exactly at the truncation boundary"
+        );
+        let bytes = build_recoder_bytes(&[(1, &full[..])]);
+        let rec = UnicharCompress::from_le_bytes(&bytes).expect("valid");
+        let mut m = HashMap::new();
+        m.insert(TESS_RECODER, rec);
+        let store = MemStore(m);
+
+        // The exact-length sequence is a real code — this is what makes the
+        // overlong case dangerous rather than merely wrong.
+        assert_eq!(
+            invoke_recoder(
+                REGISTRY,
+                &store,
+                TESS_RECODER,
+                &RecoderCall::DecodeUnichar(&full[..])
+            ),
+            Ok(RecoderOut::Id(Some(0))),
+            "the 9-code sequence itself must still decode"
+        );
+
+        // One code too many: the prefix is valid, so truncation WOULD have
+        // returned Some(0). The guard must return None instead.
+        let overlong: [i32; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        assert_eq!(
+            invoke_recoder(
+                REGISTRY,
+                &store,
+                TESS_RECODER,
+                &RecoderCall::DecodeUnichar(&overlong[..])
+            ),
+            Ok(RecoderOut::Id(None)),
+            "an overlong sequence must NOT alias onto its truncated prefix"
+        );
+    }
+
+    /// **Regression (codex P2 on PR #864).** `DispatchError` is SHARED by
+    /// every keystone adapter, so its `Display` must not name one specific
+    /// content type — it used to say "no UniCharSet content store", which
+    /// misidentifies the component when a *recoder* store is the one missing.
+    #[test]
+    fn missing_store_error_message_names_no_specific_content_type() {
+        let store = MemStore(HashMap::new());
+        let err = invoke_recoder(
+            REGISTRY,
+            &store,
+            TESS_RECODER,
+            &RecoderCall::DecodeUnichar(&[1]),
+        )
+        .expect_err("an empty store cannot answer");
+        let msg = err.to_string();
+        assert!(
+            !msg.contains("UniCharSet"),
+            "shared error must not name UniCharSet when a recoder is missing: {msg}"
+        );
+        assert!(
+            msg.contains("content store"),
+            "still says what is missing: {msg}"
         );
     }
 

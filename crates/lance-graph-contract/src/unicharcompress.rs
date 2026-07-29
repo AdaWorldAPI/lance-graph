@@ -118,6 +118,17 @@ impl Default for RecodedCharId {
 }
 
 impl RecodedCharId {
+    /// The C++ `kMaxCodeLen` — the fixed width of `code_[9]`
+    /// (`unicharcompress.h:40`), and therefore the longest code sequence any
+    /// `RecodedCharId` can carry.
+    ///
+    /// Public because [`Self::from_codes`] **silently truncates** past it: a
+    /// caller that must distinguish "an overlong, ill-formed sequence" from
+    /// "a valid sequence" has to check the length ITSELF before constructing,
+    /// since after construction the two are indistinguishable. See
+    /// `recoder_adapter`'s `DecodeUnichar` arm for the canonical guard.
+    pub const MAX_CODE_LEN: usize = K_MAX_CODE_LEN;
+
     /// Construct a code from an explicit slice of code values — the beam-search
     /// consumer's key builder (the C++ `RecodedCharID::Set` loop,
     /// `unicharcompress.h:43`). `RecodeBeamSearch` builds a `prefix`
